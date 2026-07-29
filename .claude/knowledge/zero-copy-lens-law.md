@@ -14,6 +14,27 @@
 > and the facet-serialization failure signature). This doc is its dynamic half:
 > that one governs how bytes are *laid out*, this one governs how they are *read*.
 
+## Evidence status (per the workspace rule: label everything)
+
+> Added 2026-07-29 after CodeRabbit correctly flagged that this doc asserted
+> architecture law with no `FINDING` / `CONJECTURE` labels and no probe trail.
+> The workspace rule is explicit: *"No knowledge doc should contain unmarked
+> conjectures. Label everything."* Corrected here rather than argued.
+
+| claim | status | evidence |
+|---|---|---|
+| The lens is a free cast; a materialization is strictly worse on both axes | **FINDING** | `#[repr(transparent)]` + `const _` size/align asserts on `CausalWitnessFacet`; `from_register_ref` is a reborrow. Measured instance below (~768 KB/resolve over 64k rows). |
+| Registers across a row slice are already an array (stride 512) | **FINDING** | `NODE_ROW_STRIDE = 512`, `ValueTenant::CausalWitness.value_offset()`, `const _: () = assert!(WITNESS_REGISTER_START == 176)`. Directly asserted in source. |
+| Lens ≡ gathered on the migrated resolvers | **FINDING** | Equivalence tests across positions × budgets {1,2,3,5,8} × passes {1,2,3,8} × visibility states, with pre-migration bodies retained verbatim as `#[cfg(test)]` oracles. `dispatch_guard` example reproduces 34/34 bit-identically. |
+| "Projection is not chasing" — indirection cost is zero here | **FINDING** (mechanism), *unbenchmarked* | Follows from `target = cur + off` being computed arithmetic over a contiguous strided slab. **No micro-benchmark has been run**; the claim is structural, not measured. |
+| The rung test (elevation licenses a store; a projection never does) | **CONJECTURE** | Operator ruling + one shipped precedent (`Locus::Quorum` / `Contradiction`). **No probe has run.** Falsifier stated in § "The one apparent exception"; gated as `PROBE-RUNG-ELIGIBILITY`, NOT RUN. |
+| Grey/white per-lane assignment | **CONJECTURE** | Framing only. The doc says so at the table: *"the governing frame, not a census."* Census = plan §6 Q0, NOT RUN. |
+| The 16 MB / 2×16 MB scale anchor | **FINDING** (arithmetic) | 32k rows × 512 B = 16 MB, checked. The grey/white *split* of that budget is operator-stated, not measured. |
+
+**Nothing in this doc is promoted past its row above.** Where a section reads as
+law, it is law *because the operator ruled it*, not because a probe closed it —
+those two are different and are distinguished here.
+
 ## The law in three lines
 
 - **No escape hatches.** There is no size below which a copy is acceptable.

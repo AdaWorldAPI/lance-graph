@@ -241,14 +241,40 @@ name the axis position explicitly in the role paragraph.
   human generalization gap. Includes a deliberately hard split + perturbation
   studies.
 - **role in our design**: **the falsifiable Doppelspalt instance, and the
-  Levenshtein-is-literal receipt.** A cryptic clue is definition ⊕ wordplay —
+  edit-ops-are-the-content receipt.** A cryptic clue is definition ⊕ wordplay —
   two slits over one answer, where *neither half alone determines it and both
   together do*, and the answer is UNIQUE AND KNOWN. That makes it a checkable
   cross-term test for the §4c cross-term rule, which is what that rule has been
-  missing. Second: cryptic wordplay operations ARE the edit operations —
-  anagram = permutation, insertion/deletion/substitution = the literal
-  Levenshtein primitives. So here edit distance is not a *metric over* the
-  content, it is the *content*.
+  missing. Second: cryptic wordplay is *composed of edit operations*, so here
+  the edit alphabet is not a **metric over** the content — it **is** the content.
+
+  > **⊘ CORRECTED 2026-07-29 (CodeRabbit, and the correction is load-bearing).**
+  > An earlier version of this line said cryptic operations "ARE the literal
+  > Levenshtein primitives" and listed *anagram = permutation* among them. That
+  > is **wrong, and wrong in a way that matters for the T0.5 metric**:
+  >
+  > | cryptic device | edit op | in plain Levenshtein? |
+  > |---|---|---|
+  > | charade / insertion | insert | **yes** |
+  > | deletion ("headless", "curtailed") | delete | **yes** |
+  > | substitution | substitute | **yes** |
+  > | **anagram** | **arbitrary permutation** | **NO** |
+  >
+  > Levenshtein's op set is exactly {insert, delete, substitute}. Damerau adds
+  > only **adjacent** transposition — still not arbitrary permutation. An
+  > anagram is a permutation of the whole multiset, which neither models: any
+  > two anagrams of a word are at Levenshtein distance ≥ 2 for reasons that
+  > have nothing to do with the anagram relation, and the distance carries no
+  > signal that a permutation *occurred*.
+  >
+  > **Consequence for T0.5 (this is the useful part):** the crossword rung does
+  > NOT want plain Levenshtein. It wants a **custom edit alphabet** = the three
+  > Levenshtein ops **plus an explicit permutation operator** scored separately
+  > (a multiset-equality test is O(n) and exact, so the permutation check is
+  > *cheaper* than the edit distance, not harder). So "crossword > semantic +
+  > lewensteyn" refines to: **semantic + an edit alphabet that Levenshtein alone
+  > cannot express.** Recorded as a design constraint on the metric, not as a
+  > weakening of the rung.
 
 ### Language Models are Crossword Solvers (Saha, Chakraborty, Saha, Garain · NAACL 2025)
 - **arxiv**: `2406.09043`
@@ -304,7 +330,12 @@ name the axis position explicitly in the role paragraph.
 The operator's two-line framing (*sudoku > numbers; crossword > semantic +
 lewensteyn*) names a gap in the §4d probe that is easy to miss:
 
-**A Sudoku digit has no semantics, so Sudoku exercises none of this repo.**
+**A Sudoku digit has no semantics, so Sudoku exercises none of this repo's
+SEMANTIC path.** (⊘ Narrowed 2026-07-29 — the original sentence said "none of
+this repo", which is false and was falsified by our own probe: `NodeRow`,
+`WitnessLens`, `ValueTenant`, `Quadrant::classify`, the promotion triangle and
+write-isolation are all genuinely exercised. What Sudoku bypasses is the
+*semantic* half:)
 The codebook, the palette, DeepNSM's 4096-word COCA vocabulary, CLAM,
 Hamming-over-fingerprints, the Levenshtein/CER surface — all bypassed. A
 Sudoku teacher validates the *promotion loop* (explore → learned → frozen,

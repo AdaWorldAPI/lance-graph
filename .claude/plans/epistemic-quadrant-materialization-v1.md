@@ -231,10 +231,17 @@ reference implementation to read, not a dependency to wire.
 >    (SECOND-PROJECTION) reaching its strongest form: not "connectivity has a
 >    home", but *this exact mechanism has a lane*.
 >
-> What remains genuinely open is **not** the mapping but the *motion*: nothing
-> currently drives `explore → learned → frozen`. The lanes are carved; the
-> promotion gate is specified; the triad math is unwired. That — not a new
-> engine — is the work.
+> What remains genuinely open is **not** the mapping but the *motion*: **nothing
+> in the substrate's production traversal** drives `explore → learned → frozen`.
+> The lanes are carved; the promotion gate is specified; the triad math is
+> unwired *on any live path*. That — not a new engine — is the work.
+>
+> (⊘ Qualified 2026-07-29, CodeRabbit: "nothing drives" was written before
+> §4d-RESULTS existed and is now falsified by this plan's own later section.
+> `probe_sudoku_teacher.rs` G5 **does** drive the triangle end to end, in both
+> directions — promote *and* refuse, with write-isolation asserted on each. The
+> honest statement is that the driver exists only in **probe** code, never in a
+> production traversal. Same for §6's sequencing.)
 
 **Leg 1 — frozen / learned / discover: STRONG (3:3, mechanism-level).**
 
@@ -304,13 +311,38 @@ assign.**
 law).** Witness loci are displacements, `target = cur + off`, and the contract
 fixes **`0 = unbound`**. Pointing at yourself is therefore *unrepresentable* —
 offset zero already means nothing-bound (consistent with `CONTENT_LOCI`'s "no
-self-reference"). Consequence: **a reflexive realization cannot land as routing;
-it is FORCED to precipitate as a new grey-matter row**, displaced ≥1, whose
-locus binds *backward* to the self it replaced. "Gadamer's reasoning creates a
-cognitive materialization" is not a philosophical preference — it is the only
-legal move the LE contract leaves. This is also W6/W7's deep grounding: Gen 3:7
-is an election event provable by BINDING at non-zero displacement, never a
-content edit on the existing row.
+self-reference"). Consequence: **a reflexive realization cannot land as
+routing** — the lane simply has no encoding for it.
+
+> **⊘ CORRECTED 2026-07-29 (CodeRabbit — and the correction is right).** The
+> original text continued *"it is FORCED to precipitate as a new grey-matter
+> row … the only legal move the LE contract leaves."* **That is an overclaim.**
+> What the contract forbids is the *routing* encoding; it does not select among
+> the remaining options. At least four outcomes are contract-compliant:
+>
+> | outcome | contract-compliant? | what it means |
+> |---|---|---|
+> | mint a displaced row binding backward | yes | the reflexive event is remembered |
+> | **reject** the realization | yes | refuse to represent it at all |
+> | **defer** it (escalate, like an out-of-±8 antecedent) | yes | W6's shipped precedent |
+> | **leave it unbound** (nibble stays 0) | yes | the zero-fallback default |
+>
+> So minting is a **policy choice**, and the interesting fact is that the
+> substrate ALREADY implements a different one: W6's binder **escalates** an
+> unrepresentable displacement rather than minting anything. Reflexivity
+> (`d == 0`) takes the same path. Regrade: the *unrepresentability* is [G]
+> (follows from the value law); *which outcome follows* is **policy, currently
+> "escalate", and unprobed as a choice.** The Gadamer framing motivates minting
+> but does not derive it.
+>
+> **Probe required before minting is adopted anywhere: PROBE-REFLEXIVE-POLICY** —
+> feed a reflexive event, assert the chosen outcome is the one configured, and
+> assert the other three are reachable by configuration (otherwise "policy" is
+> decoration and it was forced after all).
+
+W6/W7 grounding survives the regrade and is unaffected: Gen 3:7 as an election
+event provable by BINDING at non-zero displacement, never a content edit on the
+existing row — that claim rests on unrepresentability, not on minting.
 
 **The fork-return rule (counterfactual Sudoku).** Bifurcation (assume, propagate,
 contradict, eliminate — Pearl rung 3 inside constraint propagation): **only the
@@ -579,9 +611,25 @@ it lands as a follow-up increment once the G1–G6 probe returns green.
   measurably increase conductance (fire), and a path *not* traversed must not
   drift (stay silent). Both halves. Plus saturation: unbounded reinforcement is
   the runaway that homeostatic plasticity exists to prevent — assert a ceiling.
-- **P3 — content must NOT change.** The zero-copy guard for this whole design:
-  after a plasticity update, re-read the arena through the lens and assert the
-  **bytes are identical**. Conductance changed; content did not. If content
+- **P3 — content must NOT change** *(scoped 2026-07-29, CodeRabbit)*. As first
+  written this said "assert the bytes are identical", which is **self-contradictory**:
+  if conductance lives in an `EdgeBlock`/`CausalEdge64` field then *those* bytes
+  must change — that is the whole update. The assertion only makes sense over
+  the **complement**. Two obligations follow, and both are prerequisites, not
+  refinements:
+  1. **Name the conductance field before any P3 test is written.** It must be a
+     *dedicated* field with a stated byte range. Do **NOT** implicitly repurpose
+     `PlasticityState` (a 3-bit S/P/O gate — it says *whether* a plane may
+     change, not *how much* it conducts), nor NARS `frequency`/`confidence`
+     (those are belief, not conductance). Reusing any of them is the
+     I-LEGACY-API-FEATURE-GATED anti-pattern: one name, two semantics.
+  2. **A layout change requires a field-isolation matrix + an explicit
+     serialization version gate** (the same rule that caught five instances in
+     Sprint-11). Until the field is named and gated, P3 is unwritable.
+
+  Scoped statement: after a plasticity update, re-read through the lens and
+  assert **every byte OUTSIDE the named conductance range is identical**.
+  Conductance changed; content did not. If content
   moved, this stopped being myelination and became a write.
 - **P4 — stance election must actually shift.** Over B6's panel, reinforcing one
   stance must change which ClassView is elected on a later pass — and the other

@@ -98,6 +98,21 @@ citation is not.
 
 ## Where a reading is allowed to live (checked 2026-07-28 — the catalogue is narrower than it looks)
 
+> **Evidence status** *(added 2026-07-29 — CodeRabbit flagged this section as
+> unlabelled; the workspace rule is "label everything")*:
+> **FINDING** — that §3 is L1–L8 and byte-axis, that §3a (G1–G3) is wider than a
+> byte, and that the canon already refused a "ninth 12-byte layout" by name. All
+> three are direct reads of `le-contract.md`, quoted verbatim below, and the
+> dangling-citation check (`grep G24N4|L9` over `.claude/v3/soa_layout/` → zero
+> hits) is reproducible in one command.
+> **CONJECTURE** — the *rule that falls out* ("sub-byte granularity's sanctioned
+> home is a LANE, so a nibble reading needs no catalogue petition"). It is an
+> inference from those three findings plus one precedent (the turbovec 6×4-bit
+> lane), **not an operator ruling and not probe-closed.** It has since been
+> *exercised* by `ValueTenant::CausalWitness = 14` shipping as a lane without a
+> catalogue entry — which is consistent with the rule but is not a falsifier,
+> since nothing tested the alternative. Treat as CONJECTURE-in-use.
+
 Before writing a contract, establish that the shape has a legal home. The
 catalogue admits **two** directions and refuses a third:
 

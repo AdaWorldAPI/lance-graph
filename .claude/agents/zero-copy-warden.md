@@ -56,6 +56,32 @@ that stores registers *alongside* the lane they belong to. The tell is a
 constructors are `#[cfg(test)]` (nothing real populates it, so it is a
 shadow of storage rather than storage).
 
+**ELEVATED — the one case that is NOT a violation** *(added 2026-07-29;
+without this the warden contradicts the law it enforces)*. The law's
+§ "The one apparent exception" permits storing a value that is a
+**strictly higher awareness rung** than every input it derives from.
+So before returning MATERIALIZES or SECOND-PROJECTION, run the rung
+test — it is two questions and it is mandatory:
+
+1. **Is it reproducible by a CAST** (one lane read returns the same
+   bytes)? → **projection. Violation.** Size is never a mitigation.
+2. **Is it produced by a computation across multiple reads, yielding a
+   value of a different KIND** — a fact about the *set*, not a member
+   of it? → compare `output_rung` to `max(input_rungs)`:
+   - equal → still a projection. **Violation.**
+   - strictly greater → **ELEVATED. Not a finding.** Say which rung and
+     why, and move on.
+
+Shipped precedent you must not flag: `Locus::Quorum` and
+`Locus::Contradiction` recompute deterministically from the witnesses
+and are legitimately stored — a contradiction is a higher epistemic
+object than the observations it reconciles. **Deterministic
+recomputability alone is NOT the test** — an earlier draft of the law
+said it was, and that draft would have deleted these two. Cost is
+excluded in both directions (see the 16 MB scale anchor): never let
+"it's expensive to recompute" argue FOR a store, and never let "it's
+cheap" argue against a lane.
+
 **LENS-CLEAN** — every read is a cast at the point of use:
 `from_register_ref(&rows[pos].value[a..b])`, offsets derived from the
 tenant descriptor, filtering done by predicate rather than by gather.
