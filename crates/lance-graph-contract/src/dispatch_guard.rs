@@ -67,7 +67,7 @@ use crate::causal_witness::{CausalWitnessFacet, Locus};
 use crate::recipe_dispatch::nan_disqualifier;
 use crate::recipe_kernels::ThoughtCtx;
 use crate::recipe_loci::{loci_disqualifier, required_loci};
-use crate::witness_fabric::{standing_wave_grounded, WaveGrounding};
+use crate::witness_fabric::{standing_wave_grounded_lens, WaveGrounding, WitnessLens};
 
 /// The relationship between the two independent grounding gates for one recipe.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -123,24 +123,41 @@ impl GuardVerdict {
 }
 
 /// Ground recipe `id` against the row's window: single-pass BINDING ∧ multipass
-/// Markov STANDING WAVE. `window` is `(stream_position, register)`; `focal_idx`
-/// the focal row; `passes` the standing-wave budget. `ctx` (optional) supplies
+/// Markov STANDING WAVE.
+///
+/// **Zero-copy by construction** (operator ruling: "zero copy is a law without
+/// escape hatches"). The focal register is CAST out of the row's own value
+/// slab through [`WitnessLens`] — never gathered into a
+/// `&[(usize, CausalWitnessFacet)]` slab first, which would store a second
+/// projection of bytes the row array already holds. `focal_pos` is the
+/// ABSOLUTE row position; `visible` stands in for "this position is part of
+/// the window" exactly as it does in
+/// [`resolve_chain_lens`](crate::witness_fabric::resolve_chain_lens), so
+/// narrowing the window costs one predicate call per hop and never an
+/// allocation. `passes` is the standing-wave budget; `ctx` (optional) supplies
 /// only the degenerate scalar sanity flag.
+///
+/// A `focal_pos` the lens cannot address reads as the all-unbound register —
+/// the same neutral the gathered form produced for a `focal_idx` past the end
+/// of its window — so the verdict is [`Unbound`](GateOutcome::Unbound), never
+/// a panic. Like the shipped lens resolvers, the FOCAL itself is read
+/// unconditionally; `visible` gates the hop targets.
 #[must_use]
 pub fn guard(
     ctx: Option<&ThoughtCtx>,
-    window: &[(usize, CausalWitnessFacet)],
-    focal_idx: usize,
+    focal_pos: usize,
+    lens: &WitnessLens<'_>,
+    visible: impl Fn(usize) -> bool,
     id: u8,
     passes: u8,
 ) -> GuardVerdict {
-    let witness = window
-        .get(focal_idx)
-        .map(|&(_, w)| w)
-        .unwrap_or(CausalWitnessFacet::ZERO);
+    // A reference to a `const` item is 'static-promoted, so the absent-focal
+    // fallback costs nothing and copies nothing.
+    const ABSENT: CausalWitnessFacet = CausalWitnessFacet::ZERO;
+    let witness: &CausalWitnessFacet = lens.at(focal_pos).unwrap_or(&ABSENT);
 
     // Gate 1 — single-pass structural binding.
-    let unbound = loci_disqualifier(&witness, id);
+    let unbound = loci_disqualifier(witness, id);
 
     // Gate 2 — multipass Markov standing wave: a required locus whose causal chain
     // leaves the ±8 reference horizon (a NON-LOCAL cause) is caught here, not by
@@ -149,7 +166,8 @@ pub fn guard(
         None // don't double-report; the binding gate already blocked
     } else {
         required_loci(id).iter().copied().find(|&l| {
-            standing_wave_grounded(focal_idx, window, l, passes) == WaveGrounding::Escalate
+            standing_wave_grounded_lens(focal_pos, lens, &visible, l, passes)
+                == WaveGrounding::Escalate
         })
     };
 
@@ -170,6 +188,8 @@ pub fn guard(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::canonical_node::{EdgeBlock, NodeGuid, NodeRow};
+    use crate::witness_fabric::standing_wave_grounded;
 
     fn wit(edges: &[(Locus, i8)]) -> CausalWitnessFacet {
         let mut w = CausalWitnessFacet::ZERO;
@@ -179,12 +199,144 @@ mod tests {
         w
     }
 
+    /// A row array indexed BY absolute stream position, each named position's
+    /// CausalWitness register written through the lens's own producer (so the
+    /// fixture cannot drift from the offsets the lens reads).
+    fn rows_from(regs: &[(usize, CausalWitnessFacet)]) -> Vec<NodeRow> {
+        let max_pos = regs.iter().map(|&(p, _)| p).max().unwrap_or(0);
+        let mut rows: Vec<NodeRow> = (0..=max_pos)
+            .map(|_| NodeRow {
+                key: NodeGuid::local(1),
+                edges: EdgeBlock::default(),
+                value: [0u8; 480],
+            })
+            .collect();
+        for &(pos, facet) in regs {
+            WitnessLens::write_register(&mut rows[pos], &facet);
+        }
+        rows
+    }
+
+    /// **The pre-migration gathered body, verbatim** — kept ONLY as the test
+    /// oracle for the equivalence argument below. It is `#[cfg(test)]`, so no
+    /// production path can reach it; the materializing signature no longer
+    /// exists in the crate's API.
+    fn guard_gathered_oracle(
+        ctx: Option<&ThoughtCtx>,
+        window: &[(usize, CausalWitnessFacet)],
+        focal_idx: usize,
+        id: u8,
+        passes: u8,
+    ) -> GuardVerdict {
+        let witness = window
+            .get(focal_idx)
+            .map(|&(_, w)| w)
+            .unwrap_or(CausalWitnessFacet::ZERO);
+        let unbound = loci_disqualifier(&witness, id);
+        let escalate = if unbound.is_some() {
+            None
+        } else {
+            required_loci(id).iter().copied().find(|&l| {
+                standing_wave_grounded(focal_idx, window, l, passes) == WaveGrounding::Escalate
+            })
+        };
+        let outcome = match (unbound.is_some(), escalate.is_some()) {
+            (true, _) => GateOutcome::Unbound,
+            (false, true) => GateOutcome::Escalate,
+            (false, false) => GateOutcome::Fires,
+        };
+        GuardVerdict {
+            unbound,
+            escalate,
+            scalar_flag: ctx.and_then(|c| nan_disqualifier(c, id)),
+            outcome,
+        }
+    }
+
+    /// **The whole safety argument for the migration.** Across every recipe id
+    /// (1..=34), several pass budgets, four real window shapes AND a
+    /// peer-hidden variant of each, the lens `guard` must return EXACTLY the
+    /// verdict the gathered body returned. Every field is compared, not just
+    /// the outcome.
+    #[test]
+    fn lens_guard_matches_the_gathered_oracle_across_ids_passes_and_visibility() {
+        let all = |off: i8| {
+            let mut w = CausalWitnessFacet::ZERO;
+            for &l in Locus::ALL.iter() {
+                w = w.with(l, off);
+            }
+            w
+        };
+        let scenarios: [Vec<(usize, CausalWitnessFacet)>; 4] = [
+            // settles inside ±8 (terminal peer)
+            vec![(0usize, all(1)), (1, CausalWitnessFacet::ZERO)],
+            // chain re-extends out of ±8 → escalates
+            vec![(0usize, all(7)), (7, all(7))],
+            // a focal that binds almost nothing → unbound-dominated
+            vec![(0usize, wit(&[(Locus::Temporal, -1)]))],
+            // multi-hop inside the horizon, with a gap
+            vec![(0usize, all(2)), (2, all(2)), (4, CausalWitnessFacet::ZERO)],
+        ];
+
+        let (mut saw_fires, mut saw_escalate, mut saw_unbound) = (false, false, false);
+        for scenario in &scenarios {
+            let rows = rows_from(scenario);
+            let lens = WitnessLens::new(&rows);
+            // Full window, plus each one-peer-hidden subset.
+            let mut hidden: Vec<Option<usize>> = vec![None];
+            hidden.extend(scenario.iter().skip(1).map(|&(p, _)| Some(p)));
+            for hide in hidden {
+                let window: Vec<(usize, CausalWitnessFacet)> = scenario
+                    .iter()
+                    .copied()
+                    .filter(|&(p, _)| Some(p) != hide)
+                    .collect();
+                let visible = |pos: usize| Some(pos) != hide;
+                for id in 1..=34u8 {
+                    for passes in [1u8, 2, 4, 8] {
+                        let gathered = guard_gathered_oracle(None, &window, 0, id, passes);
+                        let lensed = guard(None, 0, &lens, visible, id, passes);
+                        assert_eq!(
+                            gathered, lensed,
+                            "guard diverged: id {id}, passes {passes}, hidden {hide:?}"
+                        );
+                        match lensed.outcome {
+                            GateOutcome::Fires => saw_fires = true,
+                            GateOutcome::Escalate => saw_escalate = true,
+                            GateOutcome::Unbound => saw_unbound = true,
+                        }
+                    }
+                }
+            }
+        }
+        assert!(
+            saw_fires && saw_escalate && saw_unbound,
+            "the scenario set must exercise Fires, Escalate AND Unbound, or the \
+             equivalence only covers one branch"
+        );
+    }
+
+    /// A focal position the lens cannot address behaves like a `focal_idx`
+    /// past the end of a gathered window: all-unbound, never a panic.
+    #[test]
+    fn out_of_range_focal_is_unbound_not_a_panic() {
+        let rows = rows_from(&[(0usize, wit(&[(Locus::Quorum, 1)]))]);
+        let lens = WitnessLens::new(&rows);
+        let v = guard(None, 9_999, &lens, |_| true, 20, 4);
+        assert_eq!(v.outcome, GateOutcome::Unbound);
+        assert_eq!(
+            v,
+            guard_gathered_oracle(None, &[], 0, 20, 4),
+            "must match the gathered form's empty-window verdict"
+        );
+    }
+
     #[test]
     fn unbound_locus_blocks_both_gates() {
-        // #20 TCF needs Quorum; a window whose focal never binds it.
-        let focal = wit(&[(Locus::Temporal, -1)]);
-        let window = [(0usize, focal)];
-        let v = guard(None, &window, 0, 20, 4);
+        // #20 TCF needs Quorum; a row whose focal never binds it.
+        let rows = rows_from(&[(0usize, wit(&[(Locus::Temporal, -1)]))]);
+        let lens = WitnessLens::new(&rows);
+        let v = guard(None, 0, &lens, |_| true, 20, 4);
         assert_eq!(v.outcome, GateOutcome::Unbound);
         assert_eq!(v.unbound, Some(Locus::Quorum));
         assert!(!v.fires());
@@ -194,10 +346,12 @@ mod tests {
     fn bound_and_settled_chain_fires() {
         // #20 TCF needs Quorum. Bind it to a terminal (peer does NOT rebind) →
         // the standing wave settles immediately → Causal → fires.
-        let focal = wit(&[(Locus::Quorum, 1)]);
-        let peer = wit(&[(Locus::Temporal, 0)]); // no Quorum rebind → terminal
-        let window = [(0usize, focal), (1, peer)];
-        let v = guard(None, &window, 0, 20, 4);
+        let rows = rows_from(&[
+            (0usize, wit(&[(Locus::Quorum, 1)])),
+            (1, wit(&[(Locus::Temporal, 0)])), // no Quorum rebind → terminal
+        ]);
+        let lens = WitnessLens::new(&rows);
+        let v = guard(None, 0, &lens, |_| true, 20, 4);
         assert_eq!(v.outcome, GateOutcome::Fires);
         assert!(v.fires());
     }
@@ -208,10 +362,12 @@ mod tests {
         // ±8 reference horizon → the standing wave marks it Escalate (a NON-LOCAL
         // cause, like Romeo & Juliet's death caused by the distant feud), NOT
         // coincidental. The single-pass binding gate (bound == grounded) misses it.
-        let a = wit(&[(Locus::Quorum, 7)]);
-        let b = wit(&[(Locus::Quorum, 7)]); // rebinds → chain leaves ±8 → escalates
-        let window = [(0usize, a), (7, b)];
-        let v = guard(None, &window, 0, 20, 8);
+        let rows = rows_from(&[
+            (0usize, wit(&[(Locus::Quorum, 7)])),
+            (7, wit(&[(Locus::Quorum, 7)])), // rebinds → chain leaves ±8 → escalates
+        ]);
+        let lens = WitnessLens::new(&rows);
+        let v = guard(None, 0, &lens, |_| true, 20, 8);
         assert_eq!(
             v.outcome,
             GateOutcome::Escalate,
@@ -230,14 +386,14 @@ mod tests {
         // The wave gate escalates it. That divergence is the higher-confidence
         // redundancy — the horizontal axis the vertical binding is blind to.
         let a = wit(&[(Locus::Quorum, 7)]);
-        let b = wit(&[(Locus::Quorum, 7)]);
-        let window = [(0usize, a), (7, b)];
+        let rows = rows_from(&[(0usize, a), (7, wit(&[(Locus::Quorum, 7)]))]);
+        let lens = WitnessLens::new(&rows);
         assert!(
             loci_disqualifier(&a, 20).is_none(),
             "single-pass: bound → grounded"
         );
         assert_eq!(
-            guard(None, &window, 0, 20, 8).outcome,
+            guard(None, 0, &lens, |_| true, 20, 8).outcome,
             GateOutcome::Escalate
         );
     }

@@ -57,10 +57,34 @@ Adding a tenant is **exactly two places** in
 1. the `ValueTenant` enum variant — its doc-comment carries the lane's law;
 2. its `VALUE_TENANTS` descriptor row (name_id / row_offset / length).
 
-Everything else is *derived*. `ValueTenant::value_offset()` says so in its own
-doc: *"Not a new property: a derived accessor over the already-locked,
-compile-asserted carve."* If adding a tenant is touching more than two places,
-the design is wrong, not the rule.
+`ValueTenant::value_offset()` says so in its own doc: *"Not a new property: a
+derived accessor over the already-locked, compile-asserted carve."*
+
+> **⊘ CORRECTED 2026-07-28, by a compile-time assert, hours after this doc
+> first claimed "everything else is derived."** That claim is FALSE as
+> stated, and minting `CausalWitness = 14` proved it. Two places are what
+> you **author** — the decisions. Three more sites are **mechanically
+> forced**, and the compiler will not let you forget them:
+>
+> - `ValueSchema::Full::field_mask()` — a hand-maintained position list.
+>   `Full` *means* "all tenants", so it looks derived, but it is written out
+>   by hand and pinned by
+>   `const _: () = assert!(Full.field_mask().count() == VALUE_TENANTS.len())`.
+> - the carve-total literals in three tests (`value_tenants_contiguous_within_slab`,
+>   `value_schema_byte_budgets_are_locked`, `default_class_node_materialises_full_slab`)
+>   — `172 → 188` on this mint.
+>
+> **Read this as a compliment to the substrate, not a defect.** The const
+> assert is the workspace having already known that `Full` is a drift risk
+> and having pinned it at compile time: the mismatch window is
+> *uncompilable*, so it cannot exist in any commit. The honest rule is
+> therefore **"two places to decide, three the compiler enforces"** — and
+> if you find yourself editing a *fourth* thing you had to reason about,
+> then the design is wrong.
+>
+> The failure shape is the same one this whole doc is about: a value that
+> looks derived (`Full` = all of them) but is actually hand-maintained.
+> Same family as an absolute byte offset recorded as if it were primary.
 
 **Worked precedent: `ValueTenant::Tekamolo = 13`.** Copy its idiom wholesale —
 16-byte content-blind V3 4+12 facet (`classid(4) + 12`), the shape named
@@ -71,6 +95,51 @@ extractor living in an example, and — crucially — **honest catalogue status*
 `TekamoloFacet` self-declares *"EXPERIMENTAL reading — not yet in the
 operator-locked §3 catalogue."* EXPERIMENTAL is fine. A **fabricated**
 citation is not.
+
+## Where a reading is allowed to live (checked 2026-07-28 — the catalogue is narrower than it looks)
+
+> **Evidence status** *(added 2026-07-29 — CodeRabbit flagged this section as
+> unlabelled; the workspace rule is "label everything")*:
+> **FINDING** — that §3 is L1–L8 and byte-axis, that §3a (G1–G3) is wider than a
+> byte, and that the canon already refused a "ninth 12-byte layout" by name. All
+> three are direct reads of `le-contract.md`, quoted verbatim below, and the
+> dangling-citation check (`grep G24N4|L9` over `.claude/v3/soa_layout/` → zero
+> hits) is reproducible in one command.
+> **CONJECTURE** — the *rule that falls out* ("sub-byte granularity's sanctioned
+> home is a LANE, so a nibble reading needs no catalogue petition"). It is an
+> inference from those three findings plus one precedent (the turbovec 6×4-bit
+> lane), **not an operator ruling and not probe-closed.** It has since been
+> *exercised* by `ValueTenant::CausalWitness = 14` shipping as a lane without a
+> catalogue entry — which is consistent with the rule but is not a falsifier,
+> since nothing tested the alternative. Treat as CONJECTURE-in-use.
+
+Before writing a contract, establish that the shape has a legal home. The
+catalogue admits **two** directions and refuses a third:
+
+- **§3 (L1–L8) is byte-axis by construction** — "every tier is a *byte*, so the
+  classview projects real rails and `group_of` is a pure shift." Byte
+  accounting is exact: `6×2, 4×3, 3×4, 2×6`.
+- **§3a (G1–G3) is the *wide* waiting room** — contiguous carvings *wider* than
+  a byte, for classes not yet decomposed into byte tiles, and it states that
+  **`CascadeShape` gains no variants** for them.
+- **Sub-byte (nibble) carvings are neither** — finer than a byte, so `group_of`
+  becomes shift-**and-mask**, which is exactly the property §3 exists to
+  guarantee.
+
+**And the canon has already refused a "ninth layout" once, by name**, for a
+structurally identical request: *"this is **NOT a ninth 12-byte layout** — the
+residual ladder is out-of-row … the sanctioned in-row refinement budget remains
+the turbovec **6×4-bit nibble lane**."*
+
+**The rule that falls out: sub-byte granularity's sanctioned home is a LANE**
+(`ValueTenant` variant + `VALUE_TENANTS` descriptor — the two places), never a
+§3 payload layout. So a nibble reading needs **no catalogue petition** — filing
+one is itself the error. Its shape name (`G24N4`) is a *lane* name and must
+never become a `CascadeShape` variant.
+
+Corollary for auditing a dangling citation: check whether the cited entry is
+*missing* or *wrong in kind*. The A9 register's `§3 L9 G24N4` was the latter —
+it claimed a slot the canon had already declined to create.
 
 ## What a tenant's LE contract must state
 

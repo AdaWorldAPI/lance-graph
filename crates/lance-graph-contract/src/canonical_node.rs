@@ -888,6 +888,24 @@ pub enum ValueTenant {
     /// (additive, reserve-don't-reclaim); the extractor that populates it lives in
     /// `examples/insight_reason_wired.rs`.
     Tekamolo = 13,
+    /// **CausalWitness facet lane** — the 16-byte content-blind V3 4+12 facet
+    /// (`classid(4) + 12-byte register`) read in the **`G24N4`** shape as 24
+    /// signed `i4` loci. `G24N4` is a **lane shape name, never a
+    /// [`CascadeShape`](crate::facet::CascadeShape) variant** — that enum
+    /// stays byte-axis-only (`G6D2`/`G4D3`/`G3D4`) per
+    /// `.claude/v3/soa_layout/le-contract.md` §3a; sub-byte granularity's
+    /// sanctioned home is a lane, not a ninth layout. Each nibble is a
+    /// **context pointer** — a signed ±8 window offset naming WHERE in the
+    /// temporal window that dimension's filler sits — never a
+    /// strength/magnitude (loci, not values). Zero-fallback: an all-zero
+    /// facet reads as *unbound* (no locus asserted), never a wrong binding
+    /// and never offset-zero-meaning-self. Slots 16..24 are reserved-zero
+    /// (RESERVE-DON'T-RECLAIM). Reading type
+    /// [`crate::causal_witness::CausalWitnessFacet`]; contract
+    /// `.claude/v3/soa_layout/witness-nibble-lane.md`. **Status:
+    /// EXPERIMENTAL** — not in the operator-locked §3 catalogue. Appended
+    /// additive / reserve-don't-reclaim after `Tekamolo`.
+    CausalWitness = 14,
 }
 
 impl ValueTenant {
@@ -1006,12 +1024,32 @@ pub const VALUE_TENANTS: &[ColumnDescriptor] = &[
     //    after the triangle at [188,204) (value-slab [156,172)); additive,
     //    reserve-don't-reclaim, layout-preserving (Full now ends 204 ≤ 480,
     //    NODE_ROW_STRIDE unchanged → no ENVELOPE_LAYOUT_VERSION bump).
-    //    BoardAggregates (W2a) reserves row_offset 204 next in the same batched mint.
+    //    BoardAggregates (W2a) is reserved as the NEXT ValueTenant discriminant
+    //    after CausalWitness (i.e. `= 15`), NOT at a named row_offset — its
+    //    offset is DERIVED (`value_offset()`) and must never be written down as
+    //    a literal again. History of the drift this fixes: the reservation was
+    //    recorded as an absolute byte offset three times running (152 → 188 →
+    //    204), stale each time because a new tenant landed in front of it
+    //    before BoardAggregates itself minted. The reservation survives this
+    //    mint — it is re-based by ordinal position, not cancelled.
     ColumnDescriptor {
         name_id: ValueTenant::Tekamolo as u16,
         kind: ColumnKind::U8,
         elems_per_row: 16,
         row_offset: 188,
+    },
+    // ── CausalWitness facet lane: the 16-byte content-blind V3 4+12 facet
+    //    read as G24N4 (24 signed i4 loci), appended after Tekamolo at
+    //    [204,220) (value-slab [172,188)); additive, reserve-don't-reclaim,
+    //    layout-preserving (Full now ends 220 ≤ 480, NODE_ROW_STRIDE
+    //    unchanged → no ENVELOPE_LAYOUT_VERSION bump). EXPERIMENTAL reading
+    //    per `.claude/v3/soa_layout/witness-nibble-lane.md` §1 — not in the
+    //    operator-locked §3 catalogue.
+    ColumnDescriptor {
+        name_id: ValueTenant::CausalWitness as u16,
+        kind: ColumnKind::U8,
+        elems_per_row: 16,
+        row_offset: 204,
     },
 ];
 
@@ -1116,6 +1154,11 @@ impl ValueSchema {
                 // tenant` compile assert). Cognitive is left unchanged: entity
                 // classes materialise TEKAMOLO only when their utterances are read.
                 ValueTenant::Tekamolo as u8,
+                // CausalWitness facet (EXPERIMENTAL, G24N4) — Full is the densest
+                // node, so it carries this lane too (keeps the `Full covers every
+                // tenant` compile assert). Cognitive is left unchanged: entity
+                // classes materialise the witness lane only when elected.
+                ValueTenant::CausalWitness as u8,
             ]),
         }
     }
@@ -2240,8 +2283,8 @@ mod tests {
         assert!(prev_end <= NODE_ROW_STRIDE);
         assert_eq!(
             prev_end - VALUE_SLAB_ROW_OFFSET,
-            172,
-            "current Full carve uses 172 of 480 B (kanban×Rubicon 8 + autopoiesis triangle 3×12=36 + TEKAMOLO facet 16)"
+            188,
+            "current Full carve uses 188 of 480 B (kanban×Rubicon 8 + autopoiesis triangle 3×12=36 + TEKAMOLO facet 16 + CausalWitness facet 16)"
         );
         assert!(prev_end - VALUE_SLAB_ROW_OFFSET <= VALUE_SLAB_LEN);
     }
@@ -2276,13 +2319,13 @@ mod tests {
     #[test]
     fn value_schema_byte_budgets_are_locked() {
         assert_eq!(ValueSchema::Bootstrap.tenant_bytes(), 0);
-        // Cognitive 58 + Kanban 8 = 66 (triangle + TEKAMOLO NOT in Cognitive —
-        // entity classes keep their carve); Full 120 + 3×12 triangle + 16 TEKAMOLO
-        // facet = 172 (both additive — reserve-don't-reclaim, still ≤ 480, stride
-        // unchanged).
+        // Cognitive 58 + Kanban 8 = 66 (triangle + TEKAMOLO + CausalWitness NOT in
+        // Cognitive — entity classes keep their carve); Full 120 + 3×12 triangle +
+        // 16 TEKAMOLO facet + 16 CausalWitness facet = 188 (all additive —
+        // reserve-don't-reclaim, still ≤ 480, stride unchanged).
         assert_eq!(ValueSchema::Cognitive.tenant_bytes(), 66);
         assert_eq!(ValueSchema::Compressed.tenant_bytes(), 56);
-        assert_eq!(ValueSchema::Full.tenant_bytes(), 172);
+        assert_eq!(ValueSchema::Full.tenant_bytes(), 188);
         for s in [
             ValueSchema::Bootstrap,
             ValueSchema::Cognitive,
@@ -2390,7 +2433,7 @@ mod tests {
     #[test]
     fn default_class_node_materialises_full_slab() {
         // End-to-end connect: a bootstrap NodeRow → its classid resolves to Full →
-        // the Full preset covers every tenant and uses the locked 172-byte carve.
+        // the Full preset covers every tenant and uses the locked 188-byte carve.
         let row = sample_row(NodeGuid::CLASSID_DEFAULT, 0x00_00CD);
         let rm = row.key.read_mode();
         assert_eq!(rm.value_schema, ValueSchema::Full);
@@ -2399,8 +2442,8 @@ mod tests {
             VALUE_TENANTS.len(),
             "Full read-mode materialises every value tenant"
         );
-        assert_eq!(rm.value_schema.tenant_bytes(), 172);
-        // The slab has room (172 ≤ 480) and the choice never grows the stride.
+        assert_eq!(rm.value_schema.tenant_bytes(), 188);
+        // The slab has room (188 ≤ 480) and the choice never grows the stride.
         assert!(rm.value_schema.tenant_bytes() <= VALUE_SLAB_LEN);
         assert!(rm.is_layout_preserving());
     }

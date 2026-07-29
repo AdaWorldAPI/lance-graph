@@ -24,9 +24,11 @@
 //! cargo run -p lance-graph-contract --example dispatch_guard_redundancy
 //! ```
 
+use lance_graph_contract::canonical_node::{EdgeBlock, NodeGuid, NodeRow};
 use lance_graph_contract::causal_witness::{CausalWitnessFacet, Locus};
 use lance_graph_contract::dispatch_guard::{guard, GateOutcome};
 use lance_graph_contract::recipe_loci::loci_disqualifier;
+use lance_graph_contract::witness_fabric::WitnessLens;
 
 /// A register binding every named locus to `off`.
 fn all_loci(off: i8) -> CausalWitnessFacet {
@@ -35,6 +37,25 @@ fn all_loci(off: i8) -> CausalWitnessFacet {
         w = w.with(l, off);
     }
     w
+}
+
+/// A row array indexed BY absolute stream position — the SOURCE the guard's
+/// lens reads. Registers are written through `WitnessLens::write_register`, so
+/// this probe never touches a raw byte offset and never gathers a second
+/// projection of what the rows already hold.
+fn rows_from(regs: &[(usize, CausalWitnessFacet)]) -> Vec<NodeRow> {
+    let max_pos = regs.iter().map(|&(p, _)| p).max().unwrap_or(0);
+    let mut rows: Vec<NodeRow> = (0..=max_pos)
+        .map(|_| NodeRow {
+            key: NodeGuid::local(1),
+            edges: EdgeBlock::default(),
+            value: [0u8; 480],
+        })
+        .collect();
+    for &(pos, facet) in regs {
+        WitnessLens::write_register(&mut rows[pos], &facet);
+    }
+    rows
 }
 
 fn main() {
@@ -46,11 +67,15 @@ fn main() {
     // local: offset +1 to a terminal peer → the wave settles inside ±8.
     let local_focal = all_loci(1);
     let local_peer = CausalWitnessFacet::ZERO; // no rebind → terminal
-    let local = [(0usize, local_focal), (1usize, local_peer)];
+    let local_rows = rows_from(&[(0usize, local_focal), (1usize, local_peer)]);
+    let local = WitnessLens::new(&local_rows);
     // beyond: offset +7 to a peer that rebinds +7 → chain leaves ±8 → escalate.
     let beyond_focal = all_loci(7);
     let beyond_peer = all_loci(7);
-    let beyond = [(0usize, beyond_focal), (7usize, beyond_peer)];
+    let beyond_rows = rows_from(&[(0usize, beyond_focal), (7usize, beyond_peer)]);
+    let beyond = WitnessLens::new(&beyond_rows);
+    // Both windows are fully visible: every row in the source is a member.
+    let all_visible = |_pos: usize| true;
 
     let passes = 8u8;
 
@@ -67,8 +92,8 @@ fn main() {
     let mut escalate_beyond = 0u32;
     let mut flipped = 0u32; // Fires in local, Escalate in beyond
     for id in 1..=34u8 {
-        let vl = guard(None, &local, 0, id, passes).outcome;
-        let vb = guard(None, &beyond, 0, id, passes).outcome;
+        let vl = guard(None, 0, &local, all_visible, id, passes).outcome;
+        let vb = guard(None, 0, &beyond, all_visible, id, passes).outcome;
         if vl == GateOutcome::Fires {
             fires_local += 1;
         }
