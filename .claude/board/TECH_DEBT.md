@@ -5,7 +5,7 @@
 **Measured, not suspected.** `probe_sudoku_teacher`'s fixture scan over the
 stride family (k = 2..48 blanks × 8 strides × 81 offsets) reports:
 
-```
+```text
 unique=26858   singles_stall=388   fork_closes=0   best_residual=16
 ```
 
