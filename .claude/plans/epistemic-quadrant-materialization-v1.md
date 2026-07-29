@@ -350,6 +350,114 @@ stance. Grade: the theorem is [G]-shaped (follows from the shipped value law);
 the fork-return and cross-term rules are [H] (mechanism-consistent, probe
 pending); the arc mapping is framing, not a claim.
 
+## 4d. PROBE-SUDOKU-TEACHER — literal Sudoku as the first teacher (operator-directed, 2026-07-29)
+
+> Operator: *"You could even use literal Sudoku and then prepare the first baby
+> step to stockfish-rs as a teacher"* + *"sudoku might need lewensteyn."*
+> This is the falsifier program for §§4a–4c made LITERAL: exact ground truth,
+> free oracle, every quadrant countable, and the triangle's missing MOTION
+> (explore → learned → frozen) driven for the first time.
+
+### Why Sudoku is the right first teacher
+
+An 81-cell grid with a known solution is an oracle that costs nothing and never
+grades wrong. 81 rows × 512 B ≈ 41 KB — trivially resident. Every mechanism
+claim in this plan becomes a checkable assertion against it.
+
+### The two metrics (already adjudicated — do not re-derive)
+
+Per PROBE-BABEL-STANCES slice 2 (`probe_babel_stances.rs:163-180`): *"sequence
+error → edit distance / CER; fingerprint-space search and candidate pruning →
+Hamming/L1."* Applied here:
+
+- **Grid state vs solution = HAMMING.** Cells never shift position; no indel
+  exists. Monotone non-increasing per pass is gate G6.
+- **Solve PATH vs teacher path = LEVENSHTEIN.** The election sequence is a
+  sequence; two solvers reach the same grid by different orders, and the
+  *policy* divergence the triangle promotes on is alignment-based edit distance
+  over `(cell, digit)` election tokens. This is the operator's "sudoku might
+  need lewensteyn" — and it is the metric that carries unchanged to chess
+  (student PV vs teacher PV).
+
+### The mapping (box-major — verified arithmetic, not the pretty version)
+
+`pos = box*9 + cell_in_box`, `box = (r/3)*3 + c/3`, `cell_in_box = (r%3)*3 + c%3`.
+
+- **Box peers: ALL within ±8.** Backward displacements −1..−8 for every cell
+  (cell_in_box k has k ≤ 8 predecessors) — every one representable i4. The
+  witness lane carries **backward box-peer displacements only**.
+- **Cross-band column peers: |Δpos| ∈ [21,60] — provably ALWAYS out of window.**
+- **Cross-stack row peers: |Δpos| ∈ [7,20] — MIXED** (some incidentally
+  in-window). Design rule therefore: **lane = box group only**; row/col groups
+  resolved by lens sweep (predicate over positions, zero-copy). Honest, not
+  convenient: the dichotomy "box in-window / col out-of-window" is provable,
+  the row case is not, so rows ride the sweep with columns.
+- **This makes the horizon claim testable (G1):** a column-forced hidden single
+  MUST be unfindable from lane-resident witnesses alone (the sweep path fires);
+  a box-forced single IS findable from the lane alone (the sweep stays silent).
+  Both halves — proving lane and sweep are each load-bearing.
+
+### Quadrants, literally (S-gates)
+
+- Naked single (cell-visible) vs **hidden single = the countable unknown known**
+  (group-visible only). G2: a puzzle seeded with a hidden-single-that-is-not-
+  naked finds it; an all-naked puzzle reports zero.
+- Per-pass census via `ndarray::hpc::entropy_ladder::Quadrant::classify`
+  (entropy = normalized candidate-set size; energy = solved-peer fraction).
+  G4: census migrates toward Wisdom across passes; a fork-refusing policy on a
+  bifurcation-required puzzle does NOT fully migrate (the silent half).
+- **Fork-return (G3):** bifurcation = clone the slab as an explicit
+  counterfactual WORLD (write-divergent scenario fork — NOT a gather; a fork
+  diverges by writing, a gather duplicates for reading), propagate to
+  contradiction, and **only the elimination returns**. Assert the main slab is
+  byte-identical outside sanctioned writes and the fork's positive assignments
+  never appear in it (§4c fork-return rule, exercised literally).
+
+### Teacher + the first triangle MOTION (G5)
+
+Deterministic puzzle construction (base pattern `(i*3 + i/3 + j) % 9 + 1`, fixed
+permutation tables, fixed blanking masks — **no RNG**, D-QUANTGATE replay).
+Two policies as style atoms: A = elections-first, B = bifurcate-early. Grade =
+(solved?, cost, path-Levenshtein vs teacher). Train on K puzzles → write winner
+to `LearnedStyle` slot on a designated policy row → **promote to `FrozenStyle`
+ONLY after winning the held-out arm** (the lane's own doc-comment contract,
+driven for the first time). Both halves: a promote case AND a refuse case
+(train favors B, held-out favors A → promotion refused). Write-isolation
+asserted on the triangle lanes.
+
+Content placement: digit + given-flag as an EXPERIMENTAL reading of the
+`EntityType` u16 lane (a cell-class discriminator: {empty, given, derived} ×
+digit), documented per the Tekamolo honest-catalogue idiom. **No new tenant, no
+layout change, offsets derived only.** Candidate sets = local pure compute
+(warden non-trigger), never stored.
+
+### §7-T — the stockfish-rs baby step (prepare, not build)
+
+Teacher ladder: **T0 Sudoku** (binary outcome, free, no adversary) → **T1
+stockfish-rs** (graded centipawns, adversarial, deep counterfactuals). The baby
+step is making the promotion loop **teacher-agnostic in record shape**:
+`(position_key, elections[], outcome_grade, teacher_path)` — Sudoku proves the
+loop; chess swaps the oracle.
+
+- **GPL fence (iron):** stockfish-rs is GPL-3.0 and NEVER becomes a dependency
+  of lance-graph. The seam is data-only — stockfish-rs emits labeled records
+  (FEN, legal moves, evals, PV) as artifacts; lance-graph consumes records.
+  This mirrors stockfish-rs's own iron rule 2 one level up: *Stockfish C++ is
+  the oracle only, never linked* → stockfish-rs is the oracle only, never
+  linked.
+- What chess adds that Sudoku cannot: graded outcomes (centipawns → NARS
+  frequency, not booleans); adversarial counterfactuals (opponent reply = a
+  fork you don't control); NNUE incrementality (E-CHESS #539) as the
+  teacher-side zero-copy rhyme; move space (from,to) = 64×64 = **4096** — the
+  node bit-width anchor already pinned in stockfish-rs.
+- The path metric carries verbatim: student PV vs teacher PV = Levenshtein
+  over move sequences (same Babel adjudication).
+- No stockfish-rs commits in this arc; its next leaf stays in its own plan.
+
+Probe artifact: `crates/lance-graph-planner/examples/probe_sudoku_teacher.rs`
+(planner has both deps: contract for NodeRow/WitnessLens, ndarray for
+Quadrant; precedent: probe_babel_stances, probe_eyes_opened).
+
 ## 5. Falsifiers — required before any wiring lands
 
 - **P1 — the hot/frozen bit must be INERTNESS-TESTABLE.** Flipping
