@@ -49,6 +49,11 @@ pub mod nsm;
 pub mod parameter_substitution;
 pub mod parser;
 pub mod query;
+/// The curated consumer reasoning seam (NARS deduction, differential,
+/// counterfactual, guard rules) — concept-blind. See the module docs before
+/// adding anything: no domain vocabulary belongs here.
+#[cfg(feature = "planner")]
+pub mod reasoning;
 pub mod semantic;
 pub mod spark_dialect;
 pub mod sql_catalog;

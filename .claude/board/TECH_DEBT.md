@@ -1,5 +1,28 @@
 # Technical Debt Log — Open + Paid (double-entry, append-only)
 
+## TD-LANCE-GRAPH-ALL-FEATURES-DELTA-BREAK (2026-07-29)
+
+`cargo clippy -p lance-graph --lib --all-features` fails:
+
+```text
+error[E0433]: cannot find `DeltaTableProvider` in `delta_datafusion`
+```
+
+**Pre-existing and unrelated to the reasoning seam** — the symbol is a
+`deltalake` API surface under the optional `delta` feature; adding a module and
+a path-dep cannot remove a symbol from an upstream crate, and
+`lance-graph-cognitive` (ndarray + holograph + contract) shares no dependency
+with `deltalake` that could shift feature unification.
+
+**Why it is worth filing rather than shrugging at:** it means `--all-features`
+is not a usable gate for this crate, so anyone reaching for the strictest-looking
+clippy invocation gets a failure that has nothing to do with their change and may
+"fix" the wrong thing. The default feature set (which includes `planner`) is the
+honest gate today.
+
+Close condition: `deltalake` 0.32's actual provider symbol identified and the
+`delta` module updated, then `--all-features` restored as the canonical gate.
+
 ## TD-FORK-CANNOT-CLOSE-WHAT-SINGLES-CANNOT (2026-07-29)
 
 **Measured, not suspected.** `probe_sudoku_teacher`'s fixture scan over the
