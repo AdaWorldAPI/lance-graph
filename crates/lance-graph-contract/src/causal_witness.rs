@@ -197,9 +197,20 @@ impl Locus {
 /// assert_eq!(w.to_register(), CausalWitnessFacet::from_register(w.to_register()).to_register());
 /// ```
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Default)]
+#[repr(transparent)]
 pub struct CausalWitnessFacet {
     reg: [u8; WITNESS_REGISTER_BYTES],
 }
+
+const _: () = assert!(
+    core::mem::size_of::<CausalWitnessFacet>() == WITNESS_REGISTER_BYTES,
+    "CausalWitnessFacet must be exactly 12 bytes (repr(transparent) over [u8; 12])"
+);
+const _: () = assert!(
+    core::mem::align_of::<CausalWitnessFacet>()
+        == core::mem::align_of::<[u8; WITNESS_REGISTER_BYTES]>(),
+    "CausalWitnessFacet must share its backing register's alignment (repr(transparent) requirement)"
+);
 
 impl CausalWitnessFacet {
     /// The all-unbound register (every locus `0`).
@@ -207,15 +218,45 @@ impl CausalWitnessFacet {
         reg: [0u8; WITNESS_REGISTER_BYTES],
     };
 
-    /// Read a raw 12-byte content-blind register as an A9 facet (identity — the
-    /// signed carve happens on [`Self::get`]).
+    /// The canonical **borrowed** read of a raw 12-byte content-blind register
+    /// as an A9 facet — a pointer reborrow, not a copy.
+    ///
+    /// Sound because [`CausalWitnessFacet`] is `#[repr(transparent)]` over
+    /// `[u8; WITNESS_REGISTER_BYTES]` with identical size and alignment
+    /// (const-asserted above), so a reference to the backing array and a
+    /// reference to the facet share layout byte-for-byte — reinterpreting
+    /// `&[u8; N]` as `&CausalWitnessFacet` is defined behaviour under the
+    /// repr(transparent) guarantee, not merely "the compiler happens to
+    /// optimize the copy away."
+    ///
+    /// This is THE canonical zero-cost read: it compiles to a pointer
+    /// reborrow, provably nothing. [`from_register`](Self::from_register) /
+    /// [`to_register`](Self::to_register) remain as **by-value conveniences**
+    /// the contract does not depend on — prefer this method when the caller
+    /// already holds a borrowed register and wants a provably-zero-cost view.
+    #[inline]
+    #[must_use]
+    pub const fn from_register_ref(reg: &[u8; WITNESS_REGISTER_BYTES]) -> &Self {
+        // SAFETY: `CausalWitnessFacet` is `#[repr(transparent)]` over
+        // `[u8; WITNESS_REGISTER_BYTES]` (const-asserted above: identical
+        // size and identical alignment), so `&[u8; N]` and `&Self` have
+        // identical layout and this reinterpretation is defined behaviour.
+        // No initialization, no allocation, no read of the bytes occurs here.
+        unsafe { &*(reg as *const [u8; WITNESS_REGISTER_BYTES] as *const Self) }
+    }
+
+    /// Read a raw 12-byte content-blind register as an A9 facet (BY-VALUE
+    /// convenience copy — see [`from_register_ref`](Self::from_register_ref)
+    /// for the canonical zero-cost borrowed read the contract relies on).
     #[inline]
     #[must_use]
     pub const fn from_register(reg: [u8; WITNESS_REGISTER_BYTES]) -> Self {
         Self { reg }
     }
 
-    /// The 12-byte register — the inverse of [`from_register`](Self::from_register).
+    /// The 12-byte register — the inverse of [`from_register`](Self::from_register)
+    /// (BY-VALUE convenience copy; see [`from_register_ref`](Self::from_register_ref)
+    /// for the canonical zero-cost borrowed read).
     #[inline]
     #[must_use]
     pub const fn to_register(self) -> [u8; WITNESS_REGISTER_BYTES] {
@@ -446,5 +487,111 @@ mod tests {
         // unbound never agrees
         assert!(!a.agrees_at(b, Locus::Modal));
         assert_eq!(a.agreement_count(b), 1);
+    }
+
+    /// I-LEGACY-API-FEATURE-GATED field-isolation matrix: writing slot `k`
+    /// must change ONLY slot `k` — every other slot (named or reserved) must
+    /// read back its prior value. A real loop over all 24 slots, not a spot
+    /// check — mandatory per `.claude/v3/soa_layout/witness-nibble-lane.md` §6.
+    #[test]
+    fn field_isolation_matrix_all_24_slots() {
+        for k in 0..WITNESS_LOCI {
+            let mut w = CausalWitnessFacet::ZERO;
+            // Give every OTHER slot a distinctive, non-zero prior value first
+            // so "unchanged" is actually falsifiable (not just "still 0").
+            for other in 0..WITNESS_LOCI {
+                if other != k {
+                    // deterministic distinctive value in [-8, 7], never 0
+                    let v = ((other as i32 % 15) - 7) as i8;
+                    let v = if v == 0 { 1 } else { v };
+                    w.set(other, v);
+                }
+            }
+            let before: Vec<i8> = (0..WITNESS_LOCI).map(|s| w.get(s)).collect();
+
+            // Write a distinctive value into slot k ONLY.
+            let distinctive = if k % 2 == 0 { 7 } else { -8 };
+            w.set(k, distinctive);
+
+            assert_eq!(w.get(k), distinctive, "slot {k} took the write");
+            for (other, &prior) in before.iter().enumerate() {
+                if other != k {
+                    assert_eq!(
+                        w.get(other),
+                        prior,
+                        "slot {other} must be unchanged by a write to slot {k}"
+                    );
+                }
+            }
+        }
+    }
+
+    /// The borrowed view and the by-value copy path must agree on every slot
+    /// for a non-trivial register.
+    #[test]
+    fn view_and_copy_agree_on_all_slots() {
+        let reg = [
+            0x12, 0x34, 0x56, 0x78, 0x9A, 0xBC, 0xDE, 0xF0, 0x11, 0x22, 0x33, 0x44,
+        ];
+        let copy = CausalWitnessFacet::from_register(reg);
+        let view = CausalWitnessFacet::from_register_ref(&reg);
+        assert_eq!(copy, *view, "copy and borrowed view are equal facets");
+        for slot in 0..WITNESS_LOCI {
+            assert_eq!(
+                copy.get(slot),
+                view.get(slot),
+                "slot {slot}: copy and view disagree"
+            );
+        }
+        assert_eq!(view.to_register(), reg);
+    }
+
+    /// Sign-extension edges: -8 and +7 round-trip through EVERY slot, and 0
+    /// reads back as 0 (the unbound sentinel) at every slot too.
+    #[test]
+    fn sign_extension_edges_round_trip_every_slot() {
+        for slot in 0..WITNESS_LOCI {
+            let mut w = CausalWitnessFacet::ZERO;
+            w.set(slot, -8);
+            assert_eq!(w.get(slot), -8, "slot {slot}: -8 round-trip");
+            w.set(slot, 7);
+            assert_eq!(w.get(slot), 7, "slot {slot}: +7 round-trip");
+            w.set(slot, 0);
+            assert_eq!(w.get(slot), 0, "slot {slot}: unbound sentinel");
+        }
+    }
+
+    /// Nibble order (byte/nibble law, witness-nibble-lane.md §2): writing
+    /// slot `k` affects ONLY byte `k/2`; even `k` occupies the LOW nibble,
+    /// odd `k` occupies the HIGH nibble. Constructed by hand against the raw
+    /// bytes, not via the accessors under test.
+    #[test]
+    fn nibble_order_matches_byte_nibble_law() {
+        // Even slot 4 -> low nibble of byte 2.
+        let mut w = CausalWitnessFacet::ZERO;
+        w.set(4, 5); // 5 = 0b0101, fits unsigned nibble range
+        let reg = w.to_register();
+        assert_eq!(reg[2], 0x05, "even slot 4 -> low nibble of byte 2");
+        assert_eq!(reg[0], 0x00, "no other byte touched");
+        assert_eq!(reg[1], 0x00, "no other byte touched");
+
+        // Odd slot 5 -> high nibble of byte 2 (same byte as slot 4).
+        let mut w2 = CausalWitnessFacet::ZERO;
+        w2.set(5, 5);
+        let reg2 = w2.to_register();
+        assert_eq!(reg2[2], 0x50, "odd slot 5 -> high nibble of byte 2");
+
+        // Both slots 4 and 5 together pack into one byte, low+high.
+        let mut w3 = CausalWitnessFacet::ZERO;
+        w3.set(4, 5);
+        w3.set(5, 5);
+        let reg3 = w3.to_register();
+        assert_eq!(reg3[2], 0x55, "slots 4 (low) and 5 (high) share byte 2");
+
+        // Hand-constructed register: byte 0 = 0xBA means slot0=0xA(low)=-6
+        // sign-extended, slot1=0xB(high)=-5 sign-extended.
+        let hand = CausalWitnessFacet::from_register([0xBA, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]);
+        assert_eq!(hand.get(0), -6, "low nibble of byte 0 = slot 0");
+        assert_eq!(hand.get(1), -5, "high nibble of byte 0 = slot 1");
     }
 }
