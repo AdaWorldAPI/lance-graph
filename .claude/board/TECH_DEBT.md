@@ -1,5 +1,43 @@
 # Technical Debt Log — Open + Paid (double-entry, append-only)
 
+## TD-PLANNER-DEPENDENTS-NO-CI-BUILD (2026-07-29)
+
+**Two crates depend on `lance-graph-planner` by path and are built by NO CI job.**
+Found while verifying ZC-2a's "zero external callers" claim (#868) — the claim
+held, but the *gate* I first cited could not have caught a violation.
+
+| dependent | why CI misses it |
+|---|---|
+| `crates/lance-graph-osint` | **workspace-`exclude`d** — no workspace command reaches it, and no workflow names it via `--manifest-path` |
+| `crates/cognitive-shader-driver` | workspace member, but its planner dep is `optional = true` behind `with-planner`, a feature **no** workflow enables |
+
+The other dependents are covered: `lance-graph` deps the planner through its
+default `planner` feature and IS built (`build.yml` / `rust-test.yml` via
+`--manifest-path crates/lance-graph/Cargo.toml`).
+
+**Why this is debt, not a one-off.** CI here is deliberately per-crate
+(`--manifest-path`), not `--workspace` — a reasonable choice for build time. The
+cost is that adding a crate, or gating a dep behind a feature, silently removes
+it from coverage with no signal. A breaking change to a planner API can go green
+through every gate and break `lance-graph-osint` on someone's next local build.
+
+**Verified manually for #868** (both clean, exit 0):
+`cargo check -p cognitive-shader-driver --features with-planner` ·
+`cargo check --manifest-path crates/lance-graph-osint/Cargo.toml`.
+Doing that by hand is exactly the thing that does not survive contact with the
+next session, which is why this is filed rather than considered handled.
+
+**Options, cheapest first:** (a) add both to `style.yml`/`rust-test.yml` as two
+more `--manifest-path` / `--features` steps; (b) a single
+`cargo check --workspace --all-features` job accepting the build-time cost;
+(c) leave as-is and accept that excluded crates are consumer-maintained — but
+then say so in `CLAUDE.md`, because today nothing does.
+
+**Not scheduled** — needs a call on which option, and the shader-driver
+`serve.rs`-in-two-bin-targets warning shows up in the same area and may want
+fixing together.
+
+
 ## TD-LANCE-GRAPH-ALL-FEATURES-DELTA-BREAK (2026-07-29)
 
 `cargo clippy -p lance-graph --lib --all-features` fails:
