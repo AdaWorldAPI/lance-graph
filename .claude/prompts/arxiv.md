@@ -206,3 +206,135 @@ When adding a new paper, use this shape so the breadcrumbs stay greppable:
 
 And if the paper is on the axis (ad-hoc ↔ forecast ↔ codebook-cache-only),
 name the axis position explicitly in the role paragraph.
+
+---
+
+## Crossword cluster (2026-07-29) — the SEMANTIC teacher rung
+
+> Operator-supplied, five papers at once, with the framing:
+> *"sudoku > numbers; crossword > semantic + lewensteyn."*
+> Read against `.claude/plans/epistemic-quadrant-materialization-v1.md` §4d
+> (PROBE-SUDOKU-TEACHER + the teacher ladder). These five insert a rung
+> **between** Sudoku and stockfish-rs, and the rung is not optional enrichment —
+> see the meta-epiphany at the end of this section.
+
+### Down and Across (Kulshreshtha, Kovaleva, Shivagunde, Rumshisky · ACL 2022)
+- **arxiv**: `2205.10442`
+- **claim**: crossword solving is a distinct NLU benchmark — it demands
+  knowledge retrieval AND global constraint satisfaction simultaneously.
+- **numbers**: ~9,000 NYT puzzles over 25 years; **500,000+ unique clue-answer
+  pairs**; two baseline families (QA seq2seq / retrieval, plus a *non-parametric
+  constraint-satisfaction* full-puzzle solver).
+- **role in our design**: the **corpus + the two-tier architecture receipt**.
+  Their split (per-clue answering ⊕ whole-grid constraint satisfaction) is the
+  same two tiers as §4d's Sudoku design (lane-local election ⊕ predicate sweep),
+  arrived at independently in a semantic domain. The 500k clue-answer pairs are
+  a candidate teacher corpus of the right order for a 16 MB-class substrate.
+
+### Decrypting Cryptic Crosswords (Rozner, Potts, Mahowald · Apr 2021)
+- **arxiv**: `2104.08620`
+- **claim**: cryptic clues are "semantically complex, highly compositional" —
+  each clue carries BOTH a semantic definition and a character-level wordplay
+  cipher, and models fail to generalize the way humans do.
+- **numbers**: three non-neural baselines + T5 all fail; curriculum pre-training
+  (word unscrambling etc.) "considerably improves" T5 but does not close the
+  human generalization gap. Includes a deliberately hard split + perturbation
+  studies.
+- **role in our design**: **the falsifiable Doppelspalt instance, and the
+  Levenshtein-is-literal receipt.** A cryptic clue is definition ⊕ wordplay —
+  two slits over one answer, where *neither half alone determines it and both
+  together do*, and the answer is UNIQUE AND KNOWN. That makes it a checkable
+  cross-term test for the §4c cross-term rule, which is what that rule has been
+  missing. Second: cryptic wordplay operations ARE the edit operations —
+  anagram = permutation, insertion/deletion/substitution = the literal
+  Levenshtein primitives. So here edit distance is not a *metric over* the
+  content, it is the *content*.
+
+### Language Models are Crossword Solvers (Saha, Chakraborty, Saha, Garain · NAACL 2025)
+- **arxiv**: `2406.09043`
+- **claim**: off-the-shelf LLM clue-solving plus a search algorithm over the
+  grid solves full puzzles at high accuracy.
+- **numbers**: **2–3× prior SOTA** on cryptic benchmarks; **93 % on NYT** grids.
+- **role in our design**: **BASELINE ONLY — explicitly not a method to adopt.**
+  This stack is no-LLM in the hot path by construction (DeepNSM replaces
+  transformer inference: 680 GB → 16.5 MB, 50 ms/token → <10 µs/sentence). The
+  transferable part is the *architecture* (per-clue solve + search over the
+  grid), which is the same two tiers as `2205.10442`; the 93 % is the number a
+  no-LLM substrate would be measured against, not a technique to import.
+  Recording the distinction because "LLM gets 93 %" is exactly the kind of
+  result that quietly becomes a design.
+
+### CrossWordBench (Leng, Huang, Huang, Lin, Cohen, Wang, Huang · Mar 2025)
+- **arxiv**: `2504.00043`
+- **claim**: controllable crossword generation as a multimodal reasoning
+  benchmark — semantic constraints from clues AND structural constraints from
+  the grid, in both text and image form.
+- **numbers**: 20+ models; reasoning-equipped LLMs substantially beat
+  non-reasoning variants *by exploiting crossing-letter constraints*; LVLM
+  performance correlates strongly with **grid-parsing accuracy**.
+- **role in our design**: **the difficulty knob = a ready-made inertness-test
+  axis.** Their *prefill-ratio* control is exactly the calibrated parameter the
+  P0 falsifiability rule demands ("raising it must silence something, lowering
+  it must admit something") — the `heel_threshold` lesson, solved upstream. The
+  LVLM finding is the sharper one for us: performance gated on *grid-parsing*
+  means the bottleneck was ADDRESSING the structure, not reasoning over it —
+  which is the whole claim of a key-addressable substrate (the key prerenders
+  nodes with zero value decode).
+
+### Crossword: Semantic Compression via Masking (Li, Jin, Xiang, Shen, Cui · Apr 2023)
+- **arxiv**: `2304.01106`
+- **claim**: mask semantically-minor words at the encoder, reconstruct them from
+  context with a Transformer decoder; beats symbol-level compression (Huffman,
+  UTF-8) because it stops treating text as i.i.d. symbols.
+- **numbers**: reports "much higher compression efficiency" than Huffman/UTF-8;
+  **no specific ratio given in the abstract — treat as unquantified.**
+- **role in our design**: **an independent instance of the refined zero-copy
+  falsifier.** Their masking criterion — *drop what context can regenerate* — is
+  the same rule as `zero-copy-lens-law.md` § "The one apparent exception" as
+  REFINED 2026-07-29: what is reproducible from the lens must not be stored;
+  only what is not reproducible earns storage. Two domains (text compression /
+  SoA lane eligibility), one criterion. This is the strongest cross-domain
+  hit in the cluster because it is a *mechanism* match, not a rhyme: both
+  compute "is this recoverable from its context?" and both act on the answer.
+
+---
+
+## Meta-epiphany — Sudoku proves the LOOP; crossword proves the SUBSTRATE
+
+The operator's two-line framing (*sudoku > numbers; crossword > semantic +
+lewensteyn*) names a gap in the §4d probe that is easy to miss:
+
+**A Sudoku digit has no semantics, so Sudoku exercises none of this repo.**
+The codebook, the palette, DeepNSM's 4096-word COCA vocabulary, CLAM,
+Hamming-over-fingerprints, the Levenshtein/CER surface — all bypassed. A
+Sudoku teacher validates the *promotion loop* (explore → learned → frozen,
+held-out gating, fork-return, quadrant census) on an oracle that is free and
+exact. That is real and it is the right first step, but it is a test of the
+**harness**, not of the substrate the harness drives.
+
+A crossword answer is a WORD. It routes through the actual encoding stack, and
+its constraints are of both kinds this workspace separates:
+
+| | Sudoku | Crossword |
+|---|---|---|
+| alphabet | closed (1–9) | **open (natural language)** |
+| cell constraint | exact equality | crossing LETTER = character-level |
+| answer length | fixed 1 | **variable, must fit a fixed slot** |
+| distance metric | Hamming (no indel possible) | **Hamming across the grid + Levenshtein within the answer** |
+| what it tests | the promotion loop | **the codebook / DeepNSM / CLAM substrate** |
+| clue structure | none | **definition ⊕ wordplay = two slits, unique answer** |
+
+So the teacher ladder gains a rung, and the rung is load-bearing:
+
+**T0 Sudoku** (numbers; exact; closed alphabet; no adversary; binary outcome)
+→ **T0.5 Crossword** (semantic; exact; OPEN alphabet; no adversary; and the
+first rung where edit distance is the content rather than the metric)
+→ **T1 stockfish-rs** (graded centipawns; adversarial; deep counterfactuals;
+GPL data-only seam — oracle, never linked).
+
+Each rung adds exactly one new capability to the *same* teacher-agnostic
+promotion record `(position_key, elections[], outcome_grade, teacher_path)`:
+T0 adds nothing (it establishes the record), T0.5 adds an open alphabet and a
+real encoder, T1 adds grading and an adversary. **Status: the ladder is design;
+T0 is in build (§4d), T0.5 and T1 are unbuilt.** Nothing here is a measured
+result on our substrate — the papers are external anchors, not our numbers.
