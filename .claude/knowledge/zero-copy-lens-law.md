@@ -203,6 +203,26 @@ The falsifier that keeps it honest: **recompute the stored value from the lens.*
 If it comes back equal, you stored a projection — the store was a cache with a
 correctness liability, not a memory.
 
+> **⊘ REFINED 2026-07-29, same day — the operator's Gadamer probe broke the
+> letter of this test.** As stated it is type-blind: `Locus::Quorum` is a
+> deterministic function of the witnesses, always recomputes equal, and is
+> legitimately stored — the letter would delete shipped precedent. Likewise any
+> Horizontverschmelzung: deterministic given both horizons, yet a new thing that
+> lives in neither. The repair subordinates the recompute test to the rung test:
+>
+> - reproducible by a **CAST** (a single lane read returns the same bytes) →
+>   projection. Delete.
+> - reproducible only by a **computation across multiple reads, yielding a value
+>   of a different KIND** (a fact about the set, not a member of it) → elevation
+>   candidate, judged by the rung. Deterministic recomputability is orthogonal.
+>
+> Gadamer's own formulation is the rule: *understanding is not reproduction* —
+> the fusion product is different understanding, never a copy of either horizon.
+> In interference terms: the diagonal terms |ψᵢ|² are already in the lanes
+> (storing one is a second projection); only the cross-term 2Re(ψ₁*ψ₂) exists in
+> no lane and is eligible. Cost stays excluded in both directions per the
+> nanoseconds ruling — the rung decides, never the recompute price.
+
 **Worked precedent, already shipped:** `Locus::Quorum` and `Locus::Contradiction`
 are stored entropy work, and `CONTENT_LOCI` excludes them ("no self-reference").
 They qualify **not** because reconciling observations is expensive, but because a

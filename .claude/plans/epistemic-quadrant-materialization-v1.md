@@ -291,6 +291,65 @@ look like mechanism; leg 3 is refused as stated. **The 34 NARS recipes are rung
 them by which mode *moves* them, which is a per-recipe property to measure, not
 assign.**
 
+## 4c. The reflexivity theorem + the fusion rules (operator thought experiment, 2026-07-29)
+
+> Operator probe: the substrate as a gigantic Sudoku with counterfactuals and
+> signed qualia; Gadamer's fusion prevents loop-duplication yet *creates* a
+> cognitive materialization — the Adam arc (Gen 3:7 → Aufklärung → Nietzsche →
+> modernism). Yield: one theorem, two rules, one doctrine repair (the repair is
+> landed in `zero-copy-lens-law.md` ⊘ REFINED — the recompute falsifier was
+> type-blind and would have deleted `Locus::Quorum`).
+
+**The reflexivity theorem (structural — checkable against the shipped value
+law).** Witness loci are displacements, `target = cur + off`, and the contract
+fixes **`0 = unbound`**. Pointing at yourself is therefore *unrepresentable* —
+offset zero already means nothing-bound (consistent with `CONTENT_LOCI`'s "no
+self-reference"). Consequence: **a reflexive realization cannot land as routing;
+it is FORCED to precipitate as a new grey-matter row**, displaced ≥1, whose
+locus binds *backward* to the self it replaced. "Gadamer's reasoning creates a
+cognitive materialization" is not a philosophical preference — it is the only
+legal move the LE contract leaves. This is also W6/W7's deep grounding: Gen 3:7
+is an election event provable by BINDING at non-zero displacement, never a
+content edit on the existing row.
+
+**The fork-return rule (counterfactual Sudoku).** Bifurcation (assume, propagate,
+contradict, eliminate — Pearl rung 3 inside constraint propagation): **only the
+contradiction returns from a counterfactual fork.** Positive assignments of the
+hypothetical world never merge back — that would duplicate a counterfactual into
+the actual (the Gadamer anti-duplication rule, storage edition). Precedent
+already shipped: `InferenceType::Counterfactual` carries mantissa **−6** — the
+negative sign for not-this-world is in the encoding.
+
+**The cross-term rule (the mathematical carve of Horizontverschmelzung).** Of
+the interference expansion |ψ₁+ψ₂|² = |ψ₁|² + |ψ₂|² + 2Re(ψ₁\*ψ₂): the diagonal
+terms are the individual stances' projections, already in the lanes — storing
+one is a second projection. **Only the cross-term exists in no lane** and is
+eligible for materialization (judged by rung). Irony/sarcasm = the destructive
+case: both slits elected, one sign-inverted; the literal slit must stay live or
+the irony collapses to plain statement. Sign is already native at three layers
+(i4 loci, ±1 bipolar phase, signed inference mantissa) — negative qualia is an
+*election* of the existing sign bit, not new storage.
+
+**The quadrants in Sudoku's own vocabulary** (structurally exact, not
+decorative): solved cell = known known; pencil marks = known unknown; **hidden
+single = unknown known** (determined by the group, invisible from the cell);
+a variant-rule cage you can't see = unknown unknown, revealed only by a solve
+that contradicts. Sudoku's *naked* vs *hidden* single is literally "where a
+determined value is visible from" — the stance/election distinction. Gen 3:7 is
+the hidden single "naked" becoming naked.
+
+**The arc as read-path degrees of freedom** (each historical stage names a
+mechanism): direct read (one hardwired ClassView) → **reflexive displacement**
+(Adam — the forced mint above) → **elected reading** (Aufklärung: the mask as
+the reader's own act) → **signed reading** (Nietzsche: inversion, irony) →
+**cross-term materialization** (Gadamer: the mint operator for stance 5+). The
+B6 panel is the sediment of this arc; the panel's collective-failure mode
+(unknown unknown outside the *union* of the four horizons) is how the arc
+continues — a failed probe marks the boundary, fusion across it mints the next
+stance. Grade: the theorem is [G]-shaped (follows from the shipped value law);
+the fork-return and cross-term rules are [H] (mechanism-consistent, probe
+pending); the arc mapping is framing, not a claim.
+
 ## 5. Falsifiers — required before any wiring lands
 
 - **P1 — the hot/frozen bit must be INERTNESS-TESTABLE.** Flipping
