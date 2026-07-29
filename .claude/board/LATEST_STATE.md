@@ -1,3 +1,11 @@
+## 2026-07-29 — branch `claude/happy-hamilton-0azlw4` — `invoke_recoder`: the SECOND keystone, proving `classid → ClassView → content` dispatch is class-AGNOSTIC (not fitted to one call shape)
+
+### Current Contract Inventory — new entry
+- `lance_graph_contract::recoder_adapter::{RecoderStore, RecoderCall, RecoderOut, invoke_recoder}` — the `E-CPP-KEYSTONE-1` analog for the recoder (`UnicharCompress`), same three-step dispatch as `invoke_unicharset`: ClassView composition gate (`methods_for` must list the called method) → content-store tier (state lives in the store, NEVER on the adapter) → the byte-parity-proven adapter leaf. Scope = the load-side runtime surface only: `EncodeUnichar` / `DecodeUnichar` / `code_range`; `ComputeEncoding` (training-side) and the beam-trie accessors (`IsValidFirstCode`/`GetFinalCodes`/`GetNextCodes`) stay OUT — those are Core content the recognizer's beam consumes directly, a compute-tier surface, not a step this keystone routes.
+- **`DispatchError` reused unchanged** — no new error type, no new variant. An out-of-range encode id or an unknown decode code are valid `Ok(..None)` results, not dispatch failures, exactly mirroring how `invoke_unicharset` treats an out-of-range id. The two existing variants cover every recoder failure mode.
+- **Classid is derived from the LIVE codebook, not hardcoded** — `render_classid(0x0000, 0x0802)` where `0x0802 = "recoder"` comes from `ogar_codebook.rs:494` under the `0x08XX` OCR domain (concept in the CANON/high half per the active `ClassidOrder::CanonHigh`; Core app-prefix `0x0000` low). A drift-guard test asserts `canonical_concept_id("recoder") == Some(0x0802)`, so a future codebook renumbering fails loudly instead of silently drifting — an improvement on `unicharset_adapter`'s arbitrary `0x0001_0001` test placeholder.
+- 9 new tests (1024 lib total), clippy `-D warnings` clean, fmt clean. Detail: `EPIPHANIES` `E-KEYSTONE-CLASS-AGNOSTIC-1`; `AGENT_LOG` 2026-07-29.
+
 ## 2026-07-29 — branch `claude/x265-x266-plans-review-h9osnl` (PR #863) — the A9 LE contract + the zero-copy law
 
 ### Current Contract Inventory — CausalWitness tenant, WitnessLens, and the warden pair
