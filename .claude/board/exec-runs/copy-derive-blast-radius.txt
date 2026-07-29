@@ -4,21 +4,37 @@ Operator order: *"copies are forbidden, borrows are only for the same mailbox"*,
 *"WitnessLens is forbidden as a copy. period"*, *"only cognitive achievements >
 tenant"*, *"grep Clone, Copy and remove it"*, *"log the blast radius"*.
 
-**369 sites — an INCOMPLETE SNAPSHOT, not a complete census.**
+**930 sites.** Regenerated order-insensitively and multi-line-aware, per
+CodeRabbit's Major finding — matching any `#[derive(...)]` block containing
+`Copy`, rather than a literal two-token spelling on one line.
 
-An earlier count of 26 was wrong (one literal spelling, one line). This file
-corrected it to 369 and claimed to match "both orderings". **That claim is also
-wrong** — CodeRabbit checked it against the agents' own tag files, which report
-**119 / 95 / 123** actual sites for cognitive / codec / thinking against the
-**56 / 73 / 70** recorded here. The regex still misses multi-line and
-attribute-interleaved derives.
+### The count's own history is the lesson
 
-That is the FIFTH proxy-count failure in this session, and this one was
-published as a correction to an earlier miscount — the correction inherited the
-defect it was correcting. **Do not use the Tier A/B totals below as complete.**
-They are a starting set for a per-crate audit, and the agents' tag files are the
-better source where the two disagree. Regenerating this order-insensitively is
-open work.
+| figure | method | wrong by |
+|---|---|---|
+| 26 | one literal spelling, one line | 36× |
+| 369 | both orderings, still single-line | 2.5× |
+| **930** | any derive block containing `Copy`, multi-line | — |
+
+Each number was published as a *correction* to the previous one, and each
+inherited the same defect: a regex chosen for the shape I expected rather than
+the shape the language allows. The 369 pass even carried the sentence "this
+census matches both orderings" — the claim was about the fix I had just made,
+not about what the regex could see. CodeRabbit caught it by cross-checking
+against the agents' own tag files (119/95/123 for cognitive/codec/thinking
+against the 56/73/70 recorded here), which is the check I should have run
+myself: **I had a second, independent source in the repo and never compared.**
+
+Per-crate (top 8): `lance-graph-contract` 313 · `lance-graph-planner` 92 ·
+`lance-graph` 61 · `holograph` 51 · `lance-graph-ontology` 45 ·
+`lance-graph-cognitive` 44 · `deepnsm` 41 · `thinking-engine` 34.
+
+**The Tier A/B tables below were built from the 369 pass and are therefore a
+SUBSET, not a census.** They remain useful as the audited starting set — every
+row in them was verified by an agent — but a site's absence from them means
+"not yet looked at", never "not a violation". The 7-agent verdicts
+(24 → ~16 real / 26 LEGITIMATE / 13 ELEVATED) are likewise verdicts over the
+subset.
 
 ## The discriminator (why this is not a blanket removal)
 
@@ -65,8 +81,10 @@ This is the same line `compilation-vs-runtime-substrate.md` and
 `assembler-vs-storage-substrate.md` draw elsewhere: serialization is legal AT a
 membrane and illegal on the hot path. Ontology hydration is a membrane.
 
-**Consequence for any future sweep:** the 13 `derive(Clone, Copy)` sites under
-`crates/lance-graph-ontology/` in the TIER B census below are **out of scope**.
+**Consequence for any future sweep:** ALL **45** derive-with-`Copy` sites under
+`crates/lance-graph-ontology/` are **out of scope** (the "13" written here
+earlier came from the undercounting 369 pass — same defect, propagated into the
+carve-out).
 Do not de-`Copy` them, and do not file them as debt. The 13 clippy errors in
 that crate (deprecated `oxrdf::Subject` alias, doc-list indentation) are
 ordinary lint drift on an un-linted crate — unrelated to the copy law, and NOT
