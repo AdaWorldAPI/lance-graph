@@ -97,23 +97,52 @@ changes nothing is decoration.*
 
 ## 4a. VERDICT on `PlasticityEngine`: reimagine, do not port
 
-**Age: 27 days by calendar, one full generation by substrate.** `git log` shows
-exactly ONE commit touching `holograph/src/rl_ops.rs` — `28f17cd`, 2026-07-02
-13:47, the squashed `v3-substrate-migration-review` merge (#629) that landed the
-whole crate at once. Nothing has touched it since. 1575 LOC, zero external
-consumers.
+**Age: 102 days (3.4 months). Imported from RedisGraph. Predates every substrate
+primitive it would need.**
 
-Measure it in commits rather than days and the picture inverts: **825 commits
-have landed since**, and 2026-07-02 is *precisely* the V3 flip date — both
-`E-V3-FACET-4-PLUS-12` (content-blind 4+12 facet) and the classid canon-high
-flip were operator-locked that day. So the crate did not arrive "before V3": it
-arrived **on the boundary, inside the V3 migration PR itself, and was never
-adapted to what that same PR ratified.** Every invariant it violates was locked
-either that day or later — the zero-copy law is from today.
+> **⊘ CORRECTED — my first answer was a shallow-clone artifact.** I reported "27
+> days, one commit, landed on the V3 boundary." All three were false. **The local
+> clone is SHALLOW, grafted exactly at `28f17cd` (PR #629, 2026-07-02)** —
+> `git rev-list --count --before=2026-07-02 HEAD` returns **0**. Every file in
+> the repo therefore "first appears" on 2026-07-02, because that is the graft
+> boundary, not a creation date. **`git log` dates are unusable in this container
+> for anything before #629.** Use the GitHub API
+> (`/commits?path=<file>`) instead. The operator's estimate ("1-4 months",
+> "200 PRs ago", "predates the standing wave and SoA") was correct on all three;
+> mine was an artifact reported as a measurement.
 
-The lesson generalizes past this crate: *a migration PR is the easiest place for
-un-migrated code to enter*, because the diff is already enormous and one more
-crate reads as part of the sweep.
+True history from the API — **4 commits total, and only one is substantive**:
+
+| date | commit | what |
+|---|---|---|
+| **2026-04-18** | `cf0b298` | *"import holograph crate from RedisGraph as local crate"* — **the origin** |
+| 2026-04-26 | `e270bba`, `05e8386` | clippy cleanups |
+| 2026-05-13 | `f222c6e` | rustfmt 1.95.0 workspace sweep |
+
+Against the primitives it would have to integrate with:
+
+| | first commit | holograph is older by |
+|---|---|---|
+| `holograph/rl_ops.rs` | **2026-04-18** | — |
+| `soa_envelope.rs` (the LE envelope) | 2026-06-06 | **49 days** |
+| `canonical_node.rs` (`NodeRow`, the SoA) | 2026-06-13 | **56 days** |
+| `witness_fabric.rs` (the standing wave) | 2026-07-21 | **94 days** |
+
+So the operator's presumption is **confirmed, not merely plausible**: this code
+predates the SoA by ~8 weeks and the standing wave by ~13 weeks, and was written
+for a different system entirely (RedisGraph). It is not un-migrated V3 code — it
+is **pre-substrate foreign code**. 233 PRs back (#629 vs #862). That strengthens
+the verdict below from "needs adapting" to "cannot be adapted": the eight
+violations in the table are not oversights, they are what you get when code is
+written before the things it now has to live with existed.
+
+**The real lesson — mechanical hygiene forges a false currency signal.** Three of
+the four commits are clippy and rustfmt sweeps. The crate is warning-clean,
+rustfmt-current, and appears in recent-looking commits, so every automated signal
+says *maintained* — while **nothing has ever reviewed its architecture.** A crate
+can be lint-green and three substrate generations stale at the same time, and the
+lint-green is what makes the staleness invisible. (My retracted "migration PRs
+let un-migrated code in" was a worse lesson drawn from a false premise.)
 
 The mechanism is sound neuroscience (STDP + Hebbian + homeostatic scaling is the
 right triad). The **chassis is pre-V3** and violates current invariants:
@@ -167,6 +196,68 @@ stay *reachable*: closing a slit destroys the interference pattern.
 **Verdict: REIMAGINE.** Keep the triad's math (`weight_change`'s exponential
 windows are reusable as-is); discard the chassis. Treat `rl_ops.rs` as a
 reference implementation to read, not a dependency to wire.
+
+## 4b. Does the triad map to the rung ladder / NARS recipes / frozen-learned-discover?
+
+> Operator conjecture, 2026-07-29: *"STDP + Hebbian + homeostatic might even map
+> with the rung ladder, the 34+ NARS recipes and the frozen / learned / discover
+> triangle."* Phrased tentatively; adjudicated here as **CONJECTURE**, two legs
+> promising and one a category error to avoid.
+
+**Leg 1 — frozen / learned / discover: STRONG (3:3, mechanism-level).**
+
+| mechanism | what it does | triangle vertex |
+|---|---|---|
+| **STDP** | A-before-B → strengthen A→B. **Directional**, creates *new* causal edges from timing | **discover** |
+| **Hebbian** | co-activation, **symmetric**. Consolidates what already co-occurs | **learned** |
+| **homeostatic** | scales toward a target rate; **bounds** accumulation | **frozen** |
+
+Receipt, not analogy: `PlasticityState::ALL_FROZEN`'s own doc-comment reads
+*"Established clinical pattern."* The frozen vertex is already named that way in
+shipped code. And the triad's shapes are genuinely distinct (directional /
+symmetric / normalizing), so this is a mechanism correspondence, not a rhyme.
+
+**Leg 2 — NARS: promising, with one strong link.**
+
+- **revision ↔ homeostatic.** The strongest of all the pairings. NARS revision
+  merges evidence for the same statement under the **φ-1 confidence ceiling**
+  (CLAUDE.md: *"permanent humility"*). A bounded-accumulation rule with a set
+  point **is** homeostatic scaling — same mechanism, different vocabulary. This
+  one is worth promoting on its own.
+- **abduction / induction ↔ STDP.** Both are directional and *edge-creating*:
+  they hypothesize a link that was not there. STDP is the only member of the
+  triad that creates directed structure.
+- **deduction ↔ Hebbian.** Composition over edges that already exist; adds no
+  new connectivity, strengthens established paths.
+
+**Leg 3 — the rung ladder: NOT a correspondence. It is a MATRIX.** ⚠
+
+This is the category error the conjecture invites, and it should be refused
+explicitly:
+
+> **A rung says what content IS. A plasticity mode says how it CHANGES.**
+> Different axes.
+
+A rung-2 verb atom can be *frozen*; a rung-3 NARS recipe can be under
+*discovery*; a rung-4 StyleFamily macro can be *learned*. So "STDP = rung 3"
+would flatten two orthogonal dimensions into one — the exact dilution the
+`dilution-collapse-sentinel` exists to catch. The coherent statement is:
+
+> **every rung's content carries a plasticity state** → a `rung × {discover,
+> learned, frozen}` matrix, not a 3-way mapping.
+
+Structural evidence that the substrate already agrees: `PlasticityState` is
+**3-bit per-plane (S / P / O)**, i.e. plasticity is already an *axis-local*
+state, not a global mode. A single edge can be hot on S and frozen on P. That is
+matrix behaviour, and it is shipped.
+
+**Status: CONJECTURE.** Before any of this is built on, it needs the
+mechanism-vs-rhyme test (`cross-domain-synthesizer`: does it share a MECHANISM,
+[H]+, or is it decorative rhyme, [S]?). Leg 1 and the revision↔homeostatic link
+look like mechanism; leg 3 is refused as stated. **The 34 NARS recipes are rung
+3 (`persona-vs-rung-ladder.md`) — do not re-label them by plasticity mode; label
+them by which mode *moves* them, which is a per-recipe property to measure, not
+assign.**
 
 ## 5. Falsifiers — required before any wiring lands
 
