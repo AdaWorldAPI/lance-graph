@@ -56,10 +56,11 @@ Offsets are FULL-ROW; subtract 32 for slab-relative.
 | 13 | Tekamolo | U8 × 16 | 16 B | [188,204) | TEKAMOLO facet lane — 16 B content-blind V3 4+12 facet (`classid(4) + 6×(u8:u8)`), read G4D3 as `temporal · kausal · modal · lokal` (when/why/how/where circumstance-frame). All-zero = unaddressed |
 | 14 | CausalWitness | U8 × 16 | 16 B | [204,220) | CausalWitness facet lane — 16 B content-blind V3 4+12 facet read as **G24N4** (24 signed i4 loci, a lane shape name, never a `CascadeShape` variant); each nibble is a context pointer (signed ±8 window offset), not a strength. Slots 16..24 reserved-zero. **Status: EXPERIMENTAL — not in the operator-locked §3 catalogue** (per its own doc-comment) |
 
-`ValueSchema::Full`'s `field_mask()` (canonical_node.rs:1132-1157, as read
-2026-07-28) lists all 15 tenants 0–14 (Meta … `CausalWitness`), totalling
-220 B of 480 — **260 B headroom, RESERVE-DON'T-RECLAIM** (compile-asserted
-≤ 480, canonical_node.rs:1197).
+`ValueSchema::Full`'s `field_mask()` (canonical_node.rs:1132-1162, as read
+2026-07-28) lists all 15 tenants 0–14 (Meta … `CausalWitness`), spanning row
+range `[32,220)` — 188 B of the 480-byte value slab consumed (`220 − 32`;
+`VALUE_SLAB_ROW_OFFSET = 32`, §1) — **292 B headroom, RESERVE-DON'T-RECLAIM**
+(compile-asserted ≤ 480, canonical_node.rs:1197).
 
 > **⊘ TRANSIENT-READ CORRECTION (2026-07-28, same day).** An earlier
 > revision of this section flagged a live defect — "`Full` lists 0–13 while

@@ -89,8 +89,8 @@ fn fixture_stream() -> Vec<Token> {
             label: "himself",
             antecedent_pos: Some(11),
         }, // 12 -> offset -1 (in range, distinct — self? no, distinct target)
-        // A pronoun whose antecedent is a full 20 tokens back — well outside
-        // the ±8 window. Filler tokens 13..32 pad the distance.
+        // A pronoun whose antecedent is a full 21 tokens back — well outside
+        // the ±8 window. Filler tokens 13..23 pad the distance.
         Token {
             label: "filler",
             antecedent_pos: None,
@@ -171,6 +171,40 @@ fn decide(self_pos: usize, antecedent_pos: usize) -> Result<i8, &'static str> {
         return Err("antecedent outside the ±8 Markov window — refused, not clamped");
     }
     Ok(d as i8)
+}
+
+#[cfg(test)]
+mod decide_tests {
+    use super::decide;
+
+    #[test]
+    fn rejects_self_reference() {
+        assert!(decide(5, 5).is_err(), "d == 0 must be refused, not bound");
+    }
+
+    #[test]
+    fn rejects_positive_out_of_range() {
+        // d = 8 - 0 = +8, one past the +7 boundary.
+        assert!(decide(0, 8).is_err());
+    }
+
+    #[test]
+    fn rejects_negative_out_of_range() {
+        // d = 0 - 9 = -9, one past the -8 boundary.
+        assert!(decide(9, 0).is_err());
+    }
+
+    #[test]
+    fn accepts_lower_boundary() {
+        // d = 0 - 8 = -8, the most-negative in-range displacement.
+        assert_eq!(decide(8, 0), Ok(-8));
+    }
+
+    #[test]
+    fn accepts_upper_boundary() {
+        // d = 7 - 0 = +7, the most-positive in-range displacement.
+        assert_eq!(decide(0, 7), Ok(7));
+    }
 }
 
 fn main() {

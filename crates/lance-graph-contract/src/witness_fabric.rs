@@ -286,7 +286,15 @@ pub fn elect_peers_lens(
     };
     let mut best_q: Option<(usize, i8)> = None; // (agreement, offset)
     let mut best_c: Option<(usize, i8)> = None; // (agreement, offset)
-    for pos in 0..lens.len() {
+                                                // Bound the scan to the ±8 electable horizon up front — every position
+                                                // outside `[focal_pos-8, focal_pos+7]` would be rejected by the `delta`
+                                                // check below anyway, so walking the whole slab is wasted work on a
+                                                // large row array (≤15 candidates ever elect from). `lens.len() >= 1`
+                                                // here because `lens.at(focal_pos)` above already returned early on an
+                                                // empty/out-of-range lens.
+    let lo = focal_pos.saturating_sub(8);
+    let hi = (focal_pos + 7).min(lens.len() - 1);
+    for pos in lo..=hi {
         if pos == focal_pos || !visible(pos) {
             continue;
         }

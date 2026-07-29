@@ -80,3 +80,12 @@
 - Did not touch any board file other than this one (no `AGENT_LOG.md` write).
 - Did not run a full `cargo build`/`cargo check`; only the explicitly-granted
   `cargo run --example`, `cargo clippy`, and `cargo fmt` for this crate.
+
+## ⊘ Correction (2026-07-29, CodeRabbit mechanical-fixes pass)
+
+Line 27's recorded snippet shows
+`WitnessLens::write_register(&mut row, CausalWitnessFacet::ZERO.with(Locus::Antecedent, offset))`
+passing the facet BY VALUE. The real signature
+(`crates/lance-graph-contract/src/witness_fabric.rs:167`) is
+`write_register(row: &mut NodeRow, facet: &CausalWitnessFacet)` — it takes a
+REFERENCE, and the probe's actual call site passes `&facet` accordingly.

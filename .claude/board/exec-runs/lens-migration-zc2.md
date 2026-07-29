@@ -159,3 +159,15 @@ the existing `WitnessLens` generalizes.
 - `cargo fmt` clean on both crates
 - `cargo run -p lance-graph-contract --example dispatch_guard_redundancy` →
   34/34 flip, ALL GATES GREEN (unchanged from pre-migration)
+
+## ⊘ Correction (2026-07-29, CodeRabbit mechanical-fixes pass)
+
+The "Still outstanding" section above says **14** gathered `window:`
+parameters remain, but its own table sums to **20** (7 + 7 + 1 + 1 + 4). The
+arithmetic: table total 20; minus the 4 `WitnessStream` rows (separately
+adjudicated NOT-A-VIOLATION, not part of this migration's scope) = 16
+genuinely outstanding, of which 1 is BLOCKED (`WitnessWindow.rows`) and 1 is
+an example call site (`probe_dcsw2_basin_rung.rs`) — leaving **14 live
+migratable parameters** (`contract/witness_fabric.rs` gathered originals: 7;
+`planner/nars/meta_basin.rs`: 7), which is what the "14" was counting. Unit
+made explicit: parameters, not call sites.

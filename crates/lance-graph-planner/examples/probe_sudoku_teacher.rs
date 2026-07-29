@@ -184,8 +184,11 @@ fn candidates_from_box_lane(grid: &[NodeRow; 81], pos: usize) -> Vec<u8> {
         if off == 0 {
             continue;
         }
-        let peer_pos = (pos as isize + off as isize) as usize;
-        if let Some((d, _)) = read_cell(&grid[peer_pos]) {
+        let peer_signed = pos as isize + off as isize;
+        let Ok(peer_pos) = usize::try_from(peer_signed) else {
+            continue;
+        };
+        if let Some((d, _)) = grid.get(peer_pos).and_then(read_cell) {
             candidates.retain(|&x| x != d);
         }
     }
@@ -225,6 +228,13 @@ fn candidates_from_full_sweep(grid: &[NodeRow; 81], pos: usize) -> Vec<u8> {
 /// some unit (row/col/box), AND that cell's own full-sweep candidate set has
 /// more than one member (i.e. it is hidden, not merely naked).
 fn hidden_singles(grid: &[NodeRow; 81]) -> Vec<(usize, u8)> {
+    // The grid is immutable for the whole function — compute every cell's
+    // full-sweep candidate set exactly ONCE instead of recomputing it up to
+    // 27 times (3 unit kinds × 9 digits, plus once more for the len() > 1
+    // check) per cell.
+    let cands: Vec<Vec<u8>> = (0..81)
+        .map(|p| candidates_from_full_sweep(grid, p))
+        .collect();
     let mut result = Vec::new();
     for unit_kind in 0..3u8 {
         for u in 0..9usize {
@@ -245,14 +255,14 @@ fn hidden_singles(grid: &[NodeRow; 81]) -> Vec<(usize, u8)> {
                     if read_cell(&grid[p]).is_some() {
                         continue;
                     }
-                    if candidates_from_full_sweep(grid, p).contains(&d) {
+                    if cands[p].contains(&d) {
                         count += 1;
                         holder = Some(p);
                     }
                 }
                 if count == 1 {
                     let p = holder.unwrap();
-                    if candidates_from_full_sweep(grid, p).len() > 1 {
+                    if cands[p].len() > 1 {
                         result.push((p, d));
                     }
                 }
@@ -311,9 +321,10 @@ fn blank_positions(grid: &mut [NodeRow; 81], positions: &[usize]) {
 
 /// Build the "ambiguous pair" fixture: the `ambiguous` box is left with a
 /// genuine 2-way tie `{perm[7], perm[8]}` at the TARGET cell (k=7) and a
-/// PARKED companion cell (k=0, a DIFFERENT row band from the shared row —
-/// deliberately, so it never becomes a peer of the witness Z and can't
-/// silently collide with it), with the other 7 cells given `perm[0..7]`.
+/// PARKED companion cell (k=3, the box's MIDDLE row — a different row band
+/// from the shared row — deliberately, so it never becomes a peer of the
+/// witness Z and can't silently collide with it), with the other 7 cells
+/// given `perm[0..7]`.
 /// The `witness` box — in the SAME ROW BAND as the target, so they end up
 /// peers via a shared row — is independently box-forced to `perm[7]` alone
 /// (its 8 predecessors use every digit except `perm[7]`). Guessing `perm[7]`
@@ -881,7 +892,7 @@ fn main() {
 
     // Bifurcation-required puzzle: the G3 fixture, run to completion under a
     // fork-refusing policy AND under bifurcate-early, from a fresh copy.
-    let mut g4_hard_refuse = pre_fork_snapshot
+    let mut g4_hard_refuse: [NodeRow; 81] = pre_fork_snapshot
         .clone()
         .try_into()
         .unwrap_or_else(|_| panic!("pre_fork_snapshot must be exactly 81 rows"));
@@ -1120,7 +1131,17 @@ fn quadrant_census(grid: &[NodeRow; 81]) -> Census {
             (0.0, 1.0)
         } else {
             let cand_len = candidates_from_full_sweep(grid, pos).len();
-            let entropy = cand_len as f64 / 9.0;
+            // A contradicted cell (empty, ZERO candidates) is maximal
+            // entropy, NOT zero — `cand_len == 0` means "unsatisfiable",
+            // the opposite of "resolved". Reading it as 0.0/9.0 = 0.0 would
+            // classify a contradiction as Wisdom whenever its box-witness
+            // energy happens to be >= 0.5 (`Quadrant::classify`), silently
+            // counting an unsatisfiable board as resolved.
+            let entropy = if cand_len == 0 {
+                1.0
+            } else {
+                cand_len as f64 / 9.0
+            };
             let k = cell_in_box(pos);
             let energy = if k == 0 {
                 0.0
@@ -1140,4 +1161,66 @@ fn quadrant_census(grid: &[NodeRow; 81]) -> Census {
         }
     }
     c
+}
+
+/// **F1 falsifier — the contradicted cell must NOT score as Wisdom.**
+///
+/// `quadrant_census` maps an empty cell's entropy to `cand_len / 9`. A
+/// *contradicted* cell (empty, but every digit eliminated by its peers) has
+/// `cand_len == 0`, which naively gives entropy `0.0` — and `0.0` entropy with
+/// high box energy classifies as **Wisdom**, i.e. an UNSATISFIABLE cell counted
+/// as a resolved one. That inflates `wisdom` and can let a migration claim pass
+/// on a board that cannot be solved at all.
+///
+/// The fix scores a zero-candidate empty cell at entropy `1.0` (maximal —
+/// a contradiction is the opposite of resolved). This test exists because the
+/// fix was otherwise **unfalsifiable**: no existing fixture reaches a
+/// zero-candidate cell during census, so the probe's printed output is
+/// byte-identical with and without the fix. Without this test the correction
+/// would be indistinguishable from a no-op.
+#[test]
+fn contradicted_cell_is_not_counted_as_wisdom() {
+    // Box-major layout: box 0 owns positions 0..=8; `cell_in_box(8) == 8`, so
+    // position 8 has all 8 of its box predecessors before it (energy = 8/8).
+    let mut grid: [NodeRow; 81] = [blank_row(); 81];
+    for (i, pos) in (0..8).enumerate() {
+        write_cell(&mut grid[pos], (i + 1) as u8, true); // digits 1..=8
+    }
+    // Eliminate the last remaining digit (9) via a row/column peer OUTSIDE
+    // box 0, so position 8 is empty with an EMPTY candidate set.
+    let (r8, c8) = row_col_of(8);
+    let peer = (0..81)
+        .find(|&p| {
+            if box_of(p) == box_of(8) || read_cell(&grid[p]).is_some() {
+                return false;
+            }
+            let (pr, pc) = row_col_of(p);
+            pr == r8 || pc == c8
+        })
+        .expect("position 8 must have a row/column peer outside its own box");
+    write_cell(&mut grid[peer], 9, true);
+
+    // ── preconditions, asserted so the test cannot pass vacuously ──
+    assert!(
+        read_cell(&grid[8]).is_none(),
+        "position 8 must be EMPTY for this to be a contradiction rather than a fill"
+    );
+    assert!(
+        candidates_from_full_sweep(&grid, 8).is_empty(),
+        "fixture failed to contradict position 8: candidates = {:?}",
+        candidates_from_full_sweep(&grid, 8)
+    );
+
+    // ── the claim ──
+    // Every FILLED cell scores (entropy 0, energy 1) = Wisdom. Position 8 is
+    // empty and contradicted, so Wisdom must equal exactly the filled count.
+    // Under the old `cand_len / 9` mapping it would be filled + 1.
+    let filled = (0..81).filter(|&p| read_cell(&grid[p]).is_some()).count();
+    let census = quadrant_census(&grid);
+    assert_eq!(
+        census.wisdom, filled,
+        "a contradicted cell was counted as Wisdom (wisdom={} vs filled={}) — \
+         the zero-candidate entropy inversion has regressed",
+        census.wisdom, filled
+    );
 }
