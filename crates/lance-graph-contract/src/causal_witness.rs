@@ -1,10 +1,29 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: Copyright The Lance Authors
 
-//! `causal_witness` — the **CausalWitnessFacet** (A9): the L9
+//! `causal_witness` — the **CausalWitnessFacet** (A9): the
 //! `TekamoloWindowBinding` reading of a `12`-byte content-blind register as **24
 //! signed `i4` loci** (`.claude/plans/soa-32-tenant-awareness-redundancy-v1.md`
-//! §2.9, le-contract §3 **L9** `G24N4`).
+//! §2.9).
+//!
+//! **Status: EXPERIMENTAL reading — NOT in the operator-locked §3 catalogue.**
+//! Contract: `.claude/v3/soa_layout/witness-nibble-lane.md` (byte/nibble law,
+//! value law, placement law, slot-purity fence, open proposals).
+//!
+//! > **⊘ CITATION CORRECTED (2026-07-28).** Earlier revisions of this header
+//! > cited "le-contract §3 **L9** `G24N4`". **No such entry exists** — §3 is
+//! > L1–L8, and `G24N4`/`L9` appear nowhere in `.claude/v3/soa_layout/`. The
+//! > claim was wrong in KIND, not merely missing: §3 is byte-axis by
+//! > construction (every tier is a *byte*, so `group_of` is a pure shift),
+//! > §3a's grace carvings are *wider* than a byte and are granted no
+//! > `CascadeShape` variants, and a 24×4-bit carving is **sub-byte** — a third
+//! > direction the catalogue never contemplated. The canon has moreover
+//! > already declined a ninth layout for a structurally identical request:
+//! > *"this is NOT a ninth 12-byte layout … the sanctioned in-row refinement
+//! > budget remains the turbovec 6×4-bit nibble lane."* **Sub-byte
+//! > granularity's sanctioned home is a LANE** (`ValueTenant` variant +
+//! > `VALUE_TENANTS` descriptor — the two places), never a §3 payload layout.
+//! > `G24N4` is a lane shape NAME; `CascadeShape` gains no 24-group variant.
 //!
 //! This is a **reading, not a layout.** It re-labels the same 12 bytes a value
 //! lane already holds — nothing here reserves, moves, or stores a byte, exactly
@@ -51,7 +70,9 @@
 
 /// The content-blind register width (le-contract §3): 12 bytes = 24 nibbles.
 /// Same 12-byte lane [`awareness_facet::SpoFacet`](crate::awareness_facet::SpoFacet)
-/// reads as `6×(8:8)`; A9 reads it as `24×4-bit` (`G24N4`).
+/// reads as `6×(8:8)`; A9 reads it as `24×4-bit` (`G24N4` — a LANE shape name,
+/// never a [`CascadeShape`](crate::facet::CascadeShape) variant: that enum stays
+/// byte-axis-only per le-contract §3a).
 pub const WITNESS_REGISTER_BYTES: usize = 12;
 
 /// Total loci in the A9 register (24 signed nibbles = 12 bytes).

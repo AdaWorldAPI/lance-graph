@@ -72,6 +72,36 @@ extractor living in an example, and — crucially — **honest catalogue status*
 operator-locked §3 catalogue."* EXPERIMENTAL is fine. A **fabricated**
 citation is not.
 
+## Where a reading is allowed to live (checked 2026-07-28 — the catalogue is narrower than it looks)
+
+Before writing a contract, establish that the shape has a legal home. The
+catalogue admits **two** directions and refuses a third:
+
+- **§3 (L1–L8) is byte-axis by construction** — "every tier is a *byte*, so the
+  classview projects real rails and `group_of` is a pure shift." Byte
+  accounting is exact: `6×2, 4×3, 3×4, 2×6`.
+- **§3a (G1–G3) is the *wide* waiting room** — contiguous carvings *wider* than
+  a byte, for classes not yet decomposed into byte tiles, and it states that
+  **`CascadeShape` gains no variants** for them.
+- **Sub-byte (nibble) carvings are neither** — finer than a byte, so `group_of`
+  becomes shift-**and-mask**, which is exactly the property §3 exists to
+  guarantee.
+
+**And the canon has already refused a "ninth layout" once, by name**, for a
+structurally identical request: *"this is **NOT a ninth 12-byte layout** — the
+residual ladder is out-of-row … the sanctioned in-row refinement budget remains
+the turbovec **6×4-bit nibble lane**."*
+
+**The rule that falls out: sub-byte granularity's sanctioned home is a LANE**
+(`ValueTenant` variant + `VALUE_TENANTS` descriptor — the two places), never a
+§3 payload layout. So a nibble reading needs **no catalogue petition** — filing
+one is itself the error. Its shape name (`G24N4`) is a *lane* name and must
+never become a `CascadeShape` variant.
+
+Corollary for auditing a dangling citation: check whether the cited entry is
+*missing* or *wrong in kind*. The A9 register's `§3 L9 G24N4` was the latter —
+it claimed a slot the canon had already declined to create.
+
 ## What a tenant's LE contract must state
 
 Three laws, minimum. Nibble-granular example (the A9 24×i4 register):
