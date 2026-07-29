@@ -1,6 +1,25 @@
+## 2026-07-29 — E-THE-EQUALITY-PASSED-WHILE-AN-AXIS-WAS-CONSTANT-1 — the anti-vacuity clause found what the equivalence assert structurally could not
+
+**Status:** IN PR. **Confidence:** High — the vacuity was caught twice, by the guard, on two different fixtures, and the revert-test proves the equality assert bites when the behaviour actually diverges.
+
+**The ZC-2 `meta_basin` migration** moved 7 gathered `window: &[(usize, CausalWitnessFacet)]` parameters onto `(&WitnessLens, &impl Fn(usize) -> bool)`, reading registers through a cast into each row's own bytes. It migrated IN PLACE — no twins, no deprecation window — because the family has **zero callers outside its own file**, and the lens-migration card is explicit that a migration is finished only when the materializing path is *gone*, not merely unused.
+
+**The finding is about the proof, not the migration.** The equivalence test compares the pre-migration body (retained verbatim as a `#[cfg(test)]` oracle) against the lens form, field-by-field, across six hop budgets. It passed on the first fixture. It passed on the second. **Both times the run still failed — on the anti-vacuity clause**, which asserts that the compared gradings actually vary along each axis they claim to cover:
+
+1. **First fixture (sparse only).** Every row graded `quorum = 0`. A sparse window has no quorum *by construction* — no two rows are close enough to converge on an absolute target — so the quorum half of every comparison was `0 == 0`. The equality assert cannot notice this: constant-vs-constant is the most reliably passing comparison there is.
+2. **Second fixture (dense, one agreeing locus).** Still all zeros. `quorum_mantissa` scales `agreed * 15 / (peers * 14)` and rounds **down**, so a single agreeing locus floors to 0. The fix was four agreeing loci — a number derived from the formula, not chosen until the formula was read.
+
+**Generalization: an equivalence test proves two implementations agree, never that they were asked anything.** Its assert is satisfied by an axis that is constant across the entire fixture space, and that is precisely the axis nobody checked. Every equality-style test therefore needs a companion clause per axis — *this comparison observed more than one value here* — or it certifies agreement on a question that was never posed. This is the `E-VACUOUS-ASSERTION-IS-THE-HOUSE-STYLE-1` family, but the mechanism is sharper: **the vacuity is not in the assert, it is in the fixture**, so reading the assert can never reveal it.
+
+**Second finding: "migratable NOW" was a statement about the twins, not about the work.** The ZC-2 tag file listed these 7 as unblocked because `quorum_mantissa_lens` / `trajectory_of_lens` had landed. True, and it understated the job — the fixtures use **sparse, non-contiguous positions** (`[0,1,2, 10,11,12, 20,21,22,23]`), and `resolve_chain` walks hops by absolute stream POSITION, so the gathered form could name positions with no rows between them. A lens indexes a dense row array, so the gaps have to *exist as rows* and be excluded by `visible`. Same result, different mechanism — and it means every fixture had to be rebuilt, not re-called. **A readiness label that measures the callee says nothing about the caller's shape.**
+
+**What the revert-test proved (the claim would otherwise be an argument).** Deleting the `visible` filter from `grade_rows` fails 3 tests, including the equivalence test with `sparse: row count diverged at max_hops=0` — so the equality assert does bite on real divergence, and the gap-exclusion test (`an_invisible_gap_is_excluded_even_though_the_row_exists`, which pins that row 1 EXISTS and is addressable while being invisible) fails independently.
+
+Cross-ref: `.claude/knowledge/zero-copy-lens-law.md`, `.claude/board/exec-runs/lens-migration-zc2.md` (outstanding table updated), `CLAUDE.md` § falsifiability rule.
+
 ## 2026-07-29 — E-A-GUARANTEE-WITH-A-RE-EXPORTED-BYPASS-IS-NOT-A-GUARANTEE-1 — CodeRabbit's #866 review landed AFTER the merge; three of its five findings were real and one of them broke my headline claim
 
-**Status:** IN PR (#867). **Confidence:** High — all five findings were checked against the code; the two declined are demonstrably false positives, the three accepted are fixed with tests still green.
+**Status:** SHIPPED (#867, merged `5373b00`; CodeRabbit re-reviewed and approved with no blocking findings — it independently confirmed the rescoped bypass claim, the clean concept-blindness sweep, and the non-vacuous `Resolution.axes` divergence). **Confidence:** High — all five findings were checked against the code; the two declined are demonstrably false positives, the three accepted are fixed with tests still green.
 
 **Process finding first: a review that arrives after the merge still has to be worked.** CodeRabbit's #866 review (Run ID `16a75898`) was still processing when the operator merged, so the findings landed against code that was already on `main`. Nothing in the webhook stream says "you merged before the review finished" — the subscription simply ends. **When a PR merges with a review in flight, the review must be pulled explicitly**; otherwise findings against shipped code are silently dropped. Two of the three real ones here were rated Major.
 

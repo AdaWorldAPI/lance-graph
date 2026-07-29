@@ -56,8 +56,10 @@
 //! ([`ranked_outlier_suggestions`]) only RANKS what the coarse path could merely
 //! list.
 
-use lance_graph_contract::causal_witness::{CausalWitnessFacet, Locus};
-use lance_graph_contract::witness_fabric::{quorum_mantissa, trajectory_of, TrajectorySignature};
+use lance_graph_contract::causal_witness::Locus;
+use lance_graph_contract::witness_fabric::{
+    quorum_mantissa_lens, trajectory_of_lens, TrajectorySignature, WitnessLens,
+};
 
 /// A row of the window, carried with the two gradings this module computes.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -329,21 +331,34 @@ pub struct OutlierSuggestion {
     pub anomaly: u32,
 }
 
-/// Grade every row of a window: passive quorum + causal trajectory.
+/// Grade every visible row of a lens: passive quorum + causal trajectory.
+///
+/// **Zero-copy (`zero-copy-lens-law.md`).** The row array IS the projection, so
+/// this reads registers through [`WitnessLens::at`] — a bounds-checked cast into
+/// each row's own bytes — instead of taking a caller-gathered
+/// `&[(usize, CausalWitnessFacet)]` slab. No register byte is copied out.
+///
+/// The visible domain is `{ pos ∈ 0..lens.len() | visible(pos) }`, visited
+/// **ascending**: [`GradedRow::idx`] is the dense counter over that set and
+/// [`GradedRow::pos`] is the absolute row position. `visible` is what carries a
+/// SPARSE selection — the gathered form could hold positions `[0, 1, 2, 10, 20]`
+/// with no rows between, and the lens expresses exactly that as a row array with
+/// `visible` false on the gaps.
 #[must_use]
 pub fn grade_rows(
-    window: &[(usize, CausalWitnessFacet)],
+    lens: &WitnessLens<'_>,
+    visible: &impl Fn(usize) -> bool,
     locus: Locus,
     max_hops: u8,
 ) -> Vec<GradedRow> {
-    window
-        .iter()
+    (0..lens.len())
+        .filter(|&pos| visible(pos))
         .enumerate()
-        .map(|(idx, &(pos, _))| GradedRow {
+        .map(|(idx, pos)| GradedRow {
             idx,
             pos,
-            quorum: quorum_mantissa(idx, window),
-            trajectory: trajectory_of(idx, window, locus, max_hops),
+            quorum: quorum_mantissa_lens(pos, lens, visible),
+            trajectory: trajectory_of_lens(pos, lens, visible, locus, max_hops),
         })
         .collect()
 }
@@ -446,7 +461,8 @@ impl MetaBasin {
     #[must_use]
     pub fn stable_under_perturbation(
         &self,
-        window: &[(usize, CausalWitnessFacet)],
+        lens: &WitnessLens<'_>,
+        visible: &impl Fn(usize) -> bool,
         locus: Locus,
         perturbed_hops: u8,
     ) -> bool {
@@ -460,14 +476,14 @@ impl MetaBasin {
         // budget — not just this basin's members — so a row that joins from
         // outside is visible. `quorum` is irrelevant to shape-clustering
         // (`meta_cluster` only reads `.trajectory`), so it is left at `0`.
-        let reperturbed: Vec<GradedRow> = window
-            .iter()
+        let reperturbed: Vec<GradedRow> = (0..lens.len())
+            .filter(|&pos| visible(pos))
             .enumerate()
-            .map(|(idx, &(pos, _))| GradedRow {
+            .map(|(idx, pos)| GradedRow {
                 idx,
                 pos,
                 quorum: 0,
-                trajectory: trajectory_of(idx, window, locus, perturbed_hops),
+                trajectory: trajectory_of_lens(pos, lens, visible, locus, perturbed_hops),
             })
             .collect();
 
@@ -492,14 +508,15 @@ impl MetaBasin {
     #[must_use]
     pub fn stability_sweep(
         &self,
-        window: &[(usize, CausalWitnessFacet)],
+        lens: &WitnessLens<'_>,
+        visible: &impl Fn(usize) -> bool,
         locus: Locus,
         budgets: &[u8],
     ) -> Stability {
         Stability {
             stable: budgets
                 .iter()
-                .filter(|&&p| self.stable_under_perturbation(window, locus, p))
+                .filter(|&&p| self.stable_under_perturbation(lens, visible, locus, p))
                 .count(),
             probed: budgets.len(),
         }
@@ -517,12 +534,13 @@ impl MetaBasin {
     #[must_use]
     pub fn stability_around(
         &self,
-        window: &[(usize, CausalWitnessFacet)],
+        lens: &WitnessLens<'_>,
+        visible: &impl Fn(usize) -> bool,
         locus: Locus,
         max_hops: u8,
     ) -> Stability {
         let budgets: Vec<u8> = stability_around_window(max_hops).collect();
-        self.stability_sweep(window, locus, &budgets)
+        self.stability_sweep(lens, visible, locus, &budgets)
     }
 }
 
@@ -549,16 +567,17 @@ fn stability_around_window(max_hops: u8) -> std::ops::RangeInclusive<u8> {
 /// may be an artifact", not "this row is wrong".
 #[must_use]
 pub fn outlier_suggestions(
-    window: &[(usize, CausalWitnessFacet)],
+    lens: &WitnessLens<'_>,
+    visible: &impl Fn(usize) -> bool,
     locus: Locus,
     max_hops: u8,
     perturbed_hops: u8,
     tail_below: u8,
 ) -> Vec<OutlierSuggestion> {
-    let graded = grade_rows(window, locus, max_hops);
+    let graded = grade_rows(lens, visible, locus, max_hops);
     let tail_rows = tail(&graded, tail_below);
     let scores = density_scores(&tail_rows, DensityConfig::default());
-    coarse_flags(window, locus, perturbed_hops, &tail_rows)
+    coarse_flags(lens, visible, locus, perturbed_hops, &tail_rows)
         .into_iter()
         .map(|(row, reason, basin_size)| OutlierSuggestion {
             row,
@@ -573,7 +592,8 @@ pub fn outlier_suggestions(
 /// metric path can reuse it verbatim rather than restate it (a restated rule
 /// drifts; a reused one cannot).
 fn coarse_flags(
-    window: &[(usize, CausalWitnessFacet)],
+    lens: &WitnessLens<'_>,
+    visible: &impl Fn(usize) -> bool,
     locus: Locus,
     perturbed_hops: u8,
     tail_rows: &[GradedRow],
@@ -581,7 +601,7 @@ fn coarse_flags(
     let mut out = Vec::new();
     for basin in meta_cluster(tail_rows) {
         let size = basin.members.len();
-        let stable = basin.stable_under_perturbation(window, locus, perturbed_hops);
+        let stable = basin.stable_under_perturbation(lens, visible, locus, perturbed_hops);
         for mini in mini_basins(&basin) {
             for &row in &mini.members {
                 let reason = if !stable {
@@ -626,17 +646,18 @@ fn anomaly_of(scores: &[DensityScore], idx: usize) -> u32 {
 /// it, and nothing here prunes, commits, or mutates the window.
 #[must_use]
 pub fn ranked_outlier_suggestions(
-    window: &[(usize, CausalWitnessFacet)],
+    lens: &WitnessLens<'_>,
+    visible: &impl Fn(usize) -> bool,
     locus: Locus,
     max_hops: u8,
     perturbed_hops: u8,
     tail_below: u8,
     cfg: DensityConfig,
 ) -> Vec<OutlierSuggestion> {
-    let graded = grade_rows(window, locus, max_hops);
+    let graded = grade_rows(lens, visible, locus, max_hops);
     let tail_rows = tail(&graded, tail_below);
     let scores = density_scores(&tail_rows, cfg);
-    let coarse = coarse_flags(window, locus, perturbed_hops, &tail_rows);
+    let coarse = coarse_flags(lens, visible, locus, perturbed_hops, &tail_rows);
 
     let mut out: Vec<OutlierSuggestion> = coarse
         .iter()
@@ -673,12 +694,61 @@ pub fn ranked_outlier_suggestions(
 mod tests {
     use super::*;
 
+    use lance_graph_contract::canonical_node::{EdgeBlock, NodeGuid, NodeRow};
+    use lance_graph_contract::causal_witness::CausalWitnessFacet;
+    use lance_graph_contract::witness_fabric::{quorum_mantissa, trajectory_of};
+
     fn w(edges: &[(Locus, i8)]) -> CausalWitnessFacet {
         let mut f = CausalWitnessFacet::ZERO;
         for &(l, o) in edges {
             f = f.with(l, o);
         }
         f
+    }
+
+    /// A sparse `(pos, facet)` fixture rendered as the dense row array the lens
+    /// projects. Positions the fixture skips exist as rows (a row array has no
+    /// holes) but are excluded by [`vis_of`], which is how the lens expresses
+    /// the sparse selection the gathered form carried in its position column.
+    fn rows_from(regs: &[(usize, CausalWitnessFacet)]) -> Vec<NodeRow> {
+        let max_pos = regs.iter().map(|&(p, _)| p).max().unwrap_or(0);
+        let mut rows: Vec<NodeRow> = (0..=max_pos)
+            .map(|_| NodeRow {
+                key: NodeGuid::local(1),
+                edges: EdgeBlock::default(),
+                value: [0u8; 480],
+            })
+            .collect();
+        for &(pos, facet) in regs {
+            WitnessLens::write_register(&mut rows[pos], &facet);
+        }
+        rows
+    }
+
+    /// The visibility predicate for a sparse fixture: exactly the positions it
+    /// names, so the lens domain equals the gathered window's position set.
+    fn vis_of(regs: &[(usize, CausalWitnessFacet)]) -> impl Fn(usize) -> bool + '_ {
+        move |p| regs.iter().any(|&(q, _)| q == p)
+    }
+
+    /// The PRE-MIGRATION gathered body, kept verbatim as the oracle the lens
+    /// form is proven against. Retaining it is the point: an equivalence test
+    /// whose reference is a paraphrase proves the paraphrase, not the migration.
+    fn grade_rows_gathered(
+        window: &[(usize, CausalWitnessFacet)],
+        locus: Locus,
+        max_hops: u8,
+    ) -> Vec<GradedRow> {
+        window
+            .iter()
+            .enumerate()
+            .map(|(idx, &(pos, _))| GradedRow {
+                idx,
+                pos,
+                quorum: quorum_mantissa(idx, window),
+                trajectory: trajectory_of(idx, window, locus, max_hops),
+            })
+            .collect()
     }
 
     #[test]
@@ -688,7 +758,10 @@ mod tests {
             (1, CausalWitnessFacet::ZERO),
             (2, w(&[(Locus::Antecedent, 1)])),
         ];
-        let graded = grade_rows(&win, Locus::Antecedent, 8);
+        let rows = rows_from(&win);
+        let lens = WitnessLens::new(&rows);
+        let vis = vis_of(&win);
+        let graded = grade_rows(&lens, &vis, Locus::Antecedent, 8);
         assert_eq!(graded.len(), 3);
         for g in &graded {
             assert!(g.quorum <= 15, "mantissa out of i4 range");
@@ -708,7 +781,10 @@ mod tests {
             (3, CausalWitnessFacet::ZERO),
             (4, w(&[(Locus::Antecedent, 7)])), // escalates → its own shape
         ];
-        let graded = grade_rows(&win, Locus::Antecedent, 8);
+        let rows = rows_from(&win);
+        let lens = WitnessLens::new(&rows);
+        let vis = vis_of(&win);
+        let graded = grade_rows(&lens, &vis, Locus::Antecedent, 8);
         let basins = meta_cluster(&graded);
         assert!(basins.len() >= 2, "escalating row was merged away");
         // Every row survives clustering — nothing is silently dropped.
@@ -727,7 +803,10 @@ mod tests {
             (2, w(&[(Locus::Antecedent, 1)])),
             (3, CausalWitnessFacet::ZERO),
         ];
-        let graded = grade_rows(&win, Locus::Antecedent, 8);
+        let rows = rows_from(&win);
+        let lens = WitnessLens::new(&rows);
+        let vis = vis_of(&win);
+        let graded = grade_rows(&lens, &vis, Locus::Antecedent, 8);
         for b in meta_cluster(&graded) {
             let minis = mini_basins(&b);
             let total: usize = minis.iter().map(|m| m.members.len()).sum();
@@ -741,15 +820,18 @@ mod tests {
             (0, w(&[(Locus::Antecedent, 1)])),
             (1, CausalWitnessFacet::ZERO),
         ];
-        let graded = grade_rows(&win, Locus::Antecedent, 8);
+        let rows = rows_from(&win);
+        let lens = WitnessLens::new(&rows);
+        let vis = vis_of(&win);
+        let graded = grade_rows(&lens, &vis, Locus::Antecedent, 8);
         for b in meta_cluster(&graded) {
             // Singletons have nothing to dissolve — never reported unstable.
             if b.members.len() < 2 {
-                assert!(b.stable_under_perturbation(&win, Locus::Antecedent, 1));
+                assert!(b.stable_under_perturbation(&lens, &vis, Locus::Antecedent, 1));
             }
             // The call is total: any budget, no panic.
             for p in [0u8, 1, 2, 8, 255] {
-                let _ = b.stable_under_perturbation(&win, Locus::Antecedent, p);
+                let _ = b.stable_under_perturbation(&lens, &vis, Locus::Antecedent, p);
             }
         }
     }
@@ -788,7 +870,10 @@ mod tests {
             (22, w(&[(Locus::Antecedent, 1)])),
             (23, CausalWitnessFacet::ZERO),
         ];
-        let graded = grade_rows(&win, Locus::Antecedent, 8);
+        let rows = rows_from(&win);
+        let lens = WitnessLens::new(&rows);
+        let vis = vis_of(&win);
+        let graded = grade_rows(&lens, &vis, Locus::Antecedent, 8);
         let basins = meta_cluster(&graded);
         let basin = basins
             .iter()
@@ -820,7 +905,7 @@ mod tests {
         // the 3-hop chain) now shares that same post-perturbation shape too —
         // the basin's true membership grew.
         assert!(
-            !basin.stable_under_perturbation(&win, Locus::Antecedent, 1),
+            !basin.stable_under_perturbation(&lens, &vis, Locus::Antecedent, 1),
             "a row outside the basin converged onto its post-perturbation shape — \
              this is a merge, not stability, and must be reported false"
         );
@@ -838,8 +923,11 @@ mod tests {
             (3, CausalWitnessFacet::ZERO),
             (4, w(&[(Locus::Antecedent, 7)])),
         ];
+        let rows = rows_from(&win);
+        let lens = WitnessLens::new(&rows);
+        let vis = vis_of(&win);
         let before = win.len();
-        let sug = outlier_suggestions(&win, Locus::Antecedent, 8, 2, 15);
+        let sug = outlier_suggestions(&lens, &vis, Locus::Antecedent, 8, 2, 15);
         // Advisory: the window is untouched (it is `&`, so this is a statement
         // about intent as much as memory).
         assert_eq!(win.len(), before);
@@ -851,7 +939,10 @@ mod tests {
             assert!(s.row.idx < win.len());
         }
         // Deterministic: same input, same suggestions — auditable, not a draw.
-        assert_eq!(sug, outlier_suggestions(&win, Locus::Antecedent, 8, 2, 15));
+        assert_eq!(
+            sug,
+            outlier_suggestions(&lens, &vis, Locus::Antecedent, 8, 2, 15)
+        );
     }
 
     /// A suggester that can never suggest is as useless as a gate that never
@@ -867,7 +958,10 @@ mod tests {
             (4, w(&[(Locus::Antecedent, 7)])),
             (5, w(&[(Locus::Kausal, -1)])),
         ];
-        let sug = outlier_suggestions(&win, Locus::Antecedent, 8, 2, 15);
+        let rows = rows_from(&win);
+        let lens = WitnessLens::new(&rows);
+        let vis = vis_of(&win);
+        let sug = outlier_suggestions(&lens, &vis, Locus::Antecedent, 8, 2, 15);
         assert!(
             !sug.is_empty(),
             "outlier suggester never fires — inert channel"
@@ -1084,10 +1178,13 @@ mod tests {
             (2, w(&[(Locus::Antecedent, 1)])),
             (3, w(&[(Locus::Antecedent, 7)])),
         ];
-        let graded = grade_rows(&win, Locus::Antecedent, 8);
+        let rows = rows_from(&win);
+        let lens = WitnessLens::new(&rows);
+        let vis = vis_of(&win);
+        let graded = grade_rows(&lens, &vis, Locus::Antecedent, 8);
         let budgets: Vec<u8> = (0..=10).collect();
         for b in meta_cluster(&graded) {
-            let sweep = b.stability_sweep(&win, Locus::Antecedent, &budgets);
+            let sweep = b.stability_sweep(&lens, &vis, Locus::Antecedent, &budgets);
             assert_eq!(sweep.probed, budgets.len());
             assert!(sweep.stable <= sweep.probed);
             assert!(sweep.fraction_milli() <= DENSITY_SCALE);
@@ -1095,7 +1192,7 @@ mod tests {
             // count must equal the number of budgets the bool wrapper accepts.
             let by_wrapper = budgets
                 .iter()
-                .filter(|&&p| b.stable_under_perturbation(&win, Locus::Antecedent, p))
+                .filter(|&&p| b.stable_under_perturbation(&lens, &vis, Locus::Antecedent, p))
                 .count();
             assert_eq!(sweep.stable, by_wrapper);
             // Singletons have nothing to dissolve at ANY budget.
@@ -1103,8 +1200,11 @@ mod tests {
                 assert_eq!(sweep.fraction_milli(), DENSITY_SCALE);
             }
             // Deterministic, and total over the default range.
-            assert_eq!(sweep, b.stability_sweep(&win, Locus::Antecedent, &budgets));
-            let _ = b.stability_around(&win, Locus::Antecedent, 255);
+            assert_eq!(
+                sweep,
+                b.stability_sweep(&lens, &vis, Locus::Antecedent, &budgets)
+            );
+            let _ = b.stability_around(&lens, &vis, Locus::Antecedent, 255);
         }
         // An empty sweep falsifies nothing, so it claims full stability.
         let lone = MetaBasin {
@@ -1112,7 +1212,7 @@ mod tests {
             members: vec![],
         };
         assert_eq!(
-            lone.stability_sweep(&win, Locus::Antecedent, &[])
+            lone.stability_sweep(&lens, &vis, Locus::Antecedent, &[])
                 .fraction_milli(),
             DENSITY_SCALE
         );
@@ -1159,9 +1259,12 @@ mod tests {
             (4, w(&[(Locus::Antecedent, 7)])),
             (5, w(&[(Locus::Kausal, -1)])),
         ];
+        let rows = rows_from(&win);
+        let lens = WitnessLens::new(&rows);
+        let vis = vis_of(&win);
         let before = win.clone();
         let cfg = DensityConfig::default();
-        let sug = ranked_outlier_suggestions(&win, Locus::Antecedent, 8, 2, 15, cfg);
+        let sug = ranked_outlier_suggestions(&lens, &vis, Locus::Antecedent, 8, 2, 15, cfg);
         assert!(
             !sug.is_empty(),
             "ranked suggester never fires — inert channel"
@@ -1187,7 +1290,7 @@ mod tests {
         }
         assert_eq!(
             sug,
-            ranked_outlier_suggestions(&win, Locus::Antecedent, 8, 2, 15, cfg),
+            ranked_outlier_suggestions(&lens, &vis, Locus::Antecedent, 8, 2, 15, cfg),
             "ranking is not deterministic"
         );
     }
@@ -1204,9 +1307,19 @@ mod tests {
             (4, w(&[(Locus::Antecedent, 7)])),
             (5, w(&[(Locus::Kausal, -1)])),
         ];
-        let coarse = outlier_suggestions(&win, Locus::Antecedent, 8, 2, 15);
-        let ranked =
-            ranked_outlier_suggestions(&win, Locus::Antecedent, 8, 2, 15, DensityConfig::default());
+        let rows = rows_from(&win);
+        let lens = WitnessLens::new(&rows);
+        let vis = vis_of(&win);
+        let coarse = outlier_suggestions(&lens, &vis, Locus::Antecedent, 8, 2, 15);
+        let ranked = ranked_outlier_suggestions(
+            &lens,
+            &vis,
+            Locus::Antecedent,
+            8,
+            2,
+            15,
+            DensityConfig::default(),
+        );
         for c in &coarse {
             let r = ranked
                 .iter()
@@ -1216,5 +1329,141 @@ mod tests {
             assert_eq!(r.basin_size, c.basin_size);
         }
         assert!(ranked.len() >= coarse.len());
+    }
+
+    /// **The migration's proof** — the lens form reproduces the PRE-MIGRATION
+    /// gathered body exactly, over two fixtures chosen so that BOTH graded axes
+    /// are actually exercised.
+    ///
+    /// The risk the sparse fixture pins is SPARSITY. `resolve_chain` walks hops
+    /// by absolute stream POSITION (`cur_pos + off`), so a gathered window could
+    /// name positions `[0,1,2, 10,11,12, 20,21,22,23]` with nothing in between;
+    /// the lens instead indexes a dense row array, and the gaps must be excluded
+    /// by `visible` rather than by simply not existing. If those two notions of
+    /// "not addressable" ever diverged, that fixture is where it would show.
+    ///
+    /// But a sparse window has NO quorum: no two rows are close enough to agree
+    /// on an absolute target, so every row grades `quorum = 0` and the quorum
+    /// half of the comparison is vacuous. (That is not a hypothesis — the
+    /// anti-vacuity assert below caught exactly this while the migration was
+    /// being written, on a version of this test that used the sparse fixture
+    /// alone.) The dense fixture supplies the agreement the sparse one cannot.
+    #[test]
+    fn lens_grading_matches_the_gathered_oracle_on_sparse_and_dense_windows() {
+        // Sparse: three chains with gaps between them; every chain hops into a
+        // position the window does not name.
+        let sparse = vec![
+            (0, w(&[(Locus::Antecedent, 1)])),
+            (1, w(&[(Locus::Antecedent, 1)])),
+            (2, CausalWitnessFacet::ZERO),
+            (10, w(&[(Locus::Antecedent, 1)])),
+            (11, w(&[(Locus::Antecedent, 1)])),
+            (12, CausalWitnessFacet::ZERO),
+            (20, w(&[(Locus::Antecedent, 1)])),
+            (21, w(&[(Locus::Antecedent, 1)])),
+            (22, w(&[(Locus::Antecedent, 1)])),
+            (23, CausalWitnessFacet::ZERO),
+        ];
+        // Dense: rows 0 and 1 converge on absolute position 2 across FOUR content
+        // loci, so they grade a non-zero quorum; row 2 agrees with nobody and
+        // grades 0. Four loci is not decoration — `quorum_mantissa` scales
+        // `agreed * 15 / (peers * 14)` and rounds DOWN, so a single agreeing
+        // locus floors to 0 and the axis would still be untested.
+        let dense = vec![
+            (
+                0,
+                w(&[
+                    (Locus::Temporal, 2),
+                    (Locus::Kausal, 2),
+                    (Locus::Modal, 2),
+                    (Locus::Lokal, 2),
+                ]),
+            ),
+            (
+                1,
+                w(&[
+                    (Locus::Temporal, 1),
+                    (Locus::Kausal, 1),
+                    (Locus::Modal, 1),
+                    (Locus::Lokal, 1),
+                ]),
+            ),
+            (2, w(&[(Locus::Antecedent, 1)])),
+        ];
+
+        let mut saw_escalation = false;
+        let mut quorums = std::collections::BTreeSet::new();
+        let mut saw_sparsity = false;
+
+        for (label, win) in [("sparse", &sparse), ("dense", &dense)] {
+            let rows = rows_from(win);
+            let lens = WitnessLens::new(&rows);
+            let vis = vis_of(win);
+            saw_sparsity |= rows.len() > win.len();
+
+            for hops in [0u8, 1, 2, 3, 8, 255] {
+                let gathered = grade_rows_gathered(win, Locus::Antecedent, hops);
+                let lensed = grade_rows(&lens, &vis, Locus::Antecedent, hops);
+                assert_eq!(
+                    gathered.len(),
+                    lensed.len(),
+                    "{label}: row count diverged at max_hops={hops}"
+                );
+                for (g, l) in gathered.iter().zip(lensed.iter()) {
+                    assert_eq!(g, l, "{label}: grading diverged at max_hops={hops}");
+                    saw_escalation |= g.trajectory.escalated;
+                    quorums.insert(g.quorum);
+                }
+            }
+        }
+
+        // Anti-vacuity, one clause per axis the comparison claims to cover. An
+        // all-identical grading would make the equality pass for reasons that
+        // have nothing to do with the migration.
+        assert!(
+            saw_sparsity,
+            "no fixture was actually sparse — the gap-exclusion path went unchecked"
+        );
+        assert!(
+            saw_escalation,
+            "no fixture escalated — the escalation axis went unchecked"
+        );
+        assert!(
+            quorums.len() > 1,
+            "every row got the same quorum ({quorums:?}) — the quorum axis went unchecked"
+        );
+    }
+
+    /// A position the fixture SKIPS must read as unaddressable, exactly as a
+    /// position absent from a gathered window did. This is the half the
+    /// equivalence test above cannot state directly: it proves the gaps are
+    /// excluded because `visible` says so, not because the rows are empty.
+    #[test]
+    fn an_invisible_gap_is_excluded_even_though_the_row_exists() {
+        let win = vec![
+            (0, w(&[(Locus::Antecedent, 1)])),
+            (2, CausalWitnessFacet::ZERO),
+        ];
+        let rows = rows_from(&win);
+        let lens = WitnessLens::new(&rows);
+        let vis = vis_of(&win);
+
+        assert_eq!(
+            lens.len(),
+            3,
+            "row 1 must EXIST for the exclusion to mean anything"
+        );
+        assert!(lens.at(1).is_some(), "row 1 is addressable by the lens");
+        assert!(!vis(1), "row 1 must be invisible");
+
+        let graded = grade_rows(&lens, &vis, Locus::Antecedent, 8);
+        assert_eq!(graded.len(), 2, "the invisible row leaked into the grading");
+        assert_eq!(
+            graded.iter().map(|g| g.pos).collect::<Vec<_>>(),
+            vec![0, 2],
+            "positions must be the visible ones, ascending"
+        );
+        // `idx` is the dense counter over the VISIBLE set, not the position.
+        assert_eq!(graded.iter().map(|g| g.idx).collect::<Vec<_>>(), vec![0, 1]);
     }
 }
