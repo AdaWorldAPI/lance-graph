@@ -1,3 +1,14 @@
+## 2026-07-29 — branch `claude/x265-x266-plans-review-h9osnl` — `lance_graph::reasoning`, the concept-blind consumer seam
+
+### Current Contract Inventory — new module (lance-graph core, `planner` feature)
+- `lance_graph::reasoning` — the curated consumer reasoning facade, **concept-blind by construction** (`E-MAKE-THE-TRAP-UNREACHABLE-NOT-DOCUMENTED-1`). Re-exports the clinical entry points only: `TruthValue` (all five NAL operators), `BeliefArena`/`Belief`/`CStmt`/`Copula`/`Stamp`/`ReviseOutcome`, the five tactics + `Candidate`/`Frontier`/`ReasoningGap`/`GapKind`/`Throttle`, and `counterfactual::{substitute_binding, multi_substitute_binding, worlds_differ, …}`.
+- **New in the facade:** `Axis` (+ `MAX_AXES`) — one independent evidence source; takes an axis index, NOT a `Stamp`, so distinct axes yield disjoint evidence bits **by construction** and the silent stamp-collision failure (pooling degrades to CHOICE, confidence stops rising, nothing logs) cannot be expressed by a consumer. `Axis::new` refuses `index >= 64` rather than letting `Stamp::source`'s `% 64` alias axis 64 onto axis 0.
+- `PremiseBundle` (owns stamp assignment) · `Resolution { stmt, truth, contradiction, axes }` · `resolve` · `differential` (returns `Frontier` so `ReasoningGap` — "what premise is MISSING to separate these" — is surfaced, not discarded).
+- **`GuardRule`/`GuardViolation`/`detect_violations` — deliberately NOT inference.** No `TruthValue`, no `Belief`: a stored-value contradiction routed through the arena would become revisable and could be *softened* by later evidence. Asserted, not just documented.
+- **Wiring:** `planner = ["dep:lance-graph-planner", "dep:lance-graph-cognitive"]` — one feature, one seam (operator ruling: a consumer adds ONE dep, not two). Previously `lance-graph` pulled the planner behind this feature but never `pub use`d it, so `features = ["planner"]` exposed nothing.
+- **Consumer contract:** concept ids are opaque `u16` — meaning stays private to the consumer (medcare commitment #9). No `ConceptId` newtype: `CStmt.s`/`.p` are already bare `u16`, so one would add friction without adding blindness.
+- Gates: 6/6 facade tests (incl. both halves of the pooling falsifier), clippy clean on default features, fmt clean. `--all-features` is broken pre-existing — `TD-LANCE-GRAPH-ALL-FEATURES-DELTA-BREAK`.
+
 ## 2026-07-29 — branch `claude/x265-x266-plans-review-h9osnl` — PROBE-SUDOKU-TEACHER G7 + the fork-closure null result
 
 ### Current Contract Inventory — probe surface only (no contract types added)

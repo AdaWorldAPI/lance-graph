@@ -54,6 +54,12 @@ ndarray = { path = "../../../ndarray", optional = true, default-features = false
 # Unified query planner (MUL, thinking, strategies, CAM-PQ scan)
 lance-graph-planner = { path = "../lance-graph-planner", optional = true }
 
+# Counterfactual (Pearl rung 3) for the `reasoning` consumer facade. Folded in
+# behind the SAME `planner` feature deliberately: a consumer reaching the
+# reasoning seam should add ONE dependency, not two, and `lance-graph-cognitive`
+# is light (ndarray + holograph + contract, all already in this tree).
+lance-graph-cognitive = { path = "../lance-graph-cognitive", optional = true }
+
 # bgz17: palette semiring codec (0 deps, 121 tests)
 bgz17 = { path = "../bgz17", optional = true }
 
@@ -83,7 +89,7 @@ ndarray-hpc = ["dep:ndarray"]
 # OQ-CSV-12: lazy enable_cam_pq() API; WitnessCorpus::new() stays cheap.
 with-cam-pq = ["ndarray-hpc"]
 # planner: wire lance-graph-planner for query classification, thinking styles, MUL gate.
-planner = ["dep:lance-graph-planner"]
+planner = ["dep:lance-graph-planner", "dep:lance-graph-cognitive"]
 # bgz17-codec: palette semiring, HHTL distance matrix, SPO tripartite search.
 bgz17-codec = ["dep:bgz17"]
 # tensor-codec: attention as table lookup, SimilarityTable, Belichtungsmesser, variance audit.
