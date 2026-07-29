@@ -165,7 +165,16 @@ pub struct Resolution {
     /// pooled to a confident answer; this is the cross-modal disagreement flag,
     /// and it is committed rather than erased.
     pub contradiction: f32,
-    /// How many distinct axes contributed to the bundle overall.
+    /// How many distinct axes backed **this statement** — the popcount of the
+    /// winning belief's own evidential stamp.
+    ///
+    /// Deliberately NOT `PremiseBundle::distinct_axes()`, which counts axes
+    /// across the whole bundle. The two differ whenever an axis observed only
+    /// *other* statements, and the bundle-wide number sitting next to a
+    /// resolution reads as a stronger claim than it is — "4 axes" beside a
+    /// diagnosis will be understood as four axes supporting *that* diagnosis.
+    /// The stamp is the belief's own evidence base, so its popcount is the
+    /// honest number.
     pub axes: usize,
 }
 
@@ -178,7 +187,6 @@ pub struct Resolution {
 #[must_use]
 pub fn resolve(bundle: &PremiseBundle) -> Option<Resolution> {
     let arena = bundle.arena();
-    let axes = bundle.distinct_axes();
     arena
         .entries()
         .iter()
@@ -195,7 +203,8 @@ pub fn resolve(bundle: &PremiseBundle) -> Option<Resolution> {
             stmt: b.stmt,
             truth: b.truth,
             contradiction: b.contradiction,
-            axes,
+            // The belief's OWN evidence base, not the bundle's — see the field.
+            axes: b.stamp.0.count_ones() as usize,
         })
 }
 
@@ -409,6 +418,68 @@ mod tests {
     #[test]
     fn empty_bundle_resolves_to_nothing() {
         assert!(resolve(&PremiseBundle::new()).is_none());
+    }
+
+    /// `Resolution.axes` counts the axes that backed the WINNING statement, not
+    /// the axes present in the bundle.
+    ///
+    /// The two diverge exactly when an axis observed only *other* statements —
+    /// here axis 2 speaks solely about an unrelated rival, so the bundle has
+    /// three axes while the winner rests on two. Reporting `3` beside this
+    /// resolution would overstate its support, which is the failure this
+    /// asserts against.
+    #[test]
+    fn resolution_axes_counts_only_what_backed_the_winner() {
+        let winner = stmt(1, 2);
+        let rival = stmt(3, 4);
+        let mut b = PremiseBundle::new();
+        b.observe(winner, TruthValue::new(0.9, 0.6), axis(0));
+        b.observe(winner, TruthValue::new(0.9, 0.6), axis(1));
+        b.observe(rival, TruthValue::new(0.2, 0.2), axis(2));
+
+        let r = resolve(&b).expect("resolves");
+        assert_eq!(r.stmt, winner, "the strongly-backed statement must win");
+        assert_eq!(
+            b.distinct_axes(),
+            3,
+            "precondition: the BUNDLE really does carry three axes"
+        );
+        assert_eq!(
+            r.axes, 2,
+            "but only two axes backed the winner — reporting 3 would overstate it"
+        );
+    }
+
+    /// Ties resolve to the EARLIEST-observed belief, deterministically.
+    ///
+    /// `max_by` keeps the last maximum, so the comparator reverses the index to
+    /// prefer the earlier one. Getting that backwards would not fail any other
+    /// test here — every other fixture has a unique maximum — so this pins the
+    /// one case where insertion order decides, by asserting the winner from
+    /// BOTH insertion orders of the same two equal-expectation beliefs.
+    #[test]
+    fn equal_expectation_ties_resolve_to_the_earliest_observation() {
+        let first = stmt(1, 2);
+        let second = stmt(3, 4);
+        let same = TruthValue::new(0.7, 0.4);
+
+        let mut a = PremiseBundle::new();
+        a.observe(first, same, axis(0));
+        a.observe(second, same, axis(1));
+        assert_eq!(
+            resolve(&a).expect("resolves").stmt,
+            first,
+            "first-observed must win its tie"
+        );
+
+        let mut b = PremiseBundle::new();
+        b.observe(second, same, axis(0));
+        b.observe(first, same, axis(1));
+        assert_eq!(
+            resolve(&b).expect("resolves").stmt,
+            second,
+            "…and the SAME rule must hold when the insertion order is swapped"
+        );
     }
 
     /// Guard rules fire on the armed case and stay silent otherwise — and the

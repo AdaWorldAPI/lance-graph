@@ -1,3 +1,15 @@
+## 2026-07-29 — E-A-COUNT-NEXT-TO-A-CLAIM-IS-READ-AS-BACKING-IT-1 — `Resolution.axes` reported the bundle's axes beside a single statement's verdict; the fix was already in the belief's own stamp
+
+**Status:** IN PR (follow-up to merged #866). **Confidence:** High — the divergence is asserted by a test whose precondition pins that the bundle really does carry more axes than backed the winner.
+
+**The near-miss.** `resolve()` returned `Resolution { stmt, truth, contradiction, axes }` where `axes` was `PremiseBundle::distinct_axes()` — the count of evidence axes **in the bundle**. The doc said exactly that, so nothing was false. But the field sits beside `stmt` and `truth`, and a caller reading `axes: 4` next to a resolution reads *"four axes support this"*. They diverge whenever an axis observed only OTHER statements — which for the consuming use case (a differential over rival hypotheses) is the normal case, not the corner case.
+
+**Why "the doc is accurate" was not good enough.** A number's meaning is set by its neighbours as much as by its documentation. Placed inside a per-statement verdict struct, a bundle-wide count is *read* as per-statement support no matter what the prose says — and the direction of the error is always **overstatement**, which for a clinical consumer is the bad direction. This is the sibling of `E-COMPUTED-PRINTED-NOT-ASSERTED-1` (same day): there a claim was documented but unasserted; here a value was accurate but mis-scoped by adjacency.
+
+**The honest number already existed.** `Belief.stamp` IS that belief's evidential base — the union of the sources that pooled into it — so `stamp.0.count_ones()` is exactly "how many axes backed THIS statement". No new bookkeeping, no second pass: the arena had been carrying the right answer all along, and the facade was computing a worse one beside it. Generalization worth keeping: **before deriving a summary statistic, check whether the substrate already records the exact thing** — a stamp, a mask, a provenance set. A recomputed approximation next to an exact record is a defect waiting for someone to trust it.
+
+**Also pinned this round:** the tie-break. `max_by` keeps the LAST maximum, so `resolve` reverses the index comparison to prefer the earliest-observed belief on equal expectation. Nothing else in the suite has two equal-expectation beliefs, so an inverted comparator would have passed every other test; the new test asserts the winner from BOTH insertion orders of the same pair, and inverting `.then(ib.cmp(ia))` makes it fail (`s:3` where `s:1` is required). Falsifier proven, not argued.
+
 ## 2026-07-29 — E-MAKE-THE-TRAP-UNREACHABLE-NOT-DOCUMENTED-1 — the medcare reasoning seam: a facade whose main job is that a consumer cannot express the expensive mistake; plus protoc is Lance, not the lab
 
 **Status:** IN PR. **Confidence:** High — the seam compiles and its six tests pass, including both halves of the pooling falsifier; the protoc finding is read off `cargo tree`.
