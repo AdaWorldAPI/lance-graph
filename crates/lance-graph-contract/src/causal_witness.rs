@@ -392,6 +392,66 @@ impl CausalWitnessFacet {
     pub const fn antecedent(self) -> i8 {
         self.at(Locus::Antecedent)
     }
+
+    /// **Locus-mask election over the 24 slots** — return a facet holding
+    /// ONLY the loci `mask` elects; every unelected slot reads `0` (UNBOUND).
+    ///
+    /// `mask` positions `0..24` line up 1:1 with locus slots `0..24` (the 16
+    /// named [`Locus`] variants at `0..16`, the 8 reserved-empty slots at
+    /// `16..24`). An unelected slot is **absent from the projection** —
+    /// zeroed, not merely hidden from a subsequent read — so a projected
+    /// facet is itself a valid, safe-to-share [`CausalWitnessFacet`].
+    ///
+    /// **Fail-closed, non-negotiable:** the caller supplies `mask` — there is
+    /// no implicit fallback here. Callers that lack an election MUST pass
+    /// [`crate::class_view::WideFieldMask::EMPTY`] (elects nothing), never
+    /// [`crate::class_view::WideFieldMask::full_for`] — `full_for` is a
+    /// **render** convenience (e.g. "show every field for debugging") and
+    /// must never stand in for an absent RBAC/election mask, exactly as
+    /// `full_for` must never backstop a missing RBAC field mask elsewhere in
+    /// this crate. Do not add a helper that defaults an absent mask to full.
+    #[inline]
+    #[must_use]
+    pub fn project(self, mask: &crate::class_view::WideFieldMask) -> Self {
+        let mut out = Self::ZERO;
+        for slot in 0..WITNESS_LOCI {
+            if mask.has(slot as u8) {
+                let v = self.get(slot);
+                if v != 0 {
+                    out.set(slot, v);
+                }
+            }
+        }
+        out
+    }
+
+    /// **The guarded single read:** `Some(offset)` iff `mask` elects `locus`
+    /// **AND** the slot is bound (nonzero); `None` otherwise.
+    ///
+    /// The two conditions are independent — a locus can be elected but
+    /// unbound (reads `None`), or bound but unelected (reads `None`). Zero
+    /// maps to `None` because `0` is the register's own zero-fallback
+    /// sentinel for "unbound" (§ Loci, not magnitudes, above) — it is never
+    /// "offset zero, meaning self," so there is nothing here for an election
+    /// to surface even when the mask admits the slot.
+    ///
+    /// **Fail-closed, non-negotiable:** same contract as [`Self::project`].
+    /// An absent election is [`crate::class_view::WideFieldMask::EMPTY`]
+    /// (elects nothing, so this always returns `None`), never `full_for`
+    /// (a render convenience, not an election fallback).
+    #[inline]
+    #[must_use]
+    pub fn elected(self, mask: &crate::class_view::WideFieldMask, locus: Locus) -> Option<i8> {
+        if !mask.has(locus as u8) {
+            return None;
+        }
+        let v = self.at(locus);
+        if v == 0 {
+            None
+        } else {
+            Some(v)
+        }
+    }
 }
 
 #[cfg(test)]
@@ -593,5 +653,135 @@ mod tests {
         let hand = CausalWitnessFacet::from_register([0xBA, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]);
         assert_eq!(hand.get(0), -6, "low nibble of byte 0 = slot 0");
         assert_eq!(hand.get(1), -5, "high nibble of byte 0 = slot 1");
+    }
+
+    /// Non-trivial source: EVERY named locus is bound (16 bound slots).
+    fn fully_bound_witness() -> CausalWitnessFacet {
+        Locus::ALL
+            .iter()
+            .enumerate()
+            .fold(CausalWitnessFacet::ZERO, |w, (i, &l)| {
+                // deterministic distinctive nonzero value in [-8, 7]
+                let v = ((i as i32 % 15) - 7) as i8;
+                let v = if v == 0 { 1 } else { v };
+                w.with(l, v)
+            })
+    }
+
+    /// **Can-fire:** an anaphora-shaped election (`Antecedent` only, slot 7)
+    /// over a fully-bound source yields a projection strictly smaller than
+    /// the source — asserting the ACTUAL counts, not merely "different".
+    #[test]
+    fn project_can_fire_anaphora_election_shrinks_bound_count() {
+        let source = fully_bound_witness();
+        assert_eq!(
+            source.bound_count(),
+            NAMED_LOCI,
+            "source: all 16 named loci bound"
+        );
+
+        let anaphora_mask =
+            crate::class_view::WideFieldMask::from_positions(&[Locus::Antecedent as u8]);
+        let projected = source.project(&anaphora_mask);
+
+        assert_eq!(
+            projected.bound_count(),
+            1,
+            "projection admits exactly the one elected, bound locus"
+        );
+        assert!(
+            projected.bound_count() < source.bound_count(),
+            "projection ({}) must be strictly smaller than source ({})",
+            projected.bound_count(),
+            source.bound_count()
+        );
+        assert!(projected.is_bound(Locus::Antecedent));
+        assert_eq!(
+            projected.at(Locus::Antecedent),
+            source.at(Locus::Antecedent)
+        );
+    }
+
+    /// **Can-stay-silent (the twin, mandatory per the anti-eigenvalue rule):**
+    /// the SAME anaphora election must NOT surface TEKAMOLO (0..4) or SPO
+    /// (4..7) slots, even though the source has them bound. A mask that
+    /// admits everything carries exactly as much information as one that
+    /// admits nothing — so the silence must be checked as hard as the fire.
+    #[test]
+    fn project_can_stay_silent_tekamolo_and_spo_excluded() {
+        let source = fully_bound_witness();
+        let anaphora_mask =
+            crate::class_view::WideFieldMask::from_positions(&[Locus::Antecedent as u8]);
+
+        // TEKAMOLO: Temporal, Kausal, Modal, Lokal (slots 0..4) — all bound
+        // in `source`, none elected by `anaphora_mask`.
+        for locus in [Locus::Temporal, Locus::Kausal, Locus::Modal, Locus::Lokal] {
+            assert!(source.is_bound(locus), "source has {} bound", locus.label());
+            assert_eq!(
+                source.elected(&anaphora_mask, locus),
+                None,
+                "{} is bound in source but NOT elected — must read None",
+                locus.label()
+            );
+        }
+
+        // SPO meaning-grounding: SMeaning, PMeaning, OMeaning (slots 4..7).
+        for locus in [Locus::SMeaning, Locus::PMeaning, Locus::OMeaning] {
+            assert!(source.is_bound(locus), "source has {} bound", locus.label());
+            assert_eq!(
+                source.elected(&anaphora_mask, locus),
+                None,
+                "{} is bound in source but NOT elected — must read None",
+                locus.label()
+            );
+        }
+    }
+
+    /// **Fail-closed:** `WideFieldMask::EMPTY` elects nothing — the
+    /// projection has zero bound slots and every `elected(...)` read is
+    /// `None`, even over a fully-bound source.
+    #[test]
+    fn empty_mask_projects_nothing_and_elects_nothing() {
+        let source = fully_bound_witness();
+        let empty = crate::class_view::WideFieldMask::EMPTY;
+
+        let projected = source.project(&empty);
+        assert_eq!(projected.bound_count(), 0, "EMPTY mask elects nothing");
+        assert_eq!(projected, CausalWitnessFacet::ZERO);
+
+        for &locus in Locus::ALL.iter() {
+            assert_eq!(
+                source.elected(&empty, locus),
+                None,
+                "{} must read None under the EMPTY (fail-closed) mask",
+                locus.label()
+            );
+        }
+    }
+
+    /// **Elected-but-unbound is independent from bound-but-unelected:** a
+    /// locus that IS elected but whose slot is `0` (unbound) still reads
+    /// `None` — proving `elected` checks both conditions, not just the mask.
+    #[test]
+    fn elected_but_unbound_locus_reads_none() {
+        // Kausal is elected but left unbound (0); Antecedent is bound but
+        // NOT elected — the two failure modes, side by side.
+        let w = CausalWitnessFacet::ZERO.with(Locus::Antecedent, -1);
+        let mask = crate::class_view::WideFieldMask::from_positions(&[Locus::Kausal as u8]);
+
+        assert!(
+            !w.is_bound(Locus::Kausal),
+            "Kausal is unbound in the source"
+        );
+        assert_eq!(
+            w.elected(&mask, Locus::Kausal),
+            None,
+            "elected but unbound → None"
+        );
+        assert_eq!(
+            w.elected(&mask, Locus::Antecedent),
+            None,
+            "bound but unelected → None (independent failure mode)"
+        );
     }
 }
