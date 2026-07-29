@@ -201,8 +201,40 @@ reference implementation to read, not a dependency to wire.
 
 > Operator conjecture, 2026-07-29: *"STDP + Hebbian + homeostatic might even map
 > with the rung ladder, the 34+ NARS recipes and the frozen / learned / discover
-> triangle."* Phrased tentatively; adjudicated here as **CONJECTURE**, two legs
-> promising and one a category error to avoid.
+> triangle."*
+
+> **⊘ NOT A CONJECTURE — IT IS SHIPPED. Third rediscovery this session.** I
+> adjudicated the mapping as "promising" before reading `ValueTenant`. The
+> triangle is **four existing lanes**:
+>
+> | tenant | doc-comment (verbatim) | triad member |
+> |---|---|---|
+> | `Plasticity = 7` | *"**Hebbian** plasticity counter + last-active stamp"* | **Hebbian**, by name |
+> | `FrozenStyle = 10` | *"Autopoiesis-triangle FROZEN lane … the row's CHECKPOINT policy"* | **homeostatic** (set point) |
+> | `LearnedStyle = 11` | *"the **NARS-revision-updated** policy … `learned[f]` promotes to `frozen[f]` only after winning the held-out arm"* | consolidation |
+> | `ExploreStyle = 12` | *"Autopoiesis-triangle EXPLORE lane … deterministic address-derived jitter (D-QUANTGATE coprime walk — never RNG, replay holds)"* | **discover** |
+>
+> Three consequences that supersede the analysis below:
+>
+> 1. **Leg 2's best link is the shipped mechanism, not a proposal.** I argued
+>    "revision ↔ homeostatic" from first principles; `LearnedStyle`'s doc already
+>    says it is *NARS-revision-updated*, and the `learned → frozen` promotion
+>    gate is consolidation-after-validation — the biological LTP → consolidation
+>    pipeline, already carved.
+> 2. **Leg 3's matrix claim is CONFIRMED by the shape.** The three lanes hold the
+>    *same* 12 `StyleFamily` slots. So the triangle literally is
+>    **12 content ordinals × 3 plasticity states** — a matrix, exactly as argued,
+>    and shipped that way. Do not collapse it to a 3-way mapping.
+> 3. **`PlasticityEngine` is not merely wrong-chassis — it is REDUNDANT.** Tenant
+>    7 is a Hebbian counter. The lane already exists; holograph would add a
+>    second, HashMap-shaped copy of it. That is the §4a verdict's row 1
+>    (SECOND-PROJECTION) reaching its strongest form: not "connectivity has a
+>    home", but *this exact mechanism has a lane*.
+>
+> What remains genuinely open is **not** the mapping but the *motion*: nothing
+> currently drives `explore → learned → frozen`. The lanes are carved; the
+> promotion gate is specified; the triad math is unwired. That — not a new
+> engine — is the work.
 
 **Leg 1 — frozen / learned / discover: STRONG (3:3, mechanism-level).**
 
