@@ -4,8 +4,21 @@ Operator order: *"copies are forbidden, borrows are only for the same mailbox"*,
 *"WitnessLens is forbidden as a copy. period"*, *"only cognitive achievements >
 tenant"*, *"grep Clone, Copy and remove it"*, *"log the blast radius"*.
 
-**369 sites.** An earlier count of 26 in this session was wrong — it grepped one
-literal spelling on one line. This census matches both orderings.
+**369 sites — an INCOMPLETE SNAPSHOT, not a complete census.**
+
+An earlier count of 26 was wrong (one literal spelling, one line). This file
+corrected it to 369 and claimed to match "both orderings". **That claim is also
+wrong** — CodeRabbit checked it against the agents' own tag files, which report
+**119 / 95 / 123** actual sites for cognitive / codec / thinking against the
+**56 / 73 / 70** recorded here. The regex still misses multi-line and
+attribute-interleaved derives.
+
+That is the FIFTH proxy-count failure in this session, and this one was
+published as a correction to an earlier miscount — the correction inherited the
+defect it was correcting. **Do not use the Tier A/B totals below as complete.**
+They are a starting set for a per-crate audit, and the agents' tag files are the
+better source where the two disagree. Regenerating this order-insensitively is
+open work.
 
 ## The discriminator (why this is not a blanket removal)
 

@@ -204,7 +204,16 @@ impl UnifiedAuditEvent {
 // continue a chain elsewhere is `AuditChain::resume(.., last_root)`, which is
 // explicit about which root it claims. `Clone` is retained (nothing calls it
 // today) because an explicit `.clone()` is greppable; `Copy` is not.
-#[derive(Clone, Debug)]
+//
+// ⊘ CORRECTED (CodeRabbit Major, #868): that reasoning was insufficient and
+// `Clone` is now gone too. "Greppable" and "no current callers" are not
+// invariants for an EXPORTED type — a public `Clone` lets any future caller
+// fork single-writer merkle-chain state, which is the same defect `Copy` had,
+// only slower to reach. A second chain sharing a prefix is not a copy of a
+// value; it is two writers claiming one lineage. If a new chain is ever
+// legitimately needed, it must come from an explicit constructor that
+// establishes a fresh lineage, never from duplicating an existing one.
+#[derive(Debug)]
 pub struct AuditChain {
     pub super_domain: SuperDomain,
     /// Per-super-domain salt — looked up from the super-domain registry
