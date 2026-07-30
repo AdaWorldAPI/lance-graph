@@ -108,8 +108,10 @@ Both are confirmed; neither was fixed by moving a threshold.
    references landing OUT OF CELL (the operator's *"if the sentence refers to
    out of bounds meaning"*); a neighbour already in the home cell needs no band
    to reach. Out-of-cell only: **band 0.754 vs random 0.052 = 14.43×**. The null
-   validates itself — random-12 scores 5.2 %, against 12/256 = 4.7 %, the cells'
-   exact share of the codebook. **Home-cell inflation was MASKING the effect.**
+   validates itself — random-12 scores 5.2 %, against an expected 12/255 ≈ 4.71 %.
+   (255, not 256: the home cell is excluded from the out-of-cell draw. 12/256 is a
+   different quantity — the band's share of the WHOLE codebook. Both round to
+   4.7 %, which is why the conflation is easy and worth pinning.) **Home-cell inflation was MASKING the effect.**
 4. **The cover guard is now calibrated.** The same measurement against a
    deliberately coarse 2-level address (6+1 of 16 cells) yields **0.998**, which
    the guard rejects — so `0.95` demonstrably separates a prior from a cover on
