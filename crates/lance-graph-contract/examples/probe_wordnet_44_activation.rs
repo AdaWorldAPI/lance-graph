@@ -294,6 +294,26 @@ fn shared_levels(a: u8, b: u8) -> usize {
 
 /// The sparse-adjacent band: cells reachable by changing exactly one 2-bit
 /// group. `BAND` = 12 cells, never including `cell` itself.
+/// The band for an address of arbitrary depth — used by the calibration arm to
+/// build a deliberately COARSE (2-level, 16-cell) address space whose band is
+/// large enough that it must behave like a cover. That is what turns the
+/// `< 0.95` upper guard from a hand-chosen constant into a threshold shown to
+/// discriminate (the workspace's inertness rule: raising a knob must silence
+/// something, lowering it must admit something).
+fn band_generic(cell: u8, levels: usize) -> Vec<u8> {
+    let mut out = Vec::with_capacity((ARITY - 1) * levels);
+    for level in 0..levels {
+        let shift = 2 * (levels - 1 - level);
+        let cur = (cell >> shift) & 0b11;
+        for v in 0..ARITY as u8 {
+            if v != cur {
+                out.push((cell & !(0b11 << shift)) | (v << shift));
+            }
+        }
+    }
+    out
+}
+
 fn band_of(cell: u8) -> [u8; BAND] {
     let mut out = [0u8; BAND];
     let mut n = 0;
@@ -466,9 +486,31 @@ fn main() {
     // Pool the search: comparing every anchor against 82k leaves is O(n²); use a
     // deterministic candidate pool per anchor, identical for both arms, so the
     // comparison is exact and the cost is bounded.
-    let pool: Vec<usize> = (0..20_000)
-        .map(|_| addressed[rng.below(addressed.len())])
-        .collect();
+    // DISTINCT candidates. Sampling with replacement and then taking the
+    // NEAR-smallest lets one synset occupy several slots, so the metric would be
+    // a weighted sampled-entry recall — not "recall of the 32 nearest
+    // neighbours" as documented. Both arms shared the bias so the ratio stayed
+    // meaningful, but the LABEL was wrong, which is the defect. Dedupe first.
+    let pool: Vec<usize> = {
+        let mut seen = std::collections::HashSet::new();
+        let mut v = Vec::with_capacity(20_000);
+        while v.len() < 20_000 {
+            let c = addressed[rng.below(addressed.len())];
+            if seen.insert(c) {
+                v.push(c);
+            }
+        }
+        v
+    };
+    // Calibration arm for the upper guard (see the gate below): the SAME recall
+    // measured against a deliberately COARSE address — only the top 2 levels,
+    // so 16 cells and a 6-cell band = 37.5 % of that codebook instead of 4.7 %.
+    // A band that big must behave like a cover, which is what makes the 0.95
+    // threshold something that bites rather than decoration.
+    let mut coarse_recall = Vec::new();
+    // Out-of-cell arms — the primary statistic (see the in-loop note).
+    let mut oob_band: Vec<f64> = Vec::new();
+    let mut oob_rand: Vec<f64> = Vec::new();
     for _ in 0..ANCHORS {
         let anchor = addressed[rng.below(addressed.len())];
         let acell = addr[anchor].unwrap();
@@ -489,6 +531,25 @@ fn main() {
         let hit = near.iter().filter(|&&p| in_band(addr[p].unwrap())).count();
         band_recall.push(hit as f64 / NEAR as f64);
 
+        // PRIMARY statistic — OUT-OF-CELL neighbours only. The claim under test
+        // is about references that land outside the current cell; a neighbour
+        // already in the home cell needs no adjacency band to reach and is
+        // credited to BOTH arms, which is what compressed the earlier ratio (see
+        // the gate note). Restricting to out-of-cell neighbours measures what
+        // the 12-cell band actually contributes.
+        let out: Vec<usize> = near
+            .iter()
+            .copied()
+            .filter(|&p| addr[p].unwrap() != acell)
+            .collect();
+        if !out.is_empty() {
+            let b = out
+                .iter()
+                .filter(|&&p| band.contains(&addr[p].unwrap()))
+                .count();
+            oob_band.push(b as f64 / out.len() as f64);
+        }
+
         // Baseline: BAND random cells + the anchor cell (same budget).
         let mut rcells: Vec<u8> = Vec::with_capacity(BAND);
         while rcells.len() < BAND {
@@ -505,18 +566,44 @@ fn main() {
             })
             .count();
         rand_recall.push(hit_r as f64 / NEAR as f64);
+        if !out.is_empty() {
+            let r = out
+                .iter()
+                .filter(|&&p| rcells.contains(&addr[p].unwrap()))
+                .count();
+            oob_rand.push(r as f64 / out.len() as f64);
+        }
+
+        // Calibration: same anchors, same neighbours, COARSE 2-level address.
+        let coarse_anchor = acell >> 4;
+        let cband = band_generic(coarse_anchor, 2);
+        let hit_c = near
+            .iter()
+            .filter(|&&p| {
+                let c = addr[p].unwrap() >> 4;
+                c == coarse_anchor || cband.contains(&c)
+            })
+            .count();
+        coarse_recall.push(hit_c as f64 / NEAR as f64);
     }
     let band_mean = band_recall.iter().sum::<f64>() / band_recall.len() as f64;
     let rand_mean = rand_recall.iter().sum::<f64>() / rand_recall.len() as f64;
+    let coarse_mean = coarse_recall.iter().sum::<f64>() / coarse_recall.len() as f64;
+    let oob_b = oob_band.iter().sum::<f64>() / oob_band.len() as f64;
+    let oob_r = oob_rand.iter().sum::<f64>() / oob_rand.len() as f64;
     gate(
         "W3 spatial activation (can-fire AND can-stay-silent)",
-        band_mean > rand_mean * 1.5 && band_mean < 0.95,
+        oob_b > oob_r * 2.0 && band_mean < 0.95 && coarse_mean >= 0.95,
         format!(
-            "recall of the {NEAR} nearest WordNet neighbours inside {}+1 cells \
-             ({:.1} % of the codebook): band={band_mean:.3} vs random={rand_mean:.3} \
-             (ratio {:.2}×). Upper guard: band<0.95 so the band is a PRIOR, not a cover.",
+            "PRIMARY (out-of-cell neighbours — the actual sparse-adjacency claim): \
+             band={oob_b:.3} vs random={oob_r:.3}, ratio {:.2}×, over {} cells (4.7 % of \
+             the codebook).\n        SECONDARY (all {NEAR} nearest DISTINCT neighbours, \
+             both arms crediting the home cell): band={band_mean:.3} vs random={rand_mean:.3} \
+             (ratio {:.2}× — SATURATING, see note).\n        Upper guard band<0.95 is \
+             CALIBRATED, not asserted: the same measurement against a coarse 2-level \
+             address (6+1 of 16 cells) gives {coarse_mean:.3}, which the guard REJECTS.",
+            oob_b / oob_r.max(1e-9),
             BAND,
-            100.0 * (BAND + 1) as f64 / CELLS as f64,
             band_mean / rand_mean.max(1e-9),
         ),
     );

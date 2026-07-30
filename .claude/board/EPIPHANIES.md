@@ -15,7 +15,7 @@
 |---|---|
 | W1 ancestry-by-construction | corr(shared address levels, LCA depth) real **+0.494**, shuffled **−0.036** |
 | W2 monotone ladder | mean path distance **15.78 → 12.76 → 11.15 → 8.69 → 7.05** across rungs 0→4; strictly decreasing, spread **8.73 hops** |
-| W3 spatial activation | nearest-32 recall in the 12-cell band **0.855** vs random-12 **0.568** = **1.50×**, and *under* the 0.95 cover guard |
+| W3 spatial activation | **out-of-cell** neighbour recall in the 12-cell band **0.754** vs random-12 **0.052** = **14.43×**; cover guard calibrated (see correction) |
 | W4 sub-nibble structure | inside one top nibble the 16-ary router sees ONE bucket (mean 10.55); 4-ary splits it **11.15 vs 8.69** = **2.47 hops** |
 | W5 fold balance | 256/256 cells used, occupancy min 29 / median 255 / max 1270 |
 
@@ -26,6 +26,15 @@
 **Two failures on the first run are part of the finding, not noise:**
 1. **The first fold reproduced the le-contract's own warning.** Expanding each level to exactly `ARITY` roots before balancing gave one cell **15,769 leaves against a median of 20** — "lacking proper bucket rollover … saturates silently", in my own code. LPT can only isolate a giant subtree and hope the next level splits it; at the terminal level there is no next level. Fix: expand to `ARITY·24` roots so the balancer has fine-grained items. **Consequence for the substrate: a 4-ary fold of any real taxonomy needs an explicit granularity knob — the arity alone does not balance it.**
 2. **The W1 falsifier was mis-designed and the number exposed it.** A label permutation is a bijection, so same-cell pairs stay same-cell; the shuffle arm scored **+0.645** on pure cell identity while appearing to validate prefix structure. Restricting both arms to different-cell pairs collapsed it to −0.036. **A falsifier that cannot destroy the thing it tests is the vacuous-assertion pattern wearing a lab coat.**
+
+**⊘ W3 CORRECTED IN PLACE (pre-merge, codex/CodeRabbit review of #875) — the original W3 was BOTH mislabelled and arithmetically mis-specified, and the corrected result is ~10× stronger:**
+
+1. **Mislabelled metric.** The candidate pool was sampled WITH replacement and the 32 nearest taken without dedup, so one synset could occupy several slots — a weighted sampled-entry recall, not "recall of the 32 nearest neighbours". Both arms shared the bias so the *ratio* survived, but the label was false. Pool now deduped.
+2. **The twin gate could barely be satisfied.** Both arms credited the anchor's OWN cell, so same-cell neighbours inflated the baseline to 0.621 — capping the achievable ratio at 1/0.621 = **1.61** while the gate demanded > 1.5 and the cover guard demanded < 0.95. That is a **0.018-wide window**: the original 1.50× pass was luck, not evidence. After dedup it fell to 1.44× and correctly FAILED.
+3. **The fix is to measure the actual claim, not to move the bar.** Sparse adjacency is about references landing OUT OF CELL (*"if the sentence refers to out of bounds meaning"*); a neighbour already in the home cell needs no band to reach it. Restricting to out-of-cell neighbours: **band 0.754 vs random 0.052 = 14.43×**. The null validates itself — random-12 scoring 5.2 % ≈ 12/256 = 4.7 %, the cells' exact share of the codebook. **Home-cell inflation was MASKING the effect, not creating it.**
+4. **The `< 0.95` cover guard is now calibrated rather than asserted.** The same measurement against a deliberately coarse 2-level address (6+1 of 16 cells) yields **0.998**, which the guard rejects — so 0.95 demonstrably separates a prior from a cover on this data, satisfying the workspace inertness rule (a threshold that never bites is decoration).
+
+The all-neighbour figure is retained as SECONDARY and labelled saturating: 0.895 vs 0.621 = 1.44×.
 
 **Division of labour, operator-fixed same session** (*"and CLAM to calculate, that's established"* / *"alternative is using HHTL+ helix residue"*): the 4⁴ fold is the **ADDRESS** (which cell, which 12-cell band); **CLAM is the CALCULATOR and is established — do not re-derive it**; **HHTL + helix residue** (place deterministic, residue stored) is the named alternative calculator, unmeasured against CLAM. This probe's LCA walk is an **ORACLE** — scoring only, never a runtime path, exactly as tesseract-rs oracles link libtesseract to produce ground truth and never ship. Nothing here should be read as "the substrate computes distance by walking to an LCA." The address says WHERE to look; CLAM computes. The fork matters *because* of W4: a finer address makes more of the answer deterministic-place and less of it stored-residue, so 2.47 hops is precisely the granularity a residue would no longer carry — **hypothesis, not result**; the head-to-head (`PROBE-CLAM-VS-HELIX-RESIDUE`) is queued.
 

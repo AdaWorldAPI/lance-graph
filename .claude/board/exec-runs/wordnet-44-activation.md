@@ -36,7 +36,7 @@ anything the shipped 16-ary `NiblePath` cannot express?**
 |---|---|
 | W1 ancestry-by-construction (shuffle falsifier) | real **+0.4938**, shuffled **−0.0356** |
 | W2 monotone ladder | 15.78 → 12.76 → 11.15 → 8.69 → 7.05; strictly decreasing, spread **8.73 hops** |
-| W3 spatial activation (twin-tested) | band **0.855** vs random **0.568** = **1.50×**, under the 0.95 cover guard |
+| W3 spatial activation (twin-tested) | **out-of-cell** band **0.754** vs random **0.052** = **14.43×**; cover guard calibrated at 0.998 (see § W3 correction below) |
 | W4 sub-nibble structure | nibble sees ONE bucket (10.55); 4-ary splits 11.15 vs 8.69 = **2.47 hops** |
 | W5 fold balance | 256/256 cells, occupancy 29 / 255 / 1270 (min/median/max) |
 
@@ -88,6 +88,38 @@ arbitrary. Now prints nearest-by-path plus the best out-of-band distance.
 - **4-ary measured BETTER, not CHEAPER.** No traversal-cost benchmark ran.
   `RouteAction`'s four variants (Skip/Attend/Compose/Escalate = 2 bits) matching
   a rung's width is an observed consonance, NOT a wired mechanism.
+
+## W3 correction (pre-merge, from the #875 review) — two defects, and the fixed result is ~10× stronger
+
+Review found the metric mislabelled and the gate arithmetically mis-specified.
+Both are confirmed; neither was fixed by moving a threshold.
+
+1. **Mislabelled.** The candidate pool was sampled WITH replacement and the
+   nearest 32 taken without dedup, so one synset could fill several slots —
+   a weighted sampled-entry recall, not "recall of the 32 nearest neighbours".
+   Both arms shared the bias so the ratio survived, but the LABEL was false.
+   Pool is now deduplicated.
+2. **The twin gate left a 0.018-wide window.** Both arms credited the anchor's
+   OWN cell, inflating the baseline to 0.621 — which caps the achievable ratio
+   at `1/0.621 = 1.61` while the fire-half demanded `> 1.5` and the cover guard
+   demanded `< 0.95`. Passing that the first time was luck. After dedup it read
+   1.44× and correctly FAILED.
+3. **Fix = measure the claim, not lower the bar.** Sparse adjacency is about
+   references landing OUT OF CELL (the operator's *"if the sentence refers to
+   out of bounds meaning"*); a neighbour already in the home cell needs no band
+   to reach. Out-of-cell only: **band 0.754 vs random 0.052 = 14.43×**. The null
+   validates itself — random-12 scores 5.2 %, against 12/256 = 4.7 %, the cells'
+   exact share of the codebook. **Home-cell inflation was MASKING the effect.**
+4. **The cover guard is now calibrated.** The same measurement against a
+   deliberately coarse 2-level address (6+1 of 16 cells) yields **0.998**, which
+   the guard rejects — so `0.95` demonstrably separates a prior from a cover on
+   this data. Satisfies the inertness rule: a threshold that never bites is
+   decoration.
+
+All-neighbour figure retained as SECONDARY and labelled saturating (0.895 vs
+0.621 = 1.44×). **Lesson for the next twin gate: check that the two halves are
+mutually satisfiable by more than a hair BEFORE running — compute the maximum
+achievable value of the fire statistic under the silent guard.**
 
 ## Division of labour — ADDRESS vs CALCULATOR vs ORACLE (operator, 2026-07-30)
 
