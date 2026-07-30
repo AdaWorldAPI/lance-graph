@@ -25,19 +25,39 @@
 //!
 //! Both resolvers read the same tagger-level token features (POS, number,
 //! animacy, clause boundaries, relative spans, complementizers). Gold
-//! annotations exist ONLY in the assert arms — neither resolver sees them,
-//! which is exactly the honesty gap W6 left open.
+//! annotations are TYPE-SEPARATED from resolver input (CodeRabbit hardening on
+//! this PR): fixtures return `(Vec<Tok>, gold pairs)`, and `Tok` carries no
+//! gold field at all — a future `toks[p].gold` shortcut is a compile error,
+//! not a convention. This closes the honesty gap W6 left open structurally.
 //!
-//! **The adversarial text is Gen 3:1**, where the relative clause *"which the
-//! LORD God had made"* interposes between `serpent` and `he`: recency finds
-//! `god` at in-window distance −4 (wrong); binding finds `serpent` at −17 —
-//! **outside the ±8 chip range, so the binder ESCALATES rather than store
-//! anything**. The chip's refusal is the load-bearing act: the cheap resolver
-//! would have happily stored a well-formed, in-range, WRONG nibble. Gen 3:7
-//! supplies the stay-silent half (both resolvers agree on both `they`s) plus
-//! the chip-composition payoff: inner `they`@12 → matrix `they`@9 → `them`@4
-//! resolves by following two stored nibbles — the chips COMPOSE, each carrying
-//! its local warrant, never a cached far verdict.
+//! **Three fixtures, three roles** (the third added after codex's P1 on this
+//! PR, which caught that the original two left the pull-test's stored state
+//! heuristic-reconstructible):
+//!
+//! - **Gen 3:1** — the refusal text: recency finds `god` at in-window distance
+//!   −4 (wrong); binding finds `serpent` at −17 — **outside the ±8 chip range,
+//!   so the binder ESCALATES rather than store anything**. The refusal is a
+//!   choice, not a range limitation: B2 proves the binder ACCEPTS the tempting
+//!   wrong target on scratch rows.
+//! - **A constructed in-range interposition** (*"the man which the boy saw
+//!   slept, and he smiled"* — built English, labelled as such, not KJV): both
+//!   answers are in-window, they DIVERGE (recency → `boy`@−4 wrong, binding →
+//!   `man`@−7 gold), and the structural answer BINDS — so the stored nibble
+//!   itself differs from what recency would reconstruct. This is the chip that
+//!   carries bits the cheap algorithm cannot recompute, IN STORED STATE.
+//! - **Gen 3:7** — the stay-silent half (both resolvers agree on both `they`s)
+//!   plus the chip-composition payoff: inner `they`@12 → matrix `they`@9 →
+//!   `them`@4 resolves by following two stored nibbles — chips COMPOSE, each
+//!   carrying its local warrant, never a cached far verdict.
+//!
+//! **Honesty note on the relative span (codex P2 on this PR):** in head-first
+//! English the subject precedes its relative clause, so forward subject
+//! selection excludes `god` by ORDER — the `!in_relative` filter is redundant
+//! for these fixtures' subject picks. What actually bears load on 3:1 is
+//! CLAUSE SEGMENTATION (delete the `and` boundary and resolution fails
+//! entirely — asserted as a counterfactual test), and the span filter's
+//! discriminative power is proven on a synthetic clause where order does NOT
+//! protect it (`relative_span_filter_can_fire`).
 //!
 //! Escalation is side-band (a record, not row state): a `0` nibble alone reads
 //! as *unbound*, indistinguishable from never-attempted — same honest boundary
@@ -64,7 +84,9 @@ enum Pos {
 }
 
 /// One fixture token: surface features only (what a POS tagger + chunker
-/// emits). `gold` is the referee's answer — read ONLY by assert arms.
+/// emits). **Deliberately contains NO gold field** — the referee's answers
+/// live in the separate gold list a fixture returns, so the resolvers (which
+/// receive only `&[Tok]`) cannot reach them even by a future shortcut.
 struct Tok {
     label: &'static str,
     pos: Pos,
@@ -77,8 +99,15 @@ struct Tok {
     new_main: bool,
     /// Token is a complementizer ("that") introducing a complement clause.
     comp: bool,
-    /// Referee annotation for pronouns: the correct antecedent position.
-    gold: Option<usize>,
+}
+
+/// The referee's answer sheet: `(pronoun_pos, gold_antecedent_pos)` pairs.
+/// Read ONLY by assert arms; never passed to a resolver.
+type Gold = Vec<(usize, usize)>;
+
+/// Look up the gold antecedent for a pronoun position.
+fn gold_of(gold: &Gold, p: usize) -> Option<usize> {
+    gold.iter().find(|&&(q, _)| q == p).map(|&(_, t)| t)
 }
 
 impl Tok {
@@ -91,7 +120,6 @@ impl Tok {
             in_relative: false,
             new_main: false,
             comp: false,
-            gold: None,
         }
     }
     fn noun(label: &'static str, plural: bool, animate: bool) -> Self {
@@ -102,12 +130,11 @@ impl Tok {
             ..Tok::t(label)
         }
     }
-    fn pron(label: &'static str, plural: bool, gold: usize) -> Self {
+    fn pron(label: &'static str, plural: bool) -> Self {
         Tok {
             pos: Pos::Pron,
             plural,
             animate: true,
-            gold: Some(gold),
             ..Tok::t(label)
         }
     }
@@ -135,9 +162,10 @@ impl Tok {
 
 /// Gen 3:1 (KJV, lowercased, trimmed): *"now the serpent was more subtil than
 /// any beast of the field which the LORD God had made: and he said unto the
-/// woman"*. The relative span covers "which … made". Gold: `he`@19 → serpent@2.
-fn genesis_3_1() -> Vec<Tok> {
-    vec![
+/// woman"*. The relative span covers "which … made". Gold (returned separately,
+/// never inside `Tok`): `he`@19 → serpent@2.
+fn genesis_3_1() -> (Vec<Tok>, Gold) {
+    let toks = vec![
         Tok::t("now"),                       // 0
         Tok::t("the"),                       // 1
         Tok::noun("serpent", false, true),   // 2
@@ -157,20 +185,22 @@ fn genesis_3_1() -> Vec<Tok> {
         Tok::t("had").rel(),                 // 16
         Tok::verb("made", false).rel(),      // 17
         Tok::conj("and"),                    // 18
-        Tok::pron("he", false, 2),           // 19 → serpent@2 (d = -17)
+        Tok::pron("he", false),              // 19 → serpent@2 (d = -17)
         Tok::verb("said", true),             // 20
         Tok::t("unto"),                      // 21
         Tok::t("the"),                       // 22
         Tok::noun("woman", false, true),     // 23
-    ]
+    ];
+    (toks, vec![(19, 2)])
 }
 
 /// Gen 3:7 (KJV, lowercased, trimmed): *"and the eyes of them both were
-/// opened, and they knew that they were naked"*. Gold: matrix `they`@9 →
-/// `them`@4 (the pair, not the eyes); inner `they`@12 → matrix `they`@9 (the
-/// reflexive signature — knower == overt inner subject).
-fn genesis_3_7() -> Vec<Tok> {
-    vec![
+/// opened, and they knew that they were naked"*. Gold (returned separately,
+/// never inside `Tok`): matrix `they`@9 → `them`@4 (the pair, not the eyes);
+/// inner `they`@12 → matrix `they`@9 (the reflexive signature — knower ==
+/// overt inner subject).
+fn genesis_3_7() -> (Vec<Tok>, Gold) {
+    let toks = vec![
         Tok::t("and"),                  // 0
         Tok::t("the"),                  // 1
         Tok::noun("eyes", true, false), // 2  (plural, inanimate)
@@ -180,16 +210,39 @@ fn genesis_3_7() -> Vec<Tok> {
         Tok::verb("were", false),       // 6
         Tok::verb("opened", false),     // 7
         Tok::conj("and"),               // 8
-        Tok::pron("they", true, 4),     // 9  → them@4 (d = -5)
+        Tok::pron("they", true),        // 9  → them@4 (d = -5)
         Tok::verb("knew", true),        // 10 (knowing requires an animate subject)
         Tok {
             comp: true,
             ..Tok::t("that")
         }, // 11
-        Tok::pron("they", true, 9),     // 12 → matrix they@9 (d = -3)
+        Tok::pron("they", true),        // 12 → matrix they@9 (d = -3)
         Tok::verb("were", false),       // 13
         Tok::t("naked"),                // 14
-    ]
+    ];
+    (toks, vec![(9, 4), (12, 9)])
+}
+
+/// A constructed in-range interposition (built English, NOT KJV — labelled
+/// honestly): *"the man which the boy saw slept, and he smiled"*. Added for
+/// codex's P1: both resolvers' answers are in-window and DIVERGE — recency →
+/// `boy`@4 (d = −4, wrong), binding → `man`@1 (d = −7, gold) — and the
+/// structural answer BINDS, so the STORED nibble itself differs from what
+/// recency would reconstruct.
+fn interposed_in_range() -> (Vec<Tok>, Gold) {
+    let toks = vec![
+        Tok::t("the"),                       // 0
+        Tok::noun("man", false, true),       // 1
+        Tok::t("which").rel(),               // 2
+        Tok::t("the").rel(),                 // 3
+        Tok::noun("boy", false, true).rel(), // 4
+        Tok::verb("saw", true).rel(),        // 5
+        Tok::verb("slept", true),            // 6
+        Tok::conj("and"),                    // 7
+        Tok::pron("he", false),              // 8 → man@1 (d = -7)
+        Tok::verb("smiled", true),           // 9
+    ];
+    (toks, vec![(8, 1)])
 }
 
 /// The cheap baseline: nearest preceding number-agreeing referential token.
@@ -275,7 +328,7 @@ fn main() {
     };
 
     // ── Fixture A: Gen 3:1 — the divergence text ─────────────────────────────
-    let a = genesis_3_1();
+    let (a, gold_a) = genesis_3_1();
     let he = 19;
     let h_a = heuristic_resolve(&a, he);
     let s_a = structural_resolve(&a, he);
@@ -284,7 +337,7 @@ fn main() {
     // binding. Falsifier: agreement, or the heuristic being right.
     gate(
         "B1 divergence",
-        h_a == Some(15) && s_a == Some(2) && a[he].gold == Some(2) && h_a != s_a,
+        h_a == Some(15) && s_a == Some(2) && gold_of(&gold_a, he) == Some(2) && h_a != s_a,
         format!(
             "heuristic(he@19) = {:?} ({}), binding = {:?} ({}), gold = serpent@2",
             h_a,
@@ -294,25 +347,34 @@ fn main() {
         ),
     );
 
-    // B2 — the temptation is real, and the chip refuses it. The heuristic's
-    // wrong answer FITS the ±8 window (d = -4, storable); the structural
-    // answer does not (d = -17) — so the binder must escalate, leaving the
-    // nibble unbound rather than storing either a clamped or a cheap value.
+    // B2 — the temptation is real, and the chip refuses it. Proven at the
+    // BINDER, not by re-deriving its range predicate (CodeRabbit hardening):
+    // binding the heuristic's target into scratch rows must SUCCEED — the
+    // binder accepts and stores the wrong-but-in-window nibble (-4) — while
+    // binding the structural answer (d = -17) must escalate, leaving the real
+    // rows unbound. The chip's refusal is a choice, not a range limitation.
+    let mut rows_tempted = fresh_rows(a.len());
+    let tempted = bind(&mut rows_tempted, he, h_a.unwrap());
+    let tempted_nibble = WitnessLens::new(&rows_tempted)
+        .at(he)
+        .map(|f| f.at(Locus::Antecedent));
     let mut rows_a = fresh_rows(a.len());
-    let heuristic_d = 15_isize - he as isize;
     let bound = bind(&mut rows_a, he, s_a.unwrap());
     let lens_a = WitnessLens::new(&rows_a);
     let nibble = lens_a.at(he).map(|f| f.at(Locus::Antecedent));
     gate(
         "B2 escalate-not-clamp",
-        (-8..=7).contains(&heuristic_d) && bound == Err(-17) && nibble == Some(0),
+        tempted == Ok(-4)
+            && tempted_nibble == Some(-4)
+            && bound == Err(-17)
+            && nibble == Some(0),
         format!(
-            "heuristic d={heuristic_d} (in-window, storable-but-wrong), binding d=-17 → escalated, nibble={nibble:?}"
+            "binder ACCEPTS the heuristic's wrong target ({tempted:?}, nibble {tempted_nibble:?} on scratch rows) — storable-but-wrong is real; binding d=-17 → escalated, nibble={nibble:?}"
         ),
     );
 
     // ── Fixture B: Gen 3:7 — the stay-silent text + chip composition ─────────
-    let b = genesis_3_7();
+    let (b, gold_b) = genesis_3_7();
     let (matrix, inner) = (9, 12);
     let mut rows_b = fresh_rows(b.len());
     let mut agree = true;
@@ -320,7 +382,7 @@ fn main() {
     for &p in &[matrix, inner] {
         let h = heuristic_resolve(&b, p);
         let s = structural_resolve(&b, p);
-        agree &= h == s && s == b[p].gold;
+        agree &= h == s && s == gold_of(&gold_b, p);
         if let Some(t) = s {
             if let Ok(d) = bind(&mut rows_b, p, t) {
                 displacements.push(d);
@@ -338,12 +400,43 @@ fn main() {
         format!("both they@9/they@12 agree across resolvers; chips = {displacements:?}"),
     );
 
-    // B4 — the pull-test, both directions. WITH chips: the inner pronoun's
-    // ultimate referent resolves by following two stored nibbles
-    // (they@12 → they@9 → them@4) — each chip a local warrant, composed, no
-    // far verdict cached anywhere. WITHOUT chips (heuristic-only
-    // reconstruction over both fixtures): Gen 3:7 survives, Gen 3:1 comes
-    // back wrong — the chip carried exactly the bits recency cannot recompute.
+    // ── Fixture C: constructed in-range interposition — the divergent CHIP ───
+    // (codex P1 on this PR: with only fixtures A and B, every STORED chip came
+    // from the agreeing verse, so stored state was heuristic-reconstructible
+    // and the pull-test could not establish its central claim.)
+    let (c, gold_c) = interposed_in_range();
+    let hep = 8;
+    let h_c = heuristic_resolve(&c, hep);
+    let s_c = structural_resolve(&c, hep);
+    let mut rows_c = fresh_rows(c.len());
+    let chip_c = bind(&mut rows_c, hep, s_c.unwrap());
+    let stored_c = WitnessLens::new(&rows_c)
+        .at(hep)
+        .map(|f| f.at(Locus::Antecedent));
+    let heuristic_offset = h_c.map(|t| t as i8 - hep as i8);
+
+    // B4 — the pull-test on a DIVERGENT stored chip: both answers in-window,
+    // resolvers disagree, gold sides with binding, and the STORED nibble (-7)
+    // differs from what recency would reconstruct (-4). Pull this chip and the
+    // cheap resolver rebuilds the WRONG antecedent — the stored state itself
+    // carries bits no better cheap algorithm recomputes.
+    gate(
+        "B4 divergent chip",
+        h_c == Some(4)
+            && s_c == Some(1)
+            && gold_of(&gold_c, hep) == Some(1)
+            && chip_c == Ok(-7)
+            && stored_c == Some(-7)
+            && heuristic_offset == Some(-4)
+            && stored_c != heuristic_offset,
+        format!(
+            "recency → boy@4 (would store {heuristic_offset:?}), binding → man@1; STORED nibble {stored_c:?} ≠ heuristic reconstruction — divergence lives in stored state"
+        ),
+    );
+
+    // B5 — chips COMPOSE: the inner pronoun's ultimate referent resolves by
+    // following two stored nibbles (they@12 → they@9 → them@4) — each chip a
+    // local warrant, no far verdict cached anywhere.
     let lens_b = WitnessLens::new(&rows_b);
     let hop1 = lens_b
         .at(inner)
@@ -353,14 +446,10 @@ fn main() {
             .at(p)
             .and_then(|f| f.resolves_to(Locus::Antecedent, p, lens_b.len()))
     });
-    let heuristic_wrong_somewhere = heuristic_resolve(&a, he) != a[he].gold;
     gate(
-        "B4 pull-test",
-        hop1 == Some(matrix) && hop2 == Some(4) && heuristic_wrong_somewhere,
-        format!(
-            "chip chain they@12 → {:?} → {:?} (gold them@4); heuristic-only reconstruction fails on 3:1",
-            hop1, hop2
-        ),
+        "B5 chips compose",
+        hop1 == Some(matrix) && hop2 == Some(4),
+        format!("chip chain they@12 → {hop1:?} → {hop2:?} (gold them@4) — two local warrants"),
     );
 
     println!();
@@ -379,15 +468,15 @@ mod tests {
     /// The probe's own gates, runnable under `cargo test --example`.
     #[test]
     fn divergence_fires_on_3_1_and_stays_silent_on_3_7() {
-        let a = genesis_3_1();
+        let (a, gold_a) = genesis_3_1();
         assert_eq!(heuristic_resolve(&a, 19), Some(15), "recency finds god");
         assert_eq!(structural_resolve(&a, 19), Some(2), "binding finds serpent");
-        assert_eq!(a[19].gold, Some(2));
+        assert_eq!(gold_of(&gold_a, 19), Some(2));
 
-        let b = genesis_3_7();
+        let (b, gold_b) = genesis_3_7();
         for p in [9, 12] {
             assert_eq!(heuristic_resolve(&b, p), structural_resolve(&b, p));
-            assert_eq!(structural_resolve(&b, p), b[p].gold);
+            assert_eq!(structural_resolve(&b, p), gold_of(&gold_b, p));
         }
     }
 
@@ -396,36 +485,107 @@ mod tests {
     /// previous clause's subject verbatim — `eyes`@2, which is wrong.
     #[test]
     fn animacy_check_is_load_bearing() {
-        let b = genesis_3_7();
+        let (b, gold_b) = genesis_3_7();
         let k = clause_of(&b, 9);
         let bare_r2 = subject_of_clause(&b, k - 1);
         assert_eq!(bare_r2, Some(2), "bare subject-continuity picks eyes@2");
-        assert_ne!(bare_r2, b[9].gold, "…which is NOT the gold answer");
-        assert_eq!(structural_resolve(&b, 9), b[9].gold, "the check repairs it");
+        assert_ne!(
+            bare_r2,
+            gold_of(&gold_b, 9),
+            "…which is NOT the gold answer"
+        );
+        assert_eq!(
+            structural_resolve(&b, 9),
+            gold_of(&gold_b, 9),
+            "the check repairs it"
+        );
     }
 
-    /// The relative-clause skip must be load-bearing on 3:1: if `god`@15
-    /// counted as a main-clause subject, R2 would bind it. The fixture pins
-    /// that `god` is inside the relative span and the clause-0 subject is
-    /// `serpent`.
+    /// What ACTUALLY bears load on 3:1 is clause segmentation, not the span
+    /// filter (codex P2: in head-first English `serpent`@2 precedes `god`@15,
+    /// so subject selection excludes `god` by ORDER — clearing `in_relative`
+    /// changes nothing on this fixture). The honest counterfactual: delete the
+    /// clause boundary and structural resolution FAILS entirely.
     #[test]
-    fn relative_span_skip_is_load_bearing() {
-        let a = genesis_3_1();
-        assert!(a[15].in_relative, "god sits inside the relative clause");
+    fn clause_segmentation_is_load_bearing() {
+        let (mut a, gold_a) = genesis_3_1();
+        assert_eq!(structural_resolve(&a, 19), gold_of(&gold_a, 19));
+        a[18].new_main = false; // erase the "and" boundary
         assert_eq!(
-            subject_of_clause(&a, 0),
-            Some(2),
-            "clause-0 subject = serpent"
+            structural_resolve(&a, 19),
+            None,
+            "without segmentation the resolver has no previous clause to bind"
+        );
+        assert_ne!(None, gold_of(&gold_a, 19), "…and gold still exists");
+    }
+
+    /// The span filter's discriminative power, proven where ORDER does not
+    /// protect it: a synthetic clause whose FIRST candidate sits inside a
+    /// relative span. With the filter the subject is the second candidate;
+    /// the unfiltered first-candidate pick differs. Can-fire, non-vacuous.
+    #[test]
+    fn relative_span_filter_can_fire() {
+        let toks = vec![
+            Tok::noun("ghost", false, true).rel(), // 0 — in-relative candidate FIRST
+            Tok::noun("host", false, true),        // 1 — the real subject
+        ];
+        let filtered = subject_of_clause(&toks, 0);
+        let unfiltered =
+            (0..toks.len()).find(|&i| clause_of(&toks, i) == 0 && toks[i].is_candidate());
+        assert_eq!(filtered, Some(1), "filter skips the in-relative candidate");
+        assert_eq!(unfiltered, Some(0), "without it, the wrong token wins");
+        assert_ne!(filtered, unfiltered, "the filter changes the outcome");
+    }
+
+    /// codex P1's demanded artifact: a DIVERGENT chip in stored state. The
+    /// in-range interposition binds -7 while recency would reconstruct -4 —
+    /// the stored nibble itself differs from the cheap reconstruction.
+    #[test]
+    fn divergent_chip_differs_from_heuristic_reconstruction() {
+        let (c, gold_c) = interposed_in_range();
+        let h = heuristic_resolve(&c, 8);
+        let s = structural_resolve(&c, 8);
+        assert_eq!(h, Some(4), "recency finds boy (wrong)");
+        assert_eq!(s, Some(1), "binding finds man (gold)");
+        assert_eq!(s, gold_of(&gold_c, 8));
+
+        let mut rows = fresh_rows(c.len());
+        assert_eq!(bind(&mut rows, 8, s.unwrap()), Ok(-7));
+        let stored = WitnessLens::new(&rows)
+            .at(8)
+            .map(|f| f.at(Locus::Antecedent));
+        assert_eq!(stored, Some(-7));
+        let heuristic_reconstruction = h.map(|t| t as i8 - 8);
+        assert_ne!(
+            stored, heuristic_reconstruction,
+            "the stored bit is exactly what recency cannot recompute"
         );
     }
 
     /// Out-of-window escalation leaves the nibble unbound — never a clamp.
     #[test]
     fn escalation_leaves_nibble_unbound() {
-        let a = genesis_3_1();
+        let (a, _) = genesis_3_1();
         let mut rows = fresh_rows(a.len());
         assert_eq!(bind(&mut rows, 19, 2), Err(-17));
         let lens = WitnessLens::new(&rows);
         assert_eq!(lens.at(19).map(|f| f.at(Locus::Antecedent)), Some(0));
+    }
+
+    /// The binder ACCEPTS the heuristic's wrong-but-in-window target — the
+    /// "storable-but-wrong" half of B2 proven at the binder itself, not by
+    /// re-deriving its range predicate in the gate.
+    #[test]
+    fn binder_accepts_the_tempting_wrong_target() {
+        let (a, gold_a) = genesis_3_1();
+        let mut rows = fresh_rows(a.len());
+        assert_eq!(bind(&mut rows, 19, 15), Ok(-4), "god@15 binds cleanly");
+        let lens = WitnessLens::new(&rows);
+        assert_eq!(lens.at(19).map(|f| f.at(Locus::Antecedent)), Some(-4));
+        assert_ne!(
+            Some(15),
+            gold_of(&gold_a, 19),
+            "…and it is the WRONG target"
+        );
     }
 }

@@ -67,3 +67,51 @@ thinking. Mechanical form: the pull-test.
   binder shape retires both.
 - `PROBE-RUNG-ELIGIBILITY` (CONJECTURE row in `zero-copy-lens-law.md`): the
   pull-test is now its defined pass/fail; run per locus.
+
+## Post-review hardening (codex 2 findings + CodeRabbit 7 comments, same PR)
+
+- **Gold type-separated (codex #1, CodeRabbit ×3):** `Tok` no longer carries a
+  `gold` field; fixtures return `(Vec<Tok>, Gold)` where `Gold` is a separate
+  `(pronoun_pos, antecedent_pos)` list read only by assert arms. A future
+  `toks[p].gold` shortcut is now a COMPILE ERROR — closed by type, not
+  convention (strictly stronger than the suggested invariance test).
+- **B2 exercises the binder (codex #2, CodeRabbit ×2):** the heuristic's wrong
+  target is bound into scratch rows; the gate asserts `Ok(-4)` AND stored
+  nibble `-4` — "storable-but-wrong" proven at the binder, not by re-deriving
+  its range predicate. New unit test `binder_accepts_the_tempting_wrong_target`.
+- **Relative-span test was VACUOUS (codex P2, CodeRabbit Major):** confirmed —
+  `subject_of_clause` scans forward and English is head-first, so `serpent`@2
+  wins with or without the filter; the old "load-bearing" claim was false for
+  this rule. Replaced with the honest pair:
+  `clause_segmentation_is_load_bearing` (erase the `and` boundary →
+  resolution FAILS — the true 3:1 counterfactual) and
+  `relative_span_filter_can_fire` (synthetic clause where the first candidate
+  is in-relative — filter changes the outcome, asserted against the
+  unfiltered pick). The earlier claim in this file's "Fixture honesty" section
+  is superseded by this addendum.
+- **Pull-test had no divergent STORED chip (codex P1):** confirmed — 3:1
+  escalates (no chip) and 3:7's chips match the heuristic, so stored state was
+  entirely heuristic-reconstructible. Added the constructed in-range
+  interposition fixture ("the man which the boy saw slept, and he smiled",
+  labelled built-English, not KJV): recency → boy (d=−4), binding → man
+  (d=−7, gold, BINDS). New gate B4 asserts the STORED nibble (−7) differs
+  from the heuristic reconstruction (−4); old composition gate renumbered B5.
+  New unit test `divergent_chip_differs_from_heuristic_reconstruction`.
+- **EPIPHANIES wording (CodeRabbit Minor):** "chip stores the verified answer"
+  → "stores the POINTER the verification selected; the answer is recomputed
+  through it" — pointer-not-answer kept consistent.
+- **Declined, with reasons:** workspace-wide `cargo fmt --all` / `clippy
+  --all-targets --all-features` (repo practice is scoped `-p` runs — a
+  workspace-wide sweep would touch unrelated crates/files and the
+  all-features build is the known `TD-LANCE-GRAPH-ALL-FEATURES-DELTA-BREAK`
+  surface); methods-on-carrier nitpick (the carrier litmus targets cognitive
+  state carriers, not probe fixtures — two flat resolver functions keep the
+  falsifier legible; noted, not a doctrine violation).
+- **Operator ruling landed mid-review** (see
+  `E-64K-THOUGHTS-DONT-DO-QUORUM-PLASTICITY-BREATHES-FROM-TENSION-1`): the
+  quorum-binder follow-on this file proposed is WITHDRAWN — 64k thoughts
+  don't do quorum; plasticity does that work; contradictions are fuel.
+  `TD-LENS-QUORUM` survives as scan-cost debt only.
+
+Re-verified after all changes: 5 gates green (B1–B5), 7 unit tests green,
+clippy `-D warnings` clean, fmt clean.
