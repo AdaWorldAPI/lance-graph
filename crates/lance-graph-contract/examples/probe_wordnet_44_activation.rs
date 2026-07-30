@@ -57,21 +57,33 @@
 //!   profile (address distance carrying no semantic signal).
 //! - **W3 spatial activation** — for an anchor concept, do its 12 ancestry-
 //!   adjacent cells actually hold its semantic neighbours?
-//!   - **PRIMARY statistic: OUT-OF-CELL recall.** Among the anchor's nearest
-//!     WordNet neighbours that fall OUTSIDE its home cell, what fraction land in
-//!     the 12-cell band, vs 12 distinct random cells? Out-of-cell is the claim:
-//!     a neighbour already in the home cell needs no adjacency band to reach it.
-//!     The null is self-checking — a random 12 of the remaining 255 cells should
-//!     score ≈ 12/255 ≈ 4.7 %.
+//!   - **PRIMARY statistic: OUT-OF-CELL recall, scored over the FULL corpus.**
+//!     Among the anchor's nearest WordNet neighbours that fall OUTSIDE its home
+//!     cell, what fraction land in the 12-cell band, vs 12 distinct random
+//!     cells? Out-of-cell is the claim: a neighbour already in the home cell
+//!     needs no adjacency band to reach it. Every addressed leaf is a candidate
+//!     — an earlier version scored against a 20,000 of 65,292 sample, where an
+//!     omitted leaf could be strictly closer than any sampled one, so the result
+//!     characterised the sample rather than the corpus. The null is
+//!     self-checking: a random 12 of the remaining 255 cells should score
+//!     ≈ 12/255 ≈ 4.7 %.
 //!   - **SECONDARY, retained as a saturating diagnostic:** recall over ALL 32
 //!     nearest distinct neighbours, where both arms credit the home cell. This
 //!     was the original primary and it is the WRONG statistic — home-cell hits
 //!     inflate the baseline to ≈0.62, capping the achievable ratio near 1.6 and
 //!     MASKING the effect. Kept only so the two are comparable in the record.
-//!   - Twin-tested per the can-it-fire/can-it-stay-silent rule: the band must
-//!     beat random (fire) AND must not be a cover (silent). The cover guard is
-//!     CALIBRATED, not asserted — a deliberately coarse 2-level address (6+1 of
-//!     16 cells) is measured alongside and must be REJECTED by it.
+//!   - Twin-tested per the can-it-fire/can-it-stay-silent rule, with BOTH halves
+//!     on the same statistic and the same basis: **fire** = band ≫ random;
+//!     **stay-silent** = the identical machinery aimed at RANDOM cells must be
+//!     inert (≈ the 12/255 null). Wrong cells, nothing found.
+//!   - **A cover guard (`primary < 0.95`) was tried and DROPPED as inert.**
+//!     Measured like-for-like, a deliberately coarse 2-level address scores
+//!     0.840 on the out-of-cell basis — so 0.95 separated nothing, and only the
+//!     degenerate band-is-the-whole-codebook case would trip it. It is also
+//!     structurally unnecessary here: a band fixed at 4.7 % of the codebook with
+//!     no home-cell credit cannot be secretly dense. The guard mattered only for
+//!     the secondary statistic, where home-cell hits saturate. Keeping an inert
+//!     threshold is decoration, which the workspace's inertness rule forbids.
 //!   - **Specification check that this gate failed once:** before running a twin
 //!     gate, compute the maximum achievable value of the fire statistic *under*
 //!     the silent guard. Here that was 1/0.62 ≈ 1.61 against a `>1.5` fire bar
@@ -501,22 +513,20 @@ fn main() {
     // Pool the search: comparing every anchor against 82k leaves is O(n²); use a
     // deterministic candidate pool per anchor, identical for both arms, so the
     // comparison is exact and the cost is bounded.
-    // DISTINCT candidates. Sampling with replacement and then taking the
-    // NEAR-smallest lets one synset occupy several slots, so the metric would be
-    // a weighted sampled-entry recall — not "recall of the 32 nearest
-    // neighbours" as documented. Both arms shared the bias so the ratio stayed
-    // meaningful, but the LABEL was wrong, which is the defect. Dedupe first.
-    let pool: Vec<usize> = {
-        let mut seen = std::collections::HashSet::new();
-        let mut v = Vec::with_capacity(20_000);
-        while v.len() < 20_000 {
-            let c = addressed[rng.below(addressed.len())];
-            if seen.insert(c) {
-                v.push(c);
-            }
-        }
-        v
-    };
+    // FULL CORPUS — every addressed leaf is a candidate, so "the 32 nearest
+    // WordNet neighbours" means exactly that.
+    //
+    // Two earlier versions were wrong here and both were caught in review. The
+    // first sampled 20,000 candidates WITH REPLACEMENT and took the 32 smallest,
+    // so one synset could fill several slots (a weighted sampled-entry recall).
+    // Deduping fixed the double-counting but left the deeper problem: a 20,000
+    // of 65,292 sample (31 %) means an omitted leaf can be strictly closer than
+    // every sampled one, moving both the distance cutoff and which cells the
+    // neighbours sit in — so the result characterised the sample, not the
+    // corpus. Scoring all 65,292 (≈20 M tree walks, seconds in release) removes
+    // the caveat rather than documenting it, and makes dedup moot: `addressed`
+    // is distinct by construction.
+    let pool: &[usize] = &addressed;
     // Calibration arm for the upper guard (see the gate below): the SAME recall
     // measured against a deliberately COARSE address — only the top 2 levels,
     // so 16 cells and a 6-cell band = 37.5 % of that codebook instead of 4.7 %.
@@ -589,17 +599,27 @@ fn main() {
             oob_rand.push(r as f64 / out.len() as f64);
         }
 
-        // Calibration: same anchors, same neighbours, COARSE 2-level address.
+        // Calibration arm for the cover guard — SAME anchors, SAME neighbours,
+        // SAME out-of-cell basis as the primary, differing ONLY in address
+        // granularity (coarse 2-level: a 6-cell band over 16 cells). Both halves
+        // of the twin gate must measure the same quantity or the gate is
+        // incoherent — the mistake this probe already made once, when the fire
+        // half moved to out-of-cell recall and the guard stayed on the
+        // all-neighbour statistic that had just been declared the wrong one.
         let coarse_anchor = acell >> 4;
         let cband = band_generic(coarse_anchor, 2);
-        let hit_c = near
+        let c_out: Vec<usize> = near
             .iter()
-            .filter(|&&p| {
-                let c = addr[p].unwrap() >> 4;
-                c == coarse_anchor || cband.contains(&c)
-            })
-            .count();
-        coarse_recall.push(hit_c as f64 / NEAR as f64);
+            .copied()
+            .filter(|&p| addr[p].unwrap() >> 4 != coarse_anchor)
+            .collect();
+        if !c_out.is_empty() {
+            let hit_c = c_out
+                .iter()
+                .filter(|&&p| cband.contains(&(addr[p].unwrap() >> 4)))
+                .count();
+            coarse_recall.push(hit_c as f64 / c_out.len() as f64);
+        }
     }
     let band_mean = band_recall.iter().sum::<f64>() / band_recall.len() as f64;
     let rand_mean = rand_recall.iter().sum::<f64>() / rand_recall.len() as f64;
@@ -608,15 +628,22 @@ fn main() {
     let oob_r = oob_rand.iter().sum::<f64>() / oob_rand.len() as f64;
     gate(
         "W3 spatial activation (can-fire AND can-stay-silent)",
-        oob_b > oob_r * 2.0 && band_mean < 0.95 && coarse_mean >= 0.95,
+        oob_b > oob_r * 2.0 && oob_r < 0.10,
         format!(
-            "PRIMARY (out-of-cell neighbours — the actual sparse-adjacency claim): \
-             band={oob_b:.3} vs random={oob_r:.3}, ratio {:.2}×, over {} cells (4.7 % of \
-             the codebook).\n        SECONDARY (all {NEAR} nearest DISTINCT neighbours, \
-             both arms crediting the home cell): band={band_mean:.3} vs random={rand_mean:.3} \
-             (ratio {:.2}× — SATURATING, see note).\n        Upper guard band<0.95 is \
-             CALIBRATED, not asserted: the same measurement against a coarse 2-level \
-             address (6+1 of 16 cells) gives {coarse_mean:.3}, which the guard REJECTS.",
+            "PRIMARY (out-of-cell neighbours over the FULL corpus — the actual \
+             sparse-adjacency claim): band={oob_b:.3} vs random={oob_r:.3}, ratio {:.2}×, \
+             over {} cells (4.7 % of the codebook).\n        CAN-STAY-SILENT: the same \
+             machinery aimed at RANDOM cells yields {oob_r:.3} — inert, and matching the \
+             12/255 ≈ 0.047 null. That is the honest silent half: identical statistic, \
+             identical basis, wrong cells, nothing found.\n        Cover guard DROPPED as \
+             INERT (was: primary<0.95). On this basis a coarse 2-level address scores \
+             {coarse_mean:.3}, not >0.95 — so 0.95 separated nothing, and only the \
+             degenerate band=whole-codebook case would trip it. A band fixed at 4.7 % of \
+             the codebook with no home-cell credit CANNOT be secretly dense, so the guard \
+             was structurally unnecessary here; it mattered only for the secondary \
+             statistic below.\n        SECONDARY, reported for comparability and NOT gated \
+             (both arms credit the home cell, which saturates it): band={band_mean:.3} vs \
+             random={rand_mean:.3} (ratio {:.2}×).",
             oob_b / oob_r.max(1e-9),
             BAND,
             band_mean / rand_mean.max(1e-9),

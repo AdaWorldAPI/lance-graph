@@ -36,7 +36,7 @@ anything the shipped 16-ary `NiblePath` cannot express?**
 |---|---|
 | W1 ancestry-by-construction (shuffle falsifier) | real **+0.4938**, shuffled **−0.0356** |
 | W2 monotone ladder | 15.78 → 12.76 → 11.15 → 8.69 → 7.05; strictly decreasing, spread **8.73 hops** |
-| W3 spatial activation (twin-tested) | **out-of-cell** band **0.754** vs random **0.052** = **14.43×**; cover guard calibrated at 0.998 (see § W3 correction below) |
+| W3 spatial activation (twin-tested) | **out-of-cell, FULL corpus**: band **0.763** vs random **0.031** = **24.71×**; silent half = the random arm's inertness (see § W3 correction) |
 | W4 sub-nibble structure | nibble sees ONE bucket (10.55); 4-ary splits 11.15 vs 8.69 = **2.47 hops** |
 | W5 fold balance | 256/256 cells, occupancy 29 / 255 / 1270 (min/median/max) |
 
@@ -122,6 +122,40 @@ All-neighbour figure retained as SECONDARY and labelled saturating (0.895 vs
 0.621 = 1.44×). **Lesson for the next twin gate: check that the two halves are
 mutually satisfiable by more than a hair BEFORE running — compute the maximum
 achievable value of the fire statistic under the silent guard.**
+
+## W3, round two (codex P1 on #875) — sampled pool, and an incoherent twin gate
+
+**P1: the pool was 20,000 of 65,292 addressed leaves (31 %).** "The 32 nearest
+WordNet neighbours" therefore meant "the 32 nearest *within a sample*" — an
+omitted leaf can be strictly closer than every sampled one, moving both the
+distance cutoff and which cells the neighbours occupy. Same class of defect as
+the dedup one: the label claimed more than the measurement. **Fixed by scoring
+all 65,292** (~20 M tree walks, seconds in release) rather than relabelling —
+which also makes dedup moot, since `addressed` is distinct by construction.
+
+Full-corpus result: **band 0.763 vs random 0.031 = 24.71×** (was 14.43× on the
+sample). The null tightens to 0.031 against the 12/255 ≈ 0.047 expectation.
+
+**Then the full-corpus run exposed that the twin gate was STILL incoherent** —
+the third instance of the same mistake in this probe. The fire half had moved to
+out-of-cell recall while the cover guard stayed on the all-neighbour statistic
+that had just been declared the wrong one; and that secondary had drifted to
+0.941, nine thousandths from tripping a guard it should never have been gating.
+**Both halves must measure the same quantity on the same basis.**
+
+**Recomputed like-for-like, the cover guard is INERT and was DROPPED.** On the
+out-of-cell basis a coarse 2-level address scores **0.840**, not >0.95 — so the
+threshold separated nothing, and only the degenerate band-is-the-whole-codebook
+case would trip it. It is also structurally unnecessary for the primary: a band
+fixed at 4.7 % of the codebook with no home-cell credit *cannot* be secretly
+dense. The saturation worry was only ever real for the secondary statistic.
+
+**The honest silent half was already present:** the random arm. Same statistic,
+same basis, same machinery, wrong cells → 0.031. That is a real can-it-stay-
+silent demonstration; the cover guard was a second, redundant, non-firing one.
+
+Per the inertness rule (*a threshold that never bites is decoration*), keeping it
+would have been the very defect this probe exists to catch.
 
 ## Division of labour — ADDRESS vs CALCULATOR vs ORACLE (operator, 2026-07-30)
 

@@ -15,7 +15,7 @@
 |---|---|
 | W1 ancestry-by-construction | corr(shared address levels, LCA depth) real **+0.494**, shuffled **−0.036** |
 | W2 monotone ladder | mean path distance **15.78 → 12.76 → 11.15 → 8.69 → 7.05** across rungs 0→4; strictly decreasing, spread **8.73 hops** |
-| W3 spatial activation | **out-of-cell** neighbour recall in the 12-cell band **0.754** vs random-12 **0.052** = **14.43×**; cover guard calibrated (see correction) |
+| W3 spatial activation | **out-of-cell, FULL corpus**: band **0.763** vs random **0.031** = **24.71×**; silent half = the random arm's inertness (cover guard dropped as inert — see correction) |
 | W4 sub-nibble structure | inside one top nibble the 16-ary router sees ONE bucket (mean 10.55); 4-ary splits it **11.15 vs 8.69** = **2.47 hops** |
 | W5 fold balance | 256/256 cells used, occupancy min 29 / median 255 / max 1270 |
 
@@ -35,6 +35,14 @@
 4. **The `< 0.95` cover guard is now calibrated rather than asserted.** The same measurement against a deliberately coarse 2-level address (6+1 of 16 cells) yields **0.998**, which the guard rejects — so 0.95 demonstrably separates a prior from a cover on this data, satisfying the workspace inertness rule (a threshold that never bites is decoration).
 
 The all-neighbour figure is retained as SECONDARY and labelled saturating: 0.895 vs 0.621 = 1.44×.
+
+**⊘ W3 ROUND TWO (codex P1 on #875) — the sampled pool, and the twin gate's THIRD mis-specification:**
+
+- **Sampled pool.** 20,000 of 65,292 addressed leaves (31 %), so "the 32 nearest neighbours" meant "within a sample" — an omitted leaf can be strictly closer, moving both the cutoff and the cells. Fixed by scoring the **full corpus** (~20 M tree walks, seconds) rather than relabelling; dedup becomes moot since `addressed` is distinct by construction. Result strengthens: **band 0.763 vs random 0.031 = 24.71×**, null tightening to 0.031 against 12/255 ≈ 0.047.
+- **The gate was still incoherent.** The fire half had moved to out-of-cell recall while the cover guard stayed on the all-neighbour statistic just declared wrong — and that secondary drifted to 0.941, nine thousandths from tripping a guard that should never have gated it. **Both halves must measure the same quantity on the same basis.**
+- **Recomputed like-for-like, the cover guard is INERT → DROPPED.** A coarse 2-level address scores **0.840** on the out-of-cell basis, not >0.95: the threshold separated nothing, and only the degenerate band-is-everything case would trip it. Structurally unnecessary too — a band fixed at 4.7 % of the codebook with no home-cell credit cannot be secretly dense. **The honest silent half was already there: the random arm (0.031) — same statistic, same basis, wrong cells, nothing found.** Keeping an inert threshold is the exact defect this probe exists to catch.
+
+**Generalized:** THREE defects in this one probe were mis-specified falsifiers (non-falsifying shuffle, hair-wide twin window, inert cover guard), and zero were wrong measurements. **The falsifiers deserve more scrutiny than the findings, because a broken falsifier fails silently — it reports PASS.**
 
 **Division of labour, operator-fixed same session** (*"and CLAM to calculate, that's established"* / *"alternative is using HHTL+ helix residue"*): the 4⁴ fold is the **ADDRESS** (which cell, which 12-cell band); **CLAM is the CALCULATOR and is established — do not re-derive it**; **HHTL + helix residue** (place deterministic, residue stored) is the named alternative calculator, unmeasured against CLAM. This probe's LCA walk is an **ORACLE** — scoring only, never a runtime path, exactly as tesseract-rs oracles link libtesseract to produce ground truth and never ship. Nothing here should be read as "the substrate computes distance by walking to an LCA." The address says WHERE to look; CLAM computes. The fork matters *because* of W4: a finer address makes more of the answer deterministic-place and less of it stored-residue, so 2.47 hops is precisely the granularity a residue would no longer carry — **hypothesis, not result**; the head-to-head (`PROBE-CLAM-VS-HELIX-RESIDUE`) is queued.
 
