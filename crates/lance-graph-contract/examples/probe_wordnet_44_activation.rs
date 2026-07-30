@@ -319,14 +319,16 @@ fn shared_levels(a: u8, b: u8) -> usize {
     LEVELS
 }
 
-/// The sparse-adjacent band: cells reachable by changing exactly one 2-bit
-/// group. `BAND` = 12 cells, never including `cell` itself.
-/// The band for an address of arbitrary depth — used by the calibration arm to
-/// build a deliberately COARSE (2-level, 16-cell) address space whose band is
-/// large enough that it must behave like a cover. That is what turns the
-/// `< 0.95` upper guard from a hand-chosen constant into a threshold shown to
-/// discriminate (the workspace's inertness rule: raising a knob must silence
-/// something, lowering it must admit something).
+/// The sparse-adjacent band for an address of arbitrary depth: cells reachable
+/// by changing exactly ONE 2-bit group. `(ARITY - 1) * levels` cells, never
+/// including `cell` itself.
+///
+/// Used at `levels = 2` to build a deliberately COARSE address space for the
+/// granularity-comparison arm. That arm no longer backs a cover guard — the
+/// guard was measured on the primary out-of-cell basis, found INERT (coarse
+/// scores 0.840, not >0.95), and dropped rather than kept as decoration. It
+/// survives as reported CONTEXT: how band recall varies with address
+/// granularity.
 fn band_generic(cell: u8, levels: usize) -> Vec<u8> {
     let mut out = Vec::with_capacity((ARITY - 1) * levels);
     for level in 0..levels {
@@ -341,6 +343,8 @@ fn band_generic(cell: u8, levels: usize) -> Vec<u8> {
     out
 }
 
+/// The probe's own band: `BAND` = 12 cells at the full 4-level address,
+/// never including `cell` itself. Fixed-size form of [`band_generic`].
 fn band_of(cell: u8) -> [u8; BAND] {
     let mut out = [0u8; BAND];
     let mut n = 0;
