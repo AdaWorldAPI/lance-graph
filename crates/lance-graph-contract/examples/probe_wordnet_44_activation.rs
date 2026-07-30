@@ -56,12 +56,27 @@
 //!   This IS the sparse-adjacency claim. Falsifier: any inversion, or a flat
 //!   profile (address distance carrying no semantic signal).
 //! - **W3 spatial activation** — for an anchor concept, do its 12 ancestry-
-//!   adjacent cells actually hold its semantic neighbours? Measured as recall of
-//!   the anchor's 32 nearest WordNet neighbours inside the 12-cell band vs a
-//!   random-12-cell baseline. Twin-tested per the can-it-fire/can-it-stay-silent
-//!   rule: the band must beat random (fire) AND must not contain nearly
-//!   everything (silent) — a band that captures all neighbours because it is
-//!   secretly dense carries no information.
+//!   adjacent cells actually hold its semantic neighbours?
+//!   - **PRIMARY statistic: OUT-OF-CELL recall.** Among the anchor's nearest
+//!     WordNet neighbours that fall OUTSIDE its home cell, what fraction land in
+//!     the 12-cell band, vs 12 distinct random cells? Out-of-cell is the claim:
+//!     a neighbour already in the home cell needs no adjacency band to reach it.
+//!     The null is self-checking — a random 12 of the remaining 255 cells should
+//!     score ≈ 12/255 ≈ 4.7 %.
+//!   - **SECONDARY, retained as a saturating diagnostic:** recall over ALL 32
+//!     nearest distinct neighbours, where both arms credit the home cell. This
+//!     was the original primary and it is the WRONG statistic — home-cell hits
+//!     inflate the baseline to ≈0.62, capping the achievable ratio near 1.6 and
+//!     MASKING the effect. Kept only so the two are comparable in the record.
+//!   - Twin-tested per the can-it-fire/can-it-stay-silent rule: the band must
+//!     beat random (fire) AND must not be a cover (silent). The cover guard is
+//!     CALIBRATED, not asserted — a deliberately coarse 2-level address (6+1 of
+//!     16 cells) is measured alongside and must be REJECTED by it.
+//!   - **Specification check that this gate failed once:** before running a twin
+//!     gate, compute the maximum achievable value of the fire statistic *under*
+//!     the silent guard. Here that was 1/0.62 ≈ 1.61 against a `>1.5` fire bar
+//!     and a `<0.95` cover bar — an 0.018-wide window, i.e. a mis-specified
+//!     gate whose first pass was luck rather than evidence.
 //! - **W4 4-ary beats the nibble** — the 16-ary ladder's coarsest useful rung
 //!   ("same top nibble") is a single bucket of 16 cells. The 4-ary ladder splits
 //!   that same population into rungs 1 and 2. Gate: those two sub-rungs must
