@@ -1,5 +1,54 @@
 # Issues Log — Open + Resolved (double-entry, append-only)
 
+## ISS-DOMINO-WRITES-ENERGY-OUTSIDE-ITS-OWN-SCHEMA (2026-07-29) — OPEN, FOUND WHILE CLOSING T5
+
+Surfaced while landing T5 (the `nan_projection.rs` schema gate, see
+`.claude/board/exec-runs/t5-closure-nan-projection-schema-gate.md`). Not fixed
+here — it is a design decision, not a mechanical follow-up.
+
+`crates/symbiont/src/domino.rs`'s POC builds every board via `NodeGuid::local(idx)`
+(classid 0). `set_energy`/`energy_of`/`read_lanes`/`write_lanes` all write/read the
+`Fingerprint` and `Energy` tenants at their fixed reserved offsets, unconditionally
+— no `schema.has()` gate, same pattern T5 just fixed in the sweep surface.
+
+**Why this isn't biting today:** `ReadMode::DEFAULT` (what classid 0 resolves to)
+is currently a **documented TEMPORARY 2026-06-15 POC pin** to `ValueSchema::Full`
+(every tenant materialised), scheduled to flip back to `ValueSchema::Bootstrap`
+(zero tenants) "when the POC ends" — see the doc comment on `ReadMode::DEFAULT`
+in `canonical_node.rs`. While that pin holds, domino.rs's Bootstrap-classid rows
+resolve to `Full`, which DOES include `Fingerprint` + `Energy`, so its writes are
+schema-legal by accident of the temporary default, not by design.
+
+**What breaks on the flip:** the instant `ReadMode::DEFAULT` reverts to
+`Bootstrap` (`FieldMask::EMPTY`), domino.rs's own writer becomes the same
+violation T5 just closed on the reader side — writing real data into a byte range
+its own row's declared schema says isn't part of its content. The now-gated
+`project_energy_nonfinite` sweep domino.rs calls would then report EVERY row as
+`skipped` (schema says no Energy present), turning `assert!(report.is_clean(), ...)`
+**vacuously true** — the exact anti-pattern `E-VACUOUS-ASSERTION-IS-THE-HOUSE-STYLE-1`
+warns against, and silent: the assertion would keep passing, just for the wrong
+reason, with zero rows actually checked.
+
+**Two live options, not decided here:**
+1. Mint domino.rs a proper classid into the shared `classid_read_mode` registry
+   (e.g. resolving to `ValueSchema::Cognitive`, which already covers exactly
+   `Fingerprint` + `Energy` among its tenants — see `ReadMode::OSINT`'s schema).
+   Correct per-doctrine, but touches the SAME registry OGAR mints into — heavier
+   than "a very basic POC to prove the SoA orchestration" (the file's own framing)
+   seems to warrant.
+2. Document domino.rs's tenant use as a deliberate raw-byte-region borrow OUTSIDE
+   the schema system (it never goes through `SoaEnvelope` for external/shared
+   consumption today) and keep it calling an explicitly UNCHECKED sweep variant
+   rather than the schema-gated `project_energy_nonfinite` — i.e., add a second,
+   clearly-named function (`project_energy_nonfinite_unchecked`?) so callers who
+   are knowingly outside the schema system don't get silently zeroed out by a
+   gate meant for schema-respecting callers.
+
+Not resolved because it's an architecture call (which of the two, or a third
+option) that the T5 scope didn't license me to make unilaterally. Flagging so the
+POC-default flip (whenever it lands) doesn't silently turn domino.rs's own
+correctness assertion into theater.
+
 ## ISS-NO-PER-THREAD-TEMPORAL-PROJECTION-IS-EVER-CONSTRUCTED (2026-07-29) — OPEN, UPSTREAM OF `meta_basin`
 
 > **⊘ RE-GRADED AND RELOCATED (Codex, #869) — my first filing mislocated this.**
