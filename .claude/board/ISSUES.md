@@ -49,6 +49,29 @@ option) that the T5 scope didn't license me to make unilaterally. Flagging so th
 POC-default flip (whenever it lands) doesn't silently turn domino.rs's own
 correctness assertion into theater.
 
+> **⊘ ADDENDUM (codex review on PR #873, 2026-07-30) — a sibling instance,
+> not a second issue.** `crates/symbiont/src/bridge.rs` has the identical root
+> cause: `board()` mints via `NodeGuid::local(idx)` (classid 0), and
+> `set_energy`/`energy` read/write the `Energy` tenant at its fixed offset with
+> no `schema.has()` gate. Codex's distinction from the domino.rs case: **bridge.rs
+> never calls `project_energy_nonfinite`/`energy_all_finite` at all** — its own
+> tests (`each_bus_is_one_soa_node_with_finite_energy_tenant`,
+> `scale_to_16k_boards_is_8_mib_zero_copy`) check finiteness via plain
+> `f32::is_finite()` on the value read straight out of `energy()`, bypassing
+> `nan_projection.rs` entirely. So T5's schema gate does not touch bridge.rs's
+> behaviour today, in either direction — it is neither protected by the gate
+> (like a hypothetical schema-respecting caller would be) nor exposed to the
+> vacuous-skip risk described above (since it never calls the gated functions).
+> Its exposure is identical to domino.rs's on the SAME `ReadMode::DEFAULT` POC
+> pin, just felt differently: when that pin flips to `Bootstrap`, bridge.rs's
+> `set_energy`/`energy` keep writing/reading a byte range its own row's declared
+> schema no longer materialises — the write-side schema-contract violation, not
+> a report-vacuity one (nothing here would start silently passing; the value
+> read back would just no longer mean what the row's schema claims it means).
+> Tracked here rather than as a separate issue because the fix is the same
+> architecture call (mint vs. explicit-unchecked) applied to a second call site —
+> whichever of the two live options above gets chosen should cover both files.
+
 ## ISS-NO-PER-THREAD-TEMPORAL-PROJECTION-IS-EVER-CONSTRUCTED (2026-07-29) — OPEN, UPSTREAM OF `meta_basin`
 
 > **⊘ RE-GRADED AND RELOCATED (Codex, #869) — my first filing mislocated this.**

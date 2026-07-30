@@ -22,9 +22,20 @@
 //! real energy accumulator — a false non-finite flag, or worse, a false-clean
 //! pass over real corruption elsewhere in the slab that a NaN-shaped bit pattern
 //! happened to zero out. Each row is therefore gated on its OWN resolved
-//! `[ValueSchema::has]` before its `Energy` bytes are read at all — one branch
-//! per row on schema presence (not on the float value), so the branchless
-//! finiteness test survives unchanged for every row it actually applies to.
+//! `[ValueSchema::has]` before its `Energy` bytes are read at all.
+//!
+//! **What "branchless" still means after the gate, precisely (codex review,
+//! 2026-07-30).** The FINITENESS TEST — the exponent-mask compare on the
+//! four already-loaded bytes — is unchanged: still zero branches on the
+//! value. That is not the same claim as "the sweep costs what it did
+//! before." [`row_has_energy`] calls [`NodeGuid::read_mode`], which resolves
+//! through [`classid_read_mode`] — a `HashMap` lookup behind a `LazyLock`,
+//! not a bitmask. That lookup is real per-row work, added on top of the old
+//! four-byte load, and can plausibly dominate it for an in-cache homogeneous
+//! batch. Not benchmarked; do not read "branchless" below as "free" — if
+//! this projection lands on a genuinely hot path, that lookup is the first
+//! place to look before assuming the schema gate is costless.
+//!
 //! [`NanReport::skipped`] makes the gate's effect observable rather than a
 //! silent no-op, per the workspace's can-it-fire testing rule.
 //!
@@ -34,6 +45,8 @@
 //! [`ValueSchema`]: crate::canonical_node::ValueSchema
 //! [`ValueSchema::has`]: crate::canonical_node::ValueSchema::has
 //! [`NodeGuid::CLASSID_FMA`]: crate::canonical_node::NodeGuid::CLASSID_FMA
+//! [`NodeGuid::read_mode`]: crate::canonical_node::NodeGuid::read_mode
+//! [`classid_read_mode`]: crate::canonical_node::classid_read_mode
 
 use crate::canonical_node::{NodeRow, ValueTenant};
 
