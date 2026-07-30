@@ -1,5 +1,41 @@
 # Technical Debt Log — Open + Paid (double-entry, append-only)
 
+## TD-WORKSPACE-FMT-DRIFT (2026-07-30)
+
+**Measured, not estimated.** `cargo fmt --all -- --check` at
+`b9160f8` reports **1,094 hunks / 20,307 diff lines across 64 files in 9
+crates**:
+
+| crate | files |
+|---|---|
+| `lance-graph-ontology` | 55 |
+| `bgz-tensor` | 2 |
+| `causal-edge`, `ogar-emitter`, `ogar-encryption`, `ogar-from-ruff`, `ogar-render-askama`, `sigma-tier-router`, `surreal_container` | 1 each |
+
+Surfaced by a CodeRabbit finding on #874 asking for the workspace-wide sweep.
+The sweep was **deferred, not skipped**, and the reason is the measurement:
+attaching a 20k-line reformat of nine untouched crates to a 752-line additive
+probe PR makes the diff unreviewable and lands pre-existing drift silently
+under an unrelated title. #874's own file is fmt-clean (0 of the 1,094 hunks).
+
+**The real debt is upstream of the sweep**: `-p`-scoped `cargo fmt` is this
+workspace's practice (per `CLAUDE.md` Build Commands and the
+agent-cargo-hygiene rule's one-shared-`target/` discipline), so crates only get
+formatted when someone edits them — drift accumulates in whatever is not being
+worked on. `lance-graph-ontology` holding 86 % of it is the tell: a crate
+nobody has touched recently.
+
+**Paying it** is one mechanical PR (`cargo fmt --all`, no behaviour change) —
+best landed when no feature branch is mid-review, since it collides with
+everything. Note it is NOT free to defer forever: every deferral makes the
+eventual sweep collide with more in-flight work.
+
+**Companion blocker (separate, do not conflate):**
+`clippy --all-targets --all-features` cannot pass at all — the `delta` feature
+does not build (`TD-LANCE-GRAPH-ALL-FEATURES-DELTA-BREAK`). Any review asking
+for the all-features invocation is blocked on that entry first, independent of
+formatting.
+
 ## TD-LENS-QUORUM-SCANS-THE-WHOLE-LENS (2026-07-29)
 
 **Codex P2 on #868, verified and MEASURED.** The lens migration changes the

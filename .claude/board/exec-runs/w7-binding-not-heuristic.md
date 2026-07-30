@@ -52,6 +52,29 @@ thinking. Mechanical form: the pull-test.
   duplicate-bin-target warning only).
 - `cargo fmt -p lance-graph-planner` → ran; gates re-verified green after.
 
+### Workspace-wide checks — MEASURED, then deferred (not skipped)
+
+Review asked for `cargo fmt --all` + `cargo clippy --all-targets
+--all-features`. Both were investigated rather than argued from practice:
+
+- **`cargo fmt --all -- --check` → 1,094 hunks / 20,307 diff lines across 64
+  files in 9 crates** (55 in `lance-graph-ontology`; also `bgz-tensor`,
+  `causal-edge`, `ogar-emitter`, `ogar-encryption`, `ogar-from-ruff`,
+  `ogar-render-askama`, `sigma-tier-router`, `surreal_container`).
+  **Zero hunks in this PR's file** — `probe_binding_not_heuristic.rs` is
+  fmt-clean under the workspace-wide config, which is the property the
+  guideline protects. Running the sweep here would attach a 20k-line reformat
+  of nine untouched crates to a 752-line additive probe; the diff stops being
+  reviewable and pre-existing drift lands silently under an unrelated title.
+  Deferred to its own PR — logged as `TD-WORKSPACE-FMT-DRIFT`.
+- **`clippy --all-targets --all-features`** — blocked, not declined by
+  preference: all-features is the known `TD-LANCE-GRAPH-ALL-FEATURES-DELTA-BREAK`
+  surface (the `delta` feature does not build), so the invocation cannot pass
+  regardless of this diff. The scoped `-D warnings` run above covers every line
+  the PR adds.
+
+All nine review threads (codex ×2, CodeRabbit ×7) addressed and resolved.
+
 ## Honest boundaries
 - Escalation is side-band (the binder's return), not row state — a 0 nibble
   alone is indistinguishable from never-attempted. Same boundary W6 recorded.
