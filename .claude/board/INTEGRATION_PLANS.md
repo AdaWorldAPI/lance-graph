@@ -1,7 +1,15 @@
 ## 2026-07-31 — SYNERGY-MAP-S00-S07 §8 (capstone inspiration, AMENDED into the existing map) — INSPIRATION/DESIGN — main thread
 
-**Plan:** `.claude/plans/SYNERGY-MAP-S00-S07.md` **§8.1–§8.8** (appended to the
-existing S00–S07 map; §6 no-net-new-structures stays closed). Operator-taught
+**Plan:** `.claude/plans/SYNERGY-MAP-S00-S07.md` **§8.0–§8.8** (appended to the
+existing S00–S07 map; §6 no-net-new-structures stays closed).
+**⊘ READ §8.0 FIRST — it is a MEASURED RETRACTION of the original §8.1**
+(six Read-only code passes falsified every load-bearing claim: domino is a
+4×4/16-lane BF16 tile not 64×64; lane_j's 4096 is a hash-bucket group-by
+table; attention is k×k palette-archetype canonically 256×256; stockfish-rs
+is not readable in this environment; blasgraph has no splat/3DGS and no NaN
+mechanism). §8.1-MEASURED carries the real Stockfish seam: NNUE FT columns
+as a TEST CORPUS validating the palette256 cosine-replacement, not a
+mechanism the substrate imitates. Operator-taught
 arc, same-day corrections cited in the provenance footer. The map for the next
 session: **§8.8 is the anchor despite being last-numbered** — the resolution
 ladder runs grammar floor FIRST (24×i4 anaphora pointers where i4 = −8..+7 =
