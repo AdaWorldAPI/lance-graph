@@ -83,18 +83,23 @@ irrational stride as Pythagorean comma."* Confirmed in mechanism — stride 4 ov
 ### H3 — the blindness is FIXABLE at the intake, not fundamental
 
 Per-tier seeding (one ruler per 2-bit group, folded with its level) preserves
-ancestry by construction. Eligible population = **1,152** pairs sharing ≥1
-address level: **flat intake preserves ancestry in 51/1,152 = 4.4 %** (≈ the
+ancestry by construction. **EXHAUSTIVE over all 256·255/2 = 32,640 cell pairs —
+no sampling, no thinning.** Eligible population = **8,064** pairs sharing ≥1
+address level: **flat intake preserves ancestry in 360/8,064 = 4.5 %** (≈ the
 1/17 ≈ 5.9 % chance level — the flat intake keeps ancestry about as often as
-chance would); **per-tier in 1,152/1,152 = 100 % BY CONSTRUCTION**, asserted as a
+chance would); **per-tier in 8,064/8,064 = 100 % BY CONSTRUCTION**, asserted as a
 construction check rather than as evidence. The unblock is to feed the ruler the
 address's HIERARCHY, not its integer value.
 
-> **⊘ SAMPLE SIZE CORRECTED (codex P2 on #876).** The first version incremented
-> the counter BEFORE the `k > 0` eligibility check, so the published "4,662 pairs
-> sharing ≥1 address level" was really every thinned pair — a false sample size
-> in the probe output and in both board records. The ≈23× ratio was arithmetic
-> on a mislabelled denominator; the honest figures are 4.4 % vs 100 %.
+> **⊘ SAMPLE SIZE CORRECTED TWICE (codex P2, then CodeRabbit, both on #876).**
+> (1) The counter incremented BEFORE the `k > 0` eligibility check, so the
+> published "4,662 pairs sharing ≥1 address level" was really every thinned pair.
+> The ≈23× ratio was arithmetic on a mislabelled denominator. (2) The *fix* then
+> repeated the error one level up: 1,152 was the eligible **thinned sample**, not
+> the eligible **population**. Root cause of both: a `(a+b) % 7` thinning that
+> bought nothing — 32,640 pairs is trivial to enumerate. **The thinning is
+> removed**, so there is no sample left to mislabel; the figures are now the full
+> population, 360/8,064 = 4.5 %, independently reproduced by the reviewer.
 
 ## Verification
 - `cargo run --release --manifest-path crates/helix/Cargo.toml --example

@@ -261,18 +261,23 @@ fn main() {
     // correctly FAILED rather than passing vacuously.
     for a16 in 0u16..CELLS as u16 {
         for b16 in (a16 + 1)..CELLS as u16 {
-            if !(a16 as usize + b16 as usize).is_multiple_of(7) {
-                continue; // deterministic thinning; still thousands of pairs
-            }
             let (a, b) = (a16 as u8, b16 as u8);
             let k = shared_levels_4ary(a, b);
             if k == 0 {
                 continue; // not eligible: no shared address level to preserve
             }
-            // COUNT ONLY ELIGIBLE PAIRS (codex P2). The first version incremented
-            // before this predicate, so the published "4,662 pairs sharing ≥1
-            // address level" was really every thinned pair — a false sample size
-            // in the probe output AND in both board records.
+            // COUNT ONLY ELIGIBLE PAIRS, over the FULL population.
+            //
+            // Two successive labelling defects landed here, both caught in review:
+            //   1. (codex P2) the counter incremented BEFORE this eligibility
+            //      check, so "4,662 pairs sharing ≥1 address level" was really
+            //      every thinned pair;
+            //   2. (CodeRabbit) the corrected 1,152 was the eligible THINNED
+            //      SAMPLE, not the eligible POPULATION — a second population-label
+            //      error stacked on the fix for the first.
+            // A deterministic `(a+b) % 7` thinning caused both and bought nothing:
+            // 256·255/2 = 32,640 pairs is trivial to enumerate exhaustively. The
+            // thinning is removed, so there is no sample to mislabel.
             pairs += 1;
             // FLAT: one seed each. "Ancestry preserved" would mean cells sharing a
             // prefix share the seed — which mod 17 cannot arrange.
@@ -293,8 +298,9 @@ fn main() {
         "H3 blindness is FIXABLE at the intake (per-tier seeds keep ancestry)",
         tier_agree == pairs && flat_rate < 0.25 && pairs > 100,
         format!(
-            "eligible population = {pairs} pairs sharing ≥1 address level (thinned \
-             deterministically).\n        FLAT intake preserves ancestry in \
+            "eligible population = {pairs} pairs sharing ≥1 address level \
+             (EXHAUSTIVE over all 256·255/2 = 32,640 cell pairs — no sampling, no \
+             thinning).\n        FLAT intake preserves ancestry in \
              {flat_agree}/{pairs} = {:.1}% — mod 17 scrambles it.\n        PER-TIER \
              intake preserves it in {tier_agree}/{pairs} = 100% BY CONSTRUCTION \
              (each 2-bit group seeds its own ruler); the gate asserts the equality \
@@ -321,8 +327,8 @@ fn main() {
          CALCULATOR'S INTAKE, not about the 4⁴ address, whose ancestry result stands\n\
          (E-WORDNET-MAKES-THE-4-ARY-ADDRESS-SEMANTIC-1). H2 RETRACTS a suspicion it\n\
          does not replace with a design claim — no shipped path reads a 4-step prefix.\n\
-         H3 names the unblock and reports the flat rate (4.4%, ≈ the 1/17 ≈ 5.9%\n\
-         chance level), not a ratio."
+         H3 names the unblock and reports the flat rate over the FULL population\n\
+         (360/8064 = 4.5%, ≈ the 1/17 ≈ 5.9% chance level), not a ratio."
     );
     if failures > 0 {
         std::process::exit(1);
