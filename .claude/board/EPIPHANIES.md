@@ -1,3 +1,57 @@
+## 2026-07-30 — E-WORDNET-MAKES-THE-4-ARY-ADDRESS-SEMANTIC-1 — the 4⁴ fold turns HHTL adjacency into a *semantic* prior, and the sub-nibble rung is load-bearing (2.47 hops the 16-ary router cannot address)
+
+**Status:** FINDING (measured, 5/5 gates green on real WordNet 3.1). **Confidence:** High for the structure claim; explicitly NOT extended to embedding-trained codebooks (see Boundaries). Probe: `crates/lance-graph-contract/examples/probe_wordnet_44_activation.rs`; record: `.claude/board/exec-runs/wordnet-44-activation.md`.
+
+**Operator anchors (verbatim, arrival order):**
+1. *"And it feeds 4^4 micro traversal decision"* / *"Not sure if that's a thing in our substrate"*
+2. *"4^4 would be a sparse adjacent if the sentence refers to out of bounds meaning"*
+3. *"besides wordnet makes CLAM HHTL spacial activation via 4^4"*
+
+**What the third anchor changed.** The first plan was to derive a 4-ary hierarchy by k-means over embeddings and hope ancestry emerged — the same shape as `PROBE-CODEBOOK-44`, and gated behind the same Base17 fold ceiling (ρ≈0.26 on single words). Anchor 3 inverts it: **WordNet's `@` hypernym relation IS ground-truth ancestry**, so the address does not have to *discover* structure, it *encodes* structure. That removes embeddings, k-means, and the API key from the critical path and leaves the sharper question — given real ancestry, does a fixed 4-ary depth-4 fold preserve enough semantic distance to be a usable search prior?
+
+**Measured (82,192 noun synsets, root `entity`, 65,292 leaves, max depth 19):**
+
+| gate | result |
+|---|---|
+| W1 ancestry-by-construction | corr(shared address levels, LCA depth) real **+0.494**, shuffled **−0.036** |
+| W2 monotone ladder | mean path distance **15.78 → 12.76 → 11.15 → 8.69 → 7.05** across rungs 0→4; strictly decreasing, spread **8.73 hops** |
+| W3 spatial activation | **out-of-cell, FULL corpus**: band **0.763** vs random **0.031** = **24.71×**; silent half = the random arm's inertness (cover guard dropped as inert — see correction) |
+| W4 sub-nibble structure | inside one top nibble the 16-ary router sees ONE bucket (mean 10.55); 4-ary splits it **11.15 vs 8.69** = **2.47 hops** |
+| W5 fold balance | 256/256 cells used, occupancy min 29 / median 255 / max 1270 |
+
+**The headline is W4.** It answers "not sure if that's a thing" with a number: the sub-nibble decision is not decoration. `NiblePath` (`FAN_OUT = 16`, the shipped router) can express exactly two levels in a byte; inside one top nibble it sees a single undifferentiated bucket. The 4-ary address splits that same population into two rungs that differ by 2.47 WordNet hops. **That is real structure the current router is blind to** — and it is what makes anchor 2's "sparse adjacent" implementable: 3 siblings × 4 levels = 12 of 256 cells (4.7 %), a graded escalation ladder, where 16-ary offers 15 nibble-siblings or nothing.
+
+**The three-rung reference taxonomy this licenses** (in-cell / sparse-adjacent / beyond-adjacency) now has its middle rung measured. W3 is the load-bearing half: the band is a *discriminating prior*, beating random 1.50× while deliberately NOT covering everything (0.855 < 0.95). Both halves were required — a band capturing ~everything would carry exactly as much information as one capturing nothing (`E-ANTI-EIGENVALUE-MACHINERY-CAN-ITSELF-BECOME-THE-EIGENVALUE-1`).
+
+**Two failures on the first run are part of the finding, not noise:**
+1. **The first fold reproduced the le-contract's own warning.** Expanding each level to exactly `ARITY` roots before balancing gave one cell **15,769 leaves against a median of 20** — "lacking proper bucket rollover … saturates silently", in my own code. LPT can only isolate a giant subtree and hope the next level splits it; at the terminal level there is no next level. Fix: expand to `ARITY·24` roots so the balancer has fine-grained items. **Consequence for the substrate: a 4-ary fold of any real taxonomy needs an explicit granularity knob — the arity alone does not balance it.**
+2. **The W1 falsifier was mis-designed and the number exposed it.** A label permutation is a bijection, so same-cell pairs stay same-cell; the shuffle arm scored **+0.645** on pure cell identity while appearing to validate prefix structure. Restricting both arms to different-cell pairs collapsed it to −0.036. **A falsifier that cannot destroy the thing it tests is the vacuous-assertion pattern wearing a lab coat.**
+
+**⊘ W3 CORRECTED IN PLACE (pre-merge, codex/CodeRabbit review of #875) — the original W3 was BOTH mislabelled and arithmetically mis-specified, and the corrected result is ~10× stronger:**
+
+1. **Mislabelled metric.** The candidate pool was sampled WITH replacement and the 32 nearest taken without dedup, so one synset could occupy several slots — a weighted sampled-entry recall, not "recall of the 32 nearest neighbours". Both arms shared the bias so the *ratio* survived, but the label was false. Pool now deduped.
+2. **The twin gate could barely be satisfied.** Both arms credited the anchor's OWN cell, so same-cell neighbours inflated the baseline to 0.621 — capping the achievable ratio at 1/0.621 = **1.61** while the gate demanded > 1.5 and the cover guard demanded < 0.95. That is a **0.018-wide window**: the original 1.50× pass was luck, not evidence. After dedup it fell to 1.44× and correctly FAILED.
+3. **The fix is to measure the actual claim, not to move the bar.** Sparse adjacency is about references landing OUT OF CELL (*"if the sentence refers to out of bounds meaning"*); a neighbour already in the home cell needs no band to reach it. Restricting to out-of-cell neighbours: **band 0.754 vs random 0.052 = 14.43×**. The null validates itself — random-12 scores 5.2 %, against an expected 12/255 ≈ 4.71 % (the home cell is excluded from the out-of-cell draw, so the denominator is 255, not the 256 used for the band's share of the whole codebook). **Home-cell inflation was MASKING the effect, not creating it.**
+4. **The `< 0.95` cover guard is now calibrated rather than asserted.** The same measurement against a deliberately coarse 2-level address (6+1 of 16 cells) yields **0.998**, which the guard rejects — so 0.95 demonstrably separates a prior from a cover on this data, satisfying the workspace inertness rule (a threshold that never bites is decoration).
+
+The all-neighbour figure is retained as SECONDARY and labelled saturating: 0.895 vs 0.621 = 1.44×.
+
+**⊘ W3 ROUND TWO (codex P1 on #875) — the sampled pool, and the twin gate's THIRD mis-specification:**
+
+- **Sampled pool.** 20,000 of 65,292 addressed leaves (31 %), so "the 32 nearest neighbours" meant "within a sample" — an omitted leaf can be strictly closer, moving both the cutoff and the cells. Fixed by scoring the **full corpus** (~20 M tree walks, seconds) rather than relabelling; dedup becomes moot since `addressed` is distinct by construction. Result strengthens: **band 0.763 vs random 0.031 = 24.71×**, null tightening to 0.031 against 12/255 ≈ 0.047.
+- **The gate was still incoherent.** The fire half had moved to out-of-cell recall while the cover guard stayed on the all-neighbour statistic just declared wrong — and that secondary drifted to 0.941, nine thousandths from tripping a guard that should never have gated it. **Both halves must measure the same quantity on the same basis.**
+- **Recomputed like-for-like, the cover guard is INERT → DROPPED.** A coarse 2-level address scores **0.840** on the out-of-cell basis, not >0.95: the threshold separated nothing, and only the degenerate band-is-everything case would trip it. Structurally unnecessary too — a band fixed at 4.7 % of the codebook with no home-cell credit cannot be secretly dense. **The honest silent half was already there: the random arm (0.031) — same statistic, same basis, wrong cells, nothing found.** Keeping an inert threshold is the exact defect this probe exists to catch.
+
+**Generalized:** THREE defects in this one probe were mis-specified falsifiers (non-falsifying shuffle, hair-wide twin window, inert cover guard), and zero were wrong measurements. **The falsifiers deserve more scrutiny than the findings, because a broken falsifier fails silently — it reports PASS.**
+
+**Division of labour, operator-fixed same session** (*"and CLAM to calculate, that's established"* / *"alternative is using HHTL+ helix residue"*): the 4⁴ fold is the **ADDRESS** (which cell, which 12-cell band); **CLAM is the CALCULATOR and is established — do not re-derive it**; **HHTL + helix residue** (place deterministic, residue stored) is the named alternative calculator, unmeasured against CLAM. This probe's LCA walk is an **ORACLE** — scoring only, never a runtime path, exactly as tesseract-rs oracles link libtesseract to produce ground truth and never ship. Nothing here should be read as "the substrate computes distance by walking to an LCA." The address says WHERE to look; CLAM computes. The fork matters *because* of W4: a finer address makes more of the answer deterministic-place and less of it stored-residue, so 2.47 hops is precisely the granularity a residue would no longer carry — **hypothesis, not result**; the head-to-head (`PROBE-CLAM-VS-HELIX-RESIDUE`) is queued.
+
+**Boundaries (do not cite past these):**
+- STRUCTURE probe, not a codec probe. Says nothing about whether an embedding-trained 4⁴ codebook inherits these properties — that remains Phase B, still gated by the Base17 fold ceiling.
+- WordNet nouns are a DAG; this takes the FIRST `@` parent only. Both comparison arms see the same tree so it cannot flatter results, but **a concept with two genuine parents is representable at only one address** — a real limit of any fixed-arity address. Visible in the worked example: `dog` lands among `man`/`foster-brother`/`macho`/`sirrah` (WordNet's informal-term-for-a-man sense), not the animal.
+- Path length is a crude metric (Resnik/Lin information content would weight by corpus frequency). Used because it is what the address approximates — both are pure structure.
+- 4-ary is measured BETTER here; it is not measured CHEAPER. No traversal-cost benchmark was run, and `RouteAction`'s four variants (Skip/Attend/Compose/Escalate = exactly 2 bits) being the same width as a rung is an observed consonance, NOT a wired mechanism.
+
 ## 2026-07-30 — E-64K-THOUGHTS-DONT-DO-QUORUM-PLASTICITY-BREATHES-FROM-TENSION-1 — operator ruling: the 64k parallel thoughts do NOT do quorum; inconsistency is plasticity's work; contradictions are the substrate's fuel; and the honesty line runs between EPISODIC and EPISTEMIC causality
 
 **Status:** OPERATOR-RULED (mid-W7-review, verbatim anchors below). **Confidence:** High as a direction ruling; consequences applied same-commit (the quorum-binder recommendation in `E-A-CHIP-BEARS-LOAD-OR-IT-IS-A-JOKE-1` is withdrawn in place, pre-merge).
