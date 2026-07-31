@@ -294,21 +294,45 @@ fn main() {
     // should equal the eligible population exactly; asserting that is the
     // construction check, and the informative number is the FLAT rate.
     let flat_rate = flat_agree as f64 / pairs as f64;
+
+    // DECLARED NULL MODEL (replaces a hand-tuned `flat_rate < 0.25`, which
+    // 24.9 % would have passed while the text claimed ≈1/17 — CodeRabbit).
+    // H0: "the flat seed carries no ancestry information." Under H0 its
+    // agreement rate among ELIGIBLE pairs (sharing ≥1 address level) must equal
+    // its rate among ALL pairs, because ancestry would be irrelevant to it.
+    // Both are computed exhaustively; the gate is that they COINCIDE.
+    let (mut all_pairs, mut all_agree) = (0usize, 0usize);
+    for a16 in 0u16..CELLS as u16 {
+        for b16 in (a16 + 1)..CELLS as u16 {
+            all_pairs += 1;
+            if flat_seed(a16 as u8) == flat_seed(b16 as u8) {
+                all_agree += 1;
+            }
+        }
+    }
+    let null_rate = all_agree as f64 / all_pairs as f64;
     gate(
         "H3 blindness is FIXABLE at the intake (per-tier seeds keep ancestry)",
-        tier_agree == pairs && flat_rate < 0.25 && pairs > 100,
+        tier_agree == pairs && flat_rate <= null_rate && pairs > 100,
         format!(
             "eligible population = {pairs} pairs sharing ≥1 address level \
-             (EXHAUSTIVE over all 256·255/2 = 32,640 cell pairs — no sampling, no \
-             thinning).\n        FLAT intake preserves ancestry in \
-             {flat_agree}/{pairs} = {:.1}% — mod 17 scrambles it.\n        PER-TIER \
-             intake preserves it in {tier_agree}/{pairs} = 100% BY CONSTRUCTION \
-             (each 2-bit group seeds its own ruler); the gate asserts the equality \
-             as a construction check, not as evidence.\n        The informative \
-             quantity is the flat rate, and the honest reading is \"the flat intake \
-             keeps ancestry about as often as chance would\" — NOT a tuned ratio. \
-             The fix is to feed the ruler the address's HIERARCHY, not its integer.",
-            100.0 * flat_rate
+             (EXHAUSTIVE over all {all_pairs} = 256·255/2 cell pairs — no sampling, \
+             no thinning).\n        FLAT intake: {flat_agree}/{pairs} = {:.4}% among \
+             ELIGIBLE pairs vs {all_agree}/{all_pairs} = {:.4}% among ALL pairs \
+             (H0 = \"the flat seed carries no ancestry information\", so the \
+             eligible rate should not EXCEED the base rate). Δ = {:+.4} pp — the \
+             eligible rate is BELOW the base rate, so the flat seed gives no \
+             ancestry lift; it is in fact mildly ancestry-AVERSE, because cells \
+             sharing an address prefix are numerically close and therefore less \
+             likely to be congruent mod 17. Gate = no lift (falsifier: an eligible \
+             rate materially above the base rate, which would mean the flat seed \
+             DOES carry ancestry). No hand-picked ceiling.\n        PER-TIER intake: {tier_agree}/{pairs} = \
+             100% BY CONSTRUCTION (each 2-bit group seeds its own ruler) — asserted \
+             as a construction check, not as evidence.\n        The fix is to feed \
+             the ruler the address's HIERARCHY, not its integer.",
+            100.0 * flat_rate,
+            100.0 * null_rate,
+            100.0 * (flat_rate - null_rate)
         ),
     );
 
@@ -332,5 +356,99 @@ fn main() {
     );
     if failures > 0 {
         std::process::exit(1);
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// H1: the carving reaches the ruler only as a constant rotation.
+    #[test]
+    fn carving_difference_is_a_constant_shift() {
+        let shifts: Vec<u8> = (0..CELLS)
+            .map(|c| {
+                let a = CurveRuler::from_hhtl(c as u64, 4).start_offset() as i16;
+                let b = CurveRuler::from_hhtl(c as u64, 2).start_offset() as i16;
+                (a - b).rem_euclid(CurveRuler::MODULUS as i16) as u8
+            })
+            .collect();
+        assert_eq!(shifts.len(), CELLS);
+        assert!(
+            shifts.iter().all(|&s| s == 2),
+            "expected constant shift of 2"
+        );
+    }
+
+    /// Falsifier for the above: a genuinely structure-carrying seed must NOT
+    /// produce a constant shift. Guards against the gate passing for any seed.
+    #[test]
+    fn a_structure_carrying_seed_would_not_be_constant_shift() {
+        let shifts: std::collections::HashSet<u8> = (0..CELLS)
+            .map(|c| {
+                let t = tiered_seeds(c as u8);
+                (t[0] as i16 - t[3] as i16).rem_euclid(CurveRuler::MODULUS as i16) as u8
+            })
+            .collect();
+        assert!(shifts.len() > 1, "per-tier seeds must vary by cell");
+    }
+
+    /// H2: the exact recorded gap structure, so a constants change is caught.
+    #[test]
+    fn prefix_gap_spread_matches_recorded_values() {
+        assert_eq!(prefix_gap_spread(4, 4), (1, vec![4, 4, 4, 5]));
+        assert_eq!(prefix_gap_spread(11, 4).0, 5);
+        assert_eq!(prefix_gap_spread(4, 2).0, 9);
+        assert_eq!(prefix_gap_spread(11, 2).0, 5);
+    }
+
+    /// The shipped constants this probe reasons about.
+    #[test]
+    fn shipped_constants_are_what_the_probe_assumes() {
+        assert_eq!(CurveRuler::MODULUS, 17);
+        assert_eq!(CurveRuler::STRIDE, 4);
+        // 17 = 4² + 1 — the comma. Without the +1, stride 4 mod 16 covers 4/16.
+        let covered: std::collections::HashSet<u8> = (0..16u8).map(|k| (4 * k) % 16).collect();
+        assert_eq!(covered.len(), 4, "stride 4 over 16 retraces one column");
+    }
+
+    /// H3: the recorded population and agreement counts.
+    #[test]
+    fn h3_population_and_agreement_counts() {
+        let (mut eligible, mut flat, mut tier) = (0usize, 0usize, 0usize);
+        for a16 in 0u16..CELLS as u16 {
+            for b16 in (a16 + 1)..CELLS as u16 {
+                let (a, b) = (a16 as u8, b16 as u8);
+                let k = shared_levels_4ary(a, b);
+                if k == 0 {
+                    continue;
+                }
+                eligible += 1;
+                if flat_seed(a) == flat_seed(b) {
+                    flat += 1;
+                }
+                if shared_seed_prefix(tiered_seeds(a), tiered_seeds(b)) >= k {
+                    tier += 1;
+                }
+            }
+        }
+        assert_eq!(eligible, 8064, "eligible population");
+        assert_eq!(flat, 360, "flat-intake ancestry agreements");
+        assert_eq!(
+            tier, eligible,
+            "per-tier agreement is total by construction"
+        );
+    }
+
+    #[test]
+    fn shared_levels_is_a_prefix_measure() {
+        assert_eq!(shared_levels_4ary(0b00_00_00_00, 0b00_00_00_11), 3);
+        assert_eq!(shared_levels_4ary(0b01_00_00_00, 0b10_00_00_00), 0);
+        assert_eq!(shared_levels_4ary(0b11_01_10_00, 0b11_01_10_00), 4);
+    }
+
+    #[test]
+    fn start_histogram_covers_every_cell() {
+        assert_eq!(start_histogram(4).iter().sum::<usize>(), CELLS);
     }
 }

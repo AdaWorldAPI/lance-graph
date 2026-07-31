@@ -20,7 +20,7 @@ regenerates the interior; `ResidueEdge`/`Signed360` are the stored residue.
 
 The queued hypothesis (finer address ⇒ more deterministic place ⇒ less stored
 residue) was gated behind two PRE-REGISTERED failure modes. Both were run first,
-exactly as the brief required. One is fatal to the sweep; the other is REFUTED.
+exactly as the brief required. One is fatal to the sweep; the other is NOT CONFIRMED (a suspicion retracted, not a hypothesis disproven).
 
 ### H1 — the carving cannot reach the ruler (failure mode (a): CONFIRMED, fatal)
 
@@ -31,7 +31,7 @@ difference between the two carvings, as the ruler sees it, is a **constant
 rotation of 2 across all 256 cells, variance 0** — a cell-dependent shift is the
 falsifier. Unsorted histograms:
 
-```
+```text
 4-ary  (depth 4): [15,15,15,15,16,15,15,15,15,15,15,15,15,15,15,15,15]
 16-ary (depth 2): [15,15,16,15,15,15,15,15,15,15,15,15,15,15,15,15,15]
 ```
@@ -47,7 +47,7 @@ would have been a false negative caused entirely by the intake, and reporting
 "4⁴ doesn't help the calculator" from it would have been wrong. Reported as an
 INTAKE finding, per the pre-registration. The 4⁴ ADDRESS result is untouched.
 
-### H2 — stride 4 vs the φ stride 11 (failure mode (b): REFUTED)
+### H2 — stride 4 vs the φ stride 11 (failure mode (b): NOT CONFIRMED)
 
 The suspicion: `gcd(4,17)=1` buys coverage, not low discrepancy; stride 4's
 first four steps `0,4,8,12` are one column of the 4×4 raster, while the φ stride
@@ -85,10 +85,24 @@ irrational stride as Pythagorean comma."* Confirmed in mechanism — stride 4 ov
 Per-tier seeding (one ruler per 2-bit group, folded with its level) preserves
 ancestry by construction. **EXHAUSTIVE over all 256·255/2 = 32,640 cell pairs —
 no sampling, no thinning.** Eligible population = **8,064** pairs sharing ≥1
-address level: **flat intake preserves ancestry in 360/8,064 = 4.5 %** (≈ the
-1/17 ≈ 5.9 % chance level — the flat intake keeps ancestry about as often as
-chance would); **per-tier in 8,064/8,064 = 100 % BY CONSTRUCTION**, asserted as a
-construction check rather than as evidence. The unblock is to feed the ruler the
+address level: **flat intake preserves ancestry in 360/8,064 = 4.4643 %** against a base rate
+of **1,800/32,640 = 5.5147 %** over ALL pairs — Δ = **−1.05 pp**, i.e. the flat
+seed gives **no ancestry lift at all** and is in fact mildly ancestry-AVERSE
+(cells sharing an address prefix are numerically close, so they are *less* likely
+to be congruent mod 17). **Per-tier: 8,064/8,064 = 100 % BY CONSTRUCTION**,
+asserted as a construction check rather than as evidence.
+
+The acceptance criterion is a **declared null model**, not a threshold: H0 = "the
+flat seed carries no ancestry information", so the eligible rate must not EXCEED
+the base rate. Falsifier: an eligible rate materially above base, which would
+mean the flat seed *does* carry ancestry.
+
+> **⊘ THRESHOLD REPLACED (CodeRabbit on #876).** The gate was `flat_rate < 0.25`
+> — hand-tuned, and 24.9 % would have passed it while the prose claimed ≈1/17.
+> Replaced with the null-model comparison above. Running it immediately FAILED
+> the first formulation ("the two rates coincide"), which was itself wrong: the
+> rates do not coincide, they diverge by −1.05 pp. The gate now states the true
+> and weaker claim — no lift — and the direction is reported rather than assumed. The unblock is to feed the ruler the
 address's HIERARCHY, not its integer value.
 
 > **⊘ SAMPLE SIZE CORRECTED TWICE (codex P2, then CodeRabbit, both on #876).**
