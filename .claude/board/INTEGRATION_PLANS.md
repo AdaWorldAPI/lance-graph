@@ -1,3 +1,26 @@
+## 2026-07-31 — SYNERGY-MAP-S00-S07 §8 (capstone inspiration, AMENDED into the existing map) — INSPIRATION/DESIGN — main thread
+
+**Plan:** `.claude/plans/SYNERGY-MAP-S00-S07.md` **§8.1–§8.8** (appended to the
+existing S00–S07 map; §6 no-net-new-structures stays closed). Operator-taught
+arc, same-day corrections cited in the provenance footer. The map for the next
+session: **§8.8 is the anchor despite being last-numbered** — the resolution
+ladder runs grammar floor FIRST (24×i4 anaphora pointers where i4 = −8..+7 =
+the sentence window, 24×i4 = 12 B = the facet payload [CONJECTURE, needs
+ClassView sanction]; Valenz; Tempus as deinterlacer frame-stamps —
+Plusquamperfekt/Futur II as version-stamps; SPO 2³ fill-state × RungLevel 0–10
+→ one of the 34 recipes via the already-certified convention), then §8.5's
+Evaluation wire (the ONE-phase join: kanban loop → nars_engine, an
+Outcome→premises→op adapter — domino STAYS, pay-forward attention headers per
+§8.1–8.2 with the Pythagorean-comma escalation residual), then §8.6 ambiguity
+resolution as micro-Horizontverschmelzung over DEINTERLACED frames (§8.3:
+temporal.rs = deinterlacing à la GPS-relativity, 64×64 = splat hydration; §8.4
+corrected: NO vsa_bundle — Revision on (f,c), contradiction preserved), then
+§8.7 four-lens Doppelspalt (Wittgenstein/Nietzsche/Kant/Hegel as style
+vectors → four Ψ ripple fields; cloned-lens control as the can-it-stay-silent
+falsifier), LLM tail last. deepnsm-v2 crate untouched by ruling. A withdrawn
+probe verdict (tesseract-side, retention-axis category error) is recorded in
+§8's provenance + tesseract-rs CLAUDE.md.
+
 ## 2026-07-26 — rosetta-codebook-convergence v1 — PROPOSED (D-RCC-1 calibrator runnable today) — main thread
 
 **Plan:** `.claude/plans/rosetta-codebook-convergence-v1.md`
