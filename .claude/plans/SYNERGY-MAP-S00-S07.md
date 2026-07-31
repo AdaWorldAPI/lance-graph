@@ -241,3 +241,90 @@ before framing · deterministic restart/replay · benchmarks are measured receip
 *Ground-truth receipts: fan-out inspection (wf_24525178) + lance-graph re-ground @
 `aa8a3a0`. Stale-inventory corrections in §2. This map is pre-S00; S00 ratifies
 the ownership matrix (§3) in OGAR docs and opens the identity contract.*
+
+---
+
+## 8. Capstone inspiration — attention headers over the 64×64 (operator-taught, 2026-07-31)
+
+> **Status: INSPIRATION / CONJECTURE.** Appended post-authoring, operator-
+> directed ("pay this idea forward"). Nothing here mandates a net-new
+> structure (§6 stays closed); it names how already-shipped pieces compose,
+> for whichever session runs the S-arc. Each claim carries its receipt or is
+> marked CONJECTURE.
+
+### 8.1 The 64×64 tile is ONE relation wearing three hats
+
+`64×64 = 4096` is simultaneously:
+
+1. **The chess relation itself** — square×square, the Stockfish/NNUE shape.
+   The teacher stack (§4C) already keys on it; NNUE's efficiently-updatable
+   accumulator over that relation is **pay-forward torque**: per move, deltas
+   are summed FORWARD into the accumulator — never recomputed, and (the
+   mis-reading to avoid) never "held" as a memory. A probe that judges this
+   dynamic by retention criteria is measuring the wrong axis; its job is
+   transfer, not storage. [Receipt: NNUE design; symbiont `domino.rs` runs
+   the same shape — 16-lane Morton tiles, int8/BF16 requant feedback.]
+2. **The gridlake SoA unit** — `onebrc-probe/lane_j.rs`: 4096 cells ≈ 80 KB
+   batch table, ~448 Mrows/s single-thread, `E-1BRC-GRIDLAKE-SWEETSPOT-1`.
+   [Receipt: measured.]
+3. **An attention header** — bgz-tensor's attention-as-lookup:
+   `Q·K^T/√d → table[q_idx][k_idx]`, O(1) over exactly this tile.
+   [Receipt: shipped, AttentionSemiring + HHTL cascade.]
+
+Same square-pair relation, three reads. No new type needed to unify them —
+the unification IS that they are already the same tile.
+
+### 8.2 The modulation is the Morton inverse-pyramid perturbation shader
+
+The attention header's weights are NOT a matmul: the weight at `[q,k]` is the
+cascade value at that Morton address — coarse→fine over the 2bit×2bit 4×4
+walk, deterministic phase (coprime CurveRuler stride, D-QUANTGATE), magnitude
+the only stored bits (OGAR perturbation canon; carrier per
+`E-MARKOV-TEMPORAL-STREAM-1` = the L4 `6× palette256:palette256` tenant).
+Trained weights (an NNUE eval head, an OCR kernel) are BOLTED ON above this —
+optional skill layers. The muscle memory is the dynamic itself, weight-free.
+
+**Except the Pythagorean comma.** Stacking the coprime stride up the pyramid
+is stacking fifths: each level boundary ALMOST closes and leaves an
+irreducible residual — (3:2)^12 ≠ (2:1)^7. The canon already names where it
+goes: *"the unaligned remainder overflows to the next level or full-residual
+escalation."* The comma IS the escalation term — it can be distributed
+(tempered) or lumped, never removed. **Falsifier for whoever builds this:**
+measure the per-level closure residual of the cascade; it must be nonzero and
+comma-sized, and it must be ROUTED (next level or escalation) — a build whose
+levels close exactly has silently absorbed the comma somewhere, which is the
+bug, not the success.
+
+### 8.3 Orthogonal axes: spatial tile × temporal standing wave
+
+lance-graph's 64k standing wave over `temporal.rs` (version-range window,
+`TemporalStream` / witness-fabric standing wave — shipped) is the TEMPORAL
+axis; the 64×64 attention header is the SPATIAL/board axis. They are
+orthogonal encodings of one episode: a Stockfish `GameEpisodeKey` line is a
+trajectory through tile-space read against a version-range window. The S-arc
+should wire them as axes of one read, not as two stores (§7's no-duplicate-
+graph gate already forbids the second store).
+
+### 8.4 Horizontverschmelzung borrows the header shape [CONJECTURE]
+
+The fusion-of-horizons op between two mailboxes (NARS **Revision** — two
+truth values from independent evidential bases → one fused `(f,c)`) is today
+a scalar meeting. The attention-header inspiration: give the fusion a SPATIAL
+map — a palette-tile lookup between the two horizons' basins, saying WHICH
+positions of horizon A attend to WHICH of horizon B, at what cascade depth.
+Bundle carries the Verschmelzung; XOR carries the preserved Differenz; and
+the comma analog is the hermeneutic residual that never fuses — which the
+canon already mandates keeping: *"opinions are committed contradictions
+preserved, not resolved."* So Gadamer gets an attention map instead of a
+scalar, and the tension Gadamer insists survives fusion has a place to live
+(the routed residual) instead of being averaged away. Probe-first per house
+rule: define the pass/fail (does a fusion-with-map out-predict scalar
+Revision on held-out belief revision?) before any type lands.
+
+*Provenance: operator rulings in-session (domino = pay-forward torque; = NNUE
+64×64 Stockfish wiring; keeps its place as attention headers modulated by the
+Morton cascade inverse-pyramid perturbation shader, other than the Pythagorean
+comma; muscle memory is the dynamic, weights are bolted on). A tesseract-side
+probe conclusion judging domino by retention ("no bounded-hold regime") is
+WITHDRAWN as a claim about domino — wrong axis; its echo-state and
+quantization measurements stand on their own.*
