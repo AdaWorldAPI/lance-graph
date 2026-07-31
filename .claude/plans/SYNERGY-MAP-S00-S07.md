@@ -246,6 +246,29 @@ the ownership matrix (§3) in OGAR docs and opens the identity contract.*
 
 ## 8. Capstone inspiration — attention headers over the 64×64 (operator-taught, 2026-07-31)
 
+> **⛔ STATUS: RESTING PLAN (operator ruling, 2026-07-31). Too many gaps — do
+> not build from ANY §8 subsection.** A 5-savant + 2-reviewer council pass
+> (cycle 1 of a planned 2; cycle 2 cancelled on this ruling) graded ~25 claims:
+> most of §8.8's floor is CODED (24 witness loci / i4 ∈ [−8,+7] /
+> `WITNESS_REGISTER_BYTES = 12` in `contract/src/causal_witness.rs:52-58`;
+> certified rung↔pearl↔2³ test; `RECIPES: [Recipe; 34]`; F-triage thresholds
+> exact in `grammar/free_energy.rs:28-35`) — but: **§8.6/§8.7's PURPOSE was
+> wrong** (operator: they are for torque / semantic pressure / attention
+> headers, NEVER grammar resolution — grammar belongs to the deterministic
+> floor alone, no residue ladder); §8.7's "interference" is unsigned-energy
+> ensembling unless a signed/phase carrier is wired (`ShaderResonance` has no
+> sign term) and its falsifier cannot distinguish the two; Kant is the ONLY
+> philosopher with a code anchor (`mul/compass.rs:19-39` needle — Wittgenstein/
+> Nietzsche/Hegel/Schopenhauer are ABSENT everywhere, incl. as style vectors);
+> C4.3's basin↔basin map is ABSENT (`BasinCode` is a different object);
+> Valenz is positional-only, German tense labels don't exist (English `Tense`
+> enum does), RungLevel is 0–9 not 0–10; φ−1 "permanent humility" is DOC-ONLY.
+> Prior art not consulted: `deepnsm-morton-comma-facet-v1.md` +
+> `causal-rung-standing-wave-v1.md` (both 2026-07-21) cover adjacent territory
+> with their own probes. Full graded table banked in the council scratchpad;
+> any revival starts from a fresh Phase-0 spec on the PRESSURE framing, routed
+> through `epiphany-brainstorm-council`, and re-grades C7.4 (unverified).
+
 > **Status: INSPIRATION / CONJECTURE.** Appended post-authoring, operator-
 > directed ("pay this idea forward"). Nothing here mandates a net-new
 > structure (§6 stays closed); it names how already-shipped pieces compose,

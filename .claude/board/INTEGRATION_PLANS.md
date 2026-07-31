@@ -1,4 +1,4 @@
-## 2026-07-31 — SYNERGY-MAP-S00-S07 §8 (capstone inspiration, AMENDED into the existing map) — INSPIRATION/DESIGN — main thread
+## 2026-07-31 — SYNERGY-MAP-S00-S07 §8 (capstone inspiration, AMENDED into the existing map) — **⛔ RESTING (operator, 2026-07-31: too many gaps — do not build; §8.6/§8.7 purpose corrected to torque/semantic-pressure attention headers, never grammar resolution; council grades banked in the §8 status banner)** — main thread
 
 **Plan:** `.claude/plans/SYNERGY-MAP-S00-S07.md` **§8.0–§8.8** (appended to the
 existing S00–S07 map; §6 no-net-new-structures stays closed).
