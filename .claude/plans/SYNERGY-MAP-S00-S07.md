@@ -345,6 +345,71 @@ Probe-first per house rule: pass/fail (does Revision-with-spatial-map
 out-predict scalar Revision on held-out belief revision?) before any type
 lands.
 
+### 8.5 The Evaluation wire — joining the loop half to the reasoning half [DESIGN]
+
+Two shipped halves, measured this arc, never joined:
+
+- **the loop** — symbiont's kanban arc `Planning → CognitiveWork → Evaluation
+  → Commit`, fired synchronously by the writer's own version tick
+  (`VersionScheduler::on_version → try_advance_phase`; no bus, no ack —
+  E-ACK-ELIMINATED-1). [MEASURED: shipped, green, currently sweeping domino.]
+- **the reasoning** — `lance-graph-planner/src/cache/nars_engine.rs`:
+  Deduction / Induction / Abduction / Revision / Synthesis / Intervention /
+  Counterfactual, fully built, with nothing that fires it. [MEASURED:
+  shipped, unwired.]
+
+**The join is one phase wide, and it is NOT a replacement.** An earlier
+proposal ("make `CognitiveWork` call `nars_engine` instead of the tile GEMM")
+was wrong in one word — *instead*. Domino STAYS (§8.1–§8.3: pay-forward
+hydration, attention headers, splat field). The NARS ops attach DOWNSTREAM:
+
+```
+writer commits batch → knows its version (sync)
+  Planning       MetaFilter sweep — who is in play this cycle
+  CognitiveWork  domino, UNCHANGED: pay-forward hydration over the 4096
+                 tile → energy, firing rows, and the per-level closure
+                 residual (the comma, §8.2)
+  Evaluation     ← THE MISSING WIRE. Fired rows' premises route to
+                 nars_engine by the SHAPE of what fired:
+                   · within-board unknowns → the NaN-autocomplete settle
+                     over blasgraph (sudoku-style: pinned cells + semiring
+                     propagation to a fixed point) — deduction as
+                     weight-free constraint closure [CONJECTURE: mechanism
+                     named, not probed]
+                   · two independent bases → Revision over DEINTERLACED
+                     frames (§8.3/§8.4 — each horizon read in its own frame
+                     first; the independence Revision's confidence-raising
+                     math assumes)
+                   · the routed comma → Abduction / escalation — the
+                     residual no level absorbs is exactly the surprise that
+                     warrants a hypothesis or a ticket
+  Commit         revised (f,c) edges; the never-fusing residual committed
+                 as a PRESERVED CONTRADICTION, per canon
+```
+
+**Evaluation is where the sweep's output becomes premises.** Domino surfaces
+WHAT to think about and how urgently (energy, residual); nars_engine is HOW
+it gets thought. Op dispatch is not new machinery either — it is the rung-3
+recipe codebook's job (the 34 NARS tactic runbooks), with the established
+dyadic/within-board split: Deduction and the NaN-settle stay inside one
+board; Revision / Synthesis / Abduction cross mailboxes.
+
+**Shape of the wire:** an `Outcome → premises → op` adapter in the same
+spirit as the shipped D-MBX-A6 `Outcome → KanbanMove` adapter on the move
+side — an adapter, not an engine, honoring §6 (no net-new structures beyond
+a return-type-shaped seam). Consumers then supply PREMISES, not engines: a
+domain's own reasoners (differential, abductive frontier, etc.) feed ops
+that already exist instead of growing a parallel engine — which is precisely
+why consumer kanbanstep wiring was blocked: `CognitiveWork` had no reasoning
+surface to hand premises to. With Evaluation wired, that blocker dissolves
+for every consumer at once.
+
+**Status:** loop half + reasoning half [MEASURED-shipped]; the Evaluation
+wire itself [DESIGN]; the NaN-autocomplete settle [CONJECTURE — probe
+before build, per house rule: pass/fail is that the settle reaches a fixed
+point that a held-out pinned-cell mask predicts, and that raising the
+pin count monotonically shrinks the unfilled set].
+
 *Provenance: operator rulings in-session; §8.3/§8.4 corrected same day by
 operator review — the axis labels (deinterlacing / splat hydration) and the
 removal of the bundle/XOR fusion model (VSA demoted per
