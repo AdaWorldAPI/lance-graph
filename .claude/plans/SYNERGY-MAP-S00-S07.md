@@ -295,33 +295,62 @@ comma-sized, and it must be ROUTED (next level or escalation) — a build whose
 levels close exactly has silently absorbed the comma somewhere, which is the
 bug, not the success.
 
-### 8.3 Orthogonal axes: spatial tile × temporal standing wave
+### 8.3 Orthogonal axes: spatial splat hydration × temporal deinterlacing
 
-lance-graph's 64k standing wave over `temporal.rs` (version-range window,
-`TemporalStream` / witness-fabric standing wave — shipped) is the TEMPORAL
-axis; the 64×64 attention header is the SPATIAL/board axis. They are
-orthogonal encodings of one episode: a Stockfish `GameEpisodeKey` line is a
-trajectory through tile-space read against a version-range window. The S-arc
-should wire them as axes of one read, not as two stores (§7's no-duplicate-
-graph gate already forbids the second store).
+**Corrected 2026-07-31 (operator):** the first version of this section
+mislabelled both axes; this is the corrected reading.
+
+- **temporal.rs is temporal DEINTERLACING**, not merely "the time axis":
+  reads are normalized to the reader's pinned frame the way relativistic
+  corrections normalize GPS clocks during orbit — a reader pinned at version
+  `v` must never consume knowledge minted after `v` (**hindsight-knowledge
+  pollution**, the time-travel anomaly), and temporal.rs prevents it with
+  much simpler machinery than relativity: version pins + deinterlace. This
+  is the mechanism BEHIND §7's "Strict/Retro leak-free" gate, not a separate
+  idea. [Receipt: temporal.rs `QueryReference::at` + deinterlace;
+  E-MARKOV-TEMPORAL-STREAM-1.]
+- **The 64×64 tile is spatial perturbation HYDRATION** — Gaussian-splat
+  spatial blasgraph (3DGS-shaped): the perturbation shader's
+  deterministic-phase / stored-magnitude field hydrates a splat field over
+  the spatial axis, with blasgraph as the spatial substrate. The chess/NNUE
+  read (§8.1) is one domain binding of that tile; splat hydration is the
+  general one.
+
+One episode is then read on two orthogonal normalizations: WHERE (splat
+hydration over the tile) × WHEN (deinterlaced to the reader's frame). Never
+two stores (§7 gate).
 
 ### 8.4 Horizontverschmelzung borrows the header shape [CONJECTURE]
 
-The fusion-of-horizons op between two mailboxes (NARS **Revision** — two
-truth values from independent evidential bases → one fused `(f,c)`) is today
-a scalar meeting. The attention-header inspiration: give the fusion a SPATIAL
-map — a palette-tile lookup between the two horizons' basins, saying WHICH
-positions of horizon A attend to WHICH of horizon B, at what cascade depth.
-Bundle carries the Verschmelzung; XOR carries the preserved Differenz; and
-the comma analog is the hermeneutic residual that never fuses — which the
-canon already mandates keeping: *"opinions are committed contradictions
-preserved, not resolved."* So Gadamer gets an attention map instead of a
-scalar, and the tension Gadamer insists survives fusion has a place to live
-(the routed residual) instead of being averaged away. Probe-first per house
-rule: define the pass/fail (does a fusion-with-map out-predict scalar
-Revision on held-out belief revision?) before any type lands.
+**Corrected 2026-07-31 (operator): the first version modelled the fusion with
+`vsa_bundle` + XOR — WRONG for this substrate.** The 2026-07-10 supersession
+(E-MARKOV-TEMPORAL-STREAM-1) demoted VSA to its I-VSA-IDENTITIES four-test
+niche; the Markov trajectory lives on the temporal.rs sorted stream, and the
+carrier is the palette256 tenant. A fusion model built on bundle/XOR imports
+the retired substrate. The corrected shape:
 
-*Provenance: operator rulings in-session (domino = pay-forward torque; = NNUE
+- **The fusion op is NARS Revision on `(f, c)`** — two truth values from
+  independent evidential bases, met over the DEINTERLACED stream (each
+  horizon read in its own frame first, per §8.3, so neither pollutes the
+  other with hindsight).
+- **The attention-header inspiration** is the spatial half: a palette-tile
+  lookup mapping WHICH basins of horizon A attend to WHICH of horizon B, at
+  what cascade depth — fusion gets a spatial map instead of a scalar.
+- **The residual that never fuses** is a COMMITTED CONTRADICTION — the
+  canon's own mechanism ("opinions are committed contradictions preserved,
+  not resolved") — the comma-analog routed to preservation, not an XOR
+  register and not averaged away.
+
+Probe-first per house rule: pass/fail (does Revision-with-spatial-map
+out-predict scalar Revision on held-out belief revision?) before any type
+lands.
+
+*Provenance: operator rulings in-session; §8.3/§8.4 corrected same day by
+operator review — the axis labels (deinterlacing / splat hydration) and the
+removal of the bundle/XOR fusion model (VSA demoted per
+E-MARKOV-TEMPORAL-STREAM-1; the doc initially reimported it — an
+inconsistency the operator caught, recorded here per corrections-cite-their-
+pass). Original rulings: (domino = pay-forward torque; = NNUE
 64×64 Stockfish wiring; keeps its place as attention headers modulated by the
 Morton cascade inverse-pyramid perturbation shader, other than the Pythagorean
 comma; muscle memory is the dynamic, weights are bolted on). A tesseract-side
