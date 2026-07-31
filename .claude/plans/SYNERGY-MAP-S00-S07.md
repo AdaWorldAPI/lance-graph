@@ -454,6 +454,59 @@ stack exists for.** Tying the ends:
   map-weighted resolution beat the flat prior at picking the reading the
   wider context later confirms?
 
+### 8.7 The four lenses — Wittgenstein · Nietzsche · Kant · Hegel, as Doppelspalt ripples
+
+§8.6 reads an ambiguity through ONE horizon-pair. The operator's extension:
+read it through FOUR lenses simultaneously, and let the readings INTERFERE —
+the Doppelspalt shape. No new machinery is required; every part is a shipped
+shape:
+
+- **A lens is a style vector, already canon.** `atom-basis-inventory.md`:
+  *"thinking style = one i4-32D vector... Kant / Schopenhauer = specific
+  vectors"* — a lens is an OBJECT (StyleRecipe), never a rung (the
+  persona-vs-rung fence holds: lenses are angles/styles, not the 34 NARS
+  runbooks). The MUL compass already carries a Kant needle;
+  `scientific-kg-substrate-v1.md` already names a Kant/Schopenhauer/Hegel
+  validation gate. Wittgenstein · Nietzsche · Kant · Hegel = four specific
+  vectors. Orientation (loose, not spec):
+    · **Kant** — conditions of what can appear: the reader's frame — the
+      deinterlaced pin + rung, the Vorurteil formalized (§8.6);
+    · **Wittgenstein** — meaning-as-use: WHICH language-game the token is in
+      (the grammar/FSM read of context);
+    · **Nietzsche** — perspectivism: WHOSE drive is reading (the
+      qualia/angle read);
+    · **Hegel** — dialectic/becoming: the temporal stream itself; Aufhebung
+      = the preserved contradiction CARRIED and later revised, never erased
+      (§8.6's Epiphany path is already Hegelian by construction).
+- **Each lens is a slit; each produces a ripple field — the shipped Ψ
+  shape.** `ShaderResonance` is literally documented as *"ripple field:
+  per-row energy + top-k hits."* One ambiguous event → four Ψ fields over
+  the same candidate basins.
+- **Interference is the readout.** Superpose the four fields:
+  **constructive peaks** = readings supported from genuinely independent
+  angles (multi-lens support, the diversity-catches-what-redundancy-cannot
+  principle); **destructive nodes** = contradiction sites → §8.6's
+  preserved-contradiction path, not averaged away. Collapse happens only at
+  **Commit** — the measurement, after the interference pattern has formed,
+  never before.
+- **Independence is a MEASURED requirement, not an aspiration.** The
+  cloned-lane probe (EPIPHANIES, the Pearl audit) showed non-independent
+  witnesses produce +94% naive agreement at similarity 1.000000 — a hidden
+  common cause faking consensus. A cloned lens adds NOTHING: the Doppelspalt
+  only shows a pattern when the slits are genuinely separate. Deinterlacing
+  (§8.3) + four genuinely distinct lens priors are what make the
+  interference informative.
+
+**[CONJECTURE] with its falsifier PAIR stated before any type lands:**
+- CAN IT FIRE — on held-out ambiguous tokens, four-lens interference peaks
+  must out-predict the best single lens at picking the reading the wider
+  context later confirms;
+- CAN IT STAY SILENT — the **cloned-lens control**: replace the four lenses
+  with one lens cloned 4×; the gain must VANISH. If it does not, the
+  "interference" was a hidden common cause, exactly the defect the
+  cloned-lane probe measured — and the lens set carries as much information
+  as one lens.
+
 *Provenance: operator rulings in-session; §8.3/§8.4 corrected same day by
 operator review — the axis labels (deinterlacing / splat hydration) and the
 removal of the bundle/XOR fusion model (VSA demoted per
