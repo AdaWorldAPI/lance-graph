@@ -507,6 +507,67 @@ shape:
   cloned-lane probe measured — and the lens set carries as much information
   as one lens.
 
+### 8.8 First and foremost — the deterministic grammar floor (DeepNSM-v2)
+
+**Priority ruling (operator): §8.6's fusion and §8.7's lens interference are
+for the RESIDUE. The floor runs first, and it is deterministic grammar.**
+This is DeepNSM's founding thesis applied to the whole §8 stack: the FSM
+resolves the bulk mechanically; only what grammar cannot close escalates
+upward. Plan-only note — the deepnsm-v2 CRATE is not to be touched from this
+arc; its wiring is already ahead of what outside sessions assume.
+
+- **24 deterministic i4 anaphora pointers.** An i4's range is **−8..+7 —
+  exactly the sentence window** deepnsm-v2 already reads. A Relativpronomen
+  anaphora pointer is therefore ONE i4: a deterministic relative offset to
+  its antecedent, no search, no scoring. Shipped seed: `wave.rs`'s
+  `CausalWitnessFacet` (antecedent / kausal / grounding offsets) fed by
+  `fsm.rs`'s `Rel` tag ("the relativizer's antecedent IS the matrix
+  subject"). And the arithmetic is not a coincidence to wave away:
+  **24 × i4 = 96 bits = 12 bytes = the V3 facet payload.** [CONJECTURE with
+  a gate: a 24×i4 carving is a NEW projection of the content-blind 12-B
+  register — it must be SANCTIONED by the ClassView per le-contract §3
+  (which today carves 6×(u8:u8) / 4×(u8:u8:u8) / 3×(u8:u8:u8:u8)), never
+  assumed. i4 is a native grain elsewhere (QualiaI4Column), so the ask is
+  a sanctioning, not an invention.]
+- **Verb heuristics: Valenz + Tempus, both deterministic.**
+  *Transitiv/intransitiv* (valence) tells the FSM whether `HaveVerb` should
+  expect an object at all — the FSM already closes an intransitive embedded
+  clause without a triple; valence lifts that from special case to rule.
+  *Plusquamperfekt / Perfekt / Futur I / Futur II* are **frame stamps for
+  the deinterlacer (§8.3), supplied by morphology for free**: Plusquamperfekt
+  marks an event BEFORE the narrative now; Futur II is a future reference
+  point looking BACK (a nested frame). Tense is the linguistic version-
+  stamp — grammar hands temporal deinterlacing its ordering hints
+  deterministically, before any inference runs.
+- **The SPO 2³ rung decomposition ladder.** A triple has 8 fill-states
+  (which of S/P/O are bound); the convention rung ↔ pearl-level ↔ 2³ mask is
+  ALREADY CERTIFIED in the contract
+  (`rung_pearl_levels_and_masks_follow_the_certified_convention`,
+  `cognitive_shader.rs`). Unbound slots are exactly §8.5's NaN cells — the
+  autocomplete settle fills them from the bound ones.
+- **The 34 recipes dispatch BY RUNG, 0–10, deterministically.**
+  `RungLevel` spans the ladder (0 = Surface … clamping at Transcendent);
+  `recipes::RECIPES: [Recipe; 34]` carries the rung-3 runbooks with SPO-2³
+  coverage; the rung arrives WITH the read (`QueryReference::at(v, rung)`).
+  So which tactic fires is a function of `(rung, 2³ mask)` — a certified
+  convention, not a learned chooser (the ladder doc's own line: a macro
+  choosing which tactic fires **does not exist**, and §8 does not create
+  one).
+
+**The full resolution order, restated as the ladder it is:**
+
+```
+1. grammar floor      pointers (24×i4) · Valenz · Tempus-frame-stamps · FSM
+2. 2³/rung dispatch   bound-slot mask + rung level → one of the 34 recipes
+3. fusion             §8.6 — Revision over deinterlaced frames (residue only)
+4. lens interference  §8.7 — four slits, for what fusion cannot settle
+5. tail               FailureTicket / LLM — the <25%, last, never first
+```
+
+Each rung up the ladder is strictly more expensive and strictly rarer —
+the floor is where the volume lives, which is why it comes first and
+foremost.
+
 *Provenance: operator rulings in-session; §8.3/§8.4 corrected same day by
 operator review — the axis labels (deinterlacing / splat hydration) and the
 removal of the bundle/XOR fusion model (VSA demoted per
