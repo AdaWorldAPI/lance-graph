@@ -410,6 +410,50 @@ before build, per house rule: pass/fail is that the settle reaches a fixed
 point that a held-out pinned-cell mask predicts, and that raising the
 pin count monotonically shrinks the unfilled set].
 
+### 8.6 Gadamer loose ends — ambiguity resolution is the live consumer
+
+The loose end §8.4/§8.5 left open: what actually USES the fusion machinery,
+cycle by cycle. The answer is already in the supersession that governs this
+whole section — E-MARKOV-TEMPORAL-STREAM-1's stated purpose is that
+*"grammar-resolver ambiguities are resolved live and granularly against a
+version-range read (`QueryReference::at(v, rung)` + deinterlace)."*
+**Ambiguity resolution is not an application of the §8 stack; it is what the
+stack exists for.** Tying the ends:
+
+- **Every ambiguity is a micro-Horizontverschmelzung.** The reader's horizon
+  is the prior — Gadamer's *Vorurteil*, which the substrate already carries
+  as the NARS `(f, c)` prior read in the reader's OWN deinterlaced frame
+  (§8.3: a prior polluted by hindsight is not a prejudice, it is a leak).
+  The utterance's horizon is the candidate-reading set — basins. Resolution
+  is their fusion. [Receipt: the deepnsm-v2 `Rel` tag feeding the ±8
+  antecedent pointer is a shipped micro-instance: a positional prior meeting
+  a candidate referent inside the local window.]
+- **The resolution triage IS the shipped F-triage, and it routes like
+  §8.5's Evaluation table:**
+    · resolved inside the local horizon → **Commit** (one reading, one edge);
+    · a near-tie (ΔF small) → **Epiphany: BOTH readings committed + a
+      preserved Contradiction** — Gadamer's demand that fusion keep the
+      tension, already canon ("both triples + Contradiction"), never a
+      forced disambiguation;
+    · beyond the local horizon (the ±8 Escalate zone) → **escalation to the
+      global graph** — the comma-routing analog at the linguistic level:
+      what the local horizon cannot close is ROUTED, not absorbed;
+    · genuinely stuck (F high) → **FailureTicket**, the <25% tail.
+- **The circle never closes, by construction.** Gadamer: fusion is never
+  total — the horizons keep moving. The canon already prices this in as the
+  **φ−1 ceiling on awareness revision ("permanent humility")**: no amount of
+  resolved ambiguity drives confidence to 1, so every fusion leaves the next
+  reading genuinely open. The hermeneutic circle = the kanban cycle loop
+  (F descends per cycle; the shader rests when surprise is spent), with a
+  floor that guarantees the circle stays a circle.
+- **[CONJECTURE] the attention-header borrowing (§8.4), specialized:** the
+  candidate readings are basins, and the spatial map says which CONTEXT
+  basins attend to which CANDIDATE basin at what cascade depth — ambiguity
+  resolution as a palette-tile lookup rather than a scored list. Probe
+  pass/fail before any type: on held-out ambiguous tokens, does the
+  map-weighted resolution beat the flat prior at picking the reading the
+  wider context later confirms?
+
 *Provenance: operator rulings in-session; §8.3/§8.4 corrected same day by
 operator review — the axis labels (deinterlacing / splat hydration) and the
 removal of the bundle/XOR fusion model (VSA demoted per
