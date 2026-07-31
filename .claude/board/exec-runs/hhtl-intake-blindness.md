@@ -22,17 +22,25 @@ The queued hypothesis (finer address ⇒ more deterministic place ⇒ less store
 residue) was gated behind two PRE-REGISTERED failure modes. Both were run first,
 exactly as the brief required. One is fatal to the sweep; the other is REFUTED.
 
-### H1 — the intake is STRUCTURE-BLIND (failure mode (a): CONFIRMED, fatal)
+### H1 — the carving cannot reach the ruler (failure mode (a): CONFIRMED, fatal)
 
-`from_place(p) = p % 17` consumes the address as a **NUMBER**, never as a
-hierarchy. Feeding the same 256 cells carved 4-ary (depth 4) vs 16-ary (depth 2)
-yields the SAME start-offset multiset — a pure rotation:
+Two halves. **Type-level (stated, not measured):** `from_hhtl(path: u64,
+depth: u8)` has no parameter that could carry a carving, so level structure has
+no channel into `from_place(p) = p % 17`. **Empirical (the gate):** the entire
+difference between the two carvings, as the ruler sees it, is a **constant
+rotation of 2 across all 256 cells, variance 0** — a cell-dependent shift is the
+falsifier. Unsorted histograms:
 
 ```
 4-ary  (depth 4): [15,15,15,15,16,15,15,15,15,15,15,15,15,15,15,15,15]
 16-ary (depth 2): [15,15,16,15,15,15,15,15,15,15,15,15,15,15,15,15,15]
-identical multiset = true
 ```
+
+> **⊘ Gate corrected pre-merge (codex P1 on #876).** The first version sorted
+> both histograms and compared multisets. Sorting discards which cell maps to
+> which offset, and the UNSORTED histograms genuinely differ — so the gate
+> passed while hiding that every cell had moved. An aggregate distribution does
+> not establish per-cell invariance; the constant-shift measurement does.
 
 **Consequence: a residue-vs-granularity sweep cannot carry signal.** Its null
 would have been a false negative caused entirely by the intake, and reporting
@@ -56,11 +64,17 @@ Measured gap spread (max−min gap; lower = more uniform):
 | 5 | **3** | [1,4,4,4,4] | 4 | [1,1,5,5,5] |
 | 6 | **3** | [1,1,3,4,4,4] | 4 | [1,1,1,4,5,5] |
 
-**At n=4 — the prefix a 4-ary tier actually consumes — stride 4 is near-perfect
-(spread 1) and beats φ (spread 5).** `4·4 = 16 ≈ 17`: the comma is what makes a
-4-step prefix tile the circle. The shipped constants are MATCHED to the 4-ary
-use case. My suspicion ("a raster wearing a φ-spiral's docstring") is refuted;
-this vindicates `STRIDE = 4` / `MODULUS = 17` rather than indicting them.
+At n=4 stride 4 is near-perfect (spread 1) and beats φ (spread 5); `4·4 = 16 ≈ 17`.
+
+> **⊘ DESIGN CLAIM WITHDRAWN (codex P1 on #876).** The first version concluded
+> "the shipped constants are MATCHED to the 4-ary use case". That premise — that
+> a 4-ary tier consumes 4 ruler steps — is **not wired into anything that
+> ships**: `ResidueEncoder::encode` reads only `start_offset` (n=1,
+> `residue.rs:157`); `index`/`arc` appear solely in `walk_spectrum` and this
+> crate's tests; the shipped `NiblePath` is `FAN_OUT = 16`. The n=4 comparison is
+> therefore a property of a HYPOTHETICAL consumer. What survives: the
+> pre-registered suspicion is **NOT CONFIRMED** — a retraction of a concern, not
+> a vindication of a design.
 
 Operator framing that produced this check: *"4x4 usually only helps with an
 irrational stride as Pythagorean comma."* Confirmed in mechanism — stride 4 over
@@ -69,9 +83,18 @@ irrational stride as Pythagorean comma."* Confirmed in mechanism — stride 4 ov
 ### H3 — the blindness is FIXABLE at the intake, not fundamental
 
 Per-tier seeding (one ruler per 2-bit group, folded with its level) preserves
-ancestry by construction. Over 4,662 sampled cell pairs sharing ≥1 address level:
-**flat intake preserves ancestry in 51; per-tier in 1,152 (≈23×).** The unblock
-is to feed the ruler the address's HIERARCHY, not its integer value.
+ancestry by construction. Eligible population = **1,152** pairs sharing ≥1
+address level: **flat intake preserves ancestry in 51/1,152 = 4.4 %** (≈ the
+1/17 ≈ 5.9 % chance level — the flat intake keeps ancestry about as often as
+chance would); **per-tier in 1,152/1,152 = 100 % BY CONSTRUCTION**, asserted as a
+construction check rather than as evidence. The unblock is to feed the ruler the
+address's HIERARCHY, not its integer value.
+
+> **⊘ SAMPLE SIZE CORRECTED (codex P2 on #876).** The first version incremented
+> the counter BEFORE the `k > 0` eligibility check, so the published "4,662 pairs
+> sharing ≥1 address level" was really every thinned pair — a false sample size
+> in the probe output and in both board records. The ≈23× ratio was arithmetic
+> on a mislabelled denominator; the honest figures are 4.4 % vs 100 %.
 
 ## Verification
 - `cargo run --release --manifest-path crates/helix/Cargo.toml --example

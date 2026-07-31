@@ -15,23 +15,30 @@
 //! deterministic PLACE and less of it stored RESIDUE, so residue should shrink
 //! as address granularity rises. Two failure modes were **pre-registered** before
 //! any measurement. This probe runs both. One is confirmed and it is fatal to the
-//! sweep; the other is REFUTED, and its refutation vindicates the shipped design.
+//! sweep; the other is NOT CONFIRMED — which retracts a suspicion without
+//! licensing any design claim in its place (see the ⚠ under H2).
 //!
 //! ## H1 — the intake is STRUCTURE-BLIND (pre-registered failure mode (a))
 //!
 //! [`CurveRuler::from_hhtl(path, depth)`] is `from_place(path + depth)`, and
 //! [`CurveRuler::from_place`] is `place % 17`. The address therefore enters the
-//! ruler **as a number, never as a hierarchy**. Feed the same 256 cells carved
-//! 4-ary (4 levels × 2 bits) or 16-ary (2 levels × 4 bits) and the ruler receives
-//! the same 256 integers, so it produces the same start-offset multiset — the
-//! carvings are indistinguishable to it.
+//! ruler **as a number, never as a hierarchy** — `from_hhtl` has no parameter
+//! that could carry a carving, so how the byte's bits group into levels cannot
+//! influence the output. The measurable half: the entire difference between the
+//! two carvings, as the ruler sees it, is a CONSTANT rotation with ZERO per-cell
+//! variance; a cell-dependent shift would falsify it.
+//!
+//! (An earlier version of this gate compared SORTED histograms. That was wrong:
+//! sorting discards which cell maps to which offset, and the unsorted histograms
+//! genuinely differ, so the gate passed while hiding that every cell had moved —
+//! codex P1 on #876.)
 //!
 //! **Consequence: the residue-vs-granularity sweep cannot produce a signal, and a
 //! null from it would say nothing about 4⁴.** Reporting "4⁴ doesn't help the
 //! calculator" from that null would have been a false negative caused entirely by
 //! the intake. This is an INTAKE finding, exactly as pre-registered.
 //!
-//! ## H2 — stride 4 vs the φ stride 11 (pre-registered failure mode (b), REFUTED)
+//! ## H2 — stride 4 vs the φ stride 11 (pre-registered (b): NOT CONFIRMED)
 //!
 //! The suspicion was: `gcd(4,17) = 1` buys *coverage*, not *low discrepancy*;
 //! stride 4's first four steps are `0,4,8,12` (one column of the 4×4 raster,
@@ -40,19 +47,26 @@
 //! early, only short prefixes are ever consumed — so short-prefix uniformity is
 //! what matters, and stride 4 looked like a raster wearing a φ-spiral's docstring.
 //!
-//! **The measurement refutes it at exactly the prefix length a 4-ary tier
-//! consumes.** After 4 steps, stride 4 gives gaps `[4,4,4,5]` — near-perfect
-//! tiling of the 17-circle — because `4·4 = 16 ≈ 17`. The comma (`17 = 4² + 1`)
-//! is what makes a 4-step prefix land almost uniformly. Stride 11 is better at
-//! n=2..3 and worse at n=4..6. The shipped constants are *matched to the 4-ary
-//! use case*, not sloppy about it.
+//! The measurement does NOT confirm it: after 4 steps stride 4 gives gaps
+//! `[4,4,4,5]` — near-perfect tiling of the 17-circle — because `4·4 = 16 ≈ 17`.
+//! Stride 11 is better at n=2..3 and worse at n=4..6.
+//!
+//! **⚠ The design conclusion is WITHDRAWN (codex P1 on #876).** The premise that
+//! a 4-ary tier consumes four ruler steps is not wired into anything that ships:
+//! `ResidueEncoder::encode` reads only `start_offset` (n=1, `residue.rs:157`),
+//! `index`/`arc` appear solely in `walk_spectrum` and this crate's tests, and the
+//! shipped router `NiblePath` is `FAN_OUT = 16`. So this RETRACTS a suspicion; it
+//! does not establish that the constants are "matched to 4-ary" — that would need
+//! a consumer that reads 4 steps, and none currently exists.
 //!
 //! ## H3 — the intake blindness is FIXABLE, not fundamental
 //!
 //! A per-tier intake (one ruler seed per 2-bit group, folded with its level)
 //! preserves ancestry by construction: two cells sharing a k-level address prefix
-//! share their first k seeds. The flat intake destroys that. H3 measures both, so
-//! the finding lands as a *design direction* rather than a dead end.
+//! share their first k seeds — so per-tier agreement equals the eligible
+//! population exactly, and the gate asserts that equality as a CONSTRUCTION
+//! CHECK, not as evidence. The informative number is the FLAT rate. The finding
+//! lands as a *design direction* rather than a dead end.
 //!
 //! Run: `cargo run --manifest-path crates/helix/Cargo.toml --example probe_hhtl_intake_blindness`
 
@@ -151,24 +165,49 @@ fn main() {
         CurveRuler::STRIDE
     );
 
-    // ── H1: the two carvings are indistinguishable to the ruler ─────────────
-    let h4 = start_histogram(4); // 4-ary, 4 levels × 2 bits
-    let h16 = start_histogram(2); // 16-ary, 2 levels × 4 bits
-    let mut s4: Vec<usize> = h4.to_vec();
-    let mut s16: Vec<usize> = h16.to_vec();
-    s4.sort_unstable();
-    s16.sort_unstable();
-    let identical_multiset = s4 == s16;
+    // ── H1: the carving cannot reach the ruler ──────────────────────────────
+    //
+    // The FIRST version of this gate sorted both histograms and compared
+    // multisets. That was wrong twice over (codex P1): sorting discards which
+    // cell maps to which offset, and the UNSORTED histograms genuinely differ
+    // (the peak sits at index 4 vs index 2), so a "shared aggregate
+    // distribution" gate passed while hiding that every cell's start moved.
+    //
+    // The real argument is not aggregate at all. It has two halves:
+    //
+    //   (i)  TYPE-LEVEL: `from_hhtl(path: u64, depth: u8)` has no parameter
+    //        that could carry a carving. How the byte's bits group into levels
+    //        is not an input, so it cannot influence the output. No measurement
+    //        can establish this and none should pretend to — it is stated.
+    //   (ii) EMPIRICAL, and this is what the gate measures: the entire
+    //        difference between the two carvings, as the ruler sees it, is a
+    //        CONSTANT rotation with ZERO per-cell variance. If the ruler
+    //        carried any per-cell structure, the shift would vary by cell.
+    //        A varying shift is the falsifier.
+    let h4 = start_histogram(4); // "4-ary" — 4 levels × 2 bits
+    let h16 = start_histogram(2); // "16-ary" — 2 levels × 4 bits
+    let shifts: Vec<u8> = (0..CELLS)
+        .map(|cell| {
+            let a = CurveRuler::from_hhtl(cell as u64, 4).start_offset() as i16;
+            let b = CurveRuler::from_hhtl(cell as u64, 2).start_offset() as i16;
+            (a - b).rem_euclid(CurveRuler::MODULUS as i16) as u8
+        })
+        .collect();
+    let first = shifts[0];
+    let constant_shift = shifts.iter().all(|&s| s == first);
     gate(
-        "H1 intake is STRUCTURE-BLIND (the sweep-killer)",
-        identical_multiset,
+        "H1 the carving cannot reach the ruler (constant-shift, zero variance)",
+        constant_shift,
         format!(
-            "start-offset histograms over the SAME 256 cells:\n          \
-             4-ary(depth 4): {h4:?}\n          16-ary(depth 2): {h16:?}\n        \
-             identical multiset = {identical_multiset} (a pure rotation). \
-             `from_place(p) = p % 17` consumes the address as a NUMBER, so 4⁴ \
-             ancestry never reaches the ruler — a residue-vs-granularity sweep \
-             would return a null for a reason unrelated to 4⁴."
+            "per-cell start-offset shift between the two carvings is CONSTANT at \
+             {first} for all {CELLS} cells (variance 0) — the depth term moves every \
+             cell identically and the carving contributes nothing. Falsifier: any \
+             cell-dependent shift.\n        Unsorted histograms (shown because \
+             sorting them would hide exactly this): 4-ary(depth 4) {h4:?}; \
+             16-ary(depth 2) {h16:?} — a rotation, not a reshaping.\n        \
+             Type-level half (stated, not measured): `from_hhtl(path: u64, depth: u8)` \
+             takes no carving parameter, so 4⁴ level structure has no channel into \
+             `from_place(p) = p % 17`."
         ),
     );
 
@@ -184,18 +223,31 @@ fn main() {
     }
     let (d4_at4, g4_at4) = prefix_gap_spread(CurveRuler::STRIDE, 4);
     let (d11_at4, _) = prefix_gap_spread(phi_stride, 4);
-    // The 4-ary tier consumes exactly ARITY=4 steps. That is the prefix that must
-    // be uniform. Falsifier for the REFUTATION: stride 4 worse than φ at n=4.
+    // ⚠ CLAIM DOWNGRADED (codex P1). The first version asserted the shipped
+    // constants are "MATCHED to the 4-ary use case". That premise — that a
+    // 4-ary tier consumes 4 ruler steps — is NOT WIRED anywhere that ships:
+    //   • `ResidueEncoder::encode` reads ONLY `start_offset` (residue.rs:157),
+    //     i.e. n = 1;
+    //   • `CurveRuler::index` / `arc` appear only in `walk_spectrum` and this
+    //     crate's own tests;
+    //   • the shipped router `NiblePath` is FAN_OUT = 16, not 4.
+    // So the n=4 comparison is a property of a HYPOTHETICAL 4-step consumer.
+    // What survives is narrower and still worth recording: the pre-registered
+    // suspicion (stride 4 clumps where φ would not) is NOT CONFIRMED. That is a
+    // retraction of a concern, not a vindication of a design.
     gate(
-        "H2 shipped stride 4 is MATCHED to the 4-step prefix (my suspicion REFUTED)",
+        "H2 the \"stride 4 clumps\" suspicion is NOT CONFIRMED (design claim withdrawn)",
         d4_at4 <= d11_at4,
         format!(
-            "{}\n        At n=4 — the prefix a 4-ary tier actually consumes — \
-             stride 4 gives gaps {g4_at4:?} (spread {d4_at4}) vs φ-stride 11 spread \
-             {d11_at4}. 4·4 = 16 ≈ 17, so four steps of 4 nearly tile the circle: \
-             the comma is what makes the 4-step prefix land uniformly. \
-             Pre-registered suspicion (\"stride 4 is a raster wearing a φ-spiral's \
-             docstring\") does NOT hold at the lengths early termination reads.",
+            "{}\n        At n=4, stride 4 gives gaps {g4_at4:?} (spread {d4_at4}) vs \
+             φ-stride 11 spread {d11_at4} — 4·4 = 16 ≈ 17, so four steps of 4 nearly \
+             tile the circle.\n        ⚠ SCOPE: no shipped path consumes a 4-step \
+             prefix. `ResidueEncoder::encode` reads only `start_offset` (n=1); \
+             `index`/`arc` are used solely by `walk_spectrum` and crate tests; the \
+             shipped `NiblePath` is FAN_OUT=16. This therefore RETRACTS the \
+             pre-registered suspicion and does NOT establish that the constants are \
+             matched to 4-ary — that would need a consumer that reads 4 steps, which \
+             does not currently exist.",
             rows.join("\n        ")
         ),
     );
@@ -213,28 +265,44 @@ fn main() {
                 continue; // deterministic thinning; still thousands of pairs
             }
             let (a, b) = (a16 as u8, b16 as u8);
-            pairs += 1;
             let k = shared_levels_4ary(a, b);
+            if k == 0 {
+                continue; // not eligible: no shared address level to preserve
+            }
+            // COUNT ONLY ELIGIBLE PAIRS (codex P2). The first version incremented
+            // before this predicate, so the published "4,662 pairs sharing ≥1
+            // address level" was really every thinned pair — a false sample size
+            // in the probe output AND in both board records.
+            pairs += 1;
             // FLAT: one seed each. "Ancestry preserved" would mean cells sharing a
             // prefix share the seed — which mod 17 cannot arrange.
-            if k > 0 && flat_seed(a) == flat_seed(b) {
+            if flat_seed(a) == flat_seed(b) {
                 flat_agree += 1;
             }
             // PER-TIER: cells sharing k levels must share their first k seeds.
-            if k > 0 && shared_seed_prefix(tiered_seeds(a), tiered_seeds(b)) >= k {
+            if shared_seed_prefix(tiered_seeds(a), tiered_seeds(b)) >= k {
                 tier_agree += 1;
             }
         }
     }
+    // Per-tier agreement is TRUE BY CONSTRUCTION for every eligible pair, so it
+    // should equal the eligible population exactly; asserting that is the
+    // construction check, and the informative number is the FLAT rate.
+    let flat_rate = flat_agree as f64 / pairs as f64;
     gate(
         "H3 blindness is FIXABLE at the intake (per-tier seeds keep ancestry)",
-        tier_agree > flat_agree * 4 && pairs > 100,
+        tier_agree == pairs && flat_rate < 0.25 && pairs > 100,
         format!(
-            "over {pairs} sampled cell pairs sharing ≥1 address level: \
-             FLAT intake preserves ancestry in {flat_agree} (mod 17 scrambles it); \
-             PER-TIER intake preserves it in {tier_agree} — by construction, since \
-             each 2-bit group seeds its own ruler. The fix is to feed the ruler the \
-             address's HIERARCHY, not its integer value."
+            "eligible population = {pairs} pairs sharing ≥1 address level (thinned \
+             deterministically).\n        FLAT intake preserves ancestry in \
+             {flat_agree}/{pairs} = {:.1}% — mod 17 scrambles it.\n        PER-TIER \
+             intake preserves it in {tier_agree}/{pairs} = 100% BY CONSTRUCTION \
+             (each 2-bit group seeds its own ruler); the gate asserts the equality \
+             as a construction check, not as evidence.\n        The informative \
+             quantity is the flat rate, and the honest reading is \"the flat intake \
+             keeps ancestry about as often as chance would\" — NOT a tuned ratio. \
+             The fix is to feed the ruler the address's HIERARCHY, not its integer.",
+            100.0 * flat_rate
         ),
     );
 
@@ -251,8 +319,10 @@ fn main() {
         "\nVERDICT: the residue-vs-granularity sweep is NOT RUN — H1 shows it cannot\n\
          carry signal through the current intake. That is a finding about the\n\
          CALCULATOR'S INTAKE, not about the 4⁴ address, whose ancestry result stands\n\
-         (E-WORDNET-MAKES-THE-4-ARY-ADDRESS-SEMANTIC-1). H2 additionally clears the\n\
-         shipped constants of the discrepancy suspicion. H3 names the unblock."
+         (E-WORDNET-MAKES-THE-4-ARY-ADDRESS-SEMANTIC-1). H2 RETRACTS a suspicion it\n\
+         does not replace with a design claim — no shipped path reads a 4-step prefix.\n\
+         H3 names the unblock and reports the flat rate (4.4%, ≈ the 1/17 ≈ 5.9%\n\
+         chance level), not a ratio."
     );
     if failures > 0 {
         std::process::exit(1);
