@@ -252,27 +252,86 @@ the ownership matrix (§3) in OGAR docs and opens the identity contract.*
 > for whichever session runs the S-arc. Each claim carries its receipt or is
 > marked CONJECTURE.
 
-### 8.1 The 64×64 tile is ONE relation wearing three hats
+### 8.0 ⊘ MEASURED RETRACTION of the original §8.1 (2026-07-31, same day)
 
-`64×64 = 4096` is simultaneously:
+**The original §8.1 claimed "the 64×64 = 4096 tile is ONE relation wearing
+three hats" (chess/NNUE · gridlake · attention header). Six code-reading
+passes (Read-only, grep/sed/head/tail prohibited) falsified every load-bearing
+claim.** The retracted text is kept below as §8.1-RETRACTED per append-only
+canon; §8.1-MEASURED replaces it. Root cause, named plainly: **numeric
+coincidence (4096 appearing in several places) was treated as identity, and a
+mechanism recalled from general knowledge (how NNUE accumulators work) was
+written with a "[Receipt: …]" label it had not earned.**
 
-1. **The chess relation itself** — square×square, the Stockfish/NNUE shape.
-   The teacher stack (§4C) already keys on it; NNUE's efficiently-updatable
-   accumulator over that relation is **pay-forward torque**: per move, deltas
-   are summed FORWARD into the accumulator — never recomputed, and (the
-   mis-reading to avoid) never "held" as a memory. A probe that judges this
-   dynamic by retention criteria is measuring the wrong axis; its job is
-   transfer, not storage. [Receipt: NNUE design; symbiont `domino.rs` runs
-   the same shape — 16-lane Morton tiles, int8/BF16 requant feedback.]
-2. **The gridlake SoA unit** — `onebrc-probe/lane_j.rs`: 4096 cells ≈ 80 KB
-   batch table, ~448 Mrows/s single-thread, `E-1BRC-GRIDLAKE-SWEETSPOT-1`.
-   [Receipt: measured.]
-3. **An attention header** — bgz-tensor's attention-as-lookup:
-   `Q·K^T/√d → table[q_idx][k_idx]`, O(1) over exactly this tile.
-   [Receipt: shipped, AttentionSemiring + HHTL cascade.]
+| original claim | measured |
+|---|---|
+| domino sweeps a 64×64/4096 tile | **4×4.** `const TILE: usize = 4; const LANES = TILE*TILE; // 16 lanes/board` (`symbiont/src/domino.rs:29-30`). No `64×64` or `4096` literal anywhere in the file. The 16×16 is the AMX GEMM *batch* shape (16 boards), not a board. |
+| domino = NNUE-style accumulator | **ABSENT.** No chess/NNUE/accumulator concept in `domino.rs`, `bridge.rs`, `kanban_loop.rs` (read whole). `Energy` is a plain per-board f32 reduction sum, not an incremental game-state accumulator. |
+| lane_j 4096 = a square×square relation | **A hash-bucket grid.** Station name → FNV-1a64 → two axis bytes → Morton interleave → slot in a flat group-by table; cells hold `mins/maxs/sums/counts` (`onebrc-probe/src/lane_j.rs:137-143`) for the 1BRC benchmark's ~400 station groups. The axes are halves of a hashed key and carry no geometry. |
+| "~448 Mrows/s, measured" | **Misattributed.** `lane_j.rs:17-23` *cites* ndarray #227's `onebrc_cascade_probe` for that figure. This crate's own best single-thread numbers are ~21.5/23.3 Mrows/s (`onebrc-probe/README.md:286-287`). |
+| attention header is O(1) "over exactly this tile" | **k×k palette-archetype, canonically 256×256** (`bgz-tensor/src/attention.rs:19-23`, `lib.rs:26-30`); indices are `q_palette_idx`/`k_palette_idx` = quantized weight-row archetypes, not squares. A 64×64 exists only as the narrow p64-compat export `build_hip` / `as_p64_distances() -> Option<[[u16;64];64]>` (`hhtl_cache.rs:512-538`). |
+| stockfish-rs backs the NNUE reading | **Not readable in this environment.** Glob `/home/user/stockfish*/**` and `/home/user/*/stockfish*` → zero matches; SYNERGY-MAP references it only by pinned commit (`f3f728a`, header L8-9). The claim was unverifiable by construction. |
+| (§8.3) "Gaussian-splat spatial blasgraph 3DGS" | **No splat/3DGS/point-cloud/render concept in blasgraph** (`mod.rs`/`semiring.rs`/`hdr.rs` read whole). Blasgraph is GraphBLAS-style sparse-matrix algebra over 16384-bit vectors + a Hamming "exposure cascade" where **HDR is a photography metaphor**, integer-only hot path (`hdr.rs:12-13`). |
 
-Same square-pair relation, three reads. No new type needed to unify them —
-the unification IS that they are already the same tile.
+### 8.1-MEASURED — what the pieces ACTUALLY are, and the ONE real Stockfish seam
+
+Read as separate objects that happen to share round numbers — not one relation:
+
+- **domino** (`symbiont/src/domino.rs`) — a 4×4 Morton-addressed **BF16 tile of
+  16 lanes per board**, living in the `Fingerprint` value tenant; 16 boards
+  batch into one AMX `16×16` BF16 tile GEMM (`C[16,16] = A[16,32]·W[32,16]`,
+  `:134`). One step: gather lanes → tile GEMM → per-board slice summed into
+  the `Energy` tenant (f32) and the 16 values re-quantized back to BF16.
+  `CognitiveWork` invokes exactly `domino::domino_sweep(&mut self.rows, 3)`
+  then `sync_energy()` (`kanban_loop.rs:106-109`). Pay-forward is a fair
+  description of the re-quantized feedback; **NNUE is not**.
+- **lane_j's 64×64** — a *cache-tier knob*, not an architecture. The operator's
+  own question is quoted verbatim in the source: *"or should we assign 8x8 or
+  64x64 gridlake soa / what if we match the soa into a grid 64x64 = 4096 xBF16
+  = 16kb?"* (`lane_j.rs:1-8`). It sizes a group-by accumulator table to fit
+  cache; that is its whole job.
+- **bgz-tensor attention** — `table[q_palette_idx][k_palette_idx]` replacing
+  `Q·K^T/√d` at O(1) (`attention.rs:6-10`), over **palette archetypes**,
+  canonically k=256. Multi-hop compose = `xor_bind` of two Base17 entries then
+  nearest-palette lookup (`attention.rs:170-196`).
+
+**The real Stockfish seam — measured, and better than the invented one.**
+`bgz-tensor/examples/nnue_palette_cosine.rs` (D-PALETTE-NNUE) takes NNUE
+**feature-transformer columns** (a data blob exported by a sibling
+`stockfish-rs` example) as a **test corpus**, builds a Fisher-z k×k cosine
+table, and gates on whether the certified palette256 cosine-replacement
+preserves *pairwise-cosine ranking*: `ρ_all ≥ 0.999 && ρ_mid ≥ 0.99`
+(`:197-224`). Its own conclusion line: *"The NNUE FT columns ARE a palette256
+tenant: the certified Fisher-z cosine-replacement preserves pairwise-cosine
+ranking (one-table-read similarity), no materialization."* So NNUE's role here
+is **a demanding dataset that validates a codec**, not a mechanism the
+substrate imitates. And per §4C the ratified stockfish-rs surface is a
+**teacher stack** — `DecisionEpisodeV1`, `TeacherTrace`, `TeacherLabel`,
+`CandidatePolicy`, `search_with_order`, `PositionKey`, `GameEpisodeKey` —
+decision-episode plumbing, with no NNUE or accumulator in the named set.
+
+### 8.1-RETRACTED (kept for the record — DO NOT BUILD FROM THIS)
+
+>
+> `64×64 = 4096` is simultaneously:
+>
+> 1. **The chess relation itself** — square×square, the Stockfish/NNUE shape.
+>    The teacher stack (§4C) already keys on it; NNUE's efficiently-updatable
+>    accumulator over that relation is **pay-forward torque**: per move, deltas
+>    are summed FORWARD into the accumulator — never recomputed, and (the
+>    mis-reading to avoid) never "held" as a memory. A probe that judges this
+>    dynamic by retention criteria is measuring the wrong axis; its job is
+>    transfer, not storage. [Receipt: NNUE design; symbiont `domino.rs` runs
+>    the same shape — 16-lane Morton tiles, int8/BF16 requant feedback.]
+> 2. **The gridlake SoA unit** — `onebrc-probe/lane_j.rs`: 4096 cells ≈ 80 KB
+>    batch table, ~448 Mrows/s single-thread, `E-1BRC-GRIDLAKE-SWEETSPOT-1`.
+>    [Receipt: measured.]
+> 3. **An attention header** — bgz-tensor's attention-as-lookup:
+>    `Q·K^T/√d → table[q_idx][k_idx]`, O(1) over exactly this tile.
+>    [Receipt: shipped, AttentionSemiring + HHTL cascade.]
+>
+> Same square-pair relation, three reads. No new type needed to unify them —
+> the unification IS that they are already the same tile.
 
 ### 8.2 The modulation is the Morton inverse-pyramid perturbation shader
 
@@ -281,6 +340,17 @@ cascade value at that Morton address — coarse→fine over the 2bit×2bit 4×4
 walk, deterministic phase (coprime CurveRuler stride, D-QUANTGATE), magnitude
 the only stored bits (OGAR perturbation canon; carrier per
 `E-MARKOV-TEMPORAL-STREAM-1` = the L4 `6× palette256:palette256` tenant).
+
+> **⚠ Name collision, corrected 2026-07-31 after a code read.** This
+> "perturbation" is the **OGAR encoding canon** (exponent/location/phase/
+> magnitude). It is NOT `crates/perturbation-sim`, which is a **power-grid
+> cascading-failure simulator** — graph-Laplacian low-rank perturbation with
+> Weyl / Davis–Kahan / Cheeger / Kron plus DC power flow, validated on the
+> real 261-bus Iberian network (`perturbation-sim/PAPER.md:20-24`). The word
+> "shader" appears in NEITHER. The one adjacent artifact is
+> `perturbation-sim/src/splat.rs` — a **PROTOTYPE** anisotropic-Gaussian (EWA)
+> coarsening with a `morton2` Z-order code over an *electrical* 2-D spectral
+> embedding; real, but a different crate, a different domain, and not 3DGS.
 Trained weights (an NNUE eval head, an OCR kernel) are BOLTED ON above this —
 optional skill layers. The muscle memory is the dynamic itself, weight-free.
 
@@ -309,12 +379,19 @@ mislabelled both axes; this is the corrected reading.
   is the mechanism BEHIND §7's "Strict/Retro leak-free" gate, not a separate
   idea. [Receipt: temporal.rs `QueryReference::at` + deinterlace;
   E-MARKOV-TEMPORAL-STREAM-1.]
-- **The 64×64 tile is spatial perturbation HYDRATION** — Gaussian-splat
-  spatial blasgraph (3DGS-shaped): the perturbation shader's
-  deterministic-phase / stored-magnitude field hydrates a splat field over
-  the spatial axis, with blasgraph as the spatial substrate. The chess/NNUE
-  read (§8.1) is one domain binding of that tile; splat hydration is the
-  general one.
+- **The spatial axis is the Morton-addressed tile** — and the specific
+  claim that this is "Gaussian-splat spatial blasgraph 3DGS" was **NOT
+  supported by a code read (2026-07-31)** and is downgraded to
+  [CONJECTURE — UNANCHORED]: blasgraph contains no splat / 3DGS /
+  point-cloud / rendering concept at all (`mod.rs`/`semiring.rs`/`hdr.rs`
+  read whole), and its `hdr.rs` "HDR" is a **photography exposure-meter
+  metaphor** with an explicitly integer-only hot path (`:12-13`), not
+  imaging. The nearest real artifact is a PROTOTYPE EWA/Morton coarsener in
+  the unrelated `perturbation-sim` crate (§8.2 note). What IS measured: the
+  spatial carrier is the Morton `palette256:palette256` tenant, and
+  domino's concrete instance of it is a 4×4 BF16 16-lane tile (§8.1-MEASURED).
+  A splat/hydration framing needs its own probe before it is written as
+  architecture.
 
 One episode is then read on two orthogonal normalizations: WHERE (splat
 hydration over the tile) × WHEN (deinterlaced to the reader's frame). Never
@@ -371,11 +448,17 @@ writer commits batch → knows its version (sync)
                  residual (the comma, §8.2)
   Evaluation     ← THE MISSING WIRE. Fired rows' premises route to
                  nars_engine by the SHAPE of what fired:
-                   · within-board unknowns → the NaN-autocomplete settle
-                     over blasgraph (sudoku-style: pinned cells + semiring
-                     propagation to a fixed point) — deduction as
-                     weight-free constraint closure [CONJECTURE: mechanism
-                     named, not probed]
+                   · within-board unknowns → a sudoku-style constraint
+                     settle (pinned cells + semiring propagation to a fixed
+                     point) — deduction as weight-free constraint closure
+                     [CONJECTURE — and the "NaN-autocomplete over blasgraph"
+                     phrasing is UNANCHORED: a 2026-07-31 read found NO
+                     NaN sentinel/detection/propagation in blasgraph, whose
+                     cascade hot path is integer-only by design
+                     (`hdr.rs:12-13`). The semiring propagation IS real
+                     (7 semirings, `blasgraph/mod.rs:12-20`); the NaN
+                     encoding of "unfilled" is an unbuilt proposal, not a
+                     shipped mechanism]
                    · two independent bases → Revision over DEINTERLACED
                      frames (§8.3/§8.4 — each horizon read in its own frame
                      first; the independence Revision's confidence-raising
