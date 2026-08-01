@@ -1,3 +1,13 @@
+## 2026-08-01 — CORRECTION to the §8 entry below: `RungLevel 0–10` → `0–9`
+
+The `2026-07-31 — SYNERGY-MAP-S00-S07 §8` entry's summary line reads
+"…SPO 2³ fill-state × RungLevel 0–10 → one of the 34 recipes…". `RungLevel` has
+exactly 10 variants `Surface=0`…`Transcendent=9` (`crates/lance-graph-contract/src/cognitive_shader.rs:157-169`;
+`from_u8` saturates `>9` to `Transcendent`) — there is no rung 10. The plan doc
+body was corrected in `b6b6757`; this prepended note corrects the board twin
+per the append-only rule (the past entry stays intact). Confirmed by a
+three-agent stale-doc audit (2026-08-01).
+
 ## 2026-07-31 — SYNERGY-MAP-S00-S07 §8 (capstone inspiration, AMENDED into the existing map) — **⛔ RESTING (operator, 2026-07-31: too many gaps — do not build; §8.6/§8.7 purpose corrected to torque/semantic-pressure attention headers, never grammar resolution; council grades banked in the §8 status banner)** — main thread
 
 **Plan:** `.claude/plans/SYNERGY-MAP-S00-S07.md` **§8.0–§8.8** (appended to the
