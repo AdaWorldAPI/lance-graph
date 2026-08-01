@@ -397,9 +397,18 @@ where
 pub trait LocalCausalRow {
     /// The mailbox that owns this row — the deinterlace grouping key.
     fn owner(&self) -> MailboxId;
-    /// The owner-local monotonic cast sequence (e.g. `CastId.0`) — the ordering
-    /// key WITHIN one owner's trajectory. Cross-owner values are never compared;
-    /// only rows sharing an `owner()` are ordered against each other.
+    /// The owner-local ordering key WITHIN one owner's trajectory. Cross-owner
+    /// values are never compared; only rows sharing an `owner()` are ordered
+    /// against each other.
+    ///
+    /// PRECONDITION: **unique and monotonic per owner, ACROSS process restarts.**
+    /// [`local_trajectories`]'s sort is stable, so two rows of one owner sharing a
+    /// `cast_seq` keep their global arrival order — a tie-break that makes replay
+    /// order depend on scan order. A per-process counter (e.g. `BatchWriter`'s
+    /// `CastId`, which resets to 0 on restart) is therefore NOT a valid key:
+    /// different writer lifetimes collide. Use a durable-log position instead
+    /// (`persist_sink::LandedWitness` keys on `DurableCoordinate::log_order`, the
+    /// WAL entry position, which never resets).
     fn cast_seq(&self) -> u64;
 }
 
