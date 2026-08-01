@@ -1,3 +1,10 @@
+## 2026-08-01 — branch `claude/medcare-rs-continue-ufsazd` — D-MBX-A6-P3d persistence-sink durable-witness reshape + temporal layer-1
+
+### Current Contract Inventory — new/changed modules (lance-graph-planner)
+- `lance_graph_planner::persist_sink` — the POST-write half, two clock domains, **crash-durable**. `DurableWitness{owner, cast_id, cycle, paired_move}` is CO-LOCATED with the SoA payload in one persistence generation via `DurableWrite::append(&witness, &payload)`; the in-memory `DurableReceipt` merely REFERENCES it (via `DurableCoordinate`), never the only copy of the move. `DurableWrite::scan_witnesses` = replay seam; `recover_and_apply(owner, witnesses)` = crash recovery (temporal layer-1 → per-owner pending tail, replayed in cast order, idempotent stale-skip). `apply_durable_step` gains a `from==phase` guard (`PersistError::StalePhase`). Async `persist_cast` (no owner borrow) / sync `apply_durable_step` (no await) split preserved. Durability proof = `DurableCoordinate` (shard/epoch/wal-position), NEVER `LanceVersion`. **No concrete `LanceShardSink` built** (deferred per operator, gated on the crash falsifiers).
+- `lance_graph_planner::temporal` — **layer-1 CAUSAL deinterlacing added** (the missing half): `LocalCausalRow{owner, cast_seq}` + `local_trajectories`/`local_trajectory_of` split a globally-interleaved durable log into per-owner LOCAL chains ordered by `cast_seq` (`A@s0,C@s0,B@s0,A@s1` → A's `[A@s0,A@s1]`; interleaved owners removed). Composes with the pre-existing layer-2 epistemic projection (`classify`/`deinterlace`). `DurableWitness` implements `LocalCausalRow`.
+- Gates: 5/5 operator crash/recovery falsifiers green + layer-1 falsifiers; 343 planner lib tests, `cargo clippy -p lance-graph-planner` + `cargo fmt -p` clean. `E-THE-PAIRED-MOVE-MUST-BE-DURABLE-CO-LOCATED-NOT-IN-MEMORY-ONLY-1`.
+
 ## 2026-08-01 — branch `claude/medcare-rs-continue-ufsazd` — D-MBX-A6-P3c owner-consume adapter (rebased onto main dcd9cc9)
 
 ### Current Contract Inventory — new module (lance-graph-planner)
