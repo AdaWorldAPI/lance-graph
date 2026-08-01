@@ -75,6 +75,9 @@ pub mod cache;
 // === W1b ahead-firing batch writer (D-V3-W1e probe-first skeleton) ===
 pub mod batch_writer;
 
+// === D-MBX-A6 Outcome→KanbanMove emit adapter (bootstrap rebind + ahead-cast) ===
+pub mod owner_adapter;
+
 // === Internal API (same-binary, zero-serde) ===
 pub mod api;
 

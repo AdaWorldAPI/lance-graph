@@ -231,7 +231,7 @@ proven END-TO-END for the unicharset class, not just for the leaf's bytes. See
 - `lance_graph_contract::orchestration` — `OrchestrationBridge` / `UnifiedStep` (the adapter invocation surface).
 - `.claude/knowledge/frankenstein-checklist.md` — composition-failure / flattening guard.
 - `crates/lance-graph-contract/src/jit.rs` — `JitCompiler` / `JitTemplate` / `KernelHandle` (the v2 JIT tier; ndarray jitson/Cranelift compiles, n8n-rs caches).
-- `crates/lance-graph-contract/src/kanban.rs` — `KanbanMove` / `KanbanColumn` / `StepDomain::Kanban` (the v3 orchestration seam; planner emits, ractor drives, surreal projects).
+- `crates/lance-graph-contract/src/kanban.rs` — `KanbanMove` / `KanbanColumn` / `StepDomain::Kanban` (the v3 orchestration seam; planner emits, the writer's inline kanbanstep drives, surreal projects — ractor is ownership-only, not the driver).
 - `crates/surreal_container/` — the SurrealDB tier (`view`/`read` = projection, `write` = commit) that would host the v3 AST-DLL tissue store + hot-swap.
 - `.claude/board/EPIPHANIES.md` `E-SUBSTRATE-IS-THE-SCHEDULER` — substrate emits the schedule (surreal LIVE reactive); the v3 Odoo→kanban reaction extends it. `E-TRANSCODE-EXEC-LADDER-1` records this ladder.
 - `AdaWorldAPI/odoo` (`/home/user/odoo`) — the v3 shape source (Odoo model/stage shapes → `KanbanMove`).
