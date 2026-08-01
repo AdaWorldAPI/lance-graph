@@ -651,7 +651,7 @@ arc; its wiring is already ahead of what outside sessions assume.
   (`rung_pearl_levels_and_masks_follow_the_certified_convention`,
   `cognitive_shader.rs`). Unbound slots are exactly §8.5's NaN cells — the
   autocomplete settle fills them from the bound ones.
-- **The 34 recipes dispatch BY RUNG, 0–10, deterministically.**
+- **The 34 recipes dispatch BY RUNG, 0–9, deterministically.**
   `RungLevel` spans the ladder (0 = Surface … clamping at Transcendent);
   `recipes::RECIPES: [Recipe; 34]` carries the rung-3 runbooks with SPO-2³
   coverage; the rung arrives WITH the read (`QueryReference::at(v, rung)`).
