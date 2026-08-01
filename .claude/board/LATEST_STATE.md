@@ -1,3 +1,13 @@
+## 2026-08-01 — branch `claude/medcare-rs-continue-ufsazd` — D-MBX-A6-P3c owner-consume adapter (rebased onto main dcd9cc9)
+
+### Current Contract Inventory — new module (lance-graph-planner)
+- `lance_graph_planner::owner_adapter` — the D-MBX-A6 `Outcome → KanbanMove` **owner-consume** adapter; completes the `D-MBX-A6-P3b` deferral (`owner-consume`). Two functions, lance-free:
+  - `rebind_bootstrap(mv, owner, owner_cycle) -> Option<KanbanMove>` — rebinds the bootstrap sentinel (`mailbox 0`, `witness_chain_position 0`) to the live owner; returns `None` for a move that already names a live owner (**no ownership theft** — write-on-behalf iron rule) and for a partial sentinel.
+  - `emit_bootstrap_intent(outcome, owner, owner_cycle, writer, payload) -> Option<CastId>` — rebinds `StrategyOutcome::intended_move` and `BatchWriter::cast(on_behalf = owner, …)`. **Fire-and-forget** (returns immediately; no ack/ledger/WAL/arbitration/callback); the move is the pre-write "parcel address before dispatch", the lifecycle STEP stays post-write.
+- **Causal model pinned** (`E-KANBANMOVE-IS-THE-PARCEL-ADDRESS-STEP-IS-THE-DELIVERY-SCAN-1`): the `KanbanMove` is cast ahead of the write; the KanbanStep (`try_advance_phase`) is applied post-persistence on the successful `LanceVersion` (no successful write ⇒ no step). The version-completion path must apply the **paired** move, never a generic `next_phases().first()`.
+- **Persistence sink = verified-but-gated.** The drain→Lance sink wires Lance 7's shipped MemWAL surface (`dataset::mem_wal::WalAppender::append(Vec<RecordBatch>)`, `memtable::BatchStore::append`, `wal::flush`, `merge_insert`) — invents nothing. NOT buildable in the private medcare-session container (`protoc` missing; lance+datafusion+arrow would exhaust disk). Offline/next-env slice; `lance-graph-planner` must add the mandatory stack (lance 7 / lancedb 0.30 / arrow 58 / datafusion 53 + protoc) there. Full handoff: `.claude/v3/knowledge/d-mbx-a6-owner-consume-and-persistence.md`.
+- Gates: 5/5 `owner_adapter` probes green, 324 existing planner tests intact, `cargo fmt -p` + `cargo clippy -p lance-graph-planner` clean. `KanbanMove` uses the current 5-field main shape (post `libet_offset_us` retirement).
+
 ## 2026-07-29 — branch `claude/x265-x266-plans-review-h9osnl` — `lance_graph::reasoning`, the concept-blind consumer seam
 
 ### Current Contract Inventory — new module (lance-graph core, `planner` feature)
