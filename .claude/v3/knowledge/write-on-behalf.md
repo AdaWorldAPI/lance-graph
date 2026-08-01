@@ -61,6 +61,13 @@ Before authoring any consumer write path:
 
 ## Interim reality (audited 2026-07-02; CORRECTED same day by the consumer audit)
 
+> **⊘ SUPERSEDED 2026-08-01 (D-MBX-A6-P3c).** The batch writer + a real
+> write-on-behalf consumer shipped: `owner_adapter::emit_bootstrap_intent`
+> casts `on_behalf` of the live owner. `emit_bootstrap_intent` itself has no
+> production caller yet. This entry replaces an earlier, narrower correction
+> (2026-07-31, PR #876 exec-run arc) that only retired the "batch writer does
+> not exist" claim without yet having a real consumer to point at.
+
 The batch writer now exists (`lance_graph_planner::batch_writer::BatchWriter`)
 and `owner_adapter::emit_bootstrap_intent` is its write-on-behalf consumer — it
 casts `on_behalf` of the live owner (D-MBX-A6-P3c, 2026-08-01). `emit_bootstrap_intent`
