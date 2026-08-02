@@ -129,6 +129,14 @@ pub struct SweepSlot {
     pub cycle: CycleId,
     /// The existing canonical (textual/stream) order key — the write-side
     /// deinterlace input. NOT a new coordinate.
+    ///
+    /// **Contract: monotonically increasing per owner ACROSS cycles, not
+    /// per cycle.** [`recover_and_apply`] uses it as the durable watermark over a
+    /// multi-cycle [`WalSink::scan_sealed`] stream (`stream_position <= watermark`
+    /// ⇒ already applied), so a per-cycle restart to 0 would make recovery skip
+    /// every later-cycle landing at or below an earlier cycle's watermark. The
+    /// caller owns this monotonicity (it is the witness-fabric order key, already
+    /// monotonic); this layer does not re-key by `(CycleId, stream_position)`.
     pub stream_position: u64,
     /// The mailbox this landing is on behalf of.
     pub owner: MailboxId,
@@ -202,8 +210,16 @@ impl DetachedCycleBatch {
 /// Why a persist / seal / step operation produced no lifecycle advance.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum PersistError {
-    /// The cycle seal did not land — nothing published, so no step.
+    /// The cycle seal did not land — nothing published, so no step. This is the
+    /// RETRYABLE class (a fenced / failed append may succeed on retry).
     Write(WriteFailed),
+    /// A cast was staged against a different cycle than the frame — a caller
+    /// programming error, PERMANENT and never retryable (distinct from [`Write`]
+    /// so retry logic never loops on it). [`Write`]: PersistError::Write
+    CycleMismatch {
+        cast_cycle: CycleId,
+        frame_cycle: CycleId,
+    },
     /// The paired move is not a legal Rubicon edge from the owner's current phase.
     Illegal(RubiconTransitionError),
     /// A move minted for a different mailbox than the landing's owner — refused so
@@ -226,6 +242,13 @@ impl std::fmt::Display for PersistError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             Self::Write(e) => write!(f, "{e}"),
+            Self::CycleMismatch {
+                cast_cycle,
+                frame_cycle,
+            } => write!(
+                f,
+                "cast cycle {cast_cycle:?} != frame cycle {frame_cycle:?}"
+            ),
             Self::Illegal(e) => {
                 write!(f, "illegal Rubicon transition {:?} -> {:?}", e.from, e.to)
             }
@@ -246,7 +269,21 @@ impl std::fmt::Display for PersistError {
         }
     }
 }
-impl std::error::Error for PersistError {}
+impl std::error::Error for PersistError {
+    /// Expose the wrapped cause so callers can walk the error chain — the two
+    /// wrapping variants ([`Write`](PersistError::Write) /
+    /// [`Illegal`](PersistError::Illegal)) forward to their inner error; the
+    /// self-describing variants have no deeper cause.
+    fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
+        match self {
+            Self::Write(e) => Some(e),
+            Self::Illegal(e) => Some(e),
+            Self::CycleMismatch { .. } | Self::OwnerMismatch { .. } | Self::StalePhase { .. } => {
+                None
+            }
+        }
+    }
+}
 
 /// The WAL seam — **one durable append per cycle**. [`commit_cycle`](WalSink::commit_cycle)
 /// takes an ALREADY-deinterlaced, ALREADY-frozen [`DetachedCycleBatch`] (the loom
@@ -257,6 +294,11 @@ impl std::error::Error for PersistError {}
 ///
 /// `&self` (shared) and **no owner borrow**: the persistence path never holds the
 /// SoA owner across I/O.
+///
+/// **Futures are not `Send`** (native `async fn` in trait, no `Send` bound): callers
+/// drive these on the crate's single-task persistence path and must NOT
+/// `tokio::spawn` them onto a multi-threaded runtime. If a concrete sink ever needs
+/// to be spawned, give it explicit `impl Future<Output = …> + Send` methods there.
 #[allow(async_fn_in_trait)]
 pub trait WalSink {
     /// The SINGLE amortized WAL append for a whole cycle: commit `batch` (already
@@ -297,10 +339,11 @@ pub async fn persist_cycle<S: WalSink>(
 ) -> Result<DatasetVersion, PersistError> {
     for c in &casts {
         if c.cycle != frame.cycle {
-            return Err(PersistError::Write(WriteFailed(format!(
-                "cast cycle {:?} != frame cycle {:?}",
-                c.cycle, frame.cycle
-            ))));
+            // Permanent caller error — NOT a retryable Write (retry would loop).
+            return Err(PersistError::CycleMismatch {
+                cast_cycle: c.cycle,
+                frame_cycle: frame.cycle,
+            });
         }
         if let Some(mv) = c.paired_move {
             if mv.mailbox != c.owner {
@@ -325,7 +368,10 @@ pub async fn persist_cycle<S: WalSink>(
 pub struct Recovered {
     pub applied: Vec<KanbanMove>,
     /// The highest `stream_position` now accounted for (per owner), or the input
-    /// watermark when nothing was applied.
+    /// watermark when nothing was applied. Same cross-cycle scope as
+    /// [`SweepSlot::stream_position`] — monotonic per owner across sealed cycles,
+    /// so it is a durable watermark over the whole multi-cycle `scan_sealed` stream,
+    /// not a per-cycle counter.
     pub watermark: Option<u64>,
 }
 
@@ -339,12 +385,19 @@ pub struct Recovered {
 /// sort is done here. The watermark — not phase equality — is the idempotence key
 /// (the Rubicon lifecycle is cyclic). Above the watermark the chain must be
 /// contiguous: a non-matching `from` is a gap/corruption ([`PersistError::StalePhase`]).
-/// On error the owner is left mid-chain; re-drive from the persisted watermark.
+///
+/// **On error the accumulated [`Recovered`] is returned WITH the error**
+/// (`Err((partial, cause))`). The function mutates `owner` as it walks the chain,
+/// so a mid-chain failure has already advanced the owner's phase for the applied
+/// prefix; returning the partial lets the caller persist the watermark it earned.
+/// Discarding it would leave the watermark below the applied prefix, replaying those
+/// moves against an already-advanced owner (a permanent `StalePhase` stall in the
+/// acyclic case, a double-apply in a cyclic lap).
 pub fn recover_and_apply<O: MailboxSoaOwner>(
     owner: &mut O,
     sealed: &[LandedSlot],
     applied_through: Option<u64>,
-) -> Result<Recovered, PersistError> {
+) -> Result<Recovered, (Recovered, PersistError)> {
     let mut applied = Vec::new();
     let mut watermark = applied_through;
     let me = owner.mailbox_id();
@@ -356,23 +409,33 @@ pub fn recover_and_apply<O: MailboxSoaOwner>(
         match ls.slot.paired_move {
             None => watermark = Some(ls.slot.stream_position),
             Some(mv) => {
-                if mv.mailbox != owner.mailbox_id() {
-                    return Err(PersistError::OwnerMismatch {
-                        move_owner: mv.mailbox,
-                        landing_owner: owner.mailbox_id(),
-                    });
+                if mv.mailbox != me {
+                    return Err((
+                        Recovered { applied, watermark },
+                        PersistError::OwnerMismatch {
+                            move_owner: mv.mailbox,
+                            landing_owner: me,
+                        },
+                    ));
                 }
                 if mv.from != owner.phase() {
-                    return Err(PersistError::StalePhase {
-                        owner_phase: owner.phase(),
-                        move_from: mv.from,
-                    });
+                    return Err((
+                        Recovered { applied, watermark },
+                        PersistError::StalePhase {
+                            owner_phase: owner.phase(),
+                            move_from: mv.from,
+                        },
+                    ));
                 }
-                let step = owner
-                    .try_advance_phase(mv.to)
-                    .map_err(PersistError::Illegal)?;
-                applied.push(step);
-                watermark = Some(ls.slot.stream_position);
+                match owner.try_advance_phase(mv.to) {
+                    Ok(step) => {
+                        applied.push(step);
+                        watermark = Some(ls.slot.stream_position);
+                    }
+                    Err(e) => {
+                        return Err((Recovered { applied, watermark }, PersistError::Illegal(e)))
+                    }
+                }
             }
         }
     }
@@ -506,17 +569,27 @@ mod tests {
     impl WalSink for FakeWalSink {
         async fn commit_cycle(
             &self,
-            _base: DatasetVersion,
+            base: DatasetVersion,
             batch: DetachedCycleBatch,
         ) -> Result<DatasetVersion, WriteFailed> {
             if !self.succeed {
                 return Err(WriteFailed("cycle fenced".into()));
             }
+            let mut sealed = self.sealed.lock().unwrap();
+            // Optimistic-concurrency fence: a commit MUST target the current sealed
+            // head (`Vn`). A stale/in-flight `base` (a sibling that read an older
+            // predecessor) is rejected — the epistemic horizon enforced, not assumed.
+            let head = sealed.last().map_or(DatasetVersion(0), |s| s.version);
+            if base != head {
+                return Err(WriteFailed(format!(
+                    "stale base {base:?}: sealed head is {head:?}"
+                )));
+            }
             // The batch arrives ALREADY deinterlaced + coalesced (loom before WAL).
             // THE single amortized WAL append for the whole cycle.
             self.wal_writes.fetch_add(1, Ordering::SeqCst);
             let version = DatasetVersion(self.next_version.fetch_add(1, Ordering::SeqCst));
-            self.sealed.lock().unwrap().push(SealedCycle {
+            sealed.push(SealedCycle {
                 frame: batch.frame,
                 version,
                 landings: batch.landings,
@@ -737,7 +810,7 @@ mod tests {
     #[tokio::test]
     async fn a_cycle_reads_the_sealed_predecessor_not_an_in_flight_sibling() {
         let sink = FakeWalSink::new();
-        // Cycle 1 seals → V1.
+        // Cycle 1 seals → V1 (the sealed head advances to V1).
         let s1 = persist_cycle(
             &sink,
             CycleFrame::new(CycleId(1), DatasetVersion(0)),
@@ -745,15 +818,33 @@ mod tests {
         )
         .await
         .unwrap();
-        // Cycle 2's base_version is the SEALED V1 — never an in-flight value.
-        let f2 = CycleFrame::new(CycleId(2), s1);
-        assert_eq!(
-            f2.base_version, s1,
-            "the next cycle reads the SEALED predecessor version (Vn), not in-flight state",
+        assert_eq!(s1, DatasetVersion(1));
+        // A sibling that read the STALE predecessor V0 (an in-flight base, not the
+        // sealed head V1) is FENCED — the sink rejects the commit, proving the
+        // horizon is enforced, not merely restated by the caller.
+        let stale = persist_cycle(
+            &sink,
+            CycleFrame::new(CycleId(2), DatasetVersion(0)),
+            vec![slot(99, 2, 0, 0, None)],
+        )
+        .await;
+        assert!(
+            matches!(stale, Err(PersistError::Write(_))),
+            "committing against a stale/in-flight base is fenced, not silently accepted",
         );
-        let s2 = persist_cycle(&sink, f2, vec![slot(99, 2, 0, 0, None)])
-            .await
-            .unwrap();
+        assert_eq!(
+            sink.version_count(),
+            1,
+            "the fenced commit published nothing"
+        );
+        // Committing against the SEALED head V1 succeeds and publishes exactly V2.
+        let s2 = persist_cycle(
+            &sink,
+            CycleFrame::new(CycleId(2), s1),
+            vec![slot(99, 2, 0, 0, None)],
+        )
+        .await
+        .unwrap();
         assert_eq!(s2, DatasetVersion(2), "and publishes exactly its own Vn+1");
     }
 
@@ -887,6 +978,194 @@ mod tests {
             bug.applied.len(),
             4,
             "without the watermark the cyclic lap replays"
+        );
+    }
+
+    // ── FALSIFIER: a no-step landing advances the watermark past itself ──────────
+    #[tokio::test]
+    async fn a_no_step_landing_advances_the_watermark_and_is_not_re_scanned() {
+        // A mixed chain: step@0, a NO-STEP landing@1, step@2. If the no-step
+        // landing did not advance the watermark, it would be re-scanned forever and
+        // block the watermark behind every following step.
+        let sink = FakeWalSink::new();
+        persist_cycle(
+            &sink,
+            CycleFrame::new(CycleId(1), DatasetVersion(0)),
+            vec![
+                slot(
+                    42,
+                    1,
+                    0,
+                    0,
+                    Some((KanbanColumn::Planning, KanbanColumn::CognitiveWork)),
+                ),
+                slot(42, 1, 1, 1, None), // no-step landing at position 1
+                slot(
+                    42,
+                    1,
+                    2,
+                    2,
+                    Some((KanbanColumn::CognitiveWork, KanbanColumn::Evaluation)),
+                ),
+            ],
+        )
+        .await
+        .unwrap();
+        let sealed = sink.scan_sealed(None).await.unwrap();
+        let mut o = owner(KanbanColumn::Planning);
+        let rec = recover_and_apply(&mut o, &sealed, None).unwrap();
+        assert_eq!(rec.applied.len(), 2, "the two real steps applied");
+        assert_eq!(
+            rec.watermark,
+            Some(2),
+            "the watermark reaches the last landing, past the no-step at 1",
+        );
+        // A second pass with that watermark applies nothing (no re-scan of the no-step).
+        let again = recover_and_apply(&mut o, &sealed, rec.watermark).unwrap();
+        assert!(again.applied.is_empty(), "idempotent — nothing re-applied");
+    }
+
+    // ── FALSIFIER: a mid-chain failure returns the watermark it already earned ───
+    #[tokio::test]
+    async fn a_mid_chain_failure_returns_the_applied_prefix_watermark() {
+        // step@0 is valid and advances the owner; step@1 has a `from` that no longer
+        // matches (corruption) → StalePhase. The Err must carry the partial Recovered
+        // so the caller can persist the watermark for the prefix that DID apply.
+        let sink = FakeWalSink::new();
+        persist_cycle(
+            &sink,
+            CycleFrame::new(CycleId(1), DatasetVersion(0)),
+            vec![
+                slot(
+                    42,
+                    1,
+                    0,
+                    0,
+                    Some((KanbanColumn::Planning, KanbanColumn::CognitiveWork)),
+                ),
+                // Above-watermark landing whose `from` (Planning) mismatches the
+                // owner's now-current phase (CognitiveWork) → StalePhase.
+                slot(
+                    42,
+                    1,
+                    1,
+                    1,
+                    Some((KanbanColumn::Planning, KanbanColumn::CognitiveWork)),
+                ),
+            ],
+        )
+        .await
+        .unwrap();
+        let sealed = sink.scan_sealed(None).await.unwrap();
+        let mut o = owner(KanbanColumn::Planning);
+        let (partial, err) =
+            recover_and_apply(&mut o, &sealed, None).expect_err("the mid-chain mismatch must fail");
+        assert!(matches!(err, PersistError::StalePhase { .. }));
+        assert_eq!(
+            partial.applied.len(),
+            1,
+            "step 0 applied before the failure"
+        );
+        assert_eq!(
+            partial.watermark,
+            Some(0),
+            "the returned watermark covers exactly the applied prefix (position 0)",
+        );
+        assert_eq!(
+            o.phase(),
+            KanbanColumn::CognitiveWork,
+            "the owner's phase advanced for the applied prefix — the reason the \
+             partial watermark must be persistable",
+        );
+    }
+
+    // ── FALSIFIER: the watermark spans cycles (stream_position is cross-cycle) ───
+    #[tokio::test]
+    async fn recovery_watermark_spans_multiple_sealed_cycles() {
+        // stream_position is monotonic per owner ACROSS cycles: cycle 1 carries
+        // position 0, cycle 2 carries position 1. Recovery over the multi-cycle
+        // scan_sealed stream must treat the watermark as cross-cycle.
+        let sink = FakeWalSink::new();
+        persist_cycle(
+            &sink,
+            CycleFrame::new(CycleId(1), DatasetVersion(0)),
+            vec![slot(
+                42,
+                1,
+                0,
+                0,
+                Some((KanbanColumn::Planning, KanbanColumn::CognitiveWork)),
+            )],
+        )
+        .await
+        .unwrap();
+        persist_cycle(
+            &sink,
+            CycleFrame::new(CycleId(2), DatasetVersion(1)),
+            vec![slot(
+                42,
+                2,
+                1,
+                1,
+                Some((KanbanColumn::CognitiveWork, KanbanColumn::Evaluation)),
+            )],
+        )
+        .await
+        .unwrap();
+        let sealed = sink.scan_sealed(None).await.unwrap();
+        assert_eq!(sealed.len(), 2, "landings from BOTH sealed cycles");
+
+        // A fresh recovery applies the whole cross-cycle chain; watermark = 1.
+        let mut o = owner(KanbanColumn::Planning);
+        let rec = recover_and_apply(&mut o, &sealed, None).unwrap();
+        assert_eq!(
+            rec.applied.iter().map(|m| m.to).collect::<Vec<_>>(),
+            vec![KanbanColumn::CognitiveWork, KanbanColumn::Evaluation],
+            "both cycles' steps applied in cross-cycle stream order",
+        );
+        assert_eq!(
+            rec.watermark,
+            Some(1),
+            "watermark reaches the cycle-2 landing"
+        );
+
+        // A watermark from cycle 1 (position 0) skips ONLY cycle 1, still applies
+        // cycle 2 — proving the watermark is not per-cycle.
+        let mut o2 = owner(KanbanColumn::CognitiveWork);
+        let rec2 = recover_and_apply(&mut o2, &sealed, Some(0)).unwrap();
+        assert_eq!(
+            rec2.applied.iter().map(|m| m.to).collect::<Vec<_>>(),
+            vec![KanbanColumn::Evaluation],
+            "cycle-1 landing skipped by watermark 0; cycle-2 landing still applied",
+        );
+    }
+
+    // ── FALSIFIER: a cast for the wrong cycle is a PERMANENT error, not Write ────
+    #[tokio::test]
+    async fn a_cast_for_the_wrong_cycle_is_a_permanent_cycle_mismatch_not_write() {
+        // A cast whose cycle != frame.cycle is a caller programming error — it must
+        // NOT surface as the RETRYABLE Write class (retry would loop forever).
+        let sink = FakeWalSink::new();
+        let r = persist_cycle(
+            &sink,
+            CycleFrame::new(CycleId(1), DatasetVersion(0)),
+            vec![slot(42, 2, 0, 0, None)], // cast cycle 2 ≠ frame cycle 1
+        )
+        .await;
+        assert!(
+            matches!(
+                r,
+                Err(PersistError::CycleMismatch {
+                    cast_cycle: CycleId(2),
+                    frame_cycle: CycleId(1),
+                }),
+            ),
+            "wrong-cycle cast is CycleMismatch (permanent), never Write (retryable)",
+        );
+        assert_eq!(
+            sink.wal_writes(),
+            0,
+            "nothing written on a wrong-cycle cast"
         );
     }
 
