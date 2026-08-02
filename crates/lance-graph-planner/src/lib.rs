@@ -78,6 +78,9 @@ pub mod batch_writer;
 // === D-MBX-A6 Outcome→KanbanMove emit adapter (bootstrap rebind + ahead-cast) ===
 pub mod owner_adapter;
 
+// === D-MBX-A6 persistence-sink ordering core (post-write kanbanstep; DurableWrite seam) ===
+pub mod persist_sink;
+
 // === Internal API (same-binary, zero-serde) ===
 pub mod api;
 

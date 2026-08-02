@@ -43,6 +43,30 @@
 //! so the single-server body can ignore them and the cross-server policy (peer-
 //! Raft / cluster bus) wakes them up with **no breaking signature change** —
 //! avoiding the `emitted_at_millis: u64` (decision #4) non-`Option` trap.
+//!
+//! ## Two temporal LAYERS (operator-ruled — do not conflate)
+//!
+//! `temporal.rs` deinterlaces on **two distinct axes**, and both are needed
+//! before a durable kanban step can be trusted after a crash:
+//!
+//! - **Layer 1 — CAUSAL deinterlacing** ([`local_trajectories`],
+//!   [`LocalCausalRow`]): the global durable log interleaves *every* owner's
+//!   writes — `A@s0, C@s0, B@s0, A@s1`. Splitting it back into per-owner LOCAL
+//!   chains — owner A's own `[A@s0, A@s1]`, with B's and C's rows *removed* from
+//!   A's timeline — is what makes crash-replay in cast order possible. Answers
+//!   *"what is owner A's own trajectory?"*
+//! - **Layer 2 — EPISTEMIC projection** ([`classify`], [`deinterlace`]): given a
+//!   trajectory, which rows may a reader at a given rung/horizon dispatch on
+//!   (`Contemporary` / `Anachronistic` / `Spoiler` / `Unknowable`). Answers
+//!   *"what may this reader know?"*
+//!
+//! They compose: layer 1 reconstructs an owner's local causal chain from the
+//! interleaved log; layer 2 filters that chain by the reader's horizon. A crash
+//! recovery reads the durable witnesses, runs layer 1 to find each owner's
+//! pending tail, and re-applies in cast order (`persist_sink::recover_and_apply`).
+
+use lance_graph_contract::collapse_gate::MailboxId;
+use std::collections::BTreeMap;
 
 /// A Lance dataset version — the storage frame's clock tick.
 pub type LanceVersion = u64;
@@ -351,6 +375,78 @@ where
     out
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+// LAYER 1 — CAUSAL DEINTERLACING (global interleaved durable log → per-owner
+// local trajectories). Distinct from the layer-2 epistemic projection above:
+// layer 2 asks *what a reader may see*; layer 1 asks *what one owner actually
+// did, in its own order*. The interleaved global log
+//     A@s0, C@s0, B@s0, A@s1
+// yields owner A's LOCAL chain [A@s0, A@s1] — B's and C's rows are REMOVED from
+// A's timeline (deinterlaced away), not merely reordered. This is the read
+// crash-recovery runs to find each owner's pending durable tail.
+// ─────────────────────────────────────────────────────────────────────────────
+
+/// A row in the global durable log carrying its owner-local causal coordinates —
+/// WHO wrote it and WHERE in that owner's own cast sequence.
+///
+/// The layer-1 counterpart of [`DeinterlaceRow`]: where `DeinterlaceRow` exposes
+/// the *epistemic* clocks (lance version / knowable-from / HLC), this exposes the
+/// *causal* coordinates (owner + cast sequence) that split the interleaved stream
+/// into per-owner local chains. A durable persistence witness
+/// (`persist_sink::DurableWitness`) is the production implementor.
+pub trait LocalCausalRow {
+    /// The mailbox that owns this row — the deinterlace grouping key.
+    fn owner(&self) -> MailboxId;
+    /// The owner-local ordering key WITHIN one owner's trajectory. Cross-owner
+    /// values are never compared; only rows sharing an `owner()` are ordered
+    /// against each other.
+    ///
+    /// PRECONDITION: **unique and monotonic per owner, ACROSS process restarts.**
+    /// [`local_trajectories`]'s sort is stable, so two rows of one owner sharing a
+    /// `cast_seq` keep their global arrival order — a tie-break that makes replay
+    /// order depend on scan order. A per-process counter (e.g. `BatchWriter`'s
+    /// `CastId`, which resets to 0 on restart) is therefore NOT a valid key:
+    /// different writer lifetimes collide. Use a durable-log position instead
+    /// (`persist_sink::LandedWitness` keys on `DurableCoordinate::log_order`, the
+    /// WAL entry position, which never resets).
+    fn cast_seq(&self) -> u64;
+}
+
+/// Layer-1 causal deinterlacing: split a globally-interleaved durable stream into
+/// per-owner LOCAL trajectories, each ordered by the owner's own `cast_seq`.
+///
+/// The global order `A@s0, C@s0, B@s0, A@s1` yields
+/// `{A: [A@s0, A@s1], B: [B@s0], C: [C@s0]}` — every owner's interleaved
+/// neighbours are removed from its timeline, and each timeline is put back into
+/// the owner's own cast order (the crash-replay order). Returns a `BTreeMap` so
+/// owners iterate deterministically.
+#[must_use]
+pub fn local_trajectories<R: LocalCausalRow + Clone>(global: &[R]) -> BTreeMap<MailboxId, Vec<R>> {
+    let mut by_owner: BTreeMap<MailboxId, Vec<R>> = BTreeMap::new();
+    for row in global {
+        by_owner.entry(row.owner()).or_default().push(row.clone());
+    }
+    for rows in by_owner.values_mut() {
+        rows.sort_by_key(LocalCausalRow::cast_seq);
+    }
+    by_owner
+}
+
+/// Owner `owner`'s local trajectory alone — the crash-recovery read for ONE
+/// owner. Filters the interleaved global stream to that owner's rows and orders
+/// them by `cast_seq`. Equivalent to `local_trajectories(global).remove(&owner)`
+/// but without materialising the other owners' chains.
+#[must_use]
+pub fn local_trajectory_of<R: LocalCausalRow + Clone>(global: &[R], owner: MailboxId) -> Vec<R> {
+    let mut chain: Vec<R> = global
+        .iter()
+        .filter(|r| r.owner() == owner)
+        .cloned()
+        .collect();
+    chain.sort_by_key(LocalCausalRow::cast_seq);
+    chain
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -401,6 +497,117 @@ mod tests {
                 satisfied: false,
             }
         }
+    }
+
+    /// A minimal [`LocalCausalRow`] — owner + owner-local cast sequence, plus a
+    /// `tag` to make the surviving order observable.
+    #[derive(Clone, Debug, PartialEq)]
+    struct CausalRow {
+        owner: MailboxId,
+        seq: u64,
+        tag: &'static str,
+    }
+    impl LocalCausalRow for CausalRow {
+        fn owner(&self) -> MailboxId {
+            self.owner
+        }
+        fn cast_seq(&self) -> u64 {
+            self.seq
+        }
+    }
+
+    /// LAYER-1 FALSIFIER (operator): the interleaved global log
+    /// `A@s0, C@s0, B@s0, A@s1` must yield owner A's LOCAL chain `[A@s0, A@s1]` —
+    /// C's and B's interleaved rows REMOVED from A's timeline, not reordered into
+    /// it. Vacuity guard: A's chain must be strictly shorter than the global log
+    /// (the other owners' rows were actually dropped, not merely sorted).
+    #[test]
+    fn layer1_deinterlaces_interleaved_global_log_into_owner_local_chain() {
+        const A: MailboxId = 40;
+        const B: MailboxId = 41;
+        const C: MailboxId = 42;
+        // Global durable-log order, exactly the operator's example.
+        let global = vec![
+            CausalRow {
+                owner: A,
+                seq: 0,
+                tag: "A@s0",
+            },
+            CausalRow {
+                owner: C,
+                seq: 0,
+                tag: "C@s0",
+            },
+            CausalRow {
+                owner: B,
+                seq: 0,
+                tag: "B@s0",
+            },
+            CausalRow {
+                owner: A,
+                seq: 1,
+                tag: "A@s1",
+            },
+        ];
+
+        let a_chain = local_trajectory_of(&global, A);
+        assert_eq!(
+            a_chain.iter().map(|r| r.tag).collect::<Vec<_>>(),
+            vec!["A@s0", "A@s1"],
+            "owner A's local trajectory is its own two casts, deinterlaced",
+        );
+        assert!(
+            a_chain.len() < global.len(),
+            "the other owners' interleaved rows were REMOVED from A's timeline, not reordered",
+        );
+        // The same via the all-owners split.
+        let all = local_trajectories(&global);
+        assert_eq!(all.len(), 3, "three distinct owners");
+        assert_eq!(
+            all[&A].iter().map(|r| r.tag).collect::<Vec<_>>(),
+            vec!["A@s0", "A@s1"]
+        );
+        assert_eq!(
+            all[&B].iter().map(|r| r.tag).collect::<Vec<_>>(),
+            vec!["B@s0"]
+        );
+        assert_eq!(
+            all[&C].iter().map(|r| r.tag).collect::<Vec<_>>(),
+            vec!["C@s0"]
+        );
+    }
+
+    /// LAYER-1 FALSIFIER (operator): within ONE owner, replay order is the cast
+    /// sequence, even when the durable log stored the casts out of order (a WAL
+    /// that interleaved a later batch ahead of an earlier one). Falsifiable: the
+    /// global log is deliberately seq-descending, so a no-op (identity) pass
+    /// would produce the wrong order.
+    #[test]
+    fn layer1_orders_one_owners_chain_by_cast_seq_not_log_order() {
+        const A: MailboxId = 7;
+        let global = vec![
+            CausalRow {
+                owner: A,
+                seq: 2,
+                tag: "third",
+            },
+            CausalRow {
+                owner: A,
+                seq: 0,
+                tag: "first",
+            },
+            CausalRow {
+                owner: A,
+                seq: 1,
+                tag: "second",
+            },
+        ];
+        let chain = local_trajectory_of(&global, A);
+        assert_eq!(
+            chain.iter().map(|r| r.tag).collect::<Vec<_>>(),
+            vec!["first", "second", "third"],
+            "replay follows cast_seq, not the (scrambled) durable-log order",
+        );
     }
 
     #[test]
