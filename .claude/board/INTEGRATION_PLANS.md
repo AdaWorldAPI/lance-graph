@@ -38,6 +38,32 @@ vectors → four Ψ ripple fields; cloned-lens control as the can-it-stay-silent
 falsifier), LLM tail last. deepnsm-v2 crate untouched by ruling. A withdrawn
 probe verdict (tesseract-side, retention-axis category error) is recorded in
 §8's provenance + tesseract-rs CLAUDE.md.
+## 2026-08-02 — persistence-cycle-wal-bootstrap v1 — ACTIVE (bootstrap SHIPPED #878; temporal/revision upgrade PLANNED) — main thread
+
+**Plan:** `.claude/plans/persistence-cycle-wal-bootstrap-v1.md`
+Documentation-only architectural ruling recording the *role* of the #878
+persistence seam and the larger two-dimensional temporal architecture it
+bootstraps toward. #878 is a **primitive cycle/WAL bootstrap** (concurrent
+results → primitive slot collection/order → freeze one cycle → one amortized
+WAL write → one `DatasetVersion`), with six hard guarantees (single sealed `Vn`
+read horizon; open-cycle results invisible as `Vn` input; freeze-before-I/O; one
+seal = one WAL write = one version; no live mutable SoA borrow to the WAL). The
+scalar slot/order model is **explicitly provisional** — sufficient for the
+execution/durability plumbing, not the final temporal representation. Two
+orthogonal dimensions: **horizontal** = `temporal.rs` coherence within a frame
+(book→chapter→verse→span for deterministic streams; partially-ordered
+neighbourhoods for medical/higher-order thought — hence a scalar key is
+insufficient); **vertical** = `DatasetVersion` succession + cheap
+Stockfish-style hindsight lookup. Planned upgrade: a wait-free-emit shadow
+`temporal.rs` coherence pass feeding `revision.rs` forward-correction into a
+later cycle — a sealed version is never silently rewritten. Cross-refs (does not
+re-specify): horizontal detail → `temporal-markov-and-style-classes-v1.md`;
+D-MBX-A6 tracking → STATUS_BOARD; per-row write gate →
+`mailbox-cycle-aware-write-contract-v1.md`; reshape ruling → EPIPHANIES
+`E-THE-DURABLE-UNIT-IS-THE-CYCLE-...-1`. Scope exclusions: no cohort internals /
+slot count / actor-neighbour waiting; no new semantic/temporal/rung/witness/
+branch/ancestry types; no reviving ThoughtWitness/basis/awareness_seq/per-cast
+WAL.
 
 ## 2026-07-26 — rosetta-codebook-convergence v1 — PROPOSED (D-RCC-1 calibrator runnable today) — main thread
 
