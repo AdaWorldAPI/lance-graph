@@ -67,24 +67,44 @@ manifest either emits everything it declares or stops declaring it.
 
 ## 4. The proof target — first medical thought (the drill hole)
 
+**Home: the proof lands primarily in MedCare-rs** — the live composition root
+per §2. lance-graph contributes only **generic** seams genuinely missing (e.g.
+the deferred `MailboxSoaView::qualia()` when sanctioned, driver entry surface)
+— never a new "MedCare-rs-shaped" host adapter in this repo (that would
+reconstruct the dead lineage in miniature). Public/private boundary:
+MedCare-specific schema and clinical mappings stay in MedCare-rs; generic
+SoA/cycle/driver primitives may land here.
+
 ```
-MedCare-rs medical input (existing schema surface, private side)
-  → existing OGAR HealthcarePort bridge  (classid resolution, namespace lock)
-  → existing MedCare-rs RBAC or a narrow proof policy   (fail-closed)
-  → cognitive-shader-driver + REAL MailboxSoA           (the honest gap)
-  → non-vacuous medical cognitive result                 (falsifier below)
-  → owner_adapter::emit_bootstrap_intent / BatchWriter   (write-on-behalf cast)
-  → cycle_driver (PR #879): collect → seal (one WAL write) → apply sparse → next intent
+MedCare-rs input (existing schema surface, private side)
+  → existing medcare-bridge → UnifiedBridge<HealthcarePort>   (classid, namespace lock)
+  → existing MedCare-rs policy/schema path (or narrow proof policy — fail-closed)
+  → cognitive-shader-driver + REAL MailboxSoA                 (the honest gap)
+  → non-vacuous medical cognitive result
+  → owner_adapter::emit_bootstrap_intent / BatchWriter        (write-on-behalf cast)
+  → cycle_driver (#879, merged): collect → seal (one WAL write) → apply sparse → next intent
 ```
 
-A small direct adapter is acceptable. The known seam: `MailboxSoaView::qualia()`
-is deferred; `run_cognitive_work_gated`'s caller-extractor bridges it today —
-the proof should read gate inputs from the REAL SoA qualia column, closing the
-"extractor-fed" honesty gap in the #879 ledger.
+**The driver requirement (hard):** the proof must invoke the EXISTING
+`cognitive-shader-driver` + `MailboxSoA` operational unit. Reading qualia from
+the real SoA column is necessary but NOT sufficient — feeding extracted values
+straight into `shade_owner` bypasses the driver and proves only the MUL gate
+(already proven). `shade_owner` participates only as the existing downstream
+gate where the driver actually reaches it, never as a substitute for the
+driver.
+
+**Trace-and-report obligation:** the proof's deliverable includes the exact
+active chain, symbol by symbol:
+`MedCare input type → HealthcarePort resolution → SoA projection →
+cognitive-shader-driver entry point → material SoA/result change → MUL gate
+(if reached) → StrategyOutcome → owner_adapter cast → sparse sealed
+transition`. Every arrow named with file:symbol; no arrow asserted without
+evidence.
 
 **Falsifiers (per the P0 falsifiability rule):**
 - F1 — the cognitive result is **non-vacuous**: two different medical inputs
-  produce two different gate outcomes (discriminates; not a constant).
+  produce two different DRIVER outcomes (a material SoA/result change that
+  discriminates; not a constant, and not gate-only).
 - F2 — the classid on the thought's carrier is the OGAR canon (`0x0901`-family
   via `HealthcarePort::class_id`), not a local literal.
 - F3 — the intent round-trips: cast in cycle N is collected, sealed (exactly one
@@ -119,12 +139,24 @@ no cathedral. Skip entirely if F1–F4 pass without it.
 - NO manifest/supervisor/actor revival for the proof.
 - NO new Healthcare subset codebook; NO local classid literals.
 - NO callcenter⊗ogar dependency edge as a proof prerequisite.
-- NO provisional-intent recovery ledger in #879: pre-commit failure → publish
-  nothing, mutate nothing, retry the byte-identical frozen cycle (`SealFailure`);
-  post-commit crash → recover committed history (`recover_fleet` + watermarks).
-  Committed-history recovery and ordinary failed-write recomputation stay
-  SEPARATE mechanisms. (Latency figures floating in review prose for these two
-  paths are **claimed, unverified** — nothing here measured them; do not cite.)
+- NO provisional-intent recovery ledger in #879 (merged). The authoritative
+  pre-commit rule (operator-ruled): **sealed `Vn` + unchanged Kanban task +
+  deterministic computation = the same provisional intent on the next sweep.**
+  Commit fails before `Vn+1` exists → publish nothing · mutate no owner ·
+  advance no watermark · **discard** provisional slots, held moves and planning
+  results · rerun the unchanged task from `Vn`. Correctness never requires
+  retaining a byte-identical frozen cycle — `SealFailure{casts}` is classified
+  as an **optional retry cache / implementation convenience only** and must not
+  become a planning ledger (so documented in `cycle_driver.rs`, with the
+  deterministic-regeneration falsifier
+  `pre_commit_failure_discards_everything_and_regenerates_from_vn` that DROPS
+  the cache and proves the same semantic sparse cycle re-derives).
+  `recover_fleet` is **committed-history recovery ONLY** (`Vn+1` exists,
+  application/restart interrupted) — never conceptually grouped with ordinary
+  write failure; the two mechanisms share no state. (Latency figures attached
+  to these paths in review prose are **operator-provided measurements**, not
+  workspace-reproduced benchmarks — their exact values are not the
+  architectural foundation and are not restated here.)
 - NO clinical schema detail or sourcing/licensing reasoning in this public repo.
 
 ## 8. Status ledger for the older documents
