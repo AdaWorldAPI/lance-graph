@@ -44,9 +44,11 @@
 use std::collections::{HashMap, HashSet};
 
 use lance_graph_contract::collapse_gate::MailboxId;
-use lance_graph_contract::kanban::{KanbanColumn, KanbanMove};
+use lance_graph_contract::kanban::{ExecTarget, KanbanColumn, KanbanMove};
+use lance_graph_contract::mul::i4_eval::gate_decision_i4;
 use lance_graph_contract::scheduler::DatasetVersion;
 use lance_graph_contract::soa_view::{MailboxSoaOwner, MailboxSoaView};
+use lance_graph_contract::QualiaI4_16D;
 
 use lance_graph_planner::batch_writer::BatchWriter;
 use lance_graph_planner::owner_adapter::emit_bootstrap_intent;
@@ -324,6 +326,78 @@ where
         }
     }
     cast_count
+}
+
+/// **The shader plug (P4c gate).** Run the real MUL cognitive gate over an owner
+/// that just entered `CognitiveWork` and lower the decision to the owner's next
+/// intended move — the "thinking" the P4c seam routes. This is
+/// `kanban_actor::mul_target` composed for the driver: it mints **no** new
+/// decision logic, it reuses the two shipped contract primitives.
+///
+/// 1. read the owner's *current* phase,
+/// 2. run [`gate_decision_i4`]`(qualia, mantissa)` — the i4 TrustTexture × FlowState
+///    gate (`Flow` / `Hold` / `Block`),
+/// 3. lower the `GateDecision` to a DAG-legal next phase via
+///    [`KanbanColumn::advance_on_gate`] (`Flow` → forward, `Block` →
+///    Prune-where-legal, `Hold` → rest).
+///
+/// The result is packaged as a **bootstrap sentinel** [`StrategyOutcome`]
+/// (`mailbox 0`, `witness_chain_position 0`) so
+/// `owner_adapter::emit_bootstrap_intent` rebinds it to the live owner and casts
+/// it write-on-behalf — **no mailbox is mutated here** (the durable step is P4b,
+/// next cycle). Returns `None` when the gate **Holds** (or yields no legal
+/// successor): the owner rests this cycle and casts nothing.
+///
+/// `qualia` + `mantissa` are supplied by the caller because `MailboxSoaView` does
+/// **not yet** expose `qualia()` (deferred — `soa_view.rs` "add `fn qualia` when
+/// the first consumer arrives"). P4c is that first consumer; until the trait
+/// method lands, a fleet-specific extractor bridges the seam. This keeps the
+/// MailboxSoa contract UNCHANGED — no trait redesign.
+#[must_use]
+pub fn shade_owner<O: MailboxSoaOwner>(
+    owner: &O,
+    qualia: &QualiaI4_16D,
+    mantissa: i8,
+    reliability: f32,
+) -> Option<StrategyOutcome> {
+    let phase = owner.phase();
+    let gate = gate_decision_i4(qualia, mantissa);
+    let to = phase.advance_on_gate(&gate)?;
+    Some(StrategyOutcome {
+        reliability,
+        intended_move: Some(KanbanMove {
+            // bootstrap sentinel — owner_adapter rebinds mailbox 0 to the live owner.
+            mailbox: 0,
+            from: phase,
+            to,
+            witness_chain_position: 0,
+            exec: ExecTarget::Native,
+        }),
+    })
+}
+
+/// **P4c with the real shader wired in.** Like [`run_cognitive_work`], but the
+/// thought body IS the MUL cognitive gate ([`shade_owner`]) rather than a
+/// caller-supplied Outcome. For each owner that just entered `CognitiveWork`,
+/// `read_gate` extracts that owner's `(qualia, signed_mantissa, reliability,
+/// payload)` — the qualia seam the deferred `MailboxSoaView::qualia()` will
+/// eventually close — and the gate decides the next move. A **Hold** (or an owner
+/// `read_gate` declines with `None`) casts nothing. Returns the number of
+/// next-cycle intents cast.
+pub fn run_cognitive_work_gated<F>(
+    fleet: &F,
+    applied: &AppliedCycle,
+    writer: &mut BatchWriter<Vec<u8>>,
+    mut read_gate: impl FnMut(&F::Owner) -> Option<(QualiaI4_16D, i8, f32, Vec<u8>)>,
+) -> usize
+where
+    F: MailboxFleet,
+{
+    run_cognitive_work(fleet, applied, writer, |owner| {
+        let (qualia, mantissa, reliability, payload) = read_gate(owner)?;
+        let outcome = shade_owner(owner, &qualia, mantissa, reliability)?;
+        Some((outcome, payload))
+    })
 }
 
 /// The effect of a [`recover_fleet`] pass.
@@ -985,6 +1059,133 @@ mod tests {
         eprintln!(
             "perf.p4f fleet={FLEET} dirty={DIRTY} resolves={} (sparse routing: apply is O(dirty), not O(fleet))",
             fleet.resolves
+        );
+    }
+
+    // ── The shader plug (P4c gate) ──────────────────────────────────────────────
+
+    /// Flow qualia (warmth=4, groundedness=3, coherence=4, valence=2) — the same
+    /// construction `kanban_actor::s2_driver_gate_advances_then_holds` uses:
+    /// `flow_proxy = 4+3−0 = 7 ≥ 4` + mantissa>0 → FlowState::Flow; coherence≥4 +
+    /// valence≥2 + tension≤1 → TrustTexture::Calibrated ⇒ gate `Flow`.
+    fn flow_qualia() -> QualiaI4_16D {
+        QualiaI4_16D(0).with(3, 4).with(14, 3).with(9, 4).with(1, 2)
+    }
+
+    /// Uncertain qualia (coherence=−3, tension=3) ⇒ TrustTexture::Uncertain ⇒
+    /// gate `Block`.
+    fn block_qualia() -> QualiaI4_16D {
+        QualiaI4_16D(0).with(9, -3).with(2, 3)
+    }
+
+    // shade_owner is the REAL gate: Flow→forward, Block→Prune, Hold→None. Three
+    // distinct outputs for three distinct inputs — the gate discriminates (it is
+    // not a constant that always fires the same way).
+    #[test]
+    fn shade_owner_flow_advances_forward_block_prunes_hold_rests() {
+        // Flow at CognitiveWork → forward to Evaluation (the only non-Prune next).
+        let cw = FakeOwner::at(1, KanbanColumn::CognitiveWork);
+        let out = shade_owner(&cw, &flow_qualia(), 4, 0.9).expect("Flow yields a move");
+        let m = out.intended_move.expect("Flow carries an intended move");
+        assert_eq!(m.from, KanbanColumn::CognitiveWork);
+        assert_eq!(m.to, KanbanColumn::Evaluation, "Flow → forward");
+        assert_eq!(
+            m.mailbox, 0,
+            "bootstrap sentinel — owner_adapter rebinds it"
+        );
+        assert_eq!(m.witness_chain_position, 0, "sentinel witness position");
+        assert!((out.reliability - 0.9).abs() < f32::EPSILON);
+
+        // Block at Planning → Prune (the Prune-where-legal branch).
+        let plan = FakeOwner::at(2, KanbanColumn::Planning);
+        let out = shade_owner(&plan, &block_qualia(), -4, 0.5).expect("Block yields a Prune");
+        assert_eq!(
+            out.intended_move.unwrap().to,
+            KanbanColumn::Prune,
+            "Block → Prune-where-legal"
+        );
+
+        // Hold (neutral qualia, mantissa 0) → None: the owner rests, casts nothing.
+        assert!(
+            shade_owner(&cw, &QualiaI4_16D(0), 0, 0.5).is_none(),
+            "Hold must not produce a move"
+        );
+    }
+
+    // shade_owner respects the DAG: Block at an absorbing column (Commit) has no
+    // legal successor (`next_phases` empty) → None, even though the gate said Block.
+    #[test]
+    fn shade_owner_at_absorbing_column_yields_nothing() {
+        let done = FakeOwner::at(3, KanbanColumn::Commit);
+        assert!(
+            shade_owner(&done, &flow_qualia(), 4, 1.0).is_none(),
+            "Flow at Commit has no forward successor"
+        );
+        assert!(
+            shade_owner(&done, &block_qualia(), -4, 1.0).is_none(),
+            "Block at Commit has no Prune successor"
+        );
+    }
+
+    // ── P4c GATED FALSIFIER: Flow-qualia thought → next cast → round-trip ────────
+    #[tokio::test]
+    async fn run_cognitive_work_gated_flow_casts_next_intent_hold_casts_nothing() {
+        let sink = FakeWalSink::new();
+        // Owner 5 will FLOW (advances); owner 6 will HOLD (rests).
+        let mut fleet: HashMap<MailboxId, FakeOwner> = HashMap::from([
+            (5, FakeOwner::at(5, KanbanColumn::Planning)),
+            (6, FakeOwner::at(6, KanbanColumn::Planning)),
+        ]);
+        let mut w = writer_with_moves(&[5, 6]);
+
+        // Cycle 1: both cast Planning→CognitiveWork; the driver applies both.
+        let (_s1, applied1) = run_cycle(
+            &sink,
+            &mut fleet,
+            &mut w,
+            CycleFrame::new(CycleId(1), DatasetVersion(0)),
+            u64::from,
+        )
+        .await
+        .unwrap();
+        assert_eq!(applied1.applied.len(), 2);
+        assert_eq!(fleet[&5].phase(), KanbanColumn::CognitiveWork);
+        assert_eq!(fleet[&6].phase(), KanbanColumn::CognitiveWork);
+
+        // P4c: the REAL gate runs. Owner 5 gets Flow qualia → casts
+        // CognitiveWork→Evaluation. Owner 6 gets neutral qualia → Hold → no cast.
+        let cast_count = run_cognitive_work_gated(&fleet, &applied1, &mut w, |owner| {
+            let payload = vec![owner.mailbox_id() as u8];
+            if owner.mailbox_id() == 5 {
+                Some((flow_qualia(), 4, 0.9, payload)) // FLOW
+            } else {
+                Some((QualiaI4_16D(0), 0, 0.5, payload)) // HOLD
+            }
+        });
+        assert_eq!(cast_count, 1, "only the Flow owner cast a next intent");
+
+        // Cycle 2: the driver drains that single cast → seals V2 → applies →
+        // owner 5 → Evaluation; owner 6 stayed at CognitiveWork (it Held).
+        let (s2, applied2) = run_cycle(
+            &sink,
+            &mut fleet,
+            &mut w,
+            CycleFrame::new(CycleId(2), DatasetVersion(1)),
+            u64::from,
+        )
+        .await
+        .unwrap();
+        assert_eq!(s2.version, DatasetVersion(2));
+        assert_eq!(applied2.applied.len(), 1, "only the Flow owner advanced");
+        assert_eq!(
+            fleet[&5].phase(),
+            KanbanColumn::Evaluation,
+            "Flow owner advanced one further step through the real gate"
+        );
+        assert_eq!(
+            fleet[&6].phase(),
+            KanbanColumn::CognitiveWork,
+            "Hold owner rested — the gate discriminates, it is not a constant"
         );
     }
 }
