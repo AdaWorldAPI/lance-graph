@@ -1,3 +1,21 @@
+## 2026-08-02 — E-THE-DURABLE-UNIT-IS-THE-CYCLE-NOT-THE-CAST-ONE-WAL-WRITE-PER-SWEEP-1 — the persistence seam is reshaped to the WAL-amortized generation; per-cast durability retired
+
+**Status:** FINDING (operator-ruled 2026-08-02 — the decision on the fork Correction 2(c) of `E-THE-PAIRED-MOVE-MUST-BE-DURABLE-CO-LOCATED-NOT-IN-MEMORY-ONLY-1` surfaced). **Confidence:** High for the **storage/race CONTRACT** (`lance-graph-planner` 344 lib tests, 13 in `persist_sink`, clippy+fmt clean); crash-durability remains contract-probed over an in-process fake, NOT storage-proven (`compile+test green ≠ storage proven`, the Ladybug lesson). Builds NO concrete sink.
+
+**The ruling.** The durable unit is the **cycle/sweep** — one globally-aligned 64k-row frame — NOT the per-cast `DurableWitness`. `persist_cast`-per-thought would pay WAL header + durability-wait + version-metadata 64k times; the reshape **amortizes the WAL**: 64k concurrent thoughts stage into an owned cast vector, one `persist_cycle` folds+freezes them, and `WalSink::commit_cycle` does exactly **one atomic append → one `DatasetVersion`**. cast ⊂ chunk ⊂ cycle.
+
+**The layer's ONLY concerns are storage + that 64k concurrent thoughts hit no physical or epistemic race.** It models no semantics: it mints NO witness / ancestry / awareness / branch / rung / temporal-policy type. `CycleFrame` is storage-only `{cycle, base_version}`; `SweepSlot` is a boring landing (`where`, never `why` — no `basis`).
+
+**Physical race → WRITE-SIDE order, never read-time repair.** Thoughts finish in arbitrary CPU order; `DetachedCycleBatch::freeze` stable-orders casts by their EXISTING `stream_position` (`order_cycle_stably`, generic over the key) BEFORE the single append, so the durable image is already canonical. `scan_sealed` returns stored order and **never sorts** (a read-time sort would lose the whole amortization). This write-side ordering lives in `persist_sink.rs`, **NOT `temporal.rs`** — that module owns query-time reader-horizon/version reading; the write-side deinterlace additions made there this session were reverted.
+
+**Epistemic race → the sealed read horizon.** Every thought reads only the sealed predecessor `Vn` (`frame.base_version`); the commit publishes `Vn+1` once, all-or-nothing. `scan_sealed` excludes any uncommitted cycle, so no thought reads a concurrent sibling's in-flight output as though it were sealed history (`read Vn / write Vn+1`).
+
+**Coalescing is a real per-row fold, not last-chunk-wins.** The final image is `row -> last payload in stream order`; chunks are disjoint/mergeable slices of that image.
+
+**Vocabulary reused, not re-minted.** `DatasetVersion` (scheduler), `KanbanMove`/`KanbanColumn`/`RubiconTransitionError` (kanban), `MailboxId`/`MailboxSoaOwner`, `stream_position` (the existing canonical key). `recover_and_apply` + the durable **watermark** idempotence (not phase equality — the lifecycle is cyclic) + the `StalePhase`/`OwnerMismatch` corruption guards survive from the prior model.
+
+**Retired (this reshape).** `DurableWitness`, `DurableReceipt`, `DurableCoordinate`, `DurableWrite`, `persist_cast`, `apply_durable_step`, `scan_witnesses`, `LandedWitness` — the per-cast durability surface. Their intent is preserved in the cycle machinery (`CycleFrame`, `SweepSlot`, `LandedSlot`, `DetachedCycleBatch`, `WalSink::commit_cycle`, `persist_cycle`, `order_cycle_stably`). Supersedes the seam-shape half of `E-THE-PAIRED-MOVE-MUST-BE-DURABLE-CO-LOCATED-NOT-IN-MEMORY-ONLY-1` (its ordering/recovery/watermark CONTRACT stands). Still deferred: the concrete Lance sink, gated on crash falsifiers. PR #878 (reshaped in place).
+
 ## 2026-08-01 — E-THE-PAIRED-MOVE-MUST-BE-DURABLE-CO-LOCATED-NOT-IN-MEMORY-ONLY-1 — the persistence sink's crash gap, and temporal.rs's missing layer-1
 
 **Status:** FINDING (operator-ruled 2026-08-01; review-hardened twice — see the two Corrections below). **Confidence:** High for the **ordering/recovery CONTRACT** (349 planner lib tests, clippy+fmt clean); the crash-durability is **contract-probed over an in-process fake sink, NOT storage-proven** — real MemWAL/restart/atomic co-location durability is demonstrated only by the deferred concrete Lance sink (`compile+test green ≠ storage proven`, the Ladybug lesson). Builds NO concrete sink.

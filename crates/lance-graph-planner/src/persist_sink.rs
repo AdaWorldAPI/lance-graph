@@ -1,330 +1,221 @@
-//! The D-MBX-A6 persistence sink — **two cleanly separated clock domains**.
+//! The D-MBX-A6 persistence sink — **one WAL write per cycle** (the amortization).
 //!
 //! This is the POST-write half of the fire-and-forget flow (pre-write half =
-//! [`crate::owner_adapter`]). The thinker already reported and moved on:
+//! [`crate::owner_adapter`]). Its ONLY concerns are **storage** and that 64k
+//! concurrent thoughts hit **no physical or epistemic race condition** (operator
+//! ruling). It does not model semantics: semantic causality already lives in the
+//! witness substrate (`causal_witness`, AriGraph SPO, NARS inference direction) —
+//! this layer never invents a second causality graph.
 //!
-//! ```text
-//! thinking path:      SoA → BatchWriter.cast(on_behalf, paired_move, descriptor) → keep thinking
-//! persistence path:   PersistCast → async durable append → DurableReceipt      (NO owner borrow)
-//! owner-local step:   DurableReceipt + paired move → try_advance_phase          (NO await)
-//! ```
+//! > The sweep globally aligns **durability**; `temporal.rs` locally aligns
+//! > **order** before durability. One semantic generation = one globally-aligned
+//! > 64k-row **cycle** that seals into exactly one [`DatasetVersion`].
 //!
-//! ## Why the two phases must NOT be one async function (operator-ruled)
+//! ## Three levels — cast ⊂ chunk ⊂ cycle
 //!
-//! A monolithic `persist_then_step(&mut owner, …, bytes).await` would hold BOTH
-//! `&mut owner` and `&[u8]` borrowed from live owner state **across the WAL I/O
-//! await** — immobilizing the owner while the object store completes, which
-//! defeats the latency masking the architecture exists to obtain. So the durable
-//! write ([`persist_cast`], async, **no `O` in its signature**) and the lifecycle
-//! step ([`apply_durable_step`], sync, **no await**) are split. The exclusive
-//! `&mut owner` is held only in the sync phase, outside the storage-latency window;
-//! `MailboxSoaOwner::try_advance_phase` stays the SOLE lifecycle mutator.
+//! - **cast** — one logical thought staged into the open cycle (no WAL write).
+//! - **chunk** — a disjoint / row-indexed slice of the cycle's final image.
+//! - **cycle** — the 64k-row frame. Its **seal is ONE WAL write** → one version.
 //!
-//! ## The ordering invariant (what the falsifiers prove)
+//! Modelling the durable unit as one *cast* (a WAL write per thought) is the
+//! anti-pattern this file corrects: it would pay WAL header + durability-wait +
+//! version-metadata 64k times. Here the WAL is amortized — many logical thoughts
+//! → one durable boundary → one published version.
 //!
-//! - **No durable write ⇒ no receipt ⇒ no step.** A failed append yields no
-//!   [`DurableReceipt`], and [`apply_durable_step`] cannot be reached without one.
-//! - **The step is the PAIRED move** (`receipt.paired_move.to`), never a generic
-//!   `next_phases().first()`. The move the thought cast rides in the receipt.
-//! - A receipt is applied only to **its own** owner ([`PersistError::OwnerMismatch`]),
-//!   and only if the move itself was minted for that owner (`mv.mailbox == owner` —
-//!   checked at persist time so a cross-owner move never becomes durable).
+//! ## Physical race safety — WRITE-SIDE order, not read-time repair
 //!
-//! ## Crash-durability: the paired move is CO-LOCATED, not in-memory-only
+//! 64k thoughts run concurrently and finish in ARBITRARY CPU order. In
+//! [`DetachedCycleBatch::freeze`], the casts are stable-ordered by their existing
+//! `stream_position` via [`order_cycle_stably`] BEFORE the single WAL append — so
+//! the durable image is already canonical. [`WalSink::scan_sealed`] returns rows in
+//! that stored order and **never sorts**: completion order is fixed to canonical
+//! order at WRITE time, not repaired on every read (which would lose the whole
+//! amortization and hand every downstream reader the wrong weave first). The
+//! ordering is write-path WAL preparation, so it lives here — NOT in `temporal.rs`,
+//! which owns query-time reading.
 //!
-//! The paired transition witness is **durably co-located with the SoA state in
-//! the same persistence generation** (operator ruling). The naïve split persists
-//! only the payload and keeps the paired move alive solely in the in-memory
-//! [`DurableReceipt`]; then *WAL append lands → process dies before
-//! [`apply_durable_step`] → the receipt evaporates → the paired move is lost →
-//! the KanbanStep never fires*, even though the durable SoA state moved. The gap
-//! is silent: storage advanced, lifecycle did not.
+//! ## Epistemic race safety — the sealed read horizon
 //!
-//! So [`DurableWrite::append`] takes the [`DurableWitness`] (owner, cast id,
-//! cycle, paired move) **alongside** the payload and lands BOTH atomically. The
-//! [`DurableReceipt`] then merely *references* that durable material (via its
-//! [`DurableCoordinate`]) for the fast in-process apply; it is **not the only
-//! copy**. On restart, [`recover_and_apply`] reads the witnesses back
-//! ([`DurableWrite::scan_witnesses`]) and re-applies each owner's pending tail.
-//! This is a read of what durable storage already holds — **not** a separate
-//! ack / confirmation ledger (`E-ACK-ELIMINATED-1`).
+//! Every thought in an open cycle reads only the sealed predecessor
+//! (`frame.base_version` = `Vn`); the seal publishes `Vn+1` once. An open cycle's
+//! output is **never visible as `Vn` input** — [`WalSink::scan_sealed`] excludes
+//! any unsealed cycle. So no thought can read a concurrent sibling's in-flight
+//! result as though it were sealed history (`read Vn / write Vn+1`).
 //!
-//! ## Replay order + idempotence — the DURABLE coordinate, never `CastId`
+//! ## Coalescing — fold ordered updates into owned rows, then chunk
 //!
-//! Two distinct keys, both durable, neither the resettable `CastId` counter:
+//! The final cycle image is the ordered per-row fold of the staged updates (a
+//! later stream position overwrites the same row); chunks are disjoint / mergeable
+//! slices of that final image, NOT successive whole-image replacements.
 //!
-//! - **Replay ORDER = the durable-log position** ([`DurableCoordinate::log_order`],
-//!   i.e. `seq`). `BatchWriter`'s `CastId` counter **resets to 0 on
-//!   every restart**, so two witnesses from different writer lifetimes can share a
-//!   `cast_id` — ordering by it is unstable across crashes. The WAL position is
-//!   monotonic across the shard's whole life and never resets; `writer_epoch`
-//!   fences overlapping writers so positions never collide. One owner writes one
-//!   shard ⇒ a total order over that owner's witnesses, valid across crashes.
-//!   `cast_id` survives on the witness only as provenance/audit.
-//! - **Idempotence = a durable WATERMARK** (`applied_through`), the last durable
-//!   coordinate whose move is already reflected in the recovered SoA state.
-//!   **Phase equality is NOT a sound idempotence key**: the Rubicon lifecycle is
-//!   cyclic (`Planning → CognitiveWork → Evaluation → Plan → Planning`), so after
-//!   a completed lap the owner is back at `Planning` and a phase-only check would
-//!   replay the whole lap. [`recover_and_apply`] skips every witness at or below
-//!   the watermark; above it, the chain must be contiguous (a `from` that does not
-//!   match the current phase is a genuine gap/corruption, surfaced as
-//!   [`PersistError::StalePhase`], never silently skipped). **The watermark MUST
-//!   be persisted with the SoA state** (same generation as the phase it agrees
-//!   with) or the cyclic ambiguity returns after a second crash — a single
-//!   per-owner scalar high-water mark, not a per-thought ledger.
+//! ## Scope boundary — storage only, no semantic / rung types minted here
 //!
-//! ## The `DurableWrite` seam + the durability type
+//! This layer owns storage + race-freedom, nothing else. It does NOT mint (or
+//! carry) semantic-witness, ancestry, awareness, branch, rung, or temporal-policy
+//! types — those live upstream (the semantic witness substrate) and downstream
+//! (`temporal.rs` owns *query-time* reader-horizon / version reading). The
+//! write-side ordering here is generic over a caller-supplied canonical key
+//! ([`order_cycle_stably`]); the rung a cycle is aligned at is decided by whoever
+//! schedules it, not modelled in [`CycleFrame`].
 //!
-//! A durable append produces a **coordinate** (shard + writer epoch + opaque
-//! monotonic `seq`), NOT a base `DatasetVersion` — the dataset version arrives
-//! later via MemTable flush + manifest commit. So [`DurableWrite::append`] returns
-//! [`DurableCoordinate`], never a version. This is exactly why the coordinate,
-//! not `LanceVersion`, is the durability proof: the write is durable *before* any
-//! base manifest version attaches, so the latest local state is identified from
-//! the co-located witness's durable position, not from a dataset version that does
-//! not exist yet.
+//! ## What the tests prove — CONTRACT probes, NOT crash/WAL integration (honest)
 //!
-//! The concrete impl (a lance-having crate) wires lance 7.0.0's OFFICIAL MemWAL —
-//! preferring the high-level `ShardWriter::put` (`enable_memtable + durable_write`:
-//! insert into the queryable MemTable, release the lock, then await WAL durability
-//! off-lock) over the raw `WalAppender::append` primitive. It will co-locate the
-//! witness and the payload in ONE durable generation. [`DurableWrite::scan_witnesses`]
-//! takes a `from` lower bound so recovery reads only the tail after the last
-//! applied coordinate, never the whole log.
-//!
-//! Keeping the seam a trait leaves the ordering core lance-free and `protoc`-free.
-//! **This module builds NO concrete `LanceShardSink`** — per operator ruling the
-//! durable-witness reshape + `temporal` layer-1 land first; the production sink
-//! comes after.
-//!
-//! ## What the tests prove — CONTRACT probes, NOT crash/WAL integration (be honest)
-//!
-//! The `#[cfg(test)]` `FakeSink` is an in-process vector, not a WAL. So the tests
-//! here are **ordering/recovery CONTRACT probes** — they prove the Rust seam
-//! *reconstructs and re-applies a move from a witness once it is durable*, that
-//! replay orders by the durable coordinate (not the resettable `CastId`), that
-//! recovery is idempotent under a watermark across a cyclic lap, and that a failed
-//! append leaves no witness. They do **NOT** prove real durability: there is no
-//! real MemWAL, no process restart, no `RecordBatch` atomic co-location of witness
-//! + payload, no epoch fencing, no manifest-independent read. **`compile+test green
-//! ≠ storage behaviour proven`** (the Ladybug lesson, `CLAUDE.md`). Real
-//! crash-durability is demonstrated only by the deferred concrete Lance sink's own
-//! integration test; until then this is a *probed contract*, not a durable system.
+//! The `#[cfg(test)]` `FakeWalSink` is in-process maps, not a WAL/Lance table. The
+//! tests are **storage/race CONTRACT probes**: one WAL write per cycle, write-side
+//! order under scrambled completion, per-row coalescing, no unsealed visibility,
+//! sealed read horizon, recovery idempotence. They do **NOT** prove real
+//! durability (no MemWAL, restart, atomic `RecordBatch`, or manifest).
+//! **`compile+test green ≠ storage proven`** (the Ladybug lesson). **This module
+//! builds NO concrete Lance sink.**
 
-use lance_graph_contract::collapse_gate::MailboxId;
 use lance_graph_contract::kanban::{KanbanColumn, KanbanMove, RubiconTransitionError};
+use lance_graph_contract::scheduler::DatasetVersion;
 use lance_graph_contract::soa_view::MailboxSoaOwner;
 
-use crate::batch_writer::CastId;
-use crate::temporal::{local_trajectory_of, LocalCausalRow};
+pub use lance_graph_contract::collapse_gate::MailboxId;
 
-/// A durable write that did not land (the WAL append failed / was fenced).
+/// **Write-side stable ordering** — the loom before the WAL. Stable-order
+/// concurrently-produced rows by a caller-supplied canonical key BEFORE the single
+/// WAL append, so completion order never becomes storage order (physical race) and
+/// no read-time repair is ever needed. Generic over the key until the repository
+/// proves a canonical key type; equal keys keep arrival order (stable).
+///
+/// **Note (the dense-key nuance):** when the key is already a dense slot index into
+/// the cycle image, a stable scatter into predetermined positions is cheaper than a
+/// general `O(n log n)` sort on the 64k path — that choice belongs beside the cycle
+/// batch (here), not in `temporal.rs`. This general sort is the fallback form.
+///
+/// This lives with the persistence cycle, NOT in `temporal.rs`: that module owns
+/// query-time reader-horizon / version reading; this is write-path WAL preparation.
+pub fn order_cycle_stably<T, K: Ord>(rows: &mut [T], key: impl FnMut(&T) -> K) {
+    rows.sort_by_key(key);
+}
+
+/// A cycle — one globally-aligned 64k-row sweep whose commit is ONE WAL append and
+/// ONE [`DatasetVersion`]. A boring scheduling identity (monotonic), not a
+/// semantic object.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub struct CycleId(pub u64);
+
+/// A cycle's storage identity: which cycle, and the sealed predecessor its thoughts
+/// read (`Vn` — the epistemic read horizon; the commit publishes its successor).
+/// Storage-only: it carries NO rung / projection / branch / semantic tags (those
+/// are decided upstream, never minted in this layer).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct CycleFrame {
+    pub cycle: CycleId,
+    /// The sealed predecessor every thought in this cycle reads (`Vn`).
+    pub base_version: DatasetVersion,
+}
+
+impl CycleFrame {
+    /// A cycle reading `base_version` (`Vn`) as its sealed predecessor.
+    #[must_use]
+    pub fn new(cycle: CycleId, base_version: DatasetVersion) -> Self {
+        Self {
+            cycle,
+            base_version,
+        }
+    }
+}
+
+/// A persistence **landing** record — WHERE a staged thought lands in the cycle.
+/// Boring by design: it says where, never why. Semantic causality (ancestry,
+/// evidence, revision) stays in the witness substrate — this record has no
+/// `basis`. `stream_position` is the caller's EXISTING canonical order key, the
+/// sole write-side ordering input.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct SweepSlot {
+    pub cycle: CycleId,
+    /// The existing canonical (textual/stream) order key — the write-side
+    /// deinterlace input. NOT a new coordinate.
+    pub stream_position: u64,
+    /// The mailbox this landing is on behalf of.
+    pub owner: MailboxId,
+    /// The SoA row this update writes (coalescing folds same-row updates).
+    pub row: u64,
+    /// The lifecycle move this thought cast; applied post-SEAL only. `None` = a
+    /// no-step landing.
+    pub paired_move: Option<KanbanMove>,
+    /// The update payload — a descriptor (a `NodeRowPacket` slice in production;
+    /// bytes here). Never a semantic witness.
+    pub payload: Vec<u8>,
+}
+
+/// A landing read back from a SEALED cycle — its slot plus the version its cycle
+/// sealed into (shared by every landing of that cycle). Only ever produced for
+/// SEALED cycles; returned in the stored (already canonical) order, NEVER re-sorted.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct LandedSlot {
+    /// The version the cycle sealed into (the cheap coarse timeline).
+    pub version: DatasetVersion,
+    pub slot: SweepSlot,
+}
+
+/// A durable write that did not land (the cycle seal failed / was fenced).
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct WriteFailed(pub String);
 
 impl std::fmt::Display for WriteFailed {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "durable write did not land: {}", self.0)
+        write!(f, "cycle seal did not land: {}", self.0)
     }
 }
 impl std::error::Error for WriteFailed {}
 
-/// A backend-neutral **durable coordinate** — where the write landed in the
-/// durable log. This is NOT a base Lance `DatasetVersion` (that arrives later via
-/// MemTable flush + manifest commit); it is the durable-log coordinate that proves
-/// durability now.
-///
-/// **API-honest by design.** `seq` is an *opaque, backend-defined* monotonic
-/// position — NOT specifically a raw WAL entry offset. Lance 7's chosen high-level
-/// path (`ShardWriter::put` with `enable_memtable`) returns a **batch-position**
-/// result, NOT `WalAppendResult::entry_position`; the raw `WalAppender::append`
-/// returns the entry position. Both are monotonic per shard, so the concrete sink
-/// maps whichever its API yields into `seq` — this type never claims a WAL offset
-/// the selected API does not return. For lance: `shard` = shard `Uuid` (as `u128`),
-/// `writer_epoch` = the writer session that fenced the append.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct DurableCoordinate {
-    /// Opaque shard identity (lance: the shard `Uuid` as `u128`).
-    pub shard: u128,
-    /// The writer session/epoch that fenced this append. A new writer lifetime
-    /// takes a higher epoch; fencing guarantees two epochs never share a `seq`.
-    /// This is the restart discriminator (the ephemeral `CastId` counter is not).
-    pub writer_epoch: u64,
-    /// The **opaque backend-defined monotonic durable position** of this append
-    /// (raw WAL entry position, or `ShardWriter::put`'s batch position — the sink
-    /// picks). Monotonic across the shard's whole life; it does **not** reset on
-    /// writer restart.
-    pub seq: u64,
+/// A **detached, frozen, already-deinterlaced** cycle image — the loom's finished
+/// fabric, ready for the single WAL append. Built by [`DetachedCycleBatch::freeze`]
+/// (temporal deinterlace + per-row coalesce) BEFORE [`WalSink::commit_cycle`], so
+/// the durable operation is a pure atomic append of an already-coherent frame.
+/// Detached = a snapshot, never a borrow of live mutable SoA.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct DetachedCycleBatch {
+    pub frame: CycleFrame,
+    /// Landings in canonical `stream_position` order (the temporal deinterlace
+    /// already ran — the WAL never sees worker-completion order).
+    pub landings: Vec<SweepSlot>,
+    /// The coalesced final image: `row -> last payload in stream order`.
+    pub image: std::collections::BTreeMap<u64, Vec<u8>>,
 }
 
-impl DurableCoordinate {
-    /// The durable-log total-order key for replay + the watermark comparison.
-    ///
-    /// `seq` is monotonic across the shard's whole life and never resets (unlike
-    /// `BatchWriter`'s `CastId` counter), and `writer_epoch` fences overlapping
-    /// writers so positions never collide. One owner writes one shard, so this is a
-    /// total order over that owner's witnesses, valid across crashes.
+impl DetachedCycleBatch {
+    /// Freeze concurrently-produced casts into the ordered, coalesced cycle image:
+    /// (1) [`order_cycle_stably`] stable-orders by `stream_position` —
+    /// completion order never becomes storage order (physical race); (2) fold
+    /// same-row updates into owned rows (later stream position wins). The result is
+    /// detached from any live SoA and ready for exactly one WAL append.
     #[must_use]
-    pub fn log_order(&self) -> u64 {
-        self.seq
+    pub fn freeze(frame: CycleFrame, mut casts: Vec<SweepSlot>) -> Self {
+        order_cycle_stably(&mut casts, |s| s.stream_position);
+        let mut image = std::collections::BTreeMap::new();
+        for s in &casts {
+            image.insert(s.row, s.payload.clone());
+        }
+        Self {
+            frame,
+            landings: casts,
+            image,
+        }
     }
 }
 
-/// The durable transition witness — CO-LOCATED with the SoA payload in the same
-/// persistence generation so it survives a crash (module doc § Crash-durability).
-///
-/// Everything needed to re-apply a pending KanbanStep after a restart lives here:
-/// WHO (`owner`), the `paired_move` to apply, and the owner-local `cycle`.
-/// `cast_id` rides as **provenance/audit only** — it is NOT the replay-order key
-/// (it resets across restarts); the durable [`DurableCoordinate`] the sink assigns
-/// at append time is, and it is carried by [`LandedWitness`] on the read path.
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct DurableWitness {
-    /// The mailbox this write is on behalf of — the deinterlace grouping key. The
-    /// `paired_move` (when present) is minted for this same mailbox — checked at
-    /// persist time, so a cross-owner move never becomes durable.
-    pub owner: MailboxId,
-    /// The cast this write realises — **provenance only** (resets across restarts;
-    /// never the replay-order key). The durable coordinate is the order.
-    pub cast_id: CastId,
-    /// The owner-local cycle at the time of the cast (audit / trajectory).
-    pub cycle: u32,
-    /// The lifecycle move to apply once this generation is durable. `None` when
-    /// the cast carried no lifecycle intent (a durable no-step).
-    pub paired_move: Option<KanbanMove>,
-}
-
-/// A [`DurableWitness`] read back from the durable log WITH the durable coordinate
-/// the sink assigned at append time — the read-path shape [`scan_witnesses`]
-/// returns. The coordinate is what orders replay + drives the idempotence
-/// watermark (never the resettable `cast_id`), so it implements [`LocalCausalRow`]
-/// keyed on [`DurableCoordinate::log_order`].
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct LandedWitness {
-    /// Where this witness durably landed — the total-order key across restarts.
-    pub coordinate: DurableCoordinate,
-    /// The witness itself.
-    pub witness: DurableWitness,
-}
-
-impl LocalCausalRow for LandedWitness {
-    fn owner(&self) -> MailboxId {
-        self.witness.owner
-    }
-    fn cast_seq(&self) -> u64 {
-        // The DURABLE log position — monotonic across restarts — NOT `cast_id.0`.
-        self.coordinate.log_order()
-    }
-}
-
-/// The async durable-append + replay seam.
-///
-/// `&self` (shared — many casts drain concurrently) and **no owner borrow**: the
-/// persistence path must not hold the SoA owner across object-store I/O. Both the
-/// [`DurableWitness`] and the `payload` are independently owned (never a borrow of
-/// live owner state), so the owner stays free while the WAL hums. `async` because
-/// lance's WAL is async and the sink runs on the background persistence path
-/// (never the hot thinker path); `async_fn_in_trait` is allowed (generic use
-/// only, never `dyn`).
-#[allow(async_fn_in_trait)]
-pub trait DurableWrite {
-    /// Durably append the `witness` CO-LOCATED with `payload`, atomically, in ONE
-    /// persistence generation. `Ok(coordinate)` = both landed together (durable
-    /// now); `Err` = neither did (⇒ no receipt, ⇒ no step). The witness is the
-    /// crash-durable copy of the paired move — never in-memory-only.
-    async fn append(
-        &self,
-        witness: &DurableWitness,
-        payload: &[u8],
-    ) -> Result<DurableCoordinate, WriteFailed>;
-
-    /// Replay seam: read back durably-landed witnesses (each with its
-    /// [`DurableCoordinate`]), in ascending durable-log order, **strictly after**
-    /// `from` when given (so recovery reads only the tail past the last applied
-    /// coordinate, never the whole log). Crash recovery scans this, splits it per
-    /// owner (`temporal` layer-1), and re-applies pending moves in durable order
-    /// ([`recover_and_apply`]). Reading the SAME co-located material the receipts
-    /// merely referenced — NOT a separate ledger.
-    async fn scan_witnesses(
-        &self,
-        from: Option<DurableCoordinate>,
-    ) -> Result<Vec<LandedWitness>, WriteFailed>;
-}
-
-/// A **detached** cast envelope — the thinker's report, carrying its OWN payload
-/// (independently owned, never a borrow of live owner state) so persistence runs
-/// with the owner free. Mirrors what `BatchWriter::cast(on_behalf, moves, payload)`
-/// stages; at drain the descriptor is resolved to `payload` bytes.
-pub struct PersistCast {
-    /// The mailbox this write is on behalf of.
-    pub owner: MailboxId,
-    /// The cast this write realises (from `BatchWriter::cast`). Rides into the
-    /// [`DurableWitness`] as provenance (NOT the replay-order key).
-    pub cast_id: CastId,
-    /// The owner-local cycle at cast time — rides into the witness (audit).
-    pub cycle: u32,
-    /// The lifecycle move the thought cast with this write (its `to` is applied
-    /// post-durability). `None` when the cast carries no lifecycle intent. When
-    /// present, `paired_move.mailbox` MUST equal `owner` (checked in
-    /// [`persist_cast`]).
-    pub paired_move: Option<KanbanMove>,
-    /// The bytes to persist — an owned/independent buffer (the concrete sink forms
-    /// one Arrow `RecordBatch` with the witness as a second column, one generation).
-    pub payload: Vec<u8>,
-}
-
-/// Proof the write landed (a [`DurableCoordinate`]) plus the paired move to apply
-/// and the owner it belongs to. Produced by [`persist_cast`] on success; consumed
-/// by [`apply_durable_step`]. Its mere existence is the "the write landed" fact —
-/// there is no separate ack/confirmation ledger (`E-ACK-ELIMINATED-1`).
-///
-/// **This receipt REFERENCES durable material; it is not the only copy of the
-/// paired move.** The move is co-located in the durable generation the
-/// [`coordinate`](Self::coordinate) points at (via the [`DurableWitness`] that
-/// [`persist_cast`] appended). If this in-memory receipt is lost to a crash
-/// before [`apply_durable_step`] runs, [`recover_and_apply`] reconstructs the
-/// move from that durable generation — the KanbanStep is not lost with the
-/// process.
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct DurableReceipt {
-    /// The mailbox the durable write was on behalf of.
-    pub owner: MailboxId,
-    /// The cast this receipt realises — mirrors the co-located witness's cast id.
-    pub cast_id: CastId,
-    /// The paired lifecycle move to apply post-durability. A convenience copy of
-    /// the co-located witness's move (see the type doc — durable, not only here).
-    pub paired_move: Option<KanbanMove>,
-    /// Where the write landed in the durable log — the reference INTO the durable
-    /// generation that co-locates the witness with the SoA state.
-    pub coordinate: DurableCoordinate,
-}
-
-/// Why a persist / step operation produced no lifecycle advance.
+/// Why a persist / seal / step operation produced no lifecycle advance.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum PersistError {
-    /// The durable write did not land — **no receipt exists, so no step can be
-    /// applied** (the ordering invariant's negative half).
+    /// The cycle seal did not land — nothing published, so no step.
     Write(WriteFailed),
-    /// The paired move is not a legal Rubicon edge from the owner's current phase —
-    /// surfaced, never silently applied.
+    /// The paired move is not a legal Rubicon edge from the owner's current phase.
     Illegal(RubiconTransitionError),
-    /// A receipt (or the move it carries) was applied to the wrong owner — refused
-    /// (a receipt only advances the mailbox it was minted for; write-on-behalf
-    /// never crosses owners). Also raised at persist time when
-    /// `paired_move.mailbox != owner`, so a cross-owner move never becomes durable.
+    /// A move minted for a different mailbox than the landing's owner — refused so
+    /// a cross-owner move never becomes durable (write-on-behalf never crosses
+    /// owners), and again as a recovery corruption guard.
     OwnerMismatch {
-        receipt_owner: MailboxId,
-        applying_to: MailboxId,
+        move_owner: MailboxId,
+        landing_owner: MailboxId,
     },
-    /// The paired move's `from` does not match the owner's current phase. On the
-    /// synchronous single-receipt path ([`apply_durable_step`]) this is a stale /
-    /// out-of-order apply (concurrent drains can complete a later receipt first) —
-    /// surfaced so the caller can **RETRY** it once the missing prefix lands.
-    /// [`apply_durable_step`] borrows the receipt, so it is NOT consumed on this
-    /// error and stays retryable (recovery only runs on restart — it is not the
-    /// happy-path backstop for reordered completions). In recovery it means an
-    /// above-watermark witness does not chain — a genuine gap/corruption.
+    /// An above-watermark landing's move `from` does not match the owner's current
+    /// phase — a gap/corruption in the sealed replay chain (phase equality is a
+    /// corruption guard, NOT the idempotence key — the watermark is).
     StalePhase {
         owner_phase: KanbanColumn,
         move_from: KanbanColumn,
@@ -339,187 +230,138 @@ impl std::fmt::Display for PersistError {
                 write!(f, "illegal Rubicon transition {:?} -> {:?}", e.from, e.to)
             }
             Self::OwnerMismatch {
-                receipt_owner,
-                applying_to,
+                move_owner,
+                landing_owner,
             } => write!(
                 f,
-                "move for mailbox {receipt_owner} applied to mailbox {applying_to}"
+                "move for mailbox {move_owner} on a landing owned by {landing_owner}"
             ),
             Self::StalePhase {
                 owner_phase,
                 move_from,
             } => write!(
                 f,
-                "stale move: owner at {owner_phase:?}, move.from {move_from:?}"
+                "stale/corrupt replay: owner at {owner_phase:?}, move.from {move_from:?}"
             ),
         }
     }
 }
 impl std::error::Error for PersistError {}
 
-/// **Phase 1 — async persistence, NO owner borrow.** Form the crash-durable
-/// [`DurableWitness`] and append it CO-LOCATED with the cast's payload in one
-/// generation; on success return a [`DurableReceipt`] (which merely references
-/// that durable material), on failure a [`PersistError::Write`] and **no
-/// receipt**. `O` (the owner) does not appear in this signature at all — it is
-/// never borrowed across the WAL / object-store await, so the owner stays free
-/// while durability runs.
+/// The WAL seam — **one durable append per cycle**. [`commit_cycle`](WalSink::commit_cycle)
+/// takes an ALREADY-deinterlaced, ALREADY-frozen [`DetachedCycleBatch`] (the loom
+/// ran before the WAL) and performs the single atomic append → one
+/// [`DatasetVersion`], visible all-or-nothing. Reads return committed landings
+/// only, in the STORED canonical order — this seam NEVER sorts (order is a
+/// write-side property, fixed before the append).
 ///
-/// Rejects a `paired_move` minted for a different mailbox
-/// ([`PersistError::OwnerMismatch`]) BEFORE the append, so a cross-owner move
-/// never becomes durable (the write-on-behalf invariant, enforced at the source).
-pub async fn persist_cast<W: DurableWrite>(
-    sink: &W,
-    cast: PersistCast,
-) -> Result<DurableReceipt, PersistError> {
-    if let Some(mv) = cast.paired_move {
-        if mv.mailbox != cast.owner {
-            return Err(PersistError::OwnerMismatch {
-                receipt_owner: mv.mailbox,
-                applying_to: cast.owner,
-            });
-        }
-    }
-    let witness = DurableWitness {
-        owner: cast.owner,
-        cast_id: cast.cast_id,
-        cycle: cast.cycle,
-        paired_move: cast.paired_move,
-    };
-    let coordinate = sink
-        .append(&witness, &cast.payload)
-        .await
-        .map_err(PersistError::Write)?;
-    Ok(DurableReceipt {
-        owner: cast.owner,
-        cast_id: cast.cast_id,
-        paired_move: cast.paired_move,
-        coordinate,
-    })
+/// `&self` (shared) and **no owner borrow**: the persistence path never holds the
+/// SoA owner across I/O.
+#[allow(async_fn_in_trait)]
+pub trait WalSink {
+    /// The SINGLE amortized WAL append for a whole cycle: commit `batch` (already
+    /// ordered + coalesced) against the sealed predecessor `base`, publishing
+    /// exactly one new [`DatasetVersion`] atomically. This is the ONLY durable op —
+    /// 64k thoughts → one append, not 64k appends. `async` because the concrete WAL
+    /// append is async.
+    async fn commit_cycle(
+        &self,
+        base: DatasetVersion,
+        batch: DetachedCycleBatch,
+    ) -> Result<DatasetVersion, WriteFailed>;
+
+    /// Read back COMMITTED landings (never an uncommitted cycle), in the STORED
+    /// canonical order — this seam does NOT sort. Optionally only cycles after
+    /// `from_version`.
+    async fn scan_sealed(
+        &self,
+        from_version: Option<DatasetVersion>,
+    ) -> Result<Vec<LandedSlot>, WriteFailed>;
+
+    /// The CHEAP coarse timeline: `(CycleId, DatasetVersion)` per committed cycle,
+    /// WITHOUT replaying any landing. The read a downstream time-series consumer
+    /// (e.g. `stockfish-rs`, another session) does — a lookup of the version table
+    /// over already-coherent frames.
+    async fn versions(&self) -> Result<Vec<(CycleId, DatasetVersion)>, WriteFailed>;
 }
 
-/// **Phase 2 — synchronous owner-local completion, NO await.** Given a
-/// [`DurableReceipt`] (⇒ the write already landed), apply the PAIRED move via the
-/// owner's checked `try_advance_phase`. The exclusive `&mut owner` is held only
-/// here, outside the storage-latency window. Refuses a receipt minted for a
-/// different owner ([`PersistError::OwnerMismatch`]).
-///
-/// Returns `Ok(Some(step))` (paired move applied), `Ok(None)` (receipt carried no
-/// move — a durable no-step), or an error. The transition target is
-/// `receipt.paired_move.to` — never a generic successor.
-///
-/// **Reordered receipts stay RETRYABLE — the receipt is BORROWED, not consumed.**
-/// `DurableWrite` explicitly supports concurrent drains, so a later append can
-/// complete first; applying its receipt while the owner is still at the earlier
-/// phase yields [`PersistError::StalePhase`]. Because this takes `&receipt`, the
-/// caller still owns it and re-applies it once the missing prefix lands — the
-/// KanbanStep is NOT lost on the happy path (recovery only runs on restart, so it
-/// is not the backstop for ordinary completion reordering). Per-owner completion
-/// order is the caller's to sequence (buffer the non-contiguous tail); cross-owner
-/// drains stay fully concurrent.
-pub fn apply_durable_step<O: MailboxSoaOwner>(
-    owner: &mut O,
-    receipt: &DurableReceipt,
-) -> Result<Option<KanbanMove>, PersistError> {
-    if receipt.owner != owner.mailbox_id() {
-        return Err(PersistError::OwnerMismatch {
-            receipt_owner: receipt.owner,
-            applying_to: owner.mailbox_id(),
-        });
-    }
-    match receipt.paired_move {
-        Some(mv) => {
-            // Defense in depth: the move must also be minted for this owner (the
-            // envelope check above only compares receipt.owner).
-            if mv.mailbox != owner.mailbox_id() {
+/// Deinterlace + freeze a whole cycle's casts and commit it in ONE WAL append.
+/// The loom ([`order_cycle_stably`]) and the freeze run in
+/// [`DetachedCycleBatch::freeze`] BEFORE the single [`WalSink::commit_cycle`], so
+/// completion order never reaches storage. Rejects a cross-owner move (and a
+/// cycle-id mismatch) before the batch is built. Returns the one published version.
+pub async fn persist_cycle<S: WalSink>(
+    sink: &S,
+    frame: CycleFrame,
+    casts: Vec<SweepSlot>,
+) -> Result<DatasetVersion, PersistError> {
+    for c in &casts {
+        if c.cycle != frame.cycle {
+            return Err(PersistError::Write(WriteFailed(format!(
+                "cast cycle {:?} != frame cycle {:?}",
+                c.cycle, frame.cycle
+            ))));
+        }
+        if let Some(mv) = c.paired_move {
+            if mv.mailbox != c.owner {
                 return Err(PersistError::OwnerMismatch {
-                    receipt_owner: mv.mailbox,
-                    applying_to: owner.mailbox_id(),
+                    move_owner: mv.mailbox,
+                    landing_owner: c.owner,
                 });
             }
-            // The move's `from` must match the owner's current phase: on the
-            // synchronous path a mismatch is a stale / out-of-order apply and is
-            // surfaced (safe to drop — the durable witness replays it).
-            if mv.from != owner.phase() {
-                return Err(PersistError::StalePhase {
-                    owner_phase: owner.phase(),
-                    move_from: mv.from,
-                });
-            }
-            owner
-                .try_advance_phase(mv.to)
-                .map(Some)
-                .map_err(PersistError::Illegal)
         }
-        None => Ok(None),
     }
+    // Loom-before-WAL: order + coalesce + detach, THEN one atomic append.
+    let batch = DetachedCycleBatch::freeze(frame, casts);
+    sink.commit_cycle(frame.base_version, batch)
+        .await
+        .map_err(PersistError::Write)
 }
 
-/// The result of a [`recover_and_apply`] pass: the moves actually applied, and the
-/// new durable **watermark** the caller must persist WITH the recovered SoA state
-/// so the next recovery is idempotent (skips everything at or below it).
+/// The result of a [`recover_and_apply`] pass: the moves applied this pass, and the
+/// new stream-position **watermark** the caller must persist WITH the owner's
+/// sealed cycle state so the next recovery is idempotent.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Recovered {
-    /// The paired moves applied this pass, in durable order.
     pub applied: Vec<KanbanMove>,
-    /// The highest durable coordinate now accounted for (the new watermark), or
-    /// the input `applied_through` when nothing was applied. Persist it with the
-    /// owner's phase (same generation) — see the module doc § Replay order.
-    pub watermark: Option<DurableCoordinate>,
+    /// The highest `stream_position` now accounted for (per owner), or the input
+    /// watermark when nothing was applied.
+    pub watermark: Option<u64>,
 }
 
-/// **Crash recovery.** Given landed witnesses read back via
-/// [`DurableWrite::scan_witnesses`] (a globally-interleaved stream from every
-/// owner), an `owner` reconstructed at its durable phase, and the durable
-/// `applied_through` watermark persisted alongside that phase, re-apply the
-/// owner's PENDING tail in **durable-log order** and return the applied moves plus
-/// the new watermark.
+/// **Crash recovery — post-SEAL only.** Given SEALED landings read back via
+/// [`WalSink::scan_sealed`] (an unsealed cycle is never here — steps are eligible
+/// only after the seal), an `owner` reconstructed at its durable phase, and the
+/// durable `applied_through` watermark (`stream_position`) persisted alongside that
+/// phase, re-apply the owner's PENDING tail in canonical `stream_position` order.
 ///
-/// - `temporal` layer-1 ([`local_trajectory_of`]) deinterlaces the global stream
-///   to this owner's own chain, ordered by the durable [`DurableCoordinate`] (NOT
-///   the resettable `cast_id`).
-/// - Every witness at or below `applied_through` is **already reflected in the
-///   recovered SoA state** and is skipped. This watermark — not phase equality —
-///   is the idempotence key: the Rubicon lifecycle is cyclic, so after a completed
-///   lap the owner is back at `Planning`, and a phase-only check would replay the
-///   whole lap (`E-…-NOT-IN-MEMORY-ONLY-1`).
-/// - Above the watermark the chain must be contiguous: a move whose `from` does
-///   not match the owner's current phase is a genuine gap/corruption and is
-///   surfaced ([`PersistError::StalePhase`]); a matching-`from` move that is not a
-///   legal Rubicon edge is [`PersistError::Illegal`].
-///
-/// **On error the owner is left mid-chain** (every earlier move in this pass is
-/// already applied). The returned `Recovered` is only produced on full success;
-/// re-drive from the persisted watermark after resolving the corruption.
-///
-/// This is why the paired move MUST be co-located in the durable generation: the
-/// witnesses are the only reason a KanbanStep survives a crash between the WAL
-/// append and [`apply_durable_step`]. No witnesses ⇒ nothing to replay ⇒ the step
-/// is lost (the gap this reshape closes).
+/// The landings arrive already ordered (write-side deinterlace at seal), so no
+/// sort is done here. The watermark — not phase equality — is the idempotence key
+/// (the Rubicon lifecycle is cyclic). Above the watermark the chain must be
+/// contiguous: a non-matching `from` is a gap/corruption ([`PersistError::StalePhase`]).
+/// On error the owner is left mid-chain; re-drive from the persisted watermark.
 pub fn recover_and_apply<O: MailboxSoaOwner>(
     owner: &mut O,
-    landed: &[LandedWitness],
-    applied_through: Option<DurableCoordinate>,
+    sealed: &[LandedSlot],
+    applied_through: Option<u64>,
 ) -> Result<Recovered, PersistError> {
-    let chain = local_trajectory_of(landed, owner.mailbox_id());
-    let hw = applied_through.map(|c| c.log_order());
     let mut applied = Vec::new();
     let mut watermark = applied_through;
-    for lw in chain {
-        // Skip everything at or below the durable watermark — already reflected in
-        // the recovered SoA state (the cyclic-safe idempotence key).
-        if hw.is_some_and(|hw| lw.coordinate.log_order() <= hw) {
+    let me = owner.mailbox_id();
+    // Already in canonical stream order from the write side; filter to this owner.
+    for ls in sealed.iter().filter(|ls| ls.slot.owner == me) {
+        if applied_through.is_some_and(|hw| ls.slot.stream_position <= hw) {
             continue;
         }
-        match lw.witness.paired_move {
-            None => {
-                // A durable no-step still advances the watermark past this
-                // generation (it is accounted for; nothing to apply).
-                watermark = Some(lw.coordinate);
-            }
+        match ls.slot.paired_move {
+            None => watermark = Some(ls.slot.stream_position),
             Some(mv) => {
-                // Above the watermark the chain MUST be contiguous: a non-matching
-                // `from` is a gap/corruption, not a benign already-applied move.
+                if mv.mailbox != owner.mailbox_id() {
+                    return Err(PersistError::OwnerMismatch {
+                        move_owner: mv.mailbox,
+                        landing_owner: owner.mailbox_id(),
+                    });
+                }
                 if mv.from != owner.phase() {
                     return Err(PersistError::StalePhase {
                         owner_phase: owner.phase(),
@@ -530,7 +372,7 @@ pub fn recover_and_apply<O: MailboxSoaOwner>(
                     .try_advance_phase(mv.to)
                     .map_err(PersistError::Illegal)?;
                 applied.push(step);
-                watermark = Some(lw.coordinate);
+                watermark = Some(ls.slot.stream_position);
             }
         }
     }
@@ -540,20 +382,20 @@ pub fn recover_and_apply<O: MailboxSoaOwner>(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use lance_graph_contract::collapse_gate::MailboxId as MId;
     use lance_graph_contract::kanban::{ExecTarget, KanbanColumn};
     use lance_graph_contract::soa_view::{MailboxSoaOwner, MailboxSoaView};
-    use std::sync::atomic::{AtomicU32, Ordering};
+    use std::collections::BTreeMap;
+    use std::sync::atomic::{AtomicU64, Ordering};
     use std::sync::Mutex;
 
-    /// Minimal in-RAM owner (mirrors `kanban_actor::tests::TestBoard`).
+    // ── Minimal in-RAM owner ────────────────────────────────────────────────────
     struct FakeOwner {
-        id: MId,
+        id: MailboxId,
         phase: KanbanColumn,
         cycle: u32,
     }
     impl MailboxSoaView for FakeOwner {
-        fn mailbox_id(&self) -> MId {
+        fn mailbox_id(&self) -> MailboxId {
             self.id
         }
         fn n_rows(&self) -> usize {
@@ -595,101 +437,124 @@ mod tests {
             }
         }
     }
-
-    /// A `DurableWrite` whose success/failure and call-count are observable, and
-    /// which RECORDS every witness it lands (with the durable coordinate it
-    /// assigns) so [`scan_witnesses`] can replay them — this is what makes the
-    /// crash-recovery falsifier real: the durable log (`landed`) outlives the
-    /// in-memory receipts. `Sync` (Mutex + Atomic) so the documented concurrent
-    /// drain can actually be exercised.
-    struct FakeSink {
-        succeed: bool,
-        calls: AtomicU32,
-        /// The durable log: (landed witness, payload) pairs, assigned a monotonic
-        /// `seq` that does NOT reset across simulated writer lifetimes. The payload
-        /// is STORED (not ignored) so a probe can show witness+payload land
-        /// together — though an in-process `Vec` cannot prove *atomic* co-location
-        /// (that is the concrete Lance sink's `RecordBatch`, deferred).
-        landed: Mutex<Vec<(LandedWitness, Vec<u8>)>>,
-    }
-    impl FakeSink {
-        fn new(succeed: bool) -> Self {
-            Self {
-                succeed,
-                calls: AtomicU32::new(0),
-                landed: Mutex::new(Vec::new()),
-            }
-        }
-        fn calls(&self) -> u32 {
-            self.calls.load(Ordering::SeqCst)
-        }
-        /// Test-only: the (coordinate.seq, payload) pairs the sink holds — used to
-        /// show the payload landed alongside its witness, not dropped.
-        fn landed_payloads(&self) -> Vec<(u64, Vec<u8>)> {
-            self.landed
-                .lock()
-                .unwrap()
-                .iter()
-                .map(|(lw, p)| (lw.coordinate.seq, p.clone()))
-                .collect()
-        }
-    }
-    impl DurableWrite for FakeSink {
-        async fn append(
-            &self,
-            witness: &DurableWitness,
-            payload: &[u8],
-        ) -> Result<DurableCoordinate, WriteFailed> {
-            self.calls.fetch_add(1, Ordering::SeqCst);
-            if !self.succeed {
-                // The negative half: a fenced WAL lands NOTHING — no witness, no
-                // payload — so nothing to replay, so no move and no step.
-                return Err(WriteFailed("wal fenced".into()));
-            }
-            let mut log = self.landed.lock().unwrap();
-            // Durable position: monotonic over the log's whole life, 1-based.
-            let coordinate = DurableCoordinate {
-                shard: 0xABCD,
-                writer_epoch: 1,
-                seq: log.len() as u64 + 1,
-            };
-            log.push((
-                LandedWitness {
-                    coordinate,
-                    witness: witness.clone(),
-                },
-                payload.to_vec(),
-            ));
-            Ok(coordinate)
-        }
-        async fn scan_witnesses(
-            &self,
-            from: Option<DurableCoordinate>,
-        ) -> Result<Vec<LandedWitness>, WriteFailed> {
-            let lb = from.map(|c| c.log_order());
-            Ok(self
-                .landed
-                .lock()
-                .unwrap()
-                .iter()
-                .map(|(lw, _payload)| lw)
-                .filter(|lw| lb.is_none_or(|lb| lw.coordinate.log_order() > lb))
-                .cloned()
-                .collect())
-        }
-    }
-
     fn owner(phase: KanbanColumn) -> FakeOwner {
-        owner_id(42, phase)
-    }
-    fn owner_id(id: MId, phase: KanbanColumn) -> FakeOwner {
         FakeOwner {
-            id,
+            id: 42,
             phase,
             cycle: 5,
         }
     }
-    fn mv(owner: MId, from: KanbanColumn, to: KanbanColumn) -> KanbanMove {
+
+    // ── The WAL sink fake ────────────────────────────────────────────────────────
+    struct SealedCycle {
+        frame: CycleFrame,
+        version: DatasetVersion,
+        /// The landings AS COMMITTED (already write-side ordered before the append).
+        landings: Vec<SweepSlot>,
+        /// The coalesced final image: row -> last value in stream order.
+        image: BTreeMap<u64, Vec<u8>>,
+    }
+    struct FakeWalSink {
+        succeed: bool,
+        sealed: Mutex<Vec<SealedCycle>>,
+        next_version: AtomicU64,
+        /// The number of physical WAL appends — must be ONE per committed cycle.
+        wal_writes: AtomicU64,
+    }
+    impl FakeWalSink {
+        fn new() -> Self {
+            Self {
+                succeed: true,
+                sealed: Mutex::new(Vec::new()),
+                next_version: AtomicU64::new(1),
+                wal_writes: AtomicU64::new(0),
+            }
+        }
+        fn failing() -> Self {
+            Self {
+                succeed: false,
+                ..Self::new()
+            }
+        }
+        fn wal_writes(&self) -> u64 {
+            self.wal_writes.load(Ordering::SeqCst)
+        }
+        fn version_count(&self) -> usize {
+            self.sealed.lock().unwrap().len()
+        }
+        fn image_of(&self, cycle: CycleId) -> Option<BTreeMap<u64, Vec<u8>>> {
+            self.sealed
+                .lock()
+                .unwrap()
+                .iter()
+                .find(|s| s.frame.cycle == cycle)
+                .map(|s| s.image.clone())
+        }
+        /// Test-only: inject a committed cycle whose landings are DELIBERATELY out
+        /// of order, to prove `scan_sealed` does not re-sort (order is a write-side
+        /// property, fixed before the append — never a read-time repair).
+        fn inject_unordered_committed(&self, frame: CycleFrame, landings: Vec<SweepSlot>) {
+            let v = DatasetVersion(self.next_version.fetch_add(1, Ordering::SeqCst));
+            self.sealed.lock().unwrap().push(SealedCycle {
+                frame,
+                version: v,
+                landings,
+                image: BTreeMap::new(),
+            });
+        }
+    }
+    impl WalSink for FakeWalSink {
+        async fn commit_cycle(
+            &self,
+            _base: DatasetVersion,
+            batch: DetachedCycleBatch,
+        ) -> Result<DatasetVersion, WriteFailed> {
+            if !self.succeed {
+                return Err(WriteFailed("cycle fenced".into()));
+            }
+            // The batch arrives ALREADY deinterlaced + coalesced (loom before WAL).
+            // THE single amortized WAL append for the whole cycle.
+            self.wal_writes.fetch_add(1, Ordering::SeqCst);
+            let version = DatasetVersion(self.next_version.fetch_add(1, Ordering::SeqCst));
+            self.sealed.lock().unwrap().push(SealedCycle {
+                frame: batch.frame,
+                version,
+                landings: batch.landings,
+                image: batch.image,
+            });
+            Ok(version)
+        }
+        async fn scan_sealed(
+            &self,
+            from_version: Option<DatasetVersion>,
+        ) -> Result<Vec<LandedSlot>, WriteFailed> {
+            // Returned in STORED order — no sort. (The order was fixed at seal.)
+            Ok(self
+                .sealed
+                .lock()
+                .unwrap()
+                .iter()
+                .filter(|s| from_version.is_none_or(|f| s.version > f))
+                .flat_map(|s| {
+                    s.landings.iter().map(|slot| LandedSlot {
+                        version: s.version,
+                        slot: slot.clone(),
+                    })
+                })
+                .collect())
+        }
+        async fn versions(&self) -> Result<Vec<(CycleId, DatasetVersion)>, WriteFailed> {
+            Ok(self
+                .sealed
+                .lock()
+                .unwrap()
+                .iter()
+                .map(|s| (s.frame.cycle, s.version))
+                .collect())
+        }
+    }
+
+    fn mv(owner: MailboxId, from: KanbanColumn, to: KanbanColumn) -> KanbanMove {
         KanbanMove {
             mailbox: owner,
             from,
@@ -698,444 +563,312 @@ mod tests {
             exec: ExecTarget::Elixir,
         }
     }
-    fn cast(paired_to: Option<KanbanColumn>) -> PersistCast {
-        cast_of(42, 0, KanbanColumn::Planning, paired_to)
-    }
-    fn cast_of(
-        owner: MId,
-        cast_id: u64,
-        from: KanbanColumn,
-        paired_to: Option<KanbanColumn>,
-    ) -> PersistCast {
-        PersistCast {
+    /// A landing for `owner` at `stream_position`, moving `from→to`, writing `row`.
+    fn slot(
+        owner: MailboxId,
+        cycle: u64,
+        stream_position: u64,
+        row: u64,
+        m: Option<(KanbanColumn, KanbanColumn)>,
+    ) -> SweepSlot {
+        SweepSlot {
+            cycle: CycleId(cycle),
+            stream_position,
             owner,
-            cast_id: CastId(cast_id),
-            cycle: 0,
-            paired_move: paired_to.map(|to| mv(owner, from, to)),
-            payload: vec![cast_id as u8],
+            row,
+            paired_move: m.map(|(f, t)| mv(owner, f, t)),
+            payload: vec![stream_position as u8],
         }
     }
-    fn receipt_from(from: KanbanColumn, paired_to: Option<KanbanColumn>) -> DurableReceipt {
-        DurableReceipt {
-            owner: 42,
-            cast_id: CastId(0),
-            paired_move: paired_to.map(|to| mv(42, from, to)),
-            coordinate: DurableCoordinate {
-                shard: 0xABCD,
-                writer_epoch: 1,
-                seq: 7,
-            },
-        }
-    }
-    fn receipt_for(paired_to: Option<KanbanColumn>) -> DurableReceipt {
-        receipt_from(KanbanColumn::Planning, paired_to)
-    }
 
-    // ── Phase 1: async persistence, NO owner borrow ────────────────────────────
-
+    // ── FALSIFIER (headline): one WAL write per cycle — the amortization ─────────
     #[tokio::test]
-    async fn a_successful_write_yields_a_receipt_carrying_the_paired_move() {
-        let sink = FakeSink::new(true);
-        let r = persist_cast(&sink, cast(Some(KanbanColumn::CognitiveWork)))
-            .await
-            .expect("write landed");
-        assert_eq!(r.owner, 42);
+    async fn a_whole_cycle_of_casts_is_one_wal_write_one_version() {
+        let sink = FakeWalSink::new();
+        let frame = CycleFrame::new(CycleId(1), DatasetVersion(0));
+        // 100 concurrent thoughts stage into an owned cast vector — building it
+        // touches NO WAL (staging is the caller's, not the sink's).
+        let casts: Vec<SweepSlot> = (0..100u64).map(|i| slot(42, 1, i, i, None)).collect();
         assert_eq!(
-            r.paired_move.map(|m| m.to),
-            Some(KanbanColumn::CognitiveWork)
-        );
-        assert_eq!(
-            r.coordinate.seq, 1,
-            "the durable coordinate rides (first witness landed)"
-        );
-        assert_eq!(r.cast_id, CastId(0), "the receipt mirrors the cast id");
-        assert_eq!(sink.calls(), 1, "the write was attempted once");
-        // The witness LANDED durably (co-located) — not only in the receipt.
-        let scanned = sink.scan_witnesses(None).await.expect("scan");
-        assert_eq!(scanned.len(), 1, "one witness durably co-located");
-        assert_eq!(
-            scanned[0].witness.paired_move.map(|m| m.to),
-            Some(KanbanColumn::CognitiveWork),
-            "the paired move is in the DURABLE witness, not only the in-memory receipt",
-        );
-        // …and the PAYLOAD landed with it at the same seq (not ignored). (An
-        // in-process Vec cannot prove *atomic* co-location — that is the concrete
-        // Lance sink's RecordBatch; the module doc states this honestly.)
-        assert_eq!(
-            sink.landed_payloads(),
-            vec![(1u64, vec![0u8])],
-            "the payload landed alongside the witness at seq 1",
-        );
-    }
-
-    #[tokio::test]
-    async fn a_failed_write_yields_no_receipt() {
-        let sink = FakeSink::new(false);
-        let r = persist_cast(&sink, cast(Some(KanbanColumn::CognitiveWork))).await;
-        assert_eq!(
-            r,
-            Err(PersistError::Write(WriteFailed("wal fenced".into())))
-        );
-        assert_eq!(sink.calls(), 1, "the write was attempted");
-    }
-
-    #[tokio::test]
-    async fn a_fenced_write_lands_no_witness_so_nothing_can_be_replayed() {
-        // Negative half, at the durable layer: a failed append records NO witness,
-        // so a subsequent crash-recovery scan finds nothing to replay ⇒ no move.
-        let sink = FakeSink::new(false);
-        let _ = persist_cast(&sink, cast(Some(KanbanColumn::CognitiveWork))).await;
-        assert_eq!(
-            sink.scan_witnesses(None).await.expect("scan").len(),
+            sink.wal_writes(),
             0,
-            "a fenced WAL leaves no durable witness — no move, no step",
+            "staging writes no WAL — pure amortization"
         );
+        assert_eq!(sink.version_count(), 0, "no version before the seal");
+        // persist_cycle is the SINGLE amortized WAL write for the whole cycle.
+        let version = persist_cycle(&sink, frame, casts).await.unwrap();
+        assert_eq!(sink.wal_writes(), 1, "100 casts → exactly ONE WAL write");
+        assert_eq!(version, DatasetVersion(1), "→ exactly one version");
+        assert_eq!(sink.version_count(), 1);
     }
 
+    // ── FALSIFIER: write-side order under scrambled completion (physical race) ───
     #[tokio::test]
-    async fn a_cross_owner_paired_move_is_rejected_before_it_becomes_durable() {
-        // A move minted for mailbox 99 riding in a cast on behalf of 42 must be
-        // refused at persist time — a cross-owner move never lands durably.
-        let sink = FakeSink::new(true);
-        let cast = PersistCast {
-            owner: 42,
-            cast_id: CastId(0),
-            cycle: 0,
-            paired_move: Some(mv(99, KanbanColumn::Planning, KanbanColumn::CognitiveWork)),
-            payload: vec![],
-        };
-        assert_eq!(
-            persist_cast(&sink, cast).await,
-            Err(PersistError::OwnerMismatch {
-                receipt_owner: 99,
-                applying_to: 42
-            }),
-        );
-        assert_eq!(sink.calls(), 0, "the write was never attempted");
-        assert_eq!(
-            sink.scan_witnesses(None).await.expect("scan").len(),
-            0,
-            "nothing durable",
-        );
-    }
-
-    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
-    async fn concurrent_drains_both_land_durably() {
-        // The DurableWrite doc claims &self is shared because many casts drain
-        // concurrently. Exercise it: two persist_cast futures on a shared sink.
-        let sink = std::sync::Arc::new(FakeSink::new(true));
-        let s1 = sink.clone();
-        let s2 = sink.clone();
-        let (a, b) = tokio::join!(
-            async move {
-                persist_cast(
-                    &*s1,
-                    cast_of(
-                        42,
-                        0,
-                        KanbanColumn::Planning,
-                        Some(KanbanColumn::CognitiveWork),
-                    ),
-                )
-                .await
-            },
-            async move {
-                persist_cast(
-                    &*s2,
-                    cast_of(
-                        43,
-                        0,
-                        KanbanColumn::Planning,
-                        Some(KanbanColumn::CognitiveWork),
-                    ),
-                )
-                .await
-            },
-        );
-        assert!(a.is_ok() && b.is_ok(), "both drains landed");
-        assert_eq!(sink.calls(), 2);
-        assert_eq!(
-            sink.scan_witnesses(None).await.expect("scan").len(),
-            2,
-            "both witnesses durably recorded under concurrent drain",
-        );
-    }
-
-    // ── Phase 2: synchronous owner-local completion, NO await ───────────────────
-
-    #[test]
-    fn applying_a_receipt_advances_the_owner_by_the_paired_move() {
-        let mut o = owner(KanbanColumn::Planning);
-        let step = apply_durable_step(&mut o, &receipt_for(Some(KanbanColumn::CognitiveWork)))
-            .expect("legal")
-            .expect("a paired move");
-        assert_eq!(step.to, KanbanColumn::CognitiveWork);
-        assert_eq!(o.phase(), KanbanColumn::CognitiveWork, "advanced once");
-        assert_eq!(o.current_cycle(), 6);
-    }
-
-    #[test]
-    fn applying_a_receipt_uses_the_paired_move_not_the_generic_successor() {
-        // THE key falsifier. From `Evaluation` the generic forward arc is `Commit`;
-        // the receipt carries the free-won't veto `Evaluation → Prune`. The step
-        // must be the PAIRED move (Prune), never the generic successor (Commit).
-        assert_eq!(
-            KanbanColumn::Evaluation.next_phases().first(),
-            Some(&KanbanColumn::Commit),
-            "precondition: generic successor is Commit",
-        );
-        let mut o = owner(KanbanColumn::Evaluation);
-        let step = apply_durable_step(
-            &mut o,
-            &receipt_from(KanbanColumn::Evaluation, Some(KanbanColumn::Prune)),
-        )
-        .expect("legal")
-        .expect("paired veto");
-        assert_eq!(step.to, KanbanColumn::Prune, "the paired veto, not Commit");
-        assert_eq!(o.phase(), KanbanColumn::Prune);
-        assert_ne!(
-            o.phase(),
-            KanbanColumn::Commit,
-            "generic successor NOT taken"
-        );
-    }
-
-    #[test]
-    fn a_receipt_with_no_paired_move_is_a_durable_no_step() {
-        let mut o = owner(KanbanColumn::CognitiveWork);
-        let r = apply_durable_step(&mut o, &receipt_for(None));
-        assert_eq!(r, Ok(None), "durable, but no step");
-        assert_eq!(o.phase(), KanbanColumn::CognitiveWork, "phase unchanged");
-    }
-
-    #[test]
-    fn an_illegal_paired_edge_is_surfaced_not_applied() {
-        // Planning → Evaluation skips CognitiveWork — illegal. Surfaced; owner
-        // untouched (the checked airgap holds in the owner-local phase).
-        let mut o = owner(KanbanColumn::Planning);
-        let r = apply_durable_step(&mut o, &receipt_for(Some(KanbanColumn::Evaluation)));
-        assert!(matches!(r, Err(PersistError::Illegal(_))));
-        assert_eq!(o.phase(), KanbanColumn::Planning, "owner untouched");
-    }
-
-    #[test]
-    fn a_receipt_is_refused_for_a_foreign_owner() {
-        // A receipt minted for mailbox 42 must never advance mailbox 99.
-        let mut other = owner_id(99, KanbanColumn::Planning);
-        let r = apply_durable_step(&mut other, &receipt_for(Some(KanbanColumn::CognitiveWork)));
-        assert!(matches!(
-            r,
-            Err(PersistError::OwnerMismatch {
-                receipt_owner: 42,
-                applying_to: 99
-            })
-        ));
-        assert_eq!(
-            other.phase(),
-            KanbanColumn::Planning,
-            "foreign owner untouched"
-        );
-    }
-
-    #[test]
-    fn a_stale_move_on_the_sync_path_is_surfaced_not_silently_reapplied() {
-        // The sync path surfaces a stale/out-of-order move LOUDLY. A `Planning→…`
-        // move applied to an owner already at `CognitiveWork` is refused, owner
-        // untouched — and the borrowed receipt stays usable (see the retry test).
-        let mut o = owner(KanbanColumn::CognitiveWork);
-        let r = apply_durable_step(&mut o, &receipt_for(Some(KanbanColumn::CognitiveWork)));
-        assert_eq!(
-            r,
-            Err(PersistError::StalePhase {
-                owner_phase: KanbanColumn::CognitiveWork,
-                move_from: KanbanColumn::Planning,
-            }),
-        );
-        assert_eq!(o.phase(), KanbanColumn::CognitiveWork, "owner untouched");
-    }
-
-    /// FALSIFIER (Codex/ChatGPT): concurrent drains can complete a LATER receipt
-    /// before its predecessor. The later receipt must NOT be lost — `apply_durable_step`
-    /// borrows it, so on `StalePhase` the caller still owns it and retries once the
-    /// missing prefix lands. Both steps fire, in order, on the HAPPY path (no crash).
-    #[test]
-    fn a_reordered_receipt_is_retryable_not_lost() {
-        // Two casts for one owner: r8 (Planning→CognitiveWork) then
-        // r9 (CognitiveWork→Evaluation). r9's append completes FIRST.
-        let r8 = receipt_from(KanbanColumn::Planning, Some(KanbanColumn::CognitiveWork));
-        let r9 = receipt_from(KanbanColumn::CognitiveWork, Some(KanbanColumn::Evaluation));
-        let mut o = owner(KanbanColumn::Planning);
-
-        // r9 arrives first — stale (owner still at Planning). Surfaced, NOT consumed.
-        assert!(matches!(
-            apply_durable_step(&mut o, &r9),
-            Err(PersistError::StalePhase { .. }),
-        ));
-        assert_eq!(
-            o.phase(),
-            KanbanColumn::Planning,
-            "r9 did not apply out of order"
-        );
-
-        // r8's append completes; it applies.
-        apply_durable_step(&mut o, &r8)
-            .expect("r8 legal")
-            .expect("moved");
-        assert_eq!(o.phase(), KanbanColumn::CognitiveWork);
-
-        // The caller RETRIES the still-owned r9 — it now applies. Nothing was lost,
-        // and no crash/recovery was needed (the happy path stays correct).
-        apply_durable_step(&mut o, &r9)
-            .expect("r9 legal now")
-            .expect("moved");
-        assert_eq!(
-            o.phase(),
-            KanbanColumn::Evaluation,
-            "both steps fired, in order"
-        );
-    }
-
-    // ── Crash recovery: the co-located witness replays after the receipt is lost ─
-
-    /// Persist a chain of casts through the sink (they land durably) and return the
-    /// scanned landed witnesses — the "durable log" a restart reads back.
-    async fn persist_and_scan(sink: &FakeSink, casts: Vec<PersistCast>) -> Vec<LandedWitness> {
-        for c in casts {
-            persist_cast(sink, c).await.expect("landed");
-        }
-        sink.scan_witnesses(None).await.expect("scan")
-    }
-
-    /// THE crash falsifier (operator): WAL append succeeds, then the process dies
-    /// BEFORE the sync step — every in-memory [`DurableReceipt`] is dropped. On
-    /// restart the owner is reconstructed at its durable phase (+ its durable
-    /// watermark) and [`recover_and_apply`] replays the PAIRED move from the
-    /// co-located witness. Idempotent: a second recovery from the returned
-    /// watermark applies nothing.
-    #[tokio::test]
-    async fn a_crash_after_durable_write_replays_the_move_from_the_witness() {
-        let sink = FakeSink::new(true);
-        let receipt = persist_cast(
+    async fn scrambled_completion_lands_in_canonical_stream_order_at_write_time() {
+        let sink = FakeWalSink::new();
+        // Thoughts "finish" (stage) in scrambled CPU order: stream 2, 0, 3, 1.
+        let sealed = persist_cycle(
             &sink,
-            cast_of(
-                42,
-                0,
-                KanbanColumn::Planning,
-                Some(KanbanColumn::CognitiveWork),
-            ),
+            CycleFrame::new(CycleId(5), DatasetVersion(0)),
+            vec![
+                slot(42, 5, 2, 20, None),
+                slot(42, 5, 0, 10, None),
+                slot(42, 5, 3, 30, None),
+                slot(42, 5, 1, 11, None),
+            ],
         )
         .await
-        .expect("write landed");
-        drop(receipt); // ── CRASH ── never called apply_durable_step.
-
-        let landed = sink.scan_witnesses(None).await.expect("scan");
-        let mut o = owner(KanbanColumn::Planning); // durable phase; no watermark yet
-        let rec = recover_and_apply(&mut o, &landed, None).expect("recovery legal");
+        .unwrap();
+        // scan_sealed does NOT sort; the order came from the WRITE side (seal).
+        let order: Vec<u64> = sink
+            .scan_sealed(None)
+            .await
+            .unwrap()
+            .iter()
+            .filter(|l| l.version == sealed)
+            .map(|l| l.slot.stream_position)
+            .collect();
         assert_eq!(
-            rec.applied.iter().map(|m| m.to).collect::<Vec<_>>(),
-            vec![KanbanColumn::CognitiveWork],
-            "the pending move was reconstructed from the durable witness and applied",
+            order,
+            vec![0, 1, 2, 3],
+            "canonical stream order was fixed at WRITE time, not repaired on read",
         );
-        assert_eq!(
-            o.phase(),
-            KanbanColumn::CognitiveWork,
-            "the step fired on recovery"
-        );
-        assert!(rec.watermark.is_some(), "a new watermark to persist");
-
-        // Idempotent: recovery re-run FROM THE WATERMARK applies nothing.
-        let again = recover_and_apply(&mut o, &landed, rec.watermark).expect("idempotent");
-        assert!(again.applied.is_empty(), "second recovery is a no-op");
-        assert_eq!(o.phase(), KanbanColumn::CognitiveWork);
     }
 
-    /// FALSIFIER (operator): one owner's durable batch replays in DURABLE order,
-    /// and the globally-interleaved OTHER owner's witnesses are deinterlaced away
-    /// (temporal layer-1). A durable no-step interleaved into the chain is skipped
-    /// while the following move still applies.
+    /// The complement: `scan_sealed` itself performs NO sort — order is purely a
+    /// write-side property. Inject a deliberately out-of-order sealed cycle and
+    /// prove scan returns it AS-STORED (a read-time sort would "fix" it).
     #[tokio::test]
-    async fn recovery_replays_one_owners_batch_in_order_skipping_no_steps_and_other_owners() {
-        let sink = FakeSink::new(true);
-        // Durable-log order interleaves two owners + a no-step for 42:
-        //   c0: 42 Planning→CognitiveWork
-        //   c1: 99 Planning→CognitiveWork   (other owner, interleaved)
-        //   c2: 42 no-step (paired_move None)
-        //   c3: 42 CognitiveWork→Evaluation
-        let landed = persist_and_scan(
-            &sink,
+    async fn scan_sealed_does_not_repair_order_on_read() {
+        let sink = FakeWalSink::new();
+        sink.inject_unordered_committed(
+            CycleFrame::new(CycleId(9), DatasetVersion(0)),
             vec![
-                cast_of(
+                slot(42, 9, 3, 30, None),
+                slot(42, 9, 1, 10, None),
+                slot(42, 9, 2, 20, None),
+            ],
+        );
+        let order: Vec<u64> = sink
+            .scan_sealed(None)
+            .await
+            .unwrap()
+            .iter()
+            .map(|l| l.slot.stream_position)
+            .collect();
+        assert_eq!(
+            order,
+            vec![3, 1, 2],
+            "scan_sealed returns stored order verbatim — it never sorts (order is write-side)",
+        );
+    }
+
+    // ── FALSIFIER: per-row coalescing (not last-chunk-wins) ──────────────────────
+    #[tokio::test]
+    async fn same_row_updates_coalesce_distinct_rows_survive() {
+        let sink = FakeWalSink::new();
+        persist_cycle(
+            &sink,
+            CycleFrame::new(CycleId(3), DatasetVersion(0)),
+            vec![
+                // Two updates to ROW 7 (stream 0 then 2) — coalesce to the later.
+                SweepSlot {
+                    payload: vec![0xA0],
+                    ..slot(42, 3, 0, 7, None)
+                },
+                // A different ROW 8 — survives independently.
+                SweepSlot {
+                    payload: vec![0xB0],
+                    ..slot(42, 3, 1, 8, None)
+                },
+                SweepSlot {
+                    payload: vec![0xA1],
+                    ..slot(42, 3, 2, 7, None)
+                },
+            ],
+        )
+        .await
+        .unwrap();
+        let image = sink.image_of(CycleId(3)).unwrap();
+        assert_eq!(image.len(), 2, "two distinct rows in the final image");
+        assert_eq!(
+            image.get(&7),
+            Some(&vec![0xA1]),
+            "row 7 coalesced to the later update"
+        );
+        assert_eq!(image.get(&8), Some(&vec![0xB0]), "row 8 survived, disjoint");
+    }
+
+    // ── FALSIFIER: no partial visibility — an unsealed cycle is invisible ────────
+    #[tokio::test]
+    async fn an_unsealed_cycle_is_invisible_epistemic_horizon() {
+        let sink = FakeWalSink::new();
+        // A cycle's casts are staged in an owned vector held by the caller — NOT in
+        // the sink. Until the single atomic commit_cycle runs, nothing is visible:
+        // an open cycle's output is NOT readable as Vn input (read Vn / write Vn+1).
+        let casts = vec![slot(
+            42,
+            9,
+            0,
+            0,
+            Some((KanbanColumn::Planning, KanbanColumn::CognitiveWork)),
+        )];
+        assert_eq!(
+            sink.scan_sealed(None).await.unwrap().len(),
+            0,
+            "before the seal, no landing is visible",
+        );
+        assert!(
+            sink.versions().await.unwrap().is_empty(),
+            "no version before seal"
+        );
+        // The seal is all-or-nothing: the whole cycle appears at once, never partially.
+        persist_cycle(&sink, CycleFrame::new(CycleId(9), DatasetVersion(0)), casts)
+            .await
+            .unwrap();
+        assert_eq!(
+            sink.scan_sealed(None).await.unwrap().len(),
+            1,
+            "visible only after seal"
+        );
+    }
+
+    // ── FALSIFIER: sealed read horizon — a cycle reads the sealed predecessor ────
+    #[tokio::test]
+    async fn a_cycle_reads_the_sealed_predecessor_not_an_in_flight_sibling() {
+        let sink = FakeWalSink::new();
+        // Cycle 1 seals → V1.
+        let s1 = persist_cycle(
+            &sink,
+            CycleFrame::new(CycleId(1), DatasetVersion(0)),
+            vec![slot(42, 1, 0, 0, None)],
+        )
+        .await
+        .unwrap();
+        // Cycle 2's base_version is the SEALED V1 — never an in-flight value.
+        let f2 = CycleFrame::new(CycleId(2), s1);
+        assert_eq!(
+            f2.base_version, s1,
+            "the next cycle reads the SEALED predecessor version (Vn), not in-flight state",
+        );
+        let s2 = persist_cycle(&sink, f2, vec![slot(99, 2, 0, 0, None)])
+            .await
+            .unwrap();
+        assert_eq!(s2, DatasetVersion(2), "and publishes exactly its own Vn+1");
+    }
+
+    // ── FALSIFIER: cheap time-series — version table only, no landing replay ─────
+    #[tokio::test]
+    async fn downstream_time_series_reads_the_version_table_not_the_landings() {
+        let sink = FakeWalSink::new();
+        for c in 1..=3u64 {
+            persist_cycle(
+                &sink,
+                CycleFrame::new(CycleId(c), DatasetVersion(c - 1)),
+                vec![slot(42, c, 0, 0, None)],
+            )
+            .await
+            .unwrap();
+        }
+        assert_eq!(
+            sink.versions().await.unwrap(),
+            vec![
+                (CycleId(1), DatasetVersion(1)),
+                (CycleId(2), DatasetVersion(2)),
+                (CycleId(3), DatasetVersion(3)),
+            ],
+            "history scales with CYCLES; a time-series consumer just looks up the version table",
+        );
+    }
+
+    // ── Recovery over sealed landings (post-seal only) ───────────────────────────
+    #[tokio::test]
+    async fn recovery_replays_an_owners_chain_in_stream_order_skipping_others() {
+        let sink = FakeWalSink::new();
+        persist_cycle(
+            &sink,
+            CycleFrame::new(CycleId(4), DatasetVersion(0)),
+            vec![
+                slot(
                     42,
+                    4,
                     0,
-                    KanbanColumn::Planning,
-                    Some(KanbanColumn::CognitiveWork),
+                    0,
+                    Some((KanbanColumn::Planning, KanbanColumn::CognitiveWork)),
                 ),
-                cast_of(
+                slot(
                     99,
-                    0,
-                    KanbanColumn::Planning,
-                    Some(KanbanColumn::CognitiveWork),
+                    4,
+                    1,
+                    1,
+                    Some((KanbanColumn::Planning, KanbanColumn::CognitiveWork)),
                 ),
-                cast_of(42, 1, KanbanColumn::Planning, None),
-                cast_of(
+                slot(
                     42,
+                    4,
                     2,
-                    KanbanColumn::CognitiveWork,
-                    Some(KanbanColumn::Evaluation),
+                    2,
+                    Some((KanbanColumn::CognitiveWork, KanbanColumn::Evaluation)),
                 ),
             ],
         )
-        .await;
-        assert_eq!(landed.len(), 4, "all four witnesses are durable");
-
-        let mut o = owner(KanbanColumn::Planning); // owner 42 at its durable phase
-        let rec = recover_and_apply(&mut o, &landed, None).expect("legal");
+        .await
+        .unwrap();
+        let sealed = sink.scan_sealed(None).await.unwrap();
+        let mut o = owner(KanbanColumn::Planning);
+        let rec = recover_and_apply(&mut o, &sealed, None).unwrap();
         assert_eq!(
             rec.applied.iter().map(|m| m.to).collect::<Vec<_>>(),
             vec![KanbanColumn::CognitiveWork, KanbanColumn::Evaluation],
-            "owner 42's OWN chain, in durable order — 99's cast + the no-step skipped",
+            "owner 42's chain in stream order — owner 99's interleaved landing skipped",
         );
-        assert_eq!(
-            o.phase(),
-            KanbanColumn::Evaluation,
-            "advanced two local steps"
-        );
+        assert_eq!(o.phase(), KanbanColumn::Evaluation);
     }
 
-    /// THE cyclic idempotence falsifier (Codex/CodeRabbit Critical). A full lap
-    /// `Planning → CognitiveWork → Evaluation → Plan → Planning` leaves the owner
-    /// back at `Planning`. Phase equality alone would replay the whole lap; the
-    /// durable WATERMARK makes the second recovery a no-op. The negative control
-    /// (recovering WITHOUT the persisted watermark) proves the watermark is
-    /// load-bearing by reproducing the double-lap.
     #[tokio::test]
-    async fn cyclic_recovery_is_idempotent_only_with_the_durable_watermark() {
-        // Precondition: the lap is a real cycle in the Rubicon graph.
+    async fn cyclic_recovery_is_idempotent_only_with_the_watermark() {
         assert_eq!(KanbanColumn::Plan.next_phases(), &[KanbanColumn::Planning]);
-        let sink = FakeSink::new(true);
-        let landed = persist_and_scan(
+        let sink = FakeWalSink::new();
+        persist_cycle(
             &sink,
+            CycleFrame::new(CycleId(1), DatasetVersion(0)),
             vec![
-                cast_of(
-                    42,
-                    0,
-                    KanbanColumn::Planning,
-                    Some(KanbanColumn::CognitiveWork),
-                ),
-                cast_of(
+                slot(
                     42,
                     1,
-                    KanbanColumn::CognitiveWork,
-                    Some(KanbanColumn::Evaluation),
+                    0,
+                    0,
+                    Some((KanbanColumn::Planning, KanbanColumn::CognitiveWork)),
                 ),
-                cast_of(42, 2, KanbanColumn::Evaluation, Some(KanbanColumn::Plan)),
-                cast_of(42, 3, KanbanColumn::Plan, Some(KanbanColumn::Planning)),
+                slot(
+                    42,
+                    1,
+                    1,
+                    1,
+                    Some((KanbanColumn::CognitiveWork, KanbanColumn::Evaluation)),
+                ),
+                slot(
+                    42,
+                    1,
+                    2,
+                    2,
+                    Some((KanbanColumn::Evaluation, KanbanColumn::Plan)),
+                ),
+                slot(
+                    42,
+                    1,
+                    3,
+                    3,
+                    Some((KanbanColumn::Plan, KanbanColumn::Planning)),
+                ),
             ],
         )
-        .await;
-
+        .await
+        .unwrap();
+        let sealed = sink.scan_sealed(None).await.unwrap();
         let mut o = owner(KanbanColumn::Planning);
-        let rec = recover_and_apply(&mut o, &landed, None).expect("legal");
+
+        let rec = recover_and_apply(&mut o, &sealed, None).unwrap();
         assert_eq!(rec.applied.len(), 4, "the whole lap applied once");
         assert_eq!(
             o.phase(),
@@ -1143,144 +876,77 @@ mod tests {
             "back at Planning after a lap"
         );
 
-        // WITH the persisted watermark: second recovery skips the entire lap.
-        let good = recover_and_apply(&mut o, &landed, rec.watermark).expect("legal");
+        let good = recover_and_apply(&mut o, &sealed, rec.watermark).unwrap();
         assert!(
             good.applied.is_empty(),
-            "watermark makes cyclic recovery idempotent",
+            "watermark makes cyclic recovery idempotent"
         );
-        assert_eq!(o.phase(), KanbanColumn::Planning);
 
-        // NEGATIVE CONTROL: WITHOUT the watermark (as if it were not persisted),
-        // phase equality replays the whole lap — the bug the watermark fixes.
-        let bug = recover_and_apply(&mut o, &landed, None).expect("legal");
+        let bug = recover_and_apply(&mut o, &sealed, None).unwrap();
         assert_eq!(
             bug.applied.len(),
             4,
-            "without the durable watermark the cyclic lap is replayed — watermark is load-bearing",
+            "without the watermark the cyclic lap replays"
         );
     }
 
-    /// FALSIFIER (Bugbot High): `CastId` resets across writer restarts, so two
-    /// lifetimes can share `cast_id` 0. Replay MUST order by the durable WAL
-    /// position (which does not reset), not `cast_id`. Two lifetimes each cast
-    /// `cast_id 0`, at distinct WAL positions, forming one owner's chain — recovery
-    /// applies them in durable order regardless of the colliding cast ids.
     #[tokio::test]
-    async fn recovery_orders_by_durable_position_not_the_resettable_cast_id() {
-        let sink = FakeSink::new(true);
-        // Lifetime 1 (cast_id 0) then lifetime 2 (cast_id 0 again) — the counter
-        // reset. Distinct WAL positions (1, 2) come from the durable log.
-        let landed = persist_and_scan(
-            &sink,
-            vec![
-                cast_of(
-                    42,
-                    0,
-                    KanbanColumn::Planning,
-                    Some(KanbanColumn::CognitiveWork),
-                ),
-                cast_of(
-                    42,
-                    0,
-                    KanbanColumn::CognitiveWork,
-                    Some(KanbanColumn::Evaluation),
-                ),
-            ],
-        )
-        .await;
-        assert_eq!(
-            landed
-                .iter()
-                .map(|l| l.witness.cast_id.0)
-                .collect::<Vec<_>>(),
-            vec![0, 0],
-            "the cast ids collide (counter reset across lifetimes)",
-        );
-        assert_eq!(
-            landed.iter().map(|l| l.coordinate.seq).collect::<Vec<_>>(),
-            vec![1, 2],
-            "but the durable WAL positions are distinct + monotonic",
-        );
-
-        let mut o = owner(KanbanColumn::Planning);
-        let rec = recover_and_apply(&mut o, &landed, None).expect("legal");
-        assert_eq!(
-            rec.applied.iter().map(|m| m.to).collect::<Vec<_>>(),
-            vec![KanbanColumn::CognitiveWork, KanbanColumn::Evaluation],
-            "ordered by durable position despite the colliding cast ids",
-        );
-        assert_eq!(o.phase(), KanbanColumn::Evaluation);
-    }
-
-    /// FALSIFIER 5 (operator): the durable proof is the coordinate, NOT a
-    /// `LanceVersion`. A witness is replayable the instant it lands — before any
-    /// base manifest version attaches — so recovery identifies the latest LOCAL
-    /// state from the co-located witness's durable position, not a dataset version.
-    #[tokio::test]
-    async fn recovery_uses_durable_position_not_a_dataset_version() {
-        let sink = FakeSink::new(true);
-        let receipt = persist_cast(
-            &sink,
-            cast_of(
-                42,
-                0,
-                KanbanColumn::Planning,
-                Some(KanbanColumn::CognitiveWork),
-            ),
-        )
-        .await
-        .expect("landed");
-        // The durability proof carries no dataset version — only a WAL/LSM
-        // coordinate. (The type has no `DatasetVersion` field to read.)
-        assert!(
-            receipt.coordinate.log_order() > 0,
-            "durable via the WAL coordinate, before any manifest version",
-        );
-        let landed = sink.scan_witnesses(None).await.expect("scan");
-        let mut o = owner(KanbanColumn::Planning);
-        let rec = recover_and_apply(&mut o, &landed, None).expect("legal");
-        assert_eq!(
-            rec.applied.len(),
-            1,
-            "latest local state found from the durable position alone"
-        );
-    }
-
-    /// The bounded scan seam: `scan_witnesses(from)` returns only the tail past a
-    /// coordinate — recovery need not read the whole log.
-    #[tokio::test]
-    async fn scan_from_a_coordinate_returns_only_the_tail() {
-        let sink = FakeSink::new(true);
-        let _ = persist_and_scan(
-            &sink,
-            vec![
-                cast_of(
-                    42,
-                    0,
-                    KanbanColumn::Planning,
-                    Some(KanbanColumn::CognitiveWork),
-                ),
-                cast_of(
-                    42,
-                    1,
-                    KanbanColumn::CognitiveWork,
-                    Some(KanbanColumn::Evaluation),
-                ),
-                cast_of(42, 2, KanbanColumn::Evaluation, Some(KanbanColumn::Commit)),
-            ],
-        )
-        .await;
-        let after_first = DurableCoordinate {
-            shard: 0xABCD,
-            writer_epoch: 1,
-            seq: 1,
+    async fn a_cross_owner_move_is_rejected_before_the_cycle_persists() {
+        let bad = SweepSlot {
+            paired_move: Some(mv(99, KanbanColumn::Planning, KanbanColumn::CognitiveWork)),
+            ..slot(42, 1, 0, 0, None)
         };
-        let tail = sink.scan_witnesses(Some(after_first)).await.expect("scan");
-        assert_eq!(
-            tail.iter().map(|l| l.coordinate.seq).collect::<Vec<_>>(),
-            vec![2, 3],
-            "only witnesses strictly after the given coordinate",
-        );
+        let sink = FakeWalSink::new();
+        assert!(matches!(
+            persist_cycle(
+                &sink,
+                CycleFrame::new(CycleId(1), DatasetVersion(0)),
+                vec![bad]
+            )
+            .await,
+            Err(PersistError::OwnerMismatch {
+                move_owner: 99,
+                landing_owner: 42
+            }),
+        ));
+        assert_eq!(sink.wal_writes(), 0, "nothing written on a bad cast");
+        assert_eq!(sink.version_count(), 0);
+    }
+
+    #[tokio::test]
+    async fn a_fenced_cycle_writes_nothing() {
+        let sink = FakeWalSink::failing();
+        let r = persist_cycle(
+            &sink,
+            CycleFrame::new(CycleId(1), DatasetVersion(0)),
+            vec![slot(
+                42,
+                1,
+                0,
+                0,
+                Some((KanbanColumn::Planning, KanbanColumn::CognitiveWork)),
+            )],
+        )
+        .await;
+        assert!(matches!(r, Err(PersistError::Write(_))));
+        assert_eq!(sink.wal_writes(), 0, "no WAL write, no version, no step");
+        assert_eq!(sink.scan_sealed(None).await.unwrap().len(), 0);
+    }
+
+    #[test]
+    fn cycle_frame_is_storage_only() {
+        // The frame carries ONLY storage identity — no rung / projection / branch
+        // / semantic tags are minted in this layer (they live upstream).
+        let f = CycleFrame::new(CycleId(1), DatasetVersion(7));
+        assert_eq!(f.cycle, CycleId(1));
+        assert_eq!(f.base_version, DatasetVersion(7));
+    }
+
+    #[test]
+    fn order_cycle_stably_is_stable_and_generic() {
+        // Scrambled → ordered by the supplied key; equal keys keep arrival order.
+        let mut rows = vec![(3u64, "d"), (1u64, "b1"), (2u64, "c"), (1u64, "b2")];
+        order_cycle_stably(&mut rows, |r| r.0);
+        assert_eq!(rows, vec![(1, "b1"), (1, "b2"), (2, "c"), (3, "d")]);
     }
 }
