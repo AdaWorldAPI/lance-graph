@@ -1,10 +1,17 @@
 # cycle-loop-closure-driver-v1 — the loop-closure driver that makes the persist_sink cycle/WAL seam load-bearing
 
-> **Status:** PLANNED / CONJECTURE — design only. The **CONTROL loop** this
-> driver closes is the deliverable; the **durability leg stays the
-> contract-probe fake** until the concrete `LanceShardSink` lands (the
-> `compile+test green ≠ storage proven` Ladybug rule). Each claim below is
-> probe-gated; nothing here is shipped.
+> **Status:** IMPLEMENTED (slice, PR #879) — updated 2026-08-02 after the
+> grain-of-salt review round. `lance-graph-supervisor::cycle_driver` (feature
+> `cycle-driver`) ships P4a–P4f as **control-loop contract probes**: retry-safe
+> seal, restart-stable stream positions (`position_base` durable cursor),
+> watermark-coupled normal apply, pre-seal ≤1-move/owner partition
+> (`HeldIntent`/`restage_held`), Hold-as-reschedule, prefix-preserving apply
+> errors. **Honesty ledger:** control-loop contract PROVEN · actor-owned
+> production wiring NOT proven (`MailboxFleet` HashMap = probe/registry fleet;
+> `KanbanActor` bridging open) · cognitive-shader-driver/MailboxSoA thought NOT
+> proven (the MUL gate is real, its qualia inputs extractor-fed) · **durability
+> stays the contract-probe fake** until the concrete `LanceShardSink` lands (the
+> `compile+test green ≠ storage proven` Ladybug rule).
 > **Date:** 2026-08-02.
 > **Scope:** documentation-only architectural ruling. Records the *missing
 > seam* — the driver that turns the already-merged `persist_sink` cycle/WAL
@@ -352,12 +359,12 @@ W2a** and labelled a scale gate, while P4a…e are not.
 
 | Aspect | State |
 |---|---|
-| `persist_sink` cycle/WAL seam (`persist_cycle` / `WalSink` / `recover_and_apply`) | **SHIPPED** (D-MBX-A6-P1…P3e) — but **ZERO production callers** (the loop is open) |
+| `persist_sink` cycle/WAL seam (`persist_cycle` / `WalSink` / `recover_and_apply`) | **SHIPPED** (D-MBX-A6-P1…P3e) — first caller: `cycle_driver` (PR #879) |
 | `VersionScheduler` + `NextPhaseScheduler` (sync `on_version`) | **SHIPPED** contract (D-MBX-9-IN) |
 | `KanbanActor<O>` + owner-apply (`try_advance_phase`) | **SHIPPED** (D-V3-W2b) |
 | `owner_adapter` + `BatchWriter` (Outcome → next-cycle cast) | **SHIPPED** (planner) |
 | `symbiont::kanban_loop::SymbiontBoard` (the shape-proving slice) | **SHIPPED** (D2) — `u32` tick placeholder for the real version |
-| **CycleDriver** (P4a…f — closes seal→step→think→cast) | **PLANNED / CONJECTURE** — this plan; probe-gated |
+| **CycleDriver** (P4a…f — closes seal→step→think→cast) | **IMPLEMENTED (slice, PR #879)** — 19 falsifiers green incl. retry-safe seal, restart-stable positions, watermark-coupled apply, pre-seal held-move partition, Hold-reschedule. Actor-owned wiring + shader/SoA thought + durability remain open (header ledger) |
 | Home = `lance-graph-supervisor` + new planner path-dep (fallback: planner) | **DECIDED** (§5.1) — verify no cycle via `cargo tree` |
 | Durability leg (concrete `LanceShardSink`, real crash durability) | **DEFERRED** — driver wires the contract-probe fake; control loop closes regardless |
 | Board-as-tenant owner-resolution (D-V3-W2a) | **GATED** — driver uses `phase()` today; P4f scale gate adopts the tenant column when W2a un-gates |
