@@ -1,0 +1,504 @@
+# cycle-loop-closure-driver-v1 — the loop-closure driver that makes the persist_sink cycle/WAL seam load-bearing
+
+> **Status:** IMPLEMENTED (slice, PR #879) — updated 2026-08-02 after the
+> grain-of-salt review round. `lance-graph-supervisor::cycle_driver` (feature
+> `cycle-driver`) ships P4a–P4f as **control-loop contract probes**: retry-safe
+> seal, restart-stable stream positions (`position_base` durable cursor),
+> watermark-coupled normal apply, pre-seal ≤1-move/owner partition
+> (`HeldIntent`/`restage_held`), Hold-as-reschedule, prefix-preserving apply
+> errors. **Honesty ledger:** control-loop contract PROVEN · actor-owned
+> production wiring NOT proven (`MailboxFleet` HashMap = probe/registry fleet;
+> `KanbanActor` bridging open) · cognitive-shader-driver/MailboxSoA thought NOT
+> proven (the MUL gate is real, its qualia inputs extractor-fed) · **durability
+> stays the contract-probe fake** until the concrete `LanceShardSink` lands (the
+> `compile+test green ≠ storage proven` Ladybug rule).
+> **Date:** 2026-08-02.
+> **Scope:** documentation-only architectural ruling. Records the *missing
+> seam* — the driver that turns the already-merged `persist_sink` cycle/WAL
+> bootstrap into a running loop at 64k concurrency — and the deliverables +
+> falsifiers that gate its construction. Changes **no** Rust code, tests,
+> public APIs, `persist_sink.rs`, or `temporal.rs`.
+> **Owns (narrowly):** "why the loop is open today", the closed-loop
+> seal→step→think→cast shape, the SPARSE sealed-transition application rule +
+> the writer-fires-inline correctness point, the D-MBX-A6-P4a…f deliverables,
+> the home + dep-direction decision, the D-MBX crate-responsibility map (§9),
+> the adjacent-crates doctrine (§10), the subagent guardrail (§11), and the 64k
+> mechanics as they bear on the control loop.
+> **Does NOT own (cross-refs, never re-specifies):**
+> - The cycle/WAL seam itself (the OUT/durability half + two-dimensional
+>   temporal model) → `persistence-cycle-wal-bootstrap-v1.md`.
+> - Horizontal temporal-stream detail (the version-range read, ±5 window) →
+>   `temporal-markov-and-style-classes-v1.md`.
+> - Per-row `write_row` cycle-gate + the 16k-per-prefix scale framing →
+>   `mailbox-cycle-aware-write-contract-v1.md`.
+> - Deliverable tracking → `.claude/board/STATUS_BOARD.md`
+>   (D-MBX-A6-P1…P3e shipped, D-MBX-9-IN scheduler contract, D-V3-W2a board
+>   tenant gated, D-V3-W2b supervisor kanban_actor shipped, D2 symbiont
+>   kanban_loop slice shipped).
+> - The reshape rulings → `.claude/board/EPIPHANIES.md`
+>   `E-THE-DURABLE-UNIT-IS-THE-CYCLE-NOT-THE-CAST-ONE-WAL-WRITE-PER-SWEEP-1`,
+>   `E-KANBANMOVE-IS-THE-PARCEL-ADDRESS-STEP-IS-THE-DELIVERY-SCAN-1`,
+>   `E-SUBSTRATE-IS-THE-SCHEDULER`.
+>
+> This is the loop-closure companion to the persistence bootstrap plan, not a
+> competing architecture. The driver mints **no** new semantic / temporal /
+> rung / witness / branch / ancestry types — it composes existing organs.
+
+---
+
+## 1. The gap — `persist_sink` has ZERO production callers today (the loop is OPEN)
+
+The organs all exist and are merged. The loop is **not** closed.
+
+`lance_graph_planner::persist_sink` — `persist_cycle`, the `WalSink` trait
+(`commit_cycle` / `scan_sealed` / `versions`), `recover_and_apply` — has, as of
+this plan, **zero production callers** (verified by grep). It is a load-bearing
+seam with nothing standing on it. The cycle can be frozen, one WAL write can be
+made, one sealed `DatasetVersion` can be returned — but *nothing calls it in a
+running loop*, so the version it seals never triggers any sealed owner's step,
+and no finished thought ever casts the next cycle's intent.
+
+Everything the loop needs is already built, in five separate crates:
+
+- **persist** — `persist_sink::persist_cycle(sink, frame, casts)` freezes a
+  `CycleFrame { cycle, base_version }` + `Vec<SweepSlot>` into one WAL write and
+  returns a sealed `DatasetVersion`. Recovery: `recover_and_apply(owner, sealed,
+  applied_through)`.
+- **schedule (sync)** — `lance_graph_contract::scheduler::VersionScheduler::on_version`
+  + `NextPhaseScheduler` (forward-arc Planning→CognitiveWork→Evaluation→Commit,
+  Libet −550 µs stamp on the Planning→CognitiveWork Σ-crossing, `None` on
+  absorbing).
+- **schedule (async subscription)** —
+  `lance_graph::graph::scheduler::LanceVersionScheduler::drive_once` /
+  `drive_at_latest` — for READING a version you did **not** write (opens the
+  Lance dataset per call).
+- **apply** — `lance_graph_supervisor::kanban_actor::KanbanActor<O>` (the
+  ractor actor whose State IS the owner; applies via `try_advance_phase`) +
+  the free fns `drive_version_tick` / `drive_scheduled_tick`.
+- **emit** — `lance_graph_planner::owner_adapter::{rebind_bootstrap,
+  emit_bootstrap_intent}` turns a finished thought's Outcome into the next
+  cycle's intent cast via `batch_writer::BatchWriter::cast(on_behalf, moves,
+  payload)`.
+
+The **shipped slice that proves the shape** is
+`symbiont::kanban_loop::SymbiontBoard` (D2): it impls `MailboxSoaView` +
+`MailboxSoaOwner` over a `Vec<NodeRow>` and its `step(&NextPhaseScheduler)`
+drives `version_tick → on_version → try_advance_phase` synchronously, with a
+`u32` tick standing in for the real Lance version. The driver **generalizes
+that slice** to (a) the real sealed `DatasetVersion` from `persist_cycle` and
+(b) a mailbox fleet instead of one `SymbiontBoard`.
+
+The gap, stated once: **no crate composes persist → schedule → apply → emit into
+a running cycle.** That composition is the driver. It is a control-loop, not a
+new subsystem.
+
+---
+
+## 2. The closed-loop shape — seal → step → think → cast
+
+The driver closes exactly this loop:
+
+```
+  collect the fleet's staged BatchWriter casts   → Vec<SweepSlot>
+        │
+        ▼
+  persist_cycle(sink, CycleFrame{cycle, base_version=Vn}, casts)
+        │                                    (one WAL write, freeze-before-I/O)
+        ▼
+  sealed DatasetVersion Vn+1  +  the sealed PAIRED-TRANSITION SET
+        │                        (only the cycle's SweepSlots carrying a paired_move —
+        │                         a SPARSE subset, NOT the whole fleet)
+        ▼
+  supervisor iterates ONLY the sealed paired transitions   ← writer fires INLINE (§3)
+    for each sealed (owner, paired_move):
+        resolve owner → try_advance_phase(paired_move.to)   ← the KanbanStep (KanbanActor)
+    all UNREPRESENTED owners remain BYTE-IDENTICAL (untouched)
+        │
+        ▼
+  owners entering CognitiveWork run the thought  ← pluggable callback (§5.4 seam)
+        │                                          produces an Outcome
+        ▼
+  owner_adapter: Outcome → emit_bootstrap_intent → BatchWriter::cast(on_behalf=owner)
+        │
+        └──────────────── back to collect (next cycle Vn+2) ───────────────┘
+```
+
+The KanbanMove is the parcel-address; the step is the delivery-scan
+(`E-KANBANMOVE-IS-THE-PARCEL-ADDRESS-STEP-IS-THE-DELIVERY-SCAN-1`). The durable
+unit is the cycle, not the cast
+(`E-THE-DURABLE-UNIT-IS-THE-CYCLE-NOT-THE-CAST-ONE-WAL-WRITE-PER-SWEEP-1`). The
+substrate — the sealed version table — IS the scheduler
+(`E-SUBSTRATE-IS-THE-SCHEDULER`).
+
+The driver adds **no** node types, **no** move types, **no** scheduler types. It
+is glue: it collects the casts the fleet already staged, calls a function that
+already exists, and routes the result back through an adapter that already
+exists.
+
+---
+
+## 3. Correctness — SPARSE sealed-transition application, fired INLINE (a version is NOT permission to advance every mailbox)
+
+Two load-bearing correctness points. The first is the one the earlier draft of
+this plan got **wrong** and this revision fixes.
+
+### 3.1 A new version is global knowledge; Kanban mutation is SPARSE and owner-specific
+
+> **`DatasetVersion` is global knowledge. Kanban mutation is sparse and
+> owner-specific. A new version is NEVER, by itself, permission to advance every
+> mailbox.**
+
+The **rejected** model (the earlier draft, corrected here): "sealed
+`DatasetVersion` → fan `NextPhaseScheduler::on_version` across the fleet →
+advance every non-absorbing mailbox." That is wrong — it makes almost the entire
+fleet dirty every cycle (every mailbox's phase changes), which **violates the
+sparse-cycle ruling** (`persistence-cycle-wal-bootstrap-v1.md` §2 /
+`E-COMPLETE-CYCLE-IS-PHYSICALLY-SPARSE-NOT-A-FULL-REWRITE-1`). A global clock
+tick is not a fleet-wide step signal.
+
+The **correct** production loop:
+
+- **Mailboxes think concurrently over the sealed `Vn`.**
+- **Owners that produce material updates emit fire-and-forget intent** — a
+  `SweepSlot` carrying a `paired_move` — through `BatchWriter::cast` (via
+  `owner_adapter`). The intended move is decided at **intent time** by the
+  planner (StyleStrategy / `owner_adapter`, optionally using the
+  `NextPhaseScheduler` forward-arc as the lowering policy). It is *proposed*, not
+  yet authoritative.
+- **Planner** collects + coalesces the sparse casts, freezes one cycle, performs
+  **one WAL transaction**, receives the sealed `DatasetVersion Vn+1`, and exposes
+  the **sealed paired-transition set** (the SweepSlots that carry a `paired_move`).
+- **Supervisor** iterates **only the sealed paired transitions**, resolves the
+  corresponding owner for each, and applies **one legal transition** to each
+  **represented** owner via `try_advance_phase(paired_move.to)`. **All
+  unrepresented owners remain byte-identical** — they are not touched, not
+  re-serialized, not swept.
+- **Owners entering CognitiveWork** run the native thought body, produce
+  Outcomes, and route them through `owner_adapter` into the next cycle.
+
+So the phase mutation is driven by the owner **having produced a sealed intent**,
+never by the version tick fanning to everyone. `NextPhaseScheduler::on_version`
+is the intent-time **lowering policy** (which move is legal for an owner that
+produced an update), *not* an apply-time fan across the fleet. The symbiont
+`SymbiontBoard.step` (D2) advances every board per tick — that is the SLICE
+shape-prover, **not** the production apply rule.
+
+**Interim conservative rule (record it):** *at most one durable Kanban phase
+transition per owner per sealed cycle.* Multiple data updates for the same owner
+may coalesce (per-row, per `persist_sink`), but additional **state-dependent
+phase transitions wait for the next sealed horizon** — an owner advances at most
+one Rubicon edge per seal.
+
+### 3.2 The writer fires the sealed transitions INLINE and SYNCHRONOUSLY (not 64k `drive_once`)
+
+**The supervisor/driver WROTE the version** — `persist_cycle` returned `Vn+1`
+and the sealed paired-transition set is already in hand. So it applies those
+transitions **inline and synchronously** — a straight iteration over the sparse
+sealed set, one `try_advance_phase` per represented owner. There is **no second
+dataset read** between the seal and the step.
+
+The driver does **NOT** fan async `drive_once` / `drive_at_latest` calls.
+`LanceVersionScheduler::drive_once` / `drive_at_latest` are the **subscription**
+variant — async precisely because they READ a version they did NOT write, and
+**each opens the Lance dataset**. Using them here would re-read a version the
+driver already holds; across a fleet that is 64k dataset opens for nothing.
+
+> **Async is ONLY (a) the `persist_cycle` I/O leg and (b) the subscription drive
+> path (a reader that did not write the version). The writer-side application of
+> the sealed sparse transitions is inline `try_advance_phase`, no dataset
+> re-read.**
+
+The subscription path (`drive_at_latest`) remains the correct tool for a
+*separate external reader* that observes sealed versions it did not produce (it
+legitimately opens the dataset because it has no other handle to the version).
+That reader is a different actor from the driver and out of scope here
+(D-MBX-9-IN external-reader implementation, `lance-graph`).
+
+---
+
+## 4. Deliverables (probe-first — a falsifier per deliverable)
+
+Per the workspace falsifiability rule: *what input makes this fail?* Every
+deliverable names its falsifier; anti-vacuity and can-it-fire / can-it-stay-
+silent twins are called out where the naive assertion would be vacuous.
+
+| ID | Deliverable | Falsifier (what input makes it fail) |
+|---|---|---|
+| **D-MBX-A6-P4a** | **supervisor drains planner casts and calls `persist_cycle`** — collect the fleet's staged `BatchWriter` casts into `Vec<SweepSlot>` → `persist_cycle` → sealed `DatasetVersion` + the sealed paired-transition set. | N staged casts produce **exactly one** WAL write + **exactly one** version (reuse `persist_sink`'s amortization probe at the driver level — assert `commit_cycle` invoked once, not N times). |
+| **D-MBX-A6-P4b** | **supervisor applies ONLY the sealed sparse transition set** — iterate the cycle's sealed `paired_move` SweepSlots, resolve each owner, apply one legal `try_advance_phase`; leave every unrepresented owner byte-identical. | **The sparse falsifier:** 64k registered mailboxes; **17** owners have sealed paired transitions → **exactly those 17 owners advance** → **all other owner rows remain byte-identical** → **no second dataset read** → **one `DatasetVersion`**. (Anti-vacuity: assert the untouched set is the other 64k−17, not merely that 17 advanced; assert a mix of legal edges, not lockstep.) |
+| **D-MBX-A6-P4c** | **owners entering CognitiveWork run the thought and cast the next intent** — the represented owner runs the pluggable thought body, produces an Outcome, routes it via `owner_adapter::emit_bootstrap_intent` → `BatchWriter::cast` into the NEXT cycle. | An Outcome cast in cycle N is **present in cycle N+1's collected casts** AND, when N+1 seals, advances that owner **one further legal step** (round-trip: not merely enqueued — collected and applied next cycle). |
+| **D-MBX-A6-P4d** | **one completed owner never waits synchronously for an unrelated owner** — the emit path is wait-free; a finished owner casts + advances without blocking on a neighbour. | **can-it-fire:** a fleet where owner B is mid-thought and owner A completes — A **still emits + (if sealed) advances in the same cycle**; assert **no barrier / no neighbour wait** blocked A. |
+| **D-MBX-A6-P4e** | **supervisor composes planner recovery, applies only unreplayed moves** — on a mid-loop restart, `recover_and_apply` replays the owner's pending tail, idempotent with the durable watermark. | Stop mid-loop, re-drive, assert **no double-apply** (reuse the `persist_sink` watermark probe — `applied_through` gates the replay so an already-applied slot is a no-op; represented owners advance once, unrepresented untouched). |
+| **D-MBX-A6-P4f** *(SCALE, gated on W2a)* | **measure sparse routing + cycle cost at 16k / 64k** — the cost of resolving + applying the sealed sparse set (NOT a full sweep) at fleet scale. | **MEASURED**, labelled a **scale gate, not a correctness claim**: at 16k/64k registered mailboxes with a realistic sparse dirty fraction, measure sealed-set routing + apply within the ~0.5–2.5 s/cycle budget; **log the dirty fraction + what was measured, never a silent cap**. |
+
+**Sequencing:** P4a (collect+seal) and P4b (apply the sparse sealed set) are the
+spine; P4c closes the round-trip; P4d and P4e are the wait-free + recovery guards
+on the spine; P4f is the sparse-routing scale gate, deferred with W2a (§6).
+
+---
+
+## 5. Home, dependency direction, and the WalSink-fake honesty
+
+### 5.1 HOME — `lance-graph-supervisor` (with a stated fallback)
+
+**Decision:** the driver lives in **`lance-graph-supervisor`** — the structural
+fleet owner. It already owns `KanbanActor<O>` + the owner-apply surface
+(`try_advance_phase`, `drive_version_tick`, `drive_scheduled_tick`), which is
+exactly the "apply" leg of the loop. Putting the control-loop next to the apply
+surface keeps the sparse sealed-transition apply where the fleet ownership
+already is.
+
+The supervisor crate currently deps **only** `lance-graph-contract` (NOT
+planner). The driver requires the planner's `persist_sink`, `owner_adapter`, and
+`batch_writer`, so the wiring task adds a **`lance-graph-planner` path-dep** to
+supervisor. This is safe: **planner does NOT dep supervisor** (verify with
+`cargo tree` before landing), so there is no cycle.
+
+**Fallback (stated as a decision, not left open):** if adding the planner dep to
+supervisor surfaces a cycle (e.g. planner gains a supervisor dep in the
+meantime), the driver instead lives **in `lance-graph-planner`** alongside
+`persist_sink` / `owner_adapter` / `batch_writer`, and reaches the apply surface
+through the contract's `VersionScheduler` + `MailboxSoaOwner` traits rather than
+the concrete `KanbanActor`. The control-loop shape (§2, §3) is identical either
+way; only the crate boundary moves.
+
+### 5.2 Dependency direction
+
+```
+lance-graph-supervisor ──(new path-dep)──► lance-graph-planner
+                       ──(existing)──────► lance-graph-contract
+lance-graph-planner    ──(existing)──────► lance-graph-contract
+  (planner does NOT dep supervisor — no cycle; verify via cargo tree)
+```
+
+### 5.3 The WalSink-fake honesty
+
+`WalSink` has **no concrete sink yet** — the concrete `LanceShardSink` is
+deferred, gated on crash falsifiers (per `persistence-cycle-wal-bootstrap-v1.md`
+§4). So the driver initially wires against the **same in-process fake / MemWAL
+slice** the `persist_sink` probes use. This is honest and deliberate:
+
+> **The driver closes the CONTROL loop; the durability leg stays the
+> contract-probe fake until `LanceShardSink` lands.** "Control loop closed,
+> durability leg still fake" is the accurate status — `compile+test green ≠
+> storage proven` (the Ladybug rule). The P4a…e falsifiers all pass against
+> the fake sink because they probe the *control* invariants (one seal, one
+> version, inline sparse apply, round-trip, watermark idempotence), none of which need
+> real crash durability. Only P4f-real-durability would need the concrete
+> sink, and P4f as specified is a fan-out **scale** measurement, not a
+> durability claim.
+
+### 5.4 CognitiveWork execution is a pluggable seam (NOT designed here)
+
+The **thought body** — what CognitiveWork actually runs (shader / StyleStrategy
+P3a/P3b) — is a **pluggable callback**, not re-specified in this plan. The
+driver's job is to **FIRE the Planning→CognitiveWork step** and, after the
+thought produces an Outcome, **route that Outcome through `owner_adapter` into
+the next cycle's casts**. Treat thought execution as a seam:
+`Fn(&Owner) -> Outcome` (or the equivalent trait object). Do **not** design the
+shader here.
+
+---
+
+## 6. 64k mechanics + the W2a scale gate
+
+**Scale framing** (per `mailbox-cycle-aware-write-contract-v1.md`): one basin =
+one prefix table = **16k mailboxes**; **64k = ~4 basins** = the registered-fleet
+size. **The apply cost scales with the SPARSE sealed-transition set, not the
+fleet.** The supervisor iterates only the cycle's sealed `paired_move` SweepSlots
+(§3.1) — 17 dirty owners cost 17 `try_advance_phase` calls, not a 64k sweep — and
+the other ~64k owners are never touched. This is the whole point of the
+sparse-cycle ruling: registration is 64k; mutation is the dirty subset.
+
+**Why `persist_sink`'s guarantees make 64k concurrent casts safe:**
+
+- **freeze-before-I/O** — the cycle is frozen on a detached snapshot before the
+  WAL append, so 64k concurrent casts collect into one immutable `Vec<SweepSlot>`
+  without a live mutable SoA borrow crossing the I/O.
+- **one WAL write per sweep** — 64k casts amortize into a single `commit_cycle`,
+  so the durable-write cost is O(1) in cycles, not O(64k) in casts.
+- **sealed read horizon** — every mailbox in the sweep reads exactly one sealed
+  predecessor `Vn`; the open cycle (`Vn+1` accumulating) is excluded, so it is
+  safe to read `Vn` while `Vn+1` accumulates the next 64k casts.
+
+**W2a scale gate (D-V3-W2a, board-as-tenant, currently GATED/deferred):** the
+driver targets the **existing `MailboxSoaView::phase()` surface today** and
+adopts the per-mailbox board **tenant column** (kanban board as `ValueTenant`)
+when W2a un-gates. W2a is a **scale / cleanliness gate** — resolving the sealed
+owners becomes a tenant *column read* instead of per-mailbox structs — **NOT a
+hard blocker** for the control-loop shape. The loop closes on the `phase()`
+surface now; W2a makes owner-resolution over the fleet cheaper and cleaner later.
+This is exactly why **P4f is gated on
+W2a** and labelled a scale gate, while P4a…e are not.
+
+---
+
+## 7. Constraints / scope exclusions
+
+- Do **not** introduce or document **cohort internals**, participant-count
+  encoding, bitmap layout, or actor-neighbour firing dependencies — separate
+  cohort architecture work.
+- Do **not** invent new **semantic, temporal, rung, witness, branch, or
+  ancestry** types. Reuse `KanbanMove` / `DatasetVersion` / `SweepSlot` /
+  `CycleFrame` / `BatchWriter` / `NextPhaseScheduler` / `KanbanActor` /
+  `owner_adapter` / `recover_and_apply` **verbatim**.
+- The driver is a **control-loop composing existing organs** — it mints no new
+  subsystem.
+- **Persistence stays storage-only**; the concrete `LanceShardSink` stays
+  **deferred** (gated on crash falsifiers). The driver wires the fake sink.
+- Do **NOT** modify `persist_sink.rs` or `temporal.rs`.
+- Do **not** design the CognitiveWork shader / StyleStrategy — thought execution
+  is a pluggable seam (§5.4).
+- **Status discipline:** the driver is **PLANNED / CONJECTURE** (design), not
+  shipped; each claim is probe-gated, promoted to FINDING only when its falsifier
+  runs green.
+
+---
+
+## 8. Status snapshot
+
+| Aspect | State |
+|---|---|
+| `persist_sink` cycle/WAL seam (`persist_cycle` / `WalSink` / `recover_and_apply`) | **SHIPPED** (D-MBX-A6-P1…P3e) — first caller: `cycle_driver` (PR #879) |
+| `VersionScheduler` + `NextPhaseScheduler` (sync `on_version`) | **SHIPPED** contract (D-MBX-9-IN) |
+| `KanbanActor<O>` + owner-apply (`try_advance_phase`) | **SHIPPED** (D-V3-W2b) |
+| `owner_adapter` + `BatchWriter` (Outcome → next-cycle cast) | **SHIPPED** (planner) |
+| `symbiont::kanban_loop::SymbiontBoard` (the shape-proving slice) | **SHIPPED** (D2) — `u32` tick placeholder for the real version |
+| **CycleDriver** (P4a…f — closes seal→step→think→cast) | **IMPLEMENTED (slice, PR #879)** — 19 falsifiers green incl. retry-safe seal, restart-stable positions, watermark-coupled apply, pre-seal held-move partition, Hold-reschedule. Actor-owned wiring + shader/SoA thought + durability remain open (header ledger) |
+| Home = `lance-graph-supervisor` + new planner path-dep (fallback: planner) | **DECIDED** (§5.1) — verify no cycle via `cargo tree` |
+| Durability leg (concrete `LanceShardSink`, real crash durability) | **DEFERRED** — driver wires the contract-probe fake; control loop closes regardless |
+| Board-as-tenant owner-resolution (D-V3-W2a) | **GATED** — driver uses `phase()` today; P4f scale gate adopts the tenant column when W2a un-gates |
+
+The organs exist; the loop does not. This plan is the record of the one seam
+that makes the merged persistence bootstrap load-bearing — and of the honest
+boundary that the control loop closes now while the durability leg stays a fake
+until the crash falsifiers earn the concrete sink.
+
+---
+
+## 9. D-MBX crate-responsibility map (the production spine — ratified)
+
+The canonical ownership map. Verified against `Cargo.toml` deps 2026-08-02 (see
+§5.2). The distinction that must stay explicit: **MailboxSoA type/layout home =
+`cognitive-shader-driver`; exclusive runtime ownership = `lance-graph-supervisor`;
+decision + persistence-contract home = `lance-graph-planner`.**
+
+| Crate | Owns | Explicitly does NOT own |
+|---|---|---|
+| **lance-graph-contract** | Canonical shared types: `KanbanColumn` / `KanbanMove`, `DatasetVersion`, the `VersionScheduler` traits, `MailboxSoaView` / `MailboxSoaOwner`, legal Rubicon transitions. Zero-dep. | fleet ownership; persistence implementation; any thought body. |
+| **cognitive-shader-driver** | The canonical **MailboxSoA layout**; native cognition / shader / thinking machinery; thinking atoms, thinking styles, SoA columns — **defines the anatomy**. | the production fleet **lifecycle** (it does not run the runtime loop; its optional `lance-graph-planner` dep is debug/serve DTOs, not fleet ownership). |
+| **lance-graph-planner** | **Decides what should happen**: StyleStrategy + StrategyOutcome, the intended `KanbanMove`, `owner_adapter`, `BatchWriter` cast/intents, cycle collection + coalescing, `persist_cycle` / `WalSink` contract, recovery + temporal projection **contracts**. | **never directly mutates a supervisor-owned MailboxSoA**; never depends on supervisor. |
+| **lance-graph-supervisor** | **Production runtime owner of MailboxSoA instances**: `KanbanActor` state IS the owner; authoritative phase mutation; the production cycle-loop composition (**D-MBX-A6-P4**); applies only the **sealed sparse transitions**; fires CognitiveWork; returns Outcomes to planner/`owner_adapter`. | it consumes planner; planner never consumes it. |
+| **lance-graph** | The actual Lance dataset + `DatasetVersion` substrate; the external-reader version subscription (`LanceVersionScheduler`); the future concrete `LanceShardSink` / physical persistence. | it is a **storage substrate, not a cognitive fleet owner**. |
+
+**D-id allocation (audited):** D-MBX-A1..A5 → `cognitive-shader-driver` (+contract
+support); D-MBX-A6-P1/P2 → `lance-graph-contract`; D-MBX-A6-P3a..P3e →
+`lance-graph-planner`; **D-MBX-A6-P4a..P4f → `lance-graph-supervisor`** (one-way
+dep on planner); D-MBX-9-IN contract → `lance-graph-contract`; D-MBX-9-IN
+external-reader impl → `lance-graph`; D-V3-W2b `KanbanActor` →
+`lance-graph-supervisor`.
+
+**Dependency direction (verified 2026-08-02, §5.2):**
+`lance-graph-supervisor → lance-graph-planner → lance-graph-contract`;
+`lance-graph-planner → lance-graph-contract`. **Planner must not depend on
+supervisor.** Currently supervisor deps only contract (+ callcenter); the
+`supervisor → planner` edge is the **planned P4 wiring** and is acyclic (planner's
+dep closure never reaches supervisor). `cognitive-shader-driver` has an optional
+(feature-gated) planner dep for debug/serve DTOs — not fleet ownership, not a
+cycle.
+
+---
+
+## 10. Adjacent-crates doctrine — bystanders, basements, and adapters (NOT owners)
+
+The production spine (§9) is a straight railway track:
+**contract defines · planner proposes and seals · supervisor owns and applies ·
+shader thinks · Lance persists.** Adjacent crates **observe, adapt, or provide
+optional capabilities** — none is crowned emperor of the hippocampus.
+
+### 10.1 `symbiont` — golden-image + bystander research laboratory
+
+**Allowed:** full-stack compile/link golden image; integration + scale probes;
+brainstorming + falsification playground; possible AST-arm experiments
+(Elixir-shaped syntax without an Elixir runtime, SurrealQL DDL/expression AST,
+OGAR adapter composition); a possible second research leg for
+`lance-graph-arm-discovery`, grammar heuristics, time-series observation,
+cross-system hypothesis generation.
+
+**Forbidden:** authoritative MailboxSoA owner; production D-MBX scheduler;
+production Kanban lifecycle; production WAL owner; independent version authority;
+second source of truth for cognition; a **required dependency** of planner,
+supervisor, or cognitive-shader-driver.
+
+`SymbiontBoard` (D2) impls `MailboxSoaView`/`MailboxSoaOwner` and its
+`step()`-advances-every-board loop is **probe-only and intentionally local** — a
+shape-prover, never the production owner. Any reusable production logic found in
+symbiont is classified as *probe-only-and-local* or *candidate for later
+extraction into its canonical D-MBX crate* — **not extracted in this task**.
+Symbiont may observe the brain, suggest patterns to it, and test combinations
+around it; it must not become the alien twin driving the hands.
+
+### 10.2 `rs-graph-llm` — optional capability basement
+
+**Useful:** agentic-coding-shaped demonstrations; sparse LLM assistance; ticket
+orchestration; Rig integration; OpenClaw / tool-use adapters; optional
+CognitiveWork capability providers; human-in-the-loop workflow façades.
+
+**Forbidden:** authoritative MailboxSoA storage; authoritative Kanban state; a
+second planning lifecycle; a second WAL or version ledger; mirrored live
+cognition state; a **required dependency** of D-MBX core crates.
+
+Composition shape: `application / MedCare composition layer` sits **above** both
+the D-MBX production runtime and the optional `rs-graph-llm` / Rig capabilities —
+NOT `lance-graph core → rs-graph-llm → duplicated session/Kanban/storage state`.
+When `rs-graph-llm` invokes D-MBX thinking it is a **client / capability
+provider**; when D-MBX invokes an LLM/tool capability the result returns as an
+**Outcome or evidence input**. `rs-graph-llm` **never owns the standing wave**
+(consistent with the workspace rule that rig is membrane-tier, not a brain crate).
+
+### 10.3 `ogar-*` universal adapters — AST / declaration / adapter basement
+
+**Allowed:** source AST ingestion; Elixir / Ruby / Python / SQL / SurrealQL
+adaptation; Class / ActionDef declaration surfaces; code generation; cold-path
+capability descriptions; schema + behaviour translation.
+
+**Forbidden:** live MailboxSoA ownership; an independent D-MBX scheduler;
+duplicate runtime Kanban state; standing-wave persistence.
+
+OGAR may **describe available behaviour**; it does not own the living cognitive
+cycle.
+
+---
+
+## 11. Subagent anti-drift guardrail (paste into every D-MBX worker brief)
+
+Before any subagent changes D-MBX code, it MUST answer:
+
+1. Is this **shared vocabulary, planning, runtime ownership, cognition, or
+   storage**?
+2. Which **canonical crate** (§9) owns that responsibility?
+3. Does the change create a **second** owner / scheduler / WAL / Kanban lifecycle
+   / Session state / `DatasetVersion` authority / MailboxSoA representation?
+4. Is **symbiont** being used as a production dependency merely because it already
+   links many crates?
+5. Is **rs-graph-llm** being allowed to mirror or own live SoA state merely
+   because it already has workflow/session abstractions?
+6. Could the change be an **adapter, callback, Outcome, or trait seam** instead of
+   importing a whole neighbouring runtime?
+
+**STOP and report (do not proceed) when:**
+
+- planner would depend on supervisor;
+- a D-MBX **core** crate would depend on symbiont or rs-graph-llm;
+- a **second** Kanban phase field appears;
+- a **second** cycle/version counter appears;
+- a Session snapshot becomes authoritative over MailboxSoA;
+- **a `DatasetVersion` tick advances every owner** (the sparse-cycle violation
+  this revision fixed — §3.1);
+- SurrealDB JSON becomes the live cognition representation;
+- a **production type is first declared inside symbiont**.
+
+The desired result is a straight railway track, not a grand unification:
+**contract defines · planner proposes and seals · supervisor owns and applies ·
+shader thinks · Lance persists**; adjacent crates observe, adapt, or provide
+optional capabilities.

@@ -40,6 +40,18 @@ pub mod consumer_msg;
 pub mod error;
 pub mod lifecycle_audit;
 
+// ─── cycle-driver feature — the P4 loop-closure driver (persist_sink caller) ──
+
+/// P4a/P4b: the cycle loop-closure driver. Drains the fleet's staged planner
+/// casts into one sealed cycle (`persist_cycle` → one WAL write, one
+/// `DatasetVersion`) and applies ONLY the sealed **sparse** transition set to the
+/// fleet — represented owners advance one legal step, unrepresented owners stay
+/// byte-identical. Behind the `cycle-driver` feature (pulls `lance-graph-planner`);
+/// it does NOT need the ractor `supervisor` feature — it applies through
+/// `MailboxSoaOwner::try_advance_phase` directly, no message bus.
+#[cfg(feature = "cycle-driver")]
+pub mod cycle_driver;
+
 pub use consumer_msg::{
     CalibrateRequest, CalibrateResponse, ConsumerEnvelope, ConsumerReply, CrystalResponse,
     DispatchRequest, HealthStatus, IngestAck, IngestRequest, ProbeRequest, ProbeResponse,

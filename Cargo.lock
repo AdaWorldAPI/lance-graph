@@ -4825,6 +4825,7 @@ dependencies = [
  "lance",
  "lance-arrow",
  "lance-graph-catalog",
+ "lance-graph-cognitive",
  "lance-graph-contract 0.1.0",
  "lance-graph-planner",
  "lance-index",
@@ -4910,6 +4911,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "lance-graph-cognitive"
+version = "0.1.0"
+dependencies = [
+ "holograph",
+ "lance-graph-contract 0.1.0",
+ "ndarray 0.17.2",
+]
+
+[[package]]
 name = "lance-graph-consumer-conformance"
 version = "0.1.0"
 dependencies = [
@@ -4933,7 +4943,7 @@ dependencies = [
 [[package]]
 name = "lance-graph-contract"
 version = "0.1.0"
-source = "git+https://github.com/AdaWorldAPI/lance-graph?branch=claude%2Fogar-docir-architecture-jjzlig#241c7eff167264bafd4f458858e5495dd2afdd9b"
+source = "git+https://github.com/AdaWorldAPI/lance-graph?branch=main#18b5b65414ede0682445693d6d08449da64f1ce1"
 dependencies = [
  "glob",
  "serde",
@@ -5007,6 +5017,7 @@ dependencies = [
  "cognitive-shader-driver",
  "lance-graph-callcenter",
  "lance-graph-contract 0.1.0",
+ "lance-graph-planner",
  "ractor",
  "static_assertions",
  "thiserror 1.0.69",
@@ -6052,7 +6063,7 @@ dependencies = [
 name = "ogar-class-view"
 version = "0.1.0"
 dependencies = [
- "lance-graph-contract 0.1.0 (git+https://github.com/AdaWorldAPI/lance-graph?branch=claude%2Fogar-docir-architecture-jjzlig)",
+ "lance-graph-contract 0.1.0 (git+https://github.com/AdaWorldAPI/lance-graph?branch=main)",
  "ogar-vocab",
 ]
 
