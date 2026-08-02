@@ -54,7 +54,7 @@
 //! Two distinct keys, both durable, neither the resettable `CastId` counter:
 //!
 //! - **Replay ORDER = the durable-log position** ([`DurableCoordinate::log_order`],
-//!   i.e. `wal_entry_position`). `BatchWriter`'s `CastId` counter **resets to 0 on
+//!   i.e. `seq`). `BatchWriter`'s `CastId` counter **resets to 0 on
 //!   every restart**, so two witnesses from different writer lifetimes can share a
 //!   `cast_id` — ordering by it is unstable across crashes. The WAL position is
 //!   monotonic across the shard's whole life and never resets; `writer_epoch`
@@ -76,30 +76,41 @@
 //!
 //! ## The `DurableWrite` seam + the durability type
 //!
-//! A WAL append produces a durable **coordinate** (shard + writer epoch + WAL
-//! entry position), NOT a base `DatasetVersion` — the dataset version arrives
+//! A durable append produces a **coordinate** (shard + writer epoch + opaque
+//! monotonic `seq`), NOT a base `DatasetVersion` — the dataset version arrives
 //! later via MemTable flush + manifest commit. So [`DurableWrite::append`] returns
 //! [`DurableCoordinate`], never a version. This is exactly why the coordinate,
-//! not `LanceVersion`, is the durability proof: the write is queryable and
-//! durable *before* any base manifest version attaches (falsifier 5 —
-//! WAL-visible-before-manifest — proves the latest local state is identified from
-//! the co-located witness's durable position, not from a dataset version that
-//! does not exist yet).
+//! not `LanceVersion`, is the durability proof: the write is durable *before* any
+//! base manifest version attaches, so the latest local state is identified from
+//! the co-located witness's durable position, not from a dataset version that does
+//! not exist yet.
 //!
 //! The concrete impl (a lance-having crate) wires lance 7.0.0's OFFICIAL MemWAL —
 //! preferring the high-level `ShardWriter::put` (`enable_memtable + durable_write`:
 //! insert into the queryable MemTable, release the lock, then await WAL durability
-//! off-lock) over the raw `WalAppender::append` primitive. The witness and the
-//! payload are two columns of ONE `RecordBatch` (one generation, atomic), whose
-//! buffers are independently owned, so "no owner borrow across I/O" holds without
-//! any claim of magic zero-copy. [`DurableWrite::scan_witnesses`] takes a `from`
-//! lower bound so recovery reads only the tail after the last applied coordinate,
-//! never the whole log.
+//! off-lock) over the raw `WalAppender::append` primitive. It will co-locate the
+//! witness and the payload in ONE durable generation. [`DurableWrite::scan_witnesses`]
+//! takes a `from` lower bound so recovery reads only the tail after the last
+//! applied coordinate, never the whole log.
 //!
 //! Keeping the seam a trait leaves the ordering core lance-free and `protoc`-free.
 //! **This module builds NO concrete `LanceShardSink`** — per operator ruling the
 //! durable-witness reshape + `temporal` layer-1 land first; the production sink
-//! comes after, gated on the crash-recovery falsifiers here going green.
+//! comes after.
+//!
+//! ## What the tests prove — CONTRACT probes, NOT crash/WAL integration (be honest)
+//!
+//! The `#[cfg(test)]` `FakeSink` is an in-process vector, not a WAL. So the tests
+//! here are **ordering/recovery CONTRACT probes** — they prove the Rust seam
+//! *reconstructs and re-applies a move from a witness once it is durable*, that
+//! replay orders by the durable coordinate (not the resettable `CastId`), that
+//! recovery is idempotent under a watermark across a cyclic lap, and that a failed
+//! append leaves no witness. They do **NOT** prove real durability: there is no
+//! real MemWAL, no process restart, no `RecordBatch` atomic co-location of witness
+//! + payload, no epoch fencing, no manifest-independent read. **`compile+test green
+//! ≠ storage behaviour proven`** (the Ladybug lesson, `CLAUDE.md`). Real
+//! crash-durability is demonstrated only by the deferred concrete Lance sink's own
+//! integration test; until then this is a *probed contract*, not a durable system.
 
 use lance_graph_contract::collapse_gate::MailboxId;
 use lance_graph_contract::kanban::{KanbanColumn, KanbanMove, RubiconTransitionError};
@@ -121,31 +132,42 @@ impl std::error::Error for WriteFailed {}
 
 /// A backend-neutral **durable coordinate** — where the write landed in the
 /// durable log. This is NOT a base Lance `DatasetVersion` (that arrives later via
-/// MemTable flush + manifest commit); it is the WAL/LSM coordinate that proves
-/// durability now. For lance: `shard` = shard `Uuid` (as `u128`),
-/// `writer_epoch` + `wal_entry_position` from the `ShardWriter`/`WalAppendResult`.
+/// MemTable flush + manifest commit); it is the durable-log coordinate that proves
+/// durability now.
+///
+/// **API-honest by design.** `seq` is an *opaque, backend-defined* monotonic
+/// position — NOT specifically a raw WAL entry offset. Lance 7's chosen high-level
+/// path (`ShardWriter::put` with `enable_memtable`) returns a **batch-position**
+/// result, NOT `WalAppendResult::entry_position`; the raw `WalAppender::append`
+/// returns the entry position. Both are monotonic per shard, so the concrete sink
+/// maps whichever its API yields into `seq` — this type never claims a WAL offset
+/// the selected API does not return. For lance: `shard` = shard `Uuid` (as `u128`),
+/// `writer_epoch` = the writer session that fenced the append.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct DurableCoordinate {
     /// Opaque shard identity (lance: the shard `Uuid` as `u128`).
     pub shard: u128,
-    /// The writer epoch that fenced this append. A new writer lifetime takes a
-    /// higher epoch; fencing guarantees two epochs never share a WAL position.
+    /// The writer session/epoch that fenced this append. A new writer lifetime
+    /// takes a higher epoch; fencing guarantees two epochs never share a `seq`.
+    /// This is the restart discriminator (the ephemeral `CastId` counter is not).
     pub writer_epoch: u64,
-    /// The monotonic WAL entry position of this durable append. Monotonic across
-    /// the shard's whole life — it does **not** reset on writer restart.
-    pub wal_entry_position: u64,
+    /// The **opaque backend-defined monotonic durable position** of this append
+    /// (raw WAL entry position, or `ShardWriter::put`'s batch position — the sink
+    /// picks). Monotonic across the shard's whole life; it does **not** reset on
+    /// writer restart.
+    pub seq: u64,
 }
 
 impl DurableCoordinate {
     /// The durable-log total-order key for replay + the watermark comparison.
     ///
-    /// `wal_entry_position` is monotonic across the shard's whole life and never
-    /// resets (unlike `BatchWriter`'s `CastId` counter), and `writer_epoch` fences
-    /// overlapping writers so positions never collide. One owner writes one shard,
-    /// so this is a total order over that owner's witnesses, valid across crashes.
+    /// `seq` is monotonic across the shard's whole life and never resets (unlike
+    /// `BatchWriter`'s `CastId` counter), and `writer_epoch` fences overlapping
+    /// writers so positions never collide. One owner writes one shard, so this is a
+    /// total order over that owner's witnesses, valid across crashes.
     #[must_use]
     pub fn log_order(&self) -> u64 {
-        self.wal_entry_position
+        self.seq
     }
 }
 
@@ -297,8 +319,11 @@ pub enum PersistError {
     },
     /// The paired move's `from` does not match the owner's current phase. On the
     /// synchronous single-receipt path ([`apply_durable_step`]) this is a stale /
-    /// out-of-order apply — surfaced, and SAFE to drop because the move is durable
-    /// and [`recover_and_apply`] will replay it. In recovery it means an
+    /// out-of-order apply (concurrent drains can complete a later receipt first) —
+    /// surfaced so the caller can **RETRY** it once the missing prefix lands.
+    /// [`apply_durable_step`] borrows the receipt, so it is NOT consumed on this
+    /// error and stays retryable (recovery only runs on restart — it is not the
+    /// happy-path backstop for reordered completions). In recovery it means an
     /// above-watermark witness does not chain — a genuine gap/corruption.
     StalePhase {
         owner_phase: KanbanColumn,
@@ -383,16 +408,18 @@ pub async fn persist_cast<W: DurableWrite>(
 /// move — a durable no-step), or an error. The transition target is
 /// `receipt.paired_move.to` — never a generic successor.
 ///
-/// **Reordered / stale receipts are safe to drop.** `DurableWrite` explicitly
-/// supports concurrent drains, so a later append can complete first; applying its
-/// receipt while the owner is still at the earlier phase yields
-/// [`PersistError::StalePhase`]. Dropping it loses NOTHING — the move is durable,
-/// and [`recover_and_apply`] (or a re-drive that re-reads the durable tail)
-/// replays it in durable order. The sync path is the fast happy path; the durable
-/// witness is the correctness backstop.
+/// **Reordered receipts stay RETRYABLE — the receipt is BORROWED, not consumed.**
+/// `DurableWrite` explicitly supports concurrent drains, so a later append can
+/// complete first; applying its receipt while the owner is still at the earlier
+/// phase yields [`PersistError::StalePhase`]. Because this takes `&receipt`, the
+/// caller still owns it and re-applies it once the missing prefix lands — the
+/// KanbanStep is NOT lost on the happy path (recovery only runs on restart, so it
+/// is not the backstop for ordinary completion reordering). Per-owner completion
+/// order is the caller's to sequence (buffer the non-contiguous tail); cross-owner
+/// drains stay fully concurrent.
 pub fn apply_durable_step<O: MailboxSoaOwner>(
     owner: &mut O,
-    receipt: DurableReceipt,
+    receipt: &DurableReceipt,
 ) -> Result<Option<KanbanMove>, PersistError> {
     if receipt.owner != owner.mailbox_id() {
         return Err(PersistError::OwnerMismatch {
@@ -578,9 +605,12 @@ mod tests {
     struct FakeSink {
         succeed: bool,
         calls: AtomicU32,
-        /// The durable log: (coordinate, witness), assigned a monotonic WAL
-        /// position that does NOT reset across simulated writer lifetimes.
-        landed: Mutex<Vec<LandedWitness>>,
+        /// The durable log: (landed witness, payload) pairs, assigned a monotonic
+        /// `seq` that does NOT reset across simulated writer lifetimes. The payload
+        /// is STORED (not ignored) so a probe can show witness+payload land
+        /// together — though an in-process `Vec` cannot prove *atomic* co-location
+        /// (that is the concrete Lance sink's `RecordBatch`, deferred).
+        landed: Mutex<Vec<(LandedWitness, Vec<u8>)>>,
     }
     impl FakeSink {
         fn new(succeed: bool) -> Self {
@@ -593,30 +623,43 @@ mod tests {
         fn calls(&self) -> u32 {
             self.calls.load(Ordering::SeqCst)
         }
+        /// Test-only: the (coordinate.seq, payload) pairs the sink holds — used to
+        /// show the payload landed alongside its witness, not dropped.
+        fn landed_payloads(&self) -> Vec<(u64, Vec<u8>)> {
+            self.landed
+                .lock()
+                .unwrap()
+                .iter()
+                .map(|(lw, p)| (lw.coordinate.seq, p.clone()))
+                .collect()
+        }
     }
     impl DurableWrite for FakeSink {
         async fn append(
             &self,
             witness: &DurableWitness,
-            _payload: &[u8],
+            payload: &[u8],
         ) -> Result<DurableCoordinate, WriteFailed> {
             self.calls.fetch_add(1, Ordering::SeqCst);
             if !self.succeed {
-                // The negative half: a fenced WAL lands NOTHING — no witness, so
-                // nothing to replay, so no move and no step.
+                // The negative half: a fenced WAL lands NOTHING — no witness, no
+                // payload — so nothing to replay, so no move and no step.
                 return Err(WriteFailed("wal fenced".into()));
             }
             let mut log = self.landed.lock().unwrap();
-            // WAL position: monotonic over the log's whole life, 1-based.
+            // Durable position: monotonic over the log's whole life, 1-based.
             let coordinate = DurableCoordinate {
                 shard: 0xABCD,
                 writer_epoch: 1,
-                wal_entry_position: log.len() as u64 + 1,
+                seq: log.len() as u64 + 1,
             };
-            log.push(LandedWitness {
-                coordinate,
-                witness: witness.clone(),
-            });
+            log.push((
+                LandedWitness {
+                    coordinate,
+                    witness: witness.clone(),
+                },
+                payload.to_vec(),
+            ));
             Ok(coordinate)
         }
         async fn scan_witnesses(
@@ -629,6 +672,7 @@ mod tests {
                 .lock()
                 .unwrap()
                 .iter()
+                .map(|(lw, _payload)| lw)
                 .filter(|lw| lb.is_none_or(|lb| lw.coordinate.log_order() > lb))
                 .cloned()
                 .collect())
@@ -679,7 +723,7 @@ mod tests {
             coordinate: DurableCoordinate {
                 shard: 0xABCD,
                 writer_epoch: 1,
-                wal_entry_position: 7,
+                seq: 7,
             },
         }
     }
@@ -701,7 +745,7 @@ mod tests {
             Some(KanbanColumn::CognitiveWork)
         );
         assert_eq!(
-            r.coordinate.wal_entry_position, 1,
+            r.coordinate.seq, 1,
             "the durable coordinate rides (first witness landed)"
         );
         assert_eq!(r.cast_id, CastId(0), "the receipt mirrors the cast id");
@@ -713,6 +757,14 @@ mod tests {
             scanned[0].witness.paired_move.map(|m| m.to),
             Some(KanbanColumn::CognitiveWork),
             "the paired move is in the DURABLE witness, not only the in-memory receipt",
+        );
+        // …and the PAYLOAD landed with it at the same seq (not ignored). (An
+        // in-process Vec cannot prove *atomic* co-location — that is the concrete
+        // Lance sink's RecordBatch; the module doc states this honestly.)
+        assert_eq!(
+            sink.landed_payloads(),
+            vec![(1u64, vec![0u8])],
+            "the payload landed alongside the witness at seq 1",
         );
     }
 
@@ -814,7 +866,7 @@ mod tests {
     #[test]
     fn applying_a_receipt_advances_the_owner_by_the_paired_move() {
         let mut o = owner(KanbanColumn::Planning);
-        let step = apply_durable_step(&mut o, receipt_for(Some(KanbanColumn::CognitiveWork)))
+        let step = apply_durable_step(&mut o, &receipt_for(Some(KanbanColumn::CognitiveWork)))
             .expect("legal")
             .expect("a paired move");
         assert_eq!(step.to, KanbanColumn::CognitiveWork);
@@ -835,7 +887,7 @@ mod tests {
         let mut o = owner(KanbanColumn::Evaluation);
         let step = apply_durable_step(
             &mut o,
-            receipt_from(KanbanColumn::Evaluation, Some(KanbanColumn::Prune)),
+            &receipt_from(KanbanColumn::Evaluation, Some(KanbanColumn::Prune)),
         )
         .expect("legal")
         .expect("paired veto");
@@ -851,7 +903,7 @@ mod tests {
     #[test]
     fn a_receipt_with_no_paired_move_is_a_durable_no_step() {
         let mut o = owner(KanbanColumn::CognitiveWork);
-        let r = apply_durable_step(&mut o, receipt_for(None));
+        let r = apply_durable_step(&mut o, &receipt_for(None));
         assert_eq!(r, Ok(None), "durable, but no step");
         assert_eq!(o.phase(), KanbanColumn::CognitiveWork, "phase unchanged");
     }
@@ -861,7 +913,7 @@ mod tests {
         // Planning → Evaluation skips CognitiveWork — illegal. Surfaced; owner
         // untouched (the checked airgap holds in the owner-local phase).
         let mut o = owner(KanbanColumn::Planning);
-        let r = apply_durable_step(&mut o, receipt_for(Some(KanbanColumn::Evaluation)));
+        let r = apply_durable_step(&mut o, &receipt_for(Some(KanbanColumn::Evaluation)));
         assert!(matches!(r, Err(PersistError::Illegal(_))));
         assert_eq!(o.phase(), KanbanColumn::Planning, "owner untouched");
     }
@@ -870,7 +922,7 @@ mod tests {
     fn a_receipt_is_refused_for_a_foreign_owner() {
         // A receipt minted for mailbox 42 must never advance mailbox 99.
         let mut other = owner_id(99, KanbanColumn::Planning);
-        let r = apply_durable_step(&mut other, receipt_for(Some(KanbanColumn::CognitiveWork)));
+        let r = apply_durable_step(&mut other, &receipt_for(Some(KanbanColumn::CognitiveWork)));
         assert!(matches!(
             r,
             Err(PersistError::OwnerMismatch {
@@ -887,11 +939,11 @@ mod tests {
 
     #[test]
     fn a_stale_move_on_the_sync_path_is_surfaced_not_silently_reapplied() {
-        // The sync path surfaces a stale/out-of-order move LOUDLY (safe to drop —
-        // the durable witness replays it). A `Planning→…` move applied to an owner
-        // already at `CognitiveWork` is refused, owner untouched.
+        // The sync path surfaces a stale/out-of-order move LOUDLY. A `Planning→…`
+        // move applied to an owner already at `CognitiveWork` is refused, owner
+        // untouched — and the borrowed receipt stays usable (see the retry test).
         let mut o = owner(KanbanColumn::CognitiveWork);
-        let r = apply_durable_step(&mut o, receipt_for(Some(KanbanColumn::CognitiveWork)));
+        let r = apply_durable_step(&mut o, &receipt_for(Some(KanbanColumn::CognitiveWork)));
         assert_eq!(
             r,
             Err(PersistError::StalePhase {
@@ -900,6 +952,47 @@ mod tests {
             }),
         );
         assert_eq!(o.phase(), KanbanColumn::CognitiveWork, "owner untouched");
+    }
+
+    /// FALSIFIER (Codex/ChatGPT): concurrent drains can complete a LATER receipt
+    /// before its predecessor. The later receipt must NOT be lost — `apply_durable_step`
+    /// borrows it, so on `StalePhase` the caller still owns it and retries once the
+    /// missing prefix lands. Both steps fire, in order, on the HAPPY path (no crash).
+    #[test]
+    fn a_reordered_receipt_is_retryable_not_lost() {
+        // Two casts for one owner: r8 (Planning→CognitiveWork) then
+        // r9 (CognitiveWork→Evaluation). r9's append completes FIRST.
+        let r8 = receipt_from(KanbanColumn::Planning, Some(KanbanColumn::CognitiveWork));
+        let r9 = receipt_from(KanbanColumn::CognitiveWork, Some(KanbanColumn::Evaluation));
+        let mut o = owner(KanbanColumn::Planning);
+
+        // r9 arrives first — stale (owner still at Planning). Surfaced, NOT consumed.
+        assert!(matches!(
+            apply_durable_step(&mut o, &r9),
+            Err(PersistError::StalePhase { .. }),
+        ));
+        assert_eq!(
+            o.phase(),
+            KanbanColumn::Planning,
+            "r9 did not apply out of order"
+        );
+
+        // r8's append completes; it applies.
+        apply_durable_step(&mut o, &r8)
+            .expect("r8 legal")
+            .expect("moved");
+        assert_eq!(o.phase(), KanbanColumn::CognitiveWork);
+
+        // The caller RETRIES the still-owned r9 — it now applies. Nothing was lost,
+        // and no crash/recovery was needed (the happy path stays correct).
+        apply_durable_step(&mut o, &r9)
+            .expect("r9 legal now")
+            .expect("moved");
+        assert_eq!(
+            o.phase(),
+            KanbanColumn::Evaluation,
+            "both steps fired, in order"
+        );
     }
 
     // ── Crash recovery: the co-located witness replays after the receipt is lost ─
@@ -1105,10 +1198,7 @@ mod tests {
             "the cast ids collide (counter reset across lifetimes)",
         );
         assert_eq!(
-            landed
-                .iter()
-                .map(|l| l.coordinate.wal_entry_position)
-                .collect::<Vec<_>>(),
+            landed.iter().map(|l| l.coordinate.seq).collect::<Vec<_>>(),
             vec![1, 2],
             "but the durable WAL positions are distinct + monotonic",
         );
@@ -1184,13 +1274,11 @@ mod tests {
         let after_first = DurableCoordinate {
             shard: 0xABCD,
             writer_epoch: 1,
-            wal_entry_position: 1,
+            seq: 1,
         };
         let tail = sink.scan_witnesses(Some(after_first)).await.expect("scan");
         assert_eq!(
-            tail.iter()
-                .map(|l| l.coordinate.wal_entry_position)
-                .collect::<Vec<_>>(),
+            tail.iter().map(|l| l.coordinate.seq).collect::<Vec<_>>(),
             vec![2, 3],
             "only witnesses strictly after the given coordinate",
         );
