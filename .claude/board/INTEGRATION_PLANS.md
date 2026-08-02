@@ -4,25 +4,34 @@
 The loop-closure driver: the missing seam that turns the merged `persist_sink`
 cycle/WAL bootstrap into a running loop at 64k concurrency. Today
 `persist_sink::{persist_cycle, WalSink, versions}` has **zero production
-callers** — the loop is open. The driver closes `collect casts → persist_cycle →
-sealed DatasetVersion → sync fan-step across the mailbox fleet →
-try_advance_phase (the KanbanStep) → CognitiveWork runs the thought →
-owner_adapter casts the next intent → back to collect`. Correctness pivot: the
-driver WROTE the version, so it fires `NextPhaseScheduler::on_version` +
-`try_advance_phase` **inline and synchronously** (no dataset re-read) — NOT 64k
-async `LanceVersionScheduler::drive_once` (that subscription variant is for
-reading a version you did NOT write). Mints NO new types — composes
-`KanbanMove`/`DatasetVersion`/`SweepSlot`/`BatchWriter`/`NextPhaseScheduler`/
-`KanbanActor`/`owner_adapter`/`recover_and_apply`. Deliverables D-MBX-A6-P4a
-(driver skeleton) → P4b (fleet fan-step) → P4c (loop closure round-trip) → P4d
-(wait-free-emit guard) → P4e (recovery composition) → P4f (16k/64k scale,
-W2a-gated), each probe-first. Home: `lance-graph-supervisor` (structural fleet
-owner; new planner path-dep, no cycle) with a planner fallback. HONEST: the
-CONTROL loop closes; the durability leg stays the contract-probe fake until the
-concrete `LanceShardSink` lands. Board-as-tenant (D-V3-W2a) is a SCALE gate, not
-a control-loop blocker. Companion to `persistence-cycle-wal-bootstrap-v1.md`
-(which also gained the §2 sparse-delta storage ruling this session — see
-EPIPHANIES `E-COMPLETE-CYCLE-IS-PHYSICALLY-SPARSE-NOT-A-FULL-REWRITE-1`).
+callers** — the loop is open. The driver closes: owners think over the sealed
+`Vn`; owners that produce material updates emit **sparse** fire-and-forget
+intents; the planner collects/coalesces/freezes one cycle (one WAL, `Vn+1`) and
+exposes the **sealed paired-transition set**; the supervisor applies **ONLY the
+sealed sparse transitions** (each represented owner advances one legal step;
+**all unrepresented owners stay byte-identical**); owners entering CognitiveWork
+run the thought and cast the next intent via `owner_adapter`. **Correctness
+pivot (corrects the earlier draft): a `DatasetVersion` is global knowledge, NOT
+permission to advance every mailbox** — the earlier "fan `on_version` across the
+whole fleet" model violated the sparse-cycle ruling and is removed. The sealed
+transitions are applied INLINE by the writer (no dataset re-read; NOT 64k async
+`LanceVersionScheduler::drive_once`, which is the reader-that-did-not-write
+variant). Interim rule: ≤1 durable phase transition per owner per sealed cycle.
+Mints NO new types — composes `KanbanMove`/`DatasetVersion`/`SweepSlot`/
+`BatchWriter`/`NextPhaseScheduler`/`KanbanActor`/`owner_adapter`/
+`recover_and_apply`. Deliverables D-MBX-A6-P4a (drain+seal) → P4b (apply sealed
+sparse set; falsifier: 64k mailboxes / 17 sealed transitions → exactly 17
+advance, rest byte-identical) → P4c (CognitiveWork+cast round-trip) → P4d
+(wait-free emit) → P4e (recovery composition) → P4f (sparse-routing scale
+16k/64k, W2a-gated), each probe-first. Home: `lance-graph-supervisor` (structural
+fleet owner; new one-way planner path-dep, verified acyclic) with a planner
+fallback. Also carries the D-MBX crate-responsibility map (§9), the
+adjacent-crates doctrine for symbiont / rs-graph-llm / ogar-* (§10), and the
+subagent anti-drift guardrail (§11). HONEST: the CONTROL loop closes; the
+durability leg stays the contract-probe fake until the concrete `LanceShardSink`
+lands. Board-as-tenant (D-V3-W2a) is a SCALE gate, not a control-loop blocker.
+Companion to `persistence-cycle-wal-bootstrap-v1.md` §2 sparse-delta ruling
+(EPIPHANIES `E-COMPLETE-CYCLE-IS-PHYSICALLY-SPARSE-NOT-A-FULL-REWRITE-1`).
 
 ## 2026-08-01 — CORRECTION to the §8 entry below: `RungLevel 0–10` → `0–9`
 
