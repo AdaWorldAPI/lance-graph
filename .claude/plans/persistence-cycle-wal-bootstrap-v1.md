@@ -1,6 +1,8 @@
 # persistence-cycle-wal-bootstrap-v1 — the primitive cycle/WAL seam and its temporal/revision upgrade path
 
-> **Status:** ACTIVE (bootstrap SHIPPED in PR #878; upgrade phases PLANNED).
+> **Status:** ACTIVE (bootstrap SHIPPED in PR #878; upgrade phases PLANNED; the
+> §2 sparse-delta storage rule is RATIFIED architecture, UNIMPLEMENTED in a
+> concrete Lance sink).
 > **Date:** 2026-08-02.
 > **Scope:** documentation-only architectural ruling. Records the *role* of the
 > #878 persistence seam and the intended larger two-dimensional temporal
@@ -60,12 +62,149 @@ The current scalar slot + single-key ordering model is **sufficient** to
 establish the execution and durability plumbing, and **nothing more**. It is
 **not** claimed to be the final representation of temporal or cognitive order.
 This document does **not** redesign or fix that limitation — recording the
-boundary is the whole point. The upgrade path is §2–§3; the accepted debts are
-§4.
+boundary is the whole point. The sparse-delta storage ruling is §2; the
+two-dimensional upgrade path is §3–§4; the accepted debts are §5.
 
 ---
 
-## 2. The intended larger architecture — two orthogonal dimensions
+## 2. A complete logical cycle is physically SPARSE (RATIFIED architecture, UNIMPLEMENTED in a concrete sink)
+
+> **Status of this section:** the sparse-delta rule is **RATIFIED as
+> architecture** and **UNIMPLEMENTED in a concrete Lance sink**. The #878
+> bootstrap remains SHIPPED; this section governs the *future* concrete sink,
+> not the merged contract-probe.
+
+**"One complete cycle image" must NEVER be read as serializing every row merely
+because every participant belonged to the cycle.** The load-bearing distinction:
+
+```
+complete logical cycle   ≠   full physical dataset rewrite
+```
+
+A cycle is **logically complete** when:
+
+- all required participants reached the cycle boundary,
+- all produced updates were collected,
+- updates were temporally ordered / coalesced,
+- all required lifecycle transitions were included,
+- the resulting change set was frozen,
+- the change set was committed atomically.
+
+The **physical payload stays sparse**:
+
+```
+64k participants
+  → N dirty rows (N may be ≪ 64k)
+  → one frozen sparse delta batch
+  → one WAL transaction
+  → one DatasetVersion
+```
+
+Unchanged rows are **inherited from the sealed predecessor version** and MUST
+NOT be serialized merely because they participated in the cycle.
+
+### The storage invariant (RATIFIED)
+
+> **«A cycle is globally complete but physically sparse. `commit_cycle`
+> persists only the coalesced dirty-row set and the required durable transition
+> metadata. Unchanged rows remain inherited from the sealed base version and do
+> not become new row payloads merely because they were members of the cycle.»**
+
+**"One WAL write per cycle" means one atomic durability boundary for the sparse
+change set.** It does **not** mean one full 64k-row (~32 MiB) snapshot per
+cycle.
+
+### Participation is separate from mutation
+
+Cycle participation / completion evidence is represented **compactly and
+separately** from row payloads:
+
+```
+cycle completion evidence (small footer):
+    cycle identity
+    sealed base version
+    expected / completed participation evidence or digest
+    dirty-row count
+    transition count
+    batch digest
+
+physical delta:
+    only rows whose FINAL state changed
+    only the required durable lifecycle transitions
+```
+
+**A participant that produced no state mutation MUST NOT require a 512-byte row
+payload merely to prove participation.** (Cohort internals — participant-count
+encoding, bitmap layout, ownership — are out of scope here; they belong to the
+cohort architecture session.)
+
+### Payload-duplication warning (honest bootstrap limitation)
+
+The #878 contract-probe shape currently duplicates bytes in memory:
+
+- `SweepSlot` owns payload bytes,
+- `DetachedCycleBatch` retains the per-landing records,
+- `freeze` also clones the final row payloads into the coalesced `image`.
+
+This is acceptable for the in-memory contract-probe fake. **The concrete Lance
+sink must NOT persist duplicate copies of both the per-landing payload bytes AND
+the final coalesced row image.** The future concrete shape keeps the three
+concerns distinct:
+
+```
+landing metadata / durable transitions
+  + one detached coalesced dirty-row image
+  + a small cycle footer / completion evidence
+```
+
+*(Recorded as a concrete-sink upgrade requirement — the Rust structs are NOT
+redesigned in this task.)*
+
+### Capacity + backpressure (concrete-sink ruling)
+
+```
+normal cycle:  a sparse dirty-row delta
+worst case:    every row genuinely dirty → ≈ one full row slab
+```
+
+A genuinely dense cycle is **valid**, but it is an **explicit capacity event**,
+not the default storage shape. The future concrete sink MUST define (numeric
+thresholds are NOT chosen in this documentation task):
+
+- maximum frozen cycles in flight,
+- maximum bytes in flight,
+- backpressure when WAL / storage falls behind,
+- checkpoint / compaction policy,
+- version-retention policy,
+- disk-space monitoring + a refusal threshold.
+
+### Required future falsifiers (concrete-sink, probe-first)
+
+1. **Sparse-cycle** — 64k logical participants, 17 dirty rows → one WAL
+   transaction → **exactly 17** coalesced row payloads written → one
+   `DatasetVersion` → unchanged rows inherited from `Vn`.
+2. **No-op-cycle policy** — zero dirty rows AND zero durable transitions → the
+   sink follows ONE explicitly documented policy: *either* no new
+   `DatasetVersion`, *or* a metadata-only cycle version. The policy is chosen
+   before the concrete sink ships; it MUST never write a full empty row slab.
+3. **Coalescing** — many updates to the same row in one cycle → **one** final
+   row payload physically written; intermediate payload copies are NOT persisted
+   as duplicate row state; the required transition history remains available
+   separately.
+4. **Dense-cycle capacity** — all rows genuinely dirty → one bounded dense
+   batch; backpressure prevents an unbounded queue of dense frozen cycles; no
+   silent disk exhaustion.
+5. **Retention** — many `DatasetVersion`s accumulate → a documented
+   retention / checkpoint policy bounds disk growth; versions inside the
+   configured hindsight horizon remain readable.
+
+**Scope fence for this section:** it concerns *physical persistence density
+only*. It does not pull cohort topology (§6), horizontal partial ordering
+(§3.1), or revision semantics (§4) into the concrete-sink design.
+
+---
+
+## 3. The intended larger architecture — two orthogonal dimensions
 
 The final architecture is two **orthogonal** dimensions. #878 supplies the
 vertical axis primitively and leaves the horizontal axis to a later phase.
@@ -127,11 +266,11 @@ durable states — the lookup is over already-coherent frames.
 
 > The version table performs **vertical** frame succession and lookup **only**.
 > It does **not** perform horizontal causal ordering — that is the horizontal
-> dimension's job (§2.1). Conflating the two is the error this section forecloses.
+> dimension's job (§3.1). Conflating the two is the error this section forecloses.
 
 ---
 
-## 3. Planned temporal error-correction phase (later; not #878)
+## 4. Planned temporal error-correction phase (later; not #878)
 
 The primitive #878 slot model may initially produce frames whose **horizontal
 coherence is incomplete** — the scalar order captures *that* results happened,
@@ -170,33 +309,37 @@ Lance versions preserve the successive durable vertical frames
 not be silently rewritten** merely because a later metacognitive pass revised
 its interpretation. Correction flows *forward* — into a later cycle / later
 version — never *backward* over a sealed frame. (This is the vertical-axis
-immutability that keeps the hindsight-lookup in §2.2 honest.)
+immutability that keeps the hindsight-lookup in §3.2 honest.)
 
 ---
 
-## 4. Known limitations accepted for #878
+## 5. Known limitations accepted for #878
 
 Recorded explicitly as **upgrade points**, not as claims that #878 already
 solves the final temporal model:
 
 - The scalar slot model is **provisional**.
-- A scalar key **may not capture** future partial-order cognition (§2.1).
+- A scalar key **may not capture** future partial-order cognition (§3.1).
 - Cross-owner and equal-position **conflict semantics are not finalized**.
 - Cycle **retry** and **production WAL idempotence** still require
   concrete-sink hardening.
 - The **fake WAL sink proves the contract shape, not real crash durability**
   (`compile+test green ≠ storage proven`, the Ladybug lesson).
-- The **complete horizontal temporal projection remains future work** (§2.1,
+- The contract-probe shape **duplicates payload bytes in memory** (`SweepSlot` +
+  `DetachedCycleBatch` landings + the coalesced `image`); the concrete sink must
+  not persist both copies. Full statement + the sparse-delta storage invariant
+  and the five concrete-sink falsifiers are in §2.
+- The **complete horizontal temporal projection remains future work** (§3.1,
   cross-ref `temporal-markov-and-style-classes-v1.md`).
 
 ---
 
-## 5. Scope exclusions (this document and the #878 bootstrap)
+## 6. Scope exclusions (this document and the #878 bootstrap)
 
 - Do **not** introduce or document detailed **cohort internals**.
 - Do **not** mention a **fixed number of cohort slots**.
 - Do **not** design **actor-neighbour waiting or firing dependencies** (the
-  emit path is wait-free by §3).
+  emit path is wait-free by §4).
 - Do **not** invent new **semantic, temporal, rung, witness, branch, or
   ancestry** types.
 - Do **not** revive `ThoughtWitness`, `basis`, `awareness_seq`, or **per-cast
@@ -207,16 +350,17 @@ solves the final temporal model:
 
 ---
 
-## 6. Status snapshot
+## 7. Status snapshot
 
 | Aspect | State |
 |---|---|
 | Cycle/WAL bootstrap seam (`persist_sink`) | **SHIPPED** in PR #878 (bootstrap; contract-probed, not storage-proven) |
 | Vertical axis (`DatasetVersion` succession + lookup) | Established primitively by the seam |
 | Horizontal axis (`temporal.rs` coherence over a frame) | **PLANNED** — owned by `temporal-markov-and-style-classes-v1.md` |
-| Shadow temporal-coherence correction pass | **PLANNED** (§3) |
-| `revision.rs` forward-correction mechanism | **PLANNED** (§3) |
-| Concrete Lance sink (real crash durability) | **DEFERRED** — gated on crash falsifiers (§4) |
+| Shadow temporal-coherence correction pass | **PLANNED** (§4) |
+| `revision.rs` forward-correction mechanism | **PLANNED** (§4) |
+| Concrete Lance sink (real crash durability) | **DEFERRED** — gated on crash falsifiers (§5) |
+| Sparse-delta storage rule (complete cycle ≠ full rewrite) | **RATIFIED architecture, UNIMPLEMENTED in a concrete sink** (§2) |
 
 The bootstrap exists so the rest can be built on a running, durable seam. The
 scalar order is a load-bearing placeholder, and this document is the record that

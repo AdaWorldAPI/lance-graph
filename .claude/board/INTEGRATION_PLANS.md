@@ -1,3 +1,29 @@
+## 2026-08-02 — cycle-loop-closure-driver v1 — PLANNED / CONJECTURE (the seam that makes persist_sink load-bearing at 64k) — main thread
+
+**Plan:** `.claude/plans/cycle-loop-closure-driver-v1.md`
+The loop-closure driver: the missing seam that turns the merged `persist_sink`
+cycle/WAL bootstrap into a running loop at 64k concurrency. Today
+`persist_sink::{persist_cycle, WalSink, versions}` has **zero production
+callers** — the loop is open. The driver closes `collect casts → persist_cycle →
+sealed DatasetVersion → sync fan-step across the mailbox fleet →
+try_advance_phase (the KanbanStep) → CognitiveWork runs the thought →
+owner_adapter casts the next intent → back to collect`. Correctness pivot: the
+driver WROTE the version, so it fires `NextPhaseScheduler::on_version` +
+`try_advance_phase` **inline and synchronously** (no dataset re-read) — NOT 64k
+async `LanceVersionScheduler::drive_once` (that subscription variant is for
+reading a version you did NOT write). Mints NO new types — composes
+`KanbanMove`/`DatasetVersion`/`SweepSlot`/`BatchWriter`/`NextPhaseScheduler`/
+`KanbanActor`/`owner_adapter`/`recover_and_apply`. Deliverables D-MBX-A6-P4a
+(driver skeleton) → P4b (fleet fan-step) → P4c (loop closure round-trip) → P4d
+(wait-free-emit guard) → P4e (recovery composition) → P4f (16k/64k scale,
+W2a-gated), each probe-first. Home: `lance-graph-supervisor` (structural fleet
+owner; new planner path-dep, no cycle) with a planner fallback. HONEST: the
+CONTROL loop closes; the durability leg stays the contract-probe fake until the
+concrete `LanceShardSink` lands. Board-as-tenant (D-V3-W2a) is a SCALE gate, not
+a control-loop blocker. Companion to `persistence-cycle-wal-bootstrap-v1.md`
+(which also gained the §2 sparse-delta storage ruling this session — see
+EPIPHANIES `E-COMPLETE-CYCLE-IS-PHYSICALLY-SPARSE-NOT-A-FULL-REWRITE-1`).
+
 ## 2026-08-01 — CORRECTION to the §8 entry below: `RungLevel 0–10` → `0–9`
 
 The `2026-07-31 — SYNERGY-MAP-S00-S07 §8` entry's summary line reads
