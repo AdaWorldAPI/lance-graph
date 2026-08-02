@@ -44,14 +44,17 @@
 use std::collections::{HashMap, HashSet};
 
 use lance_graph_contract::collapse_gate::MailboxId;
-use lance_graph_contract::kanban::KanbanMove;
+use lance_graph_contract::kanban::{KanbanColumn, KanbanMove};
 use lance_graph_contract::scheduler::DatasetVersion;
 use lance_graph_contract::soa_view::{MailboxSoaOwner, MailboxSoaView};
 
 use lance_graph_planner::batch_writer::BatchWriter;
+use lance_graph_planner::owner_adapter::emit_bootstrap_intent;
 use lance_graph_planner::persist_sink::{
-    persist_cycle, CycleFrame, CycleId, PersistError, SweepSlot, WalSink,
+    persist_cycle, recover_and_apply, CycleFrame, CycleId, LandedSlot, PersistError, SweepSlot,
+    WalSink,
 };
+use lance_graph_planner::traits::StrategyOutcome;
 
 /// One sealed paired transition — a member of the **sparse** set a sealed cycle
 /// publishes. Carries `stream_position` so P4b applies transitions in canonical
@@ -102,7 +105,9 @@ pub struct AppliedCycle {
 pub trait MailboxFleet {
     /// The concrete owner type this fleet holds.
     type Owner: MailboxSoaOwner;
-    /// Resolve a mailbox to its owner, or `None` if it is not registered.
+    /// Resolve a mailbox to its owner (read-only) — used by P4c's thought body.
+    fn owner(&self, id: MailboxId) -> Option<&Self::Owner>;
+    /// Resolve a mailbox to its owner for mutation, or `None` if not registered.
     fn owner_mut(&mut self, id: MailboxId) -> Option<&mut Self::Owner>;
 }
 
@@ -110,6 +115,9 @@ pub trait MailboxFleet {
 /// production supervisor's owner registry and by the tests.
 impl<O: MailboxSoaOwner> MailboxFleet for HashMap<MailboxId, O> {
     type Owner = O;
+    fn owner(&self, id: MailboxId) -> Option<&O> {
+        self.get(&id)
+    }
     fn owner_mut(&mut self, id: MailboxId) -> Option<&mut O> {
         self.get_mut(&id)
     }
@@ -268,6 +276,117 @@ where
     Ok((sealed, applied))
 }
 
+/// **P4c.** For each owner that ENTERED `CognitiveWork` this cycle (an applied
+/// move whose `to` is [`KanbanColumn::CognitiveWork`]), run the pluggable thought
+/// body and route its Outcome into the NEXT cycle's casts via
+/// `owner_adapter::emit_bootstrap_intent`. Returns the number of next-cycle
+/// intents cast.
+///
+/// The thought body is a **seam, not designed here** (§5.4 of the plan): `think`
+/// is `FnMut(&Owner) -> Option<(StrategyOutcome, payload)>`. `None` = the thought
+/// produced no next intent (the owner rests). The Outcome's `intended_move` must
+/// be a **bootstrap sentinel** (`mailbox 0`) — `owner_adapter` rebinds it to the
+/// live owner (no-theft) and casts it **write-on-behalf**, so the owner announces
+/// where it is going and the next cycle collects it. This never mutates a mailbox
+/// (the step is P4b, post-seal); it only stages the next intent.
+pub fn run_cognitive_work<F>(
+    fleet: &F,
+    applied: &AppliedCycle,
+    writer: &mut BatchWriter<Vec<u8>>,
+    mut think: impl FnMut(&F::Owner) -> Option<(StrategyOutcome, Vec<u8>)>,
+) -> usize
+where
+    F: MailboxFleet,
+{
+    let mut cast_count = 0usize;
+    for mv in &applied.applied {
+        // Only owners that just entered CognitiveWork run the thought body.
+        if mv.to != KanbanColumn::CognitiveWork {
+            continue;
+        }
+        let Some(owner) = fleet.owner(mv.mailbox) else {
+            continue;
+        };
+        if let Some((outcome, payload)) = think(owner) {
+            // owner_adapter rebinds the bootstrap sentinel to this owner + casts it
+            // write-on-behalf; a non-sentinel / no-intent outcome stages nothing.
+            if emit_bootstrap_intent(
+                &outcome,
+                owner.mailbox_id(),
+                owner.current_cycle(),
+                writer,
+                payload,
+            )
+            .is_some()
+            {
+                cast_count += 1;
+            }
+        }
+    }
+    cast_count
+}
+
+/// The effect of a [`recover_fleet`] pass.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct FleetRecovery {
+    /// Total moves re-applied across all recovered owners this pass.
+    pub total_applied: usize,
+    /// Owners that had a pending tail replayed (non-empty applied set).
+    pub owners_recovered: usize,
+}
+
+/// **P4e.** Fleet-level crash recovery: scan the sealed landings once and replay
+/// each owner's PENDING tail via `persist_sink::recover_and_apply`, idempotent
+/// with a **per-owner watermark**. Only unreplayed moves (above the owner's
+/// watermark) are applied; already-applied moves are skipped; unrepresented
+/// owners are untouched. `watermarks` is updated in place with the new per-owner
+/// watermark to persist alongside the SoA phase.
+///
+/// On a mid-owner failure the partial progress is kept: the failing owner's
+/// watermark is still advanced for its applied prefix (per
+/// `recover_and_apply`'s `Err((partial, cause))` contract) before the error is
+/// returned, so a re-drive does not replay the applied prefix.
+pub async fn recover_fleet<S, F>(
+    sink: &S,
+    fleet: &mut F,
+    fleet_ids: &[MailboxId],
+    watermarks: &mut HashMap<MailboxId, Option<u64>>,
+) -> Result<FleetRecovery, PersistError>
+where
+    S: WalSink,
+    F: MailboxFleet,
+{
+    let sealed: Vec<LandedSlot> = sink.scan_sealed(None).await.map_err(PersistError::Write)?;
+    let mut total_applied = 0usize;
+    let mut owners_recovered = 0usize;
+    for &id in fleet_ids {
+        let Some(owner) = fleet.owner_mut(id) else {
+            continue;
+        };
+        let wm = watermarks.get(&id).copied().flatten();
+        match recover_and_apply(owner, &sealed, wm) {
+            Ok(rec) => {
+                if !rec.applied.is_empty() {
+                    owners_recovered += 1;
+                }
+                total_applied += rec.applied.len();
+                watermarks.insert(id, rec.watermark);
+            }
+            Err((partial, cause)) => {
+                // Keep the earned watermark for the applied prefix, then surface the
+                // error (the partial `applied` count is discarded — the caller
+                // re-drives from the persisted watermark).
+                watermarks.insert(id, partial.watermark);
+                return Err(cause);
+            }
+        }
+    }
+    Ok(FleetRecovery {
+        total_applied,
+        owners_recovered,
+    })
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -341,6 +460,7 @@ mod tests {
     struct SealedRec {
         frame: CycleFrame,
         version: DatasetVersion,
+        landings: Vec<SweepSlot>,
     }
     struct FakeWalSink {
         sealed: Mutex<Vec<SealedRec>>,
@@ -380,15 +500,28 @@ mod tests {
             sealed.push(SealedRec {
                 frame: batch.frame,
                 version,
+                landings: batch.landings,
             });
             Ok(version)
         }
         async fn scan_sealed(
             &self,
-            _from: Option<DatasetVersion>,
+            from: Option<DatasetVersion>,
         ) -> Result<Vec<LandedSlot>, WriteFailed> {
             self.reads.fetch_add(1, Ordering::SeqCst);
-            Ok(Vec::new())
+            Ok(self
+                .sealed
+                .lock()
+                .unwrap()
+                .iter()
+                .filter(|s| from.is_none_or(|f| s.version > f))
+                .flat_map(|s| {
+                    s.landings.iter().map(|slot| LandedSlot {
+                        version: s.version,
+                        slot: slot.clone(),
+                    })
+                })
+                .collect())
         }
         async fn versions(&self) -> Result<Vec<(CycleId, DatasetVersion)>, WriteFailed> {
             self.reads.fetch_add(1, Ordering::SeqCst);
@@ -654,5 +787,204 @@ mod tests {
         );
         assert_eq!(sink.wal_writes(), 1);
         assert_eq!(sink.reads(), 0);
+    }
+
+    /// A bootstrap-sentinel move (owner 0, cycle 0) that `owner_adapter` rebinds.
+    fn sentinel(from: KanbanColumn, to: KanbanColumn) -> KanbanMove {
+        KanbanMove {
+            mailbox: 0,
+            from,
+            to,
+            witness_chain_position: 0,
+            exec: ExecTarget::Native,
+        }
+    }
+
+    // ── P4c FALSIFIER: CognitiveWork thought → next-cycle cast → round-trip ─────
+    #[tokio::test]
+    async fn p4c_cognitive_work_casts_the_next_intent_and_round_trips() {
+        let sink = FakeWalSink::new();
+        let mut fleet: HashMap<MailboxId, FakeOwner> =
+            HashMap::from([(5, FakeOwner::at(5, KanbanColumn::Planning))]);
+        let mut w = writer_with_moves(&[5]);
+
+        // Cycle 1: owner 5 casts Planning→CognitiveWork; the driver applies it.
+        let (_s1, applied1) = run_cycle(
+            &sink,
+            &mut fleet,
+            &mut w,
+            CycleFrame::new(CycleId(1), DatasetVersion(0)),
+            u64::from,
+        )
+        .await
+        .unwrap();
+        assert_eq!(fleet[&5].phase(), KanbanColumn::CognitiveWork);
+
+        // P4c: owner 5 (now in CognitiveWork) thinks → intends CognitiveWork→Evaluation,
+        // cast as a bootstrap sentinel into the writer for cycle 2.
+        let cast_count = run_cognitive_work(&fleet, &applied1, &mut w, |owner| {
+            assert_eq!(owner.phase(), KanbanColumn::CognitiveWork);
+            let outcome = StrategyOutcome {
+                reliability: 0.9,
+                intended_move: Some(sentinel(
+                    KanbanColumn::CognitiveWork,
+                    KanbanColumn::Evaluation,
+                )),
+            };
+            Some((outcome, vec![0xCC]))
+        });
+        assert_eq!(cast_count, 1, "one next-cycle intent cast");
+
+        // Cycle 2: the driver drains that cast → seals V2 → applies → owner 5 → Evaluation.
+        let (s2, applied2) = run_cycle(
+            &sink,
+            &mut fleet,
+            &mut w,
+            CycleFrame::new(CycleId(2), DatasetVersion(1)),
+            u64::from,
+        )
+        .await
+        .unwrap();
+        assert_eq!(s2.version, DatasetVersion(2));
+        assert_eq!(
+            applied2.applied.len(),
+            1,
+            "the round-tripped intent advanced owner 5 one further step"
+        );
+        assert_eq!(fleet[&5].phase(), KanbanColumn::Evaluation);
+    }
+
+    // ── P4d FALSIFIER: an incomplete owner never blocks a completed one ─────────
+    #[tokio::test]
+    async fn p4d_an_incomplete_owner_never_blocks_a_completed_one() {
+        // Owner A(1) completes + casts; owner B(2) is "mid-thought" (no cast).
+        let sink = FakeWalSink::new();
+        let mut fleet: HashMap<MailboxId, FakeOwner> = HashMap::from([
+            (1, FakeOwner::at(1, KanbanColumn::Planning)),
+            (2, FakeOwner::at(2, KanbanColumn::Planning)),
+        ]);
+        let mut w = writer_with_moves(&[1]); // ONLY A casts
+
+        let (_s, applied) = run_cycle(
+            &sink,
+            &mut fleet,
+            &mut w,
+            CycleFrame::new(CycleId(1), DatasetVersion(0)),
+            u64::from,
+        )
+        .await
+        .unwrap();
+
+        // A advanced without waiting for B; B is byte-identical. No barrier, no error.
+        assert_eq!(applied.applied.len(), 1);
+        assert_eq!(
+            fleet[&1].phase(),
+            KanbanColumn::CognitiveWork,
+            "A completed + advanced"
+        );
+        assert_eq!(
+            fleet[&2].phase(),
+            KanbanColumn::Planning,
+            "B mid-thought never blocked A"
+        );
+        assert_eq!(
+            fleet[&2].current_cycle(),
+            0,
+            "B byte-identical — no neighbour wait"
+        );
+    }
+
+    // ── P4e FALSIFIER: recovery replays the pending tail, idempotent w/ watermark ─
+    #[tokio::test]
+    async fn p4e_recover_fleet_replays_pending_tail_idempotent_with_watermark() {
+        // Seal a cycle with owner 5's Planning→CognitiveWork move (a durable landing).
+        let sink = FakeWalSink::new();
+        let mut w = writer_with_moves(&[5]);
+        let casts = collect_casts(&mut w, CycleId(1), u64::from);
+        seal_cycle(&sink, CycleFrame::new(CycleId(1), DatasetVersion(0)), casts)
+            .await
+            .unwrap();
+
+        // Restart: a FRESH owner 5 at its pre-move phase, empty watermarks.
+        let mut fleet: HashMap<MailboxId, FakeOwner> =
+            HashMap::from([(5, FakeOwner::at(5, KanbanColumn::Planning))]);
+        let mut wm: HashMap<MailboxId, Option<u64>> = HashMap::new();
+
+        let rec = recover_fleet(&sink, &mut fleet, &[5], &mut wm)
+            .await
+            .unwrap();
+        assert_eq!(rec.total_applied, 1, "the pending move was replayed");
+        assert_eq!(rec.owners_recovered, 1);
+        assert_eq!(fleet[&5].phase(), KanbanColumn::CognitiveWork);
+
+        // Re-drive with the returned watermark → idempotent (nothing re-applied).
+        let again = recover_fleet(&sink, &mut fleet, &[5], &mut wm)
+            .await
+            .unwrap();
+        assert_eq!(
+            again.total_applied, 0,
+            "watermark makes recovery idempotent"
+        );
+
+        // Negative control: watermark LOST → re-driving the already-advanced owner
+        // stalls (from=Planning ≠ phase=CognitiveWork) → the watermark is load-bearing.
+        let mut wm_lost: HashMap<MailboxId, Option<u64>> = HashMap::new();
+        let stalled = recover_fleet(&sink, &mut fleet, &[5], &mut wm_lost).await;
+        assert!(
+            matches!(stalled, Err(PersistError::StalePhase { .. })),
+            "without the watermark an acyclic re-drive stalls — watermark is load-bearing"
+        );
+    }
+
+    // A fleet that COUNTS owner resolutions — proves apply cost is O(sparse set).
+    struct CountingFleet {
+        inner: HashMap<MailboxId, FakeOwner>,
+        resolves: usize,
+    }
+    impl MailboxFleet for CountingFleet {
+        type Owner = FakeOwner;
+        fn owner(&self, id: MailboxId) -> Option<&FakeOwner> {
+            self.inner.get(&id)
+        }
+        fn owner_mut(&mut self, id: MailboxId) -> Option<&mut FakeOwner> {
+            self.resolves += 1;
+            self.inner.get_mut(&id)
+        }
+    }
+
+    // ── P4f (SCALE): apply cost scales with the SPARSE set, not the fleet ───────
+    #[tokio::test]
+    async fn p4f_apply_cost_scales_with_the_sparse_set_not_the_fleet() {
+        const FLEET: u32 = 65_536;
+        const DIRTY: u32 = 640; // ~1% sparse dirty fraction
+        let inner: HashMap<MailboxId, FakeOwner> = (0..FLEET)
+            .map(|id| (id, FakeOwner::at(id, KanbanColumn::Planning)))
+            .collect();
+        let mut fleet = CountingFleet { inner, resolves: 0 };
+
+        let sink = FakeWalSink::new();
+        let represented: Vec<MailboxId> = (0..DIRTY).map(|i| i * 100).collect();
+        let mut w = writer_with_moves(&represented);
+        let casts = collect_casts(&mut w, CycleId(1), u64::from);
+        let sealed = seal_cycle(&sink, CycleFrame::new(CycleId(1), DatasetVersion(0)), casts)
+            .await
+            .unwrap();
+        assert_eq!(sealed.transitions.len(), DIRTY as usize);
+
+        let applied = apply_sealed_transitions(&mut fleet, &sealed).unwrap();
+        assert_eq!(
+            applied.applied.len(),
+            DIRTY as usize,
+            "exactly the dirty set advanced"
+        );
+        // THE MEASUREMENT: owner resolution touched the sparse set ONLY — 640, not 64k.
+        assert_eq!(
+            fleet.resolves, DIRTY as usize,
+            "apply resolves exactly the sparse set (O(dirty)), never the {FLEET}-owner fleet"
+        );
+        eprintln!(
+            "perf.p4f fleet={FLEET} dirty={DIRTY} resolves={} (sparse routing: apply is O(dirty), not O(fleet))",
+            fleet.resolves
+        );
     }
 }
