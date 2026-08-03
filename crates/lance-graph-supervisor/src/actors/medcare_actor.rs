@@ -1,19 +1,28 @@
-//! `MedcareConsumerActor` — G=2, HEALTHCARE_V1 consumer actor (proof-of-concept).
+//! ⚠ STATUS: UNWIRED STUB — never spawned, owns no bridge, emits no audit.
+//! Every `handle` arm is a `tracing::debug!` plus a `// TODO`; the supervisor
+//! tree spawns `supervisor::StubConsumerActor` instead (supervisor.rs:368).
+//! Retained as the worked SHAPE for a generic `ConsumerActor<P: PortSpec>`; it
+//! is public API (re-exported from `lib.rs`), so removal is a breaking change.
 //!
-//! This is the first concrete `Actor` impl for the `CallcenterSupervisor` tree.
-//! It owns a `UnifiedBridge<MedcareBridge>` (to be wired in the full impl) and
-//! responds to `ConsumerEnvelope` messages, emitting `UnifiedAuditEvent` records
-//! via the bridge's `AuditChain` on each authorization decision.
+//! Healthcare-specific surface is two constants (`MEDCARE_G`,
+//! `MEDCARE_VERSION`), one env-var name (`MEDCARE_AUDIT_SALT`) and the type
+//! names — the message handling itself is generic `ConsumerEnvelope` logging.
 //!
-//! For v1 (sprint-7), this is a **skeleton**:
-//! - `UnifiedBridge` wiring is a `// TODO` (HSM salt wiring is sprint-8).
-//! - `ConsumerEnvelope::Health` is fully handled.
-//! - All other arms return a diagnostic response.
+//! What it would become: the actor half of the collapse the bridge already
+//! made (`MedcareBridge` → `UnifiedBridge<HealthcarePort>`, lance-graph#570).
+//! `MEDCARE_G` / `MEDCARE_VERSION` / the actor name / the audit-salt env var
+//! are spawn parameters a `PortSpec` already carries (`P::NAMESPACE`,
+//! `P::BRIDGE_ID`, `P::class_id`), so the generic form re-derives this file as
+//! a one-line type alias. The healthcare VOCABULARY is owned upstream and is
+//! not duplicated here: capability + classid table in `ogar_vocab`
+//! (`healthcare_actions`, `ports::HealthcarePort`), public ontology reference
+//! in OGAR `ogar-obo` (MONDO/HPO/Uberon/PATO/RO + the agnostic xref crosswalk).
 //!
-//! Audit chain initialization: accepts env var `MEDCARE_AUDIT_SALT` (hex u64).
-//! Sprint-8 hardening PR wires HSM instead.
-//!
-//! Spec: pr-g2-ractor-supervisor.md §8 (medcare_actor.rs, ~130 LOC).
+//! Original v1 intent (sprint-7 spec `pr-g2-ractor-supervisor.md` §8), none of
+//! it built: own a `UnifiedBridge`, answer `ConsumerEnvelope`, emit
+//! `UnifiedAuditEvent` per authorization decision, seed the `AuditChain` from
+//! `MEDCARE_AUDIT_SALT` (hex u64) and later from HSM. The env var is read in
+//! `pre_start` and logged; it is wired to nothing else.
 
 use ractor::{Actor, ActorProcessingErr, ActorRef};
 use tracing;
