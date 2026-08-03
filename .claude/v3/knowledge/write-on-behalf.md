@@ -5,7 +5,7 @@
 > ladybug-rs), and any session adding a write path to SoA rows / Lance
 > datasets / tenant lanes.
 
-## Status: FINDING (operator-ruled 2026-07-02; batch writer + `owner_adapter` write-on-behalf cast SHIPPED 2026-08-01 — no production caller of `emit_bootstrap_intent` yet)
+## Status: FINDING (operator-ruled 2026-07-02; batch writer + `owner_adapter` write-on-behalf cast SHIPPED 2026-08-01; `cycle_driver.rs` `cognitive_pass` is the existing production caller of `emit_bootstrap_intent` — HashMap-probe-fleet-driven; the first ACTOR-OWNED `KanbanActor` caller is the open W1 work, plan `kanban-64k-inverted-awareness-v1` D-KIA-A1)
 
 ---
 
@@ -61,10 +61,20 @@ Before authoring any consumer write path:
 
 ## Interim reality (audited 2026-07-02; CORRECTED same day by the consumer audit)
 
+> **⊘ SUPERSEDED 2026-08-01 (D-MBX-A6-P3c).** The batch writer + a real
+> write-on-behalf consumer shipped: `owner_adapter::emit_bootstrap_intent`
+> casts `on_behalf` of the live owner. Its existing caller is
+> `cycle_driver.rs:516` (`cognitive_pass`) — production lib code, but driven by
+> the HashMap probe fleet, not by actors; the first ACTOR-OWNED `KanbanActor`
+> caller is open (D-KIA-A1). This entry replaces an earlier, narrower correction
+> (2026-07-31, PR #876 exec-run arc) that only retired the "batch writer does
+> not exist" claim without yet having a real consumer to point at.
+
 The batch writer now exists (`lance_graph_planner::batch_writer::BatchWriter`)
 and `owner_adapter::emit_bootstrap_intent` is its write-on-behalf consumer — it
-casts `on_behalf` of the live owner (D-MBX-A6-P3c, 2026-08-01). `emit_bootstrap_intent`
-itself has no production caller yet (INTEGRATION-PLAN W1). Almost all consumer writes are **bake pipelines**
+casts `on_behalf` of the live owner (D-MBX-A6-P3c, 2026-08-01); `cycle_driver.rs`'s
+`cognitive_pass` calls it (HashMap-fleet-driven) — the first ACTOR-OWNED caller
+remains open (D-KIA-A1). Almost all consumer writes are **bake pipelines**
 (q2 `osint_scene.soa` / `fma.soa` / `body.soa`): offline, single-writer,
 owner-less by construction — grandfathered as bootstrap-owner writes,
 migrating in W5.

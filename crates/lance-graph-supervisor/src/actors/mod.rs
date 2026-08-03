@@ -1,9 +1,12 @@
-//! Per-consumer actor implementations.
+//! ⚠ STATUS: NO CONCRETE ACTOR SHIPS HERE YET — the one module below is an
+//! unwired stub. Every G slot the supervisor actually spawns gets
+//! `supervisor::StubConsumerActor`; nothing in this directory is reachable at
+//! runtime. Treat the contents as shape/reference, not as consumer wiring.
 //!
-//! Each active G slot has one actor. The `StubConsumerActor` (in `supervisor.rs`)
-//! serves as the skeleton. Concrete implementations live here:
+//! Per-consumer actor implementations. Each active G slot has one actor.
 //!
-//! - `medcare_actor.rs` — `MedcareConsumerActor` (G=2, HEALTHCARE_V1, proof-of-concept)
+//! - `medcare_actor.rs` — `MedcareConsumerActor` (G=2, HEALTHCARE_V1) —
+//!   UNWIRED stub; the generalization candidate for `ConsumerActor<P: PortSpec>`
 //!
 //! Future:
 //! - `ogit_actor.rs`  — OgitBridge actor (G=4, SMB_V1)

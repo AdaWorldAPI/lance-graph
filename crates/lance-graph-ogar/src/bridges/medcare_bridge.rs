@@ -1,4 +1,7 @@
-//! MedCare (healthcare) tenant bridge — now a thin type alias over
+//! ⚠ STATUS: DEPRECATED alias — do not construct. Pull the classid via
+//! `ogar_vocab::ports::HealthcarePort::class_id(name)` (OGAR#95,
+//! `docs/CONSUMER-BRIDGE-DEPRECATION.md`). What remains is one line: the
+//! healthcare tenant bridge as a thin type alias over
 //! [`crate::bridges::unified::UnifiedBridge`] parameterised by
 //! [`ogar_vocab::ports::HealthcarePort`].
 //!

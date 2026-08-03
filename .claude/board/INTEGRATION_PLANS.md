@@ -1,3 +1,43 @@
+## 2026-08-02 — kanban-64k-inverted-awareness v1 — PLANNED / CONJECTURE (parallel thinking + the inverted-awareness witness) — main thread
+
+**Plan:** `.claude/plans/kanban-64k-inverted-awareness-v1.md`
+Two operator anchors: (a) real thinking at 64k via kanban orchestration **in
+parallel** — everything shipped by `cycle-loop-closure-driver-v1`/PR #879
+except the word "parallel" (driver loop is synchronous, fleet is a HashMap,
+`KanbanActor` unwired = the named incomplete refactor); Arm A designs the
+actor-fleet driver seam (`MailboxFleet`-over-registry withdrawn per codex P1 —
+the trait's sync `owner()`/`owner_mut()` borrows cannot reach actor-private
+state behind `where_is`; W1 chooses guarantee-dummy single owner vs per-mailbox
+`KanbanMsg::Advance` apply) and lands the first ACTOR-OWNED caller of
+`owner_adapter::emit_bootstrap_intent` (the existing `cognitive_pass` caller is
+HashMap-fleet-driven — the deliberate order-free keyed store, ordering
+recovered by `temporal.rs` at read),
+then MEASURES parallelism with a pre-registered can-fire/stay-silent falsifier, with the
+pre-registered kill condition that failure regrades the claim to "64k-scale
+sequential sparse cycles". (b) inverted awareness for the private consumer arc:
+ontology = frozen-cathedral LTM, subject STM observations reflected via
+rails-shaped READ-ONLY wiring (no `&mut` path to the cathedral, checked
+structurally), catalog criteria as binary ranges (contract type + the
+catalog-mirror drift guard generalized); view-2 cohort statistics as the WITNESS —
+stored under the zero-copy law's ELEVATED carve-out, with the dichotomous
+forms named honestly (φ not "Pearson", KR-20 not "α", κ-family not "ICC",
+Spearman dropped at view 2), Jirak 2016 noise floors per I-NOISE-FLOOR-JIRAK,
+a hard reliability≠validity gate (validity unclaimed until an external
+criterion exists), and an anti-circularity rule (witness gates only via
+held-out slices — the task-#65 M-GATE lesson promoted to a rule). Arm D:
+observer/observed as two Locus categories over ONE arena (cheapest-first via
+`standing_wave_grounded_lens`), reflexivity stays escalate
+(PROBE-REFLEXIVE-POLICY untouched), and measurable Horizontverschmelzung as a
+falsifier with the middle band PRE-REGISTERED before any run (κ≈1 =
+redundancy, κ≈0 = no shared horizon, fusion lives between — κ-family per the
+plan's own dichotomous rule; ICC only on the jc non-binary escalation) — whose machinery
+is also the corpus-side Synthesis producer that un-blocks session task #65's gate 1
+without the query-string category error. Waves W0–W6 (D-KIA-0/A1/A2/B1/C5/D1/D3),
+each probe-first with both falsifier halves. Blocked-on external: the consumer
+physical bake (private repo), validity criterion, `LanceShardSink`. Built on the R1–R15
+review list (session 2026-08-02); §0 ground state carries receipts so nothing
+is re-derived.
+
 ## 2026-08-02 — cycle-loop-closure-driver v1 — PLANNED / CONJECTURE (the seam that makes persist_sink load-bearing at 64k) — main thread
 
 **Plan:** `.claude/plans/cycle-loop-closure-driver-v1.md`

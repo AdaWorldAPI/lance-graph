@@ -1,3 +1,9 @@
+//! ⚠ STATUS: PARTIAL — only the label-codebook half is implemented
+//! ([`LabelColumn`]). The address column, edge pairs, `ClassView` inheritance
+//! and the bake driver are TYPE SCAFFOLDING, not a working bake. OGAR's
+//! `ogar-obo` / `ogar-fma` now ship complete bakes emitting `NodeRow` bytes,
+//! so whether this half stays a bake or becomes a loader is an OPEN question.
+//!
 //! **SoA bake** — the codec-native ontology cache (issue #845).
 //!
 //! An RDF/OWL/OBO source file is *address-verbatim* — every triple respells
