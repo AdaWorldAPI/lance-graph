@@ -1,3 +1,17 @@
+## kanban-64k-inverted-awareness v1 — parallel thinking + inverted-awareness witness (PLANNED 2026-08-02)
+
+Plan: `.claude/plans/kanban-64k-inverted-awareness-v1.md` (operator anchors a/b; R1-R15 review basis).
+
+| D-id | Deliverable | Repo | Status | Evidence |
+|---|---|---|---|---|
+| D-KIA-0 | jc capability map + dichotomous-statistics decision note (phi/KR-20/kappa naming; Spearman dropped at view 2) | lance-graph | Queued | plan W0 |
+| D-KIA-A1 | actor-fleet driver seam — design gate (guarantee-dummy single owner vs per-mailbox KanbanMsg apply; MailboxFleet-over-registry withdrawn per codex P1); first ACTOR-OWNED caller of owner_adapter::emit_bootstrap_intent; #879 caveat fixes (retry footgun guard, held_owners strand falsifier, missing-owner counter) | lance-graph | Queued | plan W1 |
+| D-KIA-A2 | parallelism falsifier (protocol pre-registered: median-of-5, >=2x at >=4k owners, +/-10% stay-silent; kill = regrade claim (a)) | lance-graph | Queued | plan W2 |
+| D-KIA-B1 | catalog binary-range criterion contract type + generalized catalog-mirror drift guard | lance-graph | Queued | plan W3 |
+| D-KIA-C5 | cohort-statistic witness type under the ELEVATED carve-out + held-out anti-circularity gate | lance-graph | Queued | plan W4 |
+| D-KIA-D1 | observer/observed as two Locus categories over one arena (cheapest-first) | lance-graph | Queued | plan W5 |
+| D-KIA-D3 | Horizontverschmelzung fusion falsifier, middle band pre-registered; corpus-side Synthesis producer (un-blocks session task #65 gate 1 — session-local task list, not a GitHub number) | lance-graph | Queued | plan W6 |
+
 ## PROBE-BABEL-STANCES — two Rosetta stones + four-channel phase split (IN PR — slice 2, 2026-07-28)
 
 | D-id | Deliverable | Repo | Status | Evidence |
