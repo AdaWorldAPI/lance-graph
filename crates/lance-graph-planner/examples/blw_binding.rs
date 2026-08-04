@@ -188,6 +188,15 @@ const NEAR_CONSTANT_RATE: f64 = 0.90;
 /// vacuity the file rejects elsewhere — a test no input can fail. Pairs below
 /// the floor are still PRINTED (suppressing them would hide the raw
 /// observation); they simply do not lower the reported ceiling.
+///
+/// **HAND-TUNED, and said so per `I-NOISE-FLOOR-JIRAK`.** Verse observations
+/// in one corpus are weakly dependent, so no classical IID argument justifies
+/// any particular floor here, and this file does not pretend to a Jirak-derived
+/// one — deriving a dependence-aware rate for this ad-hoc collapse detector
+/// would be fake rigor. `10` is an anti-vacuity floor (it excludes the trivial
+/// n=1..9 coincidences), NOT a significance threshold: a pair clearing it is
+/// reported as a MEASURED co-identity on its stated denominator, never as
+/// statistical evidence of collapse.
 const COLLAPSE_MIN_N: usize = 10;
 
 /// Size of the shared binding menu — the write-site count, named so the
@@ -1338,29 +1347,40 @@ fn main() {
             );
             continue;
         }
-        // Only pairs clearing COLLAPSE_MIN_N lower the ceiling; the rest are
-        // printed as observations that do not yet carry evidential weight.
-        // Each qualifying pair removes one independent locus. Distinct loci are
-        // counted once even if a locus appears in several pairs, so a 3-way
-        // collapse costs 2, not 3.
-        let mut redundant: Vec<usize> = collapsed
+        // Only pairs clearing COLLAPSE_MIN_N carry evidential weight; the rest
+        // are printed as observations.
+        //
+        // REDUNDANCY IS REPORTED PER PAIR, deliberately — there is NO single
+        // "global ceiling" number here. The first version of this section
+        // pooled the right-side loci of every counted pair and subtracted the
+        // pool's size from 9, which over-counts on disjoint populations:
+        // A==B qualifying on ten verses and A==C qualifying on ten OTHER
+        // verses is NOT a three-locus collapse — every individual facet in
+        // either population carries at most ONE duplicated dimension, so the
+        // pooled "ceiling 7" would describe no facet that actually exists.
+        // (Caught by external review before any measured input exercised it.)
+        //
+        // The honest global statement is the per-pair one: on a counted
+        // pair's OWN co-bound verses, agreement_count over-reports by exactly
+        // one and the effective menu there is 8. Whether several pairs
+        // compound on the SAME facet is answerable only facet-by-facet, and
+        // this summary does not claim to answer it.
+        let counted = collapsed
             .iter()
             .filter(|&&(_, _, _, n)| n >= COLLAPSE_MIN_N)
-            .map(|&(_, j, _, _)| j)
-            .collect();
-        redundant.sort_unstable();
-        redundant.dedup();
-        let ceiling = MENU_LEN - redundant.len();
-        if ceiling == MENU_LEN {
+            .count();
+        if counted == 0 {
             println!(
-                "  {:<13} ceiling 9 — {} pair(s) agreed fully but ALL below the \
-                 n≥{COLLAPSE_MIN_N} evidence floor:",
+                "  {:<13} no counted collapse — {} pair(s) agreed fully but ALL \
+                 below the n≥{COLLAPSE_MIN_N} evidence floor:",
                 r.stance.name(),
                 collapsed.len()
             );
         } else {
             println!(
-                "  {:<13} ceiling {ceiling} (not 9) — {} collapsed pair(s):",
+                "  {:<13} {counted} counted collapsed pair(s) of {} observed — \
+                 on each counted pair's own co-bound verses the effective menu \
+                 is 8, not 9:",
                 r.stance.name(),
                 collapsed.len()
             );

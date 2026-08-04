@@ -1,5 +1,61 @@
 # Technical Debt Log — Open + Paid (double-entry, append-only)
 
+## TD-RECOVERY-HASH-PARTITION-UNCERTIFIED (2026-08-04) — OPEN
+
+**Operator ruling (2026-08-04):** the #879 work that must not be reversed is
+(1) the batchwriter amortizing ONLY CHANGED and (2) interlacing prevented by
+`temporal.rs` at read time. Within that: `recover_fleet`'s per-owner
+`HashMap` partition of the sealed log (`cycle_driver.rs:713-716`) is a
+**performance stopgap** standing where temporal.rs layer-1 is preferred —
+acceptable temporarily, **only until certified equally exact or migrated**.
+
+**The exact gap:** the hash partition preserves STORED order per owner
+(`scan_sealed` documents "this seam does NOT sort", `persist_sink.rs:315-317`,
+test `scan_sealed_does_not_repair_order_on_read`), while
+`temporal.rs::local_trajectories` re-sorts each owner chain by `cast_seq`
+(proven against out-of-order storage by
+`layer1_orders_one_owners_chain_by_cast_seq_not_log_order`). Equal-exactness
+therefore rests on: stored order per owner == cast_seq order per owner. TRUE
+today (single-writer MemWal appends in seal order); UNCERTIFIED; false the
+moment storage returns out-of-order (multi-writer, HLC interleave,
+compaction).
+
+**Certification falsifier (defined now, run when paid):** a property test
+that, for the sealed logs the current writer can produce AND for adversarial
+permutations of them, asserts `recover_fleet`'s per-owner apply sequence ==
+the sequence obtained by routing the same landings through
+`local_trajectories` keyed on `stream_position`. Two outcomes, both closing
+this entry: (a) equal on all writer-producible logs AND documented as
+conditional on single-writer → CERTIFIED-CONDITIONAL, with the condition
+stated at `recover_fleet`'s doc; (b) any divergence → migrate `recover_fleet`
+to layer-1 (a small `LocalCausalRow` impl on `LandedSlot` with
+`cast_seq = stream_position`).
+
+**Until closed:** no new caller copies the partition shape; new recovery
+reads route through temporal.rs layer-1. Cross-ref:
+`.claude/knowledge/batchwriter-kanbanstep-wiring.md` §8.
+
+**⊘ RULING SHARPENED (operator, 2026-08-04, two directives minutes apart):**
+(1) *"We ALWAYS want 64k thoughts concurrency which never arrive in same
+order, period"* — arrival order is NEVER deterministic; any path that assumes
+it is wrong by design. (2) *"Before writing they need to be deinterlaced,
+either by temporal.rs, or previously-known-order hash as a helper to be
+certified."* So the deinterlace obligation sits **BEFORE the write**, and the
+hash helper is not struck — it is admissible as the known-order fast path
+**once certified equally exact against temporal.rs**, which stays the
+canonical deinterlacer.
+
+Consequence for the certification falsifier above: outcome (a) is reinstated
+but its regime is corrected. The property test must run over **out-of-order
+arrivals** (the design's actual envelope), not only writer-producible in-order
+logs: either the hash path reproduces temporal.rs' order there too
+(CERTIFIED, keep it), or it does not — in which case it may survive ONLY
+behind a structural gate that restricts it to previously-known-order inputs
+(the gate enforced in types, not convention), or it migrates to layer-1
+(`LocalCausalRow` on `LandedSlot`, `cast_seq = stream_position`). A
+certification silently conditional on in-order storage — the shape this entry
+originally offered — is the one closing move the ruling forbids.
+
 ## TD-PARALLEL-TARGET-DIRS-REGROW (2026-08-04) — OPEN
 
 **Measured, not estimated** (`du -sh`, after a session hit "no space left on
@@ -3643,38 +3699,3 @@ bijection needs re-seeding. Pair: D-IDENTITY-4.
 - **TD-CI-EXCLUDED-FUSE (F5):** main's CI never compiles the workspace-`exclude`d `lance-graph-ogar`, so its compile-time `COUNT_FUSE` fires only in *consumers'* builds (medcare hit E0080 twice). Fix: one CI job `cargo check`-ing the excluded crate against OGAR main. Effort S.
 - **TD-OGAR-LOCK-UNDECIDED (F3):** `lance-graph-ogar/Cargo.lock` is gitignored → fresh checkouts build the fuse against OGAR HEAD (floating canary) while the workspace lock pins. Decide canary-vs-pin; document in one sentence. Effort S.
 - **TD-BOARD-PREPEND-CONFLICTS (F6):** at fleet cadence the append-only board files (EPIPHANIES/LATEST_STATE/PR_ARC) are the only recurring rebase-conflict cost (~30-60 min/day/session). Per-entry board files + generated index make the conflict structurally impossible. Council-sized; forwarded to the V3/coordination session.
-
-## TD-RECOVERY-HASH-PARTITION-UNCERTIFIED (2026-08-04) — OPEN
-
-**Operator ruling (2026-08-04):** the #879 work that must not be reversed is
-(1) the batchwriter amortizing ONLY CHANGED and (2) interlacing prevented by
-`temporal.rs` at read time. Within that: `recover_fleet`'s per-owner
-`HashMap` partition of the sealed log (`cycle_driver.rs:713-716`) is a
-**performance stopgap** standing where temporal.rs layer-1 is preferred —
-acceptable temporarily, **only until certified equally exact or migrated**.
-
-**The exact gap:** the hash partition preserves STORED order per owner
-(`scan_sealed` documents "this seam does NOT sort", `persist_sink.rs:315-317`,
-test `scan_sealed_does_not_repair_order_on_read`), while
-`temporal.rs::local_trajectories` re-sorts each owner chain by `cast_seq`
-(proven against out-of-order storage by
-`layer1_orders_one_owners_chain_by_cast_seq_not_log_order`). Equal-exactness
-therefore rests on: stored order per owner == cast_seq order per owner. TRUE
-today (single-writer MemWal appends in seal order); UNCERTIFIED; false the
-moment storage returns out-of-order (multi-writer, HLC interleave,
-compaction).
-
-**Certification falsifier (defined now, run when paid):** a property test
-that, for the sealed logs the current writer can produce AND for adversarial
-permutations of them, asserts `recover_fleet`'s per-owner apply sequence ==
-the sequence obtained by routing the same landings through
-`local_trajectories` keyed on `stream_position`. Two outcomes, both closing
-this entry: (a) equal on all writer-producible logs AND documented as
-conditional on single-writer → CERTIFIED-CONDITIONAL, with the condition
-stated at `recover_fleet`'s doc; (b) any divergence → migrate `recover_fleet`
-to layer-1 (a small `LocalCausalRow` impl on `LandedSlot` with
-`cast_seq = stream_position`).
-
-**Until closed:** no new caller copies the partition shape; new recovery
-reads route through temporal.rs layer-1. Cross-ref:
-`.claude/knowledge/batchwriter-kanbanstep-wiring.md` §8.

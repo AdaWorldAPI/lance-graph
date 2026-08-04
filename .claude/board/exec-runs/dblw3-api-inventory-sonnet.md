@@ -779,7 +779,7 @@ path = ... }` line exists in either.
 (`Cargo.toml:67-77`, immediately below the `cognitive-shader-driver`
 dev-dependency entry):
 
-```
+```text
 # NOTE — `jc` dev-dep REMOVED with `examples/blw_lens_twin.rs` (the retired κ
 # instrument; §12.3c). It was added solely for that harness and is now unused,
 # so `crates/jc` is back to ZERO consumers in the workspace.

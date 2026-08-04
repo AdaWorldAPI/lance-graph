@@ -339,10 +339,12 @@ dead code went. That is the intended shape: *keep the record, delete the residue
 
 ## 7. The 90-second preflight before claiming "on the substrate"
 
-Run this grep against your harness:
+Run this against your harness (the pattern must stay quoted or the shell eats
+the alternation), and read the printed count:
 
-```text
-batch_writer|BatchWriter|KanbanStep|KanbanMove|kanban|owner_adapter|MailboxSoA|SoaEnvelope
+```sh
+rg -c 'batch_writer|BatchWriter|KanbanStep|KanbanMove|kanban|owner_adapter|MailboxSoA|SoaEnvelope' \
+   crates/lance-graph-planner/examples/<your_harness>.rs || echo 0
 ```
 
 **A count of 0 means your harness is a free-standing loop** and cannot support a
@@ -394,3 +396,82 @@ remain ONLY once certified equally exact. Certification falsifier defined at
 `TD-RECOVERY-HASH-PARTITION-UNCERTIFIED` (TECH_DEBT). Until one of the two
 happens (certify or migrate), no new caller may copy `recover_fleet`'s
 partition shape — route new recovery reads through layer-1.
+
+> **⊘ §8 AMENDED (operator, 2026-08-04, two directives read together):**
+> (1) *"We ALWAYS want 64k thoughts concurrency which never arrive in same
+> order, period"* — arrival order is never deterministic, by design. (2)
+> *"Before writing they need to be deinterlaced, either by temporal.rs, or
+> previously-known-order hash as a helper to be certified."* The deinterlace
+> obligation therefore sits **BEFORE the write** — the seal consumes a
+> canonically-ordered stream, never raw arrival order — and the hash helper
+> is a legitimate known-order FAST PATH, admissible **only once certified
+> equally exact against temporal.rs** (the canonical deinterlacer) on the
+> out-of-order regime the design actually runs in. Certification against
+> in-order-only inputs certifies nothing. Ledger:
+> `TD-RECOVERY-HASH-PARTITION-UNCERTIFIED` (sharpened in place, same day).
+>
+> **Grades, stated explicitly (per knowledge-doc discipline):**
+> - "Every link `cast → collect_casts → paired_move → recover_and_apply →
+>   try_advance_phase` is BUILT with zero production callers" — **FINDING**.
+>   Probe = consumer grep per symbol; run 2026-08-04; result recorded in §2/§3
+>   with file:line receipts (`intent_moves` callers, `collect_casts` callers,
+>   `shade_owner` callers — each grep listed in the corrections).
+> - "Hash-partition apply order == layer-1 apply order under today's
+>   single-writer MemWal" — **CONJECTURE** (source-reasoned from
+>   `scan_sealed`'s as-stored contract + MemWal's append order; the property
+>   test has NOT run). Under the ruling above this conjecture, even if true,
+>   certifies nothing — it survives only as the migration's regression
+>   falsifier on in-order logs.
+
+## 9. Consumer orientation (operator, 2026-08-04)
+
+- **`deepnsm-v2` is the intended FIRST CONSUMER of this write path.** The
+  driver that Addendum-15 (V3 plan) names as the genuinely open item lands as
+  deepnsm-v2 consuming `cast()` — not as a free-standing harness promoted to
+  production. Sessions scoping "the driver PR" start there.
+- **`lance-graph-callcenter` is the blood-brain barrier** between this hot
+  path and EXTERNAL consumers, built for the regime where consumers run
+  10^4–10^7× slower than the substrate. Current work is hot-path only; the
+  BBB membrane is out of scope until an external consumer is, and nothing in
+  this document licenses routing a hot-path write through it.
+
+### §9a — what `kanban_actor.rs` IS, then (operator reading, verified 2026-08-04)
+
+**"Consumer-facing: prepare decision, wait for tick."** Verified against the
+message surface: `KanbanMsg::MulAdvance` is the atomic PREPARE-DECISION shape
+(the MUL gate runs against the owner's CURRENT phase and the transition
+applies in the SAME serialized message, so no sender can make the phase read
+stale between decision and mutation — `kanban_actor.rs:101-119`, the codex
+#578 fix); `KanbanMsg::Tick` is the WAIT-FOR-TICK shape (a substrate version
+tick lowers to `next_phases().first()` — the in-actor realization of
+`NextPhaseScheduler`'s policy, `:120-130`). That is why the file consumes
+`VersionScheduler` and why its one live library consumer drives it via
+`drive_version_tick`: it is the **tick-arm's consumer-facing surface**, the
+shape a 10^4–10^7×-slower consumer (behind the callcenter BBB) interacts
+with. The #879 boundary the file itself now states stays in force: *"a
+version tick is global knowledge, never permission to advance"* — so the
+tick-driven ADVANCE half is what was demoted, not the prepare-decision
+pattern, and no new production architecture depends on the actor.
+
+### §10 — the concurrency doctrine between batchwriter phases (operator, 2026-08-04)
+
+> *"Between the batchwriter phases, each mailbox concurrently needs to decide
+> its kanban update or process the already active. Never linear, always ≤64k
+> in parallel."*
+
+Between cast and seal, every mailbox is concurrently in exactly one of two
+states: **deciding** its next kanban update (the MUL gate: advance / hold /
+prune) or **processing** its already-active phase work. The fleet is never a
+linear sweep — up to 64k mailboxes run this decide-or-continue choice in
+parallel, and their casts arrive in no deterministic order (§8's ruling).
+The SEAL stays single-writer and sparse (Invariant 1); parallelism lives in
+the thought/decide phase, never in the seal — which restates the kanban-64k
+plan's design constraint with the per-mailbox choice made explicit.
+
+**Honesty note, unchanged by the doctrine:** today's `run_cycle` /
+`cognitive_pass` iterate owners in a synchronous loop (#879's own honesty
+ledger). That linearity is an implementation placeholder inside a correct
+ownership model, not the model itself; D-KIA-A2's pre-registered falsifier
+(median-of-5, ≥2× at ≥4,096 owners, ±10 % stay-silent) is what converts
+"parallel" from doctrine to measurement, and the claim ladder holds until it
+runs.

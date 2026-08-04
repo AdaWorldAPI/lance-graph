@@ -85,6 +85,16 @@ fn main() {
             drop_arity += 1;
             continue;
         };
+        // Arity is checked in BOTH directions: the destructure above rejects
+        // fewer-than-seven, and this rejects MORE-than-seven. `bible_wave
+        // --export` writes exactly seven fields; a producer edit that appends
+        // a column must fail the drop gate, not silently pass because the
+        // first seven still parsed (the `== N` over `>= N` house rule, applied
+        // to columns).
+        if f.next().is_some() {
+            drop_arity += 1;
+            continue;
+        }
         let (Ok(s), Ok(o), Ok(v)) = (s.parse::<u16>(), o.parse::<u16>(), v.parse::<u32>()) else {
             drop_ids += 1;
             continue;

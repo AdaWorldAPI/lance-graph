@@ -606,13 +606,20 @@ restriction is what removes it.
 
 ## G6 — the fold neither drops nor duplicates
 
-- After the **Aware** read at `V_pin = V4`, **every** subject in the fixed prefix
-  must appear with **exactly 8** rows for projection A (one per horizon V1..V8,
-  since the fixed prefix is seated by V4 and every later cycle re-emits its
-  verdict) — `assert_eq!`, not `>=` (`CLAUDE.md`: *prefer `== N` over `>= N`*).
-  After the **Strict** read at the same pin: **exactly 4** (V1..V4). Both folds
-  must then yield **exactly 1000** subjects. *Input:* the real emitted row set;
-  any off-by-one in the emission loop, or any mis-sorted fold, changes a count.
+> **⊘ CORRECTED (2026-08-04, external review) — the counts below were wrong for
+> slices 2–4, and §1.5's own emission rule proves it.** A verse seated in slice
+> `s` has rows at horizons `Vs..V8` and none before, and the fixed prefix spans
+> slices 1..4 — so "exactly 8 / exactly 4 for every prefix subject" holds only
+> for slice 1. The corrected assertion derives each subject's expectation from
+> its seating slice; rows are NOT back-dated to make counts uniform.
+
+- After the **Aware** read at `V_pin = V4`, a subject seated in slice `s`
+  (`s = 1..4`) must appear with **exactly `9 − s`** rows for projection A —
+  8, 7, 6, 5 for slices 1, 2, 3, 4 — `assert_eq!`, not `>=` (`CLAUDE.md`:
+  *prefer `== N` over `>= N`*). After the **Strict** read at the same pin:
+  **exactly `5 − s`** (4, 3, 2, 1). Both folds must then yield **exactly
+  1000** subjects. *Input:* the real emitted row set; any off-by-one in the
+  emission loop, or any mis-sorted fold, changes a count.
 
 ## G7 — the ordering the fold depends on is real, not an input-order accident
 
@@ -631,7 +638,7 @@ restriction is what removes it.
 
 ## 5.1 The two reads, off the real surface
 
-```
+```rust
 a-priori  = deinterlace(&rows, &QueryReference::at(V_PIN, 0), &NoDeps)   // rung 0 → Strict
 hindsight = deinterlace(&rows, &QueryReference::at(V_PIN, 5), &NoDeps)   // rung 5 → Aware
 ```
@@ -686,7 +693,7 @@ none**, and §1.2 records that `knowable_from` contributes none either.
 
 ## 5.3 The explicit "they are identical — drop the distinction" test
 
-```
+```text
 Δ(pair) = κ_hindsight(Aware @ V_pin) − κ_apriori(Strict @ V_pin)
 ```
 
@@ -795,11 +802,14 @@ is licensed; the movement test is a two-point contrast and the intermediate κs
 are reported, never fitted. §12.3's word "trajectory" is doing more work than 8
 points can support and the write-up must say so.
 
-**B5 — `jc` dev-dependency: RESOLVED by the coordinating lane.** `jc` is
+**B5 — `jc` dev-dependency: ~~RESOLVED by the coordinating lane~~ PENDING
+until the build commit lands (regraded 2026-08-04, external review — a
+statement of intent is not a Cargo.toml line).** `jc` is
 currently in **neither** `[dependencies]` nor `[dev-dependencies]` of the
-planner; the coordinating lane states it is adding
-`jc = { path = "../jc" }` under `[dev-dependencies]`, so `jc::stats` may be
-assumed reachable. It is workspace-**excluded** (root `Cargo.toml` `exclude`,
+planner; the D-BLW-3 build change adds `jc = { path = "../jc" }` under
+`[dev-dependencies]` **in the same commit as the harness that uses it**, and
+that commit hash is the closure of this item — `jc::stats` is reachable from
+the harness only from that commit on. It is workspace-**excluded** (root `Cargo.toml` `exclude`,
 `crates/jc`), which is fine for a path dep. The four constraints recorded in the
 planner's own Cargo.toml at `:67-77` still bind and must be carried verbatim:
 **dev-only, never a production dep, never modify `crates/jc`, never invert the

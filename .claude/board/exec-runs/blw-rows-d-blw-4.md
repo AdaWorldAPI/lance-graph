@@ -187,6 +187,17 @@ not left reading as an open question.
 `cargo fmt`, `cargo clippy -p lance-graph-planner --example blw_rows`,
 `cargo run -p lance-graph-planner --example blw_rows` — all green.
 
+> **Scope of the lint claim, stated exactly (clarified 2026-08-04 after an
+> external reviewer read it as a workspace-wide result):** the clippy gate
+> covered THIS example target and the crate deps it pulls in — nothing wider.
+> No `--all-targets --all-features` run is claimed, and none will be: this
+> workspace's standing rule scopes every cargo invocation with `-p` /
+> `--example` (blanket flags rebuild sibling workspaces and are prohibited),
+> and a workspace-wide `-D warnings` is not even green on untouched code
+> today (`lance-graph-ontology` carries 12 pre-existing warnings, measured
+> 2026-08-04). "Green" below therefore means: zero warnings attributable to
+> `blw_rows.rs` under the example-scoped command shown above.
+
 **Measured outcome — PASS.**
 
 | gate | criterion (fixed before the run) | measured |
@@ -202,7 +213,8 @@ with no denominator that could have come from the harness measuring itself.
 what makes the 4-thread figure a real parallel gain.
 
 **Answering the brief's own open questions, in its order:** formatting settled
-green by `cargo fmt` (item 3); clippy green under `-D warnings` (item 4); wall
+green by `cargo fmt` (item 3); clippy clean at the example scope stated above
+(item 4 — see the scope note); wall
 time was not a problem and no knob was lowered, so `BODY_FLOOR_US` was cleared
 on the corpus as written (item 5); G-C **did** pass in a debug build (item 6)
 — the plausibility argument the brief gave for that held.
