@@ -1492,3 +1492,110 @@ tracking injected values ⇒ the anchoring finding stands even if T is silent
 5. **New guard:** the remeasure guard — append-only measurement ledger
    keyed `(statistic-id, version)`; recompute at a sealed key ERRORS, with
    can-fire + can-stay-silent tests.
+
+### 12.10 PROBE-ARC-TORQUE family PROPOSED (2026-08-04, operator) — torque of an arc, translator stray, author bias
+
+**Status: PROPOSED / CONJECTURE throughout. Queued behind PROBE-IGNITION and
+D-BLW-5. Nothing here is measured. Machinery anchors verified in source
+where marked FINDING.**
+
+The operator's underlying question, three stages of one instrument: can the
+TORQUE of an arc be measured and embedded using HHTL (WordNet) × Helix
+(Fisher-2z hydratable cosine replacement) — and can that instrument then
+measure translation variance (where did the translator stray; what mindset
+does a version carry vs the Greek/Aramaic sources) and author bias (does a
+non-canonical book match any canonical author).
+
+#### Stage A — the torque estimator (single corpus)
+
+- **Torque MAGNITUDE is purely metric** [derivation, not yet run]: per-step
+  torque about an anchor = `|r × F| = 2 × area of the triangle
+  (anchor, p_k, p_{k+1})` — Heron's formula from THREE pairwise distances
+  (anchor→p_k, p_k→p_{k+1}, anchor→p_{k+1}). HHTL path distance is 3
+  tier-table lookups O(1), so per-step torque is O(1) table reads. Total
+  |torque| of the arc = the area swept by the lever. The radial sign
+  (approach vs recede) is also free from distances (c < a vs c > a).
+- **CHIRALITY (clockwise/counter-clockwise) is NOT metric** — it needs a
+  frame. The shipped carrier: `ndarray::hpc::splat3d::helix_orient` [FINDING
+  — verified in source]: RVQ-on-the-sphere direction codes, decode
+  **Fisher-2z normalized**, comparable in O(1) LUT without materializing the
+  vector; measured 1–3 B at 4.87°/0.97°/0.073°, compare-without-
+  materialization Pearson 0.9917 / Spearman 0.9924.
+- **Embedding coordinate: Fisher 2z = ln((1+r)/(1−r)) = logit((1+r)/2)** —
+  the variance-stabilized (Var ≈ const, independent of ρ), evidence-additive
+  (log-odds) coordinate for cosine-valued quantities; hydratable back via
+  `tanh(z)`. Equal-width palette256 buckets in 2z-space ≈ equal-information
+  buckets, where raw-cosine buckets starve the tails (near ±1 — exactly
+  where near-synonyms/antonyms live). This is what makes the cosine
+  REPLACEMENT properly HDR.
+- **Pre-registered falsifiers:**
+  - F1 radial-vs-tangential: on WordNet, a hypernym chain THROUGH the anchor
+    is radial ⇒ torque ≈ 0 (can-stay-silent); a co-hyponym walk at constant
+    depth AROUND a common-hypernym anchor circulates ⇒ torque > pinned floor
+    (can-fire). If the estimator does not separate these, it dies.
+  - F2 clamp accounting: quantized distance tables can violate the triangle
+    inequality ⇒ Heron's radicand can go negative. Clamp AND COUNT; a clamp
+    rate above a pinned ceiling invalidates the estimator at that codec tier
+    (feeds PROBE-CLAM-VS-HELIX-RESIDUE, task #66).
+  - F3 additivity inertness: accumulate-in-2z vs accumulate-in-r must
+    DIFFER on real arcs — else the Fisher machinery is decoration.
+  - F4 hydration round-trip: z → tanh → r within helix residue precision.
+
+#### Stage B — translation variance (the Erbsünde exemplar)
+
+- Units = verse-aligned parallel versions (canonical alignment is the
+  paired structure jc needs). Readers = per-version "arc passes near anchor
+  C" through ONE shared multilingual space (BGE-M3/XLM-R lens covers
+  English/German/Greek; **Koine-vs-modern-Greek drift is a caveat; Aramaic
+  coverage thin — deferred**). Agreement per anchor = jc full tables (C2).
+- **The floor is intra-language variance:** same-language translation pairs
+  (e.g. multiple public-domain English versions) ARE the placebo arm — a
+  cross-language deviation counts as a STRAY only where its Prozentrang
+  against the intra-language deviation distribution clears a pre-pinned
+  rank (§12.9a payload law applied verbatim).
+- **Ground-truth falsifier with a known answer:** Romans 5:12 — the Vulgate
+  "in quo" vs Greek "eph' hō" divergence, the historically documented stray
+  that fed the Erbsünde doctrine. Pre-registered: the detector must rank
+  that locus high between Greek-faithful and Vulgate-descended renderings
+  AND stay silent between two Greek-faithful renderings. Note Erbsünde
+  itself is an ANCHOR concept, not a token — the German text says Sünde;
+  the doctrine name lives in confessional literature.
+- **Translator MINDSET** = the systematic (non-zero-mean) component of the
+  deviation field after floor subtraction — Gadamer's Vorurteil as a
+  measured object. TFPN mapping: T = source-text arc; F± = the translations
+  (historical injections whose direction is MEASURED, not fabricated); P =
+  intra-language pairs; N = a lens-free co-occurrence criterion (the lens
+  has its own training-distribution horizon; found strays must survive the
+  lens-free null or they are lens artifacts).
+
+#### Stage C — author bias + attribution (the hypothesis proof)
+
+- Per-author systematic torque field over the undisputed corpus; floor =
+  intra-author variance across that author's books.
+- **The synoptic confound, handled:** literary dependence (Matthew/Luke
+  copying Mark) makes shared TEXT look like shared MIND. Bias is therefore
+  measured on the REDACTIONAL layer — the deviations from the shared
+  source — not on the shared text (redaction criticism as measurement;
+  the Stage-B stray logic reused unchanged).
+- **Ground-truth falsifiers, all INSIDE the canon** (no external corpus
+  needed to validate the instrument):
+  - G1 Luke–Acts must MATCH (consensus single author) — can-stay-silent;
+  - G2 Mark 16:9-20 (the long ending) must SEPARATE from Mark 1:1–16:8
+    (consensus interpolation) — can-fire;
+  - G3 the Pericope Adulterae (John 7:53–8:11) must SEPARATE from John
+    (consensus interpolation) — can-fire;
+  - G4 Revelation vs the fourth gospel must SEPARATE (the famous
+    stylometric split) — else the instrument is blunter than classical
+    stylometry;
+  - G5 Hebrews must NOT match undisputed Paul (modern consensus vs
+    patristic attribution).
+- Only after G1–G5: non-canonical books nearest-author matched in bias
+  space, reported as distribution shape × Prozentrang per candidate author
+  — never a bare "matches X" scalar. Attribution outputs stay CONJECTURE;
+  classical function-word stylometry (Mosteller–Wallace lineage) is the
+  prior-art baseline the torque feature-space must beat or complement —
+  both reported.
+
+**Doctrine that binds all three stages:** §12.9a single-measurement law +
+shape×rank payload; `observer-effect-tfpn-doctrine.md` falsification
+regimen; jc one-way oracle; C4 no p-values; full tables always.
