@@ -584,11 +584,13 @@ restriction is what removes it.
 
 ## G6 — the fold neither drops nor duplicates
 
-- After `deinterlace` at V8, **every** subject in the fixed prefix must appear
-  with **exactly 5** rows for projection A (horizons V4..V8) — `assert_eq!`, not
-  `>=` (`CLAUDE.md`: *prefer `== N` over `>= N`*). The fold-to-last must then
-  yield **exactly 1000** subjects. *Input:* the real emitted row set; any
-  off-by-one in the emission loop or any mis-sorted fold changes the count.
+- After the **Aware** read at `V_pin = V4`, **every** subject in the fixed prefix
+  must appear with **exactly 8** rows for projection A (one per horizon V1..V8,
+  since the fixed prefix is seated by V4 and every later cycle re-emits its
+  verdict) — `assert_eq!`, not `>=` (`CLAUDE.md`: *prefer `== N` over `>= N`*).
+  After the **Strict** read at the same pin: **exactly 4** (V1..V4). Both folds
+  must then yield **exactly 1000** subjects. *Input:* the real emitted row set;
+  any off-by-one in the emission loop, or any mis-sorted fold, changes a count.
 
 ## G7 — the ordering the fold depends on is real, not an input-order accident
 
@@ -608,12 +610,21 @@ restriction is what removes it.
 ## 5.1 The two reads, off the real surface
 
 ```
-a-priori  = deinterlace(&rows, &QueryReference::at(V4, 0), &NoDeps)
-hindsight = deinterlace(&rows, &QueryReference::at(V8, 0), &NoDeps)
+a-priori  = deinterlace(&rows, &QueryReference::at(V_PIN, 0), &NoDeps)   // rung 0 → Strict
+hindsight = deinterlace(&rows, &QueryReference::at(V_PIN, 5), &NoDeps)   // rung 5 → Aware
 ```
-then, for each: keep `projection == j`, **fold by subject taking the LAST row**
-(the highest horizon ≤ the pin — `deinterlace` already sorted ascending), then
-restrict to the fixed prefix.
+**Same `rows`. Same `V_PIN = V4`. Same `NoDeps`. The ONLY difference is the
+rung**, which is the only handle the API gives on the mode
+(`QueryReference::at`, `temporal.rs:167-175`).
+
+Then, for each: keep `projection == j`, **fold by subject taking the LAST row**
+(`deinterlace` already sorted ascending by horizon, `temporal.rs:369-374`), then
+restrict to the fixed prefix (gate **G5**).
+
+- The **Strict** fold yields, per verse, the verdict computed at **V4** — the
+  latest horizon a V4 reader is permitted to see.
+- The **Aware** fold yields the verdict computed at **V8** — the latest horizon
+  in the row set, admitted as `Anachronistic`.
 
 Nothing is reconstructed from a version; `temporal.rs` is not modified (§12.5
 holds). `QueryReference::at` is used as what it is — a **reader pin**, per
@@ -621,23 +632,35 @@ holds). `QueryReference::at` is used as what it is — a **reader pin**, per
 
 **A precision note that must appear in the harness, not just here:** a version
 *range* `Vk..Vm` is **not** expressible in one `deinterlace` call. The surface
-takes a single `ref_version` and admits the **prefix** `0..=ref_version` under
-`Strict`. The lower bound of any "range" is caller-side row selection, not a
-`temporal.rs` capability. The `Vk` vs `Vm` contrast below is therefore
-**pin-vs-pin over a fixed subject set**, which is what §12.3b's control actually
-specifies — but no result line may describe it as "a range read the surface
-performed".
+takes a single `ref_version` plus a mode; under `Strict` it admits the **prefix**
+`0..=ref_version`, and under `Aware` it admits **everything supplied**. The lower
+bound of any "range" is caller-side row selection, never a `temporal.rs`
+capability. So no result line may describe either read as *"a version-range read
+the surface performed"* — §12.2's table calls hindsight a *"range read +
+deinterlace"*, and the honest mechanical statement is **one pin, two admission
+policies, over a caller-fixed subject set**.
 
 ## 5.2 What makes them differ — precisely, and only this
 
-**The rank criterion's POOL.** At V4 the pool is verses 0..1000; at V8 it is
-0..2000. A verse in the fixed prefix that sat in the top quartile of the first
-1000 may not sit in the top quartile of the first 2000, and vice versa.
-**The verse's own score never changed** — what changed is the cohort it is read
-against. That is the mechanical content of *wirkungsgeschichtliches Bewusstsein*
-in this harness, and it is the **only** source of movement: **G2 proves the
-plumbing contributes none**, and §1.2 records that `knowable_from` contributes
-none either.
+**Two things compose, and neither alone is enough:**
+
+1. **The mode decides WHICH horizon's verdict the fold reaches.** Strict stops at
+   V4; Aware reaches V8. This is the *reader-permission* half, and it is the half
+   `temporal.rs` supplies (`admits`, `:103-112`).
+2. **The rank criterion's POOL decides whether those two verdicts DIFFER.** At V4
+   the pool is verses 0..1000; at V8 it is 0..2000. A verse in the fixed prefix
+   that sat in the top quartile of the first 1000 may not sit in the top quartile
+   of the first 2000, and vice versa. **The verse's own score never changed** —
+   what changed is the cohort it is read against.
+
+Composed, that is the mechanical content of *wirkungsgeschichtliches Bewusstsein*
+in this harness. Drop (1) and both folds return the same row. Drop (2) and both
+folds return different rows carrying the **same verdict** — which is precisely
+why the shipped D-BLW-1 series yields `Δ ≡ 0` under *any* mode (blocker **B2**),
+and why the corrected mechanism did not rescue the harness from needing P1/P2.
+
+It is the **only** source of movement: **G2 proves the plumbing contributes
+none**, and §1.2 records that `knowable_from` contributes none either.
 
 ## 5.3 The explicit "they are identical — drop the distinction" test
 
@@ -650,8 +673,8 @@ none either.
   must not narrate it. Verbatim §12.3b.
 - **Mandatory companion, and it is not optional:** a κ can be unchanged while the
   underlying verdicts churn — two flips in opposite directions cancel in κ. So
-  report `hamming(A@V4, A@V8)` and `hamming(B@V4, B@V8)` **beside** Δκ, **never
-  averaged into it**. Collapsing the two would be the exact defect §12.3c retired
+  report `hamming(A_apriori, A_hindsight)` and `hamming(B_apriori, B_hindsight)`
+  **beside** Δκ, **never averaged into it**. Collapsing the two would be the exact defect §12.3c retired
   κ for (*"two lenses can agree on a verse for opposite reasons and κ scores that
   as agreement"*), reintroduced one level up.
 
@@ -709,7 +732,9 @@ written up as either a success or a clean null after the fact.
    (`blw_tenant.rs:405-416`) and its own header says the "versions" are
    **sequence numbers, not Lance versions** (`:44-45`). Every result line using
    the word "version" must carry that qualifier.
-9. **No HLC / multi-writer claim** (§1.3).
+9. **No HLC / multi-writer claim** (§1.3), and **no `knowable_from` / schema-clock
+   claim** (§1.2, §4 G3): that field is constant here, the `Unknowable` branch is
+   never reached, and nothing in the result depends on either.
 10. **No parallelism / scale claim** — that is D-BLW-4, whose axis is rows inside
     one owner (§12.3a′).
 11. **No fusion claim outside the IN/IN band** (§3.2), and none at all before D3b
@@ -748,12 +773,15 @@ is licensed; the movement test is a two-point contrast and the intermediate κs
 are reported, never fitted. §12.3's word "trajectory" is doing more work than 8
 points can support and the write-up must say so.
 
-**B5 — `jc` must be re-added as a dev-dependency.** `jc = { path = "../jc" }`
-under `[dev-dependencies]` of `lance-graph-planner`. It is workspace-**excluded**
-(root `Cargo.toml` `exclude`, `crates/jc`), which is fine for a path dep. The
-planner's own Cargo.toml records the constraints at `:67-77`: **dev-only, never a
-production dep, do not modify `jc`, do not invert the edge** — a measure cannot
-be its own oracle. Carry all four verbatim.
+**B5 — `jc` dev-dependency: RESOLVED by the coordinating lane.** `jc` is
+currently in **neither** `[dependencies]` nor `[dev-dependencies]` of the
+planner; the coordinating lane states it is adding
+`jc = { path = "../jc" }` under `[dev-dependencies]`, so `jc::stats` may be
+assumed reachable. It is workspace-**excluded** (root `Cargo.toml` `exclude`,
+`crates/jc`), which is fine for a path dep. The four constraints recorded in the
+planner's own Cargo.toml at `:67-77` still bind and must be carried verbatim:
+**dev-only, never a production dep, never modify `crates/jc`, never invert the
+edge** — a measure cannot be its own oracle.
 
 **B6 — this harness would be the FIRST implementor of `DeinterlaceRow` and the
 FIRST caller of `deinterlace` anywhere.** Verified by grep over `crates/`:
@@ -777,15 +805,30 @@ D-BLW-3's to absorb. Gates G1/G3/G6/G7 exist because of it.
   10-minute budget for an unrelated reason — `stance::stream`'s per-lift
   O(arena) `staunen` scan — which this design does not use at all.)
 
+**B9 — my own error, recorded because it is the day's recurring shape.** I mapped
+`knowable_from()` to a per-verse corpus-entry version. The field is documented as
+a **class-registration** clock sourced from a `DEFINE TABLE` event
+(`temporal.rs:324-325`) and the primer's iron rule says in one line what I did
+wrong: *"Do not substitute the nearest available version field for a missing
+one"* (primer §3) — where the genuinely missing field, *per-row last-modified
+version*, is listed as **MISSING** on that same table. **The tell I walked past:**
+my own §1.2 already stated the axis was *inert on the measured units*. A field
+that carries no information in the measurement, but which I had nonetheless given
+a bespoke semantic, is a field I had invented rather than consumed. **Inertness
+should have prompted "then why am I redefining it?" and instead prompted a
+paragraph explaining the inertness away.** Caught by the parallel inventory lane,
+not by me. The corrected design is strictly better — one pin, one row set, one
+varying parameter — so the error cost nothing but is worth the entry.
+
 **B8 — the scope reduction I recommend explicitly.** Do **not** attempt the
 four-stance version, the cross-language version, or any §12.6 anchor
 reproduction inside D-BLW-3. The honest deliverable is:
 
 > **the first working `DeinterlaceRow` implementor and `deinterlace` caller; two
-> rank-based, horizon-relative binary projections over one real sealed series;
-> a pre-registered band and movement threshold reused (not re-invented) from
-> §12.3a/§12.3b; and an inert control projection that proves the plumbing
-> contributes no movement.**
+> rank-based, horizon-relative binary projections over one real sealed series,
+> read twice at ONE pin under `Strict` vs `Aware`; a pre-registered band and
+> movement threshold reused (not re-invented) from §12.3a/§12.3b; and an inert
+> control projection that proves the plumbing contributes no movement.**
 
 That is smaller than §12.3's row describes, and it is the part that can actually
 be falsified.
