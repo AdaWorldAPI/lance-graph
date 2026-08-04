@@ -552,7 +552,56 @@ The lens does not own a mailbox, does not add a node type, and does not change
 the stride. It is a function over an owner's arena slice, dispatched through the
 seam the driver already exposes.
 
-#### 12.1a Correction (2026-08-04): "ONE MailboxSoA" was wrong twice — the bake is TILED
+#### 12.1a′ RETRACTION (operator-ruled 2026-08-04) — §12.1a below is WRONG. An owner is a TENANT, not a shard.
+
+**§12.1a "tiled the bake across 64 owners" is retracted in full.** It is not a
+sizing mistake, it is a **category error**, and the canon already said so:
+*"one mailbox = one kanban board as **tenant**"* (`CLAUDE.md` §V3 rulings), and
+one `MailboxSoA` is moved into exactly **one** `KanbanActor` which is its **sole
+mutator** (`E-CE64-MB-4`; `tests/w2b_real_owner_probe.rs` — the SoA is *moved*
+into `Actor::spawn`, and that move is the compile-time proof of no aliasing).
+
+So an owner is not a unit you can *multiply to taste*. Splitting the Bible
+across 64 mailboxes does not shard a corpus — it **fabricates 63 additional
+tenants**, i.e. 64 separate kanban boards for one book. That is a topology
+invention dressed up as a memory fix.
+
+**The corpus is ONE tenant.** Its 64k verses are **ROWS inside that one owner's
+SoA**, and "64k thoughts firing at the same time" is data-parallelism **over
+rows within the owner's slice** — exactly what §12.1's own diagram says
+(*"CognitiveWork body = apply stance L to **the owner's slice**"*), and exactly
+what the data-flow rule already prescribes: SIMD reads borrowed row slices,
+reasoning works on owned `Copy` microcopies, write-back is gated — **no
+`&mut self` during computation**.
+
+**What was actually wrong in my two "independent grounds":**
+
+1. *"A sparse sealed set is a sparse set of owners, so one SoA cannot express
+   it."* The observation is true and the conclusion is a non-sequitur: **this
+   arm does not need owner-sparseness at all.** That mechanic is already proven
+   at 64k in `cycle_driver.rs:1098`. The Bible arm's sparseness is **row-level,
+   inside one owner**. I solved a problem that belonged to a different layer.
+2. *The 384 MiB / ~5.1 MiB-stack figures.* **These remain true and unretracted** —
+   `MailboxSoA<65536>` really is 384 MiB of identity planes and really is a
+   ~5.1 MiB by-value construction. But they argue for a **construction fix**
+   (heap/in-place init, or a smaller row count per bake), never for minting
+   tenants. Measuring a real constraint does not license an arbitrary answer to
+   it — that is the actual lesson, and it is why the number is kept while the
+   conclusion is thrown away.
+
+**Consequences, binding:**
+- The tiling in §12.1a and everything downstream of it is void. `FULL_TILES`,
+  `CI_TILES`, "64 tiles × `MailboxSoA<1024>`" and the `w_slot = tile_index`
+  saturation note are all retracted.
+- **D-BLW-4's "≥4,096 owners" axis is void** — see §12.3a′. Owner count is a
+  deployment-topology property, not a scale knob, so both the inherited
+  threshold *and* my "measure it with 4,096 lightweight owners" reply were
+  category errors. The 24 GiB figure I derived is meaningless: you would never
+  have 4,096 owners for one corpus.
+- §12.1a is kept below **only** as the retracted record (append-only canon:
+  regrade in place, never delete).
+
+#### 12.1a Correction (2026-08-04): "ONE MailboxSoA" was wrong twice — the bake is TILED **[⊘ RETRACTED — see §12.1a′ above; an owner is a tenant, not a shard]**
 
 The first draft of this section wrote *"64k verse-owners in ONE MailboxSoA"*.
 That is corrected in place, on two independent grounds. **The anti-6× ruling
@@ -734,17 +783,40 @@ after ~64 distinct sources, after which observations route to CHOICE rather than
 revision, **suppressing** contradiction on exactly the hub statements (a) inflates
 — report the count of beliefs with a saturated stamp.
 
-**D-BLW-4's threshold cannot be met with real SoA owners — and that is a scope
-statement, not a failure.** The inherited gate says "≥4,096 owners". At
-6,144 B/row × 1024 rows that is **24 GiB** of identity planes for the fleet
-alone. The parallelism claim is about **dispatch concurrency in the thought
-phase**, not about how much SoA a box can hold, so D-BLW-4 measures lightweight
-owners and must **say so in its result line**: the measured claim is "N thought
-bodies dispatch concurrently", NOT "N MailboxSoA tiles were resident". Anyone
-reading a 4,096-owner speedup as a statement about 64k-scale SoA residency has
-read a claim that was never made. (Third consequence of the same 6 KB/row price
-that reshaped §12.1a — the figure keeps deciding things, which is why it is
-written down rather than recomputed.)
+##### 12.3a′ D-BLW-4's AXIS IS OWNERS — and that is void (operator-ruled 2026-08-04)
+
+**The paragraph that stood here is retracted.** It said D-BLW-4's "≥4,096
+owners" threshold was unmeetable at 24 GiB and should therefore be measured with
+4,096 *lightweight* owners. Both halves are category errors, and the second is
+the worse one: it kept owner-count as the axis and merely made the owners cheap.
+
+**Owner count is not a scale knob.** An owner is a **tenant** — one mailbox, one
+kanban board, one `KanbanActor` that is its sole mutator (`CLAUDE.md` §V3;
+`E-CE64-MB-4`). "4,096 owners" therefore means *4,096 tenants*, which for one
+corpus is not a big configuration — it is a **fabricated deployment**. The
+24 GiB figure I derived from it is meaningless: nobody would ever hold 4,096
+owners for one book, so its cost was never the constraint.
+
+**The real axis is rows inside one owner.** The arm's claim — *"64k thoughts
+firing at the same time"* — is data-parallelism over the **verse rows of a single
+owner's slice**, which is what §12.1's diagram said all along
+(*"apply stance L to **the owner's slice**"*). So D-BLW-4 measures:
+
+> concurrent vs sequential evaluation of **N row-level thought bodies within one
+> owner**, where the reads are borrowed row slices, the reasoning is on owned
+> `Copy` microcopies, and write-back is **gated** — never `&mut self` during
+> computation (`.claude/rules/data-flow.md`, `borrow-strategy.md`).
+
+That axis needs no fabricated tenants, costs one SoA, and is the thing the arm
+actually claims. The inherited A2/W2 protocol (median of ≥5 runs after one
+discarded warm-up; a can-fire *and* a can-stay-silent half) carries over
+unchanged — **only the unit being scaled changes, from owners to rows.** The
+per-row work threshold and the row count are re-pinned when the harness is
+written, and pre-registered before it runs.
+
+**Kill condition, restated:** if row-level concurrency does not beat sequential
+under the pre-registered protocol, claim (a) regrades to *"64k-scale
+**sequential** row evaluation"* — still true, different claim.
 
 **New dependency, declare it:** `crates/jc` is workspace-EXCLUDED and currently
 has **zero** consumers anywhere in the workspace. The twin harness is the first,

@@ -1,3 +1,19 @@
+## 2026-08-04 — E-AN-OWNER-IS-A-TENANT-NOT-A-SHARD-1 — I multiplied the unit that is not allowed to be multiplied
+
+**Status:** FINDING (operator-ruled; the canon already said it). **Confidence:** High. Retractions: plan §12.1a′ and §12.3a′; `E-THE-DIAGRAM-CONTRADICTED-ITS-OWN-NEXT-LINE-1` regraded below.
+
+**What I did.** Arm BLW's §12.1 said "64k verse-owners in ONE `MailboxSoA`". I read that against "sparse sealed transition set — 17 dirty, not 64k", concluded the two contradicted, and "fixed" it by **tiling the Bible across 64 mailbox owners**. Then, asked to scale D-BLW-4 to the inherited "≥4,096 owners", I computed that 4,096 real SoA owners would cost 24 GiB and "solved" it by proposing 4,096 **lightweight** owners. The second move is the worse one: it kept the wrong axis and merely made the wrong thing cheap.
+
+**Why it is a category error, not a sizing mistake.** `CLAUDE.md` states it directly: **"one mailbox = one kanban board as *tenant*"**, and one `MailboxSoA` is *moved* into exactly one `KanbanActor`, which is its sole mutator — that move is the compile-time proof of no aliasing (`E-CE64-MB-4`). An owner is therefore an **identity**, not a shard. 64 tiles for one Bible = **63 fabricated tenants**; 4,096 owners = a fabricated deployment. You cannot dial identities up to make a benchmark convenient.
+
+**The real axis was in the diagram I was correcting.** §12.1 says *"apply stance L to **the owner's slice**"* — the 64k is **rows inside one owner**, and "64k thoughts at once" is data-parallelism over those rows, exactly as `data-flow.md` prescribes (borrowed slices for reads, owned `Copy` microcopies for reasoning, gated write-back, never `&mut self` during computation). One tenant, 64k rows.
+
+**The part of my finding that survives, and the part that does not.** The measurements were right: `MailboxSoA<65536>` really is 384 MiB of identity planes and really is a ~5.1 MiB by-value construction. The *inference* was wrong. **Measuring a real constraint does not license an arbitrary answer to it** — the 384 MiB argues for a construction fix (heap/in-place init, or fewer rows per bake), never for minting tenants. I let a true number authorize a false conclusion because the number felt like evidence.
+
+**The class.** Before scaling a quantity in a benchmark, ask what **one** of it *is*. If the unit carries identity — a tenant, an actor, an owner, a session, an account — then its count is a property of the deployment being modelled, and multiplying it fabricates a world rather than stressing the real one. **Sibling check:** any threshold phrased "≥ N ⟨noun⟩" where the noun is something the system treats as sole-owner or singleton.
+
+**Regrade of `E-THE-DIAGRAM-CONTRADICTED-ITS-OWN-NEXT-LINE-1` (same day, mine):** its observation stands — the diagram's two lines do quantify different things — but its **conclusion is withdrawn**. The resolution was never "tile into many owners"; it is that owner-sparseness belongs to the driver layer (already proven at `cycle_driver.rs:1098`) and is simply **not this arm's business**, whose sparseness is row-level inside one owner. I found a real seam and then repaired it at the wrong layer.
+
 ## 2026-08-04 — E-A-MEASURE-THAT-CANNOT-HELP-BUT-MOVE-1 — the trajectory would have confirmed itself
 
 **Status:** FINDING (design-time; caught before the harness was written). **Confidence:** High — the confound is structural, not empirical. Fix: `.claude/plans/cycle-loop-closure-driver-v1.md` §12.3b.
@@ -22,7 +38,9 @@
 
 ## 2026-08-04 — E-THE-DIAGRAM-CONTRADICTED-ITS-OWN-NEXT-LINE-1 — a shape spec that no line of its own diagram could satisfy
 
-**Status:** FINDING (two independent grounds, both checked against source before the correction). **Confidence:** High. Corrected in place at `.claude/plans/cycle-loop-closure-driver-v1.md` §12.1a.
+> **⊘ CONCLUSION WITHDRAWN same-day** — see `E-AN-OWNER-IS-A-TENANT-NOT-A-SHARD-1`. The observation (two adjacent lines quantifying the same thing at different cardinalities) and the 6,144 B/row measurement both stand; the "tile across 64 owners" resolution does not. Owner-sparseness belongs to the driver layer and is not this arm's business. Regraded in place, per append-only canon.
+
+**Status:** FINDING (conclusion withdrawn) (two independent grounds, both checked against source before the correction). **Confidence:** High. Corrected in place at `.claude/plans/cycle-loop-closure-driver-v1.md` §12.1a.
 
 **What happened.** Arm BLW's §12.1 specified *"64k verse-owners in ONE `MailboxSoA`"*, and the **next line of the same ASCII diagram** read *"sparse sealed transition set — 17 dirty, not 64k"*. Those cannot both hold: a sparse sealed set is a sparse set of *owners*, one `MailboxSoA` **is** one owner, so the single-SoA shape has a dirty set of 0 or 1 and cannot express sparseness at all. The mechanic the whole driver exists for was excluded by the line directly above it.
 
