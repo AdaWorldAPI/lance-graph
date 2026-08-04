@@ -89,9 +89,43 @@ production wiring.
 | gap | evidence |
 |---|---|
 | **`BatchWriter::cast()` has ZERO production call sites** | `batch_writer.rs` module doc, "STATUS: DECLARED", verified 2026-07-27 |
-| **The post-write apply seam does not exist** | `owner_adapter.rs`: "That post-write application is a SEPARATE seam (the version-completion path)" — the adapter "owns only the pre-write cast half" |
+| ~~**The post-write apply seam does not exist**~~ | ⊘ **WRONG — see the correction below.** |
 | **`deinterlace` has no production caller** | `batch_writer.rs` doc: all call sites are in `temporal.rs`'s own `#[cfg(test)]` module |
 | **No production `DeinterlaceRow` implementor** | same doc; the trait is at `temporal.rs:318` |
+
+> **⊘ CORRECTION (2026-08-04, hours after this doc was written — the row above
+> was mine and it was wrong).** I built the "does not exist" claim from
+> `owner_adapter.rs`'s statement that it "owns only the pre-write cast half"
+> and inferred the other half was unbuilt. **It is built.** Found by the
+> D-BLW-1 agent reading the source I had not; re-verified by me line by line
+> before writing this note.
+>
+> **`persist_sink::recover_and_apply` (`persist_sink.rs:396`) IS the
+> version-completion applier.** It walks sealed landings in canonical stream
+> order, filters to `ls.slot.owner == owner.mailbox_id()`, skips anything at or
+> below the `applied_through` watermark, and for a landing carrying
+> `Some(paired_move)` it applies **that move** via
+> `owner.try_advance_phase(mv.to)` (`:430`) behind two guards:
+> `PersistError::OwnerMismatch` when `mv.mailbox != me` (`:412`) and
+> `PersistError::StalePhase` when `mv.from != owner.phase()` (`:421`). A landing
+> with `paired_move: None` only advances the watermark (`:410`).
+>
+> **It never consults `NextPhaseScheduler`** — so §4's trap is avoided *by the
+> shipped function*, not by the discipline of whoever calls it. §4 still stands
+> as a warning for anyone writing a NEW applier; it is no longer a live hazard
+> in this path.
+>
+> **What is actually missing is much narrower than "the seam":** a concrete
+> `WalSink` (that module's own header says it "builds NO concrete Lance sink")
+> and the glue that turns a `cast` into a `SweepSlot`. Both are small next to
+> "build the applier", which is what my §5.1 sent a reader off to do.
+>
+> **The lesson, since it is the same one twice today:** I derived a negative
+> from *one* module's self-description instead of reading the module it pointed
+> at. A doc saying "X is a separate seam" tells you where X is **not**, never
+> whether X exists — exactly the search-boundary defect recorded in
+> `E-A-NEGATIVE-EXISTENCE-CLAIM-IS-ONLY-AS-WIDE-AS-ITS-SEARCH-1`, committed by
+> me in the very doc that cites it.
 
 Ledger: `.claude/board/TECH_DEBT.md` `TD-DOC-COMMENTS-CLAIM-UNWIRED-BEHAVIOUR`.
 
@@ -118,12 +152,21 @@ whether to advance *on a version tick*; it is not the applier for a cast.
 
 ## 5. What is left to build (D-BLW-1's actual scope)
 
-1. **The version-completion seam.** On a successful `LanceVersion`, look up the
-   casts whose writes that version covers, and for each apply its paired
-   `KanbanMove` via `try_advance_phase(mv.to)` on the owner. Requires deciding
-   how a `LanceVersion` maps back to `CastId`s — note there is deliberately **no
-   confirmation ledger** (`E-ACK-ELIMINATED-1`), so this is a *read* of what
-   Lance holds, never a replay from `BatchWriter`.
+1. ~~**The version-completion seam.**~~ ⊘ **ALREADY BUILT — see the correction
+   in §3.** `persist_sink::recover_and_apply` (`persist_sink.rs:396`) applies the
+   paired move via `try_advance_phase` behind `OwnerMismatch` / `StalePhase`
+   guards. Do **not** write a second applier. What remains is only: **a concrete
+   `WalSink`** (the module builds none) and **the cast → `SweepSlot` glue**.
+   There is still deliberately **no confirmation ledger**
+   (`E-ACK-ELIMINATED-1`), so durability is a *read* of what Lance holds, never
+   a replay from `BatchWriter`.
+
+   **Shape constraint discovered while building D-BLW-1, and it falls out of
+   "an owner is a tenant" rather than being pasted on:** with ONE tenant, rows
+   cannot each cast a lifecycle move — the second row's move would hit
+   `StalePhase`, because the first already advanced the board. So a cycle emits
+   N row landings with `paired_move: None` plus **exactly ONE** landing carrying
+   the tenant's move. One mailbox = one kanban board, so one step per cycle.
 2. **A production `DeinterlaceRow` implementor** + a production caller of
    `deinterlace`, so durability is observed the way the contract says.
 3. **A `P` descriptor type** — `(mailbox, dirty row-range, cycle)`. It must stay
