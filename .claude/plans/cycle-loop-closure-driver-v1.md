@@ -533,9 +533,10 @@ is the smaller objection; the law is the real one.
 So:
 
 ```
-one KJV bake  →  64k verse rows, TILED across 64 owners of MailboxSoA<1024>
+one KJV bake  →  ONE tenant, ONE MailboxSoA, 64k verse ROWS  (§12.1a′)
                       │
-        cycle Vn:  sparse sealed transition set (§3) — 17 dirty owners, not 64
+        cycle Vn:  sparse sealed set (§3) — a ROW-level dirty set inside the
+                   one owner, never an owner-level set (owners are tenants)
                       │
         CognitiveWork body (§5.4 seam) = apply stance L to the owner's slice
                       │
@@ -800,7 +801,7 @@ after ~64 distinct sources, after which observations route to CHOICE rather than
 revision, **suppressing** contradiction on exactly the hub statements (a) inflates
 — report the count of beliefs with a saturated stamp.
 
-##### 12.3a′ D-BLW-4's AXIS IS OWNERS — and that is void (operator-ruled 2026-08-04)
+#### 12.3a′ D-BLW-4's AXIS IS OWNERS — and that is void (operator-ruled 2026-08-04)
 
 **The paragraph that stood here is retracted.** It said D-BLW-4's "≥4,096
 owners" threshold was unmeetable at 24 GiB and should therefore be measured with

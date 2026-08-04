@@ -93,52 +93,14 @@ fn main() {
     let export = std::env::args()
         .position(|a| a == "--export")
         .and_then(|i| std::env::args().nth(i + 1));
-    let full = std::fs::read_to_string(&path).expect("read KJV text");
-    // Stop at the REAL end fence, matched on its full text. `***` appears THREE
-    // ways in this file and they are not interchangeable:
-    //   header:    `*** START OF THE PROJECT GUTENBERG EBOOK 10 ***`
-    //   separator: a BARE `***` on its own line, between OT and NT
-    //   footer:    `*** END OF THE PROJECT GUTENBERG EBOOK 10 ***`
-    // The previous `tok.contains("***") => break` stopped at the SEPARATOR, so
-    // this example only ever processed the Old Testament (39 books / 23,145
-    // verses) while G1 below still printed "whole book". 23,145 + 7,957 (NT)
-    // = 31,102, the canonical KJV verse count, is how the truncation was caught.
-    let raw = match full.find("*** END OF THE PROJECT GUTENBERG") {
-        Some(i) => &full[..i],
-        None => &full[..],
-    };
+    let raw = std::fs::read_to_string(&path).expect("read KJV text");
 
-    // ── verses: a whitespace token shaped d+:d+ starts a new verse ──
-    let mut verses: Vec<String> = Vec::new();
-    let mut cur = String::new();
-    let mut in_body = false;
-    for tok in raw.split_whitespace() {
-        let is_marker = tok.split_once(':').is_some_and(|(a, b)| {
-            !a.is_empty()
-                && !b.is_empty()
-                && a.bytes().all(|c| c.is_ascii_digit())
-                && b.bytes().all(|c| c.is_ascii_digit())
-        });
-        if is_marker {
-            in_body = true;
-            if !cur.is_empty() {
-                verses.push(std::mem::take(&mut cur));
-            }
-        } else if in_body {
-            // A bare `***` is the OT->NT separator: skip it. Never a break
-            // (that truncated the corpus) and never verse text.
-            if tok.bytes().all(|c| c == b'*') {
-                continue;
-            }
-            if !cur.is_empty() {
-                cur.push(' ');
-            }
-            cur.push_str(tok);
-        }
-    }
-    if !cur.is_empty() {
-        verses.push(cur);
-    }
+    // Verse splitting lives in the LIBRARY (`deepnsm_v2::corpus`) so that
+    // `cargo test` gates it. It used to be inline here, where it carried an
+    // OT-only truncation for its entire life and could not be unit-tested:
+    // cargo compiles an example but never runs its `main()`, and the corpus is
+    // not committed. See `corpus::split_verses` for the three-`***` contract.
+    let verses: Vec<String> = deepnsm_v2::corpus::split_verses(&raw);
 
     // G1 — the whole book is ONE 64k SoA tile.
     assert!(verses.len() <= 65_536, "KILL G1: book exceeds the 64k tile");
@@ -148,13 +110,13 @@ fn main() {
     // Testament exactly. The assert below is what makes that failure loud:
     // if the input announces a New Testament, the parse must have crossed
     // into it. General (no hardcoded total), and it fails on the old code.
-    if raw.contains("The New Testament") {
+    if let Some(crossed) = deepnsm_v2::corpus::crossed_into_new_testament(&raw, verses.len()) {
         assert!(
-            verses.len() > 23_145,
-            "KILL G1b: input contains a New Testament but the parse stopped at \
-             {} verses — the OT-only truncation is back (OT = 23,145, \
-             OT+NT = 31,102)",
-            verses.len()
+            crossed,
+            "KILL G1b: input announces a New Testament but the parse stopped at \
+             {} verses — the OT-only truncation is back (OT = {}, OT+NT = 31,102)",
+            verses.len(),
+            deepnsm_v2::corpus::KJV_OLD_TESTAMENT_VERSES
         );
     }
     assert!(

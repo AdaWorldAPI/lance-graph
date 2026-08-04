@@ -1,4 +1,4 @@
-## 2026-08-04 — Arm BLW opened: BLW-0 + D-BLW-1 + the stance lift (4 subagents: 2 Sonnet recon, 1 Opus design, 2 Sonnet build)
+## 2026-08-04 — Arm BLW opened: BLW-0 + D-BLW-1 + the stance lift (5 subagents: 2 Sonnet recon, 1 Opus design, 2 Sonnet build)
 
 > **⊘ SAME-DAY CORRECTION (operator-ruled) — read this before the entry below, most of which is retracted.**
 > Two of the three headline items did not survive. **(1) The tiling is void:** an owner is a

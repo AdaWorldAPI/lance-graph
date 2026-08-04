@@ -1,8 +1,8 @@
-## 2026-08-04 — E-THE-GATE-ASSERTED-A-CORPUS-IT-NEVER-SAW-1 — "whole book" was two thirds of a Bible
+## 2026-08-04 — E-THE-GATE-ASSERTED-A-CORPUS-IT-NEVER-SAW-1 — "whole book" was the Old Testament only
 
 **Status:** FINDING (measured; fixed; falsifier added). **Confidence:** High — the count is external. Code: `deepnsm-v2/examples/bible_wave.rs`.
 
-**What happened.** The inbound leg broke on `tok.contains("***")`. The Gutenberg KJV carries a **lone `***` between the testaments**, so the parse stopped at Malachi 4:6 — 39 books, **23,145 verses, the Old Testament exactly** — while the G1 gate printed *"whole book = N verses"* and passed. Every downstream consumer of its TSV export has been reasoning over two thirds of a Bible. After the fix: **31,102 verses** = 23,145 OT + 7,957 NT, the canonical count.
+**What happened.** The inbound leg broke on `tok.contains("***")`. The Gutenberg KJV carries a **lone `***` between the testaments**, so the parse stopped at Malachi 4:6 — 39 books, **23,145 verses, the Old Testament exactly** — while the G1 gate printed *"whole book = N verses"* and passed. Every downstream consumer of its TSV export has been reasoning over **74.4 % of the verses (23,145 / 31,102) and 59.1 % of the books (39 / 66)** — I first wrote "two thirds", which matches neither denominator; corrected on review. After the fix: **31,102 verses** = 23,145 OT + 7,957 NT, the canonical count.
 
 **Why it survived.** G1 asserted `verses.len() <= 65_536` — a **one-sided** bound. Truncation moves the count *down*, i.e. **deeper into the passing region**. The gate was structurally incapable of noticing the failure it sat next to, and it printed a label ("whole book") that no assertion checked. A bound that only constrains one direction is not a gate on a quantity that can fail in the other.
 

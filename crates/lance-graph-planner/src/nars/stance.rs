@@ -64,6 +64,17 @@ impl Interner {
         if let Some(&i) = self.map.get(w) {
             return i;
         }
+        // Fail loudly rather than alias. The cast below is `as u16`, so past
+        // 65,536 distinct strings the id wraps and two different words silently
+        // share one id — corrupting every statement built from them. This is a
+        // public library API now, so the bound is checked instead of assumed.
+        // (Whole-book KJV interns ~12.5k, well under; a larger corpus would
+        // otherwise corrupt quietly.)
+        assert!(
+            self.names.len() < u16::MAX as usize,
+            "Interner exhausted: more than {} distinct strings",
+            u16::MAX
+        );
         let i = self.names.len() as u16;
         self.map.insert(w.to_string(), i);
         self.names.push(w.to_string());
