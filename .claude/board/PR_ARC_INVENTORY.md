@@ -33,6 +33,38 @@
 > - **Docs** — knowledge files produced (immutable)
 > - **Confidence (YYYY-MM-DD):** — the ONLY mutable field
 
+## 2026-08-04 — lance-graph #883 — legacy actor-surface quarantine + stale phase-progression comment correction
+
+**Merged:** `48d4841` (branch `claude/x265-x266-plans-review-h9osnl`, head `c65a405`). 10 files, comment/doc-only.
+
+- **Operator ruling (canonical text).** "#879 is the complete and independent production phase-progression path. KanbanActor has no assigned architectural responsibility. It is legacy experimental compatibility code retained only because existing probes or consumers still reference it. No new production architecture may depend on it. Its presence does not designate it as the future home of an ownership, planning-initiation, concurrency, cognition, reasoning, or lifecycle mechanism."
+- **Production path:** `plan evaluation → KanbanMove intent → BatchWriter → sparse seal → one WAL/version → inline apply of the sealed transitions`. No actor bridge, fleet, owned driver, custody model, or message path required.
+- **Marked LEGACY** — `KanbanMsg::{Advance, MulAdvance, Tick}` + `deliver_kanban_step` / `drive_mul_advance` / `drive_version_tick` / `drive_scheduled_tick` / `run_to_absorbing`. Disclosure in the first five header lines and at each public entry point. Marked, not deleted.
+- **Locked — transport ≠ engine.** `MulAdvance` / `drive_mul_advance` are legacy actor-message **wrappers only**, NOT the canonical MUL reasoning engine. `gate_decision_i4` is independent, consumed directly by #879 via `shade_owner` / `run_cognitive_work_gated[_over]`, and **not deprecated**. NARS tactic recipes and the awareness rung ladder are separate and untouched; no coupling to KanbanActor.
+- **Stale comments corrected** — `cycle_driver.rs` is canonical #879 code and NOT stale; only three inherited comments were (actor-tree/open-bridge header framing; the "actor-owned production wiring NOT proven" ledger line; `run_cognitive_work`'s actor-leg claim, replaced with the contract-probe-adapter wording). Same obsolete ractor-drives framing corrected in `supervisor/lib.rs`, `contract::kanban`, `contract::soa_view`, `contract::orchestration`. `gate_decision_i4`, `shade_owner`, `run_cognitive_work_gated[_over]`, sealing, application, recovery, runtime behaviour all unchanged.
+- **Withdrawn** — the A1 two-seam design gate in full (per-mailbox `KanbanMsg` apply AND the guarantee-dummy owner framing); the actor-owned `emit_bootstrap_intent` milestone; the planning-initiation-adapter wording; the future actor/nudge slice. Nothing replaces them.
+- **Inventory (no architectural legitimacy)** — spawn sites kept solely as deletion-impact evidence + removal work-list: own `#[cfg(test)]` tests; `tests/w2b_real_owner_probe.rs`; `onebrc-probe/src/lane_e.rs:170` (library source, not a test) via `drive_version_tick`.
+- **W1 ledger corrected** — SHIPPED: held owner rescheduled/re-polled/wakes/advances. OPEN: `run_cycle` drained-writer retry guard (retry `SealFailure.casts`); missing-owner counter in `cognitive_pass`.
+- **Docs** — `EPIPHANIES` `E-ACTOR-IS-NOT-THE-PHASE-PATH-1`; rule-4 correction on #880's entry; STATUS_BOARD A1 rescoped.
+- **Confidence (2026-08-04):** working — comment-only; `cargo fmt --check` clean on supervisor + contract, `cargo check -p lance-graph-contract` passes. Merged before the in-flight machine review completed; findings from the three prior review rounds were all addressed pre-merge.
+
+## 2026-08-04 — lance-graph #882 — backfill of the four missing arc entries (#862/#875/#876/#879)
+
+**Merged:** `872db42` (branch `claude/x265-x266-plans-review-h9osnl`). Board-only.
+
+- **Added** — RECONSTRUCTED entries for #879, #876, #875, #862, each naming its sources (PR body, merged diff stats, merge commit, and for three of them this session's direct authorship/review). Forensic method per the 2026-07-27 precedent: never inference. Arc chain unbroken #880 → #879 → #876 → #875 → #862 → #856.
+- **Docs** — `EPIPHANIES` `E-THE-DEFECTS-LIVE-IN-THE-FALSIFIERS-NOT-THE-MEASUREMENTS-1`: across three consecutive probe PRs and ~a dozen review findings, every defect was in a falsifier or a label, none in a measurement. Fenced: absence of review-found measurement defects is not proof the measurements were right.
+- **Confidence (2026-08-04):** working. Note: merged with CodeRabbit reporting `success` whose description was "Review rate limited" — i.e. no machine review actually ran.
+
+## 2026-08-04 — lance-graph #881 — post-merge arc + state entries for #880; the arc gap recorded
+
+**Merged:** `4cacfa0` (branch `claude/x265-x266-plans-review-h9osnl`). Board-only.
+
+- **Added** — the #880 arc entry + matching LATEST_STATE entry, written on merge rather than as later cleanup (the delay is the anti-pattern the arc's own 2026-07-27 recovery note documents).
+- **Locked** — recorded that the arc's memory practice had broken again: no entries existed for #862/#875/#876/#879. Made visible rather than silently filling only the new one; the session that wrote it had driven two of the missing PRs and said so.
+- **Self-caught correction** (`06e8818`) — the first draft credited #570 with the healthcare bridge's collapse onto `UnifiedBridge<P>`; #570 collapsed the other ports and explicitly **deferred** that one. Corrected to state the specific PR is unverified rather than guess a number.
+- **Confidence (2026-08-04):** working.
+
 ## 2026-08-03 — lance-graph #880 — kanban-64k-inverted-awareness plan v1 (two-anchor arc) + a doc-header honesty pass on four unwired/partial modules
 
 > **⚠ ARC-GAP NOTE (2026-08-03, written with this entry).** The memory practice
