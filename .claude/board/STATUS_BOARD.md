@@ -5,7 +5,7 @@ Plan: `.claude/plans/kanban-64k-inverted-awareness-v1.md` (operator anchors a/b;
 | D-id | Deliverable | Repo | Status | Evidence |
 |---|---|---|---|---|
 | D-KIA-0 | jc capability map + dichotomous-statistics decision note (phi/KR-20/kappa naming; Spearman dropped at view 2) | lance-graph | Queued | plan W0 |
-| D-KIA-A1 | actor-fleet driver seam — design gate (guarantee-dummy single owner vs per-mailbox KanbanMsg apply; MailboxFleet-over-registry withdrawn per codex P1); first ACTOR-OWNED caller of owner_adapter::emit_bootstrap_intent; #879 caveat fixes (retry footgun guard, held_owners strand falsifier, missing-owner counter) | lance-graph | Queued | plan W1 |
+| D-KIA-A1 | ⊘ RESCOPED 2026-08-04 (E-ACTOR-IS-NOT-THE-PHASE-PATH-1): #879 is the complete phase-progression path; KanbanActor has no assigned architectural responsibility (legacy compatibility code). SHIPPED: held-owner reschedule/wake. OPEN: run_cycle drained-writer retry guard; missing-owner counter in cognitive_pass | lance-graph | Queued | plan W1 |
 | D-KIA-A2 | parallelism falsifier (protocol pre-registered: median-of-5, >=2x at >=4k owners, +/-10% stay-silent; kill = regrade claim (a)) | lance-graph | Queued | plan W2 |
 | D-KIA-B1 | catalog binary-range criterion contract type + generalized catalog-mirror drift guard | lance-graph | Queued | plan W3 |
 | D-KIA-C5 | cohort-statistic witness type under the ELEVATED carve-out + held-out anti-circularity gate | lance-graph | Queued | plan W4 |

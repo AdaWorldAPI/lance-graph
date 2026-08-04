@@ -85,6 +85,52 @@ mailbox-phase state, no second owner, no ack*:
     (`KanbanMsg::Advance`, the shipped S4 edge).
 Either seam lands the first **actor-owned** `emit_bootstrap_intent` caller
 (the existing `cognitive_pass` caller is HashMap-fleet-driven).
+
+> **⊘ CORRECTION (operator ruling, 2026-08-04) — A1 above is WRONG as written;
+> there is no design gate and no actor seam to choose.**
+>
+> **#879 is the complete and independent production phase-progression path.**
+>
+> **KanbanActor has no assigned architectural responsibility. It is legacy
+> experimental compatibility code retained only because existing probes or
+> consumers still reference it. No new production architecture may depend on
+> it. Its presence does not designate it as the future home of an ownership,
+> planning-initiation, concurrency, cognition, reasoning, or lifecycle
+> mechanism.**
+>
+> The production path, complete and standalone in #879:
+> `plan evaluation → KanbanMove intent → BatchWriter → sparse seal →
+> one WAL/version → inline apply`.
+> **No actor bridge, actor fleet, actor-owned driver, or actor custody model is
+> required.** #879 is not being redesigned by this correction.
+>
+> 1. Both A1 seams are struck — the per-mailbox `KanbanMsg` apply (the message
+>    bus #879's writer-fires-inline ruling already excluded) *and* the
+>    guarantee-dummy owner framing, which invented an ownership architecture the
+>    ruling does not call for.
+> 2. **"First ACTOR-OWNED caller of `emit_bootstrap_intent`" is withdrawn** as a
+>    milestone. Corrected W1 ledger (statuses fixed 2026-08-04): **SHIPPED** —
+>    a held owner is rescheduled, re-polled, wakes, and advances later (#879's
+>    own falsifiers). **OPEN** — protect callers from retrying `run_cycle` with
+>    the drained writer instead of retrying `SealFailure.casts`. **OPEN** —
+>    surface/count a missing owner in `cognitive_pass` instead of silently
+>    skipping.
+> 3. `KanbanMsg::{Advance, MulAdvance, Tick}` and the five re-exported driver
+>    helpers are marked **LEGACY** in source (disclosure in the first five header
+>    lines of `kanban_actor.rs`). Marked, not deleted: `onebrc-probe`'s Lane E is
+>    a live consumer via `drive_version_tick`. No runtime behaviour changed.
+> 4. **Caller/spawn migration inventory (corrected).** Kept strictly as
+>    evidence for why immediate deletion would break current consumers and as
+>    the removal work-list — it confers no architectural legitimacy. `KanbanActor` is spawned in three places, none
+>    of them the supervisor tree: `kanban_actor.rs`'s own `#[cfg(test)]` tests;
+>    `tests/w2b_real_owner_probe.rs` (60/103/144); and
+>    `onebrc-probe/src/lane_e.rs:170` — **library source, not a test**. An earlier
+>    version of this line claimed every spawn was in one file: a single-file check
+>    written up as a repository-wide census, caught by external review. Third
+>    absence-claim of this arc to rot; the operational fix is to re-run the search
+>    at write-time and keep the command with the claim.
+>
+> Board: `EPIPHANIES.md` `E-ACTOR-IS-NOT-THE-PHASE-PATH-1`.
 - Design constraint: the seal/collect side stays single-writer (one
   `BatchWriter`); parallelism lives in the **thought phase** (owners think
   concurrently, cast ahead-fire), never in the seal. Ordering is already the
@@ -99,8 +145,9 @@ Either seam lands the first **actor-owned** `emit_bootstrap_intent` caller
   (symmetry with `apply_sealed_transitions`).
 
 **A2 — the parallelism falsifier.** The claim is only honest if measured:
-N actors thinking concurrently (tokio joinset over `MulAdvance`-gated work)
-vs. the same N sequentially, same corpus, same seals.
+N owners thinking concurrently (tokio joinset over cycle-driver MUL-gated
+`CognitiveWork` — NOT the deprecated `MulAdvance` actor arm; corrected
+2026-08-04) vs. the same N sequentially, same corpus, same seals.
 - **Can-fire:** concurrent wall-clock materially below sequential at 4k+
   owners with non-trivial per-thought work.
 - **Stay-silent:** with trivial thought bodies the two must converge (else the
@@ -146,6 +193,7 @@ convention.
 **C1 — jc crate audit first** (R7 — one read, no build): what does `jc`
 actually provide toward ICC/α/ρ with variance components? Output: a one-page
 capability map. Everything below adjusts to what's found.
+
 
 **C2 — name the dichotomous statistics correctly.** Over binary catalog
 criteria: Pearson→**φ** (report the marginal-capped ceiling), Cronbach's
@@ -213,7 +261,7 @@ only if the comparison runs on jc's non-binary escalation):
 | Wave | D-id | Deliverable | Gate to pass | Model |
 |---|---|---|---|---|
 | W0 | D-KIA-0 | jc capability map (C1) + dichotomous-statistics decision note (C2 naming) | read-only; note on board | main thread |
-| W1 | D-KIA-A1 | actor-fleet driver seam — design gate: guarantee-dummy single owner vs per-mailbox `KanbanMsg` apply (`MailboxFleet`-over-registry withdrawn, codex P1) + first ACTOR-OWNED `emit_bootstrap_intent` caller + #879 caveat fixes | existing 19 falsifiers stay green over the actor fleet; strand falsifier; no-ack audit clean | Opus design → Sonnet impl |
+| W1 | D-KIA-A1 | ⊘ RESCOPED 2026-08-04 — no design gate, no actor seam choice, no actor-owned `emit_bootstrap_intent` milestone (all withdrawn; actors do not drive). #879 is the canonical phase-progression path and is not redesigned. SHIPPED: held-owner reschedule/wake (#879 falsifiers). OPEN: run_cycle drained-writer retry guard (retry `SealFailure.casts`, not the writer); missing-owner counter in `cognitive_pass` | existing 19 falsifiers stay green; strand falsifier; no-ack audit clean | Opus design → Sonnet impl |
 | W2 | D-KIA-A2 | parallelism falsifier (protocol pre-registered in §2 A2: median-of-5, ≥2× at ≥4k owners, ±10 % stay-silent) | can-fire + stay-silent both green, else regrade claim (a) | Opus |
 | W3 | D-KIA-B1 | catalog criterion contract type + catalog-mirror drift guard | field-isolation matrix; `v3-envelope-auditor` verdict LAYOUT-CLEAN/GATED | Sonnet impl, Opus gate |
 | W4 | D-KIA-C5 | witness type under ELEVATED ruling + C6 held-out gate | zero-copy verdict ELEVATED recorded; anti-circularity falsifier | Opus |

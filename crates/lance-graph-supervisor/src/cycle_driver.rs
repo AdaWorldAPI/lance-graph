@@ -44,19 +44,16 @@
 //! through `MailboxSoaOwner::try_advance_phase` — no ractor message bus, no
 //! dataset re-read, NOT a 64k async `drive_once` fan.
 //!
-//! **What [`MailboxFleet`] is and is NOT:** it is the driver's owner-resolution
-//! seam (and its `HashMap` impl the probe/registry fleet used by the tests).
-//! It is **NOT** a claim of production supervisor ownership: the actor-owned
-//! path (`kanban_actor::KanbanActor`, behind the `supervisor` feature, where
-//! actor State IS the owner and mutation is serialized in the mailbox handler)
-//! remains the production actor tree. Bridging the sealed sparse set into
-//! actor-owned state (a `MailboxFleet` impl that resolves into actor state, or
-//! delivery via the owner's mailbox) is **open, not shipped**.
+//! **What [`MailboxFleet`] is:** the driver's owner-resolution seam, with its
+//! `HashMap` impl as the keyed fleet the driver and its tests use. This
+//! sealed-cycle path (#879) is the complete and independent production
+//! phase-progression path — there is no actor bridge waiting to be completed.
+//! (`kanban_actor` is legacy compatibility code with no assigned architectural
+//! responsibility; see its module header.)
 //!
 //! ## Honesty ledger (what is proven vs not)
 //!
 //! - **Control-loop contract: proven** (this module's falsifiers, over fakes).
-//! - **Actor-owned production wiring: NOT proven** (see above).
 //! - **cognitive-shader-driver / MailboxSoA thought: NOT proven** — the P4c
 //!   thought body here is the real **MUL gate** ([`shade_owner`] =
 //!   `gate_decision_i4` + `advance_on_gate`), but its qualia/mantissa inputs
@@ -177,9 +174,8 @@ pub struct CollectedCasts {
 /// **unrepresented owners are never resolved and never touched** (that is what
 /// keeps them byte-identical).
 ///
-/// Scope honesty: the `HashMap` impl below is the probe/registry fleet. The
-/// production actor-owned path (`KanbanActor` state) is NOT bridged yet — see
-/// the module docs' ownership section.
+/// The `HashMap` impl below is the driver's keyed fleet (order-free access;
+/// cross-mailbox ordering is the read side's job, per the temporal contract).
 pub trait MailboxFleet {
     /// The concrete owner type this fleet holds.
     type Owner: MailboxSoaOwner;
@@ -189,8 +185,8 @@ pub trait MailboxFleet {
     fn owner_mut(&mut self, id: MailboxId) -> Option<&mut Self::Owner>;
 }
 
-/// A `HashMap` keyed by `MailboxId` — the probe/registry fleet (tests + any
-/// non-actor registry). NOT the production actor tree (see module docs).
+/// A `HashMap` keyed by `MailboxId` — the driver's keyed fleet (order-free
+/// access).
 impl<O: MailboxSoaOwner> MailboxFleet for HashMap<MailboxId, O> {
     type Owner = O;
     fn owner(&self, id: MailboxId) -> Option<&O> {
@@ -549,11 +545,13 @@ where
 /// casts it **write-on-behalf**. This never mutates a mailbox (the step is P4b,
 /// post-seal); it only stages the next intent.
 ///
-/// Execution is sequential within the pass (a synchronous loop) — the wait-free
-/// property is at the **cast/cycle boundary** (an owner whose thought declines
-/// or is unfinished never blocks a completed owner's cast), NOT intra-pass
-/// concurrent execution. Concurrent per-owner thought execution belongs to the
-/// actor leg (`kanban_actor`), not this driver.
+/// `run_cognitive_work` is a sequential contract-probe adapter used to prove
+/// the seal→apply→intent roundtrip. It does not define the production
+/// execution model.
+///
+/// Production cognition may run independently and concurrently over the sealed
+/// `Vn`. Completed immutable outcomes converge only at the deterministic
+/// ordering/coalescing/seal boundary.
 pub fn run_cognitive_work<F>(
     fleet: &F,
     applied: &AppliedCycle,
