@@ -143,7 +143,7 @@ fn ln_gamma(x: f64) -> f64 {
 
 /// Continued fraction for the incomplete beta function (Numerical Recipes
 /// §6.4, modified Lentz). Converges for `x < (a+1)/(a+b+2)`.
-fn betacf(a: f64, b: f64, x: f64) -> f64 {
+fn betacf(a: f64, b: f64, x: f64) -> Option<f64> {
     const MAXIT: usize = 300;
     const EPS: f64 = 3.0e-16;
     const FPMIN: f64 = 1.0e-300;
@@ -187,10 +187,12 @@ fn betacf(a: f64, b: f64, x: f64) -> f64 {
         let del = d * c;
         h *= del;
         if (del - 1.0).abs() < EPS {
-            break;
+            return h.is_finite().then_some(h);
         }
     }
-    h
+    // Exhausted MAXIT without meeting EPS. Returning the last iterate would
+    // present an unconverged value as a p-value; report failure instead.
+    None
 }
 
 /// Regularised incomplete beta `I_x(a, b)`, the CDF machinery behind every
@@ -206,15 +208,23 @@ fn reg_inc_beta(a: f64, b: f64, x: f64) -> Option<f64> {
     if x == 1.0 {
         return Some(1.0);
     }
-    let front =
-        (ln_gamma(a + b) - ln_gamma(a) - ln_gamma(b) + a * x.ln() + b * (1.0 - x).ln()).exp();
+    // `ln_1p(-x)` rather than `(1-x).ln()`: near x = 1 the subtraction loses
+    // most of its significant digits before the log ever sees it.
+    let front = (ln_gamma(a + b) - ln_gamma(a) - ln_gamma(b) + a * x.ln() + b * (-x).ln_1p()).exp();
     let v = if x < (a + 1.0) / (a + b + 2.0) {
-        front * betacf(a, b, x) / a
+        front * betacf(a, b, x)? / a
     } else {
         // Symmetry: I_x(a,b) = 1 − I_{1−x}(b,a)
-        1.0 - front * betacf(b, a, 1.0 - x) / b
+        1.0 - front * betacf(b, a, 1.0 - x)? / b
     };
-    v.is_finite().then(|| v.clamp(0.0, 1.0))
+    // Clamp only a rounding-scale excursion; a materially out-of-domain result
+    // means the continued fraction failed and must surface as None, not as a
+    // plausible 0 or 1.
+    const SLACK: f64 = 1e-9;
+    if !v.is_finite() || !(-SLACK..=1.0 + SLACK).contains(&v) {
+        return None;
+    }
+    Some(v.clamp(0.0, 1.0))
 }
 
 /// Two-tailed p-value of Student's `t` with `df` degrees of freedom:
@@ -310,13 +320,35 @@ pub fn cohen_kappa(a: &[usize], b: &[usize]) -> Option<f64> {
 /// `λ_i² = σ_ij·σ_ik / σ_jk` for any pair `j,k ≠ i`; the estimate averages
 /// every admissible triad. Residual variances are `ψ_i = σ_ii − λ_i²`.
 ///
+/// **Loading SIGNS matter and are recovered.** The triad identity gives only
+/// `λ_i²`, hence `|λ_i|`; since ω depends on `(Σλ)²`, a negatively-keyed item
+/// must subtract from that sum. Signs are read off the first row
+/// (`sign(σ_ij) = s_i·s_j`, anchored at `s_0 = +1`, which is free because the
+/// model is identified only up to a global flip and `(Σλ)²` is invariant to
+/// one). Taking the positive root everywhere — as this function did before
+/// 2026-08-04 — inflates ω badly; the regression fixture reports 0.25, where
+/// the unsigned version returned 0.75.
+///
+/// # What is and is NOT verified (read before quoting this as ω_t)
+///
+/// This is a **triad-derived single-factor estimate**, not a fitted
+/// factor-analysis solution. It checks three necessary conditions —
+/// non-negative `λ_i²`, non-negative `ψ_i` (no Heywood case), and a
+/// **sign-consistent** covariance pattern — and rejects with `None` when any
+/// fails. It does **not** test the full vanishing-tetrad constraints, so it
+/// cannot certify that a covariance matrix is one-factor: for `k ≥ 4` a
+/// multidimensional or otherwise inconsistent matrix can still produce a
+/// finite number. Treat a returned value as *ω under an assumed single factor*,
+/// and establish the factor structure separately if the claim depends on it.
+///
 /// Requires `k ≥ 3` — with two items the single-factor model is **not
 /// identified** (one covariance, two unknown loadings), so `None` is returned
 /// rather than a fabricated estimate. Also returns `None` on ragged input,
 /// `n < 2`, non-finite input, a triad set with no usable denominator, a
-/// negative `λ_i²`, or a **Heywood case** (`ψ_i < 0`, i.e. estimated common
-/// variance exceeding the item's total variance) — each of which means the
-/// congeneric model does not fit, not that reliability is low.
+/// negative `λ_i²`, a **Heywood case** (`ψ_i < 0`, estimated common variance
+/// exceeding the item's total variance), or an inconsistent sign pattern —
+/// each of which means the assumed model is contradicted by the data, not that
+/// reliability is low.
 ///
 /// ```
 /// use jc::stats::omega_total;
@@ -390,7 +422,51 @@ pub fn omega_total(items: &[Vec<f64>]) -> Option<f64> {
         if lam_sq < -tol || !lam_sq.is_finite() {
             return None; // single-factor model violated (negative common variance)
         }
-        lambda[i] = lam_sq.max(0.0).sqrt();
+        lambda[i] = lam_sq.max(0.0).sqrt(); // MAGNITUDE only — signed below
+    }
+
+    // ── recover the loading SIGNS (P1 fix, 2026-08-04) ──────────────────────
+    //
+    // The triad identity yields λ_i² and therefore only |λ_i|. Taking the
+    // positive root for every item is WRONG whenever the true loadings differ
+    // in sign: ω depends on `(Σλ)²`, and a negatively-keyed item must SUBTRACT
+    // from that sum. Erasing its sign inflates ω badly — on the signed fixture
+    // in the tests, 0.25 was reported as 0.75.
+    //
+    // Under a single factor `σ_ij = λ_iλ_j`, so `sign(σ_ij) = s_i·s_j`. The
+    // model is identified only up to a GLOBAL flip (and ω is invariant to one,
+    // since it uses `(Σλ)²`), so anchor `s_0 = +1` and read every other sign
+    // off the first row.
+    let mut sign = vec![1.0f64; k];
+    for j in 1..k {
+        // A materially-zero covariance means λ_0 or λ_j is ~0; that item
+        // contributes ~nothing to Σλ, so either sign is harmless. Keep +1.
+        let scale = (cov[0][0].abs() * cov[j][j].abs()).sqrt().max(1.0);
+        if cov[0][j] < -1e-9 * scale {
+            sign[j] = -1.0;
+        }
+    }
+    // Sign CONSISTENCY is a genuine (partial) one-factor structure test: every
+    // off-diagonal covariance must agree with the product of the two recovered
+    // signs. A conflict means no single set of loadings reproduces the sign
+    // pattern, i.e. the data is not one-factor — reject rather than return a
+    // number the model cannot support. (This does NOT verify the full tetrad
+    // constraints; see the function's doc for what is and is not checked.)
+    for i in 0..k {
+        for j in (i + 1)..k {
+            let scale = (cov[i][i].abs() * cov[j][j].abs()).sqrt().max(1.0);
+            let cutoff = 1e-9 * scale;
+            if cov[i][j].abs() <= cutoff {
+                continue; // too near zero to carry a sign
+            }
+            let expected = sign[i] * sign[j];
+            if cov[i][j].signum() != expected {
+                return None; // sign pattern is not one-factor
+            }
+        }
+    }
+    for i in 0..k {
+        lambda[i] *= sign[i];
     }
 
     let sum_lambda: f64 = lambda.iter().sum();
@@ -444,6 +520,129 @@ pub fn phi(x: &[bool], y: &[bool]) -> Option<f64> {
     pearson(&xf, &yf)
 }
 
+/// A 2×2 contingency table with **both marginals**, the agreement decomposition,
+/// and the two association coefficients that read off it.
+///
+/// This exists because **κ and φ are not interpretable as bare scalars.** φ's
+/// attainable maximum is capped by how far the two marginals differ, so a
+/// "low" φ may be sitting at its own ceiling; κ is a ratio whose denominator
+/// `1 − p_e` collapses as the marginals become extreme, which makes κ unstable
+/// exactly where the table is most lopsided. Reporting either number without
+/// its marginals hides the information needed to read it — so the binary
+/// surface returns the table, and the scalar functions remain conveniences.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct BinaryAssociation {
+    /// Count of `(false, false)`.
+    pub n00: u64,
+    /// Count of `(false, true)`.
+    pub n01: u64,
+    /// Count of `(true, false)`.
+    pub n10: u64,
+    /// Count of `(true, true)`.
+    pub n11: u64,
+    /// Rate of `true` in the first rater — the marginal φ's ceiling depends on.
+    pub positive_rate_a: f64,
+    /// Rate of `true` in the second rater.
+    pub positive_rate_b: f64,
+    /// `p_o` — proportion of cells where the two agree.
+    pub observed_agreement: f64,
+    /// `p_e` — agreement expected from the marginals alone.
+    pub expected_agreement: f64,
+    /// Cohen's κ, or `None` when `p_e == 1` (undefined, `0/0`).
+    pub kappa: Option<f64>,
+    /// φ, or `None` when either variable is constant (zero variance).
+    pub phi: Option<f64>,
+}
+
+/// Cross-tabulate two binary vectors into a [`BinaryAssociation`] — the
+/// **preferred** entry point for binary agreement, since it carries the
+/// marginals κ and φ cannot be read without.
+///
+/// Returns `None` only on structurally unusable input (length mismatch or
+/// empty); a degenerate *table* still returns the counts, with `kappa` / `phi`
+/// individually `None`, because the counts remain informative even where the
+/// coefficients are undefined.
+///
+/// ```
+/// use jc::stats::binary_association;
+/// let a = [true, true, false, false];
+/// let b = [true, false, false, false];
+/// let t = binary_association(&a, &b).unwrap();
+/// assert_eq!((t.n11, t.n10, t.n01, t.n00), (1, 1, 0, 2));
+/// assert!((t.observed_agreement - 0.75).abs() < 1e-12);
+/// ```
+pub fn binary_association(a: &[bool], b: &[bool]) -> Option<BinaryAssociation> {
+    if a.len() != b.len() || a.is_empty() {
+        return None;
+    }
+    let (mut n00, mut n01, mut n10, mut n11) = (0u64, 0u64, 0u64, 0u64);
+    for (&x, &y) in a.iter().zip(b.iter()) {
+        match (x, y) {
+            (false, false) => n00 += 1,
+            (false, true) => n01 += 1,
+            (true, false) => n10 += 1,
+            (true, true) => n11 += 1,
+        }
+    }
+    let n = a.len() as f64;
+    let pa = (n10 + n11) as f64 / n;
+    let pb = (n01 + n11) as f64 / n;
+    let p_o = (n00 + n11) as f64 / n;
+    // Expected agreement from the marginals alone.
+    let p_e = pa * pb + (1.0 - pa) * (1.0 - pb);
+    let kappa = {
+        let denom = 1.0 - p_e;
+        if denom == 0.0 || !denom.is_finite() {
+            None
+        } else {
+            let k = (p_o - p_e) / denom;
+            k.is_finite().then_some(k)
+        }
+    };
+    Some(BinaryAssociation {
+        n00,
+        n01,
+        n10,
+        n11,
+        positive_rate_a: pa,
+        positive_rate_b: pb,
+        observed_agreement: p_o,
+        expected_agreement: p_e,
+        kappa,
+        phi: phi(a, b),
+    })
+}
+
+/// KR-20 — the Kuder-Richardson formula 20, which **is Cronbach's α computed
+/// on dichotomous items**.
+///
+/// Takes `&[Vec<bool>]` so the dichotomous precondition is enforced by the
+/// type, converts once, and **delegates the arithmetic** to
+/// [`crate::reliability::cronbach_alpha`] — this is a naming surface, not a
+/// second implementation. Reporting "α" while the items are binary is the
+/// mislabel this function exists to remove.
+///
+/// Same shape and degeneracy conditions as `cronbach_alpha`: `k ≥ 2` items,
+/// equal-length non-empty rows, and non-zero variance of the per-subject
+/// totals (all-identical totals → `None`).
+///
+/// ```
+/// use jc::stats::kr20;
+/// let items = vec![
+///     vec![true, true, false, false],
+///     vec![true, true, false, false],
+///     vec![true, false, false, false],
+/// ];
+/// assert!(kr20(&items).unwrap() > 0.8);
+/// ```
+pub fn kr20(items: &[Vec<bool>]) -> Option<f64> {
+    let numeric: Vec<Vec<f64>> = items
+        .iter()
+        .map(|it| it.iter().map(|&v| if v { 1.0 } else { 0.0 }).collect())
+        .collect();
+    crate::reliability::cronbach_alpha(&numeric)
+}
+
 /// Solve `A·b = rhs` by Gaussian elimination with partial pivoting.
 /// `None` if the system is singular to working precision.
 fn solve(mut a: Vec<Vec<f64>>, mut rhs: Vec<f64>) -> Option<Vec<f64>> {
@@ -459,7 +658,11 @@ fn solve(mut a: Vec<Vec<f64>>, mut rhs: Vec<f64>) -> Option<Vec<f64>> {
                     .partial_cmp(&y.abs())
                     .unwrap_or(std::cmp::Ordering::Equal)
             })?;
-        if max.abs() < 1e-12 {
+        // RELATIVE rank test. Callers standardise their design so the initial
+        // diagonal is 1, making this a statement about rank rather than about
+        // the units the data happened to be measured in — an absolute cutoff
+        // here silently rejected full-rank designs at small magnitudes.
+        if max.abs() < 1e-10 {
             return None; // singular → collinear predictors
         }
         a.swap(col, piv);
@@ -530,51 +733,82 @@ pub fn multiple_r_squared(y: &[f64], predictors: &[Vec<f64>]) -> Option<f64> {
         return None;
     }
 
-    // Design matrix with intercept: columns [1, p_0, .., p_{k-1}].
-    let m = k + 1;
-    let col = |c: usize, i: usize| -> f64 {
-        if c == 0 {
-            1.0
-        } else {
-            predictors[c - 1][i]
-        }
-    };
+    // CENTER the response and every predictor, then SCALE each predictor to
+    // unit norm (P1 fix, 2026-08-04).
+    //
+    // R² is invariant under any affine transform of the predictors, so this
+    // changes no correct answer — but it is what makes the rank test
+    // meaningful. The previous code built `XᵀX` on the RAW columns and called
+    // a pivot singular below an ABSOLUTE `1e-12`; that threshold is a
+    // statement about units, not about rank, so merely measuring the same
+    // quantity in different units flipped a full-rank design to `None`
+    // (measured: `x` on the order of 1e-8 with an exact linear `y` returned
+    // `None`, while the identical relationship at unit scale returned 1.0).
+    //
+    // Centering also absorbs the intercept, so the design drops to `k`
+    // columns and the "collinear with the intercept" case (`b = a + 1`)
+    // correctly reappears as two identical centered columns.
+    let my = mean(y)?;
+    let yc: Vec<f64> = y.iter().map(|v| v - my).collect();
+    let ss_tot: f64 = yc.iter().map(|v| v * v).sum();
+    if ss_tot <= 0.0 || !ss_tot.is_finite() {
+        return None; // constant y → R² undefined
+    }
 
-    // Normal equations XᵀX b = Xᵀy.
-    let mut xtx = vec![vec![0.0f64; m]; m];
-    let mut xty = vec![0.0f64; m];
+    let mut cols: Vec<Vec<f64>> = Vec::with_capacity(k);
+    for p in predictors {
+        let mp = mean(p)?;
+        let mut c: Vec<f64> = p.iter().map(|v| v - mp).collect();
+        let norm = c.iter().map(|v| v * v).sum::<f64>().sqrt();
+        if !norm.is_finite() || norm <= 0.0 {
+            return None; // constant predictor carries no rank
+        }
+        for v in &mut c {
+            *v /= norm;
+        }
+        cols.push(c);
+    }
+
+    // Normal equations on the standardised centered design (no intercept
+    // column). Every diagonal entry is now exactly 1, so a RELATIVE pivot
+    // threshold is well defined.
+    let mut xtx = vec![vec![0.0f64; k]; k];
+    let mut xty = vec![0.0f64; k];
     for (r, xtx_row) in xtx.iter_mut().enumerate() {
         for (c, cell) in xtx_row.iter_mut().enumerate() {
-            *cell = (0..n).map(|i| col(r, i) * col(c, i)).sum();
+            *cell = (0..n).map(|i| cols[r][i] * cols[c][i]).sum();
         }
-        xty[r] = (0..n).map(|i| col(r, i) * y[i]).sum();
+        xty[r] = (0..n).map(|i| cols[r][i] * yc[i]).sum();
     }
     if xtx.iter().any(|row| row.iter().any(|v| !v.is_finite()))
         || xty.iter().any(|v| !v.is_finite())
     {
-        return None; // overflowed on large finite input
+        return None;
     }
 
     let beta = solve(xtx, xty)?;
 
-    let my = mean(y)?;
-    let ss_tot: f64 = y.iter().map(|&v| (v - my) * (v - my)).sum();
-    if ss_tot == 0.0 || !ss_tot.is_finite() {
-        return None; // constant y → R² undefined
-    }
     let ss_res: f64 = (0..n)
         .map(|i| {
-            let pred: f64 = (0..m).map(|c| beta[c] * col(c, i)).sum();
-            let e = y[i] - pred;
+            let pred: f64 = (0..k).map(|c| beta[c] * cols[c][i]).sum();
+            let e = yc[i] - pred;
             e * e
         })
         .sum();
-    if !ss_res.is_finite() {
+    if !ss_res.is_finite() || ss_res < 0.0 {
         return None;
     }
-    // Clamp: with an exact fit `ss_res` can land a few ulps below zero.
-    let r2 = (1.0 - ss_res / ss_tot).clamp(0.0, 1.0);
-    r2.is_finite().then_some(r2)
+    let r2 = 1.0 - ss_res / ss_tot;
+    // `ss_res` is a sum of squares, so it cannot be negative; the only
+    // excursions possible are `ss_res` marginally exceeding `ss_tot` (R²
+    // slightly below 0) or cancellation pushing it a few ulps past 1. Clamp
+    // ONLY that rounding-scale band — a materially out-of-range value means
+    // the solve failed and must surface as `None`, not as a plausible 0 or 1.
+    const R2_SLACK: f64 = 1e-9;
+    if !(-R2_SLACK..=1.0 + R2_SLACK).contains(&r2) || !r2.is_finite() {
+        return None;
+    }
+    Some(r2.clamp(0.0, 1.0))
 }
 
 /// Multiple correlation `R = √R²`. See [`multiple_r_squared`].
@@ -1031,6 +1265,127 @@ mod tests {
     }
 
     #[test]
+    fn omega_respects_loading_signs() {
+        // P1 REGRESSION (external review, 2026-08-04). The triad identity
+        // yields λ_i², hence only |λ_i|; taking the positive root for every
+        // item erased the sign of a negatively-keyed one. ω uses `(Σλ)²`, so a
+        // negative loading must SUBTRACT — erasing it inflated ω from 0.25 to
+        // 0.75 on exactly this fixture.
+        //
+        // Four mutually orthogonal mean-zero vectors give an exact one-factor
+        // construction with signed loadings λ = [+1, −1, +1] and equal
+        // orthogonal residuals:
+        //   common variance = (1 − 1 + 1)²·V = V ; residual = 3V
+        //   ω = V / (V + 3V) = 0.25
+        let f = [1.0, -1.0, 1.0, -1.0, 1.0, -1.0, 1.0, -1.0];
+        let e1 = [1.0, 1.0, -1.0, -1.0, 1.0, 1.0, -1.0, -1.0];
+        let e2 = [1.0, -1.0, -1.0, 1.0, 1.0, -1.0, -1.0, 1.0];
+        let e3 = [1.0, 1.0, 1.0, 1.0, -1.0, -1.0, -1.0, -1.0];
+        let items = vec![
+            (0..8).map(|i| f[i] + e1[i]).collect::<Vec<f64>>(),
+            (0..8).map(|i| -f[i] + e2[i]).collect::<Vec<f64>>(),
+            (0..8).map(|i| f[i] + e3[i]).collect::<Vec<f64>>(),
+        ];
+        let w = omega_total(&items).unwrap();
+        assert!(
+            approx(w, 0.25, 1e-12),
+            "signed-loading ω was {w}, expected 0.25"
+        );
+    }
+
+    #[test]
+    fn omega_is_invariant_to_a_global_sign_flip() {
+        // The one-factor model is identified only up to a GLOBAL flip, and ω
+        // uses (Σλ)², so flipping every item must leave ω unchanged. This also
+        // proves the sign anchor (s_0 = +1) introduces no arbitrary bias.
+        let items = congeneric_items();
+        let flipped: Vec<Vec<f64>> = items
+            .iter()
+            .map(|it| it.iter().map(|v| -v).collect())
+            .collect();
+        let a = omega_total(&items).unwrap();
+        let b = omega_total(&flipped).unwrap();
+        assert!(approx(a, b, 1e-12), "global flip changed ω: {a} vs {b}");
+    }
+
+    #[test]
+    fn omega_rejects_an_inconsistent_sign_pattern() {
+        // Can-it-fire for the sign-consistency structure test, and written so
+        // it can ONLY pass if that specific guard is what rejects.
+        //
+        // At k = 3 the check is provably REDUNDANT: with one triad per item,
+        // sign(λ_0²) = sign(σ01)·sign(σ02)·sign(σ12), which is +1 for every
+        // consistent pattern and −1 for every inconsistent one — so an
+        // inconsistent triple always trips the negative-λ² guard first. Only
+        // at k ≥ 4, where λ² is AVERAGED over several triads, can the sign
+        // pattern conflict while every λ² stays non-negative. This fixture
+        // (found by search) is exactly that case.
+        let items = vec![
+            vec![1.0, -2.0, 0.0, 3.0, 2.0, 2.0],
+            vec![2.0, 3.0, 1.0, 0.0, 0.0, 3.0],
+            vec![1.0, 2.0, -3.0, 3.0, -3.0, 0.0],
+            vec![2.0, -2.0, 1.0, -1.0, 3.0, -2.0],
+        ];
+        let k = items.len();
+        let cv = |x: &[f64], y: &[f64]| -> f64 {
+            let (mx, my) = (mean(x).unwrap(), mean(y).unwrap());
+            x.iter()
+                .zip(y)
+                .map(|(a, b)| (a - mx) * (b - my))
+                .sum::<f64>()
+                / (x.len() - 1) as f64
+        };
+        let c: Vec<Vec<f64>> = (0..k)
+            .map(|i| (0..k).map(|j| cv(&items[i], &items[j])).collect())
+            .collect();
+
+        // PRE-REGISTER that neither pre-existing guard can be the rejecter:
+        // every λ² is non-negative and every ψ is non-negative. Without this,
+        // the test would pass even if the negative-λ² or Heywood guard fired,
+        // and would prove nothing about the sign check.
+        for i in 0..k {
+            let (mut acc, mut cnt) = (0.0, 0usize);
+            for j in 0..k {
+                if j == i {
+                    continue;
+                }
+                for l in (j + 1)..k {
+                    if l == i || c[j][l] == 0.0 {
+                        continue;
+                    }
+                    acc += c[i][j] * c[i][l] / c[j][l];
+                    cnt += 1;
+                }
+            }
+            let lam_sq = acc / cnt as f64;
+            assert!(
+                lam_sq >= 0.0,
+                "item {i}: λ²={lam_sq} would trip the NEGATIVE guard"
+            );
+            assert!(
+                c[i][i] - lam_sq >= 0.0,
+                "item {i}: ψ={} would trip the HEYWOOD guard",
+                c[i][i] - lam_sq
+            );
+        }
+        // …and that the sign pattern really is inconsistent.
+        let mut sign = vec![1.0f64; k];
+        for j in 1..k {
+            if c[0][j] < 0.0 {
+                sign[j] = -1.0;
+            }
+        }
+        let conflicts = (0..k)
+            .flat_map(|i| ((i + 1)..k).map(move |j| (i, j)))
+            .filter(|&(i, j)| c[i][j] != 0.0 && c[i][j].signum() != sign[i] * sign[j])
+            .count();
+        assert!(conflicts > 0, "fixture must carry a sign conflict");
+
+        // Therefore only the sign-consistency guard can produce the rejection.
+        assert_eq!(omega_total(&items), None);
+    }
+
+    #[test]
     fn omega_degenerate_returns_none() {
         // k < 3 → single-factor model unidentified.
         assert_eq!(
@@ -1089,6 +1444,103 @@ mod tests {
         assert_eq!(phi(&[true, false], &[true]), None); // ragged
     }
 
+    // ─────────────── binary association table + KR-20 ───────────────
+
+    #[test]
+    fn binary_association_agrees_with_the_scalar_functions() {
+        // Cross-identity: the table's κ and φ must equal the standalone
+        // functions computed independently, or the two surfaces have drifted.
+        let a = [
+            true, true, false, true, false, false, true, false, true, false,
+        ];
+        let b = [
+            true, false, false, true, true, false, true, false, false, false,
+        ];
+        let t = binary_association(&a, &b).unwrap();
+        let ka: Vec<usize> = a.iter().map(|&v| v as usize).collect();
+        let kb: Vec<usize> = b.iter().map(|&v| v as usize).collect();
+        assert!(approx(
+            t.kappa.unwrap(),
+            cohen_kappa(&ka, &kb).unwrap(),
+            1e-12
+        ));
+        assert!(approx(t.phi.unwrap(), phi(&a, &b).unwrap(), 1e-12));
+        // Counts must reconstruct the inputs exactly.
+        assert_eq!(t.n00 + t.n01 + t.n10 + t.n11, a.len() as u64);
+        assert!(approx(
+            t.observed_agreement,
+            (t.n00 + t.n11) as f64 / a.len() as f64,
+            1e-12
+        ));
+    }
+
+    #[test]
+    fn binary_association_exposes_the_marginal_asymmetry_phi_alone_hides() {
+        // The reason this type exists. Two tables with a SIMILAR φ but very
+        // different marginals are not equally interpretable; the scalar cannot
+        // say so and the table can. Anti-vacuity: the marginals must actually
+        // differ materially between the two cases.
+        let bal_a = [true, true, false, false, true, false, true, false];
+        let bal_b = [true, true, false, false, false, true, true, false];
+        let skew_a = [true, true, true, true, true, true, true, false];
+        let skew_b = [true, true, true, true, true, true, false, true];
+        let bal = binary_association(&bal_a, &bal_b).unwrap();
+        let skew = binary_association(&skew_a, &skew_b).unwrap();
+        assert!(
+            (bal.positive_rate_a - 0.5).abs() < 1e-12 && skew.positive_rate_a > 0.85,
+            "fixtures must differ in marginals: {} vs {}",
+            bal.positive_rate_a,
+            skew.positive_rate_a
+        );
+        // Expected agreement is what the marginals buy for free — far higher in
+        // the skewed table, which is exactly the caveat a bare φ omits.
+        assert!(
+            skew.expected_agreement > bal.expected_agreement + 0.2,
+            "skewed p_e {} should far exceed balanced p_e {}",
+            skew.expected_agreement,
+            bal.expected_agreement
+        );
+    }
+
+    #[test]
+    fn binary_association_degenerate_table_keeps_counts_but_drops_coefficients() {
+        // Constant inputs: φ undefined (zero variance) and κ undefined
+        // (p_e == 1), but the counts are still real information — the table
+        // must survive where the coefficients cannot.
+        let a = [true, true, true, true];
+        let t = binary_association(&a, &a).unwrap();
+        assert_eq!(t.n11, 4);
+        assert!(approx(t.observed_agreement, 1.0, 1e-12));
+        assert_eq!(t.kappa, None);
+        assert_eq!(t.phi, None);
+        assert_eq!(binary_association(&[], &[]), None);
+        assert_eq!(binary_association(&[true], &[]), None);
+    }
+
+    #[test]
+    fn kr20_is_cronbach_alpha_on_the_dichotomous_coding() {
+        // KR-20 IS α on binary items — assert the delegation rather than
+        // trusting it, computing the reference through the proven function.
+        let items = vec![
+            vec![true, true, false, false, true],
+            vec![true, false, false, true, true],
+            vec![true, true, false, false, false],
+        ];
+        let numeric: Vec<Vec<f64>> = items
+            .iter()
+            .map(|it| it.iter().map(|&v| if v { 1.0 } else { 0.0 }).collect())
+            .collect();
+        let expect = crate::reliability::cronbach_alpha(&numeric).unwrap();
+        assert!(approx(kr20(&items).unwrap(), expect, 1e-15));
+    }
+
+    #[test]
+    fn kr20_degenerate_returns_none() {
+        assert_eq!(kr20(&[vec![true, false]]), None); // k < 2
+                                                      // Every subject total identical → no between-subject variance.
+        assert_eq!(kr20(&[vec![true, false], vec![false, true]]), None);
+    }
+
     // ────────────────────────── R / R² ──────────────────────────
 
     #[test]
@@ -1119,6 +1571,36 @@ mod tests {
         let noisy = vec![1.0, 3.0, 2.0, 6.0, 4.0, 9.0];
         let r2 = multiple_r_squared(&noisy, &[p1]).unwrap();
         assert!(r2 > 0.05 && r2 < 0.99, "expected partial fit, got R²={r2}");
+    }
+
+    #[test]
+    fn r_squared_is_scale_and_offset_invariant() {
+        // P1 REGRESSION (external review, 2026-08-04). R² is invariant under
+        // any affine transform of the predictors, but the old code built the
+        // normal equations on RAW columns and rejected a pivot below an
+        // ABSOLUTE 1e-12 — a statement about UNITS, not rank. Measured: an
+        // exact linear fit at 1e-8 magnitude returned `None` while the
+        // identical relationship at unit scale returned 1.0.
+        let base: Vec<f64> = (1..=6).map(|k| k as f64).collect();
+        let fit = |x: &Vec<f64>| -> Option<f64> {
+            let y: Vec<f64> = x.iter().map(|v| 3.0 + 2.0 * v).collect();
+            multiple_r_squared(&y, std::slice::from_ref(x))
+        };
+        let unit = fit(&base).expect("unit scale must fit");
+        assert!(approx(unit, 1.0, 1e-9));
+        for factor in [1e-8, 1e-4, 1e4, 1e8] {
+            let scaled: Vec<f64> = base.iter().map(|v| v * factor).collect();
+            let got =
+                fit(&scaled).unwrap_or_else(|| panic!("scale {factor} lost a full-rank design"));
+            assert!(
+                approx(got, unit, 1e-9),
+                "scale {factor}: R²={got} vs {unit}"
+            );
+        }
+        // Large common offset — the case that stresses centering.
+        let shifted: Vec<f64> = base.iter().map(|v| v + 1e12).collect();
+        let got = fit(&shifted).expect("offset lost a full-rank design");
+        assert!(approx(got, unit, 1e-6), "offset: R²={got} vs {unit}");
     }
 
     #[test]

@@ -271,14 +271,47 @@ Blocks D3.
 >
 > **Two defects found by the doc examples, both fixed** — see
 > `E-EXACT-FIT-IS-WHERE-ABSOLUTE-ZERO-GUARDS-BREAK-1`.
+>
+> **⊘ CORRECTIVE SLICE (external review, 2026-08-04) — two P1 numerical
+> defects in the shipped module, both reproduced before fixing:**
+>
+> 1. **ω erased loading SIGNS.** The triad identity yields `λ_i²`, so taking
+>    the positive root for every item dropped the sign of a negatively-keyed
+>    one — and ω depends on `(Σλ)²`, where a negative loading must *subtract*.
+>    Measured on an exact signed-congeneric fixture (λ = [+1,−1,+1]): reported
+>    **0.75** against a true **0.25**. Signs are now recovered from the
+>    covariance row (`sign(σ_ij) = s_i·s_j`, anchored `s_0 = +1`, which is free
+>    because ω is invariant to a global flip — asserted as a test). **Why the
+>    31-test suite missed it: every ω fixture had all-positive loadings.**
+> 2. **R² was scale-DEPENDENT.** The normal equations were built on raw columns
+>    and a pivot was called singular below an ABSOLUTE `1e-12` — a statement
+>    about units, not rank. Measured: an exact linear fit at 1e-8 magnitude
+>    returned `None` while the identical relationship at unit scale returned
+>    1.0. The design is now centered and unit-normed (R² is affine-invariant,
+>    so no correct answer changes), the rank test is relative, and the `[0,1]`
+>    clamp is bounded to a rounding-scale band so a failed solve surfaces as
+>    `None` rather than as a plausible 0 or 1.
+>
+> **Also corrected:** ω's doc claimed rejections mean "the congeneric model
+> does not fit" — it checks three *necessary* conditions (non-negative λ², no
+> Heywood case, sign consistency) and **cannot certify a one-factor matrix**;
+> the full vanishing-tetrad constraints are not tested and `k ≥ 4` misfit can
+> still return a number. **Added:** `BinaryAssociation` + `binary_association`
+> (counts + BOTH marginals + p_o/p_e alongside κ and φ — because the shipped
+> φ doc said marginals are required to interpret it while the function returned
+> one scalar), `kr20` (the dichotomous naming surface C2 asked for and C1b did
+> not ship), and `betacf` now returns `None` on non-convergence instead of
+> presenting the 300th iterate as a p-value. **116 lib + 13 doctests green.**
 
 **C2 — name the dichotomous statistics correctly.** Over binary catalog
 criteria: Pearson→**φ** (report the marginal-capped ceiling), Cronbach's
 α→**KR-20**; **κ is a SEPARATE estimator, not a renamed ICC** — where a
 continuous workflow would reach for ICC on binary criteria, compute **κ**
 instead, and keep **ICC as ICC** for the non-binary jc escalation only;
-Spearman **degenerates and is dropped** at view 2 (it returns only in jc's
-non-binary escalation). The implementation and every doc name the dichotomous
+Spearman is **omitted as redundant** at view 2, not as degenerate: on two
+non-constant binary variables the average-rank transform is affine, so ρ
+carries exactly the same information as φ. (It returns in jc's non-binary
+escalation, where the ranks stop being an affine image of the values.) The implementation and every doc name the dichotomous
 forms; reporting "Pearson" while computing φ is the defect class this arm
 exists to prevent.
 
@@ -326,10 +359,17 @@ external criterion** (an external gold-standard criterion, defined on the privat
 is NOT claimed until one is wired. The plan's public claim ceiling until then:
 *"measurable reliability as a first step toward measurable awareness."*
 
-**C4 — Jirak noise floors.** Binary criteria within one catalog panel are
-domain-correlated — weak dependence *by construction*, so every
-significance statement cites Jirak 2016 rates per `I-NOISE-FLOOR-JIRAK`;
-classical IID Berry-Esseen is forbidden here exactly as for fingerprints.
+**C4 — dependence-aware significance (scope corrected 2026-08-04).** Binary
+criteria within one catalog panel are domain-correlated, so classical IID
+significance is wrong here exactly as it is for fingerprints — that much
+stands. **What does NOT follow is that `jirak.rs` is the answer.** The
+p-values in `jc::stats` are classical independent-sample p-values and are
+labelled as such at the module; `jirak.rs` is a fingerprint-specific empirical
+probe, not a general uncertainty engine for κ / α / ω / ICC / R² / η² / φ /
+t. A dependent-cohort significance claim therefore needs **its own justified
+dependence model**, named at the claim site — citing `I-NOISE-FLOOR-JIRAK` is
+a pointer to the *problem*, not a licence to reuse that implementation as the
+*solution*.
 
 **C5 — witness storage under the ELEVATED carve-out.** The cohort statistic
 is a cross-input derivation of a different KIND than any observation → it may
