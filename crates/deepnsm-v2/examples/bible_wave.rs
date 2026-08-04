@@ -85,13 +85,24 @@ fn archaic_pos(w: &str) -> Option<Pos> {
 fn main() {
     let path = std::env::args()
         .nth(1)
-        .expect("usage: bible_wave <pg10.txt> [--export <spo.tsv>]");
+        .expect("usage: bible_wave <pg10.txt> [--export <spo.tsv>] [--export-verses <verses.tsv>]");
     // The inbound leg can EMIT its whole-book SPO/belief stream for the
     // lance-graph reasoning layer to consume (the SoC seam, `E-DEEPNSM-V2-IS-
     // INBOUND-LEG-REASONING-LIVES-IN-LANCE-GRAPH-1`): the planner example
     // `reason_whole_book` reads this TSV into a `BeliefArena` and reasons.
     let export = std::env::args()
         .position(|a| a == "--export")
+        .and_then(|i| std::env::args().nth(i + 1));
+    // The reasoning layer's four-stance panel needs verse TEXT, not triples:
+    // `stance::stream()` mints RungLifts inside a complementizer window and
+    // derives negation polarity from the clause — neither survives the flat
+    // (s,p,o,verse) export, which is why 3 of 4 stances measured UNREACHABLE
+    // on that path (plan §12.3a″). Text is emitted as its OWN artifact rather
+    // than a column, so the SPO export's 7-column shape is untouched and no
+    // existing consumer changes. The seam still holds: this leg emits text,
+    // it does not reason over it (`E-DEEPNSM-V2-IS-INBOUND-LEG-...`).
+    let export_verses = std::env::args()
+        .position(|a| a == "--export-verses")
         .and_then(|i| std::env::args().nth(i + 1));
     let raw = std::fs::read_to_string(&path).expect("read KJV text");
 
@@ -186,6 +197,20 @@ fn main() {
             stream.push(vi as u64, t);
             all.push((vi as u64, t));
         }
+    }
+
+    // ── SoC seam (text): emit labelled verse text for the reasoning layer ──
+    if let Some(out) = &export_verses {
+        use std::io::Write;
+        let mut f =
+            std::io::BufWriter::new(std::fs::File::create(out).expect("create verse export"));
+        for (i, v) in verses.iter().enumerate() {
+            // Verse text is whitespace-normalised by the splitter and carries
+            // no tabs, so a 2-column TSV round-trips without quoting.
+            debug_assert!(!v.contains('\t'), "verse text must not contain a tab");
+            writeln!(f, "{i}\t{v}").expect("write verse export");
+        }
+        println!("EXPORT  {} verses -> {}", verses.len(), out);
     }
 
     // ── SoC seam: emit the whole-book belief stream for the reasoning layer ──
