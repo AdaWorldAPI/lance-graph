@@ -54,8 +54,12 @@
 //! or returning `NaN` — the caller decides how to treat an undefined estimate.
 
 /// Arithmetic mean of a slice, or `None` if empty.
+///
+/// `pub(crate)` for reuse by [`crate::stats`] (visibility only — the behaviour
+/// is unchanged); a second `mean` in that module would be a second source of
+/// truth.
 #[inline]
-fn mean(xs: &[f64]) -> Option<f64> {
+pub(crate) fn mean(xs: &[f64]) -> Option<f64> {
     if xs.is_empty() {
         return None;
     }
@@ -67,8 +71,12 @@ fn mean(xs: &[f64]) -> Option<f64> {
 /// as "equal" in the rank step and would otherwise receive an ordinary rank,
 /// silently producing a finite-but-garbage Spearman ρ (and `Some(NaN)` for the
 /// other three). Every public metric guards on this before computing.
+///
+/// `pub(crate)` for reuse by [`crate::stats`] (visibility only — the behaviour
+/// is unchanged); the no-NaN contract must be enforced identically in both
+/// modules, which a copy would not guarantee.
 #[inline]
-fn all_finite(xs: &[f64]) -> bool {
+pub(crate) fn all_finite(xs: &[f64]) -> bool {
     xs.iter().all(|v| v.is_finite())
 }
 

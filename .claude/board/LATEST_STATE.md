@@ -1,3 +1,15 @@
+## 2026-08-04 — branch `claude/x265-x266-plans-review-h9osnl` (PR #887) — D-KIA-C1b SHIPPED: the additive `jc` statistics battery
+
+`crates/jc/src/stats.rs` — **κ** (`cohen_kappa`, the gap that blocked **D3's fusion falsifier**, now closed), **ω** (`omega_total`), **φ** (delegating to `pearson`, `&[bool]` input), **R / R²** (`multiple_r_squared`, OLS with intercept), **η²** (`eta_squared`), and the significance companions (`t_test_one_sample` / `_paired` / `_welch` / `_student`, `anova_one_way`) over one shared regularised-incomplete-beta core. **107 lib + 11 doctests green, clippy-clean.**
+
+**The effect-size family is r** (φ, R, R², η²); **Cohen's d is out by construction** — the t-tests report t/df/p as η²/R²'s significance companion, not as a d-family route.
+
+**Additive constraint held tighter than permitted:** the entire existing-file diff is `fn` → `pub(crate) fn` on `mean` and `all_finite`, plus doc comments and one `pub mod` line. `average_ranks` / `pop_var` were NOT widened (permitted but unused); the new `sample_var` / `sample_cov` use the unbiased `n−1` divisor — a different estimator from `pop_var`'s `n`, not a duplicate.
+
+**Validation is by cross-identity, not self-assertion:** φ vs `pearson`; R² vs `pearson²`; η² vs R² on a dummy; η² vs `t²/(t²+df)` and `F = t²`; ω vs α (equal under tau-equivalence, ω = 0.9473684 > α = 0.8684211 on the hand-computed congeneric fixture).
+
+**Two defects, both surfaced by doc examples** (`E-EXACT-FIT-IS-WHERE-ABSOLUTE-ZERO-GUARDS-BREAK-1`): a Heywood guard written `psi < 0.0` rejected the *perfect* zero-residual model (fixed with a variance-relative tolerance + a can-it-fire test); and a doc example whose two predictors were collinear with the intercept (the example was wrong, the code right).
+
 ## 2026-08-04 — branch `claude/x265-x266-plans-review-h9osnl` (PR #884 MERGED `1e90cef`) — D-KIA-C1b scoped: the r-family, additive-only
 
 Board/plan prose only; **no code, no runtime behaviour**. Carried the post-merge arc entries for #881/#882/#883 (see the entry below) and re-scoped the statistics work removed from #883 as its own deliverable, **D-KIA-C1b** (`Queued` — scope, not code).

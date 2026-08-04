@@ -33,6 +33,20 @@
 > - **Docs** — knowledge files produced (immutable)
 > - **Confidence (YYYY-MM-DD):** — the ONLY mutable field
 
+## 2026-08-04 — lance-graph #887 — D-KIA-C1b: the additive `jc` statistics battery (κ, ω, R/η², t-tests, φ)
+
+**Head:** `<this branch>` (entry written in the same commit as the change, per the hygiene rule's "SAME commit" wording; merge SHA follows on merge). 5 files: 1 new module + 2 visibility lines + 3 board/plan.
+
+- **Added — `crates/jc/src/stats.rs`.** `cohen_kappa`, `omega_total`, `phi`, `multiple_r` / `multiple_r_squared`, `eta_squared`, `t_test_one_sample` / `_paired` / `_welch` / `_student`, `anova_one_way`, plus `TTest` / `Anova` result structs. Every p-value comes from one shared regularised-incomplete-beta core (Lanczos `ln Γ` + modified-Lentz continued fraction), pinned against textbook critical values. **31 new tests: 107 lib + 11 doctests green; `stats.rs` clippy-clean.**
+- **Locked — κ was the real gap and it is now closed.** `cohen_kappa` is a *different estimator* from ICC, not a rename: ICC decomposes variance for interval ratings, κ corrects counts for marginal-expected agreement. **This unblocks D3's fusion falsifier.**
+- **Locked — the effect-size family is r.** φ, R, R², η². **Cohen's d stays out by construction**; the t-tests are the significance companions to η²/R² (they report t/df/p), not a d-family back door.
+- **Locked — φ is not re-implemented.** It delegates to `reliability::pearson` on a 0/1 coding and takes `&[bool]`, so the binary precondition is unforgeable. The marginal-capped ceiling is documented at the function: φ without its marginals is not interpretable.
+- **Locked — the additive constraint held, TIGHTER than permitted.** The whole diff to existing files is `fn` → `pub(crate) fn` on **`mean` and `all_finite` only**, plus doc comments and the `pub mod` line. `average_ranks` and `pop_var` were *not* widened — allowed, but unused here; and `sample_var`/`sample_cov` in the new module use the unbiased `n−1` divisor, a different estimator from `pop_var`'s `n`, not a duplicate. No existing statistic's arithmetic, signature or semantics changed.
+- **Locked — every new estimator is cross-checked against an independently-computed quantity**, not only against itself: φ vs `pearson`; R² vs `pearson²` at one predictor; η² vs R² on a 0/1 dummy; η² vs `t²/(t²+df)` and `F = t²` from the pooled t; ω vs α (equal under tau-equivalence, strictly greater on the hand-computed congeneric fixture: ω = 0.9473684 vs α = 0.8684211). The one-sample p is pinned to a closed-form incomplete-beta evaluation, never to this code's own output.
+- **Corrected — two defects found by the doc examples** (`E-EXACT-FIT-IS-WHERE-ABSOLUTE-ZERO-GUARDS-BREAK-1`): (1) a real bug — the Heywood guard `psi < 0.0` rejected zero-residual models, since ψ = 0 exactly in real arithmetic lands ±ulps in f64; now a variance-relative tolerance, **paired with a can-it-fire test proving the guard still bites**. (2) a wrong example — predictors `a` and `a+1` are collinear *with the intercept*, so `None` was correct.
+- **Deferred.** ω²/ε² (bias-corrected η²); weighted κ; multi-rater Fleiss κ; d-family. None blocks D3.
+- **Confidence (2026-08-04):** working — 107 lib + 11 doctests green on the pinned toolchain.
+
 ## 2026-08-04 — lance-graph #886 — the board-hygiene rule gets a termination clause (it was recursing)
 
 **Head:** `<this branch>` (entry written in the same commit as the change, per the rule's own "SAME commit" wording; merge SHA follows on merge). 3 files, doc/board prose only — **no code, no runtime behaviour.**
