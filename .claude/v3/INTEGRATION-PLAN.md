@@ -726,3 +726,36 @@ addenda above (Addendum-1 W1e row, Addendum-6 §3, Addendum-7, Addendum-8
 §3) is HISTORY read through this addendum. Guardrails STOP trigger 7 +
 `/v3-audit` check 7 enforce that the mechanism is not rebuilt under any
 name.
+
+### Addendum-15 2026-08-04 — W1/W2 measured reconciliation + W2b supersession (read before acting on the wave table)
+
+The W1/W2 rows above are 2026-07-02 state. Measured against source today,
+four of them no longer say what is true, and one now points in a direction a
+later operator ruling struck. Rows stay as written (append-only); THIS note
+is the current state. Full seam-by-seam wiring map with line anchors:
+`.claude/knowledge/batchwriter-kanbanstep-wiring.md`.
+
+| row | 2026-08-04 measured state |
+|---|---|
+| D-V3-W1b batch writer | **SHIPPED** — `lance-graph-planner/src/batch_writer.rs` (`cast`/`casts`/`intent_moves`/`on_behalf_of`/`drain_pending_payloads`, 4 unit tests). NOT "new module" to be built. **Zero production call sites** — built-undriven, see below. |
+| D-V3-W1c delegation cache | **SHIPPED** — `resolve_owner(on_behalf, resolver) -> (owner, was_cache_hit)` + `delegation_cache` in the same module (`batch_writer.rs:93-171`). |
+| D-V3-W1e probes | **SHIPPED** — `lance-graph-planner/tests/w1_probes.rs`: `probe_ahead_update_ordering`, `probe_kill_after_cast_replay`, `probe_delegation_miss_then_hit`, `probe_stacked_casts_never_refused`. (Addendum-3's "W1e landed red" was subsequently fixed; the probes are in-tree and green under the local suite.) |
+| D-MBX-A6 (W2 arm #1) | **SHIPPED** — `StrategyOutcome::intended_move` (`traits.rs:176-189`) minted by `style_strategy.rs:286,391`. |
+| D-V3-W2a kanban tenant | **SHIPPED as `ValueTenant::Kanban`** — the kanban×Rubicon per-node phase cursor in `contract/canonical_node.rs:1622+` (8-byte tenant), per the one-mailbox-one-board ruling. |
+| D-V3-W2b actor applies moves | **⊘ SUPERSEDED (operator ruling 2026-08-04, `E-ACTOR-IS-NOT-THE-PHASE-PATH-1`, `.claude/plans/kanban-64k-inverted-awareness-v1.md` §2).** `KanbanActor` has NO assigned architectural responsibility; it is legacy experimental compatibility code, and no new production architecture may depend on it. The apply is **inline**: `persist_sink::recover_and_apply` applies the sealed `paired_move` via `MailboxSoaOwner::try_advance_phase` — no actor bridge, no message bus. A session reading the W2b row as an open work item would build the exact thing the ruling struck. |
+| D-V3-W2c symbiont arm | POC in-tree (`symbiont/src/kanban_loop.rs`, a live `advance_phase` implementor at `:180`); cold-build gate state not re-verified today. |
+
+**What is genuinely OPEN on this axis is none of the rows above — it is the
+DRIVER.** Every link of `cast → collect_casts → SweepSlot::paired_move →
+recover_and_apply → try_advance_phase` is built and tested, and `cast()` /
+`collect_casts` have zero production callers. The next PR on this axis is a
+production caller threading that chain (folding in the two OPEN #879 caveats:
+drained-writer retry guard, missing-owner counter) — not more machinery. The
+"wire, don't invent" principle of this plan now applies to the plan's own
+remaining W1/W2 vocabulary: the machinery exists; drive it.
+
+Constraint carried from the same day's corrections, for any session updating
+this file again: before writing "X is not built" or "X applies the moves",
+grep X's CONSUMERS, not X's description — three negatives were corrected in
+one day because a module's self-description was trusted over its call sites
+(`.claude/knowledge/batchwriter-kanbanstep-wiring.md` corrections 1-3).
