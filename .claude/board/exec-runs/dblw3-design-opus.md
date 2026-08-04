@@ -248,6 +248,23 @@ conditions for the concept to be instantiated at all — neither is a trick:**
   cannot move and the falsifier is decoration. §2.3 is where the manufacturing
   risk actually lives, and it is addressed there explicitly.
 
+## 1.5 The emission rule (stated explicitly — G6's counts depend on it)
+
+**At the seal of every cycle `c` (producing horizon `Vc`), the harness emits one
+`VerdictRow` for EVERY seated verse × EVERY projection**, with
+`horizon = Vc`. A verse seated in slice `s` therefore has verdict rows at
+horizons `Vs .. V8` and none before — no row is ever back-dated.
+
+- Row count: `Σ_{c=1..8} (250·c) × 3 projections` = **27,000 rows** at the pinned
+  parameters (§3.6). Trivially small; the `Clone` in `deinterlace`
+  (`temporal.rs:363`) is a clone of that many small records, which is exactly why
+  §12.2's "not zero-copy" note is a *wording* constraint here and not a cost
+  problem.
+- **Verdicts are RECOMPUTED at each horizon against that horizon's pool, never
+  carried forward.** §12.3b is explicit about this (*"the binaries must be
+  **recomputed** against the later arena, not carried forward"*); carrying
+  forward would freeze the verdict and reintroduce `Δ ≡ 0` by construction.
+
 ---
 
 # 2. The two projections being fused
@@ -375,7 +392,7 @@ for the same stated reason (an external convention that predates this corpus and
 therefore cannot have been fitted to it). Choosing fresh numbers here — even
 defensible ones — would forfeit that argument. Reuse is the anti-fitting move.
 
-## 3.2 The band is evaluated at BOTH horizons — and the crossing case is adjudicated NOW
+## 3.2 The band is evaluated under BOTH READS — and the crossing case is adjudicated NOW
 
 Four outcomes, named before the run so none can be adjudicated after seeing a
 number:
@@ -411,8 +428,8 @@ distinction is fixed here so it cannot be adjudicated after a table exists.
 
 ## 3.3 Movement (can-fire) — carried VERBATIM from §12.3b, not re-derived
 
-- `|κ_hindsight(k, m) − κ_apriori(k)| ≥ 0.10`, **both κ defined**, fixed prefix
-  `k ≥ 1000`.
+- `|κ_hindsight − κ_apriori| ≥ 0.10`, **both κ defined**, fixed prefix `k ≥ 1000`,
+  where the two κ are the Aware and Strict reads at the SAME pin (§5.1).
 - `0.10` = one-fifth of the `0.20 … 0.80` band span, per §12.3b's own rationale.
 
 ## 3.4 The distinction must earn its keep — VERBATIM from §12.3b
@@ -433,7 +450,7 @@ distinction is fixed here so it cannot be adjudicated after a table exists.
 - **Unstable:** a pair with `expected_agreement > 0.95` ⟹ stamped **UNSTABLE**;
   cannot support a fusion claim.
 - **COLLAPSED** (the *distinct-by-rule, identical-by-data* landmine): if
-  `n01 + n10 < 0.05·N` at **both** horizons, the pair is stamped **COLLAPSED** and
+  `n01 + n10 < 0.05·N` under **both** reads, the pair is stamped **COLLAPSED** and
   excluded from every fusion claim. Same count clause §12.3a used, for the same
   reason. Here the mechanism would be seed-term co-occurrence; the table detects
   it directly rather than assuming it away.
@@ -504,10 +521,15 @@ and by nothing else**.
 
 ## G2 — the inert projection must NOT move (the mechanism-level control)
 
-- **can-stay-silent:** `κ(Z_apriori, Z_hindsight)` over the fixed prefix must be
-  **exactly 1.0** and the folded Z-vectors byte-identical. Z is
-  horizon-independent by construction, so **any** movement is a plumbing leak and
-  **voids the (A,B) movement result**. *Input:* the same 1000 verses, the same
+- **can-stay-silent:** the folded Z-vectors must be **byte-identical** between the
+  two reads. **That equality — not κ — is the assertion**, because if Z happened
+  to be constant on the fixed prefix then `p_e == 1` and κ would be `None`
+  (§3.2a), so a κ-based silence check could be *undefined exactly when it is
+  needed*. κ(Z, Z) is still **printed** (it will read `1.0`, or
+  `undefined(p_e=1)` with the counts if Z is constant — in which case Z is also
+  stamped DEGENERATE and a second control must be chosen before the run, never
+  after). Z is horizon-independent by construction, so **any** movement is a
+  plumbing leak and **voids the (A,B) movement result**. *Input:* the same 1000 verses, the same
   pin, the same two rungs, the same fold — **only the criterion form differs**
   (absolute containment vs rank).
 - **can-fire twin:** the same comparison for projection A must produce at least
@@ -665,7 +687,7 @@ none**, and §1.2 records that `knowable_from` contributes none either.
 ## 5.3 The explicit "they are identical — drop the distinction" test
 
 ```
-Δ(pair, k) = κ_hindsight(k, m) − κ_apriori(k)
+Δ(pair) = κ_hindsight(Aware @ V_pin) − κ_apriori(Strict @ V_pin)
 ```
 
 - If `max over pairs and prefixes |Δ| < 0.01` → print
@@ -799,7 +821,11 @@ D-BLW-3's to absorb. Gates G1/G3/G6/G7 exist because of it.
   not read**. UNVERIFIED.
 - Whether `recover_and_apply`'s watermark handling behaves across **8** cycles;
   `blw_tenant.rs` exercises **3**. UNVERIFIED.
-- Wall-clock of an 8-cycle × 2000-row run. The rank criterion adds one sort per
+- Whether `Aware` and `Retro` are extensionally identical **in practice** at
+  `V_pin` — argued from `classify` + `admits` (§4 G1c) and true given constant
+  `knowable_from ≤ ref`, but **not executed**. G1c is the assertion that settles
+  it; until it runs, the claim is symbolic.
+- Wall-clock of an 8-cycle × 2000-row run over ~27,000 emitted rows. The rank criterion adds one sort per
   (horizon × projection), `n ≤ 2000` — expected trivial beside the existing bloom
   sweep, but **NOT measured**. (§12.7 records that the *previous* arm blew a
   10-minute budget for an unrelated reason — `stance::stream`'s per-lift
