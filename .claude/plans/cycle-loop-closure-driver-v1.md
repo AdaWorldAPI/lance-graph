@@ -944,8 +944,220 @@ all along:
    a stated per-row `confidence`, so lane divergence is *addressable* rather than
    assumed away.
 
+   > **⊘ CORRECTION to the sentence above (2026-08-04, same day, before any
+   > cross-lane run — original retained per append-only canon).** The map IS the
+   > right organ, but **`confidence` is not what I said it was**, and consuming
+   > it as written would have produced a flag that reads as diligence and carries
+   > no information.
+   >
+   > The generator's own report (`rosetta-pd/versification_report.md`, § Method)
+   > states it: candidate offsets are only `(-1, 0, +1)`; score = fraction of KJV
+   > anchor tokens (capitalized, non-sentence-initial, `len>=4`, stoplist-filtered)
+   > + digit runs fuzzy-matching the shifted lane verse, falling back to a
+   > verse-length ratio when a chapter has no anchor signal; and
+   > **`confidence` = best-score − second-best-score.** It is a **margin between
+   > candidate shifts**, *not* a measure of alignment quality. `0.0` means the
+   > three shifts tied — which is the ordinary outcome for an anchor-poor chapter
+   > (Genesis 1, "In the beginning God created…", carries almost no capitalized
+   > non-sentence-initial anchors), not a defect in the alignment.
+   >
+   > Measured on the asset before writing this note: rows whose KJV and lane
+   > verse counts match exactly have mean confidence **0.3036**; rows whose counts
+   > *disagree* have mean **0.2783** — indistinguishable. **480 rows read exactly
+   > `0.0` while their verse counts match perfectly.** The column does not
+   > separate good alignment from bad, so it cannot serve as a trust gate.
+   >
+   > Gating on it would have flagged **214/1189** luther1545, **199/1189**
+   > elberfelder1905 and **584/1189** bkr chapters as suspect — half the Czech
+   > lane. That is the can-it-stay-silent defect from `CLAUDE.md`'s falsifiability
+   > rule exactly: *a guard that fires on everything carries as much information
+   > as one that never fires.*
+   >
+   > **What IS addressable, both mechanically checkable and both genuinely rare:**
+   >
+   > | signal | rows | meaning |
+   > |---|---|---|
+   > | `offset != 0` | **47 / 3,567** (43 are `+1`, 4 are `-1`) | apply the shift — this IS the alignment |
+   > | `kjv_verse_count != lane_verse_count` | **6 / 3,567** | a verse with no counterpart — drop the pair or report it, never pad |
+   >
+   > So alignment is **identity for 98.7 % of chapters** and must be reported as
+   > the near-trivial step it is, not implied to be hard. The offsets concentrate
+   > where the manifest already says: luther1545 36 chapters, **33 of them in
+   > Psalms** (the Psalm-title convention); elberfelder1905 3; bkr 8. The
+   > manifest's own rule governs — **versification is PER EDITION, not per
+   > tradition** — so "German shifts Psalms" must not be generalized from
+   > luther1545 to elberfelder1905.
+   >
+   > If `confidence` is reported at all, it is labelled *offset-decision margin
+   > (anchor-poor chapters read `0.0` by construction)* — never *alignment
+   > confidence*.
+   >
+   > **Also load-bearing for any cross-lane arm:** `bible_tischendorf.json` is
+   > **Greek NT only** (books 40+, and minified to a single line so `wc -l` reads
+   > `0`). It has no Old Testament, so no OT-inclusive claim may pool the Greek
+   > lane. Lanes are therefore English + German×2 + Czech, with Greek on the NT
+   > half only.
+
    **Genuinely absent, and only these:** Latin Vulgate and Aramaic/Peshitta. Any
    claim naming those remains unavailable; the five lanes above do not.
+
+   > **⊘⊘⊘ THIRD CORRECTION, SAME AXIS, SAME DAY (2026-08-04) — Vulgate and
+   > Peshitta are NOT absent. They are Public Domain and now fetched.** The
+   > sentence above is wrong for the third time in one arc, and the defect is
+   > *identical each time*: **my negative existence claim was only as wide as the
+   > one container I happened to look in.** First I claimed corpora without
+   > checking; then I checked `/tmp` plus a 4-level `find` and declared them
+   > nonexistent; then I checked the *release bundle* and declared these two
+   > nonexistent. The bundle is a **licence-partitioned subset**, not a census —
+   > its own MANIFEST says so ("one-asset-per-regime law", deliberately excluding
+   > NC-licensed lanes). Absent-from-the-bundle never meant absent-from-the-source.
+   >
+   > Re-queried `api.getbible.net/v2/translations.json` (the same API the shipped
+   > `fetch_greek_lane.py` uses) — 117 translations. Fetched 2026-08-04 with the
+   > licence gate re-verified **verbatim at fetch time**, receipt at
+   > `/tmp/lanes/pd-texts-v2/FETCH_RECEIPT.json` (per-lane sha256):
+   >
+   > | lane | language | books | verses | licence (verbatim) |
+   > |---|---|---|---|---|
+   > | `vulgate` (Vulgata Clementina) | Latin | 73 | 35,809 | `Public Domain` |
+   > | `peshitta` (Peshitta NT) | Syriac | 27 | 7,956 | `Public Domain` |
+   > | `aleppo` (Aleppo Codex) | Hebrew | 39 | 23,188 | `Public Domain` |
+   > | `codex` (Westminster Leningrad) | Hebrew | 39 | 23,213 | `Public Domain` |
+   >
+   > **Refused on licence, and they stay refused** (the one-asset-per-regime law
+   > binds this fetch too): `lxx` (*Copyrighted; Free non-commercial*),
+   > `textusreceptus` and `westcotthort` (*CC BY-NC-SA 4.0*), `modernhebrew`
+   > (empty licence field — unstated, therefore excluded). Note the cost of that
+   > refusal honestly: **the LXX is the natural Greek lane for the Old Testament**,
+   > so Genesis has no PD Greek lane and the OT Greek arm is licence-blocked, not
+   > merely unbuilt.
+   >
+   > **The lane set is therefore 9 lanes / 7 languages** — English (KJV), German
+   > ×2, Czech, Greek (NT), Latin (whole), Syriac (NT), Hebrew ×2 (OT) — which is
+   > what the arm was told it had at the outset. Every "absent" claim I made was
+   > a search-depth artifact.
+
+### 12.6 Pre-registered anchors — what the texture instrument must reproduce
+
+**Status: PRE-REGISTRATION. Nothing here is measured.** These are targets with
+**externally known answers**, written down *before* the instrument exists,
+precisely because I now know the answers and that is a contamination risk. Fixing
+them in advance converts my knowledge from contamination into a **control**: the
+instrument either reproduces a split stated here first, or it does not.
+
+The subject is **awareness**, not morality — the Genesis 3 material read as
+*blindness vs sight* and *nakedness as mortality-awareness*, with the temptation
+resolving as **"be careful what you wish for"**: the burden delivered is
+awareness of one's own finitude, and it is universal rather than penal.
+
+#### A1 — the awareness minimal pair (within one language, one book)
+
+| | KJV bake index | text |
+|---|---|---|
+| **before** | `55` (Gen 2:25) | *"And they were both naked, the man and his wife, and were not ashamed."* |
+| **after** | `62` (Gen 3:7) | *"And the eyes of them both were opened, and they knew that they were naked…"* |
+
+**The fact is identical in both — Hebrew `ערומים` / `עירמם`, Latin `nudus` /
+`nudos`, German `nackend` in both.** What changes is *knowing* (`וידעו` /
+`cognovissent` / `wurden gewahr`). Nothing in the world changed; **awareness
+changed** — and the sight that opens delivers knowledge of a *lack*, which is the
+blindness/sight inversion stated exactly.
+
+**Why this is the sharpest control available:** a lexical or polarity instrument
+sees "naked" in both and scores them *similar*. **If the texture instrument
+cannot separate index 55 from index 62, it is not measuring awareness** — and
+that is a KILL of the instrument, not of the reading.
+
+#### A2 — "be careful what you wish for" (proposition held constant)
+
+| | verse | content |
+|---|---|---|
+| **promise** | Gen 3:5 (serpent) | *"your eyes shall be opened, and ye shall be as gods, knowing good and evil"* |
+| **confirmation** | Gen 3:22 (God) | *"the man is become as one of us, to know good and evil"* |
+
+**The serpent's promise is confirmed by God. It was true.** Hebrew
+`והייתם כאלהים ידעי טוב ורע` → `הן האדם היה כאחד ממנו לדעת טוב ורע`; Latin
+`eritis sicut dii, scientes bonum et malum` → `quasi unus ex nobis factus est,
+sciens bonum et malum`. **Any instrument that scores the serpent as a liar by
+polarity is wrong on the text.**
+
+Here **proposition, lexis and polarity are ALL held constant** and only the frame
+differs (future/desired/tempter vs perfect/achieved/alarmed). So **only topology
+can separate them** — this is the strongest form of the §12.3c sarcasm signature
+(*the said and the meant point apart*) because the said is literally the same
+sentence. Gen 3:22's alarm is about the tree of **life** (*"lest he… eat, and
+live for ever"*) and Gen 3:19 states mortality as what he **already is**
+(*"dust thou art"*), not as a new penalty — so the text itself locates the change
+in **awareness of mortality**, not in mortality.
+
+#### A3 — Erbsünde as a rebound relative pronoun (the cross-language falsifier)
+
+Romans 5:12, final clause, **measured across six lanes on disk** (this table is
+the one *observation* in §12.6; the prediction it grounds is A3′ below):
+
+| lane | final clause | binding |
+|---|---|---|
+| Greek (Tischendorf) | `ἐφ’ ᾧ πάντες ἥμαρτον` | causal idiom |
+| **Latin (Vulgate)** | **`in quo omnes peccaverunt`** | **relative → antecedent** |
+| **Czech (BKR)** | **`v němž všickni zhřešili`** | **relative → antecedent** |
+| German (Luther 1545) | `dieweil sie alle gesündiget haben` | causal |
+| German (Elberfelder 1905) | `weil sie alle gesündigt haben` | causal |
+| Syriac (Peshitta) | `ܒܗܝ ܕܟܠܗܘܢ ܚܛܘ` (*b-hāy d-*) | causal |
+| English (KJV) | *"for that all have sinned"* | causal |
+
+**The mechanism is sharper than "mistranslation".** Greek `ἐφ’ ᾧ` *does* contain
+a relative pronoun (ᾧ), but as a fixed **conjunctional idiom** meaning *inasmuch
+as* (cf. 2 Cor 5:4, Phil 3:12, Phil 4:10). The Vulgate rendered it
+morpheme-for-morpheme, converting an idiom into a **referential** relative — and
+thereby **opened an antecedent slot the Greek never had open**. Augustine bound
+it to `unum hominem`. **The doctrine grew into a slot a translation opened.**
+
+That is **locus 7 `Antecedent`** exactly — unbound in one lane, distance-bound in
+another — which is why the arm's carrier is the register and not a polarity bit.
+
+**A3′ — the pre-registered prediction (stated before any instrument runs):** a
+texture instrument reading binding topology must report `Antecedent` **bound at
+distance** for `vulgate` and `bkr`, and **unbound** for `tischendorf`,
+`luther1545`, `elberfelder1905`, `peshitta`, `kjv`. Reproducing a 2-vs-5 split it
+was not told about is evidence; producing any other partition is a KILL.
+
+**The unpredicted datum is the Czech.** BKR (Bible kralická, 1579–93) is a
+Protestant translation from the originals, yet `v němž` follows the **Vulgate's**
+binding rather than the Greek's. I did not predict it and did not plant it — it
+came out of the fetch. It is the reason A3 is worth running: the *interesting*
+lanes are the ones that cross the confessional line, and no polarity instrument
+could ever surface that.
+
+**Honest status of A3, stated so it cannot be quietly upgraded.** The corpus is
+in hand and the phenomenon is now *visible*, but **detection is not built**: this
+repo has no morphological parser for Latin, Greek, Syriac or Hebrew, and
+hand-writing a `in quo`/`v němž` matcher is precisely the hand-rolling this arm
+was corrected away from. So A3 is a **falsifier waiting for an instrument**, not a
+result — and its value is that its answer is *already known from philology*, so
+it can grade an instrument rather than be graded by one.
+
+#### A4 — the instrument frame, and what is NOT claimed
+
+The connotative-meaning frame for these readings is the **semantic differential**
+(Osgood) — bipolar scales, **multi-axis by construction**, which is the structural
+reason a single κ destroyed the signal in §12.3a: collapsing a multi-axis
+connotative space to one coincidence scalar discards every axis that separates
+the stances. **No semantic-differential implementation exists in this repo** — a
+sweep found the term only in one knowledge doc, and none in code. It is named
+here as the frame the texture register is standing in for, **not** as a shipped
+capability.
+
+**Architectural anchors recorded for this arm (operator-directed, not yet
+measured):** WordNet's hypernym hierarchy read **as** the HHTL cascade rather
+than as a corpus indexed by it; **CLAM/CHAODA** as the clustered-hierarchical
+anomaly arm over that cascade; and **HHTL + helix as torque** — HHTL supplying the
+lever arm (tier depth) and the helix phase the angular displacement. That last one
+is not decoration: it is the mechanical statement of the §12.3c distinction —
+**sarcasm is torque** (a real lever arm displaced through a large angle: said and
+meant point apart) while **nihilism is a collapsed lever arm** (`Supports` /
+`SupportedBy` collapse, so no torque is possible at any angle). Same sign,
+different mechanics — which is the whole reason polarity could never separate
+them. All four remain CONJECTURE until a probe runs.
 
    **The defect, stated plainly because it is the fifth instance today.** I
    checked `/tmp` and ran a 4-level `find`, then wrote "it does not exist". A
