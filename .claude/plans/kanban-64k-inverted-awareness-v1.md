@@ -212,13 +212,39 @@ capability map. Everything below adjusts to what's found.
 >   and D3's fusion falsifier cannot run until it closes.
 
 **C1b — the additive-only jc extension (operator ruling, 2026-08-04).**
-Needed: **κ** (agreement), **McDonald's ω** (the coefficient α is routinely
-mis-substituted for), and **Effektstärke / effect size** (also assessed
-missing). **Hard constraint: ADDITIVE ONLY — do not modify or refactor any
-existing `jc` function.** `pearson` / `spearman` / `cronbach_alpha` / `icc`
-are load-bearing and stay untouched; new estimators land as new items beside
-them. **Any diff that edits an existing `jc` statistic is an automatic
-reject, independent of merit.** Blocks D3.
+The requested surface, in one list:
+
+| # | Estimator | Status against `jc` today |
+|---|---|---|
+| 1 | **κ** (Cohen's kappa — chance-corrected agreement) | **absent — the real gap.** Not ICC under another name. Blocks D3. |
+| 2 | **McDonald's ω** (the coefficient α is routinely mis-substituted for) | absent |
+| 3 | **R / R²** — the **r-family** effect size (correlation / variance explained) | `pearson` gives r for one criterion pair; **multi-criterion R / R² is new** |
+| 4 | **η²** (ANOVA, *erklärte Varianz*) | absent — same r-family, group-factor form |
+| 5 | **t-test** (one-sample / paired / two-sample, with df + p) | absent |
+| 6 | **φ** | **already present in substance** — φ *is* Pearson r on two binary variables. Only the *named wrapper* + the marginal-capped-ceiling caveat are new; the arithmetic is `jc::reliability::pearson` and is NOT re-implemented. |
+
+**Effect size = the r-family (R, R², η², φ).** Cohen's **d is explicitly
+out of this deliverable**; if a mean-difference contrast is ever wanted it is
+calculated separately. The t-test above is the *significance* companion to
+η², not a d-family smuggling route — it reports t/df/p, and effect size is
+read off η²/R².
+
+**Hard constraint: ADDITIVE ONLY.** New estimators land as new items
+(a new module) beside the existing ones. `pearson` / `spearman` /
+`cronbach_alpha` / `icc` are load-bearing and their **behaviour** stays
+untouched — **any diff that changes an existing `jc` statistic's arithmetic,
+signature, or semantics is an automatic reject, independent of merit.**
+
+> **The one sanctioned edit to an existing file (operator, 2026-08-04):**
+> *visibility only, for reuse.* The private helpers in `reliability.rs`
+> (`mean`, `all_finite`, `average_ranks`, `pop_var`) may be widened to
+> `pub(crate)` so the new module consumes them instead of re-implementing
+> them — a re-implemented `mean` is a second source of truth and is the
+> failure this carve-out prevents. Permitted diff shape: `fn` → `pub(crate) fn`,
+> plus a `pub mod` line in `lib.rs`. **Nothing else** — no body change, no
+> reordering, no signature change, no "while I was in there" cleanup.
+
+Blocks D3.
 
 **C2 — name the dichotomous statistics correctly.** Over binary catalog
 criteria: Pearson→**φ** (report the marginal-capped ceiling), Cronbach's
