@@ -322,12 +322,34 @@ pub fn cohen_kappa(a: &[usize], b: &[usize]) -> Option<f64> {
 ///
 /// **Loading SIGNS matter and are recovered.** The triad identity gives only
 /// `λ_i²`, hence `|λ_i|`; since ω depends on `(Σλ)²`, a negatively-keyed item
-/// must subtract from that sum. Signs are read off the first row
-/// (`sign(σ_ij) = s_i·s_j`, anchored at `s_0 = +1`, which is free because the
-/// model is identified only up to a global flip and `(Σλ)²` is invariant to
-/// one). Taking the positive root everywhere — as this function did before
-/// 2026-08-04 — inflates ω badly; the regression fixture reports 0.25, where
-/// the unsigned version returned 0.75.
+/// must subtract from that sum. Signs come from `sign(σ_ij) = s_i·s_j`, read
+/// off the row of the item with the **highest communality** (`λ_i²/σ_ii` — the
+/// share of that item's own variance the common factor explains), which is
+/// then oriented positive. That orientation is free: the model is
+/// identified only up to a **global** flip and `(Σλ)²` is invariant to one.
+///
+/// The anchor must be the item whose factor signal dominates its own variance,
+/// and the criterion must be **dimensionless**. Two failures established that:
+///
+/// - *Arbitrary anchor.* Anchoring on item 0 when λ₀ = 0 reads every sign off a
+///   ~zero row, so all signs default positive and the consistency check
+///   **rejects valid one-factor data** (measured with λ = `[0,+1,+1,−1]`: two
+///   false conflicts).
+/// - *Raw `|λ|`.* The materiality cutoff below is correlation-scaled
+///   (`1e-9·√(σ_ii·σ_jj)`), so an item with a huge residual variance can carry
+///   the largest raw loading while every covariance in its row falls beneath
+///   its own cutoff — again defaulting every sign positive. Measured: λ =
+///   `[0.9, 1.0, −0.8]` with variances `[1, 1e20, 1]` is exact one-factor data
+///   that raw-`|λ|` selection rejects.
+///
+/// Communality is the criterion in the same units as the cutoff, so both
+/// measure the same thing. Under a single factor a genuinely sub-cutoff
+/// covariance against this anchor implies the *other* item's loading is ~0 —
+/// whose sign cannot matter, since it contributes ~0 to `Σλ`.
+///
+/// Taking the positive root everywhere — as this function did before
+/// 2026-08-04 — inflates ω badly: the regression fixture is 0.25, where the
+/// unsigned version returned 0.75.
 ///
 /// # What is and is NOT verified (read before quoting this as ω_t)
 ///
@@ -349,6 +371,17 @@ pub fn cohen_kappa(a: &[usize], b: &[usize]) -> Option<f64> {
 /// exceeding the item's total variance), or an inconsistent sign pattern —
 /// each of which means the assumed model is contradicted by the data, not that
 /// reliability is low.
+///
+/// **Degeneracy policy — a constant item (zero variance) is rejected.** This is
+/// a deliberate API contract, not a mathematical necessity: a constant item is
+/// perfectly representable as `λ = ψ = 0` whenever the remaining items identify
+/// the factor. It is refused because it carries **no score information** — it
+/// cannot covary, contributes nothing to `Σλ` or `Σψ`, and its presence in a
+/// scale is far more often a data-preparation fault (a dead column, an
+/// all-same-answer item) than an intentional model. Rejecting surfaces that
+/// fault instead of silently averaging it away. It also keeps every
+/// scale-relative tolerance above well defined, since those are proportional to
+/// the item's own variance.
 ///
 /// ```
 /// use jc::stats::omega_total;
@@ -386,6 +419,13 @@ pub fn omega_total(items: &[Vec<f64>]) -> Option<f64> {
         }
     }
 
+    // A constant item has zero variance: it carries no signal, makes every
+    // scale-relative tolerance below degenerate, and leaves the model
+    // unidentified. Reject rather than absorb it.
+    if (0..k).any(|i| cov[i][i] <= 0.0) {
+        return None;
+    }
+
     // λ_i² averaged over every admissible triad (j,k ≠ i, j ≠ k, σ_jk ≠ 0).
     let mut lambda = vec![0.0f64; k];
     for i in 0..k {
@@ -418,7 +458,13 @@ pub fn omega_total(items: &[Vec<f64>]) -> Option<f64> {
         // has λ² == σ_ii exactly in real arithmetic but lands a few ulps either
         // side of it in f64, and a bare `< 0.0` test would reject a valid model
         // as misfit. Only a violation LARGER than rounding is a real one.
-        let tol = 1e-9 * cov[i][i].abs().max(1.0);
+        // RELATIVE to the item's own variance, with NO absolute floor. A
+        // `.max(1.0)` here is a statement about UNITS: on data whose
+        // covariances are ~1e-16 it makes a 1e-9 tolerance enormous, every
+        // comparison vacuous, and (measured) flipped ω from 0.25 back to
+        // 0.75 purely by rescaling — the SAME defect class as the R²
+        // absolute pivot, fixed there first and left here until review.
+        let tol = 1e-9 * cov[i][i].abs();
         if lam_sq < -tol || !lam_sq.is_finite() {
             return None; // single-factor model violated (negative common variance)
         }
@@ -435,14 +481,47 @@ pub fn omega_total(items: &[Vec<f64>]) -> Option<f64> {
     //
     // Under a single factor `σ_ij = λ_iλ_j`, so `sign(σ_ij) = s_i·s_j`. The
     // model is identified only up to a GLOBAL flip (and ω is invariant to one,
-    // since it uses `(Σλ)²`), so anchor `s_0 = +1` and read every other sign
-    // off the first row.
+    // since it uses `(Σλ)²`), so the anchor is oriented positive and every
+    // other sign is read off its row.
+    //
+    // ANCHOR on the item with the LARGEST |λ|, not on item 0. Signs are read
+    // from the anchor's covariance row, so anchoring on a weakly-loaded item
+    // reads them off near-zero covariances — noise. In the degenerate case the
+    // anchor's whole row is zero, every sign defaults to +1, and the
+    // consistency check below then manufactures conflicts and REJECTS a
+    // perfectly valid one-factor dataset (measured with λ = [0,+1,+1,−1]:
+    // two false conflicts). The strongest item makes every read maximally
+    // determined.
+    //
+    // Selected by STANDARDISED loading — the communality `λ_i²/σ_ii`, i.e. the
+    // share of the item's own variance the common factor explains — NOT by raw
+    // `|λ_i|`. The two differ, and the difference rejects valid data: the
+    // materiality cutoff below is correlation-scaled
+    // (`1e-9·√(σ_ii·σ_jj)`), so an item with a huge residual variance can hold
+    // the largest raw loading while every covariance in its row sits BELOW its
+    // own cutoff. Measured (Codex P2): λ = [0.9, 1.0, −0.8] with variances
+    // [1, 1e20, 1] is exact one-factor data; raw-|λ| picks item 1, whose
+    // cutoff is 1e-9·√(1e20) = 10 against covariances of 0.9 and 0.8, so every
+    // sign defaults positive and the material −0.72 edge between items 0 and 2
+    // forces a false rejection. Communality is dimensionless, so the anchor
+    // criterion and the cutoff finally measure the same thing.
+    let anchor = (0..k)
+        .max_by(|&a, &b| {
+            let ca = lambda[a] * lambda[a] / cov[a][a];
+            let cb = lambda[b] * lambda[b] / cov[b][b];
+            ca.partial_cmp(&cb).unwrap_or(std::cmp::Ordering::Equal)
+        })
+        .unwrap_or(0);
     let mut sign = vec![1.0f64; k];
-    for j in 1..k {
-        // A materially-zero covariance means λ_0 or λ_j is ~0; that item
-        // contributes ~nothing to Σλ, so either sign is harmless. Keep +1.
-        let scale = (cov[0][0].abs() * cov[j][j].abs()).sqrt().max(1.0);
-        if cov[0][j] < -1e-9 * scale {
+    for j in 0..k {
+        if j == anchor {
+            continue;
+        }
+        // A materially-zero covariance means the anchor's or item j's loading
+        // is ~0; a ~0-loading item contributes ~nothing to Σλ, so either sign
+        // is harmless. Keep +1.
+        let scale = (cov[anchor][anchor].abs() * cov[j][j].abs()).sqrt();
+        if cov[anchor][j] < -1e-9 * scale {
             sign[j] = -1.0;
         }
     }
@@ -454,7 +533,7 @@ pub fn omega_total(items: &[Vec<f64>]) -> Option<f64> {
     // constraints; see the function's doc for what is and is not checked.)
     for i in 0..k {
         for j in (i + 1)..k {
-            let scale = (cov[i][i].abs() * cov[j][j].abs()).sqrt().max(1.0);
+            let scale = (cov[i][i].abs() * cov[j][j].abs()).sqrt();
             let cutoff = 1e-9 * scale;
             if cov[i][j].abs() <= cutoff {
                 continue; // too near zero to carry a sign
@@ -473,7 +552,7 @@ pub fn omega_total(items: &[Vec<f64>]) -> Option<f64> {
     let mut sum_psi = 0.0;
     for i in 0..k {
         let psi = cov[i][i] - lambda[i] * lambda[i];
-        let tol = 1e-9 * cov[i][i].abs().max(1.0);
+        let tol = 1e-9 * cov[i][i].abs();
         if psi < -tol {
             // Heywood case: estimated common variance genuinely exceeds the
             // item's total variance → model misfit, not a reliability value.
@@ -1293,38 +1372,185 @@ mod tests {
         );
     }
 
-    #[test]
-    fn omega_is_invariant_to_a_global_sign_flip() {
-        // The one-factor model is identified only up to a GLOBAL flip, and ω
-        // uses (Σλ)², so flipping every item must leave ω unchanged. This also
-        // proves the sign anchor (s_0 = +1) introduces no arbitrary bias.
-        let items = congeneric_items();
-        let flipped: Vec<Vec<f64>> = items
-            .iter()
-            .map(|it| it.iter().map(|v| -v).collect())
-            .collect();
-        let a = omega_total(&items).unwrap();
-        let b = omega_total(&flipped).unwrap();
-        assert!(approx(a, b, 1e-12), "global flip changed ω: {a} vs {b}");
+    /// ω of [`congeneric_items`], EXACT: `(Σλ)² = 48`, `Σψ = 8/3`, so
+    /// `ω = 48 / (48 + 8/3) = 144/152 = 18/19`. Written as the rational rather
+    /// than a truncated decimal — an 8-digit literal is 1.05e-9 off, which a
+    /// 1e-9 invariance tolerance correctly rejects.
+    const CONGENERIC_OMEGA: f64 = 18.0 / 19.0;
+
+    /// ω of [`zero_anchor_items`], derived exactly below.
+    ///
+    /// With f, e₀, eₐ, e_b mutually orthogonal ±1 vectors of length 8 (each of
+    /// sample variance V = 8/7):
+    ///   loadings        λ = [0, +1, −1, +1]·√V  →  Σλ = √V
+    ///   common variance (Σλ)² = V
+    ///   residuals       ψ = [V, 0, V, V]        →  Σψ = 3V
+    ///   ω = V / (V + 3V) = 0.25
+    /// The pre-fix UNSIGNED implementation returns 0.75 on this fixture, so
+    /// pinning 0.25 is what distinguishes a correct sign fix from "did not
+    /// reject" — a `(0.0..=1.0)` range check blesses both.
+    const ZERO_ANCHOR_OMEGA: f64 = 0.25;
+
+    /// λ = [0, +1, −1, +1]: item 0 carries NO loading, so it is the worst
+    /// possible sign anchor — the fixture that exposes anchor bias.
+    fn zero_anchor_items() -> Vec<Vec<f64>> {
+        let f = [1.0, -1.0, 1.0, -1.0, 1.0, -1.0, 1.0, -1.0];
+        let e0 = [1.0, 1.0, -1.0, -1.0, 1.0, 1.0, -1.0, -1.0];
+        let ea = [1.0, -1.0, -1.0, 1.0, 1.0, -1.0, -1.0, 1.0];
+        let eb = [1.0, 1.0, 1.0, 1.0, -1.0, -1.0, -1.0, -1.0];
+        vec![
+            e0.to_vec(),                                       // λ = 0
+            f.to_vec(),                                        // λ = +1
+            (0..8).map(|i| -f[i] + ea[i]).collect::<Vec<_>>(), // λ = −1
+            (0..8).map(|i| f[i] + eb[i]).collect::<Vec<_>>(),  // λ = +1
+        ]
     }
 
     #[test]
-    fn omega_rejects_an_inconsistent_sign_pattern() {
-        // Can-it-fire for the sign-consistency structure test, and written so
-        // it can ONLY pass if that specific guard is what rejects.
+    fn omega_is_invariant_to_a_common_rescale() {
+        // REPLACES a vacuous "global sign flip" test (external review).
+        // Negating EVERY item leaves the covariance matrix bit-identical —
+        // `cov(−x,−y) = cov(x,y)` — and `omega_total` consumes only that
+        // matrix, so the old assertion could not fail for any implementation.
+        // It was the workspace's own "assertion implied by the code it tests".
         //
-        // At k = 3 the check is provably REDUNDANT: with one triad per item,
-        // sign(λ_0²) = sign(σ01)·sign(σ02)·sign(σ12), which is +1 for every
-        // consistent pattern and −1 for every inconsistent one — so an
-        // inconsistent triple always trips the negative-λ² guard first. Only
-        // at k ≥ 4, where λ² is AVERAGED over several triads, can the sign
-        // pattern conflict while every λ² stays non-negative. This fixture
-        // (found by search) is exactly that case.
+        // The real invariance: scaling every item by one constant sends
+        // λ → cλ and ψ → c²ψ, leaving the ratio unchanged. This DOES vary the
+        // input, and it is what the absolute `.max(1.0)` tolerance floors
+        // broke — measured, ω flipped 0.25 → 0.75 at scale 1e-8.
+        //
+        // Each fixture is checked against its KNOWN value, not against a
+        // self-computed baseline (external review P1): an implementation that
+        // is consistently WRONG across every scale would satisfy a
+        // self-referential invariance check. Invariance alone never pins a
+        // value.
+        for (fixture, expected) in [
+            (congeneric_items(), CONGENERIC_OMEGA),
+            (zero_anchor_items(), ZERO_ANCHOR_OMEGA),
+        ] {
+            let reference = omega_total(&fixture).expect("baseline must fit");
+            assert!(
+                approx(reference, expected, 1e-9),
+                "baseline ω={reference}, expected {expected}"
+            );
+            for c in [1e-8, 1e-4, 1e-2, 1e2, 1e6] {
+                let scaled: Vec<Vec<f64>> = fixture
+                    .iter()
+                    .map(|it| it.iter().map(|v| v * c).collect())
+                    .collect();
+                let got = omega_total(&scaled)
+                    .unwrap_or_else(|| panic!("scale {c:e} rejected a valid model"));
+                assert!(
+                    approx(got, reference, 1e-9),
+                    "scale {c:e}: ω={got} vs {reference}"
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn omega_is_invariant_to_item_permutation() {
+        // ω is a property of the item SET, not of their order — but signs are
+        // read from one anchor row, so a bad anchor rule shows up here. The
+        // rotation that puts the ZERO-loading item at index 0 is exactly the
+        // case that broke the previous anchor-on-item-0 implementation.
+        let base = zero_anchor_items();
+        // Pin the absolute value here too — see the rescale test's note.
+        let reference = ZERO_ANCHOR_OMEGA;
+        assert!(approx(omega_total(&base).unwrap(), reference, 1e-9));
+        let k = base.len();
+        for shift in 1..k {
+            let rotated: Vec<Vec<f64>> = (0..k).map(|i| base[(i + shift) % k].clone()).collect();
+            let got = omega_total(&rotated)
+                .unwrap_or_else(|| panic!("rotation by {shift} rejected a valid model"));
+            assert!(
+                approx(got, reference, 1e-9),
+                "shift {shift}: ω={got} vs {reference}"
+            );
+        }
+        // Reverse order too — a different permutation class from rotation.
+        let mut reversed = base.clone();
+        reversed.reverse();
+        assert!(approx(omega_total(&reversed).unwrap(), reference, 1e-9));
+    }
+
+    #[test]
+    fn omega_changes_when_one_item_is_flipped() {
+        // The non-vacuous half of the sign story: flipping ONE item genuinely
+        // changes the model (that item's loading changes sign), so ω MUST
+        // move. A sign-blind implementation would return the same value —
+        // which is precisely the bug this fixture family was built for.
+        let base = congeneric_items();
+        let reference = omega_total(&base).unwrap();
+        let mut flipped = base.clone();
+        flipped[1] = flipped[1].iter().map(|v| -v).collect();
+        let got =
+            omega_total(&flipped).expect("flipping one item is still a valid one-factor model");
+        assert!(
+            (got - reference).abs() > 0.05,
+            "one-item flip must move ω: {got} vs {reference}"
+        );
+    }
+
+    #[test]
+    fn omega_anchor_survives_a_huge_residual_variance() {
+        // REGRESSION (Codex P2). The anchor was chosen by RAW |λ| while the
+        // materiality cutoff is correlation-scaled, so the two criteria were in
+        // different units. An item with an enormous residual variance can hold
+        // the largest raw loading yet have every covariance in its row fall
+        // below its own cutoff — every sign then defaults positive and a
+        // material negative edge elsewhere forces a false rejection.
+        //
+        // Exact one-factor data: λ = [0.9, 1.0, −0.8], var = [1, 1e20, 1].
+        // Item 1 has the largest raw |λ| but a communality of 1e-20; its
+        // cutoff is 1e-9·√(1e20·1) = 10 against covariances of 0.9 and 0.8.
+        // Selecting by communality picks item 0 instead, whose cutoff is
+        // 1e-9 and whose row therefore carries real sign information.
+        let f = [1.0, -1.0, 1.0, -1.0, 1.0, -1.0, 1.0, -1.0];
+        let e: [[f64; 8]; 3] = [
+            [1.0, 1.0, -1.0, -1.0, 1.0, 1.0, -1.0, -1.0],
+            [1.0, -1.0, -1.0, 1.0, 1.0, -1.0, -1.0, 1.0],
+            [1.0, 1.0, 1.0, 1.0, -1.0, -1.0, -1.0, -1.0],
+        ];
+        let v: f64 = 8.0 / 7.0; // sample variance of each ±1 basis vector
+        let lam = [0.9f64, 1.0, -0.8];
+        let var = [1.0f64, 1e20, 1.0];
+        let items: Vec<Vec<f64>> = (0..3)
+            .map(|i| {
+                let a = lam[i] / v.sqrt();
+                let b = ((var[i] - lam[i] * lam[i]) / v).sqrt();
+                (0..8).map(|t| a * f[t] + b * e[i][t]).collect()
+            })
+            .collect();
+
+        let w = omega_total(&items)
+            .expect("exact one-factor data must not be rejected over anchor units");
+        // ω = (Σλ)² / ((Σλ)² + Σψ) with Σλ = 1.1 and
+        // Σψ = (1−0.81) + (1e20−1) + (1−0.64) ≈ 1e20, so ω ≈ 1.21e-20.
+        assert!(w > 0.0 && w < 1e-19, "ω={w} outside the expected tiny band");
+    }
+
+    #[test]
+    fn omega_rejects_a_frustrated_sign_pattern() {
+        // Can-it-fire for the sign-consistency structure test.
+        //
+        // The criterion is FRUSTRATION, not "the anchor row disagrees". Under
+        // one factor a consistent pattern is recoverable from ANY strongly
+        // loaded anchor, so a conflict seen from one row can simply mean that
+        // row was a poor anchor — the previous version of this test used such
+        // a fixture and was passing because of the row-0 anchor bug, not
+        // because the guard fires. A genuinely non-one-factor pattern is
+        // frustrated: NO assignment of item signs reproduces every covariance
+        // sign, so every anchor conflicts.
+        //
+        // At k = 3 this is still provably subsumed by the negative-λ² guard
+        // (the single triad's sign product is −1 exactly when the pattern is
+        // inconsistent), so the fixture is k = 4, found by search.
         let items = vec![
-            vec![1.0, -2.0, 0.0, 3.0, 2.0, 2.0],
-            vec![2.0, 3.0, 1.0, 0.0, 0.0, 3.0],
-            vec![1.0, 2.0, -3.0, 3.0, -3.0, 0.0],
-            vec![2.0, -2.0, 1.0, -1.0, 3.0, -2.0],
+            vec![2.0, -2.0, -1.0, -3.0, 0.0, 1.0],
+            vec![2.0, -3.0, 3.0, 1.0, 3.0, 0.0],
+            vec![1.0, 1.0, 2.0, -1.0, -2.0, -3.0],
+            vec![0.0, -1.0, 3.0, -1.0, 1.0, -2.0],
         ];
         let k = items.len();
         let cv = |x: &[f64], y: &[f64]| -> f64 {
@@ -1339,10 +1565,7 @@ mod tests {
             .map(|i| (0..k).map(|j| cv(&items[i], &items[j])).collect())
             .collect();
 
-        // PRE-REGISTER that neither pre-existing guard can be the rejecter:
-        // every λ² is non-negative and every ψ is non-negative. Without this,
-        // the test would pass even if the negative-λ² or Heywood guard fired,
-        // and would prove nothing about the sign check.
+        // PRE-REGISTER that neither pre-existing guard can be the rejecter…
         for i in 0..k {
             let (mut acc, mut cnt) = (0.0, 0usize);
             for j in 0..k {
@@ -1364,22 +1587,52 @@ mod tests {
             );
             assert!(
                 c[i][i] - lam_sq >= 0.0,
-                "item {i}: ψ={} would trip the HEYWOOD guard",
-                c[i][i] - lam_sq
+                "item {i}: ψ would trip the HEYWOOD guard"
             );
         }
-        // …and that the sign pattern really is inconsistent.
-        let mut sign = vec![1.0f64; k];
-        for j in 1..k {
-            if c[0][j] < 0.0 {
-                sign[j] = -1.0;
+        // …and that the pattern is genuinely FRUSTRATED, by the LITERAL
+        // specification rather than by the implementation's own procedure
+        // (external review P2). "Reconstruct signs from each anchor row and
+        // look for a conflict" is an implementation-shaped shortcut and is not
+        // the same predicate on sparse sign graphs. The specification is:
+        // does ANY assignment of item signs satisfy every materially non-zero
+        // covariance edge? At k = 4 that is 2^(k−1) = 8 candidates once the
+        // free global flip is fixed — small enough to enumerate exhaustively.
+        let material = |i: usize, j: usize| -> bool {
+            c[i][j].abs() > 1e-9 * (c[i][i].abs() * c[j][j].abs()).sqrt()
+        };
+        let edges: Vec<(usize, usize)> = (0..k)
+            .flat_map(|i| ((i + 1)..k).map(move |j| (i, j)))
+            .filter(|&(i, j)| material(i, j))
+            .collect();
+        // Anti-vacuity: frustration over an empty or near-empty edge set is
+        // meaningless, so the sign graph must actually carry constraints.
+        assert!(
+            edges.len() >= 4,
+            "only {} material edges — frustration would be vacuous",
+            edges.len()
+        );
+        let mut satisfying: Option<Vec<f64>> = None;
+        for mask in 0..(1u32 << (k - 1)) {
+            let mut sign = vec![1.0f64; k];
+            for (j, sj) in sign.iter_mut().enumerate().skip(1) {
+                if (mask >> (j - 1)) & 1 == 1 {
+                    *sj = -1.0;
+                }
+            }
+            if edges
+                .iter()
+                .all(|&(i, j)| c[i][j].signum() == sign[i] * sign[j])
+            {
+                satisfying = Some(sign);
+                break;
             }
         }
-        let conflicts = (0..k)
-            .flat_map(|i| ((i + 1)..k).map(move |j| (i, j)))
-            .filter(|&(i, j)| c[i][j] != 0.0 && c[i][j].signum() != sign[i] * sign[j])
-            .count();
-        assert!(conflicts > 0, "fixture must carry a sign conflict");
+        assert!(
+            satisfying.is_none(),
+            "fixture is NOT frustrated — {satisfying:?} satisfies all {} edges",
+            edges.len()
+        );
 
         // Therefore only the sign-consistency guard can produce the rejection.
         assert_eq!(omega_total(&items), None);

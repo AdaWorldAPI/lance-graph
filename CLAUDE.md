@@ -1255,7 +1255,8 @@ adapters / codegen'd Rust) is only ever as clean as the Core it targets, so the
 **OGAR Core is shaped first, deliberately** — never treated as the residue of
 "what we couldn't codegen." Emit **thin classid-keyed adapters that ASSUME the
 Core** (identity = `classid`; state = SoA value tenants per the #511
-`SoaMemberSpec` calibration; relations = `EdgeBlock`;
+`SoaMemberSpec` calibration; relations = `EdgeBlock` (the 16-byte block is canon; its 12+4 reading is
+V1-legacy — resolve `ClassView::edge_codec_flavor`);
 composition/inheritance = `classid → ClassView`; invocation = `UnifiedStep`),
 and treat the `ruff_cpp_spo` SPO harvest (`has_function` / `inherits_from` /
 `virtually_overrides`) as the **ClassView method-resolution manifest** — the
@@ -1463,6 +1464,8 @@ All findings in `.claude/knowledge/session_autocomplete_cache.md`.
 > `.claude/board/ISSUES.md` `ISS-V1-TAIL-RESIDUE`.
 
 **Node = 4096 bit = 512 byte:** `key(16) | edges(16) | value(480)`.
+*(The stride is CANON and survives V3 unchanged; it is the KEY's u24 tail and
+the EDGE block's 12+4 reading that are V1-legacy — see the two ⊘ notes.)*
 
 **Key (16 byte, little-endian):**
 ```
@@ -1477,10 +1480,33 @@ All findings in `.claude/knowledge/session_autocomplete_cache.md`.
 the prefix is resolved. **[V1-LEGACY — reads only; new mints use the V3
 content-blind facet.]**
 
-**Edge block (16 byte):** 12 in-family + 4 out-of-family, one byte per slot.
-Canonical, NOT mandatory — always reserved (zeroed when unused), never shrunk; a
-class opting out of edges is resolved via `classid → ClassView`, never by a stride
-change.
+**Edge block (16 byte):** always reserved (zeroed when unused), never shrunk;
+a class opting out of edges is resolved via `classid → ClassView`, never by a
+stride change.
+
+> **⊘ V1-LEGACY READING — the "12 in-family + 4 out-of-family, one byte per
+> slot" carving is NOT the layout (marked 2026-08-04).** The **16-byte
+> reservation and the 512-byte stride are CANON and are REUSED unchanged by
+> V3** (`.claude/v3/COMPONENT-MAP.md`: `NodeGuid/EdgeBlock/NodeRow` 16|16|480
+> = *REUSE — CANON, const-asserted*; `.claude/v3/soa_layout/le-contract.md`
+> §316: the 512-byte row "stays authoritative"). **Do NOT shrink, widen, or
+> re-stride the block on the strength of this note.**
+>
+> What is V1 is presenting **12+4 one-byte slots as THE reading**. Under V3 it
+> is one interpretation among several, selected per class:
+> `EdgeCodecFlavor::{CoarseOnly, CoarseResidue, Pq32x4}` via
+> `ClassView::edge_codec_flavor`. `CoarseOnly` — each byte a palette/centroid
+> index, i.e. the 12+4 block read literally — is merely the **zero-fallback
+> default**; `Pq32x4` reads the SAME 16 bytes as 32 × 4-bit product-quantizer
+> codes, and `CoarseResidue` carries a per-dimension signed-4-bit residue in
+> the reserved value slab. Every flavor leaves `NODE_ROW_STRIDE` untouched, so
+> adopting one needs **no `ENVELOPE_LAYOUT_VERSION` bump**.
+>
+> **Consequence for a session reading this block:** never assume a node's edge
+> bytes mean "12 in-family + 4 out-of-family" — resolve the flavor through the
+> class's `ClassView` first. Kernels: `ndarray::hpc::edge_codec`; per-flavor
+> fidelity: `ndarray::hpc::reliability` (`edge_codec_compare`). Append-only:
+> the V1 line is regraded in place, not deleted.
 
 **Zero-fallback ladder (monotonic — zero = fall through to the broader default):**
 - `classid == 0x0000_0000` → default class, no prefix routing (dormant)
@@ -1498,4 +1524,7 @@ dash-groups are the only semantics; the tail is plain `family|identity`.
 
 Reference impl: `canonical_node.rs` (`NodeGuid` / `EdgeBlock` / `NodeRow`, with
 `const _` size asserts at 16/16/512 and `is_default_class` / `is_unbasined` /
-`is_bootstrap_address` guards).
+`is_bootstrap_address` guards). The types are live and V3-current; what is
+V1-legacy is the *reading* of two fields — `NodeGuid`'s u24 tail (mint via
+`mint_for`, never `NodeGuid::new`) and `EdgeBlock`'s 12+4 carving (resolve via
+`ClassView::edge_codec_flavor`, never assumed).
