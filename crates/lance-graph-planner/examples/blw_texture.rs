@@ -132,7 +132,15 @@
 //!   assumed impossible: verses early in the stream can have
 //!   `staunen_at == 0`, so `quale = modal * 0 == 0.5 * 0 == 0` under BOTH
 //!   grading and ablation, producing exact ties among the zero-quale
-//!   cluster).
+//!   cluster). **A FOURTH silence case, disclosed after review:** the
+//!   rank-neighbor can be another lift sitting on THIS SAME verse, giving a
+//!   distance of 0, which the register reads as UNBOUND and which is
+//!   therefore indistinguishable from "no signal". That case is now guarded
+//!   explicitly at the binding site rather than falling through as a `0`
+//!   offset — otherwise `Modal`'s reported bind rate silently under-counts
+//!   moved ranks, i.e. the silence would be a measurement artefact rather
+//!   than a stated rule (the exact confusion §12.7's "by construction vs by
+//!   measurement" distinction exists to prevent).
 //!
 //! **Wittgenstein — meaning as use (distinct language-games).** Among the
 //! concepts touched at this verse (provenance subject/predicate, lift
@@ -197,6 +205,16 @@ const DEFAULT_TSV: &str = "/tmp/kjv_verses.tsv";
 /// session that wrote it, so this could not have been tuned to an observed
 /// result.
 const HORIZON_K: usize = 1_000;
+
+/// Default corpus bound, in verses.
+///
+/// **Measured, not guessed** (2026-08-04): 2,000 verses = 1 s wall; the full
+/// 31,102-verse KJV exceeded a 10-minute budget and was killed. `stance::stream`
+/// rescans the arena per rung lift, so cost is superlinear — see the
+/// EXPECTED RUNTIME block. `2 * HORIZON_K` keeps the horizon intervention
+/// meaningful (a `Vk` prefix and a strictly larger `Vm`) at the measured-good
+/// size. Pass `all` to override.
+const DEFAULT_VERSE_LIMIT: usize = 2 * HORIZON_K;
 
 /// Clamp a signed delta (which may be far outside `i8` range at whole-book
 /// scale — verse positions run to five digits) into the register's `[-8,
@@ -483,7 +501,16 @@ fn mint_kant(
     if rank_delta != 0 && graded_rank[li] > 0 {
         let neighbor_li = graded_order[graded_rank[li] - 1];
         let neighbor_pos = index.pos_of[&out.lifts[neighbor_li].verse];
-        f = f.with(Locus::Modal, to_offset(neighbor_pos as isize - vi as isize));
+        // FOURTH silence condition, disclosed (the module doc lists three).
+        // The rank-neighbor can be another lift on THIS SAME verse, giving a
+        // delta of 0 — which the register reads as UNBOUND, indistinguishable
+        // from "no signal". Guarding it keeps `Modal`'s bind rate honest:
+        // without this the locus is silently unbound on a moved rank, so the
+        // reported rate under-counts moved ranks and the silence is a
+        // measurement artefact rather than a stated rule.
+        if neighbor_pos != vi {
+            f = f.with(Locus::Modal, to_offset(neighbor_pos as isize - vi as isize));
+        }
     }
     f
 }
@@ -668,13 +695,35 @@ fn main() {
         .cloned()
         .unwrap_or_else(|| DEFAULT_TSV.to_string());
 
-    let verses = match load_tsv(&path) {
+    // The corpus is BOUNDED by default. Measured 2026-08-04: 2,000 verses = 1 s,
+    // the full 31,102 exceeded a 10-minute budget and was killed (the O(arena)
+    // rescan documented below). A default that reproduces the kill is a trap for
+    // anyone following the usage line, so the default is the measured-good bound
+    // and the whole book must be asked for explicitly.
+    //
+    //   blw_texture [path] [limit]     limit = a number, or `all`
+    let mut verses = match load_tsv(&path) {
         Ok(v) => v,
         Err(e) => {
             eprintln!("blw_texture: cannot read {path}: {e}");
             return;
         }
     };
+    let loaded = verses.len();
+    let limit: Option<usize> = match args.get(1).map(String::as_str) {
+        Some("all") => None,
+        Some(a) => Some(a.parse().unwrap_or(DEFAULT_VERSE_LIMIT)),
+        None => Some(DEFAULT_VERSE_LIMIT),
+    };
+    if let Some(lim) = limit {
+        if loaded > lim {
+            verses.truncate(lim);
+            println!(
+                "blw_texture: corpus BOUNDED to {lim} of {loaded} verses \
+                 (default; pass `all` for the whole book — see EXPECTED RUNTIME)"
+            );
+        }
+    }
     let n = verses.len();
     println!("blw_texture: {n} verses loaded from {path}");
     if n == 0 {

@@ -111,7 +111,8 @@ fn main() {
     // OT-only truncation for its entire life and could not be unit-tested:
     // cargo compiles an example but never runs its `main()`, and the corpus is
     // not committed. See `corpus::split_verses` for the three-`***` contract.
-    let verses: Vec<String> = deepnsm_v2::corpus::split_verses(&raw);
+    let split = deepnsm_v2::corpus::split_verses_detailed(&raw);
+    let verses: Vec<String> = split.verses.clone();
 
     // G1 — the whole book is ONE 64k SoA tile.
     assert!(verses.len() <= 65_536, "KILL G1: book exceeds the 64k tile");
@@ -120,12 +121,15 @@ fn main() {
     // between the testaments, i.e. at Malachi 4:6 — 23,145 verses, the Old
     // Testament exactly. The assert below is what makes that failure loud:
     // if the input announces a New Testament, the parse must have crossed
-    // into it. General (no hardcoded total), and it fails on the old code.
-    if let Some(crossed) = deepnsm_v2::corpus::crossed_into_new_testament(&raw, verses.len()) {
+    // into it. Read from the PARSE (`CorpusSplit::crossed_new_testament`), not
+    // from a verse-count threshold: a count comparison falsely killed an
+    // NT-only corpus and missed an uppercase heading entirely.
+    if let Some(crossed) = deepnsm_v2::corpus::crossed_into_new_testament(&raw, &split) {
         assert!(
             crossed,
-            "KILL G1b: input announces a New Testament but the parse stopped at \
-             {} verses — the OT-only truncation is back (OT = {}, OT+NT = 31,102)",
+            "KILL G1b: input announces a New Testament but the parse emitted no \
+             verse after that heading — the OT-only truncation is back ({} verses \
+             parsed; the historical bug stopped at {} = the OT exactly)",
             verses.len(),
             deepnsm_v2::corpus::KJV_OLD_TESTAMENT_VERSES
         );

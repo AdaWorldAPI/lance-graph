@@ -12,8 +12,15 @@
 /// Deliberately not a bare `***`. See [`split_verses`].
 pub const GUTENBERG_FOOTER: &str = "*** END OF THE PROJECT GUTENBERG";
 
-/// The Old Testament's verse count in the KJV — the truncation point of the
-/// historical bug, and the floor [`crossed_into_new_testament`] checks against.
+/// The Old Testament's verse count in the KJV — the exact truncation point of
+/// the historical bug.
+///
+/// **Documentation only. It is NOT a threshold.**
+/// [`crossed_into_new_testament`] used to compare against it and that was
+/// wrong in both directions (see that function's table); the gate now reads
+/// the boundary from the parse instead. Kept because the number is the
+/// external fact that made the bug legible — it is not authored here, and a
+/// parse landing exactly on it is the bug's signature.
 pub const KJV_OLD_TESTAMENT_VERSES: usize = 23_145;
 
 /// Is `tok` a `d+:d+` verse marker (e.g. `1:1`, `22:21`)?
@@ -47,6 +54,42 @@ pub fn is_verse_marker(tok: &str) -> bool {
 /// deleting them would silently corrupt verse text).
 #[must_use]
 pub fn split_verses(text: &str) -> Vec<String> {
+    split_verses_detailed(text).verses
+}
+
+/// The outcome of a [`split_verses_detailed`] walk: the verses, plus what the
+/// walk **observed** while producing them.
+///
+/// `crossed_new_testament` exists so the gate in
+/// [`crossed_into_new_testament`] can be answered from the parse itself rather
+/// than by comparing a count against [`KJV_OLD_TESTAMENT_VERSES`]. A count
+/// comparison is wrong in two directions on legitimate input: a New-Testament-
+/// only corpus has *fewer* verses than the Old Testament and would read as
+/// "did not cross", and an uppercase heading would not match a case-sensitive
+/// search at all.
+#[derive(Debug, Clone, Default)]
+pub struct CorpusSplit {
+    /// The verses, in order.
+    pub verses: Vec<String>,
+    /// Did the walk emit at least one verse *after* passing a New Testament
+    /// heading? Detected case-insensitively, from the token stream.
+    pub crossed_new_testament: bool,
+}
+
+/// Is `tok`, stripped of surrounding punctuation and lowercased, equal to
+/// `want`? Used to spot the `New Testament` heading without allocating a
+/// lowercase copy of the whole corpus.
+fn tok_eq_ci(tok: &str, want: &str) -> bool {
+    let t = tok.trim_matches(|c: char| !c.is_alphanumeric());
+    t.len() == want.len() && t.to_ascii_lowercase() == want
+}
+
+/// [`split_verses`], plus the boundary metadata the New-Testament gate needs.
+///
+/// See [`split_verses`] for the `***` handling, which is the historically
+/// load-bearing part.
+#[must_use]
+pub fn split_verses_detailed(text: &str) -> CorpusSplit {
     let body = match text.find(GUTENBERG_FOOTER) {
         Some(i) => &text[..i],
         None => text,
@@ -55,11 +98,24 @@ pub fn split_verses(text: &str) -> Vec<String> {
     let mut verses: Vec<String> = Vec::new();
     let mut cur = String::new();
     let mut in_body = false;
+    // Two-token state machine over "new" "testament", case-insensitive.
+    let mut saw_new = false;
+    let mut nt_heading_seen = false;
+    let mut crossed = false;
     for tok in body.split_whitespace() {
+        if !nt_heading_seen {
+            if saw_new && tok_eq_ci(tok, "testament") {
+                nt_heading_seen = true;
+            }
+            saw_new = tok_eq_ci(tok, "new");
+        }
         if is_verse_marker(tok) {
             in_body = true;
             if !cur.is_empty() {
                 verses.push(std::mem::take(&mut cur));
+                if nt_heading_seen {
+                    crossed = true;
+                }
             }
         } else if in_body {
             if tok == "***" {
@@ -73,25 +129,63 @@ pub fn split_verses(text: &str) -> Vec<String> {
     }
     if !cur.is_empty() {
         verses.push(cur);
+        if nt_heading_seen {
+            crossed = true;
+        }
     }
-    verses
+    CorpusSplit {
+        verses,
+        crossed_new_testament: crossed,
+    }
 }
 
 /// Did a parse of `text` yielding `verse_count` verses actually cross into the
 /// New Testament?
 ///
 /// `None` when `text` announces no New Testament (nothing to check). Otherwise
-/// `Some(crossed)`. This is the general form of the falsifier — it asserts
-/// nothing about a specific corpus total, so it works on any input and still
-/// fails on the truncating parser, whose count is exactly
-/// [`KJV_OLD_TESTAMENT_VERSES`].
+/// `Some(crossed)`, read from the **parse** via
+/// [`CorpusSplit::crossed_new_testament`].
+///
+/// # Why this does not compare against [`KJV_OLD_TESTAMENT_VERSES`]
+///
+/// It used to, and the doc used to claim the check "asserts nothing about a
+/// specific corpus total". That claim was false — the comparison **was** the
+/// corpus total, and it broke on legitimate input in **both** directions:
+///
+/// | input | old behaviour | why it was wrong |
+/// |---|---|---|
+/// | a New-Testament-**only** corpus | `Some(false)` → KILL | an NT-only corpus has *fewer* verses than the OT, so it can never exceed the threshold — a valid parse read as a truncation |
+/// | an uppercase `THE NEW TESTAMENT` heading | `None` → gate silently off | the announcement search was case-sensitive |
+///
+/// Reading the boundary from the token walk fixes both and keeps the property
+/// that actually mattered: it still fails on the historical truncating parser,
+/// which stopped at the lone `***` **before** the heading and therefore emitted
+/// no verse after it. [`KJV_OLD_TESTAMENT_VERSES`] survives only as the
+/// documented count of the historical bug, not as a threshold.
 #[must_use]
-pub fn crossed_into_new_testament(text: &str, verse_count: usize) -> Option<bool> {
-    if text.contains("The New Testament") {
-        Some(verse_count > KJV_OLD_TESTAMENT_VERSES)
+pub fn crossed_into_new_testament(text: &str, split: &CorpusSplit) -> Option<bool> {
+    if announces_new_testament(text) {
+        Some(split.crossed_new_testament)
     } else {
         None
     }
+}
+
+/// Does `text` announce a New Testament anywhere, case-insensitively?
+///
+/// Deliberately case-insensitive: real Gutenberg texts render the heading as
+/// `The New Testament`, `THE NEW TESTAMENT`, and other casings, and a
+/// case-sensitive miss disables the gate silently rather than loudly.
+#[must_use]
+pub fn announces_new_testament(text: &str) -> bool {
+    let mut saw_new = false;
+    for tok in text.split_whitespace() {
+        if saw_new && tok_eq_ci(tok, "testament") {
+            return true;
+        }
+        saw_new = tok_eq_ci(tok, "new");
+    }
+    false
 }
 
 #[cfg(test)]
@@ -152,19 +246,72 @@ mod tests {
 
     #[test]
     fn crossed_into_new_testament_is_the_falsifier_and_can_fail() {
-        let with_nt = "The New Testament of the King James Bible";
-        // The truncating parser's exact count — must read as NOT crossed.
+        // A corpus that announces the NT and has verses on BOTH sides of the
+        // heading: the gate must pass.
+        let whole = "1:1 old verse The New Testament 1:1 new verse";
+        let s = split_verses_detailed(whole);
+        assert_eq!(s.verses.len(), 2);
+        assert_eq!(crossed_into_new_testament(whole, &s), Some(true));
+
+        // THE CAN-FIRE HALF: the historical truncating parser stopped at the
+        // lone `***` BEFORE the heading, so it emitted no verse after it.
+        // Simulated by a split whose walk never saw the heading.
+        let truncated = CorpusSplit {
+            verses: vec!["old verse".to_string()],
+            crossed_new_testament: false,
+        };
         assert_eq!(
-            crossed_into_new_testament(with_nt, KJV_OLD_TESTAMENT_VERSES),
+            crossed_into_new_testament(whole, &truncated),
             Some(false),
-            "the OT-only count must fail the gate"
+            "a parse that never reached the NT heading must FAIL the gate"
         );
-        assert_eq!(
-            crossed_into_new_testament(with_nt, 31_102),
-            Some(true),
-            "the whole-book count must pass the gate"
-        );
+
         // No New Testament announced: nothing to assert.
-        assert_eq!(crossed_into_new_testament("Genesis only", 10), None);
+        let none = split_verses_detailed("1:1 genesis only");
+        assert_eq!(crossed_into_new_testament("1:1 genesis only", &none), None);
+    }
+
+    #[test]
+    fn new_testament_only_corpus_passes_the_gate() {
+        // REGRESSION: the old count-based gate returned Some(false) here — an
+        // NT-only corpus has FEWER verses than the OT, so it could never clear
+        // `> KJV_OLD_TESTAMENT_VERSES`. A valid parse read as a truncation.
+        let nt_only = "The New Testament 1:1 the book of the generation 1:2 abraham begat isaac";
+        let s = split_verses_detailed(nt_only);
+        assert_eq!(s.verses.len(), 2);
+        assert!(
+            s.verses.len() < KJV_OLD_TESTAMENT_VERSES,
+            "fixture must sit below the old threshold, or it does not regress the bug"
+        );
+        assert_eq!(crossed_into_new_testament(nt_only, &s), Some(true));
+    }
+
+    #[test]
+    fn uppercase_heading_still_arms_the_gate() {
+        // REGRESSION: the old announcement search was case-sensitive on
+        // "The New Testament", so an uppercase heading returned None and
+        // silently DISABLED the gate rather than failing loudly.
+        let upper = "1:1 old verse THE NEW TESTAMENT 1:1 new verse";
+        let s = split_verses_detailed(upper);
+        assert!(announces_new_testament(upper));
+        assert_eq!(crossed_into_new_testament(upper, &s), Some(true));
+
+        // ...and the gate must still be able to FAIL on that same casing.
+        let truncated = CorpusSplit {
+            verses: vec!["old verse".to_string()],
+            crossed_new_testament: false,
+        };
+        assert_eq!(crossed_into_new_testament(upper, &truncated), Some(false));
+    }
+
+    #[test]
+    fn announcement_detection_does_not_fire_on_unrelated_text() {
+        // The can-stay-silent twin: "new" and "testament" must be ADJACENT.
+        assert!(!announces_new_testament(
+            "a new covenant and an old testament"
+        ));
+        assert!(!announces_new_testament("nothing relevant here"));
+        assert!(announces_new_testament("the new testament"));
+        assert!(announces_new_testament("The New Testament,"));
     }
 }

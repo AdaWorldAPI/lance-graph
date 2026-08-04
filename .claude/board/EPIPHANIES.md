@@ -14,6 +14,13 @@
 
 **The class.** *When a fix names a richer representation as the remedy, the fix is not done when the representation lands — it is done when the code populates the dimensions the representation was chosen for.* **Sibling check:** any migration to a wider carrier (more loci, more columns, more axes, higher-dimensional embedding) where the write sites were not counted afterwards.
 
+> **⊘ SAME-DAY CORRECTION (2026-08-04, on review — both accepted).** This entry, whose whole subject is an overclaim, closed with **two overclaims of its own**. Recorded rather than quietly edited, because the recurrence is the point.
+>
+> 1. *"Any measurement whose ceiling can be computed from the source alone is not measuring the corpus"* — **too strong, and false as stated.** Plenty of sound measurements have source-computable ceilings (any percentage is bounded `[0,100]` before you look at data). The defect here is narrower and needs the tightness named: **a measurement is uninformative for corpus comparison when its source-defined ceiling prevents the observed range from reflecting corpus variation.** At 1-of-24 with one shared axis, the ceiling is that tight; "has a ceiling" alone never was the fault.
+> 2. *"A correct control under a broken instrument still yields a trustworthy negative"* — **overreaches on the word "trustworthy".** What the fixed-verse-set control establishes is exactly one thing: **sample growth is excluded as the cause of the observed rebinding.** It does not validate the instrument and does not exclude other confounders. The narrow claim is the one the measurement supports.
+>
+> **Why this matters more than the wording.** Both slips are the *aphorism reflex*: a measured, bounded finding gets a memorable universal bolted onto the end, and the universal is what a future session will actually quote. **A sentence that generalizes past its evidence is the same defect as a measurement that reads past its ceiling — one level up, in prose.** The finding above is unchanged and stands; only its two closing generalizations are narrowed.
+
 ## 2026-08-04 — E-A-NEGATIVE-EXISTENCE-CLAIM-IS-ONLY-AS-WIDE-AS-ITS-SEARCH-1 — three times, same arc, same shape
 
 **Status:** FINDING (three measured instances, one arc, one day). **Confidence:** High — the third instance was disproven by a single API call. Fix: plan §12.3c ⊘⊘ and ⊘⊘⊘.

@@ -172,6 +172,16 @@ jobs:
         run: cargo run -p lance-graph-planner --example probe_eyes_opened
       - name: Probe falsifier - babel stances (fixture asserts)
         run: cargo run -p lance-graph-planner --example probe_babel_stances
+      # Same blind-gate, same fix. `blw_lens_twin`'s synthetic smoke test
+      # carries the degeneracy can-fire / can-stay-silent proofs as `assert!`s
+      # inside example main(). Note a `#[cfg(test)] mod tests` inside the
+      # example would NOT close this: none of the `cargo test` invocations in
+      # this workflow pass `--examples`, so such a module is compiled and never
+      # run. Running the example is what actually gates it. The path argument
+      # is deliberately non-existent so the synthetic branch is selected
+      # explicitly rather than by whatever happens to be in the runner's /tmp.
+      - name: BLW discrimination twin - synthetic degeneracy proofs
+        run: cargo run -p lance-graph-planner --example blw_lens_twin -- /nonexistent/force-synthetic.tsv
 
   test-with-coverage:
     runs-on: ubuntu-24.04

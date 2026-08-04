@@ -195,7 +195,16 @@ fn ingest_str(raw: &str) -> Ingested {
         let cop = if is_copular(pw) {
             Copula::Inh
         } else {
-            Copula::Rel(pid.parse::<u16>().unwrap_or(0))
+            // SKIP an unparsable predicate id — do NOT fold it into `Rel(0)`.
+            // `unwrap_or(0)` collapses every malformed row into ONE statement
+            // identity, so distinct garbage rows read as re-observations of the
+            // same statement and inflate the very re-observation counts the
+            // stances are computed from. Same treatment as the s/o/v columns
+            // above.
+            let Ok(p) = pid.parse::<u16>() else {
+                continue;
+            };
+            Copula::Rel(p)
         };
         let stmt = CStmt { s, cop, p: o };
         arena.observe(stmt, TruthValue::new(1.0, 0.9), Stamp::source(v));
@@ -513,7 +522,11 @@ fn run_corpus(path: &str) {
         lenses.len(),
         pairs.len()
     );
-    if pairs.len() < 2 {
+    // The prose names SIX pairs (all 4 lenses reachable = C(4,2)); the guard
+    // must use that number. At `< 2` a 3-lens run (3 pairs) printed nothing
+    // while the full-table discipline still did not apply.
+    const FULL_PANEL_PAIRS: usize = 6;
+    if pairs.len() < FULL_PANEL_PAIRS {
         println!(
             "  note: §12.3a's \"assert the six tables are not all identical\" / full-table discipline assumes all 4 lenses reachable (6 pairs). With {} pair(s) reachable that comparison does not apply and is not attempted here.",
             pairs.len()
