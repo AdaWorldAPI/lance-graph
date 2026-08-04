@@ -1305,3 +1305,73 @@ justified dependence model, named at the claim site (C4, as corrected).
   are the independent reference frame this arm is measured against, and are not
   to be "improved" while being used as the oracle.
 - **No fusion or validity claim** before D3b (§12.4).
+
+### 12.7 D-BLW-2 MEASURED RESULT — the texture rewrite is a KILL, on κ's own axis
+
+**Status: MEASURED (2026-08-04).** `examples/blw_texture.rs`, 2,000-verse KJV
+prefix, 1 s wall. Full 31,102-verse run exceeded a 10-minute budget — the harness
+documents why in its own source (`stance::stream` calls
+`staunen(Snapshot::of(arena, 0.0))` **once per rung lift**, each an
+O(arena-size) scan, and the harness runs `stream` twice), so this is a known
+superlinear cost, not a crash. **All numbers below are from the bounded run.**
+
+**The verdict: the carrier changed and the instrument did not.** §12.3c retired κ
+for collapsing a multi-axis phenomenon into one coincidence scalar. The
+replacement uses a 24-locus register — and then **writes three loci**. Verified
+against source, not the harness's self-report: all seven `.with(Locus::…)` call
+sites write only `Antecedent` (5 sites, every stance), `Quorum` (Hegel only) and
+`Modal` (Kant only). **Only `Antecedent` is shared between any two stances, so
+`agreement_count` is bounded at 1 of 24 by construction** — a binary coincidence
+measure rebuilt inside a richer type. The harness states the ceiling honestly and
+in advance, which is to its credit; it is still the same defect one level down.
+
+| pair | mean `agreement_count` | distribution |
+|---|---|---|
+| Hegel × Wittgenstein | 0.0825 | `{0: 1835, 1: 165}` |
+| Hegel × Nietzsche | 0.0505 | `{0: 1899, 1: 101}` |
+| Kant × Wittgenstein | 0.0105 | `{0: 1979, 1: 21}` |
+| Nietzsche × Wittgenstein | 0.0100 | `{0: 1980, 1: 20}` |
+| Hegel × Kant | 0.0070 | `{0: 1986, 1: 14}` |
+| Nietzsche × Kant | 0.0015 | `{0: 1997, 1: 3}` |
+
+Per-locus bind rate — **21 of 24 loci read exactly 0.0000 for every stance, by
+construction**: Hegel `Antecedent .3650 / Quorum .3235`; Wittgenstein
+`Antecedent .8815`; Nietzsche `Antecedent .0570`; Kant
+`Antecedent .0265 / Modal .0355`.
+
+**Second, independent defect — the four stances are not four comparable reads.**
+Bind rates: Wittgenstein **1763/2000 = 88.2 %**, Hegel 732 (36.6 %), Nietzsche 114
+(5.7 %), Kant 72 (3.6 %). One near-constant, one moderate, two near-silent. An
+88 % firing rate is the same degenerate tell as the 99.61 % that killed §12.3a″ —
+close enough to a constant that its "agreement" with anything is mostly its own
+prevalence.
+
+**What did work, and it is worth keeping.** The §12.3b fixed-verse-set control
+behaved exactly as designed: holding verses 0..1000 constant and moving only the
+horizon (`Vk`=1000 → `Vm`=2000) produced real rebinding — Wittgenstein 127/1000,
+Hegel 113/1000 (`antecedent` 94, `quorum` 95), Nietzsche 48/1000, Kant 6/1000.
+Sample growth is excluded by construction, so **this movement is not the artefact
+§12.3b was built to exclude.** But it is almost entirely `Antecedent` rebinding —
+one axis again.
+
+**Consequence for the arm, stated as a KILL and not softened.** D-BLW-2's
+instrument does not separate the stances by texture; it reports co-occurrence of a
+single locus. **The register was necessary and is not sufficient — the binding
+rules ARE the instrument.** A rewrite must populate the loci that carry the
+distinction the arm exists to make (`Supports`/`SupportedBy` collapse for
+nihilism; `QualiaReference` distance from `SMeaning`/`PMeaning`/`OMeaning` for
+sarcasm — the torque-vs-collapsed-lever-arm pair in §12.6 A4), and must report
+those as **two quantities, never averaged**.
+
+**Two further defects in the shipped harness, both now false or wrong:**
+1. It prints *"CROSS-LANGUAGE FALSIFIER: BLOCKED — no parallel-text corpus is on
+   disk."* **False as of this session** — 9 PD lanes / 7 languages are on disk
+   (§12.3c ⊘⊘⊘). The line must go.
+2. It **bypasses the post-#879 substrate entirely.** Grep count for
+   `batch_writer|BatchWriter|KanbanStep|kanban|owner_adapter|MailboxSoA|SoaEnvelope`
+   in the file is **0**; its whole import surface is `causal_witness` +
+   `nars::stance` + `BeliefArena`. So it is a free-standing loop over a TSV — no
+   tenant, no verses-as-rows, no `KanbanStep` advance, no batch-writer casts —
+   and therefore **cannot be evidence for any substrate claim**, only for the
+   stance functions. **D-BLW-1 remains unbuilt**, and this harness standing in
+   for it is precisely the substitution D-BLW-1 was scoped to prevent.

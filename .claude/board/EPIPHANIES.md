@@ -1,3 +1,19 @@
+## 2026-08-04 — E-THE-CARRIER-CHANGED-THE-INSTRUMENT-DID-NOT-1 — a 24-locus register that writes one shared locus is still a coincidence bit
+
+**Status:** FINDING (measured, 2,000-verse run, 1 s). **Confidence:** High — the ceiling is verifiable in source, independent of the data. Code: `lance-graph-planner/examples/blw_texture.rs`. Result: plan §12.7.
+
+**What happened.** §12.3c retired κ because it collapsed a multi-axis phenomenon into a single coincidence scalar — *"nihilism and sarcasm are both negative, so any sign or boolean collapses them."* The replacement instrument was built on `CausalWitnessFacet`: **24 signed i4 loci**, exactly the carrier that can hold binding topology. It then **wrote three of them.** All seven `.with(Locus::…)` sites write `Antecedent` (every stance), `Quorum` (Hegel only), `Modal` (Kant only). **Only `Antecedent` is shared by any two stances, so `agreement_count` is bounded at 1 of 24 — by construction, before any verse is read.** Measured means: 0.0015 to 0.0825, every distribution `{0: ~1900, 1: ~100}`. Twenty-one loci read exactly `0.0000` for every stance, always.
+
+**So the same defect survived the fix, one level down.** I replaced a scalar-over-binaries with a scalar-over-a-richer-type and changed nothing about what was being measured. **The register is not the instrument. The binding rules are the instrument.** Swapping the carrier is necessary and does no work on its own — a 24-dimensional type populated on one shared dimension is a one-dimensional measurement wearing a 24-dimensional type.
+
+**Why it was easy to miss, and the tell that catches it.** The rewrite *looked* like compliance: right carrier, cited ruling, honest prose. The tell is cheap and purely structural — **count the distinct write sites into the multi-axis carrier and compare against the axis count.** 3-of-24, with 1 shared, is visible without running anything, and it bounds the result before the corpus is opened. **Any measurement whose ceiling can be computed from the source alone is not measuring the corpus.**
+
+**Paired second defect, the familiar one.** Bind rates across the four stances: Wittgenstein **88.2 %**, Hegel 36.6 %, Nietzsche 5.7 %, Kant 3.6 %. That is not four comparable readings — it is one near-constant, one moderate and two near-silent, and an 88 % firing rate agrees with everything largely by prevalence. Same shape as the 99.61 % that killed the previous instrument.
+
+**What survived, and it matters.** The §12.3b fixed-verse-set control worked exactly as designed: holding verses `0..1000` constant and moving only the horizon produced real rebinding (Wittgenstein 127/1000, Hegel 113, Nietzsche 48, Kant 6). Sample growth is excluded by construction, so that movement is **not** the artefact the control was built to exclude. **A correct control under a broken instrument still yields a trustworthy negative** — which is the whole reason to build the control before the instrument rather than after.
+
+**The class.** *When a fix names a richer representation as the remedy, the fix is not done when the representation lands — it is done when the code populates the dimensions the representation was chosen for.* **Sibling check:** any migration to a wider carrier (more loci, more columns, more axes, higher-dimensional embedding) where the write sites were not counted afterwards.
+
 ## 2026-08-04 — E-A-NEGATIVE-EXISTENCE-CLAIM-IS-ONLY-AS-WIDE-AS-ITS-SEARCH-1 — three times, same arc, same shape
 
 **Status:** FINDING (three measured instances, one arc, one day). **Confidence:** High — the third instance was disproven by a single API call. Fix: plan §12.3c ⊘⊘ and ⊘⊘⊘.
