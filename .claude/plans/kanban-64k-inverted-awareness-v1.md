@@ -246,6 +246,32 @@ signature, or semantics is an automatic reject, independent of merit.**
 
 Blocks D3.
 
+> **✅ C1b SHIPPED (2026-08-04) — `crates/jc/src/stats.rs`.** All six rows
+> delivered: `cohen_kappa`, `omega_total`, `phi`, `multiple_r` /
+> `multiple_r_squared`, `eta_squared`, and `t_test_one_sample` / `_paired` /
+> `_welch` / `_student` + `anova_one_way` (each returning `t`/`F`, df and p via
+> a shared regularised-incomplete-beta core). 31 new tests — **107 lib + 11
+> doctests green**, `stats.rs` clippy-clean.
+>
+> **The additive constraint held, tighter than permitted:** the entire diff to
+> existing files is `fn` → `pub(crate) fn` on **`mean` and `all_finite` only**
+> (plus doc comments and the `pub mod` line). `average_ranks` and `pop_var`
+> were NOT widened — the carve-out allowed it, but this module does not consume
+> them, and `sample_var`/`sample_cov` here use the unbiased `n−1` divisor,
+> which is a different estimator from `pop_var`'s `n`, not a duplicate of it.
+>
+> **Every new estimator is cross-checked against independently-computed
+> quantities** rather than only against itself: φ vs `pearson` on the 0/1
+> coding; R² vs `pearson²` at one predictor; η² vs `R²` on a 0/1 dummy; η² vs
+> `t²/(t²+df)` and `F = t²` from the pooled t; ω vs α (equal under
+> tau-equivalence, strictly greater under the hand-computed congeneric fixture,
+> ω = 0.9473684 vs α = 0.8684211). The t/F tails are pinned against textbook
+> critical values, and the one-sample p against a closed-form incomplete-beta
+> evaluation — not against this code's own output.
+>
+> **Two defects found by the doc examples, both fixed** — see
+> `E-EXACT-FIT-IS-WHERE-ABSOLUTE-ZERO-GUARDS-BREAK-1`.
+
 **C2 — name the dichotomous statistics correctly.** Over binary catalog
 criteria: Pearson→**φ** (report the marginal-capped ceiling), Cronbach's
 α→**KR-20**; **κ is a SEPARATE estimator, not a renamed ICC** — where a

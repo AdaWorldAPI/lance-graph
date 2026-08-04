@@ -49,6 +49,16 @@ pub mod weyl;
 // (I-NOISE-FLOOR-JIRAK). See `src/reliability.rs`.
 pub mod reliability;
 
+// Second statistics battery (D-KIA-C1b) — chance-corrected agreement (Cohen's
+// κ, the estimator `reliability` lacked and D3's fusion falsifier needs),
+// congeneric reliability (McDonald's ω), the r-family effect sizes (φ, R, R²,
+// η²) and their significance companions (t-tests, one-way ANOVA). Like
+// `reliability` it is NOT a pillar. Strictly ADDITIVE: it borrows two private
+// helpers from `reliability` (`mean`, `all_finite`) and re-uses `pearson` for
+// φ, but changes no existing estimator's arithmetic, signature or semantics.
+// Cohen's d is deliberately out of scope — the effect-size family here is r.
+pub mod stats;
+
 // PROBE-SIG-CHECKSUM — depth-2 truncated signature as a replayable
 // trajectory digest (H.268 probe wave, grades E-WH-TWO-SIDES-SIG-CHECKSUM-1
 // leg 2). A probe, not a 12th pillar: intentionally NOT added to the
