@@ -581,13 +581,30 @@ reasoning works on owned `Copy` microcopies, write-back is gated — **no
    arm does not need owner-sparseness at all.** That mechanic is already proven
    at 64k in `cycle_driver.rs:1098`. The Bible arm's sparseness is **row-level,
    inside one owner**. I solved a problem that belonged to a different layer.
-2. *The 384 MiB / ~5.1 MiB-stack figures.* **These remain true and unretracted** —
-   `MailboxSoA<65536>` really is 384 MiB of identity planes and really is a
-   ~5.1 MiB by-value construction. But they argue for a **construction fix**
-   (heap/in-place init, or a smaller row count per bake), never for minting
-   tenants. Measuring a real constraint does not license an arbitrary answer to
-   it — that is the actual lesson, and it is why the number is kept while the
-   conclusion is thrown away.
+2. *The 384 MiB / ~5.1 MiB-stack figures.* **⊘ ALSO RETRACTED (operator,
+   same day) — I measured the wrong object.** The canonical row is
+   `NODE_ROW_STRIDE = 512` bytes, const-asserted
+   `size_of::<NodeRow>() == 512` (`canonical_node.rs:735, :787`). **The whole
+   Bible bake at canon is 65,536 × 512 B = 32 MiB** — trivially resident, no
+   tiling, no `#[ignore]`, CI runs the full corpus. The 6,144 B/row I measured
+   is `MailboxSoA`'s content/topic/angle hot planes, **12× the canonical node
+   row**, which I silently treated as the corpus cost. So there was never any
+   memory pressure to solve, and every conclusion drawn from it — tiling,
+   the CI/full-scale split, the 24 GiB D-BLW-4 figure — was answering a problem
+   that did not exist.
+
+   **The lesson is sharper than the one I first wrote.** I said "measuring a
+   real constraint does not license an arbitrary answer to it." True, but it
+   let me keep believing the measurement. The actual failure is upstream:
+   **I never checked what the number was a number OF.** A figure computed from
+   the wrong struct is not a weaker fact, it is not a fact at all — and it is
+   more dangerous than no figure, because arithmetic feels like evidence.
+
+   **Open question, deliberately not resolved here** (asked, not concluded —
+   this axis has already been wrong three times today): `MailboxSoA` carries
+   6,144 B/row against a 512 B/row canon. Is that a deliberate hot working set
+   layered above the canonical row, or a divergence from it? Recorded in
+   `ISSUES.md`, not answered.
 
 **Consequences, binding:**
 - The tiling in §12.1a and everything downstream of it is void. `FULL_TILES`,
