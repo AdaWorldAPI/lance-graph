@@ -500,3 +500,28 @@ can-fire — a fresh corpus yields Flow fleet-wide and the STYLE's casts (not
 the harness's) advance phases; can-stay-silent — a fully-reconciled corpus
 yields Hold everywhere and casts nothing. A brain that cannot rest is the
 150/150 defect wearing a crown.
+
+> **⊘ §9b LOWERING CORRECTED (operator ruling, 2026-08-04, same hour):** *"I
+> don't want any messaging in the common sense, only casting and eventually
+> 'looking into the kanban'. In theory it could be as simple as setting a
+> start bit in a kanban tenant."*
+>
+> The grammar's four axes stand; the LOWERING is not methods, not messages,
+> not an endpoint. There are exactly **two verbs** in the entire ignition
+> story: **CAST** (write intent through the BatchWriter, write-on-behalf —
+> "Melden macht frei") and **LOOK INTO THE KANBAN** (read the board state).
+> `start()::where()` = a cast-shaped write that sets the start state in the
+> kanban value tenant (`ValueTenant::Kanban`, the per-node 8-byte cursor) at
+> the addressed rows — in the simplest honest form, the sealed
+> Planning→CognitiveWork intent ITSELF is the start bit, and no new bit is
+> minted unless "armed but not yet cycled" is measurably inexpressible that
+> way. The driver never receives anything: its input is a SCAN of the board
+> it owns — the same shape as the version-tick arm's LIVE reads. Style
+> arming is likewise a write (MetaWord bits), never a call.
+>
+> This SUPERSEDES the earlier custody-free "control-plane endpoint" advice in
+> the same session's chat: there is no endpoint. Consumers cast; the board is
+> looked into; everything else was ceremony. PROBE-IGNITION's design lane was
+> corrected mid-flight and its can-fire assertion gains the twin: *the driver
+> discovered the work by reading the board, and nothing else could have told
+> it* — no side channel may exist in the probe.
