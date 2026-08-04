@@ -31,6 +31,21 @@
 //! `cycle_driver::run_cognitive_work_gated[_over]`; marking the wrappers here
 //! legacy does not deprecate that gate. `Phase` (a pure read) is unaffected.
 //!
+//! > **Qualifier added 2026-08-04 (measured, not inferred).** The sentence
+//! > above is accurate about OWNERSHIP — `cycle_driver::shade_owner` really
+//! > does call `gate_decision_i4`, and `run_cognitive_work_gated[_over]` really
+//! > is the gate's caller — but read literally it suggests a LIVE path, and
+//! > that part is not true today. Verified by grep: `shade_owner` has no caller
+//! > outside `cycle_driver.rs` itself, `run_cognitive_work_gated[_over]` is
+//! > called only from that file's own `#[cfg(test)]` module, and `cycle_driver`
+//! > has no production caller at all. So "consumed directly by the #879 path"
+//! > means *the #879 path is where the gate's consumer lives*, not *the gate
+//! > runs in production*. Both halves matter: the wrappers here stay legacy,
+//! > AND the canonical replacement is built-but-undriven.
+//! >
+//! > This qualifier is repeated at the two other sites in this file that make
+//! > the same claim; it is stated once here in full.
+//!
 //! ## Stale-comment correction
 //!
 //! Comments in this file previously described the ractor as the thing that

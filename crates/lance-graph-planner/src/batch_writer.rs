@@ -38,9 +38,37 @@
 //! coalesces all earlier intents for a row (last-state-wins; the move log
 //! keeps the full ordered history).
 //!
-//! The kanban advance is the in-stream synchronous kanbanstep
-//! (`VersionScheduler::on_version → try_advance_phase(&mut)`), fired inline
-//! by whoever already holds the version — never from this module.
+//! The kanban advance is the in-stream synchronous kanbanstep, fired inline by
+//! whoever already holds the version — never from this module.
+//!
+//! > **⊘ CORRECTED 2026-08-04 — this paragraph named the wrong mechanism, and
+//! > the wrong name propagated.** It used to read
+//! > *"(`VersionScheduler::on_version → try_advance_phase(&mut)`)"*. No code
+//! > does that. A session took this sentence at face value and carried
+//! > `VersionScheduler` into a knowledge doc as part of this write path, where
+//! > it then contradicted that same doc's own warning never to let a scheduler
+//! > drive the advance. **The function wins over the comment.**
+//! >
+//! > `VersionScheduler` is real and live, but it belongs to the **version-tick
+//! > / LIVE-query arm** — its own doc (`contract/scheduler.rs`) says it is what
+//! > a `LIVE` query calls per `versions()` tick, i.e. something outside
+//! > observes a new version and asks whether a mailbox should advance. That is
+//! > the opposite direction from this module, where a thought *announces* where
+//! > it intends to go before the write lands.
+//! >
+//! > **The actual consumer of this module's `moves` argument** is
+//! > `lance_graph_supervisor::cycle_driver::collect_casts`: it drains the
+//! > payloads, reads [`BatchWriter::intent_moves`] back, and seals the FIRST
+//! > move per owner (in cast order) as that owner's `SweepSlot::paired_move`;
+//! > every further move for an already-paired owner is held and re-cast next
+//! > cycle rather than dropped. `persist_sink::recover_and_apply` then applies
+//! > that paired move via `MailboxSoaOwner::try_advance_phase`, consulting no
+//! > scheduler at any point.
+//! >
+//! > **Consequence a caller must know, stated nowhere else:** at most ONE move
+//! > per owner per cycle is sealed. Casting three transitions for one mailbox
+//! > performs one and defers two — and because the deferred ones do eventually
+//! > apply, code assuming otherwise is wrong in a way nothing reports.
 //!
 //! Uses the REAL shipped kanban contract types
 //! ([`lance_graph_contract::kanban::KanbanMove`],
