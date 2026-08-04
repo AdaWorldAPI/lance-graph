@@ -2,8 +2,10 @@
 //!
 //! The seam where three subsystems meet over the ONE per-mailbox SoA:
 //! - **lance-graph-planner** emits a [`KanbanMove`] (the plan's output unit),
-//! - **ractor** (the mailbox owner, `lance-graph-supervisor`) drives the
-//!   transition — advancing a [`KanbanColumn`] *is* the mailbox lifecycle step,
+//! - **lance-graph-supervisor**'s sealed-cycle driver applies the transition
+//!   (the #879 path: plan evaluation → `KanbanMove` intent → `BatchWriter` →
+//!   sparse seal → one WAL/version → inline apply) — advancing a
+//!   [`KanbanColumn`] *is* the mailbox lifecycle step,
 //! - **surrealdb** (`surreal_container`) projects the columns as the kanban view
 //!   over SoA-shaped Lance rows.
 //!
@@ -31,8 +33,9 @@ use crate::mul::GateDecision;
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Default)]
 #[repr(u8)]
 pub enum KanbanColumn {
-    /// `t < -550 ms` (Libet readiness-potential window): ractor owns the SoA;
-    /// counterfactual pre-planning / expansion happens here. The spawn state.
+    /// `t < -550 ms` (Libet readiness-potential window): the mailbox owner
+    /// holds the SoA; counterfactual pre-planning / expansion happens here. The
+    /// spawn state.
     #[default]
     Planning = 0,
     /// `t >= -550 ms`: the SoA mutates under cognitive operations; the Σ-commit
@@ -72,9 +75,9 @@ impl KanbanColumn {
     /// Is this an **absorbing** column — the mailbox cycle ends here with no
     /// successor (`Commit` = calcify to cold path, `Prune` = drop)?
     ///
-    /// `Plan` is NOT absorbing (it re-deliberates back to `Planning`). The ractor
-    /// lifecycle driver tombstones the mailbox iff the cycle reaches an absorbing
-    /// column — the LE-3 cycle-end commit/SLA decision hooks here.
+    /// `Plan` is NOT absorbing (it re-deliberates back to `Planning`). The
+    /// sealed-cycle driver tombstones the mailbox iff the cycle reaches an
+    /// absorbing column — the LE-3 cycle-end commit/SLA decision hooks here.
     #[inline]
     pub fn is_absorbing(self) -> bool {
         matches!(self, Self::Commit | Self::Prune)
@@ -160,7 +163,8 @@ impl KanbanColumn {
 /// restating the literal.
 pub const LIBET_COMMIT_WINDOW_US: u32 = 550_000;
 
-/// One kanban transition: the planner's output unit and the ractor's lifecycle step.
+/// One kanban transition: the planner's output unit and the sealed cycle's
+/// lifecycle step (applied inline by the #879 path after the sparse seal).
 ///
 /// `Copy` and small (≤ 16 B) so it rides the airgap as owned microcopy, never a
 /// borrow into the SoA (R1). The witness is a *pointer* (R4).
@@ -431,7 +435,7 @@ mod tests {
         assert!(!KanbanColumn::Plan.is_absorbing());
         assert!(KanbanColumn::Plan.is_terminal()); // terminal decision, but...
         assert!(KanbanColumn::Plan.can_transition_to(KanbanColumn::Planning)); // ...re-enters.
-                                                                               // The ractor driver tombstones iff absorbing.
+                                                                               // The sealed-cycle driver tombstones iff absorbing.
         assert!(!KanbanColumn::Planning.is_absorbing());
         assert!(!KanbanColumn::Evaluation.is_absorbing());
     }

@@ -50,8 +50,9 @@ pub enum StepDomain {
     /// Medcare reality-check vertical (clinic data sovereignty).
     Medcare,
     /// 4-phase Rubicon kanban transition over the per-mailbox SoA — the seam
-    /// where the planner (emits), ractor (owns/drives), and surrealdb (projects)
-    /// meet. `step_type` prefix `"kanban."`. See [`crate::kanban`].
+    /// where the planner (emits), the supervisor's sealed-cycle driver
+    /// (applies), and surrealdb (projects) meet. `step_type` prefix
+    /// `"kanban."`. See [`crate::kanban`].
     Kanban,
 }
 

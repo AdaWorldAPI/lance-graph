@@ -1,28 +1,54 @@
-//! S4 — the kanban-advance ractor actor (the smallest *true* OUT-leg wire).
+//! ⚠ LEGACY SURFACE (2026-08-04). #879 is the complete and independent
+//! production phase-progression path. KanbanActor has no assigned architectural
+//! responsibility. It is legacy experimental compatibility code retained only
+//! because existing probes or consumers still reference it. No new production
+//! architecture may depend on it.
 //!
-//! Per the operator ownership model ("every SoA is owned by its ractor actor —
-//! mailbox-as-owner"), the Rubicon phase of a per-mailbox SoA is advanced by the
-//! actor that OWNS it, in reaction to a message. There is no owner-registry held
-//! by a bridge and no "absent owner" case: the actor's `State` IS the owner
-//! ([`MailboxSoaOwner`]).
+//! Its presence does not designate it as the future home of an ownership,
+//! planning-initiation, concurrency, cognition, reasoning, or lifecycle
+//! mechanism.
 //!
-//! ## Why this is the safe substrate
+//! ## The canonical path (PR #879 — complete and standalone)
 //!
-//! A ractor actor processes ONE message at a time, so the owner sees a strict
-//! single-writer: `&mut state` during `handle` cannot alias another writer. That
-//! is the compile-time "no aliasing / no data race / no use-after-free" guarantee
-//! the canon attributes to mailbox-as-owner (E-CE64-MB-4) — realized here by
-//! Rust's `&mut` + ractor's serialized mailbox, not by a lock.
+//! ```text
+//! plan evaluation -> KanbanMove intent -> BatchWriter -> sparse seal
+//!                 -> one WAL/version   -> inline apply of the sealed transitions
+//! ```
 //!
-//! ## What it does NOT do (kept honest)
+//! No actor bridge, actor fleet, actor-owned driver, actor custody model, or
+//! actor message path is required. Nothing in this module participates in that
+//! path.
 //!
-//! This is the OWNER-advance mechanism only. It does NOT resolve a `kanban.*`
-//! `UnifiedStep` to a mailbox (that delivery edge is `step_type` → mailbox id →
-//! `ractor::registry::where_is` → `cast`, a separate seam) and it does NOT drive
-//! the advance from a MUL gate (S2) or a Lance version tick (S3) — those compose
-//! ON TOP by sending [`KanbanMsg::Advance`]. The owner advances **itself** via
-//! the contract's checked [`MailboxSoaOwner::try_advance_phase`]; an illegal
-//! Rubicon edge is a typed [`RubiconTransitionError`], never silent corruption.
+//! ## Legacy surfaces in this module
+//!
+//! `KanbanMsg::{Advance, MulAdvance, Tick}` and the driver helpers
+//! `deliver_kanban_step` / `drive_mul_advance` / `drive_version_tick` /
+//! `drive_scheduled_tick` / `run_to_absorbing`. **`MulAdvance` and
+//! `drive_mul_advance` are only legacy actor-message wrappers — they are NOT
+//! the canonical MUL reasoning engine.** The living MUL gate is independent
+//! (`lance_graph_contract::mul::i4_eval::gate_decision_i4`) and is consumed
+//! directly by the #879 path via `cycle_driver::shade_owner` and
+//! `cycle_driver::run_cognitive_work_gated[_over]`; marking the wrappers here
+//! legacy does not deprecate that gate. `Phase` (a pure read) is unaffected.
+//!
+//! ## Stale-comment correction
+//!
+//! Comments in this file previously described the ractor as the thing that
+//! advances a mailbox's Rubicon phase, with MUL gating and version ticks
+//! composing "on top". That framing is corrected: phase progression is enacted
+//! only by the #879 sealed-cycle path above.
+//!
+//! ## Caller/spawn migration inventory (2026-08-04)
+//!
+//! Kept strictly as (a) evidence for why immediate deletion would break
+//! current consumers and (b) the removal work-list — it confers no
+//! architectural legitimacy. `KanbanActor` is spawned by: this file's own
+//! `#[cfg(test)]` unit tests (line 384+); the integration probe
+//! `tests/w2b_real_owner_probe.rs` (60/103/144); and
+//! `onebrc-probe/src/lane_e.rs:170` — library source, not a test — via
+//! `drive_version_tick`. (An earlier draft claimed every spawn was in this
+//! file; that was a single-file check written up as a repository-wide census,
+//! and it was wrong.)
 
 use lance_graph_contract::kanban::{KanbanColumn, KanbanMove, RubiconTransitionError};
 use lance_graph_contract::mul::i4_eval::gate_decision_i4;
@@ -33,6 +59,9 @@ use ractor::{Actor, ActorProcessingErr, ActorRef, RpcReplyPort};
 
 /// Messages the kanban actor accepts.
 pub enum KanbanMsg {
+    /// ⚠ **LEGACY (2026-08-04)** — not part of phase progression. #879's sealed
+    /// cycle is the canonical path; see the module header.
+    ///
     /// Advance the owned mailbox's Rubicon phase to `to` (checked against the
     /// lifecycle DAG). Replies with the emitted [`KanbanMove`] on a legal edge,
     /// or a [`RubiconTransitionError`] on an illegal one (no mutation occurs).
@@ -42,6 +71,12 @@ pub enum KanbanMsg {
     },
     /// Read the owned mailbox's current Rubicon phase (no mutation).
     Phase { reply: RpcReplyPort<KanbanColumn> },
+    /// ⚠ **LEGACY (2026-08-04)** — a legacy actor-message *wrapper* only, NOT
+    /// the canonical MUL reasoning engine. The living gate
+    /// (`gate_decision_i4`) is independent and not deprecated; the #879 path
+    /// consumes it directly (`cycle_driver::shade_owner`,
+    /// `run_cognitive_work_gated[_over]`).
+    ///
     /// **Atomic** S2 step: run the MUL gate (`gate_decision_i4` over `qualia` +
     /// `mantissa`) against the owner's CURRENT phase and advance in ONE message.
     /// Replies `Ok(Some(move))` on advance, `Ok(None)` on Hold, or the typed
@@ -53,6 +88,9 @@ pub enum KanbanMsg {
         mantissa: i8,
         reply: RpcReplyPort<Result<Option<KanbanMove>, RubiconTransitionError>>,
     },
+    /// ⚠ **LEGACY (2026-08-04)** — not part of phase progression. A version tick
+    /// is global knowledge, never permission to advance (#879's ratified rule).
+    ///
     /// **Atomic** S3 IN-leg step: a substrate version tick (`at`) advances the
     /// owner along the Rubicon **forward arc** — `phase().next_phases().first()` —
     /// in ONE message, reading the owner's phase at the instant of mutation. This
@@ -70,10 +108,9 @@ pub enum KanbanMsg {
     },
 }
 
-/// A ractor actor whose `State` IS a [`MailboxSoaOwner`] — the SoA mailbox and
-/// its owning actor are the same thing (mailbox-as-owner). On
-/// [`KanbanMsg::Advance`] the owner advances its own phase via
-/// [`MailboxSoaOwner::try_advance_phase`].
+/// ⚠ **LEGACY compatibility / consumer surface (2026-08-04).** Retained so
+/// existing callers keep building; **not** part of phase progression — see the
+/// module header. A ractor actor holding a [`MailboxSoaOwner`] as its `State`.
 pub struct KanbanActor<O: MailboxSoaOwner> {
     _marker: core::marker::PhantomData<O>,
 }
@@ -211,6 +248,11 @@ fn phase_from_name(name: &str) -> Option<KanbanColumn> {
 /// field — the target is recovered from the step string + the registry
 /// (mailbox-as-owner addressing). Multi-mailbox resolves because `where_is`
 /// looks up any registered mailbox by name.
+/// ⚠ **LEGACY (2026-08-04)** — constructs [`KanbanMsg::Advance`], a
+/// legacy arm. Delivery/advance belongs to cycle-driver +
+/// BatchWriter + KanbanStep. Re-exported from `lib.rs`, so this notice is
+/// repeated here for callers who never see the module header.
+///
 pub async fn deliver_kanban_step(step_type: &str) -> Result<KanbanMove, KanbanRouteError> {
     let (mailbox, to) = parse_kanban_step(step_type)
         .ok_or_else(|| KanbanRouteError::BadStepType(step_type.to_string()))?;
@@ -251,6 +293,11 @@ pub fn mul_target(
 /// `Planning` and collide. (The earlier two-RPC `Phase`-then-`Advance` shape had
 /// that race.) `advance_on_gate` only yields a DAG-legal successor, so `Illegal`
 /// here would signal a gate/DAG drift bug — surfaced, not panicked.
+/// ⚠ **LEGACY (2026-08-04)** — constructs [`KanbanMsg::MulAdvance`], a legacy
+/// actor-message *wrapper*, NOT the MUL reasoning engine. The living gate
+/// (`gate_decision_i4`) is canonical and not deprecated; the #879 path consumes
+/// it directly. Re-exported from `lib.rs`; notice repeated for callers.
+///
 pub async fn drive_mul_advance(
     actor: &ActorRef<KanbanMsg>,
     qualia: QualiaI4_16D,
@@ -280,11 +327,16 @@ pub async fn drive_mul_advance(
 /// transition run inside the SAME serialized mailbox message, so concurrent ticks
 /// cannot read a stale phase and collide — they chain along the arc instead
 /// (codex #578 lesson, applied to the IN-leg). This is the actor-side realization
-/// of the contract's [`NextPhaseScheduler`] policy; use [`drive_scheduled_tick`]
-/// when a custom [`VersionScheduler`] policy (version-delta gating, `Plan`/`Prune`
-/// over the forward arc, batching) reads a richer view.
+/// of the contract's [`NextPhaseScheduler`] policy. Both this helper and
+/// [`drive_scheduled_tick`] (the [`VersionScheduler`]-policy variant) are
+/// legacy — see the module header.
 ///
 /// [`NextPhaseScheduler`]: lance_graph_contract::scheduler::NextPhaseScheduler
+/// ⚠ **LEGACY (2026-08-04)** — constructs [`KanbanMsg::Tick`], a legacy
+/// arm. A version tick is global knowledge, never permission to advance.
+/// **Live consumer:** `onebrc-probe/src/lane_e.rs` calls this per batch; it keeps
+/// working (marked, not removed) and is the named migration target.
+///
 pub async fn drive_version_tick(
     actor: &ActorRef<KanbanMsg>,
     at: DatasetVersion,
@@ -309,6 +361,10 @@ pub async fn drive_version_tick(
 /// decision, which the owner (defaulting to `Native`) can't make. For the pure
 /// forward-arc policy prefer the atomic [`drive_version_tick`]; reach for this
 /// only when the policy needs a richer view than the owner computes internally.
+/// ⚠ **LEGACY (2026-08-04)** — constructs [`KanbanMsg::Tick`], a legacy
+/// arm. Scheduling policy belongs to the cycle-driver, not an actor RPC.
+/// Re-exported from `lib.rs`; notice repeated for callers.
+///
 pub async fn drive_scheduled_tick<S, V>(
     scheduler: &S,
     view: &V,
@@ -365,6 +421,9 @@ where
 /// guard against a future non-terminating policy, not a normal exit: exceeding it
 /// returns [`KanbanRouteError::Rpc`] with a non-termination note rather than
 /// looping forever.
+/// ⚠ **LEGACY (2026-08-04)** — drives through the legacy arms.
+/// Re-exported from `lib.rs`; notice repeated for callers.
+///
 pub async fn run_to_absorbing(
     actor: &ActorRef<KanbanMsg>,
     max_ticks: usize,

@@ -70,8 +70,9 @@ pub mod supervisor;
 #[cfg(feature = "supervisor")]
 pub mod actors;
 
-/// S4 OUT-leg: the kanban-advance actor (mailbox-as-owner; the owner advances
-/// its own Rubicon phase on a message).
+/// Legacy kanban actor surface — no assigned architectural responsibility.
+/// Phase progression is the #879 sealed-cycle path (`cycle_driver`); see the
+/// module header for the legacy notice and the caller migration inventory.
 #[cfg(feature = "supervisor")]
 pub mod kanban_actor;
 

@@ -5,8 +5,9 @@
 //! cognitive operations. This module is the **zero-dep borrow vocabulary** that
 //! lets three holders read the SAME bytes:
 //!
-//! - `cognitive-shader-driver`'s `MailboxSoA<N>` — the in-RAM hot owner (implements
-//!   [`MailboxSoaOwner`]; ractor drives it),
+//! - `cognitive-shader-driver`'s `MailboxSoA<N>` — the in-RAM hot owner
+//!   (implements [`MailboxSoaOwner`]; its transitions are applied by the #879
+//!   sealed-cycle driver),
 //! - `surreal_container` — the transparent kv-lance-backed VIEW (implements the
 //!   read-only [`MailboxSoaView`] over the same Lance columns; no Arrow re-encode),
 //! - `lance-graph-planner` — a CONSUMER (plans over the columns directly).
@@ -45,7 +46,7 @@ pub enum IdentityPlane {
 /// cycle runs off), the P64 perturbation ladder writes [`Explore`](StyleLane::Explore),
 /// and the L4 learning seam writes [`Learned`](StyleLane::Learned) via NARS revision —
 /// each write an **owned SoA update** on the mailbox's own lane (`MailboxSoaOwner`,
-/// ractor sole-mutator), never a by-convention `&mut`. Triangle plan
+/// single-writer by ownership), never a by-convention `&mut`. Triangle plan
 /// `.claude/plans/triangle-tenants-gestalt-separation-v1.md` §1.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum StyleLane {
@@ -285,7 +286,8 @@ pub trait MailboxSoaView {
     }
 }
 
-/// The mutation airgap for the SoA **owner** only (the ractor-driven hot path).
+/// The mutation airgap for the SoA **owner** only (the hot path; transitions
+/// are applied by the #879 sealed-cycle driver).
 ///
 /// A read-only view (e.g. `surreal_container`) deliberately does **not** implement
 /// this — that is what makes "the view is read-only" a structural guarantee rather
@@ -302,8 +304,8 @@ pub trait MailboxSoaOwner: MailboxSoaView {
     /// ([`KanbanColumn::can_transition_to`]) before mutating.
     ///
     /// Returns the emitted [`KanbanMove`] on a legal edge, or
-    /// [`RubiconTransitionError`] on an illegal one (no mutation occurs). The ractor
-    /// lifecycle driver should prefer this over the unchecked
+    /// [`RubiconTransitionError`] on an illegal one (no mutation occurs). The
+    /// sealed-cycle driver should prefer this over the unchecked
     /// [`advance_phase`](MailboxSoaOwner::advance_phase) so an illegal transition is a
     /// typed error, not silent corruption.
     fn try_advance_phase(
