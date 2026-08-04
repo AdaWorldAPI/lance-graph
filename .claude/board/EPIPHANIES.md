@@ -1,3 +1,21 @@
+## 2026-08-04 — E-A-CRITERION-MUST-BE-IN-THE-SAME-UNITS-AS-THE-TEST-IT-FEEDS-1 — the ω anchor was wrong three times, each time for the same reason
+
+**Status:** FINDING (three measured defects, each reproduced before fixing). **Confidence:** High. Code: `crates/jc/src/stats.rs::omega_total`.
+
+**Three anchors, three rejections of valid one-factor data.** ω recovers loading signs by reading `sign(σ_ij) = s_i·s_j` off one item's covariance row. Which item:
+
+| # | criterion | how it failed | measured |
+|---|---|---|---|
+| 1 | **item 0** (arbitrary) | λ₀ = 0 ⟹ the whole row is ~0 ⟹ every sign defaults `+` | λ = `[0,+1,+1,−1]` → 2 false conflicts |
+| 2 | **largest raw \|λ\|** | the materiality cutoff is correlation-scaled, so a huge residual variance can pair the largest raw loading with a row entirely *beneath its own cutoff* | λ = `[0.9,1.0,−0.8]`, var = `[1,1e20,1]` → `None` on exact one-factor data |
+| 3 | **highest communality** `λ_i²/σ_ii` | dimensionless — the same units the cutoff measures in | accepted |
+
+**The class, which is the reusable part.** A *selection* criterion and the *test* it feeds must be in the same units. Anchor #2 was not wrong about loadings — 1.0 really is the largest `|λ|`. It was wrong because "strongest" was measured in raw covariance units while "material" was measured in correlation units, so the anchor could be strong by one yardstick and invisible to the other. Dimensional mismatch between a chooser and a threshold is invisible in every fixture where the two happen to agree, which is every fixture with comparable variances — i.e. all of mine.
+
+**This is the third distinct form of one deeper error.** The absolute pivot in R², the four `.max(1.0)` floors in ω, and now the raw-`|λ|` anchor are all *scale-dependence*: a number compared against a constant, or against a quantity in different units. Each was fixed as an instance; the class kept re-appearing one layer over. **The rule that would have caught all three at once:** every comparison in a numerical routine has two operands — write down the units of both, and if they differ, the comparison is a bug regardless of what the tests say.
+
+**Sibling check for future numeric work:** any `max_by` / `min_by` selecting an input for a downstream threshold; any `if x < TOL` where `TOL` is a literal; any criterion phrased as "strongest / largest / best" without naming the yardstick.
+
 ## 2026-08-04 — E-THE-CAN-IT-FIRE-TEST-WAS-FIRING-ON-THE-BUG-1 — a guard's proof-of-life passed because of a second defect in the same function
 
 **Status:** FINDING (measured; both defects fixed, test rebuilt on a correct criterion). **Confidence:** High — the anchor dependence is enumerated over all four choices below.

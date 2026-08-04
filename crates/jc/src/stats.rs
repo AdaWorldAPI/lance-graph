@@ -323,17 +323,29 @@ pub fn cohen_kappa(a: &[usize], b: &[usize]) -> Option<f64> {
 /// **Loading SIGNS matter and are recovered.** The triad identity gives only
 /// `λ_i²`, hence `|λ_i|`; since ω depends on `(Σλ)²`, a negatively-keyed item
 /// must subtract from that sum. Signs come from `sign(σ_ij) = s_i·s_j`, read
-/// off the row of the **strongest-loading item** (largest estimated `|λ|`),
-/// which is then oriented positive. That orientation is free: the model is
+/// off the row of the item with the **highest communality** (`λ_i²/σ_ii` — the
+/// share of that item's own variance the common factor explains), which is
+/// then oriented positive. That orientation is free: the model is
 /// identified only up to a **global** flip and `(Σλ)²` is invariant to one.
 ///
-/// The anchor must be the strongest item, not an arbitrary one. Under a single
-/// factor a near-zero covariance against the anchor implies the *other* item's
-/// loading is ~0 — whose sign then cannot matter, since it contributes ~0 to
-/// `Σλ`. Anchoring on a weakly-loaded item instead reads every sign off
-/// near-zero noise, and if that item's loading is ~0 its whole row is ~0, every
-/// sign defaults positive, and the consistency check below **rejects valid
-/// one-factor data** (measured with λ = `[0,+1,+1,−1]`: two false conflicts).
+/// The anchor must be the item whose factor signal dominates its own variance,
+/// and the criterion must be **dimensionless**. Two failures established that:
+///
+/// - *Arbitrary anchor.* Anchoring on item 0 when λ₀ = 0 reads every sign off a
+///   ~zero row, so all signs default positive and the consistency check
+///   **rejects valid one-factor data** (measured with λ = `[0,+1,+1,−1]`: two
+///   false conflicts).
+/// - *Raw `|λ|`.* The materiality cutoff below is correlation-scaled
+///   (`1e-9·√(σ_ii·σ_jj)`), so an item with a huge residual variance can carry
+///   the largest raw loading while every covariance in its row falls beneath
+///   its own cutoff — again defaulting every sign positive. Measured: λ =
+///   `[0.9, 1.0, −0.8]` with variances `[1, 1e20, 1]` is exact one-factor data
+///   that raw-`|λ|` selection rejects.
+///
+/// Communality is the criterion in the same units as the cutoff, so both
+/// measure the same thing. Under a single factor a genuinely sub-cutoff
+/// covariance against this anchor implies the *other* item's loading is ~0 —
+/// whose sign cannot matter, since it contributes ~0 to `Σλ`.
 ///
 /// Taking the positive root everywhere — as this function did before
 /// 2026-08-04 — inflates ω badly: the regression fixture is 0.25, where the
@@ -480,12 +492,24 @@ pub fn omega_total(items: &[Vec<f64>]) -> Option<f64> {
     // perfectly valid one-factor dataset (measured with λ = [0,+1,+1,−1]:
     // two false conflicts). The strongest item makes every read maximally
     // determined.
+    //
+    // Selected by STANDARDISED loading — the communality `λ_i²/σ_ii`, i.e. the
+    // share of the item's own variance the common factor explains — NOT by raw
+    // `|λ_i|`. The two differ, and the difference rejects valid data: the
+    // materiality cutoff below is correlation-scaled
+    // (`1e-9·√(σ_ii·σ_jj)`), so an item with a huge residual variance can hold
+    // the largest raw loading while every covariance in its row sits BELOW its
+    // own cutoff. Measured (Codex P2): λ = [0.9, 1.0, −0.8] with variances
+    // [1, 1e20, 1] is exact one-factor data; raw-|λ| picks item 1, whose
+    // cutoff is 1e-9·√(1e20) = 10 against covariances of 0.9 and 0.8, so every
+    // sign defaults positive and the material −0.72 edge between items 0 and 2
+    // forces a false rejection. Communality is dimensionless, so the anchor
+    // criterion and the cutoff finally measure the same thing.
     let anchor = (0..k)
         .max_by(|&a, &b| {
-            lambda[a]
-                .abs()
-                .partial_cmp(&lambda[b].abs())
-                .unwrap_or(std::cmp::Ordering::Equal)
+            let ca = lambda[a] * lambda[a] / cov[a][a];
+            let cb = lambda[b] * lambda[b] / cov[b][b];
+            ca.partial_cmp(&cb).unwrap_or(std::cmp::Ordering::Equal)
         })
         .unwrap_or(0);
     let mut sign = vec![1.0f64; k];
@@ -1466,6 +1490,44 @@ mod tests {
             (got - reference).abs() > 0.05,
             "one-item flip must move ω: {got} vs {reference}"
         );
+    }
+
+    #[test]
+    fn omega_anchor_survives_a_huge_residual_variance() {
+        // REGRESSION (Codex P2). The anchor was chosen by RAW |λ| while the
+        // materiality cutoff is correlation-scaled, so the two criteria were in
+        // different units. An item with an enormous residual variance can hold
+        // the largest raw loading yet have every covariance in its row fall
+        // below its own cutoff — every sign then defaults positive and a
+        // material negative edge elsewhere forces a false rejection.
+        //
+        // Exact one-factor data: λ = [0.9, 1.0, −0.8], var = [1, 1e20, 1].
+        // Item 1 has the largest raw |λ| but a communality of 1e-20; its
+        // cutoff is 1e-9·√(1e20·1) = 10 against covariances of 0.9 and 0.8.
+        // Selecting by communality picks item 0 instead, whose cutoff is
+        // 1e-9 and whose row therefore carries real sign information.
+        let f = [1.0, -1.0, 1.0, -1.0, 1.0, -1.0, 1.0, -1.0];
+        let e: [[f64; 8]; 3] = [
+            [1.0, 1.0, -1.0, -1.0, 1.0, 1.0, -1.0, -1.0],
+            [1.0, -1.0, -1.0, 1.0, 1.0, -1.0, -1.0, 1.0],
+            [1.0, 1.0, 1.0, 1.0, -1.0, -1.0, -1.0, -1.0],
+        ];
+        let v: f64 = 8.0 / 7.0; // sample variance of each ±1 basis vector
+        let lam = [0.9f64, 1.0, -0.8];
+        let var = [1.0f64, 1e20, 1.0];
+        let items: Vec<Vec<f64>> = (0..3)
+            .map(|i| {
+                let a = lam[i] / v.sqrt();
+                let b = ((var[i] - lam[i] * lam[i]) / v).sqrt();
+                (0..8).map(|t| a * f[t] + b * e[i][t]).collect()
+            })
+            .collect();
+
+        let w = omega_total(&items)
+            .expect("exact one-factor data must not be rejected over anchor units");
+        // ω = (Σλ)² / ((Σλ)² + Σψ) with Σλ = 1.1 and
+        // Σψ = (1−0.81) + (1e20−1) + (1−0.64) ≈ 1e20, so ω ≈ 1.21e-20.
+        assert!(w > 0.0 && w < 1e-19, "ω={w} outside the expected tiny band");
     }
 
     #[test]
