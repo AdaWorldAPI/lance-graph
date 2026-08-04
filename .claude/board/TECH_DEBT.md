@@ -1,5 +1,45 @@
 # Technical Debt Log — Open + Paid (double-entry, append-only)
 
+## TD-PARALLEL-TARGET-DIRS-REGROW (2026-08-04) — OPEN
+
+**Measured, not estimated** (`du -sh`, after a session hit "no space left on
+device" twice):
+
+| parallel `target/` | size |
+|---|---|
+| `crates/symbiont/target` | 2.0 G |
+| `crates/jc/target` | 777 M |
+| `crates/deepnsm-v2/target` | 473 M |
+| `crates/lance-graph-cognitive/target` | 348 M |
+| `crates/helix/target` | 263 M |
+| **total reclaimed** | **~3.9 G** (700 M free → 5.3 G free) |
+
+**Cause, and it is structural.** These crates are **workspace-EXCLUDED** (root
+`Cargo.toml` `exclude`), so every `cargo … --manifest-path crates/<x>/Cargo.toml`
+materialises a **separate** `target/` beside that crate instead of reusing the
+workspace one. CI does exactly that for `deepnsm-v2`, `jc`, `symbiont`,
+`bgz-tensor`, … so the dirs regrow on any local run of the same commands. They
+are correctly `.gitignore`d (`**/target/`), so this is a **disk** problem only —
+never a git one.
+
+**Why it bites here:** the writable allowance is ~38 GB and the workspace
+`target/` alone is ~12 G. A full disk does **not** announce itself as a disk
+error — it surfaces as a **bogus `error: could not compile <unrelated crate>`**
+or a **linker SIGBUS**, both of which read as code breakage. This session
+mis-read one such failure before checking `df`. *Check `df` before believing a
+compile error you cannot explain.*
+
+**Reclaim (safe, no rebuild of the shared target):**
+`rm -rf crates/{symbiont,jc,deepnsm-v2,lance-graph-cognitive,helix}/target`
+
+**Candidate fix, NOT applied — deliberately.** A root `.cargo/config.toml` with
+`[build] target-dir = "target"` would collapse all of them into the one shared
+directory (relative config paths resolve against the config file's parent, so
+`--manifest-path` invocations would land in the workspace `target/`). **Not done
+here** because the `test-with-coverage` job runs `-C instrument-coverage` and its
+workflow comments already record per-binary link-size sensitivity; merging target
+dirs changes what `llvm-cov` discovers, and that is a measurable question, not a
+guess to land mid-PR. Whoever picks this up: measure the coverage job first.
 ## TD-STATS-DEGENERACY-CONTRACT-DIVERGENCE (2026-08-04)
 
 **Measured, not estimated** (at `a9f813c`, workspace-wide grep over `crates/`):

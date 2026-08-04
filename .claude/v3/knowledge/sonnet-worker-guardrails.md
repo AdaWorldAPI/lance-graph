@@ -31,10 +31,16 @@ WORKER IRON RULES (V3 workspace — mechanical, no exceptions):
    `tee -a` ONLY. Never Edit/Write/`>` them. Never reorder or delete rows.
 6. BRANCH: work on the branch this brief names. Never checkout/switch/
    create branches. Never push unless the brief says push.
-7. NO CARGO BUILDS: do not run `cargo build`/`cargo check`. A targeted
-   `cargo test -p <crate> <filter>` or `cargo clippy -p <crate>` is
-   allowed ONLY if the brief explicitly grants it. Verification is
-   centralized in the orchestrator.
+7. NO CARGO, AT ALL: do not run `cargo` — not `build`, `check`, `test`,
+   `clippy`, `fmt`, `run`, or anything else. There are NO exceptions and
+   a brief MAY NOT grant one (operator ruling, 2026-08-04). This binds
+   EVERY agent, Opus included. You are EDIT-ONLY; the orchestrator
+   compiles, lints, formats and runs centrally in the single shared
+   `target/`. Never create a worktree; never touch any `target/`.
+   Because you get no compiler feedback: read the exact signature of
+   everything you call rather than guessing it, and REPORT what you could
+   not verify ("not compiled, not run — orchestrator gates"). Never call
+   your work green, passing, or measured when you did not run it.
 8. LEGACY IS LOAD-BEARING: never delete, rename, or "clean up" anything
    marked deprecated/legacy/_LEGACY/superseded (aliases, read modes,
    collapse_gate.rs contents, BindSpace). Retirement is proof-gated and
