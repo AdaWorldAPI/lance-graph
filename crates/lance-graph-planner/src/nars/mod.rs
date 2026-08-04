@@ -17,6 +17,7 @@ pub mod insights;
 pub mod meta_basin;
 pub mod reach_out;
 pub mod regulate;
+pub mod stance;
 pub mod tactic_select;
 pub mod tactics;
 pub mod truth;
