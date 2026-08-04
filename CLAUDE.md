@@ -771,6 +771,14 @@ For subagent coordination *during* this session:
   > **Every agent prompt MUST include:** "Read `.claude/board/AGENT_LOG.md`
   > before starting. Do NOT write it — leave your record in your own tag-file;
   > the orchestrator consolidates."
+  > **Base case (made explicit 2026-08-04, recursion sweep):** the
+  > consolidation itself is **not** an agent run and gets **no** entry. Without
+  > this the rule diverges the moment board hygiene is delegated — which has
+  > happened (see this log's own "Sonnet W3 (board hygiene)" runs): a worker
+  > writing the log entry is an agent run, needing an entry, written by a
+  > worker. The one-writer rule already implies the base case; stating it means
+  > a future session doesn't have to re-derive it. Cf. `CLAUDE.md`
+  > § Termination clause and `E-THE-HYGIENE-RULE-RECURSED-1`.
 - **`LATEST_STATE.md` + `PR_ARC_INVENTORY.md`** are the structural
   blackboard — what types exist, which PRs shipped. Every subagent
   reads them for current state.

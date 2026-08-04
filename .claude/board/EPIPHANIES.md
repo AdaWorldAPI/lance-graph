@@ -12,6 +12,19 @@
 
 **The transferable shape.** *A per-item obligation whose discharge is itself an item of that kind needs an explicit base case, or it is a recursion with no bottom.* Worth checking wherever the workspace states a rule of the form "every X must produce a Y" and Y is itself an X: the append-only governance files, the probe-records-a-probe pattern, and any future "every finding gets an entry" convention are the same shape. The cheap check is to apply the rule twice to its own output and see whether the third application says anything new.
 
+> **Sweep result (2026-08-04, same session — the Deferred item, discharged).** Nine workspace rules of this shape were checked. **Two discriminators emerged, and they turn a hand-audit into a two-question test:**
+>
+> 1. **Does discharging the obligation CREATE a new artifact of kind X, or impose a PROPERTY on the artifact already there?** New artifact → divergent. Property → terminates. (A guard needing a can-it-fire *test* creates a test; a test needing to be *falsifiable* is a property of that test — which is why the falsifiability rule does not recurse.)
+> 2. **Is the trigger UNCONDITIONAL or ERROR-TRIGGERED?** Unconditional ("every merged PR") diverges, because the discharge is itself an instance of the trigger. Error-triggered ("a wrong entry gets a correction") terminates, because the base case is the *absence* of the error and errors are not manufactured by fixing them.
+>
+> **Divergent — fixed:** the board-hygiene rule (termination clause, this PR).
+>
+> **Latently divergent — base case existed only implicitly, now stated:** `AGENT_LOG.md`'s *"Every agent run gets one entry."* The one-writer correction makes the orchestrating main thread the sole writer, and the main thread is not a spawned agent — so a base case exists, but by side effect. **The near-miss is real, not hypothetical: this log records "Sonnet W3 (board hygiene)" runs**, i.e. board hygiene HAS been delegated to workers. A worker writing the log entry is an agent run, which needs an entry, which needs a writer. The base case is now written down at the rule.
+>
+> **Checked and terminating, no action:** the falsifiability rule (discriminator 1 — falsifier validity is discharged by property-checks such as max-achievable-value-under-the-guard and invariance leakage, **never by a meta-falsifier**; that is the answer to "who validates the validator" for this workspace); the insight update cycle (a "probe P measured X" claim is grounded by P's output, not by a new probe — `Label everything` is the base case); the probe-first rule (bounded by the same base case); `PR_ARC` rule 4 corrections and rule 5 reversals (both discriminator 2 — error-triggered); the handover protocol (terminal artifact of a session, produces no new session); the entropy ledger (not of this shape — rows are observations, not discharges).
+>
+> **Cross-repo, reported not fixed (belongs in its own repo):** OGAR's `CLAUDE.md` states *"Run [the 5+3 hardening pattern] before any claim enters the canon"* — and the council's own output IS a claim, so the literal reading diverges. This workspace's `5plus3` **skill** already carries the base case the prose lacks (reviewers cast on v2 **only**, once, then ratified v3 lands), so the mechanism is sound and only the OGAR wording is unbounded. Not edited from here — separation of concerns.
+
 ## 2026-08-04 — E-ACTOR-IS-NOT-THE-PHASE-PATH-1 — #879 is the complete phase-progression path; KanbanActor has no assigned architectural responsibility
 
 **Status:** RATIFIED (operator ruling, 2026-08-04) + CORRECTION of a same-week over-reach in `kanban-64k-inverted-awareness-v1` §A1. **Confidence:** High. Documentation and legacy-surface quarantine only — **no runtime behaviour changed, no #879 redesign, no future actor proposal.**
