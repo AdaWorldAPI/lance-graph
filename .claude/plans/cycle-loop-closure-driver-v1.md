@@ -921,11 +921,25 @@ sarcasm then separate structurally rather than by sign: a sarcastic reading bind
 meaning loci intact. Same sign, different graph. κ cannot see this; the register
 carries it natively.
 
-**Two falsifiers replace the twin, and neither is a threshold I choose:**
+**Two falsifiers replace the twin, and neither is a threshold I choose** — but
+only the SECOND is currently runnable; see the ⊘ note on the first:
 
-1. **Cross-language texture agreement — the external oracle.** The corpus exists
+1. **Cross-language texture agreement — ⊘ NOT AVAILABLE, corrected within the
+   hour by reading the disk.** I wrote this falsifier claiming "the corpus exists
    in Greek (LXX), Latin (Vulgate), German (Luther), English (KJV), Czech and
-   Aramaic. A stance that is real should carry **related texture across lanes**;
+   Aramaic" **without checking that it does.** It does not. The only Bible corpus
+   present is `/tmp/pg10.txt` (English KJV, uncommitted). PROBE-BABEL-STANCES'
+   "lanes" are **hand-authored `LaneLex` fixtures** — a handful of
+   `surface`/`root`/`morph`/`prag` entries per lane in the probe's own source
+   (`probe_babel_stances.rs:363+`) — **not corpora**. A texture comparison needs
+   the same verse in each language; six lexical fixtures cannot supply it.
+   **This falsifier is BLOCKED on data acquisition** (someone must supply the
+   parallel texts) and must not be cited as available until it is. The reasoning
+   below is retained because it is sound *once the texts exist*; only its
+   availability was false. Original text follows.
+
+   ~~The corpus exists in Greek (LXX), Latin (Vulgate), German (Luther), English
+   (KJV), Czech and Aramaic.~~ A stance that is real should carry **related texture across lanes**;
    one that is an artifact of English tokenization will not survive translation.
    This is structural, not a cutoff I pick. PROBE-BABEL-STANCES already found the
    shape of the failure mode — the pragmatic channel reading as coherent
