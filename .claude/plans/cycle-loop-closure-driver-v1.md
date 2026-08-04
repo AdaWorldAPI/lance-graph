@@ -734,6 +734,18 @@ after ~64 distinct sources, after which observations route to CHOICE rather than
 revision, **suppressing** contradiction on exactly the hub statements (a) inflates
 — report the count of beliefs with a saturated stamp.
 
+**D-BLW-4's threshold cannot be met with real SoA owners — and that is a scope
+statement, not a failure.** The inherited gate says "≥4,096 owners". At
+6,144 B/row × 1024 rows that is **24 GiB** of identity planes for the fleet
+alone. The parallelism claim is about **dispatch concurrency in the thought
+phase**, not about how much SoA a box can hold, so D-BLW-4 measures lightweight
+owners and must **say so in its result line**: the measured claim is "N thought
+bodies dispatch concurrently", NOT "N MailboxSoA tiles were resident". Anyone
+reading a 4,096-owner speedup as a statement about 64k-scale SoA residency has
+read a claim that was never made. (Third consequence of the same 6 KB/row price
+that reshaped §12.1a — the figure keeps deciding things, which is why it is
+written down rather than recomputed.)
+
 **New dependency, declare it:** `crates/jc` is workspace-EXCLUDED and currently
 has **zero** consumers anywhere in the workspace. The twin harness is the first,
 as a `[dev-dependencies]` path edge from `lance-graph-planner`. Do **not** invert
