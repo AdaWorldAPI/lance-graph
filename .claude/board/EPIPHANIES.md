@@ -1,3 +1,32 @@
+## E-MEASUREMENT-BURNS-THE-STATE-1 (2026-08-04)
+
+**A measurement of an awareness-coupled system burns the state it measured —
+once measured, it cannot be remeasured; the only admissible carry-forward is
+the distribution shape × Prozentrang from the prior.** Operator-ruled design
+law for D-BLW-5 and every future jc-loop / awareness-injection probe. Two
+halves: (1) the PAYLOAD law — never inject the raw statistic (a scalar is
+trivially echoable, building the Goodhart/anchoring fixed point into the
+instrument); inject the prior pool's palette256/HDR-bucketed distribution
+shape plus the percentile rank of the observation within it (Belichtungsmesser
+machinery: `ndarray::hpc::cascade::{expose→Band, recalibrate}`,
+`statistics::percentile`); (2) the SINGLE-MEASUREMENT law — S₀ is one-shot at
+V₀, sealed; the instrument's next run is S₁ at V₁, a new measurement of a
+different (post-injection) system, never a remeasure. Enforced by
+temporal.rs hindsight blindness (Strict-rung version-gated reads, the
+D-BLW-3 precedent) × the shape sensor riding as META only (ELEVATED
+rung-marked, never corpus, never recomputed-and-back-dated). New structural
+guard: an append-only measurement ledger keyed `(statistic-id, version)`
+whose recompute-at-sealed-key path ERRORS, with can-fire + can-stay-silent
+tests.
+
+Doctrine doc: `.claude/knowledge/observer-effect-tfpn-doctrine.md` (TFPN
+arms + Gadamer/Goodhart readings + full falsification regimen). Plan:
+§12.9 + §12.9a.
+
+**Status:** operator-ruled design law (binding). The observer EFFECT itself
+stays CONJECTURE until D-BLW-5 runs.
+
+
 ## E-HORIZONTVERSCHMELZUNG-GAP-CLOSES-1 (2026-08-04)
 
 **The a-priori/hindsight gap is not a constant — it decays monotonically as

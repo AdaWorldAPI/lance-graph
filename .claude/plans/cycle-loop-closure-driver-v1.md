@@ -1456,3 +1456,39 @@ criterion. Choosing which is the probe's first design decision.
 reflect this statistic" is the finding — a true and useful null; F-arms
 tracking injected values ⇒ the anchoring finding stands even if T is silent
 (testimony-dominance is itself the discovery).
+
+#### 12.9a Payload refinement (operator, 2026-08-04 same day — refines the arm table's injection column in place)
+
+> Full doctrine (TFPN arms + Gadamer/Goodhart readings + falsification
+> regimen): `.claude/knowledge/observer-effect-tfpn-doctrine.md`. This
+> subsection is the plan-side delta.
+
+1. **Not the correlation — distribution × Prozentrang.** The injected fact
+   is never the raw association scalar (a scalar is trivially echoable, so
+   the Goodhart/anchoring fixed point would be built into the instrument).
+   The preserving payload is (a) the distribution SHAPE of the statistic
+   over the *prior* pool — palette256/HDR-bucketed census via the
+   Belichtungsmesser machinery (banded exposure + popcount-stacking early
+   exit + CI thresholds + preheat/rolling-floor; anchors:
+   `ndarray::hpc::cascade::{expose→Band, recalibrate}`,
+   `ndarray::hpc::statistics::percentile`) and (b) the **Prozentrang** —
+   the percentile rank of the observed association within that prior shape.
+2. **The single-measurement law.** A measurement burns the state it
+   measured: S₀ is one-shot at V₀, sealed. Post-injection the system that
+   produced S₀ no longer exists — the instrument's next run is S₁ at V₁, a
+   NEW one-shot of a DIFFERENT system, never a "remeasure". The only
+   carry-forward from V₀ is shape₀ × rank₀, frozen.
+3. **temporal.rs × sensor = the meta channel.** Hindsight blindness
+   (Strict-rung version-gated reads, the D-BLW-3 `no_hindsight_*`
+   precedent) × the shape sensor, riding as META only (ELEVATED
+   rung-marked), never corpus, never recomputed-and-back-dated. This is
+   what makes the probe viable *without* remeasurement.
+4. **Arm-table deltas:** T injects shape₀ × true rank₀; F± inject the TRUE
+   shape₀ with a FALSE rank (shifted high/low on the bounded rank axis —
+   cleaner than fabricating a whole table); P's zero-information envelope
+   choice is pinned at build time (note: uniform-shape + median-rank is NOT
+   empty — it asserts "nothing unusual"); N unchanged + gains the
+   pool-drift-baseline duty (its own V₀-vs-V₁ shape drift, awareness-free).
+5. **New guard:** the remeasure guard — append-only measurement ledger
+   keyed `(statistic-id, version)`; recompute at a sealed key ERRORS, with
+   can-fire + can-stay-silent tests.
