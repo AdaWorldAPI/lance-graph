@@ -348,3 +348,49 @@ batch_writer|BatchWriter|KanbanStep|KanbanMove|kanban|owner_adapter|MailboxSoA|S
 **A count of 0 means your harness is a free-standing loop** and cannot support a
 substrate claim, however green it is. That grep returned `0` for `blw_texture.rs`,
 which is how D-BLW-1 was found to be unbuilt while a harness stood in for it.
+
+---
+
+## 8. ⊘ OPERATOR RULING (2026-08-04) — the two #879 invariants that must NOT be reversed, and the hash-partition caveat
+
+Verbatim intent, mapped to source the same day:
+
+**Invariant 1 — the batchwriter amortizes ONLY CHANGED.** N casts → ONE WAL
+write per cycle; only the sealed sparse set advances; the untouched remainder
+is byte-identical (the #879 anti-vacuity falsifier, green at 64k/17). Any
+change that widens the write back toward dense/full-image, or adds a per-cast
+physical write, reverses #879 and is rejected on sight.
+
+**Invariant 2 — interlacing is prevented by `temporal.rs`, at READ time.**
+Cross-mailbox ordering is never a write-side concern: the writer fires ahead,
+no ack exists (`E-ACK-ELIMINATED-1`), and any consumer needing order recovers
+it through the deinterlace surface (`deinterlace` / layer-1
+`local_trajectories`, sort key `cast_seq` / `(hlc ?? version, version)`).
+Re-introducing write-side ordering, synchronization, or a confirmation ledger
+reverses #879 and is rejected on sight.
+
+**The caveat the ruling names — a hash partition stands where temporal.rs is
+preferred.** `cycle_driver::recover_fleet` (P4e, `cycle_driver.rs:700-746`)
+partitions the sealed log per owner via
+`HashMap<MailboxId, Vec<LandedSlot>>` **in stored order** (`:713-716`), and
+`persist_sink::scan_sealed` is EXPLICIT that it does not repair order:
+*"in the STORED canonical order — this seam does NOT sort"*
+(`persist_sink.rs:315-317`), with the test
+`scan_sealed_does_not_repair_order_on_read` (`:711-715`) proving it returns
+AS-STORED even for a deliberately out-of-order cycle. The canonical
+deinterlacer for exactly this job exists one crate over:
+`temporal.rs::local_trajectories` (`:424-434`) partitions AND re-sorts each
+owner chain by `cast_seq`, with
+`layer1_orders_one_owners_chain_by_cast_seq_not_log_order` proving it repairs
+out-of-order storage.
+
+**Status per the ruling: the hash partition is TEMPORARILY ACCEPTABLE, for
+performance only.** The two are equally exact **iff** stored order per owner
+== `cast_seq` order per owner — which holds today (single-writer `MemWal`
+appends in seal order) but is **UNCERTIFIED**, and is exactly the assumption
+that breaks under multi-writer / HLC-interleaved / compacted logs — the case
+temporal.rs was built for. `temporal.rs` is preferred; the hash path may
+remain ONLY once certified equally exact. Certification falsifier defined at
+`TD-RECOVERY-HASH-PARTITION-UNCERTIFIED` (TECH_DEBT). Until one of the two
+happens (certify or migrate), no new caller may copy `recover_fleet`'s
+partition shape — route new recovery reads through layer-1.
