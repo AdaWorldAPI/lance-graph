@@ -93,7 +93,20 @@ fn main() {
     let export = std::env::args()
         .position(|a| a == "--export")
         .and_then(|i| std::env::args().nth(i + 1));
-    let raw = std::fs::read_to_string(&path).expect("read KJV text");
+    let full = std::fs::read_to_string(&path).expect("read KJV text");
+    // Stop at the REAL end fence, matched on its full text. `***` appears THREE
+    // ways in this file and they are not interchangeable:
+    //   header:    `*** START OF THE PROJECT GUTENBERG EBOOK 10 ***`
+    //   separator: a BARE `***` on its own line, between OT and NT
+    //   footer:    `*** END OF THE PROJECT GUTENBERG EBOOK 10 ***`
+    // The previous `tok.contains("***") => break` stopped at the SEPARATOR, so
+    // this example only ever processed the Old Testament (39 books / 23,145
+    // verses) while G1 below still printed "whole book". 23,145 + 7,957 (NT)
+    // = 31,102, the canonical KJV verse count, is how the truncation was caught.
+    let raw = match full.find("*** END OF THE PROJECT GUTENBERG") {
+        Some(i) => &full[..i],
+        None => &full[..],
+    };
 
     // ── verses: a whitespace token shaped d+:d+ starts a new verse ──
     let mut verses: Vec<String> = Vec::new();
@@ -112,8 +125,10 @@ fn main() {
                 verses.push(std::mem::take(&mut cur));
             }
         } else if in_body {
-            if tok.contains("***") {
-                break; // Gutenberg footer
+            // A bare `***` is the OT->NT separator: skip it. Never a break
+            // (that truncated the corpus) and never verse text.
+            if tok.bytes().all(|c| c == b'*') {
+                continue;
             }
             if !cur.is_empty() {
                 cur.push(' ');
@@ -127,6 +142,25 @@ fn main() {
 
     // G1 — the whole book is ONE 64k SoA tile.
     assert!(verses.len() <= 65_536, "KILL G1: book exceeds the 64k tile");
+    // G1b — the corpus actually IS the whole book. This example claimed
+    // "whole book" for its entire life while stopping at the lone `***`
+    // between the testaments, i.e. at Malachi 4:6 — 23,145 verses, the Old
+    // Testament exactly. The assert below is what makes that failure loud:
+    // if the input announces a New Testament, the parse must have crossed
+    // into it. General (no hardcoded total), and it fails on the old code.
+    if raw.contains("The New Testament") {
+        assert!(
+            verses.len() > 23_145,
+            "KILL G1b: input contains a New Testament but the parse stopped at \
+             {} verses — the OT-only truncation is back (OT = 23,145, \
+             OT+NT = 31,102)",
+            verses.len()
+        );
+    }
+    assert!(
+        !verses.iter().any(|v| v.contains("***")),
+        "KILL G1b: a `***` fence leaked into verse text"
+    );
     println!(
         "G1 PASS  whole book = {} verses ≤ 65,536 (one 256×256 tile)",
         verses.len()
