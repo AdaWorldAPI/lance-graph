@@ -1,3 +1,19 @@
+## 2026-08-04 — branch `claude/x265-x266-plans-review-h9osnl` (PR #884 MERGED `1e90cef`) — D-KIA-C1b scoped: the r-family, additive-only
+
+Board/plan prose only; **no code, no runtime behaviour**. Carried the post-merge arc entries for #881/#882/#883 (see the entry below) and re-scoped the statistics work removed from #883 as its own deliverable, **D-KIA-C1b** (`Queued` — scope, not code).
+
+**C1 audit (read-only).** `jc` is in-tree at `crates/jc/`; `reliability.rs` ships `pearson` / `spearman` / `cronbach_alpha` / `icc(ratings, IccForm)` (`Icc2_1`, `Icc3_1`), and `jirak.rs` gives C4's noise floors a local implementation to cite. Two of C2's three renames are the **same computation**, one is a real gap:
+
+- **φ = Pearson r on two binary variables** → `jc::reliability::pearson` already computes it. Only a *named wrapper* + the marginal-capped-ceiling caveat are new; the arithmetic is not re-implemented.
+- **KR-20 = Cronbach's α on dichotomous items** → `cronbach_alpha` is the right function; naming + caveat only.
+- **κ is absent entirely and is NOT a renamed ICC** — a different estimator. **This is the gap, and it blocks D3's fusion falsifier.**
+
+**Effect size means the r-family (operator ruling):** R, R², **η²** (*erklärte Varianz*), φ. **Cohen's d is explicitly OUT** — calculated separately if a mean-difference contrast is ever wanted. The **t-test** (t/df/p) is in scope as the *significance* companion to η², not a d-family route: effect size is read off η²/R². This supersedes the vague "Effektstärke / effect size" wording the PR opened with.
+
+**ADDITIVE ONLY, with exactly one carve-out.** `pearson` / `spearman` / `cronbach_alpha` / `icc` keep their **arithmetic, signature and semantics**; new estimators land in a new module beside them, and any diff changing an existing `jc` statistic is an automatic reject. **The one sanctioned edit to an existing file is visibility only:** widening `reliability.rs`'s private helpers (`mean` / `all_finite` / `average_ranks` / `pop_var`) to `pub(crate)` plus the `pub mod` line, so the new module reuses them rather than growing a second source of truth. No body change, no signature change, no incidental cleanup.
+
+**Process note.** #884 existed because #881/#882/#883 merged without arc entries — then merged without its own. Writing the hygiene PR does not discharge the rule for the hygiene PR itself; its entry is now in the arc.
+
 ## 2026-08-04 — branch `claude/x265-x266-plans-review-h9osnl` (PRs #881, #882, #883 MERGED) — arc hygiene restored + the legacy actor surface quarantined
 
 **#881** post-merge arc/state for #880 and recorded that the arc had gone stale for four PRs. **#882** backfilled those four (#862/#875/#876/#879) as marked RECONSTRUCTIONS, plus the cross-PR finding that every review-found defect in three consecutive probe PRs sat in a falsifier or a label, never in a measurement.
