@@ -921,11 +921,41 @@ sarcasm then separate structurally rather than by sign: a sarcastic reading bind
 meaning loci intact. Same sign, different graph. κ cannot see this; the register
 carries it natively.
 
-**Two falsifiers replace the twin, and neither is a threshold I choose** — but
-only the SECOND is currently runnable; see the ⊘ note on the first:
+**Two falsifiers replace the twin, and neither is a threshold I choose.** BOTH
+are runnable — see the ⊘⊘ correction on the first, whose data was in a Release
+all along:
 
-1. **Cross-language texture agreement — ⊘ NOT AVAILABLE, corrected within the
-   hour by reading the disk.** I wrote this falsifier claiming "the corpus exists
+1. **Cross-language texture agreement — ⊘⊘ THE RETRACTION WAS ALSO WRONG. The
+   data exists; I searched two places and called that "does not exist".**
+
+   **Available and verified on disk** (`v0.1.0-codebooks-2026-07-26`, published
+   2026-07-26 from a prior session of mine — the release body even cites its own
+   board entry `E-CODEBOOK-LICENSE-REGIMES-ONE-ASSET-EACH-1`):
+
+   | asset | contents |
+   |---|---|
+   | `pd-texts-bundle.tar.gz` | **4 PD source lanes verbatim** — `bible_luther1545.json` (9.1 MB), `bible_elberfelder1905.json` (9.3 MB, contemporary German), `bible_bkr.json` (10.3 MB, Czech), `bible_tischendorf.json` (2.3 MB, Greek) |
+   | `rosetta-pd-bundle.tar.gz` | 3 non-English lane codebooks + **`versification_map.tsv` (3,568 rows: lane, book, chapter, offset, kjv_verse_count, lane_verse_count, confidence)** |
+   | `rosetta-gpl-bundle.tar.gz` | `codebook_kjv.tsv` + alignments **en-de (13,016) / en-cs (12,032) / en-el (4,594)** |
+
+   So the falsifier is **RUNNABLE across five lanes** (KJV + Luther1545 +
+   Elberfelder1905 + BKR + Tischendorf), and the versification map is precisely
+   the organ a per-verse cross-lane comparison needs — chapter-level offsets with
+   a stated per-row `confidence`, so lane divergence is *addressable* rather than
+   assumed away.
+
+   **Genuinely absent, and only these:** Latin Vulgate and Aramaic/Peshitta. Any
+   claim naming those remains unavailable; the five lanes above do not.
+
+   **The defect, stated plainly because it is the fifth instance today.** I
+   checked `/tmp` and ran a 4-level `find`, then wrote "it does not exist". A
+   negative existence claim is only as wide as the search behind it, and mine was
+   two places deep on a repo whose whole data convention is *code-in-repo,
+   data-in-Releases* — documented in `crates/deepnsm-v2/data/README.md`, which I
+   had already read this session to find the cam96 artifacts. **The right search
+   was the one I had already performed once for a different asset.**
+
+   Original (wrong) retraction text retained below per append-only canon. I wrote this falsifier claiming "the corpus exists
    in Greek (LXX), Latin (Vulgate), German (Luther), English (KJV), Czech and
    Aramaic" **without checking that it does.** It does not. The only Bible corpus
    present is `/tmp/pg10.txt` (English KJV, uncommitted). PROBE-BABEL-STANCES'
