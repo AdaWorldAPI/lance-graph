@@ -73,7 +73,49 @@ actually applies the move — **is not built**, and `BatchWriter::cast()` has
 | `BatchWriter<P>` | `lance-graph-planner/src/batch_writer.rs` | `cast` / `casts` / `intent_moves` / `on_behalf_of` / `resolve_owner` / `drain_pending_payloads`. 4 unit tests. |
 | `rebind_bootstrap`, `emit_bootstrap_intent` | `lance-graph-planner/src/owner_adapter.rs` | the pre-write cast half, incl. the **no-theft** guard. 5 unit tests, incl. anti-vacuity (asserts the sentinel fields *actually changed*, not merely `is_some`). |
 | `MailboxSoaOwner::{advance_phase, try_advance_phase}` | `lance-graph-contract/src/soa_view.rs:295-322` | the SOLE mutation surface. `try_advance_phase` is the checked one and should be preferred — an illegal edge becomes a typed error rather than silent corruption. |
-| `VersionScheduler::on_version`, `NextPhaseScheduler` | `lance-graph-contract/src/scheduler.rs:46-95` | decides *whether and how* to advance on a version tick. `NextPhaseScheduler` = forward arc (`next_phases().first()`), stamps the Libet anchor `-550_000 µs` on the `Planning → CognitiveWork` Σ-commit crossing. |
+| ~~`VersionScheduler::on_version`, `NextPhaseScheduler`~~ | `lance-graph-contract/src/scheduler.rs:46-95` | ⊘ **BELONGS TO A DIFFERENT ARM — see the correction below. Not part of this write path.** |
+
+> **⊘ CORRECTION (2026-08-04, operator-challenged: "what did you zombie a
+> scheduler from — we have batchwriter, kanbanstep, thinking").** Fair
+> challenge; I measured it rather than defending it.
+>
+> **It is NOT a zombie.** `VersionScheduler` / `NextPhaseScheduler` has real
+> production consumers in eight crates, not merely its own definition:
+> `lance-graph/src/graph/scheduler.rs` (16 refs),
+> `lance-graph-supervisor/src/kanban_actor.rs` (16), `symbiont/src/kanban_loop.rs`
+> (14), `surreal_container/src/view.rs` (8),
+> `cognitive-shader-driver/src/mailbox_soa.rs` (7),
+> `lance-graph-planner/src/elevation/cycle.rs` (6).
+>
+> **But it does not belong in THIS table**, because it is a different arm with a
+> different trigger. Its own doc (`scheduler.rs:42-45`) says so: a
+> `VersionScheduler` is *"what a `surreal_container` `LIVE` query (or the
+> callcenter `LanceVersionWatcher`) calls per `versions()` tick"*. That is the
+> **version-tick / LIVE-query arm** — something outside observes a new dataset
+> version and asks "should this mailbox advance?". The batchwriter path is the
+> opposite direction: a thought *announces* where it intends to go, casts that
+> intent, and the paired move is applied after the write lands.
+>
+> **Where I picked it up, and why that was not good enough.**
+> `batch_writer.rs`'s module doc (lines 41-43) states: *"The kanban advance is
+> the in-stream synchronous kanbanstep (`VersionScheduler::on_version →
+> try_advance_phase(&mut)`), fired inline by whoever already holds the
+> version."* I took that at face value. **The code disagrees with it:**
+> `persist_sink::recover_and_apply` applies `slot.paired_move` via
+> `try_advance_phase` and never consults a scheduler. When a doc-comment and the
+> function that actually runs disagree, the function wins — and I propagated the
+> comment into this table instead of checking.
+>
+> **The resulting incoherence was visible inside this very document:** §2 listed
+> the scheduler as part of the write path while §4 warned never to let the
+> scheduler drive the write path. Both cannot be right. §4 is the correct one.
+>
+> **The write path is: thinking → cast (`BatchWriter`) → write → paired move
+> applied (`try_advance_phase`).** No scheduler in it. The scheduler is
+> legitimate, live, and belongs to the tick-driven arm; it is a *contrast* here,
+> not a component — which is exactly the role `blw_tenant.rs`'s `PROBE-TRAP`
+> gives it ("scheduler would have said Commit; the cast said Plan; Plan was
+> applied").
 | `KanbanColumn`, `KanbanMove`, `ExecTarget` | `lance-graph-contract/src/kanban.rs` | the shipped lifecycle types. **Do not mint a parallel `KanbanMove`** — `batch_writer`'s own doc says so. |
 
 Live `advance_phase` implementors (i.e. real owners, not test fakes):
