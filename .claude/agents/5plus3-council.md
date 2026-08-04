@@ -148,6 +148,28 @@ board hygiene in the SAME commit (EPIPHANIES if a finding emerged,
 STATUS_BOARD row flip, AGENT_LOG entry naming the council run: which 5,
 which 3, verdict counts, what changed between v1→v2→v3).
 
+## Sequencing invariant + base case (operator-ruled 2026-08-04)
+
+**The order above is load-bearing, not stylistic.** The 5 first
+streamline the open points into a hardened draft; the 3 attack ONLY the
+already-hardened draft; findings are fixed. **Never cast the 3 in
+parallel with (or ahead of) the 5** — most sessions' raw output is not
+yet hardened, and reviewers loosed on unhardened material invite
+hallucinated, deflected, reactive coding. The 3 need a consolidated
+object to break, not a moving one. (This is why Phase 2 exists and why
+Phase 3 reads "on draft v2 ONLY".)
+
+**Base case:** the council's ratified v3 lands without an automatic
+further council — each cycle terminates (streamline → attack → fix →
+land). **A further full 5+3 pass on the result is permitted as a
+deliberate re-invocation when warranted** (a BLOCK returning to Phase 0
+is the built-in instance). What bounds the recursion is that re-running
+is a choice, never an unconditional per-output obligation; an
+unconditional "council before any claim" would require a council on the
+council's own verdict, forever. Cross-ref: OGAR `CLAUDE.md` doc-family
+item 9 (same ruling, producer side) and lance-graph
+`E-THE-HYGIENE-RULE-RECURSED-1` (the recursion test).
+
 ## Token-economy summary
 
 | role | model | why |

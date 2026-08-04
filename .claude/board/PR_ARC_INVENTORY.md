@@ -33,6 +33,20 @@
 > - **Docs** — knowledge files produced (immutable)
 > - **Confidence (YYYY-MM-DD):** — the ONLY mutable field
 
+## 2026-08-04 — lance-graph #886 — the board-hygiene rule gets a termination clause (it was recursing)
+
+**Head:** `<this branch>` (entry written in the same commit as the change, per the rule's own "SAME commit" wording; merge SHA follows on merge). 3 files, doc/board prose only — **no code, no runtime behaviour.**
+
+- **Added.** A **Termination clause** in `CLAUDE.md` § Mandatory Board-Hygiene Rule; `EPIPHANIES.md` `E-THE-HYGIENE-RULE-RECURSED-1`.
+- **Locked — the rule does not recurse.** A PR whose **entire** content is board hygiene for prior PRs (no type, plan, deliverable, epiphany, or code) **generates NONE of the merged-PR row's obligations — no arc entry AND no `LATEST_STATE` update** — it is discharged by the entries it wrote. (Scope corrected in-PR per codex P2: exempting only the arc entry left the chain alive through the row's other half.) **The test is content, not intent:** does the PR change anything a future session needs the *why* for? **Mixed PRs still get their entry** (#884 landed hygiene *and* the D-KIA-C1b re-scope; the entry exists for the re-scope half).
+- **Locked — the chain that produced this stops at #885.** #881/#882/#883 merged entry-less → #884 recorded them → #885 recorded #884 → an entry for #885 would need one, forever. **#885 therefore has no arc entry, deliberately, and its absence is not a gap.**
+- **NOT a loosening.** The originating violation — three PRs merged with no entries at all — stands as a violation, and the retroactive-hygiene anti-pattern is unchanged. Only the degenerate tail is excluded.
+- **Locked — the two-question test for this rule shape** (from the sweep, folded into the same PR at operator request). **(1) Does discharge CREATE a new artifact of kind X, or impose a PROPERTY on the one already there?** New artifact → divergent; property → terminates. **(2) Is the trigger UNCONDITIONAL or ERROR-TRIGGERED?** Unconditional diverges (the discharge is itself an instance of the trigger); error-triggered terminates (base case = absence of the error).
+- **Locked — `AGENT_LOG`'s base case is now explicit.** *"Every agent run gets one entry"* had a base case only by side effect of the one-writer rule (the orchestrating main thread is not a spawned agent). **The near-miss is real** — the log records "Sonnet W3 (board hygiene)" runs, so hygiene HAS been delegated to workers. Stated at the rule: the consolidation is not an agent run and gets no entry.
+- **Swept, terminating, no action:** the falsifiability rule (falsifier validity is discharged by property-checks, **never a meta-falsifier** — the workspace's answer to "who validates the validator"); the insight update cycle; the probe-first rule; `PR_ARC` rules 4 and 5; the handover protocol; the entropy ledger.
+- **Cross-repo: found here, fixed in OGAR PR #233 (operator-ruled sequencing).** OGAR's *"Run [5+3] before any claim enters the canon"* diverged literally — the council's output is a claim. The ruling that fixed it: **5 streamline the open points into a hardened draft → 3 attack ONLY the hardened draft (never in parallel; attacking unhardened material invites hallucinated, deflected, reactive coding) → findings fixed → a further full 5+3 pass is permitted as a deliberate re-invocation.** The bound is that re-running is a *choice*, not an unconditional per-claim obligation — discriminator 2, precisely. (An earlier draft deferred the OGAR edit as "separation of concerns"; misapplied — that rule guards private→public content bleed, not an in-scope repo's own doctrine — corrected same session.)
+- **Confidence (2026-08-04):** working — prose only, nothing to regress.
+
 ## 2026-08-04 — lance-graph #884 — post-merge arc entries for #881/#882/#883 + D-KIA-C1b statistics re-scope
 
 **Merged:** `1e90cef` (branch `claude/x265-x266-plans-review-h9osnl`, head `c6acd75`). 4 files, board/plan prose only — no code, no runtime behaviour.

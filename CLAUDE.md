@@ -326,6 +326,30 @@ updating the relevant board file in the SAME commit is incomplete.**
 repository have to exclusively focus on the necessary updates in the public
 repository, and keep a separation of concerns.**
 
+**Termination clause — the rule does not recurse (added 2026-08-04, three
+links deep; scope corrected same-day per codex P2).** A PR whose ENTIRE
+content is board hygiene for prior PRs — it adds no type, plan,
+deliverable, epiphany, or code — **generates NONE of the merged-PR row's
+obligations: no arc entry AND no `LATEST_STATE` update.** It is discharged
+by the entries it wrote. Exempting only the arc entry would leave the
+chain alive through the other half — recording the still-required
+`LATEST_STATE` update is itself a hygiene-only PR, forever. Without this
+clause the rule is an infinite chain: #884 recorded #881/#882/#883, #885
+recorded #884, and an entry for #885 would need its own forever. The
+chain that produced this clause stops at #885.
+
+The test is *content*, not intent: does the PR change anything a future
+session would need the "why" for? A hygiene-only PR's why **is** the entry
+it added, already in the arc — a second entry saying "this PR added an
+entry" carries no architectural context and costs a real read. **A mixed PR
+still gets its entry** — if it lands hygiene *and* a decision, scope, code,
+or correction (as #884 did with the D-KIA-C1b re-scope), the non-hygiene
+half is what the entry is for.
+
+This is a stopping rule, not a loosening: the original gap — merging #881,
+#882 and #883 with no entries at all — remains a real violation. What is
+excluded is only the degenerate tail.
+
 ### The falsifiability rule (P0, added 2026-07-26 — 7 instances in one session)
 
 **An assertion implied by the code it tests is not a test.** Before a test
@@ -751,6 +775,14 @@ For subagent coordination *during* this session:
   > **Every agent prompt MUST include:** "Read `.claude/board/AGENT_LOG.md`
   > before starting. Do NOT write it — leave your record in your own tag-file;
   > the orchestrator consolidates."
+  > **Base case (made explicit 2026-08-04, recursion sweep):** the
+  > consolidation itself is **not** an agent run and gets **no** entry. Without
+  > this the rule diverges the moment board hygiene is delegated — which has
+  > happened (see this log's own "Sonnet W3 (board hygiene)" runs): a worker
+  > writing the log entry is an agent run, needing an entry, written by a
+  > worker. The one-writer rule already implies the base case; stating it means
+  > a future session doesn't have to re-derive it. Cf. `CLAUDE.md`
+  > § Termination clause and `E-THE-HYGIENE-RULE-RECURSED-1`.
 - **`LATEST_STATE.md` + `PR_ARC_INVENTORY.md`** are the structural
   blackboard — what types exist, which PRs shipped. Every subagent
   reads them for current state.
