@@ -437,12 +437,35 @@ pub fn omega_total(items: &[Vec<f64>]) -> Option<f64> {
     // model is identified only up to a GLOBAL flip (and ω is invariant to one,
     // since it uses `(Σλ)²`), so anchor `s_0 = +1` and read every other sign
     // off the first row.
+    //
+    // ANCHOR on the item with the LARGEST |λ|, not on item 0. Signs are read
+    // from the anchor's covariance row, so anchoring on a weakly-loaded item
+    // reads them off near-zero covariances — noise. In the degenerate case the
+    // anchor's whole row is zero, every sign defaults to +1, and the
+    // consistency check below then manufactures conflicts and REJECTS a
+    // perfectly valid one-factor dataset (measured with λ = [0,+1,+1,−1]:
+    // two false conflicts). The strongest item makes every read maximally
+    // determined.
+    let anchor = (0..k)
+        .max_by(|&a, &b| {
+            lambda[a]
+                .abs()
+                .partial_cmp(&lambda[b].abs())
+                .unwrap_or(std::cmp::Ordering::Equal)
+        })
+        .unwrap_or(0);
     let mut sign = vec![1.0f64; k];
-    for j in 1..k {
-        // A materially-zero covariance means λ_0 or λ_j is ~0; that item
-        // contributes ~nothing to Σλ, so either sign is harmless. Keep +1.
-        let scale = (cov[0][0].abs() * cov[j][j].abs()).sqrt().max(1.0);
-        if cov[0][j] < -1e-9 * scale {
+    for j in 0..k {
+        if j == anchor {
+            continue;
+        }
+        // A materially-zero covariance means the anchor's or item j's loading
+        // is ~0; a ~0-loading item contributes ~nothing to Σλ, so either sign
+        // is harmless. Keep +1.
+        let scale = (cov[anchor][anchor].abs() * cov[j][j].abs())
+            .sqrt()
+            .max(1.0);
+        if cov[anchor][j] < -1e-9 * scale {
             sign[j] = -1.0;
         }
     }
@@ -1309,22 +1332,53 @@ mod tests {
     }
 
     #[test]
-    fn omega_rejects_an_inconsistent_sign_pattern() {
-        // Can-it-fire for the sign-consistency structure test, and written so
-        // it can ONLY pass if that specific guard is what rejects.
+    fn omega_sign_anchor_survives_a_zero_loading_item() {
+        // REGRESSION: signs are read from ONE item's covariance row, so the
+        // choice of that row matters. Anchoring on item 0 read every sign off
+        // an all-zero row when item 0 carried no loading — every sign defaulted
+        // to +1, and the consistency check then manufactured conflicts and
+        // REJECTED this valid one-factor dataset (measured: 2 false conflicts).
         //
-        // At k = 3 the check is provably REDUNDANT: with one triad per item,
-        // sign(λ_0²) = sign(σ01)·sign(σ02)·sign(σ12), which is +1 for every
-        // consistent pattern and −1 for every inconsistent one — so an
-        // inconsistent triple always trips the negative-λ² guard first. Only
-        // at k ≥ 4, where λ² is AVERAGED over several triads, can the sign
-        // pattern conflict while every λ² stays non-negative. This fixture
-        // (found by search) is exactly that case.
+        // λ = [0, +1, +1, −1] with orthogonal residuals: item 0 is pure noise,
+        // the rest genuinely carry mixed signs. Σλ = 0+1+1−1 = 1, so the
+        // common variance is small but the model is real and must not be
+        // rejected.
+        let f = [1.0, -1.0, 1.0, -1.0, 1.0, -1.0, 1.0, -1.0];
+        let e0 = [1.0, 1.0, -1.0, -1.0, 1.0, 1.0, -1.0, -1.0];
+        let e2 = [1.0, -1.0, -1.0, 1.0, 1.0, -1.0, -1.0, 1.0];
+        let e3 = [1.0, 1.0, 1.0, 1.0, -1.0, -1.0, -1.0, -1.0];
         let items = vec![
-            vec![1.0, -2.0, 0.0, 3.0, 2.0, 2.0],
-            vec![2.0, 3.0, 1.0, 0.0, 0.0, 3.0],
-            vec![1.0, 2.0, -3.0, 3.0, -3.0, 0.0],
-            vec![2.0, -2.0, 1.0, -1.0, 3.0, -2.0],
+            e0.to_vec(),                                         // λ = 0
+            f.to_vec(),                                          // λ = +1
+            (0..8).map(|i| f[i] + e2[i]).collect::<Vec<f64>>(),  // λ = +1
+            (0..8).map(|i| -f[i] + e3[i]).collect::<Vec<f64>>(), // λ = −1
+        ];
+        let w = omega_total(&items)
+            .expect("a valid one-factor set must not be rejected over a weak anchor");
+        assert!((0.0..=1.0).contains(&w), "ω out of range: {w}");
+    }
+
+    #[test]
+    fn omega_rejects_a_frustrated_sign_pattern() {
+        // Can-it-fire for the sign-consistency structure test.
+        //
+        // The criterion is FRUSTRATION, not "the anchor row disagrees". Under
+        // one factor a consistent pattern is recoverable from ANY strongly
+        // loaded anchor, so a conflict seen from one row can simply mean that
+        // row was a poor anchor — the previous version of this test used such
+        // a fixture and was passing because of the row-0 anchor bug, not
+        // because the guard fires. A genuinely non-one-factor pattern is
+        // frustrated: NO assignment of item signs reproduces every covariance
+        // sign, so every anchor conflicts.
+        //
+        // At k = 3 this is still provably subsumed by the negative-λ² guard
+        // (the single triad's sign product is −1 exactly when the pattern is
+        // inconsistent), so the fixture is k = 4, found by search.
+        let items = vec![
+            vec![2.0, -2.0, -1.0, -3.0, 0.0, 1.0],
+            vec![2.0, -3.0, 3.0, 1.0, 3.0, 0.0],
+            vec![1.0, 1.0, 2.0, -1.0, -2.0, -3.0],
+            vec![0.0, -1.0, 3.0, -1.0, 1.0, -2.0],
         ];
         let k = items.len();
         let cv = |x: &[f64], y: &[f64]| -> f64 {
@@ -1339,10 +1393,7 @@ mod tests {
             .map(|i| (0..k).map(|j| cv(&items[i], &items[j])).collect())
             .collect();
 
-        // PRE-REGISTER that neither pre-existing guard can be the rejecter:
-        // every λ² is non-negative and every ψ is non-negative. Without this,
-        // the test would pass even if the negative-λ² or Heywood guard fired,
-        // and would prove nothing about the sign check.
+        // PRE-REGISTER that neither pre-existing guard can be the rejecter…
         for i in 0..k {
             let (mut acc, mut cnt) = (0.0, 0usize);
             for j in 0..k {
@@ -1364,22 +1415,24 @@ mod tests {
             );
             assert!(
                 c[i][i] - lam_sq >= 0.0,
-                "item {i}: ψ={} would trip the HEYWOOD guard",
-                c[i][i] - lam_sq
+                "item {i}: ψ would trip the HEYWOOD guard"
             );
         }
-        // …and that the sign pattern really is inconsistent.
-        let mut sign = vec![1.0f64; k];
-        for j in 1..k {
-            if c[0][j] < 0.0 {
-                sign[j] = -1.0;
+        // …and that the pattern is frustrated from EVERY anchor, so no anchor
+        // choice could rescue it.
+        for anchor in 0..k {
+            let mut sign = vec![1.0f64; k];
+            for j in 0..k {
+                if j != anchor && c[anchor][j] < 0.0 {
+                    sign[j] = -1.0;
+                }
             }
+            let conflicts = (0..k)
+                .flat_map(|i| ((i + 1)..k).map(move |j| (i, j)))
+                .filter(|&(i, j)| c[i][j] != 0.0 && c[i][j].signum() != sign[i] * sign[j])
+                .count();
+            assert!(conflicts > 0, "anchor {anchor} accepts it — not frustrated");
         }
-        let conflicts = (0..k)
-            .flat_map(|i| ((i + 1)..k).map(move |j| (i, j)))
-            .filter(|&(i, j)| c[i][j] != 0.0 && c[i][j].signum() != sign[i] * sign[j])
-            .count();
-        assert!(conflicts > 0, "fixture must carry a sign conflict");
 
         // Therefore only the sign-consistency guard can produce the rejection.
         assert_eq!(omega_total(&items), None);

@@ -1,3 +1,28 @@
+## 2026-08-04 — E-THE-CAN-IT-FIRE-TEST-WAS-FIRING-ON-THE-BUG-1 — a guard's proof-of-life passed because of a second defect in the same function
+
+**Status:** FINDING (measured; both defects fixed, test rebuilt on a correct criterion). **Confidence:** High — the anchor dependence is enumerated over all four choices below.
+
+**What happened.** Fixing ω's sign erasure introduced a sign-consistency check, and the falsifiability rule demands proof that a new guard can fire. I searched for a fixture that trips it, found one, and wrote a careful can-it-fire test that even pre-registers that neither pre-existing guard could be the rejecter. It passed. **It was passing on a bug.**
+
+Signs were read from item 0's covariance row. If item 0 is weakly loaded that row is near-zero, every sign defaults to `+1`, and the consistency check manufactures conflicts on data that is perfectly one-factor. Enumerating the found fixture over every possible anchor:
+
+| anchor | ‖λ‖ | conflicts |
+|---|---|---|
+| 0 | 0.47 | **2** |
+| 1 | 1.32 | 0 |
+| 2 | 0.82 | **2** |
+| 3 | **1.84** | 0 |
+
+A valid sign assignment exists — so the fixture is **consistent**, and the "conflict" was an artifact of anchoring on a weakly-determined row. The guard I was proving alive had never been shown to fire; what fired was the anchor defect. A separate check confirmed the same defect **wrongly rejects** a genuine one-factor set (λ = `[0,+1,+1,−1]`, two false conflicts).
+
+**The two-defect interlock is the point.** A test written to prove defect-free behaviour of feature X passed because of unnoticed defect Y in the same function. Neither the test nor the guard was individually wrong-looking; the *pair* was self-confirming. This is the reason a can-it-fire test needs its trigger condition defined **independently of the implementation's own decision procedure** — mine reused the implementation's anchor convention, so it could only ever agree with it.
+
+**The corrected criterion, and why it is the right one.** Sign-consistency is a property of the *pattern*, not of a chosen reference: the honest question is whether **any** assignment of item signs reproduces every covariance sign. A pattern where none does is **frustrated** (an odd cycle of negative edges — the classic sign-graph condition). The rebuilt test asserts frustration **from every anchor**, so no anchor choice could rescue it, and it is a fixture no implementation convention can accidentally satisfy.
+
+**The fix that fell out is principled rather than a patch.** Anchor on the **strongest-loading** item. Under a genuine single factor `σ_ij = λ_iλ_j`, a near-zero covariance against the strongest item implies the *other* item's loading is ~0 — whose sign then cannot matter, since it contributes ~0 to `Σλ`. So the strongest anchor is correct under the model, not merely more robust.
+
+**Carry-over rule:** *a can-it-fire test must define its trigger from the specification, never from the implementation's own procedure* — and when a guard rejects, ask whether the rejection is a property of the data or of an arbitrary choice the code made along the way.
+
 ## 2026-08-04 — E-THE-CROSS-IDENTITY-SUITE-INHERITED-MY-BLIND-SPOT-1 — five independent cross-checks all passed while ω was inflated 3× and R² was unit-dependent
 
 **Status:** FINDING (both defects reproduced, fixed, regression-tested). **Confidence:** High — measured before and after. Found by external review of merged code, not by the suite that shipped with it.
