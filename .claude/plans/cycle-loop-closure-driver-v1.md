@@ -1402,3 +1402,57 @@ no fusion verdict at V_pin, no substrate-exercise claim** (under this corpus
 `deinterlace` reduces to filter+sort; the finding lives in the rank
 criterion; the permitted claim is first `DeinterlaceRow` implementor and
 first `deinterlace` caller). §12.4's D3b validity gate stays closed.
+
+### 12.9 D-BLW-5 PROPOSED (2026-08-04, operator) — the OBSERVER-EFFECT loop: the jc measurement fed back into awareness
+
+> Operator framing, verbatim intent: *a scientific version of
+> Horizontverschmelzung is the jc-crate loop — information about the
+> correlation of a dataset, when fed into the awareness, influences the
+> correlation. The observer effect.*
+
+**Status: DESIGNED / CONJECTURE — queued behind PROBE-IGNITION. Nothing here
+is measured.**
+
+**What it adds over §12.8:** D-BLW-3 measured FIRST-ORDER fusion — horizons
+merge by sharing data (pool growth; Δκ −0.485 → 0). This probe measures
+SECOND-ORDER fusion — horizons merge by sharing the MEASUREMENT of each
+other. The Click's own arrow is the hook: `awareness.revise(key, outcome)` →
+`global_context += fact` → *reshapes NEXT cycle's F landscape*. Here the
+injected fact IS a jc statistic about the cohort.
+
+**The four-arm design (pre-registered SHAPE; numbers pinned at build time,
+before any run):**
+
+| arm | injection | pre-registered expectation |
+|---|---|---|
+| **T** (true) | the measured S₀ = full `BinaryAssociation` of (A,B), injected as an ELEVATED-rung fact | the observable: S₁ − S₀. Fire iff it clears the floor. |
+| **F+ / F−** (false) | fabricated statistics (κ far above / far below truth) | the DIRECTION test: S₁ tracking the injected VALUE = anchoring on testimony over evidence (Gadamer's prejudice-structure, measurable; Goodhart's shadow); S₁ correcting TOWARD truth against the injection = evidence-dominance; value-invariant movement = mere perturbation. |
+| **P** (placebo) | same shape, permuted content, zero information | **must not move** — if placebo moves S₁, the instrument measures injection mechanics, not information, and the observer-effect claim dies. |
+| **N** (null instrument, free) | the same T-injection against the §12.8 bloom-rank criterion | **must stay frozen BY CONSTRUCTION** — that criterion has no awareness term, so any movement there is a plumbing leak that voids the run (G2's pattern, one level up). |
+
+**Mechanical prerequisite, stated honestly:** the §12.8 instrument CANNOT
+exhibit the effect — popcount-rank has no awareness input, which is exactly
+what makes it arm N. The observed reader must be awareness-coupled: the
+belief-arena side (NARS revision — the injected statistic participates as a
+belief and interacts via support/contradiction) or a MUL-qualia-coupled
+criterion. Choosing which is the probe's first design decision.
+
+**Rulings that bind:**
+- `crates/jc` stays the ORACLE — it measures S₀ and S₁ and is never modified
+  and never fed its own output as input (the edge is one-way; the LOOP runs
+  through the system's awareness, not through jc).
+- C6 anti-circularity is not violated — it is INSTRUMENTED: C6 forbids the
+  witness gating the slice it was computed on because that is a self-proving
+  loop; this probe deliberately closes that loop and MEASURES it instead of
+  using it for admission. Nothing downstream may gate on S₁.
+- The injected statistic is stored under the ELEVATED carve-out (statistic-
+  as-witness, higher-rung derivation) and must be rung-marked so the reader
+  knows it is meta, not corpus.
+- C4: no p-values; the paired contrast + placebo + null-instrument arms ARE
+  the inference. C2 naming; full tables, never bare κ.
+
+**Kill conditions, pre-accepted:** placebo moves ⇒ instrument invalid
+(reported, not tuned); T-arm silent at every floor ⇒ "awareness does not
+reflect this statistic" is the finding — a true and useful null; F-arms
+tracking injected values ⇒ the anchoring finding stands even if T is silent
+(testimony-dominance is itself the discovery).
