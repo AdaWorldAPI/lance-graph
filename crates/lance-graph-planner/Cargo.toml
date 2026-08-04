@@ -46,14 +46,17 @@ axum = { version = "0.8", optional = true }
 [dev-dependencies]
 tokio = { version = "1", features = ["rt-multi-thread", "macros"] }
 
-# `crates/jc` is workspace-EXCLUDED (see root Cargo.toml `exclude`) and has
-# ZERO consumers anywhere in the workspace as of this edge — `examples/
-# blw_lens_twin.rs` (D-BLW-2, `.claude/plans/cycle-loop-closure-driver-v1.md`
-# §12.3a′) is the FIRST. Dev-only, deliberately: jc is the independent
-# reference frame the discrimination twin is measured against (§12.5 — "the
-# `jc` additive constraint continues to hold"), so it must never become a
-# production dependency of the planner itself. Do NOT invert this edge.
-jc = { path = "../jc" }
+# NOTE — `jc` dev-dep REMOVED with `examples/blw_lens_twin.rs` (the retired κ
+# instrument; §12.3c). It was added solely for that harness and is now unused,
+# so `crates/jc` is back to ZERO consumers in the workspace.
+#
+# If the D-BLW-2 rebuild needs it, re-add as `jc = { path = "../jc" }` under
+# `[dev-dependencies]` and keep the constraint that made it safe: **dev-only,
+# never a production dependency of the planner.** `jc` is the INDEPENDENT
+# reference frame a discrimination measure is graded against (§12.5 — "the `jc`
+# additive constraint continues to hold"), and a measure cannot be its own
+# oracle. Do NOT invert this edge, and do NOT modify `crates/jc` while using it
+# as the oracle.
 
 [features]
 default = []
