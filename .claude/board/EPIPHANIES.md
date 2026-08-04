@@ -1,3 +1,15 @@
+## 2026-08-04 — E-THE-GATE-ASSERTED-A-CORPUS-IT-NEVER-SAW-1 — "whole book" was two thirds of a Bible
+
+**Status:** FINDING (measured; fixed; falsifier added). **Confidence:** High — the count is external. Code: `deepnsm-v2/examples/bible_wave.rs`.
+
+**What happened.** The inbound leg broke on `tok.contains("***")`. The Gutenberg KJV carries a **lone `***` between the testaments**, so the parse stopped at Malachi 4:6 — 39 books, **23,145 verses, the Old Testament exactly** — while the G1 gate printed *"whole book = N verses"* and passed. Every downstream consumer of its TSV export has been reasoning over two thirds of a Bible. After the fix: **31,102 verses** = 23,145 OT + 7,957 NT, the canonical count.
+
+**Why it survived.** G1 asserted `verses.len() <= 65_536` — a **one-sided** bound. Truncation moves the count *down*, i.e. **deeper into the passing region**. The gate was structurally incapable of noticing the failure it sat next to, and it printed a label ("whole book") that no assertion checked. A bound that only constrains one direction is not a gate on a quantity that can fail in the other.
+
+**The class.** *An upper bound cannot detect loss.* Anywhere a gate asserts `n <= CAP` over a parsed or filtered population, ask what happens when `n` is too **small** — that is usually the real failure mode (dropped input, early break, over-eager filter), and it is exactly what the assert waves through. **Sibling check:** every `assert!(x <= …)` / `assert!(x < …)` on a count derived from parsing, and every printed label asserting a scope no test verifies.
+
+**The fix's falsifier is deliberately general.** Not `verses.len() == 31_102` (which over-fits one file and re-states the parser), but: *if the input announces a New Testament, the parse must have crossed into it* — `verses.len() > 23_145`. It fails on the old code by construction and works on any input. The number that caught this — 31,102 — is a fact about the KJV that this repo does not author, which is what made it evidence rather than a restatement.
+
 ## 2026-08-04 — E-AN-OWNER-IS-A-TENANT-NOT-A-SHARD-1 — I multiplied the unit that is not allowed to be multiplied
 
 **Status:** FINDING (operator-ruled; the canon already said it). **Confidence:** High. Retractions: plan §12.1a′ and §12.3a′; `E-THE-DIAGRAM-CONTRADICTED-ITS-OWN-NEXT-LINE-1` regraded below.
