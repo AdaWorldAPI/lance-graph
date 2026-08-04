@@ -64,17 +64,17 @@ tokio = { version = "1", features = ["rt-multi-thread", "macros"] }
 # bootstrap rebind, and `cast_on_behalf` does not.
 cognitive-shader-driver = { path = "../cognitive-shader-driver" }
 
-# NOTE — `jc` dev-dep REMOVED with `examples/blw_lens_twin.rs` (the retired κ
-# instrument; §12.3c). It was added solely for that harness and is now unused,
-# so `crates/jc` is back to ZERO consumers in the workspace.
-#
-# If the D-BLW-2 rebuild needs it, re-add as `jc = { path = "../jc" }` under
-# `[dev-dependencies]` and keep the constraint that made it safe: **dev-only,
-# never a production dependency of the planner.** `jc` is the INDEPENDENT
-# reference frame a discrimination measure is graded against (§12.5 — "the `jc`
-# additive constraint continues to hold"), and a measure cannot be its own
-# oracle. Do NOT invert this edge, and do NOT modify `crates/jc` while using it
-# as the oracle.
+# `jc` dev-dep RE-ADDED for D-BLW-3 (`examples/blw_fusion.rs` — the
+# Horizontverschmelzung fusion falsifier, `.claude/board/exec-runs/
+# dblw3-design-opus.md` §7 B5). It was previously removed with
+# `examples/blw_lens_twin.rs` (the retired κ instrument; §12.3c) and had gone
+# back to ZERO consumers. The constraint that made the earlier use safe still
+# binds: **dev-only, never a production dependency of the planner.** `jc` is
+# the INDEPENDENT reference frame a discrimination measure is graded against
+# (§12.5 — "the `jc` additive constraint continues to hold"), and a measure
+# cannot be its own oracle. Do NOT invert this edge, and do NOT modify
+# `crates/jc` while using it as the oracle.
+jc = { path = "../jc" }
 
 [features]
 default = []

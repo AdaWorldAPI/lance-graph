@@ -1375,3 +1375,30 @@ those as **two quantities, never averaged**.
    and therefore **cannot be evidence for any substrate claim**, only for the
    stance functions. **D-BLW-1 remains unbuilt**, and this harness standing in
    for it is precisely the substitution D-BLW-1 was scoped to prevent.
+
+### 12.8 D-BLW-3 RESULT (2026-08-04) — measured, per the pre-registered rules
+
+**BUILT + RUN GREEN** as `examples/blw_fusion.rs` (re-scoped per the design
+note's B1: two rank projections A/B + inert control Z over the tenant's own
+rows; stances are NOT inputs). All gates passed on the real corpus (2,000
+verses, 8 sealed cycles, 27,000 verdict rows, incremental seating P1, rank
+criterion P2 at q=0.25).
+
+| pre-registered rule | measured |
+|---|---|
+| §3.1 band (0.20/0.80, reused Landis–Koch) | **IN/IN** — Strict κ=0.4933, Aware κ=0.4619, full BinaryAssociation tables printed |
+| §3.3 movement at V_pin (≥0.10) | Δκ = −0.031 → **middle ground** (0.01 ≤ \|Δκ\| < 0.10): reported, **no fusion verdict claimed** |
+| §5.3 drop (<0.01 everywhere) | **DROP does not fire** — max \|Δκ\| over the 8 horizons = 0.485 |
+| C5 signed churn | one-directional at V_pin (A: +66/−0; B: +184/−0) — accumulation-shaped, printed, never averaged into Δκ |
+| controls | Z byte-identical (plumbing zero); G1 three-way extensional identity (Aware≡Retro≡Strict@V8); G4 both tails + real-data silent arm (the design's "~90 % god" premise measured 0.1285 — fixture replaced with constant-by-construction tails); G5/G6/G7 green |
+
+**The headline, exactly as large as the measurement:** the a-priori/hindsight
+gap **closes monotonically as the horizon extends** — Δκ: −0.485 (V1),
+−0.251, −0.079, −0.031, ≈0.000, +0.011, +0.017, 0.000 (V8, identical by
+construction); Hamming(A): 152→123→94→66→53→37→21→0. The distinction does
+real work early in the series and dissolves as horizons merge. That is a
+trajectory-shaped observation over eight reported points — **no trend claim,
+no fusion verdict at V_pin, no substrate-exercise claim** (under this corpus
+`deinterlace` reduces to filter+sort; the finding lives in the rank
+criterion; the permitted claim is first `DeinterlaceRow` implementor and
+first `deinterlace` caller). §12.4's D3b validity gate stays closed.

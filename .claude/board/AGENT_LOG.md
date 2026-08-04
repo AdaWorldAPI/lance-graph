@@ -1,3 +1,13 @@
+## 2026-08-04 — D-BLW-3 arc: design + inventory + recon/refute workflow + build (consolidated by the orchestrator)
+
+Four units, records in their own tag-files per the one-writer rule:
+- **Opus design lane** → `exec-runs/dblw3-design-opus.md`: the fusion-falsifier design; B1 re-scope (stances out, two rank projections over the tenant); the pre-registered band from EXISTING Landis–Koch pre-registrations; B9 self-correction (knowable_from is a class clock) after the coordinator relayed the inventory lane's finding.
+- **Sonnet inventory lane** → `exec-runs/dblw3-api-inventory-sonnet.md`: exact temporal.rs/jc/blw_tenant surfaces incl. the MODE×STATUS admission table and the at() constructor facts.
+- **Six-agent recon/refute workflow** (3 Sonnet recon + 2 Opus refuters + 1 Opus checklist): both refuters SURVIVES-WITH-CORRECTIONS — the mode/pin extensional redundancy and the monotone-accumulation channel; 8 corrections folded into the build brief.
+- **Sonnet build lane** → `exec-runs/blw-fusion-d-blw-3-build.md`: `examples/blw_fusion.rs` (~1,150 lines) + the jc dev-dep (closing design B5 with this commit). Corrected mid-flight on G6 per-slice arithmetic (external review caught it in the spec; the lane independently re-derived 9−s/5−s before coding).
+- **Central gates (orchestrator):** fmt; clippy clean at the example scope; run GREEN on the real corpus. One gate fixture corrected at run time (G4 can-fire premise rotted; replaced with constant-by-construction tails). Result: plan §12.8 + E-HORIZONTVERSCHMELZUNG-GAP-CLOSES-1 + STATUS_BOARD row.
+
+
 ## 2026-08-04 — Arm BLW opened: BLW-0 + D-BLW-1 + the stance lift (5 subagents: 2 Sonnet recon, 1 Opus design, 2 Sonnet build)
 
 > **⊘ SAME-DAY CORRECTION (operator-ruled) — read this before the entry below, most of which is retracted.**

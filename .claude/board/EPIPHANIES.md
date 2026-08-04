@@ -1,3 +1,28 @@
+## E-HORIZONTVERSCHMELZUNG-GAP-CLOSES-1 (2026-08-04)
+
+**The a-priori/hindsight gap is not a constant — it decays monotonically as
+the horizon extends, and THAT decay is the measured shape of
+Horizontverschmelzung on this corpus.** `blw_fusion.rs` (D-BLW-3), 8 sealed
+horizons, two rank projections at pre-registered q=0.25: Δκ between the
+Strict (a-priori) and Aware (hindsight) reads runs −0.485 → −0.251 → −0.079 →
+−0.031 → ≈0 → +0.011 → +0.017 → 0 as k=1..8; Hamming(A) 152→0. Early in the
+series the reader-permission distinction does heavy work; by the series tip
+it has dissolved — the horizons have merged. Both reads sit IN the
+pre-registered fusion band (κ 0.49/0.46) the whole way at the pin.
+
+Disciplines that held: no fusion VERDICT claimed (V_pin movement −0.031 is
+the middle-ground outcome, named before the run); churn reported SIGNED
+(gained-only ⇒ accumulation-shaped, per the adversarial-review correction);
+the inert control Z stayed byte-identical (plumbing contributed zero); the
+G4 can-fire fixture was replaced mid-gate when its empirical premise ("~90 %
+god") measured 0.1285 — constant-by-construction tails cannot rot. NOT
+claimed: validity (D3b closed), significance (no dependence model), zero-copy
+(deinterlace clones), substrate exercise (filter+sort here). First
+`DeinterlaceRow` implementor and first `deinterlace` caller in the tree.
+
+**Status:** FINDING (measured; harness + output in-tree, plan §12.8).
+
+
 ## 2026-08-04 — E-THE-CARRIER-CHANGED-THE-INSTRUMENT-DID-NOT-1 — a 24-locus register that writes one shared locus is still a coincidence bit
 
 **Status:** FINDING (measured, 2,000-verse run, 1 s). **Confidence:** High — the ceiling is verifiable in source, independent of the data. Code: `lance-graph-planner/examples/blw_texture.rs`. Result: plan §12.7.

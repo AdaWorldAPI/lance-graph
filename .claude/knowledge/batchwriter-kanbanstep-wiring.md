@@ -475,3 +475,28 @@ ownership model, not the model itself; D-KIA-A2's pre-registered falsifier
 (median-of-5, ≥2× at ≥4,096 owners, ±10 % stay-silent) is what converts
 "parallel" from doctrine to measurement, and the claim ladder holds until it
 runs.
+
+### §9b — the ignition API grammar (operator, 2026-08-04, three messages read together)
+
+> `cognitive-shader-driver::table($x)::ThinkingStyle($z)` — and even the pure
+> Friston framing (`free_energy::content()::start()::MUL(true)`) still needs a
+> `start()::where()`.
+
+The verb decomposes into four axes, every one already carried by shipped
+machinery — the API is composition, not invention:
+
+| axis | verb | lowers to |
+|---|---|---|
+| WHAT (the brain) | `table($x)` | seed the tenant rows + stream the arena (`seed_tenant` shape; deepnsm-v2 is the first feeder) |
+| HOW (the lens) | `ThinkingStyle($z)` | a `MetaWord` bits write to `MetaColumn` (contract-typed; never a new trait) — `StyleStrategy::plan` then mints the bootstrap intents FROM the armed style (`style_strategy.rs:270-289` → `emit_bootstrap_intent`) |
+| WHERE (the aim) | `start()::where(prefix)` | **the GUID prefix IS the where** — classid/HEEL/HIP/TWIG prefix routing selects the row range/basin the loop drives; the key was designed to prerender exactly this ("the key prerenders nodes… before ever fetching a value") |
+| ARM (the sustainer) | `MUL(true)` | the gate decides Flow/Hold per owner per cycle (`shade_owner` = `gate_decision_i4`); active inference SUSTAINS — it never STARTS. `start()` fires the first `run_cycle`; the MUL decides every subsequent one, and Hold everywhere is the legitimate resting state |
+
+Placement per the BBB/consumer rulings: the API face lives in
+cognitive-shader-driver (contract types only at the seams — its planner dep
+stays optional); the cast minting stays planner-side; the metronome
+supervisor-side. Its falsifier is PROBE-IGNITION, both halves pre-registered:
+can-fire — a fresh corpus yields Flow fleet-wide and the STYLE's casts (not
+the harness's) advance phases; can-stay-silent — a fully-reconciled corpus
+yields Hold everywhere and casts nothing. A brain that cannot rest is the
+150/150 defect wearing a crown.
