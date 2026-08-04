@@ -46,6 +46,15 @@ axum = { version = "0.8", optional = true }
 [dev-dependencies]
 tokio = { version = "1", features = ["rt-multi-thread", "macros"] }
 
+# `crates/jc` is workspace-EXCLUDED (see root Cargo.toml `exclude`) and has
+# ZERO consumers anywhere in the workspace as of this edge — `examples/
+# blw_lens_twin.rs` (D-BLW-2, `.claude/plans/cycle-loop-closure-driver-v1.md`
+# §12.3a′) is the FIRST. Dev-only, deliberately: jc is the independent
+# reference frame the discrimination twin is measured against (§12.5 — "the
+# `jc` additive constraint continues to hold"), so it must never become a
+# production dependency of the planner itself. Do NOT invert this edge.
+jc = { path = "../jc" }
+
 [features]
 default = []
 jit = []

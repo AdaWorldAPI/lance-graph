@@ -842,6 +842,41 @@ as a `[dev-dependencies]` path edge from `lance-graph-planner`. Do **not** inver
 it — hosting the harness inside `jc` would drag the planner's whole dep tree into
 a crate whose constitution is zero-dep, and §12.5 keeps `jc` the untouched oracle.
 
+#### 12.3a″ MEASURED RESULT (2026-08-04): D-BLW-2 is a STRUCTURAL KILL on the TSV path
+
+Built and **run** against the real export (`/tmp/kjv_spo.tsv`, 40,767 triples
+over 20,022 distinct verses from the whole-book run). The twin did not miss a
+threshold — **it has no pair to test.**
+
+**§12.3a undercounted the unreachable stances: it is 3 of 4, not 2.**
+
+| stance | verdict | why |
+|---|---|---|
+| **Hegel** | reachable, **DEGENERATE** | positive rate **0.000000** — exactly as §12.3a point 1 predicted (uniform `TruthValue::new(1.0, _)` ⟹ `revise_at`'s `\|f₁−f₂\|` depth is always 0) |
+| **Nietzsche** | **UNREACHABLE** | needs `Provenance.negated`; no TSV column, no `Spo` field. Owner: `deepnsm-v2` |
+| **Kant** | **UNREACHABLE** ← *new, not in §12.3a* | needs `RungLift`, minted only inside `stance::stream()`'s complementizer window over **labelled raw verse text**; flat `(s,p,o,verse)` triples do not preserve clause nesting. Owner: `deepnsm-v2` (the consuming machinery is already here — the missing piece is the INPUT) |
+| **Wittgenstein** | reachable, **REDUCED and DEGENERATE** | only 2 of the panel's 6 game categories survive (`Inh-subj`/`Inh-obj`; `rel-*`/`impl-*` need the same unreachable inputs as Kant), and the surviving bit fires on **99.61 %** of verses |
+
+**Measured pair (the only one formable):** Hegel × Wittgenstein-reduced —
+`n00=78 n01=19944 n10=0 n11=0`, N=20022, rates `0.0000 / 0.9961`,
+`p_o=0.0039 p_e=0.0039`, κ=0.0000, φ=`undefined(constant)`. Both lenses
+DEGENERATE ⟹ **0 eligible pairs** ⟹ both ∃-quantifiers are false *by
+construction*, not by measurement.
+
+**The degeneracy machinery earned its place.** Wittgenstein-reduced firing on
+99.61 % of verses is the `closed_class_guess` 150/150 shape — a bit that carries
+no information — and the harness **excluded and printed it** instead of
+reporting a stance. Without §12.3a's `[0.01, 0.99]` band this run would have
+produced a κ table that looked like a result.
+
+**What D-BLW-2 actually needs, stated once:** the four stances require
+`stance::stream()` over **labelled verse text**, which the TSV does not carry.
+Either the inbound leg exports verse text alongside its triples, or the reasoning
+layer receives verses directly. **That is a seam change in `deepnsm-v2`** — the
+inbound leg owns text — and it is the one prerequisite for D-BLW-2, D-BLW-3
+(whose verdict rows are these same binaries), and any four-stance claim at
+corpus scale. **Do not attempt the twin again until it lands.**
+
 ### 12.3b D-BLW-3 design — the confound, and the controlled comparison that removes it
 
 **The naive trajectory does not measure fusion.** §12.3's D-BLW-3 row says
