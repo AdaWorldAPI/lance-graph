@@ -877,6 +877,79 @@ inbound leg owns text — and it is the one prerequisite for D-BLW-2, D-BLW-3
 (whose verdict rows are these same binaries), and any four-stance claim at
 corpus scale. **Do not attempt the twin again until it lands.**
 
+#### 12.3c THE INSTRUMENT WAS WRONG — texture, not κ (operator-ruled 2026-08-04)
+
+**κ over per-verse binaries is retired.** §12.3a's twin measures how often two
+lenses *coincide*, which discards what a stance is. Two lenses can agree on a
+verse for opposite reasons and κ scores that as agreement. The clean falsifier
+of the whole approach: **nihilism and sarcasm are both negative** — any sign,
+threshold, or boolean collapses them — yet Nietzsche's negation and
+Schopenhauer's are different gestures (one revalues, one refuses). An
+instrument that cannot separate those was never measuring four horizons.
+
+The measured KILL in §12.3a″ stands as a fact about the SPO path; it was simply
+obtained with the wrong instrument. **The 99.61 % firing rate was the tell** — a
+bit that fires on nearly everything is not a degenerate *lens*, it is a wrong
+*projection* of a lens.
+
+**Root cause, and it is mine:** I chose per-verse binaries because binaries feed
+κ, then measured the binaries. The instrument selected the representation
+instead of the phenomenon selecting the instrument.
+
+**The right carrier already exists and is already proven** —
+`CausalWitnessFacet` (`lance-graph-contract/src/causal_witness.rs:201`),
+`#[repr(transparent)]` over `[u8; 12]` = **24 × i4 loci, each a signed −8..+7
+delta to an antecedent row**. Everything this arm needs is in that one register:
+
+| locus | meaning | serves |
+|---|---|---|
+| 0–3 | `Temporal` / `Kausal` / `Modal` / `Lokal` | TEKAMOLO frame |
+| 4–6 | `SMeaning` / `PMeaning` / `OMeaning` | SPO grounding plane |
+| **7** | **`Antecedent`** — *"relativPronomen → its antecedent"* | the relative-pronoun binder |
+| **8** | **`BasinAnchor`** — *"binds me to my AriGraph basin (`part_of:is_a`, L1)"* | AriGraph tenant + episodic basin |
+| 9/10 | `SupportedBy` (hi_chain) / `Supports` (lo_chain) | evidence topology |
+| 11 | `RunbookEvidence` | which of the 34 recipes fired |
+| **12** | **`QualiaReference`** — *"the event that set my current texture"* | qualia |
+| 13 | `MeaningLevel` | rung-content ladder 0–4 |
+
+**Texture = binding topology, not polarity.** A stance's reading of a verse is
+*which loci it binds, to what signed distance, in what pattern*. Nihilism and
+sarcasm then separate structurally rather than by sign: a sarcastic reading binds
+`QualiaReference` to a **distant** antecedent that contradicts the local
+`SMeaning` (the said and the meant point apart); a nihilistic reading **collapses
+`Supports`/`SupportedBy`** (nothing grounds anything) while leaving the local
+meaning loci intact. Same sign, different graph. κ cannot see this; the register
+carries it natively.
+
+**Two falsifiers replace the twin, and neither is a threshold I choose:**
+
+1. **Cross-language texture agreement — the external oracle.** The corpus exists
+   in Greek (LXX), Latin (Vulgate), German (Luther), English (KJV), Czech and
+   Aramaic. A stance that is real should carry **related texture across lanes**;
+   one that is an artifact of English tokenization will not survive translation.
+   This is structural, not a cutoff I pick. PROBE-BABEL-STANCES already found the
+   shape of the failure mode — the pragmatic channel reading as coherent
+   antiphase across verified lanes, i.e. inherited calque rather than independent
+   convergence — so that probe's CHECK-row discipline carries over verbatim: an
+   unverified lane is **reported, never gating**.
+2. **The horizon as a Pearl rung-3 intervention, not a κ delta.** §12.3b's
+   fixed-verse-set control becomes: hold the verse set fixed, read it from
+   horizon `Vk` and from `Vm > k`, and measure **which loci REBIND** — a change
+   in binding topology under an intervention on the horizon. Fusion is loci
+   rebinding, not a coefficient moving. The sample-growth confound §12.3b
+   identified is still removed the same way (fixed unit set).
+
+**Carried forward unchanged:** the claim ceiling (§12.4 — overlap/structure, never
+validity; no p-values under domain correlation), the degeneracy discipline (a
+texture that is identical on every verse is the 99.61 % defect in a new costume
+and must be *excluded and printed*, never reported as a stance), and the
+`crates/jc` additive constraint — `jc` is untouched, and it is simply not the
+instrument here.
+
+**Open, honest:** which language lanes have committed, loadable codebooks versus
+which were CHECK-only in PROBE-BABEL-STANCES must be established **by reading the
+data on disk**, not assumed — a lane that cannot be loaded cannot be claimed.
+
 ### 12.3b D-BLW-3 design — the confound, and the controlled comparison that removes it
 
 **The naive trajectory does not measure fusion.** §12.3's D-BLW-3 row says
