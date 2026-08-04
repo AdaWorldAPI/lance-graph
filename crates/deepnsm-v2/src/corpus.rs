@@ -156,8 +156,8 @@ pub fn split_verses_detailed(text: &str) -> CorpusSplit {
     }
 }
 
-/// Did a parse of `text` yielding `verse_count` verses actually cross into the
-/// New Testament?
+/// Did the parse of `text` recorded in `split` actually cross into the New
+/// Testament?
 ///
 /// `None` when `text` announces no New Testament (nothing to check). Otherwise
 /// `Some(crossed)`, read from the **parse** via
