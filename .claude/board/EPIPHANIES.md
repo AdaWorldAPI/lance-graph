@@ -1,3 +1,17 @@
+## 2026-08-04 — E-A-STATISTIC-THAT-RETURNS-ZERO-FOR-UNDEFINED-CANNOT-FAIL-VISIBLY-1 — consolidating a utility does nothing while 56 copies with a *weaker contract* survive
+
+**Status:** FINDING (measured workspace-wide at `a9f813c`). **Confidence:** High — a grep census, reproducible. Filed as `TD-STATS-DEGENERACY-CONTRACT-DIVERGENCE`; **not paid** in this pass.
+
+**The census.** Hand-rolled `pearson` / `spearman` / `cronbach_alpha` definitions outside `jc`: **47 returning bare `f64`, 9 returning bare `f32`, 3 returning `Option`** — and all three `Option`s are `jc::reliability`'s own. At least one copy (`perturbation-sim/src/stats.rs:11`) returns **`0.0`** for ragged input, for `n < 2`, *and* for zero variance.
+
+**Why `0.0` is the sharp end.** It is byte-identical to a real "perfectly uncorrelated" result. A caller cannot distinguish *"r = 0 because these variables are unrelated"* — a finding — from *"r = 0 because I handed you a constant vector"* — a bug in the caller. The undefined case is not merely unreported; it is **disguised as the most publishable value in the range**. Several copies also omit the non-finite guard, so a `NaN` input yields a finite-looking number rather than a rejection.
+
+**This is the falsifiability rule one level down.** That rule governs guards that cannot fire; this is a *measurement* that cannot fail. Both defects share the shape: **the artifact has no way to say "no".** A statistic returning `Option` can; a statistic returning `f64` has spent its entire output range on answers and kept none for "I don't know".
+
+**The second-order finding, which is the transferable one.** `reliability.rs`'s module header states that callers rolled their own "**until now**" — presenting consolidation as accomplished. Measurement says consolidation reached the *four new* callers and **zero of the 56 pre-existing definitions**. The doc was written from the intent of the change rather than from the state of the tree, and nothing forced a re-read. **Generalisation: a "we consolidated X" claim is an inventory claim, and an inventory claim decays silently** — it is true on the day it is written and drifts every day after, because new duplicates cost nothing to add. Such claims need either a census in the same breath or the word *aspiration*. Cf. `CLAUDE.md` § falsifiability, "a doc-comment claim is not a behaviour".
+
+**Consequence, deliberately narrow:** the debt is recorded with a risk-ordered paydown (silent-`0.0` copies first, missing-non-finite-guard second, plain `f64` third, `f32` hot paths last or never) and explicitly **not** auto-fixable — each migration is a decision about what that call site should do when the estimate is undefined, which is exactly the information the current code discards.
+
 ## 2026-08-04 — E-EXACT-FIT-IS-WHERE-ABSOLUTE-ZERO-GUARDS-BREAK-1 — a misfit guard written as `x < 0.0` rejects the PERFECT case, and the doc example is what caught it
 
 **Status:** FINDING (two measured defects, both fixed in the same commit). **Confidence:** High — reproduced, fixed, and each now carries a regression test. Code: `crates/jc/src/stats.rs` (D-KIA-C1b).

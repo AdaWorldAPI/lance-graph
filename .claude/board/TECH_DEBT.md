@@ -1,5 +1,50 @@
 # Technical Debt Log — Open + Paid (double-entry, append-only)
 
+## TD-STATS-DEGENERACY-CONTRACT-DIVERGENCE (2026-08-04)
+
+**Measured, not estimated** (at `a9f813c`, workspace-wide grep over `crates/`):
+
+| return type of hand-rolled `pearson` / `spearman` / `cronbach_alpha` | definitions |
+|---|---|
+| bare `f64` | 47 |
+| bare `f32` | 9 |
+| **`Option<f64>` (the degeneracy contract)** | **3 — all of them jc's own** |
+
+**The debt is a CONTRACT divergence, not duplication.** `jc::reliability`'s
+whole documented design point is that degenerate input (constant series,
+ragged lengths, `n < 2`, non-finite values, overflowed denominators) returns
+`None`, so a caller can never mistake an undefined estimate for a measured
+one. The 56 hand-rolled copies drop that guarantee, and at least one
+**collapses every degeneracy to `0.0`** — `perturbation-sim/src/stats.rs:11`
+returns `0.0` for ragged input, for `n < 2`, and for zero variance, which is
+byte-identical to a genuine "perfectly uncorrelated" result. A caller cannot
+distinguish *"r = 0 because the variables are unrelated"* from *"r = 0 because
+I handed you a constant vector"*. Several also omit the non-finite guard
+entirely, so a `NaN` in the input propagates to a finite-looking or `NaN`
+result rather than being rejected.
+
+**This is the falsifiability rule's defect class one level down:** a statistic
+that reports `0.0` for "undefined" **cannot fail visibly**, exactly like a
+guard that never fires. It is worse than a wrong number because it is a wrong
+number wearing the costume of a right one.
+
+**Also a correction to a shipped doc claim.** `reliability.rs`'s module header
+says callers rolled their own "until now", implying consolidation happened.
+The measurement says otherwise: consolidation happened for *new* callers only
+(4 jc examples), while 56 pre-existing definitions remain. The header
+overstates; treat it as *aspiration*, not inventory, until this is paid.
+
+**Not paid here, deliberately.** Migrating 56 definitions across ~26 files is
+its own wave, each call site owned by its author per the workspace's
+clippy-tier convention, and several are `f32` in hot paths where the `Option`
+wrapper is a real (if small) signature change. **Suggested paydown order by
+risk:** (1) any duplicate returning `0.0` for degeneracy — the silent-wrong
+class; (2) duplicates without a non-finite guard; (3) plain `f64` duplicates
+that already reject degeneracy some other way; (4) `f32` hot-path copies last,
+if at all. **Do not auto-fix** — each migration is a decision about what the
+call site should do when the estimate is undefined, which is precisely the
+information the current code throws away.
+
 ## TD-WORKSPACE-FMT-DRIFT (2026-07-30)
 
 **Measured, not estimated.** `cargo fmt --all -- --check` at

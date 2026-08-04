@@ -282,6 +282,44 @@ non-binary escalation). The implementation and every doc name the dichotomous
 forms; reporting "Pearson" while computing φ is the defect class this arm
 exists to prevent.
 
+> **✅ C2 AUDIT RESULT (2026-08-04) — no rename work exists today; the
+> discipline binds prospectively at D3.** The `jc::reliability` battery has
+> exactly **four** consumers, all in `crates/jc/examples/`, and **none feeds
+> dichotomous data**:
+>
+> | consumer | what it correlates | domain |
+> |---|---|---|
+> | `style_table_agreement.rs` | style-table resonance / fan_out / exploration columns | continuous `f64` |
+> | `rung_divergence_reliability.rs` | `dispatch_rung` vs `loci_rung` over the 34 recipes | ordinal 1–10 |
+> | `partof_isa_vs_palette256.rs` | palette256² distances vs `part_of:is_a` path distances | continuous + multi-valued discrete (self-labelled in its own output) |
+> | `l9_loci_real_text.rs` | i4 loci offsets (\|offset\|, 0..8) | multi-valued |
+>
+> So **Pearson / α / ICC are correctly named at every existing call site** —
+> C2's defect ("reporting Pearson while computing φ") has **zero instances**
+> to fix. Checked, not assumed: `probe_p1.rs` and `sigma_probe.rs` import
+> other `jc` modules and never touch the battery, and
+> `lance-graph/examples/g0_graph_loadbearing.rs` matched only a `println!`
+> string naming `jc::reliability` as future work. Binary 0/1 codings DO exist
+> in the tree (`probe_babel_stances.rs:784,792`) but feed a NARS belief arena,
+> not a reliability statistic.
+>
+> **C2 is therefore a forward discipline, not a migration.** It binds at the
+> first binary-criteria witness — which is D3's. `stats.rs` already makes half
+> of it structural: `phi` takes `&[bool]`, so "compute φ, call it Pearson"
+> cannot be written; the remaining half (feeding 0/1 `f64` to `pearson` and
+> *reporting* "Pearson") stays a naming obligation on D3's author, with the
+> marginal-capped ceiling caveat documented at `phi`.
+>
+> **What the audit surfaced instead — a real and larger finding:**
+> `TD-STATS-DEGENERACY-CONTRACT-DIVERGENCE`. **56** hand-rolled
+> `pearson`/`spearman`/`cronbach_alpha` definitions across ~26 files return a
+> bare `f64`/`f32` against **3** returning `Option` (jc's own), and at least
+> one collapses *every* degeneracy — ragged input, `n < 2`, zero variance — to
+> **`0.0`**, indistinguishable from a genuine "uncorrelated" measurement. That
+> is the falsifiability rule's defect class one level down: a statistic that
+> cannot report its own undefinedness. Not paid here (it is its own wave); the
+> risk-ordered paydown is in the TECH_DEBT entry.
+
 **C3 — reliability vs validity split (hard gate).** α/KR-20/ICC/κ = 
 **reliability**, claimable from the cohort alone. **Validity requires an
 external criterion** (an external gold-standard criterion, defined on the private consumer board) and

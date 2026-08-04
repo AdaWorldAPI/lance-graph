@@ -11,6 +11,7 @@ Plan: `.claude/plans/kanban-64k-inverted-awareness-v1.md` (operator anchors a/b;
 | D-KIA-B1 | catalog binary-range criterion contract type + generalized catalog-mirror drift guard | lance-graph | Queued | plan W3 |
 | D-KIA-C5 | cohort-statistic witness type under the ELEVATED carve-out + held-out anti-circularity gate | lance-graph | Queued | plan W4 |
 | D-KIA-D1 | observer/observed as two Locus categories over one arena (cheapest-first) | lance-graph | Queued | plan W5 |
+| D-KIA-C2 | Name the dichotomous statistics correctly (Pearson->phi, alpha->KR-20, kappa NOT a renamed ICC, Spearman dropped on binaries). AUDIT RESULT 2026-08-04: the jc reliability battery has exactly 4 consumers (style_table_agreement, rung_divergence_reliability, partof_isa_vs_palette256, l9_loci_real_text) and NONE is dichotomous — style columns, rung levels 1-10, palette/taxonomy distances, i4 loci offsets are all continuous/ordinal, so Pearson/alpha/ICC are correctly named at every existing call site and there is ZERO rename work today. The discipline binds PROSPECTIVELY at the first binary-criteria witness (D3). Surfaced instead: TD-STATS-DEGENERACY-CONTRACT-DIVERGENCE | lance-graph | Audited (no rename work; binds at D3) | plan W0/C2 |
 | D-KIA-D3 | Horizontverschmelzung fusion falsifier, middle band pre-registered; corpus-side Synthesis producer (un-blocks session task #65 gate 1 — session-local task list, not a GitHub number) | lance-graph | Queued | plan W6 |
 
 ## PROBE-BABEL-STANCES — two Rosetta stones + four-channel phase split (IN PR — slice 2, 2026-07-28)
