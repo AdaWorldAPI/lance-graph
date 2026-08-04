@@ -502,3 +502,100 @@ The desired result is a straight railway track, not a grand unification:
 **contract defines · planner proposes and seals · supervisor owns and applies ·
 shader thinks · Lance persists**; adjacent crates observe, adapt, or provide
 optional capabilities.
+
+---
+
+## 12. Arm BLW — the Bible lens wave: 64k thoughts firing at once, four stances, measurable Horizontverschmelzung
+
+> **Status:** PLANNED / CONJECTURE. Operator-directed 2026-08-04. Adds **no new
+> subsystem** — the lens is a thought body in the §5.4 pluggable seam, the
+> corpus is the shipped KJV bake, the four stances are the shipped B6 panel, and
+> the fusion read is `temporal.rs`'s existing version-range surface. §7's
+> exclusions hold verbatim: `persist_sink.rs` and `temporal.rs` are **not
+> modified**, only consumed.
+
+### 12.1 The shape, and the one architectural decision
+
+**ONE 64k SoA bake of the whole Bible. Not 1+1+4.**
+
+The operator offered two shapes — six parallel SoAs (base + Gadamer + four
+lenses), or one sealed series read as a time series. **The six-SoA shape is
+rejected, and not on cost grounds:** four lens SoAs would be *copies of the same
+64k verse rows* differing only in which stance reads them. A stance read is a
+**projection**, not a cross-input derivation of a higher KIND, so the zero-copy
+law's ELEVATED carve-out (the `Locus::Quorum` precedent) does **not** cover it —
+the `zero-copy-warden` verdict for that shape is **MATERIALIZES**. The 6× memory
+is the smaller objection; the law is the real one.
+
+So:
+
+```
+one KJV bake  →  64k verse-owners in ONE MailboxSoA
+                      │
+        cycle Vn:  sparse sealed transition set (§3) — 17 dirty, not 64k
+                      │
+        CognitiveWork body (§5.4 seam) = apply stance L to the owner's slice
+                      │
+        Outcome → owner_adapter::emit_bootstrap_intent → cast into Vn+1
+                      │
+        seal Vn  ────────────────────────────────────────────┐
+                                                             │
+   FOUR STANCES ARE FOUR READS OF THE SEALED SERIES, NOT FOUR BAKES
+   Hegel(Aufhebung) · Nietzsche(genealogy-flip) · Kant(critique) ·
+   Wittgenstein(meaning-as-use)   — all shipped in probe_eyes_opened.rs
+```
+
+The lens does not own a mailbox, does not add a node type, and does not change
+the stride. It is a function over an owner's arena slice, dispatched through the
+seam the driver already exposes.
+
+### 12.2 Gadamer, mechanically: a priori and hindsight are the SAME data, two reads
+
+Horizontverschmelzung needs no third mode. The sealed version series supports
+both readings the operator named, and `temporal.rs` already distinguishes them:
+
+| Gadamer | mechanically | temporal.rs surface |
+|---|---|---|
+| **a priori** — *Vorurteil*, the prejudice that is the **condition** of understanding, not its defect | the horizon is the **prior sealed version `Vn`**, read at plan-evaluation time and fed into cycle `Vn+1`'s thought | single-version read, `QueryReference::at(Vn, rung)` — **filter** |
+| **hindsight** — *wirkungsgeschichtliches Bewusstsein*, fusion recognised after the fact | the horizon is a **version RANGE** `Vn..Vm`, deinterlaced at read time | range read + deinterlace — **cascade** |
+
+**Nothing is chosen at bake time.** One series, two reads, per
+`E-MARKOV-TEMPORAL-STREAM-1` (the trajectory lives on the sorted stream; any
+width, per-reader rung, replayable, zero copies). This is why the time-series
+shape is not merely cheaper than 1+1+4 — it is the only one where the a-priori
+and hindsight readings are *the same object*.
+
+### 12.3 Deliverables
+
+| ID | Deliverable | Falsifier (what input makes it fail) |
+|---|---|---|
+| **D-BLW-1** | **one 64k KJV SoA + the lens body in the §5.4 seam** — verse-owners registered in one `MailboxSoA`; `CognitiveWork` dispatches a stance over the owner's slice; Outcome round-trips via `emit_bootstrap_intent`. | Reuse P4a/P4b/P4c verbatim at KJV scale: N casts → **one** WAL write + **one** version; only the sealed sparse set advances (**anti-vacuity:** assert the untouched remainder is byte-identical, not merely that the dirty set moved); an Outcome cast in `Vn` is collected and applied in `Vn+1`. |
+| **D-BLW-2** | **the four stances as reads over the sealed version** — Hegel / Nietzsche / Kant / Wittgenstein each produce a per-verse binary verdict from `at(Vn)`. | **The discrimination twin — the gate most likely to fail.** Pairwise `jc::stats::binary_association` over verses: (a) *can-discriminate* — at least one lens pair has κ materially **below** 1 on a non-trivial share of units; (b) *can-agree* — at least one pair has κ materially **above** 0. Four lenses that rank everything identically carry exactly as much information as one (the `closed_class_guess` 150/150 defect); four that agree nowhere are noise, not perspectives. **Report the full table — counts + BOTH marginals + `p_o`/`p_e` — never bare κ** (`BinaryAssociation` exists precisely because κ and φ are uninterpretable without marginals). |
+| **D-BLW-3** | **Horizontverschmelzung as a measured trajectory** — pairwise lens agreement tracked across the sealed series `V1..Vn`, under both the a-priori (single-version) and hindsight (range) reads. | **Fusion must MOVE.** If pairwise κ between two lenses is flat across the series, no horizons merged and the word is decoration. **Kill condition:** flat κ ⇒ the claim regrades to *"four independent stance reads over a shared corpus"* — still true, still useful, **not Gadamer**. The two reads must also be compared: if the a-priori and hindsight trajectories are identical, the distinction is not doing work and should be dropped rather than narrated. |
+| **D-BLW-4** *(scale)* | **64k concurrent thought bodies** — the parallelism claim, at KJV scale. | Inherits W2's **pre-registered, non-adjustable** thresholds: median of ≥5 runs after one discarded warm-up; ≥2× speedup at ≥4,096 owners with ≥100 µs bodies. **Kill:** failure regrades claim (a) to *"64k-scale **sequential** sparse cycles"* — still true, different claim. |
+
+### 12.4 Claim ceiling (carried from the D3a/D3b split — do not re-cross it)
+
+κ and φ between two lens projections measure **overlap**, not validity. A
+Horizontverschmelzung measured this way is a **reliability-class** statement:
+*these two horizons agree more (or less) than chance, and that agreement moved.*
+It is **not** evidence that the fusion produced *better* understanding — that is
+D3b, and D3b stays blocked on an external criterion and a criterion-appropriate
+held-out score. Reliability is not validity (plan C3); the #888 board correction
+exists because this exact line was crossed once already.
+
+**Significance:** `jc::stats` p-values are classical **independent-sample**
+p-values. Verses within a book are domain-correlated, so they do **not** apply
+unmodified here — any significance claim over this corpus needs its own
+justified dependence model, named at the claim site (C4, as corrected).
+
+### 12.5 What this arm must NOT do
+
+- **No sixth SoA, no lens-owned mailbox, no stance node type.** A lens is a read.
+- **No modification of `persist_sink.rs` or `temporal.rs`** (§7) — the range read
+  uses the surface that already exists.
+- **No new statistics.** `binary_association` / `cohen_kappa` / `phi` ship in
+  `jc::stats`; the `jc` additive constraint continues to hold — those functions
+  are the independent reference frame this arm is measured against, and are not
+  to be "improved" while being used as the oracle.
+- **No fusion or validity claim** before D3b (§12.4).
