@@ -530,9 +530,9 @@ is the smaller objection; the law is the real one.
 So:
 
 ```
-one KJV bake  →  64k verse-owners in ONE MailboxSoA
+one KJV bake  →  64k verse rows, TILED across 64 owners of MailboxSoA<1024>
                       │
-        cycle Vn:  sparse sealed transition set (§3) — 17 dirty, not 64k
+        cycle Vn:  sparse sealed transition set (§3) — 17 dirty owners, not 64
                       │
         CognitiveWork body (§5.4 seam) = apply stance L to the owner's slice
                       │
@@ -549,6 +549,47 @@ The lens does not own a mailbox, does not add a node type, and does not change
 the stride. It is a function over an owner's arena slice, dispatched through the
 seam the driver already exposes.
 
+#### 12.1a Correction (2026-08-04): "ONE MailboxSoA" was wrong twice — the bake is TILED
+
+The first draft of this section wrote *"64k verse-owners in ONE MailboxSoA"*.
+That is corrected in place, on two independent grounds. **The anti-6× ruling
+above is untouched** — tiling is a *partition of one corpus*, not a second
+projection of it, so the `zero-copy-warden` verdict that rejected the six-SoA
+shape does not reach it.
+
+1. **It contradicted the very next line of its own diagram.** A sparse sealed
+   transition set is a sparse set of *owners*. One `MailboxSoA` **is** one
+   owner, so a single-SoA shape cannot express "17 dirty, not 64k" at all —
+   its dirty set is always 0 or 1. The sparse-cycle mechanic (§3), which is
+   the whole point of the driver, requires many owners.
+2. **It was not constructible.** `MailboxSoA<N>`
+   (`cognitive-shader-driver/src/mailbox_soa.rs:58`) allocates `content` +
+   `topic` + `angle` as `3 × N × WORDS_PER_FP × 8 B` with
+   `WORDS_PER_FP = 256` (ibid.:39, :322-324) = **6,144 B/row**. That is the
+   designed hot layout ("~6 KB/thought", ibid.:136-141), not an accident — so
+   65,536 verse rows cost **384 MiB of identity planes no matter how they are
+   tiled**. Tiling does not reduce that total; it is a fact about the corpus
+   size and must be stated wherever a 64k bake is proposed. What tiling *does*
+   fix is the second half: `MailboxSoA::new` builds `Self { … }` **by value**,
+   and the fixed-size columns hand-sum to ~82 B/row (excluding struct
+   padding — this is a sum of the declared array types, not a measured
+   `size_of`), so `MailboxSoA<65536>` is a ~5.1 MiB stack temporary against a
+   2 MiB default spawned/tokio-worker thread stack. Whether that temporary is
+   elided is an optimization detail and not something to build on.
+   `MailboxSoA<1024>` is ~82 KiB of stack and 6 MiB of planes per tile.
+
+**Resolved shape: 64 tiles × `MailboxSoA<1024>` = 65,536 verse rows.** Note the
+`w_slot < 64` constraint (ibid.:293-296) is exactly saturated at 64 tiles —
+`w_slot = tile_index` uses the full 6-bit W field with nothing to spare, so a
+corpus larger than 64 tiles needs a second W-dimension, not a wider field.
+
+**Consequence for D-BLW-1's falsifier:** 384 MiB is too heavy for routine CI, so
+the falsifier runs at a tractable tile count in CI and the full 64-tile run is a
+separate `#[ignore]`d test carrying the byte figure in its reason string. A
+`#[ignore]`d test that is never actually run is a claim without a measurement —
+the full-scale run must be executed centrally at least once and its result
+recorded, or D-BLW-1 is not closed.
+
 ### 12.2 Gadamer, mechanically: a priori and hindsight are the SAME data, two reads
 
 Horizontverschmelzung needs no third mode. The sealed version series supports
@@ -561,9 +602,22 @@ both readings the operator named, and `temporal.rs` already distinguishes them:
 
 **Nothing is chosen at bake time.** One series, two reads, per
 `E-MARKOV-TEMPORAL-STREAM-1` (the trajectory lives on the sorted stream; any
-width, per-reader rung, replayable, zero copies). This is why the time-series
-shape is not merely cheaper than 1+1+4 — it is the only one where the a-priori
-and hindsight readings are *the same object*.
+width, per-reader rung, replayable). This is why the time-series shape is not
+merely cheaper than 1+1+4 — it is the only one where the a-priori and hindsight
+readings are *the same object*.
+
+> **Precision note (2026-08-04), verified against source before use in this
+> arm:** the surfaces exist as named — `QueryReference::at(ref_version, rung)`
+> (`lance-graph-planner/src/temporal.rs:167`) and `deinterlace(rows, v_ref,
+> deps)` (ibid.:346) — but `deinterlace` is `-> Vec<R>` and `.cloned()`s the
+> admitted rows (ibid.:351-364). It is a **filtered selection with clone**, not
+> a zero-copy projection. The stream doctrine's "zero copies" is therefore
+> dropped from the sentence above, and **no D-BLW-3 result line may claim the
+> hindsight read is zero-copy.** In this arm the cloned rows are small per-verse
+> verdict records, so the cost is a selection over lightweight rows and not a
+> copy of the substrate — which is why this is a *wording* correction and not a
+> blocker. `temporal.rs` is **not** modified (§12.5); the inaccuracy is recorded
+> where it is consumed, not patched where it is defined.
 
 ### 12.3 Deliverables
 

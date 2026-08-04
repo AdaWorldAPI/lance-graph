@@ -1,3 +1,15 @@
+## 2026-08-04 — E-THE-DIAGRAM-CONTRADICTED-ITS-OWN-NEXT-LINE-1 — a shape spec that no line of its own diagram could satisfy
+
+**Status:** FINDING (two independent grounds, both checked against source before the correction). **Confidence:** High. Corrected in place at `.claude/plans/cycle-loop-closure-driver-v1.md` §12.1a.
+
+**What happened.** Arm BLW's §12.1 specified *"64k verse-owners in ONE `MailboxSoA`"*, and the **next line of the same ASCII diagram** read *"sparse sealed transition set — 17 dirty, not 64k"*. Those cannot both hold: a sparse sealed set is a sparse set of *owners*, one `MailboxSoA` **is** one owner, so the single-SoA shape has a dirty set of 0 or 1 and cannot express sparseness at all. The mechanic the whole driver exists for was excluded by the line directly above it.
+
+**The second ground is arithmetic, and it is the one worth carrying.** `MailboxSoA<N>` allocates three identity planes at `3 × N × 256 × 8 B` = **6,144 B/row** — the *designed* hot layout, not an accident. So a 64k-row corpus is **384 MiB of planes regardless of how it is tiled**: tiling changes the stack shape (a ~5.1 MiB by-value construction at `N=65536` against a 2 MiB default worker stack, vs ~82 KiB at `N=1024`) but **not one byte** of the plane total. The instinct that "tiling will fix the memory" is wrong; tiling fixes constructibility.
+
+**The class.** A shape spec written as prose plus a diagram can carry a contradiction *between the prose and the diagram* that neither half reveals when read alone — and a per-row cost stated as a friendly per-unit figure ("~6 KB/thought", true and documented at the type) hides its own total until multiplied by the actual corpus. **Both defects were invisible until the spec was priced against real source.** Neither needed a run to find; both needed the constructor read.
+
+**Sibling check:** any plan naming a row count and a container in the same sentence — multiply the type's per-row cost by the row count and write the total down; and any diagram whose adjacent lines quantify the same thing at different cardinalities.
+
 ## 2026-08-04 — E-A-CRITERION-MUST-BE-IN-THE-SAME-UNITS-AS-THE-TEST-IT-FEEDS-1 — the ω anchor was wrong three times, each time for the same reason
 
 **Status:** FINDING (three measured defects, each reproduced before fixing). **Confidence:** High. Code: `crates/jc/src/stats.rs::omega_total`.
