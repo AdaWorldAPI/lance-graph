@@ -326,6 +326,26 @@ updating the relevant board file in the SAME commit is incomplete.**
 repository have to exclusively focus on the necessary updates in the public
 repository, and keep a separation of concerns.**
 
+**Termination clause — the rule does not recurse (added 2026-08-04, three
+links deep).** A PR whose ENTIRE content is board hygiene for prior PRs —
+it adds no type, plan, deliverable, epiphany, or code — **does not itself
+generate an arc entry.** It is discharged by the entry it wrote. Without
+this clause the rule is an infinite chain: #884 recorded #881/#882/#883,
+#885 recorded #884, and an entry for #885 would need its own forever. The
+chain that produced this clause stops at #885.
+
+The test is *content*, not intent: does the PR change anything a future
+session would need the "why" for? A hygiene-only PR's why **is** the entry
+it added, already in the arc — a second entry saying "this PR added an
+entry" carries no architectural context and costs a real read. **A mixed PR
+still gets its entry** — if it lands hygiene *and* a decision, scope, code,
+or correction (as #884 did with the D-KIA-C1b re-scope), the non-hygiene
+half is what the entry is for.
+
+This is a stopping rule, not a loosening: the original gap — merging #881,
+#882 and #883 with no entries at all — remains a real violation. What is
+excluded is only the degenerate tail.
+
 ### The falsifiability rule (P0, added 2026-07-26 — 7 instances in one session)
 
 **An assertion implied by the code it tests is not a test.** Before a test

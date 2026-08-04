@@ -1,3 +1,17 @@
+## 2026-08-04 — E-THE-HYGIENE-RULE-RECURSED-1 — a rule that requires an entry per merged PR generates an infinite chain unless hygiene-only PRs are exempted
+
+**Status:** FINDING + rule amendment (termination clause added to `CLAUDE.md` § Mandatory Board-Hygiene Rule). **Confidence:** High — the chain is three links of observed fact, not a projection. Documentation only.
+
+**What happened, in order.** #881/#882/#883 merged with no arc entries — a real violation of the hygiene rule. **#884** was opened to close that gap, and merged without its own entry. **#885** was opened to close *that* gap, and merged. At that point the shape became visible: an entry for #885 would need an entry, and so on without end. Each individual step was the rule correctly applied; the composition was a non-terminating loop.
+
+**Why it was invisible for three links.** The rule is stated per-PR (*"a PR that adds X must also update Y"*), and each application is locally correct — which is exactly the property that hides a divergent recursion. The failure only shows at the third link, when the *content* of the newest PR is nothing but a record of the previous one. Two prior sessions each wrote the honest local lesson ("writing the hygiene PR does not discharge the rule for the hygiene PR") without noticing that the lesson, applied uniformly, never terminates.
+
+**The amendment.** A PR whose ENTIRE content is board hygiene for prior PRs — no type, plan, deliverable, epiphany, or code — does not itself generate an arc entry; it is discharged by the entry it wrote. **The test is content, not intent:** does the PR change anything a future session needs the *why* for? A hygiene-only PR's why IS the entry already in the arc; a second entry saying "this PR added an entry" carries no architectural context and costs a real read. **Mixed PRs still get their entry** — #884 landed hygiene *and* the D-KIA-C1b re-scope, and the entry exists for the re-scope half.
+
+**What this is NOT.** Not a loosening. The originating gap — three PRs merged with no entries at all — remains a violation, and the retroactive-hygiene pattern it belongs to is still the anti-pattern the rule was written against. Only the degenerate tail is excluded.
+
+**The transferable shape.** *A per-item obligation whose discharge is itself an item of that kind needs an explicit base case, or it is a recursion with no bottom.* Worth checking wherever the workspace states a rule of the form "every X must produce a Y" and Y is itself an X: the append-only governance files, the probe-records-a-probe pattern, and any future "every finding gets an entry" convention are the same shape. The cheap check is to apply the rule twice to its own output and see whether the third application says anything new.
+
 ## 2026-08-04 — E-ACTOR-IS-NOT-THE-PHASE-PATH-1 — #879 is the complete phase-progression path; KanbanActor has no assigned architectural responsibility
 
 **Status:** RATIFIED (operator ruling, 2026-08-04) + CORRECTION of a same-week over-reach in `kanban-64k-inverted-awareness-v1` §A1. **Confidence:** High. Documentation and legacy-surface quarantine only — **no runtime behaviour changed, no #879 redesign, no future actor proposal.**

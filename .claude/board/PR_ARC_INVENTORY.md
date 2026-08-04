@@ -33,6 +33,17 @@
 > - **Docs** — knowledge files produced (immutable)
 > - **Confidence (YYYY-MM-DD):** — the ONLY mutable field
 
+## 2026-08-04 — lance-graph #886 — the board-hygiene rule gets a termination clause (it was recursing)
+
+**Head:** `<this branch>` (entry written in the same commit as the change, per the rule's own "SAME commit" wording; merge SHA follows on merge). 3 files, doc/board prose only — **no code, no runtime behaviour.**
+
+- **Added.** A **Termination clause** in `CLAUDE.md` § Mandatory Board-Hygiene Rule; `EPIPHANIES.md` `E-THE-HYGIENE-RULE-RECURSED-1`.
+- **Locked — the rule does not recurse.** A PR whose **entire** content is board hygiene for prior PRs (no type, plan, deliverable, epiphany, or code) **does not itself generate an arc entry** — it is discharged by the entry it wrote. **The test is content, not intent:** does the PR change anything a future session needs the *why* for? **Mixed PRs still get their entry** (#884 landed hygiene *and* the D-KIA-C1b re-scope; the entry exists for the re-scope half).
+- **Locked — the chain that produced this stops at #885.** #881/#882/#883 merged entry-less → #884 recorded them → #885 recorded #884 → an entry for #885 would need one, forever. **#885 therefore has no arc entry, deliberately, and its absence is not a gap.**
+- **NOT a loosening.** The originating violation — three PRs merged with no entries at all — stands as a violation, and the retroactive-hygiene anti-pattern is unchanged. Only the degenerate tail is excluded.
+- **Deferred.** Auditing the workspace's other "every X produces a Y" rules for the same missing base case (named in the epiphany as the transferable shape; not swept this session).
+- **Confidence (2026-08-04):** working — prose only, nothing to regress.
+
 ## 2026-08-04 — lance-graph #884 — post-merge arc entries for #881/#882/#883 + D-KIA-C1b statistics re-scope
 
 **Merged:** `1e90cef` (branch `claude/x265-x266-plans-review-h9osnl`, head `c6acd75`). 4 files, board/plan prose only — no code, no runtime behaviour.
