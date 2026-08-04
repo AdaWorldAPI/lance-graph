@@ -141,6 +141,18 @@ jobs:
       # dev-dep, no lance/datafusion.
       - name: Run supervisor tests (W2b real-owner probes)
         run: cargo test --manifest-path crates/lance-graph-supervisor/Cargo.toml --features supervisor
+      # SAME blind gate, one feature over (found 2026-08-04 while wiring Arm BLW):
+      # `cycle_driver` is `#[cfg(feature = "cycle-driver")]` (lib.rs:52-53) and
+      # that feature is INDEPENDENT of `supervisor`, so the step above — which
+      # passes only `--features supervisor` — never compiled the module at all.
+      # The entire P4a/P4b/P4c loop-closure falsifier suite (one WAL write, one
+      # version, sparse sealed set, Outcome round-trip) has therefore never run
+      # in CI since it landed. Fifth instance of the pattern the four steps
+      # around this one exist to close. Kept as its OWN step (not folded into
+      # `--features supervisor,cycle-driver`) so it also proves `cycle-driver`
+      # builds standalone, without ractor. Gating.
+      - name: Run cycle-driver tests (P4 loop-closure falsifiers)
+        run: cargo test --manifest-path crates/lance-graph-supervisor/Cargo.toml --features cycle-driver
       # bgz-tensor: workspace-EXCLUDED metric-algebraic codec crate (deps the
       # ndarray sibling checked out above + in-repo holograph). None of the
       # steps above reach it, so its 207 lib tests — including the V3

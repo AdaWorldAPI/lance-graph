@@ -509,8 +509,11 @@ optional capabilities.
 
 > **Status:** PLANNED / CONJECTURE. Operator-directed 2026-08-04. Adds **no new
 > subsystem** — the lens is a thought body in the §5.4 pluggable seam, the
-> corpus is the shipped KJV bake, the four stances are the shipped B6 panel, and
-> the fusion read is `temporal.rs`'s existing version-range surface. §7's
+> corpus is the shipped KJV bake, the four stances are **per-verse binary
+> projections of** the shipped B6 panel (see §12.3a — the panel's own outputs are
+> a ranking, a partition, a lift list and a concept→count map, **none of which is
+> a per-verse binary**), and the fusion read is `temporal.rs`'s existing
+> version-range surface. §7's
 > exclusions hold verbatim: `persist_sink.rs` and `temporal.rs` are **not
 > modified**, only consumed.
 
@@ -627,6 +630,115 @@ readings are *the same object*.
 | **D-BLW-2** | **the four stances as reads over the sealed version** — Hegel / Nietzsche / Kant / Wittgenstein each produce a per-verse binary verdict from `at(Vn)`. | **The discrimination twin — the gate most likely to fail.** Pairwise `jc::stats::binary_association` over verses: (a) *can-discriminate* — at least one lens pair has κ materially **below** 1 on a non-trivial share of units; (b) *can-agree* — at least one pair has κ materially **above** 0. Four lenses that rank everything identically carry exactly as much information as one (the `closed_class_guess` 150/150 defect); four that agree nowhere are noise, not perspectives. **Report the full table — counts + BOTH marginals + `p_o`/`p_e` — never bare κ** (`BinaryAssociation` exists precisely because κ and φ are uninterpretable without marginals). |
 | **D-BLW-3** | **Horizontverschmelzung as a measured trajectory** — pairwise lens agreement tracked across the sealed series `V1..Vn`, under both the a-priori (single-version) and hindsight (range) reads. | **Fusion must MOVE.** If pairwise κ between two lenses is flat across the series, no horizons merged and the word is decoration. **Kill condition:** flat κ ⇒ the claim regrades to *"four independent stance reads over a shared corpus"* — still true, still useful, **not Gadamer**. The two reads must also be compared: if the a-priori and hindsight trajectories are identical, the distinction is not doing work and should be dropped rather than narrated. |
 | **D-BLW-4** *(scale)* | **64k concurrent thought bodies** — the parallelism claim, at KJV scale. | Inherits W2's **pre-registered, non-adjustable** thresholds: median of ≥5 runs after one discarded warm-up; ≥2× speedup at ≥4,096 owners with ≥100 µs bodies. **Kill:** failure regrades claim (a) to *"64k-scale **sequential** sparse cycles"* — still true, different claim. |
+
+### 12.3a Adjudicated design (2026-08-04) — four premises of §12.3 were wrong, verified in source
+
+A D-BLW-2 design pass checked §12.3's premises against the code. Four did not
+survive. Each was **re-verified independently before being recorded here**; the
+line numbers are the checks, not the report.
+
+**(1) Hegel is constant-false on the TSV path — so the cheap route is dead.**
+`reason_whole_book.rs:92-96` observes every triple at `TruthValue::new(1.0, 0.9)`,
+and `BeliefArena::revise_at` sets `depth = (b.truth.frequency − new.frequency).abs()`
+(`belief.rs:194`). Uniform frequency ⟹ `depth ≡ 0.0` ⟹ `Belief.contradiction`
+never leaves `0.0` ⟹ `contradiction_ranking`'s `> 0.05` filter is empty for the
+whole book. **Consequence:** the "re-derive the four binaries from arena + TSV"
+option is not cheap-but-lossy, it is *impossible for two of four lenses*.
+
+**(2) Negation never reaches the inbound leg, so extending the TSV cannot fix
+(1).** `deepnsm_v2::Spo` is three `WordId`s with no polarity field, and `not`
+carries PoS `x` → `Pos::Other` → skipped by the FSM. `Provenance.negated` is the
+sole input to the Nietzsche stance, and negation is the only source of the
+low-frequency emissions that create contradiction depth at all. Adding TSV
+columns would mean porting the clause machine into the inbound leg — which
+`E-DEEPNSM-V2-IS-INBOUND-LEG-REASONING-LIVES-IN-LANCE-GRAPH-1` forbids.
+
+**(3) The obvious Kant bit is a tautology.** `RungLift.quale = modal * staunen_at`
+(`probe_eyes_opened.rs:465`) and the panel's ablated value is
+`UNIFORM_MODAL(0.5) * l.staunen_at` (ibid.:616, 624). So
+`quale > ablated ⟺ (modal − 0.5)·staunen_at > 0`, and **both** shipped modals
+(0.85, 0.70) exceed 0.5 — the bit is true for every verse holding any lift.
+That is the `closed_class_guess` 150/150 defect, caught *before* it was written.
+**The Kant binary is therefore rank-based:** true iff the verse holds a lift the
+graded ordering ranks strictly higher than the uniform-modal ordering does.
+Ranking is relative, so promotions and demotions balance and the positive rate
+cannot reach 1 by construction. **Mandatory companion:** report
+`binary_association(kant, modal_only)` where `modal_only[i] = ∃ lift at i with
+modal > 0.7`; κ ≥ 0.95 means the lens is a re-labelled verb detector and **the
+result line must say so** rather than present it as a stance.
+
+**(4) `QueryReference::at` is a reader PIN, not a data read — but D-BLW-3 is NOT
+blocked.** The design pass concluded D-BLW-3 was blocked because
+`at(ref_version, rung) -> Self` (`temporal.rs:167`) returns a coordinate and
+nothing materializes a `BeliefArena` from a `LanceVersion`. The first half is
+right; **the conclusion is not, and this plan overrides it.** D-BLW-3 never needed
+arena reconstruction: `deinterlace(rows, v_ref, deps)` (`temporal.rs:346`) takes
+**caller-supplied rows** over the public, externally-implementable
+`trait DeinterlaceRow` (`temporal.rs:318`) with `NoDeps` (`temporal.rs:271`)
+already provided. So the harness emits one lightweight **per-(verse, version)
+verdict row** as the sealed series is produced, implements `DeinterlaceRow` on it
+(`lance_version()` = the sealing version), and gets **both** reads off the real
+surface: a-priori = `deinterlace` at `QueryReference::at(Vn, rung)`; hindsight =
+the same over a version range. Nothing is reconstructed and nothing in
+`temporal.rs` is modified (§12.5 holds).
+
+**Placement ruling: lift the machinery into the library.** `stream` / `Interner` /
+`ReadOut` / `Provenance` / `RungLift` / `FlipKind` / `contradiction_ranking` /
+`stance_panel` move from `probe_eyes_opened.rs` into
+`lance_graph_planner::nars::stance`; the probe keeps its `main()` and imports
+instead of defining. **The lift's own falsifier is that the probe's B1–B6 asserts
+stay byte-for-byte green** — if they move, the lift changed behaviour. Rationale:
+options (2) and (1) are dead, and a fresh re-statement in the BLW module would
+create a *second, divergent* definition of four stances.
+
+**Known scope not yet paid (do not discover this late):** the labelled verse
+parser `parse_kjv_genesis` hard-stops on a Genesis-specific end marker
+(`probe_eyes_opened.rs:802`), while `bible_wave`'s splitter runs the whole book
+but keeps **no** chapter:verse label. The BLW module needs labelled verses for
+the whole book, so generalizing the parser is real work, not a config change.
+
+**Pre-registered discrimination-twin thresholds** (fixed here, before any run,
+**non-adjustable after** — a miss is a miss). Six pairs over the four lenses:
+- **can-discriminate:** ∃ a pair with `kappa = Some(k)`, `k ≤ 0.80`, **and**
+  `(n01 + n10) ≥ 0.05·N`. `0.80` is the Landis–Koch floor of the "almost
+  perfect" band — an external convention that predates this corpus and so cannot
+  have been fitted to it. The count clause supplies §12.3's "non-trivial share"
+  on *counts*, because κ can fall well below 1 on a handful of discordant cells
+  when the marginals are lopsided.
+- **can-agree:** ∃ a pair with `k ≥ 0.20` **and** both positive rates in
+  `[0.05, 0.95]`. `0.20` is the Landis–Koch slight/fair boundary; the marginal
+  guard is what stops two near-constant lenses "agreeing" on a sea of `false`.
+- **corpus floor:** `N ≥ 1,000` verses, so the 5 % disagreement floor is ≥ 50
+  discordant cells. Below that the marginals are too noisy to read and the twin
+  is not reported at all. The 13-verse inline fixture is **far** below this and
+  must never be used to claim the twin.
+- The two halves MAY be satisfied by different pairs; if one pair satisfies both,
+  that is reported explicitly — it means one pair is doing all the work.
+
+**Degeneracy assertions (a κ that is printable but meaningless must be visible):**
+compute each lens's positive rate *before* pairing and assert `0 < rate < 1`; any
+lens outside `[0.01, 0.99]` is stamped `DEGENERATE`, **excluded from both halves'
+∃-quantifier, and the exclusion printed** — never silent. A pair with
+`expected_agreement > 0.95` is stamped `UNSTABLE` and cannot satisfy *can-agree*.
+`binary_association` returning `None` is a **KILL** naming the pair, never a
+skipped row. Assert the six tables are not all identical. `kappa`/`phi` print as
+`undefined(p_e=1)` / `undefined(constant)` when `None` — **never `0.0`, never
+blank, never omitted.**
+
+**Two diagnostics that must ship with the numbers, because they are directions of
+known bias, not hypotheticals:** (a) `stream` normalizes all personal pronouns to
+one corpus-wide referent, so statements from distant books collide and revise
+against each other — report the share of Hegel-positive verses whose triggering
+statement is that referent; (b) `Stamp::source(id) = 1 << (id % 64)` saturates
+after ~64 distinct sources, after which observations route to CHOICE rather than
+revision, **suppressing** contradiction on exactly the hub statements (a) inflates
+— report the count of beliefs with a saturated stamp.
+
+**New dependency, declare it:** `crates/jc` is workspace-EXCLUDED and currently
+has **zero** consumers anywhere in the workspace. The twin harness is the first,
+as a `[dev-dependencies]` path edge from `lance-graph-planner`. Do **not** invert
+it — hosting the harness inside `jc` would drag the planner's whole dep tree into
+a crate whose constitution is zero-dep, and §12.5 keeps `jc` the untouched oracle.
 
 ### 12.4 Claim ceiling (carried from the D3a/D3b split — do not re-cross it)
 

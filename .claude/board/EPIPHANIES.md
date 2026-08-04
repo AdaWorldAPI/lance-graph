@@ -1,3 +1,13 @@
+## 2026-08-04 — E-A-PER-FEATURE-CI-STEP-NAMED-LIKE-PER-CRATE-COVERAGE-1 — the fifth blind gate survived four closings of its own class
+
+**Status:** FINDING (measured: 22 previously-unrun tests, all green on first central run). **Confidence:** High. Fix: a `--features cycle-driver` step in `.github/workflows/rust-test.yml`.
+
+**What happened.** This repo has closed the "green CI that never built the new module" gate four times — deepnsm, deepnsm-v2, supervisor, bgz-tensor, plus the self-asserting probe examples — and each closure is commented in the workflow as such. A fifth instance was sitting *inside the third one*: `crates/lance-graph-supervisor` has TWO independent features, `supervisor` (ractor) and `cycle-driver` (the P4 loop-closure driver), and `cycle_driver` is `#[cfg(feature = "cycle-driver")]` (`lib.rs:52-53`). The CI step passes `--features supervisor` only. **The entire P4a/P4b/P4c falsifier suite — 22 tests including the one-WAL-write/one-version seal, the sparse-set-with-byte-identical-remainder at 65,536 owners, and the Outcome round-trip — had never once run in CI.** They pass; that is not the point.
+
+**Why this one survived the four closings.** The step is named *"Run supervisor tests (W2b real-owner probes)"*. That name reads as **per-crate** coverage — "the supervisor crate's tests run" — while the flag it carries is **per-feature**. Every later audit that scanned the workflow for uncovered crates saw the crate's name present and moved on. The gate was invisible precisely *because* a step for that crate existed.
+
+**The class.** Whenever a crate has two or more *independent* (non-implying) features, one CI step per crate is not coverage — it is coverage of one feature wearing the crate's name. **Sibling check:** for every `--features X` in CI, list the crate's other features and ask which of them `X` does NOT enable; a feature that gates a whole `pub mod` and is not in any CI step is dead to the gate. Name steps after the *feature*, not the crate, so the gap is legible in the step list.
+
 ## 2026-08-04 — E-THE-DIAGRAM-CONTRADICTED-ITS-OWN-NEXT-LINE-1 — a shape spec that no line of its own diagram could satisfy
 
 **Status:** FINDING (two independent grounds, both checked against source before the correction). **Confidence:** High. Corrected in place at `.claude/plans/cycle-loop-closure-driver-v1.md` §12.1a.
