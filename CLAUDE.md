@@ -327,11 +327,15 @@ repository have to exclusively focus on the necessary updates in the public
 repository, and keep a separation of concerns.**
 
 **Termination clause — the rule does not recurse (added 2026-08-04, three
-links deep).** A PR whose ENTIRE content is board hygiene for prior PRs —
-it adds no type, plan, deliverable, epiphany, or code — **does not itself
-generate an arc entry.** It is discharged by the entry it wrote. Without
-this clause the rule is an infinite chain: #884 recorded #881/#882/#883,
-#885 recorded #884, and an entry for #885 would need its own forever. The
+links deep; scope corrected same-day per codex P2).** A PR whose ENTIRE
+content is board hygiene for prior PRs — it adds no type, plan,
+deliverable, epiphany, or code — **generates NONE of the merged-PR row's
+obligations: no arc entry AND no `LATEST_STATE` update.** It is discharged
+by the entries it wrote. Exempting only the arc entry would leave the
+chain alive through the other half — recording the still-required
+`LATEST_STATE` update is itself a hygiene-only PR, forever. Without this
+clause the rule is an infinite chain: #884 recorded #881/#882/#883, #885
+recorded #884, and an entry for #885 would need its own forever. The
 chain that produced this clause stops at #885.
 
 The test is *content*, not intent: does the PR change anything a future
