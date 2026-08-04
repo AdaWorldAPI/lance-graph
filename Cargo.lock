@@ -4991,6 +4991,7 @@ dependencies = [
  "axum 0.8.9",
  "bgz17",
  "causal-edge",
+ "cognitive-shader-driver",
  "lance-graph-contract 0.1.0",
  "ndarray 0.17.2",
  "p64",

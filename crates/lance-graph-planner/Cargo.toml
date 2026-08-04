@@ -46,6 +46,24 @@ axum = { version = "0.8", optional = true }
 [dev-dependencies]
 tokio = { version = "1", features = ["rt-multi-thread", "macros"] }
 
+# D-BLW-1 (`examples/blw_tenant.rs`) — the REAL `MailboxSoaOwner`.
+#
+# **DEV-ONLY, and it must stay dev-only.** The harness needs the production
+# owner (`cognitive_shader_driver::mailbox_soa::MailboxSoA`) because the
+# alternative — a harness-local `MailboxSoaOwner` impl — is exactly the "new
+# SoA" that §12.5 forbids and the fake-owner substitution D-BLW-1 exists to
+# prevent (`cycle_driver.rs`'s `FakeOwner` has no row columns, so no lens
+# reading real data can run over it).
+#
+# The edge is acyclic in the built graph: `cognitive-shader-driver`'s own
+# dependency on `lance-graph-planner` is OPTIONAL and gated behind its
+# `with-planner` feature, which is NOT enabled here (its `default = []`).
+# Even if it were, a dev-dependency cycle is permitted by cargo — but do NOT
+# enable `with-planner` from this edge just to reach `MailboxSoA::cast_on_behalf`:
+# `owner_adapter::emit_bootstrap_intent` is the surface that performs the
+# bootstrap rebind, and `cast_on_behalf` does not.
+cognitive-shader-driver = { path = "../cognitive-shader-driver" }
+
 # NOTE — `jc` dev-dep REMOVED with `examples/blw_lens_twin.rs` (the retired κ
 # instrument; §12.3c). It was added solely for that harness and is now unused,
 # so `crates/jc` is back to ZERO consumers in the workspace.
