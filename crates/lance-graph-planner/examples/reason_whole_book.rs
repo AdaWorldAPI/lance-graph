@@ -83,9 +83,23 @@ fn main() {
             n_inh += 1;
             Copula::Inh
         } else {
+            // SKIP an unparsable predicate id — never fold it into `Rel(0)`.
+            // `unwrap_or(0)` collapses EVERY malformed row into ONE statement
+            // identity, so distinct garbage rows read as re-observations of the
+            // same statement and inflate the counts this harness publishes
+            // (`observed`, the F1/F2 gates). Same treatment as s/o/v above.
+            //
+            // Latent, not active, on the current export: measured 2026-08-04
+            // over `/tmp/kjv_spo.tsv`, **all 40,767 rows parse** (0 failures),
+            // so the published 27,714 / +118,962 / F1 / F2 figures are
+            // unaffected. Fixed because the trap fires the moment the export
+            // format changes, not because a number moved.
+            let Ok(pid) = _pid.parse::<u16>() else {
+                continue;
+            };
             n_rel += 1;
             // a verb term id — kept, but S3 forbids it from ever composing.
-            Copula::Rel(_pid.parse::<u16>().unwrap_or(0))
+            Copula::Rel(pid)
         };
         *subj_degree.entry(s).or_default() += 1;
         // Observed fact: asserted (freq 1.0), moderate confidence; stamp = verse.
