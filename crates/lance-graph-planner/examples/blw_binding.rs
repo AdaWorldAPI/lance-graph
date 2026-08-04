@@ -178,6 +178,18 @@ const DEGENERATE_RATE: f64 = 0.90;
 /// fires, so agreement is additionally reported with such loci masked out.
 const NEAR_CONSTANT_RATE: f64 = 0.90;
 
+/// Minimum co-bound verses before "these two loci agreed 100 % of the time"
+/// counts as evidence of a COLLAPSE rather than a small-sample coincidence.
+///
+/// Fixed at 10 before the run, and the reason is arithmetic rather than taste:
+/// `agree == co_bound` is satisfied **trivially** at `co_bound == 1`, so
+/// without a floor the instrument reports a collapse whenever two loci happen
+/// to bind together exactly once and land on the same offset. That is the same
+/// vacuity the file rejects elsewhere — a test no input can fail. Pairs below
+/// the floor are still PRINTED (suppressing them would hide the raw
+/// observation); they simply do not lower the reported ceiling.
+const COLLAPSE_MIN_N: usize = 10;
+
 /// Size of the shared binding menu — the write-site count, named so the
 /// ceiling is a compile-time fact rather than a comment.
 const MENU_LEN: usize = 9;
@@ -223,6 +235,13 @@ enum Silence {
     /// A target exists but lies outside `[−8, +7]`, so the register cannot name
     /// it. **By measurement** — and disclosed rather than saturated.
     OutOfWindow,
+    /// A target exists and is nameable, but only on the side the rule refuses.
+    /// Emitted **only** by [`pick_backward`], whose locus is backward-only by
+    /// its register gloss. **By measurement**, and kept distinct from
+    /// [`Silence::OutOfWindow`]: reporting "outside ±8" for a target sitting
+    /// two verses LATER would be a false statement about the window, and would
+    /// make the window look narrower than it is in the silence table.
+    WrongDirection,
 }
 
 /// Per-locus silence tally over one stance's whole run.
@@ -236,6 +255,10 @@ struct LocusStat {
     no_candidate: usize,
     /// Facets where the only targets were outside the ±8 window.
     out_of_window: usize,
+    /// Facets where the only in-window targets sat on the refused side
+    /// (backward-only loci). Tallied apart from `out_of_window` so the silence
+    /// table never blames the window for a direction rule.
+    wrong_direction: usize,
 }
 
 impl LocusStat {
@@ -246,6 +269,7 @@ impl LocusStat {
             Silence::NotApplicable => self.not_applicable += 1,
             Silence::NoCandidate => self.no_candidate += 1,
             Silence::OutOfWindow => self.out_of_window += 1,
+            Silence::WrongDirection => self.wrong_direction += 1,
         }
     }
     /// Bind rate over all facets this stance minted (focused verses).
@@ -303,10 +327,22 @@ fn pick(sorted: &[usize], vi: usize) -> (Option<i8>, Silence) {
 fn pick_backward(sorted: &[usize], vi: usize) -> (Option<i8>, Silence) {
     let earlier: Vec<usize> = sorted.iter().copied().filter(|&p| p < vi).collect();
     match pick(&earlier, vi) {
-        // `pick`'s NoCandidate here means "nothing earlier"; distinguish it from
-        // "nothing at all" so the report does not overstate absence.
-        (None, Silence::NoCandidate) if sorted.iter().any(|&p| p != vi) => {
-            (None, Silence::OutOfWindow)
+        // `pick`'s NoCandidate here means "nothing EARLIER" — it saw only the
+        // filtered list. Three genuinely different situations hide behind it,
+        // and collapsing them all onto OutOfWindow (as this did) states
+        // something false: a target two verses LATER is well inside ±8, so
+        // blaming the window makes the window look narrower than it is.
+        (None, Silence::NoCandidate) => {
+            let hi = vi.saturating_add(WINDOW_HI as usize);
+            if sorted.iter().any(|&p| p > vi && p <= hi) {
+                // In range, but on the side this locus refuses by its gloss.
+                (None, Silence::WrongDirection)
+            } else if sorted.iter().any(|&p| p != vi) {
+                // Something exists, but no reading of the window reaches it.
+                (None, Silence::OutOfWindow)
+            } else {
+                (None, Silence::NoCandidate)
+            }
         }
         other => other,
     }
@@ -451,6 +487,20 @@ fn build(verses: &[(String, String)]) -> Ctx {
         .enumerate()
         .map(|(i, (v, _))| (v.as_str(), i))
         .collect();
+    // A duplicated verse LABEL silently collapses to the last row that carried
+    // it, so every provenance entry belonging to the earlier row would be
+    // credited to a different position — and every offset computed from it
+    // would be wrong by that gap, with nothing in the output to show for it.
+    // The label is the corpus's own key here; assert it is one.
+    assert_eq!(
+        pos_of.len(),
+        verses.len(),
+        "duplicate verse label in the corpus: {} rows collapsed to {} distinct \
+         labels. Positions are resolved BY LABEL, so a duplicate silently \
+         re-points every binding computed from the earlier row.",
+        verses.len(),
+        pos_of.len()
+    );
 
     let mut stmts_at: Vec<Vec<(CStmt, bool)>> = vec![Vec::new(); n];
     let mut lifts_at: Vec<Vec<usize>> = vec![Vec::new(); n];
@@ -938,6 +988,53 @@ impl StanceRun {
         }
         out
     }
+
+    /// Pairs of MENU loci that carried the SAME offset on every verse where
+    /// both were bound — i.e. this stance's effective ceiling is lower than
+    /// [`MENU_LEN`] by the size of each such collapsed group.
+    ///
+    /// # Why this is measured rather than asserted
+    ///
+    /// Two loci can be distinct by RULE and still coincide by DATA. `PMeaning`
+    /// (5) picks on the focus statement's relational verb; `MeaningLevel` (13)
+    /// picks on the lift's epistemic verb — different rules, same
+    /// [`Ctx::verb_at`] index. Whenever a stance's focus IS the lift and the
+    /// two verbs are the same token, the two loci resolve to one `pick` and
+    /// return the same offset. `agreement_count` and [`menu_distance`] then
+    /// count that one fact twice.
+    ///
+    /// The file already refuses this shape once — [`pick_backward`] exists so
+    /// `QualiaReference` cannot degenerate into a copy of `Quorum`, on the
+    /// stated ground that *"two loci that always agree would inflate
+    /// `agreement_count` with a redundancy rather than a convergence."* That
+    /// argument does not become false because the collapse arrives through the
+    /// data instead of through the rule, so the same standard is applied here:
+    /// disclose it per stance, with the co-bound denominator, rather than
+    /// quietly reporting a 9-locus ceiling a stance does not have.
+    ///
+    /// Returns `(i, j, agree, co_bound)` for `i < j` over [`MENU`] indices,
+    /// only where `co_bound > 0` and `agree == co_bound`.
+    fn collapsed_pairs(&self) -> Vec<(usize, usize, usize, usize)> {
+        let mut out = Vec::new();
+        for (i, &li) in MENU.iter().enumerate() {
+            for (j, &lj) in MENU.iter().enumerate().skip(i + 1) {
+                let (mut agree, mut co_bound) = (0usize, 0usize);
+                for (&f, &hf) in self.facets.iter().zip(&self.has_focus) {
+                    if !hf || !f.is_bound(li) || !f.is_bound(lj) {
+                        continue;
+                    }
+                    co_bound += 1;
+                    if f.at(li) == f.at(lj) {
+                        agree += 1;
+                    }
+                }
+                if co_bound > 0 && agree == co_bound {
+                    out.push((i, j, agree, co_bound));
+                }
+            }
+        }
+        out
+    }
 }
 
 // ── reporting ───────────────────────────────────────────────────────────────
@@ -965,7 +1062,25 @@ fn print_vector(prefix: &str, f: CausalWitnessFacet) {
 /// verse-aligned facet pair, plus the same restricted to DISCRIMINATING loci
 /// (near-constant loci masked out on either side — a locus that fires on
 /// everything carries as much information as one that never fires).
-fn agreement(a: &StanceRun, b: &StanceRun) -> (f64, BTreeMap<usize, usize>, f64) {
+///
+/// # Two denominators, and why both are printed
+///
+/// Dividing by ALL verses answers *"how often do these two stances agree
+/// across the corpus"* — but a verse where NEITHER stance had a focus
+/// contributes a `ZERO`-vs-`ZERO` comparison, and two facets that are both
+/// entirely unbound agree at every locus **by absence**. On a corpus where
+/// most verses are unfocused, that term dominates and the mean measures
+/// shared silence, not shared reading.
+///
+/// So the both-focused mean is reported alongside: the same statistic over
+/// only the verses where BOTH stances actually minted a facet
+/// ([`StanceRun::has_focus`]). Neither is "the" number — a large gap between
+/// them IS the finding, because it says the corpus-wide mean is being carried
+/// by verses neither stance looked at. The returned `both` count makes that
+/// gap auditable rather than implicit.
+///
+/// Returns `(mean_all, hist_all, disc_mean_all, mean_both, both_count)`.
+fn agreement(a: &StanceRun, b: &StanceRun) -> (f64, BTreeMap<usize, usize>, f64, f64, usize) {
     let na = a.near_constant();
     let nb = b.near_constant();
     let discriminating: Vec<Locus> = MENU
@@ -978,7 +1093,9 @@ fn agreement(a: &StanceRun, b: &StanceRun) -> (f64, BTreeMap<usize, usize>, f64)
     let mut hist: BTreeMap<usize, usize> = BTreeMap::new();
     let mut sum = 0usize;
     let mut disc_sum = 0usize;
-    for (&fa, &fb) in a.facets.iter().zip(&b.facets) {
+    let mut both_sum = 0usize;
+    let mut both = 0usize;
+    for (i, (&fa, &fb)) in a.facets.iter().zip(&b.facets).enumerate() {
         // The SHIPPED comparison primitive, used exactly as written.
         let c = fa.agreement_count(fb);
         *hist.entry(c).or_insert(0) += 1;
@@ -987,9 +1104,20 @@ fn agreement(a: &StanceRun, b: &StanceRun) -> (f64, BTreeMap<usize, usize>, f64)
             .iter()
             .filter(|&&l| fa.agrees_at(fb, l))
             .count();
+        // The both-focused arm: only verses where each stance actually chose
+        // something. A ZERO-vs-ZERO comparison agrees everywhere by absence.
+        if a.has_focus[i] && b.has_focus[i] {
+            both += 1;
+            both_sum += c;
+        }
     }
     let n = a.facets.len().max(1) as f64;
-    (sum as f64 / n, hist, disc_sum as f64 / n)
+    let both_mean = if both == 0 {
+        f64::NAN
+    } else {
+        both_sum as f64 / both as f64
+    };
+    (sum as f64 / n, hist, disc_sum as f64 / n, both_mean, both)
 }
 
 /// The three anchor distances (A1, A2, A3) and the three control distances for
@@ -1099,20 +1227,24 @@ fn main() {
 
     // ── per-locus bind rate + silence kind ──
     println!("\n— PER-LOCUS BIND RATE AND SILENCE KIND (denominator = focused verses) —");
-    println!("  (n/a = by construction · none = no target anywhere · oow = target outside the ±8 window)");
+    println!("  (n/a = by construction · none = no target anywhere · oow = target outside");
+    println!("   the ±8 window · wrong-dir = target INSIDE the window but on the side a");
+    println!("   backward-only locus refuses — kept apart so the window is not blamed for");
+    println!("   a direction rule; only QualiaReference(12) can ever report it)");
     for r in &runs {
         println!("  {}:", r.stance.name());
         let nc = r.near_constant();
         for ((i, &l), st) in MENU.iter().enumerate().zip(r.stats) {
             let flag = if nc[i] { "   << NEAR-CONSTANT" } else { "" };
             println!(
-                "      {:<17} bound {:.4}  (bound {}, n/a {}, none {}, oow {}){}",
+                "      {:<17} bound {:.4}  (bound {}, n/a {}, none {}, oow {}, wrong-dir {}){}",
                 l.label(),
                 st.rate(r.focused),
                 st.bound,
                 st.not_applicable,
                 st.no_candidate,
                 st.out_of_window,
+                st.wrong_direction,
                 flag
             );
         }
@@ -1190,8 +1322,66 @@ fn main() {
         }
     }
 
+    // ── effective ceiling: loci that collapsed onto each other ──
+    println!("\n— EFFECTIVE CEILING — MENU loci that carried IDENTICAL offsets —");
+    println!("  Two loci distinct by RULE can still coincide by DATA (e.g. PMeaning(5)");
+    println!("  and MeaningLevel(13) both resolve through verb_at, so a stance whose");
+    println!("  focus IS the lift, with the same verb token in both roles, gets one");
+    println!("  pick counted twice). Where that happens on EVERY co-bound verse, the");
+    println!("  stance's real ceiling is below 9 and agreement_count over-reports.");
+    for r in &runs {
+        let collapsed = r.collapsed_pairs();
+        if collapsed.is_empty() {
+            println!(
+                "  {:<13} none — all 9 MENU loci stayed independent (ceiling 9)",
+                r.stance.name()
+            );
+            continue;
+        }
+        // Only pairs clearing COLLAPSE_MIN_N lower the ceiling; the rest are
+        // printed as observations that do not yet carry evidential weight.
+        // Each qualifying pair removes one independent locus. Distinct loci are
+        // counted once even if a locus appears in several pairs, so a 3-way
+        // collapse costs 2, not 3.
+        let mut redundant: Vec<usize> = collapsed
+            .iter()
+            .filter(|&&(_, _, _, n)| n >= COLLAPSE_MIN_N)
+            .map(|&(_, j, _, _)| j)
+            .collect();
+        redundant.sort_unstable();
+        redundant.dedup();
+        let ceiling = MENU_LEN - redundant.len();
+        if ceiling == MENU_LEN {
+            println!(
+                "  {:<13} ceiling 9 — {} pair(s) agreed fully but ALL below the \
+                 n≥{COLLAPSE_MIN_N} evidence floor:",
+                r.stance.name(),
+                collapsed.len()
+            );
+        } else {
+            println!(
+                "  {:<13} ceiling {ceiling} (not 9) — {} collapsed pair(s):",
+                r.stance.name(),
+                collapsed.len()
+            );
+        }
+        for (i, j, agree, co_bound) in collapsed {
+            let weight = if co_bound >= COLLAPSE_MIN_N {
+                "COUNTED"
+            } else {
+                "below floor, not counted"
+            };
+            println!(
+                "      {} == {} on {agree}/{co_bound} co-bound verses (100%) — {weight}",
+                MENU[i].label(),
+                MENU[j].label()
+            );
+        }
+    }
+
     // ── pairwise texture, live stances only ──
-    println!("\n— PAIRWISE TEXTURE (shipped agreement_count; ceiling 9) —");
+    println!("\n— PAIRWISE TEXTURE (shipped agreement_count; nominal ceiling 9,");
+    println!("  read against the EFFECTIVE ceiling printed just above) —");
     let live: Vec<&StanceRun> = runs
         .iter()
         .filter(|r| !r.degenerate_by_prevalence())
@@ -1201,13 +1391,20 @@ fn main() {
     }
     for (i, a) in live.iter().enumerate() {
         for b in live.iter().skip(i + 1) {
-            let (mean, hist, disc) = agreement(a, b);
+            let (mean, hist, disc, both_mean, both) = agreement(a, b);
+            let both_str = if both == 0 {
+                "n/a (no verse focused by both)".to_string()
+            } else {
+                format!("{both_mean:.4} over {both} both-focused")
+            };
             println!(
-                "  {} x {}: mean = {:.4} over {} verses; discriminating-loci mean = {:.4}; dist = {:?}",
+                "  {} x {}: mean = {:.4} over {} verses; both-focused mean = {}; \
+                 discriminating-loci mean = {:.4}; dist = {:?}",
                 a.stance.name(),
                 b.stance.name(),
                 mean,
                 n,
+                both_str,
                 disc,
                 hist
             );
@@ -1241,10 +1438,22 @@ fn main() {
         let (d_a1, d_a2, d_a3, controls) = pair_distances(r);
         let ctrl_max = controls.iter().copied().max().unwrap_or(0);
         let ctrl_mean = controls.iter().sum::<usize>() as f64 / controls.len() as f64;
+        // A baseline of 0 is NOT a low bar to clear — it is no bar at all. It
+        // means the stance minted nothing that varies across the control pairs,
+        // so `d > ctrl_max` degenerates into `d > 0`: any single differing
+        // locus would read as SEPARATED, including a presence-vs-absence
+        // difference on verses the stance never focused. The threshold is only
+        // meaningful when the corpus's own churn is measurable.
+        let ctrl_inert = ctrl_max == 0;
         println!(
-            "  {} — controls {:?} (max {ctrl_max}, mean {ctrl_mean:.2}) of 9",
+            "  {} — controls {:?} (max {ctrl_max}, mean {ctrl_mean:.2}) of 9{}",
             r.stance.name(),
-            controls
+            controls,
+            if ctrl_inert {
+                "  ⚠ INERT BASELINE"
+            } else {
+                ""
+            }
         );
         for (name, d, a, b) in [
             (
@@ -1266,10 +1475,14 @@ fn main() {
                 A1_AFTER,
             ),
         ] {
-            let verdict = if d > ctrl_max {
-                "SEPARATED (exceeds control baseline)"
-            } else if d == 0 {
+            let verdict = if d == 0 {
                 "KILL — identical facets; this instrument cannot tell them apart"
+            } else if ctrl_inert {
+                "NO VERDICT — inert baseline (all controls 0): this stance minted \
+                 no churn on the control pairs, so the threshold is vacuous and \
+                 the distance below is presence-vs-absence, not separation"
+            } else if d > ctrl_max {
+                "SEPARATED (exceeds control baseline)"
             } else {
                 "NOT SEPARATED — within control baseline, i.e. indistinguishable from ordinary churn"
             };

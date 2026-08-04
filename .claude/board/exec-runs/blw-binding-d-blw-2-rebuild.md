@@ -2,7 +2,9 @@
 ## 2026-08-04 — [Opus filigree / edit-only] D-BLW-2 REBUILD — `examples/blw_binding.rs`
 
 **Branch:** `claude/x265-x266-plans-review-h9osnl`. **Scope:** ONE new file,
-`crates/lance-graph-planner/examples/blw_binding.rs` (~830 lines). Nothing else
+`crates/lance-graph-planner/examples/blw_binding.rs` (1,527 lines as landed;
+the "~830" first written here was the drafting agent's own estimate and was
+never re-checked against the file — corrected 2026-08-04). Nothing else
 touched — `blw_tenant.rs`, every `src/` file, and `Cargo.toml` are unmodified
 (the example needs no new dependency: `lance-graph-contract` +
 `lance-graph-planner` only).

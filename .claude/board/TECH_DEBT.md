@@ -12,7 +12,18 @@ device" twice):
 | `crates/deepnsm-v2/target` | 473 M |
 | `crates/lance-graph-cognitive/target` | 348 M |
 | `crates/helix/target` | 263 M |
-| **total reclaimed** | **~3.9 G** (700 M free → 5.3 G free) |
+| **parallel-dir subtotal** | **~3.9 G** |
+
+**Reconciling 3.9 G against the 4.6 G that actually came free** (700 M → 5.3 G;
+the earlier version of this row read "total reclaimed ~3.9 G (700 M → 5.3 G)",
+which silently implied those were the same number — corrected 2026-08-04). They
+are not: the parallel dirs are ~3.9 G of it, and the remaining **~0.7 G** came
+from sweeping the SHARED workspace `target/debug/incremental` and
+`target/debug/examples` in the same pass. Both figures are measured; only the
+arithmetic tying them together was missing. The distinction matters for the
+reclaim procedure below, because the two halves regrow on different triggers:
+the parallel dirs regrow on the next `--manifest-path` run of an excluded
+crate, the incremental cache regrows on the next build of anything.
 
 **Cause, and it is structural.** These crates are **workspace-EXCLUDED** (root
 `Cargo.toml` `exclude`), so every `cargo … --manifest-path crates/<x>/Cargo.toml`

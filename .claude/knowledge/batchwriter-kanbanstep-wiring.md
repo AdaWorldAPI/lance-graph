@@ -17,15 +17,28 @@
 The write path is **ahead-firing**: a thought announces where it intends the
 mailbox to go, casts that intent *before* the write lands, and resumes
 immediately. The lifecycle **step** is applied *after* Lance accepts the write.
-The pre-write half is **built and tested**. The post-write half — the seam that
-actually applies the move — **is not built**, and `BatchWriter::cast()` has
-**zero production call sites** today.
+The pre-write half is **built and tested**. ~~The post-write half — the seam
+that actually applies the move — **is not built**~~, and `BatchWriter::cast()`
+has **zero production call sites** today.
+
+> **⊘ REGRADED IN PLACE (2026-08-04) — the struck clause was wrong, three
+> times over.** The post-write half **is built, end to end**:
+> `cast` → `cycle_driver::collect_casts` (reads the intents back, seals ≤1 move
+> per owner per cycle as `SweepSlot::paired_move`) →
+> `persist_sink::recover_and_apply` → `MailboxSoaOwner::try_advance_phase`.
+> Corrections 1–3 in §3 walk each link with line numbers.
+>
+> **The true statement is the surviving half of the sentence: nothing CALLS
+> it.** `BatchWriter::cast` has zero production call sites, and so does
+> `collect_casts`. Read this document as *"the machinery exists and is
+> undriven"*, never as *"the machinery is missing"* — the two lead to opposite
+> next actions, and this doc sent readers toward the wrong one for a day.
 
 ---
 
 ## 1. The chain, end to end
 
-```
+```text
   StyleStrategy                        (plan time)
     └─ StrategyOutcome::intended_move  = BOOTSTRAP SENTINEL
                                          mailbox 0, witness_chain_position 0
@@ -55,11 +68,26 @@ actually applies the move — **is not built**, and `BatchWriter::cast()` has
   Lance accepts the write → a successful LanceVersion
                  │
                  ▼
-  ✗ THE GAP ✗   the version-completion seam: apply THE PAIRED MOVE
+  cycle_driver::collect_casts(writer, cycle, position_base, row_of)
+    · drain_pending_payloads() FIRST (ends the &mut borrow)
+    · on_behalf_of(cast) -> owner
+    · intent_moves(cast)  <- THE READ-BACK of what cast() recorded
+    · FIRST move per owner (cast order) -> SweepSlot::paired_move
+    · every further move for that owner -> CollectedCasts::held
+        -> restage_held() re-casts it NEXT cycle (never dropped)
+                 ▼
+  persist_sink::recover_and_apply(...)   the version-completion applier
+                 apply THE PAIRED MOVE
                  MailboxSoaOwner::try_advance_phase(to)
                    · checks KanbanColumn::can_transition_to (the Rubicon DAG)
                    · Ok(KanbanMove) on a legal edge, Err(RubiconTransitionError) on an
                      illegal one — NO mutation on error
+                   · guards: OwnerMismatch (mv.mailbox != me), StalePhase (mv.from != phase)
+                 ▼
+  ✗ THE GAP ✗   NOT a missing component — a missing CALLER.
+                 Every box above is built and tested. Nothing in production
+                 invokes cast() or collect_casts(). (Corrected 2026-08-04;
+                 the ✗ used to sit on the applier box, which does exist.)
 ```
 
 **"No successful write ⇒ no applied step."** (`owner_adapter.rs` module doc.)
@@ -73,6 +101,7 @@ actually applies the move — **is not built**, and `BatchWriter::cast()` has
 | `BatchWriter<P>` | `lance-graph-planner/src/batch_writer.rs` | `cast` / `casts` / `intent_moves` / `on_behalf_of` / `resolve_owner` / `drain_pending_payloads`. 4 unit tests. |
 | `rebind_bootstrap`, `emit_bootstrap_intent` | `lance-graph-planner/src/owner_adapter.rs` | the pre-write cast half, incl. the **no-theft** guard. 5 unit tests, incl. anti-vacuity (asserts the sentinel fields *actually changed*, not merely `is_some`). |
 | `MailboxSoaOwner::{advance_phase, try_advance_phase}` | `lance-graph-contract/src/soa_view.rs:295-322` | the SOLE mutation surface. `try_advance_phase` is the checked one and should be preferred — an illegal edge becomes a typed error rather than silent corruption. |
+| `KanbanColumn`, `KanbanMove`, `ExecTarget` | `lance-graph-contract/src/kanban.rs` | the shipped lifecycle types. **Do not mint a parallel `KanbanMove`** — `batch_writer`'s own doc says so. |
 | ~~`VersionScheduler::on_version`, `NextPhaseScheduler`~~ | `lance-graph-contract/src/scheduler.rs:46-95` | ⊘ **BELONGS TO A DIFFERENT ARM — see the correction below. Not part of this write path.** |
 
 > **⊘ CORRECTION (2026-08-04, operator-challenged: "what did you zombie a
@@ -116,7 +145,6 @@ actually applies the move — **is not built**, and `BatchWriter::cast()` has
 > not a component — which is exactly the role `blw_tenant.rs`'s `PROBE-TRAP`
 > gives it ("scheduler would have said Commit; the cast said Plan; Plan was
 > applied").
-| `KanbanColumn`, `KanbanMove`, `ExecTarget` | `lance-graph-contract/src/kanban.rs` | the shipped lifecycle types. **Do not mint a parallel `KanbanMove`** — `batch_writer`'s own doc says so. |
 
 Live `advance_phase` implementors (i.e. real owners, not test fakes):
 `cognitive-shader-driver/src/mailbox_soa.rs:953`, `symbiont/src/kanban_loop.rs:180`,
@@ -159,8 +187,9 @@ production wiring.
 >
 > **What is actually missing is much narrower than "the seam":** a concrete
 > `WalSink` (that module's own header says it "builds NO concrete Lance sink")
-> and the glue that turns a `cast` into a `SweepSlot`. Both are small next to
-> "build the applier", which is what my §5.1 sent a reader off to do.
+> and ~~the glue that turns a `cast` into a `SweepSlot`~~ — ⊘ **that glue exists
+> too; see the third correction below.** Both are small next to "build the
+> applier", which is what my §5.1 sent a reader off to do.
 >
 > **The lesson, since it is the same one twice today:** I derived a negative
 > from *one* module's self-description instead of reading the module it pointed
@@ -168,6 +197,57 @@ production wiring.
 > whether X exists — exactly the search-boundary defect recorded in
 > `E-A-NEGATIVE-EXISTENCE-CLAIM-IS-ONLY-AS-WIDE-AS-ITS-SEARCH-1`, committed by
 > me in the very doc that cites it.
+
+> **⊘ CORRECTION 3 (2026-08-04, operator-pointed: "what about batchwriter line
+> 104").** Line 104 is `BatchWriter::cast(on_behalf, moves, payload)`. The
+> pointed question is the right one: **this document never named who reads the
+> `moves` argument back.** §2's own correction ended with *"thinking → cast →
+> write → paired move applied"*, which leaves `paired_move` arriving from
+> nowhere — and a reader who needs one would then hand-roll the pairing, which
+> is the "do not mint a parallel `KanbanMove`" failure one level up.
+>
+> **The reader exists: `cycle_driver::collect_casts`
+> (`lance-graph-supervisor/src/cycle_driver.rs:220-256`).** It is the
+> `cast → SweepSlot` glue this doc called missing two paragraphs above. Measured:
+>
+> 1. `drain_pending_payloads()` first (`:227`) — ends the `&mut` borrow so the
+>    intents can then be read immutably.
+> 2. per drained cast: `writer.on_behalf_of(cast)` → the owner (`:232`).
+> 3. `writer.intent_moves(cast)` (`:236`) — **the read-back of line 104's
+>    `moves`.** The FIRST move per owner in cast order becomes that owner's
+>    `SweepSlot::paired_move` (`:238`, `:251`).
+> 4. every further move for an owner already paired this cycle goes to
+>    `CollectedCasts::held` (`:243`), and `restage_held` (`:261`) re-casts it
+>    into the NEXT cycle — **not dropped, not sealed-then-ignored, not
+>    truncated.**
+>
+> So the full chain is `cast` → `collect_casts` → `SweepSlot::paired_move` →
+> `persist_sink::recover_and_apply` → `try_advance_phase`. Every link is built.
+>
+> **The constraint a consumer must know, which only appears here:** a cast may
+> carry any number of moves, but **at most one move per owner per cycle is
+> sealed**. Casting three transitions for one mailbox does not perform three
+> steps in one cycle — it performs one and defers two. Code that assumes
+> otherwise is wrong in a way nothing will report, because the held moves *do*
+> eventually apply, just later.
+>
+> **Still unwired, and this is the honest residue:** `collect_casts` has **no
+> production caller** — only `cycle_driver.rs:459` (its own `seal`-side
+> companion) and its own test at `:933`. That is consistent with the earlier
+> finding that `cycle_driver` itself is unwired; the two facts are not in
+> tension, and the distinction is the whole point of this document: **the seam
+> is BUILT and the seam is UNDRIVEN.** "Build the glue" was the wrong next
+> action; "call it" is the right one.
+>
+> **Third instance of one defect in one day.** Correction 1: the applier
+> "does not exist" (it did). Correction 2: the scheduler is in the write path
+> (it is a different arm). Correction 3: the cast→slot glue is missing (it
+> exists). All three are negatives I inferred from one module's self-description
+> without reading the module it pointed at
+> (`E-A-NEGATIVE-EXISTENCE-CLAIM-IS-ONLY-AS-WIDE-AS-ITS-SEARCH-1`). The pattern
+> is now strong enough to state as a rule for this document's successors:
+> **before writing "X is not built", grep for X's consumers, not for X's
+> description.**
 
 Ledger: `.claude/board/TECH_DEBT.md` `TD-DOC-COMMENTS-CLAIM-UNWIRED-BEHAVIOUR`.
 
@@ -261,7 +341,7 @@ dead code went. That is the intended shape: *keep the record, delete the residue
 
 Run this grep against your harness:
 
-```
+```text
 batch_writer|BatchWriter|KanbanStep|KanbanMove|kanban|owner_adapter|MailboxSoA|SoaEnvelope
 ```
 

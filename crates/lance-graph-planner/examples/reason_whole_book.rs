@@ -62,8 +62,16 @@ fn main() {
     let mut arena = BeliefArena::new();
     let (mut n_inh, mut n_rel) = (0u64, 0u64);
     let mut subj_degree: HashMap<u16, u32> = HashMap::new();
+    // Every row this loop refuses, by reason. Three `continue`s drop rows
+    // silently, and a silent drop is invisible in every number below it: the
+    // arena simply never sees the statement, so `observed`, F1, F2, RCR and CAS
+    // are all computed over a corpus that is smaller than the file — with
+    // nothing in the output saying so. Counted here and gated after the loop.
+    let (mut drop_arity, mut drop_ids, mut drop_pid) = (0u64, 0u64, 0u64);
+    let mut n_rows = 0u64;
     let t_ingest = Instant::now();
     for line in raw.lines() {
+        n_rows += 1;
         let mut f = line.split('\t');
         let (Some(s), Some(_sw), Some(_pid), Some(pw), Some(o), Some(_ow), Some(v)) = (
             f.next(),
@@ -74,9 +82,11 @@ fn main() {
             f.next(),
             f.next(),
         ) else {
+            drop_arity += 1;
             continue;
         };
         let (Ok(s), Ok(o), Ok(v)) = (s.parse::<u16>(), o.parse::<u16>(), v.parse::<u32>()) else {
+            drop_ids += 1;
             continue;
         };
         let cop = if is_copular(pw) {
@@ -84,10 +94,15 @@ fn main() {
             Copula::Inh
         } else {
             // SKIP an unparsable predicate id — never fold it into `Rel(0)`.
-            // `unwrap_or(0)` collapses EVERY malformed row into ONE statement
-            // identity, so distinct garbage rows read as re-observations of the
-            // same statement and inflate the counts this harness publishes
-            // (`observed`, the F1/F2 gates). Same treatment as s/o/v above.
+            // `unwrap_or(0)` would make the copula of every malformed row
+            // identical. `CStmt` is `{s, cop, p}`, so this does NOT collapse
+            // all garbage to one identity — s and p still discriminate — but it
+            // does two wrong things: it ALIASES malformed rows onto the
+            // legitimate verb whose term id is 0, and it merges any two
+            // malformed rows sharing an `(s, p)` pair into one statement, which
+            // then reads as a re-observation and moves the counts this harness
+            // publishes (`observed`, the F1/F2 gates). Same treatment as s/o/v
+            // above: refuse the row, and let the drop gate below say so.
             //
             // Latent, not active, on the current export: measured 2026-08-04
             // over `/tmp/kjv_spo.tsv`, **all 40,767 rows parse** (0 failures),
@@ -95,6 +110,7 @@ fn main() {
             // unaffected. Fixed because the trap fires the moment the export
             // format changes, not because a number moved.
             let Ok(pid) = _pid.parse::<u16>() else {
+                drop_pid += 1;
                 continue;
             };
             n_rel += 1;
@@ -110,10 +126,27 @@ fn main() {
         );
     }
     let observed = arena.entries().len();
+    let dropped = drop_arity + drop_ids + drop_pid;
     println!("── ingest ──");
+    println!(
+        "  {n_rows} rows read, {dropped} dropped (arity {drop_arity}, ids {drop_ids}, \
+         pid {drop_pid})"
+    );
     println!(
         "  {observed} distinct observed statements ({n_inh} is_a rows, {n_rel} verb rows) in {:?}",
         t_ingest.elapsed()
+    );
+    // Hard gate, deliberately BEFORE any figure is computed from the arena.
+    // Every number this harness publishes is a claim about the whole export;
+    // if rows were refused, the claim is about a silently smaller corpus and
+    // the reader has no way to tell. Measured 2026-08-04 over
+    // `/tmp/kjv_spo.tsv`: 40,767 rows, 0 dropped — so this gate is inert on the
+    // current export by MEASUREMENT, and fires the moment the format shifts.
+    assert_eq!(
+        dropped, 0,
+        "{dropped} of {n_rows} rows were refused during ingest; the F1/F2/RCR/CAS \
+         figures below would describe a corpus smaller than the file. Fix the \
+         export (or the parser) rather than publishing a partial ingest."
     );
 
     // ── F1 + F2: copula-gated transitive closure over the whole book ──

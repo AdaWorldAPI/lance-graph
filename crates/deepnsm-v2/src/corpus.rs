@@ -71,8 +71,12 @@ pub fn split_verses(text: &str) -> Vec<String> {
 pub struct CorpusSplit {
     /// The verses, in order.
     pub verses: Vec<String>,
-    /// Did the walk emit at least one verse *after* passing a New Testament
+    /// Did the walk emit at least one verse that *began* after a New Testament
     /// heading? Detected case-insensitively, from the token stream.
+    ///
+    /// "Began after", not "flushed after": a verse that started before the
+    /// heading and flushed after it is Old Testament text and must not set
+    /// this flag (see `a_parse_that_stops_at_the_heading_fails_the_gate`).
     pub crossed_new_testament: bool,
 }
 
@@ -102,6 +106,15 @@ pub fn split_verses_detailed(text: &str) -> CorpusSplit {
     let mut saw_new = false;
     let mut nt_heading_seen = false;
     let mut crossed = false;
+    // Did the verse currently accumulating in `cur` *start* after the heading?
+    // Reading `nt_heading_seen` at flush time is WRONG: a verse that began
+    // before the heading and flushed after it would be credited to the New
+    // Testament. `"1:1 old verse The New Testament"` is the minimal case — one
+    // verse, entirely pre-heading, flushed at end-of-input with the heading
+    // already seen. Reading the flag at flush called that `crossed`, so a parse
+    // that truncates AT the heading — exactly the historical bug G1b exists to
+    // catch — passed the gate.
+    let mut cur_started_after_heading = false;
     for tok in body.split_whitespace() {
         if !nt_heading_seen {
             if saw_new && tok_eq_ci(tok, "testament") {
@@ -113,10 +126,14 @@ pub fn split_verses_detailed(text: &str) -> CorpusSplit {
             in_body = true;
             if !cur.is_empty() {
                 verses.push(std::mem::take(&mut cur));
-                if nt_heading_seen {
+                if cur_started_after_heading {
                     crossed = true;
                 }
             }
+            // The verse THIS marker opens is post-heading iff the heading has
+            // already gone by. Set after the flush above, which belongs to the
+            // previous verse.
+            cur_started_after_heading = nt_heading_seen;
         } else if in_body {
             if tok == "***" {
                 continue;
@@ -129,7 +146,7 @@ pub fn split_verses_detailed(text: &str) -> CorpusSplit {
     }
     if !cur.is_empty() {
         verses.push(cur);
-        if nt_heading_seen {
+        if cur_started_after_heading {
             crossed = true;
         }
     }
@@ -284,6 +301,38 @@ mod tests {
             "fixture must sit below the old threshold, or it does not regress the bug"
         );
         assert_eq!(crossed_into_new_testament(nt_only, &s), Some(true));
+    }
+
+    #[test]
+    fn a_parse_that_stops_at_the_heading_fails_the_gate() {
+        // THE CAN-FIRE HALF, from a REAL parse rather than a hand-built
+        // `CorpusSplit`. This is the shape the historical truncating parser
+        // produced: text runs into the heading and stops, so no verse ever
+        // STARTS after it.
+        //
+        // The first version of this fix read `nt_heading_seen` at flush time,
+        // which credited the pre-heading verse to the New Testament because it
+        // happened to flush (at end-of-input) after the heading had gone by —
+        // `Some(true)`, gate silently passed on a truncated parse. Tracking
+        // where the verse STARTED is what makes it `Some(false)`.
+        let truncated_at_heading = "1:1 old verse The New Testament";
+        let s = split_verses_detailed(truncated_at_heading);
+        assert_eq!(s.verses.len(), 1, "one verse, entirely pre-heading");
+        assert!(
+            announces_new_testament(truncated_at_heading),
+            "the heading IS present — the gate must be armed, not skipped"
+        );
+        assert_eq!(
+            crossed_into_new_testament(truncated_at_heading, &s),
+            Some(false),
+            "a parse that emitted no verse AFTER the heading must FAIL the gate"
+        );
+
+        // ...and the ONE extra verse after the heading flips it. Same text plus
+        // a post-heading marker: the difference is the whole discrimination.
+        let one_more = "1:1 old verse The New Testament 1:1 new verse";
+        let s2 = split_verses_detailed(one_more);
+        assert_eq!(crossed_into_new_testament(one_more, &s2), Some(true));
     }
 
     #[test]

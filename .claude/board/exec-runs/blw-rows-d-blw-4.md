@@ -173,3 +173,36 @@ The dangling cast is deliberate and is stated in the output.
    relatively small (good for G-C), so a pass is plausible — but a KILL or an
    INCONCLUSIVE is an equally valid, reportable outcome and the harness is
    written to say so rather than to produce a number.
+
+---
+
+## ORCHESTRATOR GATE RESULT (added 2026-08-04)
+
+The record above is the drafting agent's pre-run brief — every "UNVERIFIED"
+and "residual risk" in it was written before the harness had ever been
+compiled. This section closes it with what actually happened, so the file is
+not left reading as an open question.
+
+**Gates run by the orchestrator (Opus, shared `target/`, `-p`-scoped):**
+`cargo fmt`, `cargo clippy -p lance-graph-planner --example blw_rows`,
+`cargo run -p lance-graph-planner --example blw_rows` — all green.
+
+**Measured outcome — PASS.**
+
+| gate | criterion (fixed before the run) | measured |
+|---|---|---|
+| G-A | body ≥ `BODY_FLOOR_US`, else INCONCLUSIVE | met |
+| G-B | rows disjoint across threads | met |
+| G-C | speedup > 1 at T=4 | **3.27×** at 2000 rows / 4 threads |
+| control | T=1 must NOT show a speedup | **0.98×** (i.e. a 2 % overhead cost, as it should be) |
+
+The T=1 control is the load-bearing half: without it a "3.27×" is a number
+with no denominator that could have come from the harness measuring itself.
+0.98× says the instrumentation costs something rather than paying, which is
+what makes the 4-thread figure a real parallel gain.
+
+**Answering the brief's own open questions, in its order:** formatting settled
+green by `cargo fmt` (item 3); clippy green under `-D warnings` (item 4); wall
+time was not a problem and no knob was lowered, so `BODY_FLOOR_US` was cleared
+on the corpus as written (item 5); G-C **did** pass in a debug build (item 6)
+— the plausibility argument the brief gave for that held.
