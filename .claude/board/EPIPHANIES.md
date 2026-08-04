@@ -1,3 +1,15 @@
+## 2026-08-04 — E-A-MEASURE-THAT-CANNOT-HELP-BUT-MOVE-1 — the trajectory would have confirmed itself
+
+**Status:** FINDING (design-time; caught before the harness was written). **Confidence:** High — the confound is structural, not empirical. Fix: `.claude/plans/cycle-loop-closure-driver-v1.md` §12.3b.
+
+**What happened.** D-BLW-3's falsifier was *"fusion must MOVE — if pairwise κ between two lenses is flat across the sealed series, no horizons merged."* Correct as a **kill** condition. The trap is the converse, which the deliverable would have leaned on: each `Vn` in the series contains **more verses** than `Vn-1`, so a κ computed per version is computed on a **growing sample**. κ drifts for that reason alone. **A movement that the measurement's own construction guarantees is not evidence of the thing the movement was supposed to show.**
+
+**The class, and why it keeps recurring here.** This is the same shape as the Kant bit caught hours earlier in the same arm (`quale > ablated` reducing to `modal > 0.5`, true for every verse holding a lift) and as `closed_class_guess` firing 150/150. Each time: a quantity that **cannot come out the other way**, presented as a finding. The vacuity rule already covers a guard that always fires; the gap it did not cover is a *continuous* measure whose motion is structurally forced. **The generalization: for any measure offered as evidence, ask what it would do under the null — and if the null also moves it, the measure is not the evidence.**
+
+**The fix is a control, not a threshold.** Hold the verse set FIXED at the first `k` verses and compute the binaries twice — once from the arena as sealed at `Vk`, once from the arena at `Vm > k`. Same lenses, same `N`, same text; only the horizon differs. A κ difference then **cannot** be sample growth, because the sample is identical by construction. As a bonus the a-priori/hindsight split stops being narration and becomes the control itself.
+
+**Sibling check:** any metric reported "across time", "across versions", "as the corpus grows", or "over training" — hold the unit set fixed and re-measure, or state plainly that growth is not excluded.
+
 ## 2026-08-04 — E-A-PER-FEATURE-CI-STEP-NAMED-LIKE-PER-CRATE-COVERAGE-1 — the fifth blind gate survived four closings of its own class
 
 **Status:** FINDING (measured: 22 previously-unrun tests, all green on first central run). **Confidence:** High. Fix: a `--features cycle-driver` step in `.github/workflows/rust-test.yml`.

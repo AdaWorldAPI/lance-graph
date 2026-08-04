@@ -752,6 +752,80 @@ as a `[dev-dependencies]` path edge from `lance-graph-planner`. Do **not** inver
 it — hosting the harness inside `jc` would drag the planner's whole dep tree into
 a crate whose constitution is zero-dep, and §12.5 keeps `jc` the untouched oracle.
 
+### 12.3b D-BLW-3 design — the confound, and the controlled comparison that removes it
+
+**The naive trajectory does not measure fusion.** §12.3's D-BLW-3 row says
+"fusion must MOVE: if pairwise κ between two lenses is flat across the series,
+no horizons merged". True as a *kill* condition — but the converse does **not**
+hold, and that is the trap. As the series seals, each `Vn` contains more verses
+than `Vn-1`, so a κ computed at each version is computed on a **growing sample**.
+κ will drift for that reason alone. **A κ that moves because N grew is not
+Horizontverschmelzung; it is arithmetic.** Reporting a moving trajectory as
+fusion would be the D-BLW-2 Kant tautology one level up — a number that cannot
+help but move, presented as though it discovered something.
+
+**The controlled comparison.** Hold the verse set **FIXED** at the first `k`
+verses and compute the four per-verse binaries **twice**:
+
+| reading | arena state used | verse set |
+|---|---|---|
+| **a priori** (*Vorurteil*) | as sealed at `Vk` — what a reader could know then | first `k` |
+| **hindsight** (*wirkungsgeschichtlich*) | as sealed at `Vm`, `m > k` | first `k` — **the same verses** |
+
+Same lenses, same units, same `N`, **same text** — the only thing that differs
+is the horizon the reading is performed from. A κ difference between those two
+readings cannot be a sample-growth artifact, because the sample is identical by
+construction. That difference *is* the fusion signal: later knowledge re-reading
+earlier material. This is also why the a-priori/hindsight split is not
+decoration here — it is the control.
+
+Mechanically the binaries must be **recomputed** against the later arena, not
+carried forward; a verse's Hegel bit can flip when a statement it emitted is
+contradicted a thousand verses later, and that flip is the whole phenomenon.
+
+**Row shape (this is why D-BLW-3 was never blocked).** The harness emits one
+lightweight **per-(verse, version, lens)** verdict row and implements the public
+`DeinterlaceRow` trait on it (`temporal.rs:318` — `subject()` = the
+book-qualified verse ref, `lance_version()` = the sealing version,
+`knowable_from()` = the version the verse entered the corpus, `hlc_tick()`
+defaulted). Both reads then come off the **real** surface:
+`deinterlace(&rows, &QueryReference::at(V, rung), &NoDeps)` (`temporal.rs:346`,
+`NoDeps` at `:271`). Nothing reconstructs an arena from a version; nothing in
+`temporal.rs` is modified (§12.5 holds). Note `deinterlace` **clones** the
+admitted rows — per §12.2's precision note, no result line may call this
+zero-copy; the rows are small per-verse verdict records, which is why the cost
+is acceptable, not absent.
+
+**Pre-registered thresholds (fixed here, before any run, non-adjustable):**
+- **fusion-moves (can-fire):** ∃ a lens pair and a fixed prefix `k` with
+  `|κ_hindsight(k, m) − κ_apriori(k)| ≥ 0.10`, both κ defined (not `None`), and
+  `k ≥ 1000` (the same corpus floor as §12.3a — below it the marginals are too
+  noisy to read).
+- **the distinction must earn its keep (can-stay-silent's twin):** if for EVERY
+  pair and EVERY prefix the two readings differ by `< 0.01`, then the a-priori /
+  hindsight distinction is **doing no work and must be DROPPED from the
+  write-up rather than narrated** — §12.3's own instruction, made numeric.
+- **Why these numbers, from already-pinned ones rather than freshly invented:**
+  `0.10` is one-fifth of the `0.20 … 0.80` span between the two twin thresholds
+  already pre-registered in §12.3a — a movement big enough to matter inside the
+  band structure those thresholds define. `0.01` is the reporting precision floor
+  (κ is printed to two decimals); a difference below it is not distinguishable
+  from rounding.
+- **KILL:** flat under the controlled comparison ⇒ the claim regrades to *"four
+  independent stance reads over a shared corpus"* — still true, still useful,
+  **not Gadamer**. Print the regrade; do not adjust the threshold.
+
+**Reporting:** the same full-table discipline as §12.3a — per pair, per prefix,
+both readings' counts, both marginals, `p_o`, `p_e`, κ, φ, and the signed
+difference. Never a bare κ, never a bare difference.
+
+**Claim ceiling, tightened for this deliverable.** The permitted statement is
+that *the later horizon reads the same verses **differently***. It is **NOT**
+permitted to say the later horizon reads them **better**, **more truly**, or
+**more completely** — that is a validity claim, it needs an external criterion,
+and it is D3b, which stays blocked (§12.4). "Fusion" here names a measured
+change in overlap between two projections, nothing more.
+
 ### 12.4 Claim ceiling (carried from the D3a/D3b split — do not re-cross it)
 
 κ and φ between two lens projections measure **overlap**, not validity. A
