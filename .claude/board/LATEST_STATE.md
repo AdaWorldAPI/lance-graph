@@ -1,3 +1,19 @@
+## 2026-08-04 — branch `claude/x265-x266-plans-review-h9osnl` (PRs #881, #882, #883 MERGED) — arc hygiene restored + the legacy actor surface quarantined
+
+**#881** post-merge arc/state for #880 and recorded that the arc had gone stale for four PRs. **#882** backfilled those four (#862/#875/#876/#879) as marked RECONSTRUCTIONS, plus the cross-PR finding that every review-found defect in three consecutive probe PRs sat in a falsifier or a label, never in a measurement.
+
+**#883 — the operator ruling, canonical text:** *"#879 is the complete and independent production phase-progression path. KanbanActor has no assigned architectural responsibility. It is legacy experimental compatibility code retained only because existing probes or consumers still reference it. No new production architecture may depend on it. Its presence does not designate it as the future home of an ownership, planning-initiation, concurrency, cognition, reasoning, or lifecycle mechanism."*
+
+Production path: `plan evaluation → KanbanMove intent → BatchWriter → sparse seal → one WAL/version → inline apply of the sealed transitions`. No actor bridge, fleet, owned driver, custody model, or message path required.
+
+**Transport ≠ engine (the separation that must not blur):** `KanbanMsg::MulAdvance` and `drive_mul_advance` are legacy actor-message **wrappers only** — NOT the canonical MUL reasoning engine. `lance_graph_contract::mul::i4_eval::gate_decision_i4` is independent, consumed directly by the #879 path through `cycle_driver::shade_owner` and `run_cognitive_work_gated[_over]`, and is **not deprecated**. The NARS tactic recipes and the awareness rung ladder are **separate and untouched**.
+
+`cycle_driver.rs` is canonical #879 code and is NOT stale — only three inherited comments were, now corrected; `run_cognitive_work` is documented as a sequential contract-probe adapter that does not define the production execution model (production cognition may run independently and concurrently over the sealed `Vn`, converging only at the deterministic ordering/coalescing/seal boundary). The obsolete ractor-drives framing is also corrected in `supervisor/lib.rs`, `contract::kanban`, `contract::soa_view`, `contract::orchestration`.
+
+**Withdrawn across the arc, nothing substituted:** the A1 two-seam design gate (both seams), the actor-owned `emit_bootstrap_intent` milestone, the planning-initiation adapter, the future actor/nudge slice, the ownership-injection/guarantee-dummy framing.
+
+**W1 ledger:** SHIPPED — held-owner reschedule/wake. OPEN — `run_cycle` drained-writer retry guard; missing-owner counter in `cognitive_pass`.
+
 ## 2026-08-03 — branch `claude/x265-x266-plans-review-h9osnl` (PR #880, MERGED `6bc9115`) — the kanban-64k-inverted-awareness plan + four honest module headers
 
 **Plan landed.** `.claude/plans/kanban-64k-inverted-awareness-v1.md` (W0–W6) over the two operator anchors: (a) real thinking at 64k via kanban orchestration **in parallel**, (b) inverted awareness — ontologies as the frozen cathedral an observation layer reads into, with a statistical witness. Board rows in the same commit (INTEGRATION_PLANS prepend, STATUS_BOARD D-KIA ×7, `write-on-behalf.md` caller-status supersession). **No code paths changed.**

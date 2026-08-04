@@ -195,12 +195,66 @@ actually provide toward ICC/α/ρ with variance components? Output: a one-page
 capability map. Everything below adjusts to what's found.
 
 
+> **C1 result (2026-08-04, read-only audit).** `jc` is IN-TREE at `crates/jc/`.
+> `reliability.rs` ships `pearson`, `spearman`, `cronbach_alpha`, and
+> `icc(ratings, IccForm)` with `Icc2_1` (two-way random, absolute agreement)
+> and `Icc3_1` (two-way mixed, consistency). There is also a `jirak.rs`, so
+> C4's noise-floor requirement has a local implementation to cite rather than a
+> paper to hand-derive from.
+>
+> **Two of C2's renames are the same computation; one is a real gap:**
+> - **φ = Pearson on two binary variables** → `pearson` already computes it;
+>   the work is *reporting* it as φ plus the marginal-capped ceiling caveat.
+> - **KR-20 = Cronbach's α on dichotomous items** → `cronbach_alpha` is the
+>   right function; naming + caveat only.
+> - **κ is NOT ICC under another name** — a different estimator. No `kappa`,
+>   `kr20`, `phi_coef` or `tetrachoric` anywhere in `jc`. **This is the gap**,
+>   and D3's fusion falsifier cannot run until it closes.
+
+**C1b — the additive-only jc extension (operator ruling, 2026-08-04).**
+The requested surface, in one list:
+
+| # | Estimator | Status against `jc` today |
+|---|---|---|
+| 1 | **κ** (Cohen's kappa — chance-corrected agreement) | **absent — the real gap.** Not ICC under another name. Blocks D3. |
+| 2 | **McDonald's ω** (the coefficient α is routinely mis-substituted for) | absent |
+| 3 | **R / R²** — the **r-family** effect size (correlation / variance explained) | `pearson` gives r for one criterion pair; **multi-criterion R / R² is new** |
+| 4 | **η²** (ANOVA, *erklärte Varianz*) | absent — same r-family, group-factor form |
+| 5 | **t-test** (one-sample / paired / two-sample, with df + p) | absent |
+| 6 | **φ** | **already present in substance** — φ *is* Pearson r on two binary variables. Only the *named wrapper* + the marginal-capped-ceiling caveat are new; the arithmetic is `jc::reliability::pearson` and is NOT re-implemented. |
+
+**Effect size = the r-family (R, R², η², φ).** Cohen's **d is explicitly
+out of this deliverable**; if a mean-difference contrast is ever wanted it is
+calculated separately. The t-test above is the *significance* companion to
+η², not a d-family smuggling route — it reports t/df/p, and effect size is
+read off η²/R².
+
+**Hard constraint: ADDITIVE ONLY.** New estimators land as new items
+(a new module) beside the existing ones. `pearson` / `spearman` /
+`cronbach_alpha` / `icc` are load-bearing and their **behaviour** stays
+untouched — **any diff that changes an existing `jc` statistic's arithmetic,
+signature, or semantics is an automatic reject, independent of merit.**
+
+> **The one sanctioned edit to an existing file (operator, 2026-08-04):**
+> *visibility only, for reuse.* The private helpers in `reliability.rs`
+> (`mean`, `all_finite`, `average_ranks`, `pop_var`) may be widened to
+> `pub(crate)` so the new module consumes them instead of re-implementing
+> them — a re-implemented `mean` is a second source of truth and is the
+> failure this carve-out prevents. Permitted diff shape: `fn` → `pub(crate) fn`,
+> plus a `pub mod` line in `lib.rs`. **Nothing else** — no body change, no
+> reordering, no signature change, no "while I was in there" cleanup.
+
+Blocks D3.
+
 **C2 — name the dichotomous statistics correctly.** Over binary catalog
 criteria: Pearson→**φ** (report the marginal-capped ceiling), Cronbach's
-α→**KR-20**, ICC→**κ-family agreement**, Spearman **degenerates and is
-dropped** at view 2 (it returns only in jc's non-binary escalation). The
-implementation and every doc name the dichotomous forms; reporting "Pearson"
-while computing φ is the defect class this arm exists to prevent.
+α→**KR-20**; **κ is a SEPARATE estimator, not a renamed ICC** — where a
+continuous workflow would reach for ICC on binary criteria, compute **κ**
+instead, and keep **ICC as ICC** for the non-binary jc escalation only;
+Spearman **degenerates and is dropped** at view 2 (it returns only in jc's
+non-binary escalation). The implementation and every doc name the dichotomous
+forms; reporting "Pearson" while computing φ is the defect class this arm
+exists to prevent.
 
 **C3 — reliability vs validity split (hard gate).** α/KR-20/ICC/κ = 
 **reliability**, claimable from the cohort alone. **Validity requires an
