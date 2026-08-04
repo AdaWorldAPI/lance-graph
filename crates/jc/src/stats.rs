@@ -322,12 +322,22 @@ pub fn cohen_kappa(a: &[usize], b: &[usize]) -> Option<f64> {
 ///
 /// **Loading SIGNS matter and are recovered.** The triad identity gives only
 /// `λ_i²`, hence `|λ_i|`; since ω depends on `(Σλ)²`, a negatively-keyed item
-/// must subtract from that sum. Signs are read off the first row
-/// (`sign(σ_ij) = s_i·s_j`, anchored at `s_0 = +1`, which is free because the
-/// model is identified only up to a global flip and `(Σλ)²` is invariant to
-/// one). Taking the positive root everywhere — as this function did before
-/// 2026-08-04 — inflates ω badly; the regression fixture reports 0.25, where
-/// the unsigned version returned 0.75.
+/// must subtract from that sum. Signs come from `sign(σ_ij) = s_i·s_j`, read
+/// off the row of the **strongest-loading item** (largest estimated `|λ|`),
+/// which is then oriented positive. That orientation is free: the model is
+/// identified only up to a **global** flip and `(Σλ)²` is invariant to one.
+///
+/// The anchor must be the strongest item, not an arbitrary one. Under a single
+/// factor a near-zero covariance against the anchor implies the *other* item's
+/// loading is ~0 — whose sign then cannot matter, since it contributes ~0 to
+/// `Σλ`. Anchoring on a weakly-loaded item instead reads every sign off
+/// near-zero noise, and if that item's loading is ~0 its whole row is ~0, every
+/// sign defaults positive, and the consistency check below **rejects valid
+/// one-factor data** (measured with λ = `[0,+1,+1,−1]`: two false conflicts).
+///
+/// Taking the positive root everywhere — as this function did before
+/// 2026-08-04 — inflates ω badly: the regression fixture is 0.25, where the
+/// unsigned version returned 0.75.
 ///
 /// # What is and is NOT verified (read before quoting this as ω_t)
 ///
@@ -349,6 +359,17 @@ pub fn cohen_kappa(a: &[usize], b: &[usize]) -> Option<f64> {
 /// exceeding the item's total variance), or an inconsistent sign pattern —
 /// each of which means the assumed model is contradicted by the data, not that
 /// reliability is low.
+///
+/// **Degeneracy policy — a constant item (zero variance) is rejected.** This is
+/// a deliberate API contract, not a mathematical necessity: a constant item is
+/// perfectly representable as `λ = ψ = 0` whenever the remaining items identify
+/// the factor. It is refused because it carries **no score information** — it
+/// cannot covary, contributes nothing to `Σλ` or `Σψ`, and its presence in a
+/// scale is far more often a data-preparation fault (a dead column, an
+/// all-same-answer item) than an intentional model. Rejecting surfaces that
+/// fault instead of silently averaging it away. It also keeps every
+/// scale-relative tolerance above well defined, since those are proportional to
+/// the item's own variance.
 ///
 /// ```
 /// use jc::stats::omega_total;
@@ -448,8 +469,8 @@ pub fn omega_total(items: &[Vec<f64>]) -> Option<f64> {
     //
     // Under a single factor `σ_ij = λ_iλ_j`, so `sign(σ_ij) = s_i·s_j`. The
     // model is identified only up to a GLOBAL flip (and ω is invariant to one,
-    // since it uses `(Σλ)²`), so anchor `s_0 = +1` and read every other sign
-    // off the first row.
+    // since it uses `(Σλ)²`), so the anchor is oriented positive and every
+    // other sign is read off its row.
     //
     // ANCHOR on the item with the LARGEST |λ|, not on item 0. Signs are read
     // from the anchor's covariance row, so anchoring on a weakly-loaded item
