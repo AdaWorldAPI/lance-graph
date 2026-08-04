@@ -59,6 +59,7 @@ mod blw_bible_lens_wave {
     use cognitive_shader_driver::mailbox_soa::MailboxSoA;
     use lance_graph_contract::collapse_gate::MailboxId;
     use lance_graph_contract::kanban::{ExecTarget, KanbanColumn, KanbanMove};
+    use lance_graph_contract::qualia::QualiaI4_16D;
     use lance_graph_contract::scheduler::DatasetVersion;
     use lance_graph_contract::soa_view::MailboxSoaView;
     use lance_graph_planner::batch_writer::BatchWriter;
@@ -210,17 +211,42 @@ mod blw_bible_lens_wave {
 
     // ── Full observable-column snapshot (anti-vacuity gate) ─────────────────────
 
-    /// Every column [`MailboxSoaView`] exposes for one owner, captured as
-    /// owned data. Used to prove an untouched owner is BYTE-IDENTICAL after a
-    /// cycle, not merely "still present".
-    #[derive(Debug, Clone, PartialEq)]
+    /// A snapshot of **every per-row column `MailboxSoA` owns**, plus the two
+    /// mailbox-level fields the driver writes (`phase`, `current_cycle`).
+    ///
+    /// The point of this type is that the anti-vacuity assertion is only worth
+    /// as much as its coverage. An earlier draft captured six columns and
+    /// nevertheless described itself as a "full, byte-identical" comparison —
+    /// which would have let a write to `qualia`, `temporal`, `sigma`, the
+    /// plasticity/last-write stamps, the three autopoiesis style lanes, or any
+    /// of the three 6 KB/row identity planes pass completely unnoticed while the
+    /// test reported "byte-identical". Every one of those is captured here, so
+    /// the claim in the assertion message is now the claim the code checks.
+    ///
+    /// Deliberately NOT captured: `mailbox_id`, `w_slot`, `threshold` and
+    /// `populated` are construction-time constants no cycle path writes, and
+    /// `stale_write_count` is a diagnostic counter rather than owner state.
+    #[derive(Clone, PartialEq, Debug)]
     struct Snapshot {
         phase: KanbanColumn,
         current_cycle: u32,
         energy: Vec<f32>,
+        plasticity_counter: Vec<u8>,
+        last_active_cycle: Vec<u32>,
+        last_write_cycle: Vec<u32>,
         entity_type: Vec<u16>,
         edges_raw: Vec<u64>,
         meta_raw: Vec<u32>,
+        qualia: Vec<QualiaI4_16D>,
+        temporal: Vec<u64>,
+        expert: Vec<u16>,
+        sigma: Vec<u8>,
+        content: Vec<u64>,
+        topic: Vec<u64>,
+        angle: Vec<u64>,
+        frozen_style: Vec<[u8; 12]>,
+        learned_style: Vec<[u8; 12]>,
+        explore_style: Vec<[u8; 12]>,
     }
 
     fn snapshot(owner: &Tile) -> Snapshot {
@@ -228,9 +254,22 @@ mod blw_bible_lens_wave {
             phase: owner.phase(),
             current_cycle: owner.current_cycle(),
             energy: owner.energy().to_vec(),
+            plasticity_counter: owner.plasticity_counter.to_vec(),
+            last_active_cycle: owner.last_active_cycle.to_vec(),
+            last_write_cycle: owner.last_write_cycle.to_vec(),
             entity_type: owner.entity_type().to_vec(),
             edges_raw: owner.edges_raw().to_vec(),
             meta_raw: owner.meta_raw().to_vec(),
+            qualia: owner.qualia.to_vec(),
+            temporal: owner.temporal.to_vec(),
+            expert: owner.expert.to_vec(),
+            sigma: owner.sigma.to_vec(),
+            content: owner.content.to_vec(),
+            topic: owner.topic.to_vec(),
+            angle: owner.angle.to_vec(),
+            frozen_style: owner.frozen_style.to_vec(),
+            learned_style: owner.learned_style.to_vec(),
+            explore_style: owner.explore_style.to_vec(),
         }
     }
 
@@ -390,8 +429,10 @@ mod blw_bible_lens_wave {
         // is a multiple of three.
         let cw = run_cognitive_work(&fleet, &out1.applied, &mut w, tile_divisible_by_three_lens);
 
-        let expected_fire: Vec<MailboxId> = owners.iter().copied().filter(|&t| t % 3 == 0).collect();
-        let expected_held: Vec<MailboxId> = owners.iter().copied().filter(|&t| t % 3 != 0).collect();
+        let expected_fire: Vec<MailboxId> =
+            owners.iter().copied().filter(|&t| t % 3 == 0).collect();
+        let expected_held: Vec<MailboxId> =
+            owners.iter().copied().filter(|&t| t % 3 != 0).collect();
         // Hand-derived, pinned literal (CI_TILES=8: tiles 0,3,6 are multiples
         // of three) — `== N`, not `>= N`.
         assert_eq!(expected_fire.len(), 3, "tiles 0, 3, 6 among CI_TILES=8");
@@ -556,7 +597,7 @@ mod blw_bible_lens_wave {
     //    real `MailboxSoA` owner + a real lens ──────────────────────────────────
 
     #[tokio::test]
-    #[ignore = "384 MiB of identity planes; run explicitly"]
+    #[ignore = "~768 MiB: 384 MiB of live identity planes + a full pre-wave snapshot of the same; run explicitly"]
     async fn blw1_full_kjv_scale_64_tiles_over_the_real_mailbox_soa() {
         let (mut fleet, total_rows) = bake_tiles(FULL_TILES);
         assert_eq!(
@@ -581,7 +622,11 @@ mod blw_bible_lens_wave {
         )
         .await
         .unwrap();
-        assert_eq!(sink.wal_writes(), 1, "64 tiled casts -> exactly ONE WAL write");
+        assert_eq!(
+            sink.wal_writes(),
+            1,
+            "64 tiled casts -> exactly ONE WAL write"
+        );
         assert_eq!(out1.sealed.version, DatasetVersion(1));
         assert_eq!(out1.applied.applied.len(), FULL_TILES);
 
@@ -602,8 +647,14 @@ mod blw_bible_lens_wave {
         assert_eq!(expected_held.len(), 42, "the remaining tiles among 64");
         assert_eq!(cw.cast, expected_fire.len());
         assert_eq!(cw.held_owners.len(), expected_held.len());
-        assert!(!expected_fire.is_empty(), "anti-vacuity: fires at full scale");
-        assert!(!expected_held.is_empty(), "anti-vacuity: silent at full scale");
+        assert!(
+            !expected_fire.is_empty(),
+            "anti-vacuity: fires at full scale"
+        );
+        assert!(
+            !expected_held.is_empty(),
+            "anti-vacuity: silent at full scale"
+        );
         assert!(expected_fire.len() < FULL_TILES, "sparse at full scale");
 
         // Headline 3 (mirrors FALSIFIER 3): the round trip Vn -> Vn+1.
