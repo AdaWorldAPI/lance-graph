@@ -33,6 +33,20 @@
 > - **Docs** — knowledge files produced (immutable)
 > - **Confidence (YYYY-MM-DD):** — the ONLY mutable field
 
+## 2026-08-04 — lance-graph #884 — post-merge arc entries for #881/#882/#883 + D-KIA-C1b statistics re-scope
+
+**Merged:** `1e90cef` (branch `claude/x265-x266-plans-review-h9osnl`, head `c6acd75`). 4 files, board/plan prose only — no code, no runtime behaviour.
+
+- **Added.** Arc entries for #881, #882, #883; the matching `LATEST_STATE` 2026-08-04 entry; the C1 audit result and the C1b deliverable in `.claude/plans/kanban-64k-inverted-awareness-v1.md`; the `D-KIA-C1b` row in `STATUS_BOARD.md`.
+- **Locked — the C1 audit finding.** `jc` is in-tree at `crates/jc/`. Two of C2's three renames are the SAME computation and one is a genuine gap: **φ = Pearson r on two binary variables** (`jc::reliability::pearson` already computes it — a named wrapper + the marginal-capped-ceiling caveat are the only new surface, the arithmetic is NOT re-implemented); **KR-20 = Cronbach's α on dichotomous items** (`cronbach_alpha` is the right function, naming + caveat only); **κ is absent entirely and is NOT a renamed ICC** — a different estimator, and the one that blocks D3's fusion falsifier.
+- **Locked — effect size means the r-family (operator, 2026-08-04).** R, R², **η²** (*erklärte Varianz*), φ. **Cohen's d is explicitly OUT of D-KIA-C1b** — calculated separately if a mean-difference contrast is ever wanted. The **t-test** (t/df/p) is in scope as the *significance* companion to η², not a d-family route: effect size is read off η²/R². Supersedes the vague "Effektstärke / effect size" wording this PR itself opened with; the correction landed in `c6acd75` before merge.
+- **Locked — ADDITIVE ONLY, with exactly one carve-out.** `pearson` / `spearman` / `cronbach_alpha` / `icc` keep their **arithmetic, signature and semantics**; new estimators land in a new module beside them. Any diff changing an existing `jc` statistic is an automatic reject, independent of merit. **The one sanctioned edit to an existing file is visibility only:** widening `reliability.rs`'s private helpers (`mean` / `all_finite` / `average_ranks` / `pop_var`) to `pub(crate)` plus the `pub mod` line in `lib.rs`, so the new module reuses them instead of growing a second source of truth. No body change, no signature change, no incidental cleanup.
+- **Locked — the separation carried into #883's arc entry.** `MulAdvance` / `drive_mul_advance` are legacy actor-message **wrappers**, not the canonical MUL reasoning engine; `gate_decision_i4` is independent, consumed directly by the #879 path via `shade_owner` / `run_cognitive_work_gated[_over]`, and **not deprecated**. The NARS tactic recipes and the awareness rung ladder are separate and untouched.
+- **Locked — the spawn inventory carries no architectural legitimacy.** Recorded as deletion-impact evidence and a removal work-list only.
+- **Deferred.** D-KIA-C1b implementation (remains **Queued** — this PR is scope, not code); D-KIA-A1's rescoped OPEN items (`run_cycle` drained-writer retry guard; missing-owner counter in `cognitive_pass`).
+- **Process note.** This PR existed because #881/#882/#883 merged without their arc entries. It then merged without its OWN entry — the same gap one level up, closed by this entry. The lesson is that "write the hygiene PR" does not discharge the rule for the hygiene PR itself.
+- **Confidence (2026-08-04):** working — prose only, no behaviour to regress.
+
 ## 2026-08-04 — lance-graph #883 — legacy actor-surface quarantine + stale phase-progression comment correction
 
 **Merged:** `48d4841` (branch `claude/x265-x266-plans-review-h9osnl`, head `c65a405`). 10 files, comment/doc-only.
