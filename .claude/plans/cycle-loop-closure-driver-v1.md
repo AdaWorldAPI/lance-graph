@@ -1703,3 +1703,61 @@ preserve pair ranking vs f32 cosines above a pinned ρ floor on a held-out
 set. The S² precedent measured Pearson 0.9917 / Spearman 0.9924
 (helix_orient header); the LINE version must be re-anchored, never assumed
 from the sphere's numbers.
+
+> **DEFERRED pointer (operator, 2026-08-05):** `ogar-blockly` (OGAR main —
+> the 256-slot `(function:value)` call palette, LaneShape carvings, one
+> 512-byte node per function body) as the storage substrate for the
+> elixir-syntax thinking-template recipes (256:256 rails; the alternative
+> to the planner/JITson route) is FEASIBLE-ASSESSED but the crate is ~3–5
+> days from finished. Full plan entry lands when it does. Mandatory read
+> before that design starts: `.claude/v3/knowledge/persona-vs-rung-ladder.md`
+> (the recipe codebook binds to the 144 verbs + 34 tactics, never the
+> adjective-36). Open encoding question carried: StepMask vs the 180-call
+> Pairs cap.
+
+### 12.11 D-IGN-B PROPOSED (2026-08-05, operator) — ignition starts the REAL lenses
+
+**The directive:** ignition must be a *simple start* for Gadamer
+Horizontverschmelzung or the four lenses — not an abstract style bit over
+fixture bodies. Sequencing: PROBE-IGNITION (in build) proves the MECHANICS
+(cast → scan → seal → advance, fixture qualia, §5 "no semantic claim");
+D-IGN-B is the stage behind it that swaps the fixture thought body for the
+shipped instruments, reusing the probe's fleet/scan/loop scaffolding.
+
+**Arming vocabulary (probe-defined, sidesteps Q1 entirely):**
+`z ∈ {0 = unarmed, 1 = Hegel, 2 = Nietzsche, 3 = Kant, 4 = Wittgenstein,
+5 = Fusion}` — six ordinals fit the 6-bit `MetaWord::thinking()` field with
+no MetaWord→PlanContext bridge needed: the CognitiveWork dispatch reads
+`thinking()` directly and selects the lens body. The 36-style bridge stays
+an explicitly open non-goal (design-note Q1; persona-vs-rung-ladder is the
+mandatory read before any such bridge).
+
+**The thought bodies — all shipped, nothing invented:**
+- z=1..4: the shared four-stance machinery (`lance-graph-planner/src/nars/*`
+  — the stance streaming + readout records extracted for
+  `probe_eyes_opened`), run over the owner's POPULATED rows through
+  cycle_driver's pluggable thought seam (D-BLW-1 precedent: the lens body
+  is already wired into the 5.4 seam).
+- z=5: the D-BLW-3 two-projection read (Strict rung-0 vs Aware rung-5 at
+  the owner's sealed horizon — `blw_fusion.rs`'s proven machinery); the
+  observable is that owner's gap read.
+
+**Pre-registered observable SHAPE (numbers pinned at build time):**
+- can-fire: two cohorts armed with DIFFERENT lenses over byte-identical
+  rows produce NON-identical readouts — the lens axis is load-bearing
+  (G2c's pattern lifted from reliability bits to instrument readouts);
+- can-stay-silent: two cohorts armed with the SAME lens over byte-identical
+  rows produce bit-identical readouts; the unarmed cohort produces none;
+- the ignition property itself is inherited, not re-proven: arming is a
+  write, discovery is a scan, work happens only after seal→apply — the
+  mechanics probe's G1–G11 already gate that layer.
+
+**Placement:** `lance-graph-supervisor/tests/` (same forced placement:
+only the supervisor sees both `run_cycle` and the planner). **Build gate:**
+starts only after PROBE-IGNITION passes central gates; shares its corpus
+loader and MemWal provenance.
+
+**Not claimed:** no fusion verdict, no stance-validity claim, no
+parallelism, no durability — this stage adds exactly one fact to the
+tree: *a cast-and-scan ignition starts real, shipped cognition, and which
+cognition is selected by the armed bits alone.*
