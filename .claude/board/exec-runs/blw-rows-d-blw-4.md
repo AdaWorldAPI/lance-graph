@@ -200,6 +200,16 @@ not left reading as an open question.
 
 **Measured outcome — PASS.**
 
+> **⊘ Scope of the PASS (clarified 2026-08-05 after external review):** the
+> PASS is against THIS harness's own pre-registered gates (G-A/G-B/G-C below,
+> pinned before the run under §12.3a′'s re-pin license — the operator ruling
+> that moved D-BLW-4's axis from owners to rows and re-pins the per-row work
+> threshold and row count at harness-write time). It is a SINGLE reported run
+> at 2,000 rows with a `> 1` criterion. It is **NOT** a pass of the inherited
+> A2/W2 protocol (median-of-5 after one discarded warm-up, ≥ 2×), and no such
+> pass is claimed here. The measured 3.27× happens to exceed 2×, but one run
+> is not a median-of-5 — that stricter tier remains open under D-KIA-A2.
+
 | gate | criterion (fixed before the run) | measured |
 |---|---|---|
 | G-A | body ≥ `BODY_FLOOR_US`, else INCONCLUSIVE | met |

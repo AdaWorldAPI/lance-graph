@@ -90,7 +90,7 @@ F-arms cannot distinguish anchoring from reflection.
 | arm | injection (per §2) | reading | pre-registered expectation |
 |---|---|---|---|
 | **T** (true) | shape₀ × true rank₀, ELEVATED-rung | **Gadamer, Wirkungsgeschichte**: understanding is conditioned by what tradition hands it — the fused horizon is *wirkungsgeschichtliches Bewusstsein* made measurable | the observable: S₁ − S₀ (two one-shots, V₁ vs V₀). Fires iff it clears the pre-pinned floor. |
-| **F+ / F−** (false) | true shape₀ × FALSE rank (shifted far high / far low on the bounded rank axis) | **the direction test.** S₁ tracking the injected rank = **Gadamer's Vorurteil as anchoring** (prejudice-structure dominating evidence) = **Goodhart realized** (a measure that becomes a belief ceases to be a good measure). S₁ correcting TOWARD truth against the injection = evidence-dominance (the hermeneutic circle revising its prejudice). Movement invariant to the injected value = mere perturbation, no verdict. | both directions MUST run — a one-sided F is not a direction test. |
+| **F+ / F−** (false) | true shape₀ × FALSE rank — **bounded-safe payload**: equal-magnitude opposite shifts applied in **logit(rank) space**, which is unbounded and symmetric by construction, so no boundary clipping can occur; anchors whose true rank falls outside a pinned eligibility band [δ, 1−δ] are **excluded from the F-arms entirely, never clipped** (clipping would silently unequalize the ± magnitudes and confound the direction test) | **the direction test.** S₁ tracking the injected rank = **Gadamer's Vorurteil as anchoring** (prejudice-structure dominating evidence) = **Goodhart realized** (a measure that becomes a belief ceases to be a good measure). S₁ correcting TOWARD truth against the injection = evidence-dominance (the hermeneutic circle revising its prejudice). Movement invariant to the injected value = mere perturbation, no verdict. | both directions MUST run — a one-sided F is not a direction test. |
 | **P** (placebo) | structurally identical shape-and-rank envelope, zero information (choice pinned at build time; note: "uniform shape + median rank" is NOT empty — it asserts *nothing unusual*, a real statement) | instrument validity | **must not move.** If P moves S₁, the instrument measures injection mechanics, not information. |
 | **N** (null instrument, free) | the T-injection observed through the §12.8 bloom-rank criterion | the awareness-free control | **must stay frozen BY CONSTRUCTION** — that criterion has no awareness term. Second duty: N's own V₀-vs-V₁ shape drift measures pool drift absent awareness coupling — the baseline the observer effect is read against. |
 
@@ -124,12 +124,19 @@ Pre-registration and guards, all binding BEFORE any run:
 3. **Guard twins (house falsifiability rule):** every gate carries a
    can-FIRE test and a can-STAY-SILENT test, both on non-trivial inputs.
 4. **The remeasure guard (new, from the single-measurement law):** the
-   measurement ledger is append-only, keyed `(statistic-id, version)`. A
-   second computation attempt at a sealed key must ERROR.
+   measurement ledger is append-only, keyed
+   `(statistic-id, arm, cohort, metric, version)` — scope-qualified, so
+   independent arms/cohorts/metrics legitimately writing at the same
+   version never collide with each other; only a true recompute of the SAME
+   scoped one-shot hits a sealed key. A second computation attempt at a
+   sealed key must ERROR.
    - can-fire: a test attempts the recompute and proves the guard barks;
-   - can-stay-silent: a fresh `(id, V+1)` one-shot passes untouched.
-5. **Direction-test symmetry:** F+ and F− both run, same magnitude of rank
-   shift, opposite signs.
+   - can-stay-silent: a fresh `(id, scope, V+1)` one-shot passes untouched,
+     AND a different arm's write at the same `(id, version)` passes.
+5. **Direction-test symmetry:** F+ and F− both run, same magnitude of
+   shift in logit(rank) units, opposite signs — the equal-magnitude
+   requirement is defined in the space where it cannot be broken by the
+   rank bounds (see the F± payload rule in §4).
 6. **No p-values** (C4). The paired contrasts + placebo + null-instrument
    arms ARE the inference. Full tables, never bare κ (C2 naming).
 7. **Anti-circularity, instrumented not violated (C6):** C6 forbids a

@@ -344,8 +344,14 @@ the alternation), and read the printed count:
 
 ```sh
 rg -c 'batch_writer|BatchWriter|KanbanStep|KanbanMove|kanban|owner_adapter|MailboxSoA|SoaEnvelope' \
-   crates/lance-graph-planner/examples/<your_harness>.rs || echo 0
+   crates/lance-graph-planner/examples/<your_harness>.rs \
+  || { s=$?; [ "$s" -eq 1 ] && echo 0 || echo "rg FAILED (exit $s) — not a count"; }
 ```
+
+(`rg` exits 1 for genuinely-zero matches and 2 for a real failure — wrong
+path, bad pattern. A bare `|| echo 0` would launder a failure into "zero
+matches, free-standing harness"; the exit-code split above keeps the two
+distinguishable.)
 
 **A count of 0 means your harness is a free-standing loop** and cannot support a
 substrate claim, however green it is. That grep returned `0` for `blw_texture.rs`,
@@ -363,13 +369,30 @@ is byte-identical (the #879 anti-vacuity falsifier, green at 64k/17). Any
 change that widens the write back toward dense/full-image, or adds a per-cast
 physical write, reverses #879 and is rejected on sight.
 
-**Invariant 2 — interlacing is prevented by `temporal.rs`, at READ time.**
-Cross-mailbox ordering is never a write-side concern: the writer fires ahead,
-no ack exists (`E-ACK-ELIMINATED-1`), and any consumer needing order recovers
-it through the deinterlace surface (`deinterlace` / layer-1
-`local_trajectories`, sort key `cast_seq` / `(hlc ?? version, version)`).
-Re-introducing write-side ordering, synchronization, or a confirmation ledger
-reverses #879 and is rejected on sight.
+**Invariant 2 — arrival order is never a write-side concern; canonical order
+is established by deinterlace BEFORE the seal.** (Rewritten 2026-08-05 — the
+earlier one-sentence form read as "read-time only," contradicting §8's
+operator-sharpened deinterlace-before-write ruling. Two distinct claims,
+both required, never conflated:)
+
+- **(a) Cross-MAILBOX arrival:** the writer fires ahead; no ack exists
+  (`E-ACK-ELIMINATED-1`); nothing at the write site synchronizes mailboxes
+  against each other. Re-introducing write-side cross-mailbox ordering,
+  synchronization, or a confirmation ledger reverses #879 and is rejected
+  on sight.
+- **(b) Per-MAILBOX canonicalization:** casts never arrive in the same
+  order, and the SEAL takes deinterlaced input — the caller canonicalizes
+  each mailbox's casts before sealing, via `temporal.rs` (`deinterlace` /
+  layer-1 `local_trajectories`, sort key `cast_seq` /
+  `(hlc ?? version, version)`) or via the known-order hash helper ONLY once
+  certified equally exact on the out-of-order regime (§8;
+  `TD-RECOVERY-HASH-PARTITION-UNCERTIFIED`). A caller sealing raw arrival
+  order violates (b) without violating (a) — the seal must never ingest
+  raw arrival order.
+
+For STORED logs, `temporal.rs` remains the canonical recovery surface at
+read time; (b) governs the write path's input, not a new cross-mailbox
+synchronization.
 
 **The caveat the ruling names — a hash partition stands where temporal.rs is
 preferred.** `cycle_driver::recover_fleet` (P4e, `cycle_driver.rs:700-746`)

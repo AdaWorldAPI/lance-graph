@@ -1393,7 +1393,7 @@ criterion P2 at q=0.25).
 | controls | Z byte-identical (plumbing zero); G1 three-way extensional identity (Aware≡Retro≡Strict@V8); G4 both tails + real-data silent arm (the design's "~90 % god" premise measured 0.1285 — fixture replaced with constant-by-construction tails); G5/G6/G7 green |
 
 **The headline, exactly as large as the measurement:** the a-priori/hindsight
-gap **closes monotonically as the horizon extends** — Δκ: −0.485 (V1),
+gap **moves toward zero overall, with a small rebound at V6/V7** — Δκ: −0.485 (V1),
 −0.251, −0.079, −0.031, ≈0.000, +0.011, +0.017, 0.000 (V8, identical by
 construction); Hamming(A): 152→123→94→66→53→37→21→0. The distinction does
 real work early in the series and dissolves as horizons merge. That is a
@@ -1425,8 +1425,8 @@ before any run):**
 
 | arm | injection | pre-registered expectation |
 |---|---|---|
-| **T** (true) | the measured S₀ = full `BinaryAssociation` of (A,B), injected as an ELEVATED-rung fact | the observable: S₁ − S₀. Fire iff it clears the floor. |
-| **F+ / F−** (false) | fabricated statistics (κ far above / far below truth) | the DIRECTION test: S₁ tracking the injected VALUE = anchoring on testimony over evidence (Gadamer's prejudice-structure, measurable; Goodhart's shadow); S₁ correcting TOWARD truth against the injection = evidence-dominance; value-invariant movement = mere perturbation. |
+| **T** (true) | `shape₀ × true rank₀` derived from sealed S₀ (§12.9a payload — never the raw statistic), injected as an ELEVATED-rung fact | the observable: S₁ − S₀. Fire iff it clears the floor. |
+| **F+ / F−** (false) | the TRUE shape₀ with a FALSE rank: equal-magnitude opposite shifts applied in **logit(rank) space** (symmetric by construction, no boundary clipping); anchors whose true rank falls outside a pinned eligibility band [δ, 1−δ] are EXCLUDED from the F-arms, never clipped | the DIRECTION test: S₁ tracking the injected RANK = anchoring on testimony over evidence (Gadamer's prejudice-structure, measurable; Goodhart's shadow); S₁ correcting TOWARD truth against the injection = evidence-dominance; value-invariant movement = mere perturbation. |
 | **P** (placebo) | same shape, permuted content, zero information | **must not move** — if placebo moves S₁, the instrument measures injection mechanics, not information, and the observer-effect claim dies. |
 | **N** (null instrument, free) | the same T-injection against the §12.8 bloom-rank criterion | **must stay frozen BY CONSTRUCTION** — that criterion has no awareness term, so any movement there is a plumbing leak that voids the run (G2's pattern, one level up). |
 
@@ -1490,8 +1490,9 @@ tracking injected values ⇒ the anchoring finding stands even if T is silent
    empty — it asserts "nothing unusual"); N unchanged + gains the
    pool-drift-baseline duty (its own V₀-vs-V₁ shape drift, awareness-free).
 5. **New guard:** the remeasure guard — append-only measurement ledger
-   keyed `(statistic-id, version)`; recompute at a sealed key ERRORS, with
-   can-fire + can-stay-silent tests.
+   keyed `(statistic-id, arm, cohort, metric, version)` (scope-qualified so
+   independent arms/cohorts/metrics at the same version never collide);
+   recompute at a sealed key ERRORS, with can-fire + can-stay-silent tests.
 
 ### 12.10 PROBE-ARC-TORQUE family PROPOSED (2026-08-04, operator) — torque of an arc, translator stray, author bias
 

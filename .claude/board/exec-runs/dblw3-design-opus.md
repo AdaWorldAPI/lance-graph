@@ -638,7 +638,7 @@ restriction is what removes it.
 
 ## 5.1 The two reads, off the real surface
 
-```rust
+```text
 a-priori  = deinterlace(&rows, &QueryReference::at(V_PIN, 0), &NoDeps)   // rung 0 → Strict
 hindsight = deinterlace(&rows, &QueryReference::at(V_PIN, 5), &NoDeps)   // rung 5 → Aware
 ```
@@ -878,3 +878,15 @@ example (`examples/blw_fusion.rs` or equivalent) that **consumes**
 `blw_tenant.rs`'s shape rather than editing it — but that placement decision is
 the orchestrator's, and I did not make it. `temporal.rs`, `crates/jc`, and
 `persist_sink.rs` are untouched by this design by construction (§12.5).
+
+---
+
+## ⊘ Post-review corrections (2026-08-05)
+
+**The movement threshold is two-sided:** the movement outcome reads
+`|Δκ| >= 0.10` (the Δ(pair) definition is signed; the null rule already used
+`|Δ|`; the asymmetric `Δκ >= 0.10` reading left a 0.10 DECREASE classified as
+neither null nor movement). Immaterial to the recorded run: the measured
+V_pin movement was −0.031, which lands in the middle-ground band under both
+readings. Also relabeled §5.1's fenced pseudocode from `rust` to `text` in
+place (`a-priori`/`hindsight` were prose names, not Rust bindings).

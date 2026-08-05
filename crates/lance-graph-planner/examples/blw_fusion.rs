@@ -349,7 +349,11 @@ fn rank_verdicts(owner: &Tenant, pool_size: usize, seed: &[u64]) -> Vec<bool> {
         .collect();
     // Descending score, ties broken by ASCENDING row index (§2.3).
     scored.sort_by(|a, b| b.0.cmp(&a.0).then(a.1.cmp(&b.1)));
-    let n_pos = pool_size / 4; // PRE-REGISTERED q = 0.25, floor operationalization.
+    // PRE-REGISTERED q = Q_QUANTILE, floor operationalization (see the const's
+    // doc comment). f64 mult of a small usize by 0.25 is exact; the `as usize`
+    // cast floors, matching the previous `pool_size / 4` integer division
+    // bit-for-bit for every pool size this harness produces.
+    let n_pos = (pool_size as f64 * Q_QUANTILE) as usize;
     let mut verdict = vec![false; pool_size];
     for &(_, row) in scored.iter().take(n_pos) {
         verdict[row] = true;
@@ -1472,9 +1476,6 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
          claim is FIRST DeinterlaceRow implementor and FIRST deinterlace caller; the finding lives \
          in the rank criterion, not temporal.rs."
     );
-
-    println!("--");
-    println!("NOT COMPILED, NOT RUN by the authoring lane -- Sonnet grindwork, edit-only, no cargo (per task hard rules). The orchestrator compiles/lints/tests once.");
 
     Ok(())
 }

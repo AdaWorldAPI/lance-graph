@@ -1,7 +1,9 @@
 # D-BLW-3 build (Sonnet grindwork lane)
 
-**Scope:** created `crates/lance-graph-planner/examples/blw_fusion.rs` (~1145
-lines); edited `crates/lance-graph-planner/Cargo.toml` (one dev-dep line +
+**Scope:** created `crates/lance-graph-planner/examples/blw_fusion.rs` (~1480
+lines as shipped — the lane's original draft was ~1145; the count grew during
+the orchestrator's central-gate fixes; corrected 2026-08-05); edited
+`crates/lance-graph-planner/Cargo.toml` (one dev-dep line +
 comment, `jc = { path = "../jc" }`). No other file touched. `temporal.rs`,
 `crates/jc`, `persist_sink.rs`, `blw_tenant.rs` — read only, not modified.
 `AGENT_LOG.md` — read (first 150 lines), not written.

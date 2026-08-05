@@ -526,3 +526,33 @@ knowledge doc); `contract/qualia.rs` beyond `ZERO`/`get`/`with`;
 provenance comments and the Sonnet inventory §C); `crates/jc`.
 
 **Not run:** no cargo command of any kind was executed by this lane.
+
+---
+
+## ⊘ Post-review corrections (2026-08-05, external review round on PR #891)
+
+**G1/G2b — the Flow/Block split (real internal inconsistency; corrected here
+and relayed to the build lane mid-flight).** §3's G2b as written ("every
+sealed move with `from == Planning` has `exec == Elixir` and
+`to == CognitiveWork`") contradicts §2 step 8 of THIS note: the 4 CONTRA
+owners' gate says Prune at c1, so their Planning-column casts are
+`shade_owner`'s — `exec == Native`, `to == Prune`. Corrected assertions:
+
+- **G1 can-fire decomposes:** c1's 24 advances = **20 Flow**
+  (`Planning → CognitiveWork`) + **4 Block** (`Planning → Prune`), each
+  counted separately.
+- **G2b Elixir claim restricted:** every `Planning → CognitiveWork` move has
+  `exec == Elixir` (the STYLE's mints); **new twin:** every
+  `Planning → Prune` move has `exec == Native` (the GATE's mints via
+  `shade_owner`). The can-stay-silent half (`CognitiveWork`/`Evaluation` ⇒
+  `Native`) is unchanged.
+
+**Skips from the same round, with reasons (deliberate deferrals this note
+already records):** the upstream missing-owner counter (G10's own comment
+names it as the follow-up — the probe's job is to make the gap observable,
+Q2 ruling: no upstream change in this PR); the retry-safe seal API (G9
+exists precisely to make the #879 drained-writer footgun VISIBLE — the guard
+is the next deliverable, not this probe); the 36-style MetaWord→PlanContext
+mapping (open question Q1, ruled out of this probe — 3-style honesty is
+printed; `persona-vs-rung-ladder.md` is the mandatory read before any
+bridge is designed).

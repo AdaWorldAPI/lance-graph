@@ -51,6 +51,26 @@ claimed: validity (D3b closed), significance (no dependence model), zero-copy
 
 **Status:** FINDING (measured; harness + output in-tree, plan §12.8).
 
+> **⊘ Correction (2026-08-05, external-review catch, two parts).**
+> (1) *"decays monotonically" was an overclaim*: |Δκ| runs 0.485 → 0.251 →
+> 0.079 → 0.031 → ≈0 → **0.011 → 0.017** → 0 — a rebound at V6/V7. The
+> honest statement: **the gap moves toward zero overall, with a small
+> rebound at V6/V7**. The trajectory shape, the IN/IN band, and every other
+> claim in this entry are unaffected; the plan §12.8 headline is corrected
+> in the same commit. (2) *G4 fixture-replacement post-mortem, recorded in
+> full as the approval record*: the ORIGINAL can-fire fixture's premise
+> ("'god' any-overlap ≈ 90 %") was MEASURED at 0.1285 during the central
+> gate pass — it would have made the can-fire half near-vacuous, so it was
+> replaced BEFORE the assert stage by constant-by-construction tails
+> (`s.wrapping_add(1) != 0 || s == u32::MAX` all-fire /
+> `u64::from(score) > u64::from(u32::MAX)` never-fire), which PASSED; the
+> real-data 'god' projection was retained as the can-stay-silent arm (with
+> a drift assert), which PASSED. The replacement decision was made
+> centrally by the orchestrator mid-gate (autonomous session; this line is
+> the recorded approval), on the ground that a fixture premise contradicted
+> by measurement cannot be the can-fire evidence — constant-by-construction
+> tails cannot rot the same way.
+
 
 ## 2026-08-04 — E-THE-CARRIER-CHANGED-THE-INSTRUMENT-DID-NOT-1 — a 24-locus register that writes one shared locus is still a coincidence bit
 
