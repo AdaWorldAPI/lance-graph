@@ -1,3 +1,43 @@
+## 2026-08-05 — D-IGN-B GREEN: ignition starts the REAL lenses (Opus design + Sonnet inventory + Sonnet build + central gates)
+
+**D-ids:** D-IGN-B (plan §12.11). **Outcome: GREEN — 1/1 test, gates L0-L7 +
+z5-BLOCKED, all both-halved.** Files: `tests/d_ign_b_lenses.rs` (~1,100
+lines); lanes: `exec-runs/d-ign-b-design-opus.md` (+ orchestrator Q6/Q7
+ratification), `d-ign-b-api-inventory-sonnet.md`, `d-ign-b-build.md`.
+
+**What it proves.** The operator's directive realized: arming an owner with
+z ∈ {1..4} over BYTE-IDENTICAL rows selects which of the four shipped stance
+readings is recorded — L0: 8 twin owners byte-identical across 48 rows; L1:
+Kant vs Wittgenstein digests differ, same-lens digests bit-identical (with
+the risk-check first: Hegel/Nietzsche NON-empty on this path — the
+constant-false finding was the SPO/TSV path; this path streams raw verse
+text); L3: no lens constant-empty (z=1 0/8, z=2 2/8, z=3 1/7, z=4 0/7
+empty); L4 anti-degeneracy: 6-7 distinct digests per lens; L5: 30 Flow + 0
+Block sealed at c1 (derived for THESE cohorts, not recited from the probe);
+L6: every readout owner had advanced Planning→CognitiveWork, UNARMED absent
+from both sides; L7: OUTSIDE silent by address alone.
+
+**Honest framing held throughout (operator-ratified Q6):** SELECTION, not
+dispatch — stance_panel computes all four in one call and the ordinal picks
+the tuple element (printed + not-claimed item 11); the lens reads the
+owner's corpus slice by address, never row bytes (the §12.7 defect shape,
+named — substrate governs selection end-to-end, and no substrate-data-path
+claim may follow from any readout). **z=5 Fusion is BLOCKED and says why at
+runtime**: this fleet accrues ≤2 sealed horizons, so Strict-vs-Aware
+admission is identical and any delta is 0 BY CONSTRUCTION; `jc` is not a
+supervisor dep. Reserved, not faked; R2 is the recorded path if wanted.
+
+**Build lane self-caught two falsifiability traps pre-handoff:** a digest
+variant-discriminant tag that made every cross-lens inequality pass by
+construction (removed — digests fold content only, so empty readouts
+genuinely collide and L3/L4 can actually fail); an L2 write into the main
+readout map that would have corrupted L6's containment premise (scratch
+map). Central gates caught one clippy warning (map-keys iteration), fixed.
+
+**Gates:** test 1/1 ok; clippy 0 warnings attributable; fmt clean. Same CI
+caveat as the probe: inert without `--features cycle-driver` (operator-
+approved workflow change, still open).
+
 ## 2026-08-05 — PROBE-IGNITION: the write path is DRIVEN (Opus design + Sonnet inventory + Sonnet build + central gates)
 
 **D-ids:** PROBE-IGNITION (plan §12.11's prerequisite). **Commit:** this one.
