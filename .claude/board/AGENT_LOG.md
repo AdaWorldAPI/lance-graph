@@ -1,3 +1,36 @@
+## 2026-08-05 — PROBE-IGNITION-64K GREEN: start() at the MAIN MODEL's full population (main-thread build, answering the operator's direct question)
+
+**The question:** "Did you test the 64k concurrency model working with the
+start()?" **The honest answer was NO — now it is HALF-YES, with the half
+named.** `tests/probe_ignition_64k.rs` (1/1): **65,536 real 1:1
+`MailboxSoA<4>` owners** — armed by MetaWord write, gate-checked
+per owner, cast via `emit_bootstrap_intent` (ONE `StyleStrategy::plan`,
+per-owner binding by `rebind_bootstrap`), **sealed in EXACTLY ONE WAL
+write**, all 65,536 transitions applied (`Planning→CognitiveWork`, all
+Elixir, stream positions strictly monotone), then — after `consume_firing`
+— the ENTIRE 64k fleet RESTS at c2 (0 new casts, all 65,536 seen + Held on
+a would-be-Flow qualia, wal_writes frozen).
+
+**Measured wall times (provenance, never asserted):** build 8.4 s; c1
+cast 225 ms; seal+apply 514 ms; c2 rest decision over 64k owners 73 ms;
+9.2 s end to end.
+
+**The half that remains open, stated in the run's own not-claimed block:**
+CONCURRENCY. The loop is synchronous — this proves the machinery HOLDS at
+the full population and converges at the one deterministic seal boundary;
+"parallel" remains gated by D-KIA-A2's pre-registered protocol.
+
+**One measurement bug self-caught by the run:** the first draft asserted
+`writer.casts().len() == 0` at c2 and failed at 65,536 — `casts()` is the
+CUMULATIVE board (cycle 1's records survive the payload drain, the exact
+G9 drained-writer semantics). Rest is now measured as a delta, with the
+positive half added (all 64k seen + Held — a per-owner decision, not an
+empty scan).
+
+Scale was bought on the OWNERS axis only (`MailboxSoA<4>`, one populated
+row) per §12.3a‴: rows-per-owner is the benchmark axis, owners is the
+model. Gates: test 1/1; fmt clean; clippy 0 attributable warnings.
+
 ## 2026-08-05 — D-IGN-B GREEN: ignition starts the REAL lenses (Opus design + Sonnet inventory + Sonnet build + central gates)
 
 **D-ids:** D-IGN-B (plan §12.11). **Outcome: GREEN — 1/1 test, gates L0-L7 +
