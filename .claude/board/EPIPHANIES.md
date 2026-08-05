@@ -1,3 +1,53 @@
+## E-HOT-WINDOW-DECOUPLES-THE-CLOCKS-1 (2026-08-05, operator-directed; panel-hardened design, NOT built)
+
+**The cognition clock and the persistence clock decouple: every sealed cycle
+PUBLISHES to RAM immediately; durability becomes a batched background sync
+barrier over K cycles. The hot window is the head of the log kept resident —
+eviction-only, never invalidation — which is why it beats "another cache
+layer": a cache is a copy kept coherent with the truth; the window IS the
+truth, retained past its durability point.** Full design:
+`.claude/plans/measure-64k-axes-v4.md` (composes with v2, survives v3's M/O
+results). Two watermarks: `published_head` (RAM) vs `durable_head` (advanced
+only at barriers); crash window `(durable_head, published_head]`.
+
+**The panel inverted the fork.** Lance mints one version per commit, so K
+cycles per flush meant either (i) K unsynced commits + ONE fdatasync barrier,
+or (ii) K cycles inside one Lance version with `CycleId` as the fine clock.
+The initial lean was (ii) ("the CycleId/DatasetVersion type split
+pre-anticipated it") — **refuted with citations**: `temporal.rs` has no
+cycle-within-version coordinate, so under (ii) the no-hindsight guarantee
+silently degrades to up-to-(K−1) cycles of intra-version hindsight for a
+Strict reader; `hlc_tick` repurposing is the forbidden third numbering
+wearing a borrowed name; and the 1:1 binding is contractual at ≥6 sites.
+**(i) barrier flush is the recommendation**: 1 cycle = 1 real Lance version
+survives everywhere (v2's pin, the base fence, the versions() ladder, the
+no-hindsight falsifier), and the batch amortizes exactly the phase A0
+measured as unstable — the sync.
+
+Five invariants, each bought by a landed attack or sweep finding (v4 §4):
+**H-1** checkpoint fencing (the per-owner `(phase, watermark)` checkpoint is
+a THIRD durable artifact; it must never be durable ahead of `durable_head`
+or recovery silently skips legitimate landings — the naive "die together"
+claim was refuted until this fence was added); **H-2** torn-tail cleanup
+(`durable_head` = newest fully-intact version at/below the last barrier;
+recovery removes torn manifests above it or the durable prefix is not
+contiguous); **H-3** the window is not a veto window (published = irrevocable;
+the Libet veto stays pre-seal in v2's `ClosureState::Vetoed`); **H-4** the
+zero-copy conditions (the window retains the SINGLE freeze-output allocation
+per cycle AND the batched append writes FROM those bytes — otherwise it is
+the forbidden "detached canonical state" snapshot); **H-5** rung-decided
+visibility + the ack rebase (`E-ACK-IS-THE-KANBAN-TRIGGER-1`'s pump moves to
+the publish ack — still a Lance ack, now meaning "published" not "durable" —
+or the cognition clock is not actually decoupled).
+
+**Naming rule:** this is *the MailboxSoA fleet's hot version window over
+sealed cycles* — NEVER "VSA speaks Lance" (E-MARKOV-TEMPORAL-STREAM-1 demoted
+the VSA carrier; the in-RAM substrate is the `MailboxSoA` fleet). Dated
+caveats were added to `seal-vs-temporal-ordering-information.md` properties
+2 and 4 (arrival is durable only at/below `durable_head`; cohort re-anchors
+on the seal event). Measurements EXP-HOT-WINDOW P1-P5 pre-registered, none
+run; KILLs named (publish latency not dropping; barrier(K) ≈ K·barrier(1)).
+
 ## E-SEAL-AND-TEMPORAL-ARE-DIFFERENT-OBJECTS-1 (2026-08-05)
 
 **The seal and `temporal.rs` are not two implementations of one ordering

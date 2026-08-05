@@ -1,3 +1,36 @@
+## 2026-08-05 — hot-window design verification panel (workflow: 1 canon sweep + 1 adversarial refuter)
+
+**Outcome: the panel HARDENED the design and INVERTED its fork choice before
+anything was banked** — exactly what a pre-bank panel is for. D-id: D-HWV-1.
+Run: workflow `hot-window-design-verify` (2 agents, both structured-output,
+read-only, no cargo, no file writes — results consolidated here by the
+orchestrator per the one-writer rule).
+
+- **Canon sweep** (7 findings): 3 CONFLICTS (v2's one-cycle/one-version pin;
+  seal-property-4's append→version parenthetical; the persist_sink.rs
+  seal==append==durable wording at ~9 cited sites incl. the
+  `wal_writes()==1` falsifier and the `E-ACK-IS-THE-KANBAN-TRIGGER-1` pump),
+  2 NEEDS-CAVEAT (seal-property-2 arrival durability; zero-copy legality —
+  legal only under the two H-4 conditions), 2 COMPATIBLE (E-64K-1TO1's seal
+  boundary is untouched; naming = the MailboxSoA fleet, never "VSA speaks
+  Lance").
+- **Adversarial refuter** (6 attacks, 4 landed): no side-effect escapes the
+  RAM+WAL pair in current source (NOT refuted — the die-together property's
+  precondition holds); the naive die-together claim REFUTED until H-1
+  (checkpoint fencing) was added; the K-batch flush had no contract home and
+  option (i) unsound without a barrier + torn-tail cleanup (→ H-2);
+  `base_version` unfillable under version multiplexing (→ resolved by
+  choosing barrier flush, where each cycle mints its real version at
+  publish); "the type split pre-anticipated (ii)" REFUTED at ≥6 cited 1:1
+  binding sites; "temporal.at() already resolves cycle-within-version"
+  REFUTED — no such coordinate exists, and (ii) would silently coarsen the
+  no-hindsight guarantee by up to K−1 cycles for a Strict reader.
+
+Landed from this run: plan `measure-64k-axes-v4.md`, EPIPHANIES
+`E-HOT-WINDOW-DECOUPLES-THE-CLOCKS-1`, dated caveats in
+`seal-vs-temporal-ordering-information.md` (properties 2+4), v2 cross-note,
+STATUS_BOARD row D-HWV-1. Build lane NOT dispatched — gated on operator word.
+
 ## 2026-08-05 — M-arm + O-arm MEASURED: both NEGATIVE (Sonnet build + central Opus gates + adjudication)
 
 **Outcome: two hypotheses tested, both falsified under this construction —

@@ -252,3 +252,26 @@ sequential semantic result digests match.
 5. Encryption: a SEPARATE later arc, starting with the layer-placement
    decision (replication/transport vs storage), using the retained
    D5-DEFERRED design.
+
+---
+
+## ⊘ v4 cross-note (2026-08-05, append-only)
+
+**v4 (`measure-64k-axes-v4.md`, the hot version window) composes with this
+model one level UP — it does not supersede it.** This plan rolls chunks
+*within* one cycle toward one epoch manifest; v4 batches sealed *epochs*
+across the durable flush (publication clock decoupled from persistence
+clock). Two clarifications a future reader needs:
+
+- **The "one-cycle/one-version logical contract is unchanged" pin (§ above)
+  SURVIVES under v4's recommended fork** (barrier flush: each seal still
+  performs its own unsynced Lance commit → one real `DatasetVersion` per
+  cycle; only the fdatasync is batched, 1 per K cycles). It would break
+  under the rejected version-multiplexing fork — which is exactly half the
+  reason that fork was rejected (v4 §3).
+- **Two different 200 ms windows, never conflated:** D3's 200 ms is the
+  *intra-cycle chunk-closure* deadline (rolling veto budget); v4's 200 ms
+  is the *cross-cycle flush* deadline (Nagle-shaped barrier trigger). The
+  Libet veto lives HERE, pre-seal (`ClosureState::Vetoed`) — v4 §H-3 pins
+  that a published cycle is irrevocable and its flush queue is never a veto
+  surface.

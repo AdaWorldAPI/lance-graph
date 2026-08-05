@@ -70,6 +70,17 @@ returns (`scan_sealed` is contractually forbidden from re-sorting:
 property, fixed before the append)"*; restated at `:315-317`). O-B cannot reproduce it
 because the information is not in the per-owner projection it reads.
 
+> **⚠ Hot-window caveat (2026-08-05, added by `measure-64k-axes-v4.md`).**
+> "Once in the record it *is* the durable fact" holds only **at or below
+> `durable_head`**. Under the hot version window (publication decoupled from
+> durability, v4 §0), a sealed cycle's arrival order exists ONLY in RAM until
+> the sync barrier — and where `stream_position` ties occur, that order is
+> unreproducible from durable data by this doc's own PROBE-SEAL-TIE-DENSITY
+> argument. A crash in `(durable_head, published_head]` therefore loses
+> cross-owner arrival information that cognition may already have consumed.
+> That is the window's accepted, explicitly-priced cost (v4 §H-1 die-together
+> property; P3 measures the window's size distribution) — never a silent one.
+
 > **⚠ Scope, stated so it is not overread.** The O-arm deliberately scrambled
 > arrival (bit-reversal of the owner id) precisely so the two orders were FREE
 > to diverge — without that, every owner casts in ascending id order and the
@@ -104,6 +115,15 @@ facts the temporal surface has no field for:
 A per-owner trajectory carries neither. Reconstructing "these 65,536 casts read
 the same `Vn` and landed together" from per-owner chains is not a matter of
 sorting harder; the grouping key is simply absent.
+
+> **⚠ Hot-window caveat (2026-08-05, added by `measure-64k-axes-v4.md`).**
+> The parenthetical "(one WAL append → one `DatasetVersion`)" anchors cohort
+> membership on the physical append — an identity the hot version window
+> retires. Cohort membership re-anchors on the **SEAL event** (which under
+> v4's recommended barrier-flush fork still mints exactly one
+> `DatasetVersion` per cycle; only the sync is batched). The read-horizon
+> half of this property is untouched: the seal still stamps `base_version`
+> per cycle.
 
 ---
 
