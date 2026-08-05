@@ -1,3 +1,24 @@
+## 2026-08-05 — PROBE-ORACLE-FUNNEL Stage 0 (main thread; pre-register → build → run → record)
+
+- **Agent:** main thread only (no fleet). **D-id:** PROBE-ORACLE-FUNNEL-S0.
+- **Order kept honest:** pre-registration (`.claude/plans/oracle-funnel-probe-v1.md`
+  §1-§4, expectations E1-E4) committed-in-spirit BEFORE the probe was built or
+  run; results appended to §5 after.
+- **Harness:** OGAR `crates/ogar-loco/examples/funnel_probe.rs` (PR #245) —
+  consumes only the loco session's shipped wishlist delivery (#244: W-1
+  validate path, W-2 name column, W-4 FunnelTally). Dependency ruling
+  respected: no crate dep either direction; the probe lives where the gates
+  live.
+- **Result:** E1-E4 all met; the KILL (E4) passes at 99.5 points vs the
+  50-point bar. Extra finding promoted: `E-THE-LEGEND-IS-NOT-THE-GRAMMAR-1`
+  (Arm G at the floor — vocabulary knowledge ≈ worthless without the stack
+  discipline; Stage-1 prompt-design consequence recorded).
+- **Gates:** `test`/`clippy --examples -D warnings`/`fmt`, all `-p ogar-loco`,
+  green. One clippy `type_complexity` caught and fixed pre-commit (a `&&`
+  pipe chain had masked it — exit codes re-checked via `PIPESTATUS`).
+- **Still gated (untouched):** Stage 1 LLM arm (operator word + API), Stage 2
+  PROBE-GADAMER-BAG (W-3 NARS-34 mint), D-BLW-5 build, D-HWV-1 build.
+
 ## 2026-08-05 — hot-window design verification panel (workflow: 1 canon sweep + 1 adversarial refuter)
 
 **Outcome: the panel HARDENED the design and INVERTED its fork choice before

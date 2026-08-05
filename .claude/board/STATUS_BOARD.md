@@ -1,3 +1,15 @@
+## oracle-funnel-probe v1 — PROBE-ORACLE-FUNNEL staged (PRE-REGISTERED 2026-08-05)
+
+Plan: `.claude/plans/oracle-funnel-probe-v1.md`. Consumes OGAR #241/#244
+(`validate` W-1, `FnSpec.name` W-2, `FunnelTally` W-4); wishlist delivery
+recorded in OGAR handover `2026-08-05-1430-…-to-ogar-loco.md`.
+
+| D-id | Deliverable | Repo | Status | Evidence |
+|---|---|---|---|---|
+| PROBE-ORACLE-FUNNEL-S0 | 3-arm deterministic funnel probe (R floor / G mid / W ceiling), E1-E4 pre-registered, legend-cost anchor | OGAR (`ogar-loco` example) + plan here | MEASURED — E1-E4 all met (0.5%/2.5%/100%, spread 99.5 pts) | plan §5; OGAR PR #245; `E-THE-LEGEND-IS-NOT-THE-GRAMMAR-1` |
+| PROBE-ORACLE-FUNNEL-S1 | LLM arm via rig CompletionModel (D-RLG-1); legend token cost under prompt caching; validity feedback only | lance-graph | GATED (operator word + API) | plan §4 |
+| PROBE-GADAMER-BAG | NARS-34 vocabulary survivors scored by Gadamer-projection falsifiers | both | GATED (W-3 mint: operator byte assignments + ResultBehavior) | plan §4 |
+
 ## 2026-08-04 — Arm BLW retractions (prepended; the D-BLW rows below are restored to their original text, Status field only updated)
 
 Four errors on one axis, operator-ruled. Recorded here rather than by rewriting
