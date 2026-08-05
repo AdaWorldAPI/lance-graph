@@ -1,3 +1,27 @@
+## 2026-08-04 — Arm BLW retractions (prepended; the D-BLW rows below are restored to their original text, Status field only updated)
+
+Four errors on one axis, operator-ruled. Recorded here rather than by rewriting
+the rows in place (append-only governance; the earlier in-place rewrite was
+caught on review and reverted).
+
+- **D-BLW-1 — shape void.** An owner is a **TENANT**, not a shard
+  (`CLAUDE.md`: "one mailbox = one kanban board as tenant"; one `MailboxSoA` is
+  moved into one `KanbanActor` as sole mutator). Tiling the Bible across 64
+  owners fabricated 63 tenants. The shipped test was **deleted** — it was green
+  on that fabricated shape. Correct shape: ONE tenant, verses as ROWS, thoughts
+  row-level over the owner's slice. `E-AN-OWNER-IS-A-TENANT-NOT-A-SHARD-1`.
+- **D-BLW-4 — axis void.** Owner-count is not a scale knob, and the follow-up
+  "measure it with 4,096 *lightweight* owners" kept the wrong unit and merely
+  made it cheap. Harness deleted. Correct axis: N row-level thought bodies
+  within one owner, A2/W2 protocol carried verbatim. Plan §12.3a′.
+- **The memory case was measured off the wrong struct.** Canon is
+  `NODE_ROW_STRIDE = 512` (const-asserted), so the whole 64k bake is **32 MiB**,
+  not 384 MiB — the 6,144 B/row figure is `MailboxSoA`'s hot planes, 12× the
+  canonical row. No tiling, no `#[ignore]`, no CI split was ever needed.
+  Open question logged as `ISS-MAILBOXSOA-ROW-COST-VS-512B-CANON`.
+- **D-BLW-2 / D-BLW-3 designs stand** (§12.3a, §12.3b) and are unaffected by the
+  above; their builds are not done.
+
 ## kanban-64k-inverted-awareness v1 — parallel thinking + inverted-awareness witness (PLANNED 2026-08-02)
 
 Plan: `.claude/plans/kanban-64k-inverted-awareness-v1.md` (operator anchors a/b; R1-R15 review basis).
@@ -12,10 +36,10 @@ Plan: `.claude/plans/kanban-64k-inverted-awareness-v1.md` (operator anchors a/b;
 | D-KIA-C5 | cohort-statistic witness type under the ELEVATED carve-out + held-out anti-circularity gate | lance-graph | Queued | plan W4 |
 | D-KIA-D1 | observer/observed as two Locus categories over one arena (cheapest-first) | lance-graph | Queued | plan W5 |
 | D-KIA-C2 | Name the dichotomous statistics correctly (Pearson->phi, alpha->KR-20, kappa NOT a renamed ICC, Spearman dropped on binaries). AUDIT RESULT 2026-08-04: the jc reliability battery has exactly 4 consumers (style_table_agreement, rung_divergence_reliability, partof_isa_vs_palette256, l9_loci_real_text) and NONE is dichotomous — style columns, rung levels 1-10, palette/taxonomy distances, i4 loci offsets are all continuous/ordinal, so Pearson/alpha/ICC are correctly named at every existing call site and there is ZERO rename work today. The discipline binds PROSPECTIVELY at the first binary-criteria witness (D3). Surfaced instead: TD-STATS-DEGENERACY-CONTRACT-DIVERGENCE | lance-graph | Audited (no rename work; binds at D3) | plan W0/C2 |
-| D-BLW-1 | One 64k KJV SoA + the four-stance lens body wired into cycle_driver's 5.4 pluggable thought seam; Outcome round-trips via emit_bootstrap_intent. Reuses P4a/P4b/P4c falsifiers at KJV scale | lance-graph | Queued | plan cycle-driver 12 |
-| D-BLW-2 | The four stances (Hegel/Nietzsche/Kant/Wittgenstein) as READS over the sealed version, not four bakes. Discrimination twin: pairwise binary_association must show lenses can differ AND can agree; report counts + both marginals, never bare kappa | lance-graph | Queued | plan cycle-driver 12 |
-| D-BLW-3 | Horizontverschmelzung as a measured trajectory across the sealed series, under a-priori (single-version filter) and hindsight (version-range cascade) reads. KILL: flat kappa regrades the claim to four independent stance reads — not Gadamer | lance-graph | Queued | plan cycle-driver 12 |
-| D-BLW-4 | 64k concurrent thought bodies at KJV scale. Inherits W2's pre-registered thresholds (median of 5+ runs, 2x at 4096+ owners, 100us bodies). KILL: regrades to 64k-scale SEQUENTIAL sparse cycles | lance-graph | Queued (scale) | plan cycle-driver 12 |
+| D-BLW-1 | One 64k KJV SoA + the four-stance lens body wired into cycle_driver's 5.4 pluggable thought seam; Outcome round-trips via emit_bootstrap_intent. Reuses P4a/P4b/P4c falsifiers at KJV scale | lance-graph | Retracted (shape void) — rebuild queued | plan cycle-driver 12 |
+| D-BLW-2 | The four stances (Hegel/Nietzsche/Kant/Wittgenstein) as READS over the sealed version, not four bakes. Discrimination twin: pairwise binary_association must show lenses can differ AND can agree; report counts + both marginals, never bare kappa | lance-graph | MEASURED KILL 2026-08-04 (plan §12.7) — instrument writes 3 of 24 loci, 1 shared, so agreement_count is capped at 1 before any verse is read; rebuild queued | plan cycle-driver 12 |
+| D-BLW-3 | Horizontverschmelzung as a measured trajectory across the sealed series, under a-priori (single-version filter) and hindsight (version-range cascade) reads. KILL: flat kappa regrades the claim to four independent stance reads — not Gadamer | lance-graph | **SHIPPED + MEASURED 2026-08-04** (`examples/blw_fusion.rs`, re-scoped per design B1 to two rank projections over the tenant): band IN/IN (κ 0.49/0.46); Δκ at V_pin −0.031 = middle ground, no fusion verdict; the 8-horizon table shows the a-priori/hindsight gap CLOSING monotonically (Δκ −0.485→0, Hamming A 152→0) — DROP does not fire; first `DeinterlaceRow` implementor + `deinterlace` caller | plan cycle-driver 12 + §12.8 result |
+| D-BLW-4 | 64k concurrent thought bodies at KJV scale. Inherits W2's pre-registered thresholds (median of 5+ runs, 2x at 4096+ owners, 100us bodies). KILL: regrades to 64k-scale SEQUENTIAL sparse cycles | lance-graph | Retracted (axis void) — rescope queued | plan cycle-driver 12 |
 | D-KIA-D3a | DESCRIPTIVE binary overlap: contingency counts + BOTH marginals + observed/expected agreement + kappa + phi, via jc::stats::binary_association. Claim ceiling is overlap / disagreement / marginal asymmetry / redundancy-or-complementarity CANDIDATE. No fusion or validity claim | lance-graph | Queued (unblocked) | plan W6 |
 | D-KIA-D3b | HELD-OUT fusion falsifier — BLOCKED until an external criterion and a criterion-appropriate scoring rule are chosen. Continuous criterion: pre-registered delta-R-squared = R2(A+B) - max(R2(A),R2(B)). Binary criterion: a proper held-out score, NOT R-squared forced onto it. Reliability is not validity (plan C3) | lance-graph | Blocked (needs external criterion) | plan W6 |
 

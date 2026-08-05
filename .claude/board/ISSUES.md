@@ -1,5 +1,41 @@
 # Issues Log — Open + Resolved (double-entry, append-only)
 
+## ISS-MAILBOXSOA-ROW-COST-VS-512B-CANON (2026-08-04) — OPEN, QUESTION NOT CONCLUSION
+
+**The observation, arithmetic only.** The canonical node row is
+`NODE_ROW_STRIDE = 512` bytes — `key(16) | edges(16) | value(480)` — and it is
+const-asserted: `const _: () = assert!(core::mem::size_of::<NodeRow>() == 512);`
+(`crates/lance-graph-contract/src/canonical_node.rs:735`, `:787`).
+
+`MailboxSoA<N>` (`crates/cognitive-shader-driver/src/mailbox_soa.rs:58`)
+allocates `content` + `topic` + `angle` as `3 × N × WORDS_PER_FP(256) × 8 B`
+= **6,144 B/row** (ibid.:322-324), on top of ~82 B/row of fixed-size columns.
+That is **12× the canonical 512-byte row** for the identity planes alone.
+
+The type's own comment calls this deliberate — *"the content/topic/angle Hamming
+identity planes stay HOT in the mailbox (~6 KB/thought; OQ-1 RESOLVED §2.7 —
+NOT reduced to a tiny ref)"* (ibid.:136-141).
+
+**The question, which is NOT answered here.** Is the 6 KB/row a deliberate hot
+working set layered *above* the 512 B canonical row (i.e. the canon describes
+the persisted/addressed row and `MailboxSoA` is a resident cache of a different
+shape), or is it a divergence from the canon that the const-assert does not
+reach because `MailboxSoA` is not a `NodeRow`?
+
+**Why this is logged as a question and not a finding.** This axis was reasoned
+about wrongly three times in one session: the 6,144 B/row figure was taken for
+the corpus cost, which produced a 384 MiB "constraint" that does not exist (the
+real bake is 65,536 × 512 B = **32 MiB**), which then motivated a tiling that was
+itself a category error (`E-AN-OWNER-IS-A-TENANT-NOT-A-SHARD-1`). Given that
+record, asserting a fourth conclusion here would be the same failure again.
+**Whoever picks this up: establish which of the two readings is intended before
+changing anything.**
+
+**Blast radius if it is a divergence:** any sizing estimate that reasons from
+`MailboxSoA` to corpus footprint; any doc quoting "~6 KB/thought" as the node
+cost; and the V3 `COMPONENT-MAP` claim that `NodeGuid/EdgeBlock/NodeRow`
+16|16|480 is *REUSE — CANON, const-asserted*.
+
 ## ISS-DOMINO-WRITES-ENERGY-OUTSIDE-ITS-OWN-SCHEMA (2026-07-29) — OPEN, FOUND WHILE CLOSING T5
 
 Surfaced while landing T5 (the `nan_projection.rs` schema gate, see

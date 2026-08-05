@@ -509,8 +509,11 @@ optional capabilities.
 
 > **Status:** PLANNED / CONJECTURE. Operator-directed 2026-08-04. Adds **no new
 > subsystem** — the lens is a thought body in the §5.4 pluggable seam, the
-> corpus is the shipped KJV bake, the four stances are the shipped B6 panel, and
-> the fusion read is `temporal.rs`'s existing version-range surface. §7's
+> corpus is the shipped KJV bake, the four stances are **per-verse binary
+> projections of** the shipped B6 panel (see §12.3a — the panel's own outputs are
+> a ranking, a partition, a lift list and a concept→count map, **none of which is
+> a per-verse binary**), and the fusion read is `temporal.rs`'s existing
+> version-range surface. §7's
 > exclusions hold verbatim: `persist_sink.rs` and `temporal.rs` are **not
 > modified**, only consumed.
 
@@ -530,9 +533,10 @@ is the smaller objection; the law is the real one.
 So:
 
 ```
-one KJV bake  →  64k verse-owners in ONE MailboxSoA
+one KJV bake  →  ONE tenant, ONE MailboxSoA, 64k verse ROWS  (§12.1a′)
                       │
-        cycle Vn:  sparse sealed transition set (§3) — 17 dirty, not 64k
+        cycle Vn:  sparse sealed set (§3) — a ROW-level dirty set inside the
+                   one owner, never an owner-level set (owners are tenants)
                       │
         CognitiveWork body (§5.4 seam) = apply stance L to the owner's slice
                       │
@@ -549,6 +553,113 @@ The lens does not own a mailbox, does not add a node type, and does not change
 the stride. It is a function over an owner's arena slice, dispatched through the
 seam the driver already exposes.
 
+#### 12.1a′ RETRACTION (operator-ruled 2026-08-04) — §12.1a below is WRONG. An owner is a TENANT, not a shard.
+
+**§12.1a "tiled the bake across 64 owners" is retracted in full.** It is not a
+sizing mistake, it is a **category error**, and the canon already said so:
+*"one mailbox = one kanban board as **tenant**"* (`CLAUDE.md` §V3 rulings), and
+one `MailboxSoA` is moved into exactly **one** `KanbanActor` which is its **sole
+mutator** (`E-CE64-MB-4`; `tests/w2b_real_owner_probe.rs` — the SoA is *moved*
+into `Actor::spawn`, and that move is the compile-time proof of no aliasing).
+
+So an owner is not a unit you can *multiply to taste*. Splitting the Bible
+across 64 mailboxes does not shard a corpus — it **fabricates 63 additional
+tenants**, i.e. 64 separate kanban boards for one book. That is a topology
+invention dressed up as a memory fix.
+
+**The corpus is ONE tenant.** Its 64k verses are **ROWS inside that one owner's
+SoA**, and "64k thoughts firing at the same time" is data-parallelism **over
+rows within the owner's slice** — exactly what §12.1's own diagram says
+(*"CognitiveWork body = apply stance L to **the owner's slice**"*), and exactly
+what the data-flow rule already prescribes: SIMD reads borrowed row slices,
+reasoning works on owned `Copy` microcopies, write-back is gated — **no
+`&mut self` during computation**.
+
+**What was actually wrong in my two "independent grounds":**
+
+1. *"A sparse sealed set is a sparse set of owners, so one SoA cannot express
+   it."* The observation is true and the conclusion is a non-sequitur: **this
+   arm does not need owner-sparseness at all.** That mechanic is already proven
+   at 64k in `cycle_driver.rs:1098`. The Bible arm's sparseness is **row-level,
+   inside one owner**. I solved a problem that belonged to a different layer.
+2. *The 384 MiB / ~5.1 MiB-stack figures.* **⊘ ALSO RETRACTED (operator,
+   same day) — I measured the wrong object.** The canonical row is
+   `NODE_ROW_STRIDE = 512` bytes, const-asserted
+   `size_of::<NodeRow>() == 512` (`canonical_node.rs:735, :787`). **The whole
+   Bible bake at canon is 65,536 × 512 B = 32 MiB** — trivially resident, no
+   tiling, no `#[ignore]`, CI runs the full corpus. The 6,144 B/row I measured
+   is `MailboxSoA`'s content/topic/angle hot planes, **12× the canonical node
+   row**, which I silently treated as the corpus cost. So there was never any
+   memory pressure to solve, and every conclusion drawn from it — tiling,
+   the CI/full-scale split, the 24 GiB D-BLW-4 figure — was answering a problem
+   that did not exist.
+
+   **The lesson is sharper than the one I first wrote.** I said "measuring a
+   real constraint does not license an arbitrary answer to it." True, but it
+   let me keep believing the measurement. The actual failure is upstream:
+   **I never checked what the number was a number OF.** A figure computed from
+   the wrong struct is not a weaker fact, it is not a fact at all — and it is
+   more dangerous than no figure, because arithmetic feels like evidence.
+
+   **Open question, deliberately not resolved here** (asked, not concluded —
+   this axis has already been wrong three times today): `MailboxSoA` carries
+   6,144 B/row against a 512 B/row canon. Is that a deliberate hot working set
+   layered above the canonical row, or a divergence from it? Recorded in
+   `ISSUES.md`, not answered.
+
+**Consequences, binding:**
+- The tiling in §12.1a and everything downstream of it is void. `FULL_TILES`,
+  `CI_TILES`, "64 tiles × `MailboxSoA<1024>`" and the `w_slot = tile_index`
+  saturation note are all retracted.
+- **D-BLW-4's "≥4,096 owners" axis is void** — see §12.3a′. Owner count is a
+  deployment-topology property, not a scale knob, so both the inherited
+  threshold *and* my "measure it with 4,096 lightweight owners" reply were
+  category errors. The 24 GiB figure I derived is meaningless: you would never
+  have 4,096 owners for one corpus.
+- §12.1a is kept below **only** as the retracted record (append-only canon:
+  regrade in place, never delete).
+
+#### 12.1a Correction (2026-08-04): "ONE MailboxSoA" was wrong twice — the bake is TILED **[⊘ RETRACTED — see §12.1a′ above; an owner is a tenant, not a shard]**
+
+The first draft of this section wrote *"64k verse-owners in ONE MailboxSoA"*.
+That is corrected in place, on two independent grounds. **The anti-6× ruling
+above is untouched** — tiling is a *partition of one corpus*, not a second
+projection of it, so the `zero-copy-warden` verdict that rejected the six-SoA
+shape does not reach it.
+
+1. **It contradicted the very next line of its own diagram.** A sparse sealed
+   transition set is a sparse set of *owners*. One `MailboxSoA` **is** one
+   owner, so a single-SoA shape cannot express "17 dirty, not 64k" at all —
+   its dirty set is always 0 or 1. The sparse-cycle mechanic (§3), which is
+   the whole point of the driver, requires many owners.
+2. **It was not constructible.** `MailboxSoA<N>`
+   (`cognitive-shader-driver/src/mailbox_soa.rs:58`) allocates `content` +
+   `topic` + `angle` as `3 × N × WORDS_PER_FP × 8 B` with
+   `WORDS_PER_FP = 256` (ibid.:39, :322-324) = **6,144 B/row**. That is the
+   designed hot layout ("~6 KB/thought", ibid.:136-141), not an accident — so
+   65,536 verse rows cost **384 MiB of identity planes no matter how they are
+   tiled**. Tiling does not reduce that total; it is a fact about the corpus
+   size and must be stated wherever a 64k bake is proposed. What tiling *does*
+   fix is the second half: `MailboxSoA::new` builds `Self { … }` **by value**,
+   and the fixed-size columns hand-sum to ~82 B/row (excluding struct
+   padding — this is a sum of the declared array types, not a measured
+   `size_of`), so `MailboxSoA<65536>` is a ~5.1 MiB stack temporary against a
+   2 MiB default spawned/tokio-worker thread stack. Whether that temporary is
+   elided is an optimization detail and not something to build on.
+   `MailboxSoA<1024>` is ~82 KiB of stack and 6 MiB of planes per tile.
+
+**Resolved shape: 64 tiles × `MailboxSoA<1024>` = 65,536 verse rows.** Note the
+`w_slot < 64` constraint (ibid.:293-296) is exactly saturated at 64 tiles —
+`w_slot = tile_index` uses the full 6-bit W field with nothing to spare, so a
+corpus larger than 64 tiles needs a second W-dimension, not a wider field.
+
+**Consequence for D-BLW-1's falsifier:** 384 MiB is too heavy for routine CI, so
+the falsifier runs at a tractable tile count in CI and the full 64-tile run is a
+separate `#[ignore]`d test carrying the byte figure in its reason string. A
+`#[ignore]`d test that is never actually run is a claim without a measurement —
+the full-scale run must be executed centrally at least once and its result
+recorded, or D-BLW-1 is not closed.
+
 ### 12.2 Gadamer, mechanically: a priori and hindsight are the SAME data, two reads
 
 Horizontverschmelzung needs no third mode. The sealed version series supports
@@ -561,9 +672,22 @@ both readings the operator named, and `temporal.rs` already distinguishes them:
 
 **Nothing is chosen at bake time.** One series, two reads, per
 `E-MARKOV-TEMPORAL-STREAM-1` (the trajectory lives on the sorted stream; any
-width, per-reader rung, replayable, zero copies). This is why the time-series
-shape is not merely cheaper than 1+1+4 — it is the only one where the a-priori
-and hindsight readings are *the same object*.
+width, per-reader rung, replayable). This is why the time-series shape is not
+merely cheaper than 1+1+4 — it is the only one where the a-priori and hindsight
+readings are *the same object*.
+
+> **Precision note (2026-08-04), verified against source before use in this
+> arm:** the surfaces exist as named — `QueryReference::at(ref_version, rung)`
+> (`lance-graph-planner/src/temporal.rs:167`) and `deinterlace(rows, v_ref,
+> deps)` (ibid.:346) — but `deinterlace` is `-> Vec<R>` and `.cloned()`s the
+> admitted rows (ibid.:351-364). It is a **filtered selection with clone**, not
+> a zero-copy projection. The stream doctrine's "zero copies" is therefore
+> dropped from the sentence above, and **no D-BLW-3 result line may claim the
+> hindsight read is zero-copy.** In this arm the cloned rows are small per-verse
+> verdict records, so the cost is a selection over lightweight rows and not a
+> copy of the substrate — which is why this is a *wording* correction and not a
+> blocker. `temporal.rs` is **not** modified (§12.5); the inaccuracy is recorded
+> where it is consumed, not patched where it is defined.
 
 ### 12.3 Deliverables
 
@@ -573,6 +697,588 @@ and hindsight readings are *the same object*.
 | **D-BLW-2** | **the four stances as reads over the sealed version** — Hegel / Nietzsche / Kant / Wittgenstein each produce a per-verse binary verdict from `at(Vn)`. | **The discrimination twin — the gate most likely to fail.** Pairwise `jc::stats::binary_association` over verses: (a) *can-discriminate* — at least one lens pair has κ materially **below** 1 on a non-trivial share of units; (b) *can-agree* — at least one pair has κ materially **above** 0. Four lenses that rank everything identically carry exactly as much information as one (the `closed_class_guess` 150/150 defect); four that agree nowhere are noise, not perspectives. **Report the full table — counts + BOTH marginals + `p_o`/`p_e` — never bare κ** (`BinaryAssociation` exists precisely because κ and φ are uninterpretable without marginals). |
 | **D-BLW-3** | **Horizontverschmelzung as a measured trajectory** — pairwise lens agreement tracked across the sealed series `V1..Vn`, under both the a-priori (single-version) and hindsight (range) reads. | **Fusion must MOVE.** If pairwise κ between two lenses is flat across the series, no horizons merged and the word is decoration. **Kill condition:** flat κ ⇒ the claim regrades to *"four independent stance reads over a shared corpus"* — still true, still useful, **not Gadamer**. The two reads must also be compared: if the a-priori and hindsight trajectories are identical, the distinction is not doing work and should be dropped rather than narrated. |
 | **D-BLW-4** *(scale)* | **64k concurrent thought bodies** — the parallelism claim, at KJV scale. | Inherits W2's **pre-registered, non-adjustable** thresholds: median of ≥5 runs after one discarded warm-up; ≥2× speedup at ≥4,096 owners with ≥100 µs bodies. **Kill:** failure regrades claim (a) to *"64k-scale **sequential** sparse cycles"* — still true, different claim. |
+
+### 12.3a Adjudicated design (2026-08-04) — four premises of §12.3 were wrong, verified in source
+
+A D-BLW-2 design pass checked §12.3's premises against the code. Four did not
+survive. Each was **re-verified independently before being recorded here**; the
+line numbers are the checks, not the report.
+
+**(1) Hegel is constant-false on the TSV path — so the cheap route is dead.**
+`reason_whole_book.rs:92-96` observes every triple at `TruthValue::new(1.0, 0.9)`,
+and `BeliefArena::revise_at` sets `depth = (b.truth.frequency − new.frequency).abs()`
+(`belief.rs:194`). Uniform frequency ⟹ `depth ≡ 0.0` ⟹ `Belief.contradiction`
+never leaves `0.0` ⟹ `contradiction_ranking`'s `> 0.05` filter is empty for the
+whole book. **Consequence:** the "re-derive the four binaries from arena + TSV"
+option is not cheap-but-lossy, it is *impossible for two of four lenses*.
+
+**(2) Negation never reaches the inbound leg, so extending the TSV cannot fix
+(1).** `deepnsm_v2::Spo` is three `WordId`s with no polarity field, and `not`
+carries PoS `x` → `Pos::Other` → skipped by the FSM. `Provenance.negated` is the
+sole input to the Nietzsche stance, and negation is the only source of the
+low-frequency emissions that create contradiction depth at all. Adding TSV
+columns would mean porting the clause machine into the inbound leg — which
+`E-DEEPNSM-V2-IS-INBOUND-LEG-REASONING-LIVES-IN-LANCE-GRAPH-1` forbids.
+
+**(3) The obvious Kant bit is a tautology.** `RungLift.quale = modal * staunen_at`
+(`probe_eyes_opened.rs:465`) and the panel's ablated value is
+`UNIFORM_MODAL(0.5) * l.staunen_at` (ibid.:616, 624). So
+`quale > ablated ⟺ (modal − 0.5)·staunen_at > 0`, and **both** shipped modals
+(0.85, 0.70) exceed 0.5 — the bit is true for every verse holding any lift.
+That is the `closed_class_guess` 150/150 defect, caught *before* it was written.
+**The Kant binary is therefore rank-based:** true iff the verse holds a lift the
+graded ordering ranks strictly higher than the uniform-modal ordering does.
+Ranking is relative, so promotions and demotions balance and the positive rate
+cannot reach 1 by construction. **Mandatory companion:** report
+`binary_association(kant, modal_only)` where `modal_only[i] = ∃ lift at i with
+modal > 0.7`; κ ≥ 0.95 means the lens is a re-labelled verb detector and **the
+result line must say so** rather than present it as a stance.
+
+**(4) `QueryReference::at` is a reader PIN, not a data read — but D-BLW-3 is NOT
+blocked.** The design pass concluded D-BLW-3 was blocked because
+`at(ref_version, rung) -> Self` (`temporal.rs:167`) returns a coordinate and
+nothing materializes a `BeliefArena` from a `LanceVersion`. The first half is
+right; **the conclusion is not, and this plan overrides it.** D-BLW-3 never needed
+arena reconstruction: `deinterlace(rows, v_ref, deps)` (`temporal.rs:346`) takes
+**caller-supplied rows** over the public, externally-implementable
+`trait DeinterlaceRow` (`temporal.rs:318`) with `NoDeps` (`temporal.rs:271`)
+already provided. So the harness emits one lightweight **per-(verse, version)
+verdict row** as the sealed series is produced, implements `DeinterlaceRow` on it
+(`lance_version()` = the sealing version), and gets **both** reads off the real
+surface: a-priori = `deinterlace` at `QueryReference::at(Vn, rung)`; hindsight =
+the same over a version range. Nothing is reconstructed and nothing in
+`temporal.rs` is modified (§12.5 holds).
+
+**Placement ruling: lift the machinery into the library.** `stream` / `Interner` /
+`ReadOut` / `Provenance` / `RungLift` / `FlipKind` / `contradiction_ranking` /
+`stance_panel` move from `probe_eyes_opened.rs` into
+`lance_graph_planner::nars::stance`; the probe keeps its `main()` and imports
+instead of defining. **The lift's own falsifier is that the probe's B1–B6 asserts
+stay byte-for-byte green** — if they move, the lift changed behaviour. Rationale:
+options (2) and (1) are dead, and a fresh re-statement in the BLW module would
+create a *second, divergent* definition of four stances.
+
+**Known scope not yet paid (do not discover this late):** the labelled verse
+parser `parse_kjv_genesis` hard-stops on a Genesis-specific end marker
+(`probe_eyes_opened.rs:802`), while `bible_wave`'s splitter runs the whole book
+but keeps **no** chapter:verse label. The BLW module needs labelled verses for
+the whole book, so generalizing the parser is real work, not a config change.
+
+**Pre-registered discrimination-twin thresholds** (fixed here, before any run,
+**non-adjustable after** — a miss is a miss). Six pairs over the four lenses:
+- **can-discriminate:** ∃ a pair with `kappa = Some(k)`, `k ≤ 0.80`, **and**
+  `(n01 + n10) ≥ 0.05·N`. `0.80` is the Landis–Koch floor of the "almost
+  perfect" band — an external convention that predates this corpus and so cannot
+  have been fitted to it. The count clause supplies §12.3's "non-trivial share"
+  on *counts*, because κ can fall well below 1 on a handful of discordant cells
+  when the marginals are lopsided.
+- **can-agree:** ∃ a pair with `k ≥ 0.20` **and** both positive rates in
+  `[0.05, 0.95]`. `0.20` is the Landis–Koch slight/fair boundary; the marginal
+  guard is what stops two near-constant lenses "agreeing" on a sea of `false`.
+- **corpus floor:** `N ≥ 1,000` verses, so the 5 % disagreement floor is ≥ 50
+  discordant cells. Below that the marginals are too noisy to read and the twin
+  is not reported at all. The 13-verse inline fixture is **far** below this and
+  must never be used to claim the twin.
+- The two halves MAY be satisfied by different pairs; if one pair satisfies both,
+  that is reported explicitly — it means one pair is doing all the work.
+
+**Degeneracy assertions (a κ that is printable but meaningless must be visible):**
+compute each lens's positive rate *before* pairing and assert `0 < rate < 1`; any
+lens outside `[0.01, 0.99]` is stamped `DEGENERATE`, **excluded from both halves'
+∃-quantifier, and the exclusion printed** — never silent. A pair with
+`expected_agreement > 0.95` is stamped `UNSTABLE` and cannot satisfy *can-agree*.
+`binary_association` returning `None` is a **KILL** naming the pair, never a
+skipped row. Assert the six tables are not all identical. `kappa`/`phi` print as
+`undefined(p_e=1)` / `undefined(constant)` when `None` — **never `0.0`, never
+blank, never omitted.**
+
+**Two diagnostics that must ship with the numbers, because they are directions of
+known bias, not hypotheticals:** (a) `stream` normalizes all personal pronouns to
+one corpus-wide referent, so statements from distant books collide and revise
+against each other — report the share of Hegel-positive verses whose triggering
+statement is that referent; (b) `Stamp::source(id) = 1 << (id % 64)` saturates
+after ~64 distinct sources, after which observations route to CHOICE rather than
+revision, **suppressing** contradiction on exactly the hub statements (a) inflates
+— report the count of beliefs with a saturated stamp.
+
+#### 12.3a′ D-BLW-4's AXIS IS OWNERS — and that is void (operator-ruled 2026-08-04)
+
+**The paragraph that stood here is retracted.** It said D-BLW-4's "≥4,096
+owners" threshold was unmeetable at 24 GiB and should therefore be measured with
+4,096 *lightweight* owners. Both halves are category errors, and the second is
+the worse one: it kept owner-count as the axis and merely made the owners cheap.
+
+**Owner count is not a scale knob.** An owner is a **tenant** — one mailbox, one
+kanban board, one `KanbanActor` that is its sole mutator (`CLAUDE.md` §V3;
+`E-CE64-MB-4`). "4,096 owners" therefore means *4,096 tenants*, which for one
+corpus is not a big configuration — it is a **fabricated deployment**. The
+24 GiB figure I derived from it is meaningless: nobody would ever hold 4,096
+owners for one book, so its cost was never the constraint.
+
+**The real axis is rows inside one owner.** The arm's claim — *"64k thoughts
+firing at the same time"* — is data-parallelism over the **verse rows of a single
+owner's slice**, which is what §12.1's diagram said all along
+(*"apply stance L to **the owner's slice**"*). So D-BLW-4 measures:
+
+> concurrent vs sequential evaluation of **N row-level thought bodies within one
+> owner**, where the reads are borrowed row slices, the reasoning is on owned
+> `Copy` microcopies, and write-back is **gated** — never `&mut self` during
+> computation (`.claude/rules/data-flow.md`, `borrow-strategy.md`).
+
+That axis needs no fabricated tenants, costs one SoA, and is the thing the arm
+actually claims. The inherited A2/W2 protocol (median of ≥5 runs after one
+discarded warm-up; a can-fire *and* a can-stay-silent half) carries over
+unchanged — **only the unit being scaled changes, from owners to rows.** The
+per-row work threshold and the row count are re-pinned when the harness is
+written, and pre-registered before it runs.
+
+**Kill condition, restated:** if row-level concurrency does not beat sequential
+under the pre-registered protocol, claim (a) regrades to *"64k-scale
+**sequential** row evaluation"* — still true, different claim.
+
+**New dependency, declare it:** `crates/jc` is workspace-EXCLUDED and currently
+has **zero** consumers anywhere in the workspace. The twin harness is the first,
+as a `[dev-dependencies]` path edge from `lance-graph-planner`. Do **not** invert
+it — hosting the harness inside `jc` would drag the planner's whole dep tree into
+a crate whose constitution is zero-dep, and §12.5 keeps `jc` the untouched oracle.
+
+#### 12.3a″ MEASURED RESULT (2026-08-04): D-BLW-2 is a STRUCTURAL KILL on the TSV path
+
+Built and **run** against the real export (`/tmp/kjv_spo.tsv`, 40,767 triples
+over 20,022 distinct verses from the whole-book run). The twin did not miss a
+threshold — **it has no pair to test.**
+
+**§12.3a undercounted the unreachable stances: it is 3 of 4, not 2.**
+
+| stance | verdict | why |
+|---|---|---|
+| **Hegel** | reachable, **DEGENERATE** | positive rate **0.000000** — exactly as §12.3a point 1 predicted (uniform `TruthValue::new(1.0, _)` ⟹ `revise_at`'s `\|f₁−f₂\|` depth is always 0) |
+| **Nietzsche** | **UNREACHABLE** | needs `Provenance.negated`; no TSV column, no `Spo` field. Owner: `deepnsm-v2` |
+| **Kant** | **UNREACHABLE** ← *new, not in §12.3a* | needs `RungLift`, minted only inside `stance::stream()`'s complementizer window over **labelled raw verse text**; flat `(s,p,o,verse)` triples do not preserve clause nesting. Owner: `deepnsm-v2` (the consuming machinery is already here — the missing piece is the INPUT) |
+| **Wittgenstein** | reachable, **REDUCED and DEGENERATE** | only 2 of the panel's 6 game categories survive (`Inh-subj`/`Inh-obj`; `rel-*`/`impl-*` need the same unreachable inputs as Kant), and the surviving bit fires on **99.61 %** of verses |
+
+**Measured pair (the only one formable):** Hegel × Wittgenstein-reduced —
+`n00=78 n01=19944 n10=0 n11=0`, N=20022, rates `0.0000 / 0.9961`,
+`p_o=0.0039 p_e=0.0039`, κ=0.0000, φ=`undefined(constant)`. Both lenses
+DEGENERATE ⟹ **0 eligible pairs** ⟹ both ∃-quantifiers are false *by
+construction*, not by measurement.
+
+**The degeneracy machinery earned its place.** Wittgenstein-reduced firing on
+99.61 % of verses is the `closed_class_guess` 150/150 shape — a bit that carries
+no information — and the harness **excluded and printed it** instead of
+reporting a stance. Without §12.3a's `[0.01, 0.99]` band this run would have
+produced a κ table that looked like a result.
+
+**What D-BLW-2 actually needs, stated once:** the four stances require
+`stance::stream()` over **labelled verse text**, which the TSV does not carry.
+Either the inbound leg exports verse text alongside its triples, or the reasoning
+layer receives verses directly. **That is a seam change in `deepnsm-v2`** — the
+inbound leg owns text — and it is the one prerequisite for D-BLW-2, D-BLW-3
+(whose verdict rows are these same binaries), and any four-stance claim at
+corpus scale. **Do not attempt the twin again until it lands.**
+
+#### 12.3c THE INSTRUMENT WAS WRONG — texture, not κ (operator-ruled 2026-08-04)
+
+**κ over per-verse binaries is retired.** §12.3a's twin measures how often two
+lenses *coincide*, which discards what a stance is. Two lenses can agree on a
+verse for opposite reasons and κ scores that as agreement. The clean falsifier
+of the whole approach: **nihilism and sarcasm are both negative** — any sign,
+threshold, or boolean collapses them — yet Nietzsche's negation and
+Schopenhauer's are different gestures (one revalues, one refuses). An
+instrument that cannot separate those was never measuring four horizons.
+
+The measured KILL in §12.3a″ stands as a fact about the SPO path; it was simply
+obtained with the wrong instrument. **The 99.61 % firing rate was the tell** — a
+bit that fires on nearly everything is not a degenerate *lens*, it is a wrong
+*projection* of a lens.
+
+**Root cause, and it is mine:** I chose per-verse binaries because binaries feed
+κ, then measured the binaries. The instrument selected the representation
+instead of the phenomenon selecting the instrument.
+
+**The right carrier already exists and is already proven** —
+`CausalWitnessFacet` (`lance-graph-contract/src/causal_witness.rs:201`),
+`#[repr(transparent)]` over `[u8; 12]` = **24 × i4 loci, each a signed −8..+7
+delta to an antecedent row**. Everything this arm needs is in that one register:
+
+| locus | meaning | serves |
+|---|---|---|
+| 0–3 | `Temporal` / `Kausal` / `Modal` / `Lokal` | TEKAMOLO frame |
+| 4–6 | `SMeaning` / `PMeaning` / `OMeaning` | SPO grounding plane |
+| **7** | **`Antecedent`** — *"relativPronomen → its antecedent"* | the relative-pronoun binder |
+| **8** | **`BasinAnchor`** — *"binds me to my AriGraph basin (`part_of:is_a`, L1)"* | AriGraph tenant + episodic basin |
+| 9/10 | `SupportedBy` (hi_chain) / `Supports` (lo_chain) | evidence topology |
+| 11 | `RunbookEvidence` | which of the 34 recipes fired |
+| **12** | **`QualiaReference`** — *"the event that set my current texture"* | qualia |
+| 13 | `MeaningLevel` | rung-content ladder 0–4 |
+
+**Texture = binding topology, not polarity.** A stance's reading of a verse is
+*which loci it binds, to what signed distance, in what pattern*. Nihilism and
+sarcasm then separate structurally rather than by sign: a sarcastic reading binds
+`QualiaReference` to a **distant** antecedent that contradicts the local
+`SMeaning` (the said and the meant point apart); a nihilistic reading **collapses
+`Supports`/`SupportedBy`** (nothing grounds anything) while leaving the local
+meaning loci intact. Same sign, different graph. κ cannot see this; the register
+carries it natively.
+
+**Two falsifiers replace the twin, and neither is a threshold I choose.** BOTH
+are runnable — see the ⊘⊘ correction on the first, whose data was in a Release
+all along:
+
+1. **Cross-language texture agreement — ⊘⊘ THE RETRACTION WAS ALSO WRONG. The
+   data exists; I searched two places and called that "does not exist".**
+
+   **Available and verified on disk** (`v0.1.0-codebooks-2026-07-26`, published
+   2026-07-26 from a prior session of mine — the release body even cites its own
+   board entry `E-CODEBOOK-LICENSE-REGIMES-ONE-ASSET-EACH-1`):
+
+   | asset | contents |
+   |---|---|
+   | `pd-texts-bundle.tar.gz` | **4 PD source lanes verbatim** — `bible_luther1545.json` (9.1 MB), `bible_elberfelder1905.json` (9.3 MB, contemporary German), `bible_bkr.json` (10.3 MB, Czech), `bible_tischendorf.json` (2.3 MB, Greek) |
+   | `rosetta-pd-bundle.tar.gz` | 3 non-English lane codebooks + **`versification_map.tsv` (3,568 rows: lane, book, chapter, offset, kjv_verse_count, lane_verse_count, confidence)** |
+   | `rosetta-gpl-bundle.tar.gz` | `codebook_kjv.tsv` + alignments **en-de (13,016) / en-cs (12,032) / en-el (4,594)** |
+
+   So the falsifier is **RUNNABLE across five lanes** (KJV + Luther1545 +
+   Elberfelder1905 + BKR + Tischendorf), and the versification map is precisely
+   the organ a per-verse cross-lane comparison needs — chapter-level offsets with
+   a stated per-row `confidence`, so lane divergence is *addressable* rather than
+   assumed away.
+
+   > **⊘ CORRECTION to the sentence above (2026-08-04, same day, before any
+   > cross-lane run — original retained per append-only canon).** The map IS the
+   > right organ, but **`confidence` is not what I said it was**, and consuming
+   > it as written would have produced a flag that reads as diligence and carries
+   > no information.
+   >
+   > The generator's own report (`rosetta-pd/versification_report.md`, § Method)
+   > states it: candidate offsets are only `(-1, 0, +1)`; score = fraction of KJV
+   > anchor tokens (capitalized, non-sentence-initial, `len>=4`, stoplist-filtered)
+   > + digit runs fuzzy-matching the shifted lane verse, falling back to a
+   > verse-length ratio when a chapter has no anchor signal; and
+   > **`confidence` = best-score − second-best-score.** It is a **margin between
+   > candidate shifts**, *not* a measure of alignment quality. `0.0` means the
+   > three shifts tied — which is the ordinary outcome for an anchor-poor chapter
+   > (Genesis 1, "In the beginning God created…", carries almost no capitalized
+   > non-sentence-initial anchors), not a defect in the alignment.
+   >
+   > Measured on the asset before writing this note: rows whose KJV and lane
+   > verse counts match exactly have mean confidence **0.3036**; rows whose counts
+   > *disagree* have mean **0.2783** — indistinguishable. **480 rows read exactly
+   > `0.0` while their verse counts match perfectly.** The column does not
+   > separate good alignment from bad, so it cannot serve as a trust gate.
+   >
+   > Gating on it would have flagged **214/1189** luther1545, **199/1189**
+   > elberfelder1905 and **584/1189** bkr chapters as suspect — half the Czech
+   > lane. That is the can-it-stay-silent defect from `CLAUDE.md`'s falsifiability
+   > rule exactly: *a guard that fires on everything carries as much information
+   > as one that never fires.*
+   >
+   > **What IS addressable, both mechanically checkable and both genuinely rare:**
+   >
+   > | signal | rows | meaning |
+   > |---|---|---|
+   > | `offset != 0` | **47 / 3,567** (43 are `+1`, 4 are `-1`) | apply the shift — this IS the alignment |
+   > | `kjv_verse_count != lane_verse_count` | **6 / 3,567** | a verse with no counterpart — drop the pair or report it, never pad |
+   >
+   > So alignment is **identity for 98.7 % of chapters** and must be reported as
+   > the near-trivial step it is, not implied to be hard. The offsets concentrate
+   > where the manifest already says: luther1545 36 chapters, **33 of them in
+   > Psalms** (the Psalm-title convention); elberfelder1905 3; bkr 8. The
+   > manifest's own rule governs — **versification is PER EDITION, not per
+   > tradition** — so "German shifts Psalms" must not be generalized from
+   > luther1545 to elberfelder1905.
+   >
+   > If `confidence` is reported at all, it is labelled *offset-decision margin
+   > (anchor-poor chapters read `0.0` by construction)* — never *alignment
+   > confidence*.
+   >
+   > **Also load-bearing for any cross-lane arm:** `bible_tischendorf.json` is
+   > **Greek NT only** (books 40+, and minified to a single line so `wc -l` reads
+   > `0`). It has no Old Testament, so no OT-inclusive claim may pool the Greek
+   > lane. Lanes are therefore English + German×2 + Czech, with Greek on the NT
+   > half only.
+
+   **Genuinely absent, and only these:** Latin Vulgate and Aramaic/Peshitta. Any
+   claim naming those remains unavailable; the five lanes above do not.
+
+   > **⊘⊘⊘ THIRD CORRECTION, SAME AXIS, SAME DAY (2026-08-04) — Vulgate and
+   > Peshitta are NOT absent. They are Public Domain and now fetched.** The
+   > sentence above is wrong for the third time in one arc, and the defect is
+   > *identical each time*: **my negative existence claim was only as wide as the
+   > one container I happened to look in.** First I claimed corpora without
+   > checking; then I checked `/tmp` plus a 4-level `find` and declared them
+   > nonexistent; then I checked the *release bundle* and declared these two
+   > nonexistent. The bundle is a **licence-partitioned subset**, not a census —
+   > its own MANIFEST says so ("one-asset-per-regime law", deliberately excluding
+   > NC-licensed lanes). Absent-from-the-bundle never meant absent-from-the-source.
+   >
+   > Re-queried `api.getbible.net/v2/translations.json` (the same API the shipped
+   > `fetch_greek_lane.py` uses) — 117 translations. Fetched 2026-08-04 with the
+   > licence gate re-verified **verbatim at fetch time**, receipt at
+   > `/tmp/lanes/pd-texts-v2/FETCH_RECEIPT.json` (per-lane sha256):
+   >
+   > | lane | language | books | verses | licence (verbatim) |
+   > |---|---|---|---|---|
+   > | `vulgate` (Vulgata Clementina) | Latin | 73 | 35,809 | `Public Domain` |
+   > | `peshitta` (Peshitta NT) | Syriac | 27 | 7,956 | `Public Domain` |
+   > | `aleppo` (Aleppo Codex) | Hebrew | 39 | 23,188 | `Public Domain` |
+   > | `codex` (Westminster Leningrad) | Hebrew | 39 | 23,213 | `Public Domain` |
+   >
+   > **Refused on licence, and they stay refused** (the one-asset-per-regime law
+   > binds this fetch too): `lxx` (*Copyrighted; Free non-commercial*),
+   > `textusreceptus` and `westcotthort` (*CC BY-NC-SA 4.0*), `modernhebrew`
+   > (empty licence field — unstated, therefore excluded). Note the cost of that
+   > refusal honestly: **the LXX is the natural Greek lane for the Old Testament**,
+   > so Genesis has no PD Greek lane and the OT Greek arm is licence-blocked, not
+   > merely unbuilt.
+   >
+   > **The lane set is therefore 9 lanes / 7 languages** — English (KJV), German
+   > ×2, Czech, Greek (NT), Latin (whole), Syriac (NT), Hebrew ×2 (OT) — which is
+   > what the arm was told it had at the outset. Every "absent" claim I made was
+   > a search-depth artifact.
+
+### 12.6 Pre-registered anchors — what the texture instrument must reproduce
+
+**Status: PRE-REGISTRATION. Nothing here is measured.** These are targets with
+**externally known answers**, written down *before* the instrument exists,
+precisely because I now know the answers and that is a contamination risk. Fixing
+them in advance converts my knowledge from contamination into a **control**: the
+instrument either reproduces a split stated here first, or it does not.
+
+The subject is **awareness**, not morality — the Genesis 3 material read as
+*blindness vs sight* and *nakedness as mortality-awareness*, with the temptation
+resolving as **"be careful what you wish for"**: the burden delivered is
+awareness of one's own finitude, and it is universal rather than penal.
+
+#### A1 — the awareness minimal pair (within one language, one book)
+
+| | KJV bake index | text |
+|---|---|---|
+| **before** | `55` (Gen 2:25) | *"And they were both naked, the man and his wife, and were not ashamed."* |
+| **after** | `62` (Gen 3:7) | *"And the eyes of them both were opened, and they knew that they were naked…"* |
+
+**The fact is identical in both — Hebrew `ערומים` / `עירמם`, Latin `nudus` /
+`nudos`, German `nackend` in both.** What changes is *knowing* (`וידעו` /
+`cognovissent` / `wurden gewahr`). Nothing in the world changed; **awareness
+changed** — and the sight that opens delivers knowledge of a *lack*, which is the
+blindness/sight inversion stated exactly.
+
+**Why this is the sharpest control available:** a lexical or polarity instrument
+sees "naked" in both and scores them *similar*. **If the texture instrument
+cannot separate index 55 from index 62, it is not measuring awareness** — and
+that is a KILL of the instrument, not of the reading.
+
+#### A2 — "be careful what you wish for" (proposition held constant)
+
+| | verse | content |
+|---|---|---|
+| **promise** | Gen 3:5 (serpent) | *"your eyes shall be opened, and ye shall be as gods, knowing good and evil"* |
+| **confirmation** | Gen 3:22 (God) | *"the man is become as one of us, to know good and evil"* |
+
+**The serpent's promise is confirmed by God. It was true.** Hebrew
+`והייתם כאלהים ידעי טוב ורע` → `הן האדם היה כאחד ממנו לדעת טוב ורע`; Latin
+`eritis sicut dii, scientes bonum et malum` → `quasi unus ex nobis factus est,
+sciens bonum et malum`. **Any instrument that scores the serpent as a liar by
+polarity is wrong on the text.**
+
+Here **proposition, lexis and polarity are ALL held constant** and only the frame
+differs (future/desired/tempter vs perfect/achieved/alarmed). So **only topology
+can separate them** — this is the strongest form of the §12.3c sarcasm signature
+(*the said and the meant point apart*) because the said is literally the same
+sentence. Gen 3:22's alarm is about the tree of **life** (*"lest he… eat, and
+live for ever"*) and Gen 3:19 states mortality as what he **already is**
+(*"dust thou art"*), not as a new penalty — so the text itself locates the change
+in **awareness of mortality**, not in mortality.
+
+#### A3 — Erbsünde as a rebound relative pronoun (the cross-language falsifier)
+
+Romans 5:12, final clause, **measured across six lanes on disk** (this table is
+the one *observation* in §12.6; the prediction it grounds is A3′ below):
+
+| lane | final clause | binding |
+|---|---|---|
+| Greek (Tischendorf) | `ἐφ’ ᾧ πάντες ἥμαρτον` | causal idiom |
+| **Latin (Vulgate)** | **`in quo omnes peccaverunt`** | **relative → antecedent** |
+| **Czech (BKR)** | **`v němž všickni zhřešili`** | **relative → antecedent** |
+| German (Luther 1545) | `dieweil sie alle gesündiget haben` | causal |
+| German (Elberfelder 1905) | `weil sie alle gesündigt haben` | causal |
+| Syriac (Peshitta) | `ܒܗܝ ܕܟܠܗܘܢ ܚܛܘ` (*b-hāy d-*) | causal |
+| English (KJV) | *"for that all have sinned"* | causal |
+
+**The mechanism is sharper than "mistranslation".** Greek `ἐφ’ ᾧ` *does* contain
+a relative pronoun (ᾧ), but as a fixed **conjunctional idiom** meaning *inasmuch
+as* (cf. 2 Cor 5:4, Phil 3:12, Phil 4:10). The Vulgate rendered it
+morpheme-for-morpheme, converting an idiom into a **referential** relative — and
+thereby **opened an antecedent slot the Greek never had open**. Augustine bound
+it to `unum hominem`. **The doctrine grew into a slot a translation opened.**
+
+That is **locus 7 `Antecedent`** exactly — unbound in one lane, distance-bound in
+another — which is why the arm's carrier is the register and not a polarity bit.
+
+**A3′ — the pre-registered prediction (stated before any instrument runs):** a
+texture instrument reading binding topology must report `Antecedent` **bound at
+distance** for `vulgate` and `bkr`, and **unbound** for `tischendorf`,
+`luther1545`, `elberfelder1905`, `peshitta`, `kjv`. Reproducing a 2-vs-5 split it
+was not told about is evidence; producing any other partition is a KILL.
+
+**The unpredicted datum is the Czech.** BKR (Bible kralická, 1579–93) is a
+Protestant translation from the originals, yet `v němž` follows the **Vulgate's**
+binding rather than the Greek's. I did not predict it and did not plant it — it
+came out of the fetch. It is the reason A3 is worth running: the *interesting*
+lanes are the ones that cross the confessional line, and no polarity instrument
+could ever surface that.
+
+**Honest status of A3, stated so it cannot be quietly upgraded.** The corpus is
+in hand and the phenomenon is now *visible*, but **detection is not built**: this
+repo has no morphological parser for Latin, Greek, Syriac or Hebrew, and
+hand-writing a `in quo`/`v němž` matcher is precisely the hand-rolling this arm
+was corrected away from. So A3 is a **falsifier waiting for an instrument**, not a
+result — and its value is that its answer is *already known from philology*, so
+it can grade an instrument rather than be graded by one.
+
+#### A4 — the instrument frame, and what is NOT claimed
+
+The connotative-meaning frame for these readings is the **semantic differential**
+(Osgood) — bipolar scales, **multi-axis by construction**, which is the structural
+reason a single κ destroyed the signal in §12.3a: collapsing a multi-axis
+connotative space to one coincidence scalar discards every axis that separates
+the stances. **No semantic-differential implementation exists in this repo** — a
+sweep found the term only in one knowledge doc, and none in code. It is named
+here as the frame the texture register is standing in for, **not** as a shipped
+capability.
+
+**Architectural anchors recorded for this arm (operator-directed, not yet
+measured):** WordNet's hypernym hierarchy read **as** the HHTL cascade rather
+than as a corpus indexed by it; **CLAM/CHAODA** as the clustered-hierarchical
+anomaly arm over that cascade; and **HHTL + helix as torque** — HHTL supplying the
+lever arm (tier depth) and the helix phase the angular displacement. That last one
+is not decoration: it is the mechanical statement of the §12.3c distinction —
+**sarcasm is torque** (a real lever arm displaced through a large angle: said and
+meant point apart) while **nihilism is a collapsed lever arm** (`Supports` /
+`SupportedBy` collapse, so no torque is possible at any angle). Same sign,
+different mechanics — which is the whole reason polarity could never separate
+them. All four remain CONJECTURE until a probe runs.
+
+   **The defect, stated plainly because it is the fifth instance today.** I
+   checked `/tmp` and ran a 4-level `find`, then wrote "it does not exist". A
+   negative existence claim is only as wide as the search behind it, and mine was
+   two places deep on a repo whose whole data convention is *code-in-repo,
+   data-in-Releases* — documented in `crates/deepnsm-v2/data/README.md`, which I
+   had already read this session to find the cam96 artifacts. **The right search
+   was the one I had already performed once for a different asset.**
+
+   Original (wrong) retraction text retained below per append-only canon. I wrote this falsifier claiming "the corpus exists
+   in Greek (LXX), Latin (Vulgate), German (Luther), English (KJV), Czech and
+   Aramaic" **without checking that it does.** It does not. The only Bible corpus
+   present is `/tmp/pg10.txt` (English KJV, uncommitted). PROBE-BABEL-STANCES'
+   "lanes" are **hand-authored `LaneLex` fixtures** — a handful of
+   `surface`/`root`/`morph`/`prag` entries per lane in the probe's own source
+   (`probe_babel_stances.rs:363+`) — **not corpora**. A texture comparison needs
+   the same verse in each language; six lexical fixtures cannot supply it.
+   **This falsifier is BLOCKED on data acquisition** (someone must supply the
+   parallel texts) and must not be cited as available until it is. The reasoning
+   below is retained because it is sound *once the texts exist*; only its
+   availability was false. Original text follows.
+
+   ~~The corpus exists in Greek (LXX), Latin (Vulgate), German (Luther), English
+   (KJV), Czech and Aramaic.~~ A stance that is real should carry **related texture across lanes**;
+   one that is an artifact of English tokenization will not survive translation.
+   This is structural, not a cutoff I pick. PROBE-BABEL-STANCES already found the
+   shape of the failure mode — the pragmatic channel reading as coherent
+   antiphase across verified lanes, i.e. inherited calque rather than independent
+   convergence — so that probe's CHECK-row discipline carries over verbatim: an
+   unverified lane is **reported, never gating**.
+2. **The horizon as a Pearl rung-3 intervention, not a κ delta.** §12.3b's
+   fixed-verse-set control becomes: hold the verse set fixed, read it from
+   horizon `Vk` and from `Vm > k`, and measure **which loci REBIND** — a change
+   in binding topology under an intervention on the horizon. Fusion is loci
+   rebinding, not a coefficient moving. The sample-growth confound §12.3b
+   identified is still removed the same way (fixed unit set).
+
+**Carried forward unchanged:** the claim ceiling (§12.4 — overlap/structure, never
+validity; no p-values under domain correlation), the degeneracy discipline (a
+texture that is identical on every verse is the 99.61 % defect in a new costume
+and must be *excluded and printed*, never reported as a stance), and the
+`crates/jc` additive constraint — `jc` is untouched, and it is simply not the
+instrument here.
+
+**Open, honest:** which language lanes have committed, loadable codebooks versus
+which were CHECK-only in PROBE-BABEL-STANCES must be established **by reading the
+data on disk**, not assumed — a lane that cannot be loaded cannot be claimed.
+
+### 12.3b D-BLW-3 design — the confound, and the controlled comparison that removes it
+
+**The naive trajectory does not measure fusion.** §12.3's D-BLW-3 row says
+"fusion must MOVE: if pairwise κ between two lenses is flat across the series,
+no horizons merged". True as a *kill* condition — but the converse does **not**
+hold, and that is the trap. As the series seals, each `Vn` contains more verses
+than `Vn-1`, so a κ computed at each version is computed on a **growing sample**.
+κ will drift for that reason alone. **A κ that moves because N grew is not
+Horizontverschmelzung; it is arithmetic.** Reporting a moving trajectory as
+fusion would be the D-BLW-2 Kant tautology one level up — a number that cannot
+help but move, presented as though it discovered something.
+
+**The controlled comparison.** Hold the verse set **FIXED** at the first `k`
+verses and compute the four per-verse binaries **twice**:
+
+| reading | arena state used | verse set |
+|---|---|---|
+| **a priori** (*Vorurteil*) | as sealed at `Vk` — what a reader could know then | first `k` |
+| **hindsight** (*wirkungsgeschichtlich*) | as sealed at `Vm`, `m > k` | first `k` — **the same verses** |
+
+Same lenses, same units, same `N`, **same text** — the only thing that differs
+is the horizon the reading is performed from. A κ difference between those two
+readings cannot be a sample-growth artifact, because the sample is identical by
+construction. That difference *is* the fusion signal: later knowledge re-reading
+earlier material. This is also why the a-priori/hindsight split is not
+decoration here — it is the control.
+
+Mechanically the binaries must be **recomputed** against the later arena, not
+carried forward; a verse's Hegel bit can flip when a statement it emitted is
+contradicted a thousand verses later, and that flip is the whole phenomenon.
+
+**Row shape (this is why D-BLW-3 was never blocked).** The harness emits one
+lightweight **per-(verse, version, lens)** verdict row and implements the public
+`DeinterlaceRow` trait on it (`temporal.rs:318` — `subject()` = the
+book-qualified verse ref, `lance_version()` = the sealing version,
+`knowable_from()` = the version the verse entered the corpus, `hlc_tick()`
+defaulted). Both reads then come off the **real** surface:
+`deinterlace(&rows, &QueryReference::at(V, rung), &NoDeps)` (`temporal.rs:346`,
+`NoDeps` at `:271`). Nothing reconstructs an arena from a version; nothing in
+`temporal.rs` is modified (§12.5 holds). Note `deinterlace` **clones** the
+admitted rows — per §12.2's precision note, no result line may call this
+zero-copy; the rows are small per-verse verdict records, which is why the cost
+is acceptable, not absent.
+
+**Pre-registered thresholds (fixed here, before any run, non-adjustable):**
+- **fusion-moves (can-fire):** ∃ a lens pair and a fixed prefix `k` with
+  `|κ_hindsight(k, m) − κ_apriori(k)| ≥ 0.10`, both κ defined (not `None`), and
+  `k ≥ 1000` (the same corpus floor as §12.3a — below it the marginals are too
+  noisy to read).
+- **the distinction must earn its keep (can-stay-silent's twin):** if for EVERY
+  pair and EVERY prefix the two readings differ by `< 0.01`, then the a-priori /
+  hindsight distinction is **doing no work and must be DROPPED from the
+  write-up rather than narrated** — §12.3's own instruction, made numeric.
+- **Why these numbers, from already-pinned ones rather than freshly invented:**
+  `0.10` is one-fifth of the `0.20 … 0.80` span between the two twin thresholds
+  already pre-registered in §12.3a — a movement big enough to matter inside the
+  band structure those thresholds define. `0.01` is the reporting precision floor
+  (κ is printed to two decimals); a difference below it is not distinguishable
+  from rounding.
+- **KILL:** flat under the controlled comparison ⇒ the claim regrades to *"four
+  independent stance reads over a shared corpus"* — still true, still useful,
+  **not Gadamer**. Print the regrade; do not adjust the threshold.
+
+**Reporting:** the same full-table discipline as §12.3a — per pair, per prefix,
+both readings' counts, both marginals, `p_o`, `p_e`, κ, φ, and the signed
+difference. Never a bare κ, never a bare difference.
+
+**Claim ceiling, tightened for this deliverable.** The permitted statement is
+that *the later horizon reads the same verses **differently***. It is **NOT**
+permitted to say the later horizon reads them **better**, **more truly**, or
+**more completely** — that is a validity claim, it needs an external criterion,
+and it is D3b, which stays blocked (§12.4). "Fusion" here names a measured
+change in overlap between two projections, nothing more.
 
 ### 12.4 Claim ceiling (carried from the D3a/D3b split — do not re-cross it)
 
@@ -599,3 +1305,100 @@ justified dependence model, named at the claim site (C4, as corrected).
   are the independent reference frame this arm is measured against, and are not
   to be "improved" while being used as the oracle.
 - **No fusion or validity claim** before D3b (§12.4).
+
+### 12.7 D-BLW-2 MEASURED RESULT — the texture rewrite is a KILL, on κ's own axis
+
+**Status: MEASURED (2026-08-04).** `examples/blw_texture.rs`, 2,000-verse KJV
+prefix, 1 s wall. Full 31,102-verse run exceeded a 10-minute budget — the harness
+documents why in its own source (`stance::stream` calls
+`staunen(Snapshot::of(arena, 0.0))` **once per rung lift**, each an
+O(arena-size) scan, and the harness runs `stream` twice), so this is a known
+superlinear cost, not a crash. **All numbers below are from the bounded run.**
+
+**The verdict: the carrier changed and the instrument did not.** §12.3c retired κ
+for collapsing a multi-axis phenomenon into one coincidence scalar. The
+replacement uses a 24-locus register — and then **writes three loci**. Verified
+against source, not the harness's self-report: all seven `.with(Locus::…)` call
+sites write only `Antecedent` (5 sites, every stance), `Quorum` (Hegel only) and
+`Modal` (Kant only). **Only `Antecedent` is shared between any two stances, so
+`agreement_count` is bounded at 1 of 24 by construction** — a binary coincidence
+measure rebuilt inside a richer type. The harness states the ceiling honestly and
+in advance, which is to its credit; it is still the same defect one level down.
+
+| pair | mean `agreement_count` | distribution |
+|---|---|---|
+| Hegel × Wittgenstein | 0.0825 | `{0: 1835, 1: 165}` |
+| Hegel × Nietzsche | 0.0505 | `{0: 1899, 1: 101}` |
+| Kant × Wittgenstein | 0.0105 | `{0: 1979, 1: 21}` |
+| Nietzsche × Wittgenstein | 0.0100 | `{0: 1980, 1: 20}` |
+| Hegel × Kant | 0.0070 | `{0: 1986, 1: 14}` |
+| Nietzsche × Kant | 0.0015 | `{0: 1997, 1: 3}` |
+
+Per-locus bind rate — **21 of 24 loci read exactly 0.0000 for every stance, by
+construction**: Hegel `Antecedent .3650 / Quorum .3235`; Wittgenstein
+`Antecedent .8815`; Nietzsche `Antecedent .0570`; Kant
+`Antecedent .0265 / Modal .0355`.
+
+**Second, independent defect — the four stances are not four comparable reads.**
+Bind rates: Wittgenstein **1763/2000 = 88.2 %**, Hegel 732 (36.6 %), Nietzsche 114
+(5.7 %), Kant 72 (3.6 %). One near-constant, one moderate, two near-silent. An
+88 % firing rate is the same degenerate tell as the 99.61 % that killed §12.3a″ —
+close enough to a constant that its "agreement" with anything is mostly its own
+prevalence.
+
+**What did work, and it is worth keeping.** The §12.3b fixed-verse-set control
+behaved exactly as designed: holding verses 0..1000 constant and moving only the
+horizon (`Vk`=1000 → `Vm`=2000) produced real rebinding — Wittgenstein 127/1000,
+Hegel 113/1000 (`antecedent` 94, `quorum` 95), Nietzsche 48/1000, Kant 6/1000.
+Sample growth is excluded by construction, so **this movement is not the artefact
+§12.3b was built to exclude.** But it is almost entirely `Antecedent` rebinding —
+one axis again.
+
+**Consequence for the arm, stated as a KILL and not softened.** D-BLW-2's
+instrument does not separate the stances by texture; it reports co-occurrence of a
+single locus. **The register was necessary and is not sufficient — the binding
+rules ARE the instrument.** A rewrite must populate the loci that carry the
+distinction the arm exists to make (`Supports`/`SupportedBy` collapse for
+nihilism; `QualiaReference` distance from `SMeaning`/`PMeaning`/`OMeaning` for
+sarcasm — the torque-vs-collapsed-lever-arm pair in §12.6 A4), and must report
+those as **two quantities, never averaged**.
+
+**Two further defects in the shipped harness, both now false or wrong:**
+1. It prints *"CROSS-LANGUAGE FALSIFIER: BLOCKED — no parallel-text corpus is on
+   disk."* **False as of this session** — 9 PD lanes / 7 languages are on disk
+   (§12.3c ⊘⊘⊘). The line must go.
+2. It **bypasses the post-#879 substrate entirely.** Grep count for
+   `batch_writer|BatchWriter|KanbanStep|kanban|owner_adapter|MailboxSoA|SoaEnvelope`
+   in the file is **0**; its whole import surface is `causal_witness` +
+   `nars::stance` + `BeliefArena`. So it is a free-standing loop over a TSV — no
+   tenant, no verses-as-rows, no `KanbanStep` advance, no batch-writer casts —
+   and therefore **cannot be evidence for any substrate claim**, only for the
+   stance functions. **D-BLW-1 remains unbuilt**, and this harness standing in
+   for it is precisely the substitution D-BLW-1 was scoped to prevent.
+
+### 12.8 D-BLW-3 RESULT (2026-08-04) — measured, per the pre-registered rules
+
+**BUILT + RUN GREEN** as `examples/blw_fusion.rs` (re-scoped per the design
+note's B1: two rank projections A/B + inert control Z over the tenant's own
+rows; stances are NOT inputs). All gates passed on the real corpus (2,000
+verses, 8 sealed cycles, 27,000 verdict rows, incremental seating P1, rank
+criterion P2 at q=0.25).
+
+| pre-registered rule | measured |
+|---|---|
+| §3.1 band (0.20/0.80, reused Landis–Koch) | **IN/IN** — Strict κ=0.4933, Aware κ=0.4619, full BinaryAssociation tables printed |
+| §3.3 movement at V_pin (≥0.10) | Δκ = −0.031 → **middle ground** (0.01 ≤ \|Δκ\| < 0.10): reported, **no fusion verdict claimed** |
+| §5.3 drop (<0.01 everywhere) | **DROP does not fire** — max \|Δκ\| over the 8 horizons = 0.485 |
+| C5 signed churn | one-directional at V_pin (A: +66/−0; B: +184/−0) — accumulation-shaped, printed, never averaged into Δκ |
+| controls | Z byte-identical (plumbing zero); G1 three-way extensional identity (Aware≡Retro≡Strict@V8); G4 both tails + real-data silent arm (the design's "~90 % god" premise measured 0.1285 — fixture replaced with constant-by-construction tails); G5/G6/G7 green |
+
+**The headline, exactly as large as the measurement:** the a-priori/hindsight
+gap **closes monotonically as the horizon extends** — Δκ: −0.485 (V1),
+−0.251, −0.079, −0.031, ≈0.000, +0.011, +0.017, 0.000 (V8, identical by
+construction); Hamming(A): 152→123→94→66→53→37→21→0. The distinction does
+real work early in the series and dissolves as horizons merge. That is a
+trajectory-shaped observation over eight reported points — **no trend claim,
+no fusion verdict at V_pin, no substrate-exercise claim** (under this corpus
+`deinterlace` reduces to filter+sort; the finding lives in the rank
+criterion; the permitted claim is first `DeinterlaceRow` implementor and
+first `deinterlace` caller). §12.4's D3b validity gate stays closed.

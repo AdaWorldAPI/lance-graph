@@ -1,5 +1,112 @@
 # Technical Debt Log — Open + Paid (double-entry, append-only)
 
+## TD-RECOVERY-HASH-PARTITION-UNCERTIFIED (2026-08-04) — OPEN
+
+**Operator ruling (2026-08-04):** the #879 work that must not be reversed is
+(1) the batchwriter amortizing ONLY CHANGED and (2) interlacing prevented by
+`temporal.rs` at read time. Within that: `recover_fleet`'s per-owner
+`HashMap` partition of the sealed log (`cycle_driver.rs:713-716`) is a
+**performance stopgap** standing where temporal.rs layer-1 is preferred —
+acceptable temporarily, **only until certified equally exact or migrated**.
+
+**The exact gap:** the hash partition preserves STORED order per owner
+(`scan_sealed` documents "this seam does NOT sort", `persist_sink.rs:315-317`,
+test `scan_sealed_does_not_repair_order_on_read`), while
+`temporal.rs::local_trajectories` re-sorts each owner chain by `cast_seq`
+(proven against out-of-order storage by
+`layer1_orders_one_owners_chain_by_cast_seq_not_log_order`). Equal-exactness
+therefore rests on: stored order per owner == cast_seq order per owner. TRUE
+today (single-writer MemWal appends in seal order); UNCERTIFIED; false the
+moment storage returns out-of-order (multi-writer, HLC interleave,
+compaction).
+
+**Certification falsifier (defined now, run when paid):** a property test
+that, for the sealed logs the current writer can produce AND for adversarial
+permutations of them, asserts `recover_fleet`'s per-owner apply sequence ==
+the sequence obtained by routing the same landings through
+`local_trajectories` keyed on `stream_position`. Two outcomes, both closing
+this entry: (a) equal on all writer-producible logs AND documented as
+conditional on single-writer → CERTIFIED-CONDITIONAL, with the condition
+stated at `recover_fleet`'s doc; (b) any divergence → migrate `recover_fleet`
+to layer-1 (a small `LocalCausalRow` impl on `LandedSlot` with
+`cast_seq = stream_position`).
+
+**Until closed:** no new caller copies the partition shape; new recovery
+reads route through temporal.rs layer-1. Cross-ref:
+`.claude/knowledge/batchwriter-kanbanstep-wiring.md` §8.
+
+**⊘ RULING SHARPENED (operator, 2026-08-04, two directives minutes apart):**
+(1) *"We ALWAYS want 64k thoughts concurrency which never arrive in same
+order, period"* — arrival order is NEVER deterministic; any path that assumes
+it is wrong by design. (2) *"Before writing they need to be deinterlaced,
+either by temporal.rs, or previously-known-order hash as a helper to be
+certified."* So the deinterlace obligation sits **BEFORE the write**, and the
+hash helper is not struck — it is admissible as the known-order fast path
+**once certified equally exact against temporal.rs**, which stays the
+canonical deinterlacer.
+
+Consequence for the certification falsifier above: outcome (a) is reinstated
+but its regime is corrected. The property test must run over **out-of-order
+arrivals** (the design's actual envelope), not only writer-producible in-order
+logs: either the hash path reproduces temporal.rs' order there too
+(CERTIFIED, keep it), or it does not — in which case it may survive ONLY
+behind a structural gate that restricts it to previously-known-order inputs
+(the gate enforced in types, not convention), or it migrates to layer-1
+(`LocalCausalRow` on `LandedSlot`, `cast_seq = stream_position`). A
+certification silently conditional on in-order storage — the shape this entry
+originally offered — is the one closing move the ruling forbids.
+
+## TD-PARALLEL-TARGET-DIRS-REGROW (2026-08-04) — OPEN
+
+**Measured, not estimated** (`du -sh`, after a session hit "no space left on
+device" twice):
+
+| parallel `target/` | size |
+|---|---|
+| `crates/symbiont/target` | 2.0 G |
+| `crates/jc/target` | 777 M |
+| `crates/deepnsm-v2/target` | 473 M |
+| `crates/lance-graph-cognitive/target` | 348 M |
+| `crates/helix/target` | 263 M |
+| **parallel-dir subtotal** | **~3.9 G** |
+
+**Reconciling 3.9 G against the 4.6 G that actually came free** (700 M → 5.3 G;
+the earlier version of this row read "total reclaimed ~3.9 G (700 M → 5.3 G)",
+which silently implied those were the same number — corrected 2026-08-04). They
+are not: the parallel dirs are ~3.9 G of it, and the remaining **~0.7 G** came
+from sweeping the SHARED workspace `target/debug/incremental` and
+`target/debug/examples` in the same pass. Both figures are measured; only the
+arithmetic tying them together was missing. The distinction matters for the
+reclaim procedure below, because the two halves regrow on different triggers:
+the parallel dirs regrow on the next `--manifest-path` run of an excluded
+crate, the incremental cache regrows on the next build of anything.
+
+**Cause, and it is structural.** These crates are **workspace-EXCLUDED** (root
+`Cargo.toml` `exclude`), so every `cargo … --manifest-path crates/<x>/Cargo.toml`
+materialises a **separate** `target/` beside that crate instead of reusing the
+workspace one. CI does exactly that for `deepnsm-v2`, `jc`, `symbiont`,
+`bgz-tensor`, … so the dirs regrow on any local run of the same commands. They
+are correctly `.gitignore`d (`**/target/`), so this is a **disk** problem only —
+never a git one.
+
+**Why it bites here:** the writable allowance is ~38 GB and the workspace
+`target/` alone is ~12 G. A full disk does **not** announce itself as a disk
+error — it surfaces as a **bogus `error: could not compile <unrelated crate>`**
+or a **linker SIGBUS**, both of which read as code breakage. This session
+mis-read one such failure before checking `df`. *Check `df` before believing a
+compile error you cannot explain.*
+
+**Reclaim (safe, no rebuild of the shared target):**
+`rm -rf crates/{symbiont,jc,deepnsm-v2,lance-graph-cognitive,helix}/target`
+
+**Candidate fix, NOT applied — deliberately.** A root `.cargo/config.toml` with
+`[build] target-dir = "target"` would collapse all of them into the one shared
+directory (relative config paths resolve against the config file's parent, so
+`--manifest-path` invocations would land in the workspace `target/`). **Not done
+here** because the `test-with-coverage` job runs `-C instrument-coverage` and its
+workflow comments already record per-binary link-size sensitivity; merging target
+dirs changes what `llvm-cov` discovers, and that is a measurable question, not a
+guess to land mid-PR. Whoever picks this up: measure the coverage job first.
 ## TD-STATS-DEGENERACY-CONTRACT-DIVERGENCE (2026-08-04)
 
 **Measured, not estimated** (at `a9f813c`, workspace-wide grep over `crates/`):

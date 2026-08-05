@@ -38,6 +38,7 @@ pub mod ancestry;
 pub mod basin;
 pub mod belief;
 pub mod codebook;
+pub mod corpus;
 pub mod evidence;
 pub mod fsm;
 pub mod introspect;

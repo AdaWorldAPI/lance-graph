@@ -1,3 +1,49 @@
+## 2026-08-04 — D-BLW-3 arc: design + inventory + recon/refute workflow + build (consolidated by the orchestrator)
+
+Four units, records in their own tag-files per the one-writer rule:
+- **Opus design lane** → `exec-runs/dblw3-design-opus.md`: the fusion-falsifier design; B1 re-scope (stances out, two rank projections over the tenant); the pre-registered band from EXISTING Landis–Koch pre-registrations; B9 self-correction (knowable_from is a class clock) after the coordinator relayed the inventory lane's finding.
+- **Sonnet inventory lane** → `exec-runs/dblw3-api-inventory-sonnet.md`: exact temporal.rs/jc/blw_tenant surfaces incl. the MODE×STATUS admission table and the at() constructor facts.
+- **Six-agent recon/refute workflow** (3 Sonnet recon + 2 Opus refuters + 1 Opus checklist): both refuters SURVIVES-WITH-CORRECTIONS — the mode/pin extensional redundancy and the monotone-accumulation channel; 8 corrections folded into the build brief.
+- **Sonnet build lane** → `exec-runs/blw-fusion-d-blw-3-build.md`: `examples/blw_fusion.rs` (~1,150 lines) + the jc dev-dep (closing design B5 with this commit). Corrected mid-flight on G6 per-slice arithmetic (external review caught it in the spec; the lane independently re-derived 9−s/5−s before coding).
+- **Central gates (orchestrator):** fmt; clippy clean at the example scope; run GREEN on the real corpus. One gate fixture corrected at run time (G4 can-fire premise rotted; replaced with constant-by-construction tails). Result: plan §12.8 + E-HORIZONTVERSCHMELZUNG-GAP-CLOSES-1 + STATUS_BOARD row.
+
+
+## 2026-08-04 — Arm BLW opened: BLW-0 + D-BLW-1 + the stance lift (5 subagents: 2 Sonnet recon, 1 Opus design, 2 Sonnet build)
+
+> **⊘ SAME-DAY CORRECTION (operator-ruled) — read this before the entry below, most of which is retracted.**
+> Two of the three headline items did not survive. **(1) The tiling is void:** an owner is a
+> **tenant** (one mailbox = one kanban board = one `KanbanActor` as sole mutator), so tiling the
+> Bible across 64 owners fabricated 63 tenants — a category error, not a sizing choice
+> (`E-AN-OWNER-IS-A-TENANT-NOT-A-SHARD-1`). **(2) The memory case was measured off the wrong
+> struct:** canon is `NODE_ROW_STRIDE = 512` (const-asserted), so the whole 64k bake is **32 MiB**,
+> not 384 MiB — there was never any pressure to solve, so the tiling, the CI/full-scale split and
+> the 24 GiB D-BLW-4 figure all answered a problem that did not exist. **(3) D-BLW-4's axis is
+> void** — owner-count is not a scale knob, and my "measure it with 4,096 *lightweight* owners"
+> reply kept the wrong unit and merely made it cheap. Both harnesses are **deleted**;
+> `blw_bible_lens_wave.rs` is gone with them.
+>
+> **The damning part is not the error, it is that my corrections did not converge.** I "fixed" the
+> shape twice and both fixes were wrong in the same direction; when retracting the tiling I wrote
+> "the measurements survive", which was the fourth error on the same axis. The operator caught
+> every one. **A green probe is not evidence when the author chose both the object and the check** —
+> D-BLW-1 passed 3 CI tests, a full-scale run, and a mutation probe, all on a fabricated shape.
+>
+> **What actually held, and the property they share:** the CI blind gate (a negative structural
+> claim, checkable from a cfg attribute), the stance lift (checked by a pre-existing oracle I did
+> not author), the Hegel-constant-false and Kant-tautology findings (symbolic derivation from
+> quoted lines), and the §12.3b confound (symbolic). **None involved a measurement by me.**
+> Open question deliberately left unanswered: `ISS-MAILBOXSOA-ROW-COST-VS-512B-CANON`.
+
+- **BLW-0 killed the plan's own shape.** §12.1 said "64k verse-owners in ONE `MailboxSoA`" while the next line of the same diagram said "sparse sealed transition set — 17 dirty, not 64k". A sparse sealed set is a sparse set of *owners* and one `MailboxSoA` **is** one owner, so the spec excluded the mechanic the driver exists for. Second, independent ground: `MailboxSoA<N>` allocates 3 identity planes at `3 × N × 256 × 8 B` = **6,144 B/row**, so 65k rows = **384 MiB regardless of tiling**, and `MailboxSoA<65536>` is a ~5.1 MiB by-value stack construction against a 2 MiB worker stack. Resolved to 64 tiles × `MailboxSoA<1024>`; tiling is a partition of one corpus, not a second projection, so the anti-6× zero-copy ruling is untouched. `EPIPHANIES E-THE-DIAGRAM-CONTRADICTED-ITS-OWN-NEXT-LINE-1`. **That 6 KB/row figure went on to decide three separate things** (the tiling, the `#[ignore]` split, D-BLW-4's scope) — which is why it is written down rather than recomputed each time.
+- **The fifth blind gate, found by accident while wiring the arm.** `cycle_driver` is `#[cfg(feature = "cycle-driver")]`; the CI step for that crate passes `--features supervisor` only. **The entire P4a/P4b/P4c falsifier suite — 22 tests — had never run in CI.** They pass; the point is that nothing would have noticed if they stopped. It survived four prior closings of this exact class because the step is *named* "Run supervisor tests" — per-crate naming over a per-feature flag. `E-A-PER-FEATURE-CI-STEP-NAMED-LIKE-PER-CRATE-COVERAGE-1`.
+- **D-BLW-1 shipped and the ignored test was actually RUN** (`blw_bible_lens_wave.rs`, 3 CI + 1 full-scale, green; full 64-tile/65,536-row 1.71 s). The substantive fix was mine, not the builder's: its anti-vacuity snapshot covered 6 columns while calling itself a FULL BYTE-IDENTICAL comparison. Widened to every per-row column; **evidence it is real rather than cosmetic — the full-scale test went 0.01 s → 1.71 s, because zeroed pages are lazily mapped and the old snapshot never touched the identity planes at all.** Mutation-probed: perturbing one held tile's qualia lane makes it fail.
+- **Scope kept honest under pressure.** Mid-flight I found `cycle_driver.rs:1098` already proves the sparse+byte-identical property at 64k over `FakeOwner`, and redirected the builder before it shipped: D-BLW-1 is a **re-anchoring** on the production owner + a real lens body (`FakeOwner` has no row columns, so no lens reading real data can run over it), named `..._over_the_real_mailbox_soa` so the distinction survives the next reader.
+- **D-BLW-2's design pass overturned four of §12.3's premises**, each re-verified by me in source before recording: Hegel is **constant-false** on the TSV path (uniform `f=1.0` ⟹ contradiction ≡ 0); negation never reaches the inbound leg, so extending the TSV cannot fix it; and the obvious Kant bit is a **tautology** (`quale > ablated` reduces to `modal > 0.5`, true for both shipped modals) — the `closed_class_guess` defect caught *before* it was written.
+- **I overrode its fourth conclusion.** It called D-BLW-3 blocked because `QueryReference::at` is a reader pin with no version→arena materialization. The premise is right; the conclusion is not — `deinterlace` takes **caller-supplied rows** over the public `DeinterlaceRow` trait, so the harness emits per-(verse,version) verdict rows and gets both reads off the real surface, reconstructing nothing.
+- **The lift landed behaviour-preserving**, and its own falsifier held: `probe_eyes_opened.rs` keeps every B1–B6 assert and prints identical output. Verified rather than trusted — the diff's three assert-matching lines are all doc-comment prose. One edit beyond the pure lift: `Interner` needed `Default`; the authoring pass argued `BeliefArena::new` was tolerated precedent, but `BeliefArena` **derives** `Default`, which is exactly why the lint is silent there. Clippy did fire.
+- **My own process error, recorded because it nearly cost work:** `git add -A` with background agents editing the tree swept a builder's unfinished file into an unrelated commit. Later commits add only named paths.
+- **Gates (central, scoped, one shared `target/`):** supervisor `--features cycle-driver` 22 lib + 3 test + 1 ignored-then-run, all green; `clippy -p lance-graph-planner --all-targets -D warnings` clean; planner 348 + 4 passed / 0 failed; `fmt` clean on both crates; probe example green. **Disk hit the session allowance mid-run** (linker SIGBUS); cleared by dropping `target/debug/incremental`.
+
 ## 2026-07-29 — #867 merged + ZC-2a meta_basin lens migration (main thread only, no subagents)
 
 - **#867 closed the loop on a post-merge review.** CodeRabbit's #866 review finished after #866 had merged; its three real findings shipped as #867 and CodeRabbit re-reviewed #867 with **no blocking findings**, independently confirming all three points I asked it to re-check (bypass scope now accurate rather than overstated; concept-blindness sweep clean incl. docs and tests; `Resolution.axes` non-vacuously divergent at bundle=3/winner=2). It stated explicitly that it ran no Cargo commands — the test/clippy/fmt results are mine, which is the honest split. Merged `5373b00` after all 5 checks went green.

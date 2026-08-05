@@ -85,7 +85,7 @@ fn archaic_pos(w: &str) -> Option<Pos> {
 fn main() {
     let path = std::env::args()
         .nth(1)
-        .expect("usage: bible_wave <pg10.txt> [--export <spo.tsv>]");
+        .expect("usage: bible_wave <pg10.txt> [--export <spo.tsv>] [--export-verses <verses.tsv>]");
     // The inbound leg can EMIT its whole-book SPO/belief stream for the
     // lance-graph reasoning layer to consume (the SoC seam, `E-DEEPNSM-V2-IS-
     // INBOUND-LEG-REASONING-LIVES-IN-LANCE-GRAPH-1`): the planner example
@@ -93,40 +93,51 @@ fn main() {
     let export = std::env::args()
         .position(|a| a == "--export")
         .and_then(|i| std::env::args().nth(i + 1));
+    // The reasoning layer's four-stance panel needs verse TEXT, not triples:
+    // `stance::stream()` mints RungLifts inside a complementizer window and
+    // derives negation polarity from the clause — neither survives the flat
+    // (s,p,o,verse) export, which is why 3 of 4 stances measured UNREACHABLE
+    // on that path (plan §12.3a″). Text is emitted as its OWN artifact rather
+    // than a column, so the SPO export's 7-column shape is untouched and no
+    // existing consumer changes. The seam still holds: this leg emits text,
+    // it does not reason over it (`E-DEEPNSM-V2-IS-INBOUND-LEG-...`).
+    let export_verses = std::env::args()
+        .position(|a| a == "--export-verses")
+        .and_then(|i| std::env::args().nth(i + 1));
     let raw = std::fs::read_to_string(&path).expect("read KJV text");
 
-    // ── verses: a whitespace token shaped d+:d+ starts a new verse ──
-    let mut verses: Vec<String> = Vec::new();
-    let mut cur = String::new();
-    let mut in_body = false;
-    for tok in raw.split_whitespace() {
-        let is_marker = tok.split_once(':').is_some_and(|(a, b)| {
-            !a.is_empty()
-                && !b.is_empty()
-                && a.bytes().all(|c| c.is_ascii_digit())
-                && b.bytes().all(|c| c.is_ascii_digit())
-        });
-        if is_marker {
-            in_body = true;
-            if !cur.is_empty() {
-                verses.push(std::mem::take(&mut cur));
-            }
-        } else if in_body {
-            if tok.contains("***") {
-                break; // Gutenberg footer
-            }
-            if !cur.is_empty() {
-                cur.push(' ');
-            }
-            cur.push_str(tok);
-        }
-    }
-    if !cur.is_empty() {
-        verses.push(cur);
-    }
+    // Verse splitting lives in the LIBRARY (`deepnsm_v2::corpus`) so that
+    // `cargo test` gates it. It used to be inline here, where it carried an
+    // OT-only truncation for its entire life and could not be unit-tested:
+    // cargo compiles an example but never runs its `main()`, and the corpus is
+    // not committed. See `corpus::split_verses` for the three-`***` contract.
+    let split = deepnsm_v2::corpus::split_verses_detailed(&raw);
+    let verses: Vec<String> = split.verses.clone();
 
     // G1 — the whole book is ONE 64k SoA tile.
     assert!(verses.len() <= 65_536, "KILL G1: book exceeds the 64k tile");
+    // G1b — the corpus actually IS the whole book. This example claimed
+    // "whole book" for its entire life while stopping at the lone `***`
+    // between the testaments, i.e. at Malachi 4:6 — 23,145 verses, the Old
+    // Testament exactly. The assert below is what makes that failure loud:
+    // if the input announces a New Testament, the parse must have crossed
+    // into it. Read from the PARSE (`CorpusSplit::crossed_new_testament`), not
+    // from a verse-count threshold: a count comparison falsely killed an
+    // NT-only corpus and missed an uppercase heading entirely.
+    if let Some(crossed) = deepnsm_v2::corpus::crossed_into_new_testament(&raw, &split) {
+        assert!(
+            crossed,
+            "KILL G1b: input announces a New Testament but the parse emitted no \
+             verse after that heading — the OT-only truncation is back ({} verses \
+             parsed; the historical bug stopped at {} = the OT exactly)",
+            verses.len(),
+            deepnsm_v2::corpus::KJV_OLD_TESTAMENT_VERSES
+        );
+    }
+    assert!(
+        !verses.iter().any(|v| v.contains("***")),
+        "KILL G1b: a `***` fence leaked into verse text"
+    );
     println!(
         "G1 PASS  whole book = {} verses ≤ 65,536 (one 256×256 tile)",
         verses.len()
@@ -190,6 +201,20 @@ fn main() {
             stream.push(vi as u64, t);
             all.push((vi as u64, t));
         }
+    }
+
+    // ── SoC seam (text): emit labelled verse text for the reasoning layer ──
+    if let Some(out) = &export_verses {
+        use std::io::Write;
+        let mut f =
+            std::io::BufWriter::new(std::fs::File::create(out).expect("create verse export"));
+        for (i, v) in verses.iter().enumerate() {
+            // Verse text is whitespace-normalised by the splitter and carries
+            // no tabs, so a 2-column TSV round-trips without quoting.
+            debug_assert!(!v.contains('\t'), "verse text must not contain a tab");
+            writeln!(f, "{i}\t{v}").expect("write verse export");
+        }
+        println!("EXPORT  {} verses -> {}", verses.len(), out);
     }
 
     // ── SoC seam: emit the whole-book belief stream for the reasoning layer ──

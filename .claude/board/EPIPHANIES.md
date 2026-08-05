@@ -1,3 +1,149 @@
+## E-HORIZONTVERSCHMELZUNG-GAP-CLOSES-1 (2026-08-04)
+
+**The a-priori/hindsight gap is not a constant — it decays monotonically as
+the horizon extends, and THAT decay is the measured shape of
+Horizontverschmelzung on this corpus.** `blw_fusion.rs` (D-BLW-3), 8 sealed
+horizons, two rank projections at pre-registered q=0.25: Δκ between the
+Strict (a-priori) and Aware (hindsight) reads runs −0.485 → −0.251 → −0.079 →
+−0.031 → ≈0 → +0.011 → +0.017 → 0 as k=1..8; Hamming(A) 152→0. Early in the
+series the reader-permission distinction does heavy work; by the series tip
+it has dissolved — the horizons have merged. Both reads sit IN the
+pre-registered fusion band (κ 0.49/0.46) the whole way at the pin.
+
+Disciplines that held: no fusion VERDICT claimed (V_pin movement −0.031 is
+the middle-ground outcome, named before the run); churn reported SIGNED
+(gained-only ⇒ accumulation-shaped, per the adversarial-review correction);
+the inert control Z stayed byte-identical (plumbing contributed zero); the
+G4 can-fire fixture was replaced mid-gate when its empirical premise ("~90 %
+god") measured 0.1285 — constant-by-construction tails cannot rot. NOT
+claimed: validity (D3b closed), significance (no dependence model), zero-copy
+(deinterlace clones), substrate exercise (filter+sort here). First
+`DeinterlaceRow` implementor and first `deinterlace` caller in the tree.
+
+**Status:** FINDING (measured; harness + output in-tree, plan §12.8).
+
+
+## 2026-08-04 — E-THE-CARRIER-CHANGED-THE-INSTRUMENT-DID-NOT-1 — a 24-locus register that writes one shared locus is still a coincidence bit
+
+**Status:** FINDING (measured, 2,000-verse run, 1 s). **Confidence:** High — the ceiling is verifiable in source, independent of the data. Code: `lance-graph-planner/examples/blw_texture.rs`. Result: plan §12.7.
+
+**What happened.** §12.3c retired κ because it collapsed a multi-axis phenomenon into a single coincidence scalar — *"nihilism and sarcasm are both negative, so any sign or boolean collapses them."* The replacement instrument was built on `CausalWitnessFacet`: **24 signed i4 loci**, exactly the carrier that can hold binding topology. It then **wrote three of them.** All seven `.with(Locus::…)` sites write `Antecedent` (every stance), `Quorum` (Hegel only), `Modal` (Kant only). **Only `Antecedent` is shared by any two stances, so `agreement_count` is bounded at 1 of 24 — by construction, before any verse is read.** Measured means: 0.0015 to 0.0825, every distribution `{0: ~1900, 1: ~100}`. Twenty-one loci read exactly `0.0000` for every stance, always.
+
+**So the same defect survived the fix, one level down.** I replaced a scalar-over-binaries with a scalar-over-a-richer-type and changed nothing about what was being measured. **The register is not the instrument. The binding rules are the instrument.** Swapping the carrier is necessary and does no work on its own — a 24-dimensional type populated on one shared dimension is a one-dimensional measurement wearing a 24-dimensional type.
+
+**Why it was easy to miss, and the tell that catches it.** The rewrite *looked* like compliance: right carrier, cited ruling, honest prose. The tell is cheap and purely structural — **count the distinct write sites into the multi-axis carrier and compare against the axis count.** 3-of-24, with 1 shared, is visible without running anything, and it bounds the result before the corpus is opened. **Any measurement whose ceiling can be computed from the source alone is not measuring the corpus.**
+
+**Paired second defect, the familiar one.** Bind rates across the four stances: Wittgenstein **88.2 %**, Hegel 36.6 %, Nietzsche 5.7 %, Kant 3.6 %. That is not four comparable readings — it is one near-constant, one moderate and two near-silent, and an 88 % firing rate agrees with everything largely by prevalence. Same shape as the 99.61 % that killed the previous instrument.
+
+**What survived, and it matters.** The §12.3b fixed-verse-set control worked exactly as designed: holding verses `0..1000` constant and moving only the horizon produced real rebinding (Wittgenstein 127/1000, Hegel 113, Nietzsche 48, Kant 6). Sample growth is excluded by construction, so that movement is **not** the artefact the control was built to exclude. **A correct control under a broken instrument still yields a trustworthy negative** — which is the whole reason to build the control before the instrument rather than after.
+
+**The class.** *When a fix names a richer representation as the remedy, the fix is not done when the representation lands — it is done when the code populates the dimensions the representation was chosen for.* **Sibling check:** any migration to a wider carrier (more loci, more columns, more axes, higher-dimensional embedding) where the write sites were not counted afterwards.
+
+> **⊘ SAME-DAY CORRECTION (2026-08-04, on review — both accepted).** This entry, whose whole subject is an overclaim, closed with **two overclaims of its own**. Recorded rather than quietly edited, because the recurrence is the point.
+>
+> 1. *"Any measurement whose ceiling can be computed from the source alone is not measuring the corpus"* — **too strong, and false as stated.** Plenty of sound measurements have source-computable ceilings (any percentage is bounded `[0,100]` before you look at data). The defect here is narrower and needs the tightness named: **a measurement is uninformative for corpus comparison when its source-defined ceiling prevents the observed range from reflecting corpus variation.** At 1-of-24 with one shared axis, the ceiling is that tight; "has a ceiling" alone never was the fault.
+> 2. *"A correct control under a broken instrument still yields a trustworthy negative"* — **overreaches on the word "trustworthy".** What the fixed-verse-set control establishes is exactly one thing: **sample growth is excluded as the cause of the observed rebinding.** It does not validate the instrument and does not exclude other confounders. The narrow claim is the one the measurement supports.
+>
+> **Why this matters more than the wording.** Both slips are the *aphorism reflex*: a measured, bounded finding gets a memorable universal bolted onto the end, and the universal is what a future session will actually quote. **A sentence that generalizes past its evidence is the same defect as a measurement that reads past its ceiling — one level up, in prose.** The finding above is unchanged and stands; only its two closing generalizations are narrowed.
+
+## 2026-08-04 — E-A-NEGATIVE-EXISTENCE-CLAIM-IS-ONLY-AS-WIDE-AS-ITS-SEARCH-1 — three times, same arc, same shape
+
+**Status:** FINDING (three measured instances, one arc, one day). **Confidence:** High — the third instance was disproven by a single API call. Fix: plan §12.3c ⊘⊘ and ⊘⊘⊘.
+
+**The three, in order, all mine.** (1) I claimed multilingual Bible corpora existed **without checking**. (2) Corrected, I checked `/tmp` and ran a 4-level `find`, then wrote *"the cross-language falsifier does not exist"* — the data was in a GitHub Release published from a prior session of my own. (3) Corrected again, I checked the **release bundle** and wrote *"genuinely absent, and only these: Latin Vulgate and Aramaic/Peshitta"* — and instructed a subagent not to simulate them. One query to the same API the repo's own shipped `fetch_greek_lane.py` already calls returned **117 translations**, including `vulgate` (Vulgata Clementina, Latin) and `peshitta` (Syriac NT), **both tagged `Public Domain`**, plus two PD Hebrew OT lanes. All four fetched, licence re-verified verbatim at fetch time.
+
+**Why instance 3 is the instructive one.** Instances 1 and 2 are ordinary laziness. Instance 3 I had *evidence* for: I read a real artifact, and the artifact was internally honest — that bundle's MANIFEST even carries a *"Known defects (stated in the asset, not hidden)"* section. What I missed is that it is a **licence-partitioned subset by construction** — its own text states a "one-asset-per-regime law" and lists lanes it deliberately excludes. **Absent-from-the-bundle never meant absent-from-the-source.** I read a container's contents as a census of the world.
+
+**The class.** *A negative existence claim inherits the boundary of the search that produced it, and that boundary is almost never the boundary of the claim.* "X does not exist" is nearly always shorthand for "X is not in the one place I looked", and the two differ by however much the world exceeds that place. **The asymmetry is what makes it dangerous: a positive claim carries its own evidence (here it is), a negative one carries only the search — so the search must be stated with the claim or the claim is unfalsifiable-looking while being trivially false.**
+
+**Operational rule, cheap enough to always apply.** Before writing *absent / unavailable / does not exist*: (a) name the boundary in the same sentence — *"not in the release bundle"*, never bare *"does not exist"*; (b) ask whether the repo **already contains code that fetches this class of thing** — here `fetch_greek_lane.py` was committed, its API endpoint hardcoded, and it does the licence check too; the right search was one I had already performed once for a different asset; (c) treat any **curated** artifact as a subset until its selection criterion is read — a curation *rule* (licence regime, size cap, scope) is exactly what makes absence uninformative.
+
+**Cost, stated plainly.** Instance 3 propagated: it went into the plan, into an EPIPHANIES entry, and into a subagent brief as an instruction *not to simulate lanes that were sitting behind one HTTP call*. A wrong negative does not sit still — **it becomes a prohibition**, and prohibitions are obeyed by the people you hand them to.
+
+## 2026-08-04 — E-A-MARGIN-IS-NOT-A-QUALITY-SCORE-1 — the column named `confidence` measures which shift won, not whether the alignment is right
+
+**Status:** FINDING (measured on the asset; caught before the run it would have corrupted). **Confidence:** High — the generator states its own formula. Asset: `v0.1.0-codebooks-2026-07-26` → `rosetta-pd/versification_map.tsv`. Fix: plan §12.3c ⊘ correction.
+
+**What I did.** Briefing the cross-lane arm, I instructed: *carry `confidence` into the report; CHECK rows for low-confidence lanes.* I had written into the plan that the map's per-row `confidence` made lane divergence *"addressable rather than assumed away."* I never read how the number is computed.
+
+**What it actually is.** The generator's own report says it plainly: candidate offsets are only `(-1, 0, +1)`; each is scored by how many KJV anchor tokens fuzzy-match the shifted lane verse; and **`confidence` = best-score − second-best-score**. It is the **margin between candidate shifts** — a statement about how *decidable* the choice was, not about whether the chosen alignment is *correct*. `0.0` means the three shifts tied, which is the ordinary result for an anchor-poor chapter. Genesis 1 reads `0.0` because "In the beginning God created…" has almost no capitalized non-sentence-initial proper nouns to anchor on. Its alignment is fine.
+
+**The measurement that settled it.** Rows whose KJV and lane verse counts match exactly: mean confidence **0.3036**. Rows whose counts *disagree*: **0.2783**. Indistinguishable. **480 rows read exactly `0.0` while their verse counts match perfectly.** A column that assigns the same values to sound and unsound rows cannot be a soundness gate.
+
+**Why it would have passed for diligence.** Gating on it flags **214/1189** luther1545, **199/1189** elberfelder1905, **584/1189** bkr — half the Czech lane marked suspect, with nothing wrong. That is `CLAUDE.md`'s can-it-stay-silent defect exactly: *a guard that fires on everything carries as much information as one that never fires.* The report would have contained a caveat table, a reader would have credited the caution, and the caution would have been noise. **This is the failure mode's most dangerous form — not a missing check, but a check that performs the appearance of one.**
+
+**The class, and how it differs from today's sibling.** `E-AN-OWNER-IS-A-TENANT-NOT-A-SHARD-1` ends *"I never checked what the number was a number OF"* — there the number came off the wrong struct. Here the struct is right and the **quantity is a different quantity than its name**: a *decision margin* wearing the label of a *quality score*. **Sibling check: for any column consumed as a gate, find the line that computes it before trusting the noun in its header — especially when the header is one of `confidence`, `score`, `quality`, `weight`, `strength`.** The falsifiability rule already demands a can-fire and a can-stay-silent test; this adds the cheaper upstream move — *read the generator*.
+
+**What is actually addressable in that map** — both mechanically checkable, both genuinely rare: `offset != 0` (**47 / 3,567** rows; apply the shift — this IS the alignment) and `kjv_verse_count != lane_verse_count` (**6 / 3,567**; a verse with no counterpart — drop or report the pair, never pad). Alignment is therefore **identity for 98.7 % of chapters** and must be described as the near-trivial step it is.
+
+**A self-documenting asset is not an exhaustively documented one.** That bundle's `MANIFEST.md` has a *"Known defects (stated in the asset, not hidden)"* section — and it is good: it flags `closed_class_guess` as near-vacuous and the luther1545 Psalm-title offset. Both real. **Neither is this one.** An honest defects list raises the prior that the *rest* is safe, which is precisely when the unlisted defect gets consumed unexamined.
+
+## 2026-08-04 — E-THE-GATE-ASSERTED-A-CORPUS-IT-NEVER-SAW-1 — "whole book" was the Old Testament only
+
+**Status:** FINDING (measured; fixed; falsifier added). **Confidence:** High — the count is external. Code: `deepnsm-v2/examples/bible_wave.rs`.
+
+**What happened.** The inbound leg broke on `tok.contains("***")`. The Gutenberg KJV carries a **lone `***` between the testaments**, so the parse stopped at Malachi 4:6 — 39 books, **23,145 verses, the Old Testament exactly** — while the G1 gate printed *"whole book = N verses"* and passed. Every downstream consumer of its TSV export has been reasoning over **74.4 % of the verses (23,145 / 31,102) and 59.1 % of the books (39 / 66)** — I first wrote "two thirds", which matches neither denominator; corrected on review. After the fix: **31,102 verses** = 23,145 OT + 7,957 NT, the canonical count.
+
+**Why it survived.** G1 asserted `verses.len() <= 65_536` — a **one-sided** bound. Truncation moves the count *down*, i.e. **deeper into the passing region**. The gate was structurally incapable of noticing the failure it sat next to, and it printed a label ("whole book") that no assertion checked. A bound that only constrains one direction is not a gate on a quantity that can fail in the other.
+
+**The class.** *An upper bound cannot detect loss.* Anywhere a gate asserts `n <= CAP` over a parsed or filtered population, ask what happens when `n` is too **small** — that is usually the real failure mode (dropped input, early break, over-eager filter), and it is exactly what the assert waves through. **Sibling check:** every `assert!(x <= …)` / `assert!(x < …)` on a count derived from parsing, and every printed label asserting a scope no test verifies.
+
+**The fix's falsifier is deliberately general.** Not `verses.len() == 31_102` (which over-fits one file and re-states the parser), but: *if the input announces a New Testament, the parse must have crossed into it* — `verses.len() > 23_145`. It fails on the old code by construction and works on any input. The number that caught this — 31,102 — is a fact about the KJV that this repo does not author, which is what made it evidence rather than a restatement.
+
+## 2026-08-04 — E-AN-OWNER-IS-A-TENANT-NOT-A-SHARD-1 — I multiplied the unit that is not allowed to be multiplied
+
+**Status:** FINDING (operator-ruled; the canon already said it). **Confidence:** High. Retractions: plan §12.1a′ and §12.3a′; `E-THE-DIAGRAM-CONTRADICTED-ITS-OWN-NEXT-LINE-1` regraded below.
+
+**What I did.** Arm BLW's §12.1 said "64k verse-owners in ONE `MailboxSoA`". I read that against "sparse sealed transition set — 17 dirty, not 64k", concluded the two contradicted, and "fixed" it by **tiling the Bible across 64 mailbox owners**. Then, asked to scale D-BLW-4 to the inherited "≥4,096 owners", I computed that 4,096 real SoA owners would cost 24 GiB and "solved" it by proposing 4,096 **lightweight** owners. The second move is the worse one: it kept the wrong axis and merely made the wrong thing cheap.
+
+**Why it is a category error, not a sizing mistake.** `CLAUDE.md` states it directly: **"one mailbox = one kanban board as *tenant*"**, and one `MailboxSoA` is *moved* into exactly one `KanbanActor`, which is its sole mutator — that move is the compile-time proof of no aliasing (`E-CE64-MB-4`). An owner is therefore an **identity**, not a shard. 64 tiles for one Bible = **63 fabricated tenants**; 4,096 owners = a fabricated deployment. You cannot dial identities up to make a benchmark convenient.
+
+**The real axis was in the diagram I was correcting.** §12.1 says *"apply stance L to **the owner's slice**"* — the 64k is **rows inside one owner**, and "64k thoughts at once" is data-parallelism over those rows, exactly as `data-flow.md` prescribes (borrowed slices for reads, owned `Copy` microcopies for reasoning, gated write-back, never `&mut self` during computation). One tenant, 64k rows.
+
+**⊘ SAME-DAY CORRECTION — this paragraph originally read "the measurements were right". They were not.** The canonical row is `NODE_ROW_STRIDE = 512` bytes, const-asserted `size_of::<NodeRow>() == 512` (`canonical_node.rs:735, :787`), so **the whole Bible bake at canon is 65,536 × 512 B = 32 MiB** — trivially resident. The 6,144 B/row I measured is `MailboxSoA`'s content/topic/angle hot planes, **12× the canonical node row**, which I silently treated as the corpus cost. There was never any memory pressure to solve.
+
+**So the lesson is sharper than the one I first wrote.** I said "measuring a real constraint does not license an arbitrary answer to it" — true, but it let me keep believing the measurement, which was the actual defect. The failure is one step upstream: **I never checked what the number was a number OF.** A figure computed from the wrong struct is not a weaker fact, it is not a fact at all — and it is *more* dangerous than having no figure, because arithmetic feels like evidence and invites exactly the confident downstream reasoning I then did three times.
+
+**The class.** Before scaling a quantity in a benchmark, ask what **one** of it *is*. If the unit carries identity — a tenant, an actor, an owner, a session, an account — then its count is a property of the deployment being modelled, and multiplying it fabricates a world rather than stressing the real one. **Sibling check:** any threshold phrased "≥ N ⟨noun⟩" where the noun is something the system treats as sole-owner or singleton.
+
+**Regrade of `E-THE-DIAGRAM-CONTRADICTED-ITS-OWN-NEXT-LINE-1` (same day, mine):** its observation stands — the diagram's two lines do quantify different things — but its **conclusion is withdrawn**. The resolution was never "tile into many owners"; it is that owner-sparseness belongs to the driver layer (already proven at `cycle_driver.rs:1098`) and is simply **not this arm's business**, whose sparseness is row-level inside one owner. I found a real seam and then repaired it at the wrong layer.
+
+## 2026-08-04 — E-A-MEASURE-THAT-CANNOT-HELP-BUT-MOVE-1 — the trajectory would have confirmed itself
+
+**Status:** FINDING (design-time; caught before the harness was written). **Confidence:** High — the confound is structural, not empirical. Fix: `.claude/plans/cycle-loop-closure-driver-v1.md` §12.3b.
+
+**What happened.** D-BLW-3's falsifier was *"fusion must MOVE — if pairwise κ between two lenses is flat across the sealed series, no horizons merged."* Correct as a **kill** condition. The trap is the converse, which the deliverable would have leaned on: each `Vn` in the series contains **more verses** than `Vn-1`, so a κ computed per version is computed on a **growing sample**. κ drifts for that reason alone. **A movement that the measurement's own construction guarantees is not evidence of the thing the movement was supposed to show.**
+
+**The class, and why it keeps recurring here.** This is the same shape as the Kant bit caught hours earlier in the same arm (`quale > ablated` reducing to `modal > 0.5`, true for every verse holding a lift) and as `closed_class_guess` firing 150/150. Each time: a quantity that **cannot come out the other way**, presented as a finding. The vacuity rule already covers a guard that always fires; the gap it did not cover is a *continuous* measure whose motion is structurally forced. **The generalization: for any measure offered as evidence, ask what it would do under the null — and if the null also moves it, the measure is not the evidence.**
+
+**The fix is a control, not a threshold.** Hold the verse set FIXED at the first `k` verses and compute the binaries twice — once from the arena as sealed at `Vk`, once from the arena at `Vm > k`. Same lenses, same `N`, same text; only the horizon differs. A κ difference then **cannot** be sample growth, because the sample is identical by construction. As a bonus the a-priori/hindsight split stops being narration and becomes the control itself.
+
+**Sibling check:** any metric reported "across time", "across versions", "as the corpus grows", or "over training" — hold the unit set fixed and re-measure, or state plainly that growth is not excluded.
+
+## 2026-08-04 — E-A-PER-FEATURE-CI-STEP-NAMED-LIKE-PER-CRATE-COVERAGE-1 — the fifth blind gate survived four closings of its own class
+
+**Status:** FINDING (measured: 22 previously-unrun tests, all green on first central run). **Confidence:** High. Fix: a `--features cycle-driver` step in `.github/workflows/rust-test.yml`.
+
+**What happened.** This repo has closed the "green CI that never built the new module" gate four times — deepnsm, deepnsm-v2, supervisor, bgz-tensor, plus the self-asserting probe examples — and each closure is commented in the workflow as such. A fifth instance was sitting *inside the third one*: `crates/lance-graph-supervisor` has TWO independent features, `supervisor` (ractor) and `cycle-driver` (the P4 loop-closure driver), and `cycle_driver` is `#[cfg(feature = "cycle-driver")]` (`lib.rs:52-53`). The CI step passes `--features supervisor` only. **The entire P4a/P4b/P4c falsifier suite — 22 tests including the one-WAL-write/one-version seal, the sparse-set-with-byte-identical-remainder at 65,536 owners, and the Outcome round-trip — had never once run in CI.** They pass; that is not the point.
+
+**Why this one survived the four closings.** The step is named *"Run supervisor tests (W2b real-owner probes)"*. That name reads as **per-crate** coverage — "the supervisor crate's tests run" — while the flag it carries is **per-feature**. Every later audit that scanned the workflow for uncovered crates saw the crate's name present and moved on. The gate was invisible precisely *because* a step for that crate existed.
+
+**The class.** Whenever a crate has two or more *independent* (non-implying) features, one CI step per crate is not coverage — it is coverage of one feature wearing the crate's name. **Sibling check:** for every `--features X` in CI, list the crate's other features and ask which of them `X` does NOT enable; a feature that gates a whole `pub mod` and is not in any CI step is dead to the gate. Name steps after the *feature*, not the crate, so the gap is legible in the step list.
+
+## 2026-08-04 — E-THE-DIAGRAM-CONTRADICTED-ITS-OWN-NEXT-LINE-1 — a shape spec that no line of its own diagram could satisfy
+
+> **⊘ CONCLUSION WITHDRAWN same-day** — see `E-AN-OWNER-IS-A-TENANT-NOT-A-SHARD-1`. The observation (two adjacent lines quantifying the same thing at different cardinalities) and the 6,144 B/row measurement both stand; the "tile across 64 owners" resolution does not. Owner-sparseness belongs to the driver layer and is not this arm's business. Regraded in place, per append-only canon.
+
+**Status:** FINDING (conclusion withdrawn) (two independent grounds, both checked against source before the correction). **Confidence:** High. Corrected in place at `.claude/plans/cycle-loop-closure-driver-v1.md` §12.1a.
+
+**What happened.** Arm BLW's §12.1 specified *"64k verse-owners in ONE `MailboxSoA`"*, and the **next line of the same ASCII diagram** read *"sparse sealed transition set — 17 dirty, not 64k"*. Those cannot both hold: a sparse sealed set is a sparse set of *owners*, one `MailboxSoA` **is** one owner, so the single-SoA shape has a dirty set of 0 or 1 and cannot express sparseness at all. The mechanic the whole driver exists for was excluded by the line directly above it.
+
+**The second ground is arithmetic — and it is WRONG (⊘ corrected same-day; see `E-AN-OWNER-IS-A-TENANT-NOT-A-SHARD-1`): it prices `MailboxSoA`'s hot planes, not the canonical 512 B/row `NodeRow`, so the real bake is 32 MiB and none of this pressure exists. Kept as the retracted record.** `MailboxSoA<N>` allocates three identity planes at `3 × N × 256 × 8 B` = **6,144 B/row** — the *designed* hot layout, not an accident. So a 64k-row corpus is **384 MiB of planes regardless of how it is tiled**: tiling changes the stack shape (a ~5.1 MiB by-value construction at `N=65536` against a 2 MiB default worker stack, vs ~82 KiB at `N=1024`) but **not one byte** of the plane total. The instinct that "tiling will fix the memory" is wrong; tiling fixes constructibility.
+
+**The class.** A shape spec written as prose plus a diagram can carry a contradiction *between the prose and the diagram* that neither half reveals when read alone — and a per-row cost stated as a friendly per-unit figure ("~6 KB/thought", true and documented at the type) hides its own total until multiplied by the actual corpus. **Both defects were invisible until the spec was priced against real source.** Neither needed a run to find; both needed the constructor read.
+
+**Sibling check:** any plan naming a row count and a container in the same sentence — multiply the type's per-row cost by the row count and write the total down; and any diagram whose adjacent lines quantify the same thing at different cardinalities.
+
 ## 2026-08-04 — E-A-CRITERION-MUST-BE-IN-THE-SAME-UNITS-AS-THE-TEST-IT-FEEDS-1 — the ω anchor was wrong three times, each time for the same reason
 
 **Status:** FINDING (three measured defects, each reproduced before fixing). **Confidence:** High. Code: `crates/jc/src/stats.rs::omega_total`.
