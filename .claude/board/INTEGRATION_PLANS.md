@@ -1,3 +1,29 @@
+## 2026-08-05 — measure-64k-axes v2 — ACTIVE (rolling epoch closure; supersedes v1's EXECUTION MODEL, keeps v1 as Stage A0 baseline)
+
+**Plan:** `.claude/plans/measure-64k-axes-v2.md`
+Operator correction: the 64k boundary stays the ACCOUNTING/VERSION boundary
+and stops being the physical turnstile. Model: 64k logical owners → rolling
+Morton-ordered chunk closure (Libet 200 ms per-chunk veto windows;
+ClosureState Open→Registered→{Vetoed,Held,Deferred}→Frozen→Appended) → ONE
+epoch manifest publishes ONE DatasetVersion (chunk appends are never
+versions; crash contract: chunks without manifest = invisible abandoned
+epoch). Decisions recorded: MailboxId keeps identity only, WriteOrderKey
+(morton_chunk/lane/cycle_position) carries storage order; CHUNK baton never
+owner baton; "64k complete" = every owner has exactly one accounting
+outcome (committed+vetoed+held+deferred+absorbed == 65,536), only committed
+advance (#879). Morton cascade L0 page {4,8,16 KiB} / L1 segment
+{1,2,4,8 MiB} / L2 epoch 32 MiB / L3 16 epochs — two independent knobs;
+temporal.rs gains the verified ordered-chunk fast path (validate+append,
+no sort) with digest identity vs the generic path required. Encryption:
+per-chunk AEAD contexts (nonce/AAD from epoch+base+chunk-seq+retry+len,
+never chunk_id alone), parallel on bounded pool, baton orders appends —
+Stage B gated on the AEADs-fork dep decision (P0 forks-only).
+Grind taxonomy (CPU/sync/encryption/storage/temporal) measured separately;
+16-cycle curve classified warm-up/amortisation/cache-turnover/collapse with
+the backlog slope as THE collapse signal. D-KIA-A2 FROZEN; operator
+override EXP-KIA-A2-ROLLING-CLOSURE (non-claiming). v1 build lane continues
+— its deliverable IS Stage A0 + the shared instrumentation.
+
 ## 2026-08-05 — measure-64k-axes v1 — ACTIVE (operator-specified corrected benchmark) — Sonnet build lane dispatched
 
 **Plan:** `.claude/plans/measure-64k-axes-v1.md`
