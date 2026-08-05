@@ -139,8 +139,23 @@ jobs:
       # membrane failure (E-SEMANTIC-OS-CONVERGENCE-1). Flagged by
       # coderabbit on #634. Cheap: contract + ractor + the shader-driver
       # dev-dep, no lance/datafusion.
-      - name: Run supervisor tests (W2b real-owner probes)
-        run: cargo test --manifest-path crates/lance-graph-supervisor/Cargo.toml --features supervisor
+      #
+      # `cycle-driver` ADDED 2026-08-05. It is a SEPARATE feature that
+      # `supervisor` does not imply, so the step above — despite being the
+      # crate's own step — never compiled `cycle_driver`, the three
+      # `probe_ignition*` / `d_ign_b_lenses` test binaries, or any of the #879
+      # loop-closure contract. Measured: `--features supervisor` runs 13 tests;
+      # `--features supervisor,cycle-driver` runs 43. The 30 in the gap include
+      # `probe_ignition_64k_start_at_full_population` — the 64k-owner /
+      # 17-sealed headline canonized as
+      # E-64K-1TO1-OWNERS-IS-THE-MAIN-MODEL-1. #891 recorded this gap and
+      # deliberately did not touch the workflow; #898 closed the same shape for
+      # callcenter but not this one. One added feature closes it.
+      #
+      # Verified locally before landing: 43 passed, 0 failed. Strict superset of
+      # what this step ran before, so it cannot lose coverage.
+      - name: Run supervisor tests (W2b real-owner probes + #879 cycle driver)
+        run: cargo test --manifest-path crates/lance-graph-supervisor/Cargo.toml --features supervisor,cycle-driver
       # bgz-tensor: workspace-EXCLUDED metric-algebraic codec crate (deps the
       # ndarray sibling checked out above + in-repo holograph). None of the
       # steps above reach it, so its 207 lib tests — including the V3
