@@ -49,10 +49,10 @@ impl UniversalAccumulator {
     pub fn accumulate(&mut self, band_values: &[u16]) {
         assert_eq!(band_values.len(), self.n_bands);
 
-        for band in 0..self.n_bands {
+        for (band, &bv) in band_values.iter().enumerate() {
             for bit in 0..self.bits_per_band {
                 let cell_idx = band * self.bits_per_band + bit;
-                let bit_val = ((band_values[band] >> bit) & 1) as i16;
+                let bit_val = ((bv >> bit) & 1) as i16;
                 let bipolar = bit_val * 2 - 1;
                 self.cells[cell_idx] = self.cells[cell_idx].saturating_add(bipolar);
             }
@@ -293,14 +293,14 @@ fn synthetic_video_blocks(n_frames: usize) -> Vec<[u16; 32]> {
 
             // Mid-frequency texture (slowly varying)
             let texture_phase = (t * 2.0).sin() * 0.3 + 0.7;
-            for b in 8..16 {
-                bands[b] = (0x2000 as f64 * texture_phase) as u16;
+            for slot in bands.iter_mut().take(16).skip(8) {
+                *slot = (0x2000 as f64 * texture_phase) as u16;
             }
 
             // High-frequency detail (rapidly varying = noise-like)
             let noise_seed = frame as u16;
-            for b in 20..32 {
-                bands[b] = noise_seed.wrapping_mul(97 + b as u16) & 0x1FFF;
+            for (b, slot) in bands.iter_mut().enumerate().skip(20) {
+                *slot = noise_seed.wrapping_mul(97 + b as u16) & 0x1FFF;
             }
 
             // Motion edge (appears/disappears)

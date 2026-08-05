@@ -3,9 +3,8 @@
 //! Measures quality, compression, searchability, and the core hypothesis:
 //! does the VSA noise floor correlate with psychoacoustic masking?
 
-use crate::{AudioFrame, ComparisonResult, SpectralAccumulator, BARK_BANDS, SAMPLES_PER_FRAME};
+use crate::{ComparisonResult, SpectralAccumulator, BARK_BANDS, SAMPLES_PER_FRAME};
 use crate::transform::{mdct, coeffs_to_band_energies, psychoacoustic_mask, sine_window};
-use crate::bands::{pack_bands, unpack_bands, bf16_to_f32, bf16_band_distance};
 
 /// Run the full comparison suite on a PCM signal.
 ///
@@ -126,9 +125,9 @@ pub fn spectral_distortion(original: &[f32], reconstructed: &[f32]) -> f64 {
     let mut signal_power = 0.0f64;
     let mut error_power = 0.0f64;
 
-    for i in 0..len {
-        signal_power += (original[i] as f64).powi(2);
-        let err = original[i] as f64 - reconstructed.get(i).copied().unwrap_or(0.0) as f64;
+    for (i, &o) in original.iter().enumerate().take(len) {
+        signal_power += (o as f64).powi(2);
+        let err = o as f64 - reconstructed.get(i).copied().unwrap_or(0.0) as f64;
         error_power += err.powi(2);
     }
 
@@ -209,7 +208,7 @@ fn average_masking_thresholds(samples: &[f32]) -> [f32; BARK_BANDS] {
         for b in 0..BARK_BANDS { avg[b] += mask[b]; }
     }
 
-    for b in 0..BARK_BANDS { avg[b] /= n_frames as f32; }
+    for a in avg.iter_mut() { *a /= n_frames as f32; }
     avg
 }
 

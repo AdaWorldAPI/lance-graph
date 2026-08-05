@@ -8,12 +8,9 @@
 //! The crystallized identity IS the I-frame.
 //! The Diamond Markov epiphanies ARE the scene changes.
 
-use crate::{AudioFrame, CrystallizedComponent, SpectralAccumulator,
-            BARK_BANDS, SAMPLES_PER_FRAME, FRAME_RATE};
-use crate::transform::{mdct, coeffs_to_band_energies, psychoacoustic_mask, sine_window};
-use crate::bands::{pack_bands, bf16_band_distance};
+use crate::{AudioFrame, CrystallizedComponent, SpectralAccumulator, BARK_BANDS};
+use crate::bands::bf16_band_distance;
 use crate::perframe::encode_perframe;
-use crate::accumulator::decode_crystallized;
 
 /// Hybrid encoding result: per-frame stream + crystallized components.
 #[derive(Clone, Debug)]
@@ -168,6 +165,7 @@ pub struct HybridBitrateBreakdown {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::FRAME_RATE;
 
     fn sine_samples(freq_hz: f32, duration_s: f32) -> Vec<f32> {
         let n = (duration_s * 48000.0) as usize;
@@ -187,7 +185,7 @@ mod tests {
         assert_eq!(encoding.edge_stream.len(), encoding.frames.len());
 
         // Should have ~2 components (2 seconds / 1 second window)
-        assert!(encoding.components.len() >= 1 && encoding.components.len() <= 3,
+        assert!(!encoding.components.is_empty() && encoding.components.len() <= 3,
             "Expected 1-3 components for 2s audio, got {}", encoding.components.len());
     }
 

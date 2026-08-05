@@ -47,7 +47,7 @@ pub const BASE_DIM: usize = 17;
 pub const FULL_DIM: usize = 16384;
 
 /// Number of octaves: ceil(FULL_DIM / BASE_DIM).
-pub const N_OCTAVES: usize = (FULL_DIM + BASE_DIM - 1) / BASE_DIM; // 964
+pub const N_OCTAVES: usize = FULL_DIM.div_ceil(BASE_DIM); // 964
 
 /// Independent octaves (JL bound).
 pub const INDEPENDENT_OCTAVES: usize = 14;
@@ -323,8 +323,8 @@ impl BasePalette {
         for i in 0..k {
             let idx = (i * step).min(patterns.len() - 1);
             let mut c = [0.0f64; BASE_DIM];
-            for d in 0..BASE_DIM {
-                c[d] = patterns[idx].dims[d] as f64;
+            for (d, cv) in c.iter_mut().enumerate() {
+                *cv = patterns[idx].dims[d] as f64;
             }
             centroids.push(c);
         }
@@ -340,8 +340,8 @@ impl BasePalette {
                 let mut best_c = 0;
                 for (ci, cent) in centroids.iter().enumerate() {
                     let mut d = 0.0f64;
-                    for dim in 0..BASE_DIM {
-                        let diff = pat.dims[dim] as f64 - cent[dim];
+                    for (dim, &cv) in cent.iter().enumerate() {
+                        let diff = pat.dims[dim] as f64 - cv;
                         d += diff.abs();
                     }
                     if d < best_dist {
@@ -363,8 +363,8 @@ impl BasePalette {
             for (pi, pat) in patterns.iter().enumerate() {
                 let c = assignments[pi];
                 counts[c] += 1;
-                for d in 0..BASE_DIM {
-                    sums[c][d] += pat.dims[d] as f64;
+                for (d, sv) in sums[c].iter_mut().enumerate() {
+                    *sv += pat.dims[d] as f64;
                 }
             }
             for ci in 0..k {
@@ -429,6 +429,10 @@ impl BasePalette {
     }
 
     /// Build a precomputed 256×256 distance matrix for fast lookup.
+    #[expect(
+        clippy::needless_range_loop,
+        reason = "symmetric mat[i][j]/mat[j][i] double-write requires index-based access to two positions in the same Vec<Vec<u32>> at once; not expressible via a single iterator without unsafe split_at_mut gymnastics"
+    )]
     pub fn distance_matrix(&self) -> Vec<Vec<u32>> {
         let n = self.entries.len();
         let mut mat = vec![vec![0u32; n]; n];
@@ -618,8 +622,8 @@ impl Default for ExperimentConfig {
 /// Build position table for any step coprime to BASE_DIM.
 fn make_position_table(step: usize) -> [u8; BASE_DIM] {
     let mut t = [0u8; BASE_DIM];
-    for i in 0..BASE_DIM {
-        t[i] = ((i * step) % BASE_DIM) as u8;
+    for (i, tv) in t.iter_mut().enumerate() {
+        *tv = ((i * step) % BASE_DIM) as u8;
     }
     t
 }
@@ -927,8 +931,8 @@ mod tests {
     fn test_i16_captures_subunit() {
         // mean = 0.2 → i16 = 51 (0.2 * 256). BF16 would store 0.0.
         let mut acc = vec![0i8; FULL_DIM];
-        for i in 0..FULL_DIM {
-            acc[i] = if i % 5 < 3 { 1 } else { -1 }; // mean ≈ 0.2
+        for (i, a) in acc.iter_mut().enumerate() {
+            *a = if i % 5 < 3 { 1 } else { -1 }; // mean ≈ 0.2
         }
         let plane = ZeckBF17Plane::encode(&acc);
         // At least some base dims should capture the positive bias
@@ -939,8 +943,8 @@ mod tests {
     #[test]
     fn test_encode_decode_roundtrip() {
         let mut acc = vec![0i8; FULL_DIM];
-        for i in 0..FULL_DIM {
-            acc[i] = if i % 3 == 0 { 50 } else if i % 3 == 1 { -30 } else { 10 };
+        for (i, a) in acc.iter_mut().enumerate() {
+            *a = if i % 3 == 0 { 50 } else if i % 3 == 1 { -30 } else { 10 };
         }
         let fid = sign_bit_fidelity(&acc, &ZeckBF17Plane::encode(&acc).decode());
         println!("Roundtrip fidelity: {:.4}", fid);
@@ -1208,7 +1212,6 @@ mod tests {
         println!("  {}", "─".repeat(34));
 
         let mut products = Vec::new();
-        let mut prev_scale = 0.0f64;
         for scale in [1.0, 2.0, 4.0, 8.0, 16.0, 32.0, 64.0, 128.0, 256.0, 512.0, 1024.0, 4096.0] {
             let best = fractal_map.iter()
                 .filter(|(s, _, _)| (*s - scale).abs() < 0.1)
@@ -1573,10 +1576,10 @@ mod tests {
             // Fibonacci intervals: [1,1,2,3,5,8,13,4,0,4,4,8,12,3,15,1,16]
             // (fib(i) mod 17 as interval)
             ("fibonacci", {
-                let mut fibs = vec![0usize; BASE_DIM];
+                let mut fibs = [0usize; BASE_DIM];
                 let (mut a, mut b) = (1usize, 1usize);
-                for i in 0..BASE_DIM {
-                    fibs[i] = a % BASE_DIM;
+                for f in fibs.iter_mut() {
+                    *f = a % BASE_DIM;
                     let next = (a + b) % BASE_DIM;
                     a = b; b = next;
                 }
@@ -1778,9 +1781,9 @@ mod tests {
         };
 
         let mut signal = vec![0i8; FULL_DIM];
-        for d in 0..FULL_DIM {
+        for s in signal.iter_mut() {
             let h = next(&mut rng);
-            signal[d] = (((h >> 8) % 201) as i16 - 100) as i8; // range [-100, 100]
+            *s = (((h >> 8) % 201) as i16 - 100) as i8; // range [-100, 100]
         }
 
         let mut current = signal.clone();
@@ -2148,7 +2151,6 @@ mod tests {
             // Compute palette distances for ρ
             let mut exact_d: Vec<f64> = Vec::new();
             let mut pal_d: Vec<f64> = Vec::new();
-            let mut pal_scents: Vec<u8> = Vec::new();
 
             for i in 0..n_pairs {
                 for j in (i + 1)..n_pairs {
@@ -2227,9 +2229,9 @@ mod tests {
         let mut patterns: Vec<BasePattern> = Vec::new();
         for _ in 0..200 {
             let mut dims = [0i16; BASE_DIM];
-            for d in 0..BASE_DIM {
+            for dv in dims.iter_mut() {
                 let h = next(&mut rng);
-                dims[d] = (((h >> 8) % 2001) as i32 - 1000) as i16;
+                *dv = (((h >> 8) % 2001) as i32 - 1000) as i16;
             }
             patterns.push(BasePattern { dims });
         }

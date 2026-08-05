@@ -9,13 +9,19 @@
 //! Quality: parametric (tonal components survive, transients don't).
 //! The Diamond Markov pipeline extracts crystallized components progressively.
 
-use crate::{AudioFrame, AudioQualia, CrystallizedComponent, SpectralAccumulator,
-            BARK_BANDS, SAMPLES_PER_FRAME, FRAME_RATE};
-use crate::transform::{mdct, coeffs_to_band_energies, psychoacoustic_mask, sine_window};
-use crate::bands::{pack_bands, f32_to_bf16, bf16_to_f32};
+use crate::{AudioQualia, CrystallizedComponent, SpectralAccumulator,
+            BARK_BANDS, SAMPLES_PER_FRAME};
+use crate::transform::{mdct, coeffs_to_band_energies, sine_window};
+use crate::bands::{pack_bands, bf16_to_f32};
 
 /// Accumulator cell count: 24 bands × 16 bits per BF16 = 384.
 const CELL_COUNT: usize = BARK_BANDS * 16;
+
+impl Default for SpectralAccumulator {
+    fn default() -> Self {
+        Self::new()
+    }
+}
 
 impl SpectralAccumulator {
     /// Create a fresh accumulator (all cells zero).
@@ -37,12 +43,12 @@ impl SpectralAccumulator {
     /// by ZeckBF17's golden-step traversal, not at the accumulation level.
     pub fn accumulate_frame(&mut self, bands: &[u16; BARK_BANDS]) {
         // Unpack 24 BF16 values into 384 bits
-        for band in 0..BARK_BANDS {
+        for (band, &bv) in bands.iter().enumerate() {
             for bit in 0..16 {
                 let cell_idx = band * 16 + bit;
 
                 // Extract bit from BF16 value
-                let bit_val = ((bands[band] >> bit) & 1) as i16;
+                let bit_val = ((bv >> bit) & 1) as i16;
                 // Map 0→-1, 1→+1 for bipolar accumulation
                 let bipolar = bit_val * 2 - 1;
 
@@ -88,7 +94,6 @@ impl SpectralAccumulator {
     pub fn crystallize(&self, threshold: i16) -> CrystallizedComponent {
         let mut spectrum = [0u16; BARK_BANDS];
         let mut alpha = [false; BARK_BANDS];
-        let mut confident_count = 0u32;
 
         for band in 0..BARK_BANDS {
             let mut bf16_val = 0u16;
@@ -101,7 +106,6 @@ impl SpectralAccumulator {
                     if self.cells[cell_idx] > 0 {
                         bf16_val |= 1 << bit;
                     }
-                    confident_count += 1;
                 } else {
                     // Below threshold: noise floor. This bit is uncertain.
                     band_confident = false;
@@ -147,7 +151,7 @@ impl SpectralAccumulator {
     pub fn noise_mask_correlation(&self, threshold: i16, mask: &[f32; BARK_BANDS]) -> f64 {
         // For each band: compute fraction of cells below threshold
         let mut noise_fraction = [0.0f64; BARK_BANDS];
-        for band in 0..BARK_BANDS {
+        for (band, nf) in noise_fraction.iter_mut().enumerate() {
             let mut below = 0;
             for bit in 0..16 {
                 let cell_idx = band * 16 + bit;
@@ -155,7 +159,7 @@ impl SpectralAccumulator {
                     below += 1;
                 }
             }
-            noise_fraction[band] = below as f64 / 16.0;
+            *nf = below as f64 / 16.0;
         }
 
         // Normalize mask to [0, 1]
@@ -243,9 +247,16 @@ pub fn pearson_correlation(x: &[f64], y: &[f64]) -> f64 {
 /// Only confident bands (alpha=true) are decoded. Others stay zero.
 pub fn decode_crystallized(component: &CrystallizedComponent) -> [f32; BARK_BANDS] {
     let mut energies = [0.0f32; BARK_BANDS];
-    for band in 0..BARK_BANDS {
-        if component.alpha[band] {
-            energies[band] = bf16_to_f32(component.spectrum[band]);
+    // Three parallel BARK_BANDS arrays walked in lockstep. `zip` is the fix
+    // rather than an index: it makes the band-for-band correspondence
+    // structural instead of relying on three `[band]` subscripts agreeing.
+    for ((e, &alpha), &spec) in energies
+        .iter_mut()
+        .zip(component.alpha.iter())
+        .zip(component.spectrum.iter())
+    {
+        if alpha {
+            *e = bf16_to_f32(spec);
         }
     }
     energies
@@ -411,7 +422,7 @@ mod tests {
         println!("{:>10} {:>12} {:>12} {:>10}",
             "encounters", "alpha_before", "alpha_after", "components");
 
-        let mut rng = 12345u64;
+        let mut rng: u64;
 
         for n in [5, 10, 20, 30, 50, 75, 100, 150, 200, 300] {
             let mut acc = SpectralAccumulator::new();
