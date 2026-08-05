@@ -1,5 +1,5 @@
 [toolchain]
-channel = "1.95.0"
+channel = "1.97.1"
 # Pinned to 1.95.0 (bumped from 1.94.1 in PR #367, 2026-05-13). Aligns
 # with bevy (edition 2024 → 1.95 MSRV) and ndarray (bumped in parallel
 # per LATEST_STATE 2026-05-13). 1.95 added clippy lints

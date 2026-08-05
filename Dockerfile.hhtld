@@ -33,7 +33,7 @@ ENV RUSTUP_HOME=/usr/local/rustup \
     CARGO_HOME=/usr/local/cargo \
     PATH=/usr/local/cargo/bin:$PATH
 RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | \
-    sh -s -- -y --default-toolchain 1.94.0 --profile minimal
+    sh -s -- -y --default-toolchain 1.97.1 --profile minimal
 
 WORKDIR /build
 

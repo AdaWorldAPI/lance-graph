@@ -301,6 +301,11 @@ impl datafusion::logical_expr::ScalarUDFImpl for NsmSimilarityUdf {
 
 impl PartialEq for NsmSimilarityUdf {
     fn eq(&self, other: &Self) -> bool {
+        // INVARIANT (load-bearing): `runtime` is a payload the type cannot
+        // compare, so name-equality asserts same-name ⇒ same-NsmRuntime.
+        // Two registrations with different runtimes under one name would
+        // compare equal for expression-CSE while scoring differently —
+        // register one runtime per name per query context.
         self.name == other.name
     }
 }
