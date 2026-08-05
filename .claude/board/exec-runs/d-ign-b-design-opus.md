@@ -357,10 +357,18 @@ and the orchestrator should treat >30 s as a signal to cut the spread block.
 
 ## 6. (f) NOT claimed
 
-1. **No row-byte decoding.** The lens reads the owner's own verses selected by
-   its address and span; bloom planes are one-way (F1).
-2. **No fusion verdict, no κ.** z=5 is reserved (§3).
-3. **No stance validity.** A readout is a read, never evidence that a stance is
+1. **No row-byte decoding, and the cognition reads past the substrate.** The
+   lens takes its text from the corpus slice the rows were seeded from,
+   selected by the owner's address and span; bloom planes are one-way (F1).
+   This is the §12.7 defect shape; the substrate governs selection, never
+   content (F1b). No substrate-data-path claim follows from any readout.
+2. **No per-lens dispatch.** `stance_panel` computes all four stances in one
+   call; arming selects **what is read**, not what is computed (F0). No claim
+   that the armed bits steer any computation, and no cost difference by z.
+3. **No independence between lenses.** Nietzsche is computed from Hegel's
+   output (`stance.rs:483-496`); Kant is derived from `ReadOut::lifts`.
+4. **No fusion verdict, no κ.** z=5 is reserved (§3).
+5. **No stance validity.** A readout is a read, never evidence that a stance is
    right about anything.
 4. **No parallelism, no durability, no scale, no multi-writer, no recovery** —
    PROBE-IGNITION's not-claimed items 1–4, 12 carry over verbatim.
@@ -404,6 +412,21 @@ and the orchestrator should treat >30 s as a signal to cut the spread block.
   passing probe under §4's pre-registered fallback, but the orchestrator should
   decide in advance whether a 2-valued axis is worth the build, or whether the
   corpus slice should first be checked for a polarity flip.
+- **Q6 — the two framing calls are yours to ratify, not mine.** (i) F0: is a
+  *selection* axis (not dispatch) still worth building? My answer is yes and the
+  argument is in F0, but the deliverable's name promises more than it delivers,
+  so the rename should be explicit. (ii) F1b: is reading text past the substrate
+  acceptable given that selection is fully substrate-governed? My answer is yes
+  under the stated condition; a "no" here kills or re-scopes D-IGN-B and is
+  defensible. **Neither should be settled by the build lane.**
+- **Q7 — L1's silent twin is where hidden nondeterminism surfaces.** Two owners,
+  same z, byte-identical rows ⇒ bit-identical digest is only non-trivial because
+  the panel's Wittgenstein arm builds a `HashMap` before sorting
+  (`stance.rs:513-532`) and the interner assigns ids in first-sight order
+  (`:63-82`). If ids differ between two owners with identical text the digest
+  must still match — worth confirming in the build brief that per-owner
+  interners start empty (they will, if each owner gets a fresh
+  `Interner::new()`).
 - **Q5 — CI.** `cycle-driver` is not in the supervisor's CI feature list (the
   fifth blind gate, AGENT_LOG 2026-08-04); this test inherits that inertness.
   Workflow edits are operator-approved only — recorded, not changed.
@@ -422,3 +445,57 @@ deinterlace `:960-996` — **not** read end-to-end, so its gate list is cited on
 where quoted); `cycle_driver.rs` (targeted: `:220-260`, `:338-360`, `:483-680`);
 both Cargo manifests. No cargo command was run; nothing here is compiled or
 measured.
+
+**Coordinator's three constraints (relayed mid-lane) — all three had been
+derived independently in this lane before the message arrived, and the note now
+states them in the coordinator's required terms:** no per-stance dispatch (F0 +
+§1 heading + not-claimed 2); no readout slot in the shipped seam (§1's
+three-option judgment, out-of-band `&mut` chosen with L6 as compensation); the
+stance bodies consume text, not planes, which is the §12.7 defect shape (F1b +
+not-claimed 1). The additional instruction — evaluate `ReadOut` as the readout
+type — produced a **rejection with reasons** (§2): it is the panel's INPUT, is
+lens-independent, and using it would make L1 fail by construction; it is
+retained as printed context only.
+
+---
+
+## ⊘ Orchestrator ratification of Q6 + Q7 (2026-08-05)
+
+The design lane correctly refused to settle two framing calls itself and
+refused to let the build lane settle them. Both are ruled here, before the
+build lands, so the record shows the decision preceded the result.
+
+**Q6(i) — F0, a SELECTION axis rather than dispatch: BUILD IT, renamed.**
+§12.11's observable is *"different lenses over byte-identical rows produce
+different readouts"*, and a selection axis satisfies that non-vacuously —
+four different return types, four different derivations, and L4 can still
+fail. What the finding kills is any **compute-steering** claim: no assertion
+that the armed bits change what runs, and no cost difference by z. The axis
+is therefore named **lens selection** in the file, in the printed banner, and
+in the plan row; "dispatch" is not used for it anywhere. A deliverable whose
+name promises more than it delivers is the failure mode this ruling exists to
+prevent.
+
+**Q6(ii) — F1b, reading text past the substrate: ACCEPTABLE HERE, on the
+stated condition.** The §12.7 KILL was a harness where the substrate governed
+**nothing**. Here it governs **selection end-to-end** — which owner, which
+span, which arming, and a phase reachable only through a sealed transition —
+and L2/L5/L6/L7 each falsify one leg of that. The condition is binding and
+already met in the note: **no substrate-data-path claim may follow from any
+readout**, and F1/F1b appear verbatim in the not-claimed list. If a future
+reader finds a readout being cited as evidence about the substrate's data
+path, this ruling is void and the probe is a corpus harness in a substrate
+costume.
+
+**Q7 — per-owner interners: relayed to the build lane as a requirement**, not
+left to chance. L1's silent twin (same z, byte-identical rows ⇒ bit-identical
+digest) is only non-trivial because the Wittgenstein arm builds a `HashMap`
+before sorting and the interner assigns ids in first-sight order. Each owner's
+lens run therefore constructs a **fresh** `Interner`/arena, and the digest must
+be computed over sorted, id-independent content. If the build cannot satisfy
+that, L1 must be reported as unbuildable rather than passed on lucky ids.
+
+**`ReadOut`-as-readout rejection: upheld.** It is the panel's INPUT, it is
+lens-independent, so L1 would pass by construction — which is precisely the
+vacuous-assertion shape the house rule forbids. Keeping it as printed context
+(its cardinalities explain an empty lens) is the right use.
