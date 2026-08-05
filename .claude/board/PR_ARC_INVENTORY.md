@@ -33,6 +33,28 @@
 > - **Docs** — knowledge files produced (immutable)
 > - **Confidence (YYYY-MM-DD):** — the ONLY mutable field
 
+## 2026-08-05 — lance-graph #891 (MERGED `0c138b7`) — ignition + 64k measurement + no-pump: probes, five-axis harness, M/O arms, hot-window design, ack-theater deletion
+
+**Head at merge:** `463f807` (29 commits — the branch's arcs 2–4 after #892 split out arc 1 and the branch was rebased onto main; pure replay, zero conflicts). 48 files, +14,353/−1,816.
+
+- **Added.** `tests/probe_ignition.rs` (2/2, 11 dual-half gates — first driver of the write path, 64 real owners), `tests/d_ign_b_lenses.rs` (arming z∈{1..4} selects the stance reading; z=5 blocked), `tests/probe_ignition_64k.rs` (65,536 real 1:1 owners, one seal, fleet-wide rest), `examples/measure_wal_curve.rs` (five-axis harness + M/O arms), `supervisor::kanban_actor::PhaseCensus` (the message-free visibility surface), plans `measure-64k-axes-v1..v4`, knowledge `observer-effect-tfpn-doctrine.md` + `seal-vs-temporal-ordering-information.md`.
+- **Locked.** `E-64K-1TO1-OWNERS-IS-THE-MAIN-MODEL-1` (operator order: 64k 1:1 owners = THE main model; one-tenant = harness shape). `E-PROGRESSION-IS-EXISTENCE-NOT-COMMAND-1` (operator: no pump, no ack, no scheduler — think→seal→publish→next cycle reads; ack/SLA vocabulary lives only in external consumer membranes, e.g. OGAR's ActionHandler parity runtime). `E-SEAL-AND-TEMPORAL-ARE-DIFFERENT-OBJECTS-1` (dual authority: temporal.rs = temporal, seal = ordering; the gap is a research question). The ack theater DELETED from source (`KanbanMsg`/`KanbanActor`/5 drivers/`run_to_absorbing`); the kanbanstep (`VersionScheduler::on_version`) explicitly NOT theater. Measured negatives locked as findings: Morton reorder LOSES (Δtotal +35.2 ms, digests matched); temporal-sourced ordering DIVERGES from the seal's (O-arm); WAL knee NOT REPRODUCIBLE (unclaimed).
+- **Deferred.** D-BLW-5 build (operator-paused); D-HWV-1/EXP-HOT-WINDOW build (design banked, panel-hardened, gated on operator word); A-arm allocator decomposition; `ISS-MARM-T1-4X-A0-GAP` (open measurement defect); PROBE-SEAL-VS-TEMPORAL ×3 (pre-registered, not run); the `--features cycle-driver` CI step (operator-approved changes only); "scheduler" naming question on `VersionScheduler`/`NextPhaseScheduler` (semantics compliant, word is a drift vector).
+- **Docs.** `measure-64k-axes-v4.md` (hot version window: barrier-flush fork, H-1..H-5), the v2 cross-note (two different 200 ms windows), TD-MESSAGE-RESIDUE resolved-by-deletion, `E-ACK-THEATER-DELETED-1` (zombie verdict + OGAR boundary check).
+
+**Confidence (2026-08-05):** merged; probes green centrally; cycle-driver falsifiers still not CI-armed (recorded).
+
+## 2026-08-05 — lance-graph #892 (MERGED `e9a2faf`) — Part 1 split: bible_wave whole-book fix + corpus module + stance lift + the BLW arm
+
+**Head at merge:** `a214c65` (39 commits, the original #891 branch's first arc, split out for reviewability). 34 files, +10,645/−531.
+
+- **Added.** `deepnsm_v2::corpus` (Gutenberg parser: full-footer match + exact-`***` skip; `CorpusSplit::crossed_new_testament` G1b two-sided gate; 9 lib tests in CI), `lance_graph_planner::nars::stance` (the lifted `stream`/`Interner`/`ReadOut`/`stance_panel`), examples `blw_binding`/`blw_tenant`/`blw_rows`/`blw_fusion`.
+- **Locked.** The whole book actually runs: 31,102 verses / 40,767 triples; `reason_whole_book` fixed point with `dropped == 0`. An owner is a TENANT, not a shard (the 64-owner tiling RETRACTED — it fabricated 63 tenants; both offending harnesses deleted, one of them green-on-a-fabricated-shape). D-BLW-2 measured KILL; D-BLW-3 shipped+measured (attribution later regraded cohort-relative); D-BLW-4 3.27× at T=4 under its OWN harness gates (not the D-KIA-A2 protocol).
+- **Deferred.** TD-BLW3B-ABC-DECOMPOSITION; D-KIA-A2 median-of-5 protocol.
+- **Docs.** `batchwriter-kanbanstep-wiring.md` corrections; the cargo-hygiene agent rule; exec-run tag-files for the BLW lanes.
+
+**Confidence (2026-08-05):** merged; the Codex P2 found on this PR's head (V8-only DROP key) was already fixed in #891's range (`max_ham` all-horizon gate) and reached main via #891's merge — recorded on the #892 thread.
+
 ## 2026-08-04 — lance-graph #887 — D-KIA-C1b: the additive `jc` statistics battery (κ, ω, R/η², t-tests, φ)
 
 **Head:** `<this branch>` (entry written in the same commit as the change, per the hygiene rule's "SAME commit" wording; merge SHA follows on merge). 5 files: 1 new module + 2 visibility lines + 3 board/plan.

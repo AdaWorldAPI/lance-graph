@@ -1,3 +1,11 @@
+## 2026-08-05 — branch `claude/x265-x266-plans-review-h9osnl` (PRs #892 MERGED `e9a2faf` + #891 MERGED `0c138b7`) — the four-arc session lands: whole-book fix, ignition probes, five-axis measurement, no-pump + ack-theater deletion
+
+The oversized branch (68 commits, +24,956/−2,305) was split for reviewability at the operator's direction: **#892** = arc 1 (bible_wave Malachi-truncation fix + `deepnsm_v2::corpus` + the stance lift into `nars::stance` + D-BLW-1..4 with the tenant-not-shard retractions); **#891** (rebased onto main post-#892, pure replay, 29 commits) = arcs 2–4 (PROBE-IGNITION + D-IGN-B + PROBE-IGNITION-64K green; measure-64k-axes v1–v3 with Stage A0 + M-arm/O-arm both measured NEGATIVE as pre-registered findings; seal-vs-temporal dual-authority doctrine; hot-version-window v4 design banked NOT built; `E-PROGRESSION-IS-EXISTENCE-NOT-COMMAND-1` + the ack theater deleted with `PhaseCensus` as the message-free visibility surface).
+
+**Contract-inventory deltas:** `lance_graph_supervisor::kanban_actor` is now visibility-only — `PhaseCensus` (new), `mul_target`, `parse_kanban_step`; `KanbanActor`/`KanbanMsg`/`KanbanRouteError` + 5 RPC drivers DELETED. `lance_graph_planner::nars::stance` (new module, lifted from the probe example). `deepnsm_v2::corpus` (new module). onebrc-probe `lane-e` feature no longer depends on supervisor/ractor.
+
+**Standing gates:** D-BLW-5 build operator-paused; D-HWV-1 hot-window build gated on operator word; `--features cycle-driver` CI step still unarmed (operator-approved changes only); `ISS-MARM-T1-4X-A0-GAP` open.
+
 ## 2026-08-04 — branch `claude/x265-x266-plans-review-h9osnl` (PR #887) — D-KIA-C1b SHIPPED: the additive `jc` statistics battery
 
 `crates/jc/src/stats.rs` — **κ** (`cohen_kappa`, the gap that blocked **D3's fusion falsifier**, now closed), **ω** (`omega_total`), **φ** (delegating to `pearson`, `&[bool]` input), **R / R²** (`multiple_r_squared`, OLS with intercept), **η²** (`eta_squared`), and the significance companions (`t_test_one_sample` / `_paired` / `_welch` / `_student`, `anova_one_way`) over one shared regularised-incomplete-beta core. **107 lib + 11 doctests green, clippy-clean.**
