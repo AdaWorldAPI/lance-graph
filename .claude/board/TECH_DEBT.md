@@ -1,3 +1,20 @@
+## TD-LANCE9-LANCEDB036-REMEASURE (2026-08-05, operator-noted, DEFERRED)
+
+**Pins today:** `lance`/`lance-linalg`/`lance-namespace` `=7.0.0`,
+`lancedb` `=0.30.0` (`crates/lance-graph/Cargo.toml:38-41`; the PR #445
+exact-pin lockstep). **Operator note: lance 9 + lancedb 0.36 are expected to
+improve the overhead measured by MEASURE-64K-AXES Stage A0.** Deferred by the
+operator — recorded so the measured numbers are recognisable as the BEFORE
+side.
+
+When it happens: bump the family together (lancedb's transitive requirement
+pins lance — a half-bump makes the patch silently not apply), keep P0
+forks-only, then re-run `measure_wal_curve` under the same host discipline and
+diff arm-by-arm. Expect movement in the storage/serialization arms
+(W0-current, T0 `scan_sealed`); **B0/B1a/L1a touch no lance code, so movement
+there means something else changed.** The WAL knee stays unmeasurable until the
+host issue is fixed either way.
+
 # Technical Debt Log — Open + Paid (double-entry, append-only)
 
 ## TD-BLW-FUSION-MANUAL-SEAL (2026-08-05) — OPEN

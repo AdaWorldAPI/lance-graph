@@ -238,3 +238,27 @@ per-config cache barrier, and enough cycles that p95/median converges.
 - `llc_misses` is emitted EMPTY (no perf-counter access), never fabricated.
 - The scratch-file lifecycle was corrected mid-run: each config's 576 MiB WAL
   file is reclaimed immediately (ten live files needed ~5.8 GiB and hit ENOSPC).
+
+
+## DEFERRED — re-measure on lance 9 + lancedb 0.36 (operator, 2026-08-05)
+
+**Current pins** (`crates/lance-graph/Cargo.toml:38-41`): `lance = "=7.0.0"`,
+`lance-linalg = "=7.0.0"`, `lance-namespace = "=7.0.0"`,
+`lancedb = "=0.30.0"` — the exact-pin lockstep from PR #445.
+
+Operator note: **lance 9 + lancedb 0.36 are expected to reduce the overhead**
+this arc measured. Explicitly deferred ("we can do that later"), so nothing in
+the results above is provisional on it — but the numbers are now the BEFORE
+side of that comparison, which is exactly what makes the upgrade measurable:
+
+- Re-run the same binary, same host discipline, after the bump and diff the
+  CSVs arm-by-arm. The arms most likely to move are the storage/serialization
+  ones (W0-current's `SweepSlot`/BTreeMap path, T0 `scan_sealed`), not the
+  pure-owner arms (B0/B1a/L1a), which touch no lance code — **if B0/B1a move,
+  that is a signal something else changed, not a lance win.**
+- Constraints that still bind: P0 forks-only (AdaWorldAPI fork of every
+  forked crate, never crates.io upstream), and the lance-family lockstep
+  (lancedb's transitive requirement pins the lance version — bump them
+  together or the patch silently does not apply).
+- The WAL knee stays unmeasurable until the host issue is fixed regardless of
+  the lance version — a faster library does not quiet a noisy disk.
