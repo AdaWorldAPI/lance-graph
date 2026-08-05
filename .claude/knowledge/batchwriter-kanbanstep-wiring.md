@@ -592,3 +592,31 @@ E-64K-1TO1-OWNERS-IS-THE-MAIN-MODEL-1. The outer-level parallelism claim
 is gated by D-KIA-A2's pre-registered falsifier; the GREEN probes
 (probe_ignition, d_ign_b_lenses) already drive the 1:1 topology, 64 owners,
 synchronously.
+
+
+---
+
+## Disk headroom for the measurement arc (operational, 2026-08-05)
+
+The 64k measurement binary writes **576 MiB of WAL scratch per configuration**
+(18 cycles × 32 MiB) and needs a release `target/`. Two ENOSPC lessons, both
+paid for:
+
+1. **Ten live scratch files need ~5.8 GiB.** The first real run died at
+   `StorageFull` partway through the WAL curve. Fixed in the binary: each
+   configuration's file is reclaimed the moment that configuration ends
+   (`drop(file)` then `remove_file`, so the unlink frees blocks immediately).
+2. **`target/debug/deps` reached 11 GiB** and left only 3.9 GiB free — one
+   release rebuild plus a run away from failing again.
+
+**The reclaim that is always safe here:** `rm -rf target/debug/{deps,build,
+incremental}` — cargo rebuilds them on demand, and unlike `cargo clean`
+(forbidden in this workspace) it leaves `target/release` intact. That single
+command took the tree from 13 GiB → 697 MiB and the disk from 90 % → 59 %.
+
+**Before any measurement run:** check `df -h /` and require **≥ 3 GiB free
+beyond** what the run's scratch needs. A run that dies at ENOSPC halfway
+through wastes the whole configuration sweep — and worse, a run that *nearly*
+runs out produces exactly the page-cache/writeback instability that made the
+WAL knee unreadable (the host was ~90 % full during every A0 run — a stated
+caveat on that result, not a footnote).
