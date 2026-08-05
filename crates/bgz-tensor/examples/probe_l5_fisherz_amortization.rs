@@ -151,7 +151,9 @@ fn load_rows(shard: &str) -> Vec<[f32; DIM]> {
 }
 
 fn main() {
-    let shard = std::env::args().nth(1).unwrap_or_else(|| DEFAULT_SHARD.to_string());
+    let shard = std::env::args()
+        .nth(1)
+        .unwrap_or_else(|| DEFAULT_SHARD.to_string());
     let rows = load_rows(&shard);
     println!("shard: {shard}\nusable rows: {}\n", rows.len());
     assert!(
@@ -175,7 +177,9 @@ fn main() {
     // ═══════════════════════════════════════════════════════════════════
     println!("═══ PART A — L5 γ-fold (euler_gamma_fold / euler_gamma_unfold) ═══\n");
 
-    let fold_idx: Vec<usize> = (0..N_FOLD_MEMBERS).map(|_| draw(&mut rng, &mut taken)).collect();
+    let fold_idx: Vec<usize> = (0..N_FOLD_MEMBERS)
+        .map(|_| draw(&mut rng, &mut taken))
+        .collect();
     let members: Vec<Vec<f32>> = fold_idx.iter().map(|&i| rows[i].to_vec()).collect();
 
     let t0 = Instant::now();
@@ -199,7 +203,10 @@ fn main() {
         correct_pearsons.push(r);
     }
     let mean_correct = correct_pearsons.iter().sum::<f64>() / N_FOLD_MEMBERS as f64;
-    let min_correct = correct_pearsons.iter().cloned().fold(f64::INFINITY, f64::min);
+    let min_correct = correct_pearsons
+        .iter()
+        .cloned()
+        .fold(f64::INFINITY, f64::min);
     let mean_unfold_ns = unfold_ns_samples.iter().sum::<f64>() / N_FOLD_MEMBERS as f64;
 
     // Falsifier: unfold with a WRONG member_index — ask for (i+1)%N and
@@ -213,7 +220,10 @@ fn main() {
         let orig_f32 = StackedN::from_f32(member, SPD).hydrate_f32();
         let r = pearson(
             &orig_f32.iter().map(|&v| v as f64).collect::<Vec<_>>(),
-            &recovered_wrong.iter().map(|&v| v as f64).collect::<Vec<_>>(),
+            &recovered_wrong
+                .iter()
+                .map(|&v| v as f64)
+                .collect::<Vec<_>>(),
         );
         wrong_pearsons.push(r);
     }
@@ -236,11 +246,18 @@ fn main() {
     );
     println!(
         "wrong-index  recovery: mean ρ = {mean_wrong:.4}  (per-member: {:?})",
-        wrong_pearsons.iter().map(|v| format!("{v:.4}")).collect::<Vec<_>>()
+        wrong_pearsons
+            .iter()
+            .map(|v| format!("{v:.4}"))
+            .collect::<Vec<_>>()
     );
     println!(
         "falsifier margin (correct − wrong) = {margin:.4} → {}",
-        if falsifier_fires { "FIRES (container addresses members)" } else { "DOES-NOT-FIRE (no addressing signal)" }
+        if falsifier_fires {
+            "FIRES (container addresses members)"
+        } else {
+            "DOES-NOT-FIRE (no addressing signal)"
+        }
     );
     println!(
         "bytes: raw {raw_member_bytes} B vs folded {folded_bytes} B → ratio_vs_raw {ratio_vs_raw:.2}×, FoldedFamily::compression_ratio() = {ratio_family_reported:.2}×"
@@ -299,7 +316,11 @@ fn main() {
     );
     println!(
         "gate (Spearman ≥ 0.9990, u8-lane): {}\n",
-        if cert_pass { "PASS" } else { "FAIL (real measured number, not fudged)" }
+        if cert_pass {
+            "PASS"
+        } else {
+            "FAIL (real measured number, not fudged)"
+        }
     );
 
     // Per-read cost: tight loop of LOOKUP_ITERS lookup_i8 calls.
@@ -357,7 +378,13 @@ fn main() {
     println!("\n═══ SUMMARY ═══\n");
     println!(
         "{:<8} | {:>12} | {:>13} | {:>12} | {:>13} | {:>17} | {:>9} | falsifier",
-        "lane", "build_once", "product_bytes", "per_read_ns", "float_alt_ns", "break_even_reads", "fidelity"
+        "lane",
+        "build_once",
+        "product_bytes",
+        "per_read_ns",
+        "float_alt_ns",
+        "break_even_reads",
+        "fidelity"
     );
     println!("{}", "-".repeat(112));
     println!(
@@ -369,7 +396,11 @@ fn main() {
         "N/A",
         "N/A",
         mean_correct,
-        if falsifier_fires { "FIRES" } else { "DOES-NOT-FIRE" }
+        if falsifier_fires {
+            "FIRES"
+        } else {
+            "DOES-NOT-FIRE"
+        }
     );
     println!(
         "{:<8} | {:>9.0} ns | {:>10} B  | {:>9.2} ns | {:>10.2} ns | {:>17.1} | ρ={:>6.4} | {}",

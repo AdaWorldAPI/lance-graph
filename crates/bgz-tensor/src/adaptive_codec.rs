@@ -679,6 +679,7 @@ mod probe_wh_mag {
     ///      quantization entirely, stored exact (`classify_rows_by_lfd`);
     ///   2. a CENTROID RESIDUAL — WH runs on `row - nearest_centroid`, not
     ///      on the raw row (`encode()` step 3: `hadamard_rotate(&residual)`).
+    ///
     /// This nested module (kept a child of `probe_wh_mag` so it can reuse
     /// its private generators/cascades via `super::*` — the original
     /// `probe_wh_mag_class_ratios` test above is completely untouched and
