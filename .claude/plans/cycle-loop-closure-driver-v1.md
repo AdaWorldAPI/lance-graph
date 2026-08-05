@@ -1599,3 +1599,57 @@ non-canonical book match any canonical author).
 **Doctrine that binds all three stages:** §12.9a single-measurement law +
 shape×rank payload; `observer-effect-tfpn-doctrine.md` falsification
 regimen; jc one-way oracle; C4 no p-values; full tables always.
+
+#### 12.10a The Rosetta architecture (operator, 2026-08-05) — universal meaning space, per-language torque, living×dead hydration
+
+One pattern, two instantiations. A Rosetta Stone = a paired inscription of
+the SAME meaning in two systems; the shared inscription calibrates the map
+between them; the per-system residual IS that system's torque signature.
+
+**R1 — language × language (the two Babel codebooks).** The two language
+codebooks (PROBE-BABEL-STANCES slice 2, SHIPPED — the existing two-Rosetta-
+stone precedent) span a universal meaning space in which each language's
+ROUTE to a shared anchor is its torque. The operator's example pair: Czech
+reaches dying through aspectual PREFIXES (stem + prefix = concept + a
+morphologically compositional rotation), German through NOMINALIZATION
+(der Tod — the same anchor rotated into a substantive). Per-language
+torque field = the language's mindset — the SAME estimator as Stage B's
+translator mindset and Stage C's author bias, one level up. Pre-registered
+pair for the can-fire/can-stay-silent twins: a known morphologically
+divergent anchor (aspectual-verb family vs nominalization) must show
+distinct signatures; a structurally parallel cognate pair must not.
+
+**R2 — living × dead (Jina hydration over the WordNet spine).** WordNet is
+the DEAD SPINE: static taxonomy = HHTL addresses + lever arms, CLAM
+neighborhoods (`ndarray::hpc::clam` build/`rho_nn`) + CHAODA anomaly
+detection (clam.rs Phase 4) — structure without life: no frequencies, no
+coverage of KJV archaisms/names, no meaning axes beyond taxonomy. Jina is
+the HYDRATION (API key present in env — verified, presence only): for the
+alignment set (tokens BOTH systems know), fit the projection ONCE and seal
+it (single-measurement law: the alignment is version-stamped; hydrations
+are stamped against that alignment version); for Bible-specific tokens the
+spine lacks, hydrate THROUGH the sealed projection:
+  1. **frequency** — gated against the in-tree COCA 20k ground truth
+     (`ndarray/src/hpc/jina/weights/coca_academic_20k.csv`:
+     `word, PoS, COCA_All, …`);
+  2. **POS** — same gate;
+  3. **orthogonal meaning** — the component of the Jina embedding in the
+     orthogonal complement of the WordNet-explained subspace: the axes the
+     taxonomy structurally cannot express (register, affect, era).
+
+**Hydration falsifiers (pre-registered):**
+- H1 hydration gate: Jina-derived frequency/POS on a HELD-OUT slice of the
+  COCA overlap must clear a pinned rank-correlation floor BEFORE any
+  Bible-tail hydration is trusted. Fail ⇒ the living source is not
+  admissible on this spine.
+- H2 CHAODA quarantine: a hydrated Bible-specific token that lands as a
+  manifold outlier under CHAODA is QUARANTINED, not silently projected —
+  the sealed projection is valid only on the manifold the Rosetta
+  calibrated.
+- H3 the R1 torque twins (above).
+
+**What this buys the staged probes:** Stage A gets lever arms for tokens
+WordNet cannot address (the KJV tail); Stage B gets the universal anchor
+space in which translator torque is per-VERSION while language torque is
+per-LANGUAGE — separable because R1 measures the language signature on
+non-biblical text, so Stage B can subtract it; Stage C inherits both.
