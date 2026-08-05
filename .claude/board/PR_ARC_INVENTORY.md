@@ -33,6 +33,17 @@
 > - **Docs** — knowledge files produced (immutable)
 > - **Confidence (YYYY-MM-DD):** — the ONLY mutable field
 
+## 2026-08-05 — lance-graph #894 (MERGED `d7a6efc`) — PROBE-ORACLE-FUNNEL Stage 0: pre-registration, measured results, the legend-is-not-the-grammar finding
+
+**Head at merge:** `e4967e3` (1 commit). 4 files, docs/board only — the harness itself is OGAR-side (`ogar-loco` example, OGAR PR #245, merged same day), per the no-cross-dependency ruling in the merged wishlist handover (OGAR #243; delivery #244): candidates and legends cross as DATA, never as a crate edge.
+
+- **Added.** `.claude/plans/oracle-funnel-probe-v1.md` — the staged probe plan: §1–§4 pre-registration (arms R/G/W; expectations E1–E4 incl. the E4 discrimination KILL at a 50-point bar) written BEFORE the run; §5 measured results appended after. STATUS_BOARD rows PROBE-ORACLE-FUNNEL-S0/-S1/PROBE-GADAMER-BAG.
+- **Locked.** `E-THE-LEGEND-IS-NOT-THE-GRAMMAR-1` (FINDING, measured, deterministic): vocabulary knowledge buys ~nothing at a refuse-don't-guess gate — legend-constrained generation survives 2.5% vs the 0.5% uniform floor while stack-discipline-aware generation survives 100%; ~all funnel selectivity IS the composition discipline. Stage-1 consequence locked with it: a prompt must teach the postfix discipline (or constrain decoder-side); the ~382-token legend alone is nearly worthless. The per-gate refusal tally is a DIAGNOSIS channel (Uncovered = missing vocabulary, Underflow = missing grammar) inside W-4's raw-loopable validity half — fitness stays under the D-BLW-5 payload law. E1–E4 all met; funnel discriminates at 99.5 points spread.
+- **Deferred.** Stage 1 (rig `CompletionModel` LLM arm + prompt-cache legend cost) — gated on operator word + API. Stage 2 (PROBE-GADAMER-BAG) — gated on the operator's W-3 NARS-34 byte assignments + `ResultBehavior` decision. `BodyError` entry-gate coverage (structurally unexercised at Stage-0 shapes; honest boundary, not a gap claim).
+- **Docs.** Plan v1 (above); AGENT_LOG main-thread run entry (pre-register→build→run→record order); OGAR-side results appended to `docs/BLOCK-EDITOR-PLAN.md` (via #245).
+
+**Confidence (2026-08-05):** merged; results bit-exact reproducible (SplitMix64 seed pinned); companion OGAR #245 merged.
+
 ## 2026-08-05 — lance-graph #891 (MERGED `0c138b7`) — ignition + 64k measurement + no-pump: probes, five-axis harness, M/O arms, hot-window design, ack-theater deletion
 
 **Head at merge:** `463f807` (29 commits — the branch's arcs 2–4 after #892 split out arc 1 and the branch was rebased onto main; pure replay, zero conflicts). 48 files, +14,353/−1,816.
