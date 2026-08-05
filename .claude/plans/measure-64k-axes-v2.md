@@ -114,7 +114,45 @@ struct EpochManifest {
 // INVARIANT: committed+vetoed+held+deferred+absorbed == 65_536
 ```
 
-## D5 — encryption without the 32 MiB cliff
+## ⊘ D5 AMENDED (operator sanity-check, 2026-08-05 same day) — crypto is NOT a seal concern; removed from the seal benchmark entirely
+
+**Verified from source before recording:** zero cryptographic operations
+exist anywhere in the seal path (`batch_writer.rs`, `persist_sink.rs`,
+`cycle_driver.rs` — the one grep hit for "nonce" is the `FnOnce` trait
+name). The seal is deterministic ordering + cycle closure + batching +
+version publication + one-WAL-append amortisation. **It was never a
+cryptographic operation, and the earlier AEAD-in-the-seal framing
+conflated two orthogonal layers.**
+
+The corrected split — three independent curves, measured in this order:
+
+```
+A  pure seal:            thought → collect → seal → serialize     (no crypto)
+B  seal + persistence:   seal → WAL → fsync                       (no crypto)
+C  encryption:           evaluated LATER as a SEPARATE LAYER — and only
+                         where encryption actually belongs (likely the
+                         replication/transport boundary, NOT the seal path)
+```
+
+Without this split it is impossible to attribute a bottleneck among
+sorting / cache locality / serialization / WAL / encryption / fsync.
+
+Consequences:
+- Every Stage-A and Stage-B measurement in this plan is **crypto-free**.
+- The former "Stage B encryption arms" are DEFERRED to a future
+  layer-placement decision ("where does encryption live?" precedes "what
+  does it cost?"). The per-chunk AEAD design below is RETAINED as the
+  recorded design for whenever that layer is evaluated — the nonce/AAD
+  derivation rule and the crash contract remain correct for that future
+  layer.
+- The **AEADs-fork dependency decision is no longer blocking anything.**
+- The Libet/rolling-closure optimization (D3) is purely a
+  synchronization-stall reduction — **it has nothing to do with
+  encryption** and the scheduling model is settled crypto-free.
+- The crash contract (manifest-less chunks invisible) is an ORDERING
+  property and stays in the crypto-free benchmark.
+
+## D5-DEFERRED — encryption as a separate layer (design retained for later)
 
 The expensive shape (collect 32 MiB → serialize → encrypt serially → append
 → sync) is one latency iceberg. Instead: resolved chunk → freeze → encrypt
@@ -178,9 +216,11 @@ they are not an endurance proof.
   (= v1's shape, the baseline; IN BUILD) · A1 rolling chunks natural order ·
   A2 rolling chunks Morton order — × page alignment {4,8,16 KiB} × WAL
   segment {1,2,4,8 MiB} × 16 cycles. Locates the storage/cache knee.
-- **Stage B — encryption on the best two Stage-A layouts:** none · serial
-  whole-epoch · parallel per-segment. Reveals whether the bottleneck is
-  encryption, ordering, or disk. GATED on the AEADs-fork dep decision.
+- **Stage B — seal + persistence (crypto-free, per the D5 amendment):**
+  WAL + fsync on the best two Stage-A layouts — isolates storage cost from
+  seal cost. (The former encryption arms are DEFERRED to the separate
+  encryption-layer evaluation; the AEADs-fork dep decision no longer
+  gates anything.)
 - **Stage C — temporal recovery after 16 epochs:** generic
   `local_trajectories` · ordered Morton-chunk fast path · single-owner
   range lookup · full-fleet reconstruction · layer-2 epistemic deinterlace.
@@ -207,5 +247,8 @@ sequential semantic result digests match.
    validates the shared instrumentation).
 2. Next lane: rolling closure + Morton (A1/A2) + queue metrics + manifest +
    temporal fast path (Stage C machinery) on the v1 harness.
-3. Stage B behind the AEADs-fork wiring decision.
+3. Stage B (seal + persistence, crypto-free) on the settled layout.
 4. EXP-KIA-A2-ROLLING-CLOSURE last, on the settled layout.
+5. Encryption: a SEPARATE later arc, starting with the layer-placement
+   decision (replication/transport vs storage), using the retained
+   D5-DEFERRED design.
