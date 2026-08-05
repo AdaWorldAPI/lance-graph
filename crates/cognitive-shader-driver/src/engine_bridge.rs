@@ -792,9 +792,12 @@ mod tests {
         let (start, end) = ingest_codebook_indices(&mut bs, &[42, 100, 200], 1, 12345, 0);
         assert_eq!(start, 0);
         assert_eq!(end, 3);
-        // Check bit 42 is set in row 0's content fingerprint.
+        // Check bit 42 is set in row 0's content fingerprint (word = idx/64,
+        // bit = idx%64 — spelled through a binding so the pattern survives
+        // clippy's constant-folding lint).
+        let bit_index = 42usize;
         let words = bs.fingerprints.content_row(0);
-        assert_ne!(words[42 / 64] & (1u64 << (42 % 64)), 0);
+        assert_ne!(words[bit_index / 64] & (1u64 << (bit_index % 64)), 0);
         assert_eq!(bs.temporal[0], 12345);
     }
 

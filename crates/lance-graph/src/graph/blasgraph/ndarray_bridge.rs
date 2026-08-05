@@ -208,6 +208,7 @@ pub fn dispatch_popcount(a: &[u8]) -> u64 {
 // Scalar fallback — always available
 // ---------------------------------------------------------------------------
 
+#[cfg(not(feature = "ndarray-hpc"))]
 /// Scalar Hamming distance: XOR each u64 pair and sum `count_ones()`.
 fn hamming_scalar(a: &[u8], b: &[u8]) -> u64 {
     // Process 8 bytes at a time as u64 words for efficiency.
@@ -233,6 +234,7 @@ fn hamming_scalar(a: &[u8], b: &[u8]) -> u64 {
     total
 }
 
+#[cfg(not(feature = "ndarray-hpc"))]
 /// Scalar popcount: process as u64 words then handle remainder.
 fn popcount_scalar(a: &[u8]) -> u64 {
     let chunks = a.len() / 8;
@@ -259,6 +261,7 @@ fn popcount_scalar(a: &[u8]) -> u64 {
 // AVX2 — 256-bit SIMD via shuffle-based popcount LUT
 // ---------------------------------------------------------------------------
 
+#[cfg(not(feature = "ndarray-hpc"))]
 #[cfg(target_arch = "x86_64")]
 #[target_feature(enable = "avx2")]
 unsafe fn hamming_avx2(a: &[u8], b: &[u8]) -> u64 {
@@ -307,6 +310,7 @@ unsafe fn hamming_avx2(a: &[u8], b: &[u8]) -> u64 {
     total
 }
 
+#[cfg(not(feature = "ndarray-hpc"))]
 #[cfg(target_arch = "x86_64")]
 #[target_feature(enable = "avx2")]
 unsafe fn popcount_avx2(a: &[u8]) -> u64 {
@@ -352,6 +356,7 @@ unsafe fn popcount_avx2(a: &[u8]) -> u64 {
 // AVX-512BW — 512-bit SIMD via shuffle-based popcount LUT
 // ---------------------------------------------------------------------------
 
+#[cfg(not(feature = "ndarray-hpc"))]
 #[cfg(target_arch = "x86_64")]
 #[target_feature(enable = "avx512f", enable = "avx512bw")]
 unsafe fn hamming_avx512bw(a: &[u8], b: &[u8]) -> u64 {
@@ -395,6 +400,7 @@ unsafe fn hamming_avx512bw(a: &[u8], b: &[u8]) -> u64 {
     total
 }
 
+#[cfg(not(feature = "ndarray-hpc"))]
 #[cfg(target_arch = "x86_64")]
 #[target_feature(enable = "avx512f", enable = "avx512bw")]
 unsafe fn popcount_avx512bw(a: &[u8]) -> u64 {
@@ -440,6 +446,7 @@ unsafe fn popcount_avx512bw(a: &[u8]) -> u64 {
 // AVX-512 VPOPCNTDQ — native 512-bit popcount
 // ---------------------------------------------------------------------------
 
+#[cfg(not(feature = "ndarray-hpc"))]
 #[cfg(target_arch = "x86_64")]
 #[target_feature(enable = "avx512f", enable = "avx512vpopcntdq")]
 unsafe fn hamming_avx512_vpopcntdq(a: &[u8], b: &[u8]) -> u64 {
@@ -469,6 +476,7 @@ unsafe fn hamming_avx512_vpopcntdq(a: &[u8], b: &[u8]) -> u64 {
     total
 }
 
+#[cfg(not(feature = "ndarray-hpc"))]
 #[cfg(target_arch = "x86_64")]
 #[target_feature(enable = "avx512f", enable = "avx512vpopcntdq")]
 unsafe fn popcount_avx512_vpopcntdq(a: &[u8]) -> u64 {
@@ -565,6 +573,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg(not(feature = "ndarray-hpc"))]
     fn test_scalar_hamming_small() {
         let a = [0xFFu8, 0x00, 0xAA];
         let b = [0x00u8, 0xFF, 0x55];
@@ -574,6 +583,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg(not(feature = "ndarray-hpc"))]
     fn test_scalar_popcount_small() {
         let a = [0xFFu8, 0x00, 0x0F];
         // 8 + 0 + 4 = 12

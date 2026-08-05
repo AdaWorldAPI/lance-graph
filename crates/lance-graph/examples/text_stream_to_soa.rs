@@ -147,6 +147,9 @@ fn main() {
         let lo = focal.saturating_sub(RADIUS);
         let hi = (focal + RADIUS + 1).min(n_triples);
         let a = &ranks[focal];
+        // A windowed pairwise walk: `other` also feeds the focal-skip compare,
+        // so the index is semantic here, not an iteration artifact.
+        #[expect(clippy::needless_range_loop)]
         for other in lo..hi {
             if other == focal {
                 continue;

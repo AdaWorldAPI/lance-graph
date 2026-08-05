@@ -472,6 +472,12 @@ impl BindSpaceBuilder {
     ///
     /// # Panics
     /// Panics if cursor >= capacity (F-08: bounds-checked push).
+    // One argument per SoA column is the point: the signature mirrors the
+    // BindSpace column layout (content/meta/edge/qualia/temporal/expert/
+    // entity_type). Folding them into a params struct would re-wrap the axes
+    // in a new struct — the exact anti-pattern the AGI-as-SoA invariant
+    // forbids (CLAUDE.md § AGI-as-glove; PR #223).
+    #[expect(clippy::too_many_arguments)]
     pub fn push_typed(
         mut self,
         content: &[u64],

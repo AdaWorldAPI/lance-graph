@@ -1109,6 +1109,9 @@ mod tests {
 
     fn demo_planes() -> [[u64; 64]; 8] {
         let mut planes = [[0u64; 64]; 8];
+        // Indexes TWO plane rows (0 and 2) at position i plus i+1 arithmetic;
+        // an iterator over one row cannot express that.
+        #[expect(clippy::needless_range_loop)]
         for i in 0..4 {
             if i + 1 < 4 {
                 planes[0][i] |= 1u64 << (i + 1);
@@ -1693,8 +1696,9 @@ mod tests {
         assert_eq!(default.saturated, composite.saturated);
         assert_eq!(default.color_acc, composite.color_acc);
         // ALPHA_COMPOSITE_DIMS sanity probe — keeps the import live and
-        // documents the active prefix size.
-        assert!(ALPHA_COMPOSITE_DIMS >= QUALIA_DIMS);
+        // documents the active prefix size. A const assert does the same job
+        // at compile time (and satisfies clippy::assertions_on_constants).
+        const _: () = assert!(ALPHA_COMPOSITE_DIMS >= QUALIA_DIMS);
     }
 
     #[test]

@@ -361,7 +361,6 @@ impl std::fmt::Debug for VectorDistanceUDF {
 }
 
 impl datafusion::logical_expr::ScalarUDFImpl for VectorDistanceUDF {
-
     fn name(&self) -> &str {
         &self.name
     }
@@ -420,7 +419,6 @@ impl std::fmt::Debug for VectorSimilarityUDF {
 }
 
 impl datafusion::logical_expr::ScalarUDFImpl for VectorSimilarityUDF {
-
     fn name(&self) -> &str {
         &self.name
     }
@@ -658,7 +656,6 @@ impl std::fmt::Debug for HammingDistanceUDF {
 }
 
 impl datafusion::logical_expr::ScalarUDFImpl for HammingDistanceUDF {
-
     fn name(&self) -> &str {
         &self.name
     }

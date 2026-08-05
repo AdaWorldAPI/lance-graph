@@ -196,7 +196,6 @@ impl std::fmt::Debug for CamDistanceUDF {
 }
 
 impl datafusion::logical_expr::ScalarUDFImpl for CamDistanceUDF {
-
     fn name(&self) -> &str {
         &self.name
     }

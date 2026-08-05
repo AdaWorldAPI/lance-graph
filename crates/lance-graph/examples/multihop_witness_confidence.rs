@@ -15,10 +15,12 @@
 //! cargo run -p lance-graph --example multihop_witness_confidence
 //! ```
 //!
-//! Scope: composes the SHIPPED primitives (`CausalEdge64` u8 truth + `WitnessTable`
-//! + NARS revision) to prove the multi-hop-witness → Truth mechanism. The
-//! contract-level wiring (edge→W-slot in the `MailboxSoA` emission path) is the
-//! gated V3 slice; here the arc is keyed by fact index (feature-agnostic).
+//! Scope: composes the SHIPPED primitives (`CausalEdge64` u8 truth,
+//! `WitnessTable`, NARS revision) to prove the multi-hop-witness → Truth
+//! mechanism. (A wrapped line must not start with `+` — rustdoc/clippy reads
+//! it as a markdown list bullet.) The contract-level wiring (edge→W-slot in
+//! the `MailboxSoA` emission path) is the gated V3 slice; here the arc is
+//! keyed by fact index (feature-agnostic).
 
 use causal_edge::edge::InferenceType;
 use causal_edge::{CausalEdge64, CausalMask, PlasticityState};
@@ -126,8 +128,8 @@ fn main() {
         facts[0].confidence()
     );
     println!("  fact   single-obs conf   multi-hop conf   witness hops");
-    for i in 0..N {
-        let single = facts[i].confidence();
+    for (i, fact) in facts.iter().enumerate().take(N) {
+        let single = fact.confidence();
         let (mc, hops) = multihop(i);
         println!("  F{i}      {single:.3}             {mc:.3}            {hops}");
     }
