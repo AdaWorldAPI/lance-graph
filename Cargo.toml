@@ -204,10 +204,10 @@ resolver = "2"
 # Crate-level pins (canonical source of truth — workspace.dependencies is not
 # used; each consumer crate declares its own pin with exact-equals so the
 # whole graph resolves to the same semver):
-#   lance           = "=7.0.0"   (lance-arrow / lance-index / lance-linalg /
+#   lance           = "=9.0.0"   (lance-arrow / lance-index / lance-linalg /
 #                                 lance-namespace bump in lock-step)
-#   lancedb         = "=0.30.0"
-#   datafusion      = "53"       (+ datafusion-common / -expr / -sql /
+#   lancedb         = "=0.33.0"
+#   datafusion      = "54"       (+ datafusion-common / -expr / -sql /
 #                                 -functions-aggregate)
 #   arrow-array     = "58"       (+ arrow-schema / -buffer / -ipc / arrow)
 
