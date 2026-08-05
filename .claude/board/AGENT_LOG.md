@@ -1,3 +1,31 @@
+## 2026-08-05 — MEASURE-64K-AXES Stage A0 MEASURED (Sonnet build + central Opus gates + adjudication)
+
+**Outcome: 3 of 4 answers MEASURED, 1 reported NOT REPRODUCIBLE.** Binary
+`examples/measure_wal_curve.rs` (~2,230 lines) shipped; 5 release runs; CSV
+179 rows/run. Full results: plan `measure-64k-axes-v1.md` § MEASURED RESULTS.
+
+Findings: ownership costs +13 ms of shared-phase time per 64k cycle over a
+dummy owner (plus ~32 ms of phases only a real owner has); the hot
+`MailboxSoA<4>` representation costs **+63 % memory** over the canonical
+32 MiB envelope (52.1 MiB measured); the chunked 64×1024 layout is **faster on
+every comparable phase** (build −171 ms) with its mislabelling control firing
+(65,472/65,536 HELD); concurrency shows ~3.2–3.5× compute overlap on 4 cores
+with **byte-identical sequential-vs-parallel digests**. Temporal T1/T2 stable
+(78–86 ms / 7.3–8.8 ms over 1,048,576 rows).
+
+**The WAL knee is NOT claimed** — five runs of one binary moved it between
+4 MiB and 32 MiB with 6× cross-run throughput swings. Three methodology
+defects were caught and fixed at the gate rather than shipped: MiB/s computed
+from an ASSUMED frame size while discarding the real byte count (now measured +
+asserted equal across arms); a memory "overhead" differencing two
+process-monotonic VmHWM values (retracted; now measured VmRSS delta vs the
+exact canonical size); ten WAL scratch files needing 5.8 GiB (ENOSPC → per-config
+reclaim). A stability guard with both halves now suppresses any knee whose
+p95/median spread exceeds 3×.
+
+Gates: fmt clean; clippy 0 attributable; 5 release runs. Build lane self-caught
+7 bugs pre-handoff including a duplicate `mod` that would have hard-failed.
+
 ## 2026-08-05 — PROBE-IGNITION-64K GREEN: start() at the MAIN MODEL's full population (main-thread build, answering the operator's direct question)
 
 **The question:** "Did you test the 64k concurrency model working with the

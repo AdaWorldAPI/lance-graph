@@ -150,3 +150,91 @@ run producing the CSV + the four answers:
 3. Where does WAL amortisation plateau? (the knee on the W1 curve, W0 beside it)
 4. What does genuine parallel thought execution add before the deterministic
    seal? (EXP-KIA-A2-64K, digest-identical)
+
+
+---
+
+# MEASURED RESULTS (2026-08-05, release-mode, 5 runs of the same binary)
+
+Host: 4 cores, `/` ~90 % full, shared VM. Binary:
+`crates/lance-graph-supervisor/examples/measure_wal_curve.rs` (release, gated:
+fmt + clippy 0-attributable). CSV: 179 rows/run, the 33-column schema.
+
+## Stable arms — reported as findings
+
+**Answer 1 — what ownership costs** (B1a `MailboxSoA<4>` − B0 DummyOwner,
+median of 3, consistent across all runs): scan **+1.0 ms**, cast/rebind
+**+11.5 ms**, freeze **+0.6 ms** over 65,536 owners. B1a additionally pays two
+phases B0 does not have at all: a real per-owner think (**8.6 ms**) and a real
+apply (**23.5 ms**). So the *marginal* cost of a real owner over a dummy on the
+shared phases is ~13 ms per 64k cycle; the phases only a real owner has are
+~32 ms.
+
+**Answer 1b — what the hot representation costs in memory** (MEASURED VmRSS
+delta vs the EXACT canonical size): B1a **+52.1 MiB** measured for 65,536 ×
+`MailboxSoA<4>`; canonical envelope **32.0 MiB** (65,536 × 512 B, exact by
+construction) ⇒ **+20.1 MiB, +63 % overhead**. *Methodology correction made
+during the run:* a first revision differenced two `VmHWM` values and printed a
+NEGATIVE overhead — `VmHWM` is process-monotonic, so the subtraction returned
+the same historical maximum twice. Retracted, not reported. B1b's own
+in-process VmRSS delta reads **+0 B** because the allocator satisfies its
+32 MiB from pages B1a already returned — which is *why* the line uses the exact
+canonical size rather than a second measurement.
+
+**Answer 2 — what physical layout costs** (L1a 64 × `MailboxSoA<1024>` − B1a
+65,536 × `MailboxSoA<4>`, EQUAL 65,536 logical owners): build **−171 ms**,
+cast/rebind **−14.7 ms**, freeze **−1.8 ms** — i.e. the chunked layout is
+**faster on every comparable phase**, dominated by build (one allocation per
+1,024 owners instead of per owner). Apply is deliberately unmeasured for L1a
+(Deviation D2): `phase()` is scoped to a `MailboxSoA<N>` instance, not to a
+row, so there is no honest per-logical-owner apply across 64 chunks —
+fabricating one would misrepresent 1,023 of every 1,024 owners.
+**L1b control fires as designed:** treating the 64 chunks AS owners collapses
+to **65,472 of 65,536 HELD** — the mislabelling is observable, so L1a's
+logical-owner preservation is not an assumption.
+
+**Answer 4 — EXP-KIA-A2-64K** (exploratory, NON-CLAIMING; D-KIA-A2 untouched):
+compute phase **21–27 ms at 1 worker → 6.3–7.5 ms at 16 workers** (≈3.2–3.5×
+on 4 physical cores), `max_active_workers` observed 4–6, and — the load-bearing
+half — **sequential and parallel sealed-cycle digests are IDENTICAL
+(`248c6e7b991d3b25`) at every worker count in every run.** Real overlap with
+byte-identical convergence. This does NOT pass D-KIA-A2, whose median-of-5 ≥2×
+protocol remains its own gate.
+
+**Temporal (post-WAL only):** T1 `local_trajectories` **78–86 ms** and T2
+`deinterlace` **7.3–8.8 ms** over 1,048,576 rows (65,536 owners × 16 sealed
+versions) — both stable across runs. T0 `scan_sealed` **43–135 ms** is
+cache-sensitive and reported as such. The rung gate admits **524,288 of
+1,048,576** rows (exactly half), so T2 is doing real admission work.
+
+## Answer 3 — WAL amortisation plateau: NOT REPRODUCIBLE ON THIS HOST
+
+**No knee is claimed.** Across five runs of the *same binary* the named knee
+moved between 4 MiB and 32 MiB, and per-config throughput swung
+**109 → 785 MiB/s at identical settings** (a 6× spread); one config showed a
+p95/median spread of 24× *within* a single run. The write phase is bimodal —
+either ~110–135 MiB/s or ~550–785 MiB/s — which is page-cache/dirty-writeback
+state flipping, not segment size. Naming a knee from this would be fabricated
+precision, exactly what this plan exists to prevent.
+
+Two things were built rather than asserted around it:
+1. **The comparability assert** — both arms now count the bytes actually handed
+   to the kernel and assert each cycle moves exactly the 32 MiB canonical frame.
+   *A first revision computed MiB/s from the ASSUMED frame size while
+   discarding `write_vectored`'s real byte count — an assumption presented as a
+   measurement.* The assert passes, so W0-vs-W1 IS a like-for-like comparison.
+2. **A stability guard with both halves** — it SUPPRESSES the knee when any
+   config's p95/median spread exceeds 3× (fired on the unstable runs) and
+   REPORTS one when every config is tight (stayed silent at worst-spread 1.4×).
+   Intra-run only; the cross-run variance above is what actually voids the
+   reading.
+
+**To measure it properly:** a quiet host with disk headroom, O_DIRECT or a
+per-config cache barrier, and enough cycles that p95/median converges.
+
+## Notes carried forward
+- B1a's first repeat is a **cold-allocator outlier** (4.5–4.9 s vs 280–330 ms
+  steady) — reported, never medianed away.
+- `llc_misses` is emitted EMPTY (no perf-counter access), never fabricated.
+- The scratch-file lifecycle was corrected mid-run: each config's 576 MiB WAL
+  file is reclaimed immediately (ten live files needed ~5.8 GiB and hit ENOSPC).
