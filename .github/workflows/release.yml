@@ -36,12 +36,18 @@ jobs:
 
     - name: Checkout repository
       uses: actions/checkout@v4
-      - name: Clone AdaWorldAPI/OGAR as parent-level sibling (NO-PIN path deps)
-        run: git clone --depth 1 https://github.com/AdaWorldAPI/OGAR ../OGAR
       with:
         ref: main
         token: ${{ secrets.LANCE_RELEASE_TOKEN }}
         fetch-depth: 0
+
+    # Must be its OWN step. It was previously pasted BETWEEN `uses:` and
+    # `with:` above, which split the checkout step's own keys across a nested
+    # list item — invalid YAML, so the whole file failed to parse and GitHub
+    # recorded a startup_failure run (0 jobs) on every single push. 500 runs,
+    # zero successes, none of them reaching a job.
+    - name: Clone AdaWorldAPI/OGAR as parent-level sibling (NO-PIN path deps)
+      run: git clone --depth 1 https://github.com/AdaWorldAPI/OGAR ../OGAR
 
     - name: Set up Python
       uses: actions/setup-python@v5
