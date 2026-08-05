@@ -102,6 +102,22 @@ jobs:
       - name: Clippy bgz-tensor (advisory)
         continue-on-error: true
         run: cargo clippy --manifest-path crates/bgz-tensor/Cargo.toml --all-targets -- -D warnings
+      # Tier A (mandatory, gating): lance-graph-callcenter UNDER `--features query`.
+      #
+      # The feature matters more than the crate. `default = []` here, so a bare
+      # clippy run on this crate compiles almost none of it and exits 0 while
+      # `vsa_udfs` and `transcode::ontology_table` — both behind
+      # `query` / `query-lite` — are never seen. That false green is measured,
+      # not hypothetical: it happened twice in one session (2026-08-05), and the
+      # second time it hid two genuinely failing tests as well
+      # (E-A-FEATURE-CONDITIONAL-CLASSID-SILENTLY-EMPTIED-A-FIXTURE-1).
+      #
+      # A green run that never compiled the module is not coverage. Gated
+      # mandatory rather than advisory because the crate is clean TODAY
+      # (0 errors under this feature) — same posture as deepnsm: gate it while
+      # it is clean so it cannot silently regress.
+      - name: Clippy callcenter --features query (mandatory)
+        run: cargo clippy --manifest-path crates/lance-graph-callcenter/Cargo.toml --features query --lib --tests -- -D warnings
 
   format:
     runs-on: ubuntu-24.04
