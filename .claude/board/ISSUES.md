@@ -1,5 +1,28 @@
 # Issues Log — Open + Resolved (double-entry, append-only)
 
+## ISS-MARM-T1-4X-A0-GAP (2026-08-05) — OPEN, MEASUREMENT DEFECT NOT A RESULT
+
+**The observation.** The M-arm's temporal-reconstruction baseline (T1) reads
+**320–340 ms** over 1,048,576 rows. Stage A0 measured the same nominal row count
+at **78–86 ms**. That is a ~4× gap between two runs of the same harness on the
+same host, and it is unexplained.
+
+**What it blocks and what it does NOT block.** The M-arm's
+natural-vs-Morton comparison is INTERNALLY valid (same run, same harness, same
+row count, digest identity `68128e3662df105c` on both pipelines) and stands. What
+is void is the **cross-run** comparison: the ordered-chunk fast-path number
+(350.9 ms) **must not** be held against A0's 78–86 ms until this is explained.
+`measure-64k-axes-v3.md` carries the same caveat inline.
+
+**Named suspects, none confirmed.** (a) the M-arm materialises `BenchRow`
+INSIDE the timed region; (b) the `stream_position` relabeling the harness needs
+because `freeze` always sorts by that field; (c) a third phenomenon neither of
+those covers.
+
+**Resolution shape.** Instrument the T1 region to separate materialisation from
+reconstruction, then re-run both arms in one process. Until then the two T1s are
+not commensurable and neither number may be quoted against the other.
+
 ## ISS-MAILBOXSOA-ROW-COST-VS-512B-CANON (2026-08-04) — OPEN, QUESTION NOT CONCLUSION
 
 **The observation, arithmetic only.** The canonical node row is

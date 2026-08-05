@@ -1,3 +1,51 @@
+## E-SEAL-AND-TEMPORAL-ARE-DIFFERENT-OBJECTS-1 (2026-08-05)
+
+**The seal and `temporal.rs` are not two implementations of one ordering
+function — they compute different mathematical objects, and the O-arm's digest
+divergence is the expected signature of that, not a defect in either.** Read off
+the shipped source after the O-arm measured
+`O-A 64565f362db2e4a5 ≠ O-B 3e71c2aa7be8e325`.
+
+Four things the seal computes that the temporal surface has no field for:
+
+1. **A cross-owner TOTAL order.** `LocalCausalRow::cast_seq` is contractually
+   per-owner — *"Cross-owner values are never compared"* — so
+   `local_trajectories` yields a forest of chains, a PARTIAL order. `freeze`
+   yields one total order. A partial order does not determine a total one.
+2. **Arrival as an ordering input.** The seal's sort is stable on
+   `stream_position`, so arrival breaks ties; `LocalCausalRow` is exactly
+   `(owner, cast_seq)` and records arrival nowhere. The seal is the ONLY durable
+   encoder of cross-owner arrival, and `scan_sealed` may never re-sort.
+3. **The per-row coalescing FOLD** (`row → last payload in stream order`) — a
+   destructive fold whose result depends on the total order. `temporal.rs` has
+   no row concept at all, so last-writer-wins at row granularity is computed
+   nowhere else.
+4. **Cohort + read horizon** (`CycleFrame{cycle, base_version}`) — which casts
+   published atomically together, and which sealed `Vn` the whole cohort read.
+   Per-owner chains carry neither; the grouping key is simply absent.
+
+**Standing position (operator, same day):** keep `temporal.rs` as the
+authoritative TEMPORAL model and the seal as the authoritative ORDERING model,
+and treat the gap as an **explicit research question** rather than assuming one
+should replace the other. The O-arm *failed semantically before it failed on
+performance*, which makes its timing numbers almost irrelevant to the decision.
+
+**Scope fence (so the divergence is not overread):** the O-arm deliberately
+scrambled arrival (bit-reversal of the owner id) so the two orders were FREE to
+diverge. The result says *the seal preserves an arrival order temporal cannot
+see*, NOT *the seal always disagrees*. On an arrival-ascending workload they
+would coincide — and that coincidence would prove nothing.
+
+**Consequence for any future "let temporal source the ordering" proposal:** the
+minimal change is not "make temporal smarter" but *give `LocalCausalRow` a
+globally comparable key* — a contract widening that re-couples the owners the
+deinterlace exists to decouple, and which still supplies neither the fold (3)
+nor the cohort (4). The proposer owns that cost explicitly.
+
+Full statement + three pre-registered probes (tie density, fold-collision rate,
+arrival-ascending control):
+`.claude/knowledge/seal-vs-temporal-ordering-information.md`.
+
 ## E-64K-1TO1-OWNERS-IS-THE-MAIN-MODEL-1 (2026-08-05, OPERATOR-ORDERED)
 
 **THE MAIN MODEL of this substrate is: up to 64k mailboxes, 1:1

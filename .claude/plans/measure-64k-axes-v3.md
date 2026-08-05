@@ -210,3 +210,36 @@ T1 523.8 ms. O-B is slower on every phase except commit.
 3. **A pre-registered outcome was coded as a panic.** O-arm divergence
    `assert!`-ed, which turns a designed falsification into a crash and
    discards every number after it. Both branches now report.
+
+---
+
+# WHAT THE O-ARM ACTUALLY OPENED (operator-framed, 2026-08-05)
+
+The O-arm **failed semantically before it failed on performance** — which makes
+its timing numbers almost irrelevant to the decision. Three separate questions
+came out of it, and conflating them is the trap:
+
+1. **Presorting cannot replace the seal.** Measured (digest divergence). The
+   seal's ordering is load-bearing under this construction.
+2. **Presorting is not intrinsically bad.** Not measured either way — the
+   M-arm's Morton loss is about *this* reorder on *this* host, not about
+   ordering-before-seal as a family.
+3. **`temporal.rs` probably remains the ordering authority for READS.** Not
+   contradicted by anything here: O-arm measured *sourcing the write-side order*
+   from replay, which is a different job.
+
+**Standing position (operator):** keep `temporal.rs` as the authoritative
+TEMPORAL model and the seal as the authoritative ORDERING model, treating the
+gap as an **explicit research question** rather than assuming one replaces the
+other.
+
+**The next question is therefore NOT "can we remove temporal ordering?" but
+"what information does the seal compute that `temporal.rs` does not currently
+encode?"** Answered from the shipped source in
+`.claude/knowledge/seal-vs-temporal-ordering-information.md` — four items
+(cross-owner TOTAL order vs a partial one · arrival as an ordering input,
+durably recorded nowhere else · the per-row coalescing FOLD, and `temporal.rs`
+has no row concept · the cohort boundary + read horizon `CycleFrame{cycle,
+base_version}`) — with three pre-registered probes and an explicit scope fence
+on how far the divergence may be read. Board entry:
+`E-SEAL-AND-TEMPORAL-ARE-DIFFERENT-OBJECTS-1`.
