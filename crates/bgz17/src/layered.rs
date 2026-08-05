@@ -199,8 +199,8 @@ mod tests {
             .map(|i| {
                 let make_base = |seed: usize| {
                     let mut dims = [0i16; 17];
-                    for d in 0..17 {
-                        dims[d] = ((seed * 97 + d * 31) % 512) as i16 - 256;
+                    for (d, dim) in dims.iter_mut().enumerate() {
+                        *dim = ((seed * 97 + d * 31) % 512) as i16 - 256;
                     }
                     Base17 { dims }
                 };

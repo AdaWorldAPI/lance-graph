@@ -138,8 +138,8 @@ mod tests {
         let entries = (0..k)
             .map(|i| {
                 let mut dims = [0i16; 17];
-                for d in 0..17 {
-                    dims[d] = ((i * 97 + d * 31) % 512) as i16 - 256;
+                for (d, dim) in dims.iter_mut().enumerate() {
+                    *dim = ((i * 97 + d * 31) % 512) as i16 - 256;
                 }
                 Base17 { dims }
             })

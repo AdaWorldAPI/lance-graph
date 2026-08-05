@@ -267,9 +267,6 @@ pub fn hhtl_leaf_bgz17(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::base17::Base17;
-    use crate::distance_matrix::SpoDistanceMatrices;
-    use crate::palette::Palette;
     use crate::scope::Bgz17Scope;
 
     fn random_plane(seed: u64) -> Vec<i8> {
@@ -453,7 +450,7 @@ mod tests {
     }
 
     #[test]
-    fn test_scent_NOT_metric_safe() {
+    fn test_scent_not_metric_safe() {
         // Scent MAY violate triangle inequality (Boolean lattice constraint).
         // This test documents the expectation — it's not a bug, it's why
         // Scent must only be used as a heuristic pre-filter.
