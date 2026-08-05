@@ -10,7 +10,6 @@
 //! Domain-agnostic. Pass any `(Ontology, entity_type)` and you get a
 //! provider — Foundry-style.
 
-use std::any::Any;
 use std::sync::Arc;
 
 use arrow::datatypes::SchemaRef;
@@ -88,10 +87,6 @@ impl OntologyTableProvider {
 
 #[async_trait]
 impl TableProvider for OntologyTableProvider {
-    fn as_any(&self) -> &dyn Any {
-        self
-    }
-
     fn schema(&self) -> SchemaRef {
         self.inner.schema()
     }

@@ -470,7 +470,7 @@ pub fn triples_to_batch(
     let mut body: Vec<Vec<Option<String>>> =
         (0..ncols).map(|_| Vec::with_capacity(nrows)).collect();
 
-    for (_, (entity_id, group_triples)) in &grouped {
+    for (entity_id, group_triples) in grouped.values() {
         ids.push(*entity_id);
         entity_type_strs.push(soa.entity_type);
 
@@ -634,7 +634,7 @@ where
     let mut resolved: Vec<Vec<Option<Vec<u8>>>> =
         (0..ncols).map(|_| Vec::with_capacity(nrows)).collect();
 
-    for (_subject, (entity_id, group_triples)) in &grouped {
+    for (entity_id, group_triples) in grouped.values() {
         ids.push(*entity_id);
         entity_type_strs.push(soa.entity_type);
         for (col_idx, soa_col) in soa.columns.iter().enumerate() {
@@ -843,7 +843,7 @@ fn parse_iso_date_to_days(s: &str) -> Option<i32> {
     let y = if m <= 2 { y - 1 } else { y };
     let era = if y >= 0 { y } else { y - 399 } / 400;
     let yoe = (y - era * 400) as u64;
-    let doy = ((153 * (if m > 2 { m - 3 } else { m + 9 } as u64) + 2) / 5 + d as u64 - 1) as u64;
+    let doy = (153 * (if m > 2 { m - 3 } else { m + 9 } as u64) + 2) / 5 + d as u64 - 1;
     let doe = yoe * 365 + yoe / 4 - yoe / 100 + doy;
     let days_since_epoch = era * 146_097 + doe as i64 - 719_468;
     i32::try_from(days_since_epoch).ok()

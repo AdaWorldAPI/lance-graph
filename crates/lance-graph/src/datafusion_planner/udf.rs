@@ -361,10 +361,6 @@ impl std::fmt::Debug for VectorDistanceUDF {
 }
 
 impl datafusion::logical_expr::ScalarUDFImpl for VectorDistanceUDF {
-    fn as_any(&self) -> &dyn std::any::Any {
-        self
-    }
-
     fn name(&self) -> &str {
         &self.name
     }
@@ -387,6 +383,11 @@ impl datafusion::logical_expr::ScalarUDFImpl for VectorDistanceUDF {
 
 impl PartialEq for VectorDistanceUDF {
     fn eq(&self, other: &Self) -> bool {
+        // INVARIANT: `func` is an Arc<dyn Fn> and cannot be compared, so
+        // (name, metric)-equality asserts same-name ⇒ same-function. This
+        // holds because every construction site derives `func` from
+        // `metric` alone (make_vector_distance_udf) — two instances with
+        // equal (name, metric) compute identically by construction.
         self.name == other.name && self.metric == other.metric
         // Note: signature is structural so we don't compare it
     }
@@ -418,10 +419,6 @@ impl std::fmt::Debug for VectorSimilarityUDF {
 }
 
 impl datafusion::logical_expr::ScalarUDFImpl for VectorSimilarityUDF {
-    fn as_any(&self) -> &dyn std::any::Any {
-        self
-    }
-
     fn name(&self) -> &str {
         &self.name
     }
@@ -444,6 +441,9 @@ impl datafusion::logical_expr::ScalarUDFImpl for VectorSimilarityUDF {
 
 impl PartialEq for VectorSimilarityUDF {
     fn eq(&self, other: &Self) -> bool {
+        // INVARIANT: same as VectorDistanceUDF — `func` is derived from
+        // `metric` at every construction site, so (name, metric)-equality
+        // implies function-equality by construction.
         self.name == other.name && self.metric == other.metric
         // Note: signature is structural so we don't compare it
     }
@@ -656,10 +656,6 @@ impl std::fmt::Debug for HammingDistanceUDF {
 }
 
 impl datafusion::logical_expr::ScalarUDFImpl for HammingDistanceUDF {
-    fn as_any(&self) -> &dyn std::any::Any {
-        self
-    }
-
     fn name(&self) -> &str {
         &self.name
     }

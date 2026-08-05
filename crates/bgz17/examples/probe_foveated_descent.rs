@@ -211,11 +211,11 @@ fn boundary_queries(
         let c2 = nearest_other_coarse(hp, c1);
         for _ in 0..per_pair {
             let mut dims = [0i16; BASE_DIM];
-            for d in 0..BASE_DIM {
+            for (d, dim) in dims.iter_mut().enumerate().take(BASE_DIM) {
                 let a = hp.coarse[c1].dims[d] as i32;
                 let b = hp.coarse[c2].dims[d] as i32;
                 let mid = (a + b) / 2;
-                dims[d] = (mid as i16).saturating_add(rng.jitter(50));
+                *dim = (mid as i16).saturating_add(rng.jitter(50));
             }
             queries.push(Base17 { dims });
         }

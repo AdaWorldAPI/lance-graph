@@ -196,10 +196,6 @@ impl std::fmt::Debug for CamDistanceUDF {
 }
 
 impl datafusion::logical_expr::ScalarUDFImpl for CamDistanceUDF {
-    fn as_any(&self) -> &dyn std::any::Any {
-        self
-    }
-
     fn name(&self) -> &str {
         &self.name
     }
@@ -222,6 +218,15 @@ impl datafusion::logical_expr::ScalarUDFImpl for CamDistanceUDF {
 
 impl PartialEq for CamDistanceUDF {
     fn eq(&self, other: &Self) -> bool {
+        // INVARIANT (load-bearing, not derivable): `func` captures a
+        // caller-supplied CODEBOOK under the fixed name "cam_distance", so
+        // name-equality asserts same-name ⇒ same-codebook. Unlike the
+        // vector UDFs (whose closures derive from a compared field), nothing
+        // in this type enforces it: two registrations with different
+        // codebooks would compare equal for expression-CSE while computing
+        // different distances. Registering more than one codebook under one
+        // name in a single query context is a broken registration — keep
+        // one `create_cam_distance_udf` per session context.
         self.name == other.name
     }
 }

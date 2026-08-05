@@ -12,6 +12,7 @@
 //! against TWO ground truths on the same real pairs:
 //!   - `1 - cosine` on the full-dimension f32 rows (the semantic reference), and
 //!   - `L1` on the full-dimension f32 rows (the metric-matched reference).
+//!
 //! Reporting both separates "the FOLD loses information" from "L1-on-means is
 //! the wrong metric for a cosine question" — two different defects with two
 //! different fixes.

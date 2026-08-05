@@ -20,13 +20,12 @@
 //! No serialization anywhere in this module. JSON exists only at the
 //! callcenter ↔ MedCareV2 FFI boundary, never on these types.
 
-use core::future::Future;
 use std::borrow::Cow;
 
 use lance_graph_contract::exploration::NarsTruth;
 use lance_graph_contract::nars::QueryStrategy;
 use lance_graph_contract::reasoning::{Reasoner, ReasoningContext, ReasoningKind};
-use lance_graph_contract::savants::{savant_by_name, Savant, SAVANTS};
+use lance_graph_contract::savants::{Savant, SAVANTS};
 
 /// Error from a savant reasoner.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -271,11 +270,11 @@ impl Reasoner for CustomerCategoryReasoner {
     type Conclusion = SavantConclusion;
     type Error = SavantError;
 
-    fn reason<'a>(
+    async fn reason<'a>(
         &'a self,
         context: ReasoningContext<'a>,
-    ) -> impl Future<Output = Result<Self::Conclusion, Self::Error>> + Send + 'a {
-        async move { reason_for_kind(ReasoningKind::CustomerCategory, &context) }
+    ) -> Result<Self::Conclusion, Self::Error> {
+        reason_for_kind(ReasoningKind::CustomerCategory, &context)
     }
 }
 
@@ -287,11 +286,11 @@ impl Reasoner for PostingAnomalyReasoner {
     type Conclusion = SavantConclusion;
     type Error = SavantError;
 
-    fn reason<'a>(
+    async fn reason<'a>(
         &'a self,
         context: ReasoningContext<'a>,
-    ) -> impl Future<Output = Result<Self::Conclusion, Self::Error>> + Send + 'a {
-        async move { reason_for_kind(ReasoningKind::PostingAnomaly, &context) }
+    ) -> Result<Self::Conclusion, Self::Error> {
+        reason_for_kind(ReasoningKind::PostingAnomaly, &context)
     }
 }
 
@@ -302,11 +301,11 @@ impl Reasoner for NextBestActionReasoner {
     type Conclusion = SavantConclusion;
     type Error = SavantError;
 
-    fn reason<'a>(
+    async fn reason<'a>(
         &'a self,
         context: ReasoningContext<'a>,
-    ) -> impl Future<Output = Result<Self::Conclusion, Self::Error>> + Send + 'a {
-        async move { reason_for_kind(ReasoningKind::NextBestAction, &context) }
+    ) -> Result<Self::Conclusion, Self::Error> {
+        reason_for_kind(ReasoningKind::NextBestAction, &context)
     }
 }
 
@@ -319,19 +318,17 @@ impl Reasoner for OtherReasoner {
     type Conclusion = SavantConclusion;
     type Error = SavantError;
 
-    fn reason<'a>(
+    async fn reason<'a>(
         &'a self,
         context: ReasoningContext<'a>,
-    ) -> impl Future<Output = Result<Self::Conclusion, Self::Error>> + Send + 'a {
-        async move {
-            match context.kind {
-                ReasoningKind::Other(_) => {
-                    let savant = resolve_savant(context.kind, context.namespace)
-                        .ok_or(SavantError::UnknownSavant)?;
-                    Ok(build_conclusion(savant, &context))
-                }
-                _ => Err(SavantError::KindMismatch),
+    ) -> Result<Self::Conclusion, Self::Error> {
+        match context.kind {
+            ReasoningKind::Other(_) => {
+                let savant = resolve_savant(context.kind, context.namespace)
+                    .ok_or(SavantError::UnknownSavant)?;
+                Ok(build_conclusion(savant, &context))
             }
+            _ => Err(SavantError::KindMismatch),
         }
     }
 }
@@ -339,6 +336,11 @@ impl Reasoner for OtherReasoner {
 #[cfg(test)]
 mod tests {
     use super::*;
+    // `savant_by_name` is a test-only lookup — the lib dispatches through
+    // `resolve_savant` / `SAVANTS`, so importing it at module scope made it an
+    // unused import in the lib build.
+    use lance_graph_contract::savants::savant_by_name;
+
     use core::future::Future;
     use core::pin::pin;
     use core::task::{Context, Poll, RawWaker, RawWakerVTable, Waker};

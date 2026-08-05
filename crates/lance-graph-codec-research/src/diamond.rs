@@ -8,7 +8,7 @@
 //! The 25% noise floor IS the lossy compression. What survives is what
 //! the psychoacoustic model says humans perceive.
 
-use crate::{CrystallizedComponent, SpectralAccumulator, AudioQualia, BARK_BANDS, FRAME_RATE};
+use crate::{CrystallizedComponent, SpectralAccumulator, BARK_BANDS};
 use crate::bands::bf16_to_f32;
 
 /// A Diamond Markov audio session: streams frames, extracts components.
@@ -147,9 +147,6 @@ impl DiamondAudioSession {
             .map(|&c| c.abs() as i64).sum();
         let reconstructed_energy: i64 = reconstructed.cells.iter()
             .map(|&c| c.abs() as i64).sum();
-        let component_energy: i64 = self.components.iter()
-            .map(|c| c.spectrum.iter().map(|&s| bf16_to_f32(s).abs() as i64).sum::<i64>())
-            .sum();
 
         // Hamming distance between residual and reconstructed
         let mut hamming = 0u64;

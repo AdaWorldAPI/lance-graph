@@ -529,10 +529,10 @@ enum RdfValue {
     Literal(String),
 }
 
-fn subject_to_string(s: &oxrdf::Subject) -> String {
+fn subject_to_string(s: &oxrdf::NamedOrBlankNode) -> String {
     match s {
-        oxrdf::Subject::NamedNode(n) => n.as_str().to_string(),
-        oxrdf::Subject::BlankNode(b) => format!("_:{}", b.as_str()),
+        oxrdf::NamedOrBlankNode::NamedNode(n) => n.as_str().to_string(),
+        oxrdf::NamedOrBlankNode::BlankNode(b) => format!("_:{}", b.as_str()),
     }
 }
 

@@ -160,7 +160,10 @@ fn top_k_op(fp_bytes: &[u8], k: usize) -> Vec<u16> {
         .enumerate()
         .map(|(i, w)| (w.count_ones(), i as u16))
         .collect();
-    scored.sort_unstable_by(|a, b| b.0.cmp(&a.0));
+    // Descending by popcount. `Reverse` is exactly the previous comparator
+    // (`b.0.cmp(&a.0)`); tie order among equal popcounts stays
+    // implementation-defined either way, as it was before.
+    scored.sort_unstable_by_key(|&(count, _)| core::cmp::Reverse(count));
     scored.into_iter().take(k).map(|(_, idx)| idx).collect()
 }
 
@@ -174,9 +177,6 @@ struct UnbindUdf {
 }
 
 impl datafusion::logical_expr::ScalarUDFImpl for UnbindUdf {
-    fn as_any(&self) -> &dyn std::any::Any {
-        self
-    }
     fn name(&self) -> &str {
         "vsa_unbind"
     }
@@ -247,9 +247,6 @@ struct BundleUdf {
 }
 
 impl datafusion::logical_expr::ScalarUDFImpl for BundleUdf {
-    fn as_any(&self) -> &dyn std::any::Any {
-        self
-    }
     fn name(&self) -> &str {
         "vsa_bundle"
     }
@@ -317,9 +314,6 @@ struct HammingDistUdf {
 }
 
 impl datafusion::logical_expr::ScalarUDFImpl for HammingDistUdf {
-    fn as_any(&self) -> &dyn std::any::Any {
-        self
-    }
     fn name(&self) -> &str {
         "vsa_hamming_dist"
     }
@@ -384,9 +378,6 @@ struct BraidAtUdf {
 }
 
 impl datafusion::logical_expr::ScalarUDFImpl for BraidAtUdf {
-    fn as_any(&self) -> &dyn std::any::Any {
-        self
-    }
     fn name(&self) -> &str {
         "vsa_braid_at"
     }
@@ -429,11 +420,12 @@ impl datafusion::logical_expr::ScalarUDFImpl for BraidAtUdf {
             .collect::<Vec<_>>();
 
         let mut builder = FixedSizeBinaryBuilder::with_capacity(len, FP_BYTES);
-        for i in 0..len {
-            if pos_col.is_null(i) || fps[i].is_none() {
+        debug_assert_eq!(fps.len(), len, "fps is built from the same array as len");
+        for (i, fp) in fps.iter().enumerate() {
+            if pos_col.is_null(i) || fp.is_none() {
                 builder.append_null();
             } else {
-                let out = braid_at_op(pos_col.value(i), fps[i].as_ref().unwrap());
+                let out = braid_at_op(pos_col.value(i), fp.as_ref().unwrap());
                 builder.append_value(words_to_bytes(&out)).unwrap();
             }
         }
@@ -462,9 +454,6 @@ struct TopKUdf {
 }
 
 impl datafusion::logical_expr::ScalarUDFImpl for TopKUdf {
-    fn as_any(&self) -> &dyn std::any::Any {
-        self
-    }
     fn name(&self) -> &str {
         "vsa_top_k"
     }
@@ -503,12 +492,17 @@ impl datafusion::logical_expr::ScalarUDFImpl for TopKUdf {
         let mut all_values: Vec<u16> = Vec::new();
         let mut offsets: Vec<i32> = vec![0];
 
-        for i in 0..len {
-            if fp_arr[i].is_none() || k_col.is_null(i) {
+        debug_assert_eq!(
+            fp_arr.len(),
+            len,
+            "fp_arr is built from the same array as len"
+        );
+        for (i, fp) in fp_arr.iter().enumerate() {
+            if fp.is_none() || k_col.is_null(i) {
                 offsets.push(*offsets.last().unwrap());
             } else {
                 let k = k_col.value(i) as usize;
-                let indices = top_k_op(fp_arr[i].as_ref().unwrap(), k);
+                let indices = top_k_op(fp.as_ref().unwrap(), k);
                 all_values.extend_from_slice(&indices);
                 offsets.push(*offsets.last().unwrap() + indices.len() as i32);
             }

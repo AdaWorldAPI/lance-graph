@@ -155,7 +155,11 @@ fn resolve(stream: &[&str], pos: usize, p: Pron) -> Option<usize> {
         nf.plural == plural && want_anim.is_none_or(|a| nf.animate == a)
     };
     // pass 1: strict animacy (it -> inanimate)
-    let want = animate.or(Some(false).filter(|_| animate.is_none()));
+    // Keep the pronoun's own animacy when it has one; an unmarked pronoun
+    // (`it`) starts as inanimate. Same value as the previous
+    // `.or(Some(false).filter(|_| animate.is_none()))`, without evaluating a
+    // filter whose predicate can only be true on the None branch.
+    let want = animate.or(Some(false));
     for &k in &cands {
         if let Some(nf) = noun_features(stream[k]) {
             if agrees(&nf, want) {

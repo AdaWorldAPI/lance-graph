@@ -1,3 +1,40 @@
+## E-LANCE-IS-UPSTREAM-AUTHORITATIVE-1 (2026-08-05, operator-ruled — corrects a P0 in `CLAUDE.md`)
+
+**The lance family is consumed from crates.io upstream and NEVER from a fork —
+"too risky, and the upstream is authoritative."** Operator ruling, verbatim
+substance: *"lance and lancedb are never used from forks because it's too risky
+and the upstream is authoritative."* Scope: `lance`, `lancedb`, and the whole
+`lance-*` family (`lance-arrow` / `lance-core` / `lance-index` / `lance-linalg` /
+`lance-namespace` / `lance-datafusion` / …).
+
+**This CORRECTS `CLAUDE.md`'s P0**, which explicitly named `lance` / `lancedb` /
+`lance-index` / `lance-linalg` / `lance-namespace` in its must-be-wired-via-the-fork
+list. That naming was wrong; the P0 has been regraded in place with a `⊘`
+carve-out (append-only — the rule itself stands for `ndarray`, `surrealdb`, and
+every other forked crate).
+
+**The trap this closes, and why it needed a ruling.** `AdaWorldAPI/lance` and
+`AdaWorldAPI/lancedb` DO exist as repos — I found them while auditing the v9
+bump and read their existence, plus the P0's explicit naming, as evidence of a
+standing policy violation to be fixed. It is the opposite: **a fork's existence
+is not evidence of intent to depend on it.** A future session that greps
+`list_repos`, finds the forks, and "corrects" the registry pins would be
+introducing the risk, not removing it. Registry pins for this family are
+CORRECT.
+
+The reasoning generalizes: **forking the storage engine whose durability
+guarantees the whole stack trusts buys a maintenance liability, not freedom.**
+The stack's own value is in the layers above (spine, contracts, codecs) — a
+diverged Lance would have to re-earn upstream's durability testing forever.
+Both forks are in fact stale (no tags, `main` only, last pushed 2026-05-28 and
+2026-02-26) and could not supply v9 today even if policy allowed it.
+
+**What discipline DOES apply:** exact lockstep. Every member pinned `=X.Y.Z`,
+with `lancedb`'s own `lance` pin matching, so a bump is one deliberate measured
+PR (the v9 probe below) and never a drift.
+
+**Status:** RULING (operator). Carve-out live in `CLAUDE.md` P0.
+
 ## E-THE-LEGEND-IS-NOT-THE-GRAMMAR-1 (2026-08-05, measured — PROBE-ORACLE-FUNNEL Stage 0)
 
 **Vocabulary knowledge buys almost nothing at a refuse-don't-guess gate; the

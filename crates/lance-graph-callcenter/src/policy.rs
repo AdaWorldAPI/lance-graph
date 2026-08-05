@@ -315,9 +315,6 @@ impl std::hash::Hash for NotYetWiredHashUdf {
 
 #[cfg(feature = "auth-rls-lite")]
 impl ScalarUDFImpl for NotYetWiredHashUdf {
-    fn as_any(&self) -> &dyn std::any::Any {
-        self
-    }
     /// Stable name — surfaces in plan rendering so test assertions
     /// (and operators inspecting EXPLAIN output) can verify the
     /// wrap was applied.

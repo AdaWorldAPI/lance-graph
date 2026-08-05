@@ -1,5 +1,44 @@
 # Issues Log — Open + Resolved (double-entry, append-only)
 
+## ISS-CODEC-RESEARCH-MDCT-ASSERT (2026-08-05) — OPEN, PRE-EXISTING, DISCOVERED NOT CAUSED
+
+**The observation.** `cargo +1.97.1 test --manifest-path
+crates/lance-graph-codec-research/Cargo.toml --lib` fails **9 of 65** tests. Every
+one of the nine panics at the same line —
+`transform.rs:46 assert_eq!(input.len(), n * 2, "MDCT input must be 2N samples")` —
+reached through `perframe::encode_perframe`, `metrics::compare_all_strategies`, or
+`hybrid::encode_hybrid`. Failing: `hybrid::tests::{test_hybrid_bitrate_breakdown,
+test_hybrid_encode_basic, test_hybrid_scent_stream_valid}`,
+`metrics::tests::{test_compare_noise, test_compare_sine,
+test_hypothesis_tonal_vs_noise}`, `perframe::tests::{test_encode_silence,
+test_encode_sine_wave}`, `transform::tests::test_band_energy_roundtrip`.
+
+**Why it is not a regression from the 1.97 clippy sweep.** The sweep's eight-file
+diff was stashed and the suite re-run at HEAD: **identical 56 passed / 9 failed,
+identical test names.** The sweep is exonerated by measurement, not by argument.
+The commit landing those lint fixes says so and links here.
+
+**The arithmetic, which is the whole diagnosis.** `mdct` binds `n2 =
+output.len()` (commented "N/2"), `n = n2 * 2`, then requires `input.len() == n * 2`
+— i.e. **4× the coefficient count**. Every one of the four call sites passes
+`2 * SAMPLES_PER_FRAME` samples for `SAMPLES_PER_FRAME` coefficients, which is the
+2N→N contract the doc-comment and the assert message both state. So the assert as
+written can never be satisfied by any caller in the crate, and the internal
+indexing (`idx0 = (n4 + k) % (n * 2)`) is consistent with the 4N reading, not with
+the callers. Either the naming is off by one factor of two throughout the function
+or the fold is wrong — **do not "fix" this by relaxing the assert**; that would
+silently index a 2N buffer with 4N arithmetic.
+
+**Why nobody noticed.** `lance-graph-codec-research` is workspace-EXCLUDED, so no
+`-p` run reaches it, and `.github/workflows/style.yml` gates it at **neither** the
+mandatory nor the advisory tier. A crate that no gate runs is a crate whose red is
+invisible. That absence of coverage is the second-order finding here.
+
+**Resolution shape.** Decide the intended transform size convention first (read
+`imdct`, which asserts nothing, and `test_band_energy_roundtrip`'s expectation),
+then correct `mdct` to match and re-anchor. Owner: unassigned. Not a blocker for
+the 1.97/lance-9 arc.
+
 ## ISS-MARM-T1-4X-A0-GAP (2026-08-05) — OPEN, MEASUREMENT DEFECT NOT A RESULT
 
 **The observation.** The M-arm's temporal-reconstruction baseline (T1) reads

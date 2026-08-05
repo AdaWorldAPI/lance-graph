@@ -299,11 +299,15 @@ impl CrystalTriple {
 pub fn pack_spo_crystal(container: &mut [u64; CONTAINER_WORDS], triples: &[CrystalTriple]) {
     let n = triples.len().min(CrystalTriple::MAX_CRYSTAL_TRIPLES);
     // Zero the region first
-    for w in W_SPO_CRYSTAL_START..=W_SPO_CRYSTAL_END {
-        container[w] = 0;
+    for word in container
+        .iter_mut()
+        .take(W_SPO_CRYSTAL_END + 1)
+        .skip(W_SPO_CRYSTAL_START)
+    {
+        *word = 0;
     }
-    for i in 0..n {
-        let bytes = triples[i].to_bytes();
+    for (i, triple) in triples.iter().enumerate().take(n) {
+        let bytes = triple.to_bytes();
         // Each triple is 16 bytes = 2 words
         let w_off = i * 2;
         container[W_SPO_CRYSTAL_START + w_off] =
@@ -383,8 +387,12 @@ impl InlineEdge {
 pub fn pack_extended_edges(container: &mut [u64; CONTAINER_WORDS], edges: &[InlineEdge]) {
     let n_words = (W_EXT_EDGES_END - W_EXT_EDGES_START) + 1; // 16
                                                              // Zero the region
-    for w in W_EXT_EDGES_START..=W_EXT_EDGES_END {
-        container[w] = 0;
+    for word in container
+        .iter_mut()
+        .take(W_EXT_EDGES_END + 1)
+        .skip(W_EXT_EDGES_START)
+    {
+        *word = 0;
     }
     for wi in 0..n_words {
         let base = wi * 4;
@@ -427,8 +435,8 @@ pub fn unpack_extended_edges(container: &[u64; CONTAINER_WORDS]) -> Vec<InlineEd
 /// Set the wide checksum (W254). XOR-fold of W128-253.
 pub fn compute_wide_checksum(container: &[u64; CONTAINER_WORDS]) -> u64 {
     let mut xor = 0u64;
-    for i in 128..254 {
-        xor ^= container[i];
+    for word in container.iter().take(254).skip(128) {
+        xor ^= word;
     }
     xor
 }
@@ -776,7 +784,8 @@ mod tests {
         assert_eq!(CONTAINER_BYTES, 2048);
         assert_eq!(CONTAINER_WORDS, 256);
         // Base17 annex: 13 words = 104 bytes ≥ 102 bytes (SpoBase17)
-        assert!((W_BGZ17_ANNEX_END - W_BGZ17_ANNEX_START + 1) * 8 >= SpoBase17::BYTE_SIZE);
+        const _: () =
+            assert!((W_BGZ17_ANNEX_END - W_BGZ17_ANNEX_START + 1) * 8 >= SpoBase17::BYTE_SIZE);
         // Palette word fits in 1 word
         assert_eq!(W_PALETTE_PACK, W_BGZ17_ANNEX_END + 1);
     }

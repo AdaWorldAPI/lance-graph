@@ -14,7 +14,6 @@ pub fn encode_perframe(samples: &[f32]) -> Vec<AudioFrame> {
     let window = sine_window(SAMPLES_PER_FRAME * 2);
     let hop = SAMPLES_PER_FRAME;
     let mut frames = Vec::new();
-    let mut prev_bands = [0u16; BARK_BANDS];
     let mut prev_energies = [0.0f32; BARK_BANDS];
 
     let n_frames = samples.len().saturating_sub(SAMPLES_PER_FRAME * 2) / hop;
@@ -64,7 +63,6 @@ pub fn encode_perframe(samples: &[f32]) -> Vec<AudioFrame> {
             mask: mask_packed,
         });
 
-        prev_bands = packed;
         prev_energies = energies;
     }
 
@@ -141,7 +139,7 @@ mod tests {
             .map(|(i, _)| i)
             .unwrap();
 
-        assert!(max_band >= 3 && max_band <= 6,
+        assert!((3..=6).contains(&max_band),
             "440Hz should be in band 3-6, got band {}", max_band);
     }
 }

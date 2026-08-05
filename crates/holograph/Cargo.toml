@@ -32,10 +32,10 @@ arrow-schema = "58"
 arrow-buffer = "58"
 
 # Query engine — DataFusion 52
-datafusion = { version = "53", optional = true }
+datafusion = { version = "54", optional = true }
 
 # Lance columnar format — 100x faster random access than Parquet
-lance = { version = "=7.0.0", optional = true, default-features = false }
+lance = { version = "=9.0.0", optional = true, default-features = false }
 
 # Async runtime
 tokio = { version = "1.49", features = ["rt-multi-thread", "macros"], optional = true }

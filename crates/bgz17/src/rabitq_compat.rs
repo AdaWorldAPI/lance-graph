@@ -88,12 +88,12 @@ impl OrthogonalMatrix {
         let d = self.dim;
         assert!(input.len() >= d);
         let mut out = vec![0.0f32; d];
-        for i in 0..d {
+        for (i, out_i) in out.iter_mut().enumerate().take(d) {
             let mut sum = 0.0f32;
-            for j in 0..d {
-                sum += self.data[i * d + j] * input[j];
+            for (j, &input_j) in input.iter().enumerate().take(d) {
+                sum += self.data[i * d + j] * input_j;
             }
-            out[i] = sum;
+            *out_i = sum;
         }
         out
     }
@@ -124,7 +124,7 @@ impl RaBitQEncoding {
         let rotated = rotation.rotate(&normalized);
 
         // Step 4: sign-quantize → binary
-        let nwords = (d + 63) / 64;
+        let nwords = d.div_ceil(64);
         let mut binary = vec![0u64; nwords];
         for (i, &v) in rotated.iter().enumerate() {
             if v >= 0.0 {

@@ -21,8 +21,8 @@ ENV RUSTUP_HOME=/usr/local/rustup \
     CARGO_HOME=/usr/local/cargo \
     PATH=/usr/local/cargo/bin:$PATH
 RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | \
-    sh -s -- -y --default-toolchain 1.94.0 --profile minimal \
-    && rustc --version | grep -q "1.94.0"
+    sh -s -- -y --default-toolchain 1.97.1 --profile minimal \
+    && rustc --version | grep -q "1.97.1"
 
 WORKDIR /app
 
@@ -52,4 +52,4 @@ RUN cargo test --release \
 
 FROM debian:bookworm-slim
 RUN apt-get update && apt-get install -y --no-install-recommends ca-certificates && rm -rf /var/lib/apt/lists/*
-CMD ["echo", "lance-graph AVX-512 build verified — Rust 1.94.0, target-cpu=x86-64-v4"]
+CMD ["echo", "lance-graph AVX-512 build verified — Rust 1.97.1, target-cpu=x86-64-v4"]

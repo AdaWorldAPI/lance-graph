@@ -1,3 +1,15 @@
+## 2026-08-05 — lance 9 / lancedb 0.33 / DataFusion 54 / Rust 1.97.1 — the ecosystem bump, MEASURED then LANDED across 9 repos
+
+**Current pins:** `lance =9.0.0`, `lancedb =0.33.0`, `datafusion 54`, `arrow 58` (unmoved), `object_store 0.13.2` (unmoved), toolchain **1.97.1**. Plan: `.claude/plans/lance9-datafusion54-upgrade-probe-v1.md`.
+
+Started as a what-breaks probe, became the bump on the operator's "bump all now, fix after". Method that made it legible: the toolchain was tested ALONE on the OLD pins first, so a toolchain failure could never be confused with a dependency failure — it came back clean, making every later red attributable to the deps. **The entire break surface was one uniform DataFusion change** — `Any` moved from a method to a supertrait on seven traits — costing 12 `as_any` deletions and no call-site changes.
+
+**Two operator rulings landed:** `E-LANCE-IS-UPSTREAM-AUTHORITATIVE-1` (lance family from crates.io upstream, NEVER a fork; the `AdaWorldAPI/lance` + `/lancedb` repos exist but are deliberately not depended on — CLAUDE.md's P0 carve-out now says so, since it had named them as must-fork) and, from the Stage-0 funnel probe, `E-THE-LEGEND-IS-NOT-THE-GRAMMAR-1`.
+
+**Contract-inventory deltas:** none — the bump is pins + lint fixes. `lance-graph-ontology`'s 12 long-standing lints are cleared, which is what made `rust-toolchain.toml`'s own "bump when clippy is clean" precondition satisfiable.
+
+**Standing gates (unchanged):** D-BLW-5; D-HWV-1/EXP-HOT-WINDOW; PROBE-ORACLE-FUNNEL Stage 1 (rig LLM arm) and Stage 2 (NARS-34 Gadamer bag); `--features cycle-driver` CI arming. **Owed:** OGAR's 22 unswept crates; `blockly-rs`/`rig` still 1.95.0.
+
 ## 2026-08-05 — PR #894 (MERGED `d7a6efc`) + OGAR #243/#244/#245 — the wishlist round-trip closes and the funnel is MEASURED
 
 One same-day arc across the repo boundary, crate-dependency-free by ruling: **#243** (OGAR) delivered the consumer wishlist handover (F-1 double-sampling finding, W-1..W-5); **#244** (OGAR, loco session) shipped W-1 (compose-then-check), W-2 (`FnSpec.name` — OQ-1 answered "in the spec"), W-4 (`telemetry::FunnelTally`), W-5 (split-contract doc), leaving only the W-3 NARS-34 mint operator-gated; **#245** (OGAR) + **#894** (here) ran PROBE-ORACLE-FUNNEL Stage 0 over that delivery — pre-registered E1–E4 all met (floor 0.5% / legend-constrained 2.5% / stack-aware 100%; E4 discrimination KILL passes at 99.5 points vs the 50 bar). Headline finding: `E-THE-LEGEND-IS-NOT-THE-GRAMMAR-1` — the legend-knowing arm landed at the FLOOR; ~all funnel selectivity is the stack discipline, so the gated Stage-1 LLM arm's prompt must teach the discipline, not just serialize the ~382-token legend. Plan: `.claude/plans/oracle-funnel-probe-v1.md`.

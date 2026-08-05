@@ -429,7 +429,7 @@ mod tests {
 
         // Sign diff should be 20× the mantissa diff
         assert_eq!(d_sign, 100 * 20);
-        assert_eq!(d_mant, 100 * 1);
+        assert_eq!(d_mant, 100); // mantissa weight is ×1
         assert!(
             d_sign > d_mant * 10,
             "sign should dominate: {} vs {}",

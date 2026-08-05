@@ -7,7 +7,7 @@
 use rustfft::{num_complex::Complex, FftPlanner};
 use std::f32::consts::PI;
 
-use crate::{BARK_BANDS, SAMPLES_PER_FRAME, SAMPLE_RATE};
+use crate::{BARK_BANDS, SAMPLE_RATE};
 
 /// Bark-scale critical band edges in Hz for 24 bands.
 /// These approximate the frequency resolution of the human cochlea.
@@ -47,7 +47,7 @@ pub fn mdct(input: &[f32], output: &mut [f32]) {
 
     // Pre-twiddle: fold and rotate into N/2 complex values
     let mut pre = vec![Complex::new(0.0f32, 0.0f32); n2];
-    for k in 0..n2 {
+    for (k, slot) in pre.iter_mut().enumerate().take(n2) {
         let cos_tw = (PI / n as f32 * (2.0 * k as f32 + 1.0 + n2 as f32) * 0.5).cos();
         let sin_tw = (PI / n as f32 * (2.0 * k as f32 + 1.0 + n2 as f32) * 0.5).sin();
 
@@ -63,7 +63,7 @@ pub fn mdct(input: &[f32], output: &mut [f32]) {
         let s3 = if idx3 < input.len() { -input[idx3] } else { 0.0 };
 
         let re = s0 + s1 + s2 + s3;
-        pre[k] = Complex::new(re * cos_tw, re * sin_tw);
+        *slot = Complex::new(re * cos_tw, re * sin_tw);
     }
 
     // FFT of length N/2
@@ -89,10 +89,10 @@ pub fn imdct(input: &[f32], output: &mut [f32]) {
 
     // Pre-twiddle
     let mut pre = vec![Complex::new(0.0f32, 0.0f32); n2];
-    for k in 0..n2 {
+    for (k, slot) in pre.iter_mut().enumerate() {
         let cos_tw = (PI / n as f32 * (2.0 * k as f32 + 1.0 + n2 as f32) * 0.5).cos();
         let sin_tw = (PI / n as f32 * (2.0 * k as f32 + 1.0 + n2 as f32) * 0.5).sin();
-        pre[k] = Complex::new(input[k] * cos_tw, input[k] * sin_tw);
+        *slot = Complex::new(input[k] * cos_tw, input[k] * sin_tw);
     }
 
     // Inverse FFT of length N/2
@@ -102,10 +102,10 @@ pub fn imdct(input: &[f32], output: &mut [f32]) {
 
     // Post-twiddle and unfold
     let scale = 2.0 / n as f32;
-    for k in 0..n2 {
+    for (k, p) in pre.iter().enumerate() {
         let cos_tw = (PI / n as f32 * (2.0 * k as f32 + 1.0 + n2 as f32) * 0.5).cos();
         let sin_tw = (PI / n as f32 * (2.0 * k as f32 + 1.0 + n2 as f32) * 0.5).sin();
-        let val = (pre[k].re * cos_tw + pre[k].im * sin_tw) * scale;
+        let val = (p.re * cos_tw + p.im * sin_tw) * scale;
 
         // Unfold into 2N output with proper symmetry
         let n4 = n2 / 2;
@@ -130,8 +130,8 @@ pub fn coeffs_to_band_energies(coeffs: &[f32]) -> [f32; BARK_BANDS] {
         let bin_count = (hi - lo).max(1);
 
         let mut sum_sq = 0.0f32;
-        for bin in lo..hi {
-            sum_sq += coeffs[bin] * coeffs[bin];
+        for &c in coeffs.iter().take(hi).skip(lo) {
+            sum_sq += c * c;
         }
         energies[band] = (sum_sq / bin_count as f32).sqrt();
     }
@@ -151,8 +151,8 @@ pub fn band_energies_to_coeffs(energies: &[f32; BARK_BANDS], n_bins: usize) -> V
         let hi = freq_to_bin(edges[band + 1], n_bins).min(n_bins);
         let bin_count = (hi - lo).max(1);
         let per_bin = energies[band] / (bin_count as f32).sqrt();
-        for bin in lo..hi {
-            coeffs[bin] = per_bin;
+        for c in coeffs.iter_mut().take(hi).skip(lo) {
+            *c = per_bin;
         }
     }
 
@@ -178,7 +178,7 @@ pub fn psychoacoustic_mask(energies: &[f32; BARK_BANDS]) -> [f32; BARK_BANDS] {
         let mut mask = ath[band];
 
         // Spreading function: loud neighbors mask this band
-        for other in 0..BARK_BANDS {
+        for (other, &e) in energies.iter().enumerate() {
             if other == band {
                 continue;
             }
@@ -186,10 +186,10 @@ pub fn psychoacoustic_mask(energies: &[f32; BARK_BANDS]) -> [f32; BARK_BANDS] {
             // Spreading: -27 dB per Bark on the high side, -12 dB per Bark on the low side
             let spread = if other < band {
                 // Lower frequency masking upper: gentler slope
-                energies[other] * 10.0f32.powf(-1.2 * distance)
+                e * 10.0f32.powf(-1.2 * distance)
             } else {
                 // Upper frequency masking lower: steeper slope
-                energies[other] * 10.0f32.powf(-2.7 * distance)
+                e * 10.0f32.powf(-2.7 * distance)
             };
             mask = mask.max(spread);
         }
@@ -203,6 +203,7 @@ pub fn psychoacoustic_mask(energies: &[f32; BARK_BANDS]) -> [f32; BARK_BANDS] {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::SAMPLES_PER_FRAME;
 
     #[test]
     fn test_bark_band_edges_monotonic() {
@@ -230,8 +231,8 @@ mod tests {
         let edges = bark_band_edges();
         let lo = freq_to_bin(edges[5], n);
         let hi = freq_to_bin(edges[6], n);
-        for bin in lo..hi.min(n) {
-            coeffs[bin] = 1.0;
+        for c in coeffs.iter_mut().take(hi.min(n)).skip(lo) {
+            *c = 1.0;
         }
 
         let energies = coeffs_to_band_energies(&coeffs);

@@ -187,8 +187,7 @@ impl NamespaceRegistry {
     /// dynamically-allocated ones; only the seed table is consulted.
     pub fn seed_context_id(namespace_iri: &str) -> Option<u32> {
         use std::sync::LazyLock;
-        static SEED: LazyLock<NamespaceRegistry> =
-            LazyLock::new(NamespaceRegistry::seed_defaults);
+        static SEED: LazyLock<NamespaceRegistry> = LazyLock::new(NamespaceRegistry::seed_defaults);
         SEED.get(namespace_iri)
     }
 

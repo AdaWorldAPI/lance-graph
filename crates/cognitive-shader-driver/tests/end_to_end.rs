@@ -7,7 +7,7 @@ use bgz17::palette::Palette;
 use bgz17::palette_semiring::PaletteSemiring;
 
 use cognitive_shader_driver::auto_style;
-use cognitive_shader_driver::bindspace::{BindSpace, FLOATS_PER_VSA, WORDS_PER_FP};
+use cognitive_shader_driver::bindspace::{BindSpace, FLOATS_PER_VSA};
 use cognitive_shader_driver::driver::CognitiveShaderBuilder;
 use cognitive_shader_driver::engine_bridge::{
     classification_distance, ingest_codebook_indices, persist_cycle, read_qualia_17d,
@@ -31,9 +31,13 @@ fn palette_256() -> PaletteSemiring {
 
 fn planes_chain() -> [[u64; 64]; 8] {
     let mut planes = [[0u64; 64]; 8];
+    // Position-coupled bit patterns (bit i+1 at word i / bit i at word i) —
+    // the index IS the data here, so the range loop is the clear spelling.
+    #[expect(clippy::needless_range_loop)]
     for i in 0..63 {
         planes[0][i] |= 1u64 << (i + 1); // CAUSES chain
     }
+    #[expect(clippy::needless_range_loop)]
     for i in 0..64 {
         planes[2][i] |= 1u64 << i; // SUPPORTS self
     }

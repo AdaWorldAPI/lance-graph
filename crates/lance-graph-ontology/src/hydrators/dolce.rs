@@ -87,8 +87,10 @@ const DOLCE_EDGE_WHITELIST: &[&str] = &[
 /// [`OntologyRegistry::register_edge_types`].
 pub fn hydrate_dolce(registry: &OntologyRegistry) -> Result<u32, HydrateErr> {
     let dul = dul_ttl_path();
-    let extensions: Vec<PathBuf> =
-        DUL_EXTENSION_RELATIVE_PATHS.iter().map(extension_path).collect();
+    let extensions: Vec<PathBuf> = DUL_EXTENSION_RELATIVE_PATHS
+        .iter()
+        .map(extension_path)
+        .collect();
     let mut paths: Vec<&Path> = Vec::with_capacity(1 + extensions.len());
     paths.push(&dul);
     for ext in &extensions {
@@ -102,10 +104,7 @@ pub fn hydrate_dolce(registry: &OntologyRegistry) -> Result<u32, HydrateErr> {
 /// Test-friendly variant: hydrate DOLCE from an explicit single path
 /// (typically a test fixture). Use [`hydrate_dolce_from_many`] when you want
 /// to mix the canonical DUL.ttl with extension modules.
-pub fn hydrate_dolce_from(
-    ttl_path: &Path,
-    registry: &OntologyRegistry,
-) -> Result<u32, HydrateErr> {
+pub fn hydrate_dolce_from(ttl_path: &Path, registry: &OntologyRegistry) -> Result<u32, HydrateErr> {
     hydrate_dolce_from_many(&[ttl_path], registry)
 }
 

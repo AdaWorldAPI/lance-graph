@@ -15,26 +15,26 @@ fn classify_odoo_matrix_matches_seam_table() {
     // (odoo model, expected category) — verbatim from the seam doc's 21-row
     // table, in the same order.
     let matrix: &[(&str, DolceCategory)] = &[
-        ("res.partner", Endurant),         // persistent stateful object
-        ("res.users", Endurant),           // persistent stateful object
-        ("res.company", Endurant),         // persistent stateful object
-        ("account.move", Perdurant),       // .move — the journal-entry event
-        ("account.move.line", Perdurant),  // child of Perdurant; fact within event
-        ("account.account", Endurant),     // chart-of-accounts entry persists
-        ("account.tax", Quality),          // .tax — a rate, characterises a txn
-        ("account.journal", Endurant),     // persistent container
-        ("product.product", Endurant),     // the product is the stateful thing
-        ("product.template", Endurant),    // SPECIAL-CASE: master record, not config
-        ("product.category", Quality),     // classification
-        ("stock.move", Perdurant),         // .move — the stock event
-        ("stock.picking", Perdurant),      // .picking — the logistic event
-        ("stock.warehouse", Endurant),     // the physical warehouse
-        ("mail.message", Perdurant),       // .message — communication event
-        ("crm.lead", Endurant),            // the lead persists
-        ("crm.tag", Quality),              // classification
-        ("hr.employee", Endurant),         // persistent person
-        ("hr.attendance", Perdurant),      // .attendance — an attendance event
-        ("mail.template", AbstractEntity), // .template — true template/config
+        ("res.partner", Endurant),                  // persistent stateful object
+        ("res.users", Endurant),                    // persistent stateful object
+        ("res.company", Endurant),                  // persistent stateful object
+        ("account.move", Perdurant),                // .move — the journal-entry event
+        ("account.move.line", Perdurant),           // child of Perdurant; fact within event
+        ("account.account", Endurant),              // chart-of-accounts entry persists
+        ("account.tax", Quality),                   // .tax — a rate, characterises a txn
+        ("account.journal", Endurant),              // persistent container
+        ("product.product", Endurant),              // the product is the stateful thing
+        ("product.template", Endurant),             // SPECIAL-CASE: master record, not config
+        ("product.category", Quality),              // classification
+        ("stock.move", Perdurant),                  // .move — the stock event
+        ("stock.picking", Perdurant),               // .picking — the logistic event
+        ("stock.warehouse", Endurant),              // the physical warehouse
+        ("mail.message", Perdurant),                // .message — communication event
+        ("crm.lead", Endurant),                     // the lead persists
+        ("crm.tag", Quality),                       // classification
+        ("hr.employee", Endurant),                  // persistent person
+        ("hr.attendance", Perdurant),               // .attendance — an attendance event
+        ("mail.template", AbstractEntity),          // .template — true template/config
         ("account.chart.template", AbstractEntity), // .template — chart template
     ];
 
@@ -56,7 +56,10 @@ fn product_template_special_case_overrides_template_suffix() {
     // it for the master product record — the seam's single special-case.
     assert_eq!(classify_odoo("product.template"), DolceCategory::Endurant);
     // ...while other `.template` models stay Abstract.
-    assert_eq!(classify_odoo("mail.template"), DolceCategory::AbstractEntity);
+    assert_eq!(
+        classify_odoo("mail.template"),
+        DolceCategory::AbstractEntity
+    );
     assert_eq!(
         classify_odoo("account.chart.template"),
         DolceCategory::AbstractEntity

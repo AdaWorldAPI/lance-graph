@@ -127,8 +127,8 @@ pub fn premultiplied_over(palette: &Palette, contribs: &[(u8, u16)]) -> [i64; BA
     let mut acc = [0i64; BASE_DIM];
     for &(code, weight) in contribs {
         let entry = &palette.entries[code as usize];
-        for d in 0..BASE_DIM {
-            acc[d] += weight as i64 * entry.dims[d] as i64;
+        for (d, acc_d) in acc.iter_mut().enumerate().take(BASE_DIM) {
+            *acc_d += weight as i64 * entry.dims[d] as i64;
         }
     }
     acc
@@ -144,8 +144,8 @@ mod tests {
         let entries = (0..k)
             .map(|i| {
                 let mut dims = [0i16; BASE_DIM];
-                for d in 0..BASE_DIM {
-                    dims[d] = ((i * 97 + d * 31) % 512) as i16 - 256;
+                for (d, dim) in dims.iter_mut().enumerate().take(BASE_DIM) {
+                    *dim = ((i * 97 + d * 31) % 512) as i16 - 256;
                 }
                 Base17 { dims }
             })
@@ -159,8 +159,8 @@ mod tests {
         let mut entries: Vec<Base17> = (0..31)
             .map(|i| {
                 let mut dims = [0i16; BASE_DIM];
-                for d in 0..BASE_DIM {
-                    dims[d] = ((i * 97 + d * 31) % 512) as i16 - 256;
+                for (d, dim) in dims.iter_mut().enumerate().take(BASE_DIM) {
+                    *dim = ((i * 97 + d * 31) % 512) as i16 - 256;
                 }
                 Base17 { dims }
             })

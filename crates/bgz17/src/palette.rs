@@ -589,8 +589,8 @@ mod tests {
         (0..n)
             .map(|i| {
                 let mut dims = [0i16; 17];
-                for d in 0..17 {
-                    dims[d] = ((i * 7 + d * 13) % 256) as i16 - 128;
+                for (d, dim) in dims.iter_mut().enumerate() {
+                    *dim = ((i * 7 + d * 13) % 256) as i16 - 128;
                 }
                 Base17 { dims }
             })
@@ -704,7 +704,7 @@ mod tests {
         assert_eq!(palette.len(), 16);
         // All entries should be distinct (from different percentile bands)
         for i in 0..palette.len() {
-            for j in (i + 1)..palette.len() {
+            for _j in (i + 1)..palette.len() {
                 // Not necessarily distinct, but they come from different positions
                 // At minimum, palette shouldn't be empty
                 assert!(!palette.entries[i].dims.iter().all(|&d| d == 0) || i == 0);
