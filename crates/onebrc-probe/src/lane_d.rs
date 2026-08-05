@@ -7,9 +7,11 @@
 //! `merge_maps`) — the only variable this lane changes is the worker
 //! primitive: a `ractor` `Actor` instead of a raw OS thread.
 //!
-//! Mirrors `lance-graph-supervisor`'s `KanbanActor` idioms (`kanban_actor.rs`
-//! — `Actor::spawn`, the ask-pattern `ractor::call!`, `RpcReplyPort` in the
-//! message variant) for a single, stateless worker actor.
+//! Uses the standard ractor idioms (`Actor::spawn`, the ask-pattern
+//! `ractor::call!`, `RpcReplyPort` in the message variant) for a single,
+//! stateless worker actor. (These idioms were once mirrored from the
+//! supervisor's `KanbanActor`, deleted 2026-08-05 — lane D keeps its own
+//! actors deliberately: pricing the actor model is this lane's PURPOSE.)
 //!
 //! ## Actor-model boundary cost
 //!
@@ -35,8 +37,8 @@ use ractor::{Actor, ActorProcessingErr, ActorRef, RpcReplyPort};
 use std::collections::BTreeMap;
 use std::sync::Arc;
 
-/// Messages `ChunkWorker` accepts — a single ask-pattern variant per the
-/// `KanbanActor` idiom (`kanban_actor.rs`'s `RpcReplyPort`-in-variant shape).
+/// Messages `ChunkWorker` accepts — a single ask-pattern variant
+/// (`RpcReplyPort`-in-variant shape).
 pub enum ChunkMsg {
     /// Aggregate `data[start..end]` (newline-aligned, per `chunk_bounds`)
     /// via `lane_a_scalar` and reply with the owned per-chunk map.

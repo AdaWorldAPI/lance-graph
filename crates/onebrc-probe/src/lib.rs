@@ -14,12 +14,13 @@
 //!   vectorized `;`/`\n` scan, scalar parse.
 //! - **Lane D** (`lane_d::lane_d_ractor`, feature `lane-d`) — `ractor`
 //!   actor-per-worker over the same `chunk_bounds` split as Lane C.
-//! - **Lane E** (`lane_e::lane_e_kanban`, feature `lane-e`) — kanban-scheduled
-//!   batches: a shared `AtomicUsize` batch queue, one fresh `KanbanActor` per
-//!   batch driven through the full Rubicon forward arc
+//! - **Lane E** (`lane_e::lane_e_kanban`, feature `lane-e`) — kanban-journaled
+//!   batches: a shared `AtomicUsize` batch queue, one fresh exclusively-owned
+//!   board per batch driven `&mut` through the full Rubicon forward arc
 //!   (Planning->CognitiveWork->Evaluation->Commit) around the actual work.
-//!   Measures the V3 kanban scheduling/journaling tax (E-D isolates the
-//!   journaling cost; fine-grained batching prices per-card scheduling).
+//!   Measures the V3 kanban journaling tax at card granularity. (The lane's
+//!   original actor-per-batch variant retired 2026-08-05 with the deleted
+//!   KanbanActor surface — see `lane_e.rs` module doc.)
 //! - **Lanes F/R** (`lane_f::{lane_f_morton, lane_r_radix}`, std-only, no
 //!   feature) — the substrate-native lane and its honest control: station
 //!   identity → Morton tile address → SoA-shaped flat accumulators (F);
@@ -64,11 +65,11 @@ pub mod lane_h;
 pub mod lane_i;
 #[cfg(feature = "lane-j")]
 pub mod lane_j;
+pub mod lane_s;
+pub mod lane_t;
 #[cfg(feature = "presets")]
 pub mod presets;
 pub mod sha256;
-pub mod lane_s;
-pub mod lane_t;
 
 #[cfg(feature = "lane-b")]
 pub use lane_b::lane_b_simd;
@@ -77,8 +78,6 @@ pub use lane_d::lane_d_ractor;
 #[cfg(feature = "lane-e")]
 pub use lane_e::lane_e_kanban;
 pub use lane_f::{lane_f_morton, lane_r_radix};
-pub use lane_s::lane_s_swar;
-pub use lane_t::{lane_t_byte, lane_t_trie};
 #[cfg(feature = "lane-g")]
 pub use lane_g::{lane_g_kanban_soa, lane_g_kanban_soa_with_morsel};
 #[cfg(feature = "lane-h")]
@@ -87,6 +86,8 @@ pub use lane_h::{lane_h_orchestrated, lane_h_orchestrated_with};
 pub use lane_i::{lane_i_batch_pipeline, lane_i_batch_pipeline_with};
 #[cfg(feature = "lane-j")]
 pub use lane_j::{lane_j_grid_pipeline, lane_j_grid_pipeline_with};
+pub use lane_s::lane_s_swar;
+pub use lane_t::{lane_t_byte, lane_t_trie};
 
 use std::collections::BTreeMap;
 

@@ -842,6 +842,17 @@ as a `[dev-dependencies]` path edge from `lance-graph-planner`. Do **not** inver
 it — hosting the harness inside `jc` would drag the planner's whole dep tree into
 a crate whose constitution is zero-dep, and §12.5 keeps `jc` the untouched oracle.
 
+#### 12.3a‴ OPERATOR ORDER (2026-08-05): the 64k 1:1-owner model IS the main model
+
+**Ordered, not proposed.** The main model: up to 64k mailboxes, 1:1
+owner-per-mailbox, each compile-time mutation-exclusive, 64k independent
+thought bodies, ONE deterministic convergence/seal boundary. §12.3a′ above
+is read through this order as a BENCHMARK-axis ruling only (rows within one
+owner = the inner parallelism level, D-BLW-4's measured territory); it never
+redefined the architecture. The outer level's "parallel" claim runs through
+D-KIA-A2's pre-registered protocol before it is ever stated as measured.
+Canonical text: `EPIPHANIES.md` E-64K-1TO1-OWNERS-IS-THE-MAIN-MODEL-1.
+
 #### 12.3a″ MEASURED RESULT (2026-08-04): D-BLW-2 is a STRUCTURAL KILL on the TSV path
 
 Built and **run** against the real export (`/tmp/kjv_spo.tsv`, 40,767 triples
@@ -1393,7 +1404,11 @@ criterion P2 at q=0.25).
 | controls | Z byte-identical (plumbing zero); G1 three-way extensional identity (Aware≡Retro≡Strict@V8); G4 both tails + real-data silent arm (the design's "~90 % god" premise measured 0.1285 — fixture replaced with constant-by-construction tails); G5/G6/G7 green |
 
 **The headline, exactly as large as the measurement:** the a-priori/hindsight
-gap **closes monotonically as the horizon extends** — Δκ: −0.485 (V1),
+gap **moves toward zero overall, with a small rebound at V6/V7** —
+*(⊘ 2026-08-05 regrade: measured under a GROWING reference pool — the
+trajectory is a cohort-relative rank effect until the A/B/C decomposition
+runs; see the E-entry's regrade and D-BLW-3b below. The numbers stand; the
+fusion ATTRIBUTION is CONJECTURE.)* Δκ: −0.485 (V1),
 −0.251, −0.079, −0.031, ≈0.000, +0.011, +0.017, 0.000 (V8, identical by
 construction); Hamming(A): 152→123→94→66→53→37→21→0. The distinction does
 real work early in the series and dissolves as horizons merge. That is a
@@ -1402,3 +1417,362 @@ no fusion verdict at V_pin, no substrate-exercise claim** (under this corpus
 `deinterlace` reduces to filter+sort; the finding lives in the rank
 criterion; the permitted claim is first `DeinterlaceRow` implementor and
 first `deinterlace` caller). §12.4's D3b validity gate stays closed.
+
+### 12.9 D-BLW-5 PROPOSED (2026-08-04, operator) — the OBSERVER-EFFECT loop: the jc measurement fed back into awareness
+
+> Operator framing, verbatim intent: *a scientific version of
+> Horizontverschmelzung is the jc-crate loop — information about the
+> correlation of a dataset, when fed into the awareness, influences the
+> correlation. The observer effect.*
+
+**Status: DESIGNED / CONJECTURE — queued behind PROBE-IGNITION. Nothing here
+is measured.**
+
+**What it adds over §12.8:** D-BLW-3 measured FIRST-ORDER fusion — horizons
+merge by sharing data (pool growth; Δκ −0.485 → 0). This probe measures
+SECOND-ORDER fusion — horizons merge by sharing the MEASUREMENT of each
+other. The Click's own arrow is the hook: `awareness.revise(key, outcome)` →
+`global_context += fact` → *reshapes NEXT cycle's F landscape*. Here the
+injected fact IS a jc statistic about the cohort.
+
+**The four-arm design (pre-registered SHAPE; numbers pinned at build time,
+before any run):**
+
+| arm | injection | pre-registered expectation |
+|---|---|---|
+| **T** (true) | `shape₀ × true rank₀` derived from sealed S₀ (§12.9a payload — never the raw statistic), injected as an ELEVATED-rung fact | the observable: S₁ − S₀. Fire iff it clears the floor. |
+| **F+ / F−** (false) | the TRUE shape₀ with a FALSE rank: equal-magnitude opposite shifts applied in **logit(rank) space** (symmetric by construction, no boundary clipping); anchors whose true rank falls outside a pinned eligibility band [δ, 1−δ] are EXCLUDED from the F-arms, never clipped | the DIRECTION test: S₁ tracking the injected RANK = anchoring on testimony over evidence (Gadamer's prejudice-structure, measurable; Goodhart's shadow); S₁ correcting TOWARD truth against the injection = evidence-dominance; value-invariant movement = mere perturbation. |
+| **P** (placebo) | same shape, permuted content, zero information | **must not move** — if placebo moves S₁, the instrument measures injection mechanics, not information, and the observer-effect claim dies. |
+| **N** (null instrument, free) | the same T-injection against the §12.8 bloom-rank criterion | **must stay frozen BY CONSTRUCTION** — that criterion has no awareness term, so any movement there is a plumbing leak that voids the run (G2's pattern, one level up). |
+
+**Mechanical prerequisite, stated honestly:** the §12.8 instrument CANNOT
+exhibit the effect — popcount-rank has no awareness input, which is exactly
+what makes it arm N. The observed reader must be awareness-coupled: the
+belief-arena side (NARS revision — the injected statistic participates as a
+belief and interacts via support/contradiction) or a MUL-qualia-coupled
+criterion. Choosing which is the probe's first design decision.
+
+**Rulings that bind:**
+- `crates/jc` stays the ORACLE — it measures S₀ and S₁ and is never modified
+  and never fed its own output as input (the edge is one-way; the LOOP runs
+  through the system's awareness, not through jc).
+- C6 anti-circularity is not violated — it is INSTRUMENTED: C6 forbids the
+  witness gating the slice it was computed on because that is a self-proving
+  loop; this probe deliberately closes that loop and MEASURES it instead of
+  using it for admission. Nothing downstream may gate on S₁.
+- The injected statistic is stored under the ELEVATED carve-out (statistic-
+  as-witness, higher-rung derivation) and must be rung-marked so the reader
+  knows it is meta, not corpus.
+- C4: no p-values; the paired contrast + placebo + null-instrument arms ARE
+  the inference. C2 naming; full tables, never bare κ.
+
+**Kill conditions, pre-accepted:** placebo moves ⇒ instrument invalid
+(reported, not tuned); T-arm silent at every floor ⇒ "awareness does not
+reflect this statistic" is the finding — a true and useful null; F-arms
+tracking injected values ⇒ the anchoring finding stands even if T is silent
+(testimony-dominance is itself the discovery).
+
+#### 12.9a Payload refinement (operator, 2026-08-04 same day — refines the arm table's injection column in place)
+
+> Full doctrine (TFPN arms + Gadamer/Goodhart readings + falsification
+> regimen): `.claude/knowledge/observer-effect-tfpn-doctrine.md`. This
+> subsection is the plan-side delta.
+
+1. **Not the correlation — distribution × Prozentrang.** The injected fact
+   is never the raw association scalar (a scalar is trivially echoable, so
+   the Goodhart/anchoring fixed point would be built into the instrument).
+   The preserving payload is (a) the distribution SHAPE of the statistic
+   over the *prior* pool — palette256/HDR-bucketed census via the
+   Belichtungsmesser machinery (banded exposure + popcount-stacking early
+   exit + CI thresholds + preheat/rolling-floor; anchors:
+   `ndarray::hpc::cascade::{expose→Band, recalibrate}`,
+   `ndarray::hpc::statistics::percentile`) and (b) the **Prozentrang** —
+   the percentile rank of the observed association within that prior shape.
+2. **The single-measurement law.** A measurement burns the state it
+   measured: S₀ is one-shot at V₀, sealed. Post-injection the system that
+   produced S₀ no longer exists — the instrument's next run is S₁ at V₁, a
+   NEW one-shot of a DIFFERENT system, never a "remeasure". The only
+   carry-forward from V₀ is shape₀ × rank₀, frozen.
+3. **temporal.rs × sensor = the meta channel.** Hindsight blindness
+   (Strict-rung version-gated reads, the D-BLW-3 `no_hindsight_*`
+   precedent) × the shape sensor, riding as META only (ELEVATED
+   rung-marked), never corpus, never recomputed-and-back-dated. This is
+   what makes the probe viable *without* remeasurement.
+4. **Arm-table deltas:** T injects shape₀ × true rank₀; F± inject the TRUE
+   shape₀ with a FALSE rank (shifted high/low on the bounded rank axis —
+   cleaner than fabricating a whole table); P's zero-information envelope
+   choice is pinned at build time (note: uniform-shape + median-rank is NOT
+   empty — it asserts "nothing unusual"); N unchanged + gains the
+   pool-drift-baseline duty (its own V₀-vs-V₁ shape drift, awareness-free).
+5. **New guard:** the remeasure guard — append-only measurement ledger
+   keyed `(statistic-id, arm, cohort, metric, version)` (scope-qualified so
+   independent arms/cohorts/metrics at the same version never collide);
+   recompute at a sealed key ERRORS, with can-fire + can-stay-silent tests.
+
+### 12.10 PROBE-ARC-TORQUE family PROPOSED (2026-08-04, operator) — torque of an arc, translator stray, author bias
+
+**Status: PROPOSED / CONJECTURE throughout. Queued behind PROBE-IGNITION and
+D-BLW-5. Nothing here is measured. Machinery anchors verified in source
+where marked FINDING.**
+
+The operator's underlying question, three stages of one instrument: can the
+TORQUE of an arc be measured and embedded using HHTL (WordNet) × Helix
+(Fisher-2z hydratable cosine replacement) — and can that instrument then
+measure translation variance (where did the translator stray; what mindset
+does a version carry vs the Greek/Aramaic sources) and author bias (does a
+non-canonical book match any canonical author).
+
+#### Stage A — the torque estimator (single corpus)
+
+- **Torque MAGNITUDE is purely metric** [derivation, not yet run]: per-step
+  torque about an anchor = `|r × F| = 2 × area of the triangle
+  (anchor, p_k, p_{k+1})` — Heron's formula from THREE pairwise distances
+  (anchor→p_k, p_k→p_{k+1}, anchor→p_{k+1}). HHTL path distance is 3
+  tier-table lookups O(1), so per-step torque is O(1) table reads. Total
+  |torque| of the arc = the area swept by the lever. The radial sign
+  (approach vs recede) is also free from distances (c < a vs c > a).
+- **CHIRALITY (clockwise/counter-clockwise) is NOT metric** — it needs a
+  frame. The shipped carrier: `ndarray::hpc::splat3d::helix_orient` [FINDING
+  — verified in source]: RVQ-on-the-sphere direction codes, decode
+  **Fisher-2z normalized**, comparable in O(1) LUT without materializing the
+  vector; measured 1–3 B at 4.87°/0.97°/0.073°, compare-without-
+  materialization Pearson 0.9917 / Spearman 0.9924.
+- **Embedding coordinate: Fisher 2z = ln((1+r)/(1−r)) = logit((1+r)/2)** —
+  the variance-stabilized (Var ≈ const, independent of ρ), evidence-additive
+  (log-odds) coordinate for cosine-valued quantities; hydratable back via
+  `tanh(z)`. Equal-width palette256 buckets in 2z-space ≈ equal-information
+  buckets, where raw-cosine buckets starve the tails (near ±1 — exactly
+  where near-synonyms/antonyms live). This is what makes the cosine
+  REPLACEMENT properly HDR.
+- **Pre-registered falsifiers:**
+  - F1 radial-vs-tangential: on WordNet, a hypernym chain THROUGH the anchor
+    is radial ⇒ torque ≈ 0 (can-stay-silent); a co-hyponym walk at constant
+    depth AROUND a common-hypernym anchor circulates ⇒ torque > pinned floor
+    (can-fire). If the estimator does not separate these, it dies.
+  - F2 clamp accounting: quantized distance tables can violate the triangle
+    inequality ⇒ Heron's radicand can go negative. Clamp AND COUNT; a clamp
+    rate above a pinned ceiling invalidates the estimator at that codec tier
+    (feeds PROBE-CLAM-VS-HELIX-RESIDUE, task #66).
+  - F3 additivity inertness: accumulate-in-2z vs accumulate-in-r must
+    DIFFER on real arcs — else the Fisher machinery is decoration.
+  - F4 hydration round-trip: z → tanh → r within helix residue precision.
+
+#### Stage B — translation variance (the Erbsünde exemplar)
+
+- Units = verse-aligned parallel versions (canonical alignment is the
+  paired structure jc needs). Readers = per-version "arc passes near anchor
+  C" through ONE shared multilingual space (BGE-M3/XLM-R lens covers
+  English/German/Greek; **Koine-vs-modern-Greek drift is a caveat; Aramaic
+  coverage thin — deferred**). Agreement per anchor = jc full tables (C2).
+- **The floor is intra-language variance:** same-language translation pairs
+  (e.g. multiple public-domain English versions) ARE the placebo arm — a
+  cross-language deviation counts as a STRAY only where its Prozentrang
+  against the intra-language deviation distribution clears a pre-pinned
+  rank (§12.9a payload law applied verbatim).
+- **Ground-truth falsifier with a known answer:** Romans 5:12 — the Vulgate
+  "in quo" vs Greek "eph' hō" divergence, the historically documented stray
+  that fed the Erbsünde doctrine. Pre-registered: the detector must rank
+  that locus high between Greek-faithful and Vulgate-descended renderings
+  AND stay silent between two Greek-faithful renderings. Note Erbsünde
+  itself is an ANCHOR concept, not a token — the German text says Sünde;
+  the doctrine name lives in confessional literature.
+- **Translator MINDSET** = the systematic (non-zero-mean) component of the
+  deviation field after floor subtraction — Gadamer's Vorurteil as a
+  measured object. TFPN mapping: T = source-text arc; F± = the translations
+  (historical injections whose direction is MEASURED, not fabricated); P =
+  intra-language pairs; N = a lens-free co-occurrence criterion (the lens
+  has its own training-distribution horizon; found strays must survive the
+  lens-free null or they are lens artifacts).
+
+#### Stage C — author bias + attribution (the hypothesis proof)
+
+- Per-author systematic torque field over the undisputed corpus; floor =
+  intra-author variance across that author's books.
+- **The synoptic confound, handled:** literary dependence (Matthew/Luke
+  copying Mark) makes shared TEXT look like shared MIND. Bias is therefore
+  measured on the REDACTIONAL layer — the deviations from the shared
+  source — not on the shared text (redaction criticism as measurement;
+  the Stage-B stray logic reused unchanged).
+- **Ground-truth falsifiers, all INSIDE the canon** (no external corpus
+  needed to validate the instrument):
+  - G1 Luke–Acts must MATCH (consensus single author) — can-stay-silent;
+  - G2 Mark 16:9-20 (the long ending) must SEPARATE from Mark 1:1–16:8
+    (consensus interpolation) — can-fire;
+  - G3 the Pericope Adulterae (John 7:53–8:11) must SEPARATE from John
+    (consensus interpolation) — can-fire;
+  - G4 Revelation vs the fourth gospel must SEPARATE (the famous
+    stylometric split) — else the instrument is blunter than classical
+    stylometry;
+  - G5 Hebrews must NOT match undisputed Paul (modern consensus vs
+    patristic attribution).
+- Only after G1–G5: non-canonical books nearest-author matched in bias
+  space, reported as distribution shape × Prozentrang per candidate author
+  — never a bare "matches X" scalar. Attribution outputs stay CONJECTURE;
+  classical function-word stylometry (Mosteller–Wallace lineage) is the
+  prior-art baseline the torque feature-space must beat or complement —
+  both reported.
+
+**Doctrine that binds all three stages:** §12.9a single-measurement law +
+shape×rank payload; `observer-effect-tfpn-doctrine.md` falsification
+regimen; jc one-way oracle; C4 no p-values; full tables always.
+
+#### 12.10a The Rosetta architecture (operator, 2026-08-05) — universal meaning space, per-language torque, living×dead hydration
+
+One pattern, two instantiations. A Rosetta Stone = a paired inscription of
+the SAME meaning in two systems; the shared inscription calibrates the map
+between them; the per-system residual IS that system's torque signature.
+
+**R1 — language × language (the two Babel codebooks).** The two language
+codebooks (PROBE-BABEL-STANCES slice 2, SHIPPED — the existing two-Rosetta-
+stone precedent) span a universal meaning space in which each language's
+ROUTE to a shared anchor is its torque. The operator's example pair: Czech
+reaches dying through aspectual PREFIXES (stem + prefix = concept + a
+morphologically compositional rotation), German through NOMINALIZATION
+(der Tod — the same anchor rotated into a substantive). Per-language
+torque field = the language's mindset — the SAME estimator as Stage B's
+translator mindset and Stage C's author bias, one level up. Pre-registered
+pair for the can-fire/can-stay-silent twins: a known morphologically
+divergent anchor (aspectual-verb family vs nominalization) must show
+distinct signatures; a structurally parallel cognate pair must not.
+
+**R2 — living × dead (Jina hydration over the WordNet spine).** WordNet is
+the DEAD SPINE: static taxonomy = HHTL addresses + lever arms, CLAM
+neighborhoods (`ndarray::hpc::clam` build/`rho_nn`) + CHAODA anomaly
+detection (clam.rs Phase 4) — structure without life: no frequencies, no
+coverage of KJV archaisms/names, no meaning axes beyond taxonomy. Jina is
+the HYDRATION (API key present in env — verified, presence only): for the
+alignment set (tokens BOTH systems know), fit the projection ONCE and seal
+it (single-measurement law: the alignment is version-stamped; hydrations
+are stamped against that alignment version); for Bible-specific tokens the
+spine lacks, hydrate THROUGH the sealed projection:
+  1. **frequency** — gated against the in-tree COCA 20k ground truth
+     (`ndarray/src/hpc/jina/weights/coca_academic_20k.csv`:
+     `word, PoS, COCA_All, …`);
+  2. **POS** — same gate;
+  3. **orthogonal meaning** — the component of the Jina embedding in the
+     orthogonal complement of the WordNet-explained subspace: the axes the
+     taxonomy structurally cannot express (register, affect, era).
+
+**Hydration falsifiers (pre-registered):**
+- H1 hydration gate: Jina-derived frequency/POS on a HELD-OUT slice of the
+  COCA overlap must clear a pinned rank-correlation floor BEFORE any
+  Bible-tail hydration is trusted. Fail ⇒ the living source is not
+  admissible on this spine.
+- H2 CHAODA quarantine: a hydrated Bible-specific token that lands as a
+  manifold outlier under CHAODA is QUARANTINED, not silently projected —
+  the sealed projection is valid only on the manifold the Rosetta
+  calibrated.
+- H3 the R1 torque twins (above).
+
+**What this buys the staged probes:** Stage A gets lever arms for tokens
+WordNet cannot address (the KJV tail); Stage B gets the universal anchor
+space in which translator torque is per-VERSION while language torque is
+per-LANGUAGE — separable because R1 measures the language signature on
+non-biblical text, so Stage B can subtract it; Stage C inherits both.
+
+#### 12.10b Jina → helix: the cosine>helix transcode, three routes (operator, 2026-08-05)
+
+The direction arrow is the design: **cosine is measured once and DEMOTED
+into a hydratable code; helix codes are the runtime carrier.** Jina is
+called at bake/seal time only (membrane — the API key never enters the hot
+path, per compilation-vs-runtime doctrine); everything downstream runs on
+codes. Which machinery applies depends on WHAT is encoded:
+
+1. **Pairwise cosines → the palette256 cosine replacement, buckets in
+   Fisher-2z space, back-hydratable** (the direct `cosine>helix`; operator-
+   confirmed naming 2026-08-05: "palette256, Fisher-z back hydratable —
+   the cosine replacement"). The torque estimator consumes specific
+   pairwise cosines, not embeddings. Compute each needed cosine ONCE from
+   Jina vectors at the sealed alignment version, transform to Fisher 2z,
+   encode place/residue (1-byte palette256 bucket in 2z + optional residue
+   byte — equal-information buckets). All later comparison/accumulation is
+   LUT + integer adds; the vector is never materialized again; hydrate
+   back via tanh only at the boundary that needs a float.
+   `helix_orient`'s own doc calls itself "the same RVQ machinery as
+   palette256, on S² instead of the line" — this route is the line
+   version. Single-measurement law applies verbatim. Synergy: a 256×256
+   table over the 2z-palette codes gives O(1) pairwise compose/distance on
+   coded cosines — the stack's recurring structure (bgz17 palette
+   distance/compose tables, helix DistanceLut, attention-as-lookup).
+2. **Whole vectors → Cam96 preferred, Base17-palette as the coarse tier,
+   NEVER helix_orient** (the category-error guard). `helix_orient`'s
+   codebook is the golden-spiral template on S² (2 DOF); a 1024-dim Jina
+   vector cannot enter it. Per-vector compression is ALREADY SHIPPED for
+   Jina twice, at two precision tiers: the Jina-trained **Cam96** Bible
+   codebook (12-axis, 96-bit code — operator 2026-08-05: "probably more
+   exact", plausible on axes×bits grounds: 12 subspaces vs 1 palette
+   index) and `ndarray::hpc::jina::codec`'s F16 2048D → Base17 (34 B) →
+   Palette (1 B, O(1) `JinaPalette::distance`). "Probably" stays a
+   HYPOTHESIS until measured: the rank-preservation gate below runs BOTH
+   tiers against f32 cosines on the same held-out set and reports both ρ
+   per byte spent — the tier choice is then a read from the table, not a
+   guess.
+3. **Per-step plane angles → helix Signed360** (the chirality carrier
+   Stage A needs). Each arc step spans a 2-plane (lever × step,
+   Gram-Schmidt from Jina vectors); the signed angular increment in that
+   plane is a scalar angle → Signed360/residue, 1–3 B per step. Valid at
+   ANY ambient dimension because the plane is always 2D.
+
+**Pre-registered gate:** rank preservation — helix-2z-coded cosines must
+preserve pair ranking vs f32 cosines above a pinned ρ floor on a held-out
+set. The S² precedent measured Pearson 0.9917 / Spearman 0.9924
+(helix_orient header); the LINE version must be re-anchored, never assumed
+from the sphere's numbers.
+
+> **DEFERRED pointer (operator, 2026-08-05):** `ogar-blockly` (OGAR main —
+> the 256-slot `(function:value)` call palette, LaneShape carvings, one
+> 512-byte node per function body) as the storage substrate for the
+> elixir-syntax thinking-template recipes (256:256 rails; the alternative
+> to the planner/JITson route) is FEASIBLE-ASSESSED but the crate is ~3–5
+> days from finished. Full plan entry lands when it does. Mandatory read
+> before that design starts: `.claude/v3/knowledge/persona-vs-rung-ladder.md`
+> (the recipe codebook binds to the 144 verbs + 34 tactics, never the
+> adjective-36). Open encoding question carried: StepMask vs the 180-call
+> Pairs cap.
+
+### 12.11 D-IGN-B PROPOSED (2026-08-05, operator) — ignition starts the REAL lenses
+
+**The directive:** ignition must be a *simple start* for Gadamer
+Horizontverschmelzung or the four lenses — not an abstract style bit over
+fixture bodies. Sequencing: PROBE-IGNITION (in build) proves the MECHANICS
+(cast → scan → seal → advance, fixture qualia, §5 "no semantic claim");
+D-IGN-B is the stage behind it that swaps the fixture thought body for the
+shipped instruments, reusing the probe's fleet/scan/loop scaffolding.
+
+**Arming vocabulary (probe-defined, sidesteps Q1 entirely):**
+`z ∈ {0 = unarmed, 1 = Hegel, 2 = Nietzsche, 3 = Kant, 4 = Wittgenstein,
+5 = Fusion}` — six ordinals fit the 6-bit `MetaWord::thinking()` field with
+no MetaWord→PlanContext bridge needed: the CognitiveWork dispatch reads
+`thinking()` directly and selects the lens body. The 36-style bridge stays
+an explicitly open non-goal (design-note Q1; persona-vs-rung-ladder is the
+mandatory read before any such bridge).
+
+**The thought bodies — all shipped, nothing invented:**
+- z=1..4: the shared four-stance machinery (`lance-graph-planner/src/nars/*`
+  — the stance streaming + readout records extracted for
+  `probe_eyes_opened`), run over the owner's POPULATED rows through
+  cycle_driver's pluggable thought seam (D-BLW-1 precedent: the lens body
+  is already wired into the 5.4 seam).
+- z=5: the D-BLW-3 two-projection read (Strict rung-0 vs Aware rung-5 at
+  the owner's sealed horizon — `blw_fusion.rs`'s proven machinery); the
+  observable is that owner's gap read.
+
+**Pre-registered observable SHAPE (numbers pinned at build time):**
+- can-fire: two cohorts armed with DIFFERENT lenses over byte-identical
+  rows produce NON-identical readouts — the lens axis is load-bearing
+  (G2c's pattern lifted from reliability bits to instrument readouts);
+- can-stay-silent: two cohorts armed with the SAME lens over byte-identical
+  rows produce bit-identical readouts; the unarmed cohort produces none;
+- the ignition property itself is inherited, not re-proven: arming is a
+  write, discovery is a scan, work happens only after seal→apply — the
+  mechanics probe's G1–G11 already gate that layer.
+
+**Placement:** `lance-graph-supervisor/tests/` (same forced placement:
+only the supervisor sees both `run_cycle` and the planner). **Build gate:**
+starts only after PROBE-IGNITION passes central gates; shares its corpus
+loader and MemWal provenance.
+
+**Not claimed:** no fusion verdict, no stance-validity claim, no
+parallelism, no durability — this stage adds exactly one fact to the
+tree: *a cast-and-scan ignition starts real, shipped cognition, and which
+cognition is selected by the armed bits alone.*

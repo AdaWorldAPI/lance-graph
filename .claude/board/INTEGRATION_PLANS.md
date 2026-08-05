@@ -1,3 +1,75 @@
+## 2026-08-05 — measure-64k-axes v3 — ACTIVE (the three arms Stage A0 earned; M+O build lane dispatched)
+
+**Plan:** `.claude/plans/measure-64k-axes-v3.md`
+Operator review of the A0 results designated what comes next. The ordering
+takeaway: the expensive part is NOT 64k owners and the unstable part is NOT
+sealing — instability lives in filesystem → page cache → writeback → allocator,
+so effort belongs in temporal chunk scheduling, Morton ordering, rolling
+closure and batch geometry rather than in redesigning ownership. **That is a
+hypothesis A0 makes worth testing, not a finding A0 proved.**
+**M-arm** (prioritized): `logical → MORTON REORDER → seal → WAL` vs A0's
+`logical → seal → WAL`; reorder timed as its own phase, verdict is the SUM
+(`reorder_cost − downstream savings`), digest identity mandatory, and the
+ordered-chunk fast path measured against T1's stable 78–86 ms.
+**O-arm**: `cast→seal→WAL→temporal` vs `cast→temporal→seal→WAL` — isolates
+the long-standing "temporal.rs already provides the ordering" hypothesis;
+PRIMARY observable is digest identity decided before any timing is read, with
+a compile-time firewall so O-B cannot consult the sealed stream, and an
+explicit not-constructible outcome instead of a rigged comparison.
+**A-arm** (deferred): decomposing L1a's −171 ms build delta into allocation
+count / arena reuse / locality / pure-allocation control — separate processes
+for the reuse half; the locality half stays BLOCKED on perf counters rather
+than estimated.
+Unchanged: crypto stays out until rolling closure is measured; the WAL knee
+stays unclaimed; D-KIA-A2 frozen; implementation-scoped wording everywhere.
+
+## 2026-08-05 — measure-64k-axes v2 — ACTIVE (rolling epoch closure; supersedes v1's EXECUTION MODEL, keeps v1 as Stage A0 baseline)
+
+**Plan:** `.claude/plans/measure-64k-axes-v2.md`
+Operator correction: the 64k boundary stays the ACCOUNTING/VERSION boundary
+and stops being the physical turnstile. Model: 64k logical owners → rolling
+Morton-ordered chunk closure (Libet 200 ms per-chunk veto windows;
+ClosureState Open→Registered→{Vetoed,Held,Deferred}→Frozen→Appended) → ONE
+epoch manifest publishes ONE DatasetVersion (chunk appends are never
+versions; crash contract: chunks without manifest = invisible abandoned
+epoch). Decisions recorded: MailboxId keeps identity only, WriteOrderKey
+(morton_chunk/lane/cycle_position) carries storage order; CHUNK baton never
+owner baton; "64k complete" = every owner has exactly one accounting
+outcome (committed+vetoed+held+deferred+absorbed == 65,536), only committed
+advance (#879). Morton cascade L0 page {4,8,16 KiB} / L1 segment
+{1,2,4,8 MiB} / L2 epoch 32 MiB / L3 16 epochs — two independent knobs;
+temporal.rs gains the verified ordered-chunk fast path (validate+append,
+no sort) with digest identity vs the generic path required. Encryption:
+per-chunk AEAD contexts (nonce/AAD from epoch+base+chunk-seq+retry+len,
+never chunk_id alone), parallel on bounded pool, baton orders appends —
+Stage B gated on the AEADs-fork dep decision (P0 forks-only).
+Grind taxonomy (CPU/sync/encryption/storage/temporal) measured separately;
+16-cycle curve classified warm-up/amortisation/cache-turnover/collapse with
+the backlog slope as THE collapse signal. D-KIA-A2 FROZEN; operator
+override EXP-KIA-A2-ROLLING-CLOSURE (non-claiming). v1 build lane continues
+— its deliverable IS Stage A0 + the shared instrumentation.
+
+## 2026-08-05 — measure-64k-axes v1 — ACTIVE (operator-specified corrected benchmark) — Sonnet build lane dispatched
+
+**Plan:** `.claude/plans/measure-64k-axes-v1.md`
+The prior performance/memory numbers mixed FIVE independent axes (logical
+owner count / physical SoA layout / WAL segment size / temporal
+reconstruction / execution concurrency); this plan varies exactly one at a
+time. Arms: B0 DummyOwner cast baseline (the modern #879 fake-owner
+control) · B1a/B1b real owner-exclusive SoAs (hot MailboxSoA vs canonical
+NodeRow512 — memory claims never blended; derived: runtime ownership tax,
+hot representation overhead) · WAL curve W0-current/W1-contiguous (five
+segment sizes over ONE 32 MiB frame, write_vectored + exactly one fdatasync
++ one DatasetVersion per cycle; 2 warm-ups + 16 measured cycles = constant
+512 MiB per configuration; ONE release binary, never 16 tests) · T0/T1/T2
+temporal phases post-WAL over 65,536 × 16 = 1,048,576 rows ·
+L1a/L1b chunked-layout control (a physical chunk is NOT an owner) ·
+EXP-KIA-A2-64K exploratory concurrency (non-claiming; D-KIA-A2 untouched;
+digest-identical sequential-vs-parallel witness). Deliverable: the four
+answers — ownership cost, layout cost, WAL amortisation knee (descriptive,
+never PASS/KILL), and what genuine parallel thought execution adds before
+the deterministic seal.
+
 ## 2026-08-02 — kanban-64k-inverted-awareness v1 — PLANNED / CONJECTURE (parallel thinking + the inverted-awareness witness) — main thread
 
 **Plan:** `.claude/plans/kanban-64k-inverted-awareness-v1.md`

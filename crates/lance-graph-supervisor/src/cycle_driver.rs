@@ -48,8 +48,9 @@
 //! `HashMap` impl as the keyed fleet the driver and its tests use. This
 //! sealed-cycle path (#879) is the complete and independent production
 //! phase-progression path — there is no actor bridge waiting to be completed.
-//! (`kanban_actor` is legacy compatibility code with no assigned architectural
-//! responsibility; see its module header.)
+//! (The `kanban_actor` module's actor/ack/tick surface was DELETED 2026-08-05,
+//! `E-PROGRESSION-IS-EXISTENCE-NOT-COMMAND-1`; what remains there is the
+//! message-free visibility census + pure helpers this driver composes.)
 //!
 //! ## Honesty ledger (what is proven vs not)
 //!
@@ -1663,9 +1664,9 @@ mod tests {
     // ── The MUL-gate plug (P4c gate) ────────────────────────────────────────────
 
     /// Flow qualia (warmth=4, groundedness=3, coherence=4, valence=2) — the same
-    /// construction `kanban_actor::s2_driver_gate_advances_then_holds` uses:
-    /// `flow_proxy = 4+3−0 = 7 ≥ 4` + mantissa>0 → FlowState::Flow; coherence≥4 +
-    /// valence≥2 + tension≤1 → TrustTexture::Calibrated ⇒ gate `Flow`.
+    /// construction `kanban_actor::tests::mul_target_flow_advances_and_hold_holds`
+    /// uses: `flow_proxy = 4+3−0 = 7 ≥ 4` + mantissa>0 → FlowState::Flow;
+    /// coherence≥4 + valence≥2 + tension≤1 → TrustTexture::Calibrated ⇒ gate `Flow`.
     fn flow_qualia() -> QualiaI4_16D {
         QualiaI4_16D(0).with(3, 4).with(14, 3).with(9, 4).with(1, 2)
     }

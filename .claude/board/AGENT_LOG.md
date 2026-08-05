@@ -1,3 +1,235 @@
+## 2026-08-05 — hot-window design verification panel (workflow: 1 canon sweep + 1 adversarial refuter)
+
+**Outcome: the panel HARDENED the design and INVERTED its fork choice before
+anything was banked** — exactly what a pre-bank panel is for. D-id: D-HWV-1.
+Run: workflow `hot-window-design-verify` (2 agents, both structured-output,
+read-only, no cargo, no file writes — results consolidated here by the
+orchestrator per the one-writer rule).
+
+- **Canon sweep** (7 findings): 3 CONFLICTS (v2's one-cycle/one-version pin;
+  seal-property-4's append→version parenthetical; the persist_sink.rs
+  seal==append==durable wording at ~9 cited sites incl. the
+  `wal_writes()==1` falsifier and the `E-ACK-IS-THE-KANBAN-TRIGGER-1` pump),
+  2 NEEDS-CAVEAT (seal-property-2 arrival durability; zero-copy legality —
+  legal only under the two H-4 conditions), 2 COMPATIBLE (E-64K-1TO1's seal
+  boundary is untouched; naming = the MailboxSoA fleet, never "VSA speaks
+  Lance").
+- **Adversarial refuter** (6 attacks, 4 landed): no side-effect escapes the
+  RAM+WAL pair in current source (NOT refuted — the die-together property's
+  precondition holds); the naive die-together claim REFUTED until H-1
+  (checkpoint fencing) was added; the K-batch flush had no contract home and
+  option (i) unsound without a barrier + torn-tail cleanup (→ H-2);
+  `base_version` unfillable under version multiplexing (→ resolved by
+  choosing barrier flush, where each cycle mints its real version at
+  publish); "the type split pre-anticipated (ii)" REFUTED at ≥6 cited 1:1
+  binding sites; "temporal.at() already resolves cycle-within-version"
+  REFUTED — no such coordinate exists, and (ii) would silently coarsen the
+  no-hindsight guarantee by up to K−1 cycles for a Strict reader.
+
+Landed from this run: plan `measure-64k-axes-v4.md`, EPIPHANIES
+`E-HOT-WINDOW-DECOUPLES-THE-CLOCKS-1`, dated caveats in
+`seal-vs-temporal-ordering-information.md` (properties 2+4), v2 cross-note,
+STATUS_BOARD row D-HWV-1. Build lane NOT dispatched — gated on operator word.
+
+## 2026-08-05 — M-arm + O-arm MEASURED: both NEGATIVE (Sonnet build + central Opus gates + adjudication)
+
+**Outcome: two hypotheses tested, both falsified under this construction —
+cheaply, before either shaped the architecture.** Full results: plan
+`measure-64k-axes-v3.md` § MEASURED RESULTS.
+
+**M-arm — Morton does NOT win.** Digest identity MATCHED (valid
+comparison), then the pre-registered SUM verdict: reorder 9.4 ms,
+downstream savings −25.8 ms (slower), **Δtotal +35.2 ms**. The
+ordered-chunk fast path was also slower than the generic path (350.9 vs
+339.7 ms) at identical digests. **Open measurement defect flagged, not
+buried:** the M-arm's T1 baseline is ~4× A0's over the same row count, so
+the fast path must NOT be compared to A0's 78–86 ms until that is
+explained; the internal natural-vs-Morton comparison stands.
+
+**O-arm — DIVERGED.** Primary observable decided before any timing, as
+specified: O-A ≠ O-B. **The seal's ordering is load-bearing and cannot be
+re-scoped away** under this construction — retiring, for this
+construction, the long-running "temporal.rs already provides the ordering"
+hypothesis. Kill-condition: CONSTRUCTIBLE (different code path, not a
+disguised O-A), with the honest note that the redundancy in question is
+semantic rather than code-sharing.
+
+**Three defects caught at the gate:** the firewall fired on its own
+comment (fixed: strip comments before scanning + a positive control so an
+inert guard is detectable); both arms' T1 read 18 cycles where the spec
+says 16 (scoped to the measured window); and the O-arm's pre-registered
+divergence outcome was coded as a panic (both branches now report — a
+designed falsification must never crash the run).
+
+Gates: fmt clean; clippy 0 attributable; release run complete, 183 CSV
+rows. The build lane self-caught a borrow/runtime bug pre-handoff.
+
+## 2026-08-05 — MEASURE-64K-AXES Stage A0 MEASURED (Sonnet build + central Opus gates + adjudication)
+
+**Outcome: 3 of 4 answers MEASURED, 1 reported NOT REPRODUCIBLE.** Binary
+`examples/measure_wal_curve.rs` (~2,230 lines) shipped; 5 release runs; CSV
+179 rows/run. Full results: plan `measure-64k-axes-v1.md` § MEASURED RESULTS.
+
+Findings: **the current ownership IMPLEMENTATION contributes** +13 ms of
+shared-phase time per 64k cycle over a dummy owner (operator-corrected
+wording 2026-08-05 — never "ownership costs", which would read as an
+inherent property rather than one implementation on one workload) (plus ~32 ms of phases only a real owner has); the hot
+`MailboxSoA<4>` representation costs **+63 % memory** over the canonical
+32 MiB envelope (52.1 MiB measured); the chunked 64×1024 layout is **faster on
+every comparable phase** (build −171 ms) with its mislabelling control firing
+(65,472/65,536 HELD); concurrency shows ~3.2–3.5× compute overlap on 4 cores
+with **byte-identical sequential-vs-parallel digests**. Temporal T1/T2 stable
+(78–86 ms / 7.3–8.8 ms over 1,048,576 rows).
+
+**The WAL knee is NOT claimed** — five runs of one binary moved it between
+4 MiB and 32 MiB with 6× cross-run throughput swings. Three methodology
+defects were caught and fixed at the gate rather than shipped: MiB/s computed
+from an ASSUMED frame size while discarding the real byte count (now measured +
+asserted equal across arms); a memory "overhead" differencing two
+process-monotonic VmHWM values (retracted; now measured VmRSS delta vs the
+exact canonical size); ten WAL scratch files needing 5.8 GiB (ENOSPC → per-config
+reclaim). A stability guard with both halves now suppresses any knee whose
+p95/median spread exceeds 3×.
+
+Gates: fmt clean; clippy 0 attributable; 5 release runs. Build lane self-caught
+7 bugs pre-handoff including a duplicate `mod` that would have hard-failed.
+
+## 2026-08-05 — PROBE-IGNITION-64K GREEN: start() at the MAIN MODEL's full population (main-thread build, answering the operator's direct question)
+
+**The question:** "Did you test the 64k concurrency model working with the
+start()?" **The honest answer was NO — now it is HALF-YES, with the half
+named.** `tests/probe_ignition_64k.rs` (1/1): **65,536 real 1:1
+`MailboxSoA<4>` owners** — armed by MetaWord write, gate-checked
+per owner, cast via `emit_bootstrap_intent` (ONE `StyleStrategy::plan`,
+per-owner binding by `rebind_bootstrap`), **sealed in EXACTLY ONE WAL
+write**, all 65,536 transitions applied (`Planning→CognitiveWork`, all
+Elixir, stream positions strictly monotone), then — after `consume_firing`
+— the ENTIRE 64k fleet RESTS at c2 (0 new casts, all 65,536 seen + Held on
+a would-be-Flow qualia, wal_writes frozen).
+
+**Measured wall times (provenance, never asserted):** build 8.4 s; c1
+cast 225 ms; seal+apply 514 ms; c2 rest decision over 64k owners 73 ms;
+9.2 s end to end.
+
+**The half that remains open, stated in the run's own not-claimed block:**
+CONCURRENCY. The loop is synchronous — this proves the machinery HOLDS at
+the full population and converges at the one deterministic seal boundary;
+"parallel" remains gated by D-KIA-A2's pre-registered protocol.
+
+**One measurement bug self-caught by the run:** the first draft asserted
+`writer.casts().len() == 0` at c2 and failed at 65,536 — `casts()` is the
+CUMULATIVE board (cycle 1's records survive the payload drain, the exact
+G9 drained-writer semantics). Rest is now measured as a delta, with the
+positive half added (all 64k seen + Held — a per-owner decision, not an
+empty scan).
+
+Scale was bought on the OWNERS axis only (`MailboxSoA<4>`, one populated
+row) per §12.3a‴: rows-per-owner is the benchmark axis, owners is the
+model. Gates: test 1/1; fmt clean; clippy 0 attributable warnings.
+
+## 2026-08-05 — D-IGN-B GREEN: ignition starts the REAL lenses (Opus design + Sonnet inventory + Sonnet build + central gates)
+
+**D-ids:** D-IGN-B (plan §12.11). **Outcome: GREEN — 1/1 test, gates L0-L7 +
+z5-BLOCKED, all both-halved.** Files: `tests/d_ign_b_lenses.rs` (~1,100
+lines); lanes: `exec-runs/d-ign-b-design-opus.md` (+ orchestrator Q6/Q7
+ratification), `d-ign-b-api-inventory-sonnet.md`, `d-ign-b-build.md`.
+
+**What it proves.** The operator's directive realized: arming an owner with
+z ∈ {1..4} over BYTE-IDENTICAL rows selects which of the four shipped stance
+readings is recorded — L0: 8 twin owners byte-identical across 48 rows; L1:
+Kant vs Wittgenstein digests differ, same-lens digests bit-identical (with
+the risk-check first: Hegel/Nietzsche NON-empty on this path — the
+constant-false finding was the SPO/TSV path; this path streams raw verse
+text); L3: no lens constant-empty (z=1 0/8, z=2 2/8, z=3 1/7, z=4 0/7
+empty); L4 anti-degeneracy: 6-7 distinct digests per lens; L5: 30 Flow + 0
+Block sealed at c1 (derived for THESE cohorts, not recited from the probe);
+L6: every readout owner had advanced Planning→CognitiveWork, UNARMED absent
+from both sides; L7: OUTSIDE silent by address alone.
+
+**Honest framing held throughout (operator-ratified Q6):** SELECTION, not
+dispatch — stance_panel computes all four in one call and the ordinal picks
+the tuple element (printed + not-claimed item 11); the lens reads the
+owner's corpus slice by address, never row bytes (the §12.7 defect shape,
+named — substrate governs selection end-to-end, and no substrate-data-path
+claim may follow from any readout). **z=5 Fusion is BLOCKED and says why at
+runtime**: this fleet accrues ≤2 sealed horizons, so Strict-vs-Aware
+admission is identical and any delta is 0 BY CONSTRUCTION; `jc` is not a
+supervisor dep. Reserved, not faked; R2 is the recorded path if wanted.
+
+**Build lane self-caught two falsifiability traps pre-handoff:** a digest
+variant-discriminant tag that made every cross-lens inequality pass by
+construction (removed — digests fold content only, so empty readouts
+genuinely collide and L3/L4 can actually fail); an L2 write into the main
+readout map that would have corrupted L6's containment premise (scratch
+map). Central gates caught one clippy warning (map-keys iteration), fixed.
+
+**Gates:** test 1/1 ok; clippy 0 warnings attributable; fmt clean. Same CI
+caveat as the probe: inert without `--features cycle-driver` (operator-
+approved workflow change, still open).
+
+## 2026-08-05 — PROBE-IGNITION: the write path is DRIVEN (Opus design + Sonnet inventory + Sonnet build + central gates)
+
+**D-ids:** PROBE-IGNITION (plan §12.11's prerequisite). **Commit:** this one.
+**Outcome: GREEN — 2/2 tests, all 11 gates (G1-G11) both halves.**
+
+Three lanes: Opus design note (`exec-runs/probe-ignition-design-opus.md`, 528
+lines — placement, the no-messaging lowering, the pinned run shape, the
+assertion table, the silence-honesty split); Sonnet API inventory
+(`probe-ignition-api-inventory-sonnet.md`); Sonnet build
+(`probe-ignition-build.md`). Orchestrator ran every cargo command.
+
+**What it proves.** The built-but-undriven write path now has a driver: 64
+real `MailboxSoA` owners seeded from the real KJV corpus, armed by a
+`MetaWord` write, discovered by a board scan alone, cast write-on-behalf
+through `emit_bootstrap_intent` -> `BatchWriter::cast` -> `run_cycle`
+(collect -> seal -> persist -> apply). Measured: c1 24 casts / 1 WAL write /
+24 transitions, decomposing 20 Flow (`Planning->CognitiveWork`, Elixir =
+the style's mint) + 4 Block (`Planning->Prune`, Native = the gate's mint);
+40 untouched owners fully accounted (32 out-of-scope, 7 unarmed, 1 orphan);
+c5 and c6 rest with ZERO casts, no seal, `wal_writes` frozen at 4 and the
+fleet byte-identical across the two rest cycles.
+
+**The honest silence held.** G4's rest fires on the shipped suite's own
+*Flow* fixture at flow_proxy=7 with `Calibrated` texture — the owner rests
+because `mantissa` (derived from live energy) fell to 0, not because the
+qualia were zeroed. CONTRA's absorbing Prune silence is distinguishable from
+REST's rescheduled silence: `rediscovered(REST)=8` at c2/c3 vs
+`rediscovered(CONTRA)=0` across c2..c6.
+
+**Two OPEN #879 caveats made observable, as designed.** G9 pins the
+drained-writer retry footgun (injected WAL failure -> `CycleError::Seal` ->
+retry via `seal_cycle(sink, failure.frame, failure.casts)` lands it; a fresh
+`collect_casts` on the same writer yields 0 slots). G10 measures the
+missing-owner accounting gap: probe-local pass counts 1, shipped pass counts
+0, difference exactly 1.
+
+**Corrections during the arc.** (a) Mid-flight G2b spec fix relayed to the
+build lane: the 4 CONTRA Planning casts are gate-minted Native->Prune per
+the design's own §2 step 8, so "every Planning move is Elixir" was wrong —
+rebuilt as the 20/4 decomposition. (b) Central-gate catch: G11's self-scan
+matched its OWN success message (the needles were concatenation-guarded but
+the eprintln spelled them out) — a real false positive the run surfaced;
+message reworded, scan re-armed. (c) The build lane self-caught four bugs
+before handoff (hardcoded `DatasetVersion(0)` base, a tautological
+self-comparison, a fingerprint captured after the loop, an `Option<&T>`
+mismatch).
+
+**Deviations, both documented in-file:** energizing writes `owner.energy`
+directly (`causal_edge::CausalEdge64` is unreachable without a forbidden
+manifest change; same public field `apply_edges` mutates); the c4 wake runs
+before the scan (the design's own cohort table is only consistent that way).
+
+**Gates:** `cargo test -p lance-graph-supervisor --features cycle-driver
+--test probe_ignition` 2/2 ok; `cargo fmt -p lance-graph-supervisor --check`
+clean; clippy 0 warnings attributable to the probe. **CI note:** the probe
+is inert unless the workflow adds `--features cycle-driver` — NOT changed
+here (workflow edits are operator-approved only); recorded as the open item.
+
+**Not claimed:** durability, parallelism, scale, multi-writer, validity,
+GUID-prefix routing, 36-style arming, deinterlace/temporal, zero-copy,
+recovery, or `Evaluation->Plan` re-entry (structurally unreachable through
+the MUL gate — the arc stops at Commit and says so).
+
 ## 2026-08-04 — D-BLW-3 arc: design + inventory + recon/refute workflow + build (consolidated by the orchestrator)
 
 Four units, records in their own tag-files per the one-writer rule:

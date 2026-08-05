@@ -70,17 +70,16 @@ pub mod supervisor;
 #[cfg(feature = "supervisor")]
 pub mod actors;
 
-/// Legacy kanban actor surface — no assigned architectural responsibility.
-/// Phase progression is the #879 sealed-cycle path (`cycle_driver`); see the
-/// module header for the legacy notice and the caller migration inventory.
+/// Message-free kanban visibility + pure helpers. The actor/ack/tick surface
+/// that used to live here was DELETED 2026-08-05
+/// (`E-PROGRESSION-IS-EXISTENCE-NOT-COMMAND-1`): phase progression is the
+/// #879 sealed-cycle path (`cycle_driver`); observation is a `&self` census,
+/// never an RPC. See the module tombstone.
 #[cfg(feature = "supervisor")]
 pub mod kanban_actor;
 
 #[cfg(feature = "supervisor")]
-pub use kanban_actor::{
-    deliver_kanban_step, drive_mul_advance, drive_scheduled_tick, drive_version_tick,
-    run_to_absorbing, KanbanActor, KanbanMsg, KanbanRouteError,
-};
+pub use kanban_actor::{mul_target, parse_kanban_step, PhaseCensus};
 
 #[cfg(feature = "supervisor")]
 pub use supervisor::{

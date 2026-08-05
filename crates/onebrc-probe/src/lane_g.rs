@@ -37,8 +37,8 @@
 //!   prefix route. A station's hash always lands with the same owner, so
 //!   the owners' SoAs are disjoint by construction.
 //! - **Mailbox-as-owner:** the serialized message loop is the single
-//!   writer of the owner's SoA (the same compile-time no-aliasing
-//!   argument as `KanbanActor`, E-CE64-MB-4). No lock, no shared `&mut`.
+//!   writer of the owner's SoA (the E-CE64-MB-4 compile-time no-aliasing
+//!   argument: the SoA is MOVED into the actor). No lock, no shared `&mut`.
 //! - **Kanban update = witnessed write:** every applied morsel batch
 //!   appends one `KanbanMove` (`CognitiveWork → Evaluation`, a legal
 //!   Rubicon forward edge) to the owner's journal — recorded directly to

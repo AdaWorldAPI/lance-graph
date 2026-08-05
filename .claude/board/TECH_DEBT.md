@@ -1,4 +1,62 @@
+## TD-LANCE9-LANCEDB036-REMEASURE (2026-08-05, operator-noted, DEFERRED)
+
+**Pins today:** `lance`/`lance-linalg`/`lance-namespace` `=7.0.0`,
+`lancedb` `=0.30.0` (`crates/lance-graph/Cargo.toml:38-41`; the PR #445
+exact-pin lockstep). **Operator note: lance 9 + lancedb 0.36 are expected to
+improve the overhead measured by MEASURE-64K-AXES Stage A0.** Deferred by the
+operator — recorded so the measured numbers are recognisable as the BEFORE
+side.
+
+When it happens: bump the family together (lancedb's transitive requirement
+pins lance — a half-bump makes the patch silently not apply), keep P0
+forks-only, then re-run `measure_wal_curve` under the same host discipline and
+diff arm-by-arm. Expect movement in the storage/serialization arms
+(W0-current, T0 `scan_sealed`); **B0/B1a/L1a touch no lance code, so movement
+there means something else changed.** The WAL knee stays unmeasurable until the
+host issue is fixed either way.
+
 # Technical Debt Log — Open + Paid (double-entry, append-only)
+
+## TD-BLW-FUSION-MANUAL-SEAL (2026-08-05) — OPEN
+
+`blw_fusion.rs` produces its sealed series by calling
+`persist_cycle`/`recover_and_apply` directly with a hand-built `SweepSlot`
+(`stream_position = c`), bypassing `collect_casts`/`seal_cycle`/`run_cycle` —
+so it exercises the persist/apply half but NOT the ≤1-move-per-owner seal,
+held-intent restaging, durable `position_base`, or frozen-cast retry
+semantics. Its records never claimed otherwise (the permitted claims are the
+`DeinterlaceRow`/`deinterlace` firsts + the rank criterion), but now that
+`tests/probe_ignition.rs` proves the real chain end-to-end, the harness's
+seal loop should be REBASED onto `run_cycle` so the fusion series is
+produced by the same machinery production will use. Surfaced by an external
+review (2026-08-05). Pay by: rebase the seal loop; re-run; assert the
+recorded numbers reproduce.
+
+## TD-BLW3B-ABC-DECOMPOSITION (2026-08-05) — OPEN
+
+The D-BLW-3 trajectory was measured under a GROWING reference pool
+(rank_verdicts recomputes the quartile over the seated pool, +250/cycle), so
+the measured movement is a cohort-relative rank effect until decomposed.
+Pre-registered follow-up D-BLW-3b, three arms: A fixed subjects × fixed
+pool (expected silent), B fixed × growing (the arm already run — isolates
+rank renormalization), C fixed × fixed + awareness-coupled representation
+(the semantic candidate). The E-entry and plan §12.8 carry the regrade
+(numbers stand; fusion ATTRIBUTION is CONJECTURE pending A and C). Pay by:
+build the A and C arms on the blw_fusion scaffolding.
+
+**⊘ Scope analysis (2026-08-05, same day):** for THIS instrument the
+decomposition partially collapses. Verse scores in `blw_fusion` are
+horizon-INDEPENDENT (the bloom projection of static text); the only
+horizon-dependent mechanism is ADMISSION (incremental seating). Arm A
+(fixed subjects × fixed pool) is therefore silent BY CONSTRUCTION — a
+vacuous gate the falsifiability rule forbids building — and Arm B is the
+run already measured. **Arm C is the only informative arm**, and it
+requires a representation whose scores themselves evolve with horizon:
+an awareness-coupled reader — the SAME prerequisite D-BLW-5 names as its
+first design decision. D-IGN-B (GREEN 2026-08-05) proved the candidate
+substrate: the belief arena + stance machinery runs per-owner, in-cycle,
+selected by arming. Payment path re-routed: Arm C is built AS D-BLW-5's
+instrument (the arena-coupled criterion), not as a separate harness.
 
 ## TD-RECOVERY-HASH-PARTITION-UNCERTIFIED (2026-08-04) — OPEN
 
@@ -711,6 +769,28 @@ cycle budget allows. (b) `supervisor::deliver_kanban_step`'s
 `step_type "kanban.*"` SHAPE (StepDomain::Kanban, D-MBX-A6) is canonical;
 the message DELIVERY behind it is the redundancy. Same disposition:
 leave as is, documented.
+
+*Resolution (2026-08-05, operator-directed — "clean up the ack theater
+entirely, while context is hot"; `E-PROGRESSION-IS-EXISTENCE-NOT-COMMAND-1`):*
+**DELETED, not left as is.** The entire message surface named above is gone
+from source: `KanbanMsg::{Advance, MulAdvance, Tick}`, `KanbanActor`,
+`KanbanRouteError`, `deliver_kanban_step`, `drive_mul_advance`,
+`drive_version_tick`, `drive_scheduled_tick`, `run_to_absorbing`, all
+`ractor::call!` sites in that module, plus their tests. `kanban_actor.rs` is
+now the message-free visibility module (`PhaseCensus` — one `&self` census
+pass replaces per-owner Phase RPCs) + the pure helpers (`mul_target`,
+`parse_kanban_step`). Consumers migrated: onebrc lane E journals over the
+direct `&mut` owner (supervisor + ractor dropped from its feature); the W2b
+probe pins the real `MailboxSoA` Rubicon DAG through `try_advance_phase`
+directly + exercises the census. (`ack_and_propose` was found ALREADY absent
+from source — the ack half of the theater survived only in documentation.)
+**What this resolution does NOT touch:** the kanbanstep
+(`VersionScheduler::on_version → try_advance_phase(&mut)`, reference
+`symbiont::kanban_loop`) stays canonical per the 2026-07-10 extension above —
+it is the writer's own synchronous continuation, not a wait and not a
+message. Open naming question only (not queued work): the WORD "scheduler"
+in `VersionScheduler`/`NextPhaseScheduler` is a drift vector under the
+no-pump vocabulary rule; the semantics are already compliant.
 
 ## TD-STYLE-TABLE-RESIDUE (2026-07-10, D-TSC-1 follow-ups)
 

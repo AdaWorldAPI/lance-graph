@@ -349,7 +349,11 @@ fn rank_verdicts(owner: &Tenant, pool_size: usize, seed: &[u64]) -> Vec<bool> {
         .collect();
     // Descending score, ties broken by ASCENDING row index (§2.3).
     scored.sort_by(|a, b| b.0.cmp(&a.0).then(a.1.cmp(&b.1)));
-    let n_pos = pool_size / 4; // PRE-REGISTERED q = 0.25, floor operationalization.
+    // PRE-REGISTERED q = Q_QUANTILE, floor operationalization (see the const's
+    // doc comment). f64 mult of a small usize by 0.25 is exact; the `as usize`
+    // cast floors, matching the previous `pool_size / 4` integer division
+    // bit-for-bit for every pool size this harness produces.
+    let n_pos = (pool_size as f64 * Q_QUANTILE) as usize;
     let mut verdict = vec![false; pool_size];
     for &(_, row) in scored.iter().take(n_pos) {
         verdict[row] = true;
@@ -681,7 +685,11 @@ fn print_association_table(label: &str, assoc: &BinaryAssociation) {
 #[derive(Debug, Clone, Copy, PartialEq)]
 enum Band {
     Redundancy,
-    Fusion,
+    /// Intermediate chance-corrected agreement — NOT a fusion verdict
+    /// (renamed from `Fusion` 2026-08-05: a middle kappa is merely
+    /// intermediate agreement under the observed marginals; a fusion
+    /// VERDICT additionally requires §12.4 D3b's held-out criterion).
+    Intermediate,
     NoSharedHorizon,
     Undefined,
 }
@@ -690,7 +698,7 @@ fn classify_band(kappa: Option<f64>) -> Band {
         None => Band::Undefined,
         Some(k) if k > KAPPA_REDUNDANCY_FLOOR => Band::Redundancy,
         Some(k) if k < KAPPA_NO_SHARED_HORIZON_CEILING => Band::NoSharedHorizon,
-        Some(_) => Band::Fusion,
+        Some(_) => Band::Intermediate,
     }
 }
 
@@ -1305,7 +1313,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let band_outcome =
         if matches!(band_strict, Band::Undefined) || matches!(band_aware, Band::Undefined) {
             BandOutcome::UndefinedKappa
-        } else if band_strict == Band::Fusion && band_aware == Band::Fusion {
+        } else if band_strict == Band::Intermediate && band_aware == Band::Intermediate {
             BandOutcome::InIn
         } else if band_strict == band_aware {
             BandOutcome::OutOutSameSide
@@ -1324,13 +1332,13 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     );
     let movement_fires = delta_kappa_pin.is_some_and(|d| d.abs() >= MOVEMENT_THRESHOLD);
     if movement_fires {
-        let fusion_permitted = band_outcome == BandOutcome::InIn
+        let candidate_permitted = band_outcome == BandOutcome::InIn
             && !strict_collapsed
             && !aware_collapsed
             && !strict_unstable
             && !aware_unstable;
-        if fusion_permitted {
-            println!("§3.3: MOVEMENT FIRES at V_pin and band is IN/IN — FUSION MAY BE CLAIMED");
+        if candidate_permitted {
+            println!("§3.3: MOVEMENT FIRES at V_pin and band is IN/IN — COMPLEMENTARITY CANDIDATE (a fusion VERDICT additionally requires §12.4 D3b's held-out criterion, which remains BLOCKED)");
         } else {
             println!("§3.3: MOVEMENT FIRES at V_pin but the band/guard state does not permit a fusion claim (§3.2/§3.5)");
         }
@@ -1367,6 +1375,12 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let mut max_abs_delta: f64 = 0.0;
     let mut any_undefined = false;
     let mut hamming_at_v8: Option<(usize, usize)> = None;
+    // External-review catch (2026-08-05): kappa can hide CANCELLING churn, and
+    // Hamming at V8 is zero BY CONSTRUCTION (the identical case) — so a DROP
+    // keyed on V8 alone could fire while verdicts swapped in opposite
+    // directions at V1..V7. Track the maxima across ALL horizons instead.
+    let mut max_ham_a: usize = 0;
+    let mut max_ham_b: usize = 0;
     for c in 1..=plan.len() {
         let prefix_k = c * SLICE;
         let vk = *sealed_versions
@@ -1418,6 +1432,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
         let ham_a = hamming(&a_s_bools, &a_a_bools);
         let ham_b = hamming(&b_s_bools, &b_a_bools);
+        max_ham_a = max_ham_a.max(ham_a);
+        max_ham_b = max_ham_b.max(ham_b);
         if c == plan.len() {
             hamming_at_v8 = Some((ham_a, ham_b));
         }
@@ -1439,10 +1455,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     );
 
     let drop_fires =
-        !any_undefined && max_abs_delta < DROP_THRESHOLD && ham_a_v8 == 0 && ham_b_v8 == 0;
+        !any_undefined && max_abs_delta < DROP_THRESHOLD && max_ham_a == 0 && max_ham_b == 0;
     println!(
         "C7 DROP verdict: max|delta_kappa| over {S_CYCLES} horizons = {max_abs_delta:.4} (threshold {DROP_THRESHOLD}); \
-         identical-case (k={S_CYCLES}) hamming=(A:{ham_a_v8}, B:{ham_b_v8}) -> {}",
+         max hamming over ALL horizons=(A:{max_ham_a}, B:{max_ham_b}); identical-case (k={S_CYCLES}) hamming=(A:{ham_a_v8}, B:{ham_b_v8}) -> {}",
         if drop_fires {
             "DROP FIRES trajectory-wide"
         } else {
@@ -1472,9 +1488,6 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
          claim is FIRST DeinterlaceRow implementor and FIRST deinterlace caller; the finding lives \
          in the rank criterion, not temporal.rs."
     );
-
-    println!("--");
-    println!("NOT COMPILED, NOT RUN by the authoring lane -- Sonnet grindwork, edit-only, no cargo (per task hard rules). The orchestrator compiles/lints/tests once.");
 
     Ok(())
 }

@@ -327,7 +327,7 @@ introduced mutation (a guard that cannot bark is the defect one level up).
 | thing | verdict |
 |---|---|
 | `blw_bible_lens_wave.rs` (tiled 64 owners) | category error — an owner is a **tenant**, not a shard; it fabricated 63 tenants. Deleted while **green**, because it was green on a fabricated shape. |
-| a KJV parser written into `nars/stance.rs` | layer violation — the inbound leg already had one. Reverted. |
+| a KJV parser written into `nars/stance.rs` | layer violation — the inbound leg already had one. Reverted. **(Clarified 2026-08-05 after an external reader took this row to mean stance.rs itself was reverted:** what was reverted is the duplicate INGESTION parser — Gutenberg/verse splitting, which `deepnsm-v2::corpus` owns. The stance MACHINERY (clause→belief→panel) was deliberately LIFTED from the probe example into `lance_graph_planner::nars::stance` at 4a74d69 and is live — a promotion, not a revert. Two different objects.) |
 | `blw_lens_twin.rs` (the κ instrument) | κ retired as the instrument (§12.3c): it measures *coincidence* and discards what a stance is. Nihilism and sarcasm are both negative, so no sign/boolean separates them. |
 | `blw_texture.rs` (the texture instrument) | **measured KILL** (§12.7): used the 24-locus register and wrote **3 loci**, only 1 shared, so `agreement_count` was capped at 1 **before any verse was read**. The carrier changed; the instrument did not. |
 
@@ -344,8 +344,14 @@ the alternation), and read the printed count:
 
 ```sh
 rg -c 'batch_writer|BatchWriter|KanbanStep|KanbanMove|kanban|owner_adapter|MailboxSoA|SoaEnvelope' \
-   crates/lance-graph-planner/examples/<your_harness>.rs || echo 0
+   crates/lance-graph-planner/examples/<your_harness>.rs \
+  || { s=$?; [ "$s" -eq 1 ] && echo 0 || echo "rg FAILED (exit $s) — not a count"; }
 ```
+
+(`rg` exits 1 for genuinely-zero matches and 2 for a real failure — wrong
+path, bad pattern. A bare `|| echo 0` would launder a failure into "zero
+matches, free-standing harness"; the exit-code split above keeps the two
+distinguishable.)
 
 **A count of 0 means your harness is a free-standing loop** and cannot support a
 substrate claim, however green it is. That grep returned `0` for `blw_texture.rs`,
@@ -363,13 +369,30 @@ is byte-identical (the #879 anti-vacuity falsifier, green at 64k/17). Any
 change that widens the write back toward dense/full-image, or adds a per-cast
 physical write, reverses #879 and is rejected on sight.
 
-**Invariant 2 — interlacing is prevented by `temporal.rs`, at READ time.**
-Cross-mailbox ordering is never a write-side concern: the writer fires ahead,
-no ack exists (`E-ACK-ELIMINATED-1`), and any consumer needing order recovers
-it through the deinterlace surface (`deinterlace` / layer-1
-`local_trajectories`, sort key `cast_seq` / `(hlc ?? version, version)`).
-Re-introducing write-side ordering, synchronization, or a confirmation ledger
-reverses #879 and is rejected on sight.
+**Invariant 2 — arrival order is never a write-side concern; canonical order
+is established by deinterlace BEFORE the seal.** (Rewritten 2026-08-05 — the
+earlier one-sentence form read as "read-time only," contradicting §8's
+operator-sharpened deinterlace-before-write ruling. Two distinct claims,
+both required, never conflated:)
+
+- **(a) Cross-MAILBOX arrival:** the writer fires ahead; no ack exists
+  (`E-ACK-ELIMINATED-1`); nothing at the write site synchronizes mailboxes
+  against each other. Re-introducing write-side cross-mailbox ordering,
+  synchronization, or a confirmation ledger reverses #879 and is rejected
+  on sight.
+- **(b) Per-MAILBOX canonicalization:** casts never arrive in the same
+  order, and the SEAL takes deinterlaced input — the caller canonicalizes
+  each mailbox's casts before sealing, via `temporal.rs` (`deinterlace` /
+  layer-1 `local_trajectories`, sort key `cast_seq` /
+  `(hlc ?? version, version)`) or via the known-order hash helper ONLY once
+  certified equally exact on the out-of-order regime (§8;
+  `TD-RECOVERY-HASH-PARTITION-UNCERTIFIED`). A caller sealing raw arrival
+  order violates (b) without violating (a) — the seal must never ingest
+  raw arrival order.
+
+For STORED logs, `temporal.rs` remains the canonical recovery surface at
+read time; (b) governs the write path's input, not a new cross-mailbox
+synchronization.
 
 **The caveat the ruling names — a hash partition stands where temporal.rs is
 preferred.** `cycle_driver::recover_fleet` (P4e, `cycle_driver.rs:700-746`)
@@ -525,3 +548,75 @@ yields Hold everywhere and casts nothing. A brain that cannot rest is the
 > corrected mid-flight and its can-fire assertion gains the twin: *the driver
 > discovered the work by reading the board, and nothing else could have told
 > it* — no side channel may exist in the probe.
+
+
+---
+
+## ⊘ Sharpening (2026-08-05): what "zero production callers" means — and what changed
+
+An external review read "zero production callers" as a claim that the
+library chain itself is unwired. It is not, and never was: the
+library-internal edges exist and are documented above
+(`emit_bootstrap_intent` → `BatchWriter::cast`; `run_cycle` →
+`collect_casts` → `seal_cycle` → `apply_sealed_transitions`). The claim was
+always about the ROOT: **no production runtime invokes that chain.**
+
+Status change (2026-08-05): `tests/probe_ignition.rs` (GREEN, 2/2) now
+drives the complete chain — arm → scan → `emit_bootstrap_intent` → `cast` →
+`run_cycle` → seal → apply — as a test-rooted driver. The remaining honest
+gap is narrower and is stated as such: **no live, externally-rooted runtime
+invokes the chain repeatedly over the intended real owner population against
+a durable sink.** That is an integration/rooting slice (the deepnsm-v2
+consumer direction), not another driver.
+
+Separately: `blw_fusion.rs` predates the probe and produces its sealed
+SERIES by calling `persist_cycle`/`recover_and_apply` directly with a
+hand-built `SweepSlot` — it does NOT exercise `collect_casts`/`seal_cycle`/
+`run_cycle`, and its records never claimed it did (its permitted claims are
+the `DeinterlaceRow`/`deinterlace` firsts and the rank-criterion finding).
+Rebasing its seal loop onto `run_cycle` is tracked as
+`TD-BLW-FUSION-MANUAL-SEAL`.
+
+
+---
+
+## ⊘ OPERATOR ORDER (2026-08-05): §10's doctrine is THE MAIN MODEL
+
+The decide-or-continue ≤64k doctrine in §10 is not one reading among
+several — by operator order it is **the main model**: 64k 1:1 owners,
+compile-time mutation-exclusive, independent thought bodies, one
+deterministic seal boundary. Any text in this doc or elsewhere that reads
+the one-tenant benchmark configuration as the architecture is subordinate
+to this order. Canonical entry: `EPIPHANIES.md`
+E-64K-1TO1-OWNERS-IS-THE-MAIN-MODEL-1. The outer-level parallelism claim
+is gated by D-KIA-A2's pre-registered falsifier; the GREEN probes
+(probe_ignition, d_ign_b_lenses) already drive the 1:1 topology, 64 owners,
+synchronously.
+
+
+---
+
+## Disk headroom for the measurement arc (operational, 2026-08-05)
+
+The 64k measurement binary writes **576 MiB of WAL scratch per configuration**
+(18 cycles × 32 MiB) and needs a release `target/`. Two ENOSPC lessons, both
+paid for:
+
+1. **Ten live scratch files need ~5.8 GiB.** The first real run died at
+   `StorageFull` partway through the WAL curve. Fixed in the binary: each
+   configuration's file is reclaimed the moment that configuration ends
+   (`drop(file)` then `remove_file`, so the unlink frees blocks immediately).
+2. **`target/debug/deps` reached 11 GiB** and left only 3.9 GiB free — one
+   release rebuild plus a run away from failing again.
+
+**The reclaim that is always safe here:** `rm -rf target/debug/{deps,build,
+incremental}` — cargo rebuilds them on demand, and unlike `cargo clean`
+(forbidden in this workspace) it leaves `target/release` intact. That single
+command took the tree from 13 GiB → 697 MiB and the disk from 90 % → 59 %.
+
+**Before any measurement run:** check `df -h /` and require **≥ 3 GiB free
+beyond** what the run's scratch needs. A run that dies at ENOSPC halfway
+through wastes the whole configuration sweep — and worse, a run that *nearly*
+runs out produces exactly the page-cache/writeback instability that made the
+WAL knee unreadable (the host was ~90 % full during every A0 run — a stated
+caveat on that result, not a footnote).

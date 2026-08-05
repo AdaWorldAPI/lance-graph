@@ -156,7 +156,7 @@ pub struct MailboxSoA<const N: usize> {
     // The three per-row style lanes appended after Kanban in the canonical
     // `NodeRow` value slab (`ValueTenant::{FrozenStyle, LearnedStyle,
     // ExploreStyle}`, offsets 152/164/176). Held here as SoA columns so a
-    // `KanbanActor`'s owned advance reads/writes them `&mut` (E-CE64-MB-4, ractor
+    // the exclusive owner's advance reads/writes them `&mut` (E-CE64-MB-4,
     // sole-mutator) — NOT a deprecated symbiont `Vec<NodeRow>`. Each lane is a
     // 12-byte content-blind register whose reading is ClassView-selected per
     // ROW/CLASS (never per lane): a policy row reads all three as 12 palette atoms
@@ -737,8 +737,9 @@ impl<const N: usize> MailboxSoA<N> {
 // `on_behalf` mailbox is read from `self`, so a call site cannot name a
 // different owner than the SoA it writes.
 //
-// ractor context: ownership is a COMPILE-TIME declaration (the KanbanActor
-// owns the `MailboxSoA`; spawn-only, never a message path). This method
+// Ownership context: ownership is a COMPILE-TIME declaration (the exclusive
+// owner holds the `MailboxSoA` by move; never a message path — the actor
+// wrapper that once dramatized this was deleted 2026-08-05). This method
 // runs inside the owner's context (`&self` borrow of the owned SoA) — the
 // cast is a WAL report to the ahead-firing writer ("melden macht frei",
 // never refused), not a message to another actor.
@@ -768,12 +769,12 @@ impl<const N: usize> MailboxSoA<N> {
 //
 // Per R1 ("the SoA columns are mutated by the owner's own cognitive ops, never
 // serialized through the contract trait"), these are the OWNER's crate-visible
-// mutation surface for the three style lanes. Each is `&mut self`, so — when
-// driven from a `KanbanActor::handle` whose `State` IS this owner — the
-// single-writer no-aliasing guarantee is compile-time (E-CE64-MB-4, ractor
-// sole-mutator), not by-convention. The *value* decisions (the explore
-// coprime-walk atom, the NARS-revision learned atom) belong to the caller (the
-// KanbanActor's phase handlers); these ops only apply an already-decided atom to
+// mutation surface for the three style lanes. Each is `&mut self`, so — driven
+// through the exclusive owner that holds this SoA — the single-writer
+// no-aliasing guarantee is compile-time (E-CE64-MB-4, sole-mutator), not
+// by-convention. The *value* decisions (the explore coprime-walk atom, the
+// NARS-revision learned atom) belong to the caller (the owner's cognitive
+// phase logic); these ops only apply an already-decided atom to
 // the owned lane. An un-gated impl (NOT under `with-planner`): the triangle write
 // surface has no planner dependency. `family >= 12` is a no-op (the #717
 // `triangle_for` guard — an out-of-range family never aliases slot 12);
@@ -894,7 +895,7 @@ impl<const N: usize> MailboxSoaView for MailboxSoA<N> {
         })
     }
     /// Override the deferred-binding default: the in-RAM owner DOES carry the three
-    /// autopoiesis-triangle lanes (P4), so a `KanbanActor` reading `FrozenStyle`
+    /// autopoiesis-triangle lanes (P4), so an owner reading `FrozenStyle`
     /// during `CognitiveWork` gets the real checkpoint policy. `populated`-guarded
     /// (same logical-row discipline as `identity_plane_at`); a query into
     /// `populated..N` returns `None`.

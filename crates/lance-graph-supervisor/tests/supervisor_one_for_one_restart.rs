@@ -51,7 +51,7 @@ mod tests {
         assert!(live_before.contains(&4), "G=4 should be live before crash");
 
         // Kill the G=2 actor by registry name.
-        if let Some(g2_cell) = ractor::registry::where_is("consumer_g_2".to_string()) {
+        if let Some(g2_cell) = ractor::registry::where_is("consumer_g_2") {
             g2_cell.stop(None);
         }
 

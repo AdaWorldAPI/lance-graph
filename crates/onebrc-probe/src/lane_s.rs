@@ -157,7 +157,10 @@ mod tests {
 
         let a = crate::lane_a_scalar(&data);
         let s = lane_s_swar(&data, 3);
-        assert_eq!(a, s, "SWAR lane must produce identical aggregates to lane A");
+        assert_eq!(
+            a, s,
+            "SWAR lane must produce identical aggregates to lane A"
+        );
         assert!(!a.is_empty());
     }
 }

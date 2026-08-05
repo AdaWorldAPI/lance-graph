@@ -1,3 +1,264 @@
+## E-ACK-THEATER-DELETED-1 (2026-08-05, operator-directed; SHIPPED same-day)
+
+**The ack/pump/tick theater is deleted from source, and the zombie question is
+answered with evidence.** The operator asked whether `kanban_actor.rs` was
+"the living zombie bringing the topic on the table." Verdict: **half yes** —
+honestly labelled legacy since 2026-08-04, but kept breathing by (a) `lib.rs`
+re-exporting the whole message surface at crate top level, (b) ONE live
+library consumer (`onebrc-probe/lane_e.rs`, actor-spawn per batch +
+`KanbanMsg::Tick` RPCs — and its `Tick` arm IS "a version tick as permission
+to advance," the exact retired mechanic), and (c) the W2b probe + its own
+tests. The other half of the resurrection pressure was documentational:
+`E-ACK-IS-THE-KANBAN-TRIGGER-1`'s 2026-07-10 LEAVE-AS-IS disposition let a
+design panel cite the ack pump as live mechanics one month later. Notably
+**`ack_and_propose` was already gone from source** — the "ack" half of the
+theater survived only in the record.
+
+**Deleted:** `KanbanMsg`, `KanbanActor`, `KanbanRouteError`, all five RPC
+drivers + `run_to_absorbing`, every `ractor::call!` in the module, the actor
+tests. **Added — the visibility surface the operator asked for:**
+`PhaseCensus` in the same module (supervisor) — a message-free `&self` census
+over any `MailboxSoaView` iterator (`observe`/`record`/`count`/`total`/
+`absorbing`/`at_rest`, absorbing derived from `next_phases().is_empty()`
+never hardcoded; empty census is NOT at rest — observing nothing asserts
+nothing). Kept: `mul_target` (pure, cycle_driver's P4c gate) +
+`parse_kanban_step` (the `"kanban.*"` step vocabulary). Migrations: lane E
+journals over the direct `&mut` owner (supervisor+ractor dropped from its
+feature — lane D deliberately KEEPS its own actors: pricing the actor model
+is that lane's purpose); W2b pins the real `MailboxSoA` Rubicon DAG via
+`try_advance_phase` directly and exercises the census over real SoA.
+
+**The OGAR boundary check (operator-asked, verified):** zero OGAR consumers
+of any deleted symbol. OGAR's `ogar-action-handler` is the arago/HIRO
+ActionHandler PARITY runtime (`submitAction → ActionInvocation →
+sendActionResult`, `Receipt::Acknowledged`, RBAC `commit_via` upstream) — an
+application wire protocol at the membrane, standing on `ActionDef`/
+`KausalSpec`, exactly the one legitimate home for ack/SLA vocabulary. The
+vocabulary firewall holds by construction: nothing there touches substrate
+progression.
+
+**What is NOT theater and stays:** the kanbanstep —
+`VersionScheduler::on_version → try_advance_phase(&mut)` (reference
+`symbiont::kanban_loop`) — is the writer's own synchronous continuation:
+no wait, no message, pure-function propose + owner dispose. Canonical per
+the 2026-07-10 ruling and untouched. Open NAMING question only: "scheduler"
+in those type names is a drift vector under the no-pump vocabulary rule.
+
+Gates: supervisor clippy `--no-deps -D warnings` clean + 9 lib tests (4
+census, mul_target, parser) + W2b 3/3 + cycle-driver 4/4 green; onebrc
+`--features lane-e` 20/20 + clippy clean; fmt clean. Pre-existing,
+unattributable reds noted honestly: `lance-graph-ontology` (12 lints, oxrdf
+deprecations + doc-indent, untouched crate), `cognitive-shader-driver`
+`bindspace.rs:475` too-many-arguments (untouched file), callcenter 1 unused
+import — none in the touched surface.
+
+## E-PROGRESSION-IS-EXISTENCE-NOT-COMMAND-1 (2026-08-05, OPERATOR-RULED)
+
+**The substrate progresses because immutable versions exist — never because
+anything tells it to progress. There is no architectural pump, no
+acknowledgement-driven progression, no scheduler advancing cognition.** The
+authoritative execution path, stated so it cannot blur:
+
+```
+think → seal → publish Lance version → next cycle reads the published version
+```
+
+A published version becoming queryable IS the progression. Nothing signals
+it, acknowledges it, or schedules it.
+
+**What this corrects, by name:**
+
+- **E-HOT-WINDOW-DECOUPLES-THE-CLOCKS-1 (below, same day)** — its H-5 clause
+  "the ack rebases onto the publish ack" is RETRACTED; v4 §H-5 is rewritten.
+  Rebasing a pump is still a pump. The hot-window design needs no trigger
+  rewiring at all: cycle n+1 reads published cycle n the moment it exists.
+- **The ack/pump vocabulary family** (`E-ACK-IS-THE-KANBAN-TRIGGER-1` and
+  its siblings) — the 2026-07-10 chain already corrected the trigger RANKING
+  (`E-KANBANSTEP-IS-THE-TRIGGER-1`'s correction: the ack-gated advance is "a
+  wait-shaped scheduler by construction"; PRIME INVARIANT: nobody waits for
+  anything or any scheduling). This ruling completes it: wherever "ack" /
+  "pump" still appear in the record, they are **legacy consumer terminology
+  on the historical compatibility surface — never substrate mechanics.** The
+  only legitimate home for ack/SLA/retry/notification concepts is an
+  external consumer (ticket-processing-style workflows): an application
+  concern, not a cognition concern.
+
+**Consequence for the hot version window (and any future persistence
+design):** the window is **not a message queue awaiting acknowledgement**; it
+is a **resident horizon of immutable Lance versions**. Readers observe
+versions. Writers publish versions. Persistence catches up independently:
+`seal → publish → immediately queryable → durability may trail`. Drift
+signal: any new design sentence in which the substrate progresses because
+something *told* it to — an ack arrived, a pump fired, a scheduler ticked —
+is re-deriving the deleted mechanic and gets judged against this entry first.
+
+## E-HOT-WINDOW-DECOUPLES-THE-CLOCKS-1 (2026-08-05, operator-directed; panel-hardened design, NOT built)
+
+**The cognition clock and the persistence clock decouple: every sealed cycle
+PUBLISHES to RAM immediately; durability becomes a batched background sync
+barrier over K cycles. The hot window is the head of the log kept resident —
+eviction-only, never invalidation — which is why it beats "another cache
+layer": a cache is a copy kept coherent with the truth; the window IS the
+truth, retained past its durability point.** Full design:
+`.claude/plans/measure-64k-axes-v4.md` (composes with v2, survives v3's M/O
+results). Two watermarks: `published_head` (RAM) vs `durable_head` (advanced
+only at barriers); crash window `(durable_head, published_head]`.
+
+**The panel inverted the fork.** Lance mints one version per commit, so K
+cycles per flush meant either (i) K unsynced commits + ONE fdatasync barrier,
+or (ii) K cycles inside one Lance version with `CycleId` as the fine clock.
+The initial lean was (ii) ("the CycleId/DatasetVersion type split
+pre-anticipated it") — **refuted with citations**: `temporal.rs` has no
+cycle-within-version coordinate, so under (ii) the no-hindsight guarantee
+silently degrades to up-to-(K−1) cycles of intra-version hindsight for a
+Strict reader; `hlc_tick` repurposing is the forbidden third numbering
+wearing a borrowed name; and the 1:1 binding is contractual at ≥6 sites.
+**(i) barrier flush is the recommendation**: 1 cycle = 1 real Lance version
+survives everywhere (v2's pin, the base fence, the versions() ladder, the
+no-hindsight falsifier), and the batch amortizes exactly the phase A0
+measured as unstable — the sync.
+
+Five invariants, each bought by a landed attack or sweep finding (v4 §4):
+**H-1** checkpoint fencing (the per-owner `(phase, watermark)` checkpoint is
+a THIRD durable artifact; it must never be durable ahead of `durable_head`
+or recovery silently skips legitimate landings — the naive "die together"
+claim was refuted until this fence was added); **H-2** torn-tail cleanup
+(`durable_head` = newest fully-intact version at/below the last barrier;
+recovery removes torn manifests above it or the durable prefix is not
+contiguous); **H-3** the window is not a veto window (published = irrevocable;
+the Libet veto stays pre-seal in v2's `ClosureState::Vetoed`); **H-4** the
+zero-copy conditions (the window retains the SINGLE freeze-output allocation
+per cycle AND the batched append writes FROM those bytes — otherwise it is
+the forbidden "detached canonical state" snapshot); **H-5** rung-decided
+visibility + the ack rebase (`E-ACK-IS-THE-KANBAN-TRIGGER-1`'s pump moves to
+the publish ack — still a Lance ack, now meaning "published" not "durable" —
+or the cognition clock is not actually decoupled). **⊘ H-5's second half
+(the ack rebase) is RETRACTED same-day by
+`E-PROGRESSION-IS-EXISTENCE-NOT-COMMAND-1` (above): there is no pump to
+rebase — read H-5 through that entry; v4 §H-5 carries the corrected text.**
+
+**Naming rule:** this is *the MailboxSoA fleet's hot version window over
+sealed cycles* — NEVER "VSA speaks Lance" (E-MARKOV-TEMPORAL-STREAM-1 demoted
+the VSA carrier; the in-RAM substrate is the `MailboxSoA` fleet). Dated
+caveats were added to `seal-vs-temporal-ordering-information.md` properties
+2 and 4 (arrival is durable only at/below `durable_head`; cohort re-anchors
+on the seal event). Measurements EXP-HOT-WINDOW P1-P5 pre-registered, none
+run; KILLs named (publish latency not dropping; barrier(K) ≈ K·barrier(1)).
+
+## E-SEAL-AND-TEMPORAL-ARE-DIFFERENT-OBJECTS-1 (2026-08-05)
+
+**The seal and `temporal.rs` are not two implementations of one ordering
+function — they compute different mathematical objects, and the O-arm's digest
+divergence is the expected signature of that, not a defect in either.** Read off
+the shipped source after the O-arm measured
+`O-A 64565f362db2e4a5 ≠ O-B 3e71c2aa7be8e325`.
+
+Four things the seal computes that the temporal surface has no field for:
+
+1. **A cross-owner TOTAL order.** `LocalCausalRow::cast_seq` is contractually
+   per-owner — *"Cross-owner values are never compared"* — so
+   `local_trajectories` yields a forest of chains, a PARTIAL order. `freeze`
+   yields one total order. A partial order does not determine a total one.
+2. **Arrival as an ordering input.** The seal's sort is stable on
+   `stream_position`, so arrival breaks ties; `LocalCausalRow` is exactly
+   `(owner, cast_seq)` and records arrival nowhere. The seal is the ONLY durable
+   encoder of cross-owner arrival, and `scan_sealed` may never re-sort.
+3. **The per-row coalescing FOLD** (`row → last payload in stream order`) — a
+   destructive fold whose result depends on the total order. `temporal.rs` has
+   no row concept at all, so last-writer-wins at row granularity is computed
+   nowhere else.
+4. **Cohort + read horizon** (`CycleFrame{cycle, base_version}`) — which casts
+   published atomically together, and which sealed `Vn` the whole cohort read.
+   Per-owner chains carry neither; the grouping key is simply absent.
+
+**Standing position (operator, same day):** keep `temporal.rs` as the
+authoritative TEMPORAL model and the seal as the authoritative ORDERING model,
+and treat the gap as an **explicit research question** rather than assuming one
+should replace the other. The O-arm *failed semantically before it failed on
+performance*, which makes its timing numbers almost irrelevant to the decision.
+
+**Scope fence (so the divergence is not overread):** the O-arm deliberately
+scrambled arrival (bit-reversal of the owner id) so the two orders were FREE to
+diverge. The result says *the seal preserves an arrival order temporal cannot
+see*, NOT *the seal always disagrees*. On an arrival-ascending workload they
+would coincide — and that coincidence would prove nothing.
+
+**Consequence for any future "let temporal source the ordering" proposal:** the
+minimal change is not "make temporal smarter" but *give `LocalCausalRow` a
+globally comparable key* — a contract widening that re-couples the owners the
+deinterlace exists to decouple, and which still supplies neither the fold (3)
+nor the cohort (4). The proposer owns that cost explicitly.
+
+Full statement + three pre-registered probes (tie density, fold-collision rate,
+arrival-ascending control):
+`.claude/knowledge/seal-vs-temporal-ordering-information.md`.
+
+## E-64K-1TO1-OWNERS-IS-THE-MAIN-MODEL-1 (2026-08-05, OPERATOR-ORDERED)
+
+**THE MAIN MODEL of this substrate is: up to 64k mailboxes, 1:1
+owner-per-mailbox, each owner COMPILE-TIME MUTATION-EXCLUSIVE over its own
+SoA, 64k INDEPENDENT thought bodies deciding-or-processing concurrently,
+converging at ONE deterministic seal boundary per cycle.** Operator-ordered
+2026-08-05, after an external review surfaced that two framings were
+coexisting ambiguously in the record.
+
+The demarcation, stated so it cannot blur again:
+
+- **"One SoA has one owner" means exclusive mutation authority per SoA
+  instance.** It NEVER meant "the whole population must be rows inside one
+  owner."
+- **The one-tenant configuration (D-BLW-1..4: one corpus as rows in one
+  owner's slice) is a BENCHMARK HARNESS SHAPE for single-corpus
+  experiments — never the architecture.** §12.3a′'s "the real axis is rows
+  inside one owner" scoped a benchmark's scale knob; it did not and does
+  not redefine the runtime topology.
+- **Two nested levels of parallelism, both real:** OUTER = 64k independent
+  owners (THE main model; the D-KIA-A2 pre-registered falsifier —
+  median-of-5, ≥2× at ≥4,096 owners with ≥100 µs bodies — is ITS gate,
+  and "parallel" at this level stays a doctrine until A2 measures it);
+  INNER = row-level bodies within one owner's slice (D-BLW-4's measured
+  3.27× lives here).
+- Code already conforms: the fleet is N independent `MailboxSoA` owners
+  behind `MailboxFleet` (`&mut` = the compile-time exclusivity), the GREEN
+  probes drive 64 real 1:1 owners, and no source file implements a
+  population-in-one-owner topology. What this ruling fixes is the CANON —
+  every future doc, plan row, and harness description reads through it.
+
+**Status:** operator-ordered, BINDING. Cross-refs: wiring doc §10 (the
+decide-or-continue doctrine, now explicitly the main model);
+plan §12.3a′ (re-scoped by this entry to benchmark-axis only);
+E-AN-OWNER-IS-A-TENANT-NOT-A-SHARD-1 (the same truth from the other side).
+
+
+## E-MEASUREMENT-BURNS-THE-STATE-1 (2026-08-04)
+
+**A measurement of an awareness-coupled system burns the state it measured —
+once measured, it cannot be remeasured; the only admissible carry-forward is
+the distribution shape × Prozentrang from the prior.** Operator-ruled design
+law for D-BLW-5 and every future jc-loop / awareness-injection probe. Two
+halves: (1) the PAYLOAD law — never inject the raw statistic (a scalar is
+trivially echoable, building the Goodhart/anchoring fixed point into the
+instrument); inject the prior pool's palette256/HDR-bucketed distribution
+shape plus the percentile rank of the observation within it (Belichtungsmesser
+machinery: `ndarray::hpc::cascade::{expose→Band, recalibrate}`,
+`statistics::percentile`); (2) the SINGLE-MEASUREMENT law — S₀ is one-shot at
+V₀, sealed; the instrument's next run is S₁ at V₁, a new measurement of a
+different (post-injection) system, never a remeasure. Enforced by
+temporal.rs hindsight blindness (Strict-rung version-gated reads, the
+D-BLW-3 precedent) × the shape sensor riding as META only (ELEVATED
+rung-marked, never corpus, never recomputed-and-back-dated). New structural
+guard: an append-only measurement ledger keyed `(statistic-id, version)`
+whose recompute-at-sealed-key path ERRORS, with can-fire + can-stay-silent
+tests.
+
+Doctrine doc: `.claude/knowledge/observer-effect-tfpn-doctrine.md` (TFPN
+arms + Gadamer/Goodhart readings + full falsification regimen). Plan:
+§12.9 + §12.9a.
+
+**Status:** operator-ruled design law (binding). The observer EFFECT itself
+stays CONJECTURE until D-BLW-5 runs.
+
+
 ## E-HORIZONTVERSCHMELZUNG-GAP-CLOSES-1 (2026-08-04)
 
 **The a-priori/hindsight gap is not a constant — it decays monotonically as
@@ -21,6 +282,48 @@ claimed: validity (D3b closed), significance (no dependence model), zero-copy
 `DeinterlaceRow` implementor and first `deinterlace` caller in the tree.
 
 **Status:** FINDING (measured; harness + output in-tree, plan §12.8).
+
+> **⊘ Correction (2026-08-05, external-review catch, two parts).**
+> (1) *"decays monotonically" was an overclaim*: |Δκ| runs 0.485 → 0.251 →
+> 0.079 → 0.031 → ≈0 → **0.011 → 0.017** → 0 — a rebound at V6/V7. The
+> honest statement: **the gap moves toward zero overall, with a small
+> rebound at V6/V7**. The trajectory shape, the IN/IN band, and every other
+> claim in this entry are unaffected; the plan §12.8 headline is corrected
+> in the same commit. (2) *G4 fixture-replacement post-mortem, recorded in
+> full as the approval record*: the ORIGINAL can-fire fixture's premise
+> ("'god' any-overlap ≈ 90 %") was MEASURED at 0.1285 during the central
+> gate pass — it would have made the can-fire half near-vacuous, so it was
+> replaced BEFORE the assert stage by constant-by-construction tails
+> (`s.wrapping_add(1) != 0 || s == u32::MAX` all-fire /
+> `u64::from(score) > u64::from(u32::MAX)` never-fire), which PASSED; the
+> real-data 'god' projection was retained as the can-stay-silent arm (with
+> a drift assert), which PASSED. The replacement decision was made
+> centrally by the orchestrator mid-gate (autonomous session; this line is
+> the recorded approval), on the ground that a fixture premise contradicted
+> by measurement cannot be the can-fire evidence — constant-by-construction
+> tails cannot rot the same way.
+>
+> **⊘ Regrade (2026-08-05, external-review catch — the reference-pool
+> confound).** The fixed-prefix restriction removed OUTPUT-set growth but
+> not REFERENCE-population growth: `rank_verdicts` recomputes the top
+> quartile over the whole currently-seated pool (which grows 250 rows per
+> cycle), so each horizon re-ranks the same fixed subjects against
+> different competitors, a different quartile cutoff, and a different tie
+> population. What is MEASURED is therefore a **cohort-relative rank
+> trajectory under a growing reference pool** — a legitimate effect, but
+> attributing it to *Horizontverschmelzung* (horizons fusing) requires the
+> three-arm decomposition, now the pre-registered follow-up (D-BLW-3b):
+> **A** fixed subjects × fixed reference pool (expected: no movement — the
+> silent arm), **B** fixed subjects × growing pool (isolates
+> rank-renormalization — THE ARM THIS ENTRY MEASURED), **C** fixed
+> subjects × fixed pool × awareness-coupled representation (the semantic
+> candidate). The Z-containment control was matched to plumbing, not to the
+> rank mechanism, so it cannot separate B from C. The measured NUMBERS
+> stand; the ATTRIBUTION is regraded CONJECTURE pending A and C. Also
+> fixed in code the same day: C7's trajectory-wide DROP had keyed on
+> V8 Hamming (zero by construction) — it now requires zero Hamming across
+> ALL horizons, closing a cancelling-churn false-DROP path (the recorded
+> run is unaffected: max|Δκ|=0.485, max Hamming A:152/B:288).
 
 
 ## 2026-08-04 — E-THE-CARRIER-CHANGED-THE-INSTRUMENT-DID-NOT-1 — a 24-locus register that writes one shared locus is still a coincidence bit

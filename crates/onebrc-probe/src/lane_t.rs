@@ -70,7 +70,7 @@ impl Trie {
             child as usize
         } else {
             let new = self.counts.len();
-            self.children.extend(std::iter::repeat(0u32).take(self.fanout));
+            self.children.extend(std::iter::repeat_n(0u32, self.fanout));
             self.mins.push(i32::MAX);
             self.maxs.push(i32::MIN);
             self.sums.push(0);
@@ -167,7 +167,12 @@ fn accumulate_trie(data: &[u8], fanout: usize, nibble: bool) -> Trie {
     trie
 }
 
-fn lane_trie_threads(data: &[u8], workers: usize, fanout: usize, nibble: bool) -> BTreeMap<String, Stats> {
+fn lane_trie_threads(
+    data: &[u8],
+    workers: usize,
+    fanout: usize,
+    nibble: bool,
+) -> BTreeMap<String, Stats> {
     let workers = workers.max(1);
     let bounds = chunk_bounds(data, workers);
     let results: Vec<BTreeMap<String, Stats>> = std::thread::scope(|scope| {
@@ -214,15 +219,33 @@ mod tests {
             assert_eq!(map.len(), 3, "three stations (nibble={nibble})");
             assert_eq!(
                 map["ab"],
-                Stats { min: 10, max: 30, sum: 40, count: 2 },
+                Stats {
+                    min: 10,
+                    max: 30,
+                    sum: 40,
+                    count: 2
+                },
                 "nibble={nibble}"
             );
             assert_eq!(
                 map["abc"],
-                Stats { min: -40, max: 20, sum: -20, count: 2 },
+                Stats {
+                    min: -40,
+                    max: 20,
+                    sum: -20,
+                    count: 2
+                },
                 "nibble={nibble}"
             );
-            assert_eq!(map["z"], Stats { min: 5, max: 5, sum: 5, count: 1 });
+            assert_eq!(
+                map["z"],
+                Stats {
+                    min: 5,
+                    max: 5,
+                    sum: 5,
+                    count: 1
+                }
+            );
         }
     }
 
