@@ -1,3 +1,66 @@
+## 2026-08-05 — PROBE-IGNITION: the write path is DRIVEN (Opus design + Sonnet inventory + Sonnet build + central gates)
+
+**D-ids:** PROBE-IGNITION (plan §12.11's prerequisite). **Commit:** this one.
+**Outcome: GREEN — 2/2 tests, all 11 gates (G1-G11) both halves.**
+
+Three lanes: Opus design note (`exec-runs/probe-ignition-design-opus.md`, 528
+lines — placement, the no-messaging lowering, the pinned run shape, the
+assertion table, the silence-honesty split); Sonnet API inventory
+(`probe-ignition-api-inventory-sonnet.md`); Sonnet build
+(`probe-ignition-build.md`). Orchestrator ran every cargo command.
+
+**What it proves.** The built-but-undriven write path now has a driver: 64
+real `MailboxSoA` owners seeded from the real KJV corpus, armed by a
+`MetaWord` write, discovered by a board scan alone, cast write-on-behalf
+through `emit_bootstrap_intent` -> `BatchWriter::cast` -> `run_cycle`
+(collect -> seal -> persist -> apply). Measured: c1 24 casts / 1 WAL write /
+24 transitions, decomposing 20 Flow (`Planning->CognitiveWork`, Elixir =
+the style's mint) + 4 Block (`Planning->Prune`, Native = the gate's mint);
+40 untouched owners fully accounted (32 out-of-scope, 7 unarmed, 1 orphan);
+c5 and c6 rest with ZERO casts, no seal, `wal_writes` frozen at 4 and the
+fleet byte-identical across the two rest cycles.
+
+**The honest silence held.** G4's rest fires on the shipped suite's own
+*Flow* fixture at flow_proxy=7 with `Calibrated` texture — the owner rests
+because `mantissa` (derived from live energy) fell to 0, not because the
+qualia were zeroed. CONTRA's absorbing Prune silence is distinguishable from
+REST's rescheduled silence: `rediscovered(REST)=8` at c2/c3 vs
+`rediscovered(CONTRA)=0` across c2..c6.
+
+**Two OPEN #879 caveats made observable, as designed.** G9 pins the
+drained-writer retry footgun (injected WAL failure -> `CycleError::Seal` ->
+retry via `seal_cycle(sink, failure.frame, failure.casts)` lands it; a fresh
+`collect_casts` on the same writer yields 0 slots). G10 measures the
+missing-owner accounting gap: probe-local pass counts 1, shipped pass counts
+0, difference exactly 1.
+
+**Corrections during the arc.** (a) Mid-flight G2b spec fix relayed to the
+build lane: the 4 CONTRA Planning casts are gate-minted Native->Prune per
+the design's own §2 step 8, so "every Planning move is Elixir" was wrong —
+rebuilt as the 20/4 decomposition. (b) Central-gate catch: G11's self-scan
+matched its OWN success message (the needles were concatenation-guarded but
+the eprintln spelled them out) — a real false positive the run surfaced;
+message reworded, scan re-armed. (c) The build lane self-caught four bugs
+before handoff (hardcoded `DatasetVersion(0)` base, a tautological
+self-comparison, a fingerprint captured after the loop, an `Option<&T>`
+mismatch).
+
+**Deviations, both documented in-file:** energizing writes `owner.energy`
+directly (`causal_edge::CausalEdge64` is unreachable without a forbidden
+manifest change; same public field `apply_edges` mutates); the c4 wake runs
+before the scan (the design's own cohort table is only consistent that way).
+
+**Gates:** `cargo test -p lance-graph-supervisor --features cycle-driver
+--test probe_ignition` 2/2 ok; `cargo fmt -p lance-graph-supervisor --check`
+clean; clippy 0 warnings attributable to the probe. **CI note:** the probe
+is inert unless the workflow adds `--features cycle-driver` — NOT changed
+here (workflow edits are operator-approved only); recorded as the open item.
+
+**Not claimed:** durability, parallelism, scale, multi-writer, validity,
+GUID-prefix routing, 36-style arming, deinterlace/temporal, zero-copy,
+recovery, or `Evaluation->Plan` re-entry (structurally unreachable through
+the MUL gate — the arc stops at Commit and says so).
+
 ## 2026-08-04 — D-BLW-3 arc: design + inventory + recon/refute workflow + build (consolidated by the orchestrator)
 
 Four units, records in their own tag-files per the one-writer rule:
