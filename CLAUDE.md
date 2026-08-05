@@ -7,10 +7,26 @@ upstream crates.io version of a forked crate.** Non-negotiable; applies to every
 `Cargo.toml` and every dependency decision in this repo. Every repo in this
 workspace is local — prefer the local/fork source over the registry, always.
 
-- Crates with an `AdaWorldAPI/<name>` fork — e.g. `ndarray`, `lance` /
-  `lancedb` / `lance-index` / `lance-linalg` / `lance-namespace`, `surrealdb`,
+- Crates with an `AdaWorldAPI/<name>` fork — e.g. `ndarray`, `surrealdb`,
   and any other — MUST be wired via the fork (`path` / `git` / `[patch.crates-io]`),
   never the registry version.
+
+> **⊘ CARVE-OUT — the lance family is UPSTREAM-AUTHORITATIVE (operator-ruled
+> 2026-08-05, `E-LANCE-IS-UPSTREAM-AUTHORITATIVE-1`).** `lance`, `lancedb`,
+> and the whole `lance-*` family (`lance-arrow` / `lance-core` / `lance-index` /
+> `lance-linalg` / `lance-namespace` / `lance-datafusion` / …) are consumed from
+> **crates.io upstream, never from a fork** — *"lance and lancedb are never used
+> from forks because it's too risky and the upstream is authoritative."* Forking
+> the storage engine underneath a stack that trusts its durability guarantees
+> buys a maintenance liability, not freedom. This list previously NAMED
+> lance/lancedb as must-fork; that was wrong and is corrected here, not deleted.
+> **`AdaWorldAPI/lance` and `AdaWorldAPI/lancedb` DO exist as repos — their
+> existence is NOT evidence of intent to depend on them**, and a session that
+> finds them must not read the P0 above as a mandate to wire them in. Registry
+> pins for this family are therefore CORRECT, not a policy violation to
+> "fix". The version discipline that DOES apply: the family moves in exact
+> lockstep (`=X.Y.Z` across every member, `lancedb` pinning its matching
+> `lance`), so a bump is one deliberate, measured PR — never a drift.
 - If a fork's coordinates (git URL, branch/tag, feature flag) are unknown,
   **STOP and ask**. Do NOT fall back to crates.io as a convenience or to make a
   build pass.
