@@ -1653,3 +1653,52 @@ WordNet cannot address (the KJV tail); Stage B gets the universal anchor
 space in which translator torque is per-VERSION while language torque is
 per-LANGUAGE — separable because R1 measures the language signature on
 non-biblical text, so Stage B can subtract it; Stage C inherits both.
+
+#### 12.10b Jina → helix: the cosine>helix transcode, three routes (operator, 2026-08-05)
+
+The direction arrow is the design: **cosine is measured once and DEMOTED
+into a hydratable code; helix codes are the runtime carrier.** Jina is
+called at bake/seal time only (membrane — the API key never enters the hot
+path, per compilation-vs-runtime doctrine); everything downstream runs on
+codes. Which machinery applies depends on WHAT is encoded:
+
+1. **Pairwise cosines → the palette256 cosine replacement, buckets in
+   Fisher-2z space, back-hydratable** (the direct `cosine>helix`; operator-
+   confirmed naming 2026-08-05: "palette256, Fisher-z back hydratable —
+   the cosine replacement"). The torque estimator consumes specific
+   pairwise cosines, not embeddings. Compute each needed cosine ONCE from
+   Jina vectors at the sealed alignment version, transform to Fisher 2z,
+   encode place/residue (1-byte palette256 bucket in 2z + optional residue
+   byte — equal-information buckets). All later comparison/accumulation is
+   LUT + integer adds; the vector is never materialized again; hydrate
+   back via tanh only at the boundary that needs a float.
+   `helix_orient`'s own doc calls itself "the same RVQ machinery as
+   palette256, on S² instead of the line" — this route is the line
+   version. Single-measurement law applies verbatim. Synergy: a 256×256
+   table over the 2z-palette codes gives O(1) pairwise compose/distance on
+   coded cosines — the stack's recurring structure (bgz17 palette
+   distance/compose tables, helix DistanceLut, attention-as-lookup).
+2. **Whole vectors → Cam96 preferred, Base17-palette as the coarse tier,
+   NEVER helix_orient** (the category-error guard). `helix_orient`'s
+   codebook is the golden-spiral template on S² (2 DOF); a 1024-dim Jina
+   vector cannot enter it. Per-vector compression is ALREADY SHIPPED for
+   Jina twice, at two precision tiers: the Jina-trained **Cam96** Bible
+   codebook (12-axis, 96-bit code — operator 2026-08-05: "probably more
+   exact", plausible on axes×bits grounds: 12 subspaces vs 1 palette
+   index) and `ndarray::hpc::jina::codec`'s F16 2048D → Base17 (34 B) →
+   Palette (1 B, O(1) `JinaPalette::distance`). "Probably" stays a
+   HYPOTHESIS until measured: the rank-preservation gate below runs BOTH
+   tiers against f32 cosines on the same held-out set and reports both ρ
+   per byte spent — the tier choice is then a read from the table, not a
+   guess.
+3. **Per-step plane angles → helix Signed360** (the chirality carrier
+   Stage A needs). Each arc step spans a 2-plane (lever × step,
+   Gram-Schmidt from Jina vectors); the signed angular increment in that
+   plane is a scalar angle → Signed360/residue, 1–3 B per step. Valid at
+   ANY ambient dimension because the plane is always 2D.
+
+**Pre-registered gate:** rank preservation — helix-2z-coded cosines must
+preserve pair ranking vs f32 cosines above a pinned ρ floor on a held-out
+set. The S² precedent measured Pearson 0.9917 / Spearman 0.9924
+(helix_orient header); the LINE version must be re-anchored, never assumed
+from the sphere's numbers.
