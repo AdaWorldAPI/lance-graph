@@ -115,9 +115,36 @@ pub fn register_graph(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use lance_graph_contract::canonical_node::{EdgeBlock, NodeRow};
+    use lance_graph_contract::canonical_node::{classid_read_mode, EdgeBlock, NodeRow};
     use lance_graph_contract::soa_graph::{project_snapshot, OSINT_GOTHAM};
     use lance_graph_contract::NodeGuid;
+
+    /// Mint an OSINT member key the way the CANON requires: through
+    /// `mint_for(classid_read_mode(c).tail_variant, …)`, with the classid taken
+    /// from the DOMAIN rather than hardcoded.
+    ///
+    /// Both halves matter and both were wrong here before. `OSINT_GOTHAM.classid`
+    /// is `CLASSID_OSINT_V3` under the default `guid-v3-tail` and only falls back
+    /// to the V1 `CLASSID_OSINT` with the feature off; pinning the V1 constant
+    /// made `project_snapshot`'s `classid == domain.classid` filter match ZERO
+    /// rows in a default build, so every assertion below ran against an empty
+    /// snapshot. And once the classid is V3, `family_of` reads the tail through
+    /// `family_v2()` — so a `NodeGuid::new` (V1 tail) key would carry the family
+    /// in the wrong bits even after the filter passed. Reading both the classid
+    /// and the tail variant off the domain keeps the fixture correct under either
+    /// feature setting instead of encoding one of them.
+    fn osint_key(heel: u16, family: u32, identity: u32) -> NodeGuid {
+        NodeGuid::mint_for(
+            classid_read_mode(OSINT_GOTHAM.classid).tail_variant,
+            OSINT_GOTHAM.classid,
+            heel,
+            0,
+            0,
+            0,
+            family,
+            identity,
+        )
+    }
 
     /// Two OSINT members in families 0xA, 0xB; the family-0xA member carries an
     /// out-of-family adapter byte 0x0B → family 0xB. project_snapshot →
@@ -127,12 +154,12 @@ mod tests {
         a_edges.out_family[0] = 0x0B;
         let rows = [
             NodeRow {
-                key: NodeGuid::new(NodeGuid::CLASSID_OSINT, 1, 0, 0, 0xA, 1),
+                key: osint_key(1, 0xA, 1),
                 edges: a_edges,
                 value: [0u8; 480],
             },
             NodeRow {
-                key: NodeGuid::new(NodeGuid::CLASSID_OSINT, 2, 0, 0, 0xB, 1),
+                key: osint_key(2, 0xB, 1),
                 edges: EdgeBlock::default(),
                 value: [0u8; 480],
             },

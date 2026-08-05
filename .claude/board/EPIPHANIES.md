@@ -1,3 +1,43 @@
+## E-A-FEATURE-CONDITIONAL-CLASSID-SILENTLY-EMPTIED-A-FIXTURE-1 (2026-08-05, measured)
+
+**A test that hardcodes a classid the domain now selects BY FEATURE does not
+fail loudly — it runs every assertion against an empty projection.** Found by
+finally running `lance-graph-callcenter` under `--features query`, which no
+`-p` sweep and no CI tier had exercised.
+
+**The mechanism, in three links.** (1) `soa_graph::OSINT_GOTHAM.classid` is
+`OSINT_GOTHAM_CLASSID`, which is `NodeGuid::CLASSID_OSINT_V3` (`0x0701_1000`)
+under the default `guid-v3-tail` and only falls back to the V1
+`NodeGuid::CLASSID_OSINT` (`0x0700_0000`) with the feature off. (2)
+`project_snapshot` filters `r.key.classid() == domain.classid` — the codex-P1
+guard that stops a mixed-class board leaking other domains' rows. (3) The
+`graph_table` fixture minted its rows with the V1 constant spelled literally.
+So in a DEFAULT build the filter matched **zero of two rows**, and the test
+compared 0 against 4.
+
+**The second link, which the first one hides.** Fixing only the classid is not
+enough: once the classid is V3, `family_of` dispatches through `family_v2()`,
+so a `NodeGuid::new` key (V1 tail, `family:u24` at bytes 10..13) would carry the
+family in the wrong bits even after the filter passed. The fixture had to move
+to `mint_for(classid_read_mode(c).tail_variant, …)` — which is what the CANON
+already requires of every new mint, and exactly the `ISS-V1-TAIL-RESIDUE` class.
+A fixture that reads BOTH the classid and the tail variant off the domain is
+correct under either feature setting; one that encodes either is a time bomb.
+
+**Why it survived.** Not a DataFusion-54 regression — `num_rows() == 0` is
+decided before DataFusion is involved. It is V1→V3 migration residue that no
+gate ran: the failing pair only surfaces with a feature combination outside the
+default sweep. This is the SECOND instance this session of the same shape
+(the first: `vsa_udfs` / `transcode::ontology_table` returning clippy EXIT=0
+while never compiling, both behind `query` / `query-lite`). The generalization
+worth keeping: **a feature-gated module is not covered by a green run that
+never compiled it, and a feature-CONDITIONAL constant is not pinned by a test
+that spells one of its branches.**
+
+**Fixed:** `crates/lance-graph-callcenter/src/graph_table.rs` — 211/211 green
+under `--features query`. **Not fixed:** nothing yet runs that feature in CI, so
+the coverage hole that hid this is still open.
+
 ## E-LANCE-IS-UPSTREAM-AUTHORITATIVE-1 (2026-08-05, operator-ruled — corrects a P0 in `CLAUDE.md`)
 
 **The lance family is consumed from crates.io upstream and NEVER from a fork —
