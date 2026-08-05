@@ -169,16 +169,36 @@ copy per version; (2) **the batched Lance append writes FROM those same
 retained bytes** — the window IS the in-place backing store of the durable
 write, i.e. genuinely the primary allocation, not a sidecar beside one.
 
-**H-5 — reader visibility is rung-decided, and the ack rebases.** Two reads
-now exist: *published* (cognition; may read above `durable_head`) and
-*durable-only* (audit/compliance rung; a durable-only read of an unflushed
-range FORCES the barrier for that range — the transparent fall-through). And
-the kanban pump must move: `E-ACK-IS-THE-KANBAN-TRIGGER-1` currently makes
-the Lance ack propose the next `KanbanMove`; under barrier flush the ack that
-pumps is the **publish ack** (the unsynced commit's return — still a Lance
-ack, meaning "published" not "durable"). Left on the durable ack, the
-cognition clock is NOT decoupled — it would idle up to 200 ms/K cycles behind
-the barrier, which is the exact latency this design exists to remove.
+**H-5 — reader visibility is rung-decided; there is NO pump
+(operator-corrected 2026-08-05).** Two reads exist: *published* (cognition;
+may read above `durable_head`) and *durable-only* (audit/compliance rung; a
+durable-only read of an unflushed range FORCES the barrier for that range —
+the transparent fall-through).
+
+An earlier revision of this invariant said "the kanban pump rebases onto the
+publish ack" — **that resurrected a deprecated mechanic and is retracted.**
+There is no architectural pump, no acknowledgement-driven progression, and no
+scheduler advancing cognition; the ack/pump framing belongs to the historical
+compatibility surface only (`E-PROGRESSION-IS-EXISTENCE-NOT-COMMAND-1`,
+completing the 2026-07-10 correction chain around
+`E-KANBANSTEP-IS-THE-TRIGGER-1`). The authoritative execution path is:
+
+```
+think → seal → publish Lance version → next cycle reads the published version
+```
+
+The version becoming queryable IS the progression — nothing signals it,
+acknowledges it, or schedules it. Durability trails publication
+independently. Consequently the hot window is **not a message queue awaiting
+acknowledgement**; it is a **resident horizon of immutable Lance versions**:
+readers observe versions, writers publish versions, persistence catches up
+on its own clock. The decoupling this design delivers needs no rewired
+trigger — cycle n+1 reads published cycle n the moment it exists, which is
+already the whole mechanism.
+
+Ack/SLA/retry/notification vocabulary may legitimately survive ONLY in
+external consumer surfaces (ticket-processing-style workflows) — an
+application concern, never substrate mechanics.
 
 ## 5. Contract re-wordings this design owes (the sweep's site list)
 

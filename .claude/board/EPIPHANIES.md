@@ -1,3 +1,43 @@
+## E-PROGRESSION-IS-EXISTENCE-NOT-COMMAND-1 (2026-08-05, OPERATOR-RULED)
+
+**The substrate progresses because immutable versions exist — never because
+anything tells it to progress. There is no architectural pump, no
+acknowledgement-driven progression, no scheduler advancing cognition.** The
+authoritative execution path, stated so it cannot blur:
+
+```
+think → seal → publish Lance version → next cycle reads the published version
+```
+
+A published version becoming queryable IS the progression. Nothing signals
+it, acknowledges it, or schedules it.
+
+**What this corrects, by name:**
+
+- **E-HOT-WINDOW-DECOUPLES-THE-CLOCKS-1 (below, same day)** — its H-5 clause
+  "the ack rebases onto the publish ack" is RETRACTED; v4 §H-5 is rewritten.
+  Rebasing a pump is still a pump. The hot-window design needs no trigger
+  rewiring at all: cycle n+1 reads published cycle n the moment it exists.
+- **The ack/pump vocabulary family** (`E-ACK-IS-THE-KANBAN-TRIGGER-1` and
+  its siblings) — the 2026-07-10 chain already corrected the trigger RANKING
+  (`E-KANBANSTEP-IS-THE-TRIGGER-1`'s correction: the ack-gated advance is "a
+  wait-shaped scheduler by construction"; PRIME INVARIANT: nobody waits for
+  anything or any scheduling). This ruling completes it: wherever "ack" /
+  "pump" still appear in the record, they are **legacy consumer terminology
+  on the historical compatibility surface — never substrate mechanics.** The
+  only legitimate home for ack/SLA/retry/notification concepts is an
+  external consumer (ticket-processing-style workflows): an application
+  concern, not a cognition concern.
+
+**Consequence for the hot version window (and any future persistence
+design):** the window is **not a message queue awaiting acknowledgement**; it
+is a **resident horizon of immutable Lance versions**. Readers observe
+versions. Writers publish versions. Persistence catches up independently:
+`seal → publish → immediately queryable → durability may trail`. Drift
+signal: any new design sentence in which the substrate progresses because
+something *told* it to — an ack arrived, a pump fired, a scheduler ticked —
+is re-deriving the deleted mechanic and gets judged against this entry first.
+
 ## E-HOT-WINDOW-DECOUPLES-THE-CLOCKS-1 (2026-08-05, operator-directed; panel-hardened design, NOT built)
 
 **The cognition clock and the persistence clock decouple: every sealed cycle
@@ -38,7 +78,10 @@ per cycle AND the batched append writes FROM those bytes — otherwise it is
 the forbidden "detached canonical state" snapshot); **H-5** rung-decided
 visibility + the ack rebase (`E-ACK-IS-THE-KANBAN-TRIGGER-1`'s pump moves to
 the publish ack — still a Lance ack, now meaning "published" not "durable" —
-or the cognition clock is not actually decoupled).
+or the cognition clock is not actually decoupled). **⊘ H-5's second half
+(the ack rebase) is RETRACTED same-day by
+`E-PROGRESSION-IS-EXISTENCE-NOT-COMMAND-1` (above): there is no pump to
+rebase — read H-5 through that entry; v4 §H-5 carries the corrected text.**
 
 **Naming rule:** this is *the MailboxSoA fleet's hot version window over
 sealed cycles* — NEVER "VSA speaks Lance" (E-MARKOV-TEMPORAL-STREAM-1 demoted
