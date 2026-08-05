@@ -842,6 +842,17 @@ as a `[dev-dependencies]` path edge from `lance-graph-planner`. Do **not** inver
 it — hosting the harness inside `jc` would drag the planner's whole dep tree into
 a crate whose constitution is zero-dep, and §12.5 keeps `jc` the untouched oracle.
 
+#### 12.3a‴ OPERATOR ORDER (2026-08-05): the 64k 1:1-owner model IS the main model
+
+**Ordered, not proposed.** The main model: up to 64k mailboxes, 1:1
+owner-per-mailbox, each compile-time mutation-exclusive, 64k independent
+thought bodies, ONE deterministic convergence/seal boundary. §12.3a′ above
+is read through this order as a BENCHMARK-axis ruling only (rows within one
+owner = the inner parallelism level, D-BLW-4's measured territory); it never
+redefined the architecture. The outer level's "parallel" claim runs through
+D-KIA-A2's pre-registered protocol before it is ever stated as measured.
+Canonical text: `EPIPHANIES.md` E-64K-1TO1-OWNERS-IS-THE-MAIN-MODEL-1.
+
 #### 12.3a″ MEASURED RESULT (2026-08-04): D-BLW-2 is a STRUCTURAL KILL on the TSV path
 
 Built and **run** against the real export (`/tmp/kjv_spo.tsv`, 40,767 triples

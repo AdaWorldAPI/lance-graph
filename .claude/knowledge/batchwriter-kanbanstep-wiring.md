@@ -576,3 +576,19 @@ hand-built `SweepSlot` — it does NOT exercise `collect_casts`/`seal_cycle`/
 the `DeinterlaceRow`/`deinterlace` firsts and the rank-criterion finding).
 Rebasing its seal loop onto `run_cycle` is tracked as
 `TD-BLW-FUSION-MANUAL-SEAL`.
+
+
+---
+
+## ⊘ OPERATOR ORDER (2026-08-05): §10's doctrine is THE MAIN MODEL
+
+The decide-or-continue ≤64k doctrine in §10 is not one reading among
+several — by operator order it is **the main model**: 64k 1:1 owners,
+compile-time mutation-exclusive, independent thought bodies, one
+deterministic seal boundary. Any text in this doc or elsewhere that reads
+the one-tenant benchmark configuration as the architecture is subordinate
+to this order. Canonical entry: `EPIPHANIES.md`
+E-64K-1TO1-OWNERS-IS-THE-MAIN-MODEL-1. The outer-level parallelism claim
+is gated by D-KIA-A2's pre-registered falsifier; the GREEN probes
+(probe_ignition, d_ign_b_lenses) already drive the 1:1 topology, 64 owners,
+synchronously.

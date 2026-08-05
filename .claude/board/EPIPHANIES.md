@@ -1,3 +1,40 @@
+## E-64K-1TO1-OWNERS-IS-THE-MAIN-MODEL-1 (2026-08-05, OPERATOR-ORDERED)
+
+**THE MAIN MODEL of this substrate is: up to 64k mailboxes, 1:1
+owner-per-mailbox, each owner COMPILE-TIME MUTATION-EXCLUSIVE over its own
+SoA, 64k INDEPENDENT thought bodies deciding-or-processing concurrently,
+converging at ONE deterministic seal boundary per cycle.** Operator-ordered
+2026-08-05, after an external review surfaced that two framings were
+coexisting ambiguously in the record.
+
+The demarcation, stated so it cannot blur again:
+
+- **"One SoA has one owner" means exclusive mutation authority per SoA
+  instance.** It NEVER meant "the whole population must be rows inside one
+  owner."
+- **The one-tenant configuration (D-BLW-1..4: one corpus as rows in one
+  owner's slice) is a BENCHMARK HARNESS SHAPE for single-corpus
+  experiments — never the architecture.** §12.3a′'s "the real axis is rows
+  inside one owner" scoped a benchmark's scale knob; it did not and does
+  not redefine the runtime topology.
+- **Two nested levels of parallelism, both real:** OUTER = 64k independent
+  owners (THE main model; the D-KIA-A2 pre-registered falsifier —
+  median-of-5, ≥2× at ≥4,096 owners with ≥100 µs bodies — is ITS gate,
+  and "parallel" at this level stays a doctrine until A2 measures it);
+  INNER = row-level bodies within one owner's slice (D-BLW-4's measured
+  3.27× lives here).
+- Code already conforms: the fleet is N independent `MailboxSoA` owners
+  behind `MailboxFleet` (`&mut` = the compile-time exclusivity), the GREEN
+  probes drive 64 real 1:1 owners, and no source file implements a
+  population-in-one-owner topology. What this ruling fixes is the CANON —
+  every future doc, plan row, and harness description reads through it.
+
+**Status:** operator-ordered, BINDING. Cross-refs: wiring doc §10 (the
+decide-or-continue doctrine, now explicitly the main model);
+plan §12.3a′ (re-scoped by this entry to benchmark-axis only);
+E-AN-OWNER-IS-A-TENANT-NOT-A-SHARD-1 (the same truth from the other side).
+
+
 ## E-MEASUREMENT-BURNS-THE-STATE-1 (2026-08-04)
 
 **A measurement of an awareness-coupled system burns the state it measured —
