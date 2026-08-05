@@ -127,7 +127,9 @@ fn zugferd_rules_distinct_business_rule_namespace() {
     // K/L/M/O-NN (VAT category-specific), and PEPPOL-EN16931-*.
     let registry = OntologyRegistry::new_in_memory();
     hydrate_zugferd_rules(&registry).expect("hydrate");
-    let bundle = registry.bundle_for(OGIT::ZUGFERDRULES_V1.0).expect("bundle");
+    let bundle = registry
+        .bundle_for(OGIT::ZUGFERDRULES_V1.0)
+        .expect("bundle");
     let ontology = bundle.ontology.as_ref().expect("ontology slot present");
 
     let rule_iris: Vec<&String> = ontology
@@ -144,9 +146,15 @@ fn zugferd_rules_distinct_business_rule_namespace() {
         })
     };
 
-    assert!(saw("BR-01") || saw("BR-02"), "EN16931 BR-NN core rules missing");
+    assert!(
+        saw("BR-01") || saw("BR-02"),
+        "EN16931 BR-NN core rules missing"
+    );
     assert!(saw("BR-CO-"), "BR-CO-NN co-occurrence rules missing");
-    assert!(saw("BR-DEC-"), "BR-DEC-NN decimal-restriction rules missing");
+    assert!(
+        saw("BR-DEC-"),
+        "BR-DEC-NN decimal-restriction rules missing"
+    );
     assert!(saw("BR-S-"), "BR-S-NN standard-rated VAT rules missing");
     assert!(saw("BR-Z-"), "BR-Z-NN zero-rated VAT rules missing");
     assert!(saw("PEPPOL-"), "PEPPOL extension rules missing");

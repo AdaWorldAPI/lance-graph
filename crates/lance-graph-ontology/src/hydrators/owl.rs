@@ -192,18 +192,16 @@ impl OwlHydrator {
         let mut iri_to_id: HashMap<String, EntityId> = HashMap::new();
         let mut next_id: EntityId = self.starting_entity_id;
 
-        let intern = |iri: &str,
-                      map: &mut HashMap<String, EntityId>,
-                      n: &mut EntityId|
-         -> EntityId {
-            if let Some(&id) = map.get(iri) {
-                return id;
-            }
-            let id = *n;
-            *n += 1;
-            map.insert(iri.to_string(), id);
-            id
-        };
+        let intern =
+            |iri: &str, map: &mut HashMap<String, EntityId>, n: &mut EntityId| -> EntityId {
+                if let Some(&id) = map.get(iri) {
+                    return id;
+                }
+                let id = *n;
+                *n += 1;
+                map.insert(iri.to_string(), id);
+                id
+            };
 
         for ttl_path in ttl_paths {
             let bytes = fs::read(ttl_path).map_err(|e| HydrateErr::Io {
@@ -223,7 +221,7 @@ impl OwlHydrator {
                             path: ttl_path.to_path_buf(),
                             message: e.to_string(),
                         })?;
-                        if let oxrdf::Subject::NamedNode(n) = &triple.subject {
+                        if let oxrdf::NamedOrBlankNode::NamedNode(n) = &triple.subject {
                             intern(n.as_str(), &mut iri_to_id, &mut next_id);
                         }
                         intern(triple.predicate.as_str(), &mut iri_to_id, &mut next_id);
@@ -239,7 +237,7 @@ impl OwlHydrator {
                             path: ttl_path.to_path_buf(),
                             message: e.to_string(),
                         })?;
-                        if let oxrdf::Subject::NamedNode(n) = &triple.subject {
+                        if let oxrdf::NamedOrBlankNode::NamedNode(n) = &triple.subject {
                             intern(n.as_str(), &mut iri_to_id, &mut next_id);
                         }
                         intern(triple.predicate.as_str(), &mut iri_to_id, &mut next_id);

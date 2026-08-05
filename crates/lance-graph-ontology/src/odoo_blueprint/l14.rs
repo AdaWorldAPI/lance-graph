@@ -645,7 +645,11 @@ pub const HR_JOB: OdooEntity = OdooEntity {
             target: None,
             required: false,
             computed: Some("_compute_employees"),
-            depends: &["employee_ids.active", "employee_ids.job_id", "no_of_recruitment"],
+            depends: &[
+                "employee_ids.active",
+                "employee_ids.job_id",
+                "no_of_recruitment",
+            ],
             // = no_of_employee + no_of_recruitment (R7).
             semantic_role: OdooSemanticRole::Quantity,
         },
@@ -781,19 +785,16 @@ pub const HR_CONTRACT_TYPE: OdooEntity = OdooEntity {
 ///   [1] `hr.department`     — org unit with recursive hierarchy
 ///   [2] `hr.job`            — role / position with headcount tracking
 ///   [3] `hr.contract.type`  — employment contract-type discriminant (community stub)
-pub const ENTITIES: &[OdooEntity] = &[
-    HR_EMPLOYEE,
-    HR_DEPARTMENT,
-    HR_JOB,
-    HR_CONTRACT_TYPE,
-];
+pub const ENTITIES: &[OdooEntity] = &[HR_EMPLOYEE, HR_DEPARTMENT, HR_JOB, HR_CONTRACT_TYPE];
 
 // ─── Tests ────────────────────────────────────────────────────────────────────
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::odoo_blueprint::{OdooConfidence, OdooConstraintKind, OdooFieldKind, OdooSemanticRole};
+    use crate::odoo_blueprint::{
+        OdooConfidence, OdooConstraintKind, OdooFieldKind, OdooSemanticRole,
+    };
 
     #[test]
     fn entities_slice_has_four_entries() {
@@ -816,8 +817,7 @@ mod tests {
     fn all_entities_reference_l14_l_doc() {
         for e in ENTITIES {
             assert_eq!(
-                e.provenance.l_doc,
-                "L14-HR-BASE.md",
+                e.provenance.l_doc, "L14-HR-BASE.md",
                 "entity {} must reference L14 l_doc",
                 e.model_name,
             );
@@ -834,7 +834,10 @@ mod tests {
         assert!(names.contains(&"department_id"), "department_id required");
         assert!(names.contains(&"job_id"), "job_id required");
         assert!(names.contains(&"work_email"), "work_email required");
-        assert!(names.contains(&"identification_id"), "identification_id required");
+        assert!(
+            names.contains(&"identification_id"),
+            "identification_id required"
+        );
     }
 
     #[test]
@@ -925,9 +928,18 @@ mod tests {
     #[test]
     fn hr_job_headcount_fields() {
         let field_names: Vec<&str> = HR_JOB.fields.iter().map(|f| f.name).collect();
-        assert!(field_names.contains(&"no_of_employee"), "no_of_employee required");
-        assert!(field_names.contains(&"no_of_recruitment"), "no_of_recruitment required");
-        assert!(field_names.contains(&"expected_employees"), "expected_employees required");
+        assert!(
+            field_names.contains(&"no_of_employee"),
+            "no_of_employee required"
+        );
+        assert!(
+            field_names.contains(&"no_of_recruitment"),
+            "no_of_recruitment required"
+        );
+        assert!(
+            field_names.contains(&"expected_employees"),
+            "expected_employees required"
+        );
         let emp = HR_JOB
             .fields
             .iter()

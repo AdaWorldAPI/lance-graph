@@ -8,9 +8,7 @@ pub const EXT_ACCOUNT_EDI_COMMON: OdooEntity = OdooEntity {
     model_name: "account.edi.common",
     kind: OdooEntityKind::Abstract,
     description: "Common functions for EDI documents: generate the data, the constraints, etc",
-    fields: &[
-
-    ],
+    fields: &[],
     methods: &[
         OdooMethod {
             name: "module_installed",
@@ -228,13 +226,14 @@ pub const EXT_ACCOUNT_EDI_COMMON: OdooEntity = OdooEntity {
         },
     ],
     state_machine: None,
-    constraints: &[
-
-    ],
+    constraints: &[],
     provenance: OdooProvenance {
         l_doc: "",
         l_doc_lines: (0, 0),
-        odoo_source: &[OdooSourceRef { path: "odoo/addons/account_edi_ubl_cii/models/account_edi_common.py", line_range: (282, 1100) }],
+        odoo_source: &[OdooSourceRef {
+            path: "odoo/addons/account_edi_ubl_cii/models/account_edi_common.py",
+            line_range: (282, 1100),
+        }],
         confidence: OdooConfidence::Extracted,
         regulation_iri: &[],
     },
@@ -1481,9 +1480,7 @@ pub const EXT_ACCOUNT_EDI_XML_CII: OdooEntity = OdooEntity {
     model_name: "account.edi.xml.cii",
     kind: OdooEntityKind::Abstract,
     description: "Factur-x/XRechnung CII 2.2.0",
-    fields: &[
-
-    ],
+    fields: &[],
     methods: &[
         OdooMethod {
             name: "_find_value",
@@ -1600,17 +1597,16 @@ pub const EXT_ACCOUNT_EDI_XML_CII: OdooEntity = OdooEntity {
             triggers: &[],
         },
     ],
-    decorators: &[
-
-    ],
+    decorators: &[],
     state_machine: None,
-    constraints: &[
-
-    ],
+    constraints: &[],
     provenance: OdooProvenance {
         l_doc: "",
         l_doc_lines: (0, 0),
-        odoo_source: &[OdooSourceRef { path: "odoo/addons/account_edi_ubl_cii/models/account_edi_xml_cii_facturx.py", line_range: (25, 414) }],
+        odoo_source: &[OdooSourceRef {
+            path: "odoo/addons/account_edi_ubl_cii/models/account_edi_xml_cii_facturx.py",
+            line_range: (25, 414),
+        }],
         confidence: OdooConfidence::Extracted,
         regulation_iri: &["ogit:regulation/eu/en16931"],
     },
@@ -1620,9 +1616,7 @@ pub const EXT_ACCOUNT_EDI_XML_UBL_20: OdooEntity = OdooEntity {
     model_name: "account.edi.xml.ubl_20",
     kind: OdooEntityKind::Abstract,
     description: "UBL 2.0",
-    fields: &[
-
-    ],
+    fields: &[],
     methods: &[
         OdooMethod {
             name: "_find_value",
@@ -2153,17 +2147,16 @@ pub const EXT_ACCOUNT_EDI_XML_UBL_20: OdooEntity = OdooEntity {
             triggers: &[],
         },
     ],
-    decorators: &[
-
-    ],
+    decorators: &[],
     state_machine: None,
-    constraints: &[
-
-    ],
+    constraints: &[],
     provenance: OdooProvenance {
         l_doc: "",
         l_doc_lines: (0, 0),
-        odoo_source: &[OdooSourceRef { path: "odoo/addons/account_edi_ubl_cii/models/account_edi_xml_ubl_20.py", line_range: (18, 1314) }],
+        odoo_source: &[OdooSourceRef {
+            path: "odoo/addons/account_edi_ubl_cii/models/account_edi_xml_ubl_20.py",
+            line_range: (18, 1314),
+        }],
         confidence: OdooConfidence::Extracted,
         regulation_iri: &["ogit:regulation/eu/en16931"],
     },
@@ -2173,9 +2166,7 @@ pub const EXT_ACCOUNT_EDI_XML_UBL_21: OdooEntity = OdooEntity {
     model_name: "account.edi.xml.ubl_21",
     kind: OdooEntityKind::Abstract,
     description: "UBL 2.1",
-    fields: &[
-
-    ],
+    fields: &[],
     methods: &[
         OdooMethod {
             name: "_export_invoice_filename",
@@ -2214,17 +2205,16 @@ pub const EXT_ACCOUNT_EDI_XML_UBL_21: OdooEntity = OdooEntity {
             triggers: &[],
         },
     ],
-    decorators: &[
-
-    ],
+    decorators: &[],
     state_machine: None,
-    constraints: &[
-
-    ],
+    constraints: &[],
     provenance: OdooProvenance {
         l_doc: "",
         l_doc_lines: (0, 0),
-        odoo_source: &[OdooSourceRef { path: "odoo/addons/account_edi_ubl_cii/models/account_edi_xml_ubl_21.py", line_range: (4, 75) }],
+        odoo_source: &[OdooSourceRef {
+            path: "odoo/addons/account_edi_ubl_cii/models/account_edi_xml_ubl_21.py",
+            line_range: (4, 75),
+        }],
         confidence: OdooConfidence::Extracted,
         regulation_iri: &["ogit:regulation/eu/en16931"],
     },
@@ -2234,9 +2224,7 @@ pub const EXT_ACCOUNT_EDI_XML_UBL_A_NZ: OdooEntity = OdooEntity {
     model_name: "account.edi.xml.ubl_a_nz",
     kind: OdooEntityKind::Abstract,
     description: "A-NZ BIS Billing 3.0",
-    fields: &[
-
-    ],
+    fields: &[],
     methods: &[
         OdooMethod {
             name: "_export_invoice_filename",
@@ -2293,17 +2281,16 @@ pub const EXT_ACCOUNT_EDI_XML_UBL_A_NZ: OdooEntity = OdooEntity {
             triggers: &[],
         },
     ],
-    decorators: &[
-
-    ],
+    decorators: &[],
     state_machine: None,
-    constraints: &[
-
-    ],
+    constraints: &[],
     provenance: OdooProvenance {
         l_doc: "",
         l_doc_lines: (0, 0),
-        odoo_source: &[OdooSourceRef { path: "odoo/addons/account_edi_ubl_cii/models/account_edi_xml_ubl_a_nz.py", line_range: (6, 114) }],
+        odoo_source: &[OdooSourceRef {
+            path: "odoo/addons/account_edi_ubl_cii/models/account_edi_xml_ubl_a_nz.py",
+            line_range: (6, 114),
+        }],
         confidence: OdooConfidence::Extracted,
         regulation_iri: &[],
     },
@@ -2785,28 +2772,23 @@ pub const EXT_ACCOUNT_EDI_XML_UBL_EFFF: OdooEntity = OdooEntity {
     model_name: "account.edi.xml.ubl_efff",
     kind: OdooEntityKind::Abstract,
     description: "E-FFF (BE)",
-    fields: &[
-
-    ],
-    methods: &[
-        OdooMethod {
-            name: "_export_invoice_filename",
-            kind: OdooMethodKind::Helper,
-            return_kind: OdooReturnKind::Unit,
-            triggers: &[],
-        },
-    ],
-    decorators: &[
-
-    ],
+    fields: &[],
+    methods: &[OdooMethod {
+        name: "_export_invoice_filename",
+        kind: OdooMethodKind::Helper,
+        return_kind: OdooReturnKind::Unit,
+        triggers: &[],
+    }],
+    decorators: &[],
     state_machine: None,
-    constraints: &[
-
-    ],
+    constraints: &[],
     provenance: OdooProvenance {
         l_doc: "",
         l_doc_lines: (0, 0),
-        odoo_source: &[OdooSourceRef { path: "odoo/addons/account_edi_ubl_cii/models/account_edi_xml_ubl_efff.py", line_range: (8, 20) }],
+        odoo_source: &[OdooSourceRef {
+            path: "odoo/addons/account_edi_ubl_cii/models/account_edi_xml_ubl_efff.py",
+            line_range: (8, 20),
+        }],
         confidence: OdooConfidence::Extracted,
         regulation_iri: &[],
     },
@@ -2816,9 +2798,7 @@ pub const EXT_ACCOUNT_EDI_XML_UBL_NL: OdooEntity = OdooEntity {
     model_name: "account.edi.xml.ubl_nl",
     kind: OdooEntityKind::Abstract,
     description: "SI-UBL 2.0 (NLCIUS)",
-    fields: &[
-
-    ],
+    fields: &[],
     methods: &[
         OdooMethod {
             name: "_export_invoice_filename",
@@ -2881,17 +2861,16 @@ pub const EXT_ACCOUNT_EDI_XML_UBL_NL: OdooEntity = OdooEntity {
             triggers: &[],
         },
     ],
-    decorators: &[
-
-    ],
+    decorators: &[],
     state_machine: None,
-    constraints: &[
-
-    ],
+    constraints: &[],
     provenance: OdooProvenance {
         l_doc: "",
         l_doc_lines: (0, 0),
-        odoo_source: &[OdooSourceRef { path: "odoo/addons/account_edi_ubl_cii/models/account_edi_xml_ubl_nlcius.py", line_range: (6, 121) }],
+        odoo_source: &[OdooSourceRef {
+            path: "odoo/addons/account_edi_ubl_cii/models/account_edi_xml_ubl_nlcius.py",
+            line_range: (6, 121),
+        }],
         confidence: OdooConfidence::Extracted,
         regulation_iri: &["ogit:regulation/eu/en16931"],
     },
@@ -2901,9 +2880,7 @@ pub const EXT_ACCOUNT_EDI_XML_UBL_SG: OdooEntity = OdooEntity {
     model_name: "account.edi.xml.ubl_sg",
     kind: OdooEntityKind::Abstract,
     description: "SG BIS Billing 3.0",
-    fields: &[
-
-    ],
+    fields: &[],
     methods: &[
         OdooMethod {
             name: "_export_invoice_filename",
@@ -2954,17 +2931,16 @@ pub const EXT_ACCOUNT_EDI_XML_UBL_SG: OdooEntity = OdooEntity {
             triggers: &[],
         },
     ],
-    decorators: &[
-
-    ],
+    decorators: &[],
     state_machine: None,
-    constraints: &[
-
-    ],
+    constraints: &[],
     provenance: OdooProvenance {
         l_doc: "",
         l_doc_lines: (0, 0),
-        odoo_source: &[OdooSourceRef { path: "odoo/addons/account_edi_ubl_cii/models/account_edi_xml_ubl_sg.py", line_range: (5, 84) }],
+        odoo_source: &[OdooSourceRef {
+            path: "odoo/addons/account_edi_ubl_cii/models/account_edi_xml_ubl_sg.py",
+            line_range: (5, 84),
+        }],
         confidence: OdooConfidence::Extracted,
         regulation_iri: &[],
     },
@@ -2974,9 +2950,7 @@ pub const EXT_ACCOUNT_EDI_XML_UBL_DE: OdooEntity = OdooEntity {
     model_name: "account.edi.xml.ubl_de",
     kind: OdooEntityKind::Abstract,
     description: "BIS3 DE (XRechnung)",
-    fields: &[
-
-    ],
+    fields: &[],
     methods: &[
         OdooMethod {
             name: "_export_invoice_filename",
@@ -3045,17 +3019,16 @@ pub const EXT_ACCOUNT_EDI_XML_UBL_DE: OdooEntity = OdooEntity {
             triggers: &[],
         },
     ],
-    decorators: &[
-
-    ],
+    decorators: &[],
     state_machine: None,
-    constraints: &[
-
-    ],
+    constraints: &[],
     provenance: OdooProvenance {
         l_doc: "",
         l_doc_lines: (0, 0),
-        odoo_source: &[OdooSourceRef { path: "odoo/addons/account_edi_ubl_cii/models/account_edi_xml_ubl_xrechnung.py", line_range: (5, 121) }],
+        odoo_source: &[OdooSourceRef {
+            path: "odoo/addons/account_edi_ubl_cii/models/account_edi_xml_ubl_xrechnung.py",
+            line_range: (5, 121),
+        }],
         confidence: OdooConfidence::Extracted,
         regulation_iri: &["ogit:regulation/eu/en16931"],
     },
@@ -3235,13 +3208,14 @@ pub const EXT_ACCOUNT_MOVE: OdooEntity = OdooEntity {
         },
     ],
     state_machine: None,
-    constraints: &[
-
-    ],
+    constraints: &[],
     provenance: OdooProvenance {
         l_doc: "",
         l_doc_lines: (0, 0),
-        odoo_source: &[OdooSourceRef { path: "odoo/addons/account_edi_ubl_cii/models/account_move.py", line_range: (14, 402) }],
+        odoo_source: &[OdooSourceRef {
+            path: "odoo/addons/account_edi_ubl_cii/models/account_move.py",
+            line_range: (14, 402),
+        }],
         confidence: OdooConfidence::Extracted,
         regulation_iri: &[],
     },
@@ -3251,9 +3225,7 @@ pub const EXT_ACCOUNT_MOVE_SEND: OdooEntity = OdooEntity {
     model_name: "account.move.send",
     kind: OdooEntityKind::Abstract,
     description: "",
-    fields: &[
-
-    ],
+    fields: &[],
     methods: &[
         OdooMethod {
             name: "_get_move_constraints",
@@ -3345,13 +3317,14 @@ pub const EXT_ACCOUNT_MOVE_SEND: OdooEntity = OdooEntity {
         },
     ],
     state_machine: None,
-    constraints: &[
-
-    ],
+    constraints: &[],
     provenance: OdooProvenance {
         l_doc: "",
         l_doc_lines: (0, 0),
-        odoo_source: &[OdooSourceRef { path: "odoo/addons/account_edi_ubl_cii/models/account_move_send.py", line_range: (16, 316) }],
+        odoo_source: &[OdooSourceRef {
+            path: "odoo/addons/account_edi_ubl_cii/models/account_move_send.py",
+            line_range: (16, 316),
+        }],
         confidence: OdooConfidence::Extracted,
         regulation_iri: &[],
     },
@@ -3415,13 +3388,14 @@ pub const EXT_ACCOUNT_TAX: OdooEntity = OdooEntity {
         },
     ],
     state_machine: None,
-    constraints: &[
-
-    ],
+    constraints: &[],
     provenance: OdooProvenance {
         l_doc: "",
         l_doc_lines: (0, 0),
-        odoo_source: &[OdooSourceRef { path: "odoo/addons/account_edi_ubl_cii/models/account_tax.py", line_range: (4, 128) }],
+        odoo_source: &[OdooSourceRef {
+            path: "odoo/addons/account_edi_ubl_cii/models/account_tax.py",
+            line_range: (4, 128),
+        }],
         confidence: OdooConfidence::Extracted,
         regulation_iri: &["ogit:regulation/de/ustg/13"],
     },
@@ -3431,28 +3405,23 @@ pub const EXT_IR_ACTIONS_REPORT: OdooEntity = OdooEntity {
     model_name: "ir.actions.report",
     kind: OdooEntityKind::Model,
     description: "",
-    fields: &[
-
-    ],
-    methods: &[
-        OdooMethod {
-            name: "_render_qweb_pdf_prepare_streams",
-            kind: OdooMethodKind::Helper,
-            return_kind: OdooReturnKind::Unit,
-            triggers: &[],
-        },
-    ],
-    decorators: &[
-
-    ],
+    fields: &[],
+    methods: &[OdooMethod {
+        name: "_render_qweb_pdf_prepare_streams",
+        kind: OdooMethodKind::Helper,
+        return_kind: OdooReturnKind::Unit,
+        triggers: &[],
+    }],
+    decorators: &[],
     state_machine: None,
-    constraints: &[
-
-    ],
+    constraints: &[],
     provenance: OdooProvenance {
         l_doc: "",
         l_doc_lines: (0, 0),
-        odoo_source: &[OdooSourceRef { path: "odoo/addons/account_edi_ubl_cii/models/ir_actions_report.py", line_range: (6, 30) }],
+        odoo_source: &[OdooSourceRef {
+            path: "odoo/addons/account_edi_ubl_cii/models/ir_actions_report.py",
+            line_range: (6, 30),
+        }],
         confidence: OdooConfidence::Extracted,
         regulation_iri: &[],
     },
@@ -3685,19 +3654,19 @@ pub const EXT_RES_PARTNER: OdooEntity = OdooEntity {
         },
     ],
     state_machine: None,
-    constraints: &[
-        OdooConstraint {
-            kind: OdooConstraintKind::Python,
-            condition: "Python constraint on peppol_endpoint",
-            source_method: Some("_check_peppol_fields"),
-        },
-    ],
+    constraints: &[OdooConstraint {
+        kind: OdooConstraintKind::Python,
+        condition: "Python constraint on peppol_endpoint",
+        source_method: Some("_check_peppol_fields"),
+    }],
     provenance: OdooProvenance {
         l_doc: "",
         l_doc_lines: (0, 0),
-        odoo_source: &[OdooSourceRef { path: "odoo/addons/account_edi_ubl_cii/models/res_partner.py", line_range: (25, 340) }],
+        odoo_source: &[OdooSourceRef {
+            path: "odoo/addons/account_edi_ubl_cii/models/res_partner.py",
+            line_range: (25, 340),
+        }],
         confidence: OdooConfidence::Extracted,
         regulation_iri: &["ogit:regulation/de/ustg/13", "ogit:regulation/eu/en16931"],
     },
 };
-
