@@ -25,10 +25,12 @@ description = "1BRC (One Billion Row Challenge) substrate probe: measures the V3
 # Lanes A/C stay dependency-free; B, D, E are opt-in.
 lane-b = ["dep:ndarray"]
 lane-d = ["dep:ractor", "dep:tokio"]
-# Lane E (kanban-scheduled batches): reuses the lane-d ractor/tokio deps plus
-# the V3 kanban execution machinery (lance-graph-supervisor's KanbanActor +
-# drivers, lance-graph-contract's kanban/scheduler/soa_view contract types).
-lane-e = ["dep:lance-graph-supervisor", "dep:lance-graph-contract", "dep:ractor", "dep:tokio"]
+# Lane E (kanban-journaled batches): the contract's kanban/soa_view types +
+# tokio for the puller tasks. The KanbanActor/driver surface this lane once
+# drove was deleted 2026-08-05 (lance-graph
+# E-PROGRESSION-IS-EXISTENCE-NOT-COMMAND-1) — the lane now journals over the
+# direct exclusive owner, so supervisor + ractor dropped out of this feature.
+lane-e = ["dep:lance-graph-contract", "dep:tokio"]
 # Lane G (kanban-update write path): the Morton-tile 64K SoA as owned state
 # behind shard mailbox actors, morsel casts witnessed with KanbanMoves —
 # ractor/tokio + the contract's kanban types (no supervisor needed: the
@@ -64,11 +66,8 @@ ractor = { git = "https://github.com/AdaWorldAPI/ractor", optional = true, defau
 tokio = { version = "1", optional = true, default-features = false, features = ["rt-multi-thread", "macros"] }
 # Sibling in-tree crates (path deps, not the outer workspace — this crate is
 # workspace-excluded per the `[workspace]` table above). lance-graph-contract
-# is zero-dep; lance-graph-supervisor needs its own `supervisor` feature for
-# the KanbanActor + drive_version_tick surface lane E drives.
+# is zero-dep. (lance-graph-supervisor was a lane-e dep for the deleted
+# KanbanActor surface — removed 2026-08-05 with that surface.)
 lance-graph-contract = { path = "../lance-graph-contract", optional = true }
-lance-graph-supervisor = { path = "../lance-graph-supervisor", optional = true, features = [
-  "supervisor",
-] }
 
 [dev-dependencies]

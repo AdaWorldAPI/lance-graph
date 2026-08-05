@@ -1,3 +1,57 @@
+## E-ACK-THEATER-DELETED-1 (2026-08-05, operator-directed; SHIPPED same-day)
+
+**The ack/pump/tick theater is deleted from source, and the zombie question is
+answered with evidence.** The operator asked whether `kanban_actor.rs` was
+"the living zombie bringing the topic on the table." Verdict: **half yes** —
+honestly labelled legacy since 2026-08-04, but kept breathing by (a) `lib.rs`
+re-exporting the whole message surface at crate top level, (b) ONE live
+library consumer (`onebrc-probe/lane_e.rs`, actor-spawn per batch +
+`KanbanMsg::Tick` RPCs — and its `Tick` arm IS "a version tick as permission
+to advance," the exact retired mechanic), and (c) the W2b probe + its own
+tests. The other half of the resurrection pressure was documentational:
+`E-ACK-IS-THE-KANBAN-TRIGGER-1`'s 2026-07-10 LEAVE-AS-IS disposition let a
+design panel cite the ack pump as live mechanics one month later. Notably
+**`ack_and_propose` was already gone from source** — the "ack" half of the
+theater survived only in the record.
+
+**Deleted:** `KanbanMsg`, `KanbanActor`, `KanbanRouteError`, all five RPC
+drivers + `run_to_absorbing`, every `ractor::call!` in the module, the actor
+tests. **Added — the visibility surface the operator asked for:**
+`PhaseCensus` in the same module (supervisor) — a message-free `&self` census
+over any `MailboxSoaView` iterator (`observe`/`record`/`count`/`total`/
+`absorbing`/`at_rest`, absorbing derived from `next_phases().is_empty()`
+never hardcoded; empty census is NOT at rest — observing nothing asserts
+nothing). Kept: `mul_target` (pure, cycle_driver's P4c gate) +
+`parse_kanban_step` (the `"kanban.*"` step vocabulary). Migrations: lane E
+journals over the direct `&mut` owner (supervisor+ractor dropped from its
+feature — lane D deliberately KEEPS its own actors: pricing the actor model
+is that lane's purpose); W2b pins the real `MailboxSoA` Rubicon DAG via
+`try_advance_phase` directly and exercises the census over real SoA.
+
+**The OGAR boundary check (operator-asked, verified):** zero OGAR consumers
+of any deleted symbol. OGAR's `ogar-action-handler` is the arago/HIRO
+ActionHandler PARITY runtime (`submitAction → ActionInvocation →
+sendActionResult`, `Receipt::Acknowledged`, RBAC `commit_via` upstream) — an
+application wire protocol at the membrane, standing on `ActionDef`/
+`KausalSpec`, exactly the one legitimate home for ack/SLA vocabulary. The
+vocabulary firewall holds by construction: nothing there touches substrate
+progression.
+
+**What is NOT theater and stays:** the kanbanstep —
+`VersionScheduler::on_version → try_advance_phase(&mut)` (reference
+`symbiont::kanban_loop`) — is the writer's own synchronous continuation:
+no wait, no message, pure-function propose + owner dispose. Canonical per
+the 2026-07-10 ruling and untouched. Open NAMING question only: "scheduler"
+in those type names is a drift vector under the no-pump vocabulary rule.
+
+Gates: supervisor clippy `--no-deps -D warnings` clean + 9 lib tests (4
+census, mul_target, parser) + W2b 3/3 + cycle-driver 4/4 green; onebrc
+`--features lane-e` 20/20 + clippy clean; fmt clean. Pre-existing,
+unattributable reds noted honestly: `lance-graph-ontology` (12 lints, oxrdf
+deprecations + doc-indent, untouched crate), `cognitive-shader-driver`
+`bindspace.rs:475` too-many-arguments (untouched file), callcenter 1 unused
+import — none in the touched surface.
+
 ## E-PROGRESSION-IS-EXISTENCE-NOT-COMMAND-1 (2026-08-05, OPERATOR-RULED)
 
 **The substrate progresses because immutable versions exist — never because

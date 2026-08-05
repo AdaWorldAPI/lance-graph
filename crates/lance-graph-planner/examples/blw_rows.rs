@@ -3,8 +3,8 @@
 //! # The axis, stated first because it has been wrong twice
 //!
 //! **Owner-count is NOT a scale knob.** An owner is a **TENANT** — one mailbox,
-//! one kanban board, one `KanbanActor` that is its sole mutator (`CLAUDE.md`
-//! §V3 rulings; `E-CE64-MB-4`; the SoA is *moved* into the actor and that move
+//! one kanban board, one exclusive owner as its sole mutator (`CLAUDE.md`
+//! §V3 rulings; `E-CE64-MB-4`; the SoA is *moved* into its owner and `&mut`
 //! is the compile-time no-aliasing proof). Two prior attempts got this wrong in
 //! the same direction: the first tiled the Bible across 64 owners and
 //! **fabricated 63 tenants** (plan §12.1a′); the second kept owner-count as the

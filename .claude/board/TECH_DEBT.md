@@ -770,6 +770,28 @@ cycle budget allows. (b) `supervisor::deliver_kanban_step`'s
 the message DELIVERY behind it is the redundancy. Same disposition:
 leave as is, documented.
 
+*Resolution (2026-08-05, operator-directed — "clean up the ack theater
+entirely, while context is hot"; `E-PROGRESSION-IS-EXISTENCE-NOT-COMMAND-1`):*
+**DELETED, not left as is.** The entire message surface named above is gone
+from source: `KanbanMsg::{Advance, MulAdvance, Tick}`, `KanbanActor`,
+`KanbanRouteError`, `deliver_kanban_step`, `drive_mul_advance`,
+`drive_version_tick`, `drive_scheduled_tick`, `run_to_absorbing`, all
+`ractor::call!` sites in that module, plus their tests. `kanban_actor.rs` is
+now the message-free visibility module (`PhaseCensus` — one `&self` census
+pass replaces per-owner Phase RPCs) + the pure helpers (`mul_target`,
+`parse_kanban_step`). Consumers migrated: onebrc lane E journals over the
+direct `&mut` owner (supervisor + ractor dropped from its feature); the W2b
+probe pins the real `MailboxSoA` Rubicon DAG through `try_advance_phase`
+directly + exercises the census. (`ack_and_propose` was found ALREADY absent
+from source — the ack half of the theater survived only in documentation.)
+**What this resolution does NOT touch:** the kanbanstep
+(`VersionScheduler::on_version → try_advance_phase(&mut)`, reference
+`symbiont::kanban_loop`) stays canonical per the 2026-07-10 extension above —
+it is the writer's own synchronous continuation, not a wait and not a
+message. Open naming question only (not queued work): the WORD "scheduler"
+in `VersionScheduler`/`NextPhaseScheduler` is a drift vector under the
+no-pump vocabulary rule; the semantics are already compliant.
+
 ## TD-STYLE-TABLE-RESIDUE (2026-07-10, D-TSC-1 follow-ups)
 
 Three residues from the M9 ThinkingStyle dedup (all OUT of D-TSC-1 scope,

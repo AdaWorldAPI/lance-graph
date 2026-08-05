@@ -1,64 +1,55 @@
-//! Lane E — kanban-scheduled batches.
+//! Lane E — kanban-journaled batches over the direct exclusive owner.
 //!
 //! Per Addendum-13 lane E (see `README.md` §3), this lane measures the V3
-//! kanban scheduling/journaling tax on top of the SAME groupby-aggregate
-//! workload lanes A/C/D already measure. The corpus is split into `batches`
+//! kanban **journaling** tax on top of the SAME groupby-aggregate workload
+//! lanes A/C/D already measure. The corpus is split into `batches`
 //! newline-aligned chunks (`batches >= workers`, `chunk_bounds`), pulled by
 //! `workers` puller tasks from a shared lock-free queue (`AtomicUsize`
 //! index into the batch list), and EVERY batch is journaled as one kanban
-//! card: a fresh [`KanbanActor`] (from `lance-graph-supervisor`, feature
-//! `supervisor`) whose owned [`ProbeBoard`] is driven through the full
+//! card: a fresh [`ProbeBoard`] held `&mut` and driven through the full
 //! Rubicon **forward arc** (`Planning -> CognitiveWork -> Evaluation ->
 //! Commit`) around the actual per-batch work
 //! ([`crate::lane_a_scalar`](super::lane_a_scalar)).
 //!
-//! Two readings this lane is built to support:
+//! ## 2026-08-05 migration — the actor variant is retired with the message path
 //!
-//! - **E at `batches == workers`** vs Lane D: identical `chunk_bounds`
-//!   split, identical `Arc<Vec<u8>>` corpus-copy tax (see `lane_d.rs`
-//!   module doc "Actor-model boundary cost") — the only variable is
-//!   swapping Lane D's stateless `ChunkWorker` ask-pattern actor for a
-//!   `KanbanActor<ProbeBoard>` driven through 3 Rubicon ticks per batch.
-//!   E-D isolates the **journaling cost** in isolation from the actor-model
-//!   tax Lane D already prices.
-//! - **E at fine granularity** (`batches >> workers`, e.g.
-//!   `batches = workers * 16`): each puller spawns, ticks 3×, and stops
-//!   many short-lived actors instead of one long-lived one per worker —
-//!   prices the **per-card scheduling overhead** the V3 substrate pays when
-//!   work is journaled at kanban-card granularity rather than
-//!   worker-chunk granularity. This feeds W2d (the 550 ms Libet budget
-//!   question — how many kanban cards per wall-clock second the substrate
-//!   can actually journal).
+//! This lane originally spawned a `KanbanActor` per batch and drove it through
+//! `KanbanMsg::Tick` RPCs — it was the last library consumer of that surface,
+//! and its E−D reading existed to isolate journaling cost from the actor-model
+//! tax lane D prices. The actor/tick surface was DELETED
+//! (`E-PROGRESSION-IS-EXISTENCE-NOT-COMMAND-1`: a version tick is knowledge,
+//! never permission to advance; `&mut` IS the serialization). What lane E
+//! prices now is the journaling itself — `KanbanMove` minting + collection at
+//! kanban-card granularity over the direct exclusive owner, zero message
+//! overhead. Lane D still prices the actor model on its own; the old E−D
+//! "journaling minus actor tax" subtraction is retired with the actors.
+//! This still feeds W2d (the 550 ms Libet budget question — how many kanban
+//! cards per wall-clock second the substrate can journal).
 //!
 //! ## Journal invariant
 //!
 //! Each batch drives exactly 3 [`KanbanMove`]s (`Planning->CognitiveWork`,
 //! `CognitiveWork->Evaluation`, `Evaluation->Commit` — the pure forward arc
-//! to the absorbing `Commit` column, mirroring `kanban_actor.rs`'s
-//! `run_to_absorbing` test). Every worker collects its own moves into a
-//! local `Vec<KanbanMove>`; at the end of [`lane_e_kanban`] the combined
-//! journal is asserted to have exactly `3 * batches` moves, and every move
-//! is asserted legal via [`KanbanColumn::can_transition_to`] — a violated
-//! assert here is a probe bug, not a measurement.
+//! to the absorbing `Commit` column). Every worker collects its own moves
+//! into a local `Vec<KanbanMove>`; at the end of [`lane_e_kanban`] the
+//! combined journal is asserted to have exactly `3 * batches` moves, and
+//! every move is asserted legal via [`KanbanColumn::can_transition_to`] — a
+//! violated assert here is a probe bug, not a measurement.
 
 use crate::{chunk_bounds, lane_a_scalar, merge_maps, Stats};
 use lance_graph_contract::collapse_gate::MailboxId;
 use lance_graph_contract::kanban::{ExecTarget, KanbanColumn, KanbanMove};
-use lance_graph_contract::scheduler::DatasetVersion;
 use lance_graph_contract::soa_view::{MailboxSoaOwner, MailboxSoaView};
-use lance_graph_supervisor::{drive_version_tick, KanbanActor};
-use ractor::Actor;
 use std::collections::BTreeMap;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::Arc;
 
-/// The probe's stand-in kanban-owned board — mirrors the shape of
-/// `lance-graph-supervisor`'s own `TestBoard` (`kanban_actor.rs`'s test
-/// module): a minimal in-RAM [`MailboxSoaView`] + [`MailboxSoaOwner`] with
-/// empty column slices (`n_rows() == 0`, no energy/edges/meta/entity_type
-/// data). This lane measures the KANBAN JOURNALING overhead only, not SoA
-/// storage — a real SoA board wired to actual rows is lane F's business
-/// (Morton-tile cascaded shader, per README §5.1's closing note).
+/// The probe's stand-in kanban board — a minimal in-RAM [`MailboxSoaView`] +
+/// [`MailboxSoaOwner`] with empty column slices (`n_rows() == 0`, no
+/// energy/edges/meta/entity_type data). This lane measures the KANBAN
+/// JOURNALING overhead only, not SoA storage — a real SoA board wired to
+/// actual rows is lane F's business (Morton-tile cascaded shader, per README
+/// §5.1's closing note).
 struct ProbeBoard {
     id: MailboxId,
     phase: KanbanColumn,
@@ -75,6 +66,17 @@ impl ProbeBoard {
             cycle: 0,
         }
     }
+
+    /// Advance one step along the Rubicon forward arc
+    /// (`phase().next_phases().first()`), or `None` at an absorbing column.
+    /// A plain `&mut` method — the exclusive borrow is the single-writer
+    /// guarantee; no message, no RPC, no scheduler.
+    fn forward_tick(&mut self) -> Option<KanbanMove> {
+        self.phase
+            .next_phases()
+            .first()
+            .map(|&to| self.advance_phase(to))
+    }
 }
 
 impl MailboxSoaView for ProbeBoard {
@@ -86,8 +88,8 @@ impl MailboxSoaView for ProbeBoard {
     }
     fn w_slot(&self) -> u8 {
         // `id` here is a probe-local kanban-card counter, not a composed
-        // classid — this is the same bit-op `TestBoard::w_slot` uses over
-        // `MailboxId` (a plain `u32`), not classid discrimination.
+        // classid — this is a plain bit-op over `MailboxId` (a plain `u32`),
+        // not classid discrimination.
         (self.id & 0x3F) as u8
     }
     fn current_cycle(&self) -> u32 {
@@ -125,9 +127,8 @@ impl MailboxSoaOwner for ProbeBoard {
     }
 }
 
-/// Lane E — kanban-scheduled batches. See module doc for the full design
-/// and the two readings (E vs D at `batches == workers`; E at fine
-/// granularity for per-card scheduling cost).
+/// Lane E — kanban-journaled batches. See module doc for the design and the
+/// 2026-08-05 migration off the actor surface.
 ///
 /// `batches` is clamped to `>= workers.max(1)` — a batch queue thinner than
 /// the worker pool would leave pullers idle and defeat the point of the
@@ -143,8 +144,8 @@ pub fn lane_e_kanban(data: &[u8], workers: usize, batches: usize) -> BTreeMap<St
         .expect("build tokio runtime for lane E");
 
     runtime.block_on(async move {
-        // One-time corpus copy into a shared Arc — the same actor-model
-        // boundary cost Lane D pays (see `lane_d.rs` module doc).
+        // One-time corpus copy into a shared Arc — the same boundary cost
+        // Lane D pays (see `lane_d.rs` module doc).
         let shared = Arc::new(data.to_vec());
         let bounds = Arc::new(bounds);
         // Lock-free shared batch queue: each puller atomically claims the
@@ -167,20 +168,14 @@ pub fn lane_e_kanban(data: &[u8], workers: usize, batches: usize) -> BTreeMap<St
                     }
                     let (start, end) = bounds[idx];
 
-                    // One kanban card per batch: a fresh KanbanActor whose
-                    // owned board starts at Planning.
-                    let (actor, handle) = Actor::spawn(
-                        None,
-                        KanbanActor::<ProbeBoard>::default(),
-                        ProbeBoard::new(idx as MailboxId),
-                    )
-                    .await
-                    .expect("spawn lane E kanban actor");
+                    // One kanban card per batch: a fresh exclusively-owned
+                    // board starting at Planning. `&mut` is the single-writer
+                    // guarantee — no actor, no message loop.
+                    let mut board = ProbeBoard::new(idx as MailboxId);
 
-                    // Tick 1: Planning -> CognitiveWork.
-                    let mv1 = drive_version_tick(&actor, DatasetVersion(1))
-                        .await
-                        .expect("lane E tick 1 rpc")
+                    // Step 1: Planning -> CognitiveWork.
+                    let mv1 = board
+                        .forward_tick()
                         .expect("Planning -> CognitiveWork must advance");
                     journal.push(mv1);
 
@@ -188,14 +183,13 @@ pub fn lane_e_kanban(data: &[u8], workers: usize, batches: usize) -> BTreeMap<St
                     // shares (see `lib.rs` module doc "Reference inventory").
                     let batch_map = lane_a_scalar(&shared[start..end]);
 
-                    // Tick 2: CognitiveWork -> Evaluation. Merge the batch's
+                    // Step 2: CognitiveWork -> Evaluation. Merge the batch's
                     // map into the worker-local accumulator here — mirrors
                     // the commutative BUNDLE step `merge_maps` uses, applied
                     // per-batch instead of per-worker (see `Stats::merge`
                     // struct-level doc).
-                    let mv2 = drive_version_tick(&actor, DatasetVersion(2))
-                        .await
-                        .expect("lane E tick 2 rpc")
+                    let mv2 = board
+                        .forward_tick()
                         .expect("CognitiveWork -> Evaluation must advance");
                     journal.push(mv2);
                     for (name, stats) in batch_map {
@@ -207,15 +201,15 @@ pub fn lane_e_kanban(data: &[u8], workers: usize, batches: usize) -> BTreeMap<St
                         }
                     }
 
-                    // Tick 3: Evaluation -> Commit (absorbing).
-                    let mv3 = drive_version_tick(&actor, DatasetVersion(3))
-                        .await
-                        .expect("lane E tick 3 rpc")
+                    // Step 3: Evaluation -> Commit (absorbing).
+                    let mv3 = board
+                        .forward_tick()
                         .expect("Evaluation -> Commit must advance");
                     journal.push(mv3);
-
-                    actor.stop(None);
-                    handle.await.expect("lane E actor join");
+                    debug_assert!(
+                        board.forward_tick().is_none(),
+                        "Commit is absorbing — a fourth forward tick must yield nothing"
+                    );
                 }
 
                 (local_map, journal)

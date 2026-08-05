@@ -1,27 +1,27 @@
-//! D-V3-W2b integration probe: KanbanActor spawned over the REAL production
-//! `MailboxSoaOwner` (`cognitive_shader_driver::mailbox_soa::MailboxSoA`), not
-//! the in-file `TestBoard` fake that `kanban_actor.rs`'s own unit tests use.
+//! D-V3-W2b integration probe, direct-owner form: the REAL production
+//! `MailboxSoaOwner` (`cognitive_shader_driver::mailbox_soa::MailboxSoA`)
+//! implements the Rubicon lifecycle DAG through the contract trait — legal
+//! advances persist on the real SoA, illegal edges are rejected with no
+//! mutation.
 //!
-//! Closes the gap named in D-V3-W2b: until this probe, `KanbanActor<O>` was
-//! only ever exercised against `kanban_actor::tests::TestBoard` — a minimal
-//! in-RAM stand-in with no SoA columns. This probe proves the SAME actor
-//! message surface (`KanbanMsg::Advance` / `KanbanMsg::Phase`) drives the
-//! REAL owner's `try_advance_phase` (via the contract's `MailboxSoaOwner`
-//! trait), that illegal transitions are rejected with no mutation on the
-//! real SoA, and that the actor is the ONLY path this probe ever uses to
-//! mutate the row (no direct `advance_phase`/`try_advance_phase` call from
-//! the probe itself — only through `KanbanMsg`).
+//! ## 2026-08-05 migration — the actor surface this probe drove is deleted
 //!
-//! Spec: `.claude/board/*` D-V3-W2b (KanbanActor never spawned over real
-//! MailboxSoA — this file closes that gap).
+//! The original W2b closed the gap "`KanbanActor` never spawned over a real
+//! `MailboxSoA`" by driving `KanbanMsg::{Advance, Phase}` RPCs. That actor
+//! surface is DELETED (`E-PROGRESSION-IS-EXISTENCE-NOT-COMMAND-1`); what
+//! remains worth pinning is the half that was never about messages: the real
+//! owner's lifecycle DAG behind `try_advance_phase`, exercised through plain
+//! `&mut` — which IS the single-writer guarantee (a second mutator is a
+//! compile error, not a runtime property this test could miss). The probe
+//! also exercises the replacement visibility surface ([`PhaseCensus`]) over
+//! the real SoA.
 
 #[cfg(feature = "supervisor")]
 mod w2b_real_owner_probe {
     use cognitive_shader_driver::mailbox_soa::MailboxSoA;
     use lance_graph_contract::kanban::KanbanColumn;
-    use lance_graph_contract::soa_view::MailboxSoaView;
-    use lance_graph_supervisor::kanban_actor::{KanbanActor, KanbanMsg};
-    use ractor::Actor;
+    use lance_graph_contract::soa_view::{MailboxSoaOwner, MailboxSoaView};
+    use lance_graph_supervisor::PhaseCensus;
 
     /// Small capacity — the probe only needs the owner's phase column, not a
     /// realistic row count. Mirrors `mailbox_soa.rs`'s own unit tests
@@ -40,122 +40,93 @@ mod w2b_real_owner_probe {
         // matching how a real spawn would declare its logical size
         // (`MailboxSoA::set_populated` docs: "mirrors fixing BindSpace::len
         // at construction"). `phase()` itself is a mailbox-level field, not
-        // per-row, so this is not required for the phase assertions below —
-        // it is here so the probe's owner is representative of a real spawn
-        // rather than a zero-row empty shell.
+        // per-row — this keeps the probe's owner representative of a real
+        // spawn rather than a zero-row empty shell.
         mb.set_populated(1);
         mb
     }
 
-    #[tokio::test]
-    async fn w2b_real_owner_two_legal_advances_persist_on_the_real_soa() {
-        let mb = real_mailbox();
+    #[test]
+    fn w2b_real_owner_two_legal_advances_persist_on_the_real_soa() {
+        let mut mb = real_mailbox();
         assert_eq!(
             mb.phase(),
             KanbanColumn::Planning,
-            "MailboxSoA::new starts in Planning (mirrors TestBoard's board(Planning) helper \
-             in kanban_actor.rs's own unit tests)"
+            "MailboxSoA::new starts in Planning"
         );
 
-        let (actor, handle) = Actor::spawn(None, KanbanActor::<ProbeMailbox>::default(), mb)
-            .await
-            .expect("spawn kanban actor over the REAL MailboxSoA");
-
-        // Legal edge #1: Planning -> CognitiveWork, driven ONLY through the actor.
-        let mv1 = ractor::call!(actor, |reply| KanbanMsg::Advance {
-            to: KanbanColumn::CognitiveWork,
-            reply
-        })
-        .expect("rpc")
-        .expect("Planning -> CognitiveWork is a legal Rubicon edge");
+        // Legal edge #1: Planning -> CognitiveWork, through the contract's
+        // owner trait on the exclusive borrow.
+        let mv1 = mb
+            .try_advance_phase(KanbanColumn::CognitiveWork)
+            .expect("Planning -> CognitiveWork is a legal Rubicon edge");
         assert_eq!(mv1.from, KanbanColumn::Planning);
         assert_eq!(mv1.to, KanbanColumn::CognitiveWork);
-
-        // Read back through MailboxSoaView::phase() (via KanbanMsg::Phase) —
-        // the real SoA row reflects the advance.
-        let phase1 = ractor::call!(actor, |reply| KanbanMsg::Phase { reply }).expect("rpc");
-        assert_eq!(phase1, KanbanColumn::CognitiveWork);
+        assert_eq!(mb.phase(), KanbanColumn::CognitiveWork);
 
         // Legal edge #2: CognitiveWork -> Evaluation.
-        let mv2 = ractor::call!(actor, |reply| KanbanMsg::Advance {
-            to: KanbanColumn::Evaluation,
-            reply
-        })
-        .expect("rpc")
-        .expect("CognitiveWork -> Evaluation is a legal Rubicon edge");
+        let mv2 = mb
+            .try_advance_phase(KanbanColumn::Evaluation)
+            .expect("CognitiveWork -> Evaluation is a legal Rubicon edge");
         assert_eq!(mv2.from, KanbanColumn::CognitiveWork);
         assert_eq!(mv2.to, KanbanColumn::Evaluation);
-
-        let phase2 = ractor::call!(actor, |reply| KanbanMsg::Phase { reply }).expect("rpc");
         assert_eq!(
-            phase2,
+            mb.phase(),
             KanbanColumn::Evaluation,
             "the real MailboxSoA row reflects both advances, read back via MailboxSoaView"
         );
-
-        actor.stop(None);
-        handle.await.expect("actor join");
     }
 
-    #[tokio::test]
-    async fn w2b_real_owner_illegal_edge_rejected_no_mutation_on_the_real_soa() {
-        let mb = real_mailbox();
-        let (actor, handle) = Actor::spawn(None, KanbanActor::<ProbeMailbox>::default(), mb)
-            .await
-            .expect("spawn kanban actor over the REAL MailboxSoA");
+    #[test]
+    fn w2b_real_owner_illegal_edge_rejected_no_mutation_on_the_real_soa() {
+        let mut mb = real_mailbox();
 
-        // Planning -> Commit is NOT a legal Rubicon edge (same DAG the
-        // in-file TestBoard tests exercise) — must surface the typed
-        // RubiconTransitionError from MailboxSoaOwner::try_advance_phase,
-        // relayed through the actor's Advance message, with NO mutation on
-        // the real row.
-        let err = ractor::call!(actor, |reply| KanbanMsg::Advance {
-            to: KanbanColumn::Commit,
-            reply
-        })
-        .expect("rpc")
-        .expect_err("Planning -> Commit must be rejected by the real owner's lifecycle DAG");
+        // Planning -> Commit is NOT a legal Rubicon edge — the typed
+        // RubiconTransitionError surfaces from the real owner's lifecycle
+        // DAG, with NO mutation on the real row.
+        let err = mb
+            .try_advance_phase(KanbanColumn::Commit)
+            .expect_err("Planning -> Commit must be rejected by the real owner's lifecycle DAG");
         assert_eq!(err.from, KanbanColumn::Planning);
         assert_eq!(err.to, KanbanColumn::Commit);
-
-        // The real SoA's phase column is UNCHANGED after the rejected edge.
-        let phase = ractor::call!(actor, |reply| KanbanMsg::Phase { reply }).expect("rpc");
         assert_eq!(
-            phase,
+            mb.phase(),
             KanbanColumn::Planning,
             "rejected transition must not mutate the real MailboxSoA row"
         );
-
-        actor.stop(None);
-        handle.await.expect("actor join");
     }
 
-    #[tokio::test]
-    async fn w2b_real_owner_actor_is_the_sole_mutator_structural_check() {
-        // Structural proof (mailbox-as-owner, E-CE64-MB-4): the probe never
-        // calls `MailboxSoaOwner::advance_phase` / `try_advance_phase`
-        // directly on a `MailboxSoA` value it holds after spawn — the real
-        // `MailboxSoA` is MOVED into `Actor::spawn` (ownership transfer),
-        // and the only handle this test touches from that point on is the
-        // `ActorRef<KanbanMsg>`. Any mutation not routed through
-        // `KanbanMsg::Advance` would be a compile error here (`mb` is no
-        // longer in scope), not a runtime bug this test could silently miss.
-        let mb = real_mailbox();
-        let (actor, handle) = Actor::spawn(None, KanbanActor::<ProbeMailbox>::default(), mb)
-            .await
-            .expect("spawn kanban actor over the REAL MailboxSoA");
-        // `mb` was moved into `Actor::spawn` above and is not usable here —
-        // the only remaining handle to the owner is `actor`.
+    #[test]
+    fn w2b_phase_census_observes_the_real_soa_without_mutating_it() {
+        // The replacement visibility surface over REAL owners: a mixed pair
+        // of mailboxes is counted correctly (can-fire), and driving both to
+        // absorbing columns flips at_rest (can-stay-silent) — all through
+        // `&self` reads, no message, no RPC.
+        let mut a = real_mailbox();
+        let mut b = real_mailbox();
+        a.try_advance_phase(KanbanColumn::CognitiveWork)
+            .expect("legal edge");
 
-        let mv = ractor::call!(actor, |reply| KanbanMsg::Advance {
-            to: KanbanColumn::CognitiveWork,
-            reply
-        })
-        .expect("rpc")
-        .expect("legal edge applied via the actor, the only mutation surface reachable here");
-        assert_eq!(mv.to, KanbanColumn::CognitiveWork);
+        let mid = PhaseCensus::observe([&a, &b]);
+        assert_eq!(mid.total(), 2);
+        assert_eq!(mid.count(KanbanColumn::CognitiveWork), 1);
+        assert_eq!(mid.count(KanbanColumn::Planning), 1);
+        assert!(!mid.at_rest(), "a mid-arc fleet is not at rest");
 
-        actor.stop(None);
-        handle.await.expect("actor join");
+        // Drive both along legal arcs into absorbing columns.
+        a.try_advance_phase(KanbanColumn::Evaluation)
+            .expect("legal edge");
+        a.try_advance_phase(KanbanColumn::Commit)
+            .expect("legal edge");
+        b.try_advance_phase(KanbanColumn::Prune)
+            .expect("legal edge");
+
+        let done = PhaseCensus::observe([&a, &b]);
+        assert_eq!(done.absorbing(), 2);
+        assert!(done.at_rest(), "a fully absorbed fleet reads at rest");
+        // Observation mutated nothing: phases are exactly where the owner
+        // left them.
+        assert_eq!(a.phase(), KanbanColumn::Commit);
+        assert_eq!(b.phase(), KanbanColumn::Prune);
     }
 }

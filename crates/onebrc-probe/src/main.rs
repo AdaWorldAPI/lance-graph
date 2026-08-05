@@ -203,7 +203,9 @@ fn cmd_run(args: &[String]) {
             }
         }
         other => {
-            eprintln!("unknown lane '{other}' (expected 'a', 'b', 'c', 'd', 'e', 'f', 'r', or 's')");
+            eprintln!(
+                "unknown lane '{other}' (expected 'a', 'b', 'c', 'd', 'e', 'f', 'r', or 's')"
+            );
             std::process::exit(2);
         }
     };
