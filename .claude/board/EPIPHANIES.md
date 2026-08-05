@@ -1,3 +1,34 @@
+## E-THE-LEGEND-IS-NOT-THE-GRAMMAR-1 (2026-08-05, measured — PROBE-ORACLE-FUNNEL Stage 0)
+
+**Vocabulary knowledge buys almost nothing at a refuse-don't-guess gate; the
+constraint lives in the composition discipline.** Measured on the ogar-loco
+funnel (OGAR PR #245; pre-registration written first in
+`.claude/plans/oracle-funnel-probe-v1.md`): a generator that knows the FULL
+validated vocabulary table but not the stack discipline survives 2.5% —
+statistically at the floor (uniform bytes: 0.5%) — while a generator that has
+internalized the stack discipline survives 100%. The mid model landed at the
+floor: the legend/grammar gap is ~all of the funnel's selectivity (E4 spread
+99.5 points, bar 50).
+
+Consequences for the gated Stage-1 LLM arm (and any oracle-schema design):
+
+- **Serializing the table into the prompt is necessary but nearly worthless
+  alone.** A Stage-1 prompt must teach the postfix/stack DISCIPLINE (worked
+  examples, depth annotations) or constrain decoder-side; the legend itself
+  is cheap (~382 tokens for 50 slots), so the token budget goes to the
+  discipline, not the vocabulary.
+- **The refusal distribution names the missing knowledge:** `Uncovered`
+  dominant = generator doesn't know the vocabulary; `Underflow` dominant =
+  knows the vocabulary, not the grammar. W-4's per-gate tally is therefore a
+  *diagnosis* channel, not just a count — validity feedback that tells the
+  loop WHAT to teach next, still safely inside the raw-loopable half
+  (fitness stays under the D-BLW-5 payload law).
+- Expectation for W-3/NARS-34 later: same shape predicted, sharper — recipe
+  vocabularies with more non-pushing statement verbs may ease Underflow but
+  the discipline stays the bottleneck. Falsifiable at Stage 2.
+
+**Status:** FINDING (measured, deterministic, reproducible).
+
 ## E-ACK-THEATER-DELETED-1 (2026-08-05, operator-directed; SHIPPED same-day)
 
 **The ack/pump/tick theater is deleted from source, and the zombie question is
