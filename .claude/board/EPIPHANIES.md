@@ -70,6 +70,28 @@ claimed: validity (D3b closed), significance (no dependence model), zero-copy
 > the recorded approval), on the ground that a fixture premise contradicted
 > by measurement cannot be the can-fire evidence — constant-by-construction
 > tails cannot rot the same way.
+>
+> **⊘ Regrade (2026-08-05, external-review catch — the reference-pool
+> confound).** The fixed-prefix restriction removed OUTPUT-set growth but
+> not REFERENCE-population growth: `rank_verdicts` recomputes the top
+> quartile over the whole currently-seated pool (which grows 250 rows per
+> cycle), so each horizon re-ranks the same fixed subjects against
+> different competitors, a different quartile cutoff, and a different tie
+> population. What is MEASURED is therefore a **cohort-relative rank
+> trajectory under a growing reference pool** — a legitimate effect, but
+> attributing it to *Horizontverschmelzung* (horizons fusing) requires the
+> three-arm decomposition, now the pre-registered follow-up (D-BLW-3b):
+> **A** fixed subjects × fixed reference pool (expected: no movement — the
+> silent arm), **B** fixed subjects × growing pool (isolates
+> rank-renormalization — THE ARM THIS ENTRY MEASURED), **C** fixed
+> subjects × fixed pool × awareness-coupled representation (the semantic
+> candidate). The Z-containment control was matched to plumbing, not to the
+> rank mechanism, so it cannot separate B from C. The measured NUMBERS
+> stand; the ATTRIBUTION is regraded CONJECTURE pending A and C. Also
+> fixed in code the same day: C7's trajectory-wide DROP had keyed on
+> V8 Hamming (zero by construction) — it now requires zero Hamming across
+> ALL horizons, closing a cancelling-churn false-DROP path (the recorded
+> run is unaffected: max|Δκ|=0.485, max Hamming A:152/B:288).
 
 
 ## 2026-08-04 — E-THE-CARRIER-CHANGED-THE-INSTRUMENT-DID-NOT-1 — a 24-locus register that writes one shared locus is still a coincidence bit

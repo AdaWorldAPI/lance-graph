@@ -327,7 +327,7 @@ introduced mutation (a guard that cannot bark is the defect one level up).
 | thing | verdict |
 |---|---|
 | `blw_bible_lens_wave.rs` (tiled 64 owners) | category error — an owner is a **tenant**, not a shard; it fabricated 63 tenants. Deleted while **green**, because it was green on a fabricated shape. |
-| a KJV parser written into `nars/stance.rs` | layer violation — the inbound leg already had one. Reverted. |
+| a KJV parser written into `nars/stance.rs` | layer violation — the inbound leg already had one. Reverted. **(Clarified 2026-08-05 after an external reader took this row to mean stance.rs itself was reverted:** what was reverted is the duplicate INGESTION parser — Gutenberg/verse splitting, which `deepnsm-v2::corpus` owns. The stance MACHINERY (clause→belief→panel) was deliberately LIFTED from the probe example into `lance_graph_planner::nars::stance` at 4a74d69 and is live — a promotion, not a revert. Two different objects.) |
 | `blw_lens_twin.rs` (the κ instrument) | κ retired as the instrument (§12.3c): it measures *coincidence* and discards what a stance is. Nihilism and sarcasm are both negative, so no sign/boolean separates them. |
 | `blw_texture.rs` (the texture instrument) | **measured KILL** (§12.7): used the 24-locus register and wrote **3 loci**, only 1 shared, so `agreement_count` was capped at 1 **before any verse was read**. The carrier changed; the instrument did not. |
 
@@ -548,3 +548,31 @@ yields Hold everywhere and casts nothing. A brain that cannot rest is the
 > corrected mid-flight and its can-fire assertion gains the twin: *the driver
 > discovered the work by reading the board, and nothing else could have told
 > it* — no side channel may exist in the probe.
+
+
+---
+
+## ⊘ Sharpening (2026-08-05): what "zero production callers" means — and what changed
+
+An external review read "zero production callers" as a claim that the
+library chain itself is unwired. It is not, and never was: the
+library-internal edges exist and are documented above
+(`emit_bootstrap_intent` → `BatchWriter::cast`; `run_cycle` →
+`collect_casts` → `seal_cycle` → `apply_sealed_transitions`). The claim was
+always about the ROOT: **no production runtime invokes that chain.**
+
+Status change (2026-08-05): `tests/probe_ignition.rs` (GREEN, 2/2) now
+drives the complete chain — arm → scan → `emit_bootstrap_intent` → `cast` →
+`run_cycle` → seal → apply — as a test-rooted driver. The remaining honest
+gap is narrower and is stated as such: **no live, externally-rooted runtime
+invokes the chain repeatedly over the intended real owner population against
+a durable sink.** That is an integration/rooting slice (the deepnsm-v2
+consumer direction), not another driver.
+
+Separately: `blw_fusion.rs` predates the probe and produces its sealed
+SERIES by calling `persist_cycle`/`recover_and_apply` directly with a
+hand-built `SweepSlot` — it does NOT exercise `collect_casts`/`seal_cycle`/
+`run_cycle`, and its records never claimed it did (its permitted claims are
+the `DeinterlaceRow`/`deinterlace` firsts and the rank-criterion finding).
+Rebasing its seal loop onto `run_cycle` is tracked as
+`TD-BLW-FUSION-MANUAL-SEAL`.

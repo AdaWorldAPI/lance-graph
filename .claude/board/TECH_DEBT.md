@@ -1,5 +1,32 @@
 # Technical Debt Log — Open + Paid (double-entry, append-only)
 
+## TD-BLW-FUSION-MANUAL-SEAL (2026-08-05) — OPEN
+
+`blw_fusion.rs` produces its sealed series by calling
+`persist_cycle`/`recover_and_apply` directly with a hand-built `SweepSlot`
+(`stream_position = c`), bypassing `collect_casts`/`seal_cycle`/`run_cycle` —
+so it exercises the persist/apply half but NOT the ≤1-move-per-owner seal,
+held-intent restaging, durable `position_base`, or frozen-cast retry
+semantics. Its records never claimed otherwise (the permitted claims are the
+`DeinterlaceRow`/`deinterlace` firsts + the rank criterion), but now that
+`tests/probe_ignition.rs` proves the real chain end-to-end, the harness's
+seal loop should be REBASED onto `run_cycle` so the fusion series is
+produced by the same machinery production will use. Surfaced by an external
+review (2026-08-05). Pay by: rebase the seal loop; re-run; assert the
+recorded numbers reproduce.
+
+## TD-BLW3B-ABC-DECOMPOSITION (2026-08-05) — OPEN
+
+The D-BLW-3 trajectory was measured under a GROWING reference pool
+(rank_verdicts recomputes the quartile over the seated pool, +250/cycle), so
+the measured movement is a cohort-relative rank effect until decomposed.
+Pre-registered follow-up D-BLW-3b, three arms: A fixed subjects × fixed
+pool (expected silent), B fixed × growing (the arm already run — isolates
+rank renormalization), C fixed × fixed + awareness-coupled representation
+(the semantic candidate). The E-entry and plan §12.8 carry the regrade
+(numbers stand; fusion ATTRIBUTION is CONJECTURE pending A and C). Pay by:
+build the A and C arms on the blw_fusion scaffolding.
+
 ## TD-RECOVERY-HASH-PARTITION-UNCERTIFIED (2026-08-04) — OPEN
 
 **Operator ruling (2026-08-04):** the #879 work that must not be reversed is

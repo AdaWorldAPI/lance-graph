@@ -1393,7 +1393,11 @@ criterion P2 at q=0.25).
 | controls | Z byte-identical (plumbing zero); G1 three-way extensional identity (Aware≡Retro≡Strict@V8); G4 both tails + real-data silent arm (the design's "~90 % god" premise measured 0.1285 — fixture replaced with constant-by-construction tails); G5/G6/G7 green |
 
 **The headline, exactly as large as the measurement:** the a-priori/hindsight
-gap **moves toward zero overall, with a small rebound at V6/V7** — Δκ: −0.485 (V1),
+gap **moves toward zero overall, with a small rebound at V6/V7** —
+*(⊘ 2026-08-05 regrade: measured under a GROWING reference pool — the
+trajectory is a cohort-relative rank effect until the A/B/C decomposition
+runs; see the E-entry's regrade and D-BLW-3b below. The numbers stand; the
+fusion ATTRIBUTION is CONJECTURE.)* Δκ: −0.485 (V1),
 −0.251, −0.079, −0.031, ≈0.000, +0.011, +0.017, 0.000 (V8, identical by
 construction); Hamming(A): 152→123→94→66→53→37→21→0. The distinction does
 real work early in the series and dissolves as horizons merge. That is a
