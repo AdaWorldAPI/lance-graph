@@ -1,3 +1,28 @@
+## 2026-08-05 — measure-64k-axes v3 — ACTIVE (the three arms Stage A0 earned; M+O build lane dispatched)
+
+**Plan:** `.claude/plans/measure-64k-axes-v3.md`
+Operator review of the A0 results designated what comes next. The ordering
+takeaway: the expensive part is NOT 64k owners and the unstable part is NOT
+sealing — instability lives in filesystem → page cache → writeback → allocator,
+so effort belongs in temporal chunk scheduling, Morton ordering, rolling
+closure and batch geometry rather than in redesigning ownership. **That is a
+hypothesis A0 makes worth testing, not a finding A0 proved.**
+**M-arm** (prioritized): `logical → MORTON REORDER → seal → WAL` vs A0's
+`logical → seal → WAL`; reorder timed as its own phase, verdict is the SUM
+(`reorder_cost − downstream savings`), digest identity mandatory, and the
+ordered-chunk fast path measured against T1's stable 78–86 ms.
+**O-arm**: `cast→seal→WAL→temporal` vs `cast→temporal→seal→WAL` — isolates
+the long-standing "temporal.rs already provides the ordering" hypothesis;
+PRIMARY observable is digest identity decided before any timing is read, with
+a compile-time firewall so O-B cannot consult the sealed stream, and an
+explicit not-constructible outcome instead of a rigged comparison.
+**A-arm** (deferred): decomposing L1a's −171 ms build delta into allocation
+count / arena reuse / locality / pure-allocation control — separate processes
+for the reuse half; the locality half stays BLOCKED on perf counters rather
+than estimated.
+Unchanged: crypto stays out until rolling closure is measured; the WAL knee
+stays unclaimed; D-KIA-A2 frozen; implementation-scoped wording everywhere.
+
 ## 2026-08-05 — measure-64k-axes v2 — ACTIVE (rolling epoch closure; supersedes v1's EXECUTION MODEL, keeps v1 as Stage A0 baseline)
 
 **Plan:** `.claude/plans/measure-64k-axes-v2.md`
