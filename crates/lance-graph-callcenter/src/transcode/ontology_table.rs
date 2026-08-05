@@ -88,9 +88,6 @@ impl OntologyTableProvider {
 
 #[async_trait]
 impl TableProvider for OntologyTableProvider {
-    fn as_any(&self) -> &dyn Any {
-        self
-    }
 
     fn schema(&self) -> SchemaRef {
         self.inner.schema()

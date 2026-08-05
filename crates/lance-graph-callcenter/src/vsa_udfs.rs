@@ -174,9 +174,6 @@ struct UnbindUdf {
 }
 
 impl datafusion::logical_expr::ScalarUDFImpl for UnbindUdf {
-    fn as_any(&self) -> &dyn std::any::Any {
-        self
-    }
     fn name(&self) -> &str {
         "vsa_unbind"
     }
@@ -247,9 +244,6 @@ struct BundleUdf {
 }
 
 impl datafusion::logical_expr::ScalarUDFImpl for BundleUdf {
-    fn as_any(&self) -> &dyn std::any::Any {
-        self
-    }
     fn name(&self) -> &str {
         "vsa_bundle"
     }
@@ -317,9 +311,6 @@ struct HammingDistUdf {
 }
 
 impl datafusion::logical_expr::ScalarUDFImpl for HammingDistUdf {
-    fn as_any(&self) -> &dyn std::any::Any {
-        self
-    }
     fn name(&self) -> &str {
         "vsa_hamming_dist"
     }
@@ -384,9 +375,6 @@ struct BraidAtUdf {
 }
 
 impl datafusion::logical_expr::ScalarUDFImpl for BraidAtUdf {
-    fn as_any(&self) -> &dyn std::any::Any {
-        self
-    }
     fn name(&self) -> &str {
         "vsa_braid_at"
     }
@@ -462,9 +450,6 @@ struct TopKUdf {
 }
 
 impl datafusion::logical_expr::ScalarUDFImpl for TopKUdf {
-    fn as_any(&self) -> &dyn std::any::Any {
-        self
-    }
     fn name(&self) -> &str {
         "vsa_top_k"
     }

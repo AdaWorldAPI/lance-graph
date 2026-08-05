@@ -361,9 +361,6 @@ impl std::fmt::Debug for VectorDistanceUDF {
 }
 
 impl datafusion::logical_expr::ScalarUDFImpl for VectorDistanceUDF {
-    fn as_any(&self) -> &dyn std::any::Any {
-        self
-    }
 
     fn name(&self) -> &str {
         &self.name
@@ -418,9 +415,6 @@ impl std::fmt::Debug for VectorSimilarityUDF {
 }
 
 impl datafusion::logical_expr::ScalarUDFImpl for VectorSimilarityUDF {
-    fn as_any(&self) -> &dyn std::any::Any {
-        self
-    }
 
     fn name(&self) -> &str {
         &self.name
@@ -656,9 +650,6 @@ impl std::fmt::Debug for HammingDistanceUDF {
 }
 
 impl datafusion::logical_expr::ScalarUDFImpl for HammingDistanceUDF {
-    fn as_any(&self) -> &dyn std::any::Any {
-        self
-    }
 
     fn name(&self) -> &str {
         &self.name

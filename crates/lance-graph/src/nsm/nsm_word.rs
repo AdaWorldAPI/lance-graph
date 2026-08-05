@@ -278,9 +278,6 @@ impl std::fmt::Debug for NsmSimilarityUdf {
 }
 
 impl datafusion::logical_expr::ScalarUDFImpl for NsmSimilarityUdf {
-    fn as_any(&self) -> &dyn std::any::Any {
-        self
-    }
 
     fn name(&self) -> &str {
         &self.name
