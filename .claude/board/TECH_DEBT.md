@@ -27,6 +27,20 @@ rank renormalization), C fixed × fixed + awareness-coupled representation
 (numbers stand; fusion ATTRIBUTION is CONJECTURE pending A and C). Pay by:
 build the A and C arms on the blw_fusion scaffolding.
 
+**⊘ Scope analysis (2026-08-05, same day):** for THIS instrument the
+decomposition partially collapses. Verse scores in `blw_fusion` are
+horizon-INDEPENDENT (the bloom projection of static text); the only
+horizon-dependent mechanism is ADMISSION (incremental seating). Arm A
+(fixed subjects × fixed pool) is therefore silent BY CONSTRUCTION — a
+vacuous gate the falsifiability rule forbids building — and Arm B is the
+run already measured. **Arm C is the only informative arm**, and it
+requires a representation whose scores themselves evolve with horizon:
+an awareness-coupled reader — the SAME prerequisite D-BLW-5 names as its
+first design decision. D-IGN-B (GREEN 2026-08-05) proved the candidate
+substrate: the belief arena + stance machinery runs per-owner, in-cycle,
+selected by arming. Payment path re-routed: Arm C is built AS D-BLW-5's
+instrument (the arena-coupled criterion), not as a separate harness.
+
 ## TD-RECOVERY-HASH-PARTITION-UNCERTIFIED (2026-08-04) — OPEN
 
 **Operator ruling (2026-08-04):** the #879 work that must not be reversed is
