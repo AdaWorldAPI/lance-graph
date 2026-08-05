@@ -162,9 +162,18 @@ fmt + clippy 0-attributable). CSV: 179 rows/run, the 33-column schema.
 
 ## Stable arms — reported as findings
 
-**Answer 1 — what ownership costs** (B1a `MailboxSoA<4>` − B0 DummyOwner,
+**Answer 1 — what the CURRENT ownership IMPLEMENTATION contributes under THIS
+workload** (B1a `MailboxSoA<4>` − B0 DummyOwner,
 median of 3, consistent across all runs): scan **+1.0 ms**, cast/rebind
-**+11.5 ms**, freeze **+0.6 ms** over 65,536 owners. B1a additionally pays two
+**+11.5 ms**, freeze **+0.6 ms** over 65,536 owners.
+
+> **Wording is load-bearing (operator, 2026-08-05).** Write *"the current
+> ownership implementation contributes +13 ms under this workload"* — never
+> *"ownership costs +13 ms"*. The second phrasing reads as an inherent
+> property of ownership-as-a-concept; what was measured is one implementation
+> (`MailboxSoA<4>`, HashMap fleet, `Vec<u8>` payloads) on one workload on one
+> host. A different representation could move it substantially — and B1a−B0 is
+> exactly the instrument that would show it. B1a additionally pays two
 phases B0 does not have at all: a real per-owner think (**8.6 ms**) and a real
 apply (**23.5 ms**). So the *marginal* cost of a real owner over a dummy on the
 shared phases is ~13 ms per 64k cycle; the phases only a real owner has are
@@ -192,6 +201,13 @@ fabricating one would misrepresent 1,023 of every 1,024 owners.
 **L1b control fires as designed:** treating the 64 chunks AS owners collapses
 to **65,472 of 65,536 HELD** — the mislabelling is observable, so L1a's
 logical-owner preservation is not an assumption.
+
+> **Known confound, not yet decomposed (operator, 2026-08-05).** The −171 ms
+> build delta is a SUM of at least four distinct phenomena — fewer allocation
+> calls, better locality, allocator arena reuse, and fewer cache misses — and
+> this arm cannot tell them apart. It is reported as "the chunked layout is
+> faster to build", never as "allocation is the cause". Decomposition is
+> designed as the **A-arm** in v3 below.
 
 **Answer 4 — EXP-KIA-A2-64K** (exploratory, NON-CLAIMING; D-KIA-A2 untouched):
 compute phase **21–27 ms at 1 worker → 6.3–7.5 ms at 16 workers** (≈3.2–3.5×

@@ -4,8 +4,10 @@
 `examples/measure_wal_curve.rs` (~2,230 lines) shipped; 5 release runs; CSV
 179 rows/run. Full results: plan `measure-64k-axes-v1.md` § MEASURED RESULTS.
 
-Findings: ownership costs +13 ms of shared-phase time per 64k cycle over a
-dummy owner (plus ~32 ms of phases only a real owner has); the hot
+Findings: **the current ownership IMPLEMENTATION contributes** +13 ms of
+shared-phase time per 64k cycle over a dummy owner (operator-corrected
+wording 2026-08-05 — never "ownership costs", which would read as an
+inherent property rather than one implementation on one workload) (plus ~32 ms of phases only a real owner has); the hot
 `MailboxSoA<4>` representation costs **+63 % memory** over the canonical
 32 MiB envelope (52.1 MiB measured); the chunked 64×1024 layout is **faster on
 every comparable phase** (build −171 ms) with its mislabelling control firing
