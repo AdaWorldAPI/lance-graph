@@ -33,6 +33,17 @@
 > - **Docs** — knowledge files produced (immutable)
 > - **Confidence (YYYY-MM-DD):** — the ONLY mutable field
 
+## 2026-08-05 — the lance 9 / DataFusion 54 / Rust 1.97.1 cross-repo bump (9 repos; lance-graph PR pending, siblings MERGED)
+
+Siblings merged same day: OGAR #244/#245, ruff #93, stockfish-rs #14, woa-rs #179, a2ui-rs #19, MedCare-rs #351. lance-graph's own arc rides the branch below.
+
+- **Added.** `.claude/plans/lance9-datafusion54-upgrade-probe-v1.md` (the measured what-breaks assessment). Pin moves: `lance =7.0.0→=9.0.0`, `lancedb =0.30.0→=0.33.0`, `datafusion 53→54` across 10 manifests; toolchain 1.95.0→1.97.1 in `rust-toolchain.toml`, CI, and 3 Dockerfiles.
+- **Locked.** `E-LANCE-IS-UPSTREAM-AUTHORITATIVE-1` (operator: the lance family is consumed from crates.io upstream, NEVER a fork — "too risky, upstream is authoritative"; **a fork's existence is not evidence of intent to depend on it**; CLAUDE.md's P0 regraded with a `⊘` carve-out because it had explicitly NAMED lance/lancedb as must-fork). **There is no `lancedb` 0.34–0.36 Rust crate** — the registry tops out at 0.33.0, which IS the lance-9 pairing; 0.36 is the PyPI package on an independent line. **The whole DF-54 break is one uniform change:** `Any` moved from a METHOD to a SUPERTRAIT on `TableSource`, `TableProvider`, `ScalarUDFImpl`, `CatalogProvider`, `SchemaProvider`, `AggregateUDFImpl`, `WindowUDFImpl` — 12 `as_any` deletions, zero call-site changes (`.as_any()` still resolves via the blanket impl; only explicit impls break, and only when their module actually compiles). arrow stays 58 and `object_store` 0.13.2 — only DataFusion crosses a major.
+- **Deferred.** OGAR's 22 unswept crates + 1 unverified fix; `blockly-rs`/`rig` still on 1.95.0; `q2` deliberately left on its nightly pin; `-benches`/`symbiont`/`cognitive-stack`/`surreal_container`/`-python` unchecked; the `delta` feature still broken by deltalake 0.32's own drift (which is what quarantines the duplicate DF major to a non-default feature).
+- **Docs.** The plan (§4 records a falsified prediction of mine: I read DF 54's `DynEq + DynHash` supertraits as a NEW requirement without diffing 53, which already had them — the tree already satisfied it. §6 corrects a parallel audit's "three lance majors", which was a pre-pin-bump state).
+
+**Confidence (2026-08-05):** measured, not predicted — 8 lance-graph crates clippy-clean under `-D warnings` (incl. `-callcenter` under both `query` and `query-lite`, after the default-feature pass proved a FALSE GREEN on feature-gated files), ndarray 2186 lib tests green.
+
 ## 2026-08-05 — lance-graph #894 (MERGED `d7a6efc`) — PROBE-ORACLE-FUNNEL Stage 0: pre-registration, measured results, the legend-is-not-the-grammar finding
 
 **Head at merge:** `e4967e3` (1 commit). 4 files, docs/board only — the harness itself is OGAR-side (`ogar-loco` example, OGAR PR #245, merged same day), per the no-cross-dependency ruling in the merged wishlist handover (OGAR #243; delivery #244): candidates and legends cross as DATA, never as a crate edge.

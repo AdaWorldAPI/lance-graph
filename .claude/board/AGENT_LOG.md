@@ -1,3 +1,43 @@
+## 2026-08-05 — lance 9 / DataFusion 54 / Rust 1.97.1 cross-repo bump (main thread + 2 Sonnet grindworkers)
+
+- **Agents:** main thread (design, adjudication, all commits/pushes) + 2 Sonnet
+  lint-sweep workers (ndarray; OGAR) spawned WITHOUT worktrees per
+  `agent-cargo-hygiene.md`, edit-only, each writing only its own tag-file
+  (`<repo>/.claude/exec-runs/sonnet-197-lint-sweep.md`). A third resumed OGAR.
+- **Method the operator imposed, and it paid:** test the TOOLCHAIN ALONE on the
+  OLD dependency pins first, so a toolchain failure could never be mistaken for
+  a dependency failure. 1.97.1 came back clean on the old pins; every
+  subsequent red was therefore attributable to the dep bump.
+- **Result:** lance-graph green under lance 9 + DF 54 + 1.97.1 across
+  `lance-graph`, `-catalog`, `-contract`, `-ontology`, `-planner`,
+  `-supervisor`, `cognitive-shader-driver`, and `-callcenter` (both `query`
+  and `query-lite` — the default-feature pass was a FALSE GREEN, since
+  `vsa_udfs`/`ontology_table` are feature-gated and never compiled).
+  ndarray: 2186 lib tests pass, 0 fail. Plan +
+  `E-LANCE-IS-UPSTREAM-AUTHORITATIVE-1` + `E-THE-LEGEND-IS-NOT-THE-GRAMMAR-1`
+  banked; 9 repos' toolchains/CI/Dockerfiles bumped; 8 PRs merged.
+- **Two disk incidents, both handled by the guard, not by luck:** both Sonnet
+  workers stopped on their explicit `df` floor rather than pushing through, and
+  both correctly diagnosed the cause as EXTERNAL (a 9.8 GB sibling `target/`
+  holding two toolchains' artifacts plus both the lance-7 and lance-9 trees)
+  rather than their own residue. `cargo clean` there recovered 10.3 GB. The
+  lesson for future briefs: give grindworkers an explicit numeric disk floor
+  and permission to stop — a worker that halts with a diagnosis is worth far
+  more than one that ENOSPCs mid-edit.
+- **My own error, recorded because it is reusable:** I predicted a second
+  migration (all ~11 UDF types needing `Eq + Hash`, since DF 54's
+  `ScalarUDFImpl` lists `DynEq + DynHash` supertraits blanket-implemented over
+  them). WRONG — DF **53 already** required them, so the tree already satisfied
+  it with hand-written `name()`-keyed impls everywhere. I read the NEW version's
+  bound and inferred "new requirement" without diffing the OLD one; the
+  differential was one grep away. The claim had already reached a commit message
+  before measurement corrected it.
+- **Still owed (not claimed as done):** OGAR's 22 unreached crates + one
+  unverified `clickhouse-ddl` fix (resume worker dispatched); `blockly-rs` and
+  `rig` still on 1.95.0, outside the sweep.
+- **Gates untouched:** D-BLW-5, D-HWV-1/EXP-HOT-WINDOW, PROBE-ORACLE-FUNNEL
+  Stage 1 + Stage 2 — all still wait on the operator's word.
+
 ## 2026-08-05 — PROBE-ORACLE-FUNNEL Stage 0 (main thread; pre-register → build → run → record)
 
 - **Agent:** main thread only (no fleet). **D-id:** PROBE-ORACLE-FUNNEL-S0.

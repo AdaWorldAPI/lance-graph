@@ -113,8 +113,45 @@ feature and costs a default build nothing.
   / `oxrdfxml` / `oxttl`** — a pre-existing feature-gating bug in the example,
   unrelated to either bump.
 
-## 8. Not done here
+## 8. Landed (updated after the operator ruled "bump all now, fix after")
 
-Remaining lance-dependent crates unchecked (`-benches`, `-ontology`, `symbiont`,
-`cognitive-stack`, `surreal_container`, `-python`); no test run; no clippy at
-workspace scope; the `delta` feature still broken by its own API drift.
+The probe became the bump. Nine repos' toolchains moved 1.95 → 1.97.1
+(rust-toolchain.toml + CI pins + Dockerfiles, together — a pin that CI
+overrides is not a pin); `q2` was deliberately LEFT on its `nightly-2026-04-28`
+(an external project whose nightly pin likely carries nightly features; breaking
+it was not in scope). Merged: lance-graph #891-#895, OGAR #243/#244/#245,
+ruff #93, stockfish-rs #14, woa-rs #179, a2ui-rs #19, MedCare-rs #351.
+
+**Docker drift found while in there (pre-existing, unrelated to either bump):**
+lance-graph's and ndarray's Dockerfiles installed **1.94.0** — a version BEHIND
+their own 1.95.0 `rust-toolchain.toml`, so the images had been building on an
+older toolchain than the workspace declared. Both now on 1.97.1. `ruff`'s
+Dockerfile is the drift-proof pattern and needed no edit: it COPYs
+`rust-toolchain.toml` and installs `--default-toolchain none`, so it cannot
+disagree with the pin. Worth adopting in the others.
+
+**Clippy fix-after, all green under 1.97.1:** `lance-graph`, `-catalog`,
+`-contract`, `-ontology`, `-planner`, `-supervisor`, `cognitive-shader-driver`,
+`-callcenter` (both `query` and `query-lite`). **The default-feature pass was a
+FALSE GREEN** — `vsa_udfs` and `transcode/ontology_table` are feature-gated, so
+the first run never compiled the very files carrying the `as_any` impls. Only
+explicit impls break, and only when their module is actually compiled; that is
+exactly how a gated module can look fine. ndarray: 6 mechanical lints fixed,
+**2186 lib tests pass, 0 fail**.
+
+The 12 pre-existing `lance-graph-ontology` lints are gone (5 oxrdf deprecations
++ 6 doc-indentation + 1 in a paired file), which is what made
+`rust-toolchain.toml`'s own precondition — "bump when workspace clippy passes
+clean" — satisfiable rather than aspirational. Note the bump ran AHEAD of that
+gate on the operator's explicit call; the fix-after discharged it.
+
+## 9. Still open
+
+- OGAR: 22 crates unreached by the lint sweep + one unverified
+  `clickhouse-ddl` fix (resume worker dispatched).
+- `blockly-rs` and `rig` still pin 1.95.0 — outside the sweep.
+- Unchecked lance-dependent crates: `-benches`, `symbiont`, `cognitive-stack`,
+  `surreal_container`, `-python`. No workspace-scope clippy (per the `-p`-only
+  rule). The `delta` feature stays broken by deltalake 0.32's own API drift
+  (`TODO(lance-bump-delta)`), which is what quarantines the duplicate
+  DataFusion major.
