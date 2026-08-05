@@ -1,3 +1,36 @@
+## 2026-08-05 — M-arm + O-arm MEASURED: both NEGATIVE (Sonnet build + central Opus gates + adjudication)
+
+**Outcome: two hypotheses tested, both falsified under this construction —
+cheaply, before either shaped the architecture.** Full results: plan
+`measure-64k-axes-v3.md` § MEASURED RESULTS.
+
+**M-arm — Morton does NOT win.** Digest identity MATCHED (valid
+comparison), then the pre-registered SUM verdict: reorder 9.4 ms,
+downstream savings −25.8 ms (slower), **Δtotal +35.2 ms**. The
+ordered-chunk fast path was also slower than the generic path (350.9 vs
+339.7 ms) at identical digests. **Open measurement defect flagged, not
+buried:** the M-arm's T1 baseline is ~4× A0's over the same row count, so
+the fast path must NOT be compared to A0's 78–86 ms until that is
+explained; the internal natural-vs-Morton comparison stands.
+
+**O-arm — DIVERGED.** Primary observable decided before any timing, as
+specified: O-A ≠ O-B. **The seal's ordering is load-bearing and cannot be
+re-scoped away** under this construction — retiring, for this
+construction, the long-running "temporal.rs already provides the ordering"
+hypothesis. Kill-condition: CONSTRUCTIBLE (different code path, not a
+disguised O-A), with the honest note that the redundancy in question is
+semantic rather than code-sharing.
+
+**Three defects caught at the gate:** the firewall fired on its own
+comment (fixed: strip comments before scanning + a positive control so an
+inert guard is detectable); both arms' T1 read 18 cycles where the spec
+says 16 (scoped to the measured window); and the O-arm's pre-registered
+divergence outcome was coded as a panic (both branches now report — a
+designed falsification must never crash the run).
+
+Gates: fmt clean; clippy 0 attributable; release run complete, 183 CSV
+rows. The build lane self-caught a borrow/runtime bug pre-handoff.
+
 ## 2026-08-05 — MEASURE-64K-AXES Stage A0 MEASURED (Sonnet build + central Opus gates + adjudication)
 
 **Outcome: 3 of 4 answers MEASURED, 1 reported NOT REPRODUCIBLE.** Binary

@@ -125,3 +125,88 @@ build*, never *allocation is the cause*.
   exploratory override.
 - Every number keeps implementation-scoped wording: *this implementation,
   this workload, this host*.
+
+
+---
+
+# MEASURED RESULTS — M-arm and O-arm (2026-08-05, release, 16 GiB free host)
+
+Both arms produced **negative** results. Both were pre-registered as
+two-sided, so both are findings rather than failures.
+
+## M-arm — MORTON DOES NOT WIN under this workload/host
+
+Digest identity **MATCHED** (`68128e3662df105c` both pipelines), so the
+comparison is valid — the reorder changed layout, not semantics.
+
+| phase | natural | morton |
+|---|---|---|
+| reorder | — | **9.4 ms** |
+| seal | 11.6 ms | 15.6 ms |
+| write | 257.3 ms | 254.3 ms |
+| sync | 48.4 ms | 54.5 ms |
+| T1 | 320.9 ms | 339.7 ms |
+
+**SUM verdict (the pre-registered criterion): reorder_cost 9.4 ms,
+downstream savings −25.8 ms (Morton is SLOWER downstream), Δtotal
+= +35.2 ms ⇒ MORTON LOSES.** The ordered-chunk fast path
+(350.9 ms) was also **slower than the generic path** (339.7 ms) while
+producing an identical digest — so validate-and-append did not beat
+regroup-and-sort here either.
+
+> **⚠ CAVEAT THAT BLOCKS ONE COMPARISON (found by this run, not papered
+> over).** The M-arm's T1 baseline is **320–340 ms**, roughly **4× A0's
+> 78–86 ms** over the same nominal 1,048,576 rows. Until that gap is
+> explained, the fast-path number **must NOT be compared against A0's
+> 78–86 ms** — the two T1s are not commensurable. The natural-vs-Morton
+> comparison IS valid (same harness, same run, same row count); only the
+> cross-run comparison to A0 is void. Likely suspects: the M-arm's
+> `BenchRow` materialisation inside the timed region, and the
+> `stream_position` relabeling the harness needs because `freeze` always
+> sorts by that field. **This is an open measurement defect, not a
+> result.**
+
+## O-arm — DIVERGED: the seal's ordering is LOAD-BEARING
+
+Primary observable, computed and printed **before any timing** as
+pre-registered: **O-A `64565f362db2e4a5` ≠ O-B `3e71c2aa7be8e325` —
+DIVERGED.**
+
+**Verdict:** ordering sourced from temporal replay does NOT reproduce the
+seal's ordering. Under this construction the seal's ordering is
+**load-bearing and cannot be re-scoped away** — which retires, for this
+construction, the long-standing "temporal.rs already provides the
+ordering" hypothesis. **Honest scope: this falsifies the hypothesis FOR
+THIS O-B CONSTRUCTION; it does not prove no construction could match.**
+
+**Firewall held** (after a real fix — see below): the region contains no
+`scan_sealed` and no sealed-store read, and `local_trajectories` IS
+present, so O-B's scan mechanism is proven live rather than absent.
+
+**Kill-condition check: CONSTRUCTIBLE.** O-B's derivation
+(`local_trajectories` grouping via BTreeMap) is a different code path
+from O-A's seal-side `order_cycle_stably` Vec sort — not a disguised
+O-A. Reported honestly: at one row per owner per cycle the two are doing
+comparable asymptotic work, and the redundancy the plan asks about is
+SEMANTIC, not code-sharing.
+
+Timing (secondary): O-A cast 55.5 / seal 20.1 / commit 13.2 / T1 397.1 ms;
+O-B cast 72.4 / **order_derive 64.9** / seal 34.9 / commit 5.1 /
+T1 523.8 ms. O-B is slower on every phase except commit.
+
+## Three defects caught at the gate (not shipped)
+
+1. **The firewall fired on its own comment.** The self-scan matched the
+   token inside a *comment* describing the check — a guard tripping on
+   documentation tests the documentation, not the code. Fixed by
+   stripping line comments before scanning, **plus a positive control**
+   asserting the detector still finds a real call (otherwise a silent
+   guard and a broken guard are indistinguishable).
+2. **T1 read 18 cycles where the spec says 16.** Both arms scanned the
+   unfiltered history, including the two warm-ups (1,179,648 rows vs
+   1,048,576). Scoped to the measured window via
+   `scan_sealed(Some(WARMUP))` — an unscoped T1 is not comparable to
+   anything.
+3. **A pre-registered outcome was coded as a panic.** O-arm divergence
+   `assert!`-ed, which turns a designed falsification into a crash and
+   discards every number after it. Both branches now report.

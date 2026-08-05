@@ -4,6 +4,13 @@
 //! constant, phase name, and gate in this file. Read it before touching
 //! anything here. This header only orients the reader inside the code.
 //!
+//! `.claude/plans/measure-64k-axes-v3.md` adds two more arms to THIS SAME
+//! binary (one release binary, never a second): §15 the M-arm (Morton
+//! reorder inserted before the seal) and §16 the O-arm (does the seal's
+//! own ordering duplicate what `temporal.rs` already provides?). Build lane
+//! report for the M-arm/O-arm addition:
+//! `.claude/board/exec-runs/m-arm-o-arm-build.md`.
+//!
 //! Build lane report (deviations, what could not be verified):
 //! `.claude/board/exec-runs/measure-wal-curve-build.md`.
 //!
@@ -64,7 +71,7 @@ mod measure {
         clippy::too_many_arguments
     )]
 
-    use std::collections::HashMap;
+    use std::collections::{BTreeMap, HashMap};
     use std::fs::{self, File, OpenOptions};
     use std::io::{IoSlice, Write as _};
     use std::path::PathBuf;
@@ -85,8 +92,8 @@ mod measure {
     use lance_graph_planner::ir::Arena;
     use lance_graph_planner::owner_adapter::emit_bootstrap_intent;
     use lance_graph_planner::persist_sink::{
-        persist_cycle, CycleFrame, CycleId, DetachedCycleBatch, LandedSlot, SweepSlot, WalSink,
-        WriteFailed,
+        order_cycle_stably, persist_cycle, CycleFrame, CycleId, DetachedCycleBatch, LandedSlot,
+        SweepSlot, WalSink, WriteFailed,
     };
     use lance_graph_planner::strategy::style_strategy::StyleStrategy;
     use lance_graph_planner::temporal::{
@@ -343,6 +350,10 @@ mod measure {
         context_switches: u64,
         max_active_workers: u32,
         result_digest: u64,
+        /// M-arm (plan v3): the Morton write-order reorder phase, timed in
+        /// isolation from seal/write. `0` for every arm that does not perform
+        /// a reorder (never fabricated).
+        morton_reorder_ns: u64,
     }
 
     impl Row {
@@ -353,7 +364,8 @@ mod measure {
              temporal_layer2_ns,apply_ns,total_ns,logical_rows,logical_bytes,\
              sealed_transitions,applied_transitions,wal_syscalls,fsync_calls,\
              dataset_versions,peak_rss_bytes,minor_faults,major_faults,\
-             context_switches,llc_misses,max_active_workers,result_digest"
+             context_switches,llc_misses,max_active_workers,result_digest,\
+             morton_reorder_ns"
         }
 
         /// `llc_misses` is always emitted EMPTY — no perf-counter access in
@@ -361,7 +373,7 @@ mod measure {
         /// one").
         fn to_csv(&self) -> String {
             format!(
-                "{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},,{},{}",
+                "{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},,{},{},{}",
                 self.owner_shape,
                 self.physical_layout,
                 self.threads,
@@ -397,6 +409,7 @@ mod measure {
                 // max_active_workers — do not add another field here.
                 self.max_active_workers,
                 self.result_digest,
+                self.morton_reorder_ns,
             )
         }
     }
@@ -712,6 +725,7 @@ mod measure {
                 context_switches: snap.vol_ctxt + snap.nonvol_ctxt,
                 max_active_workers: 1,
                 result_digest: digest,
+                morton_reorder_ns: 0,
             });
         }
 
@@ -940,6 +954,7 @@ mod measure {
                 context_switches: snap.vol_ctxt + snap.nonvol_ctxt,
                 max_active_workers: 1,
                 result_digest: digest,
+                morton_reorder_ns: 0,
             });
             let _ = targets; // computed, consumed by the gate loop's own assertion
         }
@@ -1020,6 +1035,7 @@ mod measure {
                 context_switches: snap.vol_ctxt + snap.nonvol_ctxt,
                 max_active_workers: 1,
                 result_digest: digest,
+                morton_reorder_ns: 0,
             });
         }
 
@@ -1263,6 +1279,7 @@ mod measure {
                             context_switches: snap.vol_ctxt + snap.nonvol_ctxt,
                             max_active_workers: 1,
                             result_digest: digest,
+                            morton_reorder_ns: 0,
                         });
                     }
                 }
@@ -1653,6 +1670,7 @@ mod measure {
             context_switches: 0,
             max_active_workers: 1,
             result_digest: digest,
+            morton_reorder_ns: 0,
         });
     }
 
@@ -1859,6 +1877,7 @@ mod measure {
                 context_switches: snap.vol_ctxt + snap.nonvol_ctxt,
                 max_active_workers: 1,
                 result_digest: digest,
+                morton_reorder_ns: 0,
             });
             let _ = chunk_targets;
         }
@@ -1971,6 +1990,7 @@ mod measure {
             context_switches: snap.vol_ctxt + snap.nonvol_ctxt,
             max_active_workers: 1,
             result_digest: fnv1a64(&collected.held.len().to_le_bytes()),
+            morton_reorder_ns: 0,
         });
     }
 
@@ -2284,6 +2304,7 @@ mod measure {
                 context_switches: snap.vol_ctxt + snap.nonvol_ctxt,
                 max_active_workers,
                 result_digest: digest,
+                morton_reorder_ns: 0,
             });
         }
 
@@ -2306,6 +2327,1020 @@ mod measure {
             best_workers,
             all_digests_match,
         )
+    }
+
+    // ═════════════════════════════════════════════════════════════════════
+    // §15 — M-arm: Morton reorder inserted before the seal (plan v3, M-arm).
+    //
+    // A0 measured `logical order → seal → WAL`. This measures the pipeline
+    // the architecture actually proposes: `logical order → MORTON REORDER →
+    // seal → WAL`, plus the downstream T1 read. Same 65,536 owners, same
+    // per-cycle cast/collect shape as B1a/`run_temporal`; the ONLY
+    // difference between the two configurations below is the reorder phase
+    // and the physical write order it produces — the CAST phase, payload
+    // content, and cycle count are identical.
+    // ═════════════════════════════════════════════════════════════════════
+
+    /// v2 D1: identity stays on `MailboxId` — this is a SEPARATE key for
+    /// physical write/storage order, never used to look an owner up.
+    #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Debug)]
+    struct WriteOrderKey {
+        morton_chunk: u32,
+        lane: u16,
+        cycle_position: u64,
+    }
+
+    /// Standard 8-bit -> 16-bit bit-spread (the libmorton bit-trick): each of
+    /// `v`'s 8 bits lands at an EVEN position (0, 2, 4, ..., 14) of the
+    /// 16-bit result.
+    fn morton_spread_u8(v: u8) -> u16 {
+        let mut x = u16::from(v);
+        x = (x | (x << 4)) & 0x0F0F;
+        x = (x | (x << 2)) & 0x3333;
+        x = (x | (x << 1)) & 0x5555;
+        x
+    }
+
+    /// 2-D Morton (Z-order) interleave of two 8-bit coordinates into one
+    /// 16-bit code — a BIJECTION over the full 65,536-owner space (every
+    /// `(x, y)` in `[0,256)^2` maps to exactly one code in `[0, 65536)`).
+    fn morton_code_u16(x: u8, y: u8) -> u16 {
+        morton_spread_u8(x) | (morton_spread_u8(y) << 1)
+    }
+
+    /// `owner -> WriteOrderKey`: split the 16-bit owner id into two 8-bit
+    /// coordinates (low byte / high byte), Morton-interleave them, and read
+    /// the top 6 bits as a chunk id (64 chunks) / bottom 10 as a lane
+    /// (1,024 lanes) — matching L1a's 64x1,024 physical shape, but via a
+    /// spatially-interleaved (not linear `chunk = owner/1024`) assignment.
+    /// `cycle_position` is carried per v2 D1's field list; since
+    /// `(morton_chunk, lane)` is already a bijection of `owner`, it never
+    /// breaks a tie here — it is provenance, not a discriminator.
+    fn morton_key_for(owner: MailboxId) -> WriteOrderKey {
+        debug_assert!(
+            owner < FLEET_OWNERS,
+            "morton_key_for: owner must fit the fleet's 16-bit range"
+        );
+        let o = owner as u16;
+        let x = (o & 0x00FF) as u8;
+        let y = ((o >> 8) & 0x00FF) as u8;
+        let code = morton_code_u16(x, y);
+        WriteOrderKey {
+            morton_chunk: u32::from(code >> 10),
+            lane: code & 0x03FF,
+            cycle_position: u64::from(owner),
+        }
+    }
+
+    /// A digest over `(owner, row, payload)`, SORTED BY OWNER — order
+    /// independent of the caller's physical layout by construction, so it is
+    /// a fair SEMANTIC (not physical-layout) comparison between two
+    /// pipelines that wrote the same logical content in a different
+    /// physical write order. Used for the M-arm's mandatory ordered-vs-
+    /// unordered digest identity assert.
+    fn semantic_digest(slots: &[SweepSlot]) -> u64 {
+        let mut keyed: Vec<(MailboxId, u64, &[u8])> = slots
+            .iter()
+            .map(|s| (s.owner, s.row, s.payload.as_slice()))
+            .collect();
+        keyed.sort_by_key(|(owner, row, _)| (*owner, *row));
+        let mut bytes = Vec::with_capacity(keyed.len() * (4 + 8 + CANONICAL_ROW_BYTES));
+        for (owner, row, payload) in keyed {
+            bytes.extend_from_slice(&owner.to_le_bytes());
+            bytes.extend_from_slice(&row.to_le_bytes());
+            bytes.extend_from_slice(payload);
+        }
+        fnv1a64(&bytes)
+    }
+
+    /// v2 D2 — the ordered-chunk fast path: given a scanned history whose
+    /// PHYSICAL write order is already chunk-then-lane within each cycle and
+    /// cycle-increasing across cycles (the Morton-ordered M-arm pipeline
+    /// below), reconstruct per-owner trajectories by DIRECT APPEND — no
+    /// `BTreeMap`-group-then-sort (`local_trajectories`'s own per-owner
+    /// `sort_by_key` is exactly what this skips). Validates the invariant
+    /// the shortcut depends on (global `stream_position` strictly increasing
+    /// across the WHOLE scan — the collapse of "version monotonic x chunk
+    /// sequence monotonic x lane monotonic" onto one counter, per v2 D2's
+    /// header list) before trusting it; on ANY violation it refuses (`Err`)
+    /// rather than silently mis-ordering a trajectory. A real precondition,
+    /// not a decorative one — `run_m_arm`'s inline can-fire check (a
+    /// deliberately corrupted, stream_position-regressed 2-row input) proves
+    /// it can fire.
+    fn local_trajectories_ordered_chunk_fastpath(
+        landed: &[LandedSlot],
+    ) -> Result<BTreeMap<MailboxId, Vec<BenchRow>>, String> {
+        let mut out: BTreeMap<MailboxId, Vec<BenchRow>> = BTreeMap::new();
+        let mut last_stream_position: Option<u64> = None;
+        for ls in landed {
+            if let Some(p) = last_stream_position {
+                if ls.slot.stream_position <= p {
+                    return Err(format!(
+                        "fast path: stream_position non-increasing ({p} -> {}) — the \
+                         ordered-chunk precondition (validate-then-append) does not hold",
+                        ls.slot.stream_position
+                    ));
+                }
+            }
+            last_stream_position = Some(ls.slot.stream_position);
+
+            // VALIDATED for this row — append directly. No group-then-sort:
+            // this owner's chain is being built in the SAME order the
+            // physical log already guarantees.
+            out.entry(ls.slot.owner).or_default().push(BenchRow {
+                owner: ls.slot.owner,
+                cast_seq: ls.slot.stream_position,
+                lance_version: ls.version.0,
+            });
+        }
+        Ok(out)
+    }
+
+    /// One M-arm pipeline's per-cycle-medianed measurements.
+    #[derive(Clone, Copy, Default)]
+    struct MArmPhaseMedians {
+        cast_ns: u64,
+        collect_ns: u64,
+        reorder_ns: u64,
+        seal_ns: u64,
+        wal_write_ns: u64,
+        wal_sync_ns: u64,
+        wal_syscalls: u64,
+    }
+
+    /// Run one M-arm configuration (`morton == false` -> natural/A0-shaped
+    /// order; `morton == true` -> Morton reorder inserted before the seal).
+    /// `WARMUP_CYCLES + MEASURED_CYCLES` real cycles, each: cast (identical
+    /// content/order for both configs) -> collect -> [reorder, Morton only]
+    /// -> seal (the REAL `DetachedCycleBatch::freeze`) -> a REAL byte write
+    /// of the frozen landings' 512B payloads (chunked `write_vectored`,
+    /// house pattern from `run_wal_curve`'s W0-current path) -> one
+    /// `fsync` -> commit into an in-process `MemWal` (for the T1 read after
+    /// all configs have run). Returns the phase medians, the sealed
+    /// `SweepSlot`s of the LAST measured cycle (for the digest-identity
+    /// assert), and the populated `MemWal`.
+    async fn run_m_arm_pipeline(
+        morton: bool,
+        wal_path: &std::path::Path,
+    ) -> (MArmPhaseMedians, Vec<SweepSlot>, MemWal) {
+        let style_outcome = build_style_outcome();
+        let sink = MemWal::new();
+        let mut file = OpenOptions::new()
+            .create(true)
+            .write(true)
+            .truncate(true)
+            .open(wal_path)
+            .unwrap_or_else(|e| panic!("M-arm: open WAL scratch file {wal_path:?}: {e}"));
+
+        let mut cast_samples = Vec::with_capacity(MEASURED_CYCLES as usize);
+        let mut collect_samples = Vec::with_capacity(MEASURED_CYCLES as usize);
+        let mut reorder_samples = Vec::with_capacity(MEASURED_CYCLES as usize);
+        let mut seal_samples = Vec::with_capacity(MEASURED_CYCLES as usize);
+        let mut write_samples = Vec::with_capacity(MEASURED_CYCLES as usize);
+        let mut sync_samples = Vec::with_capacity(MEASURED_CYCLES as usize);
+        let mut syscall_samples = Vec::with_capacity(MEASURED_CYCLES as usize);
+        let mut position_base: u64 = 0;
+        let mut last_measured_slots: Vec<SweepSlot> = Vec::new();
+
+        const WRITE_CHUNK_ROWS: usize = 4_096; // 2 MiB/segment — house pattern from run_wal_curve.
+
+        for cyc in 0..(WARMUP_CYCLES + MEASURED_CYCLES) {
+            let measured = cyc >= WARMUP_CYCLES;
+            let cycle_id = CycleId(u64::from(cyc) + 1);
+
+            let t_cast = Instant::now();
+            let mut writer: BatchWriter<Vec<u8>> = BatchWriter::new();
+            for id in 0..FLEET_OWNERS {
+                // Payload varies by (owner, cycle) — falsifiable content, not
+                // a constant row, so a trajectory digest actually depends on
+                // cycle order (never a vacuous "same bytes every cycle").
+                let combined = (u64::from(cyc) << 32) | u64::from(id);
+                let payload = NodeRow512::for_id(combined).as_bytes().to_vec();
+                let _ = emit_bootstrap_intent(&style_outcome, id, 0, &mut writer, payload);
+            }
+            let cast_ns = t_cast.elapsed().as_nanos() as u64;
+
+            let t_collect = Instant::now();
+            let collected = collect_casts(&mut writer, cycle_id, position_base, u64::from);
+            let collect_ns = t_collect.elapsed().as_nanos() as u64;
+            assert_eq!(
+                collected.slots.len(),
+                FLEET_OWNERS as usize,
+                "M-arm: every owner casts and lands exactly once per cycle"
+            );
+
+            let mut slots = collected.slots;
+            let reorder_ns = if morton {
+                let t_reorder = Instant::now();
+                order_cycle_stably(&mut slots, |s| morton_key_for(s.owner));
+                // Relabel stream_position to the Morton rank so the seal's
+                // OWN internal `order_cycle_stably(by stream_position)`
+                // preserves (rather than undoes) this order — the reorder is
+                // "inserted before the seal", not a bypass of it.
+                for (idx, slot) in slots.iter_mut().enumerate() {
+                    slot.stream_position = position_base + idx as u64;
+                }
+                t_reorder.elapsed().as_nanos() as u64
+            } else {
+                0
+            };
+
+            let frame = CycleFrame::new(cycle_id, sink.head());
+            let t_seal = Instant::now();
+            let frozen = DetachedCycleBatch::freeze(frame, slots);
+            let seal_ns = t_seal.elapsed().as_nanos() as u64;
+            assert_eq!(frozen.landings.len(), FLEET_OWNERS as usize);
+
+            let mut bytes_written = 0u64;
+            let mut total_syscalls = 0u64;
+            let t_write = Instant::now();
+            for group in frozen.landings.chunks(WRITE_CHUNK_ROWS) {
+                let mut slices: Vec<IoSlice<'_>> = group
+                    .iter()
+                    .map(|s| IoSlice::new(s.payload.as_slice()))
+                    .collect();
+                let (written, calls) =
+                    write_vectored_all(&mut file, &mut slices).expect("M-arm write_vectored");
+                total_syscalls += calls;
+                bytes_written += written;
+            }
+            let wal_write_ns = t_write.elapsed().as_nanos() as u64;
+            let t_sync = Instant::now();
+            file.sync_data().expect("M-arm sync_data");
+            let wal_sync_ns = t_sync.elapsed().as_nanos() as u64;
+            assert_eq!(
+                bytes_written,
+                CANONICAL_FRAME_BYTES as u64,
+                "M-arm {}: an arm that does not move exactly the canonical frame \
+                 cannot be compared against one that does",
+                if morton { "morton" } else { "natural" }
+            );
+
+            if measured {
+                last_measured_slots = frozen.landings.clone();
+                cast_samples.push(cast_ns);
+                collect_samples.push(collect_ns);
+                reorder_samples.push(reorder_ns);
+                seal_samples.push(seal_ns);
+                write_samples.push(wal_write_ns);
+                sync_samples.push(wal_sync_ns);
+                syscall_samples.push(total_syscalls);
+            }
+
+            // Commit into the in-process MemWal for the later T1 read — a
+            // SEPARATE commit from the real byte write above (the byte write
+            // measures physical WAL bytes/fsync physics; the MemWal commit
+            // is what `scan_sealed`/T1 read back, matching `run_temporal`'s
+            // §11 shape). `persist_cycle` re-derives its own freeze
+            // internally; feeding it the SAME (already-Morton-relabeled)
+            // slots is safe because its internal `order_cycle_stably` is a
+            // no-op-preserving STABLE sort of already-sorted input.
+            let slots_for_commit = frozen.landings.clone();
+            persist_cycle(&sink, frame, slots_for_commit)
+                .await
+                .unwrap_or_else(|e| panic!("M-arm: cycle {cyc} failed to seal: {e}"));
+
+            position_base += u64::from(FLEET_OWNERS);
+        }
+
+        drop(file);
+        fs::remove_file(wal_path).ok();
+
+        let medians = MArmPhaseMedians {
+            cast_ns: median(&cast_samples),
+            collect_ns: median(&collect_samples),
+            reorder_ns: median(&reorder_samples),
+            seal_ns: median(&seal_samples),
+            wal_write_ns: median(&write_samples),
+            wal_sync_ns: median(&sync_samples),
+            wal_syscalls: median(&syscall_samples),
+        };
+        (medians, last_measured_slots, sink)
+    }
+
+    async fn run_m_arm(csv: &mut CsvSink) {
+        eprintln!("\n== M-arm — Morton reorder inserted before the seal (plan v3) ==");
+        let wal_dir = PathBuf::from("/tmp/measure_wal_curve_m_arm");
+        fs::create_dir_all(&wal_dir).expect("create M-arm WAL scratch dir");
+
+        let (natural, natural_last_slots, natural_sink) =
+            run_m_arm_pipeline(false, &wal_dir.join("natural.wal")).await;
+        let (morton, morton_last_slots, morton_sink) =
+            run_m_arm_pipeline(true, &wal_dir.join("morton.wal")).await;
+        fs::remove_dir_all(&wal_dir).ok();
+
+        // ── digest identity (MANDATORY, an assert, not a print) ──────────
+        let digest_natural = semantic_digest(&natural_last_slots);
+        let digest_morton = semantic_digest(&morton_last_slots);
+        assert_eq!(
+            digest_natural, digest_morton,
+            "M-arm can-fire: the Morton reorder must be a pure layout change — the \
+             last measured cycle's (owner, row, payload) content must be byte-identical \
+             regardless of physical write order, or the reorder changed semantics"
+        );
+        eprintln!(
+            "M-arm digest identity: natural={digest_natural:016x} morton={digest_morton:016x} MATCH"
+        );
+
+        // ── T1: local_trajectories over both 1,048,576-row histories ─────
+        let (t1_natural_ns, t1_morton_ns, fastpath_ns, fastpath_digest_match) = {
+            // Skip the WARM-UP versions. The pipeline runs
+            // WARMUP+MEASURED real cycles (the warm-ups are needed for the
+            // write/seal timing to settle), but T1 must cover exactly the
+            // MEASURED window or its number is not comparable to A0's
+            // 78-86 ms over 1,048,576 rows — and beating that number is the
+            // whole point of the ordered fast path. `scan_sealed(Some(v))`
+            // filters `version > v`, and the warm-ups own versions 1..=WARMUP.
+            let after_warmup = Some(DatasetVersion(WARMUP_CYCLES as u64));
+            let landed_natural = natural_sink
+                .scan_sealed(after_warmup)
+                .await
+                .expect("M-arm T1: scan_sealed natural");
+            let landed_morton = morton_sink
+                .scan_sealed(after_warmup)
+                .await
+                .expect("M-arm T1: scan_sealed morton");
+            assert_eq!(
+                landed_natural.len(),
+                FLEET_OWNERS as usize * MEASURED_CYCLES as usize,
+                "M-arm T1 must read exactly the MEASURED window (comparability with A0)"
+            );
+            assert_eq!(
+                landed_morton.len(),
+                FLEET_OWNERS as usize * MEASURED_CYCLES as usize,
+                "M-arm T1 must read exactly the MEASURED window (comparability with A0)"
+            );
+
+            let bench_natural: Vec<BenchRow> = landed_natural
+                .iter()
+                .map(|ls| BenchRow {
+                    owner: ls.slot.owner,
+                    cast_seq: ls.slot.stream_position,
+                    lance_version: ls.version.0,
+                })
+                .collect();
+            let bench_morton: Vec<BenchRow> = landed_morton
+                .iter()
+                .map(|ls| BenchRow {
+                    owner: ls.slot.owner,
+                    cast_seq: ls.slot.stream_position,
+                    lance_version: ls.version.0,
+                })
+                .collect();
+
+            let t1a = Instant::now();
+            let traj_natural = local_trajectories(&bench_natural);
+            let t1_natural_ns = t1a.elapsed().as_nanos() as u64;
+            let t1b = Instant::now();
+            let traj_morton = local_trajectories(&bench_morton);
+            let t1_morton_ns = t1b.elapsed().as_nanos() as u64;
+            assert_eq!(traj_natural.len(), FLEET_OWNERS as usize);
+            assert_eq!(traj_morton.len(), FLEET_OWNERS as usize);
+
+            // ── v2 D2 fast path — Morton-ordered history only (the
+            // natural pipeline's physical order was never claimed to
+            // satisfy the fast path's precondition; it happens to be
+            // monotonic here too by construction, but the fast path is
+            // exercised against the layout it was designed for). ──────
+            let t_fp = Instant::now();
+            let traj_fastpath = local_trajectories_ordered_chunk_fastpath(&landed_morton)
+                .expect("M-arm: fast path must validate the Morton-ordered history");
+            let fastpath_ns = t_fp.elapsed().as_nanos() as u64;
+
+            // digest identity: generic vs fast path, over the SAME
+            // Morton-ordered scanned history (v2 D2's own requirement).
+            let digest_of = |m: &BTreeMap<MailboxId, Vec<BenchRow>>| -> u64 {
+                let mut bytes = Vec::new();
+                for (owner, chain) in m {
+                    bytes.extend_from_slice(&owner.to_le_bytes());
+                    for row in chain {
+                        bytes.extend_from_slice(&row.cast_seq.to_le_bytes());
+                        bytes.extend_from_slice(&row.lance_version.to_le_bytes());
+                    }
+                }
+                fnv1a64(&bytes)
+            };
+            let digest_generic = digest_of(&traj_morton);
+            let digest_fastpath = digest_of(&traj_fastpath);
+            let fastpath_digest_match = digest_generic == digest_fastpath;
+            assert!(
+                fastpath_digest_match,
+                "M-arm can-fire: generic local_trajectories and the ordered-chunk fast \
+                     path must reconstruct byte-identical trajectories from the same \
+                     Morton-ordered history"
+            );
+
+            // can-it-fire proof for the fast path's own guard (CLAUDE.md
+            // falsifiability rule): a deliberately corrupted, out-of-
+            // order 2-row input must be REFUSED, not silently accepted.
+            let bad = vec![
+                LandedSlot {
+                    version: DatasetVersion(2),
+                    slot: SweepSlot {
+                        cycle: CycleId(2),
+                        stream_position: 10,
+                        owner: 1,
+                        row: 1,
+                        paired_move: None,
+                        payload: vec![],
+                    },
+                },
+                LandedSlot {
+                    version: DatasetVersion(2),
+                    slot: SweepSlot {
+                        cycle: CycleId(2),
+                        stream_position: 5, // regressed — must be refused
+                        owner: 2,
+                        row: 2,
+                        paired_move: None,
+                        payload: vec![],
+                    },
+                },
+            ];
+            assert!(
+                local_trajectories_ordered_chunk_fastpath(&bad).is_err(),
+                "M-arm can-fire: the fast path's monotonicity guard must reject a \
+                     stream_position regression, not silently mis-order the trajectory"
+            );
+
+            (
+                t1_natural_ns,
+                t1_morton_ns,
+                fastpath_ns,
+                fastpath_digest_match,
+            )
+        };
+
+        eprintln!(
+            "M-arm natural: cast={}ns collect={}ns seal={}ns write={}ns sync={}ns T1={t1_natural_ns}ns",
+            natural.cast_ns, natural.collect_ns, natural.seal_ns, natural.wal_write_ns, natural.wal_sync_ns
+        );
+        eprintln!(
+            "M-arm morton:  cast={}ns collect={}ns reorder={}ns seal={}ns write={}ns sync={}ns T1={t1_morton_ns}ns \
+             fastpath={fastpath_ns}ns (fastpath-vs-generic digest match={fastpath_digest_match})",
+            morton.cast_ns, morton.collect_ns, morton.reorder_ns, morton.seal_ns, morton.wal_write_ns, morton.wal_sync_ns
+        );
+
+        // ── the pre-registered SUM verdict (never the gain alone) ────────
+        let downstream_natural = (natural.seal_ns + natural.wal_write_ns + natural.wal_sync_ns)
+            as i64
+            + t1_natural_ns as i64;
+        let downstream_morton = (morton.seal_ns + morton.wal_write_ns + morton.wal_sync_ns) as i64
+            + t1_morton_ns as i64;
+        let downstream_savings = downstream_natural - downstream_morton;
+        let delta_total = morton.reorder_ns as i64 - downstream_savings;
+        eprintln!(
+            "M-arm SUM verdict: reorder_cost={}ns, downstream (seal+write+sync+T1) \
+             natural={downstream_natural}ns morton={downstream_morton}ns savings={downstream_savings:+}ns \
+             -> delta_total={delta_total:+}ns ({})",
+            morton.reorder_ns,
+            if delta_total < 0 {
+                "Morton WINS (reorder cost paid for by downstream savings)"
+            } else {
+                "Morton does NOT win under this workload/host (reorder cost exceeds downstream savings)"
+            }
+        );
+        eprintln!(
+            "M-arm reference: A0 measured T1 at 78-86ms over 1,048,576 rows — the number the \
+             fast path must beat; this run's fast path={fastpath_ns}ns is the direct comparison \
+             (implementation-scoped: this implementation, this workload, this host)."
+        );
+
+        csv.write(&Row {
+            owner_shape: "m_arm_natural",
+            physical_layout: "unordered_stream_position",
+            threads: 1,
+            segment_rows: 4_096,
+            segment_bytes: 4_096 * CANONICAL_ROW_BYTES as u64,
+            segments_per_cycle: FLEET_OWNERS as u64 / 4_096,
+            repeat: 0,
+            build_ns: 0,
+            scan_ns: 0,
+            think_ns: 0,
+            rebind_cast_ns: natural.cast_ns,
+            collect_ns: natural.collect_ns,
+            freeze_ns: natural.seal_ns,
+            wal_write_ns: natural.wal_write_ns,
+            wal_sync_ns: natural.wal_sync_ns,
+            temporal_layer1_ns: t1_natural_ns,
+            temporal_layer2_ns: 0,
+            apply_ns: 0,
+            total_ns: natural.cast_ns
+                + natural.collect_ns
+                + natural.seal_ns
+                + natural.wal_write_ns
+                + natural.wal_sync_ns
+                + t1_natural_ns,
+            logical_rows: FLEET_OWNERS as u64,
+            logical_bytes: CANONICAL_FRAME_BYTES as u64,
+            sealed_transitions: FLEET_OWNERS as u64,
+            applied_transitions: 0,
+            wal_syscalls: natural.wal_syscalls,
+            fsync_calls: 1,
+            dataset_versions: 16,
+            peak_rss_bytes: proc_snapshot().vmhwm_kb * 1024,
+            minor_faults: 0,
+            major_faults: 0,
+            context_switches: 0,
+            max_active_workers: 1,
+            result_digest: digest_natural,
+            morton_reorder_ns: 0,
+        });
+        csv.write(&Row {
+            owner_shape: "m_arm_morton",
+            physical_layout: "morton_reordered_before_seal",
+            threads: 1,
+            segment_rows: 4_096,
+            segment_bytes: 4_096 * CANONICAL_ROW_BYTES as u64,
+            segments_per_cycle: FLEET_OWNERS as u64 / 4_096,
+            repeat: 0,
+            build_ns: 0,
+            scan_ns: 0,
+            think_ns: 0,
+            rebind_cast_ns: morton.cast_ns,
+            collect_ns: morton.collect_ns,
+            freeze_ns: morton.seal_ns,
+            wal_write_ns: morton.wal_write_ns,
+            wal_sync_ns: morton.wal_sync_ns,
+            temporal_layer1_ns: t1_morton_ns,
+            temporal_layer2_ns: fastpath_ns,
+            apply_ns: 0,
+            total_ns: morton.cast_ns
+                + morton.collect_ns
+                + morton.reorder_ns
+                + morton.seal_ns
+                + morton.wal_write_ns
+                + morton.wal_sync_ns
+                + t1_morton_ns,
+            logical_rows: FLEET_OWNERS as u64,
+            logical_bytes: CANONICAL_FRAME_BYTES as u64,
+            sealed_transitions: FLEET_OWNERS as u64,
+            applied_transitions: 0,
+            wal_syscalls: morton.wal_syscalls,
+            fsync_calls: 1,
+            dataset_versions: 16,
+            peak_rss_bytes: proc_snapshot().vmhwm_kb * 1024,
+            minor_faults: 0,
+            major_faults: 0,
+            context_switches: 0,
+            max_active_workers: 1,
+            result_digest: digest_morton,
+            morton_reorder_ns: morton.reorder_ns,
+        });
+    }
+
+    // ═════════════════════════════════════════════════════════════════════
+    // §16 — O-arm: ordering source — where does the ordering actually come
+    // from? O-A: cast -> seal -> WAL -> temporal replay (today's pipeline).
+    // O-B: cast -> temporal replay -> seal -> WAL (ordering sourced first).
+    // ═════════════════════════════════════════════════════════════════════
+
+    /// A minimal `LocalCausalRow` view over an in-flight `SweepSlot` — lets
+    /// O-B call `local_trajectories` (a temporal.rs primitive) on cast-time
+    /// data, BEFORE any seal/WAL exists. `Copy`-free borrow view; built and
+    /// consumed entirely within one function call, never persisted.
+    #[derive(Clone)]
+    struct PreSealRow {
+        owner: MailboxId,
+        arrival_stream_position: u64,
+        slot: SweepSlot,
+    }
+    impl LocalCausalRow for PreSealRow {
+        fn owner(&self) -> MailboxId {
+            self.owner
+        }
+        fn cast_seq(&self) -> u64 {
+            self.arrival_stream_position
+        }
+    }
+
+    // FIREWALL-START: derive_order_from_temporal_replay
+    //
+    // O-B must not consult the sealed stream to build its own order (that
+    // would be O-A wearing a disguise) — this function's body is the ONLY
+    // place that decides O-B's physical write order, and it is scoped by
+    // the FIREWALL-START/FIREWALL-END sentinels below so the compile-time
+    // self-scan in `run_o_arm` can check ONLY this region (a whole-file
+    // scan would false-positive on the legitimate `scan_sealed` calls
+    // elsewhere in this file, e.g. `run_temporal`/`run_m_arm`).
+    //
+    /// v2 D2 (applied pre-seal): source O-B's physical write order from
+    /// `local_trajectories` (a temporal.rs primitive) applied to the
+    /// CAST-TIME data alone. Groups by owner (this benchmark casts each
+    /// owner at most once per cycle, so every chain is a singleton) and
+    /// flattens by `BTreeMap` iteration order (owner-ascending) — the
+    /// temporal-sourced order, independent of arrival order.
+    fn derive_order_from_temporal_replay(pre_seal: &[PreSealRow]) -> Vec<SweepSlot> {
+        let grouped = local_trajectories(pre_seal);
+        let mut out = Vec::with_capacity(pre_seal.len());
+        for (_owner, chain) in grouped {
+            for row in chain {
+                out.push(row.slot);
+            }
+        }
+        out
+    }
+    // FIREWALL-END: derive_order_from_temporal_replay
+
+    /// One O-arm pipeline's per-cycle-medianed measurements.
+    #[derive(Clone, Copy, Default)]
+    struct OArmPhaseMedians {
+        cast_ns: u64,
+        collect_ns: u64,
+        order_derive_ns: u64,
+        seal_ns: u64,
+        commit_ns: u64,
+        t1_ns: u64,
+    }
+
+    /// A deterministic, non-ascending cast ORDER (bit-reversal permutation
+    /// of the 16-bit owner id) — makes O-A's arrival/stream_position order
+    /// DEMONSTRABLY not owner-ascending, so O-A's physical write order and
+    /// O-B's temporal-sourced (owner-ascending) order are actually free to
+    /// diverge. Without this scramble every arm in this file casts owners
+    /// 0..65535 in order, which would make the O-A/O-B comparison trivially
+    /// coincide regardless of whether O-B's derivation is doing real work —
+    /// exactly the vacuous-assertion shape CLAUDE.md's falsifiability rule
+    /// forbids.
+    fn scrambled_cast_order() -> Vec<MailboxId> {
+        let order: Vec<MailboxId> = (0..FLEET_OWNERS)
+            .map(|id| (id as u16).reverse_bits() as u32)
+            .collect();
+        // `reverse_bits` on a u16 is itself a bijection over [0,65536), so
+        // `order` is already a permutation of 0..65535; no sort needed to
+        // prove that — but assert it here, once, as a cheap can-fire check
+        // on the fixture itself (not per-cycle work).
+        let mut check = order.clone();
+        check.sort_unstable();
+        debug_assert_eq!(
+            check,
+            (0..FLEET_OWNERS).collect::<Vec<_>>(),
+            "scrambled_cast_order: must be a permutation of every owner, exactly once"
+        );
+        order
+    }
+
+    async fn run_o_arm_pipeline(
+        label: &'static str,
+        source_from_temporal: bool,
+        cast_order: &[MailboxId],
+    ) -> (OArmPhaseMedians, MemWal) {
+        let style_outcome = build_style_outcome();
+        let sink = MemWal::new();
+        let mut cast_samples = Vec::with_capacity(MEASURED_CYCLES as usize);
+        let mut collect_samples = Vec::with_capacity(MEASURED_CYCLES as usize);
+        let mut order_derive_samples = Vec::with_capacity(MEASURED_CYCLES as usize);
+        let mut seal_samples = Vec::with_capacity(MEASURED_CYCLES as usize);
+        let mut commit_samples = Vec::with_capacity(MEASURED_CYCLES as usize);
+        let mut position_base: u64 = 0;
+
+        for cyc in 0..(WARMUP_CYCLES + MEASURED_CYCLES) {
+            let measured = cyc >= WARMUP_CYCLES;
+            let cycle_id = CycleId(u64::from(cyc) + 1);
+
+            let t_cast = Instant::now();
+            let mut writer: BatchWriter<Vec<u8>> = BatchWriter::new();
+            for &id in cast_order {
+                let combined = (u64::from(cyc) << 32) | u64::from(id);
+                let payload = NodeRow512::for_id(combined).as_bytes().to_vec();
+                let _ = emit_bootstrap_intent(&style_outcome, id, 0, &mut writer, payload);
+            }
+            let cast_ns = t_cast.elapsed().as_nanos() as u64;
+
+            let t_collect = Instant::now();
+            let collected = collect_casts(&mut writer, cycle_id, position_base, u64::from);
+            let collect_ns = t_collect.elapsed().as_nanos() as u64;
+            assert_eq!(collected.slots.len(), FLEET_OWNERS as usize);
+
+            let (ordered_slots, order_derive_ns) = if source_from_temporal {
+                let pre_seal: Vec<PreSealRow> = collected
+                    .slots
+                    .iter()
+                    .map(|s| PreSealRow {
+                        owner: s.owner,
+                        arrival_stream_position: s.stream_position,
+                        slot: s.clone(),
+                    })
+                    .collect();
+                let t_derive = Instant::now();
+                let mut derived = derive_order_from_temporal_replay(&pre_seal);
+                // Relabel stream_position to the temporal-derived rank so
+                // the seal's own stable sort preserves this order, exactly
+                // as the M-arm does for its Morton rank.
+                for (idx, slot) in derived.iter_mut().enumerate() {
+                    slot.stream_position = position_base + idx as u64;
+                }
+                let ns = t_derive.elapsed().as_nanos() as u64;
+                (derived, ns)
+            } else {
+                (collected.slots, 0)
+            };
+
+            let frame = CycleFrame::new(cycle_id, sink.head());
+            let t_seal = Instant::now();
+            let frozen = DetachedCycleBatch::freeze(frame, ordered_slots);
+            let seal_ns = t_seal.elapsed().as_nanos() as u64;
+            assert_eq!(frozen.landings.len(), FLEET_OWNERS as usize);
+
+            let t_commit = Instant::now();
+            sink.commit_cycle(frame.base_version, frozen)
+                .await
+                .unwrap_or_else(|e| panic!("O-arm {label}: cycle {cyc} failed to seal: {e}"));
+            let commit_ns = t_commit.elapsed().as_nanos() as u64;
+
+            if measured {
+                cast_samples.push(cast_ns);
+                collect_samples.push(collect_ns);
+                order_derive_samples.push(order_derive_ns);
+                seal_samples.push(seal_ns);
+                commit_samples.push(commit_ns);
+            }
+            position_base += u64::from(FLEET_OWNERS);
+        }
+
+        let t1 = Instant::now();
+        // Same MEASURED-window scoping as the M-arm: the pipeline runs
+        // WARMUP+MEASURED real cycles, so an unfiltered scan returns 18
+        // cycles' rows. The replay must cover exactly the measured window or
+        // its cost is not comparable to A0's or the M-arm's.
+        let landed = sink
+            .scan_sealed(Some(DatasetVersion(WARMUP_CYCLES as u64)))
+            .await
+            .expect("O-arm: scan_sealed over the measured window");
+        assert_eq!(
+            landed.len(),
+            FLEET_OWNERS as usize * MEASURED_CYCLES as usize,
+            "O-arm replay must read exactly the MEASURED window"
+        );
+        let bench: Vec<BenchRow> = landed
+            .iter()
+            .map(|ls| BenchRow {
+                owner: ls.slot.owner,
+                cast_seq: ls.slot.stream_position,
+                lance_version: ls.version.0,
+            })
+            .collect();
+        let trajectories = local_trajectories(&bench);
+        let t1_ns = t1.elapsed().as_nanos() as u64;
+        assert_eq!(trajectories.len(), FLEET_OWNERS as usize);
+
+        let medians = OArmPhaseMedians {
+            cast_ns: median(&cast_samples),
+            collect_ns: median(&collect_samples),
+            order_derive_ns: median(&order_derive_samples),
+            seal_ns: median(&seal_samples),
+            commit_ns: median(&commit_samples),
+            t1_ns,
+        };
+        (medians, sink)
+    }
+
+    /// The RECOVERED-TRAJECTORY digest: owner-ascending (`BTreeMap`
+    /// iteration order), each owner's chain in `cast_seq` order — the
+    /// PRIMARY observable this arm decides on. Computed over what a reader
+    /// gets back after WAL + temporal replay, so it is a fair comparison
+    /// EVEN THOUGH O-A and O-B wrote the bytes in different physical order.
+    async fn trajectory_digest(sink: &MemWal) -> u64 {
+        let landed = sink
+            .scan_sealed(None)
+            .await
+            .expect("O-arm: scan_sealed for digest");
+        let bench: Vec<BenchRow> = landed
+            .iter()
+            .map(|ls| BenchRow {
+                owner: ls.slot.owner,
+                cast_seq: ls.slot.stream_position,
+                lance_version: ls.version.0,
+            })
+            .collect();
+        let trajectories = local_trajectories(&bench);
+        let mut bytes = Vec::new();
+        for (owner, chain) in trajectories {
+            bytes.extend_from_slice(&owner.to_le_bytes());
+            for row in chain {
+                bytes.extend_from_slice(&row.cast_seq.to_le_bytes());
+            }
+        }
+        fnv1a64(&bytes)
+    }
+
+    async fn run_o_arm(csv: &mut CsvSink) {
+        eprintln!("\n== O-arm — ordering source: O-A (cast->seal->WAL->temporal replay) vs O-B (cast->temporal replay->seal->WAL) ==");
+
+        // ── compile-time self-scan (the firewall) ─────────────────────────
+        // Needles built by CONCATENATING pieces never adjacent in this
+        // file's own source text, matching `probe_ignition.rs`'s G2a
+        // pattern — a needle spelled out contiguously would make the
+        // absence-check vacuously true, since `include_str!` reads this
+        // file, including the scan code itself.
+        {
+            let src = include_str!("measure_wal_curve.rs");
+            let start_marker = "FIREWALL-START: derive_order_from_temporal_replay";
+            let end_marker = "FIREWALL-END: derive_order_from_temporal_replay";
+            let start = src
+                .find(start_marker)
+                .expect("O-arm firewall: FIREWALL-START marker must exist in source");
+            let end = src
+                .find(end_marker)
+                .expect("O-arm firewall: FIREWALL-END marker must exist in source");
+            assert!(start < end, "O-arm firewall: markers out of order");
+            let region = &src[start..end];
+
+            let scan_sealed_call = format!("{}_{}", "scan", "sealed");
+            let sealed_field_read = format!("{}.{}", "sink", "sealed");
+
+            // Strip line comments BEFORE scanning. The first real run fired on
+            // this block's own prose — a comment inside the region mentioned
+            // the needle by name, so the guard reported a violation that did
+            // not exist in any executable line. A firewall that trips on
+            // documentation tests the documentation, not the code.
+            let code_only: String = region
+                .lines()
+                .map(|l| match l.find("//") {
+                    Some(i) => &l[..i],
+                    None => l,
+                })
+                .collect::<Vec<_>>()
+                .join("\n");
+
+            // POSITIVE CONTROL (the can-fire half): the detector must find the
+            // needle in a line that really does call it. Without this, a
+            // silent guard and a broken guard are indistinguishable.
+            let synthetic_violation = format!("    let x = sink.{}(None).await;", scan_sealed_call);
+            assert!(
+                synthetic_violation.contains(&scan_sealed_call),
+                "O-arm firewall self-test: the detector cannot see a real call — the guard is inert"
+            );
+
+            assert!(
+                !code_only.contains(&scan_sealed_call),
+                "O-arm firewall can-fire: derive_order_from_temporal_replay must never \
+                 call scan_sealed — O-B would be O-A wearing a disguise"
+            );
+            assert!(
+                !code_only.contains(&sealed_field_read),
+                "O-arm firewall can-fire: derive_order_from_temporal_replay must never \
+                 read a WalSink's sealed store directly"
+            );
+            assert!(
+                region.contains("local_trajectories"),
+                "O-arm firewall can-stay-silent: the scan must be able to find real \
+                 content — a scan finding nothing is not evidence"
+            );
+            eprintln!(
+                "O-arm firewall: derive_order_from_temporal_replay ({} bytes) contains \
+                 no scan_sealed / sealed-store read; local_trajectories present (scan \
+                 mechanism proven live)",
+                region.len()
+            );
+        }
+
+        let cast_order = scrambled_cast_order();
+        let identity_order: Vec<MailboxId> = (0..FLEET_OWNERS).collect();
+        assert_ne!(
+            cast_order, identity_order,
+            "O-arm can-fire: the cast order fixture must actually be scrambled, or O-A's \
+             arrival order and O-B's temporal-sourced order would trivially coincide"
+        );
+
+        let (o_a, sink_a) = run_o_arm_pipeline("O-A", false, &cast_order).await;
+        let (o_b, sink_b) = run_o_arm_pipeline("O-B", true, &cast_order).await;
+
+        // ── PRIMARY OBSERVABLE — digest identity, decided and printed
+        // BEFORE any timing is looked at (pre-registered: timing must not
+        // be able to rescue a semantic difference). ──────────────────────
+        let digest_a = trajectory_digest(&sink_a).await;
+        let digest_b = trajectory_digest(&sink_b).await;
+        let digests_match = digest_a == digest_b;
+        eprintln!(
+            "O-arm PRIMARY OBSERVABLE (decided before timing): O-A digest={digest_a:016x} \
+             O-B digest={digest_b:016x} -> {}",
+            if digests_match { "MATCH" } else { "DIVERGED" }
+        );
+        // BOTH outcomes are pre-registered RESULTS, so neither aborts the run.
+        // A first revision asserted equality and panicked on divergence —
+        // that turns a designed falsification into a crash and loses every
+        // number after it. The spec is explicit: if the trajectories differ,
+        // the hypothesis is dead and the seal's ordering is load-bearing —
+        // "equally valuable, and cheaper to learn now than after a redesign".
+        if digests_match {
+            eprintln!(
+                "O-arm VERDICT: ordering sourced from temporal replay reproduces the seal's \
+                 own ordering byte-for-byte under this construction. The seal's ordering work \
+                 is REDUNDANT with temporal's for this workload — the re-scope question is \
+                 open (implementation-scoped: this construction, this workload, this host)."
+            );
+        } else {
+            eprintln!(
+                "O-arm VERDICT: DIVERGED — ordering sourced from temporal replay does NOT \
+                 reproduce the seal's ordering. Under this construction the seal's ordering \
+                 is LOAD-BEARING and cannot be re-scoped away. Honest scope: this falsifies \
+                 the hypothesis FOR THIS O-B CONSTRUCTION; it does not prove that no \
+                 construction could match. The divergence itself is the finding."
+            );
+        }
+
+        // ── KILL CONDITION check — is O-B constructible without literally
+        // duplicating O-A's ordering work? Reported honestly either way,
+        // never silently rigged. ──────────────────────────────────────────
+        eprintln!(
+            "O-arm kill-condition check: CONSTRUCTIBLE. O-B's ordering derivation \
+             (`local_trajectories` grouping, ~O(n log n) via BTreeMap insertion) is a \
+             DIFFERENT code path from O-A's seal-side sort (`order_cycle_stably`'s Vec \
+             sort_by_key, also O(n log n)) — not literally shared code, so this is not a \
+             disguised O-A. Under THIS harness's one-row-per-owner-per-cycle shape the two \
+             algorithms are doing comparable asymptotic work; the redundancy the plan asks \
+             about is SEMANTIC (does temporal's grouping make the seal's own sort \
+             unnecessary for correctness), not literal code-sharing — reported honestly, \
+             not glossed over."
+        );
+
+        // ── secondary: per-phase timing for both pipelines ────────────────
+        eprintln!(
+            "O-A (today's pipeline): cast={}ns collect={}ns seal={}ns commit={}ns T1={}ns",
+            o_a.cast_ns, o_a.collect_ns, o_a.seal_ns, o_a.commit_ns, o_a.t1_ns
+        );
+        eprintln!(
+            "O-B (ordering sourced first): cast={}ns collect={}ns order_derive={}ns seal={}ns \
+             commit={}ns T1={}ns",
+            o_b.cast_ns, o_b.collect_ns, o_b.order_derive_ns, o_b.seal_ns, o_b.commit_ns, o_b.t1_ns
+        );
+
+        csv.write(&Row {
+            owner_shape: "o_a_today_pipeline",
+            physical_layout: "cast_seal_wal_temporal_replay",
+            threads: 1,
+            segment_rows: 0,
+            segment_bytes: 0,
+            segments_per_cycle: 0,
+            repeat: 0,
+            build_ns: 0,
+            scan_ns: 0,
+            think_ns: 0,
+            rebind_cast_ns: o_a.cast_ns,
+            collect_ns: o_a.collect_ns,
+            freeze_ns: o_a.seal_ns,
+            wal_write_ns: o_a.commit_ns,
+            wal_sync_ns: 0,
+            temporal_layer1_ns: o_a.t1_ns,
+            temporal_layer2_ns: 0,
+            apply_ns: 0,
+            total_ns: o_a.cast_ns + o_a.collect_ns + o_a.seal_ns + o_a.commit_ns + o_a.t1_ns,
+            logical_rows: FLEET_OWNERS as u64,
+            logical_bytes: (FLEET_OWNERS as u64) * CANONICAL_ROW_BYTES as u64,
+            sealed_transitions: FLEET_OWNERS as u64,
+            applied_transitions: 0,
+            wal_syscalls: 0,
+            fsync_calls: 0,
+            dataset_versions: 16,
+            peak_rss_bytes: proc_snapshot().vmhwm_kb * 1024,
+            minor_faults: 0,
+            major_faults: 0,
+            context_switches: 0,
+            max_active_workers: 1,
+            result_digest: digest_a,
+            morton_reorder_ns: 0,
+        });
+        csv.write(&Row {
+            owner_shape: "o_b_ordering_sourced_first",
+            physical_layout: "cast_temporal_replay_seal_wal",
+            threads: 1,
+            segment_rows: 0,
+            segment_bytes: 0,
+            segments_per_cycle: 0,
+            repeat: 0,
+            build_ns: 0,
+            scan_ns: 0,
+            think_ns: 0,
+            rebind_cast_ns: o_b.cast_ns,
+            collect_ns: o_b.collect_ns,
+            freeze_ns: o_b.seal_ns,
+            wal_write_ns: o_b.commit_ns,
+            wal_sync_ns: 0,
+            temporal_layer1_ns: o_b.t1_ns,
+            temporal_layer2_ns: o_b.order_derive_ns,
+            apply_ns: 0,
+            total_ns: o_b.cast_ns
+                + o_b.collect_ns
+                + o_b.order_derive_ns
+                + o_b.seal_ns
+                + o_b.commit_ns
+                + o_b.t1_ns,
+            logical_rows: FLEET_OWNERS as u64,
+            logical_bytes: (FLEET_OWNERS as u64) * CANONICAL_ROW_BYTES as u64,
+            sealed_transitions: FLEET_OWNERS as u64,
+            applied_transitions: 0,
+            wal_syscalls: 0,
+            fsync_calls: 0,
+            dataset_versions: 16,
+            peak_rss_bytes: proc_snapshot().vmhwm_kb * 1024,
+            minor_faults: 0,
+            major_faults: 0,
+            context_switches: 0,
+            max_active_workers: 1,
+            result_digest: digest_b,
+            morton_reorder_ns: 0,
+        });
     }
 
     // ═════════════════════════════════════════════════════════════════════
@@ -2346,6 +3381,14 @@ mod measure {
         });
         let (exp_seq_ns, exp_best_parallel_ns, exp_best_workers, exp_digests_match) =
             rt.block_on(async { run_exp_kia_a2_64k(&mut csv).await });
+
+        // ── M-arm / O-arm (plan v3, measure-64k-axes-v3.md) ───────────────
+        rt.block_on(async {
+            run_m_arm(&mut csv).await;
+        });
+        rt.block_on(async {
+            run_o_arm(&mut csv).await;
+        });
 
         eprintln!("\nmeasure.csv: {} rows written", csv.rows_written);
         eprintln!("measure.csv: file at {}", csv.path);
