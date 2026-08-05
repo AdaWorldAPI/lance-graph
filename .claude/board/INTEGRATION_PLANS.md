@@ -1,3 +1,24 @@
+## 2026-08-05 — measure-64k-axes v1 — ACTIVE (operator-specified corrected benchmark) — Sonnet build lane dispatched
+
+**Plan:** `.claude/plans/measure-64k-axes-v1.md`
+The prior performance/memory numbers mixed FIVE independent axes (logical
+owner count / physical SoA layout / WAL segment size / temporal
+reconstruction / execution concurrency); this plan varies exactly one at a
+time. Arms: B0 DummyOwner cast baseline (the modern #879 fake-owner
+control) · B1a/B1b real owner-exclusive SoAs (hot MailboxSoA vs canonical
+NodeRow512 — memory claims never blended; derived: runtime ownership tax,
+hot representation overhead) · WAL curve W0-current/W1-contiguous (five
+segment sizes over ONE 32 MiB frame, write_vectored + exactly one fdatasync
++ one DatasetVersion per cycle; 2 warm-ups + 16 measured cycles = constant
+512 MiB per configuration; ONE release binary, never 16 tests) · T0/T1/T2
+temporal phases post-WAL over 65,536 × 16 = 1,048,576 rows ·
+L1a/L1b chunked-layout control (a physical chunk is NOT an owner) ·
+EXP-KIA-A2-64K exploratory concurrency (non-claiming; D-KIA-A2 untouched;
+digest-identical sequential-vs-parallel witness). Deliverable: the four
+answers — ownership cost, layout cost, WAL amortisation knee (descriptive,
+never PASS/KILL), and what genuine parallel thought execution adds before
+the deterministic seal.
+
 ## 2026-08-02 — kanban-64k-inverted-awareness v1 — PLANNED / CONJECTURE (parallel thinking + the inverted-awareness witness) — main thread
 
 **Plan:** `.claude/plans/kanban-64k-inverted-awareness-v1.md`
