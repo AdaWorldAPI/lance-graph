@@ -103,6 +103,9 @@ pub mod head2head;
 pub mod hhtl;
 pub mod high_heel;
 pub mod hotplug;
+/// Four external identifier spaces materialized in one 96-bit facet payload,
+/// joined at bake time (`4 × u24` contiguous — the G2 carving).
+pub mod identity_quad;
 pub mod jit;
 pub mod kanban;
 pub mod legacy_outliers;
