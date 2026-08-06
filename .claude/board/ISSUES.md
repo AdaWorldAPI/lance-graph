@@ -1,5 +1,60 @@
 # Issues Log — Open + Resolved (double-entry, append-only)
 
+## ISS-IDENTITY-QUAD-WIDE-CARVING-HOME (2026-08-06) — OPEN, NEEDS AN OPERATOR RULING
+
+`lance_graph_contract::identity_quad` (branch `claude/vocab-tenant-bake`) reads and
+writes its 96-bit payload through `legacy_outliers::LegacyOutlier::WideTriple` —
+the G2 `4 x u24` contiguous carving. It does so **deliberately**, and it does not
+duplicate the bit math. But `le-contract.md` §3a is explicit that `legacy_outliers`
+is the **V1-migration waiting room**, that the carvings there are strongly
+discouraged, and that *"new classes MUST NOT be born into G1-G3; the waiting room is
+not a destination."*
+
+**This tenant is new and intended to be permanent.** So it is either a legitimate
+exception the §3a text already anticipates, or the §3a text needs a sanctioned
+non-legacy home for this shape. Not resolvable in a consumer-facing PR; recorded
+here for the ruling.
+
+**The evidence for "legitimate exception":** §3a's discouragement is *conditional*
+and names its two conditions, and neither holds.
+
+1. *god-object-related* — no. The carving is four fixed slots of ONE kind (an
+   identifier ordinal). It does not grow with the class's concerns. A fifth
+   identifier space is a second facet, never a wider field.
+2. *lacking proper bucket rollover* — no. Each slot's capacity is the size of its
+   own codebook, and `IdentityCodebook` **refuses** to exceed it
+   (`CodebookError::TooLarge`) rather than saturating silently. The
+   refuse-don't-widen signal is the same one `codebook::Codebook` gives at its own
+   256-entry scale.
+
+§3a also names *"the exit"* — migrate to L4 `6x(8:8)` palette256². **That exit is not
+available here, and the reason is the point:** L4 is a cosine/similarity
+replacement, and this tenant's values are exact identities. Similarity is
+lossy by design; this carving's acceptance criterion is bijectivity. There is no
+version of "migrate to palette256" that preserves `key -> ordinal -> key`.
+
+**The honest cost, stated so a ruling can price it:** a `u24` slot has no byte axis.
+It is not shift-addressable, `group_of` does not apply, and `CascadeShape` (correctly)
+refuses to bless it. Everything §3a says a wide carving gives up, this carving does
+give up. The claim is only that the trade is correct *for identities*, not that it
+is free.
+
+**Three options, none taken here:**
+
+1. Ratify the exception — amend `le-contract.md` §3a so an identity-bearing wide
+   carving is a named, sanctioned case rather than a waiting-room resident, and
+   leave the code where it is.
+2. Mint a new sanctioned layout (an L9-class entry: *contiguous identity quad*),
+   move the read/write primitives out of `legacy_outliers` into their own module,
+   and leave `legacy_outliers` purely for migration residue.
+3. Reject the carving — which requires naming what an exact 24-bit identity should
+   be stored as instead, given that the axis-grouped shapes destroy invertibility
+   and L4 is lossy.
+
+Until ruled: the module carries the tension in its own doc comment (it does not
+claim sanction it does not have), and `LegacyOutlier::WideTriple` gains no new
+semantics from this use.
+
 ## ISS-REMOTE-URI-CONSTRUCTORS-PREDATE-THE-HYDRATION-DOCTRINE (2026-08-06) — OPEN, SURFACED BY REVIEW ON PR #901
 
 `crates/lance-graph/src/graph/versioned.rs` ships `VersionedGraph::{s3, azure, gcs}`.
@@ -29,7 +84,6 @@ assumption that has not been checked.
 **Not a deprecation.** Nothing here proposes removing the constructors, and they
 remain correct for occasional non-hot access. The instruction until the gap closes
 is in §6a: **choose by read shape, not by constructor availability.**
-
 
 ## ISS-CODEC-RESEARCH-MDCT-ASSERT (2026-08-05) — OPEN, PRE-EXISTING, DISCOVERED NOT CAUSED
 
@@ -270,7 +324,6 @@ the same silence repeats.
 situated, reconciled through `temporal.rs`. The merged code models rows as data
 swept at one instant; the substrate is threads reading their own corpus-as-of.
 
-
 ## 2026-07-27 — ISS-841-856-NEVER-ANSWERED-REVIEW-COMMENTS — the forensic recovery's full ledger of GitHub review/issue comments across #849–#856 that never received a reply, sorted by whether the underlying finding was fixed anyway
 
 > Filed by the arc-841-856-postmortem recovery session. Every item below was
@@ -507,7 +560,6 @@ space). Different axes, no conflict — pending operator confirmation.
 beyond ndarray — on `lance-graph-contract::distance`, which remains the one
 LIVE umbrella in code (§A).
 
-
 ### E. RESOLVED-BY-RULING (operator, 2026-07-27 -- "only palette256 and ONLY [a,b]; FisherZ COULD materialize but why, if palette256 has lower entropy: it IS normalized distance")
 
 Section B's "contradiction" **dissolves** -- and not into a "two senses"
@@ -537,7 +589,6 @@ the forbidden umbrella, and a generic distance() over uniform u8 codes is
 exactly how a wrong-level read gets applied silently (measured: [u8;6] at rho
 -0.0030). Section D's spec-ahead-of-code finding stands: the typed per-metric
 surface over the ONE encoding remains unbuilt.
-
 
 ### F. THE CANON PREDATES THE SESSION BY TWO MONTHS (ndarray board, 2026-05-26)
 
@@ -600,7 +651,6 @@ Consequences:
    withdrawn as overstated) nor "the canonical dispatch consumers use"
    (this session's framing) described it correctly: it is an unwired contract
    surface awaiting that debt's resolution.
-
 
 ## 2026-07-27 — ISS-FISHERZ-COSINE-REPLACEMENT-IS-SHIPPED-BUT-UNWIRED — the certified replacement exists; nothing in the spine reaches it — **CLOSED-INVALID** (operator palette256-ONLY ruling, §E: `FisherZTable` is a materialization artifact; there is nothing to wire, and wiring it would ship the unnecessary materialization. Was `CONTESTED`; history retained — ISS-COSINE-REPLACEMENT-SOURCES-CONTRADICT: ndarray `cognitive-distance-typing.md` says HDR popcount IS the cosine replacement and Fisher-z is NOT a distance; this entry took bgz-tensor's "certified cosine-replacement" wording as settled — an assumption, pending operator ruling; CLOSED-INVALID 2026-07-27 -- palette256-ONLY ruling: FisherZTable is a materialization artifact, nothing to wire, see section E)
 
