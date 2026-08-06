@@ -1,3 +1,34 @@
+## 2026-08-06 — idle-flush-dataset-eviction v1 — PROPOSAL (not scheduled; nothing implemented, nothing measured)
+
+**Plan:** `.claude/plans/idle-flush-dataset-eviction-v1.md`
+Feature-gated (**off by default**) eviction of a Lance dataset's LOCAL copy after
+an idle period, pushed back to the object store first if dirty, rehydrating on
+next access. **Purpose is cost smoothing, not capacity** (operator framing): the
+win is the shape of the bill — local disk bills continuously for capacity
+provisioned, object storage for what is kept — so the plan explicitly does NOT
+justify itself with "otherwise you run out of disk", and never fails an
+operation to hold a number. **Operator-set defaults (heuristic, both config):**
+idle **> 3 days** AND footprint **> ~300 MB**, pressure-driven and age-ordered;
+under budget nothing is ever evicted however stale, over budget the stalest go
+first until back under. **The budget is a SOFT spot** — an in-use dataset larger
+than the whole budget stays resident, a sweep may legitimately reach no target,
+and that state must be *observable* ("no candidate old enough" vs "every
+candidate in use" are different findings). Dirty detection = the Lance dataset
+**version**, never a hash — carrying an **unclosed verification gate** (a cheap
+local version read is assumed, not checked; a BLOCKER if it fails).
+**A lease/refcount/guard-type protocol was CONSIDERED AND REJECTED** as
+disproportionate at a 3-day floor (operator scope correction) — cheap
+check-then-act instead, with the bar set at **"does not corrupt"** (worst case a
+wasted rehydration) rather than "cannot occur"; the rejection is recorded so it
+is not re-added, and the revisit condition (threshold dropping from days to
+hours) is named. Acceptance criteria are **fire/silence pairs** per the P0
+falsifiability rule — including the conjunction-splitting silence tests that a
+staleness-only policy would fail, and a race test deliberately shaped as a
+corruption test rather than an impossibility proof. Five open items, incl.
+multi-process access and whether a sweep may *initiate* push-back (currently
+assumed **skip**). Prerequisite reading:
+`.claude/knowledge/s3-hydration-lifecycle.md`.
+
 ## 2026-08-05 — measure-64k-axes v3 — ACTIVE (the three arms Stage A0 earned; M+O build lane dispatched)
 
 **Plan:** `.claude/plans/measure-64k-axes-v3.md`

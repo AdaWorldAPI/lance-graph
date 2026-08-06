@@ -325,6 +325,31 @@ it, **before** §5 was written with a same-identifier grep. Documenting an
 anti-pattern does not immunise the document against it. The defence is
 mechanical — resolve imports, leave the workspace, count edges — not vigilance.
 
+## 9a. The object-store provider is the same class of fact — and the same trap
+
+Cross-reference, because it is the identical failure shape one crate over:
+a capability that "obviously exists" is behind a **feature that is off by
+default**, and the resulting error is diagnosed at the wrong layer.
+
+Source-verified from the vendored manifests (two releases apart, both agree):
+**`lancedb` ships `default = []`**, and its `aws` feature is what forwards to
+`lance/aws` + `lance-io/aws` (+ `object_store/aws` directly in the newer
+release, transitively via `lance-io` in the older). Meanwhile **`lance-io`
+carries `aws` in its OWN defaults** — so the intuition "the Lance stack does
+object storage by default" is true one layer down and false at the layer we
+depend on. `lancedb` is the layer that opts out.
+
+Consequence, and it is the §9 lesson restated: without the feature an
+object-store URI fails at **provider lookup by scheme**, before any credential,
+endpoint or region is consulted — so credential and endpoint debugging is
+spent on code that is not in the binary. **An error naming a *scheme* is a
+build problem; an error naming a *credential/host/region* is a config
+problem.** Read the error's noun before touching configuration.
+
+Full treatment — the three-layer hydration model, why the object store must
+not be the runtime store, and the flush/rehydrate lifecycle:
+`.claude/knowledge/s3-hydration-lifecycle.md`.
+
 ## 10. Open questions, in decision order
 
 1. **What does this repo actually use from `lance` that `lance-table` lacks?**
