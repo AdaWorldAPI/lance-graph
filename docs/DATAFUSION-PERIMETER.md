@@ -346,9 +346,26 @@ spent on code that is not in the binary. **An error naming a *scheme* is a
 build problem; an error naming a *credential/host/region* is a config
 problem.** Read the error's noun before touching configuration.
 
+**Correction (review round, PR #901) — and it is the §9 lesson landing on this
+section itself.** The paragraphs above are true *about `lancedb`*, and the first
+draft presented them as the gate on **this repository's** object-store reads. They
+are not. `crates/lance-graph/Cargo.toml` takes `lance` as a **direct,
+non-optional** dependency **with default features**, and `lance`'s own `default`
+includes `aws`; `lancedb` is `optional = true, default-features = false` behind a
+separate feature, and no production path here opens datasets through it. So for
+this crate the provider **is** compiled in, and a scheme-named error would mean
+something else entirely.
+
+The rule survives; its **first step** was missing: *resolve which crate opens the
+URI, then read that crate's features — and check how this manifest takes it, since
+a `default-features = false` on the dependency line overrides the upstream
+default.* Diagnosing the right facts about the wrong crate is the §9 failure mode,
+and this section had it.
+
 Full treatment — the three-layer hydration model, why the object store must
-not be the runtime store, and the flush/rehydrate lifecycle:
-`.claude/knowledge/s3-hydration-lifecycle.md`.
+not be the runtime store, the flush/rehydrate lifecycle, and the probe record
+behind the correction above:
+`.claude/knowledge/s3-hydration-lifecycle.md` (§3a for the crate-resolution step).
 
 ## 10. Open questions, in decision order
 

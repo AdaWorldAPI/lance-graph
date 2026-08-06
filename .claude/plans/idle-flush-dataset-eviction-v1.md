@@ -41,6 +41,40 @@ of a standing charge for bytes nobody reads. The population this targets is
 large single-use material: one-off corpora, rebake inputs, derivations touched
 once and never again.
 
+### The cost model is incomplete as stated, and the omission has a direction
+
+**Raised by review on PR #901, and correct.** "Object storage is billed for what
+is kept" reduces the object-store side to **bytes at rest**. Real object stores
+bill several further dimensions, and every one of them is charged on the side of
+the ledger this policy *increases*:
+
+- **request count** — each hydration is many requests, not one, since a dataset is
+  a multi-file directory;
+- **retrieval** — non-hot storage classes bill per byte retrieved, separately from
+  storage;
+- **data transfer / egress** — charged when the read crosses a boundary the
+  provider prices;
+- **storage-management features** — inventory, versioning, lifecycle rules and
+  similar, where enabled.
+
+So the honest form of the argument is **not** "storage-at-rest is cheaper than
+provisioned disk" but: *the retained-byte saving must exceed the request +
+retrieval + transfer cost of the rehydrations the policy causes.* Both sides scale
+with **how often eviction is paid**, which is exactly what §7's thrash criterion
+measures — the two sections are the same question asked as money and as latency,
+and it is worth noticing that the plan already gates on the right quantity even
+though the first draft priced only one term of it.
+
+**The assumptions this leaves standing, named so they are checkable rather than
+implied:** a single deployment and a single storage class, both unnamed and
+neither varied; a hot/standard-tier assumption (a colder class trades storage
+against a retrieval charge and can invert the conclusion); and no measured
+request-count-per-hydration for a representative dataset. **The 3-day and ~300 MB
+defaults are not derived from any of this** — §0 already grades them
+OPERATOR-SET, and this subsection is the reason that grading must not drift toward
+FINDING: the cost model they would have to be derived *from* is not complete
+enough to derive them.
+
 Two consequences of the framing, both binding on the design:
 
 - **Never fail an operation to hold the number.** The budget is a soft
@@ -216,6 +250,66 @@ The bar the implementation must clear is therefore **"does not corrupt"**, not
 > calculus changes — the race stops being negligible and the protocol question
 > **reopens**. Tie any such threshold change to a re-read of this section.
 
+## 5a. The atomic publish boundary — what actually makes §5's bar true
+
+**Added after review on PR #901; four review comments converged on this gap and
+they were right.** §5 rejects a lease protocol and asserts the worst case is a
+wasted rehydration. That assertion **did not follow from anything §5 stated**, and
+the reason is in the knowledge doc's §4a: a Lance dataset is a **multi-file
+directory**, so "the reader can just rehydrate" is only a recovery when the reader
+can tell *hydrated* from *half-hydrated* — and neither a partial fetch nor an
+in-progress reclaim is distinguishable from a complete dataset by opening the
+directory and looking.
+
+Concretely, the interleavings §5 leaves open:
+
+1. reader resolves the path → sweeper begins deleting → reader opens a directory
+   that is losing files underneath it;
+2. reader's hydration begins → sweeper's delete finishes → sweeper removes files
+   the hydration just wrote, leaving a directory that is neither;
+3. hydration fails mid-transfer → the partial directory is later treated as a
+   present dataset rather than as debris.
+
+None of these is a wasted rehydration. (1) and (2) are torn reads; (3) is a silent
+wrong answer. The age floor makes them **rare**; it does not make them
+**recoverable**, and §5's own bar is *does not corrupt*.
+
+**The requirement (not a lease, and compatible with §5's rejection):**
+
+> **Hydrate aside; publish by rename; retire by rename.** A hydration fetches into
+> a private temporary directory and becomes visible by **one atomic directory
+> rename**. A reclaim renames the published directory **away first**, then deletes
+> the renamed copy. A reader resolves the published name **once**, at open, and
+> holds what it resolved.
+
+Consequences, and each is why this is the cheap answer rather than the protocol
+§5 walked back:
+
+- **The read path does not change.** No guard in a signature, no atomic
+  state-machine step per read, no refcount, no lease, no second gate-off code path
+  — the objections that priced out the protocol in §5 do not apply, because this
+  costs the *sweeper* a rename and the *reader* nothing.
+- **Every observable state is complete.** The published name is either absent or a
+  whole dataset. Interleaving (1) and (2) degrade to exactly what §5 claimed:
+  the reader sees *absent* and hydrates, at worst redundantly.
+- **Failure debris is self-identifying.** An unpublished temporary directory was
+  never visible, so a sweep may delete it with no coordination and no risk of
+  removing live data — which closes (3) without a partial-state protocol.
+- **`hydrated → flushed` gets its barrier for free.** The rename-away IS the
+  transition; the dirty check happens before it, and after it there is nothing
+  left to race against.
+- **It does not fix multi-process.** A rename is atomic on one filesystem, so two
+  processes over one directory see consistent *published* state — but the
+  reclaim-then-rehydrate decision is still uncoordinated and can duplicate work.
+  §9.3 stays open; the bar it now inherits is the honest one (duplicated work,
+  not corruption), which is the claim §9.3 previously made without support.
+
+**Assumption this rests on, stated rather than assumed:** directory rename is
+atomic on the filesystem in use. That is true of ordinary local filesystems and is
+part of the "supported, mmap-capable local filesystem" requirement (knowledge doc
+§1); it is **not** guaranteed on the network-mount cases that requirement already
+excludes. Same excluded set, one more reason.
+
 ## 6. Q6 — why a feature gate, and what "off" excludes **ANSWERED**
 
 **Off by default.** A consumer with ample local disk must pay *nothing* — and
@@ -252,11 +346,42 @@ to function.
 **The thrash falsifier — the gating acceptance criterion:**
 
 > Over a measurement window, compute
-> **`rehydrations / distinct_datasets_accessed`**.
-> A value **> 1.0** means at least one dataset was evicted and re-fetched
-> *within its own working set* — the definition of thrash.
+> **`eviction_caused_rehydrations / distinct_datasets_accessed`**.
+> A value **> 0** means at least one dataset was evicted and re-fetched — and
+> because the window is bounded to the age floor (below), that re-fetch is
+> necessarily *within its own working set*, which is the definition of thrash.
 > A **second hydration of the same dataset inside one age-floor window** is the
 > same finding at single-dataset granularity, and is the sharper signal.
+
+**The metric's definition is load-bearing, and the first draft's was not
+usable — review caught three independent defects in it, all real:**
+
+1. **The numerator counted the wrong events.** A bare `rehydrations` count also
+   includes first hydrations, process restarts, failed-hydration retries, manual
+   invalidation, and version-driven reloads. None of those is eviction, and a
+   metric that cannot attribute cannot falsify. **Fix: the sweeper stamps an
+   eviction generation on each dataset it reclaims, and only a hydration that
+   finds such a stamp increments `eviction_caused_rehydrations`.** First
+   hydrations are excluded by construction — there is no stamp to find.
+2. **An unbounded window produced false alarms.** With a window longer than the
+   age floor, a dataset can be accessed, go correctly idle past the floor, be
+   correctly evicted, and later start a *new* working-set interval. That is the
+   policy working exactly as designed, and it would have registered as thrash.
+   **Fix: the window is bounded to the age floor.** Inside one floor-length
+   window, a correctly-evicted dataset cannot legitimately be re-accessed —
+   re-access within the floor is precisely what "the floor was too short for this
+   dataset" means.
+3. **The `> 1.0` threshold could not fire at the granularity that matters.** With
+   the numerator correctly restricted to eviction-caused rehydrations, one
+   thrashing dataset among many gives a ratio well below 1.0 while being exactly
+   the condition the criterion exists to catch. **Fix: the threshold is `> 0` on
+   the corrected numerator**, and the ratio is retained as a *severity* measure
+   (how widespread), not as the trigger.
+
+**Datasets already resident when the window opens** carry no eviction stamp, so
+they contribute to the denominator (they were accessed) and not to the numerator
+until this policy actually evicts them. That is the intended asymmetry: the metric
+measures what the policy *did*, never what the deployment inherited.
 
 Supporting measurement: **`total_hydration_seconds / total_read_seconds`**. This
 is the amortization ratio; if hydration time approaches read time, the feature
@@ -284,11 +409,14 @@ naive assertion. Enumerated:
 | T5 | **Budget inertness** — raising the budget above the current footprint silences a sweep that a lower budget engages; the sweep stops as soon as the footprint is back under | the budget is the trigger, and it is a threshold rather than decoration |
 | T5b | **The budget is SOFT** — a single in-use dataset larger than the whole budget stays resident and **no operation fails**; the sweep reports *every candidate in use* | correctness beats the watermark; there is no admission control |
 | T6 | **`dirty → flushed` is REFUSED** — a dirty dataset offered to the flush path is rejected, not silently accepted | the destructive edge is checked, not assumed (the knowledge doc's one rule) |
+| T6b | **A dirty candidate is SKIPPED and SAID** — a past-the-floor, over-budget, dirty candidate is not reclaimed, no push-back is attempted, and the sweep reports *dirty* as a **distinct** stop reason (not folded into "in use" or "none old enough"); **and the same candidate IS evicted once clean** | §9a's clean-eviction-only decision, in both directions. Without the silence half the sweep could be refusing everything; without the report half a permanently-stuck deployment is invisible |
 | T7 | **Dirty is DETECTED** — a mutation makes the version differ and the dataset reads dirty; **and an unmutated dataset reads clean after a full sweep** | the detector discriminates rather than always-firing or never-firing |
 | T8 | **In-flight read is skipped** — a dataset with a read in flight is not flushed; **and the same dataset IS flushed once the read completes** | the cheap check discriminates in both directions (not always-skip, not never-skip) |
-| T9 | **A LOST race does not corrupt** — force the interleaving (read begins mid-flush) and assert the reader gets a **correct, complete dataset** via rehydration. The cost may be a wasted rehydration; the result may **never** be a torn or partial read | §5's actual bar: *does not corrupt*, NOT *cannot occur* — this test deliberately makes the race happen rather than proving it impossible |
+| T9 | **A LOST race does not corrupt** — force **each** of §5a's three interleavings (read resolves then reclaim begins; hydration overlaps a reclaim; hydration fails mid-transfer) and assert the reader observes the published name as **either absent or a complete dataset**, never a partial one. The cost may be a wasted rehydration; the result may **never** be a torn or partial read | §5's actual bar: *does not corrupt*, NOT *cannot occur* — this test deliberately makes the race happen rather than proving it impossible. Enumerating the three interleavings is what stops it degenerating into a single easy one |
+| T9b | **Publish and retire are atomic at the name** — a reader that resolves the published name mid-reclaim holds a complete dataset; and a failed hydration leaves **no** visible published directory (only unpublished debris a sweep may delete) | §5a's boundary is asserted rather than assumed — without this, T9 could pass by timing luck |
 | T10 | **Rehydrate is byte-identical** — flush → rehydrate → read equals the pre-flush read | the round trip is lossless |
-| T11 | **Thrash detector CAN fire** — a synthetic access pattern designed to thrash produces a ratio > 1.0; **and a well-behaved pattern produces ≤ 1.0** | §7's metric discriminates — a detector that fires on everything carries no information |
+| T11 | **Thrash detector CAN fire** — inside one age-floor window, a synthetic pattern that re-accesses an evicted dataset produces `eviction_caused_rehydrations > 0`; **and a well-behaved sparse pattern — accessed, correctly idled past the floor, evicted, then re-accessed in a LATER window — produces `0`** | §7's corrected metric discriminates. The silence half is deliberately the case the first draft's definition got wrong: normal sparse usage must NOT read as thrash |
+| T11b | **Attribution is real** — a restart, a failed-hydration retry and a manual invalidation each produce a hydration that does **not** increment `eviction_caused_rehydrations` | the numerator counts eviction, not hydration; without this the metric is a hydration counter wearing a thrash label |
 | T12 | **Gate-off is inert** — with the feature off, no sweep runs, no accounting is kept, and the read path is unchanged (per §6, either one code path or a proven-equivalent second one) | the gate costs nothing when off |
 
 **T2a/T2b, T7, T8 and T11 are the ones that matter most** — each is a paired
@@ -316,11 +444,57 @@ rule forbids — implied by the code, falsifiable by nothing.
 4. **Partial hydration.** Whether a subset (fragment / column range) can be
    hydrated instead of a whole dataset is unexplored. It would change the size
    term of the eviction key, so it is a policy question, not just an I/O one.
-5. **Interaction with the push-back direction.** `dirty → hydrated` is the
-   expensive direction and is currently an operational step. Whether a sweep
-   may *initiate* a push-back (making eviction possible) or only skip dirty
-   candidates is undecided; the plan currently assumes **skip**, which is the
-   conservative choice and possibly the wrong one for the target workload.
+5. ~~**Interaction with the push-back direction.**~~ **DECIDED after review on
+   PR #901 — see §9a below.** It was recorded here as undecided while the board
+   summaries described push-back as part of eviction; that contradiction is
+   resolved in favour of **skip**, and the open item is now only the narrower
+   question of whether a *separately triggered* push-back should exist.
+
+### 9a. The sweep NEVER initiates push-back — clean eviction only
+
+**Review on PR #901 found the plan and its two board summaries disagreeing** about
+whether a dirty candidate is skipped or pushed back first. Those are different
+data-integrity contracts, so the disagreement is resolved here rather than left to
+the reader.
+
+**The decision: the sweep performs CLEAN EVICTION ONLY.** A dirty candidate is
+**skipped** — reported, never reclaimed, never pushed. Push-back is a **separate
+operation with its own trigger**, and the sweep does not invoke it.
+
+Two mechanisms, deliberately not one:
+
+| operation | what it does | who triggers it |
+|---|---|---|
+| **clean eviction** | reclaims the local copy of a dataset that is *identical to the object store* | the watermark sweep (§3) |
+| **push-back** (`dirty → hydrated`) | uploads a diverged local copy | an operator/operational step — **never the sweep** |
+
+Why this and not the other choice — it follows from what the plan already says
+rather than being a new preference:
+
+- The knowledge doc's §4 rule is *flush is legal only from `hydrated`*. A sweep
+  that pushes first would be **manufacturing** the precondition for its own
+  destructive step, on a background timer, unattended. That inverts a safety
+  check into a workflow.
+- §4 of that same doc establishes push-back as the expensive,
+  fragmentation-sensitive direction and rules it "an ops step, never a boot path".
+  A background sweep is not a boot path, but it *is* unattended — which is the
+  property that made it an ops step in the first place.
+- A failed push mid-sweep leaves the only copy of diverged data in an ambiguous
+  state, with nobody watching. Skipping has no such failure mode: the worst case
+  is that the sweep reaches no target, which §2 already establishes as a
+  **legitimate reported steady state**.
+
+**Consequence to make observable:** a deployment whose footprint is dominated by
+*dirty* datasets will sit permanently over budget with the sweep unable to act. §2
+already requires the sweep to say *why* it stopped; **"every candidate was dirty"
+is a third distinct reason** alongside "none old enough" and "every candidate in
+use", and it must not be collapsed into either. It is the signal that a push-back
+is owed — which is the correct place for a human to enter the loop.
+
+**Remaining open question** (narrowed from the original item 5): whether a
+separately-triggered push-back operation should exist in this feature at all, or
+whether it belongs entirely outside it. Undecided; it does not block the sweep,
+which never calls it either way.
 
 ## Cross-refs
 

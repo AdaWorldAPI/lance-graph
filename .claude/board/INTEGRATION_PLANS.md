@@ -2,8 +2,12 @@
 
 **Plan:** `.claude/plans/idle-flush-dataset-eviction-v1.md`
 Feature-gated (**off by default**) eviction of a Lance dataset's LOCAL copy after
-an idle period, pushed back to the object store first if dirty, rehydrating on
-next access. **Purpose is cost smoothing, not capacity** (operator framing): the
+an idle period, **skipped (never pushed back) if dirty**, rehydrating on
+next access. **The sweep performs CLEAN EVICTION ONLY** — push-back is a separate
+operation with its own trigger, and a background sweep must not manufacture the
+precondition for its own destructive step (plan §9a; the first draft of this entry
+said "pushed back first if dirty", which contradicted the plan's own open item and
+was corrected in the PR #901 review round). **Purpose is cost smoothing, not capacity** (operator framing): the
 win is the shape of the bill — local disk bills continuously for capacity
 provisioned, object storage for what is kept — so the plan explicitly does NOT
 justify itself with "otherwise you run out of disk", and never fails an
