@@ -1,5 +1,38 @@
 # Issues Log — Open + Resolved (double-entry, append-only)
 
+## ISS-IDENTITY-CODEBOOK-ORDINAL-STABILITY (2026-08-06) — OPEN, PARTIALLY MITIGATED, RAISED BY REVIEW
+
+`IdentityCodebook` derives each ordinal from a **sorted position**, so the ordinal
+of a key depends on the whole key set. Growing a book by a key that sorts early
+renumbers every ordinal at or after it, and because `IdentityQuad` is a
+**persisted** payload, facets baked against the old book then explain as a
+neighbouring key. `verify_bijective()` cannot see this: it is a *within-book*
+property and both revisions pass it. Found by review on PR #902 (both reviewers,
+independently); reproduced by
+`growing_a_codebook_with_an_early_key_renumbers_the_existing_ones`.
+
+**Mitigated, not closed.** `IdentityCodebook::digest()` shipped as the stability
+witness — deterministic FNV-1a over the ordered key list, length-delimited per key.
+A bake records it beside the rows it wrote; a later read compares and refuses a
+shifted book. Fire/silence tested, and the length prefix was mutation-tested.
+
+**What remains open, stated so it is not read as done:**
+
+1. **The digest is a witness, not an enforcement.** Nothing in the contract obliges
+   a caller to record or compare it. Whether `QuadJoin` should *carry* the expected
+   digest and refuse a mismatched book — making the check structural rather than
+   advisory — is a design question, not a bug fix, and it changes a shipped public
+   signature, so it is not taken unilaterally.
+2. **No append-preserving growth exists, deliberately.** A book that preserved
+   assignments would not be sorted and `ordinal()`'s `binary_search` would be
+   unsound. Growing a book is a **rebake**. If append-preserving growth is ever
+   wanted, it needs its own index structure — a separate design, not a flag.
+3. **Interacts with the federation amendment below.** Under federation the
+   criterion is cross-bake: the same external key must resolve to the same ordinal
+   in *every* bake carrying that space. A digest comparison is the natural
+   mechanism for that check too, but the cross-codebook agreement test is still
+   unbuilt (see `ISS-IDENTITY-QUAD-WIDE-CARVING-HOME` § Amendment).
+
 ## ISS-IDENTITY-QUAD-WIDE-CARVING-HOME (2026-08-06) — OPEN, NEEDS AN OPERATOR RULING
 
 `lance_graph_contract::identity_quad` (branch `claude/vocab-tenant-bake`) reads and

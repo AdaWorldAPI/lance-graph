@@ -95,8 +95,42 @@
 //! the CANON zero-fallback ladder's "not consulted", not "the zeroth entry".
 //! Without the offset, the first entry of every codebook would be
 //! indistinguishable from a slot that was never filled, and a partially-joined
-//! row would silently read as fully joined. Capacity is therefore
-//! [`MAX_ORDINAL`] = `2^24 - 2`.
+//! row would silently read as fully joined. The largest ordinal a slot can hold
+//! is therefore [`MAX_ORDINAL`] = `2^24 - 2`, and a book may hold one more entry
+//! than that number — [`MAX_ENTRIES`] = `2^24 - 1` — because ordinals start at
+//! zero. The two constants are deliberately separate: [`check_capacity`] gates
+//! an **entry count**, [`MAX_ORDINAL`] bounds a **slot value**.
+//!
+//! # Ordinals are stable only for a FIXED key set — the bake owes a digest
+//!
+//! [`IdentityCodebook::try_new`] sorts and derives each ordinal from the sorted
+//! position, so **an ordinal is a property of the whole key set, not of the key
+//! alone.** Add one key that sorts early and every ordinal at or after it shifts
+//! by one. A facet baked against the old book then resolves, through the new
+//! book, to a *neighbouring* key — internally consistent on both sides, and
+//! therefore invisible to [`IdentityCodebook::verify_bijective`], which proves
+//! only that each book round-trips against itself.
+//!
+//! This matters here and not at rail scale because the quad is a **persisted
+//! payload**: the ordinal outlives the process that computed it.
+//!
+//! The contract does **not** silently absorb this. It states the constraint and
+//! gives it a witness:
+//!
+//! - **The constraint:** a baked [`IdentityQuad`] is meaningful only against the
+//!   exact codebook that produced it. Growing a codebook is a **rebake**, not an
+//!   append — there is deliberately no append-preserving constructor, because a
+//!   book that preserved assignments would no longer be sorted and
+//!   [`IdentityCodebook::ordinal`]'s `binary_search` would be unsound.
+//! - **The witness:** [`IdentityCodebook::digest`] is a deterministic value over
+//!   the ordered key list. A bake records the digest beside the rows it wrote; a
+//!   later read compares, and **refuses a shifted book instead of resolving a
+//!   wrong key**. The comparison is the caller's to make — the digest gives it
+//!   something to compare, which is what was missing.
+//!
+//! Whether the join should instead bind facets to a versioned codebook at the
+//! contract level is an open design question, recorded as
+//! `ISS-IDENTITY-CODEBOOK-ORDINAL-STABILITY` rather than settled here.
 
 use crate::facet::FacetCascade;
 use crate::legacy_outliers::{LegacyOutlier, PAYLOAD_LEN};
@@ -294,6 +328,10 @@ pub fn check_capacity(len: usize) -> Result<(), CodebookError> {
 impl IdentityCodebook {
     /// Build from a key list. Sorts, then **rejects** any duplicate (the
     /// injectivity gate) and any list larger than a 24-bit slot can address.
+    ///
+    /// Because ordinals come from the sorted position, the assignment depends on
+    /// the **whole key set**; see the module doc's stability section and
+    /// [`Self::digest`] before growing a book whose ordinals have been persisted.
     pub fn try_new(keys: impl IntoIterator<Item = String>) -> Result<Self, CodebookError> {
         let mut keys: Vec<String> = keys.into_iter().collect();
         keys.sort();
@@ -331,11 +369,49 @@ impl IdentityCodebook {
         self.keys.is_empty()
     }
 
+    /// A deterministic digest over the **ordered** key list — the stability
+    /// witness for the constraint in the module doc.
+    ///
+    /// Two books with the same digest assign the same ordinal to the same key.
+    /// A bake records this next to the rows it wrote; a later read compares it
+    /// against the book it holds and **refuses a shifted book rather than
+    /// resolving a wrong key**. It is a *witness*, not an enforcement: nothing
+    /// in this type can stop a caller that declines to compare.
+    ///
+    /// Each key is fed length-first, so `["ab", "c"]` and `["a", "bc"]` cannot
+    /// collide through concatenation. Plain FNV-1a — this is an accidental-drift
+    /// detector for a build artifact, not a security primitive, and the crate is
+    /// zero-dependency by contract.
+    #[must_use]
+    pub fn digest(&self) -> u64 {
+        const OFFSET: u64 = 0xcbf2_9ce4_8422_2325;
+        const PRIME: u64 = 0x0000_0100_0000_01b3;
+        let mut h = OFFSET;
+        let mut eat = |b: u8| {
+            h ^= b as u64;
+            h = h.wrapping_mul(PRIME);
+        };
+        for key in &self.keys {
+            for b in (key.len() as u64).to_le_bytes() {
+                eat(b);
+            }
+            for b in key.as_bytes() {
+                eat(*b);
+            }
+        }
+        h
+    }
+
     /// Prove `ordinal → key → ordinal` is the identity for **every** entry.
     ///
     /// Construction already guarantees it; this is the explicit witness a bake
     /// runs so the guarantee is measured on the real book rather than inherited
     /// from an argument about the constructor.
+    ///
+    /// **What it deliberately cannot see:** this is a *within-book* property.
+    /// Two revisions of a book that assign different ordinals to the same key
+    /// each pass here, because each is internally consistent. That failure is
+    /// the [`Self::digest`] comparison's job, not this one's.
     pub fn verify_bijective(&self) -> Result<(), CodebookError> {
         for i in 0..self.keys.len() {
             let ordinal = i as u32;
@@ -590,6 +666,88 @@ mod tests {
         );
         // And a real (small) book goes through the same gate successfully.
         assert!(IdentityCodebook::try_new(["a".to_string()]).is_ok());
+    }
+
+    // ── ordinal stability across codebook revisions ────────────────────────
+
+    /// **The hazard is real, and this test makes it observable.** Growing a book
+    /// with a key that sorts before an existing one renumbers the existing key,
+    /// so a payload baked against the old book explains as a *different* key
+    /// through the new one — while both books pass `verify_bijective`.
+    ///
+    /// This is a can-it-fire test for a documented constraint, not an assertion
+    /// that the code is correct. Falsifier: if `try_new` ever gained
+    /// assignment-preserving growth, `after.ordinal("b")` would stay `0` and the
+    /// mis-explanation would not occur — this test would fail, which is exactly
+    /// the signal wanted if the semantics change.
+    #[test]
+    fn growing_a_codebook_with_an_early_key_renumbers_the_existing_ones() {
+        let before = IdentityCodebook::try_new(["b".to_string()]).expect("unique");
+        let after =
+            IdentityCodebook::try_new(["a", "b"].into_iter().map(str::to_string)).expect("unique");
+
+        assert_eq!(before.ordinal("b"), Some(0));
+        assert_eq!(
+            after.ordinal("b"),
+            Some(1),
+            "the existing key was renumbered"
+        );
+
+        // Both books are internally sound, which is why the whole-book witness
+        // cannot detect the shift — the digest is what can.
+        assert!(before.verify_bijective().is_ok());
+        assert!(after.verify_bijective().is_ok());
+
+        // A payload baked against `before` explains as the WRONG key under
+        // `after`: ordinal 0 was "b", it is now "a".
+        let baked = IdentityQuad::empty()
+            .with_slot(0, before.ordinal("b"))
+            .expect("in range");
+        assert_eq!(after.key(baked.slot(0).expect("filled")), Some("a"));
+    }
+
+    /// The digest separates exactly the books that would shift ordinals, and
+    /// **stays silent** on the books that would not — the can-fire/can-stay-silent
+    /// pair on the same value.
+    ///
+    /// Falsifier: a digest that hashed an unordered set would make the first
+    /// assertion fail; a digest that hashed input order rather than the sorted
+    /// list would make the second fail; a digest without the length prefix would
+    /// make the third fail (`"ab"+"c"` and `"a"+"bc"` concatenate identically).
+    #[test]
+    fn the_digest_fires_on_a_shift_and_stays_silent_on_an_equivalent_book() {
+        let one = IdentityCodebook::try_new(["b".to_string()]).expect("unique");
+        let grown =
+            IdentityCodebook::try_new(["a", "b"].into_iter().map(str::to_string)).expect("unique");
+        assert_ne!(
+            one.digest(),
+            grown.digest(),
+            "a book that renumbers must not compare equal"
+        );
+
+        // Same key set, different input order — same book, same ordinals, and
+        // therefore the digest must NOT fire.
+        let forward =
+            IdentityCodebook::try_new(["a", "b", "c"].into_iter().map(str::to_string)).expect("ok");
+        let shuffled =
+            IdentityCodebook::try_new(["c", "a", "b"].into_iter().map(str::to_string)).expect("ok");
+        assert_eq!(forward, shuffled);
+        assert_eq!(
+            forward.digest(),
+            shuffled.digest(),
+            "input order is not part of the book's identity"
+        );
+
+        // Length-delimiting: these two books concatenate to the same bytes.
+        let ab_c =
+            IdentityCodebook::try_new(["ab", "c"].into_iter().map(str::to_string)).expect("ok");
+        let a_bc =
+            IdentityCodebook::try_new(["a", "bc"].into_iter().map(str::to_string)).expect("ok");
+        assert_ne!(
+            ab_c.digest(),
+            a_bc.digest(),
+            "concatenation must not collide two different key sets"
+        );
     }
 
     // ── the join ───────────────────────────────────────────────────────────
