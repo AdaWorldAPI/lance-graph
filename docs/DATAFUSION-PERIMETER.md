@@ -325,6 +325,48 @@ it, **before** §5 was written with a same-identifier grep. Documenting an
 anti-pattern does not immunise the document against it. The defence is
 mechanical — resolve imports, leave the workspace, count edges — not vigilance.
 
+## 9a. The object-store provider is the same class of fact — and the same trap
+
+Cross-reference, because it is the identical failure shape one crate over:
+a capability that "obviously exists" is behind a **feature that is off by
+default**, and the resulting error is diagnosed at the wrong layer.
+
+Source-verified from the vendored manifests (two releases apart, both agree):
+**`lancedb` ships `default = []`**, and its `aws` feature is what forwards to
+`lance/aws` + `lance-io/aws` (+ `object_store/aws` directly in the newer
+release, transitively via `lance-io` in the older). Meanwhile **`lance-io`
+carries `aws` in its OWN defaults** — so the intuition "the Lance stack does
+object storage by default" is true one layer down and false at the layer we
+depend on. `lancedb` is the layer that opts out.
+
+Consequence, and it is the §9 lesson restated: without the feature an
+object-store URI fails at **provider lookup by scheme**, before any credential,
+endpoint or region is consulted — so credential and endpoint debugging is
+spent on code that is not in the binary. **An error naming a *scheme* is a
+build problem; an error naming a *credential/host/region* is a config
+problem.** Read the error's noun before touching configuration.
+
+**Correction (review round, PR #901) — and it is the §9 lesson landing on this
+section itself.** The paragraphs above are true *about `lancedb`*, and the first
+draft presented them as the gate on **this repository's** object-store reads. They
+are not. `crates/lance-graph/Cargo.toml` takes `lance` as a **direct,
+non-optional** dependency **with default features**, and `lance`'s own `default`
+includes `aws`; `lancedb` is `optional = true, default-features = false` behind a
+separate feature, and no production path here opens datasets through it. So for
+this crate the provider **is** compiled in, and a scheme-named error would mean
+something else entirely.
+
+The rule survives; its **first step** was missing: *resolve which crate opens the
+URI, then read that crate's features — and check how this manifest takes it, since
+a `default-features = false` on the dependency line overrides the upstream
+default.* Diagnosing the right facts about the wrong crate is the §9 failure mode,
+and this section had it.
+
+Full treatment — the three-layer hydration model, why the object store must
+not be the runtime store, the flush/rehydrate lifecycle, and the probe record
+behind the correction above:
+`.claude/knowledge/s3-hydration-lifecycle.md` (§3a for the crate-resolution step).
+
 ## 10. Open questions, in decision order
 
 1. **What does this repo actually use from `lance` that `lance-table` lacks?**

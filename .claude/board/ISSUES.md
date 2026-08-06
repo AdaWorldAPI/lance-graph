@@ -1,5 +1,36 @@
 # Issues Log — Open + Resolved (double-entry, append-only)
 
+## ISS-REMOTE-URI-CONSTRUCTORS-PREDATE-THE-HYDRATION-DOCTRINE (2026-08-06) — OPEN, SURFACED BY REVIEW ON PR #901
+
+`crates/lance-graph/src/graph/versioned.rs` ships `VersionedGraph::{s3, azure, gcs}`.
+Each stores a network URI as `base_path`, and the read methods pass it straight to
+the dataset open — so a caller using them opens the object store **as the runtime
+store**, which is exactly the pattern `.claude/knowledge/s3-hydration-lifecycle.md`
+§2/§6 argues against. The constructors are public and tested; the tests explicitly
+preserve the remote paths.
+
+**Review on PR #901 was right that the first draft of §6 stated its rule
+categorically** and thereby declared those flows architecturally invalid while
+offering no replacement. That has been scoped (§6a: the rule binds the hot
+zero-copy substrate, not occasional non-hot access), which resolves the
+*documentation* defect. It does not resolve the underlying gap.
+
+**The gap:** there is no hydrating counterpart. A caller who *does* have a
+zero-copy story and *does* hold a remote URI has nowhere to go except hand-rolling
+the fetch. Something of the shape `hydrate_from(remote) -> VersionedGraph` (local
+path, published per the plan's §5a rename boundary) is the missing piece.
+
+**Deliberately NOT done in PR #901**, which is documentation-only: adding it is a
+new public API on a shipped type, and the eviction plan it would share machinery
+with is still a PROPOSAL with an unclosed verification gate (plan §4). Building
+the hydration API before that gate closes risks shipping a surface shaped by an
+assumption that has not been checked.
+
+**Not a deprecation.** Nothing here proposes removing the constructors, and they
+remain correct for occasional non-hot access. The instruction until the gap closes
+is in §6a: **choose by read shape, not by constructor availability.**
+
+
 ## ISS-CODEC-RESEARCH-MDCT-ASSERT (2026-08-05) — OPEN, PRE-EXISTING, DISCOVERED NOT CAUSED
 
 **The observation.** `cargo +1.97.1 test --manifest-path
