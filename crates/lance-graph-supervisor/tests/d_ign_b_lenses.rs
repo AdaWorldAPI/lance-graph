@@ -81,6 +81,22 @@
 //! signature cited was read from source in the same pass that wrote this
 //! file (see the build tag-file, `.claude/board/exec-runs/d-ign-b-build.md`,
 //! for what could and could not be verified).
+//!
+//! > **⊘ SUPERSEDED 2026-08-06 — this file IS compiled and run now.** CI
+//! > runs `cargo test -p lance-graph-supervisor --features cycle-driver
+//! > --test d_ign_b_lenses`. The section above records the authoring pass's
+//! > honest state, not the file's current one; it is regraded in place, not
+//! > deleted. Arming that CI step exposed a real defect the unarmed gate had
+//! > been hiding (without the feature this binary runs 0 tests, so it was
+//! > green vacuously): the deterministic synthetic fallback corpus emitted
+//! > text `stance::stream` extracts NOTHING from, so all four lens readouts
+//! > came back empty and L1's untagged digests collided empty-vs-empty. The
+//! > corpus was replaced with `synthetic_window` (see its doc comment for
+//! > what each arm needs) and L1 gained an explicit non-emptiness
+//! > precondition so an empty corpus reports itself as a corpus defect
+//! > instead of a lens collision. `stance.rs` was NOT touched — the lenses
+//! > were never at fault. See `.claude/board/EPIPHANIES.md`
+//! > `E-D-IGN-B-CORPUS-PRODUCED-NOTHING-TO-READ-1`.
 
 #[cfg(feature = "cycle-driver")]
 mod d_ign_b_lenses {
@@ -243,13 +259,131 @@ mod d_ign_b_lenses {
         (verses.len() == limit).then_some(verses)
     }
 
+    /// Nonsense syllables the synthetic corpus builds its clause predicates
+    /// from. They must collide with NO catalogue the clause machine consults
+    /// — `STOP` / `AUX` (`stance.rs:33-45`), `is_negation` / `is_copula` /
+    /// `is_modal_aux` / `is_causal_cue` / `pronoun_case` / `epistemic_reading`
+    /// (`clause_cues.rs`, `verb_lexicon.rs`), and `read_verb`'s
+    /// `FAMILY_LEXICON` — so the only role a template can give them is the
+    /// one it means to: a clause predicate. The `{stem}{window:02}{n:02}`
+    /// shape guarantees that (7 chars, alphanumeric, no `-ed`/`-s`/`-ing`
+    /// suffix for `classify_verb`'s morphology to strip, absent from every
+    /// exact catalogue).
+    const SYNTH_STEMS: [&str; 8] = ["vor", "lan", "tik", "mez", "qor", "sil", "dun", "fex"];
+
+    fn synth_term(window: usize, n: usize) -> String {
+        format!(
+            "{}{:02}{:02}",
+            SYNTH_STEMS[n % SYNTH_STEMS.len()],
+            window,
+            n
+        )
+    }
+
+    /// One owner-slice's worth (`POPULATED_ROWS` verses) of the deterministic
+    /// synthetic corpus.
+    ///
+    /// ## Why this is not filler (the 2026-08-06 corpus fix)
+    ///
+    /// The previous fallback emitted `"d-ign-b synthetic verse {i} token{salt}"`.
+    /// That text carries no copula, no auxiliary, no typed relational verb and
+    /// no `-ed` morphology, so `stance::stream` never arms a predicate and
+    /// emits ZERO statements: the arena stays empty, `ReadOut` stays empty,
+    /// and all four `stance_panel` arms come back empty. Two empty readouts
+    /// then fold zero bytes each and digest IDENTICALLY (`DefaultHasher::new()
+    /// .finish()` == 15130871412783076140) — which is what made L1's can-fire
+    /// half fail the moment CI armed `--features cycle-driver`. The digest is
+    /// deliberately untagged (see `LensReadout::digest`); the defect was the
+    /// corpus, not the digest.
+    ///
+    /// ## What each arm needs, and where this window supplies it
+    ///
+    /// * **Hegel** (`contradiction_ranking`, `stance.rs:418-427`) — a belief
+    ///   whose `contradiction` exceeds `0.05`. `revise_at` sets that to
+    ///   `|f₁ − f₂|` on a disjoint-stamp revision (`belief.rs:191-205`), so it
+    ///   needs the SAME `(they, Inh, term)` statement observed once affirmed
+    ///   (f=0.9) and once negated (f=0.05) → depth 0.85. Supplied by the
+    ///   `dev`/`trans` pairs below.
+    /// * **Nietzsche** (`stance.rs:483-496`) — iterates Hegel's output and
+    ///   partitions by the FIRST vs LAST provenance entry's `negated` flag, so
+    ///   it needs both flip directions to be legible from the endpoints:
+    ///   affirm→negate (`Devaluation`) and negate→affirm (`Transvaluation`).
+    /// * **Kant** (`stance.rs:500-510`) — maps `ReadOut::lifts`, so it needs
+    ///   rung-1 lifts: a perception verb with a subject, a complementizer
+    ///   within the 3-content-token window, and an emission
+    ///   (`stance.rs:237-243`, `:302-364`) — i.e. `they knew that they were X`.
+    /// * **Wittgenstein** (`stance.rs:512-532`) — counts distinct language
+    ///   games per concept over observed `Inh` beliefs, lift knowers/objects
+    ///   and `Impl` cause/effects, so any emission feeds it; the `because`
+    ///   verses add the `impl-cause`/`impl-effect` games on top.
+    ///
+    /// ## Why the SHAPE varies with the window index
+    ///
+    /// Three of the four arms fold interned `u16` ids (`CStmt`'s `s`/`p`,
+    /// Wittgenstein's concept), never the strings behind them — and the
+    /// `Interner` assigns ids by order of first appearance, per `run_lens`
+    /// call. Two windows with identical structure therefore digest
+    /// IDENTICALLY no matter how their tokens are spelled, which would make
+    /// L4's ">=2 distinct digests across the in-scope owners" half
+    /// unfalsifiable. The counts below are driven by `window % 5|3|7`,
+    /// deliberately coprime with the stride-4 arming cycle
+    /// (`(id - SPREAD_LO) % 4 + 1`), so each lens's OWN owner set spans
+    /// several shapes rather than landing on one residue class.
+    fn synthetic_window(window: usize) -> Vec<String> {
+        let dev_pairs = 3 + window % 5; // affirm then negate → Devaluation
+        let trans_pairs = 2 + window % 3; // negate then affirm → Transvaluation
+        let lifts = 4 + window % 7; // knows-that → Kant
+        let causal = 2 + window % 3; // "<effect> because <cause>" → Impl games
+
+        let term = |n: usize| synth_term(window, n);
+        let mut out: Vec<String> = Vec::with_capacity(POPULATED_ROWS);
+
+        // Disjoint `n` namespaces keep the five roles' terms distinct within
+        // one window (0.., 10.., 20.., 40../50.., 60..).
+        for j in 0..dev_pairs {
+            out.push(format!("they were {}.", term(j)));
+        }
+        for j in 0..trans_pairs {
+            out.push(format!("they were not {}.", term(10 + j)));
+        }
+        for j in 0..lifts {
+            out.push(format!("they knew that they were {}.", term(20 + j)));
+        }
+        for j in 0..causal {
+            out.push(format!(
+                "they were {} because they were {}.",
+                term(40 + j),
+                term(50 + j)
+            ));
+        }
+        for j in 0..dev_pairs {
+            out.push(format!("they were not {}.", term(j)));
+        }
+        for j in 0..trans_pairs {
+            out.push(format!("they were {}.", term(10 + j)));
+        }
+
+        // Pad to the fixed slice length with plain affirmations. The counts
+        // above are bounded (max 7+4+10+4+7+4 = 36 < POPULATED_ROWS), so the
+        // pad is never negative; assert rather than assume.
+        assert!(
+            out.len() <= POPULATED_ROWS,
+            "synthetic window {window} over-filled: {} > {POPULATED_ROWS}",
+            out.len()
+        );
+        for j in out.len()..POPULATED_ROWS {
+            out.push(format!("they were {}.", term(60 + j)));
+        }
+        out
+    }
+
     fn synthetic_corpus(n: usize) -> Vec<String> {
-        (0..n)
-            .map(|i| {
-                let salt = (i as u64).wrapping_mul(2_654_435_761) % 104_729;
-                format!("d-ign-b synthetic verse {i} token{salt}")
-            })
-            .collect()
+        assert_eq!(
+            n % POPULATED_ROWS,
+            0,
+            "the synthetic corpus is built per owner slice; {n} must be a multiple of {POPULATED_ROWS}"
+        );
+        (0..n / POPULATED_ROWS).flat_map(synthetic_window).collect()
     }
 
     fn load_or_synthesize_corpus() -> (Vec<String>, &'static str) {
@@ -768,13 +902,18 @@ mod d_ign_b_lenses {
         {
             let twin_verses = labelled_verses(&corpus, TWIN_LO);
 
-            // Pre-registered per design §4's risk note + §7 Q4: Hegel is
-            // measured (not assumed) constant-false on this corpus shape
-            // (§12.3a″); Nietzsche derives from Hegel (stance.rs:483-496)
-            // so it degrades with it. The can-fire witness pair is
-            // therefore pinned to z=3 (Kant) vs z=4 (Wittgenstein) BEFORE
-            // any run, per the design's own pre-registered fallback —
-            // never chosen after seeing output.
+            // Pre-registered per design §4's risk note + §7 Q4: Hegel was
+            // measured (not assumed) constant-false on the corpus shape of
+            // the time (§12.3a″); Nietzsche derives from Hegel
+            // (stance.rs:483-496) so it degrades with it. The can-fire
+            // witness pair is therefore pinned to z=3 (Kant) vs z=4
+            // (Wittgenstein) BEFORE any run, per the design's own
+            // pre-registered fallback — never chosen after seeing output.
+            // The 2026-08-06 corpus fix makes Hegel/Nietzsche fire on the
+            // synthetic fallback too (the risk-check line below prints the
+            // measurement rather than trusting it); the witness pair is NOT
+            // re-picked on the strength of that — re-picking after seeing
+            // output is exactly what the pre-registration forbids.
             let r_kant = run_lens(3, &twin_verses);
             let r_witt = run_lens(4, &twin_verses);
             eprintln!(
@@ -782,6 +921,29 @@ mod d_ign_b_lenses {
                 run_lens(1, &twin_verses).is_empty(),
                 run_lens(2, &twin_verses).is_empty()
             );
+
+            // Precondition, checked BEFORE the digest comparison: an empty
+            // readout folds zero bytes, so two empties digest identically
+            // (`digest` is deliberately untagged — see its doc comment).
+            // Without this guard a corpus that yields nothing extractable
+            // reports as "distinct lenses collide", which is a false and
+            // deeply misleading diagnosis of a corpus defect. That is the
+            // exact failure this file shipped with: the pre-fix synthetic
+            // fallback armed no predicate at all, both readouts came back
+            // empty, and the assertion below blamed the lenses.
+            for (label, readout) in [("z=3 Kant", &r_kant), ("z=4 Wittgenstein", &r_witt)] {
+                assert!(
+                    !readout.is_empty(),
+                    "L1 precondition: the {label} readout is EMPTY over the twin base slice — \
+                     the corpus produced no extractable content, so the digest comparison below \
+                     would be empty-vs-empty and could only collide. This is a CORPUS defect, \
+                     not a lens collision. Corpus source: {provenance}. \
+                     (`stance::stream` emits nothing without a copula / auxiliary / typed \
+                     relational verb / `-ed` form to arm a predicate, and Kant additionally \
+                     needs a perception verb + `that` complementizer.)"
+                );
+            }
+
             assert_ne!(
                 r_kant.digest(),
                 r_witt.digest(),
