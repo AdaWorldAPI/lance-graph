@@ -55,6 +55,80 @@ Until ruled: the module carries the tension in its own doc comment (it does not
 claim sanction it does not have), and `LegacyOutlier::WideTriple` gains no new
 semantics from this use.
 
+### Amendment 2026-08-06 — the tenant is ONE INSTANCE OF A FEDERATION, and that adds a requirement the module does not currently meet
+
+An operator ruling reframes what this tenant is. There is **not one bake**: several
+domain bakes coexist, each with its own classid space, its own ClassView, and its
+own quadruple of identifier spaces appropriate to that domain. **The quadruple
+varies by class by design** — not as permitted flexibility, but because each bake
+serves a different domain. What must NOT vary is the join mechanism, which is
+exactly two things: **one shared identity slot present in every quadruple**, and
+the **relation edges that cross bakes**.
+
+**The requirement this creates, and which the shipped module does NOT meet.** If
+one slot is the cross-bake join key, its **position must be fixed and identical in
+every bake**, while the other three stay ClassView-determined. `IdentityQuad`
+currently treats all four slots as symmetric: `slot(i)` is positional, and nothing
+in the type distinguishes an invariant slot from a domain-specific one. So the
+contract **permits** a fixed join-key position; it does not **guarantee** one, and
+a consumer that puts its join key at a different index in a different bake gets no
+error.
+
+That is not a cosmetic gap. A join key whose position varies by class is a join
+key you must *look up before you can use*, which defeats "the position is the
+type" precisely where the property is most load-bearing — the one read that
+crosses a bake boundary.
+
+**Candidate fix, deliberately not implemented pending the ruling above:** pin the
+join key to slot 0 as a contract-level invariant (`JOIN_KEY_SLOT: usize = 0`) with
+a constructor that names it, so a bake cannot silently place it elsewhere. This
+interacts with the carving-home question — if the carving is promoted out of
+`legacy_outliers` into a sanctioned layout (option 2), the invariant slot belongs
+in that layout's definition rather than bolted onto a general-purpose quad.
+
+**Bijectivity becomes a CROSS-bake property too.** The shipped
+`verify_bijective()` proves `key → ordinal → key` within one codebook. Under
+federation the criterion is strictly stronger: the same external key must resolve
+to the same ordinal **in every bake that carries that space**, or two bakes
+disagree about which concept they are talking about while each remains internally
+consistent. **No test covers this**, in this crate or its consumer — a
+cross-codebook agreement check is unbuilt and is the natural companion to a pinned
+join-key slot.
+
+**One reading in the ruling does NOT hold against the canon, and is recorded here
+so it is not built on.** The proposal that the `EdgeBlock`'s split maps onto the
+federation — in-family = within a bake, out-of-family = across bakes — does not
+survive checking `canonical_node.rs`:
+
+- `in_family: [u8; 12]` is documented **"12 local adjacency slots (basin-local)"**
+  and `out_family: [u8; 4]` **"4 inherited adapter slots (out-of-family
+  interfaces)"** (`canonical_node.rs:646-649`). **Family is a tier *below* classid**,
+  so one classid space (one bake) contains many families. "Out-of-family"
+  therefore means *out-of-basin* — which includes other basins **inside the same
+  bake** — not "out-of-bake".
+- Every slot is **one byte**, i.e. a basin-local reference capped at 256 targets,
+  never a global pointer (the rail-cap rule). A one-byte slot **cannot** address a
+  node in another bake, whose classid differs entirely; global reach is classid +
+  cascade prefix, by construction.
+
+So "4 out-of-family slots is a hard budget on how many domains a node can reach
+directly" **does not follow**. The budget is four out-of-basin adapter refs, and
+cross-bake reach is not expressible in them at any count. The consequence is
+architectural and worth stating: **cross-bake relations must be carried as edge
+ROWS with full `(classid, identity)` on both endpoints**, not in the 16-byte
+`EdgeBlock`. (The consumer's existing cross-namespace edge lane already has
+exactly that shape, which is corroboration rather than a new design.)
+
+**What this raises in priority:** the relation lane stops being an accessory to one
+bake and becomes the **federation fabric**. An untyped relation there is not a lost
+label — it is a **broken join between bakes**. That makes the edge-side pre-bake
+type-resolution stage (recorded in the consumer as the unbuilt half of its own
+pipeline) a federation-level dependency, and it makes the still-unmeasured coverage
+question about published relation typings matter *more*, not less: those
+cross-namespace relations are precisely the inter-bake edges. That coverage has
+**not been measured** — see the consumer-side assessment; nothing about it should
+be quoted as fact.
+
 ## ISS-REMOTE-URI-CONSTRUCTORS-PREDATE-THE-HYDRATION-DOCTRINE (2026-08-06) — OPEN, SURFACED BY REVIEW ON PR #901
 
 `crates/lance-graph/src/graph/versioned.rs` ships `VersionedGraph::{s3, azure, gcs}`.
