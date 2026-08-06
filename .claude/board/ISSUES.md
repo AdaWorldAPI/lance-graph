@@ -1,5 +1,46 @@
 # Issues Log — Open + Resolved (double-entry, append-only)
 
+## ISS-D-IGN-B-REAL-CORPUS-PATH-IS-UNVERIFIED (2026-08-06) — OPEN, SURFACED BY THE CORPUS FIX
+
+`crates/lance-graph-supervisor/tests/d_ign_b_lenses.rs` takes one of two corpus
+paths: `$BLW_KJV_TSV` (or `/tmp/kjv_verses.tsv`) if present, else the deterministic
+synthetic fallback. **Only the synthetic path has ever been executed here.** The
+TSV is absent from this environment and from CI, so the real-corpus branch of
+`load_or_synthesize_corpus` is, today, dead code that has never run.
+
+**Why that is not merely a coverage note.** The fix in
+`E-D-IGN-B-CORPUS-PRODUCED-NOTHING-TO-READ-1` reshaped the synthetic corpus so
+every 48-verse owner slice yields all four lens arms non-empty — which is what
+**L3** demands (`empty < total` for each of z=1..4). The file's own module doc
+records the opposite measurement for the real corpus: Hegel *"is measured (not
+assumed) constant-false on this corpus shape (§12.3a″)"*, and Nietzsche is computed
+from Hegel (`stance.rs:483-496`) so it degrades with it. If that measurement still
+holds slice-for-slice, **setting `BLW_KJV_TSV` could make L3 fail for z=1 and z=2**
+— not because anything is broken, but because the two corpora exercise the arms
+differently and only one of them has been checked against the L-suite.
+
+**So the two corpora are NOT interchangeable, and that is stated rather than
+papered over.** Kant and Wittgenstein: both corpora feed them (any emission feeds
+Wittgenstein; the KJV's `saw that` / `knew that` constructions feed Kant, and the
+synthetic corpus plants `they knew that they were X` deliberately). Hegel and
+Nietzsche: the synthetic corpus plants a reversal in **every** window by
+construction; in the KJV reversals are **rare and localized** (the probe fixture's
+whole point is that Genesis 2:17 / 3:4 / 3:6 carry them and the surrounding text
+does not), so most 48-verse windows would carry none.
+
+**Deliberately NOT done in this PR.** Obtaining, vendoring or generating a real
+corpus is out of scope for a CI-failure fix, and guessing at its slice-by-slice
+behaviour would be exactly the paraphrase-instead-of-measurement move the
+falsifiability rule rejects. **The honest status is: the real-corpus path is
+unverified, and this entry exists so the next session that sets `BLW_KJV_TSV` reads
+this before concluding it broke something.** Closing it means running the L-suite
+against a real corpus and recording the per-arm measurements — at which point the
+module doc's §12.3a″ risk note can be re-confirmed or corrected with evidence.
+
+**Not a defect in the fix.** The synthetic path is the one CI runs, it is green,
+and its assertions were verified falsifiable in both directions. This is a gap in
+what has been *measured*, recorded as such.
+
 ## ISS-IDENTITY-CODEBOOK-ORDINAL-STABILITY (2026-08-06) — OPEN, PARTIALLY MITIGATED, RAISED BY REVIEW
 
 `IdentityCodebook` derives each ordinal from a **sorted position**, so the ordinal
