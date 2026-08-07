@@ -82,7 +82,7 @@ bakes:
                                # two entries pointing at one table means one
                                # of them is either reading garbage or racing
                                # the other's writes.
-    classid: "0x0F01"         # Hex classid (0x-prefixed) identifying this
+    classid: "0x0F010000"         # Hex classid (0x-prefixed) identifying this
                                # bake's SoA node layout — see the "CANON —
                                # Minimal SoA node" section of the repo's
                                # CLAUDE.md. Get this wrong and a reader casts
@@ -95,8 +95,20 @@ bakes:
                                # looking value you made up will collide with a
                                # real concept in a different domain. The three
                                # entries below use real geo concepts:
-                               #   0x0F01 osm_node · 0x0F02 osm_way
-                               #   0x0F03 osm_relation
+                               #   0x0F010000 = osm_node   (canon 0x0F01)
+                               #   0x0F020000 = osm_way    (canon 0x0F02)
+                               #   0x0F030000 = osm_relation (canon 0x0F03)
+                               #
+                               # NOTE THE WIDTH: a classid is a FULL u32 —
+                               # canon (the minted concept) in the HIGH half,
+                               # custom (app render prefix, 0x0000 when none)
+                               # in the LOW half. Writing the bare concept
+                               # "0x0F01" lands it in the LOW half, canon
+                               # reads as 0, and every reader routes the bake
+                               # as Reserved/default. The parser now rejects
+                               # that shape and suggests the composed form —
+                               # this example shipped it wrong once (codex P1
+                               # on #908), which is why the check exists.
                                # (An earlier draft of this file used 0x0D01
                                # for an "ontology" bake. 0x0D01 is real — it
                                # is `hr_employee` in the HR domain. That is
@@ -120,7 +132,7 @@ bakes:
   # --- geo.munich: NOT hydrated — read remotely, on demand. ----------------
   - name: geo-munich
     table: geo.munich.lance
-    classid: "0x0F02"
+    classid: "0x0F020000"
     # slab_digest omitted here on purpose — this bake floats to whatever the
     # table currently holds rather than pinning a specific bake.
     hydrate: false             # Served straight from the object store on
@@ -133,7 +145,7 @@ bakes:
   # --- geo.relations: NOT hydrated — a reference bake read cold. -----------
   - name: geo-relations
     table: geo.relations.lance
-    classid: "0x0F03"
+    classid: "0x0F030000"
     slab_digest: "sha256:REPLACE_WITH_REAL_DIGEST"
     hydrate: false             # A reference bake consulted occasionally, not
                                # on the hot request path — remote reads are
