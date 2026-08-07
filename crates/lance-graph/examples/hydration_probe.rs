@@ -59,6 +59,7 @@ use std::time::Instant;
 use arrow::array::{Float32Array, Int64Array, RecordBatch, RecordBatchIterator};
 use arrow::datatypes::{DataType, Field, Schema};
 use lance::dataset::{Dataset, WriteMode, WriteParams};
+use lance::io::{ObjectStoreParams, StorageOptionsAccessor};
 
 /// Row counts to probe. Chosen to bracket the plan's "tens of MB" reference
 /// point from both sides, so the reported ~1.4 s can be placed on a curve
@@ -89,7 +90,10 @@ fn env(k: &str) -> Option<String> {
 fn storage_options() -> Option<HashMap<String, String>> {
     let mut o = HashMap::new();
     o.insert("aws_access_key_id".into(), env("AWS_ACCESS_KEY_ID")?);
-    o.insert("aws_secret_access_key".into(), env("AWS_SECRET_ACCESS_KEY")?);
+    o.insert(
+        "aws_secret_access_key".into(),
+        env("AWS_SECRET_ACCESS_KEY")?,
+    );
     o.insert("aws_endpoint".into(), env("AWS_ENDPOINT_URL")?);
     o.insert(
         "aws_region".into(),
@@ -99,6 +103,21 @@ fn storage_options() -> Option<HashMap<String, String>> {
     // the workspace's other S3 caller already assumes for this endpoint.
     o.insert("aws_virtual_hosted_style_request".into(), "false".into());
     Some(o)
+}
+
+/// Wrap the options in the shape lance 9 takes them.
+///
+/// `ObjectStoreParams` has **no** `storage_options` field — it carries a
+/// `storage_options_accessor`, because the accessor is also the seam for
+/// credential *refresh*. `with_static_options` is the no-refresh case, which is
+/// what a probe against fixed environment credentials wants.
+fn store_params(opts: &HashMap<String, String>) -> ObjectStoreParams {
+    ObjectStoreParams {
+        storage_options_accessor: Some(Arc::new(StorageOptionsAccessor::with_static_options(
+            opts.clone(),
+        ))),
+        ..Default::default()
+    }
 }
 
 fn schema() -> Arc<Schema> {
@@ -243,7 +262,10 @@ async fn main() {
     let bucket = env("AWS_S3_BUCKET_NAME").expect("bucket");
     let prefix = format!("OSM/_hydration_probe_{}", std::process::id());
 
-    println!("── (2)+(3) HYDRATION — the real endpoint, {} sizes", SIZES.len());
+    println!(
+        "── (2)+(3) HYDRATION — the real endpoint, {} sizes",
+        SIZES.len()
+    );
     println!(
         "{:>10}  {:>8}  {:>7}  {:>12}  {:>13}  {:>12}  {:>10}",
         "rows", "MB", "files", "upload (s)", "hydrate (s)", "MB/s", "roundtrip"
@@ -269,10 +291,7 @@ async fn main() {
             &remote,
             Some(WriteParams {
                 mode: WriteMode::Create,
-                store_params: Some(lance::io::ObjectStoreParams {
-                    storage_options: Some(opts.clone()),
-                    ..Default::default()
-                }),
+                store_params: Some(store_params(&opts)),
                 ..Default::default()
             }),
         )
@@ -289,15 +308,16 @@ async fn main() {
         // Hydrate into a FRESH directory — the `absent -> hydrated` edge.
         let hydrated = tmp.join(format!("hydrated_{rows}.lance"));
         let t = Instant::now();
-        let remote_ds = lance::dataset::DatasetBuilder::from_uri(&remote)
+        let remote_ds = lance::dataset::builder::DatasetBuilder::from_uri(&remote)
             .with_storage_options(opts.clone())
             .load()
             .await
             .expect("open remote");
-        let mut stream = {
-            use futures::TryStreamExt;
-            remote_ds.scan().try_into_stream().await.expect("scan remote")
-        };
+        let mut stream = remote_ds
+            .scan()
+            .try_into_stream()
+            .await
+            .expect("scan remote");
         let mut batches = Vec::new();
         {
             use futures::TryStreamExt;
