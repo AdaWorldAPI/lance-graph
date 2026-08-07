@@ -116,6 +116,27 @@ pub struct BakeEntry {
     /// routing value into it. So a config carrying `…0000` is declaring the
     /// slot unset, not declaring it meaningless.
     ///
+    /// # The addressing model, and the one place the CSS analogy breaks
+    ///
+    /// Low half + field mask compose into **screen-region addressing**, in
+    /// the CSS sense: the low half selects the `ClassView` (the per-app
+    /// template/skin) the way a selector picks an element, and the
+    /// [`FieldMask`]/[`WideFieldMask`] selects which of that view's fields
+    /// are in play the way declarations pick properties. That is the whole
+    /// basis of a2ui-rs's "don't push pixels — address the screen": a
+    /// `NodeDelta` carries a 16-byte key plus mask words, never a rendered
+    /// region.
+    ///
+    /// **Where the analogy must not be followed:** a field mask is
+    /// *presence, never semantics* (`class_view.rs` C2). `has(n)` answers
+    /// "is field n populated here" — it must NEVER gate "field n means
+    /// something different here." CSS's cascade does change which rule
+    /// wins; a mask never changes what a field means. Read the analogy for
+    /// addressing only.
+    ///
+    /// [`FieldMask`]: lance_graph_contract::class_view::FieldMask
+    /// [`WideFieldMask`]: lance_graph_contract::class_view::WideFieldMask
+    ///
     /// [`parse`] validates only that this is `0x`-prefixed hex fitting u32.
     /// It deliberately does **not** police the halves: a zero canon is a
     /// legal dormant state under the zero-fallback ladder, and pre-flip
