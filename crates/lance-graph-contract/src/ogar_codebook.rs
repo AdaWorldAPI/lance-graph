@@ -86,7 +86,16 @@ pub enum ConceptDomain {
     /// (OGAR canon "256×256 centroid tile", D-BOTHCASC). Mirrors OGAR
     /// `ogar_vocab::ConceptDomain::Geo`; the parity tests pin `0x0F00 → Geo`.
     Geo,
-    /// Any high-byte slot not yet assigned a domain (`0x03XX`–`0x06XX`, `0x10XX`+).
+    /// `0x17XX` — Blocks (visual block-programming: the schema concepts a
+    /// stored block node is addressed by — `block_function` /
+    /// `block_inventory` — consumed by blockly-rs / scratch-rs). The opcode
+    /// palette is deliberately NOT here: an opcode is a byte inside a function
+    /// body resolved through `ogar-loco`'s vocabulary table, never a classid.
+    /// Mirrors OGAR `ogar_vocab::ConceptDomain::Blocks`; the parity tests pin
+    /// `0x1700 → Blocks`.
+    Blocks,
+    /// Any high-byte slot not yet assigned a domain (`0x03XX`–`0x06XX`,
+    /// `0x10XX`–`0x16XX`, `0x18XX`+).
     Unassigned,
 }
 
@@ -109,6 +118,7 @@ pub fn canonical_concept_domain(id: u16) -> ConceptDomain {
         0x0D => ConceptDomain::HR,
         0x0E => ConceptDomain::Genetics,
         0x0F => ConceptDomain::Geo,
+        0x17 => ConceptDomain::Blocks,
         _ => ConceptDomain::Unassigned,
     }
 }
@@ -575,6 +585,13 @@ pub const CODEBOOK: &[(&str, u16)] = &[
     ("osm_note", 0x0F08),
     ("osm_gpx_trace", 0x0F09),
     ("osm_user", 0x0F0A),
+    // ── 0x17XX — Blocks (visual block-programming schema concepts) ──
+    // The two classids a stored block node is addressed BY. NOT the opcode
+    // palette (256 Blockly/Scratch operation bytes) — those stay `FnIndex`
+    // bytes inside a function body, resolved through `ogar-loco`'s vocabulary
+    // table, and are deliberately withheld from this codebook.
+    ("block_function", 0x1701),
+    ("block_inventory", 0x1702),
 ];
 
 /// Resolve a **canonical-concept** string to its stable `u16` codebook id via

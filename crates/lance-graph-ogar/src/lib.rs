@@ -146,6 +146,7 @@ pub mod parity {
                 | (O::HR, C::HR)
                 | (O::Genetics, C::Genetics)
                 | (O::Geo, C::Geo)
+                | (O::Blocks, C::Blocks)
                 | (O::Unassigned, C::Unassigned)
         )
     }
