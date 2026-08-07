@@ -106,22 +106,31 @@ bakes:
                                # concept 0xDDCC, domain in the top byte, so
                                # classids sort/prefix-search by hierarchy.
                                #
-                               # The LOW half is NOT padding — it carries the
-                               # app/render half: ClassView + WideFieldMask
-                               # ergonomics and slot-schema switching.
-                               # "0x0000" means "no app skin" — one legal
-                               # value among many, and a slot a consumer
-                               # FILLS (e.g. a session writing an ontology
-                               # routing value there). A config carrying
-                               # ...0000 declares the slot UNSET, not
-                               # meaningless.
+                               # The LOW half is NOT padding — it is a slot a
+                               # DOMAIN-SPECIFIC CONSUMER fills, and what
+                               # filling it means depends on which consumer is
+                               # reading it, not on this file or this parser.
+                               # The same bit pattern means different things
+                               # in different domains: in the ontology/concept
+                               # domain, 0xFFFF is a defined sentinel
+                               # (ogar_codebook::canonical_concept_domain
+                               # resolves it to Unassigned); in MedCare-rs's
+                               # list-view rendering (the Redmine QueryColumn
+                               # pattern), the low half instead selects a
+                               # ClassView template and a field mask picks
+                               # which columns show — a reading local to that
+                               # ONE rendering pattern, not a general truth
+                               # about classids. Classes are not only for
+                               # display — routing, storage, RBAC, and action
+                               # dispatch are classid consumers too, each free
+                               # to read the low half differently, or not at
+                               # all. Ask the consuming domain, not this file.
                                #
                                # The parser checks only that this is
                                # 0x-prefixed hex fitting u32. It deliberately
-                               # does NOT police the halves — a zero canon is
-                               # a legal dormant state (zero-fallback ladder)
-                               # and pre-flip forms are read via
-                               # classid_canon_compat.
+                               # does NOT police, consult, or assign meaning
+                               # to either half; pre-flip stored forms are
+                               # left for classid_canon_compat to read.
                                # (An earlier draft of this file used 0x0D01
                                # for an "ontology" bake. 0x0D01 is real — it
                                # is `hr_employee` in the HR domain. That is
