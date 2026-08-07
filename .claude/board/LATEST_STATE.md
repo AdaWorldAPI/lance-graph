@@ -22,7 +22,7 @@
     into "the other ontology disagrees" — the opposite finding from the same
     data. Measured, not preferred: on a real cross-ontology comparison the
     sources that both spoke agreed 1,730 : 3 (99.8 %) while 1,693 were silent;
-    folding silence into dissent reports ~51 %. Both numbers are computed in
+    folding silence into dissent reports 50.5 %. Both numbers are computed in
     `the_measured_cross_ontology_case_reads_as_agreement` so the difference is
     visible rather than asserted.
   - Zero-dep and factfinder-agnostic: names no ontology, no vocabulary and no

@@ -38,9 +38,11 @@
 //! lets `silent` affect **confidence only through what it is not** — it never
 //! pushes frequency down.
 //!
-//! This is not a modelling preference. It was measured: on a real cross-ontology
-//! comparison, reading silence as dissent reported ~50 % disagreement where the
-//! sources that actually both spoke agreed 99.8 % of the time.
+//! This is not a modelling preference. It was measured. On a real
+//! cross-ontology comparison the sources that actually both spoke agreed
+//! **99.8 %** of the time (1,730 : 3), while 1,693 comparisons were silent.
+//! Folding that silence into the dissent bucket reports **50.5 %** — a coin
+//! flip — from identical data.
 //!
 //! # Zero-dep, and knows no factfinder
 //!
@@ -85,9 +87,17 @@ impl Quorum {
 
     /// How many sources actually asserted something. **Silence is excluded** —
     /// it is the denominator's job to count opinions, not participants.
+    ///
+    /// Returns `u32` rather than `u16` on purpose. Both counts are public and
+    /// each can reach `u16::MAX`, so a `u16` sum saturates — and a saturating
+    /// denominator with an exact numerator makes frequency too HIGH, which
+    /// `NarsTruth::new` then clamps to `1.0`. That is a silent inflation of
+    /// agreement in the one module written to prevent exactly that, so the
+    /// widening is a correctness fix and not a capacity nicety. The fields stay
+    /// `u16`; only the accumulator widens, so no layout changes.
     #[must_use]
-    pub const fn speaking(self) -> u16 {
-        self.corroborating.saturating_add(self.conflicting)
+    pub const fn speaking(self) -> u32 {
+        self.corroborating as u32 + self.conflicting as u32
     }
 
     /// Whether any source spoke at all. `false` means the warrant is a prior
@@ -108,12 +118,24 @@ impl Quorum {
     /// With nothing speaking this returns [`NarsTruth::prior`] — a weak prior,
     /// not agreement. [`Self::has_evidence`] is how a caller tells the two
     /// apart, because `expectation()` alone cannot.
+    ///
+    /// # Confidence saturates at 99 speakers, by the carrier's design
+    ///
+    /// [`NarsTruth::new`] clamps confidence to `0.99`, because NARS confidence
+    /// is strictly below certainty — evidence never finishes arriving. Since
+    /// `n / (n + 1)` reaches `0.99` at `n = 99`, **every quorum of 99 or more
+    /// speakers receives the same confidence.** That is the carrier's invariant
+    /// and not something to work around here; a caller that needs to rank
+    /// bodies of evidence beyond that point reads [`Self::speaking`], which is
+    /// exact and unclamped. Stated rather than left to be discovered, because
+    /// the `n / (n + 1)` formula above would otherwise imply a discrimination
+    /// the return type cannot deliver.
     #[must_use]
     pub fn warrant(self) -> NarsTruth {
-        let speaking = f32::from(self.speaking());
-        if speaking == 0.0 {
+        if !self.has_evidence() {
             return NarsTruth::prior();
         }
+        let speaking = self.speaking() as f32;
         let frequency = f32::from(self.corroborating) / speaking;
         let evidence = speaking * EVIDENCE_PER_SOURCE;
         let confidence = evidence / (evidence + 1.0);
@@ -241,9 +263,51 @@ mod tests {
         assert!((q.warrant().frequency - 0.5).abs() < 1e-6);
     }
 
+    /// **The boundary case that the `u16` accumulator got wrong.**
+    ///
+    /// Both counts are public and each can reach `u16::MAX`. A `u16` sum
+    /// saturates, and a saturating denominator against an exact numerator makes
+    /// frequency too HIGH — `NarsTruth::new` then clamps it to `1.0`, so the
+    /// distortion is silent. In this module that is the worst possible failure
+    /// direction: it inflates agreement, which is the one thing the whole
+    /// design exists to prevent. Caught in review, fixed by widening the
+    /// accumulator to `u32`; this test is what keeps it fixed.
+    #[test]
+    fn a_saturating_accumulator_would_inflate_agreement() {
+        let q = Quorum::new(u16::MAX, 0, u16::MAX);
+        assert_eq!(q.speaking(), 131_070, "the full total, not a u16 clamp");
+        let w = q.warrant();
+        assert!(
+            (w.frequency - 0.5).abs() < 1e-6,
+            "an even split must read as 0.5, not 1.0 — got {}",
+            w.frequency
+        );
+    }
+
+    /// Confidence saturates at 99 speakers because the carrier clamps at 0.99,
+    /// and the doc says so. Asserted rather than left implicit: the `n / (n+1)`
+    /// formula reads as if it discriminated forever, and it does not.
+    /// `speaking()` stays exact and unclamped for callers that need to rank
+    /// past that point.
+    #[test]
+    fn confidence_saturates_but_the_speaker_count_does_not() {
+        let a = Quorum::new(99, 0, 0).warrant();
+        let b = Quorum::new(10_000, 0, 0).warrant();
+        assert!(
+            (a.confidence - b.confidence).abs() < 1e-6,
+            "both clamp to 0.99"
+        );
+        assert!(a.confidence <= 0.99);
+        assert_eq!(
+            Quorum::new(10_000, 0, 0).speaking(),
+            10_000,
+            "the count is exact"
+        );
+    }
+
     /// **The measured scenario, as a regression.** On the real comparison the
     /// sources that both spoke agreed 1,730 : 3, while 1,693 were silent.
-    /// Reading silence as dissent would report ~50 % agreement; reading it as
+    /// Reading silence as dissent would report 50.5 % agreement; reading it as
     /// abstention reports 99.8 %. Both numbers are computed here so the
     /// difference is visible rather than asserted.
     #[test]
