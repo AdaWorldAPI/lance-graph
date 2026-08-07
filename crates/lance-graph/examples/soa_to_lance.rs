@@ -32,17 +32,39 @@
 //! before casting anything — the same shape as `SoaEnvelope::verify_layout`.
 //! This binary performs that verification itself, by re-opening what it wrote.
 //!
-//! # The row column is written UNCOMPRESSED, deliberately
+//! # The row column lands UNCOMPRESSED — because of the STRIDE, not the metadata
 //!
-//! Field metadata `lance-encoding:compression = "none"` (the key is
-//! `lance_encoding::constants::COMPRESSION_META_KEY`; the value `"none"` is a
-//! documented passthrough). The row is a content-blind register — compression
-//! would buy little — and an uncompressed fixed-width column is written as a
-//! verbatim byte run inside the `.lance` data file, which is what makes the
-//! mmap serving path (pattern b) possible at all. **Claimed, then verified**:
-//! for a local `uri`, this binary scans the written data file for the slab's
-//! own bytes and reports the offset and whether a multi-row run is contiguous
-//! (P-CACHE-4 in `.claude/knowledge/lance-cache-surface.md`).
+//! An earlier version of this doc credited the field metadata
+//! `lance-encoding:compression = "none"` with keeping the column verbatim. That
+//! was **measured false** and is corrected here rather than quietly deleted:
+//! removing the key leaves the file byte-identical, and so does setting it to
+//! `"zstd"`. The key is spelled correctly and IS parsed
+//! (`lance-encoding-9.0.0` `compression.rs:576`) — it just cannot reach a
+//! 512-byte column.
+//!
+//! The actual mechanism, read from lance 9 source:
+//!
+//! - `is_narrow` (`encodings/logical/primitive.rs:3861`) calls a value narrow
+//!   below `MINIBLOCK_MAX_BYTE_LENGTH_PER_VALUE = 256`. `NODE_ROW_STRIDE` is
+//!   512, so the column is NOT narrow → **full-zip**, not mini-block.
+//! - Full-zip's `create_per_value` returns `ValueEncoder::default()`
+//!   unconditionally for `DataBlock::FixedWidth` (`compression.rs:753`); it
+//!   computes the merged field params one line earlier and ignores them there.
+//! - The only branch that honours the metadata is
+//!   `build_fixed_width_compressor` (`compression.rs:624`) — mini-block only.
+//!
+//! So the canonical 512-byte stride is what buys the verbatim run, and that is
+//! the load-bearing fact for the mmap serving path (pattern b). The metadata
+//! line below is KEPT as a defensive pin — if that threshold ever rose above
+//! 512 the mini-block path would read it and would still refuse compression —
+//! but it is a backstop, not the cause.
+//!
+//! Both halves are pinned in `tests/soa_verbatim.rs`: the physical-layout
+//! assertion, and `the_narrow_column_falsifier`, which proves the byte search
+//! can actually SEE compression (at a 64-byte stride the metadata IS honoured
+//! and `zstd` makes the rows vanish). This binary additionally reports the
+//! measured offset and contiguity for a local `uri` (P-CACHE-4 in
+//! `.claude/knowledge/lance-cache-surface.md`).
 //!
 //! # Zero-copy import
 //!
@@ -54,7 +76,7 @@
 use std::collections::HashMap;
 use std::sync::Arc;
 
-use arrow::array::{Array, FixedSizeBinaryArray};
+use arrow::array::FixedSizeBinaryArray;
 use arrow::datatypes::{DataType, Field, Schema};
 use arrow::record_batch::RecordBatch;
 use lance::dataset::{Dataset, WriteMode, WriteParams};
@@ -84,7 +106,10 @@ fn env(k: &str) -> Option<String> {
 fn s3_options() -> Option<HashMap<String, String>> {
     let mut o = HashMap::new();
     o.insert("aws_access_key_id".into(), env("AWS_ACCESS_KEY_ID")?);
-    o.insert("aws_secret_access_key".into(), env("AWS_SECRET_ACCESS_KEY")?);
+    o.insert(
+        "aws_secret_access_key".into(),
+        env("AWS_SECRET_ACCESS_KEY")?,
+    );
     o.insert("aws_endpoint".into(), env("AWS_ENDPOINT_URL")?);
     o.insert(
         "aws_region".into(),
@@ -134,8 +159,11 @@ async fn main() {
     )
     .with_metadata(HashMap::from([(
         // lance_encoding::constants::COMPRESSION_META_KEY — restated here only
-        // because lance-encoding is not a direct dep of this crate; the value
-        // "none" is the documented passthrough.
+        // because lance-encoding is not a direct dep of this crate. INERT at
+        // this stride (512 ≥ the 256-byte mini-block cutoff ⇒ full-zip ⇒ the
+        // metadata is never consulted); kept as a backstop should that cutoff
+        // ever move. See the module doc — this line is NOT what makes the
+        // column verbatim.
         "lance-encoding:compression".to_string(),
         "none".to_string(),
     )]));
@@ -202,12 +230,22 @@ async fn main() {
         read_layout, ENVELOPE_LAYOUT_VERSION,
         "the persisted contract must match the COMPILED contract"
     );
-    let read_stride: usize = meta.get(K_STRIDE).expect("stride").parse().expect("numeric");
+    let read_stride: usize = meta
+        .get(K_STRIDE)
+        .expect("stride")
+        .parse()
+        .expect("numeric");
     assert_eq!(read_stride, NODE_ROW_STRIDE);
-    assert_eq!(meta.get(K_DIGEST).map(String::as_str), Some(digest.as_str()));
+    assert_eq!(
+        meta.get(K_DIGEST).map(String::as_str),
+        Some(digest.as_str())
+    );
 
     println!("wrote  {dest}");
-    println!("rows   {rows}  ({:.2} GiB)  in {wrote_s:.1}s", (rows * NODE_ROW_STRIDE) as f64 / (1u64 << 30) as f64);
+    println!(
+        "rows   {rows}  ({:.2} GiB)  in {wrote_s:.1}s",
+        (rows * NODE_ROW_STRIDE) as f64 / (1u64 << 30) as f64
+    );
     println!("header verified: layout v{read_layout}, stride {read_stride}, classid {classid}, digest {digest}");
     println!("fragments: {}", ds.get_fragments().len());
 
@@ -227,7 +265,7 @@ async fn main() {
                 .position(|w| w == &probe[..NODE_ROW_STRIDE])
             {
                 let run = probe.len().min(file.len() - off);
-                let contiguous = &file[off..off + run] == &probe[..run];
+                let contiguous = file[off..off + run] == probe[..run];
                 println!(
                     "P-CACHE-4: data file {} — row 0 found at offset {off}; first {run} bytes {}",
                     p.file_name().unwrap().to_string_lossy(),

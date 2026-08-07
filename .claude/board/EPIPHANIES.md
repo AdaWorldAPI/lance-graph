@@ -1,4 +1,41 @@
-## 2026-08-07 — E-HYDRATION-IS-FIXED-COST-NOT-SIZE-COST-1 — the idle-flush plan's §4 blocker closes, and the argument it used against size-weighted eviction is refuted by the same probe
+## 2026-08-07
+
+### E-COMPRESSION-META-INERT-AT-512-STRIDE-1
+
+`soa_to_lance.rs`'s `lance-encoding:compression = "none"` field metadata was
+documented as load-bearing for the verbatim-write deployment pattern. **Measured
+false**: removing the key, or setting it to `"zstd"`, leaves the file
+byte-identical. The key is spelled correctly and IS parsed
+(`lance-encoding-9.0.0` `compression.rs:576`) — it simply never reaches a
+512-byte column.
+
+Root cause, read from lance 9 source: `is_narrow`
+(`encodings/logical/primitive.rs:3861`) calls a value narrow below
+`MINIBLOCK_MAX_BYTE_LENGTH_PER_VALUE = 256`. `NODE_ROW_STRIDE = 512` is not
+narrow, so the column takes **full-zip**, whose `create_per_value` returns
+`ValueEncoder::default()` unconditionally for `FixedWidth` data
+(`compression.rs:753`) — the merged field params are computed one line earlier
+and then ignored. Only the **mini-block** path
+(`build_fixed_width_compressor`, `compression.rs:624`) honours the metadata,
+and a 512-byte value never reaches it.
+
+So the canonical stride, not the metadata, is what buys the verbatim mmap
+premise. `crates/lance-graph/tests/soa_verbatim.rs::the_narrow_column_falsifier`
+proves the byte search can actually detect compression (at a 64-byte control
+stride, `"none"` keeps rows verbatim and `"zstd"` makes them vanish — both
+measured on the same shape). Both docs (`soa_to_lance.rs`, `soa_verbatim.rs`)
+corrected in place, crediting the stride and demoting the metadata line to a
+documented backstop.
+
+`crates/lance-graph/tests/soa_verbatim.rs` also gained
+`a_slab_is_written_verbatim_to_s3_too` — the same physical-layout assertion run
+against the real S3-compatible object store this session has credentials for
+(`AWS_S3_BUCKET_NAME` + the standard `AWS_*` vars — the same variable names
+Railway deployments already set, no new key invented), proving the local
+finding also holds through the object-store write/read path, not only on a
+local filesystem.
+
+ — E-HYDRATION-IS-FIXED-COST-NOT-SIZE-COST-1 — the idle-flush plan's §4 blocker closes, and the argument it used against size-weighted eviction is refuted by the same probe
 
 **Status:** FINDING (measured, `crates/lance-graph/examples/hydration_probe.rs`, lance 9.0.0, one endpoint, one day, 0.3–33.5 MB single-fragment datasets). **Confidence:** High for the §4 gate (flat in size, 25–30×, and the fallback path is independently cheap); High for the fixed/variable decomposition within the probed range; **Low for the absolute constants** — endpoint-, region- and day-specific, explicitly not re-run elsewhere.
 
