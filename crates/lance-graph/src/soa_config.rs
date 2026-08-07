@@ -111,22 +111,23 @@ pub struct BakeEntry {
     ///
     /// The LOW half is not padding — it is a slot a *domain-specific
     /// consumer* fills, and what filling it means is decided by whichever
-    /// consumer is reading it, not by this crate. The same bit pattern
-    /// means different things in different domains; do not generalise one
-    /// domain's reading to "what the low half means":
+    /// consumer is reading it, not by this crate, and not by any single
+    /// global registry. Contrast with the HIGH half: `0xFFFF` there is
+    /// registered once, for everyone — `classid_canon` extracts it and
+    /// `ogar_codebook::canonical_concept_domain(0xFFFF)` resolves it to
+    /// `Unassigned` ("outside the codebook") for ANY classid whose canon
+    /// half is `0xFFFF` (e.g. `0xFFFF_0000`). Nothing gives the LOW half
+    /// that kind of universal reading:
     ///
-    /// - In the ontology/concept domain, `0xFFFF` is a defined sentinel —
-    ///   `ogar_codebook::canonical_concept_domain(0xFFFF)` resolves to
-    ///   `Unassigned` ("outside the codebook").
     /// - In MedCare-rs's list-view rendering (`views/fieldview.rs`, the
-    ///   Redmine `QueryColumn` pattern), the low half instead selects a
-    ///   `ClassView` template and [`FieldMask`]/[`WideFieldMask`] picks
-    ///   which of that view's columns are shown — a "screen-region
-    ///   addressing" reading that is local to that one rendering pattern,
-    ///   not a property of classids or `ClassView` in general. Classes are
-    ///   not only for display — routing, storage, RBAC, and action dispatch
-    ///   are all classid consumers too, each free to read the low half
-    ///   differently, or not at all.
+    ///   Redmine `QueryColumn` pattern), the low half selects a `ClassView`
+    ///   template and [`FieldMask`]/[`WideFieldMask`] picks which of that
+    ///   view's columns are shown — a "screen-region addressing" reading
+    ///   local to that one rendering pattern.
+    /// - Nothing says a different consumer must read it the same way.
+    ///   Classes are not only for display — routing, storage, RBAC, and
+    ///   action dispatch are all classid consumers too, each free to read
+    ///   the low half differently, or not at all.
     ///
     /// **This parser makes no such interpretation.** [`parse`] validates
     /// only that this is `0x`-prefixed hex fitting u32 — the width the

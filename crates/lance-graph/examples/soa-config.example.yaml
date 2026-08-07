@@ -109,22 +109,24 @@ bakes:
                                # The LOW half is NOT padding — it is a slot a
                                # DOMAIN-SPECIFIC CONSUMER fills, and what
                                # filling it means depends on which consumer is
-                               # reading it, not on this file or this parser.
-                               # The same bit pattern means different things
-                               # in different domains: in the ontology/concept
-                               # domain, 0xFFFF is a defined sentinel
-                               # (ogar_codebook::canonical_concept_domain
-                               # resolves it to Unassigned); in MedCare-rs's
-                               # list-view rendering (the Redmine QueryColumn
-                               # pattern), the low half instead selects a
-                               # ClassView template and a field mask picks
-                               # which columns show — a reading local to that
-                               # ONE rendering pattern, not a general truth
-                               # about classids. Classes are not only for
-                               # display — routing, storage, RBAC, and action
-                               # dispatch are classid consumers too, each free
-                               # to read the low half differently, or not at
-                               # all. Ask the consuming domain, not this file.
+                               # reading it, not on this file, not on any
+                               # single global registry. Contrast the HIGH
+                               # half: 0xFFFF there is registered once, for
+                               # everyone (classid_canon extracts it,
+                               # ogar_codebook::canonical_concept_domain
+                               # resolves it to Unassigned for ANY classid
+                               # whose canon half is 0xFFFF). Nothing gives
+                               # the LOW half that kind of universal reading —
+                               # in MedCare-rs's list-view rendering (the
+                               # Redmine QueryColumn pattern), the low half
+                               # instead selects a ClassView template and a
+                               # field mask picks which columns show, a
+                               # reading local to that ONE rendering pattern.
+                               # Classes are not only for display — routing,
+                               # storage, RBAC, and action dispatch are
+                               # classid consumers too, each free to read the
+                               # low half differently, or not at all. Ask the
+                               # consuming domain, not this file.
                                #
                                # The parser checks only that this is
                                # 0x-prefixed hex fitting u32. It deliberately
