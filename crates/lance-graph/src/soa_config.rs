@@ -109,40 +109,38 @@ pub struct BakeEntry {
     /// most-significant byte, which is what makes classids sort and
     /// prefix-search hierarchically. **Read the left bytes to route.**
     ///
-    /// The LOW half is not padding: it carries the app/render half —
-    /// `ClassView` + `WideFieldMask` ergonomics and slot-schema switching.
-    /// `0x0000` there means "no app skin", one legal value among many, and
-    /// it is a slot a consumer FILLS — e.g. a session writing an ontology
-    /// routing value into it. So a config carrying `…0000` is declaring the
-    /// slot unset, not declaring it meaningless.
+    /// The LOW half is not padding — it is a slot a *domain-specific
+    /// consumer* fills, and what filling it means is decided by whichever
+    /// consumer is reading it, not by this crate, and not by any single
+    /// global registry. Contrast with the HIGH half: `0xFFFF` there is
+    /// registered once, for everyone — `classid_canon` extracts it and
+    /// `ogar_codebook::canonical_concept_domain(0xFFFF)` resolves it to
+    /// `Unassigned` ("outside the codebook") for ANY classid whose canon
+    /// half is `0xFFFF` (e.g. `0xFFFF_0000`). Nothing gives the LOW half
+    /// that kind of universal reading:
     ///
-    /// # The addressing model, and the one place the CSS analogy breaks
+    /// - In MedCare-rs's list-view rendering (`views/fieldview.rs`, the
+    ///   Redmine `QueryColumn` pattern), the low half selects a `ClassView`
+    ///   template and [`FieldMask`]/[`WideFieldMask`] picks which of that
+    ///   view's columns are shown — a "screen-region addressing" reading
+    ///   local to that one rendering pattern.
+    /// - Nothing says a different consumer must read it the same way.
+    ///   Classes are not only for display — routing, storage, RBAC, and
+    ///   action dispatch are all classid consumers too, each free to read
+    ///   the low half differently, or not at all.
     ///
-    /// Low half + field mask compose into **screen-region addressing**, in
-    /// the CSS sense: the low half selects the `ClassView` (the per-app
-    /// template/skin) the way a selector picks an element, and the
-    /// [`FieldMask`]/[`WideFieldMask`] selects which of that view's fields
-    /// are in play the way declarations pick properties. That is the whole
-    /// basis of a2ui-rs's "don't push pixels — address the screen": a
-    /// `NodeDelta` carries a 16-byte key plus mask words, never a rendered
-    /// region.
-    ///
-    /// **Where the analogy must not be followed:** a field mask is
-    /// *presence, never semantics* (`class_view.rs` C2). `has(n)` answers
-    /// "is field n populated here" — it must NEVER gate "field n means
-    /// something different here." CSS's cascade does change which rule
-    /// wins; a mask never changes what a field means. Read the analogy for
-    /// addressing only.
+    /// **This parser makes no such interpretation.** [`parse`] validates
+    /// only that this is `0x`-prefixed hex fitting u32 — the width the
+    /// canonical node key's classid field reserves. It does not police,
+    /// consult, or assign meaning to either half: a zero canon is accepted
+    /// (a domain consumer may legitimately treat it as dormant/unset — this
+    /// parser neither enforces nor relies on that reading), and pre-flip
+    /// stored forms are left for `classid_canon_compat` to read. Use
+    /// [`BakeEntry::classid_u32`] to read the value; ask the consuming
+    /// domain, not this doc comment, what either half means there.
     ///
     /// [`FieldMask`]: lance_graph_contract::class_view::FieldMask
     /// [`WideFieldMask`]: lance_graph_contract::class_view::WideFieldMask
-    ///
-    /// [`parse`] validates only that this is `0x`-prefixed hex fitting u32.
-    /// It deliberately does **not** police the halves: a zero canon is a
-    /// legal dormant state under the zero-fallback ladder, and pre-flip
-    /// stored forms are legitimately read via `classid_canon_compat`. Use
-    /// [`BakeEntry::classid_u32`] to read the value and the codebook's own
-    /// accessors to split it.
     pub classid: String,
     /// Digest of the bake's slab, when the deployment pins one. Absent
     /// means "trust whatever is at `table` right now".
@@ -285,12 +283,13 @@ pub fn parse(yaml: &str) -> Result<SoaConfig, ConfigError> {
         }
 
         // Structural only: it must be 0x-prefixed hex that fits the u32 the
-        // canonical node key reserves for it. NO semantic check on the halves
-        // — a zero canon is a legal dormant/bootstrap state under the
-        // zero-fallback ladder (CLAUDE.md: a zero tier is "not consulted",
-        // never an error), and pre-flip stored forms are legitimately read by
-        // `classid_canon_compat`. Rejecting either here would refuse valid
-        // configs on an inference about intent this parser has no basis for.
+        // canonical node key reserves for it. NO semantic check on the
+        // halves — what either half means is decided by whichever
+        // domain-specific consumer reads it (see the field doc comment on
+        // `BakeEntry::classid`), not by this parser, and this parser makes
+        // no claim about how any consumer treats a zero half. Rejecting
+        // either here would refuse valid configs on an inference about
+        // intent this parser has no basis for.
         parse_classid_hex(&bake.classid)
             .ok_or_else(|| ConfigError::BadClassid(bake.classid.clone()))?;
     }
