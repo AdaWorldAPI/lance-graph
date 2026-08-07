@@ -2,6 +2,33 @@
 
 ### Current Contract Inventory — new module (lance-graph-contract)
 
+- `lance_graph_contract::ontology_warrant` — **grading a factfinder's ungraded
+  verdict, without letting the grade leak back into the fact.** A factfinder
+  (OGAR `ogar-elk` + siblings) answers exactly: entailed or not. That is rung 1
+  and must stay exact. What IS graded is a different question — how well
+  warranted a claim is given how many independent sources speak to it — and it
+  is computed OVER facts, never replacing them. The two rungs are kept apart
+  structurally: there is deliberately **no** method turning a `NarsTruth` back
+  into an entailment.
+  - `Quorum { corroborating, silent, conflicting }` — counts, not sources. The
+    type cannot name who said what; provenance stays with the factfinder.
+  - `Quorum::warrant() -> NarsTruth` — frequency is the share of *speaking*
+    sources that corroborate; confidence grows with how many spoke.
+  - `SourceVerdict { Corroborates, Silent, Conflicts }` — three variants, no
+    `Unknown`: a source not consulted is not a source.
+  - **The load-bearing rule: silence is abstention, not dissent.** A source with
+    no path between two classes has not denied the relation, it has said
+    nothing. Counting silence as dissent turns "the other ontology is sparser"
+    into "the other ontology disagrees" — the opposite finding from the same
+    data. Measured, not preferred: on a real cross-ontology comparison the
+    sources that both spoke agreed 1,730 : 3 (99.8 %) while 1,693 were silent;
+    folding silence into dissent reports ~51 %. Both numbers are computed in
+    `the_measured_cross_ontology_case_reads_as_agreement` so the difference is
+    visible rather than asserted.
+  - Zero-dep and factfinder-agnostic: names no ontology, no vocabulary and no
+    producer crate. Takes three counts, so any factfinder that can bucket its
+    comparisons can feed it and the contract crate stays dependency-free.
+
 - `lance_graph_contract::identity_quad` — the **4 x 24-bit identity tenant**. A row whose identity is asserted independently by four external identifier spaces (each in the 10^5-10^7 range) carries all four in ONE V3 facet payload, resolved once at bake time. Afterwards a read is a fixed-offset register read: no join, no crosswalk table consulted, no walk. The saving is not space, it is the disappearance of the read-time join.
   - `IdentityQuad` — `4 x u24` over the 12-byte payload, read/written **through `legacy_outliers::LegacyOutlier::WideTriple` (G2)**, not a parallel bit-math implementation. `from_slots` / `slots` / `slot` / `try_slot` / `with_slot` / `filled` / `into_facet` / `from_facet` (rides a real `FacetCascade`: classid in `0..4`, payload in `4..16`).
   - `IdentityCodebook` + `check_capacity` / `MAX_ENTRIES` — the bijective `key <-> ordinal` book. `try_new` **rejects** a non-injective key list (`CodebookError::DuplicateKey`) at construction, so a many-to-one mapping cannot exist to be discovered later; `verify_bijective()` is the explicit whole-book witness a bake runs. Overflow **refuses** rather than truncating, the same refuse-don't-widen discipline `codebook::Codebook` uses at its own 256-entry scale — and it is a **sibling of** that type, never a widening of it (a 10^6-entry space cannot be reached by splitting into 256-entry families without the split becoming the address).
