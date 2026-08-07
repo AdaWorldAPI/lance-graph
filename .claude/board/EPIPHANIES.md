@@ -1,3 +1,63 @@
+## 2026-08-07
+
+### E-COMPRESSION-META-INERT-AT-512-STRIDE-1
+
+`soa_to_lance.rs`'s `lance-encoding:compression = "none"` field metadata was
+documented as load-bearing for the verbatim-write deployment pattern. **Measured
+false**: removing the key, or setting it to `"zstd"`, leaves the file
+byte-identical. The key is spelled correctly and IS parsed
+(`lance-encoding-9.0.0` `compression.rs:576`) — it simply never reaches a
+512-byte column.
+
+Root cause, read from lance 9 source: `is_narrow`
+(`encodings/logical/primitive.rs:3861`) calls a value narrow below
+`MINIBLOCK_MAX_BYTE_LENGTH_PER_VALUE = 256`. `NODE_ROW_STRIDE = 512` is not
+narrow, so the column takes **full-zip**, whose `create_per_value` returns
+`ValueEncoder::default()` unconditionally for `FixedWidth` data
+(`compression.rs:753`) — the merged field params are computed one line earlier
+and then ignored. Only the **mini-block** path
+(`build_fixed_width_compressor`, `compression.rs:624`) honours the metadata,
+and a 512-byte value never reaches it.
+
+So the canonical stride, not the metadata, is what buys the verbatim mmap
+premise. `crates/lance-graph/tests/soa_verbatim.rs::the_narrow_column_falsifier`
+proves the byte search can actually detect compression (at a 64-byte control
+stride, `"none"` keeps rows verbatim and `"zstd"` makes them vanish — both
+measured on the same shape). Both docs (`soa_to_lance.rs`, `soa_verbatim.rs`)
+corrected in place, crediting the stride and demoting the metadata line to a
+documented backstop.
+
+`crates/lance-graph/tests/soa_verbatim.rs` also gained
+`a_slab_is_written_verbatim_to_s3_too` — the same physical-layout assertion run
+against the real S3-compatible object store this session has credentials for
+(`AWS_S3_BUCKET_NAME` + the standard `AWS_*` vars — the same variable names
+Railway deployments already set, no new key invented), proving the local
+finding also holds through the object-store write/read path, not only on a
+local filesystem.
+
+### E-HYDRATION-IS-FIXED-COST-NOT-SIZE-COST-1 — the idle-flush plan's §4 blocker closes, and the argument it used against size-weighted eviction is refuted by the same probe
+
+**Status:** FINDING (measured, `crates/lance-graph/examples/hydration_probe.rs`, lance 9.0.0, one endpoint, one day, 0.3–33.5 MB single-fragment datasets). **Confidence:** High for the §4 gate (flat in size, 25–30×, and the fallback path is independently cheap); High for the fixed/variable decomposition within the probed range; **Low for the absolute constants** — endpoint-, region- and day-specific, explicitly not re-run elsewhere.
+
+> **Correction (PR #907 review):** the phrase "the version read needs no open"
+> below overstates what was measured. `latest_version_id()` was timed on
+> `warm`, a `Dataset` handle already produced by one `Dataset::open` — the
+> probe measures the AMORTIZED per-candidate cost of a version check once a
+> handle is held, not a version read with no dataset-open lifecycle anywhere.
+> The gate conclusion is corrected to that lifecycle, below.
+
+**The blocker that closed.** `.claude/plans/idle-flush-dataset-eviction-v1.md` §9.1 named its own first task: *"cheap local version read — assumed, unchecked … if it fails, the plan needs a different dirty-detector and this document is wrong rather than incomplete."* Measured: on an already-open `Dataset` handle, `Dataset::latest_version_id()` resolves a manifest **location** (no manifest read, no data read) in **8–11 µs**, versus **0.23–0.29 ms** for a full `Dataset::open`. Both are **flat in dataset size** across a 100× span. The gate offered two ways to pass and **both hold** — one open amortized across many cheap version reads is far cheaper than re-opening per candidate, *and* even re-opening per candidate is cheap enough (1,000 candidates in 0.27 s) that the fallback would have sufficed anyway.
+
+**The correction nobody asked for, from the same run.** Hydration decomposes as **≈ 2.63 s fixed + ≈ 0.021 s/MB** (0.3 MB → 2.64 s; 33.5 MB → 3.33 s — a 100× size increase costs **1.26×** the time). So §2's deferred size-weighted ranking was declined for a reason that does not survive measurement: the plan argued *"rehydration cost is also proportional to size, so a size-weighted key preferentially evicts what is most expensive to get back."* In the probed range rehydration cost is **dominated by a size-independent constant**. Evicting the large dataset frees ~100× the bytes for ~1.26× the restore cost — the opposite of the stated objection.
+
+**What that does NOT license.** It removes one argument, not the decision. Age-ordering may still be the right default; the *reason recorded for it* is now known to be wrong, which is a different and smaller claim. The plan's grading was updated in both directions rather than promoted: §0's row now reads "CONJECTURE, and its stated ARGUMENT is refuted".
+
+**The transferable half — a cost model that prices the wrong term is worse than one that admits it is incomplete.** §1 of the plan was already honest that its economics omitted request count, and reviewers on PR #901 had sharpened it. But the omission that mattered was not a missing *term*; it was an assumed *shape*. Both sides of the plan's ledger were reasoned about as if proportional to bytes, so the whole argument silently tracked the wrong variable. With a fixed per-hydration cost, the quantity that decides the policy is **how many** hydrations it causes and never how large they are — which is exactly what §7's thrash criterion already counts. The plan gated on the right metric while justifying it with the wrong model, and only a measurement could tell those apart.
+
+**Also settled, cheaply:** T10 (flush → rehydrate → read equality) is **green** at all three sizes by full-scan `id` checksum — a row-count check would have passed a truncated hydration. And §1's unmeasured request count is **3 remote objects per dataset** here (`.txn` + `.manifest` + one data file), which bounds the small case; it grows with fragment count, which single-fragment writes do not exercise.
+
+**Scope, so the numbers are not over-read:** nothing was evicted, no policy was implemented, and none of the plan's other acceptance criteria ran. Companion tool: `lab/s3rm.py` — written because `s3put.py` could only write, so the probe had no way to remove its own scratch and would have left debris in a curated prefix.
+
 ## 2026-08-06 — E-D-IGN-B-CORPUS-PRODUCED-NOTHING-TO-READ-1 — arming a CI gate that ran zero tests exposed an empty-vs-empty digest collision; the corpus was the defect, the untagged digest was correct
 
 **Status:** FINDING (reproduced at `f9206fc`, fixed, both mutation directions verified). **Confidence:** High for the mechanism (the empty-hash constant was computed and matched; the pre-fix corpus was traced token-by-token through the clause machine and emits nothing); High for the fix (all four lens arms now measured non-empty, 4/4 distinct digests on one owner). Test-fixture only — `stance.rs` is untouched.

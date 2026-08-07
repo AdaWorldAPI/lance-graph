@@ -40,6 +40,7 @@ pub mod cam_pq;
 pub mod case_insensitive;
 pub mod config;
 pub mod datafusion_planner;
+pub mod dev_s3_env;
 pub mod error;
 pub mod graph;
 pub mod lance_native_planner;
