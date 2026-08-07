@@ -42,6 +42,12 @@ lancedb = { version = "=0.33.0", optional = true, default-features = false }
 nom = "7.1"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
+# Boot config ONLY (`soa_config`): the `.config/<repo>/config.yaml` a deployment
+# reads once at startup. Not a hot-path serialization surface — same category as
+# lance-graph-contract's build.rs manifest parse, which already pins this
+# version. Kept at 0.9 to match that sibling rather than introducing a second
+# YAML implementation into one workspace.
+serde_yaml = "0.9"
 bytes = "1"
 snafu = "0.8"
 deltalake = { version = "0.32", features = ["datafusion", "s3", "azure", "gcs"], optional = true }
