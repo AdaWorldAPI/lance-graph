@@ -17,6 +17,7 @@ pub mod mailbox_scan;
 pub mod metadata;
 pub mod neighborhood;
 pub mod neuron;
+pub mod ontology_hydrate;
 pub mod scheduler;
 pub mod semiring_map;
 pub mod sparse;
