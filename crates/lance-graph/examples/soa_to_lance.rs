@@ -81,6 +81,7 @@ use arrow::datatypes::{DataType, Field, Schema};
 use arrow::record_batch::RecordBatch;
 use lance::dataset::{Dataset, WriteMode, WriteParams};
 use lance::io::{ObjectStoreParams, StorageOptionsAccessor};
+use lance_graph::dev_s3_env::s3_options;
 use lance_graph_contract::canonical_node::NODE_ROW_STRIDE;
 use lance_graph_contract::soa_envelope::ENVELOPE_LAYOUT_VERSION;
 
@@ -96,36 +97,11 @@ const K_SOURCE: &str = "soa:source";
 
 const ROW_COLUMN: &str = "row";
 
-fn env(k: &str) -> Option<String> {
-    std::env::var(k)
-        .ok()
-        .map(|v| v.trim().trim_matches('"').trim_matches('\'').to_string())
-        .filter(|v| !v.is_empty())
-}
-
-fn s3_options() -> Option<HashMap<String, String>> {
-    let mut o = HashMap::new();
-    o.insert("aws_access_key_id".into(), env("AWS_ACCESS_KEY_ID")?);
-    o.insert(
-        "aws_secret_access_key".into(),
-        env("AWS_SECRET_ACCESS_KEY")?,
-    );
-    o.insert("aws_endpoint".into(), env("AWS_ENDPOINT_URL")?);
-    o.insert(
-        "aws_region".into(),
-        env("AWS_DEFAULT_REGION").unwrap_or_else(|| "auto".into()),
-    );
-    o.insert("aws_virtual_hosted_style_request".into(), "false".into());
-    Some(o)
-}
-
-fn store_params() -> Option<ObjectStoreParams> {
-    Some(ObjectStoreParams {
-        storage_options_accessor: Some(Arc::new(StorageOptionsAccessor::with_static_options(
-            s3_options()?,
-        ))),
+fn store_params_from(opts: HashMap<String, String>) -> ObjectStoreParams {
+    ObjectStoreParams {
+        storage_options_accessor: Some(Arc::new(StorageOptionsAccessor::with_static_options(opts))),
         ..Default::default()
-    })
+    }
 }
 
 #[tokio::main(flavor = "multi_thread")]
@@ -137,6 +113,25 @@ async fn main() {
     }
     let (slab_path, uri, table, classid, digest) = (&a[1], &a[2], &a[3], &a[4], &a[5]);
     let is_remote = uri.contains("://");
+
+    // Resolve S3 credentials ONCE, up front, and fail fast if the uri commits
+    // to remote but the environment doesn't back it up. Previously the write
+    // used `store_params()` (silently `None` on missing credentials, which
+    // hands the write to `object_store`'s own default discovery — a
+    // different, uncontrolled endpoint) while the re-open below used
+    // `s3_options().expect(...)`, which could then panic AFTER the dataset
+    // was already written to the wrong place.
+    let s3 = if is_remote {
+        Some(s3_options().unwrap_or_else(|| {
+            eprintln!(
+                "remote uri requires AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY, \
+                 and AWS_ENDPOINT_URL (AWS_DEFAULT_REGION optional)"
+            );
+            std::process::exit(2);
+        }))
+    } else {
+        None
+    };
 
     // ── read the slab; this Vec's allocation is the one Lance will serialize ──
     let bytes = std::fs::read(slab_path).expect("read slab");
@@ -172,7 +167,7 @@ async fn main() {
         (K_STRIDE.to_string(), NODE_ROW_STRIDE.to_string()),
         (
             K_CARVING.to_string(),
-            "key:0..16|edges:16..32|value:32..512".to_string(),
+            format!("key:0..16|edges:16..32|value:32..{NODE_ROW_STRIDE}"),
         ),
         (K_ENDIAN.to_string(), "le".to_string()),
         (K_CLASSID.to_string(), classid.clone()),
@@ -198,7 +193,7 @@ async fn main() {
     let dest = format!("{}/{}.lance", uri.trim_end_matches('/'), table);
     let params = WriteParams {
         mode: WriteMode::Create,
-        store_params: if is_remote { store_params() } else { None },
+        store_params: s3.clone().map(store_params_from),
         ..Default::default()
     };
     let t = std::time::Instant::now();
@@ -214,8 +209,8 @@ async fn main() {
     // ── verify: re-open what was written; the header must answer for itself ──
     let ds = {
         let mut b = lance::dataset::builder::DatasetBuilder::from_uri(&dest);
-        if is_remote {
-            b = b.with_storage_options(s3_options().expect("s3 opts"));
+        if let Some(opts) = s3.clone() {
+            b = b.with_storage_options(opts);
         }
         b.load().await.expect("re-open")
     };

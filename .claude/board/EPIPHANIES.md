@@ -35,11 +35,18 @@ Railway deployments already set, no new key invented), proving the local
 finding also holds through the object-store write/read path, not only on a
 local filesystem.
 
- — E-HYDRATION-IS-FIXED-COST-NOT-SIZE-COST-1 — the idle-flush plan's §4 blocker closes, and the argument it used against size-weighted eviction is refuted by the same probe
+### E-HYDRATION-IS-FIXED-COST-NOT-SIZE-COST-1 — the idle-flush plan's §4 blocker closes, and the argument it used against size-weighted eviction is refuted by the same probe
 
 **Status:** FINDING (measured, `crates/lance-graph/examples/hydration_probe.rs`, lance 9.0.0, one endpoint, one day, 0.3–33.5 MB single-fragment datasets). **Confidence:** High for the §4 gate (flat in size, 25–30×, and the fallback path is independently cheap); High for the fixed/variable decomposition within the probed range; **Low for the absolute constants** — endpoint-, region- and day-specific, explicitly not re-run elsewhere.
 
-**The blocker that closed.** `.claude/plans/idle-flush-dataset-eviction-v1.md` §9.1 named its own first task: *"cheap local version read — assumed, unchecked … if it fails, the plan needs a different dirty-detector and this document is wrong rather than incomplete."* Measured: `Dataset::latest_version_id()` resolves a manifest **location** (no manifest read, no data read) in **8–11 µs**, versus **0.23–0.29 ms** for a full `Dataset::open`. Both are **flat in dataset size** across a 100× span. The gate offered two ways to pass and **both hold** — the version read needs no open, *and* an open is cheap enough (1,000 candidates in 0.27 s) that the fallback would have sufficed anyway.
+> **Correction (PR #907 review):** the phrase "the version read needs no open"
+> below overstates what was measured. `latest_version_id()` was timed on
+> `warm`, a `Dataset` handle already produced by one `Dataset::open` — the
+> probe measures the AMORTIZED per-candidate cost of a version check once a
+> handle is held, not a version read with no dataset-open lifecycle anywhere.
+> The gate conclusion is corrected to that lifecycle, below.
+
+**The blocker that closed.** `.claude/plans/idle-flush-dataset-eviction-v1.md` §9.1 named its own first task: *"cheap local version read — assumed, unchecked … if it fails, the plan needs a different dirty-detector and this document is wrong rather than incomplete."* Measured: on an already-open `Dataset` handle, `Dataset::latest_version_id()` resolves a manifest **location** (no manifest read, no data read) in **8–11 µs**, versus **0.23–0.29 ms** for a full `Dataset::open`. Both are **flat in dataset size** across a 100× span. The gate offered two ways to pass and **both hold** — one open amortized across many cheap version reads is far cheaper than re-opening per candidate, *and* even re-opening per candidate is cheap enough (1,000 candidates in 0.27 s) that the fallback would have sufficed anyway.
 
 **The correction nobody asked for, from the same run.** Hydration decomposes as **≈ 2.63 s fixed + ≈ 0.021 s/MB** (0.3 MB → 2.64 s; 33.5 MB → 3.33 s — a 100× size increase costs **1.26×** the time). So §2's deferred size-weighted ranking was declined for a reason that does not survive measurement: the plan argued *"rehydration cost is also proportional to size, so a size-weighted key preferentially evicts what is most expensive to get back."* In the probed range rehydration cost is **dominated by a size-independent constant**. Evicting the large dataset frees ~100× the bytes for ~1.26× the restore cost — the opposite of the stated objection.
 

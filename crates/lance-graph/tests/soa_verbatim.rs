@@ -68,38 +68,16 @@ use arrow::datatypes::{DataType, Field, Schema};
 use arrow::record_batch::RecordBatch;
 use lance::dataset::{Dataset, WriteMode, WriteParams};
 use lance::io::{ObjectStore, ObjectStoreParams, StorageOptionsAccessor};
+use lance_graph::dev_s3_env::{env, s3_options};
 use lance_graph_contract::canonical_node::NODE_ROW_STRIDE;
 use lance_graph_contract::soa_envelope::ENVELOPE_LAYOUT_VERSION;
 
-/// An environment value, with the wrapping quotes this sandbox's exporter adds
-/// stripped. A quoted `"…"` credential authenticates as garbage, and the error
-/// it produces points at the credential rather than at the quoting.
-fn env(k: &str) -> Option<String> {
-    std::env::var(k)
-        .ok()
-        .map(|v| v.trim().trim_matches('"').trim_matches('\'').to_string())
-        .filter(|v| !v.is_empty())
-}
-
-/// The `object_store` option map, built from the deployment's own variables.
-///
-/// `aws_endpoint` ← `AWS_ENDPOINT_URL` is the load-bearing line: `object_store`
-/// reads `AWS_ENDPOINT`, which this environment does not set, so its own env
-/// discovery would address AWS proper instead of the configured endpoint.
-fn s3_options() -> Option<HashMap<String, String>> {
-    let mut o = HashMap::new();
-    o.insert("aws_access_key_id".into(), env("AWS_ACCESS_KEY_ID")?);
-    o.insert(
-        "aws_secret_access_key".into(),
-        env("AWS_SECRET_ACCESS_KEY")?,
-    );
-    o.insert("aws_endpoint".into(), env("AWS_ENDPOINT_URL")?);
-    o.insert(
-        "aws_region".into(),
-        env("AWS_DEFAULT_REGION").unwrap_or_else(|| "auto".into()),
-    );
-    o.insert("aws_virtual_hosted_style_request".into(), "false".into());
-    Some(o)
+/// The row-carving contract restated in `soa_to_lance.rs` — kept identical so
+/// the two writers agree on the mandatory header subset. Formatted, not
+/// restated as a literal, so a `NODE_ROW_STRIDE` change updates both writers
+/// from the same source.
+fn row_carving(stride: usize) -> String {
+    format!("key:0..16|edges:16..32|value:32..{stride}")
 }
 
 /// Lance's own key for per-field compression. Hard-coded rather than imported
@@ -152,7 +130,14 @@ fn schema_for(stride: usize, compression: &str) -> Arc<Schema> {
         "soa:envelope_layout_version".into(),
         ENVELOPE_LAYOUT_VERSION.to_string(),
     );
-    table_meta.insert("soa:row_stride".into(), NODE_ROW_STRIDE.to_string());
+    // soa:row_stride must be the ARGUMENT, not NODE_ROW_STRIDE: at the
+    // narrow-column control stride (64B) the previous version wrote the
+    // canonical 512 into the header while the column itself was
+    // FixedSizeBinary(64) — a self-contradicting contract nothing asserted
+    // against, since only `write_slab` (always NODE_ROW_STRIDE) is checked by
+    // the header-contract test below.
+    table_meta.insert("soa:row_stride".into(), stride.to_string());
+    table_meta.insert("soa:row_carving".into(), row_carving(stride));
     table_meta.insert("soa:endianness".into(), "le".into());
 
     Arc::new(
@@ -221,7 +206,10 @@ async fn a_slab_is_written_verbatim_and_contiguously() {
 
     let file = std::fs::read(sole_data_file(&dir)).expect("read data file");
 
-    // (1) The slab appears in the file, exactly once, as one unbroken run.
+    // (1) The slab appears in the file as one unbroken run. `position` finds
+    //     the FIRST match and stops — it does not by itself rule out a second
+    //     stored copy; assertion (3) below (the bounded footer) is what rules
+    //     that out, by bounding total overhead beyond the one run found here.
     let off = file
         .windows(bytes.len())
         .position(|w| w == bytes.as_slice())
@@ -233,6 +221,20 @@ async fn a_slab_is_written_verbatim_and_contiguously() {
                 file.len()
             )
         });
+
+    // The mmap cast needs the run to start at an ALIGNED address, not merely
+    // to exist contiguously. A future Lance version could keep the run
+    // contiguous but move it to an odd offset; assertion (2) would still pass
+    // (it re-derives addresses from `off`) while `mmap(file)[off..]` cast to
+    // `&[NodeRow]` would be undefined behaviour. NODE_ROW_STRIDE (512) is
+    // itself a multiple of 64, so alignment to the row stride is the same
+    // condition as alignment to any smaller power-of-two the reader needs.
+    assert_eq!(
+        off % 64,
+        0,
+        "slab run starts at file offset {off}, which is not 64-byte aligned; \
+         mmap(file)[off..] cannot be soundly cast to &[NodeRow]"
+    );
 
     // (2) Every row is at its computed address. This is what an mmap reader
     //     does, and it is a stronger claim than "the bytes are in there
@@ -426,33 +428,42 @@ async fn a_slab_is_written_verbatim_to_s3_too() {
         .await
         .expect("read remote data object");
 
-    let off = file
-        .windows(bytes.len())
-        .position(|w| w == bytes.as_slice())
-        .unwrap_or_else(|| {
-            panic!(
-                "the {} slab bytes are NOT contiguous in the {}-byte REMOTE data object — \
-                 the object store path transformed the column, so hydrating to disk and \
-                 mmapping it would not serve the slab",
-                bytes.len(),
-                file.len()
-            )
-        });
-    for i in [0usize, 1, ROWS / 2, ROWS - 1] {
-        let at = off + i * NODE_ROW_STRIDE;
-        assert_eq!(
-            &file[at..at + NODE_ROW_STRIDE],
-            &bytes[i * NODE_ROW_STRIDE..(i + 1) * NODE_ROW_STRIDE],
-            "remote row {i} is not at offset {at}"
+    // Wrapped so a failing assertion still cleans up the remote prefix —
+    // otherwise every failing run (the exact case an assertion here exists to
+    // catch) leaves objects under `_tests/` forever, and repeated failures
+    // accumulate them without bound.
+    let outcome = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+        let off = file
+            .windows(bytes.len())
+            .position(|w| w == bytes.as_slice())
+            .unwrap_or_else(|| {
+                panic!(
+                    "the {} slab bytes are NOT contiguous in the {}-byte REMOTE data \
+                     object — the object store path transformed the column, so \
+                     hydrating to disk and mmapping it would not serve the slab",
+                    bytes.len(),
+                    file.len()
+                )
+            });
+        for i in [0usize, 1, ROWS / 2, ROWS - 1] {
+            let at = off + i * NODE_ROW_STRIDE;
+            assert_eq!(
+                &file[at..at + NODE_ROW_STRIDE],
+                &bytes[i * NODE_ROW_STRIDE..(i + 1) * NODE_ROW_STRIDE],
+                "remote row {i} is not at offset {at}"
+            );
+        }
+        assert!(
+            file.len() - bytes.len() < 64 * 1024,
+            "remote object carries {} bytes beyond the slab",
+            file.len() - bytes.len()
         );
-    }
-    assert!(
-        file.len() - bytes.len() < 64 * 1024,
-        "remote object carries {} bytes beyond the slab",
-        file.len() - bytes.len()
-    );
+    }));
 
     store.remove_dir_all(root).await.expect("clean up");
+    if let Err(e) = outcome {
+        std::panic::resume_unwind(e);
+    }
 }
 
 /// **The sensitivity proof.** Can this file's byte search see a compressed
@@ -556,4 +567,9 @@ async fn the_soa_contract_survives_in_the_table_header() {
         Some(ENVELOPE_LAYOUT_VERSION.to_string().as_str())
     );
     assert_eq!(meta.get("soa:endianness").map(String::as_str), Some("le"));
+    assert_eq!(
+        meta.get("soa:row_carving").map(String::as_str),
+        Some(row_carving(NODE_ROW_STRIDE).as_str()),
+        "a reader that requires soa:row_carving had no regression coverage before this"
+    );
 }

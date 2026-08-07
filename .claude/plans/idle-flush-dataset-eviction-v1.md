@@ -1,9 +1,12 @@
 # Idle-flush dataset eviction — plan v1
 
-> **Status:** PROPOSAL. Nothing here is implemented. **Four inputs are now
-> measured** (§8a, 2026-08-07) — the §4 gate, the request count, the hydration
-> cost shape, and T10; every *policy* claim remains unmeasured and every other
-> acceptance criterion remains unrun.
+> **Status:** PROPOSAL. Nothing here is implemented. **Three inputs are now
+> measured** (§8a, 2026-08-07) — the §4 gate, the hydration cost shape, and
+> T10; every *policy* claim remains unmeasured and every other acceptance
+> criterion remains unrun. **The request count is explicitly NOT measured**
+> (corrected on PR #907 review — see §8a) — a prior draft claimed it was, on
+> the strength of a local pre-upload file count that was never a remote
+> request count.
 > **Scope:** design + acceptance criteria for a feature-gated local-copy
 > eviction policy over Lance datasets. **This plan does not authorize the
 > implementation** — it states what the implementation would owe. §8a does not
@@ -26,7 +29,7 @@
 | The default policy: age floor **3 days** + soft budget **~300 MB**, pressure-driven and age-ordered (§2) | **OPERATOR-SET POLICY** — a heuristic starting point, explicitly **not measured**. Both are config; these are defaults. |
 | Age-ordering (rather than a `size × idleness` key) is the right default (§2) | **CONJECTURE, and its stated ARGUMENT is refuted** (§8a): rehydration cost is NOT size-proportional in the measured range, it is fixed-cost dominated. Age-ordering may still be right; the reason given for it is not. The size-weighted variant stays deferred, now with one fewer objection |
 | A watermark-driven sweep dominates both a bare timer and a bare allocation-failure signal (§3) | **CONJECTURE** — argued from the two failure modes, no deployed instance |
-| The Lance dataset version is a sufficient dirty-detector (§4) | **CONJECTURE** — the *sufficiency* is still unproven; but its **verification gate is CLOSED** (§8a, measured 2026-08-07): the version read is 8–11 µs, needs no dataset open, and is flat in size |
+| The Lance dataset version is a sufficient dirty-detector (§4) | **CONJECTURE** — the *sufficiency* is still unproven; but its **verification gate is CLOSED** (§8a, measured 2026-08-07): the version read is 8–11 µs on an already-open handle (amortized per-candidate cost), and is flat in size |
 | At a 3-day floor the flush/read race is negligible, so check-then-act suffices and a lease protocol is disproportionate (§5) | **OPERATOR-SET SCOPE RULING** — the requirement is *does not corrupt*, not *cannot occur*; revisit if the threshold drops to hours |
 
 **No probe has run for any row marked CONJECTURE.** The falsifiers are §7.
@@ -449,17 +452,22 @@ dataset size**:
 | 1,000,000 | 33.5 | 4 | 0.234 ms | 0.008 ms | 27.7× |
 
 The gate asked for *either* a cheap version read without a full open *or* a
-cheap-enough open. **Both hold.** The version read needs no open and is ~27×
-cheaper; and a full open is 0.27 ms, so even the fallback would carry 1,000
-candidates in 0.27 s. §9.1's blocker is discharged — warm (the probe states that
+cheap-enough open. **Both hold.** One `Dataset::open` amortized across many
+`latest_version_id()` calls is ~27× cheaper per candidate than re-opening every
+time; and a full open is 0.27 ms on its own, so even the re-open-per-candidate
+fallback would carry 1,000 candidates in 0.27 s. §9.1's blocker is discharged — warm (the probe states that
 error direction explicitly), and flat in size, which is what makes it hold at
 scale rather than at this scale.
 
-**§1's request count — MEASURED: 3 remote objects per dataset**, at every size
-probed (`.txn` + `.manifest` + one data file). The plan is right that a dataset
-is a multi-file directory; the count in this range is small and does not grow
-with size. It grows with *fragment* count, which these single-fragment writes do
-not exercise — so this bounds the small case, not the general one.
+**§1's request count — STILL NOT MEASURED (corrected, PR #907 review).** An
+earlier version of this section reported "3 remote objects per dataset" and
+called the request-count gap closed. That number was `dir_stats()` on the
+LOCAL pre-upload directory — a local file count, never a remote request count,
+and never wired to any object-store instrumentation. The plan is right that a
+dataset is a multi-file directory and that a hydration is many requests, not
+one; how many, and what that costs, remains unmeasured. Closing this needs
+either a `WrappingObjectStore` request counter or equivalent object-store-level
+instrumentation, not a local `read_dir`.
 
 **§0/§5's ~1.4 s — the SHAPE is the correction, not the constant.** Hydration
 (open remote → scan → write local):
@@ -488,9 +496,14 @@ per-hydration cost, the quantity that matters is **how many** hydrations the
 policy causes, never how large they are — which is exactly what §7's thrash
 criterion counts. Two independent reasons now point at the same metric.
 
-**T10 — GREEN** at all three sizes, by full-scan `id` checksum (a truncated
-hydration cannot pass it). One acceptance criterion settled; the rest are
-untouched.
+**T10 — GREEN** at all three sizes, by RAW BYTE comparison of every remote
+object against its local original (corrected, PR #907 review — a prior version
+verified only a full-scan `id`-column checksum, which a corrupted float column
+or a dropped non-row artifact would not have caught; see
+`crates/lance-graph/examples/hydration_probe.rs`'s module doc for the
+byte-copy hydration this now runs, replacing an earlier scan-and-rewrite that
+silently produced a different, re-encoded dataset). One acceptance criterion
+settled; the rest are untouched.
 
 **Scope of these numbers, stated so they are not over-read:** one endpoint, one
 day, single-fragment datasets, 0.3–33.5 MB, no concurrency, no eviction
@@ -499,7 +512,7 @@ implemented. Nothing here authorizes the policy — §9's other items stand.
 ## 9. Open items (explicitly NOT answered)
 
 1. ~~**The §4 verification gate.**~~ **CLOSED 2026-08-07 by measurement — see
-   §8a.** The version read is 8–11 µs, needs no dataset open, and is flat in
+   §8a.** The version read is 8–11 µs on an already-open handle, and is flat in
    size; the fallback (a full open) is 0.27 ms. The plan is neither wrong nor
    incomplete on this point.
 2. **Whether the default values are right.** The 3-day floor and ~300 MB budget
