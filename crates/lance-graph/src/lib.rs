@@ -56,6 +56,7 @@ pub mod query;
 #[cfg(feature = "planner")]
 pub mod reasoning;
 pub mod semantic;
+pub mod soa_config;
 pub mod spark_dialect;
 pub mod sql_catalog;
 pub mod sql_query;

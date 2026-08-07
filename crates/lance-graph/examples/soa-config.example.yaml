@@ -1,0 +1,186 @@
+# ============================================================================
+# soa-config.example.yaml — example boot config for a lance-graph deployment
+# ============================================================================
+#
+# WHERE THIS LIVES: a real config object of this shape sits in the object
+# store at `.config/<repo-name>/config.yaml` — one object per repository
+# (see the `ledger_prefix` comment below for why it's per-repo). This example
+# file is NOT read by any binary; it exists so the shape is documented next
+# to the parser (`crates/lance-graph/src/soa_config.rs`) and so an operator
+# can copy it as a starting point.
+#
+# CREDENTIALS DO NOT GO HERE. Every value in this file is non-secret
+# configuration (table names, a prefix, a classid). Access credentials come
+# from `AWS_ACCESS_KEY_ID` / `AWS_SECRET_ACCESS_KEY` / `AWS_ENDPOINT_URL` /
+# `AWS_DEFAULT_REGION` environment variables — see `dev_s3_env.rs` and
+# `docs/S3_LAYOUT.md`. A config object that ever contains a key, a token, or
+# a bare bucket-and-endpoint pair meant to substitute for those env vars is
+# wrong, full stop.
+#
+# THIS IS BOOT CONFIG, READ ONCE AT STARTUP — not a hot-path structure. A
+# deployment fetches this object at boot, parses it once
+# (`soa_config::parse`), and decides which bakes to hydrate to local disk
+# versus read remotely on demand. It is the same category of thing as a
+# `Cargo.toml` read, not a per-request or per-row concern — see the module
+# doc on `soa_config.rs` for why that distinction matters here (the
+# workspace's Firewall doctrine bans serialization *between mailboxes during
+# cognition*, which this is not).
+#
+# The bucket name, endpoint, and every other real deployment value below are
+# OBVIOUS PLACEHOLDERS ("your-bucket-name", "your-endpoint.example.com") —
+# never real infrastructure. This is a public repository.
+# ============================================================================
+
+# Schema major version this config object declares. The parser refuses
+# (loudly, at boot) any version it doesn't understand rather than
+# half-reading fields whose meaning may have changed. Bump this only when
+# you are also bumping `CONFIG_SCHEMA_VERSION` in `soa_config.rs`.
+version: 1
+
+# ----------------------------------------------------------------------------
+# ledger_prefix — the per-repository namespace for this deployment's bakes.
+# ----------------------------------------------------------------------------
+# Every repository's bakes live under their OWN prefix, e.g.
+# "lance-graph/ledger" here, "q2/ledger" for a q2 deployment, and so on.
+# This is a convention, not a technical requirement Lance enforces — but it
+# is the convention every deployment in this workspace follows, and it buys
+# two things:
+#   1. Tidy ledgers: `aws s3 ls s3://<bucket>/lance-graph/ledger/` shows only
+#      THIS repo's tables, not a mixed bag from every deployment sharing the
+#      bucket.
+#   2. Isolation on refresh: one repo's `on_existing: new_version` refresh
+#      writes a new table under ITS OWN prefix and repoints ITS OWN config —
+#      it can never collide with, overwrite, or even be visible to another
+#      repo's tables, because the prefixes never overlap.
+# Combined with a bucket name (supplied separately, e.g. via
+# AWS_S3_BUCKET_NAME) and one bake's `table` field, this becomes the full
+# table URI — see `SoaConfig::table_uri` in `soa_config.rs`.
+ledger_prefix: "your-repo-name/ledger"
+
+# ----------------------------------------------------------------------------
+# bakes — the declared SoA bakes this deployment knows about.
+# ----------------------------------------------------------------------------
+# Each entry is one Lance table written by `soa_to_lance` (see
+# `examples/soa_to_lance.rs` and `docs/SOA_BAKE_DEPLOYMENT.md`). Below are
+# three example bakes deliberately mixing `hydrate: true` and
+# `hydrate: false` so the distinction is visible rather than merely implied
+# by the field's default.
+bakes:
+  # --- geo.berlin: hydrated — pulled to local disk once at boot. -----------
+  # Use hydrate: true for a bake this deployment reads often enough that
+  # paying a one-time local copy (see the hydration-cost measurements in
+  # `docs/SOA_BAKE_DEPLOYMENT.md` §4b) is cheaper than repeated remote reads.
+  - name: geo-berlin          # Unique human key within this file. This is
+                               # ONLY a lookup name (SoaConfig::find) — not a
+                               # filesystem path, and unrelated to `table`.
+                               # Two bakes may not share a `name`.
+    table: geo.berlin.lance   # The Lance table name under `ledger_prefix`.
+                               # The full URI a reader resolves is
+                               # s3://<bucket>/<ledger_prefix>/<table>. Two
+                               # bakes may not share a `table` either — the
+                               # parser rejects both kinds of collision, since
+                               # two entries pointing at one table means one
+                               # of them is either reading garbage or racing
+                               # the other's writes.
+    classid: "0x0F01"         # Hex classid (0x-prefixed) identifying this
+                               # bake's SoA node layout — see the "CANON —
+                               # Minimal SoA node" section of the repo's
+                               # CLAUDE.md. Get this wrong and a reader casts
+                               # bytes through the wrong `ClassView`.
+                               #
+                               # NEVER INVENT A CLASSID. The hi byte is a
+                               # minted concept DOMAIN and the full value is a
+                               # minted CONCEPT — both live in OGAR's
+                               # `ogar-vocab` (`class_ids`), and a plausible-
+                               # looking value you made up will collide with a
+                               # real concept in a different domain. The three
+                               # entries below use real geo concepts:
+                               #   0x0F01 osm_node · 0x0F02 osm_way
+                               #   0x0F03 osm_relation
+                               # (An earlier draft of this file used 0x0D01
+                               # for an "ontology" bake. 0x0D01 is real — it
+                               # is `hr_employee` in the HR domain. That is
+                               # exactly the failure this note prevents.)
+    slab_digest: "sha256:REPLACE_WITH_REAL_DIGEST"
+                               # Optional. Pins this bake to one specific
+                               # slab's digest — the pairing that ties a
+                               # table to its `.books` sidecar. Omit this key
+                               # entirely (do not write it as an empty
+                               # string) to mean "trust whatever is at
+                               # `table` right now, unpinned."
+    hydrate: true              # Pull to local disk at boot. What breaks if
+                               # this is wrong: set true on a bake this
+                               # deployment barely touches, and you pay the
+                               # ~2.6s+ fixed hydration cost at every boot
+                               # for nothing; set false on a bake this
+                               # deployment reads constantly, and every read
+                               # after the first pays a remote round trip
+                               # instead of a local file read.
+
+  # --- geo.munich: NOT hydrated — read remotely, on demand. ----------------
+  - name: geo-munich
+    table: geo.munich.lance
+    classid: "0x0F02"
+    # slab_digest omitted here on purpose — this bake floats to whatever the
+    # table currently holds rather than pinning a specific bake.
+    hydrate: false             # Served straight from the object store on
+                               # every access (deployment pattern (a) in
+                               # docs/SOA_BAKE_DEPLOYMENT.md §4). Right choice
+                               # for a bake that is large, rarely read, or
+                               # read by only a small fraction of requests —
+                               # no local disk is spent on it at all.
+
+  # --- geo.relations: NOT hydrated — a reference bake read cold. -----------
+  - name: geo-relations
+    table: geo.relations.lance
+    classid: "0x0F03"
+    slab_digest: "sha256:REPLACE_WITH_REAL_DIGEST"
+    hydrate: false             # A reference bake consulted occasionally, not
+                               # on the hot request path — remote reads are
+                               # fine here, and skipping hydration means one
+                               # fewer thing to keep fresh locally when the
+                               # bake is refreshed.
+
+# ----------------------------------------------------------------------------
+# on_existing — what a refresh does when it finds an already-occupied table.
+# ----------------------------------------------------------------------------
+# This is the single most consequential field in this file, so read it in
+# full before changing it from the default.
+#
+#   refuse (the default, used if this key is omitted entirely):
+#     An existing table is NEVER silently overwritten. If a refresh would
+#     land on a `table` name that already has a dataset at it, that refresh
+#     is a hard error. Safe-by-default: nothing you didn't explicitly ask
+#     for gets clobbered.
+#
+#   new_version:
+#     A refresh instead writes a brand-NEW table, timestamped
+#     (e.g. `geo.berlin.lance` becomes `geo.berlin.<unix_nanos>.lance` — see
+#     `versioned_table_name` in `soa_config.rs`), and THIS config file's
+#     `table` pointer for that bake is updated to name the new table. The
+#     OLD table is left completely untouched on disk until a separate,
+#     explicit purge deletes it.
+#
+#   WHY NOT "rename the old table to a .OLD.<timestamp> suffix instead"?
+#   Because S3 (and any S3-compatible object store) has NO ATOMIC RENAME.
+#   A Lance dataset is not one object — it is N objects under a shared
+#   prefix (data files, manifests, transaction files, deletion vectors).
+#   "Renaming" such a dataset means copying all N objects to new keys and
+#   then deleting all N originals — two non-atomic bulk operations, not one
+#   atomic one. A crash or a network failure partway through that sequence
+#   leaves the dataset split across two prefixes, with objects at BOTH the
+#   old and new names, and no single pointer that correctly resolves to
+#   either half. A reader arriving mid-crash could easily open a fragment of
+#   the wrong dataset with no way to tell.
+#
+#   Flipping one field in THIS file — the `table` value for one bake —
+#   is, by contrast, a single small-object write. This config file IS the
+#   pointer: as long as the new table is written COMPLETELY before this
+#   file is updated (never the other way around), a reader that fetches
+#   this config always sees a consistent, fully-written table — either the
+#   old one (this file hasn't been updated yet) or the new one (it has),
+#   and never a half-migrated mix of the two. Purging the old table is then
+#   a deliberate, separate, out-of-band operation with no correctness
+#   deadline — it can happen a minute later or a month later, because
+#   nothing is still pointing at it once this file's `table` field moved on.
+on_existing: refuse

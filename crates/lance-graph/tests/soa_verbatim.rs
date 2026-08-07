@@ -4,8 +4,12 @@
 //! This is the load-bearing claim for the disk-sink-in deployment pattern:
 //! **if the row column lands verbatim, then `mmap(file)[off .. off + rows*512]`
 //! IS the slab** — the process pages in only what it touches, RSS follows the
-//! access pattern rather than the dataset size, and (because mmap is
-//! page-aligned and `4096 % 64 == 0`) the `&[NodeRow]` cast is always valid.
+//! access pattern rather than the dataset size, and because the run is pinned
+//! at NATURAL alignment (`off % 512 == 0`, asserted below) the `&[NodeRow]`
+//! cast is always valid AND no row ever straddles a 128-bit SIMD lane, a
+//! 128-byte cache line, or a 4 KiB page/NVMe-sector boundary — 8 whole rows
+//! per page, zero padding. Alignment is a claim about the run's START only;
+//! the 512 bytes of each row are one contiguous unit, never fragments.
 //!
 //! Measured once by hand on the Iceland bake (335,302,144 slab bytes →
 //! 335,302,663 file bytes, 100 % identical from offset 0). A single manual run
@@ -226,14 +230,30 @@ async fn a_slab_is_written_verbatim_and_contiguously() {
     // to exist contiguously. A future Lance version could keep the run
     // contiguous but move it to an odd offset; assertion (2) would still pass
     // (it re-derives addresses from `off`) while `mmap(file)[off..]` cast to
-    // `&[NodeRow]` would be undefined behaviour. NODE_ROW_STRIDE (512) is
-    // itself a multiple of 64, so alignment to the row stride is the same
-    // condition as alignment to any smaller power-of-two the reader needs.
+    // `&[NodeRow]` would be undefined behaviour.
+    //
+    // Pinned at NATURAL alignment — `off % NODE_ROW_STRIDE == 0` — which is
+    // deliberately stronger than the three layered requirements it implies,
+    // because a 512-aligned 512-byte row arithmetically CANNOT straddle any
+    // boundary that divides 4096:
+    //   - the cast:            needs 64  (`align_of::<NodeRow>()`, repr(C, align(64)))
+    //   - a 128-bit SIMD lane: needs 16  — 512/16 = 32 whole lanes per row
+    //   - a 128 B cache line (Apple M-series): needs 128 — 4 lines per row
+    //   - a 4 KiB page/NVMe sector: a row at a 512-multiple offset either ends
+    //     exactly on a 4096 boundary or lies wholly inside one; 8 rows per
+    //     sector, zero padding, no half-anything, ever.
+    // Alignment here is a claim about the START address only — the 512 bytes
+    // themselves are one contiguous run (that is assertion (1)); nothing is
+    // ever written as fragments. Measured on the real Iceland bake the run
+    // sits at offset 0, so this passes with maximal slack; a red here means
+    // Lance moved the run off natural alignment — re-measure and re-decide,
+    // never weaken back to 64.
     assert_eq!(
-        off % 64,
+        off % NODE_ROW_STRIDE,
         0,
-        "slab run starts at file offset {off}, which is not 64-byte aligned; \
-         mmap(file)[off..] cannot be soundly cast to &[NodeRow]"
+        "slab run starts at file offset {off}, which is not aligned to the \
+         {NODE_ROW_STRIDE}-byte row stride; rows would straddle page/sector \
+         boundaries and mmap(file)[off..] loses its straddle-free guarantee"
     );
 
     // (2) Every row is at its computed address. This is what an mmap reader

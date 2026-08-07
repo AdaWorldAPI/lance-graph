@@ -5609,6 +5609,7 @@ dependencies = [
  "object_store",
  "serde",
  "serde_json",
+ "serde_yaml",
  "snafu 0.8.9",
  "tempfile",
  "tokio",
@@ -6637,7 +6638,6 @@ dependencies = [
 name = "ndarray"
 version = "0.17.2"
 dependencies = [
- "blake3",
  "fractal",
  "matrixmultiply",
  "num-complex",
