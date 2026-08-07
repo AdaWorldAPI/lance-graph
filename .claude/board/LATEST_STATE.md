@@ -1,31 +1,3 @@
-## 2026-08-07 — branch `claude/rust-scratch-abi-soa-gsamge` — `ogar_codebook`: the Blocks domain mirror (blockly-rs hot-plug, consumer half)
-
-### Current Contract Inventory — mirror sync (lance-graph-contract)
-
-- `lance_graph_contract::ogar_codebook` — `ConceptDomain::Blocks` (`0x17XX`)
-  + the two Blocks rows, mirroring OGAR's mint. This is the **consumer half of
-  blockly-rs's hot-plug**: `blockly-abi` declares ONE
-  `lance_graph_contract::hotplug::HotPlug` const and resolves it against
-  `ogar_vocab::capability_registry::resolve_hotplug`, which joins on
-  `class_ids::ALL`. Before the mint that join answered `UnknownClassid(0x1701)`.
-  - `("block_function", 0x1701)` — one function body; the classid a stored
-    `FunctionNode` is addressed by, and the only Blocks concept binding
-    capabilities (`lower_script` / `raise_calls` / `render_text` / `parse_text`
-    / `klickweg_address`, all real `blockly-abi` functions).
-  - `("block_inventory", 0x1702)` — the registry row; minted and addressable,
-    binds nothing (a registry read never touches a body).
-  - **The opcode palette is deliberately NOT mirrored.** An opcode is an
-    `FnIndex` byte inside a function body, resolved through `ogar-loco`'s
-    vocabulary table — never a classid. Two Blocks rows here, not 258; if this
-    ever counts in the hundreds the palette leaked into the codebook.
-  - Two-sided fuse followed on both halves: OGAR `class_ids::ALL` 90 → 92 and
-    `lance_graph_ogar::parity::COUNT_FUSE` (compile-time) agree, and
-    `domains_agree` gained its `(O::Blocks, C::Blocks)` pair — without it the
-    runtime bijection failed `domain disagreement for block_function (0x1701)`,
-    which is the check doing its job.
-  - Paired OGAR PR mints the concepts + the `blocks_actions` table; merge OGAR
-    FIRST (this mirror's fuse compiles against `ogar-vocab` as a sibling).
-
 ## 2026-08-06 — branch `claude/vocab-tenant-bake` — `lance_graph_contract::identity_quad`: four external identifier spaces joined at BAKE time into one 96-bit facet payload
 
 ### Current Contract Inventory — new module (lance-graph-contract)
