@@ -121,6 +121,7 @@ pub mod ocr;
 /// D-OVC-1 — OGAR concept codebook (`0xDDCC` domain layout), wire-compat mirror.
 pub mod ogar_codebook;
 pub mod ontology;
+pub mod ontology_warrant;
 pub mod orchestration;
 pub mod orchestration_mode;
 pub mod pearl_junction;
