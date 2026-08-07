@@ -6,6 +6,11 @@ enables, and the environment contract a deployment must satisfy. Every
 measured claim below cites the source or plan section that measured it;
 every convention is labelled as a convention, not a measurement.
 
+> For the bits-vs-bytes / lanes / straddle questions this design keeps
+> raising ("64 bit or 64 byte?", "does alignment fragment the row?"),
+> see **`docs/ALIGNMENT_PRIMER.md`** — the product-level deep dive with
+> every claim labelled measured / source / arithmetic.
+
 ## 1. What a bake is
 
 The canonical node row is **512 bytes**: `key(16) | edges(16) | value(480)`
