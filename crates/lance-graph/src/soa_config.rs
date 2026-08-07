@@ -91,13 +91,58 @@ pub enum OnExisting {
 /// lives in, the classid that identifies its node layout, and whether this
 /// deployment should pull it to local disk at boot.
 #[derive(Debug, Clone, PartialEq, serde::Deserialize, serde::Serialize)]
+// A typo'd key (`slab_digset`, `hydarte`) would otherwise be SILENTLY ignored and
+// its field defaulted — dropping a digest pin or flipping hydration off in a
+// config whose whole purpose is to fail loudly at boot. Reject instead.
+#[serde(deny_unknown_fields)]
 pub struct BakeEntry {
     /// Human-facing key, unique within one config object. Not a filesystem
     /// path — just a lookup name (see [`SoaConfig::find`]).
     pub name: String,
     /// The Lance table name under `ledger_prefix`.
     pub table: String,
-    /// Hex classid, e.g. `"0x0F01"`, identifying this bake's node layout.
+    /// Hex classid, e.g. `"0x0F010000"`, identifying this bake's node layout.
+    ///
+    /// **A FULL u32 classid** — the same width the canonical node key
+    /// reserves at bytes `0..4`. Under the active `CanonHigh` order the
+    /// LEFT (high) bytes carry the minted concept `0xDDCC` — domain in the
+    /// most-significant byte, which is what makes classids sort and
+    /// prefix-search hierarchically. **Read the left bytes to route.**
+    ///
+    /// The LOW half is not padding: it carries the app/render half —
+    /// `ClassView` + `WideFieldMask` ergonomics and slot-schema switching.
+    /// `0x0000` there means "no app skin", one legal value among many, and
+    /// it is a slot a consumer FILLS — e.g. a session writing an ontology
+    /// routing value into it. So a config carrying `…0000` is declaring the
+    /// slot unset, not declaring it meaningless.
+    ///
+    /// # The addressing model, and the one place the CSS analogy breaks
+    ///
+    /// Low half + field mask compose into **screen-region addressing**, in
+    /// the CSS sense: the low half selects the `ClassView` (the per-app
+    /// template/skin) the way a selector picks an element, and the
+    /// [`FieldMask`]/[`WideFieldMask`] selects which of that view's fields
+    /// are in play the way declarations pick properties. That is the whole
+    /// basis of a2ui-rs's "don't push pixels — address the screen": a
+    /// `NodeDelta` carries a 16-byte key plus mask words, never a rendered
+    /// region.
+    ///
+    /// **Where the analogy must not be followed:** a field mask is
+    /// *presence, never semantics* (`class_view.rs` C2). `has(n)` answers
+    /// "is field n populated here" — it must NEVER gate "field n means
+    /// something different here." CSS's cascade does change which rule
+    /// wins; a mask never changes what a field means. Read the analogy for
+    /// addressing only.
+    ///
+    /// [`FieldMask`]: lance_graph_contract::class_view::FieldMask
+    /// [`WideFieldMask`]: lance_graph_contract::class_view::WideFieldMask
+    ///
+    /// [`parse`] validates only that this is `0x`-prefixed hex fitting u32.
+    /// It deliberately does **not** police the halves: a zero canon is a
+    /// legal dormant state under the zero-fallback ladder, and pre-flip
+    /// stored forms are legitimately read via `classid_canon_compat`. Use
+    /// [`BakeEntry::classid_u32`] to read the value and the codebook's own
+    /// accessors to split it.
     pub classid: String,
     /// Digest of the bake's slab, when the deployment pins one. Absent
     /// means "trust whatever is at `table` right now".
@@ -111,6 +156,7 @@ pub struct BakeEntry {
 
 /// The parsed, validated contents of one deployment's `config.yaml`.
 #[derive(Debug, Clone, PartialEq, serde::Deserialize, serde::Serialize)]
+#[serde(deny_unknown_fields)]
 pub struct SoaConfig {
     /// Schema major version. [`parse`] refuses anything other than
     /// [`CONFIG_SCHEMA_VERSION`].
@@ -143,7 +189,7 @@ pub enum ConfigError {
     DuplicateTable(String),
     /// A required string field was empty. Carries the field's name.
     EmptyField(&'static str),
-    /// `classid` did not parse as a `0x`-prefixed hex value.
+    /// `classid` did not parse as a `0x`-prefixed hex value that fits u32.
     BadClassid(String),
 }
 
@@ -165,7 +211,10 @@ impl fmt::Display for ConfigError {
                 write!(f, "config.yaml field must not be empty: {field}")
             }
             ConfigError::BadClassid(classid) => {
-                write!(f, "classid {classid:?} is not a 0x-prefixed hex value")
+                write!(
+                    f,
+                    "classid {classid:?} is not a 0x-prefixed hex value that fits u32"
+                )
             }
         }
     }
@@ -180,6 +229,16 @@ pub fn config_key(repo: &str) -> String {
     format!("{CONFIG_ROOT}/{repo}/{CONFIG_BASENAME}")
 }
 
+/// A `0x`-prefixed hex string as a `u32`, or `None` if it is not one (missing
+/// prefix, empty, non-hex digit, or wider than u32).
+fn parse_classid_hex(s: &str) -> Option<u32> {
+    let digits = s.strip_prefix("0x").or_else(|| s.strip_prefix("0X"))?;
+    if digits.is_empty() || !digits.chars().all(|c| c.is_ascii_hexdigit()) {
+        return None;
+    }
+    u32::from_str_radix(digits, 16).ok()
+}
+
 /// Parse and validate a `config.yaml` body into a [`SoaConfig`].
 ///
 /// Validation rejects, each with its own [`ConfigError`] variant:
@@ -190,7 +249,9 @@ pub fn config_key(repo: &str) -> String {
 ///   disk is always a mistake — one of them would be reading garbage or
 ///   racing the other's writes),
 /// - an empty `ledger_prefix`, `name`, or `table`,
-/// - a `classid` that is not `0x`-prefixed hex.
+/// - a `classid` that is not `0x`-prefixed hex fitting u32,
+/// - any unknown key, via `deny_unknown_fields` on both structs — a typo
+///   must not silently default a field.
 pub fn parse(yaml: &str) -> Result<SoaConfig, ConfigError> {
     let config: SoaConfig =
         serde_yaml::from_str(yaml).map_err(|e| ConfigError::Yaml(e.to_string()))?;
@@ -223,15 +284,15 @@ pub fn parse(yaml: &str) -> Result<SoaConfig, ConfigError> {
             return Err(ConfigError::DuplicateTable(bake.table.clone()));
         }
 
-        let hex = bake
-            .classid
-            .strip_prefix("0x")
-            .or_else(|| bake.classid.strip_prefix("0X"));
-        match hex {
-            Some(digits) if !digits.is_empty() && digits.chars().all(|c| c.is_ascii_hexdigit()) => {
-            }
-            _ => return Err(ConfigError::BadClassid(bake.classid.clone())),
-        }
+        // Structural only: it must be 0x-prefixed hex that fits the u32 the
+        // canonical node key reserves for it. NO semantic check on the halves
+        // — a zero canon is a legal dormant/bootstrap state under the
+        // zero-fallback ladder (CLAUDE.md: a zero tier is "not consulted",
+        // never an error), and pre-flip stored forms are legitimately read by
+        // `classid_canon_compat`. Rejecting either here would refuse valid
+        // configs on an inference about intent this parser has no basis for.
+        parse_classid_hex(&bake.classid)
+            .ok_or_else(|| ConfigError::BadClassid(bake.classid.clone()))?;
     }
 
     Ok(config)
@@ -252,6 +313,16 @@ impl SoaConfig {
     /// Look up a bake by its declared `name`.
     pub fn find(&self, name: &str) -> Option<&BakeEntry> {
         self.bakes.iter().find(|b| b.name == name)
+    }
+}
+
+impl BakeEntry {
+    /// The declared classid as the `u32` it is. Infallible on any entry that
+    /// came through [`parse`] — validation already rejected anything that
+    /// does not parse — so this is the accessor callers should use instead of
+    /// re-parsing the string and re-deciding what a malformed one means.
+    pub fn classid_u32(&self) -> Option<u32> {
+        parse_classid_hex(&self.classid)
     }
 }
 
@@ -282,12 +353,12 @@ on_existing: new_version
 bakes:
   - name: berlin
     table: berlin.lance
-    classid: "0x0F01"
+    classid: "0x0F010000"
     slab_digest: "sha256:abc123"
     hydrate: true
   - name: munich
     table: munich.lance
-    classid: "0x0F02"
+    classid: "0x0F020000"
     hydrate: false
 "#
     }
@@ -302,7 +373,7 @@ bakes:
 
         let berlin = config.find("berlin").expect("berlin must be found");
         assert_eq!(berlin.table, "berlin.lance");
-        assert_eq!(berlin.classid, "0x0F01");
+        assert_eq!(berlin.classid, "0x0F010000");
         assert_eq!(berlin.slab_digest.as_deref(), Some("sha256:abc123"));
         assert!(berlin.hydrate);
 
@@ -321,7 +392,7 @@ ledger_prefix: "lance-graph/ledger"
 bakes:
   - name: berlin
     table: berlin.lance
-    classid: "0x0F01"
+    classid: "0x0F010000"
 "#;
         let config = parse(yaml).expect("must parse");
         assert_eq!(config.on_existing, OnExisting::Refuse);
@@ -358,10 +429,10 @@ ledger_prefix: "lance-graph/ledger"
 bakes:
   - name: berlin
     table: berlin.lance
-    classid: "0x0F01"
+    classid: "0x0F010000"
   - name: berlin
     table: berlin2.lance
-    classid: "0x0F02"
+    classid: "0x0F020000"
 "#;
         let err = parse(yaml).expect_err("duplicate name must be rejected");
         assert_eq!(err, ConfigError::DuplicateName("berlin".to_string()));
@@ -382,10 +453,10 @@ ledger_prefix: "lance-graph/ledger"
 bakes:
   - name: berlin
     table: shared.lance
-    classid: "0x0F01"
+    classid: "0x0F010000"
   - name: munich
     table: shared.lance
-    classid: "0x0F02"
+    classid: "0x0F020000"
 "#;
         let err = parse(yaml).expect_err("duplicate table must be rejected");
         assert_eq!(err, ConfigError::DuplicateTable("shared.lance".to_string()));
@@ -420,7 +491,7 @@ ledger_prefix: "lance-graph/ledger"
 bakes:
   - name: ""
     table: berlin.lance
-    classid: "0x0F01"
+    classid: "0x0F010000"
 "#;
         let err = parse(yaml).expect_err("empty name must be rejected");
         assert_eq!(err, ConfigError::EmptyField("name"));
@@ -437,7 +508,7 @@ ledger_prefix: "lance-graph/ledger"
 bakes:
   - name: berlin
     table: ""
-    classid: "0x0F01"
+    classid: "0x0F010000"
 "#;
         let err = parse(yaml).expect_err("empty table must be rejected");
         assert_eq!(err, ConfigError::EmptyField("table"));
@@ -459,7 +530,7 @@ bakes:
         let err = parse(yaml).expect_err("classid without 0x prefix must be rejected");
         assert_eq!(err, ConfigError::BadClassid("F01".to_string()));
 
-        let fixed = yaml.replace(r#"classid: "F01""#, r#"classid: "0xF01""#);
+        let fixed = yaml.replace(r#"classid: "F01""#, r#"classid: "0xF010000""#);
         assert!(parse(&fixed).is_ok());
     }
 
@@ -475,6 +546,42 @@ bakes:
 "#;
         let err = parse(yaml).expect_err("non-hex digits must be rejected");
         assert_eq!(err, ConfigError::BadClassid("0xZZ".to_string()));
+    }
+
+    /// **A typo must not silently default a field.** `slab_digset` would
+    /// otherwise be ignored and the digest pin dropped; `hydarte` would be
+    /// ignored and hydration silently turned off. Two-sided: the typo is
+    /// rejected, the correct spelling is accepted with its value intact.
+    #[test]
+    fn rejects_unknown_keys_instead_of_silently_defaulting_them() {
+        let with = |key: &str, val: &str| {
+            format!(
+                "version: 1\nledger_prefix: \"lance-graph/ledger\"\nbakes:\n  \
+                 - name: berlin\n    table: berlin.lance\n    \
+                 classid: \"0x0F010000\"\n    {key}: {val}\n"
+            )
+        };
+
+        for (typo, val) in [("slab_digset", "\"sha256:abc\""), ("hydarte", "true")] {
+            assert!(
+                parse(&with(typo, val)).is_err(),
+                "typo {typo:?} must be REJECTED, not silently ignored and defaulted"
+            );
+        }
+
+        // Correct spellings still work, and carry their values — proving the
+        // rejection above is about the KEY being unknown, not about the
+        // parser having become uniformly hostile.
+        let ok = parse(&with("slab_digest", "\"sha256:abc\"")).expect("correct key must parse");
+        assert_eq!(ok.bakes[0].slab_digest.as_deref(), Some("sha256:abc"));
+        let ok = parse(&with("hydrate", "true")).expect("correct key must parse");
+        assert!(ok.bakes[0].hydrate);
+
+        // An unknown key at the TOP level is rejected too, not just in a bake.
+        assert!(
+            parse("version: 1\nledger_prefix: \"p\"\nbakes: []\nledgerprefix: \"typo\"\n").is_err(),
+            "an unknown top-level key must be rejected"
+        );
     }
 
     #[test]

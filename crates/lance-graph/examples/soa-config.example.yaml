@@ -82,7 +82,7 @@ bakes:
                                # two entries pointing at one table means one
                                # of them is either reading garbage or racing
                                # the other's writes.
-    classid: "0x0F01"         # Hex classid (0x-prefixed) identifying this
+    classid: "0x0F010000"         # Hex classid (0x-prefixed) identifying this
                                # bake's SoA node layout — see the "CANON —
                                # Minimal SoA node" section of the repo's
                                # CLAUDE.md. Get this wrong and a reader casts
@@ -95,8 +95,33 @@ bakes:
                                # looking value you made up will collide with a
                                # real concept in a different domain. The three
                                # entries below use real geo concepts:
-                               #   0x0F01 osm_node · 0x0F02 osm_way
-                               #   0x0F03 osm_relation
+                               #   0x0F010000 = osm_node   (canon 0x0F01)
+                               #   0x0F020000 = osm_way    (canon 0x0F02)
+                               #   0x0F030000 = osm_relation (canon 0x0F03)
+                               #
+                               # NOTE THE WIDTH: a classid is a FULL u32 —
+                               # the same width the canonical node key
+                               # reserves at bytes 0..4. Read the LEFT bytes
+                               # to route: the high half is the minted
+                               # concept 0xDDCC, domain in the top byte, so
+                               # classids sort/prefix-search by hierarchy.
+                               #
+                               # The LOW half is NOT padding — it carries the
+                               # app/render half: ClassView + WideFieldMask
+                               # ergonomics and slot-schema switching.
+                               # "0x0000" means "no app skin" — one legal
+                               # value among many, and a slot a consumer
+                               # FILLS (e.g. a session writing an ontology
+                               # routing value there). A config carrying
+                               # ...0000 declares the slot UNSET, not
+                               # meaningless.
+                               #
+                               # The parser checks only that this is
+                               # 0x-prefixed hex fitting u32. It deliberately
+                               # does NOT police the halves — a zero canon is
+                               # a legal dormant state (zero-fallback ladder)
+                               # and pre-flip forms are read via
+                               # classid_canon_compat.
                                # (An earlier draft of this file used 0x0D01
                                # for an "ontology" bake. 0x0D01 is real — it
                                # is `hr_employee` in the HR domain. That is
@@ -120,7 +145,7 @@ bakes:
   # --- geo.munich: NOT hydrated — read remotely, on demand. ----------------
   - name: geo-munich
     table: geo.munich.lance
-    classid: "0x0F02"
+    classid: "0x0F020000"
     # slab_digest omitted here on purpose — this bake floats to whatever the
     # table currently holds rather than pinning a specific bake.
     hydrate: false             # Served straight from the object store on
@@ -133,7 +158,7 @@ bakes:
   # --- geo.relations: NOT hydrated — a reference bake read cold. -----------
   - name: geo-relations
     table: geo.relations.lance
-    classid: "0x0F03"
+    classid: "0x0F030000"
     slab_digest: "sha256:REPLACE_WITH_REAL_DIGEST"
     hydrate: false             # A reference bake consulted occasionally, not
                                # on the hot request path — remote reads are
