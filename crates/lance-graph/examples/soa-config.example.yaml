@@ -100,15 +100,28 @@ bakes:
                                #   0x0F030000 = osm_relation (canon 0x0F03)
                                #
                                # NOTE THE WIDTH: a classid is a FULL u32 —
-                               # canon (the minted concept) in the HIGH half,
-                               # custom (app render prefix, 0x0000 when none)
-                               # in the LOW half. Writing the bare concept
-                               # "0x0F01" lands it in the LOW half, canon
-                               # reads as 0, and every reader routes the bake
-                               # as Reserved/default. The parser now rejects
-                               # that shape and suggests the composed form —
-                               # this example shipped it wrong once (codex P1
-                               # on #908), which is why the check exists.
+                               # the same width the canonical node key
+                               # reserves at bytes 0..4. Read the LEFT bytes
+                               # to route: the high half is the minted
+                               # concept 0xDDCC, domain in the top byte, so
+                               # classids sort/prefix-search by hierarchy.
+                               #
+                               # The LOW half is NOT padding — it carries the
+                               # app/render half: ClassView + WideFieldMask
+                               # ergonomics and slot-schema switching.
+                               # "0x0000" means "no app skin" — one legal
+                               # value among many, and a slot a consumer
+                               # FILLS (e.g. a session writing an ontology
+                               # routing value there). A config carrying
+                               # ...0000 declares the slot UNSET, not
+                               # meaningless.
+                               #
+                               # The parser checks only that this is
+                               # 0x-prefixed hex fitting u32. It deliberately
+                               # does NOT police the halves — a zero canon is
+                               # a legal dormant state (zero-fallback ladder)
+                               # and pre-flip forms are read via
+                               # classid_canon_compat.
                                # (An earlier draft of this file used 0x0D01
                                # for an "ontology" bake. 0x0D01 is real — it
                                # is `hr_employee` in the HR domain. That is

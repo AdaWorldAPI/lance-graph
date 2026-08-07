@@ -103,15 +103,25 @@ pub struct BakeEntry {
     pub table: String,
     /// Hex classid, e.g. `"0x0F010000"`, identifying this bake's node layout.
     ///
-    /// **A FULL u32 classid, not a u16 concept id.** A classid is
-    /// `compose_classid(canon, custom)` — canon (the minted concept, e.g.
-    /// `0x0F01` = `osm_node`) in the HIGH half, custom (the app render
-    /// prefix, `0x0000` when none) in the LOW half. Writing the bare concept
-    /// `"0x0F01"` here puts it in the LOW half, so `classid_canon` returns
-    /// **0** and every reader routes the bake as Reserved/default — the
-    /// "total class collapse" `ogar_codebook::classid_canon` warns about.
-    /// [`parse`] rejects that shape rather than letting it reach a reader;
-    /// use [`BakeEntry::classid_u32`] to read the value.
+    /// **A FULL u32 classid** — the same width the canonical node key
+    /// reserves at bytes `0..4`. Under the active `CanonHigh` order the
+    /// LEFT (high) bytes carry the minted concept `0xDDCC` — domain in the
+    /// most-significant byte, which is what makes classids sort and
+    /// prefix-search hierarchically. **Read the left bytes to route.**
+    ///
+    /// The LOW half is not padding: it carries the app/render half —
+    /// `ClassView` + `WideFieldMask` ergonomics and slot-schema switching.
+    /// `0x0000` there means "no app skin", one legal value among many, and
+    /// it is a slot a consumer FILLS — e.g. a session writing an ontology
+    /// routing value into it. So a config carrying `…0000` is declaring the
+    /// slot unset, not declaring it meaningless.
+    ///
+    /// [`parse`] validates only that this is `0x`-prefixed hex fitting u32.
+    /// It deliberately does **not** police the halves: a zero canon is a
+    /// legal dormant state under the zero-fallback ladder, and pre-flip
+    /// stored forms are legitimately read via `classid_canon_compat`. Use
+    /// [`BakeEntry::classid_u32`] to read the value and the codebook's own
+    /// accessors to split it.
     pub classid: String,
     /// Digest of the bake's slab, when the deployment pins one. Absent
     /// means "trust whatever is at `table` right now".
@@ -160,9 +170,6 @@ pub enum ConfigError {
     EmptyField(&'static str),
     /// `classid` did not parse as a `0x`-prefixed hex value that fits u32.
     BadClassid(String),
-    /// `classid` parsed, but its CANON half is zero — the signature of a
-    /// bare u16 concept id written where a composed u32 classid belongs.
-    ConceptIdAsClassid { found: String, suggestion: String },
 }
 
 impl fmt::Display for ConfigError {
@@ -188,12 +195,6 @@ impl fmt::Display for ConfigError {
                     "classid {classid:?} is not a 0x-prefixed hex value that fits u32"
                 )
             }
-            ConfigError::ConceptIdAsClassid { found, suggestion } => write!(
-                f,
-                "classid {found:?} has a ZERO canon half — this is a bare u16 concept id, \
-                 not a composed u32 classid. Every reader would route this bake as \
-                 Reserved/default. Did you mean {suggestion:?}?"
-            ),
         }
     }
 }
@@ -228,8 +229,6 @@ fn parse_classid_hex(s: &str) -> Option<u32> {
 ///   racing the other's writes),
 /// - an empty `ledger_prefix`, `name`, or `table`,
 /// - a `classid` that is not `0x`-prefixed hex fitting u32,
-/// - a `classid` whose CANON half is zero (a bare u16 concept id written
-///   where a composed u32 classid belongs),
 /// - any unknown key, via `deny_unknown_fields` on both structs — a typo
 ///   must not silently default a field.
 pub fn parse(yaml: &str) -> Result<SoaConfig, ConfigError> {
@@ -264,24 +263,15 @@ pub fn parse(yaml: &str) -> Result<SoaConfig, ConfigError> {
             return Err(ConfigError::DuplicateTable(bake.table.clone()));
         }
 
-        let value = parse_classid_hex(&bake.classid)
+        // Structural only: it must be 0x-prefixed hex that fits the u32 the
+        // canonical node key reserves for it. NO semantic check on the halves
+        // — a zero canon is a legal dormant/bootstrap state under the
+        // zero-fallback ladder (CLAUDE.md: a zero tier is "not consulted",
+        // never an error), and pre-flip stored forms are legitimately read by
+        // `classid_canon_compat`. Rejecting either here would refuse valid
+        // configs on an inference about intent this parser has no basis for.
+        parse_classid_hex(&bake.classid)
             .ok_or_else(|| ConfigError::BadClassid(bake.classid.clone()))?;
-
-        // The canon half is THE class discriminator. A zero canon means the
-        // operator wrote a bare u16 concept id (`0x0F01`) where a composed
-        // u32 classid (`0x0F010000`) belongs — readable-looking, silently
-        // routed as Reserved/default. Caught here with the composed form the
-        // author almost certainly meant, rather than at a reader that has
-        // already mis-cast the bytes.
-        if lance_graph_contract::ogar_codebook::classid_canon(value) == 0 && value != 0 {
-            return Err(ConfigError::ConceptIdAsClassid {
-                found: bake.classid.clone(),
-                suggestion: format!(
-                    "0x{:08X}",
-                    lance_graph_contract::ogar_codebook::compose_classid(value as u16, 0)
-                ),
-            });
-        }
     }
 
     Ok(config)
@@ -535,50 +525,6 @@ bakes:
 "#;
         let err = parse(yaml).expect_err("non-hex digits must be rejected");
         assert_eq!(err, ConfigError::BadClassid("0xZZ".to_string()));
-    }
-
-    /// **The concept-id-as-classid trap** (codex P1 on #908 — this repo's own
-    /// example config shipped it wrong).
-    ///
-    /// `0x0F01` is a real minted concept, and as a *string* it looks entirely
-    /// plausible in a `classid:` field. Read as the u32 it claims to be, the
-    /// concept lands in the LOW half, `classid_canon` returns 0, and every
-    /// reader routes the bake as Reserved/default — silently. Two-sided: the
-    /// bare concept must be REJECTED and the composed form must be ACCEPTED,
-    /// so this cannot pass by rejecting everything.
-    #[test]
-    fn rejects_a_bare_concept_id_written_where_a_composed_classid_belongs() {
-        let yaml = |cid: &str| {
-            format!(
-                "version: 1\nledger_prefix: \"lance-graph/ledger\"\nbakes:\n  \
-                 - name: berlin\n    table: berlin.lance\n    classid: \"{cid}\"\n"
-            )
-        };
-
-        let err = parse(&yaml("0x0F01")).expect_err("a bare u16 concept id must be rejected");
-        match err {
-            ConfigError::ConceptIdAsClassid { found, suggestion } => {
-                assert_eq!(found, "0x0F01");
-                // The suggestion must be the composed form, so the operator is
-                // told what to write rather than merely that they were wrong.
-                assert_eq!(suggestion, "0x0F010000");
-            }
-            other => panic!("expected ConceptIdAsClassid, got {other:?}"),
-        }
-
-        // The paired half: the composed form parses. Without this the test
-        // would pass even if the rule rejected every classid.
-        let ok = parse(&yaml("0x0F010000")).expect("the composed classid must be accepted");
-        assert_eq!(
-            ok.bakes[0].classid_u32(),
-            Some(0x0F01_0000),
-            "classid_u32 must return the parsed value"
-        );
-        assert_eq!(
-            lance_graph_contract::ogar_codebook::classid_canon(0x0F01_0000),
-            0x0F01,
-            "and its canon half must be the concept — the whole point of the rule"
-        );
     }
 
     /// **A typo must not silently default a field.** `slab_digset` would
