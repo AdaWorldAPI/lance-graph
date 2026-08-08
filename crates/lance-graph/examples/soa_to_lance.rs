@@ -107,11 +107,26 @@ fn store_params_from(opts: HashMap<String, String>) -> ObjectStoreParams {
 #[tokio::main(flavor = "multi_thread")]
 async fn main() {
     let a: Vec<String> = std::env::args().collect();
-    if a.len() != 6 {
-        eprintln!("usage: soa_to_lance <slab.soa> <uri> <table> <classid-hex> <slab-digest-hex>");
+    if !(6..=7).contains(&a.len()) {
+        eprintln!(
+            "usage: soa_to_lance <slab.soa> <uri> <table> <classid-hex> <slab-digest-hex> \
+             [--overwrite]"
+        );
         std::process::exit(2);
     }
     let (slab_path, uri, table, classid, digest) = (&a[1], &a[2], &a[3], &a[4], &a[5]);
+    // A re-bake changes the bytes under an existing table name, and the default
+    // must never be to do that by accident — hence opt-in. `Overwrite` rather
+    // than a delete-then-Create: Lance keeps the prior version, so a re-bake is
+    // a new version of the table and the previous one stays readable.
+    let overwrite = match a.get(6).map(String::as_str) {
+        None => false,
+        Some("--overwrite") => true,
+        Some(other) => {
+            eprintln!("unknown argument {other:?} (expected --overwrite)");
+            std::process::exit(2);
+        }
+    };
     let is_remote = uri.contains("://");
 
     // Resolve S3 credentials ONCE, up front, and fail fast if the uri commits
@@ -192,7 +207,11 @@ async fn main() {
     // ── the write: local and S3 are the same call ──
     let dest = format!("{}/{}.lance", uri.trim_end_matches('/'), table);
     let params = WriteParams {
-        mode: WriteMode::Create,
+        mode: if overwrite {
+            WriteMode::Overwrite
+        } else {
+            WriteMode::Create
+        },
         store_params: s3.clone().map(store_params_from),
         ..Default::default()
     };
