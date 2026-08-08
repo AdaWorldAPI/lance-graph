@@ -20,7 +20,10 @@ fn main() {
             std::process::exit(1);
         }
     };
-    println!("accepted: version {} ledger_prefix {}", cfg.version, cfg.ledger_prefix);
+    println!(
+        "accepted: version {} ledger_prefix {}",
+        cfg.version, cfg.ledger_prefix
+    );
     for b in &cfg.bakes {
         println!(
             "  {:<12} table={:<20} classid=0x{:08X} hydrate={} digest={}",
@@ -31,5 +34,9 @@ fn main() {
             b.slab_digest.as_deref().unwrap_or("<unpinned>")
         );
     }
-    println!("on_existing: {:?}  bakes: {}", cfg.on_existing, cfg.bakes.len());
+    println!(
+        "on_existing: {:?}  bakes: {}",
+        cfg.on_existing,
+        cfg.bakes.len()
+    );
 }
