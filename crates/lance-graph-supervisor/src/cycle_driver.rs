@@ -101,8 +101,8 @@ use lance_graph_contract::QualiaI4_16D;
 use lance_graph_planner::batch_writer::BatchWriter;
 use lance_graph_planner::owner_adapter::emit_bootstrap_intent;
 use lance_graph_planner::persist_sink::{
-    persist_cycle, recover_and_apply, CommitOutcome, CycleFrame, CycleId, LandedSlot, PersistError,
-    SweepSlot, WalSink,
+    persist_cycle, recover_and_apply, CommitError, CommitOutcome, CycleFrame, CycleId, LandedSlot,
+    PersistError, SweepSlot, WalSink,
 };
 use lance_graph_planner::traits::StrategyOutcome;
 
@@ -207,6 +207,48 @@ pub struct SealFailure {
     pub cause: PersistError,
 }
 
+/// What a caller must DO about a [`SealFailure`] — the commit taxonomy
+/// preserved as a decision, rather than flattened into "it failed".
+///
+/// Exists because the outer caller sees only [`CycleError::Seal`]; without
+/// this the four commit errors collapse into one recovery, and two of the
+/// four recoveries are then wrong (an endless retry of a permanently
+/// malformed batch, or a regeneration that may double-publish).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum SealRecovery {
+    /// Nothing published, PROVEN. Regenerate the cycle (refresh the
+    /// `base_version` first if the cause was a fence).
+    Regenerate,
+    /// Publication is UNKNOWN. Re-submit the SAME frozen
+    /// [`SealFailure::casts`] under the SAME [`SealFailure::frame`] —
+    /// reconciliation runs first, so the retry cannot double-append.
+    ResubmitFrozen,
+    /// PERMANENT. The batch can never commit as-is (an ABI-malformed
+    /// artifact); retrying is an infinite loop. Fix the producer.
+    Permanent,
+    /// Fail closed. This cycle is durable with DIFFERENT content — never
+    /// promoted, never overwritten; escalate.
+    Escalate,
+}
+
+impl SealFailure {
+    /// Classify [`Self::cause`] into the action a caller must take.
+    #[must_use]
+    pub fn recovery(&self) -> SealRecovery {
+        match &self.cause {
+            PersistError::Commit(CommitError::Fenced { .. } | CommitError::Io(_)) => {
+                SealRecovery::Regenerate
+            }
+            PersistError::Commit(CommitError::Ambiguous { .. }) => SealRecovery::ResubmitFrozen,
+            PersistError::Commit(CommitError::InvalidArtifact { .. }) => SealRecovery::Permanent,
+            PersistError::Commit(CommitError::HashConflict { .. }) => SealRecovery::Escalate,
+            // Pre-commit guards (owner mismatch, stale phase, …): the batch
+            // never reached storage, so nothing is published.
+            _ => SealRecovery::Regenerate,
+        }
+    }
+}
+
 /// P4b output — the effect of applying a sealed cycle's sparse transition set.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct AppliedCycle {
@@ -216,7 +258,11 @@ pub struct AppliedCycle {
     /// apply sparse transitions to the in-memory fleet even though nothing was
     /// published) and for a [`CommitOutcome::Reconciled`] retry (already
     /// durable; the position is never invented from the current head).
-    pub version: Option<DatasetVersion>,
+    ///
+    /// Named in full deliberately: a bare `version` beside a `SealedCycle`
+    /// that now distinguishes publication from observed head is exactly the
+    /// ambiguity this arc removed one layer down.
+    pub publication_version: Option<DatasetVersion>,
     /// One move per **advanced** owner (distinct owners; ≤1 per cycle).
     pub applied: Vec<KanbanMove>,
     /// Defence-in-depth counter: same-owner extras in a sealed input NOT
@@ -474,7 +520,7 @@ pub fn apply_sealed_transitions<F: MailboxFleet>(
     let mut missing = 0usize;
 
     let partial = |applied: Vec<KanbanMove>, deferred, missing| AppliedCycle {
-        version: sealed.publication_version,
+        publication_version: sealed.publication_version,
         applied,
         deferred,
         missing,
@@ -547,11 +593,29 @@ pub struct CycleOutcome {
 /// A [`run_cycle`] failure.
 #[derive(Debug)]
 pub enum CycleError {
-    /// The WAL commit failed — **nothing published, no owner mutated, no
-    /// watermark advanced**. Held intents from this pass were discarded.
-    /// Prescribed recovery: rerun the unchanged Kanban task from `Vn`
-    /// (deterministic regeneration, module docs § Failure semantics); the
-    /// boxed [`SealFailure`] is an optional retry cache only.
+    /// The WAL commit did not yield a durable outcome. **No owner was
+    /// mutated and no watermark advanced**; held intents from this pass were
+    /// discarded.
+    ///
+    /// **The recovery is NOT uniform — read [`SealFailure::cause`], never
+    /// this variant alone.** An earlier version of this doc said "nothing
+    /// published, regenerate", which is true of only two of the four commit
+    /// errors and actively harmful for the other two: regenerating an
+    /// `Ambiguous` cycle risks a second publication, and regenerating an
+    /// `InvalidArtifact` one loops forever on an identical malformed batch.
+    /// [`SealFailure::recovery`] classifies it; the four cases are:
+    ///
+    /// | cause | published? | do |
+    /// |---|---|---|
+    /// | `Fenced` | no | regenerate against the current head |
+    /// | `Io` | no (proven) | regenerate unchanged |
+    /// | `Ambiguous` | UNKNOWN | re-submit the SAME frozen batch |
+    /// | `HashConflict` | yes, differently | fail closed — escalate |
+    /// | `InvalidArtifact` | no | PERMANENT — fix the producer, never retry |
+    ///
+    /// The boxed [`SealFailure`] carries the frozen casts, which are the
+    /// re-submission payload for `Ambiguous` and an optional retry cache
+    /// otherwise.
     Seal(Box<SealFailure>),
     /// A guard tripped mid-apply — the applied prefix (with its watermarks
     /// already advanced) is preserved; re-drive the tail via [`recover_fleet`].
@@ -585,11 +649,12 @@ pub enum CycleError {
 /// place alongside the phases. On [`CycleError::Seal`] the frozen cycle is
 /// retryable; on [`CycleError::Apply`] the applied prefix is preserved.
 ///
-/// **Borrow note (operator-ruled): `fleet: &mut F` is not touched across the
-/// seal's `.await`.** The parameter's lifetime spans the whole function, but
-/// the body only reads/writes through it in [`apply_sealed_transitions`],
-/// AFTER `seal_cycle`'s I/O has already completed — the exclusive fleet
-/// borrow is effectively taken post-I/O, not held live across the WAL commit.
+/// (An earlier note here claimed the fleet borrow "is effectively taken
+/// post-I/O" because the body only dereferences it after the seal. That is
+/// true of the BODY and false of the SIGNATURE, which is what a caller is
+/// bound by — the two paragraphs contradicted each other and the honest one
+/// above is the one that holds. Removed rather than reconciled: a reader who
+/// believed the second would use this as the production path.)
 pub async fn run_cycle<S, F>(
     sink: &mut S,
     fleet: &mut F,
@@ -1514,7 +1579,7 @@ mod tests {
         assert_eq!(applied.applied.len(), 17, "exactly 17 owners advanced");
         assert_eq!(applied.deferred, 0);
         assert_eq!(applied.missing, 0);
-        assert_eq!(applied.version, Some(DatasetVersion(1)));
+        assert_eq!(applied.publication_version, Some(DatasetVersion(1)));
         assert_eq!(wm.len(), 17, "exactly 17 watermarks advanced");
 
         // Every represented owner is now at CognitiveWork (cycle bumped); every
@@ -2357,5 +2422,70 @@ mod tests {
         };
         assert_eq!(at_zero.checkpoint_bound(Some(CycleId(7))), None);
         assert_eq!(at_zero.checkpoint_bound(None), None);
+    }
+
+    // ── FALSIFIER (post-#912 review): the commit taxonomy survives the
+    //    supervisor boundary ────────────────────────────────────────────────
+    // The outer caller sees only `CycleError::Seal`. If that flattened the
+    // four commit errors into one recovery, two of the four would be wrong:
+    // regenerating an Ambiguous cycle risks a second publication, and
+    // regenerating an InvalidArtifact one loops forever.
+    #[test]
+    fn seal_failure_recovery_separates_all_four_commit_errors() {
+        let frame = CycleFrame::new(CycleId(1), DatasetVersion(0));
+        let fail = |cause| SealFailure {
+            frame,
+            casts: Vec::new(),
+            cause: PersistError::Commit(cause),
+        };
+        assert_eq!(
+            fail(CommitError::Fenced {
+                current_head: DatasetVersion(3)
+            })
+            .recovery(),
+            SealRecovery::Regenerate
+        );
+        assert_eq!(
+            fail(CommitError::Io(
+                lance_graph_planner::persist_sink::WriteFailed("nothing published".into())
+            ))
+            .recovery(),
+            SealRecovery::Regenerate
+        );
+        assert_eq!(
+            fail(CommitError::Ambiguous {
+                cycle: CycleId(1),
+                batch_hash: 7,
+                cause: "unknown".into()
+            })
+            .recovery(),
+            SealRecovery::ResubmitFrozen,
+            "an unknown publication must NEVER be regenerated"
+        );
+        assert_eq!(
+            fail(CommitError::InvalidArtifact { row: 0, len: 511 }).recovery(),
+            SealRecovery::Permanent,
+            "a malformed batch retried is an infinite loop"
+        );
+        assert_eq!(
+            fail(CommitError::HashConflict {
+                cycle: CycleId(1),
+                stored_hash: 1,
+                offered_hash: 2
+            })
+            .recovery(),
+            SealRecovery::Escalate
+        );
+        // Anti-vacuity: the classifier discriminates — it is not a constant.
+        let all = [
+            SealRecovery::Regenerate,
+            SealRecovery::ResubmitFrozen,
+            SealRecovery::Permanent,
+            SealRecovery::Escalate,
+        ];
+        assert_eq!(
+            all.iter().collect::<std::collections::HashSet<_>>().len(),
+            4
+        );
     }
 }
