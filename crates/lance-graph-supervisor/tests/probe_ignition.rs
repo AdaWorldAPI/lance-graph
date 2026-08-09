@@ -91,7 +91,8 @@ mod probe_ignition {
     use lance_graph_planner::ir::Arena;
     use lance_graph_planner::owner_adapter::emit_bootstrap_intent;
     use lance_graph_planner::persist_sink::{
-        CycleFrame, CycleId, DetachedCycleBatch, LandedSlot, SweepSlot, WalSink, WriteFailed,
+        CommitError, CommitOutcome, CycleFrame, CycleId, DetachedCycleBatch, FrameMeta, LandedSlot,
+        SweepSlot, WalSink, WriteFailed,
     };
     use lance_graph_planner::strategy::style_strategy::StyleStrategy;
     use lance_graph_planner::traits::{
@@ -325,7 +326,11 @@ mod probe_ignition {
     // `cycle_driver.rs`'s own `#[cfg(test)]` `FakeWalSink`, cited at G3b). ─
 
     struct SealedCycle {
+        frame: CycleFrame,
         version: DatasetVersion,
+        /// The batch's deterministic content hash — the reconciliation-first
+        /// idempotency key `commit_cycle` looks up BEFORE appending.
+        batch_hash: u64,
         landings: Vec<SweepSlot>,
     }
 
@@ -333,7 +338,7 @@ mod probe_ignition {
         sealed: Mutex<Vec<SealedCycle>>,
         next_version: AtomicU64,
         wal_writes: AtomicU64,
-        /// `scan_sealed` + `versions` call count — MUST stay 0 across the
+        /// `scan_sealed` + `timeline` call count — MUST stay 0 across the
         /// main loop (P4b reads no dataset; G3b).
         reads: AtomicU64,
     }
@@ -364,29 +369,50 @@ mod probe_ignition {
 
     impl WalSink for MemWal {
         async fn commit_cycle(
-            &self,
-            base: DatasetVersion,
+            &mut self,
             batch: DetachedCycleBatch,
-        ) -> Result<DatasetVersion, WriteFailed> {
+        ) -> Result<CommitOutcome, CommitError> {
             let mut sealed = self.sealed.lock().expect("MemWal poisoned");
+            // Reconciliation-first: an already-durable (cycle, hash) is success,
+            // a matching cycle with a different hash fails closed.
+            if let Some(rec) = sealed.iter().find(|s| s.frame.cycle == batch.frame.cycle) {
+                return if rec.batch_hash == batch.batch_hash {
+                    Ok(CommitOutcome::Reconciled {
+                        current_head: rec.version,
+                        cycle: batch.frame.cycle,
+                        batch_hash: batch.batch_hash,
+                    })
+                } else {
+                    Err(CommitError::HashConflict {
+                        cycle: batch.frame.cycle,
+                        stored_hash: rec.batch_hash,
+                        offered_hash: batch.batch_hash,
+                    })
+                };
+            }
             let head = sealed.last().map_or(DatasetVersion(0), |s| s.version);
-            if base != head {
-                return Err(WriteFailed(format!(
-                    "stale base {base:?}: sealed head is {head:?}"
-                )));
+            if batch.frame.base_version != head {
+                return Err(CommitError::Fenced { current_head: head });
             }
             self.wal_writes.fetch_add(1, Ordering::SeqCst);
             let version = DatasetVersion(self.next_version.fetch_add(1, Ordering::SeqCst));
+            let (cycle, batch_hash) = (batch.frame.cycle, batch.batch_hash);
             sealed.push(SealedCycle {
+                frame: batch.frame,
                 version,
+                batch_hash,
                 landings: batch.landings,
             });
-            Ok(version)
+            Ok(CommitOutcome::Committed {
+                version,
+                cycle,
+                batch_hash,
+            })
         }
 
         async fn scan_sealed(
             &self,
-            from_version: Option<DatasetVersion>,
+            after_cycle: Option<CycleId>,
         ) -> Result<Vec<LandedSlot>, WriteFailed> {
             self.reads.fetch_add(1, Ordering::SeqCst);
             Ok(self
@@ -394,28 +420,27 @@ mod probe_ignition {
                 .lock()
                 .expect("MemWal poisoned")
                 .iter()
-                .filter(|s| from_version.is_none_or(|f| s.version > f))
+                .filter(|s| after_cycle.is_none_or(|c| s.frame.cycle > c))
                 .flat_map(|s| {
                     s.landings.iter().map(|slot| LandedSlot {
-                        version: s.version,
+                        cycle: s.frame.cycle,
                         slot: slot.clone(),
                     })
                 })
                 .collect())
         }
 
-        async fn versions(&self) -> Result<Vec<(CycleId, DatasetVersion)>, WriteFailed> {
+        async fn timeline(&self) -> Result<Vec<FrameMeta>, WriteFailed> {
             self.reads.fetch_add(1, Ordering::SeqCst);
             Ok(self
                 .sealed
                 .lock()
                 .expect("MemWal poisoned")
                 .iter()
-                .map(|s| {
-                    (
-                        s.landings.first().map_or(CycleId(0), |l| l.cycle),
-                        s.version,
-                    )
+                .map(|s| FrameMeta {
+                    cycle: s.frame.cycle,
+                    base_version: s.frame.base_version,
+                    batch_hash: s.batch_hash,
                 })
                 .collect())
         }
@@ -732,7 +757,7 @@ mod probe_ignition {
             eprintln!("probe.ignition.G2c: reliability(Analytical)={r_a} != reliability(Creative)={r_c}; same-style reliability is bit-identical");
         }
 
-        let sink = MemWal::new();
+        let mut sink = MemWal::new();
         let mut writer: BatchWriter<Vec<u8>> = BatchWriter::new();
         let mut position_base: u64 = 0;
         let mut watermarks: HashMap<MailboxId, Option<u64>> = HashMap::new();
@@ -871,7 +896,7 @@ mod probe_ignition {
             let wal_writes_before = sink.wal_writes();
             let base_version = sink.head();
             let outcome: CycleOutcome = match run_cycle(
-                &sink,
+                &mut sink,
                 &mut fleet,
                 &mut writer,
                 CycleFrame::new(CycleId(u64::from(c)), base_version),
@@ -1280,23 +1305,24 @@ mod probe_ignition {
         }
         impl WalSink for FlakyWal {
             async fn commit_cycle(
-                &self,
-                base: DatasetVersion,
+                &mut self,
                 batch: DetachedCycleBatch,
-            ) -> Result<DatasetVersion, WriteFailed> {
+            ) -> Result<CommitOutcome, CommitError> {
                 if self.fail_next.swap(false, Ordering::SeqCst) {
-                    return Err(WriteFailed("G9 injected retryable WAL failure".into()));
+                    return Err(CommitError::Io(WriteFailed(
+                        "G9 injected retryable WAL failure".into(),
+                    )));
                 }
-                self.inner.commit_cycle(base, batch).await
+                self.inner.commit_cycle(batch).await
             }
             async fn scan_sealed(
                 &self,
-                from_version: Option<DatasetVersion>,
+                after_cycle: Option<CycleId>,
             ) -> Result<Vec<LandedSlot>, WriteFailed> {
-                self.inner.scan_sealed(from_version).await
+                self.inner.scan_sealed(after_cycle).await
             }
-            async fn versions(&self) -> Result<Vec<(CycleId, DatasetVersion)>, WriteFailed> {
-                self.inner.versions().await
+            async fn timeline(&self) -> Result<Vec<FrameMeta>, WriteFailed> {
+                self.inner.timeline().await
             }
         }
 
@@ -1317,7 +1343,7 @@ mod probe_ignition {
             ),
         );
 
-        let sink = FlakyWal::new();
+        let mut sink = FlakyWal::new();
         let mut writer: BatchWriter<Vec<u8>> = BatchWriter::new();
         let mut watermarks: HashMap<MailboxId, Option<u64>> = HashMap::new();
 
@@ -1329,7 +1355,7 @@ mod probe_ignition {
         let before_phases = phase_cycle_snapshot(&fleet);
         sink.fail_next_commit();
         let err = run_cycle(
-            &sink,
+            &mut sink,
             &mut fleet,
             &mut writer,
             CycleFrame::new(CycleId(1), DatasetVersion(0)),
@@ -1357,7 +1383,7 @@ mod probe_ignition {
 
         let frozen_frame = failure.frame;
         let frozen_casts = failure.casts;
-        let sealed = seal_cycle(&sink, frozen_frame, frozen_casts)
+        let sealed = seal_cycle(&mut sink, frozen_frame, frozen_casts)
             .await
             .expect("G9: the retry with the frozen cast set must succeed");
         assert_eq!(

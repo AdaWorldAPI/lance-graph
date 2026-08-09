@@ -61,12 +61,53 @@
 //! ## What the tests prove — CONTRACT probes, NOT crash/WAL integration (honest)
 //!
 //! The `#[cfg(test)]` `FakeWalSink` is in-process maps, not a WAL/Lance table. The
-//! tests are **storage/race CONTRACT probes**: one WAL write per cycle, write-side
-//! order under scrambled completion, per-row coalescing, no unsealed visibility,
-//! sealed read horizon, recovery idempotence. They do **NOT** prove real
-//! durability (no MemWAL, restart, atomic `RecordBatch`, or manifest).
-//! **`compile+test green ≠ storage proven`** (the Ladybug lesson). **This module
-//! builds NO concrete Lance sink.**
+//! tests are **storage/race CONTRACT probes**: one durable commit per cycle,
+//! write-side order under scrambled completion, per-row coalescing, no unsealed
+//! visibility, sealed read horizon, recovery idempotence. They do **NOT** prove
+//! real durability. **`compile+test green ≠ storage proven`** (the Ladybug
+//! lesson). The concrete sink is `lance_graph::graph::cycle_sink::LanceCycleWriter`.
+//!
+//! ## The governing storage rule (operator-ruled 2026-08-09 — supersedes the
+//! ## earlier "one version per cycle, empty cycles included" contract)
+//!
+//! **No artifact-backed semantic change → no write → no new [`DatasetVersion`].**
+//!
+//! - A cast with a NON-EMPTY payload is an **artifact cast** — a real semantic
+//!   delta (grounding result, reusable walk product, adjudication, terminal
+//!   conclusion). Only these persist.
+//! - A cast with an EMPTY payload is an **intent-only cast** (a held-intent
+//!   re-stage, a pure kanban step). It is EPHEMERAL: its move still applies to
+//!   the in-memory fleet, but it never reaches the store, never trips a
+//!   payload gate, and after a crash is cheaply regenerated from the pinned
+//!   sealed inputs. Kanban never decides when to persist; the anyway-happening
+//!   artifact write is what carries kanban progress into durability.
+//! - A cycle with ZERO artifact casts is [`CommitOutcome::NoChange`]: zero
+//!   store calls, zero rows, unchanged head. (The predecessor contract's
+//!   deliberate empty-cycle versioning is REMOVED, not repaired.)
+//!
+//! **Honest limit of the Phase-A gate (review-flagged):** the gate tests
+//! payload PRESENCE, not semantic CHANGE — an identical artifact re-emitted in
+//! a later cycle still commits (a new cycle genuinely concluded, but with
+//! unchanged content). Change-detection needs conclusion IDENTITY (the
+//! `(episode, plan, revision)` model + producer-side digest dedup) and is the
+//! Phase-D conclusion-boundary refinement; a typed
+//! `IntentOnly | ArtifactChanged` cast kind belongs there too, replacing the
+//! empty-payload CONVENTION with a type. Until then this doc — not the type
+//! system — is what says an empty payload means intent.
+//!
+//! ## One logical writer — commit is `&mut self`, no rollback, no delete
+//!
+//! There is exactly ONE logical application writer per cycle store; the 64k
+//! thoughts are parallel PRODUCERS, not writers. The trait therefore commits
+//! through `&mut self` (two application commits cannot interleave through the
+//! type boundary), and a published manifest is HISTORY — there is no
+//! compensating delete and no rollback. An unexpected head is a
+//! fence/reconciliation condition ([`CommitError::Fenced`] /
+//! [`CommitOutcome::Reconciled`]), never normal competition. Idempotency is
+//! durable: every committed batch carries its `(cycle, batch_hash)` in the
+//! same commit, so a lost acknowledgement reconciles by re-submitting the SAME
+//! frozen batch — [`WalSink::commit_cycle`] finds it and returns
+//! [`CommitOutcome::Reconciled`] instead of appending twice.
 
 use lance_graph_contract::kanban::{KanbanColumn, KanbanMove, RubiconTransitionError};
 use lance_graph_contract::scheduler::DatasetVersion;
@@ -150,14 +191,128 @@ pub struct SweepSlot {
     pub payload: Vec<u8>,
 }
 
-/// A landing read back from a SEALED cycle — its slot plus the version its cycle
-/// sealed into (shared by every landing of that cycle). Only ever produced for
-/// SEALED cycles; returned in the stored (already canonical) order, NEVER re-sorted.
+/// A landing read back from a SEALED cycle — its slot plus the cycle it sealed
+/// with. Only ever produced for SEALED cycles; returned in the stored (already
+/// canonical) order, NEVER re-sorted.
+///
+/// Keyed by CYCLE, not by dataset version: the physical [`DatasetVersion`] is
+/// the publication position of the sole writer's commit (returned in
+/// [`CommitOutcome::Committed`]) and is deliberately NOT re-derivable per row —
+/// semantic identity lives in `(cycle, batch_hash)`.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct LandedSlot {
-    /// The version the cycle sealed into (the cheap coarse timeline).
-    pub version: DatasetVersion,
+    /// The cycle this landing sealed with (the recovery bound / grouping key).
+    pub cycle: CycleId,
     pub slot: SweepSlot,
+}
+
+/// One committed cycle's frame metadata — the coarse timeline row. Compact:
+/// never carries payloads.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct FrameMeta {
+    pub cycle: CycleId,
+    /// The sealed read horizon this cycle's thoughts read (`Vn`).
+    pub base_version: DatasetVersion,
+    /// The batch's deterministic content hash (the durable idempotency key).
+    pub batch_hash: u64,
+}
+
+/// The honest result states of a commit attempt. There is NO state meaning
+/// "nothing landed" that can be returned after publication may have occurred —
+/// that case either reconciles to [`Reconciled`](CommitOutcome::Reconciled) or
+/// surfaces as [`CommitError::Ambiguous`].
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum CommitOutcome {
+    /// Zero artifact casts: zero store calls, zero rows, unchanged head.
+    NoChange { head: DatasetVersion },
+    /// The batch is durable at the ACTUAL returned physical PUBLICATION
+    /// version — the audit-grade reference (unlike
+    /// [`Reconciled`](CommitOutcome::Reconciled)'s `current_head`).
+    Committed {
+        version: DatasetVersion,
+        cycle: CycleId,
+        batch_hash: u64,
+    },
+    /// The batch was ALREADY durable (a lost acknowledgement / retry): found by
+    /// its `(cycle, batch_hash)` identity; no second append happened.
+    ///
+    /// **`current_head` is deliberately NOT named `version`**: it is the store
+    /// head AT RECONCILIATION TIME, not the version this cycle originally
+    /// published at (retrying cycle 1 after cycle 5 reconciles at head V5).
+    /// An audit trail must reference the durable identity
+    /// `(cycle, batch_hash)` — the exact publication position is recoverable
+    /// from the version history on the audit path, never inferred from this
+    /// field. Only [`Committed`](CommitOutcome::Committed)'s `version` is a
+    /// publication version.
+    Reconciled {
+        current_head: DatasetVersion,
+        cycle: CycleId,
+        batch_hash: u64,
+    },
+}
+
+/// Why a commit attempt did NOT yield a durable outcome.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum CommitError {
+    /// The store head is not the frame's sealed predecessor and this batch is
+    /// not already durable. NOTHING was written: regenerate against the
+    /// current head. Under the one-writer topology this means a lost-response
+    /// restart, a stale cached head, an unauthorized writer, or corruption —
+    /// never normal competition.
+    Fenced { current_head: DatasetVersion },
+    /// This cycle is durable with a DIFFERENT batch hash — fail closed
+    /// (corruption / identity conflict). Never promoted, never overwritten.
+    HashConflict {
+        cycle: CycleId,
+        stored_hash: u64,
+        offered_hash: u64,
+    },
+    /// I/O failed with provably NOTHING published — safe to regenerate from
+    /// the unchanged horizon.
+    Io(WriteFailed),
+    /// The append's outcome could not be determined AND reconciliation itself
+    /// failed. Re-submit the SAME frozen batch: `commit_cycle` reconciles
+    /// first, so the retry cannot double-append.
+    Ambiguous {
+        cycle: CycleId,
+        batch_hash: u64,
+        cause: String,
+    },
+}
+
+impl std::fmt::Display for CommitError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Fenced { current_head } => {
+                write!(f, "fenced: store head is {current_head:?}, nothing written")
+            }
+            Self::HashConflict {
+                cycle,
+                stored_hash,
+                offered_hash,
+            } => write!(
+                f,
+                "cycle {cycle:?} durable with hash {stored_hash:#018x}, offered {offered_hash:#018x} — fail closed"
+            ),
+            Self::Io(e) => write!(f, "commit I/O (nothing published): {e}"),
+            Self::Ambiguous {
+                cycle,
+                batch_hash,
+                cause,
+            } => write!(
+                f,
+                "AMBIGUOUS: cycle {cycle:?} (hash {batch_hash:#018x}) may or may not be durable: {cause}"
+            ),
+        }
+    }
+}
+impl std::error::Error for CommitError {
+    fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
+        match self {
+            Self::Io(e) => Some(e),
+            _ => None,
+        }
+    }
 }
 
 /// A durable write that did not land (the cycle seal failed / was fenced).
@@ -179,19 +334,29 @@ impl std::error::Error for WriteFailed {}
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct DetachedCycleBatch {
     pub frame: CycleFrame,
-    /// Landings in canonical `stream_position` order (the temporal deinterlace
-    /// already ran — the WAL never sees worker-completion order).
+    /// ARTIFACT landings (non-empty payloads) in canonical `stream_position`
+    /// order (the temporal deinterlace already ran — the store never sees
+    /// worker-completion order). Intent-only casts never enter a batch.
     pub landings: Vec<SweepSlot>,
     /// The coalesced final image: `row -> last payload in stream order`.
     pub image: std::collections::BTreeMap<u64, Vec<u8>>,
+    /// Deterministic content hash over the CANONICAL landings — the durable
+    /// idempotency key. Identical completed sets yield identical hashes
+    /// regardless of worker completion order (the freeze canonicalizes first).
+    pub batch_hash: u64,
 }
 
 impl DetachedCycleBatch {
-    /// Freeze concurrently-produced casts into the ordered, coalesced cycle image:
-    /// (1) [`order_cycle_stably`] stable-orders by `stream_position` —
-    /// completion order never becomes storage order (physical race); (2) fold
-    /// same-row updates into owned rows (later stream position wins). The result is
-    /// detached from any live SoA and ready for exactly one WAL append.
+    /// Freeze concurrently-produced ARTIFACT casts into the ordered, coalesced
+    /// cycle image: (1) [`order_cycle_stably`] stable-orders by
+    /// `stream_position` — completion order never becomes storage order
+    /// (physical race); (2) fold same-row updates into owned rows (later
+    /// stream position wins); (3) hash the canonical content. The result is
+    /// detached from any live SoA and ready for exactly one durable commit.
+    ///
+    /// Callers pass artifact casts only ([`persist_cycle`] partitions);
+    /// passing intent-only casts here would persist control flow, which the
+    /// governing storage rule forbids.
     #[must_use]
     pub fn freeze(frame: CycleFrame, mut casts: Vec<SweepSlot>) -> Self {
         order_cycle_stably(&mut casts, |s| s.stream_position);
@@ -199,11 +364,44 @@ impl DetachedCycleBatch {
         for s in &casts {
             image.insert(s.row, s.payload.clone());
         }
+        let batch_hash = Self::content_hash(frame, &casts);
         Self {
             frame,
             landings: casts,
             image,
+            batch_hash,
         }
+    }
+
+    /// FNV-1a 64 over the frame identity + canonical landing content.
+    fn content_hash(frame: CycleFrame, canonical: &[SweepSlot]) -> u64 {
+        const OFFSET: u64 = 0xcbf2_9ce4_8422_2325;
+        const PRIME: u64 = 0x0000_0100_0000_01b3;
+        let mut h = OFFSET;
+        let mut eat = |bytes: &[u8]| {
+            for b in bytes {
+                h ^= u64::from(*b);
+                h = h.wrapping_mul(PRIME);
+            }
+        };
+        eat(&frame.cycle.0.to_le_bytes());
+        eat(&frame.base_version.0.to_le_bytes());
+        for s in canonical {
+            eat(&s.stream_position.to_le_bytes());
+            eat(&s.owner.to_le_bytes());
+            eat(&s.row.to_le_bytes());
+            match &s.paired_move {
+                Some(m) => eat(&[1, m.from as u8, m.to as u8, m.exec as u8]),
+                None => eat(&[0]),
+            }
+            if let Some(m) = &s.paired_move {
+                eat(&m.mailbox.to_le_bytes());
+                eat(&m.witness_chain_position.to_le_bytes());
+            }
+            eat(&(s.payload.len() as u64).to_le_bytes());
+            eat(&s.payload);
+        }
+        h
     }
 }
 
@@ -213,6 +411,13 @@ pub enum PersistError {
     /// The cycle seal did not land — nothing published, so no step. This is the
     /// RETRYABLE class (a fenced / failed append may succeed on retry).
     Write(WriteFailed),
+    /// The durable commit did not yield an outcome — see [`CommitError`] for
+    /// the honest sub-states ([`Fenced`](CommitError::Fenced) = regenerate
+    /// against the new head; [`Io`](CommitError::Io) = nothing landed, safe
+    /// regenerate; [`Ambiguous`](CommitError::Ambiguous) = re-submit the SAME
+    /// frozen batch, reconciliation decides; [`HashConflict`](CommitError::HashConflict)
+    /// = fail closed).
+    Commit(CommitError),
     /// A cast was staged against a different cycle than the frame — a caller
     /// programming error, PERMANENT and never retryable (distinct from [`Write`]
     /// so retry logic never loops on it). [`Write`]: PersistError::Write
@@ -242,6 +447,7 @@ impl std::fmt::Display for PersistError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             Self::Write(e) => write!(f, "{e}"),
+            Self::Commit(e) => write!(f, "{e}"),
             Self::CycleMismatch {
                 cast_cycle,
                 frame_cycle,
@@ -277,6 +483,7 @@ impl std::error::Error for PersistError {
     fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
         match self {
             Self::Write(e) => Some(e),
+            Self::Commit(e) => Some(e),
             Self::Illegal(e) => Some(e),
             Self::CycleMismatch { .. } | Self::OwnerMismatch { .. } | Self::StalePhase { .. } => {
                 None
@@ -301,45 +508,67 @@ impl std::error::Error for PersistError {
 /// to be spawned, give it explicit `impl Future<Output = …> + Send` methods there.
 #[allow(async_fn_in_trait)]
 pub trait WalSink {
-    /// The SINGLE amortized WAL append for a whole cycle: commit `batch` (already
-    /// ordered + coalesced) against the sealed predecessor `base`, publishing
-    /// exactly one new [`DatasetVersion`] atomically. This is the ONLY durable op —
-    /// 64k thoughts → one append, not 64k appends. `async` because the concrete WAL
-    /// append is async.
+    /// The SINGLE amortized durable commit for a whole cycle: commit `batch`
+    /// (already ordered + coalesced + hashed, artifact casts only) against the
+    /// sealed predecessor `batch.frame.base_version`, publishing exactly one
+    /// new [`DatasetVersion`] atomically — 64k thoughts → one commit.
+    ///
+    /// **`&mut self` — the one-logical-writer boundary.** Two application
+    /// commits cannot interleave through this type boundary (a concrete writer
+    /// is additionally non-`Clone`). Producers stay fire-and-forget on their
+    /// own `&self`/staging surfaces; only the sole writer drives this method
+    /// and it FULLY honors the result.
+    ///
+    /// Reconciliation-first: an implementation looks the batch's
+    /// `(cycle, batch_hash)` up BEFORE appending, so re-submitting the same
+    /// frozen batch after a lost acknowledgement returns
+    /// [`CommitOutcome::Reconciled`] instead of double-appending. There is no
+    /// rollback and no compensating delete: a published manifest is history.
     async fn commit_cycle(
-        &self,
-        base: DatasetVersion,
+        &mut self,
         batch: DetachedCycleBatch,
-    ) -> Result<DatasetVersion, WriteFailed>;
+    ) -> Result<CommitOutcome, CommitError>;
 
     /// Read back COMMITTED landings (never an uncommitted cycle), in the STORED
-    /// canonical order — this seam does NOT sort. Optionally only cycles after
-    /// `from_version`.
+    /// canonical order — this seam does NOT sort. `after_cycle` bounds the read
+    /// to cycles strictly after it (the recovery tail bound); implementations
+    /// push the bound into the storage scan, never full-scan-and-filter.
     async fn scan_sealed(
         &self,
-        from_version: Option<DatasetVersion>,
+        after_cycle: Option<CycleId>,
     ) -> Result<Vec<LandedSlot>, WriteFailed>;
 
-    /// The CHEAP coarse timeline: `(CycleId, DatasetVersion)` per committed cycle,
-    /// WITHOUT replaying any landing. The read a downstream time-series consumer
-    /// (e.g. `stockfish-rs`, another session) does — a lookup of the version table
-    /// over already-coherent frames.
-    async fn versions(&self) -> Result<Vec<(CycleId, DatasetVersion)>, WriteFailed>;
+    /// The CHEAP coarse timeline: one [`FrameMeta`] per committed cycle,
+    /// WITHOUT touching any payload. NOT a normal-path read — after a
+    /// successful commit the caller already holds the outcome; this is for
+    /// recovery, audit, and downstream consumers.
+    async fn timeline(&self) -> Result<Vec<FrameMeta>, WriteFailed>;
 }
 
-/// Deinterlace + freeze a whole cycle's casts and commit it in ONE WAL append.
-/// The loom ([`order_cycle_stably`]) and the freeze run in
-/// [`DetachedCycleBatch::freeze`] BEFORE the single [`WalSink::commit_cycle`], so
-/// completion order never reaches storage. Rejects a cross-owner move (and a
-/// cycle-id mismatch) before the batch is built. Returns the one published version.
+/// Partition, deinterlace + freeze a cycle's ARTIFACT casts and commit them in
+/// ONE durable operation — or perform NONE when there is nothing artifact-backed.
+///
+/// The governing storage rule, applied here:
+/// - Intent-only casts (EMPTY payload — held-intent re-stages, pure kanban
+///   steps) are partitioned OUT before the freeze. They stay ephemeral: their
+///   moves still reach the fleet through the caller's transition set, but no
+///   payload gate sees them and no store row carries them.
+/// - Zero artifact casts ⇒ [`CommitOutcome::NoChange`], with the sink NEVER
+///   called: zero store operations, zero rows, unchanged head.
+/// - Otherwise the loom ([`order_cycle_stably`]) and freeze run in
+///   [`DetachedCycleBatch::freeze`] BEFORE the single
+///   [`WalSink::commit_cycle`], so completion order never reaches storage.
+///
+/// Rejects a cross-owner move (and a cycle-id mismatch) across ALL casts —
+/// ephemeral ones included — before anything is built.
 pub async fn persist_cycle<S: WalSink>(
-    sink: &S,
+    sink: &mut S,
     frame: CycleFrame,
     casts: Vec<SweepSlot>,
-) -> Result<DatasetVersion, PersistError> {
+) -> Result<CommitOutcome, PersistError> {
     for c in &casts {
         if c.cycle != frame.cycle {
-            // Permanent caller error — NOT a retryable Write (retry would loop).
+            // Permanent caller error — NOT a retryable class (retry would loop).
             return Err(PersistError::CycleMismatch {
                 cast_cycle: c.cycle,
                 frame_cycle: frame.cycle,
@@ -354,11 +583,19 @@ pub async fn persist_cycle<S: WalSink>(
             }
         }
     }
-    // Loom-before-WAL: order + coalesce + detach, THEN one atomic append.
-    let batch = DetachedCycleBatch::freeze(frame, casts);
-    sink.commit_cycle(frame.base_version, batch)
-        .await
-        .map_err(PersistError::Write)
+    // The artifact gate: only non-empty payloads are semantic deltas.
+    let artifacts: Vec<SweepSlot> = casts
+        .into_iter()
+        .filter(|c| !c.payload.is_empty())
+        .collect();
+    if artifacts.is_empty() {
+        return Ok(CommitOutcome::NoChange {
+            head: frame.base_version,
+        });
+    }
+    // Loom-before-commit: order + coalesce + hash + detach, THEN one commit.
+    let batch = DetachedCycleBatch::freeze(frame, artifacts);
+    sink.commit_cycle(batch).await.map_err(PersistError::Commit)
 }
 
 /// The result of a [`recover_and_apply`] pass: the moves applied this pass, and the
@@ -508,20 +745,21 @@ mod tests {
         }
     }
 
-    // ── The WAL sink fake ────────────────────────────────────────────────────────
-    struct SealedCycle {
+    // ── The store fake (contract probe; concrete = LanceCycleWriter) ────────────
+    struct SealedRec {
         frame: CycleFrame,
-        version: DatasetVersion,
-        /// The landings AS COMMITTED (already write-side ordered before the append).
+        batch_hash: u64,
+        /// The landings AS COMMITTED (already write-side ordered before the commit).
         landings: Vec<SweepSlot>,
         /// The coalesced final image: row -> last value in stream order.
         image: BTreeMap<u64, Vec<u8>>,
     }
     struct FakeWalSink {
         succeed: bool,
-        sealed: Mutex<Vec<SealedCycle>>,
-        next_version: AtomicU64,
-        /// The number of physical WAL appends — must be ONE per committed cycle.
+        sealed: Mutex<Vec<SealedRec>>,
+        /// The store's physical head version (0 = empty store).
+        head: AtomicU64,
+        /// The number of physical durable commits — must be ONE per committed cycle.
         wal_writes: AtomicU64,
     }
     impl FakeWalSink {
@@ -529,7 +767,7 @@ mod tests {
             Self {
                 succeed: true,
                 sealed: Mutex::new(Vec::new()),
-                next_version: AtomicU64::new(1),
+                head: AtomicU64::new(0),
                 wal_writes: AtomicU64::new(0),
             }
         }
@@ -541,6 +779,9 @@ mod tests {
         }
         fn wal_writes(&self) -> u64 {
             self.wal_writes.load(Ordering::SeqCst)
+        }
+        fn head(&self) -> DatasetVersion {
+            DatasetVersion(self.head.load(Ordering::SeqCst))
         }
         fn version_count(&self) -> usize {
             self.sealed.lock().unwrap().len()
@@ -555,12 +796,12 @@ mod tests {
         }
         /// Test-only: inject a committed cycle whose landings are DELIBERATELY out
         /// of order, to prove `scan_sealed` does not re-sort (order is a write-side
-        /// property, fixed before the append — never a read-time repair).
+        /// property, fixed before the commit — never a read-time repair).
         fn inject_unordered_committed(&self, frame: CycleFrame, landings: Vec<SweepSlot>) {
-            let v = DatasetVersion(self.next_version.fetch_add(1, Ordering::SeqCst));
-            self.sealed.lock().unwrap().push(SealedCycle {
+            self.head.fetch_add(1, Ordering::SeqCst);
+            self.sealed.lock().unwrap().push(SealedRec {
                 frame,
-                version: v,
+                batch_hash: 0,
                 landings,
                 image: BTreeMap::new(),
             });
@@ -568,38 +809,55 @@ mod tests {
     }
     impl WalSink for FakeWalSink {
         async fn commit_cycle(
-            &self,
-            base: DatasetVersion,
+            &mut self,
             batch: DetachedCycleBatch,
-        ) -> Result<DatasetVersion, WriteFailed> {
+        ) -> Result<CommitOutcome, CommitError> {
             if !self.succeed {
-                return Err(WriteFailed("cycle fenced".into()));
+                return Err(CommitError::Io(WriteFailed("cycle store I/O".into())));
             }
             let mut sealed = self.sealed.lock().unwrap();
-            // Optimistic-concurrency fence: a commit MUST target the current sealed
-            // head (`Vn`). A stale/in-flight `base` (a sibling that read an older
-            // predecessor) is rejected — the epistemic horizon enforced, not assumed.
-            let head = sealed.last().map_or(DatasetVersion(0), |s| s.version);
-            if base != head {
-                return Err(WriteFailed(format!(
-                    "stale base {base:?}: sealed head is {head:?}"
-                )));
+            // Reconciliation-first: an already-durable (cycle, hash) is success,
+            // a matching cycle with a different hash fails closed.
+            if let Some(rec) = sealed.iter().find(|s| s.frame.cycle == batch.frame.cycle) {
+                return if rec.batch_hash == batch.batch_hash {
+                    Ok(CommitOutcome::Reconciled {
+                        current_head: DatasetVersion(self.head.load(Ordering::SeqCst)),
+                        cycle: batch.frame.cycle,
+                        batch_hash: batch.batch_hash,
+                    })
+                } else {
+                    Err(CommitError::HashConflict {
+                        cycle: batch.frame.cycle,
+                        stored_hash: rec.batch_hash,
+                        offered_hash: batch.batch_hash,
+                    })
+                };
             }
-            // The batch arrives ALREADY deinterlaced + coalesced (loom before WAL).
-            // THE single amortized WAL append for the whole cycle.
+            // The fence: a commit MUST target the current head (`Vn`). Under the
+            // one-writer topology a mismatch is a stale horizon, never competition.
+            let head = DatasetVersion(self.head.load(Ordering::SeqCst));
+            if batch.frame.base_version != head {
+                return Err(CommitError::Fenced { current_head: head });
+            }
+            // THE single amortized durable commit for the whole cycle.
             self.wal_writes.fetch_add(1, Ordering::SeqCst);
-            let version = DatasetVersion(self.next_version.fetch_add(1, Ordering::SeqCst));
-            sealed.push(SealedCycle {
+            let version = DatasetVersion(self.head.fetch_add(1, Ordering::SeqCst) + 1);
+            let (cycle, batch_hash) = (batch.frame.cycle, batch.batch_hash);
+            sealed.push(SealedRec {
                 frame: batch.frame,
-                version,
+                batch_hash,
                 landings: batch.landings,
                 image: batch.image,
             });
-            Ok(version)
+            Ok(CommitOutcome::Committed {
+                version,
+                cycle,
+                batch_hash,
+            })
         }
         async fn scan_sealed(
             &self,
-            from_version: Option<DatasetVersion>,
+            after_cycle: Option<CycleId>,
         ) -> Result<Vec<LandedSlot>, WriteFailed> {
             // Returned in STORED order — no sort. (The order was fixed at seal.)
             Ok(self
@@ -607,22 +865,26 @@ mod tests {
                 .lock()
                 .unwrap()
                 .iter()
-                .filter(|s| from_version.is_none_or(|f| s.version > f))
+                .filter(|s| after_cycle.is_none_or(|c| s.frame.cycle > c))
                 .flat_map(|s| {
                     s.landings.iter().map(|slot| LandedSlot {
-                        version: s.version,
+                        cycle: s.frame.cycle,
                         slot: slot.clone(),
                     })
                 })
                 .collect())
         }
-        async fn versions(&self) -> Result<Vec<(CycleId, DatasetVersion)>, WriteFailed> {
+        async fn timeline(&self) -> Result<Vec<FrameMeta>, WriteFailed> {
             Ok(self
                 .sealed
                 .lock()
                 .unwrap()
                 .iter()
-                .map(|s| (s.frame.cycle, s.version))
+                .map(|s| FrameMeta {
+                    cycle: s.frame.cycle,
+                    base_version: s.frame.base_version,
+                    batch_hash: s.batch_hash,
+                })
                 .collect())
         }
     }
@@ -657,31 +919,41 @@ mod tests {
     // ── FALSIFIER (headline): one WAL write per cycle — the amortization ─────────
     #[tokio::test]
     async fn a_whole_cycle_of_casts_is_one_wal_write_one_version() {
-        let sink = FakeWalSink::new();
+        let mut sink = FakeWalSink::new();
         let frame = CycleFrame::new(CycleId(1), DatasetVersion(0));
         // 100 concurrent thoughts stage into an owned cast vector — building it
-        // touches NO WAL (staging is the caller's, not the sink's).
+        // touches NO store (staging is the caller's, not the sink's).
         let casts: Vec<SweepSlot> = (0..100u64).map(|i| slot(42, 1, i, i, None)).collect();
         assert_eq!(
             sink.wal_writes(),
             0,
-            "staging writes no WAL — pure amortization"
+            "staging writes nothing — pure amortization"
         );
         assert_eq!(sink.version_count(), 0, "no version before the seal");
-        // persist_cycle is the SINGLE amortized WAL write for the whole cycle.
-        let version = persist_cycle(&sink, frame, casts).await.unwrap();
-        assert_eq!(sink.wal_writes(), 1, "100 casts → exactly ONE WAL write");
-        assert_eq!(version, DatasetVersion(1), "→ exactly one version");
+        // persist_cycle is the SINGLE amortized durable commit for the cycle.
+        let out = persist_cycle(&mut sink, frame, casts).await.unwrap();
+        assert_eq!(sink.wal_writes(), 1, "100 casts → exactly ONE commit");
+        assert!(
+            matches!(
+                out,
+                CommitOutcome::Committed {
+                    version: DatasetVersion(1),
+                    cycle: CycleId(1),
+                    ..
+                }
+            ),
+            "→ exactly one version, honestly reported: {out:?}"
+        );
         assert_eq!(sink.version_count(), 1);
     }
 
     // ── FALSIFIER: write-side order under scrambled completion (physical race) ───
     #[tokio::test]
     async fn scrambled_completion_lands_in_canonical_stream_order_at_write_time() {
-        let sink = FakeWalSink::new();
+        let mut sink = FakeWalSink::new();
         // Thoughts "finish" (stage) in scrambled CPU order: stream 2, 0, 3, 1.
-        let sealed = persist_cycle(
-            &sink,
+        persist_cycle(
+            &mut sink,
             CycleFrame::new(CycleId(5), DatasetVersion(0)),
             vec![
                 slot(42, 5, 2, 20, None),
@@ -698,7 +970,7 @@ mod tests {
             .await
             .unwrap()
             .iter()
-            .filter(|l| l.version == sealed)
+            .filter(|l| l.cycle == CycleId(5))
             .map(|l| l.slot.stream_position)
             .collect();
         assert_eq!(
@@ -739,9 +1011,9 @@ mod tests {
     // ── FALSIFIER: per-row coalescing (not last-chunk-wins) ──────────────────────
     #[tokio::test]
     async fn same_row_updates_coalesce_distinct_rows_survive() {
-        let sink = FakeWalSink::new();
+        let mut sink = FakeWalSink::new();
         persist_cycle(
-            &sink,
+            &mut sink,
             CycleFrame::new(CycleId(3), DatasetVersion(0)),
             vec![
                 // Two updates to ROW 7 (stream 0 then 2) — coalesce to the later.
@@ -775,7 +1047,7 @@ mod tests {
     // ── FALSIFIER: no partial visibility — an unsealed cycle is invisible ────────
     #[tokio::test]
     async fn an_unsealed_cycle_is_invisible_epistemic_horizon() {
-        let sink = FakeWalSink::new();
+        let mut sink = FakeWalSink::new();
         // A cycle's casts are staged in an owned vector held by the caller — NOT in
         // the sink. Until the single atomic commit_cycle runs, nothing is visible:
         // an open cycle's output is NOT readable as Vn input (read Vn / write Vn+1).
@@ -792,13 +1064,17 @@ mod tests {
             "before the seal, no landing is visible",
         );
         assert!(
-            sink.versions().await.unwrap().is_empty(),
-            "no version before seal"
+            sink.timeline().await.unwrap().is_empty(),
+            "no frame before seal"
         );
         // The seal is all-or-nothing: the whole cycle appears at once, never partially.
-        persist_cycle(&sink, CycleFrame::new(CycleId(9), DatasetVersion(0)), casts)
-            .await
-            .unwrap();
+        persist_cycle(
+            &mut sink,
+            CycleFrame::new(CycleId(9), DatasetVersion(0)),
+            casts,
+        )
+        .await
+        .unwrap();
         assert_eq!(
             sink.scan_sealed(None).await.unwrap().len(),
             1,
@@ -809,28 +1085,37 @@ mod tests {
     // ── FALSIFIER: sealed read horizon — a cycle reads the sealed predecessor ────
     #[tokio::test]
     async fn a_cycle_reads_the_sealed_predecessor_not_an_in_flight_sibling() {
-        let sink = FakeWalSink::new();
+        let mut sink = FakeWalSink::new();
         // Cycle 1 seals → V1 (the sealed head advances to V1).
         let s1 = persist_cycle(
-            &sink,
+            &mut sink,
             CycleFrame::new(CycleId(1), DatasetVersion(0)),
             vec![slot(42, 1, 0, 0, None)],
         )
         .await
         .unwrap();
-        assert_eq!(s1, DatasetVersion(1));
+        let CommitOutcome::Committed { version: v1, .. } = s1 else {
+            panic!("expected Committed, got {s1:?}");
+        };
+        assert_eq!(v1, DatasetVersion(1));
         // A sibling that read the STALE predecessor V0 (an in-flight base, not the
-        // sealed head V1) is FENCED — the sink rejects the commit, proving the
-        // horizon is enforced, not merely restated by the caller.
+        // sealed head V1) is FENCED — the sink refuses the commit with the
+        // current head, writing NOTHING (never normal competition under the
+        // one-writer topology; a fence/reconciliation condition).
         let stale = persist_cycle(
-            &sink,
+            &mut sink,
             CycleFrame::new(CycleId(2), DatasetVersion(0)),
             vec![slot(99, 2, 0, 0, None)],
         )
         .await;
         assert!(
-            matches!(stale, Err(PersistError::Write(_))),
-            "committing against a stale/in-flight base is fenced, not silently accepted",
+            matches!(
+                stale,
+                Err(PersistError::Commit(CommitError::Fenced {
+                    current_head: DatasetVersion(1)
+                }))
+            ),
+            "committing against a stale base is Fenced with the current head: {stale:?}",
         );
         assert_eq!(
             sink.version_count(),
@@ -839,45 +1124,62 @@ mod tests {
         );
         // Committing against the SEALED head V1 succeeds and publishes exactly V2.
         let s2 = persist_cycle(
-            &sink,
-            CycleFrame::new(CycleId(2), s1),
+            &mut sink,
+            CycleFrame::new(CycleId(2), v1),
             vec![slot(99, 2, 0, 0, None)],
         )
         .await
         .unwrap();
-        assert_eq!(s2, DatasetVersion(2), "and publishes exactly its own Vn+1");
+        assert!(
+            matches!(
+                s2,
+                CommitOutcome::Committed {
+                    version: DatasetVersion(2),
+                    ..
+                }
+            ),
+            "and publishes exactly its own Vn+1: {s2:?}"
+        );
     }
 
     // ── FALSIFIER: cheap time-series — version table only, no landing replay ─────
     #[tokio::test]
     async fn downstream_time_series_reads_the_version_table_not_the_landings() {
-        let sink = FakeWalSink::new();
+        let mut sink = FakeWalSink::new();
         for c in 1..=3u64 {
             persist_cycle(
-                &sink,
+                &mut sink,
                 CycleFrame::new(CycleId(c), DatasetVersion(c - 1)),
                 vec![slot(42, c, 0, 0, None)],
             )
             .await
             .unwrap();
         }
+        let frames = sink.timeline().await.unwrap();
         assert_eq!(
-            sink.versions().await.unwrap(),
+            frames
+                .iter()
+                .map(|f| (f.cycle, f.base_version))
+                .collect::<Vec<_>>(),
             vec![
-                (CycleId(1), DatasetVersion(1)),
-                (CycleId(2), DatasetVersion(2)),
-                (CycleId(3), DatasetVersion(3)),
+                (CycleId(1), DatasetVersion(0)),
+                (CycleId(2), DatasetVersion(1)),
+                (CycleId(3), DatasetVersion(2)),
             ],
-            "history scales with CYCLES; a time-series consumer just looks up the version table",
+            "history scales with CYCLES; the timeline is frame metadata, no payloads",
+        );
+        assert!(
+            frames.iter().all(|f| f.batch_hash != 0),
+            "every frame carries its durable idempotency hash"
         );
     }
 
     // ── Recovery over sealed landings (post-seal only) ───────────────────────────
     #[tokio::test]
     async fn recovery_replays_an_owners_chain_in_stream_order_skipping_others() {
-        let sink = FakeWalSink::new();
+        let mut sink = FakeWalSink::new();
         persist_cycle(
-            &sink,
+            &mut sink,
             CycleFrame::new(CycleId(4), DatasetVersion(0)),
             vec![
                 slot(
@@ -919,9 +1221,9 @@ mod tests {
     #[tokio::test]
     async fn cyclic_recovery_is_idempotent_only_with_the_watermark() {
         assert_eq!(KanbanColumn::Plan.next_phases(), &[KanbanColumn::Planning]);
-        let sink = FakeWalSink::new();
+        let mut sink = FakeWalSink::new();
         persist_cycle(
-            &sink,
+            &mut sink,
             CycleFrame::new(CycleId(1), DatasetVersion(0)),
             vec![
                 slot(
@@ -987,9 +1289,9 @@ mod tests {
         // A mixed chain: step@0, a NO-STEP landing@1, step@2. If the no-step
         // landing did not advance the watermark, it would be re-scanned forever and
         // block the watermark behind every following step.
-        let sink = FakeWalSink::new();
+        let mut sink = FakeWalSink::new();
         persist_cycle(
-            &sink,
+            &mut sink,
             CycleFrame::new(CycleId(1), DatasetVersion(0)),
             vec![
                 slot(
@@ -999,7 +1301,7 @@ mod tests {
                     0,
                     Some((KanbanColumn::Planning, KanbanColumn::CognitiveWork)),
                 ),
-                slot(42, 1, 1, 1, None), // no-step landing at position 1
+                slot(42, 1, 1, 1, None), // no-step (artifact) landing at position 1
                 slot(
                     42,
                     1,
@@ -1031,9 +1333,9 @@ mod tests {
         // step@0 is valid and advances the owner; step@1 has a `from` that no longer
         // matches (corruption) → StalePhase. The Err must carry the partial Recovered
         // so the caller can persist the watermark for the prefix that DID apply.
-        let sink = FakeWalSink::new();
+        let mut sink = FakeWalSink::new();
         persist_cycle(
-            &sink,
+            &mut sink,
             CycleFrame::new(CycleId(1), DatasetVersion(0)),
             vec![
                 slot(
@@ -1085,9 +1387,9 @@ mod tests {
         // stream_position is monotonic per owner ACROSS cycles: cycle 1 carries
         // position 0, cycle 2 carries position 1. Recovery over the multi-cycle
         // scan_sealed stream must treat the watermark as cross-cycle.
-        let sink = FakeWalSink::new();
+        let mut sink = FakeWalSink::new();
         persist_cycle(
-            &sink,
+            &mut sink,
             CycleFrame::new(CycleId(1), DatasetVersion(0)),
             vec![slot(
                 42,
@@ -1100,7 +1402,7 @@ mod tests {
         .await
         .unwrap();
         persist_cycle(
-            &sink,
+            &mut sink,
             CycleFrame::new(CycleId(2), DatasetVersion(1)),
             vec![slot(
                 42,
@@ -1145,9 +1447,9 @@ mod tests {
     async fn a_cast_for_the_wrong_cycle_is_a_permanent_cycle_mismatch_not_write() {
         // A cast whose cycle != frame.cycle is a caller programming error — it must
         // NOT surface as the RETRYABLE Write class (retry would loop forever).
-        let sink = FakeWalSink::new();
+        let mut sink = FakeWalSink::new();
         let r = persist_cycle(
-            &sink,
+            &mut sink,
             CycleFrame::new(CycleId(1), DatasetVersion(0)),
             vec![slot(42, 2, 0, 0, None)], // cast cycle 2 ≠ frame cycle 1
         )
@@ -1175,10 +1477,10 @@ mod tests {
             paired_move: Some(mv(99, KanbanColumn::Planning, KanbanColumn::CognitiveWork)),
             ..slot(42, 1, 0, 0, None)
         };
-        let sink = FakeWalSink::new();
+        let mut sink = FakeWalSink::new();
         assert!(matches!(
             persist_cycle(
-                &sink,
+                &mut sink,
                 CycleFrame::new(CycleId(1), DatasetVersion(0)),
                 vec![bad]
             )
@@ -1194,9 +1496,9 @@ mod tests {
 
     #[tokio::test]
     async fn a_fenced_cycle_writes_nothing() {
-        let sink = FakeWalSink::failing();
+        let mut sink = FakeWalSink::failing();
         let r = persist_cycle(
-            &sink,
+            &mut sink,
             CycleFrame::new(CycleId(1), DatasetVersion(0)),
             vec![slot(
                 42,
@@ -1207,8 +1509,8 @@ mod tests {
             )],
         )
         .await;
-        assert!(matches!(r, Err(PersistError::Write(_))));
-        assert_eq!(sink.wal_writes(), 0, "no WAL write, no version, no step");
+        assert!(matches!(r, Err(PersistError::Commit(CommitError::Io(_)))));
+        assert_eq!(sink.wal_writes(), 0, "no commit, no version, no step");
         assert_eq!(sink.scan_sealed(None).await.unwrap().len(), 0);
     }
 
@@ -1227,5 +1529,183 @@ mod tests {
         let mut rows = vec![(3u64, "d"), (1u64, "b1"), (2u64, "c"), (1u64, "b2")];
         order_cycle_stably(&mut rows, |r| r.0);
         assert_eq!(rows, vec![(1, "b1"), (1, "b2"), (2, "c"), (3, "d")]);
+    }
+
+    // ── FALSIFIER (Phase A): no artifact-backed delta → zero store operations ────
+    #[tokio::test]
+    async fn intent_only_cycle_is_nochange_zero_store_calls() {
+        let mut sink = FakeWalSink::new();
+        // A cycle of PURE kanban movement: every cast is intent-only (empty
+        // payload — the restage_held shape). Kanban never decides to persist.
+        let intents: Vec<SweepSlot> = (0..5u64)
+            .map(|i| SweepSlot {
+                payload: Vec::new(),
+                ..slot(
+                    42,
+                    1,
+                    i,
+                    i,
+                    Some((KanbanColumn::Planning, KanbanColumn::CognitiveWork)),
+                )
+            })
+            .collect();
+        let out = persist_cycle(
+            &mut sink,
+            CycleFrame::new(CycleId(1), DatasetVersion(7)),
+            intents,
+        )
+        .await
+        .unwrap();
+        assert_eq!(
+            out,
+            CommitOutcome::NoChange {
+                head: DatasetVersion(7)
+            },
+            "pure movement is NoChange with the unchanged head"
+        );
+        assert_eq!(sink.wal_writes(), 0, "zero store operations");
+        assert_eq!(sink.version_count(), 0, "zero rows, zero frames");
+        // And a MIXED cycle persists ONLY its artifact casts.
+        let mixed = vec![
+            SweepSlot {
+                payload: Vec::new(),
+                ..slot(
+                    42,
+                    2,
+                    10,
+                    1,
+                    Some((KanbanColumn::Planning, KanbanColumn::CognitiveWork)),
+                )
+            },
+            slot(42, 2, 11, 2, None), // artifact (non-empty payload)
+        ];
+        let out = persist_cycle(
+            &mut sink,
+            CycleFrame::new(CycleId(2), DatasetVersion(0)),
+            mixed,
+        )
+        .await
+        .unwrap();
+        assert!(matches!(out, CommitOutcome::Committed { .. }));
+        let sealed = sink.scan_sealed(None).await.unwrap();
+        assert_eq!(sealed.len(), 1, "only the artifact cast persisted");
+        assert_eq!(sealed[0].slot.stream_position, 11);
+    }
+
+    // ── FALSIFIER (Phase A): retrying the same frozen batch reconciles ───────────
+    #[tokio::test]
+    async fn retrying_the_same_batch_reconciles_never_duplicates() {
+        let mut sink = FakeWalSink::new();
+        let casts = || vec![slot(42, 1, 0, 0, None), slot(42, 1, 1, 1, None)];
+        let first = persist_cycle(
+            &mut sink,
+            CycleFrame::new(CycleId(1), DatasetVersion(0)),
+            casts(),
+        )
+        .await
+        .unwrap();
+        assert!(matches!(first, CommitOutcome::Committed { .. }));
+        // The acknowledgement was "lost"; the caller re-submits the SAME batch.
+        let retry = persist_cycle(
+            &mut sink,
+            CycleFrame::new(CycleId(1), DatasetVersion(0)),
+            casts(),
+        )
+        .await
+        .unwrap();
+        assert!(
+            matches!(
+                retry,
+                CommitOutcome::Reconciled {
+                    cycle: CycleId(1),
+                    ..
+                }
+            ),
+            "the retry reconciles instead of appending twice: {retry:?}"
+        );
+        assert_eq!(sink.wal_writes(), 1, "exactly one physical commit");
+        assert_eq!(
+            sink.scan_sealed(None).await.unwrap().len(),
+            2,
+            "no duplicate landings"
+        );
+    }
+
+    // ── FALSIFIER (Phase A): a conflicting batch for a committed cycle fails closed
+    #[tokio::test]
+    async fn a_different_batch_for_a_committed_cycle_fails_closed() {
+        let mut sink = FakeWalSink::new();
+        persist_cycle(
+            &mut sink,
+            CycleFrame::new(CycleId(1), DatasetVersion(0)),
+            vec![slot(42, 1, 0, 0, None)],
+        )
+        .await
+        .unwrap();
+        // Same cycle identity, DIFFERENT content — corruption/conflict, never promoted.
+        let conflict = persist_cycle(
+            &mut sink,
+            CycleFrame::new(CycleId(1), DatasetVersion(0)),
+            vec![slot(42, 1, 5, 5, None)],
+        )
+        .await;
+        assert!(
+            matches!(
+                conflict,
+                Err(PersistError::Commit(CommitError::HashConflict {
+                    cycle: CycleId(1),
+                    ..
+                }))
+            ),
+            "{conflict:?}"
+        );
+        assert_eq!(sink.wal_writes(), 1, "the conflicting batch wrote nothing");
+    }
+
+    // ── FALSIFIER (Phase A): completion order never reaches the batch identity ───
+    #[test]
+    fn randomized_completion_order_yields_the_same_batch_hash() {
+        let frame = CycleFrame::new(CycleId(3), DatasetVersion(2));
+        let ordered = vec![
+            slot(1, 3, 0, 0, None),
+            slot(2, 3, 1, 1, None),
+            slot(3, 3, 2, 2, None),
+        ];
+        let scrambled = vec![
+            slot(3, 3, 2, 2, None),
+            slot(1, 3, 0, 0, None),
+            slot(2, 3, 1, 1, None),
+        ];
+        let a = DetachedCycleBatch::freeze(frame, ordered);
+        let b = DetachedCycleBatch::freeze(frame, scrambled);
+        assert_eq!(
+            a.batch_hash, b.batch_hash,
+            "identity comes from canonical content"
+        );
+        assert_eq!(a.landings, b.landings, "identical canonical landings");
+        // And DIFFERENT content yields a different hash (the hash discriminates).
+        let c = DetachedCycleBatch::freeze(frame, vec![slot(1, 3, 0, 9, None)]);
+        assert_ne!(a.batch_hash, c.batch_hash);
+    }
+
+    // ── FALSIFIER (Phase A): the recovery tail bound excludes earlier cycles ─────
+    #[tokio::test]
+    async fn after_cycle_bound_limits_the_sealed_scan() {
+        let mut sink = FakeWalSink::new();
+        for c in 1..=3u64 {
+            persist_cycle(
+                &mut sink,
+                CycleFrame::new(CycleId(c), DatasetVersion(c - 1)),
+                vec![slot(42, c, c, c, None)],
+            )
+            .await
+            .unwrap();
+        }
+        let tail = sink.scan_sealed(Some(CycleId(1))).await.unwrap();
+        assert_eq!(
+            tail.iter().map(|l| l.cycle).collect::<Vec<_>>(),
+            vec![CycleId(2), CycleId(3)],
+            "strictly after the bound — bounded recovery, not full history"
+        );
     }
 }

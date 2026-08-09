@@ -126,7 +126,8 @@ mod d_ign_b_lenses {
     use lance_graph_planner::nars::{BeliefArena, CStmt};
     use lance_graph_planner::owner_adapter::emit_bootstrap_intent;
     use lance_graph_planner::persist_sink::{
-        CycleFrame, CycleId, DetachedCycleBatch, LandedSlot, SweepSlot, WalSink, WriteFailed,
+        CommitError, CommitOutcome, CycleFrame, CycleId, DetachedCycleBatch, FrameMeta, LandedSlot,
+        SweepSlot, WalSink, WriteFailed,
     };
     use lance_graph_planner::strategy::style_strategy::StyleStrategy;
     use lance_graph_planner::traits::{
@@ -429,7 +430,11 @@ mod d_ign_b_lenses {
     // `probe_ignition.rs`'s `MemWal`. ───────────────────────────────────────
 
     struct SealedCycle {
+        frame: CycleFrame,
         version: DatasetVersion,
+        /// The batch's deterministic content hash — the reconciliation-first
+        /// idempotency key `commit_cycle` looks up BEFORE appending.
+        batch_hash: u64,
         landings: Vec<SweepSlot>,
     }
 
@@ -458,56 +463,76 @@ mod d_ign_b_lenses {
 
     impl WalSink for MemWal {
         async fn commit_cycle(
-            &self,
-            base: DatasetVersion,
+            &mut self,
             batch: DetachedCycleBatch,
-        ) -> Result<DatasetVersion, WriteFailed> {
+        ) -> Result<CommitOutcome, CommitError> {
             let mut sealed = self.sealed.lock().expect("MemWal poisoned");
+            // Reconciliation-first: an already-durable (cycle, hash) is success,
+            // a matching cycle with a different hash fails closed.
+            if let Some(rec) = sealed.iter().find(|s| s.frame.cycle == batch.frame.cycle) {
+                return if rec.batch_hash == batch.batch_hash {
+                    Ok(CommitOutcome::Reconciled {
+                        current_head: rec.version,
+                        cycle: batch.frame.cycle,
+                        batch_hash: batch.batch_hash,
+                    })
+                } else {
+                    Err(CommitError::HashConflict {
+                        cycle: batch.frame.cycle,
+                        stored_hash: rec.batch_hash,
+                        offered_hash: batch.batch_hash,
+                    })
+                };
+            }
             let head = sealed.last().map_or(DatasetVersion(0), |s| s.version);
-            if base != head {
-                return Err(WriteFailed(format!(
-                    "stale base {base:?}: sealed head is {head:?}"
-                )));
+            if batch.frame.base_version != head {
+                return Err(CommitError::Fenced { current_head: head });
             }
             self.wal_writes.fetch_add(1, Ordering::SeqCst);
             let version = DatasetVersion(self.next_version.fetch_add(1, Ordering::SeqCst));
+            let (cycle, batch_hash) = (batch.frame.cycle, batch.batch_hash);
             sealed.push(SealedCycle {
+                frame: batch.frame,
                 version,
+                batch_hash,
                 landings: batch.landings,
             });
-            Ok(version)
+            Ok(CommitOutcome::Committed {
+                version,
+                cycle,
+                batch_hash,
+            })
         }
 
         async fn scan_sealed(
             &self,
-            from_version: Option<DatasetVersion>,
+            after_cycle: Option<CycleId>,
         ) -> Result<Vec<LandedSlot>, WriteFailed> {
             Ok(self
                 .sealed
                 .lock()
                 .expect("MemWal poisoned")
                 .iter()
-                .filter(|s| from_version.is_none_or(|f| s.version > f))
+                .filter(|s| after_cycle.is_none_or(|c| s.frame.cycle > c))
                 .flat_map(|s| {
                     s.landings.iter().map(|slot| LandedSlot {
-                        version: s.version,
+                        cycle: s.frame.cycle,
                         slot: slot.clone(),
                     })
                 })
                 .collect())
         }
 
-        async fn versions(&self) -> Result<Vec<(CycleId, DatasetVersion)>, WriteFailed> {
+        async fn timeline(&self) -> Result<Vec<FrameMeta>, WriteFailed> {
             Ok(self
                 .sealed
                 .lock()
                 .expect("MemWal poisoned")
                 .iter()
-                .map(|s| {
-                    (
-                        s.landings.first().map_or(CycleId(0), |l| l.cycle),
-                        s.version,
-                    )
+                .map(|s| FrameMeta {
+                    cycle: s.frame.cycle,
+                    base_version: s.frame.base_version,
+                    batch_hash: s.batch_hash,
                 })
                 .collect())
         }
@@ -981,7 +1006,7 @@ mod d_ign_b_lenses {
         // ── main cycle loop: cast/scan/seal/apply, unchanged mechanics,
         // with the lens embedded in `run_cognitive_work_gated_over`'s
         // closure (design §1's chosen seam). ────────────────────────────
-        let sink = MemWal::new();
+        let mut sink = MemWal::new();
         let mut writer: BatchWriter<Vec<u8>> = BatchWriter::new();
         let mut position_base: u64 = 0;
         let mut watermarks: HashMap<MailboxId, Option<u64>> = HashMap::new();
@@ -1059,7 +1084,7 @@ mod d_ign_b_lenses {
 
             let base_version = sink.head();
             let outcome: CycleOutcome = match run_cycle(
-                &sink,
+                &mut sink,
                 &mut fleet,
                 &mut writer,
                 CycleFrame::new(CycleId(u64::from(c)), base_version),

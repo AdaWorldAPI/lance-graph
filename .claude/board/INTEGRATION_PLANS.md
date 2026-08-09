@@ -1,3 +1,14 @@
+## 2026-08-09 — persistence-artifact-backed-commit v1 — RATIFIED (Phase A implemented; B–F planned) — main thread
+
+The canonical persistence contract, replacing the #911 cycle-persistence model.
+Plan: `.claude/plans/persistence-artifact-backed-commit-v1.md`.
+
+- **The rule:** no artifact-backed semantic change → no write → no new `DatasetVersion`. Thinking runs its whole Rubicon ladder transiently; only a semantic artifact becomes durable, and kanban progress rides along in the commit that was happening anyway.
+- **One logical writer**, split by capability: `Clone + &self` for producer submission / read-only projections; the concrete `LanceCycleWriter` non-`Clone`, owning its `Dataset` handle + head, committing through `&mut self`.
+- **No rollback, no compensating delete** — a published manifest is history (measured: Lance 9 has no atomic expected-version Append fence); durable in-band `(cycle, batch_hash)` makes reconciliation authoritative.
+- **Zero reload on the normal path**, instrumented by `opens()`; reads bounded (`after_cycle`) and projected (timeline never touches payloads).
+- **Phases:** A (this contract + owned writer) — implemented on `claude/phase-a-owned-writer`; B shared representation/projection ABI; C live granular visibility + wavefront; D conclusion boundary; E MedCare proof + Gotham wiring; F A2UI/ClassView renderer. Each phase restarts from merged main; public lance-graph stays generic, clinical mappings stay private to MedCare-rs.
+
 ## 2026-08-06 — idle-flush-dataset-eviction v1 — PROPOSAL (not scheduled; nothing implemented, nothing measured)
 
 **Plan:** `.claude/plans/idle-flush-dataset-eviction-v1.md`
