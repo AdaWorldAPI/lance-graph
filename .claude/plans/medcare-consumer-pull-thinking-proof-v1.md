@@ -26,7 +26,7 @@ There are **two MedCare integration lineages, not one partially-assembled path**
 
 ## 2. The live path (build on THIS)
 
-```
+```text
 MedCare-rs (private)
   └─ crates/medcare-bridge ──(vendor/lance-graph softlink)──►
        lance_graph_ogar::MedcareBridge = UnifiedBridge<HealthcarePort>
@@ -44,7 +44,7 @@ build proves nothing about it).
 
 ## 3. The dead lineage (dormant — do NOT revive to prove thinking)
 
-```
+```text
 modules/medcare/manifest.yaml → build.rs → MANIFEST_METADATA ╳ (one caller: a test)
 CallcenterSupervisor::spawn_consumer_actor → StubConsumerActor  (unconditional)
 DispatchToG: Health → ok; ALL else → DispatchNotImplemented (child never reached)
@@ -75,7 +75,7 @@ reconstruct the dead lineage in miniature). Public/private boundary:
 MedCare-specific schema and clinical mappings stay in MedCare-rs; generic
 SoA/cycle/driver primitives may land here.
 
-```
+```text
 MedCare-rs input (existing schema surface, private side)
   → existing medcare-bridge → UnifiedBridge<HealthcarePort>   (classid, namespace lock)
   → existing MedCare-rs policy/schema path (or narrow proof policy — fail-closed)

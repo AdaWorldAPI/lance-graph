@@ -105,6 +105,30 @@ answers — ownership cost, layout cost, WAL amortisation knee (descriptive,
 never PASS/KILL), and what genuine parallel thought execution adds before
 the deterministic seal.
 
+## 2026-08-02 — medcare-consumer-pull-thinking-proof v1 — ACTIVE (the single active MedCare plan after the two-lineage investigation) — main thread
+
+**Plan:** `.claude/plans/medcare-consumer-pull-thinking-proof-v1.md`
+Consolidation of the 2026-08-02 six-agent read-only MedCare/Healthcare
+investigation (HEAD `71d1db1`, git unshallowed to 4162 commits). Verdict:
+**two lineages, not one incomplete runtime.** LIVE = consumer-pull (MedCare-rs
+`medcare-bridge` → vendored `lance-graph-ogar` → `UnifiedBridge<HealthcarePort>`
+→ OGAR canon `0x0901–0x090C`; bridge migration COMPLETED at `ddb6c840`
+2026-06-21, `MedcareBridge` deprecated alias only). DEAD = host-side
+manifest/supervisor/actor scaffold (frozen since birth 2026-05-13; manifest
+compile-time-parsed but runtime-orphaned; `MedcareConsumerActor` never
+constructed; supervisor hard-codes `StubConsumerActor`; Dispatch rejected
+pre-child; `MedCareActor`/`MedCareMessage` exist in NEITHER repo;
+`medcare_policy` symbol nonexistent). Two same-named, never-composed
+`UnifiedBridge` types (ogar resolver — no authorize; callcenter authorize/audit
+— no ogar dep) classified as LATER hardening, not a proof prerequisite.
+**Active proof target:** one real medical thought over the live consumer-pull
+path — HealthcarePort classids → cognitive-shader-driver + REAL MailboxSoA
+(closing the qualia-extractor honesty gap) → owner_adapter cast → PR #879
+sparse cycle loop; falsifiers F1–F4 incl. the currently-ABSENT fail-closed
+unknown-actor test. `ogar-obo` (MONDO/HPO/Uberon/PATO — verified real, zero
+consumer edges) = optional slice only. Older MedCare plans classified in the
+plan's §8 ledger (completed / dormant-decision-required / stale-but-unmarked).
+
 ## 2026-08-02 — kanban-64k-inverted-awareness v1 — PLANNED / CONJECTURE (parallel thinking + the inverted-awareness witness) — main thread
 
 **Plan:** `.claude/plans/kanban-64k-inverted-awareness-v1.md`
@@ -144,30 +168,6 @@ each probe-first with both falsifier halves. Blocked-on external: the consumer
 physical bake (private repo), validity criterion, `LanceShardSink`. Built on the R1–R15
 review list (session 2026-08-02); §0 ground state carries receipts so nothing
 is re-derived.
-## 2026-08-02 — medcare-consumer-pull-thinking-proof v1 — ACTIVE (the single active MedCare plan after the two-lineage investigation) — main thread
-
-**Plan:** `.claude/plans/medcare-consumer-pull-thinking-proof-v1.md`
-Consolidation of the 2026-08-02 six-agent read-only MedCare/Healthcare
-investigation (HEAD `71d1db1`, git unshallowed to 4162 commits). Verdict:
-**two lineages, not one incomplete runtime.** LIVE = consumer-pull (MedCare-rs
-`medcare-bridge` → vendored `lance-graph-ogar` → `UnifiedBridge<HealthcarePort>`
-→ OGAR canon `0x0901–0x090C`; bridge migration COMPLETED at `ddb6c840`
-2026-06-21, `MedcareBridge` deprecated alias only). DEAD = host-side
-manifest/supervisor/actor scaffold (frozen since birth 2026-05-13; manifest
-compile-time-parsed but runtime-orphaned; `MedcareConsumerActor` never
-constructed; supervisor hard-codes `StubConsumerActor`; Dispatch rejected
-pre-child; `MedCareActor`/`MedCareMessage` exist in NEITHER repo;
-`medcare_policy` symbol nonexistent). Two same-named, never-composed
-`UnifiedBridge` types (ogar resolver — no authorize; callcenter authorize/audit
-— no ogar dep) classified as LATER hardening, not a proof prerequisite.
-**Active proof target:** one real medical thought over the live consumer-pull
-path — HealthcarePort classids → cognitive-shader-driver + REAL MailboxSoA
-(closing the qualia-extractor honesty gap) → owner_adapter cast → PR #879
-sparse cycle loop; falsifiers F1–F4 incl. the currently-ABSENT fail-closed
-unknown-actor test. `ogar-obo` (MONDO/HPO/Uberon/PATO — verified real, zero
-consumer edges) = optional slice only. Older MedCare plans classified in the
-plan's §8 ledger (completed / dormant-decision-required / stale-but-unmarked).
-
 ## 2026-08-02 — cycle-loop-closure-driver v1 — PLANNED / CONJECTURE (the seam that makes persist_sink load-bearing at 64k) — main thread
 
 **Plan:** `.claude/plans/cycle-loop-closure-driver-v1.md`

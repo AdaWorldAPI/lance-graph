@@ -92,8 +92,23 @@ use lance_graph_planner::persist_sink::{
 const KIND_FRAME: u8 = 0;
 /// Row kind discriminant: one landing (a thought's persistence record).
 const KIND_LANDING: u8 = 1;
+/// Row kind discriminant: one coalesced-image row — the FINAL payload of a
+/// dirty SoA row after the per-row fold (`DetachedCycleBatch::image`), made
+/// durable in the same atomic commit so the store carries the coherent cycle
+/// image itself, not just the per-cast history it folds from.
+const KIND_IMAGE: u8 = 2;
 
-/// The Arrow schema of the cycle store — one dataset, two row kinds.
+/// The canonical witness-node payload size: `key(16) | edges(16) | value(480)`
+/// — the 512-byte node row stride with its 16-byte edge reservation. Every
+/// landing / image payload persisted by this sink MUST be exactly this long;
+/// a malformed witness row is refused before anything durable happens.
+pub const EPISODIC_WITNESS_BYTES: usize = 512;
+
+/// The Arrow schema of the cycle store — one dataset, three row kinds: the
+/// per-cycle frame row (`kind = 0`), the per-cast landing rows (`kind = 1`,
+/// the table below), and the coalesced-image rows (`kind = 2`: `row` + the
+/// FINAL 512-byte payload after the per-row fold, `stream_position`/`owner`
+/// zero, moves null — the durable coherent cycle image).
 ///
 /// | column                        | type            | frame row | landing row |
 /// |-------------------------------|-----------------|-----------|-------------|
@@ -170,9 +185,15 @@ impl LanceCycleSink {
 
     /// Build the single atomic RecordBatch for a cycle: the frame row first,
     /// then the landings in their ALREADY-canonical order (the loom ran in
-    /// `DetachedCycleBatch::freeze`; storage order = stream order by contract).
+    /// `DetachedCycleBatch::freeze`; storage order = stream order by contract),
+    /// then the coalesced-image rows (`row → final payload`) so the coherent
+    /// cycle image is durable alongside the per-cast history it folds from.
+    ///
+    /// Every landing / image payload must be exactly [`EPISODIC_WITNESS_BYTES`]
+    /// — the canonical 512-byte node row — or the whole cycle is refused
+    /// before anything durable happens.
     fn build_batch(batch: &DetachedCycleBatch) -> Result<RecordBatch, WriteFailed> {
-        let n = batch.landings.len() + 1;
+        let n = batch.landings.len() + batch.image.len() + 1;
         let mut kind = Vec::with_capacity(n);
         let mut cycle = Vec::with_capacity(n);
         let mut base_version = Vec::with_capacity(n);
@@ -202,6 +223,13 @@ impl LanceCycleSink {
         payload.append_value([]);
 
         for s in &batch.landings {
+            if s.payload.len() != EPISODIC_WITNESS_BYTES {
+                return Err(WriteFailed(format!(
+                    "landing payload for row {} is {} bytes, expected the canonical {EPISODIC_WITNESS_BYTES}",
+                    s.row,
+                    s.payload.len()
+                )));
+            }
             kind.push(KIND_LANDING);
             cycle.push(s.cycle.0);
             base_version.push(batch.frame.base_version.0);
@@ -227,6 +255,32 @@ impl LanceCycleSink {
             payload.append_value(&s.payload);
         }
 
+        // Coalesced-image rows: the final per-row state after the stream-order
+        // fold. `BTreeMap` iteration gives a deterministic (row-ascending)
+        // stored order. Same-cycle landings already passed the 512-byte gate,
+        // and the image is a fold over exactly those payloads — the length
+        // check here guards the invariant independently rather than assuming it.
+        for (row_id, image_payload) in &batch.image {
+            if image_payload.len() != EPISODIC_WITNESS_BYTES {
+                return Err(WriteFailed(format!(
+                    "image payload for row {row_id} is {} bytes, expected the canonical {EPISODIC_WITNESS_BYTES}",
+                    image_payload.len()
+                )));
+            }
+            kind.push(KIND_IMAGE);
+            cycle.push(batch.frame.cycle.0);
+            base_version.push(batch.frame.base_version.0);
+            stream_position.push(0);
+            owner.push(0);
+            row.push(*row_id);
+            move_mailbox.append_null();
+            move_from.append_null();
+            move_to.append_null();
+            move_wcp.append_null();
+            move_exec.append_null();
+            payload.append_value(image_payload);
+        }
+
         RecordBatch::try_new(
             cycle_store_schema(),
             vec![
@@ -247,11 +301,19 @@ impl LanceCycleSink {
         .map_err(|e| WriteFailed(format!("build cycle batch: {e}")))
     }
 
-    /// Read the whole store at its LATEST version, in stored (insertion) order —
-    /// Lance's in-order scan; this sink never sorts on read.
-    async fn read_all_rows(&self, ds: &Dataset) -> Result<Vec<StoredRow>, WriteFailed> {
+    /// Read the store's rows of ONE kind at its LATEST version, in stored
+    /// (insertion) order — Lance's in-order scan; this sink never sorts on
+    /// read. The kind predicate is pushed into the scan so frame/image reads
+    /// never materialize landing payloads (and vice versa).
+    async fn read_rows_of_kind(
+        &self,
+        ds: &Dataset,
+        kind_filter: u8,
+    ) -> Result<Vec<StoredRow>, WriteFailed> {
         let mut scan = ds.scan();
         scan.scan_in_order(true);
+        scan.filter(&format!("kind = {kind_filter}"))
+            .map_err(|e| WriteFailed(format!("filter {}: {e}", self.dataset_path)))?;
         let batches: Vec<RecordBatch> = scan
             .try_into_stream()
             .await
@@ -340,6 +402,51 @@ impl StoredRow {
     }
 }
 
+impl LanceCycleSink {
+    /// Read a sealed cycle's durable coalesced image: `row → final payload`
+    /// after the write-side per-row fold. This is the coherent end-state a
+    /// downstream consumer (a view, the Gotham display) reads — the per-cast
+    /// history behind it stays available via [`WalSink::scan_sealed`]. Projects
+    /// `row` + `payload` under a `kind = 2 AND cycle = …` predicate. An empty
+    /// map = the cycle is unknown or landed nothing.
+    pub async fn scan_image(
+        &self,
+        cycle: CycleId,
+    ) -> Result<std::collections::BTreeMap<u64, Vec<u8>>, WriteFailed> {
+        let Some(ds) = self.open_if_exists().await? else {
+            return Ok(std::collections::BTreeMap::new());
+        };
+        let mut scan = ds.scan();
+        scan.scan_in_order(true);
+        scan.filter(&format!("kind = {KIND_IMAGE} AND cycle = {}", cycle.0))
+            .map_err(|e| WriteFailed(format!("filter {}: {e}", self.dataset_path)))?;
+        scan.project(&["row", "payload"])
+            .map_err(|e| WriteFailed(format!("project {}: {e}", self.dataset_path)))?;
+        let batches: Vec<RecordBatch> = scan
+            .try_into_stream()
+            .await
+            .map_err(|e| WriteFailed(format!("scan {}: {e}", self.dataset_path)))?
+            .try_collect()
+            .await
+            .map_err(|e| WriteFailed(format!("collect {}: {e}", self.dataset_path)))?;
+        let mut out = std::collections::BTreeMap::new();
+        for b in &batches {
+            let row: &UInt64Array = b
+                .column_by_name("row")
+                .and_then(|c| c.as_any().downcast_ref())
+                .ok_or_else(|| WriteFailed("missing column row".into()))?;
+            let payload: &BinaryArray = b
+                .column_by_name("payload")
+                .and_then(|c| c.as_any().downcast_ref())
+                .ok_or_else(|| WriteFailed("missing column payload".into()))?;
+            for i in 0..b.num_rows() {
+                out.insert(row.value(i), payload.value(i).to_vec());
+            }
+        }
+        Ok(out)
+    }
+}
+
 impl WalSink for LanceCycleSink {
     /// THE single amortized durable append for a whole cycle, over the official
     /// Lance insert path — one commit, one new `DatasetVersion`, all-or-nothing.
@@ -350,9 +457,21 @@ impl WalSink for LanceCycleSink {
     ///    declare base 0 (it read no sealed predecessor). A stale base is
     ///    refused with NOTHING written.
     /// 2. **Post-commit:** the published version must be exactly `base + 1`.
-    ///    Lance auto-resolves append-append conflicts, so a foreign interleaved
-    ///    writer surfaces here as a loud timeline anomaly instead of silently
-    ///    shifting the cycle ↔ version identity that reads derive.
+    ///    Lance auto-resolves append-append conflicts (there is no
+    ///    expected-version conditional append in the official API — the rebase
+    ///    runs even on a single-attempt commit for Append operations), so a
+    ///    foreign interleaved writer can land this batch at `base + 2`. When
+    ///    that is detected, the fence is made EFFECTIVE retroactively: the
+    ///    just-published cycle rows are removed again with an official
+    ///    `Dataset::delete` scoped to exactly this cycle's rows, and only THEN
+    ///    is the retryable [`WriteFailed`] returned — so "write failed" is
+    ///    true at the visible head (nothing of this cycle remains readable),
+    ///    the driver's regenerate-from-`Vn` contract stays sound, and no rows
+    ///    survive under a shifted `sealed_version` identity. If the
+    ///    compensating delete itself fails, the error says so explicitly and
+    ///    names the orphaned version — the one manual-reconciliation corner,
+    ///    reachable only when the one-writer §I.6 doctrine was already
+    ///    violated by a foreign writer.
     async fn commit_cycle(
         &self,
         base: DatasetVersion,
@@ -395,18 +514,41 @@ impl WalSink for LanceCycleSink {
                 ds.append(reader, None)
                     .await
                     .map_err(|e| WriteFailed(format!("append commit: {e}")))?;
-                ds.version().version
+                let published = ds.version().version;
+                if published != base.0 + 1 {
+                    // A foreign writer interleaved between the fence check and
+                    // the commit; Lance's append rebase landed this batch at a
+                    // shifted version. Make the fence effective retroactively:
+                    // remove exactly this cycle's just-appended rows, then
+                    // report the (now-true) retryable failure. The cycle id is
+                    // an unsealed identity at this point — no earlier sealed
+                    // rows can carry it — so the predicate is exact.
+                    let compensate = ds
+                        .delete(&format!(
+                            "cycle = {} AND base_version = {}",
+                            batch.frame.cycle.0, base.0
+                        ))
+                        .await;
+                    return Err(match compensate {
+                        Ok(_) => WriteFailed(format!(
+                            "fenced post-publication: a foreign writer moved the head past \
+                             {base:?} (batch landed at DatasetVersion({published})); the \
+                             cycle's rows were deleted again — nothing of cycle {} is \
+                             visible; regenerate from the current sealed head",
+                            batch.frame.cycle.0
+                        )),
+                        Err(e) => WriteFailed(format!(
+                            "TIMELINE ANOMALY, MANUAL RECONCILIATION REQUIRED: cycle {} \
+                             committed at DatasetVersion({published}) (expected {}), and the \
+                             compensating delete failed: {e}",
+                            batch.frame.cycle.0,
+                            base.0 + 1
+                        )),
+                    });
+                }
+                published
             }
         };
-        if published != base.0 + 1 {
-            // The data IS committed at `published` — but the one-writer §I.6
-            // timeline is broken (a foreign writer interleaved). Surface loudly;
-            // never let a shifted identity pass as a sealed cycle.
-            return Err(WriteFailed(format!(
-                "timeline anomaly: committed at DatasetVersion({published}), expected {}",
-                base.0 + 1
-            )));
-        }
         Ok(DatasetVersion(published))
     }
 
@@ -420,10 +562,9 @@ impl WalSink for LanceCycleSink {
         let Some(ds) = self.open_if_exists().await? else {
             return Ok(Vec::new());
         };
-        let rows = self.read_all_rows(&ds).await?;
+        let rows = self.read_rows_of_kind(&ds, KIND_LANDING).await?;
         Ok(rows
             .into_iter()
-            .filter(|r| r.kind == KIND_LANDING)
             .filter(|r| from_version.is_none_or(|f| r.sealed_version() > f))
             .map(|r| LandedSlot {
                 version: r.sealed_version(),
@@ -434,16 +575,44 @@ impl WalSink for LanceCycleSink {
 
     /// The cheap coarse timeline — the per-cycle frame rows, each sealed in the
     /// same atomic commit as its landings, read back from the reopened store.
+    /// Projects only `cycle` + `base_version` under a `kind = 0` predicate, so
+    /// the lookup never materializes a single landing payload no matter how
+    /// much witness history the store has accumulated.
     async fn versions(&self) -> Result<Vec<(CycleId, DatasetVersion)>, WriteFailed> {
         let Some(ds) = self.open_if_exists().await? else {
             return Ok(Vec::new());
         };
-        let rows = self.read_all_rows(&ds).await?;
-        Ok(rows
-            .into_iter()
-            .filter(|r| r.kind == KIND_FRAME)
-            .map(|r| (r.cycle, r.sealed_version()))
-            .collect())
+        let mut scan = ds.scan();
+        scan.scan_in_order(true);
+        scan.filter(&format!("kind = {KIND_FRAME}"))
+            .map_err(|e| WriteFailed(format!("filter {}: {e}", self.dataset_path)))?;
+        scan.project(&["cycle", "base_version"])
+            .map_err(|e| WriteFailed(format!("project {}: {e}", self.dataset_path)))?;
+        let batches: Vec<RecordBatch> = scan
+            .try_into_stream()
+            .await
+            .map_err(|e| WriteFailed(format!("scan {}: {e}", self.dataset_path)))?
+            .try_collect()
+            .await
+            .map_err(|e| WriteFailed(format!("collect {}: {e}", self.dataset_path)))?;
+        let mut out = Vec::new();
+        for b in &batches {
+            let cycle: &UInt64Array = b
+                .column_by_name("cycle")
+                .and_then(|c| c.as_any().downcast_ref())
+                .ok_or_else(|| WriteFailed("missing column cycle".into()))?;
+            let base_version: &UInt64Array = b
+                .column_by_name("base_version")
+                .and_then(|c| c.as_any().downcast_ref())
+                .ok_or_else(|| WriteFailed("missing column base_version".into()))?;
+            for i in 0..b.num_rows() {
+                out.push((
+                    CycleId(cycle.value(i)),
+                    DatasetVersion(base_version.value(i) + 1),
+                ));
+            }
+        }
+        Ok(out)
     }
 }
 
@@ -467,6 +636,12 @@ mod tests {
         }
     }
 
+    /// A canonical 512-byte witness payload, tagged by `stream_position` so
+    /// distinct casts stay byte-distinguishable.
+    fn witness(stream_position: u64) -> Vec<u8> {
+        vec![stream_position as u8; EPISODIC_WITNESS_BYTES]
+    }
+
     fn slot(cycle: u64, stream_position: u64, owner: MailboxId, row: u64) -> SweepSlot {
         SweepSlot {
             cycle: CycleId(cycle),
@@ -474,7 +649,7 @@ mod tests {
             owner,
             row,
             paired_move: Some(mv(owner)),
-            payload: vec![stream_position as u8; 4],
+            payload: witness(stream_position),
         }
     }
 
@@ -506,7 +681,7 @@ mod tests {
         assert_eq!(sealed[1].slot.stream_position, 20);
         assert_eq!(sealed[0].version, DatasetVersion(1));
         assert_eq!(sealed[0].slot.paired_move, Some(mv(5)));
-        assert_eq!(sealed[0].slot.payload, vec![10u8; 4]);
+        assert_eq!(sealed[0].slot.payload, witness(10));
 
         let versions = reopened.versions().await.unwrap();
         assert_eq!(versions, vec![(CycleId(1), DatasetVersion(1))]);
@@ -655,5 +830,73 @@ mod tests {
         assert_eq!(sealed[0].slot.payload, witness_node);
         assert_eq!(sealed[0].slot.owner, 11);
         assert_eq!(sealed[0].slot.row, 900);
+    }
+
+    /// A malformed witness payload (≠ 512 bytes) is refused with NOTHING
+    /// written — the canonical node row stride is enforced before anything
+    /// durable happens, and the store stays exactly as it was.
+    #[tokio::test]
+    async fn malformed_payload_is_refused_before_persistence() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("witness_cycles.lance");
+        let sink = LanceCycleSink::new(path.to_str().unwrap());
+
+        let mut bad = slot(1, 1, 3, 50);
+        bad.payload = vec![0u8; 100];
+        let err = persist_cycle(
+            &sink,
+            CycleFrame::new(CycleId(1), DatasetVersion(0)),
+            vec![bad],
+        )
+        .await
+        .unwrap_err();
+        assert!(err.to_string().contains("100 bytes"), "{err}");
+        // Nothing durable: the dataset was never even created.
+        assert!(Dataset::open(path.to_str().unwrap()).await.is_err());
+
+        // The store still accepts a well-formed cycle afterwards.
+        persist_cycle(
+            &sink,
+            CycleFrame::new(CycleId(1), DatasetVersion(0)),
+            vec![slot(1, 1, 3, 50)],
+        )
+        .await
+        .unwrap();
+    }
+
+    /// The coalesced image is DURABLE: same-row casts fold to the final
+    /// payload, persisted as image rows in the same atomic commit and read
+    /// back per cycle from a reopened store — while the per-cast landing
+    /// history stays intact alongside it.
+    #[tokio::test]
+    async fn coalesced_image_is_durable_per_cycle() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("witness_cycles.lance");
+        let sink = LanceCycleSink::new(path.to_str().unwrap());
+
+        // Three casts, two rows: row 7 is written twice (positions 1 then 3 —
+        // later stream position wins the image), row 8 once.
+        let casts = vec![slot(1, 3, 2, 7), slot(1, 1, 2, 7), slot(1, 2, 2, 8)];
+        persist_cycle(&sink, CycleFrame::new(CycleId(1), DatasetVersion(0)), casts)
+            .await
+            .unwrap();
+
+        let reopened = LanceCycleSink::new(path.to_str().unwrap());
+        let image = reopened.scan_image(CycleId(1)).await.unwrap();
+        assert_eq!(image.len(), 2);
+        assert_eq!(image[&7], witness(3), "later stream position wins");
+        assert_eq!(image[&8], witness(2));
+        // The per-cast history is still complete and ordered.
+        let sealed = reopened.scan_sealed(None).await.unwrap();
+        assert_eq!(sealed.len(), 3);
+        assert_eq!(
+            sealed
+                .iter()
+                .map(|l| l.slot.stream_position)
+                .collect::<Vec<_>>(),
+            vec![1, 2, 3]
+        );
+        // An unknown cycle has no image.
+        assert!(reopened.scan_image(CycleId(99)).await.unwrap().is_empty());
     }
 }
