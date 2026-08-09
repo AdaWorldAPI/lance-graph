@@ -1,8 +1,20 @@
 # persistence-cycle-wal-bootstrap-v1 — the primitive cycle/WAL seam and its temporal/revision upgrade path
 
+> **⊘ PARTIALLY SUPERSEDED (operator ruling 2026-08-09) — read
+> `.claude/plans/persistence-artifact-backed-commit-v1.md` FIRST.** Guarantee 5
+> below ("one successful cycle seal produces exactly one `DatasetVersion`") is
+> now conditional: **no artifact-backed semantic change → no write → no new
+> version**. An empty / intent-only cycle produces `CommitOutcome::NoChange`
+> with ZERO store operations. Guarantees 1–4 and 6 survive unchanged, and
+> guarantee 6 is strengthened (the writer additionally holds no owner borrow
+> across the commit await). The §2 sparse-delta rule is now IMPLEMENTED — the
+> concrete sink is `lance_graph::graph::cycle_sink::LanceCycleWriter`, whose
+> coalesced image rows are the durable end-form. Append-only: nothing below is
+> deleted; it is read through the newer contract.
+>
 > **Status:** ACTIVE (bootstrap SHIPPED in PR #878; upgrade phases PLANNED; the
-> §2 sparse-delta storage rule is RATIFIED architecture, UNIMPLEMENTED in a
-> concrete Lance sink).
+> §2 sparse-delta storage rule is RATIFIED architecture, IMPLEMENTED in
+> `LanceCycleWriter` as of Phase A 2026-08-09).
 > **Date:** 2026-08-02.
 > **Scope:** documentation-only architectural ruling. Records the *role* of the
 > #878 persistence seam and the intended larger two-dimensional temporal

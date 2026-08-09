@@ -1,80 +1,88 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: Copyright The Lance Authors
 
-//! The CONCRETE cognitive-cycle Lance sink — the storage-proven implementation of
-//! `lance_graph_planner::persist_sink::WalSink` over the official Lance
-//! transaction/write path (`lance = 9.0.0`).
+//! The concrete Lance-backed cycle store — [`LanceCycleWriter`], the SOLE
+//! application writer (Phase A of the canonical persistence contract,
+//! operator-ruled 2026-08-09; supersedes the `LanceCycleSink` shipped in #911).
 //!
-//! `persist_sink` (the planner seam) deliberately builds NO concrete sink: its
-//! `FakeWalSink` proves the algebra (fence, ordering, coalescing, recovery) in
-//! process memory only — "compile+test green ≠ storage proven" (the Ladybug
-//! lesson). This module closes that gap: every trait operation here is true
-//! against a REOPENED dataset on real storage.
+//! # One logical writer, owned
 //!
-//! # The §I.6 invariant (the ruled contract this sink makes physical)
+//! There is exactly ONE logical application writer per cycle store. The 64k
+//! thoughts / SoA owners are parallel PRODUCERS (fire-and-forget: they cast on
+//! behalf of their mailbox and receive no acknowledgement), never Lance
+//! writers. This type makes the topology structural:
 //!
-//! ```text
-//! 64k thoughts read sealed Vn → write-side temporal deinterlace →
-//! one detached cycle batch → ONE official Lance commit →
-//! exactly one real DatasetVersion Vn+1 → no open or partial visibility
-//! ```
+//! - **non-`Clone`** — a second handle to the same writer cannot be minted;
+//! - **`commit_cycle(&mut self, …)`** — two application commits cannot
+//!   interleave through the type boundary;
+//! - **long-lived handle** — the writer OWNS its `Dataset` handle and current
+//!   head. Reads use the held handle; there is no per-operation reopen. The
+//!   dataset is opened exactly once at construction, and re-opened only to
+//!   resolve an ambiguous commit outcome (a lost acknowledgement).
 //!
-//! - **One durable append per cycle.** `commit_cycle` performs a single
-//!   `Dataset::write` / `Dataset::append` (the official Lance insert path —
-//!   `InsertBuilder` under the hood, the same transaction machinery every Lance
-//!   writer uses). No bespoke ledger, no acknowledgement protocol, no parallel
-//!   replay system: Lance's own manifest/version chain IS the WAL.
-//! - **The epistemic fence, both halves.** Pre-commit: the dataset's current
-//!   version must equal the cycle's sealed predecessor `base` (`Vn`), else the
-//!   commit is refused with nothing written. Post-commit: the published version
-//!   must be exactly `base + 1`. Lance's optimistic concurrency auto-resolves
-//!   append-append conflicts (a foreign interleaved writer would yield
-//!   `base + 2`), so under the one-writer-per-mailbox doctrine a post-check
-//!   mismatch is a LOUD timeline anomaly, never silently accepted.
-//! - **Order is a write-side property.** Landings arrive already deinterlaced
-//!   (`DetachedCycleBatch::freeze` ran the loom); they are stored in that
-//!   canonical order and scanned back with Lance's in-order scan. This sink
-//!   never sorts on read.
-//! - **All-or-nothing visibility.** An unsealed / fenced / failed cycle leaves
-//!   no rows and no version: after restart + reopen it is simply absent.
-//!   Recovery is a read of the sealed store (`scan_sealed` + the caller's
-//!   watermark in `recover_and_apply`) — idempotent without any sidecar state.
+//! Lance's own transaction/manifest machinery (the backend durability path)
+//! is INTERNAL to this one writer — `Dataset::write` / `Dataset::append` are
+//! official atomic Lance MVCC commits, and nothing else writes here. An
+//! unexpected head can only mean: an earlier commit became durable but its
+//! response was lost; a restart reopened from a stale cached head; an
+//! unauthorized writer violated the topology; or corruption. It is a
+//! fence/reconciliation condition, never normal competition.
 //!
-//! # Domain 0x09 — the patient SoA witness store (why the schema is rich)
+//! # The governing storage rule (why there is no empty-cycle version)
 //!
-//! The patient SoA at classid domain `0x09` is the ONLY place patient reasoning
-//! is ever written to Lance. Everything else the reasoner touches — the
-//! interlocked ontologies at domain `0x03`, crosswalks, RO edges — is IMMUTABLE
-//! for the duration of a representation window: a cycle takes that immutability
-//! for granted (its `base_version` names the sealed ontology-bearing predecessor
-//! it read), and therefore never needs to restate ontology content. What it MUST
-//! state — maximally richly — is the WITNESSING:
+//! **No artifact-backed semantic change → no write → no new `DatasetVersion`.**
+//! `persist_cycle` partitions intent-only casts out and returns
+//! `CommitOutcome::NoChange` without ever calling this writer, so a timer
+//! tick, an empty cycle, a `Continue`, a held intent or a pure kanban step
+//! performs ZERO Lance operations here. The #911 deliberate empty-cycle
+//! versioning is REMOVED. Kanban progress rides along ONLY when an artifact
+//! commit happens anyway (the moves of artifact casts, sealed in the same
+//! atomic commit).
 //!
-//! - **`payload`** carries the canonical witness node bytes (the 512-byte
-//!   `key(16) | edges(16) | value(480)` node ABI): the EpisodicWitness row —
-//!   visited ontology addresses, executed crosswalk mappings, the exact RO /
-//!   ontology edge identifiers walked, supporting / contradicting / missing
-//!   observations, NARS truth + confidence, differential branches. Domain-0x09
-//!   keys, edges pointing INTO the immutable 0x03 address space.
-//! - **The landing columns** carry the dynamic-reasoning-update record: which
-//!   mailbox reasoned (`owner`), where in the canonical thought stream
-//!   (`stream_position`), which SoA row the update lands on (`row`), and the
-//!   Rubicon lifecycle step the thought cast (`move_*` — the sealed reflection
-//!   of the thinking, applied post-SEAL only).
-//! - **The frame row** (one per cycle, `kind = 0`) seals the cycle ↔ version
-//!   mapping INSIDE the same atomic commit, so the coarse timeline
-//!   (`versions()`) survives restart with zero sidecar files — the sealed
-//!   versioning is literally a reflection of the thinking that produced it.
+//! # No rollback, no compensating delete — reconciliation is authoritative
 //!
-//! Downstream (the Gotham display, differential views, any consumer) reads the
-//! sealed version — never a live recomputation: the witness is examined in
-//! place, at the version its cycle published.
+//! Lance 9 has no atomic expected-version fence for Append (the conflict
+//! rebase runs even on a single-attempt commit; strict no-rebase mode exists
+//! only for Overwrite — measured in `lance-9.0.0/src/io/commit.rs`), and a
+//! published manifest is HISTORY (`Dataset::delete` creates another version;
+//! it is not rollback — the #911 compensating delete is removed, not
+//! repaired). Instead, idempotency is durable: every committed row carries
+//! its `(cycle, batch_hash)` in the same commit, and [`WalSink::commit_cycle`]
+//! reconciles FIRST — an already-durable batch returns
+//! [`CommitOutcome::Reconciled`]; a matching cycle with a different hash
+//! fails closed ([`CommitError::HashConflict`]); an append whose
+//! acknowledgement was lost is resolved by re-submitting the SAME frozen
+//! batch. Only when reconciliation itself cannot answer does
+//! [`CommitError::Ambiguous`] surface.
+//!
+//! # Reference the new version; never reload normal state
+//!
+//! After a successful commit the caller already holds the outcome (version,
+//! cycle, hash) and the submitted batch. The normal path performs **zero
+//! reopens, zero scans, zero readbacks** — [`LanceCycleWriter::opens`] counts
+//! every `Dataset::open` this writer ever performs so the invariant is
+//! instrumented, not asserted. `scan_sealed` / `timeline` exist for recovery,
+//! audit and downstream consumers, are bounded (`after_cycle` pushed into the
+//! Lance scan as a predicate) and projected (the timeline never touches the
+//! payload column).
+//!
+//! # Copy boundary (documented honestly, isolated for a later measured PR)
+//!
+//! This writer materializes the frozen batch's landings into Arrow builders
+//! (one copy of each payload) and `scan_*` reads copy bytes back out
+//! (`to_vec`). True zero-copy (Arc-backed Arrow buffers pinned over SoA
+//! ranges) does not fit this focused repair; the copy boundary is exactly
+//! these two seams and nothing else. The 512-byte witness ABI is enforced on
+//! ARTIFACT payloads only — intent-only casts never reach this writer, so the
+//! `restage_held` empty-payload shape can never trip the gate.
 
+use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::Arc;
 
 use arrow_array::{
-    builder::{BinaryBuilder, UInt32Builder, UInt8Builder},
-    Array, BinaryArray, RecordBatch, RecordBatchIterator, UInt32Array, UInt64Array, UInt8Array,
+    builder::{FixedSizeBinaryBuilder, UInt32Builder, UInt8Builder},
+    Array, FixedSizeBinaryArray, RecordBatch, RecordBatchIterator, UInt32Array, UInt64Array,
+    UInt8Array,
 };
 use arrow_schema::{DataType, Field, Schema, SchemaRef};
 use futures::TryStreamExt;
@@ -84,54 +92,41 @@ use lance_graph_contract::collapse_gate::MailboxId;
 use lance_graph_contract::kanban::{ExecTarget, KanbanColumn, KanbanMove};
 use lance_graph_contract::scheduler::DatasetVersion;
 use lance_graph_planner::persist_sink::{
-    CycleId, DetachedCycleBatch, LandedSlot, SweepSlot, WalSink, WriteFailed,
+    CommitError, CommitOutcome, CycleId, DetachedCycleBatch, FrameMeta, LandedSlot, SweepSlot,
+    WalSink, WriteFailed,
 };
 
-/// Row kind discriminant: the per-cycle frame row (cycle ↔ version mapping,
-/// sealed inside the same atomic commit as its landings).
+/// Row kind: the per-cycle frame row (cycle identity + batch hash + read
+/// horizon — compact metadata, sealed atomically with its landings).
 const KIND_FRAME: u8 = 0;
-/// Row kind discriminant: one landing (a thought's persistence record).
+/// Row kind: one artifact landing's TRANSITION METADATA (move + position;
+/// payload column NULL — compact, per cast).
 const KIND_LANDING: u8 = 1;
-/// Row kind discriminant: one coalesced-image row — the FINAL payload of a
-/// dirty SoA row after the per-row fold (`DetachedCycleBatch::image`), made
-/// durable in the same atomic commit so the store carries the coherent cycle
-/// image itself, not just the per-cast history it folds from.
+/// Row kind: one coalesced-image row — `row` + the FINAL 512-byte payload
+/// after the per-row fold. Exactly one payload per dirty row per cycle: 64
+/// same-row breaths durably cost ONE image row, never 64 × 512 bytes.
 const KIND_IMAGE: u8 = 2;
 
-/// The canonical witness-node payload size: `key(16) | edges(16) | value(480)`
-/// — the 512-byte node row stride with its 16-byte edge reservation. Every
-/// landing / image payload persisted by this sink MUST be exactly this long;
-/// a malformed witness row is refused before anything durable happens.
+/// The canonical witness-node ABI for ARTIFACT payloads:
+/// `key(16) | edges(16) | value(480)` — the 512-byte node row stride.
 pub const EPISODIC_WITNESS_BYTES: usize = 512;
 
-/// The Arrow schema of the cycle store — one dataset, three row kinds: the
-/// per-cycle frame row (`kind = 0`), the per-cast landing rows (`kind = 1`,
-/// the table below), and the coalesced-image rows (`kind = 2`: `row` + the
-/// FINAL 512-byte payload after the per-row fold, `stream_position`/`owner`
-/// zero, moves null — the durable coherent cycle image).
+/// The Arrow schema — flat rows, three kinds, payload physically
+/// `FixedSizeBinary(512)` (nullable: only image rows carry it).
 ///
-/// | column                        | type            | frame row | landing row |
-/// |-------------------------------|-----------------|-----------|-------------|
-/// | `kind`                        | `UInt8`         | 0         | 1           |
-/// | `cycle`                       | `UInt64`        | cycle id  | cycle id    |
-/// | `base_version`                | `UInt64`        | `Vn`      | `Vn`        |
-/// | `stream_position`             | `UInt64`        | 0         | canonical order key |
-/// | `owner`                       | `UInt32`        | 0         | mailbox     |
-/// | `row`                         | `UInt64`        | 0         | SoA row     |
-/// | `move_mailbox`                | `UInt32?`       | null      | paired move (or null) |
-/// | `move_from` / `move_to`       | `UInt8?`        | null      | Rubicon edge |
-/// | `move_witness_chain_position` | `UInt32?`       | null      | witness pointer (R4) |
-/// | `move_exec`                   | `UInt8?`        | null      | exec target |
-/// | `payload`                     | `Binary`        | empty     | witness node bytes |
-///
-/// The sealed version of every row's cycle is `base_version + 1` — an identity
-/// the commit path VERIFIES against the real published Lance version (it is
-/// never assumed), so reads may derive it without a sidecar mapping.
+/// | column | frame | landing | image |
+/// |---|---|---|---|
+/// | `kind` | 0 | 1 | 2 |
+/// | `cycle` / `base_version` / `batch_hash` | ✓ | ✓ | ✓ |
+/// | `stream_position` / `owner` / `row` | 0 | ✓ | winner's / 0 / row |
+/// | `move_*` (nullable) | null | cast's move | null |
+/// | `payload` (`FixedSizeBinary(512)`, nullable) | null | null | final image |
 pub fn cycle_store_schema() -> SchemaRef {
     Arc::new(Schema::new(vec![
         Field::new("kind", DataType::UInt8, false),
         Field::new("cycle", DataType::UInt64, false),
         Field::new("base_version", DataType::UInt64, false),
+        Field::new("batch_hash", DataType::UInt64, false),
         Field::new("stream_position", DataType::UInt64, false),
         Field::new("owner", DataType::UInt32, false),
         Field::new("row", DataType::UInt64, false),
@@ -140,63 +135,83 @@ pub fn cycle_store_schema() -> SchemaRef {
         Field::new("move_to", DataType::UInt8, true),
         Field::new("move_witness_chain_position", DataType::UInt32, true),
         Field::new("move_exec", DataType::UInt8, true),
-        Field::new("payload", DataType::Binary, false),
+        Field::new(
+            "payload",
+            DataType::FixedSizeBinary(EPISODIC_WITNESS_BYTES as i32),
+            true,
+        ),
     ]))
 }
 
-/// The concrete Lance-backed cycle sink.
+/// The sole owned application writer over one Lance cycle store.
 ///
-/// Cheap to clone / recreate: it holds only the dataset path and opens the
-/// dataset per operation (the restart-survival guarantee is thereby exercised on
-/// EVERY call, not just in tests). Point it at the domain-0x09 patient witness
-/// store (e.g. `<base>/witness_cycles.lance`) — one sink instance per store.
-#[derive(Debug, Clone)]
-pub struct LanceCycleSink {
+/// Deliberately **non-`Clone`**: constructing a second writer over the same
+/// path is a topology violation the type cannot prevent across processes, but
+/// within a process the exclusive `&mut` commit boundary plus non-cloneability
+/// make interleaved application commits unrepresentable.
+#[derive(Debug)]
+pub struct LanceCycleWriter {
     dataset_path: String,
+    /// The long-lived handle. `None` until the first committed cycle creates
+    /// the dataset (an empty store is a state, not an error).
+    ds: Option<Dataset>,
+    /// `Dataset::open` count — startup + ambiguity-resolution ONLY. The
+    /// normal-path invariant (zero post-success reopens) is instrumented here.
+    opens: AtomicU64,
 }
 
-impl LanceCycleSink {
-    /// A sink over the Lance dataset at `path` (local path or object-store URI —
-    /// anything `Dataset::open` accepts). The dataset is created on the first
-    /// committed cycle; a missing dataset is simply "nothing sealed yet".
-    #[must_use]
-    pub fn new(path: impl Into<String>) -> Self {
-        Self {
-            dataset_path: path.into(),
-        }
+impl LanceCycleWriter {
+    /// Open the writer over `path` (local path or object-store URI). Performs
+    /// the ONE startup open; a missing dataset is an empty store.
+    pub async fn open(path: impl Into<String>) -> Result<Self, WriteFailed> {
+        let dataset_path = path.into();
+        let opens = AtomicU64::new(0);
+        let ds = match Dataset::open(&dataset_path).await {
+            Ok(ds) => {
+                opens.fetch_add(1, Ordering::Relaxed);
+                Some(ds)
+            }
+            Err(lance::Error::DatasetNotFound { .. }) => None,
+            Err(e) => return Err(WriteFailed(format!("open {dataset_path}: {e}"))),
+        };
+        Ok(Self {
+            dataset_path,
+            ds,
+            opens,
+        })
     }
 
-    /// The dataset path this sink commits to.
+    /// The store's current head version (`0` = empty store) — the in-memory
+    /// token the normal path references instead of reloading state.
+    #[must_use]
+    pub fn head(&self) -> DatasetVersion {
+        DatasetVersion(self.ds.as_ref().map_or(0, |d| d.version().version))
+    }
+
+    /// The dataset path this writer commits to.
     #[must_use]
     pub fn dataset_path(&self) -> &str {
         &self.dataset_path
     }
 
-    /// Open the store if it exists; `None` = nothing sealed yet (a state, not an
-    /// error — distinguishing it from a real I/O failure is the caller-visible
-    /// difference between an empty timeline and a broken one).
-    async fn open_if_exists(&self) -> Result<Option<Dataset>, WriteFailed> {
-        match Dataset::open(&self.dataset_path).await {
-            Ok(ds) => Ok(Some(ds)),
-            Err(lance::Error::DatasetNotFound { .. }) => Ok(None),
-            Err(e) => Err(WriteFailed(format!("open {}: {e}", self.dataset_path))),
-        }
+    /// How many `Dataset::open` calls this writer has EVER performed —
+    /// startup (≤1) plus ambiguity resolutions. The zero-reload falsifier
+    /// asserts this stays flat across normal commits and reads.
+    #[must_use]
+    pub fn opens(&self) -> u64 {
+        self.opens.load(Ordering::Relaxed)
     }
 
-    /// Build the single atomic RecordBatch for a cycle: the frame row first,
-    /// then the landings in their ALREADY-canonical order (the loom ran in
-    /// `DetachedCycleBatch::freeze`; storage order = stream order by contract),
-    /// then the coalesced-image rows (`row → final payload`) so the coherent
-    /// cycle image is durable alongside the per-cast history it folds from.
-    ///
-    /// Every landing / image payload must be exactly [`EPISODIC_WITNESS_BYTES`]
-    /// — the canonical 512-byte node row — or the whole cycle is refused
-    /// before anything durable happens.
-    fn build_batch(batch: &DetachedCycleBatch) -> Result<RecordBatch, WriteFailed> {
-        let n = batch.landings.len() + batch.image.len() + 1;
+    /// Build the single atomic RecordBatch: frame row, landing-metadata rows
+    /// (canonical order, payload null), image rows (row-ascending, final
+    /// payload). Refuses a non-512-byte ARTIFACT payload before anything
+    /// durable happens (intent-only casts never reach this writer).
+    fn build_batch(batch: &DetachedCycleBatch) -> Result<RecordBatch, CommitError> {
+        let n = 1 + batch.landings.len() + batch.image.len();
         let mut kind = Vec::with_capacity(n);
         let mut cycle = Vec::with_capacity(n);
         let mut base_version = Vec::with_capacity(n);
+        let mut batch_hash = Vec::with_capacity(n);
         let mut stream_position = Vec::with_capacity(n);
         let mut owner = Vec::with_capacity(n);
         let mut row = Vec::with_capacity(n);
@@ -205,37 +220,37 @@ impl LanceCycleSink {
         let mut move_to = UInt8Builder::with_capacity(n);
         let mut move_wcp = UInt32Builder::with_capacity(n);
         let mut move_exec = UInt8Builder::with_capacity(n);
-        let mut payload = BinaryBuilder::new();
+        let mut payload = FixedSizeBinaryBuilder::with_capacity(n, EPISODIC_WITNESS_BYTES as i32);
 
-        // Frame row — the cycle ↔ version mapping, sealed atomically with its
-        // landings (a zero-landing cycle still advances the timeline).
-        kind.push(KIND_FRAME);
-        cycle.push(batch.frame.cycle.0);
-        base_version.push(batch.frame.base_version.0);
-        stream_position.push(0);
-        owner.push(0);
-        row.push(0);
+        let mut push_common = |k: u8, sp: u64, ow: u32, rw: u64| {
+            kind.push(k);
+            cycle.push(batch.frame.cycle.0);
+            base_version.push(batch.frame.base_version.0);
+            batch_hash.push(batch.batch_hash);
+            stream_position.push(sp);
+            owner.push(ow);
+            row.push(rw);
+        };
+
+        // Frame row — compact metadata, no move, no payload.
+        push_common(KIND_FRAME, 0, 0, 0);
         move_mailbox.append_null();
         move_from.append_null();
         move_to.append_null();
         move_wcp.append_null();
         move_exec.append_null();
-        payload.append_value([]);
+        payload.append_null();
 
+        // Landing metadata rows — the sparse transition set, payload NULL.
         for s in &batch.landings {
             if s.payload.len() != EPISODIC_WITNESS_BYTES {
-                return Err(WriteFailed(format!(
-                    "landing payload for row {} is {} bytes, expected the canonical {EPISODIC_WITNESS_BYTES}",
+                return Err(CommitError::Io(WriteFailed(format!(
+                    "artifact payload for row {} is {} bytes, ABI requires {EPISODIC_WITNESS_BYTES}",
                     s.row,
                     s.payload.len()
-                )));
+                ))));
             }
-            kind.push(KIND_LANDING);
-            cycle.push(s.cycle.0);
-            base_version.push(batch.frame.base_version.0);
-            stream_position.push(s.stream_position);
-            owner.push(s.owner);
-            row.push(s.row);
+            push_common(KIND_LANDING, s.stream_position, s.owner, s.row);
             match &s.paired_move {
                 Some(m) => {
                     move_mailbox.append_value(m.mailbox);
@@ -252,33 +267,20 @@ impl LanceCycleSink {
                     move_exec.append_null();
                 }
             }
-            payload.append_value(&s.payload);
+            payload.append_null();
         }
 
-        // Coalesced-image rows: the final per-row state after the stream-order
-        // fold. `BTreeMap` iteration gives a deterministic (row-ascending)
-        // stored order. Same-cycle landings already passed the 512-byte gate,
-        // and the image is a fold over exactly those payloads — the length
-        // check here guards the invariant independently rather than assuming it.
+        // Image rows — the coalesced final payload, once per dirty row.
         for (row_id, image_payload) in &batch.image {
-            if image_payload.len() != EPISODIC_WITNESS_BYTES {
-                return Err(WriteFailed(format!(
-                    "image payload for row {row_id} is {} bytes, expected the canonical {EPISODIC_WITNESS_BYTES}",
-                    image_payload.len()
-                )));
-            }
-            kind.push(KIND_IMAGE);
-            cycle.push(batch.frame.cycle.0);
-            base_version.push(batch.frame.base_version.0);
-            stream_position.push(0);
-            owner.push(0);
-            row.push(*row_id);
+            push_common(KIND_IMAGE, 0, 0, *row_id);
             move_mailbox.append_null();
             move_from.append_null();
             move_to.append_null();
             move_wcp.append_null();
             move_exec.append_null();
-            payload.append_value(image_payload);
+            payload
+                .append_value(image_payload)
+                .map_err(|e| CommitError::Io(WriteFailed(format!("image row {row_id}: {e}"))))?;
         }
 
         RecordBatch::try_new(
@@ -287,6 +289,7 @@ impl LanceCycleSink {
                 Arc::new(UInt8Array::from(kind)),
                 Arc::new(UInt64Array::from(cycle)),
                 Arc::new(UInt64Array::from(base_version)),
+                Arc::new(UInt64Array::from(batch_hash)),
                 Arc::new(UInt64Array::from(stream_position)),
                 Arc::new(UInt32Array::from(owner)),
                 Arc::new(UInt64Array::from(row)),
@@ -298,33 +301,216 @@ impl LanceCycleSink {
                 Arc::new(payload.finish()),
             ],
         )
-        .map_err(|e| WriteFailed(format!("build cycle batch: {e}")))
+        .map_err(|e| CommitError::Io(WriteFailed(format!("build cycle batch: {e}"))))
     }
 
-    /// Read the store's rows of ONE kind at its LATEST version, in stored
-    /// (insertion) order — Lance's in-order scan; this sink never sorts on
-    /// read. The kind predicate is pushed into the scan so frame/image reads
-    /// never materialize landing payloads (and vice versa).
-    async fn read_rows_of_kind(
-        &self,
-        ds: &Dataset,
-        kind_filter: u8,
-    ) -> Result<Vec<StoredRow>, WriteFailed> {
+    /// Look this cycle's durable frame up (projected `cycle` + `batch_hash`
+    /// under a `kind = 0 AND cycle = …` predicate) — the reconciliation read.
+    async fn find_frame(&self, cycle: CycleId) -> Result<Option<u64>, WriteFailed> {
+        let Some(ds) = self.ds.as_ref() else {
+            return Ok(None);
+        };
         let mut scan = ds.scan();
-        scan.scan_in_order(true);
-        scan.filter(&format!("kind = {kind_filter}"))
-            .map_err(|e| WriteFailed(format!("filter {}: {e}", self.dataset_path)))?;
+        scan.filter(&format!("kind = {KIND_FRAME} AND cycle = {}", cycle.0))
+            .map_err(|e| WriteFailed(format!("filter: {e}")))?;
+        scan.project(&["batch_hash"])
+            .map_err(|e| WriteFailed(format!("project: {e}")))?;
         let batches: Vec<RecordBatch> = scan
             .try_into_stream()
             .await
-            .map_err(|e| WriteFailed(format!("scan {}: {e}", self.dataset_path)))?
+            .map_err(|e| WriteFailed(format!("scan: {e}")))?
             .try_collect()
             .await
-            .map_err(|e| WriteFailed(format!("collect {}: {e}", self.dataset_path)))?;
-
-        let mut rows = Vec::new();
+            .map_err(|e| WriteFailed(format!("collect: {e}")))?;
         for b in &batches {
-            let col_u8 = |name: &str| -> Result<&UInt8Array, WriteFailed> {
+            let h: &UInt64Array = b
+                .column_by_name("batch_hash")
+                .and_then(|c| c.as_any().downcast_ref())
+                .ok_or_else(|| WriteFailed("missing column batch_hash".into()))?;
+            if b.num_rows() > 0 {
+                return Ok(Some(h.value(0)));
+            }
+        }
+        Ok(None)
+    }
+
+    /// Re-open the dataset from storage — ambiguity resolution ONLY (counted).
+    async fn reopen(&mut self) -> Result<(), WriteFailed> {
+        match Dataset::open(&self.dataset_path).await {
+            Ok(ds) => {
+                self.opens.fetch_add(1, Ordering::Relaxed);
+                self.ds = Some(ds);
+                Ok(())
+            }
+            Err(lance::Error::DatasetNotFound { .. }) => {
+                self.opens.fetch_add(1, Ordering::Relaxed);
+                self.ds = None;
+                Ok(())
+            }
+            Err(e) => Err(WriteFailed(format!("reopen {}: {e}", self.dataset_path))),
+        }
+    }
+}
+
+impl WalSink for LanceCycleWriter {
+    /// THE single durable commit for a whole cycle — reconciliation-first,
+    /// fence second, append third; the outcome is fully honored.
+    async fn commit_cycle(
+        &mut self,
+        batch: DetachedCycleBatch,
+    ) -> Result<CommitOutcome, CommitError> {
+        // Zero-artifact batches never reach a sink (persist_cycle partitions),
+        // but the invariant is enforced here too — this writer NEVER creates a
+        // version for nothing.
+        if batch.landings.is_empty() {
+            return Ok(CommitOutcome::NoChange {
+                head: DatasetVersion(batch.frame.base_version.0),
+            });
+        }
+        // 1. Reconciliation-first: an already-durable (cycle, hash) is success;
+        //    a matching cycle with a different hash fails closed.
+        match self.find_frame(batch.frame.cycle).await {
+            Ok(Some(stored_hash)) => {
+                return if stored_hash == batch.batch_hash {
+                    Ok(CommitOutcome::Reconciled {
+                        version: self.head(),
+                        cycle: batch.frame.cycle,
+                        batch_hash: batch.batch_hash,
+                    })
+                } else {
+                    Err(CommitError::HashConflict {
+                        cycle: batch.frame.cycle,
+                        stored_hash,
+                        offered_hash: batch.batch_hash,
+                    })
+                };
+            }
+            Ok(None) => {}
+            Err(e) => {
+                // The reconciliation read itself failed — nothing written yet,
+                // and nothing ambiguous: safe to report as refused I/O.
+                return Err(CommitError::Io(e));
+            }
+        }
+        // 2. The fence: the frame must target the current head. Under the
+        //    one-writer topology a mismatch is a stale horizon (lost-response
+        //    restart / stale cache / topology violation), never competition.
+        let head = self.head();
+        if batch.frame.base_version != head {
+            return Err(CommitError::Fenced { current_head: head });
+        }
+        // 3. The single atomic Lance MVCC commit.
+        let record_batch = Self::build_batch(&batch)?;
+        let schema = cycle_store_schema();
+        let reader = RecordBatchIterator::new(vec![Ok(record_batch)], schema);
+        let append_result = match self.ds.as_mut() {
+            None => match Dataset::write(
+                reader,
+                &self.dataset_path,
+                Some(WriteParams {
+                    mode: WriteMode::Create,
+                    ..Default::default()
+                }),
+            )
+            .await
+            {
+                Ok(ds) => {
+                    self.ds = Some(ds);
+                    Ok(())
+                }
+                Err(e) => Err(e),
+            },
+            Some(ds) => ds.append(reader, None).await,
+        };
+        match append_result {
+            Ok(()) => Ok(CommitOutcome::Committed {
+                // The ACTUAL returned physical version — accepted as-is, never
+                // "corrected" (no rollback, no delete, no derived identity).
+                version: self.head(),
+                cycle: batch.frame.cycle,
+                batch_hash: batch.batch_hash,
+            }),
+            Err(e) => {
+                // The commit's outcome is UNKNOWN (the manifest may or may not
+                // have published before the failure). Reconcile from storage:
+                // reopen (counted), then look for our durable identity.
+                let cause = e.to_string();
+                if let Err(re) = self.reopen().await {
+                    return Err(CommitError::Ambiguous {
+                        cycle: batch.frame.cycle,
+                        batch_hash: batch.batch_hash,
+                        cause: format!("append failed ({cause}); reopen failed ({re})"),
+                    });
+                }
+                match self.find_frame(batch.frame.cycle).await {
+                    Ok(Some(stored_hash)) if stored_hash == batch.batch_hash => {
+                        Ok(CommitOutcome::Reconciled {
+                            version: self.head(),
+                            cycle: batch.frame.cycle,
+                            batch_hash: batch.batch_hash,
+                        })
+                    }
+                    Ok(Some(stored_hash)) => Err(CommitError::HashConflict {
+                        cycle: batch.frame.cycle,
+                        stored_hash,
+                        offered_hash: batch.batch_hash,
+                    }),
+                    // Proven absent: nothing landed — safe to regenerate.
+                    Ok(None) => Err(CommitError::Io(WriteFailed(format!(
+                        "append failed with nothing published: {cause}"
+                    )))),
+                    Err(re) => Err(CommitError::Ambiguous {
+                        cycle: batch.frame.cycle,
+                        batch_hash: batch.batch_hash,
+                        cause: format!("append failed ({cause}); reconciliation failed ({re})"),
+                    }),
+                }
+            }
+        }
+    }
+
+    /// Committed landing METADATA in stored canonical order, bounded by
+    /// `after_cycle` (pushed into the Lance scan). Payloads are NOT read here
+    /// — landing rows carry none (the durable payloads live in the coalesced
+    /// image, read via [`LanceCycleWriter::scan_image`]); returned slots carry
+    /// empty payload vectors.
+    async fn scan_sealed(
+        &self,
+        after_cycle: Option<CycleId>,
+    ) -> Result<Vec<LandedSlot>, WriteFailed> {
+        let Some(ds) = self.ds.as_ref() else {
+            return Ok(Vec::new());
+        };
+        let mut scan = ds.scan();
+        scan.scan_in_order(true);
+        let filter = match after_cycle {
+            Some(c) => format!("kind = {KIND_LANDING} AND cycle > {}", c.0),
+            None => format!("kind = {KIND_LANDING}"),
+        };
+        scan.filter(&filter)
+            .map_err(|e| WriteFailed(format!("filter: {e}")))?;
+        scan.project(&[
+            "cycle",
+            "stream_position",
+            "owner",
+            "row",
+            "move_mailbox",
+            "move_from",
+            "move_to",
+            "move_witness_chain_position",
+            "move_exec",
+        ])
+        .map_err(|e| WriteFailed(format!("project: {e}")))?;
+        let batches: Vec<RecordBatch> = scan
+            .try_into_stream()
+            .await
+            .map_err(|e| WriteFailed(format!("scan: {e}")))?
+            .try_collect()
+            .await
+            .map_err(|e| WriteFailed(format!("collect: {e}")))?;
+        let mut out = Vec::new();
+        for b in &batches {
+            let col_u64 = |name: &str| -> Result<&UInt64Array, WriteFailed> {
                 b.column_by_name(name)
                     .and_then(|c| c.as_any().downcast_ref())
                     .ok_or_else(|| WriteFailed(format!("missing column {name}")))
@@ -334,14 +520,12 @@ impl LanceCycleSink {
                     .and_then(|c| c.as_any().downcast_ref())
                     .ok_or_else(|| WriteFailed(format!("missing column {name}")))
             };
-            let col_u64 = |name: &str| -> Result<&UInt64Array, WriteFailed> {
+            let col_u8 = |name: &str| -> Result<&UInt8Array, WriteFailed> {
                 b.column_by_name(name)
                     .and_then(|c| c.as_any().downcast_ref())
                     .ok_or_else(|| WriteFailed(format!("missing column {name}")))
             };
-            let kind = col_u8("kind")?;
             let cycle = col_u64("cycle")?;
-            let base_version = col_u64("base_version")?;
             let stream_position = col_u64("stream_position")?;
             let owner = col_u32("owner")?;
             let row = col_u64("row")?;
@@ -350,11 +534,6 @@ impl LanceCycleSink {
             let move_to = col_u8("move_to")?;
             let move_wcp = col_u32("move_witness_chain_position")?;
             let move_exec = col_u8("move_exec")?;
-            let payload: &BinaryArray = b
-                .column_by_name("payload")
-                .and_then(|c| c.as_any().downcast_ref())
-                .ok_or_else(|| WriteFailed("missing column payload".into()))?;
-
             for i in 0..b.num_rows() {
                 let paired_move = if move_mailbox.is_valid(i) {
                     Some(KanbanMove {
@@ -367,75 +546,97 @@ impl LanceCycleSink {
                 } else {
                     None
                 };
-                rows.push(StoredRow {
-                    kind: kind.value(i),
+                out.push(LandedSlot {
                     cycle: CycleId(cycle.value(i)),
-                    base_version: DatasetVersion(base_version.value(i)),
                     slot: SweepSlot {
                         cycle: CycleId(cycle.value(i)),
                         stream_position: stream_position.value(i),
                         owner: owner.value(i),
                         row: row.value(i),
                         paired_move,
-                        payload: payload.value(i).to_vec(),
+                        payload: Vec::new(),
                     },
                 });
             }
         }
-        Ok(rows)
+        Ok(out)
+    }
+
+    /// The coarse timeline — frame rows only, projected `cycle` +
+    /// `base_version` + `batch_hash`: the payload column is never scanned.
+    async fn timeline(&self) -> Result<Vec<FrameMeta>, WriteFailed> {
+        let Some(ds) = self.ds.as_ref() else {
+            return Ok(Vec::new());
+        };
+        let mut scan = ds.scan();
+        scan.scan_in_order(true);
+        scan.filter(&format!("kind = {KIND_FRAME}"))
+            .map_err(|e| WriteFailed(format!("filter: {e}")))?;
+        scan.project(&["cycle", "base_version", "batch_hash"])
+            .map_err(|e| WriteFailed(format!("project: {e}")))?;
+        let batches: Vec<RecordBatch> = scan
+            .try_into_stream()
+            .await
+            .map_err(|e| WriteFailed(format!("scan: {e}")))?
+            .try_collect()
+            .await
+            .map_err(|e| WriteFailed(format!("collect: {e}")))?;
+        let mut out = Vec::new();
+        for b in &batches {
+            let cycle: &UInt64Array = b
+                .column_by_name("cycle")
+                .and_then(|c| c.as_any().downcast_ref())
+                .ok_or_else(|| WriteFailed("missing column cycle".into()))?;
+            let base: &UInt64Array = b
+                .column_by_name("base_version")
+                .and_then(|c| c.as_any().downcast_ref())
+                .ok_or_else(|| WriteFailed("missing column base_version".into()))?;
+            let hash: &UInt64Array = b
+                .column_by_name("batch_hash")
+                .and_then(|c| c.as_any().downcast_ref())
+                .ok_or_else(|| WriteFailed("missing column batch_hash".into()))?;
+            for i in 0..b.num_rows() {
+                out.push(FrameMeta {
+                    cycle: CycleId(cycle.value(i)),
+                    base_version: DatasetVersion(base.value(i)),
+                    batch_hash: hash.value(i),
+                });
+            }
+        }
+        Ok(out)
     }
 }
 
-/// One decoded store row (frame or landing) — internal read shape.
-struct StoredRow {
-    kind: u8,
-    cycle: CycleId,
-    base_version: DatasetVersion,
-    slot: SweepSlot,
-}
-
-impl StoredRow {
-    /// The version this row's cycle sealed into — `base + 1`, the identity the
-    /// commit path verified against the real published Lance version.
-    fn sealed_version(&self) -> DatasetVersion {
-        DatasetVersion(self.base_version.0 + 1)
-    }
-}
-
-impl LanceCycleSink {
-    /// Read a sealed cycle's durable coalesced image: `row → final payload`
-    /// after the write-side per-row fold. This is the coherent end-state a
-    /// downstream consumer (a view, the Gotham display) reads — the per-cast
-    /// history behind it stays available via [`WalSink::scan_sealed`]. Projects
-    /// `row` + `payload` under a `kind = 2 AND cycle = …` predicate. An empty
-    /// map = the cycle is unknown or landed nothing.
+impl LanceCycleWriter {
+    /// A sealed cycle's durable coalesced image: `row → final 512-byte
+    /// payload`. Projected `row` + `payload` under `kind = 2 AND cycle = …`.
     pub async fn scan_image(
         &self,
         cycle: CycleId,
     ) -> Result<std::collections::BTreeMap<u64, Vec<u8>>, WriteFailed> {
-        let Some(ds) = self.open_if_exists().await? else {
+        let Some(ds) = self.ds.as_ref() else {
             return Ok(std::collections::BTreeMap::new());
         };
         let mut scan = ds.scan();
         scan.scan_in_order(true);
         scan.filter(&format!("kind = {KIND_IMAGE} AND cycle = {}", cycle.0))
-            .map_err(|e| WriteFailed(format!("filter {}: {e}", self.dataset_path)))?;
+            .map_err(|e| WriteFailed(format!("filter: {e}")))?;
         scan.project(&["row", "payload"])
-            .map_err(|e| WriteFailed(format!("project {}: {e}", self.dataset_path)))?;
+            .map_err(|e| WriteFailed(format!("project: {e}")))?;
         let batches: Vec<RecordBatch> = scan
             .try_into_stream()
             .await
-            .map_err(|e| WriteFailed(format!("scan {}: {e}", self.dataset_path)))?
+            .map_err(|e| WriteFailed(format!("scan: {e}")))?
             .try_collect()
             .await
-            .map_err(|e| WriteFailed(format!("collect {}: {e}", self.dataset_path)))?;
+            .map_err(|e| WriteFailed(format!("collect: {e}")))?;
         let mut out = std::collections::BTreeMap::new();
         for b in &batches {
             let row: &UInt64Array = b
                 .column_by_name("row")
                 .and_then(|c| c.as_any().downcast_ref())
                 .ok_or_else(|| WriteFailed("missing column row".into()))?;
-            let payload: &BinaryArray = b
+            let payload: &FixedSizeBinaryArray = b
                 .column_by_name("payload")
                 .and_then(|c| c.as_any().downcast_ref())
                 .ok_or_else(|| WriteFailed("missing column payload".into()))?;
@@ -447,184 +648,19 @@ impl LanceCycleSink {
     }
 }
 
-impl WalSink for LanceCycleSink {
-    /// THE single amortized durable append for a whole cycle, over the official
-    /// Lance insert path — one commit, one new `DatasetVersion`, all-or-nothing.
-    ///
-    /// The epistemic fence, both halves:
-    /// 1. **Pre-commit:** the store's current version must equal `base` (`Vn`).
-    ///    An empty store has head `DatasetVersion(0)`, so the first cycle must
-    ///    declare base 0 (it read no sealed predecessor). A stale base is
-    ///    refused with NOTHING written.
-    /// 2. **Post-commit:** the published version must be exactly `base + 1`.
-    ///    Lance auto-resolves append-append conflicts (there is no
-    ///    expected-version conditional append in the official API — the rebase
-    ///    runs even on a single-attempt commit for Append operations), so a
-    ///    foreign interleaved writer can land this batch at `base + 2`. When
-    ///    that is detected, the fence is made EFFECTIVE retroactively: the
-    ///    just-published cycle rows are removed again with an official
-    ///    `Dataset::delete` scoped to exactly this cycle's rows, and only THEN
-    ///    is the retryable [`WriteFailed`] returned — so "write failed" is
-    ///    true at the visible head (nothing of this cycle remains readable),
-    ///    the driver's regenerate-from-`Vn` contract stays sound, and no rows
-    ///    survive under a shifted `sealed_version` identity. If the
-    ///    compensating delete itself fails, the error says so explicitly and
-    ///    names the orphaned version — the one manual-reconciliation corner,
-    ///    reachable only when the one-writer §I.6 doctrine was already
-    ///    violated by a foreign writer.
-    async fn commit_cycle(
-        &self,
-        base: DatasetVersion,
-        batch: DetachedCycleBatch,
-    ) -> Result<DatasetVersion, WriteFailed> {
-        if batch.frame.base_version != base {
-            return Err(WriteFailed(format!(
-                "frame base {:?} != commit base {base:?}",
-                batch.frame.base_version
-            )));
-        }
-        let record_batch = Self::build_batch(&batch)?;
-        let schema = cycle_store_schema();
-        let published = match self.open_if_exists().await? {
-            None => {
-                // Empty store: sealed head is DatasetVersion(0) by convention.
-                if base.0 != 0 {
-                    return Err(WriteFailed(format!(
-                        "stale base {base:?}: sealed head is DatasetVersion(0) (empty store)"
-                    )));
-                }
-                let reader = RecordBatchIterator::new(vec![Ok(record_batch)], schema);
-                let params = WriteParams {
-                    mode: WriteMode::Create,
-                    ..Default::default()
-                };
-                let ds = Dataset::write(reader, &self.dataset_path, Some(params))
-                    .await
-                    .map_err(|e| WriteFailed(format!("create commit: {e}")))?;
-                ds.version().version
-            }
-            Some(mut ds) => {
-                let head = ds.version().version;
-                if head != base.0 {
-                    return Err(WriteFailed(format!(
-                        "stale base {base:?}: sealed head is DatasetVersion({head})"
-                    )));
-                }
-                let reader = RecordBatchIterator::new(vec![Ok(record_batch)], schema);
-                ds.append(reader, None)
-                    .await
-                    .map_err(|e| WriteFailed(format!("append commit: {e}")))?;
-                let published = ds.version().version;
-                if published != base.0 + 1 {
-                    // A foreign writer interleaved between the fence check and
-                    // the commit; Lance's append rebase landed this batch at a
-                    // shifted version. Make the fence effective retroactively:
-                    // remove exactly this cycle's just-appended rows, then
-                    // report the (now-true) retryable failure. The cycle id is
-                    // an unsealed identity at this point — no earlier sealed
-                    // rows can carry it — so the predicate is exact.
-                    let compensate = ds
-                        .delete(&format!(
-                            "cycle = {} AND base_version = {}",
-                            batch.frame.cycle.0, base.0
-                        ))
-                        .await;
-                    return Err(match compensate {
-                        Ok(_) => WriteFailed(format!(
-                            "fenced post-publication: a foreign writer moved the head past \
-                             {base:?} (batch landed at DatasetVersion({published})); the \
-                             cycle's rows were deleted again — nothing of cycle {} is \
-                             visible; regenerate from the current sealed head",
-                            batch.frame.cycle.0
-                        )),
-                        Err(e) => WriteFailed(format!(
-                            "TIMELINE ANOMALY, MANUAL RECONCILIATION REQUIRED: cycle {} \
-                             committed at DatasetVersion({published}) (expected {}), and the \
-                             compensating delete failed: {e}",
-                            batch.frame.cycle.0,
-                            base.0 + 1
-                        )),
-                    });
-                }
-                published
-            }
-        };
-        Ok(DatasetVersion(published))
-    }
-
-    /// Committed landings only, in the STORED canonical order, from the
-    /// REOPENED dataset — never an in-memory echo. `from_version` filters to
-    /// cycles sealed strictly after it.
-    async fn scan_sealed(
-        &self,
-        from_version: Option<DatasetVersion>,
-    ) -> Result<Vec<LandedSlot>, WriteFailed> {
-        let Some(ds) = self.open_if_exists().await? else {
-            return Ok(Vec::new());
-        };
-        let rows = self.read_rows_of_kind(&ds, KIND_LANDING).await?;
-        Ok(rows
-            .into_iter()
-            .filter(|r| from_version.is_none_or(|f| r.sealed_version() > f))
-            .map(|r| LandedSlot {
-                version: r.sealed_version(),
-                slot: r.slot,
-            })
-            .collect())
-    }
-
-    /// The cheap coarse timeline — the per-cycle frame rows, each sealed in the
-    /// same atomic commit as its landings, read back from the reopened store.
-    /// Projects only `cycle` + `base_version` under a `kind = 0` predicate, so
-    /// the lookup never materializes a single landing payload no matter how
-    /// much witness history the store has accumulated.
-    async fn versions(&self) -> Result<Vec<(CycleId, DatasetVersion)>, WriteFailed> {
-        let Some(ds) = self.open_if_exists().await? else {
-            return Ok(Vec::new());
-        };
-        let mut scan = ds.scan();
-        scan.scan_in_order(true);
-        scan.filter(&format!("kind = {KIND_FRAME}"))
-            .map_err(|e| WriteFailed(format!("filter {}: {e}", self.dataset_path)))?;
-        scan.project(&["cycle", "base_version"])
-            .map_err(|e| WriteFailed(format!("project {}: {e}", self.dataset_path)))?;
-        let batches: Vec<RecordBatch> = scan
-            .try_into_stream()
-            .await
-            .map_err(|e| WriteFailed(format!("scan {}: {e}", self.dataset_path)))?
-            .try_collect()
-            .await
-            .map_err(|e| WriteFailed(format!("collect {}: {e}", self.dataset_path)))?;
-        let mut out = Vec::new();
-        for b in &batches {
-            let cycle: &UInt64Array = b
-                .column_by_name("cycle")
-                .and_then(|c| c.as_any().downcast_ref())
-                .ok_or_else(|| WriteFailed("missing column cycle".into()))?;
-            let base_version: &UInt64Array = b
-                .column_by_name("base_version")
-                .and_then(|c| c.as_any().downcast_ref())
-                .ok_or_else(|| WriteFailed("missing column base_version".into()))?;
-            for i in 0..b.num_rows() {
-                out.push((
-                    CycleId(cycle.value(i)),
-                    DatasetVersion(base_version.value(i) + 1),
-                ));
-            }
-        }
-        Ok(out)
-    }
-}
-
 // ---------------------------------------------------------------------------
-// Tests — every guarantee proven against a REOPENED dataset (fresh sink
-// instance, fresh `Dataset::open`), never an in-memory echo.
+// Falsifiers — every guarantee proven against a REOPENED store (a fresh
+// `LanceCycleWriter::open` over the same path), never an in-memory echo.
 // ---------------------------------------------------------------------------
 
 #[cfg(test)]
 mod tests {
     use super::*;
     use lance_graph_planner::persist_sink::{persist_cycle, CycleFrame};
+
+    fn witness(tag: u8) -> Vec<u8> {
+        vec![tag; EPISODIC_WITNESS_BYTES]
+    }
 
     fn mv(owner: MailboxId) -> KanbanMove {
         KanbanMove {
@@ -636,267 +672,464 @@ mod tests {
         }
     }
 
-    /// A canonical 512-byte witness payload, tagged by `stream_position` so
-    /// distinct casts stay byte-distinguishable.
-    fn witness(stream_position: u64) -> Vec<u8> {
-        vec![stream_position as u8; EPISODIC_WITNESS_BYTES]
-    }
-
-    fn slot(cycle: u64, stream_position: u64, owner: MailboxId, row: u64) -> SweepSlot {
+    /// An ARTIFACT cast (non-empty canonical payload).
+    fn artifact(cycle: u64, sp: u64, owner: MailboxId, row: u64) -> SweepSlot {
         SweepSlot {
             cycle: CycleId(cycle),
-            stream_position,
+            stream_position: sp,
             owner,
             row,
             paired_move: Some(mv(owner)),
-            payload: witness(stream_position),
+            payload: witness(sp as u8),
         }
     }
 
-    /// One cycle → ONE official Lance commit → exactly one real DatasetVersion
-    /// `base + 1`; a fresh sink over the same path (restart) reads the sealed
-    /// landings and the cycle ↔ version mapping back from storage.
-    #[tokio::test]
-    async fn seal_survives_restart_and_reopen() {
-        let dir = tempfile::tempdir().unwrap();
-        let path = dir.path().join("witness_cycles.lance");
-        let sink = LanceCycleSink::new(path.to_str().unwrap());
-
-        let frame = CycleFrame::new(CycleId(1), DatasetVersion(0));
-        let casts = vec![slot(1, 20, 5, 100), slot(1, 10, 5, 101)];
-        let v = persist_cycle(&sink, frame, casts).await.unwrap();
-        assert_eq!(v, DatasetVersion(1));
-
-        // The REAL Lance version chain agrees — not a private counter.
-        let ds = Dataset::open(path.to_str().unwrap()).await.unwrap();
-        assert_eq!(ds.version().version, 1);
-
-        // Restart: a brand-new sink instance, nothing shared but the path.
-        let reopened = LanceCycleSink::new(path.to_str().unwrap());
-        let sealed = reopened.scan_sealed(None).await.unwrap();
-        assert_eq!(sealed.len(), 2);
-        // Stored canonical order (deinterlaced at freeze: 10 before 20) — the
-        // scan preserves it, it does not repair it.
-        assert_eq!(sealed[0].slot.stream_position, 10);
-        assert_eq!(sealed[1].slot.stream_position, 20);
-        assert_eq!(sealed[0].version, DatasetVersion(1));
-        assert_eq!(sealed[0].slot.paired_move, Some(mv(5)));
-        assert_eq!(sealed[0].slot.payload, witness(10));
-
-        let versions = reopened.versions().await.unwrap();
-        assert_eq!(versions, vec![(CycleId(1), DatasetVersion(1))]);
+    /// An INTENT-ONLY cast (empty payload — the `restage_held` shape).
+    fn intent(cycle: u64, sp: u64, owner: MailboxId, row: u64) -> SweepSlot {
+        SweepSlot {
+            payload: Vec::new(),
+            ..artifact(cycle, sp, owner, row)
+        }
     }
 
-    /// A stale `base` is fenced with NOTHING written: the store's version chain,
-    /// landings, and timeline are untouched — proven on reopen.
+    /// F1 + F13: zero artifact-backed delta → ZERO Lance operations, ZERO
+    /// version, and no dataset is even created; the store survives restart as
+    /// "empty", and a later real cycle still commits at V1.
     #[tokio::test]
-    async fn stale_base_is_fenced_and_writes_nothing() {
+    async fn no_artifact_delta_writes_nothing_and_creates_no_version() {
         let dir = tempfile::tempdir().unwrap();
-        let path = dir.path().join("witness_cycles.lance");
-        let sink = LanceCycleSink::new(path.to_str().unwrap());
-
-        // Empty store: a caller claiming a sealed predecessor V3 is refused.
-        let err = sink
-            .commit_cycle(
-                DatasetVersion(3),
-                DetachedCycleBatch::freeze(CycleFrame::new(CycleId(1), DatasetVersion(3)), vec![]),
-            )
+        let path = dir.path().join("cycles.lance");
+        let mut w = LanceCycleWriter::open(path.to_str().unwrap())
             .await
-            .unwrap_err();
-        assert!(err.0.contains("stale base"), "{err}");
-        assert!(Dataset::open(path.to_str().unwrap()).await.is_err());
+            .unwrap();
+        assert_eq!(w.head(), DatasetVersion(0));
 
-        // Seal cycle 1 at base 0 → V1; then a sibling still reading base 0 is
-        // fenced, and the store is byte-for-byte the sealed head it was.
-        persist_cycle(
-            &sink,
+        // Thousands of pure kanban steps / held intents: nothing durable.
+        let intents: Vec<SweepSlot> = (0..2_000u64).map(|i| intent(1, i, 42, i % 7)).collect();
+        let out = persist_cycle(
+            &mut w,
             CycleFrame::new(CycleId(1), DatasetVersion(0)),
-            vec![slot(1, 1, 2, 40)],
+            intents,
         )
         .await
         .unwrap();
-        let err = sink
-            .commit_cycle(
-                DatasetVersion(0),
-                DetachedCycleBatch::freeze(
-                    CycleFrame::new(CycleId(2), DatasetVersion(0)),
-                    vec![slot(2, 2, 2, 41)],
-                ),
-            )
-            .await
-            .unwrap_err();
-        assert!(err.0.contains("stale base"), "{err}");
+        assert_eq!(
+            out,
+            CommitOutcome::NoChange {
+                head: DatasetVersion(0)
+            }
+        );
+        assert_eq!(w.head(), DatasetVersion(0), "no version was minted");
+        assert!(
+            Dataset::open(path.to_str().unwrap()).await.is_err(),
+            "the dataset was never even created"
+        );
 
-        let reopened = LanceCycleSink::new(path.to_str().unwrap());
-        let ds = Dataset::open(path.to_str().unwrap()).await.unwrap();
-        assert_eq!(ds.version().version, 1, "fenced commit must not publish");
-        assert_eq!(reopened.scan_sealed(None).await.unwrap().len(), 1);
-        assert_eq!(reopened.versions().await.unwrap().len(), 1);
+        // Restart: still empty, and a real artifact cycle commits at V1.
+        let mut w2 = LanceCycleWriter::open(path.to_str().unwrap())
+            .await
+            .unwrap();
+        assert!(w2.timeline().await.unwrap().is_empty());
+        let out = persist_cycle(
+            &mut w2,
+            CycleFrame::new(CycleId(1), DatasetVersion(0)),
+            vec![artifact(1, 0, 42, 5)],
+        )
+        .await
+        .unwrap();
+        assert!(
+            matches!(
+                out,
+                CommitOutcome::Committed {
+                    version: DatasetVersion(1),
+                    ..
+                }
+            ),
+            "{out:?}"
+        );
     }
 
-    /// Sequential cycles chain the sealed horizon: V1 → V2 → V3; `scan_sealed`
-    /// filters strictly-after; `versions` is the full coarse timeline.
+    /// F2 + the measured bytes-written falsifier: 64 transient breaths on ONE
+    /// row cost exactly ONE 512-byte durable image row — not 64 × 512.
     #[tokio::test]
-    async fn sequential_cycles_chain_and_filter() {
+    async fn sixty_four_breaths_on_one_row_cost_one_image_row() {
         let dir = tempfile::tempdir().unwrap();
-        let path = dir.path().join("witness_cycles.lance");
-        let sink = LanceCycleSink::new(path.to_str().unwrap());
+        let path = dir.path().join("cycles.lance");
+        let mut w = LanceCycleWriter::open(path.to_str().unwrap())
+            .await
+            .unwrap();
 
-        for (cycle, base) in [(1u64, 0u64), (2, 1), (3, 2)] {
-            let v = persist_cycle(
-                &sink,
-                CycleFrame::new(CycleId(cycle), DatasetVersion(base)),
-                vec![slot(cycle, cycle * 10, 9, cycle)],
+        // One thought, 64 successive artifact updates to the SAME row.
+        let casts: Vec<SweepSlot> = (0..64u64).map(|i| artifact(1, i, 42, 9)).collect();
+        persist_cycle(
+            &mut w,
+            CycleFrame::new(CycleId(1), DatasetVersion(0)),
+            casts,
+        )
+        .await
+        .unwrap();
+
+        let reopened = LanceCycleWriter::open(path.to_str().unwrap())
+            .await
+            .unwrap();
+        let image = reopened.scan_image(CycleId(1)).await.unwrap();
+        assert_eq!(image.len(), 1, "exactly ONE durable row image");
+        assert_eq!(
+            image[&9],
+            witness(63),
+            "the LAST breath survived (later stream position wins)"
+        );
+        let durable_payload_bytes: usize = image.values().map(Vec::len).sum();
+        assert_eq!(
+            durable_payload_bytes,
+            EPISODIC_WITNESS_BYTES,
+            "512 durable payload bytes, not 64 x 512 = {}",
+            64 * EPISODIC_WITNESS_BYTES
+        );
+    }
+
+    /// F3-adjacent + F10: a successful commit performs ZERO reopens, and the
+    /// caller references the returned version instead of reloading state.
+    #[tokio::test]
+    async fn successful_commit_reopens_nothing() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("cycles.lance");
+        let mut w = LanceCycleWriter::open(path.to_str().unwrap())
+            .await
+            .unwrap();
+        let opens_after_startup = w.opens();
+
+        for c in 1..=3u64 {
+            let out = persist_cycle(
+                &mut w,
+                CycleFrame::new(CycleId(c), DatasetVersion(c - 1)),
+                vec![artifact(c, c, 42, c)],
             )
             .await
             .unwrap();
-            assert_eq!(v, DatasetVersion(base + 1));
+            assert!(matches!(out, CommitOutcome::Committed { .. }));
         }
-
-        let reopened = LanceCycleSink::new(path.to_str().unwrap());
         assert_eq!(
-            reopened.versions().await.unwrap(),
+            w.opens(),
+            opens_after_startup,
+            "no reopen on the normal commit path"
+        );
+        assert_eq!(
+            w.head(),
+            DatasetVersion(3),
+            "the head token tracks in memory"
+        );
+    }
+
+    /// F12 + F19: the recovery tail is BOUNDED — `after_cycle` excludes earlier
+    /// history, and landing reads never touch the payload column.
+    #[tokio::test]
+    async fn bounded_tail_recovery_reads_no_payloads() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("cycles.lance");
+        let mut w = LanceCycleWriter::open(path.to_str().unwrap())
+            .await
+            .unwrap();
+        for c in 1..=4u64 {
+            persist_cycle(
+                &mut w,
+                CycleFrame::new(CycleId(c), DatasetVersion(c - 1)),
+                vec![artifact(c, c, 42, c)],
+            )
+            .await
+            .unwrap();
+        }
+        let reopened = LanceCycleWriter::open(path.to_str().unwrap())
+            .await
+            .unwrap();
+        let tail = reopened.scan_sealed(Some(CycleId(2))).await.unwrap();
+        assert_eq!(
+            tail.iter().map(|l| l.cycle).collect::<Vec<_>>(),
+            vec![CycleId(3), CycleId(4)],
+            "strictly after the bound"
+        );
+        assert!(
+            tail.iter().all(|l| l.slot.payload.is_empty()),
+            "landing reads carry no payload — the column was never projected"
+        );
+        assert!(
+            tail.iter().all(|l| l.slot.paired_move.is_some()),
+            "but the transition metadata IS there (recovery needs the moves)"
+        );
+    }
+
+    /// F11: the timeline is frame-only and payload-free, and survives restart.
+    #[tokio::test]
+    async fn timeline_is_frame_metadata_only() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("cycles.lance");
+        let mut w = LanceCycleWriter::open(path.to_str().unwrap())
+            .await
+            .unwrap();
+        for c in 1..=2u64 {
+            persist_cycle(
+                &mut w,
+                CycleFrame::new(CycleId(c), DatasetVersion(c - 1)),
+                vec![artifact(c, c, 42, c)],
+            )
+            .await
+            .unwrap();
+        }
+        let reopened = LanceCycleWriter::open(path.to_str().unwrap())
+            .await
+            .unwrap();
+        let frames = reopened.timeline().await.unwrap();
+        assert_eq!(
+            frames
+                .iter()
+                .map(|f| (f.cycle, f.base_version))
+                .collect::<Vec<_>>(),
             vec![
-                (CycleId(1), DatasetVersion(1)),
-                (CycleId(2), DatasetVersion(2)),
-                (CycleId(3), DatasetVersion(3)),
+                (CycleId(1), DatasetVersion(0)),
+                (CycleId(2), DatasetVersion(1)),
             ]
         );
-        // Strictly after V1: cycles 2 and 3 only.
-        let after_v1 = reopened.scan_sealed(Some(DatasetVersion(1))).await.unwrap();
-        assert_eq!(after_v1.len(), 2);
-        assert!(after_v1.iter().all(|l| l.version > DatasetVersion(1)));
+        assert!(frames.iter().all(|f| f.batch_hash != 0));
     }
 
-    /// A zero-landing cycle still advances the sealed timeline (its frame row
-    /// commits atomically) while contributing nothing to `scan_sealed`.
+    /// F10 + F12 (the reconciliation half): re-submitting the SAME frozen batch
+    /// after a "lost acknowledgement" reconciles to exactly one conclusion — no
+    /// duplicate rows, no second version, and NO delete anywhere.
     #[tokio::test]
-    async fn empty_cycle_advances_timeline_only() {
+    async fn resubmitting_the_same_batch_reconciles_to_one() {
         let dir = tempfile::tempdir().unwrap();
-        let path = dir.path().join("witness_cycles.lance");
-        let sink = LanceCycleSink::new(path.to_str().unwrap());
+        let path = dir.path().join("cycles.lance");
+        let mut w = LanceCycleWriter::open(path.to_str().unwrap())
+            .await
+            .unwrap();
+        let casts = || vec![artifact(1, 0, 42, 1), artifact(1, 1, 42, 2)];
 
-        let v = persist_cycle(
-            &sink,
+        let first = persist_cycle(
+            &mut w,
             CycleFrame::new(CycleId(1), DatasetVersion(0)),
-            vec![],
+            casts(),
         )
         .await
         .unwrap();
-        assert_eq!(v, DatasetVersion(1));
+        assert!(matches!(
+            first,
+            CommitOutcome::Committed {
+                version: DatasetVersion(1),
+                ..
+            }
+        ));
 
-        let reopened = LanceCycleSink::new(path.to_str().unwrap());
-        assert!(reopened.scan_sealed(None).await.unwrap().is_empty());
-        assert_eq!(
-            reopened.versions().await.unwrap(),
-            vec![(CycleId(1), DatasetVersion(1))]
+        // The response was lost; the caller retries the identical batch.
+        let retry = persist_cycle(
+            &mut w,
+            CycleFrame::new(CycleId(1), DatasetVersion(0)),
+            casts(),
+        )
+        .await
+        .unwrap();
+        assert!(
+            matches!(
+                retry,
+                CommitOutcome::Reconciled {
+                    cycle: CycleId(1),
+                    ..
+                }
+            ),
+            "{retry:?}"
         );
+        assert_eq!(w.head(), DatasetVersion(1), "no second version");
+
+        let reopened = LanceCycleWriter::open(path.to_str().unwrap())
+            .await
+            .unwrap();
+        assert_eq!(
+            reopened.scan_sealed(None).await.unwrap().len(),
+            2,
+            "no duplicate landings after restart"
+        );
+        assert_eq!(reopened.timeline().await.unwrap().len(), 1, "one frame");
     }
 
-    /// An empty store is a state, not an error: nothing sealed, empty timeline.
+    /// F10 (the fail-closed half): a DIFFERENT batch for a durable cycle is
+    /// refused loudly and writes nothing.
     #[tokio::test]
-    async fn empty_store_reads_empty() {
+    async fn a_conflicting_batch_for_a_durable_cycle_fails_closed() {
         let dir = tempfile::tempdir().unwrap();
-        let path = dir.path().join("never_created.lance");
-        let sink = LanceCycleSink::new(path.to_str().unwrap());
-        assert!(sink.scan_sealed(None).await.unwrap().is_empty());
-        assert!(sink.versions().await.unwrap().is_empty());
-    }
-
-    /// A no-move landing round-trips as `None` (nullable move columns), and a
-    /// large-ish payload survives byte-exact.
-    #[tokio::test]
-    async fn move_nullability_and_payload_roundtrip() {
-        let dir = tempfile::tempdir().unwrap();
-        let path = dir.path().join("witness_cycles.lance");
-        let sink = LanceCycleSink::new(path.to_str().unwrap());
-
-        let witness_node = (0..=255u8).cycle().take(512).collect::<Vec<u8>>();
-        let mut s = slot(1, 3, 11, 900);
-        s.paired_move = None;
-        s.payload = witness_node.clone();
+        let path = dir.path().join("cycles.lance");
+        let mut w = LanceCycleWriter::open(path.to_str().unwrap())
+            .await
+            .unwrap();
         persist_cycle(
-            &sink,
+            &mut w,
             CycleFrame::new(CycleId(1), DatasetVersion(0)),
-            vec![s],
+            vec![artifact(1, 0, 42, 1)],
+        )
+        .await
+        .unwrap();
+        let conflict = persist_cycle(
+            &mut w,
+            CycleFrame::new(CycleId(1), DatasetVersion(0)),
+            vec![artifact(1, 9, 42, 1)],
+        )
+        .await;
+        assert!(
+            matches!(
+                conflict,
+                Err(lance_graph_planner::persist_sink::PersistError::Commit(
+                    CommitError::HashConflict {
+                        cycle: CycleId(1),
+                        ..
+                    }
+                ))
+            ),
+            "{conflict:?}"
+        );
+        assert_eq!(w.head(), DatasetVersion(1), "nothing was written");
+    }
+
+    /// F11-adjacent: a stale horizon is FENCED with the current head and
+    /// writes nothing (never a delete, never a silent accept).
+    #[tokio::test]
+    async fn a_stale_horizon_is_fenced_and_writes_nothing() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("cycles.lance");
+        let mut w = LanceCycleWriter::open(path.to_str().unwrap())
+            .await
+            .unwrap();
+        persist_cycle(
+            &mut w,
+            CycleFrame::new(CycleId(1), DatasetVersion(0)),
+            vec![artifact(1, 0, 42, 1)],
+        )
+        .await
+        .unwrap();
+        let stale = persist_cycle(
+            &mut w,
+            CycleFrame::new(CycleId(2), DatasetVersion(0)),
+            vec![artifact(2, 1, 42, 2)],
+        )
+        .await;
+        assert!(
+            matches!(
+                stale,
+                Err(lance_graph_planner::persist_sink::PersistError::Commit(
+                    CommitError::Fenced {
+                        current_head: DatasetVersion(1)
+                    }
+                ))
+            ),
+            "{stale:?}"
+        );
+        let reopened = LanceCycleWriter::open(path.to_str().unwrap())
+            .await
+            .unwrap();
+        assert_eq!(reopened.timeline().await.unwrap().len(), 1);
+        assert_eq!(reopened.scan_sealed(None).await.unwrap().len(), 1);
+    }
+
+    /// F5 + F6: no persisted row carries a nonterminal-only cast. Intent-only
+    /// casts (held work, pure `Continue`-style movement) leave NO trace, while
+    /// artifact casts in the same cycle persist normally.
+    #[tokio::test]
+    async fn intent_only_casts_leave_no_durable_trace() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("cycles.lance");
+        let mut w = LanceCycleWriter::open(path.to_str().unwrap())
+            .await
+            .unwrap();
+        let mixed = vec![
+            intent(1, 0, 42, 1),
+            artifact(1, 1, 42, 2),
+            intent(1, 2, 99, 3),
+            intent(1, 3, 99, 4),
+        ];
+        persist_cycle(
+            &mut w,
+            CycleFrame::new(CycleId(1), DatasetVersion(0)),
+            mixed,
         )
         .await
         .unwrap();
 
-        let reopened = LanceCycleSink::new(path.to_str().unwrap());
+        let reopened = LanceCycleWriter::open(path.to_str().unwrap())
+            .await
+            .unwrap();
         let sealed = reopened.scan_sealed(None).await.unwrap();
-        assert_eq!(sealed.len(), 1);
-        assert_eq!(sealed[0].slot.paired_move, None);
-        assert_eq!(sealed[0].slot.payload, witness_node);
-        assert_eq!(sealed[0].slot.owner, 11);
-        assert_eq!(sealed[0].slot.row, 900);
+        assert_eq!(sealed.len(), 1, "only the artifact cast persisted");
+        assert_eq!(sealed[0].slot.stream_position, 1);
+        assert_eq!(reopened.scan_image(CycleId(1)).await.unwrap().len(), 1);
     }
 
-    /// A malformed witness payload (≠ 512 bytes) is refused with NOTHING
-    /// written — the canonical node row stride is enforced before anything
-    /// durable happens, and the store stays exactly as it was.
+    /// F15: randomized completion order yields the same durable result —
+    /// identical batch hash, identical landings, identical image.
     #[tokio::test]
-    async fn malformed_payload_is_refused_before_persistence() {
-        let dir = tempfile::tempdir().unwrap();
-        let path = dir.path().join("witness_cycles.lance");
-        let sink = LanceCycleSink::new(path.to_str().unwrap());
+    async fn randomized_completion_order_yields_the_same_durable_set() {
+        let ordered = vec![
+            artifact(1, 0, 1, 10),
+            artifact(1, 1, 2, 11),
+            artifact(1, 2, 3, 12),
+        ];
+        let scrambled = vec![
+            artifact(1, 2, 3, 12),
+            artifact(1, 0, 1, 10),
+            artifact(1, 1, 2, 11),
+        ];
 
-        let mut bad = slot(1, 1, 3, 50);
-        bad.payload = vec![0u8; 100];
-        let err = persist_cycle(
-            &sink,
+        let mut hashes = Vec::new();
+        let mut images = Vec::new();
+        for casts in [ordered, scrambled] {
+            let dir = tempfile::tempdir().unwrap();
+            let path = dir.path().join("cycles.lance");
+            let mut w = LanceCycleWriter::open(path.to_str().unwrap())
+                .await
+                .unwrap();
+            persist_cycle(
+                &mut w,
+                CycleFrame::new(CycleId(1), DatasetVersion(0)),
+                casts,
+            )
+            .await
+            .unwrap();
+            let reopened = LanceCycleWriter::open(path.to_str().unwrap())
+                .await
+                .unwrap();
+            hashes.push(reopened.timeline().await.unwrap()[0].batch_hash);
+            let sealed = reopened.scan_sealed(None).await.unwrap();
+            assert_eq!(
+                sealed
+                    .iter()
+                    .map(|l| l.slot.stream_position)
+                    .collect::<Vec<_>>(),
+                vec![0, 1, 2],
+                "stored in canonical order regardless of arrival"
+            );
+            images.push(reopened.scan_image(CycleId(1)).await.unwrap());
+        }
+        assert_eq!(
+            hashes[0], hashes[1],
+            "same conclusion set → same batch hash"
+        );
+        assert_eq!(images[0], images[1], "same durable image");
+    }
+
+    /// The ABI gate bites on an ARTIFACT payload (and cannot bite on an
+    /// intent-only cast, which never reaches the writer).
+    #[tokio::test]
+    async fn a_malformed_artifact_payload_is_refused() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("cycles.lance");
+        let mut w = LanceCycleWriter::open(path.to_str().unwrap())
+            .await
+            .unwrap();
+        let mut bad = artifact(1, 0, 42, 1);
+        bad.payload = vec![7u8; 511];
+        let r = persist_cycle(
+            &mut w,
             CycleFrame::new(CycleId(1), DatasetVersion(0)),
             vec![bad],
         )
-        .await
-        .unwrap_err();
-        assert!(err.to_string().contains("100 bytes"), "{err}");
-        // Nothing durable: the dataset was never even created.
-        assert!(Dataset::open(path.to_str().unwrap()).await.is_err());
-
-        // The store still accepts a well-formed cycle afterwards.
-        persist_cycle(
-            &sink,
-            CycleFrame::new(CycleId(1), DatasetVersion(0)),
-            vec![slot(1, 1, 3, 50)],
-        )
-        .await
-        .unwrap();
-    }
-
-    /// The coalesced image is DURABLE: same-row casts fold to the final
-    /// payload, persisted as image rows in the same atomic commit and read
-    /// back per cycle from a reopened store — while the per-cast landing
-    /// history stays intact alongside it.
-    #[tokio::test]
-    async fn coalesced_image_is_durable_per_cycle() {
-        let dir = tempfile::tempdir().unwrap();
-        let path = dir.path().join("witness_cycles.lance");
-        let sink = LanceCycleSink::new(path.to_str().unwrap());
-
-        // Three casts, two rows: row 7 is written twice (positions 1 then 3 —
-        // later stream position wins the image), row 8 once.
-        let casts = vec![slot(1, 3, 2, 7), slot(1, 1, 2, 7), slot(1, 2, 2, 8)];
-        persist_cycle(&sink, CycleFrame::new(CycleId(1), DatasetVersion(0)), casts)
-            .await
-            .unwrap();
-
-        let reopened = LanceCycleSink::new(path.to_str().unwrap());
-        let image = reopened.scan_image(CycleId(1)).await.unwrap();
-        assert_eq!(image.len(), 2);
-        assert_eq!(image[&7], witness(3), "later stream position wins");
-        assert_eq!(image[&8], witness(2));
-        // The per-cast history is still complete and ordered.
-        let sealed = reopened.scan_sealed(None).await.unwrap();
-        assert_eq!(sealed.len(), 3);
-        assert_eq!(
-            sealed
-                .iter()
-                .map(|l| l.slot.stream_position)
-                .collect::<Vec<_>>(),
-            vec![1, 2, 3]
-        );
-        // An unknown cycle has no image.
-        assert!(reopened.scan_image(CycleId(99)).await.unwrap().is_empty());
+        .await;
+        assert!(r.is_err(), "511 bytes must be refused: {r:?}");
+        assert_eq!(w.head(), DatasetVersion(0), "nothing written");
     }
 }

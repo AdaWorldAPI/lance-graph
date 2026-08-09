@@ -101,8 +101,8 @@ use lance_graph_contract::QualiaI4_16D;
 use lance_graph_planner::batch_writer::BatchWriter;
 use lance_graph_planner::owner_adapter::emit_bootstrap_intent;
 use lance_graph_planner::persist_sink::{
-    persist_cycle, recover_and_apply, CycleFrame, CycleId, LandedSlot, PersistError, SweepSlot,
-    WalSink,
+    persist_cycle, recover_and_apply, CommitOutcome, CycleFrame, CycleId, LandedSlot, PersistError,
+    SweepSlot, WalSink,
 };
 use lance_graph_planner::traits::StrategyOutcome;
 
@@ -127,10 +127,23 @@ pub struct SealedTransition {
 /// is typically ≪ the fleet size.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct SealedCycle {
-    /// The one version this cycle sealed into.
-    pub version: DatasetVersion,
+    /// The raw commit result — the honest source of truth. Under the
+    /// governing storage rule a cycle with zero artifact casts is
+    /// [`CommitOutcome::NoChange`] and publishes nothing.
+    pub outcome: CommitOutcome,
+    /// The version this cycle sealed into, or `None` for
+    /// [`CommitOutcome::NoChange`] (nothing published, head unchanged).
+    /// Derived from [`Self::outcome`] at construction — kept as a plain field
+    /// (not a method) so existing `sealed.version` call sites stay readable;
+    /// `Some` for [`CommitOutcome::Committed`] / [`CommitOutcome::Reconciled`].
+    pub version: Option<DatasetVersion>,
     /// Only the owners that cast a `paired_move` — the sparse subset.
     /// With the pre-seal ≤1-per-owner partition, at most one per owner.
+    /// **Computed over ALL collected casts, not just artifact ones** — an
+    /// intent-only (empty-payload) cast's move still seals here even when the
+    /// cycle as a whole is [`CommitOutcome::NoChange`]: kanban movement is
+    /// ephemeral in the STORE, never in the in-memory fleet (see
+    /// [`restage_held`] and the governing storage rule in `persist_sink`).
     pub transitions: Vec<SealedTransition>,
     /// The first unused stream position AFTER this cycle, computed over **all**
     /// sealed slots (including no-move landings). The caller's next
@@ -151,6 +164,17 @@ pub struct SealedCycle {
 /// `casts` via [`seal_cycle`] to skip the re-stage pass; callers that simply
 /// drop this value are equally correct. This must never grow into a
 /// provisional-planning ledger.
+///
+/// **`cause`'s honest sub-states** (routed from `persist_sink::CommitError`
+/// via `PersistError::Commit`): [`CommitError::Fenced`](lance_graph_planner::persist_sink::CommitError::Fenced)
+/// and [`CommitError::Io`](lance_graph_planner::persist_sink::CommitError::Io) both mean nothing was published —
+/// regenerating from the unchanged `Vn` is always safe.
+/// [`CommitError::Ambiguous`](lance_graph_planner::persist_sink::CommitError::Ambiguous) means the outcome is UNKNOWN — do NOT
+/// regenerate a fresh cycle; re-submit the SAME frozen `casts` (via
+/// [`seal_cycle`]) and let `commit_cycle`'s reconciliation-first lookup
+/// decide. [`CommitError::HashConflict`](lance_graph_planner::persist_sink::CommitError::HashConflict) is a fail-closed corruption/identity
+/// conflict — never promoted, never overwritten; this driver mints no new
+/// recovery machinery for it, it simply surfaces the error.
 #[derive(Debug)]
 pub struct SealFailure {
     /// The frame the failed seal was submitted under (regenerate with the same
@@ -166,8 +190,11 @@ pub struct SealFailure {
 /// P4b output — the effect of applying a sealed cycle's sparse transition set.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct AppliedCycle {
-    /// The version whose sealed transitions were applied.
-    pub version: DatasetVersion,
+    /// The version whose sealed transitions were applied — mirrors
+    /// [`SealedCycle::version`]: `None` for a [`CommitOutcome::NoChange`]
+    /// cycle (an all-intent-only cycle can still apply sparse transitions to
+    /// the in-memory fleet even though nothing was published to the store).
+    pub version: Option<DatasetVersion>,
     /// One move per **advanced** owner (distinct owners; ≤1 per cycle).
     pub applied: Vec<KanbanMove>,
     /// Defence-in-depth counter: same-owner extras in a sealed input NOT
@@ -300,6 +327,12 @@ pub fn collect_casts(
 /// Re-stage held intents ([`CollectedCasts::held`]) into the writer for the
 /// NEXT cycle. The re-cast is intent-only (empty payload — the original cast's
 /// payload already sealed with its cycle). Returns the number re-staged.
+///
+/// **This empty payload is precisely what makes the re-staged intent
+/// EPHEMERAL under the governing storage rule** (`persist_sink`'s artifact
+/// gate): an intent-only cast never trips the payload gate and never reaches
+/// the store, so no held-intent re-stage can ever accidentally become a
+/// persisted artifact.
 pub fn restage_held(writer: &mut BatchWriter<Vec<u8>>, held: Vec<HeldIntent>) -> usize {
     let n = held.len();
     for h in held {
@@ -322,12 +355,22 @@ pub fn restage_held(writer: &mut BatchWriter<Vec<u8>>, held: Vec<HeldIntent>) ->
 /// re-staging is equally correct — the regeneration falsifier proves the same
 /// semantic cycle re-derives). The one clone held until commit success is the
 /// price of offering that cache.
+///
+/// **`sink: &mut S`** — `persist_cycle`'s `WalSink::commit_cycle` is the
+/// one-logical-writer boundary (`&mut self`); this function's own
+/// `PersistError::Commit` sub-states stay the honest routing they always
+/// were: `CommitError::Fenced` / `CommitError::Io` mean nothing published
+/// (regenerate from `Vn`); `CommitError::Ambiguous` means UNKNOWN (re-submit
+/// the SAME frozen `casts` — reconciliation decides); `CommitError::HashConflict`
+/// is fail closed (never promoted, never overwritten).
 pub async fn seal_cycle<S: WalSink>(
-    sink: &S,
+    sink: &mut S,
     frame: CycleFrame,
     casts: Vec<SweepSlot>,
 ) -> Result<SealedCycle, Box<SealFailure>> {
     // Read the transitions + next base out BEFORE `persist_cycle` takes ownership.
+    // Computed over ALL collected casts (artifact AND intent-only) — the
+    // in-memory fleet step is not gated by the store's artifact filter.
     let mut transitions: Vec<SealedTransition> = casts
         .iter()
         .filter_map(|s| {
@@ -347,11 +390,19 @@ pub async fn seal_cycle<S: WalSink>(
     // Held until commit success — the price of a byte-identical retry.
     let frozen = casts.clone();
     match persist_cycle(sink, frame, casts).await {
-        Ok(version) => Ok(SealedCycle {
-            version,
-            transitions,
-            next_position_base,
-        }),
+        Ok(outcome) => {
+            let version = match outcome {
+                CommitOutcome::NoChange { .. } => None,
+                CommitOutcome::Committed { version, .. }
+                | CommitOutcome::Reconciled { version, .. } => Some(version),
+            };
+            Ok(SealedCycle {
+                outcome,
+                version,
+                transitions,
+                next_position_base,
+            })
+        }
         Err(cause) => Err(Box::new(SealFailure {
             frame,
             casts: frozen,
@@ -491,8 +542,14 @@ pub enum CycleError {
 /// `watermarks` is the fleet's per-owner recovery watermark map, advanced in
 /// place alongside the phases. On [`CycleError::Seal`] the frozen cycle is
 /// retryable; on [`CycleError::Apply`] the applied prefix is preserved.
+///
+/// **Borrow note (operator-ruled): `fleet: &mut F` is not touched across the
+/// seal's `.await`.** The parameter's lifetime spans the whole function, but
+/// the body only reads/writes through it in [`apply_sealed_transitions`],
+/// AFTER `seal_cycle`'s I/O has already completed — the exclusive fleet
+/// borrow is effectively taken post-I/O, not held live across the WAL commit.
 pub async fn run_cycle<S, F>(
-    sink: &S,
+    sink: &mut S,
     fleet: &mut F,
     writer: &mut BatchWriter<Vec<u8>>,
     frame: CycleFrame,
@@ -505,6 +562,8 @@ where
     F: MailboxFleet,
 {
     let collected = collect_casts(writer, frame.cycle, position_base, row_of);
+    // `fleet` is untouched up to and including this await — the seal's I/O
+    // runs before the fleet is ever resolved (see the borrow note above).
     let sealed = seal_cycle(sink, frame, collected.slots)
         .await
         .map_err(CycleError::Seal)?;
@@ -748,6 +807,14 @@ pub struct FleetRecovery {
 /// are skipped; unrepresented owners are untouched. `watermarks` is updated in
 /// place with the new per-owner watermark to persist alongside the SoA phase.
 ///
+/// **Bounded recovery is now the contract.** `after_cycle` is threaded
+/// straight into [`WalSink::scan_sealed`]'s own bound: the scan reads only
+/// cycles strictly after it, a BOUNDED tail — never the unbounded full sealed
+/// history. Callers durably track the last cycle they fully recovered through
+/// (e.g. the highest [`SealedCycle`] cycle whose transitions were applied) and
+/// pass it back in on the next recovery pass; pass `None` only for a
+/// from-scratch recovery over the whole sealed history.
+///
 /// On a mid-owner failure the partial progress is kept: the failing owner's
 /// watermark is still advanced for its applied prefix (per
 /// `recover_and_apply`'s `Err((partial, cause))` contract) before the error is
@@ -757,12 +824,16 @@ pub async fn recover_fleet<S, F>(
     fleet: &mut F,
     fleet_ids: &[MailboxId],
     watermarks: &mut HashMap<MailboxId, Option<u64>>,
+    after_cycle: Option<CycleId>,
 ) -> Result<FleetRecovery, PersistError>
 where
     S: WalSink,
     F: MailboxFleet,
 {
-    let sealed: Vec<LandedSlot> = sink.scan_sealed(None).await.map_err(PersistError::Write)?;
+    let sealed: Vec<LandedSlot> = sink
+        .scan_sealed(after_cycle)
+        .await
+        .map_err(PersistError::Write)?;
     // Partition once: per-owner tails in stored order (O(history), then each
     // owner replays only its own tail).
     let mut by_owner: HashMap<MailboxId, Vec<LandedSlot>> = HashMap::new();
@@ -805,7 +876,9 @@ mod tests {
     use super::*;
     use lance_graph_contract::kanban::{ExecTarget, KanbanColumn};
     use lance_graph_contract::soa_view::MailboxSoaView;
-    use lance_graph_planner::persist_sink::{DetachedCycleBatch, LandedSlot, WriteFailed};
+    use lance_graph_planner::persist_sink::{
+        CommitError, CommitOutcome, DetachedCycleBatch, FrameMeta, LandedSlot, WriteFailed,
+    };
     use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
     use std::sync::Mutex;
 
@@ -873,14 +946,17 @@ mod tests {
     struct SealedRec {
         frame: CycleFrame,
         version: DatasetVersion,
+        /// The batch's deterministic content hash — the reconciliation-first
+        /// idempotency key `commit_cycle` looks up BEFORE appending.
+        batch_hash: u64,
         landings: Vec<SweepSlot>,
     }
     struct FakeWalSink {
         sealed: Mutex<Vec<SealedRec>>,
         next_version: AtomicU64,
         wal_writes: AtomicU64,
-        reads: AtomicU64,      // scan_sealed + versions — MUST stay 0 across P4a+P4b
-        fail_next: AtomicBool, // injects ONE retryable WAL failure
+        reads: AtomicU64,      // scan_sealed + timeline — MUST stay 0 across P4a+P4b
+        fail_next: AtomicBool, // injects ONE retryable (Io) WAL failure
     }
     impl FakeWalSink {
         fn new() -> Self {
@@ -904,30 +980,54 @@ mod tests {
     }
     impl WalSink for FakeWalSink {
         async fn commit_cycle(
-            &self,
-            base: DatasetVersion,
+            &mut self,
             batch: DetachedCycleBatch,
-        ) -> Result<DatasetVersion, WriteFailed> {
+        ) -> Result<CommitOutcome, CommitError> {
             if self.fail_next.swap(false, Ordering::SeqCst) {
-                return Err(WriteFailed("injected retryable WAL failure".into()));
+                return Err(CommitError::Io(WriteFailed(
+                    "injected retryable WAL failure".into(),
+                )));
             }
             let mut sealed = self.sealed.lock().unwrap();
+            // Reconciliation-first: an already-durable (cycle, hash) is success,
+            // a matching cycle with a different hash fails closed.
+            if let Some(rec) = sealed.iter().find(|s| s.frame.cycle == batch.frame.cycle) {
+                return if rec.batch_hash == batch.batch_hash {
+                    Ok(CommitOutcome::Reconciled {
+                        version: rec.version,
+                        cycle: batch.frame.cycle,
+                        batch_hash: batch.batch_hash,
+                    })
+                } else {
+                    Err(CommitError::HashConflict {
+                        cycle: batch.frame.cycle,
+                        stored_hash: rec.batch_hash,
+                        offered_hash: batch.batch_hash,
+                    })
+                };
+            }
             let head = sealed.last().map_or(DatasetVersion(0), |s| s.version);
-            if base != head {
-                return Err(WriteFailed(format!("stale base {base:?}, head {head:?}")));
+            if batch.frame.base_version != head {
+                return Err(CommitError::Fenced { current_head: head });
             }
             self.wal_writes.fetch_add(1, Ordering::SeqCst);
             let version = DatasetVersion(self.next_version.fetch_add(1, Ordering::SeqCst));
+            let (cycle, batch_hash) = (batch.frame.cycle, batch.batch_hash);
             sealed.push(SealedRec {
                 frame: batch.frame,
                 version,
+                batch_hash,
                 landings: batch.landings,
             });
-            Ok(version)
+            Ok(CommitOutcome::Committed {
+                version,
+                cycle,
+                batch_hash,
+            })
         }
         async fn scan_sealed(
             &self,
-            from: Option<DatasetVersion>,
+            after_cycle: Option<CycleId>,
         ) -> Result<Vec<LandedSlot>, WriteFailed> {
             self.reads.fetch_add(1, Ordering::SeqCst);
             Ok(self
@@ -935,23 +1035,27 @@ mod tests {
                 .lock()
                 .unwrap()
                 .iter()
-                .filter(|s| from.is_none_or(|f| s.version > f))
+                .filter(|s| after_cycle.is_none_or(|c| s.frame.cycle > c))
                 .flat_map(|s| {
                     s.landings.iter().map(|slot| LandedSlot {
-                        version: s.version,
+                        cycle: s.frame.cycle,
                         slot: slot.clone(),
                     })
                 })
                 .collect())
         }
-        async fn versions(&self) -> Result<Vec<(CycleId, DatasetVersion)>, WriteFailed> {
+        async fn timeline(&self) -> Result<Vec<FrameMeta>, WriteFailed> {
             self.reads.fetch_add(1, Ordering::SeqCst);
             Ok(self
                 .sealed
                 .lock()
                 .unwrap()
                 .iter()
-                .map(|s| (s.frame.cycle, s.version))
+                .map(|s| FrameMeta {
+                    cycle: s.frame.cycle,
+                    base_version: s.frame.base_version,
+                    batch_hash: s.batch_hash,
+                })
                 .collect())
         }
     }
@@ -982,7 +1086,7 @@ mod tests {
     // ── P4a FALSIFIER: drain N casts → exactly one WAL write, one version ───────
     #[tokio::test]
     async fn p4a_drains_casts_and_seals_one_wal_write_one_version() {
-        let sink = FakeWalSink::new();
+        let mut sink = FakeWalSink::new();
         let owners: Vec<MailboxId> = (0..100).collect();
         let mut w = writer_with_moves(&owners);
         let collected = collect_casts(&mut w, CycleId(1), 0, u64::from);
@@ -991,14 +1095,18 @@ mod tests {
         assert_eq!(sink.wal_writes(), 0, "collecting writes no WAL");
 
         let sealed = seal_cycle(
-            &sink,
+            &mut sink,
             CycleFrame::new(CycleId(1), DatasetVersion(0)),
             collected.slots,
         )
         .await
         .unwrap();
         assert_eq!(sink.wal_writes(), 1, "100 casts → exactly ONE WAL write");
-        assert_eq!(sealed.version, DatasetVersion(1), "→ exactly one version");
+        assert_eq!(
+            sealed.version,
+            Some(DatasetVersion(1)),
+            "→ exactly one version"
+        );
         assert_eq!(
             sealed.transitions.len(),
             100,
@@ -1022,7 +1130,7 @@ mod tests {
     // first batch is deliberately NOT asserted.
     #[tokio::test]
     async fn pre_commit_failure_discards_everything_and_regenerates_from_vn() {
-        let sink = FakeWalSink::new();
+        let mut sink = FakeWalSink::new();
         let mut fleet: HashMap<MailboxId, FakeOwner> = HashMap::from([
             (3, FakeOwner::at(3, KanbanColumn::Planning)),
             (8, FakeOwner::at(8, KanbanColumn::Planning)),
@@ -1054,7 +1162,7 @@ mod tests {
         let mut w1 = stage(&fleet);
         sink.fail_next_commit();
         let err = run_cycle(
-            &sink,
+            &mut sink,
             &mut fleet,
             &mut w1,
             CycleFrame::new(CycleId(1), DatasetVersion(0)),
@@ -1085,7 +1193,7 @@ mod tests {
         // staging — nothing retained from the failed attempt).
         let mut w2 = stage(&fleet);
         let out = run_cycle(
-            &sink,
+            &mut sink,
             &mut fleet,
             &mut w2,
             CycleFrame::new(CycleId(1), DatasetVersion(0)),
@@ -1110,7 +1218,7 @@ mod tests {
 
         // Exactly one Vn+1; exactly the represented owners advance once.
         assert_eq!(sink.wal_writes(), 1, "exactly one successful WAL write");
-        assert_eq!(out.sealed.version, DatasetVersion(1));
+        assert_eq!(out.sealed.version, Some(DatasetVersion(1)));
         assert_eq!(out.applied.applied.len(), 2);
         assert_eq!(fleet[&3].phase(), KanbanColumn::CognitiveWork);
         assert_eq!(fleet[&8].phase(), KanbanColumn::CognitiveWork);
@@ -1121,7 +1229,7 @@ mod tests {
     // cache gets a byte-identical resubmit. Convenience path, not the contract.
     #[tokio::test]
     async fn failed_seal_preserves_the_frozen_cycle_for_byte_identical_retry() {
-        let sink = FakeWalSink::new();
+        let mut sink = FakeWalSink::new();
         let mut fleet: HashMap<MailboxId, FakeOwner> =
             HashMap::from([(9, FakeOwner::at(9, KanbanColumn::Planning))]);
         let before = fleet.clone();
@@ -1130,7 +1238,7 @@ mod tests {
 
         sink.fail_next_commit();
         let err = run_cycle(
-            &sink,
+            &mut sink,
             &mut fleet,
             &mut w,
             CycleFrame::new(CycleId(1), DatasetVersion(0)),
@@ -1150,10 +1258,10 @@ mod tests {
         let frozen_copy = failure.casts.clone();
 
         // Retry submits the SAME frozen cycle → exactly one version lands.
-        let sealed = seal_cycle(&sink, failure.frame, failure.casts)
+        let sealed = seal_cycle(&mut sink, failure.frame, failure.casts)
             .await
             .expect("retry succeeds");
-        assert_eq!(sealed.version, DatasetVersion(1));
+        assert_eq!(sealed.version, Some(DatasetVersion(1)));
         assert_eq!(sink.wal_writes(), 1, "one successful WAL write total");
         // Byte-identical: what landed is exactly the frozen set.
         let landed = sink.scan_sealed(None).await.unwrap();
@@ -1168,7 +1276,7 @@ mod tests {
     // ── RESTART FALSIFIER: stream positions stay monotonic across writer rebuilds ─
     #[tokio::test]
     async fn restart_stable_stream_positions_survive_writer_reconstruction() {
-        let sink = FakeWalSink::new();
+        let mut sink = FakeWalSink::new();
         let mut fleet: HashMap<MailboxId, FakeOwner> =
             HashMap::from([(5, FakeOwner::at(5, KanbanColumn::Planning))]);
         let mut wm: HashMap<MailboxId, Option<u64>> = HashMap::new();
@@ -1177,7 +1285,7 @@ mod tests {
         let mut w1 = writer_with_moves(&[5]);
         let c1 = collect_casts(&mut w1, CycleId(1), 0, u64::from);
         let s1 = seal_cycle(
-            &sink,
+            &mut sink,
             CycleFrame::new(CycleId(1), DatasetVersion(0)),
             c1.slots,
         )
@@ -1202,7 +1310,7 @@ mod tests {
             "restart-stable: NOT the raw CastId 0"
         );
         seal_cycle(
-            &sink,
+            &mut sink,
             CycleFrame::new(CycleId(2), DatasetVersion(1)),
             c2.slots,
         )
@@ -1212,7 +1320,7 @@ mod tests {
         // Crash AFTER cycle 2 sealed but BEFORE it applied: recovery from the
         // cycle-1 watermark must NOT skip the cycle-2 landing. (With the raw
         // CastId scheme its position would be 0 ≤ watermark 0 → silently lost.)
-        let rec = recover_fleet(&sink, &mut fleet, &[5], &mut wm)
+        let rec = recover_fleet(&mut sink, &mut fleet, &[5], &mut wm, None)
             .await
             .unwrap();
         assert_eq!(rec.total_applied, 1, "the later landing was replayed");
@@ -1223,7 +1331,7 @@ mod tests {
     // ── WATERMARK-COUPLING FALSIFIER: normal apply advances recovery watermarks ─
     #[tokio::test]
     async fn normal_apply_advances_the_recovery_watermark_no_replay_after_crash() {
-        let sink = FakeWalSink::new();
+        let mut sink = FakeWalSink::new();
         let mut fleet: HashMap<MailboxId, FakeOwner> =
             HashMap::from([(5, FakeOwner::at(5, KanbanColumn::Planning))]);
         let mut wm: HashMap<MailboxId, Option<u64>> = HashMap::new();
@@ -1231,7 +1339,7 @@ mod tests {
 
         // Normal path: seal + apply. Watermark advances WITH the phase.
         run_cycle(
-            &sink,
+            &mut sink,
             &mut fleet,
             &mut w,
             CycleFrame::new(CycleId(1), DatasetVersion(0)),
@@ -1246,7 +1354,7 @@ mod tests {
 
         // Crash + recovery with the SAME persisted watermarks: nothing replays,
         // no StalePhase — the normal path and recovery share one rule.
-        let rec = recover_fleet(&sink, &mut fleet, &[5], &mut wm)
+        let rec = recover_fleet(&mut sink, &mut fleet, &[5], &mut wm, None)
             .await
             .expect("recovery after a normal apply must not StalePhase-stall");
         assert_eq!(rec.total_applied, 0, "already-applied move NOT replayed");
@@ -1267,11 +1375,11 @@ mod tests {
         let before = fleet.clone();
         let mut wm: HashMap<MailboxId, Option<u64>> = HashMap::new();
 
-        let sink = FakeWalSink::new();
+        let mut sink = FakeWalSink::new();
         let mut w = writer_with_moves(&represented);
         let collected = collect_casts(&mut w, CycleId(1), 0, u64::from);
         let sealed = seal_cycle(
-            &sink,
+            &mut sink,
             CycleFrame::new(CycleId(1), DatasetVersion(0)),
             collected.slots,
         )
@@ -1289,7 +1397,7 @@ mod tests {
         assert_eq!(applied.applied.len(), 17, "exactly 17 owners advanced");
         assert_eq!(applied.deferred, 0);
         assert_eq!(applied.missing, 0);
-        assert_eq!(applied.version, DatasetVersion(1));
+        assert_eq!(applied.version, Some(DatasetVersion(1)));
         assert_eq!(wm.len(), 17, "exactly 17 watermarks advanced");
 
         // Every represented owner is now at CognitiveWork (cycle bumped); every
@@ -1335,14 +1443,14 @@ mod tests {
         let before = fleet.clone();
         let mut wm: HashMap<MailboxId, Option<u64>> = HashMap::new();
 
-        let sink = FakeWalSink::new();
+        let mut sink = FakeWalSink::new();
         let mut w: BatchWriter<Vec<u8>> = BatchWriter::new();
         for id in 0..1_000u32 {
             w.cast(id, vec![], vec![0x00]); // no move → no transition
         }
         let collected = collect_casts(&mut w, CycleId(1), 0, u64::from);
         let sealed = seal_cycle(
-            &sink,
+            &mut sink,
             CycleFrame::new(CycleId(1), DatasetVersion(0)),
             collected.slots,
         )
@@ -1365,7 +1473,7 @@ mod tests {
         let mut fleet: HashMap<MailboxId, FakeOwner> =
             HashMap::from([(42, FakeOwner::at(42, KanbanColumn::Planning))]);
         let mut wm: HashMap<MailboxId, Option<u64>> = HashMap::new();
-        let sink = FakeWalSink::new();
+        let mut sink = FakeWalSink::new();
         // Two casts for owner 42 staged in one cycle.
         let mut w: BatchWriter<Vec<u8>> = BatchWriter::new();
         w.cast(
@@ -1392,7 +1500,7 @@ mod tests {
         );
 
         let sealed = seal_cycle(
-            &sink,
+            &mut sink,
             CycleFrame::new(CycleId(1), DatasetVersion(0)),
             collected.slots,
         )
@@ -1411,7 +1519,7 @@ mod tests {
         // Recovery from scratch applies EXACTLY the same set as normal op did.
         let mut fresh = HashMap::from([(42, FakeOwner::at(42, KanbanColumn::Planning))]);
         let mut wm2: HashMap<MailboxId, Option<u64>> = HashMap::new();
-        let rec = recover_fleet(&sink, &mut fresh, &[42], &mut wm2)
+        let rec = recover_fleet(&mut sink, &mut fresh, &[42], &mut wm2, None)
             .await
             .unwrap();
         assert_eq!(rec.total_applied, 1, "recovery applies the same ONE move");
@@ -1421,7 +1529,7 @@ mod tests {
         assert_eq!(restage_held(&mut w, collected.held), 1);
         let c2 = collect_casts(&mut w, CycleId(2), sealed.next_position_base, u64::from);
         let s2 = seal_cycle(
-            &sink,
+            &mut sink,
             CycleFrame::new(CycleId(2), DatasetVersion(1)),
             c2.slots,
         )
@@ -1467,7 +1575,12 @@ mod tests {
             HashMap::from([(7, FakeOwner::at(7, KanbanColumn::CognitiveWork))]);
         let mut wm: HashMap<MailboxId, Option<u64>> = HashMap::new();
         let sealed = SealedCycle {
-            version: DatasetVersion(1),
+            outcome: CommitOutcome::Committed {
+                version: DatasetVersion(1),
+                cycle: CycleId(1),
+                batch_hash: 0,
+            },
+            version: Some(DatasetVersion(1)),
             transitions: vec![SealedTransition {
                 stream_position: 0,
                 owner: 7,
@@ -1491,7 +1604,12 @@ mod tests {
         ]);
         let mut wm: HashMap<MailboxId, Option<u64>> = HashMap::new();
         let sealed = SealedCycle {
-            version: DatasetVersion(1),
+            outcome: CommitOutcome::Committed {
+                version: DatasetVersion(1),
+                cycle: CycleId(1),
+                batch_hash: 0,
+            },
+            version: Some(DatasetVersion(1)),
             transitions: vec![
                 SealedTransition {
                     stream_position: 0,
@@ -1525,7 +1643,12 @@ mod tests {
         let mut fleet: HashMap<MailboxId, FakeOwner> = HashMap::new(); // empty fleet
         let mut wm: HashMap<MailboxId, Option<u64>> = HashMap::new();
         let sealed = SealedCycle {
-            version: DatasetVersion(1),
+            outcome: CommitOutcome::Committed {
+                version: DatasetVersion(1),
+                cycle: CycleId(1),
+                batch_hash: 0,
+            },
+            version: Some(DatasetVersion(1)),
             transitions: vec![SealedTransition {
                 stream_position: 0,
                 owner: 99,
@@ -1547,11 +1670,11 @@ mod tests {
             .map(|id| (id, FakeOwner::at(id, KanbanColumn::Planning)))
             .collect();
         let mut wm: HashMap<MailboxId, Option<u64>> = HashMap::new();
-        let sink = FakeWalSink::new();
+        let mut sink = FakeWalSink::new();
         let mut w = writer_with_moves(&[3, 7]); // only owners 3 and 7 produce a move
 
         let out = run_cycle(
-            &sink,
+            &mut sink,
             &mut fleet,
             &mut w,
             CycleFrame::new(CycleId(1), DatasetVersion(0)),
@@ -1562,7 +1685,7 @@ mod tests {
         .await
         .unwrap();
 
-        assert_eq!(out.sealed.version, DatasetVersion(1));
+        assert_eq!(out.sealed.version, Some(DatasetVersion(1)));
         assert_eq!(
             out.applied.applied.len(),
             2,
@@ -1594,7 +1717,7 @@ mod tests {
     // ── P4c FALSIFIER: CognitiveWork thought → next-cycle cast → round-trip ─────
     #[tokio::test]
     async fn p4c_cognitive_work_casts_the_next_intent_and_round_trips() {
-        let sink = FakeWalSink::new();
+        let mut sink = FakeWalSink::new();
         let mut fleet: HashMap<MailboxId, FakeOwner> =
             HashMap::from([(5, FakeOwner::at(5, KanbanColumn::Planning))]);
         let mut wm: HashMap<MailboxId, Option<u64>> = HashMap::new();
@@ -1602,7 +1725,7 @@ mod tests {
 
         // Cycle 1: owner 5 casts Planning→CognitiveWork; the driver applies it.
         let out1 = run_cycle(
-            &sink,
+            &mut sink,
             &mut fleet,
             &mut w,
             CycleFrame::new(CycleId(1), DatasetVersion(0)),
@@ -1632,7 +1755,7 @@ mod tests {
 
         // Cycle 2: the driver drains that cast → seals V2 → applies → owner 5 → Evaluation.
         let out2 = run_cycle(
-            &sink,
+            &mut sink,
             &mut fleet,
             &mut w,
             CycleFrame::new(CycleId(2), DatasetVersion(1)),
@@ -1642,7 +1765,7 @@ mod tests {
         )
         .await
         .unwrap();
-        assert_eq!(out2.sealed.version, DatasetVersion(2));
+        assert_eq!(out2.sealed.version, Some(DatasetVersion(2)));
         assert_eq!(
             out2.applied.applied.len(),
             1,
@@ -1656,7 +1779,7 @@ mod tests {
     async fn p4d_an_unfinished_owner_never_blocks_a_completed_owners_cast() {
         // BOTH owners are represented and BOTH enter CognitiveWork; A's thought
         // stays unfinished (declines), B completes — B's cast lands regardless.
-        let sink = FakeWalSink::new();
+        let mut sink = FakeWalSink::new();
         let mut fleet: HashMap<MailboxId, FakeOwner> = HashMap::from([
             (1, FakeOwner::at(1, KanbanColumn::Planning)),
             (2, FakeOwner::at(2, KanbanColumn::Planning)),
@@ -1665,7 +1788,7 @@ mod tests {
         let mut w = writer_with_moves(&[1, 2]);
 
         let out = run_cycle(
-            &sink,
+            &mut sink,
             &mut fleet,
             &mut w,
             CycleFrame::new(CycleId(1), DatasetVersion(0)),
@@ -1698,7 +1821,7 @@ mod tests {
 
         // Cycle 2: B advances; A stays in CognitiveWork (unblocked, unfinished).
         let out2 = run_cycle(
-            &sink,
+            &mut sink,
             &mut fleet,
             &mut w,
             CycleFrame::new(CycleId(2), DatasetVersion(1)),
@@ -1721,11 +1844,11 @@ mod tests {
     #[tokio::test]
     async fn p4e_recover_fleet_replays_pending_tail_idempotent_with_watermark() {
         // Seal a cycle with owner 5's Planning→CognitiveWork move (a durable landing).
-        let sink = FakeWalSink::new();
+        let mut sink = FakeWalSink::new();
         let mut w = writer_with_moves(&[5]);
         let collected = collect_casts(&mut w, CycleId(1), 0, u64::from);
         seal_cycle(
-            &sink,
+            &mut sink,
             CycleFrame::new(CycleId(1), DatasetVersion(0)),
             collected.slots,
         )
@@ -1737,7 +1860,7 @@ mod tests {
             HashMap::from([(5, FakeOwner::at(5, KanbanColumn::Planning))]);
         let mut wm: HashMap<MailboxId, Option<u64>> = HashMap::new();
 
-        let rec = recover_fleet(&sink, &mut fleet, &[5], &mut wm)
+        let rec = recover_fleet(&mut sink, &mut fleet, &[5], &mut wm, None)
             .await
             .unwrap();
         assert_eq!(rec.total_applied, 1, "the pending move was replayed");
@@ -1745,7 +1868,7 @@ mod tests {
         assert_eq!(fleet[&5].phase(), KanbanColumn::CognitiveWork);
 
         // Re-drive with the returned watermark → idempotent (nothing re-applied).
-        let again = recover_fleet(&sink, &mut fleet, &[5], &mut wm)
+        let again = recover_fleet(&mut sink, &mut fleet, &[5], &mut wm, None)
             .await
             .unwrap();
         assert_eq!(
@@ -1756,7 +1879,7 @@ mod tests {
         // Negative control: watermark LOST → re-driving the already-advanced owner
         // stalls (from=Planning ≠ phase=CognitiveWork) → the watermark is load-bearing.
         let mut wm_lost: HashMap<MailboxId, Option<u64>> = HashMap::new();
-        let stalled = recover_fleet(&sink, &mut fleet, &[5], &mut wm_lost).await;
+        let stalled = recover_fleet(&mut sink, &mut fleet, &[5], &mut wm_lost, None).await;
         assert!(
             matches!(stalled, Err(PersistError::StalePhase { .. })),
             "without the watermark an acyclic re-drive stalls — watermark is load-bearing"
@@ -1790,12 +1913,12 @@ mod tests {
         let mut fleet = CountingFleet { inner, resolves: 0 };
         let mut wm: HashMap<MailboxId, Option<u64>> = HashMap::new();
 
-        let sink = FakeWalSink::new();
+        let mut sink = FakeWalSink::new();
         let represented: Vec<MailboxId> = (0..DIRTY).map(|i| i * 100).collect();
         let mut w = writer_with_moves(&represented);
         let collected = collect_casts(&mut w, CycleId(1), 0, u64::from);
         let sealed = seal_cycle(
-            &sink,
+            &mut sink,
             CycleFrame::new(CycleId(1), DatasetVersion(0)),
             collected.slots,
         )
@@ -1888,7 +2011,7 @@ mod tests {
     // ── P4c GATED FALSIFIER: Flow casts + round-trips; Hold is RESCHEDULED ──────
     #[tokio::test]
     async fn gated_flow_casts_hold_is_rescheduled_and_wakes_on_a_later_cycle() {
-        let sink = FakeWalSink::new();
+        let mut sink = FakeWalSink::new();
         // Owner 5 will FLOW (advances); owner 6 will HOLD (rests, re-polled later).
         let mut fleet: HashMap<MailboxId, FakeOwner> = HashMap::from([
             (5, FakeOwner::at(5, KanbanColumn::Planning)),
@@ -1899,7 +2022,7 @@ mod tests {
 
         // Cycle 1: both cast Planning→CognitiveWork; the driver applies both.
         let out1 = run_cycle(
-            &sink,
+            &mut sink,
             &mut fleet,
             &mut w,
             CycleFrame::new(CycleId(1), DatasetVersion(0)),
@@ -1926,7 +2049,7 @@ mod tests {
 
         // Cycle 2: owner 5 advances to Evaluation; owner 6 rested this round.
         let out2 = run_cycle(
-            &sink,
+            &mut sink,
             &mut fleet,
             &mut w,
             CycleFrame::new(CycleId(2), DatasetVersion(1)),
@@ -1948,7 +2071,7 @@ mod tests {
         assert!(woken.held_owners.is_empty());
 
         let out3 = run_cycle(
-            &sink,
+            &mut sink,
             &mut fleet,
             &mut w,
             CycleFrame::new(CycleId(3), DatasetVersion(2)),

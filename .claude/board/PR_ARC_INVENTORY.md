@@ -33,6 +33,15 @@
 > - **Docs** — knowledge files produced (immutable)
 > - **Confidence (YYYY-MM-DD):** — the ONLY mutable field
 
+## 2026-08-09 — branch `claude/phase-a-owned-writer` (PR pending) — Phase A: the artifact-backed commit contract + the SOLE owned writer
+
+- **Added.** `.claude/plans/persistence-artifact-backed-commit-v1.md` (the canonical persistence contract, ratified). `lance_graph::graph::cycle_sink::LanceCycleWriter` (~900 LOC incl. 11 reopened-store falsifiers) replacing `LanceCycleSink`. In `persist_sink`: `CommitOutcome` / `CommitError` / `FrameMeta`, `DetachedCycleBatch::batch_hash`, the reshaped `WalSink` (`commit_cycle(&mut self, batch)`, `scan_sealed(after_cycle)`, `timeline()`), `PersistError::Commit`, and 5 contract falsifiers.
+- **Locked.** **No artifact-backed semantic change → no write → no new DatasetVersion** (empty/intent-only cycles perform ZERO store operations; `restage_held`'s empty payload IS the ephemerality mechanism). **One logical writer, split by CAPABILITY** — `Clone + &self` for producer submission and read-only projections; the concrete writer non-`Clone`, owning its `Dataset` handle + head, committing through `&mut self`; fire-and-forget means producers get no acknowledgement, never that the writer ignores the result. **No rollback and no compensating delete** — a published manifest is history; idempotency is durable in-band `(cycle, batch_hash)`, reconciled first, so a lost acknowledgement is resolved by re-submitting the same frozen batch. **No error may promise "nothing landed" after possible publication** (`Ambiguous` is the honest unknown). **Zero reload on the normal path**, instrumented via `opens()`. **Lance 9 has no atomic expected-version Append fence** — measured at `lance-9.0.0/src/io/commit.rs:914-950`, stated rather than papered over. **`DatasetVersion` is a physical publication position**, not a per-row semantic identity (`LandedSlot.version` removed).
+- **Deferred.** Real object-store commit + ambiguous-response paths (no credentials in this environment — NO object-store durability claim is made). True zero-copy: the copy boundary (Arrow builder materialization + `to_vec` readback) is documented and isolated for a later measured PR, along with the `BatchWriter<P>`-descriptor-vs-`Vec<u8>` contradiction. Phases B–F (representation/projection ABI, live pulse + wavefront, conclusion boundary, MedCare proof, A2UI renderer).
+- **Docs.** The canonical plan above; a `⊘ PARTIALLY SUPERSEDED` header on `persistence-cycle-wal-bootstrap-v1.md` (guarantee 5 now conditional; guarantees 1–4/6 survive, §2 sparse-delta now IMPLEMENTED); LATEST_STATE entry marking the #911 entry superseded.
+
+**Confidence (2026-08-09):** contract + writer falsifiers green against reopened local stores; not yet merged; object-store unproven by design.
+
 ## 2026-08-09 — branch `claude/medcare-rs-continue-ufsazd` (PR pending) — the concrete cognitive-cycle Lance sink: `graph::cycle_sink::LanceCycleSink`
 
 - **Added.** `lance_graph::graph::cycle_sink` (~660 LOC incl. 6 reopened-dataset tokio tests) — the concrete `lance_graph_planner::persist_sink::WalSink` over the official Lance 9 insert path; `cycle_store_schema()` (frame row + landing rows, nullable Rubicon `move_*` columns, `payload` witness bytes); `LanceCycleSink`. Module gated on the default-on `planner` feature.
@@ -40,7 +49,7 @@
 - **Deferred.** The MedCare consumer arc (production `drive_cohort_thoughts` caller, witness-seal, views reading the sealed version) — next PR, in MedCare-rs. `recover_and_apply` wiring against this sink in a production driver. Object-store (s3/az/gs) smoke — the path plumbing accepts URIs but only local was exercised.
 - **Docs.** Module-level witness/§I.6 contract in `cycle_sink.rs`; this entry + LATEST_STATE inventory (same commit).
 
-**Confidence (2026-08-09):** tests green against reopened local datasets; not yet merged.
+**Confidence (2026-08-09):** MERGED as `8a5be50`. **SUPERSEDED the same day by the Phase-A entry above** (operator ruling): the §I.6 one-version-per-cycle contract, the compensating delete, and the per-operation reopen are removed — the post-merge review also confirmed two P1s in this entry's shape (the delete's `(cycle, base_version)` predicate can destroy a concurrent same-cycle winner; the 512-byte gate contradicts `restage_held`'s intent-only empty payload). Both are resolved structurally in Phase A rather than patched here.
 
 ## 2026-08-05 — the lance 9 / DataFusion 54 / Rust 1.97.1 cross-repo bump (9 repos; lance-graph PR pending, siblings MERGED)
 

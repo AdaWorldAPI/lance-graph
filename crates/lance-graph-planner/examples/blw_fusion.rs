@@ -97,8 +97,8 @@ use lance_graph_contract::soa_view::{IdentityPlane, MailboxSoaView};
 use lance_graph_planner::batch_writer::BatchWriter;
 use lance_graph_planner::owner_adapter::emit_bootstrap_intent;
 use lance_graph_planner::persist_sink::{
-    persist_cycle, recover_and_apply, CycleFrame, CycleId, DetachedCycleBatch, LandedSlot,
-    SweepSlot, WalSink, WriteFailed,
+    persist_cycle, recover_and_apply, CommitError, CommitOutcome, CycleFrame, CycleId,
+    DetachedCycleBatch, FrameMeta, LandedSlot, SweepSlot, WalSink, WriteFailed,
 };
 use lance_graph_planner::temporal::{
     deinterlace, DeinterlaceRow, LanceVersion, NoDeps, QueryReference,
@@ -390,7 +390,8 @@ impl RowSpanDescriptor {
 /// helper this harness has no caller for; keeping a write-only field would be dead code).
 struct SealedCycle {
     cycle: CycleId,
-    version: DatasetVersion,
+    base_version: DatasetVersion,
+    batch_hash: u64,
     landings: Vec<SweepSlot>,
 }
 
@@ -399,7 +400,8 @@ struct SealedCycle {
 /// (one append per cycle, stored order, sealed read horizon), NOT durability.
 struct MemWal {
     sealed: Mutex<Vec<SealedCycle>>,
-    next_version: AtomicU64,
+    /// The store's physical head version (0 = empty store).
+    head: AtomicU64,
     wal_writes: AtomicU64,
 }
 
@@ -407,7 +409,7 @@ impl MemWal {
     fn new() -> Self {
         Self {
             sealed: Mutex::new(Vec::new()),
-            next_version: AtomicU64::new(1),
+            head: AtomicU64::new(0),
             wal_writes: AtomicU64::new(0),
         }
     }
@@ -415,63 +417,83 @@ impl MemWal {
         self.wal_writes.load(Ordering::SeqCst)
     }
     fn head(&self) -> DatasetVersion {
-        self.sealed
-            .lock()
-            .expect("MemWal poisoned")
-            .last()
-            .map_or(DatasetVersion(0), |s| s.version)
+        DatasetVersion(self.head.load(Ordering::SeqCst))
     }
 }
 
 impl WalSink for MemWal {
     async fn commit_cycle(
-        &self,
-        base: DatasetVersion,
+        &mut self,
         batch: DetachedCycleBatch,
-    ) -> Result<DatasetVersion, WriteFailed> {
+    ) -> Result<CommitOutcome, CommitError> {
         let mut sealed = self.sealed.lock().expect("MemWal poisoned");
-        let head = sealed.last().map_or(DatasetVersion(0), |s| s.version);
-        if base != head {
-            return Err(WriteFailed(format!(
-                "stale base {base:?}: sealed head is {head:?}"
-            )));
+        // Reconciliation-first: an already-durable (cycle, hash) is success, a
+        // matching cycle with a different hash fails closed.
+        if let Some(rec) = sealed.iter().find(|s| s.cycle == batch.frame.cycle) {
+            return if rec.batch_hash == batch.batch_hash {
+                Ok(CommitOutcome::Reconciled {
+                    version: DatasetVersion(self.head.load(Ordering::SeqCst)),
+                    cycle: batch.frame.cycle,
+                    batch_hash: batch.batch_hash,
+                })
+            } else {
+                Err(CommitError::HashConflict {
+                    cycle: batch.frame.cycle,
+                    stored_hash: rec.batch_hash,
+                    offered_hash: batch.batch_hash,
+                })
+            };
+        }
+        let head = DatasetVersion(self.head.load(Ordering::SeqCst));
+        if batch.frame.base_version != head {
+            return Err(CommitError::Fenced { current_head: head });
         }
         self.wal_writes.fetch_add(1, Ordering::SeqCst);
-        let version = DatasetVersion(self.next_version.fetch_add(1, Ordering::SeqCst));
+        let version = DatasetVersion(self.head.fetch_add(1, Ordering::SeqCst) + 1);
+        let (cycle, batch_hash) = (batch.frame.cycle, batch.batch_hash);
         sealed.push(SealedCycle {
-            cycle: batch.frame.cycle,
-            version,
+            cycle,
+            base_version: batch.frame.base_version,
+            batch_hash,
             landings: batch.landings,
         });
-        Ok(version)
+        Ok(CommitOutcome::Committed {
+            version,
+            cycle,
+            batch_hash,
+        })
     }
 
     async fn scan_sealed(
         &self,
-        from_version: Option<DatasetVersion>,
+        after_cycle: Option<CycleId>,
     ) -> Result<Vec<LandedSlot>, WriteFailed> {
         Ok(self
             .sealed
             .lock()
             .expect("MemWal poisoned")
             .iter()
-            .filter(|s| from_version.is_none_or(|f| s.version > f))
+            .filter(|s| after_cycle.is_none_or(|c| s.cycle > c))
             .flat_map(|s| {
                 s.landings.iter().map(|slot| LandedSlot {
-                    version: s.version,
+                    cycle: s.cycle,
                     slot: slot.clone(),
                 })
             })
             .collect())
     }
 
-    async fn versions(&self) -> Result<Vec<(CycleId, DatasetVersion)>, WriteFailed> {
+    async fn timeline(&self) -> Result<Vec<FrameMeta>, WriteFailed> {
         Ok(self
             .sealed
             .lock()
             .expect("MemWal poisoned")
             .iter()
-            .map(|s| (s.cycle, s.version))
+            .map(|s| FrameMeta {
+                cycle: s.cycle,
+                base_version: s.base_version,
+                batch_hash: s.batch_hash,
+            })
             .collect())
     }
 }
@@ -735,7 +757,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     owner.set_populated(seated_total);
     owner.tick(); // cycle 0 -> 1, mirrors blw_tenant.rs:618.
 
-    let sink = MemWal::new();
+    let mut sink = MemWal::new();
     let mut writer: BatchWriter<RowSpanDescriptor> = BatchWriter::new();
     let mut watermark: Option<u64> = None;
 
@@ -869,14 +891,27 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         }];
         let appends_before = sink.wal_writes();
         let base = sink.head();
-        let version = persist_cycle(&sink, CycleFrame::new(spec.id, base), slots).await?;
+        let commit_outcome =
+            persist_cycle(&mut sink, CycleFrame::new(spec.id, base), slots).await?;
+        let CommitOutcome::Committed { version, .. } = commit_outcome else {
+            panic!(
+                "cycle {:?}: expected a fresh Committed outcome (every cycle id in this \
+                 harness's plan is used exactly once), got {commit_outcome:?}",
+                spec.id
+            );
+        };
         assert_eq!(
             sink.wal_writes() - appends_before,
             1,
             "one landing -> exactly ONE WAL append"
         );
 
-        let sealed = sink.scan_sealed(Some(base)).await?;
+        // `after_cycle` bounds the read to cycles strictly after the PREVIOUS
+        // cycle in `plan` (cycle ids are the 1-indexed plan position), which is
+        // exactly this cycle's own newly-sealed landing — the cycle-keyed
+        // equivalent of the old `scan_sealed(Some(base))` version-keyed bound.
+        let after_cycle = (spec.id.0 > 1).then(|| CycleId(spec.id.0 - 1));
+        let sealed = sink.scan_sealed(after_cycle).await?;
         let recovered = recover_and_apply(&mut owner, &sealed, watermark).map_err(|(_, e)| e)?;
         watermark = recovered.watermark;
         assert_eq!(

@@ -92,8 +92,8 @@ mod measure {
     use lance_graph_planner::ir::Arena;
     use lance_graph_planner::owner_adapter::emit_bootstrap_intent;
     use lance_graph_planner::persist_sink::{
-        order_cycle_stably, persist_cycle, CycleFrame, CycleId, DetachedCycleBatch, LandedSlot,
-        SweepSlot, WalSink, WriteFailed,
+        order_cycle_stably, persist_cycle, CommitError, CommitOutcome, CycleFrame, CycleId,
+        DetachedCycleBatch, FrameMeta, LandedSlot, SweepSlot, WalSink, WriteFailed,
     };
     use lance_graph_planner::strategy::style_strategy::StyleStrategy;
     use lance_graph_planner::temporal::{
@@ -789,9 +789,16 @@ mod measure {
             .map(|s| s.stream_position + 1)
             .max()
             .unwrap_or(0);
-        let _ = frame; // frame carried by the caller's own bookkeeping only
+        // Synthetic outcome — this helper never calls `WalSink::commit_cycle`
+        // (see the doc above), so there is no real `batch_hash` to carry; `0`
+        // is a placeholder, never compared against a real committed hash.
         DriverSealedCycle {
-            version,
+            outcome: CommitOutcome::Committed {
+                version,
+                cycle: frame.cycle,
+                batch_hash: 0,
+            },
+            version: Some(version),
             transitions,
             next_position_base,
         }
@@ -1407,7 +1414,11 @@ mod measure {
     // ═════════════════════════════════════════════════════════════════════
 
     struct SealedEntry {
+        frame: CycleFrame,
         version: DatasetVersion,
+        /// The batch's deterministic content hash — the reconciliation-first
+        /// idempotency key `commit_cycle` looks up BEFORE appending.
+        batch_hash: u64,
         landings: Vec<SweepSlot>,
     }
 
@@ -1439,56 +1450,76 @@ mod measure {
 
     impl WalSink for MemWal {
         async fn commit_cycle(
-            &self,
-            base: DatasetVersion,
+            &mut self,
             batch: DetachedCycleBatch,
-        ) -> Result<DatasetVersion, WriteFailed> {
+        ) -> Result<CommitOutcome, CommitError> {
             let mut sealed = self.sealed.lock().expect("MemWal poisoned");
+            // Reconciliation-first: an already-durable (cycle, hash) is success,
+            // a matching cycle with a different hash fails closed.
+            if let Some(rec) = sealed.iter().find(|s| s.frame.cycle == batch.frame.cycle) {
+                return if rec.batch_hash == batch.batch_hash {
+                    Ok(CommitOutcome::Reconciled {
+                        version: rec.version,
+                        cycle: batch.frame.cycle,
+                        batch_hash: batch.batch_hash,
+                    })
+                } else {
+                    Err(CommitError::HashConflict {
+                        cycle: batch.frame.cycle,
+                        stored_hash: rec.batch_hash,
+                        offered_hash: batch.batch_hash,
+                    })
+                };
+            }
             let head = sealed.last().map_or(DatasetVersion(0), |s| s.version);
-            if base != head {
-                return Err(WriteFailed(format!(
-                    "stale base {base:?}: sealed head is {head:?}"
-                )));
+            if batch.frame.base_version != head {
+                return Err(CommitError::Fenced { current_head: head });
             }
             self.wal_writes.fetch_add(1, Ordering::SeqCst);
             let version = DatasetVersion(self.next_version.fetch_add(1, Ordering::SeqCst));
+            let (cycle, batch_hash) = (batch.frame.cycle, batch.batch_hash);
             sealed.push(SealedEntry {
+                frame: batch.frame,
                 version,
+                batch_hash,
                 landings: batch.landings,
             });
-            Ok(version)
+            Ok(CommitOutcome::Committed {
+                version,
+                cycle,
+                batch_hash,
+            })
         }
 
         async fn scan_sealed(
             &self,
-            from_version: Option<DatasetVersion>,
+            after_cycle: Option<CycleId>,
         ) -> Result<Vec<LandedSlot>, WriteFailed> {
             Ok(self
                 .sealed
                 .lock()
                 .expect("MemWal poisoned")
                 .iter()
-                .filter(|s| from_version.is_none_or(|f| s.version > f))
+                .filter(|s| after_cycle.is_none_or(|c| s.frame.cycle > c))
                 .flat_map(|s| {
                     s.landings.iter().map(|slot| LandedSlot {
-                        version: s.version,
+                        cycle: s.frame.cycle,
                         slot: slot.clone(),
                     })
                 })
                 .collect())
         }
 
-        async fn versions(&self) -> Result<Vec<(CycleId, DatasetVersion)>, WriteFailed> {
+        async fn timeline(&self) -> Result<Vec<FrameMeta>, WriteFailed> {
             Ok(self
                 .sealed
                 .lock()
                 .expect("MemWal poisoned")
                 .iter()
-                .map(|s| {
-                    (
-                        s.landings.first().map_or(CycleId(0), |l| l.cycle),
-                        s.version,
-                    )
+                .map(|s| FrameMeta {
+                    cycle: s.frame.cycle,
+                    base_version: s.frame.base_version,
+                    batch_hash: s.batch_hash,
                 })
                 .collect())
         }
@@ -1537,7 +1568,7 @@ mod measure {
         // (`SweepSlot::paired_move = None` — a sanctioned landing shape per
         // `persist_sink.rs:145-147`'s own doc). Real `persist_cycle` calls
         // against a real (in-process) `WalSink`, not a fabricated Vec.
-        let sink = MemWal::new();
+        let mut sink = MemWal::new();
         let mut position_base: u64 = 0;
         for cyc in 1..=16u64 {
             let mut writer: BatchWriter<Vec<u8>> = BatchWriter::new();
@@ -1548,7 +1579,7 @@ mod measure {
             assert_eq!(collected.slots.len(), FLEET_OWNERS as usize);
             let base = sink.head();
             let frame = CycleFrame::new(CycleId(cyc), base);
-            persist_cycle(&sink, frame, collected.slots)
+            persist_cycle(&mut sink, frame, collected.slots)
                 .await
                 .unwrap_or_else(|e| panic!("temporal history: cycle {cyc} failed to seal: {e}"));
             position_base += u64::from(FLEET_OWNERS);
@@ -1580,7 +1611,13 @@ mod measure {
             .map(|ls| BenchRow {
                 owner: ls.slot.owner,
                 cast_seq: ls.slot.stream_position,
-                lance_version: ls.version.0,
+                // `LandedSlot` is keyed by CYCLE, not physical `DatasetVersion`
+                // (persist_sink's governing storage rule: a cycle with only
+                // intent-only casts publishes no version at all). This
+                // benchmark's cycles are 1:1 with commits (every cast carries
+                // a non-empty payload, so every cycle here IS a version), so
+                // `cycle.0` is the same monotonic identity `version.0` was.
+                lance_version: ls.cycle.0,
             })
             .collect();
 
@@ -2183,14 +2220,18 @@ mod measure {
                 "EXP-KIA: one move per owner, nothing held"
             );
 
-            let sink = MemWal::new();
+            let mut sink = MemWal::new();
             let frame = CycleFrame::new(CycleId(1), DatasetVersion(0));
             let t_wal = Instant::now();
-            let version = persist_cycle(&sink, frame, collected.slots.clone())
+            let outcome = persist_cycle(&mut sink, frame, collected.slots.clone())
                 .await
                 .expect("EXP-KIA: seal must succeed");
             let wal_write_ns = t_wal.elapsed().as_nanos() as u64;
             assert_eq!(sink.wal_writes(), 1, "EXP-KIA: exactly one WAL commit");
+            let version = match outcome {
+                CommitOutcome::Committed { version, .. } => version,
+                other => panic!("EXP-KIA: every cast has a non-empty payload, expected Committed, got {other:?}"),
+            };
             assert_eq!(version, DatasetVersion(1));
 
             let sealed = build_sealed_locally(frame, &collected.slots, version);
@@ -2450,7 +2491,10 @@ mod measure {
             out.entry(ls.slot.owner).or_default().push(BenchRow {
                 owner: ls.slot.owner,
                 cast_seq: ls.slot.stream_position,
-                lance_version: ls.version.0,
+                // See run_temporal's identical substitution note: `cycle.0`
+                // stands in for the retired `version.0` (1:1 here, every
+                // cast carries a non-empty payload).
+                lance_version: ls.cycle.0,
             });
         }
         Ok(out)
@@ -2484,7 +2528,7 @@ mod measure {
         wal_path: &std::path::Path,
     ) -> (MArmPhaseMedians, Vec<SweepSlot>, MemWal) {
         let style_outcome = build_style_outcome();
-        let sink = MemWal::new();
+        let mut sink = MemWal::new();
         let mut file = OpenOptions::new()
             .create(true)
             .write(true)
@@ -2596,7 +2640,7 @@ mod measure {
             // slots is safe because its internal `order_cycle_stably` is a
             // no-op-preserving STABLE sort of already-sorted input.
             let slots_for_commit = frozen.landings.clone();
-            persist_cycle(&sink, frame, slots_for_commit)
+            persist_cycle(&mut sink, frame, slots_for_commit)
                 .await
                 .unwrap_or_else(|e| panic!("M-arm: cycle {cyc} failed to seal: {e}"));
 
@@ -2649,9 +2693,10 @@ mod measure {
             // write/seal timing to settle), but T1 must cover exactly the
             // MEASURED window or its number is not comparable to A0's
             // 78-86 ms over 1,048,576 rows — and beating that number is the
-            // whole point of the ordered fast path. `scan_sealed(Some(v))`
-            // filters `version > v`, and the warm-ups own versions 1..=WARMUP.
-            let after_warmup = Some(DatasetVersion(WARMUP_CYCLES as u64));
+            // whole point of the ordered fast path. `scan_sealed(Some(c))`
+            // filters `cycle > c` (bounded recovery is the contract now, not
+            // `DatasetVersion`-keyed), and the warm-ups own cycles 1..=WARMUP.
+            let after_warmup = Some(CycleId(WARMUP_CYCLES as u64));
             let landed_natural = natural_sink
                 .scan_sealed(after_warmup)
                 .await
@@ -2676,7 +2721,7 @@ mod measure {
                 .map(|ls| BenchRow {
                     owner: ls.slot.owner,
                     cast_seq: ls.slot.stream_position,
-                    lance_version: ls.version.0,
+                    lance_version: ls.cycle.0,
                 })
                 .collect();
             let bench_morton: Vec<BenchRow> = landed_morton
@@ -2684,7 +2729,7 @@ mod measure {
                 .map(|ls| BenchRow {
                     owner: ls.slot.owner,
                     cast_seq: ls.slot.stream_position,
-                    lance_version: ls.version.0,
+                    lance_version: ls.cycle.0,
                 })
                 .collect();
 
@@ -2735,7 +2780,7 @@ mod measure {
             // order 2-row input must be REFUSED, not silently accepted.
             let bad = vec![
                 LandedSlot {
-                    version: DatasetVersion(2),
+                    cycle: CycleId(2),
                     slot: SweepSlot {
                         cycle: CycleId(2),
                         stream_position: 10,
@@ -2746,7 +2791,7 @@ mod measure {
                     },
                 },
                 LandedSlot {
-                    version: DatasetVersion(2),
+                    cycle: CycleId(2),
                     slot: SweepSlot {
                         cycle: CycleId(2),
                         stream_position: 5, // regressed — must be refused
@@ -2986,7 +3031,7 @@ mod measure {
         cast_order: &[MailboxId],
     ) -> (OArmPhaseMedians, MemWal) {
         let style_outcome = build_style_outcome();
-        let sink = MemWal::new();
+        let mut sink = MemWal::new();
         let mut cast_samples = Vec::with_capacity(MEASURED_CYCLES as usize);
         let mut collect_samples = Vec::with_capacity(MEASURED_CYCLES as usize);
         let mut order_derive_samples = Vec::with_capacity(MEASURED_CYCLES as usize);
@@ -3043,7 +3088,7 @@ mod measure {
             assert_eq!(frozen.landings.len(), FLEET_OWNERS as usize);
 
             let t_commit = Instant::now();
-            sink.commit_cycle(frame.base_version, frozen)
+            sink.commit_cycle(frozen)
                 .await
                 .unwrap_or_else(|e| panic!("O-arm {label}: cycle {cyc} failed to seal: {e}"));
             let commit_ns = t_commit.elapsed().as_nanos() as u64;
@@ -3064,7 +3109,7 @@ mod measure {
         // cycles' rows. The replay must cover exactly the measured window or
         // its cost is not comparable to A0's or the M-arm's.
         let landed = sink
-            .scan_sealed(Some(DatasetVersion(WARMUP_CYCLES as u64)))
+            .scan_sealed(Some(CycleId(WARMUP_CYCLES as u64)))
             .await
             .expect("O-arm: scan_sealed over the measured window");
         assert_eq!(
@@ -3077,7 +3122,7 @@ mod measure {
             .map(|ls| BenchRow {
                 owner: ls.slot.owner,
                 cast_seq: ls.slot.stream_position,
-                lance_version: ls.version.0,
+                lance_version: ls.cycle.0,
             })
             .collect();
         let trajectories = local_trajectories(&bench);
@@ -3110,7 +3155,7 @@ mod measure {
             .map(|ls| BenchRow {
                 owner: ls.slot.owner,
                 cast_seq: ls.slot.stream_position,
-                lance_version: ls.version.0,
+                lance_version: ls.cycle.0,
             })
             .collect();
         let trajectories = local_trajectories(&bench);
