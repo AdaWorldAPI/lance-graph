@@ -67,8 +67,10 @@
 //! real durability. **`compile+test green ≠ storage proven`** (the Ladybug
 //! lesson). The concrete sink is `lance_graph::graph::cycle_sink::LanceCycleWriter`.
 //!
-//! ## The governing storage rule (operator-ruled 2026-08-09 — supersedes the
-//! ## earlier "one version per cycle, empty cycles included" contract)
+//! ## The governing storage rule
+//!
+//! Operator-ruled 2026-08-09; supersedes the earlier "one version per cycle,
+//! empty cycles included" contract.
 //!
 //! **No artifact-backed semantic change → no write → no new [`DatasetVersion`].**
 //!
@@ -270,6 +272,15 @@ pub enum CommitError {
     /// I/O failed with provably NOTHING published — safe to regenerate from
     /// the unchanged horizon.
     Io(WriteFailed),
+    /// An artifact payload violates the concrete writer's binary ABI (the
+    /// canonical witness row is exactly 512 bytes). **PERMANENT, not
+    /// retryable:** nothing was written, and re-submitting or regenerating
+    /// the same malformed batch can never succeed — classifying this as
+    /// [`Io`](CommitError::Io) sends the caller into an endless regenerate
+    /// loop. Fix the producer. (The [`persist_cycle`] artifact gate tests
+    /// payload PRESENCE only; the size ABI is enforced by the writer — the
+    /// typed `IntentOnly | Artifact512` split is the Phase-B refinement.)
+    InvalidArtifact { row: u64, len: usize },
     /// The append's outcome could not be determined AND reconciliation itself
     /// failed. Re-submit the SAME frozen batch: `commit_cycle` reconciles
     /// first, so the retry cannot double-append.
@@ -295,6 +306,11 @@ impl std::fmt::Display for CommitError {
                 "cycle {cycle:?} durable with hash {stored_hash:#018x}, offered {offered_hash:#018x} — fail closed"
             ),
             Self::Io(e) => write!(f, "commit I/O (nothing published): {e}"),
+            Self::InvalidArtifact { row, len } => write!(
+                f,
+                "artifact payload for row {row} is {len} bytes, violating the writer's \
+                 ABI — permanent, fix the producer (nothing written, do NOT retry)"
+            ),
             Self::Ambiguous {
                 cycle,
                 batch_hash,
@@ -374,6 +390,14 @@ impl DetachedCycleBatch {
     }
 
     /// FNV-1a 64 over the frame identity + canonical landing content.
+    ///
+    /// **The EXACT frame — `base_version` included — is part of the
+    /// idempotency identity, deliberately.** A retry after a lost
+    /// acknowledgement must resubmit the SAME frozen [`DetachedCycleBatch`],
+    /// never re-freeze from a re-derived frame: a caller that re-reads the
+    /// head and re-freezes has changed what it is asserting, and reconciling
+    /// that as "the same batch" would launder the divergence. Such a resubmit
+    /// fails closed ([`CommitError::HashConflict`] / `Fenced`) by design.
     fn content_hash(frame: CycleFrame, canonical: &[SweepSlot]) -> u64 {
         const OFFSET: u64 = 0xcbf2_9ce4_8422_2325;
         const PRIME: u64 = 0x0000_0100_0000_01b3;
@@ -533,6 +557,14 @@ pub trait WalSink {
     /// canonical order — this seam does NOT sort. `after_cycle` bounds the read
     /// to cycles strictly after it (the recovery tail bound); implementations
     /// push the bound into the storage scan, never full-scan-and-filter.
+    ///
+    /// **Returned landings carry NO payload** (`SweepSlot::payload` is empty):
+    /// landing rows are transition METADATA; durable payloads live only in the
+    /// coalesced image read. Consequently an empty payload on a recovered
+    /// landing does NOT mean "intent-only" — that classification (the artifact
+    /// gate) applies to live casts in [`persist_cycle`], never to recovered
+    /// slots. Fakes must model this too, or they prove a property the real
+    /// writer does not hold.
     async fn scan_sealed(
         &self,
         after_cycle: Option<CycleId>,
@@ -589,6 +621,9 @@ pub async fn persist_cycle<S: WalSink>(
         .filter(|c| !c.payload.is_empty())
         .collect();
     if artifacts.is_empty() {
+        // The sink is deliberately NOT called, so this head is the caller's
+        // asserted `frame.base_version`, never a fresh store read. No fence
+        // runs, which is sound only because nothing is written.
         return Ok(CommitOutcome::NoChange {
             head: frame.base_version,
         });
@@ -860,6 +895,8 @@ mod tests {
             after_cycle: Option<CycleId>,
         ) -> Result<Vec<LandedSlot>, WriteFailed> {
             // Returned in STORED order — no sort. (The order was fixed at seal.)
+            // Payload-free by contract: landing rows are metadata; the fake
+            // must model the production projection, not improve on it.
             Ok(self
                 .sealed
                 .lock()
@@ -869,7 +906,10 @@ mod tests {
                 .flat_map(|s| {
                     s.landings.iter().map(|slot| LandedSlot {
                         cycle: s.frame.cycle,
-                        slot: slot.clone(),
+                        slot: SweepSlot {
+                            payload: Vec::new(),
+                            ..slot.clone()
+                        },
                     })
                 })
                 .collect())

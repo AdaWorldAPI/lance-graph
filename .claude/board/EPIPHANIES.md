@@ -1,5 +1,74 @@
 ## 2026-08-09
 
+## E-A-RECONCILED-HEAD-IS-NOT-A-PUBLICATION-1 (2026-08-09)
+
+**Status:** FINDING. **Confidence:** high — falsified both ways.
+
+Renaming a field is not the same as removing the confusion it names.
+`CommitOutcome::Reconciled.current_head` was deliberately NOT called
+`version` (#912) precisely because it is the store head AT RECONCILIATION
+TIME. One layer up, `seal_cycle` then adopted it as `SealedCycle.version`
+anyway — so retrying cycle 1 while the head stood at V5 recorded cycle 1
+as "sealed into V5". The careful name survived; the meaning did not.
+
+The repair is structural, not documentary: `SealedCycle` now carries
+`publication_version: Option<DatasetVersion>` (`Some` ONLY for a fresh
+`Committed`) beside `observed_head: Option<DatasetVersion>` (`Some` only
+when a sink actually observed one — `None` on `NoChange`, which calls no
+sink and whose `head` is the caller's asserted base). A publication
+position that was never observed stays **unknown**; the durable identity
+is `(cycle, batch_hash)` and the position is an audit-path read.
+
+**The general shape:** when a type distinguishes two things a consumer
+will conflate, the distinction has to be *unrepresentable* at the
+consumer, not merely *documented* at the producer. A doc comment warning
+"this is not X" is evidence that the next layer will use it as X.
+
+Falsifier: `a_reconciled_retry_never_reports_the_current_head_as_publication`
+(cycle 1 → V1, cycle 2 → V2, retry cycle 1 → `Reconciled`, observed head
+V2, publication `None`, zero extra appends).
+
+## E-A-DOC-COMMENT-IS-NOT-AN-ENFORCEMENT-1 (2026-08-09)
+
+**Status:** FINDING. **Confidence:** high.
+
+`FleetRecovery::foreign_min_cycle` shipped with the correct rule written
+in its doc comment: *"the caller must NEVER raise its durable
+`after_cycle` bound to or past this cycle."* A rule stated in prose to a
+caller who holds a plain `Option<CycleId>` is an instruction, not a
+guard — the unsafe checkpoint stays one obvious line away.
+
+`FleetRecovery::checkpoint_bound(recovered_through)` is the same rule as
+an API: it returns the bound the caller MAY store, capped strictly below
+any foreign landing. The caller can still ignore it, but the safe path is
+now the shortest one.
+
+Companion: the same session made the writer's single-owner claim
+enforceable rather than narrated (lexical `store_identity` so
+`x/./s.lance` cannot claim a second slot beside `x/s.lance`; an RAII
+`WriterClaim` taken before the first `.await`, so a cancelled `open`
+cannot leak a reservation). Both are the same move — *carry the
+invariant in a value, not in a sentence.*
+
+## E-A-A-PERMANENT-FAULT-REPORTED-AS-RETRYABLE-IS-AN-INFINITE-LOOP-1 (2026-08-09)
+
+**Status:** FINDING. **Confidence:** high.
+
+A 511-byte artifact payload violates the writer's 512-byte ABI. It was
+reported as `CommitError::Io` — the variant whose documented meaning is
+"nothing published, safe to REGENERATE". A caller obeying that contract
+regenerates the identical malformed batch and fails identically, forever:
+the error classification, not the bug, is what makes it unbounded.
+
+`CommitError::InvalidArtifact { row, len }` is permanent by construction.
+The taxonomy rule this instance teaches: **an error variant's retry
+semantics are part of its contract**, so a producer-side defect must never
+borrow a transport-side variant merely because both mean "did not
+commit".
+
+Falsifier: `a_malformed_artifact_is_refused_permanently_not_as_retryable_io`
+(refused twice, identically, store untouched).
+
 ### E-THE-ARTIFACT-WRITE-DECIDES-WHAT-KANBAN-PROGRESS-BECOMES-DURABLE-1
 
 **FINDING (operator-ruled, implemented Phase A).** The persistence question was
@@ -15591,3 +15660,4 @@ Cross-ref: W2's sprint-2 deliverable (Tier-0 "what's shipped" index); `.claude/p
 Three review findings on the #629 doc arc, accepted and folded into the V3 docs (routing.md §1/§5, mailbox-kanban-model.md, INTEGRATION-PLAN W6a): (1) **Clustered-index caveat** — `NodeGuid` stores classid via `to_le_bytes`, so RAW key-byte prefixes order by the custom byte first; domain range-scans hold over the DECODED u32 (or an order-preserving big-endian rendering), never raw LE byte prefixes/tries (E-CLASSID-CANON-HIGH-IS-A-CLUSTERED-INDEX reads with this caveat). (2) **Corpus-proof scanner scope** — "old-form" = ALL THREE legacy shapes: `0x0000_DDCC`, `0x1000_DDCC`, AND `0xAAAA_DDCC` (legacy app/render prefix high, e.g. `0x0005_0901`) — exactly the set `classid_canon_compat` routes CanonLow; scanning only the first two can falsely prove the corpus clean (E-V3-MARKER-IS-A-MONITOR reads with this scope). (3) **ractor wording sharpened** — "compile-time ownership dummy / never a hot-path bus" scopes the DATA plane; the actor mailbox remains the runtime serialized single-writer CONTROL path (one-message Advance/MulAdvance serialization = the codex #578 atomicity mechanism). The operator ruling's meaning is unchanged; the wording now says both halves.
 
 Cross-ref: PR #629 review threads (2 codex P2 + 1 coderabbit); E-MAILBOX-KANBAN-NO-COLLAPSEGATE.
+

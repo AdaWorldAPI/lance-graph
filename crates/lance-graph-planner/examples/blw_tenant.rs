@@ -503,7 +503,12 @@ impl WalSink for MemWal {
             .flat_map(|s| {
                 s.landings.iter().map(|slot| LandedSlot {
                     cycle: s.cycle,
-                    slot: slot.clone(),
+                    // `scan_sealed` is payload-free by contract; payloads
+                    // live in the image read.
+                    slot: SweepSlot {
+                        payload: Vec::new(),
+                        ..slot.clone()
+                    },
                 })
             })
             .collect())

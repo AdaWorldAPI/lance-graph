@@ -118,7 +118,7 @@ pub const EPISODIC_WITNESS_BYTES: usize = 512;
 /// |---|---|---|---|
 /// | `kind` | 0 | 1 | 2 |
 /// | `cycle` / `base_version` / `batch_hash` | ✓ | ✓ | ✓ |
-/// | `stream_position` / `owner` / `row` | 0 | ✓ | winner's / 0 / row |
+/// | `stream_position` / `owner` / `row` | 0 | ✓ | 0 / 0 / row |
 /// | `move_*` (nullable) | null | cast's move | null |
 /// | `payload` (`FixedSizeBinary(512)`, nullable) | null | null | final image |
 pub fn cycle_store_schema() -> SchemaRef {
@@ -167,28 +167,131 @@ pub struct LanceCycleWriter {
     /// ambiguity resolution. Instrumented so "zero scans on the normal path"
     /// is measured, not asserted.
     reconcile_scans: AtomicU64,
-    /// The highest cycle known durable in THIS store (seeded at open from one
-    /// bounded frame scan; advanced in memory on every commit). Monotonic —
-    /// `cycle > committed_through` proves the cycle cannot already be durable,
-    /// which is what makes the scan-free fast path sound.
+    /// The highest cycle known durable in THIS store (seeded at open from a
+    /// frame-projected streaming fold — an O(#cycles) metadata scan with O(1)
+    /// memory, startup hydration, never a normal-path read; advanced in
+    /// memory on every commit). Monotonic — `cycle > committed_through`
+    /// proves the cycle cannot already be durable, which is what makes the
+    /// scan-free fast path sound.
     committed_through: Option<CycleId>,
+    /// **The first-`Create` doubt.** Set when a dataset-CREATING attempt
+    /// returned an unknown outcome; cleared the moment storage proves the
+    /// store exists (a successful commit, a reconciled batch, or any readable
+    /// frame). While it is set, `ds == None` no longer means "absent" — the
+    /// dataset may have been published by that very attempt — so
+    /// [`WalSink::commit_cycle`] refuses to run a SECOND `Create` and
+    /// `DatasetNotFound` is never read as proof of absence.
+    create_unknown: bool,
+    /// The RAII registry claim. Held from BEFORE `open`'s first `.await`, so
+    /// a cancelled or failed `open` releases its slot through `Drop` — no
+    /// manual removal on any path, no leaked reservation.
+    ///
+    /// Never read: its `Drop` IS its behaviour, and the value must live
+    /// exactly as long as the writer.
+    #[allow(dead_code)]
+    claim: WriterClaim,
+    /// Test-only fault injection for the append / reopen / reconcile branch
+    /// (the branch that carries the whole no-rollback contract and cannot be
+    /// made to fail deterministically through real Lance).
+    #[cfg(test)]
+    fault: TestFaults,
 }
 
 /// The process-local single-writer registry: one LIVE [`LanceCycleWriter`] per
-/// dataset path. `non-Clone + &mut self` serializes commits on one instance;
+/// store IDENTITY. `non-Clone + &mut self` serializes commits on one instance;
 /// this registry closes the remaining in-process hole (a second `open` of the
-/// same path is REFUSED while the first writer lives). Cross-PROCESS
+/// same store is REFUSED while the first writer lives). Cross-PROCESS
 /// exclusivity remains a deployment lease this crate cannot enforce — stated,
 /// not implied away.
 static OPEN_WRITERS: std::sync::LazyLock<std::sync::Mutex<std::collections::HashSet<String>>> =
     std::sync::LazyLock::new(|| std::sync::Mutex::new(std::collections::HashSet::new()));
 
-impl Drop for LanceCycleWriter {
+/// The LEXICAL store identity the registry keys on: `.` segments, duplicate
+/// separators and trailing slashes are collapsed, so `x/./cycles.lance`,
+/// `x//cycles.lance` and `x/cycles.lance` claim ONE slot. A URI's
+/// `scheme://authority` prefix is preserved verbatim.
+///
+/// **The claim is exactly that and no more.** This is NOT canonicalization:
+/// `..` segments, symlinks, `file://` versus a bare path, and equivalent
+/// object-store URI spellings (case, default ports, credential-bearing
+/// authorities) are NOT collapsed — resolving them needs I/O and still cannot
+/// cover every backend. Two spellings that only a symlink or a scheme rewrite
+/// makes equal remain the deployment lease's problem, the same as two
+/// processes. What this closes is the trivially-reachable in-process case.
+fn store_identity(path: &str) -> String {
+    let (prefix, rest) = match path.find("://") {
+        Some(i) => {
+            let after_scheme = i + 3;
+            match path[after_scheme..].find('/') {
+                Some(j) => path.split_at(after_scheme + j),
+                None => (path, ""),
+            }
+        }
+        None => ("", path),
+    };
+    let absolute = rest.starts_with('/');
+    let parts: Vec<&str> = rest
+        .split('/')
+        .filter(|seg| !seg.is_empty() && *seg != ".")
+        .collect();
+    let mut s = String::from(prefix);
+    if absolute {
+        s.push('/');
+    }
+    s.push_str(&parts.join("/"));
+    s
+}
+
+/// An RAII claim on [`OPEN_WRITERS`]. Acquired synchronously BEFORE the first
+/// `.await` in [`LanceCycleWriter::open`]; released by `Drop` — which covers
+/// the error paths, the writer's own drop, AND an `open` future that is
+/// cancelled mid-`Dataset::open` (previously a leaked reservation, because no
+/// RAII owner existed yet at that point).
+#[derive(Debug)]
+struct WriterClaim(String);
+
+impl WriterClaim {
+    fn acquire(identity: String) -> Result<Self, WriteFailed> {
+        let mut set = OPEN_WRITERS
+            .lock()
+            .map_err(|_| WriteFailed("writer registry poisoned".into()))?;
+        if !set.insert(identity.clone()) {
+            return Err(WriteFailed(format!(
+                "a live LanceCycleWriter already owns {identity} in this process — \
+                 one logical writer per store (drop it first)"
+            )));
+        }
+        Ok(Self(identity))
+    }
+}
+
+impl Drop for WriterClaim {
     fn drop(&mut self) {
         if let Ok(mut set) = OPEN_WRITERS.lock() {
-            set.remove(&self.dataset_path);
+            set.remove(&self.0);
         }
     }
+}
+
+/// Deterministic failure injection for the ambiguous-append branch —
+/// test-only, one-shot flags (each `swap(false)`s when consumed).
+#[cfg(test)]
+#[derive(Debug, Default)]
+struct TestFaults {
+    /// Fail the next append WITHOUT publishing anything (the store is
+    /// untouched — models a pre-manifest I/O failure).
+    fail_append_unpublished: std::sync::atomic::AtomicBool,
+    /// Perform the next append for real, then report it failed (the manifest
+    /// IS durable — models a lost acknowledgement inside one attempt).
+    fail_append_published: std::sync::atomic::AtomicBool,
+    /// Fail the next reconciliation read (`find_frame`) — models storage
+    /// unavailable while resolving an ambiguous append.
+    fail_reconcile_read: std::sync::atomic::AtomicBool,
+    /// Report the next `reopen` as `DatasetNotFound` even when the dataset
+    /// EXISTS — models the eventual-consistency window in which a manifest
+    /// this writer just published is not yet visible. This is precisely the
+    /// state in which NOT-FOUND must not be read as proof of absence.
+    fail_reopen_notfound: std::sync::atomic::AtomicBool,
 }
 
 impl LanceCycleWriter {
@@ -201,48 +304,29 @@ impl LanceCycleWriter {
     /// store whose schema is not this writer's layout — a pre-Phase-A (#911)
     /// store is REJECTED loudly, never silently reinterpreted.
     pub async fn open(path: impl Into<String>) -> Result<Self, WriteFailed> {
+        // The claim is taken on the LEXICAL identity, synchronously, before
+        // the first await — errors and cancellation below release it via
+        // RAII, and `x/./cycles.lance` cannot claim a second slot beside
+        // `x/cycles.lance`.
+        //
+        // **The normalized form is the REGISTRY KEY ONLY; I/O uses the
+        // caller's string verbatim.** Rewriting the path we open would be a
+        // silent behaviour change on backends where the spelling is
+        // significant: `s3://bucket//x` is a different object key from
+        // `s3://bucket/x`, and a UNC path's leading `\\server\share` does not
+        // survive separator collapsing. Identity may be approximate and
+        // conservative; the path we hand to Lance may not be touched at all.
         let dataset_path = path.into();
-        {
-            let mut set = OPEN_WRITERS
-                .lock()
-                .map_err(|_| WriteFailed("writer registry poisoned".into()))?;
-            if !set.insert(dataset_path.clone()) {
-                return Err(WriteFailed(format!(
-                    "a live LanceCycleWriter already owns {dataset_path} in this process — \
-                     one logical writer per store (drop it first)"
-                )));
-            }
-        }
+        let claim = WriterClaim::acquire(store_identity(&dataset_path))?;
         let opens = AtomicU64::new(0);
         let ds = match Dataset::open(&dataset_path).await {
             Ok(ds) => {
                 opens.fetch_add(1, Ordering::Relaxed);
-                let expected = cycle_store_schema();
-                let got = ds.schema();
-                for field in expected.fields() {
-                    if got.field(field.name()).is_none() {
-                        OPEN_WRITERS
-                            .lock()
-                            .ok()
-                            .map(|mut s| s.remove(&dataset_path));
-                        return Err(WriteFailed(format!(
-                            "store at {dataset_path} is missing column `{}` — not this \
-                             writer's layout (a pre-Phase-A store is rejected, not \
-                             reinterpreted; migrate or discard it explicitly)",
-                            field.name()
-                        )));
-                    }
-                }
+                Self::guard_schema(&dataset_path, &ds)?;
                 Some(ds)
             }
             Err(lance::Error::DatasetNotFound { .. }) => None,
-            Err(e) => {
-                OPEN_WRITERS
-                    .lock()
-                    .ok()
-                    .map(|mut s| s.remove(&dataset_path));
-                return Err(WriteFailed(format!("open {dataset_path}: {e}")));
-            }
+            Err(e) => return Err(WriteFailed(format!("open {dataset_path}: {e}"))),
         };
         let mut w = Self {
             dataset_path,
@@ -250,14 +334,100 @@ impl LanceCycleWriter {
             opens,
             reconcile_scans: AtomicU64::new(0),
             committed_through: None,
+            create_unknown: false,
+            claim,
+            #[cfg(test)]
+            fault: TestFaults::default(),
         };
         if w.ds.is_some() {
-            // One bounded, projected seed read: the highest durable cycle.
-            // This is startup hydration (allowed), not a normal-path scan.
-            let frames = w.timeline().await?;
-            w.committed_through = frames.iter().map(|f| f.cycle).max();
+            // Startup hydration: a frame-projected STREAMING fold to the
+            // highest durable cycle. **O(1) MEMORY, still O(history) I/O** —
+            // nothing is materialized, but every frame row is read. It is not
+            // "bounded"; it is a one-per-process startup cost that grows with
+            // the store, and shrinking it needs a Lance tail/aggregate
+            // mechanism, never a second head ledger.
+            w.committed_through = w.max_cycle().await?;
         }
         Ok(w)
+    }
+
+    /// Refuse a store whose schema is not this writer's layout — names AND
+    /// types AND nullability, so a pre-Phase-A (#911) store, a hand-altered
+    /// column, or a same-name/different-type drift is REJECTED loudly, never
+    /// silently reinterpreted (I-LEGACY-API-FEATURE-GATED).
+    fn guard_schema(dataset_path: &str, ds: &Dataset) -> Result<(), WriteFailed> {
+        let expected = cycle_store_schema();
+        let got = ds.schema();
+        for field in expected.fields() {
+            let Some(g) = got.field(field.name()) else {
+                return Err(WriteFailed(format!(
+                    "store at {dataset_path} is missing column `{}` — not this \
+                     writer's layout (a pre-Phase-A store is rejected, not \
+                     reinterpreted; migrate or discard it explicitly)",
+                    field.name()
+                )));
+            };
+            if g.data_type() != *field.data_type() || g.nullable != field.is_nullable() {
+                return Err(WriteFailed(format!(
+                    "store at {dataset_path} column `{}` is {:?} (nullable={}) but this \
+                     writer's layout requires {:?} (nullable={}) — rejected, not \
+                     reinterpreted",
+                    field.name(),
+                    g.data_type(),
+                    g.nullable,
+                    field.data_type(),
+                    field.is_nullable()
+                )));
+            }
+        }
+        // Reject EXTRA columns too: a store carrying a field this writer does
+        // not know is not this writer's layout either, and appending a batch
+        // built from OUR schema against it either fails deep in Lance or
+        // silently nulls a column somebody else depends on.
+        for got_field in &got.fields {
+            if expected.field_with_name(&got_field.name).is_err() {
+                return Err(WriteFailed(format!(
+                    "store at {dataset_path} carries UNKNOWN column `{}` — not this \
+                     writer's layout (rejected, not reinterpreted)",
+                    got_field.name
+                )));
+            }
+        }
+        Ok(())
+    }
+
+    /// The highest durable cycle, as a streaming fold over frame rows
+    /// (projection: `cycle`; filter: `kind = 0`). The startup seed for
+    /// [`Self::commit_cycle`]'s fast-path watermark.
+    async fn max_cycle(&self) -> Result<Option<CycleId>, WriteFailed> {
+        let Some(ds) = self.ds.as_ref() else {
+            return Ok(None);
+        };
+        let mut scan = ds.scan();
+        scan.filter(&format!("kind = {KIND_FRAME}"))
+            .map_err(|e| WriteFailed(format!("filter: {e}")))?;
+        scan.project(&["cycle"])
+            .map_err(|e| WriteFailed(format!("project: {e}")))?;
+        let mut stream = scan
+            .try_into_stream()
+            .await
+            .map_err(|e| WriteFailed(format!("scan: {e}")))?;
+        let mut max: Option<u64> = None;
+        while let Some(b) = stream
+            .try_next()
+            .await
+            .map_err(|e| WriteFailed(format!("scan: {e}")))?
+        {
+            let cycle: &UInt64Array = b
+                .column_by_name("cycle")
+                .and_then(|c| c.as_any().downcast_ref())
+                .ok_or_else(|| WriteFailed("missing column cycle".into()))?;
+            for i in 0..cycle.len() {
+                let v = cycle.value(i);
+                max = Some(max.map_or(v, |m: u64| m.max(v)));
+            }
+        }
+        Ok(max.map(CycleId))
     }
 
     /// The store's current head version (`0` = empty store) — the in-memory
@@ -322,12 +492,14 @@ impl LanceCycleWriter {
 
         // Landing metadata rows — the sparse transition set, payload NULL.
         for s in &batch.landings {
+            // PERMANENT refusal, never Io: an ABI-malformed artifact would
+            // "fail, regenerate identically, fail" forever if reported as
+            // retryable I/O. Nothing durable has happened at this point.
             if s.payload.len() != EPISODIC_WITNESS_BYTES {
-                return Err(CommitError::Io(WriteFailed(format!(
-                    "artifact payload for row {} is {} bytes, ABI requires {EPISODIC_WITNESS_BYTES}",
-                    s.row,
-                    s.payload.len()
-                ))));
+                return Err(CommitError::InvalidArtifact {
+                    row: s.row,
+                    len: s.payload.len(),
+                });
             }
             push_common(KIND_LANDING, s.stream_position, s.owner, s.row);
             match &s.paired_move {
@@ -386,6 +558,16 @@ impl LanceCycleWriter {
     /// Look this cycle's durable frame up (projected `cycle` + `batch_hash`
     /// under a `kind = 0 AND cycle = …` predicate) — the reconciliation read.
     async fn find_frame(&self, cycle: CycleId) -> Result<Option<u64>, WriteFailed> {
+        #[cfg(test)]
+        if self
+            .fault
+            .fail_reconcile_read
+            .swap(false, Ordering::Relaxed)
+        {
+            return Err(WriteFailed(
+                "injected: reconciliation read unavailable".into(),
+            ));
+        }
         let Some(ds) = self.ds.as_ref() else {
             return Ok(None);
         };
@@ -422,6 +604,24 @@ impl LanceCycleWriter {
     /// `Ambiguous`, and the next commit can never fall into `Create` over a
     /// store that has history.
     async fn reopen(&mut self) -> Result<(), WriteFailed> {
+        #[cfg(test)]
+        if self
+            .fault
+            .fail_reopen_notfound
+            .swap(false, Ordering::Relaxed)
+        {
+            self.opens.fetch_add(1, Ordering::Relaxed);
+            return if self.ds.is_some() {
+                Err(WriteFailed(format!(
+                    "reopen {}: injected NOT FOUND while holding history",
+                    self.dataset_path
+                )))
+            } else {
+                // The handle stays None — indistinguishable, from here, from
+                // a store that was never created. That is the whole point.
+                Ok(())
+            };
+        }
         match Dataset::open(&self.dataset_path).await {
             Ok(ds) => {
                 self.opens.fetch_add(1, Ordering::Relaxed);
@@ -444,12 +644,87 @@ impl LanceCycleWriter {
         }
     }
 
+    /// Explicitly create the empty cycle store — INFRASTRUCTURE creation,
+    /// deliberately separated from semantic cycle publication.
+    ///
+    /// This is the sanctioned way out of an unresolved first-`Create`: after
+    /// a creating attempt with an unknown outcome, [`WalSink::commit_cycle`]
+    /// refuses to `Create` again (it might publish a second dataset over one
+    /// this writer already published and never saw), so the doubt is resolved
+    /// by an operator/deployment action rather than by a data write.
+    ///
+    /// Idempotent in the direction that matters: if the store turns out to
+    /// EXIST, that existence resolves the doubt and nothing is written — this
+    /// never overwrites and never publishes a cycle. The dataset it creates
+    /// carries zero rows, so a subsequent commit reconciles honestly (no
+    /// frame ⇒ nothing landed).
+    ///
+    /// **It does move the head**, because creating the empty dataset IS a
+    /// Lance version. A batch frozen against the pre-bootstrap horizon is
+    /// therefore genuinely stale and comes back [`CommitError::Fenced`]
+    /// (nothing written) — regenerate it against [`Self::head`]. That is the
+    /// honest classification, not a wart: nothing of that batch is durable, so
+    /// regeneration is exactly the safe move.
+    pub async fn bootstrap(&mut self) -> Result<(), WriteFailed> {
+        if self.ds.is_none() {
+            self.reopen().await?;
+        }
+        if self.ds.is_none() {
+            let schema = cycle_store_schema();
+            let empty = RecordBatchIterator::new(Vec::new(), schema);
+            let ds = Dataset::write(
+                empty,
+                &self.dataset_path,
+                Some(WriteParams {
+                    mode: WriteMode::Create,
+                    ..Default::default()
+                }),
+            )
+            .await
+            .map_err(|e| WriteFailed(format!("bootstrap {}: {e}", self.dataset_path)))?;
+            self.ds = Some(ds);
+        }
+        // Storage has now shown the store to exist, by either route.
+        self.create_unknown = false;
+        Ok(())
+    }
+
     /// How many reconciliation scans ([`find_frame`](Self::find_frame)) this
     /// writer has EVER run. Zero across a run of fresh monotonic commits —
     /// the "zero scans on the normal path" falsifier reads this.
     #[must_use]
     pub fn reconcile_scans(&self) -> u64 {
         self.reconcile_scans.load(Ordering::Relaxed)
+    }
+}
+
+impl LanceCycleWriter {
+    /// The one real store mutation: Create on the first-ever commit, Append
+    /// afterwards. Errors are carried as strings — the caller's ambiguity
+    /// branch only ever forwards the text, and the test fault-injection seam
+    /// needs a constructible error type.
+    async fn raw_append(&mut self, record_batch: RecordBatch) -> Result<(), String> {
+        let schema = cycle_store_schema();
+        let reader = RecordBatchIterator::new(vec![Ok(record_batch)], schema);
+        match self.ds.as_mut() {
+            None => match Dataset::write(
+                reader,
+                &self.dataset_path,
+                Some(WriteParams {
+                    mode: WriteMode::Create,
+                    ..Default::default()
+                }),
+            )
+            .await
+            {
+                Ok(ds) => {
+                    self.ds = Some(ds);
+                    Ok(())
+                }
+                Err(e) => Err(e.to_string()),
+            },
+            Some(ds) => ds.append(reader, None).await.map_err(|e| e.to_string()),
+        }
     }
 }
 
@@ -467,6 +742,35 @@ impl WalSink for LanceCycleWriter {
             return Ok(CommitOutcome::NoChange {
                 head: DatasetVersion(batch.frame.base_version.0),
             });
+        }
+        // 0. THE UNRESOLVED-CREATE GUARD. An earlier dataset-creating attempt
+        //    returned an unknown outcome, so it is not known whether the store
+        //    exists. Try ONE reopen to resolve it; if storage still cannot
+        //    show the dataset, refuse — running `Create` again here is the one
+        //    move that could produce two datasets (or clobber a manifest this
+        //    writer published and never saw). Re-submitting the SAME frozen
+        //    batch is the resolution: reconciliation runs first, so the retry
+        //    cannot double-append once the store becomes readable.
+        if self.create_unknown {
+            if self.ds.is_none() {
+                let _ = self.reopen().await;
+            }
+            if self.ds.is_none() {
+                return Err(CommitError::Ambiguous {
+                    cycle: batch.frame.cycle,
+                    batch_hash: batch.batch_hash,
+                    cause: format!(
+                        "a previous Create on {} has an UNRESOLVED outcome and the store \
+                         is still not readable — refusing to Create a second time; \
+                         re-submit the SAME frozen batch",
+                        self.dataset_path
+                    ),
+                });
+            }
+            // The store is readable: the doubt is over. Whether OUR batch
+            // landed is now an ordinary reconciliation question, answered
+            // below by cycle/hash — never by the handle's existence.
+            self.create_unknown = false;
         }
         // 1. The scan-free FAST PATH decision. A fresh monotonic cycle
         //    (`cycle > committed_through`, seeded at open) provably cannot be
@@ -520,29 +824,53 @@ impl WalSink for LanceCycleWriter {
         }
         // 3. The single atomic Lance MVCC commit.
         let record_batch = Self::build_batch(&batch)?;
-        let schema = cycle_store_schema();
-        let reader = RecordBatchIterator::new(vec![Ok(record_batch)], schema);
-        let append_result = match self.ds.as_mut() {
-            None => match Dataset::write(
-                reader,
-                &self.dataset_path,
-                Some(WriteParams {
-                    mode: WriteMode::Create,
-                    ..Default::default()
-                }),
-            )
-            .await
+        // Was THIS attempt the dataset-CREATING one? A failed Create is not
+        // symmetric with a failed Append: afterwards `ds == None` no longer
+        // proves the store is absent, so a later `DatasetNotFound` must not
+        // be read as "nothing published".
+        let was_create = self.ds.is_none();
+        #[cfg(test)]
+        let append_result: Result<(), String> = {
+            if self
+                .fault
+                .fail_append_unpublished
+                .swap(false, Ordering::Relaxed)
             {
-                Ok(ds) => {
-                    self.ds = Some(ds);
-                    Ok(())
+                // Nothing touched the store — models a pre-manifest failure.
+                Err("injected: append failed before publish".into())
+            } else if self
+                .fault
+                .fail_append_published
+                .swap(false, Ordering::Relaxed)
+            {
+                // The manifest IS durable; only the acknowledgement is lost.
+                // On a CREATE that also means the HANDLE never came back —
+                // `Dataset::write` returning an error leaves `ds == None`
+                // even though the dataset now exists. Modelling that is the
+                // whole point: it is the state in which NOT-FOUND is not
+                // proof of absence.
+                match self.raw_append(record_batch).await {
+                    Ok(()) => {
+                        if was_create {
+                            self.ds = None;
+                        }
+                        Err("injected: acknowledgement lost after publish".into())
+                    }
+                    Err(e) => Err(e),
                 }
-                Err(e) => Err(e),
-            },
-            Some(ds) => ds.append(reader, None).await,
+            } else {
+                self.raw_append(record_batch).await
+            }
         };
+        #[cfg(not(test))]
+        let append_result: Result<(), String> = self.raw_append(record_batch).await;
         match append_result {
+            // (`was_create` above records whether THIS attempt was the
+            // dataset-creating one — the asymmetry the arms below turn on.)
             Ok(()) => {
+                // A successful commit resolves any earlier Create doubt: the
+                // store demonstrably exists and this batch is in it.
+                self.create_unknown = false;
                 self.committed_through = Some(
                     self.committed_through
                         .map_or(batch.frame.cycle, |ct| ct.max(batch.frame.cycle)),
@@ -556,12 +884,17 @@ impl WalSink for LanceCycleWriter {
                     batch_hash: batch.batch_hash,
                 })
             }
-            Err(e) => {
+            Err(cause) => {
                 // The commit's outcome is UNKNOWN (the manifest may or may not
-                // have published before the failure). Reconcile from storage:
-                // reopen (counted; NEVER degrades an existing handle), then
-                // look for our durable identity.
-                let cause = e.to_string();
+                // have published before the failure). If this attempt was the
+                // CREATE, the doubt is sticky: it is now unknown whether the
+                // dataset exists at all, and no second Create may ever run
+                // against that doubt.
+                if was_create {
+                    self.create_unknown = true;
+                }
+                // Reconcile from storage: reopen (counted; NEVER degrades an
+                // existing handle), then look for our durable identity.
                 if let Err(re) = self.reopen().await {
                     return Err(CommitError::Ambiguous {
                         cycle: batch.frame.cycle,
@@ -572,6 +905,8 @@ impl WalSink for LanceCycleWriter {
                 self.reconcile_scans.fetch_add(1, Ordering::Relaxed);
                 match self.find_frame(batch.frame.cycle).await {
                     Ok(Some(stored_hash)) if stored_hash == batch.batch_hash => {
+                        // The store is proven to exist and to hold this batch.
+                        self.create_unknown = false;
                         self.committed_through = Some(
                             self.committed_through
                                 .map_or(batch.frame.cycle, |ct| ct.max(batch.frame.cycle)),
@@ -582,15 +917,42 @@ impl WalSink for LanceCycleWriter {
                             batch_hash: batch.batch_hash,
                         })
                     }
-                    Ok(Some(stored_hash)) => Err(CommitError::HashConflict {
-                        cycle: batch.frame.cycle,
-                        stored_hash,
-                        offered_hash: batch.batch_hash,
-                    }),
-                    // Proven absent: nothing landed — safe to regenerate.
-                    Ok(None) => Err(CommitError::Io(WriteFailed(format!(
-                        "append failed with nothing published: {cause}"
-                    )))),
+                    Ok(Some(stored_hash)) => {
+                        // A readable frame proves the store exists.
+                        self.create_unknown = false;
+                        Err(CommitError::HashConflict {
+                            cycle: batch.frame.cycle,
+                            stored_hash,
+                            offered_hash: batch.batch_hash,
+                        })
+                    }
+                    // `find_frame` said "not there" — but that is only PROOF
+                    // OF ABSENCE when a store was actually read. After a
+                    // failed CREATE the store itself may or may not exist, and
+                    // `DatasetNotFound` is exactly as consistent with "the
+                    // manifest published and this reopen cannot see it yet" as
+                    // with "nothing happened". Reporting Io there would invite
+                    // a regenerate — i.e. a SECOND Create against an unknown
+                    // first one.
+                    Ok(None) if self.create_unknown && self.ds.is_none() => {
+                        Err(CommitError::Ambiguous {
+                            cycle: batch.frame.cycle,
+                            batch_hash: batch.batch_hash,
+                            cause: format!(
+                                "create failed ({cause}) and the store is still not \
+                                 readable: NOT-FOUND after an unresolved Create is not \
+                                 proof of absence — re-submit the SAME frozen batch"
+                            ),
+                        })
+                    }
+                    // Proven absent: a readable store without our frame —
+                    // nothing landed, safe to regenerate.
+                    Ok(None) => {
+                        self.create_unknown = false;
+                        Err(CommitError::Io(WriteFailed(format!(
+                            "append failed with nothing published: {cause}"
+                        ))))
+                    }
                     Err(re) => Err(CommitError::Ambiguous {
                         cycle: batch.frame.cycle,
                         batch_hash: batch.batch_hash,
@@ -1342,5 +1704,505 @@ mod tests {
         .await;
         assert!(r.is_err(), "511 bytes must be refused: {r:?}");
         assert_eq!(w.head(), DatasetVersion(0), "nothing written");
+    }
+
+    // ── FALSIFIER (post-#912): the ABI refusal is PERMANENT, never Io ────────
+    // A 511-byte payload must surface as `InvalidArtifact` — reporting it as
+    // retryable Io would send the driver into fail → regenerate-identically →
+    // fail, forever. Nothing may touch the store.
+    #[tokio::test]
+    async fn a_malformed_artifact_is_refused_permanently_not_as_retryable_io() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("cycles.lance");
+        let mut w = LanceCycleWriter::open(path.to_str().unwrap())
+            .await
+            .unwrap();
+        let mut bad = artifact(1, 0, 42, 0);
+        bad.payload.truncate(511);
+        let err = persist_cycle(
+            &mut w,
+            CycleFrame::new(CycleId(1), DatasetVersion(0)),
+            vec![bad],
+        )
+        .await
+        .expect_err("a malformed artifact must be refused");
+        let lance_graph_planner::persist_sink::PersistError::Commit(commit) = err else {
+            panic!("expected a commit-layer refusal, got {err:?}");
+        };
+        assert_eq!(
+            commit,
+            CommitError::InvalidArtifact { row: 0, len: 511 },
+            "the refusal is the PERMANENT variant, never CommitError::Io"
+        );
+        assert_eq!(w.head(), DatasetVersion(0), "nothing was written");
+        // The identical batch keeps failing identically — no retry loop exit.
+        let again = persist_cycle(
+            &mut w,
+            CycleFrame::new(CycleId(1), DatasetVersion(0)),
+            vec![{
+                let mut b = artifact(1, 0, 42, 0);
+                b.payload.truncate(511);
+                b
+            }],
+        )
+        .await
+        .expect_err("still refused");
+        assert!(matches!(
+            again,
+            lance_graph_planner::persist_sink::PersistError::Commit(
+                CommitError::InvalidArtifact { .. }
+            )
+        ));
+    }
+
+    // ── FALSIFIER (post-#912): store identity is lexical, not string-equal ───
+    #[tokio::test]
+    async fn a_second_spelling_of_the_same_store_is_refused() {
+        let dir = tempfile::tempdir().unwrap();
+        let base = dir.path().to_str().unwrap().to_string();
+        let w = LanceCycleWriter::open(format!("{base}/cycles.lance"))
+            .await
+            .unwrap();
+        for spelling in [
+            format!("{base}/./cycles.lance"),
+            format!("{base}//cycles.lance"),
+            format!("{base}/cycles.lance/"),
+        ] {
+            let err = LanceCycleWriter::open(spelling.clone())
+                .await
+                .expect_err("an alternate spelling of a live store must be refused");
+            assert!(
+                err.to_string().contains("already owns"),
+                "{spelling}: {err}"
+            );
+        }
+        drop(w);
+        // The paired silence: a DIFFERENT store is never refused.
+        let _other = LanceCycleWriter::open(format!("{base}/other.lance"))
+            .await
+            .expect("a distinct store opens freely");
+    }
+
+    // ── FALSIFIER (post-#912): a failed open releases its claim (RAII) ───────
+    // The claim is held from before the first await; an `open` that errors
+    // (here: a path that exists but is not a dataset and not NotFound-shaped)
+    // must not leave the slot reserved.
+    #[tokio::test]
+    async fn a_failed_open_leaves_no_leaked_reservation() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("cycles.lance");
+        // First open succeeds (empty store), then drops.
+        drop(
+            LanceCycleWriter::open(path.to_str().unwrap())
+                .await
+                .unwrap(),
+        );
+        // Same path opens again — the drop released the claim.
+        drop(
+            LanceCycleWriter::open(path.to_str().unwrap())
+                .await
+                .unwrap(),
+        );
+        // A DIFFERENT path whose open FAILS (a file where a directory is
+        // expected) must release too: retrying it is refused for the same
+        // I/O reason, never with "already owns".
+        let bogus = dir.path().join("not-a-dataset");
+        std::fs::write(&bogus, b"junk").unwrap();
+        let bogus_file = bogus.join("cycles.lance");
+        let p = bogus_file.to_str().unwrap();
+        let e1 = LanceCycleWriter::open(p).await;
+        if let Ok(w) = e1 {
+            // Environment-dependent: object-store may report NotFound here,
+            // making this a legal empty store — then the claim path is
+            // already covered by the success/drop halves above.
+            drop(w);
+            return;
+        }
+        let e2 = LanceCycleWriter::open(p)
+            .await
+            .expect_err("still the underlying I/O failure");
+        assert!(
+            !e2.to_string().contains("already owns"),
+            "the failed first open must have released its claim: {e2}"
+        );
+    }
+
+    // ── FALSIFIERS (post-#912): the ambiguous-append branch, deterministically ─
+    // The branch carries the whole no-rollback contract; real Lance cannot be
+    // made to fail on demand, so the TestFaults seam injects each arm.
+    // (The HashConflict arm of THIS branch — append fails while the same cycle
+    // is durable with different content — requires a competing writer between
+    // fence and append, unrepresentable under the registry; it shares its
+    // constructor with the normal-path HashConflict falsifier.)
+
+    /// Arm `Ok(None)`: append failed with provably NOTHING published →
+    /// `Io("nothing published")`, and the SAME frozen batch then commits.
+    #[tokio::test]
+    async fn injected_unpublished_append_error_is_refused_io_and_regenerable() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("cycles.lance");
+        let mut w = LanceCycleWriter::open(path.to_str().unwrap())
+            .await
+            .unwrap();
+        // A durable first cycle so the store exists.
+        persist_cycle(
+            &mut w,
+            CycleFrame::new(CycleId(1), DatasetVersion(0)),
+            vec![artifact(1, 0, 42, 0)],
+        )
+        .await
+        .unwrap();
+        let head = w.head();
+
+        w.fault
+            .fail_append_unpublished
+            .store(true, std::sync::atomic::Ordering::Relaxed);
+        let err = persist_cycle(
+            &mut w,
+            CycleFrame::new(CycleId(2), head),
+            vec![artifact(2, 1, 42, 1)],
+        )
+        .await
+        .expect_err("the injected append failure surfaces");
+        let lance_graph_planner::persist_sink::PersistError::Commit(CommitError::Io(io)) = &err
+        else {
+            panic!("expected Io(nothing published), got {err:?}");
+        };
+        assert!(
+            io.to_string().contains("nothing published"),
+            "the reconcile proved absence: {io}"
+        );
+        assert_eq!(w.head(), head, "the store is untouched");
+
+        // Safe to regenerate: the same cycle now commits cleanly.
+        let out = persist_cycle(
+            &mut w,
+            CycleFrame::new(CycleId(2), head),
+            vec![artifact(2, 1, 42, 1)],
+        )
+        .await
+        .unwrap();
+        assert!(matches!(out, CommitOutcome::Committed { .. }));
+    }
+
+    /// Arm `Ok(Some(hash ==))`: the append PUBLISHED but the acknowledgement
+    /// was lost → the same call reconciles to the durable identity, appending
+    /// nothing twice. THE no-rollback falsifier.
+    #[tokio::test]
+    async fn injected_published_append_error_reconciles_to_the_durable_identity() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("cycles.lance");
+        let mut w = LanceCycleWriter::open(path.to_str().unwrap())
+            .await
+            .unwrap();
+        persist_cycle(
+            &mut w,
+            CycleFrame::new(CycleId(1), DatasetVersion(0)),
+            vec![artifact(1, 0, 42, 0)],
+        )
+        .await
+        .unwrap();
+        let head = w.head();
+
+        w.fault
+            .fail_append_published
+            .store(true, std::sync::atomic::Ordering::Relaxed);
+        let out = persist_cycle(
+            &mut w,
+            CycleFrame::new(CycleId(2), head),
+            vec![artifact(2, 1, 42, 1)],
+        )
+        .await
+        .expect("the lost acknowledgement reconciles WITHIN the same call");
+        let CommitOutcome::Reconciled {
+            cycle,
+            current_head,
+            ..
+        } = out
+        else {
+            panic!("expected Reconciled, got {out:?}");
+        };
+        assert_eq!(cycle, CycleId(2));
+        assert_eq!(current_head, w.head());
+        // Exactly one durable frame for cycle 2 — nothing double-appended.
+        let frames = w.timeline().await.unwrap();
+        assert_eq!(
+            frames.iter().filter(|f| f.cycle == CycleId(2)).count(),
+            1,
+            "no rollback, no duplicate — the publication stands once"
+        );
+    }
+
+    /// Arm `Err(reconcile)`: append outcome unknown AND the reconciliation
+    /// read fails → `Ambiguous`; the SAME frozen batch resolves it later.
+    #[tokio::test]
+    async fn injected_reconcile_read_failure_after_append_error_is_ambiguous() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("cycles.lance");
+        let mut w = LanceCycleWriter::open(path.to_str().unwrap())
+            .await
+            .unwrap();
+        persist_cycle(
+            &mut w,
+            CycleFrame::new(CycleId(1), DatasetVersion(0)),
+            vec![artifact(1, 0, 42, 0)],
+        )
+        .await
+        .unwrap();
+        let head = w.head();
+
+        w.fault
+            .fail_append_unpublished
+            .store(true, std::sync::atomic::Ordering::Relaxed);
+        w.fault
+            .fail_reconcile_read
+            .store(true, std::sync::atomic::Ordering::Relaxed);
+        let err = persist_cycle(
+            &mut w,
+            CycleFrame::new(CycleId(2), head),
+            vec![artifact(2, 1, 42, 1)],
+        )
+        .await
+        .expect_err("append unknown + reconcile down = Ambiguous");
+        let lance_graph_planner::persist_sink::PersistError::Commit(CommitError::Ambiguous {
+            cycle,
+            cause,
+            ..
+        }) = &err
+        else {
+            panic!("expected Ambiguous, got {err:?}");
+        };
+        assert_eq!(*cycle, CycleId(2));
+        assert!(
+            cause.contains("append failed") && cause.contains("reconciliation failed"),
+            "both halves named: {cause}"
+        );
+        // Resolution: the SAME frozen batch — reconciliation-first proves it
+        // absent (nothing had published) and the append lands once.
+        let out = persist_cycle(
+            &mut w,
+            CycleFrame::new(CycleId(2), head),
+            vec![artifact(2, 1, 42, 1)],
+        )
+        .await
+        .expect("re-submission resolves the ambiguity");
+        assert!(matches!(out, CommitOutcome::Committed { .. }));
+    }
+
+    // ── FALSIFIERS (post-#912): the FIRST-CREATE path, the symmetric half ────
+    // A failed Append leaves `ds == Some`, so a reconciliation read has a
+    // store to answer from. A failed CREATE does not: afterwards `ds == None`
+    // is exactly as consistent with "the manifest published and this reopen
+    // cannot see it yet" as with "nothing happened". These four prove the
+    // writer never resolves that doubt by guessing.
+
+    /// Create publishes, the acknowledgement is lost, and the reopen CAN see
+    /// the store → the durable identity is found → `Reconciled`, one frame.
+    #[tokio::test]
+    async fn a_published_create_with_a_lost_ack_reconciles_within_the_same_call() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("cycles.lance");
+        let mut w = LanceCycleWriter::open(path.to_str().unwrap())
+            .await
+            .unwrap();
+        assert_eq!(w.head(), DatasetVersion(0), "nothing exists yet");
+
+        w.fault
+            .fail_append_published
+            .store(true, std::sync::atomic::Ordering::Relaxed);
+        let out = persist_cycle(
+            &mut w,
+            CycleFrame::new(CycleId(1), DatasetVersion(0)),
+            vec![artifact(1, 0, 42, 0)],
+        )
+        .await
+        .expect("the lost ack on a CREATE reconciles");
+        assert!(
+            matches!(out, CommitOutcome::Reconciled { cycle, .. } if cycle == CycleId(1)),
+            "got {out:?}"
+        );
+        let frames = w.timeline().await.unwrap();
+        assert_eq!(frames.len(), 1, "exactly one dataset, exactly one frame");
+    }
+
+    /// Create publishes, the acknowledgement is lost, AND the reopen reports
+    /// NOT-FOUND (the eventual-consistency window) → `Ambiguous`, never
+    /// `Io/nothing published`. Re-submitting the same frozen batch once the
+    /// store is visible reconciles it — no second Create, no duplicate.
+    #[tokio::test]
+    async fn a_published_create_invisible_to_reopen_is_ambiguous_never_absent() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("cycles.lance");
+        let mut w = LanceCycleWriter::open(path.to_str().unwrap())
+            .await
+            .unwrap();
+
+        w.fault
+            .fail_append_published
+            .store(true, std::sync::atomic::Ordering::Relaxed);
+        w.fault
+            .fail_reopen_notfound
+            .store(true, std::sync::atomic::Ordering::Relaxed);
+        let err = persist_cycle(
+            &mut w,
+            CycleFrame::new(CycleId(1), DatasetVersion(0)),
+            vec![artifact(1, 0, 42, 0)],
+        )
+        .await
+        .expect_err("an invisible published Create cannot be called absent");
+        let lance_graph_planner::persist_sink::PersistError::Commit(CommitError::Ambiguous {
+            cause,
+            ..
+        }) = &err
+        else {
+            panic!("NOT-FOUND after an unresolved Create must be Ambiguous, got {err:?}");
+        };
+        assert!(
+            cause.contains("not proof of absence"),
+            "the reason is named: {cause}"
+        );
+
+        // The resolution: the SAME frozen batch, once storage is visible.
+        let out = persist_cycle(
+            &mut w,
+            CycleFrame::new(CycleId(1), DatasetVersion(0)),
+            vec![artifact(1, 0, 42, 0)],
+        )
+        .await
+        .expect("re-submission resolves it");
+        assert!(
+            matches!(out, CommitOutcome::Reconciled { .. }),
+            "the batch WAS durable all along: {out:?}"
+        );
+        let frames = w.timeline().await.unwrap();
+        assert_eq!(
+            frames.len(),
+            1,
+            "one frame — the retry never created a second dataset"
+        );
+    }
+
+    /// Create definitely does NOT publish → still `Ambiguous` (storage cannot
+    /// prove absence from here), and a retry REFUSES a second Create rather
+    /// than guessing. `bootstrap` is the sanctioned resolution; afterwards the
+    /// same frozen batch commits exactly once.
+    #[tokio::test]
+    async fn an_unpublished_create_refuses_a_second_create_until_bootstrap() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("cycles.lance");
+        let mut w = LanceCycleWriter::open(path.to_str().unwrap())
+            .await
+            .unwrap();
+
+        w.fault
+            .fail_append_unpublished
+            .store(true, std::sync::atomic::Ordering::Relaxed);
+        let first = persist_cycle(
+            &mut w,
+            CycleFrame::new(CycleId(1), DatasetVersion(0)),
+            vec![artifact(1, 0, 42, 0)],
+        )
+        .await
+        .expect_err("unknown Create outcome");
+        assert!(
+            matches!(
+                first,
+                lance_graph_planner::persist_sink::PersistError::Commit(
+                    CommitError::Ambiguous { .. }
+                )
+            ),
+            "an unresolved Create is never Io/nothing-published: {first:?}"
+        );
+
+        // A retry must NOT run Create again — that is the move that could
+        // publish a second dataset over one already published.
+        let second = persist_cycle(
+            &mut w,
+            CycleFrame::new(CycleId(1), DatasetVersion(0)),
+            vec![artifact(1, 0, 42, 0)],
+        )
+        .await
+        .expect_err("still unresolved");
+        let lance_graph_planner::persist_sink::PersistError::Commit(CommitError::Ambiguous {
+            cause,
+            ..
+        }) = &second
+        else {
+            panic!("expected a refusal, got {second:?}");
+        };
+        assert!(
+            cause.contains("refusing to Create a second time"),
+            "the refusal is explicit: {cause}"
+        );
+        assert_eq!(w.head(), DatasetVersion(0), "nothing was written");
+
+        // The sanctioned way out: explicit infrastructure creation. It
+        // publishes the EMPTY dataset, so it moves the head — the frozen
+        // batch's V0 base is now genuinely stale and the writer says so.
+        w.bootstrap().await.expect("bootstrap creates the store");
+        let stale = persist_cycle(
+            &mut w,
+            CycleFrame::new(CycleId(1), DatasetVersion(0)),
+            vec![artifact(1, 0, 42, 0)],
+        )
+        .await
+        .expect_err("the pre-bootstrap horizon is stale, and that is honest");
+        assert!(
+            matches!(
+                stale,
+                lance_graph_planner::persist_sink::PersistError::Commit(CommitError::Fenced { .. })
+            ),
+            "Fenced means nothing written — regenerate against the new head: {stale:?}"
+        );
+
+        // Regenerated against the post-bootstrap head, it commits — once.
+        let head = w.head();
+        let out = persist_cycle(
+            &mut w,
+            CycleFrame::new(CycleId(1), head),
+            vec![artifact(1, 0, 42, 0)],
+        )
+        .await
+        .expect("the doubt is resolved and the horizon is current");
+        assert!(
+            matches!(out, CommitOutcome::Committed { .. }),
+            "no frame existed, so this is a genuine first publication: {out:?}"
+        );
+        let frames = w.timeline().await.unwrap();
+        assert_eq!(
+            frames.len(),
+            1,
+            "exactly one frame across the whole episode"
+        );
+    }
+
+    /// The paired silence: bootstrap on a store that ALREADY exists writes
+    /// nothing and publishes no cycle — it only resolves the doubt.
+    #[tokio::test]
+    async fn bootstrap_on_an_existing_store_publishes_nothing() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("cycles.lance");
+        let mut w = LanceCycleWriter::open(path.to_str().unwrap())
+            .await
+            .unwrap();
+        persist_cycle(
+            &mut w,
+            CycleFrame::new(CycleId(1), DatasetVersion(0)),
+            vec![artifact(1, 0, 42, 0)],
+        )
+        .await
+        .unwrap();
+        let head = w.head();
+        let frames_before = w.timeline().await.unwrap().len();
+
+        w.bootstrap()
+            .await
+            .expect("idempotent on an existing store");
+        assert_eq!(w.head(), head, "no version published");
+        assert_eq!(
+            w.timeline().await.unwrap().len(),
+            frames_before,
+            "no frame added"
+        );
     }
 }
