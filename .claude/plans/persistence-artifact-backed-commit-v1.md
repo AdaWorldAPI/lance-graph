@@ -119,7 +119,7 @@ competition.**
 ## 3. No rollback, no compensating delete — reconciliation is authoritative
 
 **Measured, not assumed:** Lance 9 has **no atomic expected-version fence for
-Append`. The conflict rebase runs even on a single-attempt commit; strict
+`Append`**. The conflict rebase runs even on a single-attempt commit; strict
 no-rebase mode exists only for `Overwrite`
 (`lance-9.0.0/src/io/commit.rs:914-950`). This is stated honestly rather than
 papered over with a read-check pretending to be compare-and-swap.

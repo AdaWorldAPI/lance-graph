@@ -159,12 +159,13 @@ mod probe_ignition_64k {
             batch: DetachedCycleBatch,
         ) -> Result<CommitOutcome, CommitError> {
             let mut sealed = self.sealed.lock().expect("MemWal poisoned");
+            let head = sealed.last().map_or(DatasetVersion(0), |s| s.version);
             // Reconciliation-first: an already-durable (cycle, hash) is success,
             // a matching cycle with a different hash fails closed.
             if let Some(rec) = sealed.iter().find(|s| s.frame.cycle == batch.frame.cycle) {
                 return if rec.batch_hash == batch.batch_hash {
                     Ok(CommitOutcome::Reconciled {
-                        current_head: rec.version,
+                        current_head: head,
                         cycle: batch.frame.cycle,
                         batch_hash: batch.batch_hash,
                     })
@@ -176,7 +177,6 @@ mod probe_ignition_64k {
                     })
                 };
             }
-            let head = sealed.last().map_or(DatasetVersion(0), |s| s.version);
             if batch.frame.base_version != head {
                 return Err(CommitError::Fenced { current_head: head });
             }
@@ -209,7 +209,12 @@ mod probe_ignition_64k {
                 .flat_map(|s| {
                     s.landings.iter().map(|slot| LandedSlot {
                         cycle: s.frame.cycle,
-                        slot: slot.clone(),
+                        // `scan_sealed` is payload-free by contract; payloads
+                        // live in the image read.
+                        slot: SweepSlot {
+                            payload: Vec::new(),
+                            ..slot.clone()
+                        },
                     })
                 })
                 .collect())

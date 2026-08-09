@@ -79,12 +79,14 @@ two-dimensional upgrade path is §3–§4; the accepted debts are §5.
 
 ---
 
-## 2. A complete logical cycle is physically SPARSE (RATIFIED architecture, UNIMPLEMENTED in a concrete sink)
+## 2. A complete logical cycle is physically SPARSE (RATIFIED architecture, IMPLEMENTED in `LanceCycleWriter`)
 
-> **Status of this section:** the sparse-delta rule is **RATIFIED as
-> architecture** and **UNIMPLEMENTED in a concrete Lance sink**. The #878
-> bootstrap remains SHIPPED; this section governs the *future* concrete sink,
-> not the merged contract-probe.
+> **Status of this section (updated 2026-08-09, #912):** the sparse-delta rule
+> is **RATIFIED as architecture** and **IMPLEMENTED** in
+> `lance_graph::graph::cycle_sink::LanceCycleWriter` (Phase A) — landing
+> metadata rows + one coalesced image row per dirty row. The #878 bootstrap
+> remains SHIPPED; the body text below predates the concrete sink and is kept
+> append-only.
 
 **"One complete cycle image" must NEVER be read as serializing every row merely
 because every participant belonged to the cycle.** The load-bearing distinction:
@@ -372,7 +374,7 @@ solves the final temporal model:
 | Shadow temporal-coherence correction pass | **PLANNED** (§4) |
 | `revision.rs` forward-correction mechanism | **PLANNED** (§4) |
 | Concrete Lance sink (real crash durability) | **DEFERRED** — gated on crash falsifiers (§5) |
-| Sparse-delta storage rule (complete cycle ≠ full rewrite) | **RATIFIED architecture, UNIMPLEMENTED in a concrete sink** (§2) |
+| Sparse-delta storage rule (complete cycle ≠ full rewrite) | **RATIFIED architecture, IMPLEMENTED in `LanceCycleWriter`** (Phase A #912, §2) |
 
 The bootstrap exists so the rest can be built on a running, durable seam. The
 scalar order is a load-bearing placeholder, and this document is the record that

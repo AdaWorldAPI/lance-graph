@@ -131,12 +131,32 @@ pub struct SealedCycle {
     /// governing storage rule a cycle with zero artifact casts is
     /// [`CommitOutcome::NoChange`] and publishes nothing.
     pub outcome: CommitOutcome,
-    /// The version this cycle sealed into, or `None` for
-    /// [`CommitOutcome::NoChange`] (nothing published, head unchanged).
-    /// Derived from [`Self::outcome`] at construction — kept as a plain field
-    /// (not a method) so existing `sealed.version` call sites stay readable;
-    /// `Some` for [`CommitOutcome::Committed`] / [`CommitOutcome::Reconciled`].
-    pub version: Option<DatasetVersion>,
+    /// The PHYSICAL publication version — `Some` ONLY when THIS call
+    /// published (a fresh [`CommitOutcome::Committed`]). `None` on
+    /// [`CommitOutcome::NoChange`] (nothing written) **and on
+    /// [`CommitOutcome::Reconciled`]**: a reconciled batch was already
+    /// durable, its original publication position is not known from the
+    /// outcome, and it is never invented here — the durable identity is
+    /// `(cycle, batch_hash)`; the exact position is recoverable from the
+    /// version history on the audit path. (The previous field, `version`,
+    /// adopted `Reconciled.current_head` — so a retry of cycle 1 while the
+    /// head stood at V5 recorded cycle 1 as "sealed into V5", exactly the
+    /// audit corruption `current_head`'s naming warns against.)
+    pub publication_version: Option<DatasetVersion>,
+    /// The store head actually OBSERVED by this outcome — `Some` only when
+    /// the sink was called and reported one: the publication head on
+    /// `Committed`, the reconciliation-time head on `Reconciled`.
+    ///
+    /// **`None` on [`CommitOutcome::NoChange`]**, deliberately: that outcome
+    /// calls NO sink, so its `head` is the caller's ASSERTED
+    /// `frame.base_version` and nothing observed it. Carrying it here as an
+    /// "observed" head would let a stale caller-assertion masquerade as a
+    /// store reading — the asserted base stays available on the frame, where
+    /// its provenance is legible.
+    ///
+    /// A read horizon in every case — NEVER an artifact's publication
+    /// position (that is [`Self::publication_version`]).
+    pub observed_head: Option<DatasetVersion>,
     /// Only the owners that cast a `paired_move` — the sparse subset.
     /// With the pre-seal ≤1-per-owner partition, at most one per owner.
     /// **Computed over ALL collected casts, not just artifact ones** — an
@@ -190,10 +210,12 @@ pub struct SealFailure {
 /// P4b output — the effect of applying a sealed cycle's sparse transition set.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct AppliedCycle {
-    /// The version whose sealed transitions were applied — mirrors
-    /// [`SealedCycle::version`]: `None` for a [`CommitOutcome::NoChange`]
-    /// cycle (an all-intent-only cycle can still apply sparse transitions to
-    /// the in-memory fleet even though nothing was published to the store).
+    /// The PHYSICAL publication version whose sealed transitions were applied
+    /// — mirrors [`SealedCycle::publication_version`]: `None` for a
+    /// [`CommitOutcome::NoChange`] cycle (an all-intent-only cycle can still
+    /// apply sparse transitions to the in-memory fleet even though nothing was
+    /// published) and for a [`CommitOutcome::Reconciled`] retry (already
+    /// durable; the position is never invented from the current head).
     pub version: Option<DatasetVersion>,
     /// One move per **advanced** owner (distinct owners; ≤1 per cycle).
     pub applied: Vec<KanbanMove>,
@@ -391,16 +413,21 @@ pub async fn seal_cycle<S: WalSink>(
     let frozen = casts.clone();
     match persist_cycle(sink, frame, casts).await {
         Ok(outcome) => {
-            let version = match outcome {
-                CommitOutcome::NoChange { .. } => None,
-                CommitOutcome::Committed { version, .. } => Some(version),
-                // `current_head` is the store head AT RECONCILIATION TIME, not
-                // the publication version this cycle originally committed at.
-                CommitOutcome::Reconciled { current_head, .. } => Some(current_head),
+            // Publication is NEVER invented: only a fresh Committed carries
+            // one. Reconciled's `current_head` is the head NOW — adopting it
+            // as this cycle's version is the audit corruption the field's
+            // name warns against.
+            let (publication_version, observed_head) = match outcome {
+                // No sink call ⇒ nothing observed. The caller's asserted base
+                // stays on `frame`, never laundered into an observation.
+                CommitOutcome::NoChange { .. } => (None, None),
+                CommitOutcome::Committed { version, .. } => (Some(version), Some(version)),
+                CommitOutcome::Reconciled { current_head, .. } => (None, Some(current_head)),
             };
             Ok(SealedCycle {
                 outcome,
-                version,
+                publication_version,
+                observed_head,
                 transitions,
                 next_position_base,
             })
@@ -447,7 +474,7 @@ pub fn apply_sealed_transitions<F: MailboxFleet>(
     let mut missing = 0usize;
 
     let partial = |applied: Vec<KanbanMove>, deferred, missing| AppliedCycle {
-        version: sealed.version,
+        version: sealed.publication_version,
         applied,
         deferred,
         missing,
@@ -813,7 +840,37 @@ pub struct FleetRecovery {
     /// or past this cycle until those owners have recovered — advancing the
     /// global bound over an unrecovered latecomer's tail silences it
     /// permanently. `None` = no foreign landings in the scanned tail.
+    /// [`Self::checkpoint_bound`] is the enforceable form of this rule.
     pub foreign_min_cycle: Option<CycleId>,
+}
+
+impl FleetRecovery {
+    /// The `after_cycle` bound the caller may DURABLY checkpoint after this
+    /// pass — the ENFORCEABLE form of the latecomer fence, replacing the
+    /// doc-comment instruction with an API the caller cannot mis-read.
+    ///
+    /// `recovered_through` is the highest cycle this pass fully recovered
+    /// (what the caller would naively store). With no foreign landings it
+    /// passes through unchanged. With a foreign landing first seen at cycle
+    /// `c`, the bound is capped strictly BELOW `c` (`c − 1`, or `None` when
+    /// `c` is the first cycle) — so the next `scan_sealed(bound)` still
+    /// returns the unrecovered latecomer's tail instead of silencing it.
+    #[must_use]
+    pub fn checkpoint_bound(&self, recovered_through: Option<CycleId>) -> Option<CycleId> {
+        match (recovered_through, self.foreign_min_cycle) {
+            (rt, None) => rt,
+            (None, Some(_)) => None,
+            (Some(rt), Some(f)) => {
+                if rt.0 < f.0 {
+                    Some(rt)
+                } else if f.0 == 0 {
+                    None
+                } else {
+                    Some(CycleId(f.0 - 1))
+                }
+            }
+        }
+    }
 }
 
 /// **P4e — COMMITTED-HISTORY recovery ONLY.** Valid solely when a commit
@@ -1031,12 +1088,14 @@ mod tests {
                 )));
             }
             let mut sealed = self.sealed.lock().unwrap();
+            let head = sealed.last().map_or(DatasetVersion(0), |s| s.version);
             // Reconciliation-first: an already-durable (cycle, hash) is success,
-            // a matching cycle with a different hash fails closed.
+            // a matching cycle with a different hash fails closed. current_head
+            // is the store head NOW, never the original publication version.
             if let Some(rec) = sealed.iter().find(|s| s.frame.cycle == batch.frame.cycle) {
                 return if rec.batch_hash == batch.batch_hash {
                     Ok(CommitOutcome::Reconciled {
-                        current_head: rec.version,
+                        current_head: head,
                         cycle: batch.frame.cycle,
                         batch_hash: batch.batch_hash,
                     })
@@ -1048,7 +1107,6 @@ mod tests {
                     })
                 };
             }
-            let head = sealed.last().map_or(DatasetVersion(0), |s| s.version);
             if batch.frame.base_version != head {
                 return Err(CommitError::Fenced { current_head: head });
             }
@@ -1072,6 +1130,8 @@ mod tests {
             after_cycle: Option<CycleId>,
         ) -> Result<Vec<LandedSlot>, WriteFailed> {
             self.reads.fetch_add(1, Ordering::SeqCst);
+            // Payload-free by contract: landing rows are metadata; the fake
+            // must model the production projection, not improve on it.
             Ok(self
                 .sealed
                 .lock()
@@ -1081,7 +1141,10 @@ mod tests {
                 .flat_map(|s| {
                     s.landings.iter().map(|slot| LandedSlot {
                         cycle: s.frame.cycle,
-                        slot: slot.clone(),
+                        slot: SweepSlot {
+                            payload: Vec::new(),
+                            ..slot.clone()
+                        },
                     })
                 })
                 .collect())
@@ -1145,7 +1208,7 @@ mod tests {
         .unwrap();
         assert_eq!(sink.wal_writes(), 1, "100 casts → exactly ONE WAL write");
         assert_eq!(
-            sealed.version,
+            sealed.publication_version,
             Some(DatasetVersion(1)),
             "→ exactly one version"
         );
@@ -1260,7 +1323,7 @@ mod tests {
 
         // Exactly one Vn+1; exactly the represented owners advance once.
         assert_eq!(sink.wal_writes(), 1, "exactly one successful WAL write");
-        assert_eq!(out.sealed.version, Some(DatasetVersion(1)));
+        assert_eq!(out.sealed.publication_version, Some(DatasetVersion(1)));
         assert_eq!(out.applied.applied.len(), 2);
         assert_eq!(fleet[&3].phase(), KanbanColumn::CognitiveWork);
         assert_eq!(fleet[&8].phase(), KanbanColumn::CognitiveWork);
@@ -1303,12 +1366,24 @@ mod tests {
         let sealed = seal_cycle(&mut sink, failure.frame, failure.casts)
             .await
             .expect("retry succeeds");
-        assert_eq!(sealed.version, Some(DatasetVersion(1)));
+        assert_eq!(sealed.publication_version, Some(DatasetVersion(1)));
         assert_eq!(sink.wal_writes(), 1, "one successful WAL write total");
-        // Byte-identical: what landed is exactly the frozen set.
+        // What landed is exactly the frozen set's transition metadata.
+        // scan_sealed is payload-free by contract; payloads live in the
+        // image read — so the comparison is metadata-only.
         let landed = sink.scan_sealed(None).await.unwrap();
         assert_eq!(landed.len(), 1);
-        assert_eq!(landed[0].slot, frozen_copy[0], "no cast lost or mutated");
+        let (got, want) = (&landed[0].slot, &frozen_copy[0]);
+        assert_eq!(
+            (got.owner, got.stream_position, got.row, &got.paired_move),
+            (
+                want.owner,
+                want.stream_position,
+                want.row,
+                &want.paired_move
+            ),
+            "no cast lost or mutated"
+        );
 
         let applied = apply_sealed_transitions(&mut fleet, &sealed, &mut wm).unwrap();
         assert_eq!(applied.applied.len(), 1, "owner advances exactly once");
@@ -1622,7 +1697,8 @@ mod tests {
                 cycle: CycleId(1),
                 batch_hash: 0,
             },
-            version: Some(DatasetVersion(1)),
+            publication_version: Some(DatasetVersion(1)),
+            observed_head: Some(DatasetVersion(1)),
             transitions: vec![SealedTransition {
                 stream_position: 0,
                 owner: 7,
@@ -1651,7 +1727,8 @@ mod tests {
                 cycle: CycleId(1),
                 batch_hash: 0,
             },
-            version: Some(DatasetVersion(1)),
+            publication_version: Some(DatasetVersion(1)),
+            observed_head: Some(DatasetVersion(1)),
             transitions: vec![
                 SealedTransition {
                     stream_position: 0,
@@ -1690,7 +1767,8 @@ mod tests {
                 cycle: CycleId(1),
                 batch_hash: 0,
             },
-            version: Some(DatasetVersion(1)),
+            publication_version: Some(DatasetVersion(1)),
+            observed_head: Some(DatasetVersion(1)),
             transitions: vec![SealedTransition {
                 stream_position: 0,
                 owner: 99,
@@ -1727,7 +1805,7 @@ mod tests {
         .await
         .unwrap();
 
-        assert_eq!(out.sealed.version, Some(DatasetVersion(1)));
+        assert_eq!(out.sealed.publication_version, Some(DatasetVersion(1)));
         assert_eq!(
             out.applied.applied.len(),
             2,
@@ -1807,7 +1885,7 @@ mod tests {
         )
         .await
         .unwrap();
-        assert_eq!(out2.sealed.version, Some(DatasetVersion(2)));
+        assert_eq!(out2.sealed.publication_version, Some(DatasetVersion(2)));
         assert_eq!(
             out2.applied.applied.len(),
             1,
@@ -2180,5 +2258,104 @@ mod tests {
             KanbanColumn::Evaluation,
             "a Hold is a reschedule, never a permanent strand"
         );
+    }
+
+    // ── FALSIFIER (post-#912 review): a reconciled retry NEVER invents a
+    //    publication version from the current head ──────────────────────────
+    // Cycle 1 → V1, cycle 2 → V2, then cycle 1's frozen batch is re-submitted
+    // (a lost acknowledgement). The retry reconciles at head V2 — and V2 must
+    // NEVER surface as cycle 1's publication. The durable identity is
+    // `(cycle, batch_hash)`; the position is an audit-path read, not a field.
+    #[tokio::test]
+    async fn a_reconciled_retry_never_reports_the_current_head_as_publication() {
+        let mut sink = FakeWalSink::new();
+        let mut w1 = writer_with_moves(&[1]);
+        let c1 = collect_casts(&mut w1, CycleId(1), 0, u64::from);
+        let frozen_c1 = c1.slots.clone();
+        let first = seal_cycle(
+            &mut sink,
+            CycleFrame::new(CycleId(1), DatasetVersion(0)),
+            c1.slots,
+        )
+        .await
+        .expect("cycle 1 seals");
+        assert_eq!(first.publication_version, Some(DatasetVersion(1)));
+
+        let mut w2 = writer_with_moves(&[2]);
+        let c2 = collect_casts(&mut w2, CycleId(2), first.next_position_base, u64::from);
+        let second = seal_cycle(
+            &mut sink,
+            CycleFrame::new(CycleId(2), DatasetVersion(1)),
+            c2.slots,
+        )
+        .await
+        .expect("cycle 2 seals");
+        assert_eq!(second.publication_version, Some(DatasetVersion(2)));
+
+        // The lost-ack retry: same frozen cycle-1 batch, unchanged frame.
+        let retried = seal_cycle(
+            &mut sink,
+            CycleFrame::new(CycleId(1), DatasetVersion(0)),
+            frozen_c1,
+        )
+        .await
+        .expect("retry reconciles");
+        let CommitOutcome::Reconciled {
+            current_head,
+            cycle,
+            ..
+        } = retried.outcome
+        else {
+            panic!("expected Reconciled, got {:?}", retried.outcome);
+        };
+        assert_eq!(cycle, CycleId(1), "the durable identity names cycle 1");
+        assert_eq!(
+            current_head,
+            DatasetVersion(2),
+            "the observed head is V2 (the head NOW)"
+        );
+        assert_eq!(retried.observed_head, Some(DatasetVersion(2)));
+        assert_eq!(
+            retried.publication_version, None,
+            "V2 is the head at reconciliation time, NOT cycle 1's publication \
+             — inventing one here is the audit corruption this field forbids"
+        );
+        assert_eq!(sink.wal_writes(), 2, "the retry appended nothing");
+    }
+
+    // ── FALSIFIER (post-#912 review): checkpoint_bound enforces the
+    //    latecomer fence, both ways ─────────────────────────────────────────
+    #[test]
+    fn checkpoint_bound_caps_below_foreign_and_passes_through_without() {
+        let clean = FleetRecovery {
+            total_applied: 3,
+            owners_recovered: 2,
+            foreign_landings: 0,
+            foreign_min_cycle: None,
+        };
+        // Silence half: without foreign landings the naive bound passes.
+        assert_eq!(
+            clean.checkpoint_bound(Some(CycleId(7))),
+            Some(CycleId(7)),
+            "no foreign landings — the recovered-through bound is safe as-is"
+        );
+        let fenced = FleetRecovery {
+            foreign_min_cycle: Some(CycleId(5)),
+            foreign_landings: 1,
+            ..clean
+        };
+        // Firing half: recovered through 7, but a latecomer's landing sits at
+        // cycle 5 — checkpointing 7 (or 5) would exclude it from every future
+        // bounded scan. The bound is capped strictly below.
+        assert_eq!(fenced.checkpoint_bound(Some(CycleId(7))), Some(CycleId(4)));
+        // A bound already below the fence is untouched.
+        assert_eq!(fenced.checkpoint_bound(Some(CycleId(3))), Some(CycleId(3)));
+        // A foreign landing in the FIRST cycle leaves nothing safe to bound.
+        let at_zero = FleetRecovery {
+            foreign_min_cycle: Some(CycleId(0)),
+            ..fenced
+        };
+        assert_eq!(at_zero.checkpoint_bound(Some(CycleId(7))), None);
+        assert_eq!(at_zero.checkpoint_bound(None), None);
     }
 }

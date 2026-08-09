@@ -3157,3 +3157,36 @@ Removes `crate-ci/typos` spell-check job from `style.yml`; `cargo fmt --check` r
 - LATEST_STATE Current Contract Inventory annotated with `WitnessTable` + `MailboxSoA` additions.
 
 **Confidence (2026-05-28):** working — `cargo check -p cognitive-shader-driver -p lance-graph-contract` clean (only pre-existing ontology deprecation warnings); `cargo test -p cognitive-shader-driver -p lance-graph-contract --lib` 457 passed / 0 failed at merge time. Codex P1 (`f541b280`) addressed before merge. No consumer surfaces touched.
+
+## Follow-up gates after #912 (branch `claude/persistence-follow-up-gates`, 2026-08-09)
+
+**Added.** `SealedCycle.publication_version` / `observed_head` (both
+`Option`, replacing the conflated `version`); `FleetRecovery::checkpoint_bound`
+(the enforceable latecomer fence); `CommitError::InvalidArtifact` (permanent,
+never retryable); `store_identity` + RAII `WriterClaim` (lexical store identity;
+claim held before the first `.await`); `LanceCycleWriter::max_cycle` (streaming
+O(1)-memory startup seed, replacing `timeline().max()`); full schema guard
+(types + nullability, not names only); a `#[cfg(test)]` fault-injection seam for
+the append/reopen/reconcile branch.
+
+**Falsifiers added (8).** Reconciled-retry-never-claims-publication;
+checkpoint_bound both ways; permanent-InvalidArtifact (twice, identically);
+alternate path spellings refused; failed open leaks no reservation; injected
+unpublished append → Io + regenerable; injected published append → Reconciled,
+exactly one durable frame; injected reconcile-read failure → Ambiguous, resolved
+by re-submitting the same frozen batch.
+
+**Also.** `scan_sealed` is payload-free BY CONTRACT — documented on the trait
+and modelled by all seven fakes (they previously proved a property the real
+writer lacks); `persist_cycle`'s `NoChange.head` provenance documented;
+`content_hash`'s inclusion of `base_version` documented as deliberate (a
+re-derived frame is a DIFFERENT assertion and must fail closed, not launder).
+
+**Deferred (named, not silently dropped).** The typed
+`IntentOnly | Artifact512` boundary (the gate still tests payload PRESENCE);
+the first-Create ambiguity state machine (an unknown `Create` still treats a
+later `NotFound` as absence); `run_cycle`'s borrow-over-`.await` prose; the
+landing-row rollup. These are Phase-B/C/D work, tracked in the plan.
+
+**Confidence:** high on everything with a falsifier; the deferrals are the
+honest remainder.
