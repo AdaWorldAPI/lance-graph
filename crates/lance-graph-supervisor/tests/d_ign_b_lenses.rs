@@ -126,8 +126,8 @@ mod d_ign_b_lenses {
     use lance_graph_planner::nars::{BeliefArena, CStmt};
     use lance_graph_planner::owner_adapter::emit_bootstrap_intent;
     use lance_graph_planner::persist_sink::{
-        CommitError, CommitOutcome, CycleFrame, CycleId, DetachedCycleBatch, FrameMeta,
-        LandedSlot, SweepSlot, WalSink, WriteFailed,
+        CommitError, CommitOutcome, CycleFrame, CycleId, DetachedCycleBatch, FrameMeta, LandedSlot,
+        SweepSlot, WalSink, WriteFailed,
     };
     use lance_graph_planner::strategy::style_strategy::StyleStrategy;
     use lance_graph_planner::traits::{

@@ -49,8 +49,8 @@ mod probe_ignition_64k {
     use lance_graph_planner::ir::Arena;
     use lance_graph_planner::owner_adapter::emit_bootstrap_intent;
     use lance_graph_planner::persist_sink::{
-        CommitError, CommitOutcome, CycleFrame, CycleId, DetachedCycleBatch, FrameMeta,
-        LandedSlot, SweepSlot, WalSink, WriteFailed,
+        CommitError, CommitOutcome, CycleFrame, CycleId, DetachedCycleBatch, FrameMeta, LandedSlot,
+        SweepSlot, WalSink, WriteFailed,
     };
     use lance_graph_planner::strategy::style_strategy::StyleStrategy;
     use lance_graph_planner::traits::{
@@ -306,7 +306,7 @@ mod probe_ignition_64k {
             );
         }
 
-        let sink = MemWal::new();
+        let mut sink = MemWal::new();
         let mut writer: BatchWriter<Vec<u8>> = BatchWriter::new();
         let mut watermarks: HashMap<MailboxId, Option<u64>> = HashMap::new();
         let position_base: u64 = 0;
@@ -375,7 +375,7 @@ mod probe_ignition_64k {
         let wal_before = sink.wal_writes();
         let base = sink.head();
         let outcome: CycleOutcome = match run_cycle(
-            &sink,
+            &mut sink,
             &mut fleet,
             &mut writer,
             CycleFrame::new(CycleId(1), base),
