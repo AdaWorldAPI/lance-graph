@@ -393,8 +393,10 @@ pub async fn seal_cycle<S: WalSink>(
         Ok(outcome) => {
             let version = match outcome {
                 CommitOutcome::NoChange { .. } => None,
-                CommitOutcome::Committed { version, .. }
-                | CommitOutcome::Reconciled { version, .. } => Some(version),
+                CommitOutcome::Committed { version, .. } => Some(version),
+                // `current_head` is the store head AT RECONCILIATION TIME, not
+                // the publication version this cycle originally committed at.
+                CommitOutcome::Reconciled { current_head, .. } => Some(current_head),
             };
             Ok(SealedCycle {
                 outcome,
@@ -535,8 +537,21 @@ pub enum CycleError {
 }
 
 /// Convenience: run one full cycle — **P4a** (drain the writer + seal) then
-/// **P4b** (apply the sparse set + advance watermarks). The one seam a running
-/// loop calls per cycle.
+/// **P4b** (apply the sparse set + advance watermarks) — as ONE sequential
+/// call.
+///
+/// **Borrow honesty (operator-flagged):** this signature holds the exclusive
+/// `&mut F` fleet borrow for the ENTIRE future — including across the seal's
+/// storage `.await` — because a future captures its parameters for its whole
+/// lifetime regardless of when they are dereferenced. A caller awaiting
+/// `run_cycle` therefore cannot touch the fleet concurrently with storage
+/// I/O. This makes `run_cycle` the SEQUENTIAL convenience (tests, probes,
+/// single-task loops). The PRODUCTION detached path is the split the pieces
+/// already expose: `collect_casts` (writer only) → drop the fleet borrow →
+/// `seal_cycle(&mut sink, …).await` (sink only, NO fleet parameter) →
+/// re-acquire the fleet → `apply_sealed_transitions` (fleet only, no sink).
+/// Unrelated thoughts keep computing during the await because nothing they
+/// need is borrowed.
 ///
 /// `position_base` is the durable stream cursor (see [`collect_casts`]);
 /// `watermarks` is the fleet's per-owner recovery watermark map, advanced in
@@ -789,6 +804,16 @@ pub struct FleetRecovery {
     pub total_applied: usize,
     /// Owners that had a pending tail replayed (non-empty applied set).
     pub owners_recovered: usize,
+    /// Landings observed in the scanned tail for owners NOT in this pass's
+    /// `fleet_ids` (or absent from the fleet) — latecomers whose recovery is
+    /// still owed. `0` means the scanned tail belonged entirely to this pass.
+    pub foreign_landings: usize,
+    /// The SMALLEST cycle carrying such a foreign landing. **The latecomer
+    /// fence:** the caller must NEVER raise its durable `after_cycle` bound to
+    /// or past this cycle until those owners have recovered — advancing the
+    /// global bound over an unrecovered latecomer's tail silences it
+    /// permanently. `None` = no foreign landings in the scanned tail.
+    pub foreign_min_cycle: Option<CycleId>,
 }
 
 /// **P4e — COMMITTED-HISTORY recovery ONLY.** Valid solely when a commit
@@ -842,6 +867,21 @@ where
     }
     let mut total_applied = 0usize;
     let mut owners_recovered = 0usize;
+    // Latecomer accounting: landings owned by mailboxes this pass does NOT
+    // recover (not listed, or listed but absent from the fleet). Their
+    // smallest cycle is the floor below which the caller's global
+    // `after_cycle` bound must stay until they recover.
+    let ids: std::collections::HashSet<MailboxId> = fleet_ids.iter().copied().collect();
+    let mut foreign_landings = 0usize;
+    let mut foreign_min_cycle: Option<CycleId> = None;
+    for (owner_id, slots) in &by_owner {
+        if !ids.contains(owner_id) || fleet.owner(*owner_id).is_none() {
+            foreign_landings += slots.len();
+            if let Some(mc) = slots.iter().map(|l| l.cycle).min() {
+                foreign_min_cycle = Some(foreign_min_cycle.map_or(mc, |cur: CycleId| cur.min(mc)));
+            }
+        }
+    }
     for &id in fleet_ids {
         let Some(owner) = fleet.owner_mut(id) else {
             continue;
@@ -868,6 +908,8 @@ where
     Ok(FleetRecovery {
         total_applied,
         owners_recovered,
+        foreign_landings,
+        foreign_min_cycle,
     })
 }
 
@@ -994,7 +1036,7 @@ mod tests {
             if let Some(rec) = sealed.iter().find(|s| s.frame.cycle == batch.frame.cycle) {
                 return if rec.batch_hash == batch.batch_hash {
                     Ok(CommitOutcome::Reconciled {
-                        version: rec.version,
+                        current_head: rec.version,
                         cycle: batch.frame.cycle,
                         batch_hash: batch.batch_hash,
                     })

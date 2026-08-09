@@ -153,32 +153,111 @@ pub fn cycle_store_schema() -> SchemaRef {
 pub struct LanceCycleWriter {
     dataset_path: String,
     /// The long-lived handle. `None` until the first committed cycle creates
-    /// the dataset (an empty store is a state, not an error).
+    /// the dataset (an empty store is a state, not an error). Once `Some`, it
+    /// NEVER degrades back to `None` — a store that existed cannot become
+    /// "empty" again (see [`reopen`](Self::reopen)).
     ds: Option<Dataset>,
     /// `Dataset::open` count — startup + ambiguity-resolution ONLY. The
     /// normal-path invariant (zero post-success reopens) is instrumented here.
     opens: AtomicU64,
+    /// Reconciliation-scan count ([`find_frame`](Self::find_frame) calls). The
+    /// NORMAL commit path performs ZERO of these: a fresh monotonic cycle
+    /// appends directly over the in-memory head + cycle watermark; the scan
+    /// runs only on a fence mismatch, a `cycle ≤ watermark` re-submission, or
+    /// ambiguity resolution. Instrumented so "zero scans on the normal path"
+    /// is measured, not asserted.
+    reconcile_scans: AtomicU64,
+    /// The highest cycle known durable in THIS store (seeded at open from one
+    /// bounded frame scan; advanced in memory on every commit). Monotonic —
+    /// `cycle > committed_through` proves the cycle cannot already be durable,
+    /// which is what makes the scan-free fast path sound.
+    committed_through: Option<CycleId>,
+}
+
+/// The process-local single-writer registry: one LIVE [`LanceCycleWriter`] per
+/// dataset path. `non-Clone + &mut self` serializes commits on one instance;
+/// this registry closes the remaining in-process hole (a second `open` of the
+/// same path is REFUSED while the first writer lives). Cross-PROCESS
+/// exclusivity remains a deployment lease this crate cannot enforce — stated,
+/// not implied away.
+static OPEN_WRITERS: std::sync::LazyLock<std::sync::Mutex<std::collections::HashSet<String>>> =
+    std::sync::LazyLock::new(|| std::sync::Mutex::new(std::collections::HashSet::new()));
+
+impl Drop for LanceCycleWriter {
+    fn drop(&mut self) {
+        if let Ok(mut set) = OPEN_WRITERS.lock() {
+            set.remove(&self.dataset_path);
+        }
+    }
 }
 
 impl LanceCycleWriter {
     /// Open the writer over `path` (local path or object-store URI). Performs
-    /// the ONE startup open; a missing dataset is an empty store.
+    /// the ONE startup open (plus one bounded, frame-projected seed scan when
+    /// the store exists); a missing dataset is an empty store.
+    ///
+    /// Refuses a second live writer on the same path in this process (the
+    /// one-logical-writer topology, enforced rather than narrated). Refuses a
+    /// store whose schema is not this writer's layout — a pre-Phase-A (#911)
+    /// store is REJECTED loudly, never silently reinterpreted.
     pub async fn open(path: impl Into<String>) -> Result<Self, WriteFailed> {
         let dataset_path = path.into();
+        {
+            let mut set = OPEN_WRITERS
+                .lock()
+                .map_err(|_| WriteFailed("writer registry poisoned".into()))?;
+            if !set.insert(dataset_path.clone()) {
+                return Err(WriteFailed(format!(
+                    "a live LanceCycleWriter already owns {dataset_path} in this process — \
+                     one logical writer per store (drop it first)"
+                )));
+            }
+        }
         let opens = AtomicU64::new(0);
         let ds = match Dataset::open(&dataset_path).await {
             Ok(ds) => {
                 opens.fetch_add(1, Ordering::Relaxed);
+                let expected = cycle_store_schema();
+                let got = ds.schema();
+                for field in expected.fields() {
+                    if got.field(field.name()).is_none() {
+                        OPEN_WRITERS
+                            .lock()
+                            .ok()
+                            .map(|mut s| s.remove(&dataset_path));
+                        return Err(WriteFailed(format!(
+                            "store at {dataset_path} is missing column `{}` — not this \
+                             writer's layout (a pre-Phase-A store is rejected, not \
+                             reinterpreted; migrate or discard it explicitly)",
+                            field.name()
+                        )));
+                    }
+                }
                 Some(ds)
             }
             Err(lance::Error::DatasetNotFound { .. }) => None,
-            Err(e) => return Err(WriteFailed(format!("open {dataset_path}: {e}"))),
+            Err(e) => {
+                OPEN_WRITERS
+                    .lock()
+                    .ok()
+                    .map(|mut s| s.remove(&dataset_path));
+                return Err(WriteFailed(format!("open {dataset_path}: {e}")));
+            }
         };
-        Ok(Self {
+        let mut w = Self {
             dataset_path,
             ds,
             opens,
-        })
+            reconcile_scans: AtomicU64::new(0),
+            committed_through: None,
+        };
+        if w.ds.is_some() {
+            // One bounded, projected seed read: the highest durable cycle.
+            // This is startup hydration (allowed), not a normal-path scan.
+            let frames = w.timeline().await?;
+            w.committed_through = frames.iter().map(|f| f.cycle).max();
+        }
+        Ok(w)
     }
 
     /// The store's current head version (`0` = empty store) — the in-memory
@@ -335,6 +414,13 @@ impl LanceCycleWriter {
     }
 
     /// Re-open the dataset from storage — ambiguity resolution ONLY (counted).
+    ///
+    /// A store that existed can NEVER degrade to "empty": if this writer holds
+    /// a handle and the reopen reports `DatasetNotFound` (transient listing
+    /// failure, eventual consistency, or genuine corruption), the OLD handle
+    /// is kept and an error is returned — the caller's outcome stays
+    /// `Ambiguous`, and the next commit can never fall into `Create` over a
+    /// store that has history.
     async fn reopen(&mut self) -> Result<(), WriteFailed> {
         match Dataset::open(&self.dataset_path).await {
             Ok(ds) => {
@@ -344,11 +430,26 @@ impl LanceCycleWriter {
             }
             Err(lance::Error::DatasetNotFound { .. }) => {
                 self.opens.fetch_add(1, Ordering::Relaxed);
-                self.ds = None;
+                if self.ds.is_some() {
+                    return Err(WriteFailed(format!(
+                        "reopen {}: store reported NOT FOUND but this writer holds \
+                         history — keeping the existing handle (a store never \
+                         becomes empty again); treat the outcome as ambiguous",
+                        self.dataset_path
+                    )));
+                }
                 Ok(())
             }
             Err(e) => Err(WriteFailed(format!("reopen {}: {e}", self.dataset_path))),
         }
+    }
+
+    /// How many reconciliation scans ([`find_frame`](Self::find_frame)) this
+    /// writer has EVER run. Zero across a run of fresh monotonic commits —
+    /// the "zero scans on the normal path" falsifier reads this.
+    #[must_use]
+    pub fn reconcile_scans(&self) -> u64 {
+        self.reconcile_scans.load(Ordering::Relaxed)
     }
 }
 
@@ -367,37 +468,55 @@ impl WalSink for LanceCycleWriter {
                 head: DatasetVersion(batch.frame.base_version.0),
             });
         }
-        // 1. Reconciliation-first: an already-durable (cycle, hash) is success;
-        //    a matching cycle with a different hash fails closed.
-        match self.find_frame(batch.frame.cycle).await {
-            Ok(Some(stored_hash)) => {
-                return if stored_hash == batch.batch_hash {
-                    Ok(CommitOutcome::Reconciled {
-                        version: self.head(),
-                        cycle: batch.frame.cycle,
-                        batch_hash: batch.batch_hash,
-                    })
-                } else {
-                    Err(CommitError::HashConflict {
-                        cycle: batch.frame.cycle,
-                        stored_hash,
-                        offered_hash: batch.batch_hash,
-                    })
-                };
-            }
-            Ok(None) => {}
-            Err(e) => {
-                // The reconciliation read itself failed — nothing written yet,
-                // and nothing ambiguous: safe to report as refused I/O.
-                return Err(CommitError::Io(e));
-            }
-        }
-        // 2. The fence: the frame must target the current head. Under the
-        //    one-writer topology a mismatch is a stale horizon (lost-response
-        //    restart / stale cache / topology violation), never competition.
+        // 1. The scan-free FAST PATH decision. A fresh monotonic cycle
+        //    (`cycle > committed_through`, seeded at open) provably cannot be
+        //    durable yet, and a matching fence proves the horizon — so the
+        //    normal path appends DIRECTLY, zero reads. Reconciliation runs
+        //    only when something is off: a fence mismatch (lost-response
+        //    restart / stale cache / topology violation) or a re-submission
+        //    at-or-below the durable cycle watermark.
         let head = self.head();
-        if batch.frame.base_version != head {
-            return Err(CommitError::Fenced { current_head: head });
+        let fresh = self
+            .committed_through
+            .is_none_or(|ct| batch.frame.cycle > ct);
+        if !fresh || batch.frame.base_version != head {
+            // Reconciliation: an already-durable (cycle, hash) is success; a
+            // matching cycle with a different hash fails closed; a genuinely
+            // absent cycle with a bad fence is Fenced (nothing written).
+            self.reconcile_scans.fetch_add(1, Ordering::Relaxed);
+            match self.find_frame(batch.frame.cycle).await {
+                Ok(Some(stored_hash)) => {
+                    return if stored_hash == batch.batch_hash {
+                        self.committed_through = Some(
+                            self.committed_through
+                                .map_or(batch.frame.cycle, |ct| ct.max(batch.frame.cycle)),
+                        );
+                        Ok(CommitOutcome::Reconciled {
+                            current_head: head,
+                            cycle: batch.frame.cycle,
+                            batch_hash: batch.batch_hash,
+                        })
+                    } else {
+                        Err(CommitError::HashConflict {
+                            cycle: batch.frame.cycle,
+                            stored_hash,
+                            offered_hash: batch.batch_hash,
+                        })
+                    };
+                }
+                Ok(None) => {
+                    if batch.frame.base_version != head {
+                        return Err(CommitError::Fenced { current_head: head });
+                    }
+                    // cycle ≤ watermark but absent (a gap id) with a good
+                    // fence: legitimate — fall through to the append.
+                }
+                Err(e) => {
+                    // The reconciliation read itself failed — nothing written
+                    // yet: safe to report as refused I/O.
+                    return Err(CommitError::Io(e));
+                }
+            }
         }
         // 3. The single atomic Lance MVCC commit.
         let record_batch = Self::build_batch(&batch)?;
@@ -423,17 +542,25 @@ impl WalSink for LanceCycleWriter {
             Some(ds) => ds.append(reader, None).await,
         };
         match append_result {
-            Ok(()) => Ok(CommitOutcome::Committed {
-                // The ACTUAL returned physical version — accepted as-is, never
-                // "corrected" (no rollback, no delete, no derived identity).
-                version: self.head(),
-                cycle: batch.frame.cycle,
-                batch_hash: batch.batch_hash,
-            }),
+            Ok(()) => {
+                self.committed_through = Some(
+                    self.committed_through
+                        .map_or(batch.frame.cycle, |ct| ct.max(batch.frame.cycle)),
+                );
+                Ok(CommitOutcome::Committed {
+                    // The ACTUAL publication version returned by the commit —
+                    // accepted as-is, never "corrected" (no rollback, no
+                    // delete, no derived identity).
+                    version: self.head(),
+                    cycle: batch.frame.cycle,
+                    batch_hash: batch.batch_hash,
+                })
+            }
             Err(e) => {
                 // The commit's outcome is UNKNOWN (the manifest may or may not
                 // have published before the failure). Reconcile from storage:
-                // reopen (counted), then look for our durable identity.
+                // reopen (counted; NEVER degrades an existing handle), then
+                // look for our durable identity.
                 let cause = e.to_string();
                 if let Err(re) = self.reopen().await {
                     return Err(CommitError::Ambiguous {
@@ -442,10 +569,15 @@ impl WalSink for LanceCycleWriter {
                         cause: format!("append failed ({cause}); reopen failed ({re})"),
                     });
                 }
+                self.reconcile_scans.fetch_add(1, Ordering::Relaxed);
                 match self.find_frame(batch.frame.cycle).await {
                     Ok(Some(stored_hash)) if stored_hash == batch.batch_hash => {
+                        self.committed_through = Some(
+                            self.committed_through
+                                .map_or(batch.frame.cycle, |ct| ct.max(batch.frame.cycle)),
+                        );
                         Ok(CommitOutcome::Reconciled {
-                            version: self.head(),
+                            current_head: self.head(),
                             cycle: batch.frame.cycle,
                             batch_hash: batch.batch_hash,
                         })
@@ -726,6 +858,7 @@ mod tests {
         );
 
         // Restart: still empty, and a real artifact cycle commits at V1.
+        drop(w); // the registry enforces one live writer per path
         let mut w2 = LanceCycleWriter::open(path.to_str().unwrap())
             .await
             .unwrap();
@@ -769,6 +902,7 @@ mod tests {
         .await
         .unwrap();
 
+        drop(w); // a restart means the prior writer is GONE (the registry enforces it)
         let reopened = LanceCycleWriter::open(path.to_str().unwrap())
             .await
             .unwrap();
@@ -815,10 +949,81 @@ mod tests {
             "no reopen on the normal commit path"
         );
         assert_eq!(
+            w.reconcile_scans(),
+            0,
+            "ZERO reconciliation scans on the fresh-monotonic normal path — measured, not asserted"
+        );
+        assert_eq!(
             w.head(),
             DatasetVersion(3),
             "the head token tracks in memory"
         );
+    }
+
+    /// The one-writer topology is ENFORCED in-process: a second live writer on
+    /// the same path is refused at open; dropping the first frees the path.
+    /// (Cross-process exclusivity remains a deployment lease — documented.)
+    #[tokio::test]
+    async fn a_second_live_writer_on_the_same_path_is_refused() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("cycles.lance");
+        let w1 = LanceCycleWriter::open(path.to_str().unwrap())
+            .await
+            .unwrap();
+        let second = LanceCycleWriter::open(path.to_str().unwrap()).await;
+        assert!(
+            second.is_err(),
+            "two live writers over one store must be unrepresentable in-process"
+        );
+        drop(w1);
+        let w3 = LanceCycleWriter::open(path.to_str().unwrap()).await;
+        assert!(w3.is_ok(), "dropping the writer frees the path");
+    }
+
+    /// Restart reconciliation stays cheap AND correct: a re-submitted batch
+    /// after restart reconciles (one scan), while fresh cycles keep the
+    /// scan-free path.
+    #[tokio::test]
+    async fn restart_resubmission_reconciles_with_one_scan() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("cycles.lance");
+        {
+            let mut w = LanceCycleWriter::open(path.to_str().unwrap())
+                .await
+                .unwrap();
+            persist_cycle(
+                &mut w,
+                CycleFrame::new(CycleId(1), DatasetVersion(0)),
+                vec![artifact(1, 0, 42, 1)],
+            )
+            .await
+            .unwrap();
+        }
+        // Restart (lost acknowledgement): same frozen batch re-submitted.
+        let mut w = LanceCycleWriter::open(path.to_str().unwrap())
+            .await
+            .unwrap();
+        let retry = persist_cycle(
+            &mut w,
+            CycleFrame::new(CycleId(1), DatasetVersion(0)),
+            vec![artifact(1, 0, 42, 1)],
+        )
+        .await
+        .unwrap();
+        assert!(
+            matches!(retry, CommitOutcome::Reconciled { .. }),
+            "{retry:?}"
+        );
+        assert_eq!(w.reconcile_scans(), 1, "exactly one reconciliation scan");
+        // A fresh cycle afterwards is scan-free again.
+        persist_cycle(
+            &mut w,
+            CycleFrame::new(CycleId(2), DatasetVersion(1)),
+            vec![artifact(2, 1, 42, 2)],
+        )
+        .await
+        .unwrap();
+        assert_eq!(w.reconcile_scans(), 1, "the fresh cycle added no scan");
     }
 
     /// F12 + F19: the recovery tail is BOUNDED — `after_cycle` excludes earlier
@@ -839,6 +1044,7 @@ mod tests {
             .await
             .unwrap();
         }
+        drop(w); // a restart means the prior writer is GONE (the registry enforces it)
         let reopened = LanceCycleWriter::open(path.to_str().unwrap())
             .await
             .unwrap();
@@ -875,6 +1081,7 @@ mod tests {
             .await
             .unwrap();
         }
+        drop(w); // a restart means the prior writer is GONE (the registry enforces it)
         let reopened = LanceCycleWriter::open(path.to_str().unwrap())
             .await
             .unwrap();
@@ -939,6 +1146,7 @@ mod tests {
         );
         assert_eq!(w.head(), DatasetVersion(1), "no second version");
 
+        drop(w); // a restart means the prior writer is GONE (the registry enforces it)
         let reopened = LanceCycleWriter::open(path.to_str().unwrap())
             .await
             .unwrap();
@@ -1020,6 +1228,7 @@ mod tests {
             ),
             "{stale:?}"
         );
+        drop(w); // a restart means the prior writer is GONE (the registry enforces it)
         let reopened = LanceCycleWriter::open(path.to_str().unwrap())
             .await
             .unwrap();
@@ -1051,6 +1260,7 @@ mod tests {
         .await
         .unwrap();
 
+        drop(w); // a restart means the prior writer is GONE (the registry enforces it)
         let reopened = LanceCycleWriter::open(path.to_str().unwrap())
             .await
             .unwrap();
@@ -1090,6 +1300,7 @@ mod tests {
             )
             .await
             .unwrap();
+            drop(w); // a restart means the prior writer is GONE (the registry enforces it)
             let reopened = LanceCycleWriter::open(path.to_str().unwrap())
                 .await
                 .unwrap();

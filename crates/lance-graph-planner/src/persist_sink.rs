@@ -85,6 +85,16 @@
 //!   store calls, zero rows, unchanged head. (The predecessor contract's
 //!   deliberate empty-cycle versioning is REMOVED, not repaired.)
 //!
+//! **Honest limit of the Phase-A gate (review-flagged):** the gate tests
+//! payload PRESENCE, not semantic CHANGE — an identical artifact re-emitted in
+//! a later cycle still commits (a new cycle genuinely concluded, but with
+//! unchanged content). Change-detection needs conclusion IDENTITY (the
+//! `(episode, plan, revision)` model + producer-side digest dedup) and is the
+//! Phase-D conclusion-boundary refinement; a typed
+//! `IntentOnly | ArtifactChanged` cast kind belongs there too, replacing the
+//! empty-payload CONVENTION with a type. Until then this doc — not the type
+//! system — is what says an empty payload means intent.
+//!
 //! ## One logical writer — commit is `&mut self`, no rollback, no delete
 //!
 //! There is exactly ONE logical application writer per cycle store; the 64k
@@ -215,18 +225,27 @@ pub struct FrameMeta {
 pub enum CommitOutcome {
     /// Zero artifact casts: zero store calls, zero rows, unchanged head.
     NoChange { head: DatasetVersion },
-    /// The batch is durable at the ACTUAL returned physical version.
+    /// The batch is durable at the ACTUAL returned physical PUBLICATION
+    /// version — the audit-grade reference (unlike
+    /// [`Reconciled`](CommitOutcome::Reconciled)'s `current_head`).
     Committed {
         version: DatasetVersion,
         cycle: CycleId,
         batch_hash: u64,
     },
     /// The batch was ALREADY durable (a lost acknowledgement / retry): found by
-    /// its `(cycle, batch_hash)` identity; no second append happened. `version`
-    /// is the store head at reconciliation (the exact publication position is
-    /// discoverable via the version history when audit needs it).
+    /// its `(cycle, batch_hash)` identity; no second append happened.
+    ///
+    /// **`current_head` is deliberately NOT named `version`**: it is the store
+    /// head AT RECONCILIATION TIME, not the version this cycle originally
+    /// published at (retrying cycle 1 after cycle 5 reconciles at head V5).
+    /// An audit trail must reference the durable identity
+    /// `(cycle, batch_hash)` — the exact publication position is recoverable
+    /// from the version history on the audit path, never inferred from this
+    /// field. Only [`Committed`](CommitOutcome::Committed)'s `version` is a
+    /// publication version.
     Reconciled {
-        version: DatasetVersion,
+        current_head: DatasetVersion,
         cycle: CycleId,
         batch_hash: u64,
     },
@@ -802,7 +821,7 @@ mod tests {
             if let Some(rec) = sealed.iter().find(|s| s.frame.cycle == batch.frame.cycle) {
                 return if rec.batch_hash == batch.batch_hash {
                     Ok(CommitOutcome::Reconciled {
-                        version: DatasetVersion(self.head.load(Ordering::SeqCst)),
+                        current_head: DatasetVersion(self.head.load(Ordering::SeqCst)),
                         cycle: batch.frame.cycle,
                         batch_hash: batch.batch_hash,
                     })

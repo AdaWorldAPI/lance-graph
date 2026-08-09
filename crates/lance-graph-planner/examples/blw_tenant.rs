@@ -454,7 +454,7 @@ impl WalSink for MemWal {
         if let Some(rec) = sealed.iter().find(|s| s.cycle == batch.frame.cycle) {
             return if rec.batch_hash == batch.batch_hash {
                 Ok(CommitOutcome::Reconciled {
-                    version: DatasetVersion(self.head.load(Ordering::SeqCst)),
+                    current_head: DatasetVersion(self.head.load(Ordering::SeqCst)),
                     cycle: batch.frame.cycle,
                     batch_hash: batch.batch_hash,
                 })

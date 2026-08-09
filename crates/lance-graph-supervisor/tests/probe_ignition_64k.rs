@@ -164,7 +164,7 @@ mod probe_ignition_64k {
             if let Some(rec) = sealed.iter().find(|s| s.frame.cycle == batch.frame.cycle) {
                 return if rec.batch_hash == batch.batch_hash {
                     Ok(CommitOutcome::Reconciled {
-                        version: rec.version,
+                        current_head: rec.version,
                         cycle: batch.frame.cycle,
                         batch_hash: batch.batch_hash,
                     })
