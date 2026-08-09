@@ -1840,6 +1840,55 @@ mod tests {
         );
     }
 
+    // ── P4e FALSIFIER: the `after_cycle` bound BITES (inertness both ways) ───────
+    /// A knob that changes nothing is decoration. This drives the SAME durable
+    /// history twice — once unbounded, once bounded past the landing's cycle —
+    /// and asserts the bound both EXCLUDES (nothing replays, the owner stays
+    /// put) and, at a lower bound, ADMITS (the move replays). Without both
+    /// halves, `after_cycle` could be ignored inside `recover_fleet` and every
+    /// existing test would still pass, since they all pass `None`.
+    #[tokio::test]
+    async fn recover_fleet_after_cycle_bound_excludes_and_admits() {
+        // Seal owner 5's Planning→CognitiveWork move in CYCLE 2.
+        let mut sink = FakeWalSink::new();
+        let mut w = writer_with_moves(&[5]);
+        let collected = collect_casts(&mut w, CycleId(2), 0, u64::from);
+        seal_cycle(
+            &mut sink,
+            CycleFrame::new(CycleId(2), DatasetVersion(0)),
+            collected.slots,
+        )
+        .await
+        .unwrap();
+
+        // Bounded PAST the landing's cycle → its tail is outside the read.
+        let mut fleet: HashMap<MailboxId, FakeOwner> =
+            HashMap::from([(5, FakeOwner::at(5, KanbanColumn::Planning))]);
+        let mut wm: HashMap<MailboxId, Option<u64>> = HashMap::new();
+        let excluded = recover_fleet(&mut sink, &mut fleet, &[5], &mut wm, Some(CycleId(2)))
+            .await
+            .unwrap();
+        assert_eq!(
+            excluded.total_applied, 0,
+            "a bound past the landing's cycle excludes it — the bound is not inert"
+        );
+        assert_eq!(
+            fleet[&5].phase(),
+            KanbanColumn::Planning,
+            "and the owner is untouched"
+        );
+
+        // Bounded BELOW it (strictly-after semantics) → the same tail replays.
+        let admitted = recover_fleet(&mut sink, &mut fleet, &[5], &mut wm, Some(CycleId(1)))
+            .await
+            .unwrap();
+        assert_eq!(
+            admitted.total_applied, 1,
+            "a lower bound admits the same landing — the bound discriminates"
+        );
+        assert_eq!(fleet[&5].phase(), KanbanColumn::CognitiveWork);
+    }
+
     // ── P4e FALSIFIER: recovery replays the pending tail, idempotent w/ watermark ─
     #[tokio::test]
     async fn p4e_recover_fleet_replays_pending_tail_idempotent_with_watermark() {
