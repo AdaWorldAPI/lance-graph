@@ -10,6 +10,11 @@
 pub mod arigraph;
 pub mod audio;
 pub mod blasgraph;
+/// The concrete Lance-backed `WalSink` (cognitive-cycle sink). Gated on the
+/// `planner` feature because the trait it implements lives in
+/// `lance-graph-planner` (an optional dep outside that feature).
+#[cfg(feature = "planner")]
+pub mod cycle_sink;
 pub mod fingerprint;
 pub mod graph_router;
 pub mod hydrate;

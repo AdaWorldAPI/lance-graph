@@ -33,6 +33,15 @@
 > - **Docs** — knowledge files produced (immutable)
 > - **Confidence (YYYY-MM-DD):** — the ONLY mutable field
 
+## 2026-08-09 — branch `claude/medcare-rs-continue-ufsazd` (PR pending) — the concrete cognitive-cycle Lance sink: `graph::cycle_sink::LanceCycleSink`
+
+- **Added.** `lance_graph::graph::cycle_sink` (~660 LOC incl. 6 reopened-dataset tokio tests) — the concrete `lance_graph_planner::persist_sink::WalSink` over the official Lance 9 insert path; `cycle_store_schema()` (frame row + landing rows, nullable Rubicon `move_*` columns, `payload` witness bytes); `LanceCycleSink`. Module gated on the default-on `planner` feature.
+- **Locked.** **Lance's manifest/version chain IS the WAL** — no bespoke ledger / acknowledgement protocol / parallel replay system (operator-ruled). **The §I.6 fence has two halves**: pre-commit head==base (nothing written on refusal) AND post-commit published==base+1 (Lance auto-resolves append-append conflicts, so a foreign writer is a loud timeline anomaly, never a silent identity shift). **`sealed_version = base_version + 1` is a verified identity, not an assumption** — which is what lets reads derive the cycle↔version mapping from the atomically-co-committed frame row with zero sidecar state. **Order is a write-side property** (stored deinterlaced order, `scan_in_order(true)`, no read-time sort). **Domain-0x09 witness contract**: the patient SoA is the ONLY patient-reasoning Lance write target; payload = maximally-rich EpisodicWitness node built ON TOP of the immutable domain-0x03 ontology addresses (immutability taken for granted for the representation window via `base_version`).
+- **Deferred.** The MedCare consumer arc (production `drive_cohort_thoughts` caller, witness-seal, views reading the sealed version) — next PR, in MedCare-rs. `recover_and_apply` wiring against this sink in a production driver. Object-store (s3/az/gs) smoke — the path plumbing accepts URIs but only local was exercised.
+- **Docs.** Module-level witness/§I.6 contract in `cycle_sink.rs`; this entry + LATEST_STATE inventory (same commit).
+
+**Confidence (2026-08-09):** tests green against reopened local datasets; not yet merged.
+
 ## 2026-08-05 — the lance 9 / DataFusion 54 / Rust 1.97.1 cross-repo bump (9 repos; lance-graph PR pending, siblings MERGED)
 
 Siblings merged same day: OGAR #244/#245, ruff #93, stockfish-rs #14, woa-rs #179, a2ui-rs #19, MedCare-rs #351. lance-graph's own arc rides the branch below.
