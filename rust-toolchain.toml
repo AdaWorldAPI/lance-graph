@@ -1,19 +1,31 @@
 [toolchain]
 channel = "1.97.1"
-# Pinned to 1.95.0 (bumped from 1.94.1 in PR #367, 2026-05-13). Aligns
-# with bevy (edition 2024 → 1.95 MSRV) and ndarray (bumped in parallel
-# per LATEST_STATE 2026-05-13). 1.95 added clippy lints
-# (`clippy::manual_checked_ops`, `clippy::unnecessary_sort_by`,
-# `clippy::len_zero` cleanups) that PR #367 + #368 closed across the
-# workspace. Never auto-track `stable` — bump explicitly when a future
-# version is reviewed and workspace clippy passes clean.
+# The pinned version is the `channel` line ABOVE — deliberately not restated
+# in this comment. Restating it is what made this comment wrong twice: it said
+# "1.94.1" until `10f87fb6` corrected it, then said "1.95.0" after the bump to
+# 1.97.1, because a bump edits `channel` and leaves the prose behind. Keep the
+# rationale here and the version there; append to the log, never re-narrate.
+#
+# Bump log (append one line per bump):
+#   1.94.0 → 1.94.1   matches sibling repos                        (f638fa27)
+#   1.94.1 → 1.95.0   bevy edition-2024 MSRV + ndarray in parallel (PR #367,
+#                     2026-05-13); #367 + #368 closed the lints 1.95 added
+#                     (`manual_checked_ops`, `unnecessary_sort_by`, `len_zero`)
+#   1.95.0 → 1.97.1   lance 9 / lancedb 0.33 / DataFusion 54 sweep (b2b08b07,
+#                     2026-08-05); toolchain leg measured ALONE on the old pins
+#                     first, so a toolchain failure could not be mistaken for a
+#                     dependency failure —
+#                     `.claude/plans/lance9-datafusion54-upgrade-probe-v1.md`
+#
+# Never auto-track `stable` — bump explicitly when a future version is
+# reviewed and workspace clippy passes clean.
 #
 # rustfmt + clippy are mandatory CI components and must be present
 # whenever the pinned channel is installed. Without this, `cargo fmt`
 # under `actions-rust-lang/setup-rust-toolchain@v1` resolves to the
-# pinned `1.94.x` channel but rustfmt is only installed for `stable`
+# pinned channel but rustfmt is only installed for `stable`
 # (the action's default), producing:
-#   error: 'cargo-fmt' is not installed for the toolchain '1.94.x-...'
+#   error: 'cargo-fmt' is not installed for the toolchain '<pinned>-...'
 # Declaring components here makes rustup install them as part of the
 # toolchain itself, which is also developer-friendly: a fresh
 # `rustup show` in this workspace materializes a complete CI-equivalent

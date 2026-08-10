@@ -271,19 +271,40 @@ session needs them added.
 
 ```
 rust        1.97.1        (rust-toolchain.toml)
-lance       9.0.0         lance-encoding 9.0.0 · lance-linalg 9.0.0
-lancedb     0.33.0
+lance       =9.0.0        lance-encoding 9.0.0 · lance-linalg =9.0.0 · lance-index =9.0.0
+lancedb     =0.33.0
 arrow       58.3.0
-datafusion  53
+datafusion  54            ← NOT 53; see the correction below
 ```
 
-The lance family moves in **exact lockstep**; a bump is one deliberate PR, never a
-drift. Two drift items recorded during verification, neither blocking:
+The lance family moves in **exact lockstep** (`=X.Y.Z` in every manifest, verified);
+a bump is one deliberate PR, never a drift.
 
-1. `Cargo.lock` resolves **datafusion 53.1.0 *and* 54.1.0** — plausibly a transitive
-   pulling 54, but the lockstep discipline exists to prevent exactly this shape.
-2. `rust-toolchain.toml`'s channel is `1.97.1` while its own comment still says
-   *"Pinned to 1.95.0"* — the comment did not follow the bump.
+> **⊘ CORRECTION (2026-08-10, same day, before any POC work started; corrected
+> twice).** This section's first version said **`datafusion 53`** and filed the
+> presence of 54.1.0 in `Cargo.lock` as suspicious drift. **That was backwards.**
+> `datafusion = "54"` is our direct pin in every crate manifest, and `lance` /
+> `lancedb` / `lance-index` / `lance-datafusion` all require 54; the move is
+> recorded and **MEASURED** (`lance9-datafusion54-upgrade-probe-v1.md`, 2026-08-05).
+>
+> **Second correction (operator):** the first fix then called 53 a *"residual
+> transitive"* — also wrong, and more dangerous, because it invites someone to
+> collapse the lock to one version. **Both majors are REQUIRED.**
+> `deltalake-core 0.32.4` pins `datafusion 53.1.0` (+ `-datasource`,
+> `-physical-expr-adapter`) upstream, backing the optional `delta` feature. Two
+> semver majors coexisting is the *correct, documented* state — not a defect to
+> tidy. It lifts only when deltalake moves to DF 54.
+>
+> **Root cause, worth more than the fact:** `CLAUDE.md`'s Key Dependencies block —
+> the mandatory first read for every session — was itself stale (`lance = "=7.0.0"`,
+> `lancedb = "=0.30.0"`, `datafusion = "53"`, dated 2026-06-14, pre-dating the
+> lance-9 sweep). The wrong pin propagated *from* that block *into* this plan. A POC
+> session that trusted either would have pinned lance 7 against a lance-9 tree and
+> failed to build. Both are corrected in the same PR as this note.
+
+The `rust-toolchain.toml` comment drift noted in the first version is also fixed
+there — **structurally**: the comment no longer restates the channel value (which is
+what made it go stale twice), and carries an append-only bump log instead.
 
 ---
 
