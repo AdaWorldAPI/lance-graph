@@ -1150,12 +1150,34 @@ cd crates/lance-graph-python && maturin develop
 ## Key Dependencies
 
 ```toml
-# Verified against Cargo.lock 2026-06-14. The lance family moves in lockstep at =7.0.0 (PR #445).
-arrow = "58"
-datafusion = "53"
-lance = "=7.0.0"          # exact-pinned: lancedb 0.30.0 transitively requires lance =7.0.0
-lance-linalg = "=7.0.0"
-lancedb = "=0.30.0"       # 0.30 → lance 7 → object_store 0.13.2 (0.29 → lance 6 → object_store 0.12)
+# Verified against Cargo.lock + every crate manifest 2026-08-10. The lance family
+# moves in EXACT lockstep — currently =9.0.0 (lance 7 was the 2026-06-14 state,
+# superseded by the lance-9 sweep, b2b08b07 / PR #896 arc).
+arrow = "58"          # 58.3.0 resolved; unmoved by the lance-9 sweep
+datafusion = "54"     # OUR direct pin, in every crate that DEPENDS on it
+                      # (lance-graph, -catalog, -callcenter, -python, holograph),
+                      # and the sub-crates move with it: datafusion-common / -expr
+                      # / -sql / -functions-aggregate are all "54". lance /
+                      # lancedb / lance-index / lance-datafusion require 54 too.
+                      # (Grep caveat: `lance-graph-planner/Cargo.toml` has
+                      # `datafusion = []` under [features] — a FEATURE NAME, not a
+                      # version pin. It is not a counter-example.)
+                      #
+                      # ⚠ BOTH MAJORS ARE REQUIRED — do NOT "fix" Cargo.lock to one.
+                      # `datafusion 53.1.0` (+ -datasource, -physical-expr-adapter)
+                      # also resolves because `deltalake-core 0.32.4` pins DF 53
+                      # upstream, and it backs the optional `delta` feature. Two
+                      # semver majors legitimately coexist; collapsing them breaks
+                      # `delta`. 53 is NOT a stale leftover — it is a live upstream
+                      # constraint that lifts only when deltalake moves to DF 54.
+                      # Probe: .claude/plans/lance9-datafusion54-upgrade-probe-v1.md
+lance = "=9.0.0"          # exact-pinned: lancedb 0.33.0 requires lance =9.0.0
+lance-linalg = "=9.0.0"
+lance-index = "=9.0.0"
+lancedb = "=0.33.0"       # the lance-9 pairing. NOTE: lancedb 0.36 is the PyPI
+                          # package, versioned independently — the Rust crate
+                          # tops out at 0.33.0 (probe §1).
+rust = "1.97.1"           # rust-toolchain.toml is authoritative; see its bump log
 ndarray = { path = "../../../ndarray" }  # AdaWorldAPI fork, default, optional fallback
 nom = "7.1"
 snafu = "0.8"

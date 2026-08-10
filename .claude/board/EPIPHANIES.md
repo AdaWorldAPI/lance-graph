@@ -1,3 +1,84 @@
+## 2026-08-10 — E-CLAUDE-MD-KEY-DEPENDENCIES-WENT-STALE-AND-PROPAGATED-A-WRONG-PIN-INTO-A-PLAN-1
+
+**Status:** FINDING `[G]` (verified against `Cargo.lock` + every crate manifest).
+
+`CLAUDE.md` § Key Dependencies — **the mandatory first read for every session** —
+carried four stale pins, dated *"Verified against Cargo.lock 2026-06-14"*, which
+pre-dates the lance-9 sweep (`b2b08b07`, 2026-08-05):
+
+| CLAUDE.md said | tree actually has |
+|---|---|
+| `lance = "=7.0.0"` | **`=9.0.0`** |
+| `lance-linalg = "=7.0.0"` | **`=9.0.0`** |
+| `lancedb = "=0.30.0"` | **`=0.33.0`** |
+| `datafusion = "53"` | **`54`** |
+
+**The propagation is the finding, not the staleness.** The wrong `datafusion 53`
+travelled: stale `CLAUDE.md` → restated in-session → written into
+`weather-substrate-poc-v2.md` §6 (PR #915, merged) → *and* mischaracterized there,
+because `datafusion 54.1.0` in `Cargo.lock` was filed as suspicious drift when 54 is
+in fact our correct, deliberate, **MEASURED** direct pin
+(`.claude/plans/lance9-datafusion54-upgrade-probe-v1.md`, 2026-08-05). **A POC
+session trusting either document would have pinned lance 7 against a lance-9 tree
+and failed to build.**
+
+**⊘ Self-correction, same hour (operator-caught).** The first version of THIS entry
+then called `datafusion 53.1.0` a *"residual transitive."* Wrong, and more dangerous
+than the original error: it frames a required dependency as cruft, inviting a future
+session to collapse `Cargo.lock` to a single major and silently break the `delta`
+feature. **Both majors are REQUIRED and the dual state is documented upstream:**
+`deltalake-core 0.32.4` pins `datafusion 53.1.0` (+ `datafusion-datasource`,
+`datafusion-physical-expr-adapter` at 53.1.0); the lance family pins 54. Cargo
+permits the coexistence precisely because they are different semver majors. It
+resolves only when deltalake moves to DF 54 — not by any action here.
+
+**The meta-lesson:** "this version looks unexpected" has three possible causes —
+*stale doc*, *real drift*, and **legitimate multi-major coexistence**. I reached for
+the first two and skipped the third, twice in opposite directions. Before labelling
+a version anomalous, read *who requires it*; a lockfile entry with a live requirer
+is a constraint, never a leftover.
+
+The lockstep discipline itself was never violated: every manifest carries exact
+`=9.0.0` / `=0.33.0`. **Only the docs lagged** — which is the more dangerous
+failure, because the code compiles and the doc is what a new session reads first.
+
+**Rule:** a version block asserting *"verified against Cargo.lock <date>"* is a
+claim with an expiry. When a dependency sweep lands, the sweep's PR must update
+every doc that restates its pins — the same-commit board-hygiene rule, applied to
+version facts. Grep for the old version string across `.claude/` and `CLAUDE.md`
+before closing a bump.
+
+Corrected in this PR: `CLAUDE.md` (all four, + `lance-index`, + a `rust` line
+pointing at `rust-toolchain.toml` as authoritative), the plan's §6 with a dated
+`⊘ CORRECTION` block (append-only, not a silent edit).
+
+## 2026-08-10 — E-A-COMMENT-THAT-RESTATES-A-PINNED-VALUE-GOES-STALE-EVERY-BUMP-1
+
+**Status:** FINDING `[G]` (two recurrences in the same file, both in git history).
+
+`rust-toolchain.toml`'s comment restated the pinned version in prose. It has
+therefore been **wrong twice**:
+
+1. said `1.94.1` after a bump → fixed by `10f87fb6`
+   (*"docs(toolchain): fix stale 1.94.1 comment"*);
+2. said `1.95.0` after the bump to `1.97.1` (`b2b08b07`) — **the identical failure,
+   ~3 months later**, because the earlier fix corrected the *value* and left the
+   *structure* that guarantees the value goes stale.
+
+A bump edits `channel = "…"` and nobody re-reads the paragraph below it. The
+one-off correction resets the clock; it does not stop it.
+
+**Structural fix (this PR):** the comment **no longer restates the version at all**
+— it points at the `channel` line as authoritative — and carries an **append-only
+bump log** instead, one line per bump with its commit/PR and reason. Appending
+cannot contradict; re-narrating always can.
+
+**Generalizes beyond this file:** any prose that duplicates a machine-readable
+value has a half-life. Either derive it, or make the duplicate append-only. (Same
+shape as `E-CLAUDE-MD-KEY-DEPENDENCIES-WENT-STALE-…-1` above, found the same hour —
+one is a config comment, the other a doc table, both duplicated a pin and both went
+wrong.)
+
 ## 2026-08-10 — E-JC-AND-NDARRAY-BOTH-SHIP-A-RELIABILITY-BATTERY-WITH-DIFFERENT-DEGENERATE-CONTRACTS-1
 
 **Status:** FINDING `[G]` (source-verified 2026-08-10, both files read).
