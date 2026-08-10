@@ -1,3 +1,69 @@
+## 2026-08-10 — E-JC-AND-NDARRAY-BOTH-SHIP-A-RELIABILITY-BATTERY-WITH-DIFFERENT-DEGENERATE-CONTRACTS-1
+
+**Status:** FINDING `[G]` (source-verified 2026-08-10, both files read).
+
+`pearson` / `spearman` / `cronbach_alpha` / `icc` exist in **BOTH**
+`jc::reliability` (`crates/jc/src/reliability.rs`) and `ndarray::hpc::reliability`
+(`ndarray/src/hpc/reliability.rs`) — with **different degenerate-input contracts**:
+
+| | `jc` | `ndarray::hpc` |
+|---|---|---|
+| signature | `-> Option<f64>` | `-> f64` |
+| degenerate (n<2 / zero variance) | `None` | **`0.0`** |
+| icc | `icc(ratings, IccForm)` | `icc_a1(ratings)` |
+| cronbach input | `&[Vec<f64>]` | `&[&[f64]]` |
+
+**Why this matters and is not cosmetic:** ρ = 0.0 is *also a legitimate measured
+value*. The ndarray form therefore cannot distinguish "no correlation" from
+"undefined" — a zero-variance window (entirely possible in a real field: a constant
+patch, a saturated code lane) silently enters an aggregate as a real 0.0 and drags
+the mean down, where `jc` would have returned `None` and forced the caller to decide.
+This is the same shape as the vacuous-assertion family: a value that cannot fail
+loudly.
+
+**Ruling:** `jc` is the authority (operator-named "the lance-graph JC crate"); the
+ndarray copy is the SIMD-side mirror. **Every reliability number in the weather POC
+is computed with `jc`.** Their agreement over identical non-degenerate inputs is
+itself a probe (plan `weather-substrate-poc-v2.md`, D-WXB-4), paired with an
+assertion that the degenerate case is *reported*, never folded.
+
+Cross-ref: `.claude/plans/weather-substrate-poc-v2.md` §3; `jc` = "Jirak-Cartan:
+five-pillar proof-in-code" (zero external deps; Pillar 11 `hambly_lyons` is
+sigker-gated); `E-VACUOUS-ASSERTION-IS-THE-HOUSE-STYLE-1`.
+
+## 2026-08-10 — E-THE-DOCUMENTED-PROXY-BYPASS-IS-FOR-PUSH-DENIALS-NOT-CLONE-AUTH-1
+
+**Status:** FINDING `[G]` (reproduced and resolved in-session).
+
+Cloning `AdaWorldAPI/{ecmwf-opendata,weatherbench2,arco-era5}` failed with
+`fatal: could not read Username for 'https://github.com'` — which reads exactly like
+a repo-scope denial, and two independent signals reinforced that misreading:
+
+1. `mcp__claude-code-remote__{list_repos,add_repo}` genuinely are **not exposed** in
+   this session (confirmed with two different ToolSearch queries), so "the repo is
+   out of scope" was the available hypothesis; and
+2. this workspace's own documented lesson (tesseract-rs `CLAUDE.md`, GitHub access
+   matrix) says *"a 403 here is USUALLY THE PROXY — retest with the proxy bypassed"*,
+   which sent the diagnosis further the wrong way. Bypassing the proxy failed too.
+
+**Root cause: self-inflicted.** The agent proxy **already injects credentials** for
+these repos. Passing an explicit `-c http.extraHeader="Authorization: Bearer $TOKEN"`
+**overrode** the proxy's injected credential with a form GitHub's git endpoint
+rejects. Plain `git clone`, proxy ON, **no explicit header**, works for all three.
+
+**What broke the tie:** a REST probe — `HTTP 200` on all four repos
+(`lance-graph` + the three new) proved the token had access, so the failure had to be
+the *method*, not the scope.
+
+**Rule:** the documented "bypass the proxy" reflex is for **push denials**; for
+**clone auth**, adding an explicit `Authorization` header is the bug. Never hand-roll
+credentials for a transport that already carries them. (Token discipline held
+throughout — expanded inline via `${GH_TOKEN//\"/}`, never printed, and
+`.git/config` verified free of credentials after cloning.)
+
+Cross-ref: tesseract-rs `CLAUDE.md` § GitHub access matrix (the push-side half, which
+remains correct).
+
 ## 2026-08-08 — E-THREE-NAMED-PROBES-ARE-ONE-MEASUREMENT — F-1, helix's unrun fidelity gate, and the weather-encoder question are the SAME probe
 
 **Status:** FINDING `[G]` on the identity (three docs, one measurement shape), `[H]` on the outcome (unrun). Surfaced by the 5-agent recon behind `.claude/plans/weather-substrate-poc-v1.md`.
