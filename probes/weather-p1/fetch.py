@@ -1,0 +1,37 @@
+import json, urllib.request, numpy as np, numcodecs, datetime as dt, os
+B="https://storage.googleapis.com/gcp-public-data-arco-era5/ar/1959-2023_01_10-full_37-1h-0p25deg-chunk-1.zarr"
+meta=json.load(open('zmeta.json'))['metadata']
+# time units
+print("time .zattrs:", json.dumps(meta.get('time/.zattrs',{}))[:200])
+epoch=dt.datetime(1959,1,1)
+target=dt.datetime(2021,6,15,12)
+t=int((target-epoch).total_seconds()//3600)
+print(f"target={target} -> time index t={t} (shape0=561264, in range={t<561264})")
+
+def get(var, t):
+    za=meta[f'{var}/.zarray']; comp=za['compressor']
+    key=f'{var}/{t}.0.0'
+    req=urllib.request.Request(f'{B}/{key}')
+    raw=urllib.request.urlopen(req, timeout=300).read()
+    dec=numcodecs.get_codec(comp).decode(raw)
+    a=np.frombuffer(dec,dtype=za['dtype']).reshape(za['chunks'])[0]
+    return a, len(raw), dec.__len__() if hasattr(dec,'__len__') else a.nbytes
+
+os.makedirs('fixture',exist_ok=True)
+rows=[]
+for var in ['2m_temperature','total_column_water_vapour','surface_pressure',
+            '10m_u_component_of_wind','10m_v_component_of_wind']:
+    a,ncomp,nraw=get(var,t)
+    np.save(f'fixture/{var}.npy', a)
+    finite=np.isfinite(a)
+    rows.append((var,a.shape,a.dtype.str,ncomp,a.nbytes,a.nbytes/ncomp,
+                 float(a[finite].min()),float(a[finite].max()),int((~finite).sum())))
+    print(f"{var:34s} shape={a.shape} dtype={a.dtype} comp={ncomp:>9,}B raw={a.nbytes:>9,}B "
+          f"ratio={a.nbytes/ncomp:5.3f}x min={a[finite].min():12.4f} max={a[finite].max():12.4f} nonfinite={(~finite).sum()}")
+json.dump({'time_index':t,'target_utc':target.isoformat(),
+           'store':B,
+           'vars':{r[0]:{'shape':list(r[1]),'dtype':r[2],'compressed_bytes':r[3],
+                         'raw_bytes':r[4],'blosc_ratio':r[5],'min':r[6],'max':r[7],'nonfinite':r[8]} for r in rows}},
+          open('fixture/manifest.json','w'), indent=2)
+tot_c=sum(r[3] for r in rows); tot_r=sum(r[4] for r in rows)
+print(f"\nTOTAL compressed={tot_c:,}B raw={tot_r:,}B  blosc mean ratio={tot_r/tot_c:.4f}x")

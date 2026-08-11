@@ -8,6 +8,16 @@
 > the correction ledger is part of the document, not an apology appendix).
 > **Companion plan:** `.claude/plans/weather-substrate-poc-v2.md` (PR #915).
 >
+> ## ⊘ READ §12 FIRST (2026-08-11, same day as authorship)
+>
+> Probe **P1 ran** and an **envelope audit ran**, and between them they
+> **falsified four claims in this document** — including one where a §11
+> "correction" was itself the error. Affected: **§1.2** (Fisher-Z doctrine),
+> **§2.3 + §5 + §6.6** (helix360 as a wind-bearing carrier), **§11-C2** (the
+> `Pair48` rejection), **§6.1/§6.5** (measurement provenance). Every one of
+> those sections is superseded by **§12**. The sections are left standing,
+> not deleted, so the correction is legible.
+>
 > **Grading (mandatory on every claim):**
 > - `[G]` — verified in committed code this session, with `file:line`.
 > - `[G-absence]` — verified NOT to exist (grep/read, stated scope).
@@ -511,3 +521,156 @@ contract (lance-graph-contract/src/canonical_node.rs)
 └─ ValueTenant::HelixResidue = 4  → ColumnKind::U8 × 6 @ row_offset 112
    in ValueSchema::{Compressed, Full}; node row = key(16)|edges(16)|value(480)
 ```
+
+---
+
+## 12. ⊘ CORRECTIONS — what P1 and the envelope audit falsified (2026-08-11)
+
+Written the same day as the rest of this document, by the two gates the
+document itself queued. Both fired. Sections above are **left standing and
+regraded here**, never silently edited.
+
+### 12.1 — §1.2 FALSIFIED for weather scalars: Fisher-Z *degrades* the palette
+
+Measured, real ERA5 `2m_temperature`, 1,038,240 gridpoints, both paths into the
+same 256 buckets over the same 0.4–99.6 percentile window
+(`probes/weather-p1/`, re-runnable):
+
+| path | MAE (K) | p99 (K) | empty buckets | effective buckets | drift score |
+|---|---|---|---|---|---|
+| **linear** (no transform) | **0.0684** | 0.0939 | **0** | **115.7 / 256** | 607 |
+| Fisher-Z then linear | 0.2168 | 0.4253 | **76** | **28.1 / 256** | 2240 |
+
+Fisher-Z is **3.2× worse** and burns **228 of 256 buckets**.
+
+**Mechanism, measured not assumed:** `arctanh` is ≈identity near 0 and explodes
+near ±1, so it moves resolution *toward the bounds*. ERA5 temperature anomaly
+over a robust scale has mean |s| = 0.172, **77 % of mass inside |s| < 0.25**,
+1.2 % beyond 0.9, kurtosis +3.3 — mass in the **middle**. A correlation-like
+control (`tanh(N(0,1.5))`) has 13.5 % inside 0.25 and **32.7 % beyond 0.9** —
+mass at the **bounds**. Fisher-Z is right for the second shape and wrong for the
+first.
+
+**So §1.2's "this is what makes 8 bits sufficient" is false for weather
+scalars.** The correct general statement: **the transform must match the input
+distribution's shape.** Fisher-Z earns its keep on correlation-like inputs and
+on helix's own rim radius `r = √u`, which equal-area placement concentrates
+toward `r → 1` **by construction** (`placement.rs:147-151`) — i.e. helix uses it
+on exactly the shape it suits. Nothing about the helix crate is impugned; what
+is falsified is *generalizing its transform to bell-shaped geophysical fields*.
+
+**Product consequence:** "Fisher-Z everything into one comparable substrate"
+does not survive. **P2 is re-scoped**, not merely un-run: it must now test
+cross-variable comparability under a *per-shape* transform choice, and prove
+the shared **palette + LUT** still hold once the shared **transform** is gone.
+
+### 12.2 — §2.3 / §5 / §6.6 FALSIFIED: helix360 is not a wind-bearing carrier
+
+The `v3-envelope-auditor` verdict on reading the 6-byte `HelixResidue` lane as
+`2 × ResidueEdge` (in/out): **LAYOUT-GATED, and the gate does not exist** — with
+the premise itself falsified:
+
+1. **`Signed360` is ONE signed orientation**, `rim(3) + polar(1) + azimuth(2)`
+   (`residue.rs:76-116`) — not two hemisphere codes. The "2× the 24-bit
+   hemisphere" line (`canonical_node.rs:838-839`, `placement.rs:170-171`) is a
+   **width identity (48 = 2×24) plus a coverage claim**, never a structural
+   in/out claim. §2.3's `[G]` on that reading was **unearned**; regrade `[S]`.
+2. **`ResidueEdge` cannot carry a hemisphere sign at all.** `sprite_replay.rs:56-63`:
+   sprites seeded `Sign::Neg` reconstruct through the `ResidueEdge` path as
+   `Sign::Pos` — *"a real, measurable structural error, not a rounding
+   artifact."* An in/out pair of `ResidueEdge` would silently force both to the
+   upper hemisphere.
+3. **`ResidueEdge` has no azimuth.** The 16-bit `azimuth` is the **only** angular
+   field in the entire lane; the proposed reading deletes it, and spends 2 of 6
+   bytes on duplicate `floor_version` stamps.
+4. **Neither reading is a bearing codec.** The crate says so twice, unprompted:
+   *"there is no free 2-DOF direction codec in this crate"* (`sprite_replay.rs:47`)
+   and *"NOT a generic scalar quantizer … doing so would be exactly the
+   'invented round-trip API'"* (`continuous_field.rs:31-43`). My proposal was
+   that invented round-trip.
+5. **Metric hazard if forced:** `end_idx` is monotone, i.e. **non-circular**, so
+   a wrapped bearing puts 359° and 1° at maximum L1 distance. `DistanceLut`'s
+   triangle-inequality guarantee is about a **linear** index order and does not
+   survive repurposing as an angular one (`residue.rs:53-55`, `distance.rs:22-33`).
+6. **No selector exists.** Exhaustive grep (`HelixResidue`, all `**/*.rs`,
+   `head_limit: 0`): 15 hits, **zero writers, zero decoders**. `ReadMode` has
+   exactly three axes (tail / value_schema / edge_codec) — none selects a
+   value-lane *reading*; `ValueSchema` selects presence only; `EdgeCodecFlavor`
+   covers `EdgeBlock`, a different region. There is **no per-value-lane reading
+   selector in the contract at all** — that absence is the finding.
+
+**Correct shape if a from/to pair is genuinely needed:** a **new 16-byte facet
+lane** read as `FacetSchema::Pair48` = `[Signed360; 2]` — `classid(4) + 6 B in +
+6 B out` — precedent set twice by `Tekamolo` and `CausalWitness` (both 16-byte
+lanes appended at the end, no version bump). Codec owner `crates/helix` (next to
+`encode_signed`, so the #498 sign-partition is never re-implemented); lane owner
+`lance-graph-contract` (zero-dep, reserves bytes only). **⚠ discriminant `15` is
+reserved for `BoardAggregates`** (`canonical_node.rs:1027-1034`) — a new tenant
+takes `16`, never silently consumes 15.
+
+### 12.3 — §11-C2 was itself a mis-correction (the sharpest lesson here)
+
+C2 recorded rejecting a 12-byte `Pair48` for from/to because "the 6 B lane is
+already 2×24 in/out by construction", citing `canonical_node.rs:963`. That line
+is a **comment**, and it states a width identity, not a structure. **The 12-byte
+`Pair48` I rejected was the structurally correct answer** (§12.2). C2 replaced a
+right answer with a wrong one *and then banked the wrong one as a lesson* — the
+failure mode compounding one level up, inside the ledger built to catch it.
+
+**Rule extracted:** a correction is a claim and carries a claim's burden of
+proof. "I was wrong before" is not evidence that the new version is right, and a
+correction written in the same breath as the error it replaces has had no
+independent gate. Route corrections through the same audit as originals.
+
+### 12.4 — Measurement provenance (§6.1, §6.3, §6.5)
+
+- **§6.5 wind-speed non-derivability — provenance broken.** ARCO-ERA5 has **no
+  `wind_speed` variable** (exhaustive: all 52 arrays enumerated; wind-related are
+  exactly the 4 `u`/`v` component arrays). The measurement cannot have come from
+  the Phase-A source the plan names. The Jensen-gap *physics* stands; the
+  *measurement* must be re-attributed (WeatherBench2) or dropped. §5's "wind
+  speed — NOT derivable" row is wrong for this source.
+- **§6.1 blosc 1.27×** is not representative: measured **1.794×**
+  (`2m_temperature`), **1.771×** (`2m_dewpoint_temperature`), **1.248×**
+  (`10m_u_component_of_wind`) at one timestep. Ratio is strongly
+  variable-dependent; a single scalar is the wrong summary.
+- **§6.3 BF16 anomaly gain** reproduced in **direction only**: 0.456 K → 0.00609 K
+  = **74.9×** here (doc: 1.069 K → 0.0110 K = 97×), under a zonal-mean
+  climatology proxy. Different climatology ⇒ different measurement, not a
+  contradiction — but the doc's numbers stay **unreproduced** and `[H]`.
+- **New, unhidden:** 0.82 % of points saturate into the two rim buckets, giving a
+  palette **max** error of 17.5 K against a 0.068 K mean. That is
+  `quantize.rs:11-18`'s documented controlled-saturation tail. Any product claim
+  quotes the tail, not only the mean.
+
+### 12.5 — Pre-existing defect found in passing (not caused by this work)
+
+`Signed360::sign()` is `if polar >= 128 { Pos } else { Neg }`
+(`residue.rs:109-115`), so an **all-zero, never-written lane decodes as a
+definite lower-hemisphere orientation** rather than as "unaddressed". Both
+sibling facet lanes get this right — `Tekamolo`: *"an all-zero facet reads as
+unaddressed … never a wrong circumstance"* (`canonical_node.rs:886-887`);
+`CausalWitness`: *"reads as unbound … never a wrong binding"* (`:900-902`).
+Under the CANON zero-fallback ladder ("zero = fall through to the broader
+default") this is a wrong-value-from-dormant-bytes defect. Filed, not fixed here.
+
+### 12.6 — Probe queue, re-graded
+
+| id | status |
+|---|---|
+| **P1** | **RUN** — `probes/weather-p1/`, results committed. Falsified §1.2 and §6.5; re-measured §6.1/§6.3. |
+| **P2** | **RE-SCOPED, not run.** Must now test cross-variable comparability *without* a shared Fisher-Z, per §12.1. |
+| **P3** | unchanged, NOT RUN (gated on P2). |
+| **P4** | **CANCELLED as specified.** The premise is falsified (§12.2). Successor: the 16-byte `Pair48` facet lane — a mint decision, operator-gated, not a worker task. |
+| **P5** | unchanged, NOT RUN. |
+| **P6** | unchanged, NOT RUN. |
+
+### 12.7 — What survives, stated plainly
+
+The **economics** (§7) survive: pay the transform once at ingest, compare via an
+O(1) 128 KB cache-resident LUT forever. The **place ⊕ residue decomposition**
+survives and strengthened — anomaly-vs-raw is a 74.9× BF16 gain measured on real
+data. The **8-bits-per-scalar** claim survives, with a corrected reason: a robust
+percentile window over a **shape-appropriate** transform, which for weather
+anomalies is the identity. **helix360 as the wind carrier does not survive**, and
+neither does the single-shared-transform framing of the substrate.
