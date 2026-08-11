@@ -32,6 +32,7 @@ r['raw_std_K']             = float(a.std())
 
 # ---- palette256: fisher-z normalize the anomaly, then 256-bucket ----------
 def fisher_z(s, eps=1e-9):
+    """Fisher-Z: arctanh(s), clipped off the +/-1 poles by eps."""
     s = np.clip(s, -1+eps, 1-eps)
     return 0.5*(np.log1p(s) - np.log1p(-s))
 

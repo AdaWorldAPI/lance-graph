@@ -8,6 +8,7 @@ import numpy as np, json
 a=np.load('fixture/2m_temperature.npy').astype(np.float64)
 clim=a.mean(axis=1,keepdims=True); anom=a-clim
 def fz(s,eps=1e-9):
+    """Fisher-Z: arctanh(s), clipped off the +/-1 poles by eps."""
     s=np.clip(s,-1+eps,1-eps); return 0.5*(np.log1p(s)-np.log1p(-s))
 FLOORS=[0.25,0.5,1.0,2.0]
 out={}

@@ -1,3 +1,13 @@
+"""Fetch one ERA5 timestep from the public ARCO-ERA5 Zarr v2 store.
+
+Reads chunk (t, 0, 0) for each variable at 2021-06-15 12:00 UTC and writes
+`fixture/<var>.npy` (721x1440 f32). Requires `zmeta.json` (the store's
+consolidated .zmetadata) alongside this script; see README.md for the fetch.
+
+A 404 is VALID Zarr v2 semantics -- a missing chunk is entirely `fill_value`
+(NaN here), not a fetch failure -- so `get()` returns the fill array and the
+run continues. Re-runnable and idempotent; no credentials needed (public
+bucket, anonymous HTTPS)."""
 import json, urllib.request, numpy as np, numcodecs, datetime as dt, os
 B="https://storage.googleapis.com/gcp-public-data-arco-era5/ar/1959-2023_01_10-full_37-1h-0p25deg-chunk-1.zarr"
 meta=json.load(open('zmeta.json'))['metadata']

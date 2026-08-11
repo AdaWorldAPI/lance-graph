@@ -9,6 +9,7 @@ rng = np.random.default_rng(7)
 TARGET_RHO = 0.9996
 
 def load(v):
+    """Load an ERA5 fixture variable and return its zonal-mean anomaly."""
     a = np.load(f'fixture/{v}.npy').astype(np.float64)
     assert np.isfinite(a).all()
     return a - a.mean(axis=1, keepdims=True)      # zonal-mean climatology proxy
@@ -26,6 +27,7 @@ for v in VARS:
 z = {v: (anom[v].ravel() - anom[v].mean()) / anom[v].std() for v in VARS}
 
 def quant(x, lo, hi):
+    """Quantize x into 256 uniform buckets over [lo, hi]; return (index, centre)."""
     idx = np.clip(np.floor((x - lo)/(hi - lo)*256), 0, 255).astype(np.uint8)
     cen = lo + ((np.arange(256)+0.5)/256)*(hi - lo)
     return idx, cen

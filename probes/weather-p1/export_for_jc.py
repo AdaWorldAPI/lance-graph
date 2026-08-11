@@ -3,6 +3,7 @@ import numpy as np
 rng=np.random.default_rng(11)
 VARS=['2m_temperature','2m_dewpoint_temperature','10m_u_component_of_wind']
 def load(v):
+    """Load an ERA5 fixture variable and return its zonal-mean anomaly (K)."""
     a=np.load(f'fixture/{v}.npy').astype(np.float64); return a-a.mean(axis=1,keepdims=True)
 anom={v:load(v) for v in VARS}
 z={v:(anom[v].ravel()-anom[v].mean())/anom[v].std() for v in VARS}

@@ -7,6 +7,7 @@ clim=a.mean(axis=1,keepdims=True); anom=a-clim
 
 # 1) sanity: bf16 implementation must have ~8 bits mantissa -> rel err <= 2^-9
 def bf16(x):
+    """Round f64 to bfloat16 precision (round-to-nearest-even) and back to f64."""
     f=np.asarray(x,dtype=np.float32).view(np.uint32)
     r=((f>>16)&1).astype(np.uint32)
     return (((f+0x7FFF+r)&0xFFFF0000).astype(np.uint32)).view(np.float32).astype(np.float64)
@@ -31,11 +32,13 @@ print(f"  CONTRAST corr-like: mean|r|={np.abs(r_like).mean():.4f} "
 
 # 3) where do the 256 buckets actually land, both ways?
 def quant(x):
+    """Quantize x into 256 uniform buckets over its range; return (index, centre)."""
     lo,hi=np.percentile(x,[0.4,99.6])
     idx=np.clip(np.floor((x-lo)/(hi-lo)*256),0,255).astype(np.uint8)
     cen=lo+((np.arange(256)+0.5)/256)*(hi-lo)
     return idx,cen
 def fz(s,eps=1e-9):
+    """Fisher-Z: arctanh(s), clipped off the +/-1 poles by eps."""
     s=np.clip(s,-1+eps,1-eps); return 0.5*(np.log1p(s)-np.log1p(-s))
 
 for name,x,inv in [("LINEAR(anom)",anom.ravel(),lambda c:c),

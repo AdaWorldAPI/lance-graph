@@ -1,3 +1,10 @@
+"""Background companion to `fetch.py` for the P2 multi-variable set.
+
+Fetches the six cross-variable fields (dewpoint, 10m u/v wind, surface
+pressure, total column water vapour, total cloud cover) at the same timestep,
+skipping any `fixture/<var>.npy` already on disk and retrying transient
+failures up to three times. Same Zarr v2 fill semantics as `fetch.py`: a 404
+means an all-`fill_value` chunk, not an error."""
 import json, urllib.request, numpy as np, numcodecs, os, time
 B="https://storage.googleapis.com/gcp-public-data-arco-era5/ar/1959-2023_01_10-full_37-1h-0p25deg-chunk-1.zarr"
 meta=json.load(open('zmeta.json'))['metadata']; t=547476
