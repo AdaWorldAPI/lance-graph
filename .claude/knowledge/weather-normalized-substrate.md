@@ -659,8 +659,8 @@ default") this is a wrong-value-from-dormant-bytes defect. Filed, not fixed here
 | id | status |
 |---|---|
 | **P1** | **RUN** — `probes/weather-p1/`, results committed. Falsified §1.2 and §6.5; re-measured §6.1/§6.3. |
-| **P2** | **RE-SCOPED, not run.** Must now test cross-variable comparability *without* a shared Fisher-Z, per §12.1. |
-| **P3** | unchanged, NOT RUN (gated on P2). |
+| **P2** | **RUN — PASSES** (§12.8). Re-scoped per §12.1 and measured: shared canonical floor ρ ≥ 0.9996 cross-variable vs 0.857–0.875 per-variable; zero within-variable cost. Shared palette + LUT survives; the shared *transform* does not. |
+| **P3** | largely ANSWERED by §12.8 (no within-variable penalty from the shared floor); stays open for the saturation-tail question only. |
 | **P4** | **CANCELLED as specified.** The premise is falsified (§12.2). Successor: the 16-byte `Pair48` facet lane — a mint decision, operator-gated, not a worker task. |
 | **P5** | unchanged, NOT RUN. |
 | **P6** | unchanged, NOT RUN. |
@@ -674,3 +674,59 @@ data. The **8-bits-per-scalar** claim survives, with a corrected reason: a robus
 percentile window over a **shape-appropriate** transform, which for weather
 anomalies is the identity. **helix360 as the wind carrier does not survive**, and
 neither does the single-shared-transform framing of the substrate.
+
+### 12.8 — P2 RUN (re-scoped): the shared palette + LUT **survives**; only the shared *transform* died
+
+The §12.1 falsification killed the shared **Fisher-Z**. It did not, by itself,
+tell us whether the shared **palette + LUT** — the actual product claim — went
+with it. Measured (`probes/weather-p1/p2_probe.py`, real ERA5, 3 variables,
+200 000 random cross-variable pairs each; truth = float z-domain
+`|z_a − z_b|`, candidate = `|palette_idx_a − palette_idx_b|`, Spearman ρ):
+
+| pair | units | ρ shared floor | ρ per-variable floors |
+|---|---|---|---|
+| `2m_temperature` × `2m_dewpoint_temperature` | K × K | **0.9996** | 0.9994 |
+| `2m_temperature` × `10m_u_component_of_wind` | K × m/s | **0.9997** | **0.8748** |
+| `2m_dewpoint_temperature` × `10m_u_component_of_wind` | K × m/s | **0.9997** | **0.8570** |
+
+**Within-variable control (the anti-vacuity half — a shared window could have
+cost same-variable resolution, and did not):**
+
+| variable | ρ shared | ρ per-variable | effective buckets (shared) | empty |
+|---|---|---|---|---|
+| `2m_temperature` | 0.9996 | 0.9996 | 118.6 / 256 | 0 |
+| `2m_dewpoint_temperature` | 0.9995 | 0.9996 | 120.7 / 256 | 0 |
+| `10m_u_component_of_wind` | 0.9998 | 0.9996 | 151.0 / 256 | 0 |
+
+**Reading.** The shared canonical floor is not free-riding: it beats
+per-variable floors by **0.9997 vs 0.857–0.875** exactly where the units differ
+(K vs m/s), and is indistinguishable where they do not (K vs K — 0.9996 vs
+0.9994). That is the discrimination pattern theory predicts, and it appears
+without having been tuned for. Meanwhile the shared window costs **nothing**
+within-variable and leaves **zero empty buckets**.
+
+**So the mechanism was never Fisher-Z — it was standardization.** Putting each
+variable on its own z-scale is what makes unlike quantities commensurable;
+Fisher-Z was an *additional* transform layered on top, and §12.1 measured it as
+actively harmful for these shapes. The product claim — *"correlate what normally
+cannot be correlated, via one cache-resident 256×256 LUT"* — **stands, with a
+corrected mechanism.**
+
+**Policy consequence:** §4's option **(a) one canonical z-floor** is now the
+measured recommendation, not merely a candidate; option (c) hybrid remains
+available for archival lanes that want per-variable resolution, but this run
+shows it buys nothing for correlation, since the shared floor already matches
+per-variable ρ within-variable.
+
+**Honest boundaries.** One timestep (2021-06-15 12:00 UTC); zonal-mean
+climatology proxy; three variables of which only one carries a different unit;
+ρ is rank-preservation of the *distance*, which is the right test for
+LUT-backed ranking/search but is not a claim about absolute error. The shapes
+do genuinely differ (kurtosis +3.30 / +3.39 / **+0.41**), so the result is not
+an artifact of three identically-shaped fields. Grade `[H]` until re-run across
+seasons and a fourth variable in a different unit again.
+
+**Probe queue delta:** **P2 → RUN, PASSES.** P3 (per-variable resolution cost)
+is now largely answered in the negative — the shared floor shows no
+within-variable penalty — but stays open for the tail/saturation question.
+Step 3 (Phase A end-to-end) is unblocked.

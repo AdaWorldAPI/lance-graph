@@ -1,0 +1,51 @@
+{
+  "shared_window": [
+    -3.285941867486222,
+    3.611137273885975
+  ],
+  "n_pairs": 200000,
+  "pairs": {
+    "2m_temperature x 2m_dewpoint_temperature": {
+      "rho_shared_floor": 0.9995562984081224,
+      "rho_per_variable_floor": 0.9994263157997967,
+      "units": [
+        "K",
+        "K"
+      ]
+    },
+    "2m_temperature x 10m_u_component_of_wind": {
+      "rho_shared_floor": 0.9997359339313134,
+      "rho_per_variable_floor": 0.874801168764891,
+      "units": [
+        "K",
+        "m/s"
+      ]
+    },
+    "2m_dewpoint_temperature x 10m_u_component_of_wind": {
+      "rho_shared_floor": 0.9997218339974447,
+      "rho_per_variable_floor": 0.8569840346681692,
+      "units": [
+        "K",
+        "m/s"
+      ]
+    },
+    "2m_temperature (within)": {
+      "rho_shared_floor": 0.9995571417817292,
+      "rho_per_variable_floor": 0.999613473800991,
+      "shared_effective_buckets": 118.63822056822225,
+      "shared_empty_buckets": 0
+    },
+    "2m_dewpoint_temperature (within)": {
+      "rho_shared_floor": 0.9995312723074434,
+      "rho_per_variable_floor": 0.9996178181789303,
+      "shared_effective_buckets": 120.73321025144813,
+      "shared_empty_buckets": 0
+    },
+    "10m_u_component_of_wind (within)": {
+      "rho_shared_floor": 0.9998171215242767,
+      "rho_per_variable_floor": 0.9996220613759306,
+      "shared_effective_buckets": 151.00412788678312,
+      "shared_empty_buckets": 0
+    }
+  }
+}
