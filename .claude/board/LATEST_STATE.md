@@ -1,3 +1,13 @@
+## 2026-08-11 — lance-graph #924 (MERGED) — evaluation plan ACTIVE after a 0-of-11 spec audit
+
+### Current Contract Inventory — no new types (plan + audit + corrections)
+
+- **`.claude/plans/weather-substrate-evaluation-v1.md` is now ACTIVE** (audited 2026-08-11, §8). §3 carries **v2, post-audit** specs — every v1 spec had failed. Read §8 before citing any EV.
+- **The audit's shape is the headline:** **22 of 24** KNOWN claims CONFIRMED with `file:line`, **0 of 11** EV specs SOUND. Reliable about *what is*, unreliable about *what would falsify* — banked as `E-ZERO-FOR-ELEVEN-THE-AUTHOR-CANNOT-AUDIT-HIS-OWN-FALSIFIERS-1`. **Pre-registration review by independent adversarial readers is load-bearing, not ceremony.**
+- **Two `[G]` ledger corrections:** the bitboard primitives are at **`ndarray/src/bitwise.rs`**, not `src/hpc/`; and **a SPRITE moves for 2 bytes, not the field** — `morton_shift_motion_probe` legA rigid-translates a 24×24 sprite within a 256×256 field, toroidally (§12.18 corrects §12.16; whole-field advection is one `(dx,dy)` **per tile**, which is what EV-1 actually tests).
+- **Status of the queue:** EV-1..EV-10 all **Queued, none RUN** — a v2 spec is *audited*, not *validated*. **EV-9 (Wave 0) needs no data** and closes the only two `[H]` rows (K-12/K-13, whose scratch reproducers were deleted). Everything else in Wave 1 waits on one `fetch.py` re-fetch; Wave 2 is the 16k×16k scale run.
+- **Still open, operator calls:** D-1 noise floor · D-2 saturation window · D-3 `from_bearing` API · D-4 dormant-lane fix shape · D-5 helix CI wiring · D-6 harness-of-record.
+
 ## 2026-08-11 — lance-graph #923 (MERGED) — the evaluation plan + `DistanceLut::circular()`
 
 ### Current Contract Inventory — one new public constructor; one new plan

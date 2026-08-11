@@ -1,0 +1,411 @@
+{
+  "2m_temperature": {
+    "windows": [
+      {
+        "w_lo": 0.4,
+        "w_hi": 99.6
+      },
+      {
+        "w_lo": 0.2,
+        "w_hi": 99.8
+      },
+      {
+        "w_lo": 0.1,
+        "w_hi": 99.9
+      },
+      {
+        "w_lo": 0.02,
+        "w_hi": 99.98
+      }
+    ],
+    "linear": [
+      {
+        "lo": -22.823090004815,
+        "hi": 25.36610975405375,
+        "hi_minus_lo": 48.18919975886875,
+        "ci_uniform": 0.09411953077904123,
+        "ci_interior_min": 0.09411953077903945,
+        "ci_interior_med": 0.09411953077904034,
+        "ci_interior_max": 0.094119530779043,
+        "sat_frac": 0.008476845430728927,
+        "out_of_window_frac": 0.008000077053475111
+      },
+      {
+        "lo": -25.26567415601943,
+        "hi": 26.998929019631287,
+        "hi_minus_lo": 52.26460317565072,
+        "ci_uniform": 0.10207930307744206,
+        "ci_interior_min": 0.10207930307744206,
+        "ci_interior_med": 0.10207930307744206,
+        "ci_interior_max": 0.10207930307744562,
+        "sat_frac": 0.004314031437817846,
+        "out_of_window_frac": 0.0040010016951764526
+      },
+      {
+        "lo": -27.521971438471457,
+        "hi": 28.253163339297046,
+        "hi_minus_lo": 55.7751347777685,
+        "ci_uniform": 0.10893581011282905,
+        "ci_interior_min": 0.10893581011282727,
+        "ci_interior_med": 0.10893581011282905,
+        "ci_interior_max": 0.1089358101128326,
+        "sat_frac": 0.0022229927569733395,
+        "out_of_window_frac": 0.002001464016027123
+      },
+      {
+        "lo": -31.99861621968799,
+        "hi": 30.526803604950345,
+        "hi_minus_lo": 62.525419824638334,
+        "ci_uniform": 0.12211996059499697,
+        "ci_interior_min": 0.12211996059499342,
+        "ci_interior_med": 0.12211996059499697,
+        "ci_interior_max": 0.12211996059499697,
+        "sat_frac": 0.0004719525350593312,
+        "out_of_window_frac": 0.0004006780705809832
+      }
+    ],
+    "fisher_z": [
+      {
+        "scale": 25.36610975405375,
+        "zlo": -1.4708913538615156,
+        "zhi": 7.188807216567313,
+        "zhi_minus_zlo": 8.659698570428828,
+        "ci_interior_min": 1.0828864116518844e-06,
+        "ci_interior_med": 0.005607407743958959,
+        "ci_interior_max": 0.42898798181318165,
+        "sat_frac": 0.008202342425643397,
+        "out_of_window_frac": 0.008000077053475111
+      },
+      {
+        "scale": 26.998929019631287,
+        "zlo": -1.7031591377772433,
+        "zhi": 8.479073156978998,
+        "zhi_minus_zlo": 10.182232294756242,
+        "ci_interior_min": 1.0449270959611567e-07,
+        "ci_interior_med": 0.002447382649405583,
+        "ci_interior_max": 0.5367743605941592,
+        "sat_frac": 0.0040655339805825245,
+        "out_of_window_frac": 0.0040010016951764526
+      },
+      {
+        "scale": 28.253163339297046,
+        "zlo": -2.1672037968569406,
+        "zhi": 9.475108865384968,
+        "zhi_minus_zlo": 11.642312662241908,
+        "ci_interior_min": 1.7350950898276096e-08,
+        "ci_interior_med": 0.001722375404531462,
+        "ci_interior_max": 0.6423033847390104,
+        "sat_frac": 0.0020236168901217443,
+        "out_of_window_frac": 0.002001464016027123
+      },
+      {
+        "scale": 31.99861621968799,
+        "zlo": -6.833096834695244,
+        "zhi": 1.874539259938536,
+        "zhi_minus_zlo": 8.70763609463378,
+        "ci_interior_min": 2.7994206757142592e-06,
+        "ci_interior_med": 0.015086534238865745,
+        "ci_interior_max": 0.5440557792881052,
+        "sat_frac": 0.00041512559716443213,
+        "out_of_window_frac": 0.0004006780705809832
+      }
+    ],
+    "check1_linear_strictly_increasing": true,
+    "check1_ci_ratio_widest_over_narrowest": 1.2974986125004242,
+    "check1_hilo_ratio_widest_over_narrowest": 1.2974986125004315,
+    "check1_abs_diff": 7.327471962526033e-15,
+    "check1_ratio_matches_to_1e-12": true,
+    "check2_fisher_z_ci_interior_med_values": [
+      0.005607407743958959,
+      0.002447382649405583,
+      0.001722375404531462,
+      0.015086534238865745
+    ],
+    "check2_fisher_z_monotone": false,
+    "check2_fisher_z_increasing": false,
+    "check2_fisher_z_decreasing": false
+  },
+  "2m_dewpoint_temperature": {
+    "windows": [
+      {
+        "w_lo": 0.4,
+        "w_hi": 99.6
+      },
+      {
+        "w_lo": 0.2,
+        "w_hi": 99.8
+      },
+      {
+        "w_lo": 0.1,
+        "w_hi": 99.9
+      },
+      {
+        "w_lo": 0.02,
+        "w_hi": 99.98
+      }
+    ],
+    "linear": [
+      {
+        "lo": -23.497032365798972,
+        "hi": 26.239898848809123,
+        "hi_minus_lo": 49.73693121460809,
+        "ci_uniform": 0.09714244377853198,
+        "ci_interior_min": 0.09714244377853021,
+        "ci_interior_med": 0.09714244377853198,
+        "ci_interior_max": 0.09714244377853376,
+        "sat_frac": 0.008597241485591,
+        "out_of_window_frac": 0.008000077053475111
+      },
+      {
+        "lo": -26.333363460392416,
+        "hi": 27.497747978994585,
+        "hi_minus_lo": 53.831111439387,
+        "ci_uniform": 0.10513888953005335,
+        "ci_interior_min": 0.1051388895300498,
+        "ci_interior_med": 0.10513888953005335,
+        "ci_interior_max": 0.10513888953005335,
+        "sat_frac": 0.004411311450146401,
+        "out_of_window_frac": 0.0040010016951764526
+      },
+      {
+        "lo": -28.659016241221956,
+        "hi": 28.24588552614851,
+        "hi_minus_lo": 56.90490176737046,
+        "ci_uniform": 0.11114238626439565,
+        "ci_interior_min": 0.11114238626439388,
+        "ci_interior_med": 0.11114238626439565,
+        "ci_interior_max": 0.11114238626439743,
+        "sat_frac": 0.002297156726768377,
+        "out_of_window_frac": 0.002001464016027123
+      },
+      {
+        "lo": -32.167278445362506,
+        "hi": 29.360957387701635,
+        "hi_minus_lo": 61.528235833064144,
+        "ci_uniform": 0.12017233561145346,
+        "ci_interior_min": 0.12017233561144991,
+        "ci_interior_med": 0.12017233561145346,
+        "ci_interior_max": 0.12017233561145346,
+        "sat_frac": 0.0005518955154877485,
+        "out_of_window_frac": 0.0004006780705809832
+      }
+    ],
+    "fisher_z": [
+      {
+        "scale": 26.239898848809123,
+        "zlo": -1.4488721028878058,
+        "zhi": 7.271249873419383,
+        "zhi_minus_zlo": 8.720121976307189,
+        "ci_interior_min": 9.57218221131484e-07,
+        "ci_interior_med": 0.0052651464074298104,
+        "ci_interior_max": 0.44686068352030467,
+        "sat_frac": 0.008205231930960087,
+        "out_of_window_frac": 0.008000077053475111
+      },
+      {
+        "scale": 27.497747978994585,
+        "zlo": -1.9168294717433199,
+        "zhi": 8.52758902782773,
+        "zhi_minus_zlo": 10.44441849957105,
+        "ci_interior_min": 9.937516054492335e-08,
+        "ci_interior_med": 0.003014843649760124,
+        "ci_interior_max": 0.5606382871133886,
+        "sat_frac": 0.004053012790876868,
+        "out_of_window_frac": 0.0040010016951764526
+      },
+      {
+        "scale": 28.659016241221956,
+        "zlo": -9.927965427970003,
+        "zhi": 2.4626864448846653,
+        "zhi_minus_zlo": 12.390651872854669,
+        "ci_interior_min": 7.639318511110105e-09,
+        "ci_interior_med": 0.0015892583035306274,
+        "ci_interior_max": 0.6931914108677193,
+        "sat_frac": 0.002046732932655263,
+        "out_of_window_frac": 0.002001464016027123
+      },
+      {
+        "scale": 32.167278445362506,
+        "zlo": -7.548888543681487,
+        "zhi": 1.543810901393665,
+        "zhi_minus_zlo": 9.092699445075151,
+        "ci_interior_min": 7.053151733771301e-07,
+        "ci_interior_med": 0.005612358975672471,
+        "ci_interior_max": 0.571203519286449,
+        "sat_frac": 0.00047676837725381415,
+        "out_of_window_frac": 0.0004006780705809832
+      }
+    ],
+    "check1_linear_strictly_increasing": true,
+    "check1_ci_ratio_widest_over_narrowest": 1.237073424726947,
+    "check1_hilo_ratio_widest_over_narrowest": 1.2370734247269535,
+    "check1_abs_diff": 6.439293542825908e-15,
+    "check1_ratio_matches_to_1e-12": true,
+    "check2_fisher_z_ci_interior_med_values": [
+      0.0052651464074298104,
+      0.003014843649760124,
+      0.0015892583035306274,
+      0.005612358975672471
+    ],
+    "check2_fisher_z_monotone": false,
+    "check2_fisher_z_increasing": false,
+    "check2_fisher_z_decreasing": false
+  },
+  "10m_u_component_of_wind": {
+    "windows": [
+      {
+        "w_lo": 0.4,
+        "w_hi": 99.6
+      },
+      {
+        "w_lo": 0.2,
+        "w_hi": 99.8
+      },
+      {
+        "w_lo": 0.1,
+        "w_hi": 99.9
+      },
+      {
+        "w_lo": 0.02,
+        "w_hi": 99.98
+      }
+    ],
+    "linear": [
+      {
+        "lo": -14.334214259695178,
+        "hi": 12.897692486190296,
+        "hi_minus_lo": 27.231906745885475,
+        "ci_uniform": 0.05318731786305797,
+        "ci_interior_min": 0.053187317863056194,
+        "ci_interior_med": 0.05318731786305797,
+        "ci_interior_max": 0.05318731786305797,
+        "sat_frac": 0.008551009400523963,
+        "out_of_window_frac": 0.008000077053475111
+      },
+      {
+        "lo": -15.849680583599293,
+        "hi": 13.715110051029175,
+        "hi_minus_lo": 29.564790634628466,
+        "ci_uniform": 0.05774373170825875,
+        "ci_interior_min": 0.05774373170825697,
+        "ci_interior_med": 0.05774373170825875,
+        "ci_interior_max": 0.05774373170825875,
+        "sat_frac": 0.004289952226845431,
+        "out_of_window_frac": 0.0040010016951764526
+      },
+      {
+        "lo": -17.17035068847926,
+        "hi": 14.542062617564676,
+        "hi_minus_lo": 31.712413306043935,
+        "ci_uniform": 0.061938307238367685,
+        "ci_interior_min": 0.06193830723836591,
+        "ci_interior_med": 0.061938307238366797,
+        "ci_interior_max": 0.061938307238367685,
+        "sat_frac": 0.0021777238403451996,
+        "out_of_window_frac": 0.002001464016027123
+      },
+      {
+        "lo": -18.87960365753722,
+        "hi": 16.804778804801817,
+        "hi_minus_lo": 35.68438246233904,
+        "ci_uniform": 0.06969605949675639,
+        "ci_interior_min": 0.06969605949675284,
+        "ci_interior_med": 0.06969605949675639,
+        "ci_interior_max": 0.06969605949675639,
+        "sat_frac": 0.000470026198181538,
+        "out_of_window_frac": 0.0004006780705809832
+      }
+    ],
+    "fisher_z": [
+      {
+        "scale": 14.334214259695178,
+        "zlo": -6.656606406370108,
+        "zhi": 1.4710822881560268,
+        "zhi_minus_zlo": 8.127688694526135,
+        "ci_interior_min": 1.654674086637442e-06,
+        "ci_interior_med": 0.005041045763830354,
+        "ci_interior_max": 0.2275215876242522,
+        "sat_frac": 0.0082861380798274,
+        "out_of_window_frac": 0.008000077053475111
+      },
+      {
+        "scale": 15.849680583599293,
+        "zlo": -8.431134114806294,
+        "zhi": 1.314159343107991,
+        "zhi_minus_zlo": 9.745293457914286,
+        "ci_interior_min": 6.428621368570475e-08,
+        "ci_interior_med": 0.0009782631941273046,
+        "ci_interior_max": 0.3016426413237304,
+        "sat_frac": 0.004245646478656187,
+        "out_of_window_frac": 0.0040010016951764526
+      },
+      {
+        "scale": 17.17035068847926,
+        "zlo": -9.642741729283811,
+        "zhi": 1.245187761568175,
+        "zhi_minus_zlo": 10.887929490851986,
+        "ci_interior_min": 6.990033440956722e-09,
+        "ci_interior_med": 0.00032948091470696994,
+        "ci_interior_max": 0.3650480781147191,
+        "sat_frac": 0.002209508398828787,
+        "out_of_window_frac": 0.002001464016027123
+      },
+      {
+        "scale": 18.87960365753722,
+        "zlo": -6.923408108760464,
+        "zhi": 1.4224181926145996,
+        "zhi_minus_zlo": 8.345826301375064,
+        "ci_interior_min": 1.3158534368784558e-06,
+        "ci_interior_med": 0.004988429979905007,
+        "ci_interior_max": 0.30771299606339836,
+        "sat_frac": 0.0004305362921867776,
+        "out_of_window_frac": 0.0004006780705809832
+      }
+    ],
+    "check1_linear_strictly_increasing": true,
+    "check1_ci_ratio_widest_over_narrowest": 1.3103886846899044,
+    "check1_hilo_ratio_widest_over_narrowest": 1.3103886846899058,
+    "check1_abs_diff": 1.3322676295501878e-15,
+    "check1_ratio_matches_to_1e-12": true,
+    "check2_fisher_z_ci_interior_med_values": [
+      0.005041045763830354,
+      0.0009782631941273046,
+      0.00032948091470696994,
+      0.004988429979905007
+    ],
+    "check2_fisher_z_monotone": false,
+    "check2_fisher_z_increasing": false,
+    "check2_fisher_z_decreasing": false
+  },
+  "_summary": {
+    "vars": [
+      "2m_temperature",
+      "2m_dewpoint_temperature",
+      "10m_u_component_of_wind"
+    ],
+    "windows": [
+      {
+        "w_lo": 0.4,
+        "w_hi": 99.6
+      },
+      {
+        "w_lo": 0.2,
+        "w_hi": 99.8
+      },
+      {
+        "w_lo": 0.1,
+        "w_hi": 99.9
+      },
+      {
+        "w_lo": 0.02,
+        "w_hi": 99.98
+      }
+    ],
+    "overall_check1_pass": true,
+    "per_var_fisher_z_monotone": {
+      "2m_temperature": false,
+      "2m_dewpoint_temperature": false,
+      "10m_u_component_of_wind": false
+    }
+  }
+}

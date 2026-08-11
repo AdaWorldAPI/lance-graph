@@ -1,0 +1,62 @@
+{
+  "t547476/2m_temperature": {
+    "time_index": 547476,
+    "shape": [
+      721,
+      1440
+    ],
+    "nonfinite": 0,
+    "min": 195.8684539794922,
+    "max": 323.6919250488281
+  },
+  "t547476/2m_dewpoint_temperature": {
+    "time_index": 547476,
+    "shape": [
+      721,
+      1440
+    ],
+    "nonfinite": 0,
+    "min": 192.04747009277344,
+    "max": 302.839111328125
+  },
+  "t547476/10m_u_component_of_wind": {
+    "time_index": 547476,
+    "shape": [
+      721,
+      1440
+    ],
+    "nonfinite": 0,
+    "min": -24.74393081665039,
+    "max": 20.80101203918457
+  },
+  "t543852/2m_temperature": {
+    "time_index": 543852,
+    "shape": [
+      721,
+      1440
+    ],
+    "nonfinite": 0,
+    "min": 219.7332763671875,
+    "max": 315.8507080078125
+  },
+  "t543852/2m_dewpoint_temperature": {
+    "time_index": 543852,
+    "shape": [
+      721,
+      1440
+    ],
+    "nonfinite": 0,
+    "min": 216.30738830566406,
+    "max": 301.58349609375
+  },
+  "t543852/10m_u_component_of_wind": {
+    "time_index": 543852,
+    "shape": [
+      721,
+      1440
+    ],
+    "nonfinite": 0,
+    "min": -22.079614639282227,
+    "max": 22.135465621948242
+  }
+}

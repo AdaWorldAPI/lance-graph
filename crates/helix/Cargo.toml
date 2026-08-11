@@ -32,3 +32,12 @@ name = "prove_residue"
 # Cargo.toml `exclude` so workspace-wide commands never pull it into the
 # deterministic main compile graph.
 [workspace]
+
+# EV-7b carries its pre-registered bars as `#[cfg(test)] mod tests`. Cargo's
+# default for an [[example]] target is `test = false`, so without this stanza
+# `cargo test` BUILDS the example and silently runs NONE of its 11 tests —
+# measured: 0 `test tests::` lines under a plain `cargo test`. The bars would
+# be decoration. (PP-13/PP-15 P0, wave wf_daae6e63-d39.)
+[[example]]
+name = "ev7b_comma_antimoire"
+test = true

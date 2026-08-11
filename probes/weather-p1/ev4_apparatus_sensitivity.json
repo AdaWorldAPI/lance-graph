@@ -1,0 +1,160 @@
+{
+  "variable": "2m_temperature",
+  "windows": [
+    [
+      0.4,
+      99.6
+    ],
+    [
+      0.2,
+      99.8
+    ],
+    [
+      0.1,
+      99.9
+    ],
+    [
+      0.02,
+      99.98
+    ]
+  ],
+  "eps_sweep": {
+    "1e-06": {
+      "ci_interior_med": [
+        0.006406100961275918,
+        0.012075583562084269,
+        0.01814681691043951,
+        0.04238015763386027
+      ],
+      "shape": "increasing"
+    },
+    "1e-09": {
+      "ci_interior_med": [
+        0.005607407743958959,
+        0.002447382649405583,
+        0.001722375404531462,
+        0.015086534238865745
+      ],
+      "shape": "non-monotone"
+    },
+    "1e-12": {
+      "ci_interior_med": [
+        0.0049060395205593466,
+        0.0004758896875554086,
+        0.00015271215780732206,
+        0.005145889293277861
+      ],
+      "shape": "non-monotone"
+    },
+    "1e-15": {
+      "ci_interior_med": [
+        0.004290501730232599,
+        9.028732159777064e-05,
+        1.3063868848917082e-05,
+        0.0017167570178413527
+      ],
+      "shape": "non-monotone"
+    }
+  },
+  "method_sweep": {
+    "linear": {
+      "ci_interior_med": [
+        0.005607407743958959,
+        0.002447382649405583,
+        0.001722375404531462,
+        0.015086534238865745
+      ],
+      "shape": "non-monotone"
+    },
+    "lower": {
+      "ci_interior_med": [
+        0.00023541037606378268,
+        0.0003219115829136143,
+        0.0005561433400078641,
+        0.0004576132750715445
+      ],
+      "shape": "non-monotone"
+    },
+    "higher": {
+      "ci_interior_med": [
+        0.00023520082821981703,
+        0.00032183911893657324,
+        0.0005553902360837526,
+        0.0004599002213874215
+      ],
+      "shape": "non-monotone"
+    },
+    "nearest": {
+      "ci_interior_med": [
+        0.00023523546920589666,
+        0.00032186212811335935,
+        0.0005557104616311648,
+        0.0004597472700842431
+      ],
+      "shape": "non-monotone"
+    },
+    "midpoint": {
+      "ci_interior_med": [
+        0.0021692790139580254,
+        0.002657946662043109,
+        0.005306876987440923,
+        0.00747809731100002
+      ],
+      "shape": "increasing"
+    }
+  },
+  "scale_controlling_tail": [
+    {
+      "window": [
+        0.4,
+        99.6
+      ],
+      "lo_q": -22.823090004815,
+      "hi_q": 25.36610975405375,
+      "scale": 25.36610975405375,
+      "set_by": "HI"
+    },
+    {
+      "window": [
+        0.2,
+        99.8
+      ],
+      "lo_q": -25.26567415601943,
+      "hi_q": 26.998929019631287,
+      "scale": 26.998929019631287,
+      "set_by": "HI"
+    },
+    {
+      "window": [
+        0.1,
+        99.9
+      ],
+      "lo_q": -27.521971438471457,
+      "hi_q": 28.253163339297046,
+      "scale": 28.253163339297046,
+      "set_by": "HI"
+    },
+    {
+      "window": [
+        0.02,
+        99.98
+      ],
+      "lo_q": -31.99861621968799,
+      "hi_q": 30.526803604950345,
+      "scale": 31.99861621968799,
+      "set_by": "LO"
+    }
+  ],
+  "verdict": {
+    "shape_changes_with_eps": true,
+    "shapes_across_eps": [
+      "increasing",
+      "non-monotone",
+      "non-monotone",
+      "non-monotone"
+    ],
+    "method_max_over_min_ratio": 64.14320201613397,
+    "scale_controlling_tail_flips": true,
+    "conclusion": "APPARATUS-DOMINATED: the Fisher-Z interior-median CI shape is not stable under eps or percentile-interpolation choice, so the non-monotone curve must NOT be published as a data finding or fed to D-2. The scale-controlling-tail flip IS real and independent."
+  }
+}
