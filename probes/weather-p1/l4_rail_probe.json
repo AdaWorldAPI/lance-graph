@@ -1,0 +1,89 @@
+{
+  "store": "https://storage.googleapis.com/weatherbench2/datasets/era5/1959-2022-6h-1440x721.zarr",
+  "t0": 91246,
+  "carves": {
+    "storm1": {
+      "uniform": {
+        "f64_r2": 0.9434382813469204,
+        "carveA_r2": 0.9212025419045835,
+        "carveB_r2": 0.6347937748474473,
+        "carveD_r2": 0.9434055987646875,
+        "ring_rmse_pa": 4.484955284768884,
+        "diag_14byte_r2": 0.9434185242110055,
+        "loss_quantization": 1.9757135914955093e-05,
+        "loss_dropped_rings": 0.022215982306421966
+      },
+      "fisherz": {
+        "f64_r2": 0.9434382813469204,
+        "carveA_r2": 0.922244812052903,
+        "carveB_r2": 0.633764958490918,
+        "carveD_r2": 0.9424539414147397,
+        "ring_rmse_pa": 32.22635385503535,
+        "diag_14byte_r2": 0.9423897078544762,
+        "loss_quantization": 0.0010485734924442491,
+        "loss_dropped_rings": 0.020144895801573193
+      },
+      "fisherz_field": {
+        "f64_r2": 0.9434382813469204,
+        "carveA_r2": 0.9219960194074355,
+        "carveB_r2": 0.634603318038025,
+        "carveD_r2": 0.9432483555525744,
+        "ring_rmse_pa": 16.13215666344166,
+        "diag_14byte_r2": 0.9432280674015833,
+        "loss_quantization": 0.00021021394533715654,
+        "loss_dropped_rings": 0.021232047994147796
+      }
+    },
+    "storm2": {
+      "uniform": {
+        "f64_r2": 0.909049958041129,
+        "carveA_r2": 0.90373643162312,
+        "carveB_r2": 0.2942613476793018,
+        "carveD_r2": 0.9090264889121773,
+        "ring_rmse_pa": 3.1878395651185287,
+        "diag_14byte_r2": 0.9090264889121773,
+        "loss_quantization": 2.346912895168085e-05,
+        "loss_dropped_rings": 0.005290057289057293
+      },
+      "fisherz": {
+        "f64_r2": 0.909049958041129,
+        "carveA_r2": 0.9037507609804531,
+        "carveB_r2": 0.29425444021139313,
+        "carveD_r2": 0.9090134892791586,
+        "ring_rmse_pa": 3.920293632791127,
+        "diag_14byte_r2": 0.9090195814442686,
+        "loss_quantization": 3.0376596860337557e-05,
+        "loss_dropped_rings": 0.005268820463815493
+      },
+      "fisherz_field": {
+        "f64_r2": 0.909049958041129,
+        "carveA_r2": 0.899871261637639,
+        "carveB_r2": 0.2935349851907917,
+        "carveD_r2": 0.9083240011739228,
+        "ring_rmse_pa": 21.860300207395742,
+        "diag_14byte_r2": 0.9083001264236672,
+        "loss_quantization": 0.0007498316174617825,
+        "loss_dropped_rings": 0.008428864786028223
+      }
+    }
+  },
+  "cross": {
+    "storm1_cb_on_storm2": {
+      "shared_rmse_pa": 3.1878395651185287,
+      "own_rmse_pa": 3.1878395651185287,
+      "penalty_frac": 0.0,
+      "degenerate": true
+    },
+    "storm2_cb_on_storm1": {
+      "shared_rmse_pa": 4.484955284768884,
+      "own_rmse_pa": 620.786190272059,
+      "penalty_frac": -0.9927753623468922,
+      "degenerate": false
+    }
+  },
+  "ring_rmse_by_codebook": {
+    "uniform": 3.8363974249437067,
+    "fisherz": 18.07332374391324,
+    "fisherz_field": 18.9962284354187
+  }
+}
