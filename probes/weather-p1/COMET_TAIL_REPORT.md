@@ -110,6 +110,16 @@ physics `[H at n=2]`.
 > unresolved at this centering precision. The *height dependence* of the error
 > (§5.2) is a separate and much larger signal and is not affected by this
 > re-grade.
+>
+> > **⚠⚠ RE-GRADE AMENDED 2026-08-11 by CT-F4 (§5.6).** The note above is
+> > kept verbatim because it was correct *for the amplitude it tested* — but
+> > ±100 km was an amplitude I **chose**, not one I measured. Four
+> > independent center definitions (three different physical fields) turn out
+> > to agree to **20 km** on storm 1 and **73 km** on storm 2, and the
+> > alignment error they produce spans only **2.3° / 6.5°**. So the operative
+> > apparatus uncertainty is **≈ ±3–7°, not ±15°**, and the −42°/−40° offset
+> > **is** measurable above it. F3 was not wrong; its jitter amplitude was
+> > unjustified — which is exactly what F4 was pre-registered to find out.
 
 **What this resolves:** the earlier sunflower-lattice probe failed its
 axisymmetry bar (E1: 0.639 < 0.70) — the missing third of the storm was
@@ -230,34 +240,149 @@ ocean-only median (+13.0°) — friction turning is stronger over land, exactly
 as textbook. The measurement therefore discriminates a known physical contrast
 in the right direction, which is evidence it is measuring what it claims.
 
+### 5.6 CT-F4 — sub-grid center — **the blocking item CLEARS** (candidate 3 mostly retired)
+
+`comet_tail_f4_f7.py` / `.json`. F3 showed sensitivity at an amplitude I chose.
+F4 asks the non-circular question instead: **how far apart do independent
+center definitions actually land?** That disagreement *is* the center
+uncertainty. Four definitions, deliberately not variants of one idea — A:
+sub-grid MSLP minimum (2D quadratic on the 3×3); B: ∇²p centroid (pressure
+curvature); C: 10m relative-vorticity centroid (**wind** field); D: 850 hPa
+geopotential minimum, sub-grid (different field *and* altitude).
+
+| | A (MSLP) | B (∇²p) | C (10m ζ) | D (z850) | max separation | error spread |
+|---|---|---|---|---|---|---|
+| storm 1 | −42.5° | −41.0° | −41.8° | −43.4° | **20.3 km** | **2.3°** |
+| storm 2 | −39.8° | −38.6° | −35.1° | −41.6° | **73.0 km** | **6.5°** |
+
+- **Storm 2 PASSES CT-F4a** cleanly (6.5° ≤ 10° bar) with the anti-vacuity
+  guard satisfied — its four definitions genuinely disagree (73 km = 2.4× the
+  29.9 km grid diagonal), so the test had real room to fail and did not.
+- **Storm 1 is NO-VERDICT on F4a by my own CT-F4c guard**: its four definitions
+  agree to 20.3 km, *below* the 31.9 km grid diagonal. A 2.3° spread among
+  centers that coincide proves nothing about method sensitivity, so the guard
+  correctly refuses the free pass. Storm 1's bound comes instead from F4b
+  (below), and is labelled as derived, not as an F4a result.
+- **CT-F4b sensitivity curve** (spread in ° vs jitter amplitude in km),
+  monotone on both as pre-registered:
+
+  | | 25 km | 50 km | 100 km | 200 km |
+  |---|---|---|---|---|
+  | storm 1 | 6.5° | 13.8° | 30.9° | 77.2° |
+  | storm 2 | 5.0° | 9.8° | 19.3° | 35.8° |
+
+  Read against the *measured* uncertainties: storm 1's 20 km sits below the
+  25 km point → **≤ 6.5°**; storm 2's 73 km would predict ~14° isotropically,
+  yet the direct F4a measurement is 6.5°. The gap is informative: real center
+  definitions do **not** scatter isotropically — they cluster along a preferred
+  axis, so the four-direction jitter is an **upper bound**, not an estimate.
+  That is the second reason F3's number over-stated the problem. `[H]`
+
+**Consequence:** the offset is measurable with an error bar of roughly ±3–7°.
+CT-F4 was the blocking item ahead of any constant-fitting; it is cleared for
+storm 2 and bounded for storm 1. Candidate 3 (center-finder bias) drops from
+"live and not excluded" to **bounded at ≈±5°, i.e. ~⅛ of the offset**. `[G]`
+
+*One observation worth a follow-up, n=1:* on storm 2 the **wind-based** center
+(C) sits ~65 km north of the pressure minimum and moves the error the furthest
+toward zero (−35.1° vs −39.8°). Whether the circulation center is
+systematically the better reference for this test is untested.
+
+### 5.7 CT-F7 — friction over LAND — **both bars pass, and it re-scopes candidate 2**
+
+Operator-requested replication over land. Storm selected **blind to its
+inflow**: deepest NH zonal-anomaly low whose 300–1000 km ring is ≥ 70 % land.
+Selection returned **28.50N 67.50E** (ring 80 % land, anomaly −2609 Pa).
+Orography guard dropped 826 of 2642 land points (31 %) above 1000 m, since
+MSLP over high terrain is an extrapolated fiction whose gradient would corrupt
+the geostrophic reference.
+
+| | n | median α | verdict |
+|---|---|---|---|
+| **land** points (oro-guarded) | 1816 | **+34.2°** (IQR reported in JSON) | |
+| **ocean** points, *same disk* | 743 | **+20.5°** | |
+| CT-F2 reference (storm 1, 99 % ocean) | 6517 | +14.7° | |
+
+- **F7a PASSES** (34.2° ≥ 14.7+8, inside [20,50]) — but this half is
+  confounded by latitude: at 28.5N, *f* is roughly half its 56N value, so
+  ageostrophic effects are inherently larger. Its own storm's ocean points
+  (+20.5°) already run above storm 1's (+14.7°) for that reason.
+- **F7b PASSES** and is the number to trust: **+34.2° land vs +20.5° ocean
+  inside the same disk**, a +13.7° paired contrast that controls for depth,
+  latitude and curvature by construction. Both classes clear the n ≥ 500 bar,
+  so the half is genuinely evaluable rather than NO-VERDICT.
+- **F7d is False** — 34.2° < the 35° threshold, though not by much. Over
+  *land* friction turning is roughly 2.4× its ocean value, so the friction
+  bound is **surface-type dependent and must not be applied globally**, exactly
+  as pre-warned.
+
+Two honest caveats. **(i)** The blind selection was blind to storm *type* as
+well as to the answer: at 28.5N in mid-June this is a monsoon-season thermal
+low, not an extratropical cyclone. It is a legitimate test of the *inflow
+apparatus* over land, and a weaker analogue of storms 1–2 dynamically.
+**(ii)** The apparatus passes its own can-it-fire test twice now — land/ocean
+within one storm here, and land/ocean within storm 2 in §5.3 — in the same
+direction both times.
+
+> **Self-correction, and it matters more than the pass.** F2/F7 measure the
+> **wind** turning relative to the isobars. The CT-E3 offset is a rotation of
+> the **pressure dipole** relative to the motion. Friction rotates the surface
+> wind *within* a given pressure field; it does not rotate the pressure field
+> itself, except at second order through Ekman-pumping feedback. So candidate 2
+> as originally written in §5 was **partly mis-specified** — F2/F7 bound a
+> mechanism that was never the leading route to a pressure-dipole rotation.
+> `[H]`
+
+> **An unplanned paired natural experiment, post-hoc but clean.** Storm 1 is
+> **1 % land** with +14.7° inflow; storm 2 is **46 % land** with +22.0° inflow
+> — a real 7.3° difference in actual surface friction. Their offsets are
+> **−42.0° and −40.2°**, within 1.8° of each other, and the *more* frictional
+> storm has the *smaller* offset. If friction drove the offset the two should
+> separate substantially; they do not. This was not designed — it fell out of
+> the land fractions already in the CT-F2 output — and it is n=2, so it is
+> recorded as suggestive, not decisive. `[S]`
+
 ### 5.4 Where that leaves the three candidates
 
-| candidate | status after F1–F3 |
-|---|---|
-| 1 — steering-level / baroclinic tilt | **Favoured** `[H]`. Monotone 92–102° height ladder crossing zero in the mid-troposphere on both storms, 3–5× the apparatus noise. |
-| 2 — Ekman surface friction | **Bounded contributor** `[G]` on magnitude. 13–15° over ocean, right sign, ~⅓ of the offset at most. |
-| 3 — center-finder bias | **LIVE and not excluded** `[G]`. ±100 km centering moves the answer up to 29.4° — enough to dominate the offset magnitude by itself. |
+*(Updated after F4/F7 — the F1–F3 column is kept so the movement is visible.)*
 
-Candidates 1–3 are **not mutually exclusive**, and the measured numbers are
-roughly additive in the right direction (tilt ≈ most of it, friction ≈ 13–15°,
-centering ≈ ±15° of slop). No attribution is claimed beyond that.
+| candidate | after F1–F3 | after F4 + F7 |
+|---|---|---|
+| 1 — steering-level / baroclinic tilt | Favoured | **Leading, and now near-unopposed** `[H]`. Unchanged evidence (92–102° monotone height ladder crossing zero mid-troposphere on both storms), but its two rivals have shrunk. |
+| 2 — Ekman surface friction | Bounded contributor | **Re-scoped and demoted** `[H]`. The bound tightened (ocean 13–20°, land 34°) but the mechanism was partly mis-specified: friction rotates the *wind*, not the *pressure dipole*. The unplanned 1 %-vs-46 %-land pairing (§5.7) points the wrong way for it. |
+| 3 — center-finder bias | LIVE, not excluded | **Bounded at ≈±5°** `[G]`, ~⅛ of the offset. Independent center definitions agree to 20 / 73 km and the error spans 2.3° / 6.5°. |
 
-### 5.5 Next falsifiers (NOT run)
+Candidates remain **not mutually exclusive**. The residual budget is now
+roughly: tilt ≈ most of the 40°, centering ≈ ±5°, friction ≈ second-order on
+this quantity. No stronger attribution is claimed at n = 2.
 
-- **CT-F4 (apparatus, first):** sub-grid center fit — parabolic interpolation
-  of the pressure minimum plus a circulation-centroid at the level where the
-  error crosses zero — then re-run F3's jitter test. *Bar:* spread ≤ 10°.
-  Until this passes, no offset constant exists to be fitted.
-- **CT-F5:** widen F1's center search per level (or track the upper center
-  along the tilt axis) so the saturation defect in §5.2 cannot recur; re-run
-  storm 2's own-center path for a real verdict.
-- **CT-F6:** the crossing level itself as the observable — *prediction:* it
-  correlates with the deep-layer mean steering level, i.e. deeper/more mature
-  systems cross higher. Needs n ≥ 10.
+### 5.5 Next falsifiers
+
+- ~~**CT-F4** (sub-grid center, was blocking)~~ — **RUN, §5.6.** Storm 2
+  PASSES; storm 1 NO-VERDICT by the anti-vacuity guard, bounded ≤ 6.5° via the
+  F4b curve. The blocking item is cleared.
+- ~~**CT-F7** (friction over land)~~ — **RUN, §5.7.** Both bars pass; the
+  candidate it tests is re-scoped rather than confirmed.
+- **CT-F5 (still open):** widen F1's per-level center search (or track the
+  upper center along the tilt axis) so the 600 km saturation defect in §5.2
+  cannot recur; re-run storm 2's own-center path for a real verdict.
+- **CT-F6 (still open):** the crossing level itself as the observable —
+  *prediction:* it tracks the deep-layer mean steering level, i.e. deeper /
+  more mature systems cross higher. Needs n ≥ 10.
+- **CT-F8 (new, from §5.6):** is the **wind-based** circulation center
+  systematically the better reference? On storm 2 it sat 65 km north of the
+  pressure minimum and moved the error furthest toward zero. *Bar:* across
+  n ≥ 10 storms, |error| at the ζ-centroid < |error| at the MSLP minimum.
+- **CT-F9 (new, from §5.7):** does asymmetric friction rotate the **pressure**
+  dipole via Ekman pumping — the mechanism candidate 2 should have been about?
+  *Test:* correlate the dipole bearing residual against the land-fraction
+  *asymmetry* across the disk (not the mean). *Prediction under candidate 2:*
+  storms with a strong land/ocean split across the vortex show a larger
+  residual than uniform-surface storms.
 - **Sample size, unchanged:** n ≥ 10 storms across seasons and basins before
-  any offset constant is baked into a predictor. 2/2 at p = 0.0625 justified
-  the follow-up; the follow-up now justifies fixing the apparatus, not
-  shipping a constant.
+  any offset constant is baked into a predictor. The apparatus is now good
+  enough to fit one — which makes the sample size, not the centering, the
+  binding constraint.
 
 ---
 
@@ -306,17 +431,21 @@ storm ≈ CENTER (place)                    — 1 address
 3. ~~CT-F3 first (apparatus before mechanism), then CT-F1/CT-F2~~ — DONE.
    **F3 FAILED its gate**; CT-E3 re-graded in §4; F1 strongly favours the
    steering-level mechanism; F2 bounds friction to ~⅓ of the offset.
-4. **CT-F4 (sub-grid center) is now the blocking item** — the apparatus must
-   pass before any offset constant can be fitted, and therefore before the
-   single-frame motion predictor is worth running at all.
-5. CT-F5 / CT-F6, then n ≥ 10 storm sample.
+4. ~~**CT-F4 (sub-grid center) is the blocking item**~~ — **RUN and CLEARED**
+   (§5.6). Apparatus uncertainty ≈ ±3–7°; an offset constant is now fittable.
+   **CT-F7** (land friction, §5.7) run in parallel: both bars pass, candidate 2
+   re-scoped.
+5. **n ≥ 10 storm sample is now the binding constraint** — the apparatus no
+   longer is. CT-F5 / CT-F6 / CT-F8 / CT-F9 alongside it.
 6. Adversarial audit gate (plan §8) before any of it is promoted to EV /
    product claim.
 
-**Net effect of the follow-up on the headline claim.** The §1 summary is
-unchanged in substance — wn-1 dominance (0.92/0.89), the R² lift to
-0.97/0.93, and left-of-motion on 2/2 all stand untouched, since none of them
-depends on the offset. What the follow-up removed is a number I would
-otherwise have been tempted to ship: the "−40° constant" is **not
-measurable at this centering precision**, and the encoding/predictor work in
-§6 is gated behind fixing that, not behind more storms.
+**Net effect of the follow-ups on the headline claim.** The §1 summary is
+unchanged in substance — wn-1 dominance (0.92/0.89), the R² lift to 0.97/0.93,
+and left-of-motion on 2/2 all stand untouched, since none of them depends on
+the offset. The offset itself went **dead (F3) → alive with a ±3–7° error bar
+(F4)**, and that round-trip is the point: the constant is now defensible
+*because* it survived a gate that had already killed it once, at a centering
+precision that was measured rather than assumed. What remains ungated is
+sample size, not apparatus — so §6's encoding and single-frame-predictor work
+is unblocked in principle and still owes n ≥ 10 before any constant ships.
