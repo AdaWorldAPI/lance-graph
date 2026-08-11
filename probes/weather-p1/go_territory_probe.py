@@ -156,6 +156,11 @@ print(f"\nB: {len(det)} centers (|p'|>=400 Pa), "
 
 
 def contested_secured(center_list, thresh):
+    """Split the band into CONTESTED and SECURED cells by the runner-up/leader influence ratio.
+
+    Influence is |amplitude|/r^2 (scale-free), floored at 50 km so a cell at a
+    centre does not diverge. `ratio = second-strongest / strongest`: high ratio
+    = two centres competing (contested), low = one centre dominant (secured)."""
     inf = np.zeros((len(center_list),) + pa_band.shape)
     for i, (ci, cj, amp) in enumerate(center_list):
         r = np.maximum(dist_km(ci, cj), 50.0)

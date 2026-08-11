@@ -132,6 +132,7 @@ def closed_form_flip_point(idx, edges, mass=FLIP_MASS):
 
 
 def main():
+    """Run the winter-timestep arm and report the ratios plus the stale-fixture guard."""
     result = {
         "variable": VAR,
         "run": "A (season/timestep only, variable held fixed at 2m_temperature)",

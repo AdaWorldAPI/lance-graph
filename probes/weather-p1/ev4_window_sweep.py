@@ -61,6 +61,7 @@ def fz(s, eps=1e-9):
 
 
 def load_anom(var):
+    """Load a fixture variable and return its ZONAL anomaly (per-row climatology removed)."""
     a = np.load(f'fixture/{var}.npy').astype(np.float64)
     assert np.isfinite(a).all(), f"{var}: nonfinite values present in fixture"
     clim = a.mean(axis=1, keepdims=True)

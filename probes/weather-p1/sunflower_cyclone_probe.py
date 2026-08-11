@@ -161,6 +161,10 @@ def recon_rmse(sx, sy, svals, dxg, dyg, disk):
 
 
 def delta_entropy(q_u8):
+    """Shannon entropy (bits/sample) of the FIRST DIFFERENCES of a u8 sequence.
+
+    Measures how predictable the sequence is in the given traversal order — the
+    quantity E3 compares between spiral order and raster order."""
     d = np.diff(q_u8.astype(np.int16))
     _, counts = np.unique(d, return_counts=True)
     pr = counts / counts.sum()

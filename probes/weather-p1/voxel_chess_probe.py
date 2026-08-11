@@ -69,10 +69,15 @@ def ddx(a):
 
 
 def ddy(a):
+    """Meridional derivative along the latitude axis (per-metre, via the y metric)."""
     return np.gradient(a, y, axis=0)
 
 
 def physics(pf, uf, vf):
+    """Derive (relative vorticity, zonal pressure anomaly, geostrophic u, geostrophic v).
+
+    v_g = (1/rho*f) k x grad p, so u_g takes -dp/dy and v_g takes +dp/dx.
+    Returned as one tuple so the raw and palette arms run the IDENTICAL chain."""
     zeta = ddx(vf) - ddy(uf)
     p_anom = pf - pf.mean(axis=1, keepdims=True)
     ug = -(1 / (RHO0 * f_cor[:, None])) * ddy(pf)
@@ -89,6 +94,10 @@ def quant_u8(a, q=(0.4, 99.6)):
 
 
 def popfrac(mask_num, mask_den):
+    """Fraction of `mask_den` cells that also satisfy `mask_num`, plus the denominator.
+
+    Returns NaN (not 0) for an empty denominator so an absent population is
+    visibly absent rather than silently reported as a zero rate."""
     d = int(mask_den.sum())
     return (int((mask_num & mask_den).sum()) / d if d else float("nan")), d
 

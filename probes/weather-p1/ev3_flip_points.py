@@ -133,6 +133,7 @@ def closed_form_flip_point(idx, edges, mass=FLIP_MASS):
 
 
 def main():
+    """Compute the closed-form flip points and report which bucket carries each crossing."""
     out = {}
     for var in VARS:
         print(f"\n{var}")
