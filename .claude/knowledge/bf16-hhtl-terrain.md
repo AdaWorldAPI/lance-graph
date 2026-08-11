@@ -183,8 +183,46 @@ M3   P2        Bucket-only retrieval (no Slot V) ≥90%     ≥90% quality     <
                 of full BF16 quality?
 M2   P3        4096 terminal buckets correlate with       MI > 0.6         MI < 0.3          NOT RUN
                 COCA vocabulary?
-M4   P4        HHTL termination: what % at each level?    >60% HEEL        >60% LEAF         NOT RUN
+M4   P4        HHTL termination: what % at each level?    >60% HEEL        >60% LEAF         RAN 2026-08-11
+                                                                                              -> FAIL DIRECTION
 ```
+
+### M4 — RAN 2026-08-11 (OSM form), result: **terminates at TWIG, not HEEL**
+
+Harness: `openstreetmap-website-rs/src/bin/tier_probe.rs` (already written for
+this queue entry; never run until now). Two real extracts, deliberately one
+dense and one sparse. Features per tile, by cascade tier:
+
+| tier | Berlin — city, 2.52 M features | Iceland — overland, 0.65 M features |
+|---|---|---|
+| | tiles / med / p95 / max / fit≤30 | tiles / med / p95 / max / fit≤30 |
+| heel z8 | 2 / 1,564,647 / — / 1,564,647 / 0.0 % | 58 / 3,838 / 34,985 / 202,296 / 20.7 % |
+| hip z16 | 8,065 / 206 / 996 / 3,844 / 16.4 % | 178,962 / 1 / 8 / 1,067 / 95.2 % |
+| twig z24 | 2,435,641 / 1 / 1 / 20 / **99.7 %** | 649,093 / 1 / 1 / 7 / **99.9 %** |
+| leaf z32 | 2,513,559 / 1 / 1 / 11 / 99.8 % | 652,314 / 1 / 1 / 7 / 99.9 % |
+
+**Against the stated gate this is the FAIL direction**: termination is not at
+HEEL, it is at TWIG — 99.7 % of Berlin's twig cells hold exactly one feature.
+Two consequences worth carrying, both measured rather than argued:
+
+1. **There is no coarse bucket to compress *into* below hip.** Occupancy jumps
+   ~200× between twig (1) and hip (206) on Berlin, then ~7,600× to heel. Any
+   LOD/decimation scheme therefore has exactly one useful bucketing level —
+   the hip cell — and "bucketing > resolution" (Iteration 5, above) holds only
+   at and above it.
+2. **Density is a property of the extract, not of the zoom.** Berlin and
+   Iceland differ ~200× at hip and converge to 1 by twig. A decimation rule
+   keyed on *zoom alone* is therefore mis-specified for one of them; the
+   occupancy of the cell is the discriminating quantity.
+
+Scope, stated so it is not over-read: this is M4 in its **OSM point-feature**
+form. It says where a geographic cascade terminates on real planet data. It
+does **not** measure HHTL termination for embedding fingerprints, which is the
+form P2–P4 address and which remains NOT RUN.
+
+Consumer: `q2/crates/cockpit-server/src/osm_features.rs` (`row_budget`), whose
+overview branch is labelled CONJECTURE against finding (1) — it strides rows
+where the cascade answer is one representative per occupied hip cell.
 
 ## Probe Routing
 
