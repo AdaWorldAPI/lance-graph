@@ -1,3 +1,11 @@
+## 2026-08-11 — EV queue re-graded to v2 specs (post-audit; rows below unchanged in STATUS)
+
+All eleven EV rows in the block below still read **Queued** — correctly, none has
+run. But their **specifications are now v2**: the 13-agent pre-registration audit
+(plan §8) found **0 of 11 v1 specs sound** and every one was rewritten. Cite the
+plan's §3 v2 text, never the v1 shape summarized in the row descriptions.
+**EV-9 is Wave 0 and unblocked** (no data needed).
+
 ## weather-substrate-evaluation-v1 — EV queue (PRE-REGISTERED 2026-08-11)
 
 Plan: `.claude/plans/weather-substrate-evaluation-v1.md` (known-vs-test ledger;
