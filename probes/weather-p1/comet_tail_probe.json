@@ -1,0 +1,55 @@
+{
+  "store": "https://storage.googleapis.com/weatherbench2/datasets/era5/1959-2022-6h-1440x721.zarr",
+  "t0": 91246,
+  "t1": 91247,
+  "R_disk_km": 1200.0,
+  "storm1": {
+    "center_t0": {
+      "lat": 55.75,
+      "lon": 334.5
+    },
+    "center_t1": {
+      "lat": 56.5,
+      "lon": 338.75
+    },
+    "displacement_km": 278.73766575720873,
+    "motion_bearing_deg": 17.40910408001618,
+    "low_pole_bearing_deg": 65.44200886355121,
+    "predicted_low_pole_deg": 107.40910408001618,
+    "alignment_error_deg": -41.96709521646496,
+    "R2_profile": 0.6348125006744301,
+    "R2_profile_wn1": 0.9722877428704574,
+    "wn1_frac_of_resid": 0.9243451823302548,
+    "low_pole_bearing_rad": 1.142178523788281,
+    "amp_vs_r_corr": 0.8002995480605919,
+    "CT_E1_wn1_frac": 0.9243451823302548,
+    "CT_E2_trackable": true,
+    "CT_E3_left_of_motion_within_45": true,
+    "CT_E4_R2_profile_wn1": 0.9722877428704574
+  },
+  "storm2": {
+    "center_t0": {
+      "lat": 67.0,
+      "lon": 28.0
+    },
+    "center_t1": {
+      "lat": 69.0,
+      "lon": 36.75
+    },
+    "displacement_km": 440.43381595559754,
+    "motion_bearing_deg": 30.32694785348875,
+    "low_pole_bearing_deg": 80.11749355354193,
+    "predicted_low_pole_deg": 120.32694785348876,
+    "alignment_error_deg": -40.209454299946835,
+    "R2_profile": 0.29427821878043336,
+    "R2_profile_wn1": 0.9259330249471591,
+    "wn1_frac_of_resid": 0.8948035500704673,
+    "low_pole_bearing_rad": 1.3983140509546386,
+    "amp_vs_r_corr": 0.9977355074833578,
+    "CT_E1_wn1_frac": 0.8948035500704673,
+    "CT_E2_trackable": true,
+    "CT_E3_left_of_motion_within_45": true,
+    "CT_E4_R2_profile_wn1": 0.9259330249471591
+  },
+  "CT_E3_joint_hits": 2
+}
