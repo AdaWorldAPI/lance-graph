@@ -105,3 +105,10 @@ crates/lance-graph-planner/examples/data/rosetta/*
 # Main was left holding the measurement receipts while the instruments that
 # produced them lived on another branch. Reproducibility is not a per-PR
 # size concern; the generators are permanent. Do not re-add such a block.
+
+# Weather-probe fixtures — FETCHED, never committed (evaluation plan §0).
+# 36 MB of ERA5 slabs; re-fetch with probes/weather-p1/fetch.py. The manifest
+# IS committed as provenance (time_index / shape / nonfinite / min / max), so a
+# fresh clone can verify which bytes a recorded result was produced from.
+probes/weather-p1/fixture/**/*.npy
+probes/weather-p1/fixture/*.npy
