@@ -87,6 +87,7 @@ meta = json.loads(op.open(B + "/.zmetadata", timeout=90).read())["metadata"]
 
 
 def fetch(var, key):
+    """Fetch and decode one zarr chunk from the WB2 store."""
     za = meta[f"{var}/.zarray"]
     raw = op.open(f"{B}/{var}/{key}", timeout=600).read()
     dec = numcodecs.get_codec(za["compressor"]).decode(raw)
@@ -94,6 +95,7 @@ def fetch(var, key):
 
 
 def static_key(var):
+    """Chunk key for a static (time-independent) variable: all-zero index of the right arity."""
     return ".".join("0" * len(meta[f"{var}/.zarray"]["chunks"]))
 
 
@@ -127,10 +129,12 @@ def geom_ll(latc, lonc):
 
 
 def geom(ci, cj):
+    """dx, dy, r (km) and azimuth theta (rad, CCW from east) relative to a grid-point centre."""
     return geom_ll(lat[ci], lon_deg[cj])
 
 
 def find_center(field, near=None, radius_km=600.0):
+    """Deepest zonal-anomaly low; returns None when the (optionally `near`-limited) mask admits no finite candidate."""
     fa = field - field.mean(axis=1, keepdims=True)
     mask = lat[:, None] > 15
     if near is not None:
@@ -176,10 +180,12 @@ def decompose_ll(field, latc, lonc):
 
 
 def wrap_deg(d):
+    """Wrap degrees into (-180, 180]."""
     return (d + 180.0) % 360.0 - 180.0
 
 
 def err_deg(low_pole_rad, motion_rad):
+    """Signed alignment error, in degrees, of a low-pole bearing against the left-of-motion prediction."""
     return float(wrap_deg(np.rad2deg(
         low_pole_rad - (motion_rad + np.pi / 2))))
 
@@ -226,6 +232,7 @@ def centroid_ll(weight, ci, cj, radius_km=300.0):
 
 
 def d_dx(f):
+    """Zonal derivative in per-km units (centred differences, cos(lat) metric)."""
     dxk = R_E * np.cos(phi)[:, None] * np.deg2rad(0.25)
     o = np.zeros_like(f)
     o[:, 1:-1] = (f[:, 2:] - f[:, :-2]) / (2 * dxk)
@@ -233,6 +240,7 @@ def d_dx(f):
 
 
 def d_dy(f):
+    """Meridional derivative in per-km units; the row index grows southward, so the sign is flipped."""
     dyk = R_E * np.deg2rad(0.25)
     o = np.zeros_like(f)
     o[1:-1, :] = -(f[2:, :] - f[:-2, :]) / (2 * dyk)   # index grows southward
@@ -240,6 +248,7 @@ def d_dy(f):
 
 
 def sep_km(a, b):
+    """Great-circle-ish separation between two (lat, lon) points, in km."""
     la, lo = a
     lb, lob = b
     dlon = np.deg2rad((lo - lob + 180) % 360 - 180)
@@ -349,6 +358,7 @@ print("\n=== CT-F7  friction over LAND (storm chosen blind to its inflow) ===")
 
 
 def inflow(mask):
+    """Signed 10m cross-isobar inflow angle in degrees; positive = turned toward the low (NH friction sign)."""
     bg = np.arctan2(gx[mask], -gy[mask])
     ba = np.arctan2(v10[mask], u10[mask])
     return wrap_deg(np.rad2deg(ba - bg))

@@ -85,6 +85,7 @@ meta = json.loads(op.open(B + "/.zmetadata", timeout=90).read())["metadata"]
 
 
 def fetch(var, key):
+    """Fetch and decode one zarr chunk from the WB2 store."""
     za = meta[f"{var}/.zarray"]
     raw = op.open(f"{B}/{var}/{key}", timeout=600).read()
     dec = numcodecs.get_codec(za["compressor"]).decode(raw)
@@ -174,10 +175,12 @@ def decompose(field, ci, cj):
 
 
 def wrap_deg(d):
+    """Wrap degrees into (-180, 180]."""
     return (d + 180.0) % 360.0 - 180.0
 
 
 def err_deg(low_pole_rad, motion_rad):
+    """Signed alignment error, in degrees, of a low-pole bearing against the left-of-motion prediction."""
     pred = (motion_rad + np.pi / 2) % (2 * np.pi)
     return float(wrap_deg(np.rad2deg(low_pole_rad - pred)))
 

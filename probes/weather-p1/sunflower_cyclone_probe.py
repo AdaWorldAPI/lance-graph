@@ -48,6 +48,7 @@ meta = json.loads(op.open(B + "/.zmetadata", timeout=90).read())["metadata"]
 
 
 def fetch(var, key):
+    """Fetch and decode one zarr chunk from the WB2 store."""
     za = meta[f"{var}/.zarray"]
     raw = op.open(f"{B}/{var}/{key}", timeout=180).read()
     dec = numcodecs.get_codec(za["compressor"]).decode(raw)
@@ -106,6 +107,7 @@ def axisym_index(ci_, cj_):
 
 
 def spiral_pts(n):
+    """n sunflower/golden-angle points on the disk (equal-area: r = sqrt((k+0.5)/n)*R)."""
     k = np.arange(n)
     r = np.sqrt((k + 0.5) / n) * R_DISK_KM
     th = k * GOLDEN_ANGLE
@@ -141,6 +143,7 @@ def grid_pts(n):
 
 
 def rand_pts(n, seed=7):
+    """n uniform random points on the disk, seeded for reproducibility."""
     rng = np.random.default_rng(seed)
     r = np.sqrt(rng.uniform(0, 1, n)) * R_DISK_KM
     th = rng.uniform(0, 2 * np.pi, n)

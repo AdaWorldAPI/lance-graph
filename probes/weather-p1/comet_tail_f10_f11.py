@@ -68,6 +68,7 @@ meta = json.loads(op.open(B + "/.zmetadata", timeout=90).read())["metadata"]
 
 
 def fetch(var, key):
+    """Fetch and decode one zarr chunk from the WB2 store."""
     za = meta[f"{var}/.zarray"]
     raw = op.open(f"{B}/{var}/{key}", timeout=600).read()
     dec = numcodecs.get_codec(za["compressor"]).decode(raw)
@@ -75,6 +76,7 @@ def fetch(var, key):
 
 
 def t_index(dt):
+    """WB2 time index for a datetime: 6-hourly steps since 1959-01-01."""
     return int(round((dt - EPOCH).total_seconds() / 3600 / 6))
 
 
@@ -97,6 +99,7 @@ lon_deg = np.arange(NX) * 0.25
 
 
 def geom_ll(latc, lonc):
+    """dx, dy, r (km) and azimuth theta (rad, CCW from east) relative to a CONTINUOUS (lat, lon) centre."""
     phic = np.deg2rad(latc)
     dlon = np.deg2rad((lon_deg[None, :] - lonc + 180) % 360 - 180)
     dphi = phi[:, None] - phic
@@ -106,6 +109,7 @@ def geom_ll(latc, lonc):
 
 
 def find_center(field, near=None, radius_km=600.0, lat_lo=25.0, lat_hi=75.0):
+    """Deepest zonal-anomaly low; returns None when the (optionally `near`-limited) mask admits no finite candidate."""
     fa = field - field.mean(axis=1, keepdims=True)
     mask = (lat[:, None] > lat_lo) & (lat[:, None] < lat_hi)
     if near is not None:
@@ -123,6 +127,7 @@ def find_center(field, near=None, radius_km=600.0, lat_lo=25.0, lat_hi=75.0):
 
 
 def decompose_ll(field, latc, lonc):
+    """Ring-mean profile + per-ring wavenumber-1 fit about a continuous centre."""
     _, _, r, th = geom_ll(latc, lonc)
     disk = r <= R_DISK
     vals, rr, tt = field[disk], r[disk], th[disk]
@@ -155,6 +160,7 @@ def subgrid_min(field, ci, cj):
     # raise. Centres come from a global scan, so the seam at 0 deg is reachable
     # (coderabbit on PR #926, 2026-08-11). Rows are clamped, not wrapped — the
     # poles are not periodic.
+    """Sub-grid minimum by 2-D quadratic fit on the 3x3 neighbourhood; longitude wraps, latitude clamps."""
     ri = np.clip(np.array([ci - 1, ci, ci + 1]), 0, field.shape[0] - 1)
     z = np.take(field[ri, :], [cj - 1, cj, cj + 1], axis=1, mode="wrap").ravel()
     gy, gx = np.meshgrid([-1., 0., 1.], [-1., 0., 1.], indexing="ij")
@@ -174,10 +180,12 @@ def subgrid_min(field, ci, cj):
 
 
 def wrap_deg(d):
+    """Wrap degrees into (-180, 180]."""
     return (d + 180.0) % 360.0 - 180.0
 
 
 def err_deg(low_pole_rad, motion_rad):
+    """Signed alignment error, in degrees, of a low-pole bearing against the left-of-motion prediction."""
     return float(wrap_deg(np.rad2deg(
         low_pole_rad - (motion_rad + np.pi / 2))))
 

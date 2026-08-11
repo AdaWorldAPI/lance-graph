@@ -45,6 +45,7 @@ meta = json.loads(op.open(B + "/.zmetadata", timeout=90).read())["metadata"]
 
 
 def fetch(var, key):
+    """Fetch and decode one zarr chunk from the WB2 store."""
     za = meta[f"{var}/.zarray"]
     raw = op.open(f"{B}/{var}/{key}", timeout=180).read()
     dec = numcodecs.get_codec(za["compressor"]).decode(raw)
@@ -147,6 +148,7 @@ def decompose(field, ci, cj):
 
 
 def track(name, c0_hint=None):
+    """Track one storm t -> t+6h and score its wn-1 dipole against the motion bearing."""
     ci0, cj0 = find_center(p0, near=c0_hint)
     ci1, cj1 = find_center(p1, near=(ci0, cj0))
     dx, dy, _, _ = geom(ci0, cj0)
