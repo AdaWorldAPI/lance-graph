@@ -1046,3 +1046,41 @@ not a suggestion.**
 
 Cross-ref: `.claude/knowledge/helix-cartesian-vs-fisher2z.md` (the authority for
 this whole section), `crates/helix/KNOWLEDGE.md` (place/residue spec).
+
+#### 12.12a — TESTED (added after the fact, on the operator's question "did you test signed360?")
+
+**No — §12.12 above was landed on doc comments and the knowledge doc, with
+nothing executed.** That is the same failure it diagnoses, one level down:
+having just written *"reading the primary source is not the same as reading the
+doctrine"*, I read both and **ran neither**. Corrected here.
+
+The crate's own suite is **77 + 4 + 7 doctests, all green**, but a green suite is
+not evidence for a specific claim. Audited claim-by-claim, then closed the gaps:
+
+| claim in §12.12 | before | now |
+|---|---|---|
+| sign exact at `\|y\| ≈ 0` (partition, not a centred round) | `[G]` — `signed360_neg_sign_survives_near_rim_at_high_total`, a real regression with a documented prior failure (codex P2 #498) | unchanged |
+| `azimuth` is a full-360° field | **doc comment only.** The existing `signed360_azimuth_varies_with_n` asserts `a != b` for ONE consecutive pair — golden-angle stepping makes that true of any sane implementation, so it cannot detect a truncated field | `[G]` **measured** over the whole domain: `min 0`, `max 65535`, **256/256** coarse arcs occupied, 54 319 distinct values |
+| hemisphere → sphere via the sign | mechanism tested; **nothing decodes to a direction** (there is no decode — see the `from_normal` gap) | unchanged; the *coverage* half stays `[H]` until an encode/decode pair exists |
+| dormant lane reports a definite sign | **asserted twice, never constructed** | `[G]` **demonstrated**: `Signed360::from_bytes([0u8; 6]).sign()` → `Sign::Neg` |
+
+Also measured in passing: the `polar` partitions fill their halves **exactly** —
+`Pos ∈ [128, 255]`, `Neg ∈ [0, 127]`, no overlap, no gap at either end.
+
+**Landed as `crates/helix/tests/signed360_claims.rs`** (3 tests), each
+**disable-verified red-then-green** against an injected defect:
+
+| test | injected defect | observed failure |
+|---|---|---|
+| `azimuth_spans_the_full_circle_not_merely_varies` | 10-bit truncated field | `left: 1023, right: 65535` |
+| `polar_partitions_are_exactly_the_two_halves` | the #498 centred-at-128 round | `left: (0, 128), right: (0, 127)` |
+| `dormant_all_zero_lane_decodes_as_a_definite_sign_known_defect` | a "fixed" sentinel returning `Pos` | `left: Pos, right: Neg` |
+
+The third **pins a defect, not a virtue** — when the dormant-lane hazard is
+fixed it MUST fail and be re-pinned deliberately, never silently edited.
+
+**Scope caveat, stated rather than implied:** `helix` is **excluded from the root
+workspace** (root `Cargo.toml` `exclude`) and named in **no CI workflow**
+`[G-absence]` — so these 3 tests, and the crate's existing 77, run **only when
+invoked by hand** in that crate. Adding them raises the floor for the next
+session that looks; it does not put them on a gate.
