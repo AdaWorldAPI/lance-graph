@@ -1,0 +1,513 @@
+# Weather AI on the Normalized Substrate — palette256 × helix360
+
+> **READ BY:** family-codec-smith, certification-officer, truth-architect,
+> integration-lead, container-architect, v3-envelope-auditor, and ANY session
+> executing or amending `.claude/plans/weather-substrate-poc-v2.md`.
+>
+> **Written:** 2026-08-11, after the operator-corrected helix arc (see §11 —
+> the correction ledger is part of the document, not an apology appendix).
+> **Companion plan:** `.claude/plans/weather-substrate-poc-v2.md` (PR #915).
+>
+> **Grading (mandatory on every claim):**
+> - `[G]` — verified in committed code this session, with `file:line`.
+> - `[G-absence]` — verified NOT to exist (grep/read, stated scope).
+> - `[H]` — measured this session on real data but the probe is NOT yet a
+>   committed runnable example, OR a design mapping onto shipped primitives.
+> - `[S]` — proposal. Do not build on an `[S]` without promoting it first.
+
+---
+
+## 0. Executive summary (product view)
+
+Weather fields become **one comparable substrate** by paying the normalization
+cost exactly once, at ingest:
+
+- Every bounded scalar quantity (temperature anomaly, humidity, pressure
+  anomaly, wind speed) is Fisher-Z normalized and quantized to **one u8** in a
+  256-palette (`helix::RollingFloor`). Every scalar-scalar comparison
+  thereafter is a **256×256 u16 table lookup — 128 KB, cache-resident, O(1),
+  metric-safe** (`helix::DistanceLut`) `[G]` §3.
+- Wind **orientation** is the same mechanism one rank up: **helix360**, a
+  golden-spiral double-hemisphere projection (Poincaré-depth rim
+  densification), stored as the **6-byte `HelixResidue` ABI lane = 2 × 24-bit
+  hemispheres = inbound AND outbound bearing** `[G]` §2.
+- The z-form is kept **normalized, not materialized**: variance-stabilized
+  values from unlike sources land on one scale, so cross-variable correlation
+  (T×q, p×wind…) becomes a legitimate LUT operation instead of a unit error.
+  Geometry (hyperbolic depth, sphere coordinates, full arcs) is **hydratable
+  on demand** from the stored codes — deterministic template, endpoints only
+  `[G]` §1, §2.4.
+- Measured this session on real ERA5 `[H]` §6: source blosc/lz4 gives 1.27×;
+  Lance on 512 B rows gives 1.00× (verbatim, by design) — **the win must come
+  from representation, not the storage engine**. Normalize-then-quantize is
+  that win: raw-Kelvin BF16 fails (≈1.069 K error) where anomaly BF16
+  succeeds (≈0.0110 K, 97×); a u8 bearing is ~8× under observational error.
+- The one genuine open decision is **floor scoping** (§4): cross-variable
+  comparability of palette codes is a calibration *policy* the ingest must
+  set explicitly — the crate provides the primitives and the version stamps,
+  and deliberately does not decide for you `[G]`.
+
+---
+
+## 1. The representation doctrine
+
+### 1.1 One `arctanh` core, two readings `[G]`
+
+`helix::fisher_z::Similarity` (`crates/helix/src/fisher_z.rs`) exposes both:
+
+| method | formula | meaning | file:line |
+|---|---|---|---|
+| `fisher_z()` | `z = ½(ln(1+s) − ln(1−s)) = arctanh(s)` | **variance-stabilizing z-score** | `fisher_z.rs:55-58` |
+| `hyperbolic_depth()` | `ρ = 2·arctanh(r)` | **Poincaré-disk geodesic arc length** from centre to Euclidean radius `r` | `fisher_z.rs:76-78` |
+
+The factor 2 is the arc-length integral `∫₀ʳ 2/(1−t²) dt`; *"geometry keeps
+the 2 as arc length; statistics drops it for variance stabilisation"*
+(`fisher_z.rs:2-4, 60-65`). Header: *"The Poincaré rim-densified depth thus
+arrives as a by-product of the Fisher-Z alignment, with NO separate hyperbolic
+geometry in the hot path"* (`fisher_z.rs:1-8`). Inputs clamp to
+`[−1+ε, 1−ε]`, `ε = 1e-9` (`CLAMP_EPS`, `fisher_z.rs:36`) — every f64 input
+yields a finite result. The ln-form (not `f64::atanh`) mirrors the
+`simd_ln_f32` hot path (`fisher_z.rs:38-43`); the f32 batch kernel is
+`helix::simd::batch_fisher_z` (`simd.rs:24`), parity-tested against the
+scalar reference (`simd.rs:81-95`).
+
+### 1.2 Normalized > materialized (operator-ruled this arc)
+
+The hot path stores the **z-form**, never the arc length. `hyperbolic_depth`
+is public + tested and called from **no encode path** `[G-absence]` (grep over
+`crates/helix/src`, 2026-08-11: call sites are its own tests and docs only).
+This is deliberate, not an unwired seam (a mis-read corrected in §11-C3):
+
+1. **Uniform information per bucket.** Raw bounded quantities pile density at
+   their bounds; a linear quantizer wastes buckets. After `arctanh`, variance
+   no longer depends on the value — *"equal steps mean equal amounts —
+   stretching rim-near differences before quantisation"* (`fisher_z.rs:7-8`).
+   This is what makes **8 bits sufficient**.
+2. **Unlike sources land on one scale.** Raw correlation-like values cannot
+   be pooled or cross-compared (value-dependent variance — a category error);
+   z-values can. This is the property with no substitute: it is what makes a
+   *shared* palette a common substrate rather than a compression trick.
+3. **Geometry stays hydratable.** When spatial reading is wanted, `2z` and
+   the sphere coordinates regenerate deterministically from the code (§2.4).
+   Storage carries the low-entropy normalized form; materialization is a
+   read-time projection.
+
+⚠ **Statistical iron rule:** any *significance* claim on pooled/compared
+z-values in this substrate uses **Jirak 2016 weak-dependence rates**, not the
+classical `var(z)=1/(n−3)` — weather fields are spatially/temporally
+autocorrelated, so effective sample size ≪ nominal
+(`CLAUDE.md § I-NOISE-FLOOR-JIRAK`). The normalization itself holds
+regardless; the *error bar* does not.
+
+### 1.3 Two ranks of one mechanism
+
+| | input | transform | stored carrier | hydrates into |
+|---|---|---|---|---|
+| **palette256** | bounded scalar in `[−1,1]` after mapping | fisher z | 1 × u8 (+ shared floor version) | value / similarity via 256×256 LUT — the cosine replacement |
+| **helix360** | orientation | fisher-2z family (equal-area lift + rim depth) | 6 B = 2 × 24-bit signed hemispheres | spatial in/out orientation on the full sphere |
+
+---
+
+## 2. helix360 — the projection, the codec, the ABI lane
+
+Crate: `crates/helix/` (standalone `[workspace]`; **mandatory** `ndarray`
+dep via git per codex P2 #460 — `Cargo.toml`). Doctrine, opening line of
+`lib.rs:3-6` `[G]`:
+
+> **HHTL is the deterministic PLACE** (the trie address — *where*); **helix is
+> the RESIDUE** (the orthogonal edge at that place — the hemispheric angle the
+> place itself does not capture).
+
+### 2.1 Four-stage pipeline `[G]`
+
+1. **Placement** — "tomato-rose" equal-area hemisphere: midpoint rule
+   `u = (n+0.5)/N`, `r = √u`, `y = √(1−u)`, azimuth `n·φ`
+   (`placement.rs:112-118`). Equal-**area**, explicitly *"NOT hyperbolic —
+   the hyperbolic-depth feeling is supplied separately by the Fisher-Z step"*
+   (`placement.rs:3-5`). Rim = late/fine detail (`placement.rs:147-151`).
+2. **Place coupling** — φ-spiral curve-ruler from the HHTL address:
+   `CurveRuler::from_hhtl(path, depth)` → `start = (path+depth) mod 17`;
+   arc index `(start + 4k) mod 17`, `gcd(4,17)=1` ⇒ full permutation
+   (`curve_ruler.rs:31-56`).
+3. **Fisher-Z alignment** — `z = arctanh(r)` (§1.1). Note the shipped
+   encoder calls `fisher_z()`, not `hyperbolic_depth()`
+   (`residue.rs:150,159`) — §1.2.
+4. **Euler hand-off + quantize** — `aligned = z·STRIDE + γ·(rank/N − ln 17)`
+   (order FIXED per helix `KNOWLEDGE.md` Open Item #2; `residue.rs:148-153`),
+   then `RollingFloor::quantize` into the 256-palette. Encoder self-seeds its
+   floor so the bulk lands in-range and the top ~1 % rim saturates —
+   controlled-saturation tail (`residue.rs:130-141`).
+
+### 2.2 Wire shapes `[G]`
+
+**`ResidueEdge` — 3 B unsigned hemisphere** (`residue.rs:19-61`):
+`[start_idx, end_idx, floor_version]`. `start_idx` = quantized PLACE anchor
+(same place ⇒ same start, test `residue.rs:250-256`); `end_idx` = the
+residue; `floor_version` = quantizer-calibration stamp (§3.2).
+`distance_adaptive` (LUT L1) is metric-safe; `distance_heuristic`
+(byte-Hamming) is a HEEL-stage pre-filter only, **never** for CAKES bounds
+(`residue.rs:44-61`).
+
+**`Signed360` — 6 B = 48 bit, the full-sphere form** (`residue.rs:63-116`),
+LE wire `[rim.start, rim.end, rim.floor_version, polar, azimuth_lo,
+azimuth_hi]`:
+
+| field | bytes | content |
+|---|---|---|
+| `rim: ResidueEdge` | 3 | unsigned hemisphere edge (sign-independent — test `residue.rs:317-324`) |
+| `polar` | 1 | signed equal-area lift: `\|y\|` in 7 bits, **hemisphere sign in the partition** — `[128,255]` upper / `[0,127]` lower |
+| `azimuth` | 2 | `n·φ mod 2π` mapped onto `[0, 65536)` — full 360° |
+
+⚠ The sign-partition is load-bearing, not stylistic: near the rim
+`|y| → 0`, and a naive `128 + y·127` rounds a tiny negative lift up to 128,
+which reads as positive — **the hemisphere sign is lost exactly where the
+finest detail lives** (codex P2 #498; fix + regression
+`residue.rs:186-195, 364-383`). Any re-implementation that "simplifies" this
+encoding reintroduces the bug.
+
+### 2.3 The ABI lane — 2 × 24-bit, in AND out `[G]`
+
+`lance-graph-contract/src/canonical_node.rs`:
+
+- `ValueTenant::HelixResidue = 4` (`:837-840`): *"signed full-sphere
+  `Signed360`, 48-bit = 6 B (**2× the 24-bit equal-area hemisphere**; produced
+  by the `helix` crate's `Signed360`, written here zero-copy)"*. Echoed at
+  `placement.rs:170-171`: *"The two 24-bit hemispheres = the 48-bit
+  Signed360."*
+- Column descriptor (`:960-967`): `kind: ColumnKind::U8`,
+  `elems_per_row: 6`, `row_offset: 112` — inside the operator-locked
+  512-byte node row `key(16) | edges(16) | value(480)`. (History note kept in
+  source: the lane *was* 48 B until a bits→bytes slip was right-sized
+  2026-06-15.)
+- Schema membership: `ValueSchema::{Compressed, Full}` carry the lane;
+  `Cognitive` does not (`:1105-1141`).
+- The lane is a **content-blind byte register**; `Signed360::{to,from}_bytes`
+  is *one sanctioned reading* of it, "2 × 24-bit hemisphere (in/out)" is
+  another — same doctrine as the V3 12-byte facet and the `EdgeBlock`
+  flavor rule (never assume THE reading; resolve per class). Sibling reading
+  precedent: `facet_schema.rs:13,33-34,89-93` (`FacetSchema::Pair48` names
+  `helix Signed360` / `cam_pq [u8;6]` as the two shipped 6-byte codes —
+  re-tiling, never re-encoding).
+
+**Product meaning for wind:** "the wind coming from AND going to" is the
+lane's native shape — inbound bearing in one hemisphere, outbound in the
+other, 6 bytes, zero-copy at offset 112. Not a new codec; a projection of an
+existing tenant.
+
+`[G-absence]` **No shipped pair-writer yet:** `ResidueEncoder::encode_signed`
+emits ONE signed point (`residue.rs:182-204`); no constructor in
+`crates/helix/src` or the contract composes the in/out *pair* into the lane
+in one call (grep 2026-08-11). The producer for the pair — two sign-opposite
+encodes, or a dedicated reading — is open work (§10-P4). Do not invent it
+inline; it belongs next to the tenant's other readings.
+
+### 2.4 Hydration `[G]`
+
+Two levels, both deterministic:
+
+- **Curve level** — the Curve-Ruler Principle (`curve_ruler.rs:4-15`): the
+  φ-spiral is the template; endpoints are stored; the interior regenerates
+  via `(offset + 4k) mod 17`. Headline: *"8K resolution at Super-8 cost —
+  the resolution lives in the deterministic template (free, regenerable);
+  the cost is only the endpoint pair"* (`lib.rs:9-13`).
+- **Geometry level** — the stored z-code materializes into Poincaré depth
+  (`×2`) or sphere coordinates (`HemispherePoint::cartesian`,
+  `placement.rs:141-145`) whenever a spatial reading is needed. Storage never
+  pays for the geometry; reads project it.
+
+---
+
+## 3. palette256 — quantizer + distance surface
+
+### 3.1 `RollingFloor` mechanics + honest loss accounting `[G]`
+
+`crates/helix/src/quantize.rs`:
+
+- `quantize(value)` is **linear** over a live `[lo, hi]` window:
+  `idx = floor((v−lo)/(hi−lo)·256)`, clamped; ≤lo saturates to 0, ≥hi to 255
+  (`quantize.rs:99-108`). **All non-linearity comes from the Fisher-Z step
+  upstream** — the pipeline is `normalize → linear 256-bucket quantize`.
+- **NOT lossless**, and the module says so: ±½ bucket = ±0.195 % of span in
+  the informative range; out-of-window values saturate into the two rim
+  buckets — controlled saturation, calibrated so tail occupancy stays small
+  (`quantize.rs:11-18`).
+- The 256 buckets double as the monitoring instrument: `occupancy` IS the
+  empirical distribution; no separate histogram (`quantize.rs:5-9`).
+- Compute/calibration split honors the workspace `data-flow.md` rule:
+  `quantize`/`drift_score` are `&self`; `observe`/`roll` are `&mut self`
+  (`quantize.rs:28-38`).
+
+### 3.2 Calibration loop + the version contract `[G]`
+
+- `observe(v)` accumulates occupancy (`quantize.rs:113-117`).
+- `drift_score()` = max per-bucket deviation from uniform, in
+  multinomial-SD units (`quantize.rs:119-146`). ⚠ This is a **hand-tuned
+  trigger** (`drift_sigma` default 3.0, `quantize.rs:72-74`) using classical
+  multinomial SD — acceptable per I-NOISE-FLOOR-JIRAK *because it is
+  declared as hand-tuned*, but note for weather: spatially autocorrelated
+  fields make observations strongly dependent, so the nominal σ is
+  optimistic; treat the threshold as a knob to calibrate on real occupancy,
+  not a significance test (§10-P5).
+- `roll()` fires only above threshold: glides `[lo,hi]` toward the empirical
+  0.4 %–99.6 % quantile window with inertia α (default 0.1), guards against
+  degenerate bounds, resets occupancy, **bumps `version` (wrapping u8)**
+  (`quantize.rs:148-216`).
+- **The contract** (`quantize.rs:20-26`): *"Same value → same u8 holds ONLY
+  within a stable floor version… callers must embed the version stamp
+  alongside the quantised byte and invalidate cached LUTs on version
+  change."* `ResidueEdge.floor_version` is exactly that stamp.
+
+### 3.3 `DistanceLut` `[G]`
+
+`crates/helix/src/distance.rs`: 256×256 × u16 = **128 KB** (L1/L2-cache
+resident, `U8x64`-friendly; `distance.rs:12`). Two constructors:
+
+- `linear()` — `d(a,b) = |a−b|` on the index order. L1 on a linear order IS
+  a metric (triangle inequality by construction) ⇒ safe for CAKES/CLAM
+  pruning bounds (`distance.rs:22-33`; regression tests sweep the index cube
+  and assert zero violations, `distance.rs:87-105`).
+- `from_floor(&floor)` — L1 over the floor's real `bucket_center` values,
+  span-normalized back to `[0,255]` (`distance.rs:39-50`). Reflects
+  (possibly post-roll non-uniform) bucket spacing; still a metric
+  (`distance.rs:118-135`).
+
+The layer discipline is inherited from bgz17: Scent-style bit-lattice
+Hamming is NOT a metric and never feeds pruning bounds; palette L1 is
+(`distance.rs:4-10`).
+
+---
+
+## 4. Floor scoping — the cross-variable comparability decision
+
+**Resolved this session by reading the code: it is a policy the ingest must
+set, not a property the crate grants or withholds.** The facts `[G]`:
+
+1. Floors are **per-instance**; nothing shares them automatically
+   (`ResidueEncoder::new` seeds its own; `residue.rs:130-141`).
+2. Index meaning depends on the floor: `bucket_center(b) = lo +
+   ((b+0.5)/256)(hi−lo)` (`quantize.rs:248-250`). **Two different floors ⇒
+   the same u8 denotes different normalized values.** A cross-variable LUT
+   lookup between codes from different floors is a unit error wearing a
+   table lookup.
+3. Nothing *prevents* sharing: `RollingFloor` is `Clone`, any floor feeds
+   `DistanceLut::from_floor`, and Fisher-Z stabilization is precisely what
+   makes heterogeneous variables coexist in one window.
+4. Version divergence is the same hazard in time: independent `roll()`s
+   desynchronize `floor_version` stamps per variable; the documented remedy
+   is stamp-and-invalidate (§3.2).
+
+**The three admissible policies** (decision owner: weather ingest, D-WXA
+arc):
+
+| policy | cross-variable LUT semantics | per-variable resolution | when |
+|---|---|---|---|
+| **(a) one canonical z-floor** for all scalar lanes | ✅ one 128 KB LUT serves every pair | shared window ⇒ some per-variable resolution ceded | the correlation substrate — the product point |
+| **(b) per-variable floors** | ❌ codes not comparable across variables; cross-variable work returns to float z-domain | maximal | archival fidelity lanes |
+| **(c) hybrid** — canonical correlation lane **plus** optional per-variable precision lanes | ✅ on the canonical lane | ✅ on the extra lanes | recommended `[S→H]` — matches the tenant model (a reading per purpose, empty lanes cheap) |
+
+**Recommended operating rule `[S]` (needs operator sign-off + probe §10-P2):**
+calibrate the canonical z-floor once per dataset epoch on an observation
+batch, then **freeze it** (never `roll()` mid-epoch); align any re-roll with
+a Lance dataset **version boundary** and record `(lo, hi, version)` in the
+dataset metadata — so "same code ⇒ same value" holds exactly within a Lance
+version, and time-travel reads (`QueryReference::at`) rehydrate with the
+floor that produced them. This makes the floor stamp and the Lance version
+the same kind of object: a calibration epoch.
+
+---
+
+## 5. Weather variable mapping (design `[H]` — primitives shipped, wiring not)
+
+`[G-absence]` No weather-specific code exists in the tree yet; the POC plan
+is the vehicle. The mapping below composes ONLY shipped primitives.
+
+| variable | decomposition | transform | carrier | note |
+|---|---|---|---|---|
+| temperature (2 m, per-level) | climatology (PLACE) ⊕ anomaly (RESIDUE) | z-normalize anomaly | 1 × u8 palette lane | the 97× BF16 measurement (§6.3) is this principle one rung down |
+| humidity (specific/relative) | climatology ⊕ anomaly | z-normalize | 1 × u8 | bounded variables are the native Fisher-Z case |
+| pressure / geopotential | climatology ⊕ anomaly | z-normalize | 1 × u8 | |
+| **wind direction, from + to** | — | helix360 | **`HelixResidue` 6 B lane @ offset 112** | 2 × 24-bit signed hemispheres (§2.3) |
+| **wind speed** | own quantity — **NOT derivable** from stored (u,v) (§6.5) | z-normalize | 1 × u8 | carries gustiness (Jensen gap); dropping it destroys information |
+| u, v components (if vector math needed) | anomalies | z-normalize | 2 × u8 | optional precision lanes under policy (c) |
+
+The decomposition line **is** the crate's PLACE/RESIDUE doctrine applied to
+climate: climatology is the deterministic, regenerable part (the template);
+the anomaly is the orthogonal residue that quantizes well. HHTL supplies the
+spatial address (lat/lon/level as trie path); `CurveRuler::from_hhtl` couples
+the residue to it (`curve_ruler.rs:41-43`).
+
+---
+
+## 6. Measured-evidence ledger (session 2026-08-10/11, real ERA5)
+
+> ⚠ **Provenance:** all rows measured in-session on real data; **none is yet
+> a committed runnable example.** Per the falsifiability rule, treat each as
+> *measured, not yet re-runnable* until §10-P1 lands. Conditions stated are
+> the ones recorded; re-derive exact metric definitions when committing the
+> probes.
+
+| # | quantity | value | conditions |
+|---|---|---|---|
+| 6.1 | source-side compression (blosc/lz4 lvl 5, Zarr chunks) | **1.27× mean** | real ERA5 Zarr v2, dtype `<f4` |
+| 6.2 | Lance compression on 512 B node rows | **1.00× (verbatim)** | by design: value > `MINIBLOCK_MAX_BYTE_LENGTH_PER_VALUE = 256` ⇒ full-zip path; opaque 512 B binary doesn't compress. Consequence: **right-size before storage** |
+| 6.3 | BF16 on raw Kelvin vs on anomaly | **1.069 K vs 0.0110 K — 97×** | real ERA5 temperature; anomaly = field − climatology; error metric as recorded (mean-abs) — pin on probe commit |
+| 6.4 | wind from ≠ to | **mean turn 15.50°; 90.2 % of gridpoints > 1.7°** | 240×121 grid, bilinear displacement→bearing. ⚠ apparatus lesson: the first run (64×32, `rint`-snapped) returned median 0.00° — displacement 0.17 cells landed both feet in one cell; a 53× swing that would have inverted the conclusion |
+| 6.5 | wind_speed non-derivability | stored speed ≥ `hypot(ū,v̄)` at **100 %** of samples; mean ratio **1.115**; max gap **14.37 m/s** | stored speed = mean \|v\| over averaging window; hypot of means = \|mean v\| ⇒ Jensen gap = **gustiness**, real signal, not redundancy |
+| 6.6 | u8 bearing sufficiency | error **≈8× under observational bearing error at 1 B/bearing** (2 B for the from/to pair) | 256 angular levels ≈ 1.41° step; exact obs-error reference to pin on probe commit. Canonical carrier remains the 6 B lane (adds polar + rim + version) |
+
+Product readings of the ledger: (6.2) the storage engine will not save a
+wrong representation; (6.3) normalization is worth two orders of magnitude
+before any codec choice; (6.4)+(6.6) the in/out double hemisphere is both
+*necessary* (from ≠ to almost everywhere) and *sufficient at u8*; (6.5) the
+variable list cannot be pruned by "derivable" intuition — measure first.
+
+---
+
+## 7. Economics — the inbound tax, paid once `[G structure / H numbers]`
+
+- **Ingest (once per datum):** `arctanh` (batch: `helix::simd::batch_fisher_z`,
+  SIMD via the mandatory ndarray dep — `simd.rs:4,24`), placement, quantize.
+- **Every read thereafter:** u8 index pair → 128 KB LUT → u16. No float, no
+  re-normalization, no per-query derivation. At reanalysis scale (plan §0:
+  ~570 k hourly states × 1.04 M gridpoints) comparisons outnumber data by
+  orders of magnitude — per-comparison normalization is the difference
+  between feasible and not.
+- Same bake-once/read-forever doctrine as bgz-tensor's
+  attention-as-table-lookup and bgz17's palette semiring; helix `lib.rs:45-56`
+  records the honest overlap (deliberate clean-room re-derivation; the new
+  pieces are the equal-area `√u` placement and the PLACE/RESIDUE doctrine).
+- ABI fit: scalars land as u8 lanes, orientation in the existing
+  `HelixResidue` tenant, all inside the canonical 512 B row — Lance's
+  columnar I/O writes the LE bytes zero-copy (per the SoA three-tier model);
+  empty lanes cost reservation, not encoding.
+
+---
+
+## 8. Ingest specification (recurring job)
+
+- **Source of record (Phase A):** ARCO-ERA5 on public GCS, bucket
+  `gcp-public-data-arco-era5`, `ar/` prefix, object
+  **`1959-2023_01_10-full_37-1h-0p25deg-chunk-1.zarr`** — session-verified
+  `[H]`. ⚠ The plan's §0-C1 names `era5/1959-2023_01_10-full_37-1h-1440x721.zarr`,
+  which does **not** exist — corrected via the plan's ⊘ C3 block (same
+  commit as this doc). Grid facts unchanged: 0.25° ⇒ 1440×721 = 1,038,240
+  points, hourly, 37 levels. Apparatus lesson recorded: the wrong path was
+  "confirmed" from a GitHub issue *titled* "…can't be opened" — a title
+  match is not an existence check; list the bucket.
+- **Wire format in:** Zarr v2, `<f4` (LE float32), blosc/lz4 level 5 `[H]`.
+- **Quick vs permanent** (operator framing; plan D-WXA-1): Stage-A ingest is
+  a *disposable* Python `Zarr → xarray → numpy → f32 slab` — no eccodes, no
+  C deps. The permanent Rust-side reader decision is deferred until the
+  representation is validated; do not gold-plate the throwaway.
+- **Pipeline per epoch:** fetch slab → compute/lookup climatology → anomaly
+  → map to `[−1,1]` → `batch_fisher_z` → calibrate-or-load canonical floor
+  (§4 policy) → quantize scalars to u8 lanes; bearings through helix360 into
+  the `HelixResidue` lane → commit as **one Lance dataset version** with
+  `(lo, hi, floor_version)` in metadata. Per the S3 doctrine (#901): object
+  store hydrates, local mmap-capable dir stores.
+- **Pins:** rust 1.97.1 (`rust-toolchain.toml` authoritative), lance =9.0.0
+  family / lancedb =0.33.0, arrow 58, datafusion 54 **and** 53 both required
+  (deltalake upstream) — see `CLAUDE.md § Key Dependencies`; do not
+  re-litigate here.
+
+---
+
+## 9. Verification battery
+
+Two gates, in order (operator-set: representation first, prediction second):
+
+1. **Representation validity** — does the substrate preserve structure?
+   - Rank fidelity: Spearman ρ between float-truth distances and LUT
+     distances over sampled pairs; Pearson r on rehydrated vs truth values.
+   - Reliability: ICC + Cronbach α across re-encodes / epochs.
+   - Instruments: `jc` crate `reliability.rs` (pearson / spearman /
+     cronbach_alpha / icc → `Option<f64>`) + `stats.rs`; hardware mirror
+     `ndarray::hpc::reliability`. ⚠ Known divergence `[H]`: the ndarray
+     mirror returns `f64` with `0.0` sentinels where jc returns
+     `Option<f64>` — a `0.0` from the mirror is ambiguous
+     (undefined-vs-zero); prefer jc for verdicts, ndarray for throughput.
+   - Every "N σ above noise floor" claim: Jirak 2016 rates (§1.2 ⚠).
+2. **Prediction correctness** — only after gate 1: WeatherBench2 `metrics.py`
+   definitions (MSE/RMSE, ACC, SEEPS, CRPS) computed on rehydrated
+   substrate vs f32 truth, so any skill delta is attributable to the
+   representation, not the metric implementation.
+
+Intrinsic monitors, free with the substrate `[G]`: `RollingFloor.occupancy`
+(distribution health per lane), `drift_score` (regime-change telltale —
+scientifically interesting for climate data in its own right), triangle-
+inequality regression on any new LUT (pattern: `distance.rs:87-105`).
+
+---
+
+## 10. Probe queue (next deliverable is the probe, not more synthesis)
+
+| id | probe | pass criterion | status |
+|---|---|---|---|
+| P1 | commit §6's session probes as runnable examples (ERA5 slab in CI-fetchable form or documented local fixture) | every §6 row re-derivable by command | NOT RUN |
+| P2 | **shared-floor cross-variable probe**: T + q anomalies through ONE canonical z-floor; Spearman ρ of LUT cross-distances vs float z-domain truth | ρ ≥ 0.99 on sampled pairs (threshold hand-tuned, says so) | NOT RUN — gates policy (a)/(c) |
+| P3 | per-variable resolution cost of the shared window (max quantization error per variable vs per-variable floors) | documented, bounded; no variable saturates > ~1 % beyond the designed rim tail | NOT RUN |
+| P4 | in/out pair producer for the `HelixResidue` lane (two sign-opposite encodes vs dedicated reading), + round-trip test incl. rim-sign regression re-run | byte round-trip; sign exact at rim (extend `residue.rs:364-383` pattern) | NOT RUN — §2.3 absence |
+| P5 | `drift_sigma` under spatial autocorrelation: occupancy from real fields, measure false-trigger/miss rates vs the 3.0 default | calibrated threshold with recorded rationale | NOT RUN |
+| P6 | Lance-version ↔ floor-version alignment (§4 rule): freeze, ingest 2 epochs, time-travel read rehydrates with the matching floor | exact rehydration across `at(v)` | NOT RUN — promotes §4 `[S]` |
+
+---
+
+## 11. Correction ledger (this arc — kept so the next session doesn't repeat it)
+
+Five corrections, all operator-caught, all of the same species: **asserting
+from API surface or first principles what the code already answered.**
+
+- **C1 — invented bit budget.** A "48-bit helix360 = from 15 / to 15 /
+  magnitude 17 / sign 1" allocation was designed from scratch while
+  `Signed360` (6 B, different and better-reasoned layout, incl. the #498
+  sign-partition) already existed. Cause: a recon agent's output was never
+  received and the gap was filled by invention. Rule: **the crate is read
+  before any budget is proposed.**
+- **C2 — doubling a doubled width.** Proposed `Pair48` (12 B) for from/to
+  when the 6 B lane is *already* 2 × 24-bit in/out by construction
+  (`canonical_node.rs:963`). Cause: read `Signed360`'s field list as THE
+  definition of the lane instead of one reading of a content-blind register.
+- **C3 — "unwired 2z seam".** Flagged `hyperbolic_depth`-never-called as a
+  gap; it is the design — normalized-low-entropy is the carrier, geometry is
+  hydratable (§1.2). First mis-described the same fact as "a monotone rescale,
+  not a defect" — smoothing instead of naming; both readings were wrong.
+- **C4 — "scalar similarity".** Described the palette input as a similarity
+  score; it is a *normalized* quantity whose value is variance stabilization
+  and cross-source comparability (§1.2-2) — the "correlate what normally
+  can't be correlated" property.
+- **C5 — measurement apparatus (earlier in session).** The `rint`-snapping
+  bearing artifact (§6.4) and the "wind_speed is derivable" claim (§6.5) —
+  both inverted by proper measurement.
+
+Meta-rule extracted: in this workspace **"consult, don't guess" applies to
+one's own prior messages too** — a confident earlier statement in-session has
+the same evidentiary weight as a stale doc: none, until checked against the
+tree.
+
+---
+
+## Appendix A — API quick reference `[G]`
+
+```text
+helix (crates/helix, standalone; mandatory ndarray dep, git per codex #460)
+├─ constants: GOLDEN_RATIO, GOLDEN_ANGLE, EULER_GAMMA, LN_17,
+│             MODULUS=17, STRIDE=4, PALETTE_SIZE=256, TRANSIENT_SKIP=17
+├─ placement: Sign::{Pos,Neg,of,as_f64}
+│             HemispherePoint::{lift, signed_lift, cartesian, rim}   // r²+y²=1
+├─ curve_ruler: CurveRuler::{from_place, from_hhtl, start_offset, index, arc}
+├─ fisher_z:  Similarity(f64)::{fisher_z, hyperbolic_depth}, CLAMP_EPS=1e-9
+├─ quantize:  RollingFloor::{uniform, with_params, quantize(&self),
+│             observe(&mut), drift_score(&self), roll(&mut)->bool,
+│             version, occupancy, samples, bounds, bucket_center}
+├─ distance:  DistanceLut::{linear, from_floor, distance(a,b)->u16}  // 128 KB
+├─ residue:   ResidueEdge{start_idx,end_idx,floor_version} (3 B)
+│             Signed360{rim,polar,azimuth} (6 B) ::{to_bytes,from_bytes,sign}
+│             ResidueEncoder::{new, encode, encode_signed, observe, roll,
+│             floor, total}
+├─ simd:      batch_fisher_z(&[f32], &mut [f32])
+└─ prove:     prove() -> ProofResult          // example prove_residue = the probe
+
+contract (lance-graph-contract/src/canonical_node.rs)
+└─ ValueTenant::HelixResidue = 4  → ColumnKind::U8 × 6 @ row_offset 112
+   in ValueSchema::{Compressed, Full}; node row = key(16)|edges(16)|value(480)
+```

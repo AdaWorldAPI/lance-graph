@@ -41,6 +41,17 @@ hourly).
 operational* IFS/AIFS. Phase A runs on ERA5 **reanalysis**, which comes from
 WeatherBench2. v1 put it on the critical path; it is not.
 
+> **⊘ C3 — CORRECTION (2026-08-11, append-only): C1's Zarr object name is
+> wrong.** `era5/1959-2023_01_10-full_37-1h-1440x721.zarr` does not exist; the
+> session-verified object is
+> **`1959-2023_01_10-full_37-1h-0p25deg-chunk-1.zarr`** under the public
+> ARCO-ERA5 bucket (`gcp-public-data-arco-era5`, `ar/` prefix). C1's grid math
+> is unchanged (0.25° ⇒ 1440 × 721 = 1,038,240 points, hourly, 37 levels) —
+> only the object name was invented. Apparatus lesson: the wrong name had been
+> "confirmed" from a GitHub issue *title*; a title match is not an existence
+> check — list the bucket. Full ingest spec now lives in
+> `.claude/knowledge/weather-normalized-substrate.md` §8.
+
 ---
 
 ## 1. Ingest — disposable vs permanent (operator-directed split)
