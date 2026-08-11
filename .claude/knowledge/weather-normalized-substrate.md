@@ -1084,3 +1084,57 @@ workspace** (root `Cargo.toml` `exclude`) and named in **no CI workflow**
 `[G-absence]` — so these 3 tests, and the crate's existing 77, run **only when
 invoked by hand** in that crate. Adding them raises the floor for the next
 session that looks; it does not put them on a gate.
+
+#### 12.13 — the WIND reuse is the process, not an invention — and it surfaces a fit problem the normal-encode case never had
+
+**Operator correction (2026-08-11):** *"the reuse of the above for the wind was
+always part of the process (what you call invention)."* Accepted, and the line
+§12.12 drew was wrong in **both** directions:
+
+| | |
+|---|---|
+| **Invention** (what the arc rightly punished) | Asserting structure the code already answers — the 48-bit budget, the 2×24 in/out reading, `Pair48`, a round-trip API `continuous_field.rs` explicitly disclaims. |
+| **Reuse** (the process) | Applying the **shipped, proven** codec to a new domain. This is what a normalized substrate is *for* — *"you only pay the inbound tax once."* |
+
+§12.12 filed `from_normal` under *invention* and declined to build it. That was
+over-correction: generalizing "don't invent structure the code already
+determines" into "don't implement the intended reuse." **A missing entry point
+for a designed reuse is a plumbing gap, not a design refusal** — the doctrine
+doc even names the algorithm and points at a worked reference pair (q2
+`scratch-fma/helixbake` + `cockpit/src/BodyHelix.tsx`).
+
+**What the reuse then surfaced (the actually-new finding) `[G]`.**
+`encode_signed` derives **all three** direction-bearing fields from `n` alone
+(`residue.rs:182-204`): `rim` from `(place, n)`, `polar` from
+`signed_lift(n, …)`, `azimuth` from `n·φ`. Two candidate bearing encodes exist,
+and **the doctrine's prescribed one does not fit weather** — measured, N=65536
+(`crates/helix/tests/bearing_encode_paths.rs`):
+
+| horizontal bearing | Path A — nearest `(n, sign)` (the doc's prescription) | Path B — direct `(polar, azimuth)` write |
+|---|---|---|
+| 0° | 1.933° | **0.000°** |
+| 90° | 2.706° | **0.000°** |
+| 270° | 1.897° | **0.000°** |
+| **mean, 24 (bearing × elevation) cases** | **0.972°** | **0.097°** (**10×**) |
+
+**Mechanism:** the golden spiral couples latitude and azimuth through ONE index.
+Reaching `y ≈ 0` (horizontal) needs `n ≈ N−1`, and those few `n` have their
+azimuth *already fixed* at `n·φ` — **you cannot independently choose a bearing at
+the horizon.** Compounding it, the lattice's latitude density is ∝ `sin(2·lat)`
+(equal-area on the **disk**, not the sphere), i.e. **sparsest exactly at the
+equator.** Surface normals — the case the doc was written for — spread over the
+whole sphere and never hit this. Wind bearings cluster at the horizon and always
+do.
+
+Path B is near-exact there (`y = 0 → polar = 128` exactly; 16-bit azimuth =
+0.0055° over 360°) and is licensed by the doctrine's **own** split: the `rim`
+keeps carrying `(place, n)` as the metric, `(polar, azimuth)` carry the bearing,
+and *"direction is place-INDEPENDENT."* The cost, stated: `(polar, azimuth)` are
+no longer functions of the same `n` as `rim` — which under that split is the
+intent, not a violation.
+
+**Consequence:** a wind bearing encode should be the **direct field write**, not
+the doc's `from_normal`. The doc's prescription is correct for its own case
+(normals) and should be labelled as such rather than read as universal. **`[S]`
+until an operator decides the API shape** — this section records the measurement
+and the tradeoff, and deliberately does not mint a public `from_bearing`.
