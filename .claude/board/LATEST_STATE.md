@@ -1,3 +1,14 @@
+## 2026-08-11 — lance-graph #923 (MERGED) — the evaluation plan + `DistanceLut::circular()`
+
+### Current Contract Inventory — one new public constructor; one new plan
+
+- **`helix::DistanceLut::circular()`** — `min(|a−b|, 256−|a−b|)`, the cycle-graph geodesic on `Z_256`. **A metric, proven EXHAUSTIVELY: 0 violations / 16 777 216 triples.** Use for any quantity whose range **wraps** (bearing, phase, angle); `linear()` is simply the wrong table there — it puts index 255 and 0 at *maximum* distance when they are adjacent. Same `[a,b]` amortization as every other constructor.
+- **`.claude/plans/weather-substrate-evaluation-v1.md`** — the arc's known-vs-test ledger. **§1** 25 KNOWN claims with `file:line` + per-row grades; **§2** the honesty split (only K-12/K-13 lack a committed reproducer); **§3** EV-1..EV-10 in three waves (0 = no data · 1 = one fixture re-fetch · 2 = scale); **§5** the D-1..D-6 operator decision register. **Ships DRAFT-pending-audit** — §8 folds a 13-agent verify/attack pass and flips it ACTIVE.
+- **The `[a,b]` amortization, stated `[G]`:** `quantize()` normalizes once per element at ingest (`quantize.rs:99`); `from_floor()` folds the SAME normalization into the table (`distance.rs:39`). Afterwards there is no `lo`, no `hi`, no division — a pure index lookup in **unit-free** units. That is what licenses cross-variable comparison, and it is O(256²) once rather than O(N²).
+- **Field-vs-element, locked:** judge a normalized representation by what its **field** does. nearest-`n` = ONE palette index → 2 × LUT u8 lookups, L1 metric, CAKES-safe, `U8x64`, feeds `int8_gemm_amx_tiled(a_u8, b_i8, …)` directly. u8-palette azimuth under `circular()` = **0.352° mean**, beating nearest-`n`'s 0.972° while keeping that shape. Raw u16 azimuth is circular and tileless.
+- **The stack is BUILT, not proposed** (§12.17): `perturbation-sim` (`rolling_floor` = the CI-threshold frame, Jirak-cited · `splat`/`sketch` = the magnitude/sign two-algebra rule · `cascade_key::morton48` · `hhtl` by Cheeger bisection), `ndarray::hpc::splat3d` (3DGS, `TILE_SIZE=16`, depth cascade already HHTL), `symbiont/domino.rs` (16 SoA boards per AMX 16×16 tile GEMM, real `TDPBF16PS`). **The `mu+kσ` frame ships 4× — new probes must be its 5th instance, not its 5th implementation.**
+- **Still open, operator calls:** D-1 noise floor · D-2 saturation window · D-3 `from_bearing` API · D-4 dormant-lane fix shape · D-5 helix CI wiring (`[G-absence]`: excluded from the root workspace, in no workflow) · D-6 harness-of-record.
+
 ## 2026-08-11 — lance-graph #921 (MERGED) — the wind reuse, measured: the prescribed bearing-encode is 10× worse than the direct one
 
 ### Current Contract Inventory — no new types (one committed measurement, one doc section, board hygiene)

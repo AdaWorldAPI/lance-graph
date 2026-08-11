@@ -1,3 +1,19 @@
+## 2026-08-11 — Workflow `wf_99d677e6-b45` — eval-plan verify/attack (13 agents; orchestrator-consolidated)
+
+13/13 completed, 0 errors, 0 empty; ~4.42 M subagent tokens, 165 tool calls,
+~20 min. 7 × Sonnet source-verifiers over the K-1..K-25 ledger (READ-ONLY, no
+cargo, per-claim CONFIRMED/PARTIAL/REFUTED with file:line quotes) + 6 × Opus
+falsifier-auditors attacking EV-1..EV-10 (can-it-fail / two-sided /
+inert-thresholds / vacuous-pass-routes / apparatus).
+
+Outcome: verify 22 CONFIRMED, 2 PARTIAL (K-23 path `src/bitwise.rs` not
+`src/hpc/`; K-21 sprite-not-field + toroidal note); attack **11/11 NOT SOUND**
+(10 VACUOUS, 1 UNDERSPECIFIED). Consolidated by the main thread into: plan §3
+fully rewritten to v2 specs, §8 audit record, §1 K-row corrections, DRAFT →
+ACTIVE flip; knowledge doc §12.18 (§12.16 sprite correction); EPIPHANIES
+`E-ZERO-FOR-ELEVEN-…-1`. Sole-writer rule observed: agents wrote no board
+files; this entry is the orchestrator's consolidation.
+
 ## 2026-08-05 — lance 9 / DataFusion 54 / Rust 1.97.1 cross-repo bump (main thread + 2 Sonnet grindworkers)
 
 - **Agents:** main thread (design, adjudication, all commits/pushes) + 2 Sonnet
