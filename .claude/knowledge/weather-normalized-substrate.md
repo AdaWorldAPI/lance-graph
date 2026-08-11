@@ -794,6 +794,13 @@ what the original itself can resolve**. This session's own 2026-08-08 reply had
 it right — *"the code is not the bottleneck, the atmosphere is; the instruments
 can't see it"* — and §12.1 then scored reconstruction MAE anyway.
 
+> **⊘⊘⊘ THE TABLE BELOW IS STILL WRONG — see §12.11 (codex P1 on #920).**
+> `p1_noise_floor.py` computes `dev = |bucket_center − original|`, which is a
+> **decoded reconstruction error**: the very round-trip this section declares
+> invalid. The CI values it computed were only *printed*, never used in the
+> exceedance fractions. §12.11 carries the genuinely CI-based measurement. The
+> qualitative conclusion survives; every number below does not.
+
 **Re-measured in the correct frame** (`probes/weather-p1/p1_noise_floor.py`,
 same real ERA5 T2m field, 1,038,240 points; fraction of gridpoints whose
 code-induced deviation **exceeds** a candidate floor):
@@ -856,3 +863,66 @@ and it over-claimed because it inherited an evaluation frame without examining
 it. The rule caught its own author one section later. **The frame a measurement
 is scored in is itself a claim requiring an audit** — that is the generalization,
 and it is worth more than either verdict it revised.
+
+### 12.11 — the CI metric, done properly (codex P1 on #920): the frame was right, my implementation of it was not
+
+§12.10 announced the correct criterion and then **measured the old one anyway**.
+`p1_noise_floor.py` computes `dev = |bucket_center − original|` — a decoded
+reconstruction error — and counts `dev > floor`. The confidence intervals it
+computed were printed and discarded. Caught by codex, correctly:
+
+> *"The advertised noise-floor reframing still computes a round-trip
+> reconstruction metric… the committed exceedance fractions and the conclusions
+> in §12.10 are produced by the exact evaluation frame the commit says is
+> invalid."*
+
+**The actual metric** (`probes/weather-p1/p1_ci_vs_floor.py`): for each point,
+take the **confidence interval of the bucket it encodes to**, expressed in
+original units — `CI(b) = ½ × (width of bucket b in K)` — and ask whether that
+CI exceeds the floor. Saturated edge buckets (0, 255) have **unbounded** CI and
+are reported separately, never folded in as if they had a finite width.
+
+| floor | linear: interior CI > floor | Fisher-Z: interior CI > floor | saturated (unbounded) |
+|---|---|---|---|
+| 0.25 K | **0.0000 %** | **95.65 %** | 0.848 % / 0.820 % |
+| 0.5 K | 0.0000 % | 0.0000 % | 0.848 % / 0.820 % |
+| 1.0 K | 0.0000 % | 0.0000 % | 0.848 % / 0.820 % |
+| 2.0 K | 0.0000 % | 0.0000 % | 0.848 % / 0.820 % |
+
+Interior CI: **linear is flat at 0.09412 K everywhere**; Fisher-Z spans
+0.00000–0.42899 K, median 0.00561.
+
+**What changes versus §12.10's bogus table:**
+
+1. **Linear is cleaner than reported** — 0.0000 % interior exceedance at every
+   floor, not 0.60–0.76 %. Those fractions were reconstruction noise, not CI.
+2. **Fisher-Z at a tight floor is far worse than reported** — **95.65 %**, not
+   36.3 %. And the mechanism is now explicit: the median CI **across buckets**
+   is 0.0056 K, but most **points** live in the few wide mid-range buckets
+   (up to 0.429 K). Most buckets are narrow tail buckets holding almost no data.
+   **This is the 28.1-effective-buckets finding restated in CI units** — the two
+   measurements now agree, which is the cross-check §12.10 lacked.
+3. **The headline conclusion SURVIVES, and is cleaner.** At a 0.5–1 K floor the
+   two paths are identical and **only saturation matters** — 0.848 % vs 0.820 %,
+   i.e. the shared tail is the *entire* story above 0.25 K.
+4. **The saturation finding is confirmed and sharpened**: it is the **only**
+   unbounded-CI population, essentially equal for both paths, and it remains the
+   top open item because it lands on the extremes.
+
+**So §12.1 stays partially reversed, on better evidence** — Fisher-Z is not a
+validity failure at the plausible floor; it is an **address-economy** failure,
+and at a 0.25 K floor that economy failure becomes a validity failure too.
+
+**Third-order lesson.** §12.3: *a correction carries a claim's burden*. §12.10
+was a correction of §12.1 that **inherited the very defect it was correcting** —
+it named the right frame in prose and shipped the wrong one in code. Naming a
+frame is not adopting it; **the implementation is the claim**, and prose
+asserting otherwise is exactly the "doc-comment claim is not a behaviour" rule
+(`CLAUDE.md` falsifiability §) one level up. An external reviewer caught what
+two internal passes did not.
+
+**Also fixed (codex P2):** `fetch.py` raised an uncaught `HTTPError` on the
+first legitimately-missing chunk, so the documented `python3 fetch.py`
+reproduction died before writing its manifest — while the README *correctly*
+documented 404 as valid fill semantics. The code now returns the fill array and
+continues, matching the README it contradicted.

@@ -9,19 +9,34 @@ t=int((target-epoch).total_seconds()//3600)
 print(f"target={target} -> time index t={t} (shape0=561264, in range={t<561264})")
 
 def get(var, t):
+    """Fetch one chunk. A 404 is VALID Zarr v2 semantics -- a missing chunk means
+    the chunk is entirely `fill_value` (NaN here), NOT a fetch failure. Several
+    ARCO-ERA5 variables are legitimately absent at a given timestep; returning
+    the fill array is what the format specifies (codex P2 on #920)."""
     za=meta[f'{var}/.zarray']; comp=za['compressor']
     key=f'{var}/{t}.0.0'
     req=urllib.request.Request(f'{B}/{key}')
-    raw=urllib.request.urlopen(req, timeout=300).read()
+    try:
+        raw=urllib.request.urlopen(req, timeout=300).read()
+    except urllib.error.HTTPError as e:
+        if e.code != 404:
+            raise
+        fill=za.get('fill_value')
+        fill=np.nan if fill is None else fill
+        a=np.full(za['chunks'][1:], fill, dtype=za['dtype'])
+        return a, 0, a.nbytes          # 0 compressed bytes: nothing is stored
     dec=numcodecs.get_codec(comp).decode(raw)
     a=np.frombuffer(dec,dtype=za['dtype']).reshape(za['chunks'])[0]
-    return a, len(raw), dec.__len__() if hasattr(dec,'__len__') else a.nbytes
+    return a, len(raw), a.nbytes
 
 os.makedirs('fixture',exist_ok=True)
 rows=[]
 for var in ['2m_temperature','total_column_water_vapour','surface_pressure',
             '10m_u_component_of_wind','10m_v_component_of_wind']:
     a,ncomp,nraw=get(var,t)
+    if ncomp==0:
+        print(f"{var:34s} MISSING CHUNK -> all-fill (valid Zarr semantics); not saved")
+        continue
     np.save(f'fixture/{var}.npy', a)
     finite=np.isfinite(a)
     rows.append((var,a.shape,a.dtype.str,ncomp,a.nbytes,a.nbytes/ncomp,

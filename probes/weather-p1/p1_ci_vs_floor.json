@@ -1,0 +1,58 @@
+{
+  "linear": {
+    "sat_frac": 0.008476845430728927,
+    "interior_ci_min": 0.09411953077903945,
+    "interior_ci_med": 0.09411953077904034,
+    "interior_ci_max": 0.094119530779043,
+    "floors": {
+      "0.25": {
+        "interior_CI_exceeds": 0.0,
+        "saturated_unbounded": 0.008476845430728927,
+        "total_at_or_above_floor": 0.008476845430728927
+      },
+      "0.5": {
+        "interior_CI_exceeds": 0.0,
+        "saturated_unbounded": 0.008476845430728927,
+        "total_at_or_above_floor": 0.008476845430728927
+      },
+      "1.0": {
+        "interior_CI_exceeds": 0.0,
+        "saturated_unbounded": 0.008476845430728927,
+        "total_at_or_above_floor": 0.008476845430728927
+      },
+      "2.0": {
+        "interior_CI_exceeds": 0.0,
+        "saturated_unbounded": 0.008476845430728927,
+        "total_at_or_above_floor": 0.008476845430728927
+      }
+    }
+  },
+  "fisher_z": {
+    "sat_frac": 0.008202342425643397,
+    "interior_ci_min": 1.0828864116518844e-06,
+    "interior_ci_med": 0.005607407743958959,
+    "interior_ci_max": 0.42898798181318165,
+    "floors": {
+      "0.25": {
+        "interior_CI_exceeds": 0.956511018646941,
+        "saturated_unbounded": 0.008202342425643397,
+        "total_at_or_above_floor": 0.9647133610725844
+      },
+      "0.5": {
+        "interior_CI_exceeds": 0.0,
+        "saturated_unbounded": 0.008202342425643397,
+        "total_at_or_above_floor": 0.008202342425643397
+      },
+      "1.0": {
+        "interior_CI_exceeds": 0.0,
+        "saturated_unbounded": 0.008202342425643397,
+        "total_at_or_above_floor": 0.008202342425643397
+      },
+      "2.0": {
+        "interior_CI_exceeds": 0.0,
+        "saturated_unbounded": 0.008202342425643397,
+        "total_at_or_above_floor": 0.008202342425643397
+      }
+    }
+  }
+}
