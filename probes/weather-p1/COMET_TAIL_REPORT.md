@@ -825,3 +825,107 @@ careful pass would have missed. **Current position: the compression is
 ready for the audit-gate queue now; the predictor is not, and should not be
 represented as more than "suggestive" until a properly-powered test clears
 its own bar without pooling assistance.** §6 is marked accordingly.
+
+## 9. Reframe — the spine is found; the moderators are missing (operator, 2026-08-11)
+
+Operator ruling on how to read the whole chain, and it is quantitatively
+better than my "borderline" framing:
+
+> *"Wir haben ein Spine gefunden — die Stellschrauben müssen noch mit den
+> Variablen der bekannten Modelle moduliert werden. Uns fehlen die
+> Moderatoren; aber wir haben bereits das Gerüst, um das Zentrum und die
+> Dynamik zu modellieren."*
+
+**Why this framing is not spin — it is the statistically correct reading of
+the residual.** A directional main effect at 0.68–0.73 sign consistency
+whose residual were *random* would be a dying claim. This chain's residual
+is not random: it runs **monotonically with a measured variable** — the
+height ladder (§5.2/5.8), ≈ −40° at 1000 hPa climbing smoothly through zero
+in the mid-troposphere, spread 92–102°, 3–5× the measured apparatus noise,
+on both storms it was measured on. *Main effect + structured residual +
+identified covariate* is the signature of a **missing moderator**, not of a
+null. A null does not produce a ladder. `[H]` at the ladder's n=2; `[G]`
+that the framing follows if the ladder replicates.
+
+### 9.1 What is established (the spine) `[G]`
+
+**Center (place) + ring profile (~12 values) + one wn-1 dipole (2 values)
+= 93–97 % of in-disk MSLP variance** — replicated across three independent
+samples spanning 1980–2021, 41+ storms, four seasons, never shaken once
+(N3/N4; §5.11's own subset: median wn1_frac 0.60, R² 0.90). This is a
+skeleton that models the **center and the first asymmetry mode of the
+dynamics** in ~14 bytes plus an address — which is, as the operator notes,
+already more explicit structure than a learned model exposes.
+
+### 9.2 The DRY moderators — measured in this chain, not yet wired `[H]`
+
+| moderator | measured evidence | wiring |
+|---|---|---|
+| **Steering level** (baroclinic tilt) | the 92–102° monotone height ladder, zero-crossing 400–650 hPa (§5.2/5.8) | score the dipole against the *steering-level* motion (500–700 hPa flow) instead of the 6h surface displacement — the single most promising fix, **CT-F16** |
+| **Displacement magnitude** (label noise) | 6/7 pooled at ≥250 km vs 14/20 unfiltered; CT-F14 0.684 | model the motion-bearing *uncertainty* explicitly instead of a hard cutoff |
+| **Surface type / friction** | +14° ocean vs +34° land inflow, paired within one disk (§5.7) | a wind-level correction; second-order on the pressure dipole |
+| **Latitude / f, regime** | the low-wn1 July cases; the 75°N outlier | intake covariates, already computed per storm |
+
+### 9.3 The MOIST sector — not modeled at all (operator, same ruling) `[S]`
+
+> *"Außerdem haben wir Feuchtigkeit und Abregnen im Aufwind an der Kollision
+> zwischen den Gebieten nicht modelliert — das ist eine Art Entropie bei
+> Verdunstung und Abregnen."*
+
+Correct, and the "entropy" word is the *technically* right one, not a
+metaphor. Everything in this chain is **dry, adiabatic, balanced dynamics**.
+The missing half is diabatic: moisture converges into the collision zone
+between air masses (the front), rises, condenses — releasing latent heat
+that deepens the low — and **rains out irreversibly**: the water leaves the
+column, the heat stays. That one-way flow is moist **entropy production**,
+and treating the storm as a heat engine bounded by it is established
+literature (Emanuel's potential-intensity Carnot frame; Pauluis' moist
+entropy budgets). The state variable is equivalent potential temperature θe;
+the sink is precipitation.
+
+Three things make this *tractable on this substrate, now*, rather than
+aspirational:
+
+1. **The store has the variables** (verified in the `.zmetadata` earlier
+   this arc): `specific_humidity` (13 levels), `temperature` (13 levels) —
+   together θe; `total_column_water_vapour`; `total_precipitation_6hr`;
+   `vertical_velocity` (13 levels — the updraft itself).
+2. **θe and TCWV are scalar fields** — the *same* ring/wn-1 decomposition
+   applies verbatim. The moisture spine costs nothing new.
+3. **A diabatic-dominance moderator falls out for free:** the storms where
+   the dry spine's prediction failed worst (the July cases, wn1_frac
+   0.19–0.36) are plausibly the diabatically-driven ones. Precip-per-disk /
+   TCWV-dipole-strength is a computable gate variable at intake.
+
+Named falsifiers, NOT run, `[S]` until probed: **CT-M1** — the TCWV/θe wn-1
+dipole leads the pressure dipole in bearing (moisture converges *ahead* of
+the low, ≈90° from the left-of-motion low pole); **CT-M2** — 6h disk
+precipitation is predicted by TCWV × mid-level ascent (`vertical_velocity`
+at 700/500 hPa) — the rain-out entropy sink as a budget check; **CT-M3** —
+adding the diabatic-dominance gate as a moderator cleans the directional
+claim's residual where the displacement filter alone did not.
+
+### 9.4 The brutal step — learn the moderator matrix on the substrate's own machinery `[S]`
+
+Operator: *"du könntest sogar brutal sein und domino.rs / LSTM modellieren."*
+The shapes already exist and are proven:
+
+- **The spine is a board state.** Per storm and timestep: ~16 spine values
+  (center, profile, dipole) + the moderator covariates (steering vector, f,
+  surface fraction, diabatic gate). A moderator set IS a weight matrix `W`;
+  `domino.rs`'s symbiont step (`C = A·W`, 16-board AMX/int8 tile-GEMM with
+  requantize feedback) executes exactly this — and the stencil-as-GEMM
+  path is already **byte-proven on real WB2 data** in ndarray's
+  `examples/geostrophic_stencil.rs` (4/4 pre-registered bars, corr 0.9985).
+- **The recurrence is an LSTM-shaped problem.** Successive 6h spine states
+  are a short sequence; the workspace already carries byte-parity-proven
+  int8 LSTM machinery (`tesseract-recognizer`, `E-OCR-LSTM-1`) consuming
+  the same `ndarray` tile-GEMM.
+- **The hybrid is the honest architecture:** explicit physics as the spine
+  (this report), learned weights as the moderators — the NeuralGCM-shaped
+  split, on a 512-byte-per-storm substrate encoding, with the training
+  discipline this arc has already built (pre-registration, held-out decades,
+  the audit gate).
+
+Gate, unchanged: train/test on disjoint decades, pre-registered bars,
+adversarial audit (plan §8) before any of it is called more than a probe.

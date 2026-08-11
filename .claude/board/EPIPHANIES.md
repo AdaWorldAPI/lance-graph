@@ -1,3 +1,49 @@
+## 2026-08-11 — E-SPINE-FOUND-MODERATORS-MISSING-1
+
+**Status:** OPERATOR RULING (framing) + FINDING `[H]` — report §9, commit
+paired with the PR opening. Reframes the whole comet-tail chain's verdict.
+
+**Operator:** *"Wir haben ein Spine gefunden — die Stellschrauben müssen noch
+mit den Variablen der bekannten Modelle moduliert werden. Uns fehlen die
+Moderatoren; aber wir haben bereits das Gerüst, um das Zentrum und die
+Dynamik zu modellieren. Außerdem haben wir Feuchtigkeit und Abregnen im
+Aufwind an der Kollision zwischen den Gebieten nicht modelliert — das ist
+eine Art Entropie bei Verdunstung und Abregnen."*
+
+**Why this is the statistically correct reading, not spin:** a 0.68–0.73
+directional main effect whose residual were random would be a dying claim —
+but this chain's residual runs MONOTONICALLY with a measured variable (the
+92–102° height ladder, 3–5× apparatus noise). *Main effect + structured
+residual + identified covariate* is the signature of a **missing moderator**,
+not of a null. A null does not produce a ladder.
+
+**The three-part decomposition now on record (report §9):**
+1. **Spine `[G]`** — center + ~12 ring means + 1 wn-1 dipole = 93–97 % of
+   in-disk variance, unshaken across 3 independent samples / 41+ storms /
+   1980–2021. ~14 bytes + an address.
+2. **Dry moderators `[H]`** — measured in this chain, not yet wired:
+   steering level (THE ladder; CT-F16 = score the dipole against
+   steering-level motion instead of 6h surface displacement), displacement/
+   label noise, friction/surface type, latitude/regime.
+3. **Moist sector `[S]`** — not modeled at all, and "entropy" is technically
+   the right word: rain-out in the collision-zone updraft is irreversible
+   moist entropy production (θe the state variable, precipitation the sink —
+   Emanuel/Pauluis frame). Tractable NOW: the WB2 store carries
+   specific_humidity/temperature (θe), TCWV, total_precipitation_6hr,
+   vertical_velocity — and θe/TCWV are scalar fields, so the SAME ring/wn-1
+   decomposition applies verbatim. CT-M1..M3 named as falsifiers; the July
+   failures (wn1_frac 0.19–0.36) are plausibly the diabatically-dominated
+   storms, making diabatic dominance itself a computable intake gate.
+
+**The brutal step (operator-directed, `[S]`):** learn the moderator matrix on
+the substrate's own proven machinery — the spine as board state, moderators
+as `W` in domino.rs' symbiont `C = A·W` tile-GEMM (stencil-as-GEMM already
+byte-proven on real WB2 in ndarray `geostrophic_stencil.rs`), recurrence over
+6h spine states via the workspace's byte-parity int8 LSTM (E-OCR-LSTM-1).
+Explicit physics as spine, learned weights as moderators — the NeuralGCM-
+shaped hybrid at 512 B/storm, gated by disjoint-decade train/test + the
+plan-§8 audit.
+
 ## 2026-08-11 — E-MY-OWN-PRE-REGISTRATION-HAD-A-GAP-AND-I-NAMED-IT-1
 
 **Status:** FINDING `[G]` — CT-F14, `comet_tail_f14.py` / `.json`, report
