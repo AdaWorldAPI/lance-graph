@@ -1,0 +1,461 @@
+{
+  "store": "https://storage.googleapis.com/weatherbench2/datasets/era5/1959-2022-6h-1440x721.zarr",
+  "CT_F5": {
+    "storm1": {
+      "walk": [
+        {
+          "level_hPa": 1000,
+          "found": true,
+          "center_lat": 55.75,
+          "center_lon": 334.5,
+          "step_km": 0.0,
+          "error_deg": -40.46281630581089,
+          "wn1_frac": 0.9239743148665512
+        },
+        {
+          "level_hPa": 925,
+          "found": true,
+          "center_lat": 55.75,
+          "center_lon": 334.5,
+          "step_km": 0.0,
+          "error_deg": -32.49848062992805,
+          "wn1_frac": 0.9291294230426438
+        },
+        {
+          "level_hPa": 850,
+          "found": true,
+          "center_lat": 55.75,
+          "center_lon": 334.5,
+          "step_km": 0.0,
+          "error_deg": -23.84972881632487,
+          "wn1_frac": 0.9313941524789896
+        },
+        {
+          "level_hPa": 700,
+          "found": true,
+          "center_lat": 55.75,
+          "center_lon": 334.5,
+          "step_km": 0.0,
+          "error_deg": -8.135863343362843,
+          "wn1_frac": 0.9383064883729374
+        },
+        {
+          "level_hPa": 600,
+          "found": true,
+          "center_lat": 56.0,
+          "center_lon": 334.25,
+          "step_km": 31.874386008833685,
+          "error_deg": -2.0835685390135836,
+          "wn1_frac": 0.9407521073422084
+        },
+        {
+          "level_hPa": 500,
+          "found": true,
+          "center_lat": 56.5,
+          "center_lon": 334.0,
+          "step_km": 57.70268303955165,
+          "error_deg": 2.929258589915861,
+          "wn1_frac": 0.9397828007331679
+        },
+        {
+          "level_hPa": 400,
+          "found": true,
+          "center_lat": 57.0,
+          "center_lon": 334.25,
+          "step_km": 57.64886914018281,
+          "error_deg": 8.693329705454858,
+          "wn1_frac": 0.9351995900375635
+        },
+        {
+          "level_hPa": 300,
+          "found": true,
+          "center_lat": 58.0,
+          "center_lon": 332.25,
+          "step_km": 163.22428522804827,
+          "error_deg": 7.799928849981455,
+          "wn1_frac": 0.91698885957228
+        },
+        {
+          "level_hPa": 250,
+          "found": true,
+          "center_lat": 58.25,
+          "center_lon": 331.25,
+          "step_km": 64.96635838297796,
+          "error_deg": 8.693684473120186,
+          "wn1_frac": 0.9301703153070721
+        },
+        {
+          "level_hPa": 200,
+          "found": true,
+          "center_lat": 58.5,
+          "center_lon": 329.5,
+          "step_km": 105.75431188308447,
+          "error_deg": 6.3267716796407,
+          "wn1_frac": 0.9518008032307684
+        },
+        {
+          "level_hPa": 150,
+          "found": true,
+          "center_lat": 59.75,
+          "center_lon": 326.0,
+          "step_km": 243.3217640666972,
+          "error_deg": 1.4392427165792299,
+          "wn1_frac": 0.9728261172739403
+        },
+        {
+          "level_hPa": 100,
+          "found": true,
+          "center_lat": 60.25,
+          "center_lon": 321.75,
+          "step_km": 242.7419885394034,
+          "error_deg": 0.34572713491658646,
+          "wn1_frac": 0.9777388272593495
+        },
+        {
+          "level_hPa": 50,
+          "found": true,
+          "center_lat": 61.75,
+          "center_lon": 318.5,
+          "step_km": 241.89980011103893,
+          "error_deg": 101.22296579577375,
+          "wn1_frac": 0.784430214085918
+        }
+      ],
+      "max_step_km": 243.3217640666972,
+      "CT_F5b_no_saturation": true,
+      "best_level_in_400_850": 600,
+      "best_error_in_400_850_deg": -2.0835685390135836,
+      "CT_F5a_pass": true,
+      "surface_error_deg": -40.46281630581089
+    },
+    "storm2": {
+      "walk": [
+        {
+          "level_hPa": 1000,
+          "found": true,
+          "center_lat": 67.0,
+          "center_lon": 28.0,
+          "step_km": 0.0,
+          "error_deg": -39.746495421917615,
+          "wn1_frac": 0.9013658742632329
+        },
+        {
+          "level_hPa": 925,
+          "found": true,
+          "center_lat": 67.0,
+          "center_lon": 27.75,
+          "step_km": 10.861829792527612,
+          "error_deg": -30.747604434365485,
+          "wn1_frac": 0.9315082183168824
+        },
+        {
+          "level_hPa": 850,
+          "found": true,
+          "center_lat": 67.0,
+          "center_lon": 27.5,
+          "step_km": 10.861829792527612,
+          "error_deg": -23.661401835548673,
+          "wn1_frac": 0.9453390686389784
+        },
+        {
+          "level_hPa": 700,
+          "found": true,
+          "center_lat": 67.0,
+          "center_lon": 27.0,
+          "step_km": 21.723659585055223,
+          "error_deg": -14.448233406134591,
+          "wn1_frac": 0.96208166112389
+        },
+        {
+          "level_hPa": 600,
+          "found": true,
+          "center_lat": 66.75,
+          "center_lon": 26.75,
+          "step_km": 29.865768531992796,
+          "error_deg": -9.453202593238132,
+          "wn1_frac": 0.9732871055886206
+        },
+        {
+          "level_hPa": 500,
+          "found": true,
+          "center_lat": 66.75,
+          "center_lon": 26.75,
+          "step_km": 0.0,
+          "error_deg": -4.535940468762789,
+          "wn1_frac": 0.979546746038315
+        },
+        {
+          "level_hPa": 400,
+          "found": true,
+          "center_lat": 65.75,
+          "center_lon": 21.75,
+          "step_km": 250.0062182281284,
+          "error_deg": -9.967555334404125,
+          "wn1_frac": 0.9753646009204503
+        },
+        {
+          "level_hPa": 300,
+          "found": true,
+          "center_lat": 66.75,
+          "center_lon": 17.0,
+          "step_km": 240.03036558362672,
+          "error_deg": -15.518762931104476,
+          "wn1_frac": 0.9532764219257279
+        },
+        {
+          "level_hPa": 250,
+          "found": true,
+          "center_lat": 68.25,
+          "center_lon": 13.0,
+          "step_km": 238.30880343700352,
+          "error_deg": -18.21717334583633,
+          "wn1_frac": 0.9113507159715785
+        },
+        {
+          "level_hPa": 200,
+          "found": true,
+          "center_lat": 69.75,
+          "center_lon": 8.5,
+          "step_km": 244.8980511482822,
+          "error_deg": -15.029233239201972,
+          "wn1_frac": 0.8615742247192899
+        },
+        {
+          "level_hPa": 150,
+          "found": true,
+          "center_lat": 71.5,
+          "center_lon": 4.5,
+          "step_km": 244.20958114913347,
+          "error_deg": -3.7980101602379364,
+          "wn1_frac": 0.8203884791212692
+        },
+        {
+          "level_hPa": 100,
+          "found": true,
+          "center_lat": 71.75,
+          "center_lon": 357.5,
+          "step_km": 246.93741081543493,
+          "error_deg": 9.629025896242183,
+          "wn1_frac": 0.7662752070006318
+        },
+        {
+          "level_hPa": 50,
+          "found": true,
+          "center_lat": 72.75,
+          "center_lon": 351.25,
+          "step_km": 239.27733129052552,
+          "error_deg": 91.60679688095513,
+          "wn1_frac": 0.7830473042485049
+        }
+      ],
+      "max_step_km": 250.0062182281284,
+      "CT_F5b_no_saturation": false,
+      "best_level_in_400_850": 500,
+      "best_error_in_400_850_deg": -4.535940468762789,
+      "CT_F5a_pass": true,
+      "surface_error_deg": -39.746495421917615
+    }
+  },
+  "CT_N": {
+    "n_dates_scanned": 10,
+    "n_valid": 10,
+    "n_excluded": 0,
+    "excluded": [],
+    "rows": [
+      {
+        "date": "2021-06-15T12:00:00",
+        "t0": 91246,
+        "center_lat": 55.80687987858285,
+        "center_lon": 334.4939777023923,
+        "anomaly_Pa": -2954.4862955729186,
+        "status": "OK",
+        "displacement_km": 276.8999854203758,
+        "motion_bearing_deg": 16.160961598455202,
+        "CT_E1_wn1_frac": 0.9202092475432342,
+        "CT_E2_trackable": true,
+        "CT_E3_error_A_mslp_deg": -41.29391345304771,
+        "CT_E4_R2_profile_wn1": 0.9717218278560205,
+        "F8_error_C_vort_deg": -40.60076699139424,
+        "F8_shrinks_at_vort_center": true,
+        "F9_land_dipole_amp_mean": 0.032741717222016825,
+        "F9_unexplained_residual": 0.02827817214397954
+      },
+      {
+        "date": "2020-01-10T12:00:00",
+        "t0": 89158,
+        "center_lat": 61.76332083974577,
+        "center_lon": 336.76458162678887,
+        "anomaly_Pa": -6435.60147569445,
+        "status": "OK",
+        "displacement_km": 250.01498052561794,
+        "motion_bearing_deg": 84.13750576837133,
+        "CT_E1_wn1_frac": 0.7501674763254162,
+        "CT_E2_trackable": true,
+        "CT_E3_error_A_mslp_deg": 4.97393064812556,
+        "CT_E4_R2_profile_wn1": 0.9060564303343459,
+        "F8_error_C_vort_deg": 4.518224943103888,
+        "F8_shrinks_at_vort_center": true,
+        "F9_land_dipole_amp_mean": 0.18841767640411589,
+        "F9_unexplained_residual": 0.09394356966565409
+      },
+      {
+        "date": "2020-07-20T12:00:00",
+        "t0": 89926,
+        "center_lat": 32.00448422802389,
+        "center_lon": 84.55110630844109,
+        "anomaly_Pa": -2761.386664496531,
+        "status": "OK",
+        "displacement_km": 406.3264370931077,
+        "motion_bearing_deg": 160.07153054906823,
+        "CT_E1_wn1_frac": 0.23031439133632856,
+        "CT_E2_trackable": true,
+        "CT_E3_error_A_mslp_deg": -39.03893530327841,
+        "CT_E4_R2_profile_wn1": 0.32318999155113404,
+        "F8_error_C_vort_deg": -36.79985002873886,
+        "F8_shrinks_at_vort_center": true,
+        "F9_land_dipole_amp_mean": 0.015877602961425315,
+        "F9_unexplained_residual": 0.676810008448866
+      },
+      {
+        "date": "2019-03-05T12:00:00",
+        "t0": 87914,
+        "center_lat": 40.994608546917,
+        "center_lon": 164.57271453394864,
+        "anomaly_Pa": -4613.096446397569,
+        "status": "OK",
+        "displacement_km": 454.89233163829124,
+        "motion_bearing_deg": 47.27720997508244,
+        "CT_E1_wn1_frac": 0.7195133651262611,
+        "CT_E2_trackable": true,
+        "CT_E3_error_A_mslp_deg": -67.84110258667374,
+        "CT_E4_R2_profile_wn1": 0.9300416121473195,
+        "F8_error_C_vort_deg": -109.59291315167077,
+        "F8_shrinks_at_vort_center": false,
+        "F9_land_dipole_amp_mean": 8.392273127481189e-07,
+        "F9_unexplained_residual": 0.06995838785268049
+      },
+      {
+        "date": "2019-10-25T12:00:00",
+        "t0": 88850,
+        "center_lat": 48.232948733448765,
+        "center_lon": 181.3731924348638,
+        "anomaly_Pa": -5508.608865017362,
+        "status": "OK",
+        "displacement_km": 185.38754145594066,
+        "motion_bearing_deg": 49.46188739415042,
+        "CT_E1_wn1_frac": 0.3826733777910667,
+        "CT_E2_trackable": true,
+        "CT_E3_error_A_mslp_deg": -107.56851600599256,
+        "CT_E4_R2_profile_wn1": 0.8944783799153628,
+        "F8_error_C_vort_deg": -103.34756787847593,
+        "F8_shrinks_at_vort_center": true,
+        "F9_land_dipole_amp_mean": 0.0042608176446558,
+        "F9_unexplained_residual": 0.10552162008463717
+      },
+      {
+        "date": "2014-09-12T12:00:00",
+        "t0": 81374,
+        "center_lat": 57.477701985466574,
+        "center_lon": 189.60581664149174,
+        "anomaly_Pa": -3804.4426595052064,
+        "status": "OK",
+        "displacement_km": 155.79931373309316,
+        "motion_bearing_deg": 179.0881433023282,
+        "CT_E1_wn1_frac": 0.49333651672920176,
+        "CT_E2_trackable": true,
+        "CT_E3_error_A_mslp_deg": 3.1864161905094193,
+        "CT_E4_R2_profile_wn1": 0.8711762185147772,
+        "F8_error_C_vort_deg": -12.231585723069259,
+        "F8_shrinks_at_vort_center": false,
+        "F9_land_dipole_amp_mean": 0.19965406402569774,
+        "F9_unexplained_residual": 0.12882378148522278
+      },
+      {
+        "date": "2018-08-08T12:00:00",
+        "t0": 87078,
+        "center_lat": 34.34816558383418,
+        "center_lon": 141.0810553314141,
+        "anomaly_Pa": -2506.3990071614535,
+        "status": "OK",
+        "displacement_km": 128.29413009287907,
+        "motion_bearing_deg": 93.3251303108303,
+        "CT_E1_wn1_frac": 0.8690169152909185,
+        "CT_E2_trackable": true,
+        "CT_E3_error_A_mslp_deg": 19.419896683788465,
+        "CT_E4_R2_profile_wn1": 0.9185974636741742,
+        "F8_error_C_vort_deg": 18.378751022945096,
+        "F8_shrinks_at_vort_center": true,
+        "F9_land_dipole_amp_mean": 0.16900163752766473,
+        "F9_unexplained_residual": 0.08140253632582584
+      },
+      {
+        "date": "2017-11-30T12:00:00",
+        "t0": 86074,
+        "center_lat": 53.05490702247342,
+        "center_lon": 161.89484928373727,
+        "anomaly_Pa": -4879.580777994794,
+        "status": "OK",
+        "displacement_km": 157.52167018912363,
+        "motion_bearing_deg": -2.2212834840136217,
+        "CT_E1_wn1_frac": 0.5336721341668013,
+        "CT_E2_trackable": true,
+        "CT_E3_error_A_mslp_deg": -49.09763383875617,
+        "CT_E4_R2_profile_wn1": 0.9084832303074415,
+        "F8_error_C_vort_deg": -101.23788670442838,
+        "F8_shrinks_at_vort_center": false,
+        "F9_land_dipole_amp_mean": 0.2735047290202235,
+        "F9_unexplained_residual": 0.09151676969255851
+      },
+      {
+        "date": "2016-04-18T12:00:00",
+        "t0": 83710,
+        "center_lat": 74.99235874483051,
+        "center_lon": 34.17923473226179,
+        "anomaly_Pa": -2846.3334255642403,
+        "status": "OK",
+        "displacement_km": 113.26656979918488,
+        "motion_bearing_deg": -13.764163971903077,
+        "CT_E1_wn1_frac": 0.7262198061965601,
+        "CT_E2_trackable": true,
+        "CT_E3_error_A_mslp_deg": 165.74524346486282,
+        "CT_E4_R2_profile_wn1": 0.8297778267876115,
+        "F8_error_C_vort_deg": 166.56350091696947,
+        "F8_shrinks_at_vort_center": false,
+        "F9_land_dipole_amp_mean": 0.1523592531762006,
+        "F9_unexplained_residual": 0.17022217321238853
+      },
+      {
+        "date": "2015-12-25T12:00:00",
+        "t0": 83250,
+        "center_lat": 53.595933945152815,
+        "center_lon": 198.4544267473596,
+        "anomaly_Pa": -5083.723589409725,
+        "status": "OK",
+        "displacement_km": 131.78366990126747,
+        "motion_bearing_deg": 103.15329163600231,
+        "CT_E1_wn1_frac": 0.7577768563687628,
+        "CT_E2_trackable": true,
+        "CT_E3_error_A_mslp_deg": -19.6650235396622,
+        "CT_E4_R2_profile_wn1": 0.8874979838957339,
+        "F8_error_C_vort_deg": -14.95115801528786,
+        "F8_shrinks_at_vort_center": true,
+        "F9_land_dipole_amp_mean": 0.1739603509911075,
+        "F9_unexplained_residual": 0.11250201610426613
+      }
+    ],
+    "CT_N1_sign_frac_negative": 0.6,
+    "CT_N1_pass": false,
+    "CT_N2_median_abs_error_deg": 40.16642437816306,
+    "CT_N2_iqr_deg": [
+      19.4811783977569,
+      63.15523539969435
+    ],
+    "CT_N3_median_wn1_frac": 0.7228665856614106,
+    "CT_N3_pass": true,
+    "CT_N4_median_R2": 0.9002674051248544,
+    "CT_N4_pass": true,
+    "CT_N5_F8_shrink_frac": 0.6,
+    "CT_N5_pass": false,
+    "CT_F9_corr_land_dipole_vs_residual": -0.2947669853570691
+  }
+}

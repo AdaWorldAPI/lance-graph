@@ -23,6 +23,17 @@ motion vector** (low pole left of motion, NH), and whose amplitude grows
 gradient advecting the vortex. `[G]` for the measurements; `[H]` for the
 generalization beyond n=2.
 
+> **⚠ UPDATE 2026-08-11 (§5.9, CT-N).** A blind 10-storm sample was run
+> specifically to test whether the n=2 signed prediction generalizes. **The
+> magnitude and explanatory power (§5.9's N2/N3/N4) hold up well at scale —
+> the sign consistency of §4's CT-E3 does not** (6/10 = 60 % vs a 70 % bar,
+> essentially a coin flip once you leave the two original storms). Read the
+> rest of this report — especially the "left-of-motion, signed" framing in §2
+> and §4 — as demonstrated **on storms 1–2 specifically**, not yet established
+> as a general rule. §5.9 has the honest breakdown, including a post-hoc lead
+> (motion-bearing noise at low displacement) that may explain part of the gap
+> and is *not* used to override the failed bar.
+
 Product consequence `[S]`: a storm's pressure field compresses to
 **center position + ~12 ring means + one dipole vector** at 93–97 % variance
 explained, and the dipole *encodes the motion* — a candidate single-frame
@@ -342,7 +353,127 @@ direction both times.
 > the land fractions already in the CT-F2 output — and it is n=2, so it is
 > recorded as suggestive, not decisive. `[S]`
 
+### 5.8 CT-F5 — walking-center geopotential sweep — **fixes storm 2's saturation defect**
+
+`comet_tail_f5_n10.py` / `.json`. §5.2 flagged that CT-F1's storm-2 own-center
+path had a real apparatus defect: searching for each level's center within a
+*fixed* 600 km radius of the *surface* center saturated at 5–7 of 13 levels
+(offsets 586–599 km, essentially pinned at the search wall), producing a
+physically-absurd "best level = 100 hPa."
+
+**Fix:** walk the center level-by-level, searching near the *previous level's*
+found center (radius 250 km per step, surface-anchored, 1000 hPa → 50 hPa) —
+the center tracks continuously along the tilt axis instead of jumping the
+whole tilt from the surface in one hop.
+
+| bar | criterion | storm 1 | storm 2 |
+|---|---|---|---|
+| **CT-F5a** | best \|error\| in 400–850 hPa ≤ 20° | −2.1° @ 600 hPa — **PASS** | **−4.5° @ 500 hPa — PASS** |
+| CT-F5b | no single step > 250 km | max step 243.3 km — PASS | max step **250.0 km — FAIL** (exactly at the cap, at the 500→400 hPa transition) |
+| CT-F5c | storm 1 reproduces original within 10° | **0.0° difference** (identical) | n/a |
+
+**F5a is the one that mattered, and it passes cleanly.** Storm 2's winning
+level (500 hPa, −4.5°) was reached by a **0.0 km step** — the 600 hPa position
+already coincided with the 500 hPa center — so the value that clears the bar
+is untouched by any saturation. The saturation CT-F5b caught happens one step
+*later*, moving from 500 hPa to 400 hPa, i.e. **outside** the band the bar
+evaluates. Both storms also show a large, likely-unrelated excursion at
+50 hPa (+101° / +92°, wn1_frac dropping to 0.78) — near-stratospheric, outside
+the pre-registered 400–850 hPa band, not interpreted further here.
+
+*Housekeeping, stated honestly:* CT-F5c was pre-registered but never coded as
+an explicit pass/fail field; verified post-hoc from the printed numbers —
+storm 1's walking result at every 400–850 hPa level is *bit-identical* to the
+original F1 sweep (both used the surface center throughout, since storm 1
+never needed to move before 600 hPa), so F5c passes trivially. Recorded as a
+gap in this probe's own execution, not smoothed over.
+
+**Net: storm 2's dead-absurd/NO-VERDICT status from §5.2 is corrected to a
+genuine PASS**, driven by an unsaturated intermediate level. The height ladder
+(§5.2) is confirmed rather than weakened by fixing this defect.
+
+### 5.9 CT-N — n=10 blind storm sample — **the headline result of this arc**
+
+`comet_tail_f5_n10.py` / `.json`. Ten independent synoptic times (2015–2021,
+all four seasons, NH), each storm found **blind** (no hint, no inspection
+before recording — deepest zonal-anomaly MSLP low, 25–75° lat). Storm 1's
+anchor date is included and its t-index reproduces the arc's pinned
+T0 = 91246 exactly (guard asserted in code before anything else runs).
+
+*Data-boundary finding, unplanned:* the store's own filename claims
+"1959-2022" coverage; its actual last valid timestep is **2021-12-31 18Z**,
+six months short. One planned date (2022-02-14) 404'd against this; a bounds
+guard was added (report + exclude, never crash) and that date swapped for an
+in-range one. No pre-registered bar was touched by this fix.
+
+| storm | disp (km/6h) | E1 wn1_frac | E4 R² | E3 error | F8 error@vort-ctr | shrinks? |
+|---|---:|---:|---:|---:|---:|:---:|
+| 2019-03-05 | 455 | 0.72 | 0.930 | −67.8° | −109.6° | no |
+| 2020-07-20 | 406 | 0.23 | 0.323 | −39.0° | −36.8° | yes |
+| 2021-06-15 (anchor) | 277 | 0.92 | 0.972 | −41.3° | −40.6° | yes |
+| 2020-01-10 | 250 | 0.75 | 0.906 | +5.0° | +4.5° | yes |
+| 2019-10-25 | 185 | 0.38 | 0.894 | −107.6° | −103.3° | yes |
+| 2017-11-30 | 158 | 0.53 | 0.908 | −49.1° | −101.2° | no |
+| 2014-09-12 | 156 | 0.49 | 0.871 | +3.2° | −12.2° | no |
+| 2015-12-25 | 132 | 0.76 | 0.887 | −19.7° | −15.0° | yes |
+| 2018-08-08 | 128 | 0.87 | 0.919 | +19.4° | +18.4° | yes |
+| 2016-04-18 | 113 | 0.73 | 0.830 | **+165.7°** | +166.6° | no |
+
+All 10 trackable (CT-E2 ≥ 100 km); none excluded.
+
+| bar | criterion | result | verdict |
+|---|---|---|---|
+| **CT-N1** | sign consistency ≥ 0.70 | **6/10 = 0.60** | **FAIL** |
+| CT-N2 | magnitude (observation, no bar) | median \|error\| = **40.2°**, IQR [19.5°, 63.2°] | — |
+| CT-N3 | median wn1_frac ≥ 0.40 | **0.723** | PASS |
+| CT-N4 | median R² ≥ 0.80 | **0.900** | PASS |
+| CT-N5 / F8 | vort-center shrinks error ≥ 0.70 | **6/10 = 0.60** | **FAIL** |
+| CT-F9 | corr(land-dipole amp, unexplained residual) | **−0.295** | does not support candidate 2 |
+
+**The wn1-dominance and explanatory-power claims (E1/E4, CT-N3/N4) replicate
+robustly at scale — the signed left-of-motion claim (CT-E3, CT-N1) does
+not.** This is the honest headline: what looked like a clean 2/2 confirmation
+at p = 0.0625 is, on 10 independent storms, statistically indistinguishable
+from a coin flip (a naive binomial null at p=0.5 already gives P(≥6/10) ≈
+0.38 — nowhere near rejecting "no signed relationship"). CT-N5/F8 shows the
+earlier observation that a wind-based center shrinks the error (seen on
+storm 2 in §5.6) also does **not** generalize. CT-F9 gives a clean,
+unambiguous non-support for the Ekman-pumping-residual route to candidate 2.
+
+**Post-hoc stratification — a lead for the next probe, explicitly NOT used to
+override CT-N1's FAIL.** Sorting by displacement (a proxy for how well the
+motion *bearing* itself is determined — small 6h displacement means a large
+relative error on the direction label CT-E3 is scored against):
+
+- Restricting to the 4 storms with displacement ≥ 250 km (closest to storms
+  1–2's own 277/440 km regime): sign consistency rises to **3/4 = 0.75**,
+  clearing the original 0.70 bar.
+- Dropping only the single most extreme case (2016-04-18: 113 km
+  displacement, near-polar 75°N where the planar `cos(lat)` approximation is
+  already flagged degrading in §7, error +165.7° — essentially orthogonal to
+  the prediction): sign consistency rises to **6/9 = 0.667**, still short but
+  closer.
+
+Two candidate confounds, named rather than smuggled into the verdict: **(a)
+motion-bearing noise at low displacement** — a mechanical apparatus effect,
+symmetric in principle; **(b) storm-type contamination in a purely blind
+sample** — 2020-07-20 (32°N, 84.6°E, mid-monsoon-season) has the sample's
+worst wn1_frac (0.23) *and* R² (0.32), consistent with a monsoon/thermal low
+rather than a baroclinic extratropical system the whole steering-flow argument
+targets (the same caveat CT-F7's land storm already carried, §5.7). Neither
+is fitted or applied here. The properly pre-registered next step is a
+displacement-and/or-regime-filtered n ≥ 10 sample designed *in advance* to
+test candidate (a) and (b) separately, not a re-scoring of this one.
+
 ### 5.4 Where that leaves the three candidates
+
+> **Read this table as a within-storm-1/2 candidate ranking for the OFFSET
+> MECHANISM.** §5.9 (CT-N) found the sign of the offset itself does not
+> reliably generalize past those two storms — so the table below explains a
+> phenomenon whose *universality* is now in question, not a confirmed
+> atmospheric constant. Both findings stand together: storms 1–2's offset is
+> real and its mechanism is best explained by candidate 1; whether *most*
+> storms have a comparably-signed offset at all is open.
 
 *(Updated after F4/F7 — the F1–F3 column is kept so the movement is visible.)*
 
@@ -360,33 +491,49 @@ this quantity. No stronger attribution is claimed at n = 2.
 
 - ~~**CT-F4** (sub-grid center, was blocking)~~ — **RUN, §5.6.** Storm 2
   PASSES; storm 1 NO-VERDICT by the anti-vacuity guard, bounded ≤ 6.5° via the
-  F4b curve. The blocking item is cleared.
+  F4b curve. The apparatus is not what makes storms 1–2's own offset
+  unreliable.
+- ~~**CT-F5**~~ — **RUN, §5.8.** Walking-center fix; storm 2's saturation
+  defect corrected, F5a passes cleanly.
 - ~~**CT-F7** (friction over land)~~ — **RUN, §5.7.** Both bars pass; the
   candidate it tests is re-scoped rather than confirmed.
-- **CT-F5 (still open):** widen F1's per-level center search (or track the
-  upper center along the tilt axis) so the 600 km saturation defect in §5.2
-  cannot recur; re-run storm 2's own-center path for a real verdict.
-- **CT-F6 (still open):** the crossing level itself as the observable —
-  *prediction:* it tracks the deep-layer mean steering level, i.e. deeper /
-  more mature systems cross higher. Needs n ≥ 10.
-- **CT-F8 (new, from §5.6):** is the **wind-based** circulation center
-  systematically the better reference? On storm 2 it sat 65 km north of the
-  pressure minimum and moved the error furthest toward zero. *Bar:* across
-  n ≥ 10 storms, |error| at the ζ-centroid < |error| at the MSLP minimum.
-- **CT-F9 (new, from §5.7):** does asymmetric friction rotate the **pressure**
-  dipole via Ekman pumping — the mechanism candidate 2 should have been about?
-  *Test:* correlate the dipole bearing residual against the land-fraction
-  *asymmetry* across the disk (not the mean). *Prediction under candidate 2:*
-  storms with a strong land/ocean split across the vortex show a larger
-  residual than uniform-surface storms.
-- **Sample size, unchanged:** n ≥ 10 storms across seasons and basins before
-  any offset constant is baked into a predictor. The apparatus is now good
-  enough to fit one — which makes the sample size, not the centering, the
-  binding constraint.
+- ~~**CT-F8** (wind-center generalization)~~ — **RUN, §5.9 (as CT-N5).**
+  Does **not** generalize: 6/10 = 0.60 vs the 0.70 bar. Storm 2's own
+  improvement (§5.6) was a single case, not a pattern.
+- ~~**CT-N** (n=10 sample)~~ — **RUN, §5.9.** The headline result: sign
+  consistency of the offset itself is **6/10 = 0.60**, statistically
+  indistinguishable from chance. Magnitude/explanatory-power claims (E1, E4)
+  replicate; the signed claim (E3) does not, at this n.
+- **CT-F6 (still open):** the crossing level (§5.2/5.8) as the observable —
+  *prediction:* it tracks the deep-layer mean steering level. Needs the same
+  n ≥ 10-with-regime-control treatment CT-N just showed is necessary.
+- **CT-F9 (Ekman-pumping mechanism)** — **RUN, §5.9.** corr = −0.295, does
+  not support the residual-correlation pathway for candidate 2.
+- **CT-F10 (new, from §5.9's stratification, NOT yet run):** a **pre-registered**
+  displacement-filtered rerun of CT-N1 — restrict blind selection to storms
+  with ≥ 250 km/6h displacement a priori (not post-hoc), n ≥ 10 within that
+  filter, to test whether motion-bearing noise at low displacement explains
+  the sign-consistency gap. This is the correct way to use §5.9's lead; simply
+  re-scoring the existing 10 storms is not.
+- **CT-F11 (new, from §5.9):** regime-filter the blind selection (minimum
+  wn1_frac or R² threshold at intake) to exclude non-baroclinic systems like
+  the 2020-07-20 monsoon-season case, and test CT-N1 again on that
+  sub-population.
+- **Sample size:** the apparatus (CT-F4/F5) is good enough that an offset
+  constant COULD be fitted for storms in the large-displacement,
+  clearly-baroclinic regime — but §5.9 means that regime must be
+  characterized and pre-registered (CT-F10/F11) before any constant is
+  fitted, not just before a predictor ships.
 
 ---
 
 ## 6. Product / encoding consequence `[S]`
+
+> **⚠ Read with §5.9.** The ring-profile + dipole compression below is solid
+> — CT-N3/N4 confirmed it generalizes at n=10. The *motion-encoding* half
+> ("the dipole encodes the motion") is demonstrated on storms 1–2 only; CT-N1
+> found the sign relationship it depends on is not yet shown to generalize.
+> Treat the compression as ready, the predictor as gated on CT-F10/F11.
 
 If CT-F1..F3 hold up, the compact representation of a surface low is:
 
@@ -432,20 +579,32 @@ storm ≈ CENTER (place)                    — 1 address
    **F3 FAILED its gate**; CT-E3 re-graded in §4; F1 strongly favours the
    steering-level mechanism; F2 bounds friction to ~⅓ of the offset.
 4. ~~**CT-F4 (sub-grid center) is the blocking item**~~ — **RUN and CLEARED**
-   (§5.6). Apparatus uncertainty ≈ ±3–7°; an offset constant is now fittable.
-   **CT-F7** (land friction, §5.7) run in parallel: both bars pass, candidate 2
-   re-scoped.
-5. **n ≥ 10 storm sample is now the binding constraint** — the apparatus no
-   longer is. CT-F5 / CT-F6 / CT-F8 / CT-F9 alongside it.
-6. Adversarial audit gate (plan §8) before any of it is promoted to EV /
+   (§5.6). Apparatus uncertainty ≈ ±3–7°; an offset constant is fittable *for
+   storms in the regime storms 1–2 sit in*. **CT-F5** (§5.8) fixed the
+   remaining saturation defect. **CT-F7** (§5.7) bounded and re-scoped
+   candidate 2 (friction rotates wind, not the pressure dipole).
+5. ~~**n ≥ 10 storm sample**~~ — **RUN, §5.9. THIS IS THE HEADLINE FINDING.**
+   The apparatus was never the real ceiling — the offset's **sign** does not
+   generalize past storms 1–2 (6/10, indistinguishable from chance), while
+   its magnitude/explanatory-power claims do. CT-F8's wind-center
+   generalization and CT-F9's Ekman-pumping mechanism were also tested here:
+   neither holds up at scale.
+6. **CT-F10 / CT-F11 (pre-registered, NOT run):** a displacement-filtered
+   and a regime-filtered rerun, respectively — the honest way to chase §5.9's
+   post-hoc leads without re-scoring the sample that already failed.
+7. Adversarial audit gate (plan §8) before any of it is promoted to EV /
    product claim.
 
-**Net effect of the follow-ups on the headline claim.** The §1 summary is
-unchanged in substance — wn-1 dominance (0.92/0.89), the R² lift to 0.97/0.93,
-and left-of-motion on 2/2 all stand untouched, since none of them depends on
-the offset. The offset itself went **dead (F3) → alive with a ±3–7° error bar
-(F4)**, and that round-trip is the point: the constant is now defensible
-*because* it survived a gate that had already killed it once, at a centering
-precision that was measured rather than assumed. What remains ungated is
-sample size, not apparatus — so §6's encoding and single-frame-predictor work
-is unblocked in principle and still owes n ≥ 10 before any constant ships.
+**Net effect of the full follow-up chain on the headline claim.** The §1
+summary needs a real caveat now, not just a footnote: wn-1 dominance and the
+R² lift **generalize** (CT-N3/N4 pass at n=10) — the signed, motion-locked
+orientation that made storms 1–2 exciting **has not been shown to
+generalize** (CT-N1 fails). The offset went **dead (F3) → alive with a
+±3–7° error bar (F4) → real-but-not-yet-general (n=10, CT-N)**. Each step
+was a genuine gate, not a rescue of the previous one — that discipline is
+what makes the current honest position trustworthy: the structural claim
+(comet-tail wn-1 dominance) is solid; the directional/predictive claim
+(left-of-motion) is a **storm-1/2-specific finding pending a properly
+pre-registered generalization test**, not yet a rule. §6's encoding and
+single-frame-predictor work is gated behind CT-F10/F11, not just n ≥ 10 in
+general.
