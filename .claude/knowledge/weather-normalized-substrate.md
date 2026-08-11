@@ -1175,3 +1175,63 @@ per-element accuracy number is the round-trip metric wearing a different hat —
 and a representation that wins it can simultaneously destroy the index-domain
 comparison, the metric guarantee, and the tile shape that made the substrate
 worth building. §12.13's measurement stands; its *verdict* does not.
+
+#### 12.15 — RESOLUTION: the LUT amortizes `[a,b]`, so the topology is a TABLE FORMULA, not a disqualification
+
+**Operator (2026-08-11):** *"distance.rs is normalized [a,b] amortizing in LUT."*
+
+**That is the load-bearing property, and I had mis-stated it as "a metric/cache".**
+The chain, read end to end:
+
+- `RollingFloor::quantize(v)` = `(v − lo)/(hi − lo)·256` — the `[a,b]`
+  normalization, **once per element at ingest** (`quantize.rs:99-108`).
+- `DistanceLut::from_floor` = `|center(a) − center(b)| / span · 255` — **the same
+  normalization folded into the TABLE** (`distance.rs:39-50`).
+
+After the build there is no `lo`, no `hi`, no division, no per-element
+normalization — every comparison is a pure index lookup, and the table is
+already **unit-free**, which is exactly what licenses cross-variable comparison
+(§12.8's 0.9997 shared-palette vs 0.857–0.875 raw cross-unit). **O(256²) once
+instead of O(N²) divisions.** This IS *"you only pay the inbound tax once"*,
+instantiated.
+
+**The consequence supersedes BOTH §12.13 and §12.14.** If the LUT amortizes
+*any* bounded `[a,b]`, then a **circular** range is just another bounded range
+needing a different table formula. Built and proven (`distance.rs::circular`,
+`d(a,b) = min(|a−b|, 256−|a−b|)` — the cycle-graph geodesic on `Z_256`):
+
+| | result |
+|---|---|
+| triangle inequality | **0 violations / 16 777 216 triples** — EXHAUSTIVE, not sampled |
+| symmetry · identity · positivity | all hold, exhaustively |
+| the wrap (the falsifier) | `d_circ(255,0) = 1` vs `d_linear(255,0) = 255` |
+
+**So `distance.rs:8-10`'s *"the raw-azimuth … is NOT a metric (the 2π wrap)"* is
+a statement about the FORMULA, not about angles.** `linear()` is simply the wrong
+table for a ring; `distance_heuristic` compares raw bytes with no table at all. A
+wrapping quantity **quantised into the 256-palette and given the circular table**
+is metric-safe and stays in the index domain.
+
+**Corrected standing:**
+
+| azimuth as | resolution | metric? | field shape |
+|---|---|---|---|
+| u16 raw + `linear()` (what §12.13 measured, §12.14 rejected) | 0.0055° | **no** | not tileable |
+| **u8 palette + `circular()`** | 1.406° step, **0.352° mean** | **yes**, exhaustively | `&[u8]` plane · 128 KB L1 LUT · `U8x64` · AMX |
+| nearest-`n` (§12.13 Path A) | **0.972° mean** | yes | single index |
+
+**0.352° beats Path A's 0.972° AND keeps the field ergonomics.** §12.14's
+inversion was correct about the *ergonomics* and wrong to treat them as
+disqualifying — the fix was never "abandon the direct path", it was **give the
+wrapping lane its own table**.
+
+**Rule extracted:** **a bounded quantity's TOPOLOGY selects its table formula;
+it never decides whether the quantity belongs in the palette domain.** Linear
+range → `linear()`/`from_floor()`. Ring → `circular()`. The amortization,
+the 128 KB L1 residency, the `U8x64` lane and the AMX plane are identical either
+way — that is what makes the substrate general rather than per-quantity.
+
+**Shipped:** `DistanceLut::circular()` + 3 tests (exhaustive metric proof; the
+wrap falsifier; the remaining axioms). Still `[S]`: whether the wind lane
+actually adopts u8-palette azimuth is an ingest-policy call — this section
+establishes only that the option is metric-safe and field-shaped.
