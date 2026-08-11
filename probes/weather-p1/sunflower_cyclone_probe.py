@@ -113,12 +113,31 @@ def spiral_pts(n):
 
 
 def grid_pts(n):
-    """~n points on a uniform grid clipped to the disk."""
+    """EXACTLY n points on a uniform grid clipped to the disk.
+
+    E2 is an EQUAL-BUDGET comparison, so this must return n, not "about n".
+    An earlier version returned every in-disk lattice point, which handed the
+    grid arm 80 samples against the spiral's 64 (and 293 vs 256, 1085 vs 1024)
+    — nearest-neighbour reconstruction improves with samples, so the arm being
+    compared was systematically advantaged and the verdict was not a controlled
+    comparison (codex P2 + coderabbit on PR #926, 2026-08-11).
+
+    The lattice is grown until it holds at least n in-disk points, then the n
+    CLOSEST to the disk centre are kept — a deterministic, spatially even
+    subset with no RNG and no dependence on iteration order.
+    """
     side = int(np.ceil(np.sqrt(n * 4 / np.pi)))
-    g = (np.arange(side) + 0.5) / side * 2 * R_DISK_KM - R_DISK_KM
-    gx, gy = np.meshgrid(g, g)
-    m = np.hypot(gx, gy) <= R_DISK_KM
-    return gx[m], gy[m]
+    while True:
+        g = (np.arange(side) + 0.5) / side * 2 * R_DISK_KM - R_DISK_KM
+        gx, gy = np.meshgrid(g, g)
+        rr = np.hypot(gx, gy)
+        m = rr <= R_DISK_KM
+        if m.sum() >= n:
+            break
+        side += 1
+    gx, gy, rr = gx[m], gy[m], rr[m]
+    keep = np.argsort(rr, kind="stable")[:n]
+    return gx[keep], gy[keep]
 
 
 def rand_pts(n, seed=7):

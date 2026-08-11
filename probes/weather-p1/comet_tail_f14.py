@@ -128,8 +128,14 @@ def find_center(field, near=None, radius_km=600.0, lat_lo=25.0, lat_hi=75.0):
     if near is not None:
         _, _, r, _ = geom_ll(*near)
         mask = mask & (r < radius_km)
-    ci, cj = np.unravel_index(
-        np.argmin(np.where(mask, fa, np.inf)), field.shape)
+    masked = np.where(mask, fa, np.inf)
+    ci, cj = np.unravel_index(np.argmin(masked), field.shape)
+    # An empty mask makes `masked` all-inf and argmin returns index 0, i.e. the
+    # function would report grid cell (0,0) as a storm centre. A `near`-limited
+    # search CAN be fully masked, so this must be checked on every path
+    # (coderabbit on PR #926, 2026-08-11).
+    if not np.isfinite(masked[ci, cj]):
+        return None
     return int(ci), int(cj)
 
 
@@ -161,7 +167,13 @@ def decompose_ll(field, latc, lonc):
 
 
 def subgrid_min(field, ci, cj):
-    z = field[ci - 1:ci + 2, cj - 1:cj + 2].ravel()
+    # Longitude WRAPS: a centre at cj == 0 or NX-1 would otherwise slice a 3x2
+    # neighbourhood, `A` would have 9 rows against 6 values and lstsq would
+    # raise. Centres come from a global scan, so the seam at 0 deg is reachable
+    # (coderabbit on PR #926, 2026-08-11). Rows are clamped, not wrapped — the
+    # poles are not periodic.
+    ri = np.clip(np.array([ci - 1, ci, ci + 1]), 0, field.shape[0] - 1)
+    z = np.take(field[ri, :], [cj - 1, cj, cj + 1], axis=1, mode="wrap").ravel()
     gy, gx = np.meshgrid([-1., 0., 1.], [-1., 0., 1.], indexing="ij")
     A = np.column_stack([np.ones(9), gx.ravel(), gy.ravel(),
                          gx.ravel() ** 2, gy.ravel() ** 2,

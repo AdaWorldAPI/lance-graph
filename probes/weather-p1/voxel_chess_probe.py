@@ -112,13 +112,20 @@ def board_eval(zeta, p_anom, tag):
     return r
 
 
-def geo_corr(ug, vg, tag):
+def geo_corr(ug, vg, u_obs, v_obs, tag):
+    """Correlate the geostrophic estimate against the OBSERVED winds passed in.
+
+    The observed fields are explicit parameters: an earlier version closed over
+    the module-level raw `u`/`v`, so the palette arm compared palette-derived
+    geostrophic winds against RAW observations — a hybrid, not the
+    pre-registered palette result (codex/coderabbit on PR #926, 2026-08-11).
+    """
     r = {}
     for name, lo_b, hi_b in [("nh", 20, 70), ("sh", -70, -20)]:
         m = (lat[:, None] >= lo_b) & (lat[:, None] <= hi_b) \
-            & np.ones_like(u, bool)
-        cu = np.corrcoef(ug[m], u[m])[0, 1]
-        cv = np.corrcoef(vg[m], v[m])[0, 1]
+            & np.ones_like(u_obs, bool)
+        cu = np.corrcoef(ug[m], u_obs[m])[0, 1]
+        cv = np.corrcoef(vg[m], v_obs[m])[0, 1]
         r[f"{name}_corr_u"], r[f"{name}_corr_v"] = float(cu), float(cv)
         print(f"  [{tag}] geostrophic {name.upper()}: corr(u_g,u)={cu:.3f}  "
               f"corr(v_g,v)={cv:.3f}")
@@ -131,13 +138,13 @@ out = {"store": B, "time_index": T_IDX, "preregistered":
 
 print("\n== RAW arm ==")
 zeta, p_anom, ug, vg = physics(p, u, v)
-out["raw"] = {**board_eval(zeta, p_anom, "raw"), **geo_corr(ug, vg, "raw")}
+out["raw"] = {**board_eval(zeta, p_anom, "raw"), **geo_corr(ug, vg, u, v, "raw")}
 
 print("\n== u8-PALETTE arm (p, u, v each quantized to 256 buckets) ==")
 p8, u8, v8 = quant_u8(p), quant_u8(u), quant_u8(v)
 zeta8, p_anom8, ug8, vg8 = physics(p8, u8, v8)
 out["palette_u8"] = {**board_eval(zeta8, p_anom8, "u8"),
-                     **geo_corr(ug8, vg8, "u8")}
+                     **geo_corr(ug8, vg8, u8, v8, "u8")}
 
 # E4: substrate fidelity of the popcount verdicts
 keys = ["E1_nh_lows_ccw", "E2_sh_lows_ccw", "E3_nh_highs_ccw",
@@ -150,8 +157,11 @@ print(f"\n  E4 max |raw - u8| popcount-fraction deviation: "
 # E6: Rankine profile around the deepest NH low
 print("\n== E6 Rankine ('Gluecksrad') around the deepest NH low ==")
 nh_rows = lat > 15
-pa_nh = np.where(nh_rows[:, None], p_anom, np.inf)
-ci, cj = np.unravel_index(np.argmin(pa_nh), pa_nh.shape)
+# E6 says "the deepest NH low", so select on MSLP itself. Selecting on the
+# zonal ANOMALY picks a different point and silently changes the wind profile
+# and the serialized center (coderabbit on PR #926, 2026-08-11).
+p_nh = np.where(nh_rows[:, None], p, np.inf)
+ci, cj = np.unravel_index(np.argmin(p_nh), p_nh.shape)
 print(f"  center: lat={lat[ci]:.2f} lon={cj * 0.25:.2f}  "
       f"p'={p_anom[ci, cj]:.0f} Pa")
 lon = np.arange(p.shape[1]) * 0.25
@@ -171,11 +181,23 @@ for r0 in range(0, 1500, 150):
           f"(n={prof[-1]['n']})")
 vts = [q["vt_mean"] for q in prof]
 pk = int(np.argmax(vts))
+# A Rankine profile must actually RISE to the peak and DECAY after it. The
+# earlier test only required an interior maximum plus a lower final value,
+# which accepted a profile that DECREASED then rose to the peak — the
+# committed run did exactly that (12.190 -> 12.163 m/s before the 525 km peak)
+# and still reported true (coderabbit on PR #926, 2026-08-11). TOL absorbs
+# ring-to-ring sampling noise; the monotonicity is what is being asserted.
+TOL = 0.05  # m/s, ~0.4% of the observed peak
+rise_ok = all(vts[i + 1] >= vts[i] - TOL for i in range(pk))
+decay_ok = all(vts[i + 1] <= vts[i] + TOL for i in range(pk, len(vts) - 1))
 out["E6_rankine"] = {"center_lat": float(lat[ci]), "center_lon": float(lon[cj]),
                      "profile": prof, "peak_ring": pk,
                      "cyclonic_at_peak": vts[pk] > 0,
-                     "rises_then_decays": 0 < pk < len(vts) - 1
-                     and vts[-1] < vts[pk]}
+                     "monotone_tol_ms": TOL,
+                     "rises_to_peak": bool(rise_ok),
+                     "decays_after_peak": bool(decay_ok),
+                     "rises_then_decays": bool(0 < pk < len(vts) - 1
+                                               and rise_ok and decay_ok)}
 print(f"  peak at ring {pk} ({prof[pk]['r_mid_km']} km): torque zone inside, "
       f"momentum zone outside -> rises_then_decays="
       f"{out['E6_rankine']['rises_then_decays']}")

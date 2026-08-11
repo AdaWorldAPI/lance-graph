@@ -48,6 +48,29 @@ generalization beyond n=2.
 > now with a specific, falsifiable next step (CT-F14) rather than a closed
 > question.
 >
+> **⚠⚠⚠⚠ CORRECTION 2026-08-11 (external review of PR #926) — THE
+> COMPRESSION NUMBERS IN THIS REPORT WERE FROM THE WRONG MODEL.** Codex
+> flagged, and re-measurement confirms, that `decompose()` fits `a1[b]`,
+> `b1[b]` **per ring** — 12 rings × 2 = **24** free dipole parameters, not the
+> **2** ("amplitude slope + bearing") the storage claim describes. So the
+> published R² 0.972 / 0.926 belongs to a **36-parameter** model, while the
+> claimed 14-value representation is a different, more constrained one. Both
+> are now measured (`comet_tail_probe.py`, `R2_profile_wn1_constrained_2param`):
+>
+> | model | params | storm 1 | storm 2 |
+> |---|---:|---:|---:|
+> | ring profile only | 12 | 0.635 | 0.294 |
+> | + per-ring dipole (what was published) | 36 | 0.972 | 0.926 |
+> | **+ constrained 2-param dipole (what was CLAIMED)** | **14** | **0.943** | **0.909** |
+>
+> **The corrected headline is 90.9–94.3 %, not 93–97 %.** The structural
+> finding survives — 14 values still lift a storm from 29–63 % to 91–94 % —
+> but every "93–97 %" in this document is an overstatement of ~2.5× in
+> parameter count, and is superseded by the table above. The constrained model
+> is the physically motivated one (a linear background gives exactly one
+> amplitude slope and one bearing, §2), so this is a correction of the
+> MEASUREMENT to the claim, not a retreat from the claim.
+>
 > **⚠⚠⚠ UPDATE 2026-08-11 (§5.11, CT-F14, the properly-powered test).** The
 > pre-registered decision rule technically fires "established" on a pooled
 > 3-sample figure (p=0.0145) — but the single test this whole exercise was
@@ -723,9 +746,11 @@ this quantity. No stronger attribution is claimed at n = 2.
 
 ## 6. Product / encoding consequence `[S]`
 
-> **⚠ Read with §5.9–5.11.** The ring-profile + dipole compression below is
-> solid — it generalized cleanly across every sample this arc ran (N3/N4,
-> and CT-F14's own qualifying subset: median wn1_frac 0.60, R² 0.90). The
+> **⚠ Read with §5.9–5.11 AND the compression correction in §1.** The figures
+> below say 93–97 %; the honest number for the 14-value model they describe is
+> **90.9–94.3 %** (the 93–97 % belongs to a 36-parameter per-ring fit). The
+> compression is real and generalized cleanly across every sample this arc ran
+> (N3/N4, and CT-F14's own qualifying subset: median wn1_frac 0.60, R² 0.90). The
 > *motion-encoding* half ("the dipole encodes the motion") depends on the
 > signed relationship CT-F14 — the properly-powered test built to settle it —
 > did NOT independently establish (§5.11). Treat the compression as ready
@@ -738,7 +763,9 @@ If CT-F1..F3 hold up, the compact representation of a surface low is:
 storm ≈ CENTER (place)                    — 1 address
       + p̄(r)   ring-profile means         — ~12 bytes (12 × 100 km rings, u8-quantizable per voxel-chess probe: u8 max dev 0.0047)
       + (a₁,b₁) ONE dipole vector          — 2 values (amplitude slope + bearing)
-      = 93–97 % of in-disk MSLP variance
+      = 90.9–94.3 % of in-disk MSLP variance   [corrected 2026-08-11; the
+        93–97 % previously printed here was a 36-parameter per-ring fit, not
+        this 14-value model — see the §1 correction]
 ```
 
 - Maps directly onto `highheelbgz`'s 3-integer spiral **address** form
@@ -825,6 +852,58 @@ careful pass would have missed. **Current position: the compression is
 ready for the audit-gate queue now; the predictor is not, and should not be
 represented as more than "suggestive" until a properly-powered test clears
 its own bar without pooling assistance.** §6 is marked accordingly.
+
+## 8b. External review of PR #926 — what it changed (2026-08-11)
+
+16 findings (14 CodeRabbit + 2 Codex). Four changed measured numbers; the rest
+were latent bugs or labelling. Recorded because two of them make the arc's own
+results BETTER and one makes the headline WORSE — the review is not a formality.
+
+**Changed published numbers:**
+
+1. **The compression claim was measured on the wrong model** (Codex P1) — see
+   the §1 correction. 93–97 % → **90.9–94.3 %** for the 14-value model actually
+   claimed. The most consequential finding in the review.
+2. **Sunflower E2 was not a controlled comparison** (Codex P2 + CodeRabbit):
+   `grid_pts(n)` returned every in-disk lattice point, so the grid arm ran on
+   80 samples against the spiral's 64 (293 vs 256, 1085 vs 1024) — and
+   nearest-neighbour reconstruction improves with samples, so the arm being
+   compared was systematically advantaged. With EXACTLY n enforced the verdict
+   **improves in the spiral's favour**: 234.5 vs 269.0 Pa (n=64), 119.1 vs
+   123.3 (n=256), 58.9 vs 59.9 (n=1024) — the spiral now wins at every budget,
+   where the earlier write-up recorded "parity". The original result was
+   PESSIMISTIC, not optimistic.
+3. **The voxel-chess palette arm was a hybrid** (CodeRabbit): `geo_corr`
+   received the palette-derived geostrophic winds but closed over the
+   module-level RAW `u`/`v`, so "u8 max dev 0.0047" compared palette
+   geostrophy against raw observations — not the pre-registered palette
+   result. The observed fields are now explicit parameters and the palette arm
+   passes `u8`/`v8`.
+4. **go_territory's explained variance re-centred the residual** (CodeRabbit):
+   `res.var()` subtracts the residual mean after every atom, excluding it from
+   the error. Fixed to a fixed centered-field denominator over the residual
+   mean-square; K=10 matched moves 0.530 → **0.523**, and **no verdict flips**
+   (A-E1 and A-E2 still fail their bars).
+
+**Vacuous assertion caught** (CodeRabbit): E6's `rises_then_decays` required
+only an interior maximum plus a lower final value — it accepted a profile that
+DECREASED before rising to the peak, which the committed run literally did
+(12.190 → 12.163 m/s before the 525 km peak) while reporting `true`. Now
+asserts monotone rise to the peak and decay after it, with a stated 0.05 m/s
+tolerance; the run still passes, but now because the profile is Rankine-shaped
+rather than because the test could not fail.
+
+**Latent bugs fixed (no committed run hit them, so no numbers move):**
+`find_center` returned grid cell (0,0) when a `near`-limited mask was fully
+masked, instead of `None`; `subgrid_min`'s 3×3 slice did not wrap in longitude
+and would have raised on any centre at the 0° seam. Both are now guarded in
+all six probes.
+
+**Labelling / provenance:** CT-F12 can no longer emit `pass: true` below its
+evaluable minimum; F7d's threshold now matches the 40 deg its own key and
+docstring pre-register (it tested 35); `comet_tail_followup.json` persists the
+per-storm centre / bearing / displacement instead of `"storms": {}`;
+`go_territory_probe.json` is written beside the probe rather than the cwd.
 
 ## 9. Reframe — the spine is found; the moderators are missing (operator, 2026-08-11)
 

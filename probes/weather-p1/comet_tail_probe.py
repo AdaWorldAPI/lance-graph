@@ -74,8 +74,14 @@ def find_center(field, near=None, radius_km=600.0):
     if near is not None:
         _, _, r, _ = geom(*near)
         mask = mask & (r < radius_km)
-    ci, cj = np.unravel_index(
-        np.argmin(np.where(mask, fa, np.inf)), field.shape)
+    masked = np.where(mask, fa, np.inf)
+    ci, cj = np.unravel_index(np.argmin(masked), field.shape)
+    # An empty mask makes `masked` all-inf and argmin returns index 0, i.e. the
+    # function would report grid cell (0,0) as a storm centre. A `near`-limited
+    # search CAN be fully masked, so this must be checked on every path
+    # (coderabbit on PR #926, 2026-08-11).
+    if not np.isfinite(masked[ci, cj]):
+        return None
     return int(ci), int(cj)
 
 
@@ -105,9 +111,20 @@ def decompose(field, ci, cj):
     wn1 = a1[rings] * np.cos(tt) + b1[rings] * np.sin(tt)
     resid1 = resid0 - wn1                            # after profile + wn-1
 
+    # CONSTRAINED dipole — the model the report's storage claim actually
+    # describes: ONE amplitude slope + ONE bearing, i.e. a1(r) = s*r*cos(t0),
+    # b1(r) = s*r*sin(t0), which is the linear-background signature from §2.
+    # The per-ring fit above has 2*nb = 24 free parameters and is NOT a
+    # 2-value representation; conflating the two overstated the compression
+    # (codex P1 on PR #926, 2026-08-11). Both are now reported.
+    X = np.column_stack([rr * np.cos(tt), rr * np.sin(tt)])
+    coef, *_ = np.linalg.lstsq(X, resid0, rcond=None)
+    wn1_con = X @ coef
+
     var_t = vals.var()
     e1 = 1.0 - resid0.var() / var_t                  # profile-only R2
-    e2 = 1.0 - resid1.var() / var_t                  # profile + wn-1 R2
+    e2 = 1.0 - resid1.var() / var_t                  # profile + per-ring wn-1
+    e2c = 1.0 - (resid0 - wn1_con).var() / var_t     # profile + 2-param dipole
     wn1_frac = wn1.var() / resid0.var()
 
     # amplitude-weighted dipole phase: bearing of the LOW pole
@@ -118,6 +135,12 @@ def decompose(field, ci, cj):
     r_mid = (np.arange(nb) + 0.5) * RING
     a_corr = float(np.corrcoef(amp[1:], r_mid[1:])[0, 1])
     return {"R2_profile": float(e1), "R2_profile_wn1": float(e2),
+            "R2_profile_wn1_constrained_2param": float(e2c),
+            "n_params_profile": int(nb),
+            "n_params_profile_wn1_perring": int(nb + 2 * nb),
+            "n_params_profile_wn1_constrained": int(nb + 2),
+            "constrained_slope_pa_per_km": float(np.hypot(*coef)),
+            "constrained_bearing_deg": float(np.rad2deg(np.arctan2(coef[1], coef[0]))),
             "wn1_frac_of_resid": float(wn1_frac),
             "low_pole_bearing_rad": float(low_pole),
             "amp_vs_r_corr": a_corr}
@@ -161,6 +184,10 @@ def track(name, c0_hint=None):
           f"bar +/-45)")
     print(f"  CT-E4 R2 profile-only {d['R2_profile']:.3f} -> "
           f"profile+wn1 {d['R2_profile_wn1']:.3f} (bar >= 0.80)")
+    print(f"        [param count: {d['n_params_profile_wn1_perring']} per-ring "
+          f"vs {d['n_params_profile_wn1_constrained']} constrained]")
+    print(f"        CONSTRAINED 2-param dipole (the storage claim's actual "
+          f"model): R2 {d['R2_profile_wn1_constrained_2param']:.3f}")
     print(f"  CT-E5 corr(a1(r), r) = {d['amp_vs_r_corr']:.3f} "
           f"(linear-background signature; observation, no bar)")
     return res

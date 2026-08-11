@@ -25,10 +25,10 @@
     "n_nh_highs": 36622,
     "E3_sh_highs_ccw": 0.7194711726511773,
     "n_sh_highs": 76698,
-    "nh_corr_u": 0.38443625370572837,
-    "nh_corr_v": 0.42178482993212973,
-    "sh_corr_u": 0.8466889689137697,
-    "sh_corr_v": 0.710729073456687
+    "nh_corr_u": 0.3837072803428654,
+    "nh_corr_v": 0.42140908709596736,
+    "sh_corr_u": 0.8456117083342138,
+    "sh_corr_v": 0.7089358037738284
   },
   "E4_max_popfrac_dev": 0.004749107357875787,
   "E6_rankine": {
@@ -88,6 +88,9 @@
     ],
     "peak_ring": 3,
     "cyclonic_at_peak": true,
+    "monotone_tol_ms": 0.05,
+    "rises_to_peak": true,
+    "decays_after_peak": true,
     "rises_then_decays": true
   }
 }

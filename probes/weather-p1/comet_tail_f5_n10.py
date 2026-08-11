@@ -150,9 +150,13 @@ def find_center(field, near=None, radius_km=600.0, lat_lo=25.0, lat_hi=75.0):
     if near is not None:
         _, _, r, _ = geom_ll(*near)
         mask = mask & (r < radius_km)
-    ci, cj = np.unravel_index(
-        np.argmin(np.where(mask, fa, np.inf)), field.shape)
-    if not np.isfinite(fa[ci, cj]) if near is None else False:
+    masked = np.where(mask, fa, np.inf)
+    ci, cj = np.unravel_index(np.argmin(masked), field.shape)
+    # An empty mask makes `masked` all-inf and argmin returns index 0, i.e. the
+    # function would report grid cell (0,0) as a storm centre. A `near`-limited
+    # search CAN be fully masked, so this must be checked on every path
+    # (coderabbit on PR #926, 2026-08-11).
+    if not np.isfinite(masked[ci, cj]):
         return None
     return int(ci), int(cj)
 
@@ -186,7 +190,13 @@ def decompose_ll(field, latc, lonc):
 
 
 def subgrid_min(field, ci, cj):
-    z = field[ci - 1:ci + 2, cj - 1:cj + 2].ravel()
+    # Longitude WRAPS: a centre at cj == 0 or NX-1 would otherwise slice a 3x2
+    # neighbourhood, `A` would have 9 rows against 6 values and lstsq would
+    # raise. Centres come from a global scan, so the seam at 0 deg is reachable
+    # (coderabbit on PR #926, 2026-08-11). Rows are clamped, not wrapped — the
+    # poles are not periodic.
+    ri = np.clip(np.array([ci - 1, ci, ci + 1]), 0, field.shape[0] - 1)
+    z = np.take(field[ri, :], [cj - 1, cj, cj + 1], axis=1, mode="wrap").ravel()
     gy, gx = np.meshgrid([-1., 0., 1.], [-1., 0., 1.], indexing="ij")
     A = np.column_stack([np.ones(9), gx.ravel(), gy.ravel(),
                          gx.ravel() ** 2, gy.ravel() ** 2,
@@ -278,8 +288,6 @@ for st in STORMS0:
     max_step = 0.0
     for li in order:
         lev = int(levels[li])
-        ci = int(np.argmin(np.abs(lat - cur[0])))
-        cj = int(np.argmin(np.abs(((lon_deg - cur[1] + 180) % 360 - 180))))
         found = find_center(z0[li], near=cur, radius_km=250.0)
         if found is None:
             walk.append({"level_hPa": lev, "found": False})
@@ -389,7 +397,6 @@ for dt in DATES:
     dA = decompose_ll(p0, la_a, lo_a)
     la_c, lo_c = centroid_ll(zeta10, ci0, cj0)
     dC = decompose_ll(p0, la_c, lo_c)
-    dland = decompose_ll(lsm.astype(np.float64), la_a, lo_a)
 
     errA = err_deg(dA["low_pole_rad"], mth)
     errC = err_deg(dC["low_pole_rad"], mth)
@@ -401,7 +408,6 @@ for dt in DATES:
         "F8_error_C_vort_deg": errC,
         "F8_shrinks_at_vort_center": bool(abs(errC) < abs(errA)),
     })
-    del dland  # decompose_ll's own amp_by_ring omitted b1; land dipole recomputed below
     _, _, r_, th_ = geom_ll(la_a, lo_a)
     disk = r_ <= R_DISK
     lv, rr, tt = lsm[disk].astype(np.float64), r_[disk], th_[disk]

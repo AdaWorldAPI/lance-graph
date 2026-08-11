@@ -31,6 +31,7 @@ approx with cos(lat_center) — consistent with the sibling probes, stated.
 Hoehenprofil (geopotential stacking) deliberately NOT here — next probe.
 """
 import json
+import os
 import urllib.request
 
 import numcodecs
@@ -93,7 +94,11 @@ def fit_atom(res, ci, cj):
 def matching_pursuit(field, k_max, centers=None):
     """Greedy K radial atoms; centers picked from residual argmax (or given)."""
     res = field.copy()
-    v0 = field.var()
+    # Fixed denominator = the CENTERED field's variance; the numerator is the
+    # residual's MEAN SQUARE, not its variance. `res.var()` re-centres after
+    # every atom, so a non-zero residual mean was excluded from the error and
+    # explained variance came out inflated (coderabbit on PR #926).
+    v0 = float(np.mean((field - field.mean()) ** 2))
     used, explained = [], []
     for k in range(k_max):
         if centers is not None:
@@ -106,7 +111,7 @@ def matching_pursuit(field, k_max, centers=None):
         atom, _ = fit_atom(res, ci, cj)
         res -= atom
         used.append((int(ci), int(cj)))
-        explained.append(1.0 - res.var() / v0)
+        explained.append(1.0 - float(np.mean(res ** 2)) / v0)
     return used, explained
 
 

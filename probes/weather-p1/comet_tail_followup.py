@@ -118,8 +118,14 @@ def find_center(field, near=None, radius_km=600.0):
     if near is not None:
         _, _, r, _ = geom(*near)
         mask = mask & (r < radius_km)
-    ci, cj = np.unravel_index(
-        np.argmin(np.where(mask, fa, np.inf)), field.shape)
+    masked = np.where(mask, fa, np.inf)
+    ci, cj = np.unravel_index(np.argmin(masked), field.shape)
+    # An empty mask makes `masked` all-inf and argmin returns index 0, i.e. the
+    # function would report grid cell (0,0) as a storm centre. A `near`-limited
+    # search CAN be fully masked, so this must be checked on every path
+    # (coderabbit on PR #926, 2026-08-11).
+    if not np.isfinite(masked[ci, cj]):
+        return None
     return int(ci), int(cj)
 
 
@@ -232,7 +238,21 @@ for name, hint in (("storm1", None), ("storm2", (int(round((90 - 67.0) / 0.25)),
                    "motion_rad": float(np.arctan2(mv[1], mv[0])),
                    "disp_km": float(np.hypot(*mv))})
 
-out = {"store": B, "t0": T0, "t1": T1, "R_disk_km": R_DISK, "storms": {}}
+# STORMS carries the centre, motion bearing and displacement each per-storm
+# CT-F1/F2/F3 record is computed from; writing `{}` dropped that provenance
+# (coderabbit on PR #926, 2026-08-11).
+out = {
+    "store": B, "t0": T0, "t1": T1, "R_disk_km": R_DISK,
+    "storms": {
+        st["name"]: {
+            "center_t0": {"lat": float(lat[st["c0"][0]]),
+                          "lon": float(lon_deg[st["c0"][1]])},
+            "motion_bearing_deg": float(np.rad2deg(st["motion_rad"])),
+            "displacement_km": st["disp_km"],
+        }
+        for st in STORMS
+    },
+}
 
 # ============================ CT-F3 : APPARATUS =============================
 print("\n=== CT-F3  APPARATUS (center sensitivity) — runs first, gates F1/F2 ===")
