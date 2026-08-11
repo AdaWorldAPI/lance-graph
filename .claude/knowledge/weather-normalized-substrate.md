@@ -1282,3 +1282,75 @@ shift to `2m_temperature`, and measure the residual against the true next
 timestep — versus a no-shift baseline. If the residual does not drop
 substantially, advection-as-shift is wrong for real fields at 0.25° / 1 h and
 this paragraph must be regraded.
+
+#### 12.17 — `perturbation-sim` + `domino.rs`: the stack is BUILT, and I re-derived a shipped frame in Python
+
+**Operator:** *"also check lance-graph / crates / perturbation … morton allows
+64×64 stockfish ergonomics … also check domino.rs."* All three land. Read, not
+inferred:
+
+**(a) `crates/perturbation-sim` is the APPLIED instance of this entire thread** —
+an outage cascade simulator that already composes every piece §12.16 named:
+
+| module | what it already is |
+|---|---|
+| `rolling_floor.rs` | *"L1..L4 HHTL tiers as an HDR popcount-stacking, early-exit, **Belichtungsmesser** cascade with **preheated confidence-interval thresholds**"* |
+| `splat.rs` | *"Gaussian-splat **magnitude** side of the pyramid… the **sign** side of the Morton pyramid is Walsh/XOR (`sketch`)"* — with `morton2`, `box_coarsen`, `ewa_coarsen` |
+| `cascade_key.rs` | *"Full 16-bit-per-tier spatial cascade key — the OGAR production form of the HHTL address"* — `from_spectral`, `to_guid_tiers`, **`morton48`**, `cascade_distance`, `tile` |
+| `hhtl.rs` | HHTL `(HEEL,HIP,TWIG)` by **recursive Cheeger bisection of the Laplacian** — the address is derived spectrally |
+| `columns.rs` | `SoaMemberSpec` — the #511 calibration |
+
+The two-algebra rule (OGAR `CLAUDE.md`: sign = XOR, magnitude = bundle, **never**
+`MergeMode::Xor` on magnitudes) is **literally the `splat`/`sketch` split here.**
+
+**(b) ⊘ I re-derived `RollingFloor` in Python `[G]` — the most expensive miss of
+this arc.** `perturbation_sim::rolling_floor` already ships, with doc comments:
+
+- `threshold()` = **`mu + k·σ`** — *"The **confidence-interval** floor"*
+- `z(x)` = `(x−mu)/σ` — *"the **Jirak-honest** 'noise-floor units'; significance
+  via `n^(p/2−1)`, **not IID**"*
+- `band(x)` → Stable/Watch/Concern/Warning/**Alarm**; `preheat()`; `observe()`
+  tests against the floor **as it stood**, then updates (the rolling property)
+
+**That IS §12.10/§12.11's "corrected evaluation frame", verbatim, Jirak citation
+included** — and I rebuilt it by hand in `probes/weather-p1/p1_ci_vs_floor.py`
+after an operator correction. It is not even the only instance: the same
+`mu + kσ` → band → roll-on-drift frame appears **four** times —
+`ndarray::hpc::cascade::Cascade` (`expose()`, Hamming-metered),
+`perturbation_sim::RollingFloor` (instability-metered),
+`helix::quantize::RollingFloor` (the palette floor), and
+`thinking-engine::domino`'s *"3σ top-K focus"*. The weather probe should be the
+**fifth instance of one frame**, not a fifth implementation.
+
+**(c) 64×64 "Stockfish ergonomics" is an EXACT identity `[G]`:**
+`64 × 64 = 4096 cells = 4096 bit = 512 byte = 64 × u64` — **precisely the CANON
+node stride** (`key(16) | edges(16) | value(480)`). A Morton 64×64 tile is a
+12-bit code (6+6), and a node's worth of bits *is* a bitboard. The bit-parallel
+surface is already there: `masked_popcount_batch(words, mask)` — mask a plane,
+count — **is** the Stockfish primitive (`popcount(attacks & targets)`), alongside
+`popcount_per_word`, `hamming_top_k_raw`, `xor_popcount`, `nibble_popcount_lut`.
+The magic-bitboard idea (precomputed table indexed by an occupancy mask) is the
+same LUT amortization as §12.15.
+
+**(d) `symbiont/src/domino.rs` is the working AMX proof `[G]`:** *"BF16 + AMX,
+2bit×2bit 4×4 Morton tile… each SoA board carries a 4×4 BF16 tile (16 lanes,
+Morton-addressed)… **16 boards batch into ONE AMX 16×16 tile GEMM**… C
+re-quantised back into the tiles (cascade feedback)"*, on real Emerald Rapids
+with `TDPBF16PS` firing. It also states the consumer rule verbatim: **all SIMD
+through `ndarray::simd::*`, never `ndarray::hpc::*`**, and notes `morton4` is
+consumer-side because *"ndarray has no Morton primitive"*.
+
+**Consequence for the weather work — concrete, not architectural:** the P1/P2
+probes should be **re-expressed against the shipped frame** (a `RollingFloor`
+consumer + `CascadeKey`/`morton48` addressing + `splat`/`sketch` for the
+magnitude/sign split), not carried as bespoke Python. That is a rewrite of the
+probe harness, not of any finding: the measured numbers (§12.8, §12.11) stand
+because they were computed correctly — they were just computed **twice**.
+
+**Rule extracted (fourth instance of one lesson in this document):** *before
+writing a frame, grep the workspace for the frame.* §12.12 was the doctrine doc
+never opened; §12.14 the field ergonomics never checked; §12.15 the table formula
+never questioned; this is an **implemented, documented, Jirak-cited frame
+re-written in another language**. The `Consult, don't guess` rule in `CLAUDE.md`
+orders card → knowledge doc → board → source; nothing in that ladder says *grep
+the sibling crates for the thing you are about to build* — and it should.
