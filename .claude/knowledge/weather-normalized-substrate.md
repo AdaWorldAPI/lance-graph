@@ -532,6 +532,12 @@ regraded here**, never silently edited.
 
 ### 12.1 — §1.2 FALSIFIED for weather scalars: Fisher-Z *degrades* the palette
 
+> **⊘⊘ PARTIALLY REVERSED by §12.10** — this section was scored with a
+> **round-trip** metric, which is the wrong criterion for a one-way address over
+> a retained original. Re-measured against noise-floor thresholds the two paths
+> are indistinguishable at a 0.5–1 K floor. What survives is *bucket economy*,
+> not a validity failure. Read §12.10 before citing anything below.
+
 Measured, real ERA5 `2m_temperature`, 1,038,240 gridpoints, both paths into the
 same 256 buckets over the same 0.4–99.6 percentile window
 (`probes/weather-p1/`, re-runnable):
@@ -565,6 +571,10 @@ cross-variable comparability under a *per-shape* transform choice, and prove
 the shared **palette + LUT** still hold once the shared **transform** is gone.
 
 ### 12.2 — §2.3 / §5 / §6.6 FALSIFIED: helix360 is not a wind-bearing carrier
+
+> **⊘⊘ GROUND NARROWED by §12.10** — the structural facts below stand, but the
+> *"no inverse / no decode exists"* argument was never a defect under a one-way
+> address frame. The `Pair48` successor mint returns to the table strengthened.
 
 The `v3-envelope-auditor` verdict on reading the 6-byte `HelixResidue` lane as
 `2 × ResidueEdge` (in/out): **LAYOUT-GATED, and the gate does not exist** — with
@@ -659,6 +669,7 @@ default") this is a wrong-value-from-dormant-bytes defect. Filed, not fixed here
 | id | status |
 |---|---|
 | **P1** | **RUN** — `probes/weather-p1/`, results committed. Falsified §1.2 and §6.5; re-measured §6.1/§6.3. |
+| **P1-reframed** | **RUN** (§12.10) — CI-vs-noise-floor, no round-trip. Reverses §12.1's magnitude; surfaces the saturation-tail-hits-the-extremes finding. |
 | **P2** | **RUN — PASSES** (§12.8). Re-scoped per §12.1 and measured: shared canonical floor ρ ≥ 0.9996 cross-variable vs 0.857–0.875 per-variable; zero within-variable cost. Shared palette + LUT survives; the shared *transform* does not. |
 | **P3** | largely ANSWERED by §12.8 (no within-variable penalty from the shared floor); stays open for the saturation-tail question only. |
 | **P4** | **CANCELLED as specified.** The premise is falsified (§12.2). Successor: the 16-byte `Pair48` facet lane — a mint decision, operator-gated, not a worker task. |
@@ -765,3 +776,83 @@ rates** — weather fields are spatially autocorrelated, so effective sample siz
 is far below the nominal 50 000, and classical IID intervals would be wrong.
 Nothing above is a significance claim; they are point estimates with an explicit
 negative control.
+
+### 12.10 — ⊘⊘ THE EVALUATION FRAME WAS WRONG: thresholds vs noise floor, never round-trip
+
+**Operator correction, 2026-08-11.** Everything in §12.1 was scored with a
+**round-trip** metric — encode, decode, measure reconstruction error against the
+original. **That is the wrong criterion for this substrate, and it inverted a
+verdict.**
+
+**Why it is wrong.** The substrate never decodes. The original is *retained* —
+public knowledge, the hydratable value column, the Lance-versioned f32. The code
+is a **one-way address / discriminator layered over a kept original**, so the
+question was never *"can I reconstruct the original from the code"* but
+**"does the code's confidence interval (its quantization threshold) sit below
+the original's own noise floor?"** Deviation only matters where it **exceeds
+what the original itself can resolve**. This session's own 2026-08-08 reply had
+it right — *"the code is not the bottleneck, the atmosphere is; the instruments
+can't see it"* — and §12.1 then scored reconstruction MAE anyway.
+
+**Re-measured in the correct frame** (`probes/weather-p1/p1_noise_floor.py`,
+same real ERA5 T2m field, 1,038,240 points; fraction of gridpoints whose
+code-induced deviation **exceeds** a candidate floor):
+
+| path | CI (mid-range) | >0.25 K | >0.5 K | >1.0 K | >2.0 K | max |
+|---|---|---|---|---|---|---|
+| linear | ±0.094 K | 0.76 % | **0.70 %** | **0.60 %** | 0.40 % | 17.55 K |
+| Fisher-Z | position-dependent | 36.3 % | **0.69 %** | **0.58 %** | 0.40 % | 17.54 K |
+
+**§12.1 is PARTIALLY REVERSED.** At a 0.5–1 K floor the two paths are
+**indistinguishable** (0.70 % vs 0.69 %; 0.60 % vs 0.58 %), and the exceedances
+are the **shared saturation tail**, not the transform. "Fisher-Z is actively
+harmful for weather" was an **artifact of the round-trip metric**. Fisher-Z only
+fails at a 0.25 K floor — stricter than the instruments — because its mid-range
+buckets are ±0.26 K wide (CI by index: 0.087 / **0.263** / 0.005 / 0.0001 /
+0.000 K at idx 0/64/128/192/255; the position-dependence *is* the shape finding,
+now correctly expressed as a CI profile rather than an error score).
+
+**What survives of §12.1: bucket economy, not validity.** Fisher-Z spends 228 of
+256 addresses where this distribution is not (28.1 effective buckets vs 115.7).
+That degrades **discrimination granularity** — more code ties, coarser analogue
+retrieval — which is a real cost for the retrieval lane and was measured
+frame-correctly in **§12.8** (rank ρ of *code distances*, no round-trip). So the
+falsified claim shrinks from *"Fisher-Z is wrong for weather"* to **"Fisher-Z
+buys nothing here and costs address space."** §1.2's mechanism (transform should
+match distribution shape) stands; its *magnitude* did not survive re-framing.
+
+**§12.2 loses its main ground too.** The structural facts stand (`ResidueEdge`
+carries no hemisphere sign; azimuth is `n·φ`-derived, not an external bearing).
+But a substantial part of that cancellation rested on *"the crate ships no
+inverse — no `decode(edge) -> n` exists."* **Under a one-way address frame that
+was never a defect.** What a wind lane actually needs is a **defined
+deterministic bearing→address convention** — a design act, which is exactly what
+the mint decision is — plus CI-vs-floor validation: a ~1.4–1.7° step against the
+**10° METAR/SYNOP reporting increment** is the ~6× margin recorded on
+2026-08-08. **The `Pair48 = [Signed360; 2]` mint returns to the table
+strengthened, not weakened.** P4 stays cancelled *as specified* (2×`ResidueEdge`
+in 6 bytes remains structurally wrong); its successor is live again.
+
+**A finding neither frame produced alone.** The **shared saturation tail** —
+0.4–0.7 % of points, max ≈ 17.5 K — is the *only* genuine noise-floor violation
+for either path, and those points are the **extremes**: heat waves, cold
+outbreaks. Meteorologically the most important events sit exactly where this
+representation is worst. The 0.4–99.6 % window is a **knob inherited from the
+cognitive substrate's defaults**; weather likely wants it widened, or an
+explicit overflow lane for extremes. That is now the highest-value open item on
+the representation, ahead of any transform question.
+
+**⚠ The floor itself is NOT yet pinned.** 0.25 / 0.5 / 1.0 / 2.0 K are a
+**reference class**, not a citation. No published ERA5 T2m uncertainty figure was
+verified in this run, so every verdict above is *"indistinguishable at a
+0.5–1 K-class floor"*, conditional on that class being right. **Pinning a citable
+per-variable noise floor is a prerequisite** before any of this is graded `[G]`
+— and per `I-NOISE-FLOOR-JIRAK`, any σ-distance claim against it takes Jirak
+weak-dependence rates, never classical intervals.
+
+**Meta — §12.3's rule, applied to §12.1.** §12.3 stated that *a correction is a
+claim and carries a claim's burden of proof*. §12.1 **was** such a correction,
+and it over-claimed because it inherited an evaluation frame without examining
+it. The rule caught its own author one section later. **The frame a measurement
+is scored in is itself a claim requiring an audit** — that is the generalization,
+and it is worth more than either verdict it revised.
