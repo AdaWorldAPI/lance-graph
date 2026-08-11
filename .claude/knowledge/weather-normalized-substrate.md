@@ -730,3 +730,38 @@ seasons and a fourth variable in a different unit again.
 is now largely answered in the negative — the shared floor shows no
 within-variable penalty — but stays open for the tail/saturation question.
 Step 3 (Phase A end-to-end) is unblocked.
+
+### 12.9 — Gate 1 RUN with `jc` (not scipy): the representation is valid and reliable
+
+§9's gate 1 answered with the workspace's own instruments —
+`crates/jc/examples/weather_substrate_reliability.rs`, run against the P1/P2
+palette256 round-trip on real ERA5 (3 variables × 50 000 sampled points, shared
+canonical floor). `jc` rather than `ndarray::hpc::reliability` deliberately: the
+mirror returns `0.0` sentinels where `jc` returns `Option<f64>`, so a `0.0` from
+the mirror cannot be distinguished from *undefined* — §9's stated rule.
+
+| variable | Pearson r | Spearman ρ | Cronbach α | ICC(2,1) abs | ICC(3,1) cons |
+|---|---|---|---|---|---|
+| `2m_temperature` | 0.998558 | 0.999866 | 0.999216 | 0.998432 | 0.998432 |
+| `2m_dewpoint_temperature` | 0.998506 | 0.999898 | 0.999179 | 0.998359 | 0.998360 |
+| `10m_u_component_of_wind` | 0.999785 | 0.999964 | 0.999891 | 0.999781 | 0.999781 |
+| **POOLED (shared floor)** | **0.998939** | **0.999926** | **0.999435** | **0.998869** | **0.998870** |
+
+**Negative control — the can-it-fire half.** `--shuffle` feeds deliberately
+mismatched pairs; every statistic collapses to noise: r ∈ [−0.0062, −0.0007],
+ρ ∈ [−0.0057, −0.0001], α ∈ [−0.0126, −0.0014], both ICCs likewise. So these are
+measurements, not assertions implied by their own input.
+
+**The load-bearing detail: ICC(2,1) ≈ ICC(3,1) to six decimals.** They are
+reported separately on purpose — ICC(3,1) is *consistency*, ICC(2,1) is
+*absolute agreement*, and a quantizer that preserved shape while shifting scale
+would show high consistency and degraded agreement. They agree, so **there is no
+scale shift hiding behind a consistency number**. A single ICC figure would not
+have shown this.
+
+⚠ **Significance, not point estimates.** Per `I-NOISE-FLOOR-JIRAK`, any claim
+that these values sit N σ above a noise floor takes **Jirak 2016 weak-dependence
+rates** — weather fields are spatially autocorrelated, so effective sample size
+is far below the nominal 50 000, and classical IID intervals would be wrong.
+Nothing above is a significance claim; they are point estimates with an explicit
+negative control.

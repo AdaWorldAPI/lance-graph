@@ -180,10 +180,8 @@ pub fn prove() -> PillarResult {
     // 16×16 random tridiagonal SPD this lands ≈ 3-5×. Use 2.0× as the
     // conservative pass threshold.
     let predicted = 2.0;
-    let pass = ratio >= predicted
-        && jacobi_failed == 0
-        && sor_failed == 0
-        && sor_won == N_PROBLEMS as u64;
+    let pass =
+        ratio >= predicted && jacobi_failed == 0 && sor_failed == 0 && sor_won == N_PROBLEMS as u64;
 
     let detail = format!(
         "N={} problems × {}×{} tridiag SPD, tol = γ/(γ+1)/√N · 1e-6 = {:.3e}. \
