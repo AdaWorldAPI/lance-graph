@@ -86,10 +86,16 @@ generalization beyond n=2.
 > explanatory power) is untouched throughout.
 
 Product consequence `[S]`: a storm's pressure field compresses to
-**center position + ~12 ring means + one dipole vector** at 93–97 % variance
-explained, and the dipole *encodes the motion* — a candidate single-frame
-motion predictor and a natural fit for the substrate's 3-integer spiral
-addressing (`highheelbgz`).
+**center position + ~12 ring means + one dipole vector** at **90.9–94.3 %**
+variance explained (the 14-value constrained model — see the correction block
+above; the 93–97 % figure belonged to a 36-parameter model and is superseded).
+The dipole's orientation is *suggestively* related to the motion vector but
+**that relation is NOT established** (§5.11, CT-F14: 0.684, p=0.0835 on the
+largest sample) — so the compression claim stands on its own, and the
+"single-frame motion predictor" reading does not yet. The representation is a
+natural fit for the substrate's 3-integer spiral addressing (`highheelbgz`),
+and **measured to fit the L4 carrier exactly**: 12 bytes as `6×(8:8)`
+reproduces the f64 spine to 4 decimals (`l4_rail_probe.py`, §7).
 
 ---
 
@@ -922,14 +928,24 @@ is not random: it runs **monotonically with a measured variable** — the
 height ladder (§5.2/5.8), ≈ −40° at 1000 hPa climbing smoothly through zero
 in the mid-troposphere, spread 92–102°, 3–5× the measured apparatus noise,
 on both storms it was measured on. *Main effect + structured residual +
-identified covariate* is the signature of a **missing moderator**, not of a
-null. A null does not produce a ladder. `[H]` at the ladder's n=2; `[G]`
-that the framing follows if the ladder replicates.
+identified covariate* is **consistent with a missing moderator and requires
+independent validation**. `[H]` at the ladder's n=2; `[G]` that the framing
+follows if the ladder replicates.
+
+> **Corrected 2026-08-11 (CodeRabbit, PR #926).** This paragraph read "*is the
+> signature of a missing moderator, NOT of a null. A null does not produce a
+> ladder.*" That overstates what a monotonic residual establishes: it supports
+> the hypothesis without discriminating it from model misspecification,
+> centre/label error, selection effects, or chance. The identical sentence was
+> corrected in `EPIPHANIES.md` (E-SPINE-FOUND-MODERATORS-MISSING-1) and this
+> copy was missed — **the same claim living in two places, fixed in one.**
 
 ### 9.1 What is established (the spine) `[G]`
 
 **Center (place) + ring profile (~12 values) + one wn-1 dipole (2 values)
-= 93–97 % of in-disk MSLP variance** — replicated across three independent
+= 90.9–94.3 % of in-disk MSLP variance** (the 14-value constrained model; the
+93–97 % once printed here was the 36-parameter per-ring fit — §1) — replicated
+across three independent
 samples spanning 1980–2021, 41+ storms, four seasons, never shaken once
 (N3/N4; §5.11's own subset: median wn1_frac 0.60, R² 0.90). This is a
 skeleton that models the **center and the first asymmetry mode of the

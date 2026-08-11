@@ -86,9 +86,20 @@ def reg_a_affine(vals, lo, hi):
 
 
 def _ranks(vals, ref_sorted):
-    """Empirical rank of each value against the sorted reference population."""
-    idx = np.searchsorted(ref_sorted, vals, side="left")
-    return idx / len(ref_sorted)
+    """Empirical rank of each value against the sorted reference population.
+
+    MIDPOINT convention: the mean of the left- and right-insertion ranks.
+    Until 2026-08-11 this used `side="left"` alone (CodeRabbit, PR #926), which
+    is ASYMMETRIC against the midpoint ranks `reg_c_fisher_rank` uses to build
+    its own z-reference — the population's smallest value got rank 0 while the
+    reference curve placed it at 0.5/n. On a field with ties (ERA5 MSLP is
+    f32-quantised, so ties are common) the two conventions differ by up to a
+    tie-run's width, and the disagreement is worst in the lower tail — which is
+    exactly the storm tail R4 is decided on. Both halves now use midpoints.
+    """
+    lo = np.searchsorted(ref_sorted, vals, side="left")
+    hi = np.searchsorted(ref_sorted, vals, side="right")
+    return (lo + hi) / (2.0 * len(ref_sorted))
 
 
 def reg_b_rank(vals, ref_sorted):
@@ -195,24 +206,48 @@ for fname, fv in fields.items():
     rr = _ranks(fv, fref)
     rank_codes[fname] = np.clip(np.floor(rr * PALETTE), 0, PALETTE - 1).astype(np.uint8)
 
-probe_bytes = [8, 64, 128, 192, 248]
-print(f"  {'byte':>6} " + " ".join(f"{f:>12}" for f in fields) + "   max spread")
-max_spread = 0.0
+# EVERY byte decides the verdict, not a sample of five. The first version of
+# this bar probed [8, 64, 128, 192, 248] only (CodeRabbit, PR #926): a
+# 5-of-256 sample cannot support a claim quantified over all 256, and the
+# worst byte is precisely the one a sparse probe is most likely to miss.
+# Five representative rows are still PRINTED, but the PASS/FAIL is computed
+# over the full sweep.
+all_spreads = []
 r5_rows = []
-for b in probe_bytes:
+for b in range(PALETTE):
     fr = {f: float((rank_codes[f] <= b).mean()) for f in fields}
     spread = max(fr.values()) - min(fr.values())
-    max_spread = max(max_spread, spread)
+    all_spreads.append(spread)
     r5_rows.append({"byte": b, **fr, "spread": spread})
-    print(f"  {b:>6} " + " ".join(f"{fr[f]:>12.4f}" for f in fields)
-          + f"   {spread:.5f}")
+max_spread = max(all_spreads)
+argworst = int(np.argmax(all_spreads))
+print(f"  {'byte':>6} " + " ".join(f"{f:>12}" for f in fields) + "   spread")
+for b in [8, 64, 128, 192, 248, argworst]:
+    r = r5_rows[b]
+    tag = "  <- WORST of all 256" if b == argworst else ""
+    print(f"  {b:>6} " + " ".join(f"{r[f]:>12.4f}" for f in fields)
+          + f"   {r['spread']:.5f}{tag}")
 one_bucket = 1.0 / PALETTE
-print(f"\nR5 max spread {max_spread:.5f} vs one bucket {one_bucket:.5f}: "
+print(f"\nR5 max spread over ALL {PALETTE} bytes {max_spread:.5f} "
+      f"(worst at byte {argworst}) vs one bucket {one_bucket:.5f}: "
       f"{'PASS' if max_spread <= one_bucket else 'FAIL'}")
 print("  ABSOLUTE register: the same comparison is UNDEFINED — Pa, K and m/s")
 print("  share no unit, so byte 128 of each denotes no common quantity at all.")
 
-json.dump({"store": B, "t0": T0, "palette": PALETTE,
+# Provenance: pin what the store actually served, so a future re-run can tell
+# "the numbers moved" from "the store moved" (CodeRabbit, PR #926).
+tattrs = json.loads(op.open(B + "/time/.zattrs", timeout=90).read())
+pz = meta["mean_sea_level_pressure/.zarray"]
+prov = {"time_units": tattrs.get("units"),
+        "time_calendar": tattrs.get("calendar"),
+        "grid_shape": list(pz["shape"][1:]),
+        "chunk_shape": list(pz["chunks"]),
+        "dtype": pz["dtype"],
+        "compressor": (pz.get("compressor") or {}).get("id"),
+        "n_points_per_field": int(pf.size)}
+print("\nprovenance: " + ", ".join(f"{k}={v}" for k, v in prov.items()))
+
+json.dump({"store": B, "t0": T0, "palette": PALETTE, "provenance": prov,
            "global_range_pa": [float(lo), float(hi)],
            "uniform_step_pa": float((hi - lo) / PALETTE),
            "bands": out_bands, "overall": overall,

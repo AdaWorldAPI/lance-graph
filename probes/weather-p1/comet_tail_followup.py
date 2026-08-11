@@ -175,7 +175,18 @@ def decompose(field, ci, cj):
 
 
 def wrap_deg(d):
-    """Wrap degrees into (-180, 180]."""
+    """Wrap degrees into [-180, 180).
+
+    The half-open end is LOW, not high: at exactly +180 this returns -180.
+    (Docstring said "(-180, 180]" until 2026-08-11 — CodeRabbit, PR #926 —
+    which was wrong about the code, not a bug in it.) The boundary is not
+    cosmetic: `stratum_verdict` scores offset > 0 as low-pole-left-of-motion,
+    so a value landing exactly on the boundary counts NEGATIVE. That is the
+    physically right call — +/-180 means the dipole points exactly OPPOSITE
+    the motion, which is not left-of-motion under either spelling — so the
+    convention is kept, now stated. Audited across every committed result
+    JSON: 283 angle-like values, 0 boundary hits, closest 0.91 deg.
+    """
     return (d + 180.0) % 360.0 - 180.0
 
 

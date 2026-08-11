@@ -200,14 +200,28 @@ pk = int(np.argmax(vts))
 TOL = 0.05  # m/s, ~0.4% of the observed peak
 rise_ok = all(vts[i + 1] >= vts[i] - TOL for i in range(pk))
 decay_ok = all(vts[i + 1] <= vts[i] + TOL for i in range(pk, len(vts) - 1))
+# ...and the SHAPE must be non-trivial. A TOL-tolerant monotone test accepts a
+# FLAT arm — [1, 2, 2] passes `decay_ok` because every step falls by <= TOL —
+# so a profile that peaks and then plateaus would report "decays" (coderabbit
+# on PR #926, second pass). Require a net change exceeding the same tolerance
+# the monotonicity is allowed to absorb, on BOTH arms: the rise side has the
+# identical hole and fixing only the one that was pointed at would leave a
+# half-vacuous assertion behind.
+net_rise_ok = vts[pk] > vts[0] + TOL
+net_decay_ok = vts[-1] < vts[pk] - TOL
 out["E6_rankine"] = {"center_lat": float(lat[ci]), "center_lon": float(lon[cj]),
                      "profile": prof, "peak_ring": pk,
                      "cyclonic_at_peak": vts[pk] > 0,
                      "monotone_tol_ms": TOL,
                      "rises_to_peak": bool(rise_ok),
                      "decays_after_peak": bool(decay_ok),
+                     "net_rise_ms": float(vts[pk] - vts[0]),
+                     "net_decay_ms": float(vts[pk] - vts[-1]),
+                     "net_rise_exceeds_tol": bool(net_rise_ok),
+                     "net_decay_exceeds_tol": bool(net_decay_ok),
                      "rises_then_decays": bool(0 < pk < len(vts) - 1
-                                               and rise_ok and decay_ok)}
+                                               and rise_ok and decay_ok
+                                               and net_rise_ok and net_decay_ok)}
 print(f"  peak at ring {pk} ({prof[pk]['r_mid_km']} km): torque zone inside, "
       f"momentum zone outside -> rises_then_decays="
       f"{out['E6_rankine']['rises_then_decays']}")

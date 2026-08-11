@@ -73,9 +73,14 @@ or chance.
 > unpromoted either way, which is what the PR objective already said.
 
 **The three-part decomposition now on record (report §9):**
-1. **Spine `[G]`** — center + ~12 ring means + 1 wn-1 dipole = 93–97 % of
-   in-disk variance, unshaken across 3 independent samples / 41+ storms /
-   1980–2021. ~14 bytes + an address.
+1. **Spine `[G]`** — center + ~12 ring means + 1 wn-1 dipole = **90.9–94.3 %**
+   of in-disk variance, unshaken across 3 independent samples / 41+ storms /
+   1980–2021. ~14 bytes + an address. *(Regraded in place per the same
+   allowance used at line 67 above: this line printed 93–97 %, which
+   `E-THE-HEADLINE-NUMBER-MEASURED-A-MODEL-NOBODY-CLAIMED-1` — the entry
+   directly above — corrects to the 14-value model's real figure. Flagged by
+   CodeRabbit on PR #926 as an internal inconsistency with that entry, and it
+   was one.)*
 2. **Dry moderators `[H]`** — measured in this chain, not yet wired:
    steering level (THE ladder; CT-F16 = score the dipole against
    steering-level motion instead of 6h surface displacement), displacement/
@@ -374,6 +379,17 @@ the compact form `center + ~12 ring means + ONE dipole ≈ 93–97 %` fits the
 highheelbgz (start, stride, length) address shape, and the dipole encodes the
 motion — a single-frame motion predictor is the named next falsifier, gated
 behind the plan-§8 adversarial audit per E-ZERO-FOR-ELEVEN below.
+
+> **Regraded 2026-08-11 (CodeRabbit, PR #926).** Two claims in this entry are
+> superseded by later entries and are corrected here rather than left to
+> mislead: (a) **`≈ 93–97 %` → `90.9–94.3 %`** — that figure was a
+> 36-parameter per-ring fit, not the 14-value form this sentence describes
+> (`E-THE-HEADLINE-NUMBER-MEASURED-A-MODEL-NOBODY-CLAIMED-1`); (b) **"the
+> dipole encodes the motion" is NOT established** — the falsifier named here
+> was subsequently run four times over three independent samples (n=41), and
+> the largest and best-powered of them (CT-F14, n=19) gives 0.684 at p=0.0835.
+> The directional claim stays SUGGESTIVE. The structural half of this entry
+> (wn-1 dominance, the axisymmetry resolution) is untouched.
 
 ## 2026-08-11 — E-ZERO-FOR-ELEVEN-THE-AUTHOR-CANNOT-AUDIT-HIS-OWN-FALSIFIERS-1
 

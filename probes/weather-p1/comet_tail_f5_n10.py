@@ -237,11 +237,18 @@ def centroid_ll(weight, ci, cj, radius_km=300.0):
 
 
 def d_dx(f):
-    """Zonal derivative in per-km units (centred differences, cos(lat) metric)."""
+    """Zonal derivative in per-km units (centred differences, cos(lat) metric).
+
+    Longitude WRAPS (np.roll), it is not zero-padded. The grid is global —
+    1440 x 0.25 deg — so column 0 and column 1439 are neighbours, and the
+    earlier `o[:, 1:-1] = ...` left both seam columns at exactly zero: a
+    fabricated zero gradient on a real meridian. Fixed 2026-08-11 (CodeRabbit,
+    PR #926). Impact on this arc's published numbers is nil-by-geometry
+    (nearest storm disk edge stops ~2 columns short of the seam) but the
+    defect was real and would bite any storm crossing 0 deg E.
+    """
     dxk = R_E * np.cos(phi)[:, None] * np.deg2rad(0.25)
-    o = np.zeros_like(f)
-    o[:, 1:-1] = (f[:, 2:] - f[:, :-2]) / (2 * dxk)
-    return o
+    return (np.roll(f, -1, axis=1) - np.roll(f, 1, axis=1)) / (2 * dxk)
 
 
 def d_dy(f):
@@ -253,7 +260,18 @@ def d_dy(f):
 
 
 def wrap_deg(d):
-    """Wrap degrees into (-180, 180]."""
+    """Wrap degrees into [-180, 180).
+
+    The half-open end is LOW, not high: at exactly +180 this returns -180.
+    (Docstring said "(-180, 180]" until 2026-08-11 — CodeRabbit, PR #926 —
+    which was wrong about the code, not a bug in it.) The boundary is not
+    cosmetic: `stratum_verdict` scores offset > 0 as low-pole-left-of-motion,
+    so a value landing exactly on the boundary counts NEGATIVE. That is the
+    physically right call — +/-180 means the dipole points exactly OPPOSITE
+    the motion, which is not left-of-motion under either spelling — so the
+    convention is kept, now stated. Audited across every committed result
+    JSON: 283 angle-like values, 0 boundary hits, closest 0.91 deg.
+    """
     return (d + 180.0) % 360.0 - 180.0
 
 
