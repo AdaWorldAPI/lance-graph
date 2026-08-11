@@ -95,7 +95,7 @@ largest sample) — so the compression claim stands on its own, and the
 "single-frame motion predictor" reading does not yet. The representation is a
 natural fit for the substrate's 3-integer spiral addressing (`highheelbgz`),
 and **measured to fit the L4 carrier exactly**: 12 bytes as `6×(8:8)`
-reproduces the f64 spine to 4 decimals (`l4_rail_probe.py`, §7).
+reproduces the f64 spine to 4 decimals (`l4_rail_probe.py`, §6.1).
 
 ---
 
@@ -784,6 +784,113 @@ storm ≈ CENTER (place)                    — 1 address
   the offset constant fitted on a disjoint training set. Not executed —
   awaiting go, and gated behind the adversarial audit per the arc's standing
   rule (exploratory probes are not EVs; the 0/11 lesson).
+
+  > **⚠ Superseded by §5.11.** "The dipole encodes the motion" is the claim
+  > CT-F14 was built to settle and did **not** independently establish
+  > (0.684, p=0.0835, n=19 — the largest sample in the chain). Left in place
+  > per append-only, read as **suggestive, not established**.
+
+### 6.1 It fits the ACTUAL carrier — 12 bytes as `6 × (8:8)` `[H]`
+
+Operator correction, 2026-08-11: *"was ist mit 6× Palette256:Palette256
+centroid, was ja die Verteilung anzeigen soll — palette256 alleine ist ja nur
+'attention header'"*. Every encoding in this arc had treated **one scalar →
+one byte** as the unit. The shipped carrier is a **pair**: le-contract §3 row
+L4 is `6 × (8:8)`, `palette256²` — "each byte pair indexes the 256×256 palette
+distance/compose tables; similarity = ONE table read". A single byte is the
+*selector*; the **pair** is a cell in the centroid tile, and the tile is where
+the distribution lives. I had built one rail and called it the carrier.
+
+`l4_rail_probe.py`, four pre-registered bars, **two failed as written**:
+
+| carve | 12 B? | storm 1 | storm 2 |
+|---|:--:|---:|---:|
+| f64 constrained spine (reference) | — | 0.9434 | 0.9090 |
+| **D — dipole rail + 10 ring bytes spread over the full radius** | **yes** | **0.9434** | **0.9090** |
+| A — dipole rail + rings 0–9, outer rings held | yes | 0.9212 | 0.9037 |
+| B — all 12 rings, no dipole rail | yes | 0.6348 | 0.2943 |
+
+**The 12-byte facet is lossless against the f64 spine** — carve D matches to
+four decimals on both storms. R² is demonstrably sensitive here (carve B, the
+same byte budget spent differently, collapses to 0.63/0.29), so this is
+recovery, not insensitivity.
+
+Three results worth more than the headline:
+
+- **L1 FAILED as written** (storm 1: 0.0222 against a 0.02 bar) and the
+  decomposition names the cause exactly: **quantization +0.0000, dropped
+  rings +0.0222**. The carrier's *precision* is free; its *capacity* was the
+  entire miss. Spending the same 12 bytes across the full radius (carve D)
+  rather than on the inner 10 plus a held edge erases it.
+- **L3 FAILED, and so did my proposed rescue.** Fisher-z centroid axes are
+  **5× worse** than uniform on the ring means (18.07 vs 3.84 Pa). I
+  hypothesised the population was wrong — ranks taken against the 24 encoded
+  values instead of the field — and measured that too (L3b): **19.00 Pa, no
+  rescue.** Mechanism: ring means are a smooth *narrow-band* quantity sitting
+  mid-distribution, so a rim-stretch spends levels in tails where no ring mean
+  lives. This does **not** contradict the three-register result (§6.2, Fisher-z
+  8.3× *tighter* in the storm tail on the raw field) — it **demarcates** it:
+  Fisher-z wins a **rank/tail** read and loses an **interpolate/level** read.
+  Which is precisely why le-contract says a ClassView **MAY** declare an
+  analytic codebook — per class, by measurement. Corrects my own
+  over-generalization that Fisher-z is *the* L4 codebook axis.
+- **L4x was vacuous on its first run.** A uniform codebook is fixed by its
+  population's min/max alone, so because storm 1's profile range strictly
+  *contains* storm 2's, storm 1's "own" codebook **is** the pooled codebook —
+  the bar compared an array against itself and passed for free. It looked
+  real only because an earlier variant gave differing numbers. Both directions
+  now carry an explicit degeneracy flag; the informative one (storm 2's
+  codebook applied to storm 1) gives **620.79 Pa vs 4.48 Pa shared, a 139×
+  penalty** — strong evidence the codebook must be global, which is exactly
+  the "one table read" property the carrier exists for.
+
+Scope: 2 storms, 1 timestep, 1 variable. This measures **structural fit to the
+carrier**, and says nothing about forecast skill.
+
+### 6.2 Three registers over one byte — and why there is no absolute anchor `[H]`
+
+Operator, 2026-08-11: *"du lebst noch in der Vorstellung, dass alles absolut
+ist — die Relativitätstheorie widerlegt sogar das"* + *"in der Statistik ist es
+gold wert, alles auf Palette256 normalized zu haben"*.
+
+The correction: I had encoded pressure against a fixed 1000 hPa reference and
+called it "a stable convention". It is an **absolute anchor, and there is
+none** — 994 hPa is unremarkable over Iceland and a record in the subtropics.
+What is meaningful is a value's **position in its own distribution**.
+
+`three_register_probe.py`, one byte per value, global ERA5 MSLP (n=1,038,240),
+errors in Pa so the three are comparable at all:
+
+| band | n | A affine | B rank | C Fisher-z of rank |
+|---|---:|---:|---:|---:|
+| storm tail (bottom 1 %) | 10,383 | 10.71 | 204.54 | **24.74** |
+| lower shoulder (1–10 %) | 93,450 | 10.76 | 51.11 | 45.38 |
+| bulk (40–60 %) | 207,737 | 10.79 | **2.33** | 16.49 |
+| high tail (top 1 %) | 10,387 | 10.71 | 88.27 | **6.86** |
+
+All five pre-registered bars PASS. The register that wins **depends on the
+band, and no register wins everywhere**: A is flat by construction (ratio
+1.01 — the control); B is 4.6× tighter than A in the bulk and 19× *worse* in
+the storm tail; C is **8.3× tighter than B** in the storm tail, which is the
+decisive comparison for a storm substrate, since a storm *is* a tail event.
+
+**R5, the "statistical gold" bar:** after rank-normalisation the same `u8`
+denotes the same rarity in MSLP, 2 m temperature and 10 m wind — max spread
+across all 256 bytes **0.00043 vs one bucket 0.00391**. For the *absolute*
+register the same comparison is not merely worse, it is **undefined**: Pa, K
+and m/s share no unit, so byte 128 of each denotes no common quantity. That
+is the concrete cash value of rank-normalising onto one palette — cross-
+variable distance becomes *defined*, and one LUT serves every field.
+
+Read §6.1's L3 against this table and the demarcation is exact: **Fisher-z
+wins the tail read here (24.74 vs 204.54) and loses the level read there
+(18.07 vs 3.84)**. Same substrate, opposite verdicts, and the discriminator is
+what the read is *for* — not which codec is "better".
+
+Scope limit, stated rather than hidden: the reference distribution is the
+**global field at one timestep**, the population a rolling floor would have
+observed. Operational extremity wants a multi-year climatology, and a
+two-sided/climatological calibration of the C register is an open item.
 
 ## 7. Limitations and non-claims
 
