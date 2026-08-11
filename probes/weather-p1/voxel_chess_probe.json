@@ -1,0 +1,93 @@
+{
+  "store": "https://storage.googleapis.com/weatherbench2/datasets/era5/1959-2022-6h-1440x721.zarr",
+  "time_index": 91246,
+  "preregistered": "E1>0.5, E2<0.5 (inversion = control), E3 mirrored, E4 |raw-u8|<=0.05, E5 corr>0.5 all bands, E6 rise-peak-decay",
+  "raw": {
+    "E1_nh_lows_ccw": 0.6356173111797284,
+    "n_nh_lows": 40806,
+    "E2_sh_lows_ccw": 0.4021482952191861,
+    "n_sh_lows": 70009,
+    "E3_nh_highs_ccw": 0.1514411607869552,
+    "n_nh_highs": 35631,
+    "E3_sh_highs_ccw": 0.7192818869510401,
+    "n_sh_highs": 76144,
+    "nh_corr_u": 0.3886449660159403,
+    "nh_corr_v": 0.4334605594972074,
+    "sh_corr_u": 0.8623853874270709,
+    "sh_corr_v": 0.7355679117824572
+  },
+  "palette_u8": {
+    "E1_nh_lows_ccw": 0.6338667820069204,
+    "n_nh_lows": 41616,
+    "E2_sh_lows_ccw": 0.39936678308771334,
+    "n_sh_lows": 70434,
+    "E3_nh_highs_ccw": 0.15619026814483097,
+    "n_nh_highs": 36622,
+    "E3_sh_highs_ccw": 0.7194711726511773,
+    "n_sh_highs": 76698,
+    "nh_corr_u": 0.38443625370572837,
+    "nh_corr_v": 0.42178482993212973,
+    "sh_corr_u": 0.8466889689137697,
+    "sh_corr_v": 0.710729073456687
+  },
+  "E4_max_popfrac_dev": 0.004749107357875787,
+  "E6_rankine": {
+    "center_lat": 55.75,
+    "center_lon": 334.5,
+    "profile": [
+      {
+        "r_mid_km": 75,
+        "vt_mean": 10.234071543181926,
+        "n": 161
+      },
+      {
+        "r_mid_km": 225,
+        "vt_mean": 12.190355700609066,
+        "n": 482
+      },
+      {
+        "r_mid_km": 375,
+        "vt_mean": 12.163085321612744,
+        "n": 822
+      },
+      {
+        "r_mid_km": 525,
+        "vt_mean": 12.40477837840327,
+        "n": 1130
+      },
+      {
+        "r_mid_km": 675,
+        "vt_mean": 10.932072086933266,
+        "n": 1456
+      },
+      {
+        "r_mid_km": 825,
+        "vt_mean": 10.033053294346114,
+        "n": 1800
+      },
+      {
+        "r_mid_km": 975,
+        "vt_mean": 9.2468191601141,
+        "n": 2114
+      },
+      {
+        "r_mid_km": 1125,
+        "vt_mean": 6.655831785528652,
+        "n": 2430
+      },
+      {
+        "r_mid_km": 1275,
+        "vt_mean": 3.864982062335603,
+        "n": 2766
+      },
+      {
+        "r_mid_km": 1425,
+        "vt_mean": 1.206079088789252,
+        "n": 3076
+      }
+    ],
+    "peak_ring": 3,
+    "cyclonic_at_peak": true,
+    "rises_then_decays": true
+  }
+}
