@@ -101,6 +101,16 @@ CT-E3 is the load-bearing test: it is *signed by an independent quantity*
 land on the predicted side. That is what elevates this from curve-fitting to
 physics `[H at n=2]`.
 
+> **⚠ CT-E3 RE-GRADED 2026-08-11 by CT-F3 (§5.1), as §5's pre-registration
+> required.** The ±45° HIT stands — but the *offset magnitude* does not. A
+> ±100 km center jitter moves the alignment error by up to **29.4°** (storm 1),
+> which is comparable to the offset itself. So "−42° / −40°" is **NOT a robust
+> number**: read CT-E3 as *"the low pole lies left-of-motion, within an
+> apparatus uncertainty of roughly ±15°"*, and read the specific offset as
+> unresolved at this centering precision. The *height dependence* of the error
+> (§5.2) is a separate and much larger signal and is not affected by this
+> re-grade.
+
 **What this resolves:** the earlier sunflower-lattice probe failed its
 axisymmetry bar (E1: 0.639 < 0.70) — the missing third of the storm was
 unexplained. It *was* the tail: adding one dipole per ring takes the same
@@ -131,26 +141,123 @@ mechanism*, not noise. Three candidates, ranked:
    mechanism. "Deepest zonal-anomaly point" ≠ circulation center; a center
    displaced along-track biases the fitted dipole orientation.
 
-**Pre-registered follow-up falsifiers (proposed, awaiting go — not run):**
+**RUN 2026-08-11** — `comet_tail_followup.py` / `.json`. Bars pre-registered in
+that probe's docstring before the run; committed unmodified except for one
+`grad_p` shape bug fix and one added *diagnostic* field (both recorded in the
+probe's own RUN LOG; **no bar was added, removed, or loosened**).
 
-- **CT-F1 (steering level):** repeat the full decomposition on
-  `geopotential` at 500 hPa (available in the same WB2 store). *Prediction:*
-  the alignment error shrinks toward 0° at the steering level (|error| ≤ 20°)
-  while remaining ≈ −40° at MSLP. If the offset persists unchanged at 500 hPa,
-  candidate 1 is dead.
-- **CT-F2 (friction):** measure the actual cross-isobar inflow angle from
-  `10m_u/v_component_of_wind` vs the MSLP isobars in the storm ring.
-  *Prediction:* measured inflow angle ≪ 40° over open ocean — bounding how
-  much of the offset friction can own.
-- **CT-F3 (center robustness):** recompute the dipole with the center jittered
-  ±100 km along and across track, and with a vorticity-centroid center.
-  *Prediction:* low-pole bearing stable within ±10°; if it swings with the
-  center choice, the −40° is apparatus, and §4's CT-E3 verdict must be
-  re-graded (the arc's standing rule: a systematic number is a claim about
-  the measurement apparatus until proven otherwise).
-- **Sample size:** n ≥ 10 storms across seasons/basins before any offset
-  constant is baked into a predictor. 2/2 at p=0.0625 justifies the follow-up,
-  not a product constant.
+### 5.1 CT-F3 — apparatus — **FAILED the gate** (candidate 3 is live)
+
+Six center choices per storm: MSLP minimum (baseline), a ∇²p-centroid
+(geostrophic-vorticity proxy), and ±100 km jitters along- and across-track.
+
+| Storm | baseline | ∇²p centroid | jitter range | spread | verdict |
+|---|---|---|---|---|---|
+| 1 (55.75N) | −42.0° | −42.0° (same grid point) | −25.4° … −54.8° | **29.4°** | APPARATUS-DOMINATED |
+| 2 (67N) | −40.2° | −38.6° (toward zero, marginal) | −29.8° … −49.3° | **19.4°** | SURVIVES-WITH-UNCERTAINTY |
+
+Worst spread 29.4° **> the 20° bar → gate FAILED.** Per the pre-registration
+this forces two things, both done: CT-E3 is re-graded in §4, and CT-F1/CT-F2
+below are reported as *measured but gated* — not as settled verdicts.
+
+The mechanism is understood and was anticipated: a 100 km miscentering of a
+monopole injects a wn-1 by construction. What the test establishes is that the
+**offset magnitude is inside the apparatus noise**, so no offset constant may
+be derived from it. `[G]`
+
+*Post-hoc observation, explicitly NOT a rescue of the failed gate:* the
+level-dependence signal in §5.2 is 92–102°, i.e. **3–5× this apparatus noise**.
+That does not un-fail F3 — it means the right next probe is F3 re-run *at the
+level where the error crosses zero*, with a sub-grid center fit. Recording the
+comparison and letting the failed gate generate the next probe is the
+disciplined move; overriding the gate on the strength of it would be the
+"indictment fired, post-hoc rescue" anti-pattern this arc already has on its
+open-P1 list.
+
+### 5.2 CT-F1 — steering level — **strong signal, formally mixed** (candidate 1 favoured)
+
+The store ships all 13 pressure levels in one chunk, so the yes/no became a
+sweep. Alignment error vs the *same surface-measured motion bearing*:
+
+| level | storm 1 (own ctr) | storm 2 (sfc ctr) |
+|---|---|---|
+| 1000 hPa | −40.5° | −39.7° |
+| 925 | −32.5° | −29.9° |
+| 850 | −23.8° | −22.3° |
+| 700 | −8.1° | −12.9° |
+| 600 | **−2.1°** | −7.7° |
+| 500 | +2.9° | −2.8° |
+| 400 | +8.7° | **+1.0°** |
+| 300 | +7.8° | +2.0° |
+
+**Both storms show a smooth, monotone climb from ≈ −40° at the surface through
+zero in the mid-troposphere** — storm 1 crosses at ~600–650 hPa, storm 2 at
+~400–500 hPa. Spread across levels: 101.8° / 91.6°. This is exactly the
+baroclinic-tilt/steering-level prediction: the surface gradient is rotated
+relative to the steering-level gradient, and the rotation unwinds with height.
+`[H]` — the shape is unambiguous, n is still 2.
+
+Formal bar bookkeeping, stated rather than smoothed: storm 1 **PASSES** as
+written (minimum at 600 hPa, |err| 2.1°). Storm 2's *own-center* column
+minimises at 100 hPa (+2.0°), which trips the pre-registered `dead-absurd`
+flag — **but the added diagnostic shows why:** at 50–400 hPa the center finder
+**saturated at its 600 km search radius** (586–599 km), i.e. it never found a
+co-located upper center and locked onto a different system. Those rows are
+apparatus, not physics. The surface-center column (unsaturated by
+construction) is the one tabulated above and behaves like storm 1. This is a
+real defect in F1's own apparatus, found by a diagnostic added after run 1;
+the honest verdict for storm 2 is **NO-VERDICT on the own-center path**, not
+"dead".
+
+### 5.3 CT-F2 — friction — **bounded, candidate 2 is a contributor not the cause**
+
+Measured 10m cross-isobar inflow angle (positive = turned toward the low, the
+NH friction sign), rings 300–1000 km, |v10| > 3 m/s:
+
+| storm | n | land frac | median α | IQR | ocean-only median |
+|---|---|---|---|---|---|
+| 1 | 6552 | 0.01 | **+14.7°** | +10.1 … +18.2 | +14.7° (n=6517) |
+| 2 | 8960 | 0.46 | +22.0° | +10.5 … +34.7 | **+13.0°** (n=4674) |
+
+Sign is positive on both storms, as predicted. Magnitude is textbook for open
+ocean (10–30°). The bar that matters: **13–15° ≪ 40°**, so friction alone
+**cannot** own the offset — at most about a third of it. `[G]` for the
+measurement, `[H]` for the attribution.
+
+*Apparatus can-it-fire check, unplanned but load-bearing:* storm 2 is 46 %
+land, and its all-points median (+22.0°) is substantially larger than its
+ocean-only median (+13.0°) — friction turning is stronger over land, exactly
+as textbook. The measurement therefore discriminates a known physical contrast
+in the right direction, which is evidence it is measuring what it claims.
+
+### 5.4 Where that leaves the three candidates
+
+| candidate | status after F1–F3 |
+|---|---|
+| 1 — steering-level / baroclinic tilt | **Favoured** `[H]`. Monotone 92–102° height ladder crossing zero in the mid-troposphere on both storms, 3–5× the apparatus noise. |
+| 2 — Ekman surface friction | **Bounded contributor** `[G]` on magnitude. 13–15° over ocean, right sign, ~⅓ of the offset at most. |
+| 3 — center-finder bias | **LIVE and not excluded** `[G]`. ±100 km centering moves the answer up to 29.4° — enough to dominate the offset magnitude by itself. |
+
+Candidates 1–3 are **not mutually exclusive**, and the measured numbers are
+roughly additive in the right direction (tilt ≈ most of it, friction ≈ 13–15°,
+centering ≈ ±15° of slop). No attribution is claimed beyond that.
+
+### 5.5 Next falsifiers (NOT run)
+
+- **CT-F4 (apparatus, first):** sub-grid center fit — parabolic interpolation
+  of the pressure minimum plus a circulation-centroid at the level where the
+  error crosses zero — then re-run F3's jitter test. *Bar:* spread ≤ 10°.
+  Until this passes, no offset constant exists to be fitted.
+- **CT-F5:** widen F1's center search per level (or track the upper center
+  along the tilt axis) so the saturation defect in §5.2 cannot recur; re-run
+  storm 2's own-center path for a real verdict.
+- **CT-F6:** the crossing level itself as the observable — *prediction:* it
+  correlates with the deep-layer mean steering level, i.e. deeper/more mature
+  systems cross higher. Needs n ≥ 10.
+- **Sample size, unchanged:** n ≥ 10 storms across seasons and basins before
+  any offset constant is baked into a predictor. 2/2 at p = 0.0625 justified
+  the follow-up; the follow-up now justifies fixing the apparatus, not
+  shipping a constant.
 
 ---
 
@@ -195,8 +302,21 @@ storm ≈ CENTER (place)                    — 1 address
 ## 8. Status and promotion path
 
 1. ~~Probe, pre-registered, run, committed~~ — DONE (`db57aac0`).
-2. **This report** — the documentation artifact.
-3. CT-F3 first (apparatus before mechanism), then CT-F1/CT-F2 — on operator go.
-4. n ≥ 10 storm sample; only then the single-frame motion predictor.
-5. Adversarial audit gate (plan §8) before any of it is promoted to EV /
+2. ~~This report~~ — DONE (`d9a98b86`).
+3. ~~CT-F3 first (apparatus before mechanism), then CT-F1/CT-F2~~ — DONE.
+   **F3 FAILED its gate**; CT-E3 re-graded in §4; F1 strongly favours the
+   steering-level mechanism; F2 bounds friction to ~⅓ of the offset.
+4. **CT-F4 (sub-grid center) is now the blocking item** — the apparatus must
+   pass before any offset constant can be fitted, and therefore before the
+   single-frame motion predictor is worth running at all.
+5. CT-F5 / CT-F6, then n ≥ 10 storm sample.
+6. Adversarial audit gate (plan §8) before any of it is promoted to EV /
    product claim.
+
+**Net effect of the follow-up on the headline claim.** The §1 summary is
+unchanged in substance — wn-1 dominance (0.92/0.89), the R² lift to
+0.97/0.93, and left-of-motion on 2/2 all stand untouched, since none of them
+depends on the offset. What the follow-up removed is a number I would
+otherwise have been tempted to ship: the "−40° constant" is **not
+measurable at this centering precision**, and the encoding/predictor work in
+§6 is gated behind fixing that, not behind more storms.
