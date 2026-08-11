@@ -1,7 +1,163 @@
+## 2026-08-11 — E-THE-DOCTRINE-DOC-EXISTED-AND-I-NEVER-READ-IT-1
+
+**Status:** FINDING `[G]` (operator-directed; authority is
+`.claude/knowledge/helix-cartesian-vs-fisher2z.md`, in this repo, with a
+`READ BY:` header naming this exact kind of session).
+
+**Corrects E-A-CORRECTION-IS-A-CLAIM-AND-CARRIES-A-CLAIM-S-BURDEN-1 (below) —
+the third link in that same chain, and the entry it corrects is its own rule
+firing again.** The `Pair48` successor shape that entry recommends is
+**WITHDRAWN, not deferred.** Full regrade:
+`.claude/knowledge/weather-normalized-substrate.md` §12.12.
+
+**The doctrine doc for orientation codecs exists in `.claude/knowledge/`, its
+`READ BY:` header says *"ANY session that encodes/decodes/renders an
+orientation, normal, or direction"*, and the entire helix arc never opened it** —
+not before the design, not during the envelope audit, not through four
+successive corrections. Reading the primary source (`crates/helix/src/*.rs`) was
+mistaken for reading the doctrine. `residue.rs` states the byte layout
+truthfully; it does **not** say which field is metric and which is render, nor
+that the sign already completes the sphere. That is precisely what the knowledge
+doc carries, and what a `READ BY:` header is *for*. `CLAUDE.md` § *Consult,
+don't guess* already orders it: card → **knowledge doc** → board → *then* source.
+
+**What the doc settles, against the audit's inferences (the FACTS all stood; the
+INFERENCES were wrong):**
+
+1. **`Signed360` alone is a COMPLETE full-sphere direction** — *"you do NOT need
+   a second 'pos' helix to complete it"* (`helix-cartesian-vs-fisher2z.md:77-82`);
+   the sign partition is what makes it whole. Hence no pair lane, hence the
+   withdrawal.
+2. **`ResidueEdge` / `rim` is the METRIC carrier, not a render input** — *"never
+   run the rim's atanh/tanh to recover a direction"* (`:83-86`). Direction lives
+   in `(polar, azimuth)`. The operator said this first: *"ResidueEdge is
+   turbovec, nobody was asking you to use turbovec."*
+3. **The crate's *"no free 2-DOF direction codec"* means no *helper*, not no
+   *capacity*.** `azimuth` is *"`n·φ mod 2π` mapped to `[0, 65536)` over the
+   full 360°"* (`residue.rs:85`). What is genuinely absent is `from_normal`;
+   encoding is a **nearest spherical-Fibonacci search** with a worked reference
+   pair (`:90-93`, q2 `scratch-fma/helixbake`).
+4. **The metric hazard I "found" is crate-documented, not a discovery** —
+   `distance_heuristic` names its own failure mode as *"the raw-azimuth 2π
+   wrap"* and forbids it for CAKES bounds (`residue.rs:52-59`). The real shape
+   is a **split, not a defect**: rim = L1-metric (`DistanceLut`, triangle
+   inequality); azimuth = circular render carrier, deliberately not L1. My error
+   was routing a bearing through the *metric* field, then reporting the
+   consequence as a property of the codec.
+
+**Also settled — the name.** `helix360` **does not exist and never did**
+`[G-absence]`: pickaxe over full history (all refs + unreachable objects) returns
+12 blobs, all authored by that session, **zero deletions, zero blast radius**;
+ndarray and the `lance-graph2` backup carry none. The symbol is **`Signed360`**.
+A hunt for a deleted artifact that was only ever a mis-remembered name.
+
+**What still stands from the entry below:** the no-per-value-lane-reading-selector
+finding (`[G-absence]`, 15 hits / zero writers / zero decoders), the
+`Signed360::sign()` all-zero dormant-lane defect (still filed, still unfixed),
+and — sharpened by this entry — its own **rule**.
+
+**Rule (unchanged, now three links deep):** a correction is a claim and carries a
+claim's burden. **Extension:** before correcting a domain claim, check whether
+the domain already has a `READ BY:` doc. If it does, that doc is a **mandatory
+read, not a suggestion** — four corrections written without it were four
+corrections written blind.
+
+## 2026-08-11 — E-THE-TRANSFORM-MUST-MATCH-THE-DISTRIBUTION-SHAPE-1
+
+**Status:** FINDING `[H]` (measured on real ERA5, one timestep — re-runnable at
+`probes/weather-p1/`; needs a second variable + season before `[G]`).
+
+**Fisher-Z DEGRADES a weather-anomaly palette.** Real ERA5 `2m_temperature`,
+1,038,240 gridpoints, both paths into the same 256 buckets over the same
+0.4–99.6 percentile window: **linear MAE 0.0684 K, 0 empty buckets, 115.7
+effective buckets** vs **Fisher-Z MAE 0.2168 K, 76 empty buckets, 28.1 effective
+buckets** — 3.2× worse error, 228 of 256 buckets burned.
+
+**Mechanism, measured on this sample:** `arctanh` is ≈identity near 0 and
+explodes near ±1, so it moves resolution *toward the bounds*. The tested ERA5
+`2m_temperature` anomaly (one timestep, 2021-06-15 12:00 UTC) has 77 % of mass
+inside |s|<0.25 (**excess** kurtosis +3.30, mass in the MIDDLE); a
+correlation-like control `tanh(N(0,1.5))` has 32.7 % beyond 0.9 (mass at the
+BOUNDS). **CONJECTURE `[S]`, generalizing beyond the tested sample: the
+transform must match the input distribution's shape.** The *measured* claim is
+narrower — for THIS field at THIS timestep, Fisher-Z costs address economy.
+Promotion to a general rule needs the second variable and season named below.
+
+**Terms:** *effective buckets* = `exp(Shannon entropy)` of the 256-bin occupancy
+histogram (how many addresses actually carry data); *drift score* = `max|occ−μ|/σ`
+under a multinomial null, exactly as `crates/helix/src/quantize.rs:119-146`. Fisher-Z is right for correlation-like inputs and for
+helix's own `r = √u` (equal-area placement concentrates toward the rim BY
+CONSTRUCTION) — nothing about the helix crate is impugned. What is falsified is
+generalizing its transform to bell-shaped geophysical fields, which is exactly
+what `weather-normalized-substrate.md` §1.2 did. "One shared transform ⇒ one
+comparable substrate" does not survive; the shared palette + LUT may.
+
+Also measured: ARCO-ERA5 has **no `wind_speed` variable** (exhaustive, all 52
+arrays), so §6.5's Jensen-gap measurement cannot have come from the Phase-A
+store; blosc is variable-dependent — **1.794×** (`2m_temperature`), **1.771×**
+(`2m_dewpoint_temperature`), **1.248×** (`10m_u_component_of_wind`), each one
+chunk `[1,721,1440]` at t=547476, blosc/lz4 as stored — not one 1.27×;
+the BF16 anomaly gain reproduces in DIRECTION only (74.9× under a zonal-mean
+climatology proxy vs the doc's unreproduced 97×).
+
+## 2026-08-11 — E-A-CORRECTION-IS-A-CLAIM-AND-CARRIES-A-CLAIM-S-BURDEN-1
+
+**Status:** FINDING `[G]` on the code facts and on its own rule; **its `Pair48`
+successor recommendation is WITHDRAWN and several of its INFERENCES are
+regraded** — see `E-THE-DOCTRINE-DOC-EXISTED-AND-I-NEVER-READ-IT-1` (top of
+file) and `weather-normalized-substrate.md` §12.12. Read that first.
+
+**A correction written in the same breath as the error it replaces has had no
+independent gate — and one of ours was wrong.** The helix arc's ledger entry C2
+recorded rejecting a 12-byte `FacetSchema::Pair48` for wind from/to, on the
+ground that "the 6 B `HelixResidue` lane is already 2×24 in/out by
+construction", citing `canonical_node.rs:963`. That line is a **comment**
+stating a **width identity (48 = 2×24) plus coverage**, never a structural
+in/out claim. **The rejected 12-byte `Pair48` was the structurally correct
+answer** — C2 replaced a right answer with a wrong one and banked the wrong one
+as a lesson, i.e. the failure mode compounding inside the ledger built to catch
+it.
+
+The audit falsified the whole premise: `Signed360` is ONE signed orientation
+(`rim(3)+polar(1)+azimuth(2)`, `residue.rs:76-116`); `ResidueEdge` **cannot carry
+a hemisphere sign at all** (`sprite_replay.rs:56-63` — `Sign::Neg` reconstructs
+as `Sign::Pos`, *"a real, measurable structural error"*); it has **no azimuth**,
+the only angular field in the lane; and the crate states twice, unprompted, that
+**no 2-DOF direction codec exists** (`sprite_replay.rs:47`,
+`continuous_field.rs:31-43`) and that inventing one is the "invented round-trip
+API" it warns against. Also: `end_idx` is monotone in `n` (`residue.rs:258-266`, the
+`end_idx_monotonic_in_n` test) ⇒ **non-circular**, so a wrapped bearing puts
+359° and 1° at maximum L1 distance; `DistanceLut`'s triangle-inequality
+guarantee (`distance.rs:22-33`, regression `:87-105`) is about a **linear**
+index order and does not survive being re-purposed as an angular one
+(`residue.rs:53-55` names this failure mode for `distance_heuristic`).
+
+**Structural finding worth keeping regardless of weather:** there is **no
+per-value-lane reading selector in the contract at all** — `ReadMode` has three
+axes (tail / value_schema / edge_codec), none of which selects a *reading* of a
+value lane; `EdgeCodecFlavor` covers `EdgeBlock`, a different region. Exhaustive
+grep (`HelixResidue`, all `**/*.rs`, unbounded): 15 hits, **zero writers, zero
+decoders**. Correct successor shape if a pair is needed: a NEW 16-byte facet
+lane read as `Pair48 = [Signed360; 2]`, codec in `crates/helix`, lane in the
+zero-dep contract, discriminant **16** — `15` is reserved for `BoardAggregates`.
+
+**Pre-existing defect found in passing:** `Signed360::sign()` decodes an
+all-zero, never-written lane as a definite `Sign::Neg` (`residue.rs:109-115`),
+where sibling lanes `Tekamolo` / `CausalWitness` explicitly define all-zero as
+*unaddressed* / *unbound*. Violates the CANON zero-fallback ladder. Filed, not
+fixed.
+
+**Rule:** route corrections through the same gate as originals. "I was wrong
+before" is not evidence the new version is right.
+
 ## 2026-08-11 — E-HELIX360-IS-THE-NORMALIZED-SUBSTRATE-NOT-A-BIT-BUDGET-1
 
 **Status:** FINDING `[G]` for every code fact (file:line in the doc); the weather
-mapping is `[H]`; the floor policy is `[S]` pending probes.
+mapping is `[H]`; the floor policy is `[S]` pending probes. **⊘ Two corrections:
+"helix360" is this session's coinage — the symbol is `Signed360`, no `helix360`
+exists in any repo `[G-absence]`; and the "2×24 = from AND to" reading below is
+FALSE — one `Signed360` is already a complete full-sphere direction. See
+`E-THE-DOCTRINE-DOC-EXISTED-AND-I-NEVER-READ-IT-1` (top of file).**
 
 **The finding, in one line:** helix360 is a Fisher-2z-hydratable golden-spiral
 projection — two 24-bit equal-area hemispheres glued at the equator (Poincaré
