@@ -47,6 +47,20 @@ generalization beyond n=2.
 > chance, 0.500). Read §4/§5.9's "not established" verdict as still current,
 > now with a specific, falsifiable next step (CT-F14) rather than a closed
 > question.
+>
+> **⚠⚠⚠ UPDATE 2026-08-11 (§5.11, CT-F14, the properly-powered test).** The
+> pre-registered decision rule technically fires "established" on a pooled
+> 3-sample figure (p=0.0145) — but the single test this whole exercise was
+> designed to produce, CT-F14 alone (n=19, the largest and most carefully
+> powered sample in the chain), does **NOT** independently clear
+> significance (p=0.0835) and its raw rate (0.684) sits below the 0.70 bar.
+> Applying the same scrutiny used on §5.10's reversal: **graded down from
+> "established" to "still suggestive"**, and the pre-registration's own
+> pooling rule is flagged as having a real gap (no contingency for a large
+> new sample disagreeing with small prior fragments). The directional claim
+> remains **not established** after four probes and three independent
+> samples (n=41 total storms). The structural claim (wn1 dominance,
+> explanatory power) is untouched throughout.
 
 Product consequence `[S]`: a storm's pressure field compresses to
 **center position + ~12 ring means + one dipole vector** at 93–97 % variance
@@ -561,6 +575,78 @@ correctly-scoped next step, not a third exploratory rerun.
 proxy at intake) and re-check whether CT-E2's own trackability gate keeps
 doing this filtering job for free, as the exclusion pattern above suggests.
 
+### 5.11 CT-F14 — the properly-powered test — **fell one storm short of its own floor, and didn't clear the bar either**
+
+`comet_tail_f14.py` / `.json`. §5.10 named CT-F14 as the correctly-scoped
+next step: a single, properly powered (n≥20), displacement-filtered-only,
+pre-registered sample — committed to git (`4f1a1b4f`) *before execution*,
+including the exact interpretation thresholds for a pooled three-sample
+figure, so the read could not be tuned after seeing results.
+
+85 mechanically-generated candidates (fixed start 1996-01-15, fixed 61-day
+stride, chosen before writing the loop), landing 1996–2010, zero overlap
+with either prior sample. 64/85 trackable (75 % — closer to sample 1's 100 %
+than sample 2's 67 %); **19 storms qualified** at displacement ≥ 250 km/6h —
+one short of the pre-registered n=20 floor.
+
+| test | n | sign-neg fraction | one-sided p | verdict |
+|---|---:|---:|---:|---|
+| **CT-F14 alone** | 19 | 0.684 (13/19) | 0.0835 | **NO-VERDICT** (n<20, pre-registered floor) — and would have **FAILED** the 0.70 bar anyway if the floor were ignored |
+| Pooled, all 3 independent samples | 26 | **0.731** (19/26) | **0.0145** | crosses the pre-committed <0.05 "established" threshold |
+
+**The pre-registered rule technically fires "established."** The honest
+next step — applying the same scrutiny used on §5.10's favorable reversal —
+is to check how much that crossing depends on which components are in the
+pool, since two of the three components are very small:
+
+| pooled subset | n | fraction | one-sided p |
+|---|---:|---:|---:|
+| All three (pre-registered) | 26 | 0.731 | **0.0145** |
+| Excluding the smallest/most saturated prior subsample (sample 2, n=3, 3/3) | 23 | 0.696 | 0.0466 |
+| **CT-F14 alone (the properly-powered test)** | 19 | 0.684 | **0.0835** |
+| The two small prior subsamples alone (n=7) | 7 | 0.857 | 0.0625 |
+
+**Two things are true at once, and both need to be said plainly.** (1) The
+pooled figure is not purely an artifact of the smallest fragment — dropping
+it still leaves p=0.0466, barely under 0.05. (2) **The single test this
+whole probe was designed to produce — CT-F14 alone, n=19, the largest and
+most carefully powered sample in the entire chain — does NOT independently
+support the claim** (p=0.0835, "suggestive" by the arc's own pre-committed
+scale, and its raw rate sits below the 0.70 bar). The "established" reading
+depends on treating three heterogeneous samples (different eras, different
+mechanical generators, sizes 4/3/19) as one undifferentiated pool of
+Bernoulli trials — a legitimate but not the only reasonable pooling choice,
+and one this probe's pre-registration did not anticipate needing to defend
+against a properly-powered *new* sample landing lower than small prior
+fragments.
+
+**Honest verdict, overriding the letter of the pre-committed rule where
+scrutiny disagrees with it:** this is a **fragile pass, not an established
+finding.** Graded down from "ready for the audit-gate queue" to
+**suggestive, same tier as before CT-F14 ran** — because the properly-powered
+component alone does not clear significance, and that component is the one
+this whole exercise existed to produce. Recording this as a **gap in the
+pre-registration itself**, not smoothed over: the interpretation thresholds
+were written for the pooled figure without a contingency for "the new,
+larger sample disagrees with the small prior fragments" — a real design
+blind spot, named so a future pre-registration in this arc specifies it.
+
+**A second, unplanned walk-back, in the same direction.** §5.10 flagged a
+striking pattern — 4 of 5 trackability exclusions in the 1980–1995 sample
+clustered at 26–33°N/67–134°E in June–September. This sample's 21
+exclusions show the **same band catching only 2 of 21** — a much weaker
+signal at 4× the exclusion count. The earlier 4/5 was very likely a small-n
+inflation of a real-but-modest effect, not a strong reproducible pattern.
+CT-F15 (the proposed geo-fence) is downgraded accordingly — worth a light
+touch, not a structural fix.
+
+**What remains solid, restated:** the structural claim (wn1 dominance,
+explanatory power) is untouched by any of this — CT-F14's own qualifying
+subset has median wn1_frac 0.60, median R² 0.90, consistent with N3/N4.
+Only the *directional/predictive* claim is affected, and it moves from
+"borderline" (§5.10) to **"borderline, and the properly-powered test that
+was supposed to settle it did not."**
+
 ### 5.4 Where that leaves the three candidates
 
 > **Read this table as a within-storm-1/2 candidate ranking for the OFFSET
@@ -637,11 +723,14 @@ this quantity. No stronger attribution is claimed at n = 2.
 
 ## 6. Product / encoding consequence `[S]`
 
-> **⚠ Read with §5.9.** The ring-profile + dipole compression below is solid
-> — CT-N3/N4 confirmed it generalizes at n=10. The *motion-encoding* half
-> ("the dipole encodes the motion") is demonstrated on storms 1–2 only; CT-N1
-> found the sign relationship it depends on is not yet shown to generalize.
-> Treat the compression as ready, the predictor as gated on CT-F10/F11.
+> **⚠ Read with §5.9–5.11.** The ring-profile + dipole compression below is
+> solid — it generalized cleanly across every sample this arc ran (N3/N4,
+> and CT-F14's own qualifying subset: median wn1_frac 0.60, R² 0.90). The
+> *motion-encoding* half ("the dipole encodes the motion") depends on the
+> signed relationship CT-F14 — the properly-powered test built to settle it —
+> did NOT independently establish (§5.11). Treat the compression as ready
+> for the audit-gate queue; treat the predictor as **suggestive at best**,
+> not gated-and-pending but **not yet earned**.
 
 If CT-F1..F3 hold up, the compact representation of a surface low is:
 
@@ -704,25 +793,35 @@ storm ≈ CENTER (place)                    — 1 address
    (drops it to exactly chance). What *does* strengthen is the
    displacement-filtered pooled subset (6/7, p≈0.0625) — apparatus, not
    regime, is now the better-supported explanation for the gap.
-7. **CT-F14 (pre-registered, NOT run) is the correctly-scoped next step:**
-   a single, properly powered (n≥25–30) displacement-filtered-only sample.
+7. ~~**CT-F14**~~ — **RUN, §5.11. The single properly-powered test does NOT
+   independently support the claim** (n=19, one short of its own n≥20 floor;
+   0.684, p=0.0835). The pooled 3-sample figure technically crosses the
+   pre-committed <0.05 threshold (p=0.0145), but the honest, scrutinized
+   verdict grades this down to **still suggestive** — the pre-registration's
+   own pooling rule had a gap, named rather than exploited.
 8. Adversarial audit gate (plan §8) before any of it is promoted to EV /
-   product claim.
+   product claim — moot for the directional claim until it clears its own
+   properly-powered test; live for the structural (compression) claim now.
 
-**Net effect of the full follow-up chain on the headline claim.** The §1
-summary needs a real caveat now, not just a footnote: wn-1 dominance and the
-R² lift **generalize** cleanly across two independent decades — the signed,
-motion-locked orientation that made storms 1–2 exciting is **borderline**:
-not established (combined 14/20 sits at the noise floor), not dead either
-(the displacement-filtered pooled subset, 6/7, is the most consistent signal
-in the entire chain). The offset went **dead (F3) → alive with a ±3–7° error
-bar (F4) → apparently general at n=10 → reversed on n=10 more → converging
-on "real for fast-moving storms, undetermined for slow ones" (n=10+10, CT-N +
-CT-F10/13)**. Each step was a genuine gate, not a rescue of the previous
-one — including the moment (§5.10) a result that *helped* the headline claim
-got the same scrutiny as one that hurt it (the regime-filter check on
-sample 1 was run and reported even though it weakened the more flattering
-story). That symmetry is what makes the current position — "solid structural
-finding, borderline-and-narrowing directional finding, one clean next
-falsifier (CT-F14)" — trustworthy. §6's encoding and single-frame-predictor
-work is gated behind CT-F14, not general n ≥ 10.
+**Net effect of the full follow-up chain on the headline claim, stated
+plainly after four probes and 41 total storms across three independent
+samples.** The structural claim — wn-1 dominance, the ring-profile + dipole
+compression, R² lift — **generalizes cleanly and has not been shaken once**
+across every sample this arc ran. The directional/predictive claim — the
+signed left-of-motion orientation that made storms 1–2 exciting — has now
+been tested four separate ways (apparatus §5.6, land-fraction mechanism
+§5.7, blind n=10 §5.9, a reversal on independent n=10 §5.10, a
+properly-powered n=19 §5.11) and **still does not clear a real bar on its
+own strongest test.** The offset's status across the chain: **dead (F3) →
+alive with a ±3–7° error bar (F4) → apparently general (misread of an n=10
+in isolation) → reversed on a second n=10 → pooled-and-technically-passing
+but not independently supported by the one test built to settle it (F14).**
+That is not noise in the writing — it is the honest trajectory of a
+borderline effect being measured with increasing rigor, and every step was a
+genuine gate: a result that *helped* the claim (§5.10's reversal, CT-F14's
+pooled crossing) got exactly the scrutiny a result that hurt it would have
+gotten, and in both cases the scrutiny found reasons for caution that a less
+careful pass would have missed. **Current position: the compression is
+ready for the audit-gate queue now; the predictor is not, and should not be
+represented as more than "suggestive" until a properly-powered test clears
+its own bar without pooling assistance.** §6 is marked accordingly.
