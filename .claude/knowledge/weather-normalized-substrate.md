@@ -1235,3 +1235,50 @@ way — that is what makes the substrate general rather than per-quantity.
 wrap falsifier; the remaining axioms). Still `[S]`: whether the wind lane
 actually adopts u8-palette azimuth is an ingest-policy call — this section
 establishes only that the option is metric-safe and field-shaped.
+
+#### 12.16 — the `[a,b]` domain is not just comparison: perturbation, Morton cascade, 3DGS, and the comma
+
+**Operator (2026-08-11):** *"using [a,b] allows also perturbation ergonomics
+including testing spatial gaussian splat (3dgs) over 16k×16k topk … or morton
+tile cascade … with irrational number pythagorean comma."*
+
+**Every piece named already exists.** Verified this session — the value of the
+normalized domain is not "comparison is cheap", it is that **four separate
+capabilities all become the same index-domain operation**:
+
+| capability | where it lives | verified |
+|---|---|---|
+| **normalized `[a,b]`, amortized** | `quantize.rs:99` + `distance.rs:39` — normalization folded into the table once; comparisons are pure lookups in unit-free units | `[G]` §12.15 |
+| **perturbation phase** | the **discrete Pythagorean comma** — a stride-4-over-17 coprime walk, *"integer, bit-exact, aperiodic"*, **0 stored bits, regenerated from the address alone** (`fire_forget_replay_probe.rs:70-73`). `17 = 4²+1` **IS** the comma: *"without the +1, stride 4 mod 16 covers 4/16"* (`probe_hhtl_intake_blindness.rs:410`) | `[G]` — fence run: `comma_three_gap_distinct=3` (Steinhaus ≤3) and `comma_coprime_full_perm=1` |
+| **Morton tile cascade** | `morton_shift_motion_probe.rs` — **motion is O(1) in pixels**: `dx=7 dy=5 bit_exact=1 motion_bytes=2 sprite_px=576`; interior residual **0**, only the disocclusion strip is new (`disocc_frac=0.1215`) | `[G]` — probe run |
+| **3DGS** | `ndarray::hpc::splat3d` (feature-gated **directory**, not a file — a first check for `splat3d.rs` wrongly reported it absent): `gaussian`/`project`/`raster`/`tile`/`spd3`/`sh`/`ply`/`depth_cascade`, Kerbl et al. SIGGRAPH 2023 SH layout, `TILE_SIZE = 16`. Its `depth_cascade` is **already HHTL** — `HhtlTier`, `HhtlAction`, `heel_reject_scalar`/`heel_reject_mask` | `[G]` — read |
+
+At **16 384²** with `TILE_SIZE = 16` that is **1024 × 1024 = 1 048 576 tiles**,
+which is the scale at which "stay in the index domain" stops being an
+optimization and becomes the only option.
+
+**Why the comma specifically, and not φ.** In a *quantized* layer a regular tile
+grid plus a regular perturbation **aliases** — moiré. The comma walk is the
+anti-moiré dither, and it is free: phase is *convention*, not data
+(0 stored bits, address-derived). OGAR's `CLAUDE.md` already rules this as
+**D-QUANTGATE**: *"in quantized layers the phase generator must be the
+coprime-integer walk (helix `CurveRuler` stride-4-over-17, bit-exact integer),
+golden recurrence only as build-time muscle-memory; the deterministic phase
+doubles as the anti-moiré dither."* `prove.rs` uses `log₂(3/2)` as the *control*
+φ beats in the **continuous** 2-D discrepancy proof — a different question in a
+different layer, and NOT a demotion of the comma. Board: `E-COMMA-PERTURBATION-PHASE-1`
+(named there as *"the Fujifilm X-Trans move"* — X-Trans avoids moiré with an
+aperiodic 6×6 CFA instead of an optical low-pass filter; same trick).
+
+**`[S]` — my synthesis, NOT measured, stated as the next probe:** for weather,
+**advection IS a Morton shift.** The `legA` result says a whole field transports
+bit-exact for 2 bytes with only an inflow strip as new content — and the thing
+that supplies `(dx, dy)` is *the wind bearing*. If that holds, the wind lane is
+not merely *encoded* alongside the scalar fields, it is **the transport operator
+for them**, and the bearing-encode question (§12.13–§12.15) is really a question
+about the shift operator's precision. **Falsifier:** take two consecutive ERA5
+timesteps, derive `(dx, dy)` per tile from the wind field, apply the Morton
+shift to `2m_temperature`, and measure the residual against the true next
+timestep — versus a no-shift baseline. If the residual does not drop
+substantially, advection-as-shift is wrong for real fields at 0.25° / 1 h and
+this paragraph must be regraded.
