@@ -33,6 +33,20 @@ generalization beyond n=2.
 > as a general rule. §5.9 has the honest breakdown, including a post-hoc lead
 > (motion-bearing noise at low displacement) that may explain part of the gap
 > and is *not* used to override the failed bar.
+>
+> **⚠⚠ UPDATE 2026-08-11 (§5.10, a SECOND independent sample).** A fresh,
+> mechanically-generated 1980–1995 sample scores 8/10 = 0.80 unfiltered —
+> reversing §5.9's verdict on its own bar. Proper statistics keep this
+> **borderline, not resolved**: neither sample alone clears a two-sided 0.05,
+> and the combined pooled figure (14/20) lands right at the noise floor
+> (one-sided p ≈ 0.058). The one number that *does* strengthen — pooling both
+> samples' large-displacement storms, 6/7 = 0.857 — supports an **apparatus**
+> explanation (motion-bearing noise on slow-moving storms) over the
+> **regime-contamination** explanation §5.9 initially favored: checked
+> directly, the regime filter does NOT rescue sample 1 (drops it to exactly
+> chance, 0.500). Read §4/§5.9's "not established" verdict as still current,
+> now with a specific, falsifiable next step (CT-F14) rather than a closed
+> question.
 
 Product consequence `[S]`: a storm's pressure field compresses to
 **center position + ~12 ring means + one dipole vector** at 93–97 % variance
@@ -465,6 +479,88 @@ is fitted or applied here. The properly pre-registered next step is a
 displacement-and/or-regime-filtered n ≥ 10 sample designed *in advance* to
 test candidate (a) and (b) separately, not a re-scoring of this one.
 
+### 5.10 CT-F10/F11/F13 — a second independent sample — **borderline, in a specific and honest way**
+
+`comet_tail_f10_f11.py` / `.json`. §5.9 named two post-hoc leads and filed
+them as pre-registered reruns rather than a re-scoring. This is that rerun,
+on a **fresh, mechanically-generated** date set — fixed start (1980-02-10)
++ fixed stride (411 days, chosen for no reason tied to any outcome) ×
+15 candidates, landing entirely in **1980–1995**, zero overlap with the
+2015–2021 sample. The stride was picked once, before any code ran that could
+see a result; the dates were never inspected before recording.
+
+**Attrition was real and different this time:** 5 of 15 candidates (33 %)
+failed CT-E2 trackability — versus 0 of 10 in the first sample. **4 of those
+5** cluster at 26–33°N, 67–134°E in June–September — the same South/East-Asian
+monsoon-season geography already flagged as contamination-prone (§5.9's worst
+storm at 32°N/85°E; §5.7's blind land storm at 28.5°N/68°E). The 5th
+(1995-11-12, 54°N/161°E, November) sits outside that band and is an ordinary
+mid-latitude exclusion. This is a genuine, unplanned, cross-sample-consistent
+pattern about **where blind NH-wide selection breaks**, not yet exploited by
+any filter.
+
+| test | n | sign-neg fraction | median \|error\| | one-sided p (H₀: p=0.5) | verdict |
+|---|---:|---:|---:|---:|---|
+| **CT-F13** (raw, unfiltered — direct replication check) | 10 | **0.80** (8/10) | 41.3° | 0.055 | **PASS** (≥0.70 bar) |
+| CT-F10 (disp ≥ 250 km) | 3 | 1.00 (3/3) | — | — | **NO-VERDICT** (n<6, pre-registered minimum) |
+| **CT-F11** (wn1_frac ≥ 0.40) | 9 | **0.89** (8/9) | 41.9° | — | **PASS** |
+| CT-F12 (both filters) | 3 | 1.00 (3/3) | — | — | reported only, n too small |
+
+**The headline number reverses §5.9's verdict on its own bar** — 0.80 vs the
+first sample's 0.60. That reversal is exactly why it needs more scrutiny, not
+less, and the honest statistics do not let it stand alone:
+
+- **Neither sample is significant on its own** at a conventional two-sided
+  0.05: sample 1 (6/10) two-sided p = 0.754; sample 2 (8/10) two-sided
+  p = 0.109. One-sided (the physically motivated direction, pre-registered
+  from §2 onward) sample 2 gives p = 0.055 — genuinely borderline, not a
+  clean win.
+- **Combined across both fully independent samples: 14/20 = 0.70,
+  one-sided p = 0.058.** Still borderline. Landing exactly on the 0.70 bar is
+  a coincidence worth naming, not a rescue: the bar was picked before either
+  sample ran.
+- **The regime filter (CT-F11) does NOT rescue sample 1 — checked, and it
+  makes things worse.** Applying wn1_frac ≥ 0.40 retroactively to sample 1
+  removes 2020-07-20 and 2019-10-25, **both of which were negative-signed**
+  (−39.0° and −107.6°). Removing two "hits" drops sample 1 from 6/10 (0.60)
+  to **4/8 = 0.500 — exactly chance.** This directly contradicts the
+  regime-contamination story as an explanation for sample 1's specific FAIL:
+  its two lowest-wn1_frac storms happened to agree with the prediction, not
+  disagree with it. Recorded as measured, not smoothed into the flattering
+  reading.
+- **The strongest single number in this whole probe chain is a post-hoc
+  combination, clearly labeled as such — not pre-registered:** pooling the
+  displacement ≥ 250 km subsets from *both* independent samples (n=4 + n=3 =
+  7, spanning two different decades) gives **6/7 = 0.857 negative,
+  one-sided p = 0.0625.** Displacement is a *mechanism-motivated* filter
+  (it bounds motion-bearing noise, §5.9), not an outcome-based one, which is
+  why this number carries more weight than F13's raw 0.80 despite being
+  numerically less extreme — but n=7 is still small and this combination
+  was not itself pre-registered before either sample ran.
+
+**Net read, stated as precisely as the evidence allows:** the signed
+left-of-motion claim is **not dead** (§5.9 was right to fail CT-N1 as
+written, and this rerun does not overturn that FAIL under its own bar with
+proper statistics) but it is **not established** either. What *does* survive
+scrutiny is a consistent pattern across two independent decades: **storms
+with well-determined motion (large 6h displacement) show a much stronger,
+borderline-significant left-of-motion signature (6/7 combined) than storms
+with poorly-determined motion or unfiltered blind selection (14/20, exactly
+at the noise floor).** That is evidence *for* the apparatus explanation (§5.9
+candidate (a), motion-bearing noise) and *against* the regime explanation
+(§5.9 candidate (b), storm-type contamination) as the dominant driver — the
+opposite weighting from what seemed most plausible after §5.9 alone, and
+worth stating exactly because it cuts against the tidier story.
+
+**CT-F14 (new, not run):** a properly powered (n ≥ 25–30), pre-registered,
+displacement-filtered-ONLY sample — the single test that would move the
+combined 6/7 either toward significance or back to noise. This is now the
+correctly-scoped next step, not a third exploratory rerun.
+**CT-F15 (new, not run):** geo-fence the blind selection away from
+26–33°N/67–134°E in June–September (or add an explicit baroclinicity
+proxy at intake) and re-check whether CT-E2's own trackability gate keeps
+doing this filtering job for free, as the exclusion pattern above suggests.
+
 ### 5.4 Where that leaves the three candidates
 
 > **Read this table as a within-storm-1/2 candidate ranking for the OFFSET
@@ -509,21 +605,33 @@ this quantity. No stronger attribution is claimed at n = 2.
   n ≥ 10-with-regime-control treatment CT-N just showed is necessary.
 - **CT-F9 (Ekman-pumping mechanism)** — **RUN, §5.9.** corr = −0.295, does
   not support the residual-correlation pathway for candidate 2.
-- **CT-F10 (new, from §5.9's stratification, NOT yet run):** a **pre-registered**
-  displacement-filtered rerun of CT-N1 — restrict blind selection to storms
-  with ≥ 250 km/6h displacement a priori (not post-hoc), n ≥ 10 within that
-  filter, to test whether motion-bearing noise at low displacement explains
-  the sign-consistency gap. This is the correct way to use §5.9's lead; simply
-  re-scoring the existing 10 storms is not.
-- **CT-F11 (new, from §5.9):** regime-filter the blind selection (minimum
-  wn1_frac or R² threshold at intake) to exclude non-baroclinic systems like
-  the 2020-07-20 monsoon-season case, and test CT-N1 again on that
-  sub-population.
+- ~~**CT-F10** (displacement-filtered rerun)~~ — **RUN, §5.10.** NO-VERDICT
+  standalone (n=3, below the pre-registered minimum) — but pooled with
+  sample 1's own displacement-filtered subset, 6/7 = 0.857, the strongest
+  number in the chain (still small-n, still not pre-registered as a pooled
+  test).
+- ~~**CT-F11** (regime-filtered rerun)~~ — **RUN, §5.10.** Passes on sample 2
+  (8/9), but **checked directly against sample 1 and found NOT to rescue
+  it** — retroactively applied, it drops sample 1 to exactly 0.500. The
+  regime-contamination explanation is weaker evidence than it looked after
+  §5.9 alone.
+- **CT-F13 (raw replication, RUN as part of §5.10):** 8/10 on an independent
+  sample, reversing §5.9's verdict on its own bar — but not significant on
+  proper statistics (two-sided p=0.109), and the pooled combined figure with
+  sample 1 (14/20) sits right at the noise floor.
+- **CT-F14 (new, from §5.10, NOT yet run):** the correctly-scoped next step —
+  a single, properly powered (n ≥ 25–30) **displacement-filtered-only**
+  pre-registered sample, since displacement is now the mechanism-motivated
+  filter with the strongest (if still small-n) support.
+- **CT-F15 (new, from §5.10, NOT yet run):** geo-fence blind selection away
+  from 26–33°N/67–134°E in June–September (4 of 5 exclusions in the second
+  sample clustered there) and check whether this simply reproduces what
+  CT-E2's trackability gate is already doing for free.
 - **Sample size:** the apparatus (CT-F4/F5) is good enough that an offset
-  constant COULD be fitted for storms in the large-displacement,
-  clearly-baroclinic regime — but §5.9 means that regime must be
-  characterized and pre-registered (CT-F10/F11) before any constant is
-  fitted, not just before a predictor ships.
+  constant COULD be fitted for storms in the large-displacement regime — but
+  §5.10 means even that regime is only *suggestively* supported (n=7, p≈0.06
+  pooled) and CT-F14 is the gate before any constant is fitted, not general
+  n ≥ 10 in the abstract.
 
 ---
 
@@ -583,28 +691,38 @@ storm ≈ CENTER (place)                    — 1 address
    storms in the regime storms 1–2 sit in*. **CT-F5** (§5.8) fixed the
    remaining saturation defect. **CT-F7** (§5.7) bounded and re-scoped
    candidate 2 (friction rotates wind, not the pressure dipole).
-5. ~~**n ≥ 10 storm sample**~~ — **RUN, §5.9. THIS IS THE HEADLINE FINDING.**
-   The apparatus was never the real ceiling — the offset's **sign** does not
-   generalize past storms 1–2 (6/10, indistinguishable from chance), while
-   its magnitude/explanatory-power claims do. CT-F8's wind-center
-   generalization and CT-F9's Ekman-pumping mechanism were also tested here:
-   neither holds up at scale.
-6. **CT-F10 / CT-F11 (pre-registered, NOT run):** a displacement-filtered
-   and a regime-filtered rerun, respectively — the honest way to chase §5.9's
-   post-hoc leads without re-scoring the sample that already failed.
-7. Adversarial audit gate (plan §8) before any of it is promoted to EV /
+5. ~~**n ≥ 10 storm sample**~~ — **RUN, §5.9.** The offset's **sign** does not
+   generalize on that first blind sample (6/10, indistinguishable from
+   chance), while its magnitude/explanatory-power claims do. CT-F8's
+   wind-center generalization and CT-F9's Ekman-pumping mechanism also
+   tested here: neither holds up at scale.
+6. ~~**CT-F10 / CT-F11 / CT-F13**~~ — **RUN, §5.10. A second independent
+   sample, borderline in a specific direction.** A fresh 1980–1995 sample
+   scores 8/10 unfiltered — but proper statistics keep the combined figure
+   right at the noise floor (14/20, one-sided p≈0.058), and the
+   regime-filter explanation is checked and found NOT to rescue sample 1
+   (drops it to exactly chance). What *does* strengthen is the
+   displacement-filtered pooled subset (6/7, p≈0.0625) — apparatus, not
+   regime, is now the better-supported explanation for the gap.
+7. **CT-F14 (pre-registered, NOT run) is the correctly-scoped next step:**
+   a single, properly powered (n≥25–30) displacement-filtered-only sample.
+8. Adversarial audit gate (plan §8) before any of it is promoted to EV /
    product claim.
 
 **Net effect of the full follow-up chain on the headline claim.** The §1
 summary needs a real caveat now, not just a footnote: wn-1 dominance and the
-R² lift **generalize** (CT-N3/N4 pass at n=10) — the signed, motion-locked
-orientation that made storms 1–2 exciting **has not been shown to
-generalize** (CT-N1 fails). The offset went **dead (F3) → alive with a
-±3–7° error bar (F4) → real-but-not-yet-general (n=10, CT-N)**. Each step
-was a genuine gate, not a rescue of the previous one — that discipline is
-what makes the current honest position trustworthy: the structural claim
-(comet-tail wn-1 dominance) is solid; the directional/predictive claim
-(left-of-motion) is a **storm-1/2-specific finding pending a properly
-pre-registered generalization test**, not yet a rule. §6's encoding and
-single-frame-predictor work is gated behind CT-F10/F11, not just n ≥ 10 in
-general.
+R² lift **generalize** cleanly across two independent decades — the signed,
+motion-locked orientation that made storms 1–2 exciting is **borderline**:
+not established (combined 14/20 sits at the noise floor), not dead either
+(the displacement-filtered pooled subset, 6/7, is the most consistent signal
+in the entire chain). The offset went **dead (F3) → alive with a ±3–7° error
+bar (F4) → apparently general at n=10 → reversed on n=10 more → converging
+on "real for fast-moving storms, undetermined for slow ones" (n=10+10, CT-N +
+CT-F10/13)**. Each step was a genuine gate, not a rescue of the previous
+one — including the moment (§5.10) a result that *helped* the headline claim
+got the same scrutiny as one that hurt it (the regime-filter check on
+sample 1 was run and reported even though it weakened the more flattering
+story). That symmetry is what makes the current position — "solid structural
+finding, borderline-and-narrowing directional finding, one clean next
+falsifier (CT-F14)" — trustworthy. §6's encoding and single-frame-predictor
+work is gated behind CT-F14, not general n ≥ 10.
