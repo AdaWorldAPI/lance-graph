@@ -18,6 +18,14 @@
 > those sections is superseded by **§12**. The sections are left standing,
 > not deleted, so the correction is legible.
 >
+> **Then §12.2 itself was regraded by §12.12** (operator-directed, same day),
+> once the canonical doctrine doc — `.claude/knowledge/helix-cartesian-vs-fisher2z.md`,
+> which this arc never opened — was finally read. Two things a reader must not
+> act on without §12.12: **"helix360" is this session's coinage for `Signed360`**
+> (no such symbol exists in any repo), and the **`Pair48` mint is WITHDRAWN, not
+> deferred** — one 6-byte `Signed360` is already a complete full-sphere
+> direction. Read **§12.12 before §12.2**.
+>
 > **Grading (mandatory on every claim):**
 > - `[G]` — verified in committed code this session, with `file:line`.
 > - `[G-absence]` — verified NOT to exist (grep/read, stated scope).
@@ -953,3 +961,88 @@ first legitimately-missing chunk, so the documented `python3 fetch.py`
 reproduction died before writing its manifest — while the README *correctly*
 documented 404 as valid fill semantics. The code now returns the fill array and
 continues, matching the README it contradicted.
+
+### 12.12 — ⊘⊘⊘ §12.2's REASONING is regraded; the `Pair48` mint is RETIRED; the doctrine doc existed and was never read
+
+**Trigger.** Operator: *"probably signed360, a naming mis remembered"*, with two
+links — `crates/helix/src/residue.rs#L74` and
+`.claude/knowledge/helix-cartesian-vs-fisher2z.md#L18`. The second is a
+knowledge doc **in this repo**, whose `READ BY:` header names *"ANY session that
+encodes/decodes/renders an orientation, normal, or direction"*. This session is
+exactly that session, and **never opened it** — not before §2.3, not during
+§12.2's envelope audit, not through four subsequent corrections.
+
+#### The name, settled
+
+`helix360` **does not exist and never did** `[G-absence]`. Pickaxe over full
+history (`git log -S`, all refs, plus unreachable objects) returns **12 blobs,
+all authored by this session, zero deletions, zero blast radius**; ndarray and
+the `lance-graph2` backup carry none. The real symbol is **`Signed360`**
+(`residue.rs:76-116`). Every use of "helix360" in §0–§11 above is this session's
+coinage for `Signed360`; read it that way.
+
+#### Three structural corrections to §12.2 — the facts stood, the inferences did not
+
+| §12.2 said | Regrade | Authority |
+|---|---|---|
+| 1. "`Signed360` is ONE signed orientation, not two hemisphere codes" — used to argue the lane cannot carry a from/to pair | **Fact stands; the inference inverts.** The sign is precisely what makes it whole: *"the normal-only 6-byte `Signed360` is a **complete** full-sphere direction — you do NOT need a second 'pos' helix to complete it."* | `helix-cartesian-vs-fisher2z.md:77-82` |
+| 2-3. "`ResidueEdge` cannot carry a hemisphere sign / has no azimuth" — used to argue *the lane* has no bearing capacity | **Fact stands; it was the wrong object.** `ResidueEdge`/`rim` is the **METRIC carrier, not a render input** — *"never run the rim's atanh/tanh to recover a direction."* Direction lives in `(polar, azimuth)`. The operator's *"ResidueEdge is turbovec, nobody was asking you to use turbovec"* named this before the doc confirmed it. | `helix-cartesian-vs-fisher2z.md:83-86`; `residue.rs:21-27` |
+| 4. crate says *"no free 2-DOF direction codec in this crate"* ⇒ read as "the representation cannot carry a bearing" | **Misread: no *helper*, not no *capacity*.** `azimuth` is *"`n·φ mod 2π` mapped to `[0, 65536)` over the full **360°**"* — a full-circle 16-bit angular field. What the crate lacks is the **encode helper**: *"Encoding a 3D normal → `(n, sign)` is a nearest spherical-Fibonacci search (the crate has no `from_normal` helper)"*, with a worked pair at q2 `scratch-fma/helixbake`. | `residue.rs:85`; `helix-cartesian-vs-fisher2z.md:90-93` |
+
+#### What in §12.2 still stands, unchanged
+
+- **Point 5 (metric hazard) — stands, and is *already crate-documented*, not a
+  discovery.** `distance_heuristic` names its own failure mode as *"the
+  raw-azimuth 2π wrap"* and forbids it for CAKES bounds (`residue.rs:52-59`).
+  The correct statement is the canonical split, not a defect: **rim = L1-metric
+  carrier (`DistanceLut`, triangle inequality); azimuth = render/direction
+  carrier (circular, deliberately not L1-metric).** Two fields, two jobs. My
+  error was proposing to route a bearing through the *metric* field and then
+  reporting the resulting hazard as a property of the codec.
+- **Point 6 (no per-value-lane reading selector exists) — stands `[G-absence]`.**
+  15 `HelixResidue` hits, zero writers, zero decoders; `ReadMode`'s three axes
+  select tail / value_schema / edge_codec, none a value-lane *reading*.
+- The **dormant-lane defect** is unaffected and still open: `Signed360::sign()`
+  reads an all-zero lane (`polar = 0`) as a definite `Sign::Neg`
+  (`residue.rs:109-115`), so "unwritten" and "lower hemisphere" are
+  indistinguishable — a real hazard the moment a writer exists.
+
+#### Decision RETIRED: the `Pair48` mint
+
+§12.2's `[S]` candidate (a new 16-byte `FacetSchema::Pair48 = [Signed360; 2]`)
+and §12.3's lesson-about-the-lesson both rested on needing a second helix to
+complete a direction. **That premise is false**, so the open operator decision is
+**withdrawn, not deferred** — do not mint it. A wind bearing is a 2-DOF direction
+on the horizontal; one `Signed360` already addresses the full sphere, a fortiori
+the circle. §12.3's *extracted rule* survives untouched and is in fact the rule
+that just fired again: **a correction is a claim and carries a claim's burden.**
+Three links deep now (§11-C2 → §12.2/§12.3 → §12.12).
+
+#### The real gap, stated so it is actionable
+
+Not a missing *carrier* — a missing *encode*. `(bearing, elevation) → Signed360`
+is a **nearest spherical-Fibonacci search** over `HemispherePoint::lift`
+(pole axis = chosen world axis, `sign = sign(n·pole)`), which the crate
+deliberately does not ship as `from_normal`, with a worked reference pair
+(q2 `scratch-fma/helixbake` + `cockpit/src/BodyHelix.tsx`). Decode for
+render/compare is **pre-materialize one `(polar × azimuth) → direction` LUT,
+then gather** — polar 7-bit ≈ 0.45°, azimuth 10-bit LUT column ≈ 0.35°. That is
+the mechanical form of the operator's *"you only pay the inbound tax once"*, and
+`[S]` until measured on real wind data.
+
+#### Process lesson — the one worth more than the codec
+
+`CLAUDE.md` § *Consult, don't guess* orders it explicitly: specialist card →
+**knowledge doc** → board → *only then* grep source. This arc did source-first
+and stayed wrong through four corrections, because **reading the primary source
+is not the same as reading the doctrine that interprets it.** `residue.rs`
+states the layout truthfully; it does not say which field is metric and which is
+render, nor that the sign already completes the sphere — that is exactly what
+the knowledge doc exists to carry, and it is what a `READ BY:` header is *for*.
+Cost: one invented 48-bit budget, one straw-man in/out reading, one retracted
+mint decision, and a hunt for a deleted symbol that never existed. **A
+`READ BY:` header that matches the session's own subject is a mandatory read,
+not a suggestion.**
+
+Cross-ref: `.claude/knowledge/helix-cartesian-vs-fisher2z.md` (the authority for
+this whole section), `crates/helix/KNOWLEDGE.md` (place/residue spec).
