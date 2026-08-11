@@ -89,9 +89,7 @@ impl PlantedGraph {
         let mut state = seed;
         let mut planes = vec![AwarenessPlane16K::zero(); n as usize];
         let nodes_per_comm = n / k;
-        let ground_truth: Vec<u16> = (0..n)
-            .map(|u| (u / nodes_per_comm).min(k - 1) as u16)
-            .collect();
+        let ground_truth: Vec<u16> = (0..n).map(|u| (u / nodes_per_comm).min(k - 1) as u16).collect();
         for u in 0..n {
             for v in (u + 1)..n {
                 let same = ground_truth[u as usize] == ground_truth[v as usize];
@@ -103,12 +101,7 @@ impl PlantedGraph {
                 }
             }
         }
-        Self {
-            n,
-            k_communities: k,
-            ground_truth,
-            planes,
-        }
+        Self { n, k_communities: k, ground_truth, planes }
     }
 
     fn edge_count(&self) -> u32 {
@@ -153,13 +146,12 @@ fn lpa_superstep(graph: &PlantedGraph, labels: &[u16], next_labels: &mut [u16]) 
         // among the tied set (stability heuristic — converges faster).
         let max_count = tally.iter().map(|(_, c)| *c).max().unwrap_or(0);
         let new_label = if max_count == 0 {
-            cur // isolated node — keep label
+            cur  // isolated node — keep label
         } else if tally.iter().any(|(l, c)| *l == cur && *c == max_count) {
-            cur // current label is among the tied max — stay
+            cur  // current label is among the tied max — stay
         } else {
             // pick lowest label id among tied for max
-            tally
-                .iter()
+            tally.iter()
                 .filter(|(_, c)| *c == max_count)
                 .map(|(l, _)| *l)
                 .min()
@@ -167,9 +159,7 @@ fn lpa_superstep(graph: &PlantedGraph, labels: &[u16], next_labels: &mut [u16]) 
         };
 
         next_labels[u as usize] = new_label;
-        if new_label != cur {
-            changes += 1;
-        }
+        if new_label != cur { changes += 1; }
     }
     changes
 }
@@ -195,9 +185,7 @@ fn purity(labels: &[u16], ground_truth: &[u16], k_truth: usize) -> f64 {
     let mut correct = 0usize;
     for (_, gts) in clusters {
         let mut count = vec![0u32; k_truth];
-        for g in gts.iter() {
-            count[*g as usize] += 1;
-        }
+        for g in gts.iter() { count[*g as usize] += 1; }
         correct += *count.iter().max().unwrap() as usize;
     }
     correct as f64 / labels.len() as f64
@@ -209,29 +197,19 @@ fn purity(labels: &[u16], ground_truth: &[u16], k_truth: usize) -> f64 {
 
 fn main() {
     let n = 512u32;
-    let k = 4u32; // ground-truth communities
-    let p_within = 16_384u32; // ~25 % within-community edge prob
-    let p_across = 1_024u32; // ~1.5 % across-community edge prob
+    let k = 4u32;  // ground-truth communities
+    let p_within = 16_384u32;   // ~25 % within-community edge prob
+    let p_across = 1_024u32;    // ~1.5 % across-community edge prob
 
     println!("══════════════════════════════════════════════════════════════════════");
     println!("  SplatShaderBlas — LPA via Pregel-style L4 supersteps");
     println!("══════════════════════════════════════════════════════════════════════");
     println!();
     println!("Graph        : {} nodes, {} planted communities", n, k);
-    println!(
-        "              p_within  = {:.2}%   (q16 = {})",
-        p_within as f64 / 655.36,
-        p_within
-    );
-    println!(
-        "              p_across  = {:.2}%   (q16 = {})",
-        p_across as f64 / 655.36,
-        p_across
-    );
-    println!(
-        "Convergence  : α_iter ≥ {} for {} consecutive supersteps",
-        ALPHA_SATURATION_THRESHOLD, MIN_STABLE_ITERS
-    );
+    println!("              p_within  = {:.2}%   (q16 = {})", p_within as f64 / 655.36, p_within);
+    println!("              p_across  = {:.2}%   (q16 = {})", p_across as f64 / 655.36, p_across);
+    println!("Convergence  : α_iter ≥ {} for {} consecutive supersteps",
+        ALPHA_SATURATION_THRESHOLD, MIN_STABLE_ITERS);
     println!("              (matches Pillar-7 ALPHA_SATURATION_THRESHOLD)");
     println!();
 
@@ -275,10 +253,8 @@ fn main() {
             ""
         };
 
-        println!(
-            "    {:4}  {:7}    {:.4}     {:13}    {}",
-            iter, changes, alpha_iter, uniq, note
-        );
+        println!("    {:4}  {:7}    {:.4}     {:13}    {}",
+            iter, changes, alpha_iter, uniq, note);
 
         if changes == 0 || consecutive_saturated >= MIN_STABLE_ITERS {
             converged_at = Some(iter);
@@ -296,21 +272,13 @@ fn main() {
     println!("──────────────────────────────────────────────────────────────────────");
     match converged_at {
         Some(it) => println!("    converged at superstep {} (α-saturation)", it),
-        None => println!("    did NOT converge within {} supersteps", MAX_SUPERSTEPS),
+        None     => println!("    did NOT converge within {} supersteps", MAX_SUPERSTEPS),
     }
-    println!(
-        "    unique labels at convergence : {} (ground truth: {})",
-        final_unique, k
-    );
-    println!(
-        "    purity vs ground truth        : {:.4} ({:.1}% correct)",
-        final_purity,
-        final_purity * 100.0
-    );
-    println!(
-        "    total runtime                 : {} µs",
-        elapsed.as_micros()
-    );
+    println!("    unique labels at convergence : {} (ground truth: {})",
+        final_unique, k);
+    println!("    purity vs ground truth        : {:.4} ({:.1}% correct)",
+        final_purity, final_purity * 100.0);
+    println!("    total runtime                 : {} µs", elapsed.as_micros());
     println!();
 
     // ── stress test: 100 graphs, deterministic seeds ─────────────────────
@@ -332,11 +300,7 @@ fn main() {
             let changes = lpa_superstep(&g, &labels, &mut next);
             std::mem::swap(&mut labels, &mut next);
             let alpha_iter = (n - changes) as f64 / n as f64;
-            if alpha_iter >= ALPHA_SATURATION_THRESHOLD {
-                consec += 1
-            } else {
-                consec = 0
-            };
+            if alpha_iter >= ALPHA_SATURATION_THRESHOLD { consec += 1 } else { consec = 0 };
             if changes == 0 || consec >= MIN_STABLE_ITERS {
                 converged_at = Some(iter);
                 break;
@@ -350,23 +314,14 @@ fn main() {
     }
     let stress_elapsed = stress_t0.elapsed();
 
-    println!(
-        "    converged                    : {}/100 runs",
-        converged_count
-    );
-    println!(
-        "    mean iterations to converge  : {:.1}",
-        iters_sum as f64 / converged_count.max(1) as f64
-    );
-    println!(
-        "    mean purity                  : {:.4}",
-        purity_sum / converged_count.max(1) as f64
-    );
-    println!(
-        "    total runtime                : {} µs ({:.1} µs / run)",
+    println!("    converged                    : {}/100 runs", converged_count);
+    println!("    mean iterations to converge  : {:.1}",
+        iters_sum as f64 / converged_count.max(1) as f64);
+    println!("    mean purity                  : {:.4}",
+        purity_sum / converged_count.max(1) as f64);
+    println!("    total runtime                : {} µs ({:.1} µs / run)",
         stress_elapsed.as_micros(),
-        stress_elapsed.as_micros() as f64 / 100.0
-    );
+        stress_elapsed.as_micros() as f64 / 100.0);
     println!();
 
     // ── verdict ──────────────────────────────────────────────────────────
@@ -375,24 +330,15 @@ fn main() {
     println!("══════════════════════════════════════════════════════════════════════");
     println!("  L4 SoA sweep IS one Pregel superstep        : YES");
     println!("  α-saturation IS the convergence criterion    : YES (Pillar-7 threshold)");
-    println!(
-        "  Convergence rate (planted graphs)            : {}/100",
-        converged_count
-    );
-    println!(
-        "  Mean supersteps to α-saturate                : {:.1}",
-        iters_sum as f64 / converged_count.max(1) as f64
-    );
-    println!(
-        "  Mean clustering purity                       : {:.4}",
-        purity_sum / converged_count.max(1) as f64
-    );
+    println!("  Convergence rate (planted graphs)            : {}/100",  converged_count);
+    println!("  Mean supersteps to α-saturate                : {:.1}",
+        iters_sum as f64 / converged_count.max(1) as f64);
+    println!("  Mean clustering purity                       : {:.4}",
+        purity_sum / converged_count.max(1) as f64);
     println!();
     println!("  → LPA's normally-heuristic iteration count is now deterministic:");
-    println!(
-        "    α_iter ≥ {} for {} consecutive supersteps = converged.",
-        ALPHA_SATURATION_THRESHOLD, MIN_STABLE_ITERS
-    );
+    println!("    α_iter ≥ {} for {} consecutive supersteps = converged.",
+        ALPHA_SATURATION_THRESHOLD, MIN_STABLE_ITERS);
     println!();
     println!("  → Generalises to: Louvain modularity (α tracks Q-stability),");
     println!("    Leiden refinement (α gates well-connected community check),");

@@ -491,10 +491,7 @@ mod tests {
         assert_eq!(spearman(&[1.0, f64::NAN, 2.0], &[1.0, 2.0, 3.0]), None);
         assert_eq!(spearman(&[1.0, 2.0, 3.0], &[1.0, f64::INFINITY, 3.0]), None);
         assert_eq!(pearson(&[1.0, f64::NAN, 3.0], &[1.0, 2.0, 3.0]), None);
-        assert_eq!(
-            pearson(&[1.0, 2.0, 3.0], &[f64::NEG_INFINITY, 2.0, 3.0]),
-            None
-        );
+        assert_eq!(pearson(&[1.0, 2.0, 3.0], &[f64::NEG_INFINITY, 2.0, 3.0]), None);
 
         let nan_items = vec![vec![1.0, 2.0, f64::NAN], vec![1.0, 2.0, 3.0]];
         assert_eq!(cronbach_alpha(&nan_items), None);
@@ -520,26 +517,14 @@ mod tests {
         // deviations / mean-square sums to ±∞, whose ratio is NaN or a
         // finite-but-wrong 0.0. The denom + result guards must return None.
         let big = 1e308;
-        for r in [
-            pearson(&[big, -big, big], &[big, big, -big]),
-            spearman(&[big, -big, big], &[big, big, -big]),
-        ] {
-            assert!(
-                r.map(|v| v.is_finite()).unwrap_or(true),
-                "expected finite or None, got {r:?}"
-            );
+        for r in [pearson(&[big, -big, big], &[big, big, -big]), spearman(&[big, -big, big], &[big, big, -big])] {
+            assert!(r.map(|v| v.is_finite()).unwrap_or(true), "expected finite or None, got {r:?}");
         }
         let big_items = vec![vec![big, -big, big], vec![-big, big, -big]];
         let a = cronbach_alpha(&big_items);
-        assert!(
-            a.map(|v| v.is_finite()).unwrap_or(true),
-            "cronbach: expected finite or None, got {a:?}"
-        );
+        assert!(a.map(|v| v.is_finite()).unwrap_or(true), "cronbach: expected finite or None, got {a:?}");
         let big_ratings = vec![vec![big, -big], vec![-big, big], vec![big, big]];
         let v = icc(&big_ratings, IccForm::Icc2_1);
-        assert!(
-            v.map(|x| x.is_finite()).unwrap_or(true),
-            "icc: expected finite or None, got {v:?}"
-        );
+        assert!(v.map(|x| x.is_finite()).unwrap_or(true), "icc: expected finite or None, got {v:?}");
     }
 }

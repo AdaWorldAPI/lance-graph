@@ -51,15 +51,13 @@ fn normal_cdf(x: f64) -> f64 {
 
 fn erf(x: f64) -> f64 {
     let t = 1.0 / (1.0 + 0.3275911 * x.abs());
-    let poly = t
-        * (0.254829592
-            + t * (-0.284496736 + t * (1.421413741 + t * (-1.453152027 + t * 1.061405429))));
+    let poly = t * (0.254829592
+        + t * (-0.284496736
+        + t * (1.421413741
+        + t * (-1.453152027
+        + t * 1.061405429))));
     let result = 1.0 - poly * (-x * x).exp();
-    if x >= 0.0 {
-        result
-    } else {
-        -result
-    }
+    if x >= 0.0 { result } else { -result }
 }
 
 fn berry_esseen_sup_error(samples: &[f64]) -> f64 {
@@ -67,9 +65,7 @@ fn berry_esseen_sup_error(samples: &[f64]) -> f64 {
     let mean: f64 = samples.iter().sum::<f64>() / n;
     let var: f64 = samples.iter().map(|&x| (x - mean).powi(2)).sum::<f64>() / n;
     let std = var.sqrt();
-    if std < 1e-12 {
-        return 1.0;
-    }
+    if std < 1e-12 { return 1.0; }
 
     let mut sorted: Vec<f64> = samples.to_vec();
     sorted.sort_by(|a, b| a.partial_cmp(b).unwrap());
@@ -183,9 +179,6 @@ mod tests {
     fn iid_data_converges_to_normal() {
         let samples = generate_iid_pairs();
         let err = berry_esseen_sup_error(&samples);
-        assert!(
-            err < 0.1,
-            "IID Berry-Esseen error {err:.6} too large — PRNG may be broken"
-        );
+        assert!(err < 0.1, "IID Berry-Esseen error {err:.6} too large — PRNG may be broken");
     }
 }

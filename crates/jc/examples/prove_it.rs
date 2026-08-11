@@ -12,10 +12,7 @@ fn main() {
 
     let results = jc::run_all_pillars();
 
-    let implemented: Vec<_> = results
-        .iter()
-        .filter(|r| !r.detail.starts_with("DEFERRED"))
-        .collect();
+    let implemented: Vec<_> = results.iter().filter(|r| !r.detail.starts_with("DEFERRED")).collect();
     let passed = implemented.iter().filter(|r| r.pass).count();
     let failed = implemented.len() - passed;
     let deferred = results.len() - implemented.len();
@@ -32,9 +29,7 @@ fn main() {
     } else {
         println!("\n✓ All implemented pillars pass. The substrate is formally sound.");
         if deferred > 0 {
-            println!(
-                "  {deferred} pillar(s) deferred — activate coupled revival track to complete 5/5."
-            );
+            println!("  {deferred} pillar(s) deferred — activate coupled revival track to complete 5/5.");
         }
     }
 }

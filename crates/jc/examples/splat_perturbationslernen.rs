@@ -78,18 +78,10 @@ fn splitmix64(state: &mut u64) -> u64 {
 // ── 2×2 SPD math (inlined; same as splat_to_ewa_bridge) ───────────────────
 
 #[derive(Clone, Copy, Debug)]
-struct Mat2 {
-    a: f64,
-    b: f64,
-    c: f64,
-}
+struct Mat2 { a: f64, b: f64, c: f64 }
 
 impl Mat2 {
-    const I: Self = Self {
-        a: 1.0,
-        b: 0.0,
-        c: 1.0,
-    };
+    const I: Self = Self { a: 1.0, b: 0.0, c: 1.0 };
 
     fn eig(&self) -> (f64, f64) {
         let half_trace = (self.a + self.c) / 2.0;
@@ -124,9 +116,7 @@ impl Mat2 {
     /// Affine-invariant Riemannian distance from identity in the SPD cone.
     fn displacement_from_identity(&self) -> f64 {
         let (l1, l2) = self.eig();
-        if l1 <= 0.0 || l2 <= 0.0 {
-            return f64::INFINITY;
-        }
+        if l1 <= 0.0 || l2 <= 0.0 { return f64::INFINITY; }
         (l1.ln().powi(2) + l2.ln().powi(2)).sqrt()
     }
 }
@@ -176,13 +166,7 @@ impl PlantedGraph {
             }
         }
         let degree: Vec<u32> = planes.iter().map(popcount).collect();
-        Self {
-            n,
-            k_communities: k,
-            ground_truth,
-            planes,
-            degree,
-        }
+        Self { n, k_communities: k, ground_truth, planes, degree }
     }
 }
 
@@ -221,11 +205,7 @@ fn deposit_from_query_overlap(
     let alpha = (overlap as f64 / deg).clamp(0.0, 1.0) + 0.05;
     // Width = symmetric counter-axis (we keep it tight relative to alpha).
     let beta = 0.5 + 0.05;
-    Mat2 {
-        a: alpha,
-        b: 0.0,
-        c: beta,
-    }
+    Mat2 { a: alpha, b: 0.0, c: beta }
 }
 
 fn perturb_superstep(
@@ -271,13 +251,8 @@ fn perturb_superstep(
         let new_sigma = sandwich(&m, &agg);
         // assert! (NOT debug_assert!) so the SPD invariant is checked under
         // --release too; per PR #347 Codex review correction.
-        assert!(
-            new_sigma.is_spd(),
-            "Σ left SPD cone at row {u}: agg={:?} step={:?} new={:?}",
-            agg,
-            step,
-            new_sigma
-        );
+        assert!(new_sigma.is_spd(), "Σ left SPD cone at row {u}: agg={:?} step={:?} new={:?}",
+            agg, step, new_sigma);
         next_sigma[u as usize] = new_sigma;
     }
 }
@@ -300,30 +275,23 @@ fn main() {
     println!();
     println!("Graph        : {} nodes, {} planted communities", n, k);
     println!("Query        : 5 seed nodes from community 0 → planted in query plane");
-    println!(
-        "Settling     : per-iter mean Σ-displacement-change crosses {} (Pillar-7)",
-        ALPHA_SATURATION_THRESHOLD
-    );
+    println!("Settling     : per-iter mean Σ-displacement-change crosses {} (Pillar-7)",
+        ALPHA_SATURATION_THRESHOLD);
     println!();
 
     let graph = PlantedGraph::planted(n, k, p_within, p_across, 0xCAFE_BABE_DEAD_BEEF);
 
     // ── build query plane: deposit 5 seed nodes from community 0 ─────────
     let mut query_plane = AwarenessPlane16K::zero();
-    let seeds: Vec<u32> = (0..n)
-        .filter(|&u| graph.ground_truth[u as usize] == 0)
-        .take(5)
-        .collect();
+    let seeds: Vec<u32> = (0..n).filter(|&u| graph.ground_truth[u as usize] == 0).take(5).collect();
     for &s in &seeds {
         // Deposit the seed's neighbour bitset as part of the query.
         for i in 0..256 {
             query_plane.0[i] |= graph.planes[s as usize].0[i];
         }
     }
-    println!(
-        "    query plane bits set : {} (= union of 5 seed neighbour sets)",
-        popcount(&query_plane)
-    );
+    println!("    query plane bits set : {} (= union of 5 seed neighbour sets)",
+        popcount(&query_plane));
     println!();
 
     // ── propagate perturbation ────────────────────────────────────────────
@@ -347,7 +315,8 @@ fn main() {
 
     // Print only key checkpoints + saturation event (avoids 200 lines of output).
     fn should_print(i: usize, max: usize) -> bool {
-        i == 1 || i == max || (i <= 20 && i % 5 == 0) || (i <= 50 && i % 10 == 0) || i % 25 == 0
+        i == 1 || i == max || (i <= 20 && i % 5 == 0) ||
+        (i <= 50 && i % 10 == 0) || i % 25 == 0
     }
 
     let t0 = std::time::Instant::now();
@@ -355,25 +324,14 @@ fn main() {
         perturb_superstep(&graph, &query_plane, &sigma, &mut next);
         std::mem::swap(&mut sigma, &mut next);
 
-        let displacements: Vec<f64> = sigma
-            .iter()
-            .map(|s| s.displacement_from_identity())
-            .collect();
+        let displacements: Vec<f64> = sigma.iter().map(|s| s.displacement_from_identity()).collect();
         let mean_disp: f64 = displacements.iter().sum::<f64>() / n as f64;
         let max_disp: f64 = displacements.iter().cloned().fold(0.0, f64::max);
         let delta_mean = (mean_disp - prev_mean).abs();
-        let relative_change = if prev_mean > 1e-9 {
-            delta_mean / prev_mean
-        } else {
-            1.0
-        };
+        let relative_change = if prev_mean > 1e-9 { delta_mean / prev_mean } else { 1.0 };
         let alpha_iter = (1.0 - relative_change).max(0.0).min(1.0);
         let saturated = alpha_iter >= ALPHA_SATURATION_THRESHOLD;
-        if saturated {
-            consecutive += 1;
-        } else {
-            consecutive = 0;
-        }
+        if saturated { consecutive += 1; } else { consecutive = 0; }
 
         let note = if consecutive >= 2 {
             "α-SATURATED"
@@ -384,10 +342,8 @@ fn main() {
         };
 
         if should_print(iter, max_supersteps) || saturated || consecutive >= 2 {
-            println!(
-                "    {:4}  {:8.4}   {:8.4}   {:.4}    {:.4}    {}",
-                iter, mean_disp, max_disp, delta_mean, alpha_iter, note
-            );
+            println!("    {:4}  {:8.4}   {:8.4}   {:.4}    {:.4}    {}",
+                iter, mean_disp, max_disp, delta_mean, alpha_iter, note);
         }
 
         prev_mean = mean_disp;
@@ -403,17 +359,14 @@ fn main() {
     // ── Σ pinned). Target rows have alpha ≈ 0.95 in the deposit, so their ──
     // ── Σ accumulates more gently than non-target rows (alpha ≈ 0.05). ─────
     // ── Therefore: FOUND = displacement BELOW (mean − 1σ). ─────────────────
-    let displacements: Vec<f64> = sigma
-        .iter()
-        .map(|s| s.displacement_from_identity())
-        .collect();
+    let displacements: Vec<f64> = sigma.iter().map(|s| s.displacement_from_identity()).collect();
     let mean_disp: f64 = displacements.iter().sum::<f64>() / n as f64;
     let std_disp: f64 = {
         let m = mean_disp;
         let var = displacements.iter().map(|d| (d - m).powi(2)).sum::<f64>() / n as f64;
         var.max(0.0).sqrt()
     };
-    let threshold = mean_disp - std_disp; // mean − 1σ: target rows have LOW disp
+    let threshold = mean_disp - std_disp;  // mean − 1σ: target rows have LOW disp
 
     println!();
     println!("──────────────────────────────────────────────────────────────────────");
@@ -424,46 +377,24 @@ fn main() {
     println!("    std_displacement       : {:.4}", std_disp);
     println!("    threshold (mean − 1σ)  : {:.4}", threshold);
 
-    let found: Vec<u32> = (0..n)
-        .filter(|&u| displacements[u as usize] < threshold)
-        .collect();
-    let found_in_target: usize = found
-        .iter()
+    let found: Vec<u32> = (0..n).filter(|&u| displacements[u as usize] < threshold).collect();
+    let found_in_target: usize = found.iter()
         .filter(|&&u| graph.ground_truth[u as usize] == 0)
         .count();
 
-    println!(
-        "    rows above threshold   : {} ({:.1}%)",
-        found.len(),
-        found.len() as f64 / n as f64 * 100.0
-    );
-    println!(
-        "    of those in community 0 (target): {}/{} ({:.1}%)",
-        found_in_target,
-        found.len(),
-        if !found.is_empty() {
-            found_in_target as f64 / found.len() as f64 * 100.0
-        } else {
-            0.0
-        }
-    );
-    println!(
-        "    expected by chance     : {:.1}% (1/k = 1/{})",
-        100.0 / k as f64,
-        k
-    );
+    println!("    rows above threshold   : {} ({:.1}%)",
+        found.len(), found.len() as f64 / n as f64 * 100.0);
+    println!("    of those in community 0 (target): {}/{} ({:.1}%)",
+        found_in_target, found.len(),
+        if !found.is_empty() { found_in_target as f64 / found.len() as f64 * 100.0 } else { 0.0 });
+    println!("    expected by chance     : {:.1}% (1/k = 1/{})", 100.0 / k as f64, k);
 
     let baseline = 1.0 / k as f64;
     let precision = if !found.is_empty() {
         found_in_target as f64 / found.len() as f64
-    } else {
-        0.0
-    };
+    } else { 0.0 };
     let lift = precision / baseline;
-    println!(
-        "    lift over baseline     : {:.2}× (precision over random)",
-        lift
-    );
+    println!("    lift over baseline     : {:.2}× (precision over random)", lift);
     println!();
 
     // ── community-level breakdown ────────────────────────────────────────
@@ -477,22 +408,13 @@ fn main() {
             .collect();
         let m = comm_displacements.iter().sum::<f64>() / comm_displacements.len() as f64;
         let std = {
-            let var = comm_displacements
-                .iter()
-                .map(|d| (d - m).powi(2))
-                .sum::<f64>()
+            let var = comm_displacements.iter().map(|d| (d - m).powi(2)).sum::<f64>()
                 / comm_displacements.len() as f64;
             var.max(0.0).sqrt()
         };
-        let mark = if c == 0 {
-            " ← target (query seeds were here)"
-        } else {
-            ""
-        };
-        println!(
-            "    community {}  : mean disp = {:.4}  σ = {:.4}{}",
-            c, m, std, mark
-        );
+        let mark = if c == 0 { " ← target (query seeds were here)" } else { "" };
+        println!("    community {}  : mean disp = {:.4}  σ = {:.4}{}",
+            c, m, std, mark);
     }
     println!();
 
@@ -500,28 +422,14 @@ fn main() {
     println!("══════════════════════════════════════════════════════════════════════");
     println!("  VERDICT");
     println!("══════════════════════════════════════════════════════════════════════");
-    println!(
-        "  Query injected as perturbation on {} seed rows",
-        seeds.len()
-    );
-    println!(
-        "  EWA-sandwich propagation (Pillar-6-bounded) for {} supersteps",
-        converged_at.unwrap_or(max_supersteps)
-    );
-    println!(
-        "  α-saturation triggered                : {}",
-        if converged_at.is_some() {
-            "YES"
-        } else {
-            "no (max iters)"
-        }
-    );
+    println!("  Query injected as perturbation on {} seed rows", seeds.len());
+    println!("  EWA-sandwich propagation (Pillar-6-bounded) for {} supersteps",
+        converged_at.unwrap_or(max_supersteps));
+    println!("  α-saturation triggered                : {}",
+        if converged_at.is_some() { "YES" } else { "no (max iters)" });
     println!("  Σ stayed SPD across all rows          : YES (assertion-checked)");
     println!("  Found-row precision over baseline     : {:.2}×", lift);
-    println!(
-        "  Runtime                               : {} ms",
-        elapsed.as_millis()
-    );
+    println!("  Runtime                               : {} ms", elapsed.as_millis());
     println!();
     println!("  → Context search WITHOUT explicit k-NN distance queries.");
     println!("    The query is a deposit; the field's response is the answer.");

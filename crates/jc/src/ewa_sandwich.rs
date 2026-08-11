@@ -109,11 +109,7 @@ struct Spd2 {
 }
 
 impl Spd2 {
-    const I: Self = Self {
-        a: 1.0,
-        b: 0.0,
-        c: 1.0,
-    };
+    const I: Self = Self { a: 1.0, b: 0.0, c: 1.0 };
 
     fn eig(&self) -> (f64, f64, f64, f64) {
         let half_trace = (self.a + self.c) / 2.0;
@@ -140,9 +136,7 @@ impl Spd2 {
         }
     }
 
-    fn sqrt(&self) -> Self {
-        self.pow(0.5)
-    }
+    fn sqrt(&self) -> Self { self.pow(0.5) }
 
     /// log of an SPD matrix.
     fn log_spd(&self) -> Self {
@@ -238,8 +232,8 @@ fn sample_step_sigma(state: &mut u64, sigma_step: f64) -> Spd2 {
 #[derive(Clone, Copy, Debug)]
 struct PathResult {
     final_sigma: Spd2,
-    log_norm_sq: f64, // ‖log(Σ_n)‖_F^2
-    psd_hops: usize,  // how many of the `length` hops kept Σ in SPD
+    log_norm_sq: f64,        // ‖log(Σ_n)‖_F^2
+    psd_hops: usize,         // how many of the `length` hops kept Σ in SPD
 }
 
 fn propagate_path(state: &mut u64, length: usize, sigma_step: f64, eps: f64) -> PathResult {
@@ -395,58 +389,29 @@ mod tests {
             let n = sample_step_sigma(&mut state, 0.3);
             let m_sqrt = m.sqrt();
             let result = sandwich(&m_sqrt, &n);
-            assert!(
-                result.is_spd(1e-10),
-                "sandwich produced non-SPD: m={m:?}, n={n:?}, result={result:?}"
-            );
+            assert!(result.is_spd(1e-10),
+                "sandwich produced non-SPD: m={m:?}, n={n:?}, result={result:?}");
         }
     }
 
     #[test]
     fn sandwich_with_identity_returns_input() {
         // M · I · M = M·M = M^2 — for sqrt(Σ), this gives Σ back.
-        let sigma = Spd2 {
-            a: 2.0,
-            b: 0.3,
-            c: 1.5,
-        };
+        let sigma = Spd2 { a: 2.0, b: 0.3, c: 1.5 };
         let sigma_sqrt = sigma.sqrt();
         let result = sandwich(&sigma_sqrt, &Spd2::I);
         // result should be sigma^(1/2) · I · sigma^(1/2) = sigma
-        assert!(
-            approx(result.a, sigma.a, 1e-9),
-            "{} vs {}",
-            result.a,
-            sigma.a
-        );
-        assert!(
-            approx(result.b, sigma.b, 1e-9),
-            "{} vs {}",
-            result.b,
-            sigma.b
-        );
-        assert!(
-            approx(result.c, sigma.c, 1e-9),
-            "{} vs {}",
-            result.c,
-            sigma.c
-        );
+        assert!(approx(result.a, sigma.a, 1e-9), "{} vs {}", result.a, sigma.a);
+        assert!(approx(result.b, sigma.b, 1e-9), "{} vs {}", result.b, sigma.b);
+        assert!(approx(result.c, sigma.c, 1e-9), "{} vs {}", result.c, sigma.c);
     }
 
     #[test]
     fn path_propagation_returns_finite_results() {
         let mut state = 0x1234u64;
         let r = propagate_path(&mut state, 20, 0.2, 1e-12);
-        assert!(
-            r.log_norm_sq.is_finite(),
-            "log_norm_sq should be finite, got {}",
-            r.log_norm_sq
-        );
-        assert!(
-            r.final_sigma.is_spd(1e-10),
-            "final sigma should be SPD: {:?}",
-            r.final_sigma
-        );
+        assert!(r.log_norm_sq.is_finite(), "log_norm_sq should be finite, got {}", r.log_norm_sq);
+        assert!(r.final_sigma.is_spd(1e-10), "final sigma should be SPD: {:?}", r.final_sigma);
     }
 
     #[test]
@@ -462,10 +427,7 @@ mod tests {
             }
         }
         // Crude bound: with σ_step=0.1, n=50, expect ‖log Σ‖² < 100 typically.
-        assert!(
-            max_log_norm_sq < 1000.0,
-            "long paths exploded: max ‖log Σ‖² = {max_log_norm_sq}"
-        );
+        assert!(max_log_norm_sq < 1000.0, "long paths exploded: max ‖log Σ‖² = {max_log_norm_sq}");
     }
 
     #[test]

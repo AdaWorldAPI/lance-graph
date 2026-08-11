@@ -329,7 +329,9 @@ pub fn parse_subclass_edges(ttl: &str) -> Vec<(String, String)> {
             }
             // In subClassOf object position: emit a named-IRI edge.
             if predicate_is_subclass {
-                if let (Some(child), Some(parent)) = (current_subject.clone(), normalize_iri(tok)) {
+                if let (Some(child), Some(parent)) =
+                    (current_subject.clone(), normalize_iri(tok))
+                {
                     if child != parent {
                         edges.push((child, parent));
                     }
@@ -393,11 +395,7 @@ impl ClassGraph {
             ps.sort_unstable();
             ps.dedup();
         }
-        Self {
-            names,
-            parents,
-            edges,
-        }
+        Self { names, parents, edges }
     }
 
     pub fn n_classes(&self) -> usize {
@@ -464,7 +462,10 @@ pub fn locality(edges: &[(usize, usize)], basin: &[usize]) -> (usize, usize, f64
     if total == 0 {
         return (0, 0, 0.0);
     }
-    let local = edges.iter().filter(|&&(c, p)| basin[c] == basin[p]).count();
+    let local = edges
+        .iter()
+        .filter(|&&(c, p)| basin[c] == basin[p])
+        .count();
     (local, total, local as f64 / total as f64)
 }
 
@@ -666,10 +667,7 @@ fn main() {
     println!("  Ontology partition-locality probe  (probe 1: partition locality)");
     println!("══════════════════════════════════════════════════════════════════════");
     println!();
-    println!(
-        "  SUBSTRATE: REAL rdfs:subClassOf graphs from {}",
-        dir.display()
-    );
+    println!("  SUBSTRATE: REAL rdfs:subClassOf graphs from {}", dir.display());
     println!("  This is a GENUINE but SMALLER falsifier (10^2..10^3 classes).");
     println!("  It is NOT the full 115M-entity Wikidata P279 graph — there is no");
     println!("  Wikidata dump on disk. A PASS means the locality hypothesis survives");
@@ -689,10 +687,7 @@ fn main() {
 
     if iri_edges.is_empty() {
         eprintln!("No rdfs:subClassOf edges found under {}.", dir.display());
-        eprintln!(
-            "(Found {} .ttl files but no class-to-class subClassOf triples.)",
-            files.len()
-        );
+        eprintln!("(Found {} .ttl files but no class-to-class subClassOf triples.)", files.len());
         std::process::exit(1);
     }
 
@@ -723,25 +718,13 @@ fn main() {
     println!("    subClassOf edges           : {}", total);
     println!("    top-basins (root facets)   : {}", n_basins.len());
     println!();
-    println!(
-        "    LOCALITY                   : {}/{} = {:.4}  ({:.2}% of edges are intra-basin)",
-        local,
-        total,
-        loc_frac,
-        loc_frac * 100.0
-    );
+    println!("    LOCALITY                   : {}/{} = {:.4}  ({:.2}% of edges are intra-basin)",
+        local, total, loc_frac, loc_frac * 100.0);
     println!("      (the map's '~90% local' claim — measured value above)");
     println!();
     println!("    FAN-OUT (distinct parent-basins per class)");
-    println!(
-        "      max                      : {}  (is <=16 enough? {})",
-        max_fo,
-        if max_fo <= 16 {
-            "YES"
-        } else {
-            "NO — exceeds the pencilled 16-frontier"
-        }
-    );
+    println!("      max                      : {}  (is <=16 enough? {})",
+        max_fo, if max_fo <= 16 { "YES" } else { "NO — exceeds the pencilled 16-frontier" });
     println!("      histogram (fanout -> #classes):");
     for (k, cnt) in &fo_hist {
         let bar = "#".repeat((*cnt).min(60));
@@ -758,32 +741,20 @@ fn main() {
     println!("══════════════════════════════════════════════════════════════════════");
     match v {
         Verdict::Pass => {
-            println!(
-                "  High locality ({:.1}%) AND max fan-out {} <= 16.",
-                loc_frac * 100.0,
-                max_fo
-            );
+            println!("  High locality ({:.1}%) AND max fan-out {} <= 16.", loc_frac * 100.0, max_fo);
             println!("  ⇒ On REAL ontology structure, 16-bit LOCAL references + a <=16");
             println!("    family frontier ARE real: the vast majority of subClassOf");
             println!("    references stay inside one top-basin, and no class needs more");
             println!("    than 16 distinct parent-basin pointers.");
         }
         Verdict::Marginal => {
-            println!(
-                "  Locality {:.1}% / max fan-out {}. The hypothesis is PARTIALLY",
-                loc_frac * 100.0,
-                max_fo
-            );
+            println!("  Locality {:.1}% / max fan-out {}. The hypothesis is PARTIALLY", loc_frac * 100.0, max_fo);
             println!("  supported: either locality is below the 90% target, or a few");
             println!("  classes exceed the 16-frontier (a wider frontier byte would fix");
             println!("  those). The local-pointer idea is plausible but not clean here.");
         }
         Verdict::Fail => {
-            println!(
-                "  Locality {:.1}% / max fan-out {}. The local-pointer assumption",
-                loc_frac * 100.0,
-                max_fo
-            );
+            println!("  Locality {:.1}% / max fan-out {}. The local-pointer assumption", loc_frac * 100.0, max_fo);
             println!("  does NOT hold on this structure: too many subClassOf edges cross");
             println!("  basins, so 16-bit local references would miss their targets.");
         }
@@ -842,10 +813,7 @@ ex:Puppy a owl:Class ;
             (":LocalThing".to_string(), ":OtherLocal".to_string()),
         ];
         expected.sort();
-        assert_eq!(
-            edges, expected,
-            "parser must emit exactly the 4 named-class edges"
-        );
+        assert_eq!(edges, expected, "parser must emit exactly the 4 named-class edges");
     }
 
     #[test]
@@ -909,19 +877,12 @@ ex:A a owl:Class ;
         // representative basin. Interning order: a1,rootA,a2,a3,b1,rootB,b2.
         // rootA interns before rootB, so a3's basin = rootA.
         let id = |s: &str| graph.names.iter().position(|n| n == s).unwrap();
-        assert_eq!(
-            basin[id("a3")],
-            basin[id("rootA")],
-            "a3 should land in basin A"
-        );
+        assert_eq!(basin[id("a3")], basin[id("rootA")], "a3 should land in basin A");
 
         let (local, total, frac) = locality(&graph.edges, &basin);
         assert_eq!(total, 6);
         assert_eq!(local, 5, "exactly one edge (a3->rootB) crosses basins");
-        assert!(
-            (frac - 5.0 / 6.0).abs() < 1e-12,
-            "locality must be exactly 5/6"
-        );
+        assert!((frac - 5.0 / 6.0).abs() < 1e-12, "locality must be exactly 5/6");
     }
 
     #[test]
@@ -937,16 +898,10 @@ ex:A a owl:Class ;
         let graph = ClassGraph::from_edges(&iri_edges);
         let basin = graph.assign_basins();
         let (_, _, frac) = locality(&graph.edges, &basin);
-        assert!(
-            (frac - 1.0).abs() < 1e-12,
-            "fully disjoint basins ⇒ locality 1.0"
-        );
+        assert!((frac - 1.0).abs() < 1e-12, "fully disjoint basins ⇒ locality 1.0");
 
         let q = modularity_q(&graph, &basin);
-        assert!(
-            q > 0.3,
-            "two clean communities should give Q > 0.3, got {q}"
-        );
+        assert!(q > 0.3, "two clean communities should give Q > 0.3, got {q}");
     }
 
     #[test]
@@ -981,9 +936,6 @@ ex:A a owl:Class ;
         let graph = ClassGraph::from_edges(&iri_edges);
         let basin = graph.assign_basins();
         assert_eq!(basin.len(), 2);
-        assert!(
-            basin.iter().all(|&b| b != usize::MAX),
-            "every node assigned"
-        );
+        assert!(basin.iter().all(|&b| b != usize::MAX), "every node assigned");
     }
 }

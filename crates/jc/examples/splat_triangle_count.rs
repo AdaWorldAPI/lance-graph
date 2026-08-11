@@ -67,7 +67,7 @@ fn iter_set_bits(plane: &AwarenessPlane16K, mut f: impl FnMut(u32)) {
         while w != 0 {
             let bit = w.trailing_zeros();
             f((word_idx as u32) * 64 + bit);
-            w &= w - 1; // clear lowest set bit
+            w &= w - 1;  // clear lowest set bit
         }
     }
 }
@@ -99,7 +99,7 @@ impl SsbGraph {
         let mut csr_set = vec![Vec::<u32>::new(); n as usize];
         for u in 0..n {
             for v in (u + 1)..n {
-                let r = (splitmix64(&mut state) >> 48) as u32; // 0..2^16
+                let r = (splitmix64(&mut state) >> 48) as u32;  // 0..2^16
                 if r < edge_prob_q16 {
                     set_neighbor(&mut planes[u as usize], v);
                     set_neighbor(&mut planes[v as usize], u);
@@ -109,11 +109,7 @@ impl SsbGraph {
             }
         }
         // CSR neighbour lists are built in increasing u order so already sorted.
-        Self {
-            n,
-            planes,
-            csr: csr_set,
-        }
+        Self { n, planes, csr: csr_set }
     }
 
     fn edge_count(&self) -> u32 {
@@ -163,11 +159,8 @@ fn triangles_csr(g: &SsbGraph) -> u64 {
                 let a = nbrs_u[i];
                 let b = nbrs_v[j];
                 if a == b {
-                    if a > v {
-                        total += 1;
-                    }
-                    i += 1;
-                    j += 1;
+                    if a > v { total += 1; }
+                    i += 1; j += 1;
                 } else if a < b {
                     i += 1;
                 } else {
@@ -192,13 +185,8 @@ fn run_one(label: &str, n: u32, edge_prob_q16: u32, seed: u64) {
     println!("──────────────────────────────────────────────────────────────────────");
     println!("  {}", label);
     println!("──────────────────────────────────────────────────────────────────────");
-    println!(
-        "    nodes={}  edges={}  avg_degree={:.1}  density={:.3}%",
-        n,
-        edges,
-        avg_deg,
-        density * 100.0
-    );
+    println!("    nodes={}  edges={}  avg_degree={:.1}  density={:.3}%",
+        n, edges, avg_deg, density * 100.0);
 
     let t0 = std::time::Instant::now();
     let ssb_tri = triangles_ssb(&g);
@@ -214,34 +202,14 @@ fn run_one(label: &str, n: u32, edge_prob_q16: u32, seed: u64) {
     println!("      triangles = {}  ({} µs)", csr_tri, csr_us);
 
     let correct = ssb_tri == csr_tri;
-    let ratio = if ssb_us > 0 {
-        csr_us as f64 / ssb_us as f64
-    } else {
-        f64::INFINITY
-    };
-    println!(
-        "    correct        : {}",
-        if correct {
-            "YES (counts match)"
-        } else {
-            "NO — DIVERGENT"
-        }
-    );
-    println!(
-        "    SSB / CSR ratio: {:.2}× ({})",
+    let ratio = if ssb_us > 0 { csr_us as f64 / ssb_us as f64 } else { f64::INFINITY };
+    println!("    correct        : {}", if correct { "YES (counts match)" } else { "NO — DIVERGENT" });
+    println!("    SSB / CSR ratio: {:.2}× ({})",
         ratio,
-        if ratio > 1.0 {
-            "SSB faster"
-        } else {
-            "CSR faster"
-        }
-    );
+        if ratio > 1.0 { "SSB faster" } else { "CSR faster" });
     println!();
 
-    assert_eq!(
-        ssb_tri, csr_tri,
-        "SSB triangle count diverges from CSR baseline!"
-    );
+    assert_eq!(ssb_tri, csr_tri, "SSB triangle count diverges from CSR baseline!");
 }
 
 fn main() {
@@ -258,31 +226,16 @@ fn main() {
     println!();
 
     // Sweet spot: dense graph where SSB shines (avg_degree > 256).
-    run_one(
-        "dense graph (avg_degree ~256)",
-        1024,
-        /* p ≈ 0.25 */ 16_384,
-        0xDEAD_BEEF_0001,
-    );
+    run_one("dense graph (avg_degree ~256)", 1024, /* p ≈ 0.25 */ 16_384, 0xDEAD_BEEF_0001);
 
     // Medium graph (CSR competitive but not faster).
-    run_one(
-        "medium graph (avg_degree ~64)",
-        1024,
-        /* p ≈ 0.0625 */ 4_096,
-        0xDEAD_BEEF_0002,
-    );
+    run_one("medium graph (avg_degree ~64)", 1024, /* p ≈ 0.0625 */ 4_096, 0xDEAD_BEEF_0002);
 
     // Sparse graph (CSR theoretically wins; SSB still correct + competitive).
-    run_one(
-        "sparse graph (avg_degree ~16)",
-        1024,
-        /* p ≈ 0.0156 */ 1_024,
-        0xDEAD_BEEF_0003,
-    );
+    run_one("sparse graph (avg_degree ~16)",  1024, /* p ≈ 0.0156 */ 1_024, 0xDEAD_BEEF_0003);
 
     // Larger dense — exercises cache behaviour.
-    run_one("larger dense (n=2048)", 2048, 8_192, 0xDEAD_BEEF_0004);
+    run_one("larger dense (n=2048)",          2048, 8_192, 0xDEAD_BEEF_0004);
 
     println!("══════════════════════════════════════════════════════════════════════");
     println!("  VERDICT");

@@ -190,19 +190,12 @@ mod active {
              (pass if ≥ {:.0e}). \
              Pillar uses sigker::signature_truncated (tensor-algebra path), \
              not signature_kernel_pde — independent of PR #350 PDE-form correction.",
-            N_PAIRS,
-            DIM,
-            DEPTH,
-            max_forward_dist,
-            FORWARD_TOLERANCE,
-            forward_pairs_pass,
-            N_PAIRS,
-            min_converse_dist,
-            CONVERSE_THRESHOLD,
-            converse_pairs_pass,
-            N_PAIRS,
-            discrimination_ratio,
-            DISCRIMINATION_RATIO_MIN,
+            N_PAIRS, DIM, DEPTH,
+            max_forward_dist, FORWARD_TOLERANCE,
+            forward_pairs_pass, N_PAIRS,
+            min_converse_dist, CONVERSE_THRESHOLD,
+            converse_pairs_pass, N_PAIRS,
+            discrimination_ratio, DISCRIMINATION_RATIO_MIN,
         );
 
         PillarResult {

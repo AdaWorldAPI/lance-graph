@@ -104,11 +104,7 @@ struct Spd2 {
 }
 
 impl Spd2 {
-    const I: Self = Self {
-        a: 1.0,
-        b: 0.0,
-        c: 1.0,
-    };
+    const I: Self = Self { a: 1.0, b: 0.0, c: 1.0 };
 
     /// Eigendecomposition.
     /// Returns (λ₁, λ₂, cos θ, sin θ) where the columns of R(θ) = [[c,-s],[s,c]]
@@ -145,12 +141,8 @@ impl Spd2 {
         Self { a, b, c: cc }
     }
 
-    fn sqrt(&self) -> Self {
-        self.pow(0.5)
-    }
-    fn inv_sqrt(&self) -> Self {
-        self.pow(-0.5)
-    }
+    fn sqrt(&self) -> Self { self.pow(0.5) }
+    fn inv_sqrt(&self) -> Self { self.pow(-0.5) }
 
     /// Geodesic A ⊕_t B = A^(1/2) · (A^(-1/2) · B · A^(-1/2))^t · A^(1/2).
     fn geodesic(&self, other: &Self, t: f64) -> Self {
@@ -320,16 +312,8 @@ mod tests {
 
     #[test]
     fn distance_is_symmetric() {
-        let a = Spd2 {
-            a: 2.0,
-            b: 0.3,
-            c: 1.5,
-        };
-        let b = Spd2 {
-            a: 1.0,
-            b: -0.1,
-            c: 3.0,
-        };
+        let a = Spd2 { a: 2.0, b: 0.3, c: 1.5 };
+        let b = Spd2 { a: 1.0, b: -0.1, c: 3.0 };
         let d_ab = a.distance(&b);
         let d_ba = b.distance(&a);
         assert!(approx(d_ab, d_ba, 1e-9), "d(A,B)={d_ab}, d(B,A)={d_ba}");
@@ -337,16 +321,8 @@ mod tests {
 
     #[test]
     fn geodesic_endpoints() {
-        let a = Spd2 {
-            a: 2.0,
-            b: 0.3,
-            c: 1.5,
-        };
-        let b = Spd2 {
-            a: 1.0,
-            b: -0.1,
-            c: 3.0,
-        };
+        let a = Spd2 { a: 2.0, b: 0.3, c: 1.5 };
+        let b = Spd2 { a: 1.0, b: -0.1, c: 3.0 };
         let g0 = a.geodesic(&b, 0.0);
         let g1 = a.geodesic(&b, 1.0);
         assert!(a.distance(&g0) < 1e-8, "γ(0) should be A");
@@ -356,11 +332,7 @@ mod tests {
     #[test]
     fn geodesic_midpoint_of_i_and_2i() {
         // I ⊕_{1/2} 2I should be √2 · I (geometric mean).
-        let two_i = Spd2 {
-            a: 2.0,
-            b: 0.0,
-            c: 2.0,
-        };
+        let two_i = Spd2 { a: 2.0, b: 0.0, c: 2.0 };
         let mid = Spd2::I.geodesic(&two_i, 0.5);
         let sqrt2 = std::f64::consts::SQRT_2;
         assert!(approx(mid.a, sqrt2, 1e-10));
@@ -370,33 +342,21 @@ mod tests {
 
     #[test]
     fn pow_zero_is_identity() {
-        let m = Spd2 {
-            a: 3.0,
-            b: 0.5,
-            c: 2.0,
-        };
+        let m = Spd2 { a: 3.0, b: 0.5, c: 2.0 };
         let p0 = m.pow(0.0);
         assert!(p0.distance(&Spd2::I) < 1e-10);
     }
 
     #[test]
     fn pow_one_is_self() {
-        let m = Spd2 {
-            a: 3.0,
-            b: 0.5,
-            c: 2.0,
-        };
+        let m = Spd2 { a: 3.0, b: 0.5, c: 2.0 };
         let p1 = m.pow(1.0);
         assert!(m.distance(&p1) < 1e-10);
     }
 
     #[test]
     fn sqrt_squared_is_self() {
-        let m = Spd2 {
-            a: 3.0,
-            b: 0.5,
-            c: 2.0,
-        };
+        let m = Spd2 { a: 3.0, b: 0.5, c: 2.0 };
         let r = m.sqrt();
         let r2 = r.pow(2.0);
         assert!(m.distance(&r2) < 1e-10);

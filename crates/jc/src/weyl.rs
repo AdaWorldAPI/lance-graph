@@ -13,9 +13,7 @@ use crate::PillarResult;
 const PHI_INV: f64 = 0.618_033_988_749_894_9; // 1/φ = (√5 - 1) / 2
 const QUINTENZIRKEL: f64 = 0.584_962_500_721_156_0; // log₂(3/2) ≈ 0.585
 
-fn frac(x: f64) -> f64 {
-    x - x.floor()
-}
+fn frac(x: f64) -> f64 { x - x.floor() }
 
 fn star_discrepancy(n: usize, stride: f64) -> f64 {
     let mut points: Vec<f64> = (0..n).map(|k| frac(k as f64 * stride)).collect();
@@ -81,9 +79,6 @@ mod tests {
     fn discrepancy_decreases_with_n() {
         let d_100 = star_discrepancy(100, PHI_INV);
         let d_1000 = star_discrepancy(1000, PHI_INV);
-        assert!(
-            d_1000 < d_100,
-            "discrepancy should decrease: {d_100} vs {d_1000}"
-        );
+        assert!(d_1000 < d_100, "discrepancy should decrease: {d_100} vs {d_1000}");
     }
 }

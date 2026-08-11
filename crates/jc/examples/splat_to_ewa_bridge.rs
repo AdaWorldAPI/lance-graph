@@ -47,8 +47,8 @@
 //!             --example splat_to_ewa_bridge --release
 
 use lance_graph_contract::splat::{
-    witness_to_splat, AwarenessPlane16K, CamPlaneSplat, ReasoningWitness64, SplatPlaneSet,
-    ThetaDecision, TriadicProjection,
+    witness_to_splat, AwarenessPlane16K, CamPlaneSplat, ReasoningWitness64,
+    SplatPlaneSet, ThetaDecision, TriadicProjection,
 };
 
 // ════════════════════════════════════════════════════════════════════════════
@@ -60,18 +60,10 @@ use lance_graph_contract::splat::{
 // ════════════════════════════════════════════════════════════════════════════
 
 #[derive(Clone, Copy, Debug)]
-struct Mat2 {
-    a: f64,
-    b: f64,
-    c: f64,
-}
+struct Mat2 { a: f64, b: f64, c: f64 }
 
 impl Mat2 {
-    const I: Self = Self {
-        a: 1.0,
-        b: 0.0,
-        c: 1.0,
-    };
+    const I: Self = Self { a: 1.0, b: 0.0, c: 1.0 };
 
     fn eig(&self) -> (f64, f64) {
         let half_trace = (self.a + self.c) / 2.0;
@@ -104,9 +96,7 @@ impl Mat2 {
 
     fn log_norm(&self) -> f64 {
         let (l1, l2) = self.eig();
-        if l1 <= 0.0 || l2 <= 0.0 {
-            return f64::INFINITY;
-        }
+        if l1 <= 0.0 || l2 <= 0.0 { return f64::INFINITY; }
         (l1.ln().powi(2) + l2.ln().powi(2)).sqrt()
     }
 }
@@ -139,11 +129,7 @@ fn sandwich(m: &Mat2, n: &Mat2) -> Mat2 {
 fn splat_to_sigma(splat: &CamPlaneSplat) -> Mat2 {
     let alpha = splat.effective_amplitude() as f64 / 255.0 + 0.05;
     let beta = splat.width_q8 as f64 / 255.0 + 0.05;
-    Mat2 {
-        a: alpha,
-        b: 0.0,
-        c: beta,
-    }
+    Mat2 { a: alpha, b: 0.0, c: beta }
 }
 
 fn plane_popcount(plane: &AwarenessPlane16K) -> u32 {
@@ -158,11 +144,9 @@ fn plane_popcount(plane: &AwarenessPlane16K) -> u32 {
 
 struct OsintHop {
     label: &'static str,
-    factor_a: u16,
-    factor_b: u16,
+    factor_a: u16, factor_b: u16,
     witness_bits: u64,
-    sigma_idx: u8,
-    sigma_width_q8: u8,
+    sigma_idx: u8, sigma_width_q8: u8,
     theta: ThetaDecision,
     replay_ref: u64,
 }
@@ -171,72 +155,42 @@ fn osint_chain() -> [OsintHop; 5] {
     [
         OsintHop {
             label: "Lavender→IDF",
-            factor_a: 0x0123,
-            factor_b: 0x0456,
-            witness_bits: 0x0000_0000_0000_00D8, // amp byte D8 ≈ 0.85 conf
-            sigma_idx: 0,
-            sigma_width_q8: 64,
-            theta: ThetaDecision {
-                accept_q8: 16,
-                width_q8: 32,
-                negative: false,
-            },
+            factor_a: 0x0123, factor_b: 0x0456,
+            witness_bits: 0x0000_0000_0000_00D8,  // amp byte D8 ≈ 0.85 conf
+            sigma_idx: 0, sigma_width_q8: 64,
+            theta: ThetaDecision { accept_q8: 16, width_q8: 32, negative: false },
             replay_ref: 0xDEAD_BEEF_0001,
         },
         OsintHop {
             label: "IDF→Israel",
-            factor_a: 0x0456,
-            factor_b: 0x0789,
-            witness_bits: 0x0000_0000_0000_00F2, // amp F2 ≈ 0.95
-            sigma_idx: 1,
-            sigma_width_q8: 32,
-            theta: ThetaDecision {
-                accept_q8: 8,
-                width_q8: 24,
-                negative: false,
-            },
+            factor_a: 0x0456, factor_b: 0x0789,
+            witness_bits: 0x0000_0000_0000_00F2,  // amp F2 ≈ 0.95
+            sigma_idx: 1, sigma_width_q8: 32,
+            theta: ThetaDecision { accept_q8: 8, width_q8: 24, negative: false },
             replay_ref: 0xDEAD_BEEF_0002,
         },
         OsintHop {
             label: "Israel→NSO",
-            factor_a: 0x0789,
-            factor_b: 0x0ABC,
-            witness_bits: 0x0000_0000_0000_00B3, // amp B3 ≈ 0.70
-            sigma_idx: 2,
-            sigma_width_q8: 96,
-            theta: ThetaDecision {
-                accept_q8: 24,
-                width_q8: 48,
-                negative: false,
-            },
+            factor_a: 0x0789, factor_b: 0x0ABC,
+            witness_bits: 0x0000_0000_0000_00B3,  // amp B3 ≈ 0.70
+            sigma_idx: 2, sigma_width_q8: 96,
+            theta: ThetaDecision { accept_q8: 24, width_q8: 48, negative: false },
             replay_ref: 0xDEAD_BEEF_0003,
         },
         OsintHop {
             label: "NSO→Pegasus",
-            factor_a: 0x0ABC,
-            factor_b: 0x0DEF,
-            witness_bits: 0x0000_0000_0000_00E6, // amp E6 ≈ 0.90
-            sigma_idx: 3,
-            sigma_width_q8: 48,
-            theta: ThetaDecision {
-                accept_q8: 12,
-                width_q8: 28,
-                negative: false,
-            },
+            factor_a: 0x0ABC, factor_b: 0x0DEF,
+            witness_bits: 0x0000_0000_0000_00E6,  // amp E6 ≈ 0.90
+            sigma_idx: 3, sigma_width_q8: 48,
+            theta: ThetaDecision { accept_q8: 12, width_q8: 28, negative: false },
             replay_ref: 0xDEAD_BEEF_0004,
         },
         OsintHop {
             label: "Pegasus→Khashoggi",
-            factor_a: 0x0DEF,
-            factor_b: 0x0FED,
-            witness_bits: 0x0000_0000_0000_00E0, // amp E0 ≈ 0.88
-            sigma_idx: 4,
-            sigma_width_q8: 56,
-            theta: ThetaDecision {
-                accept_q8: 16,
-                width_q8: 32,
-                negative: false,
-            },
+            factor_a: 0x0DEF, factor_b: 0x0FED,
+            witness_bits: 0x0000_0000_0000_00E0,  // amp E0 ≈ 0.88
+            sigma_idx: 4, sigma_width_q8: 56,
+            theta: ThetaDecision { accept_q8: 16, width_q8: 32, negative: false },
             replay_ref: 0xDEAD_BEEF_0005,
         },
     ]
@@ -267,33 +221,25 @@ fn stress_1000_paths() -> (u32, f64, f64) {
             let r = splitmix64(&mut state);
             let amp = (r & 0xFF) as u8;
             let width = ((r >> 8) & 0xFF) as u8;
-            let theta_accept = ((r >> 16) & 0x3F) as u8; // ≤ 63 so eff_amp > 0 mostly
+            let theta_accept = ((r >> 16) & 0x3F) as u8;  // ≤ 63 so eff_amp > 0 mostly
             let theta_width = ((r >> 24) & 0x3F) as u8;
 
             let splat = witness_to_splat(
                 ((r >> 32) & 0xFFFF) as u16,
                 ((r >> 48) & 0xFFFF) as u16,
                 TriadicProjection(0),
-                ReasoningWitness64(amp as u64), // amp lives in low byte
+                ReasoningWitness64(amp as u64),  // amp lives in low byte
                 0,
                 width,
-                ThetaDecision {
-                    accept_q8: theta_accept,
-                    width_q8: theta_width,
-                    negative: false,
-                },
+                ThetaDecision { accept_q8: theta_accept, width_q8: theta_width, negative: false },
                 r,
             );
             let step_sigma = splat_to_sigma(&splat);
             let m = step_sigma.sqrt();
             sigma = sandwich(&m, &sigma);
-            if !sigma.is_spd() {
-                all_spd = false;
-            }
+            if !sigma.is_spd() { all_spd = false; }
         }
-        if all_spd {
-            spd_count += 1;
-        }
+        if all_spd { spd_count += 1; }
         log_norms.push(sigma.log_norm());
     }
 
@@ -349,30 +295,16 @@ fn main() {
         let log_norm = new_sigma.log_norm();
 
         println!("  k={}  hop  {}", k + 1, hop.label);
-        println!(
-            "    splat   : center=(0x{:04X},0x{:04X}) channel={:?}  amp={} eff_amp={} width={}",
-            splat.center_a,
-            splat.center_b,
-            splat.channel,
-            splat.amplitude_q8,
-            splat.effective_amplitude(),
-            splat.width_q8
-        );
-        println!(
-            "    Σ_step  = diag({:.4}, {:.4})",
-            step_sigma.a, step_sigma.c
-        );
-        println!(
-            "    Σ       = [[{:.4}, {:.4}], [{:.4}, {:.4}]]   ‖log Σ‖_F = {:.4}   SPD={}",
-            new_sigma.a, new_sigma.b, new_sigma.b, new_sigma.c, log_norm, spd
-        );
+        println!("    splat   : center=(0x{:04X},0x{:04X}) channel={:?}  amp={} eff_amp={} width={}",
+            splat.center_a, splat.center_b, splat.channel,
+            splat.amplitude_q8, splat.effective_amplitude(), splat.width_q8);
+        println!("    Σ_step  = diag({:.4}, {:.4})", step_sigma.a, step_sigma.c);
+        println!("    Σ       = [[{:.4}, {:.4}], [{:.4}, {:.4}]]   ‖log Σ‖_F = {:.4}   SPD={}",
+            new_sigma.a, new_sigma.b, new_sigma.b, new_sigma.c, log_norm, spd);
         println!();
 
         sigma = new_sigma;
-        assert!(
-            spd,
-            "Σ left SPD cone at hop {k} — Pillar 6 violated through SPLAT contract!"
-        );
+        assert!(spd, "Σ left SPD cone at hop {k} — Pillar 6 violated through SPLAT contract!");
     }
 
     let elapsed = t0.elapsed();
@@ -381,27 +313,12 @@ fn main() {
     println!("──────────────────────────────────────────────────────────────────────");
     println!("  L1 — popcount-based exact top-k recovery (per-channel planes)");
     println!("──────────────────────────────────────────────────────────────────────");
-    println!(
-        "    support       : {} bits set",
-        plane_popcount(&planes.support)
-    );
-    println!(
-        "    contradiction : {} bits",
-        plane_popcount(&planes.contradiction)
-    );
-    println!(
-        "    forecast      : {} bits",
-        plane_popcount(&planes.forecast)
-    );
-    println!(
-        "    counterfactual: {} bits",
-        plane_popcount(&planes.counterfactual)
-    );
+    println!("    support       : {} bits set", plane_popcount(&planes.support));
+    println!("    contradiction : {} bits", plane_popcount(&planes.contradiction));
+    println!("    forecast      : {} bits", plane_popcount(&planes.forecast));
+    println!("    counterfactual: {} bits", plane_popcount(&planes.counterfactual));
     println!("    style         : {} bits", plane_popcount(&planes.style));
-    println!(
-        "    source        : {} bits",
-        plane_popcount(&planes.source)
-    );
+    println!("    source        : {} bits", plane_popcount(&planes.source));
     println!();
 
     // ────────── L1 identity recovery via per-splat ledger ──────────────────
@@ -410,10 +327,8 @@ fn main() {
     println!("──────────────────────────────────────────────────────────────────────");
     for (i, splat) in splats.iter().enumerate() {
         let bit_pos = (((splat.center_a as u32) << 8) ^ splat.center_b as u32) % 16_384;
-        println!(
-            "    splat[{}] : bit_position={:5}  channel={:?}  replay_ref=0x{:016X}",
-            i, bit_pos, splat.channel, splat.replay_ref
-        );
+        println!("    splat[{}] : bit_position={:5}  channel={:?}  replay_ref=0x{:016X}",
+            i, bit_pos, splat.channel, splat.replay_ref);
     }
     println!();
 
@@ -424,18 +339,13 @@ fn main() {
     let stress_t0 = std::time::Instant::now();
     let (spd_count, mean_lognorm, std_lognorm) = stress_1000_paths();
     let stress_elapsed = stress_t0.elapsed();
-    println!(
-        "    SPD-preservation rate   : {}/1000  ({:.3}%)",
-        spd_count,
-        spd_count as f64 / 10.0
-    );
+    println!("    SPD-preservation rate   : {}/1000  ({:.3}%)",
+        spd_count, spd_count as f64 / 10.0);
     println!("    mean ‖log Σ_n‖_F        : {:.4}", mean_lognorm);
     println!("    std  ‖log Σ_n‖_F        : {:.4}", std_lognorm);
-    println!(
-        "    runtime                  : {} µs ({:.1} µs/path)",
+    println!("    runtime                  : {} µs ({:.1} µs/path)",
         stress_elapsed.as_micros(),
-        stress_elapsed.as_micros() as f64 / 1000.0
-    );
+        stress_elapsed.as_micros() as f64 / 1000.0);
     println!();
 
     // ────────── VERDICT ───────────────────────────────────────────────────
@@ -444,38 +354,22 @@ fn main() {
     println!("══════════════════════════════════════════════════════════════════════");
     println!("  SPLAT → EWA bridge end-to-end           : YES");
     println!("  Σ stays SPD across canonical 5-hop chain : YES (assertion-checked)");
-    println!(
-        "  Σ stays SPD across 1000 × 10-hop chains : {}/1000",
-        spd_count
-    );
-    println!(
-        "  ‖log Σ_5‖_F (canonical chain)            : {:.4}",
-        sigma.log_norm()
-    );
+    println!("  Σ stays SPD across 1000 × 10-hop chains : {}/1000",  spd_count);
+    println!("  ‖log Σ_5‖_F (canonical chain)            : {:.4}", sigma.log_norm());
     println!("  AwarenessPlane bits recoverable          : YES (popcount + per-splat ledger)");
     println!("  Identity preserved (replay_ref intact)   : YES (5/5)");
     println!();
     println!("  Memory:");
-    println!(
-        "    SplatPlaneSet (6 channels × 2 KB)      : {} bytes",
-        std::mem::size_of::<SplatPlaneSet>()
-    );
-    println!(
-        "    Per-splat ledger ({} entries × {} B)   : {} bytes",
-        chain.len(),
-        std::mem::size_of::<CamPlaneSplat>(),
-        chain.len() * std::mem::size_of::<CamPlaneSplat>()
-    );
+    println!("    SplatPlaneSet (6 channels × 2 KB)      : {} bytes",
+        std::mem::size_of::<SplatPlaneSet>());
+    println!("    Per-splat ledger ({} entries × {} B)   : {} bytes",
+        chain.len(), std::mem::size_of::<CamPlaneSplat>(),
+        chain.len() * std::mem::size_of::<CamPlaneSplat>());
     println!();
     println!("  Runtime:");
-    println!(
-        "    canonical 5-hop chain                  : {} µs",
-        elapsed.as_micros()
-    );
-    println!(
-        "    1000 × 10-hop stress                   : {} µs total",
-        stress_elapsed.as_micros()
-    );
+    println!("    canonical 5-hop chain                  : {} µs", elapsed.as_micros());
+    println!("    1000 × 10-hop stress                   : {} µs total",
+        stress_elapsed.as_micros());
     println!();
     println!("  → Pillar-6 certified math + SPLAT-1 contract = end-to-end OSINT");
     println!("    edge traversal in pure-Rust process memory, identity-preserving,");

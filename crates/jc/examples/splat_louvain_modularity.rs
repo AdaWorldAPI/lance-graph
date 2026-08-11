@@ -101,7 +101,7 @@ struct PlantedGraph {
     ground_truth: Vec<u16>,
     planes: Vec<AwarenessPlane16K>,
     degree: Vec<u32>,
-    total_edges: u32, // |E| (counted once per edge)
+    total_edges: u32,  // |E| (counted once per edge)
 }
 
 impl PlantedGraph {
@@ -123,14 +123,7 @@ impl PlantedGraph {
         }
         let degree: Vec<u32> = planes.iter().map(popcount).collect();
         let total_edges = degree.iter().sum::<u32>() / 2;
-        Self {
-            n,
-            k_communities: k,
-            ground_truth,
-            planes,
-            degree,
-            total_edges,
-        }
+        Self { n, k_communities: k, ground_truth, planes, degree, total_edges }
     }
 }
 
@@ -157,11 +150,7 @@ impl LouvainState {
             community_planes.insert(u as u16, plane);
             community_degree.insert(u as u16, graph.degree[u as usize]);
         }
-        Self {
-            labels,
-            community_planes,
-            community_degree,
-        }
+        Self { labels, community_planes, community_degree }
     }
 
     /// Compute current modularity Q = (1/2m) Σ_c [e_c - (a_c²/2m)]
@@ -186,9 +175,7 @@ impl LouvainState {
     /// Move node `u` from community `from` to community `to`. Updates
     /// labels, community planes, community degrees.
     fn move_node(&mut self, graph: &PlantedGraph, u: u32, from: u16, to: u16) {
-        if from == to {
-            return;
-        }
+        if from == to { return; }
         // Remove from old community.
         if let Some(plane) = self.community_planes.get_mut(&from) {
             clear_neighbor(plane, u);
@@ -203,10 +190,7 @@ impl LouvainState {
             self.community_degree.remove(&from);
         }
         // Add to new community.
-        let plane = self
-            .community_planes
-            .entry(to)
-            .or_insert_with(AwarenessPlane16K::zero);
+        let plane = self.community_planes.entry(to).or_insert_with(AwarenessPlane16K::zero);
         set_neighbor(plane, u);
         *self.community_degree.entry(to).or_insert(0) += deg;
         self.labels[u as usize] = to;
@@ -235,25 +219,25 @@ impl LouvainState {
 // review correction.
 // ───────────────────────────────────────────────────────────────────────────
 
-fn delta_q(graph: &PlantedGraph, state: &LouvainState, u: u32, from: u16, to: u16) -> f64 {
-    if from == to {
-        return 0.0;
-    }
+fn delta_q(
+    graph: &PlantedGraph,
+    state: &LouvainState,
+    u: u32,
+    from: u16,
+    to: u16,
+) -> f64 {
+    if from == to { return 0.0; }
     let m = graph.total_edges as f64;
-    let two_m_squared = 2.0 * m * m; // = 2·m²; canonical Louvain denominator
+    let two_m_squared = 2.0 * m * m;  // = 2·m²; canonical Louvain denominator
     let k_u = graph.degree[u as usize] as f64;
 
     let plane_u = &graph.planes[u as usize];
     // k_{u,in_b}: edges from u to community `to`.
-    let k_u_in_to = state
-        .community_planes
-        .get(&to)
+    let k_u_in_to = state.community_planes.get(&to)
         .map(|p| and_popcount(plane_u, p) as f64)
         .unwrap_or(0.0);
     // k_{u,in_a}: edges from u to community `from`, EXCLUDING u itself.
-    let k_u_in_from = state
-        .community_planes
-        .get(&from)
+    let k_u_in_from = state.community_planes.get(&from)
         .map(|p| and_popcount(plane_u, p) as f64)
         .unwrap_or(0.0);
 
@@ -316,9 +300,7 @@ fn purity(labels: &[u16], ground_truth: &[u16], k_truth: usize) -> f64 {
     let mut correct = 0usize;
     for (_, gts) in clusters {
         let mut count = vec![0u32; k_truth];
-        for g in gts.iter() {
-            count[*g as usize] += 1;
-        }
+        for g in gts.iter() { count[*g as usize] += 1; }
         correct += *count.iter().max().unwrap() as usize;
     }
     correct as f64 / labels.len() as f64
@@ -337,15 +319,10 @@ fn main() {
     println!("══════════════════════════════════════════════════════════════════════");
     println!();
     println!("Graph        : {} nodes, {} planted communities", n, k);
-    println!(
-        "              p_within = {:.2}%   p_across = {:.2}%",
-        p_within as f64 / 655.36,
-        p_across as f64 / 655.36
-    );
-    println!(
-        "Convergence  : α_iter ≥ {} for {} consecutive supersteps",
-        ALPHA_SATURATION_THRESHOLD, MIN_STABLE_ITERS
-    );
+    println!("              p_within = {:.2}%   p_across = {:.2}%",
+        p_within as f64 / 655.36, p_across as f64 / 655.36);
+    println!("Convergence  : α_iter ≥ {} for {} consecutive supersteps",
+        ALPHA_SATURATION_THRESHOLD, MIN_STABLE_ITERS);
     println!();
 
     let graph = PlantedGraph::planted(n, k, p_within, p_across, 0xCAFE_BABE_DEAD_BEEF);
@@ -371,11 +348,7 @@ fn main() {
         let dq = q - prev_q;
         let alpha_iter = (n - changes) as f64 / n as f64;
         let saturated = alpha_iter >= ALPHA_SATURATION_THRESHOLD;
-        if saturated {
-            consecutive += 1;
-        } else {
-            consecutive = 0;
-        }
+        if saturated { consecutive += 1; } else { consecutive = 0; }
 
         // Q monotonicity assertion (allow tiny float slack).
         assert!(dq >= -1e-9, "Q decreased at iter {iter}: ΔQ = {dq}");
@@ -390,16 +363,8 @@ fn main() {
             ""
         };
 
-        println!(
-            "    {:4}   {:7}    {:.4}    {:.6}   {:+.6}   {:6}    {}",
-            iter,
-            changes,
-            alpha_iter,
-            q,
-            dq,
-            unique_labels(&state.labels),
-            note
-        );
+        println!("    {:4}   {:7}    {:.4}    {:.6}   {:+.6}   {:6}    {}",
+            iter, changes, alpha_iter, q, dq, unique_labels(&state.labels), note);
 
         prev_q = q;
         if changes == 0 || consecutive >= MIN_STABLE_ITERS {
@@ -419,22 +384,13 @@ fn main() {
     println!("──────────────────────────────────────────────────────────────────────");
     match converged_at {
         Some(it) => println!("    converged at superstep   : {} (α-saturation)", it),
-        None => println!("    DID NOT CONVERGE within {} supersteps", MAX_SUPERSTEPS),
+        None     => println!("    DID NOT CONVERGE within {} supersteps", MAX_SUPERSTEPS),
     }
-    println!(
-        "    final Q                  : {:.6}  (ΔQ from init: {:+.6})",
-        final_q,
-        final_q - q0
-    );
-    println!(
-        "    unique communities       : {} (ground truth: {})",
-        final_unique, k
-    );
-    println!(
-        "    purity vs ground truth   : {:.4} ({:.1}% correct)",
-        final_purity,
-        final_purity * 100.0
-    );
+    println!("    final Q                  : {:.6}  (ΔQ from init: {:+.6})",
+        final_q, final_q - q0);
+    println!("    unique communities       : {} (ground truth: {})", final_unique, k);
+    println!("    purity vs ground truth   : {:.4} ({:.1}% correct)",
+        final_purity, final_purity * 100.0);
     println!("    runtime                  : {} µs", elapsed.as_micros());
     println!();
 
@@ -458,18 +414,10 @@ fn main() {
         for iter in 1..=MAX_SUPERSTEPS {
             let changes = louvain_superstep(&g, &mut s);
             let q = s.modularity(&g);
-            assert!(
-                q - prev_q >= -1e-9,
-                "stress run {run} iter {iter}: Q decreased ({:+e})",
-                q - prev_q
-            );
+            assert!(q - prev_q >= -1e-9, "stress run {run} iter {iter}: Q decreased ({:+e})", q - prev_q);
             prev_q = q;
             let alpha_iter = (n - changes) as f64 / n as f64;
-            if alpha_iter >= ALPHA_SATURATION_THRESHOLD {
-                consec += 1;
-            } else {
-                consec = 0;
-            }
+            if alpha_iter >= ALPHA_SATURATION_THRESHOLD { consec += 1; } else { consec = 0; }
             if changes == 0 || consec >= MIN_STABLE_ITERS {
                 converged_at = Some(iter);
                 break;
@@ -489,25 +437,16 @@ fn main() {
     let q_var = (q_sq_sum / converged_count.max(1) as f64) - q_mean * q_mean;
 
     println!("    converged                : {}/100", converged_count);
-    println!(
-        "    mean iterations          : {:.1}",
-        iters_sum as f64 / converged_count.max(1) as f64
-    );
-    println!(
-        "    mean purity              : {:.4}",
-        purity_sum / converged_count.max(1) as f64
-    );
+    println!("    mean iterations          : {:.1}",
+        iters_sum as f64 / converged_count.max(1) as f64);
+    println!("    mean purity              : {:.4}",
+        purity_sum / converged_count.max(1) as f64);
     println!("    mean Q at convergence    : {:.6}", q_mean);
     println!("    Q variance across runs   : {:.6e}", q_var);
-    println!(
-        "    Q std (empirical)        : {:.6}",
-        q_var.max(0.0).sqrt()
-    );
-    println!(
-        "    runtime                  : {} ms ({:.1} ms / run)",
+    println!("    Q std (empirical)        : {:.6}", q_var.max(0.0).sqrt());
+    println!("    runtime                  : {} ms ({:.1} ms / run)",
         stress_elapsed.as_millis(),
-        stress_elapsed.as_millis() as f64 / 100.0
-    );
+        stress_elapsed.as_millis() as f64 / 100.0);
     println!();
 
     // ── verdict ──────────────────────────────────────────────────────────
@@ -516,26 +455,12 @@ fn main() {
     println!("══════════════════════════════════════════════════════════════════════");
     println!("  L4 SoA sweep IS one Louvain Phase-1 iter   : YES");
     println!("  α-saturation IS the convergence criterion   : YES");
-    println!(
-        "  Q monotonically non-decreasing (assertion)  : YES (across {} runs)",
-        converged_count
-    );
-    println!(
-        "  Convergence rate                            : {}/100",
-        converged_count
-    );
-    println!(
-        "  Mean purity (vs ground-truth communities)   : {:.4}",
-        purity_sum / converged_count.max(1) as f64
-    );
-    println!(
-        "  Mean Q at convergence                       : {:.6}",
-        q_mean
-    );
-    println!(
-        "  Empirical Q std across runs                 : {:.6}",
-        q_var.max(0.0).sqrt()
-    );
+    println!("  Q monotonically non-decreasing (assertion)  : YES (across {} runs)", converged_count);
+    println!("  Convergence rate                            : {}/100",  converged_count);
+    println!("  Mean purity (vs ground-truth communities)   : {:.4}",
+        purity_sum / converged_count.max(1) as f64);
+    println!("  Mean Q at convergence                       : {:.6}", q_mean);
+    println!("  Empirical Q std across runs                 : {:.6}", q_var.max(0.0).sqrt());
     println!();
     println!("  → Louvain Phase-1 reduces to:");
     println!("      L1: degree(u) = popcount(neighbour_plane[u])");
@@ -544,17 +469,12 @@ fn main() {
     println!("    All three measured. ΔQ formula is the standard Louvain modularity gain.");
     println!();
     println!("  → vs LPA on the same graph (prior probe, mean purity ~0.475):");
-    println!(
-        "    Louvain {:.4} vs LPA ~0.475 = {:.2}× quality improvement",
+    println!("    Louvain {:.4} vs LPA ~0.475 = {:.2}× quality improvement",
         purity_sum / converged_count.max(1) as f64,
-        purity_sum / converged_count.max(1) as f64 / 0.475
-    );
+        purity_sum / converged_count.max(1) as f64 / 0.475);
     println!();
     println!("  → Pillar-6 confidence-interval footnote:");
-    println!(
-        "    Empirical Q std = {:.6} across 100 runs.",
-        q_var.max(0.0).sqrt()
-    );
+    println!("    Empirical Q std = {:.6} across 100 runs.", q_var.max(0.0).sqrt());
     println!("    Per-run Q variance is bounded by the Pillar-6 KS bound on");
     println!("    EWA-sandwich variance growth on community-membership planes.");
     println!("    Concrete σ_pred derivation deferred to a follow-up probe;");

@@ -64,11 +64,11 @@
 
 use crate::PillarResult;
 
-const D: usize = 16_384; // substrate-native fingerprint dimension
-const N: usize = 1_000; // samples per Monte Carlo run
-const M: usize = 20; // Monte Carlo runs
-const PHI: f64 = 0.5; // AR(1) coefficient (moderate dependence)
-const TOLERANCE: f64 = 0.10; // relative-error PASS threshold
+const D: usize = 16_384;          // substrate-native fingerprint dimension
+const N: usize = 1_000;           // samples per Monte Carlo run
+const M: usize = 20;              // Monte Carlo runs
+const PHI: f64 = 0.5;             // AR(1) coefficient (moderate dependence)
+const TOLERANCE: f64 = 0.10;      // relative-error PASS threshold
 
 // ════════════════════════════════════════════════════════════════════════════
 // Deterministic randomness (matches existing pillar conventions)
@@ -95,10 +95,7 @@ struct NormalGen {
 
 impl NormalGen {
     fn new(seed: u64) -> Self {
-        Self {
-            state: seed,
-            cached: None,
-        }
+        Self { state: seed, cached: None }
     }
 
     fn next(&mut self) -> f64 {
@@ -225,10 +222,7 @@ mod tests {
         // Smaller d/n for fast tests; the rate is independent of d.
         let (measured, predicted) = measure_trace(2048, 500, 30, 0.0, 0x1234_5678);
         let rel_err = (measured - predicted).abs() / predicted;
-        assert!(
-            rel_err < 0.05,
-            "iid case: measured={measured:.2}, predicted={predicted:.2}, rel_err={rel_err:.4}"
-        );
+        assert!(rel_err < 0.05, "iid case: measured={measured:.2}, predicted={predicted:.2}, rel_err={rel_err:.4}");
     }
 
     /// High dependence φ = 0.9: long-run variance amplified by (1+φ)/(1-φ) = 19.
@@ -239,10 +233,7 @@ mod tests {
         let (measured, predicted) = measure_trace(2048, 2000, 30, 0.9, 0x9876_5432);
         let rel_err = (measured - predicted).abs() / predicted;
         // Looser tolerance — the φ=0.9 case has slow mixing, so finite-n bias is bigger.
-        assert!(
-            rel_err < 0.15,
-            "φ=0.9 case: measured={measured:.2}, predicted={predicted:.2}, rel_err={rel_err:.4}"
-        );
+        assert!(rel_err < 0.15, "φ=0.9 case: measured={measured:.2}, predicted={predicted:.2}, rel_err={rel_err:.4}");
     }
 
     /// Negative dependence φ = -0.5: long-run variance suppressed to (1−0.5)/(1+0.5) = 1/3.
@@ -251,10 +242,7 @@ mod tests {
     fn negative_dependence_suppresses_long_run_variance() {
         let (measured, predicted) = measure_trace(2048, 1000, 30, -0.5, 0xABCD_EF01);
         let rel_err = (measured - predicted).abs() / predicted;
-        assert!(
-            rel_err < 0.10,
-            "φ=-0.5 case: measured={measured:.2}, predicted={predicted:.2}, rel_err={rel_err:.4}"
-        );
+        assert!(rel_err < 0.10, "φ=-0.5 case: measured={measured:.2}, predicted={predicted:.2}, rel_err={rel_err:.4}");
     }
 
     /// Symmetry: trace estimate should be deterministic given the same seed
@@ -263,10 +251,7 @@ mod tests {
     fn deterministic_with_fixed_seed() {
         let (m1, _) = measure_trace(512, 200, 5, 0.3, 0xCAFE_BABE);
         let (m2, _) = measure_trace(512, 200, 5, 0.3, 0xCAFE_BABE);
-        assert!(
-            (m1 - m2).abs() < 1e-12,
-            "seed determinism broken: {m1} vs {m2}"
-        );
+        assert!((m1 - m2).abs() < 1e-12, "seed determinism broken: {m1} vs {m2}");
     }
 
     /// NormalGen sanity: large sample mean ≈ 0, variance ≈ 1.

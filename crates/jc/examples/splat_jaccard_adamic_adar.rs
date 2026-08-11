@@ -55,18 +55,14 @@ fn popcount(p: &AwarenessPlane16K) -> u32 {
 #[inline(always)]
 fn and_popcount(a: &AwarenessPlane16K, b: &AwarenessPlane16K) -> u32 {
     let mut acc = 0u32;
-    for i in 0..256 {
-        acc += (a.0[i] & b.0[i]).count_ones();
-    }
+    for i in 0..256 { acc += (a.0[i] & b.0[i]).count_ones(); }
     acc
 }
 
 #[inline(always)]
 fn or_popcount(a: &AwarenessPlane16K, b: &AwarenessPlane16K) -> u32 {
     let mut acc = 0u32;
-    for i in 0..256 {
-        acc += (a.0[i] | b.0[i]).count_ones();
-    }
+    for i in 0..256 { acc += (a.0[i] | b.0[i]).count_ones(); }
     acc
 }
 
@@ -117,13 +113,7 @@ impl PlantedGraph {
             }
         }
         let degree: Vec<u32> = planes.iter().map(popcount).collect();
-        Self {
-            n,
-            k_communities: k,
-            ground_truth,
-            planes,
-            degree,
-        }
+        Self { n, k_communities: k, ground_truth, planes, degree }
     }
 }
 
@@ -133,11 +123,7 @@ impl PlantedGraph {
 fn jaccard(graph: &PlantedGraph, u: u32, v: u32) -> f64 {
     let inter = and_popcount(&graph.planes[u as usize], &graph.planes[v as usize]) as f64;
     let union = or_popcount(&graph.planes[u as usize], &graph.planes[v as usize]) as f64;
-    if union == 0.0 {
-        0.0
-    } else {
-        inter / union
-    }
+    if union == 0.0 { 0.0 } else { inter / union }
 }
 
 #[inline]
@@ -166,37 +152,25 @@ fn adamic_adar(graph: &PlantedGraph, u: u32, v: u32) -> f64 {
 #[derive(Default)]
 struct PairStats {
     count: u64,
-    sum_j: f64,
-    sum_j_sq: f64,
-    sum_aa: f64,
-    sum_aa_sq: f64,
+    sum_j: f64, sum_j_sq: f64,
+    sum_aa: f64, sum_aa_sq: f64,
 }
 
 impl PairStats {
     fn add(&mut self, j: f64, aa: f64) {
         self.count += 1;
-        self.sum_j += j;
-        self.sum_j_sq += j * j;
-        self.sum_aa += aa;
-        self.sum_aa_sq += aa * aa;
+        self.sum_j += j; self.sum_j_sq += j * j;
+        self.sum_aa += aa; self.sum_aa_sq += aa * aa;
     }
-    fn mean_j(&self) -> f64 {
-        self.sum_j / self.count.max(1) as f64
-    }
+    fn mean_j(&self) -> f64 { self.sum_j / self.count.max(1) as f64 }
     fn std_j(&self) -> f64 {
         let m = self.mean_j();
-        ((self.sum_j_sq / self.count.max(1) as f64) - m * m)
-            .max(0.0)
-            .sqrt()
+        ((self.sum_j_sq / self.count.max(1) as f64) - m * m).max(0.0).sqrt()
     }
-    fn mean_aa(&self) -> f64 {
-        self.sum_aa / self.count.max(1) as f64
-    }
+    fn mean_aa(&self) -> f64 { self.sum_aa / self.count.max(1) as f64 }
     fn std_aa(&self) -> f64 {
         let m = self.mean_aa();
-        ((self.sum_aa_sq / self.count.max(1) as f64) - m * m)
-            .max(0.0)
-            .sqrt()
+        ((self.sum_aa_sq / self.count.max(1) as f64) - m * m).max(0.0).sqrt()
     }
 }
 
@@ -219,8 +193,8 @@ fn pair_bit_position(u: u32, v: u32, n: u32) -> u32 {
 fn main() {
     let n = 512u32;
     let k = 4u32;
-    let p_within = 16_384u32; // 25 %
-    let p_across = 1_024u32; // 1.5 %
+    let p_within = 16_384u32;  // 25 %
+    let p_across = 1_024u32;   // 1.5 %
 
     println!("══════════════════════════════════════════════════════════════════════");
     println!("  SplatShaderBlas-Bitpacked — Jaccard + Adamic-Adar + mutate-back");
@@ -232,11 +206,8 @@ fn main() {
     println!("              the 20K × 20K Gaussian-splat lab work.");
     println!();
     println!("Graph        : {} nodes, {} planted communities", n, k);
-    println!(
-        "              p_within = {:.2}%   p_across = {:.2}%",
-        p_within as f64 / 655.36,
-        p_across as f64 / 655.36
-    );
+    println!("              p_within = {:.2}%   p_across = {:.2}%",
+        p_within as f64 / 655.36, p_across as f64 / 655.36);
     println!();
 
     let graph = PlantedGraph::planted(n, k, p_within, p_across, 0xCAFE_BABE_DEAD_BEEF);
@@ -251,8 +222,7 @@ fn main() {
 
     let mut same = PairStats::default();
     let mut cross = PairStats::default();
-    let mut all_pairs: Vec<(u32, u32, f64, f64, bool)> =
-        Vec::with_capacity((n * (n - 1) / 2) as usize);
+    let mut all_pairs: Vec<(u32, u32, f64, f64, bool)> = Vec::with_capacity((n * (n - 1) / 2) as usize);
 
     let t_compute = std::time::Instant::now();
     for u in 0..n {
@@ -260,75 +230,44 @@ fn main() {
             let j = jaccard(&graph, u, v);
             let aa = adamic_adar(&graph, u, v);
             let same_comm = graph.ground_truth[u as usize] == graph.ground_truth[v as usize];
-            if same_comm {
-                same.add(j, aa);
-            } else {
-                cross.add(j, aa);
-            }
+            if same_comm { same.add(j, aa); } else { cross.add(j, aa); }
             all_pairs.push((u, v, j, aa, same_comm));
         }
     }
     let compute_us = t_compute.elapsed().as_micros();
 
     println!("    pairs computed       : {}", all_pairs.len());
-    println!(
-        "    runtime              : {} ms ({:.2} µs/pair)",
+    println!("    runtime              : {} ms ({:.2} µs/pair)",
         compute_us / 1000,
-        compute_us as f64 / all_pairs.len() as f64
-    );
+        compute_us as f64 / all_pairs.len() as f64);
     println!();
     println!("    Same-community ({} pairs):", same.count);
-    println!(
-        "      mean Jaccard       : {:.4}  (σ = {:.4})",
-        same.mean_j(),
-        same.std_j()
-    );
-    println!(
-        "      mean Adamic-Adar   : {:.4}  (σ = {:.4})",
-        same.mean_aa(),
-        same.std_aa()
-    );
+    println!("      mean Jaccard       : {:.4}  (σ = {:.4})", same.mean_j(), same.std_j());
+    println!("      mean Adamic-Adar   : {:.4}  (σ = {:.4})", same.mean_aa(), same.std_aa());
     println!("    Cross-community ({} pairs):", cross.count);
-    println!(
-        "      mean Jaccard       : {:.4}  (σ = {:.4})",
-        cross.mean_j(),
-        cross.std_j()
-    );
-    println!(
-        "      mean Adamic-Adar   : {:.4}  (σ = {:.4})",
-        cross.mean_aa(),
-        cross.std_aa()
-    );
+    println!("      mean Jaccard       : {:.4}  (σ = {:.4})", cross.mean_j(), cross.std_j());
+    println!("      mean Adamic-Adar   : {:.4}  (σ = {:.4})", cross.mean_aa(), cross.std_aa());
     println!();
 
     // Discrimination (Cohen's d analog).
-    let d_j = (same.mean_j() - cross.mean_j()) / ((same.std_j() + cross.std_j()) / 2.0).max(1e-9);
-    let d_aa =
-        (same.mean_aa() - cross.mean_aa()) / ((same.std_aa() + cross.std_aa()) / 2.0).max(1e-9);
+    let d_j = (same.mean_j() - cross.mean_j()) /
+              ((same.std_j() + cross.std_j()) / 2.0).max(1e-9);
+    let d_aa = (same.mean_aa() - cross.mean_aa()) /
+               ((same.std_aa() + cross.std_aa()) / 2.0).max(1e-9);
     println!("    Discrimination (same vs cross):");
-    println!(
-        "      Jaccard d-effect   : {:.2}  (>0.8 = strong, >2.0 = very strong)",
-        d_j
-    );
+    println!("      Jaccard d-effect   : {:.2}  (>0.8 = strong, >2.0 = very strong)", d_j);
     println!("      Adamic-Adar effect : {:.2}", d_aa);
     println!();
 
-    assert!(
-        same.mean_j() > cross.mean_j(),
-        "Jaccard FAILED to discriminate same vs cross community pairs"
-    );
-    assert!(
-        same.mean_aa() > cross.mean_aa(),
-        "Adamic-Adar FAILED to discriminate same vs cross community pairs"
-    );
+    assert!(same.mean_j() > cross.mean_j(),
+        "Jaccard FAILED to discriminate same vs cross community pairs");
+    assert!(same.mean_aa() > cross.mean_aa(),
+        "Adamic-Adar FAILED to discriminate same vs cross community pairs");
 
     // ── Phase 2: mutate-back top-K pairs into SIMILAR channel ─────────────
     let top_k = 200;
     println!("──────────────────────────────────────────────────────────────────────");
-    println!(
-        "  Mutate-back: deposit top-{} pairs by Jaccard into SIMILAR channel",
-        top_k
-    );
+    println!("  Mutate-back: deposit top-{} pairs by Jaccard into SIMILAR channel", top_k);
     println!("──────────────────────────────────────────────────────────────────────");
 
     // Sort by Jaccard descending.
@@ -348,36 +287,22 @@ fn main() {
     let same_comm_in_topk = top.iter().filter(|p| p.4).count();
 
     println!("    deposit runtime          : {} µs", mutate_us);
-    println!(
-        "    bits deposited           : {} (≤ {} = top_k; possible hash collisions)",
-        deposited, top_k
-    );
-    println!(
-        "    top-{} same-community    : {}/{} ({:.1}%)",
-        top_k,
-        same_comm_in_topk,
-        top_k,
-        same_comm_in_topk as f64 / top_k as f64 * 100.0
-    );
-    println!(
-        "    expected by chance       : {:.1}% (1/k = 1/{} for balanced k-cluster)",
-        100.0 / k as f64,
-        k
-    );
+    println!("    bits deposited           : {} (≤ {} = top_k; possible hash collisions)",
+        deposited, top_k);
+    println!("    top-{} same-community    : {}/{} ({:.1}%)",
+        top_k, same_comm_in_topk, top_k,
+        same_comm_in_topk as f64 / top_k as f64 * 100.0);
+    println!("    expected by chance       : {:.1}% (1/k = 1/{} for balanced k-cluster)",
+        100.0 / k as f64, k);
     println!();
 
     // Sanity: original neighbour planes must be unchanged after mutate.
     let total_edges_post: u32 = graph.degree.iter().sum::<u32>() / 2;
-    assert_eq!(
-        edges, total_edges_post,
-        "neighbour-plane edges changed during mutate-back!"
-    );
+    assert_eq!(edges, total_edges_post,
+        "neighbour-plane edges changed during mutate-back!");
 
     // L4 sweep verification: popcount on the SIMILAR plane is the L1 readback.
-    println!(
-        "    L4 readback (popcount on SIMILAR plane): {} bits set",
-        deposited
-    );
+    println!("    L4 readback (popcount on SIMILAR plane): {} bits set", deposited);
     println!("    → confirms mutate-back is visible to subsequent L4 sweeps.");
     println!();
 
@@ -398,11 +323,7 @@ fn main() {
                 let j = jaccard(&g, u, v);
                 let aa = adamic_adar(&g, u, v);
                 let same = g.ground_truth[u as usize] == g.ground_truth[v as usize];
-                if same {
-                    s.add(j, aa);
-                } else {
-                    c.add(j, aa);
-                }
+                if same { s.add(j, aa); } else { c.add(j, aa); }
             }
         }
         let dj = (s.mean_j() - c.mean_j()) / ((s.std_j() + c.std_j()) / 2.0).max(1e-9);
@@ -414,18 +335,13 @@ fn main() {
     let mean_dj: f64 = all_d_j.iter().sum::<f64>() / all_d_j.len() as f64;
     let mean_daa: f64 = all_d_aa.iter().sum::<f64>() / all_d_aa.len() as f64;
 
-    println!(
-        "    runs                    : 50 × n={} ({} pairs each)",
-        n_stress,
-        n_stress * (n_stress - 1) / 2
-    );
+    println!("    runs                    : 50 × n={} ({} pairs each)",
+        n_stress, n_stress * (n_stress - 1) / 2);
     println!("    mean Jaccard d-effect   : {:.3}", mean_dj);
     println!("    mean Adamic-Adar effect : {:.3}", mean_daa);
-    println!(
-        "    runtime                 : {} ms ({:.1} ms / run)",
+    println!("    runtime                 : {} ms ({:.1} ms / run)",
         stress_elapsed.as_millis(),
-        stress_elapsed.as_millis() as f64 / 50.0
-    );
+        stress_elapsed.as_millis() as f64 / 50.0);
     println!();
 
     // ── verdict ──────────────────────────────────────────────────────────
@@ -435,33 +351,16 @@ fn main() {
     println!("  Jaccard reduces to L2 popcount-AND / L2 popcount-OR    : YES");
     println!("  Adamic-Adar reduces to L2 AND-iter + L1 popcount       : YES");
     println!("  Same-community pairs score higher (canonical run)      :");
-    println!(
-        "      Jaccard:     {:.4} (same) vs {:.4} (cross), d = {:.2}",
-        same.mean_j(),
-        cross.mean_j(),
-        d_j
-    );
-    println!(
-        "      Adamic-Adar: {:.4} (same) vs {:.4} (cross), d = {:.2}",
-        same.mean_aa(),
-        cross.mean_aa(),
-        d_aa
-    );
+    println!("      Jaccard:     {:.4} (same) vs {:.4} (cross), d = {:.2}",
+        same.mean_j(), cross.mean_j(), d_j);
+    println!("      Adamic-Adar: {:.4} (same) vs {:.4} (cross), d = {:.2}",
+        same.mean_aa(), cross.mean_aa(), d_aa);
     println!("  Mutate-back into SIMILAR plane in one L4 sweep         : YES");
-    println!(
-        "    {} top pairs deposited; {} bits set on SIMILAR plane",
-        top_k, deposited
-    );
-    println!(
-        "    {}/{} top pairs are same-community = {:.0}% precision",
-        same_comm_in_topk,
-        top_k,
-        same_comm_in_topk as f64 / top_k as f64 * 100.0
-    );
-    println!(
-        "  Stress (50 graphs): mean discrimination d_J = {:.2}, d_AA = {:.2}",
-        mean_dj, mean_daa
-    );
+    println!("    {} top pairs deposited; {} bits set on SIMILAR plane", top_k, deposited);
+    println!("    {}/{} top pairs are same-community = {:.0}% precision",
+        same_comm_in_topk, top_k, same_comm_in_topk as f64 / top_k as f64 * 100.0);
+    println!("  Stress (50 graphs): mean discrimination d_J = {:.2}, d_AA = {:.2}",
+        mean_dj, mean_daa);
     println!();
     println!("  → Substrate scope: bitpacked AwarenessPlane16K (popcount tier).");
     println!("    The palette-codec tier (BGZ17, 256-entry codebook + 256×256");
