@@ -1,0 +1,106 @@
+{
+  "variable": "2m_temperature",
+  "run": "A (season/timestep only, variable held fixed at 2m_temperature)",
+  "time_index": {
+    "summer": 547476,
+    "winter": 543852
+  },
+  "stale_fixture_guard": {
+    "checks": [
+      {
+        "season": "summer",
+        "key": "t547476/2m_temperature",
+        "declared_time_index": 547476,
+        "manifest_time_index": 547476,
+        "shape": [
+          721,
+          1440
+        ],
+        "time_index_matches": true
+      },
+      {
+        "season": "winter",
+        "key": "t543852/2m_temperature",
+        "declared_time_index": 543852,
+        "manifest_time_index": 543852,
+        "shape": [
+          721,
+          1440
+        ],
+        "time_index_matches": true
+      }
+    ],
+    "max_abs_diff_K": 72.55035400390625
+  },
+  "flip_points": {
+    "summer": {
+      "linear": {
+        "flip_point_ci": 0.094119530779043,
+        "n_buckets_at_crossing": 6,
+        "mass_fraction_at_crossing": 0.01029589902849999,
+        "percentile_cross_check_ci": 0.094119530779043,
+        "sat_frac": 0.008476845430728927,
+        "interior_ci_min": 0.09411953077903945,
+        "interior_ci_med": 0.09411953077904034,
+        "interior_ci_max": 0.094119530779043,
+        "n_interior_points": 1029439,
+        "n_nonempty_interior_buckets": 254,
+        "apparatus_note": "LINEAR CI is CONSTANT across every interior bucket ((hi-lo)/512); expected apparatus behaviour (the control), not a defect -- the flip point is a single threshold, not a survival curve."
+      },
+      "fisher_z": {
+        "flip_point_ci": 0.42898798181318165,
+        "n_buckets_at_crossing": 1,
+        "mass_fraction_at_crossing": 0.14222354728063052,
+        "percentile_cross_check_ci": 0.42898798181318165,
+        "sat_frac": 0.008202342425643397,
+        "interior_ci_min": 1.0828864116518844e-06,
+        "interior_ci_med": 0.005607407743958959,
+        "interior_ci_max": 0.42898798181318165,
+        "n_interior_points": 1029724,
+        "n_nonempty_interior_buckets": 178
+      }
+    },
+    "winter": {
+      "linear": {
+        "flip_point_ci": 0.09959033389547045,
+        "n_buckets_at_crossing": 3,
+        "mass_fraction_at_crossing": 0.012259439476852837,
+        "percentile_cross_check_ci": 0.09959033389547045,
+        "sat_frac": 0.00889678687008784,
+        "interior_ci_min": 0.0995903338954669,
+        "interior_ci_med": 0.09959033389546779,
+        "interior_ci_max": 0.09959033389547045,
+        "n_interior_points": 1029003,
+        "n_nonempty_interior_buckets": 254,
+        "apparatus_note": "LINEAR CI is CONSTANT across every interior bucket ((hi-lo)/512); expected apparatus behaviour (the control), not a defect -- the flip point is a single threshold, not a survival curve."
+      },
+      "fisher_z": {
+        "flip_point_ci": 0.4708932274009494,
+        "n_buckets_at_crossing": 1,
+        "mass_fraction_at_crossing": 0.11613493518111118,
+        "percentile_cross_check_ci": 0.4708932274009494,
+        "sat_frac": 0.008359338881183542,
+        "interior_ci_min": 7.322778952101316e-07,
+        "interior_ci_med": 0.006317516502671872,
+        "interior_ci_max": 0.4708932274009494,
+        "n_interior_points": 1029561,
+        "n_nonempty_interior_buckets": 183
+      }
+    }
+  },
+  "season_comparison": {
+    "linear": {
+      "summer_flip_point_K": 0.094119530779043,
+      "winter_flip_point_K": 0.09959033389547045,
+      "ratio_max_over_min": 1.0581261197452292,
+      "within_factor_of_2": true
+    },
+    "fisher_z": {
+      "summer_flip_point_K": 0.42898798181318165,
+      "winter_flip_point_K": 0.4708932274009494,
+      "ratio_max_over_min": 1.0976839617059877,
+      "within_factor_of_2": true
+    }
+  },
+  "NO_VERDICT": false
+}

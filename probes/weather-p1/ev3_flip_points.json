@@ -1,0 +1,83 @@
+{
+  "2m_temperature": {
+    "linear": {
+      "flip_point_ci": 0.094119530779043,
+      "n_buckets_at_crossing": 6,
+      "mass_fraction_at_crossing": 0.01029589902849999,
+      "percentile_cross_check_ci": 0.094119530779043,
+      "sat_frac": 0.008476845430728927,
+      "interior_ci_min": 0.09411953077903945,
+      "interior_ci_med": 0.09411953077904034,
+      "interior_ci_max": 0.094119530779043,
+      "n_interior_points": 1029439,
+      "n_nonempty_interior_buckets": 254,
+      "apparatus_note": "LINEAR CI is CONSTANT across every interior bucket ((hi-lo)/512); this is expected apparatus behaviour (the control), not a defect -- the flip point is a single threshold, not a survival curve."
+    },
+    "fisher_z": {
+      "flip_point_ci": 0.42898798181318165,
+      "n_buckets_at_crossing": 1,
+      "mass_fraction_at_crossing": 0.14222354728063052,
+      "percentile_cross_check_ci": 0.42898798181318165,
+      "sat_frac": 0.008202342425643397,
+      "interior_ci_min": 1.0828864116518844e-06,
+      "interior_ci_med": 0.005607407743958959,
+      "interior_ci_max": 0.42898798181318165,
+      "n_interior_points": 1029724,
+      "n_nonempty_interior_buckets": 178
+    }
+  },
+  "2m_dewpoint_temperature": {
+    "linear": {
+      "flip_point_ci": 0.09714244377853376,
+      "n_buckets_at_crossing": 16,
+      "mass_fraction_at_crossing": 0.01021359857147576,
+      "percentile_cross_check_ci": 0.09714244377853376,
+      "sat_frac": 0.008597241485591,
+      "interior_ci_min": 0.09714244377853021,
+      "interior_ci_med": 0.09714244377853198,
+      "interior_ci_max": 0.09714244377853376,
+      "n_interior_points": 1029314,
+      "n_nonempty_interior_buckets": 254,
+      "apparatus_note": "LINEAR CI is CONSTANT across every interior bucket ((hi-lo)/512); this is expected apparatus behaviour (the control), not a defect -- the flip point is a single threshold, not a survival curve."
+    },
+    "fisher_z": {
+      "flip_point_ci": 0.44686068352030467,
+      "n_buckets_at_crossing": 1,
+      "mass_fraction_at_crossing": 0.11313452867330083,
+      "percentile_cross_check_ci": 0.44686068352030467,
+      "sat_frac": 0.008205231930960087,
+      "interior_ci_min": 9.57218221131484e-07,
+      "interior_ci_med": 0.0052651464074298104,
+      "interior_ci_max": 0.44686068352030467,
+      "n_interior_points": 1029721,
+      "n_nonempty_interior_buckets": 182
+    }
+  },
+  "10m_u_component_of_wind": {
+    "linear": {
+      "flip_point_ci": 0.05318731786305797,
+      "n_buckets_at_crossing": 25,
+      "mass_fraction_at_crossing": 0.010778521064504033,
+      "percentile_cross_check_ci": 0.05318731786305797,
+      "sat_frac": 0.008551009400523963,
+      "interior_ci_min": 0.053187317863056194,
+      "interior_ci_med": 0.05318731786305797,
+      "interior_ci_max": 0.05318731786305797,
+      "n_interior_points": 1029362,
+      "n_nonempty_interior_buckets": 254,
+      "apparatus_note": "LINEAR CI is CONSTANT across every interior bucket ((hi-lo)/512); this is expected apparatus behaviour (the control), not a defect -- the flip point is a single threshold, not a survival curve."
+    },
+    "fisher_z": {
+      "flip_point_ci": 0.2275215876242522,
+      "n_buckets_at_crossing": 1,
+      "mass_fraction_at_crossing": 0.044552594749411686,
+      "percentile_cross_check_ci": 0.2275215876242522,
+      "sat_frac": 0.0082861380798274,
+      "interior_ci_min": 1.654674086637442e-06,
+      "interior_ci_med": 0.005041045763830354,
+      "interior_ci_max": 0.2275215876242522,
+      "n_interior_points": 1029637,
+      "n_nonempty_interior_buckets": 181
+    }
+  }
+}
