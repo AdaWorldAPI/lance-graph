@@ -1138,3 +1138,40 @@ the doc's `from_normal`. The doc's prescription is correct for its own case
 (normals) and should be labelled as such rather than read as universal. **`[S]`
 until an operator decides the API shape** — this section records the measurement
 and the tradeoff, and deliberately does not mint a public `from_bearing`.
+
+
+#### 12.14 — ⊘⊘ §12.13's VERDICT IS INVERTED: a normalized FIELD has different ergonomics than a single value
+
+**Operator (2026-08-11):** *"you didn't factor in that due to normalized values
+the field has different ergonomics than the single value — meaning AMX matmul,
+tile ops etc."*
+
+**Correct, and it reverses §12.13's recommendation.** §12.13 scored the two
+bearing encodes by **angular reconstruction error** — *the operation §12.10
+rules out and the whole substrate exists to avoid.* Third instance of the same
+error in one document, and this one came three sections after writing the rule.
+
+| | **Path A — nearest `n`** | **Path B — direct `(polar, azimuth)`** |
+|---|---|---|
+| direction collapses to | **ONE index**, 256-palette domain | 3 lanes, one 16-bit **circular** |
+| field comparison | `rim.distance_adaptive` = 2 × `DistanceLut` u8 lookups — **L1 metric**, triangle inequality holds, CAKES/CLAM-safe | azimuth is **NOT a metric** — `distance.rs:8-10`: *"the 2π wrap … must never feed CAKES bounds"* |
+| LUT | 256×256×u16 = **128 KB, L1/L2-resident, `U8x64`-friendly** (`distance.rs:12`) | 65536² is not a table |
+| tile / AMX shape | a `&[u8]` plane → `ndarray::hpc::int8_tile_gemm::int8_gemm_amx_tiled(a_u8, b_i8, …) → [i32]` **directly** | no single-index plane to tile |
+| must decode to compare | **no** | **yes** — the forbidden move |
+| per-point angular error | 0.972° | **0.097°** (§12.13) |
+
+**The resolution is a split by OPERATION, not a winner:**
+
+- **Compare / search / correlate a field** — Path A. One index, L1-metric LUT,
+  `U8x64`, AMX-tileable, never decodes. This is what *"pay the inbound tax
+  once"* actually buys, and it is why palette256 is the pattern one rank down.
+- **Materialize one bearing** — Path B, 10× finer. But *"never reconstruct per
+  element when the representation is normalized"* makes this the rare path, not
+  the design centre.
+
+**Rule extracted (the generalizable one):** **judge a normalized
+representation by what its FIELD does, not by what one element decodes to.** A
+per-element accuracy number is the round-trip metric wearing a different hat —
+and a representation that wins it can simultaneously destroy the index-domain
+comparison, the metric guarantee, and the tile shape that made the substrate
+worth building. §12.13's measurement stands; its *verdict* does not.
