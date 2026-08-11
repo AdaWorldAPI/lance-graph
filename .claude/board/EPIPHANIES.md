@@ -1,3 +1,127 @@
+## 2026-08-11 — E-THE-FRAME-WAS-ALREADY-SHIPPED-FOUR-TIMES-1
+
+**Status:** FINDING `[G]` — read in source this session.
+
+**The `mu + kσ` calibrate → band → roll-on-drift frame exists FOUR times in this
+workspace, and I hand-wrote a fifth in Python after being corrected into it.**
+
+| instance | metered quantity |
+|---|---|
+| `ndarray::hpc::cascade::Cascade` — `expose()` → `Band`, `observe`/`recalibrate` | Hamming distance |
+| `perturbation_sim::rolling_floor::RollingFloor` — `threshold()` = *"the **confidence-interval** floor"*, `z()` = *"the **Jirak-honest** noise-floor units; significance via `n^(p/2−1)`, not IID"*, `band()` → Stable…Alarm, `preheat()` | mode instability |
+| `helix::quantize::RollingFloor` — `quantize`/`bucket_center`/`observe`/`roll` | palette `[a,b]` |
+| `thinking-engine::domino` — *"3σ top-K focus"* | table attention |
+| **`probes/weather-p1/p1_ci_vs_floor.py` — MINE** | ERA5 bucket CI |
+
+`perturbation_sim::RollingFloor` **is** the "corrected evaluation frame" that
+took three correction sections (§12.10–§12.12) and an operator intervention to
+reach — including the Jirak citation, in the doc comment.
+
+**Also found in the same sweep, all `[G]`:**
+
+- **`crates/perturbation-sim` is the applied instance of the whole stack** —
+  `splat.rs` (Gaussian-splat **magnitude** side) + `sketch.rs` (Walsh/XOR **sign**
+  side) is *literally* OGAR's two-algebra rule; `cascade_key.rs::morton48` is the
+  OGAR production HHTL address; `hhtl.rs` derives `(HEEL,HIP,TWIG)` by **Cheeger
+  bisection of the Laplacian**.
+- **64×64 "Stockfish ergonomics" is an exact identity:** `64×64 = 4096 cells =
+  4096 bit = 512 byte = 64 × u64` = **the CANON node stride**. A node's bits ARE a
+  bitboard; `masked_popcount_batch(words, mask)` IS `popcount(attacks & targets)`;
+  magic bitboards are the same LUT amortization as the `[a,b]` floor.
+- **`symbiont/src/domino.rs` already proves the AMX path** — 4×4 Morton BF16
+  tiles, **16 SoA boards per AMX 16×16 tile GEMM**, cascade feedback, real
+  `TDPBF16PS` on Emerald Rapids.
+
+**Rule:** **before writing a frame, grep the workspace for the frame.** The
+`Consult, don't guess` ladder (card → knowledge doc → board → source) has no rung
+for *"search the sibling crates for the thing you are about to build"* — four
+misses in one document say it needs one. A measured number computed twice is not
+a wrong number; it is a wasted one, and it hides the fact that the first
+implementation already carried the caveats you were about to rediscover.
+
+## 2026-08-11 — E-TOPOLOGY-PICKS-THE-TABLE-NOT-THE-DOMAIN-1
+
+**Status:** FINDING `[G]` — `DistanceLut::circular()` proven a metric
+EXHAUSTIVELY over all 256³ = 16 777 216 triples (`distance.rs`, 3 tests).
+
+**Supersedes both `E-THE-REUSE-IS-THE-PROCESS-…-1` and
+`E-JUDGE-THE-FIELD-NOT-THE-ELEMENT-1`.** Operator: *"distance.rs is normalized
+[a,b] amortizing in LUT."*
+
+**The LUT is the AMORTIZATION POINT, not merely a metric or a cache.**
+`quantize()` normalizes `[a,b]` once per element at ingest; `from_floor()` folds
+the *same* normalization into the table. Afterwards: no bounds, no division, no
+per-element normalization — a pure index lookup, in **unit-free** units, which is
+exactly what licenses cross-variable comparison. O(256²) once, not O(N²).
+
+**Consequence:** if the LUT amortizes *any* bounded `[a,b]`, a **circular** range
+is just another bounded range with a different formula. Built and proven:
+`circular()` = `min(|a−b|, 256−|a−b|)`, the cycle-graph geodesic on `Z_256` —
+**0 violations / 16 777 216 triples**, symmetric, identity, positive. Falsifier:
+`d_circ(255,0) = 1` vs `d_linear(255,0) = 255`.
+
+**So the crate's *"raw-azimuth is NOT a metric (the 2π wrap)"* is about the
+FORMULA, not about angles.** `linear()` is the wrong table for a ring;
+`distance_heuristic` uses no table at all. A wrapping quantity in the 256-palette
+with the circular table is metric-safe and stays in the index domain.
+
+| azimuth as | resolution | metric? | field shape |
+|---|---|---|---|
+| u16 raw + `linear()` | 0.0055° | **no** | not tileable |
+| **u8 palette + `circular()`** | **0.352° mean** | **yes** | `&[u8]` · 128 KB L1 · `U8x64` · AMX |
+| nearest-`n` | 0.972° mean | yes | single index |
+
+The palette azimuth beats nearest-`n` **and** keeps the field ergonomics. The
+previous entry was right about the ergonomics and wrong to treat them as
+disqualifying: the fix was never "abandon the direct path", it was **give the
+wrapping lane its own table**.
+
+**Rule:** **a bounded quantity's TOPOLOGY selects its table formula; it never
+decides whether the quantity belongs in the palette domain.** Amortization, L1
+residency, `U8x64` lane and AMX plane are identical either way — that is what
+makes the substrate general rather than per-quantity.
+
+## 2026-08-11 — E-JUDGE-THE-FIELD-NOT-THE-ELEMENT-1
+
+**Status:** FINDING `[G]` (crate-stated: `distance.rs:8-12`; `ndarray`
+`int8_tile_gemm::int8_gemm_amx_tiled(a_u8, b_i8, …) -> [i32]`).
+
+**Corrects `E-THE-REUSE-IS-THE-PROCESS-AND-IT-EXPOSED-A-FIT-PROBLEM-1` (below):
+its 10× measurement stands, its VERDICT is inverted.**
+
+**Operator:** *"you didn't factor in that due to normalized values the field has
+different ergonomics than the single value — meaning AMX matmul, tile ops etc."*
+
+**A normalized representation must be judged by what its FIELD does, not by what
+one element decodes to.** The 10× scored **angular reconstruction error** — the
+operation the substrate exists to avoid, and the exact metric this workspace
+already ruled out for scoring a one-way address over a retained original. Third
+instance of that error in one arc; this one landed three sections after the rule
+was written down.
+
+At field scale the ergonomics run the other way:
+
+| | nearest-`n` | direct `(polar, azimuth)` |
+|---|---|---|
+| direction collapses to | **ONE index**, 256-palette domain | 3 lanes, one 16-bit **circular** |
+| compare | 2 × `DistanceLut` u8 lookups — **L1 metric**, CAKES/CLAM-safe | **not a metric** — `distance.rs:8-10`, the 2π wrap "must never feed CAKES bounds" |
+| LUT | 128 KB, L1/L2-resident, **`U8x64`-friendly** | 65536² is not a table |
+| tile shape | a `&[u8]` plane → `int8_gemm_amx_tiled` **directly** | none |
+| decode to compare? | **no** | **yes** |
+| per-point error | 0.972° | 0.097° |
+
+**Resolution — split by OPERATION, not a winner.** Compare/search/correlate a
+field → the single-index path (this is what *"pay the inbound tax once"* buys,
+and why palette256 is the same pattern one rank down). Materialize one bearing →
+the direct path, 10× finer, but *"never reconstruct per element when the
+representation is normalized"* makes that the rare path, not the design centre.
+
+**Rule:** a per-element accuracy number is the round-trip metric wearing a
+different hat. A representation can win it and simultaneously destroy the
+index-domain comparison, the metric guarantee, and the tile shape that made the
+substrate worth building. **Ask what the field does under the ops you actually
+run — LUT, SIMD lane, tile/AMX — before ranking encodes.**
+
 ## 2026-08-11 — E-THE-REUSE-IS-THE-PROCESS-AND-IT-EXPOSED-A-FIT-PROBLEM-1
 
 **Status:** FINDING `[G]` on the measurement (`crates/helix/tests/bearing_encode_paths.rs`,

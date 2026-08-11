@@ -34,7 +34,10 @@ fn azimuth_spans_the_full_circle_not_merely_varies() {
     let covered = buckets.iter().filter(|b| **b).count();
     assert_eq!(lo, 0, "azimuth must reach the bottom of the u16 range");
     assert_eq!(hi, u16::MAX, "azimuth must reach the top of the u16 range");
-    assert_eq!(covered, 256, "every 1/256 arc of the circle must be reachable");
+    assert_eq!(
+        covered, 256,
+        "every 1/256 arc of the circle must be reachable"
+    );
 }
 
 /// The two hemispheres occupy their EXACT halves of the `polar` byte.
@@ -58,7 +61,11 @@ fn polar_partitions_are_exactly_the_two_halves() {
         neg_lo = neg_lo.min(q);
         neg_hi = neg_hi.max(q);
     }
-    assert_eq!((pos_lo, pos_hi), (128, 255), "Pos must fill [128,255] exactly");
+    assert_eq!(
+        (pos_lo, pos_hi),
+        (128, 255),
+        "Pos must fill [128,255] exactly"
+    );
     assert_eq!((neg_lo, neg_hi), (0, 127), "Neg must fill [0,127] exactly");
 }
 

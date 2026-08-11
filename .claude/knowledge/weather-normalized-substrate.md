@@ -1138,3 +1138,219 @@ the doc's `from_normal`. The doc's prescription is correct for its own case
 (normals) and should be labelled as such rather than read as universal. **`[S]`
 until an operator decides the API shape** — this section records the measurement
 and the tradeoff, and deliberately does not mint a public `from_bearing`.
+
+
+#### 12.14 — ⊘⊘ §12.13's VERDICT IS INVERTED: a normalized FIELD has different ergonomics than a single value
+
+**Operator (2026-08-11):** *"you didn't factor in that due to normalized values
+the field has different ergonomics than the single value — meaning AMX matmul,
+tile ops etc."*
+
+**Correct, and it reverses §12.13's recommendation.** §12.13 scored the two
+bearing encodes by **angular reconstruction error** — *the operation §12.10
+rules out and the whole substrate exists to avoid.* Third instance of the same
+error in one document, and this one came three sections after writing the rule.
+
+| | **Path A — nearest `n`** | **Path B — direct `(polar, azimuth)`** |
+|---|---|---|
+| direction collapses to | **ONE index**, 256-palette domain | 3 lanes, one 16-bit **circular** |
+| field comparison | `rim.distance_adaptive` = 2 × `DistanceLut` u8 lookups — **L1 metric**, triangle inequality holds, CAKES/CLAM-safe | azimuth is **NOT a metric** — `distance.rs:8-10`: *"the 2π wrap … must never feed CAKES bounds"* |
+| LUT | 256×256×u16 = **128 KB, L1/L2-resident, `U8x64`-friendly** (`distance.rs:12`) | 65536² is not a table |
+| tile / AMX shape | a `&[u8]` plane → `ndarray::hpc::int8_tile_gemm::int8_gemm_amx_tiled(a_u8, b_i8, …) → [i32]` **directly** | no single-index plane to tile |
+| must decode to compare | **no** | **yes** — the forbidden move |
+| per-point angular error | 0.972° | **0.097°** (§12.13) |
+
+**The resolution is a split by OPERATION, not a winner:**
+
+- **Compare / search / correlate a field** — Path A. One index, L1-metric LUT,
+  `U8x64`, AMX-tileable, never decodes. This is what *"pay the inbound tax
+  once"* actually buys, and it is why palette256 is the pattern one rank down.
+- **Materialize one bearing** — Path B, 10× finer. But *"never reconstruct per
+  element when the representation is normalized"* makes this the rare path, not
+  the design centre.
+
+**Rule extracted (the generalizable one):** **judge a normalized
+representation by what its FIELD does, not by what one element decodes to.** A
+per-element accuracy number is the round-trip metric wearing a different hat —
+and a representation that wins it can simultaneously destroy the index-domain
+comparison, the metric guarantee, and the tile shape that made the substrate
+worth building. §12.13's measurement stands; its *verdict* does not.
+
+#### 12.15 — RESOLUTION: the LUT amortizes `[a,b]`, so the topology is a TABLE FORMULA, not a disqualification
+
+**Operator (2026-08-11):** *"distance.rs is normalized [a,b] amortizing in LUT."*
+
+**That is the load-bearing property, and I had mis-stated it as "a metric/cache".**
+The chain, read end to end:
+
+- `RollingFloor::quantize(v)` = `(v − lo)/(hi − lo)·256` — the `[a,b]`
+  normalization, **once per element at ingest** (`quantize.rs:99-108`).
+- `DistanceLut::from_floor` = `|center(a) − center(b)| / span · 255` — **the same
+  normalization folded into the TABLE** (`distance.rs:39-50`).
+
+After the build there is no `lo`, no `hi`, no division, no per-element
+normalization — every comparison is a pure index lookup, and the table is
+already **unit-free**, which is exactly what licenses cross-variable comparison
+(§12.8's 0.9997 shared-palette vs 0.857–0.875 raw cross-unit). **O(256²) once
+instead of O(N²) divisions.** This IS *"you only pay the inbound tax once"*,
+instantiated.
+
+**The consequence supersedes BOTH §12.13 and §12.14.** If the LUT amortizes
+*any* bounded `[a,b]`, then a **circular** range is just another bounded range
+needing a different table formula. Built and proven (`distance.rs::circular`,
+`d(a,b) = min(|a−b|, 256−|a−b|)` — the cycle-graph geodesic on `Z_256`):
+
+| | result |
+|---|---|
+| triangle inequality | **0 violations / 16 777 216 triples** — EXHAUSTIVE, not sampled |
+| symmetry · identity · positivity | all hold, exhaustively |
+| the wrap (the falsifier) | `d_circ(255,0) = 1` vs `d_linear(255,0) = 255` |
+
+**So `distance.rs:8-10`'s *"the raw-azimuth … is NOT a metric (the 2π wrap)"* is
+a statement about the FORMULA, not about angles.** `linear()` is simply the wrong
+table for a ring; `distance_heuristic` compares raw bytes with no table at all. A
+wrapping quantity **quantised into the 256-palette and given the circular table**
+is metric-safe and stays in the index domain.
+
+**Corrected standing:**
+
+| azimuth as | resolution | metric? | field shape |
+|---|---|---|---|
+| u16 raw + `linear()` (what §12.13 measured, §12.14 rejected) | 0.0055° | **no** | not tileable |
+| **u8 palette + `circular()`** | 1.406° step, **0.352° mean** | **yes**, exhaustively | `&[u8]` plane · 128 KB L1 LUT · `U8x64` · AMX |
+| nearest-`n` (§12.13 Path A) | **0.972° mean** | yes | single index |
+
+**0.352° beats Path A's 0.972° AND keeps the field ergonomics.** §12.14's
+inversion was correct about the *ergonomics* and wrong to treat them as
+disqualifying — the fix was never "abandon the direct path", it was **give the
+wrapping lane its own table**.
+
+**Rule extracted:** **a bounded quantity's TOPOLOGY selects its table formula;
+it never decides whether the quantity belongs in the palette domain.** Linear
+range → `linear()`/`from_floor()`. Ring → `circular()`. The amortization,
+the 128 KB L1 residency, the `U8x64` lane and the AMX plane are identical either
+way — that is what makes the substrate general rather than per-quantity.
+
+**Shipped:** `DistanceLut::circular()` + 3 tests (exhaustive metric proof; the
+wrap falsifier; the remaining axioms). Still `[S]`: whether the wind lane
+actually adopts u8-palette azimuth is an ingest-policy call — this section
+establishes only that the option is metric-safe and field-shaped.
+
+#### 12.16 — the `[a,b]` domain is not just comparison: perturbation, Morton cascade, 3DGS, and the comma
+
+**Operator (2026-08-11):** *"using [a,b] allows also perturbation ergonomics
+including testing spatial gaussian splat (3dgs) over 16k×16k topk … or morton
+tile cascade … with irrational number pythagorean comma."*
+
+**Every piece named already exists.** Verified this session — the value of the
+normalized domain is not "comparison is cheap", it is that **four separate
+capabilities all become the same index-domain operation**:
+
+| capability | where it lives | verified |
+|---|---|---|
+| **normalized `[a,b]`, amortized** | `quantize.rs:99` + `distance.rs:39` — normalization folded into the table once; comparisons are pure lookups in unit-free units | `[G]` §12.15 |
+| **perturbation phase** | the **discrete Pythagorean comma** — a stride-4-over-17 coprime walk, *"integer, bit-exact, aperiodic"*, **0 stored bits, regenerated from the address alone** (`fire_forget_replay_probe.rs:70-73`). `17 = 4²+1` **IS** the comma: *"without the +1, stride 4 mod 16 covers 4/16"* (`probe_hhtl_intake_blindness.rs:410`) | `[G]` — fence run: `comma_three_gap_distinct=3` (Steinhaus ≤3) and `comma_coprime_full_perm=1` |
+| **Morton tile cascade** | `morton_shift_motion_probe.rs` — **motion is O(1) in pixels**: `dx=7 dy=5 bit_exact=1 motion_bytes=2 sprite_px=576`; interior residual **0**, only the disocclusion strip is new (`disocc_frac=0.1215`) | `[G]` — probe run |
+| **3DGS** | `ndarray::hpc::splat3d` (feature-gated **directory**, not a file — a first check for `splat3d.rs` wrongly reported it absent): `gaussian`/`project`/`raster`/`tile`/`spd3`/`sh`/`ply`/`depth_cascade`, Kerbl et al. SIGGRAPH 2023 SH layout, `TILE_SIZE = 16`. Its `depth_cascade` is **already HHTL** — `HhtlTier`, `HhtlAction`, `heel_reject_scalar`/`heel_reject_mask` | `[G]` — read |
+
+At **16 384²** with `TILE_SIZE = 16` that is **1024 × 1024 = 1 048 576 tiles**,
+which is the scale at which "stay in the index domain" stops being an
+optimization and becomes the only option.
+
+**Why the comma specifically, and not φ.** In a *quantized* layer a regular tile
+grid plus a regular perturbation **aliases** — moiré. The comma walk is the
+anti-moiré dither, and it is free: phase is *convention*, not data
+(0 stored bits, address-derived). OGAR's `CLAUDE.md` already rules this as
+**D-QUANTGATE**: *"in quantized layers the phase generator must be the
+coprime-integer walk (helix `CurveRuler` stride-4-over-17, bit-exact integer),
+golden recurrence only as build-time muscle-memory; the deterministic phase
+doubles as the anti-moiré dither."* `prove.rs` uses `log₂(3/2)` as the *control*
+φ beats in the **continuous** 2-D discrepancy proof — a different question in a
+different layer, and NOT a demotion of the comma. Board: `E-COMMA-PERTURBATION-PHASE-1`
+(named there as *"the Fujifilm X-Trans move"* — X-Trans avoids moiré with an
+aperiodic 6×6 CFA instead of an optical low-pass filter; same trick).
+
+**`[S]` — my synthesis, NOT measured, stated as the next probe:** for weather,
+**advection IS a Morton shift.** The `legA` result says a whole field transports
+bit-exact for 2 bytes with only an inflow strip as new content — and the thing
+that supplies `(dx, dy)` is *the wind bearing*. If that holds, the wind lane is
+not merely *encoded* alongside the scalar fields, it is **the transport operator
+for them**, and the bearing-encode question (§12.13–§12.15) is really a question
+about the shift operator's precision. **Falsifier:** take two consecutive ERA5
+timesteps, derive `(dx, dy)` per tile from the wind field, apply the Morton
+shift to `2m_temperature`, and measure the residual against the true next
+timestep — versus a no-shift baseline. If the residual does not drop
+substantially, advection-as-shift is wrong for real fields at 0.25° / 1 h and
+this paragraph must be regraded.
+
+#### 12.17 — `perturbation-sim` + `domino.rs`: the stack is BUILT, and I re-derived a shipped frame in Python
+
+**Operator:** *"also check lance-graph / crates / perturbation … morton allows
+64×64 stockfish ergonomics … also check domino.rs."* All three land. Read, not
+inferred:
+
+**(a) `crates/perturbation-sim` is the APPLIED instance of this entire thread** —
+an outage cascade simulator that already composes every piece §12.16 named:
+
+| module | what it already is |
+|---|---|
+| `rolling_floor.rs` | *"L1..L4 HHTL tiers as an HDR popcount-stacking, early-exit, **Belichtungsmesser** cascade with **preheated confidence-interval thresholds**"* |
+| `splat.rs` | *"Gaussian-splat **magnitude** side of the pyramid… the **sign** side of the Morton pyramid is Walsh/XOR (`sketch`)"* — with `morton2`, `box_coarsen`, `ewa_coarsen` |
+| `cascade_key.rs` | *"Full 16-bit-per-tier spatial cascade key — the OGAR production form of the HHTL address"* — `from_spectral`, `to_guid_tiers`, **`morton48`**, `cascade_distance`, `tile` |
+| `hhtl.rs` | HHTL `(HEEL,HIP,TWIG)` by **recursive Cheeger bisection of the Laplacian** — the address is derived spectrally |
+| `columns.rs` | `SoaMemberSpec` — the #511 calibration |
+
+The two-algebra rule (OGAR `CLAUDE.md`: sign = XOR, magnitude = bundle, **never**
+`MergeMode::Xor` on magnitudes) is **literally the `splat`/`sketch` split here.**
+
+**(b) ⊘ I re-derived `RollingFloor` in Python `[G]` — the most expensive miss of
+this arc.** `perturbation_sim::rolling_floor` already ships, with doc comments:
+
+- `threshold()` = **`mu + k·σ`** — *"The **confidence-interval** floor"*
+- `z(x)` = `(x−mu)/σ` — *"the **Jirak-honest** 'noise-floor units'; significance
+  via `n^(p/2−1)`, **not IID**"*
+- `band(x)` → Stable/Watch/Concern/Warning/**Alarm**; `preheat()`; `observe()`
+  tests against the floor **as it stood**, then updates (the rolling property)
+
+**That IS §12.10/§12.11's "corrected evaluation frame", verbatim, Jirak citation
+included** — and I rebuilt it by hand in `probes/weather-p1/p1_ci_vs_floor.py`
+after an operator correction. It is not even the only instance: the same
+`mu + kσ` → band → roll-on-drift frame appears **four** times —
+`ndarray::hpc::cascade::Cascade` (`expose()`, Hamming-metered),
+`perturbation_sim::RollingFloor` (instability-metered),
+`helix::quantize::RollingFloor` (the palette floor), and
+`thinking-engine::domino`'s *"3σ top-K focus"*. The weather probe should be the
+**fifth instance of one frame**, not a fifth implementation.
+
+**(c) 64×64 "Stockfish ergonomics" is an EXACT identity `[G]`:**
+`64 × 64 = 4096 cells = 4096 bit = 512 byte = 64 × u64` — **precisely the CANON
+node stride** (`key(16) | edges(16) | value(480)`). A Morton 64×64 tile is a
+12-bit code (6+6), and a node's worth of bits *is* a bitboard. The bit-parallel
+surface is already there: `masked_popcount_batch(words, mask)` — mask a plane,
+count — **is** the Stockfish primitive (`popcount(attacks & targets)`), alongside
+`popcount_per_word`, `hamming_top_k_raw`, `xor_popcount`, `nibble_popcount_lut`.
+The magic-bitboard idea (precomputed table indexed by an occupancy mask) is the
+same LUT amortization as §12.15.
+
+**(d) `symbiont/src/domino.rs` is the working AMX proof `[G]`:** *"BF16 + AMX,
+2bit×2bit 4×4 Morton tile… each SoA board carries a 4×4 BF16 tile (16 lanes,
+Morton-addressed)… **16 boards batch into ONE AMX 16×16 tile GEMM**… C
+re-quantised back into the tiles (cascade feedback)"*, on real Emerald Rapids
+with `TDPBF16PS` firing. It also states the consumer rule verbatim: **all SIMD
+through `ndarray::simd::*`, never `ndarray::hpc::*`**, and notes `morton4` is
+consumer-side because *"ndarray has no Morton primitive"*.
+
+**Consequence for the weather work — concrete, not architectural:** the P1/P2
+probes should be **re-expressed against the shipped frame** (a `RollingFloor`
+consumer + `CascadeKey`/`morton48` addressing + `splat`/`sketch` for the
+magnitude/sign split), not carried as bespoke Python. That is a rewrite of the
+probe harness, not of any finding: the measured numbers (§12.8, §12.11) stand
+because they were computed correctly — they were just computed **twice**.
+
+**Rule extracted (fourth instance of one lesson in this document):** *before
+writing a frame, grep the workspace for the frame.* §12.12 was the doctrine doc
+never opened; §12.14 the field ergonomics never checked; §12.15 the table formula
+never questioned; this is an **implemented, documented, Jirak-cited frame
+re-written in another language**. The `Consult, don't guess` rule in `CLAUDE.md`
+orders card → knowledge doc → board → source; nothing in that ladder says *grep
+the sibling crates for the thing you are about to build* — and it should.

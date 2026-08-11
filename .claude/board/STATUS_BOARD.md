@@ -1,3 +1,23 @@
+## weather-substrate-evaluation-v1 — EV queue (PRE-REGISTERED 2026-08-11)
+
+Plan: `.claude/plans/weather-substrate-evaluation-v1.md` (known-vs-test ledger;
+verify/attack-audited before ACTIVE). Waves: 0 = no data · 1 = one fixture
+re-fetch · 2 = scale.
+
+| D-id | Deliverable | Wave | Status | Feeds |
+|---|---|---|---|---|
+| EV-1 | Advection-as-Morton-shift falsifier (wind (dx,dy) tile shift vs persistence, calm-tile silence half) | 1 | Queued | §12.16 [S] regrade |
+| EV-2 | Wind-lane encode at FIELD level (nearest-n vs u8-palette-circular vs u16-linear; wrap-corruption can-fire + 90°-sector silence) | 1 | Queued | D-3 |
+| EV-3 | Floor-sensitivity sweep [0.1..2.0] K → per-variable flip-points | 1 | Queued | D-1 |
+| EV-4 | Saturation-window sweep → sat% vs interior-CI tradeoff curve | 1 | Queued | D-2 |
+| EV-5 | U-shaped variables (total_cloud_cover, sea_ice_cover) — the shape rule's OTHER half, two-sided by construction | 1 | Queued | E-TRANSFORM-SHAPE promotion/refutation |
+| EV-6 | P1/P2 harness re-expressed on the SHIPPED RollingFloor frame; equivalence gate 0.848/0.820/95.65 + 0.9997/0.999556 to 1e-4 rel | 1 | Queued | D-6 |
+| EV-7a | 16k×16k 3DGS top-k scale run (1 048 576 tiles; heel-reject ∉ {0%,100%}) | 2 | Queued | operator-named capability |
+| EV-7b | Comma anti-moiré falsifier at tile scale (regular stride MUST alias; comma must not) | 2 | Queued | D-QUANTGATE evidence |
+| EV-8 | Jirak effective-n for the P2 correlations (spatial autocorrelation → n_eff) | 1 | Queued | P5 |
+| EV-9 | Commit the K-12/K-13 orphan measurements as disable-verified helix tests | 0 | Queued | honesty-split closure |
+| EV-10 | Second timestep + season for P1 ([H]→promotion or timestep-conditional regrade) | 1 | Queued | K-9 robustness |
+
 ## oracle-funnel-probe v1 — PROBE-ORACLE-FUNNEL staged (PRE-REGISTERED 2026-08-05)
 
 Plan: `.claude/plans/oracle-funnel-probe-v1.md`. Consumes OGAR #241/#244

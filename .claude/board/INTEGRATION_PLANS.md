@@ -1,3 +1,32 @@
+## 2026-08-11 — weather-substrate-evaluation-v1 (EVALUATION PLAN; the known-vs-test ledger for the whole #915→#922 arc)
+
+Plan: `.claude/plans/weather-substrate-evaluation-v1.md`. Operator ask: *"create
+an evaluation plan with the details known vs what to test."* Two halves. **§1
+KNOWN** — 25 claims (K-1..K-25), each with file:line evidence and an honest
+grade split `[G]` / `[G-session]` (probe source committed, fixture fetched) /
+`[H]` (measured this session, reproducer NOT committed — only K-12/K-13, the
+latitude-band and palette-azimuth tables, whose scratch tests were deleted) /
+`[G-absence]`. Every K-row was **independently verified against the tree by a
+13-agent verify/attack workflow before the plan went ACTIVE** (7 Sonnet
+source-verifiers over helix/quantize/probes/perturbation-sim/ndarray/domino/
+splat3d/morton-comma; 6 Opus falsifier-auditors attacking the EV specs for
+vacuous pass routes, missing silence halves, and inert thresholds — the
+session's own recurring failure modes, §12.12–§12.17). **§3 TO TEST** — ten
+probes EV-1..EV-10 in three waves: Wave 0 needs no data (EV-9 commits the
+K-12/K-13 orphans); Wave 1 needs one `fetch.py` re-fetch (EV-1
+advection-as-Morton-shift falsifier · EV-2 wind-lane field-level encode closing
+§12.13–§12.15 · EV-3/EV-4 floor & window sweeps feeding operator decisions
+D-1/D-2 · EV-5 U-shaped variables, the shape rule's other half · EV-6 harness
+re-expression on the SHIPPED `RollingFloor` frame with an exact-number
+equivalence gate · EV-8 Jirak effective-n · EV-10 second timestep/season);
+Wave 2 is the operator-named 16k×16k 3DGS top-k scale run (EV-7a) + the
+comma anti-moiré falsifier (EV-7b, two-sided: the regular-stride control MUST
+alias or the fixture cannot falsify). **§5 decision register** D-1..D-6 keeps
+the operator calls (noise floor, window, `from_bearing` API, dormant-lane fix,
+helix CI, harness-of-record) separate from the tests that feed them. Binding
+frame rules restated: bucket-CI vs noise floor never round-trip; Jirak
+significance; *grep the workspace for the frame before writing one*. Doc-only.
+
 ## 2026-08-10 — weather-substrate-poc-v2 (PLAN; supersedes v1/#914)
 
 Plan: `.claude/plans/weather-substrate-poc-v2.md`. **Supersedes `weather-substrate-poc-v1.md` (#914).** Restructured to the operator's three-phase gate: **A** representation reliability (`jc` battery) → **B** hardware acceleration (`ndarray` parity/throughput) → **C** prediction correctness (`jc` battery). A and C are the SAME instrument on different pairs (`corr(code_dist, field_dist)` vs `corr(predicted, observed)`), so C costs no new statistical machinery; B sits between because a Phase-C number measured on a silently-scalar path would be dishonest about the substrate. **Four corrections to v1 + this plan's own first draft:** (1) **GRIB2 is GONE** — WeatherBench2 publishes `era5/…1440x721.zarr` (= the 1,038,240 grid) on public GCS, so ingest is Zarr→numpy→f32 slab, no eccodes/gribberish, and v1 §6.3 is moot rather than solved; history sizing 58k→**570k** states (65 yr hourly). (2) `ecmwf-opendata` is **Phase C** (live IFS/AIFS), not Phase A (ERA5 reanalysis). (3) **Versioning is CONSUMED, not built** (operator: "lance 900..913++ should have introduced the necessary versioning") — `VersionedGraph::{at_version, current_version, commit_encounter_round}`, `GraphDiff`, `LanceCycleWriter` (#913 +1030), `temporal::{QueryReference::at(v,rung), deinterlace, LanceVersion}` are all shipped and pinned by two existing tests (`a_whole_cycle_of_casts_is_one_wal_write_one_version`, `p4a_drains_…`); **any weather deliverable re-implementing a version writer is the defect.** (4) **S3 is the hydration path, NEVER the store** (#901 doctrine) — the earlier "slabs land on S3, read them back" framing collapsed two layers; object store hydrates, local mmap-capable dir stores, `RAILWAY_VOL` only sets hydration frequency; the network-mount-looks-local trap is called out. **Ingest split** disposable Stage-A (static ERA5, thrown away) vs permanent Stage-C (recurring), sharing the 512 B stride + `soa:*` metadata so Stage-A slabs stay readable. **One dataset, versions are cycles** (operator ruling) — forecast+analysis in the same dataset, joined by version-range read. **All 3 comparison lanes** (forecast-vs-analysis · model-vs-model · encoder-drift; the third guards the substrate claim). **New repos: ZERO** — `crates/weather-poc` workspace-EXCLUDED on the perturbation-sim template; weatherbench2/arco-era5/ecmwf-opendata forks cloned, graphcast zipball-on-demand (under the 3-reads bar). Pins verified against the tree: rust 1.97.1 · lance/lance-encoding/lance-linalg 9.0.0 · lancedb 0.33.0 · arrow 58.3.0 · datafusion 53. Gate D-WXA-5: ρ ≥ 0.98 for ≥1 arm **AND** the shuffled-codebook control must FAIL. Doc-only.
