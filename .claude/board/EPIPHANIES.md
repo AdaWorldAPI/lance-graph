@@ -9,11 +9,19 @@
 effective buckets** vs **Fisher-Z MAE 0.2168 K, 76 empty buckets, 28.1 effective
 buckets** — 3.2× worse error, 228 of 256 buckets burned.
 
-**Mechanism, measured:** `arctanh` is ≈identity near 0 and explodes near ±1, so
-it moves resolution *toward the bounds*. ERA5 anomaly has 77 % of mass inside
-|s|<0.25 (kurtosis +3.3, mass in the MIDDLE); a correlation-like control has
-32.7 % beyond 0.9 (mass at the BOUNDS). **The transform must match the input
-distribution's shape.** Fisher-Z is right for correlation-like inputs and for
+**Mechanism, measured on this sample:** `arctanh` is ≈identity near 0 and
+explodes near ±1, so it moves resolution *toward the bounds*. The tested ERA5
+`2m_temperature` anomaly (one timestep, 2021-06-15 12:00 UTC) has 77 % of mass
+inside |s|<0.25 (**excess** kurtosis +3.30, mass in the MIDDLE); a
+correlation-like control `tanh(N(0,1.5))` has 32.7 % beyond 0.9 (mass at the
+BOUNDS). **CONJECTURE `[S]`, generalizing beyond the tested sample: the
+transform must match the input distribution's shape.** The *measured* claim is
+narrower — for THIS field at THIS timestep, Fisher-Z costs address economy.
+Promotion to a general rule needs the second variable and season named below.
+
+**Terms:** *effective buckets* = `exp(Shannon entropy)` of the 256-bin occupancy
+histogram (how many addresses actually carry data); *drift score* = `max|occ−μ|/σ`
+under a multinomial null, exactly as `crates/helix/src/quantize.rs:119-146`. Fisher-Z is right for correlation-like inputs and for
 helix's own `r = √u` (equal-area placement concentrates toward the rim BY
 CONSTRUCTION) — nothing about the helix crate is impugned. What is falsified is
 generalizing its transform to bell-shaped geophysical fields, which is exactly
@@ -22,7 +30,9 @@ comparable substrate" does not survive; the shared palette + LUT may.
 
 Also measured: ARCO-ERA5 has **no `wind_speed` variable** (exhaustive, all 52
 arrays), so §6.5's Jensen-gap measurement cannot have come from the Phase-A
-store; blosc is variable-dependent (1.794× / 1.771× / 1.248×, not one 1.27×);
+store; blosc is variable-dependent — **1.794×** (`2m_temperature`), **1.771×**
+(`2m_dewpoint_temperature`), **1.248×** (`10m_u_component_of_wind`), each one
+chunk `[1,721,1440]` at t=547476, blosc/lz4 as stored — not one 1.27×;
 the BF16 anomaly gain reproduces in DIRECTION only (74.9× under a zonal-mean
 climatology proxy vs the doc's unreproduced 97×).
 
@@ -48,9 +58,12 @@ as `Sign::Pos`, *"a real, measurable structural error"*); it has **no azimuth**,
 the only angular field in the lane; and the crate states twice, unprompted, that
 **no 2-DOF direction codec exists** (`sprite_replay.rs:47`,
 `continuous_field.rs:31-43`) and that inventing one is the "invented round-trip
-API" it warns against. Also: `end_idx` is monotone ⇒ **non-circular**, so a
-wrapped bearing puts 359° and 1° at maximum L1 distance, and `DistanceLut`'s
-triangle-inequality guarantee is about a LINEAR order and does not survive.
+API" it warns against. Also: `end_idx` is monotone in `n` (`residue.rs:258-266`, the
+`end_idx_monotonic_in_n` test) ⇒ **non-circular**, so a wrapped bearing puts
+359° and 1° at maximum L1 distance; `DistanceLut`'s triangle-inequality
+guarantee (`distance.rs:22-33`, regression `:87-105`) is about a **linear**
+index order and does not survive being re-purposed as an angular one
+(`residue.rs:53-55` names this failure mode for `distance_heuristic`).
 
 **Structural finding worth keeping regardless of weather:** there is **no
 per-value-lane reading selector in the contract at all** — `ReadMode` has three

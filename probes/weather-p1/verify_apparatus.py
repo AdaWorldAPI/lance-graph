@@ -1,4 +1,5 @@
 """Verify the P1 apparatus BEFORE claiming fisher-z is falsified."""
+import sys
 import numpy as np
 from scipy import stats as st
 a=np.load('fixture/2m_temperature.npy').astype(np.float64)
@@ -10,7 +11,12 @@ def bf16(x):
     r=((f>>16)&1).astype(np.uint32)
     return (((f+0x7FFF+r)&0xFFFF0000).astype(np.uint32)).view(np.float32).astype(np.float64)
 v=np.array([1.0,300.0,-6.5,1e-3]); rel=np.abs(bf16(v)-v)/np.abs(v)
-print("bf16 rel err (must be <= 2^-9 = 0.00195):", rel, "OK" if (rel<=2**-9+1e-12).all() else "BROKEN")
+ok = bool((rel <= 2**-9 + 1e-12).all())
+print("bf16 rel err (must be <= 2^-9 = 0.00195):", rel, "OK" if ok else "BROKEN")
+if not ok:
+    # A self-check that prints BROKEN and keeps going is not a self-check.
+    # Every BF16 number downstream would be unvalidated. Fail loudly instead.
+    sys.exit("APPARATUS FAILURE: bf16 helper exceeds 2^-9; refusing to emit measurements")
 
 # 2) THE MECHANISM: what shape is the input distribution?
 lo_q,hi_q=np.percentile(anom,[0.4,99.6]); scale=max(abs(lo_q),abs(hi_q)); s=(anom/scale).ravel()

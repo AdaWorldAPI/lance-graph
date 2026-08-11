@@ -19,6 +19,16 @@ for var in ['2m_dewpoint_temperature','10m_u_component_of_wind','10m_v_component
                       'nonfinite':int((~np.isfinite(a)).sum())}
             print(f"OK {var} comp={len(raw):,} ratio={a.nbytes/len(raw):.4f} {time.time()-t0:.0f}s",flush=True)
             break
+        except urllib.error.HTTPError as e:
+            if e.code == 404:
+                # Valid Zarr v2: a missing chunk IS the fill value. Retrying can
+                # never succeed, and the absence is a recordable measurement.
+                out[var]={'status':'missing_chunk_all_fill','http':404,
+                          'fill_value':za.get('fill_value')}
+                print(f"FILL {var} (404 = all-fill chunk, not an error)",flush=True)
+                break
+            print(f"try{attempt} {var}: HTTPError {e.code}",flush=True)
+            time.sleep(5)
         except Exception as e:
             print(f"try{attempt} {var}: {type(e).__name__} {e}",flush=True)
             time.sleep(5)

@@ -4,6 +4,10 @@ import numpy as np, json
 from scipy import stats as st
 rng = np.random.default_rng(7)
 
+# Pre-registered acceptance threshold. "shared beats per-variable" is NOT a pass:
+# a pair can win the comparison and still miss the bar, so both are reported.
+TARGET_RHO = 0.9996
+
 def load(v):
     a = np.load(f'fixture/{v}.npy').astype(np.float64)
     assert np.isfinite(a).all()
@@ -46,9 +50,14 @@ for i, va in enumerate(VARS):
         r_sh = st.spearmanr(d_sh, truth).statistic
         r_pv = st.spearmanr(d_pv, truth).statistic
         key = f"{va} x {vb}"
+        meets = bool(r_sh >= TARGET_RHO)
         res['pairs'][key] = {'rho_shared_floor': float(r_sh), 'rho_per_variable_floor': float(r_pv),
-                             'units': [UNITS[va], UNITS[vb]]}
-        print(f"{key:<52s} {r_sh:11.4f} {r_pv:11.4f} {'SHARED' if r_sh>r_pv else 'PER-VAR':>9s}")
+                             'units': [UNITS[va], UNITS[vb]],
+                             'target_rho': TARGET_RHO, 'meets_target': meets,
+                             'shared_beats_per_variable': bool(r_sh > r_pv)}
+        print(f"{key:<52s} {r_sh:11.6f} {r_pv:11.6f} "
+              f"{'PASS' if meets else 'BELOW TARGET':>13s} "
+              f"{'(shared>per-var)' if r_sh>r_pv else '(per-var>=shared)'}")
 
 # within-variable control: shared floor must not wreck same-variable distance
 print(f"\n{'within-variable control':<52s} {'rho_shared':>11s} {'rho_pervar':>11s}")

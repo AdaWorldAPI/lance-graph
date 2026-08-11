@@ -11,7 +11,10 @@
       "units": [
         "K",
         "K"
-      ]
+      ],
+      "target_rho": 0.9996,
+      "meets_target": false,
+      "shared_beats_per_variable": true
     },
     "2m_temperature x 10m_u_component_of_wind": {
       "rho_shared_floor": 0.9997359339313134,
@@ -19,7 +22,10 @@
       "units": [
         "K",
         "m/s"
-      ]
+      ],
+      "target_rho": 0.9996,
+      "meets_target": true,
+      "shared_beats_per_variable": true
     },
     "2m_dewpoint_temperature x 10m_u_component_of_wind": {
       "rho_shared_floor": 0.9997218339974447,
@@ -27,7 +33,10 @@
       "units": [
         "K",
         "m/s"
-      ]
+      ],
+      "target_rho": 0.9996,
+      "meets_target": true,
+      "shared_beats_per_variable": true
     },
     "2m_temperature (within)": {
       "rho_shared_floor": 0.9995571417817292,

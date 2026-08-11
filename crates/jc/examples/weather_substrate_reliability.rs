@@ -35,6 +35,11 @@ const VAR_NAMES: [&str; 3] = [
     "10m_u_component_of_wind",
 ];
 
+/// Read `n` little-endian `f64`s from `buf` starting at `*off`, advancing `off`.
+///
+/// The caller is responsible for bounds: `main` validates the total length
+/// against the header (`16 + n_vars * n_points * 2 * 8`) before any call, so a
+/// short buffer is rejected up front rather than panicking mid-parse.
 fn read_f64s(buf: &[u8], off: &mut usize, n: usize) -> Vec<f64> {
     let mut v = Vec::with_capacity(n);
     for _ in 0..n {
@@ -44,6 +49,43 @@ fn read_f64s(buf: &[u8], off: &mut usize, n: usize) -> Vec<f64> {
         *off += 8;
     }
     v
+}
+
+/// Parse and VALIDATE the 16-byte header, returning `(n_vars, n_points, want)`.
+///
+/// Rejects, rather than trusting: a short buffer, a negative dimension (an
+/// `i64 -1` would otherwise become a huge `usize`), an arithmetic overflow in
+/// the expected size, and a length mismatch. Only after all four does any
+/// payload byte get read — so a malformed file exits cleanly instead of
+/// panicking or attempting a giant allocation.
+fn parse_header(buf: &[u8]) -> Result<(usize, usize, usize), String> {
+    if buf.len() < 16 {
+        return Err(format!("truncated header ({} bytes, need 16)", buf.len()));
+    }
+    let mut hdr = [0u8; 8];
+    hdr.copy_from_slice(&buf[0..8]);
+    let n_vars_i = i64::from_le_bytes(hdr);
+    hdr.copy_from_slice(&buf[8..16]);
+    let n_points_i = i64::from_le_bytes(hdr);
+    if n_vars_i < 0 || n_points_i < 0 {
+        return Err(format!(
+            "negative dimension in header (n_vars={n_vars_i}, n_points={n_points_i})"
+        ));
+    }
+    let (n_vars, n_points) = (n_vars_i as usize, n_points_i as usize);
+    let want = n_vars
+        .checked_mul(n_points)
+        .and_then(|v| v.checked_mul(2))
+        .and_then(|v| v.checked_mul(8))
+        .and_then(|v| v.checked_add(16))
+        .ok_or_else(|| format!("header dimensions overflow: {n_vars}×{n_points}"))?;
+    if buf.len() != want {
+        return Err(format!(
+            "expected {want} bytes for {n_vars}×{n_points}, got {}",
+            buf.len()
+        ));
+    }
+    Ok((n_vars, n_points, want))
 }
 
 fn show(label: &str, truth: &[f64], recon: &[f64]) {
@@ -78,24 +120,15 @@ fn main() {
         }
     }
 
-    if buf.len() < 16 {
-        eprintln!("{path}: truncated header ({} bytes)", buf.len());
-        std::process::exit(2);
-    }
-    let mut hdr = [0u8; 8];
-    hdr.copy_from_slice(&buf[0..8]);
-    let n_vars = i64::from_le_bytes(hdr) as usize;
-    hdr.copy_from_slice(&buf[8..16]);
-    let n_points = i64::from_le_bytes(hdr) as usize;
+    let (n_vars, n_points, want) = match parse_header(&buf) {
+        Ok(t) => t,
+        Err(e) => {
+            eprintln!("{path}: {e}");
+            std::process::exit(2);
+        }
+    };
     let mut off = 16usize;
-    let want = 16 + n_vars * n_points * 2 * 8;
-    if buf.len() != want {
-        eprintln!(
-            "{path}: expected {want} bytes for {n_vars}×{n_points}, got {}",
-            buf.len()
-        );
-        std::process::exit(2);
-    }
+    debug_assert_eq!(buf.len(), want);
 
     println!("weather-substrate gate 1 — jc::reliability over palette256 round-trip");
     println!("input: {path}  vars={n_vars}  points/var={n_points}");
@@ -123,4 +156,65 @@ fn main() {
         "\nnote: ICC(2,1) is absolute agreement, ICC(3,1) consistency — reported\n\
          separately so a scale shift cannot hide behind a consistency number."
     );
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// Build a well-formed buffer for `n_vars × n_points` (payload zeroed).
+    fn hdr(n_vars: i64, n_points: i64, payload: usize) -> Vec<u8> {
+        let mut v = Vec::new();
+        v.extend_from_slice(&n_vars.to_le_bytes());
+        v.extend_from_slice(&n_points.to_le_bytes());
+        v.resize(16 + payload, 0);
+        v
+    }
+
+    #[test]
+    fn valid_header_round_trips() {
+        // 2 vars × 3 points × 2 series × 8 bytes = 96 payload bytes.
+        let buf = hdr(2, 3, 96);
+        assert_eq!(parse_header(&buf), Ok((2, 3, 112)));
+    }
+
+    #[test]
+    fn truncated_header_is_rejected() {
+        assert!(parse_header(&[0u8; 8]).is_err(), "8-byte header must fail");
+        assert!(parse_header(&[]).is_err(), "empty buffer must fail");
+    }
+
+    #[test]
+    fn truncated_payload_is_rejected() {
+        // Header promises 96 payload bytes; supply 40.
+        assert!(parse_header(&hdr(2, 3, 40)).is_err());
+    }
+
+    #[test]
+    fn negative_dimensions_are_rejected() {
+        // Without the sign check these become huge usizes and the length
+        // comparison could be satisfied by a wrapped `want`.
+        assert!(parse_header(&hdr(-1, 3, 96)).is_err(), "negative n_vars");
+        assert!(parse_header(&hdr(2, -3, 96)).is_err(), "negative n_points");
+    }
+
+    #[test]
+    fn overflowing_dimensions_are_rejected() {
+        // n_vars × n_points × 2 × 8 overflows usize on 64-bit.
+        let buf = hdr(i64::MAX, i64::MAX, 0);
+        assert!(parse_header(&buf).is_err(), "overflow must not wrap");
+    }
+
+    #[test]
+    fn read_f64s_reads_little_endian_and_advances() {
+        let vals = [1.5f64, -2.25, 1e-3];
+        let mut buf = Vec::new();
+        for v in vals {
+            buf.extend_from_slice(&v.to_le_bytes());
+        }
+        let mut off = 0usize;
+        let got = read_f64s(&buf, &mut off, 3);
+        assert_eq!(got, vals.to_vec());
+        assert_eq!(off, 24, "offset must advance by 8 per value");
+    }
 }

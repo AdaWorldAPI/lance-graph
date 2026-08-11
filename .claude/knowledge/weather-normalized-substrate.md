@@ -609,7 +609,9 @@ the premise itself falsified:
    covers `EdgeBlock`, a different region. There is **no per-value-lane reading
    selector in the contract at all** — that absence is the finding.
 
-**Correct shape if a from/to pair is genuinely needed:** a **new 16-byte facet
+**Candidate shape `[S]` if a from/to pair is genuinely needed** (a CONJECTURE, not
+a promoted design — it follows from the envelope audit in this section and is
+gated on the operator mint decision tracked in §12.6): a **new 16-byte facet
 lane** read as `FacetSchema::Pair48` = `[Signed360; 2]` — `classid(4) + 6 B in +
 6 B out` — precedent set twice by `Tekamolo` and `CausalWitness` (both 16-byte
 lanes appended at the end, no version bump). Codec owner `crates/helix` (next to
@@ -696,9 +698,9 @@ with it. Measured (`probes/weather-p1/p2_probe.py`, real ERA5, 3 variables,
 
 | pair | units | ρ shared floor | ρ per-variable floors |
 |---|---|---|---|
-| `2m_temperature` × `2m_dewpoint_temperature` | K × K | **0.9996** | 0.9994 |
-| `2m_temperature` × `10m_u_component_of_wind` | K × m/s | **0.9997** | **0.8748** |
-| `2m_dewpoint_temperature` × `10m_u_component_of_wind` | K × m/s | **0.9997** | **0.8570** |
+| `2m_temperature` × `2m_dewpoint_temperature` | K × K | **0.999556** ⚠ *below the 0.9996 bar* | 0.999426 |
+| `2m_temperature` × `10m_u_component_of_wind` | K × m/s | **0.999736** PASS | **0.874801** |
+| `2m_dewpoint_temperature` × `10m_u_component_of_wind` | K × m/s | **0.999722** PASS | **0.856984** |
 
 **Within-variable control (the anti-vacuity half — a shared window could have
 cost same-variable resolution, and did not):**
@@ -709,12 +711,22 @@ cost same-variable resolution, and did not):**
 | `2m_dewpoint_temperature` | 0.9995 | 0.9996 | 120.7 / 256 | 0 |
 | `10m_u_component_of_wind` | 0.9998 | 0.9996 | 151.0 / 256 | 0 |
 
+> **⊘ CORRECTED (codex/CodeRabbit review on #920).** This table originally
+> reported the first pair as `0.9996` — a **rounding of 0.999556, which is
+> BELOW the 0.9996 bar**, and the probe's `SHARED` label only ever tested
+> "shared beats per-variable", never the bar itself. `p2_probe.py` now carries
+> an explicit pre-registered `TARGET_RHO` and prints PASS / BELOW TARGET on
+> unrounded values. **2 of 3 pairs pass; the K×K pair does not.**
+
 **Reading.** The shared canonical floor is not free-riding: it beats
 per-variable floors by **0.9997 vs 0.857–0.875** exactly where the units differ
-(K vs m/s), and is indistinguishable where they do not (K vs K — 0.9996 vs
-0.9994). That is the discrimination pattern theory predicts, and it appears
-without having been tuned for. Meanwhile the shared window costs **nothing**
-within-variable and leaves **zero empty buckets**.
+(K vs m/s) — **both cross-unit pairs clear the bar** — and the two paths are
+close where the units match (K vs K, 0.999556 vs 0.999426, *the shared floor
+still winning but missing the 0.9996 bar*). That is the discrimination pattern
+theory predicts, and it appears without having been tuned for. The shared window
+shows **no material measured cost** within-variable at this sample size
+(within-variable ρ differs by ≤ 0.0001, e.g. dewpoint 0.9995 shared vs 0.9996
+per-variable) and leaves **zero empty buckets**.
 
 **So the mechanism was never Fisher-Z — it was standardization.** Putting each
 variable on its own z-scale is what makes unlike quantities commensurable;
@@ -729,7 +741,9 @@ available for archival lanes that want per-variable resolution, but this run
 shows it buys nothing for correlation, since the shared floor already matches
 per-variable ρ within-variable.
 
-**Honest boundaries.** One timestep (2021-06-15 12:00 UTC); zonal-mean
+**Honest boundaries.** The K×K pair is **below the pre-registered bar** — the
+"passes" verdict holds for the cross-unit case this probe was designed to test,
+not universally. One timestep (2021-06-15 12:00 UTC); zonal-mean
 climatology proxy; three variables of which only one carries a different unit;
 ρ is rank-preservation of the *distance*, which is the right test for
 LUT-backed ranking/search but is not a claim about absolute error. The shapes
@@ -742,7 +756,16 @@ is now largely answered in the negative — the shared floor shows no
 within-variable penalty — but stays open for the tail/saturation question.
 Step 3 (Phase A end-to-end) is unblocked.
 
-### 12.9 — Gate 1 RUN with `jc` (not scipy): the representation is valid and reliable
+### 12.9 — Gate 1 RUN with `jc` (not scipy): codec self-consistency — NOT product-frame evidence
+
+> **⊘ SCOPE (CodeRabbit on #920, correct).** Everything in this section is a
+> **round-trip** measurement (`truth` vs `reconstructed`), i.e. an **internal
+> codec / consistency diagnostic**. §12.10–§12.11 rule round-trip OUT as the
+> *product* evaluation frame, because the original is retained. So these numbers
+> say the quantizer is self-consistent and rank-preserving; they are **not**
+> evidence for the noise-floor conclusion and must never be cited as such. The
+> product-frame verdict lives in §12.11 (CI vs floor) and §12.8 (code-distance
+> rank), neither of which decodes.
 
 §9's gate 1 answered with the workspace's own instruments —
 `crates/jc/examples/weather_substrate_reliability.rs`, run against the P1/P2
@@ -905,9 +928,13 @@ Interior CI: **linear is flat at 0.09412 K everywhere**; Fisher-Z spans
 3. **The headline conclusion SURVIVES, and is cleaner.** At a 0.5–1 K floor the
    two paths are identical and **only saturation matters** — 0.848 % vs 0.820 %,
    i.e. the shared tail is the *entire* story above 0.25 K.
-4. **The saturation finding is confirmed and sharpened**: it is the **only**
-   unbounded-CI population, essentially equal for both paths, and it remains the
-   top open item because it lands on the extremes.
+4. **The saturation finding is confirmed and sharpened — with an explicit
+   floor condition.** At floors **≥ 0.5 K** it is the **only** violation for
+   either path: **0.848 %** (linear) and **0.820 %** (Fisher-Z) of the
+   1,038,240 gridpoints, i.e. the points landing in buckets 0/255 whose CI is
+   unbounded. **At a 0.25 K floor that is false for Fisher-Z**, which adds
+   **95.65 %** interior-CI exceedance on top. Every floor-dependent statement
+   here stays conditional until a per-variable noise floor carries a citation.
 
 **So §12.1 stays partially reversed, on better evidence** — Fisher-Z is not a
 validity failure at the plausible floor; it is an **address-economy** failure,

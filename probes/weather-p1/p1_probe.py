@@ -49,8 +49,16 @@ err_pal = np.abs((anom_hat + clim) - a)
 r['palette256_mae_K']   = float(err_pal.mean())
 r['palette256_p99_K']   = float(np.percentile(err_pal, 99))
 r['palette256_max_K']   = float(err_pal.max())
+def effective_buckets(counts):
+    """exp(Shannon entropy) of the occupancy histogram: how many of the 256
+    addresses are REALLY carrying data. Zero-count buckets contribute nothing."""
+    q = counts / counts.sum()
+    nz = q[q > 0]
+    return float(np.exp(-(nz * np.log(nz)).sum()))
+
 occ = np.bincount(idx.ravel(), minlength=256)
 r['palette_occupancy_min'] = int(occ.min()); r['palette_occupancy_max'] = int(occ.max())
+r['palette256_effective_buckets'] = effective_buckets(occ)
 r['palette_empty_buckets'] = int((occ==0).sum())
 r['palette_saturated_frac'] = float((occ[0]+occ[255])/idx.size)
 # drift_score exactly as quantize.rs: max |occ_i - mu|/sd, multinomial
@@ -66,6 +74,8 @@ occ_lin = np.bincount(idx_lin.ravel(), minlength=256)
 r['palette256_LINEAR_mae_K'] = float(err_lin.mean())
 r['palette256_LINEAR_p99_K'] = float(np.percentile(err_lin,99))
 r['drift_score_LINEAR']      = float(np.abs(occ_lin-mu).max()/sd)
+r['palette256_LINEAR_effective_buckets'] = effective_buckets(occ_lin)
+r['palette256_LINEAR_empty_buckets']     = int((occ_lin==0).sum())
 r['bytes_per_point_f32'] = 4; r['bytes_per_point_palette'] = 1
 
 for k,v in r.items(): print(f"  {k:32s} {v}")
