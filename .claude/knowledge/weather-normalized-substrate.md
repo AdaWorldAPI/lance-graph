@@ -1354,3 +1354,16 @@ never questioned; this is an **implemented, documented, Jirak-cited frame
 re-written in another language**. The `Consult, don't guess` rule in `CLAUDE.md`
 orders card → knowledge doc → board → source; nothing in that ladder says *grep
 the sibling crates for the thing you are about to build* — and it should.
+
+#### 12.18 — ⊘ audit correction to §12.16: a SPRITE moves for 2 bytes, not the field
+
+The verify pass on the evaluation plan (plan §8, run `wf_99d677e6-b45`)
+regraded §12.16's Morton row: `morton_shift_motion_probe.rs` legA
+rigid-translates a **24×24 `Sprite` within a 256×256 field** via one
+`(dx,dy)` address-delta — bit-exact vs a ground-truth re-render, and genuinely
+O(1) in sprite pixels — but *"2 bytes moves the whole field"* **overstates**:
+2 bytes moves one sprite/tile; a whole-field advection is one `(dx,dy)` **per
+tile**. The shift is also **toroidal** (`wrapping_add` per lane); the clipped
+variant is a separate helper — EV-1 (evaluation plan §3) pins the clipped
+semantics and masks disocclusion accordingly. legB/legC verified exact as
+stated.
