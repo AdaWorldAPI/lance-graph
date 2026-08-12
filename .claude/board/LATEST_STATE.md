@@ -1,3 +1,13 @@
+## 2026-08-12 — lance-graph #929 (MERGED) — steering rescue dead; sign test retired as primary instrument
+
+### Current Contract Inventory — no new types (2 probes + report §5.12/§5.13 + 1 epiphany)
+
+- **CT-F16 `[G]`:** the steering-level moderator FAILED both pre-registered bars on CT-F14's own 19 storms (0.579 vs 0.70; residual +28.4 % wider; level sweep monotone toward the surface, best 850 hPa). §9.2's "single most promising fix" is superseded in place. The height ladder survives as a measurement; its operational reading died.
+- **The instrument calibration `[G]`:** a 90°-rotated control scored **0.684 = CT-F14's headline**. At n=19 the sign test separates from a wrong answer only at 14/19. **Rule: attach a deliberately-wrong referent to any rate-headline; its score is the floor.**
+- **The replacement instrument:** circular resultant (R̄, μ, Rayleigh) resolves the same rows at **p=0.0050** (sign test: 0.0835), estimates the offset (**−30.2°±36.5°**) instead of penalizing it, and makes the rotated control visible (μ shifted 100.3° at identical R̄). Post-hoc — instrument demo, NOT a promotion. **Sign-consistency numbers are no longer verdict-grade anywhere in this arc.**
+- **Faltung frame:** resultant = first circular Fourier coefficient; CT-W6 = deconvolution (components ⊛ apparatus noise); `Z_256` circular Faltung is `DistanceLut::circular()`-native.
+- **Queued, operator go-ahead pending:** **CT-W6** (dipole = neighbor far-field + bow-wave vector sum, global fit, 38 obs — the mechanistic candidate for the −30° offset and the 0.684 plateau) · CT-W2s/W5/W7 (sunflower collision facets, spiral-ADI via Fibonacci-stride pairs, Gegendruck) · CT-F17 (fresh-sample verdict) · C-register climatological calibration.
+
 ## 2026-08-12 — lance-graph #927 (MERGED) — board hygiene for #926 + the living-vs-ledger correction rule
 
 ### Current Contract Inventory — no new types (board entries + one report correction)
