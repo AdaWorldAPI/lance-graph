@@ -1,17 +1,20 @@
-## golden-vs-tempered-stride-v1 — head-vs-gut queue (PRE-REGISTERED 2026-08-12)
+## golden-vs-tempered-stride-v1 — head-vs-gut queue — RUN 2026-08-12
 
 Plan: `.claude/plans/golden-vs-tempered-stride-v1.md`. Standalone, zero fetch,
-~5 min single Sonnet worker. All four bars pre-registered in the plan text
-itself with the expected numbers already worked out arithmetically — the
-worker's job is to reproduce them from a committed script, not discover them
-fresh.
+< 5 s wall time (turned out lighter than the ~5 min pre-registered estimate —
+pure stdlib arithmetic, no numpy/scipy needed after all). All four bars ran
+against `probes/weather-p1/golden_vs_tempered_probe.py`; results in the
+matching `.json`. **Two real methodology defects caught by the run itself**
+(T1's m* definition, T3's float round-trip false negative) — both fixed in
+the committed script, both explained inline in the plan; neither weakens the
+qualitative synthesis, both tightened specific numbers.
 
-| D-id | Deliverable | Status | Feeds |
+| D-id | Deliverable | Status | Result |
 |---|---|---|---|
-| D-GVT-T1 | Crossover sweep across 8+ q, useful-range metric | Queued | the two-regime design rule |
-| D-GVT-T2 | Asymptotic golden-advantage pass/fail bar | Queued | validates "gut" instinct |
-| D-GVT-T3 | Closure-occupancy guarantee (tempered) vs variable (golden) | Queued | validates "does not collapse" precisely |
-| D-GVT-T4 | Naive-rounding collapse hazard rate | Queued | the sharpest form of "does not collapse" |
+| D-GVT-T1 | Crossover sweep across 10 q, useful-range metric | **RUN (twice-corrected)** | VERIFIED-permanent m* at **1.9–2.7× q** (codex P1 on #935: the earlier 1.0–1.4× figure was a FIRST crossing, not permanent — golden's non-monotonic sequence dips back above the ceiling; now suffix-verified at 76–83 reported checkpoints per row). Also codex P2: useful-range floor `q//2`→`⌈q/2⌉`. |
+| D-GVT-T2 | Asymptotic golden-advantage pass/fail bar | **RUN — PASS** | golden ahead 68.2–106.4× at m=200q, all 10 q |
+| D-GVT-T3 | Closure-occupancy guarantee (tempered) vs variable (golden) | **RUN — PASS** | tempered 140/140 exact (integer-verified); golden 124–127/140 across 5 phases |
+| D-GVT-T4 | Naive-rounding collapse hazard rate | **RUN — PASS** | 114/292 = 39.0 % of q∈[8,300) collapse under naive rounding |
 
 ## weather-w-probes-v1 — W-probe queue (PRE-REGISTERED 2026-08-12)
 
@@ -23,7 +26,7 @@ Wave 1 = parallel, no operator gate beyond go-ahead; gated rows named.
 | D-id | Deliverable | Wave | Status | Feeds |
 |---|---|---|---|---|
 | D-W5 | Spiral-ADI anisotropy: Vogel N=4096, iso ≤0.15 & aniso ≤1.25, non-Fibonacci stride control ≥1.5× | 1 | Queued | domino.rs gather design; [H] flags §10.5 |
-| D-W2sA | Golden-vs-grid pairing on real cos-lat metric (zero-ties G1, CV G2) | 1 | Queued | facet-node addressing [G] extension |
+| D-W2sA | Golden-vs-grid pairing on real cos-lat metric (zero-ties G1, CV G2) | 1 | **RUN — G1 VOID, G2/G4 FAIL (control degenerate: two identical translated grids are symmetry-uniform, CV ~1e-12 — cannot lose any evenness comparison; diagnosed via smoke test, run as-specified, `E-A-CONTROL-THAT-CANNOT-LOSE-IS-NO-CONTROL-1`)** | honest falsifier for evenness DEFERRED (offset/rotation-varied or spacing-mismatched control); §10.5 properties 1–3 untouched |
 | D-W6 | Two-component deconvolution (geo + bow, global lstsq, 38 eqs / 2 params; B3 = stranded stratification via v_rel) | 1 | Queued | dipole vector-sum identification; F17 gate |
 | D-W2sB | α-window sweep β∈[0.85,1.15] | gated (W2s-a) | Queued | corridor α discriminator |
 | D-W7 | Corridor two-regime α field probe | gated (W6) | Queued | §10.3 physics |

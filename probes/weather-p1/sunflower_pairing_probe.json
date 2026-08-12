@@ -1,0 +1,66 @@
+{
+  "N": 2550409,
+  "n_pairs_golden": 462879,
+  "n_pairs_grid": 463377,
+  "ties_golden": 0,
+  "ties_grid": 0,
+  "cv_golden": 0.36774607879963067,
+  "cv_grid": 1.59767288438734e-12,
+  "chi2_golden": 12788.627749641304,
+  "chi2_grid": 12897.873968062777,
+  "sweep": [
+    {
+      "n": 8,
+      "N": 441,
+      "near_ties_golden": 0,
+      "near_ties_grid": 0,
+      "cv_golden": 0.420048491932172,
+      "cv_grid": 3.894718389667698e-14
+    },
+    {
+      "n": 10,
+      "N": 3025,
+      "near_ties_golden": 0,
+      "near_ties_grid": 0,
+      "cv_golden": 0.3662413746879478,
+      "cv_grid": 5.3973259121356446e-14
+    },
+    {
+      "n": 12,
+      "N": 20736,
+      "near_ties_golden": 0,
+      "near_ties_grid": 0,
+      "cv_golden": 0.3758869623955925,
+      "cv_grid": 8.634972831697149e-13
+    },
+    {
+      "n": 14,
+      "N": 142129,
+      "near_ties_golden": 0,
+      "near_ties_grid": 0,
+      "cv_golden": 0.3671218221439048,
+      "cv_grid": 7.432943019143699e-13
+    },
+    {
+      "n": 17,
+      "N": 2550409,
+      "near_ties_golden": 0,
+      "near_ties_grid": 0,
+      "cv_golden": 0.36774607879963067,
+      "cv_grid": 1.59767288438734e-12
+    },
+    {
+      "n": 19,
+      "N": 17480761,
+      "near_ties_golden": 3,
+      "near_ties_grid": 0,
+      "cv_golden": 0.36911926142552787,
+      "cv_grid": 6.2865117293316446e-12
+    }
+  ],
+  "verdicts": {
+    "G1": "VOID",
+    "G2": "FAIL",
+    "G4": "FAIL"
+  }
+}

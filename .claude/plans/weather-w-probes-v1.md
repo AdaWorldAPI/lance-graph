@@ -344,6 +344,67 @@ chi2_golden, chi2_grid, sweep: [{n, N, ties, cv}], verdicts: {G1, G2, G4}}`.
 
 ---
 
+### RUN, 2026-08-12 (`sunflower_pairing_probe.py` / `.json`) — G1 VOID, G2 and G4 FAIL, and the FAIL is real and diagnosed, not a bug
+
+| bar | verdict | measured |
+|---|---|---|
+| G1 (ties) | **VOID** (as the pre-registered escape hatch anticipated) | golden 0 ties, grid 0 ties too — no discriminating power on this geometry |
+| G2 (evenness) | **FAIL** | golden CV ≈ **0.368**; grid CV ≈ **1.6e-12** — grid is "more even" by twelve orders of magnitude |
+| G4 (floor sweep) | **FAIL** | same CV gap holds at every `n∈{8,10,12,14,17,19}` — never closes, never reverses |
+
+**This is a real result, not a defect in the golden lattice — the CONTROL is
+degenerate, and running the probe is what exposed it.** Diagnosed BEFORE the
+full run, via a cheap smoke test (N=50k, four different center-offsets from
+0 to 300 km): grid CV stayed at **1e-12 to 1e-13 regardless of the offset**.
+Mechanism: this brief's two grid controls are constructed **identically**
+(same `n`, same `radius_km`) and differ only by a **pure translation**
+between centers. Two lattices with **identical spacing**, offset by a fixed
+translation vector, are — by ordinary lattice symmetry — **translation-
+invariant in their cross-nearest-neighbour distance**: every point of one
+grid sees the exact same local neighbour geometry in the other, so the
+nearest-pair distance is *the same number* for every point, and its
+coefficient of variation is bounded only by floating-point noise. **This has
+nothing to do with the merit of golden pairing — it is a property of
+comparing two IDENTICAL periodic tilings against each other**, and it would
+hold regardless of what irregular construction was tested against it. The
+control this brief specified ("TWO axis-aligned square grids of identical
+point density") is exactly what was built and exactly what the brief asked
+for — the finding is that **this specific control is not discriminating for
+G2's evenness question**, which is itself worth knowing rather than
+silently redesigning the control to force the pre-registered answer.
+
+**A second, smaller honesty note on G4.** The pre-registered expectation
+said near-ties "stay 0 at every n" — measured, `n=19` (N=17 480 761, ABOVE
+the floor, not below it) shows **3 near-ties among golden's ~3.15M in-band
+points**, a rate of ≈1e-6. This is consistent with the near-tie definition
+itself (`d1/d2 > 1−1e-6`, a FIXED relative tolerance): as N grows into the
+millions, even a genuinely generic, irrational-angle point process will
+admit a small number of near-coincidences purely from sampling density at a
+fixed tolerance — this is a different claim from "the angle stopped being
+generic." The pre-registered "stays exactly 0" was slightly overclaimed for
+large N under a fixed near-tie tolerance; it should have anticipated this
+scaling. Not treated as a floor-crossing failure (n=19 is above the floor,
+not below it, and 3-in-3.15M is not the pattern a real mechanism failure
+would produce).
+
+**Consequence for `golden-vs-tempered-stride-v1`'s "controlled chaos"
+claim.** G1's VOID means the "no ties" half of that claim is **not
+contradicted** here (golden: 0 ties; this grid: also 0, for an unrelated
+reason). G2/G4's FAIL means **the specific CV-based "evenness" framing is
+not the right test of golden's virtue against a translated regular grid** —
+a translated-regular-grid control trivially wins any evenness metric by
+symmetry, which is a fact about the control, not a refutation of the
+aperiodic/incommensurate/deterministic-address properties (§10.5 properties
+1–3) the collision-node architecture actually relies on. Those properties —
+prefix-extensibility, zero-geometry-storage, deterministic overlay from two
+center coordinates — are untouched by this result. What is now flagged as
+needing a better falsifier: a control that tests EVENNESS honestly would
+need to vary the relative offset/rotation between the two grids (not just
+translate at a fixed relative angle) or compare against a grid genuinely
+mismatched in spacing — deferred, not attempted here.
+
+---
+
 ## §3 BRIEF W6 — the dipole deconvolution: neighbor + bow, global fit (Sonnet, ~40 chunks)
 
 **File:** `comet_tail_w6.py`. **Seed:** 20260812.
