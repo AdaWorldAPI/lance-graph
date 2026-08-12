@@ -1,3 +1,19 @@
+## weather-w-probes-v1 — W-probe queue (PRE-REGISTERED 2026-08-12)
+
+Plan: `.claude/plans/weather-w-probes-v1.md` (worker briefs; §0 preamble is
+verbatim-paste for every Sonnet worker, incl. the stranded-rescue checkpoint
+protocol). Product-lead frame: `probes/weather-p1/COMET_TAIL_REPORT.md` §10.
+Wave 1 = parallel, no operator gate beyond go-ahead; gated rows named.
+
+| D-id | Deliverable | Wave | Status | Feeds |
+|---|---|---|---|---|
+| D-W5 | Spiral-ADI anisotropy: Vogel N=4096, iso ≤0.15 & aniso ≤1.25, non-Fibonacci stride control ≥1.5× | 1 | Queued | domino.rs gather design; [H] flags §10.5 |
+| D-W2sA | Golden-vs-grid pairing on real cos-lat metric (zero-ties G1, CV G2) | 1 | Queued | facet-node addressing [G] extension |
+| D-W6 | Two-component deconvolution (geo + bow, global lstsq, 38 eqs / 2 params; B3 = stranded stratification via v_rel) | 1 | Queued | dipole vector-sum identification; F17 gate |
+| D-W2sB | α-window sweep β∈[0.85,1.15] | gated (W2s-a) | Queued | corridor α discriminator |
+| D-W7 | Corridor two-regime α field probe | gated (W6) | Queued | §10.3 physics |
+| D-CT-F17 | FRESH-sample verdict (1959–1979, N=70 candidates, V-test p<0.05 ∧ R̄≥0.35; independent adversarial spec audit MANDATORY before bars commit) | gated (W6 + audit) | Queued | the directional claim's verdict path |
+
 ## 2026-08-11 — EV queue re-graded to v2 specs (post-audit; rows below unchanged in STATUS)
 
 All eleven EV rows in the block below still read **Queued** — correctly, none has

@@ -1,3 +1,29 @@
+## 2026-08-12 — weather-w-probes-v1 (WORKER-BRIEF PLAN; the W-probe wave after CT-F16's failed bars + the resultant-instrument demo)
+
+Plan: `.claude/plans/weather-w-probes-v1.md`. Status **ACTIVE for the
+exploratory tier**; the verdict tier (CT-F17) is GATED on CT-W6's result AND a
+mandatory independent adversarial spec audit before any bar is committed.
+Companion product-lead doc: `probes/weather-p1/COMET_TAIL_REPORT.md` §10
+(measurement standard · dipole vector-sum model incl. the stranded-storm regime
+via v_rel · corridor α physics · queue-and-bow anchors · sunflower/facet/
+spiral-ADI substrate · roadmap · worker model). Operator ask: *"auf product
+lead level dokumentation erweitern und die followup testreihen für sonnet
+agents runterbrechen zum token sparen … und stranded rescue."*
+
+Shape: **§0 is a verbatim-paste worker preamble** (iron rules incl.
+commit-bars-before-run; no board writes — one-writer rule; the fetch() code,
+t-index guard, wrap_deg/err_deg, circular(); controls-FIRST with the VOID rule;
+comparative sentences must name both operands — the #930 relation lesson baked
+into the brief; **stranded rescue** = checkpoint every storm to
+`<name>.partial.jsonl` with resume-skip + tag-file heartbeat in `exec-runs/`,
+so a killed worker resumes instead of re-fetching ~GBs). Wave 1 (parallel,
+synthetic/stored, cheap): **W5** spiral-ADI anisotropy on Vogel N=4096 ·
+**W2s-a** golden-vs-grid pairing on the real cos-lat metric · **W6** the
+two-component (geo + bow) deconvolution on the stored 19 storms — the
+identification test for the vector-sum model, with the stranded stratification
+(|v_storm| < 8 m/s vs ≥ 8 m/s) as bar B3. Gated: W2s-b (α window), W7, CT-F17
+(fresh 1959–1979 sample, V-test p<0.05 ∧ R̄≥0.35, audit mandatory). Doc-only.
+
 ## 2026-08-11 — weather-substrate-evaluation-v1 (EVALUATION PLAN; the known-vs-test ledger for the whole #915→#922 arc)
 
 Plan: `.claude/plans/weather-substrate-evaluation-v1.md`. Operator ask: *"create

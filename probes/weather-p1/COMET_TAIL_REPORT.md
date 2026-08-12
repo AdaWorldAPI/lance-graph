@@ -875,10 +875,20 @@ Three things, in order of importance:
    and offset (μ) come out as two numbers instead of eating each other. The
    systematic ≈−30° offset the arc has chased since §5.1 is now *estimated*
    (−30.2° ± 36.5°) instead of *penalizing the score*.
-2. **The wrong referent is now visible.** F16c's rotated control scored
-   0.684 = indistinguishable under the sign test. Under the resultant it has
-   the same R̄ (rotation preserves concentration, by construction) but μ
-   shifted **100.3°** — separated by well over both CIs. The instrument
+2. **The wrong referent is now visible — in BOTH channels.** F16c's rotated
+   control scored 0.684 = indistinguishable from SURFACE under the sign test.
+   Under the resultant the control differs from surface in concentration
+   (R̄ 0.343 vs 0.516) AND direction (μ −130.5° vs −30.2°, **100.3°** apart,
+   over both CIs). Separately, the steering↔rotated pair confirms
+   rotation-invariance by construction: identical R̄ (0.343 = 0.343), μ
+   shifted exactly 90°.
+
+   > **⚠ Corrected 2026-08-12 (codex on #930).** This item originally read
+   > "it has the same R̄ … but μ shifted 100.3°" — fusing the
+   > steering↔rotated comparison (where R̄ IS identical) with the
+   > surface↔rotated one (where the 100.3° lives) into a false composite of
+   > two true numbers. The 13/13 figure verification missed it because it
+   > checked operands, not relations. The instrument
    hierarchy is clean: real referent (0.516) > structured-but-wrong (0.343,
    wrong μ) > permuted (0.142, below the uniform floor).
 3. **NOT a promotion.** Same sample, post-hoc — the p=0.0050 demonstrates the
@@ -988,12 +998,28 @@ insensitivity.
 > - Carve D moved 0.943406 → 0.943403 (2.4e-06).
 >
 > **The deeper lesson, which is why the wording changed and not just the
-> digits:** in-disk variance here is ~1e5 Pa², so a systematic offset of tens
-> of Pa perturbs R² in the 5th decimal. **R² is structurally near-blind to
-> exactly the defect that matters for an encoder**, and "lossless" was inferred
-> from the one statistic that could not detect the loss. The probe now reports
-> **RMSE and mean bias in Pa alongside every R²**, because those are what
-> distinguish the carves.
+> digits:** in-disk variance here is ~1e5 Pa², so a systematic offset of a few
+> Pa perturbs R² in the 6th decimal. **R² is near-blind, in the single-digit-Pa
+> regime, to exactly the defect that matters for an encoder** — and that is the
+> regime the "lossless" claim was made in, inferred from the one statistic that
+> could not detect the loss at that magnitude. The probe now reports **RMSE and
+> mean bias in Pa alongside every R²**, because those are what distinguish the
+> carves.
+>
+> > **⚠ CORRECTION 2026-08-12 (codex P2 on PR #927) — the first version of this
+> > paragraph said "an offset of TENS of Pa perturbs R² in the 5th decimal",
+> > which the table 15 lines above refutes.** The two halves belong to different
+> > carves: **+92.76 Pa (carve A) moved R² 0.9212 → 0.9129 — 0.0083, the THIRD
+> > decimal**, plainly visible; **+1.59 Pa (carve D) moved it 0.943406 →
+> > 0.943403 — 2.4e-06, the SIXTH decimal.** Fusing carve A's magnitude with
+> > carve D's insensitivity materially understated how well a *correct* R²
+> > detects a large bias. The sharper and true statement: **the `var()` BUG was
+> > blind at every magnitude — that is what hid +92.76 Pa — while the STATISTIC
+> > is blind only in the single-digit-Pa regime, which is exactly where
+> > "lossless" was claimed on four-decimal agreement.** Same failure mode as the
+> > #930 relation error: two individually-correct numbers asserted of one pair
+> > when each belongs to a different one. The doctrine (report RMSE + bias in Pa
+> > beside every R²) is unchanged and is what the correction rests on.
 
 Three results worth more than the headline:
 
@@ -1345,3 +1371,139 @@ The shapes already exist and are proven:
 
 Gate, unchanged: train/test on disjoint decades, pre-registered bars,
 adversarial audit (plan §8) before any of it is called more than a probe.
+---
+
+## 10. The follow-up program — instrument standard, working model, corridor physics, compute substrate `[mixed grades, per item]`
+
+Product-lead summary of where the arc stands after §5.12/§5.13 and what the
+W-probe series tests. Worker-executable briefs live in
+`.claude/plans/weather-w-probes-v1.md`; this section is the WHY, that plan is
+the HOW.
+
+### 10.1 Measurement standard (binding for every probe from here)
+
+| rule | reason |
+|---|---|
+| **Primary statistic: circular resultant** (R̄ concentration, μ mean direction, Rayleigh/V-test p; bootstrap CI on μ) | the sign test collapsed vectors to bits and saturated at 0.684 — the same rows resolve at p=0.0050 under the resultant (§5.13) |
+| **Control floors mandatory**: a +90°-rotated AND a permuted referent through the *identical* pipeline; the control's score is the floor any headline must clear | a rotated control scored CT-F14's exact headline (§5.12) — a control measures the instrument's RESOLVING POWER, not just the test it guards |
+| Magnitude metrics alongside (median \|error\|, sd); sign fractions may be *reported*, never verdict-grade | a sign test on an offset distribution reports which SIDE the bias falls on, not correctness (§5.12, weak/strong stratification) |
+| Pre-registration committed **before** execution, commit hash cited | the arc's standing discipline; bars never move after output exists |
+| **Verify comparative claims as claims** — every "identical/same/larger" names both operands and the check evaluates the relation | two individually-true numbers made one false sentence (§5.13 correction); a figure check cannot catch a relation error |
+
+### 10.2 The working model: the dipole is a vector sum `[H]`
+
+Every single-referent scoring (motion 0.684, steering 0.579, everything
+between) plateaued because a **vector sum cannot be scored against one
+bearing**. The candidate decomposition:
+
+```
+D  =  c_geo · (A_H/d_H) · û_awayFromH     the neighbor far-field (Hochdruck)
+    + c_bow · (½ρ|v_rel|²) · (−v̂_rel)     the bow wave (Bugwelle: high ahead, low behind)
+    + r                                    the Nahkampf residual (cold pools, collision turbulence)
+```
+
+- **The neighbor term** is §2's own derivation read backwards: the linear
+  background gradient IS the first-order far-field of the adjacent high — the
+  H–T collision was inside the spine all along, filed under "background".
+- **The bow term** is stagnation pressure `½ρ·v_rel²` ahead of relative
+  motion — meteorology's own *bow echo*; the superposition rotates the summed
+  low pole beyond 90°-left toward the rear, which is the **shape of the
+  −30° offset** (μ = −30.2° ± 36.5°, §5.13) the arc has chased since §5.1.
+- **The stranded regime is covered natively** (operator: *"stranded
+  rescue"*): the bow variable is `v_rel = v_storm − v_env`, so a cut-off /
+  quasi-stationary low in ambient flow has a rock-in-river bow
+  (`½ρ|v_env|²` upstream) even at zero displacement. §5.12's weak-flow
+  paradox — sign 0.833 with median \|error\| 103° at <10 m/s steering — is
+  the signature of scoring *stranded* systems against a motion referent that
+  barely exists. CT-W6 stratifies by \|v_storm\| to test exactly this.
+- **Identifiability**: fitted with GLOBAL coefficients across storms (38
+  observations, 2 parameters), conditioned by the natural phase diversity
+  between neighbor- and motion-bearings. Per-storm free amplitudes would be
+  an exact fit and meaningless — the global constraint is the test.
+
+### 10.3 Corridor physics (Windkanal) — two regimes, one measured exponent `[G] physics, [S] wiring`
+
+| | geostrophic corridor (synoptic) | gap flow / Düseneffekt |
+|---|---|---|
+| balance | Coriolis ⊥ ∇p | ageostrophic, Bernoulli |
+| law | `v = (1/ρf)·\|∇p\|` | `v ≈ √(2Δp/ρ)` |
+| direction | along isobars, low on the left (NH) | through the gap, H → T |
+| scaling | **linear** in the gradient | **square-root** in the drop |
+
+In the corridor the two gradients ADD (`\|∇p\| ≈ \|dp_H/dr\| + \|dp_T/dr\|` at
+the midpoint — both computable from the two ring profiles), which is why the
+wind maximum lies *between* the centers. Instead of choosing a regime, fit
+the exponent `α` per corridor segment: **α ≈ 1 geostrophic, α ≈ ½ Bernoulli,
+and the α-DEVIATION field marks where volumetric math stops** — the measured
+boundary of the Nahkampf sector. Note `√(2Δp/ρ)` is also the cold-pool
+density-current speed: gap flow and the Abregnen gust front are the same
+ageostrophic law at two scales.
+
+### 10.4 The queue-and-bow mechanics — all four metaphors have [G] anchors
+
+| mechanism | physics | anchor |
+|---|---|---|
+| Domino in der Schlange | kinematic waves in a 1D chain (density waves run backwards) | Lighthill–Whitham 1955 — one paper, rivers AND traffic; jamitons ≡ roll waves |
+| Ausweichen → Gegendruck Nebenspur | blocked along-lane flux deflects laterally, pressurizing the neighbor streamtube | mass continuity; MOBIL lane-change back-pressure |
+| Flugzeug-Formel | Bernoulli conversion at the evasion node (speed ↔ pressure) | `p + ½ρv² = const`; NOT lift-on-a-free-vortex (§ demarcation: a free vortex advects — bound-vortex lift needs a surface) |
+| Bugwelle → Windentstehung | stagnation ridge `½ρv_rel²` ahead of a moving system drives new wind | bow echo; gust front; isallobaric wind |
+
+Discretization: lanes = aligned spiral-arm family, Gegendruck = the
+orthogonal family, Bernoulli = the node nonlinearity, Bugwelle = the
+moving-boundary source term — i.e. the machinery of §10.5, no new substrate.
+
+### 10.5 Sampling & compute substrate — sunflower, collision facets, spiral-ADI
+
+**Why the golden lattice** (operator: *Verteilung und Kollision im
+irrationalen Raum*), three `[G]` properties: (1) three-distance evenness —
+at any N the azimuthal gaps take ≤3 values; discrepancy `O(log N/N)` vs
+Monte-Carlo's `O(1/√N)`; (2) two lattices over different centers are
+**incommensurate** — no moiré, no ties, generic unique nearest-pairings
+(grids produce tie families exactly where the corridor bands are); (3)
+**prefix extensibility** — any prefix is well-distributed, so per-node
+accuracy grows monotonically by extending the sequence, no re-meshing.
+
+**The collision node is ONE V3 facet** (12 B): rails 0–1 = `(k_H:k_T)` — the
+pair address, from which position, radii and azimuths are *implied* (place
+deterministic, residue stored); rails 2–5 = **8 state bytes** (the 8
+Freiheitsgrade). Two sanctioned carvings — spine-pair
+(`p_H, g_H, p_T, g_T, u, v, α, resid`) vs kinematic/frontogenesis
+(`u, v, div, ζ, stretch, shear, p, ∇T` — the Petterssen machinery) — and the
+ClassView picks the reading per class, which is exactly what content-blind
+facets are for.
+
+**Spiral-ADI on domino.rs**: stride-1 is the *scatter* ordering (sampling,
+not physics); the spatial axes are the **Fibonacci stride families**
+`F_j`/`F_{j+1}` (the two parastichy arm families, winding oppositely,
+crossing quasi-orthogonally). Two tridiagonal sweeps — aligned then
+orthogonal — are ADI (Peaceman–Rachford): a 2D diffusion/elliptic operator
+from two 1D passes of domino's **existing fixed tridiagonal kernel**, which
+is *correct for this use* (demarcated from §9.4's moderator non-claim: the
+learned model is still absent; the physics operator is not). Missing piece:
+only the facet→lane gather. Honest `[H]` flags, each gated by a W-probe
+bar: parastichy strides change with radius (piecewise segments), crossing
+angles vary, cos-lat distorts equal-area on the real grid (the #921 lesson).
+
+### 10.6 Roadmap
+
+| probe | question | core pre-registered bar | inputs | est. cost | tier | gated on |
+|---|---|---|---|---|---|---|
+| **W5** spiral-ADI | do two Fibonacci-stride tridiagonal sweeps ≈ isotropic 2D diffusion? | iso-error ≤ 0.15; non-Fibonacci stride control ≥ 1.5× more anisotropic | none (synthetic) | minutes, 0 fetch | Sonnet | — |
+| **W2s-a** pairing geometry | does the golden two-lattice pairing survive real lat/lon metric? | zero ties + CV(pair distances) < grid CV on identical geometry | none (lattice math) | minutes, 0 fetch | Sonnet | — |
+| **W6** dipole deconvolution | is D = c_geo·neighbor + c_bow·bow identifiable? | joint R²_vec ≥ best single + 0.10; c_bow > 0; permuted-v_rel control collapses | 19 stored rows + ~40 chunks | ~5 min fetch | Sonnet (spec-bound) | — |
+| **W2s-b** α-field | does the geostrophic regime recover itself on a real H–T pair? | α ∈ [0.85, 1.15] in the open corridor; permuted control R² < 0.1 | 1 timestep, 3 vars | ~3 min | Sonnet | W2s-a |
+| **W7** Gegendruck | does lane-i convergence pressurize lane i±1? | outlined in plan; bars TBD at spec time | 2 timesteps | ~5 min | Sonnet | W2s-b |
+| **CT-F17** fresh-sample verdict | does the W6-fitted model predict on UNSEEN storms? | V-test toward the pre-registered μ, p < 0.05, R̄ ≥ 0.35, controls | fresh 1959–1979 sample | ~30 min | Sonnet run, **Opus spec** | W6 + **independent adversarial spec audit** (the 0-of-11 lesson: the author cannot audit his own falsifiers) |
+
+### 10.7 Worker execution model — token economy + stranded rescue
+
+The briefs in `weather-w-probes-v1.md` are **self-contained**: an orchestrator
+pastes §0 (shared preamble, ~70 lines) + one brief (~60–90 lines) into a
+Sonnet worker — the worker never loads this report or the session history.
+Every brief carries the **stranded-rescue protocol**: probes checkpoint one
+JSONL row per unit of work (`<probe>.partial.jsonl`), fetches are resumable
+(completed `t0`s skipped on restart), all randomness is seeded, and a
+heartbeat tag-file lets the orchestrator detect a stranded run and hand the
+*partial* state to a fresh worker instead of re-paying the fetches. Workers
+write ONLY their probe files + their own tag-file — never board files
+(one-writer rule).
