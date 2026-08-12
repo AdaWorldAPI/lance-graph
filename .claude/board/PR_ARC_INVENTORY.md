@@ -1,3 +1,55 @@
+## 2026-08-12 — lance-graph #942 (MERGED) — the "mean" qualifier fix + `substrate-comfort-zones-v1` (the operator's calibration-vs-regime hypothesis, made falsifiable)
+
+- **Added.** `.claude/plans/substrate-comfort-zones-v1.md` — the operator's
+  hypothesis stated as a testable interaction: *a poorly-calibrated
+  substrate that adapts dynamically should do RELATIVELY better in strong,
+  turbulent storms than in calm regimes.* **FOUR** held-constant regimes
+  × substrate formula × calibration quality — the preflight deliberately
+  SPLIT the operator's "flatland" into a calm and an active tier, so the
+  adopted ladder is **R1 CALM (Amazon basin, `|∇p|` 10.2) → R2 OCEAN
+  (S Pacific gyre, 14.9) → R3 ACTIVE (W Siberian lowland, 43.8) → R4
+  STORM (CT-F14 centres, 95.6)**, a 9.3× dynamic range. The claim is an
+  **interaction term**, not a main effect — "worse everywhere but
+  least-worse in storms" and "better only in storms" are different
+  findings and the plan distinguishes them. D-CZ-0 (preflight) ran and is
+  **DONE**; D-CZ-1..6 Queued.
+- **Locked — D-CZ-0's preflight corrections, found before any run; and
+  what it PRESCRIBED for the runs that have not happened yet.** Applying
+  this session's own hard-won rules to the new plan rather than
+  re-learning them. **Already executed in D-CZ-0:** the
+  sample-composition check (the
+  `E-THE-DISPLACEMENT-FILTER-ATE-THE-STRANDED-STRATUM-1` lesson) — the
+  regime ladder was verified arithmetically reachable in the source data
+  BEFORE the first fetch, and it is what forced the calm/active split;
+  plus the units discipline (every coefficient annotated at definition,
+  magnitude claims restricted to dimensionally consistent contributions —
+  the #940 `c_bow`-is-km⁻¹ lesson). **Prescribed but NOT yet run:**
+  **D-CZ-1 is the control-losability smoke test and is Queued** — the
+  W2s-a degenerate-grid and W5 locality-is-Fibonacci lessons are written
+  into the plan as a mandatory prerequisite gating every later cell, not
+  as work already done. A future session must run D-CZ-1 before any
+  expensive arm; the requirement existing in the plan is not the
+  requirement being satisfied.
+- **Fixed — CodeRabbit Minor on #941**: #940's summary rows dropped the
+  **mean** qualifier the source RUN entry and the committed JSON's
+  `fitted_contribution_Pa_per_km` keys carry (means over 19 storms).
+  PR_ARC's merged entry got an appended dated correction (append-only);
+  LATEST_STATE's living row was fixed in place (precedent: #939's
+  N-vs-n_qualifying fix). **Fourth instance this week of one defect
+  class** — a qualifier or operand pairing true in the source, lost in
+  the summary; the figure is never wrong, its scope goes unstated.
+- **Deferred.** Every D-CZ probe (operator go-ahead pending). The report
+  §10 reconciliation sweep (§10.2's model is disconfirmed, §10.5's
+  "gather-design unblocked" is retracted, §10.6's roadmap still shows the
+  pre-wave gates — the corrections live in plan RUN sections and
+  epiphanies, and the report itself has not yet been brought current).
+- **Confidence.** High on the qualifier fix (verified against the
+  committed JSON's own keys). The plan is a SPECIFICATION — nothing in
+  it has run beyond D-CZ-0's preflight checks.
+
+**Status:** MERGED (`61a60618`). Branch `claude/jirak-math-theorems-harvest-rfii13`
+→ `main`. Plan + board — zero product code, zero probe runs.
+
 ## 2026-08-12 — lance-graph #940 (MERGED) — W6 lands: VOID by its own control, sample-composition lesson, and a same-PR sign/units correction round
 
 - **Added.** `comet_tail_w6.py`/`.json` — full detail already recorded in
