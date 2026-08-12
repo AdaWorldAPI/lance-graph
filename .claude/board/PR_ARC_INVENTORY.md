@@ -1,3 +1,80 @@
+## 2026-08-12 — lance-graph #944 (MERGED) — `substrate-comfort-zones-v1` §2 rebuilt: horse race → CROSS-SWAP transfer matrix
+
+- **Added.** A rebuilt §2 for `.claude/plans/substrate-comfort-zones-v1.md`
+  — a **4×4 donor × target transfer matrix** per geometry arm,
+  `M[D][T]` = read regime `T`'s field through regime `D`'s codebook.
+  Primary metric **Spearman `ρ`** (structure preservation); the quantity
+  the hypothesis concerns is the derived **transfer loss**
+  `L[D][T] = ρ[T][T] − ρ[D][T]`. RMSE/bias in Pa retained per cell as
+  evidence the swap genuinely hurt — never the verdict.
+- **Why the rebuild.** Operator ruling, two messages: the method is
+  *cross-swap and hypothesis testing, under the premise that the model
+  CAPTURES the phenomenon but is NOT calibrated*; and *in science you hold
+  variables constant to test the others — constancy is relative, so the
+  design deliberately manufactures strong correlation differences, on the
+  assumption those differences are fit to evaluate the hypothesis.* Against
+  that premise v1's §2 was wrong **in kind**: it raced four calibration
+  arms on RMSE, but a deliberately wrong calibration produces bad error BY
+  DEFINITION — so `CAL-ABS-FOREIGN` is the measurement CONDITION, not a
+  competitor that might lose. Racing a condition guarantees the answer.
+- **Collapsed.** `CAL-ABS-OWN` / `CAL-ABS-FOREIGN` stop being two arms —
+  they are the **diagonal and off-diagonal of ONE arm's matrix**. Splitting
+  them was the tell the design was still a race.
+- **The sharp consequence.** The dynamic arms (`CAL-RANK`, `CAL-FISHERZ`)
+  have **no donor at all**, so their rows are flat and `L ≡ 0` **by
+  construction** — which IS the property under test, not an artifact: a
+  substrate carrying no absolute anchor cannot have that anchor be wrong.
+  **C2 therefore requires BOTH halves**: that it hold exactly, AND that the
+  identical code path be proven able to produce a NON-flat row (the
+  can-it-DIFFER gate W5 already paid for once).
+- **Two NEW bars, for the second operator message.** **C1b** MEASURES
+  constancy (`separation = between-box range / mean within-box σ ≥ 3`)
+  instead of claiming it — below that, "held constant" is a label on a box,
+  not a condition. **C1c** gives the suitability ASSUMPTION a falsifier:
+  the regimes must differ in autocorrelation decay and rank-distribution
+  shape, not merely in `\|∇p\|`; a null there **VOIDS** the reading rather
+  than weakening it (the spread would have been manufactured on the wrong
+  axis).
+- **Pre-registered before it could be explained away.** `L` is NOT
+  guaranteed non-negative — a box whose own min/max is set by one outlier
+  spreads its 256 levels badly, so a donor with a wider range can
+  legitimately beat the diagonal. Recorded as informative, with the
+  consequence stated: `ρ[T][T]` would then not be a valid reference for
+  that box's `L̄[T]`, and C3's trend must be re-read against the
+  best-available cell with the substitution said out loud.
+- **Caught by REVIEW, not by the author (CodeRabbit, same PR).** §2.3's
+  summary passage still named the *foreign-donor* comparison as "the
+  operator's hypothesis" while C4, `STATUS_BOARD` and the
+  `INTEGRATION_PLANS` entry all correctly scored against the diagonal —
+  **two incompatible verdict criteria, the weaker one holding the
+  headline**, i.e. the swapped cell establishing merit, the exact tautology
+  the rebuild existed to delete. Mechanism: §2.3 was written before C4 was
+  sharpened and the sharpening was not propagated backwards. Fixed in
+  `1756c518`, correction note kept beside the passage.
+- **Locked (unchanged by the rebuild).** The §1 regime ladder and its three
+  preflight corrections (R1 CALM 10.2 → R2 OCEAN 14.9 → R3 ACTIVE 43.8 →
+  R4 STORM 95.6, 9.3× range; elev σ ≤ 150 m admissibility; speed is not the
+  discriminator); the exactly-equal sample budget; the geometry axis; the
+  C0 control gate; the store-the-operands output contract; §5's non-claims.
+  The scaffold was sound — the question was inverted.
+- **Deferred.** Everything measurable. **D-CZ-1, the control-losability
+  smoke test, is still Queued and still gates every later cell.** D-CZ-2,
+  2b, 2c, 3..7 Queued. Zero code, zero probe runs, zero fetches in this PR
+  — pre-registration only.
+- **Docs.** `EPIPHANIES.md` `E-A-HORSE-RACE-IS-NOT-A-CROSS-SWAP-1`;
+  `INTEGRATION_PLANS.md` revision entry (same file, NOT a v2 — a
+  pre-registration sharpened while every deliverable was still Queued,
+  which is precisely when a design may change); `STATUS_BOARD.md` D-CZ rows
+  re-cut with the old→new mapping recorded (C2→C4, C3→C3-reshaped, C4→C5,
+  C5→C6, plus new C1b/C1c). Both append-only files suffix-verified.
+- **Honest scope.** No measured result was reinterpreted — only D-CZ-0 (the
+  regime preflight) was DONE and it is untouched. v1's framing is preserved
+  in place as §2's correction note, not deleted.
+- **Confidence.** `[H]` on the methodological finding — the reasoning is
+  airtight GIVEN the premise, but the premise ("the model captures the
+  phenomenon") is an assumption this plan does not test. `[G]` on nothing:
+  this PR measures nothing.
+
 ## 2026-08-12 — lance-graph #942 (MERGED) — the "mean" qualifier fix + `substrate-comfort-zones-v1` (the operator's calibration-vs-regime hypothesis, made falsifiable)
 
 - **Added.** `.claude/plans/substrate-comfort-zones-v1.md` — the operator's
