@@ -95,8 +95,9 @@ identical pipeline: a +90°-rotated referent and a deterministically permuted
 one (`(i+7) % n`). The controls' scores are reported FIRST; if a control
 matches the real referent's score, the probe is VOID regardless of its bars.
 **GOLDEN-RATIO INDEX FLOOR (operator-ruled 2026-08-12, binding on every
-lattice/stride/spiral construction in this plan).** *"Golden ratio immer erst
-ab 17/21 — alles darunter ist Müll."* A Fibonacci ratio `F(n+1)/F(n)` is a
+lattice/stride/spiral construction in this plan).** Golden-ratio structure is
+usable only from convergent index ~17–21 upward; below that it is unusable
+for these constructions. A Fibonacci ratio `F(n+1)/F(n)` is a
 RATIONAL with period `F(n)`; it only behaves like the irrational φ from
 **n ≈ 17–21** onward. Measured convergent error: n=10 → **1.5e-4**, n=13 →
 8.2e-6, **n=17 → 1.8e-7**, n=19 → 2.6e-8, n=21 → **3.7e-9**. Below the floor
@@ -112,11 +113,13 @@ Two things this rule does and does NOT touch, keep them apart:
   binds.** For the emergent pair to reach index ≥17 you need
   **N ≳ F(17)² = 2 550 409**, not thousands. A probe at N=4096 has its
   natural pair at **F(10)=55 / F(11)=89** — six orders of magnitude below the
-  floor, i.e. squarely in the Müll zone, no matter how precise its angle.
+  floor, i.e. squarely in the sub-floor resonance zone, no matter how precise
+  its angle.
 
 **BELOW THE FLOOR, DO NOT APPROXIMATE φ AT ALL — enumerate.** (Operator,
-same ruling: *"die beste Kombi ist 17 und stride 4"*, *"Alternative ist
-17/11, aber das ist kein goldener Schnitt"*.) The floor does not mean "reach
+same ruling: the preferred small-q combination is modulus 17 with stride 4;
+the stride-11 alternative is explicitly NOT a golden-section step.) The floor
+does not mean "reach
 for a slightly better Fibonacci ratio"; it means the φ-approximation
 *selector* is the wrong instrument down there. Use the workspace's shipped
 exact integer coprime walk — `CurveRuler::index(k) = (start + 4k) mod 17`
@@ -171,7 +174,7 @@ the result *depends on the strides being Fibonacci*.
 
 > **⚠ N IS NOT A FREE PARAMETER AND THE FIRST DRAFT GOT IT WRONG.** This
 > brief originally specified **N=4096**, whose emergent pair is
-> **F(10)=55 / F(11)=89** (error 1.5e-4) — the Müll zone by the §0 index
+> **F(10)=55 / F(11)=89** (error 1.5e-4) — sub-floor by the §0 index
 > floor. Worse, its step 1 searched `j ∈ {1..60}`, so it was *structurally
 > incapable* of finding a family above F(10) — the sub-floor answer was
 > hardcoded, and every bar below would have been measured on it. Both are

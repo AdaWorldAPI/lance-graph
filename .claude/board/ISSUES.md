@@ -7,8 +7,8 @@
 over (`E-THE-GOLDEN-STEP-IS-THE-WRONG-STEP-AT-SMALL-Q-1`): (a) stride 4 has
 strictly better prefix star-discrepancy than 11 at m=9/13 (0.1111/0.0769 vs
 0.1503/0.0905); (b) at q=17 the correct frame is TEMPERAMENT (coprime closure
-+ distributed comma — operator: *"kein echter golden step, aber kollabiert
-nicht"*), not φ-approximation, so *"golden"* names the wrong mechanism
++ distributed comma — operator framing: not a genuine golden step, yet it
+does not collapse), not φ-approximation, so *"golden"* names the wrong mechanism
 entirely. **The code is fine** — `CurveRuler` uses stride 4; only the doc
 label misleads, and a future session choosing a stride BY that rationale
 would pick 11 (the measurably worse one). Fix when helix is next touched:

@@ -3,9 +3,10 @@
 **Status:** FINDING `[G]` — arithmetic, fully reproducible, no fetch. Operator
 ruling + three measurements run this session.
 
-**The ruling (operator, three messages):** *"golden ratio immer erst ab 17/21,
-alles darunter ist Müll"* · *"die beste Kombi ist 17 und stride 4"* ·
-*"Alternative ist 17/11, aber das ist kein goldener Schnitt"*.
+**The ruling (operator, three messages, paraphrased):** golden-ratio
+structure counts only from convergent index ~17–21 upward, below that it is
+unusable · the preferred small-q combination is modulus 17 with stride 4 ·
+the stride-11 alternative is explicitly not a golden-section step.
 
 **Measured, and it splits into two regimes with two different generators.**
 
@@ -45,9 +46,10 @@ alles darunter ist Müll"* · *"die beste Kombi ist 17 und stride 4"* ·
    matters, and the other is stated rather than hidden.)*
 
 4. **The MECHANISM below the floor is TEMPERAMENT, not approximation**
-   (operator: *"11/17 oder sowas soll 5/3 Quintenzirkel mit Pythagoras-Komma
-   sein"* · *"kein echter golden step, aber kollabiert nicht"* — and the
-   second sentence is the whole theory). A coprime stride `s` over `q` is
+   (operator framing: the stride-11-region walk behaves like a 5/3
+   circle-of-fifths with a distributed Pythagorean-style comma — not a
+   genuine golden step, yet it does not collapse; and that last property is
+   the whole theory). A coprime stride `s` over `q` is
    structurally a **circle of fifths**: it does not *approximate* the
    irrational target, it **closes the cycle exactly** (coprimality → full
    permutation) and **distributes the incommensurability error — the comma —
@@ -59,12 +61,12 @@ alles darunter ist Müll"* · *"die beste Kombi ist 17 und stride 4"* ·
    D-QUANTGATE names. So the survival property below the floor is
    **CLOSURE, not GOLDENNESS** — which is why the shipped integer walk was
    always right even while its "golden-step" rationale was wrong.
-   - **The operator's "5/3, oder sowas" resolves exactly:** the 5/3 major
-     sixth (884.36 ct) lands on **stride 13** (917.65 ct, +33.3 ct) — and
-     **13 ≡ −4 (mod 17)**: `4·13 ≡ 1`, they are inverses. **Stride 4 IS the
-     descending-5/3-sixth circle.** Stride 11 sits at 776.5 ct ≈ 8/5, the
-     neighbouring sixth — "oder sowas" was the right hedge, and the measured
-     answer is 13 = −4, i.e. the operator's own stride 4 read backwards.
+   - **The operator's tentative 5/3 identification resolves exactly:** the
+     5/3 major sixth (884.36 ct) lands on **stride 13** (917.65 ct, +33.3 ct)
+     — and **13 ≡ −4 (mod 17)**: `4·13 ≡ 1`, they are inverses. **Stride 4 IS
+     the descending-5/3-sixth circle.** Stride 11 sits at 776.5 ct ≈ 8/5, the
+     neighbouring sixth — the hedge was right, and the measured answer is
+     13 = −4, i.e. the operator's own stride 4 read backwards.
    - Interval map for the record (17-TET): stride 3 ≈ 9/8 (−7.9 ct), 7 ≈ 4/3
      (+3.9), **10 ≈ 3/2 (−3.9, the fifth)**, **4 ≈ 7/6 (−15.5)**,
      **13 ≈ 5/3 (+33.3)**.

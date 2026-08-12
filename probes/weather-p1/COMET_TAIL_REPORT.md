@@ -1465,7 +1465,8 @@ accuracy grows monotonically by extending the sequence, no re-meshing.
 
 > **⚠ INDEX FLOOR (operator-ruled 2026-08-12) — the three `[G]` properties
 > above are asymptotic, and "asymptotic" starts LATER than this section
-> implied.** *"Golden ratio immer erst ab 17/21, alles darunter ist Müll."*
+> implied.** Operator ruling: golden-ratio structure counts only from
+> convergent index ~17–21 upward; anything below is unusable.
 > `F(n+1)/F(n)` is a **rational** with period `F(n)`; it behaves like φ only
 > from **n ≈ 17–21**. Measured: n=10 → err **1.5e-4**, n=13 → 8.2e-6,
 > **n=17 → 1.8e-7**, n=21 → **3.7e-9**. Below the floor the ratio
@@ -1488,9 +1489,10 @@ deterministic, residue stored); rails 2–5 = **8 state bytes** (the 8
 Freiheitsgrade).
 
 > **⚠⚠ TWO REGIMES, TWO GENERATORS — and below the floor you do not
-> approximate φ at all (operator, 2026-08-12: *"die beste Kombi ist 17 und
-> stride 4"*, *"Alternative ist 17/11, aber das ist kein goldener Schnitt"*).**
-> The floor above says a sub-floor Fibonacci ratio is Müll. It does **not**
+> approximate φ at all (operator, 2026-08-12: the preferred small-q
+> combination is modulus 17 with stride 4; stride 11 is explicitly not a
+> golden-section step).**
+> The floor above says a sub-floor Fibonacci ratio is unusable. It does **not**
 > say "use a slightly better Fibonacci ratio" — it says the whole
 > φ-approximation *selector* is the wrong tool down there. Use the **exact
 > integer coprime walk** instead, which this workspace already ships:
@@ -1502,12 +1504,13 @@ Freiheitsgrade).
 > | regime | generator | mechanism |
 > |---|---|---|
 > | **continuum**, N ≳ F(17)² = 2 550 409 | golden angle + emergent parastichy pair `F(n)/F(n+1)`, n ≥ 17 | **equidistribution by irrationality** — convergent err ≤ 1.8e-7; the asymptotic properties are real here |
-> | **quantized / small-q** (facet rails, palette, perturbation phase, dither) | **17, stride 4** — enumerated, not approximated | **temperament** (operator: *"Quintenzirkel mit Pythagoras-Komma"*, *"kein echter golden step, aber kollabiert nicht"*): coprimality closes the cycle EXACTLY and distributes the comma uniformly — the distributed comma IS D-QUANTGATE's anti-moiré dither. Survival property = **closure, not goldenness** |
+> | **quantized / small-q** (facet rails, palette, perturbation phase, dither) | **17, stride 4** — enumerated, not approximated | **temperament** (operator framing, 2026-08-12: a circle-of-fifths with a distributed Pythagorean-style comma — not a genuine golden step, yet it does not collapse): coprimality closes the cycle EXACTLY and distributes the comma uniformly — the distributed comma IS D-QUANTGATE's anti-moiré dither. Survival property = **closure, not goldenness** |
 >
 > **The temperament reading, measured.** 12 pure fifths miss closure by the
 > Pythagorean comma **+23.46 ct**; 17-TET's fifth (stride 10) closes exactly
 > by construction, **+3.93 ct/fifth** spread around the circle. And the
-> operator's *"11/17 oder sowas soll 5/3 sein"* resolves precisely: the 5/3
+> operator's tentative identification of the stride-11-region walk with the
+> 5/3 sixth resolves precisely: the 5/3
 > sixth (884.36 ct) is **stride 13** (917.65 ct) — and `13 ≡ −4 (mod 17)`,
 > `4·13 ≡ 1`: **stride 4 is the descending-5/3-sixth circle**, stride 11 its
 > 8/5 neighbour. The shipped walk was right all along; only its "golden"
