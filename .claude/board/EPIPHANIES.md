@@ -1,3 +1,75 @@
+## 2026-08-12 — E-ON-A-GOLDEN-LATTICE-LOCALITY-IS-FIBONACCI-MEMBERSHIP-1
+
+**Status:** FINDING `[G]` — W5 RUN (`spiral_adi_probe.py`/`.json`) + a
+targeted verification measurement, both committed.
+
+**The claim.** On a Vogel/golden lattice, a *local* non-Fibonacci control
+for stride-structure experiments **does not exist** — not "is hard to
+build," does not exist. Locality and Fibonacci-family membership are the
+same property, by the three-distance theorem: a point's near neighbours in
+physical space are exactly the points at convergent-denominator index
+offsets, and for the golden angle the convergent denominators ARE the
+Fibonacci numbers.
+
+**How three successive control designs discovered this by failing
+differently.** W5's B3 control went through three generations, each
+correcting the last: (1) strides 12/18 — wrong SCALE (connects points
+nowhere near each other); (2) strides 1500/2600 — magnitude-matched but
+still wrong scale in disguise (angular residues 0.05/0.11 vs the true
+pair's 0.00028/0.00017 — two to three orders larger); (3) the
+distance-matched shuffled-neighbour control — picks, per point, the REAL
+nearest lattice neighbour closest in physical distance to the true partner,
+excluding that partner. Generation 3 is the strongest possible local
+control — and the RUN shows it changes nothing: anisotropy ratio
+control/fib = **0.9996** (B3 bar: ≥1.5 → **VOID** by its own
+pre-registered rule).
+
+**The diagnosis, then the verification — in that order.** The suspicion:
+generation 3's "non-Fibonacci" partners are themselves Fibonacci-offset
+points, because on this lattice there is nothing else nearby to pick.
+Measured directly (N=62 208, family-A control links): **99.38 % of the
+control's links have a Fibonacci |Δk|** — top offsets 233, 987, 610
+(all Fibonacci) and 1220 (= 2·610). The control never left the family.
+The three-generation arc is therefore not a story of bad control design
+but a **constructive proof sketch of the impossibility**: wrong-arithmetic
+⟹ wrong-scale on a golden lattice, in both directions, because the
+three-distance theorem couples the two.
+
+**Consequences.**
+- **W5's B3 question ("does the smoothing depend on the strides being
+  Fibonacci?") is unanswerable BY A LOCAL CONTROL on this lattice** — and
+  that is the honest verdict, not a probe defect. What CAN be said: the
+  ADI smoothing quality is governed by local step geometry, and on a
+  golden lattice, having correct local step geometry and being
+  Fibonacci-linked are the same thing.
+- **Companion to `E-A-CONTROL-THAT-CANNOT-LOSE-IS-NO-CONTROL-1` (below,
+  same day): that entry's failure mode is a control that cannot LOSE;
+  this one's is a control that cannot DIFFER.** Both carry zero
+  information when they "work" — and both were caught only because the
+  runs happened and the results were interrogated instead of banked.
+- A genuine falsifier for the Fibonacci-dependence question would have to
+  leave locality: e.g. compare against a DIFFERENT lattice (jittered
+  grid, Halton) with its own natural neighbour structure under the same
+  stencil — deferred, scoped as a different experiment, not a fourth
+  control generation on the same lattice.
+
+**The positive results this run also delivered (recorded here since B3's
+VOID would otherwise overshadow them):** **B2 PASS** at the headline
+N=7 651 227 — iso-fit error **0.00053** against the 0.15 bar (≈280×
+margin), anisotropy 1.213 vs the 1.25 bar: two Fibonacci-stride
+tridiagonal sweeps DO approximate an isotropic 2D diffusion, which is the
+load-bearing half for the domino.rs spiral-ADI design. **B4**: smooth
+monotone improvement across the floor sweep (iso 0.44 → 0.0001 from n=8
+to n=19, N=52.4M), **no knee at n=17** — on this metric the operator's
+17/21 floor reads as a comfortable safety margin, per the pre-registered
+two-sided reading. Honest residual: the anisotropy asymptotes at **~1.213
+across three decades of N** (1.28/1.22/1.213/1.213 at n=12/14/17/19) —
+an N-independent, structural ~21 % second-moment anisotropy of the
+operator/geometry itself (band-restricted chains on polar geometry), not
+a resolution artifact; it passes the 1.25 bar but does not tend to 1.0,
+and any future tightening of that bar below ~1.22 would need this
+mechanism addressed first.
+
 ## 2026-08-12 — E-A-CONTROL-THAT-CANNOT-LOSE-IS-NO-CONTROL-1
 
 **Status:** FINDING `[G]` — both instances measured this session, committed
