@@ -1,17 +1,20 @@
-## golden-vs-tempered-stride-v1 — head-vs-gut queue (PRE-REGISTERED 2026-08-12)
+## golden-vs-tempered-stride-v1 — head-vs-gut queue — RUN 2026-08-12
 
 Plan: `.claude/plans/golden-vs-tempered-stride-v1.md`. Standalone, zero fetch,
-~5 min single Sonnet worker. All four bars pre-registered in the plan text
-itself with the expected numbers already worked out arithmetically — the
-worker's job is to reproduce them from a committed script, not discover them
-fresh.
+< 5 s wall time (turned out lighter than the ~5 min pre-registered estimate —
+pure stdlib arithmetic, no numpy/scipy needed after all). All four bars ran
+against `probes/weather-p1/golden_vs_tempered_probe.py`; results in the
+matching `.json`. **Two real methodology defects caught by the run itself**
+(T1's m* definition, T3's float round-trip false negative) — both fixed in
+the committed script, both explained inline in the plan; neither weakens the
+qualitative synthesis, both tightened specific numbers.
 
-| D-id | Deliverable | Status | Feeds |
+| D-id | Deliverable | Status | Result |
 |---|---|---|---|
-| D-GVT-T1 | Crossover sweep across 8+ q, useful-range metric | Queued | the two-regime design rule |
-| D-GVT-T2 | Asymptotic golden-advantage pass/fail bar | Queued | validates "gut" instinct |
-| D-GVT-T3 | Closure-occupancy guarantee (tempered) vs variable (golden) | Queued | validates "does not collapse" precisely |
-| D-GVT-T4 | Naive-rounding collapse hazard rate | Queued | the sharpest form of "does not collapse" |
+| D-GVT-T1 | Crossover sweep across 10 q, useful-range metric | **RUN** | m* within 1.0–1.4× q at every q (never exactly ≈q as first drafted — corrected) |
+| D-GVT-T2 | Asymptotic golden-advantage pass/fail bar | **RUN — PASS** | golden ahead 68.2–106.4× at m=200q, all 10 q |
+| D-GVT-T3 | Closure-occupancy guarantee (tempered) vs variable (golden) | **RUN — PASS** | tempered 140/140 exact (integer-verified); golden 124–127/140 across 5 phases |
+| D-GVT-T4 | Naive-rounding collapse hazard rate | **RUN — PASS** | 114/292 = 39.0 % of q∈[8,300) collapse under naive rounding |
 
 ## weather-w-probes-v1 — W-probe queue (PRE-REGISTERED 2026-08-12)
 
