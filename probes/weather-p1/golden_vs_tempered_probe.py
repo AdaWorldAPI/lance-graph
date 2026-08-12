@@ -15,7 +15,7 @@ in T1/T3/T4; nothing here needs a seed).
 import json
 import pathlib
 import statistics
-from math import gcd, log2
+from math import gcd
 
 PHI = (1 + 5 ** 0.5) / 2
 GOLDEN_FRAC = 2 - PHI  # = 1/phi^2, the golden-angle fraction in turns
@@ -44,6 +44,15 @@ def tempered_pts(m, s, q):
     return [((s * i) % q) / q for i in range(m)]
 
 
+def useful_range_lo(q):
+    """The useful-prefix-range floor, ceil(q/2) -- NOT q//2. codex P2 on
+    PR #935: floor division shorts every odd q by one (q=17: q//2=8 admits
+    m=8, outside the documented [ceil(q/2),q]=[9,17]). Fixed here as the
+    single source both best_coprime_stride and t1_crossover call, so the
+    two can never drift apart again."""
+    return -(-q // 2)  # ceiling division, no float rounding
+
+
 def best_coprime_stride(q):
     """The coprime stride s in [1,q) minimizing the MEDIAN star discrepancy
     over the 'useful' prefix range m in [ceil(q/2), q] -- excludes the
@@ -51,7 +60,7 @@ def best_coprime_stride(q):
     dominate a naive worst-case-over-all-m metric into near-uselessness.
     Returns (score, stride).
     """
-    lo = max(2, q // 2)
+    lo = max(2, useful_range_lo(q))
     best = None
     for s in range(1, q):
         if gcd(s, q) != 1:
@@ -64,26 +73,81 @@ def best_coprime_stride(q):
     return best
 
 
+def _sampled_checkpoints(m, q, horizon):
+    """Checkpoint set for verifying a candidate crossover stays below the
+    tempered ceiling: EVERY integer for the next 50 steps (catches
+    near-term reversals -- codex P1 on PR #935 found exactly this failure
+    mode: m*=21 reported as 'permanent' for q=17, but D*(22) rises back
+    above the frozen value), plus ~15%-geometrically-spaced points out to
+    the horizon, plus the horizon itself. NOT exhaustive between the sparse
+    far points -- the return value's length is reported alongside m* so the
+    verification scope is never silently overclaimed as total.
+    """
+    near = list(range(m, min(m + 50, horizon) + 1))
+    far = set()
+    if horizon > near[-1]:
+        x = near[-1]
+        while x < horizon:
+            x = min(horizon, int(x * 1.15) + 1)
+            far.add(x)
+        far.add(horizon)
+    return sorted(set(near) | far)
+
+
+def verified_permanent_crossover(q, temp_frozen, horizon):
+    """First m >= q at which golden's discrepancy drops below temp_frozen
+    AND STAYS below it at every checkpoint in _sampled_checkpoints(m, q,
+    horizon) -- i.e. verified non-exceeding at a SAMPLED (not exhaustive)
+    set of points out to `horizon`. On any checkpoint violation, the scan
+    restarts just past the violating point. Returns (m_star, n_checkpoints)
+    or (None, 0) if no such m is found within a generous search budget.
+
+    This replaces a FIRST-crossing search (the pre-#935-fix behaviour),
+    which is a materially different and weaker claim: golden's raw
+    discrepancy sequence is not monotonic (only its O(log m/m) ENVELOPE
+    is a bound), so a single dip below the tempered ceiling can be
+    followed by a rise back above it before the sequence settles for
+    good. A first-crossing m* can therefore report a point that is not
+    actually the point after which golden STAYS ahead -- exactly the
+    q=17, m=21-not-permanent defect codex caught.
+    """
+    m = q
+    tries = 0
+    budget = 40 * q
+    while m <= 20 * q and tries < budget:
+        tries += 1
+        if star_discrepancy(golden_pts(m)) < temp_frozen:
+            checkpoints = _sampled_checkpoints(m, q, horizon)
+            bad = None
+            for cp in checkpoints:
+                if star_discrepancy(golden_pts(cp)) >= temp_frozen:
+                    bad = cp
+                    break
+            if bad is None:
+                return m, len(checkpoints)
+            m = bad + 1
+        else:
+            m += 1
+    return None, 0
+
+
 def t1_crossover(q_list):
     """T1: for each q, find the best coprime stride (useful-range metric),
     the matching golden score in the same range, and m* -- the first prefix
-    length beyond q where golden's discrepancy permanently drops below the
-    tempered stride's frozen m=q value.
+    length beyond q at which golden's discrepancy VERIFIABLY stays below the
+    tempered stride's frozen m=q value through the m=200q horizon (sampled
+    checkpoints, not every integer -- see verified_permanent_crossover).
     """
     rows = []
     for q in q_list:
         temp_score, s = best_coprime_stride(q)
-        lo = max(2, q // 2)
+        lo = max(2, useful_range_lo(q))
         gold_score = statistics.median(
             star_discrepancy(golden_pts(m)) for m in range(lo, q + 1)
         )
         temp_frozen = star_discrepancy(tempered_pts(q, s, q))
-        m_star = None
-        for m in range(q, 20 * q + 1):
-            if star_discrepancy(golden_pts(m)) < temp_frozen:
-                m_star = m
-                break
         m_big = 200 * q
+        m_star, n_checkpoints = verified_permanent_crossover(q, temp_frozen, m_big)
         ratio_big = star_discrepancy(golden_pts(m_big)) and (
             temp_frozen / star_discrepancy(golden_pts(m_big))
         )
@@ -92,6 +156,7 @@ def t1_crossover(q_list):
             "temp_score_useful_range": temp_score,
             "golden_score_useful_range": gold_score,
             "m_star": m_star,
+            "m_star_checkpoints_verified": n_checkpoints,
             "temp_over_golden_at_200q": ratio_big,
         })
     return rows
@@ -205,7 +270,8 @@ if __name__ == "__main__":
         print(f"  q={r['q']:5d} s={r['best_stride']:5d} "
               f"temp={r['temp_score_useful_range']:.4f} "
               f"gold={r['golden_score_useful_range']:.4f} "
-              f"m*={r['m_star']} temp/gold@200q={r['temp_over_golden_at_200q']:.1f}x")
+              f"m*={r['m_star']} (verified @ {r['m_star_checkpoints_verified']} checkpoints) "
+              f"temp/gold@200q={r['temp_over_golden_at_200q']:.1f}x")
     print("\n=== T2 asymptotic bar ===", "PASS" if result["T2"]["pass"] else "FAIL")
     print("\n=== T3 closure (q=140) ===")
     print("  temp fill (exact integer):", result["T3"]["headline_q140"]["temp_fill_exact_integer"])
