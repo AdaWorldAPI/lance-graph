@@ -1,10 +1,20 @@
 # substrate-comfort-zones-v1 — where does each substrate formula feel at home?
 
-> **Status:** ACTIVE, exploratory tier. Bars author-written and unaudited —
-> fine for exploratory, said out loud (the
-> `E-ZERO-FOR-ELEVEN-THE-AUTHOR-CANNOT-AUDIT-HIS-OWN-FALSIFIERS-1` rule).
-> No verdict-tier claim may be promoted out of this plan without an
+> **Status:** RUN, §7 — the pre-registered hypothesis is **REFUTED** on this
+> data. Bars author-written and unaudited — fine for exploratory, said out
+> loud (the `E-ZERO-FOR-ELEVEN-THE-AUTHOR-CANNOT-AUDIT-HIS-OWN-FALSIFIERS-1`
+> rule). No verdict-tier claim may be promoted out of this plan without an
 > independent adversarial spec audit.
+>
+> **⚠ HEADLINE, READ FIRST — see §7 for the full run.** Both pre-registered
+> measures of the hypothesis below point the SAME direction, and it is the
+> OPPOSITE of what was hypothesized: `C3`'s transfer loss `L̄` grows
+> monotonically 0.011 → 0.309 → 0.671 → **0.690** from calm to storm (not
+> shrinks); `C4`'s crossover never flips — absolute wins its own diagonal
+> in every regime, by a MARGIN THAT GROWS from ~1 Pa to **10.78 Pa** in the
+> storm regime, not shrinks or reverses. On this box, this variable
+> (MSLP), these timesteps: **a well-calibrated absolute encoding does not
+> lose its edge under turbulence — it gains one.**
 >
 > **Operator framing (2026-08-12), three messages:**
 > 1. *hold different situations constant — over water vs flatland vs storm
@@ -624,3 +634,162 @@ control was run on this particular comparison; and the whole point of the
 cross-swap design is that a diagonal-vs-diagonal difference is not what the
 hypothesis is about. Recorded so a later run cannot present it as a
 confirmation that was there all along.
+
+
+---
+
+## §7 RUN — D-CZ-2..7, the cross-swap matrix (2026-08-12)
+
+Script `probes/weather-p1/substrate_comfort_d_cz_2_7.py`, results
+`…_d_cz_2_7.json`, tag-file `exec-runs/…txt`. Run in the order the plan
+requires: **C1c first**, because a null there would VOID the interpretation
+before anything downstream is worth trusting. C0's construction had a real
+bug, found and disable-verified fixed before any of C2–C6 was reported.
+
+### §7.0 A construction bug in C0 itself, caught by C0's own gate
+
+The first run of this probe **failed** C0 in two of four regimes:
+`GEO-DEGENERATE` did not lose to the real arms in R1 or R4. Per §3's own
+rule — *"if either matches a real arm anywhere, that cell measures
+nothing and is reported VOID"* — nothing downstream could have been
+trusted as written.
+
+**Cause:** the "degenerate donor" was built from `truth[:len//64]` — the
+first slice of an array already subsampled by `rng.choice` for equal
+budget. `rng.choice` returns no spatial order, so that slice is an
+**ordinary random subsample**, not a narrow spatial patch — a materially
+different construction from D-CZ-1's correct one
+(`p[si,sj][:n_i,:n_i]`, a genuine 2-D corner). A random subsample of a
+flat array is not reliably narrower in range than the whole array; by
+chance it can nearly match it.
+
+**Fixed** by keeping each regime's full 2-D box alongside the equal-budget
+flat evaluation sample, and building the degenerate donor from an actual
+`n_i × n_i` corner of that box (`n_i = side // 8`), matching D-CZ-1
+exactly. **Disable-verified**: reverting to the flat-slice construction
+reproduces the *exact* original failure (R1 and R4 fail, R2/R3 pass);
+the fix reproduces the same real-arm numbers unchanged (C2–C6 identical
+between the two runs) while making **C0 pass cleanly in all four
+regimes**. The bug was isolated to the control; the real arms were never
+wrong.
+
+### §7.1 C1c PASSES — the cross-swap interpretation is licensed
+
+| regime | decay length (cells) | Gini(\|∇p\|) | tail ratio (p99/p50) |
+|---|---|---|---|
+| R1 CALM | 25.5 | 0.4321 | **7.65** |
+| R2 OCEAN | 32.0 | 0.2758 | 3.72 |
+| R3 ACTIVE | 32.0 | 0.2262 | 1.94 |
+| R4 STORM (median of 19) | 22.5 | 0.3062 | **2.95** |
+
+R4/R1 ratios: decay **0.88**, Gini **0.71**, tail ratio **0.385** — the
+storm regime's gradient field is far *less* concentrated (a smaller
+handful of cells carrying most of the gradient in calm regions; a more
+uniformly elevated field in storms) than the calm regime's, a genuinely
+different **shape**, not just a different mean. All three deviate from 1
+by ≥ 20 %. **The regimes differ in structure, not merely in `\|∇p\|`** —
+the assumption behind the whole regime ladder holds.
+
+*(The 20 % threshold is this run's own operationalization of §3's
+qualitative bar — the plan did not pre-register a number. Flagged as an
+author choice; the raw ratios are reported above so a reader can apply a
+stricter one and reach the same conclusion — the smallest deviation,
+12 %, is on decay length, but tail ratio's 61 % deviation alone clears
+any reasonable bar.)*
+
+**C1 (ladder) and C1b (separation) both PASS too**: the `\|∇p\|` order
+R1 < R2 < R3 < R4 holds at all three tested timesteps, and separation is
+**5.87–8.24** at every one — comfortably above the ≥ 3 bar.
+
+### §7.2 C2 PASSES both halves
+
+Dynamic arms (`CAL-RANK`, `CAL-FISHERZ`) show `L[D][T] = 0` **exactly**
+for every donor in every regime — no leak. Through the *identical* code
+path, `CAL-ABS`'s off-diagonal `L` ranges **0.011 (R1) → 0.947 (R4)** —
+demonstrably non-degenerate. The can-it-DIFFER gate is satisfied.
+
+### §7.3 ⚠ C3 FAILS — and the failure is a clean, monotonic REVERSAL
+
+`L̄[T]`, the mean off-diagonal transfer loss for `CAL-ABS`:
+
+| R1 CALM | R2 OCEAN | R3 ACTIVE | R4 STORM |
+|---|---|---|---|
+| **0.011** | 0.309 | 0.671 | **0.690** |
+
+The bar required `L̄[R4] < L̄[R1]`. **Measured: `L̄[R4]` is 62× larger than
+`L̄[R1]`, and the increase is monotonic across all four tiers.** This is
+not "no shrinkage" — it is the pre-registered relationship holding in
+**reverse**: transfer loss under a foreign absolute calibration grows,
+not shrinks, as turbulence rises. Storms are **less** forgiving of bad
+calibration on this data, not more.
+
+### §7.4 ⚠ C4 FAILS — same direction, same shape
+
+`Δ[T] = RMSE(CAL-RANK, own window) − RMSE(CAL-ABS, own diagonal)`, in Pa
+(positive = absolute wins):
+
+| R1 CALM | R2 OCEAN | R3 ACTIVE | R4 STORM |
+|---|---|---|---|
+| +1.29 | +1.11 | +0.46 | **+10.78** |
+
+**No sign flip anywhere** — absolute wins its own diagonal in all four
+regimes, and its margin of victory is **largest in the storm regime**,
+not smallest. The strong form of the operator's hypothesis is refuted on
+this data: a well-calibrated absolute encoding does not lose its edge as
+turbulence rises here — it gains one.
+
+The **weak form** (`ρ(CAL-RANK) > ρ(CAL-ABS, D ≠ T)`) passes trivially
+everywhere, exactly as pre-registered it would — dynamic beats a
+genuinely *mis-calibrated* absolute by **329–2508 Pa** across regimes.
+Per §3: *"nearly guaranteed by C2(i)… evidence of wiring, not of merit."*
+Reported, not conflated with C4's real bar.
+
+### §7.5 C5 — NOT RUN, structural blocker
+
+`GEO-GOLDEN-HI` needs `N ≥ F(17)² = 2 550 409` before the golden lattice
+behaves like the irrational it approximates (§1's own index-floor rule).
+A 16° box at 0.25° resolution holds `65 × 65 = 4225` cells — **three
+orders of magnitude below the floor**. `GEO-GOLDEN-HI` cannot be
+constructed at box scale on this grid; the comparison has no admissible
+high arm. Reported as a structural gap, not skipped silently, and not
+faked with an interpolated sub-grid lattice (which would sample the
+interpolator, not the field).
+
+### §7.6 C6 — the transfer matrix, delivered
+
+Full `donor × target` table for all five arms (`CAL-ABS`, `CAL-RANK`,
+`CAL-FISHERZ`, `CAL-SHUFFLE`, `GEO-DEGENERATE`) × four regimes, every
+`ρ` / `L` / `occupancy` / `saturation` / RMSE / bias cell raw, in
+`substrate_comfort_d_cz_2_7.json` → `C6_matrix`.
+
+### §7.7 ⚠ This CONTRADICTS §6.6's exploratory hint — stated plainly
+
+§6.6 measured, *within* R4 only, ρ(`GEO-DEGENERATE` ρ, storm `\|∇p\|`) =
++0.444 (p = 0.058, not significant) — the *direction* of that correlation
+matched the operator's hypothesis, and was recorded as a coherence with
+the D-CZ-1 saturation numbers.
+
+**The properly-powered, cross-regime test says the opposite.** §6.6 was a
+single-regime, single-arm, unpre-registered correlation at n=19. §7.3/§7.4
+are the pre-registered, cross-swap, equal-budget bars the whole plan was
+built to produce. Where they disagree, the pre-registered cross-regime
+result governs. §6.6 is retained as what it always was — exploratory, not
+a result — and this section exists so a later read does not average the
+two into a false middle. **The hypothesis is refuted on this data.**
+
+### §7.8 What this plan concludes
+
+The operator's hypothesis — *a badly-calibrated substrate that maps
+DYNAMICALLY preserves MORE structure in strong storms than a
+well-calibrated absolute one* — is **refuted, cleanly, on this box, this
+variable, these three timesteps plus 19 storms**. Both pre-registered
+measures of it (C3's transfer loss, C4's diagonal crossover) point the
+same direction, monotonically, not merely "no effect."
+
+**What is NOT concluded:** that miscalibration is never more forgivable
+under turbulence, anywhere, on any variable, at any scale — this is one
+box size, one variable (MSLP), one gradient definition, and C5's absence
+means the geometry axis (the *other* half of "good geometry vs badly
+calibrated") was never tested at all. The regime axis and the C0/C1/C1b/
+C1c apparatus all hold; the specific calibration hypothesis they were
+built to test does not.

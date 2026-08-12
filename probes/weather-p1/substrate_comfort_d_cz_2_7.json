@@ -1,0 +1,628 @@
+{
+  "probe": "substrate_comfort_d_cz_2_7",
+  "seed": 20260812,
+  "timesteps": [
+    54358,
+    55086,
+    55818
+  ],
+  "budget_cells_per_regime": 4225,
+  "units": {
+    "grad_p": "Pa/cell (flat, no cos-lat \u2014 the D-CZ-0 identified definition)",
+    "rmse": "Pa",
+    "bias": "Pa",
+    "decay_length": "grid cells",
+    "L": "dimensionless (rho difference)"
+  },
+  "C0_controls": {
+    "R1_CALM": {
+      "CAL-SHUFFLE": true,
+      "GEO-DEGENERATE": true
+    },
+    "R2_OCEAN": {
+      "CAL-SHUFFLE": true,
+      "GEO-DEGENERATE": true
+    },
+    "R3_ACTIVE": {
+      "CAL-SHUFFLE": true,
+      "GEO-DEGENERATE": true
+    },
+    "R4_STORM": {
+      "CAL-SHUFFLE": true,
+      "GEO-DEGENERATE": true
+    }
+  },
+  "C1_ladder": {
+    "per_timestep": {
+      "54358": {
+        "values": [
+          10.267982482910156,
+          15.295616149902344,
+          43.52193832397461,
+          88.98800578870271
+        ],
+        "ordered": true
+      },
+      "55086": {
+        "values": [
+          8.420635223388672,
+          20.382078170776367,
+          21.0435848236084,
+          88.98800578870271
+        ],
+        "ordered": true
+      },
+      "55818": {
+        "values": [
+          9.359210014343262,
+          13.816144943237305,
+          58.70938491821289,
+          88.98800578870271
+        ],
+        "ordered": true
+      }
+    },
+    "holds_all": true,
+    "raw": {
+      "R1_CALM": {
+        "54358": 10.267982482910156,
+        "55086": 8.420635223388672,
+        "55818": 9.359210014343262
+      },
+      "R2_OCEAN": {
+        "54358": 15.295616149902344,
+        "55086": 20.382078170776367,
+        "55818": 13.816144943237305
+      },
+      "R3_ACTIVE": {
+        "54358": 43.52193832397461,
+        "55086": 21.0435848236084,
+        "55818": 58.70938491821289
+      },
+      "R4_STORM": {
+        "per_storm_mean": 88.98800578870271,
+        "per_storm_min": 39.901527404785156,
+        "n_independent_timesteps": 19
+      }
+    }
+  },
+  "C1b_separation": {
+    "per_timestep": {
+      "54358": 6.430169158055194,
+      "55086": 8.240830494144255,
+      "55818": 5.866366164820492
+    },
+    "bar": 3.0,
+    "holds_all": true
+  },
+  "C1c_structure": {
+    "per_regime": {
+      "R1_CALM": {
+        "decay_length_cells": 25.5,
+        "gini_gradp": 0.4320934781503374,
+        "tail_ratio_gradp": 7.652638836611052
+      },
+      "R2_OCEAN": {
+        "decay_length_cells": 32.0,
+        "gini_gradp": 0.27581184507019185,
+        "tail_ratio_gradp": 3.722250017585821
+      },
+      "R3_ACTIVE": {
+        "decay_length_cells": 32.0,
+        "gini_gradp": 0.2262258291411534,
+        "tail_ratio_gradp": 1.9386696980814633
+      },
+      "R4_STORM": {
+        "decay_length_cells": 22.5,
+        "gini_gradp": 0.3062475714591397,
+        "tail_ratio_gradp": 2.9491883985991496,
+        "n": 19
+      }
+    },
+    "verdict": {
+      "decay_ratio_r4_over_r1": 0.8823529411764706,
+      "gini_ratio_r4_over_r1": 0.7087530521638368,
+      "tail_ratio_r4_over_r1": 0.3853818874203122,
+      "distinguishable": true
+    }
+  },
+  "C2_degenerate_row": {
+    "dynamic_rows_flat": {
+      "CAL-RANK": {
+        "R1_CALM": 0.0,
+        "R2_OCEAN": 0.0,
+        "R3_ACTIVE": 0.0,
+        "R4_STORM": 0.0
+      },
+      "CAL-FISHERZ": {
+        "R1_CALM": 0.0,
+        "R2_OCEAN": 0.0,
+        "R3_ACTIVE": 0.0,
+        "R4_STORM": 0.0
+      }
+    },
+    "cal_abs_can_differ": {
+      "R1_CALM": 0.01103689701168109,
+      "R2_OCEAN": 0.6183197101240259,
+      "R3_ACTIVE": 0.8343471141874098,
+      "R4_STORM": 0.9467064832844216
+    },
+    "cal_abs_undefined_donors": {
+      "R1_CALM": [
+        "R2_OCEAN",
+        "R3_ACTIVE"
+      ],
+      "R2_OCEAN": [
+        "R1_CALM"
+      ],
+      "R3_ACTIVE": [
+        "R1_CALM"
+      ],
+      "R4_STORM": []
+    },
+    "half_i_dynamic_L_is_exactly_zero": true,
+    "half_ii_cal_abs_nonzero_somewhere": true
+  },
+  "C3_transfer_loss": {
+    "per_regime": {
+      "R1_CALM": {
+        "L_bar": 0.01103689701168109,
+        "n_defined_offdiag": 1,
+        "n_undefined_offdiag": 2,
+        "occupancy_mean_offdiag": 0.022135416666666668,
+        "saturation_mean_offdiag": 0.6666666666666666
+      },
+      "R2_OCEAN": {
+        "L_bar": 0.3094828671426827,
+        "n_defined_offdiag": 2,
+        "n_undefined_offdiag": 1,
+        "occupancy_mean_offdiag": 0.08463541666666667,
+        "saturation_mean_offdiag": 0.6609072978303747
+      },
+      "R3_ACTIVE": {
+        "L_bar": 0.6708209545588866,
+        "n_defined_offdiag": 2,
+        "n_undefined_offdiag": 1,
+        "occupancy_mean_offdiag": 0.10026041666666667,
+        "saturation_mean_offdiag": 0.9674161735700197
+      },
+      "R4_STORM": {
+        "L_bar": 0.6899068233087143,
+        "n_defined_offdiag": 3,
+        "n_undefined_offdiag": 0,
+        "occupancy_mean_offdiag": 0.3411458333333333,
+        "saturation_mean_offdiag": 0.9686785009861932
+      }
+    },
+    "r1_r4_both_defined": true,
+    "holds_r4_lt_r1": false
+  },
+  "C4_crossover": {
+    "per_regime": {
+      "R1_CALM": {
+        "delta_rmse_rank_minus_absdiag": 1.2875496387398329,
+        "rho_floor_check_min": 0.99991523929089,
+        "weak_form_absforeign_minus_rank_rmse": 439.45736416501524
+      },
+      "R2_OCEAN": {
+        "delta_rmse_rank_minus_absdiag": 1.110984110781117,
+        "rho_floor_check_min": 0.999916685049489,
+        "weak_form_absforeign_minus_rank_rmse": 328.7326356721833
+      },
+      "R3_ACTIVE": {
+        "delta_rmse_rank_minus_absdiag": 0.4552001128419074,
+        "rho_floor_check_min": 0.9999168206445191,
+        "weak_form_absforeign_minus_rank_rmse": 1635.2923826909162
+      },
+      "R4_STORM": {
+        "delta_rmse_rank_minus_absdiag": 10.780337293854465,
+        "rho_floor_check_min": 0.9999168302772791,
+        "weak_form_absforeign_minus_rank_rmse": 2507.545438988307
+      }
+    },
+    "sign_flip": false
+  },
+  "C6_matrix": {
+    "R1_CALM": {
+      "CAL-ABS|R1_CALM": {
+        "rho": 0.9999596603993293,
+        "rmse_pa": 0.43545659099220974,
+        "bias_pa": -0.0039270091762204145,
+        "occupancy": 0.8359375,
+        "saturation": 0.00047337278106508875
+      },
+      "CAL-ABS|R2_OCEAN": {
+        "rho": NaN,
+        "rmse_pa": 245.86851734876652,
+        "bias_pa": 237.65027211567354,
+        "occupancy": 0.00390625,
+        "saturation": 1.0
+      },
+      "CAL-ABS|R3_ACTIVE": {
+        "rho": NaN,
+        "rmse_pa": 1069.5368025036043,
+        "bias_pa": 1067.677524312939,
+        "occupancy": 0.00390625,
+        "saturation": 1.0
+      },
+      "CAL-ABS|R4_STORM": {
+        "rho": 0.9889227633876482,
+        "rmse_pa": 8.135791331870866,
+        "bias_pa": 0.19725649500739645,
+        "occupancy": 0.05859375,
+        "saturation": 0.0
+      },
+      "CAL-RANK|R1_CALM": {
+        "rho": 0.9999927605048448,
+        "rmse_pa": 1.7230062297320425,
+        "bias_pa": 0.19835151627218936,
+        "occupancy": 1.0,
+        "saturation": 0.0078106508875739646
+      },
+      "CAL-FISHERZ|R1_CALM": {
+        "rho": 0.99991523929089,
+        "rmse_pa": 0.8066562813008817,
+        "bias_pa": 0.02618897928994083,
+        "occupancy": 0.7421875,
+        "saturation": 0.00047337278106508875
+      },
+      "CAL-RANK|R2_OCEAN": {
+        "rho": 0.9999927605048448,
+        "rmse_pa": 1.7230062297320425,
+        "bias_pa": 0.19835151627218936,
+        "occupancy": 1.0,
+        "saturation": 0.0078106508875739646
+      },
+      "CAL-FISHERZ|R2_OCEAN": {
+        "rho": 0.99991523929089,
+        "rmse_pa": 0.8066562813008817,
+        "bias_pa": 0.02618897928994083,
+        "occupancy": 0.7421875,
+        "saturation": 0.00047337278106508875
+      },
+      "CAL-RANK|R3_ACTIVE": {
+        "rho": 0.9999927605048448,
+        "rmse_pa": 1.7230062297320425,
+        "bias_pa": 0.19835151627218936,
+        "occupancy": 1.0,
+        "saturation": 0.0078106508875739646
+      },
+      "CAL-FISHERZ|R3_ACTIVE": {
+        "rho": 0.99991523929089,
+        "rmse_pa": 0.8066562813008817,
+        "bias_pa": 0.02618897928994083,
+        "occupancy": 0.7421875,
+        "saturation": 0.00047337278106508875
+      },
+      "CAL-RANK|R4_STORM": {
+        "rho": 0.9999927605048448,
+        "rmse_pa": 1.7230062297320425,
+        "bias_pa": 0.19835151627218936,
+        "occupancy": 1.0,
+        "saturation": 0.0078106508875739646
+      },
+      "CAL-FISHERZ|R4_STORM": {
+        "rho": 0.99991523929089,
+        "rmse_pa": 0.8066562813008817,
+        "bias_pa": 0.02618897928994083,
+        "occupancy": 0.7421875,
+        "saturation": 0.00047337278106508875
+      },
+      "CAL-SHUFFLE|self": {
+        "rho": 0.08232528142572652,
+        "rmse_pa": 140.96730416561363,
+        "bias_pa": 59.71426860380455,
+        "occupancy": 0.8359375,
+        "saturation": 0.00047337278106508875
+      },
+      "GEO-DEGENERATE|self": {
+        "rho": 0.3799822353435944,
+        "rmse_pa": 119.99599105198327,
+        "bias_pa": -103.18710295727972,
+        "occupancy": 0.421875,
+        "saturation": 0.949585798816568
+      }
+    },
+    "R2_OCEAN": {
+      "CAL-ABS|R1_CALM": {
+        "rho": NaN,
+        "rmse_pa": 525.9022909934547,
+        "bias_pa": -463.10123923758783,
+        "occupancy": 0.00390625,
+        "saturation": 1.0
+      },
+      "CAL-ABS|R2_OCEAN": {
+        "rho": 0.9999805198027167,
+        "rmse_pa": 1.3133243896042126,
+        "bias_pa": 0.02958709175064719,
+        "occupancy": 0.9609375,
+        "saturation": 0.0009467455621301775
+      },
+      "CAL-ABS|R3_ACTIVE": {
+        "rho": 0.3816608096786909,
+        "rmse_pa": 445.52070839237126,
+        "bias_pa": 376.5969895438471,
+        "occupancy": 0.1171875,
+        "saturation": 0.9488757396449704
+      },
+      "CAL-ABS|R4_STORM": {
+        "rho": 0.9993344956413772,
+        "rmse_pa": 22.047833131879898,
+        "bias_pa": -2.914080875554734,
+        "occupancy": 0.1328125,
+        "saturation": 0.033846153846153845
+      },
+      "CAL-RANK|R1_CALM": {
+        "rho": 0.9999923760691042,
+        "rmse_pa": 2.4243085003853295,
+        "bias_pa": 0.1679363905325444,
+        "occupancy": 1.0,
+        "saturation": 0.008047337278106508
+      },
+      "CAL-FISHERZ|R1_CALM": {
+        "rho": 0.999916685049489,
+        "rmse_pa": 3.2512974601170033,
+        "bias_pa": -0.06652551775147929,
+        "occupancy": 0.7421875,
+        "saturation": 0.00047337278106508875
+      },
+      "CAL-RANK|R2_OCEAN": {
+        "rho": 0.9999923760691042,
+        "rmse_pa": 2.4243085003853295,
+        "bias_pa": 0.1679363905325444,
+        "occupancy": 1.0,
+        "saturation": 0.008047337278106508
+      },
+      "CAL-FISHERZ|R2_OCEAN": {
+        "rho": 0.999916685049489,
+        "rmse_pa": 3.2512974601170033,
+        "bias_pa": -0.06652551775147929,
+        "occupancy": 0.7421875,
+        "saturation": 0.00047337278106508875
+      },
+      "CAL-RANK|R3_ACTIVE": {
+        "rho": 0.9999923760691042,
+        "rmse_pa": 2.4243085003853295,
+        "bias_pa": 0.1679363905325444,
+        "occupancy": 1.0,
+        "saturation": 0.008047337278106508
+      },
+      "CAL-FISHERZ|R3_ACTIVE": {
+        "rho": 0.999916685049489,
+        "rmse_pa": 3.2512974601170033,
+        "bias_pa": -0.06652551775147929,
+        "occupancy": 0.7421875,
+        "saturation": 0.00047337278106508875
+      },
+      "CAL-RANK|R4_STORM": {
+        "rho": 0.9999923760691042,
+        "rmse_pa": 2.4243085003853295,
+        "bias_pa": 0.1679363905325444,
+        "occupancy": 1.0,
+        "saturation": 0.008047337278106508
+      },
+      "CAL-FISHERZ|R4_STORM": {
+        "rho": 0.999916685049489,
+        "rmse_pa": 3.2512974601170033,
+        "bias_pa": -0.06652551775147929,
+        "occupancy": 0.7421875,
+        "saturation": 0.00047337278106508875
+      },
+      "CAL-SHUFFLE|self": {
+        "rho": -0.04867588197240352,
+        "rmse_pa": 452.1981665483234,
+        "bias_pa": 122.80125530897513,
+        "occupancy": 0.9609375,
+        "saturation": 0.0009467455621301775
+      },
+      "GEO-DEGENERATE|self": {
+        "rho": 0.47801853597161725,
+        "rmse_pa": 430.5506483061611,
+        "bias_pa": -354.5808563629692,
+        "occupancy": 0.6484375,
+        "saturation": 0.917396449704142
+      }
+    },
+    "R3_ACTIVE": {
+      "CAL-ABS|R1_CALM": {
+        "rho": NaN,
+        "rmse_pa": 2258.161742708387,
+        "bias_pa": -2129.5621933795996,
+        "occupancy": 0.00390625,
+        "saturation": 1.0
+      },
+      "CAL-ABS|R2_OCEAN": {
+        "rho": 0.4926944507153999,
+        "rmse_pa": 1224.020331977599,
+        "bias_pa": -979.967107865373,
+        "occupancy": 0.28125,
+        "saturation": 0.9114792899408284
+      },
+      "CAL-ABS|R3_ACTIVE": {
+        "rho": 0.9999892456457632,
+        "rmse_pa": 3.2888446705759047,
+        "bias_pa": -0.1164641358866494,
+        "occupancy": 1.0,
+        "saturation": 0.002366863905325444
+      },
+      "CAL-ABS|R4_STORM": {
+        "rho": 0.1656421314583534,
+        "rmse_pa": 1434.9272077370156,
+        "bias_pa": -1223.0108273622411,
+        "occupancy": 0.015625,
+        "saturation": 0.9907692307692307
+      },
+      "CAL-RANK|R1_CALM": {
+        "rho": 0.99999238780557,
+        "rmse_pa": 3.744044783417812,
+        "bias_pa": 0.30272697855029584,
+        "occupancy": 1.0,
+        "saturation": 0.008047337278106508
+      },
+      "CAL-FISHERZ|R1_CALM": {
+        "rho": 0.9999168206445191,
+        "rmse_pa": 9.686523384544712,
+        "bias_pa": 0.09407729289940829,
+        "occupancy": 0.7421875,
+        "saturation": 0.00047337278106508875
+      },
+      "CAL-RANK|R2_OCEAN": {
+        "rho": 0.99999238780557,
+        "rmse_pa": 3.744044783417812,
+        "bias_pa": 0.30272697855029584,
+        "occupancy": 1.0,
+        "saturation": 0.008047337278106508
+      },
+      "CAL-FISHERZ|R2_OCEAN": {
+        "rho": 0.9999168206445191,
+        "rmse_pa": 9.686523384544712,
+        "bias_pa": 0.09407729289940829,
+        "occupancy": 0.7421875,
+        "saturation": 0.00047337278106508875
+      },
+      "CAL-RANK|R3_ACTIVE": {
+        "rho": 0.99999238780557,
+        "rmse_pa": 3.744044783417812,
+        "bias_pa": 0.30272697855029584,
+        "occupancy": 1.0,
+        "saturation": 0.008047337278106508
+      },
+      "CAL-FISHERZ|R3_ACTIVE": {
+        "rho": 0.9999168206445191,
+        "rmse_pa": 9.686523384544712,
+        "bias_pa": 0.09407729289940829,
+        "occupancy": 0.7421875,
+        "saturation": 0.00047337278106508875
+      },
+      "CAL-RANK|R4_STORM": {
+        "rho": 0.99999238780557,
+        "rmse_pa": 3.744044783417812,
+        "bias_pa": 0.30272697855029584,
+        "occupancy": 1.0,
+        "saturation": 0.008047337278106508
+      },
+      "CAL-FISHERZ|R4_STORM": {
+        "rho": 0.9999168206445191,
+        "rmse_pa": 9.686523384544712,
+        "bias_pa": 0.09407729289940829,
+        "occupancy": 0.7421875,
+        "saturation": 0.00047337278106508875
+      },
+      "CAL-SHUFFLE|self": {
+        "rho": 0.1076028284432391,
+        "rmse_pa": 1056.1259072749588,
+        "bias_pa": 151.59143322103827,
+        "occupancy": 1.0,
+        "saturation": 0.002366863905325444
+      },
+      "GEO-DEGENERATE|self": {
+        "rho": 0.2900859787206164,
+        "rmse_pa": 1594.7041920434797,
+        "bias_pa": 1408.846735254773,
+        "occupancy": 0.3359375,
+        "saturation": 0.9718343195266272
+      }
+    },
+    "R4_STORM": {
+      "CAL-ABS|R1_CALM": {
+        "rho": 0.5072287551023801,
+        "rmse_pa": 2070.4683206201353,
+        "bias_pa": 1647.7540435321514,
+        "occupancy": 0.56640625,
+        "saturation": 0.954792899408284
+      },
+      "CAL-ABS|R2_OCEAN": {
+        "rho": 0.36970751728458107,
+        "rmse_pa": 2388.553976512638,
+        "bias_pa": 2021.596971074392,
+        "occupancy": 0.4375,
+        "saturation": 0.952189349112426
+      },
+      "CAL-ABS|R3_ACTIVE": {
+        "rho": 0.053268646229919614,
+        "rmse_pa": 3119.8878118239486,
+        "bias_pa": 2838.3526022068,
+        "occupancy": 0.01953125,
+        "saturation": 0.9990532544378699
+      },
+      "CAL-ABS|R4_STORM": {
+        "rho": 0.9999751295143413,
+        "rmse_pa": 7.977593370078924,
+        "bias_pa": 0.10601527829142011,
+        "occupancy": 0.94140625,
+        "saturation": 0.0009467455621301775
+      },
+      "CAL-RANK|R1_CALM": {
+        "rho": 0.9999923744008613,
+        "rmse_pa": 18.75793066393339,
+        "bias_pa": 0.0618958025147929,
+        "occupancy": 1.0,
+        "saturation": 0.008047337278106508
+      },
+      "CAL-FISHERZ|R1_CALM": {
+        "rho": 0.9999168302772791,
+        "rmse_pa": 16.183609077920757,
+        "bias_pa": 0.023818417159763315,
+        "occupancy": 0.7421875,
+        "saturation": 0.00047337278106508875
+      },
+      "CAL-RANK|R2_OCEAN": {
+        "rho": 0.9999923744008613,
+        "rmse_pa": 18.75793066393339,
+        "bias_pa": 0.0618958025147929,
+        "occupancy": 1.0,
+        "saturation": 0.008047337278106508
+      },
+      "CAL-FISHERZ|R2_OCEAN": {
+        "rho": 0.9999168302772791,
+        "rmse_pa": 16.183609077920757,
+        "bias_pa": 0.023818417159763315,
+        "occupancy": 0.7421875,
+        "saturation": 0.00047337278106508875
+      },
+      "CAL-RANK|R3_ACTIVE": {
+        "rho": 0.9999923744008613,
+        "rmse_pa": 18.75793066393339,
+        "bias_pa": 0.0618958025147929,
+        "occupancy": 1.0,
+        "saturation": 0.008047337278106508
+      },
+      "CAL-FISHERZ|R3_ACTIVE": {
+        "rho": 0.9999168302772791,
+        "rmse_pa": 16.183609077920757,
+        "bias_pa": 0.023818417159763315,
+        "occupancy": 0.7421875,
+        "saturation": 0.00047337278106508875
+      },
+      "CAL-RANK|R4_STORM": {
+        "rho": 0.9999923744008613,
+        "rmse_pa": 18.75793066393339,
+        "bias_pa": 0.0618958025147929,
+        "occupancy": 1.0,
+        "saturation": 0.008047337278106508
+      },
+      "CAL-FISHERZ|R4_STORM": {
+        "rho": 0.9999168302772791,
+        "rmse_pa": 16.183609077920757,
+        "bias_pa": 0.023818417159763315,
+        "occupancy": 0.7421875,
+        "saturation": 0.00047337278106508875
+      },
+      "CAL-SHUFFLE|self": {
+        "rho": 0.006699959537369512,
+        "rmse_pa": 2536.695394356023,
+        "bias_pa": -603.1110531850961,
+        "occupancy": 0.94140625,
+        "saturation": 0.0009467455621301775
+      },
+      "GEO-DEGENERATE|self": {
+        "rho": 0.9038053970526956,
+        "rmse_pa": 1196.4020646066267,
+        "bias_pa": 420.62941414917714,
+        "occupancy": 0.921875,
+        "saturation": 0.8435502958579881
+      }
+    }
+  },
+  "c5_structural_blocker": "C5 (GEO-GOLDEN-LO vs GEO-GOLDEN-HI) is NOT RUN, and the reason is structural rather than budgetary. The golden index floor requires N >= F(17)^2 = 2,550,409 lattice points before the emergent parastichy stride behaves like phi at all. A 16-degree box at 0.25 degree resolution contains 65 x 65 = 4,225 cells -- three orders of magnitude below the floor. GEO-GOLDEN-HI therefore CANNOT be constructed at box scale on this grid, so the comparison the bar asks for has no admissible high arm. Reported rather than faked with an interpolated sub-grid lattice, which would sample the interpolator and not the field."
+}
