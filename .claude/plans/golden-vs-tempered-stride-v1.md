@@ -1,10 +1,15 @@
 # golden-vs-tempered-stride-v1 — head vs gut, made falsifiable
 
-> **Status:** ACTIVE for the exploratory tier (T1–T4 below). Cross-referenced
+> **Status:** T1–T4 RUN (`probes/weather-p1/golden_vs_tempered_probe.py` /
+> `.json`, committed with bars before execution, 2026-08-12). Cross-referenced
 > from `weather-w-probes-v1.md` §0 (the golden-ratio index floor rule) — this
 > plan is the standalone, substrate-general validation of that rule, not
-> weather-specific. Zero fetch, pure arithmetic, runnable by any Sonnet
-> worker with `numpy` + `scipy` only.
+> weather-specific. Zero fetch, pure arithmetic.
+>
+> **⚠ RUNNING THE PROBE CAUGHT TWO REAL DEFECTS IN THE HAND-DERIVED NUMBERS
+> BELOW — both fixed, both explained where they occurred (T1, T3).** Neither
+> changes the qualitative finding; both change specific numbers. This is
+> exactly what "commit the bars, then run" is for.
 
 ## Why this file exists
 
@@ -47,18 +52,42 @@ first prefix length beyond `q` at which golden's discrepancy drops below
 the tempered stride's (permanently, since tempered is frozen at its `m=q`
 value forever after).
 
-**Pre-registered expectation, measured before commit:**
+**RUN, committed script, 2026-08-12** (`golden_vs_tempered_probe.json`):
 
-| q | best coprime s | temp score (median, useful range) | golden score (same range) | m* (golden overtakes) | temp/golden @ m=200q |
-|---|---|---|---|---|---|
-| 12 | 5 | 0.1667 | 0.1721 | 13 | 89.5× |
-| 17 | 14 | 0.1042 | 0.1169 | 18 | 70.4× |
-| 34 | 25 | 0.0570 | 0.0654 | 35 | 89.4× |
-| 55 | 34 | 0.0384 | 0.0373 | 55 | 106.4× |
-| 64 | 41 | 0.0312 | 0.0337 | 66 | 83.3× |
-| 89 | 35 | 0.0251 | 0.0275 | 90 | 84.2× |
-| 144 | 85 | 0.0160 | 0.0158 | 144 | 103.6× |
-| 233 | 149 | 0.0104 | 0.0116 | 234 | 68.2× |
+| q | best coprime s | temp score (median, useful range) | golden score (same range) | m* (golden overtakes) | m*/q | temp/golden @ m=200q |
+|---|---|---|---|---|---|---|
+| 12 | 5 | 0.1667 | 0.1721 | 16 | 1.33 | 89.5× |
+| 17 | 14 | 0.1042 | 0.1169 | 21 | 1.24 | 70.4× |
+| 34 | 25 | 0.0570 | 0.0654 | 42 | 1.24 | 89.4× |
+| 55 | 34 | 0.0384 | 0.0373 | 55 | 1.00 | 106.4× |
+| 64 | 41 | 0.0312 | 0.0337 | 90 | 1.41 | 83.3× |
+| 89 | 35 | 0.0251 | 0.0275 | 110 | 1.24 | 84.2× |
+| 144 | 85 | 0.0160 | 0.0158 | 144 | 1.00 | 103.6× |
+| 233 | 149 | 0.0104 | 0.0116 | 288 | 1.24 | 68.2× |
+| 377 | 239 | 0.0066 | 0.0066 | 377 | 1.00 | 96.4× |
+| 987 | 722 | 0.0028 | 0.0027 | 987 | 1.00 | 90.0× |
+
+> **⚠ CORRECTION — `m*` was computed inconsistently with this plan's own
+> prose in the pre-registered draft (all rows), caught by actually running
+> the script.** The draft's `m*` search recomputed the TEMPERED sequence's
+> star discrepancy at each growing `m > q` — but a tempered walk past `m=q`
+> is REPEATING its own `q` positions, not sampling new ones, so that
+> recomputation feeds duplicate points into a formula built for distinct
+> order statistics, and the resulting "discrepancy" **spuriously worsens**
+> instead of staying at its true, meaningful value. Worked example at
+> `q=17`: at `m=18` (the point where the tempered stride's 18th sample lands
+> exactly back on its own first position) the repeating-sequence
+> recomputation jumps to 0.1111 — WORSE than tempered's actual frozen
+> quality of 0.0588 — making golden's 0.0832 look like a win at `m=18` when
+> it is still **worse** than tempered's real ceiling. The draft's `m*=18`
+> for `q=17` was an artifact of this; the corrected script holds tempered at
+> its true frozen `m=q` value (matching this plan's own stated definition:
+> *"then repeats identically forever — a hard ceiling on refinement"*) and
+> finds golden's genuine first crossing, `m*=21`. **Every `m*` in the
+> corrected table is ≥ the draft's value** — under the correct definition,
+> golden takes somewhat LONGER to overtake than the draft suggested, not
+> shorter, so nothing here weakens the qualitative claim; it corrects the
+> tightness of one specific number per row.
 
 **Reading, stated as the finding rather than left implicit:**
 - **The head is right in the bounded regime.** At every tested `q`, the
@@ -68,23 +97,25 @@ value forever after).
   quality at any finite `m` is a continuous function with no guaranteed
   floor.
 - **The gut is right in the unbounded regime.** `m*` — the point where
-  golden permanently overtakes — sits almost exactly at `m ≈ q` in every
-  row (crossing within one budget-length of the tempered walk's own
-  ceiling). Beyond that, tempered is **frozen** at its `m=q` value forever
-  (coprimality guarantees full closure, not continued refinement), while
-  golden keeps improving as `O(log m / m)`. By `m = 200q` the gap is
-  **68–106×** in golden's favor, at every `q` tested.
+  golden permanently overtakes — sits **within about 1.0–1.4× of `q`** in
+  every row tested (never more than half a cycle-length beyond `q`; exactly
+  at `q` for four of the ten rows — `55, 144, 377, 987`). Beyond that,
+  tempered is **frozen** at its `m=q` value forever (coprimality guarantees
+  full closure, not continued refinement), while golden keeps improving as
+  `O(log m / m)`. By `m = 200q` the gap is **68–106×** in golden's favor, at
+  every `q` tested.
 - **Neither instinct is wrong; they are answers to different questions.**
   "Is there ever going to be more data than this fixed budget?" — no ⇒
   tempered, exact closure, zero variance, done. "Is more data always
   coming, indefinitely?" — yes ⇒ golden, no ceiling, strictly better past
   `m ≈ q`.
 
-**Bar T1 (descriptive, no single pass/fail — the crossover table itself is
-the deliverable):** report the table above, regenerated at run time rather
-than copied, for the full q list plus **two additional q not yet run**:
-`q = 377` and `q = 987` (both Fibonacci, continuing the ladder) — confirm
-the `m* ≈ q` pattern holds or report the first `q` where it breaks.
+**Bar T1 — RUN, result above:** the extended list (including `q=377,987`)
+confirms the qualitative crossover pattern: `m*` never exceeds ~1.41× `q` at
+any tested `q`, and lands exactly at `q` whenever the useful-range-optimal
+stride's own frozen discrepancy already beats golden's score throughout the
+sweep window (the `m*/q = 1.00` rows). No `q` broke the pattern into a
+qualitatively different regime.
 
 **⚠ CAVEAT, stated up front rather than discovered late (an earlier
 worst-case-over-all-`m` metric picked DIFFERENT "best" strides for q=17 —
@@ -102,8 +133,8 @@ citing a "best stride" number, here or elsewhere.
 ## T2 — the asymptotic claim, tested not assumed
 
 **Bar (pass/fail):** for `m = 200q`, golden discrepancy `<` the tempered
-stride's frozen `m=q` value, for **every** `q` in the T1 list. **Measured:
-TRUE at all 8 tested q (68.2×–106.4× separation)** — this is the arithmetic
+stride's frozen `m=q` value, for **every** `q` in the T1 list. **RUN: PASS
+at all 10 tested q (68.2×–106.4× separation)** — this is the arithmetic
 validation of the intuitive "nature prefers golden ratio" pull, made
 falsifiable rather than assumed. A single `q` where this bar fails would be
 a genuine surprise and would need its own investigation before the T2
@@ -119,23 +150,42 @@ Golden's fill count is genuinely **not guaranteed** and must be measured —
 report it, and check it is not an artifact of bin-boundary phase by
 re-binning at 5 different phase offsets.
 
-**Measured (non-Fibonacci q=140, avoiding the self-referential case where q
-is itself a Fibonacci number — see the aside below):** tempered fills
-**140/140** at every phase (proof, not measurement). Golden fills
-**124/140 at the canonical phase** — **16 empty cells** — and the count is
-**stable across 5 bin-phase offsets tested** (not a binning artifact).
+> **⚠ CORRECTION — the FIRST run of this bar produced a false negative on
+> tempered's OWN proof, caught by actually running it rather than trusting
+> the proof-not-measurement framing.** The original method checked BOTH
+> walks via the same float round-trip (`k/q` then `+offset` then `%1.0`
+> then `*q` then `int()`) — and for the tempered walk, at `off=0.0`, this
+> reported only **138/140** filled, contradicting its own "proof, not
+> measurement" claim. Diagnosed: pure IEEE-754 truncation —
+> `int(46.99999999999999)` rounds DOWN to 46 instead of 47, because
+> `(47/140)*140` does not round-trip to exactly `47.0` in binary floating
+> point. This affected only the MEASUREMENT CODE, not the mathematical
+> fact (coprimality ⇒ exact bijection, provably true regardless of how it
+> is measured). **Fixed: the tempered check now uses pure integer
+> arithmetic (`(s·i) mod q`, never divided then re-multiplied) — it cannot
+> have this artifact, and correctly reports 140/140 always.** The golden
+> check is unaffected by this fix (its positions are inherently
+> continuous, so the float phase-offset sweep is the legitimate empirical
+> method there, not a proof-verification with a spurious failure mode).
+
+**RUN, corrected method (non-Fibonacci q=140, avoiding the self-referential
+case where q is itself a Fibonacci number — see the aside below):**
+tempered fills **140/140** (exact integer check — proof confirmed, not
+merely assumed). Golden fills **124–127/140 across 5 phase offsets tested**
+(canonical phase: 124) — **13–16 empty cells depending on phase** — real,
+not a binning artifact (verified via the phase sweep, and the artifact this
+correction removed was in the TEMPERED check, not the golden one).
 
 **Aside, reported not judged:** at `q = 144 = F(12)` (a Fibonacci number
-itself), golden happened to fill **144/144 at all 5 phases tested** in a
-quick check — a special/resonant case worth flagging but not treated as
-representative; T3's headline number uses `q=140` specifically to avoid
-this Fibonacci-on-Fibonacci confound.
+itself), golden fills **144/144 at all 5 phases tested** — a
+special/resonant case worth flagging but not treated as representative;
+T3's headline number uses `q=140` specifically to avoid this
+Fibonacci-on-Fibonacci confound.
 
-**Bar T3 (two-sided by construction):** tempered fill = q/q **always** (a
-guard against an implementation bug more than a finding); golden fill `<
-q` for **at least** `q=140` (falsifiable — if golden also fills 140/140,
-the closure-guarantee argument for T3 is weaker than claimed and must be
-restated as "usually" rather than "guaranteed-vs-not").
+**Bar T3 (two-sided by construction) — RUN, PASS on both sides:** tempered
+fill = q/q **always** (140/140, exact integer arithmetic — the proof holds
+and is now verified without a measurement artifact); golden fill `< q` at
+`q=140` (**124–127/140**, well below 140, falsifiable and not falsified).
 
 ## T4 — the naive-rounding collapse hazard (the sharpest form of "kollabiert nicht")
 
@@ -261,15 +311,14 @@ happens — and this is the elegant part, not the load-bearing part — that
 the storm's geography sorts its tasks into exactly the two regimes the T1
 crossover table measures.
 
-## Execution
+## Execution — RUN
 
-Zero fetch, pure `numpy`/`scipy.spatial` (only T3's KD-tree-adjacent bucket
-counting needs anything beyond stdlib math, and even that is trivial at
-these sizes — `q ≤ 987`, no lattice-scale KD-tree needed here at all,
-unlike `weather-w-probes-v1`'s W5/W2s-a). Single Sonnet worker,
-**~5 minutes**, no `§0` preamble needed (this plan is self-contained and
-carries no weather-domain data access). One script,
-`probes/weather-p1/golden_vs_tempered_probe.py`, emitting
-`golden_vs_tempered_probe.json` with `{T1: [...], T2: {...}, T3: {...},
-T4: {...}}`. Commit the script with its bars BEFORE running, per the
-standing discipline.
+Zero fetch, pure stdlib `math`/`statistics` — no `numpy`/`scipy` needed after
+all (`q ≤ 987`, no lattice-scale KD-tree required, unlike
+`weather-w-probes-v1`'s W5/W2s-a). Committed with bars before execution
+(`38c56d00`), then run (< 5 seconds wall time), then two real defects were
+caught by the run itself and fixed (T1's `m*` methodology, T3's float
+round-trip false negative) — both explained inline above rather than
+silently absorbed into the numbers. `probes/weather-p1/
+golden_vs_tempered_probe.py` / `.json` / `.partial.jsonl` are the committed
+artifacts; `.json` is the record of truth for every number in this document.

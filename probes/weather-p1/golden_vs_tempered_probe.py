@@ -109,21 +109,33 @@ def t2_asymptotic_bar(t1_rows):
 def t3_closure_occupancy(q, phases):
     """T3: at m=q (tempered's own full cycle), count empty bins for both
     walks under q equal-width cells, checked at several bin-phase offsets to
-    rule out a binning artifact. Tempered fill is a PROOF (coprimality =>
-    bijection), included only as an implementation-bug guard."""
+    rule out a binning artifact.
+
+    TWO DIFFERENT VERIFICATION METHODS, DELIBERATELY, per the SAME lesson
+    caught mid-development of this script: a naive float round-trip
+    (k/q then *q then int()) truncates values like 46.99999999999999 to 46
+    instead of 47 -- a pure IEEE-754 rounding artifact that produced a FALSE
+    fill-count deficit for the tempered walk even though its bijection is a
+    mathematical PROOF (coprimality => {s*i mod q} = {0..q-1} exactly, no
+    floats involved at all). Fixed: the tempered check uses EXACT INTEGER
+    arithmetic (`(s*i) % q`, never divided then re-multiplied), so it cannot
+    have this artifact -- it either equals q always (as proven) or the proof
+    itself would be wrong, which it is not. The golden check legitimately
+    needs floats (its positions are inherently continuous), so the
+    phase-offset sweep stays meaningful there -- it is the actual empirical
+    question, not a verification of an existing proof.
+    """
     s = best_coprime_stride(q)[1]
-    temp_fill_by_phase = []
+    temp_fill_exact = len(set((s * i) % q for i in range(q)))  # proof-checking; no floats
     gold_fill_by_phase = []
     for off in phases:
-        temp_bins = set(int((((s * i) % q) / q + off) % 1.0 * q) for i in range(q))
         gold_bins = set(int(((i * GOLDEN_FRAC) % 1.0 + off) % 1.0 * q) for i in range(q))
-        temp_fill_by_phase.append(len(temp_bins))
         gold_fill_by_phase.append(len(gold_bins))
     return {
         "q": q, "stride": s, "phases": phases,
-        "temp_fill_by_phase": temp_fill_by_phase,
+        "temp_fill_exact_integer": temp_fill_exact,
         "golden_fill_by_phase": gold_fill_by_phase,
-        "temp_always_full": all(f == q for f in temp_fill_by_phase),
+        "temp_always_full": temp_fill_exact == q,
         "golden_ever_short": any(f < q for f in gold_fill_by_phase),
     }
 
@@ -196,7 +208,7 @@ if __name__ == "__main__":
               f"m*={r['m_star']} temp/gold@200q={r['temp_over_golden_at_200q']:.1f}x")
     print("\n=== T2 asymptotic bar ===", "PASS" if result["T2"]["pass"] else "FAIL")
     print("\n=== T3 closure (q=140) ===")
-    print("  temp fill by phase:", result["T3"]["headline_q140"]["temp_fill_by_phase"])
+    print("  temp fill (exact integer):", result["T3"]["headline_q140"]["temp_fill_exact_integer"])
     print("  gold fill by phase:", result["T3"]["headline_q140"]["golden_fill_by_phase"])
     print("=== T3 aside (q=144, Fibonacci) ===")
     print("  gold fill by phase:", result["T3"]["aside_q144_fibonacci"]["golden_fill_by_phase"])
