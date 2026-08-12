@@ -550,6 +550,25 @@ Checkpoint after every storm; resume skips completed `t0`.
 
 ---
 
+### RUN, 2026-08-12 (`comet_tail_w6.py` / `.json`) — B0 VOID, and the vector-sum model does NOT fit; the stranded stratum is EMPTY by construction
+
+| bar | verdict | measured |
+|---|---|---|
+| **B0 CONTROLS** | **VOID** (own pre-registered rule) | single-geo R²=**−0.104**; permuted-P_bow control R²=**−0.071**; rotated-90° control R²=**−0.062** — both controls exceed `single-geo + 0.03 = −0.074` |
+| **B1 IDENTIFIABILITY** | VOID (B0 failed) | joint R²=**−0.086** vs best-single R²=−0.104, margin +0.018 (needed +0.10) |
+| **B2 SIGN** | VOID (B0 failed) | `c_geo = −0.407` (predicted **positive**, wrong sign); `c_bow = 0.0006` (≈0, no measurable weight) |
+| **B3 residual resultant** (descriptive) | overall: R̄=**0.153**, μ=−2.3°, p=0.646 — *below* the n=19 uniform-expectation floor (√π/2√19 ≈ 0.203); **stranded (<8 m/s): n=0**; moving (≥8 m/s): n=19, identical to overall | no clustering at all; stranded stratum **structurally empty** |
+
+**Every single-predictor model already fails on its own** — geo alone R²=−0.104, bow alone R²=−0.147, both *worse than predicting the mean*. The joint model's negligible +0.018 margin over the geo baseline is exactly what an anti-vacuity control should reject, and B0 correctly rejects it: two deliberately-wrong references (permuted, rotated 90°) score as well as or better than the real geo predictor alone. **There is no signal here for a joint fit to identify.**
+
+**No implementation bug found — checked, not assumed.** One storm was independently re-fetched and hand-audited (t0=54358): `D=[−0.561,−0.469]` Pa, `P_bow=[−43.6,−19.3]` Pa (the dynamic pressure of an 8.9 m/s `v_rel` — a physically sane magnitude), `P_geo=[−0.340,0.237]` Pa/km (`A_H=906` Pa at `d_H=2187` km, also sane). Extended to the full 19-storm sample (committed in `comet_tail_w6.json`'s `B4_per_storm`, which now carries the raw `D`/`P_geo`/`P_bow`/`A_H`/`d_H`/`v_rel_ms` per storm, not only derived bearings — the first run shipped without these and the gap was self-caught before a reviewer needed to): `|P_bow|` averages **147× `|D|`**, `|P_geo|` averages 0.61× `|D|` — a genuine scale disparity between the two predictors' natural units (Pa vs Pa/km, exactly why "units absorb into the c's" was flagged up front), but `lstsq` is scale-invariant per column, so this does not explain the near-zero `c_bow` — it is a real absence of correlation between `P_bow` and `D`'s residual variance, not a units artifact.
+
+**The stranded stratum is empty for a structural reason, not a physics finding.** `min(v_storm) = 12.54 m/s` across all 19 storms — comfortably above `250 km / 6 h = 11.574 m/s`, the speed CT-F14's own `displacement_km ≥ 250` qualifying filter mathematically implies as a floor. **No storm in this displacement-filtered 19-storm set can ever be "stranded" (<8 m/s) — the report §10.2 stranded-rescue reading is UNTESTABLE on this sample by construction, not refuted.** Testing it needs a sample built WITHOUT the fast-motion-selecting displacement filter (or with a filter that explicitly retains slow storms) — a design note for any future stranded-rescue probe, not a task for this one to retrofit.
+
+**What this means for the report's vector-sum model.** As specified — a global 2-parameter linear combination of a single background-high neighbor predictor and a single relative-motion bow-wave predictor, fit across 19 storms by ordinary least squares — **the model does not fit this data, and the fit is not merely weak, it is void by its own anti-vacuity control.** This does not rule out a richer version of the model (multiple neighbors, a nonlinear bow term, storm-specific coefficients) — but the specific, pre-registered, mechanistically-motivated form named in §10.2 is disconfirmed on this sample as tested. Consequence for CT-F17: its gate ("W6's result AND an independent adversarial spec audit") is now moot for the vector-sum model's CURRENT form — a fresh-sample verdict on a model that already fails its identifiability control on the STORED sample would not be a meaningful next step; the audit gate stands for any REVISED form of the model instead.
+
+---
+
 ## §4 BRIEF W2s-b — the α-field on a real H–T pair (GATED on W2s-a G2 pass)
 
 **File:** `corridor_alpha_probe.py`. Outline — finalize bars at spawn time

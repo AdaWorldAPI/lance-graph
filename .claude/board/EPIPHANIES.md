@@ -1,3 +1,72 @@
+## 2026-08-12 — E-THE-DISPLACEMENT-FILTER-ATE-THE-STRANDED-STRATUM-1
+
+**Status:** FINDING `[G]` — W6 RUN (`comet_tail_w6.py`/`.json`), audited
+(raw predictors committed per storm after a self-caught gap), both a
+sample-composition finding and a genuine model-level negative result.
+
+**The mechanism-level result, stated first because it is the load-bearing
+one.** Report §10.2's dipole vector-sum model (`D = c_geo·P_geo +
+c_bow·P_bow`, a background-high neighbor predictor plus a relative-motion
+bow-wave predictor) was fit on CT-F14's 19 stored storms and **VOIDED by its
+own pre-registered anti-vacuity control**: single-geo R²=−0.104 (worse than
+predicting the mean); the permuted-P_bow control R²=−0.071 and the
+rotated-90° control R²=−0.062 BOTH exceed `single-geo + 0.03 = −0.074` — two
+deliberately wrong references score as well as or better than the real
+predictor. `c_bow ≈ 0.0006` in every fit (no measurable weight); `c_geo` has
+the physically WRONG sign throughout. This is not a marginal miss — it is
+the anti-vacuity control doing exactly its job: rejecting a fit that has
+nothing to identify.
+
+**Checked before concluding it was a clean negative, per the standing
+measurement-skeptic discipline: no implementation bug.** One storm was
+independently re-fetched and hand-audited; extended to the full sample by
+committing the raw `D`/`P_geo`/`P_bow`/`A_H`/`d_H`/`v_rel_ms` per storm (the
+first run's output shipped only derived bearings — self-caught and fixed
+before any reviewer needed to). Every value is physically sane (`A_H > 0`
+always by construction, `d_H` inside the 600–2500 km annulus always, `v_rel`
+2.8–27.9 m/s). `|P_bow|` averages 147× `|D|`'s magnitude against `|P_geo|`'s
+0.61× — a real scale disparity between Pa (bow) and Pa/km (geo) units, but
+`lstsq` is scale-invariant per column, so the near-zero `c_bow` reflects a
+genuine absence of correlation, not a units artifact.
+
+**The finding that generalizes past this one probe: an anti-vacuity control
+can be voided by SAMPLE COMPOSITION, and the reason is arithmetic, not
+physics.** B3's stranded-vs-moving stratification (`|v_storm| < 8 m/s`,
+the report's own named test of the "stranded-rescue" reading) came back
+**n=0 for the stranded stratum** — every one of the 19 storms has
+`|v_storm| ≥ 12.54 m/s`. This is not a null result about storm motion; it is
+a DIRECT ARITHMETIC CONSEQUENCE of CT-F14's own qualifying filter
+(`displacement_km ≥ 250` over the 6 h window): `250 km / 6 h = 11.574 m/s`,
+a hard floor on `|v_storm|` for ANY storm admitted to the sample. **A filter
+built to select clearly-moving storms for a displacement-scoring test
+silently and permanently excludes the storms a LATER, differently-motivated
+test (stranded-rescue) needs to see.** The stranded-rescue claim is
+therefore **UNTESTABLE on this sample, not refuted** — the untestability was
+knowable from the filter's own arithmetic before a single storm was fetched,
+and wasn't checked until B3 came back empty.
+
+**Consequence, stated as a reusable rule:** before scoring ANY new
+hypothesis against an EXISTING filtered sample, check whether the sample's
+own selection criterion is compatible with the new hypothesis's own
+discriminating variable — arithmetically, not by running the probe and
+discovering an empty stratum after the fact. A filter selected for one
+purpose (fast, clearly-displaced storms, easy to center-find and score
+against displacement) is not neutral with respect to every future question;
+it is a specific cut through the underlying population, and every later
+probe inherits that cut whether or not it is the cut that probe needs.
+
+**Consequence for the report and for CT-F17.** The report's §10.2 vector-sum
+model, AS SPECIFIED, is disconfirmed on this sample — not "unproven," not
+"needs more data" in the ordinary sense, but VOID by its own control. CT-F17
+(the fresh-sample verdict, gated on W6's result + an independent adversarial
+audit) is now moot **for this form of the model** — a fresh-sample test of a
+model that already fails identifiability on the stored sample is not the
+next useful step. Any REVISED form of the vector-sum model (multiple
+neighbors, a nonlinear bow term, per-storm coefficients) would need its own
+W6-shaped mechanistic test before earning a CT-F17 slot; a genuine
+stranded-rescue test needs a sample built without (or explicitly retaining
+slow storms despite) a displacement floor.
+
 ## 2026-08-12 — E-ON-A-GOLDEN-LATTICE-LOCALITY-IS-FIBONACCI-MEMBERSHIP-1
 
 **Status:** FINDING `[G]` — W5 RUN (`spiral_adi_probe.py`/`.json`) + a

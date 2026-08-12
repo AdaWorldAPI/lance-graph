@@ -1,0 +1,6 @@
+START seed=20260812 n_storms=19
+progress 5/19 t0=62410
+progress 10/19 t0=66558
+progress 15/19 t0=70218
+progress 19/19 t0=74366
+DONE B0=VOID B1=VOID (B0 failed) B2=VOID (B0 failed)
