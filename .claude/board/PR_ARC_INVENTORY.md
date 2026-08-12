@@ -54,6 +54,41 @@
 **Status:** MERGED (`e6e27829`). Branch `claude/jirak-math-theorems-harvest-rfii13`
 → `main`. Doc/plan/board only.
 
+## 2026-08-12 — lance-graph #938 (MERGED) — the W5 v2 RUN lands (B2 FAIL / B3 VOID confirmed) — and three more codex findings fixed same day, in the same PR
+
+- **Added.** `spiral_adi_probe.json` v2 (headline N=7 651 227, full-band
+  control, V-matched iterations, bump at 3.35σ mask clearance, BOTH link
+  families histogrammed) + a third dated update to
+  `E-ON-A-GOLDEN-LATTICE-LOCALITY-IS-FIBONACCI-MEMBERSHIP-1`. See the
+  RUN-results entry immediately below for the full B2/B3/B4 findings —
+  this entry adds only what changed AFTER that entry was first written,
+  same PR, same day.
+- **Locked — three more codex findings, fixed same day the RUN entry was
+  drafted, before merge.** (1) The control-link histogram covered only
+  family A (`if fam == 0`) while the ADI sweep uses BOTH stride families
+  every iteration — fixed: `build_control_links` now histograms both;
+  **family B independently measured at 99.56 % Fibonacci-offset rate**,
+  dominated by 4181=F(19), the OTHER member of the discovered pair
+  `[2584, 4181]` — exactly the mechanism's own prediction (each family's
+  near-neighbour scale IS its own discovered stride). The committed JSON
+  was patched via a targeted regeneration of just the histogram (the
+  fib/control/aniso results are independent of this fix and were not
+  rerun) — the number now has a committed, reproducible artifact behind
+  it. (2) "Four orders of magnitude apart" for the two tested N (62 208
+  and 4 782 017) was an arithmetic error: the true ratio is 76.9× ≈ **1.9
+  orders of magnitude**. (3) B4 was reported as satisfying its own
+  pre-registered bar (`n ∈ {8,10,12,14,17,19}`, only `n=21`
+  pre-authorized to drop) when v2 additionally dropped `n=19` under the
+  V-matched cost function — downgraded from a verdict to an explicit
+  DESCRIPTIVE reading over `n=8..17` only; B4 stays open until `n=19`
+  either runs or the bar is formally amended.
+- **Confidence.** High on B2/B3's core verdicts (unaffected by any of the
+  three fixes — all three corrected supporting evidence or scope
+  statements, not the pass/fail logic itself). B4 explicitly NOT settled.
+
+**Status:** MERGED (`f80cdb03`). Branch `claude/jirak-math-theorems-harvest-rfii13`
+→ `main`. Probe + docs — zero product code.
+
 ## 2026-08-12 — the W5 v2 RUN lands: B2 genuinely FAILS, B3's VOID is CONFIRMED at full headline scale (results of the fix committed in #936/`106ca605`; PR pending)
 
 - **Added.** `spiral_adi_probe.json` v2 (headline N=7 651 227, full-band
