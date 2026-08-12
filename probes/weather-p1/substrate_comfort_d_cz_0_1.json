@@ -1,0 +1,452 @@
+{
+  "probe": "substrate_comfort_d_cz_0_1",
+  "grad_definition_reproduction": {
+    "candidates": {
+      "pa_per_100km_cos": {
+        "ratios": {
+          "R1_CALM_amazon": 3.6198652165944956,
+          "R2_OCEAN_spacific": 3.7231635148911044,
+          "R3_ACTIVE_wsiberia": 5.027913572702783,
+          "R4_STORM": 3.800145592081199
+        },
+        "max_abs_dev": 4.027913572702783
+      },
+      "pa_per_cell_cos": {
+        "ratios": {
+          "R1_CALM_amazon": 1.0062766180560367,
+          "R2_OCEAN_spacific": 1.0349922348100347,
+          "R3_ACTIVE_wsiberia": 1.3976962022296675,
+          "R4_STORM": 1.0563922758752802
+        },
+        "max_abs_dev": 0.3976962022296675
+      },
+      "pa_per_100km_flat": {
+        "ratios": {
+          "R1_CALM_amazon": 3.6106426578346467,
+          "R2_OCEAN_spacific": 3.677989072340695,
+          "R3_ACTIVE_wsiberia": 3.57608228799359,
+          "R4_STORM": 3.348837322499102
+        },
+        "max_abs_dev": 2.677989072340695
+      },
+      "pa_per_cell_flat": {
+        "ratios": {
+          "R1_CALM_amazon": 1.0037128526793897,
+          "R2_OCEAN_spacific": 1.0224342346191406,
+          "R3_ACTIVE_wsiberia": 0.9941054893552903,
+          "R4_STORM": 0.9309342628962213
+        },
+        "max_abs_dev": 0.06906573710377872
+      }
+    },
+    "identified": "pa_per_cell_flat",
+    "identified_max_abs_dev": 0.06906573710377872,
+    "interpretation": "The recorded \u00a71 figures are Pa per 0.25-degree GRID CELL with NO cos(lat) metric on the zonal spacing -- a plain np.gradient over the raw array. That understates zonal gradients at high latitude by 1/cos(lat): R3 at 60 N is ~40% low. The ladder ORDER survives the correction and the dynamic range WIDENS (9.3x -> ~9.8x), so the regime axis stands; the recorded magnitudes do not."
+  },
+  "seed": 20260812,
+  "t0": 54358,
+  "store": "https://storage.googleapis.com/weatherbench2/datasets/era5/1959-2022-6h-1440x721.zarr",
+  "units": {
+    "grad_p": "Pa/100km",
+    "rmse": "Pa",
+    "bias": "Pa",
+    "elev_sigma": "m",
+    "spd_sigma": "m/s",
+    "rho": "dimensionless",
+    "separation": "dimensionless"
+  },
+  "regimes": {
+    "R1_CALM_amazon": {
+      "centre_lat": -4.0,
+      "centre_lon": 296.0,
+      "grad_p_mean_pa_per_100km": 37.03122116576169,
+      "grad_p_candidates": {
+        "pa_per_100km_cos": 37.03122116576169,
+        "pa_per_cell_cos": 10.294209802713256,
+        "pa_per_100km_flat": 36.93687438964844,
+        "pa_per_cell_flat": 10.267982482910156
+      },
+      "recorded_in_plan": 10.23,
+      "elev_sigma_m": 121.7191390991211,
+      "spd_sigma_m_per_s": 0.627203106880188,
+      "lsm_mean": 0.9841691851615906,
+      "arms": {
+        "CAL-ABS": {
+          "rho": 0.9999596603993293,
+          "rmse_pa": 0.43545659099220974,
+          "bias_pa": -0.0039270091762204145,
+          "occupancy": 0.8359375,
+          "saturation": 0.00047337278106508875,
+          "codebook_lo_pa": 101006.4453125,
+          "codebook_hi_pa": 101391.1640625
+        },
+        "CAL-RANK": {
+          "rho": 0.9999927605048448,
+          "rmse_pa": 1.7230062297320425,
+          "bias_pa": 0.19835151627218936,
+          "occupancy": 1.0,
+          "saturation": 0.0078106508875739646,
+          "codebook_lo_pa": 101006.4453125,
+          "codebook_hi_pa": 101391.1640625
+        },
+        "CAL-SHUFFLE": {
+          "rho": 0.05829469113441985,
+          "rmse_pa": 131.35857962430885,
+          "bias_pa": 42.19313241089589,
+          "occupancy": 0.8359375,
+          "saturation": 0.00047337278106508875,
+          "codebook_lo_pa": 101006.4453125,
+          "codebook_hi_pa": 101391.1640625
+        },
+        "GEO-DEGENERATE": {
+          "rho": 0.3799822353435944,
+          "rmse_pa": 119.99599105198327,
+          "bias_pa": -103.18710295727972,
+          "occupancy": 0.421875,
+          "saturation": 0.949585798816568,
+          "codebook_lo_pa": 101006.4453125,
+          "codebook_hi_pa": 101054.421875
+        }
+      }
+    },
+    "R2_OCEAN_spacific": {
+      "centre_lat": -25.0,
+      "centre_lon": 220.0,
+      "grad_p_mean_pa_per_100km": 55.698526182770934,
+      "grad_p_candidates": {
+        "pa_per_100km_cos": 55.69852618277093,
+        "pa_per_cell_cos": 15.48348383275812,
+        "pa_per_100km_flat": 55.0227165222168,
+        "pa_per_cell_flat": 15.295616149902344
+      },
+      "recorded_in_plan": 14.96,
+      "elev_sigma_m": 0.20053908228874207,
+      "spd_sigma_m_per_s": 2.1267781257629395,
+      "lsm_mean": 2.8734792067552917e-05,
+      "arms": {
+        "CAL-ABS": {
+          "rho": 0.9999805198027167,
+          "rmse_pa": 1.3133243896042126,
+          "bias_pa": 0.02958709175064719,
+          "occupancy": 0.9609375,
+          "saturation": 0.0009467455621301775,
+          "codebook_lo_pa": 101391.9296875,
+          "codebook_hi_pa": 102554.5703125
+        },
+        "CAL-RANK": {
+          "rho": 0.9999923760691042,
+          "rmse_pa": 2.4243085003853295,
+          "bias_pa": 0.1679363905325444,
+          "occupancy": 1.0,
+          "saturation": 0.008047337278106508,
+          "codebook_lo_pa": 101391.9296875,
+          "codebook_hi_pa": 102554.5703125
+        },
+        "CAL-SHUFFLE": {
+          "rho": 0.1590246347518603,
+          "rmse_pa": 391.99915304930215,
+          "bias_pa": 96.81167965138452,
+          "occupancy": 0.9609375,
+          "saturation": 0.0009467455621301775,
+          "codebook_lo_pa": 101391.9296875,
+          "codebook_hi_pa": 102554.5703125
+        },
+        "GEO-DEGENERATE": {
+          "rho": 0.47801853597161725,
+          "rmse_pa": 430.5506483061611,
+          "bias_pa": -354.5808563629692,
+          "occupancy": 0.6484375,
+          "saturation": 0.917396449704142,
+          "codebook_lo_pa": 101391.9296875,
+          "codebook_hi_pa": 101502.3828125
+        }
+      }
+    },
+    "R3_ACTIVE_wsiberia": {
+      "centre_lat": 60.0,
+      "centre_lon": 72.0,
+      "grad_p_mean_pa_per_100km": 220.12205621292782,
+      "grad_p_candidates": {
+        "pa_per_100km_cos": 220.12205621292784,
+        "pa_per_cell_cos": 61.19113973361485,
+        "pa_per_100km_flat": 156.56088256835938,
+        "pa_per_cell_flat": 43.52193832397461
+      },
+      "recorded_in_plan": 43.78,
+      "elev_sigma_m": 67.82649230957031,
+      "spd_sigma_m_per_s": 2.7745840549468994,
+      "lsm_mean": 0.9501965045928955,
+      "arms": {
+        "CAL-ABS": {
+          "rho": 0.9999892456457632,
+          "rmse_pa": 3.2888446705759047,
+          "bias_pa": -0.1164641358866494,
+          "occupancy": 1.0,
+          "saturation": 0.002366863905325444,
+          "codebook_lo_pa": 102218.6015625,
+          "codebook_hi_pa": 105099.1953125
+        },
+        "CAL-RANK": {
+          "rho": 0.99999238780557,
+          "rmse_pa": 3.744044783417812,
+          "bias_pa": 0.30272697855029584,
+          "occupancy": 1.0,
+          "saturation": 0.008047337278106508,
+          "codebook_lo_pa": 102218.6015625,
+          "codebook_hi_pa": 105099.1953125
+        },
+        "CAL-SHUFFLE": {
+          "rho": 0.0032485030258086666,
+          "rmse_pa": 1128.7124857841304,
+          "bias_pa": 151.28249380258413,
+          "occupancy": 1.0,
+          "saturation": 0.002366863905325444,
+          "codebook_lo_pa": 102218.6015625,
+          "codebook_hi_pa": 105099.1953125
+        },
+        "GEO-DEGENERATE": {
+          "rho": 0.2900859787206164,
+          "rmse_pa": 1594.7041920434797,
+          "bias_pa": 1408.846735254773,
+          "occupancy": 0.3359375,
+          "saturation": 0.9718343195266272,
+          "codebook_lo_pa": 104926.4296875,
+          "codebook_hi_pa": 105099.1953125
+        }
+      }
+    },
+    "R4_STORM": {
+      "n_centres": 19,
+      "grad_p_mean_pa_per_100km": 363.2559171470418,
+      "grad_p_candidates": {
+        "pa_per_100km_cos": 363.2559171470418,
+        "pa_per_cell_cos": 100.98053765091804,
+        "pa_per_100km_flat": 320.11535965768917,
+        "pa_per_cell_flat": 88.98800619024979
+      },
+      "recorded_in_plan": 95.59,
+      "note": "each storm measured at its OWN t0 (19 extra chunks)",
+      "elev_sigma_m": 18.84813117980957,
+      "spd_sigma_m_per_s": 3.3246870040893555,
+      "lsm_mean": 0.005186561029404402,
+      "per_storm": [
+        {
+          "t0": 54358,
+          "lat": 37.7606455990929,
+          "lon": 158.35550138007275,
+          "grad_p": 376.54904197189944
+        },
+        {
+          "t0": 55578,
+          "lat": 49.30630498741868,
+          "lon": 329.96462355455805,
+          "grad_p": 321.2836342981727
+        },
+        {
+          "t0": 55822,
+          "lat": 47.12116315432716,
+          "lon": 218.75905030400767,
+          "grad_p": 224.78312409565999
+        },
+        {
+          "t0": 59726,
+          "lat": 56.26681556574107,
+          "lon": 178.97969837924182,
+          "grad_p": 471.72421864761816
+        },
+        {
+          "t0": 62410,
+          "lat": 45.102734243947886,
+          "lon": 307.4108806847002,
+          "grad_p": 315.5561376969774
+        },
+        {
+          "t0": 62898,
+          "lat": 52.23181291184118,
+          "lon": 328.6795165909927,
+          "grad_p": 282.92548922341496
+        },
+        {
+          "t0": 63142,
+          "lat": 38.751726980533526,
+          "lon": 323.6873562719305,
+          "grad_p": 388.3604378807517
+        },
+        {
+          "t0": 63630,
+          "lat": 28.845082353475743,
+          "lon": 67.81185755361025,
+          "grad_p": 322.8788289141673
+        },
+        {
+          "t0": 65094,
+          "lat": 40.20503910539359,
+          "lon": 79.34242857084944,
+          "grad_p": 564.2826229226617
+        },
+        {
+          "t0": 66558,
+          "lat": 54.20799369844886,
+          "lon": 130.25559414294094,
+          "grad_p": 178.242934455348
+        },
+        {
+          "t0": 67046,
+          "lat": 54.75,
+          "lon": 188.15043347333307,
+          "grad_p": 427.79816761401764
+        },
+        {
+          "t0": 67778,
+          "lat": 49.66383829643146,
+          "lon": 338.7627794330812,
+          "grad_p": 233.56446300648025
+        },
+        {
+          "t0": 68754,
+          "lat": 41.63454690695439,
+          "lon": 158.0240357377511,
+          "grad_p": 363.10477223514187
+        },
+        {
+          "t0": 68998,
+          "lat": 40.081768429120515,
+          "lon": 316.97489409322253,
+          "grad_p": 352.773729414013
+        },
+        {
+          "t0": 70218,
+          "lat": 39.33113364502934,
+          "lon": 174.7526838816152,
+          "grad_p": 324.65694080455194
+        },
+        {
+          "t0": 73634,
+          "lat": 32.081890067957204,
+          "lon": 85.29824266895127,
+          "grad_p": 475.4442287261895
+        },
+        {
+          "t0": 73878,
+          "lat": 34.14437390359832,
+          "lon": 71.81849475304371,
+          "grad_p": 521.4826269770654
+        },
+        {
+          "t0": 74122,
+          "lat": 69.01585282912403,
+          "lon": 353.4343585345505,
+          "grad_p": 358.7382867459927
+        },
+        {
+          "t0": 74366,
+          "lat": 59.52619677699913,
+          "lon": 352.03934730709716,
+          "grad_p": 397.71274016367056
+        }
+      ],
+      "arms": {
+        "CAL-ABS": {
+          "rho": 0.9999455179549077,
+          "rmse_pa": 5.225022014301248,
+          "bias_pa": -0.07730155267659024,
+          "occupancy": 1.0,
+          "saturation": 0.0014201183431952662,
+          "codebook_lo_pa": 96493.1328125,
+          "codebook_hi_pa": 101083.2265625
+        },
+        "CAL-RANK": {
+          "rho": 0.999992377503148,
+          "rmse_pa": 7.7792531932522735,
+          "bias_pa": 0.5239233542899409,
+          "occupancy": 1.0,
+          "saturation": 0.008047337278106508,
+          "codebook_lo_pa": 96493.1328125,
+          "codebook_hi_pa": 101083.2265625
+        },
+        "CAL-SHUFFLE": {
+          "rho": 0.04228848494744547,
+          "rmse_pa": 1610.3781187679967,
+          "bias_pa": 409.4536128045257,
+          "occupancy": 1.0,
+          "saturation": 0.0014201183431952662,
+          "codebook_lo_pa": 96493.1328125,
+          "codebook_hi_pa": 101083.2265625
+        },
+        "GEO-DEGENERATE": {
+          "rho": 0.9077081758912022,
+          "rmse_pa": 939.2584672914949,
+          "bias_pa": -424.5272577301567,
+          "occupancy": 0.9609375,
+          "saturation": 0.7223668639053255,
+          "codebook_lo_pa": 97558.5625,
+          "codebook_hi_pa": 98011.859375
+        }
+      }
+    }
+  },
+  "d_cz_1_gate": {
+    "R1_CALM_amazon": {
+      "controls_lose_on_rho": {
+        "CAL-SHUFFLE": true,
+        "GEO-DEGENERATE": true
+      },
+      "controls_lose_on_rmse": {
+        "CAL-SHUFFLE": true,
+        "GEO-DEGENERATE": true
+      },
+      "real_arm_rho_spread": 3.310010551549336e-05,
+      "real_arm_rmse_ratio": 3.956780688072917
+    },
+    "R2_OCEAN_spacific": {
+      "controls_lose_on_rho": {
+        "CAL-SHUFFLE": true,
+        "GEO-DEGENERATE": true
+      },
+      "controls_lose_on_rmse": {
+        "CAL-SHUFFLE": true,
+        "GEO-DEGENERATE": true
+      },
+      "real_arm_rho_spread": 1.1856266387444414e-05,
+      "real_arm_rmse_ratio": 1.845932748660768
+    },
+    "R3_ACTIVE_wsiberia": {
+      "controls_lose_on_rho": {
+        "CAL-SHUFFLE": true,
+        "GEO-DEGENERATE": true
+      },
+      "controls_lose_on_rmse": {
+        "CAL-SHUFFLE": true,
+        "GEO-DEGENERATE": true
+      },
+      "real_arm_rho_spread": 3.1421598067904455e-06,
+      "real_arm_rmse_ratio": 1.138407300568013
+    },
+    "R4_STORM": {
+      "controls_lose_on_rho": {
+        "CAL-SHUFFLE": true,
+        "GEO-DEGENERATE": true
+      },
+      "controls_lose_on_rmse": {
+        "CAL-SHUFFLE": true,
+        "GEO-DEGENERATE": true
+      },
+      "real_arm_rho_spread": 4.685954824024119e-05,
+      "real_arm_rmse_ratio": 1.4888460128894991
+    }
+  },
+  "c1b_separation": 6.276455079492352,
+  "c1b_within_box_sigma": {
+    "R1_CALM_amazon": 38.18404849707024,
+    "R2_OCEAN_spacific": 32.50800184740457,
+    "R3_ACTIVE_wsiberia": 85.23579037911355
+  },
+  "not_reproducible_as_committed": [
+    "Australian outback",
+    "Sahara (Libyan erg)",
+    "Argentine pampas",
+    "US Great Plains",
+    "N European plain"
+  ],
+  "not_reproducible_reason": "\u00a71's table records these five EXCLUDED land candidates with measured figures but their box centres were never written down in any committed artifact. No coordinates are invented here."
+}
