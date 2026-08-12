@@ -166,19 +166,31 @@ be false.
 **File:** `spiral_adi_probe.py`. **Seed:** 20260812. **No network.**
 
 **Objective.** On a Vogel lattice (`r = c·√k`, `θ = k·2π(1−1/φ)`,
-**N = F(17)² = 2 550 409** so that `√N = 1597 = F(17)` puts the emergent
-parastichy pair exactly ON the index floor, c chosen so max radius = 1.0),
-test whether alternating tridiagonal smoothing sweeps along the two
-parastichy stride families approximate an isotropic 2D diffusion — and that
-the result *depends on the strides being Fibonacci*.
+**N = 3·F(17)² = 7 651 227**, c chosen so max radius = 1.0), test whether
+alternating tridiagonal smoothing sweeps along the two parastichy stride
+families approximate an isotropic 2D diffusion — and that the result
+*depends on the strides being Fibonacci*.
 
-> **⚠ N IS NOT A FREE PARAMETER AND THE FIRST DRAFT GOT IT WRONG.** This
-> brief originally specified **N=4096**, whose emergent pair is
-> **F(10)=55 / F(11)=89** (error 1.5e-4) — sub-floor by the §0 index
-> floor. Worse, its step 1 searched `j ∈ {1..60}`, so it was *structurally
-> incapable* of finding a family above F(10) — the sub-floor answer was
-> hardcoded, and every bar below would have been measured on it. Both are
-> corrected here. **Do not lower N to make the probe faster.**
+> **⚠ N IS NOT A FREE PARAMETER AND THE FIRST DRAFT GOT IT WRONG — TWICE.**
+> Draft 1 specified N=4096 (emergent pair F(10)/F(11), sub-floor by six
+> orders of magnitude) with a step-1 search capped at `j ∈ {1..60}`, so it
+> was structurally incapable of finding anything above F(10). **Draft 2**
+> fixed N to exactly `F(17)²` — but the local parastichy index at radius `r`
+> in a Vogel lattice is `√(r²·N)`, NOT `√N`, and draft 2's bump sat at
+> `r=0.45`: local index `√(0.2025·2 550 409) ≈ 719`, still sub-floor. The
+> disk's inner half is *structurally* sub-floor at ANY finite N (index → 0 as
+> r → 0) — no N fixes that, only excluding those bands does. **This draft
+> raises N with margin (3× the minimum, not 1×) and moves the bump to a
+> radius that comfortably qualifies, then excludes the bands that cannot
+> qualify rather than pretending they do.**
+>
+> With N=7 651 227: **`r_floor = 1597/√N ≈ 0.5774`** — only annuli with
+> `r ≥ r_floor` have a local index ≥ the floor. Under the 8-equal-area
+> annulus scheme (`r_i = √(i/8)`), that is **bands 3–8** (`r ≥ 0.6124`);
+> **bands 1–2 are structurally sub-floor and MUST be reported under B1 only,
+> never judged against B2.** The bump moves to **r₀ = 0.75** — local index
+> `√(0.5625·7 651 227) ≈ 2077`, comfortably clear of 1597, safely interior
+> (not at the disk edge, where a bump would have no full neighbourhood).
 
 **Steps.**
 1. Build the lattice. For each radius band (8 equal-area annuli), find the
@@ -196,45 +208,63 @@ the result *depends on the strides being Fibonacci*.
 3. Sweep operator: for stride j, order points into chains `(start, j)`
    within a band; one sweep = `y_i ← 0.25·y_{prev} + 0.5·y_i + 0.25·y_{next}`
    along each chain (open ends: hold). One ADI iteration = sweep family A
-   then family B, band-appropriate strides.
-4. Test field: Gaussian bump `exp(−|x−x0|²/2σ²)`, σ=0.08, x0 at radius 0.45.
-   Run 8 ADI iterations. Reference: sample the analytic heat-kernel-blurred
-   Gaussian (σ_ref² = σ² + 8·s² where s = the measured mean neighbor spacing
-   × 0.5 — CALIBRATE σ_ref by least-squares over σ_ref, then judge SHAPE) at
-   the lattice points.
+   then family B, band-appropriate strides. **Restrict all chain-building and
+   sweeping to the qualifying bands (3–8, `r ≥ 0.6124`)** — bands 1–2 are
+   measured (for B1's transition map) but never swept or judged.
+4. Test field: Gaussian bump `exp(−|x−x0|²/2σ²)`, σ=0.08, **x0 at radius
+   0.75** (qualifying, interior — see the note above). Run 8 ADI iterations.
+   Reference: sample the analytic heat-kernel-blurred Gaussian (σ_ref² = σ²
+   + 8·s² where s = the measured mean neighbor spacing × 0.5 — CALIBRATE
+   σ_ref by least-squares over σ_ref, then judge SHAPE) at the lattice
+   points.
 5. Anisotropy metric: fit the blurred bump's second-moment tensor; ratio of
    eigenvalues λ_max/λ_min.
 
 **Bars (pre-registered, commit before run):**
-- **B1** (descriptive, no pass/fail): stride pairs per band + transition map
-  + crossing-angle table.
-- **B2 ISO:** after best-σ_ref calibration, relative L2 error between ADI
-  result and isotropic reference ≤ **0.15**, AND second-moment anisotropy
-  λ_max/λ_min ≤ **1.25**.
-- **B3 CONTROL (can-it-fail), at the SAME N:** identical run with the stride
-  pair forced to a **non-Fibonacci pair of comparable magnitude** — use
-  **1500 and 2600** (near F(17)=1597 / F(18)=2584 in size, so the control
-  differs in *arithmetic*, not in *scale*) — must give anisotropy ≥ **1.5×**
-  the Fibonacci run's. If the wrong strides smooth just as isotropically, the
-  Fibonacci claim measures nothing — say VOID. *(The first draft used 12/18,
-  which at N=2.55M is not a wrong-arithmetic control but a wrong-scale one:
-  stride 12 connects points that are nowhere near each other, so it would
-  have failed for a reason having nothing to do with Fibonacci.)*
+- **B1** (descriptive, no pass/fail): stride pairs per band (report ALL 8
+  bands, flag 1–2 as `sub_floor: true`) + transition map + crossing-angle
+  table.
+- **B2 ISO (bands 3–8 ONLY):** after best-σ_ref calibration, relative L2
+  error between ADI result and isotropic reference ≤ **0.15**, AND
+  second-moment anisotropy λ_max/λ_min ≤ **1.25**.
+- **B3 CONTROL (can-it-fail), at the SAME N, DISTANCE-MATCHED not
+  magnitude-matched:** for each point, its true Fibonacci partners are its
+  neighbours at index offset `±1597`/`±2584`; the control partner is chosen
+  as the point among its **8 real nearest lattice neighbours (via
+  cKDTree)** whose PHYSICAL distance is closest to the true Fibonacci
+  partner's distance, **excluding the true Fibonacci partner itself**. This
+  guarantees near-identical step LENGTH by construction (the confound a
+  fixed-integer control cannot rule out) while breaking the arithmetic
+  coherence — connections are locally distance-matched, not globally
+  recurrence-coherent. Must give anisotropy ≥ **1.5×** the Fibonacci run's.
+  If the shuffled-neighbour control smooths just as isotropically, the
+  Fibonacci claim measures nothing — say VOID. *(Two earlier attempts at
+  this control both failed for the wrong reason: 12/18 connects points
+  nowhere near each other — wrong SCALE; 1500/2600 looked scale-matched by
+  raw magnitude but is not — a Fibonacci-family stride's actual PHYSICAL
+  step is governed by its angular residue `(stride·golden_frac) mod 1`,
+  which for 1597/2584 is ≈0.00028/0.00017 (near-zero, that is WHY they are
+  parastichy numbers) while 1500/2600 sit at ≈0.051/0.112 — two to three
+  orders of magnitude larger, i.e. still a wrong-scale control wearing a
+  same-magnitude disguise. The distance-matched-neighbour construction
+  above cannot make this mistake, because it measures physical distance
+  directly instead of inferring it from integer size.)*
 - **B4 INDEX-FLOOR SWEEP (the operator's rule, measured not assumed):** repeat
-  the whole pipeline at **N = F(n)²** for `n ∈ {8, 10, 12, 14, 17, 19, 21}`,
-  each time using that N's OWN emergent pair (never a forced stride), and
-  report `iso_error` + `aniso` against n. **Two-sided and both readings must
-  be stated:** a knee near n≈17 promotes the floor to a measured `[G]`; a
-  curve already flat from n≈10 means the floor is a **safety margin, not a
-  mechanism** — report that plainly rather than burying it, and leave the
-  keep-or-relax call to the operator. Note `N = F(21)² = 1.2e8` is too large:
-  **cap the sweep at n=19 (N = F(19)² ≈ 1.75e7)** and record n=21 as
-  NOT RUN — do not silently drop it.
+  the whole pipeline at **N = 3·F(n)²** for `n ∈ {8, 10, 12, 14, 17, 19}`
+  (keeping the same 3× margin and the same bump-placement/band-exclusion
+  logic scaled to each N's own `r_floor`), each time using that N's OWN
+  emergent pair (never a forced stride), and report `iso_error` + `aniso`
+  against n. **Two-sided and both readings must be stated:** a knee near
+  n≈17 promotes the floor to a measured `[G]`; a curve already flat from
+  n≈10 means the floor is a **safety margin, not a mechanism** — report that
+  plainly rather than burying it, and leave the keep-or-relax call to the
+  operator. `n=21` (`N=3·F(21)² ≈ 3.6e8`) is too large: cap the sweep at
+  n=19 and record n=21 as NOT RUN — do not silently drop it.
 
-**Cost note (changed by the floor):** N=2.55M f64 ≈ 20 MB/field, cKDTree
-build ~10 s; the B4 sweep is dominated by its largest N. Budget **~10–20 min
-and ~2 GB peak**, not the "minutes" of the pre-floor draft. Still zero fetch.
-Checkpoint per (N, band) row per §0.
+**Cost note (changed by the floor, and again by the 3× margin):** N=7.65M
+f64 ≈ 61 MB/field, cKDTree build ~30–60 s; the B4 sweep is dominated by its
+largest N (`3·F(19)² ≈ 5.2e7`). Budget **~20–30 min and ~3 GB peak**. Still
+zero fetch. Checkpoint per (N, band) row per §0.
 
 **Output JSON:** `{N, bands: [...], crossing_angles: {...}, iso_error,
 aniso_fib, aniso_control, sweep: [{n, N, pair, iso_error, aniso}],
@@ -271,24 +301,40 @@ automatically transfer.
 3. Control: TWO axis-aligned square grids of identical point density over
    the same two disks, same metric, same pairing procedure.
 
+> **⚠ G1/G4 TIE DEFINITION CORRECTED.** The first draft counted global
+> duplicate rounded distances across the WHOLE pair population — but that
+> statistic is blind to the actual claim (does one H-point have TWO
+> equally-near T-candidates, i.e. an ambiguous pairing) and, at the
+> million-point sizes now in play, unrelated distance PAIRS from DIFFERENT
+> source points will collide after 1e-9 km rounding by ordinary float
+> density regardless of mechanism — so "duplicates observed" no longer
+> implies "irrational-angle uniqueness failed". Redefined per-source below.
+
 **Bars:**
-- **G1 TIES:** count of exact-duplicate nearest-pair distances (float64
-  equality after rounding to 1e-9 km): golden = **0**; grid control **> 0**
-  (if the grid also has zero ties, the tie test is vacuous on this geometry —
-  report VOID for G1 and rely on G2).
+- **G1 TIES (per-source, corrected):** for each H-point in the overlap band,
+  find its 1st- and 2nd-nearest T-lattice points (`d1 ≤ d2`, via cKDTree,
+  k=2). Define **near-tie** as `d1/d2 > 1 − 1e-6` (the two candidates are
+  ambiguously close FOR THAT SOURCE POINT — the actual pairing-quality
+  question). Count near-ties: golden = **0** (irrational angle ⇒ generic
+  position, no H-point is equidistant between two T-points except by
+  measure-zero coincidence); grid control **> 0** (regular lattices produce
+  systematic equidistance, e.g. diagonal ties, by symmetry). If the grid also
+  reports 0, the tie test is vacuous on this geometry — report VOID for G1
+  and rely on G2.
 - **G2 EVENNESS:** coefficient of variation of nearest-pair distances:
   golden CV **< grid CV** (strict).
 - **G3** (descriptive): χ² of pair-midpoint density against uniform across
   the corridor band, both constructions, reported not judged.
-- **G4 INDEX-FLOOR SWEEP (does the floor bite THIS probe?):** rerun G1+G2 at
-  `N = F(n)²` for `n ∈ {8, 10, 12, 14, 17, 19}` and report ties + CV against
-  n. **The pre-registered expectation, written down before the run so it can
-  be wrong:** ties stay **0 at every n** (the angle is irrational at any N),
-  while CV improves monotonically and may flatten near the floor. **If ties
-  appear below the floor, the angle reading was wrong and G1's mechanism is
-  not what this brief claims** — report it as a correction to §0's "the angle
-  is unaffected" split, which is exactly the kind of claim that should be
-  falsifiable rather than inherited.
+- **G4 INDEX-FLOOR SWEEP (does the floor bite THIS probe?):** rerun the
+  corrected G1 + G2 at `N = F(n)²` for `n ∈ {8, 10, 12, 14, 17, 19}` and
+  report near-ties + CV against n. **The pre-registered expectation, written
+  down before the run so it can be wrong:** near-ties stay **0 at every n**
+  (the angle is irrational at any N), while CV improves monotonically and
+  may flatten near the floor. **If near-ties appear below the floor, the
+  angle reading was wrong and G1's mechanism is not what this brief
+  claims** — report it as a correction to §0's "the angle is unaffected"
+  split, which is exactly the kind of claim that should be falsifiable
+  rather than inherited.
 
 **Cost note:** the N=2.55M headline plus the sweep; budget ~10 min, ~2 GB,
 zero fetch. Checkpoint per (n, arm) row per §0.
