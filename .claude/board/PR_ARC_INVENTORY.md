@@ -81,16 +81,40 @@
   demonstrated diffusion occurred in the first place).
 - **Locked — B3's VOID is now confirmed on the REAL headline population,
   not a 62k-point sub-sample, and the confirmation is STRONGER than
-  before.** Full-band histogram at N=7.65M (`n_qualifying=4 782 017`):
-  **99.68 %** of the qualifying population's control links land on a pure
-  Fibonacci offset (99.95 % of the moved links), dominated by offset
-  2584=F(18) itself; the small remainder at F(20), F(21), 2·F(20) — a
-  Fibonacci harmonic, not a counterexample. Two independent N four orders
-  of magnitude apart (62 208 and 4 782 017) land within 0.3 percentage
-  points of each other — directly answering codex's original subsampling
-  concern with the strongest available evidence (the full population, not
-  a sample of it).
-- **Locked — B4 on the corrected methodology**: ratio climbs 0.84→~1.03
+  before, AND now covers both link families.** ⚠ Corrects two overclaims
+  caught by codex P2 on PR #938: (1) the first version of this entry
+  histogrammed only family A — the ADI sweep uses BOTH stride families
+  every iteration, and family B's offset distribution was never measured;
+  fixed in the same commit (`build_control_links` now returns histograms
+  for both). (2) "four orders of magnitude apart" was an arithmetic error
+  — `4 782 017 / 62 208 ≈ 76.9×`, i.e. **~1.9 orders of magnitude**, not
+  four. Corrected figures: full-band histogram at N=7.65M
+  (`n_qualifying=4 782 017`): family A **99.68 %** of the qualifying
+  population's control links land on a pure Fibonacci offset (dominated
+  by 2584=F(18)); family B **99.56 %** (dominated by 4181=F(19), the
+  OTHER discovered stride — matching the pair `[2584,4181]` exactly, one
+  offset per family). Both families' small remainders sit at F(20)/F(21)/
+  2·F(20) — Fibonacci harmonics, not counterexamples. Two independent N
+  **~1.9 orders of magnitude apart** (62 208 and 4 782 017) land within
+  0.3 percentage points of each other on family A alone, and the newly-
+  measured family B corroborates independently at a comparable rate —
+  directly answering codex's original subsampling concern with the
+  strongest available evidence (the full population, both families, not
+  a sample of one).
+- **Locked — B4 is INCOMPLETE relative to its own pre-registered bar, and
+  is now reported as such rather than as a satisfied reading.** ⚠ Codex
+  P2 on PR #938: the original brief's B4 bar explicitly lists
+  `n ∈ {8, 10, 12, 14, 17, 19}` and pre-authorizes dropping ONLY `n=21`;
+  v2 additionally dropped `n=19` under the V-matched cost function (a real
+  and stated reason, but not one the original bar anticipated or
+  authorized). The "no knee, safety margin" reading is downgraded from a
+  verdict to a DESCRIPTIVE observation over `n=8..17` only — `n=19` remains
+  genuinely untested under v2's methodology, and B4 stays open until it
+  either runs (budget permitting) or the bar is formally amended to accept
+  the smaller sweep with its reasoning made explicit in the pre-
+  registration, not asserted after the fact.
+- **Locked — B4 on the corrected methodology (descriptive, not a verdict —
+  see the correction immediately above)**: ratio climbs 0.84→~1.03
   from n=8 to n=17, noisy at the smallest sub-floor n (1–4 iterations,
   little averaging), settling near parity by n=12. n=19/21 out of budget
   under V-matched scaling (iters grows ~linearly with N at fixed physical

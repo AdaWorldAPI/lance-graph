@@ -149,29 +149,52 @@
       "raw_rel_l2_vs_unsmoothed_input": 0.19756950366253745
     },
     "control_link_histogram": {
-      "n_moved": 4769097,
-      "n_total": 7651227,
-      "n_qualifying": 4782017,
-      "self_linked_frac_overall": 0.3766886017105492,
-      "self_linked_frac_in_qualifying_bands": 0.0027017888058532558,
-      "top10_offsets": [
-        [
-          2584,
-          4745846
-        ],
-        [
-          6765,
-          10336
-        ],
-        [
-          10946,
-          10331
-        ],
-        [
-          13530,
-          2584
+      "famA": {
+        "n_moved": 4769097,
+        "n_total": 7651227,
+        "n_qualifying": 4782017,
+        "self_linked_frac_overall": 0.3766886017105492,
+        "self_linked_frac_in_qualifying_bands": 0.0027017888058532558,
+        "top10_offsets": [
+          [
+            2584,
+            4745846
+          ],
+          [
+            6765,
+            10336
+          ],
+          [
+            10946,
+            10331
+          ],
+          [
+            13530,
+            2584
+          ]
         ]
-      ]
+      },
+      "famB": {
+        "n_moved": 4761112,
+        "n_total": 7651227,
+        "n_qualifying": 4782017,
+        "self_linked_frac_overall": 0.3777322251712045,
+        "self_linked_frac_in_qualifying_bands": 0.004371586299254049,
+        "top10_offsets": [
+          [
+            4181,
+            4732643
+          ],
+          [
+            6765,
+            24288
+          ],
+          [
+            2584,
+            4181
+          ]
+        ]
+      }
     },
     "aniso_ratio_control_over_fib": 1.0265999460027586,
     "aniso_change_from_baseline_fib": 0.520567296699717

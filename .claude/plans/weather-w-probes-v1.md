@@ -311,29 +311,45 @@ was meant to support is NOT unblocked — it is refuted at this test
 point**, reversing v1's (compromised) "unblocked" reading.
 
 **B3's VOID is now confirmed at the ACTUAL headline scale, not a 62k-point
-sub-sample — and the confirmation is stronger than before.** The
-full-band, uncapped headline control-link histogram (`n_qualifying =
-4 782 017`, `n_moved = 4 769 097`) shows **99.68 % of the qualifying
-population's control links land on a pure Fibonacci offset** (99.95 % of
-the moved links specifically) — dominated overwhelmingly by offset 2584 =
-F(18) itself (4 745 846 of 4 769 097 moved links), with the remaining mass
-at 6765=F(20), 10946=F(21), and 13530=2·F(20) (a Fibonacci harmonic, not a
-counterexample). This directly answers codex's original concern (the v1
-figure came from a 250k/956k = 26 % sample of one band): **the mechanism
-claim now rests on the real, complete headline population, and it is
-essentially unchanged from the smaller check** — reinforcing
-`E-ON-A-GOLDEN-LATTICE-LOCALITY-IS-FIBONACCI-MEMBERSHIP-1` rather than
-merely surviving it.
+sub-sample, on BOTH link families — and the confirmation is stronger than
+before.** ⚠ Corrects two overclaims caught by codex P2 on PR #938 (fixed
+same day, in the code and here): the original histogram covered only
+family A (the ADI sweep uses BOTH stride families every iteration, and
+family B was unmeasured), and the two tested N were described as "four
+orders of magnitude apart" when the true ratio is `4 782 017 / 62 208 ≈
+76.9×` — **~1.9 orders of magnitude**, not four.
 
-**B4's floor sweep, on the corrected V-matched methodology (n=8..14; n=19
-now out of budget under real iteration scaling, see the script's own
-`run()` docstring for the mechanism):** ratio climbs from 0.84 (n=8) to
+The full-band, uncapped headline control-link histogram (`n_qualifying =
+4 782 017`, `n_moved = 4 769 097` for family A) shows **99.68 % of the
+qualifying population's family-A control links land on a pure Fibonacci
+offset** (99.95 % of the moved links) — dominated overwhelmingly by offset
+2584 = F(18) itself, with the remaining mass at 6765=F(20), 10946=F(21),
+and 13530=2·F(20) (a Fibonacci harmonic, not a counterexample). **Family B,
+now independently measured, corroborates at 99.56 %** — dominated by
+offset 4181 = F(19), the OTHER member of the discovered pair `[2584,
+4181]`: each family's near-neighbour scale is exactly its own discovered
+stride, precisely as the three-distance mechanism predicts. This directly
+answers codex's original concern (the v1 figure came from a 250k/956k =
+26 % sample of one family in one band): **the mechanism claim now rests on
+the real, complete headline population, on both families it actually
+governs, and it is essentially unchanged from the smaller check** —
+reinforcing `E-ON-A-GOLDEN-LATTICE-LOCALITY-IS-FIBONACCI-MEMBERSHIP-1`
+rather than merely surviving it.
+
+**B4 is INCOMPLETE relative to its own pre-registered bar — reported as
+such, not as a satisfied reading.** ⚠ Codex P2 on PR #938: the original
+brief's B4 bar explicitly lists `n ∈ {8, 10, 12, 14, 17, 19}` with ONLY
+`n=21` pre-authorized to be dropped; v2 additionally dropped `n=19` under
+the V-matched cost function (real, stated, but not what the original bar
+authorized). What follows is therefore DESCRIPTIVE over `n=8..17` only,
+not a verdict on the pre-registered bar: ratio climbs from 0.84 (n=8) to
 ~1.0–1.03 (n=12–17) — noisy at the smallest, sub-floor n (1 and 4
 iterations respectively, essentially no averaging), settling near parity
-by n=12. No knee is visible at n≈17 either, consistent with v1's B4
-reading on this axis: the floor still functions as a safety margin for
-the SMOOTHING QUALITY question, even though the smoothing itself is now
-known to be anisotropic.
+by n=12. No knee is visible in this partial range either, consistent with
+v1's B4 reading on this axis — but `n=19` remains genuinely untested under
+v2's methodology, and B4 does not close until it either runs (budget
+permitting) or the bar is formally amended with the reasoning stated in
+the pre-registration rather than after the fact.
 
 **Two implementation notes a rerun should know (unchanged from v1, still
 correct):** the qualifying-band rule (inner radius ≥ r_floor) resolves to
