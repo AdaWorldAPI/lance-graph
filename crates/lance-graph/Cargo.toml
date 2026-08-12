@@ -123,4 +123,18 @@ lance-graph-planner = { path = "../lance-graph-planner" }
 # `object_store::path::Path` is named directly (hydration_probe's byte-mirror
 # upload needs to build a multi-segment relative path; `Path::from` parses one,
 # `ObjectStore::put`'s single-segment `.join` does not).
-object_store = "0.13"
+#
+# `aws` is declared HERE rather than inherited. It is already on in every
+# current build — but only via `lance`'s DEFAULT features
+# (`lance/default` → `lance/aws` → `lance-io/aws` → `object_store/aws`), which
+# is a dependency of convenience, not of contract. `lance`'s defaults also pull
+# azure + gcp + oss + huggingface + tencent + tos + goosefs + geo, so slimming
+# them to `default-features = false` is a plausible future move — and it would
+# silently remove S3 from THIS crate's own S3 callers (`dev_s3_env.rs`,
+# `examples/hydration_probe.rs`, `examples/soa_to_lance.rs`, the `soa_verbatim`
+# test), which name the S3 environment directly and have nothing to do with
+# lance's cloud-backend selection. Declaring it changes no resolved feature
+# today (cargo unifies it with what lance-io already turns on); it makes the
+# capability this crate USES a thing this crate ASKS FOR. Same declaration q2's
+# `cockpit-server` already carries for the same reason.
+object_store = { version = "0.13", features = ["aws"] }
