@@ -174,6 +174,18 @@ transfer loss   L[D][T] = ρ[T][T] − ρ[D][T]
 `L` is the cross-swap statement of "badly calibrated": *low* `L` means the
 substrate carried the structure even though the numbers were wrong.
 
+**`L < 0` is possible and is pre-registered as informative, not as a bug.**
+Nothing forces the diagonal to be the best cell: a box whose own min/max is
+set by a single outlier spreads its 256 levels badly, while a donor with a
+wider range may spread them better — so a *foreign* codebook can beat the
+own one. If that occurs it is reported as measured, with `occupancy` and
+`saturation` beside it (which is where the mechanism would show), and it
+carries a specific consequence: **`ρ[T][T]` is then not a valid reference
+point for that box's `L̄[T]`, so C3's trend must be re-read against the
+best-available cell and the substitution stated.** Naming this in advance is
+the point — an unexpected sign discovered mid-analysis is exactly the kind
+of result that gets explained away.
+
 ### §2.3 The dynamic row is degenerate — and that IS the point
 
 A rank-normalised or Fisher-z encoding re-derived **inside the window** has
