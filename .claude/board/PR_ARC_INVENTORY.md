@@ -1,3 +1,125 @@
+## 2026-08-12 — lance-graph #932 (MERGED) — the golden-ratio index floor + the temperament mechanism (merged before its own review findings could be addressed — see #933)
+
+- **Added.** The operator-ruled golden-ratio index floor (convergent index
+  ~17–21 before Fibonacci behaves like the irrational it approximates;
+  measured error n=10 → 1.5e-4, n=17 → 1.8e-7, n=21 → 3.7e-9) as a binding
+  rule in `weather-w-probes-v1.md` §0, applied to correct W5 (N=4096 →
+  emergent pair F(10)/F(11), a discovery step capped at `j∈{1..60}` that
+  was structurally incapable of finding anything above F(10)) and W2s-a
+  (N=2048, same sub-floor pair) — both raised to `N≳F(17)²` with an
+  N-sweep arm so the floor is measured rather than inherited. Report §10.5
+  gained the two-regime table (continuum: golden angle; quantized: coprime
+  walk) plus the addressing note (a `u8` rail < F(17)=1597 → tier-then-
+  member on the continuum side, a non-issue on the quantized side).
+- **Locked — the mechanism below the floor is temperament, not
+  approximation `[G]`.** A coprime stride over modulus `q` is structurally
+  a circle of fifths: it closes the cycle exactly (coprimality ⇒ full
+  permutation) and distributes the incommensurability error — the comma —
+  uniformly, instead of letting it accumulate at a seam. Measured: 12 pure
+  fifths miss closure by the Pythagorean comma (+23.46 ct); 17-TET's fifth
+  (stride 10) closes exactly by construction (+3.93 ct/fifth spread). The
+  distributed comma **is** D-QUANTGATE's anti-moiré dither. Survival below
+  the floor = closure, not goldenness — which is why the shipped
+  `CurveRuler` walk (stride 4 mod 17) was always correct even though the
+  in-tree doc label calling a *different* stride (11) the "golden-step" was
+  wrong: enumerating all 16 strides mod 17, stride 4 has strictly better
+  prefix star-discrepancy than 11 at m=9/13. Filed as
+  `E-THE-GOLDEN-STEP-IS-THE-WRONG-STEP-AT-SMALL-Q-1` and
+  `ISS-HELIX-GOLDEN-STEP-LABEL` (label misleads, the shipped code is fine).
+- **Locked — chat-register informal phrasing does not belong in committed
+  artifacts.** Operator preference, applied retroactively across all twelve
+  quote sites in the same PR: paraphrase rulings professionally, keep
+  attribution and technical content identical. (The already-pushed commit
+  message carrying the original phrasing was left as-is — rewriting shared
+  branch history would cost more than the residue.)
+- **Deferred — and this is why the PR needed a sequel.** #932 merged
+  *before* its own four automated-review findings (bump sub-floor despite
+  the "fixed" N, a tie-test that measured the wrong population, an internal
+  sign contradiction, a control that matched index magnitude but not
+  physical step length) could be triaged and fixed — the merge fired mid-
+  session while the fixes were being written. All four are real, all four
+  are fixed in **#933** (entry above), since the merged PR could not be
+  reopened. **Lesson for the standing subscription protocol:** a PR can
+  merge between "findings arrive" and "findings addressed" faster than a
+  session can react; the fix is a follow-up PR, not a scramble to beat the
+  merge.
+- **Docs.** Every verbatim operator-quote site across the plan, report,
+  EPIPHANIES, and ISSUES was paraphrased in the same PR (12 sites, verified
+  zero remaining).
+- **Confidence.** High on the floor + temperament arithmetic (independently
+  re-derived, not asserted). **Low-to-medium on W5/W2s-a's own numeric
+  specifics as they stood at merge time** — correctly, since #933 found and
+  fixed four real defects in exactly those specifics within the hour.
+
+**Status:** MERGED (`e6e27829`). Branch `claude/jirak-math-theorems-harvest-rfii13`
+→ `main`. Doc/plan/board only.
+
+## 2026-08-12 — lance-graph #933 (MERGED) — 4 codex fixes on #932 + golden-vs-tempered-stride-v1 (head-vs-gut, made falsifiable)
+
+- **Added.** `.claude/plans/golden-vs-tempered-stride-v1.md` — standalone,
+  zero-fetch plan testing the operator's paired intuitions (golden ratio as
+  nature's mechanism vs a coprime tempered walk that never collapses by
+  construction) against each other rather than picking a winner. **T1**
+  sweeps 8 values of `q`, finds each one's best coprime stride by a
+  useful-prefix-range median metric, and measures the crossover `m*` — the
+  point where golden's `O(log m/m)` refinement permanently overtakes a
+  tempered walk's frozen `m=q` ceiling — sitting at **`m ≈ q`** in every
+  case, with a **68–106×** golden advantage by `m=200q`. **T2** confirms the
+  asymptotic golden claim as a measured pass/fail bar (TRUE at all 8 q).
+  **T3** shows tempered *guarantees* zero empty cells at closure (proof,
+  coprimality ⇒ bijection) where golden's fill count is a genuine variable —
+  measured **124/140** at a deliberately non-Fibonacci `q=140` (avoiding a
+  self-referential confound at `q=144=F(12)`, checked and reported as an
+  aside). **T4**, the sharpest form of "does not collapse": naive
+  `round(golden·q)` without a coprimality check collapses (`gcd>1`) in
+  **39.0 %** of `q ∈ [8,300)` — measured, not asserted. **Synthesis:**
+  bounded/fixed-budget (a byte-addressable rail) → tempered wins;
+  unbounded/growing (a continuum lattice) → golden wins; both intuitions
+  correct, in different regimes, crossover at `m ≈ q`.
+- **Locked — "best stride" is prefix-range-dependent, stated as a caveat
+  rather than smoothed over.** Three different metrics used across two PRs
+  this session picked three *different* "best" strides for `q=17`: a
+  worst-case-over-all-`m` metric (dominated by the degenerate `m=2` case)
+  picked stride 10; the specific short-prefix comparison in
+  `E-THE-GOLDEN-STEP-IS-THE-WRONG-STEP-AT-SMALL-Q-1` (m=5/9/13) picked
+  stride 4; this plan's useful-range median (m∈[q/2,q]) picked stride 14.
+  None contradicts another — each is scoped to its own metric — but citing
+  a "best stride" number anywhere in this workspace now requires naming
+  which metric produced it.
+- **Fixed — 4 codex P1/P2 findings on merged #932, addressed post-merge
+  since the merged PR could not be reopened.** (1) W5's bump sat at `r=0.45`
+  on a lattice whose local parastichy index scales as `√(r²·N)`, not `√N` —
+  actual local index ≈719, still sub-floor; the disk's inner half is
+  *structurally* sub-floor at any finite N, fixable only by exclusion, never
+  by more N. Fixed: N raised to `3·F(17)²` with real margin, bump moved to
+  `r=0.75` (local index ≈2077), bands 1–2 (`r<0.577`) explicitly excluded
+  from B2 judgment. (2) The tie test counted global duplicate rounded
+  distances across a million-point population — blind to the actual claim
+  (is one H-point ambiguously close to two T-candidates) and prone to
+  unrelated-pair float collisions at these sizes regardless of mechanism.
+  Redefined per-source: `d1/d2 > 1−1e-6` for each point's own two nearest
+  candidates. (3) EPIPHANIES' 17-TET interval table used `just−TET` for
+  four entries and `TET−just` for the fifth, contradicting its own
+  "+3.93 ct/fifth" statement one line above — recomputed with one
+  consistent convention. (4) The B3 control (1500/2600) matched Fibonacci
+  *index magnitude* but not *geometric step length* — physical distance is
+  governed by the angular residue, ≈0.00028/0.00017 for the true
+  1597/2584 pair vs ≈0.05/0.11 for 1500/2600, two to three orders larger —
+  so the control would have failed for the same wrong-scale reason as the
+  very first draft's 12/18, disguised by same-magnitude integers. Fixed
+  with a distance-matched shuffled-neighbour control (each point's control
+  partner is its nearest *real* lattice neighbour by measured physical
+  distance, excluding the true Fibonacci partner).
+- **Deferred.** Every T1–T4 bar and every W5/W2s-a bar are specifications,
+  not results — no probe has run. `golden-vs-tempered-stride-v1`'s numbers
+  are hand/script-verified arithmetic pending worker execution.
+- **Confidence.** High — every arithmetic claim in both the plan and the
+  four fixes was independently re-derived with a script before being
+  written down, not carried over from the prior PR's prose.
+
+**Status:** MERGED (`80d1d47e`). Branch `claude/jirak-math-theorems-harvest-rfii13`
+→ `main`. Doc/plan/board only — zero Rust, zero product code, no probe run.
+
 ## 2026-08-12 — lance-graph #930 (MERGED) — #929 hygiene that became a review sweep, a product-lead program, and a replaced audit method
 
 - **Added.** `probes/weather-p1/COMET_TAIL_REPORT.md` **§10** (the product-lead program: §10.1 measurement standard · §10.2 the dipole **vector-sum model** with the **stranded-storm regime** via `v_rel = v_storm − v_env` · §10.3 corridor α · §10.4 queue-and-bow anchors · §10.5 sunflower-facet / spiral-ADI substrate · §10.6 roadmap · §10.7 worker model) + `.claude/plans/weather-w-probes-v1.md` (Sonnet worker briefs; §0 is a **verbatim-paste preamble** carrying the iron rules, the `fetch()`/t-guard/`wrap_deg`/`circular()` code, controls-FIRST with the VOID rule, and the **stranded-rescue** checkpoint protocol — per-storm `<name>.partial.jsonl` + resume-skip + `exec-runs/` heartbeat, so a killed worker resumes instead of re-fetching ~GBs). Board: INTEGRATION_PLANS prepend, STATUS_BOARD rows D-W5 / D-W2sA / D-W6 / D-W2sB / D-W7 / D-CT-F17 (all **Queued**), the #929 arc entry + LATEST_STATE, and the sweep entry below.

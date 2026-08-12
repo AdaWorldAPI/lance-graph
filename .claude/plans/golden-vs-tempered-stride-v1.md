@@ -187,6 +187,80 @@ final validation of the two-regime table already committed in
 head-to-head arithmetic that entry asserted but did not yet run as a
 standalone, swept comparison.
 
+### Refinement — the storm's own geography sorts the two regimes (operator, 2026-08-12)
+
+Operator observation (paraphrased): the analytic/tempered register belongs at
+the **storm's eye**, the golden/sunflower register in the **collision zone**
+(the arc's Nahkampf terrain) — and specifically, the tempered register gives
+the more exact storm **centering**, because a golden spiral's own center is
+where its data quality is worst.
+
+All three halves of that are mechanically grounded in measurements this arc
+has already made — the mapping is not an aesthetic assignment:
+
+1. **The spiral's center is structurally sub-floor at ANY N.** Local
+   parastichy index at radius `r` is `√(r²·N)` → 0 as `r` → 0 — the exact
+   arithmetic behind the W5 fix (`weather-w-probes-v1` §1), where raising N
+   could never rescue the inner bands and the only correct move was
+   excluding them from judgment. A Vogel lattice's innermost points are
+   degenerate by construction: resonant stride families, uneven first-few-k
+   spacing, no floor-qualifying neighbourhood. **Center work on a golden
+   lattice is garbage-register work, at any budget.**
+2. **The shipped center-finder is already on the correct register.**
+   `find_center` (`comet_tail_f5_n10.py` / `comet_tail_f16.py`) is an
+   exact-enumeration argmin over the regular lat/lon grid plus a quadratic
+   sub-grid fit — bounded, exhaustive, zero-variance: the tempered/head
+   register, never a spiral sample. What was implicit practice is now
+   stated doctrine: **centering = exact enumeration; never sample the
+   center from the spiral whose center is its own worst data.**
+3. **The sunflower is the territory-gain model, and its advantage is that
+   its addresses speak for themselves outward.** Prefix-extensibility
+   (report §10.5 property 3) means position is *implied* by index `k` —
+   place deterministic, residue stored, nothing re-meshed — and each added
+   point lands in the largest current gap (`O(log N/N)` discrepancy). In
+   the Go framing the arc already measured (`go_territory_probe`): golden
+   is the **opening** — optimal incremental territory claim in open,
+   growing space; tempered is the **endgame count** — exact, closed,
+   bounded. Same two regimes as the T1 table, now with the game-phase
+   reading attached. **And the self-description is unbounded** (operator,
+   same session, paraphrased: self-explanatory without end) — which is the
+   sharpest way to state the asymmetry. A tempered walk is self-describing
+   exactly up to `q`: beyond one cycle the index carries no new
+   information, the address vocabulary is exhausted, the walk repeats. The
+   golden index is self-describing for **every** `k`, indefinitely — no
+   re-meshing, no re-indexing, no schema change at any scale, with quality
+   still *improving* as it grows (`O(log m/m)`, T2's measured 68–106×
+   advantage at `m=200q` IS this property in number form). Bounded
+   self-description that closes exactly, versus unbounded self-description
+   that never stops refining: that is the entire duel in one sentence.
+
+4. **Overlaying the collision lattices is controlled chaos at near-zero
+   storage cost** (operator observation, same session, paraphrased: the
+   superposition is pleasingly chaotic AND cheap). Both halves are
+   measurable, not vibes. *Chaotic:* two golden lattices over different
+   centers are incommensurate — the overlay pattern is aperiodic (never
+   repeats, no moiré, no systematic ties; §10.5 property 2, and exactly
+   what W2s-a's G1/G3 bars measure) — yet fully **deterministic**: the
+   entire pattern regenerates from two center coordinates and nothing
+   else. Low-discrepancy chaos, not randomness — reproducible, seedless,
+   audit-friendly. *Cheap:* the overlay stores **no geometry at all**.
+   Every point's position is implied by its index (place deterministic),
+   so a collision node costs exactly its 12-byte V3 facet — rails 0–1 the
+   `(k_H:k_T)` pair address, rails 2–5 the 8 state bytes — with radii,
+   azimuths, and positions all *derived*, never persisted. Densifying the
+   overlay adds nodes, not meshes: cost grows with the number of
+   collisions you choose to materialize, not with the resolution of the
+   space they live in.
+
+**The demarcation that keeps this honest:** the geography does not *cause*
+the regime — the **task** does. The eye is tempered territory because the
+task there (resolve one address, fixed budget, exact closure) is a bounded
+task; the collision annulus is golden territory because the task there
+(pair two growing lattices ever more densely) is an unbounded one. It
+happens — and this is the elegant part, not the load-bearing part — that
+the storm's geography sorts its tasks into exactly the two regimes the T1
+crossover table measures.
+
 ## Execution
 
 Zero fetch, pure `numpy`/`scipy.spatial` (only T3's KD-tree-adjacent bucket
