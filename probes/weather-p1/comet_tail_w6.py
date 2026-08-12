@@ -14,10 +14,28 @@ comet_tail_f16.py; `spine()` -- the CONSTRAINED 2-parameter dipole fit
 verified against the tree it actually lives in l4_rail_probe.py, ported from
 there instead); `circular()` from the report §10.1 statistics standard.
 
-UNITS. c_geo and c_bow are dimensionless least-squares coefficients that
-absorb P_geo's [Pa/km] and P_bow's [Pa] units into themselves -- their SIGN
-is what B2 tests, not their magnitude, and no unit conversion is performed
-or needed.
+UNITS -- corrected 2026-08-12 (codex + CodeRabbit P2/Major on PR #940, both
+real, both fixed here). `spine()` regresses pressure [Pa] onto
+`[r*cos(theta), r*sin(theta)]` in KM, so `D = (a1, b1)` has units [Pa/km],
+NOT dimensionless Pa as the first draft's docstring claimed -- and P_geo
+(`A_H/d_H`) is ALSO [Pa/km], so `D = c_geo*P_geo + c_bow*P_bow` forces
+`c_geo` DIMENSIONLESS but `c_bow` to carry [Pa/km]/[Pa] = **km^-1**.
+Rescaling P_bow's raw units would rescale c_bow's NUMERIC VALUE inversely
+while leaving R^2 and the fitted Dhat UNCHANGED (ordinary least squares is
+scale-covariant per column) -- so a raw `|c_bow|` close to zero does NOT by
+itself prove "no measurable weight"; the dimensionally valid comparison is
+the FITTED CONTRIBUTION magnitude `|c_bow * P_bow|` against `|D|`, computed
+below and reported instead of the raw coefficient's magnitude.
+
+SIGN CONVENTION -- also corrected. `spine()`'s raw `coef` is the gradient of
+INCREASING residual (`resid = v - prof[rings]`), i.e. it points toward the
+storm's HIGH side, not the low pole -- exactly the convention
+`low_pole_bearing()` in comet_tail_f16.py:138-160 makes explicit by
+returning `(ph + pi) % (2*pi)`, an explicit 180-degree flip AFTER computing
+the raw regression-direction angle `ph`. `P_geo`/`P_bow` are both
+constructed pointing toward the LOW side (away from the neighbor high;
+behind relative motion) -- so comparing them meaningfully to `spine()`'s
+raw `coef` needs the SAME flip. `D = -spine(...)` below, not the raw coef.
 """
 import datetime
 import json
@@ -227,10 +245,14 @@ def run():
     """Per-storm fetch + spine/neighbor/bow computation (checkpointed), then
     the global 38-equation joint fit and all four pre-registered bars,
     B0 (controls, reported FIRST) through B4."""
-    with open(tag_path, "a") as tf:
-        tf.write(f"START seed={SEED} n_storms={len(storms)}\n")
-
+    # Load the checkpoint BEFORE writing any run metadata (codex/CodeRabbit
+    # P2 on #940): if load_completed() itself fails on a malformed partial
+    # file, the tag file must not already claim a run started successfully.
     done = load_completed()
+    with open(tag_path, "a") as tf:
+        tf.write(f"START seed={SEED} n_storms={len(storms)} "
+                 f"resumed={len(done)}\n")
+
     with open(partial_path, "a") as pf, open(tag_path, "a") as tf:
         for i, s in enumerate(storms):
             t0 = s["t0"]
@@ -239,38 +261,52 @@ def run():
             if t0 > T_MAX:
                 tf.write(f"SKIP t0={t0} beyond store coverage (T_MAX={T_MAX})\n")
                 continue
-            la, lo = s["center_lat"], s["center_lon"]
-            p0 = fetch("mean_sea_level_pressure", f"{t0}.0.0")[0].astype(np.float64)
-            u3 = fetch("u_component_of_wind", f"{t0}.0.0.0")[0].astype(np.float64)
-            v3 = fetch("v_component_of_wind", f"{t0}.0.0.0")[0].astype(np.float64)
+            try:
+                la, lo = s["center_lat"], s["center_lon"]
+                p0 = fetch("mean_sea_level_pressure", f"{t0}.0.0")[0].astype(np.float64)
+                u3 = fetch("u_component_of_wind", f"{t0}.0.0.0")[0].astype(np.float64)
+                v3 = fetch("v_component_of_wind", f"{t0}.0.0.0")[0].astype(np.float64)
 
-            D = spine(la, lo, p0)
+                # Sign-flipped per the module docstring's SIGN CONVENTION
+                # note: spine()'s raw coef points toward the HIGH side
+                # (increasing residual); P_geo/P_bow both point toward the
+                # LOW side, the SAME convention low_pole_bearing()'s "+pi"
+                # flip encodes.
+                D = -spine(la, lo, p0)
 
-            # Step 2: motion bearing recovered by ALGEBRA (exact inversion of
-            # err_deg = wrap(lp - (mth+pi/2))), no tracking.
-            mth_deg = wrap_deg(np.rad2deg(s["low_pole_rad"]) - 90.0
-                                - s["err_surface_deg"])
-            mth_rad = np.deg2rad(mth_deg)
-            v_storm_ms = s["displacement_km"] * 1000.0 / (6 * 3600.0)
-            v_storm = v_storm_ms * np.array([np.cos(mth_rad), np.sin(mth_rad)])
+                # Step 2: motion bearing recovered by ALGEBRA (exact
+                # inversion of err_deg = wrap(lp - (mth+pi/2))), no tracking.
+                mth_deg = wrap_deg(np.rad2deg(s["low_pole_rad"]) - 90.0
+                                    - s["err_surface_deg"])
+                mth_rad = np.deg2rad(mth_deg)
+                v_storm_ms = s["displacement_km"] * 1000.0 / (6 * 3600.0)
+                v_storm = v_storm_ms * np.array(
+                    [np.cos(mth_rad), np.sin(mth_rad)])
 
-            # Step 3: v_rel = v_storm - v_env850; bow predictor.
-            u850, v850 = disk_mean_uv(u3, v3, la, lo, (850,))
-            v_env850 = np.array([u850, v850])
-            v_rel = v_storm - v_env850
-            speed_rel = float(np.hypot(*v_rel))
-            bear_rel = float(np.arctan2(v_rel[1], v_rel[0]))
-            P_bow = (0.5 * RHO_AIR * speed_rel ** 2) * np.array(
-                [np.cos(bear_rel + np.pi), np.sin(bear_rel + np.pi)])
+                # Step 3: v_rel = v_storm - v_env850; bow predictor.
+                u850, v850 = disk_mean_uv(u3, v3, la, lo, (850,))
+                v_env850 = np.array([u850, v850])
+                v_rel = v_storm - v_env850
+                speed_rel = float(np.hypot(*v_rel))
+                bear_rel = float(np.arctan2(v_rel[1], v_rel[0]))
+                P_bow = (0.5 * RHO_AIR * speed_rel ** 2) * np.array(
+                    [np.cos(bear_rel + np.pi), np.sin(bear_rel + np.pi)])
 
-            # Step 4: neighbor predictor.
-            nb = neighbor_predictor(p0, la, lo)
-            if nb is None:
-                tf.write(f"NO-VERDICT t0={t0}: no positive annulus anomaly\n")
-                continue
-            A_H, d_H, theta_H = nb
-            P_geo = (A_H / d_H) * np.array(
-                [np.cos(theta_H + np.pi), np.sin(theta_H + np.pi)])
+                # Step 4: neighbor predictor.
+                nb = neighbor_predictor(p0, la, lo)
+                if nb is None:
+                    tf.write(f"NO-VERDICT t0={t0}: no positive annulus anomaly\n")
+                    tf.flush()
+                    continue
+                A_H, d_H, theta_H = nb
+                P_geo = (A_H / d_H) * np.array(
+                    [np.cos(theta_H + np.pi), np.sin(theta_H + np.pi)])
+            except Exception as exc:
+                # §0's iron rule: a dead fetch/step is recorded, then the
+                # run stops -- it does not improvise or silently skip.
+                tf.write(f"ERROR t0={t0}: {type(exc).__name__}: {exc}\n")
+                tf.flush()
+                raise
 
             row = {"t0": t0, "date": s["date"], "D": D.tolist(),
                    "P_geo": P_geo.tolist(), "P_bow": P_bow.tolist(),
@@ -309,6 +345,18 @@ def run():
 
     b1_pass = r2_joint >= best_single + 0.10
     b2_pass = (c_bow > 0) and (c_geo > 0)
+
+    # DIMENSIONALLY VALID contribution comparison (codex/CodeRabbit P2 on
+    # #940): D and c_geo*P_geo are both [Pa/km] and directly comparable;
+    # c_bow*P_bow is ALSO [Pa/km] once the coefficient's implicit km^-1 is
+    # applied, so |c_bow*P_bow| vs |D| is the right ratio -- NOT raw
+    # |c_bow| (dimensionless-looking but actually km^-1) vs anything, and
+    # NOT raw |P_bow| vs |D| (different units, Pa vs Pa/km, incomparable).
+    geo_contrib = c_geo * Pg
+    bow_contrib = c_bow * Pb
+    mean_D_mag = float(np.mean(np.hypot(D[:, 0], D[:, 1])))
+    mean_geo_contrib_mag = float(np.mean(np.hypot(geo_contrib[:, 0], geo_contrib[:, 1])))
+    mean_bow_contrib_mag = float(np.mean(np.hypot(bow_contrib[:, 0], bow_contrib[:, 1])))
 
     resid_bear = np.array([wrap_deg(bearing_deg(D[i]) - bearing_deg(Dhat_joint[i]))
                             for i in range(n)])
@@ -350,8 +398,20 @@ def run():
                                "verdict": ("PASS" if b1_pass else "FAIL")
                                if b0_pass else "VOID (B0 failed)"},
         "B2_sign": {"c_geo": c_geo, "c_bow": c_bow,
+                   "units_note": ("c_geo dimensionless (both D and P_geo "
+                                  "are Pa/km); c_bow has units km^-1 (D is "
+                                  "Pa/km, P_bow is Pa) -- see "
+                                  "fitted_contribution_Pa_per_km for a "
+                                  "unit-consistent magnitude comparison, "
+                                  "not raw |c_bow|"),
                    "verdict": ("PASS" if b2_pass else "FAIL")
                    if b0_pass else "VOID (B0 failed)"},
+        "fitted_contribution_Pa_per_km": {
+            "mean_|D|": mean_D_mag,
+            "mean_|c_geo*P_geo|": mean_geo_contrib_mag,
+            "mean_|c_bow*P_bow|": mean_bow_contrib_mag,
+            "geo_contrib_frac_of_D": mean_geo_contrib_mag / mean_D_mag,
+            "bow_contrib_frac_of_D": mean_bow_contrib_mag / mean_D_mag},
         "B3_residual_resultant": {
             "overall": {"R_bar": rbar_all, "mu_deg": mu_all, "rayleigh_p": p_all},
             "stranded_lt8ms": {"n": int(stranded.sum()), "R_bar": rbar_s,
@@ -377,6 +437,7 @@ if __name__ == "__main__":
     print("B0 controls:", res["B0_controls"])
     print("single models:", res["single_models"])
     print("joint model:", res["joint_model"])
+    print("fitted contribution (Pa/km):", res["fitted_contribution_Pa_per_km"])
     print("B1:", res["B1_identifiability"])
     print("B2:", res["B2_sign"])
     print("B3 overall:", res["B3_residual_resultant"]["overall"])
