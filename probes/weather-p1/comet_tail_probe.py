@@ -28,6 +28,7 @@ Storm 1: the arc's storm (55.75N 334.5E). Storm 2: the #3 center from
 go_territory_probe (67.0N 28.0E) as replication.
 """
 import json
+import pathlib
 import urllib.request
 
 import numcodecs
@@ -208,5 +209,5 @@ print(f"\nCT-E3 joint: {hits}/2 within +/-45 deg of left-of-motion "
 
 json.dump({"store": B, "t0": T0, "t1": T1, "R_disk_km": R_DISK,
            "storm1": s1, "storm2": s2, "CT_E3_joint_hits": int(hits)},
-          open("comet_tail_probe.json", "w"), indent=2)
+          open(pathlib.Path(__file__).with_name("comet_tail_probe.json"), "w"), indent=2)
 print("wrote comet_tail_probe.json")

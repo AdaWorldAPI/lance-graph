@@ -69,6 +69,7 @@ geom_ll(lat[ci], lon[cj]) == geom(ci, cj) is ASSERTED numerically below so the
 refactor cannot silently change the baseline.
 """
 import json
+import pathlib
 import urllib.request
 
 import numcodecs
@@ -454,5 +455,6 @@ else:
     print(f"   F7d friction alone could own 40 deg OVER LAND: "
           f"{out['CT_F7']['F7d_friction_alone_could_own_40deg_over_land']}")
 
-json.dump(out, open("comet_tail_f4_f7.json", "w"), indent=2)
+with open(pathlib.Path(__file__).with_name("comet_tail_f4_f7.json"), "w") as fh:
+    json.dump(out, fh, indent=2)
 print("\nwrote comet_tail_f4_f7.json")

@@ -35,6 +35,7 @@ register (D-1) consume it; it does not silently redefine "agree" if the
 ratio comes out above 2.
 """
 import json
+import pathlib
 
 import numpy as np
 
@@ -199,7 +200,8 @@ def main():
         result["NO_VERDICT"] = True
         result["no_verdict_reason"] = no_verdict_reason
         print(f"\nNO-VERDICT: {no_verdict_reason}")
-        json.dump(result, open("ev10_winter.json", "w"), indent=2)
+        with open(pathlib.Path(__file__).with_name("ev10_winter.json"), "w") as fh:
+            json.dump(result, fh, indent=2)
         raise SystemExit(1)
 
     # ---- per-season flip-points (both arms) ----
@@ -259,7 +261,8 @@ def main():
     result["season_comparison"] = comparisons
     result["NO_VERDICT"] = False
 
-    json.dump(result, open("ev10_winter.json", "w"), indent=2)
+    with open(pathlib.Path(__file__).with_name("ev10_winter.json"), "w") as fh:
+        json.dump(result, fh, indent=2)
     print("\nwrote ev10_winter.json")
 
 

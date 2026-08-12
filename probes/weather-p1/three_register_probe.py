@@ -52,6 +52,7 @@ honest reference for operational extremity; single-timestep is stated as the
 scope limit, not hidden.
 """
 import json
+import pathlib
 import urllib.request
 
 import numcodecs
@@ -254,5 +255,5 @@ json.dump({"store": B, "t0": T0, "palette": PALETTE, "provenance": prov,
            "R5_cross_variable": r5_rows,
            "R5_max_spread": float(max_spread),
            "R5_one_bucket": one_bucket},
-          open("three_register_probe.json", "w"), indent=2)
+          open(pathlib.Path(__file__).with_name("three_register_probe.json"), "w"), indent=2)
 print("\nwrote three_register_probe.json")

@@ -1041,7 +1041,10 @@
     "n_negative": 19,
     "sign_neg_frac": 0.7307692307692307,
     "one_sided_p": 0.014479637145996094,
-    "interpretation": "ESTABLISHED at this n, displacement-filtered regime -> ready for audit-gate queue as [H]-graded, scope-limited claim",
+    "applied_verdict": "NOT PROMOTED -- the largest component (CT-F14, n=19) failed its own pre-registered n>=20 floor. Pooling cannot rescue a component that did not qualify, and the pre-registration had no contingency for this case. Directional claim remains SUGGESTIVE (report SS5.11).",
+    "interpretation_preregistered_rule": "ESTABLISHED at this n, displacement-filtered regime -> ready for audit-gate queue as [H]-graded, scope-limited claim",
+    "subset_below_min_n": true,
+    "largest_component_min_n": 20,
     "components": {
       "sample1_disp250": {
         "n": 4,

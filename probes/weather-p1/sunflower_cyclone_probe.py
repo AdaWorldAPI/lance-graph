@@ -31,6 +31,7 @@ SAME storm (55.75N, 334.5E) as voxel_chess_probe.py E6 and ndarray's
 examples/geostrophic_stencil.rs. cos(lat) spacing throughout.
 """
 import json
+import pathlib
 import urllib.request
 
 import numcodecs
@@ -226,5 +227,6 @@ print(f"E5 u8-palette spiral recon: {rmse_q:.1f} Pa "
       f"bucket={bucket:.1f} Pa; added={out['E5_u8']['added_vs_f64_Pa']:.1f}, "
       f"bar <= {bucket:.1f})")
 
-json.dump(out, open("sunflower_cyclone_probe.json", "w"), indent=2)
+with open(pathlib.Path(__file__).with_name("sunflower_cyclone_probe.json"), "w") as fh:
+    json.dump(out, fh, indent=2)
 print("\nwrote sunflower_cyclone_probe.json")

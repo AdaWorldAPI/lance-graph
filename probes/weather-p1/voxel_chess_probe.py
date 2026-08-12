@@ -28,6 +28,7 @@ Fields: mean_sea_level_pressure, 10m u, 10m v. cos(lat) zonal spacing per the
 EV-1 audit lesson; |lat| < 15 deg masked (f -> 0, geostrophy undefined).
 """
 import json
+import pathlib
 import urllib.request
 
 import numcodecs
@@ -226,5 +227,6 @@ print(f"  peak at ring {pk} ({prof[pk]['r_mid_km']} km): torque zone inside, "
       f"momentum zone outside -> rises_then_decays="
       f"{out['E6_rankine']['rises_then_decays']}")
 
-json.dump(out, open("voxel_chess_probe.json", "w"), indent=2)
+with open(pathlib.Path(__file__).with_name("voxel_chess_probe.json"), "w") as fh:
+    json.dump(out, fh, indent=2)
 print("\nwrote voxel_chess_probe.json")

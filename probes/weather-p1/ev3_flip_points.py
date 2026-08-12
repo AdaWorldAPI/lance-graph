@@ -29,6 +29,7 @@ Reference structure: p1_ci_vs_floor.py (read in full before editing this
 file); parameterized here over VARS instead of hardcoded to one variable.
 """
 import json
+import pathlib
 
 import numpy as np
 
@@ -172,7 +173,8 @@ def main():
             f"(two-regime expectation applies HERE, not to linear)"
         )
 
-    json.dump(out, open("ev3_flip_points.json", "w"), indent=2)
+    with open(pathlib.Path(__file__).with_name("ev3_flip_points.json"), "w") as fh:
+        json.dump(out, fh, indent=2)
     print("\nwrote ev3_flip_points.json")
 
 

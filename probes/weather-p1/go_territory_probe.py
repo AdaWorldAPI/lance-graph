@@ -31,6 +31,7 @@ approx with cos(lat_center) — consistent with the sibling probes, stated.
 Hoehenprofil (geopotential stacking) deliberately NOT here — next probe.
 """
 import json
+import pathlib
 import os
 import urllib.request
 
@@ -213,5 +214,5 @@ json.dump({
     "B": {"n_centers": len(det), "by_thresh": out_b,
           "E2_secured_le_bandmean": b_e2, "E3_random_ratio": b_e3,
           "gradT_band_mean_K_per_100km": float(band_mean)},
-}, open("go_territory_probe.json", "w"), indent=2)
+}, open(pathlib.Path(__file__).with_name("go_territory_probe.json"), "w"), indent=2)
 print("\nwrote go_territory_probe.json")

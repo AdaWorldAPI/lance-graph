@@ -68,6 +68,7 @@ RUN LOG (transparency — the bars above are VERBATIM as first run, unedited):
          criterion above was added, removed, or loosened.
 """
 import json
+import pathlib
 import urllib.request
 
 import numcodecs
@@ -425,5 +426,6 @@ for st in STORMS:
           f"{f2_all[st['name']]['friction_alone_could_own_40deg']}")
 out["CT_F2"] = f2_all
 
-json.dump(out, open("comet_tail_followup.json", "w"), indent=2)
+with open(pathlib.Path(__file__).with_name("comet_tail_followup.json"), "w") as fh:
+    json.dump(out, fh, indent=2)
 print("\nwrote comet_tail_followup.json")

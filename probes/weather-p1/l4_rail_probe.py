@@ -56,6 +56,7 @@ PRE-REGISTERED:
       "one table read" property.
 """
 import json
+import pathlib
 import urllib.request
 
 import numcodecs
@@ -298,5 +299,6 @@ else:
           f"{len(inf_dirs)}/{len(out['cross'])}) {100*worst:+.1f}% "
           f"(bar <= +1%): {'PASS' if worst <= 0.01 else 'FAIL'}")
 
-json.dump(out, open("l4_rail_probe.json", "w"), indent=2)
+with open(pathlib.Path(__file__).with_name("l4_rail_probe.json"), "w") as fh:
+    json.dump(out, fh, indent=2)
 print("\nwrote l4_rail_probe.json")

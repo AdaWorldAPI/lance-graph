@@ -12,6 +12,7 @@ property of the field.
 Verdict is printed, not assumed. Emits ev4_apparatus_sensitivity.json.
 """
 import json
+import pathlib
 
 import numpy as np
 
@@ -107,7 +108,8 @@ def main():
     print(f"  method max/min spread: {method_spread:.1f}x")
     print(f"  scale-controlling tail flips across windows: {flips}")
     print(f"\n  {out['verdict']['conclusion']}")
-    json.dump(out, open("ev4_apparatus_sensitivity.json", "w"), indent=2)
+    with open(pathlib.Path(__file__).with_name("ev4_apparatus_sensitivity.json"), "w") as fh:
+        json.dump(out, fh, indent=2)
 
 
 if __name__ == "__main__":

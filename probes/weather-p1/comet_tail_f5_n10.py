@@ -81,6 +81,7 @@ keep n=10 candidate dates. No bar above was touched.
 """
 import datetime
 import json
+import pathlib
 import urllib.request
 
 import numcodecs
@@ -519,5 +520,6 @@ else:
     out["CT_N"] = {"n_dates_scanned": len(DATES), "n_valid": 0,
                    "excluded": excluded, "verdict": "NO-VERDICT: zero valid storms"}
 
-json.dump(out, open("comet_tail_f5_n10.json", "w"), indent=2)
+with open(pathlib.Path(__file__).with_name("comet_tail_f5_n10.json"), "w") as fh:
+    json.dump(out, fh, indent=2)
 print("\nwrote comet_tail_f5_n10.json")

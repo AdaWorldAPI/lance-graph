@@ -51,6 +51,7 @@ lead, same as CT-N1 closed the unfiltered claim.
 """
 import datetime
 import json
+import pathlib
 import urllib.request
 
 import numcodecs
@@ -305,5 +306,6 @@ both_subset = [r for r in valid
 # completeness, but it must not be able to emit a pass/fail verdict on n=3.
 out["CT_F12"] = stratum_verdict("CT-F12 (both filters)", both_subset)
 
-json.dump(out, open("comet_tail_f10_f11.json", "w"), indent=2)
+with open(pathlib.Path(__file__).with_name("comet_tail_f10_f11.json"), "w") as fh:
+    json.dump(out, fh, indent=2)
 print("\nwrote comet_tail_f10_f11.json")

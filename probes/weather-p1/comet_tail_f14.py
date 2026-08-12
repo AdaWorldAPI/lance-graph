@@ -67,6 +67,7 @@ extratropical-low steering-flow framing §2 laid out from the start.
 """
 import datetime
 import json
+import pathlib
 import urllib.request
 from math import comb
 
@@ -329,18 +330,47 @@ elif p_combined < 0.10:
 else:
     interp = "NOT ESTABLISHED -> apparatus explanation itself in question; retire directional claim to [S] pending a fundamentally different design"
 
+# THE POOLING RULE HAD A GAP, and the artifact must not hide it.
+# The pre-registered rule above reads ONLY p_combined, so when CT-F14 -- the
+# largest and most carefully powered component -- fails its OWN n>=20 floor,
+# this block still emitted "ESTABLISHED ... ready for audit-gate queue"
+# unconditionally. A result that failed its own gate then carried a promotion
+# recommendation in the MACHINE-READABLE artifact, contradicting the report's
+# own section 5.11 conclusion ("graded down to still suggestive"). The prose was
+# corrected; this file was not. (coderabbit on PR #926, 2026-08-11.)
+#
+# The rule's mechanical output is KEPT -- deleting it would hide what the
+# pre-registration actually said -- but renamed to
+# `interpretation_preregistered_rule`, and is no longer the field a consumer
+# reads as the verdict. `applied_verdict` is, and it is gated.
+subset_below_min_n = n_qual < MIN_N
+if subset_below_min_n:
+    applied = (f"NOT PROMOTED -- the largest component (CT-F14, n={n_qual}) "
+               f"failed its own pre-registered n>={MIN_N} floor. Pooling cannot "
+               "rescue a component that did not qualify, and the "
+               "pre-registration had no contingency for this case. Directional "
+               "claim remains SUGGESTIVE (report section 5.11).")
+else:
+    applied = interp
+
 print(f"\n=== COMBINED across THREE independent samples "
       f"(sample1 n=4 + sample2 n=3 + CT-F14 n={n_qual}) ===")
 print(f"n={n_combined}, neg={neg_combined}/{n_combined} = {frac_combined:.3f}, "
       f"one-sided p={p_combined:.4f}")
-print(f"PRE-COMMITTED interpretation: {interp}")
+print(f"PRE-REGISTERED RULE would say: {interp}")
+if subset_below_min_n:
+    print(f"GATED -> {applied}")
 
 out["CT_F14_combined_3sample"] = {
     "n": n_combined, "n_negative": neg_combined,
     "sign_neg_frac": frac_combined, "one_sided_p": p_combined,
-    "interpretation": interp,
+    "applied_verdict": applied,
+    "interpretation_preregistered_rule": interp,
+    "subset_below_min_n": subset_below_min_n,
+    "largest_component_min_n": MIN_N,
     "components": {"sample1_disp250": PRIOR_S1, "sample2_disp250": PRIOR_S2,
                   "CT_F14": {"n": n_qual, "neg": neg_qual}}}
 
-json.dump(out, open("comet_tail_f14.json", "w"), indent=2)
+with open(pathlib.Path(__file__).with_name("comet_tail_f14.json"), "w") as fh:
+    json.dump(out, fh, indent=2)
 print("\nwrote comet_tail_f14.json")
