@@ -171,12 +171,15 @@ def build_control_links(x, y, n, bands, strides, qualifying, sel_qualifying,
     the KD-tree only from the sampled subset, so even sampled sources
     picked among sampled neighbours rather than their real 8 nearest.
     Every point in every qualifying band now gets a real control partner.
-    Returns (links, offset_histogram) -- histogram is {|dk|: count} over
-    ALL control links in family A, the artifact codex P2 asked to be
-    committed rather than left as chat-only prose."""
+    Returns (links, offset_histograms) -- offset_histograms is a dict keyed
+    "famA"/"famB", each {|dk|: count} etc., over BOTH link families (codex
+    P2 on PR #938: the first version histogrammed only family A -- the
+    forward stride direction -- while the ADI sweep uses BOTH families
+    every iteration; family B's offset distribution is now measured too,
+    not merely assumed to match family A's)."""
     idx_all = np.arange(n)
     links = []
-    histA = None
+    histograms = {}
     for fam in (0, 1):
         nxt = idx_all.copy()
         for b in qualifying:
@@ -200,28 +203,28 @@ def build_control_links(x, y, n, bands, strides, qualifying, sel_qualifying,
             pick = np.argmin(dist_diff, axis=1)
             good = np.isfinite(dist_diff[np.arange(len(sel)), pick])
             nxt[sel[good]] = cand_global[np.arange(len(sel)), pick][good]
-        if fam == 0:
-            moved = nxt != idx_all
-            dk = np.abs(nxt[moved] - idx_all[moved])
-            vals, counts = np.unique(dk, return_counts=True)
-            order = np.argsort(-counts)
-            n_qual = int(sel_qualifying.sum())
-            moved_in_qual = int((moved & sel_qualifying).sum())
-            # self_linked_frac_overall is over ALL n points and is DOMINATED
-            # by non-qualifying-band points, which are never touched by
-            # design (a debugging trap found and fixed live: an earlier
-            # version of this histogram divided by n and reported ~38% "self
-            # -linked" that was almost entirely non-qualifying-band points
-            # correctly excluded, not a control-search failure -- see the
-            # _in_qualifying_bands figure for the number that actually
-            # matters).
-            histA = {"n_moved": int(moved.sum()), "n_total": int(n),
-                     "n_qualifying": n_qual,
-                     "self_linked_frac_overall": float(1.0 - moved.sum() / n),
-                     "self_linked_frac_in_qualifying_bands": float(
-                         1.0 - moved_in_qual / n_qual) if n_qual else None,
-                     "top10_offsets": [(int(vals[i]), int(counts[i]))
-                                       for i in order[:10]]}
+        # Histogram EVERY family (codex P2 on #938 -- previously only
+        # family 0). self_linked_frac_overall is over ALL n points and is
+        # DOMINATED by non-qualifying-band points, which are never touched
+        # by design (a debugging trap found and fixed live earlier: an
+        # early v2 diagnostic divided by total N rather than
+        # qualifying-band population and reported a spurious ~38%
+        # "self-linked" -- see the _in_qualifying_bands figure for the
+        # number that actually matters).
+        moved = nxt != idx_all
+        dk = np.abs(nxt[moved] - idx_all[moved])
+        vals, counts = np.unique(dk, return_counts=True)
+        order = np.argsort(-counts)
+        n_qual = int(sel_qualifying.sum())
+        moved_in_qual = int((moved & sel_qualifying).sum())
+        histograms[f"fam{'A' if fam == 0 else 'B'}"] = {
+            "n_moved": int(moved.sum()), "n_total": int(n),
+            "n_qualifying": n_qual,
+            "self_linked_frac_overall": float(1.0 - moved.sum() / n),
+            "self_linked_frac_in_qualifying_bands": float(
+                1.0 - moved_in_qual / n_qual) if n_qual else None,
+            "top10_offsets": [(int(vals[i]), int(counts[i]))
+                              for i in order[:10]]}
         prv = idx_all.copy()
         src_pts = np.where(nxt != idx_all)[0]
         order = np.argsort(nxt[src_pts])
@@ -232,7 +235,7 @@ def build_control_links(x, y, n, bands, strides, qualifying, sel_qualifying,
         unique_srcs = src_pts[order][first[counts == 1]]
         prv[unique_tgts] = unique_srcs
         links.extend([nxt, prv])
-    return links, histA
+    return links, histograms
 
 
 def median_nn_spacing_sq(x, y, sel, rng, sample=20_000):
@@ -424,7 +427,7 @@ if __name__ == "__main__":
     print(f"baseline (unsmoothed, same mask): {h['baseline_unsmoothed']}")
     print(f"fib:     {h['fib']}")
     print(f"control: {h['control']}")
-    print(f"control link histogram (fam A): {h['control_link_histogram']}")
+    print(f"control link histograms (both families): {h['control_link_histogram']}")
     print(f"aniso ratio (control/fib): {h['aniso_ratio_control_over_fib']}")
     print(f"aniso change from baseline (fib): {h['aniso_change_from_baseline_fib']}")
     print("verdicts:", res["verdicts"])

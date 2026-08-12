@@ -10,6 +10,9 @@
       7,
       8
     ],
+    "iters": 3304,
+    "h2": 3.783262003912189e-07,
+    "sigma_predicted": 0.05590169943749475,
     "strides": {
       "1": [
         987,
@@ -124,19 +127,77 @@
         ]
       }
     },
+    "baseline_unsmoothed": {
+      "aniso": 1.0045553787432684,
+      "iso_rel_l2": 0.0041925728222594605,
+      "sigma_ref": 0.05021008403361345,
+      "amplitude": 0.9958071953384192,
+      "raw_rel_l2_vs_unsmoothed_input": 0.0
+    },
     "fib": {
-      "aniso": 1.2133704271386727,
-      "iso_rel_l2": 0.000531146335896528,
-      "sigma_ref": 0.08,
-      "amplitude": 0.9998296702272748
+      "aniso": 1.5251226754429854,
+      "iso_rel_l2": 0.12159876174955614,
+      "sigma_ref": 0.058015629248156314,
+      "amplitude": 0.7397889950392876,
+      "raw_rel_l2_vs_unsmoothed_input": 0.19037815450380777
     },
     "control": {
-      "aniso": 1.2128492673045226,
-      "iso_rel_l2": 0.0043580045257184145,
-      "sigma_ref": 0.08,
-      "amplitude": 0.9999676829776998
+      "aniso": 1.5656908562573515,
+      "iso_rel_l2": 0.13363339049717748,
+      "sigma_ref": 0.058015629248156314,
+      "amplitude": 0.7501096738263052,
+      "raw_rel_l2_vs_unsmoothed_input": 0.19756950366253745
     },
-    "aniso_ratio_control_over_fib": 0.9995704857951919
+    "control_link_histogram": {
+      "famA": {
+        "n_moved": 4769097,
+        "n_total": 7651227,
+        "n_qualifying": 4782017,
+        "self_linked_frac_overall": 0.3766886017105492,
+        "self_linked_frac_in_qualifying_bands": 0.0027017888058532558,
+        "top10_offsets": [
+          [
+            2584,
+            4745846
+          ],
+          [
+            6765,
+            10336
+          ],
+          [
+            10946,
+            10331
+          ],
+          [
+            13530,
+            2584
+          ]
+        ]
+      },
+      "famB": {
+        "n_moved": 4761112,
+        "n_total": 7651227,
+        "n_qualifying": 4782017,
+        "self_linked_frac_overall": 0.3777322251712045,
+        "self_linked_frac_in_qualifying_bands": 0.004371586299254049,
+        "top10_offsets": [
+          [
+            4181,
+            4732643
+          ],
+          [
+            6765,
+            24288
+          ],
+          [
+            2584,
+            4181
+          ]
+        ]
+      }
+    },
+    "aniso_ratio_control_over_fib": 1.0265999460027586,
+    "aniso_change_from_baseline_fib": 0.520567296699717
   },
   "sweep": [
     {
@@ -149,19 +210,30 @@
         7,
         8
       ],
+      "iters": 1,
+      "baseline_unsmoothed": {
+        "aniso": 1.0040137866849275,
+        "iso_rel_l2": 0.004183765000292255,
+        "sigma_ref": 0.05021008403361345,
+        "amplitude": 0.9958045697866769,
+        "raw_rel_l2_vs_unsmoothed_input": 0.0
+      },
       "fib": {
-        "aniso": 6.550475179352178,
-        "iso_rel_l2": 0.4404837665749021,
-        "sigma_ref": 0.16677966101694913,
-        "amplitude": 0.2689536925373855
+        "aniso": 3.295711233283226,
+        "iso_rel_l2": 0.33148677721837466,
+        "sigma_ref": 0.06788063503124363,
+        "amplitude": 0.5109729774064525,
+        "raw_rel_l2_vs_unsmoothed_input": 0.42294584899735
       },
       "control": {
-        "aniso": 6.095688827508773,
-        "iso_rel_l2": 0.4732845453823644,
-        "sigma_ref": 0.13966101694915253,
-        "amplitude": 0.3368345392568036
+        "aniso": 2.7715490603190256,
+        "iso_rel_l2": 0.3564761621457522,
+        "sigma_ref": 0.07116897029227273,
+        "amplitude": 0.48127130954645786,
+        "raw_rel_l2_vs_unsmoothed_input": 0.4801970630733142
       },
-      "aniso_ratio_control_over_fib": 0.9305720059398221
+      "aniso_ratio_control_over_fib": 0.8409562804924435,
+      "aniso_change_from_baseline_fib": 2.2916974465982984
     },
     {
       "n_idx": 10,
@@ -173,19 +245,30 @@
         7,
         8
       ],
+      "iters": 4,
+      "baseline_unsmoothed": {
+        "aniso": 1.0046148964113593,
+        "iso_rel_l2": 0.004192568021109315,
+        "sigma_ref": 0.05021008403361345,
+        "amplitude": 0.9958071958765987,
+        "raw_rel_l2_vs_unsmoothed_input": 0.0
+      },
       "fib": {
-        "aniso": 1.6505857060824627,
-        "iso_rel_l2": 0.10043483184160697,
-        "sigma_ref": 0.09084745762711864,
-        "amplitude": 0.7920953474210749
+        "aniso": 1.4885332375392566,
+        "iso_rel_l2": 0.11999741842705275,
+        "sigma_ref": 0.05754586706800931,
+        "amplitude": 0.7502087124992965,
+        "raw_rel_l2_vs_unsmoothed_input": 0.18504229876811962
       },
       "control": {
-        "aniso": 1.5044745699165143,
-        "iso_rel_l2": 0.11989375903383313,
-        "sigma_ref": 0.08813559322033898,
-        "amplitude": 0.8417567835585169
+        "aniso": 1.323592006790773,
+        "iso_rel_l2": 0.15166742044393855,
+        "sigma_ref": 0.055666818347421244,
+        "amplitude": 0.8004138796343105,
+        "raw_rel_l2_vs_unsmoothed_input": 0.18618902800116927
       },
-      "aniso_ratio_control_over_fib": 0.9114792187842631
+      "aniso_ratio_control_over_fib": 0.8891921076474225,
+      "aniso_change_from_baseline_fib": 0.48391834112789733
     },
     {
       "n_idx": 12,
@@ -197,19 +280,30 @@
         7,
         8
       ],
+      "iters": 27,
+      "baseline_unsmoothed": {
+        "aniso": 1.004552795054741,
+        "iso_rel_l2": 0.004192574017799534,
+        "sigma_ref": 0.05021008403361345,
+        "amplitude": 0.9958071950469585,
+        "raw_rel_l2_vs_unsmoothed_input": 0.0
+      },
       "fib": {
-        "aniso": 1.2816729521408852,
-        "iso_rel_l2": 0.024501112922115414,
-        "sigma_ref": 0.08271186440677966,
-        "amplitude": 0.949155201617418
+        "aniso": 1.510273059156126,
+        "iso_rel_l2": 0.12008795641733262,
+        "sigma_ref": 0.058015629248156314,
+        "amplitude": 0.7416246624621703,
+        "raw_rel_l2_vs_unsmoothed_input": 0.1874888229785625
       },
       "control": {
-        "aniso": 1.2772997073940147,
-        "iso_rel_l2": 0.031202030128976373,
-        "sigma_ref": 0.08271186440677966,
-        "amplitude": 0.9526491768136327
+        "aniso": 1.4767588117926178,
+        "iso_rel_l2": 0.12611796251113208,
+        "sigma_ref": 0.05660634270771527,
+        "amplitude": 0.7818360184886362,
+        "raw_rel_l2_vs_unsmoothed_input": 0.17702323769381867
       },
-      "aniso_ratio_control_over_fib": 0.9965878621846818
+      "aniso_ratio_control_over_fib": 0.9778091470543516,
+      "aniso_change_from_baseline_fib": 0.5057202641013849
     },
     {
       "n_idx": 14,
@@ -221,19 +315,30 @@
         7,
         8
       ],
+      "iters": 184,
+      "baseline_unsmoothed": {
+        "aniso": 1.0045541821498762,
+        "iso_rel_l2": 0.004192572948945176,
+        "sigma_ref": 0.05021008403361345,
+        "amplitude": 0.9958071953150343,
+        "raw_rel_l2_vs_unsmoothed_input": 0.0
+      },
       "fib": {
-        "aniso": 1.222991180241266,
-        "iso_rel_l2": 0.005653896538414601,
-        "sigma_ref": 0.08,
-        "amplitude": 0.9969933972351945
+        "aniso": 1.519217059614036,
+        "iso_rel_l2": 0.12084130118344413,
+        "sigma_ref": 0.058015629248156314,
+        "amplitude": 0.7406047594960063,
+        "raw_rel_l2_vs_unsmoothed_input": 0.18914904250737952
       },
       "control": {
-        "aniso": 1.2231128961849835,
-        "iso_rel_l2": 0.007338811726399315,
-        "sigma_ref": 0.08,
-        "amplitude": 0.9974380152494843
+        "aniso": 1.5365299499755791,
+        "iso_rel_l2": 0.1287467069190757,
+        "sigma_ref": 0.05754586706800931,
+        "amplitude": 0.7609268595603365,
+        "raw_rel_l2_vs_unsmoothed_input": 0.18812089275596836
       },
-      "aniso_ratio_control_over_fib": 1.0000995231573897
+      "aniso_ratio_control_over_fib": 1.0113959294045458,
+      "aniso_change_from_baseline_fib": 0.5146628774641597
     },
     {
       "n_idx": 17,
@@ -245,48 +350,35 @@
         7,
         8
       ],
+      "iters": 3304,
+      "baseline_unsmoothed": {
+        "aniso": 1.0045553787432684,
+        "iso_rel_l2": 0.0041925728222594605,
+        "sigma_ref": 0.05021008403361345,
+        "amplitude": 0.9958071953384192,
+        "raw_rel_l2_vs_unsmoothed_input": 0.0
+      },
       "fib": {
-        "aniso": 1.2133704271386727,
-        "iso_rel_l2": 0.000531146335896528,
-        "sigma_ref": 0.08,
-        "amplitude": 0.9998296702272748
+        "aniso": 1.5251226754429854,
+        "iso_rel_l2": 0.12159876174955614,
+        "sigma_ref": 0.058015629248156314,
+        "amplitude": 0.7397889950392876,
+        "raw_rel_l2_vs_unsmoothed_input": 0.19037815450380777
       },
       "control": {
-        "aniso": 1.2128492673045226,
-        "iso_rel_l2": 0.0043580045257184145,
-        "sigma_ref": 0.08,
-        "amplitude": 0.9999676829776998
+        "aniso": 1.5656908562573515,
+        "iso_rel_l2": 0.13363339049717748,
+        "sigma_ref": 0.058015629248156314,
+        "amplitude": 0.7501096738263052,
+        "raw_rel_l2_vs_unsmoothed_input": 0.19756950366253745
       },
-      "aniso_ratio_control_over_fib": 0.9995704857951919
-    },
-    {
-      "n_idx": 19,
-      "N": 52442283,
-      "qualifying_bands": [
-        4,
-        5,
-        6,
-        7,
-        8
-      ],
-      "fib": {
-        "aniso": 1.2128839037705261,
-        "iso_rel_l2": 0.00011915553240126285,
-        "sigma_ref": 0.08,
-        "amplitude": 0.9999750838721444
-      },
-      "control": {
-        "aniso": 1.212800932576421,
-        "iso_rel_l2": 0.001403899969162001,
-        "sigma_ref": 0.08,
-        "amplitude": 0.9999996339961671
-      },
-      "aniso_ratio_control_over_fib": 0.9999315918087073
+      "aniso_ratio_control_over_fib": 1.0265999460027586,
+      "aniso_change_from_baseline_fib": 0.520567296699717
     }
   ],
-  "n21": "NOT RUN (N=3*F(21)^2 ~ 3.6e8, beyond budget; recorded per brief)",
+  "n19_n21": "NOT RUN under v2's V-matched iteration scaling -- iters ~ 2V/h^2 grows roughly linearly with N for a fixed physical blur target, making n=19/21 multiple orders of magnitude more expensive than n=17; mechanism stated, not a silent drop (see run() docstring)",
   "verdicts": {
-    "B2_iso": "PASS",
+    "B2_iso": "FAIL",
     "B3_control": "VOID -- control smooths as isotropically as Fibonacci; the Fibonacci claim measures nothing"
   }
 }
