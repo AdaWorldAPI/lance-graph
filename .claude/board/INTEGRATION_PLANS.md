@@ -1,3 +1,53 @@
+## 2026-08-12 — substrate-comfort-zones-v1 REVISED (§2 rebuilt: horse race → cross-swap)
+
+Same file, `.claude/plans/substrate-comfort-zones-v1.md`, still **ACTIVE**,
+still exploratory tier. Not a new plan and not a v2 — a pre-registration
+sharpened **before any bar ran** (only D-CZ-0, the regime preflight, was
+DONE; everything else was Queued), which is precisely when a design should
+be allowed to change.
+
+**Why.** Operator ruling, two messages: the method is *cross-swap and
+hypothesis testing, under the premise that the model captures the phenomenon
+but is not calibrated*; and *in science you hold variables constant to test
+the others — constancy is relative, so the design deliberately manufactures
+strong correlation differences, on the assumption those differences are fit
+to evaluate the hypothesis*. Against that, v1 §2 was a **horse race**: four
+calibration arms scored on reconstruction RMSE. Under the stated premise
+that is vacuous — a deliberately wrong calibration produces bad error BY
+DEFINITION, so `CAL-ABS-FOREIGN` is the measurement CONDITION, not a
+competitor that might lose.
+
+**What changed.**
+- §2 is now a **4×4 donor × target transfer matrix** per geometry arm.
+  Primary metric **Spearman `ρ`** (structure preservation); the quantity the
+  hypothesis concerns is the derived **transfer loss**
+  `L[D][T] = ρ[T][T] − ρ[D][T]`. RMSE/bias in Pa are retained per cell as
+  evidence the swap genuinely hurt — never as the verdict.
+- `CAL-ABS-OWN` / `CAL-ABS-FOREIGN` stop being two arms: they are the
+  diagonal and the off-diagonal of ONE arm's matrix. Splitting them was the
+  tell that the design was still a race.
+- The dynamic arms' rows are **flat by construction** (`L ≡ 0`, no donor
+  exists) — that is the property under test, and C2 now requires BOTH that
+  it hold exactly AND that the identical code path be proven able to produce
+  a non-flat row (the can-it-DIFFER gate W5 already paid for).
+- Two NEW bars for the second operator message: **C1b** measures constancy
+  (`separation = between-box range / mean within-box σ ≥ 3`) instead of
+  claiming it; **C1c** gives the suitability ASSUMPTION a falsifier — the
+  regimes must differ in autocorrelation decay and rank-distribution shape,
+  not merely in `|∇p|`, or the ladder is four copies of one condition.
+- The crossover bar now scores against the **diagonal** (own-calibration,
+  the hardest opponent) on `ρ`; the weak form against the swapped cell is
+  reported separately and labelled as evidence of wiring, not of merit.
+
+**What did NOT change:** the §1 regime ladder and its three preflight
+corrections, the equal-budget discipline, the geometry axis, the C0 control
+gate, the output contract's store-the-operands rule, and §5's
+non-claims. The scaffold was sound; the question was inverted.
+
+**Preserved, not deleted:** v1's framing survives in place as §2's
+correction note, so a future session can see what the design was and why it
+moved. Finding recorded as `E-A-HORSE-RACE-IS-NOT-A-CROSS-SWAP-1`.
+
 ## 2026-08-12 — substrate-comfort-zones-v1 (PLAN; where does each substrate formula feel at home?)
 
 Plan: `.claude/plans/substrate-comfort-zones-v1.md`. Status **ACTIVE**,
