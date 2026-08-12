@@ -1,3 +1,48 @@
+## 2026-08-12 — lance-graph #940 (MERGED) — W6 lands: VOID by its own control, sample-composition lesson, and a same-PR sign/units correction round
+
+- **Added.** `comet_tail_w6.py`/`.json` — full detail already recorded in
+  the RUN entry below (unmerged-PR content composed in place per the
+  PR-878 allowance, since it was written and pushed before this PR
+  existed). This entry records only the merge + what changed AFTER
+  that entry was first drafted.
+- **Locked — a same-PR sign/units correction round, caught by codex +
+  CodeRabbit before merge.** Two real findings, both fixed and
+  verified: (1) `spine()`'s raw coefficient points toward the storm's
+  HIGH side (increasing residual), not the low pole `P_geo`/`P_bow`
+  are built to point toward — `D = -spine(...)` now, matching
+  `low_pole_bearing()`'s own `(ph + pi) % (2*pi)` convention. Verified
+  offline BEFORE committing: negating the fit target flips
+  `c_geo`/`c_bow`'s signs exactly and leaves R² (hence every B0/B1
+  verdict) and B3's residual-bearing resultant completely unchanged —
+  confirmed bit-identical on the actual re-run. (2) `D`/`P_geo` are
+  [Pa/km], `P_bow` is [Pa], so `c_geo` is dimensionless but `c_bow`
+  carries km⁻¹ — the original "`c_bow`≈0, no measurable weight" claim
+  inferred absence of correlation from a raw, not-comparable
+  coefficient magnitude. Fixed with a dimensionally valid metric,
+  `|c_bow·P_bow|` vs `|D|`, both in Pa/km: geo contribution ≈25 % of
+  `|D|`, bow contribution ≈9 % — modest, not "no weight." Two
+  additional CodeRabbit robustness findings also fixed: per-storm
+  fetch/compute steps now wrapped in try/except with an `ERROR
+  t0=...` tag-file record before re-raising (§0's "record it and
+  stop" rule was previously unenforced by code); `load_completed()`
+  now runs before the tag file's `START` line, not after.
+- **Locked — the headline finding survives both corrections
+  unchanged, and that was verified, not assumed.** B0 VOID, the
+  vector-sum model as specified is disconfirmed on this sample, the
+  stranded stratum is empty by CT-F14's own filter arithmetic — none
+  of these depend on sign or units. What changed is only the
+  supporting narrative around `c_geo`/`c_bow`'s reported values,
+  corrected everywhere it had propagated (`weather-w-probes-v1.md`,
+  `EPIPHANIES.md`, this file's RUN entry) with dated correction
+  blocks, prior text kept for the record.
+- **Confidence.** High — every corrected number re-derived from the
+  actual re-run's committed JSON, with the sign-flip's R²-invariance
+  property verified by a standalone offline test before the fix was
+  even committed.
+
+**Status:** MERGED (`adab8739`). Branch `claude/jirak-math-theorems-harvest-rfii13`
+→ `main`. Probe + docs — zero product code.
+
 ## 2026-08-12 — the W6 dipole-deconvolution RUN lands — VOID by its own anti-vacuity control, plus a reusable sample-composition lesson (PR pending)
 
 - **Added.** `comet_tail_w6.py`/`.json` — the report §10.2 vector-sum
