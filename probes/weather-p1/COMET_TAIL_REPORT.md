@@ -875,10 +875,20 @@ Three things, in order of importance:
    and offset (μ) come out as two numbers instead of eating each other. The
    systematic ≈−30° offset the arc has chased since §5.1 is now *estimated*
    (−30.2° ± 36.5°) instead of *penalizing the score*.
-2. **The wrong referent is now visible.** F16c's rotated control scored
-   0.684 = indistinguishable under the sign test. Under the resultant it has
-   the same R̄ (rotation preserves concentration, by construction) but μ
-   shifted **100.3°** — separated by well over both CIs. The instrument
+2. **The wrong referent is now visible — in BOTH channels.** F16c's rotated
+   control scored 0.684 = indistinguishable from SURFACE under the sign test.
+   Under the resultant the control differs from surface in concentration
+   (R̄ 0.343 vs 0.516) AND direction (μ −130.5° vs −30.2°, **100.3°** apart,
+   over both CIs). Separately, the steering↔rotated pair confirms
+   rotation-invariance by construction: identical R̄ (0.343 = 0.343), μ
+   shifted exactly 90°.
+
+   > **⚠ Corrected 2026-08-12 (codex on #930).** This item originally read
+   > "it has the same R̄ … but μ shifted 100.3°" — fusing the
+   > steering↔rotated comparison (where R̄ IS identical) with the
+   > surface↔rotated one (where the 100.3° lives) into a false composite of
+   > two true numbers. The 13/13 figure verification missed it because it
+   > checked operands, not relations. The instrument
    hierarchy is clean: real referent (0.516) > structured-but-wrong (0.343,
    wrong μ) > permuted (0.142, below the uniform floor).
 3. **NOT a promotion.** Same sample, post-hoc — the p=0.0050 demonstrates the
