@@ -487,9 +487,31 @@ regime axis stands; the recorded magnitudes do not.
 
 Both controls lose to both real arms, on both metrics, in **all four**
 regimes. The mechanism is visible rather than assumed: `GEO-DEGENERATE`
-saturates **92–97 %** of the box because its donor patch's range is far too
+saturates **72–97 %** of the box because its donor patch's range is far too
 narrow — which is exactly the failure mode the transfer matrix is built to
 measure.
+
+> **⚠ FIGURE CORRECTED (2026-08-12, self-audit on #947).** This read
+> **92–97 %** when first written, and that was TRUE of the numbers then on
+> disk (R1 0.9496 / R2 0.9174 / R3 0.9718 / R4 0.9179). It went stale in
+> the SAME PR: fixing R4 to measure each storm at its own `t0` moved R4's
+> saturation to **0.7224**, and the range with it. Per-regime as committed:
+> **R1 0.9496 · R2 0.9174 · R3 0.9718 · R4 0.7224**; across all 19 storms
+> min **0.693** / median **0.843** / max **0.974**.
+>
+> **The verdict is unaffected** — 72 % is still overwhelming saturation and
+> the gate passes 19/19 — but the figure was wrong in four files and two PR
+> bodies. Seventh instance of the arc's recurring defect: a number true when
+> written, stale once the artifact beneath it changed, and carried forward
+> because the check compared prose to prose. Caught only by re-verifying
+> against the JSON.
+>
+> **And the corrected number is more interesting than the wrong one.** The
+> storm regime saturates *least* (0.72 vs 0.92–0.97 in the calmer tiers) —
+> i.e. the degenerate donor hurts **less** where the field is strongest,
+> which is independently the direction §6.6's exploratory correlation
+> measured (ρ = +0.444). Two measurements that were never connected agree.
+> Recorded as a coherence, NOT as evidence: §6.6 is still p = 0.0578.
 
 | regime | CAL-ABS ρ | CAL-RANK ρ | SHUFFLE ρ | DEGENERATE ρ (satur.) |
 |---|---|---|---|---|

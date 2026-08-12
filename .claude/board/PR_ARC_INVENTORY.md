@@ -26,7 +26,7 @@
   instead of 65.
 - **D-CZ-1 PASSES.** Both controls lose to both real arms, on both metrics, in
   all four regimes — and, after the sample-composition fix, in **19/19 storms**,
-  not merely at the median. `GEO-DEGENERATE` saturates **92–97 %**, so the
+  not merely at the median. `GEO-DEGENERATE` saturates **72–97 %**, so the
   mechanism is visible rather than assumed. **C1b `separation` = 6.28** vs ≥ 3.
 - **…and the run AMENDED C4.** `ρ` is **saturated on the diagonal** (real-arm
   spread **3×10⁻⁶ … 4.7×10⁻⁵**) — C4 as pre-registered **could not have fired**.
