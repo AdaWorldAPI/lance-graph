@@ -34,7 +34,7 @@ more than the pass.**
    already perfect.
 
 2. **L3 failed, and so did my proposed rescue** — the more useful half.
-   Fisher-z centroid axes are **4.7× WORSE** than uniform on the ring means
+   Fisher-z centroid axes are **5× WORSE** than uniform on the ring means
    (18.07 vs 3.84 Pa). I hypothesised the population was wrong (ranks against
    the 24 encoded values rather than the field) and measured that too: **19.00
    Pa, no rescue.** So the mechanism is not population size but *what the read
