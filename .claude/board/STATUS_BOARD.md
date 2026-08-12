@@ -11,7 +11,7 @@ qualitative synthesis, both tightened specific numbers.
 
 | D-id | Deliverable | Status | Result |
 |---|---|---|---|
-| D-GVT-T1 | Crossover sweep across 10 q, useful-range metric | **RUN** | m* within 1.0–1.4× q at every q (never exactly ≈q as first drafted — corrected) |
+| D-GVT-T1 | Crossover sweep across 10 q, useful-range metric | **RUN (twice-corrected)** | VERIFIED-permanent m* at **1.9–2.7× q** (codex P1 on #935: the earlier 1.0–1.4× figure was a FIRST crossing, not permanent — golden's non-monotonic sequence dips back above the ceiling; now suffix-verified at 76–83 reported checkpoints per row). Also codex P2: useful-range floor `q//2`→`⌈q/2⌉`. |
 | D-GVT-T2 | Asymptotic golden-advantage pass/fail bar | **RUN — PASS** | golden ahead 68.2–106.4× at m=200q, all 10 q |
 | D-GVT-T3 | Closure-occupancy guarantee (tempered) vs variable (golden) | **RUN — PASS** | tempered 140/140 exact (integer-verified); golden 124–127/140 across 5 phases |
 | D-GVT-T4 | Naive-rounding collapse hazard rate | **RUN — PASS** | 114/292 = 39.0 % of q∈[8,300) collapse under naive rounding |
