@@ -3,24 +3,33 @@
 - **Added.** `.claude/plans/substrate-comfort-zones-v1.md` — the operator's
   hypothesis stated as a testable interaction: *a poorly-calibrated
   substrate that adapts dynamically should do RELATIVELY better in strong,
-  turbulent storms than in calm regimes.* Three held-constant regimes
-  (open water / flatland / storm-with-high-shear) × substrate formula ×
-  calibration quality. The claim is an **interaction term**, not a main
-  effect — "worse everywhere but least-worse in storms" and "better only
-  in storms" are different findings and the plan distinguishes them.
-  D-CZ-0 (preflight) ran and is **DONE**; D-CZ-1..6 Queued.
-- **Locked — D-CZ-0's three preflight corrections, found before any run.**
-  Applying this session's own hard-won rules to the new plan rather than
-  re-learning them: (1) the sample-composition check (the
-  `E-THE-DISPLACEMENT-FILTER-ATE-THE-STRANDED-STRATUM-1` lesson) run
-  BEFORE the first fetch — a regime split must be arithmetically reachable
-  in the source data, not discovered empty after the run; (2) both
-  controls smoke-tested for LOSABILITY at negligible cost before any
-  expensive arm (the W2s-a degenerate-grid and W5 locality-is-Fibonacci
-  lessons: a control that cannot lose or cannot differ carries zero
-  information when it "passes"); (3) every coefficient annotated with its
-  units at definition, and magnitude claims restricted to dimensionally
-  consistent contributions (the #940 `c_bow`-is-km⁻¹ lesson).
+  turbulent storms than in calm regimes.* **FOUR** held-constant regimes
+  × substrate formula × calibration quality — the preflight deliberately
+  SPLIT the operator's "flatland" into a calm and an active tier, so the
+  adopted ladder is **R1 CALM (Amazon basin, `|∇p|` 10.2) → R2 OCEAN
+  (S Pacific gyre, 14.9) → R3 ACTIVE (W Siberian lowland, 43.8) → R4
+  STORM (CT-F14 centres, 95.6)**, a 9.3× dynamic range. The claim is an
+  **interaction term**, not a main effect — "worse everywhere but
+  least-worse in storms" and "better only in storms" are different
+  findings and the plan distinguishes them. D-CZ-0 (preflight) ran and is
+  **DONE**; D-CZ-1..6 Queued.
+- **Locked — D-CZ-0's preflight corrections, found before any run; and
+  what it PRESCRIBED for the runs that have not happened yet.** Applying
+  this session's own hard-won rules to the new plan rather than
+  re-learning them. **Already executed in D-CZ-0:** the
+  sample-composition check (the
+  `E-THE-DISPLACEMENT-FILTER-ATE-THE-STRANDED-STRATUM-1` lesson) — the
+  regime ladder was verified arithmetically reachable in the source data
+  BEFORE the first fetch, and it is what forced the calm/active split;
+  plus the units discipline (every coefficient annotated at definition,
+  magnitude claims restricted to dimensionally consistent contributions —
+  the #940 `c_bow`-is-km⁻¹ lesson). **Prescribed but NOT yet run:**
+  **D-CZ-1 is the control-losability smoke test and is Queued** — the
+  W2s-a degenerate-grid and W5 locality-is-Fibonacci lessons are written
+  into the plan as a mandatory prerequisite gating every later cell, not
+  as work already done. A future session must run D-CZ-1 before any
+  expensive arm; the requirement existing in the plan is not the
+  requirement being satisfied.
 - **Fixed — CodeRabbit Minor on #941**: #940's summary rows dropped the
   **mean** qualifier the source RUN entry and the committed JSON's
   `fitted_contribution_Pa_per_km` keys carry (means over 19 storms).
