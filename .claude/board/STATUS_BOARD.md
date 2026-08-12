@@ -1,3 +1,19 @@
+## substrate-comfort-zones-v1 — the comfort-zone map (PRE-REGISTERED 2026-08-12)
+
+Plan: `.claude/plans/substrate-comfort-zones-v1.md`. Regime × geometry ×
+calibration → where does each substrate formula feel at home. §1 preflight
+already run and it corrected two regime definitions before any bar existed.
+
+| D-id | Deliverable | Status | Feeds |
+|---|---|---|---|
+| D-CZ-0 | §1 regime preflight (`\|∇p\|` ladder, elevation-confound screen, speed-is-not-the-discriminator finding) | **DONE** — ladder R1 Amazon 10.2 → R2 ocean 14.9 → R3 W Siberia 43.8 → R4 storm 95.6 (9.3× range); 4 land candidates excluded on elev σ > 150 m | the regime axis all other rows score on |
+| D-CZ-1 | C0 controls (shuffled codebook + degenerate geometry), losability-smoke-tested BEFORE the full run | Queued | gates every cell — a control that can't lose voids its cell |
+| D-CZ-2 | C1 regime-ladder stability across ≥3 timesteps | Queued | anti-cherry-pick on the whole regime axis |
+| D-CZ-3 | **C2 the crossover** — `RANK-DYN − ABS-OWN` sign flip calm↔storm | Queued | **the operator's hypothesis, two-sided** |
+| D-CZ-4 | C3 miscalibration penalty vs turbulence (`ABS-FOREIGN`/`ABS-OWN` ratio per tier) | Queued | "storms forgive bad calibration" |
+| D-CZ-5 | C4 geometry floor on a SAMPLING-fidelity metric (NULL expected-plausible per W5 B4) | Queued | does the index floor bite where smoothing didn't |
+| D-CZ-6 | C5 the comfort matrix (the deliverable) | Queued | read-off answer to "where is each formula at home" |
+
 ## golden-vs-tempered-stride-v1 — head-vs-gut queue — RUN 2026-08-12
 
 Plan: `.claude/plans/golden-vs-tempered-stride-v1.md`. Standalone, zero fetch,

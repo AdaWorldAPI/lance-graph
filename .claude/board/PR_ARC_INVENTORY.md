@@ -39,6 +39,12 @@
   actual re-run's committed JSON, with the sign-flip's R²-invariance
   property verified by a standalone offline test before the fix was
   even committed.
+- **Correction (2026-08-12, CodeRabbit Minor on #941, appended per the
+  append-only rule — this entry merged before the finding landed):**
+  the "≈25 %" / "≈9 %" contribution figures above are **MEANS over the
+  19 storms** (`mean |c_geo·P_geo|` / `mean |c_bow·P_bow|` against
+  `mean |D|`, per the committed JSON's `fitted_contribution_Pa_per_km`
+  keys) — the qualifier was dropped when summarizing from the RUN entry.
 
 **Status:** MERGED (`adab8739`). Branch `claude/jirak-math-theorems-harvest-rfii13`
 → `main`. Probe + docs — zero product code.
