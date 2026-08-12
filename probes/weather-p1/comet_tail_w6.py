@@ -320,10 +320,21 @@ def run():
     rbar_m, mu_m, p_m = (circular(resid_bear[moving], int(moving.sum()))
                          if moving.sum() >= 2 else (None, None, None))
 
+    # per_storm carries the RAW predictors too, not only derived bearings --
+    # a magnitude/units audit (are P_geo/P_bow physically sane, is there a
+    # scale mismatch driving a near-zero coefficient) needs the actual
+    # vectors committed, not just the fit's summary numbers. (Fixed after
+    # the first run shipped only bearings; re-run rather than leaving the
+    # audit gap, since a rerun costs the same ~3 min the brief itself
+    # estimates.)
     per_storm = [{"t0": rows[i]["t0"], "bearing_D_deg": bearing_deg(D[i]),
                   "bearing_Dhat_deg": bearing_deg(Dhat_joint[i]),
                   "resid_deg": float(resid_bear[i]),
-                  "v_storm_ms": float(vstorm[i])} for i in range(n)]
+                  "v_storm_ms": float(vstorm[i]),
+                  "D": D[i].tolist(), "P_geo": Pg[i].tolist(),
+                  "P_bow": Pb[i].tolist(), "v_rel_ms": rows[i]["v_rel_ms"],
+                  "A_H_Pa": rows[i]["A_H_Pa"], "d_H_km": rows[i]["d_H_km"],
+                  "theta_H_rad": rows[i]["theta_H_rad"]} for i in range(n)]
 
     out = {
         "n": n, "seed": SEED,
