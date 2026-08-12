@@ -272,6 +272,52 @@ verdicts: {B2, B3, B4}}`.
 
 ---
 
+### RUN, 2026-08-12 (`spiral_adi_probe.py` / `.json`) — B2 PASS, B3 VOID (structurally, with the diagnosis verified), B4 smooth with no knee
+
+| bar | verdict | measured |
+|---|---|---|
+| **B2 ISO** (headline N=7 651 227) | **PASS** | iso-fit rel-L2 **0.00053** vs the 0.15 bar (≈280× margin); anisotropy **1.2134** vs the 1.25 bar |
+| **B3 CONTROL** | **VOID** (its own pre-registered rule) | ratio control/fib = **0.9996** vs the ≥1.5 bar — the distance-matched control smooths identically |
+| **B4 floor sweep** | run in full, n=8..19 (n=21 NOT RUN per budget, recorded) | iso 0.4405 → 0.1004 → 0.0245 → 0.0057 → 0.00053 → 0.0001; aniso 6.55 → 1.65 → 1.28 → 1.223 → 1.2134 → 1.2129 |
+
+**B3's VOID is structural, and the diagnosis was VERIFIED before being
+written down** (`E-ON-A-GOLDEN-LATTICE-LOCALITY-IS-FIBONACCI-MEMBERSHIP-1`):
+measured at N=62 208, **99.38 % of the control's links have a Fibonacci
+|Δk|** (top offsets 233, 987, 610, plus 1220 = 2·610). On a Vogel lattice
+the near neighbours ARE the Fibonacci-offset points (three-distance
+theorem: physical proximity ⟺ convergent-denominator index offset), so a
+distance-matched local control CANNOT leave the family — the third control
+generation didn't fail at its job, it proved the job impossible. The
+Fibonacci-dependence question is unanswerable by any local control on this
+lattice; a genuine falsifier must change the lattice (jittered grid /
+Halton under the same stencil), deferred as its own experiment.
+
+**B4's two-sided pre-registered reading lands on the second branch:** the
+curve improves smoothly and monotonically from n=8 through n=19 with **no
+knee at n≈17** — on this metric the index floor is a **safety margin, not
+a mechanism**, exactly the outcome the §0 rule said must be reported
+plainly if measured. (The floor retains its independent justification from
+the convergent-error ladder and the T1/T2/T3/T4 duel results; what this
+sweep shows is that the ADI smoothing quality specifically does not
+exhibit a threshold at the floor.)
+
+**Honest residual, flagged for any future bar-tightening:** anisotropy
+asymptotes at **~1.213 across three decades of N** (n=12→19) — an
+N-independent structural ~21 % second-moment anisotropy of the
+band-restricted polar chain geometry itself, not a resolution artifact.
+It passes the 1.25 bar; a future bar below ~1.22 would need this
+mechanism addressed first, not more points.
+
+**Two implementation notes a rerun should know:** the qualifying-band rule
+(inner radius ≥ r_floor) resolves to **bands 4–8**, and the brief's older
+"bands 3–8" label is off-by-one against its own parenthetical (the rule
+wins). Discovery found the expected emergent pairs per band —
+[2584, 4181] = F(18)/F(19) in the qualifying bands at the headline N, with
+the inner (excluded) bands showing the lower-index transition exactly as
+the parastichy-index arithmetic predicts.
+
+---
+
 ## §2 BRIEF W2s-a — golden two-lattice pairing on REAL lat/lon geometry (Sonnet, zero fetch)
 
 **File:** `sunflower_pairing_probe.py`. **Seed:** 20260812. **No network.**

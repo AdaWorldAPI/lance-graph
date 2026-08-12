@@ -25,7 +25,7 @@ Wave 1 = parallel, no operator gate beyond go-ahead; gated rows named.
 
 | D-id | Deliverable | Wave | Status | Feeds |
 |---|---|---|---|---|
-| D-W5 | Spiral-ADI anisotropy: Vogel N=4096, iso ≤0.15 & aniso ≤1.25, non-Fibonacci stride control ≥1.5× | 1 | Queued | domino.rs gather design; [H] flags §10.5 |
+| D-W5 | Spiral-ADI anisotropy (final spec: N=3·F(17)²=7.65M, bump r=0.75, distance-matched control) | 1 | **RUN — B2 PASS (iso 0.00053 vs 0.15, aniso 1.213 vs 1.25); B3 VOID structurally (control links are 99.38 % Fibonacci — three-distance theorem: locality IS family membership, `E-ON-A-GOLDEN-LATTICE-LOCALITY-IS-FIBONACCI-MEMBERSHIP-1`); B4 smooth, NO knee at n=17 (floor = safety margin on this metric, per the pre-registered second branch)** | domino.rs gather design UNBLOCKED by B2; honest residual: structural ~21 % aniso asymptote flagged for any bar below 1.22 |
 | D-W2sA | Golden-vs-grid pairing on real cos-lat metric (zero-ties G1, CV G2) | 1 | **RUN — G1 VOID, G2/G4 FAIL (control degenerate: two identical translated grids are symmetry-uniform, CV ~1e-12 — cannot lose any evenness comparison; diagnosed via smoke test, run as-specified, `E-A-CONTROL-THAT-CANNOT-LOSE-IS-NO-CONTROL-1`)** | honest falsifier for evenness DEFERRED (offset/rotation-varied or spacing-mismatched control); §10.5 properties 1–3 untouched |
 | D-W6 | Two-component deconvolution (geo + bow, global lstsq, 38 eqs / 2 params; B3 = stranded stratification via v_rel) | 1 | Queued | dipole vector-sum identification; F17 gate |
 | D-W2sB | α-window sweep β∈[0.85,1.15] | gated (W2s-a) | Queued | corridor α discriminator |
