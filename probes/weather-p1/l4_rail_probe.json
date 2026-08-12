@@ -1,0 +1,125 @@
+{
+  "store": "https://storage.googleapis.com/weatherbench2/datasets/era5/1959-2022-6h-1440x721.zarr",
+  "t0": 91246,
+  "carves": {
+    "storm1": {
+      "uniform": {
+        "f64_rmse_pa": 241.6361781953603,
+        "f64_bias_pa": 8.567361346570961e-13,
+        "carveD_rmse_pa": 241.71119512018444,
+        "carveD_bias_pa": 1.587879693149758,
+        "carveA_rmse_pa": 299.9109562762598,
+        "carveA_bias_pa": 92.76221653277149,
+        "f64_r2": 0.9434382813469204,
+        "carveA_r2": 0.9128668641737903,
+        "carveB_r2": 0.634793668913492,
+        "carveD_r2": 0.943403156268636,
+        "ring_rmse_pa": 4.484955284768884,
+        "diag_14byte_r2": 0.9434184182770502,
+        "loss_quantization": 1.9863069870229566e-05,
+        "loss_dropped_rings": 0.030551554103259937
+      },
+      "fisherz": {
+        "f64_rmse_pa": 241.6361781953603,
+        "f64_bias_pa": 8.567361346570961e-13,
+        "carveD_rmse_pa": 244.26761112671338,
+        "carveD_bias_pa": 16.20184874441947,
+        "carveA_rmse_pa": 297.62202871400433,
+        "carveA_bias_pa": 91.1758913030388,
+        "f64_r2": 0.9434382813469204,
+        "carveA_r2": 0.9141917931977205,
+        "carveB_r2": 0.63359636825377,
+        "carveD_r2": 0.942199652266129,
+        "ring_rmse_pa": 32.22635385503535,
+        "diag_14byte_r2": 0.9422211176173282,
+        "loss_quantization": 0.001217163729592241,
+        "loss_dropped_rings": 0.028029324419607704
+      },
+      "fisherz_field": {
+        "f64_rmse_pa": 241.6361781953603,
+        "f64_bias_pa": 8.567361346570961e-13,
+        "carveD_rmse_pa": 242.24982848889988,
+        "carveD_bias_pa": 10.04382760223327,
+        "carveA_rmse_pa": 299.413949917866,
+        "carveA_bias_pa": 95.5304070007748,
+        "f64_r2": 0.9434382813469204,
+        "carveA_r2": 0.9131554154183784,
+        "carveB_r2": 0.634566955417994,
+        "carveD_r2": 0.9431506324649834,
+        "ring_rmse_pa": 16.13215666344166,
+        "diag_14byte_r2": 0.9431917047815523,
+        "loss_quantization": 0.00024657656536808403,
+        "loss_dropped_rings": 0.03003628936317393
+      }
+    },
+    "storm2": {
+      "uniform": {
+        "f64_rmse_pa": 241.08275703543822,
+        "f64_bias_pa": -2.1189001172580308e-12,
+        "carveD_rmse_pa": 241.11386850868683,
+        "carveD_bias_pa": 0.06394187896472865,
+        "carveA_rmse_pa": 250.5414872244609,
+        "carveA_bias_pa": 35.41997442833062,
+        "f64_r2": 0.909049958041129,
+        "carveA_r2": 0.9017732201135151,
+        "carveB_r2": 0.29426134128134374,
+        "carveD_r2": 0.9090264825142191,
+        "ring_rmse_pa": 3.1878395651185287,
+        "diag_14byte_r2": 0.9090264825142191,
+        "loss_quantization": 2.3475526909844113e-05,
+        "loss_dropped_rings": 0.007253262400704008
+      },
+      "fisherz": {
+        "f64_rmse_pa": 241.08275703543822,
+        "f64_bias_pa": -2.1189001172580308e-12,
+        "carveD_rmse_pa": 241.13716161276324,
+        "carveD_bias_pa": 1.7116952576486248,
+        "carveA_rmse_pa": 250.83166441880857,
+        "carveA_bias_pa": 37.53956185125506,
+        "f64_r2": 0.909049958041129,
+        "carveA_r2": 0.901545555802089,
+        "carveB_r2": 0.29425262761576254,
+        "carveD_r2": 0.9090089044463867,
+        "ring_rmse_pa": 3.920293632791127,
+        "diag_14byte_r2": 0.909017768848638,
+        "loss_quantization": 3.218919249092789e-05,
+        "loss_dropped_rings": 0.007472213046549103
+      },
+      "fisherz_field": {
+        "f64_rmse_pa": 241.08275703543822,
+        "f64_bias_pa": -2.1189001172580308e-12,
+        "carveD_rmse_pa": 242.4493237572494,
+        "carveD_bias_pa": -14.03074944463002,
+        "carveA_rmse_pa": 256.4010807615417,
+        "carveA_bias_pa": 41.8932699495118,
+        "f64_r2": 0.909049958041129,
+        "carveA_r2": 0.897124891138573,
+        "carveB_r2": 0.29325938028542453,
+        "carveD_r2": 0.9080159432790177,
+        "ring_rmse_pa": 21.860300207395742,
+        "diag_14byte_r2": 0.9080245215183,
+        "loss_quantization": 0.0010254365228289375,
+        "loss_dropped_rings": 0.010899630379727077
+      }
+    }
+  },
+  "cross": {
+    "storm1_cb_on_storm2": {
+      "shared_rmse_pa": 3.1878395651185287,
+      "own_rmse_pa": 3.1878395651185287,
+      "penalty_frac": 0.0,
+      "degenerate": true
+    },
+    "storm2_cb_on_storm1": {
+      "shared_rmse_pa": 4.484955284768884,
+      "own_rmse_pa": 620.786190272059,
+      "penalty_frac": -0.9927753623468922,
+      "degenerate": false
+    }
+  },
+  "ring_rmse_by_codebook": {
+    "uniform": 3.8363974249437067,
+    "fisherz": 18.07332374391324,
+    "fisherz_field": 18.9962284354187
+  }
+}

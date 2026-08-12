@@ -35,6 +35,7 @@ register (D-1) consume it; it does not silently redefine "agree" if the
 ratio comes out above 2.
 """
 import json
+import pathlib
 
 import numpy as np
 
@@ -132,6 +133,7 @@ def closed_form_flip_point(idx, edges, mass=FLIP_MASS):
 
 
 def main():
+    """Run the winter-timestep arm and report the ratios plus the stale-fixture guard."""
     result = {
         "variable": VAR,
         "run": "A (season/timestep only, variable held fixed at 2m_temperature)",
@@ -198,7 +200,8 @@ def main():
         result["NO_VERDICT"] = True
         result["no_verdict_reason"] = no_verdict_reason
         print(f"\nNO-VERDICT: {no_verdict_reason}")
-        json.dump(result, open("ev10_winter.json", "w"), indent=2)
+        with open(pathlib.Path(__file__).with_name("ev10_winter.json"), "w") as fh:
+            json.dump(result, fh, indent=2)
         raise SystemExit(1)
 
     # ---- per-season flip-points (both arms) ----
@@ -258,7 +261,8 @@ def main():
     result["season_comparison"] = comparisons
     result["NO_VERDICT"] = False
 
-    json.dump(result, open("ev10_winter.json", "w"), indent=2)
+    with open(pathlib.Path(__file__).with_name("ev10_winter.json"), "w") as fh:
+        json.dump(result, fh, indent=2)
     print("\nwrote ev10_winter.json")
 
 

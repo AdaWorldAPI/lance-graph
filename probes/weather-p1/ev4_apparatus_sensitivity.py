@@ -12,6 +12,7 @@ property of the field.
 Verdict is printed, not assumed. Emits ev4_apparatus_sensitivity.json.
 """
 import json
+import pathlib
 
 import numpy as np
 
@@ -39,6 +40,7 @@ def ci_med(anom, w, eps, method):
 
 
 def shape(vals):
+    """Classify a sequence as increasing / decreasing / non-monotone — the shape verdict EV-4 reports."""
     if all(x < y for x, y in zip(vals, vals[1:])):
         return "increasing"
     if all(x > y for x, y in zip(vals, vals[1:])):
@@ -47,6 +49,7 @@ def shape(vals):
 
 
 def main():
+    """Run the eps sweep and the method-spread comparison, printing the apparatus verdict."""
     a = np.load(f"fixture/{VAR}.npy").astype(np.float64)
     anom = a - a.mean(axis=1, keepdims=True)
     out = {"variable": VAR, "windows": [list(w) for w in WINDOWS]}
@@ -105,7 +108,8 @@ def main():
     print(f"  method max/min spread: {method_spread:.1f}x")
     print(f"  scale-controlling tail flips across windows: {flips}")
     print(f"\n  {out['verdict']['conclusion']}")
-    json.dump(out, open("ev4_apparatus_sensitivity.json", "w"), indent=2)
+    with open(pathlib.Path(__file__).with_name("ev4_apparatus_sensitivity.json"), "w") as fh:
+        json.dump(out, fh, indent=2)
 
 
 if __name__ == "__main__":

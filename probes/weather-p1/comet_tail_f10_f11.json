@@ -1,0 +1,205 @@
+{
+  "store": "https://storage.googleapis.com/weatherbench2/datasets/era5/1959-2022-6h-1440x721.zarr",
+  "sample_start": "1980-02-10T12:00:00",
+  "stride_days": 411,
+  "n_candidates": 15,
+  "rows": [
+    {
+      "date": "1980-02-10T12:00:00",
+      "t0": 30842,
+      "center_lat": 46.69223787871181,
+      "center_lon": 321.36432542323297,
+      "displacement_km": 135.63575106831914,
+      "CT_E2_trackable": true,
+      "status": "OK",
+      "wn1_frac": 0.628856457656897,
+      "R2_profile_wn1": 0.8545934458405746,
+      "error_deg": -92.97109364728313,
+      "sign_negative": true
+    },
+    {
+      "date": "1981-03-27T12:00:00",
+      "t0": 32486,
+      "center_lat": 48.92486050236569,
+      "center_lon": 345.01823101795355,
+      "displacement_km": 222.0045582791306,
+      "CT_E2_trackable": true,
+      "status": "OK",
+      "wn1_frac": 0.9045030528074844,
+      "R2_profile_wn1": 0.9438245000977159,
+      "error_deg": -20.88097918876568,
+      "sign_negative": true
+    },
+    {
+      "date": "1982-05-12T12:00:00",
+      "t0": 34130,
+      "center_lat": 47.97766935852807,
+      "center_lon": 153.37771288174426,
+      "displacement_km": 131.92171455168986,
+      "CT_E2_trackable": true,
+      "status": "OK",
+      "wn1_frac": 0.5916269721362224,
+      "R2_profile_wn1": 0.9607952352984042,
+      "error_deg": -153.31708981303188,
+      "sign_negative": true
+    },
+    {
+      "date": "1983-06-27T12:00:00",
+      "t0": 35774,
+      "center_lat": 28.9105918421428,
+      "center_lon": 67.83593520767262,
+      "displacement_km": 12.99254627435683,
+      "CT_E2_trackable": false,
+      "status": "NOT-TRACKABLE"
+    },
+    {
+      "date": "1984-08-11T12:00:00",
+      "t0": 37418,
+      "center_lat": 63.0,
+      "center_lon": 315.9560617272064,
+      "displacement_km": 118.19750326644628,
+      "CT_E2_trackable": true,
+      "status": "OK",
+      "wn1_frac": 0.8417670116416098,
+      "R2_profile_wn1": 0.9143783031954809,
+      "error_deg": -72.21558022018336,
+      "sign_negative": true
+    },
+    {
+      "date": "1985-09-26T12:00:00",
+      "t0": 39062,
+      "center_lat": 29.997842013566018,
+      "center_lon": 284.6331381239523,
+      "displacement_km": 163.15273443482124,
+      "CT_E2_trackable": true,
+      "status": "OK",
+      "wn1_frac": 0.8481833256690069,
+      "R2_profile_wn1": 0.966594833549946,
+      "error_deg": 18.124329929345407,
+      "sign_negative": false
+    },
+    {
+      "date": "1986-11-11T12:00:00",
+      "t0": 40706,
+      "center_lat": 55.380629609588915,
+      "center_lon": 312.59062947910223,
+      "displacement_km": 277.5031914159023,
+      "CT_E2_trackable": true,
+      "status": "OK",
+      "wn1_frac": 0.7596036253145539,
+      "R2_profile_wn1": 0.8539855095982779,
+      "error_deg": -41.91781393062573,
+      "sign_negative": true
+    },
+    {
+      "date": "1987-12-27T12:00:00",
+      "t0": 42350,
+      "center_lat": 50.04223886424398,
+      "center_lon": 329.871606898506,
+      "displacement_km": 343.30238430474316,
+      "CT_E2_trackable": true,
+      "status": "OK",
+      "wn1_frac": 0.9222191170016778,
+      "R2_profile_wn1": 0.9436538419987199,
+      "error_deg": -17.356647012543647,
+      "sign_negative": true
+    },
+    {
+      "date": "1989-02-10T12:00:00",
+      "t0": 43994,
+      "center_lat": 55.61303453356034,
+      "center_lon": 318.7445443332808,
+      "displacement_km": 438.4521705711391,
+      "CT_E2_trackable": true,
+      "status": "OK",
+      "wn1_frac": 0.8695689494523423,
+      "R2_profile_wn1": 0.9364385109562684,
+      "error_deg": -46.04671589769973,
+      "sign_negative": true
+    },
+    {
+      "date": "1990-03-28T12:00:00",
+      "t0": 45638,
+      "center_lat": 52.53971016691554,
+      "center_lon": 182.66171472593436,
+      "displacement_km": 192.03898301009167,
+      "CT_E2_trackable": true,
+      "status": "OK",
+      "wn1_frac": 0.6890623749942085,
+      "R2_profile_wn1": 0.8866657330465724,
+      "error_deg": -40.64972313837734,
+      "sign_negative": true
+    },
+    {
+      "date": "1991-05-13T12:00:00",
+      "t0": 47282,
+      "center_lat": 52.189441129488266,
+      "center_lon": 250.15073954493647,
+      "displacement_km": 134.3856569016244,
+      "CT_E2_trackable": true,
+      "status": "OK",
+      "wn1_frac": 0.13792706578736133,
+      "R2_profile_wn1": 0.7632855741063911,
+      "error_deg": 37.23294432626912,
+      "sign_negative": false
+    },
+    {
+      "date": "1992-06-27T12:00:00",
+      "t0": 48926,
+      "center_lat": 30.962186946701625,
+      "center_lon": 85.7428667774291,
+      "displacement_km": 4.259276779660015,
+      "CT_E2_trackable": false,
+      "status": "NOT-TRACKABLE"
+    },
+    {
+      "date": "1993-08-12T12:00:00",
+      "t0": 50570,
+      "center_lat": 32.66686855435837,
+      "center_lon": 83.84407774117935,
+      "displacement_km": 66.4636172410943,
+      "CT_E2_trackable": false,
+      "status": "NOT-TRACKABLE"
+    },
+    {
+      "date": "1994-09-27T12:00:00",
+      "t0": 52214,
+      "center_lat": 26.30630015082043,
+      "center_lon": 132.4714451359455,
+      "displacement_km": 54.04994018738056,
+      "CT_E2_trackable": false,
+      "status": "NOT-TRACKABLE"
+    },
+    {
+      "date": "1995-11-12T12:00:00",
+      "t0": 53858,
+      "center_lat": 53.73237073051221,
+      "center_lon": 160.71640607645267,
+      "displacement_km": 35.12238805382691,
+      "CT_E2_trackable": false,
+      "status": "NOT-TRACKABLE"
+    }
+  ],
+  "n_valid": 10,
+  "n_excluded": 5,
+  "CT_F13": {
+    "n": 10,
+    "sign_neg_frac": 0.8,
+    "median_abs_error_deg": 41.28376853450153,
+    "pass": true
+  },
+  "CT_F10": {
+    "n": 3,
+    "verdict": "NO-VERDICT-INSUFFICIENT-N"
+  },
+  "CT_F11": {
+    "n": 9,
+    "sign_neg_frac": 0.8888888888888888,
+    "median_abs_error_deg": 41.91781393062573,
+    "pass": true
+  },
+  "CT_F12": {
+    "n": 3,
+    "verdict": "NO-VERDICT-INSUFFICIENT-N"
+  }
+}

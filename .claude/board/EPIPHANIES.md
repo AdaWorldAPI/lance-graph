@@ -1,3 +1,472 @@
+## 2026-08-11 — E-THE-BYTE-WAS-ONLY-THE-SELECTOR-THE-PAIR-IS-THE-CARRIER-1
+
+**Status:** FINDING `[H]` — operator correction + `l4_rail_probe.py` (commit
+96e86b90); report §6.1. EXPLORATORY, not an EV.
+
+**Operator:** *"was ist mit 6× Palette256:Palette256 centroid, was ja die
+Verteilung anzeigen soll — palette256 alleine ist ja nur 'attention header'"*.
+
+**Every encoding in this arc treated "one scalar → one byte" as the unit. The
+shipped carrier is a PAIR.** le-contract §3 row L4 is `6 × (8:8)`,
+`palette256²` — "each byte pair indexes the 256×256 palette distance/compose
+tables; similarity = ONE table read". The single byte is the **selector**; the
+**pair** is a cell in the centroid tile, and the tile is where the
+distribution lives. I had built one rail and called it the carrier — the
+rolling-floor cascade is the sanctioned §3 "area : location in stacked
+exactness" reading, but of ONE rail out of six.
+
+**Measured: the 12-byte facet is LOSSLESS against the f64 spine.** Carve D
+(dipole rail + 10 ring bytes *spread over the full radius*, missing rings
+interpolated) reproduces the f64 constrained spine to four decimals on both
+storms — R² 0.9434 / 0.9090, |D − f64| = 0.0000. R² is demonstrably sensitive
+(carve B, the same budget spent on 12 rings with no dipole rail, collapses to
+0.635 / 0.294), so this is recovery, not insensitivity.
+
+**Two of four pre-registered bars FAILED as written, and both failures taught
+more than the pass.**
+
+1. **L1 failed** (0.0222 vs a 0.02 bar) and the decomposition names the cause
+   exactly: **quantization +0.0000, dropped rings +0.0222**. *The carrier's
+   PRECISION is free; its CAPACITY was the entire miss.* Spending the same 12
+   bytes across the full radius erases it. Generalizable: when a byte-budget
+   fit misses, decompose before widening — the two costs point at opposite
+   fixes (a bigger codebook vs a better carve), and here the codebook was
+   already perfect.
+
+2. **L3 failed, and so did my proposed rescue** — the more useful half.
+   Fisher-z centroid axes are **5× WORSE** than uniform on the ring means
+   (18.07 vs 3.84 Pa). I hypothesised the population was wrong (ranks against
+   the 24 encoded values rather than the field) and measured that too: **19.00
+   Pa, no rescue.** So the mechanism is not population size but *what the read
+   is for*: ring means are a smooth NARROW-BAND quantity sitting
+   mid-distribution, and a rim-stretch spends levels in tails where no ring
+   mean lives.
+
+**The demarcation this forces, which is the entry's real content:** it does
+NOT contradict `three_register_probe`'s R4, where Fisher-z is **8.3× TIGHTER**
+than plain rank in the storm tail (24.74 vs 204.54 Pa) on the raw field. Same
+substrate, opposite verdicts. **Fisher-z wins a RANK/TAIL read and loses an
+INTERPOLATE/LEVEL read.** Which is exactly why le-contract says a ClassView
+**MAY** declare an analytic codebook — per class, by measurement, not as a
+default. This corrects my own over-generalization, made earlier the same
+session, that Fisher-z is *the* L4 codebook axis.
+
+**A ninth vacuous falsifier, and the mechanism is worth naming.** L4x
+(shared-vs-per-storm codebook) passed on its first run **comparing an array
+against itself**: a uniform codebook is fixed by its population's min/max
+alone, so because storm 1's profile range strictly CONTAINS storm 2's, storm
+1's "own" codebook IS the pooled codebook. It looked like a real comparison
+only because an earlier variant (fisherz, which depends on the whole rank
+distribution rather than the endpoints) had produced *differing* numbers —
+**switching to the codebook the previous bar had just NAMED AS BEST is what
+made the test vacuous.** Degeneracy flags now report both directions; the
+informative one gives **620.79 Pa vs 4.48 Pa, a 139× penalty**, strong
+evidence the codebook must be global — the "one table read" property the
+carrier exists for.
+
+**Rule:** *when a bar's inputs are derived from the same population, check
+they are not the same OBJECT before reading its verdict.* Equal numbers on
+both sides of a comparison are the signature, and "it passed" is the least
+informative way to find out.
+
+## 2026-08-11 — E-THE-HEADLINE-NUMBER-MEASURED-A-MODEL-NOBODY-CLAIMED-1
+
+**Status:** FINDING `[G]` — external review of PR #926 (14 CodeRabbit + 2 Codex
+findings); re-measured and corrected in `comet_tail_probe.py` and
+`COMET_TAIL_REPORT.md` §1 / §8b (commit 5302828e).
+
+**The arc's most-repeated number was measured on a model the arc never
+claimed.** The compression headline — "center + ~12 ring means + ONE dipole
+(2 values) = 93–97 % of in-disk variance" — came from a `decompose()` that
+fits `a1[b]`, `b1[b]` **per ring**: 12 rings × 2 = **24** free dipole
+parameters, so the published 0.972/0.926 belongs to a **36-parameter** model,
+not the **14-value** one the storage claim describes. Measured properly, the
+constrained 2-parameter dipole (one amplitude slope + one bearing — the
+linear-background form the report's own §2 derives) gives **0.943 / 0.909**.
+Corrected headline: **90.9–94.3 %, not 93–97 %.**
+
+The finding SURVIVES — 14 values still lift a storm from 29–63 % to 91–94 % —
+but claim and measurement had drifted apart by ~2.5× in parameter count across
+six probes and several report rewrites, and nobody in-session noticed. **The
+tell was available the whole time:** the report described the representation
+in one place ("2 values") and the code produced another ("per-ring"), and no
+test tied the two together.
+
+**Two review findings IMPROVED results rather than damaging them**, which is
+the argument for external review as more than ceremony: (a) sunflower E2 was
+handing the grid arm up to 25 % more samples than the spiral (every in-disk
+lattice point instead of exactly n) — with equal budgets enforced the **spiral
+now wins at every N**, where the arc had recorded "parity"; the original result
+was PESSIMISTIC. (b) The voxel-chess palette arm compared palette-derived
+geostrophic winds against RAW observations, because `geo_corr` closed over
+module-level `u`/`v` — a hybrid, not the pre-registered palette result.
+
+**A fourth vacuous assertion, in this arc's own documented house style:** E6's
+`rises_then_decays` required only an interior maximum plus a lower final
+value, so it accepted a profile that DECREASED before rising to the peak — and
+the committed run did exactly that (12.190 → 12.163 m/s before the 525 km
+peak) while reporting `true`. Found by a reviewer, not by the author, which is
+the same asymmetry `E-ZERO-FOR-ELEVEN-...` already recorded.
+
+**Rule:** *a number that appears in a headline must be produced by code whose
+parameter count matches the headline's own description of the object.* Where
+prose says "N values", the probe should EMIT N and the report should print it
+— which `comet_tail_probe.py` now does
+(`n_params_profile_wn1_constrained`), so the two cannot silently drift again.
+
+## 2026-08-11 — E-SPINE-FOUND-MODERATORS-MISSING-1
+
+**Status:** OPERATOR RULING (framing) + FINDING `[H]` — report §9, commit
+paired with the PR opening. Reframes the whole comet-tail chain's verdict.
+
+**Operator:** *"Wir haben ein Spine gefunden — die Stellschrauben müssen noch
+mit den Variablen der bekannten Modelle moduliert werden. Uns fehlen die
+Moderatoren; aber wir haben bereits das Gerüst, um das Zentrum und die
+Dynamik zu modellieren. Außerdem haben wir Feuchtigkeit und Abregnen im
+Aufwind an der Kollision zwischen den Gebieten nicht modelliert — das ist
+eine Art Entropie bei Verdunstung und Abregnen."*
+
+**Why this reading is defensible — stated at the strength the evidence
+actually supports:** a 0.68–0.73 directional main effect whose residual were
+random would be a dying claim — but this chain's residual runs MONOTONICALLY
+with a measured variable (the 92–102° height ladder, 3–5× apparatus noise).
+*Main effect + structured residual + identified covariate* is **consistent
+with a missing moderator and requires independent validation**. It does NOT by
+itself exclude model misspecification, centre/label error, selection effects,
+or chance.
+
+> **Correction (CodeRabbit on PR #926, 2026-08-11).** This paragraph
+> originally read "is the signature of a missing moderator, NOT of a null. A
+> null does not produce a ladder." That overstated what a monotonic residual
+> can establish — it supports the hypothesis, it does not discriminate it from
+> the alternatives above. Corrected in place per the append-only rule's
+> allowance for regrading; the directional predictor stays SUGGESTIVE and
+> unpromoted either way, which is what the PR objective already said.
+
+**The three-part decomposition now on record (report §9):**
+1. **Spine `[G]`** — center + ~12 ring means + 1 wn-1 dipole = **90.9–94.3 %**
+   of in-disk variance, unshaken across 3 independent samples / 41+ storms /
+   1980–2021. **~14 logical model values** (12 ring means + a 2-value
+   dipole) plus a center address. *(Corrected 2026-08-12, CodeRabbit PR #926:
+   this read "~14 bytes + an address", conflating the MODEL size with a
+   CARRIER budget. The measured encoding is a 12-byte `6×(8:8)` L4 facet —
+   see report §6.1; the byte budget belongs in the encoding section, not
+   in the spine statement.)* *(Regraded in place per the same
+   allowance used at line 67 above: this line printed 93–97 %, which
+   `E-THE-HEADLINE-NUMBER-MEASURED-A-MODEL-NOBODY-CLAIMED-1` — the entry
+   directly above — corrects to the 14-value model's real figure. Flagged by
+   CodeRabbit on PR #926 as an internal inconsistency with that entry, and it
+   was one.)*
+2. **Dry moderators `[H]`** — measured in this chain, not yet wired:
+   steering level (THE ladder; CT-F16 = score the dipole against
+   steering-level motion instead of 6h surface displacement), displacement/
+   label noise, friction/surface type, latitude/regime.
+3. **Moist sector `[S]`** — not modeled at all, and "entropy" is technically
+   the right word: rain-out in the collision-zone updraft is irreversible
+   moist entropy production (θe the state variable, precipitation the sink —
+   Emanuel/Pauluis frame). Tractable NOW: the WB2 store carries
+   specific_humidity/temperature (θe), TCWV, total_precipitation_6hr,
+   vertical_velocity — and θe/TCWV are scalar fields, so the SAME ring/wn-1
+   decomposition applies verbatim. CT-M1..M3 named as falsifiers; the July
+   failures (wn1_frac 0.19–0.36) are plausibly the diabatically-dominated
+   storms, making diabatic dominance itself a computable intake gate.
+
+**The brutal step (operator-directed, `[S]`):** learn the moderator matrix on
+the substrate's own proven machinery — the spine as board state, moderators
+as `W` in domino.rs' symbiont `C = A·W` tile-GEMM (stencil-as-GEMM already
+byte-proven on real WB2 in ndarray `geostrophic_stencil.rs`), recurrence over
+6h spine states via the workspace's byte-parity int8 LSTM (E-OCR-LSTM-1).
+Explicit physics as spine, learned weights as moderators — the NeuralGCM-
+shaped hybrid at 512 B/storm, gated by disjoint-decade train/test + the
+plan-§8 audit.
+
+## 2026-08-11 — E-MY-OWN-PRE-REGISTRATION-HAD-A-GAP-AND-I-NAMED-IT-1
+
+**Status:** FINDING `[G]` — CT-F14, `comet_tail_f14.py` / `.json`, report
+§5.11. Direct follow-up to E-THE-RESCUE-THAT-WEAKENED-ITSELF... below; this
+entry is about a defect in *my own pre-registration design*, caught and
+corrected by the same discipline it should have applied from the start.
+
+**CT-F14 was pre-registered and committed to git BEFORE it ran** (`4f1a1b4f`)
+— fixed dates, fixed bar (n≥20, ≥0.70), and a fixed interpretation table for
+a "combined 3-sample" figure, all decided before any output existed. Run: 19
+of 85 mechanically-generated candidates qualified (one short of the n=20
+floor) → correctly **NO-VERDICT by the pre-registered rule.** The pooled
+3-sample figure (n=26, 19/26=0.731) crossed the pre-committed p<0.05
+"established" threshold (p=0.0145).
+
+**By the letter of my own pre-registration, this should have been reported
+as "established, ready for the audit-gate queue."** It was not, because a
+sensitivity check — run precisely because the last entry demands applying
+scrutiny to results that help as readily as to ones that hurt — found
+something the pre-registration never anticipated: **CT-F14's own qualifying
+subset, taken alone, sits at 0.684 (13/19), BELOW the 0.70 bar, p=0.0835 —
+not significant.** The single test this whole probe existed to produce does
+not independently support the claim it was built to test. The "established"
+pooled figure is being carried by two small prior fragments (n=4 at 0.75,
+n=3 at 1.00) blended with a properly-powered new sample that came in lower.
+Dropping just the smallest fragment (n=3, fully saturated) still barely
+clears p<0.05 (0.0466) — so the pooled crossing is not purely an artifact of
+one tiny subsample, but the component that mattered most (the large, careful
+new test) disagrees with the pooled verdict on its own terms.
+
+**The gap, named plainly: my pre-registration specified thresholds for a
+pooled figure without specifying what to do if the new, properly-powered
+sample and the pooled figure disagreed.** I did not write a rule for this
+exact configuration because I did not anticipate it — I expected CT-F14 to
+either clearly pass or clearly fail on its own, not to fall one storm short
+of its power floor while *also* landing under the bar. Finding that gap
+after the fact and exploiting it silently (reporting only the pooled
+"established" number, which the letter of my pre-registration technically
+licensed) would have been exactly the failure mode this arc's discipline
+exists to prevent — just moved one level up, from cherry-picking a result to
+cherry-picking which of two valid readings of a pre-committed rule to report.
+**Named instead: graded the verdict down to "still suggestive," and
+recorded the pre-registration gap itself as the finding**, alongside a
+second, smaller walk-back (§5.10's striking monsoon-band exclusion pattern,
+4/5 in the small sample, thinned to 2/21 at 4× the exclusion count in this
+larger one — the small-n-looked-like-a-pattern theme recurring one level
+down from the main directional claim).
+
+**The reusable lesson, sharper than the previous entry's:** *pre-registration
+protects against post-hoc rationalization of the DATA. It does not
+automatically protect against post-hoc selection among several VALID readings
+of the rule itself, when the rule turns out to admit more than one — that
+requires the same discipline applied one level up, at read time, not just at
+design time.* After four probes, three independent samples, and 41 total
+storms, the honest position is: structural claim solid throughout, directional
+claim genuinely undetermined — not because no test was run, but because the
+one test built to settle it came back below its own bar.
+
+## 2026-08-11 — E-THE-RESCUE-THAT-WEAKENED-ITSELF-UNDER-SCRUTINY-1
+
+**Status:** FINDING `[G]` — CT-F10/F11/F13, `comet_tail_f10_f11.py` / `.json`,
+report §5.10. Direct follow-up to E-N-EQUALS-TWO-... below; the discipline
+this entry demonstrates is the point as much as the numbers.
+
+**A second, fully independent blind sample REVERSED the previous sample's
+verdict on its own bar — 8/10 = 0.80 (vs the first sample's 6/10 = 0.60) on
+15 mechanically-generated candidate dates (fixed start + fixed 411-day
+stride, chosen before any code ran, landing entirely in 1980–1995, zero
+overlap with the 2015–2021 sample).** This is exactly the moment a session is
+tempted to declare victory. Instead: proper statistics first. Neither sample
+clears a conventional two-sided 0.05 alone (sample 1 p=0.754; sample 2
+p=0.109). **Pooled across both fully independent samples: 14/20 = 0.70,
+one-sided p≈0.058 — landing almost exactly on the pre-set 0.70 bar by
+coincidence, and still short of significance.** The reversal is real, but it
+does not resolve anything on its own; it converts a FAIL into a
+STILL-BORDERLINE with a doubled sample size.
+
+**Then the two competing explanations from the previous entry were BOTH
+checked against the new evidence — and the answer inverted which one looked
+better supported.** §5.9 (previous) favored regime-contamination (a monsoon
+low corrupting one sample) as the likely driver of the sign-consistency gap.
+Checked directly: retroactively applying the wn1_frac≥0.40 regime filter to
+**sample 1's own data** removes its two lowest-structure storms
+(2020-07-20, 2019-10-25) — and **both were negative-signed, agreeing with
+the prediction.** Removing two hits, not two misses, drops sample 1 from
+6/10 (0.60) to **4/8 = exactly 0.500.** The regime explanation does not
+survive contact with its own predicted mechanism — checked, not assumed, and
+reported as a weakening even though it was MY preferred explanation from the
+prior entry.
+
+**Meanwhile the apparatus explanation (motion-bearing noise on slow storms)
+strengthened under the same treatment.** Pooling the displacement≥250km/6h
+subset from BOTH independent samples (n=4+3=7, spanning two decades) gives
+**6/7 = 0.857, one-sided p≈0.0625** — the single most consistent number in
+the entire chain, though n=7 keeps it suggestive rather than decisive, and
+this pooling was not itself pre-registered before either sample ran (stated
+plainly). An unplanned bonus: 4 of 5 storms excluded from the second sample
+by the pre-existing trackability gate cluster at 26–33°N/67–134°E in
+June–September — the exact monsoon-season geography flagged as
+contamination-prone twice before (§5.7's blind land storm, §5.9's worst
+storm) — showing the trackability gate is already doing real filtering work
+for free, on a completely different axis than the wn1_frac regime filter.
+
+**The reusable lesson, and why this entry exists separately from the last
+one:** *when a follow-up result HELPS your preferred story, run the same
+scrutiny you'd run if it hurt it — apply the retroactive check, do the
+statistics, report the weakening if the mechanism doesn't survive contact
+with its own prediction.* This session's regime-contamination hypothesis was
+mine, felt right after §5.9, and did not survive being checked against the
+data that was supposed to support it. The number that DID hold up (apparatus,
+6/7) is not the flashier "we found the real mechanism" story — it is the
+more mundane "the label itself is noisy when storms move slowly" story, and
+it earned its position by surviving a check the flashier story failed.
+CT-F14 (a single properly-powered displacement-filtered sample, n≥25–30) is
+now the correctly-scoped next step — not a third exploratory rerun of a
+sample that already ran twice.
+
+## 2026-08-11 — E-N-EQUALS-TWO-LOOKED-LIKE-PHYSICS-AND-WAS-HALF-COIN-FLIP-1
+
+**Status:** FINDING `[G]` — CT-F5 + CT-N, `comet_tail_f5_n10.py` / `.json`,
+report §5.8–5.9. Closes the arc's own standing item ("n ≥ 10 storms before
+any constant"); supersedes nothing, differentiates everything.
+
+**CT-F5 (small, closes a named defect):** the walking-center fix (search near
+the *previous* level, not always the surface, 250 km/step) corrects storm 2's
+CT-F1 saturation defect. Its winning level (500 hPa, −4.5°) is reached by a
+**0.0 km step**, so the pass is untouched by the saturation that appears one
+step later, outside the tested band. Storm 2 goes from NO-VERDICT to a clean
+pass; storm 1 reproduces bit-identically (verified post-hoc — the F5c field
+was pre-registered but never coded, a gap admitted rather than smoothed over).
+
+**CT-N (the headline): a blind 10-storm sample split the comet-tail claim into
+two claims with DIFFERENT truth values, and only one of them survives.**
+wn1-dominance and explanatory power (E1/E4) replicate cleanly at scale
+(median wn1_frac 0.72, median R² 0.90, both clear their bars) — **the signed
+left-of-motion prediction that made storms 1–2 exciting does not** (6/10 =
+0.60 same-sign, against a 0.70 bar; a naive p=0.5 null already gives
+P(≥6/10)≈0.38, i.e. statistically unremarkable). What looked like 2/2 at
+p=0.0625 was, on independent storms, close to a coin flip. CT-N5 (does a
+wind-based center generalize the way it did for storm 2 alone?) also fails
+at 6/10; CT-F9 (does land-fraction asymmetry correlate with the unexplained
+residual, testing candidate 2's real mechanism) returns a clean non-support
+(corr = −0.30).
+
+**Two post-hoc leads, explicitly NOT used to rescue the FAIL:** restricting to
+the 4 storms with displacement ≥ 250 km/6h (closer to storms 1–2's own
+regime) lifts sign-consistency to 3/4 = 0.75; dropping only the single most
+extreme low-displacement/near-polar outlier lifts it to 6/9 = 0.667. Both
+point at plausible, testable confounds — motion-bearing noise at small
+displacement, and storm-type contamination in a purely blind sample (one
+selected storm at 32°N in July is very plausibly a monsoon low, not a
+baroclinic system, and has the sample's worst wn1/R²). Filed as CT-F10
+(pre-registered displacement filter) and CT-F11 (pre-registered regime
+filter) — a properly designed rerun, not a re-scoring of this one.
+
+**The reusable lesson, stated once so it doesn't need re-deriving:** a probe
+result at n=2 can be right about STRUCTURE (a real, dominant, well-explained
+mode) while being wrong about GENERALITY (whether its sign/direction is a
+rule or a coincidence of which two examples were picked) — and only a genuine
+n≥10 blind sample separates the two. Every earlier gate in this chain (F3's
+apparatus check, F4's independent-definition check, F7's blind land-storm
+selection) was local to storms 1–2; CT-N is the first gate that tests whether
+storms 1–2 were representative at all, and the honest answer is "partially."
+
+## 2026-08-11 — E-A-JITTER-AMPLITUDE-YOU-CHOSE-IS-NOT-AN-UNCERTAINTY-YOU-MEASURED-1
+
+**Status:** FINDING `[G]` — CT-F4 + CT-F7, `comet_tail_f4_f7.py` / `.json`,
+report §5.6–5.7. Amends E-THE-OFFSET-WAS-THE-APPARATUS-... below, which stands
+as written (it was correct for the amplitude it tested).
+
+**My apparatus test condemned a number using a sensitivity amplitude I picked
+out of the air.** CT-F3 jittered the storm center by ±100 km and found the
+alignment error moved 29.4° — so the −40° offset was declared unmeasurable.
+But ±100 km was never *measured*; it was a plausible-sounding round number.
+The non-circular question is **how far apart independent center definitions
+actually land**, and that is the uncertainty. Four definitions across three
+physical fields (sub-grid MSLP min; ∇²p centroid; **10m vorticity** centroid;
+sub-grid z850 min) agree to **20 km** / **73 km**, and the answers they give
+span **2.3°** / **6.5°** — so the real apparatus noise is ≈ ±3–7° and the
+offset **is** measurable. F3 was not wrong; its amplitude was unjustified.
+
+**Two structural lessons, both reusable:**
+1. *Prefer a measured disagreement to a chosen perturbation.* Independent
+   method variants are a free, non-arbitrary uncertainty estimate — and where
+   both exist, the isotropic jitter was a 2× **over**estimate, because real
+   variants cluster along a preferred axis rather than scattering evenly.
+2. *An anti-vacuity guard must be allowed to refuse a PASS you want.* Storm 1
+   scored a 2.3° spread — but its four centers agreed to 20 km, below the
+   31.9 km grid diagonal, so the pre-registered CT-F4c guard returned
+   NO-VERDICT rather than banking a free pass. Storm 2, whose definitions
+   genuinely disagreed (73 km = 2.4× the diagonal), is the one that carries
+   the result. The guard cost me the tidier of the two numbers, which is
+   what tells me it was real.
+
+**Also, the friction candidate was partly MIS-SPECIFIED and the data said so
+before I did.** CT-F7 measured cross-isobar inflow over land (blind storm
+selection): **+34.2° land vs +20.5° ocean inside the same disk** — a paired
+contrast that controls for depth/latitude/curvature, textbook magnitudes, both
+bars passed. But F2/F7 bound the rotation of the **wind** relative to the
+isobars, whereas the CT-E3 offset is a rotation of the **pressure dipole**;
+friction does not rotate the pressure field except at second order. And an
+unplanned pairing already in the F2 output points the wrong way for it: storm 1
+is 1 % land (+14.7° inflow), storm 2 is 46 % land (+22.0°), yet their offsets
+are −42.0° and −40.2° — **the more frictional storm has the smaller offset.**
+`[S]`, n=2, undesigned, recorded as suggestive.
+
+Net: candidate 1 (baroclinic tilt) leading and near-unopposed; candidate 3
+(center bias) bounded at ≈±5°; candidate 2 re-scoped, with CT-F9 written to
+test the mechanism it *should* have been about (Ekman pumping vs land-fraction
+**asymmetry** across the disk, not mean land fraction). Binding constraint is
+now n ≥ 10 storms, not the apparatus.
+
+## 2026-08-11 — E-THE-OFFSET-WAS-THE-APPARATUS-THE-LADDER-WAS-THE-PHYSICS-1
+
+**Status:** FINDING `[G]` — CT-F1/F2/F3 run, `comet_tail_followup.py` / `.json`,
+report §5. Follow-up to E-CYCLONE-ASYMMETRY-IS-ONE-DIPOLE-1 below.
+
+**I ran my own apparatus gate first and it FAILED, which killed the number I
+was about to explain.** The −42°/−40° common offset moves by up to **29.4°**
+under a ±100 km center jitter — comparable to the offset itself. So the offset
+magnitude is inside the apparatus noise and no constant may be fitted from it;
+CT-E3 is re-graded in place (the ±45° left-of-motion HIT stands, the magnitude
+does not).
+
+**But the mechanism test found a much bigger signal than the thing it was sent
+to explain.** Sweeping geopotential over all 13 levels (one chunk, so the
+yes/no became a ladder): the alignment error climbs **monotonically** from
+≈ −40° at 1000 hPa through zero in the mid-troposphere (≈600–650 hPa storm 1,
+≈400–500 hPa storm 2), spread 101.8°/91.6° — **3–5× the apparatus noise**, and
+exactly the baroclinic-tilt/steering-level prediction. Friction was
+independently bounded: measured 10m cross-isobar inflow +14.7°/+13.0° over
+ocean (right sign, textbook magnitude), so it owns ≈⅓ of the offset at most.
+
+**Three transferable rules, each earned here:**
+1. *Apparatus before mechanism, and mean it.* Had F3 run second, both F1 and F2
+   would have been written up as explanations of a number that isn't there.
+2. *A failed gate generates the next probe, not an exemption.* The 3–5× size
+   comparison is recorded as a post-hoc observation and routes to CT-F4
+   (sub-grid center fit) — NOT used to override the failed bar. That override
+   is the "indictment fired → post-hoc rescue" anti-pattern already on this
+   arc's open-P1 list.
+3. *Add diagnostics, never bars, after a run.* A diagnostic added post-run-1
+   caught F1's own defect — its center finder **saturating at the 600 km search
+   radius** on storm 2's upper levels (it locked onto a different system), which
+   had produced a physically absurd "best level = 100 hPa". Verdict corrected to
+   NO-VERDICT on that path rather than reported as a refutation.
+
+The headline claim is untouched: wn-1 dominance, the R² lift, and
+left-of-motion never depended on the offset. What died is the constant I would
+otherwise have shipped.
+
+## 2026-08-11 — E-CYCLONE-ASYMMETRY-IS-ONE-DIPOLE-1
+
+**Status:** FINDING `[G]` for the measurements (n=2, pre-registered, committed
+unmodified, `db57aac0`); `[H]` for generalization; the −40° offset mechanism
+and the encoding consequence are `[S]`. Full documentation:
+`probes/weather-p1/COMET_TAIL_REPORT.md`.
+
+**The non-axisymmetric residual of a translating extratropical low is almost
+entirely wavenumber-1, and the dipole's orientation is predicted by the
+storm's own motion vector.** Measured on two real storms (WB2 ERA5 MSLP,
+2021-06-15 12Z→18Z): wn-1 carries 0.924 / 0.895 of the azimuthal residual;
+ring-profile + one dipole lifts in-disk R² from 0.635/0.294 to
+**0.972/0.926**; low pole lands left-of-motion (NH geostrophic prediction)
+within ±45° on 2/2 (null 0.0625), with a *common* −42°/−40° offset —
+steering-level/baroclinic-tilt rotation is the prime `[S]` candidate, Ekman
+friction second, center-finder bias to be excluded first (CT-F1..F3
+pre-registered in the report, not run).
+
+**Why it matters here:** (a) it RESOLVES the sunflower probe's axisymmetry
+FAIL — the missing third of the storm WAS the tail, one mode, not many; (b)
+the compact form `center + ~12 ring means + ONE dipole ≈ 93–97 %` fits the
+highheelbgz (start, stride, length) address shape, and the dipole encodes the
+motion — a single-frame motion predictor is the named next falsifier, gated
+behind the plan-§8 adversarial audit per E-ZERO-FOR-ELEVEN below.
+
+> **Regraded 2026-08-11 (CodeRabbit, PR #926).** Two claims in this entry are
+> superseded by later entries and are corrected here rather than left to
+> mislead: (a) **`≈ 93–97 %` → `90.9–94.3 %`** — that figure was a
+> 36-parameter per-ring fit, not the 14-value form this sentence describes
+> (`E-THE-HEADLINE-NUMBER-MEASURED-A-MODEL-NOBODY-CLAIMED-1`); (b) **"the
+> dipole encodes the motion" is NOT established** — the falsifier named here
+> was subsequently run four times over three independent samples (n=41), and
+> the largest and best-powered of them (CT-F14, n=19) gives 0.684 at p=0.0835.
+> The directional claim stays SUGGESTIVE. The structural half of this entry
+> (wn-1 dominance, the axisymmetry resolution) is untouched.
+
 ## 2026-08-11 — E-ZERO-FOR-ELEVEN-THE-AUTHOR-CANNOT-AUDIT-HIS-OWN-FALSIFIERS-1
 
 **Status:** FINDING `[G]` — measured by the 13-agent verify/attack pass on

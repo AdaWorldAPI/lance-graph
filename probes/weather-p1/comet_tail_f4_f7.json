@@ -1,0 +1,143 @@
+{
+  "store": "https://storage.googleapis.com/weatherbench2/datasets/era5/1959-2022-6h-1440x721.zarr",
+  "t0": 91246,
+  "t1": 91247,
+  "R_disk_km": 1200.0,
+  "CT_F4": {
+    "storm1": {
+      "definitions": {
+        "A_mslp_min_subgrid": {
+          "lat": 55.80687987858285,
+          "lon": 334.4939777023923,
+          "error_deg": -42.5420559346087,
+          "wn1_frac": 0.9202092475432342
+        },
+        "B_lap_p_centroid": {
+          "lat": 55.67248760175915,
+          "lon": 334.5258307823925,
+          "error_deg": -41.03082259793251,
+          "wn1_frac": 0.9274214198031719
+        },
+        "C_vort10m_centroid": {
+          "lat": 55.74488562168902,
+          "lon": 334.50400941714094,
+          "error_deg": -41.84890947295523,
+          "wn1_frac": 0.9247416946213036
+        },
+        "D_z850_min_subgrid": {
+          "lat": 55.84988514619299,
+          "lon": 334.45235986651124,
+          "error_deg": -43.358858835550905,
+          "wn1_frac": 0.9190636009723636
+        }
+      },
+      "pairwise_km": {
+        "A_mslp_min_subgrid|B_lap_p_centroid": 15.076176192114817,
+        "A_mslp_min_subgrid|C_vort10m_centroid": 6.921937117137708,
+        "A_mslp_min_subgrid|D_z850_min_subgrid": 5.442731637081937,
+        "B_lap_p_centroid|C_vort10m_centroid": 8.165539470959404,
+        "B_lap_p_centroid|D_z850_min_subgrid": 20.254183727029453,
+        "C_vort10m_centroid|D_z850_min_subgrid": 12.1135289910227
+      },
+      "max_separation_km": 20.254183727029453,
+      "grid_diagonal_km": 31.923560193171888,
+      "F4c_degenerate": true,
+      "F4a_spread_deg": 2.3280362376183916,
+      "F4a_pass": false,
+      "F4b_curve_deg": {
+        "25": 6.498108774570255,
+        "50": 13.815323316109641,
+        "100": 30.92174366688357,
+        "200": 77.1715527314677
+      },
+      "F4b_monotone": true,
+      "verdict": "NO-VERDICT (F4c degenerate: definitions coincide)"
+    },
+    "storm2": {
+      "definitions": {
+        "A_mslp_min_subgrid": {
+          "lat": 67.06990712939054,
+          "lon": 28.07950007516945,
+          "error_deg": -39.76952133194351,
+          "wn1_frac": 0.8923855403580097
+        },
+        "B_lap_p_centroid": {
+          "lat": 67.33249409332545,
+          "lon": 28.227820437093918,
+          "error_deg": -38.55815599153158,
+          "wn1_frac": 0.8854887175188012
+        },
+        "C_vort10m_centroid": {
+          "lat": 67.6571433498891,
+          "lon": 28.839775385651926,
+          "error_deg": -35.08918494397858,
+          "wn1_frac": 0.8696967018113038
+        },
+        "D_z850_min_subgrid": {
+          "lat": 67.25,
+          "lon": 27.617800693082515,
+          "error_deg": -41.634684257149104,
+          "wn1_frac": 0.8949910410039148
+        }
+      },
+      "pairwise_km": {
+        "A_mslp_min_subgrid|B_lap_p_centroid": 29.8895451740939,
+        "A_mslp_min_subgrid|C_vort10m_centroid": 72.95532070228214,
+        "A_mslp_min_subgrid|D_z850_min_subgrid": 28.251126528244853,
+        "B_lap_p_centroid|C_vort10m_centroid": 44.51460985013863,
+        "B_lap_p_centroid|D_z850_min_subgrid": 27.746146990061987,
+        "C_vort10m_centroid|D_z850_min_subgrid": 69.02145235651011
+      },
+      "max_separation_km": 72.95532070228214,
+      "grid_diagonal_km": 29.865768531992796,
+      "F4c_degenerate": false,
+      "F4a_spread_deg": 6.545499313170524,
+      "F4a_pass": true,
+      "F4b_curve_deg": {
+        "25": 4.950760999825064,
+        "50": 9.843879800240217,
+        "100": 19.277048241942765,
+        "200": 35.84663238862359
+      },
+      "F4b_monotone": true,
+      "verdict": "PASS \u2014 center choice does not dominate"
+    }
+  },
+  "CT_F7": {
+    "center": {
+      "lat": 28.5,
+      "lon": 67.5
+    },
+    "land_fraction_ring": 0.8026728020331112,
+    "candidates_scanned": [
+      {
+        "lat": 55.75,
+        "lon": 334.5,
+        "anomaly_Pa": -2954.4862955729186,
+        "land_fraction": 0.006198612930567842
+      },
+      {
+        "lat": 28.5,
+        "lon": 67.5,
+        "anomaly_Pa": -2608.9383192274254,
+        "land_fraction": 0.8026728020331112
+      }
+    ],
+    "n_land_unguarded": 2642,
+    "n_ocean_unguarded": 743,
+    "n_land_oro_guarded": 1816,
+    "n_ocean_oro_guarded": 743,
+    "median_land_unguarded_deg": 43.073134580981545,
+    "median_land_oro_guarded_deg": 34.19596200888765,
+    "median_ocean_oro_guarded_deg": 20.527235763376723,
+    "iqr_land_deg": [
+      -11.555514115716903,
+      73.97162827559512
+    ],
+    "ocean_reference_deg": 14.7,
+    "F7a_across_storm_pass": true,
+    "F7b_within_storm_paired_pass": true,
+    "F7b_evaluable": true,
+    "F7d_friction_alone_could_own_40deg_over_land": false
+  }
+}
