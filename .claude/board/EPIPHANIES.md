@@ -3,6 +3,22 @@
 **Status:** FINDING `[G]` — W5 RUN (`spiral_adi_probe.py`/`.json`) + a
 targeted verification measurement, both committed.
 
+> **⊘ CORRECTION (2026-08-12, codex review on PR #936, same day) — the
+> HEADLINE 0.9996 anisotropy ratio this finding cites is retracted; the
+> MECHANISM below it is not.** The headline run's control was subsampled
+> at 250k points/band against ~956k-point headline bands — ~74 % of
+> sources got no real KD-tree and silently self-linked — so 0.9996 mostly
+> measured self-links, not the control, and cannot by itself establish
+> anything. **The 99.38 %-Fibonacci-offset verification measurement below
+> is UNAFFECTED**: it ran at N=62 208, with per-band populations
+> (~7 776 points) far under the 250k cap, so no subsampling occurred
+> there — the mechanism claim (locality ⟺ Fibonacci membership via the
+> three-distance theorem) still rests on a real, unsampled measurement.
+> Fixed same day (`106ca605`): `build_control_links` is now full-band, no
+> cap; a v2 headline rerun is in flight. Once it lands, this note gets a
+> sibling recording the corrected headline ratio — append-only, this
+> paragraph is not edited further.
+
 **The claim.** On a Vogel/golden lattice, a *local* non-Fibonacci control
 for stride-structure experiments **does not exist** — not "is hard to
 build," does not exist. Locality and Fibonacci-family membership are the
