@@ -54,6 +54,77 @@
 **Status:** MERGED (`e6e27829`). Branch `claude/jirak-math-theorems-harvest-rfii13`
 → `main`. Doc/plan/board only.
 
+## 2026-08-12 — lance-graph #936 (MERGED) — W5 v1 RUN: B2 PASS / B3 VOID / B4 smooth, and codex found all three verdicts were built on sand (v2 fix in flight, not yet landed)
+
+- **Added.** `spiral_adi_probe.json` — v1's headline (N=3·F(17)²=7 651 227)
+  + B4 sweep result — plus `E-ON-A-GOLDEN-LATTICE-LOCALITY-IS-FIBONACCI-MEMBERSHIP-1`
+  (the epiphany that a local non-Fibonacci control on a Vogel lattice does
+  not exist, per the three-distance theorem).
+- **⊘ SUPERSEDED — this PR's own verdicts, corrected the same day.** Codex
+  review on #936 found FOUR real defects, each striking at a different
+  verdict: (1) **B3's control was subsampled** at 250k/band against
+  ~956k-point headline bands — ~74 % of sources got no real tree and
+  silently self-linked, so the reported ratio 0.9996 measured mostly
+  self-links, not the control — **the VOID verdict, and the epiphany's own
+  99.38 % Fibonacci-membership figure that grounded it, rest on an
+  unverified headline number** (the 99.38 % measurement itself was taken
+  at a SUB-cap N and remains valid; only the HEADLINE ratio was
+  compromised). (2) **B2's iso-fit search floor equalled the input σ** —
+  an inert operator (v1's fixed 8 iterations added ~0.003 % variance at
+  N=7.65M) fits `sigma_ref=sigma` exactly, indistinguishable from a
+  resolved diffusion — **the PASS verdict never demonstrated diffusion
+  occurred.** (3) **The bump sat only 1.72σ from the qualifying-band mask
+  edge** — analytically, a one-sided Gaussian truncation there produces a
+  covariance ratio of 1.2082, matching the measured "asymptote" of 1.213
+  closely — **the reported ~21 % structural anisotropy residual is
+  plausibly the MASK, not the ADI operator.** (4) The 99.38 % figure lived
+  only in chat/board prose, not in a committed, reproducible artifact.
+- **Fixed, same day, pre-registered BEFORE the v2 run — the CODE, and it
+  landed IN #936, not in a follow-up** (`106ca605` is an ancestor of
+  `a3f627f3`, verified via `git merge-base --is-ancestor`; corrects an
+  overclaim in this entry's first draft, caught by codex P2 on PR #937 —
+  "landing in a follow-up PR" described the RUN's results, not the fix
+  itself, and read as if the fix were still pending when it was already
+  merged): full-band control (no cap; verified in-qualifying self-link
+  rate 0.27 % at the real headline N — a live debugging trap caught and
+  explained en route: a FIRST v2 diagnostic divided by total N rather than
+  qualifying-band population and reported a spurious 38 % "self-linked",
+  predicted exactly from the qualifying/non-qualifying population split,
+  confirming it was the diagnostic that was wrong, not the control);
+  iterations scaled to a fixed target added variance
+  (`iters = round(2V/h²)`, h² the measured mesh spacing) with the fit
+  search centered on the predicted σ_ref, plus a raw pre-fit check against
+  the unsmoothed input; the bump moved to σ=0.05, r0=0.78 (≥3.35σ
+  clearance; analytic baseline ratio there ≈1.005) with the
+  unsmoothed-baseline anisotropy now computed through the identical mask
+  every run; the control-link offset histogram is now COMPUTED by the
+  script (codex P2 on #937, second catch: "now lands in the committed
+  JSON" was future-tense stated as present — the tracked
+  `spiral_adi_probe.json` at merge time is still the v1 result with no
+  histogram in it; the histogram artifact itself is committed only once
+  the v2 RUN completes and its JSON replaces v1's). Timing verified (not
+  guessed) before launching: ~33 min for the headline sweep loops alone.
+- **Deferred.** The v2 RUN's RESULTS — in flight at merge time (the v2
+  CODE already merged, per the correction above), landing in a follow-up
+  PR with corrected B2/B3/B4 verdicts AND the histogram artifact codex P2
+  asked to see committed. n=19/21 are out of scope
+  for v2's B4 under the V-matched iteration scaling (mechanism stated:
+  iters grows roughly linearly with N at fixed physical blur target,
+  making n=19 orders of magnitude more expensive than v1's uniform
+  8-iteration sweep ever cost — which is exactly why v1's n=19 number was
+  cheap AND uninformative).
+- **Confidence.** LOW on this PR's own three verdicts (B2/B3/B4), as
+  established the same day by external review — recorded rather than left
+  standing. The three-distance-theorem MECHANISM in the epiphany
+  (locality ⟺ Fibonacci membership) is independent of the compromised
+  headline ratio and stands on the sub-cap verification alone; the
+  epiphany entry is not retracted, only its headline evidentiary anchor.
+
+**Status:** MERGED (`a3f627f3`). Branch `claude/jirak-math-theorems-harvest-rfii13`
+→ `main`. This PR's v1 VERDICTS are superseded same-day (the v2 CODE fix
+merged in this same PR, per the correction above); see the v2 RUN entry
+once its results land.
+
 ## 2026-08-12 — lance-graph #935 (MERGED) — the validation wave RUNS: T1–T4 + W2s-a executed, four more defects caught, one new epiphany
 
 - **Added.** `golden_vs_tempered_probe.py`/`.json` (T1–T4 executed against
