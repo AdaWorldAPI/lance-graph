@@ -1,3 +1,31 @@
+## 2026-08-12 — golden-vs-tempered-stride-v1 (SUBSTRATE-GENERAL PLAN; head vs gut made falsifiable)
+
+Plan: `.claude/plans/golden-vs-tempered-stride-v1.md`. Status **ACTIVE**.
+Standalone from the weather arc (zero fetch, pure arithmetic) — cross-referenced
+from `weather-w-probes-v1.md` §0's golden-ratio index floor rule, which this
+plan validates head-to-head rather than asserts. Operator framing (paraphrased):
+the intuitive pull is toward golden-ratio-as-nature's-choice; the analytic
+counter-worry is that a coprime tempered walk never collapses by construction
+and might be mathematically better in some regime. **Both are correct, in
+different regimes, and the crossover is measurable** — the plan's actual
+finding. Four tests, all measured before commit: **T1** sweeps 8 values of `q`
+finding each one's best coprime stride by a useful-prefix-range metric, and
+finds the crossover `m*` (point where golden permanently overtakes) sits at
+`m ≈ q` in every case, with a 68–106× golden advantage by `m=200q` — head wins
+bounded/fixed-budget, gut wins unbounded/growing-budget. **T2** confirms the
+asymptotic golden advantage as a pass/fail bar (measured TRUE at all 8 q).
+**T3** shows tempered GUARANTEES zero empty cells at closure (proof, not
+measurement) where golden's fill count is a genuine variable — measured 124/140
+at q=140 (non-Fibonacci, avoiding a self-referential confound at q=144=F(12)).
+**T4** is the sharpest form of "does not collapse": naive `round(golden·q)`
+without a coprimality check collapses (`gcd>1`) in **39.0 % of q ∈ [8,300)** —
+a real, common failure mode a coprimality-checked tempered search structurally
+cannot have. Board hygiene done same-commit; explicitly notes "best stride" is
+prefix-range-dependent (three different metrics across this session's work
+picked three different "best" strides for q=17 — none contradicts another,
+each is scoped to its own metric, stated as a caveat rather than silently
+smoothed over).
+
 ## 2026-08-12 — weather-w-probes-v1 (WORKER-BRIEF PLAN; the W-probe wave after CT-F16's failed bars + the resultant-instrument demo)
 
 Plan: `.claude/plans/weather-w-probes-v1.md`. Status **ACTIVE for the

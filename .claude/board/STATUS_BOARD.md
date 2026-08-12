@@ -1,3 +1,18 @@
+## golden-vs-tempered-stride-v1 — head-vs-gut queue (PRE-REGISTERED 2026-08-12)
+
+Plan: `.claude/plans/golden-vs-tempered-stride-v1.md`. Standalone, zero fetch,
+~5 min single Sonnet worker. All four bars pre-registered in the plan text
+itself with the expected numbers already worked out arithmetically — the
+worker's job is to reproduce them from a committed script, not discover them
+fresh.
+
+| D-id | Deliverable | Status | Feeds |
+|---|---|---|---|
+| D-GVT-T1 | Crossover sweep across 8+ q, useful-range metric | Queued | the two-regime design rule |
+| D-GVT-T2 | Asymptotic golden-advantage pass/fail bar | Queued | validates "gut" instinct |
+| D-GVT-T3 | Closure-occupancy guarantee (tempered) vs variable (golden) | Queued | validates "does not collapse" precisely |
+| D-GVT-T4 | Naive-rounding collapse hazard rate | Queued | the sharpest form of "does not collapse" |
+
 ## weather-w-probes-v1 — W-probe queue (PRE-REGISTERED 2026-08-12)
 
 Plan: `.claude/plans/weather-w-probes-v1.md` (worker briefs; §0 preamble is

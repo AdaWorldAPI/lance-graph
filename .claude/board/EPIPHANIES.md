@@ -67,9 +67,14 @@ the stride-11 alternative is explicitly not a golden-section step.
      the descending-5/3-sixth circle.** Stride 11 sits at 776.5 ct ≈ 8/5, the
      neighbouring sixth — the hedge was right, and the measured answer is
      13 = −4, i.e. the operator's own stride 4 read backwards.
-   - Interval map for the record (17-TET): stride 3 ≈ 9/8 (−7.9 ct), 7 ≈ 4/3
-     (+3.9), **10 ≈ 3/2 (−3.9, the fifth)**, **4 ≈ 7/6 (−15.5)**,
-     **13 ≈ 5/3 (+33.3)**.
+   - Interval map for the record (17-TET step vs just, cents; SIGN
+     CORRECTED 2026-08-12, codex P2 on PR #932 — the first version used
+     `just − TET` for four of five entries and `TET − just` for the fifth,
+     an internal contradiction against the "+3.93 ct/fifth" line above it;
+     the fixed convention is `TET − just` throughout): stride 3 ≈ 9/8
+     (+7.9 ct), 7 ≈ 4/3 (−3.9 ct), **10 ≈ 3/2 (+3.9 ct, the fifth — now
+     consistent with the "+3.93 ct/fifth" line above)**, **4 ≈ 7/6
+     (+15.5 ct)**, **13 ≈ 5/3 (+33.3 ct)**.
    - The two-regime table thus gets its mechanism column: **continuum** =
      equidistribution by irrationality (φ, needs the index floor);
      **quantized** = temperament — exact closure + distributed comma
