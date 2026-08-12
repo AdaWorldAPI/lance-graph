@@ -12,11 +12,26 @@
 > 2. *good geometry vs badly calibrated*
 > 3. *then we find out where the substrate formulas etc. feel at home*
 >
+> **Operator correction (2026-08-12), two further messages that reshaped
+> the design — v1's §2 was rebuilt around them, see §2's correction note:**
+> 4. the method is **cross-swap and hypothesis testing, under the premise
+>    that the model captures the phenomenon but is not calibrated**
+> 5. in science you hold variables constant to test the others; **constancy
+>    is relative**, so the design deliberately manufactures strong
+>    correlation differences — **on the assumption that those differences
+>    are fit to evaluate the hypothesis** (that assumption gets its own
+>    falsifier, C1c)
+>
 > **The hypothesis to falsify:** a badly-calibrated substrate that maps
-> DYNAMICALLY performs BETTER in strong storms than a well-calibrated
-> absolute one — i.e. miscalibration is not uniformly a defect; in a
-> high-variance regime an anchor-free adaptive encoding may win precisely
-> because the fixed one saturates.
+> DYNAMICALLY preserves MORE STRUCTURE in strong storms than a
+> well-calibrated absolute one — i.e. miscalibration is not uniformly a
+> defect; in a high-variance regime an anchor-free adaptive encoding may
+> win precisely because the fixed one saturates.
+>
+> **Stated as the instrument** (§2): under cross-swap, the absolute
+> encoding's transfer loss `L` should shrink as turbulence rises, while the
+> dynamic encoding's is zero by construction — so the crossover is a
+> statement about `ρ` on the diagonal, not about RMSE anywhere.
 
 ---
 
@@ -100,11 +115,91 @@ one exists.
 
 ---
 
-## §2 THE TWO AXES (the operator's "good geometry vs badly calibrated")
+## §2 THE INSTRUMENT — CROSS-SWAP (Kreuztausch), not a horse race
 
-The two axes are **orthogonal by construction** and are varied
-independently, so a result can be attributed to one or the other rather
-than to their blend.
+> **Correction of this plan's first draft (operator, 2026-08-12).** v1 §2
+> was built as a *comparison of formulas* — four calibration arms scored
+> against each other on RMSE. That reads the premise backwards. The premise
+> is: **assume the model DOES capture the phenomenon, but is NOT
+> calibrated.** Under that premise miscalibration is the *condition of
+> measurement*, not one arm in a race — and RMSE under a deliberately wrong
+> calibration is bad **by definition**, so scoring it answers nothing. The
+> informative quantity is how much of the captured **structure** survives
+> the swap. The regime ladder, the budget discipline and the control gate
+> from v1 are unchanged; only the question is inverted.
+
+### §2.1 What is held constant, what is swapped
+
+The operator's methodological frame: *you hold variables constant to test
+the others; constancy is relative, so the design deliberately manufactures
+strong correlation differences — on the assumption that those differences
+are fit to evaluate the hypothesis.* Both halves are load-bearing here, and
+the assumption in the second half is given its own falsifier (C1c).
+
+Each cell holds everything fixed except one thing:
+
+| held constant | varied |
+|---|---|
+| the box (regime), the timestep, the geometry arm, the sample count | **only the calibration's donor regime** |
+
+Notation: `M[D][T]` = read regime **T**'s field through a codebook derived
+from regime **D**. The diagonal `D = T` is own-calibration; every
+off-diagonal cell is a swap. One full matrix per geometry arm, so geometry
+never blends into the calibration answer.
+
+**Constancy is operationalized, never assumed** (C1b): the within-box
+spread of the discriminator must be small relative to the between-box
+spread. A box that fails that is not a control condition — it is just
+another data point wearing the label.
+
+### §2.2 The matrix and its metrics
+
+The 4×4 `M[D][T]` over `{R1 CALM, R2 OCEAN, R3 ACTIVE, R4 STORM}`. Per
+cell, measured and stored raw:
+
+| quantity | what it answers |
+|---|---|
+| **`ρ` Spearman(reconstructed, true)** | **PRIMARY** — how much ordering survived |
+| `occupancy` = fraction of the 256 levels actually used | the mechanism: a foreign codebook collapses the field onto few levels |
+| `saturation` = fraction clipped at level 0 or 255 | the other half of the mechanism: the field runs off the donor's range |
+| RMSE / bias in Pa | **secondary** — evidence the swap genuinely hurts in absolute terms, never the verdict |
+
+**The derived quantity the whole plan turns on:**
+
+```
+transfer loss   L[D][T] = ρ[T][T] − ρ[D][T]
+```
+
+— how much structure regime `T` loses when read through `D`'s calibration.
+`L` is the cross-swap statement of "badly calibrated": *low* `L` means the
+substrate carried the structure even though the numbers were wrong.
+
+### §2.3 The dynamic row is degenerate — and that IS the point
+
+A rank-normalised or Fisher-z encoding re-derived **inside the window** has
+no donor at all. Its matrix row is therefore identical across `D` and
+`L ≡ 0` **by construction**. That is not a defect to hide; it is precisely
+the property under test — a dynamically-mapped substrate cannot be
+mis-calibrated, because it carries no absolute anchor to get wrong.
+
+Two consequences, both mandatory:
+
+1. **The degeneracy must be VERIFIED, not asserted.** A nonzero
+   off-diagonal on a dynamic arm means a donor parameter leaked into the
+   window — a bug, and the run is void until it is found.
+2. **…and the pipeline must be proven able to produce a NON-degenerate
+   row** through the identical code path (the absolute arms must show real
+   off-diagonal degradation). A row that is constant because the harness
+   cannot vary anything is the `E-A-CONTROL-THAT-CANNOT-LOSE` defect in its
+   can-it-DIFFER form, measured in W5.
+
+So the real comparison is not "which formula wins" but:
+
+> In which regime does `ρ(dynamic, own window)` exceed
+> `ρ(absolute, foreign donor)` — and does the margin grow with turbulence?
+
+That is the operator's hypothesis stated as a cross-swap, and it is the
+only form in which a mis-calibrated arm can be scored fairly.
 
 ### Axis A — GEOMETRY (where the samples sit)
 
@@ -121,20 +216,26 @@ budget silently advantages the arm with more samples — measured there as
 
 ### Axis B — CALIBRATION (how the 256 palette levels are placed)
 
-| arm | construction | absolute anchor? | dynamic? |
+Three encodings, each run through the **full 4×4 donor matrix**:
+
+| arm | construction | absolute anchor? | matrix shape |
 |---|---|---|---|
-| `CAL-ABS-OWN` | 256 uniform levels over THIS box's own min/max | yes | no |
-| `CAL-ABS-FOREIGN` | 256 uniform levels over a DIFFERENT regime's min/max | yes, **wrong one** | no |
-| `CAL-RANK-DYN` | rank-normalised within the window, re-derived per box | **no** | **yes** |
-| `CAL-FISHERZ-DYN` | Fisher-z on within-window ranks (the arc's analytic codebook) | **no** | **yes** |
+| `CAL-ABS` | 256 uniform levels over donor `D`'s min/max | yes | **full** — diagonal = own, off-diagonal = swap |
+| `CAL-RANK` | rank-normalised within the target window | **no** | **degenerate** — `L ≡ 0` by construction |
+| `CAL-FISHERZ` | Fisher-z on within-window ranks (the arc's analytic codebook) | **no** | **degenerate** — same |
 
-`CAL-ABS-FOREIGN` is the literal reading of "badly calibrated";
-`CAL-RANK-DYN` / `CAL-FISHERZ-DYN` are "badly calibrated in absolute terms
-BUT dynamically mapping" — the operator's actual candidate.
+v1 listed `CAL-ABS-OWN` and `CAL-ABS-FOREIGN` as two separate arms. They
+are not two arms — they are the **diagonal and the off-diagonal of one
+arm's matrix**, and splitting them was the tell that the design was still a
+race. `CAL-ABS` with `D = T` is own-calibration; `CAL-ABS` with `D ≠ T` is
+the literal "badly calibrated"; the two dynamic arms are "badly calibrated
+in absolute terms BUT dynamically mapping" — the operator's actual
+candidate, and the ones whose rows are flat by construction.
 
-**Metric:** reconstruction RMSE in **Pa** (the physical unit, per the
-`E-R²-IS-NEAR-BLIND` lesson — never R² alone), plus Spearman ρ of the
-reconstructed vs true field, plus mean **bias** in Pa.
+**Metrics:** primary `ρ` and the derived transfer loss `L` (§2.2);
+secondary RMSE and mean **bias** in **Pa** (the physical unit, per the
+`E-R²-IS-NEAR-BLIND` lesson — never R² alone), reported for every cell but
+never used as the verdict.
 
 ---
 
@@ -155,29 +256,67 @@ reconstructed vs true field, plus mean **bias** in Pa.
   R1 < R2 < R3 < R4 must hold on **≥3 independent timesteps**, not just the
   preflight's one. If the ladder inverts on any timestep, the regime axis
   is not stable and every downstream cell is reported with that caveat.
-- **C2 THE CROSSOVER — the operator's hypothesis, two-sided:**
-  `Δ = RMSE(CAL-RANK-DYN) − RMSE(CAL-ABS-OWN)` must be **> 0 in R1/R2
-  (calm: dynamic loses) AND < 0 in R4 (storm: dynamic wins)** — a genuine
-  sign flip. **Both failure directions are reportable results, not
-  disappointments:** no flip = the hypothesis is refuted on this data and
-  says so; flip in the *opposite* direction = dynamic encoding is a
-  calm-regime tool, which would be a real and surprising finding.
-- **C3 THE MISCALIBRATION PENALTY SHRINKS WITH TURBULENCE:** the ratio
-  `RMSE(CAL-ABS-FOREIGN) / RMSE(CAL-ABS-OWN)` must be **strictly smaller in
-  R4 than in R1** — the direct statement of "storms are more forgiving of
-  bad calibration." Reported with the ratio at every tier, so a monotone
-  trend (or its absence) is visible rather than inferred from two endpoints.
-- **C4 GEOMETRY FLOOR BITES HERE (or it does not):** `GEO-GOLDEN-LO` must
+- **C1b CONSTANCY IS RELATIVE — so it is MEASURED, not claimed.** For the
+  discriminator (`|∇p|`), the **within-box** spread must be small relative
+  to the **between-box** spread: report
+  `separation = (between-box range) / (mean within-box σ)` and require
+  **≥ 3**. Below that, "holding the regime constant" is a label rather than
+  a condition, and every downstream cell inherits that caveat explicitly.
+  *(This is the operationalization of the operator's point that constancy
+  is relative — a box is a control condition only insofar as its internal
+  variation is dominated by the spread the design manufactured.)*
+- **C1c THE REGIMES MUST DIFFER IN CORRELATION STRUCTURE, not merely in
+  `|∇p|` — the suitability ASSUMPTION, made falsifiable.** The ladder is
+  built on a pressure-gradient discriminator, but the hypothesis is about
+  **structure**. So before any swap runs: measure each box's own
+  **autocorrelation decay length** and **rank-distribution shape** (Gini /
+  tail ratio of `|∇p|`). If R1 and R4 are indistinguishable on those, they
+  are ONE regime for this question no matter how far apart their gradients
+  are, and the ladder measures four copies of the same condition.
+  **Pre-registered honest reading:** a null here VOIDS the cross-swap
+  interpretation rather than weakening it — it would mean the manufactured
+  spread was manufactured on the wrong axis. Reported first, not last.
+- **C2 THE DEGENERATE ROW — verified, and proven capable of being
+  non-degenerate.** Two halves, both required:
+  (i) every dynamic arm (`CAL-RANK`, `CAL-FISHERZ`) must show `L[D][T] = 0`
+  for all `D` **exactly**; any nonzero off-diagonal means a donor parameter
+  leaked into the window and the run is VOID until it is found;
+  (ii) through the **identical code path**, `CAL-ABS` must show a
+  **non-zero** off-diagonal in at least one regime. Half (i) alone is the
+  can-it-DIFFER defect measured in W5 — a row that is flat because the
+  harness cannot vary anything proves nothing about the encoding.
+- **C3 TRANSFER LOSS SHRINKS WITH TURBULENCE:** for `CAL-ABS`, the mean
+  off-diagonal transfer loss `L̄[T] = mean_{D ≠ T} L[D][T]` must be
+  **strictly smaller in R4 than in R1** — the cross-swap statement of
+  "storms are more forgiving of bad calibration." Reported at every tier so
+  a monotone trend (or its absence) is visible rather than inferred from
+  two endpoints, and reported **alongside `occupancy` and `saturation`**, so
+  a shrinking loss can be attributed to a mechanism rather than asserted.
+- **C4 THE CROSSOVER — the operator's hypothesis, two-sided:**
+  `Δ[T] = ρ(CAL-RANK, T) − ρ(CAL-ABS, D=T, T)` must be **< 0 in R1/R2
+  (calm: own-calibration absolute wins) AND > 0 in R4 (storm: dynamic
+  wins)** — a genuine sign flip against the *diagonal*, which is the
+  hardest available opponent. **Both failure directions are reportable
+  results, not disappointments:** no flip = the strong hypothesis is
+  refuted on this data and says so; flip the *other* way = dynamic encoding
+  is a calm-regime tool, which would be real and surprising.
+  **The weak form is reported separately and never conflated with it:**
+  `ρ(CAL-RANK, T) > ρ(CAL-ABS, D ≠ T, T)` — dynamic beats a *mis-calibrated*
+  absolute. That one is nearly guaranteed by C2(i) and is therefore
+  evidence of wiring, not of merit.
+- **C5 GEOMETRY FLOOR BITES HERE (or it does not):** `GEO-GOLDEN-LO` must
   be worse than `GEO-GOLDEN-HI` at equal budget. **Pre-registered honest
   reading:** W5's B4 already found the floor to be a *safety margin, not a
   mechanism* on a smoothing metric — so a NULL here is expected-plausible
   and must be reported plainly, not buried. What would be genuinely
   informative is the floor biting on a *sampling-fidelity* metric where it
   did not bite on a *smoothing* one.
-- **C5 THE COMFORT MATRIX (descriptive, the deliverable):** the full
-  `regime × (geometry × calibration)` RMSE table, plus each cell normalized
-  by its regime's best arm — so "where does this formula feel at home" is
-  read directly off the matrix rather than argued.
+- **C6 THE TRANSFER MATRIX (descriptive, the deliverable):** the full
+  `geometry × (donor × target)` table of `ρ`, `L`, `occupancy`,
+  `saturation`, RMSE and bias — every cell raw, plus the derived `L̄[T]`
+  column. "Where does this formula feel at home" is then **read off the
+  diagonal**, and "how badly does it travel" **off the off-diagonal** —
+  neither argued.
 
 ---
 
@@ -187,10 +326,15 @@ Per the repeated finding that a first artifact ships summaries and omits
 the operands its headline rests on (W6's per-storm predictors; W5's
 family-B histogram; the chat-only 99.38 %), the JSON **must** carry:
 
-- every cell's **raw** RMSE / bias / Spearman ρ, in Pa where dimensional
-- the per-regime **codebook edges actually used** (so a miscalibration
-  claim is auditable without a re-fetch)
-- the **measured** `|∇p|`, spd σ, elev σ and lsm per box per timestep
+- every cell's **raw** `ρ` / `occupancy` / `saturation` / RMSE / bias,
+  keyed by `(geometry, donor D, target T)` — the full matrix, not the
+  diagonal plus a summary. `L[D][T]` is DERIVED in the report from stored
+  `ρ`, never stored alone (per the W6 lesson: store the operands, so a
+  headline can be re-derived without a re-fetch)
+- the per-regime **codebook edges actually used**, for every donor — a
+  miscalibration claim is auditable only if the wrong codebook is on disk
+- the **measured** `|∇p|`, spd σ, elev σ and lsm per box per timestep,
+  plus C1b's `separation` ratio and C1c's decay length + tail ratio
 - the **sample count actually drawn** per arm (the equal-budget proof, not
   the intent)
 - **units on every dimensional field name**, per the `c_bow`-is-km⁻¹ lesson
@@ -217,3 +361,14 @@ already fetched in preflight.
   silent substitution.
 - **Not a substitute for CT-F17.** Nothing here touches the directional
   claim; it is a substrate-fidelity map, a different question entirely.
+- **Not a claim that the four boxes are the same condition minus one
+  knob.** Real regimes differ in more than the discriminator. C1b bounds
+  how far the "held constant" label is earned, C1c bounds whether the
+  manufactured spread lies on the axis the hypothesis is about — and
+  whatever those two report travels with every downstream number rather
+  than being dropped once the matrix is filled.
+- **Not a claim that transfer loss isolates calibration alone.** `L` is
+  measured with `occupancy` and `saturation` beside it precisely because a
+  shrinking `L` could also mean the target's field happens to sit inside
+  the donor's range by luck of that timestep. Three timesteps bound that;
+  they do not eliminate it.

@@ -1,7 +1,8 @@
 ## substrate-comfort-zones-v1 — the comfort-zone map (PRE-REGISTERED 2026-08-12)
 
-Plan: `.claude/plans/substrate-comfort-zones-v1.md`. Regime × geometry ×
-calibration → where does each substrate formula feel at home. §1 preflight
+Plan: `.claude/plans/substrate-comfort-zones-v1.md`. A **cross-swap**
+(donor × target) transfer matrix per geometry arm → where does each
+substrate formula feel at home, and how badly does it travel. §1 preflight
 already run and it corrected two regime definitions before any bar existed.
 
 | D-id | Deliverable | Status | Feeds |
@@ -9,10 +10,25 @@ already run and it corrected two regime definitions before any bar existed.
 | D-CZ-0 | §1 regime preflight (`\|∇p\|` ladder, elevation-confound screen, speed-is-not-the-discriminator finding) | **DONE** — ladder R1 Amazon 10.2 → R2 ocean 14.9 → R3 W Siberia 43.8 → R4 storm 95.6 (9.3× range); 4 land candidates excluded on elev σ > 150 m | the regime axis all other rows score on |
 | D-CZ-1 | C0 controls (shuffled codebook + degenerate geometry), losability-smoke-tested BEFORE the full run | Queued | gates every cell — a control that can't lose voids its cell |
 | D-CZ-2 | C1 regime-ladder stability across ≥3 timesteps | Queued | anti-cherry-pick on the whole regime axis |
-| D-CZ-3 | **C2 the crossover** — `RANK-DYN − ABS-OWN` sign flip calm↔storm | Queued | **the operator's hypothesis, two-sided** |
-| D-CZ-4 | C3 miscalibration penalty vs turbulence (`ABS-FOREIGN`/`ABS-OWN` ratio per tier) | Queued | "storms forgive bad calibration" |
-| D-CZ-5 | C4 geometry floor on a SAMPLING-fidelity metric (NULL expected-plausible per W5 B4) | Queued | does the index floor bite where smoothing didn't |
-| D-CZ-6 | C5 the comfort matrix (the deliverable) | Queued | read-off answer to "where is each formula at home" |
+| D-CZ-2b | **C1b constancy is measured** — `separation = (between-box range)/(mean within-box σ)` ≥ 3 | Queued | earns the phrase "held constant"; otherwise a caveat rides every cell |
+| D-CZ-2c | **C1c the suitability ASSUMPTION** — regimes must differ in autocorrelation decay + rank-distribution shape, not only in `\|∇p\|` | Queued | a null here VOIDS the cross-swap reading (spread manufactured on the wrong axis) |
+| D-CZ-3 | **C2 degenerate-row verification, both halves** — dynamic arms `L ≡ 0` exactly, AND `CAL-ABS` proven non-degenerate through the same code path | Queued | the can-it-DIFFER gate; without half (ii) a flat row proves nothing |
+| D-CZ-4 | C3 **transfer loss** vs turbulence — `L̄[T] = mean_{D≠T} L[D][T]` strictly smaller in R4 than R1, reported with `occupancy`/`saturation` | Queued | "storms forgive bad calibration", with a mechanism attached |
+| D-CZ-5 | **C4 the crossover** — `ρ(CAL-RANK) − ρ(CAL-ABS, D=T)` sign flip calm↔storm (vs the DIAGONAL, the hardest opponent) | Queued | **the operator's hypothesis, two-sided**; weak form vs `D≠T` reported separately |
+| D-CZ-6 | C5 geometry floor on a SAMPLING-fidelity metric (NULL expected-plausible per W5 B4) | Queued | does the index floor bite where smoothing didn't |
+| D-CZ-7 | C6 the transfer matrix (the deliverable) | Queued | comfort read off the diagonal, travel-cost off the off-diagonal |
+
+> **2026-08-12 — rows re-cut, not restated.** The operator ruled that the
+> plan's §2 was built as a horse race where a cross-swap diagnostic belongs
+> (premise: the model *captures* the phenomenon but is *not calibrated*, so
+> miscalibration is the condition of measurement, not an arm). §2 was
+> rebuilt around the 4×4 donor×target transfer matrix and the bars were
+> renumbered; two new bars (C1b, C1c) exist because "held constant" and
+> "the manufactured spread is on the right axis" are now measured rather
+> than assumed. **Every row above was still Queued when this happened — no
+> measured result was reinterpreted.** Old→new: C2→C4 (crossover, now
+> against the diagonal on `ρ` rather than against `ABS-OWN` on RMSE),
+> C3→C3 (now transfer loss, not an RMSE ratio), C4→C5, C5→C6.
 
 ## golden-vs-tempered-stride-v1 — head-vs-gut queue — RUN 2026-08-12
 
