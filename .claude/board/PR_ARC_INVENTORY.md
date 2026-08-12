@@ -54,6 +54,88 @@
 **Status:** MERGED (`e6e27829`). Branch `claude/jirak-math-theorems-harvest-rfii13`
 → `main`. Doc/plan/board only.
 
+## 2026-08-12 — lance-graph #935 (MERGED) — the validation wave RUNS: T1–T4 + W2s-a executed, four more defects caught, one new epiphany
+
+- **Added.** `golden_vs_tempered_probe.py`/`.json` (T1–T4 executed against
+  the pre-registered bars — committed with bars BEFORE running, then run,
+  then corrected under review, per the standing discipline) and
+  `sunflower_pairing_probe.py`/`.json` (W2s-a executed: headline
+  N=F(17)²=2 550 409 per lattice + the G4 floor sweep to n=19,
+  N≈17.5M). `spiral_adi_probe.py` (W5) committed pre-registered; its RUN
+  was still in flight at merge time — results land in a follow-up PR.
+  EPIPHANIES: **`E-A-CONTROL-THAT-CANNOT-LOSE-IS-NO-CONTROL-1`**.
+- **Locked — the verdicts, honestly split.** **T2 PASS** (golden 68–106×
+  ahead at m=200q, all 10 q — exposed to none of the four bugs, since it
+  was always a single fixed-point comparison). **T3 PASS** (tempered
+  140/140 by exact integer arithmetic; golden 124–127/140 across 5
+  phases). **T4 PASS** (39.0 % naive-rounding collapse rate). **T1
+  twice-corrected**: the verified-permanent crossover is **1.9–2.7× q**,
+  not the first-drafted ~1.0–1.4× — golden needs roughly TWO tempered
+  cycles before its lead is durable. **W2s-a: G1 VOID (its own
+  pre-registered escape hatch), G2/G4 FAIL — and the FAIL is a fact about
+  the CONTROL, not the golden lattice**: two identically-constructed grids
+  differing only by translation are symmetry-uniform in cross-nearest-
+  neighbour distance (CV ≈ 1.6e-12 vs golden's 0.368, invariant under four
+  center offsets, diagnosed by a 0.1 s smoke test BEFORE the 2.55M run,
+  then run as-specified so the record shows the specified control failing
+  rather than a quiet redesign).
+- **Locked — the epiphany.** A control that cannot lose is as vacuous as a
+  test that cannot fail; the falsifiability rule's can-it-fire doctrine
+  extends to CONTROL ARMS. Two instances in one afternoon: the symmetric
+  grid (cannot lose any evenness comparison) and T1's first-crossing m*
+  (an implicit never-reverses claim with no machinery to check it —
+  codex's reproduced counterexample: q=17 reported m*=21, D*(22) back
+  above the ceiling). Corollaries banked: *a control must be able to
+  lose* (check for symmetry/degeneracy/construction-identity before
+  pre-registering); *"permanently" is a suffix claim needing verification
+  with a STATED scope* (checkpoint counts now reported beside every m*);
+  *smoke-test the control's losability cheaply before paying for the full
+  run*.
+- **Fixed in-flight (codex on this very PR's run results).** (P2) the
+  useful-range floor used `q//2` where the spec says `⌈q/2⌉` — every odd q
+  admitted one sub-range prefix; single shared helper now. (P1) m* was a
+  first-crossing search reported as permanent — replaced by
+  `verified_permanent_crossover` with sampled-suffix verification. Also a
+  self-caught commit-message falsity: one commit claimed "D-GVT-T1 row
+  updated" when only D-W2sA had been edited — caught by checking the
+  message's claims against the tree right after pushing, fixed in the next
+  commit with the discrepancy named.
+- **Deferred.** W5's run result (in flight at merge). W6 (needs ~40 WB2
+  chunks — next fetch-bearing step). An honest evenness falsifier for
+  W2s-a (offset/rotation-varied or spacing-mismatched control). The G4
+  note that 3-in-3.15M near-ties at n=19 reflect the fixed 1e-6 tolerance
+  meeting large-N sampling density, not a mechanism failure.
+- **Confidence.** High on every number (all from committed scripts +
+  JSONs); the T1 crossover figure specifically carries a three-revision
+  history, each widening, documented in the plan rather than smoothed.
+
+**Status:** MERGED (`a378136a`). Branch `claude/jirak-math-theorems-harvest-rfii13`
+→ `main`. Probes + results + board — zero product code.
+
+## 2026-08-12 — lance-graph #934 (MERGED) — board hygiene for #932/#933 + the storm-geography refinement (entry written late, from #935's post-merge pass)
+
+- **Added.** Arc entries + shipped rows for #932/#933, and the plan's
+  §Synthesis **storm-geography refinement** (operator, paraphrased), each
+  claim grounded in an existing measurement: (1) **centering is tempered
+  territory** — a golden lattice's center is structurally sub-floor at any
+  N (`√(r²N) → 0`), and the shipped `find_center` is already an exact grid
+  argmin + quadratic sub-grid fit, now stated as doctrine (never sample
+  the center from the spiral whose center is its own worst data); (2) **the
+  collision annulus is golden territory** — territory-gain/Go framing,
+  addresses self-describing outward; (3) **overlaying collision lattices =
+  controlled chaos at near-zero storage** — aperiodic yet fully
+  deterministic from two center coordinates, a node costs exactly its
+  12-byte facet; (4) **the self-description asymmetry in one sentence** —
+  tempered self-describes exactly up to q, golden for every k indefinitely.
+  Demarcation kept: the TASK causes the regime, the geography merely sorts
+  the tasks.
+- **Hygiene note.** This entry itself was written one PR late — #934 merged
+  and the operator's "run tests to validate" directive rightly took
+  priority; the omission was caught during #935's post-merge hygiene pass
+  and is recorded here rather than backdated.
+
+**Status:** MERGED (`96dc5bfe`). Doc/plan/board only.
+
 ## 2026-08-12 — lance-graph #933 (MERGED) — 4 codex fixes on #932 + golden-vs-tempered-stride-v1 (head-vs-gut, made falsifiable)
 
 - **Added.** `.claude/plans/golden-vs-tempered-stride-v1.md` — standalone,
