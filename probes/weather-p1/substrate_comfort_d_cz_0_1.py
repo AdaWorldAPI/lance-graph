@@ -440,5 +440,67 @@ def main():
               f"rmse ratio = {g['real_arm_rmse_ratio']:.3f}")
 
 
+def selftest():
+    """Validate the hand-rolled numerics BEFORE trusting any figure they
+    produce. `spearman` is checked against scipy where available (including
+    the two cases most likely to be wrong in a hand-rolled version: heavy
+    ties, and a constant input where rho is undefined rather than zero), and
+    against exact +1/-1 anchors where it is not. The codec checks assert the
+    SATURATION mechanism actually fires -- GEO-DEGENERATE's entire verdict
+    rests on it, so an inert clip would make that control vacuous.
+
+    Run: `python3 substrate_comfort_d_cz_0_1.py --selftest` (no network)."""
+    ok = True
+
+    def check(name, cond, detail=""):
+        nonlocal ok
+        ok &= bool(cond)
+        print(f"  {'PASS' if cond else 'FAIL'}  {name}  {detail}")
+
+    rng = np.random.default_rng(0)
+    try:
+        from scipy.stats import spearmanr
+        for name, (a, b) in {
+            "rho vs scipy: random": (rng.normal(size=500), rng.normal(size=500)),
+            "rho vs scipy: heavy ties": (rng.integers(0, 4, 400).astype(float),
+                                         rng.integers(0, 4, 400).astype(float)),
+        }.items():
+            mine, ref = spearman(a, b), spearmanr(a, b).statistic
+            check(name, abs(mine - ref) < 1e-12, f"{mine:+.10f} vs {ref:+.10f}")
+    except ImportError:
+        print("  SKIP  scipy comparison (not installed); exact anchors still run")
+
+    x = np.arange(50.0)
+    check("rho monotone == +1", abs(spearman(x, x ** 2) - 1.0) < 1e-12)
+    check("rho anti-monotone == -1", abs(spearman(x, -(x ** 2)) + 1.0) < 1e-12)
+    check("rho undefined on constant input is nan, not 0",
+          np.isnan(spearman(np.ones(100), rng.normal(size=100))))
+
+    truth = np.linspace(0, 1000, 1000)
+    _, idx = encode_decode(truth, 400, 600)
+    sat = float(np.mean((idx == 0) | (idx == N_LEVELS - 1)))
+    check("narrow donor SATURATES (the GEO-DEGENERATE mechanism)",
+          0.75 < sat < 0.85, f"saturation={sat:.3f}, 800/1000 lie outside [400,600]")
+    _, idx = encode_decode(truth, truth.min(), truth.max())
+    sat_own = float(np.mean((idx == 0) | (idx == N_LEVELS - 1)))
+    check("own donor does NOT saturate", sat_own < 0.02, f"saturation={sat_own:.4f}")
+
+    dec, i = rank_codec(truth)
+    check("rank_codec is monotone and uses every level",
+          bool(np.all(np.diff(dec) >= 0)) and len(np.unique(i)) == N_LEVELS)
+
+    r, c = box_index(0.0, 10.0)
+    check("16-deg box is 65x65 at 0.25 deg", len(r) == 65 and len(c) == 65)
+    _, cw = box_index(0.0, 353.4)
+    check("seam-crossing box keeps 65 DISTINCT columns",
+          len(np.unique(cw)) == 65, f"min={cw.min()} max={cw.max()}")
+
+    print("\nSELFTEST", "PASSED" if ok else "FAILED")
+    return 0 if ok else 1
+
+
 if __name__ == "__main__":
+    import sys
+    if "--selftest" in sys.argv:
+        raise SystemExit(selftest())
     main()
