@@ -1,3 +1,71 @@
+## 2026-08-12 — the W6 dipole-deconvolution RUN lands — VOID by its own anti-vacuity control, plus a reusable sample-composition lesson (PR pending)
+
+- **Added.** `comet_tail_w6.py`/`.json` — the report §10.2 vector-sum
+  model (`D = c_geo·P_geo + c_bow·P_bow`) fit on CT-F14/F16's 19 stored
+  storms, per `weather-w-probes-v1.md` §3's pre-registered bars. New
+  epiphany `E-THE-DISPLACEMENT-FILTER-ATE-THE-STRANDED-STRATUM-1`.
+- **Locked — B0 VOIDS, and the model has nothing to identify.**
+  Single-geo R²=−0.104 (worse than the mean); both anti-vacuity controls
+  (permuted P_bow, P_bow rotated +90°) score at −0.071/−0.062, both
+  clearing the ≤`single-geo + 0.03` bar's ceiling of −0.074. B1/B2
+  correctly report VOID (B0 failed), not their own numbers, per the
+  pre-registered rule.
+- **Locked — checked for an implementation bug before calling it a clean
+  negative, per the standing measurement-skeptic discipline; found none
+  in the fit — but found a sign convention error AND a units error in
+  the FIRST DRAFT's narrative (codex + CodeRabbit P2/Major on PR #940,
+  both fixed before merge).** One storm independently re-fetched and
+  hand-audited (t0=54358); extended to all 19 by committing the raw
+  predictors per storm (the first run shipped only derived bearings — a
+  self-caught audit gap, fixed and re-run before any reviewer needed to
+  find it). **Sign:** `spine()`'s raw coefficient points toward the
+  storm's HIGH side (increasing residual), while `P_geo`/`P_bow` both
+  point toward the LOW side by construction — `D = −spine(...)` matches
+  the same `(ph+π)` convention `low_pole_bearing()` already uses.
+  Corrected: `c_geo = +0.407` (physically predicted positive — CORRECT,
+  the first draft's "−0.41, wrong sign" had the polarity backward);
+  `c_bow = −0.0006` km⁻¹ (predicted positive — wrong sign, small).
+  Verified algebraically and numerically that the flip changes NOTHING
+  about R²/B0/B1 (OLS is odd-symmetric in the fit target) — only the
+  coefficient signs and their description. **Units:** `D`/`P_geo` are
+  Pa/km, `P_bow` is Pa, so `c_geo` is dimensionless but `c_bow` carries
+  km⁻¹ — raw `|c_bow|` (or the first draft's `|P_bow|`/`|D|` ≈ 147×
+  comparison) was never valid evidence of "no measurable weight," since
+  OLS coefficients rescale inversely under column rescaling. The
+  dimensionally valid measure is the fitted contribution
+  `|c_bow·P_bow|` vs `|D|`, both Pa/km: mean `|D|`=0.745, geo
+  contribution 25 % of `|D|`, bow contribution 9 % of `|D|` — modest,
+  not "no weight," and consistent throughout with R²<0.
+- **Locked — the reusable lesson: B3's stranded stratum is EMPTY (n=0),
+  and the reason is arithmetic, not physics.** `min(|v_storm|) = 12.54
+  m/s` across all 19 storms — CT-F14's own qualifying filter
+  (`displacement_km ≥ 250` over 6 h) mathematically implies `|v_storm| ≥
+  250 km / 6 h = 11.574 m/s` for ANY admitted storm. **A filter selected
+  for one purpose (fast, cleanly-displaced storms) is not neutral for a
+  LATER, differently-motivated test (stranded-rescue) — the
+  incompatibility is knowable from the filter's own arithmetic before a
+  single fetch, and wasn't checked until the stratum came back empty.**
+  Filed as a reusable pre-flight check for any future probe reusing an
+  existing filtered sample.
+- **Locked — consequence for CT-F17.** The vector-sum model AS
+  SPECIFIED is disconfirmed on this sample, void by its own control —
+  not "unproven," not "needs more data." CT-F17's gate (W6's result +
+  independent adversarial audit) is now moot **for this form of the
+  model**: a fresh-sample verdict on a model that fails identifiability
+  on the stored sample is not the useful next step. A REVISED model
+  form needs its own W6-shaped mechanistic test first; a genuine
+  stranded-rescue test needs a sample built without the displacement
+  floor.
+- **Docs.** `weather-w-probes-v1.md` §3 gets the full RUN section.
+  `STATUS_BOARD.md` D-W6 moves from Queued to the RUN verdict.
+- **Confidence.** High — every figure re-derived from the committed
+  JSON (which now carries the raw per-storm predictors, not only the
+  fit summary) or from a live re-fetch audit, not asserted from the
+  first run's output alone.
+
+**Status:** RUN complete; awaiting a PR to land these results.
+Probe + docs — zero product code.
+
 ## 2026-08-12 — lance-graph #932 (MERGED) — the golden-ratio index floor + the temperament mechanism (merged before its own review findings could be addressed — see #933)
 
 - **Added.** The operator-ruled golden-ratio index floor (convergent index
