@@ -1,3 +1,12 @@
+## 2026-08-12 — lance-graph #927 (MERGED) — board hygiene for #926 + the living-vs-ledger correction rule
+
+### Current Contract Inventory — no new types (board entries + one report correction)
+
+- **Fisher-z ring-mean ratio is 4.7×, not 5×** (18.07 / 3.84). Caught by verifying the new board entry's own figures against the committed JSONs before landing it: **9 of 10 exact, this was the tenth** — a 6 % overstatement in the favourable direction.
+- **⚠ LIVING DOCUMENTS vs APPEND-ONLY LEDGERS take OPPOSITE correction discipline.** A **living document** (report, code, JSON, PR description) is landed on directly → **fix every copy**. An **append-only ledger** is read newest-first and its value is the audit trail → **freeze the merged entry, correct in a NEW one**. I edited a merged `EPIPHANIES` entry in place and unmarked while citing the *grep-for-its-twins* rule; reverted same-PR. **A correct rule generalized past its domain** — third instance of that shape in this repo (#921's doctrine-vs-domain, this arc's Fisher-z rank/tail-vs-level).
+- **One-command append-only audit:** `git diff origin/main..HEAD -- .claude/board/` — **zero removed lines proves a pure prepend**, since a prepend cannot delete. Measured +13/−0, +10/−0, +0/−0 across the three board files.
+- **Note on assurance:** #927 was a draft through four review cycles, so **no automated reviewer read these entries** — CodeRabbit skips drafts and the explicit trigger hit the rate limit. The figures rest on self-verification against the committed JSONs.
+
 ## 2026-08-12 — lance-graph #926 (MERGED) — the storm spine, the 12-byte L4 carrier, and the propagation failure mode
 
 ### Current Contract Inventory — no new types (probes + report + board; zero Rust, zero product code)
