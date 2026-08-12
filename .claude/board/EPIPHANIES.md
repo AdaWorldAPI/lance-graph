@@ -19,10 +19,33 @@ targeted verification measurement, both committed.
 > sibling recording the corrected headline ratio — append-only, this
 > paragraph is not edited further.
 
-**The claim.** On a Vogel/golden lattice, a *local* non-Fibonacci control
-for stride-structure experiments **does not exist** — not "is hard to
-build," does not exist. Locality and Fibonacci-family membership are the
-same property, by the three-distance theorem: a point's near neighbours in
+> **⊘ SECOND CORRECTION (2026-08-12, codex P2 on PR #937) — "does not
+> exist" overclaims what 99.38 % actually showed.** The claim below reads
+> as a universal non-existence proof; the evidence is a 99.38 % rate at
+> ONE N (62 208) with ONE control construction (distance-matched among 8
+> real nearest neighbours) — not 100 %, and not a sweep across constructions
+> or scales. **What is actually proven, exactly:** the three-distance
+> theorem is a real theorem — a point's near neighbours on this lattice
+> ARE at convergent-denominator (Fibonacci) index offsets, as a matter of
+> number theory, not measurement. **What is empirical and should be read
+> as strong CORROBORATION, not proof of universal impossibility:** 99.38 %
+> of the measured control links landed on a Fibonacci offset, with the
+> ~0.62 % remainder consistent with the independently-measured ~1–2 %
+> structural boundary effect (points whose own forward Fibonacci partner
+> falls outside band range, counted separately in the same session) rather
+> than evidence of a working non-Fibonacci alternative. The claim below is
+> RESTATED, not deleted, to match this scope: read "does not exist" as
+> "the three-distance theorem predicts it cannot, and 99.38 % measured
+> confirmation at one tested N/construction is consistent with that" — a
+> sweep across N and control constructions would be needed to call the
+> universal form settled.
+
+**The claim, AS ORIGINALLY WRITTEN below (kept for the record; read through
+both corrections above).** On a Vogel/golden lattice, a *local*
+non-Fibonacci control for stride-structure experiments **does not exist**
+— not "is hard to build," does not exist. Locality and Fibonacci-family
+membership are the same property, by the three-distance theorem: a point's
+near neighbours in
 physical space are exactly the points at convergent-denominator index
 offsets, and for the golden angle the convergent denominators ARE the
 Fibonacci numbers.

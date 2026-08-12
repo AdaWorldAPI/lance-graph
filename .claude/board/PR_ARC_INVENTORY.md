@@ -79,24 +79,35 @@
   closely — **the reported ~21 % structural anisotropy residual is
   plausibly the MASK, not the ADI operator.** (4) The 99.38 % figure lived
   only in chat/board prose, not in a committed, reproducible artifact.
-- **Fixed, same day, pre-registered BEFORE the v2 run** (`106ca605`,
-  landing in a follow-up PR): full-band control (no cap; verified
-  in-qualifying self-link rate 0.27 % at the real headline N — a live
-  debugging trap caught and explained en route: a FIRST v2 diagnostic
-  divided by total N rather than qualifying-band population and reported
-  a spurious 38 % "self-linked", predicted exactly from the
-  qualifying/non-qualifying population split, confirming it was the
-  diagnostic that was wrong, not the control); iterations scaled to a
-  fixed target added variance (`iters = round(2V/h²)`, h² the measured
-  mesh spacing) with the fit search centered on the predicted σ_ref, plus
-  a raw pre-fit check against the unsmoothed input; the bump moved to
-  σ=0.05, r0=0.78 (≥3.35σ clearance; analytic baseline ratio there ≈1.005)
-  with the unsmoothed-baseline anisotropy now computed through the
-  identical mask every run; the offset histogram now lands in the
-  committed JSON. Timing verified (not guessed) before launching: ~33 min
-  for the headline sweep loops alone.
-- **Deferred.** The v2 RUN itself — in flight at merge time, landing in a
-  follow-up PR with corrected B2/B3/B4 verdicts. n=19/21 are out of scope
+- **Fixed, same day, pre-registered BEFORE the v2 run — the CODE, and it
+  landed IN #936, not in a follow-up** (`106ca605` is an ancestor of
+  `a3f627f3`, verified via `git merge-base --is-ancestor`; corrects an
+  overclaim in this entry's first draft, caught by codex P2 on PR #937 —
+  "landing in a follow-up PR" described the RUN's results, not the fix
+  itself, and read as if the fix were still pending when it was already
+  merged): full-band control (no cap; verified in-qualifying self-link
+  rate 0.27 % at the real headline N — a live debugging trap caught and
+  explained en route: a FIRST v2 diagnostic divided by total N rather than
+  qualifying-band population and reported a spurious 38 % "self-linked",
+  predicted exactly from the qualifying/non-qualifying population split,
+  confirming it was the diagnostic that was wrong, not the control);
+  iterations scaled to a fixed target added variance
+  (`iters = round(2V/h²)`, h² the measured mesh spacing) with the fit
+  search centered on the predicted σ_ref, plus a raw pre-fit check against
+  the unsmoothed input; the bump moved to σ=0.05, r0=0.78 (≥3.35σ
+  clearance; analytic baseline ratio there ≈1.005) with the
+  unsmoothed-baseline anisotropy now computed through the identical mask
+  every run; the control-link offset histogram is now COMPUTED by the
+  script (codex P2 on #937, second catch: "now lands in the committed
+  JSON" was future-tense stated as present — the tracked
+  `spiral_adi_probe.json` at merge time is still the v1 result with no
+  histogram in it; the histogram artifact itself is committed only once
+  the v2 RUN completes and its JSON replaces v1's). Timing verified (not
+  guessed) before launching: ~33 min for the headline sweep loops alone.
+- **Deferred.** The v2 RUN's RESULTS — in flight at merge time (the v2
+  CODE already merged, per the correction above), landing in a follow-up
+  PR with corrected B2/B3/B4 verdicts AND the histogram artifact codex P2
+  asked to see committed. n=19/21 are out of scope
   for v2's B4 under the V-matched iteration scaling (mechanism stated:
   iters grows roughly linearly with N at fixed physical blur target,
   making n=19 orders of magnitude more expensive than v1's uniform
@@ -110,7 +121,9 @@
   epiphany entry is not retracted, only its headline evidentiary anchor.
 
 **Status:** MERGED (`a3f627f3`). Branch `claude/jirak-math-theorems-harvest-rfii13`
-→ `main`. Superseded same-day by the v2 fix; see the v2 RUN entry once it lands.
+→ `main`. This PR's v1 VERDICTS are superseded same-day (the v2 CODE fix
+merged in this same PR, per the correction above); see the v2 RUN entry
+once its results land.
 
 ## 2026-08-12 — lance-graph #935 (MERGED) — the validation wave RUNS: T1–T4 + W2s-a executed, four more defects caught, one new epiphany
 
