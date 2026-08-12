@@ -850,6 +850,60 @@ that extent: steering level is no longer "the single most promising fix". The
 **structural** claim (§9.1) is untouched — nothing here involves the ring
 profile, the wn-1 dominance, or the 12-byte carrier.
 
+### 5.13 The instrument was the collapse: circular resultant vs sign test, same 19 storms
+
+`comet_tail_resultant_instrument.py` / `.json`. **Post-hoc re-analysis of
+stored rows — explicitly NOT a verdict.** Operator framing: *"die irrationale
+Aufsummierung hilft, dass der Dipol nicht auf 0.68 kollabiert."* Measured:
+
+| referent | sign < 0 | R̄ | μ | μ 95 % CI | Rayleigh p |
+|---|---:|---:|---:|---:|---:|
+| **surface (CT-F14)** | 0.684 | **0.516** | **−30.2°** | ±36.5° | **0.0050** |
+| steering (CT-F16) | 0.579 | 0.343 | −40.5° | ±64.3° | 0.107 |
+| CONTROL rot+90° | **0.684** | 0.343 | **−130.5°** | ±64.7° | 0.107 |
+| CONTROL permuted | 0.421 | 0.142 | — | ±152° | 0.689 |
+
+(uniform-expectation R̄ at n=19 ≈ 0.203)
+
+Three things, in order of importance:
+
+1. **The 0.684 plateau was a property of the STATISTIC, not the data.** The
+   sign test collapses each storm's error vector to one bit; 19 bits saturate
+   below the 14/19 distinguishability floor (§5.12). The circular resultant —
+   the *Aufsummierung*: sum the unit error vectors, read length and direction
+   — resolves the identical rows at **p = 0.0050**, because concentration (R̄)
+   and offset (μ) come out as two numbers instead of eating each other. The
+   systematic ≈−30° offset the arc has chased since §5.1 is now *estimated*
+   (−30.2° ± 36.5°) instead of *penalizing the score*.
+2. **The wrong referent is now visible.** F16c's rotated control scored
+   0.684 = indistinguishable under the sign test. Under the resultant it has
+   the same R̄ (rotation preserves concentration, by construction) but μ
+   shifted **100.3°** — separated by well over both CIs. The instrument
+   hierarchy is clean: real referent (0.516) > structured-but-wrong (0.343,
+   wrong μ) > permuted (0.142, below the uniform floor).
+3. **NOT a promotion.** Same sample, post-hoc — the p=0.0050 demonstrates the
+   instrument, it does not establish the directional claim. CT-W6 is the
+   pre-registered use of circular statistics on these rows (with the
+   two-component Faltung decomposition); a fresh-sample verdict is CT-F17.
+
+**The Faltung reading (operator, same exchange):** the resultant IS the first
+circular Fourier coefficient — a Faltung of the empirical error distribution
+with `e^{iθ}`. The generalization is the full harmonic/kernel readout (von
+Mises smoothing = circular Faltung; n=19 supports the first 2–3 harmonics),
+and the W6 decomposition is a DEconvolution: the measured dipole distribution
+= (referent component mix) ⊛ (apparatus noise, ±3–7° measured in CT-F4).
+Components add linearly in the transform domain, which is exactly what makes
+the multi-referent separation solvable — and on the palette ring `Z_256` the
+circular convolution is native to the substrate (`DistanceLut::circular()`'s
+own domain, FFT-able at 256 points).
+
+**Consequence for every prior sign-consistency number in this document:**
+§4's 2/2, §5.9's 6/10, §5.10's 8/10, §5.11's 13/19 were all read through an
+instrument that (a) cannot estimate the offset it penalizes and (b) cannot
+distinguish a rotated referent at these n. They stand as recorded, but their
+evidential weight is bounded by this section, in both directions — the sign
+test neither established the claim nor could it have.
+
 ## 6. Product / encoding consequence `[S]`
 
 > **⚠ Read with §5.9–5.11 AND the compression correction in §1.** The figures
