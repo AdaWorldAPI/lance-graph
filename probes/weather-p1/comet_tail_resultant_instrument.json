@@ -1,0 +1,38 @@
+{
+  "n": 19,
+  "source": "comet_tail_f16.json rows (paired, stored)",
+  "scope": "POST-HOC instrument comparison on the same storms whose sign test returned NO-VERDICT. Not a verdict; CT-W6 is the pre-registered use, CT-F17 the fresh-sample one.",
+  "referents": {
+    "surface (CT-F14)": {
+      "sign_neg_frac": 0.6842105263157895,
+      "R_bar": 0.5164480996096197,
+      "mu_deg": -30.193114037358924,
+      "mu_ci95_deg": 36.52016531393819,
+      "rayleigh_p": 0.004967482150890209
+    },
+    "steering (CT-F16)": {
+      "sign_neg_frac": 0.5789473684210527,
+      "R_bar": 0.342632911535701,
+      "mu_deg": -40.52194970164434,
+      "mu_ci95_deg": 64.29776042051351,
+      "rayleigh_p": 0.10672421673666334
+    },
+    "CONTROL rot+90": {
+      "sign_neg_frac": 0.6842105263157895,
+      "R_bar": 0.34263291153570086,
+      "mu_deg": -130.52194970164436,
+      "mu_ci95_deg": 64.69069385224262,
+      "rayleigh_p": 0.10672421673666359
+    },
+    "CONTROL permuted": {
+      "sign_neg_frac": 0.42105263157894735,
+      "R_bar": 0.14168656351290035,
+      "mu_deg": -28.449526845634523,
+      "mu_ci95_deg": 152.15618068129842,
+      "rayleigh_p": 0.688473350954606
+    }
+  },
+  "discrimination": {
+    "mu_separation_deg": 100.3288356642854
+  }
+}
