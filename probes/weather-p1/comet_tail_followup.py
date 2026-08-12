@@ -157,8 +157,8 @@ def decompose(field, ci, cj):
     resid1 = resid0 - wn1
 
     var_t = vals.var()
-    e1 = 1.0 - resid0.var() / var_t
-    e2 = 1.0 - resid1.var() / var_t
+    e1 = 1.0 - np.mean(resid0 ** 2) / var_t
+    e2 = 1.0 - np.mean(resid1 ** 2) / var_t
     wn1_frac = wn1.var() / resid0.var()
 
     amp = np.hypot(a1, b1)

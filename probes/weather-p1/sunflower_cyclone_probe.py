@@ -104,7 +104,7 @@ def axisym_index(ci_, cj_):
     prof = np.array([vals[rings == b].mean() if (rings == b).any() else np.nan
                      for b in range(24)])
     resid = vals - prof[rings]
-    return 1.0 - resid.var() / vals.var(), disk
+    return 1.0 - np.mean(resid ** 2) / vals.var(), disk
 
 
 def spiral_pts(n):

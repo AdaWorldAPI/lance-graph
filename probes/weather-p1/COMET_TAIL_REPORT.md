@@ -85,8 +85,9 @@ generalization beyond n=2.
 > samples (n=41 total storms). The structural claim (wn1 dominance,
 > explanatory power) is untouched throughout.
 
-Product consequence `[S]`: a storm's pressure field compresses to
-**center position + ~12 ring means + one dipole vector** at **90.9–94.3 %**
+Product consequence `[S]`: a storm's pressure field compresses to a
+**center address (metadata) + 14 logical fit values** — ~12 ring means plus a
+2-value dipole — at **90.9–94.3 %**
 variance explained (the 14-value constrained model — see the correction block
 above; the 93–97 % figure belonged to a 36-parameter model and is superseded).
 The dipole's orientation is *suggestively* related to the motion vector but
@@ -94,8 +95,12 @@ The dipole's orientation is *suggestively* related to the motion vector but
 largest sample) — so the compression claim stands on its own, and the
 "single-frame motion predictor" reading does not yet. The representation is a
 natural fit for the substrate's 3-integer spiral addressing (`highheelbgz`),
-and **measured to fit the L4 carrier exactly**: 12 bytes as `6×(8:8)`
-reproduces the f64 spine to 4 decimals (`l4_rail_probe.py`, §6.1).
+and those 14 logical values are **measured to fit the L4 carrier**: the
+encoding is a **12-byte `6×(8:8)` facet** (10 ring bytes spread over the radius
+with 2 interpolated, plus a 2-byte dipole rail), recovering the f64 spine to
+within 0.07 Pa RMSE (`l4_rail_probe.py`, §6.1). **14 logical values ≠ 14
+bytes** — the model size and the carrier budget are different quantities and
+are kept separate throughout.
 
 ---
 
@@ -816,27 +821,55 @@ distance/compose tables; similarity = ONE table read". A single byte is the
 *selector*; the **pair** is a cell in the centroid tile, and the tile is where
 the distribution lives. I had built one rail and called it the carrier.
 
-`l4_rail_probe.py`, four pre-registered bars, **two failed as written**:
+`l4_rail_probe.py`, four pre-registered bars, **two failed as written**.
+Numbers below are the CORRECTED ones — see the ⚠ note at the end of this
+section; an earlier version of this table used a `var()`-based R² that
+flattered every biased carve.
 
-| carve | 12 B? | storm 1 | storm 2 |
-|---|:--:|---:|---:|
-| f64 constrained spine (reference) | — | 0.9434 | 0.9090 |
-| **D — dipole rail + 10 ring bytes spread over the full radius** | **yes** | **0.9434** | **0.9090** |
-| A — dipole rail + rings 0–9, outer rings held | yes | 0.9212 | 0.9037 |
-| B — all 12 rings, no dipole rail | yes | 0.6348 | 0.2943 |
+| carve | 12 B? | storm 1 R² | storm 2 R² | RMSE Pa (s1) | **bias Pa (s1)** |
+|---|:--:|---:|---:|---:|---:|
+| f64 constrained spine (reference) | — | 0.94344 | 0.90905 | 241.64 | +0.00 |
+| **D — dipole rail + 10 ring bytes spread over the full radius** | **yes** | **0.94340** | **0.90903** | **241.71** | **+1.59** |
+| A — dipole rail + rings 0–9, outer rings held | yes | 0.91287 | 0.90177 | 299.91 | **+92.76** |
+| B — all 12 rings, no dipole rail | yes | 0.63479 | 0.29426 | — | — |
 
-**The 12-byte facet is lossless against the f64 spine** — carve D matches to
-four decimals on both storms. R² is demonstrably sensitive here (carve B, the
-same byte budget spent differently, collapses to 0.63/0.29), so this is
-recovery, not insensitivity.
+**The 12-byte facet recovers the f64 spine to within 0.07 Pa RMSE (0.03 %),
+carrying a +1.59 Pa mean bias.** It is **NOT lossless** — an earlier version of
+this section said so, on the strength of an R² that agreed to four decimals,
+and that was the wrong statistic to conclude it from (⚠ below). R² is
+nonetheless demonstrably *sensitive* here — carve B, the same byte budget spent
+differently, collapses to 0.63/0.29 — so carve D is genuine recovery, not
+insensitivity.
+
+> **⚠ CORRECTION 2026-08-12 (CodeRabbit, PR #926) — R² was computed with
+> `var()` instead of the uncentered MSE, at 11 sites across 8 probes.**
+> `1 − var(y−ŷ)/var(y)` silently discards the squared MEAN residual, so any
+> BIASED reconstruction is flattered. Measured consequences:
+> - **Where a ring-mean profile is present the effect is exactly zero**
+>   (`mean(resid)` = 1e-12 by construction), so **every f64 headline in this
+>   report — 0.9434 / 0.9090 / 0.972 / 0.926 — is unchanged.**
+> - **Carve A moved 0.9212 → 0.9129** and its `loss_dropped_rings` 0.0222 →
+>   0.0306. It holds the two outer rings at a fixed value; `var()` could not
+>   see the resulting **+92.76 Pa** offset at all.
+> - Carve D moved 0.943406 → 0.943403 (2.4e-06).
+>
+> **The deeper lesson, which is why the wording changed and not just the
+> digits:** in-disk variance here is ~1e5 Pa², so a systematic offset of tens
+> of Pa perturbs R² in the 5th decimal. **R² is structurally near-blind to
+> exactly the defect that matters for an encoder**, and "lossless" was inferred
+> from the one statistic that could not detect the loss. The probe now reports
+> **RMSE and mean bias in Pa alongside every R²**, because those are what
+> distinguish the carves.
 
 Three results worth more than the headline:
 
-- **L1 FAILED as written** (storm 1: 0.0222 against a 0.02 bar) and the
+- **L1 FAILED as written** (storm 1: **0.0306** against a 0.02 bar) and the
   decomposition names the cause exactly: **quantization +0.0000, dropped
-  rings +0.0222**. The carrier's *precision* is free; its *capacity* was the
+  rings +0.0306**. The carrier's *precision* is free; its *capacity* was the
   entire miss. Spending the same 12 bytes across the full radius (carve D)
-  rather than on the inner 10 plus a held edge erases it.
+  rather than on the inner 10 plus a held edge erases it — and in Pa the gap
+  is far starker than R² suggests: carve A's held outer rings cost **+92.76 Pa
+  of bias**, carve D's **+1.59 Pa**.
 - **L3 FAILED, and so did my proposed rescue.** Fisher-z centroid axes are
   **5× worse** than uniform on the ring means (18.07 vs 3.84 Pa). I
   hypothesised the population was wrong — ranks taken against the 24 encoded
@@ -1043,8 +1076,9 @@ better than my "borderline" framing:
 > Moderatoren; aber wir haben bereits das Gerüst, um das Zentrum und die
 > Dynamik zu modellieren."*
 
-**Why this framing is not spin — it is the statistically correct reading of
-the residual.** A directional main effect at 0.68–0.73 sign consistency
+**Why this framing is a working hypothesis supported by a structured
+residual — not spin, and not an established reading either.** A directional
+main effect at 0.68–0.73 sign consistency
 whose residual were *random* would be a dying claim. This chain's residual
 is not random: it runs **monotonically with a measured variable** — the
 height ladder (§5.2/5.8), ≈ −40° at 1000 hPa climbing smoothly through zero
@@ -1054,7 +1088,12 @@ identified covariate* is **consistent with a missing moderator and requires
 independent validation**. `[H]` at the ladder's n=2; `[G]` that the framing
 follows if the ladder replicates.
 
-> **Corrected 2026-08-11 (CodeRabbit, PR #926).** This paragraph read "*is the
+> **Corrected 2026-08-11, and again 2026-08-12 (CodeRabbit, PR #926).** Round
+> one softened the BODY; the **heading still said "it is the statistically
+> correct reading"** — the same overclaim, one line above its own correction,
+> which is the third instance in this document of fixing a claim in one place
+> and leaving its twin. Round two rewrote the heading to "a working hypothesis
+> supported by a structured residual". The original body read "*is the
 > signature of a missing moderator, NOT of a null. A null does not produce a
 > ladder.*" That overstates what a monotonic residual establishes: it supports
 > the hypothesis without discriminating it from model misspecification,
@@ -1071,7 +1110,9 @@ across three independent
 samples spanning 1980–2021, 41+ storms, four seasons, never shaken once
 (N3/N4; §5.11's own subset: median wn1_frac 0.60, R² 0.90). This is a
 skeleton that models the **center and the first asymmetry mode of the
-dynamics** in ~14 bytes plus an address — which is, as the operator notes,
+dynamics** in **14 logical values** plus a center address — encoded, per
+§6.1, in a **12-byte** `6×(8:8)` facet (values and bytes are different
+quantities; this line said "~14 bytes" until 2026-08-12) — which is, as the operator notes,
 already more explicit structure than a learned model exposes.
 
 ### 9.2 The DRY moderators — measured in this chain, not yet wired `[H]`
@@ -1114,6 +1155,17 @@ aspirational:
    0.19–0.36) are plausibly the diabatically-driven ones. Precip-per-disk /
    TCWV-dipole-strength is a computable gate variable at intake.
 
+> **⚠ Scope of the moist vocabulary (CodeRabbit, PR #926, 2026-08-12).**
+> `θe` is a **moist-adiabatic proxy**, not a complete entropy state for
+> variable moisture composition, and precipitation is an **exported water and
+> entropy flux**, not the full entropy-production term. Treat θe, TCWV,
+> precipitation and vertical velocity here as **proxies**. Before the diabatic
+> gate is used as a moderator in CT-M1..M3, the budget it stands for has to be
+> written down explicitly — water-vapour, phase-change, latent-heat,
+> precipitation and dissipation terms — rather than assumed from θe alone.
+> The operator's "eine Art Entropie" framing is directionally right and is
+> what makes this worth probing; it is not yet a defined budget.
+
 Named falsifiers, NOT run, `[S]` until probed: **CT-M1** — the TCWV/θe wn-1
 dipole leads the pressure dipole in bearing (moisture converges *ahead* of
 the low, ≈90° from the left-of-motion low pole); **CT-M2** — 6h disk
@@ -1129,15 +1181,28 @@ The shapes already exist and are proven:
 
 - **The spine is a board state.** Per storm and timestep: ~16 spine values
   (center, profile, dipole) + the moderator covariates (steering vector, f,
-  surface fraction, diabatic gate). A moderator set IS a weight matrix `W`;
-  `domino.rs`'s symbiont step (`C = A·W`, 16-board AMX/int8 tile-GEMM with
-  requantize feedback) executes exactly this — and the stencil-as-GEMM
-  path is already **byte-proven on real WB2 data** in ndarray's
-  `examples/geostrophic_stencil.rs` (4/4 pre-registered bars, corr 0.9985).
-- **The recurrence is an LSTM-shaped problem.** Successive 6h spine states
-  are a short sequence; the workspace already carries byte-parity-proven
-  int8 LSTM machinery (`tesseract-recognizer`, `E-OCR-LSTM-1`) consuming
-  the same `ndarray` tile-GEMM.
+  surface fraction, diabatic gate). A moderator set IS a weight matrix `W`,
+  and `domino.rs`'s symbiont step has the right SHAPE — `C[16,16] =
+  A[16,32]·W[32,16]`, a 16-board AMX BF16 tile-GEMM with requantise feedback.
+  The stencil-as-GEMM path is separately **byte-proven on real WB2 data** in
+  ndarray's `examples/geostrophic_stencil.rs` (4/4 pre-registered bars,
+  corr 0.9985).
+
+  > **⚠ Corrected 2026-08-12 (CodeRabbit, PR #926; verified against
+  > `crates/symbiont/src/domino.rs`).** This bullet said domino.rs "executes
+  > exactly this". **It does not.** Its `W` is a *fixed* 32×16 BF16 kernel
+  > whose top 16×16 is a **tridiagonal smoothing kernel** (`domino.rs:113`);
+  > the sweep overwrites board lanes and updates `Energy`. There are **no
+  > learned weights, no gate matrices, no hidden state and no cell state**.
+  > What exists is the tile-GEMM *shape and substrate*, not the model.
+  > Weather tensor shapes, a training procedure, and the recurrent update
+  > are all still undefined — that is the work, not a wiring job.
+- **The recurrence is an LSTM-shaped problem** `[S]`. Successive 6h spine
+  states are a short sequence, and the workspace carries byte-parity-proven
+  int8 LSTM machinery (`tesseract-recognizer`, `E-OCR-LSTM-1`) on the same
+  `ndarray` tile-GEMM. **That LSTM is an OCR model with its own trained
+  weights** — it is evidence the *primitives* exist, not that anything is
+  wired to weather.
 - **The hybrid is the honest architecture:** explicit physics as the spine
   (this report), learned weights as the moderators — the NeuralGCM-shaped
   split, on a 512-byte-per-storm substrate encoding, with the training

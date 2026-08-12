@@ -123,10 +123,31 @@ def spine(la, lo):
 
 
 def r2_of(s, prof, coef):
-    """In-disk R2 of a (profile, dipole) reconstruction against the raw field."""
+    """In-disk R2 of a (profile, dipole) reconstruction against the raw field.
+
+    The numerator is the UNCENTERED mean squared error, NOT var(): var() drops
+    the squared MEAN residual, so a BIASED reconstruction is flattered. This
+    matters here and is not cosmetic -- carve A holds the two outer rings at a
+    fixed value, and under var() that bias was invisible (coderabbit, PR #926,
+    2026-08-12; storm1 carve A moved 0.9212 -> 0.9129 on the fix).
+    """
     rec = prof[s["rings"]] + coef[0] * s["rr"] * np.cos(s["tt"]) \
         + coef[1] * s["rr"] * np.sin(s["tt"])
-    return 1.0 - ((s["vals"] - rec).var() / s["var"])
+    return 1.0 - (np.mean((s["vals"] - rec) ** 2) / s["var"])
+
+
+def err_pa(s, prof, coef):
+    """(RMSE, mean bias) in Pa -- the quantity R2 is nearly BLIND to here.
+
+    In-disk variance is ~1e5 Pa^2, so a systematic offset of a couple of Pa
+    moves R2 by ~1e-6 and vanishes at any printed precision. Reporting R2
+    alone is what made a biased reconstruction look 'lossless'; these two
+    numbers are what actually distinguish the carves.
+    """
+    rec = prof[s["rings"]] + coef[0] * s["rr"] * np.cos(s["tt"]) \
+        + coef[1] * s["rr"] * np.sin(s["tt"])
+    e = s["vals"] - rec
+    return float(np.sqrt(np.mean(e ** 2))), float(e.mean())
 
 
 def cb_uniform(pop):
@@ -218,7 +239,13 @@ for nm, s in storms.items():
         pd_ = np.interp(np.arange(s["nb"]), pos, rec[pos])
         r2_D = r2_of(s, pd_, coef_q)
 
-        row[cbn] = {"f64_r2": float(f64_r2), "carveA_r2": float(r2_A),
+        rm_f, bias_f = err_pa(s, s["prof"], s["coef"])
+        rm_d, bias_d = err_pa(s, pd_, coef_q)
+        rm_a, bias_a = err_pa(s, pa_A, coef_q)
+        row[cbn] = {"f64_rmse_pa": rm_f, "f64_bias_pa": bias_f,
+                    "carveD_rmse_pa": rm_d, "carveD_bias_pa": bias_d,
+                    "carveA_rmse_pa": rm_a, "carveA_bias_pa": bias_a,
+                    "f64_r2": float(f64_r2), "carveA_r2": float(r2_A),
                     "carveB_r2": float(r2_B), "carveD_r2": float(r2_D),
                     "ring_rmse_pa": ring_rmse,
                     "diag_14byte_r2": float(r2_over),

@@ -177,7 +177,7 @@ def decompose_ll(field, latc, lonc):
     ph = np.arctan2(np.sum(b1 * w), np.sum(a1 * w))
     return {"low_pole_rad": float((ph + np.pi) % (2 * np.pi)),
             "wn1_frac": float(wn1.var() / resid0.var()),
-            "R2_profile_wn1": float(1.0 - (resid0 - wn1).var() / vals.var())}
+            "R2_profile_wn1": float(1.0 - np.mean((resid0 - wn1) ** 2) / vals.var())}
 
 
 def wrap_deg(d):

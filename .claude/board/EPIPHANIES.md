@@ -146,7 +146,12 @@ or chance.
 **The three-part decomposition now on record (report §9):**
 1. **Spine `[G]`** — center + ~12 ring means + 1 wn-1 dipole = **90.9–94.3 %**
    of in-disk variance, unshaken across 3 independent samples / 41+ storms /
-   1980–2021. ~14 bytes + an address. *(Regraded in place per the same
+   1980–2021. **~14 logical model values** (12 ring means + a 2-value
+   dipole) plus a center address. *(Corrected 2026-08-12, CodeRabbit PR #926:
+   this read "~14 bytes + an address", conflating the MODEL size with a
+   CARRIER budget. The measured encoding is a 12-byte `6×(8:8)` L4 facet —
+   see report §6.1; the byte budget belongs in the encoding section, not
+   in the spine statement.)* *(Regraded in place per the same
    allowance used at line 67 above: this line printed 93–97 %, which
    `E-THE-HEADLINE-NUMBER-MEASURED-A-MODEL-NOBODY-CLAIMED-1` — the entry
    directly above — corrects to the 14-value model's real figure. Flagged by
