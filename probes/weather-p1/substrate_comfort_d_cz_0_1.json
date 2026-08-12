@@ -1,0 +1,1300 @@
+{
+  "probe": "substrate_comfort_d_cz_0_1",
+  "exploratory_within_r4": {
+    "question": "within R4 only: does GEO-DEGENERATE's rho rise with the storm's |grad p| -- i.e. does miscalibration hurt LESS in a stronger field?",
+    "spearman_rho_degen_vs_gradp": 0.443859649122807,
+    "n": 19,
+    "permutation_p_two_sided": 0.05777,
+    "n_permutations": 200000,
+    "null_abs_rho_p95": 0.45614035087719296,
+    "confounds_checked": {
+      "rho_vs_box_pressure_range": -0.03508771929824562,
+      "gradp_vs_box_pressure_range": 0.25263157894736843,
+      "rho_vs_donor_over_box_range": -0.08070175438596491
+    },
+    "status": "EXPLORATORY -- NOT a result. One tier, a CONTROL arm, n=19, unpre-registered, and p is ABOVE 0.05. Recorded as a reason the full cross-regime run is worth doing, never as evidence that it will succeed."
+  },
+  "grad_definition_reproduction": {
+    "candidates": {
+      "pa_per_100km_cos": {
+        "ratios": {
+          "R1_CALM_amazon": 3.6198652165944956,
+          "R2_OCEAN_spacific": 3.7231635148911044,
+          "R3_ACTIVE_wsiberia": 5.027913572702783,
+          "R4_STORM": 3.800145592081199
+        },
+        "max_abs_dev": 4.027913572702783
+      },
+      "pa_per_cell_cos": {
+        "ratios": {
+          "R1_CALM_amazon": 1.0062766180560367,
+          "R2_OCEAN_spacific": 1.0349922348100347,
+          "R3_ACTIVE_wsiberia": 1.3976962022296675,
+          "R4_STORM": 1.0563922758752802
+        },
+        "max_abs_dev": 0.3976962022296675
+      },
+      "pa_per_100km_flat": {
+        "ratios": {
+          "R1_CALM_amazon": 3.6106426578346467,
+          "R2_OCEAN_spacific": 3.677989072340695,
+          "R3_ACTIVE_wsiberia": 3.57608228799359,
+          "R4_STORM": 3.348837322499102
+        },
+        "max_abs_dev": 2.677989072340695
+      },
+      "pa_per_cell_flat": {
+        "ratios": {
+          "R1_CALM_amazon": 1.0037128526793897,
+          "R2_OCEAN_spacific": 1.0224342346191406,
+          "R3_ACTIVE_wsiberia": 0.9941054893552903,
+          "R4_STORM": 0.9309342628962213
+        },
+        "max_abs_dev": 0.06906573710377872
+      }
+    },
+    "identified": "pa_per_cell_flat",
+    "identified_max_abs_dev": 0.06906573710377872,
+    "interpretation": "The recorded \u00a71 figures are Pa per 0.25-degree GRID CELL with NO cos(lat) metric on the zonal spacing -- a plain np.gradient over the raw array. That understates zonal gradients at high latitude by 1/cos(lat): R3 at 60 N is ~40% low. The ladder ORDER survives the correction and the dynamic range WIDENS (9.3x -> ~9.8x), so the regime axis stands; the recorded magnitudes do not."
+  },
+  "seed": 20260812,
+  "t0": 54358,
+  "store": "https://storage.googleapis.com/weatherbench2/datasets/era5/1959-2022-6h-1440x721.zarr",
+  "units": {
+    "grad_p": "Pa/100km",
+    "rmse": "Pa",
+    "bias": "Pa",
+    "elev_sigma": "m",
+    "spd_sigma": "m/s",
+    "rho": "dimensionless",
+    "separation": "dimensionless"
+  },
+  "regimes": {
+    "R1_CALM_amazon": {
+      "centre_lat": -4.0,
+      "centre_lon": 296.0,
+      "grad_p_mean_pa_per_100km": 37.03122116576169,
+      "grad_p_candidates": {
+        "pa_per_100km_cos": 37.03122116576169,
+        "pa_per_cell_cos": 10.294209802713256,
+        "pa_per_100km_flat": 36.93687438964844,
+        "pa_per_cell_flat": 10.267982482910156
+      },
+      "recorded_in_plan": 10.23,
+      "elev_sigma_m": 121.7191390991211,
+      "spd_sigma_m_per_s": 0.627203106880188,
+      "lsm_mean": 0.9841691851615906,
+      "arms": {
+        "CAL-ABS": {
+          "rho": 0.9999596603993293,
+          "rmse_pa": 0.43545659099220974,
+          "bias_pa": -0.0039270091762204145,
+          "occupancy": 0.8359375,
+          "saturation": 0.00047337278106508875,
+          "codebook_lo_pa": 101006.4453125,
+          "codebook_hi_pa": 101391.1640625
+        },
+        "CAL-RANK": {
+          "rho": 0.9999927605048448,
+          "rmse_pa": 1.7230062297320425,
+          "bias_pa": 0.19835151627218936,
+          "occupancy": 1.0,
+          "saturation": 0.0078106508875739646,
+          "codebook_lo_pa": 101006.4453125,
+          "codebook_hi_pa": 101391.1640625
+        },
+        "CAL-SHUFFLE": {
+          "rho": 0.05829469113441985,
+          "rmse_pa": 131.35857962430885,
+          "bias_pa": 42.19313241089589,
+          "occupancy": 0.8359375,
+          "saturation": 0.00047337278106508875,
+          "codebook_lo_pa": 101006.4453125,
+          "codebook_hi_pa": 101391.1640625
+        },
+        "GEO-DEGENERATE": {
+          "rho": 0.3799822353435944,
+          "rmse_pa": 119.99599105198327,
+          "bias_pa": -103.18710295727972,
+          "occupancy": 0.421875,
+          "saturation": 0.949585798816568,
+          "codebook_lo_pa": 101006.4453125,
+          "codebook_hi_pa": 101054.421875
+        }
+      }
+    },
+    "R2_OCEAN_spacific": {
+      "centre_lat": -25.0,
+      "centre_lon": 220.0,
+      "grad_p_mean_pa_per_100km": 55.698526182770934,
+      "grad_p_candidates": {
+        "pa_per_100km_cos": 55.69852618277093,
+        "pa_per_cell_cos": 15.48348383275812,
+        "pa_per_100km_flat": 55.0227165222168,
+        "pa_per_cell_flat": 15.295616149902344
+      },
+      "recorded_in_plan": 14.96,
+      "elev_sigma_m": 0.20053908228874207,
+      "spd_sigma_m_per_s": 2.1267781257629395,
+      "lsm_mean": 2.8734792067552917e-05,
+      "arms": {
+        "CAL-ABS": {
+          "rho": 0.9999805198027167,
+          "rmse_pa": 1.3133243896042126,
+          "bias_pa": 0.02958709175064719,
+          "occupancy": 0.9609375,
+          "saturation": 0.0009467455621301775,
+          "codebook_lo_pa": 101391.9296875,
+          "codebook_hi_pa": 102554.5703125
+        },
+        "CAL-RANK": {
+          "rho": 0.9999923760691042,
+          "rmse_pa": 2.4243085003853295,
+          "bias_pa": 0.1679363905325444,
+          "occupancy": 1.0,
+          "saturation": 0.008047337278106508,
+          "codebook_lo_pa": 101391.9296875,
+          "codebook_hi_pa": 102554.5703125
+        },
+        "CAL-SHUFFLE": {
+          "rho": 0.1590246347518603,
+          "rmse_pa": 391.99915304930215,
+          "bias_pa": 96.81167965138452,
+          "occupancy": 0.9609375,
+          "saturation": 0.0009467455621301775,
+          "codebook_lo_pa": 101391.9296875,
+          "codebook_hi_pa": 102554.5703125
+        },
+        "GEO-DEGENERATE": {
+          "rho": 0.47801853597161725,
+          "rmse_pa": 430.5506483061611,
+          "bias_pa": -354.5808563629692,
+          "occupancy": 0.6484375,
+          "saturation": 0.917396449704142,
+          "codebook_lo_pa": 101391.9296875,
+          "codebook_hi_pa": 101502.3828125
+        }
+      }
+    },
+    "R3_ACTIVE_wsiberia": {
+      "centre_lat": 60.0,
+      "centre_lon": 72.0,
+      "grad_p_mean_pa_per_100km": 220.12205621292782,
+      "grad_p_candidates": {
+        "pa_per_100km_cos": 220.12205621292784,
+        "pa_per_cell_cos": 61.19113973361485,
+        "pa_per_100km_flat": 156.56088256835938,
+        "pa_per_cell_flat": 43.52193832397461
+      },
+      "recorded_in_plan": 43.78,
+      "elev_sigma_m": 67.82649230957031,
+      "spd_sigma_m_per_s": 2.7745840549468994,
+      "lsm_mean": 0.9501965045928955,
+      "arms": {
+        "CAL-ABS": {
+          "rho": 0.9999892456457632,
+          "rmse_pa": 3.2888446705759047,
+          "bias_pa": -0.1164641358866494,
+          "occupancy": 1.0,
+          "saturation": 0.002366863905325444,
+          "codebook_lo_pa": 102218.6015625,
+          "codebook_hi_pa": 105099.1953125
+        },
+        "CAL-RANK": {
+          "rho": 0.99999238780557,
+          "rmse_pa": 3.744044783417812,
+          "bias_pa": 0.30272697855029584,
+          "occupancy": 1.0,
+          "saturation": 0.008047337278106508,
+          "codebook_lo_pa": 102218.6015625,
+          "codebook_hi_pa": 105099.1953125
+        },
+        "CAL-SHUFFLE": {
+          "rho": 0.0032485030258086666,
+          "rmse_pa": 1128.7124857841304,
+          "bias_pa": 151.28249380258413,
+          "occupancy": 1.0,
+          "saturation": 0.002366863905325444,
+          "codebook_lo_pa": 102218.6015625,
+          "codebook_hi_pa": 105099.1953125
+        },
+        "GEO-DEGENERATE": {
+          "rho": 0.2900859787206164,
+          "rmse_pa": 1594.7041920434797,
+          "bias_pa": 1408.846735254773,
+          "occupancy": 0.3359375,
+          "saturation": 0.9718343195266272,
+          "codebook_lo_pa": 104926.4296875,
+          "codebook_hi_pa": 105099.1953125
+        }
+      }
+    },
+    "R4_STORM": {
+      "n_centres": 19,
+      "grad_p_mean_pa_per_100km": 363.2559171470418,
+      "grad_p_candidates": {
+        "pa_per_100km_cos": 363.2559171470418,
+        "pa_per_cell_cos": 100.98053765091804,
+        "pa_per_100km_flat": 320.11535965768917,
+        "pa_per_cell_flat": 88.98800619024979
+      },
+      "recorded_in_plan": 95.59,
+      "note": "each storm measured at its OWN t0 (19 extra chunks)",
+      "elev_sigma_m": 18.84813117980957,
+      "spd_sigma_m_per_s": 3.3246870040893555,
+      "lsm_mean": 0.005186561029404402,
+      "per_storm": [
+        {
+          "t0": 54358,
+          "lat": 37.7606455990929,
+          "lon": 158.35550138007275,
+          "grad_p": 376.54904197189944
+        },
+        {
+          "t0": 55578,
+          "lat": 49.30630498741868,
+          "lon": 329.96462355455805,
+          "grad_p": 321.2836342981727
+        },
+        {
+          "t0": 55822,
+          "lat": 47.12116315432716,
+          "lon": 218.75905030400767,
+          "grad_p": 224.78312409565999
+        },
+        {
+          "t0": 59726,
+          "lat": 56.26681556574107,
+          "lon": 178.97969837924182,
+          "grad_p": 471.72421864761816
+        },
+        {
+          "t0": 62410,
+          "lat": 45.102734243947886,
+          "lon": 307.4108806847002,
+          "grad_p": 315.5561376969774
+        },
+        {
+          "t0": 62898,
+          "lat": 52.23181291184118,
+          "lon": 328.6795165909927,
+          "grad_p": 282.92548922341496
+        },
+        {
+          "t0": 63142,
+          "lat": 38.751726980533526,
+          "lon": 323.6873562719305,
+          "grad_p": 388.3604378807517
+        },
+        {
+          "t0": 63630,
+          "lat": 28.845082353475743,
+          "lon": 67.81185755361025,
+          "grad_p": 322.8788289141673
+        },
+        {
+          "t0": 65094,
+          "lat": 40.20503910539359,
+          "lon": 79.34242857084944,
+          "grad_p": 564.2826229226617
+        },
+        {
+          "t0": 66558,
+          "lat": 54.20799369844886,
+          "lon": 130.25559414294094,
+          "grad_p": 178.242934455348
+        },
+        {
+          "t0": 67046,
+          "lat": 54.75,
+          "lon": 188.15043347333307,
+          "grad_p": 427.79816761401764
+        },
+        {
+          "t0": 67778,
+          "lat": 49.66383829643146,
+          "lon": 338.7627794330812,
+          "grad_p": 233.56446300648025
+        },
+        {
+          "t0": 68754,
+          "lat": 41.63454690695439,
+          "lon": 158.0240357377511,
+          "grad_p": 363.10477223514187
+        },
+        {
+          "t0": 68998,
+          "lat": 40.081768429120515,
+          "lon": 316.97489409322253,
+          "grad_p": 352.773729414013
+        },
+        {
+          "t0": 70218,
+          "lat": 39.33113364502934,
+          "lon": 174.7526838816152,
+          "grad_p": 324.65694080455194
+        },
+        {
+          "t0": 73634,
+          "lat": 32.081890067957204,
+          "lon": 85.29824266895127,
+          "grad_p": 475.4442287261895
+        },
+        {
+          "t0": 73878,
+          "lat": 34.14437390359832,
+          "lon": 71.81849475304371,
+          "grad_p": 521.4826269770654
+        },
+        {
+          "t0": 74122,
+          "lat": 69.01585282912403,
+          "lon": 353.4343585345505,
+          "grad_p": 358.7382867459927
+        },
+        {
+          "t0": 74366,
+          "lat": 59.52619677699913,
+          "lon": 352.03934730709716,
+          "grad_p": 397.71274016367056
+        }
+      ],
+      "arms": {
+        "CAL-ABS": {
+          "rho": 0.9999455179549077,
+          "rmse_pa": 5.225022014301248,
+          "bias_pa": -0.07730155267659024,
+          "occupancy": 1.0,
+          "saturation": 0.0014201183431952662,
+          "codebook_lo_pa": 96493.1328125,
+          "codebook_hi_pa": 101083.2265625
+        },
+        "CAL-RANK": {
+          "rho": 0.999992377503148,
+          "rmse_pa": 7.7792531932522735,
+          "bias_pa": 0.5239233542899409,
+          "occupancy": 1.0,
+          "saturation": 0.008047337278106508,
+          "codebook_lo_pa": 96493.1328125,
+          "codebook_hi_pa": 101083.2265625
+        },
+        "CAL-SHUFFLE": {
+          "rho": -0.0313294886884852,
+          "rmse_pa": 1746.0864237688932,
+          "bias_pa": 391.6508730844351,
+          "occupancy": 1.0,
+          "saturation": 0.0014201183431952662,
+          "codebook_lo_pa": 96493.1328125,
+          "codebook_hi_pa": 101083.2265625
+        },
+        "GEO-DEGENERATE": {
+          "rho": 0.9077081758912022,
+          "rmse_pa": 939.2584672914949,
+          "bias_pa": -424.5272577301567,
+          "occupancy": 0.9609375,
+          "saturation": 0.7223668639053255,
+          "codebook_lo_pa": 97558.5625,
+          "codebook_hi_pa": 98011.859375
+        }
+      },
+      "arms_all_storms": [
+        {
+          "CAL-ABS": {
+            "rho": 0.9999819072451731,
+            "rmse_pa": 5.096421640429061,
+            "bias_pa": 0.08740485016410873,
+            "occupancy": 1.0,
+            "saturation": 0.003076923076923077,
+            "codebook_lo_pa": 97207.5546875,
+            "codebook_hi_pa": 101734.6953125
+          },
+          "CAL-RANK": {
+            "rho": 0.9999923795318434,
+            "rmse_pa": 6.245906769511972,
+            "bias_pa": 0.332733450443787,
+            "occupancy": 1.0,
+            "saturation": 0.008047337278106508,
+            "codebook_lo_pa": 97207.5546875,
+            "codebook_hi_pa": 101734.6953125
+          },
+          "CAL-SHUFFLE": {
+            "rho": 0.017388850063534484,
+            "rmse_pa": 1730.4198072435872,
+            "bias_pa": -431.92888546915447,
+            "occupancy": 1.0,
+            "saturation": 0.003076923076923077,
+            "codebook_lo_pa": 97207.5546875,
+            "codebook_hi_pa": 101734.6953125
+          },
+          "GEO-DEGENERATE": {
+            "rho": 0.796518746930496,
+            "rmse_pa": 1300.4496687033877,
+            "bias_pa": 793.115736582378,
+            "occupancy": 0.8515625,
+            "saturation": 0.8792899408284024,
+            "codebook_lo_pa": 100666.3046875,
+            "codebook_hi_pa": 100966.1796875
+          }
+        },
+        {
+          "CAL-ABS": {
+            "rho": 0.9999862318012269,
+            "rmse_pa": 4.210097739390874,
+            "bias_pa": -0.07408526719674556,
+            "occupancy": 1.0,
+            "saturation": 0.001183431952662722,
+            "codebook_lo_pa": 96954.640625,
+            "codebook_hi_pa": 100671.390625
+          },
+          "CAL-RANK": {
+            "rho": 0.9999923816399939,
+            "rmse_pa": 5.353277045559338,
+            "bias_pa": 0.22328818417159763,
+            "occupancy": 1.0,
+            "saturation": 0.008047337278106508,
+            "codebook_lo_pa": 96954.640625,
+            "codebook_hi_pa": 100671.390625
+          },
+          "CAL-SHUFFLE": {
+            "rho": -0.02184697672728916,
+            "rmse_pa": 1415.7838441696363,
+            "bias_pa": -161.52041339219676,
+            "occupancy": 1.0,
+            "saturation": 0.001183431952662722,
+            "codebook_lo_pa": 96954.640625,
+            "codebook_hi_pa": 100671.390625
+          },
+          "GEO-DEGENERATE": {
+            "rho": 0.8502411621179441,
+            "rmse_pa": 842.7624158158758,
+            "bias_pa": 385.56966281145986,
+            "occupancy": 0.8203125,
+            "saturation": 0.8965680473372781,
+            "codebook_lo_pa": 99263.8828125,
+            "codebook_hi_pa": 99578.1015625
+          }
+        },
+        {
+          "CAL-ABS": {
+            "rho": 0.99996472041182,
+            "rmse_pa": 3.571808181468066,
+            "bias_pa": 0.025359840167344674,
+            "occupancy": 0.94140625,
+            "saturation": 0.0021301775147928993,
+            "codebook_lo_pa": 97108.4765625,
+            "codebook_hi_pa": 100283.0078125
+          },
+          "CAL-RANK": {
+            "rho": 0.9999923725701866,
+            "rmse_pa": 6.579004400404101,
+            "bias_pa": 0.3687957655325444,
+            "occupancy": 1.0,
+            "saturation": 0.008047337278106508,
+            "codebook_lo_pa": 97108.4765625,
+            "codebook_hi_pa": 100283.0078125
+          },
+          "CAL-SHUFFLE": {
+            "rho": -0.01360447632854284,
+            "rmse_pa": 1149.165699637025,
+            "bias_pa": 352.1881802566799,
+            "occupancy": 0.94140625,
+            "saturation": 0.0021301775147928993,
+            "codebook_lo_pa": 97108.4765625,
+            "codebook_hi_pa": 100283.0078125
+          },
+          "GEO-DEGENERATE": {
+            "rho": 0.9425931788664675,
+            "rmse_pa": 550.9886722887745,
+            "bias_pa": -205.47467259153106,
+            "occupancy": 0.9609375,
+            "saturation": 0.6930177514792899,
+            "codebook_lo_pa": 97916.4921875,
+            "codebook_hi_pa": 98252.7421875
+          }
+        },
+        {
+          "CAL-ABS": {
+            "rho": 0.9999871507216301,
+            "rmse_pa": 6.085806723894088,
+            "bias_pa": 0.036368949935281066,
+            "occupancy": 1.0,
+            "saturation": 0.0014201183431952662,
+            "codebook_lo_pa": 95187.9140625,
+            "codebook_hi_pa": 100622.4765625
+          },
+          "CAL-RANK": {
+            "rho": 0.9999923796910728,
+            "rmse_pa": 8.29016413132304,
+            "bias_pa": 0.40743944156804734,
+            "occupancy": 1.0,
+            "saturation": 0.008047337278106508,
+            "codebook_lo_pa": 95187.9140625,
+            "codebook_hi_pa": 100622.4765625
+          },
+          "CAL-SHUFFLE": {
+            "rho": -0.07845689537124734,
+            "rmse_pa": 2141.2392998292817,
+            "bias_pa": 267.9257312372874,
+            "occupancy": 1.0,
+            "saturation": 0.0014201183431952662,
+            "codebook_lo_pa": 95187.9140625,
+            "codebook_hi_pa": 100622.4765625
+          },
+          "GEO-DEGENERATE": {
+            "rho": 0.7725710109509478,
+            "rmse_pa": 1499.2278312190442,
+            "bias_pa": 1037.2820693048782,
+            "occupancy": 0.8984375,
+            "saturation": 0.8771597633136095,
+            "codebook_lo_pa": 98538.953125,
+            "codebook_hi_pa": 99252.9765625
+          }
+        },
+        {
+          "CAL-ABS": {
+            "rho": 0.9999440793458897,
+            "rmse_pa": 4.448613896616015,
+            "bias_pa": -0.01931232158954327,
+            "occupancy": 0.9765625,
+            "saturation": 0.001893491124260355,
+            "codebook_lo_pa": 98186.2890625,
+            "codebook_hi_pa": 102203.015625
+          },
+          "CAL-RANK": {
+            "rho": 0.9999924004546038,
+            "rmse_pa": 8.149269718206662,
+            "bias_pa": 0.20229937130177514,
+            "occupancy": 1.0,
+            "saturation": 0.008047337278106508,
+            "codebook_lo_pa": 98186.2890625,
+            "codebook_hi_pa": 102203.015625
+          },
+          "CAL-SHUFFLE": {
+            "rho": 0.07474239772003428,
+            "rmse_pa": 1498.6178743107857,
+            "bias_pa": -684.7530959017602,
+            "occupancy": 0.9765625,
+            "saturation": 0.001893491124260355,
+            "codebook_lo_pa": 98186.2890625,
+            "codebook_hi_pa": 102203.015625
+          },
+          "GEO-DEGENERATE": {
+            "rho": 0.2770632218729123,
+            "rmse_pa": 1218.525806012264,
+            "bias_pa": 932.882988169292,
+            "occupancy": 0.359375,
+            "saturation": 0.9739644970414201,
+            "codebook_lo_pa": 101980.8203125,
+            "codebook_hi_pa": 102203.015625
+          }
+        },
+        {
+          "CAL-ABS": {
+            "rho": 0.9999802167345049,
+            "rmse_pa": 5.293715601177469,
+            "bias_pa": 0.039000998954095784,
+            "occupancy": 0.98828125,
+            "saturation": 0.0009467455621301775,
+            "codebook_lo_pa": 97196.1875,
+            "codebook_hi_pa": 101864.3828125
+          },
+          "CAL-RANK": {
+            "rho": 0.9999923804069095,
+            "rmse_pa": 8.137425958497007,
+            "bias_pa": 0.31831638313609467,
+            "occupancy": 1.0,
+            "saturation": 0.008047337278106508,
+            "codebook_lo_pa": 97196.1875,
+            "codebook_hi_pa": 101864.3828125
+          },
+          "CAL-SHUFFLE": {
+            "rho": 0.013215632592290643,
+            "rmse_pa": 1666.1084701291977,
+            "bias_pa": 293.76930812497113,
+            "occupancy": 0.98828125,
+            "saturation": 0.0009467455621301775,
+            "codebook_lo_pa": 97196.1875,
+            "codebook_hi_pa": 101864.3828125
+          },
+          "GEO-DEGENERATE": {
+            "rho": 0.6266157434470416,
+            "rmse_pa": 1410.9616150746938,
+            "bias_pa": -1075.220573665461,
+            "occupancy": 0.828125,
+            "saturation": 0.8475739644970414,
+            "codebook_lo_pa": 97203.84375,
+            "codebook_hi_pa": 98163.109375
+          }
+        },
+        {
+          "CAL-ABS": {
+            "rho": 0.9999684011401656,
+            "rmse_pa": 5.524427188831789,
+            "bias_pa": 0.07302972737148669,
+            "occupancy": 1.0,
+            "saturation": 0.0007100591715976331,
+            "codebook_lo_pa": 96439.78125,
+            "codebook_hi_pa": 101329.625
+          },
+          "CAL-RANK": {
+            "rho": 0.9999923852597883,
+            "rmse_pa": 8.5229435695501,
+            "bias_pa": 0.40263359837278107,
+            "occupancy": 1.0,
+            "saturation": 0.0078106508875739646,
+            "codebook_lo_pa": 96439.78125,
+            "codebook_hi_pa": 101329.625
+          },
+          "CAL-SHUFFLE": {
+            "rho": -0.07488000427362264,
+            "rmse_pa": 1959.0762121696648,
+            "bias_pa": -787.8627208389192,
+            "occupancy": 1.0,
+            "saturation": 0.0007100591715976331,
+            "codebook_lo_pa": 96439.78125,
+            "codebook_hi_pa": 101329.625
+          },
+          "GEO-DEGENERATE": {
+            "rho": 0.7137502500705319,
+            "rmse_pa": 1259.9207337519267,
+            "bias_pa": 840.0929159744534,
+            "occupancy": 0.9140625,
+            "saturation": 0.8288757396449704,
+            "codebook_lo_pa": 100456.078125,
+            "codebook_hi_pa": 100891.0234375
+          }
+        },
+        {
+          "CAL-ABS": {
+            "rho": 0.9999771766086314,
+            "rmse_pa": 2.9063326795799367,
+            "bias_pa": 0.02692974384014423,
+            "occupancy": 0.97265625,
+            "saturation": 0.00047337278106508875,
+            "codebook_lo_pa": 98842.0390625,
+            "codebook_hi_pa": 101415.3671875
+          },
+          "CAL-RANK": {
+            "rho": 0.9999923712181198,
+            "rmse_pa": 5.2759464227601285,
+            "bias_pa": 0.2344790125739645,
+            "occupancy": 1.0,
+            "saturation": 0.008047337278106508,
+            "codebook_lo_pa": 98842.0390625,
+            "codebook_hi_pa": 101415.3671875
+          },
+          "CAL-SHUFFLE": {
+            "rho": 0.13987127911526273,
+            "rmse_pa": 907.0694653902646,
+            "bias_pa": 304.3082295687523,
+            "occupancy": 0.97265625,
+            "saturation": 0.00047337278106508875,
+            "codebook_lo_pa": 98842.0390625,
+            "codebook_hi_pa": 101415.3671875
+          },
+          "GEO-DEGENERATE": {
+            "rho": 0.5338523232185596,
+            "rmse_pa": 936.0821838030135,
+            "bias_pa": 810.9766603296043,
+            "occupancy": 0.73828125,
+            "saturation": 0.9072189349112426,
+            "codebook_lo_pa": 100600.9921875,
+            "codebook_hi_pa": 101129.3671875
+          }
+        },
+        {
+          "CAL-ABS": {
+            "rho": 0.9999825799790091,
+            "rmse_pa": 3.0974227052815992,
+            "bias_pa": -0.004238487108219305,
+            "occupancy": 0.98046875,
+            "saturation": 0.0007100591715976331,
+            "codebook_lo_pa": 98932.3515625,
+            "codebook_hi_pa": 101669.453125
+          },
+          "CAL-RANK": {
+            "rho": 0.9999923873279707,
+            "rmse_pa": 5.005583635830296,
+            "bias_pa": 0.27755639792899406,
+            "occupancy": 1.0,
+            "saturation": 0.008047337278106508,
+            "codebook_lo_pa": 98932.3515625,
+            "codebook_hi_pa": 101669.453125
+          },
+          "CAL-SHUFFLE": {
+            "rho": -0.06175519167730918,
+            "rmse_pa": 1064.5327921210921,
+            "bias_pa": 66.57849007329997,
+            "occupancy": 0.98046875,
+            "saturation": 0.0007100591715976331,
+            "codebook_lo_pa": 98932.3515625,
+            "codebook_hi_pa": 101669.453125
+          },
+          "GEO-DEGENERATE": {
+            "rho": 0.9336934453471238,
+            "rmse_pa": 529.0379195653161,
+            "bias_pa": 120.0523233555901,
+            "occupancy": 0.96484375,
+            "saturation": 0.7879289940828402,
+            "codebook_lo_pa": 100185.6015625,
+            "codebook_hi_pa": 100556.3125
+          }
+        },
+        {
+          "CAL-ABS": {
+            "rho": 0.999979466148308,
+            "rmse_pa": 1.8648254526345596,
+            "bias_pa": 0.020777855145155327,
+            "occupancy": 0.9609375,
+            "saturation": 0.00047337278106508875,
+            "codebook_lo_pa": 98782.1796875,
+            "codebook_hi_pa": 100445.7109375
+          },
+          "CAL-RANK": {
+            "rho": 0.9999923807637795,
+            "rmse_pa": 3.383835462863183,
+            "bias_pa": 0.3214108727810651,
+            "occupancy": 1.0,
+            "saturation": 0.0078106508875739646,
+            "codebook_lo_pa": 98782.1796875,
+            "codebook_hi_pa": 100445.7109375
+          },
+          "CAL-SHUFFLE": {
+            "rho": 0.06505626859776883,
+            "rmse_pa": 577.4791473020764,
+            "bias_pa": 19.036957935581547,
+            "occupancy": 0.9609375,
+            "saturation": 0.00047337278106508875,
+            "codebook_lo_pa": 98782.1796875,
+            "codebook_hi_pa": 100445.7109375
+          },
+          "GEO-DEGENERATE": {
+            "rho": 0.7158920321921993,
+            "rmse_pa": 417.14703060299126,
+            "bias_pa": 297.47345281296225,
+            "occupancy": 0.9296875,
+            "saturation": 0.8314792899408284,
+            "codebook_lo_pa": 99872.6328125,
+            "codebook_hi_pa": 100113.0078125
+          }
+        },
+        {
+          "CAL-ABS": {
+            "rho": 0.9999830767737898,
+            "rmse_pa": 5.54517533107316,
+            "bias_pa": 0.03024468958025148,
+            "occupancy": 0.953125,
+            "saturation": 0.0009467455621301775,
+            "codebook_lo_pa": 95879.140625,
+            "codebook_hi_pa": 100840.328125
+          },
+          "CAL-RANK": {
+            "rho": 0.9999923794920451,
+            "rmse_pa": 9.766144990547666,
+            "bias_pa": 0.7745770155325444,
+            "occupancy": 1.0,
+            "saturation": 0.008047337278106508,
+            "codebook_lo_pa": 95879.140625,
+            "codebook_hi_pa": 100840.328125
+          },
+          "CAL-SHUFFLE": {
+            "rho": 0.003557991794921873,
+            "rmse_pa": 1797.9063786149156,
+            "bias_pa": -219.0995726527829,
+            "occupancy": 0.953125,
+            "saturation": 0.0009467455621301775,
+            "codebook_lo_pa": 95879.140625,
+            "codebook_hi_pa": 100840.328125
+          },
+          "GEO-DEGENERATE": {
+            "rho": 0.9025527778687535,
+            "rmse_pa": 874.466826144752,
+            "bias_pa": -235.27740585417436,
+            "occupancy": 0.9296875,
+            "saturation": 0.8383431952662722,
+            "codebook_lo_pa": 97983.7890625,
+            "codebook_hi_pa": 98580.5703125
+          }
+        },
+        {
+          "CAL-ABS": {
+            "rho": 0.9999479639834267,
+            "rmse_pa": 3.9584688113171245,
+            "bias_pa": -0.056311956100915314,
+            "occupancy": 0.99609375,
+            "saturation": 0.0009467455621301775,
+            "codebook_lo_pa": 98864.921875,
+            "codebook_hi_pa": 102355.5234375
+          },
+          "CAL-RANK": {
+            "rho": 0.9999923873281765,
+            "rmse_pa": 6.251165149533109,
+            "bias_pa": 0.26342409393491123,
+            "occupancy": 1.0,
+            "saturation": 0.008047337278106508,
+            "codebook_lo_pa": 98864.921875,
+            "codebook_hi_pa": 102355.5234375
+          },
+          "CAL-SHUFFLE": {
+            "rho": -0.029542582594540692,
+            "rmse_pa": 1189.1065746037575,
+            "bias_pa": -194.05966100207448,
+            "occupancy": 0.99609375,
+            "saturation": 0.0009467455621301775,
+            "codebook_lo_pa": 98864.921875,
+            "codebook_hi_pa": 102355.5234375
+          },
+          "GEO-DEGENERATE": {
+            "rho": 0.7025396412317991,
+            "rmse_pa": 672.8939287377613,
+            "bias_pa": 424.81181092030903,
+            "occupancy": 0.78125,
+            "saturation": 0.9034319526627219,
+            "codebook_lo_pa": 101162.421875,
+            "codebook_hi_pa": 101520.2578125
+          }
+        },
+        {
+          "CAL-ABS": {
+            "rho": 0.9999755861736808,
+            "rmse_pa": 5.450247930709492,
+            "bias_pa": -0.011221988835983727,
+            "occupancy": 0.984375,
+            "saturation": 0.0007100591715976331,
+            "codebook_lo_pa": 96926.5234375,
+            "codebook_hi_pa": 101750.3046875
+          },
+          "CAL-RANK": {
+            "rho": 0.9999923768268721,
+            "rmse_pa": 8.298110928059886,
+            "bias_pa": 0.3312398298816568,
+            "occupancy": 1.0,
+            "saturation": 0.008047337278106508,
+            "codebook_lo_pa": 96926.5234375,
+            "codebook_hi_pa": 101750.3046875
+          },
+          "CAL-SHUFFLE": {
+            "rho": 0.033233700360214,
+            "rmse_pa": 1683.1014949244525,
+            "bias_pa": 65.96790135851978,
+            "occupancy": 0.984375,
+            "saturation": 0.0007100591715976331,
+            "codebook_lo_pa": 96926.5234375,
+            "codebook_hi_pa": 101750.3046875
+          },
+          "GEO-DEGENERATE": {
+            "rho": 0.8634678131913318,
+            "rmse_pa": 903.032022143713,
+            "bias_pa": 450.7533940169656,
+            "occupancy": 0.98046875,
+            "saturation": 0.7893491124260354,
+            "codebook_lo_pa": 99616.1328125,
+            "codebook_hi_pa": 100113.8203125
+          }
+        },
+        {
+          "CAL-ABS": {
+            "rho": 0.9999856487296975,
+            "rmse_pa": 5.210688132029513,
+            "bias_pa": 0.03171772432045118,
+            "occupancy": 0.98046875,
+            "saturation": 0.0009467455621301775,
+            "codebook_lo_pa": 96114.390625,
+            "codebook_hi_pa": 100652.484375
+          },
+          "CAL-RANK": {
+            "rho": 0.999992378139629,
+            "rmse_pa": 7.63198136843695,
+            "bias_pa": 0.348983450443787,
+            "occupancy": 1.0,
+            "saturation": 0.008047337278106508,
+            "codebook_lo_pa": 96114.390625,
+            "codebook_hi_pa": 100652.484375
+          },
+          "CAL-SHUFFLE": {
+            "rho": 0.03316045583437094,
+            "rmse_pa": 1639.245298404161,
+            "bias_pa": -341.89031811956824,
+            "occupancy": 0.98046875,
+            "saturation": 0.0009467455621301775,
+            "codebook_lo_pa": 96114.390625,
+            "codebook_hi_pa": 100652.484375
+          },
+          "GEO-DEGENERATE": {
+            "rho": 0.6787615040395997,
+            "rmse_pa": 1455.6952123557821,
+            "bias_pa": 1103.7864041625255,
+            "occupancy": 0.921875,
+            "saturation": 0.8177514792899409,
+            "codebook_lo_pa": 99829.7109375,
+            "codebook_hi_pa": 100557.9453125
+          }
+        },
+        {
+          "CAL-ABS": {
+            "rho": 0.9999675438199526,
+            "rmse_pa": 4.853729739551666,
+            "bias_pa": 0.02757313022952108,
+            "occupancy": 0.99609375,
+            "saturation": 0.0009467455621301775,
+            "codebook_lo_pa": 97393.1953125,
+            "codebook_hi_pa": 101652.578125
+          },
+          "CAL-RANK": {
+            "rho": 0.9999923765481876,
+            "rmse_pa": 7.836855118550682,
+            "bias_pa": 0.2312657174556213,
+            "occupancy": 1.0,
+            "saturation": 0.008047337278106508,
+            "codebook_lo_pa": 97393.1953125,
+            "codebook_hi_pa": 101652.578125
+          },
+          "CAL-SHUFFLE": {
+            "rho": 0.1544019615427578,
+            "rmse_pa": 1426.9951302447525,
+            "bias_pa": -268.97592219064927,
+            "occupancy": 0.99609375,
+            "saturation": 0.0009467455621301775,
+            "codebook_lo_pa": 97393.1953125,
+            "codebook_hi_pa": 101652.578125
+          },
+          "GEO-DEGENERATE": {
+            "rho": 0.574549309472321,
+            "rmse_pa": 1250.858078119118,
+            "bias_pa": 914.5443412139712,
+            "occupancy": 0.4375,
+            "saturation": 0.9512426035502959,
+            "codebook_lo_pa": 100812.4921875,
+            "codebook_hi_pa": 100855.9375
+          }
+        },
+        {
+          "CAL-ABS": {
+            "rho": 0.9999749641914131,
+            "rmse_pa": 4.03615109988254,
+            "bias_pa": 0.007302000508505917,
+            "occupancy": 0.953125,
+            "saturation": 0.00047337278106508875,
+            "codebook_lo_pa": 98740.4453125,
+            "codebook_hi_pa": 102351.8828125
+          },
+          "CAL-RANK": {
+            "rho": 0.9999923826740688,
+            "rmse_pa": 7.616696810418932,
+            "bias_pa": 0.39311991494082843,
+            "occupancy": 1.0,
+            "saturation": 0.008047337278106508,
+            "codebook_lo_pa": 98740.4453125,
+            "codebook_hi_pa": 102351.8828125
+          },
+          "CAL-SHUFFLE": {
+            "rho": 0.004993871439081937,
+            "rmse_pa": 1285.6443968292122,
+            "bias_pa": 107.32536106809357,
+            "occupancy": 0.953125,
+            "saturation": 0.00047337278106508875,
+            "codebook_lo_pa": 98740.4453125,
+            "codebook_hi_pa": 102351.8828125
+          },
+          "GEO-DEGENERATE": {
+            "rho": 0.9252017330784578,
+            "rmse_pa": 611.6587759393256,
+            "bias_pa": 5.838743083886141,
+            "occupancy": 0.96484375,
+            "saturation": 0.8314792899408284,
+            "codebook_lo_pa": 100217.6328125,
+            "codebook_hi_pa": 100522.203125
+          }
+        },
+        {
+          "CAL-ABS": {
+            "rho": 0.9999769555978869,
+            "rmse_pa": 3.045540496958833,
+            "bias_pa": 0.02475273538623336,
+            "occupancy": 0.94140625,
+            "saturation": 0.0007100591715976331,
+            "codebook_lo_pa": 98996.28125,
+            "codebook_hi_pa": 101742.7421875
+          },
+          "CAL-RANK": {
+            "rho": 0.9999923825548863,
+            "rmse_pa": 7.4305006022712075,
+            "bias_pa": 0.28340005547337277,
+            "occupancy": 1.0,
+            "saturation": 0.008047337278106508,
+            "codebook_lo_pa": 98996.28125,
+            "codebook_hi_pa": 101742.7421875
+          },
+          "CAL-SHUFFLE": {
+            "rho": -0.03567411682668655,
+            "rmse_pa": 1106.2968361683083,
+            "bias_pa": 410.9121696553428,
+            "occupancy": 0.94140625,
+            "saturation": 0.0007100591715976331,
+            "codebook_lo_pa": 98996.28125,
+            "codebook_hi_pa": 101742.7421875
+          },
+          "GEO-DEGENERATE": {
+            "rho": 0.8605273613161372,
+            "rmse_pa": 611.215270335307,
+            "bias_pa": 293.61860578367697,
+            "occupancy": 0.890625,
+            "saturation": 0.8743195266272189,
+            "codebook_lo_pa": 100140.09375,
+            "codebook_hi_pa": 100420.8125
+          }
+        },
+        {
+          "CAL-ABS": {
+            "rho": 0.9999455179549077,
+            "rmse_pa": 5.225022014301248,
+            "bias_pa": -0.07730155267659024,
+            "occupancy": 1.0,
+            "saturation": 0.0014201183431952662,
+            "codebook_lo_pa": 96493.1328125,
+            "codebook_hi_pa": 101083.2265625
+          },
+          "CAL-RANK": {
+            "rho": 0.999992377503148,
+            "rmse_pa": 7.7792531932522735,
+            "bias_pa": 0.5239233542899409,
+            "occupancy": 1.0,
+            "saturation": 0.008047337278106508,
+            "codebook_lo_pa": 96493.1328125,
+            "codebook_hi_pa": 101083.2265625
+          },
+          "CAL-SHUFFLE": {
+            "rho": 0.10253854947362512,
+            "rmse_pa": 1546.2413063479166,
+            "bias_pa": 261.1158382691152,
+            "occupancy": 1.0,
+            "saturation": 0.0014201183431952662,
+            "codebook_lo_pa": 96493.1328125,
+            "codebook_hi_pa": 101083.2265625
+          },
+          "GEO-DEGENERATE": {
+            "rho": 0.9077081758912022,
+            "rmse_pa": 939.2584672914949,
+            "bias_pa": -424.5272577301567,
+            "occupancy": 0.9609375,
+            "saturation": 0.7223668639053255,
+            "codebook_lo_pa": 97558.5625,
+            "codebook_hi_pa": 98011.859375
+          }
+        },
+        {
+          "CAL-ABS": {
+            "rho": 0.9999861526029734,
+            "rmse_pa": 4.619607092797872,
+            "bias_pa": 0.0799411498301128,
+            "occupancy": 1.0,
+            "saturation": 0.005207100591715977,
+            "codebook_lo_pa": 95840.0390625,
+            "codebook_hi_pa": 99954.734375
+          },
+          "CAL-RANK": {
+            "rho": 0.9999923792535886,
+            "rmse_pa": 5.920287805616933,
+            "bias_pa": 0.23934818786982248,
+            "occupancy": 1.0,
+            "saturation": 0.008047337278106508,
+            "codebook_lo_pa": 95840.0390625,
+            "codebook_hi_pa": 99954.734375
+          },
+          "CAL-SHUFFLE": {
+            "rho": -0.04020666630218376,
+            "rmse_pa": 1638.7952130653864,
+            "bias_pa": 299.4833717012123,
+            "occupancy": 1.0,
+            "saturation": 0.005207100591715977,
+            "codebook_lo_pa": 95840.0390625,
+            "codebook_hi_pa": 99954.734375
+          },
+          "GEO-DEGENERATE": {
+            "rho": 0.7364465913102116,
+            "rmse_pa": 1356.4058372124398,
+            "bias_pa": 1051.1578240894567,
+            "occupancy": 0.94921875,
+            "saturation": 0.842603550295858,
+            "codebook_lo_pa": 98524.375,
+            "codebook_hi_pa": 99344.9453125
+          }
+        }
+      ],
+      "arms_across_storms": {
+        "CAL-ABS": {
+          "rho": {
+            "min": 0.9999440793458897,
+            "median": 0.9999771766086314,
+            "max": 0.9999871507216301,
+            "n": 19
+          },
+          "rmse_pa": {
+            "min": 1.8648254526345596,
+            "median": 4.619607092797872,
+            "max": 6.085806723894088,
+            "n": 19
+          },
+          "saturation": {
+            "min": 0.00047337278106508875,
+            "median": 0.0009467455621301775,
+            "max": 0.005207100591715977,
+            "n": 19
+          },
+          "occupancy": {
+            "min": 0.94140625,
+            "median": 0.984375,
+            "max": 1.0,
+            "n": 19
+          }
+        },
+        "CAL-RANK": {
+          "rho": {
+            "min": 0.9999923712181198,
+            "median": 0.9999923796910728,
+            "max": 0.9999924004546038,
+            "n": 19
+          },
+          "rmse_pa": {
+            "min": 3.383835462863183,
+            "median": 7.616696810418932,
+            "max": 9.766144990547666,
+            "n": 19
+          },
+          "saturation": {
+            "min": 0.0078106508875739646,
+            "median": 0.008047337278106508,
+            "max": 0.008047337278106508,
+            "n": 19
+          },
+          "occupancy": {
+            "min": 1.0,
+            "median": 1.0,
+            "max": 1.0,
+            "n": 19
+          }
+        },
+        "CAL-SHUFFLE": {
+          "rho": {
+            "min": -0.07845689537124734,
+            "median": 0.004993871439081937,
+            "max": 0.1544019615427578,
+            "n": 19
+          },
+          "rmse_pa": {
+            "min": 577.4791473020764,
+            "median": 1498.6178743107857,
+            "max": 2141.2392998292817,
+            "n": 19
+          },
+          "saturation": {
+            "min": 0.00047337278106508875,
+            "median": 0.0009467455621301775,
+            "max": 0.005207100591715977,
+            "n": 19
+          },
+          "occupancy": {
+            "min": 0.94140625,
+            "median": 0.984375,
+            "max": 1.0,
+            "n": 19
+          }
+        },
+        "GEO-DEGENERATE": {
+          "rho": {
+            "min": 0.2770632218729123,
+            "median": 0.7725710109509478,
+            "max": 0.9425931788664675,
+            "n": 19
+          },
+          "rmse_pa": {
+            "min": 417.14703060299126,
+            "median": 936.0821838030135,
+            "max": 1499.2278312190442,
+            "n": 19
+          },
+          "saturation": {
+            "min": 0.6930177514792899,
+            "median": 0.842603550295858,
+            "max": 0.9739644970414201,
+            "n": 19
+          },
+          "occupancy": {
+            "min": 0.359375,
+            "median": 0.9140625,
+            "max": 0.98046875,
+            "n": 19
+          }
+        },
+        "_gate_all_19": {
+          "controls_lose_on_rho_every_storm": true,
+          "controls_lose_on_rmse_every_storm": true
+        }
+      }
+    }
+  },
+  "d_cz_1_gate": {
+    "R1_CALM_amazon": {
+      "controls_lose_on_rho": {
+        "CAL-SHUFFLE": true,
+        "GEO-DEGENERATE": true
+      },
+      "controls_lose_on_rmse": {
+        "CAL-SHUFFLE": true,
+        "GEO-DEGENERATE": true
+      },
+      "real_arm_rho_spread": 3.310010551549336e-05,
+      "real_arm_rmse_ratio": 3.956780688072917
+    },
+    "R2_OCEAN_spacific": {
+      "controls_lose_on_rho": {
+        "CAL-SHUFFLE": true,
+        "GEO-DEGENERATE": true
+      },
+      "controls_lose_on_rmse": {
+        "CAL-SHUFFLE": true,
+        "GEO-DEGENERATE": true
+      },
+      "real_arm_rho_spread": 1.1856266387444414e-05,
+      "real_arm_rmse_ratio": 1.845932748660768
+    },
+    "R3_ACTIVE_wsiberia": {
+      "controls_lose_on_rho": {
+        "CAL-SHUFFLE": true,
+        "GEO-DEGENERATE": true
+      },
+      "controls_lose_on_rmse": {
+        "CAL-SHUFFLE": true,
+        "GEO-DEGENERATE": true
+      },
+      "real_arm_rho_spread": 3.1421598067904455e-06,
+      "real_arm_rmse_ratio": 1.138407300568013
+    },
+    "R4_STORM": {
+      "controls_lose_on_rho": {
+        "CAL-SHUFFLE": true,
+        "GEO-DEGENERATE": true
+      },
+      "controls_lose_on_rmse": {
+        "CAL-SHUFFLE": true,
+        "GEO-DEGENERATE": true
+      },
+      "real_arm_rho_spread": 4.685954824024119e-05,
+      "real_arm_rmse_ratio": 1.4888460128894991
+    }
+  },
+  "c1b_separation": 6.276455079492352,
+  "c1b_within_box_sigma": {
+    "R1_CALM_amazon": 38.18404849707024,
+    "R2_OCEAN_spacific": 32.50800184740457,
+    "R3_ACTIVE_wsiberia": 85.23579037911355
+  },
+  "not_reproducible_as_committed": [
+    "Australian outback",
+    "Sahara (Libyan erg)",
+    "Argentine pampas",
+    "US Great Plains",
+    "N European plain"
+  ],
+  "not_reproducible_reason": "\u00a71's table records these five EXCLUDED land candidates with measured figures but their box centres were never written down in any committed artifact. No coordinates are invented here."
+}

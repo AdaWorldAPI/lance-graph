@@ -30,8 +30,17 @@
 >
 > **Stated as the instrument** (§2): under cross-swap, the absolute
 > encoding's transfer loss `L` should shrink as turbulence rises, while the
-> dynamic encoding's is zero by construction — so the crossover is a
-> statement about `ρ` on the diagonal, not about RMSE anywhere.
+> dynamic encoding's is zero by construction.
+>
+> **⚠ AMENDED by the D-CZ-1 run — see §6.4.** This block first read *"so the
+> crossover is a statement about `ρ` on the diagonal, not about RMSE
+> anywhere."* **Measured: `ρ` is SATURATED on the diagonal** — the spread
+> between the two real arms is 3×10⁻⁶…4.7×10⁻⁵, so C4 as pre-registered
+> could not have fired. `L` (off-diagonal) keeps `ρ`, where it has four
+> orders of magnitude of range; **C4 moves to RMSE in Pa** with `ρ` as a
+> floor check. Corrected here rather than left standing in the header while
+> §6 says otherwise — a summary sentence surviving a revision that
+> contradicts it is this arc's most repeated defect.
 
 ---
 
@@ -112,6 +121,16 @@ on `|∇p|` and speed *variance* (σ), never mean speed.**
 
 Dynamic range R1→R4 ≈ **9.3×** on `|∇p|` — enough to expect a crossover if
 one exists.
+
+> **⚠ THIS TABLE IS NOW REPRODUCED, AND PARTLY CORRECTED — see §6.1/§6.2.**
+> When written, none of these figures had a committed script or JSON behind
+> them. Four rows now reproduce (ratios 1.004 / 1.022 / 0.994 / 0.931); the
+> five EXCLUDED land candidates remain **unreproducible** because their box
+> centres were never recorded anywhere. The `|∇p|` definition is identified
+> as **Pa per grid cell with NO cos(lat) metric**, which understates high
+> latitude — R3 is ~40 % low. Metric-corrected the ladder is 10.3 / 15.5 /
+> 61.2 / 100.9: the **ORDER survives** and the range widens to ≈**9.8×**.
+> The regime axis stands; these magnitudes do not.
 
 ---
 
@@ -327,7 +346,13 @@ never used as the verdict.
   a monotone trend (or its absence) is visible rather than inferred from
   two endpoints, and reported **alongside `occupancy` and `saturation`**, so
   a shrinking loss can be attributed to a mechanism rather than asserted.
-- **C4 THE CROSSOVER — the operator's hypothesis, two-sided:**
+- **C4 THE CROSSOVER — the operator's hypothesis, two-sided.**
+  **⚠ METRIC AMENDED by D-CZ-1 (§6.4): the primary quantity below is RMSE in
+  Pa, not `ρ`.** `ρ` measured saturated on the diagonal (real-arm spread
+  3×10⁻⁶…4.7×10⁻⁵) and is retained only as a floor check (< 0.999 = broken,
+  not merely lost). The sign convention flips with the metric: RMSE is
+  lower-is-better, so the inequalities below invert. Stated as the amended
+  bar, with the pre-registered form kept beneath it:
   `Δ[T] = ρ(CAL-RANK, T) − ρ(CAL-ABS, D=T, T)` must be **< 0 in R1/R2
   (calm: own-calibration absolute wins) AND > 0 in R4 (storm: dynamic
   wins)** — a genuine sign flip against the *diagonal*, which is the
@@ -407,3 +432,173 @@ already fetched in preflight.
   shrinking `L` could also mean the target's field happens to sit inside
   the donor's range by luck of that timestep. Three timesteps bound that;
   they do not eliminate it.
+
+
+---
+
+## §6 RUN — D-CZ-0 (reproduced) + D-CZ-1 (the gate), 2026-08-12
+
+Script `probes/weather-p1/substrate_comfort_d_cz_0_1.py`, results
+`…_d_cz_0_1.json`, tag-file `exec-runs/…txt`. One timestep, ~96 MB.
+
+### §6.1 D-CZ-0 was recorded DONE with NO committed artifact
+
+**The finding that forced this run.** §1's nine-row preflight table is on the
+board as **DONE**, and no script and no JSON producing any of its figures had
+ever been committed. That is the chat-only-figure defect of #936, and it
+survived three subsequent PRs — including an explicit self-audit on #945 that
+called the ladder numbers "verified". That audit compared the arc entry to the
+PLAN. Both are prose. **A figure cited in two documents is cited twice, not
+confirmed.**
+
+Now reproduced and committed:
+
+| regime | recorded | reproduced (identified defn) | ratio |
+|---|---|---|---|
+| R1 CALM Amazon | 10.23 | 10.27 | 1.004 |
+| R2 OCEAN S-Pacific | 14.96 | 15.29 | 1.022 |
+| R3 ACTIVE W-Siberia | 43.78 | 43.53 | 0.994 |
+| R4 STORM (19, each at its OWN `t0`) | 95.59 | 88.99 | 0.931 |
+
+**Still NOT reproducible:** the five EXCLUDED land candidates (Australian
+outback, Sahara, Argentine pampas, US Great Plains, N European plain). Their
+box centres were never written down anywhere. No coordinates were invented to
+fake those rows; the gap is reported instead.
+
+### §6.2 The recorded `|∇p|` ignores the cos(lat) metric — order survives, magnitudes do not
+
+The definition was never committed either, only values — so four candidates
+were computed and the winner decided from the data:
+
+| candidate | max \|ratio−1\| |
+|---|---|
+| Pa per 100 km, cos(lat) | 4.028 |
+| Pa per cell, cos(lat) | 0.398 |
+| Pa per 100 km, flat | 2.678 |
+| **Pa per cell, FLAT (no cos)** | **0.069** ✅ |
+
+So §1's figures are a plain `np.gradient` over the raw lat/lon array. That
+understates the ZONAL gradient by `1/cos(lat)`, i.e. **R3 at 60 N is ~40 %
+low**. Metric-corrected the ladder reads 10.3 / 15.5 / 61.2 / 100.9 — the
+**ORDER survives and the dynamic range WIDENS from 9.3× to ≈9.8×**. The
+regime axis stands; the recorded magnitudes do not.
+
+### §6.3 D-CZ-1 — the C0 gate PASSES
+
+Both controls lose to both real arms, on both metrics, in **all four**
+regimes. The mechanism is visible rather than assumed: `GEO-DEGENERATE`
+saturates **92–97 %** of the box because its donor patch's range is far too
+narrow — which is exactly the failure mode the transfer matrix is built to
+measure.
+
+| regime | CAL-ABS ρ | CAL-RANK ρ | SHUFFLE ρ | DEGENERATE ρ (satur.) |
+|---|---|---|---|---|
+| R1 | 0.999960 | 0.999993 | 0.058 | 0.380 (0.950) |
+| R2 | 0.999981 | 0.999992 | 0.159 | 0.478 (0.917) |
+| R3 | 0.999989 | 0.999992 | 0.003 | 0.290 (0.972) |
+| R4 | 0.999962 | 0.999992 | 0.006 | 0.477 (0.918) |
+
+**C1b also passes: `separation` = 6.28** against the ≥ 3 bar.
+
+**R4 re-run across ALL 19 storms, not one representative.** The first pass
+scored a single median-`|∇p|` storm — defensible for a smoke test, but the
+19 fields were already in memory, and reporting one when 19 are available is
+the sample-composition weakness this arc has paid for twice (W6's stranded
+stratum, W5's subsampled control). Re-run:
+
+| arm | ρ min | ρ median | ρ max | RMSE median (Pa) |
+|---|---|---|---|---|
+| `CAL-ABS` | 0.999944 | 0.999977 | 0.999987 | 4.6 |
+| `CAL-RANK` | 0.999992 | 0.999992 | 0.999992 | 7.6 |
+| `CAL-SHUFFLE` | −0.078 | 0.005 | 0.154 | 1498.6 |
+| `GEO-DEGENERATE` | 0.277 | 0.773 | 0.943 | 936.1 |
+
+**The gate holds for EVERY storm** — controls lose on ρ and on RMSE in
+19/19, not merely at the median. That is a materially stronger statement
+than the single-storm version supported.
+
+**And the spread exposes something the single storm hid.**
+`GEO-DEGENERATE`'s ρ ranges **0.277 → 0.943**: on some storms a degenerate
+donor is nearly adequate. It still loses everywhere (the real arms sit at
+0.99999), but *how badly* miscalibration hurts is strongly storm-dependent
+— which is the plan's own hypothesis appearing in the control rather than
+in an arm. Note also that the storm which is median by `|∇p|` is NOT median
+by ρ (0.477 vs the true median 0.773), so the first pass's representative
+was unrepresentative on the axis that mattered.
+
+### §6.4 ⚠ AMENDMENT to C4 — ρ is saturated on the DIAGONAL
+
+**Measured, not argued:** the ρ spread between the two REAL arms is
+**3×10⁻⁶ … 4.7×10⁻⁵**. At 256 levels on a smooth pressure field both real
+arms reconstruct the ordering essentially perfectly, so **ρ cannot separate
+`CAL-ABS` from `CAL-RANK` at all** — and C4 as pre-registered compares
+exactly those two, on the diagonal. **C4 could not have fired.**
+
+The same run shows ρ is *excellent* where the plan actually needs it: real
+vs degraded is 0.99999 vs 0.29–0.48, four orders of magnitude of separation.
+So the honest split is **not** "ρ is the wrong metric" — it is:
+
+- **`L` (transfer loss, off-diagonal) keeps ρ.** Huge dynamic range there.
+- **C4 (two real arms, both on their own diagonal) moves to RMSE in Pa**,
+  with ρ retained as a floor check (any arm dropping below ρ ≈ 0.999 has
+  broken, not merely lost). RMSE *does* discriminate: real-arm ratios 3.96 /
+  1.85 / 1.14 / 1.49 across R1–R4.
+
+**Why this amendment is legitimate and what would make it not.** D-CZ-1's
+stated purpose is to test the apparatus BEFORE the expensive cells, and no
+C4 measurement exists — this is a metric found blind in preflight, which is
+what preflight is for. It would be illegitimate the moment any C4 cell had
+been scored. Recorded as an amendment with its trigger rather than edited
+into C4 silently.
+
+### §6.6 EXPLORATORY — the penalty may shrink with field strength WITHIN R4
+
+`GEO-DEGENERATE`'s ρ spread across the 19 storms invites an obvious
+question: does the miscalibration penalty shrink as the field gets stronger
+— C3's direction, but inside ONE tier and on a CONTROL arm?
+
+| quantity | value |
+|---|---|
+| Spearman ρ(`GEO-DEGENERATE` ρ, storm `\|∇p\|`) | **+0.444** |
+| n | 19 |
+| permutation p, two-sided, 200 000 perms | **0.0578** |
+| null \|ρ\| 95th percentile | 0.456 |
+
+**Above 0.05. NOT significant.** The direction matches the hypothesis and
+the magnitude is right at the threshold, which is exactly the shape of
+result that gets over-claimed.
+
+**The obvious dismissal was checked and does NOT work.** The tautology would
+be: a stronger gradient just means a wider pressure range across the box, so
+a fixed narrow donor patch covers proportionally less of it and ρ falls
+mechanically. Measured:
+
+| confound | Spearman ρ |
+|---|---|
+| `GEO-DEGENERATE` ρ vs box pressure range | **−0.035** |
+| storm `\|∇p\|` vs box pressure range | +0.253 |
+| `GEO-DEGENERATE` ρ vs donor/box range fraction | −0.081 |
+
+So `|∇p|` and pressure range are **not** proxies here, and the penalty does
+not track how much of the box the donor covers. The +0.444 survives all
+three — which means neither the confirmation nor the easy dismissal is
+available on this data.
+
+**Status: EXPLORATORY, not a result.** One tier, a control arm, n = 19,
+unpre-registered, p above 0.05. Its only legitimate use is as a reason the
+full cross-regime run is **worth doing** — never as evidence that it will
+succeed. Committed to the JSON (`exploratory_within_r4`) so a later run
+cannot quietly restate it as a confirmation.
+
+### §6.5 A HINT that is explicitly NOT a result
+
+`CAL-ABS` beats `CAL-RANK` on RMSE in every regime, and its margin **shrinks
+as the field gets more active**: R1 3.96× → R2 1.85× → R3 1.14×. That is the
+shape of the operator's hypothesis — the absolute encoding's advantage
+eroding as turbulence rises.
+
+**It is not evidence.** One timestep; R4 breaks the monotone (1.49); no
+control was run on this particular comparison; and the whole point of the
+cross-swap design is that a diagonal-vs-diagonal difference is not what the
+hypothesis is about. Recorded so a later run cannot present it as a
+confirmation that was there all along.

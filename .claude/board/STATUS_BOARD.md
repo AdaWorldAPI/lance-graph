@@ -1,3 +1,29 @@
+## SUBSTRATE_FORMULA_MATRIX — the arc's rated inventory (2026-08-12)
+
+Document: `probes/weather-p1/SUBSTRATE_FORMULA_MATRIX.md`. Not a plan and not
+a deliverable ladder — the **consolidated rating** of every formula,
+encoding, sampling geometry, physical model and statistical instrument the
+weather arc (#920–#946) actually put under a pre-registered bar.
+
+| D-id | Deliverable | Status | Feeds |
+|---|---|---|---|
+| D-MTX-1 | Re-extract every tested primitive from the COMMITTED artifacts (7 parallel readers + 1; 131 primitives, 2.35 M subagent tokens) | **DONE** | the matrix's provenance rule — built from artifacts, never from session memory |
+| D-MTX-2 | Two-scale rating (fitness A/B/C/D/V × evidence `[G]`/`[H]`/`[S]`), 56 rows across physics / encodings / geometries / instruments | **DONE** | reading comfort zones off instead of arguing them |
+| D-MTX-3 | Known-effect vs discovered-explanation pairing (14 pairs, K1–K14) | **DONE** | separates prior art from what this arc added — incl. 4 cases where measurement went AGAINST the prior |
+| D-MTX-4 | Figure verification against source JSONs (28 headline figures + circular/CT set) | **DONE — 0 mismatches**, 1 rounding fixed (Rayleigh p 0.689 → 0.688) | the audit-terminates-at-an-artifact rule, applied to this document itself |
+| D-MTX-5 | Refresh after the cross-swap matrix runs (C2–C6) | Queued | every off-diagonal cell is still unmeasured; §5 says so explicitly |
+
+**Why a "C" tier exists.** The arc's founding result is that most substrate
+formulas are neither good nor bad — they have homes. Fisher-z alone carries
+**three** measured verdicts (tail read 8.3× win, level read 4.7× loss,
+CI-frame not-a-win). A single ranking would have destroyed the finding.
+
+**What the matrix is honest about:** the majority of its rows are negative.
+Two entries are **V (VOID)** rather than D — the apparatus could not
+distinguish anything — and §5 lists 13 gaps including *every* off-diagonal
+cross-swap cell, all ten EV probes, and five preflight rows that are
+permanently unreproducible because their coordinates were never recorded.
+
 ## substrate-comfort-zones-v1 — the comfort-zone map (PRE-REGISTERED 2026-08-12)
 
 Plan: `.claude/plans/substrate-comfort-zones-v1.md`. A **cross-swap**
@@ -7,8 +33,8 @@ already run and it corrected two regime definitions before any bar existed.
 
 | D-id | Deliverable | Status | Feeds |
 |---|---|---|---|
-| D-CZ-0 | §1 regime preflight (`\|∇p\|` ladder, elevation-confound screen, speed-is-not-the-discriminator finding) | **DONE** — ladder R1 Amazon 10.2 → R2 ocean 14.9 → R3 W Siberia 43.8 → R4 storm 95.6 (9.3× range); 4 land candidates excluded on elev σ > 150 m | the regime axis all other rows score on |
-| D-CZ-1 | C0 controls (shuffled codebook + degenerate geometry), losability-smoke-tested BEFORE the full run | Queued | gates every cell — a control that can't lose voids its cell |
+| D-CZ-0 | §1 regime preflight (`\|∇p\|` ladder, elevation-confound screen, speed-is-not-the-discriminator finding) | **DONE — and now REPRODUCED + partly corrected (§6.1/6.2).** It had NO committed script or JSON when marked DONE. 4 rows reproduce (1.004/1.022/0.994/0.931); the 5 EXCLUDED land candidates are **unreproducible** (centres never recorded). Definition identified: Pa per grid cell **without cos(lat)** — R3 ~40 % low; metric-corrected ladder 10.3/15.5/61.2/100.9, order survives, range 9.3× → **9.8×**. Original text:**  — ladder R1 Amazon 10.2 → R2 ocean 14.9 → R3 W Siberia 43.8 → R4 storm 95.6 (9.3× range); 4 land candidates excluded on elev σ > 150 m | the regime axis all other rows score on |
+| D-CZ-1 | C0 controls (shuffled codebook + degenerate geometry), losability-smoke-tested BEFORE the full run | **DONE — PASS** (`substrate_comfort_d_cz_0_1.py/.json`). Both controls lose to both real arms on BOTH metrics in ALL FOUR regimes; mechanism visible (`GEO-DEGENERATE` saturates 92–97 %). C1b `separation` = **6.28** vs the ≥ 3 bar. **AND the run amended C4**: `ρ` is SATURATED on the diagonal (real-arm spread 3e-6…4.7e-5) so C4 could not have fired — `L` keeps `ρ` off-diagonal, C4 moves to RMSE in Pa (§6.4) | gates every cell — a control that can't lose voids its cell |
 | D-CZ-2 | C1 regime-ladder stability across ≥3 timesteps | Queued | anti-cherry-pick on the whole regime axis |
 | D-CZ-2b | **C1b constancy is measured** — `separation = (between-box range)/(mean within-box σ)` ≥ 3 | Queued | earns the phrase "held constant"; otherwise a caveat rides every cell |
 | D-CZ-2c | **C1c the suitability ASSUMPTION** — regimes must differ in autocorrelation decay + rank-distribution shape, not only in `\|∇p\|` | Queued | a null here VOIDS the cross-swap reading (spread manufactured on the wrong axis) |
