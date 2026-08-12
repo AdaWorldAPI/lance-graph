@@ -595,10 +595,23 @@ candidate (a), motion-bearing noise) and *against* the regime explanation
 opposite weighting from what seemed most plausible after §5.9 alone, and
 worth stating exactly because it cuts against the tidier story.
 
-**CT-F14 (new, not run):** a properly powered (n ≥ 25–30), pre-registered,
-displacement-filtered-ONLY sample — the single test that would move the
-combined 6/7 either toward significance or back to noise. This is now the
-correctly-scoped next step, not a third exploratory rerun.
+**~~CT-F14 (new, not run)~~ — RUN, see §5.11.** A properly powered,
+pre-registered, displacement-filtered-ONLY sample — the single test that would
+move the combined 6/7 either toward significance or back to noise. **Result:
+19 qualifying storms, 0.684 (13/19), p=0.0835 → NO-VERDICT** (one short of its
+own n ≥ 20 floor, and it would have failed the 0.70 bar anyway).
+
+> **Two drifts recorded rather than tidied away** (CodeRabbit, PR #926; note
+> the finding was reported as already-addressed and was **not** — verified
+> against the file, which is why it is fixed here). (a) This forward-looking
+> text said "not run" after §5.11 had run it. (b) It specified **n ≥ 25–30**
+> while the test as actually pre-registered and executed used a **n ≥ 20**
+> floor. The floor was loosened between planning and execution and nobody
+> noticed — the same claim-vs-measurement drift as
+> `E-THE-HEADLINE-NUMBER-MEASURED-A-MODEL-NOBODY-CLAIMED-1`, in the sample-size
+> dimension instead of the parameter-count one. Worth knowing when reading
+> §5.11's "fell one storm short": short of **20**, not of the 25–30 this
+> paragraph originally asked for.
 **CT-F15 (new, not run):** geo-fence the blind selection away from
 26–33°N/67–134°E in June–September (or add an explicit baroclinicity
 proxy at intake) and re-check whether CT-E2's own trackability gate keeps
@@ -734,10 +747,12 @@ this quantity. No stronger attribution is claimed at n = 2.
   sample, reversing §5.9's verdict on its own bar — but not significant on
   proper statistics (two-sided p=0.109), and the pooled combined figure with
   sample 1 (14/20) sits right at the noise floor.
-- **CT-F14 (new, from §5.10, NOT yet run):** the correctly-scoped next step —
-  a single, properly powered (n ≥ 25–30) **displacement-filtered-only**
-  pre-registered sample, since displacement is now the mechanism-motivated
-  filter with the strongest (if still small-n) support.
+- **~~CT-F14 (new, from §5.10, NOT yet run)~~ — RUN, §5.11:** the
+  correctly-scoped step — a single, pre-registered
+  **displacement-filtered-only** sample. **Executed with a n ≥ 20 floor (not
+  the n ≥ 25–30 asked for here — see the drift note in §5.10); 19 storms,
+  0.684, p=0.0835, NO-VERDICT.** The directional claim is therefore *not*
+  gated-and-pending; it is measured and unsupported at this power.
 - **CT-F15 (new, from §5.10, NOT yet run):** geo-fence blind selection away
   from 26–33°N/67–134°E in June–September (4 of 5 exclusions in the second
   sample clustered there) and check whether this simply reproduces what
