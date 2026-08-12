@@ -40,6 +40,41 @@ targeted verification measurement, both committed.
 > sweep across N and control constructions would be needed to call the
 > universal form settled.
 
+> **★ THIRD UPDATE (2026-08-12, v2 headline RUN landed) — STRENGTHENED, at
+> the real scale, on the full uncapped population.** The v2 rerun
+> (`106ca605`, no subsampling cap) measured the actual headline population
+> directly: **99.68 % of the qualifying-band population's control links
+> (n_qualifying=4 782 017) land on a pure Fibonacci offset** — 99.95 % of
+> the moved links specifically — dominated by offset 2584=F(18) itself
+> (4 745 846 of 4 769 097 moved links), with the small remainder at
+> 6765=F(20), 10946=F(21), and 13530=2·F(20) (a Fibonacci harmonic, not a
+> counterexample). This is the SAME order of confirmation as the earlier
+> N=62 208 check (99.38 %), now on the real headline scale with the exact
+> subsampling defect the second correction above worried about removed
+> entirely. **Second correction's caveat stands as written** (one
+> construction, now TWO scales, still not a sweep across constructions —
+> the "does not exist" phrasing remains restated, not un-restated) — but
+> the evidentiary base is now materially stronger: two independent N,
+> four orders of magnitude apart (62 208 vs 4 782 017 qualifying points),
+> both landing within 0.3 percentage points of each other.
+>
+> **And a genuinely new, larger result rode along in the same run: B2 now
+> FAILS.** v1's B2 PASS (anisotropy 1.2134) is now understood to have been
+> an artifact of the SAME kind of confound this epiphany already
+> catalogued for B3 — an inert operator (8 fixed iterations added ~0.003 %
+> variance) inherited its apparent "isotropy" from a mask sitting only
+> 1.72σ from the bump, whose own truncation analytically predicts a 1.208
+> ratio, matching v1's number almost exactly. v2 fixed the mask clearance
+> (3.35σ; baseline through it now measures an essentially clean 1.0046)
+> AND scaled the iterations to a real physical diffusion target — and with
+> both confounds gone, the ADI operator's own anisotropy is revealed for
+> the first time: **1.5251, a genuine ~0.52 anisotropy contribution from
+> the operator itself**, failing the 1.25 bar. Full detail:
+> `weather-w-probes-v1.md` §1's v2 RUN section. Not filed as a separate
+> epiphany — it is the SAME lesson (a control/baseline that cannot
+> discriminate carries zero information when it "passes") applied to B2
+> instead of B3, discovered by the same v2 fix that was built for B3.
+
 **The claim, AS ORIGINALLY WRITTEN below (kept for the record; read through
 both corrections above).** On a Vogel/golden lattice, a *local*
 non-Fibonacci control for stride-structure experiments **does not exist**

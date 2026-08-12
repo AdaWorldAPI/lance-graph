@@ -54,6 +54,62 @@
 **Status:** MERGED (`e6e27829`). Branch `claude/jirak-math-theorems-harvest-rfii13`
 → `main`. Doc/plan/board only.
 
+## 2026-08-12 — the W5 v2 RUN lands: B2 genuinely FAILS, B3's VOID is CONFIRMED at full headline scale (results of the fix committed in #936/`106ca605`; PR pending)
+
+- **Added.** `spiral_adi_probe.json` v2 (headline N=7 651 227, full-band
+  control, V-matched iterations, bump at 3.35σ mask clearance) + a third
+  dated update to `E-ON-A-GOLDEN-LATTICE-LOCALITY-IS-FIBONACCI-MEMBERSHIP-1`.
+- **Locked — B2 REVERSES from v1's PASS to a genuine FAIL, and the
+  reversal is the finding, not noise.** v1's PASS (anisotropy 1.2134) was
+  an artifact of the exact same confound class this whole arc has been
+  catching all week: an inert operator (8 fixed iterations added ~0.003 %
+  variance at N=7.65M) inherited its apparent isotropy from a mask sitting
+  only 1.72σ from the bump — analytically, that truncation alone predicts
+  a 1.208 ratio, matching v1's "1.213 asymptote" almost exactly. v2 fixed
+  BOTH confounds at once: mask clearance raised to 3.35σ (baseline through
+  it now measures an essentially clean **1.0046**) and iterations scaled
+  to a real physical diffusion target (`V=σ²/4`, derived from the measured
+  mesh spacing — confirmed real: raw rel-L2 vs the unsmoothed input =
+  0.190, fitted σ_ref=0.0580 close to the predicted 0.0559). With both
+  confounds gone, **the ADI operator's own anisotropic character is
+  visible for the first time: 1.5251 — a genuine ~0.52 anisotropy
+  contribution from the operator, failing the 1.25 bar.** Two Fibonacci-
+  stride tridiagonal sweeps do NOT approximate isotropic 2D diffusion at
+  this configuration; they smooth preferentially along the parastichy
+  chain geometry. **`domino.rs`'s gather-design claim is REFUTED at this
+  test point**, reversing v1's "unblocked" reading (which never actually
+  demonstrated diffusion occurred in the first place).
+- **Locked — B3's VOID is now confirmed on the REAL headline population,
+  not a 62k-point sub-sample, and the confirmation is STRONGER than
+  before.** Full-band histogram at N=7.65M (`n_qualifying=4 782 017`):
+  **99.68 %** of the qualifying population's control links land on a pure
+  Fibonacci offset (99.95 % of the moved links), dominated by offset
+  2584=F(18) itself; the small remainder at F(20), F(21), 2·F(20) — a
+  Fibonacci harmonic, not a counterexample. Two independent N four orders
+  of magnitude apart (62 208 and 4 782 017) land within 0.3 percentage
+  points of each other — directly answering codex's original subsampling
+  concern with the strongest available evidence (the full population, not
+  a sample of it).
+- **Locked — B4 on the corrected methodology**: ratio climbs 0.84→~1.03
+  from n=8 to n=17, noisy at the smallest sub-floor n (1–4 iterations,
+  little averaging), settling near parity by n=12. n=19/21 out of budget
+  under V-matched scaling (iters grows ~linearly with N at fixed physical
+  target — stated mechanism, not a silent drop). No knee at n≈17 for the
+  smoothing-quality question, consistent with v1's reading on that
+  specific axis even though the smoothing itself is now known anisotropic.
+- **Epiphany update, not a new entry.** The B2 reversal is filed as a
+  THIRD update to the existing epiphany rather than a new one — same
+  underlying lesson (a control/baseline that cannot discriminate carries
+  zero information when it "passes"), same session, applied to a second
+  bar via the identical v2 fix.
+- **Confidence.** High on all three verdicts now — full-band, uncapped,
+  headline-scale, with an explicit clean baseline measurement backing the
+  B2 reversal rather than an inferred one.
+
+**Status:** RUN complete; awaiting a PR to land these results (background
+job completed after #937 merged as pure hygiene). Zero product code —
+probe results + board.
+
 ## 2026-08-12 — lance-graph #936 (MERGED) — W5 v1 RUN: B2 PASS / B3 VOID / B4 smooth, and codex found all three verdicts were built on sand (v2 fix in flight, not yet landed)
 
 - **Added.** `spiral_adi_probe.json` — v1's headline (N=3·F(17)²=7 651 227)

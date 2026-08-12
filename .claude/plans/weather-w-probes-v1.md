@@ -272,49 +272,75 @@ verdicts: {B2, B3, B4}}`.
 
 ---
 
-### RUN, 2026-08-12 (`spiral_adi_probe.py` / `.json`) — B2 PASS, B3 VOID (structurally, with the diagnosis verified), B4 smooth with no knee
+### RUN v1, 2026-08-12 — ⊘ SUPERSEDED same day (codex found 4 real defects on PR #936; all fixed, v2 below)
 
-| bar | verdict | measured |
+*(Original v1 text kept for the record, not deleted — read through the
+superseding note: v1 reported B2 PASS / B3 VOID / B4 smooth, but its
+control was subsampled at 250k/band, its iteration count never resolved
+real diffusion, and its bump sat close enough to the qualifying-band mask
+edge that the mask itself explained the reported anisotropy. See
+`PR_ARC_INVENTORY.md`'s #936 entry for the full defect list and diagnosis.
+v2 below is the methodologically sound rerun.)*
+
+### RUN v2, 2026-08-12 (`spiral_adi_probe.py` / `.json`, `106ca605`) — B2 now FAILS for real, B3 VOID CONFIRMED at full headline scale, and the reversal is the finding
+
+| bar | v1 (compromised) | v2 (full-band control, V-matched iterations, bump 3.35σ from mask) |
 |---|---|---|
-| **B2 ISO** (headline N=7 651 227) | **PASS** | iso-fit rel-L2 **0.00053** vs the 0.15 bar (≈280× margin); anisotropy **1.2134** vs the 1.25 bar |
-| **B3 CONTROL** | **VOID** (its own pre-registered rule) | ratio control/fib = **0.9996** vs the ≥1.5 bar — the distance-matched control smooths identically |
-| **B4 floor sweep** | run in full, n=8..19 (n=21 NOT RUN per budget, recorded) | iso 0.4405 → 0.1004 → 0.0245 → 0.0057 → 0.00053 → 0.0001; aniso 6.55 → 1.65 → 1.28 → 1.223 → 1.2134 → 1.2129 |
+| **B2 ISO** (headline N=7 651 227) | PASS (iso 0.00053, aniso 1.2134) — but iters=8 added ~0.003 % variance: near-inert | **FAIL** — iso **0.1216** (still ≤0.15, PASSES that half) but anisotropy **1.5251** vs the 1.25 bar (FAILS that half) — real diffusion occurred (raw rel-L2 vs the unsmoothed input = **0.190**, fitted σ_ref=0.0580 vs the predicted 0.0559, both confirming the operator actually moved the bump) and it is genuinely anisotropic |
+| **B3 CONTROL** | VOID (ratio 0.9996, but ~74 % of headline sources were silent self-links) | **VOID, CONFIRMED** — ratio **1.0266**, now on a full-band control with only 0.27 % structural self-linking |
+| **Baseline (new in v2)** — unsmoothed input bump through the identical mask, no ADI at all | not computed in v1 | anisotropy **1.0046** — essentially isotropic, confirming the v2 geometry fix (3.35σ mask clearance) removed the mask-contamination codex flagged |
 
-**B3's VOID is structural, and the diagnosis was VERIFIED before being
-written down** (`E-ON-A-GOLDEN-LATTICE-LOCALITY-IS-FIBONACCI-MEMBERSHIP-1`):
-measured at N=62 208, **99.38 % of the control's links have a Fibonacci
-|Δk|** (top offsets 233, 987, 610, plus 1220 = 2·610). On a Vogel lattice
-the near neighbours ARE the Fibonacci-offset points (three-distance
-theorem: physical proximity ⟺ convergent-denominator index offset), so a
-distance-matched local control CANNOT leave the family — the third control
-generation didn't fail at its job, it proved the job impossible. The
-Fibonacci-dependence question is unanswerable by any local control on this
-lattice; a genuine falsifier must change the lattice (jittered grid /
-Halton under the same stencil), deferred as its own experiment.
+**The reversal, stated plainly.** v1's "PASS" was an artifact of an inert
+operator: 8 fixed iterations at N=7.65M add essentially no blur, so the
+fitted bump was still close to the unsmoothed input, and the unsmoothed
+input's own anisotropy — through a mask sitting only 1.72σ from the bump —
+was mistaken for the operator's behaviour (analytically, that truncation
+alone predicts a 1.208 ratio, matching v1's reported "1.213 asymptote"
+almost exactly). **v2 removes both confounds at once**: the mask now sits
+3.35σ away (baseline through it measures 1.0046 — essentially clean), and
+the iteration count is scaled to a real physical diffusion target
+(V=σ²/4, iters derived from the measured mesh spacing, not a fixed guess).
+With both confounds gone, **the ADI operator's own anisotropic character
+is visible for the first time: it adds ~0.52 anisotropy on top of an
+isotropic 1.0046 baseline (1.5251 vs 1.0046)** — real, substantial, and
+now the operator's alone. **B2 genuinely fails.** The two-Fibonacci-stride
+tridiagonal sweep does NOT approximate isotropic 2D diffusion at this
+configuration — it smooths preferentially along the parastichy chain
+geometry. **Consequence for `domino.rs`: the gather-design claim this bar
+was meant to support is NOT unblocked — it is refuted at this test
+point**, reversing v1's (compromised) "unblocked" reading.
 
-**B4's two-sided pre-registered reading lands on the second branch:** the
-curve improves smoothly and monotonically from n=8 through n=19 with **no
-knee at n≈17** — on this metric the index floor is a **safety margin, not
-a mechanism**, exactly the outcome the §0 rule said must be reported
-plainly if measured. (The floor retains its independent justification from
-the convergent-error ladder and the T1/T2/T3/T4 duel results; what this
-sweep shows is that the ADI smoothing quality specifically does not
-exhibit a threshold at the floor.)
+**B3's VOID is now confirmed at the ACTUAL headline scale, not a 62k-point
+sub-sample — and the confirmation is stronger than before.** The
+full-band, uncapped headline control-link histogram (`n_qualifying =
+4 782 017`, `n_moved = 4 769 097`) shows **99.68 % of the qualifying
+population's control links land on a pure Fibonacci offset** (99.95 % of
+the moved links specifically) — dominated overwhelmingly by offset 2584 =
+F(18) itself (4 745 846 of 4 769 097 moved links), with the remaining mass
+at 6765=F(20), 10946=F(21), and 13530=2·F(20) (a Fibonacci harmonic, not a
+counterexample). This directly answers codex's original concern (the v1
+figure came from a 250k/956k = 26 % sample of one band): **the mechanism
+claim now rests on the real, complete headline population, and it is
+essentially unchanged from the smaller check** — reinforcing
+`E-ON-A-GOLDEN-LATTICE-LOCALITY-IS-FIBONACCI-MEMBERSHIP-1` rather than
+merely surviving it.
 
-**Honest residual, flagged for any future bar-tightening:** anisotropy
-asymptotes at **~1.213 across three decades of N** (n=12→19) — an
-N-independent structural ~21 % second-moment anisotropy of the
-band-restricted polar chain geometry itself, not a resolution artifact.
-It passes the 1.25 bar; a future bar below ~1.22 would need this
-mechanism addressed first, not more points.
+**B4's floor sweep, on the corrected V-matched methodology (n=8..14; n=19
+now out of budget under real iteration scaling, see the script's own
+`run()` docstring for the mechanism):** ratio climbs from 0.84 (n=8) to
+~1.0–1.03 (n=12–17) — noisy at the smallest, sub-floor n (1 and 4
+iterations respectively, essentially no averaging), settling near parity
+by n=12. No knee is visible at n≈17 either, consistent with v1's B4
+reading on this axis: the floor still functions as a safety margin for
+the SMOOTHING QUALITY question, even though the smoothing itself is now
+known to be anisotropic.
 
-**Two implementation notes a rerun should know:** the qualifying-band rule
-(inner radius ≥ r_floor) resolves to **bands 4–8**, and the brief's older
-"bands 3–8" label is off-by-one against its own parenthetical (the rule
-wins). Discovery found the expected emergent pairs per band —
-[2584, 4181] = F(18)/F(19) in the qualifying bands at the headline N, with
-the inner (excluded) bands showing the lower-index transition exactly as
-the parastichy-index arithmetic predicts.
+**Two implementation notes a rerun should know (unchanged from v1, still
+correct):** the qualifying-band rule (inner radius ≥ r_floor) resolves to
+**bands 4–8**, and the brief's older "bands 3–8" label is off-by-one
+against its own parenthetical (the rule wins). Discovery found the
+expected emergent pairs per band — [2584, 4181] = F(18)/F(19) in the
+qualifying bands at the headline N.
 
 ---
 
