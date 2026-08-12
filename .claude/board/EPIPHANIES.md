@@ -12,22 +12,42 @@ own pre-registered anti-vacuity control**: single-geo R²=−0.104 (worse than
 predicting the mean); the permuted-P_bow control R²=−0.071 and the
 rotated-90° control R²=−0.062 BOTH exceed `single-geo + 0.03 = −0.074` — two
 deliberately wrong references score as well as or better than the real
-predictor. `c_bow ≈ 0.0006` in every fit (no measurable weight); `c_geo` has
-the physically WRONG sign throughout. This is not a marginal miss — it is
-the anti-vacuity control doing exactly its job: rejecting a fit that has
-nothing to identify.
+predictor. This is not a marginal miss — it is the anti-vacuity control
+doing exactly its job: rejecting a fit that has nothing to identify.
 
 **Checked before concluding it was a clean negative, per the standing
-measurement-skeptic discipline: no implementation bug.** One storm was
-independently re-fetched and hand-audited; extended to the full sample by
-committing the raw `D`/`P_geo`/`P_bow`/`A_H`/`d_H`/`v_rel_ms` per storm (the
-first run's output shipped only derived bearings — self-caught and fixed
-before any reviewer needed to). Every value is physically sane (`A_H > 0`
-always by construction, `d_H` inside the 600–2500 km annulus always, `v_rel`
-2.8–27.9 m/s). `|P_bow|` averages 147× `|D|`'s magnitude against `|P_geo|`'s
-0.61× — a real scale disparity between Pa (bow) and Pa/km (geo) units, but
-`lstsq` is scale-invariant per column, so the near-zero `c_bow` reflects a
-genuine absence of correlation, not a units artifact.
+measurement-skeptic discipline: no implementation bug found in the FIT
+itself, but a sign convention AND a units error were found in the
+NARRATIVE around it (codex + CodeRabbit P2/Major on PR #940, both real,
+fixed before merge).** One storm was independently re-fetched and hand-
+audited; extended to the full sample by committing the raw
+`D`/`P_geo`/`P_bow`/`A_H`/`d_H`/`v_rel_ms` per storm. Every value is
+physically sane (`A_H > 0` always, `d_H` inside the 600–2500 km annulus
+always, `v_rel` 2.8–27.9 m/s).
+
+**Sign:** `spine()`'s raw fit coefficient points toward the storm's HIGH
+side (the gradient of increasing residual pressure), while `P_geo`/`P_bow`
+both point toward the LOW side by construction — the exact convention
+`low_pole_bearing()` makes explicit via its own `(ph + π) % (2π)` flip. `D`
+is correctly `−spine(...)`; the first draft used the unflipped `coef`.
+Corrected: **`c_geo = +0.407` (the physically predicted positive sign —
+CORRECT)**, `c_bow = −0.0006` km⁻¹ (predicted positive — **wrong sign, but
+small**). Verified algebraically and numerically that this flip changes
+NOTHING about R² or the B0/B1 VOID verdicts (OLS is odd-symmetric in the
+fit target) — only the coefficient signs and the sentence describing them.
+
+**Units:** `D`/`P_geo` are [Pa/km]; `P_bow` is [Pa] — `c_geo` is
+dimensionless, `c_bow` carries km⁻¹, and OLS coefficients rescale inversely
+under column rescaling while R²/fitted-values stay fixed. **Raw `|c_bow|`
+was never valid evidence of "no measurable weight"**, and comparing
+`|P_bow|` to `|D|` directly (147×, as first reported) compounded the same
+mistake — Pa is not comparable to Pa/km at all. The dimensionally valid
+measure is the fitted CONTRIBUTION `|c_bow·P_bow|` against `|D|`, both in
+Pa/km: mean `|D|`=0.745, mean `|c_geo·P_geo|`=0.186 (25 % of `|D|`), mean
+`|c_bow·P_bow|`=0.068 (9 % of `|D|`) — the geo contribution is ~2.7× the
+bow contribution, MODEST rather than "no weight," and both remain
+consistent with the R²<0 finding that neither predictor meaningfully
+explains `D`'s variance.
 
 **The finding that generalizes past this one probe: an anti-vacuity control
 can be voided by SAMPLE COMPOSITION, and the reason is arithmetic, not

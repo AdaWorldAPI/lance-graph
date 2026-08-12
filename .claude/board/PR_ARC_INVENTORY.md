@@ -7,21 +7,35 @@
 - **Locked — B0 VOIDS, and the model has nothing to identify.**
   Single-geo R²=−0.104 (worse than the mean); both anti-vacuity controls
   (permuted P_bow, P_bow rotated +90°) score at −0.071/−0.062, both
-  clearing the ≤`single-geo + 0.03` bar's ceiling of −0.074. `c_geo`
-  carries the physically WRONG sign in every fit (−0.41, predicted
-  positive); `c_bow ≈ 0.0006` — no measurable weight from the bow
-  predictor at all. B1/B2 correctly report VOID (B0 failed), not their
-  own numbers, per the pre-registered rule.
+  clearing the ≤`single-geo + 0.03` bar's ceiling of −0.074. B1/B2
+  correctly report VOID (B0 failed), not their own numbers, per the
+  pre-registered rule.
 - **Locked — checked for an implementation bug before calling it a clean
-  negative, per the standing measurement-skeptic discipline; found
-  none.** One storm independently re-fetched and hand-audited
-  (t0=54358: D/P_bow/P_geo all physically sane magnitudes); extended to
-  all 19 by committing the raw predictors per storm (the first run
-  shipped only derived bearings — a self-caught audit gap, fixed and
-  re-run before any reviewer needed to find it: `|P_bow|` averages 147×
-  `|D|`, `|P_geo|` averages 0.61× — a real Pa-vs-Pa/km scale disparity,
-  but `lstsq` is scale-invariant per column, so the near-zero `c_bow`
-  reflects a genuine absence of correlation, not a units artifact).
+  negative, per the standing measurement-skeptic discipline; found none
+  in the fit — but found a sign convention error AND a units error in
+  the FIRST DRAFT's narrative (codex + CodeRabbit P2/Major on PR #940,
+  both fixed before merge).** One storm independently re-fetched and
+  hand-audited (t0=54358); extended to all 19 by committing the raw
+  predictors per storm (the first run shipped only derived bearings — a
+  self-caught audit gap, fixed and re-run before any reviewer needed to
+  find it). **Sign:** `spine()`'s raw coefficient points toward the
+  storm's HIGH side (increasing residual), while `P_geo`/`P_bow` both
+  point toward the LOW side by construction — `D = −spine(...)` matches
+  the same `(ph+π)` convention `low_pole_bearing()` already uses.
+  Corrected: `c_geo = +0.407` (physically predicted positive — CORRECT,
+  the first draft's "−0.41, wrong sign" had the polarity backward);
+  `c_bow = −0.0006` km⁻¹ (predicted positive — wrong sign, small).
+  Verified algebraically and numerically that the flip changes NOTHING
+  about R²/B0/B1 (OLS is odd-symmetric in the fit target) — only the
+  coefficient signs and their description. **Units:** `D`/`P_geo` are
+  Pa/km, `P_bow` is Pa, so `c_geo` is dimensionless but `c_bow` carries
+  km⁻¹ — raw `|c_bow|` (or the first draft's `|P_bow|`/`|D|` ≈ 147×
+  comparison) was never valid evidence of "no measurable weight," since
+  OLS coefficients rescale inversely under column rescaling. The
+  dimensionally valid measure is the fitted contribution
+  `|c_bow·P_bow|` vs `|D|`, both Pa/km: mean `|D|`=0.745, geo
+  contribution 25 % of `|D|`, bow contribution 9 % of `|D|` — modest,
+  not "no weight," and consistent throughout with R²<0.
 - **Locked — the reusable lesson: B3's stranded stratum is EMPTY (n=0),
   and the reason is arithmetic, not physics.** `min(|v_storm|) = 12.54
   m/s` across all 19 storms — CT-F14's own qualifying filter
