@@ -1,3 +1,46 @@
+## 2026-08-12 — lance-graph #942 (MERGED) — the "mean" qualifier fix + `substrate-comfort-zones-v1` (the operator's calibration-vs-regime hypothesis, made falsifiable)
+
+- **Added.** `.claude/plans/substrate-comfort-zones-v1.md` — the operator's
+  hypothesis stated as a testable interaction: *a poorly-calibrated
+  substrate that adapts dynamically should do RELATIVELY better in strong,
+  turbulent storms than in calm regimes.* Three held-constant regimes
+  (open water / flatland / storm-with-high-shear) × substrate formula ×
+  calibration quality. The claim is an **interaction term**, not a main
+  effect — "worse everywhere but least-worse in storms" and "better only
+  in storms" are different findings and the plan distinguishes them.
+  D-CZ-0 (preflight) ran and is **DONE**; D-CZ-1..6 Queued.
+- **Locked — D-CZ-0's three preflight corrections, found before any run.**
+  Applying this session's own hard-won rules to the new plan rather than
+  re-learning them: (1) the sample-composition check (the
+  `E-THE-DISPLACEMENT-FILTER-ATE-THE-STRANDED-STRATUM-1` lesson) run
+  BEFORE the first fetch — a regime split must be arithmetically reachable
+  in the source data, not discovered empty after the run; (2) both
+  controls smoke-tested for LOSABILITY at negligible cost before any
+  expensive arm (the W2s-a degenerate-grid and W5 locality-is-Fibonacci
+  lessons: a control that cannot lose or cannot differ carries zero
+  information when it "passes"); (3) every coefficient annotated with its
+  units at definition, and magnitude claims restricted to dimensionally
+  consistent contributions (the #940 `c_bow`-is-km⁻¹ lesson).
+- **Fixed — CodeRabbit Minor on #941**: #940's summary rows dropped the
+  **mean** qualifier the source RUN entry and the committed JSON's
+  `fitted_contribution_Pa_per_km` keys carry (means over 19 storms).
+  PR_ARC's merged entry got an appended dated correction (append-only);
+  LATEST_STATE's living row was fixed in place (precedent: #939's
+  N-vs-n_qualifying fix). **Fourth instance this week of one defect
+  class** — a qualifier or operand pairing true in the source, lost in
+  the summary; the figure is never wrong, its scope goes unstated.
+- **Deferred.** Every D-CZ probe (operator go-ahead pending). The report
+  §10 reconciliation sweep (§10.2's model is disconfirmed, §10.5's
+  "gather-design unblocked" is retracted, §10.6's roadmap still shows the
+  pre-wave gates — the corrections live in plan RUN sections and
+  epiphanies, and the report itself has not yet been brought current).
+- **Confidence.** High on the qualifier fix (verified against the
+  committed JSON's own keys). The plan is a SPECIFICATION — nothing in
+  it has run beyond D-CZ-0's preflight checks.
+
+**Status:** MERGED (`61a60618`). Branch `claude/jirak-math-theorems-harvest-rfii13`
+→ `main`. Plan + board — zero product code, zero probe runs.
+
 ## 2026-08-12 — lance-graph #940 (MERGED) — W6 lands: VOID by its own control, sample-composition lesson, and a same-PR sign/units correction round
 
 - **Added.** `comet_tail_w6.py`/`.json` — full detail already recorded in
