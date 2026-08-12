@@ -1,3 +1,79 @@
+## 2026-08-12 — lance-graph #946 (MERGED) — D-CZ-1 PASSES; D-CZ-0 had NO artifact behind it; + the arc's rated formula matrix
+
+- **The finding that forced the run.** `substrate-comfort-zones-v1` §1's
+  nine-row regime preflight was marked **DONE** on `STATUS_BOARD`, quoted in
+  the arc entry, quoted again in the `LATEST_STATE` row, and its 9.3× headline
+  carried into three PR bodies — **with no script and no JSON producing any of
+  it.** Worse: #945's self-audit, run *specifically because* this arc keeps
+  shipping unbacked summary claims, reported those figures as "verified" while
+  only comparing the arc entry to the PLAN. Both are prose. **A figure cited in
+  two documents is cited twice, not confirmed once**, and an audit that compares
+  two documents measures their consistency — not the property anyone cares about.
+- **Reproduced — 4 of 9 rows** (ratios 1.004 / 1.022 / 0.994 / 0.931). The five
+  EXCLUDED land candidates are **unreproducible**: their box centres were never
+  written down anywhere, and **no coordinates were invented** to fake them.
+- **The `|∇p|` definition was never committed either** — so four candidates were
+  computed and the winner decided **from the data**: Pa per grid cell with **NO
+  cos(lat) metric** (max dev 0.069; next-best 0.398), a plain `np.gradient` over
+  the raw array. It understates the zonal gradient by `1/cos(lat)`, so **R3 at
+  60 N is ~40 % low**. Metric-corrected the ladder is 10.3 / 15.5 / 61.2 / 100.9
+  — **ORDER survives**, range widens 9.3× → **≈9.8×**. Regime axis stands; the
+  recorded magnitudes do not.
+- **Two defects in the reproduction, both caught by its own guards.** Measuring
+  all 19 storms at the *preflight* timestep instead of each storm's own `t0`
+  (inverted R3/R4 and would have read as C1 failing); and a seam assertion firing
+  on a real storm at 353.4 E, where a plain longitude slice yields 58 columns
+  instead of 65.
+- **D-CZ-1 PASSES.** Both controls lose to both real arms, on both metrics, in
+  all four regimes — and, after the sample-composition fix, in **19/19 storms**,
+  not merely at the median. `GEO-DEGENERATE` saturates **92–97 %**, so the
+  mechanism is visible rather than assumed. **C1b `separation` = 6.28** vs ≥ 3.
+- **…and the run AMENDED C4.** `ρ` is **saturated on the diagonal** (real-arm
+  spread **3×10⁻⁶ … 4.7×10⁻⁵**) — C4 as pre-registered **could not have fired**.
+  `L` keeps `ρ` off-diagonal (four orders of range); **C4 moves to RMSE in Pa**
+  with `ρ` as a floor check. Legitimate because D-CZ-1's purpose is to test the
+  apparatus before the expensive cells and **no C4 cell has been scored**;
+  illegitimate the instant one has. Amendment carries its trigger and was
+  **propagated** to the header and the bar — the propagation failure a reviewer
+  caught on #944.
+- **Committed `--selftest`, disable-verified.** ρ vs scipy incl. heavy ties,
+  exact ±1 anchors, `nan` on constant input; saturation 0.802 vs 0.008;
+  `rank_codec` monotone over 256 levels; seam box keeps 65 distinct columns.
+  Each assertion **broken on purpose** to confirm it can fail — dropping
+  tie-averaging **flips the sign** of the heavy-ties ρ (+0.054 vs −0.031), which
+  would have corrupted silently rather than crashing.
+- **Exploratory, and it survives its own dismissal.** Within R4:
+  ρ(`GEO-DEGENERATE` ρ, storm `|∇p|`) = **+0.444**, n=19, permutation
+  **p = 0.0578** (200 000 perms) — **above 0.05, not significant**. The
+  tautology check does NOT hold (ρ vs box range −0.035; `|∇p|` vs box range
+  +0.253; ρ vs donor/box fraction −0.081), so neither confirmation nor easy
+  dismissal is available. Committed as `exploratory_within_r4` **with a status
+  string saying it is not a result**, so a later run cannot restate it as a
+  confirmation that was there all along.
+- **Added: `probes/weather-p1/SUBSTRATE_FORMULA_MATRIX.md`** — the arc's rated
+  inventory. Built by re-extracting from the COMMITTED artifacts (7 parallel
+  readers + 1; **131 primitives, 2.35 M subagent tokens**), never from session
+  memory. **Two scales, deliberately unmerged:** fitness (A/B/C/D/V) × evidence
+  (`[G]`/`[H]`/`[S]`). **46 rated: 15 A, 4 B, 4 C, 20 D, 3 V — half the
+  inventory is a negative result.** A **C is not a bad grade** (Fisher-z alone
+  carries three verdicts: tail 8.3× win, level 4.7× loss, CI-frame not-a-win);
+  **D and V differ in kind** (D lost its test; V distinguished nothing).
+  14 known-vs-discovered pairs, four recording the measurement going AGAINST the
+  prior. Figures verified against source JSONs: **28 checked, 0 mismatches, 1
+  rounding fixed** (Rayleigh p 0.689 → 0.688).
+- **Locked.** The regime ladder's ORDER; the C0 control gate as a real gate;
+  `ρ` for transfer loss; RMSE in Pa for the crossover.
+- **Deferred.** D-CZ-2, 2b, 2c, 3..7 — **every off-diagonal cross-swap cell is
+  still unmeasured**. D-MTX-5 (refresh the matrix after they run).
+- **Docs.** `EPIPHANIES.md` `E-A-FIGURE-CITED-TWICE-IS-NOT-CONFIRMED-ONCE-1` +
+  `E-THE-METRIC-THAT-SEPARATES-ONE-COMPARISON-IS-BLIND-TO-ANOTHER-1`;
+  `STATUS_BOARD` D-CZ-0/D-CZ-1 updated, D-MTX-1..5 added; plan §6 RUN section.
+- **Confidence.** `[G]` on D-CZ-1's gate, the reproduction, the definition
+  identification, and the ρ-saturation measurement — all committed and
+  re-runnable. `[H]` on the C4 amendment's *scope* (correct here, illegitimate
+  once a C4 cell exists). **Explicitly NOT a result:** the §6.5 RMSE-margin hint
+  and the §6.6 exploratory correlation, both labelled as such in the artifact.
+
 ## 2026-08-12 — lance-graph #944 (MERGED) — `substrate-comfort-zones-v1` §2 rebuilt: horse race → CROSS-SWAP transfer matrix
 
 - **Added.** A rebuilt §2 for `.claude/plans/substrate-comfort-zones-v1.md`
