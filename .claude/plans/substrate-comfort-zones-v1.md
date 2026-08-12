@@ -500,6 +500,32 @@ measure.
 
 **C1b also passes: `separation` = 6.28** against the ≥ 3 bar.
 
+**R4 re-run across ALL 19 storms, not one representative.** The first pass
+scored a single median-`|∇p|` storm — defensible for a smoke test, but the
+19 fields were already in memory, and reporting one when 19 are available is
+the sample-composition weakness this arc has paid for twice (W6's stranded
+stratum, W5's subsampled control). Re-run:
+
+| arm | ρ min | ρ median | ρ max | RMSE median (Pa) |
+|---|---|---|---|---|
+| `CAL-ABS` | 0.999944 | 0.999977 | 0.999987 | 4.6 |
+| `CAL-RANK` | 0.999992 | 0.999992 | 0.999992 | 7.6 |
+| `CAL-SHUFFLE` | −0.078 | 0.005 | 0.154 | 1498.6 |
+| `GEO-DEGENERATE` | 0.277 | 0.773 | 0.943 | 936.1 |
+
+**The gate holds for EVERY storm** — controls lose on ρ and on RMSE in
+19/19, not merely at the median. That is a materially stronger statement
+than the single-storm version supported.
+
+**And the spread exposes something the single storm hid.**
+`GEO-DEGENERATE`'s ρ ranges **0.277 → 0.943**: on some storms a degenerate
+donor is nearly adequate. It still loses everywhere (the real arms sit at
+0.99999), but *how badly* miscalibration hurts is strongly storm-dependent
+— which is the plan's own hypothesis appearing in the control rather than
+in an arm. Note also that the storm which is median by `|∇p|` is NOT median
+by ρ (0.477 vs the true median 0.773), so the first pass's representative
+was unrepresentative on the axis that mattered.
+
 ### §6.4 ⚠ AMENDMENT to C4 — ρ is saturated on the DIAGONAL
 
 **Measured, not argued:** the ρ spread between the two REAL arms is

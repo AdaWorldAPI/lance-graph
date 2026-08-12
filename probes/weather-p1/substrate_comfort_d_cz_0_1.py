@@ -330,12 +330,42 @@ def main():
         storm_cand.append(grad_defs(pf, rr, cc))
         storm_rows.append({"t0": t, "lat": r["center_lat"],
                            "lon": r["center_lon"], "grad_p": g})
-    # the arms run on the storm whose |grad p| is the tier median, so the
-    # smoke test is not scored on an unrepresentative extreme
+    # The arms run on ALL 19 storms, not on one representative. The first
+    # version scored a single median storm -- defensible for a smoke test,
+    # but the fields are already fetched, so reporting one storm when 19 are
+    # in memory is the sample-composition weakness this arc keeps paying for
+    # (W6's stranded stratum, W5's subsampled control). The median row is
+    # still reported, now as a summary OF the 19 rather than instead of them.
     med_i = int(np.argsort(storm_g)[len(storm_g) // 2])
     mrr, mcc = box_index(float(qual[med_i]["center_lat"]),
                          float(qual[med_i]["center_lon"]))
     mfield = storm_fields[int(qual[med_i]["t0"])]
+
+    storm_arms = []
+    for r in qual:
+        rr, cc = box_index(float(r["center_lat"]), float(r["center_lon"]))
+        storm_arms.append(arms_for_box(storm_fields[int(r["t0"])], rr, cc, rng))
+    # min/median/max per arm per metric across the 19 -- so a verdict that
+    # holds only for the median storm is visible as such
+    arms_spread = {}
+    for arm in storm_arms[0]:
+        arms_spread[arm] = {}
+        for metric in ("rho", "rmse_pa", "saturation", "occupancy"):
+            vals = np.array([sa[arm][metric] for sa in storm_arms], float)
+            arms_spread[arm][metric] = {
+                "min": float(vals.min()), "median": float(np.median(vals)),
+                "max": float(vals.max()), "n": int(vals.size)}
+    # the C0 gate re-asked across ALL storms, not just the median one
+    arms_spread["_gate_all_19"] = {
+        "controls_lose_on_rho_every_storm": bool(all(
+            max(sa["CAL-SHUFFLE"]["rho"], sa["GEO-DEGENERATE"]["rho"])
+            < min(sa["CAL-ABS"]["rho"], sa["CAL-RANK"]["rho"])
+            for sa in storm_arms)),
+        "controls_lose_on_rmse_every_storm": bool(all(
+            min(sa["CAL-SHUFFLE"]["rmse_pa"], sa["GEO-DEGENERATE"]["rmse_pa"])
+            > max(sa["CAL-ABS"]["rmse_pa"], sa["CAL-RANK"]["rmse_pa"])
+            for sa in storm_arms)),
+    }
     regimes["R4_STORM"] = {
         "n_centres": len(qual),
         "grad_p_mean_pa_per_100km": float(np.mean(storm_g)),
@@ -348,6 +378,8 @@ def main():
         "lsm_mean": float(box(lsm, mrr, mcc).mean()),
         "per_storm": storm_rows,
         "arms": arms_for_box(mfield, mrr, mcc, rng),
+        "arms_all_storms": storm_arms,
+        "arms_across_storms": arms_spread,
     }
 
     # ---- D-CZ-1: can the controls LOSE, and can the METRIC DIFFER? ----
