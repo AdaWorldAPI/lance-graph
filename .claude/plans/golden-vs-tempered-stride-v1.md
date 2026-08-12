@@ -6,10 +6,19 @@
 > plan is the standalone, substrate-general validation of that rule, not
 > weather-specific. Zero fetch, pure arithmetic.
 >
-> **⚠ RUNNING THE PROBE CAUGHT TWO REAL DEFECTS IN THE HAND-DERIVED NUMBERS
-> BELOW — both fixed, both explained where they occurred (T1, T3).** Neither
-> changes the qualitative finding; both change specific numbers. This is
-> exactly what "commit the bars, then run" is for.
+> **⚠ THE RUN CAUGHT DEFECTS TWICE — once from running it, once from
+> external review of the run's own result.** First pass (running the
+> script): two real defects in the hand-derived numbers (T1's m*
+> methodology, T3's float round-trip false negative). Second pass (codex
+> review on PR #935, of the FIRST corrected run): two more real defects,
+> both in T1 (an off-by-one in the useful-range floor, and — the
+> substantive one — "m*" was a first-crossing search, not a verified
+> PERMANENT one, so the corrected-once table was still wrong in a way that
+> mattered). All four are fixed and explained inline (T1, T3). None
+> changes the qualitative finding; all four change specific numbers, twice
+> over for `m*`. This is what "commit the bars, then run, then let review
+> hit the run" is for — each pass caught something the previous one
+> could not see from the outside.
 
 ## Why this file exists
 
@@ -52,70 +61,90 @@ first prefix length beyond `q` at which golden's discrepancy drops below
 the tempered stride's (permanently, since tempered is frozen at its `m=q`
 value forever after).
 
-**RUN, committed script, 2026-08-12** (`golden_vs_tempered_probe.json`):
+**RUN, committed script, 2026-08-12 — THIRD revision of `m*`, this one
+verified rather than assumed** (`golden_vs_tempered_probe.json`):
 
-| q | best coprime s | temp score (median, useful range) | golden score (same range) | m* (golden overtakes) | m*/q | temp/golden @ m=200q |
-|---|---|---|---|---|---|---|
-| 12 | 5 | 0.1667 | 0.1721 | 16 | 1.33 | 89.5× |
-| 17 | 14 | 0.1042 | 0.1169 | 21 | 1.24 | 70.4× |
-| 34 | 25 | 0.0570 | 0.0654 | 42 | 1.24 | 89.4× |
-| 55 | 34 | 0.0384 | 0.0373 | 55 | 1.00 | 106.4× |
-| 64 | 41 | 0.0312 | 0.0337 | 90 | 1.41 | 83.3× |
-| 89 | 35 | 0.0251 | 0.0275 | 110 | 1.24 | 84.2× |
-| 144 | 85 | 0.0160 | 0.0158 | 144 | 1.00 | 103.6× |
-| 233 | 149 | 0.0104 | 0.0116 | 288 | 1.24 | 68.2× |
-| 377 | 239 | 0.0066 | 0.0066 | 377 | 1.00 | 96.4× |
-| 987 | 722 | 0.0028 | 0.0027 | 987 | 1.00 | 90.0× |
+| q | best coprime s | temp score (median, useful range) | golden score (same range) | m* (VERIFIED permanent) | m*/q | checkpoints verified | temp/golden @ m=200q |
+|---|---|---|---|---|---|---|---|
+| 12 | 5 | 0.1667 | 0.1721 | 24 | 2.00 | 76 | 89.5× |
+| 17 | 14 | 0.0966 | 0.1087 | 32 | 1.88 | 78 | 70.4× |
+| 34 | 25 | 0.0570 | 0.0654 | 68 | 2.00 | 80 | 89.4× |
+| 55 | 34 | 0.0383 | 0.0367 | 115 | 2.09 | 81 | 106.4× |
+| 64 | 41 | 0.0312 | 0.0337 | 170 | 2.66 | 81 | 83.3× |
+| 89 | 35 | 0.0247 | 0.0275 | 212 | 2.38 | 82 | 84.2× |
+| 144 | 85 | 0.0160 | 0.0158 | 320 | 2.22 | 83 | 103.6× |
+| 233 | 149 | 0.0103 | 0.0116 | 589 | 2.53 | 82 | 68.2× |
+| 377 | 239 | 0.0066 | 0.0066 | 929 | 2.46 | 83 | 96.4× |
+| 987 | 722 | 0.0028 | 0.0027 | 2521 | 2.55 | 83 | 90.0× |
 
-> **⚠ CORRECTION — `m*` was computed inconsistently with this plan's own
-> prose in the pre-registered draft (all rows), caught by actually running
-> the script.** The draft's `m*` search recomputed the TEMPERED sequence's
-> star discrepancy at each growing `m > q` — but a tempered walk past `m=q`
-> is REPEATING its own `q` positions, not sampling new ones, so that
-> recomputation feeds duplicate points into a formula built for distinct
-> order statistics, and the resulting "discrepancy" **spuriously worsens**
-> instead of staying at its true, meaningful value. Worked example at
-> `q=17`: at `m=18` (the point where the tempered stride's 18th sample lands
-> exactly back on its own first position) the repeating-sequence
-> recomputation jumps to 0.1111 — WORSE than tempered's actual frozen
-> quality of 0.0588 — making golden's 0.0832 look like a win at `m=18` when
-> it is still **worse** than tempered's real ceiling. The draft's `m*=18`
-> for `q=17` was an artifact of this; the corrected script holds tempered at
-> its true frozen `m=q` value (matching this plan's own stated definition:
-> *"then repeats identically forever — a hard ceiling on refinement"*) and
-> finds golden's genuine first crossing, `m*=21`. **Every `m*` in the
-> corrected table is ≥ the draft's value** — under the correct definition,
-> golden takes somewhat LONGER to overtake than the draft suggested, not
-> shorter, so nothing here weakens the qualitative claim; it corrects the
-> tightness of one specific number per row.
+> **⚠⚠ TWO CORRECTIONS TO `m*` NOW, NOT ONE — stated plainly rather than
+> quietly folded in, because the number has moved twice and a reader
+> deserves to see the trajectory.** The pattern each time: a real
+> methodological gap the run itself exposed, each fix moving `m*` further
+> from `q`, never closer.
+>
+> **First correction (already recorded here) — the draft recomputed the
+> TEMPERED sequence past its own closure**, feeding repeated points into a
+> distinct-order-statistic formula, spuriously worsening it and making
+> golden look like it won earlier than it did. Fix: hold tempered frozen at
+> its true `m=q` value. That produced the (now superseded) `m* ≈ 1.0–1.4×q`
+> table.
+>
+> **Second correction (codex P1 on PR #935) — that "frozen-ceiling" `m*`
+> was still only a FIRST crossing, not a verified PERMANENT one.** Golden's
+> raw discrepancy sequence is not monotonic — only its `O(log m/m)`
+> ENVELOPE is a bound — so a single dip below the tempered ceiling can be
+> followed by a rise back above it before the sequence settles for good.
+> Codex's exact, reproduced example: `q=17` reported `m*=21`, but
+> `D*(22) = 0.08137`, ABOVE the frozen ceiling `0.05882` — not permanent at
+> all. Fixed with `verified_permanent_crossover`: a candidate crossing is
+> checked against a **sampled checkpoint set** (every integer for the next
+> 50 steps — this is what catches near-term reversals exactly like the
+> q=17 case — plus ~15 geometrically-spaced points out to the `m=200q`
+> horizon, plus the horizon itself); any checkpoint violation restarts the
+> scan past it. **The checkpoint count is reported alongside every `m*`**
+> (76–83 points per row) so the verification scope is stated, not implied
+> as exhaustive — points strictly between checkpoints are not individually
+> checked, though the sampling density (every integer for 50 steps right
+> after the candidate, where reversals are most likely, per the q=17
+> example) is chosen to make an undetected reversal unlikely.
+>
+> Also note: the useful-range floor bug (codex P2, `q//2` vs `⌈q/2⌉`) is
+> folded into this table too — it shifted `temp/gold score` slightly for
+> odd `q` (17, 55, 89, 233), visible above; it did not change any stride
+> choice or any pass/fail verdict.
 
-**Reading, stated as the finding rather than left implicit:**
-- **The head is right in the bounded regime.** At every tested `q`, the
-  best coprime tempered stride is **competitive with or better than**
-  golden **within its own budget** (`m ≤ q`) — and it achieves this with
-  **zero variance and a construction-guaranteed closure**, where golden's
-  quality at any finite `m` is a continuous function with no guaranteed
-  floor.
-- **The gut is right in the unbounded regime.** `m*` — the point where
-  golden permanently overtakes — sits **within about 1.0–1.4× of `q`** in
-  every row tested (never more than half a cycle-length beyond `q`; exactly
-  at `q` for four of the ten rows — `55, 144, 377, 987`). Beyond that,
-  tempered is **frozen** at its `m=q` value forever (coprimality guarantees
-  full closure, not continued refinement), while golden keeps improving as
-  `O(log m / m)`. By `m = 200q` the gap is **68–106×** in golden's favor, at
-  every `q` tested.
-- **Neither instinct is wrong; they are answers to different questions.**
-  "Is there ever going to be more data than this fixed budget?" — no ⇒
-  tempered, exact closure, zero variance, done. "Is more data always
-  coming, indefinitely?" — yes ⇒ golden, no ceiling, strictly better past
-  `m ≈ q`.
+**Reading, corrected a second time:**
+- **The head is right in the bounded regime — this claim is unaffected by
+  either correction.** At every tested `q`, the best coprime tempered
+  stride is **competitive with or better than** golden **within its own
+  budget** (`m ≤ q`) — zero variance, construction-guaranteed closure,
+  where golden's quality at any finite `m` has no guaranteed floor.
+- **The gut is right in the unbounded regime, and its margin is LARGER than
+  first stated.** The verified-permanent `m*` sits at **roughly 1.9–2.7× `q`**
+  — golden needs about two tempered cycles' worth of samples, not one, before
+  it can be trusted never to dip back above the frozen ceiling. This is a
+  WEAKER claim for tempered's near-term competitiveness than the
+  once-corrected table suggested (`1.0–1.4×`), and a stronger one for
+  golden's eventual, durable dominance. Beyond `m*`, tempered is frozen at
+  its `m=q` value forever, while golden keeps improving as `O(log m/m)`; by
+  `m=200q` the gap is **68–106×** in golden's favor at every `q` tested,
+  UNCHANGED by either correction (T2 was always computed at the single
+  fixed point `m=200q`, never via a crossing search, so it was never
+  exposed to either bug).
+- **Neither instinct is wrong; they are answers to different questions,
+  and the honest margins are now wider apart than first drafted, not
+  narrower.** "Is there ever going to be more data than this fixed
+  budget?" — no ⇒ tempered, exact closure, zero variance, done. "Is more
+  data always coming, indefinitely?" — yes ⇒ golden, no ceiling, verified
+  durably better past roughly `2× q`.
 
-**Bar T1 — RUN, result above:** the extended list (including `q=377,987`)
-confirms the qualitative crossover pattern: `m*` never exceeds ~1.41× `q` at
-any tested `q`, and lands exactly at `q` whenever the useful-range-optimal
-stride's own frozen discrepancy already beats golden's score throughout the
-sweep window (the `m*/q = 1.00` rows). No `q` broke the pattern into a
-qualitatively different regime.
+**Bar T1 — RUN, corrected result above:** the extended list (including
+`q=377,987`) confirms the qualitative crossover pattern holds at every
+tested `q` — golden's advantage is DURABLE once past its verified `m*`, not
+merely a lucky first dip. No `q` broke the pattern into a qualitatively
+different regime; what changed across both corrections is the TIGHTNESS of
+the crossover estimate, not its existence or direction.
 
 **⚠ CAVEAT, stated up front rather than discovered late (an earlier
 worst-case-over-all-`m` metric picked DIFFERENT "best" strides for q=17 —
@@ -229,9 +258,11 @@ already does correctly (stride 4, `gcd(4,17)=1`).
 | **unbounded, growing budget** (`m ≫ q`, e.g. a continuum lattice sampled indefinitely, real phyllotaxis with thousands of florets) | **gut** | golden angle | no ceiling — `O(log m/m)` refinement forever, 68–106× ahead of any frozen tempered walk by `m=200q` (T1, T2) |
 
 This is not a tie-breaker between the two intuitions — it is the discovery
-that **each is the correct mechanism for its own regime**, and the
-crossover sits almost exactly at `m ≈ q` in every case tested. Filed as the
-final validation of the two-regime table already committed in
+that **each is the correct mechanism for its own regime**, and the VERIFIED
+crossover sits at roughly **1.9–2.7× `q`** in every case tested (the
+number moved twice under review, both times widening — see T1's two
+correction notes above). Filed as the final validation of the two-regime
+table already committed in
 `COMET_TAIL_REPORT.md` §10.5 and `EPIPHANIES.md`
 `E-THE-GOLDEN-STEP-IS-THE-WRONG-STEP-AT-SMALL-Q-1` — this plan supplies the
 head-to-head arithmetic that entry asserted but did not yet run as a

@@ -26,7 +26,7 @@ Wave 1 = parallel, no operator gate beyond go-ahead; gated rows named.
 | D-id | Deliverable | Wave | Status | Feeds |
 |---|---|---|---|---|
 | D-W5 | Spiral-ADI anisotropy: Vogel N=4096, iso ≤0.15 & aniso ≤1.25, non-Fibonacci stride control ≥1.5× | 1 | Queued | domino.rs gather design; [H] flags §10.5 |
-| D-W2sA | Golden-vs-grid pairing on real cos-lat metric (zero-ties G1, CV G2) | 1 | Queued | facet-node addressing [G] extension |
+| D-W2sA | Golden-vs-grid pairing on real cos-lat metric (zero-ties G1, CV G2) | 1 | **RUN — G1 VOID, G2/G4 FAIL (control degenerate: two identical translated grids are symmetry-uniform, CV ~1e-12 — cannot lose any evenness comparison; diagnosed via smoke test, run as-specified, `E-A-CONTROL-THAT-CANNOT-LOSE-IS-NO-CONTROL-1`)** | honest falsifier for evenness DEFERRED (offset/rotation-varied or spacing-mismatched control); §10.5 properties 1–3 untouched |
 | D-W6 | Two-component deconvolution (geo + bow, global lstsq, 38 eqs / 2 params; B3 = stranded stratification via v_rel) | 1 | Queued | dipole vector-sum identification; F17 gate |
 | D-W2sB | α-window sweep β∈[0.85,1.15] | gated (W2s-a) | Queued | corridor α discriminator |
 | D-W7 | Corridor two-regime α field probe | gated (W6) | Queued | §10.3 physics |

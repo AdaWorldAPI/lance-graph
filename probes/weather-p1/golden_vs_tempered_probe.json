@@ -5,15 +5,17 @@
       "best_stride": 5,
       "temp_score_useful_range": 0.16666666666666663,
       "golden_score_useful_range": 0.17213595499957957,
-      "m_star": 16,
+      "m_star": 24,
+      "m_star_checkpoints_verified": 76,
       "temp_over_golden_at_200q": 89.53794482112389
     },
     {
       "q": 17,
       "best_stride": 14,
-      "temp_score_useful_range": 0.1042016806722689,
-      "golden_score_useful_range": 0.11685777865321556,
-      "m_star": 21,
+      "temp_score_useful_range": 0.09663865546218486,
+      "golden_score_useful_range": 0.10871555730643112,
+      "m_star": 32,
+      "m_star_checkpoints_verified": 78,
       "temp_over_golden_at_200q": 70.35571368151886
     },
     {
@@ -21,15 +23,17 @@
       "best_stride": 25,
       "temp_score_useful_range": 0.057009803921568625,
       "golden_score_useful_range": 0.06538867268498469,
-      "m_star": 42,
+      "m_star": 68,
+      "m_star_checkpoints_verified": 80,
       "temp_over_golden_at_200q": 89.43980989976654
     },
     {
       "q": 55,
       "best_stride": 34,
-      "temp_score_useful_range": 0.03838383838383841,
-      "golden_score_useful_range": 0.037271388032666455,
-      "m_star": 55,
+      "temp_score_useful_range": 0.03825350276963181,
+      "golden_score_useful_range": 0.036743480219287784,
+      "m_star": 115,
+      "m_star_checkpoints_verified": 81,
       "temp_over_golden_at_200q": 106.35961099655272
     },
     {
@@ -37,15 +41,17 @@
       "best_stride": 41,
       "temp_score_useful_range": 0.03125,
       "golden_score_useful_range": 0.03366799389590275,
-      "m_star": 90,
+      "m_star": 170,
+      "m_star_checkpoints_verified": 81,
       "temp_over_golden_at_200q": 83.30256049149101
     },
     {
       "q": 89,
       "best_stride": 35,
-      "temp_score_useful_range": 0.02505140633032238,
-      "golden_score_useful_range": 0.027539906627747447,
-      "m_star": 110,
+      "temp_score_useful_range": 0.024656679151061178,
+      "golden_score_useful_range": 0.027474569923002345,
+      "m_star": 212,
+      "m_star_checkpoints_verified": 82,
       "temp_over_golden_at_200q": 84.2201278187017
     },
     {
@@ -53,31 +59,35 @@
       "best_stride": 85,
       "temp_score_useful_range": 0.016008771929824583,
       "golden_score_useful_range": 0.01578730894249568,
-      "m_star": 144,
+      "m_star": 320,
+      "m_star_checkpoints_verified": 83,
       "temp_over_golden_at_200q": 103.57381186938156
     },
     {
       "q": 233,
       "best_stride": 149,
-      "temp_score_useful_range": 0.010369816859613802,
-      "golden_score_useful_range": 0.011612009931471826,
-      "m_star": 288,
+      "temp_score_useful_range": 0.010335982934200169,
+      "golden_score_useful_range": 0.011608500589898214,
+      "m_star": 589,
+      "m_star_checkpoints_verified": 82,
       "temp_over_golden_at_200q": 68.19636649519545
     },
     {
       "q": 377,
       "best_stride": 239,
-      "temp_score_useful_range": 0.006631061693812973,
-      "golden_score_useful_range": 0.00658030019036672,
-      "m_star": 377,
+      "temp_score_useful_range": 0.006626613303840012,
+      "golden_score_useful_range": 0.006579742099070085,
+      "m_star": 929,
+      "m_star_checkpoints_verified": 83,
       "temp_over_golden_at_200q": 96.43803268023423
     },
     {
       "q": 987,
       "best_stride": 722,
-      "temp_score_useful_range": 0.002834401568212852,
-      "golden_score_useful_range": 0.0027486658306924983,
-      "m_star": 987,
+      "temp_score_useful_range": 0.0028331991239704413,
+      "golden_score_useful_range": 0.0027479422492533156,
+      "m_star": 2521,
+      "m_star_checkpoints_verified": 83,
       "temp_over_golden_at_200q": 90.01758793198474
     }
   ],
