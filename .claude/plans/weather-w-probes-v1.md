@@ -94,6 +94,50 @@ pass/fail bar. Every bearing-related bar ships with TWO controls through the
 identical pipeline: a +90°-rotated referent and a deterministically permuted
 one (`(i+7) % n`). The controls' scores are reported FIRST; if a control
 matches the real referent's score, the probe is VOID regardless of its bars.
+**GOLDEN-RATIO INDEX FLOOR (operator-ruled 2026-08-12, binding on every
+lattice/stride/spiral construction in this plan).** *"Golden ratio immer erst
+ab 17/21 — alles darunter ist Müll."* A Fibonacci ratio `F(n+1)/F(n)` is a
+RATIONAL with period `F(n)`; it only behaves like the irrational φ from
+**n ≈ 17–21** onward. Measured convergent error: n=10 → **1.5e-4**, n=13 →
+8.2e-6, **n=17 → 1.8e-7**, n=19 → 2.6e-8, n=21 → **3.7e-9**. Below the floor
+the ratio RESONATES — which is exactly the moiré/aliasing the golden
+construction exists to prevent, so a sub-floor lattice does not weakly
+demonstrate the property, it demonstrates the opposite.
+
+Two things this rule does and does NOT touch, keep them apart:
+- **The golden ANGLE** `θ = k·2π(1−1/φ)` in f64 is irrational to ~1e-16.
+  **Unaffected.** Do not "fix" the angle.
+- **The addressable STRIDE families** that EMERGE in a lattice of N points —
+  the visible parastichy numbers sit at `≈ √N`. **This is what the floor
+  binds.** For the emergent pair to reach index ≥17 you need
+  **N ≳ F(17)² = 2 550 409**, not thousands. A probe at N=4096 has its
+  natural pair at **F(10)=55 / F(11)=89** — six orders of magnitude below the
+  floor, i.e. squarely in the Müll zone, no matter how precise its angle.
+
+**BELOW THE FLOOR, DO NOT APPROXIMATE φ AT ALL — enumerate.** (Operator,
+same ruling: *"die beste Kombi ist 17 und stride 4"*, *"Alternative ist
+17/11, aber das ist kein goldener Schnitt"*.) The floor does not mean "reach
+for a slightly better Fibonacci ratio"; it means the φ-approximation
+*selector* is the wrong instrument down there. Use the workspace's shipped
+exact integer coprime walk — `CurveRuler::index(k) = (start + 4k) mod 17`
+(`crates/helix/src/curve_ruler.rs`), D-QUANTGATE-mandated, bit-exact, full
+permutation, no float φ. **Measured proof that φ-proximity mis-selects at
+q=17:** `helix/KNOWLEDGE.md:320` calls `(i·11)%17` the "golden-step" because
+`17/φ = 10.51 → 11`; enumerating all 16 strides, prefix star-discrepancy at
+m = 5/9/13 is **stride 4 → 0.2000/0.1111/0.0769** vs **stride 11 →
+0.2000/0.1503/0.0905** — stride 4 is never worse and strictly better at m=9
+and m=13. The ratio `17/11 = 1.5455` is `7.3e-2` from φ, an order of
+magnitude worse than `13/8`. **If a probe needs a small-q walk, enumerate the
+candidates and pick by measured discrepancy; never by closeness to φ.**
+
+**Obey it as the design default AND measure it.** Both lattice probes carry
+an N-sweep arm that varies N so the EMERGENT pair lands at indices
+{8, 10, 12, 14, 17, 19, 21} and reports the metric against index. If a knee
+appears near 17 the floor is measured `[G]`; if the metric is flat from
+index 10 up, say so plainly — the floor is then a safety margin, not a
+mechanism, and that is the operator's call to keep or relax. Never report the
+floor as confirmed without the sweep.
+
 Comparative sentences in your output must name BOTH operands ("R̄ identical
 to X", never bare "identical") — a relation between two correct numbers can
 be false.
@@ -118,17 +162,31 @@ be false.
 
 **File:** `spiral_adi_probe.py`. **Seed:** 20260812. **No network.**
 
-**Objective.** On a Vogel lattice (`r = c·√k`, `θ = k·2π(1−1/φ)`, N=4096,
-c chosen so max radius = 1.0), test whether alternating tridiagonal smoothing
-sweeps along the two parastichy stride families approximate an isotropic 2D
-diffusion — and that the result *depends on the strides being Fibonacci*.
+**Objective.** On a Vogel lattice (`r = c·√k`, `θ = k·2π(1−1/φ)`,
+**N = F(17)² = 2 550 409** so that `√N = 1597 = F(17)` puts the emergent
+parastichy pair exactly ON the index floor, c chosen so max radius = 1.0),
+test whether alternating tridiagonal smoothing sweeps along the two
+parastichy stride families approximate an isotropic 2D diffusion — and that
+the result *depends on the strides being Fibonacci*.
+
+> **⚠ N IS NOT A FREE PARAMETER AND THE FIRST DRAFT GOT IT WRONG.** This
+> brief originally specified **N=4096**, whose emergent pair is
+> **F(10)=55 / F(11)=89** (error 1.5e-4) — the Müll zone by the §0 index
+> floor. Worse, its step 1 searched `j ∈ {1..60}`, so it was *structurally
+> incapable* of finding a family above F(10) — the sub-floor answer was
+> hardcoded, and every bar below would have been measured on it. Both are
+> corrected here. **Do not lower N to make the probe faster.**
 
 **Steps.**
 1. Build the lattice. For each radius band (8 equal-area annuli), find the
-   dominant nearest-neighbor index-difference pair by measuring, for each
-   point, `argmin_j |x_{k+j} − x_k|` over `j ∈ {1..60}`; record the two most
-   frequent j per band (expect adjacent Fibonacci numbers; REPORT the bands
-   where they transition).
+   dominant stride pair **geometrically, with no capped search window** —
+   build a KD-tree (`scipy.spatial.cKDTree`) over the band's points, take
+   each point's 8 nearest neighbours, and histogram the **index differences
+   `|k_neighbour − k|`**; the two most frequent differences per band are the
+   stride pair. Report them and the bands where they transition. **The
+   capped `argmin` scan of the first draft is forbidden** — it presupposes
+   the answer's magnitude, and a discovery step that cannot return a large
+   or non-Fibonacci answer is not a discovery step.
 2. Per band, measure the crossing angle between the two stride directions at
    each point (angle between `x_{k+j1}−x_k` and `x_{k+j2}−x_k`); report the
    distribution (median, IQR, per band).
@@ -150,13 +208,34 @@ diffusion — and that the result *depends on the strides being Fibonacci*.
 - **B2 ISO:** after best-σ_ref calibration, relative L2 error between ADI
   result and isotropic reference ≤ **0.15**, AND second-moment anisotropy
   λ_max/λ_min ≤ **1.25**.
-- **B3 CONTROL (can-it-fail):** identical run with strides forced to
-  **12 and 18** (non-Fibonacci, non-coprime-ish) must give anisotropy ≥
-  **1.5×** the Fibonacci run's. If the wrong strides smooth just as
-  isotropically, the Fibonacci claim measures nothing — say VOID.
+- **B3 CONTROL (can-it-fail), at the SAME N:** identical run with the stride
+  pair forced to a **non-Fibonacci pair of comparable magnitude** — use
+  **1500 and 2600** (near F(17)=1597 / F(18)=2584 in size, so the control
+  differs in *arithmetic*, not in *scale*) — must give anisotropy ≥ **1.5×**
+  the Fibonacci run's. If the wrong strides smooth just as isotropically, the
+  Fibonacci claim measures nothing — say VOID. *(The first draft used 12/18,
+  which at N=2.55M is not a wrong-arithmetic control but a wrong-scale one:
+  stride 12 connects points that are nowhere near each other, so it would
+  have failed for a reason having nothing to do with Fibonacci.)*
+- **B4 INDEX-FLOOR SWEEP (the operator's rule, measured not assumed):** repeat
+  the whole pipeline at **N = F(n)²** for `n ∈ {8, 10, 12, 14, 17, 19, 21}`,
+  each time using that N's OWN emergent pair (never a forced stride), and
+  report `iso_error` + `aniso` against n. **Two-sided and both readings must
+  be stated:** a knee near n≈17 promotes the floor to a measured `[G]`; a
+  curve already flat from n≈10 means the floor is a **safety margin, not a
+  mechanism** — report that plainly rather than burying it, and leave the
+  keep-or-relax call to the operator. Note `N = F(21)² = 1.2e8` is too large:
+  **cap the sweep at n=19 (N = F(19)² ≈ 1.75e7)** and record n=21 as
+  NOT RUN — do not silently drop it.
 
-**Output JSON:** `{bands: [...], crossing_angles: {...}, iso_error, aniso_fib,
-aniso_control, verdicts: {B2, B3}}`.
+**Cost note (changed by the floor):** N=2.55M f64 ≈ 20 MB/field, cKDTree
+build ~10 s; the B4 sweep is dominated by its largest N. Budget **~10–20 min
+and ~2 GB peak**, not the "minutes" of the pre-floor draft. Still zero fetch.
+Checkpoint per (N, band) row per §0.
+
+**Output JSON:** `{N, bands: [...], crossing_angles: {...}, iso_error,
+aniso_fib, aniso_control, sweep: [{n, N, pair, iso_error, aniso}],
+verdicts: {B2, B3, B4}}`.
 
 ---
 
@@ -170,7 +249,17 @@ the real cos-lat metric — the #921 lesson says disk properties do NOT
 automatically transfer.
 
 **Steps.**
-1. Two Vogel lattices, N=2048 each, disk radius 1500 km, centers at
+> **⚠ INDEX FLOOR — applies here too, but the bite is NOT obvious and must
+> not be assumed either way.** The first draft used **N=2048** per lattice
+> (emergent pair ≈ F(9)/F(10)), sub-floor by §0. But this probe's bars measure
+> **pairing between two lattices** (ties, CV of nearest-pair distances), not
+> stride addressability — and ties/incommensurability follow from the ANGLE
+> being irrational, which holds at any N in f64. The evenness bar G2 is the
+> one plausibly governed by the convergent index (three-gap structure).
+> **Therefore: raise N so the question does not arise, AND measure it.**
+> N = **F(17)² = 2 550 409** per lattice for the headline run.
+
+1. Two Vogel lattices, **N = 2 550 409** each, disk radius 1500 km, centers at
    (55.0N, 340.0E) and (55.0N, ~361.9E) → 1400 km apart at that latitude.
    Project to km via the metric `dx = R_E·cos(lat_c)·Δlon_rad`,
    `dy = R_E·Δlat_rad` (R_E=6371.0) — the same `geom_ll` convention.
@@ -188,9 +277,21 @@ automatically transfer.
   golden CV **< grid CV** (strict).
 - **G3** (descriptive): χ² of pair-midpoint density against uniform across
   the corridor band, both constructions, reported not judged.
+- **G4 INDEX-FLOOR SWEEP (does the floor bite THIS probe?):** rerun G1+G2 at
+  `N = F(n)²` for `n ∈ {8, 10, 12, 14, 17, 19}` and report ties + CV against
+  n. **The pre-registered expectation, written down before the run so it can
+  be wrong:** ties stay **0 at every n** (the angle is irrational at any N),
+  while CV improves monotonically and may flatten near the floor. **If ties
+  appear below the floor, the angle reading was wrong and G1's mechanism is
+  not what this brief claims** — report it as a correction to §0's "the angle
+  is unaffected" split, which is exactly the kind of claim that should be
+  falsifiable rather than inherited.
 
-**Output JSON:** `{n_pairs, ties_golden, ties_grid, cv_golden, cv_grid,
-chi2_golden, chi2_grid, verdicts: {G1, G2}}`.
+**Cost note:** the N=2.55M headline plus the sweep; budget ~10 min, ~2 GB,
+zero fetch. Checkpoint per (n, arm) row per §0.
+
+**Output JSON:** `{N, n_pairs, ties_golden, ties_grid, cv_golden, cv_grid,
+chi2_golden, chi2_grid, sweep: [{n, N, ties, cv}], verdicts: {G1, G2, G4}}`.
 
 ---
 
