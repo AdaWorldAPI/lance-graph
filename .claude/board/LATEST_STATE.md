@@ -1,3 +1,16 @@
+## 2026-08-12 — lance-graph #926 (MERGED) — the storm spine, the 12-byte L4 carrier, and the propagation failure mode
+
+### Current Contract Inventory — no new types (probes + report + board; zero Rust, zero product code)
+
+- **The spine `[G]`:** a surface low = **center address + 14 logical fit values** (~12 ring means + a 2-value wn-1 dipole) = **90.9–94.3 %** of in-disk MSLP variance, replicated across three independent blind samples (1980–2021, 41+ storms, four seasons). Not 93–97 % — that figure was a **36-parameter per-ring fit**, not the 14-value model the storage claim describes.
+- **It fits the REAL carrier `[H]`:** le-contract §3 **L4 is a PAIR** — `6 × (8:8)`, `palette256²`. The single byte is the *selector*; the pair is a centroid-tile cell. A **12-byte facet** recovers the f64 spine to **0.07 Pa RMSE** with a **+1.59 Pa bias**. **14 logical values ≠ 14 bytes** — keep model size and carrier budget apart.
+- **Fisher-z is per-read, not universal `[H]`:** **8.3× tighter** than plain rank in the storm tail on the raw field; **4.7× worse** than uniform on ring means. **Wins a RANK/TAIL read, loses an INTERPOLATE/LEVEL read** — which is why an L4 ClassView **MAY** (not must) declare an analytic codebook.
+- **The directional claim is `[S]`, measured-unsupported:** CT-F14 (the properly-powered pre-registered test) = **0.684, p=0.0835 → NO-VERDICT**. The pooled figure crosses p<0.05 but is **gated** — the pre-registration had no contingency for its largest component failing its own n≥20 floor.
+- **⚠ Two methodological rules this PR banks, both worth carrying forward:**
+  - **R² is structurally near-blind to encoder bias.** `var(y−ŷ)` (used at 11 sites) drops the squared mean residual; in-disk variance ~1e5 Pa² means a **+92.76 Pa** offset moves R² in the 5th decimal. "Lossless" was inferred from the one statistic that could not detect the loss. **Report RMSE and mean bias in the physical unit beside every R².**
+  - **The dominant defect class is PROPAGATION, not judgment.** All five documentation defects were *a claim corrected in one home and left standing in another* — prose vs artifact, body vs heading, code vs JSON, report vs PR description. When correcting a claim, **grep for its twins first.**
+- **Still open, operator calls:** CT-F16 (score the dipole against **steering-level** motion — the one measured, unwired moderator) · the moist budget (θe/precip are **proxies**, not a closed entropy budget) before CT-M1..M3 · C-register climatological calibration (single-timestep today) · `domino.rs` is a *fixed tridiagonal kernel*, so the moderator model is unbuilt, not unwired.
+
 ## 2026-08-11 — lance-graph #924 (MERGED) — evaluation plan ACTIVE after a 0-of-11 spec audit
 
 ### Current Contract Inventory — no new types (plan + audit + corrections)

@@ -871,7 +871,7 @@ Three results worth more than the headline:
   is far starker than R² suggests: carve A's held outer rings cost **+92.76 Pa
   of bias**, carve D's **+1.59 Pa**.
 - **L3 FAILED, and so did my proposed rescue.** Fisher-z centroid axes are
-  **5× worse** than uniform on the ring means (18.07 vs 3.84 Pa). I
+  **4.7× worse** than uniform on the ring means (18.07 vs 3.84 Pa). I
   hypothesised the population was wrong — ranks taken against the 24 encoded
   values instead of the field — and measured that too (L3b): **19.00 Pa, no
   rescue.** Mechanism: ring means are a smooth *narrow-band* quantity sitting
