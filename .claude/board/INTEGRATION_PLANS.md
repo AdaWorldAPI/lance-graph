@@ -1,3 +1,51 @@
+## 2026-08-12 — substrate-comfort-zones-v1 (PLAN; where does each substrate formula feel at home?)
+
+Plan: `.claude/plans/substrate-comfort-zones-v1.md`. Status **ACTIVE**,
+exploratory tier (bars author-written, unaudited — stated in the header).
+Operator framing, three messages: *hold different situations constant (over
+water) vs flatland vs storm with high velocity differences / turbulence* ·
+*good geometry vs badly calibrated* · *then we find out where the substrate
+formulas feel at home*.
+
+**The hypothesis to falsify:** a badly-calibrated substrate that maps
+DYNAMICALLY beats a well-calibrated absolute one in strong storms —
+miscalibration as a regime-dependent property, not a uniform defect.
+
+**Not fresh speculation — a convergence of three already-measured findings:**
+Fisher-z's opposite verdicts (8.3× better in the storm tail, 4.7× worse on
+ring means, #926); the three-register result that rank-normalised palette256
+is the ONLY frame where cross-variable distance is defined (so "no absolute
+anchor" and "the only frame that works" are one property from two sides);
+and the operator-ruled golden index floor (#932), reused as the geometry
+axis's pre-existing good/bad split rather than inventing a new quality scale.
+
+**Two axes, varied independently so results are attributable:** GEOMETRY
+(`GOLDEN-HI` above the index floor · `GOLDEN-LO` in the sub-floor resonance
+zone · `TEMPERED` 17/stride-4 · `GRID`), at EXACTLY equal sample budget (the
+W2s-a unequal-budget lesson). CALIBRATION (`ABS-OWN` · `ABS-FOREIGN` = the
+literal "badly calibrated" · `RANK-DYN` and `FISHERZ-DYN` = anchor-free but
+dynamic — the operator's actual candidate).
+
+**§1 PREFLIGHT ALREADY RUN, and it corrected the plan before any bar
+existed** (the W6 lesson applied prospectively): (1) **"flatland" is NOT one
+regime** — it spans from calmer-than-ocean (Amazon `|∇p|`=10.2) to 3×-ocean
+(W Siberia 43.8), so the regime axis is defined by MEASURED `|∇p|`, not by
+surface-type label; (2) **elevation confounds MSLP** (extrapolated over
+terrain) — only boxes with elev σ ≤ 150 m are admissible, which excludes US
+Great Plains (698 m), Argentine pampas (792 m) and two others on evidence;
+(3) **wind speed does not discriminate** (ocean 5.33 vs flatland 5.47 m/s) —
+scoring uses `|∇p|` and speed σ, never mean speed. Adopted ladder R1 Amazon
+10.2 → R2 ocean 14.9 → R3 W Siberia 43.8 → R4 storm 95.6, a 9.3× range.
+
+**Bars:** C0 controls-first with BOTH a shuffled codebook and a degenerate
+geometry, each cheap-smoke-tested for losability before the full run;
+C1 regime ladder must hold on ≥3 timesteps (anti-cherry-pick); **C2 the
+crossover** — `RANK-DYN − ABS-OWN` must flip sign between calm and storm,
+with both failure directions pre-registered as reportable; C3 the
+miscalibration penalty must shrink with turbulence; C4 the geometry floor
+(a NULL is expected-plausible here per W5's B4 and must be said plainly);
+C5 the comfort matrix as the deliverable. ~150 MB, minutes. Doc-only.
+
 ## 2026-08-12 — golden-vs-tempered-stride-v1 (SUBSTRATE-GENERAL PLAN; head vs gut made falsifiable)
 
 Plan: `.claude/plans/golden-vs-tempered-stride-v1.md`. Status **ACTIVE**.
