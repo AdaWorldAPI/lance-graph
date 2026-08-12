@@ -998,12 +998,28 @@ insensitivity.
 > - Carve D moved 0.943406 → 0.943403 (2.4e-06).
 >
 > **The deeper lesson, which is why the wording changed and not just the
-> digits:** in-disk variance here is ~1e5 Pa², so a systematic offset of tens
-> of Pa perturbs R² in the 5th decimal. **R² is structurally near-blind to
-> exactly the defect that matters for an encoder**, and "lossless" was inferred
-> from the one statistic that could not detect the loss. The probe now reports
-> **RMSE and mean bias in Pa alongside every R²**, because those are what
-> distinguish the carves.
+> digits:** in-disk variance here is ~1e5 Pa², so a systematic offset of a few
+> Pa perturbs R² in the 6th decimal. **R² is near-blind, in the single-digit-Pa
+> regime, to exactly the defect that matters for an encoder** — and that is the
+> regime the "lossless" claim was made in, inferred from the one statistic that
+> could not detect the loss at that magnitude. The probe now reports **RMSE and
+> mean bias in Pa alongside every R²**, because those are what distinguish the
+> carves.
+>
+> > **⚠ CORRECTION 2026-08-12 (codex P2 on PR #927) — the first version of this
+> > paragraph said "an offset of TENS of Pa perturbs R² in the 5th decimal",
+> > which the table 15 lines above refutes.** The two halves belong to different
+> > carves: **+92.76 Pa (carve A) moved R² 0.9212 → 0.9129 — 0.0083, the THIRD
+> > decimal**, plainly visible; **+1.59 Pa (carve D) moved it 0.943406 →
+> > 0.943403 — 2.4e-06, the SIXTH decimal.** Fusing carve A's magnitude with
+> > carve D's insensitivity materially understated how well a *correct* R²
+> > detects a large bias. The sharper and true statement: **the `var()` BUG was
+> > blind at every magnitude — that is what hid +92.76 Pa — while the STATISTIC
+> > is blind only in the single-digit-Pa regime, which is exactly where
+> > "lossless" was claimed on four-decimal agreement.** Same failure mode as the
+> > #930 relation error: two individually-correct numbers asserted of one pair
+> > when each belongs to a different one. The doctrine (report RMSE + bias in Pa
+> > beside every R²) is unchanged and is what the correction rests on.
 
 Three results worth more than the headline:
 
