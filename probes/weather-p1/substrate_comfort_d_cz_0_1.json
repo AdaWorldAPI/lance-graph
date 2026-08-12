@@ -1,5 +1,19 @@
 {
   "probe": "substrate_comfort_d_cz_0_1",
+  "exploratory_within_r4": {
+    "question": "within R4 only: does GEO-DEGENERATE's rho rise with the storm's |grad p| -- i.e. does miscalibration hurt LESS in a stronger field?",
+    "spearman_rho_degen_vs_gradp": 0.443859649122807,
+    "n": 19,
+    "permutation_p_two_sided": 0.05777,
+    "n_permutations": 200000,
+    "null_abs_rho_p95": 0.45614035087719296,
+    "confounds_checked": {
+      "rho_vs_box_pressure_range": -0.03508771929824562,
+      "gradp_vs_box_pressure_range": 0.25263157894736843,
+      "rho_vs_donor_over_box_range": -0.08070175438596491
+    },
+    "status": "EXPLORATORY -- NOT a result. One tier, a CONTROL arm, n=19, unpre-registered, and p is ABOVE 0.05. Recorded as a reason the full cross-regime run is worth doing, never as evidence that it will succeed."
+  },
   "grad_definition_reproduction": {
     "candidates": {
       "pa_per_100km_cos": {

@@ -424,8 +424,57 @@ def main():
                     "max_abs_dev": max(abs(x - 1) for x in ratios.values())}
     best = min(repro, key=lambda c: repro[c]["max_abs_dev"])
 
+    # ---- EXPLORATORY, UNPRE-REGISTERED, within the storm tier only ----
+    # GEO-DEGENERATE's rho varies 0.277..0.943 across the 19 storms. Does the
+    # miscalibration penalty shrink as the field gets stronger -- C3's
+    # direction, but WITHIN one tier and on a CONTROL arm? Computed here so
+    # the number is committed rather than chat-only, which is the very defect
+    # this probe exists to record. Three confounds are computed alongside so
+    # the obvious tautology ("stronger gradient just means wider pressure
+    # range, so the narrow donor covers less") can be checked, not assumed.
+    sg = np.array([r["grad_p"] for r in storm_rows], float)
+    sd = np.array([a["GEO-DEGENERATE"]["rho"] for a in storm_arms], float)
+    box_rng = np.array([a["CAL-ABS"]["codebook_hi_pa"]
+                        - a["CAL-ABS"]["codebook_lo_pa"] for a in storm_arms])
+    donor_rng = np.array([a["GEO-DEGENERATE"]["codebook_hi_pa"]
+                          - a["GEO-DEGENERATE"]["codebook_lo_pa"]
+                          for a in storm_arms])
+
+    def _sp(a, b):
+        """Spearman via ranks, local to the exploratory block."""
+        return float(np.corrcoef(np.argsort(np.argsort(a)),
+                                 np.argsort(np.argsort(b)))[0, 1])
+
+    obs = _sp(sd, sg)
+    prng = np.random.default_rng(SEED)
+    rr = np.argsort(np.argsort(sd)).astype(float)
+    gg = np.argsort(np.argsort(sg)).astype(float)
+    n_perm = 200_000
+    null = np.array([np.corrcoef(prng.permutation(rr), gg)[0, 1]
+                     for _ in range(n_perm)])
+    exploratory = {
+        "question": ("within R4 only: does GEO-DEGENERATE's rho rise with "
+                     "the storm's |grad p| -- i.e. does miscalibration hurt "
+                     "LESS in a stronger field?"),
+        "spearman_rho_degen_vs_gradp": obs,
+        "n": int(sg.size),
+        "permutation_p_two_sided": float(np.mean(np.abs(null) >= abs(obs))),
+        "n_permutations": n_perm,
+        "null_abs_rho_p95": float(np.percentile(np.abs(null), 95)),
+        "confounds_checked": {
+            "rho_vs_box_pressure_range": _sp(sd, box_rng),
+            "gradp_vs_box_pressure_range": _sp(sg, box_rng),
+            "rho_vs_donor_over_box_range": _sp(sd, donor_rng / box_rng),
+        },
+        "status": ("EXPLORATORY -- NOT a result. One tier, a CONTROL arm, "
+                   "n=19, unpre-registered, and p is ABOVE 0.05. Recorded as "
+                   "a reason the full cross-regime run is worth doing, never "
+                   "as evidence that it will succeed."),
+    }
+
     result = {
         "probe": "substrate_comfort_d_cz_0_1",
+        "exploratory_within_r4": exploratory,
         "grad_definition_reproduction": {
             "candidates": repro,
             "identified": best,

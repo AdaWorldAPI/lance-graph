@@ -551,6 +551,45 @@ what preflight is for. It would be illegitimate the moment any C4 cell had
 been scored. Recorded as an amendment with its trigger rather than edited
 into C4 silently.
 
+### §6.6 EXPLORATORY — the penalty may shrink with field strength WITHIN R4
+
+`GEO-DEGENERATE`'s ρ spread across the 19 storms invites an obvious
+question: does the miscalibration penalty shrink as the field gets stronger
+— C3's direction, but inside ONE tier and on a CONTROL arm?
+
+| quantity | value |
+|---|---|
+| Spearman ρ(`GEO-DEGENERATE` ρ, storm `\|∇p\|`) | **+0.444** |
+| n | 19 |
+| permutation p, two-sided, 200 000 perms | **0.0578** |
+| null \|ρ\| 95th percentile | 0.456 |
+
+**Above 0.05. NOT significant.** The direction matches the hypothesis and
+the magnitude is right at the threshold, which is exactly the shape of
+result that gets over-claimed.
+
+**The obvious dismissal was checked and does NOT work.** The tautology would
+be: a stronger gradient just means a wider pressure range across the box, so
+a fixed narrow donor patch covers proportionally less of it and ρ falls
+mechanically. Measured:
+
+| confound | Spearman ρ |
+|---|---|
+| `GEO-DEGENERATE` ρ vs box pressure range | **−0.035** |
+| storm `\|∇p\|` vs box pressure range | +0.253 |
+| `GEO-DEGENERATE` ρ vs donor/box range fraction | −0.081 |
+
+So `|∇p|` and pressure range are **not** proxies here, and the penalty does
+not track how much of the box the donor covers. The +0.444 survives all
+three — which means neither the confirmation nor the easy dismissal is
+available on this data.
+
+**Status: EXPLORATORY, not a result.** One tier, a control arm, n = 19,
+unpre-registered, p above 0.05. Its only legitimate use is as a reason the
+full cross-regime run is **worth doing** — never as evidence that it will
+succeed. Committed to the JSON (`exploratory_within_r4`) so a later run
+cannot quietly restate it as a confirmation.
+
 ### §6.5 A HINT that is explicitly NOT a result
 
 `CAL-ABS` beats `CAL-RANK` on RMSE in every regime, and its margin **shrinks
