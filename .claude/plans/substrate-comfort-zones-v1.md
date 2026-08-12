@@ -208,10 +208,33 @@ Two consequences, both mandatory:
 So the real comparison is not "which formula wins" but:
 
 > In which regime does `ρ(dynamic, own window)` exceed
-> `ρ(absolute, foreign donor)` — and does the margin grow with turbulence?
+> **`ρ(absolute, OWN donor — the diagonal)`** — and does the margin grow
+> with turbulence?
+
+**Against the DIAGONAL, deliberately: it is the hardest available
+opponent.** The comparison against a *foreign* donor is the weak form. It
+is reported separately (C4) and labelled as evidence of **wiring, not of
+merit**, because C2(i) makes the dynamic arm win it almost by construction
+— an encoding with no anchor cannot be out-transferred by one whose anchor
+is deliberately wrong. Scoring the hypothesis on the swapped cell would
+re-introduce exactly the tautology this whole section removes.
 
 That is the operator's hypothesis stated as a cross-swap, and it is the
 only form in which a mis-calibrated arm can be scored fairly.
+
+> **Caught by review, and it is the same defect one level up (2026-08-12,
+> CodeRabbit on #944).** The first version of this passage named the
+> foreign-donor comparison as "the operator's hypothesis" — contradicting
+> C4, `STATUS_BOARD`, and the `INTEGRATION_PLANS` entry, all of which
+> correctly score against the diagonal. The passage was written BEFORE C4
+> was sharpened, and the sharpening was not propagated back. Left standing,
+> the plan would have carried two incompatible verdict criteria with the
+> weaker one holding the headline — the swapped cell establishing merit,
+> which is the precise thing §2 exists to prevent. Recorded rather than
+> silently patched: it is the fifth instance of a claim that is consistent
+> with its own operands but inconsistent with a sibling claim (cf. #930's
+> fused relation, #927's decimal claim, #928's audit figures, #941's
+> dropped qualifier), and it is a REVIEWER who caught it, not the author.
 
 ### Axis A — GEOMETRY (where the samples sit)
 

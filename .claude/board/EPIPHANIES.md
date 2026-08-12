@@ -66,6 +66,27 @@ first:
    thing. A null there VOIDS the reading rather than weakening it: it would
    mean the spread was manufactured on the wrong axis.
 
+**The defect is STICKY — it survived the rewrite built to remove it, and a
+REVIEWER caught it, not the author (CodeRabbit on #944, same day).** §2.3's
+summary passage still named the *foreign-donor* comparison as "the
+operator's hypothesis" while C4, `STATUS_BOARD` and the `INTEGRATION_PLANS`
+entry all correctly scored against the diagonal. Mechanism: §2.3 was written
+before C4 was sharpened, and the sharpening was not propagated backwards.
+Left standing, the plan would have carried **two incompatible verdict
+criteria with the weaker one holding the headline** — the swapped cell
+establishing merit, i.e. the exact tautology the rewrite existed to delete.
+
+That makes this the **fifth** instance in this arc of a claim that is
+internally consistent with its own operands but inconsistent with a SIBLING
+claim (#930's fused relation, #927's decimal claim, #928's audit figures,
+#941's dropped qualifier, now this). The generalization is sharper than the
+individual fixes: **when a design is revised, the summary sentences are the
+last thing to be updated and the first thing a reader believes.** A revision
+is not complete when the new machinery is right; it is complete when every
+sentence that *names the conclusion* has been re-derived from the new
+machinery. Self-review kept missing it because the author re-reads the part
+that changed, not the part that merely still sounds right.
+
 **The transferable rule.** Before scoring arms against each other, ask which
 of them is a *competitor* and which is a *condition*. A condition put on the
 starting line will always lose, and its loss carries no information. Score
