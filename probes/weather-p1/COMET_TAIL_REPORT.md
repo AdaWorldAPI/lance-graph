@@ -770,6 +770,86 @@ this quantity. No stronger attribution is claimed at n = 2.
 
 ---
 
+### 5.12 CT-F16 — the steering-level moderator, measured: **it makes the directional claim WORSE**
+
+`comet_tail_f16.py` / `.json`. Bars pre-registered and **committed before the
+run** (`05f09005`). §9.2 named this "the single most promising fix" for the
+directional claim. It has now been tested and it **fails on both bars.**
+
+**Design.** A *paired* re-scoring of CT-F14's OWN 19 qualifying storms with
+**only the motion reference changed** — same storms, same stored centres, same
+decomposition, byte-identical `err_deg`. Surface 6h displacement → disk-mean
+500/600/700 hPa steering flow. Reusing the stored centres removes storm
+selection and disk geometry as variables. **This is a mechanistic test, NOT a
+verdict** — a fresh steering-scored sample is CT-F17 and is not run.
+
+| bar | prediction | measured | verdict |
+|---|---|---|---|
+| **F16a** sign consistency vs steering flow | ≥ 0.70 | **0.579** (11/19), p=0.324 | **FAIL** — and *worse* than surface's 0.684 |
+| **F16b** paired residual tightening | sd drops ≥ 10 % | **68.29° → 87.71°, +28.4 % WIDER** | **FAIL** — opposite direction |
+| **F16c** anti-vacuity | permuted & rotated both < 0.70 | 0.421 / 0.684 | PASS — but see the caution below |
+| **F16d** level sweep (descriptive) | optimum inside 400–650 hPa | **monotone toward the SURFACE; best 850 hPa** | outside the predicted band |
+
+The level sweep is the clearest signal, and it points the wrong way:
+
+| level | 400 | 500 | 600 | 700 | 850 |
+|---|---|---|---|---|---|
+| sign frac | 0.579 | 0.579 | 0.632 | 0.632 | **0.684** |
+| sd (deg) | 89.5 | 87.8 | 82.1 | 80.3 | **77.0** |
+
+Both columns improve **monotonically as the reference level approaches the
+surface**, converging at 850 hPa on exactly the surface-displacement figure.
+There is no mid-tropospheric optimum. On this sample the surface displacement
+was already the best available motion reference, and mid-level flow is a
+*worse* one.
+
+**⚠ Does this falsify the height ladder (§5.2/5.8)? No — and the distinction
+matters.** The ladder decomposed the **field at each level about that level's
+own centre**; CT-F16 keeps the **surface dipole** and swaps only the **flow
+reference**. Those are different quantities, so the ladder is untouched as a
+measurement. What CT-F16 falsifies is the **application** §9.2 proposed on top
+of it — "score the dipole against steering-level motion". That inference is now
+measured and dead. The ladder (n=2) remains an unreplicated observation whose
+operational reading has failed its first test.
+
+**⚠ The anti-vacuity arm accidentally calibrated the noise floor — and CT-F14's
+headline sits exactly on it.** The deliberately **90°-rotated** steering
+reference scored **13/19 = 0.684, p=0.0835** — numerically identical to
+CT-F14's own headline figure (on a *different* set of 13 storms, so the count
+coincides rather than the identity). **A reference constructed to be wrong
+produces this arc's "suggestive" number on this sample.** F16c's bar was
+`< 0.70` and 0.684 clears it, so the gate passes as written — but the margin is
+the finding. At n=19 the one-sided ladder is 11/19 → p=0.324, 13/19 → p=0.0835,
+**14/19 → p=0.0318**: the test only separates from chance at 14. CT-F14's
+0.684 was never one storm short of significance; it was one storm short of
+*distinguishability from a deliberately wrong answer*.
+
+**⚠ And the sign test is not measuring what the arc assumed.** Stratifying by
+steering-flow strength inverts the two statistics against each other:
+
+| subset | n | sign frac | median \|error\| |
+|---|---:|---:|---:|
+| weak flow (< 10 m/s) | 6 | **0.833** | **103°** |
+| strong flow (≥ 10 m/s) | 13 | **0.462** | **55°** |
+
+`corr(steering speed, |error|) = −0.407` — the prediction gets **more accurate
+in magnitude** as the flow strengthens, which is physically sensible. But sign
+consistency moves the *opposite* way. High sign consistency in the weak-flow
+subset is not the prediction working: those errors cluster near **−103°**, a
+systematic rotation, and a sign test on a distribution centred far from zero
+reports the *side* of the offset, not its correctness. The apparatus story this
+arc has told since §5.9 — *slow storms have noisy bearings, so filter on
+displacement* — is not what these data show; the well-steered storms are the
+ones whose signs split at chance while their magnitudes are best.
+
+**Consequence for the arc.** The directional claim does not merely remain
+unproven; its **leading mechanistic rescue is now measured and failed**, and
+the instrument used to judge it is shown to conflate a systematic rotation with
+a correct prediction. §9.2's ranking of the dry moderators is superseded to
+that extent: steering level is no longer "the single most promising fix". The
+**structural** claim (§9.1) is untouched — nothing here involves the ring
+profile, the wn-1 dominance, or the 12-byte carrier.
+
 ## 6. Product / encoding consequence `[S]`
 
 > **⚠ Read with §5.9–5.11 AND the compression correction in §1.** The figures
@@ -1119,7 +1199,7 @@ already more explicit structure than a learned model exposes.
 
 | moderator | measured evidence | wiring |
 |---|---|---|
-| **Steering level** (baroclinic tilt) | the 92–102° monotone height ladder, zero-crossing 400–650 hPa (§5.2/5.8) | score the dipole against the *steering-level* motion (500–700 hPa flow) instead of the 6h surface displacement — the single most promising fix, **CT-F16** |
+| ~~**Steering level** (baroclinic tilt)~~ **— TESTED, FAILED (§5.12)** | the 92–102° monotone height ladder, zero-crossing 400–650 hPa (§5.2/5.8), n=2 | ~~score the dipole against steering-level motion — the single most promising fix, **CT-F16**~~ **RUN: 0.579 vs a 0.70 bar, residual 28.4 % WIDER, level sweep monotone toward the SURFACE (best 850 hPa, outside the predicted band). The ladder as a measurement stands; this operational reading of it is dead.** |
 | **Displacement magnitude** (label noise) | 6/7 pooled at ≥250 km vs 14/20 unfiltered; CT-F14 0.684 | model the motion-bearing *uncertainty* explicitly instead of a hard cutoff |
 | **Surface type / friction** | +14° ocean vs +34° land inflow, paired within one disk (§5.7) | a wind-level correction; second-order on the pressure dipole |
 | **Latitude / f, regime** | the low-wn1 July cases; the 75°N outlier | intake covariates, already computed per storm |
