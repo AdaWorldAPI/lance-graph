@@ -1463,10 +1463,94 @@ Monte-Carlo's `O(1/√N)`; (2) two lattices over different centers are
 **prefix extensibility** — any prefix is well-distributed, so per-node
 accuracy grows monotonically by extending the sequence, no re-meshing.
 
+> **⚠ INDEX FLOOR (operator-ruled 2026-08-12) — the three `[G]` properties
+> above are asymptotic, and "asymptotic" starts LATER than this section
+> implied.** Operator ruling: golden-ratio structure counts only from
+> convergent index ~17–21 upward; anything below is unusable.
+> `F(n+1)/F(n)` is a **rational** with period `F(n)`; it behaves like φ only
+> from **n ≈ 17–21**. Measured: n=10 → err **1.5e-4**, n=13 → 8.2e-6,
+> **n=17 → 1.8e-7**, n=21 → **3.7e-9**. Below the floor the ratio
+> **resonates** — the exact moiré the construction exists to prevent — so a
+> sub-floor lattice does not weakly show property (2), it shows its opposite.
+> **Split that must be kept:** the *angle* `2π(1−1/φ)` in f64 is irrational to
+> ~1e-16 and is unaffected; what the floor binds is the **emergent parastichy
+> family**, which sits at `≈ √N`, so reaching index ≥17 needs
+> **N ≳ F(17)² = 2 550 409**. Consequence already paid: the W5/W2s-a briefs
+> were specced at N=4096/2048 (emergent pairs F(10)/F(11) and F(9)/F(10)) and
+> W5's discovery step searched `j ∈ {1..60}`, hardcoding a sub-floor answer —
+> both corrected in `weather-w-probes-v1.md`, and both now carry an **N-sweep
+> arm so the floor is measured rather than inherited** (a flat curve from
+> n≈10 would mean the floor is a safety margin, not a mechanism; that reading
+> is pre-registered as reportable).
+
 **The collision node is ONE V3 facet** (12 B): rails 0–1 = `(k_H:k_T)` — the
 pair address, from which position, radii and azimuths are *implied* (place
 deterministic, residue stored); rails 2–5 = **8 state bytes** (the 8
-Freiheitsgrade). Two sanctioned carvings — spine-pair
+Freiheitsgrade).
+
+> **⚠⚠ TWO REGIMES, TWO GENERATORS — and below the floor you do not
+> approximate φ at all (operator, 2026-08-12: the preferred small-q
+> combination is modulus 17 with stride 4; stride 11 is explicitly not a
+> golden-section step).**
+> The floor above says a sub-floor Fibonacci ratio is unusable. It does **not**
+> say "use a slightly better Fibonacci ratio" — it says the whole
+> φ-approximation *selector* is the wrong tool down there. Use the **exact
+> integer coprime walk** instead, which this workspace already ships:
+> `CurveRuler::index(k) = (start + 4k) mod 17`
+> (`crates/helix/src/curve_ruler.rs`, `helix/KNOWLEDGE.md:263`), the
+> D-QUANTGATE-mandated generator — bit-exact integer, full permutation, no
+> float φ anywhere.
+>
+> | regime | generator | mechanism |
+> |---|---|---|
+> | **continuum**, N ≳ F(17)² = 2 550 409 | golden angle + emergent parastichy pair `F(n)/F(n+1)`, n ≥ 17 | **equidistribution by irrationality** — convergent err ≤ 1.8e-7; the asymptotic properties are real here |
+> | **quantized / small-q** (facet rails, palette, perturbation phase, dither) | **17, stride 4** — enumerated, not approximated | **temperament** (operator framing, 2026-08-12: a circle-of-fifths with a distributed Pythagorean-style comma — not a genuine golden step, yet it does not collapse): coprimality closes the cycle EXACTLY and distributes the comma uniformly — the distributed comma IS D-QUANTGATE's anti-moiré dither. Survival property = **closure, not goldenness** |
+>
+> **The temperament reading, measured.** 12 pure fifths miss closure by the
+> Pythagorean comma **+23.46 ct**; 17-TET's fifth (stride 10) closes exactly
+> by construction, **+3.93 ct/fifth** spread around the circle. And the
+> operator's tentative identification of the stride-11-region walk with the
+> 5/3 sixth resolves precisely: the 5/3
+> sixth (884.36 ct) is **stride 13** (917.65 ct) — and `13 ≡ −4 (mod 17)`,
+> `4·13 ≡ 1`: **stride 4 is the descending-5/3-sixth circle**, stride 11 its
+> 8/5 neighbour. The shipped walk was right all along; only its "golden"
+> rationale was wrong — same goal as φ (even coverage without collapse),
+> different mechanism (closure + distributed comma), wrong name.
+>
+> **The measured tell that φ-proximity is the WRONG selector at small q.**
+> `helix/KNOWLEDGE.md:320` labels `(i·11)%17` the *"golden-step"* because
+> `17/φ = 10.51 → 11`. Star discrepancy of the length-m prefix, all 16 strides
+> enumerated: stride **4** gives **0.2000 / 0.1111 / 0.0769** at m = 5/9/13;
+> stride **11** gives **0.2000 / 0.1503 / 0.0905**. **Stride 4 is ≤ stride 11
+> at every useful prefix length and strictly better at m=9 and m=13** — the
+> φ-derived choice is measurably the worse one. And the ratio itself:
+> `17/11 = 1.5455`, **err 7.3e-2** vs φ — worse than `13/8` (7.0e-3) by an
+> order of magnitude. *(Caveat kept honest: under a naive worst-case-over-all-m
+> reading, strides 10–15 tie at 0.5000 and stride 4 reads 0.7647 — that metric
+> is dominated by m=2, where every stride is degenerate. The useful-prefix
+> reading is the one that matters and it is the one reported.)*
+>
+> **Third instance this week of one shape:** a rule true in its asymptotic
+> home, applied where it does not hold — R² "near-blind to bias" (true at
+> 1.59 Pa, false at 92.76 Pa), "zero deletions proves a prepend" (proves
+> additive), and now "the golden step is the best step" (true as N→∞, false
+> at q=17). **The fix is the same each time: enumerate/measure in the regime
+> you are actually in, rather than inheriting the asymptotic label.**
+
+> **Addressing consequence, and the floor dissolves it in the quantized
+> layer.** A `u8:u8` rail gives **256 values per byte** — and `F(17) = 1597 > 256`,
+> so **a single byte cannot index a member of an at-floor parastichy family.**
+> This is NOT a contradiction with the operator-locked `6×(u8:u8)` facet
+> (`u8:u8` is never widened): the address is **hierarchical** — the canon's
+> three cascade tiers each read as a 256×256 centroid tile, giving 65 536 per
+> tier and 256⁶ ≈ 2.8e14 overall, so a 1597-member family sits comfortably
+> inside ONE tier. **The forbidden reading is "one rail = one family index";
+> the correct one is tier-then-member.** Anyone tempted to widen a rail to
+> hold 1597 has mis-read the cascade, not found a limit.
+>
+> **And in the quantized layer the tension does not arise at all:** with the
+> 17-and-stride-4 generator the step alphabet is 17, which fits a byte fifteen
+> times over. The 1597-vs-256 question is a *continuum-side* question only. Two sanctioned carvings — spine-pair
 (`p_H, g_H, p_T, g_T, u, v, α, resid`) vs kinematic/frontogenesis
 (`u, v, div, ζ, stretch, shear, p, ∇T` — the Petterssen machinery) — and the
 ClassView picks the reading per class, which is exactly what content-blind

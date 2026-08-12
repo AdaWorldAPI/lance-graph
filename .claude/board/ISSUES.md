@@ -1,5 +1,20 @@
 # Issues Log — Open + Resolved (double-entry, append-only)
 
+## ISS-HELIX-GOLDEN-STEP-LABEL (2026-08-12) — OPEN, misleading-but-not-wrong-code
+
+`crates/helix/KNOWLEDGE.md:320` labels the `(i·11)%17` walk **"golden-step"**
+(rationale: `17/φ = 10.51 → 11`). The label's THEORY is measured wrong twice
+over (`E-THE-GOLDEN-STEP-IS-THE-WRONG-STEP-AT-SMALL-Q-1`): (a) stride 4 has
+strictly better prefix star-discrepancy than 11 at m=9/13 (0.1111/0.0769 vs
+0.1503/0.0905); (b) at q=17 the correct frame is TEMPERAMENT (coprime closure
++ distributed comma — operator framing: not a genuine golden step, yet it
+does not collapse), not φ-approximation, so *"golden"* names the wrong mechanism
+entirely. **The code is fine** — `CurveRuler` uses stride 4; only the doc
+label misleads, and a future session choosing a stride BY that rationale
+would pick 11 (the measurably worse one). Fix when helix is next touched:
+rename the label (e.g. "tempered-step" / "coprime walk") + one line citing
+the epiphany. Not urgent; filed so the rationale cannot silently recruit.
+
 ## ISS-D-IGN-B-REAL-CORPUS-PATH-IS-UNVERIFIED (2026-08-06) — OPEN, SURFACED BY THE CORPUS FIX
 
 `crates/lance-graph-supervisor/tests/d_ign_b_lenses.rs` takes one of two corpus
