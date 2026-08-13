@@ -1,3 +1,46 @@
+## weather-soa-bake-v1 — Zarr → NodeRow, the missing bake (PRE-REGISTERED 2026-08-13)
+
+Plan: `.claude/plans/weather-soa-bake-v1.md`. The arc's Python-over-Zarr phase
+ran because the Zarr→`NodeRow` path was never specified —
+`weather-substrate-poc-v2.md` names `crates/weather-poc` and describes **no bake
+step**. Waves W0–W5; every bar pre-registered and committed BEFORE its run, each
+with a control that can lose and a stay-silent twin.
+
+| D-id | Deliverable | Wave | Status | Feeds |
+|---|---|---|---|---|
+| D-WXS-0 | classid mint for the weather-cell + statics classes (OGAR-side; `0x0F = Geo` exists, appid/classview open) | 0 | **Blocked (operator/OGAR)** | the bake must REFUSE to write under `0x0000_0000` |
+| D-WXS-1 | field manifest v1 — (facet, pair, byte) → (variable, level, unit, floor id), a committed data artifact, ClassView-side | 0 | Queued | slot purity §2; bar B0 |
+| D-WXS-1a | variable census as a committed re-runnable probe (17 surface + 91 upper-air + 14 static = 122 fields; 92,044 six-hourly steps) | 0 | Queued | ends the chat-only-figure defect for the census |
+| D-WXS-2 | key codec `(lat,lon) ↔ NodeGuid` — HEEL 16° tile / HIP within-tile / TWIG dormant; ragged tiles; lon-wrap range-SET | 1 | Queued | a 16° box becomes a HEEL-prefix scan; bar B1 |
+| D-WXS-3 | shared canonical floor calibration (global 0.4–99.6 pct, frozen per epoch, stamped in dataset metadata) | 1 | Queued | bar B2 |
+| D-WXS-4 | the bake: one timestep → 1,038,240 NodeRows → ONE Lance version | 1 | Queued | bar B3; the missing path |
+| D-WXS-5 | statics bake — separate classid, separate dataset, exactly ONE version | 1 | Queued | bar B4; avoids ~1.3 PB of rewritten constants |
+| D-WXS-6 | version-range read (`QueryReference::at(v,rung)` + `deinterlace`) + version-count scaling measurement | 2 | Queued | bar B5; KILL if growth is superlinear at 92,044 versions |
+| D-WXS-7 | **D-WXA-5 re-homed and RE-SPECIFIED** — ρ(code_dist, field_dist) via `jc::reliability::spearman` over whole-grid pairs. (a) ρ ≥ 0.9996 (the bar a real pair FAILED at 0.999556); (b) shuffled-codebook control < 0.98 (measured losable at 0.003–0.159); (c) 16/64/256-level ladder must be MONOTONE before any verdict | 3 | Queued | ⚠ poc-v2's ρ ≥ 0.98 is at risk of being vacuous — D-CZ-1 §6.4 measured real-arm ρ spread 3e-6…4.7e-5 |
+| D-WXS-8 | cross-variable comparability at grid scale (≥4 variables, ≥2 units, ≥3 seasons); per-variable-floor control must LOSE | 3 | Queued | P2 (0.9997 vs 0.857–0.875) promoted from [H] or refuted |
+| D-WXS-9 | ζ = ∂v/∂x − ∂u/∂y as a substrate read (neighbour-key stencil) + the differencing-amplifies-quantisation falsifier, reported per ζ-magnitude decile | 4 | Queued | bar B8; KILL ⇒ ζ becomes its own baked lane |
+| D-WXS-10 | **D-CZ-8 re-homed** — ζ-percentile regime bands over the WHOLE grid + coverage-matched donors + range-normalised `L`; shuffled-ζ control; same-band stay-silent twin | 4 | Queued | the grid buys CONTROL of the §7.9 confound, NOT its dissolution; KILL if `L̄`~range ρ≈1.0 survives matching |
+| D-WXS-11 | MEASURE a full-grid bake wall time; state the ~8.1 s serial extrapolation as the prior and confirm/correct it in the same artifact | 5 | Queued | replaces an extrapolation from ONE cycle (514 ms / 65,536 owners); D-KIA-A2 still unbuilt |
+| D-WXS-12 | jc ↔ ndarray reliability agreement (poc-v2 D-WXB-4, carried verbatim; jc is the authority, degenerate input reported not folded) | 5 | Queued | every Phase-A/C number is computed with jc |
+
+**Capacity, corrected in the plan (§0.4).** "32 facets/cell" overstates the
+usable budget: 2 slots are key+edges and `VALUE_TENANTS` carves the slab
+contiguously — the committed assertion
+(`canonical_node.rs` `value_tenants_contiguous_within_slab`) pins the current
+Full carve at **188 of 480 B**, so the free budget is **292 B = 18 facets =
+216 payload bytes**, not 384. All 122 fields still fit at 1 B/field — **one
+cell is one node** — but at 2 B/field they do **not** fit as 4+12 facets.
+
+> **Board-hygiene note (2026-08-13):** `weather-substrate-poc-v2.md`'s
+> `D-WXA-*` / `D-WXB-*` / `D-WXC-*` ladder has **no rows on this board**
+> (`grep -c WXA` = 0, verified). None of those deliverables was ever built.
+> The rows above do not supersede them; the poc-v2 ladder should be landed as
+> its own block, marked NEVER BUILT, so the gap is visible rather than inferred.
+
+> **C5 note:** the global grid does **not** unblock `GEO-GOLDEN-HI`. The golden
+> index floor needs N ≥ F(17)² = 2,550,409; the grid has 1,038,240. Short by
+> ~2.5×, not by three orders of magnitude — still not constructible.
+
 ## SUBSTRATE_FORMULA_MATRIX — the arc's rated inventory (2026-08-12)
 
 Document: `probes/weather-p1/SUBSTRATE_FORMULA_MATRIX.md`. Not a plan and not

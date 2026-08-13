@@ -1,3 +1,82 @@
+## 2026-08-13 — weather-soa-bake-v1 (PLAN; the missing Zarr→NodeRow bake)
+
+Plan: `.claude/plans/weather-soa-bake-v1.md`. **Does not supersede
+`weather-substrate-poc-v2.md`** — §9 grades it part by part. The gap it closes:
+poc-v2 names `crates/weather-poc` and declares "New repositories required:
+ZERO", but the crate does not exist and the plan describes **no bake step at
+all** — which is why the entire weather arc ran as Python probes over a Zarr
+file, one variable, four hand-picked 16° boxes, three hand-typed timesteps.
+
+**The bake.** One cell = one node, one timestep = one Lance version. The key:
+HEEL = `(lat>>6, lon>>6)` = the 16°×16° tile, HIP = position within it, TWIG
+dormant-reserved — so a lat/lon grid is the literal-x/y binding OGAR's
+256×256-centroid-tile cascade sanctions, and **the arc's hand-picked 16° boxes
+become HEEL-prefix range scans**. The grid needs 5–6 of the 12 available
+quaternary levels per axis (4⁵ ≥ 721, 4⁶ ≥ 1440), leaving room for 0.05°
+without touching the stride. Three wrinkles stated, not designed around: both
+axes tile **raggedly** (721 = 11×64+17; 1440/64 = 22.5), longitude is cyclic so
+a seam-crossing box is **two** prefix ranges, and `MailboxId ≠ NiblePath` in
+code so nothing leans on it.
+
+**The value.** L4 `6×(8:8)` palette256², one byte per ERA5 field, pairs being
+physical couples (`(u:v)`, `(T:q)`) so a wind-vector distance is ONE 256×256 LUT
+read. Argued against the whole le-contract §3 catalogue: L1–L3 are relational,
+L5 kept only as the 3-D-wind alternative, L6 is the Odoo factoring, **L7 is
+location and location is the KEY**, L8 is retired for this data (§12.12 RETIRED
+the `Pair48` mint), G1–G3 are forbidden to new classes. **Stated deviation:**
+L4's canonical Fisher-z read is replaced by the linear `helix::RollingFloor` —
+licensed by le-contract §3's own monotone-bounded-continuous-field demarcation
+and by §12.1's measurement (Fisher-z burns 228/256 buckets on ERA5 temperature).
+Circular variables never ride an L1 byte (359°/1° at max L1 distance); wind
+rides as `(u,v)`, and `wind_speed` is baked separately because §6.5 measured the
+Jensen gap **is** gustiness (mean ratio 1.115, max gap 14.37 m/s).
+
+**Capacity, corrected.** "32 facets/cell" overstates the usable budget: 2 slots
+are key+edges and `VALUE_TENANTS` carves the slab contiguously through offset
+220 (committed assertion: **188 of 480 B**), so the free budget is **292 B = 18
+facets = 216 payload bytes** (discriminant 15 reserved for `BoardAggregates`;
+weather takes 16, offset DERIVED). All 122 fields still fit at 1 B/field —
+**one cell is one node** — but at 2 B/field they do NOT fit as 4+12 facets
+(336 > 292). The 14 statics get their own classid and ONE version (baking them
+per timestep would rewrite ~1.3 PB of constants). W1 bakes a minimal justified
+set, not all 122, so the layout does not presuppose the fidelity gate's outcome.
+
+**Time.** `E-MARKOV-TEMPORAL-STREAM-1` applied literally: a timestep is a Lance
+version, a time series is a version-range read (`QueryReference::at(v, rung)` +
+`deinterlace`), the 19-storm set is a version set. Zero versioning code — the
+`LanceCycleWriter` / `VersionedGraph` surface is consumed. Open risk,
+pre-registered: 92,044 versions on one dataset is unmeasured (`D-WXS-6`, with a
+KILL).
+
+**Re-homing.** `D-WXA-5` moves onto the substrate AND is re-specified: poc-v2's
+ρ ≥ 0.98 is at serious risk of being vacuous because D-CZ-1 §6.4 measured
+real-arm ρ spread at 3e-6…4.7e-5 — so the bar becomes (a) ρ ≥ 0.9996 (where a
+real pair genuinely failed at 0.999556), (b) the shuffled control must fall
+below 0.98, and (c) a 16/64/256-level ladder must be monotone BEFORE any verdict
+(the can-it-DIFFER half). `D-CZ-8` moves on as ζ from a neighbour-key stencil —
+with a falsifier the arc never had: **differencing amplifies quantisation
+error**, so quantised-ζ vs true-ζ is reported per ζ-magnitude decile with a
+laminar stay-silent twin. On §7.9: the full grid **does NOT dissolve the range
+confound** (`L`~saturation +0.917, `L̄`~range +1.000 is arithmetic that 1.04 M
+cells do not repeal); what it buys is (1) coverage-matched donor selection by
+construction, (2) "donor" meaning a ζ-regime rather than a range once the shared
+floor makes variables commensurable, (3) a regime sample that is not n = 4.
+
+**Splits.** Judgment (layout, key, every bar, the `D-WXA-5` re-spec, the
+confound treatment, the mint) stays on Opus/main. Grindwork is
+one-file-per-Sonnet-worker (`key.rs` / `floor.rs` / `lane.rs` / `bake.rs` /
+`statics.rs` / `stencil.rs` / `metrics.rs`, one test file per bar), guardrails §1
+pasted verbatim, tag-files only. Orchestrator-only: `lib.rs` mod lines, the crate
+manifest, `canonical_node.rs`, every board file. Root `Cargo.toml` untouched —
+`weather-poc` is workspace-EXCLUDED. SIMD only via `ndarray::simd::*`; ndarray
+optional, feature-gated, GIT-sourced (never an optional `path` dep). No
+lance-family bump. Doc-only.
+
+**Also recorded:** `weather-substrate-poc-v2.md`'s `D-WXA-*`/`D-WXB-*`/`D-WXC-*`
+ladder has **no rows on `STATUS_BOARD.md`** (`grep -c WXA` = 0, verified) — its
+board hygiene was never discharged, which is a plausible mechanism for how a
+whole arc ran past an unmet gate.
+
 ## 2026-08-12 — substrate-comfort-zones-v1 REVISED (§2 rebuilt: horse race → cross-swap)
 
 Same file, `.claude/plans/substrate-comfort-zones-v1.md`, still **ACTIVE**,
