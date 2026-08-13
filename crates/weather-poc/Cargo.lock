@@ -3,5 +3,12 @@
 version = 4
 
 [[package]]
+name = "jc"
+version = "0.1.0"
+
+[[package]]
 name = "weather-poc"
 version = "0.1.0"
+dependencies = [
+ "jc",
+]

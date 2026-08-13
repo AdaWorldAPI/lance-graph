@@ -1,0 +1,11 @@
+within_var:2m_temperature
+within_empty_buckets:39
+kxk_name:2m_temperature x 2m_dewpoint_temperature (K x K)
+kxk_va:2m_temperature
+kxk_vb:2m_dewpoint_temperature
+cross:2m_temperature_x_2m_dewpoint_temperature:K:K
+cross:2m_temperature_x_10m_u_component_of_wind:K:m/s
+cross:2m_temperature_x_total_column_water_vapour:K:kg/m2
+cross:2m_dewpoint_temperature_x_10m_u_component_of_wind:K:m/s
+cross:2m_dewpoint_temperature_x_total_column_water_vapour:K:kg/m2
+cross:10m_u_component_of_wind_x_total_column_water_vapour:m/s:kg/m2

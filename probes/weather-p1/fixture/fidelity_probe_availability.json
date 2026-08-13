@@ -1,0 +1,125 @@
+{
+  "winter": {
+    "target_utc": "1969-12-14T00:00:00",
+    "time_index": 96000,
+    "vars": {
+      "2m_temperature": {
+        "unit": "K",
+        "compressed_bytes": 2337482,
+        "n_finite": 1038240,
+        "total": 1038240,
+        "status": "usable"
+      },
+      "2m_dewpoint_temperature": {
+        "unit": "K",
+        "compressed_bytes": 2378237,
+        "n_finite": 1038240,
+        "total": 1038240,
+        "status": "usable"
+      },
+      "10m_u_component_of_wind": {
+        "unit": "m/s",
+        "compressed_bytes": 3321010,
+        "n_finite": 1038240,
+        "total": 1038240,
+        "status": "usable"
+      },
+      "mean_sea_level_pressure": {
+        "unit": "Pa",
+        "compressed_bytes": 2183019,
+        "n_finite": 1038240,
+        "total": 1038240,
+        "status": "usable"
+      },
+      "total_cloud_cover": {
+        "unit": "1",
+        "compressed_bytes": 2586061,
+        "n_finite": 1038240,
+        "total": 1038240,
+        "status": "usable"
+      }
+    }
+  },
+  "spring": {
+    "target_utc": "1970-03-07T08:00:00",
+    "time_index": 98000,
+    "vars": {
+      "2m_temperature": {
+        "unit": "K",
+        "compressed_bytes": 2341435,
+        "n_finite": 1038240,
+        "total": 1038240,
+        "status": "usable"
+      },
+      "2m_dewpoint_temperature": {
+        "unit": "K",
+        "compressed_bytes": 2381534,
+        "n_finite": 1038240,
+        "total": 1038240,
+        "status": "usable"
+      },
+      "10m_u_component_of_wind": {
+        "unit": "m/s",
+        "compressed_bytes": 3325465,
+        "n_finite": 1038240,
+        "total": 1038240,
+        "status": "usable"
+      },
+      "total_column_water_vapour": {
+        "unit": "kg/m2",
+        "compressed_bytes": 3033384,
+        "n_finite": 1038240,
+        "total": 1038240,
+        "status": "usable"
+      },
+      "sea_surface_temperature": {
+        "unit": "K",
+        "compressed_bytes": 1351901,
+        "n_finite": 686364,
+        "total": 1038240,
+        "status": "partial"
+      }
+    }
+  },
+  "summer": {
+    "target_utc": "1970-08-21T00:00:00",
+    "time_index": 102000,
+    "vars": {
+      "2m_temperature": {
+        "unit": "K",
+        "compressed_bytes": 2324886,
+        "n_finite": 1038240,
+        "total": 1038240,
+        "status": "usable"
+      },
+      "10m_u_component_of_wind": {
+        "unit": "m/s",
+        "compressed_bytes": 3329793,
+        "n_finite": 1038240,
+        "total": 1038240,
+        "status": "usable"
+      },
+      "10m_v_component_of_wind": {
+        "unit": "m/s",
+        "compressed_bytes": 3351924,
+        "n_finite": 1038240,
+        "total": 1038240,
+        "status": "usable"
+      },
+      "total_cloud_cover": {
+        "unit": "1",
+        "compressed_bytes": 2536586,
+        "n_finite": 1038240,
+        "total": 1038240,
+        "status": "usable"
+      },
+      "sea_surface_temperature": {
+        "unit": "K",
+        "compressed_bytes": 1313463,
+        "n_finite": 686364,
+        "total": 1038240,
+        "status": "partial"
+      }
+    }
+  }
+}

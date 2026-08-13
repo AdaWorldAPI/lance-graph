@@ -1,0 +1,11 @@
+within_var:2m_temperature
+within_empty_buckets:45
+kxk_name:2m_temperature (within, only-K-available)
+kxk_va:2m_temperature
+kxk_vb:2m_temperature
+cross:2m_temperature_x_10m_u_component_of_wind:K:m/s
+cross:2m_temperature_x_10m_v_component_of_wind:K:m/s
+cross:2m_temperature_x_total_cloud_cover:K:1
+cross:10m_u_component_of_wind_x_10m_v_component_of_wind:m/s:m/s
+cross:10m_u_component_of_wind_x_total_cloud_cover:m/s:1
+cross:10m_v_component_of_wind_x_total_cloud_cover:m/s:1
