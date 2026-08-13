@@ -38,4 +38,5 @@
 
 pub mod floor;
 pub mod key;
+pub mod lane;
 pub mod manifest;
