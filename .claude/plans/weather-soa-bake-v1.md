@@ -765,21 +765,47 @@ was measured on a real, smaller fixture and is left as-is — but it is no
 longer read as "the substrate's fidelity is marginal"; at grid scale, on this
 data, it is not.
 
-**`D-WXS-8` (bar B7) — control 16/16 PASS; primary 10/16 PASS; twin 2/6 PASS.**
+> **⊘ FIGURE CORRECTION 2026-08-13, same day, found by re-counting the
+> committed JSON while writing the product-lead update.** This block first
+> read *"control 16/16 PASS; primary 10/16 PASS, 6 FAIL"*. **Both denominators
+> were wrong and the primary pass-rate was overstated.** Counted from
+> `fixture/fidelity_probe_results.json` rather than by eye from the runner's
+> stdout: there are **19** cross-unit pairs, not 16 (winter 9, spring 5,
+> summer 5 — the same-unit pairs K×K and m/s×m/s are informational and
+> correctly excluded from the bar). Corrected below.
+>
+> **The direction of the error matters:** primary was written as 10/16 (63 %)
+> and is actually **9/19 (47 %)** — the strict bar fails on a **majority** of
+> cross-unit pairs, not a minority. The control is 19/19, not 16/16 — better
+> in absolute terms, and its KILL still does not fire.
+>
+> **Diagnosis, precise:** every figure the program *computed and printed*
+> (56 verdicts, 42 pass / 14 fail, every ρ) was carried correctly. The two
+> wrong numbers are exactly the ones I derived by **counting rows in terminal
+> output by eye** instead of counting the artifact. Same session, same rule
+> the arc keeps restating — *an audit must terminate at an artifact* — and
+> this is its narrowest form yet: **a figure you tallied yourself is a derived
+> figure, and derived figures need the artifact too.** The error reached
+> `main` via PR #950 (plan, `STATUS_BOARD`, `EPIPHANIES`, PR body); the first
+> three are corrected here, the merged PR body cannot be.
+
+**`D-WXS-8` (bar B7) — control 19/19 PASS; primary 9/19 PASS; twin 2/6 PASS.**
 Reported in full, nothing filtered:
 
-- **Control (per-variable floor must LOSE) — 16/16 PASS, at every cross-unit
+- **Control (per-variable floor must LOSE) — 19/19 PASS, at every cross-unit
   pair, every season.** Per-variable ρ ranges **0.245–0.939**; shared-floor ρ
   is **0.9987–0.9999** on the identical pairs. This is the KILL-gated claim —
   *"if the shared floor loses to per-variable on ANY cross-unit pair, §4
   policy (a) is refuted"* — and it does not lose once. **The KILL does not
   fire.**
-- **Primary (cross-unit ρ_shared ≥ 0.9996) — 10/16 PASS, 6 FAIL.** Every
-  failure is a close miss, not a collapse: `0.998681`–`0.999611`, all still
-  ≥ 0.9986 and all still dramatically ahead of per-variable. The 6 failing
-  pairs skew toward wind and pressure (`10m_u/v_component_of_wind`,
-  `mean_sea_level_pressure`) rather than temperature — a pattern, not
-  reported as a proven cause.
+- **Primary (cross-unit ρ_shared ≥ 0.9996) — 9/19 PASS, 10 FAIL** (winter
+  **2/9**, spring **4/5**, summer **3/5**). Every failure is a close miss
+  rather than a collapse — `0.998681`–`0.999591`, all still ≥ 0.9986 and all
+  still dramatically ahead of per-variable — but **the strict bar fails on
+  more cross-unit pairs than it passes**, which the earlier 10/16 phrasing
+  obscured. The failures concentrate in **winter**, the only season carrying
+  `mean_sea_level_pressure`, and skew toward wind and pressure rather than
+  temperature — a pattern, not reported as a proven cause.
 - **Stay-silent twin — the two halves diverge, and only one holds.**
   `|ρ_shared − ρ_pervar| ≤ 0.0001`: PASS at spring (0.000044) and summer
   (0.000025), **FAIL at winter** (0.000174 — 1.7× the tolerance). **Zero
