@@ -109,6 +109,13 @@ exclude = [
     # crates/onebrc-probe/README.md. Verify via
     # `cargo test --manifest-path crates/onebrc-probe/Cargo.toml`.
     "crates/onebrc-probe",
+    # ERA5 0.25-degree global grid baked onto the canonical 512-byte NodeRow --
+    # one cell = one node, one timestep = one Lance version. Standalone and
+    # genuinely zero-dep (see the crate manifest for why helix is NOT an
+    # optional path dep). Verify via
+    # `cargo test --manifest-path crates/weather-poc/Cargo.toml`.
+    # Plan: .claude/plans/weather-soa-bake-v1.md.
+    "crates/weather-poc",
 ]
 resolver = "2"
 
