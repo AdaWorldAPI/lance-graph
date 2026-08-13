@@ -1,0 +1,60 @@
+{
+  "arms": ["shipped", "morton", "control_bad"],
+  "sample_stride": 677,
+  "box_set": [
+    {"kind": "tile_aligned", "lat_lo": 128, "lat_hi": 192, "lon_lo": 0, "lon_hi": 64},
+    {"kind": "tile_aligned", "lat_lo": 320, "lat_hi": 384, "lon_lo": 640, "lon_hi": 704},
+    {"kind": "tile_aligned", "lat_lo": 512, "lat_hi": 576, "lon_lo": 1344, "lon_hi": 1408},
+    {"kind": "tile_aligned", "lat_lo": 192, "lat_hi": 256, "lon_lo": 960, "lon_hi": 1024},
+    {"kind": "non_tile_aligned", "lat_lo": 10, "lat_hi": 37, "lon_lo": 5, "lon_hi": 53},
+    {"kind": "non_tile_aligned", "lat_lo": 100, "lat_hi": 233, "lon_lo": 200, "lon_hi": 410},
+    {"kind": "non_tile_aligned", "lat_lo": 50, "lat_hi": 521, "lon_lo": 33, "lon_hi": 999},
+    {"kind": "non_tile_aligned", "lat_lo": 400, "lat_hi": 405, "lon_lo": 700, "lon_hi": 1300},
+    {"kind": "non_tile_aligned", "lat_lo": 20, "lat_hi": 680, "lon_lo": 900, "lon_hi": 905},
+    {"kind": "non_tile_aligned", "lat_lo": 65, "lat_hi": 129, "lon_lo": 63, "lon_hi": 129},
+    {"kind": "non_tile_aligned", "lat_lo": 200, "lat_hi": 205, "lon_lo": 1, "lon_hi": 2},
+    {"kind": "non_tile_aligned", "lat_lo": 300, "lat_hi": 450, "lon_lo": 1100, "lon_hi": 1150},
+    {"kind": "seam_crossing", "lat_lo": 100, "lat_hi": 200, "lon_lo": 1400, "lon_hi": 40},
+    {"kind": "seam_crossing", "lat_lo": 300, "lat_hi": 350, "lon_lo": 1430, "lon_hi": 10},
+    {"kind": "seam_crossing", "lat_lo": 500, "lat_hi": 600, "lon_lo": 1439, "lon_hi": 1},
+    {"kind": "seam_crossing", "lat_lo": 50, "lat_hi": 70, "lon_lo": 1300, "lon_hi": 100},
+    {"kind": "pole_adjacent", "lat_lo": 0, "lat_hi": 30, "lon_lo": 100, "lon_hi": 200},
+    {"kind": "pole_adjacent", "lat_lo": 700, "lat_hi": 721, "lon_lo": 500, "lon_hi": 600},
+    {"kind": "pole_adjacent", "lat_lo": 0, "lat_hi": 1, "lon_lo": 0, "lon_hi": 1440},
+    {"kind": "pole_adjacent", "lat_lo": 715, "lat_hi": 721, "lon_lo": 900, "lon_hi": 950}
+  ],
+  "results": {
+    "shipped": {
+      "by_kind": {
+        "tile_aligned": {"range_counts": [1, 1, 1, 1], "median": 1.0000, "max": 1},
+        "non_tile_aligned": {"range_counts": [27, 269, 963, 19, 660, 130, 5, 150], "median": 140.0000, "max": 963},
+        "seam_crossing": {"range_counts": [200, 99, 198, 45], "median": 148.5000, "max": 200},
+        "pole_adjacent": {"range_counts": [61, 42, 23, 6], "median": 32.5000, "max": 61}
+      },
+      "neighbour_locality_median": 32.0000
+    },
+    "morton": {
+      "by_kind": {
+        "tile_aligned": {"range_counts": [1, 1, 1, 1], "median": 1.0000, "max": 1},
+        "non_tile_aligned": {"range_counts": [57, 289, 1053, 47, 660, 136, 5, 295], "median": 212.5000, "max": 1053},
+        "seam_crossing": {"range_counts": [208, 100, 200, 68], "median": 150.0000, "max": 208},
+        "pole_adjacent": {"range_counts": [65, 46, 90, 13], "median": 55.5000, "max": 90}
+      },
+      "neighbour_locality_median": 16.0000
+    },
+    "control_bad": {
+      "by_kind": {
+        "tile_aligned": {"range_counts": [4096, 4096, 4096, 4096], "median": 4096.0000, "max": 4096},
+        "non_tile_aligned": {"range_counts": [1296, 13440, 61824, 3000, 320, 4224, 5, 3200], "median": 3100.0000, "max": 61824},
+        "seam_crossing": {"range_counts": [5120, 1000, 128, 4800], "median": 2900.0000, "max": 5120},
+        "pole_adjacent": {"range_counts": [3000, 2100, 1440, 300], "median": 1770.0000, "max": 3000}
+      },
+      "neighbour_locality_median": 15862.0000
+    }
+  },
+  "verdicts": [
+    {"name": "primary", "pass": false, "detail": "morton_rc_median=212.50 vs shipped_rc_median=140.00 (non-tile-aligned); morton_nb_median=16.00 vs shipped_nb_median=32.00"},
+    {"name": "control", "pass": true, "detail": "control_rc_median=3100.00 vs shipped=140.00/morton=212.50 (non-tile-aligned); control_nb_median=15862.00 vs shipped=32.00/morton=16.00"},
+    {"name": "stay-silent twin", "pass": true, "detail": "shipped_tile_aligned_counts=[1, 1, 1, 1]; morton_tile_aligned_counts=[1, 1, 1, 1] (every entry must be 1)"}
+  ]
+}
