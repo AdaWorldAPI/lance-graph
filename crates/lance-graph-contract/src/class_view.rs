@@ -1110,6 +1110,28 @@ pub trait ClassView {
         crate::canonical_node::EdgeCodecFlavor::CoarseOnly
     }
 
+    /// How this class's rail register is carved, per axis — the reading a
+    /// renderer (or a tree-distance) uses to lift the node's rail path out of
+    /// the row. Same registry-resolution pattern as
+    /// [`edge_codec_flavor`](ClassView::edge_codec_flavor): the default is the
+    /// canon zero-fallback (the key facet's interleaved `X:Y` pairs at
+    /// `4..16`), and a bake that measured its way to a different carving —
+    /// e.g. per-axis value slabs — overrides per class. Selection only: every
+    /// carving reads within the existing row, never a stride change.
+    ///
+    /// Downstream, [`rail_geometry`](crate::rail_geometry) turns the resolved
+    /// carving into a deterministic placement (`ring` from depth, `arc` from
+    /// the slots) — the key prerendering the node, zero value decode, one
+    /// resolved projection under every glove.
+    #[inline]
+    fn rail_carving(
+        &self,
+        _class: ClassId,
+        axis: crate::rail_geometry::RailAxis,
+    ) -> crate::rail_geometry::RailCarving {
+        crate::rail_geometry::RailCarving::zero_fallback(axis)
+    }
+
     /// Which value-slab schema preset this class materialises in
     /// [`NodeRow::value`](crate::canonical_node::NodeRow::value).
     ///
