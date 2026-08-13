@@ -1,0 +1,40 @@
+[package]
+name = "weather-poc"
+version = "0.1.0"
+edition = "2021"
+license = "Apache-2.0"
+publish = false
+description = "Zarr -> NodeRow: the ERA5 0.25-degree global grid baked onto the canonical 512-byte SoA row. One cell = one node (HEEL = 16-degree tile, HIP = within-tile), one timestep = one Lance version. Plan: .claude/plans/weather-soa-bake-v1.md"
+
+# Standalone research crate, EXCLUDED from the lance-graph workspace (same
+# pattern as jc / sigker / helix / perturbation-sim). Verify with:
+#   cargo test --manifest-path crates/weather-poc/Cargo.toml
+#
+# ── ZERO-DEP BY CONSTRUCTION (an orchestrator decision, plan §6.1) ───────────
+# This crate has NO dependencies, not even optional ones, and that is
+# deliberate rather than incidental:
+#
+#   * `helix::quantize::RollingFloor` is the shipped carrier for the linear
+#     256-level floor this crate needs (plan §5 classifies the arc's Python
+#     `encode_decode` as a re-derivation of exactly it). But `helix` carries a
+#     MANDATORY ndarray git dep, and an *optional path* dep is read at manifest
+#     resolution -- so merely offering `helix = { path = "../helix", optional }`
+#     would break a clean checkout even with the feature off. That is the
+#     codex-P2 trap on #504 / the helix-#460 lesson, named in plan §6.3.
+#   * So `floor.rs` carries the linear formula itself, documented as identical
+#     to helix's, and the AGREEMENT between the two is a separate deliverable
+#     run across manifests -- the same shape as D-WXS-12 (jc <-> ndarray), where
+#     parity is a measured comparison rather than a dependency edge.
+#
+# If a future wave needs `ndarray::simd`, add it the way perturbation-sim does:
+# optional, behind an off-by-default feature, sourced by GIT URL -- never a path.
+# All SIMD comes from `ndarray::simd` per the workspace rule, never raw
+# intrinsics, and never `ndarray::hpc::*` from a consumer.
+
+[dependencies]
+
+[dev-dependencies]
+
+[lib]
+name = "weather_poc"
+path = "src/lib.rs"

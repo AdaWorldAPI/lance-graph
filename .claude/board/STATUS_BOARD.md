@@ -1,3 +1,47 @@
+## weather-soa-bake-v1 — Zarr → NodeRow, the missing bake (PRE-REGISTERED 2026-08-13)
+
+Plan: `.claude/plans/weather-soa-bake-v1.md`. The arc's Python-over-Zarr phase
+ran because the Zarr→`NodeRow` path was never specified —
+`weather-substrate-poc-v2.md` names `crates/weather-poc` and describes **no bake
+step**. Waves W0–W5; every bar pre-registered and committed BEFORE its run, each
+with a control that can lose and a stay-silent twin.
+
+| D-id | Deliverable | Wave | Status | Feeds |
+|---|---|---|---|---|
+| D-WXS-0 | classid mint for the weather-cell + statics classes (OGAR-side; `0x0F = Geo` exists, appid/classview open) | 0 | **Blocked (operator/OGAR)** | the bake must REFUSE to write under `0x0000_0000` |
+| D-WXS-1 | field manifest v1 — (facet, pair, byte) → (variable, level, unit, floor id), a committed data artifact, ClassView-side | 0 | **SHIPPED 2026-08-13** — `data/field_manifest_v1.tsv` (22 rows = F0 5 pairs + F1/F2 3 pairs each, reserved slots emit NO row) + `manifest.rs`, 13/13; collision guard **disable-verified** (removed → only `colliding_entries_are_rejected` fails, BOTH stay-silent twins stay green). Bar B0's end-to-end half (mutating an entry changes written bytes) DEFERRED — the bake does not exist yet | slot purity §2; bar B0 |
+| D-WXS-1a | variable census as a committed re-runnable probe (17 surface + 91 upper-air + 14 static = 122 fields; 92,044 six-hourly steps) | 0 | **SHIPPED 2026-08-13** — `era5_variable_census.py` + `.json`; `--selftest` PASS on all 10 constants, orchestrator-rerun independently; guard disable-verified (one constant broken → exit 1, correct message) | ends the chat-only-figure defect for the census |
+| D-WXS-2 | key codec `(lat,lon) ↔ NodeGuid` — HEEL 16° tile / HIP within-tile / TWIG dormant; ragged tiles; lon-wrap range-SET | 1 | **SHIPPED 2026-08-13** — `key.rs`, 5/5 green; exhaustive 1,038,240-cell round-trip + collision-free; both bar-B1 halves **disable-verified** by the orchestrator (zeroing the HIP lat byte kills 3 tests incl. collision + ragged; removing the seam split kills the wrap twin while the non-wrap twin stays green) | a 16° box becomes a HEEL-prefix scan; bar B1 |
+| D-WXS-2a | **NEW — row-major vs Morton, pre-registered comparison.** The shipped key assigns one WHOLE byte per axis; OGAR's cascade doctrine specifies the axis bytes **nibble-interleaved** (Morton). §1.2 deviated from the canon it cites and did not say so — now recorded as plan §1.3a. The prefix-scan claim holds under both; what differs is neighbour locality (`lat ± 1` is 1440 cells away under row-major) and how many ranges a non-tile-aligned box needs | 1 | Queued | gates any downstream assumption of Morton locality — measured against the ζ stencil (D-WXS-9), metric stated before the run |
+| D-WXS-3 | shared canonical floor calibration (global 0.4–99.6 pct, frozen per epoch, stamped in dataset metadata) | 1 | **SHIPPED 2026-08-13** — `floor.rs`, 7/7; bar B2 **disable-verified** (widening the "narrow" control floor kills only the control, twin stays green); version-stamp mismatch detected, ±½-bucket round-trip asserted | bar B2 |
+| D-WXS-4 | the bake: one timestep → 1,038,240 NodeRows → ONE Lance version | 1 | Queued | bar B3; the missing path |
+| D-WXS-5 | statics bake — separate classid, separate dataset, exactly ONE version | 1 | Queued | bar B4; avoids ~1.3 PB of rewritten constants |
+| D-WXS-6 | version-range read (`QueryReference::at(v,rung)` + `deinterlace`) + version-count scaling measurement | 2 | Queued | bar B5; KILL if growth is superlinear at 92,044 versions |
+| D-WXS-7 | **D-WXA-5 re-homed and RE-SPECIFIED** — ρ(code_dist, field_dist) via `jc::reliability::spearman` over whole-grid pairs. (a) ρ ≥ 0.9996 (the bar a real pair FAILED at 0.999556); (b) shuffled-codebook control < 0.98 (measured losable at 0.003–0.159); (c) 16/64/256-level ladder must be MONOTONE before any verdict | 3 | Queued | ⚠ poc-v2's ρ ≥ 0.98 is at risk of being vacuous — D-CZ-1 §6.4 measured real-arm ρ spread 3e-6…4.7e-5 |
+| D-WXS-8 | cross-variable comparability at grid scale (≥4 variables, ≥2 units, ≥3 seasons); per-variable-floor control must LOSE | 3 | Queued | P2 (0.9997 vs 0.857–0.875) promoted from [H] or refuted |
+| D-WXS-9 | ζ = ∂v/∂x − ∂u/∂y as a substrate read (neighbour-key stencil) + the differencing-amplifies-quantisation falsifier, reported per ζ-magnitude decile | 4 | Queued | bar B8; KILL ⇒ ζ becomes its own baked lane |
+| D-WXS-10 | **D-CZ-8 re-homed** — ζ-percentile regime bands over the WHOLE grid + coverage-matched donors + range-normalised `L`; shuffled-ζ control; same-band stay-silent twin | 4 | Queued | the grid buys CONTROL of the §7.9 confound, NOT its dissolution; KILL if `L̄`~range ρ≈1.0 survives matching |
+| D-WXS-11 | MEASURE a full-grid bake wall time; state the ~8.1 s serial extrapolation as the prior and confirm/correct it in the same artifact | 5 | Queued | replaces an extrapolation from ONE cycle (514 ms / 65,536 owners); D-KIA-A2 still unbuilt |
+| D-WXS-12 | jc ↔ ndarray reliability agreement (poc-v2 D-WXB-4, carried verbatim; jc is the authority, degenerate input reported not folded) | 5 | Queued | every Phase-A/C number is computed with jc |
+
+**Capacity, corrected in the plan (§0.4).** "32 facets/cell" overstates the
+usable budget: 2 slots are key+edges and `VALUE_TENANTS` carves the slab
+contiguously — the committed assertion
+(`canonical_node.rs` `value_tenants_contiguous_within_slab`) pins the current
+Full carve at **188 of 480 B**, so the free budget is **292 B = 18 facets =
+216 payload bytes**, not 384. All 122 fields still fit at 1 B/field — **one
+cell is one node** — but at 2 B/field they do **not** fit as 4+12 facets.
+
+> **Board-hygiene note (2026-08-13):** `weather-substrate-poc-v2.md`'s
+> `D-WXA-*` / `D-WXB-*` / `D-WXC-*` ladder has **no rows on this board**
+> (`grep -c WXA` = 0, verified). None of those deliverables was ever built.
+> The rows above do not supersede them; the poc-v2 ladder should be landed as
+> its own block, marked NEVER BUILT, so the gap is visible rather than inferred.
+
+> **C5 note:** the global grid does **not** unblock `GEO-GOLDEN-HI`. The golden
+> index floor needs N ≥ F(17)² = 2,550,409; the grid has 1,038,240. Short by
+> ~2.5×, not by three orders of magnitude — still not constructible.
+
 ## SUBSTRATE_FORMULA_MATRIX — the arc's rated inventory (2026-08-12)
 
 Document: `probes/weather-p1/SUBSTRATE_FORMULA_MATRIX.md`. Not a plan and not
@@ -34,15 +78,16 @@ already run and it corrected two regime definitions before any bar existed.
 | D-id | Deliverable | Status | Feeds |
 |---|---|---|---|
 | D-CZ-0 | §1 regime preflight (`\|∇p\|` ladder, elevation-confound screen, speed-is-not-the-discriminator finding) | **DONE — and now REPRODUCED + partly corrected (§6.1/6.2).** It had NO committed script or JSON when marked DONE. 4 rows reproduce (1.004/1.022/0.994/0.931); the 5 EXCLUDED land candidates are **unreproducible** (centres never recorded). Definition identified: Pa per grid cell **without cos(lat)** — R3 ~40 % low; metric-corrected ladder 10.3/15.5/61.2/100.9, order survives, range 9.3× → **9.8×**. Original text:**  — ladder R1 Amazon 10.2 → R2 ocean 14.9 → R3 W Siberia 43.8 → R4 storm 95.6 (9.3× range); 4 land candidates excluded on elev σ > 150 m | the regime axis all other rows score on |
-| D-CZ-1 | C0 controls (shuffled codebook + degenerate geometry), losability-smoke-tested BEFORE the full run | **DONE — PASS** (`substrate_comfort_d_cz_0_1.py/.json`). Both controls lose to both real arms on BOTH metrics in ALL FOUR regimes; mechanism visible (`GEO-DEGENERATE` saturates 92–97 %). C1b `separation` = **6.28** vs the ≥ 3 bar. **AND the run amended C4**: `ρ` is SATURATED on the diagonal (real-arm spread 3e-6…4.7e-5) so C4 could not have fired — `L` keeps `ρ` off-diagonal, C4 moves to RMSE in Pa (§6.4) | gates every cell — a control that can't lose voids its cell |
-| D-CZ-2 | C1 regime-ladder stability across ≥3 timesteps | Queued | anti-cherry-pick on the whole regime axis |
-| D-CZ-2b | **C1b constancy is measured** — `separation = (between-box range)/(mean within-box σ)` ≥ 3 | Queued | earns the phrase "held constant"; otherwise a caveat rides every cell |
-| D-CZ-2c | **C1c the suitability ASSUMPTION** — regimes must differ in autocorrelation decay + rank-distribution shape, not only in `\|∇p\|` | Queued | a null here VOIDS the cross-swap reading (spread manufactured on the wrong axis) |
-| D-CZ-3 | **C2 degenerate-row verification, both halves** — dynamic arms `L ≡ 0` exactly, AND `CAL-ABS` proven non-degenerate through the same code path | Queued | the can-it-DIFFER gate; without half (ii) a flat row proves nothing |
-| D-CZ-4 | C3 **transfer loss** vs turbulence — `L̄[T] = mean_{D≠T} L[D][T]` strictly smaller in R4 than R1, reported with `occupancy`/`saturation` | Queued | "storms forgive bad calibration", with a mechanism attached |
-| D-CZ-5 | **C4 the crossover** — `ρ(CAL-RANK) − ρ(CAL-ABS, D=T)` sign flip calm↔storm (vs the DIAGONAL, the hardest opponent) | Queued | **the operator's hypothesis, two-sided**; weak form vs `D≠T` reported separately |
-| D-CZ-6 | C5 geometry floor on a SAMPLING-fidelity metric (NULL expected-plausible per W5 B4) | Queued | does the index floor bite where smoothing didn't |
-| D-CZ-7 | C6 the transfer matrix (the deliverable) | Queued | comfort read off the diagonal, travel-cost off the off-diagonal |
+| D-CZ-1 | C0 controls (shuffled codebook + degenerate geometry), losability-smoke-tested BEFORE the full run | **DONE — PASS** (`substrate_comfort_d_cz_0_1.py/.json`). Both controls lose to both real arms on BOTH metrics in ALL FOUR regimes; mechanism visible (`GEO-DEGENERATE` saturates **72–97 %** per regime — corrected 2026-08-12 from a stale 92–97 %, see plan §6.3; R4 is the low end at 0.7224). C1b `separation` = **6.28** vs the ≥ 3 bar. **AND the run amended C4**: `ρ` is SATURATED on the diagonal (real-arm spread 3e-6…4.7e-5) so C4 could not have fired — `L` keeps `ρ` off-diagonal, C4 moves to RMSE in Pa (§6.4) | gates every cell — a control that can't lose voids its cell |
+| D-CZ-2 | C1 regime-ladder stability across ≥3 timesteps | **DONE — PASS.** `\|∇p\|` order R1<R2<R3<R4 holds at all 3 tested timesteps (`substrate_comfort_d_cz_2_7.py/.json`, §7.1) | anti-cherry-pick on the whole regime axis |
+| D-CZ-2b | **C1b constancy is measured** — `separation ≥ 3` | **DONE — PASS.** separation = **5.87–8.24** at all 3 timesteps | earns the phrase "held constant" |
+| D-CZ-2c | **C1c the suitability ASSUMPTION** | **DONE — PASS, distinguishable=True.** Decay/Gini/tail-ratio R4-vs-R1 ratios 0.88/0.71/**0.385** — all deviate ≥ 20 % from 1. **Licenses the cross-swap interpretation.** A construction bug in C0 was found and disable-verified fixed en route (§7.0) — `GEO-DEGENERATE` was built from a shuffled array slice, not a spatial patch | was a null-and-void gate; passed, so downstream stands |
+| D-CZ-3 | **C2 degenerate-row verification, both halves** | **DONE — PASS both halves.** Dynamic `L ≡ 0` exactly for every donor; `CAL-ABS` off-diagonal `L` ranges **0.011 (R1) → 0.947 (R4)**, demonstrably non-degenerate | the can-it-DIFFER gate; satisfied |
+| D-CZ-4 | C3 **transfer loss** vs turbulence | **DONE — FAILS. ⚠ But the "reversal" reading is WITHDRAWN (§7.9).** `L̄` = 0.011 → 0.309 → 0.671 → 0.690 is **rank-correlated ρ = 1.000 with each regime's own value range**, and `L` tracks `saturation` at Pearson **+0.917** — it largely restates *wide boxes are hard to cover*, arithmetic not meteorology. What stands: the hypothesis is not supported | hypothesis unsupported; the causal reading is confounded |
+| D-CZ-5 | **C4 the crossover** | **DONE — FAILS, no sign flip** (that part is solid). ⚠ The "+10.78 Pa growing margin" is **range-inflated** — RMSE in Pa is not comparable across regimes differing 18× in range; normalised as a ratio it reads 3.96 / 1.85 / 1.14 / **2.35**, NOT monotone, R1 extreme (§7.9). Weak form passes trivially as pre-registered | hypothesis **not supported**; margin trend withdrawn |
+| D-CZ-6 | C5 geometry floor | **NOT RUN — structural blocker.** Box holds 4225 cells; the golden index floor needs N ≥ 2 550 409. `GEO-GOLDEN-HI` cannot be constructed at box scale on this grid (§7.5) | reported, not faked with an interpolated lattice |
+| D-CZ-8 | **NEW — vorticity regime + range-matched transfer metric.** Every bar so far runs on a SCALAR pressure field; no wind, no rotation enters any metric, so "turbulence" was never operationalised dynamically (§7.9). Needs ζ = ∂v/∂x − ∂u/∂y (or Okubo–Weiss) as the discriminator AND a range-normalised `L` so coverage cannot masquerade as the finding | pre-condition for re-asking C3/C4 as a turbulence question |
+| D-CZ-7 | C6 the transfer matrix (the deliverable) | **DONE.** Full donor×target table, all 5 arms × 4 regimes, every cell raw in `substrate_comfort_d_cz_2_7.json` → `C6_matrix` (§7.6) | comfort read off the diagonal, travel-cost off the off-diagonal |
 
 > **2026-08-12 — rows re-cut, not restated.** The operator ruled that the
 > plan's §2 was built as a horse race where a cross-swap diagnostic belongs

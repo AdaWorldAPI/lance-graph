@@ -1,10 +1,31 @@
 # substrate-comfort-zones-v1 — where does each substrate formula feel at home?
 
-> **Status:** ACTIVE, exploratory tier. Bars author-written and unaudited —
-> fine for exploratory, said out loud (the
-> `E-ZERO-FOR-ELEVEN-THE-AUTHOR-CANNOT-AUDIT-HIS-OWN-FALSIFIERS-1` rule).
-> No verdict-tier claim may be promoted out of this plan without an
+> **Status:** RUN, §7 — the pre-registered hypothesis is **REFUTED** on this
+> data. Bars author-written and unaudited — fine for exploratory, said out
+> loud (the `E-ZERO-FOR-ELEVEN-THE-AUTHOR-CANNOT-AUDIT-HIS-OWN-FALSIFIERS-1`
+> rule). No verdict-tier claim may be promoted out of this plan without an
 > independent adversarial spec audit.
+>
+> **⚠ HEADLINE, READ FIRST — see §7, and §7.9 for the confound.**
+> **The hypothesis is NOT SUPPORTED:** there is no sign flip in either
+> pre-registered measure, normalised or not — `CAL-ABS` wins its own
+> diagonal in all four regimes. That much is solid.
+>
+> **But the stronger "cleanly reversed, monotonic" reading is WITHDRAWN**
+> (§7.9, triggered by the operator asking whether storm modelling is sound
+> given that vortices are not modelled at all). `C3`'s monotone `L̄` rise
+> is **rank-correlated ρ = 1.000 with each regime's own value range**, and
+> `L` tracks `saturation` at Pearson **+0.917** — so it largely restates
+> *wide-range boxes are hard to cover with a foreign codebook*, which is
+> arithmetic, not meteorology. `C4`'s "+10.78 Pa margin" is range-inflated
+> for the same reason; normalised as a ratio it reads 3.96 / 1.85 / 1.14 /
+> **2.35** — not monotone, and R1 is the extreme, not R4.
+>
+> **Scope, stated bluntly:** every bar here runs on a **scalar pressure
+> field**. No wind, no vorticity, no rotation enters any metric. This plan
+> answered *"absolute vs window-local encoding of a scalar field whose
+> range varies by regime"* — a real question — but **not** the operator's
+> original question about turbulence.
 >
 > **Operator framing (2026-08-12), three messages:**
 > 1. *hold different situations constant — over water vs flatland vs storm
@@ -487,9 +508,31 @@ regime axis stands; the recorded magnitudes do not.
 
 Both controls lose to both real arms, on both metrics, in **all four**
 regimes. The mechanism is visible rather than assumed: `GEO-DEGENERATE`
-saturates **92–97 %** of the box because its donor patch's range is far too
+saturates **72–97 %** of the box because its donor patch's range is far too
 narrow — which is exactly the failure mode the transfer matrix is built to
 measure.
+
+> **⚠ FIGURE CORRECTED (2026-08-12, self-audit on #947).** This read
+> **92–97 %** when first written, and that was TRUE of the numbers then on
+> disk (R1 0.9496 / R2 0.9174 / R3 0.9718 / R4 0.9179). It went stale in
+> the SAME PR: fixing R4 to measure each storm at its own `t0` moved R4's
+> saturation to **0.7224**, and the range with it. Per-regime as committed:
+> **R1 0.9496 · R2 0.9174 · R3 0.9718 · R4 0.7224**; across all 19 storms
+> min **0.693** / median **0.843** / max **0.974**.
+>
+> **The verdict is unaffected** — 72 % is still overwhelming saturation and
+> the gate passes 19/19 — but the figure was wrong in four files and two PR
+> bodies. Seventh instance of the arc's recurring defect: a number true when
+> written, stale once the artifact beneath it changed, and carried forward
+> because the check compared prose to prose. Caught only by re-verifying
+> against the JSON.
+>
+> **And the corrected number is more interesting than the wrong one.** The
+> storm regime saturates *least* (0.72 vs 0.92–0.97 in the calmer tiers) —
+> i.e. the degenerate donor hurts **less** where the field is strongest,
+> which is independently the direction §6.6's exploratory correlation
+> measured (ρ = +0.444). Two measurements that were never connected agree.
+> Recorded as a coherence, NOT as evidence: §6.6 is still p = 0.0578.
 
 | regime | CAL-ABS ρ | CAL-RANK ρ | SHUFFLE ρ | DEGENERATE ρ (satur.) |
 |---|---|---|---|---|
@@ -602,3 +645,234 @@ control was run on this particular comparison; and the whole point of the
 cross-swap design is that a diagonal-vs-diagonal difference is not what the
 hypothesis is about. Recorded so a later run cannot present it as a
 confirmation that was there all along.
+
+
+---
+
+## §7 RUN — D-CZ-2..7, the cross-swap matrix (2026-08-12)
+
+Script `probes/weather-p1/substrate_comfort_d_cz_2_7.py`, results
+`…_d_cz_2_7.json`, tag-file `exec-runs/…txt`. Run in the order the plan
+requires: **C1c first**, because a null there would VOID the interpretation
+before anything downstream is worth trusting. C0's construction had a real
+bug, found and disable-verified fixed before any of C2–C6 was reported.
+
+### §7.0 A construction bug in C0 itself, caught by C0's own gate
+
+The first run of this probe **failed** C0 in two of four regimes:
+`GEO-DEGENERATE` did not lose to the real arms in R1 or R4. Per §3's own
+rule — *"if either matches a real arm anywhere, that cell measures
+nothing and is reported VOID"* — nothing downstream could have been
+trusted as written.
+
+**Cause:** the "degenerate donor" was built from `truth[:len//64]` — the
+first slice of an array already subsampled by `rng.choice` for equal
+budget. `rng.choice` returns no spatial order, so that slice is an
+**ordinary random subsample**, not a narrow spatial patch — a materially
+different construction from D-CZ-1's correct one
+(`p[si,sj][:n_i,:n_i]`, a genuine 2-D corner). A random subsample of a
+flat array is not reliably narrower in range than the whole array; by
+chance it can nearly match it.
+
+**Fixed** by keeping each regime's full 2-D box alongside the equal-budget
+flat evaluation sample, and building the degenerate donor from an actual
+`n_i × n_i` corner of that box (`n_i = side // 8`), matching D-CZ-1
+exactly. **Disable-verified**: reverting to the flat-slice construction
+reproduces the *exact* original failure (R1 and R4 fail, R2/R3 pass);
+the fix reproduces the same real-arm numbers unchanged (C2–C6 identical
+between the two runs) while making **C0 pass cleanly in all four
+regimes**. The bug was isolated to the control; the real arms were never
+wrong.
+
+### §7.1 C1c PASSES — the cross-swap interpretation is licensed
+
+| regime | decay length (cells) | Gini(\|∇p\|) | tail ratio (p99/p50) |
+|---|---|---|---|
+| R1 CALM | 25.5 | 0.4321 | **7.65** |
+| R2 OCEAN | 32.0 | 0.2758 | 3.72 |
+| R3 ACTIVE | 32.0 | 0.2262 | 1.94 |
+| R4 STORM (median of 19) | 22.5 | 0.3062 | **2.95** |
+
+R4/R1 ratios: decay **0.88**, Gini **0.71**, tail ratio **0.385** — the
+storm regime's gradient field is far *less* concentrated (a smaller
+handful of cells carrying most of the gradient in calm regions; a more
+uniformly elevated field in storms) than the calm regime's, a genuinely
+different **shape**, not just a different mean. All three deviate from 1
+by ≥ 20 %. **The regimes differ in structure, not merely in `\|∇p\|`** —
+the assumption behind the whole regime ladder holds.
+
+*(The 20 % threshold is this run's own operationalization of §3's
+qualitative bar — the plan did not pre-register a number. Flagged as an
+author choice; the raw ratios are reported above so a reader can apply a
+stricter one and reach the same conclusion — the smallest deviation,
+12 %, is on decay length, but tail ratio's 61 % deviation alone clears
+any reasonable bar.)*
+
+**C1 (ladder) and C1b (separation) both PASS too**: the `\|∇p\|` order
+R1 < R2 < R3 < R4 holds at all three tested timesteps, and separation is
+**5.87–8.24** at every one — comfortably above the ≥ 3 bar.
+
+### §7.2 C2 PASSES both halves
+
+Dynamic arms (`CAL-RANK`, `CAL-FISHERZ`) show `L[D][T] = 0` **exactly**
+for every donor in every regime — no leak. Through the *identical* code
+path, `CAL-ABS`'s off-diagonal `L` ranges **0.011 (R1) → 0.947 (R4)** —
+demonstrably non-degenerate. The can-it-DIFFER gate is satisfied.
+
+### §7.3 ⚠ C3 FAILS — and the failure is a clean, monotonic REVERSAL
+
+`L̄[T]`, the mean off-diagonal transfer loss for `CAL-ABS`:
+
+| R1 CALM | R2 OCEAN | R3 ACTIVE | R4 STORM |
+|---|---|---|---|
+| **0.011** | 0.309 | 0.671 | **0.690** |
+
+The bar required `L̄[R4] < L̄[R1]`. **Measured: `L̄[R4]` is 62× larger than
+`L̄[R1]`, and the increase is monotonic across all four tiers.** This is
+not "no shrinkage" — it is the pre-registered relationship holding in
+**reverse**: transfer loss under a foreign absolute calibration grows,
+not shrinks, as turbulence rises. Storms are **less** forgiving of bad
+calibration on this data, not more.
+
+### §7.4 ⚠ C4 FAILS — same direction, same shape
+
+`Δ[T] = RMSE(CAL-RANK, own window) − RMSE(CAL-ABS, own diagonal)`, in Pa
+(positive = absolute wins):
+
+| R1 CALM | R2 OCEAN | R3 ACTIVE | R4 STORM |
+|---|---|---|---|
+| +1.29 | +1.11 | +0.46 | **+10.78** |
+
+**No sign flip anywhere** — absolute wins its own diagonal in all four
+regimes, and its margin of victory is **largest in the storm regime**,
+not smallest. The strong form of the operator's hypothesis is refuted on
+this data: a well-calibrated absolute encoding does not lose its edge as
+turbulence rises here — it gains one.
+
+The **weak form** (`ρ(CAL-RANK) > ρ(CAL-ABS, D ≠ T)`) passes trivially
+everywhere, exactly as pre-registered it would — dynamic beats a
+genuinely *mis-calibrated* absolute by **329–2508 Pa** across regimes.
+Per §3: *"nearly guaranteed by C2(i)… evidence of wiring, not of merit."*
+Reported, not conflated with C4's real bar.
+
+### §7.5 C5 — NOT RUN, structural blocker
+
+`GEO-GOLDEN-HI` needs `N ≥ F(17)² = 2 550 409` before the golden lattice
+behaves like the irrational it approximates (§1's own index-floor rule).
+A 16° box at 0.25° resolution holds `65 × 65 = 4225` cells — **three
+orders of magnitude below the floor**. `GEO-GOLDEN-HI` cannot be
+constructed at box scale on this grid; the comparison has no admissible
+high arm. Reported as a structural gap, not skipped silently, and not
+faked with an interpolated sub-grid lattice (which would sample the
+interpolator, not the field).
+
+### §7.6 C6 — the transfer matrix, delivered
+
+Full `donor × target` table for all five arms (`CAL-ABS`, `CAL-RANK`,
+`CAL-FISHERZ`, `CAL-SHUFFLE`, `GEO-DEGENERATE`) × four regimes, every
+`ρ` / `L` / `occupancy` / `saturation` / RMSE / bias cell raw, in
+`substrate_comfort_d_cz_2_7.json` → `C6_matrix`.
+
+### §7.7 ⚠ This CONTRADICTS §6.6's exploratory hint — stated plainly
+
+§6.6 measured, *within* R4 only, ρ(`GEO-DEGENERATE` ρ, storm `\|∇p\|`) =
++0.444 (p = 0.058, not significant) — the *direction* of that correlation
+matched the operator's hypothesis, and was recorded as a coherence with
+the D-CZ-1 saturation numbers.
+
+**The properly-powered, cross-regime test says the opposite.** §6.6 was a
+single-regime, single-arm, unpre-registered correlation at n=19. §7.3/§7.4
+are the pre-registered, cross-swap, equal-budget bars the whole plan was
+built to produce. Where they disagree, the pre-registered cross-regime
+result governs. §6.6 is retained as what it always was — exploratory, not
+a result — and this section exists so a later read does not average the
+two into a false middle. **The hypothesis is refuted on this data.**
+
+### §7.8 What this plan concludes
+
+The operator's hypothesis — *a badly-calibrated substrate that maps
+DYNAMICALLY preserves MORE structure in strong storms than a
+well-calibrated absolute one* — is **refuted, cleanly, on this box, this
+variable, these three timesteps plus 19 storms**. Both pre-registered
+measures of it (C3's transfer loss, C4's diagonal crossover) point the
+same direction, monotonically, not merely "no effect."
+
+**What is NOT concluded:** that miscalibration is never more forgivable
+under turbulence, anywhere, on any variable, at any scale — this is one
+box size, one variable (MSLP), one gradient definition, and C5's absence
+means the geometry axis (the *other* half of "good geometry vs badly
+calibrated") was never tested at all. The regime axis and the C0/C1/C1b/
+C1c apparatus all hold; the specific calibration hypothesis they were
+built to test does not.
+
+
+### §7.9 ⚠ CONFOUND FOUND POST-RUN — C3's monotonicity is largely RANGE, not turbulence
+
+**Trigger (operator, 2026-08-12):** *do we have a problem with the storm
+modelling, since we do not actively model vortices?* The question is
+correct, and chasing it surfaced a confound that qualifies §7.3 and §7.4.
+
+**Fact first:** `substrate_comfort_d_cz_2_7.py` loads **only**
+`mean_sea_level_pressure`. No wind, no vorticity, no rotation. D-CZ-0/1
+loaded 10 m winds solely to *report* `spd_sigma`; no bar ever consumed
+them. R4 "STORM" is therefore characterised by a **scalar pressure-gradient
+magnitude**, not by the rotating structure that makes a storm a storm.
+
+**The confound that follows, measured:**
+
+| relationship | statistic |
+|---|---|
+| `L` vs the cell's `saturation` | Pearson **+0.917**, Spearman **+0.833** (n=8) |
+| `L̄[T]` vs the regime's OWN value range | **Spearman +1.000 — perfectly monotone** |
+
+`L` is essentially a function of **how much of the target's distribution
+falls outside the donor's codebook range**. A regime's own range is what
+makes it hard to cover: R4's implied range is ~**18×** R1's (≈7075 Pa vs
+≈386 Pa). So `L̄` rising monotonically R1→R4 substantially **restates the
+regimes' width ordering**, which the `|∇p|` ladder itself produced (a
+deeper low means a steeper gradient *and* a wider box range).
+
+Width alone is not the whole mechanism — `R3 → R2` has a *wider* donor
+(log₂ ratio +1.32) yet saturation 0.949, because the two boxes sit at
+different absolute pressure levels. The true driver is **coverage**
+(width **and** offset), which `saturation` captures directly and which the
++0.917 correlation measures.
+
+**C4 is range-inflated the same way.** `Δ` was amended to RMSE **in Pa**
+(§6.4), and RMSE scales with the field's range, so an absolute-Pa margin is
+not comparable across regimes differing 18× in range. Normalised as a
+ratio, C4 reads **3.96 / 1.85 / 1.14 / 2.35** (R1→R4) — **not monotone**,
+and R1, not R4, is where absolute wins by the largest factor.
+
+**What survives, and what does not:**
+
+- **SURVIVES — the hypothesis is NOT SUPPORTED.** There is no sign flip in
+  either metric, normalised or not; `CAL-ABS` wins its own diagonal in all
+  four regimes. That conclusion is unaffected by the confound.
+- **DOES NOT SURVIVE — "cleanly reversed, monotonic."** §7.3's monotone
+  `L̄` increase is confounded with range (ρ = 1.000), and §7.4's "margin
+  grows to 10.78 Pa" is range-inflated. **"Storms are LESS forgiving of bad
+  calibration" is withdrawn as a physical claim** — as measured it says
+  *wide-range boxes are harder to cover with a foreign codebook*, which is
+  arithmetic.
+- **C1c still passes** and still licenses the design — but note what it
+  measured: structure of the **`|∇p|` field**, not rotational structure.
+  It cannot have caught this, because the confound is between the
+  ladder's own discriminator and the codebook's coverage, not between two
+  regimes.
+
+**The deeper gap this exposes.** The hypothesis was about *"high velocity
+differences / turbulence"* — a **dynamical** property. Every bar in this
+plan is computed on a **scalar pressure field**. A vortex is not
+represented anywhere: not in the regime definition, not in the codebook,
+not in any metric. So this plan has tested *"badly-calibrated absolute vs
+window-local encoding of a scalar field whose range varies by regime"* —
+which is a real question, and answered — but it is **not** the operator's
+original question about turbulence, and should stop being described as if
+it were.
+
+**Consequence for the next run:** a genuine turbulence regime needs a
+**rotational** discriminator (relative vorticity ζ = ∂v/∂x − ∂u/∂y, or
+Okubo–Weiss), and a range-matched or range-normalised transfer metric so
+coverage cannot masquerade as the finding. Both are pre-conditions for
+re-asking C3/C4 as a turbulence question rather than a width question.
