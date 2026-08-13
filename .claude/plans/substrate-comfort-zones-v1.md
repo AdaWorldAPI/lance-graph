@@ -6,15 +6,26 @@
 > rule). No verdict-tier claim may be promoted out of this plan without an
 > independent adversarial spec audit.
 >
-> **⚠ HEADLINE, READ FIRST — see §7 for the full run.** Both pre-registered
-> measures of the hypothesis below point the SAME direction, and it is the
-> OPPOSITE of what was hypothesized: `C3`'s transfer loss `L̄` grows
-> monotonically 0.011 → 0.309 → 0.671 → **0.690** from calm to storm (not
-> shrinks); `C4`'s crossover never flips — absolute wins its own diagonal
-> in every regime, by a MARGIN THAT GROWS from ~1 Pa to **10.78 Pa** in the
-> storm regime, not shrinks or reverses. On this box, this variable
-> (MSLP), these timesteps: **a well-calibrated absolute encoding does not
-> lose its edge under turbulence — it gains one.**
+> **⚠ HEADLINE, READ FIRST — see §7, and §7.9 for the confound.**
+> **The hypothesis is NOT SUPPORTED:** there is no sign flip in either
+> pre-registered measure, normalised or not — `CAL-ABS` wins its own
+> diagonal in all four regimes. That much is solid.
+>
+> **But the stronger "cleanly reversed, monotonic" reading is WITHDRAWN**
+> (§7.9, triggered by the operator asking whether storm modelling is sound
+> given that vortices are not modelled at all). `C3`'s monotone `L̄` rise
+> is **rank-correlated ρ = 1.000 with each regime's own value range**, and
+> `L` tracks `saturation` at Pearson **+0.917** — so it largely restates
+> *wide-range boxes are hard to cover with a foreign codebook*, which is
+> arithmetic, not meteorology. `C4`'s "+10.78 Pa margin" is range-inflated
+> for the same reason; normalised as a ratio it reads 3.96 / 1.85 / 1.14 /
+> **2.35** — not monotone, and R1 is the extreme, not R4.
+>
+> **Scope, stated bluntly:** every bar here runs on a **scalar pressure
+> field**. No wind, no vorticity, no rotation enters any metric. This plan
+> answered *"absolute vs window-local encoding of a scalar field whose
+> range varies by regime"* — a real question — but **not** the operator's
+> original question about turbulence.
 >
 > **Operator framing (2026-08-12), three messages:**
 > 1. *hold different situations constant — over water vs flatland vs storm
@@ -793,3 +804,75 @@ means the geometry axis (the *other* half of "good geometry vs badly
 calibrated") was never tested at all. The regime axis and the C0/C1/C1b/
 C1c apparatus all hold; the specific calibration hypothesis they were
 built to test does not.
+
+
+### §7.9 ⚠ CONFOUND FOUND POST-RUN — C3's monotonicity is largely RANGE, not turbulence
+
+**Trigger (operator, 2026-08-12):** *do we have a problem with the storm
+modelling, since we do not actively model vortices?* The question is
+correct, and chasing it surfaced a confound that qualifies §7.3 and §7.4.
+
+**Fact first:** `substrate_comfort_d_cz_2_7.py` loads **only**
+`mean_sea_level_pressure`. No wind, no vorticity, no rotation. D-CZ-0/1
+loaded 10 m winds solely to *report* `spd_sigma`; no bar ever consumed
+them. R4 "STORM" is therefore characterised by a **scalar pressure-gradient
+magnitude**, not by the rotating structure that makes a storm a storm.
+
+**The confound that follows, measured:**
+
+| relationship | statistic |
+|---|---|
+| `L` vs the cell's `saturation` | Pearson **+0.917**, Spearman **+0.833** (n=8) |
+| `L̄[T]` vs the regime's OWN value range | **Spearman +1.000 — perfectly monotone** |
+
+`L` is essentially a function of **how much of the target's distribution
+falls outside the donor's codebook range**. A regime's own range is what
+makes it hard to cover: R4's implied range is ~**18×** R1's (≈7075 Pa vs
+≈386 Pa). So `L̄` rising monotonically R1→R4 substantially **restates the
+regimes' width ordering**, which the `|∇p|` ladder itself produced (a
+deeper low means a steeper gradient *and* a wider box range).
+
+Width alone is not the whole mechanism — `R3 → R2` has a *wider* donor
+(log₂ ratio +1.32) yet saturation 0.949, because the two boxes sit at
+different absolute pressure levels. The true driver is **coverage**
+(width **and** offset), which `saturation` captures directly and which the
++0.917 correlation measures.
+
+**C4 is range-inflated the same way.** `Δ` was amended to RMSE **in Pa**
+(§6.4), and RMSE scales with the field's range, so an absolute-Pa margin is
+not comparable across regimes differing 18× in range. Normalised as a
+ratio, C4 reads **3.96 / 1.85 / 1.14 / 2.35** (R1→R4) — **not monotone**,
+and R1, not R4, is where absolute wins by the largest factor.
+
+**What survives, and what does not:**
+
+- **SURVIVES — the hypothesis is NOT SUPPORTED.** There is no sign flip in
+  either metric, normalised or not; `CAL-ABS` wins its own diagonal in all
+  four regimes. That conclusion is unaffected by the confound.
+- **DOES NOT SURVIVE — "cleanly reversed, monotonic."** §7.3's monotone
+  `L̄` increase is confounded with range (ρ = 1.000), and §7.4's "margin
+  grows to 10.78 Pa" is range-inflated. **"Storms are LESS forgiving of bad
+  calibration" is withdrawn as a physical claim** — as measured it says
+  *wide-range boxes are harder to cover with a foreign codebook*, which is
+  arithmetic.
+- **C1c still passes** and still licenses the design — but note what it
+  measured: structure of the **`|∇p|` field**, not rotational structure.
+  It cannot have caught this, because the confound is between the
+  ladder's own discriminator and the codebook's coverage, not between two
+  regimes.
+
+**The deeper gap this exposes.** The hypothesis was about *"high velocity
+differences / turbulence"* — a **dynamical** property. Every bar in this
+plan is computed on a **scalar pressure field**. A vortex is not
+represented anywhere: not in the regime definition, not in the codebook,
+not in any metric. So this plan has tested *"badly-calibrated absolute vs
+window-local encoding of a scalar field whose range varies by regime"* —
+which is a real question, and answered — but it is **not** the operator's
+original question about turbulence, and should stop being described as if
+it were.
+
+**Consequence for the next run:** a genuine turbulence regime needs a
+**rotational** discriminator (relative vorticity ζ = ∂v/∂x − ∂u/∂y, or
+Okubo–Weiss), and a range-matched or range-normalised transfer metric so
+coverage cannot masquerade as the finding. Both are pre-conditions for
+re-asking C3/C4 as a turbulence question rather than a width question.
