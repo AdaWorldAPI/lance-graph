@@ -182,6 +182,52 @@ pub enum LaneError {
         /// The level the manifest names for this slot.
         level_hpa: Option<u16>,
     },
+    /// [`pack_facet`]'s `value_of` closure returned a **non-finite** reading
+    /// (`NaN`, `+inf` or `-inf`) for an occupied slot.
+    ///
+    /// # Why this is a hard error and not a silent bucket
+    ///
+    /// This is **not** a defensive nicety — it closes a measured
+    /// silent-corruption path, found by review on PR #948:
+    ///
+    /// * ARCO-ERA5 is **sparse by design**. `probes/weather-p1/README.md` §1
+    ///   records the store's `fill_value: NaN`, that several variables 404 at
+    ///   the arc's own fixture timestep, and that in Zarr v2 *a missing chunk
+    ///   means all-`fill_value`* — so **a 404 is valid store semantics, not a
+    ///   fetch failure**, and an all-`NaN` field is ordinary data an ingest
+    ///   must expect.
+    /// * The 404-ing list at that timestep includes `mean_sea_level_pressure`,
+    ///   `10m_v_component_of_wind`, `surface_pressure`,
+    ///   `total_column_water_vapour` and `total_cloud_cover` — **five
+    ///   variables the W1 field set actually packs** (F0 pairs 0, 1, 3, 4).
+    /// * [`CalibratedFloor::quantize`](crate::floor::CalibratedFloor::quantize)
+    ///   maps non-finite input to a **valid-looking bucket, silently**
+    ///   (measured: `NaN` → `0`, `-inf` → `0`, `+inf` → `255`; Rust's
+    ///   float→int cast saturates and sends `NaN` to zero, and `f64::clamp`
+    ///   propagates `NaN` rather than clamping it).
+    ///
+    /// Without this guard an entire missing field would be written as
+    /// plausible low-bucket measurements and read back through
+    /// [`CalibratedFloor::bucket_center`](crate::floor::CalibratedFloor::bucket_center)
+    /// as ordinary numbers — the exact failure the reserved-slot rule
+    /// (*"a reserved slot must not read back as a plausible number"*) exists
+    /// to prevent, one level deeper and harder to see.
+    ///
+    /// The guard covers **all** non-finite values, not only `NaN`: `±inf`
+    /// land on the rim buckets, which are legitimate saturation values and
+    /// therefore just as indistinguishable from a real reading.
+    NonFiniteValue {
+        /// The facet.
+        facet: u8,
+        /// The pair.
+        pair: u8,
+        /// The byte.
+        byte: PairByte,
+        /// The variable the manifest names for this slot.
+        variable: String,
+        /// The level the manifest names for this slot.
+        level_hpa: Option<u16>,
+    },
     /// [`unpack_facet`]'s `stamped_versions` map has no entry for a
     /// `floor_id` an occupied slot needs — the caller's "dataset metadata"
     /// is incomplete for this facet.
@@ -239,6 +285,17 @@ impl std::fmt::Display for LaneError {
             } => write!(
                 f,
                 "facet={facet} pair={pair} byte={byte}: no value supplied for {variable:?} at level {level_hpa:?}"
+            ),
+            LaneError::NonFiniteValue {
+                facet,
+                pair,
+                byte,
+                variable,
+                level_hpa,
+            } => write!(
+                f,
+                "facet={facet} pair={pair} byte={byte}: non-finite reading for {variable:?} at level {level_hpa:?} \
+                 (an all-NaN field is valid ARCO-ERA5 store semantics for a missing chunk, never a bucket)"
             ),
             LaneError::MissingStampedVersion {
                 facet,
@@ -335,6 +392,19 @@ where
             variable: entry.variable.clone(),
             level_hpa: entry.level_hpa,
         })?;
+
+        // A non-finite reading must NEVER reach `quantize`. See
+        // `LaneError::NonFiniteValue` for the measured silent-corruption
+        // path this guard closes.
+        if !value.is_finite() {
+            return Err(LaneError::NonFiniteValue {
+                facet,
+                pair,
+                byte,
+                variable: entry.variable.clone(),
+                level_hpa: entry.level_hpa,
+            });
+        }
 
         bytes[slot_offset(pair, byte)] = floor.quantize(value);
     }
@@ -814,6 +884,80 @@ mod tests {
             .expect_err("a missing value must be reported, not silently zeroed");
 
         assert!(matches!(err, LaneError::MissingValue { pair: 0, .. }));
+    }
+
+    /// A non-finite reading is REJECTED, and the paired half proves the same
+    /// slot packs fine when the reading is finite.
+    ///
+    /// This is the regression for the PR #948 review finding. ARCO-ERA5 is
+    /// sparse by design: `probes/weather-p1/README.md` §1 records
+    /// `fill_value: NaN` and that a 404 chunk means an all-`NaN` field is
+    /// **valid store semantics**, at the arc's own fixture timestep, for five
+    /// variables the W1 field set actually packs.
+    ///
+    /// The third assertion block is what makes this a real test rather than a
+    /// restatement of the guard: it shows what the guard PREVENTS, by
+    /// quantising the same non-finite values directly and observing that they
+    /// land on ordinary, plausible buckets.
+    #[test]
+    fn pack_rejects_non_finite_readings_which_would_otherwise_become_plausible_buckets() {
+        let manifest = fixture_manifest();
+        let floors = fixture_floors();
+
+        // ── can-fire: every flavour of non-finite is refused ──
+        // Only ONE field is poisoned per run; the others stay finite, so a
+        // guard that fired on everything would fail the twin below.
+        for (name, bad) in [
+            ("NaN", f64::NAN),
+            ("+inf", f64::INFINITY),
+            ("-inf", f64::NEG_INFINITY),
+        ] {
+            let err = pack_facet(0x1, 0, &manifest, &floors, move |entry| {
+                if entry.variable == "fieldA" {
+                    Some(bad)
+                } else {
+                    Some(1.0)
+                }
+            })
+            .expect_err("a non-finite reading must be refused");
+            assert!(
+                matches!(err, LaneError::NonFiniteValue { ref variable, .. } if variable == "fieldA"),
+                "{name} must be reported as NonFiniteValue for fieldA, got {err:?}"
+            );
+        }
+
+        // ── stay-silent twin (non-trivial): the SAME slot, finite, packs ──
+        let ok = pack_facet(
+            0x1,
+            0,
+            &manifest,
+            &floors,
+            fixture_values(12.3, 1_005.7, -42.0),
+        )
+        .expect("finite readings at the same slots must pack cleanly");
+        assert_ne!(
+            ok, [0u8; FACET_LEN],
+            "the finite pack must actually write something"
+        );
+
+        // ── what the guard PREVENTS (the anti-vacuity half) ──
+        // Without the guard these values reach `quantize`, which maps them to
+        // ordinary buckets with no signal that anything was wrong.
+        let floor = floors.get("fa").expect("fixture floor fa");
+        let (lo, hi) = floor.bounds();
+        for (name, bad) in [
+            ("NaN", f64::NAN),
+            ("+inf", f64::INFINITY),
+            ("-inf", f64::NEG_INFINITY),
+        ] {
+            let bucket = floor.quantize(bad);
+            let decoded = floor.bucket_center(bucket);
+            assert!(
+                decoded >= lo && decoded <= hi,
+                "{name} quantised to bucket {bucket}, decoding to {decoded} — inside [{lo}, {hi}], \
+                 i.e. indistinguishable from a real reading. This is why the guard exists."
+            );
+        }
     }
 
     #[test]
