@@ -112,3 +112,15 @@ crates/lance-graph-planner/examples/data/rosetta/*
 # fresh clone can verify which bytes a recorded result was produced from.
 probes/weather-p1/fixture/**/*.npy
 probes/weather-p1/fixture/*.npy
+# Same rule, same reason, for D-WXS-7/D-WXS-8's fetch: the store's own
+# .zmetadata (fetched fresh by fidelity_probe_fetch.py, 48 KB, deterministic
+# from the public store) and the 138 MB of raw pair-distance f64 arrays
+# fidelity_probe_prep.py writes. `fidelity_pairs/manifest.json` and the
+# per-season `*_meta.txt` sidecars ARE committed (small, the provenance a
+# fresh clone needs); `fidelity_probe_availability.json` and
+# `fidelity_probe_results.json` ARE committed (the actual measured receipts).
+# Re-derive the raw arrays with:
+#   python3 probes/weather-p1/fidelity_probe_fetch.py
+#   python3 probes/weather-p1/fidelity_probe_prep.py
+probes/weather-p1/zmeta.json
+probes/weather-p1/fixture/fidelity_pairs/*.f64

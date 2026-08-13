@@ -1,0 +1,246 @@
+{
+  "seed": 20260813,
+  "n_pairs": 200000,
+  "ladder": [
+    16,
+    64,
+    256
+  ],
+  "lo_percentile": 0.4,
+  "hi_percentile": 99.6,
+  "seasons": {
+    "winter": {
+      "n_cells": 1038240,
+      "units": {
+        "2m_temperature": "K",
+        "2m_dewpoint_temperature": "K",
+        "10m_u_component_of_wind": "m/s",
+        "mean_sea_level_pressure": "Pa",
+        "total_cloud_cover": "1"
+      },
+      "shared_window": [
+        -2.5779856641839727,
+        2.3637323027935224
+      ],
+      "pairs": {
+        "kxk": {
+          "name": "2m_temperature x 2m_dewpoint_temperature (K x K)",
+          "va": "2m_temperature",
+          "vb": "2m_dewpoint_temperature"
+        },
+        "cross": {
+          "2m_temperature_x_2m_dewpoint_temperature": {
+            "va": "2m_temperature",
+            "vb": "2m_dewpoint_temperature",
+            "unit_va": "K",
+            "unit_vb": "K",
+            "same_unit": true
+          },
+          "2m_temperature_x_10m_u_component_of_wind": {
+            "va": "2m_temperature",
+            "vb": "10m_u_component_of_wind",
+            "unit_va": "K",
+            "unit_vb": "m/s",
+            "same_unit": false
+          },
+          "2m_temperature_x_mean_sea_level_pressure": {
+            "va": "2m_temperature",
+            "vb": "mean_sea_level_pressure",
+            "unit_va": "K",
+            "unit_vb": "Pa",
+            "same_unit": false
+          },
+          "2m_temperature_x_total_cloud_cover": {
+            "va": "2m_temperature",
+            "vb": "total_cloud_cover",
+            "unit_va": "K",
+            "unit_vb": "1",
+            "same_unit": false
+          },
+          "2m_dewpoint_temperature_x_10m_u_component_of_wind": {
+            "va": "2m_dewpoint_temperature",
+            "vb": "10m_u_component_of_wind",
+            "unit_va": "K",
+            "unit_vb": "m/s",
+            "same_unit": false
+          },
+          "2m_dewpoint_temperature_x_mean_sea_level_pressure": {
+            "va": "2m_dewpoint_temperature",
+            "vb": "mean_sea_level_pressure",
+            "unit_va": "K",
+            "unit_vb": "Pa",
+            "same_unit": false
+          },
+          "2m_dewpoint_temperature_x_total_cloud_cover": {
+            "va": "2m_dewpoint_temperature",
+            "vb": "total_cloud_cover",
+            "unit_va": "K",
+            "unit_vb": "1",
+            "same_unit": false
+          },
+          "10m_u_component_of_wind_x_mean_sea_level_pressure": {
+            "va": "10m_u_component_of_wind",
+            "vb": "mean_sea_level_pressure",
+            "unit_va": "m/s",
+            "unit_vb": "Pa",
+            "same_unit": false
+          },
+          "10m_u_component_of_wind_x_total_cloud_cover": {
+            "va": "10m_u_component_of_wind",
+            "vb": "total_cloud_cover",
+            "unit_va": "m/s",
+            "unit_vb": "1",
+            "same_unit": false
+          },
+          "mean_sea_level_pressure_x_total_cloud_cover": {
+            "va": "mean_sea_level_pressure",
+            "vb": "total_cloud_cover",
+            "unit_va": "Pa",
+            "unit_vb": "1",
+            "same_unit": false
+          }
+        }
+      },
+      "within_variable_control": {
+        "var": "2m_temperature",
+        "shared_empty_buckets": 38
+      }
+    },
+    "spring": {
+      "n_cells": 1038240,
+      "units": {
+        "2m_temperature": "K",
+        "2m_dewpoint_temperature": "K",
+        "10m_u_component_of_wind": "m/s",
+        "total_column_water_vapour": "kg/m2"
+      },
+      "shared_window": [
+        -2.427651942113806,
+        2.578200723629849
+      ],
+      "pairs": {
+        "kxk": {
+          "name": "2m_temperature x 2m_dewpoint_temperature (K x K)",
+          "va": "2m_temperature",
+          "vb": "2m_dewpoint_temperature"
+        },
+        "cross": {
+          "2m_temperature_x_2m_dewpoint_temperature": {
+            "va": "2m_temperature",
+            "vb": "2m_dewpoint_temperature",
+            "unit_va": "K",
+            "unit_vb": "K",
+            "same_unit": true
+          },
+          "2m_temperature_x_10m_u_component_of_wind": {
+            "va": "2m_temperature",
+            "vb": "10m_u_component_of_wind",
+            "unit_va": "K",
+            "unit_vb": "m/s",
+            "same_unit": false
+          },
+          "2m_temperature_x_total_column_water_vapour": {
+            "va": "2m_temperature",
+            "vb": "total_column_water_vapour",
+            "unit_va": "K",
+            "unit_vb": "kg/m2",
+            "same_unit": false
+          },
+          "2m_dewpoint_temperature_x_10m_u_component_of_wind": {
+            "va": "2m_dewpoint_temperature",
+            "vb": "10m_u_component_of_wind",
+            "unit_va": "K",
+            "unit_vb": "m/s",
+            "same_unit": false
+          },
+          "2m_dewpoint_temperature_x_total_column_water_vapour": {
+            "va": "2m_dewpoint_temperature",
+            "vb": "total_column_water_vapour",
+            "unit_va": "K",
+            "unit_vb": "kg/m2",
+            "same_unit": false
+          },
+          "10m_u_component_of_wind_x_total_column_water_vapour": {
+            "va": "10m_u_component_of_wind",
+            "vb": "total_column_water_vapour",
+            "unit_va": "m/s",
+            "unit_vb": "kg/m2",
+            "same_unit": false
+          }
+        }
+      },
+      "within_variable_control": {
+        "var": "2m_temperature",
+        "shared_empty_buckets": 39
+      }
+    },
+    "summer": {
+      "n_cells": 1038240,
+      "units": {
+        "2m_temperature": "K",
+        "10m_u_component_of_wind": "m/s",
+        "10m_v_component_of_wind": "m/s",
+        "total_cloud_cover": "1"
+      },
+      "shared_window": [
+        -3.0595366003914215,
+        2.5050001104258226
+      ],
+      "pairs": {
+        "kxk": {
+          "name": "2m_temperature (within, only-K-available)",
+          "va": "2m_temperature",
+          "vb": "2m_temperature"
+        },
+        "cross": {
+          "2m_temperature_x_10m_u_component_of_wind": {
+            "va": "2m_temperature",
+            "vb": "10m_u_component_of_wind",
+            "unit_va": "K",
+            "unit_vb": "m/s",
+            "same_unit": false
+          },
+          "2m_temperature_x_10m_v_component_of_wind": {
+            "va": "2m_temperature",
+            "vb": "10m_v_component_of_wind",
+            "unit_va": "K",
+            "unit_vb": "m/s",
+            "same_unit": false
+          },
+          "2m_temperature_x_total_cloud_cover": {
+            "va": "2m_temperature",
+            "vb": "total_cloud_cover",
+            "unit_va": "K",
+            "unit_vb": "1",
+            "same_unit": false
+          },
+          "10m_u_component_of_wind_x_10m_v_component_of_wind": {
+            "va": "10m_u_component_of_wind",
+            "vb": "10m_v_component_of_wind",
+            "unit_va": "m/s",
+            "unit_vb": "m/s",
+            "same_unit": true
+          },
+          "10m_u_component_of_wind_x_total_cloud_cover": {
+            "va": "10m_u_component_of_wind",
+            "vb": "total_cloud_cover",
+            "unit_va": "m/s",
+            "unit_vb": "1",
+            "same_unit": false
+          },
+          "10m_v_component_of_wind_x_total_cloud_cover": {
+            "va": "10m_v_component_of_wind",
+            "vb": "total_cloud_cover",
+            "unit_va": "m/s",
+            "unit_vb": "1",
+            "same_unit": false
+          }
+        }
+      },
+      "within_variable_control": {
+        "var": "2m_temperature",
+        "shared_empty_buckets": 45
+      }
+    }
+  }
+}

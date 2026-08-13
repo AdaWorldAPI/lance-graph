@@ -655,6 +655,167 @@ floor loses to per-variable floors on any cross-unit pair at grid scale, §4 pol
 refuted and the substrate is a per-variable store — which would retract the arc's product
 claim, and is the reason this runs early.
 
+#### ⚠ CORRECTION 2026-08-13 — `D-WXS-7` is NOT blocked on the bake, and I said it was, four times
+
+The session repeatedly reported `D-WXS-7` as gated behind `D-WXS-4` (the bake)
+and therefore behind `D-WXS-0` (the classid mint). **That is wrong, and it was
+never checked before being repeated.**
+
+Read bar B6 above against what it actually needs:
+
+| bar B6 needs | where it lives | blocked? |
+|---|---|---|
+| real ERA5 field values, whole-grid scale | the store, over HTTP | **no** — `era5_variable_census.py` proved the fetch path works |
+| a 256-level quantiser + its `[lo,hi]` window | `floor.rs`, **shipped** (`D-WXS-3`) | **no** |
+| a shuffled decode table (the control) | a permutation of that codebook | **no** |
+| a 16/64/256 resolution ladder | three `calibrate` calls | **no** |
+| Spearman ρ | `jc::reliability::spearman`, shipped | **no** |
+| a Lance dataset, a `NodeRow`, a classid | — | **not required by any part of B6** |
+
+**The mis-read, named.** The deliverable line says *"representation fidelity on
+the substrate … over pairs sampled from the whole grid"*. "On the substrate"
+and "at grid scale" describe the **scale and the source** — the whole real
+field, through the shipped codec, rather than four hand-picked boxes through a
+numpy re-derivation. They do **not** say "persisted to Lance". I read the phrase
+as implying the bake and then repeated the conclusion without going back to the
+bar.
+
+**This is the session's own recurring defect, committed by me, about my own
+plan** — a claim that was plausible, load-bearing, never verified against the
+artifact, and propagated by repetition. It is the same shape as the stale
+saturation figure, the vacuous disable probes, and the "no external review"
+statement, all of which this session also caught. The countermeasure is the one
+already on the board: **an audit must terminate at an artifact**, and a blocker
+is an artifact-checkable claim like any other.
+
+**What IS blocked, precisely.** `D-WXS-4` (the bake) and `D-WXS-5` (statics) need
+the mint, because they write rows and a row needs a routable classid.
+`D-WXS-6` (the version-range read) needs datasets to read. `D-WXS-9`/`D-WXS-10`
+(ζ) need the neighbour read the bake provides. **`D-WXS-7` and `D-WXS-8` need
+none of that** — they measure the *codec*, and the codec is shipped.
+
+**Consequence:** the gate everything else hangs on has been runnable since
+`D-WXS-3` landed. It is re-scoped here from *blocked* to *ready*, and the
+sequencing note in §4 ("`W0 → W1 → W2 → W3`") is a dependency ordering for the
+*bake* deliverables, not a licence to treat W3 as unreachable while W1 is
+incomplete.
+
+#### `D-WXS-7` / `D-WXS-8` — RUN 2026-08-13. Mixed: `D-WXS-7` PASSES cleanly at grid
+scale (a prior smaller-scale near-miss does **not** replicate); `D-WXS-8`'s
+control (the thesis-level claim) PASSES at every pair; its strict primary and
+its stay-silent twin each have real, honest FAILs that qualify but do not
+retract the claim.
+
+**Method, real not simulated.** `probes/weather-p1/fidelity_probe_fetch.py`
+live-fetched real ARCO-ERA5 grid chunks (public HTTPS, the `fetch.py`-proven
+404=all-NaN=valid-missing-chunk path) at **3 real calendar seasons** found by a
+live HEAD-sweep of 24 candidate timesteps across the whole 1959–2023 archive —
+**not assumed**: a first attempt at 4 fixed 2021 calendar-season anchors found
+only the SAME 3 variables (`2m_temperature`, `2m_dewpoint_temperature`,
+`10m_u_component_of_wind`) present at **every one** of them;
+`10m_v_component_of_wind` / `mean_sea_level_pressure` / `surface_pressure` /
+`total_column_water_vapour` / `total_cloud_cover` / `sea_surface_temperature`
+were absent at all 4 — confirming `probes/weather-p1/README.md` §1's
+"sparse by design" finding is not a one-timestep artifact. `10m_wind_speed`
+does not exist in this store at all, confirming the pre-existing
+`weather-normalized-substrate.md` §2 finding. A follow-up HEAD sweep found
+**winter** (Dec 1969, 5 vars, 4 units: K/m·s⁻¹/Pa/¹), **spring** (Mar 1970,
+4 vars, 3 units: K/m·s⁻¹/kg·m⁻²) and **summer** (Aug 1970, 4 vars, 3 units:
+K/m·s⁻¹/¹), each independently meeting bar B7's ≥4-variable/≥2-unit floor with
+genuinely present, fully-finite fields (`sea_surface_temperature` came back
+**physically masked** — 686,364/1,038,240 finite, land is NaN by definition,
+not a missing-chunk case — and was correctly excluded as not-fully-usable
+rather than force-included).
+
+`fidelity_probe_prep.py` quantises via the exact `floor.rs` formula
+(re-expressed in Python for the same reason `floor.rs` itself is zero-dep —
+this stage fetches over HTTP, which the Rust crate deliberately cannot do) and
+writes raw `(truth_distance, code_distance)` f64 pair arrays — **200,000 pairs
+per comparison**, matching `p2_probe.py`'s own `N`. `crates/weather-poc/
+examples/fidelity_probe.rs` (jc added as a **dev-dependency only** — see
+`Cargo.toml`'s comment on why that is safe, unlike `helix`) reads them and
+computes every ρ with **`jc::reliability::spearman`**, per bar B6's own
+wording, and applies every verdict exactly as pre-registered above — no
+softened bar, no filtered output. Sanity-checked before trusting any number:
+the shuffled-decode arm is a genuinely different array from the unshuffled one
+(range `[0, 4.92]` vs `[0, 202]`, not a copy or a stub), and its ρ collapses to
+`0.02–0.024` — the pipeline demonstrably discriminates.
+
+**`D-WXS-7` (bar B6) — 12/12 PASS, all three seasons.** The K×K pair (winter,
+spring) or its within-variable degenerate twin (summer, where only one K
+variable was available):
+
+| season | ρ(L16) | ρ(L64) | ρ(L256) | ρ(shuffled) | (a) primary ≥0.9996 | (b) shuffle <0.98 | (c) monotone |
+|---|---|---|---|---|---|---|---|
+| winter | 0.986011 | 0.998926 | **0.999909** | 0.023855 | PASS | PASS | PASS |
+| spring | 0.984137 | 0.998792 | **0.999895** | 0.020747 | PASS | PASS | PASS |
+| summer | 0.969079 | 0.997344 | **0.999684** | 0.020245 | PASS | PASS | PASS |
+
+**This directly updates §0.3's own cited evidence, honestly, not silently.**
+§0.3 (and this section's own bar text above) cites `p2_probe.py`'s earlier,
+smaller-scale finding — *"K×K = 0.999556, below bar"* — as the reason bar
+B6(a) "can fire" at all. At real grid scale (200,000 pairs from the full
+1,038,240-cell field, 3 independent real seasons, computed with `jc` not
+`scipy`), **the K×K pair does not replicate that near-miss** — it clears
+0.9996 with margin at all three. Two things can both be true without
+contradiction: the bar was correctly falsifiable when written (a real failure
+existed to justify it), and the failure does not hold at the scale/instrument
+bar B6 actually specifies. The `p2_probe.py` number is not retracted — it
+was measured on a real, smaller fixture and is left as-is — but it is no
+longer read as "the substrate's fidelity is marginal"; at grid scale, on this
+data, it is not.
+
+**`D-WXS-8` (bar B7) — control 16/16 PASS; primary 10/16 PASS; twin 2/6 PASS.**
+Reported in full, nothing filtered:
+
+- **Control (per-variable floor must LOSE) — 16/16 PASS, at every cross-unit
+  pair, every season.** Per-variable ρ ranges **0.245–0.939**; shared-floor ρ
+  is **0.9987–0.9999** on the identical pairs. This is the KILL-gated claim —
+  *"if the shared floor loses to per-variable on ANY cross-unit pair, §4
+  policy (a) is refuted"* — and it does not lose once. **The KILL does not
+  fire.**
+- **Primary (cross-unit ρ_shared ≥ 0.9996) — 10/16 PASS, 6 FAIL.** Every
+  failure is a close miss, not a collapse: `0.998681`–`0.999611`, all still
+  ≥ 0.9986 and all still dramatically ahead of per-variable. The 6 failing
+  pairs skew toward wind and pressure (`10m_u/v_component_of_wind`,
+  `mean_sea_level_pressure`) rather than temperature — a pattern, not
+  reported as a proven cause.
+- **Stay-silent twin — the two halves diverge, and only one holds.**
+  `|ρ_shared − ρ_pervar| ≤ 0.0001`: PASS at spring (0.000044) and summer
+  (0.000025), **FAIL at winter** (0.000174 — 1.7× the tolerance). **Zero
+  empty buckets: FAIL at all three seasons** (38, 39, 45 of 256 buckets
+  empty — 15–18%). This is the one finding this run adds that is not merely
+  "known-losable-control held" — the *literal* "zero empty buckets" half of
+  the original small-fixture claim (`p2_probe.py`, 1 timestep, 3 variables)
+  does **not** hold once the shared floor is calibrated across a wider,
+  real, multi-unit pooled window at grid scale. Read plainly: a
+  percentile-trimmed shared window necessarily has *some* slack for a single
+  variable's own narrower distribution — the direction is unsurprising; the
+  bar's literal "zero" was not re-verified before this run and is now known
+  to be a real, small, repeated gap rather than a re-confirmed exact zero.
+
+**What this does and does not license.** `D-WXS-8`'s own pre-registered KILL
+(the control losing) is the ONLY clause that would retract the arc's core
+product claim, and it did not fire — the shared canonical floor beats
+per-variable floors on cross-unit comparability **unambiguously and by a wide
+margin**, confirmed at real grid scale across 3 real seasons and 16 real
+variable pairs spanning 4 physical units, none of it assumed. What the primary
+and twin FAILs correctly block is treating **0.9996 exactly** and **literally
+zero empty buckets** as *proven at grid scale for every pair* — they are not,
+and no verdict above pretends otherwise. Downstream deliverables that need the
+directional claim (shared floor is the right design) may proceed; anything
+that would need the *exact* numeric thresholds met on every pair must treat
+this as open.
+
+**Not run this session, named rather than silently deferred:** L64/L16 ladder
+for the cross-unit pairs (bar B6's ladder was only computed for the K×K pair);
+a fourth+ season; the wind/pressure-skew pattern in the primary FAILs was
+observed, not tested as a hypothesis.
+
+Board: `STATUS_BOARD.md` `D-WXS-7`/`D-WXS-8` rows updated from *READY* to their
+real outcomes; `EPIPHANIES.md` prepend recording the K×K non-replication and
+the empty-bucket gap.
+
 ### W4 — re-homing `D-CZ-8` (ζ + a range-normalised transfer metric)
 
 | D-id | deliverable |

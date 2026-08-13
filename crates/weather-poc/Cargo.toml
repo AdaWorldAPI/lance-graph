@@ -33,7 +33,24 @@ description = "Zarr -> NodeRow: the ERA5 0.25-degree global grid baked onto the 
 
 [dependencies]
 
+# ── jc AS A DEV-DEPENDENCY, PATH-SOURCED — different case from `helix` above ──
+# Bar B6/B7 (plan sec 4 W3, D-WXS-7/D-WXS-8) require the fidelity metric to be
+# "computed WITH jc::reliability::spearman" specifically — jc is the
+# operator-named authority for this measurement (`.claude/plans/
+# weather-soa-bake-v1.md` sec 5's classification of `spearman(a,b)` as
+# SUBSTRATE). This is safe as a PATH dep, unlike helix, for two reasons:
+#   1. It is a dev-dependency: resolved only for `cargo test`/examples, NEVER
+#      for `cargo build --lib` (the default/production build this crate's
+#      zero-dep note is actually protecting).
+#   2. `jc` is itself genuinely zero-external-dep BY DEFAULT (its own
+#      Cargo.toml: "Zero EXTERNAL deps in production"; its one path-dep,
+#      `sigker`, sits behind an opt-in, non-default feature) — so pulling it
+#      in does not chain into ndarray or any other heavy fork, and does not
+#      reintroduce the codex-P2/#504 trap (that trap is about an OPTIONAL
+#      dependency still being read at manifest resolution; a plain
+#      dev-dependency on an already-zero-dep sibling has no such edge).
 [dev-dependencies]
+jc = { path = "../jc" }
 
 [lib]
 name = "weather_poc"
