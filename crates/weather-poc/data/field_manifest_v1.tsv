@@ -1,0 +1,43 @@
+# field_manifest_v1.tsv -- the ClassView-side field manifest for weather-poc
+# W1 (plan .claude/plans/weather-soa-bake-v1.md §2.5/§2.6/D-WXS-1).
+#
+# One row per OCCUPIED byte of the L4 `6x(8:8)` facet layout
+# (.claude/v3/soa_layout/le-contract.md §2/§3). Reserved-zero slots are NOT
+# rows (plan §2.5) -- their absence IS their meaning: dormant, expandable
+# later without a layout change (RESERVE, DON'T RECLAIM).
+#
+# lo/hi convention: within a pair written "A : B" in the plan §2.5 table,
+# A is the LOW byte and B is the HIGH byte -- the pair's own left-to-right
+# order. Kept consistent across every row below.
+#
+# facet: 0 = F0 (surface), 1 = F1 (850 hPa), 2 = F2 (500 hPa) -- plan §2.5.
+# variable: the ERA5 variable name exactly as it appears in the Zarr store
+# (verified against a live .zmetadata read, plan §0.6).
+# level_hpa: the pressure level in hPa, or the literal token `surface`.
+# floor_id: a stable identifier for the calibration floor this field uses;
+# two rows sharing a floor_id share the same [lo, hi] calibration (none do
+# in this committed manifest -- each field here is calibrated on its own
+# physical range, plan §2.3/D-WXS-3).
+facet	pair	byte	variable	level_hpa	unit	floor_id
+0	0	lo	mean_sea_level_pressure	surface	Pa	msl
+0	0	hi	surface_pressure	surface	Pa	sp
+0	1	lo	10m_u_component_of_wind	surface	m s-1	u10
+0	1	hi	10m_v_component_of_wind	surface	m s-1	v10
+0	2	lo	10m_wind_speed	surface	m s-1	wspd10
+0	2	hi	2m_temperature	surface	K	t2m
+0	3	lo	sea_surface_temperature	surface	K	sst
+0	3	hi	total_column_water_vapour	surface	kg m-2	tcwv
+0	4	lo	total_cloud_cover	surface	1	tcc
+0	4	hi	sea_ice_cover	surface	1	sic
+1	0	lo	u_component_of_wind	850	m s-1	u850
+1	0	hi	v_component_of_wind	850	m s-1	v850
+1	1	lo	temperature	850	K	t850
+1	1	hi	specific_humidity	850	kg kg-1	q850
+1	2	lo	geopotential	850	m2 s-2	z850
+1	2	hi	vertical_velocity	850	Pa s-1	w850
+2	0	lo	u_component_of_wind	500	m s-1	u500
+2	0	hi	v_component_of_wind	500	m s-1	v500
+2	1	lo	temperature	500	K	t500
+2	1	hi	specific_humidity	500	kg kg-1	q500
+2	2	lo	geopotential	500	m2 s-2	z500
+2	2	hi	vertical_velocity	500	Pa s-1	w500

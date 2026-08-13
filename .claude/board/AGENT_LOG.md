@@ -1,3 +1,55 @@
+## 2026-08-13 — weather-poc W0/W1 fleet (4 Sonnet workers, disjoint files; orchestrator-consolidated)
+
+4/4 completed, 0 errors. Plan `.claude/plans/weather-soa-bake-v1.md`; the first
+grindwork wave on the crate `weather-substrate-poc-v2` named and never created.
+Files were disjoint by construction (`key.rs` / `floor.rs` /
+`manifest.rs`+`data/*.tsv` / `probes/weather-p1/era5_variable_census.*`); the
+orchestrator owned `lib.rs`, both manifests, the root exclude entry and every
+board file. Guardrails §1 pasted verbatim into all four briefs; no worker ran
+cargo (rule 7) and all three Rust workers reported "not compiled, not run"
+rather than claiming green.
+
+**D-WXS-1a census (Python, the one worker allowed to run).** Reads the store's
+`.zmetadata`, emits the JSON, `--selftest` asserts all 10 constants the plan
+carries. PASS, and re-run independently by the orchestrator. Guard
+disable-verified twice — the worker broke a constant in a throwaway copy, and
+the orchestrator repeated it against the committed file (exit 1, correct
+"the fetched answer is authoritative" message). 0 arrays failed to classify.
+
+**D-WXS-2 key codec.** 5/5. Exhaustive 1,038,240-cell round-trip, collision-
+checked. Bar B1 disable-verified by the ORCHESTRATOR, not asserted by the
+worker: zeroing the HIP lat byte kills 3 tests (collision, ragged,
+out-of-range); removing the seam split kills the wrap twin while the non-wrap
+twin stays green — the pair discriminates in both directions.
+
+**D-WXS-3 floor.** 7/7. Bar B2 disable-verified: widening the "narrow" control
+floor kills only the control, the stay-silent twin holds. The worker chose a
+hand-rolled FNV-1a over `DefaultHasher` *because the latter is randomly seeded
+per process* — a real trap, and one the suite does not cover, so the
+orchestrator verified it separately: `floor_version` is byte-identical across
+three separate process invocations. ε = 0.03 derived from the percentile
+construction, not tuned post-hoc.
+
+**D-WXS-1 manifest.** 13/13, TSV 22 rows (F0 10 / F1 6 / F2 6, reserved slots
+emit NO row — exactly plan §2.5). Collision guard disable-verified: removed →
+only `colliding_entries_are_rejected` fails while BOTH stay-silent twins
+(distinct lo/hi on one pair; row reordering) stay green. Bar B0's end-to-end
+half is DEFERRED and said so in the module doc — the bake does not exist yet.
+
+**The wave's real find is a plan defect, not a code defect.** The key worker
+noticed during implementation that §1.2 assigns one WHOLE byte per axis while
+OGAR's cascade doctrine — the passage §1.1 leans on — specifies the axis bytes
+nibble-interleaved (Morton). The plan deviated from the canon it cites and did
+not say so. Recorded as plan §1.3a + board `D-WXS-2a` with a pre-registered
+comparison, NOT silently rewritten: the prefix-scan claim holds under both
+layouts, and rewriting a spec the moment a worker surfaces a consequence is how
+a correction starts building.
+
+Gates (orchestrator, one shared `target/`): `cargo test --manifest-path
+crates/weather-poc/Cargo.toml` **25/25**; `cargo clippy --all-targets -D
+warnings` clean; `cargo fmt` clean. Commits `010da851` (scaffold), `a8a501bc`
+(census + key), this one (floor + manifest).
+
 ## 2026-08-11 — Workflow `wf_99d677e6-b45` — eval-plan verify/attack (13 agents; orchestrator-consolidated)
 
 13/13 completed, 0 errors, 0 empty; ~4.42 M subagent tokens, 165 tool calls,
