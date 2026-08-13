@@ -655,6 +655,51 @@ floor loses to per-variable floors on any cross-unit pair at grid scale, §4 pol
 refuted and the substrate is a per-variable store — which would retract the arc's product
 claim, and is the reason this runs early.
 
+#### ⚠ CORRECTION 2026-08-13 — `D-WXS-7` is NOT blocked on the bake, and I said it was, four times
+
+The session repeatedly reported `D-WXS-7` as gated behind `D-WXS-4` (the bake)
+and therefore behind `D-WXS-0` (the classid mint). **That is wrong, and it was
+never checked before being repeated.**
+
+Read bar B6 above against what it actually needs:
+
+| bar B6 needs | where it lives | blocked? |
+|---|---|---|
+| real ERA5 field values, whole-grid scale | the store, over HTTP | **no** — `era5_variable_census.py` proved the fetch path works |
+| a 256-level quantiser + its `[lo,hi]` window | `floor.rs`, **shipped** (`D-WXS-3`) | **no** |
+| a shuffled decode table (the control) | a permutation of that codebook | **no** |
+| a 16/64/256 resolution ladder | three `calibrate` calls | **no** |
+| Spearman ρ | `jc::reliability::spearman`, shipped | **no** |
+| a Lance dataset, a `NodeRow`, a classid | — | **not required by any part of B6** |
+
+**The mis-read, named.** The deliverable line says *"representation fidelity on
+the substrate … over pairs sampled from the whole grid"*. "On the substrate"
+and "at grid scale" describe the **scale and the source** — the whole real
+field, through the shipped codec, rather than four hand-picked boxes through a
+numpy re-derivation. They do **not** say "persisted to Lance". I read the phrase
+as implying the bake and then repeated the conclusion without going back to the
+bar.
+
+**This is the session's own recurring defect, committed by me, about my own
+plan** — a claim that was plausible, load-bearing, never verified against the
+artifact, and propagated by repetition. It is the same shape as the stale
+saturation figure, the vacuous disable probes, and the "no external review"
+statement, all of which this session also caught. The countermeasure is the one
+already on the board: **an audit must terminate at an artifact**, and a blocker
+is an artifact-checkable claim like any other.
+
+**What IS blocked, precisely.** `D-WXS-4` (the bake) and `D-WXS-5` (statics) need
+the mint, because they write rows and a row needs a routable classid.
+`D-WXS-6` (the version-range read) needs datasets to read. `D-WXS-9`/`D-WXS-10`
+(ζ) need the neighbour read the bake provides. **`D-WXS-7` and `D-WXS-8` need
+none of that** — they measure the *codec*, and the codec is shipped.
+
+**Consequence:** the gate everything else hangs on has been runnable since
+`D-WXS-3` landed. It is re-scoped here from *blocked* to *ready*, and the
+sequencing note in §4 ("`W0 → W1 → W2 → W3`") is a dependency ordering for the
+*bake* deliverables, not a licence to treat W3 as unreachable while W1 is
+incomplete.
+
 ### W4 — re-homing `D-CZ-8` (ζ + a range-normalised transfer metric)
 
 | D-id | deliverable |
