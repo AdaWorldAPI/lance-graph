@@ -261,6 +261,75 @@ whether a difference exists **in key space at all**. If half A kills, half B is
 moot; if half A confirms, half B still has to run before any migration. Stated
 now so a green half A is not later read as a mandate.
 
+### §1.3c `D-WXS-2a` half A — RUN 2026-08-13. **The KILL fires. Closed, no code change.**
+
+Probe: `crates/weather-poc/examples/layout_probe.rs` (+ `--json` output committed
+beside it). Bar: §1.3b, committed **before** this run (`d83b4d3e`). Selftest run
+first, green — including the check the brief demanded be *worked out rather than
+assumed*: a full longitude row under SHIPPED is **23 ranges** (one per longitude
+tile), not 1.
+
+#### Measured
+
+| arm | rc median (non-tile-aligned) | neighbour-locality median |
+|---|---|---|
+| **SHIPPED** | **140.00** | 32.00 |
+| **MORTON** | 212.50 | **16.00** |
+| CONTROL-BAD | 3100.00 | 15862.00 |
+
+Box set: 20 boxes — 4 tile-aligned, 8 non-tile-aligned, 4 seam-crossing,
+4 pole-adjacent. Neighbour sample: deterministic stride 677, n = 1534.
+
+#### The three verdicts, as pre-registered
+
+- **primary — FAIL.** The bar required MORTON to beat SHIPPED on **both**
+  metrics. It won one and lost one: **2× better** on neighbour locality
+  (16 vs 32) and **~1.5× worse** on range count (212.50 vs 140.00).
+- **control — PASS.** CONTROL-BAD is far worse on both (3100 ranges;
+  neighbour distance 15862). The metrics therefore measure locality rather
+  than nothing — without this the primary result would be unreadable.
+- **stay-silent twin — PASS.** Every tile-aligned box is **exactly one range
+  under both** arms (`[1,1,1,1]` each). §1.2's load-bearing claim — *a 16° box
+  is a HEEL-prefix scan* — holds, and shows **no difference where the plan
+  claims none**.
+
+#### Consequence (the pre-registered one, unchanged)
+
+**`D-WXS-2a` closes. No code change. §1.3a's layout stands as shipped.** The
+migration is not opened.
+
+#### ⚠ A correction to §1.3b's own wording, not a softening of the verdict
+
+§1.3b phrased the KILL as *"the deviation is **harmless for this workload**"*.
+The data shows that phrasing was imprecise, and it is corrected here rather
+than left to read as more than was measured:
+
+**MORTON wins, 2×, on exactly the metric half B would care about.** Neighbour
+locality is what a ζ stencil spends; range count is what a box scan spends. So
+the honest statement is **"no unambiguous win in key space"**, not "harmless".
+
+The verdict is untouched: the bar said *both*, it got *one*, and one is a FAIL.
+Re-reading a split as a win is the failure this arc has a rule against
+(*"re-normalising a metric until it stops showing the confound is how a
+confound becomes a finding"*). What changes is only my own summary sentence,
+which claimed more than the measurement.
+
+**The prior this leaves for half B**, if the ζ stencil is ever measured under
+both layouts (gated on `D-WXS-9` → `D-WXS-0`): MORTON is expected to win there,
+by roughly 2×, because that is what the locality metric already shows. That is
+a **prior, not a result** — and a 2× locality win still would not by itself
+justify a migration, because the same measurement shows it costs ~1.5× on
+range count.
+
+#### Why SHIPPED's numbers look the way they do (arithmetic, checked)
+
+SHIPPED orders `[lat_tile, lon_tile, lat_hip, lon_hip]`, so within one tile the
+order is `lat_hip`-major / `lon_hip`-minor. A `lon ± 1` neighbour is therefore
+**1** apart and a `lat ± 1` neighbour is **64** apart; the median over the
+4-neighbourhood is the median of `[1, 1, 64, 64]` = **32** — exactly the
+measured value. The two-level blocked order §1.3a identified (rather than the
+flat "row-major" I first wrote) is what keeps its range count competitive.
+
 ### §1.4 classid — a mint decision, NOT taken here
 
 `0x0F = Geo` already exists in the OGAR domain table; free domains are `0x03–0x06`
