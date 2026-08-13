@@ -575,6 +575,12 @@ pub const CODEBOOK: &[(&str, u16)] = &[
     ("osm_note", 0x0F08),
     ("osm_gpx_trace", 0x0F09),
     ("osm_user", 0x0F0A),
+    // SYNTHESIZED — no Rails source. OSM has no junction element; the bake
+    // derives it from the routable-way graph. It is a distinct concept because
+    // its value slots carry per-edge names, adjacency, bearing and a turn
+    // matrix, and nothing on disk otherwise separates that reading from an
+    // ordinary `osm_node`'s tag slots.
+    ("osm_street_node", 0x0F0B),
 ];
 
 /// Resolve a **canonical-concept** string to its stable `u16` codebook id via
