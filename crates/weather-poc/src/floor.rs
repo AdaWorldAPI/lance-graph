@@ -46,6 +46,26 @@ pub const LO_PERCENTILE: f64 = 0.4;
 /// See [`LO_PERCENTILE`].
 pub const HI_PERCENTILE: f64 = 99.6;
 
+/// The result of scoring an external population against a floor
+/// ([`CalibratedFloor::saturation_of`]).
+///
+/// Carries the non-finite count alongside the fraction **by design**: see
+/// [`CalibratedFloor::saturation_of`] for why folding non-finite values into
+/// the fraction turns "no data at all" into "completely saturated", and why
+/// silently dropping them is the other half of the same mistake.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct SaturationScore {
+    /// Fraction of the **finite** values landing in the two rim buckets.
+    /// `0.0` when `finite == 0` — check `finite` before reading this.
+    pub fraction: f64,
+    /// How many values were finite, i.e. the denominator of `fraction`.
+    pub finite: usize,
+    /// How many values were non-finite (`NaN`, `±inf`) and therefore
+    /// excluded. Non-zero means the population was partly or wholly absent
+    /// — a fact about the data, not about the floor.
+    pub non_finite: usize,
+}
+
 /// A calibrated, versioned linear 256-bucket floor over `[lo, hi]`.
 ///
 /// Produced only by [`calibrate`] — there is no public constructor that
@@ -179,19 +199,63 @@ impl CalibratedFloor {
     /// anything. Both directions bar B2 needs are "this floor scored
     /// against a population it was not calibrated on": a narrow floor
     /// scored globally, and a global floor scored on one narrow box.
-    /// Returns `0.0` on an empty `values` slice.
-    pub fn saturation_of(&self, values: &[f64]) -> f64 {
-        if values.is_empty() {
-            return 0.0;
+    ///
+    /// # Non-finite values are EXCLUDED and COUNTED, never folded in
+    ///
+    /// The `fraction` is computed over the **finite** subset only, and
+    /// [`SaturationScore::non_finite`] reports how many were set aside. This
+    /// is not fussiness — it closes the sibling of the PR #948 `lane.rs`
+    /// finding, in the more dangerous position:
+    ///
+    /// * [`Self::quantize`] maps non-finite input to a rim bucket silently
+    ///   (`NaN` → `0`, `-inf` → `0`, `+inf` → `255`; see its own docs). Rim
+    ///   is exactly what this function counts.
+    /// * So a folded-in `NaN` reads as **saturation**, and an all-`NaN`
+    ///   population — *valid ARCO-ERA5 store semantics for a missing chunk*,
+    ///   per `probes/weather-p1/README.md` §1 — would score `1.0`:
+    ///   "completely saturated" when the truth is "no data at all". Those
+    ///   are opposite findings and the bare fraction cannot tell them apart.
+    /// * This function is bar B2's **instrument**. A corrupted stored value
+    ///   is bad; a corrupted measurement is worse, because every conclusion
+    ///   downstream inherits it silently.
+    ///
+    /// Silently *dropping* the non-finite values would be the other half of
+    /// the same mistake — the caller would not learn that a population was
+    /// partly or wholly absent. Hence a reported count, matching this
+    /// crate's standing rule that a degenerate case is **reported**, never
+    /// folded (the same shape as [`calibrate`] and [`Self::decode`]
+    /// returning `None`).
+    ///
+    /// On an empty slice, or one with no finite values at all, `fraction` is
+    /// `0.0` and `finite` is `0` — check `finite` before reading `fraction`.
+    pub fn saturation_of(&self, values: &[f64]) -> SaturationScore {
+        let mut finite = 0usize;
+        let mut non_finite = 0usize;
+        let mut rim = 0usize;
+
+        for &v in values {
+            if !v.is_finite() {
+                non_finite += 1;
+                continue;
+            }
+            finite += 1;
+            let b = self.quantize(v);
+            if b == 0 || b == (BUCKETS - 1) as u8 {
+                rim += 1;
+            }
         }
-        let rim = values
-            .iter()
-            .filter(|&&v| {
-                let b = self.quantize(v);
-                b == 0 || b == (BUCKETS - 1) as u8
-            })
-            .count();
-        rim as f64 / values.len() as f64
+
+        let fraction = if finite == 0 {
+            0.0
+        } else {
+            rim as f64 / finite as f64
+        };
+
+        SaturationScore {
+            fraction,
+            finite,
+            non_finite,
+        }
     }
 }
 
@@ -353,9 +417,12 @@ mod tests {
 
         let wide_population = linspace(-1000.0, 1000.0, 102_400);
         let sat = narrow_floor.saturation_of(&wide_population);
+        assert_eq!(sat.non_finite, 0, "fixture population is all finite");
+        assert_eq!(sat.finite, wide_population.len());
         assert!(
-            sat > 0.9,
-            "expected high saturation applying a narrow floor globally, got {sat}"
+            sat.fraction > 0.9,
+            "expected high saturation applying a narrow floor globally, got {}",
+            sat.fraction
         );
     }
 
@@ -382,10 +449,93 @@ mod tests {
         );
 
         let sat = global_floor.saturation_of(sub_window);
+        assert_eq!(sat.non_finite, 0, "fixture sub-window is all finite");
+        assert_eq!(sat.finite, sub_window.len());
         assert!(
-            sat < 0.1,
-            "global floor should not saturate heavily on an interior-adjacent sub-window, got {sat}"
+            sat.fraction < 0.1,
+            "global floor should not saturate heavily on an interior-adjacent sub-window, got {}",
+            sat.fraction
         );
+    }
+
+    // ── non-finite values are excluded and counted, never folded ─────────
+
+    /// A non-finite value must NOT be counted as saturation.
+    ///
+    /// This is the sibling of the PR #948 `lane.rs` finding, in the more
+    /// dangerous position: `saturation_of` is bar B2's INSTRUMENT, so folding
+    /// `NaN` into the fraction corrupts a measurement rather than a stored
+    /// value, and every conclusion downstream inherits it silently.
+    ///
+    /// The first block is the sharp case: an ALL-`NaN` population is valid
+    /// ARCO-ERA5 store semantics for a missing chunk
+    /// (`probes/weather-p1/README.md` §1), and the pre-fix code would have
+    /// scored it `1.0` — "completely saturated" — when the truth is "no data
+    /// at all".
+    #[test]
+    fn non_finite_values_are_excluded_and_counted_never_scored_as_saturation() {
+        let population = linspace(-1000.0, 1000.0, 10_240);
+        let floor = calibrate(&population).expect("non-empty sample calibrates");
+
+        // ── the sharp case: an entirely absent field ──
+        let all_nan = vec![f64::NAN; 4_096];
+        let sat = floor.saturation_of(&all_nan);
+        assert_eq!(
+            sat.non_finite, 4_096,
+            "every value must be counted as absent"
+        );
+        assert_eq!(sat.finite, 0, "none of them is a measurement");
+        assert_eq!(
+            sat.fraction, 0.0,
+            "an absent field must not read as saturation — pre-fix this was 1.0"
+        );
+
+        // ── mixed: NaN must not inflate a genuinely low fraction ──
+        // Interior values (the population's middle third) do not saturate.
+        let n = population.len();
+        let interior = &population[(n / 3)..(2 * n / 3)];
+        let clean = floor.saturation_of(interior);
+        assert_eq!(clean.non_finite, 0);
+        assert!(
+            clean.fraction < 0.1,
+            "interior values must not saturate, got {}",
+            clean.fraction
+        );
+
+        let mut poisoned: Vec<f64> = interior.to_vec();
+        poisoned.extend(std::iter::repeat_n(f64::NAN, interior.len()));
+        let mixed = floor.saturation_of(&poisoned);
+        assert_eq!(mixed.non_finite, interior.len(), "the NaN half is counted");
+        assert_eq!(
+            mixed.finite,
+            interior.len(),
+            "the real half is the denominator"
+        );
+        assert_eq!(
+            mixed.fraction, clean.fraction,
+            "adding absent values must not move the fraction at all"
+        );
+
+        // ── +/-inf too, not just NaN: they land on the RIM buckets ──
+        for (name, bad) in [("+inf", f64::INFINITY), ("-inf", f64::NEG_INFINITY)] {
+            let mut with_inf: Vec<f64> = interior.to_vec();
+            with_inf.extend(std::iter::repeat_n(bad, interior.len()));
+            let scored = floor.saturation_of(&with_inf);
+            assert_eq!(
+                scored.non_finite,
+                interior.len(),
+                "{name} must be counted as absent"
+            );
+            assert_eq!(
+                scored.fraction, clean.fraction,
+                "{name} must not inflate saturation (it quantises to a rim bucket)"
+            );
+        }
+
+        // ── stay-silent twin: an all-finite population is unaffected ──
+        let sat_finite = floor.saturation_of(&population);
+        assert_eq!(sat_finite.non_finite, 0, "no false positives on clean data");
+        assert_eq!(sat_finite.finite, population.len());
     }
 
     // ── round-trip bound ─────────────────────────────────────────────────
