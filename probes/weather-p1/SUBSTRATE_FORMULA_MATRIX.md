@@ -61,7 +61,7 @@ seasons on live-fetched grid data, computed with `jc::reliability::spearman`.
 The shuffled control collapses to **0.020–0.024**. This is the first
 **A-tier, grid-scale, real-data** rating the arc has for the quantiser.
 `D-WXS-8` is mixed — its KILL-gated control holds **19/19**, its strict
-primary fails **10 of 19** cross-unit pairs (see §5).
+primary fails **10 of 19** cross-unit comparisons (see §5).
 
 **4. Two silent-corruption paths were found in the shipped codec, by review
 and by following review into its class.** Neither is a rating change; both
@@ -74,7 +74,7 @@ are apparatus (A9) and both were live on real data, not hypothetical.
 | the off-diagonal cross-swap matrix | **NOT RUN** (§5's largest gap) | **RUN** — C1c pass, C2 pass, C3+C4 fail-and-reverse |
 | the regime ladder as a *turbulence* axis | implicit `[H]` | **demoted** — range-confounded, `[G]` only as a *range* axis |
 | the 256-level linear floor, grid-scale fidelity | untested at scale | **A `[G]`** — 12/12, 3 real seasons, real data |
-| shared canonical floor beats per-variable, cross-unit | `[H]` (1 timestep, 3 vars) | **`[G]` directionally** — 19/19 control, 3 seasons, 19 cross-unit pairs; *exact* thresholds NOT universal |
+| shared canonical floor beats per-variable, cross-unit | `[H]` (1 timestep, 3 vars) | **`[G]` directionally** — 19/19 control, 3 seasons, 19 cross-unit comparisons (14 distinct variable pairs × the seasons each appears in); *exact* thresholds NOT universal |
 | Morton vs the shipped whole-byte key layout | not a question yet | **closed by KILL** — no unambiguous win in key space; no migration |
 
 ---
@@ -142,9 +142,9 @@ no information about the hypothesis at all.
 | E13 | **Global vs per-storm codebook** | **A** | `[G]` | storm-2's codebook on storm 1: **620.79 Pa** vs shared **4.48 Pa** → **139× penalty** | one table read, globally — the carrier's whole point |
 | E14 | **CAL-ABS (own-calibration absolute) vs CAL-RANK (window-local)** | **C** | `[G]` | ρ both **> 0.99996** (indistinguishable); RMSE ratio **3.96 / 1.85 / 1.14 / 1.49** across calm→storm | absolute wins RMSE; margin **shrinks** as the field activates |
 | E15 | **256-level linear floor** (`weather-poc::floor`, percentile-trimmed 0.4–99.6, re-expressed from `helix::RollingFloor`) — **grid-scale fidelity** | **A** | `[G]` | bar B6, **12/12** across 3 real seasons on live-fetched ERA5: ρ(L256) **0.999909 / 0.999895 / 0.999684**; ladder strictly monotone (L16→L64→L256) every season; shuffled-decode control collapses to **0.020–0.024** | the arc's first A-tier real-data rating for the quantiser. **Supersedes** the fixture-scale near-miss (K×K 0.999556) — that did **not** replicate at grid scale |
-| E16 | **Shared canonical floor vs per-variable floors, cross-unit** | **A** (direction) / **C** (exact threshold) | `[G]` | control **19/19** — per-variable loses on *every* cross-unit pair, ρ_pervar **0.245–0.939** vs ρ_shared **0.9987–0.9999**. But the strict ρ ≥ 0.9996 primary passes only **9/19** (winter 2/9, spring 4/5, summer 3/5) | the KILL does **not** fire ⇒ the shared-floor design stands. The *exact* bar does not hold universally — failures cluster in winter, the only season carrying `mean_sea_level_pressure` |
+| E16 | **Shared canonical floor vs per-variable floors, cross-unit** | **A** (direction) / **C** (exact threshold) | `[G]` | control **19/19** — per-variable loses on *every* cross-unit comparison, ρ_pervar **0.245–0.939** vs ρ_shared **0.9987–0.9999**. But the strict ρ ≥ 0.9996 primary passes only **9/19** (winter 2/9, spring 4/5, summer 3/5) | the KILL does **not** fire ⇒ the shared-floor design stands. The *exact* bar does not hold universally — failures cluster in winter, the only season carrying `mean_sea_level_pressure` |
 | E17 | **"Zero empty buckets" under a shared floor** (carried verbatim from a 1-timestep/3-variable fixture) | **D** | `[G]` | fails at **all three** seasons: **38 / 39 / 45** of 256 buckets empty (15–18 %) | a percentile-trimmed *pooled* window necessarily leaves slack for any one variable's narrower spread. Direction unsurprising; the literal "zero" had simply never been re-verified at scale |
-| E18 | **L4 `6×(8:8)` lane** — pack/unpack one 16-byte facet against a ClassView-side manifest (`weather-poc::lane`) | **A** (as built) | `[G]` | 34 crate tests; 4 disable-verified bars (lo/hi swap, hard-coded slot, version-guard bypass, unmapped-slot emission) each kill exactly the expected tests | slot purity as *code*: the lane names no ERA5 variable in its own source. **Not** a fidelity claim — that is E15/E16 |
+| E18 | **L4 `6×(8:8)` lane** — pack/unpack one 16-byte facet against a ClassView-side manifest (`weather-poc::lane`) | **A** (as built) | `[G]` | **35/35 crate-wide** (`cargo test -p weather-poc`, 2026-08-13). *Three counts exist and all were true when written* — the board's `D-WXS-3b` row says 33/33 (its landing), an earlier draft of this row said 34 (after the first non-finite guard), and 35 is current (after the second). The board rows are append-only records of their own moment; **this row is the one that tracks HEAD.** 4 disable-verified bars (lo/hi swap, hard-coded slot, version-guard bypass, unmapped-slot emission) each kill exactly the expected tests | slot purity as *code*: the lane names no ERA5 variable in its own source. **Not** a fidelity claim — that is E15/E16 |
 | E19 | **`quantize` on non-finite input** (the codec's own total-function behaviour) | **D — hazard confirmed** | `[G]` | `NaN` → bucket **0**, `-inf` → **0**, `+inf` → **255**; `f64::clamp` *propagates* NaN, then the float→int cast saturates. All three are legitimate buckets, indistinguishable from a real reading | **live, not hypothetical**: ARCO-ERA5 404 = all-NaN = valid store semantics, and 5 W1-set variables 404 at the arc's own fixture timestep. Guard at the boundary, never in the hot primitive (A9) |
 
 ### 1c. Sampling geometries / address generators
@@ -365,7 +365,7 @@ V's above can be believed alongside the A's.
 | ~~**The full cross-swap matrix** (comfort zones C2–C6)~~ | ✅ **CLOSED 2026-08-13 (PR #947).** C1c/C2 pass, C3+C4 fail-and-reverse, C6 matrix delivered. **But** see §0 item 2 — the ladder is range-confounded, so the matrix measures transfer under *width* mismatch, which is not the same question as transfer under *turbulence*. |
 | ~~**CAL-FISHERZ arm**~~ | ✅ **CLOSED** — run in D-CZ-2..7 as a degenerate row (`L ≡ 0` by construction, same as CAL-RANK: levels re-derived in-window). Measured, and measured to be structurally uninformative for this comparison. |
 | **Geometry axis** (GEO-GOLDEN-HI/LO, TEMPERED, GRID) | **STILL NOT RUN, and now known to be structurally unreachable at box scale.** C5's floor needs N ≥ F(17)² = **2 550 409**; a 16° box holds **4 225**. Even the *full global grid* (1 038 240) is short by **~2.5×**. Needs a different construction or a finer grid — not more budget. |
-| **`D-WXS-8`'s strict primary bar** | **PARTIALLY MET, and reported as such.** 9/19 cross-unit pairs. The KILL-gated control (19/19) is what licenses the shared-floor design; the exact ρ ≥ 0.9996 threshold is **not** established universally. Anything needing the number *per pair* must treat this as open. |
+| **`D-WXS-8`'s strict primary bar** | **PARTIALLY MET, and reported as such.** 9/19 cross-unit comparisons — 19 = (season × variable-pair), over **14 distinct variable pairs**; recounted from the verdicts array, not the pair list. The KILL-gated control (19/19) is what licenses the shared-floor design; the exact ρ ≥ 0.9996 threshold is **not** established universally. Anything needing the number *per pair* must treat this as open. |
 | **Bar B6's ladder for cross-unit pairs** | **NOT RUN** — the 16/64/256 resolution ladder was computed for the K×K pair only. |
 | **A 4th+ season / the wind-pressure skew** | **NOT RUN / OBSERVED-NOT-TESTED.** The primary failures cluster in winter and toward wind+pressure; that is a pattern seen, not a hypothesis tested. |
 | **`D-WXS-2a` half B** (Morton vs shipped under the ζ stencil) | **NOT RUN**, gated on `D-WXS-9` → `D-WXS-0`. Half A closed by KILL; half B carries a stated prior (Morton ≈ 2× on locality) that is **a prior, not a result**. |
@@ -430,10 +430,22 @@ passed the real gate at grid scale on real data (E15, 12/12). The
 comfort-zone hypothesis that motivated the earlier half **lost** — cleanly,
 with its own controls holding — and the ladder it lost on turned out to be
 range-confounded, which is the more useful finding. What remains is not
-"more measurement of the same thing"; it is **one blocked step that gates
-everything downstream**, and a small number of genuinely open questions.
+"more measurement of the same thing"; it is **one externally-blocked step
+that gates everything downstream, plus the bake itself, which is unwritten**
+— and a small number of genuinely open questions.
 
-### Tier 1 — the one real blocker
+### Tier 1 — the blocker, and the work behind it
+
+> **⊘ CORRECTION (codex P2, PR #951, applied before merge).** An earlier
+> draft of this section said the mint was the *only* thing separating this
+> work from a running bake. That is wrong and was checked against the tree:
+> `D-WXS-4` has **no implementation** — `crates/weather-poc` has no row
+> assembler and no Lance writer, and `lib.rs` says so in its own header
+> ("Wave W1 is under construction… this crate never writes a version"). The
+> mint is the only **external** blocker; it is not the only remaining work.
+> Recording it, because a product read that understates the engineering is
+> the same defect class as lesson 13 — an unverified claim about what stands
+> between here and a result.
 
 **N1. `D-WXS-0` — mint the weather-cell + statics classids.** OGAR-side,
 operator-gated; **cannot be resolved from this repo.**
@@ -444,18 +456,41 @@ operator-gated; **cannot be resolved from this repo.**
 - **Why it cannot be worked around:** the bake writes rows; a row needs a
   routable classid. Writing under `0x0000_0000` produces a dataset
   indistinguishable from a bootstrap row — the zero-fallback ladder owns that
-  value. The bake is coded to **refuse to write** until this resolves, and
-  that refusal is correct, not a gap.
+  value. So the bake **must refuse to write** until this resolves; that is a
+  constraint on the writer, and since the writer does not exist yet (N1b), it
+  is a design obligation rather than a shipped guard. Do not read it as one.
 - **What it needs:** a `domain:appid` assignment (`0x0F = Geo` exists; the
   appid/classview half is open). One decision, then W1 finishes and W2/W4
   open.
 - **Cost of leaving it:** everything below Tier 2 stays unreachable
   indefinitely. This is the highest-leverage item in the document.
 
+**N1b. `D-WXS-4` — write the bake.** Unwritten. Real engineering, and what
+the mint *unblocks* rather than what the mint *replaces*.
+
+- **What exists and is tested:** the four pieces the bake calls — `key.rs`
+  (`encode_key` / `box_ranges`), `floor.rs` (`calibrate` / `quantize`),
+  `manifest.rs` (the 42-row slot map), `lane.rs` (`pack_facet`). **35/35**
+  (`cargo test -p weather-poc`, run 2026-08-13 — the board's `D-WXS-3b` row
+  says 33/33, which was true at that row's landing and predates the two
+  non-finite guards).
+- **What does not exist:** the row assembler (122 fields → the 18 free facets
+  of a 512-byte `NodeRow` — 480 − 188 used = **292 B free = 18 facets = 216
+  payload bytes**, plan `weather-soa-bake-v1.md` §0.4 against
+  `canonical_node.rs`'s `value_tenants_contiguous_within_slab`), the
+  1 038 240-row
+  sweep, and the Lance version writer. **No file in the crate writes a row.**
+- **How much is mint-gated vs merely unwritten:** row assembly is testable
+  today — `encode_key` takes the classid as a *parameter*, so a placeholder
+  exercises every path. Only the **committed dataset** needs the real mint.
+  N1b can therefore start now; it must not *land* a dataset until N1
+  resolves.
+- **Kill:** none. This is construction, not a hypothesis.
+
 ### Tier 2 — runnable now, no mint needed
 
 **N2. Close bar B6's ladder for the cross-unit pairs.** The 16/64/256
-resolution ladder was computed for the K×K pair only; the 19 cross-unit pairs
+resolution ladder was computed for the K×K pair only; the 19 cross-unit comparisons
 have a single-resolution number each.
 
 - **Why it matters:** the ladder is the *can-it-differ* half. Without it, a
@@ -486,9 +521,21 @@ buckets empty under the shared floor, at every season. The direction is
 unsurprising; the question is whether it *costs* anything.
 
 - **The measurement that would settle it:** does the empty-bucket fraction
-  degrade cross-unit ρ, or is it free? Correlate per-season empty count
-  against per-season primary pass rate. n = 3 is too small to conclude — so
-  this rides on N3's extra seasons rather than being run alone.
+  degrade cross-unit ρ, or is it free?
+- **The obvious form of that measurement does NOT settle it** (codex P2, PR
+  #951 — checked against the script). `fidelity_probe_prep.py:177` sets
+  `v0 = varlist[0]` and records `shared_empty_buckets` for **that one
+  variable only** — temperature, in every season. Correlating a single
+  variable's occupancy against a pass rate aggregated over several
+  cross-unit pairs, whose variable sets differ by season, is confounded by
+  variable composition and by season together. **More seasons does not fix
+  it** — it adds n to a confounded design, which is the exact mistake the
+  regime ladder made (§0 item 2).
+- **What it actually needs first:** per-variable (ideally per-pair)
+  occupancy recorded alongside each ρ, matched to the pair that produced it.
+  That is a prep-script change, cheap, and it must land **before** any
+  correlation is read. Until then E17 stays **D with its cost unmeasured**,
+  which is what the row already says.
 - **Design option if it does cost:** a per-variable *offset* with a shared
   *width* (the coverage lesson from §7.9 — width alone was never the driver).
 
@@ -523,6 +570,13 @@ a different construction. **Not** a budget problem; do not queue it as one.
 
 ### The one-line read for a product decision
 
-> **The codec works at grid scale and is measured. The substrate is built and
-> gated. Exactly one operator-side decision — the classid mint — separates it
-> from a running bake, and nothing downstream of that can start without it.**
+> **The codec works at grid scale and is measured. The pieces a bake calls —
+> key, floor, manifest, lane — are built and tested. The bake itself is not
+> written, and the one thing that cannot be worked on from this repo at all
+> is the classid mint: an operator-side decision that gates the committed
+> dataset and everything downstream of it.**
+
+Two engineering estimates a product decision needs, and this document does
+**not** have: how long N1b takes, and how long a full-archive bake runs at
+92 044 timesteps. Both are unmeasured. Ask for them; do not infer them from
+the 12/12 codec result, which measures a different thing.
