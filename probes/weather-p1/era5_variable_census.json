@@ -1,0 +1,75 @@
+{
+  "coordinate_arrays_excluded": [
+    "latitude",
+    "level",
+    "longitude",
+    "time"
+  ],
+  "counts": {
+    "levels": 13,
+    "pressure_level_fields": 91,
+    "pressure_level_variables": 7,
+    "static": 14,
+    "surface": 17,
+    "unclassified": 0
+  },
+  "derived": {
+    "bytes_per_timestep_512B_rows": 531578880,
+    "values_per_timestep": 126665280
+  },
+  "grid": {
+    "lat": 721,
+    "lon": 1440,
+    "n_cells": 1038240
+  },
+  "metadata_url": "https://storage.googleapis.com/weatherbench2/datasets/era5/1959-2022-6h-1440x721.zarr/.zmetadata",
+  "n_timesteps": 92044,
+  "pressure_level_variables": [
+    "geopotential",
+    "specific_humidity",
+    "temperature",
+    "u_component_of_wind",
+    "v_component_of_wind",
+    "vertical_velocity",
+    "wind_speed"
+  ],
+  "probe": "era5_variable_census",
+  "static_variables": [
+    "angle_of_sub_gridscale_orography",
+    "anisotropy_of_sub_gridscale_orography",
+    "geopotential_at_surface",
+    "high_vegetation_cover",
+    "lake_cover",
+    "lake_depth",
+    "land_sea_mask",
+    "low_vegetation_cover",
+    "slope_of_sub_gridscale_orography",
+    "soil_type",
+    "standard_deviation_of_filtered_subgrid_orography",
+    "standard_deviation_of_orography",
+    "type_of_high_vegetation",
+    "type_of_low_vegetation"
+  ],
+  "store_url": "https://storage.googleapis.com/weatherbench2/datasets/era5/1959-2022-6h-1440x721.zarr",
+  "surface_variables": [
+    "10m_u_component_of_wind",
+    "10m_v_component_of_wind",
+    "10m_wind_speed",
+    "2m_temperature",
+    "mean_sea_level_pressure",
+    "sea_ice_cover",
+    "sea_surface_temperature",
+    "surface_pressure",
+    "toa_incident_solar_radiation",
+    "toa_incident_solar_radiation_12hr",
+    "toa_incident_solar_radiation_24hr",
+    "toa_incident_solar_radiation_6hr",
+    "total_cloud_cover",
+    "total_column_water_vapour",
+    "total_precipitation_12hr",
+    "total_precipitation_24hr",
+    "total_precipitation_6hr"
+  ],
+  "total_fields_per_cell": 122,
+  "unclassified_arrays": {}
+}

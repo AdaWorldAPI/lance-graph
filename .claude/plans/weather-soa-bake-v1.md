@@ -154,6 +154,50 @@ RECLAIM — a non-zero mint later wakes it with **zero `ENVELOPE_LAYOUT_VERSION`
    on it.** A weather cell's key is a `NodeGuid`; whether a HEEL tile is also a mailbox id is
    out of scope and is not assumed anywhere below.
 
+### §1.3a ⚠ UNDECLARED DEVIATION from the OGAR cascade doctrine — whole-byte axes, not nibble-interleaved (found 2026-08-13 by the D-WXS-2 worker, during implementation)
+
+§1.2 above assigns **one whole byte per axis** (`HEEL` = byte 4 lat, byte 5 lon;
+`HIP` = byte 6 lat, byte 7 lon). OGAR's cascade doctrine — the same passage §1.1
+leans on for the 256×256 tile reading — specifies the two axis bytes
+**nibble-interleaved**, and names the consequence explicitly: *"the x/y
+nibble-interleave = alternating-axis refinement (Morton in centroid space)."*
+§1.2 therefore **deviates from the canon it cites, and did not say so.** Recorded
+here rather than silently corrected.
+
+**What survives unchanged.** The plan's actual load-bearing claim —
+*a 16° box becomes a HEEL-prefix range scan* — holds under **both** layouts:
+fixing both HEEL bytes fixes a prefix either way, so a tile-aligned box is one
+contiguous byte range regardless. The `is_ancestor_of` = containment argument in
+§1.1 also survives: interleaving governs how two axes **share** a tier's 16 bits,
+not the per-tier ancestry the identity mipmap supplies.
+
+**What actually differs.** Byte-lexicographic order over whole-byte axes is
+**row-major** (lat-major, lon-minor), not locality-preserving. Consequence for
+`D-WXS-9` (the ζ stencil): a `lon ± 1` neighbour is adjacent in key order, while
+a `lat ± 1` neighbour is 1440 cells away. Under Morton both are near. An
+arbitrary (non-tile-aligned) box is also not one contiguous range under either
+layout, but Morton bounds it in far fewer ranges.
+
+**Not changed now, deliberately.** Three reasons: the prefix-scan claim holds as
+written; which layout is better *for this workload* is a measurable question and
+this arc's discipline is measure-don't-assume; and rewriting a spec the moment a
+worker surfaces a consequence is how a correction starts building
+(`E-ACTOR-IS-NOT-THE-PHASE-PATH-1`'s recorded lesson: *when correcting an
+over-built design, the correction must not itself build*). The shipped
+`key.rs` implements §1.2 as specified and its five falsifiers are
+disable-verified green.
+
+**The decision this owes.** A pre-registered comparison — row-major vs Morton
+over the ζ-stencil neighbour read (`D-WXS-9`) and over a non-tile-aligned box
+scan — with the metric stated before the run. Until it runs, §1.2's layout is
+**a stated deviation, not a ruling**, and anything downstream that assumes Morton
+locality is unfounded. Tracked as `D-WXS-2a` on `STATUS_BOARD.md`.
+
+**A second, smaller item from the same worker, resolved by convention and not by
+test:** `box_ranges` treats `lon_lo == lon_hi` as *wrap the whole circle*, not as
+*empty box*. Neither reading is forced by the spec. It needs a test pinning the
+chosen one, or an API that makes the ambiguity unrepresentable.
+
 ### §1.4 classid — a mint decision, NOT taken here
 
 `0x0F = Geo` already exists in the OGAR domain table; free domains are `0x03–0x06`
