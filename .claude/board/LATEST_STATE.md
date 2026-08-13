@@ -1,3 +1,33 @@
+## 2026-08-13 — rail-trie geometry registered: the address places the node
+
+### Current Contract Inventory — 1 new module, 1 new ClassView resolver
+
+- **`contract::rail_geometry`** — deterministic node placement from the rail
+  registers: `RailAxis` (Taxonomy/Mereology), `RailCarving`
+  (`InterleavedPairs` 6×stride-2 in the key facet | `AxisSlab` 12(+12
+  discontiguous cont)×stride-1), `RailPath` (hole rule: a value after a zero
+  is not ancestry; empty path = the lane's dominant root), `TriePlacement`
+  (`ring` = depth, `arc` ∈ [0,1) = radix fraction of the slots), and
+  `dual_rail_placement` (primary axis PLACES, secondary OVERLAYS — two
+  hierarchies on one canvas, only one of them places). The neo4j-shaped
+  invariant is proven, not styled: a child's arc lands inside its parent's
+  half-open interval `[arc, arc + 256^-depth)`, siblings order by slot,
+  and the placement is a pure function of the row — two loads render
+  identically, no solver, no scene model. The f64 boundary is pinned as a
+  passing test (exact through level 6; order-preserving beyond; a glove
+  needing deeper discrimination reads `slots()` directly).
+- **`ClassView::rail_carving(class, axis)`** — the reading, registry-resolved
+  per class like `edge_codec_flavor`: default = canon zero-fallback (key
+  facet pairs at `4..16`); a bake that measured its way to a different
+  carving overrides. The slab variant exists because a consumer bake
+  MEASURED the pair reading and rejected it for its hierarchy (44.25 % of
+  paths fit vs 99.62 % in twelve per-axis levels). Selection only — no
+  carving changes `NODE_ROW_STRIDE`.
+- **Boundary kept:** not a renderer (every glove reads ONE resolved
+  placement; none re-derives), not a distance (the CLAM-side geodesic lives
+  with the compute crate). Compute-side counterpart: ndarray `clam_v3`
+  (`RailSpec` mirrors the two carvings; merged there first).
+
 ## 2026-08-12 — open-review sweep of #920–#929 — three ledger figures were wrong, and one audit method cannot do what it claims
 
 ### Current Contract Inventory — no new types (corrections to merged #927/#928 entries; append-only, corrected here not in place)

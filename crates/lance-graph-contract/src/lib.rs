@@ -130,6 +130,7 @@ pub mod plan;
 pub mod property;
 pub mod proprioception;
 pub mod qualia;
+pub mod rail_geometry;
 pub mod rbac;
 pub mod tekamolo_facet;
 pub use qualia::{
