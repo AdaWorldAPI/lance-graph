@@ -56,7 +56,8 @@ weather arc (#920–#946) actually put under a pre-registered bar.
 | D-MTX-2 | Two-scale rating (fitness A/B/C/D/V × evidence `[G]`/`[H]`/`[S]`), 56 rows across physics / encodings / geometries / instruments | **DONE** | reading comfort zones off instead of arguing them |
 | D-MTX-3 | Known-effect vs discovered-explanation pairing (14 pairs, K1–K14) | **DONE** | separates prior art from what this arc added — incl. 4 cases where measurement went AGAINST the prior |
 | D-MTX-4 | Figure verification against source JSONs (28 headline figures + circular/CT set) | **DONE — 0 mismatches**, 1 rounding fixed (Rayleigh p 0.689 → 0.688) | the audit-terminates-at-an-artifact rule, applied to this document itself |
-| D-MTX-5 | Refresh after the cross-swap matrix runs (C2–C6) | Queued | every off-diagonal cell is still unmeasured; §5 says so explicitly |
+| D-MTX-5 | Refresh after the cross-swap matrix runs (C2–C6) | **DONE 2026-08-13** — §0 UPDATE + 5 new encoding rows (E15–E19) + 3 geometry rows (G16–G18) + lessons 10–13 + §5 gap closures | the off-diagonal cells are measured; §5's cross-swap and CAL-FISHERZ gaps are closed, the geometry gap is re-stated as structurally unreachable |
+| D-MTX-6 | §7 NEXT STEPS — three tiers, with N1 (the classid mint) named as the single blocker and an explicit "explicitly NOT next" list | **DONE 2026-08-13** | the product-lead read: the codec is measured, the substrate is built and gated, one operator decision separates it from a running bake |
 
 **Why a "C" tier exists.** The arc's founding result is that most substrate
 formulas are neither good nor bad — they have homes. Fisher-z alone carries

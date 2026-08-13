@@ -18,6 +18,67 @@
 
 ---
 
+## §0 UPDATE 2026-08-13 — what changed, and what it costs the ratings
+
+> The document below was built 2026-08-12 against PRs #920–#946. Since then
+> PRs **#947–#950** landed and moved four things. This block is the delta;
+> the sections below carry the detail. Same provenance rule throughout —
+> every figure here was **recomputed from the committed JSON in the same
+> command that printed it**, not transcribed (see the new apparatus lesson
+> A10, which exists because that rule was broken once on this very update).
+
+**1. The cross-swap matrix is no longer a gap — it RAN, and the hypothesis
+lost.** §5 listed *"no off-diagonal cell has ever been computed"* as the
+arc's largest hole. D-CZ-2..7 (PR #947) computed them.
+
+- **C1c PASSES** — the regimes differ in correlation *structure*, not only in
+  gradient magnitude. R4/R1 ratios: decay length **0.882**, Gini **0.709**,
+  tail ratio **0.385** (all ≥ 20 % from 1, as pre-registered).
+- **C3 and C4 both FAIL, and reverse.** `L̄` per regime is
+  **0.011 / 0.309 / 0.671 / 0.690** (R1→R4), monotone increasing, **62.5×**
+  from calm to storm — the bar required storm to be *lower*. C4's RMSE delta
+  is **+1.29 / +1.11 / +0.46 / +10.78 Pa**: no sign flip, and the absolute
+  encoding's margin *grows* under turbulence.
+- **⚠ but the ladder is confounded** — see item 2.
+
+**2. The regime ladder measured RANGE, not turbulence — the arc's most
+consequential correction.** `L̄` tracks each regime's own value width and
+saturation almost perfectly (regime-level Pearson **+0.921**, and see plan
+`substrate-comfort-zones-v1.md` §7.9 for the *cell*-level figures the
+confound argument actually rests on — a different and larger population than
+the four regime means recomputed here). R4's off-diagonal saturation is
+**0.969** against R1's **0.667**. **Consequence for the ratings below:** the
+regime ladder (G-tier rows) is demoted from "a turbulence axis" to "a range
+axis that correlates with turbulence." Any row whose evidence is *"it behaved
+differently across R1→R4"* now carries that qualifier. The withdrawn claim is
+"monotone reversal proves storms are less forgiving"; what survives is "the
+hypothesis is not supported."
+
+**3. A real substrate exists now, and its codec passed the gate.**
+`crates/weather-poc` (workspace-EXCLUDED, zero-dep) shipped key codec, floor,
+manifest and L4 lane; **`D-WXS-7` (bar B6) passed 12/12** across three real
+seasons on live-fetched grid data, computed with `jc::reliability::spearman`.
+The shuffled control collapses to **0.020–0.024**. This is the first
+**A-tier, grid-scale, real-data** rating the arc has for the quantiser.
+`D-WXS-8` is mixed — its KILL-gated control holds **19/19**, its strict
+primary fails **10 of 19** cross-unit pairs (see §5).
+
+**4. Two silent-corruption paths were found in the shipped codec, by review
+and by following review into its class.** Neither is a rating change; both
+are apparatus (A9) and both were live on real data, not hypothetical.
+
+### Rating movements
+
+| row / claim | was | now |
+|---|---|---|
+| the off-diagonal cross-swap matrix | **NOT RUN** (§5's largest gap) | **RUN** — C1c pass, C2 pass, C3+C4 fail-and-reverse |
+| the regime ladder as a *turbulence* axis | implicit `[H]` | **demoted** — range-confounded, `[G]` only as a *range* axis |
+| the 256-level linear floor, grid-scale fidelity | untested at scale | **A `[G]`** — 12/12, 3 real seasons, real data |
+| shared canonical floor beats per-variable, cross-unit | `[H]` (1 timestep, 3 vars) | **`[G]` directionally** — 19/19 control, 3 seasons, 19 cross-unit pairs; *exact* thresholds NOT universal |
+| Morton vs the shipped whole-byte key layout | not a question yet | **closed by KILL** — no unambiguous win in key space; no migration |
+
+---
+
 ## How to read the ratings
 
 Two scales, deliberately **not** merged into one score.
@@ -80,6 +141,11 @@ no information about the hypothesis at all.
 | E12 | **Carve B** (all 12 rings, no dipole rail) | **D** | `[G]` | R² **0.635 / 0.294** — collapses to the axisymmetric model | the dipole rail is load-bearing |
 | E13 | **Global vs per-storm codebook** | **A** | `[G]` | storm-2's codebook on storm 1: **620.79 Pa** vs shared **4.48 Pa** → **139× penalty** | one table read, globally — the carrier's whole point |
 | E14 | **CAL-ABS (own-calibration absolute) vs CAL-RANK (window-local)** | **C** | `[G]` | ρ both **> 0.99996** (indistinguishable); RMSE ratio **3.96 / 1.85 / 1.14 / 1.49** across calm→storm | absolute wins RMSE; margin **shrinks** as the field activates |
+| E15 | **256-level linear floor** (`weather-poc::floor`, percentile-trimmed 0.4–99.6, re-expressed from `helix::RollingFloor`) — **grid-scale fidelity** | **A** | `[G]` | bar B6, **12/12** across 3 real seasons on live-fetched ERA5: ρ(L256) **0.999909 / 0.999895 / 0.999684**; ladder strictly monotone (L16→L64→L256) every season; shuffled-decode control collapses to **0.020–0.024** | the arc's first A-tier real-data rating for the quantiser. **Supersedes** the fixture-scale near-miss (K×K 0.999556) — that did **not** replicate at grid scale |
+| E16 | **Shared canonical floor vs per-variable floors, cross-unit** | **A** (direction) / **C** (exact threshold) | `[G]` | control **19/19** — per-variable loses on *every* cross-unit pair, ρ_pervar **0.245–0.939** vs ρ_shared **0.9987–0.9999**. But the strict ρ ≥ 0.9996 primary passes only **9/19** (winter 2/9, spring 4/5, summer 3/5) | the KILL does **not** fire ⇒ the shared-floor design stands. The *exact* bar does not hold universally — failures cluster in winter, the only season carrying `mean_sea_level_pressure` |
+| E17 | **"Zero empty buckets" under a shared floor** (carried verbatim from a 1-timestep/3-variable fixture) | **D** | `[G]` | fails at **all three** seasons: **38 / 39 / 45** of 256 buckets empty (15–18 %) | a percentile-trimmed *pooled* window necessarily leaves slack for any one variable's narrower spread. Direction unsurprising; the literal "zero" had simply never been re-verified at scale |
+| E18 | **L4 `6×(8:8)` lane** — pack/unpack one 16-byte facet against a ClassView-side manifest (`weather-poc::lane`) | **A** (as built) | `[G]` | 34 crate tests; 4 disable-verified bars (lo/hi swap, hard-coded slot, version-guard bypass, unmapped-slot emission) each kill exactly the expected tests | slot purity as *code*: the lane names no ERA5 variable in its own source. **Not** a fidelity claim — that is E15/E16 |
+| E19 | **`quantize` on non-finite input** (the codec's own total-function behaviour) | **D — hazard confirmed** | `[G]` | `NaN` → bucket **0**, `-inf` → **0**, `+inf` → **255**; `f64::clamp` *propagates* NaN, then the float→int cast saturates. All three are legitimate buckets, indistinguishable from a real reading | **live, not hypothetical**: ARCO-ERA5 404 = all-NaN = valid store semantics, and 5 W1-set variables 404 at the arc's own fixture timestep. Guard at the boundary, never in the hot primitive (A9) |
 
 ### 1c. Sampling geometries / address generators
 
@@ -100,6 +166,9 @@ no information about the hypothesis at all.
 | G13 | **Golden-spiral sampling of a storm disk at fixed budget** | **B** | `[G]` | RMSE spiral / grid / random = **234.5 / 269.0 / 319.4** (N=64), **119.1 / 123.3 / 164.2** (N=256), **58.9 / 59.9 / 84.2** (N=1024) — spiral ≤ grid ≤ random at every budget | low-discrepancy sampling earns its keep |
 | G14 | **…and its "ripple" claim** (spiral order gives a low-entropy 1-D signal) | **D** (inverted) | `[G]` | spiral-order Δ-entropy **7.128 bits** vs raster-order **5.947** — spiral order is **higher** entropy, the opposite of the claim | the sampling wins; the *ordering* story does not |
 | G15 | **…and its axisymmetry premise** | **D** | `[G]` | E1 **0.639** vs the 0.70 bar; off-center control **0.005** (index can fail) | the 36 % azimuthal residual is exactly what P1's dipole then explains |
+| G16 | **HEEL/HIP whole-byte-per-axis key** (`weather-poc::key`) — a lat/lon grid as the literal-x/y case of the 3×4 cascade | **A** | `[G]` | exhaustive **1 038 240**-cell round-trip, collision-free; a tile-aligned box is **exactly 1** contiguous range; ragged last tiles (721 = 11·64+17; 1440/64 = 22.5) round-trip without padding; seam-crossing box returns a range **set**, never one range | the arc's hand-picked 16° boxes **are** HEEL values — a box read is a prefix scan, zero value decode. Needs 5–6 of 12 available quaternary levels/axis |
+| G17 | **Morton (nibble-interleaved) vs the shipped whole-byte layout** | **C — no unambiguous win** | `[G]` | Morton wins neighbour locality **16 vs 32** (2×) but loses range count **212.50 vs 140.00** on the median non-tile-aligned box. Bar required *both* ⇒ **KILL fires, no migration** | the shipped order is tile-row-major then row-major *within* a tile — already blocked, not flat row-major. Morton's win is on exactly the metric a ζ stencil would spend; that is a **prior for half B**, not a result |
+| G18 | **CONTROL-BAD (axis bytes reversed)** — the locality control | **A** (as a control) | `[G]` | **3100** ranges and neighbour distance **15862**, vs 140/212 and 32/16 for the real arms | a control that can lose, and does, by ~20×. Without it the G17 comparison would be unreadable |
 
 ### 1d. Statistical instruments (the apparatus itself)
 
@@ -216,8 +285,9 @@ cycles** to overtake. Below that, closure beats irrationality.
 
 ## §4 THE APPARATUS LESSONS (why these ratings are trustworthy at all)
 
-Nine rules, each bought with a measured failure in this arc. They are the
-reason the D's and V's above can be believed alongside the A's.
+Thirteen rules — nine from the probe half, four added 2026-08-13 — each
+bought with a measured failure in this arc. They are the reason the D's and
+V's above can be believed alongside the A's.
 
 1. **A control that cannot lose is no control** — and one that cannot
    *differ* is the same defect. W2s-a's no-ties test: ties = 0 for **both**
@@ -249,6 +319,42 @@ reason the D's and V's above can be believed alongside the A's.
    stranded stratum was **structurally empty**: `displacement ≥ 250 km/6 h`
    implies `|v| ≥ 11.57 m/s`, so a `|v| < 8 m/s` stratum could never exist.
 
+**Added 2026-08-13 — four more, each bought the same way:**
+
+10. **A figure you tallied yourself is a DERIVED figure.** Every number the
+    D-WXS-8 runner *computed and printed* was carried correctly; the only two
+    wrong ones were tallied by **counting rows in terminal output by eye**
+    (`10/16` and `16/16`, actually **9/19** and **19/19** — and the direction
+    mattered: the strict bar fails on a *majority* of pairs, not a minority).
+    Rule now in force: **any count, rate or ratio in a writeup is computed
+    from the artifact in the same command that prints it.** This is the
+    narrow form of lesson 8 — that one is about *citing* a number, this one
+    is about *producing* one.
+11. **A disable probe can itself be vacuous.** Three verification probes in
+    one session did not probe: a wrong symbol name (the substitution aborted
+    and the run reported green on **unmodified** code — the dangerous one), a
+    dead-code insert that bound nothing, and a probe aimed at a path the loop
+    could never reach. **Signature: a disable that kills ZERO tests is more
+    likely a broken probe than a missing guard.** Every substitution now
+    asserts it applied.
+12. **A total function that cannot refuse is a corruption path — and it is
+    worse in an INSTRUMENT than in a store.** `quantize` maps every input to a
+    valid-looking bucket (E19). The store-side hole (`pack_facet`) writes one
+    wrong row; the instrument-side hole (`saturation_of`, bar B2's own
+    measuring device) would have scored an all-NaN field as **1.0 = "fully
+    saturated"** when the truth is "no data". A bad value is one wrong row; a
+    bad instrument is every conclusion drawn with it. **When a finding lands
+    on a total function, check its measurement call sites before its storage
+    call sites.** Silently *dropping* invalid input is the other half of the
+    same mistake — report it (`SaturationScore {fraction, finite, non_finite}`).
+13. **A blocker is an artifact-checkable claim like any other.** `D-WXS-7`
+    was reported as gated behind the classid mint **four times** without once
+    being checked against its own bar. It never was — bar B6 needs real
+    values, the shipped quantiser, a control and a Spearman; no Lance dataset,
+    no classid. "On the substrate" described *scale and source*, not
+    persistence. **An unverified blocker is more expensive than an unverified
+    figure, because it prevents work rather than merely describing it wrongly.**
+
 ---
 
 ## §5 HONEST GAPS — what is NOT rated, and why
@@ -256,9 +362,13 @@ reason the D's and V's above can be believed alongside the A's.
 | gap | status |
 |---|---|
 | **CT-F17** — the fresh-sample directional verdict | **NOT RUN.** Gated on an independent adversarial spec audit. The directional claim (P2) stays *not established*. |
-| **The full cross-swap matrix** (comfort zones C2–C6) | **NOT RUN.** Only the diagonal exists; **no off-diagonal cell has ever been computed**, so transfer loss `L` is defined but never measured. |
-| **CAL-FISHERZ arm** | **NOT RUN.** Designed, never measured in D-CZ-0/1. |
-| **Geometry axis** (GEO-GOLDEN-HI/LO, TEMPERED, GRID) | **NOT RUN.** |
+| ~~**The full cross-swap matrix** (comfort zones C2–C6)~~ | ✅ **CLOSED 2026-08-13 (PR #947).** C1c/C2 pass, C3+C4 fail-and-reverse, C6 matrix delivered. **But** see §0 item 2 — the ladder is range-confounded, so the matrix measures transfer under *width* mismatch, which is not the same question as transfer under *turbulence*. |
+| ~~**CAL-FISHERZ arm**~~ | ✅ **CLOSED** — run in D-CZ-2..7 as a degenerate row (`L ≡ 0` by construction, same as CAL-RANK: levels re-derived in-window). Measured, and measured to be structurally uninformative for this comparison. |
+| **Geometry axis** (GEO-GOLDEN-HI/LO, TEMPERED, GRID) | **STILL NOT RUN, and now known to be structurally unreachable at box scale.** C5's floor needs N ≥ F(17)² = **2 550 409**; a 16° box holds **4 225**. Even the *full global grid* (1 038 240) is short by **~2.5×**. Needs a different construction or a finer grid — not more budget. |
+| **`D-WXS-8`'s strict primary bar** | **PARTIALLY MET, and reported as such.** 9/19 cross-unit pairs. The KILL-gated control (19/19) is what licenses the shared-floor design; the exact ρ ≥ 0.9996 threshold is **not** established universally. Anything needing the number *per pair* must treat this as open. |
+| **Bar B6's ladder for cross-unit pairs** | **NOT RUN** — the 16/64/256 resolution ladder was computed for the K×K pair only. |
+| **A 4th+ season / the wind-pressure skew** | **NOT RUN / OBSERVED-NOT-TESTED.** The primary failures cluster in winter and toward wind+pressure; that is a pattern seen, not a hypothesis tested. |
+| **`D-WXS-2a` half B** (Morton vs shipped under the ζ stencil) | **NOT RUN**, gated on `D-WXS-9` → `D-WXS-0`. Half A closed by KILL; half B carries a stated prior (Morton ≈ 2× on locality) that is **a prior, not a result**. |
 | **EV-1 … EV-10** | **ALL TEN NOT RUN.** Every v1 spec was ruled not-sound; the current specs are v2 rewrites awaiting execution. EV-5 is **blocked** — its fixture cannot exist at the pinned timestep. |
 | **Five excluded land candidates** in the regime preflight | **UNREPRODUCIBLE.** Their box centres were never recorded anywhere. No coordinates were invented to fake the rows. |
 | **W5 at n_idx = 19/21** | **NOT RUN** — iteration count scales ~2V/h², orders of magnitude more expensive. Mechanism stated, not silently dropped. |
@@ -296,9 +406,123 @@ reason the D's and V's above can be believed alongside the A's.
 - **naive `round(frac·q)`** strides anywhere.
 
 **The single most valuable thing this arc produced** is not on either list.
-It is the **apparatus**: nine rules in §4, each bought with a measured
-failure, which is why a "D" in this document can be trusted as much as an
-"A". Most of the entries here are negative results, and they were expensive
-to get right — an arc that only reported its wins would have shipped the
-36-parameter compression figure, Fisher-z as the universal axis, the
-sign-test headline, and a stride-11 "golden" walk.
+It is the **apparatus**: the rules in §4 — nine at first writing, **thirteen**
+as of 2026-08-13 — each bought with a measured failure, which is why a "D" in
+this document can be trusted as much as an "A". Most of the entries here are
+negative results, and they were expensive to get right — an arc that only
+reported its wins would have shipped the 36-parameter compression figure,
+Fisher-z as the universal axis, the sign-test headline, a stride-11 "golden"
+walk, a codec that writes missing data as plausible measurements, and an
+instrument that scores an absent field as fully saturated.
+
+---
+
+## §7 NEXT STEPS (2026-08-13) — what to do, in order, and why
+
+> Ordered by **what unblocks the most**, not by effort. Every item names its
+> gate and its kill condition, because an item without one is a wish.
+
+### The situation in one paragraph
+
+The arc has turned from *probing a hypothesis in Python* to *a substrate with
+a measured codec*. `crates/weather-poc` exists, is zero-dep, and its quantiser
+passed the real gate at grid scale on real data (E15, 12/12). The
+comfort-zone hypothesis that motivated the earlier half **lost** — cleanly,
+with its own controls holding — and the ladder it lost on turned out to be
+range-confounded, which is the more useful finding. What remains is not
+"more measurement of the same thing"; it is **one blocked step that gates
+everything downstream**, and a small number of genuinely open questions.
+
+### Tier 1 — the one real blocker
+
+**N1. `D-WXS-0` — mint the weather-cell + statics classids.** OGAR-side,
+operator-gated; **cannot be resolved from this repo.**
+
+- **Blocks:** `D-WXS-4` (the bake), `D-WXS-5` (statics), and transitively
+  `D-WXS-6` (version-range read), `D-WXS-9`/`D-WXS-10` (ζ, the vorticity
+  work), and `D-WXS-2a` half B.
+- **Why it cannot be worked around:** the bake writes rows; a row needs a
+  routable classid. Writing under `0x0000_0000` produces a dataset
+  indistinguishable from a bootstrap row — the zero-fallback ladder owns that
+  value. The bake is coded to **refuse to write** until this resolves, and
+  that refusal is correct, not a gap.
+- **What it needs:** a `domain:appid` assignment (`0x0F = Geo` exists; the
+  appid/classview half is open). One decision, then W1 finishes and W2/W4
+  open.
+- **Cost of leaving it:** everything below Tier 2 stays unreachable
+  indefinitely. This is the highest-leverage item in the document.
+
+### Tier 2 — runnable now, no mint needed
+
+**N2. Close bar B6's ladder for the cross-unit pairs.** The 16/64/256
+resolution ladder was computed for the K×K pair only; the 19 cross-unit pairs
+have a single-resolution number each.
+
+- **Why it matters:** the ladder is the *can-it-differ* half. Without it, a
+  cross-unit ρ of 0.9995 vs 0.9996 is a number with no scale attached, and
+  the 10 primary failures cannot be read as "close" with confidence.
+- **Cost:** small — the prep stage already emits the arrays; it is one more
+  loop in `fidelity_probe_prep.py` and its reader.
+- **Kill:** if 16 levels is indistinguishable from 256 on cross-unit pairs, ρ
+  is decorative *for that comparison* and bar B7 must move to a physical-unit
+  metric before any per-pair claim is made. (This is bar B6(c)'s own kill,
+  applied to the pairs it was never run on.)
+
+**N3. Test the wind/pressure skew as a hypothesis, or drop it.** The 10
+primary failures concentrate in winter (2/9) and toward wind + pressure.
+Right now that is **an observation, not a finding** — and this document's own
+rules say an unlabelled pattern is a liability.
+
+- **Cheapest honest form:** add a 4th and 5th season (the HEAD-sweep script
+  already finds them) and check whether the skew survives. If it does, the
+  next question is whether it is a *variable* property or a *season* property
+  — winter is the only season carrying `mean_sea_level_pressure`, so the two
+  are currently confounded, exactly like the regime ladder was.
+- **Kill:** if the skew does not replicate across more seasons, delete the
+  observation rather than leaving it as folklore.
+
+**N4. Decide what to do about E17 (the empty-bucket gap).** 38–45 of 256
+buckets empty under the shared floor, at every season. The direction is
+unsurprising; the question is whether it *costs* anything.
+
+- **The measurement that would settle it:** does the empty-bucket fraction
+  degrade cross-unit ρ, or is it free? Correlate per-season empty count
+  against per-season primary pass rate. n = 3 is too small to conclude — so
+  this rides on N3's extra seasons rather than being run alone.
+- **Design option if it does cost:** a per-variable *offset* with a shared
+  *width* (the coverage lesson from §7.9 — width alone was never the driver).
+
+### Tier 3 — real, but should wait
+
+**N5. `D-WXS-2a` half B — Morton vs shipped under the ζ stencil.** Gated on
+N1. Carries a stated prior (Morton ≈ 2× on neighbour locality) that is
+explicitly **not** a result. Do not migrate on the prior.
+
+**N6. Re-ask C3/C4 as a turbulence question.** The original comfort-zone
+hypothesis is not dead — it was never properly *asked*, because the ladder
+measured range. Doing it properly needs ζ (hence N1) **and** coverage-matched
+donor selection, both of which the full grid makes possible and four hand-
+picked boxes did not.
+
+**N7. The geometry axis (C5).** Structurally unreachable at any scale this
+arc currently has — the golden index floor needs 2 550 409 points and the
+global 0.25° grid has 1 038 240. Either a finer grid (0.1° would clear it) or
+a different construction. **Not** a budget problem; do not queue it as one.
+
+### Explicitly NOT next
+
+- **A second product-lead document.** This one is the surface; a roadmap file
+  that drifts from it is worse than no roadmap.
+- **Migrating the key layout to Morton.** G17's kill fired. The prior is
+  recorded; acting on it before half B would be exactly the "re-reading a
+  split as a win" failure the arc has a rule against.
+- **Any claim resting on `D-WXS-8`'s exact ρ ≥ 0.9996 threshold.** The
+  directional claim is established; the per-pair threshold is not.
+- **Beating a learned model (claim C4).** Out of scope, unchanged, quarters
+  of cost.
+
+### The one-line read for a product decision
+
+> **The codec works at grid scale and is measured. The substrate is built and
+> gated. Exactly one operator-side decision — the classid mint — separates it
+> from a running bake, and nothing downstream of that can start without it.**
