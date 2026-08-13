@@ -198,6 +198,69 @@ test:** `box_ranges` treats `lon_lo == lon_hi` as *wrap the whole circle*, not a
 *empty box*. Neither reading is forced by the spec. It needs a test pinning the
 chosen one, or an API that makes the ambiguity unrepresentable.
 
+### §1.3b `D-WXS-2a` — the row-major-vs-Morton bar, PRE-REGISTERED 2026-08-13 (written and committed BEFORE the run)
+
+§1.3a leaves the layout a *stated deviation, not a ruling*. This section is the
+bar that resolves it. **Split in two, because only one half is runnable today:**
+
+- **Half A — pure key-space. Runnable now**, needs no ERA5 data, no classid,
+  no bake. This is what is pre-registered here.
+- **Half B — the ζ stencil under each layout.** Gated on `D-WXS-9`, itself gated
+  on the bake and therefore on `D-WXS-0`. Not pre-registered here; it inherits
+  this section's metrics when it runs.
+
+**First, a correction to §1.3a's own wording.** §1.3a called the shipped layout
+"row-major". That is imprecise. The key orders bytes
+`[lat_tile, lon_tile, lat_hip, lon_hip]`, so lexicographic order is
+**tile-row-major, then row-major *within* a tile** — a two-level blocked order,
+which already has better locality than a flat row-major over 721×1440 would.
+Recording this before measuring, so the comparison is against what is actually
+shipped rather than against the looser word.
+
+#### The two metrics (both computed over key-order index, not raw bytes)
+
+1. **Range count** — the number of maximal contiguous runs in key order needed
+   to cover **exactly** a given box, with **no false positives** (a scan that
+   over-reads and filters is a different, weaker thing and does not count).
+2. **Neighbour locality** — the median `|key_index(a) − key_index(b)|` over the
+   4-neighbourhood (`lat ± 1`, `lon ± 1`, longitude wrapping), across a
+   deterministic sample of cells.
+
+#### Arms
+
+| arm | layout |
+|---|---|
+| **SHIPPED** | `[lat_tile, lon_tile, lat_hip, lon_hip]` — what `key.rs` emits today |
+| **MORTON** | the OGAR-canon reading: the two axis bytes of a tier nibble-interleaved |
+| **CONTROL-BAD** | a deliberately locality-destroying order (axis bytes byte-reversed, i.e. `lon_hip` most significant) |
+
+#### The bar, with both halves and a kill
+
+- **Primary:** MORTON beats SHIPPED on **both** metrics, over a box set that
+  includes tile-aligned, non-tile-aligned, seam-crossing and pole-adjacent
+  boxes. "Beats" is stated before the run as: strictly fewer ranges on the
+  **median** non-tile-aligned box, **and** strictly smaller median neighbour
+  distance.
+- **Control that can lose:** **CONTROL-BAD must be worse than both** on both
+  metrics. If a deliberately bad order scores like the good ones, the metric is
+  not measuring locality and no verdict may be read off it.
+- **Stay-silent twin (non-trivial):** on a **tile-aligned** box, SHIPPED and
+  MORTON must produce **exactly one range each** — identical. This is §1.2's
+  actual load-bearing claim, and it must show **no difference** where the plan
+  claims none. A comparison that reports MORTON better *everywhere*, including
+  here, is measuring something other than what it says.
+- **KILL:** if MORTON does **not** win on both metrics, the deviation is
+  **harmless for this workload**, §1.3a downgrades from "stated deviation owing a
+  decision" to a recorded note, and `D-WXS-2a` closes without a code change.
+  A negative result here is a real result and is the cheaper outcome — it retires
+  an open question rather than opening a migration.
+
+**Discipline note.** Half A cannot settle the *whole* question, because the
+stencil (half B) is where locality is actually spent. Half A can only show
+whether a difference exists **in key space at all**. If half A kills, half B is
+moot; if half A confirms, half B still has to run before any migration. Stated
+now so a green half A is not later read as a mandate.
+
 ### §1.4 classid — a mint decision, NOT taken here
 
 `0x0F = Geo` already exists in the OGAR domain table; free domains are `0x03–0x06`
