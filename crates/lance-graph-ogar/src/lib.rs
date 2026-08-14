@@ -37,14 +37,49 @@
 //! A build graph that pulls THIS crate (the golden image via `symbiont`, or any
 //! AR-aware consumer — q2, medcare, …) gets the **real** OGAR `Class`/`ClassView`/
 //! codebook (including [`ogar_vocab`]'s full curator-alias normalizer, so OGAR is
-//! never dumbed down) **plus** the [`parity`] guard. The guard fires at two depths
-//! so it cannot be silently bypassed (codex P2, PR #564):
-//! - a **compile-time length fuse** ([`parity`] `const _`) that fails ANY build
-//!   (`cargo build` included) if the mirror and `ogar_vocab::class_ids::ALL` have
-//!   a different concept count — the most common drift (add/remove a concept);
-//! - a **runtime full-bijection** check ([`parity::assert_codebook_parity`]) for
-//!   id + domain agreement, asserted by this crate's tests (the CI gate) and
-//!   callable at consumer startup.
+//! never dumbed down) **plus** the [`parity`] check.
+//!
+//! ## Plug-and-play, not a fuse (operator, 2026-08-14)
+//!
+//! This used to carry a **compile-time length fuse** — a `const` assert that the
+//! contract mirror and `ogar_vocab::class_ids::ALL` held the same number of
+//! concepts, firing in ANY build. **It is removed.** The reasoning, and why the
+//! removal is a strengthening rather than a loosening:
+//!
+//! A hand-maintained mirror plus a global equality assert is the opposite of
+//! plug-and-play. It is a device that works only if you also patch the host's
+//! driver table by hand, in another repo, in another PR — and the assert can
+//! only ever *detect* the omission, never prevent or resolve it. Worse, it
+//! detects it in the wrong place: this crate is workspace-excluded, so its own
+//! tests are not the main CI gate, while every AR-aware CONSUMER (q2, medcare, …)
+//! compiles it. A producer-side bookkeeping lapse therefore broke consumers'
+//! builds, not the producer's.
+//!
+//! That is not hypothetical. On 2026-08-14 `osm_street_node` (`0x0F0B`) was minted
+//! in OGAR and its mirror row landed in a separate, unopened PR; the fuse panicked
+//! at const-eval (`E0080`) and killed a production deploy at COMPILE — for a
+//! concept that deploy never used.
+//!
+//! **The inversion:** the device announces, the host enumerates and binds. A
+//! consumer declares one [`lance_graph_contract::hotplug::HotPlug`] naming the
+//! classids it actually plugs, and [`OgarAuthority`] resolves exactly those
+//! against the authority — returning a named [`lance_graph_contract::hotplug::ActivationDrift`]
+//! (`UnknownClassid`, `NoCapabilitiesFor`, …) for the ids the consumer USES. A
+//! concept nobody plugs cannot break anyone's build, so minting one is a single
+//! PR again.
+//!
+//! What still catches genuine drift, in the right place and at the right blast
+//! radius:
+//! - [`parity::assert_codebook_parity`] — the **runtime full bijection** (forward,
+//!   reverse, and domain agreement). It strictly CONTAINS the length check the
+//!   fuse performed, so nothing is lost by deleting the fuse; it is asserted by
+//!   this crate's tests and callable at consumer startup.
+//! - **Hot-plug activation** — per-consumer, per-classid, at the moment of use.
+//!
+//! Prefer resolving through the authority ([`OgarAuthority`]) over reading the
+//! mirror: the mirror is the BBB-safe fallback for a consumer that cannot depend
+//! on OGAR at all, and a stale mirror is a test failure here rather than a
+//! silent mis-resolution there.
 //!
 //! One contract source: this crate path-deps `lance-graph-contract` (the canonical
 //! in-repo copy) and a `[patch]` folds `ogar-class-view`'s transitive *git*
@@ -104,23 +139,26 @@ pub use bridges::{
 
 /// Codebook parity-guard — the drift fuse between OGAR's authoritative codebook
 /// (`ogar_vocab::class_ids::ALL`) and the contract's zero-dep wire mirror
-/// (`lance_graph_contract::ogar_codebook::CODEBOOK`). Two depths so it cannot be
-/// silently bypassed (codex P2, PR #564): a [`COUNT_FUSE`] **compile-time** assert
-/// that fires in ANY build, plus [`assert_codebook_parity`] for the runtime full
-/// id/domain bijection (tested here = CI gate; call at consumer startup too). When
-/// this crate is absent, the contract's mirror stands alone and needs no check.
+/// (`lance_graph_contract::ogar_codebook::CODEBOOK`).
+///
+/// **The compile-time `COUNT_FUSE` was REMOVED 2026-08-14** in favour of
+/// plug-and-play activation — see this crate's module docs for the incident and
+/// the reasoning. Two facts made the deletion safe rather than a loosening:
+///
+/// 1. [`assert_codebook_parity`] already checks the FULL bijection (forward,
+///    reverse, domain agreement), which strictly contains the length equality the
+///    fuse asserted. The fuse detected a subset of what the test detects.
+/// 2. The fuse's one unique property — firing during `cargo build` — is precisely
+///    what made it harmful: this crate is workspace-excluded, so the fuse did not
+///    gate the PRODUCER's CI, only every CONSUMER's build. It converted a
+///    producer-side bookkeeping lapse into a downstream outage, for concepts the
+///    consumer did not use.
+///
+/// Drift now surfaces where it can be acted on: [`assert_codebook_parity`] in
+/// tests / at consumer startup, and [`super::OgarAuthority`] at the point a
+/// consumer actually plugs a classid.
 pub mod parity {
     use lance_graph_contract::ogar_codebook as mirror;
-
-    /// **Compile-time length fuse.** Fails the build — `cargo build`, not just
-    /// `cargo test` — if the contract mirror and OGAR's authoritative
-    /// `class_ids::ALL` carry a different number of concepts (add/remove drift).
-    /// The full id/domain bijection is the runtime [`assert_codebook_parity`].
-    pub const COUNT_FUSE: () = assert!(
-        mirror::CODEBOOK.len() == ogar_vocab::class_ids::ALL.len(),
-        "ogar_codebook mirror drifted from ogar_vocab::class_ids::ALL (concept count mismatch) — \
-         update lance_graph_contract::ogar_codebook::CODEBOOK to match OGAR",
-    );
 
     /// Whether OGAR's domain for `id` agrees with the contract mirror's. Both
     /// enums are structurally identical (`id >> 8` discriminant); compared by a
@@ -274,13 +312,27 @@ impl lance_graph_contract::hotplug::CapabilityAuthority for OgarAuthority {
         use ogar_vocab::capability_registry::{resolve_hotplug, HotplugDrift};
 
         match resolve_hotplug(plug.consumer, plug.classids, plug.covered) {
-            Ok((concepts, capabilities)) => Ok(Activation {
-                concepts: concepts
+            Ok((concepts, capabilities)) => {
+                let concepts: Vec<(String, u16)> = concepts
                     .into_iter()
                     .map(|(name, id)| (name.to_string(), id))
-                    .collect(),
-                capabilities,
-            }),
+                    .collect();
+                // Cross-check the wire mirror for the PLUGGED concepts only.
+                // `resolve_hotplug` consults OGAR alone, so without this a
+                // stale mirror activates green here while a mirror-reading
+                // consumer resolves `None` — the drift class the retired
+                // COUNT_FUSE guarded (codex P2 on PR #954). This authority is
+                // the only place both sides are in scope.
+                if let Some(drift) =
+                    lance_graph_contract::hotplug::verify_against_mirror(&concepts)
+                {
+                    return Err(drift);
+                }
+                Ok(Activation {
+                    concepts,
+                    capabilities,
+                })
+            }
             Err(HotplugDrift::UnknownClassid(id)) => Err(ActivationDrift::UnknownClassid(id)),
             Err(HotplugDrift::NoCapabilitiesFor(id)) => Err(ActivationDrift::NoCapabilitiesFor(id)),
             Err(HotplugDrift::UnexpectedConsumer(c)) => Err(ActivationDrift::UnexpectedConsumer(c)),
@@ -329,5 +381,62 @@ mod hotplug_bridge_tests {
         assert_eq!(act.concepts.len(), 3);
         assert!(act.concepts.contains(&("textline".to_string(), 0x0805)));
         assert_eq!(act.capabilities.len(), 12);
+    }
+
+    /// The property the deleted `COUNT_FUSE` could not provide: drift is
+    /// reported **per plug**, naming the id the consumer actually asked for —
+    /// not as a global equality assert that fails every build.
+    ///
+    /// This is the whole point of the 2026-08-14 migration. Under the fuse, a
+    /// concept minted in OGAR but not yet mirrored broke `cargo build` for every
+    /// AR-aware consumer, including ones that never touched it — which is how a
+    /// production deploy died at const-eval for `osm_street_node`. Under
+    /// hot-plug, an unplugged concept is INERT, and a plugged-but-unknown one
+    /// fails loudly, at the consumer, naming itself.
+    #[test]
+    fn an_unknown_classid_drifts_at_the_plug_not_at_the_build() {
+        use lance_graph_contract::hotplug::ActivationDrift;
+
+        let auth: &dyn CapabilityAuthority = &super::OgarAuthority;
+        let bogus = HotPlug {
+            consumer: "tesseract-ogar",
+            classids: &[0xDEAD],
+            covered: &[],
+        };
+        assert!(
+            matches!(
+                auth.activate(&bogus),
+                Err(ActivationDrift::UnknownClassid(0xDEAD))
+            ),
+            "a plugged classid that is not minted must drift by NAME"
+        );
+
+        // The silent half, and the reason the fuse had to go: a REAL, minted
+        // concept that this consumer does not plug is inert — it cannot fail
+        // anything. `osm_street_node` (0x0F0B) is exactly such a concept for an
+        // OCR consumer, and is the one whose mint took a deploy down.
+        //
+        // PIN THE FIXTURE (codex/CodeRabbit on #954): without this the test
+        // would still pass if `osm_street_node` were removed or renamed —
+        // silently no longer covering the regression it is named for.
+        assert_eq!(
+            ogar_vocab::canonical_concept_id("osm_street_node"),
+            Some(0x0F0B),
+            "the regression fixture must remain a minted OGAR concept"
+        );
+
+        let ocr_only = HotPlug {
+            consumer: "tesseract-ogar",
+            classids: &[0x0805],
+            covered: &["recognize_line"],
+        };
+        let act = auth
+            .activate(&ocr_only)
+            .expect("plugging one id must not be affected by concepts elsewhere in the codebook");
+        // Exact equality already proves the whole table was NOT resolved — a
+        // separate "osm_street_node is absent" assertion would be implied by
+        // this one, which is the vacuous-assertion shape the repo's own
+        // falsifiability rule rejects.
+        assert_eq!(act.concepts, vec![("textline".to_string(), 0x0805)]);
     }
 }
