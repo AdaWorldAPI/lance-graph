@@ -60,6 +60,55 @@ pub enum ActivationDrift {
     /// A hot-plugged classid resolves to no declared capability at all —
     /// plugging it is either premature or the table was forgotten.
     NoCapabilitiesFor(u16),
+    /// The authority resolved a concept that this crate's zero-dep wire
+    /// mirror ([`crate::ogar_codebook`]) does not carry at the same id.
+    ///
+    /// This is the drift the retired compile-time `COUNT_FUSE` existed to
+    /// catch — now reported **per plug**, for the ids a consumer actually
+    /// uses, instead of as a global equality assert that failed every build.
+    /// The authority is the only place both sides are in scope: a consumer
+    /// holding OGAR can see the mirror, and a mirror-only consumer cannot
+    /// call [`CapabilityAuthority::activate`] at all.
+    MirrorDrift {
+        /// Concept name as the authority resolved it.
+        concept: String,
+        /// The id the authority is authoritative for.
+        authority_id: u16,
+        /// What the mirror said — `None` when the concept is missing entirely.
+        mirror_id: Option<u16>,
+    },
+}
+
+/// Cross-check an authority's resolved concepts against this crate's zero-dep
+/// wire mirror, so a stale mirror is caught at the plug rather than silently
+/// mis-resolving in a consumer that reads the mirror instead of the authority.
+///
+/// Split from the mirror lookup so the checker itself is testable against a
+/// deliberately-wrong table — with the real mirror there is (by construction)
+/// no concept that disagrees, so a test using it could only ever assert the
+/// happy path.
+#[must_use]
+pub fn mirror_disagreement<F>(
+    concepts: &[(String, u16)],
+    mirror_lookup: F,
+) -> Option<ActivationDrift>
+where
+    F: Fn(&str) -> Option<u16>,
+{
+    concepts.iter().find_map(|(concept, authority_id)| {
+        let mirror_id = mirror_lookup(concept);
+        (mirror_id != Some(*authority_id)).then(|| ActivationDrift::MirrorDrift {
+            concept: concept.clone(),
+            authority_id: *authority_id,
+            mirror_id,
+        })
+    })
+}
+
+/// [`mirror_disagreement`] against the real [`crate::ogar_codebook`] mirror.
+#[must_use]
+pub fn verify_against_mirror(concepts: &[(String, u16)]) -> Option<ActivationDrift> {
+    mirror_disagreement(concepts, crate::ogar_codebook::canonical_concept_id)
 }
 
 impl core::fmt::Display for ActivationDrift {
@@ -72,6 +121,20 @@ impl core::fmt::Display for ActivationDrift {
             Self::NoCapabilitiesFor(id) => {
                 write!(f, "classid 0x{id:04X} resolves to no declared capability")
             }
+            Self::MirrorDrift {
+                concept,
+                authority_id,
+                mirror_id,
+            } => match mirror_id {
+                Some(m) => write!(
+                    f,
+                    "wire mirror has `{concept}`=0x{m:04X} but the authority says 0x{authority_id:04X}"
+                ),
+                None => write!(
+                    f,
+                    "wire mirror is missing `{concept}` (authority: 0x{authority_id:04X})"
+                ),
+            },
         }
     }
 }
@@ -125,5 +188,45 @@ mod tests {
             }),
             Err(ActivationDrift::UnknownClassid(0xDEAD))
         ));
+    }
+
+    /// The drift class the retired `COUNT_FUSE` guarded: a concept the
+    /// AUTHORITY knows that the MIRROR does not carry at the same id.
+    ///
+    /// Codex caught that hot-plug alone could not see this — `activate`
+    /// consults only OGAR, so a stale mirror activated green while
+    /// mirror-reading consumers resolved `None`. The checker closes that,
+    /// and it is tested against a deliberately-wrong table because the real
+    /// mirror is (by construction) never wrong — a test using it could only
+    /// assert the happy path and would pass with the checker deleted.
+    #[test]
+    fn a_concept_missing_from_the_mirror_is_named_drift_not_silence() {
+        let resolved = vec![("textline".to_string(), 0x0805u16)];
+
+        // Missing entirely — the add-a-concept-without-mirroring-it case,
+        // i.e. exactly what happened to osm_street_node on 2026-08-14.
+        assert_eq!(
+            mirror_disagreement(&resolved, |_| None),
+            Some(ActivationDrift::MirrorDrift {
+                concept: "textline".to_string(),
+                authority_id: 0x0805,
+                mirror_id: None,
+            })
+        );
+
+        // Present at the WRONG id — the case a length-equality fuse could
+        // never have caught at all, since the counts still match.
+        assert_eq!(
+            mirror_disagreement(&resolved, |_| Some(0x0806)),
+            Some(ActivationDrift::MirrorDrift {
+                concept: "textline".to_string(),
+                authority_id: 0x0805,
+                mirror_id: Some(0x0806),
+            })
+        );
+
+        // Agreement is silent — without this the checker could "pass" by
+        // objecting to everything, which carries no information.
+        assert_eq!(mirror_disagreement(&resolved, |_| Some(0x0805)), None);
     }
 }

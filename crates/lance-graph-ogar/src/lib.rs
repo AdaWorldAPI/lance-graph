@@ -312,13 +312,27 @@ impl lance_graph_contract::hotplug::CapabilityAuthority for OgarAuthority {
         use ogar_vocab::capability_registry::{resolve_hotplug, HotplugDrift};
 
         match resolve_hotplug(plug.consumer, plug.classids, plug.covered) {
-            Ok((concepts, capabilities)) => Ok(Activation {
-                concepts: concepts
+            Ok((concepts, capabilities)) => {
+                let concepts: Vec<(String, u16)> = concepts
                     .into_iter()
                     .map(|(name, id)| (name.to_string(), id))
-                    .collect(),
-                capabilities,
-            }),
+                    .collect();
+                // Cross-check the wire mirror for the PLUGGED concepts only.
+                // `resolve_hotplug` consults OGAR alone, so without this a
+                // stale mirror activates green here while a mirror-reading
+                // consumer resolves `None` — the drift class the retired
+                // COUNT_FUSE guarded (codex P2 on PR #954). This authority is
+                // the only place both sides are in scope.
+                if let Some(drift) =
+                    lance_graph_contract::hotplug::verify_against_mirror(&concepts)
+                {
+                    return Err(drift);
+                }
+                Ok(Activation {
+                    concepts,
+                    capabilities,
+                })
+            }
             Err(HotplugDrift::UnknownClassid(id)) => Err(ActivationDrift::UnknownClassid(id)),
             Err(HotplugDrift::NoCapabilitiesFor(id)) => Err(ActivationDrift::NoCapabilitiesFor(id)),
             Err(HotplugDrift::UnexpectedConsumer(c)) => Err(ActivationDrift::UnexpectedConsumer(c)),
@@ -401,6 +415,16 @@ mod hotplug_bridge_tests {
         // concept that this consumer does not plug is inert — it cannot fail
         // anything. `osm_street_node` (0x0F0B) is exactly such a concept for an
         // OCR consumer, and is the one whose mint took a deploy down.
+        //
+        // PIN THE FIXTURE (codex/CodeRabbit on #954): without this the test
+        // would still pass if `osm_street_node` were removed or renamed —
+        // silently no longer covering the regression it is named for.
+        assert_eq!(
+            ogar_vocab::canonical_concept_id("osm_street_node"),
+            Some(0x0F0B),
+            "the regression fixture must remain a minted OGAR concept"
+        );
+
         let ocr_only = HotPlug {
             consumer: "tesseract-ogar",
             classids: &[0x0805],
@@ -409,10 +433,10 @@ mod hotplug_bridge_tests {
         let act = auth
             .activate(&ocr_only)
             .expect("plugging one id must not be affected by concepts elsewhere in the codebook");
+        // Exact equality already proves the whole table was NOT resolved — a
+        // separate "osm_street_node is absent" assertion would be implied by
+        // this one, which is the vacuous-assertion shape the repo's own
+        // falsifiability rule rejects.
         assert_eq!(act.concepts, vec![("textline".to_string(), 0x0805)]);
-        assert!(
-            !act.concepts.iter().any(|(n, _)| n == "osm_street_node"),
-            "activation resolves EXACTLY the plugged ids, never the whole table"
-        );
     }
 }
