@@ -291,11 +291,14 @@ mod tests {
         row.edges.out_family[3] = 0x5A;
         let bytes = row_bytes(&row);
 
+        let expected_offset = ValueSchema::Full.tenant_bytes();
+        let image = cell.facet_image();
         let mut expected = [0u8; NODE_ROW_STRIDE];
         expected[0..16].copy_from_slice(&cell.key);
         expected[16] = 0xA5;
         expected[31] = 0x5A;
-        expected[VALUE_SLAB_ROW_OFFSET..].copy_from_slice(&row.value);
+        let weather_start = VALUE_SLAB_ROW_OFFSET + expected_offset;
+        expected[weather_start..weather_start + W1_IMAGE_LEN].copy_from_slice(&image);
 
         assert_eq!(bytes.len(), NODE_ROW_STRIDE);
         assert_eq!(bytes, expected);
