@@ -365,11 +365,15 @@ mod tests {
         struct Stop;
 
         let mut seen = 0usize;
+        let mut value_calls = 0usize;
         let err = bake_timestep(
             WEATHER_W1_CLASSID,
             &manifest("a"),
             &floors(),
-            |_lat, _lon, entry| value(entry),
+            |_lat, _lon, entry| {
+                value_calls += 1;
+                value(entry)
+            },
             |_cell| {
                 seen += 1;
                 if seen == 3 {
@@ -382,6 +386,7 @@ mod tests {
         .expect_err("sink deliberately stops at cell 3");
 
         assert_eq!(seen, 3);
+        assert_eq!(value_calls, 9);
         match err {
             BakeStreamError::Sink(Stop) => {}
             other => panic!("expected sink stop, got {other:?}"),
