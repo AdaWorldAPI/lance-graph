@@ -15,9 +15,10 @@
 //!   within it, `TWIG` dormant-reserved. The arc's hand-picked boxes become
 //!   HEEL-prefix range scans rather than array slicing.
 //! * **One timestep is one Lance version.** This standalone crate assembles
-//!   the key + W1 facet image; the in-workspace lance-graph adapter owns the
-//!   live `NodeRow` placement and Lance publication so this zero-dependency
-//!   crate never freezes a copied value-tail offset or invents a writer.
+//!   the key + W1 facet image. With feature `canonical-row`, [`canonical`]
+//!   places that image into the live `NodeRow` contract and can stream exact
+//!   512-byte rows to the existing Lance publication path. No copied value-tail
+//!   offset and no second dataset-version protocol are introduced.
 //! * **Nothing in the payload says what a byte means.** The
 //!   `(facet, pair, byte) -> (variable, level, unit, floor)` mapping is a
 //!   ClassView-side manifest ([`crate::manifest`]), never a slot in the row.
@@ -33,6 +34,9 @@
 #![warn(missing_docs)]
 
 pub mod bake;
+/// Agreement bridge to the live 512-byte `NodeRow` contract.
+#[cfg(feature = "canonical-row")]
+pub mod canonical;
 pub mod floor;
 pub mod key;
 pub mod lane;
