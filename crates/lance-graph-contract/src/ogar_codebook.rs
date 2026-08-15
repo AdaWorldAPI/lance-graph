@@ -48,6 +48,8 @@ pub enum ConceptDomain {
     ProjectMgmt,
     /// `0x02XX` — commerce / billing / ERP (Odoo ↔ OSB).
     Commerce,
+    /// `0x04XX` — Weather / Atmosphere. Shared forecast and atmospheric cells.
+    Weather,
     /// `0x07XX` — OSINT (open-source intelligence / Palantir-Gotham).
     Osint,
     /// `0x08XX` — OCR (optical character recognition / document extraction).
@@ -86,7 +88,8 @@ pub enum ConceptDomain {
     /// (OGAR canon "256×256 centroid tile", D-BOTHCASC). Mirrors OGAR
     /// `ogar_vocab::ConceptDomain::Geo`; the parity tests pin `0x0F00 → Geo`.
     Geo,
-    /// Any high-byte slot not yet assigned a domain (`0x03XX`–`0x06XX`, `0x10XX`+).
+    /// Any high-byte slot not yet assigned a domain (`0x03XX`, `0x05XX`–`0x06XX`,
+    /// `0x10XX`+).
     Unassigned,
 }
 
@@ -100,6 +103,7 @@ pub fn canonical_concept_domain(id: u16) -> ConceptDomain {
         0x00 => ConceptDomain::Reserved,
         0x01 => ConceptDomain::ProjectMgmt,
         0x02 => ConceptDomain::Commerce,
+        0x04 => ConceptDomain::Weather,
         0x07 => ConceptDomain::Osint,
         0x08 => ConceptDomain::Ocr,
         0x09 => ConceptDomain::Health,
@@ -483,6 +487,11 @@ pub const CODEBOOK: &[(&str, u16)] = &[
     ("pricelist", 0x0209),
     ("pricelist_rule", 0x020A),
     ("unit_of_measure", 0x020B),
+    // ── 0x04XX — Weather / Atmosphere domain ──
+    // Canonical cell meanings minted by OGAR #272. W1 field/level/unit slots
+    // remain ClassView-owned payload structure, not promoted concept rows.
+    ("weather_cell", 0x0401),
+    ("weather_static_cell", 0x0402),
     // ── 0x08XX — OCR domain (document extraction; the Tesseract-rs arc) ──
     // Class-level container KINDS only (the 5+3-hardened mint discipline):
     // the concept slots name the container types the OGAR Core resolves —
@@ -649,6 +658,7 @@ mod tests {
         assert_eq!(canonical_concept_domain(0x0000), ConceptDomain::Reserved);
         assert_eq!(canonical_concept_domain(0x0101), ConceptDomain::ProjectMgmt);
         assert_eq!(canonical_concept_domain(0x0206), ConceptDomain::Commerce);
+        assert_eq!(canonical_concept_domain(0x0401), ConceptDomain::Weather);
         assert_eq!(canonical_concept_domain(0x0700), ConceptDomain::Osint);
         assert_eq!(canonical_concept_domain(0x0801), ConceptDomain::Ocr);
         assert_eq!(canonical_concept_domain(0x0901), ConceptDomain::Health);
@@ -659,18 +669,13 @@ mod tests {
         assert_eq!(canonical_concept_domain(0x0D01), ConceptDomain::HR);
         assert_eq!(canonical_concept_domain(0x0D04), ConceptDomain::HR);
         assert_eq!(canonical_concept_domain(0x0500), ConceptDomain::Unassigned);
-        // Genetics (0x0E) operator-allocated 2026-06-26 for CPIC-V3 (was Unassigned).
         assert_eq!(canonical_concept_domain(0x0E00), ConceptDomain::Genetics);
-        // Geo (0x0F) allocated with the OSM harvest (OGAR #152; was Unassigned).
         assert_eq!(canonical_concept_domain(0x0F00), ConceptDomain::Geo);
         assert_eq!(canonical_concept_domain(0x1000), ConceptDomain::Unassigned);
     }
 
     #[test]
     fn classid_routes_through_canon_half() {
-        // The contract classids resolve to the domain their CANON half (the
-        // HIGH u16 since the P1 flip) encodes — the contract↔OGAR alignment
-        // (ISS-CLASSID-OGAR-DRIFT).
         assert_eq!(
             classid_concept_domain(NodeGuid::CLASSID_PROJECT),
             ConceptDomain::ProjectMgmt
@@ -711,23 +716,20 @@ mod tests {
 
     #[test]
     fn codebook_ids_match_ogar_vocab() {
-        // Drift guard: these MUST match OGAR `ogar_vocab::CODEBOOK` exactly (the
-        // wire is the contract). If OGAR moves an id, update BOTH sides together.
         assert_eq!(canonical_concept_id("project"), Some(0x0101));
         assert_eq!(canonical_concept_id("project_work_item"), Some(0x0102));
         assert_eq!(canonical_concept_id("project_enabled_module"), Some(0x011A));
         assert_eq!(canonical_concept_id("commercial_line_item"), Some(0x0201));
         assert_eq!(canonical_concept_id("commercial_document"), Some(0x0202));
         assert_eq!(canonical_concept_id("currency_policy"), Some(0x0206));
-        // 0x08XX OCR (container kinds; unichar content stays out of the codebook).
+        assert_eq!(canonical_concept_id("weather_cell"), Some(0x0401));
+        assert_eq!(canonical_concept_id("weather_static_cell"), Some(0x0402));
         assert_eq!(canonical_concept_id("unicharset"), Some(0x0801));
         assert_eq!(canonical_concept_id("charset"), Some(0x0803));
-        // 0x09XX Health + 0x0BXX Auth (OGAR #110 minted the AuthStore family).
         assert_eq!(canonical_concept_id("patient"), Some(0x0901));
         assert_eq!(canonical_concept_id("vital_sign"), Some(0x0907));
         assert_eq!(canonical_concept_id("auth_store"), Some(0x0B01));
         assert_eq!(canonical_concept_id("auth_ory_keto"), Some(0x0B04));
-        // 0x0CXX Automation (the MARS/Automation codebook pass minted these in OGAR).
         assert_eq!(canonical_concept_id("mars_application"), Some(0x0C01));
         assert_eq!(canonical_concept_id("knowledge_item"), Some(0x0C05));
         assert_eq!(canonical_concept_id("mars_node_template"), Some(0x0C06));
@@ -737,8 +739,6 @@ mod tests {
 
     #[test]
     fn codebook_has_no_duplicate_ids_or_zero_concept_slot() {
-        // Every id non-zero in its concept slot (CC != 0x00 — root is reserved),
-        // every id unique, and each id's domain matches its position.
         let mut seen = std::collections::HashSet::new();
         for &(name, id) in CODEBOOK {
             assert_ne!(
@@ -755,9 +755,8 @@ mod tests {
         let dto = LabelDTO::from_canonical("project_enabled_module").unwrap();
         assert_eq!(dto.id, 0x011A);
         assert_eq!(dto.canonical, "project_enabled_module");
-        assert_eq!(dto.id_le(), [0x1A, 0x01]); // LE: low byte (0x1A) first, high (0x01)
+        assert_eq!(dto.id_le(), [0x1A, 0x01]);
         assert_eq!(u16::from_le_bytes(dto.id_le()), 0x011A);
-        // domain reachable from the DTO id
         assert_eq!(canonical_concept_domain(dto.id), ConceptDomain::ProjectMgmt);
         assert_eq!(
             LabelDTO::from_canonical("Issue"),
@@ -768,8 +767,6 @@ mod tests {
 
     #[test]
     fn app_prefixes_match_ogar_allocation_table() {
-        // §2 allocation table — MUST match OGAR `PortSpec::APP_PREFIX` (the
-        // wire). If OGAR re-allocates a prefix, update BOTH sides together.
         assert_eq!(AppPrefix::Core.prefix(), 0x0000);
         assert_eq!(AppPrefix::OpenProject.prefix(), 0x0001);
         assert_eq!(AppPrefix::Odoo.prefix(), 0x0002);
@@ -777,7 +774,6 @@ mod tests {
         assert_eq!(AppPrefix::Smb.prefix(), 0x0004);
         assert_eq!(AppPrefix::Healthcare.prefix(), 0x0005);
         assert_eq!(AppPrefix::Redmine.prefix(), 0x0007);
-        // round-trips; unallocated slots are None (reserved, cost nothing).
         for app in [
             AppPrefix::Core,
             AppPrefix::OpenProject,
@@ -795,12 +791,9 @@ mod tests {
 
     #[test]
     fn render_classid_composes_decomposes_and_preserves_the_concept_half() {
-        // Worked examples mirrored from OGAR `ogar_vocab::app` tests — the
-        // P1 canon-high forms (concept HIGH, prefix LOW).
         assert_eq!(render_classid(0x0001, 0x0102), 0x0102_0001);
-        assert_eq!(render_classid(0x0007, 0x0102), 0x0102_0007); // Redmine twin
+        assert_eq!(render_classid(0x0007, 0x0102), 0x0102_0007);
 
-        // MedCare patient — the canonical worked example: 0x0901_0005.
         let pat = render_classid_for_concept(AppPrefix::Healthcare, "patient").unwrap();
         assert_eq!(pat, 0x0901_0005);
         assert_eq!(classid_app_prefix(pat), 0x0005);
@@ -809,48 +802,34 @@ mod tests {
             AppPrefix::from_prefix(classid_app_prefix(pat)),
             Some(AppPrefix::Healthcare)
         );
-        // the concept half still routes to its domain under the render prefix.
         assert_eq!(
             canonical_concept_domain(classid_concept(pat)),
             ConceptDomain::Health
         );
 
-        // Core (prefix=0x0000): the bare concept sits in the CANON (high) half.
         let core = render_classid(0x0000, 0x0102);
         assert_eq!(core, (0x0102u32) << 16);
         assert_eq!(classid_concept(core), 0x0102);
 
-        // The render lens never perturbs the CANON concept RBAC keys on.
         let op = AppPrefix::OpenProject.render(0x0103);
         let rm = AppPrefix::Redmine.render(0x0103);
-        assert_ne!(
-            classid_app_prefix(op),
-            classid_app_prefix(rm),
-            "render lenses differ"
-        );
-        assert_eq!(
-            classid_concept(op),
-            classid_concept(rm),
-            "concept is shared"
-        );
+        assert_ne!(classid_app_prefix(op), classid_app_prefix(rm), "render lenses differ");
+        assert_eq!(classid_concept(op), classid_concept(rm), "concept is shared");
 
-        // Unpromoted concept → no classid (don't invent one).
         assert_eq!(
             render_classid_for_concept(AppPrefix::Healthcare, "nope"),
             None
         );
     }
 
-    // ── D-CCF-0 probes — the one flippable classid composition ────────────
-
     #[test]
     fn classid_split_compose_round_trips_under_both_orders() {
         let samples: &[(u16, u16)] = &[
-            (0x0700, 0x0000), // legacy OSINT domain classid halves
-            (0x0701, 0x1000), // post-flip OSINT:q2 halves
+            (0x0700, 0x0000),
+            (0x0701, 0x1000),
             (0x0A01, 0x1000),
             (0x0E01, 0x1000),
-            (0x0901, 0x0005), // Healthcare render pair
+            (0x0901, 0x0005),
             (0x0000, 0x0000),
             (0xFFFF, 0xFFFF),
         ];
@@ -868,41 +847,27 @@ mod tests {
 
     #[test]
     fn classid_flip_is_involutive_and_p1_pins_target_order() {
-        // P1 pin: the active order is the target CanonHigh (operator trigger
-        // 2026-07-02). Un-flipping this const is a migration reversal, never
-        // a drive-by.
         assert_eq!(CLASSID_ORDER, ClassidOrder::CanonHigh);
-        // flip(flip(x)) == x over every wired classid + the post-flip trio.
         for id in [
-            0x0000_0700u32, // legacy OSINT domain class
-            0x1000_0700,    // pre-flip OSINT-V3
+            0x0000_0700u32,
+            0x1000_0700,
             0x1000_0A01,
             0x1000_0E00,
-            0x0701_1000, // post-flip forms (already valid u32s to flip back)
+            0x0701_1000,
             0x0A01_1000,
             0x0E01_1000,
-            0x0005_0901, // Healthcare render classid
+            0x0005_0901,
             0x0000_0000,
             0xFFFF_FFFF,
         ] {
-            assert_eq!(
-                flip_classid(flip_classid(id)),
-                id,
-                "flip must be involutive"
-            );
+            assert_eq!(flip_classid(flip_classid(id)), id, "flip must be involutive");
         }
     }
 
     #[test]
     fn classid_route_through_matrix_under_active_and_legacy_order() {
-        // The boundary matrix (plan §3), post-flip form: under the active
-        // CanonHigh order every routed reader equals the canon-high masks,
-        // for every codebook id under every app prefix — and the LEGACY
-        // (CanonLow) composition stays available under the explicit-order
-        // API for reading persisted pre-flip ids.
         for &(_, concept) in CODEBOOK {
             for prefix in [0x0000u16, 0x0001, 0x0005, 0x1000] {
-                // Active order: canon (concept) HIGH, custom (prefix) LOW.
                 let id = render_classid(prefix, concept);
                 assert_eq!(id, ((concept as u32) << 16) | (prefix as u32));
                 assert_eq!(classid_concept(id), concept);
@@ -915,15 +880,9 @@ mod tests {
                     "domain routing invariant under the route-through"
                 );
 
-                // Legacy boundary: the explicit CanonLow split still reads a
-                // persisted pre-flip id exactly as the direct masks did.
                 let legacy = compose_classid_with(ClassidOrder::CanonLow, concept, prefix);
                 assert_eq!(legacy, ((prefix as u32) << 16) | (concept as u32));
-                assert_eq!(
-                    split_classid_with(ClassidOrder::CanonLow, legacy),
-                    (concept, prefix)
-                );
-                // And the flip carries a legacy id to its new-form twin.
+                assert_eq!(split_classid_with(ClassidOrder::CanonLow, legacy), (concept, prefix));
                 assert_eq!(flip_classid(legacy), id);
             }
         }
@@ -931,23 +890,17 @@ mod tests {
 
     #[test]
     fn classid_canon_compat_reads_both_stored_forms() {
-        // New-form ids: compat == strict canon.
         for id in [0x0901_0005u32, 0x0701_1000, 0x0102_0001, 0x0700_0000] {
             assert_eq!(classid_canon_compat(id), classid_canon(id));
         }
-        // Persisted pre-flip forms resolve their true canon via the legacy
-        // fallback: core, render, and V3-marked shapes.
-        assert_eq!(classid_canon_compat(0x0000_0901), 0x0901); // legacy core
-        assert_eq!(classid_canon_compat(0x0005_0901), 0x0901); // legacy render
-        assert_eq!(classid_canon_compat(0x1000_0700), 0x0700); // legacy V3
-        assert_eq!(classid_canon_compat(0x0000_0000), 0x0000); // default class
+        assert_eq!(classid_canon_compat(0x0000_0901), 0x0901);
+        assert_eq!(classid_canon_compat(0x0005_0901), 0x0901);
+        assert_eq!(classid_canon_compat(0x1000_0700), 0x0700);
+        assert_eq!(classid_canon_compat(0x0000_0000), 0x0000);
     }
 
     #[test]
     fn no_class_collapse_under_canon_high() {
-        // codex P2 (#627): post-flip, a naive `as u16` reads the CUSTOM half —
-        // 0x1000 for ALL three V3 classes — collapsing the SoA class_id
-        // discriminator. The canon half stays distinct; `as u16` does not.
         let osint = compose_classid_with(ClassidOrder::CanonHigh, 0x0701, 0x1000);
         let fma = compose_classid_with(ClassidOrder::CanonHigh, 0x0A01, 0x1000);
         let cpic = compose_classid_with(ClassidOrder::CanonHigh, 0x0E01, 0x1000);
@@ -958,12 +911,7 @@ mod tests {
             split_classid_with(ClassidOrder::CanonHigh, fma).0,
             split_classid_with(ClassidOrder::CanonHigh, cpic).0,
         ];
-        assert_eq!(
-            canons,
-            [0x0701, 0x0A01, 0x0E01],
-            "canon halves stay distinct"
-        );
-        // The forbidden pattern, demonstrated: `as u16` collapses all three.
+        assert_eq!(canons, [0x0701, 0x0A01, 0x0E01], "canon halves stay distinct");
         assert_eq!(
             [osint as u16, fma as u16, cpic as u16],
             [0x1000, 0x1000, 0x1000],

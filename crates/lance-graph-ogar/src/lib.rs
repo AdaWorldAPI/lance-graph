@@ -98,13 +98,11 @@
 #![forbid(unsafe_code)]
 #![warn(missing_docs)]
 
-// ── Full re-export of the OGAR Active-Record crates under stable names ──
 pub use ogar_adapter_surrealql;
 pub use ogar_class_view;
 pub use ogar_ontology;
 pub use ogar_vocab;
 
-// ── The contract surface OGAR implements + the wire mirror the guard checks ──
 pub use lance_graph_contract as contract;
 
 /// The OGAR active-record `ClassView` projection (`impl
@@ -113,22 +111,12 @@ pub use ogar_class_view::OgarClassView;
 /// The calcified canonical AR shape (attributes + family `Association`s).
 pub use ogar_vocab::Class;
 
-// ── OGAR-driven tenant port bridges (moved out of lance-graph-ontology,
-//    which is OGIT and must not depend on ogar-vocab) ──
 pub mod bridges;
 
-// ── OGAR DO-arm provider: per-class ActionDef manifests with RBAC hardcoded
-//    into the class (the Türsteher). The action-axis sibling of OgarClassView. ──
 pub mod actions;
 pub use actions::OgarActionProvider;
 pub mod rbac_impl;
 
-// Per-port bridge aliases (`MedcareBridge` / `OpenProjectBridge` /
-// `RedmineBridge` / `OdooBridge` / `SmbBridge` / `WoaBridge`) are
-// `#[deprecated]` (2026-06-22) — pull the classid via the corresponding
-// PortSpec instead. The `Port` types and `UnifiedBridge` harness are
-// NOT deprecated. See `docs/CONSUMER-BRIDGE-DEPRECATION.md` +
-// AdaWorldAPI/OGAR#95.
 pub use bridges::{
     HealthcarePort, OdooPort, OpenProjectPort, RedminePort, SmbPort, UnifiedBridge, WoaPort,
 };
@@ -175,6 +163,7 @@ pub mod parity {
             (O::Reserved, C::Reserved)
                 | (O::ProjectMgmt, C::ProjectMgmt)
                 | (O::Commerce, C::Commerce)
+                | (O::Weather, C::Weather)
                 | (O::Osint, C::Osint)
                 | (O::Ocr, C::Ocr)
                 | (O::Health, C::Health)
@@ -192,7 +181,6 @@ pub mod parity {
     /// forward (mirror ⊆ OGAR), reverse (OGAR ⊆ mirror), and domain agreement.
     /// Returns the number of concepts checked. Panics on any divergence.
     pub fn assert_codebook_parity() -> usize {
-        // Forward: every mirror entry resolves identically through OGAR's API.
         for &(concept, id) in mirror::CODEBOOK {
             assert_eq!(
                 ogar_vocab::canonical_concept_id(concept),
@@ -204,8 +192,6 @@ pub mod parity {
                 "domain disagreement for {concept} ({id:#06x})"
             );
         }
-        // Reverse: every OGAR canonical concept is present in the mirror with the
-        // same id (no OGAR concept silently missing from the wire mirror).
         for &(concept, id) in ogar_vocab::class_ids::ALL {
             assert_eq!(
                 mirror::canonical_concept_id(concept),
@@ -228,13 +214,10 @@ pub mod parity {
 
         #[test]
         fn classid_low_u16_is_the_codebook_id() {
-            // The contract NodeGuid.classid low u16 IS the OGAR codebook id — the
-            // wire identity the whole separation rests on.
             use lance_graph_contract::NodeGuid;
             let project_id = ogar_vocab::canonical_concept_id("project").unwrap();
             let guid = NodeGuid::new(u32::from(project_id), 0, 0, 0, 0, 0);
             assert_eq!(guid.classid() as u16, project_id);
-            // and it routes to the ProjectMgmt domain on both sides
             assert!(domains_agree(project_id));
         }
     }
@@ -244,16 +227,6 @@ pub mod parity {
 mod tests {
     use super::*;
 
-    /// The ROUNDTRIP GREEN LIGHT (operator, 2026-07-07): lance-graph does NOT
-    /// carry ontologies — it only flips this fuse. For every authoritative
-    /// OGAR capability table (OCR today), assert at ID level that (a) the
-    /// authority named at least one expected executor ("die Ontologie wurde
-    /// nicht vergessen"), (b) every subject classid the table binds exists in
-    /// the wire mirror this crate already guards, (c) the table itself is
-    /// internally consistent (names unique, non-empty). The consumer-side
-    /// half of the loop (registration + coverage + classid activation) is
-    /// asserted in the consumer's own binary via
-    /// `ogar_vocab::capability_registry::verify_registration`.
     #[test]
     fn authoritative_ocr_table_roundtrip_is_green() {
         use ogar_vocab::ocr_actions;
@@ -281,9 +254,6 @@ mod tests {
 
     #[test]
     fn ogar_class_view_implements_contract_class_view() {
-        // The activation in one line: an OgarClassView IS a contract ClassView,
-        // so a consumer holding `&dyn ClassView` can be handed the real OGAR AR
-        // surface. (Compile-time proof; constructing it walks the 32 class fns.)
         use lance_graph_contract::class_view::ClassView;
         let view = OgarClassView::new();
         let _as_trait: &dyn ClassView = &view;
@@ -317,12 +287,6 @@ impl lance_graph_contract::hotplug::CapabilityAuthority for OgarAuthority {
                     .into_iter()
                     .map(|(name, id)| (name.to_string(), id))
                     .collect();
-                // Cross-check the wire mirror for the PLUGGED concepts only.
-                // `resolve_hotplug` consults OGAR alone, so without this a
-                // stale mirror activates green here while a mirror-reading
-                // consumer resolves `None` — the drift class the retired
-                // COUNT_FUSE guarded (codex P2 on PR #954). This authority is
-                // the only place both sides are in scope.
                 if let Some(drift) =
                     lance_graph_contract::hotplug::verify_against_mirror(&concepts)
                 {
@@ -346,21 +310,11 @@ impl lance_graph_contract::hotplug::CapabilityAuthority for OgarAuthority {
 mod hotplug_bridge_tests {
     use lance_graph_contract::hotplug::{CapabilityAuthority, HotPlug};
 
-    /// The generic activation, end to end through the contract socket: the
-    /// OCR consumer's plug resolves to the 3 vocab rows + 8 capabilities.
     #[test]
     fn ocr_hotplug_activates_through_the_contract_socket() {
         let plug = HotPlug {
             consumer: "tesseract-ogar",
             classids: &[0x0805, 0x0808, 0x0809],
-            // Exactly the actions the three requested classids declare
-            // (OGAR `ocr_actions`, grown by OGAR #188's structured-document
-            // v2): textline(0x0805)=1, page_image(0x0808)=7,
-            // ocr_renderer(0x0809)=4 = 12. `harvest_fields` /
-            // `detect_page_furniture` are `page_layout`(0x0807), NOT
-            // requested here, so they stay out. `covered` must match the
-            // requested classids' action set exactly (activate rejects both
-            // Uncovered and Undeclared).
             covered: &[
                 "recognize_line",
                 "recognize_page",
@@ -383,16 +337,6 @@ mod hotplug_bridge_tests {
         assert_eq!(act.capabilities.len(), 12);
     }
 
-    /// The property the deleted `COUNT_FUSE` could not provide: drift is
-    /// reported **per plug**, naming the id the consumer actually asked for —
-    /// not as a global equality assert that fails every build.
-    ///
-    /// This is the whole point of the 2026-08-14 migration. Under the fuse, a
-    /// concept minted in OGAR but not yet mirrored broke `cargo build` for every
-    /// AR-aware consumer, including ones that never touched it — which is how a
-    /// production deploy died at const-eval for `osm_street_node`. Under
-    /// hot-plug, an unplugged concept is INERT, and a plugged-but-unknown one
-    /// fails loudly, at the consumer, naming itself.
     #[test]
     fn an_unknown_classid_drifts_at_the_plug_not_at_the_build() {
         use lance_graph_contract::hotplug::ActivationDrift;
@@ -411,14 +355,6 @@ mod hotplug_bridge_tests {
             "a plugged classid that is not minted must drift by NAME"
         );
 
-        // The silent half, and the reason the fuse had to go: a REAL, minted
-        // concept that this consumer does not plug is inert — it cannot fail
-        // anything. `osm_street_node` (0x0F0B) is exactly such a concept for an
-        // OCR consumer, and is the one whose mint took a deploy down.
-        //
-        // PIN THE FIXTURE (codex/CodeRabbit on #954): without this the test
-        // would still pass if `osm_street_node` were removed or renamed —
-        // silently no longer covering the regression it is named for.
         assert_eq!(
             ogar_vocab::canonical_concept_id("osm_street_node"),
             Some(0x0F0B),
@@ -433,10 +369,6 @@ mod hotplug_bridge_tests {
         let act = auth
             .activate(&ocr_only)
             .expect("plugging one id must not be affected by concepts elsewhere in the codebook");
-        // Exact equality already proves the whole table was NOT resolved — a
-        // separate "osm_street_node is absent" assertion would be implied by
-        // this one, which is the vacuous-assertion shape the repo's own
-        // falsifiability rule rejects.
         assert_eq!(act.concepts, vec![("textline".to_string(), 0x0805)]);
     }
 }
