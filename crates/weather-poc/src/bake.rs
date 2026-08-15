@@ -1,11 +1,12 @@
 //! W1 weather bake assembly: one ERA5 cell -> canonical key + three L4 facets.
 //!
 //! This module deliberately stops at the zero-dependency ownership boundary.
-//! `weather-poc` does not depend on `lance-graph-contract`, so it must not copy
-//! the canonical `NodeRow` value-tail offset into a second crate. Instead it
-//! emits a [`PackedWeatherCell`] containing the byte-exact key and the three W1
-//! facets. The in-workspace lance-graph adapter places those facets into the
-//! live canonical `NodeRow` using the contract-derived free-tail offset.
+//! The default `weather-poc` codec path does not depend on
+//! `lance-graph-contract`, so it must not copy the canonical `NodeRow`
+//! value-tail offset into a second crate. Instead it emits a
+//! [`PackedWeatherCell`] containing the byte-exact key and the three W1 facets.
+//! The opt-in canonical adapter places those facets into the live canonical
+//! `NodeRow` using the contract-derived free-tail offset.
 //!
 //! That split is load-bearing: new append-only `ValueTenant`s may move the free
 //! tail without changing the 512-byte ABI. A hard-coded row offset here would
@@ -76,6 +77,16 @@ pub enum BakeError {
     /// `0x0000_0000` belongs to the canonical bootstrap/default ladder and may
     /// never label a durable weather row.
     ZeroClassId,
+    /// A caller asked to pack a coordinate outside the real 721 x 1440 grid.
+    /// This is a hard error even in release builds. `encode_key` itself keeps a
+    /// debug assertion because it is a low-level codec; the bake is the
+    /// publication boundary and must not rely on debug-only validation.
+    GridIndexOutOfRange {
+        /// Requested latitude index.
+        lat_idx: u16,
+        /// Requested longitude index.
+        lon_idx: u16,
+    },
     /// Packing one of the three L4 facets failed.
     Lane(LaneError),
 }
@@ -85,6 +96,10 @@ impl fmt::Display for BakeError {
         match self {
             BakeError::ZeroClassId => f.write_str(
                 "weather bake refuses classid 0x00000000: it is the canonical bootstrap/default class",
+            ),
+            BakeError::GridIndexOutOfRange { lat_idx, lon_idx } => write!(
+                f,
+                "weather bake cell ({lat_idx}, {lon_idx}) is outside the real grid 0..{LAT_COUNT} x 0..{LON_COUNT}"
             ),
             BakeError::Lane(err) => write!(f, "weather facet packing failed: {err}"),
         }
@@ -127,8 +142,9 @@ impl<E: fmt::Debug + fmt::Display> std::error::Error for BakeStreamError<E> {}
 ///
 /// # Errors
 ///
-/// Refuses the bootstrap classid and propagates all [`LaneError`] variants,
-/// including missing/non-finite source values and unknown floors.
+/// Refuses the bootstrap classid, rejects indices outside the real grid in all
+/// build modes, and propagates all [`LaneError`] variants, including
+/// missing/non-finite source values and unknown floors.
 pub fn pack_cell<F>(
     classid: u32,
     lat_idx: u16,
@@ -142,6 +158,9 @@ where
 {
     if classid == 0 {
         return Err(BakeError::ZeroClassId);
+    }
+    if lat_idx >= LAT_COUNT || lon_idx >= LON_COUNT {
+        return Err(BakeError::GridIndexOutOfRange { lat_idx, lon_idx });
     }
 
     let key = encode_key(classid, lat_idx, lon_idx);
@@ -217,6 +236,7 @@ mod tests {
     use crate::manifest::PairByte;
 
     const HEADER: &str = "facet\tpair\tbyte\tvariable\tlevel_hpa\tunit\tfloor_id";
+    const WEATHER_W1_CLASSID: u32 = 0x0401_0009;
 
     fn manifest(variable0: &str) -> FieldManifest {
         FieldManifest::parse(&format!(
@@ -256,14 +276,51 @@ mod tests {
     }
 
     #[test]
-    fn one_cell_contains_key_and_exactly_three_class_prefixed_facets() {
-        let classid = 0x0F01_0001;
-        let cell = pack_cell(classid, 720, 1439, &manifest("a"), &floors(), value)
-            .expect("last real cell packs");
+    fn out_of_grid_cell_is_a_release_grade_error_not_a_debug_assert() {
+        let err = pack_cell(
+            WEATHER_W1_CLASSID,
+            LAT_COUNT,
+            LON_COUNT - 1,
+            &manifest("a"),
+            &floors(),
+            value,
+        )
+        .expect_err("latitude one-past-end must fail");
+        assert_eq!(
+            err,
+            BakeError::GridIndexOutOfRange {
+                lat_idx: LAT_COUNT,
+                lon_idx: LON_COUNT - 1,
+            }
+        );
 
-        assert_eq!(&cell.key[0..4], &classid.to_le_bytes());
+        let err = pack_cell(
+            WEATHER_W1_CLASSID,
+            LAT_COUNT - 1,
+            LON_COUNT,
+            &manifest("a"),
+            &floors(),
+            value,
+        )
+        .expect_err("longitude one-past-end must fail");
+        assert!(matches!(err, BakeError::GridIndexOutOfRange { .. }));
+    }
+
+    #[test]
+    fn one_cell_contains_key_and_exactly_three_class_prefixed_facets() {
+        let cell = pack_cell(
+            WEATHER_W1_CLASSID,
+            720,
+            1439,
+            &manifest("a"),
+            &floors(),
+            value,
+        )
+        .expect("last real cell packs");
+
+        assert_eq!(&cell.key[0..4], &WEATHER_W1_CLASSID.to_le_bytes());
         for facet in &cell.facets {
-            assert_eq!(&facet[0..4], &classid.to_le_bytes());
+            assert_eq!(&facet[0..4], &WEATHER_W1_CLASSID.to_le_bytes());
             // Only pair 0 low is occupied in the fixture. Everything after it
             // is reserved-zero, proving the row image does not invent values.
             assert!(facet[5..].iter().all(|b| *b == 0));
@@ -273,11 +330,24 @@ mod tests {
 
     #[test]
     fn manifest_mutation_is_load_bearing_end_to_end() {
-        let classid = 0x0F01_0001;
-        let a = pack_cell(classid, 10, 20, &manifest("a"), &floors(), value)
-            .expect("a packs");
-        let b = pack_cell(classid, 10, 20, &manifest("b"), &floors(), value)
-            .expect("b packs");
+        let a = pack_cell(
+            WEATHER_W1_CLASSID,
+            10,
+            20,
+            &manifest("a"),
+            &floors(),
+            value,
+        )
+        .expect("a packs");
+        let b = pack_cell(
+            WEATHER_W1_CLASSID,
+            10,
+            20,
+            &manifest("b"),
+            &floors(),
+            value,
+        )
+        .expect("b packs");
 
         assert_ne!(
             a.facet_image(),
@@ -296,7 +366,7 @@ mod tests {
 
         let mut seen = 0usize;
         let err = bake_timestep(
-            0x0F01_0001,
+            WEATHER_W1_CLASSID,
             &manifest("a"),
             &floors(),
             |_lat, _lon, entry| value(entry),
