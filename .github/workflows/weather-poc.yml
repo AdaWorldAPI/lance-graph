@@ -5,6 +5,8 @@ on:
     paths:
       - crates/weather-poc/**
       - crates/lance-graph-contract/**
+      - rust-toolchain
+      - rust-toolchain.toml
       - .github/workflows/weather-poc.yml
   push:
     branches:
@@ -27,6 +29,8 @@ jobs:
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
       - name: Setup Rust
         run: |
           rustup toolchain install stable
