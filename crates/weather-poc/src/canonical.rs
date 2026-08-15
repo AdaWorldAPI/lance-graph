@@ -11,8 +11,8 @@ use std::fmt;
 use std::io::{self, Write};
 
 use lance_graph_contract::canonical_node::{
-    EdgeBlock, NodeGuid, NodeRow, NODE_ROW_STRIDE, VALUE_SLAB_LEN, VALUE_SLAB_ROW_OFFSET,
-    VALUE_TENANTS,
+    EdgeBlock, NodeGuid, NodeRow, ValueSchema, NODE_ROW_STRIDE, VALUE_SLAB_LEN,
+    VALUE_SLAB_ROW_OFFSET, VALUE_TENANTS,
 };
 
 use crate::bake::{bake_timestep, BakeError, BakeStreamError, PackedWeatherCell, W1_IMAGE_LEN};
@@ -225,6 +225,7 @@ mod tests {
     use crate::floor::calibrate;
 
     const HEADER: &str = "facet\tpair\tbyte\tvariable\tlevel_hpa\tunit\tfloor_id";
+    const WEATHER_W1_CLASSID: u32 = 0x0401_0009;
 
     fn fixture_manifest() -> FieldManifest {
         FieldManifest::parse(&format!(
@@ -248,7 +249,7 @@ mod tests {
     fn live_contract_places_weather_after_every_named_tenant() {
         let manifest = fixture_manifest();
         let floors = fixture_floors();
-        let cell = pack_cell(0x0F01_0001, 720, 1439, &manifest, &floors, |entry| {
+        let cell = pack_cell(WEATHER_W1_CLASSID, 720, 1439, &manifest, &floors, |entry| {
             match entry.variable.as_str() {
                 "a" => Some(10.0),
                 "b" => Some(20.0),
@@ -259,37 +260,52 @@ mod tests {
         .expect("cell packs");
 
         let row = assemble_row(&cell).expect("canonical row assembles");
-        let offset = weather_value_offset();
+        let expected_offset = ValueSchema::Full.tenant_bytes();
         let image = cell.facet_image();
 
+        assert_eq!(weather_value_offset(), expected_offset);
         assert_eq!(row.key.as_bytes(), &cell.key);
         assert!(row.edges.in_family.iter().all(|b| *b == 0));
         assert!(row.edges.out_family.iter().all(|b| *b == 0));
-        assert!(row.value[..offset].iter().all(|b| *b == 0));
-        assert_eq!(&row.value[offset..offset + W1_IMAGE_LEN], &image);
-        assert!(row.value[offset + W1_IMAGE_LEN..].iter().all(|b| *b == 0));
-        assert!(weather_tail_capacity() >= W1_IMAGE_LEN);
+        assert!(row.value[..expected_offset].iter().all(|b| *b == 0));
+        assert_eq!(
+            &row.value[expected_offset..expected_offset + W1_IMAGE_LEN],
+            &image
+        );
+        assert!(
+            row.value[expected_offset + W1_IMAGE_LEN..]
+                .iter()
+                .all(|b| *b == 0)
+        );
+        assert!(VALUE_SLAB_LEN - expected_offset >= W1_IMAGE_LEN);
     }
 
     #[test]
     fn canonical_serialization_is_exactly_512_bytes_and_key_agrees() {
         let manifest = fixture_manifest();
         let floors = fixture_floors();
-        let cell = pack_cell(0x0F01_0001, 123, 456, &manifest, &floors, |_| Some(42.0))
+        let cell = pack_cell(WEATHER_W1_CLASSID, 123, 456, &manifest, &floors, |_| Some(42.0))
             .expect("cell packs");
-        let row = assemble_row(&cell).expect("row");
+        let mut row = assemble_row(&cell).expect("row");
+        row.edges.in_family[0] = 0xA5;
+        row.edges.out_family[3] = 0x5A;
         let bytes = row_bytes(&row);
 
+        let mut expected = [0u8; NODE_ROW_STRIDE];
+        expected[0..16].copy_from_slice(&cell.key);
+        expected[16] = 0xA5;
+        expected[31] = 0x5A;
+        expected[VALUE_SLAB_ROW_OFFSET..].copy_from_slice(&row.value);
+
         assert_eq!(bytes.len(), NODE_ROW_STRIDE);
-        assert_eq!(&bytes[..16], &cell.key);
-        assert_eq!(&bytes[VALUE_SLAB_ROW_OFFSET..], &row.value);
+        assert_eq!(bytes, expected);
     }
 
     #[test]
     fn facet_classid_tamper_is_rejected() {
         let manifest = fixture_manifest();
         let floors = fixture_floors();
-        let mut cell = pack_cell(0x0F01_0001, 1, 2, &manifest, &floors, |_| Some(42.0))
+        let mut cell = pack_cell(WEATHER_W1_CLASSID, 1, 2, &manifest, &floors, |_| Some(42.0))
             .expect("cell packs");
         cell.facets[1][0..4].copy_from_slice(&0xDEAD_BEEFu32.to_le_bytes());
 
