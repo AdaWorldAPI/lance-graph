@@ -15,7 +15,7 @@
 //!   within it, `TWIG` dormant-reserved. The arc's hand-picked boxes become
 //!   HEEL-prefix range scans rather than array slicing.
 //! * **One timestep is one Lance version.** This standalone crate assembles
-//!   the key + W1 facet image. With feature `canonical-row`, [`canonical`]
+//!   the key + W1 facet image. With feature `canonical-row`, `canonical`
 //!   places that image into the live `NodeRow` contract and can stream exact
 //!   512-byte rows to the existing Lance publication path. No copied value-tail
 //!   offset and no second dataset-version protocol are introduced.
