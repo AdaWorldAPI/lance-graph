@@ -113,6 +113,15 @@ jobs:
         run: cargo test --manifest-path crates/lance-graph-contract/Cargo.toml --tests
       - name: Run contract doctests
         run: cargo test --manifest-path crates/lance-graph-contract/Cargo.toml --doc
+      # weather-poc is workspace-EXCLUDED. A new workflow introduced by the
+      # same pull request cannot gate that pull request because `pull_request`
+      # workflow selection comes from the base branch. Run both surfaces here
+      # so D-WXS-4's zero-dep codec and its live NodeRow agreement are tested
+      # before merge, not one merge later.
+      - name: Run weather-poc tests (zero-dependency codec)
+        run: cargo test --manifest-path crates/weather-poc/Cargo.toml
+      - name: Run weather-poc canonical-row agreement tests
+        run: cargo test --manifest-path crates/weather-poc/Cargo.toml --features canonical-row
       # lance-graph-ogar is the workspace-EXCLUDED armed tier: it owns the
       # mirror<->live-vocab fuses (COUNT_FUSE, per-entry parity, the
       # authoritative-table roundtrip green light) against the OGAR sibling
