@@ -2,10 +2,18 @@
 //! `.claude/knowledge/s3-hydration-lifecycle.md` and measured (as the "§4
 //! gate") in `crates/lance-graph/examples/hydration_probe.rs`: a Lance
 //! dataset version read on an already-open handle is cheap relative to a
-//! full dataset open, so comparing the CURRENT local version against the
-//! version recorded at hydration time is a viable dirty check — never a
-//! content hash of the whole directory.
+//! full dataset open, so comparing the CURRENT local version against a
+//! caller-supplied prior version is a viable dirty check — never a content
+//! hash of the whole directory.
+//!
+//! **Correction (5+3 council, 2026-08-17):** neither this module nor
+//! anything else in the crate RECORDS a hydration version — `hydrate_dir`'s
+//! [`crate::copy::HydrationReport`] carries only object/byte counts. The
+//! caller obtains `hydrated_at_version` itself (typically: open the dataset
+//! once, right after hydrating, and keep its `version_id()`); this function
+//! only compares.
 
+use crate::lifecycle::LifecycleState;
 use lance::dataset::Dataset;
 use std::path::Path;
 use thiserror::Error;
@@ -19,9 +27,10 @@ pub enum DirtyCheckError {
 }
 
 /// True iff the LOCAL dataset at `local_path` has a version different from
-/// `hydrated_at_version` (the version recorded when the local copy was last
-/// known to match remote). Per `LifecycleState::can_flush`, a caller MUST
-/// treat `true` here as `LifecycleState::Dirty` and refuse to flush.
+/// `hydrated_at_version` (a version the CALLER obtained and is supplying —
+/// see the module doc; this crate does not track it). Per
+/// `LifecycleState::can_flush`, a caller MUST treat `true` here as
+/// `LifecycleState::Dirty` and refuse to flush.
 pub async fn is_dirty(
     local_path: &Path,
     hydrated_at_version: u64,
@@ -31,6 +40,25 @@ pub async fn is_dirty(
         .ok_or_else(|| DirtyCheckError::InvalidPath(local_path.to_path_buf()))?;
     let ds = Dataset::open(path_str).await?;
     Ok(ds.version_id() != hydrated_at_version)
+}
+
+/// [`is_dirty`], mapped onto [`LifecycleState`] (`Hydrated` or `Dirty` only —
+/// `Absent`/`Flushed` are determined by presence, not by this function).
+/// Closes the gap a 5+3 council found: `LifecycleState` appeared in no
+/// function signature anywhere in the crate, so its guards could only ever
+/// be consulted by a caller's own discipline, never actually produced by the
+/// crate's own dirty-check. This is additive — [`is_dirty`]'s simpler bool
+/// form is unchanged and still the right tool when a caller just wants the
+/// boolean.
+pub async fn lifecycle_of(
+    local_path: &Path,
+    hydrated_at_version: u64,
+) -> Result<LifecycleState, DirtyCheckError> {
+    Ok(if is_dirty(local_path, hydrated_at_version).await? {
+        LifecycleState::Dirty
+    } else {
+        LifecycleState::Hydrated
+    })
 }
 
 #[cfg(test)]
@@ -112,6 +140,50 @@ mod tests {
         assert!(
             is_dirty(&path, hydrated_at).await.expect("dirty check"),
             "a local append after hydration must be reported dirty"
+        );
+    }
+
+    #[tokio::test]
+    async fn lifecycle_of_maps_to_hydrated_and_dirty_correctly() {
+        let dir = tempfile::tempdir().expect("tempdir");
+        let path = dir.path().join("ds.lance");
+        let schema = schema();
+        let reader = RecordBatchIterator::new(vec![Ok(batch(&schema, 5))].into_iter(), schema.clone());
+        Dataset::write(
+            reader,
+            path.to_str().unwrap(),
+            Some(WriteParams {
+                mode: WriteMode::Create,
+                ..Default::default()
+            }),
+        )
+        .await
+        .expect("write v1");
+        let hydrated_at = Dataset::open(path.to_str().unwrap())
+            .await
+            .expect("open v1")
+            .version_id();
+
+        assert_eq!(
+            lifecycle_of(&path, hydrated_at).await.expect("lifecycle"),
+            LifecycleState::Hydrated
+        );
+
+        let reader2 = RecordBatchIterator::new(vec![Ok(batch(&schema, 1))].into_iter(), schema);
+        Dataset::write(
+            reader2,
+            path.to_str().unwrap(),
+            Some(WriteParams {
+                mode: WriteMode::Append,
+                ..Default::default()
+            }),
+        )
+        .await
+        .expect("append v2");
+
+        assert_eq!(
+            lifecycle_of(&path, hydrated_at).await.expect("lifecycle"),
+            LifecycleState::Dirty
         );
     }
 }

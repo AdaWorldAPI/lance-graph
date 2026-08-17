@@ -1,8 +1,17 @@
-//! The ONE shared reading of the S3/object-store environment for every
-//! hydration caller (mirrors `lance-graph`'s own `dev_s3_env.rs`, generalized
-//! off the same, already-Railway-compatible env var names, so a consumer
-//! that already sets these for `lance-graph` needs ZERO new configuration to
-//! use this crate).
+//! A reading of the S3/object-store environment for every hydration caller,
+//! deliberately parallel to (NOT the same code as) `crates/lance-graph/src/
+//! dev_s3_env.rs` — this crate intentionally does not depend on `lance-graph`
+//! (that would drag the whole datafusion/arrow spine into a 1050-LOC
+//! primitive), so the reader is duplicated rather than shared.
+//!
+//! **This re-creates the exact drift risk `dev_s3_env.rs` was minted to close**
+//! (a CodeRabbit finding on PR #907: "one shared helper removes the drift
+//! risk between the write path and the verification path") — one crate
+//! boundary out. Named here rather than silently accepted: a change to
+//! quote-stripping or the option-map shape in EITHER file must be mirrored in
+//! the other by hand until a follow-up moves `dev_s3_env` to re-export FROM
+//! this leaf crate instead (the correct long-term direction — lance-graph
+//! depending on its own primitive crate — not done in this PR).
 //!
 //! KEY NAMES here are universal (`AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`,
 //! `AWS_ENDPOINT_URL`, `AWS_DEFAULT_REGION`, `AWS_S3_BUCKET_NAME`) — the same
@@ -21,9 +30,9 @@ pub fn env(k: &str) -> Option<String> {
 }
 
 /// The resolved object-store endpoint a hydration call targets. Built once
-/// from the environment (`from_env`) so every caller in a process reads the
-/// same variables the same way — the drift risk `dev_s3_env.rs` was written
-/// to close, generalized past one crate.
+/// from the environment (`from_env`) so every caller of THIS crate reads the
+/// same variables the same way (the drift risk across crates is named in the
+/// module doc above, not eliminated by this type).
 #[derive(Debug, Clone)]
 pub struct HydrationSource {
     pub bucket: String,
@@ -80,6 +89,8 @@ mod tests {
 
     #[test]
     fn env_treats_empty_as_absent() {
+        // SAFETY: single-threaded test process section (nextest isolates
+        // this test's process), no other test reads this exact key.
         unsafe { std::env::set_var("LGH_ENV_TEST_EMPTY", "") };
         assert_eq!(env("LGH_ENV_TEST_EMPTY"), None);
         unsafe { std::env::remove_var("LGH_ENV_TEST_EMPTY") };
@@ -90,18 +101,34 @@ mod tests {
         assert_eq!(env("LGH_ENV_TEST_DOES_NOT_EXIST_XYZ"), None);
     }
 
+    /// A genuine falsifier: actually calls `from_env`, over a real required
+    /// key temporarily removed. The prior version of this test never called
+    /// `from_env` at all (it asserted `env()` on a key nothing sets) and so
+    /// could not fail on any input — caught by this repo's own falsifiability
+    /// rule during a 5+3 hardening council on this crate (2026-08-17).
+    /// Restores the original value (or its absence) afterward so a real
+    /// deployment's credentials are never left removed for this test process.
     #[test]
     fn from_env_is_none_when_a_required_var_is_missing() {
-        // SAFETY: this test claims exclusive use of the LGH_TEST_SRC_* keys;
-        // nextest's one-process-per-test isolation makes the mutation sound.
-        unsafe {
-            std::env::remove_var("LGH_TEST_SRC_AWS_ACCESS_KEY_ID");
+        const KEY: &str = "AWS_ACCESS_KEY_ID";
+        let original = std::env::var(KEY).ok();
+
+        // SAFETY: nextest's one-process-per-test isolation makes mutating a
+        // real `AWS_*` var sound for the duration of this test; the value is
+        // restored (or left removed, matching the original state) before the
+        // process is reused for anything else.
+        unsafe { std::env::remove_var(KEY) };
+        let result = HydrationSource::from_env();
+
+        match original {
+            Some(v) => unsafe { std::env::set_var(KEY, v) },
+            None => unsafe { std::env::remove_var(KEY) },
         }
-        // Deliberately does NOT read real AWS_* vars: uses a namespaced
-        // stand-in check on the underlying `env()` helper instead, since
-        // `from_env` reads the literal `AWS_*` names process-wide and this
-        // test's process may carry real deployment credentials.
-        assert_eq!(env("LGH_TEST_SRC_AWS_ACCESS_KEY_ID"), None);
+
+        assert!(
+            result.is_none(),
+            "from_env() must be None when a required var is missing, got {result:?}"
+        );
     }
 
     #[test]

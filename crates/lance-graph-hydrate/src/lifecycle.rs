@@ -1,8 +1,17 @@
 //! The four-state hydration lifecycle from
 //! `.claude/knowledge/s3-hydration-lifecycle.md`: `Absent -> Hydrated ->
 //! {Dirty | Flushed}`, with the single hard rule the doctrine names —
-//! **flush only from Hydrated, never Dirty** — encoded as a transition
-//! guard rather than left to caller discipline.
+//! **flush only from Hydrated, never Dirty**.
+//!
+//! **Honest scope (corrected during a 5+3 hardening council, 2026-08-17):**
+//! this type is a *checkable predicate a caller consults*, not a type-level
+//! enforcement mechanism — no function anywhere in this crate takes or
+//! returns a `LifecycleState`, so nothing forces a caller to check
+//! `can_flush()` before flushing. It becomes load-bearing at the type level
+//! once a real flush API exists to route through it (none is shipped yet;
+//! `Flushed` is reachable only through that future API — a deliberate
+//! forward surface, stated rather than silently unreferenced). Until then,
+//! read this as documentation with a testable shape, not a guard rail.
 
 /// Where a local artifact stands relative to its remote (object-store) copy.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
