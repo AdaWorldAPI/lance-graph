@@ -1,3 +1,58 @@
+## 2026-08-17 — branch `claude/lance-graph-hydrate-hardening-council` — 5+3 council hardens `lance-graph-hydrate` (merged PR #957); corrects 3 claims made in the entry below
+
+**Council record:** `.claude/plans/hydrate-crate-hardening-council-v1.md` —
+5 savants (26 distinct findings) → consolidated draft v2 (20 decisions) → 3
+reviewers (zero BLOCK, 6 FIX) → this follow-up PR. Run AFTER #957 merged
+(the merge landed mid-council, before Phase 4); this is therefore a
+fast-follow, not an amendment to the merged PR.
+
+**Three claims in the entry below were WRONG and are corrected here (the
+entry itself is left unedited per the append-only rule — this is the
+correction, not an edit):**
+
+1. `LifecycleState::can_flush` was claimed "encoded as a transition guard,
+   not caller discipline." **False** — no function anywhere in the crate
+   took or returned a `LifecycleState`; it was a checkable predicate a
+   caller could ignore entirely. Now: `dirty::lifecycle_of()` exists and
+   actually produces a `LifecycleState`, closing the gap the original
+   claim asserted was already closed; the doc language is corrected to
+   match what's true.
+2. `dirty::is_dirty` was claimed to compare against "the version recorded
+   at hydration time." **False** — nothing in the crate ever recorded a
+   hydration version; `hydrated_at_version` was, and remains, entirely
+   caller-supplied. Doc corrected to say so plainly.
+3. The idempotency boundary was described as having "the" (singular)
+   condition, collapsing the doctrine's two conditions into one. Corrected
+   to name both: (b) empty/uncontested destination is enforced by this
+   crate; (a) pinned source version is structurally the CALLER's
+   responsibility (or, for the single-file case, IS the SHA-256 pin).
+
+**Real defects found and fixed, not merely doc corrections:** a
+within-process staging-nonce collision (`pid+nanos` alone can repeat within
+one clock tick — `staging.rs`, new shared `staging_suffix()`); every
+fetch-phase I/O error leaked its staging directory/file (now cleaned up on
+every path); an `Ok`-path cleanup failure could silently falsify the
+"leaves nothing" postcondition (now propagates); `hydrate_file`'s
+entry-only existence check left the actual danger case — a file-onto-file
+rename SILENTLY CLOBBERING an existing destination — completely unguarded
+(now re-checked immediately before the rename, not only handled on the
+rename's `Err` branch); `release_dir` could structurally never return `Err`,
+making its own missing-directory test vacuous by this repo's own
+falsifiability rule (now returns `Err` on a genuinely unreadable root,
+`Ok(0)` only for `NotFound`); the warm-marker's 2-bare-integer format had no
+version tag and permissive arity (now `v1 <mtime> <len>`, exact 3-token,
+both a legacy-shaped and a future-wider line refused).
+
+**Also corrected:** `copy.rs`'s module doc overclaimed that the
+hydrate-aside/publish-by-rename mechanism was "generalized from
+`hydration_probe.rs`'s proven mechanism" — that probe has no staging step
+at all; only the raw byte-copy property is inherited from it, and the doc
+now says so.
+
+Full per-decision ledger (C1-C20) and per-finding evidence (F1-F26): see
+the council plan file. No code outside `crates/lance-graph-hydrate/` was
+touched.
+
 ## 2026-08-17 — branch `claude/q2-osm-map-reencoding-56p5e2` — `lance-graph-hydrate`: the generic SoA→S3→volume→Lance hydration crate (closes the named gap)
 
 > **Minted here, not in OGAR** (operator directive): "OGAR is only the intermediary who should help to inherit the pattern as a plug and play pattern; however the pattern itself should be minted in lance-graph already." OGAR (and q2, and any future consumer) is meant to depend on this crate as a path/git dependency, never re-implement it.

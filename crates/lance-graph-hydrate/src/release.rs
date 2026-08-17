@@ -7,10 +7,16 @@
 //! deliberately out of scope here (a caller wanting eviction-by-deletion
 //! should reason about `LifecycleState::can_release` first, then delete via
 //! ordinary filesystem calls).
+//!
+//! **Safe on an in-flight [`crate::copy::hydrate_dir`] staging directory**
+//! (a caller releasing a parent directory will touch `.hydrating-*`
+//! siblings): `POSIX_FADV_DONTNEED` only drops clean page-cache pages, so it
+//! cannot corrupt or lose a concurrent write in progress. Expected, not an
+//! error, if it happens.
 
 use std::fs;
 use std::io;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
 /// Advises the kernel that the given open file's pages are no longer needed
 /// in the page cache. A no-op hint — `POSIX_FADV_DONTNEED` can only be
@@ -30,37 +36,76 @@ fn advise_dontneed_file(f: &fs::File) {
     }
 }
 
+/// unix: open the file and advise DONTNEED; only counts on successful open
+/// (matches the prior behavior this council hardened).
+#[cfg(unix)]
+fn release_one_file(path: &Path) -> bool {
+    if let Ok(f) = fs::File::open(path) {
+        advise_dontneed_file(&f);
+        true
+    } else {
+        false
+    }
+}
+
+/// non-unix: there is no portable fadvise equivalent, so opening the file
+/// would be pure syscall cost for zero benefit — a council-found waste
+/// (2026-08-17). Count the entry without opening it.
 #[cfg(not(unix))]
-fn advise_dontneed_file(_f: &fs::File) {
-    // No-op on non-unix platforms — there is no portable fadvise equivalent,
-    // and declining the hint is always a safe fallback (see cross-platform.md).
+fn release_one_file(_path: &Path) -> bool {
+    true
 }
 
 /// Walks `dir` and advises DONTNEED for every regular file under it. Returns
-/// the number of files the hint was attempted on (not a success count — the
-/// hint has no observable success/failure signal by design).
+/// the number of files the hint was attempted on (not a success count on
+/// unix — the hint itself has no observable success/failure signal by
+/// design; only the `File::open` that precedes it can fail, and does not
+/// count when it does).
+///
+/// **Error surface (5+3 council correction, 2026-08-17):** a missing `dir`
+/// is `Ok(0)` — a legitimate state (nothing to release), not an error. Any
+/// OTHER failure reading `dir` itself (permission denied, `dir` is actually
+/// a file, …) now propagates as `Err` — the prior version swallowed every
+/// failure uniformly, making `Ok(0)` ambiguous between "genuinely empty" and
+/// "couldn't even read the tree." A nested subdirectory disappearing or
+/// becoming unreadable MID-WALK still degrades to skip-and-continue (a
+/// legitimate race to tolerate, unlike the root itself being unreadable).
 pub fn release_dir(dir: &Path) -> io::Result<usize> {
+    let root_entries = match fs::read_dir(dir) {
+        Ok(rd) => rd,
+        Err(e) if e.kind() == io::ErrorKind::NotFound => return Ok(0),
+        Err(e) => return Err(e),
+    };
+
     let mut count = 0usize;
-    let mut stack = vec![dir.to_path_buf()];
+    let mut stack: Vec<PathBuf> = Vec::new();
+    visit(root_entries, &mut stack, &mut count);
+
     while let Some(d) = stack.pop() {
+        // Nested-directory read failures are tolerated (a legitimate race —
+        // see the doc comment above); only the ROOT's own read_dir, handled
+        // above, is treated as a caller-facing error.
         let Ok(read_dir) = fs::read_dir(&d) else {
             continue;
         };
-        for entry in read_dir.flatten() {
-            let Ok(file_type) = entry.file_type() else {
-                continue;
-            };
-            if file_type.is_dir() {
-                stack.push(entry.path());
-                continue;
-            }
-            if let Ok(f) = fs::File::open(entry.path()) {
-                advise_dontneed_file(&f);
-                count += 1;
-            }
-        }
+        visit(read_dir, &mut stack, &mut count);
     }
     Ok(count)
+}
+
+fn visit(read_dir: fs::ReadDir, stack: &mut Vec<PathBuf>, count: &mut usize) {
+    for entry in read_dir.flatten() {
+        let Ok(file_type) = entry.file_type() else {
+            continue;
+        };
+        if file_type.is_dir() {
+            stack.push(entry.path());
+            continue;
+        }
+        if release_one_file(&entry.path()) {
+            *count += 1;
+        }
+    }
 }
 
 #[cfg(test)]
@@ -95,5 +140,26 @@ mod tests {
         let missing = dir.path().join("does-not-exist");
         let count = release_dir(&missing).expect("release of missing dir");
         assert_eq!(count, 0);
+    }
+
+    /// The two-sided pair the missing-directory test above needed (a council
+    /// finding, 2026-08-17): before this fix `release_dir` could NEVER
+    /// return `Err`, so the missing-directory test above could not
+    /// distinguish "correctly handles absence" from "swallows every
+    /// failure." This proves the function CAN fail on a real, different
+    /// kind of unreadable root.
+    #[test]
+    fn release_dir_on_a_path_that_is_a_file_not_a_directory_is_an_error() {
+        let dir = tempfile::tempdir().expect("tempdir");
+        let file_path = dir.path().join("not-a-directory.txt");
+        fs::write(&file_path, b"x").expect("write");
+
+        let err = release_dir(&file_path)
+            .expect_err("a file path is not a missing directory and must error");
+        assert_ne!(
+            err.kind(),
+            io::ErrorKind::NotFound,
+            "must be a real read_dir failure, not silently mapped to the missing-dir case"
+        );
     }
 }

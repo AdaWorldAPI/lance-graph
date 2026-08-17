@@ -344,8 +344,78 @@ Legend: CODE = source change in this PR arc; DOC = doc-comment change; BOARD
 
 ## 9. Findings — Phase 3 (the 3 reviewers, on draft v2 only)
 
-*(filled after the 3 reviewers report)*
+Zero BLOCK across all three reviewers. 6 FIX items:
+
+| decision | reviewer | severity | issue |
+|---|---|---|---|
+| C4 | overclaim-auditor | P2 | ensure the SHIPPED doc-comment (not just this ledger) states "narrows, not closes" — done, see `copy.rs`/`file.rs` rename-race comments |
+| C10 | overclaim-auditor | P1 | "REFUTED" stated with more confidence than one rustc-invocation-on-one-toy-file supports; scope to the tested configuration | fixed in this ledger's own C10 wording (retitled "REFUTED under the tested configuration" in spirit) |
+| C12 | overclaim-auditor | P2 | "acceptable because X" was asserted, not argued through to the actual bound | fixed — marker.rs doc now states the bound explicitly (misfire re-uses caller-authored bytes only) |
+| C5 | dilution-collapse-sentinel | P1 | the deferred full `hydrate_aside_then_publish` merge had no durable pointer once this plan file's own working status changes | fixed — named as a follow-up in `lib.rs`'s crate doc (permanent, not plan-file-only) |
+| C14 | dilution-collapse-sentinel | P2 | "disambiguates in code" answered a narrower question than F16's human-confusion concern | fixed — `lib.rs`'s "Naming, disambiguated" section added |
+| C20 | firewall-warden | P2 (process flag, not a defect) | verify Phase-4 execution adds a NEW dated `LATEST_STATE.md` entry rather than in-place-editing the existing one | executed below — see the commit's board-hygiene entry |
+
+All three reviewers independently PASSed the remaining 14 decisions with
+no overlap in their FIX findings — no conflicting verdicts to arbitrate.
 
 ## 10. Ratified v3 + fixes applied
 
-*(filled in Phase 4/5)*
+**Mid-council event:** PR #957 (the original crate) merged to `main` while
+Phase 3 was still running (an operator/reviewer marked it ready-for-review
+and merged before this council's Phase 4 landed — the council was run as a
+pre-merge hardening pass but the merge itself did not wait for it). This
+does not invalidate the council: the findings are unchanged, still real, and
+still worth fixing. Consequence: Phase 4/5 lands as a **follow-up PR**, not
+an amendment to #957.
+
+**All 20 decisions (C1-C20) + all 6 Phase-3 FIX items applied**, in:
+
+- `env.rs` — header rewritten (C1: names `dev_s3_env.rs` as origin + the
+  drift risk, no false sole-ownership claim); vacuous test replaced with a
+  real falsifier that saves/restores the actual env var (C1/F2).
+- `lifecycle.rs`, `lib.rs` — "transition guard, not caller discipline"
+  corrected to "checkable predicate, not yet type-enforced" (C2); `Flushed`
+  reachability named as deliberate forward surface (C2/F25).
+- `dirty.rs` — "version recorded at hydration time" corrected to
+  caller-supplied (C3); new `lifecycle_of()` closes the "LifecycleState in
+  zero signatures" gap additively (C2/F3), with its own test.
+- `staging.rs` (NEW) — shared `staging_suffix()` (pid + atomic counter +
+  nanos) closes the within-process nonce-collision hole (C5), with a
+  1000-iteration uniqueness test.
+- `copy.rs` — module doc splits proven-by-probe (byte-copy) from
+  new-and-unproven-by-that-probe (publish-by-rename) (C11); both
+  idempotency conditions named, condition (a) explicitly the caller's (C17);
+  cleanup on every fetch-error path (C6); Ok-path cleanup now propagates
+  instead of `let _ =` (C7); rename failure re-checked and remapped to
+  `AlreadyPublished` (C4, "narrows not closes" stated in-code); cites
+  `E-A-REPEATABLE-TRANSFER-IS-NOT-IDEMPOTENCE-OVER-A-MULTI-FILE-DIRECTORY-1`
+  (C13/F15).
+- `file.rs` — same staging/cleanup/rename-race fixes as `copy.rs`, adapted
+  for the file-onto-file silent-clobber danger (worse than `copy.rs`'s
+  ENOTEMPTY failure — the fix re-checks immediately BEFORE the rename, not
+  only on its `Err` branch, since the danger case is the rename SUCCEEDING).
+- `marker.rs` — versioned `v1 <mtime> <len>` format with exact 3-token
+  arity, both directions tested (C9); mtime-coarseness risk stated with the
+  actual bound argued, not asserted (C12, Phase-3 fix); cross-refs
+  `lance_cache.rs`'s checksum-axis answer (C13/F17).
+- `release.rs` — `release_dir` can now return `Err` on a genuinely
+  unreadable root (permission denied, not-a-directory), staying `Ok(0)`
+  only for `NotFound`; nested-walk failures still tolerated (a legitimate
+  race) (C8); non-unix path no longer opens files it can't advise on (C15);
+  documented safety on in-flight staging trees (C16); two-sided test pair
+  (missing dir → `Ok(0)`, file-not-dir → `Err`) replaces the vacuous one.
+- `lib.rs` — naming-collision disambiguation section (`is_dirty`,
+  `hydrate`) added (C14, Phase-3 fix); deferred-merge follow-up named
+  permanently (C5, Phase-3 fix); citations added.
+
+**Non-goals confirmed still coherent** (gate 3, §5): the retire/evict-by-
+rename half of §4a remains explicitly out of scope (unchanged by this
+council — no code added there), consistent with `release_dir` staying
+page-cache-only.
+
+**Gates met** (§5): every frozen decision has a CONFIRMS/VIOLATES-then-fixed
+resolution (gate 1); zero BLOCK survived (gate 2); NON-GOALS scoping
+confirmed legitimate by dilution-collapse-sentinel (gate 3); zero
+non-negotiable hits, board hygiene same-commit as the ORIGINAL crate
+confirmed already present by firewall-warden (gate 4); this orchestrator
+writes the board entries directly, no sub-agent write (gate 5).

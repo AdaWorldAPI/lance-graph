@@ -24,19 +24,39 @@
 //!   hydration-frequency optimization, never a correctness requirement.
 //! - **Four states**: [`LifecycleState::Absent`] → [`LifecycleState::Hydrated`]
 //!   → ([`LifecycleState::Dirty`] | [`LifecycleState::Flushed`]). The one hard
-//!   rule: **flush only from Hydrated, never Dirty** —
-//!   [`LifecycleState::can_flush`] encodes it as a guard, not caller
-//!   discipline.
+//!   rule: **flush only from Hydrated, never Dirty** — see
+//!   [`LifecycleState`]'s own doc for the honest scope of what
+//!   [`LifecycleState::can_flush`] actually enforces today (a checkable
+//!   predicate, not yet wired into any flush API).
 //! - **Hydrate-aside, publish-by-rename**: fetch to a private staging
 //!   directory, then ONE atomic rename publishes ([`copy::hydrate_dir`],
 //!   [`file::hydrate_file`]) — a filesystem-atomicity boundary, deliberately
-//!   not a lock/lease protocol.
+//!   not a lock/lease protocol. This exact mechanism (incl. the three named
+//!   corruption modes it prevents) is already stated in this repo's own
+//!   `EPIPHANIES.md`
+//!   (`E-A-REPEATABLE-TRANSFER-IS-NOT-IDEMPOTENCE-OVER-A-MULTI-FILE-DIRECTORY-1`)
+//!   — cited here rather than restated as if new.
 //! - **Hydration is a byte copy**, never a Dataset scan-and-rewrite (which
 //!   silently drops deletion vectors, indexes, and multi-version history) —
 //!   proven in this repo's own `crates/lance-graph/examples/hydration_probe.rs`.
+//!   That probe proves the byte-copy half; the staging/publish-by-rename
+//!   mechanism itself is new code in this crate (see [`copy`]'s module doc).
 //! - **Warm-marker skip-rehash** ([`marker::WarmMarker`]) and **idle release**
 //!   ([`release::release_dir`]) are both q2's own inventions, generalized
 //!   here — not present anywhere in lance-graph's doctrine before this crate.
+//!   A checksum-axis answer to the same "is my local copy still valid?"
+//!   question already exists at `lance-graph-ontology/src/lance_cache.rs`
+//!   (`ttl_root_checksum`) — a different axis, not a duplicate.
+//!
+//! # Naming, disambiguated
+//!
+//! Two names in this crate already mean something else elsewhere in the
+//! workspace — noted so a workspace-wide search doesn't land on the wrong
+//! definition: [`dirty::is_dirty`] is unrelated to
+//! `lance-graph-cognitive`'s `ContainerCache` per-slot dirty bitmap (also
+//! named `is_dirty`); this crate's "hydrate" (remote → local) is the
+//! opposite direction from `lance_graph::graph::hydrate::hydrate_bgz7`
+//! (local weights → LanceDB ingest).
 //!
 //! # What this crate deliberately does NOT do
 //!
@@ -44,7 +64,13 @@
 //! policy from `.claude/plans/idle-flush-dataset-eviction-v1.md` — that plan
 //! is still a PROPOSAL. This crate ships the mechanisms the policy would
 //! call (hydrate, dirty-check, flush-gate, release); the scheduling policy
-//! is deliberately out of scope for v1.
+//! is deliberately out of scope for v1. It also does not merge
+//! [`copy::hydrate_dir`] and [`file::hydrate_file`]'s near-identical
+//! staging/publish bodies into one shared primitive beyond the shared nonce
+//! helper (`staging::staging_suffix`) — a 5+3 hardening council on this
+//! crate (2026-08-17) named that merge as worth considering but explicitly
+//! deferred it to keep this PR's diff to the uniqueness fix it actually
+//! needed; tracked as a named follow-up, not silently dropped.
 
 pub mod copy;
 pub mod dirty;
@@ -53,9 +79,10 @@ pub mod file;
 pub mod lifecycle;
 pub mod marker;
 pub mod release;
+mod staging;
 
 pub use copy::{hydrate_dir, HydrateError, HydrationReport};
-pub use dirty::{is_dirty, DirtyCheckError};
+pub use dirty::{is_dirty, lifecycle_of, DirtyCheckError};
 pub use env::{env as env_var, HydrationSource};
 pub use file::{hydrate_file, HydrateFileError};
 pub use lifecycle::LifecycleState;

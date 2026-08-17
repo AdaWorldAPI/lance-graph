@@ -1,10 +1,17 @@
 //! Single-file hydration: checksum-pinned download with the same
-//! hydrate-aside/publish-by-rename discipline as [`crate::copy::hydrate_dir`],
-//! generalized from q2's `osm_slab_hydrate.rs::download_verified` (the
-//! `.part` + atomic-rename sidecar pattern for one artifact rather than a
+//! hydrate-aside/publish-by-rename discipline as [`crate::copy::hydrate_dir`]
+//! (see that module's doc for the mechanism's doctrine citation and
+//! provenance), generalized from q2's `osm_slab_hydrate.rs::download_verified`
+//! (the `.part` + atomic-rename sidecar pattern for one artifact rather than a
 //! whole Lance directory — e.g. a `SHA256SUMS` manifest, a single baked
 //! `.soa`/`.chains`/`.books` sidecar).
+//!
+//! The SHA-256 pin passed here IS the doctrine's idempotency-boundary
+//! condition (a) (a pinned source version) for the single-file case —
+//! [`crate::copy::hydrate_dir`] has no equivalent and names condition (a) as
+//! the caller's responsibility instead.
 
+use crate::staging::staging_suffix;
 use futures::TryStreamExt;
 use object_store::{path::Path as ObjPath, ObjectStore};
 use sha2::{Digest, Sha256};
@@ -45,22 +52,21 @@ pub async fn hydrate_file(
     let parent = publish_path.parent().unwrap_or_else(|| FsPath::new("."));
     tokio::fs::create_dir_all(parent).await?;
 
-    let nonce = std::time::SystemTime::now()
-        .duration_since(std::time::UNIX_EPOCH)
-        .unwrap_or_default()
-        .as_nanos();
     let part_path = parent.join(format!(
-        "{}.part-{}-{nonce}",
+        "{}.part-{}",
         publish_path
             .file_name()
             .and_then(|n| n.to_str())
             .unwrap_or("artifact"),
-        std::process::id(),
+        staging_suffix(),
     ));
 
-    let mut hasher = Sha256::new();
-    let mut file = tokio::fs::File::create(&part_path).await?;
-    {
+    // Every path from here on cleans up `part_path` before returning — a
+    // 5+3 council found the fetch/write I/O-error path (as opposed to the
+    // already-handled checksum-mismatch path) leaked it (2026-08-17).
+    let fetch_result: Result<Sha256, HydrateFileError> = async {
+        let mut hasher = Sha256::new();
+        let mut file = tokio::fs::File::create(&part_path).await?;
         use tokio::io::AsyncWriteExt;
         let get_result = store.get(remote_object).await?;
         let mut stream = get_result.into_stream();
@@ -69,7 +75,17 @@ pub async fn hydrate_file(
             file.write_all(&chunk).await?;
         }
         file.flush().await?;
+        Ok(hasher)
     }
+    .await;
+
+    let hasher = match fetch_result {
+        Ok(h) => h,
+        Err(e) => {
+            let _ = tokio::fs::remove_file(&part_path).await;
+            return Err(e);
+        }
+    };
 
     let actual = hex_lower(&hasher.finalize());
     if !actual.eq_ignore_ascii_case(expected_sha256_hex) {
@@ -80,7 +96,26 @@ pub async fn hydrate_file(
         });
     }
 
-    tokio::fs::rename(&part_path, publish_path).await?;
+    // Re-assert immediately before the rename: unlike `hydrate_dir`'s
+    // dir-onto-dir rename (which fails loudly, ENOTEMPTY, on a race), a
+    // file-onto-file `rename` on POSIX SILENTLY CLOBBERS an existing
+    // destination rather than failing — so the danger case is exactly the
+    // one where the rename would otherwise SUCCEED, not where it errors.
+    // This narrows (does not eliminate) the TOCTOU window between the entry
+    // check and here; see `copy::hydrate_dir`'s doc for the same caveat
+    // stated once (a council found the entry-only check here left this race
+    // completely unguarded, 2026-08-17).
+    if publish_path.exists() {
+        let _ = tokio::fs::remove_file(&part_path).await;
+        return Err(HydrateFileError::AlreadyPublished(
+            publish_path.to_path_buf(),
+        ));
+    }
+
+    if let Err(e) = tokio::fs::rename(&part_path, publish_path).await {
+        let _ = tokio::fs::remove_file(&part_path).await;
+        return Err(e.into());
+    }
     Ok(())
 }
 

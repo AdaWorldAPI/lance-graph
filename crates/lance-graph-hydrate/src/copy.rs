@@ -1,18 +1,36 @@
-//! The `absent -> hydrated` edge: a raw, byte-for-byte object-store copy,
-//! generalized from this repo's own `crates/lance-graph/examples/
-//! hydration_probe.rs` (which measured and proved this shape correct against
-//! the doctrine's T10 gate — see that file's module doc for the full
-//! reasoning). Never a `Dataset` scan-and-rewrite: that silently drops
-//! deletion vectors, indexes, and multi-version history.
+//! The `absent -> hydrated` edge: a raw, byte-for-byte object-store copy.
+//!
+//! **Provenance, split honestly (5+3 council correction, 2026-08-17):** the
+//! byte-copy — never a `Dataset` scan-and-rewrite, which silently drops
+//! deletion vectors, indexes, and multi-version history — is inherited from
+//! and proven by this repo's own `crates/lance-graph/examples/
+//! hydration_probe.rs` (its T10 gate). **The hydrate-aside/publish-by-rename
+//! mechanism below is NOT from that probe** — the probe writes directly into
+//! its target with no staging step at all. That mechanism is new code,
+//! implementing the doctrine's §4a for the first time, proven only by this
+//! crate's own tests.
 //!
 //! Publication follows the doctrine's **hydrate-aside, publish-by-rename**
-//! mechanism: objects land in a private sibling staging directory first, then
-//! ONE atomic directory rename publishes the complete artifact. A caller
-//! observing the publish path therefore either sees nothing (not yet
-//! hydrated) or the complete artifact (hydrated) — never a partial one. This
-//! is a filesystem-atomicity boundary, deliberately NOT a lock/lease
-//! protocol.
+//! mechanism (`.claude/knowledge/s3-hydration-lifecycle.md` §4a; already
+//! stated in `EPIPHANIES.md`
+//! `E-A-REPEATABLE-TRANSFER-IS-NOT-IDEMPOTENCE-OVER-A-MULTI-FILE-DIRECTORY-1`,
+//! cited rather than restated as new): objects land in a private sibling
+//! staging directory first, then ONE atomic directory rename publishes the
+//! complete artifact. A caller observing the publish path therefore either
+//! sees nothing (not yet hydrated) or the complete artifact (hydrated) —
+//! never a partial one. This is a filesystem-atomicity boundary, deliberately
+//! NOT a lock/lease protocol.
+//!
+//! **The idempotency boundary has TWO conditions, not one** (doctrine §4a):
+//! (a) a pinned source version and (b) an empty/uncontested destination.
+//! This function enforces (b) (the `AlreadyPublished` refusal, including at
+//! rename time, not only at entry). Condition (a) is structurally the
+//! CALLER's: this function copies whatever exists under `remote_root` at
+//! call time and has no way to know whether that reflects one stable source
+//! snapshot or an in-flux one. (For the single-object case,
+//! [`crate::file::hydrate_file`]'s checksum pin IS condition (a).)
 
+use crate::staging::staging_suffix;
 use futures::TryStreamExt;
 use object_store::{path::Path as ObjPath, ObjectStore};
 use std::path::{Path as FsPath, PathBuf};
@@ -60,17 +78,57 @@ pub async fn hydrate_dir(
     let parent = publish_dir.parent().unwrap_or_else(|| FsPath::new("."));
     tokio::fs::create_dir_all(parent).await?;
 
-    let nonce = std::time::SystemTime::now()
-        .duration_since(std::time::UNIX_EPOCH)
-        .unwrap_or_default()
-        .as_nanos();
     let leaf = publish_dir
         .file_name()
         .and_then(|n| n.to_str())
         .unwrap_or("artifact");
-    let staging = parent.join(format!(".hydrating-{}-{leaf}-{nonce}", std::process::id()));
+    let staging = parent.join(format!(".hydrating-{leaf}-{}", staging_suffix()));
     tokio::fs::create_dir_all(&staging).await?;
 
+    // Every path from here on cleans up `staging` before returning — a
+    // 5+3 council found every prior error path here leaked it (2026-08-17).
+    let report = match fetch_all(store, remote_root, &staging).await {
+        Ok(r) => r,
+        Err(e) => {
+            let _ = tokio::fs::remove_dir_all(&staging).await;
+            return Err(e);
+        }
+    };
+
+    if report.objects_copied == 0 {
+        // On the Ok path: a cleanup failure here must NOT be swallowed — an
+        // `Ok` return promises "leaves NOTHING at publish_dir", and silently
+        // discarding this error would let that promise be false (a council
+        // finding, 2026-08-17).
+        tokio::fs::remove_dir_all(&staging).await?;
+        return Ok(report);
+    }
+
+    if let Err(e) = tokio::fs::rename(&staging, publish_dir).await {
+        // A concurrent hydrate_dir call may have published between our entry
+        // check and this rename. `rename` onto an existing non-empty
+        // directory fails (ENOTEMPTY) — remap that specific race to the
+        // documented `AlreadyPublished` contract instead of leaking it as an
+        // opaque `Io` error. This NARROWS the TOCTOU window (checked at
+        // entry AND at rename) — it does not CLOSE it: a publish landing in
+        // the instant between this re-check and returning is still
+        // (vanishingly) possible. No lock is taken (doctrine: filesystem-
+        // atomicity boundary, not a coordination protocol).
+        let _ = tokio::fs::remove_dir_all(&staging).await;
+        return if publish_dir.exists() {
+            Err(HydrateError::AlreadyPublished(publish_dir.to_path_buf()))
+        } else {
+            Err(e.into())
+        };
+    }
+    Ok(report)
+}
+
+async fn fetch_all(
+    store: &dyn ObjectStore,
+    remote_root: &ObjPath,
+    staging: &FsPath,
+) -> Result<HydrationReport, HydrateError> {
     let prefix = format!("{remote_root}/");
     let mut report = HydrationReport::default();
     let mut objects = store.list(Some(remote_root));
@@ -90,13 +148,6 @@ pub async fn hydrate_dir(
         report.objects_copied += 1;
         report.bytes_copied += bytes.len() as u64;
     }
-
-    if report.objects_copied == 0 {
-        let _ = tokio::fs::remove_dir_all(&staging).await;
-        return Ok(report);
-    }
-
-    tokio::fs::rename(&staging, publish_dir).await?;
     Ok(report)
 }
 

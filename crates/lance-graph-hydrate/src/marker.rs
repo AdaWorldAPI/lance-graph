@@ -10,6 +10,23 @@
 //! This is a PERFORMANCE optimization, not a correctness mechanism — if the
 //! marker is stale or missing, the caller falls back to a real re-verify
 //! (never to "assume trusted").
+//!
+//! **Known limitation, stated rather than hidden (5+3 council, 2026-08-17):**
+//! on a coarse-mtime filesystem (FAT32 ~2s granularity; some ext3 mounts), a
+//! second write of IDENTICAL LENGTH landing within one mtime tick of the
+//! marked write produces the same [`StatIdentity`], so [`WarmMarker::
+//! is_trusted`] can wrongly report trust. The failure direction is FALSE
+//! TRUST, not false distrust — worth stating precisely. **Why this is
+//! acceptable for what this marker actually guards:** a misfire skips one
+//! re-verification of content the CALLER ITSELF just wrote and published (a
+//! skip-rehash optimization over the caller's own recent output), not a
+//! trust decision over third-party or attacker-supplied bytes — the bound on
+//! a false-trust misfire is "the caller re-uses what it just wrote a moment
+//! ago without checking again," not "the caller trusts content it never
+//! produced." Revisit if a future caller ever uses this marker to guard
+//! externally-supplied content: add a content-hash field then, not before —
+//! see `lance-graph-ontology/src/lance_cache.rs`'s `ttl_root_checksum` for
+//! the checksum-axis answer to the same underlying question.
 
 use std::fs;
 use std::io;
@@ -46,26 +63,46 @@ pub struct WarmMarker {
     pub identity: StatIdentity,
 }
 
+/// The marker line format's version tag. A 5+3 council (2026-08-17) found
+/// the original two-bare-integers format had no version tag and `read`
+/// ignored trailing tokens — a permissive arity (the exact `>= N` shape this
+/// workspace's CLAUDE.md falsifiability rule warns on) that would silently
+/// misparse a future wider format instead of refusing it. Zero shipped
+/// consumers existed at the time, so this is a clean fix, not a migration.
+const MARKER_FORMAT_TAG: &str = "v1";
+
 impl WarmMarker {
     /// Writes a marker recording `identity` at `marker_path`. The format is
-    /// a single line, `<mtime_nanos> <len>` — deliberately not a serde
-    /// format, since this crate has no serde dependency and the shape never
-    /// needs to be anything but two integers.
+    /// a single versioned line, `v1 <mtime_nanos> <len>` — deliberately not a
+    /// serde format, since this crate has no serde dependency and the shape
+    /// never needs to be anything but a tag and two integers.
     pub fn write(marker_path: &Path, identity: StatIdentity) -> io::Result<()> {
         fs::write(
             marker_path,
-            format!("{} {}\n", identity.mtime_nanos, identity.len),
+            format!(
+                "{MARKER_FORMAT_TAG} {} {}\n",
+                identity.mtime_nanos, identity.len
+            ),
         )
     }
 
-    /// Reads a previously-written marker, if any. `None` on any parse or
-    /// I/O failure — a corrupt or missing marker is "not trusted", never an
-    /// error a caller must handle specially.
+    /// Reads a previously-written marker, if any. `None` on any parse
+    /// failure, wrong/missing version tag, wrong token count, or I/O
+    /// failure — a corrupt, foreign-version, or missing marker is "not
+    /// trusted", never an error a caller must handle specially. Exact
+    /// three-token arity (tag + 2 fields, nothing more) rather than a
+    /// permissive `>= 3` read.
     pub fn read(marker_path: &Path) -> Option<Self> {
         let text = fs::read_to_string(marker_path).ok()?;
         let mut parts = text.trim().split_whitespace();
+        if parts.next()? != MARKER_FORMAT_TAG {
+            return None;
+        }
         let mtime_nanos: i128 = parts.next()?.parse().ok()?;
         let len: u64 = parts.next()?.parse().ok()?;
+        if parts.next().is_some() {
+            return None;
+        }
         Some(Self {
             identity: StatIdentity { mtime_nanos, len },
         })
@@ -158,5 +195,27 @@ mod tests {
         let marker_path = dir.path().join("corrupt.warm");
         fs::write(&marker_path, b"not a valid marker at all").expect("write junk");
         assert!(WarmMarker::read(&marker_path).is_none());
+    }
+
+    #[test]
+    fn read_rejects_a_legacy_untagged_two_token_line() {
+        let dir = tempfile::tempdir().expect("tempdir");
+        let marker_path = dir.path().join("legacy.warm");
+        fs::write(&marker_path, b"12345 6789\n").expect("write legacy-shaped line");
+        assert!(
+            WarmMarker::read(&marker_path).is_none(),
+            "a pre-v1, untagged 2-token line must be refused, not misread as v1"
+        );
+    }
+
+    #[test]
+    fn read_rejects_a_future_wider_four_token_line() {
+        let dir = tempfile::tempdir().expect("tempdir");
+        let marker_path = dir.path().join("future.warm");
+        fs::write(&marker_path, b"v1 12345 6789 extra-field\n").expect("write wider line");
+        assert!(
+            WarmMarker::read(&marker_path).is_none(),
+            "a wider future-format line must be refused, not silently truncated to v1's fields"
+        );
     }
 }
