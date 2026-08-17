@@ -1,5 +1,72 @@
 # Issues Log — Open + Resolved (double-entry, append-only)
 
+## ISS-HYDRATE-ENV-READER-IS-A-SECOND-COPY-OF-DEV-S3-ENV (2026-08-17) — OPEN, deliberate-with-a-named-exit
+
+`crates/lance-graph-hydrate/src/env.rs` reproduces
+`crates/lance-graph/src/dev_s3_env.rs` near byte-for-byte (same quote-strip
+chain, same five option inserts in the same order, same `aws_endpoint ←
+AWS_ENDPOINT_URL` line). **This re-creates the exact drift risk `dev_s3_env`
+was minted to close** — a CodeRabbit finding on PR #907: *"One shared helper
+removes the drift risk between the write path and the verification path."* —
+one crate boundary out.
+
+**Why it was accepted rather than fixed** (5+3 council C1, PR #958): the
+obvious fix — `lance-graph-hydrate` depends on `lance-graph` and calls
+`dev_s3_env` — drags datafusion/arrow/the whole spine into a ~1100-LOC
+primitive crate, which is the wrong dependency direction for a leaf.
+
+**The exit, in the right direction:** `lance-graph` re-exports FROM
+`lance-graph-hydrate` (spine depends on its own primitive), deleting
+`dev_s3_env`'s body rather than this crate's. Not done in #958 because it
+edits a shipped module with its own consumers (`soa_to_lance.rs`,
+`hydration_probe.rs`, `tests/soa_verbatim.rs`) — a separate, reviewable change.
+
+**Until then:** a change to quote-stripping or the option-map shape in EITHER
+file must be mirrored by hand. Both module docs say so; neither can enforce
+it, and nothing fails when they diverge. That is the live risk this entry
+exists to keep visible.
+
+## ISS-HYDRATE-DIR-AND-FILE-DUPLICATE-THEIR-STAGING-BODIES (2026-08-17) — OPEN, partially-mitigated
+
+`copy::hydrate_dir` and `file::hydrate_file` carry near-identical
+staging → fetch → verify → publish-by-rename bodies. PR #958 unified only the
+**nonce** (`staging::staging_suffix`, closing a real within-process collision)
+and deliberately stopped there.
+
+**What survives** (5+3 council, savant 5's F6 + dilution-collapse-sentinel's
+P1 on C5 — this entry is that P1's requested durable pointer): the *audit
+surface* is still doubled. Each function has its own TOCTOU window, its own
+cleanup ladder, and its own rename-race remap, so a future correction to any
+of the three must be made twice or silently drift. The two already behave
+DIFFERENTLY under the same race by necessity — dir-onto-dir rename fails
+ENOTEMPTY, file-onto-file rename silently clobbers — which is exactly the kind
+of asymmetry a shared primitive would force an author to confront once instead
+of rediscovering per-function.
+
+**Deliberately not merged in #958:** a `hydrate_aside_then_publish(staging_write_fn,
+publish_path)` seam is a refactor of two freshly-landed functions with zero
+consumers; the council judged the uniqueness fix worth landing immediately and
+the merge worth doing deliberately, not as diff-noise inside a hardening PR.
+Cheap to do now precisely BECAUSE consumers are still zero — that window closes
+the moment q2 or OGAR wires this in.
+
+## ISS-HYDRATE-NAME-COLLIDES-WITH-TWO-EXISTING-WORKSPACE-MEANINGS (2026-08-17) — OPEN, cosmetic, no-correctness-impact
+
+Two names in `lance-graph-hydrate` already mean something else in this
+workspace: `is_dirty` (vs `lance-graph-cognitive`'s `ContainerCache` per-slot
+dirty **bitmap**) and "hydrate" itself (vs `lance_graph::graph::hydrate::
+hydrate_bgz7`, which runs the OPPOSITE direction — local weights → LanceDB
+ingest, not remote → local).
+
+Module-qualified paths disambiguate for the compiler, and `lib.rs` now carries
+a "Naming, disambiguated" section so a workspace-wide grep lands correctly.
+**What that does not fix** (dilution-collapse-sentinel P2 on C14, recorded
+rather than argued away): the concern was human/session confusion, and
+"the compiler can tell them apart" answers a narrower question than the one
+raised. Optional future fix: rename `graph/hydrate.rs` to name its actual
+direction (`ingest_bgz7` / `graph::ingest`). Filed so the collision is a known
+state rather than a discovery.
+
 ## ISS-HELIX-GOLDEN-STEP-LABEL (2026-08-12) — OPEN, misleading-but-not-wrong-code
 
 `crates/helix/KNOWLEDGE.md:320` labels the `(i·11)%17` walk **"golden-step"**
