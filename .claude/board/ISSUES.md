@@ -89,7 +89,7 @@ shifted book. Fire/silence tested, and the length prefix was mutation-tested.
    mechanism for that check too, but the cross-codebook agreement test is still
    unbuilt (see `ISS-IDENTITY-QUAD-WIDE-CARVING-HOME` § Amendment).
 
-## ISS-IDENTITY-QUAD-WIDE-CARVING-HOME (2026-08-06) — OPEN, NEEDS AN OPERATOR RULING
+## ISS-IDENTITY-QUAD-WIDE-CARVING-HOME (2026-08-06) — RESOLVED 2026-08-17, operator ruled option 1
 
 `lance_graph_contract::identity_quad` (branch `claude/vocab-tenant-bake`) reads and
 writes its 96-bit payload through `legacy_outliers::LegacyOutlier::WideTriple` —
@@ -217,6 +217,21 @@ question about published relation typings matter *more*, not less: those
 cross-namespace relations are precisely the inter-bake edges. That coverage has
 **not been measured** — see the consumer-side assessment; nothing about it should
 be quoted as fact.
+
+### RESOLVED 2026-08-17 — operator ruling, option 1 (ratify in place)
+
+The operator ruled directly on the three options this entry named: *"the 4x24
+layout was already sanctioned and added as canonical in lance-graph, look for
+quad 4x24"* — i.e. **option 1**. `LegacyOutlier::WideTriple` (G2) is now the
+**permanent, sanctioned home** for `IdentityQuad`, not a waiting-room resident
+pending promotion. Option 2 (mint an L9-class layout and migrate the
+primitives out of `legacy_outliers`) was explicitly NOT taken — the code stays
+exactly where it is. `identity_quad.rs`'s module doc and `le-contract.md` §3a
+were updated in the same PR to record the ratification and name it as a
+single, non-precedential exception to §3a's general discouragement. The
+Amendment above's federation requirement (a pinned join-key slot) is
+unaffected by this resolution — it now resolves *within* `identity_quad`
+rather than in a new layout module, since option 2 was not taken.
 
 ## ISS-REMOTE-URI-CONSTRUCTORS-PREDATE-THE-HYDRATION-DOCTRINE (2026-08-06) — OPEN, SURFACED BY REVIEW ON PR #901
 
