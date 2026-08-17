@@ -20,6 +20,9 @@ members = [
     "crates/cognitive-shader-driver",
     # 01-deps-substrate: embedded SurrealDB-on-Lance cognitive store
     "crates/surreal_container",
+    # Generic SoA -> S3 -> volume -> Lance hydration pattern (minted here per
+    # operator directive; closes ISS-REMOTE-URI-CONSTRUCTORS-PREDATE-THE-HYDRATION-DOCTRINE)
+    "crates/lance-graph-hydrate",
 ]
 exclude = [
     # Python bindings (upstream-inherited, opt-in via --manifest-path)
