@@ -1,8 +1,11 @@
 //! Single-file hydration: checksum-pinned download with the same
 //! hydrate-aside/publish-by-rename discipline as [`crate::copy::hydrate_dir`]
-//! (see that module's doc for the mechanism's doctrine citation and
-//! provenance), generalized from q2's `osm_slab_hydrate.rs::download_verified`
-//! (the `.part` + atomic-rename sidecar pattern for one artifact rather than a
+//! — shared via `crate::publish::publish_by_rename`, see that module's
+//! doc for the mechanism's doctrine citation, provenance, and why this
+//! function's pre-rename re-check (its real defense against POSIX's
+//! file-onto-file silent-clobber rename semantics) now lives there —
+//! generalized from q2's `osm_slab_hydrate.rs::download_verified` (the
+//! `.part` + atomic-rename sidecar pattern for one artifact rather than a
 //! whole Lance directory — e.g. a `SHA256SUMS` manifest, a single baked
 //! `.soa`/`.chains`/`.books` sidecar).
 //!
@@ -11,6 +14,7 @@
 //! [`crate::copy::hydrate_dir`] has no equivalent and names condition (a) as
 //! the caller's responsibility instead.
 
+use crate::publish::{publish_by_rename, remove_staging, PublishError, StagingKind};
 use crate::staging::staging_suffix;
 use futures::TryStreamExt;
 use object_store::{path::Path as ObjPath, ObjectStore};
@@ -82,41 +86,27 @@ pub async fn hydrate_file(
     let hasher = match fetch_result {
         Ok(h) => h,
         Err(e) => {
-            let _ = tokio::fs::remove_file(&part_path).await;
+            let _ = remove_staging(&part_path, StagingKind::File).await;
             return Err(e);
         }
     };
 
     let actual = hex_lower(&hasher.finalize());
     if !actual.eq_ignore_ascii_case(expected_sha256_hex) {
-        let _ = tokio::fs::remove_file(&part_path).await;
+        let _ = remove_staging(&part_path, StagingKind::File).await;
         return Err(HydrateFileError::ChecksumMismatch {
             expected: expected_sha256_hex.to_string(),
             actual,
         });
     }
 
-    // Re-assert immediately before the rename: unlike `hydrate_dir`'s
-    // dir-onto-dir rename (which fails loudly, ENOTEMPTY, on a race), a
-    // file-onto-file `rename` on POSIX SILENTLY CLOBBERS an existing
-    // destination rather than failing — so the danger case is exactly the
-    // one where the rename would otherwise SUCCEED, not where it errors.
-    // This narrows (does not eliminate) the TOCTOU window between the entry
-    // check and here; see `copy::hydrate_dir`'s doc for the same caveat
-    // stated once (a council found the entry-only check here left this race
-    // completely unguarded, 2026-08-17).
-    if publish_path.exists() {
-        let _ = tokio::fs::remove_file(&part_path).await;
-        return Err(HydrateFileError::AlreadyPublished(
+    match publish_by_rename(&part_path, publish_path, StagingKind::File).await {
+        Ok(()) => Ok(()),
+        Err(PublishError::AlreadyPublished) => Err(HydrateFileError::AlreadyPublished(
             publish_path.to_path_buf(),
-        ));
+        )),
+        Err(PublishError::Io(e)) => Err(e.into()),
     }
-
-    if let Err(e) = tokio::fs::rename(&part_path, publish_path).await {
-        let _ = tokio::fs::remove_file(&part_path).await;
-        return Err(e.into());
-    }
-    Ok(())
 }
 
 fn hex_lower(bytes: &[u8]) -> String {

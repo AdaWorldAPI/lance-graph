@@ -64,13 +64,16 @@
 //! policy from `.claude/plans/idle-flush-dataset-eviction-v1.md` — that plan
 //! is still a PROPOSAL. This crate ships the mechanisms the policy would
 //! call (hydrate, dirty-check, flush-gate, release); the scheduling policy
-//! is deliberately out of scope for v1. It also does not merge
-//! [`copy::hydrate_dir`] and [`file::hydrate_file`]'s near-identical
-//! staging/publish bodies into one shared primitive beyond the shared nonce
-//! helper (`staging::staging_suffix`) — a 5+3 hardening council on this
-//! crate (2026-08-17) named that merge as worth considering but explicitly
-//! deferred it to keep this PR's diff to the uniqueness fix it actually
-//! needed; tracked as a named follow-up, not silently dropped.
+//! is deliberately out of scope for v1.
+//!
+//! **Follow-up landed:** [`copy::hydrate_dir`] and [`file::hydrate_file`]'s
+//! staging/publish bodies were merged into `publish::publish_by_rename` —
+//! a 5+3 hardening council on this crate (2026-08-17) named the duplication
+//! as `ISS-HYDRATE-DIR-AND-FILE-DUPLICATE-THEIR-STAGING-BODIES`
+//! (`.claude/board/ISSUES.md`) and deferred it deliberately, since it was
+//! cheap only while this crate had zero consumers; that window was still
+//! open, so this follow-up closes it. See the `publish` module's doc for
+//! what merged and what stayed per-caller.
 
 pub mod copy;
 pub mod dirty;
@@ -78,6 +81,7 @@ pub mod env;
 pub mod file;
 pub mod lifecycle;
 pub mod marker;
+mod publish;
 pub mod release;
 mod staging;
 
