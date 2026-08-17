@@ -53,9 +53,22 @@
 //! is not shift-addressable and `group_of` does not apply to it. That is the
 //! honest cost, and it is the correct trade *only because* these slots are
 //! identities rather than adjacency references. This module makes the trade
-//! visible instead of quiet; whether the carving deserves promotion out of
-//! `legacy_outliers` into its own sanctioned name is an operator question, not
-//! one to settle in code.
+//! visible instead of quiet.
+//!
+//! **RATIFIED (operator, 2026-08-17,
+//! `ISS-IDENTITY-QUAD-WIDE-CARVING-HOME`).** This was an open question — the
+//! sentence above used to say so — and it is now settled: the 4×24 contiguous
+//! carving on [`LegacyOutlier::WideTriple`] (G2) is the **permanent, canonical
+//! home** for this identity tenant, not a tolerated V1-migration exception
+//! awaiting promotion. This is option 1 of the three the issue named (ratify
+//! in place), not option 2 (mint a new sanctioned layout) — the read/write
+//! primitives stay exactly where they are, in `legacy_outliers`, and gain no
+//! new module. The honest-cost paragraph above is unchanged by the
+//! ratification: ratifying the carving as permanent settles *where* it lives,
+//! it does not erase what it gives up. `le-contract.md` §3a's discouragement
+//! of wide carvings still stands for the general case; this tenant is the
+//! named exception to it, per the two conditions it does not meet (see
+//! above).
 //!
 //! ## Related, and deliberately not reused
 //!

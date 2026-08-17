@@ -104,6 +104,15 @@ stays byte-axis-only, and a wide carving is precisely what it refuses to
 bless. New classes MUST NOT be born into G1–G3; the waiting room is not a
 destination.
 
+> **Named, ratified exception (operator, 2026-08-17,
+> `ISS-IDENTITY-QUAD-WIDE-CARVING-HOME`):** `lance_graph_contract::identity_quad`
+> is a **permanent** resident of G2 (`WideTriple`), not a migration-in-progress
+> one — its four `u24` slots hold exact identifier ordinals, where invertibility
+> (not similarity) is the acceptance criterion, so the L4 palette exit this
+> section names does not apply to it. See `identity_quad.rs`'s module doc for
+> the full accounting. This does not loosen the discouragement above for any
+> other class — it is one named exception, not a precedent to cite by analogy.
+
 Code home: **`lance_graph_contract::legacy_outliers`** (`legacy_outliers.rs`)
 — bluntly named so it announces its own status. `LegacyOutlier::{WideMixed
 (G1), WideTriple (G2), WideQuad (G3)}` with LE read/write over the 12-byte
