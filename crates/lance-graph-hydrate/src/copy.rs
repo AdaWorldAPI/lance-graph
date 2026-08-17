@@ -16,10 +16,13 @@
 //! `E-A-REPEATABLE-TRANSFER-IS-NOT-IDEMPOTENCE-OVER-A-MULTI-FILE-DIRECTORY-1`,
 //! cited rather than restated as new): objects land in a private sibling
 //! staging directory first, then ONE atomic directory rename publishes the
-//! complete artifact. A caller observing the publish path therefore either
-//! sees nothing (not yet hydrated) or the complete artifact (hydrated) —
-//! never a partial one. This is a filesystem-atomicity boundary, deliberately
-//! NOT a lock/lease protocol.
+//! complete artifact — via `crate::publish::publish_by_rename`, shared
+//! with [`crate::file::hydrate_file`] (see that module's doc for the merge
+//! and why the TOCTOU-narrowing details live there now, not restated here).
+//! A caller observing the publish path therefore either sees nothing (not
+//! yet hydrated) or the complete artifact (hydrated) — never a partial one.
+//! This is a filesystem-atomicity boundary, deliberately NOT a lock/lease
+//! protocol.
 //!
 //! **The idempotency boundary has TWO conditions, not one** (doctrine §4a):
 //! (a) a pinned source version and (b) an empty/uncontested destination.
@@ -30,6 +33,7 @@
 //! snapshot or an in-flux one. (For the single-object case,
 //! [`crate::file::hydrate_file`]'s checksum pin IS condition (a).)
 
+use crate::publish::{publish_by_rename, remove_staging, PublishError, StagingKind};
 use crate::staging::staging_suffix;
 use futures::TryStreamExt;
 use object_store::{path::Path as ObjPath, ObjectStore};
@@ -90,7 +94,7 @@ pub async fn hydrate_dir(
     let report = match fetch_all(store, remote_root, &staging).await {
         Ok(r) => r,
         Err(e) => {
-            let _ = tokio::fs::remove_dir_all(&staging).await;
+            let _ = remove_staging(&staging, StagingKind::Dir).await;
             return Err(e);
         }
     };
@@ -100,28 +104,17 @@ pub async fn hydrate_dir(
         // `Ok` return promises "leaves NOTHING at publish_dir", and silently
         // discarding this error would let that promise be false (a council
         // finding, 2026-08-17).
-        tokio::fs::remove_dir_all(&staging).await?;
+        remove_staging(&staging, StagingKind::Dir).await?;
         return Ok(report);
     }
 
-    if let Err(e) = tokio::fs::rename(&staging, publish_dir).await {
-        // A concurrent hydrate_dir call may have published between our entry
-        // check and this rename. `rename` onto an existing non-empty
-        // directory fails (ENOTEMPTY) — remap that specific race to the
-        // documented `AlreadyPublished` contract instead of leaking it as an
-        // opaque `Io` error. This NARROWS the TOCTOU window (checked at
-        // entry AND at rename) — it does not CLOSE it: a publish landing in
-        // the instant between this re-check and returning is still
-        // (vanishingly) possible. No lock is taken (doctrine: filesystem-
-        // atomicity boundary, not a coordination protocol).
-        let _ = tokio::fs::remove_dir_all(&staging).await;
-        return if publish_dir.exists() {
+    match publish_by_rename(&staging, publish_dir, StagingKind::Dir).await {
+        Ok(()) => Ok(report),
+        Err(PublishError::AlreadyPublished) => {
             Err(HydrateError::AlreadyPublished(publish_dir.to_path_buf()))
-        } else {
-            Err(e.into())
-        };
+        }
+        Err(PublishError::Io(e)) => Err(e.into()),
     }
-    Ok(report)
 }
 
 async fn fetch_all(

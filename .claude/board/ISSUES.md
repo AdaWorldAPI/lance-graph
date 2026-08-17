@@ -26,7 +26,7 @@ file must be mirrored by hand. Both module docs say so; neither can enforce
 it, and nothing fails when they diverge. That is the live risk this entry
 exists to keep visible.
 
-## ISS-HYDRATE-DIR-AND-FILE-DUPLICATE-THEIR-STAGING-BODIES (2026-08-17) — OPEN, partially-mitigated
+## ISS-HYDRATE-DIR-AND-FILE-DUPLICATE-THEIR-STAGING-BODIES (2026-08-17) — RESOLVED (follow-up PR)
 
 `copy::hydrate_dir` and `file::hydrate_file` carry near-identical
 staging → fetch → verify → publish-by-rename bodies. PR #958 unified only the
@@ -49,6 +49,44 @@ consumers; the council judged the uniqueness fix worth landing immediately and
 the merge worth doing deliberately, not as diff-noise inside a hardening PR.
 Cheap to do now precisely BECAUSE consumers are still zero — that window closes
 the moment q2 or OGAR wires this in.
+
+> **⊘ RESOLVED (follow-up PR, `crates/lance-graph-hydrate/src/publish.rs`).**
+> Landed while the zero-consumer window was still open, per this entry's own
+> reasoning. Extracted `publish::publish_by_rename` — the PUBLISH half only
+> (pre-rename re-check, rename, cleanup-on-error, rename-race remap); the
+> FETCH half (list+get many objects vs stream+hash one object) stayed
+> per-caller, genuinely different in shape. `copy::hydrate_dir` and
+> `file::hydrate_file` now route ALL staging removal (not only the publish
+> tail — the fetch-error and empty/checksum-reject paths too) through the
+> same `publish::remove_staging`, so the "cleanup ladder" half of this
+> entry's finding is closed as completely as the "rename-race remap" half.
+>
+> **The asymmetry this entry named (dir fails loudly ENOTEMPTY; file
+> silently clobbers) is preserved, not flattened** — `publish_by_rename`
+> now runs BOTH defenses (a pre-rename re-check AND a post-rename remap) for
+> BOTH callers, which is strictly a narrowing of each window, never a
+> weakening: the pre-check was file's real defense (its danger case never
+> manifests as a rename error to remap) and is now also narrowing dir's
+> window further; the post-rename remap was dir's real defense and is inert
+> defense-in-depth for file. See `publish.rs`'s own module doc for the
+> full reasoning, so it isn't restated in a second place — which was the
+> point.
+>
+> Four new falsifiers in `publish.rs` prove the merge, including two that
+> could not be written before this seam existed (the pre-check narrowing
+> `hydrate_dir`'s window is a NEW guarantee, not merely a refactor of an old
+> one): `publish_by_rename_directory_race_is_reported_as_already_published_
+> and_cleans_up` and its file-kind twin construct the exact race (a
+> competing publisher already occupies the destination when this caller
+> reaches its own publish attempt) and assert BOTH that the loser is
+> reported `AlreadyPublished` (not a raw I/O error) AND that the winner's
+> content survives untouched — a two-sided proof, not just "it doesn't
+> crash". All 4 pre-existing `hydrate_dir`/`hydrate_file` tests pass
+> unchanged (the merge is behavior-preserving at every previously-tested
+> path); `lib.rs`'s own "does NOT merge" deferral paragraph is replaced with
+> a "follow-up landed" pointer to this entry, so a future reader of the
+> crate doc sees the resolution without needing to cross-reference here
+> first.
 
 ## ISS-HYDRATE-NAME-COLLIDES-WITH-TWO-EXISTING-WORKSPACE-MEANINGS (2026-08-17) — OPEN, cosmetic, no-correctness-impact
 
