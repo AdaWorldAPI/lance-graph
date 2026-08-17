@@ -1,0 +1,41 @@
+# lance-graph-hydrate — the generic SoA→S3→volume→Lance hydration pattern,
+# minted here per operator directive (2026-08-17): "the pattern itself should
+# be minted in lance-graph already"; OGAR (and any other consumer) inherits it
+# plug-and-play as a path/git dependency, never re-implements it.
+#
+# Closes the open gap ISS-REMOTE-URI-CONSTRUCTORS-PREDATE-THE-HYDRATION-DOCTRINE
+# (`.claude/board/ISSUES.md`): `VersionedGraph::{s3,azure,gcs}` had no
+# hydrating counterpart — `hydrate_from(remote) -> local` did not exist
+# anywhere in the tree. This crate is that counterpart, generalized off the
+# doctrine (`.claude/knowledge/s3-hydration-lifecycle.md`) and the two proven
+# mechanisms already measured in this repo:
+#   - `dev_s3_env.rs`      — env-var credential/endpoint reading
+#   - `hydration_probe.rs` — the byte-for-byte object-store copy (list+get),
+#                             proven correct vs a Dataset scan-and-rewrite
+#                             (which silently drops deletion vectors/indexes)
+#
+# `lance`/`object_store` are pinned to the SAME versions as `crates/lance-graph`
+# (the upstream-authoritative carve-out in this repo's CLAUDE.md — never forked).
+
+[package]
+name = "lance-graph-hydrate"
+version = "0.1.0"
+edition = "2021"
+description = "Generic SoA -> S3 -> local volume -> Lance hydration lifecycle: hydrate-aside/publish-by-rename, warm-marker skip-rehash, idle release, and lifecycle-state transition guards. Minted in lance-graph; consumed plug-and-play by any downstream crate (OGAR, q2, ...)."
+license = "Apache-2.0"
+
+[dependencies]
+lance = "=9.0.0"
+object_store = { version = "0.13", features = ["aws"] }
+futures = "0.3"
+tokio = { version = "1.37", features = ["fs", "rt", "macros"] }
+sha2 = "0.10"
+thiserror = "1"
+
+[target.'cfg(unix)'.dependencies]
+libc = "0.2"
+
+[dev-dependencies]
+tokio = { version = "1.37", features = ["rt-multi-thread", "macros"] }
+tempfile = "3"
+arrow = { version = "58" }

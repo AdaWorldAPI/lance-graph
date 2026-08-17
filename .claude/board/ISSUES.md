@@ -263,6 +263,21 @@ assumption that has not been checked.
 remain correct for occasional non-hot access. The instruction until the gap closes
 is in §6a: **choose by read shape, not by constructor availability.**
 
+> **⊘ ADDRESSED (2026-08-17, branch `claude/q2-osm-map-reencoding-56p5e2`) — `crates/lance-graph-hydrate`
+> ships `hydrate_dir`/`hydrate_file`.** The missing counterpart named above now
+> exists as a generic crate (not scoped to `VersionedGraph` specifically — a
+> deliberate widening, since the same gap existed for any consumer, not just
+> that one type). See `.claude/board/LATEST_STATE.md`'s 2026-08-17 entry for
+> the full inventory. **Not yet wired INTO `VersionedGraph::{s3,azure,gcs}`
+> itself** — this PR ships the mechanism the constructors could call, not a
+> `hydrate_from(remote) -> VersionedGraph` convenience wrapper; that wiring is
+> a natural, still-open follow-up now that the primitive exists. Also
+> **unverified by a local build in the authoring session** (container disk
+> exhaustion — see the LATEST_STATE entry's honest verification-status note);
+> real verification runs on this repo's CI. Regrading this entry in place per
+> the append-only rule, not closing it, until both the CI-green confirmation
+> and the `VersionedGraph` wiring land.
+
 ## ISS-CODEC-RESEARCH-MDCT-ASSERT (2026-08-05) — OPEN, PRE-EXISTING, DISCOVERED NOT CAUSED
 
 **The observation.** `cargo +1.97.1 test --manifest-path

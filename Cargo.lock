@@ -5725,6 +5725,21 @@ dependencies = [
 ]
 
 [[package]]
+name = "lance-graph-hydrate"
+version = "0.1.0"
+dependencies = [
+ "arrow",
+ "futures",
+ "lance",
+ "libc",
+ "object_store",
+ "sha2 0.10.9",
+ "tempfile",
+ "thiserror 1.0.69",
+ "tokio",
+]
+
+[[package]]
 name = "lance-graph-ogar"
 version = "0.1.0"
 dependencies = [
