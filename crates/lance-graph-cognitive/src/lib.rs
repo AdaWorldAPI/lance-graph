@@ -86,29 +86,29 @@ pub mod storage {
 }
 
 /// Compatibility module mirroring ladybug-rs `crate::core::*`.
-/// Modules reference `crate::core::Fingerprint`, `crate::core::rustynum_accel::*`, etc.
+/// Modules reference `crate::core::Fingerprint`, `crate::core::simd_accel::*`, etc.
 pub mod core {
     pub use super::Fingerprint;
     pub use super::Embedding;
     pub const DIM: usize = super::FINGERPRINT_BITS;
     pub const DIM_U64: usize = super::FINGERPRINT_U64;
 
-    /// Compatibility shim for rustynum SIMD acceleration.
+    /// SIMD acceleration shim (renamed from the retired rustynum_accel name, 2026-08-18 operator no-go).
     /// Maps to ndarray::hpc::bitwise.
-    pub mod rustynum_accel {
+    pub mod simd_accel {
         pub fn hamming_distance(a: &[u8], b: &[u8]) -> u64 {
-            ndarray::hpc::bitwise::hamming_distance_raw(a, b)
+            ndarray::simd::hamming_distance_raw(a, b)
         }
         pub fn slice_hamming(a: &[u64], b: &[u64]) -> u64 {
             let a_bytes: Vec<u8> = a.iter().flat_map(|w| w.to_le_bytes()).collect();
             let b_bytes: Vec<u8> = b.iter().flat_map(|w| w.to_le_bytes()).collect();
-            ndarray::hpc::bitwise::hamming_distance_raw(&a_bytes, &b_bytes)
+            ndarray::simd::hamming_distance_raw(&a_bytes, &b_bytes)
         }
         pub fn batch_hamming(query: &[u8], database: &[u8], vec_len: usize) -> Vec<u64> {
             let n = database.len() / vec_len;
             (0..n).map(|i| {
                 let start = i * vec_len;
-                ndarray::hpc::bitwise::hamming_distance_raw(query, &database[start..start + vec_len])
+                ndarray::simd::hamming_distance_raw(query, &database[start..start + vec_len])
             }).collect()
         }
         pub fn simd_level() -> &'static str { "ndarray" }

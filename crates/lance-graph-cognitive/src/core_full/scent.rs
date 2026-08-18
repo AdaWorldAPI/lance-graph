@@ -521,8 +521,8 @@ fn timestamp() -> u64 {
         .unwrap_or(0)
 }
 
-// NOTE: SIMD-optimized scent scan is handled via rustynum runtime dispatch.
-// No compile-time SIMD gates needed — rustynum detects AVX-512/AVX2 at runtime.
+// NOTE: SIMD-optimized scent scan is handled via ndarray::simd runtime dispatch.
+// No compile-time SIMD gates needed — the ndarray polyfill detects AVX-512/AVX2 at runtime.
 
 #[cfg(test)]
 mod tests {

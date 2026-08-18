@@ -13,7 +13,7 @@
 //! ## Usage
 //!
 //! ```rust,ignore
-//! use ladybug::core::rustynum_accel::*;
+//! use ladybug::core::simd_accel::*;
 //!
 //! let fp = Fingerprint::from_content("hello");
 //! let pc = fingerprint_popcount(&fp);   // VPOPCNTDQ when available

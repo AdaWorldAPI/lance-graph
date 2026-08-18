@@ -968,7 +968,7 @@ Architecture:
 
 Dependency chain:
   ladybug-rs ──► lance-graph-contract (traits)
-  in-tree    ──► lance-graph-contract (planner / callcenter / smb-bridge / symbiont)
+  in-tree    ──► lance-graph-contract (planner / callcenter / smb-bridge; symbiont ⊘ DEPRECATED 2026-08-18, operator no-go)
   lance-graph──► ndarray (default dep, with fallback)
 ```
 
@@ -1230,7 +1230,7 @@ YAML card → 23D vector → ThinkingStyle(36) → FieldModulation(7D) → ScanP
 
 ```
 WHO DEPENDS ON lance-graph-contract:
-  in-tree        — planner, callcenter, smb-bridge, symbiont (the BINDING consumers)
+  in-tree        — planner, callcenter, smb-bridge (the BINDING consumers; symbiont ⊘ DEPRECATED 2026-08-18, operator no-go — dormant excluded crate, never live surface)
   ladybug-rs     — Planner + CamPq + OrchestrationBridge
   (crewai-rust / n8n-rs — EVICTED 2026-06-21, operator-directed; superseded by
    ladybug-rs + the in-tree thinking-engine. NO LONGER binding consumers — the
