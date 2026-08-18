@@ -1,3 +1,22 @@
+## lotus-seal-fractal-commit-frontier — research arc (PRE-REGISTERED 2026-08-18)
+
+Charter: operator, 2026-08-18 (research + architecture; "first audit the
+current code, build falsifiers, and try to kill the idea"). Docs live in
+`docs/lotus/`. Verdict gate (A-E) before ANY implementation phase; no
+metaphor becomes a type name without council approval.
+
+| D-id | Deliverable | Status |
+|---|---|---|
+| D-LOTUS-1 | LOTUS-FRONTIER-AUDIT.md — Phase 0 archaeology, 4 lenses, VERIFIED/INFERENCE/HYPOTHESIS/BLOCKER graded; §6 answers the permeability/amortization question | **In PR** |
+| D-LOTUS-2 | F-ORD-REAL-FALSIFIER.md + the pre-registered tests (GREEN defect pin + `#[ignore]`d RED falsifier, `cycle_driver.rs`) | **In PR** — RED lands BEFORE any fix, per charter |
+| D-LOTUS-3 | LOTUS-SEAL-DESIGN.md (16⁴ tree, petal seal, H(parent)=H(children) — NEW design per audit §2.3) | Queued (post-verdict) |
+| D-LOTUS-4 | COMMA-MODULATION-EXPERIMENT.md (petal-index-tier comma; locality-vs-resonance trade; "if it doesn't survive measurement, delete it") | Queued |
+| D-LOTUS-5 | TEMPORAL-FRONTIER-SEAM.md (rung-qualified frontier visibility; hindsight-invariance falsifier; audit §6.4) | Queued |
+| D-LOTUS-6 | PREPARED-ARTIFACT-PUBLICATION.md | **BLOCKED — lance crate source absent from sandbox** (audit §2.2); needs `cargo fetch` or sanctioned source consult |
+| D-LOTUS-7 | BENCHMARK-PLAN.md (seal/append split; cycle-major vs tile-major k∈{1,4,16}; F-AMORT version-range scaling; F-MEM RAM high-water freeze-vs-petal; viewport partial hydration) | Queued |
+| D-LOTUS-8 | PRE-REGISTERED-FALSIFIERS.md (the F-* catalogue) | Queued |
+| D-LOTUS-9 | Final verdict A-E | Queued — gates all implementation |
+
 ## weather-soa-bake-v1 — Zarr → NodeRow, the missing bake (PRE-REGISTERED 2026-08-13)
 
 Plan: `.claude/plans/weather-soa-bake-v1.md`. The arc's Python-over-Zarr phase
