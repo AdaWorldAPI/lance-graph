@@ -240,3 +240,12 @@ resolver = "2"
 # unfetchable, so the git form deadlocks offline sessions. Path form = zero
 # network, identical source.
 ndarray = { path = "../ndarray" }
+
+# Dev/test debuginfo OFF (operator, 2026-08-18: "Cargo Debug*=0 or so makes it
+# much smaller and faster"). Measured incident the same day: full debuginfo
+# test binaries grew target/ to 17 GB and killed the linker with SIGBUS on a
+# full disk; debug = 0 shrinks the lance/datafusion-stack test binaries by
+# roughly an order of magnitude and links faster. Set "line-tables-only" here
+# instead if line-numbered backtraces are ever worth the size again.
+[profile.dev]
+debug = 0

@@ -1,3 +1,11 @@
+## 2026-08-18 — erasure-seals-compaction-research-v1 (RP-SEAL) — ACTIVE
+
+Operator-delivered 15-researcher program (5 domains x builder/adversary/
+scout) on bidirectional erasure-coded seals + locality-aware compaction in
+versioned SoA grid stores. `.claude/plans/erasure-seals-compaction-research-v1.md`.
+Independent pass dispatched as workflow `wf_ca974718-1b4`; consolidation +
+tiered attack follow. Subsumes the lotus charter's phases 2-8.
+
 ## 2026-08-13 — weather-soa-bake-v1 (PLAN; the missing Zarr→NodeRow bake)
 
 Plan: `.claude/plans/weather-soa-bake-v1.md`. **Does not supersede

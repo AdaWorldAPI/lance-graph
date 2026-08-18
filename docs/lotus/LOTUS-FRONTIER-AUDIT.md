@@ -152,6 +152,18 @@ OFFERS. Phase 6 (`PREPARED-ARTIFACT-PUBLICATION.md`) is **gated** on a
 `cargo fetch` (network + disk budget permitting) or an operator-sanctioned
 alternative source consult. Do not write Phase 6 from memory of lance APIs.
 
+> **⊘ BLOCKER LIFTED 2026-08-18 (same day, operator pin ruling).** The
+> operator's dependency ruling ("pinned via [patch] of the upstream
+> repository git") sanctioned the upstream source consult: the EXACT v9.0.0
+> tag is on disk (`/tmp/sources/lance-9`, matching the Cargo.lock checksum)
+> plus current upstream (`/tmp/sources/lance-main`). Capability findings are
+> deliberately NOT recorded here — they enter through the RP-SEAL research
+> program's Domain-A independent passes (`.claude/plans/
+> erasure-seals-compaction-research-v1.md` §11 independence rule) and are
+> cross-checked at consolidation. The paragraph above stands as the honest
+> record of what THIS session's Phase 0 could and could not verify at
+> composition time.
+
 ### §2.3 The existing "merkle" is not a tree (VERIFIED)
 
 `MerkleRoot::from_fingerprint` (`crates/lance-graph/src/graph/spo/merkle.rs:18-38`)

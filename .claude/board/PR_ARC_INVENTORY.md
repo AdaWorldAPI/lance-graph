@@ -1,3 +1,30 @@
+## 2026-08-18 — lance-graph #961 (MERGED, squash 0cc171f) — LOTUS Phase 0/1: frontier audit + F-ORD-REAL pre-registered falsifier
+
+- **Added:** `docs/lotus/LOTUS-FRONTIER-AUDIT.md` (Phase 0 archaeology, 4
+  lenses, graded VERIFIED/INFERENCE/HYPOTHESIS/BLOCKER; §6 answers the
+  operator's permeability/amortization question: the cycle becomes THIN, not
+  permeable — trailing-publication pipelining Regime A; rung-qualified
+  frontier via the shipped `EpistemicMode::for_rung` ladder; the linear-text
+  vs tile workload split resolved per class); `docs/lotus/
+  F-ORD-REAL-FALSIFIER.md`; two pre-registered tests in `cycle_driver.rs`
+  behind the existing `cycle-driver` feature (GREEN two-sided defect pin +
+  `#[ignore]`d RED falsifier, verified red under `--ignored`: hashes
+  2604999916736672513 vs 4858955943411201665 for the identical semantic set).
+- **Locked:** the falsifier perturbs the process that CREATES the key (cast()
+  call order), never post-mint slots (the operator's F-ORD sharpening); no
+  fix mechanism prescribed — four candidates listed, per-workload, Phase 2+
+  council-gated.
+- **Deferred / gated:** D-LOTUS-3..9 (design/comma/temporal-seam/benchmarks/
+  verdict); D-LOTUS-6 BLOCKED on the absent lance crate source (sandbox has
+  no registry copy; needs `cargo fetch` or sanctioned consult);
+  `temporal.rs:396`/`:410` retired-type doc-drift correction owed to the next
+  phase PR.
+- **Docs:** EPIPHANIES `E-FORD-REAL-PUBLICATION-IDENTITY-IS-ARRIVAL-DEPENDENT-1`;
+  STATUS_BOARD `lotus-seal-fractal-commit-frontier` D-LOTUS-1..9.
+- **Confidence:** high on the defect chain (every link read at file:line this
+  session; the doc-contradiction is quoted); the §6 amortization mechanisms
+  are INFERENCE until the Phase 5 benchmarks run.
+
 ## 2026-08-12 — lance-graph #946 (MERGED) — D-CZ-1 PASSES; D-CZ-0 had NO artifact behind it; + the arc's rated formula matrix
 
 - **The finding that forced the run.** `substrate-comfort-zones-v1` §1's

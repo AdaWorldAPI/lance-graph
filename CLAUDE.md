@@ -1163,13 +1163,20 @@ datafusion = "54"     # OUR direct pin, in every crate that DEPENDS on it
                       # `datafusion = []` under [features] — a FEATURE NAME, not a
                       # version pin. It is not a counter-example.)
                       #
-                      # ⚠ BOTH MAJORS ARE REQUIRED — do NOT "fix" Cargo.lock to one.
-                      # `datafusion 53.1.0` (+ -datasource, -physical-expr-adapter)
-                      # also resolves because `deltalake-core 0.32.4` pins DF 53
-                      # upstream, and it backs the optional `delta` feature. Two
-                      # semver majors legitimately coexist; collapsing them breaks
-                      # `delta`. 53 is NOT a stale leftover — it is a live upstream
-                      # constraint that lifts only when deltalake moves to DF 54.
+                      # ⊘ SUPERSEDED 2026-08-18 (operator pin ruling,
+                      # E-PIN-LANCE9-LANCEDB033-DF541-ARROW58-NO-DF53-1): the
+                      # "BOTH MAJORS ARE REQUIRED" note that stood here is
+                      # RETIRED. DF 53 resolved only through deltalake 0.32
+                      # behind the (already non-default, already broken)
+                      # `delta` feature; deltalake tops out at 0.32.4/DF^53,
+                      # so the feature was REMOVED and the lock now carries
+                      # exactly ONE datafusion = 54.1.0. The ruling: lance 9 /
+                      # lancedb 0.33 / datafusion 54.1 (no DF 53) / arrow 58,
+                      # always, across AdaWorldAPI forks. A Delta reader
+                      # can return via a git-pin on delta-rs upstream — its
+                      # MAIN already pins DF 54 + arrow 58 (verified
+                      # 2026-08-18; crates.io releases still DF 53) — as its
+                      # own deliberate PR if a consumer needs Delta.
                       # Probe: .claude/plans/lance9-datafusion54-upgrade-probe-v1.md
 lance = "=9.0.0"          # exact-pinned: lancedb 0.33.0 requires lance =9.0.0
 lance-linalg = "=9.0.0"
@@ -1181,7 +1188,8 @@ rust = "1.97.1"           # rust-toolchain.toml is authoritative; see its bump l
 ndarray = { path = "../../../ndarray" }  # AdaWorldAPI fork, default, optional fallback
 nom = "7.1"
 snafu = "0.8"
-deltalake = "0.32"  # optional
+# deltalake — REMOVED 2026-08-18 with the `delta` feature (see the datafusion
+# supersession note above; it was the sole DF-53 source).
 ```
 
 ---

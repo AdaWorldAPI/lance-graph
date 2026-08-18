@@ -1,3 +1,21 @@
+## 2026-08-18 — lance-graph #961 (MERGED 0cc171f) — LOTUS research arc opens: frontier audit + F-ORD-REAL falsifier
+
+### Current Contract Inventory — no new types (docs + tests only)
+
+- `docs/lotus/LOTUS-FRONTIER-AUDIT.md` — Phase 0 archaeology; the verified
+  F-ORD defect chain (`content_hash` folds arrival-minted `stream_position`,
+  `persist_sink.rs:414`, contradicting the struct's own doc); seal = 3×
+  O(bytes) passes with the batch resident up to 3× (descriptor doctrine
+  unrealized: `BatchWriter<Vec<u8>>`); lance crate source ABSENT from sandbox
+  (Phase 6 BLOCKED); §6: cycles become THIN not permeable (Regime A
+  pipelining; rung-qualified frontier; linear-text vs tile split per class).
+- `docs/lotus/F-ORD-REAL-FALSIFIER.md` + `cycle_driver.rs` tests: GREEN
+  defect pin `f_ord_real_defect_pin_arrival_order_leaks_into_batch_hash`
+  (fails loudly when a fix lands → deliberate re-pin) + `#[ignore]`d RED
+  `f_ord_real_publication_identity_is_arrival_order_independent`.
+- Gates: supervisor suite 28 passed / 1 ignored (`--features cycle-driver`);
+  RED verified red under `--ignored`; fmt clean; zero new clippy warnings.
+
 ## 2026-08-17 — branch `claude/hydrate-staging-merge` — `lance-graph-hydrate`: the deferred staging/publish merge lands (closes `ISS-HYDRATE-DIR-AND-FILE-DUPLICATE-THEIR-STAGING-BODIES`)
 
 ### Current Contract Inventory — new private module (`crates/lance-graph-hydrate/src/publish.rs`)
