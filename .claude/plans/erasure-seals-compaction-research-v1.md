@@ -8,6 +8,21 @@
 > the five BUILDER and five SCOUT cells = grindwork tier. Consolidation
 > (§12) and the final attack pass (§13) run on the main thread AFTER all 15
 > reports exist. This plan file is the operator's program, recorded as the
+> **⊘ SCOPE PIVOT (operator, 2026-08-18, mid-dispatch — BINDING):**
+> **rustynum is struck from the source-of-truth list — everything ndarray.**
+> rustynum is the historical donor already ported into AdaWorldAPI/ndarray;
+> every primitive/capability/SIMD question routes to `/home/user/ndarray`.
+> **crates/symbiont is DEPRECATED** (superseded by the supervisor/persistence
+> arc, lance-graph PRs #879/#911/#912/#913) and is not live surface.
+> Application: the workflow script was corrected in place (preamble source
+> map + the two cell briefs that named rustynum); the in-flight first pass
+> could not be force-stopped in this harness build, so the ruling ALSO binds
+> consolidation as a hard filter — any first-pass finding citing rustynum or
+> symbiont is re-anchored to ndarray / marked deprecated-source, or its cell
+> is surgically re-run with the corrected brief. No second-pass or attack
+> work may touch either. **Deltalake removal ratified** ("we don't need
+> deltalake") — see E-PIN-LANCE9-LANCEDB033-DF541-ARROW58-NO-DF53-1.
+>
 > arc's source of truth. It SUPERSEDES the sequencing of the earlier lotus
 > charter's phases 2–8 (docs/lotus/ deliverables 3–9 now route through this
 > program); the landed Phase 0/1 deliverables (audit + F-ORD-REAL falsifier,
@@ -42,7 +57,8 @@ suspected novel pattern requires a prior-art search.
 ## 1. Source of truth
 
 Repositories: AdaWorldAPI/lance-graph, AdaWorldAPI/OGAR, AdaWorldAPI/ndarray,
-AdaWorldAPI/rustynum, lance upstream. Temporal reference: OGAR commit
+lance upstream. (AdaWorldAPI/rustynum appeared in the original program text
+and was STRUCK by the same-day scope pivot — see the header note.) Temporal reference: OGAR commit
 `386a6fd848334b1d880c8408b3810f045d135cfe`, `docs/TEMPORAL-TIME-TRAVEL.md` —
 read it literally. Temporal concepts: current tick / current Lance version;
 last awareness tick / reference horizon; write tick; hindsight knowledge;

@@ -25,9 +25,19 @@ entries.** `cargo check -p lance-graph` green (needed `protobuf-compiler`
 installed in-sandbox — lance's prost build; the Dockerfiles already install
 it). Docker pins surveyed on request: root + avx512 Dockerfiles = Rust
 1.97.1 + protobuf-compiler/cmake, no feature references to delta, versions
-purely from Cargo.lock — removal is docker-safe. One stale flag (not
-touched): `crates/symbiont/Dockerfile` still `rust:1.95-bookworm`
-(pre-1.97.1-sweep residue; symbiont is excluded/standalone).
+purely from Cargo.lock — removal is docker-safe. The symbiont
+Dockerfile's stale `rust:1.95` pin is MOOT: **symbiont is DEPRECATED**
+(operator, same day — superseded by the supervisor/persistence arc,
+PRs #879/#911/#912/#913) and is not live surface.
+
+**Same-day scope pivot (operator, BINDING for RP-SEAL):** rustynum is NOT a
+source of truth — "no rustynum, everything ndarray"; it is the historical
+donor already ported into AdaWorldAPI/ndarray. The RP-SEAL workflow script
+was corrected in place (source map + the two cell briefs naming rustynum);
+the in-flight independent pass could not be force-stopped in this harness
+build, so the ruling additionally binds consolidation as a hard filter
+(re-anchor or surgically re-run any finding citing rustynum/symbiont).
+Deltalake removal ratified in the same exchange ("we don't need deltalake").
 
 **Second discharge — the lotus BLOCKER:** the [patch → upstream-git]
 mechanism sanctioned consulting the upstream lance repository as source; the
