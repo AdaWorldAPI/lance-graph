@@ -319,9 +319,9 @@ pub fn detect_bundling(
     gate: &ndarray::hpc::kernels::SigmaGate,
 ) -> Option<(BundlingType, u32, u32, u32)> {
     // Per-plane Hamming distance
-    let s_dist = crate::core::rustynum_accel::slice_hamming(center_a_s, center_b_s) as u32;
-    let p_dist = crate::core::rustynum_accel::slice_hamming(center_a_p, center_b_p) as u32;
-    let o_dist = crate::core::rustynum_accel::slice_hamming(center_a_o, center_b_o) as u32;
+    let s_dist = crate::core::simd_accel::slice_hamming(center_a_s, center_b_s) as u32;
+    let p_dist = crate::core::simd_accel::slice_hamming(center_a_p, center_b_p) as u32;
+    let o_dist = crate::core::simd_accel::slice_hamming(center_a_o, center_b_o) as u32;
 
     // "Close" = Evidence level or better (2σ below noise)
     let close = gate.evidence;

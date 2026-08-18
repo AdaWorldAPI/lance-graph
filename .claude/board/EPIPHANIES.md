@@ -39,6 +39,22 @@ build, so the ruling additionally binds consolidation as a hard filter
 (re-anchor or surgically re-run any finding citing rustynum/symbiont).
 Deltalake removal ratified in the same exchange ("we don't need deltalake").
 
+**Drift cleanup executed (same day, on the operator's "absolute no-go"):**
+audit result — A1's research report: 0 citations (clean); the Java/Panama
+arc: zero involvement (ndarray::simd enforced throughout); merged docs
+carried exactly one live symbiont citation (the lotus audit §3 candidate
+row, now ⊘-struck) + CLAUDE.md's two symbiont-as-binding-consumer lines
+(now ⊘-annotated). Live-code drift found and FIXED:
+`lance-graph-cognitive`'s `rustynum_accel` shim was name-only (zero
+rustynum dependency — it delegated to `ndarray::hpc::bitwise`); renamed
+`simd_accel` (module + file + 11 call sites) and rerouted through the
+sanctioned `ndarray::simd::hamming_distance_raw` re-export. Default
+compile green; the `wip` feature's pre-existing not-yet-compiling state
+carries zero errors naming the rename. Historical provenance comments
+("replacing rustynum as of 2026-03-22", ndarray's port-history docs) kept
+— the no-go bans USE, not history. Board history entries citing symbiont
+stay append-only, superseded by this entry.
+
 **Same-day factual correction (operator-pointed, verified at source):** the
 "no DF-54 deltalake exists" premise holds only for crates.io RELEASES
 (deltalake-core <= 0.32.4 / DF ^53). delta-io/delta-rs **main** already pins

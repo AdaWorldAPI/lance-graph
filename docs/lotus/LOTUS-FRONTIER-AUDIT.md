@@ -183,7 +183,7 @@ with it.
 | `hhtl::NiblePath`, `FAN_OUT=16` | lance-graph core | Production 16-ary router; the doctrine already says *"HHTL is the deterministic PLACE (16-ary); helix is the RESIDUE"* |
 | `CurveRuler` stride-4-over-17 | helix | **The shipped comma** — triple-falsified positive (DFT anti-aliasing ev7b; `comma_quorum` N_eff 11.00/12 vs 1.00 without; `comma_awareness`). D-QUANTGATE names it the mandatory quantized-layer phase generator |
 | `basin_placement_learning` 75.8% | probe | **Overclaim flag (INFERENCE):** the measured 75.8% is a BINARY split, not 4-ary — `E-BASIN-IS-A-NODE` cites it wider than the measurement supports; re-grade before reuse |
-| `symbiont::domino::morton4` | symbiont | Real 4×4 bijective Morton, but SIMD-lane-scoped; not a placement authority |
+| `symbiont::domino::morton4` | symbiont | ⊘ STRUCK 2026-08-18 (operator no-go: symbiont DEPRECATED per the #879/#911/#912/#913 arc) — was: real 4×4 bijective Morton, SIMD-lane-scoped, not a placement authority. Not a candidate; kept as census history only |
 | thinking-engine `domino.rs` | thinking-engine | FALSE LEAD — name collision, unrelated mechanism |
 | Feistel / XorShift mixers | — | ABSENT from the workspace; a comma design needing one imports new code |
 

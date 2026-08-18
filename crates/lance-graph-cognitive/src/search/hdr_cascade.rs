@@ -78,10 +78,10 @@ const DEFAULT_INHIBIT: u32 = 5000;
 
 /// Compute exact Hamming distance.
 ///
-/// Uses runtime-dispatched AVX-512 VPOPCNTDQ via rustynum.
+/// Uses runtime-dispatched AVX-512 VPOPCNTDQ via ndarray::simd.
 #[inline]
 pub fn hamming_distance(a: &[u64; WORDS], b: &[u64; WORDS]) -> u32 {
-    crate::core::rustynum_accel::slice_hamming(a, b) as u32
+    crate::core::simd_accel::slice_hamming(a, b) as u32
 }
 
 /// Compute 1-bit sketch: which chunks differ at all?
@@ -147,8 +147,8 @@ pub fn sketch_8bit_sum(sketch: &[u8; WORDS]) -> u32 {
     sketch.iter().map(|&b| b as u32).sum()
 }
 
-// NOTE: All SIMD dispatch is handled by rustynum-core at runtime.
-// The hamming_distance() function above delegates to rustynum_accel::slice_hamming()
+// NOTE: All SIMD dispatch is handled by ndarray::simd at runtime.
+// The hamming_distance() function above delegates to simd_accel::slice_hamming()
 // which uses AVX-512 VPOPCNTDQ -> AVX2 Harley-Seal -> scalar POPCNT.
 // No compile-time SIMD gates needed.
 
