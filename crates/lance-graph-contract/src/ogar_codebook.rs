@@ -48,6 +48,10 @@ pub enum ConceptDomain {
     ProjectMgmt,
     /// `0x02XX` — commerce / billing / ERP (Odoo ↔ OSB).
     Commerce,
+    /// `0x03XX` — Ontology (OBO reference vocabulary; plug-and-play, never
+    /// pulled into ERP consumers). Mirrors OGAR
+    /// `ogar_vocab::ConceptDomain::Ontology`.
+    Ontology,
     /// `0x04XX` — Weather / Atmosphere. Shared forecast and atmospheric cells.
     Weather,
     /// `0x07XX` — OSINT (open-source intelligence / Palantir-Gotham).
@@ -88,8 +92,33 @@ pub enum ConceptDomain {
     /// (OGAR canon "256×256 centroid tile", D-BOTHCASC). Mirrors OGAR
     /// `ogar_vocab::ConceptDomain::Geo`; the parity tests pin `0x0F00 → Geo`.
     Geo,
-    /// Any high-byte slot not yet assigned a domain (`0x03XX`, `0x05XX`–`0x06XX`,
-    /// `0x10XX`+).
+    /// `0x17XX` — Blocks (the `ogar-loco` low-code substrate's domain: the
+    /// shared block/call opcode vocabulary; `0x1701`/`0x1702` are loco's node
+    /// shapes, `0x1717`+ per-frontend palettes). Mirrors OGAR
+    /// `ogar_vocab::ConceptDomain::Blocks` (reserved 2026-08-04).
+    Blocks,
+    /// `0xC0XX` — Java runtime (**Panama FFM alone** — downcalls, segments,
+    /// lanes, arenas, masks; the managed-runtime membrane over the SoA
+    /// substrate, the FLOOR of the C-band). Valhalla deliberately has no
+    /// domain slot: it is integrated as a *property* of the C0 vocabulary
+    /// (`value record`-ready descriptor types), never an addressable crossing
+    /// concept — canonical text in OGAR's `JavaRuntime` doc comment
+    /// (PR #276 + #277). Mirrors `ogar_vocab::ConceptDomain::JavaRuntime`.
+    JavaRuntime,
+    /// `0xC1XX` — Analytics (the analyst estate: addressable tabular units +
+    /// catalog ontology; one shared vocabulary under per-app render
+    /// prefixes). Mirrors `ogar_vocab::ConceptDomain::Analytics`.
+    Analytics,
+    /// `0xC4XX` — Binary lifting (normalized machine-code IR + artifact
+    /// ontology; Ghidra and r2sleigh are two consumers of one SLEIGH-derived
+    /// vocabulary; the R2IL container concepts mint here in the ruff PR3
+    /// arc, replacing `PROVISIONAL_R2IL_VARNODE = 0x0000`). Mirrors
+    /// `ogar_vocab::ConceptDomain::BinaryLifting`.
+    BinaryLifting,
+    /// Any high-byte slot not yet assigned a domain (`0x05XX`–`0x06XX`,
+    /// `0x10XX`–`0x16XX`, `0x18XX`–`0xBFXX`, `0xC2XX`–`0xC3XX` — a
+    /// DELIBERATE gap, pinned like OGAR's own `0x10`–`0x16` — and
+    /// `0xC5XX`+).
     Unassigned,
 }
 
@@ -103,6 +132,7 @@ pub fn canonical_concept_domain(id: u16) -> ConceptDomain {
         0x00 => ConceptDomain::Reserved,
         0x01 => ConceptDomain::ProjectMgmt,
         0x02 => ConceptDomain::Commerce,
+        0x03 => ConceptDomain::Ontology,
         0x04 => ConceptDomain::Weather,
         0x07 => ConceptDomain::Osint,
         0x08 => ConceptDomain::Ocr,
@@ -113,6 +143,10 @@ pub fn canonical_concept_domain(id: u16) -> ConceptDomain {
         0x0D => ConceptDomain::HR,
         0x0E => ConceptDomain::Genetics,
         0x0F => ConceptDomain::Geo,
+        0x17 => ConceptDomain::Blocks,
+        0xC0 => ConceptDomain::JavaRuntime,
+        0xC1 => ConceptDomain::Analytics,
+        0xC4 => ConceptDomain::BinaryLifting,
         _ => ConceptDomain::Unassigned,
     }
 }
@@ -671,7 +705,33 @@ mod tests {
         assert_eq!(canonical_concept_domain(0x0500), ConceptDomain::Unassigned);
         assert_eq!(canonical_concept_domain(0x0E00), ConceptDomain::Genetics);
         assert_eq!(canonical_concept_domain(0x0F00), ConceptDomain::Geo);
+        assert_eq!(canonical_concept_domain(0x0300), ConceptDomain::Ontology);
+        assert_eq!(canonical_concept_domain(0x0333), ConceptDomain::Ontology);
+        // Blocks (0x17), with its deliberate 0x10-0x16 gap pinned on both
+        // sides exactly as OGAR pins it.
         assert_eq!(canonical_concept_domain(0x1000), ConceptDomain::Unassigned);
+        assert_eq!(canonical_concept_domain(0x1600), ConceptDomain::Unassigned);
+        assert_eq!(canonical_concept_domain(0x1701), ConceptDomain::Blocks);
+        assert_eq!(canonical_concept_domain(0x17FF), ConceptDomain::Blocks);
+        assert_eq!(canonical_concept_domain(0x1800), ConceptDomain::Unassigned);
+        // The C-band (OGAR PR #276): strata above the Rust substrate.
+        assert_eq!(canonical_concept_domain(0xC000), ConceptDomain::JavaRuntime);
+        assert_eq!(canonical_concept_domain(0xC0FF), ConceptDomain::JavaRuntime);
+        assert_eq!(canonical_concept_domain(0xC100), ConceptDomain::Analytics);
+        assert_eq!(
+            canonical_concept_domain(0xC400),
+            ConceptDomain::BinaryLifting
+        );
+        // The C2-C3 gap stays Unassigned BY INTENT (slots chosen
+        // deliberately, C4 = the blast radius), and the band's edges hold.
+        assert_eq!(canonical_concept_domain(0xC200), ConceptDomain::Unassigned);
+        assert_eq!(canonical_concept_domain(0xC300), ConceptDomain::Unassigned);
+        assert_eq!(canonical_concept_domain(0xBF00), ConceptDomain::Unassigned);
+        assert_eq!(canonical_concept_domain(0xC500), ConceptDomain::Unassigned);
+        // 0x0C Automation is NOT 0xC0 JavaRuntime -- digit swap, pinned
+        // two-sided (the same transposition pin OGAR carries).
+        assert_eq!(canonical_concept_domain(0x0C01), ConceptDomain::Automation);
+        assert_eq!(canonical_concept_domain(0xC001), ConceptDomain::JavaRuntime);
     }
 
     #[test]
@@ -813,8 +873,16 @@ mod tests {
 
         let op = AppPrefix::OpenProject.render(0x0103);
         let rm = AppPrefix::Redmine.render(0x0103);
-        assert_ne!(classid_app_prefix(op), classid_app_prefix(rm), "render lenses differ");
-        assert_eq!(classid_concept(op), classid_concept(rm), "concept is shared");
+        assert_ne!(
+            classid_app_prefix(op),
+            classid_app_prefix(rm),
+            "render lenses differ"
+        );
+        assert_eq!(
+            classid_concept(op),
+            classid_concept(rm),
+            "concept is shared"
+        );
 
         assert_eq!(
             render_classid_for_concept(AppPrefix::Healthcare, "nope"),
@@ -860,7 +928,11 @@ mod tests {
             0x0000_0000,
             0xFFFF_FFFF,
         ] {
-            assert_eq!(flip_classid(flip_classid(id)), id, "flip must be involutive");
+            assert_eq!(
+                flip_classid(flip_classid(id)),
+                id,
+                "flip must be involutive"
+            );
         }
     }
 
@@ -882,7 +954,10 @@ mod tests {
 
                 let legacy = compose_classid_with(ClassidOrder::CanonLow, concept, prefix);
                 assert_eq!(legacy, ((prefix as u32) << 16) | (concept as u32));
-                assert_eq!(split_classid_with(ClassidOrder::CanonLow, legacy), (concept, prefix));
+                assert_eq!(
+                    split_classid_with(ClassidOrder::CanonLow, legacy),
+                    (concept, prefix)
+                );
                 assert_eq!(flip_classid(legacy), id);
             }
         }
@@ -911,7 +986,11 @@ mod tests {
             split_classid_with(ClassidOrder::CanonHigh, fma).0,
             split_classid_with(ClassidOrder::CanonHigh, cpic).0,
         ];
-        assert_eq!(canons, [0x0701, 0x0A01, 0x0E01], "canon halves stay distinct");
+        assert_eq!(
+            canons,
+            [0x0701, 0x0A01, 0x0E01],
+            "canon halves stay distinct"
+        );
         assert_eq!(
             [osint as u16, fma as u16, cpic as u16],
             [0x1000, 0x1000, 0x1000],

@@ -173,6 +173,11 @@ pub mod parity {
                 | (O::HR, C::HR)
                 | (O::Genetics, C::Genetics)
                 | (O::Geo, C::Geo)
+                | (O::Ontology, C::Ontology)
+                | (O::Blocks, C::Blocks)
+                | (O::JavaRuntime, C::JavaRuntime)
+                | (O::Analytics, C::Analytics)
+                | (O::BinaryLifting, C::BinaryLifting)
                 | (O::Unassigned, C::Unassigned)
         )
     }
@@ -210,6 +215,29 @@ pub mod parity {
         fn mirror_is_a_faithful_copy_of_ogar_codebook() {
             let n = assert_codebook_parity();
             assert!(n >= 32, "expected ≥32 promoted concepts, got {n}");
+        }
+
+        #[test]
+        fn reserved_empty_domains_agree_across_the_mirror() {
+            // The codebook-parity walk above only visits ids that carry
+            // CONCEPT ROWS, so a reserved-EMPTY domain (Blocks, the C-band)
+            // added to one enum but not the other would slip past it — the
+            // exact drift this pairing exists to catch. Pin one id per
+            // reserved/new domain, an id from a POPULATED new domain
+            // (0x0333, the DisMech mints in Ontology), the deliberate
+            // C2-C3 gap, and the 0x0C/0xC0 digit-swap hazard two-sided.
+            for id in [
+                0x0300u16, 0x0333, // Ontology (populated: dismech)
+                0x1701, 0x17FF, // Blocks
+                0xC000, 0xC0FF, // JavaRuntime (Panama FFM alone)
+                0xC100, // Analytics
+                0xC400, // BinaryLifting
+                0xC200, 0xC300, // the deliberate gap (both Unassigned)
+                0xBF00, 0xC500, // band edges (both Unassigned)
+                0x0C01, 0xC001, // Automation vs JavaRuntime, transposed
+            ] {
+                assert!(domains_agree(id), "domain drift at {id:#06x}");
+            }
         }
 
         #[test]
@@ -287,8 +315,7 @@ impl lance_graph_contract::hotplug::CapabilityAuthority for OgarAuthority {
                     .into_iter()
                     .map(|(name, id)| (name.to_string(), id))
                     .collect();
-                if let Some(drift) =
-                    lance_graph_contract::hotplug::verify_against_mirror(&concepts)
+                if let Some(drift) = lance_graph_contract::hotplug::verify_against_mirror(&concepts)
                 {
                     return Err(drift);
                 }
