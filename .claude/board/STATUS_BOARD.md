@@ -1,3 +1,16 @@
+## erasure-seals-compaction-research-v1 — RP-SEAL (operator charter, DISPATCHED 2026-08-18)
+
+Plan: `.claude/plans/erasure-seals-compaction-research-v1.md` (the operator's
+15-researcher program; supersedes lotus deliverables 3-9's sequencing).
+Independent pass = background workflow `wf_ca974718-1b4`: 5 domains
+(A Lance storage / B spatial layout / C erasure coding / D temporal /
+E SoA-cache) x 3 roles (builder/adversary/scout); adversaries on the
+strongest tier, builders+scouts on the grindwork tier; first pass blind to
+docs/lotus/** and all boards (independence rule). Consolidation (evidence
+matrix + cross-domain graph) and the tiered attack pass run main-thread
+AFTER all 15 reports land. Reports: session scratchpad `rp-seal-v1/`,
+committed at consolidation as Appendix H.
+
 ## lotus-seal-fractal-commit-frontier — research arc (PRE-REGISTERED 2026-08-18)
 
 Charter: operator, 2026-08-18 (research + architecture; "first audit the
@@ -12,7 +25,7 @@ metaphor becomes a type name without council approval.
 | D-LOTUS-3 | LOTUS-SEAL-DESIGN.md (16⁴ tree, petal seal, H(parent)=H(children) — NEW design per audit §2.3) | Queued (post-verdict) |
 | D-LOTUS-4 | COMMA-MODULATION-EXPERIMENT.md (petal-index-tier comma; locality-vs-resonance trade; "if it doesn't survive measurement, delete it") | Queued |
 | D-LOTUS-5 | TEMPORAL-FRONTIER-SEAM.md (rung-qualified frontier visibility; hindsight-invariance falsifier; audit §6.4) | Queued |
-| D-LOTUS-6 | PREPARED-ARTIFACT-PUBLICATION.md | **BLOCKED — lance crate source absent from sandbox** (audit §2.2); needs `cargo fetch` or sanctioned source consult |
+| D-LOTUS-6 | PREPARED-ARTIFACT-PUBLICATION.md | **UNBLOCKED 2026-08-18** (operator pin ruling sanctioned the upstream-git source consult; exact v9.0.0 tag + current upstream on disk) — now routed through RP-SEAL Domain A rather than written solo, per the research charter |
 | D-LOTUS-7 | BENCHMARK-PLAN.md (seal/append split; cycle-major vs tile-major k∈{1,4,16}; F-AMORT version-range scaling; F-MEM RAM high-water freeze-vs-petal; viewport partial hydration) | Queued |
 | D-LOTUS-8 | PRE-REGISTERED-FALSIFIERS.md (the F-* catalogue) | Queued |
 | D-LOTUS-9 | Final verdict A-E | Queued — gates all implementation |

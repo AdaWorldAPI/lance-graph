@@ -1,3 +1,46 @@
+## 2026-08-18 — E-PIN-LANCE9-LANCEDB033-DF541-ARROW58-NO-DF53-1
+
+**Status:** RULING `[operator]` + same-day discharge, measured.
+
+**The ruling.** lance 9 / lancedb 0.33 / datafusion 54.1 (**no DF 53**) /
+arrow 58 are ALWAYS pinned across AdaWorldAPI forks, usually consumed via
+`[patch]` of the upstream repository git. DF 53 existed only for older syntax
+in an out-of-scope research crate; all of lance-graph is DF-54-certified,
+and single-major DF 54.1 is the discipline ("without DF 53/54 parallelism
+it's much better, easier, faster to handle").
+
+**Measured before acting:** the lock carried datafusion 53.1.0 AND 54.1.0;
+the ONLY DF-53 source was `deltalake 0.32.4` (`^53.1.0`) behind the `delta`
+feature — which was already NON-default and documented BROKEN (0.32 removed
+`DeltaTableProvider::try_new`; the reader was never refactored). Checked the
+registry: deltalake-core tops out at 0.32.4 / DF ^53.1.0 — no DF-54 deltalake
+exists, so a bump could not discharge the ruling; removal could.
+
+**Discharged:** `delta` feature + `deltalake`/`url` optional deps +
+`DeltaTableReader` removed (Cargo.toml carries the dated removal note; a
+future Delta reader returns only with a DF-54-compatible deltalake, as its
+own deliberate PR). `DataSourceFormat::Delta` (a catalog metadata tag) stays.
+**Post-removal lock: exactly ONE datafusion = 54.1.0; zero deltalake
+entries.** `cargo check -p lance-graph` green (needed `protobuf-compiler`
+installed in-sandbox — lance's prost build; the Dockerfiles already install
+it). Docker pins surveyed on request: root + avx512 Dockerfiles = Rust
+1.97.1 + protobuf-compiler/cmake, no feature references to delta, versions
+purely from Cargo.lock — removal is docker-safe. One stale flag (not
+touched): `crates/symbiont/Dockerfile` still `rust:1.95-bookworm`
+(pre-1.97.1-sweep residue; symbiont is excluded/standalone).
+
+**Second discharge — the lotus BLOCKER:** the [patch → upstream-git]
+mechanism sanctioned consulting the upstream lance repository as source; the
+exact v9.0.0 tag is cloned (`/tmp/sources/lance-9`, matching the Cargo.lock
+checksum) plus current upstream (`/tmp/sources/lance-main`) for the RP-SEAL
+two-column discipline. D-LOTUS-6's "lance source absent" BLOCKER is LIFTED;
+capability findings deliberately enter through the RP-SEAL Domain-A
+independent passes, not this entry (independence rule).
+
+**Supersedes in place:** CLAUDE.md's "BOTH MAJORS ARE REQUIRED — do NOT fix
+Cargo.lock to one" datafusion note (written when `delta` was default and
+load-bearing) — corrected in the same commit.
+
 ## 2026-08-18 — E-FORD-REAL-PUBLICATION-IDENTITY-IS-ARRIVAL-DEPENDENT-1
 
 **Status:** FINDING (VERIFIED at file:line) + pre-registered falsifier landed

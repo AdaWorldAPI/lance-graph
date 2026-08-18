@@ -50,8 +50,6 @@ serde_json = "1"
 serde_yaml = "0.9"
 bytes = "1"
 snafu = "0.8"
-deltalake = { version = "0.32", features = ["datafusion", "s3", "azure", "gcs"], optional = true }
-url = { version = "2", optional = true }
 
 # AdaWorldAPI/ndarray fork with 55 HPC modules (Fingerprint, CAM-PQ, CLAM, BLAS, ZeckF64)
 # Source: https://github.com/AdaWorldAPI/ndarray
@@ -75,13 +73,13 @@ bgz-tensor = { path = "../bgz-tensor", optional = true }
 [features]
 default = ["unity-catalog", "ndarray-hpc", "planner", "bgz17-codec", "tensor-codec"]
 unity-catalog = ["lance-graph-catalog/unity-catalog"]
-# TODO(lance-bump-delta): deltalake 0.32 removed `DeltaTableProvider::try_new`;
-# new API is `TableProviderBuilder::new().with_snapshot(...).with_log_store(...).build().await`.
-# Refactor `table_readers.rs::DeltaTableReader` to the new builder API in a
-# follow-up PR. Dropped from `default` features for now so CI stays green on
-# the lance/lancedb bump; still opt-in via `--features delta` if a caller
-# accepts the broken state.
-delta = ["dep:deltalake", "dep:url"]
+# The `delta` feature (deltalake + DeltaTableReader) was REMOVED 2026-08-18
+# (operator pin ruling: lance 9 / lancedb 0.33 / datafusion 54.1 — NO DF 53 —
+# / arrow 58). deltalake tops out at 0.32.4 pinning datafusion ^53.1.0, so the
+# feature was the sole source of the DF-53 duplicate major in Cargo.lock; it
+# was also already non-default AND documented broken (0.32 removed
+# `DeltaTableProvider::try_new`). A future Delta reader returns only when a
+# DF-54-compatible deltalake exists, as its own deliberate PR.
 # lancedb: high-level table/connection API (Python/JS SDK equivalent in Rust).
 # Enables LanceDB-compatible connection strings, table management, and the
 # vector search API surface that third-party tooling (DuckDB ext, Polars) expects.
