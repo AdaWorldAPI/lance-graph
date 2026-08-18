@@ -2488,4 +2488,131 @@ mod tests {
             4
         );
     }
+
+    // ── F-ORD-REAL (LOTUS Phase 1): publication identity vs producer arrival ────
+    //
+    // The chain under test spans three functions:
+    //   `BatchWriter::cast` mints `CastId` in ARRIVAL order (batch_writer.rs)
+    //     -> `collect_casts` derives `stream_position = position_base + cast.0`
+    //     -> `DetachedCycleBatch::freeze` stable-sorts by `stream_position` and
+    //        then `content_hash` FOLDS THE `stream_position` VALUES THEMSELVES
+    //        into `batch_hash` (persist_sink.rs, the
+    //        `eat(&s.stream_position.to_le_bytes())` line).
+    // So even after the stable sort, the PUBLICATION IDENTITY of a cycle still
+    // depends on which producer finished first. `DetachedCycleBatch`'s own doc
+    // ("Identical completed sets yield identical hashes regardless of worker
+    // completion order") claims otherwise; these tests pin the actual
+    // behaviour. Design + evidence: docs/lotus/F-ORD-REAL-FALSIFIER.md.
+    //
+    // F-ORD sharpening (operator, 2026-08-18): "Do not test permutation after
+    // the order key already exists. Perturb the process that creates the key."
+    // These tests therefore permute the ORDER OF `cast()` CALLS — upstream of
+    // the CastId mint — never a `Vec<SweepSlot>` handed to `freeze` (freeze
+    // sorts, so a post-mint permutation passes vacuously).
+
+    /// Owner-derived payload — a pure function of identity, so the SEMANTIC
+    /// completed set is identical no matter which arrival order produced it.
+    fn owner_payload(owner: MailboxId) -> Vec<u8> {
+        vec![owner as u8, (owner >> 8) as u8, 0xA5, (owner as u8) ^ 0x5A]
+    }
+
+    /// Cast one identical semantic set (64 owners, no moves, owner-derived
+    /// payloads) in the given ARRIVAL order, then run the real
+    /// `collect_casts` -> `freeze` chain against one fixed frame.
+    fn freeze_with_arrival_order(arrival: &[MailboxId]) -> DetachedCycleBatch {
+        let mut writer: BatchWriter<Vec<u8>> = BatchWriter::new();
+        for &owner in arrival {
+            writer.cast(owner, vec![], owner_payload(owner));
+        }
+        let collected = collect_casts(&mut writer, CycleId(7), 0, u64::from);
+        assert!(collected.held.is_empty(), "no moves cast, nothing to hold");
+        DetachedCycleBatch::freeze(
+            CycleFrame::new(CycleId(7), DatasetVersion(3)),
+            collected.slots,
+        )
+    }
+
+    /// The batch's SEMANTIC content — landings keyed by owner, stripped of the
+    /// arrival-minted coordinate: (owner, row, paired_move, payload).
+    fn semantic_set(b: &DetachedCycleBatch) -> Vec<(MailboxId, u64, Option<KanbanMove>, Vec<u8>)> {
+        let mut v: Vec<_> = b
+            .landings
+            .iter()
+            .map(|s| (s.owner, s.row, s.paired_move, s.payload.clone()))
+            .collect();
+        v.sort_by_key(|e| e.0);
+        v
+    }
+
+    /// The GREEN defect pin — two-sided: proves the perturbation reaches the
+    /// key mint, proves the semantic set and the row-keyed image are
+    /// arrival-INDEPENDENT (the legs that hold), and pins that `batch_hash`
+    /// is arrival-DEPENDENT (the defect). When the publication-identity fix
+    /// lands, the final assert FAILS — re-pin deliberately: delete this test
+    /// and un-ignore the RED falsifier below.
+    #[test]
+    fn f_ord_real_defect_pin_arrival_order_leaks_into_batch_hash() {
+        let forward: Vec<MailboxId> = (0..64).collect();
+        let reversed: Vec<MailboxId> = (0..64).rev().collect();
+        let b1 = freeze_with_arrival_order(&forward);
+        let b2 = freeze_with_arrival_order(&reversed);
+
+        // Anti-vacuity: the perturbation genuinely reached the CastId mint —
+        // the SAME owner carries a DIFFERENT stream_position in the two runs
+        // (owner 0 arrives first in one and last in the other). Without this,
+        // "hashes differ" could be asserted vacuously of any two batches.
+        let pos_of = |b: &DetachedCycleBatch, owner: MailboxId| {
+            b.landings
+                .iter()
+                .find(|s| s.owner == owner)
+                .expect("owner landed")
+                .stream_position
+        };
+        assert_ne!(
+            pos_of(&b1, 0),
+            pos_of(&b2, 0),
+            "perturbation must reach the key mint"
+        );
+
+        // The SEMANTIC completed set is identical by construction...
+        assert_eq!(
+            semantic_set(&b1),
+            semantic_set(&b2),
+            "same completed set in both arrival orders"
+        );
+        // ...and the row-keyed image leg HOLDS (`row_of(owner)` discipline):
+        assert_eq!(
+            b1.image, b2.image,
+            "the coalesced image is arrival-independent"
+        );
+
+        // THE DEFECT, pinned: content_hash folds the stream_position VALUES,
+        // and those are minted from arrival.
+        assert_ne!(
+            b1.batch_hash, b2.batch_hash,
+            "pinned DEFECT: batch_hash currently depends on producer arrival \
+             order, contradicting DetachedCycleBatch's own doc. If this just \
+             failed, the fix landed — delete this pin and un-ignore \
+             f_ord_real_publication_identity_is_arrival_order_independent."
+        );
+    }
+
+    /// F-ORD-REAL — the pre-registered RED falsifier (the DESIRED property).
+    /// Fails by design until the publication-identity fix lands; see it red
+    /// with `cargo test -p lance-graph-supervisor -- --ignored f_ord_real`.
+    #[test]
+    #[ignore = "F-ORD-REAL pre-registered RED falsifier: batch_hash is currently arrival-dependent (docs/lotus/F-ORD-REAL-FALSIFIER.md); un-ignore with the fix and delete the defect pin"]
+    fn f_ord_real_publication_identity_is_arrival_order_independent() {
+        let forward: Vec<MailboxId> = (0..64).collect();
+        let reversed: Vec<MailboxId> = (0..64).rev().collect();
+        let b1 = freeze_with_arrival_order(&forward);
+        let b2 = freeze_with_arrival_order(&reversed);
+        assert_eq!(semantic_set(&b1), semantic_set(&b2));
+        assert_eq!(b1.image, b2.image);
+        assert_eq!(
+            b1.batch_hash, b2.batch_hash,
+            "identical completed sets must yield identical publication \
+             identity regardless of producer arrival order"
+        );
+    }
 }
