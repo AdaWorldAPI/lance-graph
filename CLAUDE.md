@@ -1173,8 +1173,10 @@ datafusion = "54"     # OUR direct pin, in every crate that DEPENDS on it
                       # exactly ONE datafusion = 54.1.0. The ruling: lance 9 /
                       # lancedb 0.33 / datafusion 54.1 (no DF 53) / arrow 58,
                       # always, across AdaWorldAPI forks. A Delta reader
-                      # returns only with a DF-54-compatible deltalake, as its
-                      # own deliberate PR.
+                      # can return via a git-pin on delta-rs upstream — its
+                      # MAIN already pins DF 54 + arrow 58 (verified
+                      # 2026-08-18; crates.io releases still DF 53) — as its
+                      # own deliberate PR if a consumer needs Delta.
                       # Probe: .claude/plans/lance9-datafusion54-upgrade-probe-v1.md
 lance = "=9.0.0"          # exact-pinned: lancedb 0.33.0 requires lance =9.0.0
 lance-linalg = "=9.0.0"

@@ -39,6 +39,16 @@ build, so the ruling additionally binds consolidation as a hard filter
 (re-anchor or surgically re-run any finding citing rustynum/symbiont).
 Deltalake removal ratified in the same exchange ("we don't need deltalake").
 
+**Same-day factual correction (operator-pointed, verified at source):** the
+"no DF-54 deltalake exists" premise holds only for crates.io RELEASES
+(deltalake-core <= 0.32.4 / DF ^53). delta-io/delta-rs **main** already pins
+`datafusion = 54.0.0` + `arrow = 58` (workspace Cargo.toml, fetched
+2026-08-18) — so restoration is available NOW via the house mechanism (git
+dep on the upstream repository, pinned rev) + a `DeltaTableReader` refactor
+to the current builder API. The removal stands on the NEED ruling, not on
+availability; the in-repo notes were corrected so no future session treats
+restoration as blocked on a registry release.
+
 **Second discharge — the lotus BLOCKER:** the [patch → upstream-git]
 mechanism sanctioned consulting the upstream lance repository as source; the
 exact v9.0.0 tag is cloned (`/tmp/sources/lance-9`, matching the Cargo.lock

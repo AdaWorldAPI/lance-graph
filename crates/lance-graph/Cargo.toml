@@ -78,8 +78,14 @@ unity-catalog = ["lance-graph-catalog/unity-catalog"]
 # / arrow 58). deltalake tops out at 0.32.4 pinning datafusion ^53.1.0, so the
 # feature was the sole source of the DF-53 duplicate major in Cargo.lock; it
 # was also already non-default AND documented broken (0.32 removed
-# `DeltaTableProvider::try_new`). A future Delta reader returns only when a
-# DF-54-compatible deltalake exists, as its own deliberate PR.
+# `DeltaTableProvider::try_new`). CORRECTION (same day, operator-pointed):
+# delta-rs MAIN already pins datafusion 54 + arrow 58 (verified 2026-08-18
+# from delta-io/delta-rs main Cargo.toml) — only the crates.io releases top
+# out at DF 53. Restoration is therefore available NOW via the house
+# mechanism (git dep on the upstream repository, pinned to a rev) + a reader
+# refactor to the current builder API — as its own deliberate PR if a
+# consumer needs Delta. The removal itself stands ("we don't need
+# deltalake").
 # lancedb: high-level table/connection API (Python/JS SDK equivalent in Rust).
 # Enables LanceDB-compatible connection strings, table management, and the
 # vector search API surface that third-party tooling (DuckDB ext, Polars) expects.
