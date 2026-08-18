@@ -7,8 +7,8 @@ metaphor becomes a type name without council approval.
 
 | D-id | Deliverable | Status |
 |---|---|---|
-| D-LOTUS-1 | LOTUS-FRONTIER-AUDIT.md — Phase 0 archaeology, 4 lenses, VERIFIED/INFERENCE/HYPOTHESIS/BLOCKER graded; §6 answers the permeability/amortization question | **In PR** |
-| D-LOTUS-2 | F-ORD-REAL-FALSIFIER.md + the pre-registered tests (GREEN defect pin + `#[ignore]`d RED falsifier, `cycle_driver.rs`) | **In PR** — RED lands BEFORE any fix, per charter |
+| D-LOTUS-1 | LOTUS-FRONTIER-AUDIT.md — Phase 0 archaeology, 4 lenses, VERIFIED/INFERENCE/HYPOTHESIS/BLOCKER graded; §6 answers the permeability/amortization question | **Shipped** — PR #961, 0cc171f |
+| D-LOTUS-2 | F-ORD-REAL-FALSIFIER.md + the pre-registered tests (GREEN defect pin + `#[ignore]`d RED falsifier, `cycle_driver.rs`) | **Shipped** — PR #961, 0cc171f; RED landed BEFORE any fix, per charter |
 | D-LOTUS-3 | LOTUS-SEAL-DESIGN.md (16⁴ tree, petal seal, H(parent)=H(children) — NEW design per audit §2.3) | Queued (post-verdict) |
 | D-LOTUS-4 | COMMA-MODULATION-EXPERIMENT.md (petal-index-tier comma; locality-vs-resonance trade; "if it doesn't survive measurement, delete it") | Queued |
 | D-LOTUS-5 | TEMPORAL-FRONTIER-SEAM.md (rung-qualified frontier visibility; hindsight-invariance falsifier; audit §6.4) | Queued |
