@@ -33,8 +33,15 @@
 > of proof — *why can I not begin from the HHTL already in the first 16
 > bytes?*
 >
-> **Status: PROPOSED → NEEDS-REWORK.** Do not implement from this document
-> until the reassessment's §3 migration order is ratified.
+> **Status: RATIFIED (operator review, 2026-08-19).** The four corrections
+> above are the operator's own review verdict and are applied in place; the
+> reassessment's §3 migration order is the ratified order. Implement from
+> **this corrected document plus the reassessment**, in that pairing — never
+> from an uncorrected read of the struck-through sections (⊘F1, ⊘§2.2,
+> ⊘D-HTT-2, ⊘D-HTT-6, ⊘X2). No further architecture round is required for
+> this wave; the next open decision is the canonical-depth ruling
+> (spanning-tree depth vs DAG longest path — measured 58.2% agreement),
+> which gates D-HTT-9 and is called out at its own site.
 
 > **Status:** PROPOSED — ratification vehicle, **zero code**. ARC B of
 > `docs/architecture/DUMB-STORAGE-RESET-CHARTER.md` §19. The charter's §20
@@ -127,7 +134,7 @@ existing statement of this plan's thesis and is quoted verbatim in §2:
 | **Taxonomy / Mereology** | `RailCarving::zero_fallback` — rail pair, Taxonomy on byte 0, Mereology on byte 1 | `rail_geometry.rs:80-88`; catalogue rows L1–L3 in `le-contract.md:56-58` | **MINTED** as a carving; **unbound** to any thinking table |
 | **NARS reasoning** | `NarsTables { revision: Vec<[PackedTruth; 256*256]>, deduction: [PackedTruth; 256*256], c_levels }`; `deduction[f1*256 + f2]`; revision table selected by **c-quantile** | `crates/causal-edge/src/tables.rs:41-49`, `:124-126`, `:115-119` | table **SHIPPED**; the rail **binding is MISSING** |
 | **Rung ladder** | — | see §3 | **the one genuinely new design decision** |
-| **Traversal** | not a row — the *mode column* (§2.3) | `lance-graph-java/CLAUDE.md:25` | ruled |
+| **Traversal** | not a row — the *reading column* (§2.3) | `lance-graph-java/CLAUDE.md:25` | ruled |
 
 ### 1.6 The 256:256 companion tables (why the pair byte is the right unit)
 
@@ -219,17 +226,25 @@ number is well-formed"*). **The mode is a per-rail property resolved through
 ### 2.3 The thinking table
 
 **It is ClassView-resolved DATA rows, not a type.** One row per
-`(classid, rail)`; the columns are: *rails used · mode · axis semantics ·
-companion 256×256 table*. Traversal is not a fifth row — it is the **mode
-column**, and `hop = Mask × ClassView/WideFieldMask → Mask` (the ratified
-lance-graph-java invariant, `lance-graph-java/CLAUDE.md:25`) is what a
-traversal *is* once the mode is resolved.
+`(classid, rail)`; the columns are: *rails used · reading · axis semantics ·
+companion 256×256 table*. Traversal is not a fifth row — it is the
+**reading column**, and `hop = Mask × ClassView/WideFieldMask → Mask` (the
+ratified lance-graph-java invariant, `lance-graph-java/CLAUDE.md:25`) is what
+a traversal *is* once the class's reading is resolved. (*`reading`, not
+`mode` — renamed 2026-08-19 with §2.2's withdrawal: one fabric, several
+ClassView-resolved reads, never alternative addressing systems.*)
 
-| Row | Rails | Mode | Axis semantics | Companion table | Mint state |
+> **⊘ COLUMN RENAMED 2026-08-19.** The third column was `Mode` and named
+> `Cartesian`/`Rails` as if they were alternative address carriers. They are
+> not: there is ONE fabric, and these are **ClassView-resolved READINGS** of
+> the same bytes. The column is now `Reading`; the values name what a
+> consumer does with the pair, never a second addressing system.
+
+| Row | Rails | Reading (ClassView-resolved) | Axis semantics | Companion table | Mint state |
 |---|---|---|---|---|---|
-| **Location** | 0–3 (tiers), 4–5 tail | Cartesian | `x : y`, literal | tier centroid tables | **MINTED** — OGAR `ogar-osm/src/lib.rs:204-212` |
-| **Taxonomy / Mereology** | 4 (canon default) | Rails | `part_of : is_a` | — (prefix only) | **MINTED as a carving** (`rail_geometry.rs:80-88`), unbound |
-| **NARS reasoning** | *(unassigned)* | Cartesian | `f₁ : f₂` (frequency pair) | `NarsTables.deduction[f1*256+f2]` `tables.rs:124-126`; `revision` selected by c-quantile `:115-119` ⇒ **c IS the zoom axis** | table shipped, **rail unminted** |
+| **Location** | 0–3 (tiers), 4–5 tail | coordinate-pair read (a byte pair as `x : y`) | `x : y`, literal | tier centroid tables | **MINTED** — OGAR `ogar-osm/src/lib.rs:204-212` |
+| **Taxonomy / Mereology** | 4 (canon default) | level-occupant read (byte `i` = level `i`, `0` = hole) | `part_of : is_a` | — (prefix only) | **MINTED as a carving** (`rail_geometry.rs:80-88`), unbound |
+| **NARS reasoning** | *(unassigned)* | coordinate-pair read | `f₁ : f₂` (frequency pair) | `NarsTables.deduction[f1*256+f2]` `tables.rs:124-126`; `revision` selected by c-quantile `:115-119` ⇒ **c IS the zoom axis** | table shipped, **rail unminted** |
 | **Rung ladder** | *(unassigned)* | see §3 — **two axes** | see §3 | see §3 | **unminted, undesigned** |
 
 The NARS row is the cleanest evidence that the shape is right: a 256×256
@@ -285,7 +300,7 @@ D-HTT-1 … D-HTT-4 are documents; 5 … 8 are contract text; 9 … 11 are probe
 |---|---|---|
 | **D-HTT-1** | **The LE ordering law**, written as contract prose: ascending rail → ascending byte → ascending nibble, one sentence, with the three shipped sites it already describes (`rail_geometry.rs:140-147`, `facet.rs:255-262`, `facet.rs:62-64`). | **FALSIFIED IF** any shipped reading walks the opposite direction and is nonetheless correct — i.e. if the "law" is a description of two of three sites and an accident at the third. Requires an explicit read of all three orderings and a statement of agreement or disagreement, not an assertion of agreement. |
 | ~~**D-HTT-2**~~ ⊘ | ~~**Mode taxonomy** — Cartesian vs Rails as a per-rail, ClassView-resolved property.~~ **WITHDRAWN 2026-08-19** with §2.2: one fabric, many reads; a "mode" enum would be the second addressing abstraction the rulings forbid. **REPLACED BY D-HTT-2′** — state the *zero-semantics* hazard as a ClassView reading obligation (a rail's `0` is data or terminator per the class's reading, never per a global mode), with the `clam_v3.rs:16-19` plausible-but-wrong defect as its rationale. | **D-HTT-2′ FALSIFIED IF** any shipped reading resolves a rail's zero-meaning from something *other* than the class's own reading — i.e. if a global switch is load-bearing anywhere. |
-| **D-HTT-3** | **The thinking-table row schema** (rails · mode · axis semantics · companion table), plus the four candidate rows of §2.3 with their mint states. | **FALSIFIED IF** the Location row (already minted, `ogar-osm/src/lib.rs:204-212`) cannot be expressed in the schema without an extra column no other row uses — order-genericity's local form (ARC A′ `F-ORDER-GENERICITY`, and its kill condition: *do not widen the shape to rescue it*). |
+| **D-HTT-3** | **The thinking-table row schema** (rails · **reading** · axis semantics · companion table — `reading` is the ClassView-resolved interpretation of a byte pair, **not** an addressing mode; renamed 2026-08-19 with §2.2's withdrawal), plus the four candidate rows of §2.3 with their mint states. | **FALSIFIED IF** the Location row (already minted, `ogar-osm/src/lib.rs:204-212`) cannot be expressed in the schema without an extra column no other row uses — order-genericity's local form (ARC A′ `F-ORDER-GENERICITY`, and its kill condition: *do not widen the shape to rescue it*). |
 | **D-HTT-4** | **Op catalogue** — the seven ops of §2.1 with, for each, either its shipped home or an explicit "no home" mark. | **FALSIFIED IF** any op marked "no home" turns out to have one (repo-wide grep required, both repos), or any op marked "shipped" is private/unreachable without a signature change that the catalogue does not admit. Note ops 1's home is **private in both crates** — the catalogue must say so. |
 | **D-HTT-5** | **`parent_rails`** named in the contract as *zero the deepest live byte* — one expression, sitting beside `RailPath::is_ancestor_of`. | **FALSIFIED IF** `parent_rails(x)` is not always an ancestor of `x` under `is_ancestor_of` (`rail_geometry.rs:178-180`), or if applying it `depth` times does not reach the empty path (*"leerer Pfad = dominante Wurzel"*, `:264-266`). |
 | ~~**D-HTT-6**~~ ⊘ | ~~**`parent_cartesian`** named as a per-axis shift, with `morton()` as its stated basis.~~ **WITHDRAWN 2026-08-19 (operator ruling C).** Morton is not canonical and HHTL ancestry is never derived from it; a `parent_cartesian` defined *from* Morton is precisely the derivation the ruling forbids. The `morton()` primitive stays shipped, unconsumed, and **non-canonical research** (X2 below is regraded accordingly) — it is not repaired into the HHTL contract. Nothing replaces this deliverable: the one parent operation the contract needs is the rails truncate (D-HTT-5). | n/a — withdrawn, not re-gated. |
@@ -293,10 +308,11 @@ D-HTT-1 … D-HTT-4 are documents; 5 … 8 are contract text; 9 … 11 are probe
 | **D-HTT-8** | **The rung row, carved** — an explicit statement of which byte carries the (a) admissibility ordinal and which carries the (b) plane mask, per §3, or a ruling that the rung gets no rail at all. | **FALSIFIED IF** any single-byte proposal survives the question *"does comparing this byte with `<` mean the same thing as ANDing it?"* — if both readings are live on one byte, the carve failed. Also **BLOCKED-BY** D-HTT-9. |
 | **D-HTT-9** | **PROBE-RUNG-L1-MASK** — resolve `cognitive_shader.rs:244-250` (L1 = `0b001`) against `pearl.rs:40-42,75` (L1 Association = `SO = 0b101`). Decide which is canon and whether superset-monotone ascent is a required property of the rung ladder. | **PASS** = one reading is chosen, the other is regraded in place (append-only), and the monotonicity property is either asserted with a test or explicitly disclaimed. **FAIL** = the probe cannot discriminate — then D-HTT-8's rung row must NOT be minted, and the plan says so rather than picking. |
 | **D-HTT-10** | **PROBE-NARS-RAIL** — does binding the NARS row to a rail pair `(f₁:f₂)` with c-quantile as the zoom axis (`tables.rs:115-119`) actually reproduce `NarsTables::deduce`/`revise` results, or does the byte pair lose information the table needs? | **PASS** = a rail-addressed read is bit-identical to the direct table call across the full `f₁ × f₂` grid at fixed c. **FAIL** = any divergence — record it; a NARS rail that is *nearly* right is worse than none, because both sides are well-formed `u8`s. |
-| **D-HTT-11** | **PROBE-ONE-SHAPE** (the ARC A′ §5 minimal experiment, localized) — can one row schema carry Location (Cartesian, minted) and Taxonomy/Mereology (Rails, minted) with **no case needing a column the other cannot use**? | **PASS** = both express fully in the D-HTT-3 schema. **FAIL** = report it and do NOT widen the schema (ARC A′'s pre-registered kill condition, verbatim: *"if expressing Case A and Case B through one shape requires either case to carry a field the other cannot use, the shape is not agnostic and the experiment has failed — report that, do not widen the shape to rescue it"*). |
+| **D-HTT-11** | **PROBE-ONE-SHAPE** (the ARC A′ §5 minimal experiment, localized) — can one row schema carry Location (coordinate-pair reading, minted) and Taxonomy/Mereology (level-occupant reading, minted) with **no case needing a column the other cannot use**? | **PASS** = both express fully in the D-HTT-3 schema. **FAIL** = report it and do NOT widen the schema (ARC A′'s pre-registered kill condition, verbatim: *"if expressing Case A and Case B through one shape requires either case to carry a field the other cannot use, the shape is not agnostic and the experiment has failed — report that, do not widen the shape to rescue it"*). |
 
-**Ordering.** D-HTT-1 → 2 → 3/4 (documents, independent) → 9 (unblocks 8) →
-5/6/7 → 8 → 10/11. D-HTT-11 is the cheapest thing that can kill the whole
+**Ordering** (updated 2026-08-19 — D-HTT-6 withdrawn, D-HTT-2 → 2′).
+D-HTT-1 → 2′ → 3/4 (documents, independent) → 9 (unblocks 8) → **5/7** → 8 →
+10/11. D-HTT-11 is the cheapest thing that can kill the whole
 program and should not be sequenced last out of politeness.
 
 ---
@@ -356,7 +372,7 @@ listed so a future session does not rediscover them.
 | # | Item | Evidence | Why deferred |
 |---|---|---|---|
 | **X1** | **`NiblePath` fused-axis vs per-axis contract layering — UNRULED.** `from_guid_prefix_v3` packs BOTH the `part_of` (hi) and `is_a` (lo) byte of each tier into one `u64` (`hhtl.rs:386-402`), so all ancestor arithmetic runs on the fused value and no per-axis constructor exists. `rail_geometry.rs` never mentions `NiblePath`; `hhtl.rs` never mentions `RailPath`. | verified this session; ARC A′ §3 Case A "**CONFLICT**"; ARC A′ open question 1 | This is the single largest fork and it is an operator ruling, not a finding. §8 Q1. |
-| **X2** | **`morton()` has no consumer.** Shipped `facet.rs:54-64`, referenced only by its own test `:642-643`. It is the *entire* basis of Cartesian-mode parenthood (D-HTT-6). | grep verified, both repos | A primitive with no consumer has no measured behaviour; D-HTT-6 is the first thing that would give it one. |
+| **X2** ⊘ | **`morton()` has no consumer, and under the 2026-08-19 ruling it acquires none here.** Shipped `facet.rs:54-64`, referenced only by its own test `:642-643`. ~~It is the *entire* basis of Cartesian-mode parenthood (D-HTT-6).~~ **CORRECTED:** Morton is the separate `4⁴` construct, **non-canonical**, and HHTL ancestry is never derived from it; D-HTT-6 (which would have consumed it) is WITHDRAWN. It stays shipped and unconsumed as **non-canonical research**. | grep verified, both repos | Deferred as research, not as a blocked deliverable. Nothing in the HHTL contract depends on it. |
 | **X3** | **The basin-promotion seam (Type-B: discovered → promoted) DOES NOT EXIST.** `EpisodicMemory::basins()` (`crates/lance-graph/src/graph/arigraph/episodic.rs:243`) returns `EpisodicBasins` (`:79`) by value; verified callers are **only its own tests** (`:742,753,761,768`). No `ValueTenant` slot is reserved. | verified this session; ARC A′ §3 Case B | A promoted basin is exactly a *new* thinking-table row with no minted rail. Blocked on mint (§8 Q3) and on ARC D. |
 | **X4** | **The latent third mask basis at the Java ABI.** `native/lgj-abi/src/abi.rs:173-175` fixes 32 facet lanes; `fixture.rs` admits the canonical per-class basis is "a later slice". A `WideFieldMask` minted in lane basis and one minted in class-field basis are the same type. | ARC A′ §2 "DOWNGRADED — the mask-collision instance" (live: `Locus` vs class-field; latent: the lane basis) | Op 7 (`project`) is the op that would cross the bases. The discrimination question is audited, not solved — deliberately, per ARC A′. |
 | **X5** | **NARS and rung rail bindings await mint gating.** Both rows in §2.3 are "unassigned". `rail_carving` has **zero consumers** outside its own default (grep verified), so no bake currently overrides the canon `reg: 4` pair. | `class_view.rs:1127-1133`; `rail_geometry.rs:80-88` | Assigning a rail is a mint. §8 Q3. |
@@ -373,7 +389,9 @@ Only genuine forks; nothing here is decidable from source.
 with rails a *second, separate* reading at a different layer? Or must the
 routing prefix become per-axis so one leaf carries two loci? Both are
 currently shipped and neither references the other. *This blocks the whole
-Rails-mode ancestry story at the trie layer, though not at the rail layer.*
+rail-truncate ancestry story at the trie layer, though not at the rail layer
+("Rails-mode" renamed 2026-08-19 — there is no mode, only the class's
+reading).*
 
 **Q2 — does the rung get a rail at all?** §3 shows the rung is two
 quantities. Three options: (i) two bytes, one rail, explicitly carved;
@@ -412,5 +430,7 @@ walk, and both change a shipped, tested behaviour to satisfy a document.*
   *observed at three sites*, not *proven across all readings*.
 - It does not claim the rung belongs in the register at all (Q2 option iii).
 - It does not claim `morton()`'s quad-tree property is measured — it is
-  documented (`facet.rs:54-64`) and has zero consumers (X2); D-HTT-6 is what
-  would measure it.
+  documented (`facet.rs:54-64`) and has zero consumers (X2). **The
+  deliverable that would have measured it (D-HTT-6) is WITHDRAWN**, so this
+  stays unmeasured *by design*: Morton is non-canonical and the HHTL contract
+  does not rest on it.

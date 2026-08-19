@@ -35,8 +35,15 @@ Corrections applied same-commit to `hhtl-thinking-tables-le-contract-v1`
 `counterfactual-rung3-closure-v1` (re-framed as decoder-defect repair),
 `mask-algebra-revision-read-v1` (promoted to critical path), plus
 EPIPHANIES ×2 and the dismech-rs ownership split (that repo's own boards).
-**PR #969 stays DRAFT and must not merge** — operator instruction, this
-session.
+~~**PR #969 stays DRAFT and must not merge** — operator instruction, this
+session.~~
+> **⊘ STORNO 2026-08-19 (same day, operator review).** The stop is LIFTED.
+> The operator reviewed the corrected wave and ruled: dismech-rs #7 merge
+> as-is; lance-graph #969 merge after ONE cleanup commit closing four
+> residual inconsistencies (the two-mode concept surviving in D-HTT-3's
+> schema column, the thinking-table rows, X2's Morton-as-basis claim, and
+> the ordering line), and *"keine neue Architektur-Runde"*. That cleanup is
+> the commit this storno rides on; #969 is ready to merge.
 
 ## 2026-08-19 — preparation-arc plan wave (5 authors + 6 sweep agents, orchestrator-consolidated)
 

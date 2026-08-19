@@ -39,7 +39,12 @@ real ontology bake; falsifier is comparative (HHTL-prefix-scoped ranking
 must beat the same ranking unscoped). Hard constraint measured: **0 of
 3,454 `intermediate_mechanisms` entries carry an ontology id.**
 
-**PR #969 stays DRAFT — operator: do not merge, it needs these corrections.**
+~~**PR #969 stays DRAFT — operator: do not merge, it needs these corrections.**~~
+> **⊘ STORNO 2026-08-19 (same day, operator review).** Stop LIFTED — the
+> corrections landed, plus a cleanup commit closing four residual
+> inconsistencies (D-HTT-3's schema column, the thinking-table rows, X2's
+> Morton claim, the ordering line). Plan status flipped
+> **NEEDS-REWORK → RATIFIED**; no further architecture round for this wave.
 
 ## 2026-08-19 — ew64-witness-unification-v1 (ARC D/E, PROPOSED)
 
