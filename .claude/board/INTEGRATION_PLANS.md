@@ -1,3 +1,19 @@
+## 2026-08-19 — cascade-seal-register-grid-v1 (5+3 COUNCIL, SPEC v1) — ACTIVE
+
+Operator invoked `/5plus3` on the cascade-accumulated seal under the
+register-grid correction — the #968 ratification object gating task #25.
+`.claude/plans/cascade-seal-register-grid-v1.md` is the Phase-0 SPEC v1:
+14 frozen decisions (12 seal requirements · register-grid correction · §0
+STORNO · T0.3 ΔV · map-§4 idempotency verdict · I-LEGACY · zero-copy law),
+file:line inventory @ 7267ec9, committed W1–W5 resolution (PayloadSource
+descriptor purity → digest on the ONE flush dereference →
+ContentRoot/ControlRoot split → FNV deletion behind `seal_version` gate →
+req-11 in-architecture bench), gates G1–G9, per-savant question sets.
+Council sequencing per `.claude/agents/5plus3-council.md`: 5 savants
+(Phase 1, in flight) → consolidate v2 → 3 reviewers on v2 only → fix →
+ratified v3. The council ratifies the SPEC; code implementation stays
+gated on the operator's #968 ready-flip. RP-SEAL Tier-0 successor item.
+
 ## 2026-08-18 — erasure-seals-compaction-research-v1 (RP-SEAL) — ACTIVE
 
 Operator-delivered 15-researcher program (5 domains x builder/adversary/
