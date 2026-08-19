@@ -1,3 +1,45 @@
+## 2026-08-19 — preparation-arc plan wave (5 authors + 6 sweep agents, orchestrator-consolidated)
+
+Operator-directed: "integration plans for all open arcs; deferred-for-
+missing-integration ideas named." Allocation per the operator's standing
+rule this session (accumulation-tier authors for the filigree, grindwork
+tier for bounded sweeps); every brief carried no-cargo + no-git + no-board-
+write + write-exactly-one-file + no-model-identifier-in-artifact; this
+entry is the orchestrator consolidating, per the one-writer rule.
+
+**Investigation sweeps (6, bounded read-only, task #29):** dismech-perturb
+output shape; perturbation-sim module surfaces (deliberate sixth island —
+zero contract/causal-edge deps, disclaimered witness/basin vocabulary);
+causal-edge CE64 v2 layout + external-producer census (ZERO non-test
+producers outside the cognitive stack); SPO-2³/rung ladder (three "Pearl
+2³" structures; L1 mask convention conflict); planner NARS surface (5/34
+tactics with local bodies + kernel dispatch for the rest; Counterfactual
+collapses at every dispatch; three multi-hop paths share no code);
+counterfactual/scenario inventory (draft-name collisions; FieldMask/
+WideFieldMask missing difference+is_subset).
+
+**Plan authors (5, one file each):**
+`hhtl-thinking-tables-le-contract-v1.md` (361 ln, D-HTT-1..11; 5/7 ops
+already shipped; D-HTT-7 pre-registered as expected-to-fire) ·
+`counterfactual-rung3-closure-v1.md` (400 ln, D-CFR-1..6; found the
+from_mantissa(−6)→Synthesis direction inversion + the `_ =>` wildcard
+blindness) · `mask-algebra-revision-read-v1.md` (358 ln, D-MAR-1..2;
+caught the brief's own vacuous identity gates, added anti-vacuity twins;
+receipts-not-masks correction via causal_audit.rs:306-315) ·
+`ew64-witness-unification-v1.md` (435 ln, D-EWU-1..9, OD-1..5; THREE→TWO
+spec correction; U64-lane argument for sub-byte packing) ·
+`causal-graph-soa-integration-v1.md` (dismech-rs — logged in that repo's
+own board). Disclosures: two authors ran one read-only `git status
+--porcelain` each (state unchanged); one author observed the
+orchestrator's concurrent STATUS_BOARD edit and correctly did not touch it.
+
+Board hygiene same-arc: INTEGRATION_PLANS ×4 prepends, STATUS_BOARD
+plan-wave section, EPIPHANIES ×2
+(E-TWO-WITNESS-SHAPES-CONTEST-ONE-LANDING-ZONE-1,
+E-CONTRACT-INFERENCETYPE-INVERTS-THE-COUNTERFACTUAL-1), ARC A′ §5 ⊘
+retraction, cascade-seal stop banner. PR #969 (draft). Citation-
+verification sweep (grindwork tier) runs before the PR leaves draft.
+
 ## 2026-08-19 — 5+3 council: cascade-seal register-grid spec (8 agents, orchestrator-consolidated)
 
 8/8 completed, 0 errors, sequenced per `.claude/agents/5plus3-council.md`

@@ -1,3 +1,27 @@
+## 2026-08-19 — ew64-witness-unification-v1 (ARC D/E, PROPOSED)
+
+The EpisodicWitness64→V3 seam cut. EW64 is NOT a code symbol; its landing
+zone is contested by tenant 14 `CausalWitness` (G24N4 ±8 context loci,
+EXPERIMENTAL, not operator-locked) while four W1 scaffolds each
+self-document the missing seam (episodic_edges / witness_table "scaffold-
+only" / soa_view deferred accessor / markov_soa "truly-correct home").
+`.claude/plans/ew64-witness-unification-v1.md`: D-EWU-1 = the demarcation
+ruling (READING L recommended, not banked: the two witness shapes are two
+RUNGS — positional context vs episodic reference — with a two-armed
+falsifier + kill condition), D-EWU-2 corrects the prefetch spec's THREE
+open decisions to TWO (`RawEdge(i8)` + its `EpisodicEdge` impl are SHIPPED
+at `counterfactual.rs:456/472-479`; only the bridge location remains),
+D-EWU-3..9 = Phase-D lane / bridge / Phase-B co-fire / Phase-C
+DemotionSink / Phase-E arcuate / basin-promotion seam / markov_soa
+re-home, in gate order. Key source-grounded argument: EW64's 4×(4b:12b)
+sub-byte packing cannot be a le-contract §3 byte-axis carving but is
+legal as a `U64 × 1` LANE (precedent: Qualia, Kanban) — satisfying
+`causal_witness.rs:22-26`'s "sub-byte's sanctioned home is a LANE". Also
+verified: `EpisodicEdges64` has NO ValueTenant variant; only DemotionSink
+impl is the test VecSink; `witness_tombstone.rs` is todo!()-only and
+absent from `graph/mod.rs`; the spec's `soa_view.rs:77` citation is stale
+(note lives at :257-277). 5 operator decisions OD-1..5.
+
 ## 2026-08-19 — counterfactual-rung3-closure-v1 (PROPOSED)
 
 Closes the gap between the fully-specified rung-3 encoding and its
