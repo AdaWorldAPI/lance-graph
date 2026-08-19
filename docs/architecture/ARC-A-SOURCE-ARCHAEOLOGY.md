@@ -7,6 +7,19 @@
 > per-agent findings are banked in the session scratchpad
 > (`ARCA-1` through `ARCA-5`).
 
+> **⊘ CORRECTION (operator, same session, immediately after this doc's
+> first draft): the explicit hierarchy node must NEVER materialize
+> traversal or a crosswalk table.** `parent_ref`, `child_or_ref_set`,
+> `projection_mask`, `version` are not stored fields on a struct — they
+> are **computed, register-cheap AND/XOR reads over existing shipped
+> primitives**, exactly the way Valhalla value classes get structural
+> operations (equality, hashing, field access) with zero object header
+> and zero indirection, and the way Panama FFM gives zero-copy VIEWS into
+> native memory with zero Java object materialization. §3, §7, and §10 Q1
+> below are corrected IN PLACE (marked, not deleted) — the original §7
+> proposal (a new materialized node type) is WITHDRAWN. See the
+> corrected §7 for the concrete algebra and §3/§10 for the consequences.
+
 ---
 
 ## 1. Current source map (file:line anchors)
@@ -160,32 +173,71 @@
 
 ## 3. Minimal storage PR sequence (ARC B, NOT started — awaiting your go)
 
-1. **B1 — the explicit hierarchy reference node** (the one real, load-bearing
-   gap in §2). Minimal type: `{ref: NodeGuid, parent: Option<NodeGuid>,
-   children_mask_ref: ViewId /* or similar */, presence: WideFieldMask,
-   version: DatasetVersion}` — composed from EXISTING pieces
-   (`NodeGuid`, `WideFieldMask`, `DatasetVersion`, and `selection.rs`'s
-   `ViewId`/`NamedView` machinery for the child-ref-set), not a new
-   subsystem. Zero-copy: a borrowed view over existing SoA columns, not an
-   owned struct with copied children (per charter §1's "reference-set
-   connective tissue, not payload container").
-2. **B2 — expose child/reference positions through ClassView** (charter
-   §2's attention-economy pattern) — extends `ClassView` (or a sibling
-   trait it composes) so a hierarchy node's children are selectable via
-   WideFieldMask without a Cartesian pairwise scan. This directly resolves
-   the `RailGraph`-routed-around-ClassView finding in §1 — needs a
-   RATIFICATION QUESTION (§10 below) since `selection.rs`'s module doc
-   argued deliberately AGAINST this exact routing.
-3. **B3 — the F-HIERARCHY-NOT-AUTHORITY falsifier** — a test proving
-   changing B1's hierarchy geometry (e.g. re-keying which node is "parent")
-   does not change the exact reference-query result set. Written against
-   B1+B2 once they exist.
+> **⊘ CORRECTED** — the original B1 below proposed a new materialized
+> struct. Per the operator's correction (top of this doc), the hierarchy
+> node is an ALGEBRA over existing types, never a stored crosswalk. B1 is
+> retitled to reflect that it composes free functions/helpers, not a type.
+
+1. **B1 — the "hierarchy read" algebra, zero new storage.** Every one of
+   the charter's four fields is already a cheap, register-width read or
+   AND/XOR over a SHIPPED primitive — the "node" at address `A` is never
+   constructed, it is evaluated on demand from the tuple `(A: NodeGuid,
+   ClassView(classid_of(A)), a WideFieldMask read, a caller-supplied
+   DatasetVersion/QueryReference)`:
+   - `parent_ref` = `NiblePath::parent(path_of(A))` — **already shipped,
+     already free**, O(1) bit-shift (`hhtl.rs:134-239`). No lookup, no
+     pointer, no materialization.
+   - `child_or_ref_set` = `NiblePath::child(A, nibble)` for each set bit
+     of a `WideFieldMask` READ at `A`'s address, intersected (AND) against
+     the structurally-possible-children mask `ClassView` already projects
+     for `classid_of(A)`. This is the SAME mask-intersection primitive
+     `standing_mask.rs`'s `fires()` already uses
+     (`dirty.intersect(interest)`, register-width, no allocation) — it is
+     not a new operation, only a new USE of an existing one. No stored
+     `Vec<NodeGuid>` anywhere.
+   - `projection_mask` = a `WideFieldMask` VALUE, read fresh each time —
+     it already exists as a type; nothing new is stored per-node.
+   - `version` = the caller's `QueryReference`/`DatasetVersion`, a
+     REFERENCE the reader supplies, never a field copied onto a node
+     (mirrors §1 Frozen material: DatasetVersion is durable history, not
+     per-object state).
+   - **The Valhalla/Panama analogy, made precise:** a Valhalla value class
+     has no identity, no header, no indirection — its "fields" are flat
+     bytes and every operation (equals, hashCode, field access) is
+     computed directly over that flat layout, cheaply, every time, rather
+     than dereferencing a materialized object graph. Panama's
+     `MemorySegment` gives a VIEW into native memory with zero Java-side
+     materialization. The hierarchy "node" here is the same shape: a
+     computed VIEW over `(NiblePath bits, ClassView lookup, WideFieldMask
+     bits, DatasetVersion)`, evaluated by cheap AND/XOR register ops, with
+     **no persisted struct anywhere carrying parent/children/mask/version
+     together.**
+2. **B2 — the mask-intersection helper itself** (the one thing that is
+   arguably NEW, and it is a **function, not a type**): something shaped
+   like `fn children_of(view: &dyn ClassView, addr: NodeGuid, presence:
+   WideFieldMask) -> WideFieldMask` — composing `NiblePath::child` +
+   `ClassView`'s already-projected child-position mask + a plain AND. This
+   resolves the `RailGraph`-routed-around-`ClassView` finding in §1 WITHOUT
+   adding a method to either trait — it is a free function over their
+   existing outputs. Ratification question 1 (§10) is corrected
+   accordingly: the fork is no longer "which trait owns a new accessor"
+   but "does this helper live beside `ClassView`, beside `RailGraph`, or
+   in neither (pure caller-side composition)" — a smaller, cheaper
+   question.
+3. **B3 — the F-HIERARCHY-NOT-AUTHORITY falsifier** — a test proving that
+   re-deriving the same address's parent/children via a DIFFERENT
+   `NiblePath` fanout/depth split (charter §1: "hierarchy geometry is an
+   accelerator, never semantic authority") yields the identical exact
+   reference-query result set. Written against B1's algebra directly — no
+   type to construct first.
 4. **B4 — F-TRIE-VS-NODE falsifier** — a test proving `NiblePath` routing
-   and B1's explicit nodes can diverge in shape (different fanout) without
-   breaking either.
+   arithmetic and the B1 algebra's mask-intersection reads can vary
+   independently (e.g. a `ClassView` that projects a different
+   child-position mask for the same trie shape) without either breaking.
 
 No implementation starts before you ratify this sequence — this is the
-PROPOSED order, not a commit log.
+PROPOSED order, not a commit log. Note what changed from the withdrawn B1:
+**zero new storage, zero new type — at most one small free function.**
 
 ## 4. Java integration PR sequence (ARC C, NOT started)
 
@@ -237,17 +289,30 @@ literally; none was found), `RailGraph`/`FieldVisit`/`NamedView`/
 
 ## 7. Proposed NEW types, each with proof an existing type cannot express it
 
-- **The explicit hierarchy reference node (B1).** Proof: §1 confirms no
-  existing type carries `{parent_ref, child_or_ref_set, projection_mask,
-  version_coordinate}` together — `ContextBundle` has 2 of 4,
-  `WikidataClass` has a different 2 of 4, `EdgeBlock`/`NodeRow` are payload
-  containers by explicit design. This is the ONE new type the charter's own
-  gap analysis licenses — everything else in this document is composition
-  of existing pieces.
+> **⊘ CORRECTED — the type proposed here is WITHDRAWN.** The original
+> draft proposed a materialized struct carrying `{parent_ref,
+> child_or_ref_set, projection_mask, version_coordinate}` together,
+> reasoning that no existing type carries all four. That reasoning was
+> the mistake: the operator's correction (top of this doc) is that these
+> four should never be co-located in a stored struct AT ALL — each is
+> independently cheap to compute from existing primitives (see §3's
+> corrected B1), so "no type carries all four" is not evidence a new type
+> is needed; it is evidence that no type SHOULD carry all four. A
+> materialized crosswalk is exactly the pointer-chasing/object-header
+> overhead the Valhalla/Panama analogy exists to avoid.
 
-No other new type is proposed. (The charter's §12 rung axis, §13-17
-meta-awareness, and §11 episodic/epistemic layer are explicitly deferred
-to ARC D/E — not proposed here.)
+**ZERO new types are proposed.** Every capability the charter's §6 gap
+matrix originally seemed to license is available as a composition of
+`NiblePath` (parent/child address arithmetic, already free), `ClassView`
+(class-projected child-position mask, already shipped), `WideFieldMask`
+(presence bits + the AND/XOR algebra `standing_mask.rs` already exercises),
+and `DatasetVersion`/`QueryReference` (caller-supplied, never stored
+per-node). At most one small free function (§3 B2) composes them — not a
+type.
+
+(The charter's §12 rung axis, §13-17 meta-awareness, and §11 episodic/
+epistemic layer are explicitly deferred to ARC D/E — not proposed here,
+unchanged from the original draft.)
 
 ## 8. How #968 / the seal work changes under no-freeze + hierarchy refs + versioned frontier
 
@@ -295,8 +360,11 @@ to ARC D/E — not proposed here.)
    │                   │            with the B2 fovea use)         │
    │                   ▼                                          │
    │   HHTL trie (NiblePath, door A)   +   explicit hierarchy      │
-   │   — routing, ancestry, LCA            reference node (door B, │
-   │                                        NEW — the one gap: B1) │
+   │   — routing, ancestry, LCA            "node" (door B — a      │
+   │                                        COMPUTED ALGEBRA over  │
+   │                                        A+ClassView+WFM+       │
+   │                                        DatasetVersion; ZERO   │
+   │                                        new storage — B1/§3)   │
    │                   │                                          │
    │                   ▼                                          │
    │        versioned dumb substrate                              │
@@ -336,14 +404,19 @@ to ARC D/E — not proposed here.)
 
 ## 10. Ratification questions (genuine forks only)
 
-1. **B2's home**: does the child/reference-position exposure land ON
-   `ClassView` directly (charter §2's literal phrasing: "expose... THROUGH
-   its ClassView"), or on the existing, deliberately-separate `RailGraph`
-   trait (which `selection.rs`'s own module doc argues for, with reasons
-   already on record)? Source leaves a genuine, already-argued fork here —
-   I have a lean (extend `RailGraph`, since its separation from `ClassView`
-   was a considered decision with a written rationale, not an oversight)
-   but this is your call to make, not mine to override.
+1. **⊘ CORRECTED — B2's home** (narrowed by the withdrawal of B1's type in
+   §7): now that "expose child positions" is a small free FUNCTION over
+   existing outputs, not a new trait method, does it live as a bare
+   function beside `ClassView`, beside `RailGraph`, or purely at the call
+   site (no shared helper at all — every consumer composes
+   `NiblePath::child` + a mask read itself)? The stakes are much lower
+   than the original question (no trait surface changes either way), but
+   source still leaves a genuine fork on WHERE the composition helper
+   lives. My lean: a bare function near `RailGraph` (same file,
+   `selection.rs`), since that module already owns the rail-walk
+   vocabulary and its separation-from-`ClassView` rationale still applies
+   to a free function the same way it applied to a trait method — but
+   this is your call.
 2. **Java naming (C2)**: keep `.children(mask)` as charter-literal
    vocabulary, or treat `.hop(edgeClassid, mask)` as already sufficient and
    skip C2 entirely? The charter itself says "DO NOT freeze those method
