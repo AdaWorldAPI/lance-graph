@@ -1,4 +1,4 @@
-## erasure-seals-compaction-research-v1 — RP-SEAL (operator charter, DISPATCHED 2026-08-18)
+## erasure-seals-compaction-research-v1 — RP-SEAL (operator charter; PASS 1 CONSOLIDATED 2026-08-19 + §0 STORNO: canonical replay coordinates core, compaction = optional economics → docs/lotus/RP-SEAL-CONSOLIDATION-PASS1.md; Tier 0 probes next)
 
 Plan: `.claude/plans/erasure-seals-compaction-research-v1.md` (the operator's
 15-researcher program; supersedes lotus deliverables 3-9's sequencing).
