@@ -59,7 +59,7 @@ a shipped home, the contract **names that home**; it does not re-implement it.
 | `shared_prefix_tiles` — whole-facet LCP, `(xor).trailing_zeros()/16`, one `vpxor`+`tzcnt` over `u128` | `facet.rs:255-262` | shipped |
 | `hi_distance` / `lo_distance` — per-axis `6 − shared prefix` | `facet.rs:238-248` | shipped |
 | `cascade_group_shared(other, shape, group)` — per-group LCP redout | `facet.rs:326-335` | shipped |
-| `CASCADE_UNITS = 12`; `CascadeShape` G·D=12 (`6×2` / `4×3` / `3×4`) | `facet.rs:342`, `:344-543` | shipped |
+| `CASCADE_UNITS = 12`; `CascadeShape` G·D=12 (`6×2` / `4×3` / `3×4`) | `facet.rs:342`, `:344-546` | shipped |
 
 ### 1.3 The nibble trie (contract crate)
 
@@ -276,7 +276,7 @@ seams now, do not implement."
    already concluded *"ZERO new types are proposed"*; nothing found this
    session reopens that.
 2. **No stride change.** `NODE_ROW_STRIDE` and the 16-byte facet are canon
-   and untouched (`facet.rs:103-106` const asserts; `le-contract.md:68-69`).
+   and untouched (`facet.rs:103-106` const asserts; `le-contract.md:65-67`).
 3. **No `ENVELOPE_LAYOUT_VERSION` bump.** Every reading here reads bytes that
    already exist, selected per class — the same discipline
    `EdgeCodecFlavor`/`rail_carving` already follow.

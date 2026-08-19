@@ -56,7 +56,7 @@
 (`canonical_node.rs:828`, `:908`) — 15 variants, none episodic-edge. Nine sites
 name `EpisodicEdges64` in doc-comments (`soa_envelope.rs:7`,
 `causal-edge/src/syllogism.rs:47`, `deepnsm/src/comprehension.rs:21`,
-`graph/arigraph/community.rs:13`, `planner/src/{lib.rs:130,plan.rs:42}`,
+`graph/arigraph/community.rs:13`, `planner/src/lib.rs:130`, `contract/src/plan.rs:42`,
 `arm-discovery/examples/meta_awareness_probe.rs:209`, …). **Every one is prose.
 Nothing reads or writes an EW64 column, because there is none.**
 
@@ -281,7 +281,7 @@ and straddles bytes, so the §3 byte-axis carvings cannot express it. Plus the
 this becomes a migration, not a mint.
 
 **Gate (both branches):** ① `ValueSchema::Full` count stays compile-asserted
-`== VALUE_TENANTS.len()` (`canonical_node.rs:1197`); ② **field-isolation
+`== VALUE_TENANTS.len()` (`canonical_node.rs:1198`); ② **field-isolation
 matrix** per F9 — write the lane, assert all 14 other tenants byte-unchanged,
 and the paired inverse; ③ **zero `ENVELOPE_LAYOUT_VERSION` bump** (append into
 the 292 B headroom, RESERVE-DON'T-RECLAIM) — a bump means the design is wrong,

@@ -72,14 +72,14 @@ consumers, not an existing mess.
 
 **Named candidate consumers** (candidates, NOT scope): `standing_mask.rs:126`
 `widen(subscriber, key, extra)` is a union with no `narrow` sibling — `difference`
-is the missing half. `lance-graph-rbac/src/authorize.rs:199` folds role masks with
+is the missing half. `lance-graph-rbac/src/authorize.rs:215` folds role masks with
 `union`; `is_subset_of` is the natural "does this projection stay inside the
 permitted surface" assertion. 156 `WideFieldMask` call sites across 17 files.
 
 ### 1.2 The shipped machinery D-MAR-2 reads over
 
 - `crates/lance-graph-planner/src/nars/belief.rs:31` — `pub struct Stamp(pub u64)`,
-  with `source(id):36` (`1u64 << (id % 64)`), `disjoint(other):42`, `union:48`.
+  with `source(id):36` (`1u64 << (id % 64)`), `disjoint(other):41`, `union:46`.
   Module doc `:20-22`: *"Disjoint → NARS revision (evidence pooling, synthesis c
   above both, `|f₁−f₂|` kept); overlap → CHOICE, no double count."*
 - `crates/lance-graph-planner/src/nars/belief.rs:108` — `pub enum ReviseOutcome`:
@@ -88,7 +88,7 @@ permitted surface" assertion. 156 `WideFieldMask` call sites across 17 files.
 - Mirrored in the workspace-**excluded** `crates/deepnsm-v2/src/belief.rs`:
   `Stamp:33`, `ReviseOutcome:111` (same three variants), `revise_at:187`.
   deepnsm-v2's only dependency is `lance-graph-contract` (its `Cargo.toml:24`).
-- `Belief.contradiction: f32` (`belief.rs:107`) — *"Preserved dialectic depth: max
+- `Belief.contradiction: f32` (`belief.rs:103`) — *"Preserved dialectic depth: max
   `|f₁−f₂|` across revisions (the contradiction is committed, not erased)"*.
 - Re-exported at `crates/lance-graph-planner/src/nars/mod.rs`:
   `pub use belief::{Belief, BeliefArena, CStmt, Copula, ReviseOutcome, Stamp};`

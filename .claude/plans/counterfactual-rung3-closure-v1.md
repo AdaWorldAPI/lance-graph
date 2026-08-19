@@ -102,7 +102,8 @@ semantics cannot cross the contract boundary at all.**
 | `lance-graph-planner/src/cache/nars_engine.rs:242-246` | `f = fa·fb; c = fa·fb·ca·cb·0.70` | `:235-241` *"Implemented as Deduction ×0.70 confidence modifier. TUNED-LATER"* |
 
 **Nothing composes the caller.** `grep 'fn intervene'` over `crates/` returns
-exactly one hit — `lance-graph/src/graph/arigraph/triplet_graph.rs:789
+one real function (plus two test-fn names matching the substring,
+`tests/intervene_counterfactual.rs:27,56`) — `lance-graph/src/graph/arigraph/triplet_graph.rs:789
 intervene_on` — and no site chains abduce → intervene → predict. The three
 sub-steps are named in four doc comments and executed in none.
 
@@ -119,7 +120,7 @@ sub-steps are named in four doc comments and executed in none.
 
 ### 2c — What is NOT stuck (the plane half is wired)
 
-`.claude/board/STATUS_BOARD.md:418` — **D-TRI-6**: *"In PR (P3) — ascent loop
+`.claude/board/STATUS_BOARD.md:432` — **D-TRI-6**: *"In PR (P3) — ascent loop
 WIRED (driver rung→predicate-plane widen; identity-at-base, superset-monotone);
 settlement probe green; real-cycle distribution + jc threshold calibration still
 open."* So the *plane* half of rung 3 ascends. Only the **rule-identity** half —
@@ -147,7 +148,7 @@ contract's own doc comment already flags this as unprobed. A probe is owed.
 | **pearl_queries** | `contract/src/exploration.rs:24-30` | a **3-way** SEE / DO / IMAGINE decomposition — not 8 at all |
 
 Three different arities (8 planes, 8 permutations, 3 rungs) under one phrase.
-`nars_engine.rs:263-266` weights "the 8 Pearl projections"; `ticket.rs` masks 8
+`nars_engine.rs:252` weights "the 8 Pearl projections"; `ticket.rs` masks 8
 role assignments; a reader cannot tell from the phrase which is meant.
 
 ### 2f — Multi-hop and revision fragmentation (the DEFERRED evidence)
@@ -373,7 +374,7 @@ route it to a facet layout, or the operator must carve out an exception.
 
 | # | Gap | Evidence | Why deferred |
 |---|---|---|---|
-| DEF-1 | **The `abduce → intervene → predict` composition** never runs. Four doc comments delegate it to "the caller"; no caller exists (`grep 'fn intervene'` → 1 hit, `triplet_graph.rs:789`). | §2b | Needs a composition site + a fixture; D-CFR-1..2 are its prerequisite (the chain cannot be typed today). |
+| DEF-1 | **The `abduce → intervene → predict` composition** never runs. Four doc comments delegate it to "the caller"; no caller exists (`grep 'fn intervene'` → 1 real fn, `triplet_graph.rs:789`, + 2 test-name substring hits). | §2b | Needs a composition site + a fixture; D-CFR-1..2 are its prerequisite (the chain cannot be typed today). |
 | DEF-2 | **Three unrelated multi-hop paths.** `belief.rs:279` `close_transitive` is real; `truth_propagation.rs:36-52` is a documented no-op; `accumulate.rs` `AccumulateOp` has no `execute()`. | §2f | Unification is a D-TSC-1-shaped measure-then-collapse wave, not a drive-by. |
 | DEF-3 | **`NarsTables` is dead weight on the multi-hop path.** `network.rs:39` declares a 256×256 deduction table + revision tables; `forward_chain` (`:61-77`) never reads them, computing truth by float `match` in `edge.rs:656+`. | §2f | Wiring it changes numeric output; needs a parity pin against the current float path first. |
 | DEF-4 | **Revision-formula dedup.** 19 `fn revise` sites; ≥3 full reimplementations (`nars/truth.rs:57`, `sigma_chain.rs:148`, `accumulate.rs:162`). | §2f | Collapse only on measured identity (D-TSC-1 lesson); the three differ in what they feed as `f` and are **not** obviously the same function. |
