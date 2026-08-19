@@ -1,5 +1,31 @@
 # mask-algebra-revision-read-v1 — PLAN (DRAFT)
 
+> **⊘ PROMOTED IN PRIORITY 2026-08-19 (operator ruling F).** Masks are more
+> than field filters: the converging architecture is **HHTL = WHERE**,
+> **mask = WHICH semantic/provenance surface is visible**, **operator = HOW
+> that view is read**. This plan holds the two pieces that make that
+> sentence executable, and the evidence sweep raised their value:
+>
+> - **D-MAR-1 (`difference` / `is_subset_of` on `FieldMask`/`WideFieldMask`)
+>   is now on the critical path**, not a tidy-up. A provenance surface is
+>   built from set difference and containment; neither exists today
+>   (`class_view.rs:70,221` have `intersect`/`union`/`is_disjoint` only).
+> - **The provenance vocabulary is measured ABSENT.** Against
+>   `[asserted, observed, inherited, deduced, extrapolated, synthesized,
+>   counterfactual, revised, unknown]`: `deduced`/`synthesized`/
+>   `counterfactual`/`revised` exist only as `causal-edge::InferenceType`
+>   (a *reasoning-rule* label, not epistemic provenance); `asserted` and
+>   `unknown` are prose/scalar; **`observed`, `inherited` and
+>   `extrapolated` have no type, field or variant anywhere.** `MetaWord` has
+>   **zero spare bits** and a hard-coded layout; `SpoRecord` has no
+>   provenance field at all. See
+>   `docs/architecture/ARC-B-OWNERSHIP-AND-ADDRESSING-REASSESSMENT.md` §C6.
+> - **Iron constraint (ruling E + F):** the missing distinctions land as a
+>   **ClassView-resolved mask reading**, never as a new packed register or a
+>   new semantic tenant. An inherited or synthesized candidate must never
+>   silently become an asserted fact — that is the requirement; the bit
+>   assignment is not invented here.
+
 > **Date:** 2026-08-19 · **Status:** DRAFT, awaiting operator ruling on §5
 > **Scope:** ZERO code changes in this document. It is the landing plan for the
 > keepers extracted from an in-session review of two externally-authored draft

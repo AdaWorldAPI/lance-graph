@@ -1,3 +1,46 @@
+## 2026-08-19 — ARC-B OWNERSHIP + ADDRESSING REASSESSMENT (supersedes parts of the plan wave)
+
+Not a plan — the **assessment that corrects the plan wave**, per two
+operator rulings the same day (the `dismech-rs`-is-the-oracle ownership
+correction, and the HHTL-addressing correction with its own same-day
+retraction of the second-tenant reading).
+`docs/architecture/ARC-B-OWNERSHIP-AND-ADDRESSING-REASSESSMENT.md`.
+
+**Headline:** HHTL is already the FIRST canonical tenant
+(`key(16) | edges(16) | value(480)`) and is **zero on every baked row in
+both production bakes**. The gap is mint + read, not storage or layout.
+Five hand-rolled ancestor mechanisms in one repo are the measured
+consequence — and two of them disagree by **58.2%** because spanning-tree
+depth and DAG longest path are different quantities, so "use the rails" is
+a semantic change needing a written ruling.
+
+**Corrections it forces, all applied same-commit:** `hhtl-thinking-tables-le-contract-v1`
+F1 ⊘ (the `32×(4+12)` canon was read off a self-declared Java *fixture*) +
+new F1′; §2.2 two-addressing-modes taxonomy withdrawn; D-HTT-2 → 2′;
+**D-HTT-6 withdrawn** (Morton is non-canonical and never the basis of HHTL
+ancestry); HHTL never called "V1"; HHTL+ Helix deferred.
+`ew64-witness-unification-v1` gains F0 — CE64/EW64 are **codecs/projections,
+never canonical semantic containers** — and its proposed `ValueTenant` is
+gated, provisionally argued against. `counterfactual-rung3-closure-v1`
+re-framed as repairing a **decoder defect in a projection**.
+`mask-algebra-revision-read-v1` **promoted to the critical path** (masks
+select the semantic/provenance surface; `observed`/`inherited`/
+`extrapolated` are measured absent everywhere).
+
+**Ownership split for `dismech-rs` PR #7:** oracle + falsifiers stay;
+row architecture, classid mints, predicate ontology, side lane and
+edge-block summary move to `ogar-dismech`/`ogar-from-dismech` and
+lance-graph. `ogar-dismech` **already mints the same 19 predicates**
+(`FnIndex 0x90..0xA2`), so PR #7's parallel `1..19` freeze would have been
+a second canonical numbering.
+
+**POC named:** held-out `INDIRECT_KNOWN_INTERMEDIATES` recovery over the
+real ontology bake; falsifier is comparative (HHTL-prefix-scoped ranking
+must beat the same ranking unscoped). Hard constraint measured: **0 of
+3,454 `intermediate_mechanisms` entries carry an ontology id.**
+
+**PR #969 stays DRAFT — operator: do not merge, it needs these corrections.**
+
 ## 2026-08-19 — ew64-witness-unification-v1 (ARC D/E, PROPOSED)
 
 The EpisodicWitness64→V3 seam cut. EW64 is NOT a code symbol; its landing

@@ -1,5 +1,24 @@
 # Counterfactual rung-3 closure — encoding is specified, runtime is absent — v1
 
+> **⊘ RE-FRAMED 2026-08-19 (operator ruling E).** This plan **survives**, but
+> its justification changes and the change is load-bearing. Widening
+> `contract::nars::InferenceType` is **not** "making CausalEdge64 better" —
+> under ruling E, CE64 is a **codec/projection**, and the contract enum is
+> how a reader *decodes what the codec already stores*. Today it decodes
+> wrongly: `from_mantissa(−6)` returns `Synthesis` (whose own mantissa is
+> **+5**) — a silent direction inversion. That is a **decoder defect in a
+> projection**, which is exactly the kind of thing this plan may fix.
+>
+> **What this plan must NOT become:** a route to adding new CE64 bit-field
+> semantics. `.claude/v3/soa_layout/le-contract.md` forbids it and M20
+> retired the awareness mantissa on measurement. The canonical meaning of a
+> counterfactual belongs in V3 rows + HHTL locality + masks + provenance;
+> CE64 then projects it. Cross-ref
+> `docs/architecture/ARC-B-OWNERSHIP-AND-ADDRESSING-REASSESSMENT.md` §4, and
+> §C6 for the measured fact that **`observed` / `inherited` / `extrapolated`
+> have no representation anywhere** — the provenance surface this plan's
+> `Counterfactual` variant will eventually need to sit beside.
+
 > **Status:** DESIGN. Zero code lands with this doc. Every deliverable is
 > pre-registered with a falsifiable gate (can-it-fire **and** can-it-stay-silent,
 > per the P0 falsifiability rule); no mechanism lands before its gate is green.

@@ -1,3 +1,43 @@
+## 2026-08-19 — oracle-boundary reassessment sweep (6 agents, workflow, orchestrator-consolidated)
+
+Operator-directed after two superseding architecture rulings (the
+`dismech-rs`-is-the-oracle ownership correction, and the HHTL-addressing
+correction with its own same-day retraction of the second-tenant reading).
+Six parallel read-only sweeps at the grindwork tier, briefs carrying
+no-cargo / no-git-state-change / no-board-write / file:line-or-it-did-not-
+happen. Deliverable authored main-thread:
+`docs/architecture/ARC-B-OWNERSHIP-AND-ADDRESSING-REASSESSMENT.md`.
+
+Scopes: (1) `ogar-dismech` + OGAR bridge precedents; (2) MedCare ontology
+substrate + hand-rolled-traversal census; (3) lance-graph provenance/status
+vocabulary; (4) the second 16-byte tenant + Java/ABI geometry; (5) DisMech
+POC candidates over the real corpus; (6) OGAR ontology precedents
+(`ogar-obo`/`ogar-ro`/`ogar-elk`).
+
+**Findings that changed the plans:** HHTL zero on every baked row in BOTH
+production bakes; five hand-rolled ancestor mechanisms in one repo with a
+measured **58.2%** disagreement between two of them; the `32×(4+12)`
+canonical-substrate claim traced to a self-declared fixture; provenance
+states `observed`/`inherited`/`extrapolated` absent everywhere, `MetaWord`
+with zero spare bits; `ogar-dismech` already owning the 19 predicates as a
+minted `Vocabulary`; **3,454 `intermediate_mechanisms` entries, 0 carrying
+an ontology id**; and the `~915k/~10M/~40k` figures **not reproducing**
+(actual: 68,797 OBO rows / 152,073 edges / MONDO 32,095; 1,225,834 across
+twelve lanes).
+
+**Two prior session claims retracted on evidence:** `ogar-elk` does produce
+entailments in-repo (only serialization is forbidden); and the canonical row
+was being read off the Java fixture rather than the contract.
+
+Corrections applied same-commit to `hhtl-thinking-tables-le-contract-v1`
+(F1 ⊘ + F1′, §2.2 withdrawn, D-HTT-2 → 2′, D-HTT-6 withdrawn),
+`ew64-witness-unification-v1` (F0 tenant gate, CE64/EW64 → projections),
+`counterfactual-rung3-closure-v1` (re-framed as decoder-defect repair),
+`mask-algebra-revision-read-v1` (promoted to critical path), plus
+EPIPHANIES ×2 and the dismech-rs ownership split (that repo's own boards).
+**PR #969 stays DRAFT and must not merge** — operator instruction, this
+session.
+
 ## 2026-08-19 — preparation-arc plan wave (5 authors + 6 sweep agents, orchestrator-consolidated)
 
 Operator-directed: "integration plans for all open arcs; deferred-for-

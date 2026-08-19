@@ -1,5 +1,41 @@
 # HHTL thinking tables × the little-endian structural contract — v1
 
+> **⊘ SUPERSEDED IN PART — READ `docs/architecture/ARC-B-OWNERSHIP-AND-ADDRESSING-REASSESSMENT.md`
+> FIRST (operator rulings, 2026-08-19).** Four things in this document are
+> now WRONG and are corrected in place below; the corrections are marked ⊘
+> at each site and the original text is retained per append-only discipline.
+>
+> 1. **F1's `32 × (4+12)` canonical substrate is FALSE.** The canonical row
+>    is `16 B HHTL key | 16 B edges | 480 B value slab`
+>    (`canonical_node.rs:706-730`). The 32-homogeneous-facet shape F1 cited
+>    is a **Java-side FIXTURE that says so itself**
+>    (`lance-graph-java/native/lgj-abi/src/rowstore.rs:5-8,33-39`) and must
+>    conform to canon, not define it. See ⊘F1 below.
+> 2. **`AddressingMode::{Rails, Cartesian}` is deleted as a concept.** There
+>    is ONE HHTL address fabric; Cartesian is an additional *read/projection*
+>    where useful — never a second carrier, hierarchy, storage mode, or
+>    parenthood model. See ⊘§2.2 and ⊘D-HTT-2.
+> 3. **Morton is NOT canonical and NOT the basis of anything here.** Morton
+>    is the separate `4⁴` construct formerly called "nibble"; HHTL ancestry
+>    is never derived from it. **D-HTT-6 is WITHDRAWN** (⊘D-HTT-6).
+> 4. **HHTL is never "V1".** Ordinary HHTL is `6 × 2 × 8 bit`, read as rails
+>    or centroid per the class's reading. The retired V1 shape is the flat
+>    u24 *tail* — a different thing. HHTL+ Helix (`6×2×8` **plus** `4×24`)
+>    is DEFERRED and must not be canonized in this wave.
+>
+> **And the gap itself is re-stated.** This plan was written as though the
+> question were *"how do we make parent-of-x a bit-op."* Measured: **HHTL is
+> already canonical AND zero on every baked row in both production bakes**
+> (`ogar-obo/src/lib.rs:344-353`; MedCare `join-map.md:103` — *"heel/hip/twig/
+> leaf all 0 across 68797 rows"*). The work is therefore **mint + read**, not
+> design: populate the key from what `compute_cascade` already derives in RAM
+> at load, then convert consumers. Every bespoke route now carries the burden
+> of proof — *why can I not begin from the HHTL already in the first 16
+> bytes?*
+>
+> **Status: PROPOSED → NEEDS-REWORK.** Do not implement from this document
+> until the reassessment's §3 migration order is ratified.
+
 > **Status:** PROPOSED — ratification vehicle, **zero code**. ARC B of
 > `docs/architecture/DUMB-STORAGE-RESET-CHARTER.md` §19. The charter's §20
 > gate ("NO CODE until this map is returned") is still closed and this
@@ -19,7 +55,8 @@
 
 | # | Ruling | Source |
 |---|---|---|
-| F1 | **ONE canonical substrate: the 32×(4+12) facet register.** `n_rows × 512` bytes, 32 facet lanes of *(4-byte LE classid + 12-byte payload)*. Higher-order / ontology / episodic / meta-awareness are **READINGS inside it**, never parallel structures. | operator, this session; shipped shape at `lance-graph-java/native/lgj-abi/src/abi.rs:173-175` |
+| ~~F1~~ ⊘ | ~~**ONE canonical substrate: the 32×(4+12) facet register.** `n_rows × 512` bytes, 32 facet lanes of *(4-byte LE classid + 12-byte payload)*.~~ **CORRECTED 2026-08-19 (operator).** The canonical row is **`16 B HHTL key \| 16 B edges \| 480 B value slab`** — `canonical_node.rs:706-730`, independently restated by `OGAR/crates/ogar-obo/src/lib.rs:22-35`. The cited 32-lane shape is a **fixture**, self-declared: *"The Java side may lay its view out differently… The 64-byte-aligned guarantee arrives with the real `NodeRow` (`#[repr(C, align(64))]`) wiring, not here"* (`lance-graph-java/native/lgj-abi/src/rowstore.rs:5-8,33-39`); grep confirms **zero import** of `NodeRow`/`EdgeBlock`/`NodeGuid` in that path. Java conforms to canon; canon is not read off Java. **What SURVIVES from F1:** higher-order / ontology / episodic / meta-awareness are **READINGS**, never parallel structures — that half is unaffected and still frozen. | ⊘ operator 2026-08-19; `canonical_node.rs:706-730`; fixture self-declaration `rowstore.rs:5-8,33-39`; `docs/abi.md:433-438` already names `16\|16\|480` as the target |
+| F1′ | **HHTL is the FIRST canonical tenant and it is EMPTY.** The address fabric needs no promotion, no rename, no new carrier, and no layout migration — it needs *minting* (write the bytes) and *reading* (consume them instead of walking edges). | ⊘ operator 2026-08-19; `ogar-obo/src/lib.rs:344-353` (*"dormant cascade"*, HEEL/HIP/TWIG zero on all 68,797 rows); MedCare `join-map.md:103` |
 | F2 | **The 12 payload bytes are `6 × (u8:u8)` rails.** `u8:u8` = two separate bytes, never widened to u16/u24. The `256:256` pair is rails-vs-centroid polymorphic per class. | `.claude/v3/soa_layout/le-contract.md:50-68` (L1–L8 catalogue); `CLAUDE.md` CANON `E-V3-FACET-4-PLUS-12`; charter §3 "keep 256:256 polymorphic" |
 | F3 | **FORBIDDEN:** `HierarchyPlane` types · separate higher-order structs · promotion DTOs · a generic "structural algebra" crate · another SoA. | operator, this session; consistent with ARC A §7 ("**ZERO new types are proposed**") |
 | F4 | **The missing piece is a little-endian structural/addressing CONTRACT** that makes `parent-of-x` a projection/bit-op — **no label lookup**. `classid + WideFieldMask` resolve the reading. The Java side's where-as-masking is the precedent. | operator, this session; `lance-graph-java/CLAUDE.md:24-25` — *"WHERE MAY LOOK LIKE WHERE. IT MUST EXECUTE LIKE MASK. / HOP MAY LOOK LIKE HOP. IT MUST EXECUTE AS MASK × CLASSVIEW/WIDEFIELDMASK → MASK."* |
@@ -143,7 +180,25 @@ Three clauses, each load-bearing:
 is *naming the law they share*, not writing them. Ops 2 and 3 are the two
 genuine additions, and both are single expressions.
 
-### 2.2 Two addressing modes over the SAME bytes
+### 2.2 ~~Two addressing modes over the SAME bytes~~ ⊘ WITHDRAWN
+
+> **⊘ THE TWO-MODE TAXONOMY IS DELETED AS A CONCEPT (operator, 2026-08-19).**
+> There is **ONE HHTL address fabric**. Different consumers may READ it
+> differently, and Cartesian is one such read/projection where useful — but
+> it is **not** another address carrier, another hierarchy, another storage
+> mode, another HHTL variant, or a competing parenthood model. **Morton is
+> unrelated to Cartesian here** and is not canonical: it is the separate
+> `4⁴` construct formerly called "nibble". Do not derive HHTL ancestry from
+> Morton, do not define `parent_cartesian` from it, and do not use it to
+> justify Cartesian hierarchy semantics.
+>
+> The table below is retained **only** as the record of a withdrawn model.
+> Its one surviving observation is operational and worth keeping: a reader
+> that mis-reads a rail's *zero* — data vs terminator — gets a well-formed,
+> plausible, wrong answer (`clam_v3.rs:16-19`). That hazard is real and
+> belongs to the ClassView's reading, not to a mode enum.
+
+
 
 | | **Cartesian / cesium** | **Rails** |
 |---|---|---|
@@ -229,11 +284,11 @@ D-HTT-1 … D-HTT-4 are documents; 5 … 8 are contract text; 9 … 11 are probe
 | id | Deliverable | Pre-registered gate / falsifier |
 |---|---|---|
 | **D-HTT-1** | **The LE ordering law**, written as contract prose: ascending rail → ascending byte → ascending nibble, one sentence, with the three shipped sites it already describes (`rail_geometry.rs:140-147`, `facet.rs:255-262`, `facet.rs:62-64`). | **FALSIFIED IF** any shipped reading walks the opposite direction and is nonetheless correct — i.e. if the "law" is a description of two of three sites and an accident at the third. Requires an explicit read of all three orderings and a statement of agreement or disagreement, not an assertion of agreement. |
-| **D-HTT-2** | **Mode taxonomy** — Cartesian vs Rails as a per-rail, ClassView-resolved property, with the zero-semantics table of §2.2. | **FALSIFIED IF** a shipped consumer needs a rail that is *both* (a real coordinate `(0,0)` AND a terminating hole) — then the two are not exclusive and the taxonomy is wrong. |
+| ~~**D-HTT-2**~~ ⊘ | ~~**Mode taxonomy** — Cartesian vs Rails as a per-rail, ClassView-resolved property.~~ **WITHDRAWN 2026-08-19** with §2.2: one fabric, many reads; a "mode" enum would be the second addressing abstraction the rulings forbid. **REPLACED BY D-HTT-2′** — state the *zero-semantics* hazard as a ClassView reading obligation (a rail's `0` is data or terminator per the class's reading, never per a global mode), with the `clam_v3.rs:16-19` plausible-but-wrong defect as its rationale. | **D-HTT-2′ FALSIFIED IF** any shipped reading resolves a rail's zero-meaning from something *other* than the class's own reading — i.e. if a global switch is load-bearing anywhere. |
 | **D-HTT-3** | **The thinking-table row schema** (rails · mode · axis semantics · companion table), plus the four candidate rows of §2.3 with their mint states. | **FALSIFIED IF** the Location row (already minted, `ogar-osm/src/lib.rs:204-212`) cannot be expressed in the schema without an extra column no other row uses — order-genericity's local form (ARC A′ `F-ORDER-GENERICITY`, and its kill condition: *do not widen the shape to rescue it*). |
 | **D-HTT-4** | **Op catalogue** — the seven ops of §2.1 with, for each, either its shipped home or an explicit "no home" mark. | **FALSIFIED IF** any op marked "no home" turns out to have one (repo-wide grep required, both repos), or any op marked "shipped" is private/unreachable without a signature change that the catalogue does not admit. Note ops 1's home is **private in both crates** — the catalogue must say so. |
 | **D-HTT-5** | **`parent_rails`** named in the contract as *zero the deepest live byte* — one expression, sitting beside `RailPath::is_ancestor_of`. | **FALSIFIED IF** `parent_rails(x)` is not always an ancestor of `x` under `is_ancestor_of` (`rail_geometry.rs:178-180`), or if applying it `depth` times does not reach the empty path (*"leerer Pfad = dominante Wurzel"*, `:264-266`). |
-| **D-HTT-6** | **`parent_cartesian`** named as a per-axis shift, with `morton()` (`facet.rs:54-64`) as its stated basis and the 4-ary nibble-ancestry claim (`256 = 4⁴`) restated from the OGAR canon. | **FALSIFIED IF** shifting the Morton code by 2 does NOT equal independently shifting each of `hi`/`lo` by 1 — i.e. if the interleave does not make the quad-tree step a single shift, which is the entire justification for the mode. **A can-it-STAY-SILENT twin is required:** two coordinates in *different* quadrants must not share the shifted prefix. |
+| ~~**D-HTT-6**~~ ⊘ | ~~**`parent_cartesian`** named as a per-axis shift, with `morton()` as its stated basis.~~ **WITHDRAWN 2026-08-19 (operator ruling C).** Morton is not canonical and HHTL ancestry is never derived from it; a `parent_cartesian` defined *from* Morton is precisely the derivation the ruling forbids. The `morton()` primitive stays shipped, unconsumed, and **non-canonical research** (X2 below is regraded accordingly) — it is not repaired into the HHTL contract. Nothing replaces this deliverable: the one parent operation the contract needs is the rails truncate (D-HTT-5). | n/a — withdrawn, not re-gated. |
 | **D-HTT-7** | **Ancestry-is-prefix law** stated once, covering both the per-rail form and the whole-facet form (`shared_prefix_tiles`), with the hole rule as its precondition. | **FALSIFIED IF** the two forms disagree on any pair: a pair that is a per-rail ancestor but not a whole-facet prefix (or vice versa) means the "one law" is two laws. This is a *real* possibility — `shared_prefix_tiles` includes the classid tiles (`facet.rs:250-252`); the rail walk does not. **Expect this to fire; the deliverable is the honest scope statement, not a forced agreement.** |
 | **D-HTT-8** | **The rung row, carved** — an explicit statement of which byte carries the (a) admissibility ordinal and which carries the (b) plane mask, per §3, or a ruling that the rung gets no rail at all. | **FALSIFIED IF** any single-byte proposal survives the question *"does comparing this byte with `<` mean the same thing as ANDing it?"* — if both readings are live on one byte, the carve failed. Also **BLOCKED-BY** D-HTT-9. |
 | **D-HTT-9** | **PROBE-RUNG-L1-MASK** — resolve `cognitive_shader.rs:244-250` (L1 = `0b001`) against `pearl.rs:40-42,75` (L1 Association = `SO = 0b101`). Decide which is canon and whether superset-monotone ascent is a required property of the rung ladder. | **PASS** = one reading is chosen, the other is regraded in place (append-only), and the monotonicity property is either asserted with a test or explicitly disclaimed. **FAIL** = the probe cannot discriminate — then D-HTT-8's rung row must NOT be minted, and the plan says so rather than picking. |

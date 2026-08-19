@@ -1,5 +1,26 @@
 # EW64 × CausalWitness — the witness demarcation and the EpisodicWitness64 landing zone — v1
 
+> **⊘ RE-GRADED 2026-08-19 (operator ruling E) — read
+> `docs/architecture/ARC-B-OWNERSHIP-AND-ADDRESSING-REASSESSMENT.md` §4 first.**
+> The future architecture is **not** "make EW64/CE64 better, mint another
+> packed tenant, wire more semantics into the bit layouts" — that is the
+> shape being grown OUT OF. Consequences, all applied below:
+>
+> - **New F0** gates every tenant proposal behind the ruling-E question.
+> - **D-EWU-3's proposed `ValueTenant` is NOT approved by this plan** and is
+>   provisionally argued *against* in the reassessment, on this plan's own
+>   §2 evidence: EW64's slots are **anonymous, index = recency**, and a
+>   recency ordering is a cache property, not canonical information.
+> - **The real prerequisite is the ontology gap itself.** The `part_of:is_a`
+>   rail that `Locus::BasinAnchor` already points at is *confirmed
+>   unwritten* — and HHTL is measured **zero on every baked row** in both
+>   production bakes (`ogar-obo/src/lib.rs:344-353`; MedCare
+>   `join-map.md:103`). The witness seam and the addressing gap are one
+>   problem wearing two hats.
+> - **Unaffected and still standing:** the demarcation (D-EWU-1), the
+>   THREE→TWO spec correction (D-EWU-2), the bridge location (D-EWU-4), the
+>   basin-promotion seam (D-EWU-8).
+
 > **Status:** DESIGN / SEAM-CUT (2026-08-19). **Zero code changes.** Nothing here
 > mints a tenant, moves a byte, or writes a lane. The deliverable this plan
 > exists to unblock is a *ruling*, not a landing.
@@ -28,6 +49,7 @@
 
 | # | Constraint | Source |
 |---|---|---|
+| F0 ⊘ | **CE64 and EW64 are CODECS / PROJECTIONS — never the canonical semantic container** (operator ruling E, 2026-08-19). They may stay extremely efficient packed hot reads. Canonical meaning must be recoverable from V3-shaped rows + HHTL locality + masks + provenance + relations + the existing operators; CE64/EW64 then *project* that truth. **Before any new tenant is proposed, D-EWU-3 must answer in writing: is this genuinely missing canonical information, or a container minted to avoid completing the address/mask transition?** See `docs/architecture/ARC-B-OWNERSHIP-AND-ADDRESSING-REASSESSMENT.md` §4 — which answers it *provisionally against* the tenant, on the plan's own §2 evidence: EW64's slots are **anonymous, index = recency**, and recency is a cache ordering, not a canonical fact. | operator 2026-08-19; reassessment §4 |
 | F1 | Storage knows **references, hierarchy, ClassView, WideFieldMask, version, temporal** — and MUST NOT know ontology semantics, causal meaning, Pearl rung meaning, known-unknown semantics, NARS, AriGraph semantics, or "awareness" | charter :52-76, :899 |
 | F2 | Parent knowledge is **REFERENCED, never copied**; inheritance = follow sparse parent reference + local delta | charter :270-280, :912 |
 | F3 | **No promotion DTOs, no HierarchyPlane types, no separate higher-order structs, no generic "structural algebra", no another SoA.** Higher-order / ontology / episodic / meta-awareness are **READINGS** inside the one canonical substrate (32×(4+12), 6×2×8-bit, 256:256) | operator correction quoted at ARC-A2 :241-256 |

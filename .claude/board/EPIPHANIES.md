@@ -1,3 +1,81 @@
+## 2026-08-19 — E-THE-OU-COLUMN-EXISTS-AND-NOTHING-WRITES-IT-1
+
+**Status:** FINDING (six-agent read-only sweep across lance-graph, ndarray,
+lance-graph-java, OGAR, MedCare-rs, the DisMech corpus; operator rulings of
+the same day). Deliverable:
+`docs/architecture/ARC-B-OWNERSHIP-AND-ADDRESSING-REASSESSMENT.md`.
+
+**The finding:** HHTL is already the FIRST canonical tenant of every
+512-byte row (`key(16) | edges(16) | value(480)`, `canonical_node.rs:706-730`,
+independently restated at `OGAR/crates/ogar-obo/src/lib.rs:22-35`) — and it
+is **zero on every baked row in both production bakes**. `ogar-obo`
+(`lib.rs:344-353`, `EDGE-LANES.md:44-51`): *"The bake has no basin:
+HEEL/HIP/TWIG and leaf are zero on all 68,797 rows."* MedCare
+(`join-map.md:103`): *"HHTL is dormant on every baked row (heel/hip/twig/
+leaf all 0 across 68797 rows)."* Every real HHTL reader either mints its own
+keys, recomputes tiers in RAM at load, or asserts null — **none reads the
+key of a baked artifact.**
+
+So the addressing gap is not storage, layout, or a missing carrier. The OU
+column exists in every object and nothing writes or reads it. The measured
+consequence: **five structurally distinct hand-rolled ancestor mechanisms in
+ONE repository** (LIFO+bitset closure; stack+HashSet with its own cycle
+guard; a load-time chosen-minimal-parent chain; a per-query re-climb; and a
+Kahn longest-path fallback), each with its own dedup and its own semantics.
+
+**The operationally load-bearing half:** two of those five **disagree by
+design** — `atlas.rs:465,898-904` measures **58.2% agreement** between the
+rail-register depth and the Kahn longest-path depth, because spanning-tree
+depth and DAG longest path are different quantities on a multi-parent DAG.
+"Just use the rails" is therefore a **semantic** change, not merely a faster
+one, and any migration owes a written ruling on which quantity is canonical.
+
+**The highest-value single change follows directly:** `obo_store::compute_cascade`
+(`:690-760`) already derives HEEL/HIP/TWIG in RAM at load — it is the mint,
+misplaced. Moving that derivation into the bake populates the key with what
+the system already computes, using bytes that are reserved and zeroed today.
+
+Cross-ref: E-TWO-WITNESS-SHAPES-CONTEST-ONE-LANDING-ZONE-1 (the witness seam
+and this gap are the same problem — `Locus::BasinAnchor` points at the same
+unwritten `part_of:is_a` rail).
+
+## 2026-08-19 — E-THE-CANONICAL-ROW-WAS-READ-OFF-A-FIXTURE-1
+
+**Status:** CORRECTION (operator ruling + sweep evidence). Affects
+`.claude/plans/hhtl-thinking-tables-le-contract-v1.md` F1, corrected in
+place.
+
+**What happened:** ARC-B's F1 froze *"ONE canonical substrate: the 32×(4+12)
+facet register"* and cited `lance-graph-java/native/lgj-abi/src/abi.rs:173-175`
+as its shipped shape. That citation is a **fixture, and it says so itself** —
+`rowstore.rs:5-8,33-39`: *"The Java side may lay its view out differently…
+The 64-byte-aligned guarantee arrives with the real `NodeRow`
+(`#[repr(C, align(64))]`) wiring, not here."* Grep confirms **zero import of
+`NodeRow`/`EdgeBlock`/`NodeGuid`** anywhere in that code path; the only
+`canonical_node` import is `EdgeCodecFlavor`, for a trait-default test.
+Meanwhile `docs/abi.md:433-438` §10 already names the real target —
+*"`NodeRow`'s `16|16|480` … is already a legal lane description"* — but §11
+(2026-08-17) and §12 (2026-08-18) shipped the homogeneous 32-lane fixture
+and §10 was never revised, so the doc contradicts itself in reading order.
+
+**The lesson, generalizable:** a *conformance target* was mistaken for a
+*source of truth* because it was the shape that had shipped most recently
+and was easiest to grep. Canon lives in the contract crate; a consumer's
+current geometry is evidence about the consumer, never about canon. The same
+inversion is what put integration ownership inside the DisMech oracle
+(see the PR #7 ownership correction).
+
+**Also corrected the same day:** an earlier session claim that `ogar-elk` is
+*"structurally prevented from producing an entailment"* is **false**. It
+computes real EL-subsumption closure in-repo, in pure Rust
+(`OGAR/crates/ogar-elk/src/lib.rs:163-166,239-367` — `entails`,
+`equivalence_cycles`, `merge`; R1/R2/R3 only, existentials and role
+composition deliberately excluded at `:70-81`). What it forbids is
+*serializing* the verdict — *"An observer that could serialize its verdict
+would invite someone to ship the verdict as if it were substrate"*
+(`:42-45`). Entailment production is local and real; persistence as
+substrate is what is banned.
+
 ## 2026-08-19 — E-TWO-WITNESS-SHAPES-CONTEST-ONE-LANDING-ZONE-1
 
 **Status:** FINDING (CE64/EW64/dismech investigation + V3 migration-plan
