@@ -1,3 +1,34 @@
+## 2026-08-19 — lance-graph #968 (MERGED, merge commit 66fec27, head 88210f7) — seal STORNO + finalization map + register-grid correction + 5+3-ratified spec (no implementation) — ⊘ SUPERSEDED SAME-HOUR by the DUMB-STORAGE architecture reset
+
+- **Added (docs/board/probe only, zero substrate code):**
+  `docs/lotus/CASCADE-ACCUMULATED-SEAL-SPEC.md` (12 operator requirements
+  verbatim + the register-grid correction verbatim);
+  `docs/lotus/SEAL-FINALIZATION-MAP.md` (source-anchored ownership/
+  finalization audit §1–§6 incl. the FNV-unique-bytes analysis, the
+  idempotency verdict, and the register-grid archaeology: NodeRowPacket +
+  Addendum-6 descriptor EXIST as declared contracts, unwired to
+  persistence); `.claude/plans/cascade-seal-register-grid-v1.md` (5+3
+  council RATIFIED v3: 5 savants/45 findings → v2 `a898825` → 3 reviewers
+  3×BLOCK+8×FIX → v3 `88210f7`; ledger L1–L28); `crates/rp-seal-t0-probe/
+  src/cascade_seal.rs` (HELD scaffold, compiles into nothing).
+- **Locked (still true under the reset):** the archaeology verdict (wire
+  declared contracts, create nothing); the falsifiability corpus (X-C2-1
+  matrix, G1–G9 gates as pre-registered shapes); the fail-closed
+  cross-version identity finding
+  (`E-CROSS-VERSION-IDENTITY-MIGRATES-BLIND-SO-IT-FAILS-CLOSED-1`).
+- **⊘ SUPERSEDED (operator, 2026-08-19 ~14:05Z, minutes after merging):**
+  the freeze/seal-centered IMPLEMENTATION (task #25 W1–W4) is STOPPED —
+  the ready-flip is NOT the implementation gate anymore. Charter:
+  `docs/architecture/DUMB-STORAGE-RESET-CHARTER.md` (verbatim). The #968
+  content is preserved as research history + falsifier corpus by these
+  exact references; its freeze/batch-barrier assumptions must not become
+  production architecture.
+- **Docs:** EPIPHANIES `E-ARCHITECTURE-RESET-DUMB-STORAGE-HHTL-EPISTEMIC-1`
+  (below the seal entries); AGENT_LOG council entry (2026-08-19).
+- **Confidence:** high on the record (all file:line anchors reviewer-
+  spot-checked in the council); the seal DESIGN is now historical, not
+  queued.
+
 ## 2026-08-18 — lance-graph #961 (MERGED, squash 0cc171f) — LOTUS Phase 0/1: frontier audit + F-ORD-REAL pre-registered falsifier
 
 - **Added:** `docs/lotus/LOTUS-FRONTIER-AUDIT.md` (Phase 0 archaeology, 4

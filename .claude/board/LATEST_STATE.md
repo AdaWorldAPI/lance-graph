@@ -1,3 +1,24 @@
+## 2026-08-19 — ARCHITECTURE RESET (operator): DUMB STORAGE × JAVA MECHANICAL API × HHTL EPISTEMIC SPINE — freeze/seal implementation STOPPED
+
+- **PR #968 MERGED** (merge commit 66fec27; operator-merged 14:05Z) — the
+  seal STORNO + finalization map + register-grid correction + 5+3-ratified
+  spec. Docs/board/probe only; zero substrate code. See PR_ARC entry.
+- **Minutes later, the operator issued the ARCHITECTURE RESET** (verbatim
+  charter: `docs/architecture/DUMB-STORAGE-RESET-CHARTER.md`): STOP the
+  freeze/seal-centered implementation (task #25 W1–W4 do NOT launch);
+  preserve the research history + falsifiers by exact reference (they are,
+  in the merged #968 paths above). The new central model: an intentionally
+  STUPID substrate (references, HHTL hierarchy — trie AND explicit
+  reference nodes, ClassView, WideFieldMask-as-fovea, DatasetVersion,
+  temporal coordinates, zero-copy) with ALL semantics (ontology, causality,
+  rung, known-unknowns, awareness, nudges) as interpretations ABOVE it.
+  15 falsifiers pre-registered in the charter §18. Arc order A→E
+  (charter §19); ARC A = source archaeology of lance-graph +
+  lance-graph-java, NO CODE until the §20 ten-item map is returned.
+- The prior F-ORD/seal narration in the entries below stays accurate as
+  HISTORY: `content_hash` (FNV) still exists in source — its deletion was
+  part of the stopped implementation, not of the merged docs.
+
 ## 2026-08-18 — lance-graph #961 (MERGED 0cc171f) — LOTUS research arc opens: frontier audit + F-ORD-REAL falsifier
 
 > **2026-08-19:** PR #964 merged (a73cddf) — RP-SEAL pass-1 consolidation
