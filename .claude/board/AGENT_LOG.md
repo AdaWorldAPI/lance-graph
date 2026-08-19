@@ -476,9 +476,28 @@ vocabulary; (4) the second 16-byte tenant + Java/ABI geometry; (5) DisMech
 POC candidates over the real corpus; (6) OGAR ontology precedents
 (`ogar-obo`/`ogar-ro`/`ogar-elk`).
 
-**Findings that changed the plans:** HHTL zero on every baked row in BOTH
-production bakes; five hand-rolled ancestor mechanisms in one repo with a
-measured **58.2%** disagreement between two of them; the `32×(4+12)`
+> **⊘ STORNO 2026-08-19 (same day, re-measured at source).** TWO claims in
+> the paragraph below are wrong and are corrected here, not deleted.
+> **(a) 58.2% is AGREEMENT, not disagreement.** `atlas.rs:465` records
+> *"Measured agreement: 58.2 %."* The correct reading is agreement 58.2% /
+> disagreement 41.8%. `INTEGRATION_PLANS.md` carried the same inversion;
+> `EPIPHANIES.md`, `LATEST_STATE.md` and `PR_ARC_INVENTORY.md` had it right.
+> **(b) "HHTL zero on every baked row in BOTH production bakes" is
+> WITHDRAWN as evidence about the register.** It is true of `obo-core.soa`
+> (0/96 sampled) and FALSE of `all-lanes.soa`, where 352/2,048 sampled
+> records (17.2%) carry non-zero key bytes 4..10, with the key's 6 bytes a
+> verbatim prefix of a 24-byte positional trie path in the value region
+> (key-prefix ↔ rail-head agreement 314/314). The all-zero observation was
+> an **inert-artifact false positive**: the expected baked artifact was
+> absent from this container (`.data/` is gitignored and did not survive the
+> reset), so the read path was observing a missing substrate rather than a
+> populated rail artifact. `atlas.rs:898-910` warns about exactly this
+> failure mode in its own doc comment.
+
+**Findings that changed the plans:** ~~HHTL zero on every baked row in BOTH
+production bakes~~ (⊘ withdrawn, above); five hand-rolled ancestor
+mechanisms in one repo with a measured **58.2%** ~~disagreement~~
+**agreement** (⊘ corrected, above) between two of them; the `32×(4+12)`
 canonical-substrate claim traced to a self-declared fixture; provenance
 states `observed`/`inherited`/`extrapolated` absent everywhere, `MetaWord`
 with zero spare bits; `ogar-dismech` already owning the 19 predicates as a
