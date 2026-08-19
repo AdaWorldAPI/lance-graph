@@ -8,10 +8,27 @@
   earlier plan came from a Java **fixture** that says so itself
   (`lance-graph-java/native/lgj-abi/src/rowstore.rs:5-8,33-39`) — a fixture
   conforms to canon, it never defines it.
-- **HHTL is ZERO on every baked row in both production bakes**
-  (`OGAR/crates/ogar-obo/src/lib.rs:344-353`; MedCare `join-map.md:103`).
-  Every real HHTL reader mints its own keys, recomputes tiers in RAM at
-  load, or asserts null. **The gap is mint + read, not storage.**
+- ~~**HHTL is ZERO on every baked row in both production bakes**~~
+  **⊘ WITHDRAWN 2026-08-19 (same day) — inert-artifact false positive.**
+  True of `obo-core.soa` (0/96 sampled; cause identified —
+  `OGAR/crates/ogar-obo/src/lib.rs:349-353` zero-inits and skips key bytes
+  4..12 by design). **FALSE of `all-lanes.soa`**, the current production
+  golden image (394 MB, 2026-08-15, 770,360 × 512 B): **352/2,048 sampled
+  records (17.2%) carry non-zero key bytes 4..10**, and the key's 6 bytes
+  are a **verbatim prefix of a 24-byte positional trie path in the value
+  region** (`is_a` at `value[44..56] ++ [68..80]`, `part_of` at
+  `[56..68] ++ [80..92]`) with key-prefix ↔ rail-head agreement **314/314,
+  zero disagreement**; deepest live path 13 levels, so the series
+  continuation is in use. The all-zero reading came from a container whose
+  `.data/` is gitignored and did not survive the reset — the read path was
+  observing a MISSING substrate, not a dormant one. `atlas.rs:898-910` warns
+  about this exact failure mode in its own doc comment.
+  **The residual true statement:** the mint exists and is sound; what is
+  wrong is the DOCUMENTATION — five artifacts contradict the bytes they
+  describe (a stale sibling manifest; no `SHA256SUMS` for the tag; a
+  published schema still calling HHTL *"dormant, zero on all shipped rows"*;
+  a bake-state doc describing only the superseded V1 reading; and this
+  entry, until now).
 - **Five hand-rolled ancestor mechanisms** exist in one repository; two of
   them agree only **58.2%** (`atlas.rs:465`) because spanning-tree depth and
   DAG longest path are different quantities. So "use the rails" is a

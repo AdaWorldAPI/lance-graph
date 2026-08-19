@@ -12,9 +12,20 @@
   repo); EPIPHANIES ×4.
 - **The finding it exists for:** **HHTL is already the FIRST canonical
   tenant** — `key(16) | edges(16) | value(480)`, `canonical_node.rs:706-730`
-  — **and it is zero on every baked row in both production bakes**
-  (`OGAR/crates/ogar-obo/src/lib.rs:344-353`; MedCare `join-map.md:103`).
-  The gap is **mint + read**, never storage or a missing carrier. Measured
+  — and ~~**it is zero on every baked row in both production bakes**~~
+  **⊘ WITHDRAWN same-day — inert-artifact false positive.** True of
+  `obo-core.soa` (cause identified: `OGAR/crates/ogar-obo/src/lib.rs:349-353`
+  zero-inits and skips key bytes 4..12 by design). **FALSE of
+  `all-lanes.soa`**, the production golden image: 352/2,048 sampled records
+  (17.2%) carry non-zero key bytes 4..10, the key's 6 bytes a verbatim
+  prefix of a 24-byte positional trie path in the value region, key-prefix ↔
+  rail-head agreement 314/314, deepest live path 13 levels. The container's
+  `.data/` is gitignored and did not survive the reset, so the read path
+  observed a MISSING substrate rather than a dormant one.
+  The gap is therefore **documentation**, not mint: five artifacts
+  contradict the bytes they describe. (The 58.2% figure below is correct as
+  written — `atlas.rs:465` records AGREEMENT; two other board files inverted
+  it and are storno'd there.) Measured
   consequence: five structurally distinct hand-rolled ancestor mechanisms in
   one repository, two agreeing only **58.2%** (`atlas.rs:465`) because
   spanning-tree depth and DAG longest path are different quantities.
