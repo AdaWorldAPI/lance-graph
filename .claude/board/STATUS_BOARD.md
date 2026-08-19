@@ -1,3 +1,17 @@
+## preparation-arc plan wave — 2026-08-19 (operator: "integration plans for all open arcs")
+
+Five plans, each PROPOSED (no code — the reset charter's audit-first order
+holds; ARC-B is the ratification vehicle for the operator's "perfect shape").
+Deferred-for-missing-integration ideas are a MANDATORY section in each plan.
+
+| D-id family | Plan | Repo | Status |
+|---|---|---|---|
+| D-HTT-1..11 | `hhtl-thinking-tables-le-contract-v1.md` — ARC B LE addressing contract + thinking-table rows; ARC C seam gated | lance-graph | **Proposed** (awaits operator ratification) |
+| D-CFR-1..6 | `counterfactual-rung3-closure-v1.md` — contract InferenceType widening, stopgap retirement, L1-mask probe, Pearl-2³ disambiguation | lance-graph | **Proposed** |
+| D-MAR-1..2 | `mask-algebra-revision-read-v1.md` — FieldMask/WideFieldMask `difference`+`is_subset_of`; RevisionKind classification read | lance-graph | **Proposed** |
+| D-EWU-* | `ew64-witness-unification-v1.md` — ARC D/E: tenant-14 CausalWitness vs EpisodicWitness64 demarcation, phase gates | lance-graph | **Proposed** (authoring) |
+| D-DCG-* | `causal-graph-soa-integration-v1.md` — dismech CausalGraph → SoA landing (relations-as-rows vs overflow) | dismech-rs | **Proposed** (authoring) |
+
 ## erasure-seals-compaction-research-v1 — RP-SEAL (operator charter; PASS 1 CONSOLIDATED + §0 STORNO; T0.1 F-PHYS-ORDER FIXED + T0.2 F-QREF-STRICT PINNED + T0.3 F-AWARENESS-LAG LANDED (no schema field — coordinates already durable) 2026-08-19; X-C2-1 LANDED (harness + controls green; C2 truth table confirmed at hash tier; wip dead-code finding); E2 RE-VERIFIED (FNV+b+1+fsync confirmed; scatter CONTESTED -> multi-machine sweep; PMU absent -> cache-miss metric struck) — TIER 0 COMPLETE; SEAL STORNO (accumulated-on-hot-path, 12 reqs) recorded + finalization map delivered — implementation awaits map ratification → docs/lotus/RP-SEAL-CONSOLIDATION-PASS1.md; Tier 0 probes next)
 
 Plan: `.claude/plans/erasure-seals-compaction-research-v1.md` (the operator's

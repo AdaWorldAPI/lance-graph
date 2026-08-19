@@ -238,6 +238,23 @@ what may be inferred, and the horizon at which each was known.
 
 ## 5. THE MINIMAL EXPERIMENT
 
+> **⊘ RETRACTED (operator canonical-substrate correction, 2026-08-19).** The
+> "one agnostic delegation shape … generic over the reference space" this
+> section proposes is exactly the **generic "structural algebra"** the operator
+> forbade: *"do not invent another representation. The representation is
+> already canonical and shared: 32×(4+12), 6×2×8-bit, 256:256 … Do not
+> introduce: HierarchyPlane types / separate higher-order structs / promotion
+> DTOs / a generic 'structural algebra' / another SoA."* Higher-order,
+> ontology, episodic and meta-awareness are READINGS inside the one canonical
+> substrate, never a new parametric shape beside it. The falsifier table below
+> survives as a *question bank* (each row re-reads as "can the canonical
+> substrate + LE addressing contract express this?"), and F-ORDER-GENERICITY
+> is retired with the shape it tested. Successor: the ARC-B plan
+> `.claude/plans/hhtl-thinking-tables-le-contract-v1.md` (readings + a
+> little-endian addressing contract, zero new types). Original text retained
+> below per append-only discipline — read it as the record of a corrected
+> proposal, not as a pending experiment.
+
 **Zero production change. An excluded probe crate, as with `rp-seal-t0-probe`.**
 Its purpose is NOT to show mask AND/XOR is cheap (that would re-prove the weak
 model). It is to test whether **one agnostic delegation shape** can carry
