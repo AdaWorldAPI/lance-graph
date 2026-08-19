@@ -1,3 +1,40 @@
+## 2026-08-19 — 5+3 council: cascade-seal register-grid spec (8 agents, orchestrator-consolidated)
+
+8/8 completed, 0 errors, sequenced per `.claude/agents/5plus3-council.md`
+(spec → 5 parallel → consolidate FIRST → 3 parallel on v2 ONLY → fix →
+ratify). Operator convened via `/5plus3`; object = the #968 ratification
+spec gating task #25. Model allocation per the council card's defaults,
+with the S1 lens escalated under the card's multi-source carve-out; every
+brief carried read-only + no-cargo + no-board-write; this entry is the
+orchestrator consolidating, per the one-writer rule.
+
+**The 5 (Phase 1, blind to each other):** prior-art-savant ·
+iron-rule-savant · runtime-archaeologist (code truth) ·
+cascade-impact-savant · creative-explorer-savant — 45 findings (4
+VIOLATES · 14 GAP · 6 PRIOR-ART-AT · 6 RISK · 15 CONFIRMS), consolidated
+to DRAFT v2 (`a898825`, ledger L1–L20). Headline: the Addendum-6
+descriptor exists six times mailbox-LESS (write-on-behalf rule) — v1's
+shape withdrawn; payload touched 4× today, "twice" relabeled TARGET; the
+seal_version gate retargeted to the real Arrow seam; G1 scoped to
+distinct stream_positions (PROBE-SEAL-TIE-DENSITY → W4).
+
+**The 3 (Phase 3, on v2 only):** overclaim-auditor (2×BLOCK, 2×FIX) ·
+dilution-collapse-sentinel (1×BLOCK, 4×FIX) · firewall-warden (1×BLOCK,
+1×FIX). All resolved in v3 (ledger L21–L28), stricter verdict taken
+everywhere; none argued away. The kill: W3's recompute-and-compare died
+from opposite ends (hash-only projection at the cited site; empty
+payload mint on restart; the dropped "full-cycle" qualifier) → v3 rule
+fails closed (`Ambiguous`/Escalate, zero payload reads on reconcile,
+G7(e)). Also: fixed-4096 grid restored as PRIMARY indexing (rank-based =
+disclosed non-frozen challenger); model-tier token stripped from the
+committed header; W5 renamed post-#968-ready-flip; §8 headline corrected
+to the disclosed-clarifications form (Frozen 6, 11).
+
+Outcome: RATIFIED v3 in `.claude/plans/cascade-seal-register-grid-v1.md`
++ `E-CROSS-VERSION-IDENTITY-MIGRATES-BLIND-SO-IT-FAILS-CLOSED-1`.
+Implementation (task #25) remains gated on the operator's #968
+ready-flip. Raw savant/reviewer reports banked in session scratchpad.
+
 ## 2026-08-19 — RP-SEAL first pass: 15 researchers (5 domains × builder/adversary/scout; orchestrator-consolidated)
 
 15/15 completed, 0 errors, 0 empty results (~5.59M subagent tokens, 842 tool
