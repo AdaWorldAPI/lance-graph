@@ -1165,6 +1165,56 @@ dependence_and_is_silent_at_the_midpoint`; the `recipe_claim_audit` arms for
 - **Wire-format impact: none.** `_LAYOUT_COVERAGE` unchanged; every existing
   accessor reads the same bits it did before.
 
+## 2026-08-19 — lance-graph #969 (MERGED `b67f195`) + dismech-rs #7 (MERGED `36f7466`) — the ownership + addressing reassessment lands; HHTL is canonical AND dormant
+
+**The state this establishes, for any session that touches addressing:**
+
+- **The canonical row is `key(16) | edges(16) | value(480)`** and **HHTL is
+  its FIRST tenant** (`canonical_node.rs:706-730`). It is not missing, not
+  elsewhere, and not owed a new carrier. The `32 × (4+12)` shape cited by an
+  earlier plan came from a Java **fixture** that says so itself
+  (`lance-graph-java/native/lgj-abi/src/rowstore.rs:5-8,33-39`) — a fixture
+  conforms to canon, it never defines it.
+- **HHTL is ZERO on every baked row in both production bakes**
+  (`OGAR/crates/ogar-obo/src/lib.rs:344-353`; MedCare `join-map.md:103`).
+  Every real HHTL reader mints its own keys, recomputes tiers in RAM at
+  load, or asserts null. **The gap is mint + read, not storage.**
+- **Five hand-rolled ancestor mechanisms** exist in one repository; two of
+  them agree only **58.2%** (`atlas.rs:465`) because spanning-tree depth and
+  DAG longest path are different quantities. So "use the rails" is a
+  SEMANTIC change owing a written ruling, not merely a faster one.
+- **`obo_store::compute_cascade` already derives HEEL/HIP/TWIG in RAM at
+  load** — it is the mint, misplaced.
+- **ONE HHTL fabric, several ClassView-resolved READINGS** (operator,
+  2026-08-19; this is what replaced the withdrawn `AddressingMode` enum):
+  DN/Zipper for tree-ish lineage (parent = truncate, ancestor = prefix),
+  paired rails `6×(u8:u8)` for coupled axes, and **basin locality** where a
+  relation is genuinely many-to-many (HHTL names the neighborhood, explicit
+  edges carry membership). **Basin is NOT overflow** — it is a positive
+  locality design, never a spill zone. Which reading a class admits is
+  decided by measured topology, never by taste.
+- **CE64 / EW64 are codecs and projections**, never the canonical semantic
+  container. Do not mint a tenant because a packed format would be
+  convenient.
+- **Morton is non-canonical** — the separate `4⁴` construct, shipped and
+  unconsumed as research. HHTL ancestry is never derived from it. **HHTL is
+  never "V1"**; the retired V1 shape is the flat u24 *tail*.
+- **Ownership:** upstream DisMech → **dismech-rs = ORACLE** (corpus fidelity
+  + falsifiers only) → ogar-dismech / ogar-from-dismech = interpretation and
+  mint bridge → **lance-graph = canonical substrate** → lance-graph-java =
+  mechanical ABI mirror. No layer pulls another's semantic responsibility
+  downward.
+
+**Open, and gating:** the **canonical-depth ruling** — spanning-tree depth
+vs DAG longest path. It is an operator ruling, not a finding, and it gates
+D-HTT-9 and the first bake mint.
+
+**In flight (not in this PR):** a pre-Phase-1 archaeology of the historical
+DN/"Zipper" deep-hierarchy precedent (MedCare `RAIL_OFFENE_POSTEN.md`
+Posten 21 key-facade `4..16` + edge-tenant `16..24`, and Posten 31's
+2026-08-17 refinement to one register grammar), to be reused or explicitly
+falsified before any HHTL mint is written.
+
 ## 2026-08-19 — ARCHITECTURE RESET (operator): DUMB STORAGE × JAVA MECHANICAL API × HHTL EPISTEMIC SPINE — freeze/seal implementation STOPPED
 
 - **PR #968 MERGED** (merge commit 66fec27; operator-merged 14:05Z) — the

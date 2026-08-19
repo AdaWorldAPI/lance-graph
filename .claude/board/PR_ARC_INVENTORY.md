@@ -1945,6 +1945,65 @@ not at all; the omission is the note, per the board's own append-only rule.)*
   tested); the trap above is a read of shipped code, not a measurement of its
   consequences.
 
+## 2026-08-19 — lance-graph #969 (MERGED, squash `b67f195`, head `4038dbf`) — the preparation-arc plan wave + the ARC-B ownership/addressing reassessment that corrects it
+
+- **Added (docs/plans/board only, zero code):**
+  `docs/architecture/ARC-B-OWNERSHIP-AND-ADDRESSING-REASSESSMENT.md` (the
+  K.1–K.7 deliverable: §1 Confirmed C1–C7 / Refuted R1–R3, §2 the ownership
+  boundary + three-way split, §3 the burden-of-proof flip, §4 CE64/EW64
+  re-graded, §5 the minimal falsifiable POC, §6 what not to build, §7 the
+  Ghidra/Java ABI standard, §8 what it does not decide); five integration
+  plans (`hhtl-thinking-tables-le-contract-v1`,
+  `ew64-witness-unification-v1`, `counterfactual-rung3-closure-v1`,
+  `mask-algebra-revision-read-v1`, and the dismech companion on its own
+  repo); EPIPHANIES ×4.
+- **The finding it exists for:** **HHTL is already the FIRST canonical
+  tenant** — `key(16) | edges(16) | value(480)`, `canonical_node.rs:706-730`
+  — **and it is zero on every baked row in both production bakes**
+  (`OGAR/crates/ogar-obo/src/lib.rs:344-353`; MedCare `join-map.md:103`).
+  The gap is **mint + read**, never storage or a missing carrier. Measured
+  consequence: five structurally distinct hand-rolled ancestor mechanisms in
+  one repository, two agreeing only **58.2%** (`atlas.rs:465`) because
+  spanning-tree depth and DAG longest path are different quantities.
+- **Locked:** the ownership boundary (upstream DisMech → dismech-rs = ORACLE
+  → ogar-dismech/ogar-from-dismech = bridge → lance-graph = substrate); the
+  canonical row `16|16|480` with HHTL as its first tenant; CE64/EW64 as
+  **codecs/projections, never canonical semantic containers**; masks select
+  the semantic/provenance SURFACE (HHTL = WHERE, mask = WHICH, operator =
+  HOW).
+- **Corrected in place (append-only, originals retained):** F1's
+  `32 × (4+12)` "canonical substrate" — read off a Java **fixture that says
+  so itself** (`rowstore.rs:5-8,33-39`) — struck through, replaced by F1′;
+  §2.2's two-addressing-mode taxonomy WITHDRAWN (one fabric, several
+  ClassView-resolved READINGS); D-HTT-2 → 2′; **D-HTT-6 WITHDRAWN** (Morton
+  is the separate `4⁴` construct, non-canonical, and HHTL ancestry is never
+  derived from it); HHTL is never "V1" — the retired V1 shape is the flat
+  u24 *tail*, a different thing; HHTL+ Helix DEFERRED.
+- **Cleanup commit `4038dbf`** closed six residual sites where the withdrawn
+  two-mode concept was still ACTIVE downstream of its own withdrawal — the
+  thinking table's `Mode` column and the prose above it, D-HTT-3's schema
+  line, D-HTT-11, X2's "Morton is the entire basis of Cartesian-mode
+  parenthood", the ordering line still sequencing the withdrawn D-HTT-6, and
+  §8 Q1. Plan status **PROPOSED → NEEDS-REWORK → RATIFIED**.
+- **Two prior claims RETRACTED on evidence:** `ogar-elk` DOES compute EL
+  closure in-repo (pure Rust, `lib.rs:163-166,239-367`) — what it forbids is
+  *serializing* the verdict, not producing it; and the `~915k / ~10M / ~40k`
+  corpus figures do not reproduce (measured: **68,797** OBO rows,
+  **152,073** edges, MONDO **32,095**; **1,225,834** across twelve lanes;
+  SNOMED **484,031** separately).
+- **Docs:** EPIPHANIES `E-THE-CANONICAL-ROW-WAS-READ-OFF-A-FIXTURE-1`,
+  `E-THE-OU-COLUMN-EXISTS-AND-NOTHING-WRITES-IT-1`,
+  `E-TWO-WITNESS-SHAPES-CONTEST-ONE-LANDING-ZONE-1`,
+  `E-CONTRACT-INFERENCETYPE-INVERTS-THE-COUNTERFACTUAL-1`; ARC-A2 §5
+  ⊘ RETRACTED (the "one agnostic delegation shape" was the forbidden generic
+  structural algebra); `cascade-seal-register-grid-v1` ⛔ STOPPED banner.
+- **Confidence:** high on the measured claims (every one carries the
+  file:line an agent read); the migration ORDER is ratified, the
+  **canonical-depth ruling is NOT** — spanning-tree depth vs DAG longest
+  path is an operator ruling, still open, and it gates D-HTT-9.
+- **Companion:** AdaWorldAPI/dismech-rs#7 (MERGED `36f7466`) — the
+  oracle-side half of the same ownership correction.
+
 ## 2026-08-19 — lance-graph #968 (MERGED, merge commit 66fec27, head 88210f7) — seal STORNO + finalization map + register-grid correction + 5+3-ratified spec (no implementation) — ⊘ SUPERSEDED SAME-HOUR by the DUMB-STORAGE architecture reset
 
 - **Added (docs/board/probe only, zero substrate code):**
