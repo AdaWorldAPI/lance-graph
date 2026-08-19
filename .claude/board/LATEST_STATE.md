@@ -1,5 +1,11 @@
 ## 2026-08-18 — lance-graph #961 (MERGED 0cc171f) — LOTUS research arc opens: frontier audit + F-ORD-REAL falsifier
 
+> **2026-08-19:** PR #964 merged (a73cddf) — RP-SEAL pass-1 consolidation
+> (`docs/lotus/RP-SEAL-CONSOLIDATION-PASS1.md` + Appendix H) with §0
+> operator STORNO: canonical replay coordinates are core; compaction =
+> optional storage economics; retention/tombstone + QueryReference
+> projection are the temporal core. Tier 0 probes are the next arc.
+
 ### Current Contract Inventory — no new types (docs + tests only)
 
 - `docs/lotus/LOTUS-FRONTIER-AUDIT.md` — Phase 0 archaeology; the verified
