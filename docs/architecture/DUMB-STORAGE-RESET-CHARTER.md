@@ -1,5 +1,19 @@
 # ARCHITECTURE RESET CHARTER — DUMB STORAGE × JAVA MECHANICAL API × HHTL EPISTEMIC SPINE (operator, 2026-08-19, verbatim)
 
+> **READING NOTE — the name of the concept (operator, 2026-08-19, follow-up
+> ruling "not literally dumb, not literally replace" + handle "A7A"):**
+> "dumb"/"intentionally stupid" in the verbatim text below is shorthand for
+> a posture, not the concept's name. Read it as **A7A** — the
+> **agnostically-encoded hierarchical pattern** for separation of concerns:
+> dependency-free mask-based addressing + parent-node HHTL for the
+> CLAM/CHAODA trie. A reusable, reliable STORAGE CONCERN — it answers
+> "where"/"which references", never "what" — built to be the floor for
+> arbitrarily sophisticated patterns above it (Java ABI / Panama /
+> Valhalla, Ontology, OpenStreetMap alike), with structural referencing as
+> a globally available pattern. This note is interpretive only: no
+> historical text is edited, no file is renamed, the verbatim block below
+> stays byte-identical.
+>
 > Operator ruling, received 2026-08-19 ~14:05Z, immediately after merging
 > PR #968 (the seal STORNO + finalization map + register-grid correction +
 > 5+3-ratified spec). **This charter STOPS implementation of the

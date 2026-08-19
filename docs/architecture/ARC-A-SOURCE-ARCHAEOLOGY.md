@@ -1,4 +1,13 @@
-# ARC A — Source Archaeology (dumb-storage architecture reset)
+# ARC A — Source Archaeology (A7A architecture reset)
+
+> **Naming (operator follow-up ruling):** the substrate's name is **A7A** —
+> the agnostically-encoded hierarchical pattern for separation of concerns,
+> with dependency-free mask-based addressing and parent-node HHTL for the
+> CLAM/CHAODA trie. A reusable, reliable storage concern (answers "where",
+> never "what"), the floor every sophisticated pattern above it reuses —
+> Java ABI / Panama / Valhalla, Ontology, OSM alike — structural
+> referencing as a globally available pattern. "Dumb storage" in older
+> prose is shorthand for the same posture, kept as-is, not scrubbed.
 
 > Deliverable per `docs/architecture/DUMB-STORAGE-RESET-CHARTER.md` §20.
 > Produced by 5 parallel Sonnet grindwork sweeps (lance-graph ×4,
