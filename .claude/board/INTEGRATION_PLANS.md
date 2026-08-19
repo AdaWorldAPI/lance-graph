@@ -803,12 +803,23 @@ retraction of the second-tenant reading).
 `docs/architecture/ARC-B-OWNERSHIP-AND-ADDRESSING-REASSESSMENT.md`.
 
 **Headline:** HHTL is already the FIRST canonical tenant
-(`key(16) | edges(16) | value(480)`) and is **zero on every baked row in
-both production bakes**. The gap is mint + read, not storage or layout.
-Five hand-rolled ancestor mechanisms in one repo are the measured
-consequence — and two of them disagree by **58.2%** because spanning-tree
-depth and DAG longest path are different quantities, so "use the rails" is
-a semantic change needing a written ruling.
+(`key(16) | edges(16) | value(480)`) and is ~~**zero on every baked row in
+both production bakes**~~ **⊘ WITHDRAWN — see the storno below**. The gap is
+mint + read, not storage or layout. Five hand-rolled ancestor mechanisms in
+one repo are the measured consequence — and two of them ~~disagree by~~
+**agree** at **58.2%** (⊘ corrected below) because spanning-tree depth and
+DAG longest path are different quantities, so "use the rails" is a semantic
+change needing a written ruling.
+
+> **⊘ STORNO 2026-08-19 (same day, re-measured at source).**
+> **(a)** `atlas.rs:465` records *"Measured agreement: 58.2 %."* — agreement
+> 58.2% / disagreement 41.8%. The wording above and in `AGENT_LOG.md`
+> inverted it; the other three board files had it right.
+> **(b)** The all-zero HHTL reading is WITHDRAWN as evidence about the
+> register. True of `obo-core.soa`, FALSE of `all-lanes.soa` (352/2,048
+> sampled records, 17.2%, carry non-zero key bytes 4..10). The expected
+> baked artifact was absent from the container, so the read path observed a
+> missing substrate, not a dormant one — an inert-artifact false positive.
 
 **Corrections it forces, all applied same-commit:** `hhtl-thinking-tables-le-contract-v1`
 F1 ⊘ (the `32×(4+12)` canon was read off a self-declared Java *fixture*) +
