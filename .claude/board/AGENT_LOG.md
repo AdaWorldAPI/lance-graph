@@ -1,3 +1,19 @@
+## 2026-08-19 — RP-SEAL first pass: 15 researchers (5 domains × builder/adversary/scout; orchestrator-consolidated)
+
+15/15 completed, 0 errors, 0 empty results (~5.59M subagent tokens, 842 tool
+uses, run `wf_ca974718-1b4`). Adversary cells Opus, builder/scout Sonnet, per
+the model-policy split. First pass fully independent: no cross-talk, blind to
+`docs/lotus/**` and all board files; every brief carried the no-cargo +
+tag-file-only rules — 0 cargo invocations measured across all transcripts;
+this entry is the orchestrator consolidating, per the one-writer rule.
+Mid-run operator scope pivot (rustynum struck / symbiont deprecated) applied
+as a consolidation hard filter: audit found zero findings sourced from
+either; nothing re-run. One agent death (A3, permission denial on the
+sandboxed workflow driver) self-healed on resume with full cache reuse.
+Outcome: `docs/lotus/RP-SEAL-CONSOLIDATION-PASS1.md` (matrix M1–M15,
+cross-domain graph, DELETED list, Tier 0–4 work order) + Appendix H
+(`docs/lotus/rp-seal-v1/`, 16 reports incl. the orchestrator pre-pass).
+
 ## 2026-08-13 — weather-poc W0/W1 fleet (4 Sonnet workers, disjoint files; orchestrator-consolidated)
 
 4/4 completed, 0 errors. Plan `.claude/plans/weather-soa-bake-v1.md`; the first
