@@ -1,5 +1,13 @@
 //! ⚠ HELD — NOT WIRED, NOT RATIFIED (operator STOP, 2026-08-19).
 //!
+//! ⊘ REGISTER-GRID CORRECTION (same day): the digest-register tree below
+//! survives (tiny digests, reduce-children-only, online bubble-up), but
+//! `resolve_petal(slot, content)` is fed FROM the one flush-time
+//! dereference (`NodeRowPacket::as_le_bytes` → Lance serializer), never
+//! from cast time or a freeze fold — and a "petal" is 16 REGISTER
+//! positions (pointers + resolved mask + digest state), never an 8-KiB
+//! buffer. See the spec doc's ARCHITECTURAL CORRECTION.
+//!
 //! Pre-STOP scaffold committed only so the working tree stays clean; this
 //! file is deliberately NOT declared in `lib.rs` and its digest deps are
 //! NOT in `Cargo.toml` — it compiles into nothing. It becomes the req-11

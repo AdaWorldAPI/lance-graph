@@ -73,3 +73,76 @@
   (log₄ n node reduces) runs before the root exists.
 - The X-C2-1 injection matrix applies to the root: I3/I4/I5/I6 all move it
   (locus + version + presence binding).
+
+
+---
+
+## ARCHITECTURAL CORRECTION (operator, 2026-08-19) — LOTUS IS A REGISTER GRID, NOT A BYTE GRID
+
+> Verbatim. Outranks any conflicting sentence above; the ⊘ marks in
+> `SEAL-FINALIZATION-MAP.md` apply it.
+
+The Morton/Lotus cascade does NOT own or materialize witness payload bytes.
+
+Canonical target:
+
+    SoA backing store owns the 512-B rows.
+
+    Lotus/Morton holds:
+        canonical register/locus
+        pointer/descriptor to the SoA row
+        resolved/present state
+        phase/closure state
+        tiny digest state if needed
+
+    It does NOT hold:
+        copied 512-B rows
+        materialized 8-KiB petals
+        a materialized 32-MiB cycle image
+
+The 8-KiB "petal" is a logical group of 16 registers/pointers, not an
+8192-byte buffer.
+
+**PHASE / ORDER.** Do not introduce another sort/materialization step
+merely to obtain canonical temporal order. The intended Lotus property:
+phase + canonical register position CONSTRUCT the ordering — never
+arrival bytes → sort later → reorder physically. The phase washes
+descriptors/registers into deterministic temporal position. Payload bytes
+do not move. Source-audit the exact existing phase/register mechanism and
+prove this before creating anything new.
+
+**ZERO-COPY CONTRACT.** batch_writer.rs already documents the target
+shape: P is a descriptor; payload bytes remain in the SoA backing store;
+the sink reads them through NodeRowPacket::as_le_bytes at flush. Treat
+the current BatchWriter<Vec<u8>> path as implementation debt / interim
+wiring, NOT architectural ownership. Do not hash payload at
+BatchWriter::cast merely because it is currently available there. The
+descriptor layer stays content-blind.
+
+**DIGEST SEAM.** The correct payload digest seam is the ONE unavoidable
+dereference used for persistence. For each final resolved Lotus register:
+ptr → existing SoA bytes; then, in the same payload read: bytes → Lance
+serializer AND bytes → leaf digest (binding canonical locus,
+resolved/present state, base_version/generation, bytes). NO separate
+payload traversal. NO bytes copied into Morton/Lotus. NO
+post-finalization payload hash pass. NO pre-hash pass at cast time.
+Higher levels reduce DIGESTS ONLY.
+
+**LOTUS SHAPE.** A petal = 16 register positions + resolved mask +
+pointers/descriptors + digest state — NOT 16 × 512 B materialized
+payload. Closure = all required register states resolved. Then
+4096 → 1024 → 256 → 64 → 16 → 4 → 1 is a hierarchy of register/digest
+closure, not copied payload.
+
+**IDENTITY.** Separate: ContentRoot (final durable referenced content,
+bound to canonical Lotus loci) · ControlRoot (tiny persisted
+trajectory/control metadata if required) · DatasetVersion (publication
+coordinate returned by Lance). Possible batch identity:
+H(cycle ‖ base_version ‖ ControlRoot ‖ ContentRoot). Do NOT hash
+superseded payload bytes that do not survive durably merely because old
+FNV did.
+
+**MAXIM.** MORTON ORDERS ADDRESSES, NOT PAYLOAD. LOTUS CLOSES REGISTERS,
+NOT BYTE BUFFERS. THE BYTES STAY IN SoA. THE POINTERS CLICK INTO THE
+GRID. THE PHASE GIVES THEM TIME. THE ONE WRITE-SIDE DEREFERENCE PAYS FOR
+BOTH: persistence + integrity. ZERO COPY UNTIL THE MEMBRANE.
