@@ -73,6 +73,26 @@ guard, its own semantics:
 | 4 | `obo_store.rs:1113-1142` | per-query re-climb of that same chain (rail-prefix O(1) reject first) |
 | 5 | `atlas.rs:453-552` | rail-register positional read **if populated**, else Kahn's-algorithm longest-path |
 
+> **⊘ STORNO 2026-08-19 (same day, re-measured at source and in the object
+> store).** Two corrections to this document, recorded here rather than by
+> editing the findings above.
+>
+> **C2's "HHTL is zero on every baked row" is WITHDRAWN.** It holds for
+> `obo-core.soa` and is FALSE for `all-lanes.soa`, the current production
+> golden image: 352/2,048 sampled records (17.2%) carry non-zero key bytes
+> 4..10; the key's 6 bytes are a verbatim prefix of a 24-byte positional
+> trie path in the value region; key-prefix ↔ rail-head agreement 314/314.
+> The original reading was an **inert-artifact false positive** — the
+> artifact was absent from the container, so the read path observed a
+> missing substrate rather than a dormant one.
+>
+> **C5's 58.2% is AGREEMENT and this document states it correctly**
+> (`atlas.rs:465`: *"Measured agreement: 58.2 %."*). Two board files
+> inverted it to "disagreement"; both are storno'd. Agreement 58.2% /
+> disagreement 41.8%. The Kahn fallback reaches depth 18 and calls 2,741
+> nodes roots; the register depth is spanning-tree and tops out at the
+> 24-byte register.
+
 **C5 — And they do not agree.** `atlas.rs:465,898-904` measures **58.2%
 agreement** between the rail-register depth and the Kahn longest-path
 depth, because they compute different quantities (spanning-tree depth vs
