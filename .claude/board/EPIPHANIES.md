@@ -1,3 +1,119 @@
+## 2026-08-19 — E-CROSS-VERSION-IDENTITY-MIGRATES-BLIND-SO-IT-FAILS-CLOSED-1
+
+**Status:** FINDING (5+3 council on the cascade-seal spec, ratified v3 at
+`.claude/plans/cascade-seal-register-grid-v1.md`; novel content only per
+the G9 rule — petal-16 / identity-split / twice / FNV-deletion are in the
+two entries below and are cited, not restated).
+
+**The finding:** when the durable batch identity changes hash algorithm
+(FNV → the accumulated root, behind the new `seal_version` Arrow column
+on `cycle_store_schema`), a cross-version fence-mismatch is
+**undecidable by construction**: same-content and divergent-content
+resubmissions are indistinguishable across algorithms without reading
+payload bytes, and NO reconcile-adjacent path loads them —
+`find_frame` projects `["batch_hash"]` only (cycle_sink.rs:577) and
+`scan_sealed` mints `payload: Vec::new()` (cycle_sink.rs:1045). Adding a
+read to decide it would be a post-finalization FULL-CYCLE payload rescan,
+forbidden verbatim by seal req 1. Therefore the only sound rule is
+**fail closed**: same-version compares exactly as today; cross-version →
+`CommitError::Ambiguous` (its own doc: "may or may not be durable") →
+Escalate. Gate G7(e) pins "zero payload dereferences on any reconcile
+path" with an instrumented counter.
+
+**How it was found — the maxim worked twice on one rule:** the council
+killed two successive W3 designs. v1's reconcile-by-fence-chain-alone
+failed OPEN (silent accept of genuine divergence — found independently
+by two savants). v2's recompute-and-compare replaced it and was then
+killed from opposite ends by two reviewers: its "rows already loaded"
+premise was false at the cited comparison site (hash-only projection)
+AND false on the restart path (empty payload mint), while the spec's own
+restatement of req 1 had dropped the load-bearing "full-cycle" qualifier
+that made the conflict visible. Both withdrawals are retained in the
+plan's ledger (L6, L23), not deleted.
+
+**Cross-refs:** the two entries below (register grid; accumulated seal);
+`seal-vs-temporal-ordering-information.md` (G1's tie-density scope,
+PROBE-SEAL-TIE-DENSITY now a W4 arm); I-LEGACY-API-FEATURE-GATED (the
+`seal_version` gate mirrors `ENVELOPE_LAYOUT_VERSION`).
+
+## 2026-08-19 — E-LOTUS-IS-A-REGISTER-GRID-NOT-A-BYTE-GRID-1
+
+**Status:** RULING `[operator]` (correction to the #968 seal map) +
+archaeology verdict.
+
+**The correction, in one line:** Morton orders ADDRESSES, not payload;
+Lotus closes REGISTERS, not byte buffers. The cascade holds canonical
+locus + pointer/descriptor into the SoA backing store + resolved/present
+state + phase + tiny digest state — never copied 512-B rows, never
+materialized 8-KiB petals, never a 32-MiB image. A petal = 16 register
+positions + resolved mask + pointers + digest state. Phase + canonical
+register position CONSTRUCT the ordering (no sort step). The digest seam
+is the ONE unavoidable flush dereference: the same hot read feeds the
+Lance serializer AND the leaf digest — the checksum is parasitic on the
+byte stream that must cross the membrane anyway. Identity splits
+ContentRoot (final referenced content at canonical loci — superseded
+bytes deliberately NOT hashed) / ControlRoot (tiny trajectory metadata) /
+DatasetVersion (publication coordinate);
+BatchIdentity = H(cycle ‖ base_version ‖ ControlRoot ‖ ContentRoot).
+Seam A/B in the prior map was the wrong question — cast stays
+content-blind (descriptor purity), freeze freezes registers not bytes.
+Payload is touched exactly TWICE ever: production + the flush
+dereference. Full text verbatim in CASCADE-ACCUMULATED-SEAL-SPEC.md.
+
+**Archaeology verdict (mandated before ratification): the substrate
+EXISTS, operator-ruled, UNWIRED.** `NodeRowPacket` (canonical_node.rs:1511)
+is the zero-copy SoaEnvelope over `&[NodeRow]` — deliberately NOT
+Clone/Copy so a borrow cannot escape its mailbox; batch_writer.rs
+Addendum-6 rules P = descriptor with flush-time `as_le_bytes`; SweepSlot
+.payload's own doc says "a NodeRowPacket slice in production; bytes
+here". But `as_le_bytes` has NO live caller (only the deprecated symbiont
+bridge + tests) and `cast()` has zero production call sites — the
+`BatchWriter<Vec<u8>>` + byte-cloning freeze path my map documented is
+confirmed interim wiring. **Consequence: the seal work WIRES the declared
+contract to persistence; it creates no payload Morton tree.** Map §6
+carries the full seven-question table.
+
+## 2026-08-19 — E-SEAL-IS-ACCUMULATED-ON-THE-HOT-PATH-NOT-A-PASS-1
+
+**Status:** RULING `[operator]` (STORNO of "replace FNV with a faster
+whole-cycle seal hash") + source-anchored map delivered, implementation
+HELD per the STOP.
+
+**The ruling:** ZERO dedicated post-finalization payload pass. The
+Morton/cascade working image is resident while being resolved; integrity
+is accumulated ON THAT HOT PATH: petal digest while bytes are hot →
+parent reduction over child digests only → cycle root ready before the
+ONE Lance append → root associated with the RETURNED DatasetVersion in
+the durable receipt (never a pre-write hash input). Content/cascade root
+= prepared-content identity; DatasetVersion = durable publication
+coordinate — two concepts, kept distinct. NO whole-cycle FNV, NO
+replacement whole-cycle hash, NO reread/reload, NO encryption, NO second
+32 MiB image, NO Morton-order reconstruction at persist. Leaf granularity
+(row 512 B vs petal 8 KiB) NOT frozen — measured at the seam. Digest
+primitive benchmarked ONLY inside the architecture. X-C2-1's
+locus/version findings remain constraints; X-C2-3 ECC never dictates the
+hot-path checksum geometry. Full text:
+`docs/lotus/CASCADE-ACCUMULATED-SEAL-SPEC.md`.
+
+**The map (delivered, `docs/lotus/SEAL-FINALIZATION-MAP.md`):** row
+finality = freeze's per-row fold (persist_sink.rs:381-383), nothing
+earlier; FNV at :402-428 called from freeze :384; FNV uniquely binds the
+frame identity (cycle + base_version = A_last), the FULL landing sequence
+incl. superseded intermediates, and the kanban control plane — none of
+which an image-only root carries; candidate seams = cast-time (bytes
+hottest; cast order IS canonical order, stream_position = base + CastId)
+or fused into freeze's existing fold walk; **idempotency audit: YES — the
+(cycle, batch_hash) contract can consume
+H(cycle ‖ base_version ‖ landing_chain_digest ‖ image_root) directly, all
+parts accumulated hot, FNV deleted entirely, no second hash, no second
+pass (falsifier: payload bytes digested == produced, exactly once)**.
+Honest boundary: NO 4096→…→1 cascade, NO 16-row petal, NO 64K grid exists
+in the writer source today — the seal INTRODUCES the cascade over the
+cycle's witness set; that is why granularity must be measured, not
+assumed. OLD path touches payload ~5×(incl. the FNV rescan); TARGET ~3×
+with zero hashing passes. Pre-STOP probe scaffold held uncommitted until
+this map is ratified.
+
 ## 2026-08-19 — E-E2-REVERIFIED-SCATTER-CONTESTED-PMU-ABSENT-1
 
 **Status:** FINDING (independent re-verification of E2, Tier 0).
