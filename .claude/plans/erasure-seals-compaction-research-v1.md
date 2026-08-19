@@ -8,6 +8,11 @@
 > Consolidation: `docs/lotus/RP-SEAL-CONSOLIDATION-PASS1.md` (M1–M15,
 > DELETED list, Tier 0–4). Appendix H committed: `docs/lotus/rp-seal-v1/`.
 > The comma schedule is DELETED per §17; Tier 0 probes are the next phase.
+> **§0 STORNO (operator, same day):** canonical replay coordinates are
+> the core fix (physical iteration order must not define semantic replay
+> order); retention/tombstone for indefinite historical reconstructibility
+> is core; compaction = optional storage economics, never semantic repair,
+> never a cognition prerequisite. See the consolidation doc §0.
 > Tier allocation per the operator's "Opus for filigrane, Sonnet for
 > grindwork": the five ADVERSARY cells (A2/B2/C2/D2/E2) = strongest tier;
 > the five BUILDER and five SCOUT cells = grindwork tier. Consolidation

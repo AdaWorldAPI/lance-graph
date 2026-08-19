@@ -24,6 +24,58 @@
 
 ---
 
+## 0. Operator ruling (STORNO, 2026-08-19) — the target architecture
+
+> Issued immediately after pass-1 consolidation landed; this section
+> CORRECTS the consolidation's framing and outranks any conflicting
+> sentence below. Storno discipline: the corrected sentences are marked
+> ⊘ in place, not deleted.
+
+**STORNO'd:** the framing that physical-layout work (reordering,
+compaction) gates the cognitive/meta arc. **Compaction is NOT required
+for the target architecture.** The D2 defect is narrower and more
+serious than the consolidation's framing:
+
+> **PHYSICAL ITERATION ORDER MUST NOT DEFINE SEMANTIC REPLAY ORDER.**
+
+The fix is **canonical replay coordinates/order** — never physical
+reordering, never compaction. Separately, **permanent temporal replay
+requires a retention/tombstone policy under which historical knowledge
+states remain reconstructible indefinitely.**
+
+The desired model (operator, verbatim):
+
+- physical placement may remain arbitrary
+- physical fragmentation may remain arbitrary
+- tombstoned state remains historically addressable
+- semantic replay order is canonical
+- current visibility is a projection
+- historical visibility is a QueryReference projection
+
+Compaction, if ever enabled, is only optional storage economics. It is
+neither semantic repair nor a prerequisite for cognition.
+
+**Consequences applied below:**
+
+1. Tier 1's durable-order-key item is THE core fix and moves to №1,
+   restated as *canonical replay coordinates*. F-PHYS-ORDER becomes the
+   probe of the ruling's invariant itself.
+2. A NEW core Tier 1 item: the retention/tombstone policy for indefinite
+   historical reconstructibility — absorbing M14 (cleanup currently
+   deletes exactly the manifests the temporal horizons resolve to; under
+   this ruling, cleanup must never delete state needed for historical
+   addressability) and elevating the QueryReference defects (L6, L8) from
+   hygiene to core: QueryReference IS the historical-visibility mechanism.
+3. M3's layout-key seam and every Tier 2/3 layout/compaction item are
+   reclassified **optional storage economics** — real, precedented, and
+   non-gating. E3's locality-debt metric moves to that track. F-NOCOMPACT
+   is promoted from soak test to the DEFAULT operating description.
+4. M2 and M12 remain true as findings; their consequence is inverted:
+   they are reasons compaction stays OFF, not obstacles to clear so it
+   can turn on.
+
+---
+
 ## 1. Evidence matrix
 
 Columns per charter §12. "Independent?" marks genuine independent
@@ -260,9 +312,11 @@ is the safest member of its family — it fails closed.
 compaction-order contract that makes L2 unfixable-by-accident (M2).
 **Dissent:** none. **Confidence:** HIGH (file:line-anchored).
 **Falsifiers (pre-registered in D2):** F-PHYS-ORDER (highest value),
-F-ORD-2, F-RESTART, F-HINDSIGHT family. **Next:** Tier 0 — these gate ALL
-physical-layout work: layout experiments on a substrate whose replay order
-is physical order would corrupt semantics silently.
+F-ORD-2, F-RESTART, F-HINDSIGHT family. **Next:** ⊘ corrected by §0 —
+the fix is canonical replay coordinates; compaction/layout is optional
+economics that simply stays off. The original "gates all physical-layout
+work" framing survives only in the trivial sense that the optional track
+also benefits.
 
 ### M13 — Measurement infrastructure: 80% exists; two hazards recorded
 
@@ -316,9 +370,10 @@ Edges marked ⊕ are independent rediscoveries (high-value per §12);
 
 - **M2 ⊗ M12 (A2 × D2):** two independent reasons the current substrate
   blocks layout work — compaction cannot reorder (correctness contract),
-  and if it could, it would mutate semantic replay order (L2). Fixing L2
-  (an explicit durable order key) is therefore a PREREQUISITE for M3's
-  layout-key seam, not a parallel track.
+  and if it could, it would mutate semantic replay order (L2). ⊘ §0 reframes
+  the consequence: these are reasons compaction stays OFF (its default),
+  and the L2 fix is canonical replay coordinates regardless of whether
+  any layout work ever happens.
 - **M5 ⊕ (C1 × C2 × C3):** three independent routes (truth table; locality
   bound; distance bounds) to the same kill of hierarchical/cascade coding
   as a default. Genuine independent confirmation.
@@ -371,17 +426,27 @@ the M5 triple, whose three routes are methodologically disjoint.
 5. Wire perf-event cache-miss counting or strike the metric; adopt the
    dual-storage-scheme rule for every probe. (M13)
 
-**TIER 1 — lance-graph internal experiments/fixes:**
-1. Sparse landing rows — kill the b+1 null-padding amplification. (M8)
-2. Blockwise, incrementally-composable seal hash with locus+version
+**TIER 1 — lance-graph internal experiments/fixes (order per §0):**
+1. **Canonical replay coordinates/order** — the durable semantic order
+   key that fixes L2/L9 by construction; physical iteration order must
+   not define semantic replay order. NOT solved by reordering or
+   compaction. (M12, §0)
+2. **Retention/tombstone policy for indefinite historical
+   reconstructibility** — tombstoned state stays historically
+   addressable; cleanup derives from this requirement, never from
+   operational defaults (absorbs M14; constrained by A2's
+   cleanup/horizon coupling). (§0, M14)
+3. **Historical visibility as a QueryReference projection** — fix L6
+   (default `u64::MAX` admits future rows under Strict) and L8
+   (incommensurable sort key); `T_now` as a type + a real HLC merge
+   rule, or their explicit rejection; re-home or delete the caller-less
+   OUT-bridge. (M9, M12, §0)
+4. Sparse landing rows — kill the b+1 null-padding amplification. (M8)
+5. Blockwise, incrementally-composable seal hash with locus+version
    binding (replaces FNV; keeps fail-closed semantics). (M8, M11)
-3. An explicit durable order key for replay (fixes L2/L9; prerequisite
-   for all layout work). (M12)
-4. `T_now` as a type + a real HLC merge rule, or their explicit
-   rejection; retention policy derived from the temporal window;
-   re-home or delete the caller-less OUT-bridge. (M9, M14)
 
-**TIER 2 — generic Lance prototypes (no upstream changes needed):**
+**TIER 2 — generic Lance prototypes (no upstream changes needed;
+items 2–3 are the OPTIONAL storage-economics track per §0):**
 1. `IndexRemapper`-consumer permutation witness (A3's free experiment).
 2. Row/column P+Q seal over the 64×64 grid as an external layer, after
    Tier 0 №2/№3 (C1's 6.25%/63× numbers, verified by X-C2-3).
@@ -389,7 +454,8 @@ the M5 triple, whose three routes are methodologically disjoint.
    arm) vs arrival baseline vs bit-level Morton/Hilbert/spectral — only
    if Tier 0 №4 shows measurable locality debt.
 
-**TIER 3 — credible upstream RFC/PR candidates (each must answer the
+**TIER 3 — credible upstream RFC/PR candidates (OPTIONAL
+storage-economics track per §0; each must answer the
 §13 questionnaire before filing):**
 1. Caller-supplied compaction-rewrite ordering key (M3; precedents:
    in-repo R-tree Hilbert leaves, Delta Z-order).
