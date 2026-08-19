@@ -25,6 +25,29 @@
   session; the doc-contradiction is quoted); the §6 amortization mechanisms
   are INFERENCE until the Phase 5 benchmarks run.
 
+## PR #964 — RP-SEAL pass 1 consolidation + §0 STORNO (merged 2026-08-19, a73cddf)
+
+**Added:** `docs/lotus/RP-SEAL-CONSOLIDATION-PASS1.md` (evidence matrix
+M1–M15, cross-domain graph, DELETED list, Tier 0–4 work order, §0 operator
+ruling); Appendix H `docs/lotus/rp-seal-v1/` (15 researcher reports + the
+orchestrator pre-pass); EPIPHANIES `E-RP-SEAL-PASS1-THE-MAXIM-WORKED-1` +
+`E-REPLAY-IS-CANONICAL-COMPACTION-IS-ECONOMICS-1`; AGENT_LOG 15-agent run
+entry; STATUS_BOARD + plan-header flips.
+**Locked:** §0 target architecture — PHYSICAL ITERATION ORDER MUST NOT
+DEFINE SEMANTIC REPLAY ORDER (fix = canonical replay coordinates, never
+reordering/compaction); retention/tombstone for indefinite historical
+reconstructibility; current visibility = projection, historical visibility
+= QueryReference projection; compaction = optional storage economics.
+DELETED: comma/phase coefficient schedule; unconditional SFC default.
+**Deferred:** Tier 0 probes (F-PHYS-ORDER, E2 re-verify, X-C2-1 harness,
+locality-debt metric, perf-event) — next arc. Tier 2/3 = optional
+economics track.
+**Docs:** the consolidation doc is the canonical entry; reports carry
+file:line evidence.
+**Confidence:** consolidation HIGH (multi-cell independent support marked
+per claim); single-source items (E2, D2 details) flagged for Tier 0
+re-verification before fixes land.
+
 ## 2026-08-12 — lance-graph #946 (MERGED) — D-CZ-1 PASSES; D-CZ-0 had NO artifact behind it; + the arc's rated formula matrix
 
 - **The finding that forced the run.** `substrate-comfort-zones-v1` §1's
