@@ -1,5 +1,15 @@
 # Cascade-accumulated seal on the register grid — RATIFIED v3 (5+3 council)
 
+> **⛔ STOPPED — ARCHITECTURE RESET (operator, 2026-08-19).** The
+> freeze/seal-centered architecture this plan implements is STOPPED by
+> `docs/architecture/DUMB-STORAGE-RESET-CHARTER.md` — implementation does
+> NOT launch even though #968 merged and the ready-flip fired (task #25 is
+> superseded, not pending). The ratified spec below is preserved as research
+> history (the council's findings — fail-closed cross-version reconcile,
+> fixed-4096 grid, seal_version on the Arrow seam — remain citable). Any
+> revival is a fresh operator decision AFTER the ARC A→E preparation arc,
+> never an automatic resumption. Do not treat "RATIFIED v3" as green-lit.
+>
 > **Status: RATIFIED v3 — council complete (Phases 0–5).** v1 = Phase-0 spec;
 > v2 = Phase-2 consolidation of the 5 savants (S1 prior-art, S2 iron-rules,
 > S3 code-truth, S4 cascade-impact, S5 different-views — 45 findings); v3 =

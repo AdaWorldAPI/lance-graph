@@ -1,3 +1,350 @@
+## 2026-08-19 — E-THE-OU-COLUMN-EXISTS-AND-NOTHING-WRITES-IT-1
+
+**Status:** FINDING (six-agent read-only sweep across lance-graph, ndarray,
+lance-graph-java, OGAR, MedCare-rs, the DisMech corpus; operator rulings of
+the same day). Deliverable:
+`docs/architecture/ARC-B-OWNERSHIP-AND-ADDRESSING-REASSESSMENT.md`.
+
+**The finding:** HHTL is already the FIRST canonical tenant of every
+512-byte row (`key(16) | edges(16) | value(480)`, `canonical_node.rs:706-730`,
+independently restated at `OGAR/crates/ogar-obo/src/lib.rs:22-35`) — and it
+is **zero on every baked row in both production bakes**. `ogar-obo`
+(`lib.rs:344-353`, `EDGE-LANES.md:44-51`): *"The bake has no basin:
+HEEL/HIP/TWIG and leaf are zero on all 68,797 rows."* MedCare
+(`join-map.md:103`): *"HHTL is dormant on every baked row (heel/hip/twig/
+leaf all 0 across 68797 rows)."* Every real HHTL reader either mints its own
+keys, recomputes tiers in RAM at load, or asserts null — **none reads the
+key of a baked artifact.**
+
+So the addressing gap is not storage, layout, or a missing carrier. The OU
+column exists in every object and nothing writes or reads it. The measured
+consequence: **five structurally distinct hand-rolled ancestor mechanisms in
+ONE repository** (LIFO+bitset closure; stack+HashSet with its own cycle
+guard; a load-time chosen-minimal-parent chain; a per-query re-climb; and a
+Kahn longest-path fallback), each with its own dedup and its own semantics.
+
+**The operationally load-bearing half:** two of those five **disagree by
+design** — `atlas.rs:465,898-904` measures **58.2% agreement** between the
+rail-register depth and the Kahn longest-path depth, because spanning-tree
+depth and DAG longest path are different quantities on a multi-parent DAG.
+"Just use the rails" is therefore a **semantic** change, not merely a faster
+one, and any migration owes a written ruling on which quantity is canonical.
+
+**The highest-value single change follows directly:** `obo_store::compute_cascade`
+(`:690-760`) already derives HEEL/HIP/TWIG in RAM at load — it is the mint,
+misplaced. Moving that derivation into the bake populates the key with what
+the system already computes, using bytes that are reserved and zeroed today.
+
+Cross-ref: E-TWO-WITNESS-SHAPES-CONTEST-ONE-LANDING-ZONE-1 (the witness seam
+and this gap are the same problem — `Locus::BasinAnchor` points at the same
+unwritten `part_of:is_a` rail).
+
+## 2026-08-19 — E-THE-CANONICAL-ROW-WAS-READ-OFF-A-FIXTURE-1
+
+**Status:** CORRECTION (operator ruling + sweep evidence). Affects
+`.claude/plans/hhtl-thinking-tables-le-contract-v1.md` F1, corrected in
+place.
+
+**What happened:** ARC-B's F1 froze *"ONE canonical substrate: the 32×(4+12)
+facet register"* and cited `lance-graph-java/native/lgj-abi/src/abi.rs:173-175`
+as its shipped shape. That citation is a **fixture, and it says so itself** —
+`rowstore.rs:5-8,33-39`: *"The Java side may lay its view out differently…
+The 64-byte-aligned guarantee arrives with the real `NodeRow`
+(`#[repr(C, align(64))]`) wiring, not here."* Grep confirms **zero import of
+`NodeRow`/`EdgeBlock`/`NodeGuid`** anywhere in that code path; the only
+`canonical_node` import is `EdgeCodecFlavor`, for a trait-default test.
+Meanwhile `docs/abi.md:433-438` §10 already names the real target —
+*"`NodeRow`'s `16|16|480` … is already a legal lane description"* — but §11
+(2026-08-17) and §12 (2026-08-18) shipped the homogeneous 32-lane fixture
+and §10 was never revised, so the doc contradicts itself in reading order.
+
+**The lesson, generalizable:** a *conformance target* was mistaken for a
+*source of truth* because it was the shape that had shipped most recently
+and was easiest to grep. Canon lives in the contract crate; a consumer's
+current geometry is evidence about the consumer, never about canon. The same
+inversion is what put integration ownership inside the DisMech oracle
+(see the PR #7 ownership correction).
+
+**Also corrected the same day:** an earlier session claim that `ogar-elk` is
+*"structurally prevented from producing an entailment"* is **false**. It
+computes real EL-subsumption closure in-repo, in pure Rust
+(`OGAR/crates/ogar-elk/src/lib.rs:163-166,239-367` — `entails`,
+`equivalence_cycles`, `merge`; R1/R2/R3 only, existentials and role
+composition deliberately excluded at `:70-81`). What it forbids is
+*serializing* the verdict — *"An observer that could serialize its verdict
+would invite someone to ship the verdict as if it were substrate"*
+(`:42-45`). Entailment production is local and real; persistence as
+substrate is what is banned.
+
+## 2026-08-19 — E-TWO-WITNESS-SHAPES-CONTEST-ONE-LANDING-ZONE-1
+
+**Status:** FINDING (CE64/EW64/dismech investigation + V3 migration-plan
+audit, operator-directed). Plan: `.claude/plans/ew64-witness-unification-v1.md`.
+
+**The finding:** the EpisodicWitness64→V3 migration has no plan because its
+landing zone is already occupied by a different shape with experimental
+status. Tenant 14 `CausalWitness` (`.claude/v3/soa_layout/tenants.md`, 16 B
+facet at row [204,220), G24N4 = 24 signed-i4 ±8-window context pointers,
+"EXPERIMENTAL — not in the operator-locked §3 catalogue") and the queued
+`EpisodicWitness64` (4-slot recency MRU of `EdgeRef{family,local}`,
+`episodic_edges.rs` Phase A shipped #446–#448) are two witness shapes that
+never reference each other (grep-verified both directions), while tenant 2
+`MaterializedEdges` (4 out-of-family CausalEdge64) is a third adjacent edge
+carrier. Four W1 scaffolds each self-document the missing seam
+(`witness_table.rs` "scaffold-only", `soa_view.rs:257-277` deferred
+accessor, `markov_soa.rs` "truly-correct home is still inside the
+EW64-in-SoA seam"). Candidate resolution (NOT banked — operator decision):
+the two are two RUNGS of one witness ladder — positional stream context vs
+episodic reference — and EW64's sub-byte packing lands as a `U64 × 1` LANE
+(Qualia/Kanban precedent), never a §3 byte-axis carving. Companion
+correction: the EW64-prefetch spec's "three open decisions" are TWO —
+`RawEdge(i8)` mantissa-only is SHIPPED (`counterfactual.rs:456/472-479`);
+only the `impl EpisodicEdge for CausalEdge64` bridge location remains open.
+
+Refs: `.claude/specs/episodic-witness64-ce64-prefetch.md`, tenants.md §
+tenant 14, MODULE-TABLE rows 48/167/227/243, E-EW64-IS-PREDICTIVE-PREFETCH.
+
+## 2026-08-19 — E-CONTRACT-INFERENCETYPE-INVERTS-THE-COUNTERFACTUAL-1
+
+**Status:** FINDING (rung-3 runtime audit; sharpened during plan authoring).
+Plan: `.claude/plans/counterfactual-rung3-closure-v1.md`.
+
+**The finding:** rung-3 (counterfactual) is fully specified in the substrate
+and fully absent — and mis-decoded — at runtime, because the canonical
+contract enum is two variants narrower than the causal-edge enum.
+`contract::nars::InferenceType` has 5 variants; `causal_edge` has 8, and
+the missing pair (Intervention=+6, Counterfactual=−6) is exactly Pearl
+rung 3, so the semantics cannot cross the contract boundary. Every dispatch
+degrades: `nars/inference.rs:72` + `orchestration_impl.rs:207` map
+Counterfactual ⇒ Abduction ("follow-up PR" comments); no
+abduce→intervene→predict chain runs anywhere. **Worse than a lossy
+narrowing:** `contract::nars::from_mantissa(−6)` decodes to `Synthesis`
+(own mantissa **+5**) — a silent DIRECTION INVERSION (a backward-chain
+counterfactual read back as forward-chain synthesis). And enum widening
+alone cannot surface the fix sites: the three rung-3 routing points
+(`orchestration_impl.rs:144/149/176`) are `_ =>` wildcards that silently
+absorb new variants. Adjacent fragmentation, same audit: three multi-hop
+truth paths share no code (`belief.rs:279` close_transitive is real;
+`truth_propagation.rs` is a no-op; `network.rs` forward_chain declares
+NarsTables and never reads it); ≥3 reimplementations of the revision
+formula across 19 `fn revise` sites; and "Pearl 2³" names three distinct
+structures (CausalMask powerset / CausalAmbiguity permutations /
+SEE-DO-IMAGINE). Doc-drift note owed to
+`triangle-tenants-gestalt-separation-v1.md` §2a: it cites
+`world/counterfactual.rs::intervene()` — no such function exists.
+
+Refs: `layout.rs:16-32` (signed mantissa), M20 / le-contract "let go of the
+cramped 64-bit register" (the fix is enum + round-trip, never new CE64 bits),
+D-TRI-6 (the plane half is already wired and probe-green).
+
+## 2026-08-19 — E-THE-STRONG-HIERARCHY-EXISTS-AS-FIVE-DISCONNECTED-ISLANDS-1
+
+**Status:** FINDING (ARC A′ five-sweep source audit, operator correction of the
+weak "computed view" decode). Deliverable:
+`docs/architecture/ARC-A2-STRONG-HIERARCHY-RECONCILIATION.md`.
+
+**The finding:** every major mechanism of the operator's strong hierarchy model
+is ALREADY IMPLEMENTED in this workspace, correctly and with tests — and none of
+the implementations are connected to each other. The gap is not invention; it is
+that no SHARED SHAPE exists, so each island grew its own vocabulary.
+
+- Two independent rails, one leaf, no identity duplication →
+  `rail_geometry::{RailAxis::Taxonomy,::Mereology,RailPath}` (shipped
+  2026-08-13) with its own disable-test `the_pair_axes_are_two_separate_bytes`.
+  Sole caller: a `ClassView::rail_carving` default. **But
+  `NiblePath::from_guid_prefix_v3` FUSES both bytes into one route, has no
+  per-axis constructor, and the two modules never cross-reference.**
+- Shared ancestry walked once, not copied (the DN-tree) →
+  `deepnsm-v2::ancestry::FamilyTrie`, whose `dn()` is literally the
+  distinguished-name walk. Private `u16` id space, zero tie to
+  `NodeGuid`/`NiblePath`, no crate depends on it.
+- The intended end-state (`is_a` = prefix containment / zero storage; `part_of`
+  = explicit edges) → already written down UNPROMPTED in `soa_bake/mod.rs`,
+  self-marked "⚠ TYPE SCAFFOLDING, not a working bake".
+- Second-order referencing (record → record of its own kind, NO homunculus) →
+  `witness_fabric::resolve_chain`, real multi-hop with horizon+budget
+  escalation. Bounded ±8, one locus dimension, facet flagged experimental.
+- Grouping → stable addressable coordinate → `wikidata_hhtl` DOLCE basin,
+  shipped and tested. **Type-A only; no Type-B (discovered) analogue exists
+  anywhere in the workspace.**
+
+**The naming failure is measured, not hypothetical:** the word "basin" already
+carries FIVE distinct mechanisms (AriGraph discovered cluster ·
+`Locus::BasinAnchor` pointer slot · `EpisodicEdges64` class-family ·
+`NodeGuid` `family` tier · Wikidata/DOLCE category) — four Type-A, one Type-B,
+sharing a word and nothing else. This is exactly the throwaway-naming failure
+the operator's "reusable agnostic shape" ruling exists to prevent, already
+present in the tree.
+
+**The sharpest single instance of the gap:** `nars/meta_basin.rs` performs real
+higher-order structural analysis today (basin clustering over causal
+trajectories, outlier suggestion with evidence) and its own doc states
+"Nothing here prunes, commits, or scores." Computed, then discarded, every
+cycle. Meta-awareness is therefore PRESENT-BUT-UNMATERIALIZED, not future — a
+different and more actionable condition than the ARC A draft claimed.
+
+**Correctly absent, and worth recording as correct:** there is no reasoner in
+lance-graph. The OWL hydrators intern IRIs and discard the triples;
+`ontology_warrant.rs` names OGAR's `ogar-elk` as the external factfinder and is
+structurally prevented from producing an entailment ("deliberately no method
+that turns a `NarsTruth` back into an entailment"). The operator's
+HHTL-exposes-structure / RO-decides-transfer boundary is already drawn in the
+code — merely unwired. And NO live conflation of structural ancestry with
+semantic inheritance was found; `ontology_warrant.rs` is evidence of the
+opposite discipline, built after a measured incident where treating ontology
+SILENCE as DISSENT inverted a finding (~50% apparent disagreement vs a true
+99.8% agreement).
+
+**Cross-refs:** `E-HIERARCHY-NODE-IS-ALGEBRA-NEVER-A-CROSSWALK-1` (the earlier,
+WEAKER decode — this entry supersedes its generality: a computed projection is
+one case, not the definition); `E-ARIGRAPH-IS-AN-ISLAND` (independently
+reconfirmed still current); `E-FAMILY-NODE-IS-META-AWARENESS`.
+
+## 2026-08-19 — E-A7A-STORNO-THE-EXCLAMATION-WAS-NOT-A-NAME-1
+
+**Status:** CORRECTION (storno of the entry below,
+`E-A7A-IS-THE-NAME-NOT-LITERALLY-DUMB-1`).
+
+**What happened:** the session misread the operator's message "A7A" as a
+naming ruling and minted it as the substrate's handle in two doc reading
+notes and the entry below. The operator's next message: "No A7A ia Arabic
+for WTF" — it was an exclamation, not a name. The handle is scrubbed from
+the two reading notes (charter header + ARC A header, same commit as this
+entry); the erroneous entry below is regraded via its Status line, not
+deleted (append-only).
+
+**What stands:** everything except the handle. The reading remains the
+operator's own formulation, used descriptively with NO acronym: the
+**agnostically-encoded hierarchical pattern** for separation of concerns —
+dependency-free mask-based addressing + parent-node HHTL for the
+CLAM/CHAODA trie; a reusable, reliable storage concern (answers
+"where"/"which references", never "what"), the floor reused unchanged by
+Java ABI / Panama / Valhalla, Ontology, and OSM — structural referencing
+as a globally available pattern. "Dumb storage" in historical text stays
+as posture-shorthand, unscrubbed.
+
+**Process lesson (real, kept):** do not mint an acronym, handle, or type
+name from a terse operator message without an explicit naming statement —
+this is the naming-side twin of "no metaphor becomes a type name without
+council approval" (lotus charter). A name enters canon when the operator
+names, not when the session abbreviates.
+
+## 2026-08-19 — E-A7A-IS-THE-NAME-NOT-LITERALLY-DUMB-1
+
+**Status:** ⊘ STORNO'd (same hour, by the entry above) — the "handle
+A7A" half was a MISREAD: the operator's "A7A" was an exclamation (Arabic
+slang for roughly "WTF"), not a naming ruling. The "not literally dumb,
+not literally replace" half of this entry stands and is restated above.
+
+**The ruling:** "dumb storage" was a posture-shorthand, never the
+concept's name — and the correction is NOT a mechanical terminology sweep
+(a literal find-and-replace/file-rename was started and REVERTED before
+commit; no historical text was edited, no file moved). The concept's name
+going forward is **A7A**: the **agnostically-encoded hierarchical
+pattern** for separation of concerns — dependency-free mask-based
+addressing + parent-node HHTL for the CLAM/CHAODA trie. A reusable,
+reliable STORAGE CONCERN: it answers "where"/"which references", never
+"what". Built as the floor that arbitrarily sophisticated follow-up
+patterns reuse unchanged — Java ABI / Panama / Valhalla, Ontology,
+OpenStreetMap alike — with structural referencing as a globally
+available pattern.
+
+**Mechanics:** interpretive READING NOTES added to the charter header
+(`docs/architecture/DUMB-STORAGE-RESET-CHARTER.md` — path unchanged,
+verbatim block byte-identical) and to ARC A's header
+(`docs/architecture/ARC-A-SOURCE-ARCHAEOLOGY.md`). Prior entries naming
+"dumb storage" (E-ARCHITECTURE-RESET-DUMB-STORAGE-HHTL-EPISTEMIC-1,
+below) stay as written per append-only discipline and are read through
+this entry. Forward vocabulary in new docs/specs/PRs: A7A.
+
+**Cross-refs:** `E-HIERARCHY-NODE-IS-ALGEBRA-NEVER-A-CROSSWALK-1` (the
+Valhalla/Panama-cheap computed-view correction — A7A's door-B mechanism);
+the charter §0 canonical decomposition (unchanged in substance; renamed
+in reading).
+
+## 2026-08-19 — E-HIERARCHY-NODE-IS-ALGEBRA-NEVER-A-CROSSWALK-1
+
+**Status:** RULING `[operator]`, correction applied in place to
+`docs/architecture/ARC-A-SOURCE-ARCHAEOLOGY.md` §3/§7/§9/§10 (⊘-marked,
+original text retained, not deleted).
+
+**The correction, in one line:** `parent_ref`, `child_or_ref_set`,
+`projection_mask`, `version` must never be co-located as stored fields on
+a materialized hierarchy node. Each is a cheap, register-width AND/XOR
+read over an EXISTING shipped primitive — `NiblePath::parent`/`child`
+(already O(1) bit-shift), a `ClassView`-projected child-position mask
+ANDed against a `WideFieldMask` presence read (the same intersection
+primitive `standing_mask.rs::fires()` already exercises), and a
+caller-supplied `DatasetVersion`/`QueryReference` (never copied onto a
+node). The "hierarchy node" at any address is a COMPUTED VIEW over
+`(NiblePath, ClassView, WideFieldMask, DatasetVersion)`, evaluated fresh
+each time — never a persisted crosswalk table.
+
+**The named analogy, load-bearing:** this is exactly how Valhalla value
+classes get structural operations (equality, hashCode, field access) with
+zero object header and zero indirection — flat bytes, computed directly,
+no materialized identity — and exactly how Panama's `MemorySegment` gives
+zero-copy VIEWS into native memory with zero Java-object materialization.
+The prior ARC A draft proposed a new type carrying all four fields,
+reasoning "no existing type carries all four, therefore mint one" — that
+reasoning was the error. Absence of a four-field type is not evidence one
+is needed; per this ruling it is evidence none should exist.
+
+**Consequence:** ARC A's §7 "proposed new types" list is now EMPTY — zero
+new types across the entire dumb-storage substrate. At most one small free
+function (composing `NiblePath::child` + a `ClassView`-projected mask +
+plain AND) is proposed, and even its placement (beside `ClassView`,
+beside `RailGraph`, or pure call-site composition) is left as a narrowed
+ratification question, not a design decision made here.
+
+**Cross-refs:** `docs/architecture/DUMB-STORAGE-RESET-CHARTER.md` §1
+(the substrate must know only references/hierarchy/ClassView/
+WideFieldMask/DatasetVersion — this ruling is that principle applied to
+the ONE gap ARC A found); `E-ARCHITECTURE-RESET-DUMB-STORAGE-HHTL-
+EPISTEMIC-1` (the parent ruling this session).
+
+## 2026-08-19 — E-ARCHITECTURE-RESET-DUMB-STORAGE-HHTL-EPISTEMIC-1
+
+**Status:** RULING `[operator]`, verbatim charter at
+`docs/architecture/DUMB-STORAGE-RESET-CHARTER.md`.
+
+**The reset, in one line:** the substrate must know only references,
+hierarchical locality (HHTL trie AND explicit reference nodes — kept as
+two separate doors), ClassView, WideFieldMask-as-fovea, DatasetVersion,
+and temporal coordinates; it must NOT know ontology, causality, rung,
+known-unknowns, awareness, or orchestration policy — those are
+interpretations layered ABOVE storage. No freeze, no batch wall, no
+"persistence lag is permission to think." Epistemic PARTICIPATION
+(admissibility to a current-horizon quorum) is explicitly NOT execution
+PERMISSION — a stale-horizon producer keeps computing; only its evidence
+is marked inadmissible until it catches up.
+
+**Immediate consequence:** the freeze/seal-centered implementation just
+ratified in PR #968 (merged `66fec27`, minutes before this ruling) is
+STOPPED. Task #25 (W1 descriptor purity → W2 digest seam → W3 FNV
+deletion) does not launch on the #968 merge. The seal spec, its 5+3
+council hardening, and its falsifier corpus are preserved as research
+history by exact reference (PR_ARC entry above) — not deleted, not
+implemented as production architecture.
+
+**Deliverable order (charter §19), gated no-code-before-map (§20):**
+ARC A source archaeology (lance-graph + lance-graph-java, file:line
+capability matrix) → ARC B minimal dumb-storage contract → ARC C Java
+mechanical integration + ontology/OSM genericity proof → ARC D
+episodic/epistemic model (deferred) → ARC E orchestration meta-awareness
+(deferred). 15 falsifiers pre-registered (charter §18: F-HIERARCHY-NOT-
+AUTHORITY, F-TRIE-VS-NODE, F-WFM-FOVEA, F-SPARSE-INHERITANCE,
+F-CONTEXT-DELTA, F-ONTOLOGY-READONLY, F-NO-FREEZE,
+F-NO-BACKPRESSURE-AUTHORITY, F-EPISTEMIC-PARTICIPATION,
+F-STRICT-HINDSIGHT, F-KNOWN-UNKNOWN, F-META-SECOND-ORDER, F-JAVA-PARITY,
+F-DOMAIN-GENERICITY, F-NO-64K-JAVA-OBJECTS).
+
+**Cross-refs:** `E-CROSS-VERSION-IDENTITY-MIGRATES-BLIND-SO-IT-FAILS-
+CLOSED-1` and `E-LOTUS-IS-A-REGISTER-GRID-NOT-A-BYTE-GRID-1` remain valid
+findings about the STOPPED design, cited as prior art if any future arc
+revisits sealed-batch identity — not superseded on their own merits, only
+mooted as production direction.
+
 ## 2026-08-19 — E-CROSS-VERSION-IDENTITY-MIGRATES-BLIND-SO-IT-FAILS-CLOSED-1
 
 **Status:** FINDING (5+3 council on the cascade-seal spec, ratified v3 at

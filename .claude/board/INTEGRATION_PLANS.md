@@ -1,3 +1,148 @@
+## 2026-08-19 — ARC-B OWNERSHIP + ADDRESSING REASSESSMENT (supersedes parts of the plan wave)
+
+Not a plan — the **assessment that corrects the plan wave**, per two
+operator rulings the same day (the `dismech-rs`-is-the-oracle ownership
+correction, and the HHTL-addressing correction with its own same-day
+retraction of the second-tenant reading).
+`docs/architecture/ARC-B-OWNERSHIP-AND-ADDRESSING-REASSESSMENT.md`.
+
+**Headline:** HHTL is already the FIRST canonical tenant
+(`key(16) | edges(16) | value(480)`) and is **zero on every baked row in
+both production bakes**. The gap is mint + read, not storage or layout.
+Five hand-rolled ancestor mechanisms in one repo are the measured
+consequence — and two of them disagree by **58.2%** because spanning-tree
+depth and DAG longest path are different quantities, so "use the rails" is
+a semantic change needing a written ruling.
+
+**Corrections it forces, all applied same-commit:** `hhtl-thinking-tables-le-contract-v1`
+F1 ⊘ (the `32×(4+12)` canon was read off a self-declared Java *fixture*) +
+new F1′; §2.2 two-addressing-modes taxonomy withdrawn; D-HTT-2 → 2′;
+**D-HTT-6 withdrawn** (Morton is non-canonical and never the basis of HHTL
+ancestry); HHTL never called "V1"; HHTL+ Helix deferred.
+`ew64-witness-unification-v1` gains F0 — CE64/EW64 are **codecs/projections,
+never canonical semantic containers** — and its proposed `ValueTenant` is
+gated, provisionally argued against. `counterfactual-rung3-closure-v1`
+re-framed as repairing a **decoder defect in a projection**.
+`mask-algebra-revision-read-v1` **promoted to the critical path** (masks
+select the semantic/provenance surface; `observed`/`inherited`/
+`extrapolated` are measured absent everywhere).
+
+**Ownership split for `dismech-rs` PR #7:** oracle + falsifiers stay;
+row architecture, classid mints, predicate ontology, side lane and
+edge-block summary move to `ogar-dismech`/`ogar-from-dismech` and
+lance-graph. `ogar-dismech` **already mints the same 19 predicates**
+(`FnIndex 0x90..0xA2`), so PR #7's parallel `1..19` freeze would have been
+a second canonical numbering.
+
+**POC named:** held-out `INDIRECT_KNOWN_INTERMEDIATES` recovery over the
+real ontology bake; falsifier is comparative (HHTL-prefix-scoped ranking
+must beat the same ranking unscoped). Hard constraint measured: **0 of
+3,454 `intermediate_mechanisms` entries carry an ontology id.**
+
+~~**PR #969 stays DRAFT — operator: do not merge, it needs these corrections.**~~
+> **⊘ STORNO 2026-08-19 (same day, operator review).** Stop LIFTED — the
+> corrections landed, plus a cleanup commit closing four residual
+> inconsistencies (D-HTT-3's schema column, the thinking-table rows, X2's
+> Morton claim, the ordering line). Plan status flipped
+> **NEEDS-REWORK → RATIFIED**; no further architecture round for this wave.
+
+## 2026-08-19 — ew64-witness-unification-v1 (ARC D/E, PROPOSED)
+
+The EpisodicWitness64→V3 seam cut. EW64 is NOT a code symbol; its landing
+zone is contested by tenant 14 `CausalWitness` (G24N4 ±8 context loci,
+EXPERIMENTAL, not operator-locked) while four W1 scaffolds each
+self-document the missing seam (episodic_edges / witness_table "scaffold-
+only" / soa_view deferred accessor / markov_soa "truly-correct home").
+`.claude/plans/ew64-witness-unification-v1.md`: D-EWU-1 = the demarcation
+ruling (READING L recommended, not banked: the two witness shapes are two
+RUNGS — positional context vs episodic reference — with a two-armed
+falsifier + kill condition), D-EWU-2 corrects the prefetch spec's THREE
+open decisions to TWO (`RawEdge(i8)` + its `EpisodicEdge` impl are SHIPPED
+at `counterfactual.rs:456/472-479`; only the bridge location remains),
+D-EWU-3..9 = Phase-D lane / bridge / Phase-B co-fire / Phase-C
+DemotionSink / Phase-E arcuate / basin-promotion seam / markov_soa
+re-home, in gate order. Key source-grounded argument: EW64's 4×(4b:12b)
+sub-byte packing cannot be a le-contract §3 byte-axis carving but is
+legal as a `U64 × 1` LANE (precedent: Qualia, Kanban) — satisfying
+`causal_witness.rs:22-26`'s "sub-byte's sanctioned home is a LANE". Also
+verified: `EpisodicEdges64` has NO ValueTenant variant; only DemotionSink
+impl is the test VecSink; `witness_tombstone.rs` is todo!()-only and
+absent from `graph/mod.rs`; the spec's `soa_view.rs:77` citation is stale
+(note lives at :257-277). 5 operator decisions OD-1..5.
+
+## 2026-08-19 — counterfactual-rung3-closure-v1 (PROPOSED)
+
+Closes the gap between the fully-specified rung-3 encoding and its
+fully-absent runtime, without touching the V3-retired CE64 awareness
+surface. `.claude/plans/counterfactual-rung3-closure-v1.md`: D-CFR-1
+(contract InferenceType 5→7 variants + mantissa round-trip; the contract
+is the canonical copy so rung-3 semantics cannot cross the boundary
+today), D-CFR-2 (wildcard census — widening will NOT compile-error at
+`orchestration_impl.rs:144/149/176`: `_ =>` arms silently absorb the new
+variants at exactly the three sites routing rung-3 traffic), D-CFR-3
+(PROBE-RUNG-L1-MASK, shared with ARC-B D-HTT-9), D-CFR-4 (Pearl-2³
+disambiguation — three structures share the name), D-CFR-5 (EpisodicEdge
+bridge, OD-1-gated), D-CFR-6 (0.70-discount inertness). **Two corrections
+found during authoring:** (a) the collapse is WORSE than
+sign-preserved/magnitude-lost — `contract::nars::from_mantissa(−6)`
+decodes to `Synthesis` (own mantissa **+5**), a silent DIRECTION
+INVERSION (backward-chain counterfactual read back as forward-chain
+synthesis); (b) `triangle-tenants-gestalt-separation-v1.md` §2a cites
+`world/counterfactual.rs::intervene()` as implemented — **no such
+function exists** (doc drift in a ratified plan, regrade owed). New
+bridge option (c) surfaced for OD-1: orphan-rule newtype in an existing
+dependent — causal-edge is already path-dep'd by planner + driver, so
+availability was never the blocker. Deferred DEF-1..7 incl. the full
+abduce→intervene→predict composition, three-multi-hop-path unification
+(NarsTables dead weight on forward_chain), revision dedup (19 sites),
+sigma-chain truth wiring, CascadeChannels8↔M20 tension (OD-3).
+
+## 2026-08-19 — mask-algebra-revision-read-v1 (PROPOSED — draft-harvest keepers)
+
+Harvest of two externally-authored draft modules reviewed this session
+(rejected as written; three ideas + one substrate gap extracted).
+`.claude/plans/mask-algebra-revision-read-v1.md`: **D-MAR-1** =
+`FieldMask`/`WideFieldMask` gain `difference` + `is_subset_of` (the
+substrate gap the draft hand-rolled an `EvidenceMask` trait around —
+missing-capability STOP rule, substrate-first; gates G1–G8 each with a
+disable-run, and the brief's own identity gates were caught VACUOUS alone
+— `difference ≡ EMPTY` passes `a.difference(b).intersect(b).is_empty()` —
+so every identity carries an anti-vacuity twin). **D-MAR-2** = the 9-way
+`RevisionKind` classification READ over shipped `Stamp`/`ReviseOutcome`
+(never a pipeline, never a tenant; home recommended planner-beside-
+`belief.rs` because the contract cannot see `ReviseOutcome` without
+minting a third outcome copy). Key correction found during authoring:
+`causal_audit.rs:306-315` rules "receipts are canonical and a mask is
+not" — so `AssumptionExposed` reads `SupportLedger::withdraw_source`,
+never a new withdrawal mask. Deferred D1–D6 incl. the REJECTED bounded
+counterfactual timeline (the shipped D-ATOM-4 design prices the
+road-not-taken at 4 bits, not a replay buffer — recorded so it is not
+re-proposed) and the closes_cycle mechanism (named gap, no mechanism).
+
+## 2026-08-19 — hhtl-thinking-tables-le-contract-v1 (ARC B, PROPOSED — ratification vehicle)
+
+The reset charter's ARC-B storage contract, formalizing the operator's
+"perfect shape": higher-order thinking table(s) for HHTL across location /
+NARS reasoning / rung ladder / traversal, expressed entirely as READINGS of
+the canonical 32×(4+12) / 6×2×8-bit / 256:256 substrate — zero new types,
+zero code until ratified (charter §20).
+`.claude/plans/hhtl-thinking-tables-le-contract-v1.md`: the one-sentence LE
+ordering law (ascending rail → byte → nibble ⇒ ancestry is always a prefix
+⇒ parent-of-x is AND/XOR/shift/tzcnt); 7 primitive ops with verified homes
+(5 of 7 already shipped — ndarray `clam_v3.rs` carries `lca_depth` +
+`geodesic` and states the thesis verbatim; `RailCarving::level` is private
+in both crates; `morton()` has zero consumers); two addressing modes
+(Cartesian/cesium vs rails) as two parent operators over the same bytes;
+the 4-row thinking table (Location + Taxonomy/Mereology MINTED, NARS + rung
+rows candidate); the rung carve (admissibility floor vs plane mask — two
+axes wearing one name); D-HTT-1…11 each with a pre-registered falsifier
+(D-HTT-9 = the L1-mask probe `0b001` vs pearl.rs `SO=0b101`; D-HTT-11
+carries ARC A′'s kill condition verbatim). ARC C (Java parentOf/ancestorsOf
+mask source) listed as gated seam. Companion hygiene in the same commit:
+ARC A′ §5 "one agnostic delegation shape" ⊘-RETRACTED (the forbidden
+generic structural algebra; falsifier table regraded to a question bank),
+and the cascade-seal ratified plan stop-bannered per the reset charter.
+
 ## 2026-08-19 — cascade-seal-register-grid-v1 (5+3 COUNCIL, SPEC v1) — ACTIVE
 
 Operator invoked `/5plus3` on the cascade-accumulated seal under the

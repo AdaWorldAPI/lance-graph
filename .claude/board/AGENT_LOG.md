@@ -1,3 +1,92 @@
+## 2026-08-19 — oracle-boundary reassessment sweep (6 agents, workflow, orchestrator-consolidated)
+
+Operator-directed after two superseding architecture rulings (the
+`dismech-rs`-is-the-oracle ownership correction, and the HHTL-addressing
+correction with its own same-day retraction of the second-tenant reading).
+Six parallel read-only sweeps at the grindwork tier, briefs carrying
+no-cargo / no-git-state-change / no-board-write / file:line-or-it-did-not-
+happen. Deliverable authored main-thread:
+`docs/architecture/ARC-B-OWNERSHIP-AND-ADDRESSING-REASSESSMENT.md`.
+
+Scopes: (1) `ogar-dismech` + OGAR bridge precedents; (2) MedCare ontology
+substrate + hand-rolled-traversal census; (3) lance-graph provenance/status
+vocabulary; (4) the second 16-byte tenant + Java/ABI geometry; (5) DisMech
+POC candidates over the real corpus; (6) OGAR ontology precedents
+(`ogar-obo`/`ogar-ro`/`ogar-elk`).
+
+**Findings that changed the plans:** HHTL zero on every baked row in BOTH
+production bakes; five hand-rolled ancestor mechanisms in one repo with a
+measured **58.2%** disagreement between two of them; the `32×(4+12)`
+canonical-substrate claim traced to a self-declared fixture; provenance
+states `observed`/`inherited`/`extrapolated` absent everywhere, `MetaWord`
+with zero spare bits; `ogar-dismech` already owning the 19 predicates as a
+minted `Vocabulary`; **3,454 `intermediate_mechanisms` entries, 0 carrying
+an ontology id**; and the `~915k/~10M/~40k` figures **not reproducing**
+(actual: 68,797 OBO rows / 152,073 edges / MONDO 32,095; 1,225,834 across
+twelve lanes).
+
+**Two prior session claims retracted on evidence:** `ogar-elk` does produce
+entailments in-repo (only serialization is forbidden); and the canonical row
+was being read off the Java fixture rather than the contract.
+
+Corrections applied same-commit to `hhtl-thinking-tables-le-contract-v1`
+(F1 ⊘ + F1′, §2.2 withdrawn, D-HTT-2 → 2′, D-HTT-6 withdrawn),
+`ew64-witness-unification-v1` (F0 tenant gate, CE64/EW64 → projections),
+`counterfactual-rung3-closure-v1` (re-framed as decoder-defect repair),
+`mask-algebra-revision-read-v1` (promoted to critical path), plus
+EPIPHANIES ×2 and the dismech-rs ownership split (that repo's own boards).
+~~**PR #969 stays DRAFT and must not merge** — operator instruction, this
+session.~~
+> **⊘ STORNO 2026-08-19 (same day, operator review).** The stop is LIFTED.
+> The operator reviewed the corrected wave and ruled: dismech-rs #7 merge
+> as-is; lance-graph #969 merge after ONE cleanup commit closing four
+> residual inconsistencies (the two-mode concept surviving in D-HTT-3's
+> schema column, the thinking-table rows, X2's Morton-as-basis claim, and
+> the ordering line), and *"keine neue Architektur-Runde"*. That cleanup is
+> the commit this storno rides on; #969 is ready to merge.
+
+## 2026-08-19 — preparation-arc plan wave (5 authors + 6 sweep agents, orchestrator-consolidated)
+
+Operator-directed: "integration plans for all open arcs; deferred-for-
+missing-integration ideas named." Allocation per the operator's standing
+rule this session (accumulation-tier authors for the filigree, grindwork
+tier for bounded sweeps); every brief carried no-cargo + no-git + no-board-
+write + write-exactly-one-file + no-model-identifier-in-artifact; this
+entry is the orchestrator consolidating, per the one-writer rule.
+
+**Investigation sweeps (6, bounded read-only, task #29):** dismech-perturb
+output shape; perturbation-sim module surfaces (deliberate sixth island —
+zero contract/causal-edge deps, disclaimered witness/basin vocabulary);
+causal-edge CE64 v2 layout + external-producer census (ZERO non-test
+producers outside the cognitive stack); SPO-2³/rung ladder (three "Pearl
+2³" structures; L1 mask convention conflict); planner NARS surface (5/34
+tactics with local bodies + kernel dispatch for the rest; Counterfactual
+collapses at every dispatch; three multi-hop paths share no code);
+counterfactual/scenario inventory (draft-name collisions; FieldMask/
+WideFieldMask missing difference+is_subset).
+
+**Plan authors (5, one file each):**
+`hhtl-thinking-tables-le-contract-v1.md` (361 ln, D-HTT-1..11; 5/7 ops
+already shipped; D-HTT-7 pre-registered as expected-to-fire) ·
+`counterfactual-rung3-closure-v1.md` (400 ln, D-CFR-1..6; found the
+from_mantissa(−6)→Synthesis direction inversion + the `_ =>` wildcard
+blindness) · `mask-algebra-revision-read-v1.md` (358 ln, D-MAR-1..2;
+caught the brief's own vacuous identity gates, added anti-vacuity twins;
+receipts-not-masks correction via causal_audit.rs:306-315) ·
+`ew64-witness-unification-v1.md` (435 ln, D-EWU-1..9, OD-1..5; THREE→TWO
+spec correction; U64-lane argument for sub-byte packing) ·
+`causal-graph-soa-integration-v1.md` (dismech-rs — logged in that repo's
+own board). Disclosures: two authors ran one read-only `git status
+--porcelain` each (state unchanged); one author observed the
+orchestrator's concurrent STATUS_BOARD edit and correctly did not touch it.
+
+Board hygiene same-arc: INTEGRATION_PLANS ×4 prepends, STATUS_BOARD
+plan-wave section, EPIPHANIES ×2
+(E-TWO-WITNESS-SHAPES-CONTEST-ONE-LANDING-ZONE-1,
+E-CONTRACT-INFERENCETYPE-INVERTS-THE-COUNTERFACTUAL-1), ARC A′ §5 ⊘
+retraction, cascade-seal stop banner. PR #969 (draft). Citation-
+verification sweep (grindwork tier) runs before the PR leaves draft.
+
 ## 2026-08-19 — 5+3 council: cascade-seal register-grid spec (8 agents, orchestrator-consolidated)
 
 8/8 completed, 0 errors, sequenced per `.claude/agents/5plus3-council.md`
