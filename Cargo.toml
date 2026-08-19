@@ -112,6 +112,11 @@ exclude = [
     # crates/onebrc-probe/README.md. Verify via
     # `cargo test --manifest-path crates/onebrc-probe/Cargo.toml`.
     "crates/onebrc-probe",
+    # X-C2-1 injection harness (RP-SEAL Tier 0) — fault injection over a
+    # synthetic cycle; anti-vacuity gate reproduces the known in-tree
+    # false-accepts against the REAL live implementations. Verify via
+    # `cargo test --manifest-path crates/rp-seal-t0-probe/Cargo.toml`.
+    "crates/rp-seal-t0-probe",
     # ERA5 0.25-degree global grid baked onto the canonical 512-byte NodeRow --
     # one cell = one node, one timestep = one Lance version. Standalone and
     # genuinely zero-dep (see the crate manifest for why helix is NOT an

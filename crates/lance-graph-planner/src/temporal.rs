@@ -137,6 +137,15 @@ pub struct QueryReference {
     pub server_id: u16,
     /// The `KnowledgeHorizon` — the Lance version the reader is pinned at.
     /// `u64::MAX` = "latest" (the single-server default).
+    ///
+    /// This is the reader-side **A_last** of the awareness-lag pair
+    /// (operator T0.3 ruling): A_last = what the cognition had seen;
+    /// W_write = the version its consequence became durable at;
+    /// ΔV = `W_write.saturating_sub(A_last)` = how far the world moved while
+    /// it was thinking. ΔV is derived from the two durable coordinates,
+    /// never persisted, and is a version distance — wall-clock latency is an
+    /// economics metric, not this. (Cross-server causal comparison stays
+    /// HLC's job; ΔV lives inside ONE durable version history.)
     pub ref_version: LanceVersion,
     /// Cross-server causal tick; `None` single-server. Wakes up under the
     /// peer-Raft / cluster-bus policy (deferred).
@@ -148,8 +157,20 @@ pub struct QueryReference {
 }
 
 impl Default for QueryReference {
+    /// The single-server reading: "latest", strict, rung 0, no HLC.
+    ///
+    /// **⚠ NOT a knowledge horizon (F-QREF-STRICT, RP-SEAL Tier 0 / D2 L6).**
+    /// The `u64::MAX` sentinel makes `row_version <= ref_version` universally
+    /// true, so a `Strict` reader at the default admits EVERY row —
+    /// including rows written after the read began. Strict-in-name-only: an
+    /// UNBOUNDED observer, with zero hindsight protection. A reader that
+    /// needs the epistemic guarantee must pin a CONCRETE observed head via
+    /// [`QueryReference::at`]`(head, rung)` — the no-hindsight property is a
+    /// property of `at` only. Resolving "latest" to a concrete head at
+    /// construction (removing the sentinel from the comparison entirely) is
+    /// the registered Tier-1 follow-on; changing `default()`'s semantics
+    /// silently here would be the I-LEGACY same-name-different-behavior trap.
     fn default() -> Self {
-        // The single-server reading: latest version, strict, rung 0, no HLC.
         Self {
             server_id: 0,
             ref_version: u64::MAX,
@@ -710,6 +731,55 @@ mod tests {
         assert_eq!(q.ref_version, u64::MAX);
         assert_eq!(q.hlc_tick, None);
         assert_eq!(q.mode, EpistemicMode::Strict);
+    }
+
+    /// F-QREF-STRICT (RP-SEAL Tier 0, operator §0: "historical visibility is
+    /// a QueryReference projection"). The test above pins the default's
+    /// VALUES; this one pins the CONSEQUENCE, two-sided (D2 L6):
+    ///
+    /// - **The leak, observable:** under `default()` — `Strict` in name — a
+    ///   row from a FUTURE frame (written after any concrete head a reader
+    ///   could have observed) classifies `Contemporary`. The `u64::MAX`
+    ///   sentinel is not a horizon; a Strict default reader has zero
+    ///   hindsight protection. Pinned as a documented limitation: if this
+    ///   arm ever flips, `default()`'s semantics changed and the migration
+    ///   note on it must be rewritten in the same commit.
+    /// - **The protection exists and works:** the SAME future row under
+    ///   `QueryReference::at(head, 0)` — Strict at a concrete observed head —
+    ///   classifies `Anachronistic` (rejected), while an in-horizon row stays
+    ///   `Contemporary`. The projection is real; only the sentinel opts out.
+    #[test]
+    fn f_qref_strict_default_admits_future_rows_a_concrete_head_rejects_them() {
+        let head: LanceVersion = 1_000; // the concrete observed head
+        let future_row: LanceVersion = head + 1; // written after the read began
+        let knowable = 0; // class registered from the start — isolates the axis
+
+        // Anti-vacuity: the protected arm must genuinely run Strict.
+        assert_eq!(EpistemicMode::for_rung(0), EpistemicMode::Strict);
+
+        // The leak: Strict default admits the future row.
+        let unbounded = QueryReference::default();
+        assert_eq!(
+            classify(future_row, knowable, &unbounded),
+            TemporalStatus::Contemporary,
+            "documented limitation: the default's MAX sentinel admits future \
+             rows even under Strict — it is an unbounded observer, not a horizon",
+        );
+
+        // The projection: Strict at a concrete head rejects the same row…
+        let pinned = QueryReference::at(head, 0);
+        assert_eq!(
+            classify(future_row, knowable, &pinned),
+            TemporalStatus::Anachronistic,
+            "a concrete head gives the no-hindsight guarantee",
+        );
+        // …and still admits in-horizon rows (the guard discriminates; it does
+        // not fire on everything).
+        assert_eq!(
+            classify(head, knowable, &pinned),
+            TemporalStatus::Contemporary,
+            "in-horizon rows remain admitted at the pinned head",
+        );
     }
 
     /// Codex P2 on #468: `DepClosure::default()` must be ready (matching

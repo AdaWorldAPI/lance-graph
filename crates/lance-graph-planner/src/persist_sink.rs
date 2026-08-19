@@ -653,8 +653,17 @@ pub struct Recovered {
 /// durable `applied_through` watermark (`stream_position`) persisted alongside that
 /// phase, re-apply the owner's PENDING tail in canonical `stream_position` order.
 ///
-/// The landings arrive already ordered (write-side deinterlace at seal), so no
-/// sort is done here. The watermark — not phase equality — is the idempotence key
+/// **Replay is ordered by the durable CANONICAL coordinates
+/// `(cycle, stream_position)` — physical iteration order never defines semantic
+/// replay order** (operator §0 ruling, RP-SEAL consolidation; F-PHYS-ORDER).
+/// The write side still canonicalizes at seal (`order_cycle_stably`) — that
+/// remains the layout courtesy — but it is no longer the correctness carrier:
+/// arbitrary physical placement, fragmentation, or scan order recovers
+/// identically, because this function sorts the owner's landings by their own
+/// coordinates before walking. Compaction is irrelevant to this path (optional
+/// storage economics, never semantic repair).
+///
+/// The watermark — not phase equality — is the idempotence key
 /// (the Rubicon lifecycle is cyclic). Above the watermark the chain must be
 /// contiguous: a non-matching `from` is a gap/corruption ([`PersistError::StalePhase`]).
 ///
@@ -673,8 +682,13 @@ pub fn recover_and_apply<O: MailboxSoaOwner>(
     let mut applied = Vec::new();
     let mut watermark = applied_through;
     let me = owner.mailbox_id();
-    // Already in canonical stream order from the write side; filter to this owner.
-    for ls in sealed.iter().filter(|ls| ls.slot.owner == me) {
+    // Canonical replay order from the landings' OWN durable coordinates —
+    // never from physical iteration order (§0: the write-side ordering is a
+    // layout courtesy; the coordinates are the contract). Restart-path only,
+    // so the O(M log M) sort never touches the per-cycle write hot path.
+    let mut mine: Vec<&LandedSlot> = sealed.iter().filter(|ls| ls.slot.owner == me).collect();
+    mine.sort_by_key(|ls| (ls.cycle, ls.slot.stream_position));
+    for ls in mine {
         if applied_through.is_some_and(|hw| ls.slot.stream_position <= hw) {
             continue;
         }
@@ -1045,6 +1059,228 @@ mod tests {
             order,
             vec![3, 1, 2],
             "scan_sealed returns stored order verbatim — it never sorts (order is write-side)",
+        );
+    }
+
+    // ── F-PHYS-ORDER (RP-SEAL Tier 0, operator §0 ruling) ────────────────────────
+    // PHYSICAL ITERATION ORDER MUST NOT DEFINE SEMANTIC REPLAY ORDER. The target
+    // architecture allows arbitrary physical placement/fragmentation; replay is
+    // ordered by the durable canonical coordinates (cycle, stream_position) —
+    // never by scan order, and never repaired by compaction (compaction is
+    // optional storage economics, outside the correctness path entirely).
+    // Companion to `scan_sealed_does_not_repair_order_on_read`: the SCAN stays a
+    // raw physical read; the CANONICAL projection happens at replay.
+
+    /// A semantically legitimate one-lap chain sealed with its physical row
+    /// order scrambled must recover EXACTLY as the canonical chain — same
+    /// applied order, max watermark, idempotent second pass. Pre-fix this was
+    /// red two ways: the physical walk hit `StalePhase` on the first
+    /// out-of-order move (legitimate sealed content unrecoverable purely
+    /// because of physical placement), and the watermark was last-seen rather
+    /// than max-seen.
+    #[tokio::test]
+    async fn f_phys_order_recovery_replays_by_canonical_coordinates_not_physical_order() {
+        let sink = FakeWalSink::new();
+        sink.inject_unordered_committed(
+            CycleFrame::new(CycleId(7), DatasetVersion(0)),
+            vec![
+                slot(
+                    42,
+                    7,
+                    2,
+                    2,
+                    Some((KanbanColumn::Evaluation, KanbanColumn::Plan)),
+                ),
+                slot(
+                    42,
+                    7,
+                    0,
+                    0,
+                    Some((KanbanColumn::Planning, KanbanColumn::CognitiveWork)),
+                ),
+                slot(
+                    42,
+                    7,
+                    3,
+                    3,
+                    Some((KanbanColumn::Plan, KanbanColumn::Planning)),
+                ),
+                slot(
+                    42,
+                    7,
+                    1,
+                    1,
+                    Some((KanbanColumn::CognitiveWork, KanbanColumn::Evaluation)),
+                ),
+            ],
+        );
+        let sealed = sink.scan_sealed(None).await.unwrap();
+        // Anti-vacuity: the stream really is physically disordered — a fixture
+        // that scan happens to return sorted would prove nothing.
+        let phys: Vec<u64> = sealed.iter().map(|l| l.slot.stream_position).collect();
+        assert_eq!(
+            phys,
+            vec![2, 0, 3, 1],
+            "fixture must be physically scrambled"
+        );
+
+        let mut o = owner(KanbanColumn::Planning);
+        let rec = recover_and_apply(&mut o, &sealed, None)
+            .expect("canonical replay must succeed regardless of physical order");
+        assert_eq!(
+            rec.applied.iter().map(|m| m.to).collect::<Vec<_>>(),
+            vec![
+                KanbanColumn::CognitiveWork,
+                KanbanColumn::Evaluation,
+                KanbanColumn::Plan,
+                KanbanColumn::Planning,
+            ],
+            "applied order is the CANONICAL chain, not the physical row order",
+        );
+        assert_eq!(o.phase(), KanbanColumn::Planning, "full lap, back at start");
+        assert_eq!(
+            rec.watermark,
+            Some(3),
+            "watermark is the MAX canonical position",
+        );
+        let again = recover_and_apply(&mut o, &sealed, rec.watermark).unwrap();
+        assert!(
+            again.applied.is_empty(),
+            "second recovery pass applies nothing (idempotent under the watermark)",
+        );
+    }
+
+    /// The watermark half in isolation, on NO-MOVE landings (no phase chain to
+    /// fail loudly): physically ordered [2,0,1], the pre-fix watermark was the
+    /// LAST physical row (1) while position 2 had already been consumed — so
+    /// the next pass with `applied_through = 1` re-processed position 2, the
+    /// silent double-apply exposure. Canonical replay makes the watermark the
+    /// max by construction.
+    #[tokio::test]
+    async fn f_phys_order_watermark_is_max_not_last_physical_row() {
+        let sink = FakeWalSink::new();
+        sink.inject_unordered_committed(
+            CycleFrame::new(CycleId(8), DatasetVersion(0)),
+            vec![
+                slot(42, 8, 2, 20, None),
+                slot(42, 8, 0, 0, None),
+                slot(42, 8, 1, 10, None),
+            ],
+        );
+        let sealed = sink.scan_sealed(None).await.unwrap();
+        let mut o = owner(KanbanColumn::Planning);
+        let rec = recover_and_apply(&mut o, &sealed, None).unwrap();
+        assert_eq!(
+            rec.watermark,
+            Some(2),
+            "watermark = max canonical position; last-physical-row (1) would \
+             re-admit position 2 on the next pass — a double-apply exposure",
+        );
+    }
+
+    // ── T0.3 F-AWARENESS-LAG (RP-SEAL Tier 0 amendment, operator-ruled) ──────────
+    // A_last = the exact horizon this cognition had seen; W_write = the exact
+    // version its result became durable at; ΔV = W_write − A_last = how far
+    // the world moved while it was thinking. ΔV is an EPISTEMIC metric
+    // (durable-history distance), never wall-clock; nothing here measures or
+    // persists time.
+    //
+    // AUDIT RESULT (the amendment's mandated first question — do the
+    // coordinates already survive durably?): YES, both — so NO schema field
+    // is added and ΔV is derived on demand:
+    //   - A_last is `FrameMeta.base_version`, persisted per committed cycle,
+    //     readable via `timeline()` after restart, and hash-bound into the
+    //     batch's content identity (`DetachedCycleBatch::freeze` eats
+    //     `base_version`), so it survives provenance tamper-evidently.
+    //   - W_write needs no field: the FENCE invariant (`commit_cycle` rejects
+    //     any batch whose `base_version` is not the current head) forces
+    //     `base_version(N+1) == publication_version(N)` in the one-writer
+    //     chain, so the durable timeline reconstructs every interior cycle's
+    //     W_write, and the store head covers the newest. (Store-side, the
+    //     Lance-backed sink has the same recovery independently: one
+    //     DatasetVersion per commit plus Lance's own per-row
+    //     `created_at_version` provenance — RP-SEAL A1.)
+    //
+    // Dense/barrier mode pins ΔV = 1 by construction; a hot-wavefront writer
+    // may legitimately land at ΔV > 1 — that is a measurement, not an error,
+    // and no replay threshold is derived from it here.
+
+    /// Both coordinates recover from DURABLE reads only (a simulated restart),
+    /// ΔV derives deterministically from them, and the derivation is
+    /// independent of enumeration order (it keys on the canonical cycle
+    /// coordinates, so physical/completion order cannot perturb it). No
+    /// wall-clock quantity exists anywhere in the derivation.
+    #[tokio::test]
+    async fn f_awareness_lag_coordinates_recover_durably_and_dv_derives_without_wall_clock() {
+        let mut sink = FakeWalSink::new();
+        // Three dense chained cycles through the REAL write path (the fence
+        // requires each base to be the current head).
+        for c in 1..=3u64 {
+            persist_cycle(
+                &mut sink,
+                CycleFrame::new(CycleId(c), DatasetVersion(c - 1)),
+                vec![slot(42, c, c - 1, c, None)],
+            )
+            .await
+            .unwrap();
+        }
+
+        // "Restart": everything below uses durable reads only.
+        let tl = sink.timeline().await.unwrap();
+        let head = sink.head();
+
+        // A_last recovers exactly, per persisted consequence.
+        let mut by_cycle: Vec<(u64, u64)> =
+            tl.iter().map(|f| (f.cycle.0, f.base_version.0)).collect();
+        by_cycle.sort_by_key(|(c, _)| *c); // canonical coordinates, not scan order
+        let a_last: Vec<u64> = by_cycle.iter().map(|(_, a)| *a).collect();
+        assert_eq!(
+            a_last,
+            vec![0, 1, 2],
+            "exact A_last per cycle, restart-recovered"
+        );
+
+        // W_write derives with NO schema field: interior cycles from the fence
+        // chain, the newest from the head.
+        let w_write: Vec<u64> = (0..by_cycle.len())
+            .map(|i| {
+                if i + 1 < by_cycle.len() {
+                    by_cycle[i + 1].1
+                } else {
+                    head.0
+                }
+            })
+            .collect();
+        assert_eq!(
+            w_write,
+            vec![1, 2, 3],
+            "exact W_write per cycle, derived not stored"
+        );
+
+        // ΔV = W_write − A_last, saturating; dense mode pins the distribution at 1.
+        let dv: Vec<u64> = w_write
+            .iter()
+            .zip(&a_last)
+            .map(|(w, a)| w.saturating_sub(*a))
+            .collect();
+        assert_eq!(
+            dv,
+            vec![1, 1, 1],
+            "dense/barrier mode: ΔV = 1 by construction"
+        );
+
+        // Enumeration-order independence: derive again from a REVERSED copy of
+        // the timeline — the canonical-key sort makes the result identical, so
+        // completion/physical order cannot define ΔV.
+        let mut rev: Vec<(u64, u64)> = tl
+            .iter()
+            .rev()
+            .map(|f| (f.cycle.0, f.base_version.0))
+            .collect();
+        rev.sort_by_key(|(c, _)| *c);
+        assert_eq!(
+            rev, by_cycle,
+            "ΔV derivation is order-independent by canonical keying"
         );
     }
 

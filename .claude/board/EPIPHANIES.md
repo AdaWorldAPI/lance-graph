@@ -1,3 +1,97 @@
+## 2026-08-19 — E-XC21-HARNESS-CONFIRMS-C2-AND-FINDS-DEAD-CODE-1
+
+**Status:** FINDING (measured), X-C2-1 landed.
+
+**The harness** (`crates/rp-seal-t0-probe`, excluded, own workspace):
+injections I1–I9 (I9 at all six cascade-congruent strides) over a
+synthetic cycle, ground truth = the injection record, schemes S1U
+(locus-unbound content digest — the shipped `ndarray::hpc::seal` shape)
+and S6 (locus+version-bound — C2's recommendation, hash half). S2–S5
+plug into the same `Scheme` trait in X-C2-3. Zero wall-clock anywhere
+(T0.3 discipline).
+
+**Anti-vacuity gate PASSED against REAL code, with one upgrade and one
+downgrade of C2's record:**
+- Control (a) reproduced on live `ndarray::hpc::merkle_tree`: corruption
+  at meta words 50/70/200 → `hamming == 0`. The blind zone is WIDER than
+  C2 recorded — words 48..56 and 64..96 are unhashed too, not just
+  112..256 (BRANCH_REGIONS covers {0..48, 56..64, 96..112} only).
+- Control (d) reproduced on live `ndarray::hpc::seal::Plane`: identical
+  content at another slot verifies `Wisdom` against the stored root —
+  the unbound-digest wrong-slot FA, exactly "certain for
+  identical/default content".
+- Controls (b)/(c) — firefly `verify_ecc` (every branch returns
+  `Some`; literally cannot reject) and the container XOR parity — are
+  **unreachable by construction: the `wip` feature they live behind
+  fails to compile (104 errors, measured)**. M11's severity for B3/B2's
+  wip halves downgrades from "live defect" to "dead code wearing a
+  strong name"; the fault CLASSES are proven on the fold algebra
+  (paired-flip cancellation + permutation invariance) as harness
+  self-controls.
+
+**The measured matrix confirms C2's truth table empirically at the hash
+tier:** S1U false-accepts EXACTLY the substitution class — I4 wrong-slot,
+I5 stale, I6 duplicate (1/1 each, the seal travelling with the chunk) —
+and nothing else; S6 has ZERO false accepts and zero false alarms across
+all of I1–I9; null control 10⁶ distinct clean chunks per scheme, 0
+spurious; full-size 32 MiB pass green. The S6 kill floor (I1–I3 at
+multiplicity 1) holds. Numbers dated in the probe README.
+
+## 2026-08-19 — E-TIER0-CANONICAL-REPLAY-LANDED-DV-IS-EPISTEMIC-1
+
+**Status:** FINDING + RULING `[operator T0.3 amendment]`, all landed
+red-then-green.
+
+**T0.1 F-PHYS-ORDER (landed, fixed).** Proven RED on the old code two ways,
+compaction-free: a semantically legitimate one-lap cyclic chain sealed with
+scrambled physical row order made `recover_and_apply` FAIL outright
+(`StalePhase` — legitimate sealed content unrecoverable purely because of
+physical placement), and the watermark was LAST-seen not MAX-seen (physical
+order [2,0,1] → watermark 1 with position 2 already consumed → the next
+pass re-admits it: a silent double-apply exposure SHARPER than D2's L2
+table). Fix: `recover_and_apply` sorts the owner's landings by their own
+durable canonical coordinates `(cycle, stream_position)` before walking —
+restart-path only, hot path untouched; the write-side ordering remains a
+layout courtesy, no longer the correctness carrier. `scan_sealed` stays a
+raw physical read (the canonical projection is at REPLAY — visibility is a
+projection, per §0). Both falsifiers disable-verified (sort removed → red).
+
+**T0.2 F-QREF-STRICT (landed, pinned two-sided).** The existing test pinned
+the default's VALUES; the new falsifier pins the CONSEQUENCE: under
+`QueryReference::default()` — Strict in name — a future row classifies
+`Contemporary` (the u64::MAX sentinel is an UNBOUNDED observer, zero
+hindsight protection; documented on `default()` with the migration pointer),
+while the SAME row under `at(head, 0)` is `Anachronistic` and in-horizon
+rows stay admitted (the guard discriminates). Disable-verified (classify's
+rejection branch removed → red). Sentinel-removal-at-construction stays the
+registered Tier-1 follow-on; silently changing `default()` would be the
+I-LEGACY trap.
+
+**T0.3 F-AWARENESS-LAG (operator amendment, landed).** The ruling, recorded:
+ΔV = W_write − A_last is the primary cognitive quantity — an EPISTEMIC
+metric (durable-history distance: "how far the world moved while I was
+thinking"), NOT wall-clock (Δt is an economics metric). STORE COORDINATES,
+DERIVE DISTANCE; no awareness_delay_ms / elapsed_time / persisted ΔV.
+ΔV does not replace HLC (one version history vs cross-writer causality).
+No hard replay threshold from ΔV yet — measure its distribution first
+(hot-wavefront mode legitimately lands ΔV > 1; dense mode pins ΔV = 1).
+**Audit result (the amendment's mandated first question): BOTH coordinates
+are ALREADY durably reconstructible — no schema field added.** A_last =
+`FrameMeta.base_version` (per cycle, restart-readable via `timeline()`,
+hash-bound into the batch identity). W_write derives with no field: the
+FENCE invariant forces `base_version(N+1) == publication_version(N)` in the
+one-writer chain, so the durable timeline reconstructs every interior
+cycle's W_write and the head covers the newest; store-side the Lance sink
+independently has one DatasetVersion per commit + per-row
+`created_at_version` (RP-SEAL A1). Falsifier proves restart recovery of
+both exact coordinates + order-independent ΔV derivation by canonical
+keying. `QueryReference::ref_version` documented as the reader-side A_last.
+
+**Gate:** planner 357/357 + fmt + CI-form clippy clean in-crate (the 5
+residual warnings are pre-existing jc/shader-driver noise, on main too).
+Next per the ruled order: X-C2-1 injection harness, then E2 re-verify +
+perf economics.
+
 ## 2026-08-19 — E-REPLAY-IS-CANONICAL-COMPACTION-IS-ECONOMICS-1
 
 **Status:** RULING `[operator]` (STORNO of pass-1 consolidation framing).

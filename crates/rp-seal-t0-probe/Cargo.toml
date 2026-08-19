@@ -1,0 +1,26 @@
+[package]
+name = "rp-seal-t0-probe"
+version = "0.1.0"
+edition = "2021"
+publish = false
+description = """
+X-C2-1 injection harness (RP-SEAL Tier 0). Fault injection over a synthetic
+cycle; schemes report OK/DETECT/LOCALIZE against the injection record as
+ground truth. Prerequisite anti-vacuity gate: reproduces the known in-tree
+false-accepts as positive controls against the REAL implementations.
+Verify via `cargo test --manifest-path crates/rp-seal-t0-probe/Cargo.toml`.
+"""
+
+# Own workspace: excluded from the root build so the probe's deps never
+# enter the default graph (the onebrc-probe pattern).
+[workspace]
+
+[dependencies]
+blake3 = "1"
+ndarray = { path = "../../../ndarray", default-features = false, features = ["std"] }
+
+[profile.dev]
+# Hashing-heavy probe: opt the hot loops even in dev so the 1e6-trial null
+# control stays fast; debuginfo off per the workspace ruling.
+opt-level = 2
+debug = 0

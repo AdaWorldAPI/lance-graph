@@ -1,4 +1,4 @@
-## erasure-seals-compaction-research-v1 — RP-SEAL (operator charter; PASS 1 CONSOLIDATED 2026-08-19 + §0 STORNO: canonical replay coordinates core, compaction = optional economics → docs/lotus/RP-SEAL-CONSOLIDATION-PASS1.md; Tier 0 probes next)
+## erasure-seals-compaction-research-v1 — RP-SEAL (operator charter; PASS 1 CONSOLIDATED + §0 STORNO; T0.1 F-PHYS-ORDER FIXED + T0.2 F-QREF-STRICT PINNED + T0.3 F-AWARENESS-LAG LANDED (no schema field — coordinates already durable) 2026-08-19; X-C2-1 LANDED (harness + controls green; C2 truth table confirmed at hash tier; wip dead-code finding); next E2 re-verify + perf economics → docs/lotus/RP-SEAL-CONSOLIDATION-PASS1.md; Tier 0 probes next)
 
 Plan: `.claude/plans/erasure-seals-compaction-research-v1.md` (the operator's
 15-researcher program; supersedes lotus deliverables 3-9's sequencing).

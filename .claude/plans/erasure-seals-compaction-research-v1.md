@@ -13,6 +13,12 @@
 > order); retention/tombstone for indefinite historical reconstructibility
 > is core; compaction = optional storage economics, never semantic repair,
 > never a cognition prerequisite. See the consolidation doc §0.
+> **T0.3 amendment (operator, 2026-08-19):** ΔV = W_write − A_last is the
+> primary epistemic metric (version distance, never wall-clock); store
+> coordinates, derive distance; audit-first (both already durable — no
+> schema field). Tier-0 order: T0.1 F-PHYS-ORDER → T0.2 F-QREF-STRICT →
+> T0.3 F-AWARENESS-LAG → X-C2-1 → E2/perf economics. T0.1–T0.3 landed
+> 2026-08-19 (EPIPHANIES E-TIER0-CANONICAL-REPLAY-LANDED-DV-IS-EPISTEMIC-1).
 > Tier allocation per the operator's "Opus for filigrane, Sonnet for
 > grindwork": the five ADVERSARY cells (A2/B2/C2/D2/E2) = strongest tier;
 > the five BUILDER and five SCOUT cells = grindwork tier. Consolidation
