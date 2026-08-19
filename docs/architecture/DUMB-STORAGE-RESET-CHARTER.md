@@ -1,9 +1,9 @@
 # ARCHITECTURE RESET CHARTER — DUMB STORAGE × JAVA MECHANICAL API × HHTL EPISTEMIC SPINE (operator, 2026-08-19, verbatim)
 
-> **READING NOTE — the name of the concept (operator, 2026-08-19, follow-up
-> ruling "not literally dumb, not literally replace" + handle "A7A"):**
+> **READING NOTE — the reading of the concept (operator, 2026-08-19,
+> follow-up ruling "not literally dumb, not literally replace"):**
 > "dumb"/"intentionally stupid" in the verbatim text below is shorthand for
-> a posture, not the concept's name. Read it as **A7A** — the
+> a posture, not the concept's name. Read it as the
 > **agnostically-encoded hierarchical pattern** for separation of concerns:
 > dependency-free mask-based addressing + parent-node HHTL for the
 > CLAM/CHAODA trie. A reusable, reliable STORAGE CONCERN — it answers
