@@ -141,24 +141,16 @@ impl StyleStrategy {
         // structural agreement to the verdict. That is the anti-eigenvalue
         // failure inverted: a watchdog that can never bark reports the same
         // silence as one with nothing to bark at, and only the first is a lie.
-        for watcher in rung.peripheral_sample_where(k, |r| Self::watcher_is_eligible(r, want, true))
-        {
-            let Some(kern) = kernel(watcher.id) else {
-                continue;
-            };
-            let mut tc = Self::thought_ctx_from(ctx);
-            for r in Self::recipes_for_at(style, rung) {
-                if let Some(k2) = kernel(r.id) {
-                    let _ = k2.run(&mut tc);
-                }
-            }
-            let _ = kern.run(&mut tc);
-            if (tc.confidence.clamp(0.0, 1.0) - admitted).abs() > tol {
-                // Elevate to where this watcher would have been legal anyway.
-                return Some(watcher.min_rung());
-            }
-        }
-        None
+        Self::dissent_over(
+            style,
+            ctx,
+            rung,
+            tol,
+            admitted,
+            rung.peripheral_sample_where(k, |r| Self::watcher_is_eligible(r, want, true)),
+        )
+        // Elevate to where the objecting watcher would have been legal anyway.
+        .map(|watcher| watcher.min_rung())
     }
 
     /// **Cross-family dissent** — the independence channel, deliberately NOT
@@ -201,9 +193,38 @@ impl StyleStrategy {
         // Same maturity argument as `peripheral_dissent` — a watcher that
         // cannot move the score is not an independent instrument, it is an
         // empty slot wearing one.
-        for watcher in
-            rung.peripheral_sample_where(k, |r| Self::watcher_is_eligible(r, want, false))
-        {
+        Self::dissent_over(
+            style,
+            ctx,
+            rung,
+            tol,
+            admitted,
+            rung.peripheral_sample_where(k, |r| Self::watcher_is_eligible(r, want, false)),
+        )
+        .map(|watcher| (watcher.min_rung(), watcher.mechanism))
+    }
+
+    /// The shared body of both dissent channels: run each watcher after the
+    /// style's admitted set and return the FIRST one whose result departs from
+    /// `admitted` by more than `tol`. `None` = the sampled periphery agrees.
+    ///
+    /// Takes the already-sampled watchers rather than the predicate that
+    /// selected them, and returns the objecting RECIPE rather than either
+    /// channel's return shape. Both choices are deliberate: the channels differ
+    /// only in which side of the mechanism partition they sample and in what
+    /// they report about the objector, so this is a pure extraction of the part
+    /// that is identical — and a caller holding a different sample (the
+    /// Stage-2.5 census) exercises the SHIPPED verdict body instead of a
+    /// reimplementation of it, without production growing a probe knob.
+    fn dissent_over(
+        style: ThinkingStyle,
+        ctx: &PlanContext,
+        rung: RungLevel,
+        tol: f32,
+        admitted: f32,
+        watchers: impl IntoIterator<Item = &'static Recipe>,
+    ) -> Option<&'static Recipe> {
+        for watcher in watchers {
             let Some(kern) = kernel(watcher.id) else {
                 continue;
             };
@@ -215,7 +236,7 @@ impl StyleStrategy {
             }
             let _ = kern.run(&mut tc);
             if (tc.confidence.clamp(0.0, 1.0) - admitted).abs() > tol {
-                return Some((watcher.min_rung(), watcher.mechanism));
+                return Some(watcher);
             }
         }
         None
@@ -444,6 +465,16 @@ impl StyleStrategy {
         }
     }
 }
+
+/// Stage-2.5 census — measurement only, compiled out of every non-test build.
+///
+/// A CHILD of this module rather than a sibling, deliberately: it must reach
+/// `dissent_over` and `watcher_can_dissent` to run the shipped verdict body over
+/// a differently-filtered sample, and widening those to `pub(crate)` for an
+/// instrument would put a probe seam in production visibility.
+#[cfg(test)]
+#[path = "stage25_census.rs"]
+mod stage25_census;
 
 #[cfg(test)]
 mod tests {

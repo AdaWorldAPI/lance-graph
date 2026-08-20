@@ -1,3 +1,64 @@
+## 2026-08-20 — branch `claude/carve-nars-kernels` — Stage 2.5: the consumer-filter census (measurement only, no semantic change)
+
+### Current Contract Inventory — no new types; ONE behaviour-preserving extraction + a `#[cfg(test)]` instrument
+
+- **`StyleStrategy::dissent_over(style, ctx, rung, tol, admitted, watchers)`**
+  (private) — the shared body of both dissent channels, extracted verbatim.
+  Takes the ALREADY-SAMPLED watchers rather than the predicate, and returns the
+  objecting `&'static Recipe` rather than either channel's return shape, so a
+  caller holding a differently-filtered sample exercises the **shipped** verdict
+  body instead of a reimplementation — **without production growing a probe
+  knob**. `peripheral_dissent` / `cross_family_dissent` are now two `.map()`s
+  over it.
+  **Proven behaviour-preserving, not asserted:** the 22 pre-existing
+  `style_strategy` tests pass unchanged, and the full 5,760-cell verdict
+  signature is **byte-identical** pre- and post-extraction (0/5760 differences).
+- **`strategy::stage25_census`** — `#[cfg(test)]` child module of
+  `style_strategy` (a CHILD, so it reaches `dissent_over` / `watcher_can_dissent`
+  without widening either to `pub(crate)` for an instrument). Compiled out of
+  every non-test build. 5 gates + 1 `#[ignore]`d artifact generator.
+- **`jc` dev-dependency: already present**, added for D-BLW-3. The census is its
+  SECOND consumer under the identical standing constraint — dev-only, one
+  direction, statistics consume observations and nothing feeds back. The comment
+  in `Cargo.toml` now names both consumers; no new edge was created.
+
+### Artifacts (`docs/probes/`)
+
+- `stage25-consumer-filter-census.md` — the human-readable report (A watcher
+  effect · B verdict effect · C pre-verdict numeric · D stratification ·
+  headline, graded per channel against a stated rule).
+- `stage25-consumer-filter-census.csv` — 1,440 rows, one per
+  style × rung × k × channel. **Collapsed over `tol` losslessly**, licensed by
+  the pinned invariant that the watcher sample cannot depend on `tol`
+  (`stage25_tolerance_cannot_move_the_watcher_sample`). The un-collapsed form
+  was 11,520 rows / ~1 MB with 7 of every 8 rows byte-identical — not "compact"
+  in any sense the brief meant.
+- `stage25-consumer-filter-verdict-discordance.csv` — one row per verdict flip.
+  **Header-only IS the result**, and it is the shape that stays useful if a
+  future run flips something, where an all-concordant dump would bury the one
+  row that mattered.
+
+### Headline
+
+Same-family **weakly** (25.0% of configurations, mean Jaccard distance 0.1265,
+retention 0.9028) and cross-family **materially** (41.7%, 0.2599, 0.7993) change
+watcher sampling; **0/5,760 paired configurations changed verdict** on either
+channel, on the fine elevation-target label, κ = 1.000000 and defined. Full
+numbers + the clustering ladder for the zero-event bound:
+`E-THE-COVERAGE-FIX-IS-REAL-AND-ASYMMETRIC-1`.
+
+### Guardrails held (each checkable)
+
+Stage 2.5 changed **no** Stage-2 verdict (0/5760, measured, not argued) · no
+watcher-selection change · statistics consume observations and never feed back ·
+`jc` is instrumentation, not a semantic dependency (dev-only, and the edge
+pre-existed) · **no pre-verdict score was added** to obtain part C — the
+`|Δconfidence|` margin stays local to `dissent_over`, and what was measured
+instead is the finer outcome the harness already exposes · no inferential test
+manufactured over an exhaustive deterministic census · style preserved as a
+stratum despite being verdict-inert — and it proved to be the largest factor on
+one channel.
+
 ## 2026-08-20 — branch `claude/carve-nars-kernels` — the NARS recipe-kernel carve: a maturity gate + four kernels moved from placeholder to production
 
 ### Current Contract Inventory — 2 new types + 1 new field + 3 new policy pins (`crates/lance-graph-contract/src/recipe_kernels.rs`)
