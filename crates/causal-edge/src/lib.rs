@@ -72,3 +72,10 @@ pub use syllogism::{Figure, Syllogism};
 // Re-export v2 layout types under cfg for downstream consumers
 #[cfg(feature = "causal-edge-v2-layout")]
 pub use layout::TrustTexture;
+
+// Additive factual/quantized lenses over the same TrustTexture (bits 59-60)
+// and spare (bits 61-63) registers — see layout.rs doc comments for the
+// full wire/ordinal/behavioural/provenance compatibility statement. No bits
+// move; these are new readings of existing storage, not a new layout.
+#[cfg(feature = "causal-edge-v2-layout")]
+pub use layout::{CausalTopology, TextureBand};

@@ -19,7 +19,7 @@
 #[cfg(feature = "causal-edge-v2-layout")]
 mod v2_layout_tests {
     use crate::edge::{CausalEdge64, InferenceType};
-    use crate::layout::TrustTexture;
+    use crate::layout::{CausalTopology, TextureBand, TrustTexture};
     use crate::pearl::CausalMask;
     use crate::plasticity::PlasticityState;
 
@@ -473,5 +473,475 @@ mod v2_layout_tests {
             InferenceType::Intervention,
             "pack(Intervention) under v2 must decode back to Intervention"
         );
+    }
+
+    // ═══════════════════════════════════════════════════════════════════
+    // CausalTopology (bits 59-60, additive factual view over TrustTexture)
+    // + TextureBand (bits 61-63, additive quantized view over `spare`)
+    // ═══════════════════════════════════════════════════════════════════
+    //
+    // These fields do NOT move any bits and do NOT introduce a new layout
+    // version — they are second readings of the identical TrustTexture /
+    // spare registers. See layout.rs doc comments for the full
+    // wire/ordinal/behavioural/provenance compatibility statement.
+
+    // ── 1. Raw u64 fixtures round-trip byte-for-byte unchanged ─────────────
+
+    #[test]
+    fn test_raw_fixtures_round_trip_byte_for_byte_via_topology_and_texture_band() {
+        // Arbitrary fixtures covering varied bit patterns across the whole
+        // word, including every combination of the two shared registers
+        // (bits 59-60, 61-63).
+        let fixtures: [u64; 6] = [
+            0x0000_0000_0000_0000,
+            0xFFFF_FFFF_FFFF_FFFF,
+            0x1234_5678_9ABC_DEF0,
+            0xDEAD_BEEF_CAFE_F00D,
+            0x8000_0000_0000_0001,
+            0x5555_5555_5555_5555,
+        ];
+        for &raw in &fixtures {
+            let edge = CausalEdge64(raw);
+            // Reading a lens then writing back exactly what was read must be
+            // a complete no-op on the raw word — the new code touches no bit
+            // it did not read.
+            let via_topology = edge.with_topology(edge.topology());
+            assert_eq!(
+                via_topology.0, raw,
+                "read-then-write-back through CausalTopology changed the raw word for {raw:#018x}"
+            );
+            let via_texture = edge.with_texture_band(edge.texture_band());
+            assert_eq!(
+                via_texture.0, raw,
+                "read-then-write-back through TextureBand changed the raw word for {raw:#018x}"
+            );
+        }
+    }
+
+    // ── 2. truth() returns exactly what it did before, all four ordinals ───
+
+    #[test]
+    fn test_truth_unaffected_by_new_topology_lens_for_all_four_ordinals() {
+        for t in [
+            TrustTexture::Crystalline,
+            TrustTexture::Solid,
+            TrustTexture::Fuzzy,
+            TrustTexture::Murky,
+        ] {
+            let edge = CausalEdge64::ZERO.with_truth(t);
+            assert_eq!(edge.truth(), t, "truth() must be unchanged for {t:?}");
+        }
+    }
+
+    // ── 3. topology() reads the same two raw bits as truth_raw() ───────────
+
+    #[test]
+    fn test_topology_reads_the_same_two_bits_as_truth_raw() {
+        for raw2 in 0u8..=3 {
+            let edge = CausalEdge64::ZERO.with_truth(TrustTexture::from_bits_2(raw2));
+            assert_eq!(edge.truth_raw(), raw2, "truth_raw setup mismatch");
+            assert_eq!(
+                edge.topology().to_bits_2(),
+                edge.truth_raw(),
+                "topology() must read the identical raw bits as truth_raw() for raw={raw2}"
+            );
+        }
+    }
+
+    // ── Bonus: topology() round-trips via with_topology(), all 4 ordinals ──
+
+    #[test]
+    fn test_topology_roundtrip() {
+        for t in [
+            CausalTopology::Direct,
+            CausalTopology::IndirectKnownIntermediates,
+            CausalTopology::IndirectUnknownIntermediates,
+            CausalTopology::Unknown,
+        ] {
+            let edge = CausalEdge64::ZERO.with_topology(t);
+            assert_eq!(edge.topology(), t, "topology round-trip failed for {t:?}");
+        }
+    }
+
+    // ── 4. All four ordinal aliases are exact (pairwise `as u8`) ────────────
+
+    #[test]
+    fn test_causal_topology_ordinals_are_exactly_trust_texture_ordinals() {
+        assert_eq!(
+            TrustTexture::Crystalline as u8,
+            CausalTopology::Direct as u8,
+            "Crystalline/Direct must alias to the same ordinal"
+        );
+        assert_eq!(
+            TrustTexture::Solid as u8,
+            CausalTopology::IndirectKnownIntermediates as u8,
+            "Solid/IndirectKnownIntermediates must alias to the same ordinal"
+        );
+        assert_eq!(
+            TrustTexture::Fuzzy as u8,
+            CausalTopology::IndirectUnknownIntermediates as u8,
+            "Fuzzy/IndirectUnknownIntermediates must alias to the same ordinal"
+        );
+        assert_eq!(
+            TrustTexture::Murky as u8,
+            CausalTopology::Unknown as u8,
+            "Murky/Unknown must alias to the same ordinal"
+        );
+    }
+
+    // ── 5. with_topology changes ONLY bits 59-60 (exact XOR-diff-mask form) ─
+
+    #[test]
+    fn test_with_topology_changes_only_bits_59_60_exact_mask_diff() {
+        // Fixture with every OTHER field non-zero/non-default; truth-bits
+        // (and therefore topology) left at the pack_v2 default of 0. Going
+        // 0 -> Unknown (0b11, the field's max) makes the XOR diff mask equal
+        // exactly TRUTH_MASK if and only if with_topology touches nothing
+        // else in the word.
+        let base = CausalEdge64::pack_v2(
+            0xAA,
+            0xBB,
+            0xCC,
+            0xDD,
+            0xEE,
+            CausalMask::SPO,
+            0b111,
+            PlasticityState::ALL_HOT,
+        )
+        .with_w_slot(63)
+        .with_inference_mantissa(-7)
+        .with_spare(0b111);
+        assert_eq!(
+            base.topology(),
+            CausalTopology::Direct,
+            "fixture truth-bits must start at 0 for the min->max diff to be exact"
+        );
+
+        let after = base.with_topology(CausalTopology::Unknown);
+        let diff = base.0 ^ after.0;
+        assert_eq!(
+            diff,
+            crate::layout::TRUTH_MASK,
+            "with_topology(min->max) must flip exactly the TRUTH_MASK bits, nothing else"
+        );
+
+        // Named-field cross-check (belt and suspenders): every other field
+        // survives untouched.
+        assert_eq!(after.s_idx(), 0xAA, "S disturbed by with_topology");
+        assert_eq!(after.p_idx(), 0xBB, "P disturbed by with_topology");
+        assert_eq!(after.o_idx(), 0xCC, "O disturbed by with_topology");
+        assert_eq!(
+            after.frequency_u8(),
+            0xDD,
+            "frequency disturbed by with_topology"
+        );
+        assert_eq!(
+            after.confidence_u8(),
+            0xEE,
+            "confidence disturbed by with_topology"
+        );
+        assert_eq!(
+            after.causal_mask(),
+            CausalMask::SPO,
+            "causal_mask disturbed by with_topology"
+        );
+        assert_eq!(
+            after.direction(),
+            0b111,
+            "direction disturbed by with_topology"
+        );
+        assert_eq!(
+            after.inference_mantissa(),
+            -7,
+            "inference_mantissa disturbed by with_topology"
+        );
+        assert_eq!(
+            after.plasticity(),
+            PlasticityState::ALL_HOT,
+            "plasticity disturbed by with_topology"
+        );
+        assert_eq!(after.w_slot(), 63, "w_slot disturbed by with_topology");
+        assert_eq!(after.spare(), 0b111, "spare disturbed by with_topology");
+    }
+
+    // ── 6. with_texture_band changes ONLY bits 61-63 (exact XOR-diff-mask) ──
+
+    #[test]
+    fn test_with_texture_band_changes_only_bits_61_63_exact_mask_diff() {
+        let base = CausalEdge64::pack_v2(
+            0xAA,
+            0xBB,
+            0xCC,
+            0xDD,
+            0xEE,
+            CausalMask::SPO,
+            0b111,
+            PlasticityState::ALL_HOT,
+        )
+        .with_w_slot(63)
+        .with_truth(TrustTexture::Murky)
+        .with_inference_mantissa(-7);
+        assert_eq!(
+            base.texture_band(),
+            TextureBand::Surface,
+            "fixture spare-bits must start at 0 for the min->max diff to be exact"
+        );
+
+        let after = base.with_texture_band(TextureBand::Transcendent);
+        let diff = base.0 ^ after.0;
+        assert_eq!(
+            diff,
+            crate::layout::SPARE_MASK,
+            "with_texture_band(min->max) must flip exactly the SPARE_MASK bits, nothing else"
+        );
+
+        assert_eq!(after.s_idx(), 0xAA, "S disturbed by with_texture_band");
+        assert_eq!(after.p_idx(), 0xBB, "P disturbed by with_texture_band");
+        assert_eq!(after.o_idx(), 0xCC, "O disturbed by with_texture_band");
+        assert_eq!(
+            after.frequency_u8(),
+            0xDD,
+            "frequency disturbed by with_texture_band"
+        );
+        assert_eq!(
+            after.confidence_u8(),
+            0xEE,
+            "confidence disturbed by with_texture_band"
+        );
+        assert_eq!(
+            after.causal_mask(),
+            CausalMask::SPO,
+            "causal_mask disturbed by with_texture_band"
+        );
+        assert_eq!(
+            after.direction(),
+            0b111,
+            "direction disturbed by with_texture_band"
+        );
+        assert_eq!(
+            after.inference_mantissa(),
+            -7,
+            "inference_mantissa disturbed by with_texture_band"
+        );
+        assert_eq!(
+            after.plasticity(),
+            PlasticityState::ALL_HOT,
+            "plasticity disturbed by with_texture_band"
+        );
+        assert_eq!(after.w_slot(), 63, "w_slot disturbed by with_texture_band");
+        assert_eq!(
+            after.truth(),
+            TrustTexture::Murky,
+            "truth disturbed by with_texture_band"
+        );
+    }
+
+    // ── 7. spare() stays consistent with texture_band() after its write ────
+
+    #[test]
+    fn test_spare_stays_consistent_with_texture_band_after_a_texture_band_write() {
+        for band in [
+            TextureBand::Surface,
+            TextureBand::Association,
+            TextureBand::Relation,
+            TextureBand::Causal,
+            TextureBand::Counterfactual,
+            TextureBand::Perspective,
+            TextureBand::Meta,
+            TextureBand::Transcendent,
+        ] {
+            let edge = CausalEdge64::ZERO.with_texture_band(band);
+            assert_eq!(
+                edge.spare(),
+                band.to_bits_3(),
+                "spare() must still report the identical 3-bit value texture_band() encodes for {band:?}"
+            );
+        }
+    }
+
+    // ── 8. All eight texture-band values round-trip ─────────────────────────
+
+    #[test]
+    fn test_texture_band_all_eight_values_round_trip() {
+        for band in [
+            TextureBand::Surface,
+            TextureBand::Association,
+            TextureBand::Relation,
+            TextureBand::Causal,
+            TextureBand::Counterfactual,
+            TextureBand::Perspective,
+            TextureBand::Meta,
+            TextureBand::Transcendent,
+        ] {
+            let edge = CausalEdge64::ZERO.with_texture_band(band);
+            assert_eq!(
+                edge.texture_band(),
+                band,
+                "texture_band round-trip failed for {band:?}"
+            );
+        }
+    }
+
+    // ── 9. Field-isolation matrix: composed setters, every other field ─────
+
+    #[test]
+    fn test_field_isolation_matrix_survives_both_new_setters_composed() {
+        // One shared fixture with every field at a distinct, non-zero value,
+        // then BOTH new setters applied together (a composable builder
+        // chain, matching the intended call-site pattern:
+        // `edge.with_topology(...).with_texture_band(...)`).
+        let base = CausalEdge64::pack_v2(
+            11, // S
+            22, // P
+            33, // O
+            44, // frequency
+            55, // confidence
+            CausalMask::SO,
+            0b110, // direction
+            PlasticityState::P_HOT,
+        )
+        .with_w_slot(17)
+        .with_inference_mantissa(5);
+
+        let edge = base
+            .with_topology(CausalTopology::IndirectUnknownIntermediates)
+            .with_texture_band(TextureBand::Causal);
+
+        assert_eq!(edge.s_idx(), 11, "S disturbed by new setters");
+        assert_eq!(edge.p_idx(), 22, "P disturbed by new setters");
+        assert_eq!(edge.o_idx(), 33, "O disturbed by new setters");
+        assert_eq!(
+            edge.frequency_u8(),
+            44,
+            "frequency disturbed by new setters"
+        );
+        assert_eq!(
+            edge.confidence_u8(),
+            55,
+            "confidence disturbed by new setters"
+        );
+        assert_eq!(
+            edge.causal_mask(),
+            CausalMask::SO,
+            "causal_mask disturbed by new setters"
+        );
+        assert_eq!(
+            edge.direction(),
+            0b110,
+            "direction disturbed by new setters"
+        );
+        assert_eq!(
+            edge.inference_mantissa(),
+            5,
+            "inference_mantissa disturbed by new setters"
+        );
+        assert_eq!(
+            edge.plasticity(),
+            PlasticityState::P_HOT,
+            "plasticity disturbed by new setters"
+        );
+        assert_eq!(edge.w_slot(), 17, "w_slot disturbed by new setters");
+
+        // And the two new fields landed correctly, composed.
+        assert_eq!(
+            edge.topology(),
+            CausalTopology::IndirectUnknownIntermediates
+        );
+        assert_eq!(edge.texture_band(), TextureBand::Causal);
+    }
+
+    // ── 10. Counterfactual mantissa (-6) round-trips independent of band ───
+
+    #[test]
+    fn test_counterfactual_mantissa_round_trips_independently_of_texture_band() {
+        let base = CausalEdge64::pack_v2(
+            1,
+            2,
+            3,
+            200,
+            200,
+            CausalMask::SPO,
+            0,
+            PlasticityState::ALL_FROZEN,
+        )
+        .with_inference_mantissa(InferenceType::Counterfactual.to_mantissa());
+        assert_eq!(
+            base.inference_mantissa(),
+            -6,
+            "fixture must carry mantissa -6"
+        );
+
+        for band in [
+            TextureBand::Surface,
+            TextureBand::Meta,
+            TextureBand::Transcendent,
+        ] {
+            let edge = base.with_texture_band(band);
+            assert_eq!(
+                edge.inference_mantissa(),
+                -6,
+                "counterfactual mantissa must survive a texture_band write for {band:?}"
+            );
+            assert_eq!(edge.texture_band(), band);
+        }
+    }
+
+    // ── 11. TextureBand::Counterfactual does NOT imply mantissa == -6 ───────
+
+    #[test]
+    fn test_texture_band_counterfactual_does_not_imply_mantissa_minus_six() {
+        // TextureBand::Counterfactual set, mantissa left at a DIFFERENT
+        // value — proves the two are orthogonal, never derived from one
+        // another.
+        let edge = CausalEdge64::ZERO
+            .with_texture_band(TextureBand::Counterfactual)
+            .with_inference_mantissa(3);
+        assert_eq!(edge.texture_band(), TextureBand::Counterfactual);
+        assert_eq!(
+            edge.inference_mantissa(),
+            3,
+            "mantissa must NOT be derived from texture_band"
+        );
+        assert_ne!(edge.inference_mantissa(), -6);
+
+        // And the converse: mantissa == -6 (the Counterfactual InferenceType
+        // slot) with a DIFFERENT texture_band.
+        let edge2 = CausalEdge64::ZERO
+            .with_inference_mantissa(InferenceType::Counterfactual.to_mantissa())
+            .with_texture_band(TextureBand::Meta);
+        assert_eq!(edge2.inference_mantissa(), -6);
+        assert_eq!(
+            edge2.texture_band(),
+            TextureBand::Meta,
+            "texture_band must NOT be derived from inference_mantissa"
+        );
+        assert_ne!(edge2.texture_band(), TextureBand::Counterfactual);
+    }
+
+    // ── 12. CausalTopology::Direct does not imply any NARS confidence ──────
+
+    #[test]
+    fn test_causal_topology_direct_does_not_imply_any_nars_confidence() {
+        // Direct topology (0) coexists with every confidence level — no
+        // auto-derivation from/to NARS confidence in either direction.
+        for conf in [0u8, 1, 128, 254, 255] {
+            let edge = CausalEdge64::pack_v2(
+                1,
+                2,
+                3,
+                100,
+                conf,
+                CausalMask::None,
+                0,
+                PlasticityState::ALL_FROZEN,
+            )
+            .with_topology(CausalTopology::Direct);
+            assert_eq!(edge.topology(), CausalTopology::Direct);
+            assert_eq!(
+                edge.confidence_u8(),
+                conf,
+                "CausalTopology::Direct must not constrain or derive confidence={conf}"
+            );
+        }
     }
 }

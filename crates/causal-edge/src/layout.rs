@@ -55,10 +55,22 @@ pub const W_SHIFT: u32 = 53;
 
 /// Truth-band lens: 2-bit TrustTexture ordinal (bits 59-60).
 /// 0 = Crystalline. Per cognitive-substrate-convergence-v1.md L-7.
+///
+/// Same two bits also carry an ADDITIVE factual view, [`CausalTopology`]
+/// (below) — see its doc comment for the wire/ordinal/behavioural/
+/// provenance compatibility statement. `TrustTexture` remains the
+/// canonical epistemic-trust reading; `CausalTopology` is a second,
+/// orthogonal reading of the identical bits for producers that want to
+/// record topology instead of (or alongside) trust texture. No bits move.
 pub const TRUTH_SHIFT: u32 = 59;
 
 /// Spare: 3-bit reserved for sprint-12+ (bits 61-63).
 /// Candidates: Rubicon-commit marker, Markov-decay quantum, I-NOISE-FLOOR-JIRAK threshold.
+///
+/// Same three bits also carry an ADDITIVE quantized-projection view,
+/// [`TextureBand`] (below; name pending a vocabulary-collision audit — see
+/// its `// TODO(name)` marker). No auto-derivation: nothing writes this
+/// field except an explicit `with_texture_band()` call.
 pub const SPARE_SHIFT: u32 = 61;
 
 // ── Common masks ─────────────────────────────────────────────────────────────
@@ -138,6 +150,216 @@ impl TrustTexture {
     /// Return the raw 2-bit value (0..=3).
     #[inline]
     pub fn to_bits_2(self) -> u8 {
+        self as u8
+    }
+}
+
+/// Two-bit CAUSAL TOPOLOGY lens — an ADDITIVE factual view over the same
+/// two bits (59-60) that [`TrustTexture`] occupies. No bits move; this is
+/// a second reading of the identical register, not a new field and not a
+/// layout revision (no CE64 v3, no `ENVELOPE_LAYOUT_VERSION` bump).
+///
+/// `TrustTexture` reads those bits as an EPISTEMIC-TRUST texture (how much
+/// to trust the edge: mastered/calibrated/uncertain/contradiction).
+/// `CausalTopology` reads the identical bits as a FACTUAL TOPOLOGY
+/// classification (how the edge's causal path is structured — direct vs.
+/// mediated, known vs. unknown intermediates).
+///
+/// ```text
+///   0b00 = Direct
+///   0b01 = IndirectKnownIntermediates
+///   0b10 = IndirectUnknownIntermediates
+///   0b11 = Unknown
+/// ```
+///
+/// ## Migration contract — the ordinal identity is deliberate, not coincidence
+///
+/// `Crystalline == Direct == 0`, `Solid == IndirectKnownIntermediates == 1`,
+/// `Fuzzy == IndirectUnknownIntermediates == 2`, `Murky == Unknown == 3`.
+///
+/// Four compatibility axes, stated explicitly because they are NOT the same
+/// claim and must not be conflated:
+///
+/// ```text
+/// wire compatibility:            exact
+/// ordinal compatibility:         exact
+/// legacy behavioural projection: intentional
+/// historical factual provenance: NOT guaranteed for old rows
+/// ```
+///
+/// - **Wire compatibility is exact** — same two bits (59-60), same shift,
+///   same mask, same byte layout. Nothing about the CE64 wire changes.
+/// - **Ordinal compatibility is exact** — `TrustTexture as u8 ==
+///   CausalTopology as u8` for every one of the four variants (verified by
+///   test).
+/// - **Legacy behavioural projection is intentional.** Reading an existing
+///   row's bits 59-60 through [`CausalEdge64::topology`] reproduces exactly
+///   the ordinal a `TrustTexture` reader would have gotten from the same
+///   bits. That projection is BY DESIGN, so a consumer that has not moved to
+///   `CausalTopology` yet is unaffected by rows a `CausalTopology`-aware
+///   writer produces, and vice versa — this is a staged migration, not a
+///   flag day.
+/// - **Historical factual provenance is NOT guaranteed for old rows.** A row
+///   written before this change had its bits 59-60 stamped with
+///   TRUST-TEXTURE semantics (how confident the writer was in the edge), not
+///   TOPOLOGY semantics (how the causal path is shaped). The two concepts
+///   are correlated in practice but they are not the same fact, and nothing
+///   in this change infers, repairs, or backfills the topology of a
+///   pre-existing row. **Do not treat `old_edge.topology()` as ground truth
+///   about that row's actual causal topology** — it is only the
+///   same-ordinal projection through the new lens. Source-authoritative
+///   topology begins only when a later producer explicitly writes
+///   `CausalTopology` via [`CausalEdge64::with_topology`].
+///
+/// [`CausalEdge64::ZERO`] therefore reads `CausalTopology::Direct` under
+/// this view exactly as it reads `TrustTexture::Crystalline` under the old
+/// one — that is intentional for this staged migration (the all-zero
+/// default), not a sentinel asserting "known to be direct."
+///
+/// [`CausalEdge64::ZERO`]: super::edge::CausalEdge64::ZERO
+/// [`CausalEdge64::topology`]: super::edge::CausalEdge64::topology
+/// [`CausalEdge64::with_topology`]: super::edge::CausalEdge64::with_topology
+#[derive(Copy, Clone, Eq, PartialEq, Debug, Default)]
+#[repr(u8)]
+pub enum CausalTopology {
+    /// Direct causal edge, no intermediates. Default.
+    /// Ordinal-identical to `TrustTexture::Crystalline`.
+    #[default]
+    Direct = 0,
+    /// Indirect, with known/named intermediate nodes on the causal path.
+    /// Ordinal-identical to `TrustTexture::Solid`.
+    IndirectKnownIntermediates = 1,
+    /// Indirect, but the intermediate nodes are unknown/unnamed.
+    /// Ordinal-identical to `TrustTexture::Fuzzy`.
+    IndirectUnknownIntermediates = 2,
+    /// Topology not established. Ordinal-identical to `TrustTexture::Murky`.
+    Unknown = 3,
+}
+
+impl CausalTopology {
+    /// Construct from the raw 2-bit field value (bits masked automatically).
+    #[inline]
+    pub fn from_bits_2(v: u8) -> Self {
+        match v & 0b11 {
+            0 => Self::Direct,
+            1 => Self::IndirectKnownIntermediates,
+            2 => Self::IndirectUnknownIntermediates,
+            _ => Self::Unknown,
+        }
+    }
+
+    /// Return the raw 2-bit value (0..=3).
+    #[inline]
+    pub fn to_bits_2(self) -> u8 {
+        self as u8
+    }
+}
+
+/// Three-bit quantized reasoning-level projection over the SPARE bits
+/// (61-63) — the same three bits [`super::edge::CausalEdge64::spare`] /
+/// [`super::edge::CausalEdge64::with_spare`] expose as a raw, uninterpreted
+/// 3-bit scalar. ADDITIVE only: no bits move, no layout revision.
+///
+/// ```text
+///   0b000 = Surface
+///   0b001 = Association
+///   0b010 = Relation
+///   0b011 = Causal
+///   0b100 = Counterfactual
+///   0b101 = Perspective
+///   0b110 = Meta
+///   0b111 = Transcendent
+/// ```
+///
+/// This is a QUANTIZED HOT-PATH PROJECTION of a potentially richer future
+/// texture model — 8 ordinals is what fits in 3 bits on the hot register,
+/// not a claim that reasoning has exactly 8 levels. Treat it as a coarse,
+/// register-resident classifier only, never as that richer model itself.
+///
+/// ## Deliberately orthogonal to existing fields with colliding names
+///
+/// The words above collide with existing `CausalEdge64` vocabulary. Every
+/// collision below is INTENTIONAL and the two meanings are ORTHOGONAL —
+/// setting one never implies, derives, or requires the other:
+///
+/// - `Causal` = the cognition currently operating at the causal reasoning
+///   level. This is **not** [`super::pearl::CausalMask`] (bits 40-42),
+///   which says WHICH Pearl/SPO projection (S/P/O planes) is represented.
+///   An edge may carry `TextureBand::Causal` under any `CausalMask`.
+/// - `Counterfactual` = the reasoning CONTEXT is counterfactual. This is
+///   **not** the signed inference mantissa's −6 slot (bits 46-49; see
+///   `InferenceType::Counterfactual::to_mantissa() == -6`), which names one
+///   specific NARS operation as counterfactual. An edge may carry
+///   `TextureBand::Counterfactual` while its mantissa encodes any NARS
+///   rule, and an edge with mantissa −6 need not carry
+///   `TextureBand::Counterfactual`.
+/// - `Perspective` = perspective/decentration reasoning (I/Thou/It,
+///   Self/Other/World). This is **not**
+///   [`super::edge::CausalEdge64::direction`] (bits 43-45), the
+///   pathology-per-plane sign triad.
+/// - `Meta` = reasoning ABOUT reasoning/evidence/revision (meta-cognition),
+///   independent of every other field on the edge.
+/// - `Transcendent` = mechanically, the highest ordinal this 3-bit
+///   projection can express — the topmost cross-frame reasoning level in
+///   this band. Nothing more: no mystical or philosophical behaviour is
+///   implied or triggered by this value anywhere in this crate.
+///
+/// ## No auto-derivation
+///
+/// Nothing in this crate derives this field from `CausalMask`,
+/// `InferenceType`, NARS frequency/confidence, MUL, ReasoningGap,
+/// potholes, or `ThinkingStyle`. It is set ONLY by an explicit
+/// `with_texture_band()` call, and reads whatever the SPARE bits already
+/// hold otherwise (0 / `Surface` for `CausalEdge64::ZERO` and for every row
+/// produced by this crate's own constructors, since `spare()` already
+/// defaults to 0 there — but not guaranteed for a raw `u64` from elsewhere).
+// TODO(name): "TextureBand" is a placeholder pending a vocabulary-collision
+// audit against the rest of the workspace (a parallel session is checking
+// whether the name is already spoken for elsewhere). Do not treat this name
+// as final; it may be renamed before this lands.
+#[derive(Copy, Clone, Eq, PartialEq, Debug, Default)]
+#[repr(u8)]
+pub enum TextureBand {
+    /// Surface-level reasoning. Default.
+    #[default]
+    Surface = 0,
+    /// Association-level reasoning.
+    Association = 1,
+    /// Relation-level reasoning.
+    Relation = 2,
+    /// Causal-level reasoning. See the orthogonality note re: `CausalMask`.
+    Causal = 3,
+    /// Counterfactual reasoning context. See the orthogonality note re: the
+    /// inference mantissa's −6 slot.
+    Counterfactual = 4,
+    /// Perspective/decentration reasoning. See the orthogonality note re:
+    /// `direction`.
+    Perspective = 5,
+    /// Meta-cognitive reasoning (reasoning about reasoning/evidence/revision).
+    Meta = 6,
+    /// Highest ordinal in this band. Mechanical only — see note above.
+    Transcendent = 7,
+}
+
+impl TextureBand {
+    /// Construct from the raw 3-bit field value (bits masked automatically).
+    #[inline]
+    pub fn from_bits_3(v: u8) -> Self {
+        match v & 0b111 {
+            0 => Self::Surface,
+            1 => Self::Association,
+            2 => Self::Relation,
+            3 => Self::Causal,
+            4 => Self::Counterfactual,
+            5 => Self::Perspective,
+            6 => Self::Meta,
+            _ => Self::Transcendent,
+        }
+    }
+
+    /// Return the raw 3-bit value (0..=7).
+    #[inline]
+    pub fn to_bits_3(self) -> u8 {
         self as u8
     }
 }
