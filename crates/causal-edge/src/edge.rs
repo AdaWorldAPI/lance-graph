@@ -651,8 +651,7 @@ impl CausalEdge64 {
         // weight.inference_type() is the v1 fallback below; v2 uses mantissa
         let resolved_infer = InferenceType::from_mantissa(weight.inference_mantissa());
         #[cfg(not(feature = "causal-edge-v2-layout"))]
-        #[allow(deprecated)]
-        // v1 layout: 3-bit unsigned inference type is the canonical read
+        #[allow(deprecated)] // v1 layout: 3-bit unsigned inference type is the canonical read
         let resolved_infer = weight.inference_type();
         let (f_out, c_out) = match resolved_infer {
             InferenceType::Deduction => {
