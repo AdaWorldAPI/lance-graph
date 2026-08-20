@@ -1,3 +1,34 @@
+## 2026-08-20 — lance-graph #971 (MERGED, `2cbe62d`, head `d627f5c`) — Stage 2 carves + Stage 2.5 census + Stage 2.6a V3 invariance + CE64 ⇄ V3 losslessness
+
+Six commits, four stages. The per-stage Contract Inventory and results are in
+the five dated sections below (written as the stages landed) — this entry is the
+merged-PR record and the one-screen index over them; full Added/Locked/Deferred
+is the `PR_ARC_INVENTORY` entry.
+
+| stage | commits | what changed |
+|---|---|---|
+| Stage 2 | `ed2fe8b` | `MaturityPolicy` / `SkipReason` / `run_with`; **CAS·ETD·SDD·ICR** carved to production. `run()` behaviourally unchanged. |
+| Stage 2.5 | `99794f2` `a765ef3` | `dissent_over` extraction + `Tactic::moves_confidence()`; the 5,760-cell paired census. Headline **corrected**: `0/5,760` → **1,098** same-family (0 lost) and **384** cross-family. |
+| Stage 2.6a | `44bc5ab` `04cb2e1` | `cache::stage26_v3_parity` — V3 invariance on the planner's real CE64 leg. **Discordance = 0.** Brief's premise falsified and re-scoped (operator-ratified). |
+| losslessness | `d627f5c` | `CausalEdge64 ⇄ CausalEdgeV3` is **bit-identical** modulo the deduplicated SPO and the deprecated v2 `temporal`. |
+
+**The one thing a future session should not have to rediscover:**
+`InferenceType` is a LOSSY compatibility projection of the 4-bit signed
+mantissa — `to_mantissa(from_mantissa(m)) != m` for **8 of 16** states, the
+`pack_v2` default `0 → +1` among them. Never route the mantissa through it on a
+conversion path; carry the raw nibble. The three CE64-v2 tail fields
+(`w_slot`, truth/topology, spare/band) cross as **RAW ORDINALS** — preservation
+is not a provenance upgrade.
+
+**Still open after this PR** (all Stage-3 inputs, none of them defects to patch):
+`TD-THOUGHTCTX-IS-A-LOSSY-PROJECTION` (the 17 confidence-mute kernels + the
+capability-vs-reachability question, review thread deliberately left open),
+`TD-KERNEL-IDENTITY-FINGERPRINT-RAIL` (ARE/ZCF/HKF),
+`ISS-PEARL-VOCABULARY-WITHOUT-PEARL-MECHANICS` (ICR),
+`TD-CAUSAL-EDGE-IS-EXCLUDED-SO-CI-NEVER-LINTS-IT`.
+
+---
+
 ## 2026-08-20 — branch `claude/carve-nars-kernels` — CE64 ⇄ V3 conversion losslessness (Stage-3 handoff gate)
 
 ### Current Contract Inventory — 8 new read accessors on `CausalEdgeV3`, no layout change

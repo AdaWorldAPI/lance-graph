@@ -1,3 +1,144 @@
+## 2026-08-20 — lance-graph #971 (MERGED, merge commit 2cbe62d, head d627f5c) — four NARS kernels carved behind a maturity gate · Stage-2.5 census · Stage-2.6a V3 invariance · CE64 ⇄ V3 losslessness
+
+- **Added — Stage 2 (`ed2fe8b`), `lance-graph-contract`:** `MaturityPolicy
+  { Any, ProductionOnly }`; `SkipReason { GatedOff, NonProduction(KernelMaturity) }`
+  on the new `Outcome::skip`; `Tactic::run_with(ctx, policy)` (policy checked
+  BEFORE `gate()`, so a `Gate`-bucket `Demonstration` in `GateState::Flow`
+  cannot report `GatedOff` and hide the refusal; a refused kernel never sees
+  `ctx`). Four kernels carved from non-production to real behaviour: **CAS(8)**
+  (quantizes `candidates` onto the rung's HDR grid — it had computed the level
+  and dropped it), **ETD(22)** (splits at the widest adjacent gap, declines on a
+  uniform field — it had sorted a CLONE and discarded it), **SDD(32)** (charges
+  the distortion it already detected, proportionally, empty-field guard),
+  **ICR(31)** (was a self-declared `Stub`; now split-pole sensitivity
+  `|1 − 2·free_energy| · confidence`).
+- **Added — Stage 2.5 (`99794f2` + `a765ef3`), `lance-graph-planner`:**
+  `StyleStrategy::dissent_over` (extracts the two channels' shared body, taking
+  the ALREADY-SAMPLED watchers rather than the predicate, so a census runs the
+  SHIPPED verdict body instead of a reimplementation — behaviour-preserving,
+  proven by a byte-identical 5,760-cell verdict signature pre/post);
+  `Tactic::moves_confidence()` (non-defaulted, 34 declarations, pinned two-sided
+  + a CHECKED subsumption `moves_confidence ⇒ Operational`);
+  `strategy::stage25_census` (`#[cfg(test)]` CHILD of `style_strategy` — reaches
+  the private body without widening anything to `pub(crate)` for an instrument).
+- **Added — Stage 2.6a (`44bc5ab` + `04cb2e1`), `lance-graph-planner`:**
+  `cache::stage26_v3_parity` (`#[cfg(test)]`, zero production code) — 13
+  exact-equality invariants per leg over the planner's REAL CE64 path
+  (`nars_engine::{to_causal_edge, from_causal_edge, forward_edge}` +
+  `syllogize`), swept over every `inference` discriminant the mapping covers ×
+  every 3-bit pearl mask × truth rails × both palette rails. **Discordance = 0.**
+- **Added — the losslessness gate (`d627f5c`), `causal-edge`:** eight read
+  accessors on `CausalEdgeV3` (`frequency`, `confidence`, `causal_mask`,
+  `direction`, `inference_mantissa`, `plasticity`, `w_slot`, `truth_raw`,
+  `spare_raw`); `rehydrate` rewritten to carry the RAW signed mantissa; bytes
+  `[8]`/`[9]` of the previously-dormant reserved tail allocated to
+  `w_slot(6) | truth/topology raw(2)<<6` and `spare/band raw(3)`. Width and the
+  `const _` 12-byte size assert UNCHANGED; `[10..12]` still reserved and pinned
+  zero by test.
+- **Locked:**
+  - `Tactic::run()` is behaviourally unchanged — it delegates with `Any`, pinned
+    by `run_still_means_any`. The Stage-2 surface is strictly additive.
+  - **`CausalEdge64 → from_v1 → rehydrate(same resolved SPO)` is BIT-IDENTICAL.**
+    Under the v2 layout the 64 bits are fully partitioned, so field parity IS bit
+    parity — asserted as whole-register equality, which is what catches a field a
+    future session forgets to enumerate. Two exclusions, both principled: the
+    24-bit in-edge SPO (intentionally deduplicated into the target node's CAM-PQ
+    facet) and the deprecated v2 `temporal` (NOT valid CE64-v2 state — bits
+    52..63 are the reclaim zone — and NOT mapped into V3 TE, which stays an
+    independent producer-set signed chain offset).
+  - **`w_slot` / truth / spare cross as RAW ORDINALS.** Preserving ordinal `01`
+    means "ordinal 01 preserved", never "`IndirectKnown` is now
+    source-authoritative" — which lens the producer meant is not recoverable
+    from the register. (The truth carry routes through
+    `TrustTexture::from_bits_2` only because `set_truth` has no raw form; that
+    codec IS a total bijection on `0..=3`, pinned by its own test, unlike
+    `InferenceType`.)
+  - The Stage-2.5 zero-event Clopper-Pearson bound (α = 0.05, one-sided) is
+    pointed at the surface that IS zero — the same-family `n10` — and reported as
+    a ladder over clustering assumptions, each naming its independent unit,
+    because 5,760 repeated measures are not 5,760 independent trials.
+- **Deferred (each with its reason, none of them laziness):**
+  - **`ARE`(19) / `ZCF`(24) / `HKF`(34) stay `Demonstration`** — three symptoms
+    of ONE gap (no fingerprint rail in the eight-scalar basis for a bind identity
+    to bind; HKF also needs a predicate-preserving projection).
+    `TD-KERNEL-IDENTITY-FINGERPRINT-RAIL`.
+  - **The 17 `Operational`-but-confidence-mute kernels are NOT rewritten**
+    (operator-ruled). Rewriting them to move confidence would destroy the
+    producer/consumer distinction the audit found. Whether dissent becomes
+    multidimensional is Stage-3's decision, from measurement.
+    `TD-THOUGHTCTX-IS-A-LOSSY-PROJECTION`.
+  - **Capability-vs-reachability is recorded, not filtered.** `Mcp` declares
+    `moves_confidence() == true` truthfully and is still guaranteed silent
+    (0/180 over 36 styles × 5 rungs). A reachability FILTER is near-circular —
+    deciding it costs what sampling costs; what it would really buy is refusing
+    to count STRUCTURAL silence as agreement, which changes what dissent MEANS.
+    Its review thread was left deliberately open as a Stage-3 input.
+  - **ICR is still not a Pearl intervention** —
+    `ISS-PEARL-VOCABULARY-WITHOUT-PEARL-MECHANICS` stands; the doc rewrite
+    saying so landed with the carve.
+  - **7 pre-existing clippy errors in `causal-edge`** (`edge.rs`/`tables.rs`)
+    untouched — two are load-bearing back-compat signatures whose change is a
+    consumer-facing decision. `TD-CAUSAL-EDGE-IS-EXCLUDED-SO-CI-NEVER-LINTS-IT`.
+- **Corrections this arc made to its own record (the reason the entry is long):**
+  1. **The census example was PINNING the defect.** `recipe_claim_audit`'s
+     `8 =>` arm asserted `unchanged` and reported "computed then discarded" — a
+     bug encoded as an expectation behind an equality gate. NOT the
+     vacuous-assertion failure; its inverse — a real, two-sided assertion pointed
+     at the wrong side of the finding.
+  2. **The filter tested the wrong predicate, and it inverted the headline.**
+     `maturity().is_production()` admits 31 kernels; only 14 can move
+     `delta_conf`; 0 declare `Confidence` in `writes()`. The published result
+     went `0/5,760` → **1,098/5,760** same-family (1,098 gained, **0 lost**) and
+     **384/5,760** cross-family (366 gained, 18 lost — the strided sampler, not
+     the filter, and pinned exactly rather than rounded to "one-way").
+  3. **The report hardcoded its own conclusion** — `render_report` wrote
+     `Verdict change: 0/{n}` as a LITERAL; it would have printed zero regardless
+     of the measurement, and did for one revision.
+  4. **A coarse label certified what it never looked at** — the cross-family
+     verdict is `(RungLevel, Mechanism)`; the census reduced it to the rung while
+     the report claimed the mechanism agreed exactly.
+  5. **The Stage-2.6 brief's premise was false** — `lance-graph-contract` has no
+     `causal-edge` dependency at all, so the recipe surface is causally blind to
+     CE64/V3; a V3 entrance there would have produced `discordance = 0` for a
+     trivial reason. Re-scope operator-ratified.
+  6. **`InferenceType` was eating half the register** — the mantissa round trip
+     rewrote 8 of 16 states (−8, −7, −5, −4, −3, −2, **0**, +3), including the
+     `pack_v2` default. **The Stage-2.6a harness could not have caught it**: it
+     only ever carries `Deduction` (mantissa `+1`, a SURVIVING state). A parity
+     harness proves two legs agree; it says nothing about whether the conversion
+     under them is total.
+- **Docs / board:** `EPIPHANIES` ×6 (incl.
+  `E-THE-AUDIT-GATE-WAS-PINNING-THE-BUG-1`,
+  `E-THE-FILTER-WAS-FILTERING-ON-THE-WRONG-PREDICATE-1`,
+  `E-THE-RECIPE-SURFACE-IS-CAUSALLY-BLIND-1`,
+  `E-CAPABILITY-IS-NOT-REACHABILITY-1`,
+  `E-THE-COMPAT-ENUM-WAS-EATING-HALF-THE-REGISTER-1`), two of them ⊘-regraded in
+  place by the correction; `LATEST_STATE` ×5 dated sections; `TECH_DEBT` ×3;
+  probe artifacts `docs/probes/stage25-consumer-filter-census.{md,csv}`,
+  `…-verdict-discordance.csv` (1,482 rows — header-only when the result was
+  zero, which is exactly the shape it was built for),
+  `stage26-v3-planner-parity-discordance.csv` (header-only because that
+  discordance genuinely is zero). This PR also carried the `PR_ARC_INVENTORY`
+  entry **owed by #970**, written late and marked as such.
+- **Gates:** `lance-graph-contract` 1171/1171 + 4 examples green (`sound`
+  30 → 31); `lance-graph-planner` 364/364 + 1 ignored, Stage-2.6a 4/4;
+  `causal-edge` 72/72 (v2 default) and 38/38 (`--no-default-features`, v1
+  layout); `cognitive-shader-driver::edge_v3_compare` 3/3; fmt + clippy
+  `-D warnings` clean; CI green on `d627f5c` across all six jobs.
+  **Fourteen disable-runs, every one verified red-then-green** (nine on Stage 2,
+  five on the losslessness gate).
+- **Review:** codex 5 × P2 across three rounds, all valid, all landed;
+  CodeRabbit 5 × minor, all landed. All threads resolved except the
+  deliberately-open reachability one.
+- **Confidence:** high on the losslessness gate (exhaustive over the mantissa
+  state space; whole-register equality; every carry disable-verified) and on the
+  Stage-2.5 numbers (measured, and the measurement apparatus itself was
+  corrected twice under review). MEDIUM on `moves_confidence()`'s 34 hand-written
+  declarations — they are pinned two-sided against the probe matrix, but that
+  matrix is a SAMPLE: a kernel with a confidence branch no probe reaches would be
+  declared `false` and the pin would agree with it. Flagged to reviewers at the
+  time; the residual risk is recorded here rather than closed.
+
 ## 2026-08-20 — lance-graph #970 (MERGED, merge commit 781c3b9, head 8a3cd4e) — CE64: additive `CausalTopology` + `ReasoningBand` lenses over bits 59..63, no wire change
 
 *(Entry written 2026-08-20 on branch `claude/carve-nars-kernels` — the
