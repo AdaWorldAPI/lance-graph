@@ -1,3 +1,39 @@
+## 2026-08-20 — lance-graph #970 (MERGED, merge commit 781c3b9, head 8a3cd4e) — CE64: additive `CausalTopology` + `ReasoningBand` lenses over bits 59..63, no wire change
+
+*(Entry written 2026-08-20 on branch `claude/carve-nars-kernels` — the
+hygiene was owed at merge time and not written then. Recorded late rather than
+not at all; the omission is the note, per the board's own append-only rule.)*
+
+- **Added:** `CausalTopology { Direct, IndirectKnownIntermediates,
+  IndirectUnknownIntermediates, Unknown }` over bits **59..60**, with EXACT
+  ordinal compatibility to the `TrustTexture` band already stored there
+  (`TRUTH_SHIFT`) — a second READING of stored bits, never a relocation;
+  `ReasoningBand` (8 levels `Surface … Transcendent`) over the previously-
+  `SPARE_SHIFT` bits **61..63**; and four accessors on `CausalEdge64`
+  (`topology` / `reasoning_band` / `with_topology` / `with_reasoning_band`),
+  consuming builders matching the crate's own `with_truth` / `with_spare`
+  convention.
+- **Locked:** strictly mechanical and non-breaking — **no bit moved, no
+  `ENVELOPE_LAYOUT_VERSION` bump, no CE64 v3**; `_LAYOUT_COVERAGE` unchanged;
+  every pre-existing accessor reads exactly the bits it read before. v1 stub
+  twins mirror the existing convention.
+- **Deferred (explicitly out of scope by the brief, and still out):**
+  OGAR-loco wiring; the 34 recipes; DisMech integration; HHTL nodes; any NARS
+  redesign; Rubicon/MUL.
+- **Corrections the brief absorbed rather than imposed** — *the brief bends to
+  current main, never the reverse* (operator, same session): the band type is
+  the REAL existing `TrustTexture`, not a new name; the builders are
+  `with_*` (consuming), not the brief's `set_*`.
+- **Known trap recorded, not fixed:** `CausalEdge64::temporal()` reads bits
+  **52..63** and decomposes them as `plast | (w_slot << 1) | (truth << 7) |
+  (band << 9)`, so `Network::evidence_trail`'s sort by `temporal()` is
+  sensitive to the 59..63 content these lenses now name. Nothing changed
+  underneath it; the entanglement is pre-existing and is called out so a
+  future session does not read the new lenses as its cause.
+- **Confidence:** HIGH for the layout claim (const-asserted + ordinal parity
+  tested); the trap above is a read of shipped code, not a measurement of its
+  consequences.
+
 ## 2026-08-19 — lance-graph #968 (MERGED, merge commit 66fec27, head 88210f7) — seal STORNO + finalization map + register-grid correction + 5+3-ratified spec (no implementation) — ⊘ SUPERSEDED SAME-HOUR by the DUMB-STORAGE architecture reset
 
 - **Added (docs/board/probe only, zero substrate code):**

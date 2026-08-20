@@ -1,3 +1,114 @@
+## TD-CAUSAL-EDGE-IS-EXCLUDED-SO-CI-NEVER-LINTS-IT (2026-08-20) — OPEN
+
+**`causal-edge` is in the root `Cargo.toml`'s `exclude` list, not `members`.**
+It therefore builds into its own `crates/causal-edge/target/` and the
+workspace's `cargo clippy --workspace -D warnings` gate **never sees it** —
+which is why 7 clippy errors have accumulated there unnoticed:
+
+| file | lint |
+|---|---|
+| `edge.rs:118` | `if_same_then_else` (the `mag == 5` arm of `InferenceType::from_mantissa` — both branches return `Synthesis`) |
+| `edge.rs:200` | `too_many_arguments` (10/7 — the v1 `pack`, kept for back-compat) |
+| `edge.rs:684` | `wildcard_in_or_patterns` |
+| `edge.rs:742`, `747` | `collapsible_if` ×2 |
+| `edge.rs:834` | `too_many_arguments` (8/7 — `pack_v2`) |
+| `tables.rs:37` | `doc_lazy_continuation` |
+| `v2_layout_tests.rs:20` | `module_inception` (lib-test only) |
+
+Not fixed in PR #971 — that PR is scoped to CE64⇄V3 conversion correctness, and
+`edge.rs`'s two `too_many_arguments` are load-bearing back-compat signatures
+whose change is a consumer-facing decision, not a lint cleanup. Verified in the
+same pass that the PR's own file (`edge_v3.rs`) is **fmt-clean and clippy-clean
+in both feature states**, so this debt is strictly pre-existing.
+
+**The generalisable half:** a workspace-excluded crate silently opts out of
+every workspace-level gate — not just clippy. Any excluded crate needs either
+its own CI job or an explicit note that its gates are manual. Same family as
+tesseract-rs's "the gate is LOCAL — a green PR says nothing."
+
+**Paid when** either the exclusion is revisited (it exists to keep the crate
+zero-dep and independently buildable) or a per-crate lint job is added.
+
+## TD-THOUGHTCTX-IS-A-LOSSY-PROJECTION (2026-08-20) — OPEN, Stage-3
+
+**`ThoughtCtx` is not the reasoning state. It is a lossy projection of the
+reasoning substrate — measured from both sides in one session.**
+
+**Input side.** `thought_ctx_from(&PlanContext)` reads exactly two scalars
+(`free_will_modifier`, `features.estimated_complexity`). `lance-graph-contract`
+has no `causal-edge` dependency at all, so the entire Stage-2 recipe surface is
+causally blind to CE64/V3; `nars_hint` and `witness` sit on `PlanContext` unread
+by that projection (`E-THE-RECIPE-SURFACE-IS-CAUSALLY-BLIND-1`).
+
+**Output side.** 17 of 34 kernels are `Operational` and confidence-MUTE — real
+effects on `candidates` / `rung` / `temperature` / `beliefs`, observed by a
+dissent consumer that watches only `confidence`
+(`E-THE-FILTER-WAS-FILTERING-ON-THE-WRONG-PREDICATE-1`).
+
+**Explicitly NOT the fix:** rewriting the 17 to move confidence. That would
+destroy the producer/consumer distinction the audit just discovered, and it is
+ruled out by the operator. They are not stubs.
+
+**Stage 3 decides**, from measurement rather than preference, whether dissent
+becomes (A) a multidimensional comparison over each kernel's declared
+`writes()`, (B) separate watchers per capability/dimension, (C) a projection of
+effects into a common epistemically meaningful space, or some measured
+combination. The questions that make it tractable are already well-posed: which
+causal/NARS/V3/witness dimensions does each recipe READ; which epistemic
+dimensions does it WRITE; which consumers can observe those writes; what does
+the `ThoughtCtx` projection lose. That connects directly to the JC/HHTL
+psychometric program.
+
+**Third measurement, same fact (2026-08-20, codex round 3).** `Mcp` declares
+`moves_confidence() == true` truthfully yet is guaranteed silent in the
+dispatched context: `free_energy` starts at 0.5, exactly one kernel writes it,
+and that one only decays it — swept 36 styles x 5 rungs, `free_energy` never
+exceeds 0.5 and `Mcp` moves confidence 0/180. Capability is not reachability.
+A reachability FILTER is near-circular (deciding it costs the same as sampling);
+what it would really buy is refusing to count structural silence as agreement,
+which is a change to what dissent MEANS. See `E-CAPABILITY-IS-NOT-REACHABILITY-1`.
+
+**Paid when** the projection is explicit and measurable — not when the symptom
+(17 silent kernels) is papered over.
+
+## TD-KERNEL-IDENTITY-FINGERPRINT-RAIL (2026-08-20) — OPEN
+
+**Three of the 34 NARS recipe kernels — `ARE`(19), `ZCF`(24), `HKF`(34) —
+cannot be carved out of `Demonstration` because of ONE missing substrate
+capability, not three separate gaps.**
+
+All three are VSA bind/unbind identities: `A⊗B⊗B = A` (ARE), `bind(A,B)`
+recoverable (ZCF), `bind(domain_A, rel, domain_B)` reversible (HKF). Each is
+an exact algebraic statement and each is currently demonstrated on **hardcoded
+`u32` constants**, so the kernel ignores `ctx` entirely — measured and pinned
+by `context_blind_kernels_are_input_invariant`.
+
+**What they need:** an identity-fingerprint rail on the kernel substrate.
+`ThoughtCtx`'s eight-field basis (`ThoughtField`) is a scalar proxy —
+`sd`/`free_energy`/`dissonance`/`temperature`/`confidence`/`rung` are `f32`,
+`candidates` is `Vec<f32>`, `beliefs` is `Vec<(u32,f32,f32)>`. **None of them
+is a fingerprint**, so there is nothing in scope for a bind/unbind kernel to
+bind. This is the same gap `recipe_claim_audit`'s Axis B already names at
+scale: *"all 34 measure their claim against a lightweight scalar proxy, never
+the real organ named … the gap is WIRING, not composition."*
+
+**HKF needs one thing more**, and it is worth recording separately so a future
+session does not discover it half-way: its identity is over a **predicate**
+rail (`domain_A —rel→ domain_B`), and `SubstrateView::project` discards the
+predicate rail entirely. A fingerprint rail alone unblocks ARE and ZCF; HKF
+additionally needs a predicate-preserving projection.
+
+**Explicitly NOT the fix:** giving them an effect on the scalars they do not
+read. That would be the silent-effect-under-a-not-production-label failure
+`non_operational_kernels_land_no_effect` exists to catch, and it would trade
+an honest placeholder for a dishonest kernel. They stay `Demonstration` — and
+`MaturityPolicy::ProductionOnly` refuses them, pinned at exactly 3 by
+`the_policy_discriminates_over_the_live_kernels`.
+
+**Paid when:** a fingerprint rail (and, for HKF, a predicate-preserving
+projection) reaches the kernel substrate; then the three carve together and
+that pin, plus `G2` in `recipe_claim_audit`, are re-pinned to zero.
+
 ## TD-LANCE9-LANCEDB036-REMEASURE (2026-08-05, operator-noted, DEFERRED)
 
 **Pins today:** `lance`/`lance-linalg`/`lance-namespace` `=7.0.0`,

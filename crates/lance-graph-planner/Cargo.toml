@@ -74,6 +74,12 @@ cognitive-shader-driver = { path = "../cognitive-shader-driver" }
 # (§12.5 — "the `jc` additive constraint continues to hold"), and a measure
 # cannot be its own oracle. Do NOT invert this edge, and do NOT modify
 # `crates/jc` while using it as the oracle.
+#
+# SECOND consumer (2026-08-20): `strategy/stage25_census.rs` — the Stage-2.5
+# consumer-filter census, `#[cfg(test)]` only. Same constraint, same direction:
+# `jc::stats` consumes the census's observations and nothing feeds back. No
+# planner code path reads `jc`, and none may — it is instrumentation, not a
+# semantic dependency. (This edge already existed; the census did not add it.)
 jc = { path = "../jc" }
 
 [features]

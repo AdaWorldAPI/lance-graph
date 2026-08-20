@@ -45,8 +45,46 @@
 //! [4..6]  LO  target u16 (the node whose CAM-PQ IS the SPO — NO SPO here)
 //! [6]     anaphora nibble (i4 low, −8..+7; 0 = none)
 //! [7]     TE  temporal i8 (signed chain offset)
-//! [8..12] reserved (dormant — TEKAMOLO Kausal/Modal/Lokal/Instrument refs)
+//! [8]     w_slot(6 low) | truth/topology RAW(2 high)     ← CE64-v2 preserve
+//! [9]     spare/ReasoningBand RAW(3 low) | reserved(5 high)
+//! [10..12] reserved (dormant — TEKAMOLO Kausal/Modal/Instrument refs)
 //! ```
+//!
+//! ## CE64 → V3 → CE64 is LOSSLESS (the conversion contract)
+//!
+//! Every meaningful CE64-v2 field survives the round trip byte-exact, with
+//! exactly TWO documented exclusions:
+//!
+//!   1. **The 24-bit in-edge SPO** — intentionally deduplicated (it lives in
+//!      the target node's CAM-PQ facet). Supply the SAME resolved SPO to
+//!      [`CausalEdgeV3::rehydrate`] and it returns bit-identical.
+//!   2. **The deprecated v2 `temporal` field** — not valid CE64-v2 state at
+//!      all (bits 52..63 were reclaimed for plasticity[2]/W/truth/spare). It is
+//!      NOT mapped into V3's TE byte: V3 `temporal` is an INDEPENDENT signed
+//!      relative chain offset the producer sets explicitly, never inherited.
+//!
+//! Under the v2 layout the 64 bits are fully partitioned — S/P/O, freq, conf,
+//! causal_mask, direction, inference i4, plasticity, w_slot, truth, spare — so
+//! "every field preserved" IS "every bit preserved" once the SPO is resupplied.
+//!
+//! ### The signed mantissa is carried RAW, never through `InferenceType`
+//!
+//! [`InferenceType`] is a **lossy compatibility projection** of the 4-bit
+//! signed mantissa: `to_mantissa(from_mantissa(m)) != m` for **8 of the 16**
+//! states (−8, −7, −5, −4, −3, −2, 0, +3 — e.g. `−2 → Abduction → −1`,
+//! `+3 → Synthesis → +5`, and the `pack_v2` default `0 → Deduction → +1`).
+//! Routing the mantissa through the enum on rehydration silently rewrote half
+//! the state space, so [`CausalEdgeV3::rehydrate`] restores the RAW nibble with
+//! [`CausalEdge64::set_inference_mantissa`] after construction; the
+//! `InferenceType` argument to `pack` is a throwaway placeholder.
+//!
+//! ### RAW bits, not upgraded provenance
+//!
+//! `w_slot` / truth / spare are preserved as RAW ORDINALS. Copying a CE64
+//! topology/truth ordinal `01` into V3 means "ordinal 01 preserved" — it is NOT
+//! an assertion that `IndirectKnown` (or `Solid`) is now source-authoritative
+//! for that row. Which lens the ordinal was written through is the producer's
+//! knowledge, not the conversion's; see [`crate::layout::CausalTopology`].
 
 use crate::edge::{CausalEdge64, InferenceType};
 use crate::pearl::CausalMask;
@@ -65,10 +103,17 @@ pub struct CausalEdgeV3 {
 const _: () = assert!(core::mem::size_of::<CausalEdgeV3>() == 12);
 
 impl CausalEdgeV3 {
-    /// Lift a v1 [`CausalEdge64`] to V3, DROPPING its 24-bit in-edge SPO and
-    /// pointing `target` at the node whose CAM-PQ facet holds that SPO. All
-    /// reasoning-relevant scalars (freq/conf/mask/direction/inference/
-    /// plasticity/temporal) are preserved.
+    /// Lift a [`CausalEdge64`] to V3, DROPPING its 24-bit in-edge SPO and
+    /// pointing `target` at the node whose CAM-PQ facet holds that SPO.
+    ///
+    /// **Every other meaningful v2 field is preserved**: freq, conf,
+    /// causal_mask, direction, the RAW signed inference mantissa, plasticity,
+    /// w_slot, the truth/topology 2-bit ordinal, and the spare/band 3-bit
+    /// ordinal. Paired with [`Self::rehydrate`] this is a bit-exact round trip
+    /// once the same SPO is resupplied — see the module doc.
+    ///
+    /// **Not lifted:** the deprecated v2 `temporal` (not valid CE64-v2 state;
+    /// V3's TE is an independent producer-set offset).
     pub fn from_v1(e: CausalEdge64, target: u16) -> Self {
         let mut p = [0u8; 12];
         p[0] = e.frequency_u8();
@@ -83,32 +128,125 @@ impl CausalEdgeV3 {
         // [7] TE temporal: NOT lifted — under the v2 layout `CausalEdge64` carries
         // no temporal (it is structural: chain-position / AriGraph timestamp).
         // V3's TE is set explicitly by the producer via `set_temporal`, not
-        // inherited from a v2 edge that has none.
+        // inherited from a v2 edge that has none. The DEPRECATED v2 `temporal()`
+        // composite (bits 52..63) is not valid CE64-v2 state and is never mapped
+        // here — doing so would alias plasticity[2]/W/truth/spare into TE.
+        // [8]/[9]: the CE64-v2 tail — w_slot(6) + truth(2) + spare(3). RAW
+        // ordinals, no lens interpretation (see the module doc). Under the v1
+        // layout every one of these accessors is a documented zero stub, so this
+        // writes zeros and the round trip stays exact there too.
+        p[8] = (e.w_slot() & 0x3F) | ((e.truth_raw() & 0b11) << 6);
+        p[9] = e.spare() & 0b111;
         Self { payload: p }
+    }
+
+    /// NARS frequency (u8, `f = val/255`) — byte 0.
+    pub fn frequency(&self) -> u8 {
+        self.payload[0]
+    }
+
+    /// NARS confidence (u8, `c = val/255`) — byte 1.
+    pub fn confidence(&self) -> u8 {
+        self.payload[1]
+    }
+
+    /// Pearl 2³ causal mask — byte 2, low 3 bits.
+    pub fn causal_mask(&self) -> CausalMask {
+        CausalMask::from_bits(self.payload[2] & 0b111)
+    }
+
+    /// Direction triad (3 bits, sign(dim0) per S,P,O) — byte 2, bits 3..6.
+    pub fn direction(&self) -> u8 {
+        (self.payload[2] >> 3) & 0b111
+    }
+
+    /// The RAW 4-bit signed inference mantissa (−8..=7) — byte 3, low nibble.
+    ///
+    /// This is the mantissa itself, NOT [`InferenceType`]. The enum is a lossy
+    /// compatibility projection (8 of 16 states do not survive
+    /// `to_mantissa(from_mantissa(m))`); the register is the ground truth.
+    /// Sign is chain direction, magnitude is the NARS base rule index.
+    pub fn inference_mantissa(&self) -> i8 {
+        let lo = self.payload[3] & 0x0F;
+        // sign-extend the 4-bit signed mantissa
+        if lo >= 8 {
+            lo as i8 - 16
+        } else {
+            lo as i8
+        }
+    }
+
+    /// Plasticity flags (hot/cold per S,P,O) — byte 3, high 3 bits.
+    pub fn plasticity(&self) -> PlasticityState {
+        PlasticityState::from_bits((self.payload[3] >> 4) & 0b111)
+    }
+
+    /// Preserved CE64-v2 W-slot: witness corpus root handle (6-bit, 0..=63).
+    /// Byte 8, low 6 bits. 0 = no corpus anchor.
+    pub fn w_slot(&self) -> u8 {
+        self.payload[8] & 0x3F
+    }
+
+    /// Preserved CE64-v2 truth/topology register: the RAW 2-bit ordinal
+    /// (0..=3) — byte 8, high 2 bits.
+    ///
+    /// RAW on purpose. CE64 reads these same two bits through two lenses
+    /// ([`crate::layout::TrustTexture`] epistemic, [`crate::layout::CausalTopology`]
+    /// factual); which one the producer meant is not recoverable from the
+    /// register, so V3 carries the ordinal and asserts nothing about it.
+    /// Preserving ordinal `01` means "ordinal 01 preserved", never
+    /// "`IndirectKnown` is now source-authoritative".
+    pub fn truth_raw(&self) -> u8 {
+        (self.payload[8] >> 6) & 0b11
+    }
+
+    /// Preserved CE64-v2 spare/`ReasoningBand` register: the RAW 3-bit ordinal
+    /// (0..=7) — byte 9, low 3 bits. RAW for the same reason as
+    /// [`Self::truth_raw`]: one register, two lenses, no provenance upgrade.
+    pub fn spare_raw(&self) -> u8 {
+        self.payload[9] & 0b111
     }
 
     /// Rebuild a [`CausalEdge64`] for reasoning by supplying the SPO resolved
     /// from the target node's CAM-PQ facet. The conclusion of `syllogize`
-    /// depends only on SPO + freq/conf + causal_mask, all restored here.
+    /// depends only on SPO + freq/conf + causal_mask — but this restores the
+    /// FULL v2 register, so the round trip
+    /// `CausalEdge64 → from_v1 → rehydrate(same SPO)` is **bit-identical**
+    /// (see the module doc's conversion contract for the two exclusions).
+    ///
+    /// The [`InferenceType`] handed to [`CausalEdge64::pack`] is a THROWAWAY
+    /// placeholder: `pack` writes `inference.to_mantissa()`, and routing the
+    /// stored mantissa through `InferenceType::from_mantissa` first would
+    /// rewrite 8 of its 16 states. The raw nibble is restored immediately
+    /// after with [`CausalEdge64::set_inference_mantissa`].
     pub fn rehydrate(&self, s_idx: u8, p_idx: u8, o_idx: u8) -> CausalEdge64 {
-        let freq = self.payload[0];
-        let conf = self.payload[1];
-        let mask = CausalMask::from_bits(self.payload[2] & 0b111);
-        let direction = (self.payload[2] >> 3) & 0b111;
-        let mantissa = {
-            let lo = self.payload[3] & 0x0F;
-            // sign-extend the 4-bit signed mantissa
-            if lo >= 8 {
-                lo as i8 - 16
-            } else {
-                lo as i8
-            }
-        };
-        let inference = InferenceType::from_mantissa(mantissa);
-        let plasticity = PlasticityState::from_bits((self.payload[3] >> 4) & 0b111);
-        CausalEdge64::pack(
-            s_idx, p_idx, o_idx, freq, conf, mask, direction, inference, plasticity, 0,
-        )
+        let mantissa = self.inference_mantissa();
+        let mut edge = CausalEdge64::pack(
+            s_idx,
+            p_idx,
+            o_idx,
+            self.frequency(),
+            self.confidence(),
+            self.causal_mask(),
+            self.direction(),
+            // placeholder ONLY — overwritten by set_inference_mantissa below.
+            InferenceType::Deduction,
+            self.plasticity(),
+            0,
+        );
+        edge.set_inference_mantissa(mantissa);
+        edge.set_w_slot(self.w_slot());
+        // `set_truth` has no raw-u8 form, so the 2-bit ordinal goes through
+        // `TrustTexture`. That is SAFE where `InferenceType` was not, and the
+        // difference is the whole point: `from_bits_2`/`to_bits_2` is a total
+        // BIJECTION on 0..=3 (four ordinals, four variants, discriminants
+        // 0,1,2,3), whereas `InferenceType` maps 16 mantissa states onto 8
+        // variants and cannot be injective. Pinned by
+        // `trust_texture_bits_2_is_a_bijection_unlike_inference_type` — if a
+        // variant is ever added or reordered, that test fails before this does.
+        edge.set_truth(crate::layout::TrustTexture::from_bits_2(self.truth_raw()));
+        edge.set_spare(self.spare_raw());
+        edge
     }
 
     /// The Lokal target node reference — the node whose 6×256² CAM-PQ facet IS
@@ -338,5 +476,241 @@ mod tests {
         let mut e = CausalEdgeV3::from_v1(sample_edges()[2], 0xBEEF);
         e.set_anaphora(3);
         assert_eq!(CausalEdgeV3::from_le_bytes(e.to_le_bytes()), e);
+    }
+
+    // ══════════════════════════════════════════════════════════════════════
+    //  CE64 → V3 → CE64 LOSSLESSNESS
+    //
+    //  A LOW-LEVEL conversion-correctness suite, deliberately separate from
+    //  the planner-level Stage-2.6 parity harness
+    //  (`lance-graph-planner::cache::stage26_v3_parity`). The planner harness
+    //  proves the ENGINE behaves identically through a V3 leg; this suite
+    //  proves the CONVERSION preserves the register. Neither subsumes the
+    //  other: the planner leg only ever carries `InferenceType::Deduction`
+    //  (mantissa +1, one of the 8 states that happens to survive the old lossy
+    //  path), so it was structurally blind to the mantissa defect below.
+    // ══════════════════════════════════════════════════════════════════════
+
+    /// `InferenceType` is a LOSSY projection of the 4-bit mantissa, and this
+    /// is the measurement that says so — the premise the raw-carry fix rests
+    /// on. If a future edit makes the enum injective this test fails and the
+    /// module doc's "8 of 16" claim must be re-measured, not re-asserted.
+    #[test]
+    fn inference_type_is_a_lossy_projection_of_the_mantissa() {
+        let lossy: Vec<i8> = (-8i8..=7)
+            .filter(|&m| InferenceType::from_mantissa(m).to_mantissa() != m)
+            .collect();
+        assert_eq!(
+            lossy,
+            vec![-8, -7, -5, -4, -3, -2, 0, 3],
+            "the InferenceType loss set moved; re-measure the module doc"
+        );
+        // anti-vacuity: the projection is not a blanket failure either — half
+        // the states DO survive, which is exactly why the defect hid.
+        assert_eq!(16 - lossy.len(), 8, "expected 8 surviving states");
+    }
+
+    /// Unlike `InferenceType`, `TrustTexture`'s 2-bit codec IS a total
+    /// bijection — which is what licenses `rehydrate` routing the truth
+    /// ordinal through it. Pinned so an added/reordered variant fails HERE,
+    /// with a message naming the cause, rather than as a silent parity drift.
+    #[test]
+    fn trust_texture_bits_2_is_a_bijection_unlike_inference_type() {
+        for raw in 0u8..=3 {
+            assert_eq!(
+                crate::layout::TrustTexture::from_bits_2(raw).to_bits_2(),
+                raw,
+                "TrustTexture is no longer a bijection on 2 bits; rehydrate's \
+                 truth carry must switch to a raw setter"
+            );
+        }
+    }
+
+    /// REQUIREMENT 1 — the raw signed mantissa survives CE64 → V3 → CE64 for
+    /// ALL 16 states.
+    ///
+    /// The old implementation routed the nibble through
+    /// `InferenceType::from_mantissa(...) → pack(...) → to_mantissa()` and
+    /// silently rewrote 8 of them (see the loss-set test above), including the
+    /// `pack_v2` default `0 → +1`.
+    ///
+    /// DISABLE-RUN (verified red): restore the old body of `rehydrate` —
+    /// pass `InferenceType::from_mantissa(mantissa)` to `pack` and drop the
+    /// `set_inference_mantissa` call — and this fails on m = −8 with
+    /// `rehydrated mantissa: left: 1, right: -8`.
+    #[test]
+    fn mantissa_round_trips_raw_for_all_16_states() {
+        for m in -8i8..=7 {
+            // Build the V3 register directly so the V3 half of the assertion
+            // is layout-independent (it holds under v1 and v2 alike).
+            let mut bytes = [0u8; 12];
+            bytes[3] = (m as u8) & 0x0F;
+            let v3 = CausalEdgeV3::from_le_bytes(bytes);
+            assert_eq!(v3.inference_mantissa(), m, "V3 accessor lost m={m}");
+
+            #[cfg(feature = "causal-edge-v2-layout")]
+            {
+                // and the full CE64 → V3 → CE64 leg
+                let src = CausalEdge64::pack_v2(
+                    7,
+                    8,
+                    9,
+                    200,
+                    180,
+                    CausalMask::from_bits(0b101),
+                    0b010,
+                    PlasticityState::ALL_HOT,
+                )
+                .with_inference_mantissa(m);
+                assert_eq!(src.inference_mantissa(), m, "source lost m={m}");
+                let got = CausalEdgeV3::from_v1(src, 0x1234).rehydrate(7, 8, 9);
+                assert_eq!(got.inference_mantissa(), m, "rehydrated mantissa");
+            }
+        }
+    }
+
+    /// The four states the brief named explicitly, each one a state the OLD
+    /// implementation provably lost, asserted individually so a failure names
+    /// the value rather than an index. Kept separate from the exhaustive sweep
+    /// above: the sweep proves totality, this proves the regressions.
+    #[cfg(feature = "causal-edge-v2-layout")]
+    #[test]
+    fn named_mantissa_regressions_minus2_plus3_minus4_minus5() {
+        for (m, old_would_give) in [(-2i8, -1i8), (3, 5), (-4, 4), (-5, 5)] {
+            // the defect, restated as a measurement rather than a memory
+            assert_eq!(
+                InferenceType::from_mantissa(m).to_mantissa(),
+                old_would_give,
+                "the old lossy path's output for m={m} moved"
+            );
+            let src = CausalEdge64::pack_v2(
+                1,
+                2,
+                3,
+                255,
+                255,
+                CausalMask::from_bits(0b111),
+                0b111,
+                PlasticityState::ALL_HOT,
+            )
+            .with_inference_mantissa(m);
+            let got = CausalEdgeV3::from_v1(src, 0xFFFF).rehydrate(1, 2, 3);
+            assert_eq!(got.inference_mantissa(), m, "m={m} not preserved");
+            assert_ne!(
+                got.inference_mantissa(),
+                old_would_give,
+                "m={m} still lands on the old lossy value"
+            );
+        }
+    }
+
+    /// One full-parity case:
+    /// `(s, p, o, freq, conf, mask, dir, mantissa, w_slot, truth, spare)`.
+    #[cfg(feature = "causal-edge-v2-layout")]
+    type ParityCase = (u8, u8, u8, u8, u8, u8, u8, i8, u8, u8, u8);
+
+    /// REQUIREMENT 3 — FULL FIELD PARITY over varied NON-ZERO edges.
+    ///
+    /// Every meaningful CE64-v2 field is asserted after CE64 → V3 → CE64 with
+    /// the SAME resolved SPO resupplied. Under v2 the 64 bits are fully
+    /// partitioned (S/P/O · freq · conf · mask · direction · mantissa ·
+    /// plasticity · w_slot · truth · spare), so this is also a whole-register
+    /// bit-identity check — asserted as such at the end.
+    ///
+    /// NOT compared: the deprecated v2 `temporal()`. It is not valid CE64-v2
+    /// state (bits 52..63 are the reclaim zone) and V3's TE is an independent
+    /// producer-set offset, never a lift of it.
+    ///
+    /// DISABLE-RUN (verified red, each independently): drop any one of the
+    /// `set_w_slot` / `set_truth` / `set_spare` / `set_inference_mantissa`
+    /// carries in `rehydrate`, or the `p[8]`/`p[9]` writes in `from_v1`.
+    #[cfg(feature = "causal-edge-v2-layout")]
+    #[test]
+    fn full_v2_field_parity_across_ce64_v3_ce64() {
+        // varied, deliberately non-zero, and spanning the ordinal ranges: all
+        // 4 truth ordinals, w_slot at both ends of its 6 bits, spare across
+        // its 3, mantissa on both signs.
+        let cases: [ParityCase; 6] = [
+            // s,  p,  o,  freq, conf, mask, dir, mantissa, w_slot, truth, spare
+            (10, 1, 20, 230, 200, 0b111, 0b101, -2, 63, 3, 7),
+            (20, 2, 30, 210, 190, 0b101, 0b010, 3, 1, 1, 1),
+            (255, 254, 253, 255, 255, 0b111, 0b111, 7, 62, 2, 6),
+            (1, 0, 255, 1, 254, 0b001, 0b100, -8, 33, 0, 5),
+            (50, 3, 30, 220, 195, 0b110, 0b001, 0, 0, 2, 0),
+            (99, 88, 77, 128, 127, 0b010, 0b011, -6, 21, 3, 4),
+        ];
+        for (s, p, o, freq, conf, mask, dir, mant, w, truth, spare) in cases {
+            let src = CausalEdge64::pack_v2(
+                s,
+                p,
+                o,
+                freq,
+                conf,
+                CausalMask::from_bits(mask),
+                dir,
+                PlasticityState::from_bits(0b101),
+            )
+            .with_inference_mantissa(mant)
+            .with_w_slot(w)
+            .with_truth(crate::layout::TrustTexture::from_bits_2(truth))
+            .with_spare(spare);
+
+            // the source really carries what the case says (anti-vacuity: a
+            // parity test over an all-zero source proves nothing)
+            assert_eq!(src.w_slot(), w, "fixture w_slot");
+            assert_eq!(src.truth_raw(), truth, "fixture truth");
+            assert_eq!(src.spare(), spare, "fixture spare");
+            assert_eq!(src.inference_mantissa(), mant, "fixture mantissa");
+
+            let v3 = CausalEdgeV3::from_v1(src, 0xC0DE);
+            let got = v3.rehydrate(s, p, o); // the SAME resolved SPO
+
+            assert_eq!((got.s_idx(), got.p_idx(), got.o_idx()), (s, p, o), "SPO");
+            assert_eq!(got.frequency_u8(), freq, "freq");
+            assert_eq!(got.confidence_u8(), conf, "conf");
+            assert_eq!(got.causal_mask() as u8, mask, "causal_mask");
+            assert_eq!(got.direction(), dir, "direction");
+            assert_eq!(got.inference_mantissa(), mant, "inference i4");
+            assert_eq!(got.plasticity().bits(), 0b101, "plasticity");
+            assert_eq!(got.w_slot(), w, "w_slot");
+            assert_eq!(got.truth_raw(), truth, "truth/topology raw");
+            assert_eq!(got.spare(), spare, "spare/band raw");
+
+            // …and because v2 partitions all 64 bits, field parity IS bit
+            // parity. This single line would catch a future field we forgot to
+            // enumerate above — which the per-field asserts alone cannot.
+            assert_eq!(
+                got, src,
+                "whole-register identity failed (a v2 field is unaccounted for)"
+            );
+        }
+    }
+
+    /// The V3 tail bytes are where the preserved CE64 fields live, and nothing
+    /// else may leak into them. Complements `v3_field_isolation` above, which
+    /// covers the two V3-native setters.
+    #[cfg(feature = "causal-edge-v2-layout")]
+    #[test]
+    fn preserved_tail_occupies_exactly_bytes_8_and_9() {
+        let src = CausalEdge64::pack_v2(
+            1,
+            2,
+            3,
+            4,
+            5,
+            CausalMask::from_bits(0),
+            0,
+            PlasticityState::from_bits(0),
+        )
+        .with_w_slot(0x2A) // 0b101010
+        .with_truth(crate::layout::TrustTexture::from_bits_2(0b11))
+        .with_spare(0b101);
+        let bytes = CausalEdgeV3::from_v1(src, 0).to_le_bytes();
+        assert_eq!(bytes[8], 0b1110_1010, "byte 8 = truth(2)<<6 | w_slot(6)");
+        assert_eq!(bytes[9], 0b0000_0101, "byte 9 = spare(3), high 5 reserved");
+        // bytes 10..12 stay dormant — the preserve must not creep into them
+        assert_eq!(&bytes[10..12], &[0u8, 0], "reserved tail was written");
+        // and TE was NOT inherited from the deprecated v2 temporal composite
+        assert_eq!(bytes[7], 0, "TE must not be lifted from v2 temporal");
     }
 }

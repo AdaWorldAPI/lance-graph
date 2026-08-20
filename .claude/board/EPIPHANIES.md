@@ -1,3 +1,498 @@
+## 2026-08-20 — E-THE-COMPAT-ENUM-WAS-EATING-HALF-THE-REGISTER-1
+
+**Status:** FINDING (measured + fixed, PR #971). `CausalEdgeV3::rehydrate`
+routed the stored 4-bit signed inference mantissa through
+`InferenceType::from_mantissa(...) → pack(...) → to_mantissa()`. That enum is a
+**lossy compatibility projection** — 8 mantissa states onto 16 — so the round
+trip silently rewrote **8 of the 16 states**:
+
+| m | old rehydrate gave | m | old rehydrate gave |
+|---|---|---|---|
+| −8 | +1 | −3 | −1 |
+| −7 | +7 | −2 | −1 |
+| −5 | +5 | **0** | **+1** |
+| −4 | +4 | +3 | +5 |
+
+`0 → +1` is the one that matters most: **every `pack_v2` edge defaults to
+mantissa 0**, so the neutral/identity state was being rewritten to Deduction on
+any lift-and-rehydrate. Fixed by carrying the RAW nibble —
+`set_inference_mantissa(m)` after `pack`, with the `InferenceType` argument
+demoted to a throwaway placeholder.
+
+**Why it hid, and the reason is the generalisable half.** *Exactly half* the
+states survive the projection (−6, −1, +1, +2, +4, +5, +6, +7). A projection
+that failed on everything would have been caught by the first test written; one
+that is right half the time looks like a working codec until someone sweeps it.
+And the sweep that would have caught it was structurally impossible where the
+type is actually exercised: the Stage-2.6a planner parity harness only ever
+carries `InferenceType::Deduction` (mantissa +1) — **a surviving state** — so a
+harness that is correct, green, and genuinely load-bearing was blind to this by
+construction. *A parity harness proves the two legs agree; it says nothing about
+whether the conversion under them is total.* Conversion correctness needs its
+own low-level exhaustive suite, and now has one
+(`causal-edge::edge_v3::tests`, 11 tests, 5 disable-runs verified red).
+
+**Same pass, the other half of the leak: three CE64-v2 fields were being
+dropped entirely** — `w_slot` (6 bits), the truth/topology register (2), the
+spare/`ReasoningBand` register (3) — all of which became meaningful state with
+#970. They now land in V3's dormant reserved bytes (`[8]` = `w_slot(6) |
+truth(2)<<6`, `[9]` = `spare(3)`), preserved as **RAW ORDINALS**: copying
+ordinal `01` across means "ordinal 01 preserved", never "`IndirectKnown` is now
+source-authoritative". Under v2 the 64 bits are fully partitioned, so
+`CausalEdge64 → V3 → CausalEdge64` with the same resupplied SPO is now
+**bit-identical** — asserted as whole-register equality, which is what catches a
+field a future session forgets to enumerate.
+
+**The two exclusions are principled, not residue.** (1) The 24-bit in-edge SPO
+— intentionally deduplicated into the target node's CAM-PQ facet. (2) The
+deprecated v2 `temporal` — *not valid CE64-v2 state at all* (bits 52..63 are the
+reclaim zone), so it is NOT mapped into V3's TE; TE stays an independent
+producer-set signed chain offset.
+
+**A method note worth keeping.** One of the five disable-runs used a malformed
+`sed` pattern that matched nothing, and the resulting green read exactly like
+"this carry is not load-bearing." It was re-run with an exact-string edit that
+*asserts the anchor exists* before removing it, and went red immediately. This
+is `E-ANTI-EIGENVALUE…`'s twin at the tooling layer: **a disable that does not
+disable is indistinguishable from a guard that does not guard**, and only the
+anchor assertion tells them apart. Cf. tesseract-rs's "turning a knob that does
+not bind is not a disable."
+
+---
+
+## 2026-08-20 — E-CAPABILITY-IS-NOT-REACHABILITY-1
+
+**Status:** FINDING (measured; codex review on PR #971, third pass). The same
+lesson a **third** time, one rung finer each round:
+
+| round | the predicate that looked right | why it was not |
+|---|---|---|
+| 1 | *(none — no filter at all)* | context-blind watchers counted as agreement |
+| 2 | `maturity().is_production()` | `Operational` is a DISJUNCTION; 31 admitted, only 14 can move `delta_conf` |
+| 3 | `moves_confidence()` | capability on SOME input ≠ reachability in THIS dispatched context |
+
+**The measurement.** `Mcp` (recipe 10) declares `moves_confidence() == true`
+and that declaration is *true* — its branch needs
+`confidence > 0.7 && free_energy > 0.5`. But `thought_ctx_from` starts at
+`ThoughtCtx::new`'s `free_energy = 0.5`, and **exactly one** of the 34 kernels
+writes that field at all (`Rte`, id 1), which only decays it. Swept over all
+36 styles × 5 rungs: `free_energy` **never exceeds 0.5**, and `Mcp` moves
+confidence in **0 of 180** cells. It is admitted by the filter and is
+guaranteed silent.
+
+**Deliberately NOT fixed, and the reason is not laziness.**
+
+1. **A reachability filter is close to circular for the budget argument.**
+   Deciding whether watcher `W` can move the answer in context `C` essentially
+   requires evaluating `W` in `C` — which is what sampling it already does. The
+   slot is not saved. What a reachability notion would genuinely buy is a
+   refusal to count a *structural* silence as agreement — which is a change to
+   what **dissent means**, not a filter tweak.
+2. **That is Stage-3's decision**, alongside the other half of the same
+   question (the 17 Operational-but-mute kernels), and making it here would
+   move the Stage-2.5 baseline the operator has just frozen as authoritative.
+
+**What generalises past this instance.** Each round the predicate was a true
+statement about the *producer* and a wrong statement about what the *consumer*
+observes. That is the same shape as `E-THE-RECIPE-SURFACE-IS-CAUSALLY-BLIND-1`
+(substrate the projection does not carry in) and the 17 mute kernels (effects
+the projection does not carry out). **Three independent measurements, one
+underlying fact: `ThoughtCtx` is a lossy projection and every predicate written
+against the producer side will keep being wrong about the consumer side until
+that projection is made explicit.** Tracked in
+`TD-THOUGHTCTX-IS-A-LOSSY-PROJECTION`.
+
+**Two comparator hardenings landed in the same pass** (both codex, both real):
+the Stage-2.6a resolver now goes through the V3 edge's OWN `target()` instead
+of a side channel — a regressed `from_v1`/`target()` would previously have been
+invisible because both arms resolved the expected SPO from the spec; and the
+corruption falsifier now requires the **weight-side** leg to fail on a
+*composition* invariant, because the input-side assertion alone let the weight
+rehydration be replaced with the direct edge and bypass V3 unnoticed.
+Disable-verified: that bypass now fails, and previously passed.
+
+---
+
+## 2026-08-20 — E-THE-RECIPE-SURFACE-IS-CAUSALLY-BLIND-1
+
+**Status:** FINDING (Stage 2.6b — recorded, deliberately NOT patched; operator-
+ruled scope). Falsifies the premise of the original Stage-2.6 brief, which
+assumed an `CE64 → recipe/runbook/planner` path.
+
+**That path does not exist.** Three independent checks:
+
+| check | result |
+|---|---|
+| `lance-graph-contract` (owns `recipe_kernels`, `recipes`, `recipe_dispatch`, `materialize`) depends on `causal-edge`? | **No dependency.** It cannot name the type; the two textual hits are prose inside doc-comments. |
+| `style_strategy` — the Stage-2 planner surface — touches a causal edge? | **None.** Its one `causal_*` import is `causal_witness`, an unrelated contract type. |
+| What produces the `ThoughtCtx` the 34 recipes reason over? | `thought_ctx_from(&PlanContext)` — exactly two scalars: `free_will_modifier` → temperature, `features.estimated_complexity` → one candidate. `nars_hint` and `witness` are NOT read by it. |
+
+So **recipe/runbook reasoning is causally blind with respect to CE64/V3.**
+
+**Why this is recorded rather than fixed.** A V3 entrance in front of that
+surface would rehydrate an edge nothing downstream reads, and the invariance
+test would return `discordance = 0` for an entirely trivial reason — a green
+result that means nothing. That is the same failure
+`E-THE-FILTER-WAS-FILTERING-ON-THE-WRONG-PREDICATE-1` had just corrected, hours
+earlier, in the same PR. **This is NOT a V3 migration defect**; it is a Stage-3
+substrate-wiring question, and stuffing CE64 fields into `ThoughtCtx` now would
+be adding semantic information the recipes do not have today — which Stage 3
+explicitly reserves.
+
+**The sharper statement the finding generalises to.** `ThoughtCtx` is not "the
+reasoning state"; it is a **lossy projection of the reasoning substrate**, and
+two independent measurements this session show the cost of that projection from
+opposite sides:
+
+- **Input side (this entry):** the causal/NARS/witness substrate exists and the
+  projection does not carry it in.
+- **Output side (`E-THE-FILTER-WAS-FILTERING-ON-THE-WRONG-PREDICATE-1`):** 17 of
+  34 kernels are `Operational` and confidence-MUTE — they write `candidates` /
+  `rung` / `temperature` / `beliefs`, and the dissent consumer observes only
+  `confidence`, so their real effects are invisible to it.
+
+**The 17 are not stubs, and must not be "fixed" by making them move
+confidence.** Their silence means *the consumer projection is narrower than the
+producer effects*, and rewriting them to move confidence would destroy exactly
+the distinction this audit discovered. Stage 3 decides whether dissent becomes
+(A) a multidimensional comparison over declared `writes()`, (B) per-capability
+watchers, (C) a projection into a common epistemic space, or a measured
+combination. **Not decided here.**
+
+**Consequence for Stage 3's handoff — two distinct wiring problems, and keeping
+them distinct is load-bearing:**
+
+1. **Edge semantics.** `CausalEdgeV3` (addressed, semantic, durable) +
+   `CausalEdge64` (hot compact NARS projection); the planner's `nars_engine`
+   leg is now proven representation-invariant (Stage 2.6a).
+2. **Program/recipe semantics.** 34 recipes × 36 styles operate on a narrower
+   `ThoughtCtx` projection; the 17 mute kernels are the measured cost. How
+   causal/NARS/V3/witness information enters the program surface **without
+   turning every effect into confidence** is the open question.
+
+Cross-ref: `TD-THOUGHTCTX-IS-A-LOSSY-PROJECTION`.
+
+---
+
+## 2026-08-20 — E-V3-IS-REPRESENTATION-INVARIANT-ON-THE-PLANNER-CE64-LEG-1
+
+**Status:** FINDING (Stage 2.6a; `cache/stage26_v3_parity.rs`, artifact
+`docs/probes/stage26-v3-planner-parity-discordance.csv`).
+
+The existing compare-thinking work proved V3 thinking-preserving at
+`causal-edge`'s own `syllogize` and on `cognitive-shader-driver`'s real emission
+path. The **planner's** `CausalEdge64` leg — `cache/nars_engine.rs`:
+`SpoHead ↔ CausalEdge64` via `to_causal_edge` / `from_causal_edge`, and
+`forward_edge` over the compose tables — was the uncovered third leg. It is now
+covered.
+
+**Result: planner V3 representation discordance = 0**, by exact equality across
+13 invariants per leg — the rehydrated `CausalEdge64` itself, SPO after
+resolution, NARS frequency/confidence, causal mask, inference class, the
+`SpoHead` round-trip, the `forward_edge` conclusion, that conclusion's
+`SpoHead`, the `syllogize` conclusion edge, and the derived truth/expectation.
+Representation-specific fields (V3 Lokal target, TE, payload width) are
+deliberately NOT compared — asserting on those would be asserting that V3 *is*
+CE64.
+
+**One reasoning implementation.** The V3 arm computes nothing: it drops the
+in-edge SPO, resolves it back from the target node's facet, rehydrates a
+`CausalEdge64`, and hands it to the *same* `NarsEngine` methods. No V3-native
+NARS exists.
+
+**The falsifier is what makes the zero mean anything.** Equivalence is
+conditional on `resolved node facet SPO == the original edge's SPO`, so the
+harness corrupts ONE facet binding and requires the comparator to go red —
+and requires it to stay LOCALISED (fewer than all legs discordant, and the
+SPO-shaped invariants specifically the ones that fire). Verified: bypassing
+`rehydrate` entirely leaves the primary test green and fails **only** the
+falsifier, which is precisely the vacuity the falsifier exists to catch.
+
+**A disable-run corrected one of my own claims.** The degeneracy guard first
+asserted "`forward_edge` changed the edge on some leg", documented as proving
+the compose tables are not inert. Measured: making every table the identity
+left that assertion **green**, because `forward` also composes the NARS truth.
+The discriminating form is SPO-specific (`spo_of(fwd) != spo_of(input)`), which
+does fail under that disable. The weak form is kept alongside it, with the
+measurement written next to both.
+
+**JC's role, and where it stops.** Every quantity at this seam is exact — `u8`
+palette indices, `u8` truth bytes, a `u64` register — so **there is no naturally
+continuous quantity here for a correlation to characterise, and none was
+manufactured**. `jc::stats::binary_association` summarises the syllogism-presence
+cross-tab: both categories occur across the sweep, so κ is **defined** and equals
+1.0 — a real statement rather than the degenerate constant-column case. Exact
+discordance remains the contract.
+
+---
+
+## 2026-08-20 — E-THE-FILTER-WAS-FILTERING-ON-THE-WRONG-PREDICATE-1
+
+**Status:** FINDING (measured; corrects `E-A-WATCHER-THAT-CANNOT-DISSENT-IS-NOT-A-WATCHER-1`
+and **⊘ STORNOES the headline of** `E-THE-COVERAGE-FIX-IS-REAL-AND-ASYMMETRIC-1`,
+both written earlier the same day on this branch). Origin: codex review on
+PR #971, against the first version of `StyleStrategy::watcher_can_dissent`.
+
+**The claim that was wrong.** Both entries above reported that the consumer
+filter changes which watchers are sampled but changes **no verdict** — 0 of
+5,760 paired configurations, on both channels, κ = 1.000000. The measurement
+was sound. The predicate it measured was not.
+
+`watcher_can_dissent` filtered on `maturity().is_production()`. But
+`Operational` is a **disjunction** — `maturity_operational_implies_an_effect`
+requires *mutates some `ThoughtCtx` field* **OR** *moves confidence* — while
+both dissent channels compare exactly one quantity, `tc.confidence`. Measured
+over the 34 kernels:
+
+| | count |
+|---|---|
+| `Operational` | **31** |
+| can move `delta_conf` | **14** |
+| declare `ThoughtField::Confidence` in `writes()` | **0** |
+
+So the filter removed 3 mute watchers and admitted **17 more that were equally
+mute** — it *preserved the exact budget loss it was introduced to remove*. The
+sharpest cases are `Cas` and `Etd`, both carved to production in this same
+arc: both rewrite `candidates`, both return `0.0` forever.
+
+**The fix, and why it needed a new contract method.** Capability is not
+derivable from anything the trait previously exposed: `writes()` is the census
+of `&mut ThoughtCtx` mutations, and `delta_conf` is applied by `run()`
+*afterwards* — deliberately a separate effect, which is why
+`no_kernel_writes_outside_its_declared_mask` calls `apply` directly. So
+`Tactic::moves_confidence()` was added: non-defaulted like `requires` and
+`maturity`, declared per kernel, and pinned **two-sided** against the probe
+matrix (`moves_confidence_matches_observation` — over- and under-declaring both
+fail) plus a subsumption pin (`moves_confidence` ⇒ `Operational`, checked
+rather than commented, so the consumer can filter on capability alone without a
+redundant maturity conjunct).
+
+**The corrected result inverts the headline.**
+
+| channel | sample changed | mean Jaccard dist | retention | **verdict change** | κ (fired) |
+|---|---|---|---|---|---|
+| same-family | 4080/5760 (70.8%) | 0.5306 | 0.4958 | **1098/5760** | 0.6307 |
+| cross-family | 4224/5760 (73.3%) | 0.5269 | 0.5681 | **384/5760** | 0.8098 |
+
+**And it has a direction, which is the part worth keeping.** On the same-family
+channel `n10 = 0` **exactly**: no configuration that dissented with the filter
+OFF goes silent with it ON. That is the coverage argument turned into a
+measurement — removing only structurally-mute watchers cannot remove an
+objection, because a mute watcher could not have raised one. Dissent rises
+2514 → 3612 (+43.7 %).
+
+Cross-family is *almost* one-way: 366 gained against **18 lost**, and the 18
+are the SAMPLER, not the filter. `peripheral_sample_where` strides `k` picks
+over the eligible list, so shrinking that list changes *which* capable watchers
+are picked; a capable dissenter selected under OFF can fall off the stride
+under ON. Pinned exactly rather than rounded to "one-way".
+
+**Three process findings, each independent of the numbers.**
+
+1. **A green census is not a correct census.** The Stage-2.5 harness measured
+   the filter faithfully and reported zero — because it was pointed at a
+   predicate that could not matter. Nothing in the suite could have caught
+   that; it took a reader who asked what `Operational` actually guarantees.
+   The census *did* earn its keep the moment the predicate changed: it went red
+   on the first run and named the number.
+2. **The report hardcoded its own conclusion.** `render_report` wrote
+   `**Verdict change: 0/{n}.**` as a literal in the format string — so it
+   would have printed zero regardless of what was measured, and did, for one
+   revision after the correction landed. A report that *states* its result
+   instead of deriving it is not a measurement. Now computed from
+   `binary_association`, and the test is what caught it.
+3. **A coarse label can certify something it never looked at.** The
+   cross-family verdict is `(RungLevel, Mechanism)`; the census reduced it to
+   the rung, so a swap to a different mechanism at the same rung would have
+   counted as agreement while the report claimed the mechanism agreed exactly.
+   Both components are now encoded into one nominal label (`cross_label`).
+   (Also codex, PR #971.)
+
+**Bound reporting, made reproducible** (CodeRabbit, PR #971). The zero-event
+Clopper-Pearson limit `1 − α^(1/n)` is now stated with **α = 0.05 (95 %
+one-sided)**, and it is repointed at the surface that IS still zero — the
+same-family `n10`. Each rung of the clustering ladder names its independent
+unit: one `(style, rung, k, tol)` cell (5760, optimistic); one `(style, rung)`
+cell (144, `k`/`tol` as within-cell repeats); one style (36, a 160-cell block
+as one observation); one style cluster (6, styles sharing a `Mechanism` — the
+most conservative unit the design offers).
+
+---
+
+## 2026-08-20 — E-THE-COVERAGE-FIX-IS-REAL-AND-ASYMMETRIC-1
+
+**Status:** ⊘ HEADLINE SUPERSEDED same-day by
+`E-THE-FILTER-WAS-FILTERING-ON-THE-WRONG-PREDICATE-1` — the watcher-sample
+numbers below stand, the `0/5,760` verdict claim does NOT. FINDING (measured; `strategy/stage25_census.rs`, artifacts at
+`docs/probes/stage25-consumer-filter-census.{md,csv}`). Quantifies
+`E-A-WATCHER-THAT-CANNOT-DISSENT-IS-NOT-A-WATCHER-1`, which recorded the same
+result qualitatively and could not say how large it was.
+
+The Stage-2 consumer filter was documented as "a coverage fix, not a behaviour
+change" on the strength of one sentence — *changes which watchers are sampled,
+changed no verdict*. Stage 2.5 measured both halves with `jc::stats` over the
+same exhaustive 5,760-cell paired design, and **the two channels are not the
+same size of effect**:
+
+| channel | configs changed | mean Jaccard distance | mean retention | max sym-diff | verdict change |
+|---|---|---|---|---|---|
+| same-family (`peripheral_dissent`) | 1440/5760 (25.0%) | 0.1265 | 0.9028 | 6 | **0/5760** |
+| cross-family (`cross_family_dissent`) | 2400/5760 (41.7%) | 0.2599 | 0.7993 | 12 | **0/5760** |
+
+**Pooling them was the first thing that had to go.** The pooled mean is 0.1932,
+which fell just under a 0.20 cutoff and produced the single word "weakly" for
+two channels differing by a factor of two. That is a threshold artifact of the
+kind this workspace's own falsifiability rule warns about — the report now
+grades per channel against a stated rule (`≥ 0.20` mean Jaccard distance OR
+`≥ ⅓` of configurations changed ⇒ *materially*), so the word is checkable
+rather than editorial. **Cross-family is material; same-family is weak.**
+
+**Where the effect lives.** Concentrated exactly where the silent watchers do:
+`Surface`/`Shallow` carry all three (`ARE` 19, `ZCF` 24, `HKF` 34), and the
+peak cell replaces **more than half** the sample (cross-family
+`Surface`/`k=3`: Jaccard distance **0.5667**). It falls to exactly 0.0000 at
+`Contextual`/`Analogical` for several budgets. Descriptive η² over the design:
+same-family is dominated by **style** (0.2761) then `k` (0.1987); cross-family
+by **rung** (0.2543) then `k` (0.1795). Style stayed a stratum even though the
+Stage-2 verdict surface is inert to it — and it turned out to be the
+*largest* factor on one channel, which is the reason to keep an inert-looking
+stratum rather than drop it.
+
+**The verdict half, exactly rather than smoothed.** 0 discordant of 5,760 on
+BOTH channels, on the FINE label (the elevation `RungLevel` — which watcher
+objected — not merely fired/not-fired). Cohen's κ = 1.000000 and, importantly,
+**defined**: both outcome categories occur (n11=2514/n00=3246 and
+n11=4290/n00=1470), so the perfect agreement is a real measurement and not the
+degenerate constant-column case `jc::stats::cohen_kappa` refuses to score.
+**McNemar is deliberately NOT reported** — it is a test on the discordant
+cells and there are none, so the statistic is degenerate, not significant.
+
+**The bound is a ladder, not a number.** With zero events the exact
+one-sided Clopper-Pearson limit is `1 − α^(1/n)`; the 5,760 rows are repeated
+measures (one style contributes 160), so quoting `5.2e-4` would assume an
+independence the design does not have. Reported at every clustering
+assumption — cell `5.2e-4` · style×rung `2.1e-2` · style `8.0e-2` · cluster
+`3.9e-1` — with the instruction to quote the one whose independence you are
+willing to defend.
+
+**A methodological note that generalises past this measurement.** No
+inferential test is run over the census, and the report says so in its own
+header: the enumeration is exhaustive and deterministic, so there is no
+sampling distribution for a p-value to describe. `jc`'s `t_test_*` /
+`anova_one_way` p-values are therefore not reported; what IS used is
+cross-tabulation, variance decomposition, and rank association — the things a
+census can honestly support. The one exception is the zero-event bound, which
+is a statement about an unobserved population and is exactly where inference
+belongs.
+
+Also recorded: `multiple_r_squared`'s joint figure is **smaller** than the
+largest single η² on one channel (0.0545 vs 0.2761), and that is not a
+contradiction — it fits the factors as LINEAR predictors over integer codes
+while η² groups them nominally, so a factor whose effect is non-monotone in
+its code (style, whose code is an enum position) is largely invisible to the
+linear fit. Read as *"how much a linear read of the design explains"*, never
+as a ceiling.
+
+---
+
+## 2026-08-20 — E-THE-AUDIT-GATE-WAS-PINNING-THE-BUG-1
+
+**Status:** FINDING (measured; `examples/recipe_claim_audit.rs`, branch
+`claude/carve-nars-kernels`). Sibling to
+`E-VACUOUS-ASSERTION-IS-THE-HOUSE-STYLE-1` — a *new* failure shape, not a
+restatement.
+
+Four of the 34 NARS recipe kernels were carved from non-production to
+production (CAS 8, ETD 22, ICR 31, SDD 32). The moment they were, the repo's
+own census example went **RED** — and the gate it failed was `G2 recipe-weak
+set is exactly {CAS,ETD}+{ARE,ZCF,ICR,HKF}`.
+
+**The audit's arms were written to confirm the defect, not to detect it.**
+`8 =>` asserted `unchanged` (candidates, rung and Δconf all untouched) and
+reported *"abstraction level computed then discarded — no observable
+effect"*. That is a correct description of a bug, encoded as an expectation,
+behind an equality gate. Fixing the bug is what breaks the suite.
+
+This is NOT the vacuous-assertion failure (a test that cannot fail). Every
+arm here CAN fail and did. It is the inverse: **an assertion that is real,
+two-sided, and pointed at the wrong side of the finding.** A census that
+pins "the weak set is exactly W" is only a census while W is a measurement;
+the day someone shrinks W, the pin argues against them.
+
+**What generalises.** A test that records a defect must say, in the test, that
+it is recording a defect and what its removal should look like — the
+`f_ord_real_defect_pin_*` convention (`E-…-FALSIFIER`) does exactly this and
+is the shape to copy. The four arms are now re-pinned to the CLAIMED
+POST-CONDITION instead (`realize(c1.candidates == vec![0.0, 1.0] …)`), so a
+regression to compute-then-discard fails them again — the pin now points the
+other way and the equality in G2 was kept deliberately (`n_inert == 0 &&
+n_constant == 3`), so a NEW inert kernel is a review, not an absorption.
+
+**Second, smaller finding in the same arm.** ICR sat in the shared
+`19 | 24 | 31 | 34` "input-independent" arm, which varies only `candidates`.
+ICR now reads `free_energy`, which that probe never varies — so it would have
+reported CONSTANT forever while the kernel discriminated. *The fixture's
+shape is part of the coverage*, again, and this time on a probe rather than a
+test.
+
+---
+
+## 2026-08-20 — E-A-WATCHER-THAT-CANNOT-DISSENT-IS-NOT-A-WATCHER-1
+
+**Status:** ⊘ CORRECTED same-day by
+`E-THE-FILTER-WAS-FILTERING-ON-THE-WRONG-PREDICATE-1` — the MECHANISM below is
+right and is why the arc exists; the "measured null" is an artifact of
+filtering on the wrong predicate and is retracted. FINDING for the mechanism;
+~~**MEASURED NULL** for its present effect~~. Both halves recorded, because the second is what stops the first
+being overclaimed.
+
+`StyleStrategy::{peripheral_dissent, cross_family_dissent}` sample `k`
+peripheral tactics as observers and elevate the rung if one of them moves the
+score. Their eligibility predicate filtered on `Mechanism` only. But a
+`Demonstration` kernel lands **no effect by construction** — enforced, in the
+contract crate, by `non_operational_kernels_land_no_effect` — so sampling one
+spends a `k` slot on an observer that *structurally cannot dissent*, and its
+guaranteed silence is then counted as agreement.
+
+That is `E-ANTI-EIGENVALUE-MACHINERY-CAN-ITSELF-BECOME-THE-EIGENVALUE-1`
+inverted. The can-fire / can-stay-silent pair asks whether a guard
+discriminates; this asks something prior — **whether the instrument is
+connected at all**. A watchdog that can never bark reports the same silence
+as one with nothing to bark at, and only the first is a lie.
+
+Measured periphery before the fix: `Surface`/`Shallow` carry 3 silent
+watchers of 30 (ARE 19, ZCF 24, HKF 34); `Contextual`/`Analogical` carry 1 of
+23 and 1 of 10.
+
+**The null, stated plainly.** Adding the maturity clause visibly changes WHICH
+watchers are sampled (the eligible list shrinks, so the stride moves — e.g.
+`Surface`/`StructuralDivergence`/same/`k=8` goes `[4,6,9,13,23,28,31,34]` →
+`[4,6,9,13,23,28,31]`), but across the full **5,760-cell** sweep of
+style × rung × `k` ∈ {1,2,3,4,8} × `tol` ∈ {0, .001, .005, .01, .02, .05, .1,
+.2} it changed **no verdict on either channel**. It is a COVERAGE fix, not a
+behaviour change, and it is documented at the call site as exactly that.
+
+**Why the null is not a reason to drop it, and how it is kept falsifiable.**
+The channel is emphatically not inert — suppressing the watcher run outright
+moves **4,830 of those same 5,760 cells** — so the instrument matters; what
+does not currently matter is *which* of the surviving instruments is picked.
+A guard with no falsifier would be the anti-pattern, so the falsifier was
+written at the level the change actually operates: every watcher the shipped
+predicate samples can dissent, **plus** the anti-vacuity half proving the
+mechanism clause alone would have sampled one that cannot. Both halves are
+disable-verified red.
+
+**A structural note worth keeping.** The reason the identity of the watcher
+does not move the verdict is that `|tc.confidence − admitted|` is dominated by
+a term independent of the watcher: `tc` runs the admitted set *and* the
+watcher, while `admitted` comes from `reliability_at`, so any admitted-set
+effect cancels and any constant offset between the two paths crosses `tol`
+regardless of who observes. That is worth measuring before anyone tunes `tol`
+against this channel — recorded here rather than acted on, since it is
+outside this PR's scope.
+
+---
+
 ## 2026-08-19 — E-THE-OU-COLUMN-EXISTS-AND-NOTHING-WRITES-IT-1
 
 **Status:** FINDING (six-agent read-only sweep across lance-graph, ndarray,

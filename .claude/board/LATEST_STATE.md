@@ -1,3 +1,374 @@
+## 2026-08-20 — branch `claude/carve-nars-kernels` — CE64 ⇄ V3 conversion losslessness (Stage-3 handoff gate)
+
+### Current Contract Inventory — 8 new read accessors on `CausalEdgeV3`, no layout change
+
+- **`CausalEdgeV3`** (`crates/causal-edge/src/edge_v3.rs`) — still exactly 12
+  bytes (`const _` size assert unchanged); **two previously-dormant reserved
+  bytes are now allocated**:
+  - `[8]` = `w_slot(6 low) | truth/topology RAW(2 high)`
+  - `[9]` = `spare/ReasoningBand RAW(3 low) | reserved(5 high)`
+  - `[10..12]` still reserved (pinned by a test that asserts they stay zero).
+- **New read accessors** (read-only; no new setters, per the scope fence):
+  `frequency` · `confidence` · `causal_mask` · `direction` ·
+  `inference_mantissa` · `plasticity` · `w_slot` · `truth_raw` · `spare_raw`.
+- **`rehydrate` carries the RAW mantissa.** It no longer routes through
+  `InferenceType::from_mantissa → pack → to_mantissa` (a lossy compatibility
+  projection that rewrote 8 of 16 states, `0 → +1` among them). The
+  `InferenceType` argument to `pack` is now an explicitly-labelled throwaway
+  placeholder, overwritten by `set_inference_mantissa`.
+- **No CE64 layout touch, no `ENVELOPE_LAYOUT_VERSION` bump, no new type, no
+  `ThoughtCtx` wiring, no Stage-3 semantics.**
+
+### The conversion contract, now pinned
+
+`CausalEdge64 → from_v1 → rehydrate(same resolved SPO)` is **bit-identical**,
+asserted as whole-register equality over 6 varied non-zero edges (all 4 truth
+ordinals, `w_slot` at both ends of its 6 bits, spare across its 3, mantissa on
+both signs). Under the v2 layout the 64 bits are fully partitioned, so field
+parity *is* bit parity — and the whole-register assertion is what would catch a
+field a future session forgets to enumerate.
+
+Two exclusions, both principled:
+
+| excluded | why |
+|---|---|
+| the 24-bit in-edge SPO | intentionally deduplicated into the target node's CAM-PQ facet; resupply it and the round trip is exact |
+| the deprecated v2 `temporal` | not valid CE64-v2 state (bits 52..63 are the reclaim zone). NOT mapped into V3 TE — TE stays an independent producer-set signed chain offset |
+
+`w_slot` / truth / spare are preserved as **RAW ORDINALS**: ordinal `01`
+crossing means "ordinal 01 preserved", never "`IndirectKnown` is now
+source-authoritative".
+
+### Gates
+
+- `causal-edge`: **72/72** under the default v2 layout, **38/38** under
+  `--no-default-features` (v1). 11 tests in `edge_v3`, of which 7 are new.
+- **5 disable-runs, each verified red-then-green** — the old lossy mantissa
+  path (3 tests red), and each of the `w_slot` / truth / spare / `from_v1`
+  tail carries individually.
+- `cargo fmt --check` and `cargo clippy -D warnings`: **zero hits in
+  `edge_v3.rs`** in both feature states. (The crate is workspace-EXCLUDED, so
+  CI never lints it; 7 pre-existing clippy errors in `edge.rs`/`tables.rs` are
+  untouched and now recorded in `TECH_DEBT.md`.)
+- **Requirement 4 — the Stage-2.6 planner parity harness is untouched and
+  green** (`cache::stage26_v3_parity`, 4 passed / 1 `#[ignore]`d generator).
+  Both harnesses are needed and neither subsumes the other: the planner leg
+  only ever carries `InferenceType::Deduction` (mantissa `+1` — a *surviving*
+  state), so it was structurally blind to the mantissa defect. See
+  `E-THE-COMPAT-ENUM-WAS-EATING-HALF-THE-REGISTER-1`.
+- Downstream consumer `cognitive-shader-driver::edge_v3_compare`: **3/3**.
+
+---
+
+## 2026-08-20 — branch `claude/carve-nars-kernels` — Stage 2.6a: V3 representation invariance on the planner's REAL CE64 leg (measurement only)
+
+### Current Contract Inventory — no new types; one `#[cfg(test)]` census
+
+- **`cache::stage26_v3_parity`** — `#[cfg(test)]` sibling under `cache/`,
+  compiled out of every non-test build. Needs no visibility widening: every
+  symbol it uses (`NarsEngine`, `SpoHead`, `SpoDistances`, `CausalEdge64`,
+  `CausalEdgeV3`) is already public. 4 gates + 1 `#[ignore]`d artifact
+  generator.
+- **No production code changed.** No second reasoning engine, no V3-native
+  NARS, no CE64 layout touch, no `ThoughtCtx` wiring.
+
+### Scope correction, operator-ratified
+
+The original Stage-2.6 brief assumed `CE64 → recipe/runbook/planner`. **That
+arrow does not exist** — see `E-THE-RECIPE-SURFACE-IS-CAUSALLY-BLIND-1` for the
+three checks. Building a V3 entrance there would have produced
+`discordance = 0` for a trivial reason. The real uncovered leg is the planner's
+`cache/nars_engine.rs`, and that is what this covers.
+
+| surface | V3 invariance |
+|---|---|
+| `causal-edge` own `syllogize` | ✅ pre-existing |
+| `cognitive-shader-driver` emission path | ✅ `edge_v3_compare` |
+| **planner `cache/nars_engine.rs`** | ✅ **this** |
+
+### Result
+
+**Planner V3 representation discordance = 0**, by exact equality over 13
+invariants per leg (rehydrated CE64 · SPO after resolution · NARS
+frequency/confidence · causal mask · inference class · `SpoHead` round-trip ·
+`forward_edge` conclusion · that conclusion's `SpoHead` · `syllogize`
+conclusion edge · truth frequency/confidence · expectation). Representation-
+specific fields (V3 Lokal target, TE, payload width) deliberately excluded.
+
+The sweep spans every `inference` discriminant `to_causal_edge` maps — including
+the two Pearl-rung translations (local `7`→`Intervention`, `8`→`Counterfactual`)
+and the lossy `5 | 6`→`Synthesis` fold, which is exactly where a round-trip
+could diverge — × every 3-bit pearl mask × truth rails and midpoint × both
+palette rails. `temporal` is swept NON-zero on purpose: `to_causal_edge` passes
+it to `pack` where the v2 layout makes the write a no-op, so if that ever stops
+being a no-op the V3 arm (whose `rehydrate` packs `0`) diverges and this harness
+says so instead of the change landing silently.
+
+### Falsifiers — three disable-runs, all red-then-green
+
+| assertion | disable | observed |
+|---|---|---|
+| resolution-conditional equivalence | corruption made a no-op | falsifier FAILS |
+| the V3 arm actually goes through V3 | bypass `rehydrate`, use the direct edge | primary stays green, **falsifier FAILS** — which is exactly the vacuity it exists to catch |
+| the compose tables are not inert | make every table the identity | degeneracy guard FAILS *(only after strengthening — see below)* |
+
+**A disable-run corrected one of my own claims.** The degeneracy guard first
+asserted "`forward_edge` changed the edge on some leg" and documented that as
+proving the tables live. Measured: identity tables left it **green**, because
+`forward` also composes the NARS truth. The discriminating form is SPO-specific
+(`spo_of(fwd) != spo_of(input)`); both are kept, with the measurement written
+next to them.
+
+### JC's role, and where it stops
+
+Every quantity at this seam is exact (`u8` indices, `u8` truth bytes, a `u64`
+register), so **no naturally continuous quantity exists here for a correlation
+to characterise and none was manufactured**. `binary_association` summarises the
+syllogism-presence cross-tab — both categories occur, κ **defined** and 1.0.
+Exact discordance is the contract.
+
+### Artifact
+
+`docs/probes/stage26-v3-planner-parity-discordance.csv` — one row per
+discordant invariant. **Header-only is the result**, and it is the shape that
+stays useful the day something diverges.
+
+### Recorded, not patched (Stage 2.6b)
+
+The recipe/runbook surface is causally blind; the 17 Operational-but-mute
+kernels are the output-side twin of the same projection gap. Both are Stage-3
+wiring questions — `E-THE-RECIPE-SURFACE-IS-CAUSALLY-BLIND-1` and
+`TD-THOUGHTCTX-IS-A-LOSSY-PROJECTION`. The 3 Demonstrations (ARE/ZCF/HKF) stay
+honest Demonstrations; their blocker is a genuine substrate deliverable.
+
+### Gates
+
+`lance-graph-contract` 1171/1171 · `lance-graph-planner` 368/368 + 2 ignored ·
+fmt clean · clippy `-D warnings` clean on both.
+
+## 2026-08-20 — branch `claude/carve-nars-kernels` — codex + CodeRabbit review corrections: the consumer filter was filtering on the wrong predicate
+
+### Current Contract Inventory — 1 new trait method (`crates/lance-graph-contract/src/recipe_kernels.rs`)
+
+- **`Tactic::moves_confidence(&self) -> bool`** — non-defaulted, like
+  `requires` and `maturity`; 34 per-kernel declarations. Answers the question
+  the dissent channels actually ask, which **nothing on the trait previously
+  exposed**: `writes()` is the census of `&mut ThoughtCtx` mutations, while
+  `delta_conf` is applied by `run()` afterwards and is deliberately a separate
+  effect. Measured: **31 kernels are `Operational`, only 14 can move
+  `delta_conf`, and 0 declare `ThoughtField::Confidence` in `writes()`.**
+- Pinned two-sided by `moves_confidence_matches_observation` (over- and
+  under-declaring both fail against the probe matrix) and by
+  `moves_confidence_is_strictly_stronger_than_production` (the implication is
+  checked, and so is the strictness — 14 < 31 — so a future reader cannot
+  conclude the two predicates are interchangeable).
+- `maturity_operational_implies_an_effect` now reads the DECLARATION rather
+  than re-deriving it; re-deriving would let the test pass against a lie.
+
+### The consumer predicate is corrected — and the Stage-2.5 headline inverts
+
+`StyleStrategy::watcher_can_dissent` filtered on `maturity().is_production()`.
+`Operational` is a disjunction (*mutates a field* OR *moves confidence*) while
+both channels compare only `tc.confidence`, so the filter **removed 3 mute
+watchers and admitted 17 more** — preserving the exact budget loss it was
+introduced to remove. `Cas` and `Etd`, both carved to production in this same
+arc, are the sharp cases: both rewrite `candidates`, both return `0.0` forever.
+
+| channel | sample changed | verdict change | direction | κ (fired) |
+|---|---|---|---|---|
+| same-family | 4080/5760 (70.8 %) | **1098**/5760 | 1098 gained, **0 lost** | 0.6307 |
+| cross-family | 4224/5760 (73.3 %) | **384**/5760 | 366 gained, 18 lost | 0.8098 |
+
+`n10 = 0` on same-family is the coverage argument as a measurement: removing
+only mute watchers cannot remove an objection. The 18 on cross-family are the
+strided sampler, not the filter. Full record:
+`E-THE-FILTER-WAS-FILTERING-ON-THE-WRONG-PREDICATE-1`.
+
+### Review findings addressed (7 total, all valid)
+
+**codex (2 × P2)** — the predicate above; and the cross-family verdict label
+reduced `(RungLevel, Mechanism)` to the rung, so a mechanism swap at the same
+rung would have counted as agreement while the report claimed the mechanism
+agreed. Both components now encode into one nominal label (`cross_label`).
+
+**CodeRabbit (5 × minor)** — α and the per-rung independent unit now stated on
+the Clopper-Pearson ladder; the "byte-identical" wording for `run()` replaced
+with behavioural compatibility; the census chunk guard now asserts `rung`
+alongside `style_idx` and `k` (the push order is style → rung → k → tol, so
+two of three checks could pass on a broken chunking assumption); the report
+header's blockquote continuations fixed (source indentation after `\n` turned
+them into an indented code block); the `mean |Δcount|` header cell's pipes
+escaped (7 cells against a 6-cell rule).
+
+### Found while fixing the above, and worth its own line
+
+`render_report` wrote **`Verdict change: 0/{n}` as a hardcoded literal** — it
+would have printed zero regardless of the measurement, and did for one revision
+after the predicate was corrected. Now computed from `binary_association`; the
+re-pinned headline test is what caught it.
+
+### Artifacts
+
+`stage25-consumer-filter-verdict-discordance.csv` was header-only and is now
+**1,482 rows / 57 KB** — the file whose emptiness was the result now carries
+the flips, which is exactly the shape it was built for.
+
+### Gates
+
+`lance-graph-contract` 1171/1171 · `lance-graph-planner` 364/364 + 1 ignored ·
+fmt clean · clippy `-D warnings` clean on both.
+
+## 2026-08-20 — branch `claude/carve-nars-kernels` — Stage 2.5: the consumer-filter census (measurement only, no semantic change)
+
+### Current Contract Inventory — no new types; ONE behaviour-preserving extraction + a `#[cfg(test)]` instrument
+
+- **`StyleStrategy::dissent_over(style, ctx, rung, tol, admitted, watchers)`**
+  (private) — the shared body of both dissent channels, extracted verbatim.
+  Takes the ALREADY-SAMPLED watchers rather than the predicate, and returns the
+  objecting `&'static Recipe` rather than either channel's return shape, so a
+  caller holding a differently-filtered sample exercises the **shipped** verdict
+  body instead of a reimplementation — **without production growing a probe
+  knob**. `peripheral_dissent` / `cross_family_dissent` are now two `.map()`s
+  over it.
+  **Proven behaviour-preserving, not asserted:** the 22 pre-existing
+  `style_strategy` tests pass unchanged, and the full 5,760-cell verdict
+  signature is **byte-identical** pre- and post-extraction (0/5760 differences).
+- **`strategy::stage25_census`** — `#[cfg(test)]` child module of
+  `style_strategy` (a CHILD, so it reaches `dissent_over` / `watcher_can_dissent`
+  without widening either to `pub(crate)` for an instrument). Compiled out of
+  every non-test build. 5 gates + 1 `#[ignore]`d artifact generator.
+- **`jc` dev-dependency: already present**, added for D-BLW-3. The census is its
+  SECOND consumer under the identical standing constraint — dev-only, one
+  direction, statistics consume observations and nothing feeds back. The comment
+  in `Cargo.toml` now names both consumers; no new edge was created.
+
+### Artifacts (`docs/probes/`)
+
+- `stage25-consumer-filter-census.md` — the human-readable report (A watcher
+  effect · B verdict effect · C pre-verdict numeric · D stratification ·
+  headline, graded per channel against a stated rule).
+- `stage25-consumer-filter-census.csv` — 1,440 rows, one per
+  style × rung × k × channel. **Collapsed over `tol` losslessly**, licensed by
+  the pinned invariant that the watcher sample cannot depend on `tol`
+  (`stage25_tolerance_cannot_move_the_watcher_sample`). The un-collapsed form
+  was 11,520 rows / ~1 MB with 7 of every 8 rows byte-identical — not "compact"
+  in any sense the brief meant.
+- `stage25-consumer-filter-verdict-discordance.csv` — one row per verdict flip.
+  **Header-only IS the result**, and it is the shape that stays useful if a
+  future run flips something, where an all-concordant dump would bury the one
+  row that mattered.
+
+### Headline
+
+Same-family **weakly** (25.0% of configurations, mean Jaccard distance 0.1265,
+retention 0.9028) and cross-family **materially** (41.7%, 0.2599, 0.7993) change
+watcher sampling; **0/5,760 paired configurations changed verdict** on either
+channel, on the fine elevation-target label, κ = 1.000000 and defined. Full
+numbers + the clustering ladder for the zero-event bound:
+`E-THE-COVERAGE-FIX-IS-REAL-AND-ASYMMETRIC-1`.
+
+### Guardrails held (each checkable)
+
+Stage 2.5 changed **no** Stage-2 verdict (0/5760, measured, not argued) · no
+watcher-selection change · statistics consume observations and never feed back ·
+`jc` is instrumentation, not a semantic dependency (dev-only, and the edge
+pre-existed) · **no pre-verdict score was added** to obtain part C — the
+`|Δconfidence|` margin stays local to `dissent_over`, and what was measured
+instead is the finer outcome the harness already exposes · no inferential test
+manufactured over an exhaustive deterministic census · style preserved as a
+stratum despite being verdict-inert — and it proved to be the largest factor on
+one channel.
+
+## 2026-08-20 — branch `claude/carve-nars-kernels` — the NARS recipe-kernel carve: a maturity gate + four kernels moved from placeholder to production
+
+### Current Contract Inventory — 2 new types + 1 new field + 3 new policy pins (`crates/lance-graph-contract/src/recipe_kernels.rs`)
+
+- **`MaturityPolicy { Any, ProductionOnly }`** (`Default = Any`) — which
+  [`KernelMaturity`] levels a dispatch will let RUN. `ProductionOnly` is the
+  policy a dispatch that spends a BUDGET wants: a `Demonstration` lands no
+  effect by construction, so a channel sampling `k` kernels and asking whether
+  any moved the answer must not spend slots on kernels that structurally
+  cannot.
+- **`SkipReason { GatedOff, NonProduction(KernelMaturity) }`** — carried on the
+  new **`Outcome::skip: Option<SkipReason>`** field (always `None` when
+  `fired`). `fired: bool` alone conflated "the gate said no on this context"
+  with "the dispatch refuses non-production kernels"; a caller that cannot
+  tell them apart cannot report either honestly.
+- **`Tactic::run_with(&mut ThoughtCtx, MaturityPolicy) -> Outcome`** — the
+  policy-carrying sibling. **`run()` is behaviourally unchanged** — it now
+  delegates with `MaturityPolicy::Any`, so its implementation differs while
+  every existing caller's observable result does not (pinned by
+  `run_still_means_any`). The earlier wording here said "byte-identical", which
+  was wrong about the implementation and right only about the behaviour
+  (CodeRabbit, PR #971). The policy is checked BEFORE `gate()` on purpose: a
+  `Gate`-bucket `Demonstration` sitting in `GateState::Flow` would otherwise
+  report `GatedOff` and the refusal would be invisible. A refused kernel never
+  sees `ctx` — not `gate`, not `apply`.
+- **Policy pins (named, documented as pins, not measurements):**
+  `NEUTRAL_SCORE = 0.5` (was an unnamed literal inside `Sdd`),
+  `DISTORTION_WEIGHT = 0.2`, `POLE_SENSITIVITY_WEIGHT = 0.15`.
+
+### Four kernels carved: 27 Operational → 31; 6 Demonstration → 3; 1 Stub → 0
+
+| id | code | was | now | what it does now |
+|---|---|---|---|---|
+| 8 | CAS | Demonstration | Operational | quantizes `candidates` onto the rung's HDR grid (`hdr_level`) — it computed the level and dropped it |
+| 22 | ETD | Demonstration | Operational | splits at the widest adjacent gap, keeps the upper cluster; declines when no gap exceeds `NOISE_FLOOR` — it sorted a CLONE and discarded it |
+| 31 | ICR | **Stub** | Operational | split-pole SENSITIVITY: `\|1 − 2·free_energy\| · confidence`, charged. **Explicitly still NOT a Pearl `do()`** — the doc rewrite is in the same commit and `ISS-PEARL-VOCABULARY-WITHOUT-PEARL-MECHANICS` stands |
+| 32 | SDD | Demonstration | Operational | charges the distortion it already detected, PROPORTIONAL to the deviation, with an empty-field guard — it detected and returned a hardcoded `0.0` |
+
+`ARE(19)` / `ZCF(24)` / `HKF(34)` remain Demonstrations, blocked on ONE shared
+substrate deliverable (see `TECH_DEBT.md`
+`TD-KERNEL-IDENTITY-FINGERPRINT-RAIL`). They are the three the
+`ProductionOnly` policy refuses today, pinned as such.
+
+### Consumer (`lance-graph-planner`)
+
+- **`StyleStrategy::watcher_can_dissent(id)` + `watcher_is_eligible(r, want,
+  same_family)`** — one named predicate both dissent channels sample against,
+  so the falsifier proves the property the channels actually run. Coverage
+  fix; **measured to change no verdict** across a 5,760-cell sweep, and
+  documented at the call site as exactly that (`E-A-WATCHER-THAT-CANNOT-
+  DISSENT-IS-NOT-A-WATCHER-1`).
+
+### Gates
+
+`lance-graph-contract` 1169/1169 + all 4 examples green (`recipe_claim_audit`
+G1–G4 ALL GREEN after re-pinning; `sound` 30 → 31);
+`lance-graph-planner` 359/359 + 22/22 `style_strategy`; `cargo fmt --check`
+clean; `cargo clippy --all-targets --no-deps -D warnings` clean on both.
+**Nine disable-runs, every one red-then-green** — policy ignored (3 tests),
+policy checked after the gate, CAS rung ignored, ETD uniform guard removed,
+SDD fixed-cliff, SDD empty guard removed, ICR constant charge, plus both
+halves of the consumer falsifier.
+
+### Re-pinned, not silently widened (each with the reason in the test)
+
+`context_blind_kernels_are_input_invariant` (4 → 3, ICR is no longer blind);
+`maturity_discriminates_and_is_not_all_one_label` (`stub == 1` → `== 0`, plus
+a new `demonstration == 3`); `requires_matches_apply_reads` +
+`requires_masks_are_varied_not_a_constant_stub` (`empty == 4` → `== 3`);
+`icr_builds_counterfactual_via_xor_self_inverse` → `icr_charges_pole_
+dependence_and_is_silent_at_the_midpoint`; the `recipe_claim_audit` arms for
+8 / 22 / 31 and its `G2`.
+
+## 2026-08-20 — lance-graph #970 (MERGED, `781c3b9`) — board hygiene owed and now paid
+
+### Current Contract Inventory — 2 additive lenses over CE64 bits 59..63 (`crates/causal-edge/src/{layout,edge}.rs`)
+
+- **`CausalTopology { Direct, IndirectKnownIntermediates, IndirectUnknownIntermediates, Unknown }`**
+  over bits **59..60** — ordinal-compatible with the existing `TrustTexture`
+  band that already occupies those bits (`TRUTH_SHIFT`), so it is a second
+  READING of stored bits, never a relocation. No layout version, no CE64 v3.
+- **`ReasoningBand`** (8 levels, `Surface … Transcendent`) over bits
+  **61..63** — the previously-`SPARE_SHIFT` lens.
+- **`CausalEdge64::{topology, reasoning_band, with_topology, with_reasoning_band}`**
+  — consuming builders matching the crate's existing `with_truth` / `with_spare`
+  convention (the brief's `set_*` phrasing was bent to current main, not the
+  reverse).
+- **Wire-format impact: none.** `_LAYOUT_COVERAGE` unchanged; every existing
+  accessor reads the same bits it did before.
+
 ## 2026-08-19 — ARCHITECTURE RESET (operator): DUMB STORAGE × JAVA MECHANICAL API × HHTL EPISTEMIC SPINE — freeze/seal implementation STOPPED
 
 - **PR #968 MERGED** (merge commit 66fec27; operator-merged 14:05Z) — the

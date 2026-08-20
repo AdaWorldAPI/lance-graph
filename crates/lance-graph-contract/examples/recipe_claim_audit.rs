@@ -386,43 +386,55 @@ fn axis_a(id: u8) -> (Realize, String) {
             realize(c.candidates == vec![0.9], "reframed to dominant")
         }
 
-        // ── Compute-then-discard: recipe-side INERT bugs ──
+        // ── Carved out of the compute-then-discard set ──
+        // Both previously computed a result and dropped it on the floor. They now
+        // land it, so the arms check the CLAIMED POST-CONDITION instead of the
+        // absence of one. Re-pinned deliberately: the old arms asserted the bug.
         8 => {
-            // CAS: computes `_level` from rung, then DROPS it — no ctx change, fixed note.
-            let src = ctx(&[0.4, 0.6]);
-            let before = src.clone();
-            let (_, _, dconf, c) = run(8, src);
-            let unchanged =
-                c.candidates == before.candidates && c.rung == before.rung && dconf == 0.0;
-            (
-                if unchanged {
-                    Realize::Inert
-                } else {
-                    Realize::Realizes
-                },
-                "abstraction level computed then discarded — no observable effect".to_string(),
+            // CAS: the rung's HDR level QUANTIZES the field (coarse rung → coarse grid).
+            let mut coarse = ctx(&[0.4, 0.6]);
+            coarse.rung = 1; // level 1 → the field collapses to its poles
+            let (_, _, _, c1) = run(8, coarse);
+            let mut fine = ctx(&[0.4, 0.6]);
+            fine.rung = 9; // level 32 → the detail survives
+            let (_, _, _, c2) = run(8, fine);
+            realize(
+                c1.candidates == vec![0.0, 1.0] && c2.candidates != c1.candidates,
+                "quantized the field to the rung's HDR level",
             )
         }
         22 => {
-            // ETD: sorts a CLONE `v`, never writes back — ctx unchanged, fixed note.
-            let src = ctx(&[0.3, 0.9, 0.1]);
-            let before = src.clone();
-            let (_, _, dconf, c) = run(22, src);
-            let unchanged = c.candidates == before.candidates && dconf == 0.0;
+            // ETD: splits at the widest adjacent gap and KEEPS the upper cluster.
+            let (_, _, _, c) = run(22, ctx(&[0.3, 0.9, 0.1]));
+            realize(
+                c.candidates == vec![0.9],
+                "kept the cluster above the emergent boundary",
+            )
+        }
+        31 => {
+            // ICR: split-pole SENSITIVITY — zero at the midpoint, charged at an
+            // extreme. Carved out of the CONSTANT set below, and it needs its own
+            // arm because that set varies only `candidates`, which ICR does not
+            // read: the old probe would report it input-independent forever.
+            let mut mid = ctx(&[0.5]);
+            mid.free_energy = 0.5;
+            let (_, nm, dm, _) = run(31, mid);
+            let mut skew = ctx(&[0.5]);
+            skew.free_energy = 0.9;
+            let (_, ns, ds, _) = run(31, skew);
             (
-                if unchanged {
-                    Realize::Inert
+                if nm != ns && dm == 0.0 && ds < 0.0 {
+                    Realize::Measures
                 } else {
-                    Realize::Realizes
+                    Realize::Inert
                 },
-                "cluster split computed on a clone, never applied — no observable effect"
-                    .to_string(),
+                format!("{nm}({dm:+.3}) ↔ {ns}({ds:+.3})"),
             )
         }
 
         // ── Exact algebraic identities: correct but INPUT-INDEPENDENT ──
-        19 | 24 | 31 | 34 => {
-            // ARE/ZCF/ICR/HKF: hardcoded u32 constants; output identical for any ctx.
+        19 | 24 | 34 => {
+            // ARE/ZCF/HKF: hardcoded u32 constants; output identical for any ctx.
             let (_, n1, d1, _) = run(id, ctx(&[0.1]));
             let (_, n2, d2, _) = run(id, ctx(&[0.9, 0.9, 0.9]));
             let input_independent = n1 == n2 && (d1 - d2).abs() < 1e-9;
@@ -690,8 +702,13 @@ fn main() {
 
     println!("\n── the operator's question: substrate or recipe? ──");
     println!("  • RECIPE-side weakness is NARROW and named:");
-    println!("      INERT (compute-then-discard bug): CAS(8), ETD(22)");
-    println!("      CONSTANT (input-independent algebra): ARE(19), ZCF(24), ICR(31), HKF(34)");
+    println!("      INERT (compute-then-discard bug): none — CAS(8) and ETD(22) were carved");
+    println!("      CONSTANT (input-independent algebra): ARE(19), ZCF(24), HKF(34)");
+    println!(
+        "      (ICR(31) left this set too: it reads the surprise scale now. Still NOT a Pearl"
+    );
+    println!("       intervention — see the kernel's own doc. The three that remain are blocked");
+    println!("       on an identity-fingerprint rail the kernel substrate does not yet expose.)");
     println!("  • The DOMINANT weakness is SUBSTRATE-side: all 34 measure their claim against a");
     println!("    lightweight scalar proxy, never the real organ named (SPO 2³ / CAM-PQ 4096² /");
     println!(
@@ -713,10 +730,13 @@ fn main() {
     );
     green &= g1;
 
-    // G2: the recipe-side weaknesses are EXACTLY the 6 named ones (2 INERT + 4 CONSTANT).
-    let g2 = n_inert == 2 && n_constant == 4;
+    // G2: the recipe-side weaknesses are EXACTLY the 3 remaining CONSTANT ones.
+    // Re-pinned from `2 INERT + 4 CONSTANT` when CAS/ETD/ICR/SDD were carved.
+    // Deliberately an EQUALITY in both terms: an INERT kernel reappearing, or a
+    // fourth CONSTANT one, should fail here and be reviewed rather than absorbed.
+    let g2 = n_inert == 0 && n_constant == 3;
     println!(
-        "[{}] G2 recipe-weak set is exactly {{CAS,ETD}}+{{ARE,ZCF,ICR,HKF}}: INERT={}, CONSTANT={}",
+        "[{}] G2 recipe-weak set is exactly {{ARE,ZCF,HKF}}: INERT={}, CONSTANT={}",
         pf(g2),
         n_inert,
         n_constant

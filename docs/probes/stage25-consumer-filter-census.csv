@@ -1,0 +1,1441 @@
+style_idx,style,cluster,rung,k,channel,n_off,n_on,count_delta,intersection,sym_diff,added,removed,jaccard,jaccard_distance,retention,ids_off,ids_on
+0,Logical,Analytical,Surface,1,same,1,1,0,1,0,0,0,1.000000,0.000000,1.000000,3,3
+0,Logical,Analytical,Surface,1,cross,1,1,0,1,0,0,0,1.000000,0.000000,1.000000,1,1
+0,Logical,Analytical,Surface,2,same,2,2,0,1,2,1,1,0.333333,0.666667,0.500000,3 11,3 10
+0,Logical,Analytical,Surface,2,cross,2,2,0,1,2,1,1,0.333333,0.666667,0.500000,1 22,1 30
+0,Logical,Analytical,Surface,3,same,3,3,0,2,2,1,1,0.500000,0.500000,0.666667,3 10 17,3 7 10
+0,Logical,Analytical,Surface,3,cross,3,3,0,1,4,2,2,0.200000,0.800000,0.333333,1 15 27,1 28 31
+0,Logical,Analytical,Surface,4,same,4,4,0,4,0,0,0,1.000000,0.000000,1.000000,3 7 10 11,3 7 10 11
+0,Logical,Analytical,Surface,4,cross,4,4,0,2,4,2,2,0.333333,0.666667,0.500000,1 13 22 29,1 13 28 30
+0,Logical,Analytical,Surface,8,same,6,5,-1,5,1,0,1,0.833333,0.166667,0.833333,3 7 10 11 17 21,3 7 10 11 21
+0,Logical,Analytical,Surface,8,cross,8,6,-2,3,8,3,5,0.272727,0.727273,0.375000,1 6 13 16 22 25 29 32,1 13 28 30 31 32
+0,Logical,Analytical,Shallow,1,same,1,1,0,1,0,0,0,1.000000,0.000000,1.000000,3,3
+0,Logical,Analytical,Shallow,1,cross,1,1,0,1,0,0,0,1.000000,0.000000,1.000000,1,1
+0,Logical,Analytical,Shallow,2,same,2,2,0,1,2,1,1,0.333333,0.666667,0.500000,3 11,3 10
+0,Logical,Analytical,Shallow,2,cross,2,2,0,1,2,1,1,0.333333,0.666667,0.500000,1 22,1 30
+0,Logical,Analytical,Shallow,3,same,3,3,0,2,2,1,1,0.500000,0.500000,0.666667,3 10 17,3 7 10
+0,Logical,Analytical,Shallow,3,cross,3,3,0,1,4,2,2,0.200000,0.800000,0.333333,1 15 27,1 28 31
+0,Logical,Analytical,Shallow,4,same,4,4,0,4,0,0,0,1.000000,0.000000,1.000000,3 7 10 11,3 7 10 11
+0,Logical,Analytical,Shallow,4,cross,4,4,0,2,4,2,2,0.333333,0.666667,0.500000,1 13 22 29,1 13 28 30
+0,Logical,Analytical,Shallow,8,same,6,5,-1,5,1,0,1,0.833333,0.166667,0.833333,3 7 10 11 17 21,3 7 10 11 21
+0,Logical,Analytical,Shallow,8,cross,8,6,-2,3,8,3,5,0.272727,0.727273,0.375000,1 6 13 16 22 25 29 32,1 13 28 30 31 32
+0,Logical,Analytical,Contextual,1,same,1,1,0,1,0,0,0,1.000000,0.000000,1.000000,3,3
+0,Logical,Analytical,Contextual,1,cross,1,1,0,1,0,0,0,1.000000,0.000000,1.000000,1,1
+0,Logical,Analytical,Contextual,2,same,2,2,0,1,2,1,1,0.333333,0.666667,0.500000,3 11,3 10
+0,Logical,Analytical,Contextual,2,cross,2,2,0,1,2,1,1,0.333333,0.666667,0.500000,1 18,1 28
+0,Logical,Analytical,Contextual,3,same,3,3,0,2,2,1,1,0.500000,0.500000,0.666667,3 10 17,3 7 10
+0,Logical,Analytical,Contextual,3,cross,3,3,0,2,2,1,1,0.500000,0.500000,0.666667,1 13 23,1 13 28
+0,Logical,Analytical,Contextual,4,same,4,4,0,4,0,0,0,1.000000,0.000000,1.000000,3 7 10 11,3 7 10 11
+0,Logical,Analytical,Contextual,4,cross,4,4,0,1,6,3,3,0.142857,0.857143,0.250000,1 9 18 29,1 13 28 30
+0,Logical,Analytical,Contextual,8,same,6,5,-1,5,1,0,1,0.833333,0.166667,0.833333,3 7 10 11 17 21,3 7 10 11 21
+0,Logical,Analytical,Contextual,8,cross,8,5,-3,2,9,3,6,0.181818,0.818182,0.250000,1 4 9 15 18 23 29 31,1 13 28 30 31
+0,Logical,Analytical,Analogical,1,same,1,1,0,1,0,0,0,1.000000,0.000000,1.000000,3,3
+0,Logical,Analytical,Analogical,1,cross,1,1,0,0,2,1,1,0.000000,1.000000,0.000000,4,13
+0,Logical,Analytical,Analogical,2,same,2,2,0,2,0,0,0,1.000000,0.000000,1.000000,3 7,3 7
+0,Logical,Analytical,Analogical,2,cross,2,2,0,0,4,2,2,0.000000,1.000000,0.000000,4 23,13 28
+0,Logical,Analytical,Analogical,3,same,2,2,0,2,0,0,0,1.000000,0.000000,1.000000,3 7,3 7
+0,Logical,Analytical,Analogical,3,cross,3,3,0,0,6,3,3,0.000000,1.000000,0.000000,4 9 23,13 28 31
+0,Logical,Analytical,Analogical,4,same,2,2,0,2,0,0,0,1.000000,0.000000,1.000000,3 7,3 7
+0,Logical,Analytical,Analogical,4,cross,4,3,-1,1,5,2,3,0.166667,0.833333,0.250000,4 9 23 31,13 28 31
+0,Logical,Analytical,Analogical,8,same,2,2,0,2,0,0,0,1.000000,0.000000,1.000000,3 7,3 7
+0,Logical,Analytical,Analogical,8,cross,8,3,-5,3,5,0,5,0.375000,0.625000,0.375000,4 6 9 13 23 28 31 34,13 28 31
+1,Analytical,Analytical,Surface,1,same,1,1,0,1,0,0,0,1.000000,0.000000,1.000000,3,3
+1,Analytical,Analytical,Surface,1,cross,1,1,0,1,0,0,0,1.000000,0.000000,1.000000,1,1
+1,Analytical,Analytical,Surface,2,same,2,2,0,1,2,1,1,0.333333,0.666667,0.500000,3 11,3 10
+1,Analytical,Analytical,Surface,2,cross,2,2,0,1,2,1,1,0.333333,0.666667,0.500000,1 22,1 30
+1,Analytical,Analytical,Surface,3,same,3,3,0,2,2,1,1,0.500000,0.500000,0.666667,3 10 17,3 7 10
+1,Analytical,Analytical,Surface,3,cross,3,3,0,1,4,2,2,0.200000,0.800000,0.333333,1 15 27,1 28 31
+1,Analytical,Analytical,Surface,4,same,4,4,0,4,0,0,0,1.000000,0.000000,1.000000,3 7 10 11,3 7 10 11
+1,Analytical,Analytical,Surface,4,cross,4,4,0,2,4,2,2,0.333333,0.666667,0.500000,1 13 22 29,1 13 28 30
+1,Analytical,Analytical,Surface,8,same,6,5,-1,5,1,0,1,0.833333,0.166667,0.833333,3 7 10 11 17 21,3 7 10 11 21
+1,Analytical,Analytical,Surface,8,cross,8,6,-2,3,8,3,5,0.272727,0.727273,0.375000,1 6 13 16 22 25 29 32,1 13 28 30 31 32
+1,Analytical,Analytical,Shallow,1,same,1,1,0,1,0,0,0,1.000000,0.000000,1.000000,3,3
+1,Analytical,Analytical,Shallow,1,cross,1,1,0,1,0,0,0,1.000000,0.000000,1.000000,1,1
+1,Analytical,Analytical,Shallow,2,same,2,2,0,1,2,1,1,0.333333,0.666667,0.500000,3 11,3 10
+1,Analytical,Analytical,Shallow,2,cross,2,2,0,1,2,1,1,0.333333,0.666667,0.500000,1 22,1 30
+1,Analytical,Analytical,Shallow,3,same,3,3,0,2,2,1,1,0.500000,0.500000,0.666667,3 10 17,3 7 10
+1,Analytical,Analytical,Shallow,3,cross,3,3,0,1,4,2,2,0.200000,0.800000,0.333333,1 15 27,1 28 31
+1,Analytical,Analytical,Shallow,4,same,4,4,0,4,0,0,0,1.000000,0.000000,1.000000,3 7 10 11,3 7 10 11
+1,Analytical,Analytical,Shallow,4,cross,4,4,0,2,4,2,2,0.333333,0.666667,0.500000,1 13 22 29,1 13 28 30
+1,Analytical,Analytical,Shallow,8,same,6,5,-1,5,1,0,1,0.833333,0.166667,0.833333,3 7 10 11 17 21,3 7 10 11 21
+1,Analytical,Analytical,Shallow,8,cross,8,6,-2,3,8,3,5,0.272727,0.727273,0.375000,1 6 13 16 22 25 29 32,1 13 28 30 31 32
+1,Analytical,Analytical,Contextual,1,same,1,1,0,1,0,0,0,1.000000,0.000000,1.000000,3,3
+1,Analytical,Analytical,Contextual,1,cross,1,1,0,1,0,0,0,1.000000,0.000000,1.000000,1,1
+1,Analytical,Analytical,Contextual,2,same,2,2,0,1,2,1,1,0.333333,0.666667,0.500000,3 11,3 10
+1,Analytical,Analytical,Contextual,2,cross,2,2,0,1,2,1,1,0.333333,0.666667,0.500000,1 18,1 28
+1,Analytical,Analytical,Contextual,3,same,3,3,0,2,2,1,1,0.500000,0.500000,0.666667,3 10 17,3 7 10
+1,Analytical,Analytical,Contextual,3,cross,3,3,0,2,2,1,1,0.500000,0.500000,0.666667,1 13 23,1 13 28
+1,Analytical,Analytical,Contextual,4,same,4,4,0,4,0,0,0,1.000000,0.000000,1.000000,3 7 10 11,3 7 10 11
+1,Analytical,Analytical,Contextual,4,cross,4,4,0,1,6,3,3,0.142857,0.857143,0.250000,1 9 18 29,1 13 28 30
+1,Analytical,Analytical,Contextual,8,same,6,5,-1,5,1,0,1,0.833333,0.166667,0.833333,3 7 10 11 17 21,3 7 10 11 21
+1,Analytical,Analytical,Contextual,8,cross,8,5,-3,2,9,3,6,0.181818,0.818182,0.250000,1 4 9 15 18 23 29 31,1 13 28 30 31
+1,Analytical,Analytical,Analogical,1,same,1,1,0,1,0,0,0,1.000000,0.000000,1.000000,3,3
+1,Analytical,Analytical,Analogical,1,cross,1,1,0,0,2,1,1,0.000000,1.000000,0.000000,4,13
+1,Analytical,Analytical,Analogical,2,same,2,2,0,2,0,0,0,1.000000,0.000000,1.000000,3 7,3 7
+1,Analytical,Analytical,Analogical,2,cross,2,2,0,0,4,2,2,0.000000,1.000000,0.000000,4 23,13 28
+1,Analytical,Analytical,Analogical,3,same,2,2,0,2,0,0,0,1.000000,0.000000,1.000000,3 7,3 7
+1,Analytical,Analytical,Analogical,3,cross,3,3,0,0,6,3,3,0.000000,1.000000,0.000000,4 9 23,13 28 31
+1,Analytical,Analytical,Analogical,4,same,2,2,0,2,0,0,0,1.000000,0.000000,1.000000,3 7,3 7
+1,Analytical,Analytical,Analogical,4,cross,4,3,-1,1,5,2,3,0.166667,0.833333,0.250000,4 9 23 31,13 28 31
+1,Analytical,Analytical,Analogical,8,same,2,2,0,2,0,0,0,1.000000,0.000000,1.000000,3 7,3 7
+1,Analytical,Analytical,Analogical,8,cross,8,3,-5,3,5,0,5,0.375000,0.625000,0.375000,4 6 9 13 23 28 31 34,13 28 31
+2,Critical,Analytical,Surface,1,same,1,1,0,1,0,0,0,1.000000,0.000000,1.000000,3,3
+2,Critical,Analytical,Surface,1,cross,1,1,0,1,0,0,0,1.000000,0.000000,1.000000,1,1
+2,Critical,Analytical,Surface,2,same,2,2,0,1,2,1,1,0.333333,0.666667,0.500000,3 11,3 10
+2,Critical,Analytical,Surface,2,cross,2,2,0,1,2,1,1,0.333333,0.666667,0.500000,1 22,1 30
+2,Critical,Analytical,Surface,3,same,3,3,0,2,2,1,1,0.500000,0.500000,0.666667,3 10 17,3 7 10
+2,Critical,Analytical,Surface,3,cross,3,3,0,1,4,2,2,0.200000,0.800000,0.333333,1 15 27,1 28 31
+2,Critical,Analytical,Surface,4,same,4,4,0,4,0,0,0,1.000000,0.000000,1.000000,3 7 10 11,3 7 10 11
+2,Critical,Analytical,Surface,4,cross,4,4,0,2,4,2,2,0.333333,0.666667,0.500000,1 13 22 29,1 13 28 30
+2,Critical,Analytical,Surface,8,same,6,5,-1,5,1,0,1,0.833333,0.166667,0.833333,3 7 10 11 17 21,3 7 10 11 21
+2,Critical,Analytical,Surface,8,cross,8,6,-2,3,8,3,5,0.272727,0.727273,0.375000,1 6 13 16 22 25 29 32,1 13 28 30 31 32
+2,Critical,Analytical,Shallow,1,same,1,1,0,1,0,0,0,1.000000,0.000000,1.000000,3,3
+2,Critical,Analytical,Shallow,1,cross,1,1,0,1,0,0,0,1.000000,0.000000,1.000000,1,1
+2,Critical,Analytical,Shallow,2,same,2,2,0,1,2,1,1,0.333333,0.666667,0.500000,3 11,3 10
+2,Critical,Analytical,Shallow,2,cross,2,2,0,1,2,1,1,0.333333,0.666667,0.500000,1 22,1 30
+2,Critical,Analytical,Shallow,3,same,3,3,0,2,2,1,1,0.500000,0.500000,0.666667,3 10 17,3 7 10
+2,Critical,Analytical,Shallow,3,cross,3,3,0,1,4,2,2,0.200000,0.800000,0.333333,1 15 27,1 28 31
+2,Critical,Analytical,Shallow,4,same,4,4,0,4,0,0,0,1.000000,0.000000,1.000000,3 7 10 11,3 7 10 11
+2,Critical,Analytical,Shallow,4,cross,4,4,0,2,4,2,2,0.333333,0.666667,0.500000,1 13 22 29,1 13 28 30
+2,Critical,Analytical,Shallow,8,same,6,5,-1,5,1,0,1,0.833333,0.166667,0.833333,3 7 10 11 17 21,3 7 10 11 21
+2,Critical,Analytical,Shallow,8,cross,8,6,-2,3,8,3,5,0.272727,0.727273,0.375000,1 6 13 16 22 25 29 32,1 13 28 30 31 32
+2,Critical,Analytical,Contextual,1,same,1,1,0,1,0,0,0,1.000000,0.000000,1.000000,3,3
+2,Critical,Analytical,Contextual,1,cross,1,1,0,1,0,0,0,1.000000,0.000000,1.000000,1,1
+2,Critical,Analytical,Contextual,2,same,2,2,0,1,2,1,1,0.333333,0.666667,0.500000,3 11,3 10
+2,Critical,Analytical,Contextual,2,cross,2,2,0,1,2,1,1,0.333333,0.666667,0.500000,1 18,1 28
+2,Critical,Analytical,Contextual,3,same,3,3,0,2,2,1,1,0.500000,0.500000,0.666667,3 10 17,3 7 10
+2,Critical,Analytical,Contextual,3,cross,3,3,0,2,2,1,1,0.500000,0.500000,0.666667,1 13 23,1 13 28
+2,Critical,Analytical,Contextual,4,same,4,4,0,4,0,0,0,1.000000,0.000000,1.000000,3 7 10 11,3 7 10 11
+2,Critical,Analytical,Contextual,4,cross,4,4,0,1,6,3,3,0.142857,0.857143,0.250000,1 9 18 29,1 13 28 30
+2,Critical,Analytical,Contextual,8,same,6,5,-1,5,1,0,1,0.833333,0.166667,0.833333,3 7 10 11 17 21,3 7 10 11 21
+2,Critical,Analytical,Contextual,8,cross,8,5,-3,2,9,3,6,0.181818,0.818182,0.250000,1 4 9 15 18 23 29 31,1 13 28 30 31
+2,Critical,Analytical,Analogical,1,same,1,1,0,1,0,0,0,1.000000,0.000000,1.000000,3,3
+2,Critical,Analytical,Analogical,1,cross,1,1,0,0,2,1,1,0.000000,1.000000,0.000000,4,13
+2,Critical,Analytical,Analogical,2,same,2,2,0,2,0,0,0,1.000000,0.000000,1.000000,3 7,3 7
+2,Critical,Analytical,Analogical,2,cross,2,2,0,0,4,2,2,0.000000,1.000000,0.000000,4 23,13 28
+2,Critical,Analytical,Analogical,3,same,2,2,0,2,0,0,0,1.000000,0.000000,1.000000,3 7,3 7
+2,Critical,Analytical,Analogical,3,cross,3,3,0,0,6,3,3,0.000000,1.000000,0.000000,4 9 23,13 28 31
+2,Critical,Analytical,Analogical,4,same,2,2,0,2,0,0,0,1.000000,0.000000,1.000000,3 7,3 7
+2,Critical,Analytical,Analogical,4,cross,4,3,-1,1,5,2,3,0.166667,0.833333,0.250000,4 9 23 31,13 28 31
+2,Critical,Analytical,Analogical,8,same,2,2,0,2,0,0,0,1.000000,0.000000,1.000000,3 7,3 7
+2,Critical,Analytical,Analogical,8,cross,8,3,-5,3,5,0,5,0.375000,0.625000,0.375000,4 6 9 13 23 28 31 34,13 28 31
+3,Systematic,Analytical,Surface,1,same,1,1,0,1,0,0,0,1.000000,0.000000,1.000000,3,3
+3,Systematic,Analytical,Surface,1,cross,1,1,0,1,0,0,0,1.000000,0.000000,1.000000,1,1
+3,Systematic,Analytical,Surface,2,same,2,2,0,1,2,1,1,0.333333,0.666667,0.500000,3 11,3 10
+3,Systematic,Analytical,Surface,2,cross,2,2,0,1,2,1,1,0.333333,0.666667,0.500000,1 22,1 30
+3,Systematic,Analytical,Surface,3,same,3,3,0,2,2,1,1,0.500000,0.500000,0.666667,3 10 17,3 7 10
+3,Systematic,Analytical,Surface,3,cross,3,3,0,1,4,2,2,0.200000,0.800000,0.333333,1 15 27,1 28 31
+3,Systematic,Analytical,Surface,4,same,4,4,0,4,0,0,0,1.000000,0.000000,1.000000,3 7 10 11,3 7 10 11
+3,Systematic,Analytical,Surface,4,cross,4,4,0,2,4,2,2,0.333333,0.666667,0.500000,1 13 22 29,1 13 28 30
+3,Systematic,Analytical,Surface,8,same,6,5,-1,5,1,0,1,0.833333,0.166667,0.833333,3 7 10 11 17 21,3 7 10 11 21
+3,Systematic,Analytical,Surface,8,cross,8,6,-2,3,8,3,5,0.272727,0.727273,0.375000,1 6 13 16 22 25 29 32,1 13 28 30 31 32
+3,Systematic,Analytical,Shallow,1,same,1,1,0,1,0,0,0,1.000000,0.000000,1.000000,3,3
+3,Systematic,Analytical,Shallow,1,cross,1,1,0,1,0,0,0,1.000000,0.000000,1.000000,1,1
+3,Systematic,Analytical,Shallow,2,same,2,2,0,1,2,1,1,0.333333,0.666667,0.500000,3 11,3 10
+3,Systematic,Analytical,Shallow,2,cross,2,2,0,1,2,1,1,0.333333,0.666667,0.500000,1 22,1 30
+3,Systematic,Analytical,Shallow,3,same,3,3,0,2,2,1,1,0.500000,0.500000,0.666667,3 10 17,3 7 10
+3,Systematic,Analytical,Shallow,3,cross,3,3,0,1,4,2,2,0.200000,0.800000,0.333333,1 15 27,1 28 31
+3,Systematic,Analytical,Shallow,4,same,4,4,0,4,0,0,0,1.000000,0.000000,1.000000,3 7 10 11,3 7 10 11
+3,Systematic,Analytical,Shallow,4,cross,4,4,0,2,4,2,2,0.333333,0.666667,0.500000,1 13 22 29,1 13 28 30
+3,Systematic,Analytical,Shallow,8,same,6,5,-1,5,1,0,1,0.833333,0.166667,0.833333,3 7 10 11 17 21,3 7 10 11 21
+3,Systematic,Analytical,Shallow,8,cross,8,6,-2,3,8,3,5,0.272727,0.727273,0.375000,1 6 13 16 22 25 29 32,1 13 28 30 31 32
+3,Systematic,Analytical,Contextual,1,same,1,1,0,1,0,0,0,1.000000,0.000000,1.000000,3,3
+3,Systematic,Analytical,Contextual,1,cross,1,1,0,1,0,0,0,1.000000,0.000000,1.000000,1,1
+3,Systematic,Analytical,Contextual,2,same,2,2,0,1,2,1,1,0.333333,0.666667,0.500000,3 11,3 10
+3,Systematic,Analytical,Contextual,2,cross,2,2,0,1,2,1,1,0.333333,0.666667,0.500000,1 18,1 28
+3,Systematic,Analytical,Contextual,3,same,3,3,0,2,2,1,1,0.500000,0.500000,0.666667,3 10 17,3 7 10
+3,Systematic,Analytical,Contextual,3,cross,3,3,0,2,2,1,1,0.500000,0.500000,0.666667,1 13 23,1 13 28
+3,Systematic,Analytical,Contextual,4,same,4,4,0,4,0,0,0,1.000000,0.000000,1.000000,3 7 10 11,3 7 10 11
+3,Systematic,Analytical,Contextual,4,cross,4,4,0,1,6,3,3,0.142857,0.857143,0.250000,1 9 18 29,1 13 28 30
+3,Systematic,Analytical,Contextual,8,same,6,5,-1,5,1,0,1,0.833333,0.166667,0.833333,3 7 10 11 17 21,3 7 10 11 21
+3,Systematic,Analytical,Contextual,8,cross,8,5,-3,2,9,3,6,0.181818,0.818182,0.250000,1 4 9 15 18 23 29 31,1 13 28 30 31
+3,Systematic,Analytical,Analogical,1,same,1,1,0,1,0,0,0,1.000000,0.000000,1.000000,3,3
+3,Systematic,Analytical,Analogical,1,cross,1,1,0,0,2,1,1,0.000000,1.000000,0.000000,4,13
+3,Systematic,Analytical,Analogical,2,same,2,2,0,2,0,0,0,1.000000,0.000000,1.000000,3 7,3 7
+3,Systematic,Analytical,Analogical,2,cross,2,2,0,0,4,2,2,0.000000,1.000000,0.000000,4 23,13 28
+3,Systematic,Analytical,Analogical,3,same,2,2,0,2,0,0,0,1.000000,0.000000,1.000000,3 7,3 7
+3,Systematic,Analytical,Analogical,3,cross,3,3,0,0,6,3,3,0.000000,1.000000,0.000000,4 9 23,13 28 31
+3,Systematic,Analytical,Analogical,4,same,2,2,0,2,0,0,0,1.000000,0.000000,1.000000,3 7,3 7
+3,Systematic,Analytical,Analogical,4,cross,4,3,-1,1,5,2,3,0.166667,0.833333,0.250000,4 9 23 31,13 28 31
+3,Systematic,Analytical,Analogical,8,same,2,2,0,2,0,0,0,1.000000,0.000000,1.000000,3 7,3 7
+3,Systematic,Analytical,Analogical,8,cross,8,3,-5,3,5,0,5,0.375000,0.625000,0.375000,4 6 9 13 23 28 31 34,13 28 31
+4,Methodical,Analytical,Surface,1,same,1,1,0,1,0,0,0,1.000000,0.000000,1.000000,3,3
+4,Methodical,Analytical,Surface,1,cross,1,1,0,1,0,0,0,1.000000,0.000000,1.000000,1,1
+4,Methodical,Analytical,Surface,2,same,2,2,0,1,2,1,1,0.333333,0.666667,0.500000,3 11,3 10
+4,Methodical,Analytical,Surface,2,cross,2,2,0,1,2,1,1,0.333333,0.666667,0.500000,1 22,1 30
+4,Methodical,Analytical,Surface,3,same,3,3,0,2,2,1,1,0.500000,0.500000,0.666667,3 10 17,3 7 10
+4,Methodical,Analytical,Surface,3,cross,3,3,0,1,4,2,2,0.200000,0.800000,0.333333,1 15 27,1 28 31
+4,Methodical,Analytical,Surface,4,same,4,4,0,4,0,0,0,1.000000,0.000000,1.000000,3 7 10 11,3 7 10 11
+4,Methodical,Analytical,Surface,4,cross,4,4,0,2,4,2,2,0.333333,0.666667,0.500000,1 13 22 29,1 13 28 30
+4,Methodical,Analytical,Surface,8,same,6,5,-1,5,1,0,1,0.833333,0.166667,0.833333,3 7 10 11 17 21,3 7 10 11 21
+4,Methodical,Analytical,Surface,8,cross,8,6,-2,3,8,3,5,0.272727,0.727273,0.375000,1 6 13 16 22 25 29 32,1 13 28 30 31 32
+4,Methodical,Analytical,Shallow,1,same,1,1,0,1,0,0,0,1.000000,0.000000,1.000000,3,3
+4,Methodical,Analytical,Shallow,1,cross,1,1,0,1,0,0,0,1.000000,0.000000,1.000000,1,1
+4,Methodical,Analytical,Shallow,2,same,2,2,0,1,2,1,1,0.333333,0.666667,0.500000,3 11,3 10
+4,Methodical,Analytical,Shallow,2,cross,2,2,0,1,2,1,1,0.333333,0.666667,0.500000,1 22,1 30
+4,Methodical,Analytical,Shallow,3,same,3,3,0,2,2,1,1,0.500000,0.500000,0.666667,3 10 17,3 7 10
+4,Methodical,Analytical,Shallow,3,cross,3,3,0,1,4,2,2,0.200000,0.800000,0.333333,1 15 27,1 28 31
+4,Methodical,Analytical,Shallow,4,same,4,4,0,4,0,0,0,1.000000,0.000000,1.000000,3 7 10 11,3 7 10 11
+4,Methodical,Analytical,Shallow,4,cross,4,4,0,2,4,2,2,0.333333,0.666667,0.500000,1 13 22 29,1 13 28 30
+4,Methodical,Analytical,Shallow,8,same,6,5,-1,5,1,0,1,0.833333,0.166667,0.833333,3 7 10 11 17 21,3 7 10 11 21
+4,Methodical,Analytical,Shallow,8,cross,8,6,-2,3,8,3,5,0.272727,0.727273,0.375000,1 6 13 16 22 25 29 32,1 13 28 30 31 32
+4,Methodical,Analytical,Contextual,1,same,1,1,0,1,0,0,0,1.000000,0.000000,1.000000,3,3
+4,Methodical,Analytical,Contextual,1,cross,1,1,0,1,0,0,0,1.000000,0.000000,1.000000,1,1
+4,Methodical,Analytical,Contextual,2,same,2,2,0,1,2,1,1,0.333333,0.666667,0.500000,3 11,3 10
+4,Methodical,Analytical,Contextual,2,cross,2,2,0,1,2,1,1,0.333333,0.666667,0.500000,1 18,1 28
+4,Methodical,Analytical,Contextual,3,same,3,3,0,2,2,1,1,0.500000,0.500000,0.666667,3 10 17,3 7 10
+4,Methodical,Analytical,Contextual,3,cross,3,3,0,2,2,1,1,0.500000,0.500000,0.666667,1 13 23,1 13 28
+4,Methodical,Analytical,Contextual,4,same,4,4,0,4,0,0,0,1.000000,0.000000,1.000000,3 7 10 11,3 7 10 11
+4,Methodical,Analytical,Contextual,4,cross,4,4,0,1,6,3,3,0.142857,0.857143,0.250000,1 9 18 29,1 13 28 30
+4,Methodical,Analytical,Contextual,8,same,6,5,-1,5,1,0,1,0.833333,0.166667,0.833333,3 7 10 11 17 21,3 7 10 11 21
+4,Methodical,Analytical,Contextual,8,cross,8,5,-3,2,9,3,6,0.181818,0.818182,0.250000,1 4 9 15 18 23 29 31,1 13 28 30 31
+4,Methodical,Analytical,Analogical,1,same,1,1,0,1,0,0,0,1.000000,0.000000,1.000000,3,3
+4,Methodical,Analytical,Analogical,1,cross,1,1,0,0,2,1,1,0.000000,1.000000,0.000000,4,13
+4,Methodical,Analytical,Analogical,2,same,2,2,0,2,0,0,0,1.000000,0.000000,1.000000,3 7,3 7
+4,Methodical,Analytical,Analogical,2,cross,2,2,0,0,4,2,2,0.000000,1.000000,0.000000,4 23,13 28
+4,Methodical,Analytical,Analogical,3,same,2,2,0,2,0,0,0,1.000000,0.000000,1.000000,3 7,3 7
+4,Methodical,Analytical,Analogical,3,cross,3,3,0,0,6,3,3,0.000000,1.000000,0.000000,4 9 23,13 28 31
+4,Methodical,Analytical,Analogical,4,same,2,2,0,2,0,0,0,1.000000,0.000000,1.000000,3 7,3 7
+4,Methodical,Analytical,Analogical,4,cross,4,3,-1,1,5,2,3,0.166667,0.833333,0.250000,4 9 23 31,13 28 31
+4,Methodical,Analytical,Analogical,8,same,2,2,0,2,0,0,0,1.000000,0.000000,1.000000,3 7,3 7
+4,Methodical,Analytical,Analogical,8,cross,8,3,-5,3,5,0,5,0.375000,0.625000,0.375000,4 6 9 13 23 28 31 34,13 28 31
+5,Precise,Analytical,Surface,1,same,1,1,0,1,0,0,0,1.000000,0.000000,1.000000,3,3
+5,Precise,Analytical,Surface,1,cross,1,1,0,1,0,0,0,1.000000,0.000000,1.000000,1,1
+5,Precise,Analytical,Surface,2,same,2,2,0,1,2,1,1,0.333333,0.666667,0.500000,3 11,3 10
+5,Precise,Analytical,Surface,2,cross,2,2,0,1,2,1,1,0.333333,0.666667,0.500000,1 22,1 30
+5,Precise,Analytical,Surface,3,same,3,3,0,2,2,1,1,0.500000,0.500000,0.666667,3 10 17,3 7 10
+5,Precise,Analytical,Surface,3,cross,3,3,0,1,4,2,2,0.200000,0.800000,0.333333,1 15 27,1 28 31
+5,Precise,Analytical,Surface,4,same,4,4,0,4,0,0,0,1.000000,0.000000,1.000000,3 7 10 11,3 7 10 11
+5,Precise,Analytical,Surface,4,cross,4,4,0,2,4,2,2,0.333333,0.666667,0.500000,1 13 22 29,1 13 28 30
+5,Precise,Analytical,Surface,8,same,6,5,-1,5,1,0,1,0.833333,0.166667,0.833333,3 7 10 11 17 21,3 7 10 11 21
+5,Precise,Analytical,Surface,8,cross,8,6,-2,3,8,3,5,0.272727,0.727273,0.375000,1 6 13 16 22 25 29 32,1 13 28 30 31 32
+5,Precise,Analytical,Shallow,1,same,1,1,0,1,0,0,0,1.000000,0.000000,1.000000,3,3
+5,Precise,Analytical,Shallow,1,cross,1,1,0,1,0,0,0,1.000000,0.000000,1.000000,1,1
+5,Precise,Analytical,Shallow,2,same,2,2,0,1,2,1,1,0.333333,0.666667,0.500000,3 11,3 10
+5,Precise,Analytical,Shallow,2,cross,2,2,0,1,2,1,1,0.333333,0.666667,0.500000,1 22,1 30
+5,Precise,Analytical,Shallow,3,same,3,3,0,2,2,1,1,0.500000,0.500000,0.666667,3 10 17,3 7 10
+5,Precise,Analytical,Shallow,3,cross,3,3,0,1,4,2,2,0.200000,0.800000,0.333333,1 15 27,1 28 31
+5,Precise,Analytical,Shallow,4,same,4,4,0,4,0,0,0,1.000000,0.000000,1.000000,3 7 10 11,3 7 10 11
+5,Precise,Analytical,Shallow,4,cross,4,4,0,2,4,2,2,0.333333,0.666667,0.500000,1 13 22 29,1 13 28 30
+5,Precise,Analytical,Shallow,8,same,6,5,-1,5,1,0,1,0.833333,0.166667,0.833333,3 7 10 11 17 21,3 7 10 11 21
+5,Precise,Analytical,Shallow,8,cross,8,6,-2,3,8,3,5,0.272727,0.727273,0.375000,1 6 13 16 22 25 29 32,1 13 28 30 31 32
+5,Precise,Analytical,Contextual,1,same,1,1,0,1,0,0,0,1.000000,0.000000,1.000000,3,3
+5,Precise,Analytical,Contextual,1,cross,1,1,0,1,0,0,0,1.000000,0.000000,1.000000,1,1
+5,Precise,Analytical,Contextual,2,same,2,2,0,1,2,1,1,0.333333,0.666667,0.500000,3 11,3 10
+5,Precise,Analytical,Contextual,2,cross,2,2,0,1,2,1,1,0.333333,0.666667,0.500000,1 18,1 28
+5,Precise,Analytical,Contextual,3,same,3,3,0,2,2,1,1,0.500000,0.500000,0.666667,3 10 17,3 7 10
+5,Precise,Analytical,Contextual,3,cross,3,3,0,2,2,1,1,0.500000,0.500000,0.666667,1 13 23,1 13 28
+5,Precise,Analytical,Contextual,4,same,4,4,0,4,0,0,0,1.000000,0.000000,1.000000,3 7 10 11,3 7 10 11
+5,Precise,Analytical,Contextual,4,cross,4,4,0,1,6,3,3,0.142857,0.857143,0.250000,1 9 18 29,1 13 28 30
+5,Precise,Analytical,Contextual,8,same,6,5,-1,5,1,0,1,0.833333,0.166667,0.833333,3 7 10 11 17 21,3 7 10 11 21
+5,Precise,Analytical,Contextual,8,cross,8,5,-3,2,9,3,6,0.181818,0.818182,0.250000,1 4 9 15 18 23 29 31,1 13 28 30 31
+5,Precise,Analytical,Analogical,1,same,1,1,0,1,0,0,0,1.000000,0.000000,1.000000,3,3
+5,Precise,Analytical,Analogical,1,cross,1,1,0,0,2,1,1,0.000000,1.000000,0.000000,4,13
+5,Precise,Analytical,Analogical,2,same,2,2,0,2,0,0,0,1.000000,0.000000,1.000000,3 7,3 7
+5,Precise,Analytical,Analogical,2,cross,2,2,0,0,4,2,2,0.000000,1.000000,0.000000,4 23,13 28
+5,Precise,Analytical,Analogical,3,same,2,2,0,2,0,0,0,1.000000,0.000000,1.000000,3 7,3 7
+5,Precise,Analytical,Analogical,3,cross,3,3,0,0,6,3,3,0.000000,1.000000,0.000000,4 9 23,13 28 31
+5,Precise,Analytical,Analogical,4,same,2,2,0,2,0,0,0,1.000000,0.000000,1.000000,3 7,3 7
+5,Precise,Analytical,Analogical,4,cross,4,3,-1,1,5,2,3,0.166667,0.833333,0.250000,4 9 23 31,13 28 31
+5,Precise,Analytical,Analogical,8,same,2,2,0,2,0,0,0,1.000000,0.000000,1.000000,3 7,3 7
+5,Precise,Analytical,Analogical,8,cross,8,3,-5,3,5,0,5,0.375000,0.625000,0.375000,4 6 9 13 23 28 31 34,13 28 31
+6,Creative,Creative,Surface,1,same,1,1,0,0,2,1,1,0.000000,1.000000,0.000000,4,13
+6,Creative,Creative,Surface,1,cross,1,1,0,1,0,0,0,1.000000,0.000000,1.000000,1,1
+6,Creative,Creative,Surface,2,same,2,2,0,0,4,2,2,0.000000,1.000000,0.000000,4 23,13 28
+6,Creative,Creative,Surface,2,cross,2,2,0,1,2,1,1,0.333333,0.666667,0.500000,1 18,1 11
+6,Creative,Creative,Surface,3,same,3,3,0,0,6,3,3,0.000000,1.000000,0.000000,4 9 23,13 28 31
+6,Creative,Creative,Surface,3,cross,3,3,0,1,4,2,2,0.200000,0.800000,0.333333,1 14 22,1 7 11
+6,Creative,Creative,Surface,4,same,4,3,-1,1,5,2,3,0.166667,0.833333,0.250000,4 9 23 31,13 28 31
+6,Creative,Creative,Surface,4,cross,4,4,0,2,4,2,2,0.333333,0.666667,0.500000,1 11 17 24,1 7 11 30
+6,Creative,Creative,Surface,8,same,8,3,-5,3,5,0,5,0.375000,0.625000,0.375000,4 6 9 13 23 28 31 34,13 28 31
+6,Creative,Creative,Surface,8,cross,8,8,0,3,10,5,5,0.230769,0.769231,0.375000,1 3 10 12 15 17 19 22,1 3 7 10 11 21 30 32
+6,Creative,Creative,Shallow,1,same,1,1,0,0,2,1,1,0.000000,1.000000,0.000000,4,13
+6,Creative,Creative,Shallow,1,cross,1,1,0,1,0,0,0,1.000000,0.000000,1.000000,1,1
+6,Creative,Creative,Shallow,2,same,2,2,0,0,4,2,2,0.000000,1.000000,0.000000,4 23,13 28
+6,Creative,Creative,Shallow,2,cross,2,2,0,1,2,1,1,0.333333,0.666667,0.500000,1 18,1 11
+6,Creative,Creative,Shallow,3,same,3,3,0,0,6,3,3,0.000000,1.000000,0.000000,4 9 23,13 28 31
+6,Creative,Creative,Shallow,3,cross,3,3,0,1,4,2,2,0.200000,0.800000,0.333333,1 14 22,1 7 11
+6,Creative,Creative,Shallow,4,same,4,3,-1,1,5,2,3,0.166667,0.833333,0.250000,4 9 23 31,13 28 31
+6,Creative,Creative,Shallow,4,cross,4,4,0,2,4,2,2,0.333333,0.666667,0.500000,1 11 17 24,1 7 11 30
+6,Creative,Creative,Shallow,8,same,8,3,-5,3,5,0,5,0.375000,0.625000,0.375000,4 6 9 13 23 28 31 34,13 28 31
+6,Creative,Creative,Shallow,8,cross,8,8,0,3,10,5,5,0.230769,0.769231,0.375000,1 3 10 12 15 17 19 22,1 3 7 10 11 21 30 32
+6,Creative,Creative,Contextual,1,same,1,1,0,0,2,1,1,0.000000,1.000000,0.000000,4,13
+6,Creative,Creative,Contextual,1,cross,1,1,0,1,0,0,0,1.000000,0.000000,1.000000,1,1
+6,Creative,Creative,Contextual,2,same,2,2,0,0,4,2,2,0.000000,1.000000,0.000000,4 23,13 28
+6,Creative,Creative,Contextual,2,cross,2,2,0,1,2,1,1,0.333333,0.666667,0.500000,1 16,1 10
+6,Creative,Creative,Contextual,3,same,3,3,0,0,6,3,3,0.000000,1.000000,0.000000,4 9 23,13 28 31
+6,Creative,Creative,Contextual,3,cross,3,3,0,2,2,1,1,0.500000,0.500000,0.666667,1 11 21,1 7 11
+6,Creative,Creative,Contextual,4,same,4,3,-1,1,5,2,3,0.166667,0.833333,0.250000,4 9 23 31,13 28 31
+6,Creative,Creative,Contextual,4,cross,4,4,0,2,4,2,2,0.333333,0.666667,0.500000,1 7 15 18,1 3 7 10
+6,Creative,Creative,Contextual,8,same,8,3,-5,3,5,0,5,0.375000,0.625000,0.375000,4 6 9 13 23 28 31 34,13 28 31
+6,Creative,Creative,Contextual,8,cross,8,7,-1,5,5,2,3,0.500000,0.500000,0.625000,1 2 3 7 10 11 15 16,1 3 7 10 11 21 30
+6,Creative,Creative,Analogical,1,same,1,1,0,0,2,1,1,0.000000,1.000000,0.000000,4,13
+6,Creative,Creative,Analogical,1,cross,1,1,0,1,0,0,0,1.000000,0.000000,1.000000,3,3
+6,Creative,Creative,Analogical,2,same,2,2,0,0,4,2,2,0.000000,1.000000,0.000000,4 23,13 28
+6,Creative,Creative,Analogical,2,cross,2,2,0,2,0,0,0,1.000000,0.000000,1.000000,3 7,3 7
+6,Creative,Creative,Analogical,3,same,3,3,0,0,6,3,3,0.000000,1.000000,0.000000,4 9 23,13 28 31
+6,Creative,Creative,Analogical,3,cross,2,2,0,2,0,0,0,1.000000,0.000000,1.000000,3 7,3 7
+6,Creative,Creative,Analogical,4,same,4,3,-1,1,5,2,3,0.166667,0.833333,0.250000,4 9 23 31,13 28 31
+6,Creative,Creative,Analogical,4,cross,2,2,0,2,0,0,0,1.000000,0.000000,1.000000,3 7,3 7
+6,Creative,Creative,Analogical,8,same,8,3,-5,3,5,0,5,0.375000,0.625000,0.375000,4 6 9 13 23 28 31 34,13 28 31
+6,Creative,Creative,Analogical,8,cross,2,2,0,2,0,0,0,1.000000,0.000000,1.000000,3 7,3 7
+7,Imaginative,Creative,Surface,1,same,1,1,0,0,2,1,1,0.000000,1.000000,0.000000,4,13
+7,Imaginative,Creative,Surface,1,cross,1,1,0,1,0,0,0,1.000000,0.000000,1.000000,1,1
+7,Imaginative,Creative,Surface,2,same,2,2,0,0,4,2,2,0.000000,1.000000,0.000000,4 23,13 28
+7,Imaginative,Creative,Surface,2,cross,2,2,0,1,2,1,1,0.333333,0.666667,0.500000,1 18,1 11
+7,Imaginative,Creative,Surface,3,same,3,3,0,0,6,3,3,0.000000,1.000000,0.000000,4 9 23,13 28 31
+7,Imaginative,Creative,Surface,3,cross,3,3,0,1,4,2,2,0.200000,0.800000,0.333333,1 14 22,1 7 11
+7,Imaginative,Creative,Surface,4,same,4,3,-1,1,5,2,3,0.166667,0.833333,0.250000,4 9 23 31,13 28 31
+7,Imaginative,Creative,Surface,4,cross,4,4,0,2,4,2,2,0.333333,0.666667,0.500000,1 11 17 24,1 7 11 30
+7,Imaginative,Creative,Surface,8,same,8,3,-5,3,5,0,5,0.375000,0.625000,0.375000,4 6 9 13 23 28 31 34,13 28 31
+7,Imaginative,Creative,Surface,8,cross,8,8,0,3,10,5,5,0.230769,0.769231,0.375000,1 3 10 12 15 17 19 22,1 3 7 10 11 21 30 32
+7,Imaginative,Creative,Shallow,1,same,1,1,0,0,2,1,1,0.000000,1.000000,0.000000,4,13
+7,Imaginative,Creative,Shallow,1,cross,1,1,0,1,0,0,0,1.000000,0.000000,1.000000,1,1
+7,Imaginative,Creative,Shallow,2,same,2,2,0,0,4,2,2,0.000000,1.000000,0.000000,4 23,13 28
+7,Imaginative,Creative,Shallow,2,cross,2,2,0,1,2,1,1,0.333333,0.666667,0.500000,1 18,1 11
+7,Imaginative,Creative,Shallow,3,same,3,3,0,0,6,3,3,0.000000,1.000000,0.000000,4 9 23,13 28 31
+7,Imaginative,Creative,Shallow,3,cross,3,3,0,1,4,2,2,0.200000,0.800000,0.333333,1 14 22,1 7 11
+7,Imaginative,Creative,Shallow,4,same,4,3,-1,1,5,2,3,0.166667,0.833333,0.250000,4 9 23 31,13 28 31
+7,Imaginative,Creative,Shallow,4,cross,4,4,0,2,4,2,2,0.333333,0.666667,0.500000,1 11 17 24,1 7 11 30
+7,Imaginative,Creative,Shallow,8,same,8,3,-5,3,5,0,5,0.375000,0.625000,0.375000,4 6 9 13 23 28 31 34,13 28 31
+7,Imaginative,Creative,Shallow,8,cross,8,8,0,3,10,5,5,0.230769,0.769231,0.375000,1 3 10 12 15 17 19 22,1 3 7 10 11 21 30 32
+7,Imaginative,Creative,Contextual,1,same,1,1,0,0,2,1,1,0.000000,1.000000,0.000000,4,13
+7,Imaginative,Creative,Contextual,1,cross,1,1,0,1,0,0,0,1.000000,0.000000,1.000000,1,1
+7,Imaginative,Creative,Contextual,2,same,2,2,0,0,4,2,2,0.000000,1.000000,0.000000,4 23,13 28
+7,Imaginative,Creative,Contextual,2,cross,2,2,0,1,2,1,1,0.333333,0.666667,0.500000,1 16,1 10
+7,Imaginative,Creative,Contextual,3,same,3,3,0,0,6,3,3,0.000000,1.000000,0.000000,4 9 23,13 28 31
+7,Imaginative,Creative,Contextual,3,cross,3,3,0,2,2,1,1,0.500000,0.500000,0.666667,1 11 21,1 7 11
+7,Imaginative,Creative,Contextual,4,same,4,3,-1,1,5,2,3,0.166667,0.833333,0.250000,4 9 23 31,13 28 31
+7,Imaginative,Creative,Contextual,4,cross,4,4,0,2,4,2,2,0.333333,0.666667,0.500000,1 7 15 18,1 3 7 10
+7,Imaginative,Creative,Contextual,8,same,8,3,-5,3,5,0,5,0.375000,0.625000,0.375000,4 6 9 13 23 28 31 34,13 28 31
+7,Imaginative,Creative,Contextual,8,cross,8,7,-1,5,5,2,3,0.500000,0.500000,0.625000,1 2 3 7 10 11 15 16,1 3 7 10 11 21 30
+7,Imaginative,Creative,Analogical,1,same,1,1,0,0,2,1,1,0.000000,1.000000,0.000000,4,13
+7,Imaginative,Creative,Analogical,1,cross,1,1,0,1,0,0,0,1.000000,0.000000,1.000000,3,3
+7,Imaginative,Creative,Analogical,2,same,2,2,0,0,4,2,2,0.000000,1.000000,0.000000,4 23,13 28
+7,Imaginative,Creative,Analogical,2,cross,2,2,0,2,0,0,0,1.000000,0.000000,1.000000,3 7,3 7
+7,Imaginative,Creative,Analogical,3,same,3,3,0,0,6,3,3,0.000000,1.000000,0.000000,4 9 23,13 28 31
+7,Imaginative,Creative,Analogical,3,cross,2,2,0,2,0,0,0,1.000000,0.000000,1.000000,3 7,3 7
+7,Imaginative,Creative,Analogical,4,same,4,3,-1,1,5,2,3,0.166667,0.833333,0.250000,4 9 23 31,13 28 31
+7,Imaginative,Creative,Analogical,4,cross,2,2,0,2,0,0,0,1.000000,0.000000,1.000000,3 7,3 7
+7,Imaginative,Creative,Analogical,8,same,8,3,-5,3,5,0,5,0.375000,0.625000,0.375000,4 6 9 13 23 28 31 34,13 28 31
+7,Imaginative,Creative,Analogical,8,cross,2,2,0,2,0,0,0,1.000000,0.000000,1.000000,3 7,3 7
+8,Innovative,Creative,Surface,1,same,1,1,0,0,2,1,1,0.000000,1.000000,0.000000,4,13
+8,Innovative,Creative,Surface,1,cross,1,1,0,1,0,0,0,1.000000,0.000000,1.000000,1,1
+8,Innovative,Creative,Surface,2,same,2,2,0,0,4,2,2,0.000000,1.000000,0.000000,4 23,13 28
+8,Innovative,Creative,Surface,2,cross,2,2,0,1,2,1,1,0.333333,0.666667,0.500000,1 18,1 11
+8,Innovative,Creative,Surface,3,same,3,3,0,0,6,3,3,0.000000,1.000000,0.000000,4 9 23,13 28 31
+8,Innovative,Creative,Surface,3,cross,3,3,0,1,4,2,2,0.200000,0.800000,0.333333,1 14 22,1 7 11
+8,Innovative,Creative,Surface,4,same,4,3,-1,1,5,2,3,0.166667,0.833333,0.250000,4 9 23 31,13 28 31
+8,Innovative,Creative,Surface,4,cross,4,4,0,2,4,2,2,0.333333,0.666667,0.500000,1 11 17 24,1 7 11 30
+8,Innovative,Creative,Surface,8,same,8,3,-5,3,5,0,5,0.375000,0.625000,0.375000,4 6 9 13 23 28 31 34,13 28 31
+8,Innovative,Creative,Surface,8,cross,8,8,0,3,10,5,5,0.230769,0.769231,0.375000,1 3 10 12 15 17 19 22,1 3 7 10 11 21 30 32
+8,Innovative,Creative,Shallow,1,same,1,1,0,0,2,1,1,0.000000,1.000000,0.000000,4,13
+8,Innovative,Creative,Shallow,1,cross,1,1,0,1,0,0,0,1.000000,0.000000,1.000000,1,1
+8,Innovative,Creative,Shallow,2,same,2,2,0,0,4,2,2,0.000000,1.000000,0.000000,4 23,13 28
+8,Innovative,Creative,Shallow,2,cross,2,2,0,1,2,1,1,0.333333,0.666667,0.500000,1 18,1 11
+8,Innovative,Creative,Shallow,3,same,3,3,0,0,6,3,3,0.000000,1.000000,0.000000,4 9 23,13 28 31
+8,Innovative,Creative,Shallow,3,cross,3,3,0,1,4,2,2,0.200000,0.800000,0.333333,1 14 22,1 7 11
+8,Innovative,Creative,Shallow,4,same,4,3,-1,1,5,2,3,0.166667,0.833333,0.250000,4 9 23 31,13 28 31
+8,Innovative,Creative,Shallow,4,cross,4,4,0,2,4,2,2,0.333333,0.666667,0.500000,1 11 17 24,1 7 11 30
+8,Innovative,Creative,Shallow,8,same,8,3,-5,3,5,0,5,0.375000,0.625000,0.375000,4 6 9 13 23 28 31 34,13 28 31
+8,Innovative,Creative,Shallow,8,cross,8,8,0,3,10,5,5,0.230769,0.769231,0.375000,1 3 10 12 15 17 19 22,1 3 7 10 11 21 30 32
+8,Innovative,Creative,Contextual,1,same,1,1,0,0,2,1,1,0.000000,1.000000,0.000000,4,13
+8,Innovative,Creative,Contextual,1,cross,1,1,0,1,0,0,0,1.000000,0.000000,1.000000,1,1
+8,Innovative,Creative,Contextual,2,same,2,2,0,0,4,2,2,0.000000,1.000000,0.000000,4 23,13 28
+8,Innovative,Creative,Contextual,2,cross,2,2,0,1,2,1,1,0.333333,0.666667,0.500000,1 16,1 10
+8,Innovative,Creative,Contextual,3,same,3,3,0,0,6,3,3,0.000000,1.000000,0.000000,4 9 23,13 28 31
+8,Innovative,Creative,Contextual,3,cross,3,3,0,2,2,1,1,0.500000,0.500000,0.666667,1 11 21,1 7 11
+8,Innovative,Creative,Contextual,4,same,4,3,-1,1,5,2,3,0.166667,0.833333,0.250000,4 9 23 31,13 28 31
+8,Innovative,Creative,Contextual,4,cross,4,4,0,2,4,2,2,0.333333,0.666667,0.500000,1 7 15 18,1 3 7 10
+8,Innovative,Creative,Contextual,8,same,8,3,-5,3,5,0,5,0.375000,0.625000,0.375000,4 6 9 13 23 28 31 34,13 28 31
+8,Innovative,Creative,Contextual,8,cross,8,7,-1,5,5,2,3,0.500000,0.500000,0.625000,1 2 3 7 10 11 15 16,1 3 7 10 11 21 30
+8,Innovative,Creative,Analogical,1,same,1,1,0,0,2,1,1,0.000000,1.000000,0.000000,4,13
+8,Innovative,Creative,Analogical,1,cross,1,1,0,1,0,0,0,1.000000,0.000000,1.000000,3,3
+8,Innovative,Creative,Analogical,2,same,2,2,0,0,4,2,2,0.000000,1.000000,0.000000,4 23,13 28
+8,Innovative,Creative,Analogical,2,cross,2,2,0,2,0,0,0,1.000000,0.000000,1.000000,3 7,3 7
+8,Innovative,Creative,Analogical,3,same,3,3,0,0,6,3,3,0.000000,1.000000,0.000000,4 9 23,13 28 31
+8,Innovative,Creative,Analogical,3,cross,2,2,0,2,0,0,0,1.000000,0.000000,1.000000,3 7,3 7
+8,Innovative,Creative,Analogical,4,same,4,3,-1,1,5,2,3,0.166667,0.833333,0.250000,4 9 23 31,13 28 31
+8,Innovative,Creative,Analogical,4,cross,2,2,0,2,0,0,0,1.000000,0.000000,1.000000,3 7,3 7
+8,Innovative,Creative,Analogical,8,same,8,3,-5,3,5,0,5,0.375000,0.625000,0.375000,4 6 9 13 23 28 31 34,13 28 31
+8,Innovative,Creative,Analogical,8,cross,2,2,0,2,0,0,0,1.000000,0.000000,1.000000,3 7,3 7
+9,Artistic,Creative,Surface,1,same,1,1,0,0,2,1,1,0.000000,1.000000,0.000000,4,13
+9,Artistic,Creative,Surface,1,cross,1,1,0,1,0,0,0,1.000000,0.000000,1.000000,1,1
+9,Artistic,Creative,Surface,2,same,2,2,0,0,4,2,2,0.000000,1.000000,0.000000,4 23,13 28
+9,Artistic,Creative,Surface,2,cross,2,2,0,1,2,1,1,0.333333,0.666667,0.500000,1 18,1 11
+9,Artistic,Creative,Surface,3,same,3,3,0,0,6,3,3,0.000000,1.000000,0.000000,4 9 23,13 28 31
+9,Artistic,Creative,Surface,3,cross,3,3,0,1,4,2,2,0.200000,0.800000,0.333333,1 14 22,1 7 11
+9,Artistic,Creative,Surface,4,same,4,3,-1,1,5,2,3,0.166667,0.833333,0.250000,4 9 23 31,13 28 31
+9,Artistic,Creative,Surface,4,cross,4,4,0,2,4,2,2,0.333333,0.666667,0.500000,1 11 17 24,1 7 11 30
+9,Artistic,Creative,Surface,8,same,8,3,-5,3,5,0,5,0.375000,0.625000,0.375000,4 6 9 13 23 28 31 34,13 28 31
+9,Artistic,Creative,Surface,8,cross,8,8,0,3,10,5,5,0.230769,0.769231,0.375000,1 3 10 12 15 17 19 22,1 3 7 10 11 21 30 32
+9,Artistic,Creative,Shallow,1,same,1,1,0,0,2,1,1,0.000000,1.000000,0.000000,4,13
+9,Artistic,Creative,Shallow,1,cross,1,1,0,1,0,0,0,1.000000,0.000000,1.000000,1,1
+9,Artistic,Creative,Shallow,2,same,2,2,0,0,4,2,2,0.000000,1.000000,0.000000,4 23,13 28
+9,Artistic,Creative,Shallow,2,cross,2,2,0,1,2,1,1,0.333333,0.666667,0.500000,1 18,1 11
+9,Artistic,Creative,Shallow,3,same,3,3,0,0,6,3,3,0.000000,1.000000,0.000000,4 9 23,13 28 31
+9,Artistic,Creative,Shallow,3,cross,3,3,0,1,4,2,2,0.200000,0.800000,0.333333,1 14 22,1 7 11
+9,Artistic,Creative,Shallow,4,same,4,3,-1,1,5,2,3,0.166667,0.833333,0.250000,4 9 23 31,13 28 31
+9,Artistic,Creative,Shallow,4,cross,4,4,0,2,4,2,2,0.333333,0.666667,0.500000,1 11 17 24,1 7 11 30
+9,Artistic,Creative,Shallow,8,same,8,3,-5,3,5,0,5,0.375000,0.625000,0.375000,4 6 9 13 23 28 31 34,13 28 31
+9,Artistic,Creative,Shallow,8,cross,8,8,0,3,10,5,5,0.230769,0.769231,0.375000,1 3 10 12 15 17 19 22,1 3 7 10 11 21 30 32
+9,Artistic,Creative,Contextual,1,same,1,1,0,0,2,1,1,0.000000,1.000000,0.000000,4,13
+9,Artistic,Creative,Contextual,1,cross,1,1,0,1,0,0,0,1.000000,0.000000,1.000000,1,1
+9,Artistic,Creative,Contextual,2,same,2,2,0,0,4,2,2,0.000000,1.000000,0.000000,4 23,13 28
+9,Artistic,Creative,Contextual,2,cross,2,2,0,1,2,1,1,0.333333,0.666667,0.500000,1 16,1 10
+9,Artistic,Creative,Contextual,3,same,3,3,0,0,6,3,3,0.000000,1.000000,0.000000,4 9 23,13 28 31
+9,Artistic,Creative,Contextual,3,cross,3,3,0,2,2,1,1,0.500000,0.500000,0.666667,1 11 21,1 7 11
+9,Artistic,Creative,Contextual,4,same,4,3,-1,1,5,2,3,0.166667,0.833333,0.250000,4 9 23 31,13 28 31
+9,Artistic,Creative,Contextual,4,cross,4,4,0,2,4,2,2,0.333333,0.666667,0.500000,1 7 15 18,1 3 7 10
+9,Artistic,Creative,Contextual,8,same,8,3,-5,3,5,0,5,0.375000,0.625000,0.375000,4 6 9 13 23 28 31 34,13 28 31
+9,Artistic,Creative,Contextual,8,cross,8,7,-1,5,5,2,3,0.500000,0.500000,0.625000,1 2 3 7 10 11 15 16,1 3 7 10 11 21 30
+9,Artistic,Creative,Analogical,1,same,1,1,0,0,2,1,1,0.000000,1.000000,0.000000,4,13
+9,Artistic,Creative,Analogical,1,cross,1,1,0,1,0,0,0,1.000000,0.000000,1.000000,3,3
+9,Artistic,Creative,Analogical,2,same,2,2,0,0,4,2,2,0.000000,1.000000,0.000000,4 23,13 28
+9,Artistic,Creative,Analogical,2,cross,2,2,0,2,0,0,0,1.000000,0.000000,1.000000,3 7,3 7
+9,Artistic,Creative,Analogical,3,same,3,3,0,0,6,3,3,0.000000,1.000000,0.000000,4 9 23,13 28 31
+9,Artistic,Creative,Analogical,3,cross,2,2,0,2,0,0,0,1.000000,0.000000,1.000000,3 7,3 7
+9,Artistic,Creative,Analogical,4,same,4,3,-1,1,5,2,3,0.166667,0.833333,0.250000,4 9 23 31,13 28 31
+9,Artistic,Creative,Analogical,4,cross,2,2,0,2,0,0,0,1.000000,0.000000,1.000000,3 7,3 7
+9,Artistic,Creative,Analogical,8,same,8,3,-5,3,5,0,5,0.375000,0.625000,0.375000,4 6 9 13 23 28 31 34,13 28 31
+9,Artistic,Creative,Analogical,8,cross,2,2,0,2,0,0,0,1.000000,0.000000,1.000000,3 7,3 7
+10,Poetic,Creative,Surface,1,same,1,1,0,0,2,1,1,0.000000,1.000000,0.000000,4,13
+10,Poetic,Creative,Surface,1,cross,1,1,0,1,0,0,0,1.000000,0.000000,1.000000,1,1
+10,Poetic,Creative,Surface,2,same,2,2,0,0,4,2,2,0.000000,1.000000,0.000000,4 23,13 28
+10,Poetic,Creative,Surface,2,cross,2,2,0,1,2,1,1,0.333333,0.666667,0.500000,1 18,1 11
+10,Poetic,Creative,Surface,3,same,3,3,0,0,6,3,3,0.000000,1.000000,0.000000,4 9 23,13 28 31
+10,Poetic,Creative,Surface,3,cross,3,3,0,1,4,2,2,0.200000,0.800000,0.333333,1 14 22,1 7 11
+10,Poetic,Creative,Surface,4,same,4,3,-1,1,5,2,3,0.166667,0.833333,0.250000,4 9 23 31,13 28 31
+10,Poetic,Creative,Surface,4,cross,4,4,0,2,4,2,2,0.333333,0.666667,0.500000,1 11 17 24,1 7 11 30
+10,Poetic,Creative,Surface,8,same,8,3,-5,3,5,0,5,0.375000,0.625000,0.375000,4 6 9 13 23 28 31 34,13 28 31
+10,Poetic,Creative,Surface,8,cross,8,8,0,3,10,5,5,0.230769,0.769231,0.375000,1 3 10 12 15 17 19 22,1 3 7 10 11 21 30 32
+10,Poetic,Creative,Shallow,1,same,1,1,0,0,2,1,1,0.000000,1.000000,0.000000,4,13
+10,Poetic,Creative,Shallow,1,cross,1,1,0,1,0,0,0,1.000000,0.000000,1.000000,1,1
+10,Poetic,Creative,Shallow,2,same,2,2,0,0,4,2,2,0.000000,1.000000,0.000000,4 23,13 28
+10,Poetic,Creative,Shallow,2,cross,2,2,0,1,2,1,1,0.333333,0.666667,0.500000,1 18,1 11
+10,Poetic,Creative,Shallow,3,same,3,3,0,0,6,3,3,0.000000,1.000000,0.000000,4 9 23,13 28 31
+10,Poetic,Creative,Shallow,3,cross,3,3,0,1,4,2,2,0.200000,0.800000,0.333333,1 14 22,1 7 11
+10,Poetic,Creative,Shallow,4,same,4,3,-1,1,5,2,3,0.166667,0.833333,0.250000,4 9 23 31,13 28 31
+10,Poetic,Creative,Shallow,4,cross,4,4,0,2,4,2,2,0.333333,0.666667,0.500000,1 11 17 24,1 7 11 30
+10,Poetic,Creative,Shallow,8,same,8,3,-5,3,5,0,5,0.375000,0.625000,0.375000,4 6 9 13 23 28 31 34,13 28 31
+10,Poetic,Creative,Shallow,8,cross,8,8,0,3,10,5,5,0.230769,0.769231,0.375000,1 3 10 12 15 17 19 22,1 3 7 10 11 21 30 32
+10,Poetic,Creative,Contextual,1,same,1,1,0,0,2,1,1,0.000000,1.000000,0.000000,4,13
+10,Poetic,Creative,Contextual,1,cross,1,1,0,1,0,0,0,1.000000,0.000000,1.000000,1,1
+10,Poetic,Creative,Contextual,2,same,2,2,0,0,4,2,2,0.000000,1.000000,0.000000,4 23,13 28
+10,Poetic,Creative,Contextual,2,cross,2,2,0,1,2,1,1,0.333333,0.666667,0.500000,1 16,1 10
+10,Poetic,Creative,Contextual,3,same,3,3,0,0,6,3,3,0.000000,1.000000,0.000000,4 9 23,13 28 31
+10,Poetic,Creative,Contextual,3,cross,3,3,0,2,2,1,1,0.500000,0.500000,0.666667,1 11 21,1 7 11
+10,Poetic,Creative,Contextual,4,same,4,3,-1,1,5,2,3,0.166667,0.833333,0.250000,4 9 23 31,13 28 31
+10,Poetic,Creative,Contextual,4,cross,4,4,0,2,4,2,2,0.333333,0.666667,0.500000,1 7 15 18,1 3 7 10
+10,Poetic,Creative,Contextual,8,same,8,3,-5,3,5,0,5,0.375000,0.625000,0.375000,4 6 9 13 23 28 31 34,13 28 31
+10,Poetic,Creative,Contextual,8,cross,8,7,-1,5,5,2,3,0.500000,0.500000,0.625000,1 2 3 7 10 11 15 16,1 3 7 10 11 21 30
+10,Poetic,Creative,Analogical,1,same,1,1,0,0,2,1,1,0.000000,1.000000,0.000000,4,13
+10,Poetic,Creative,Analogical,1,cross,1,1,0,1,0,0,0,1.000000,0.000000,1.000000,3,3
+10,Poetic,Creative,Analogical,2,same,2,2,0,0,4,2,2,0.000000,1.000000,0.000000,4 23,13 28
+10,Poetic,Creative,Analogical,2,cross,2,2,0,2,0,0,0,1.000000,0.000000,1.000000,3 7,3 7
+10,Poetic,Creative,Analogical,3,same,3,3,0,0,6,3,3,0.000000,1.000000,0.000000,4 9 23,13 28 31
+10,Poetic,Creative,Analogical,3,cross,2,2,0,2,0,0,0,1.000000,0.000000,1.000000,3 7,3 7
+10,Poetic,Creative,Analogical,4,same,4,3,-1,1,5,2,3,0.166667,0.833333,0.250000,4 9 23 31,13 28 31
+10,Poetic,Creative,Analogical,4,cross,2,2,0,2,0,0,0,1.000000,0.000000,1.000000,3 7,3 7
+10,Poetic,Creative,Analogical,8,same,8,3,-5,3,5,0,5,0.375000,0.625000,0.375000,4 6 9 13 23 28 31 34,13 28 31
+10,Poetic,Creative,Analogical,8,cross,2,2,0,2,0,0,0,1.000000,0.000000,1.000000,3 7,3 7
+11,Playful,Creative,Surface,1,same,1,1,0,0,2,1,1,0.000000,1.000000,0.000000,4,13
+11,Playful,Creative,Surface,1,cross,1,1,0,1,0,0,0,1.000000,0.000000,1.000000,1,1
+11,Playful,Creative,Surface,2,same,2,2,0,0,4,2,2,0.000000,1.000000,0.000000,4 23,13 28
+11,Playful,Creative,Surface,2,cross,2,2,0,1,2,1,1,0.333333,0.666667,0.500000,1 18,1 11
+11,Playful,Creative,Surface,3,same,3,3,0,0,6,3,3,0.000000,1.000000,0.000000,4 9 23,13 28 31
+11,Playful,Creative,Surface,3,cross,3,3,0,1,4,2,2,0.200000,0.800000,0.333333,1 14 22,1 7 11
+11,Playful,Creative,Surface,4,same,4,3,-1,1,5,2,3,0.166667,0.833333,0.250000,4 9 23 31,13 28 31
+11,Playful,Creative,Surface,4,cross,4,4,0,2,4,2,2,0.333333,0.666667,0.500000,1 11 17 24,1 7 11 30
+11,Playful,Creative,Surface,8,same,8,3,-5,3,5,0,5,0.375000,0.625000,0.375000,4 6 9 13 23 28 31 34,13 28 31
+11,Playful,Creative,Surface,8,cross,8,8,0,3,10,5,5,0.230769,0.769231,0.375000,1 3 10 12 15 17 19 22,1 3 7 10 11 21 30 32
+11,Playful,Creative,Shallow,1,same,1,1,0,0,2,1,1,0.000000,1.000000,0.000000,4,13
+11,Playful,Creative,Shallow,1,cross,1,1,0,1,0,0,0,1.000000,0.000000,1.000000,1,1
+11,Playful,Creative,Shallow,2,same,2,2,0,0,4,2,2,0.000000,1.000000,0.000000,4 23,13 28
+11,Playful,Creative,Shallow,2,cross,2,2,0,1,2,1,1,0.333333,0.666667,0.500000,1 18,1 11
+11,Playful,Creative,Shallow,3,same,3,3,0,0,6,3,3,0.000000,1.000000,0.000000,4 9 23,13 28 31
+11,Playful,Creative,Shallow,3,cross,3,3,0,1,4,2,2,0.200000,0.800000,0.333333,1 14 22,1 7 11
+11,Playful,Creative,Shallow,4,same,4,3,-1,1,5,2,3,0.166667,0.833333,0.250000,4 9 23 31,13 28 31
+11,Playful,Creative,Shallow,4,cross,4,4,0,2,4,2,2,0.333333,0.666667,0.500000,1 11 17 24,1 7 11 30
+11,Playful,Creative,Shallow,8,same,8,3,-5,3,5,0,5,0.375000,0.625000,0.375000,4 6 9 13 23 28 31 34,13 28 31
+11,Playful,Creative,Shallow,8,cross,8,8,0,3,10,5,5,0.230769,0.769231,0.375000,1 3 10 12 15 17 19 22,1 3 7 10 11 21 30 32
+11,Playful,Creative,Contextual,1,same,1,1,0,0,2,1,1,0.000000,1.000000,0.000000,4,13
+11,Playful,Creative,Contextual,1,cross,1,1,0,1,0,0,0,1.000000,0.000000,1.000000,1,1
+11,Playful,Creative,Contextual,2,same,2,2,0,0,4,2,2,0.000000,1.000000,0.000000,4 23,13 28
+11,Playful,Creative,Contextual,2,cross,2,2,0,1,2,1,1,0.333333,0.666667,0.500000,1 16,1 10
+11,Playful,Creative,Contextual,3,same,3,3,0,0,6,3,3,0.000000,1.000000,0.000000,4 9 23,13 28 31
+11,Playful,Creative,Contextual,3,cross,3,3,0,2,2,1,1,0.500000,0.500000,0.666667,1 11 21,1 7 11
+11,Playful,Creative,Contextual,4,same,4,3,-1,1,5,2,3,0.166667,0.833333,0.250000,4 9 23 31,13 28 31
+11,Playful,Creative,Contextual,4,cross,4,4,0,2,4,2,2,0.333333,0.666667,0.500000,1 7 15 18,1 3 7 10
+11,Playful,Creative,Contextual,8,same,8,3,-5,3,5,0,5,0.375000,0.625000,0.375000,4 6 9 13 23 28 31 34,13 28 31
+11,Playful,Creative,Contextual,8,cross,8,7,-1,5,5,2,3,0.500000,0.500000,0.625000,1 2 3 7 10 11 15 16,1 3 7 10 11 21 30
+11,Playful,Creative,Analogical,1,same,1,1,0,0,2,1,1,0.000000,1.000000,0.000000,4,13
+11,Playful,Creative,Analogical,1,cross,1,1,0,1,0,0,0,1.000000,0.000000,1.000000,3,3
+11,Playful,Creative,Analogical,2,same,2,2,0,0,4,2,2,0.000000,1.000000,0.000000,4 23,13 28
+11,Playful,Creative,Analogical,2,cross,2,2,0,2,0,0,0,1.000000,0.000000,1.000000,3 7,3 7
+11,Playful,Creative,Analogical,3,same,3,3,0,0,6,3,3,0.000000,1.000000,0.000000,4 9 23,13 28 31
+11,Playful,Creative,Analogical,3,cross,2,2,0,2,0,0,0,1.000000,0.000000,1.000000,3 7,3 7
+11,Playful,Creative,Analogical,4,same,4,3,-1,1,5,2,3,0.166667,0.833333,0.250000,4 9 23 31,13 28 31
+11,Playful,Creative,Analogical,4,cross,2,2,0,2,0,0,0,1.000000,0.000000,1.000000,3 7,3 7
+11,Playful,Creative,Analogical,8,same,8,3,-5,3,5,0,5,0.375000,0.625000,0.375000,4 6 9 13 23 28 31 34,13 28 31
+11,Playful,Creative,Analogical,8,cross,2,2,0,2,0,0,0,1.000000,0.000000,1.000000,3 7,3 7
+12,Empathetic,Empathic,Surface,1,same,1,1,0,1,0,0,0,1.000000,0.000000,1.000000,1,1
+12,Empathetic,Empathic,Surface,1,cross,1,1,0,1,0,0,0,1.000000,0.000000,1.000000,3,3
+12,Empathetic,Empathic,Surface,2,same,2,2,0,1,2,1,1,0.333333,0.666667,0.500000,1 2,1 30
+12,Empathetic,Empathic,Surface,2,cross,2,2,0,1,2,1,1,0.333333,0.666667,0.500000,3 18,3 13
+12,Empathetic,Empathic,Surface,3,same,3,2,-1,2,1,0,1,0.666667,0.333333,0.666667,1 2 30,1 30
+12,Empathetic,Empathic,Surface,3,cross,3,3,0,1,4,2,2,0.200000,0.800000,0.333333,3 14 24,3 11 28
+12,Empathetic,Empathic,Surface,4,same,3,2,-1,2,1,0,1,0.666667,0.333333,0.666667,1 2 30,1 30
+12,Empathetic,Empathic,Surface,4,cross,4,4,0,1,6,3,3,0.142857,0.857143,0.250000,3 11 17 24,3 10 13 28
+12,Empathetic,Empathic,Surface,8,same,3,2,-1,2,1,0,1,0.666667,0.333333,0.666667,1 2 30,1 30
+12,Empathetic,Empathic,Surface,8,cross,8,8,0,5,6,3,3,0.454545,0.545455,0.625000,3 7 11 14 17 21 24 28,3 7 10 11 13 21 28 31
+12,Empathetic,Empathic,Shallow,1,same,1,1,0,1,0,0,0,1.000000,0.000000,1.000000,1,1
+12,Empathetic,Empathic,Shallow,1,cross,1,1,0,1,0,0,0,1.000000,0.000000,1.000000,3,3
+12,Empathetic,Empathic,Shallow,2,same,2,2,0,1,2,1,1,0.333333,0.666667,0.500000,1 2,1 30
+12,Empathetic,Empathic,Shallow,2,cross,2,2,0,1,2,1,1,0.333333,0.666667,0.500000,3 18,3 13
+12,Empathetic,Empathic,Shallow,3,same,3,2,-1,2,1,0,1,0.666667,0.333333,0.666667,1 2 30,1 30
+12,Empathetic,Empathic,Shallow,3,cross,3,3,0,1,4,2,2,0.200000,0.800000,0.333333,3 14 24,3 11 28
+12,Empathetic,Empathic,Shallow,4,same,3,2,-1,2,1,0,1,0.666667,0.333333,0.666667,1 2 30,1 30
+12,Empathetic,Empathic,Shallow,4,cross,4,4,0,1,6,3,3,0.142857,0.857143,0.250000,3 11 17 24,3 10 13 28
+12,Empathetic,Empathic,Shallow,8,same,3,2,-1,2,1,0,1,0.666667,0.333333,0.666667,1 2 30,1 30
+12,Empathetic,Empathic,Shallow,8,cross,8,8,0,5,6,3,3,0.454545,0.545455,0.625000,3 7 11 14 17 21 24 28,3 7 10 11 13 21 28 31
+12,Empathetic,Empathic,Contextual,1,same,1,1,0,1,0,0,0,1.000000,0.000000,1.000000,1,1
+12,Empathetic,Empathic,Contextual,1,cross,1,1,0,1,0,0,0,1.000000,0.000000,1.000000,3,3
+12,Empathetic,Empathic,Contextual,2,same,2,2,0,1,2,1,1,0.333333,0.666667,0.500000,1 2,1 30
+12,Empathetic,Empathic,Contextual,2,cross,2,2,0,1,2,1,1,0.333333,0.666667,0.500000,3 17,3 13
+12,Empathetic,Empathic,Contextual,3,same,3,2,-1,2,1,0,1,0.666667,0.333333,0.666667,1 2 30,1 30
+12,Empathetic,Empathic,Contextual,3,cross,3,3,0,1,4,2,2,0.200000,0.800000,0.333333,3 11 21,3 10 13
+12,Empathetic,Empathic,Contextual,4,same,3,2,-1,2,1,0,1,0.666667,0.333333,0.666667,1 2 30,1 30
+12,Empathetic,Empathic,Contextual,4,cross,4,4,0,3,2,1,1,0.600000,0.400000,0.750000,3 10 17 28,3 10 13 28
+12,Empathetic,Empathic,Contextual,8,same,3,2,-1,2,1,0,1,0.666667,0.333333,0.666667,1 2 30,1 30
+12,Empathetic,Empathic,Contextual,8,cross,8,8,0,3,10,5,5,0.230769,0.769231,0.375000,3 6 9 11 15 17 21 23,3 7 10 11 13 21 28 31
+12,Empathetic,Empathic,Analogical,1,same,0,0,0,0,0,0,0,1.000000,0.000000,1.000000,,
+12,Empathetic,Empathic,Analogical,1,cross,1,1,0,1,0,0,0,1.000000,0.000000,1.000000,3,3
+12,Empathetic,Empathic,Analogical,2,same,0,0,0,0,0,0,0,1.000000,0.000000,1.000000,,
+12,Empathetic,Empathic,Analogical,2,cross,2,2,0,2,0,0,0,1.000000,0.000000,1.000000,3 13,3 13
+12,Empathetic,Empathic,Analogical,3,same,0,0,0,0,0,0,0,1.000000,0.000000,1.000000,,
+12,Empathetic,Empathic,Analogical,3,cross,3,3,0,2,2,1,1,0.500000,0.500000,0.666667,3 7 23,3 7 13
+12,Empathetic,Empathic,Analogical,4,same,0,0,0,0,0,0,0,1.000000,0.000000,1.000000,,
+12,Empathetic,Empathic,Analogical,4,cross,4,4,0,1,6,3,3,0.142857,0.857143,0.250000,3 6 9 23,3 7 13 28
+12,Empathetic,Empathic,Analogical,8,same,0,0,0,0,0,0,0,1.000000,0.000000,1.000000,,
+12,Empathetic,Empathic,Analogical,8,cross,8,5,-3,4,5,1,4,0.444444,0.555556,0.500000,3 4 6 7 9 13 23 28,3 7 13 28 31
+13,Compassionate,Empathic,Surface,1,same,1,1,0,1,0,0,0,1.000000,0.000000,1.000000,1,1
+13,Compassionate,Empathic,Surface,1,cross,1,1,0,1,0,0,0,1.000000,0.000000,1.000000,3,3
+13,Compassionate,Empathic,Surface,2,same,2,2,0,1,2,1,1,0.333333,0.666667,0.500000,1 2,1 30
+13,Compassionate,Empathic,Surface,2,cross,2,2,0,1,2,1,1,0.333333,0.666667,0.500000,3 18,3 13
+13,Compassionate,Empathic,Surface,3,same,3,2,-1,2,1,0,1,0.666667,0.333333,0.666667,1 2 30,1 30
+13,Compassionate,Empathic,Surface,3,cross,3,3,0,1,4,2,2,0.200000,0.800000,0.333333,3 14 24,3 11 28
+13,Compassionate,Empathic,Surface,4,same,3,2,-1,2,1,0,1,0.666667,0.333333,0.666667,1 2 30,1 30
+13,Compassionate,Empathic,Surface,4,cross,4,4,0,1,6,3,3,0.142857,0.857143,0.250000,3 11 17 24,3 10 13 28
+13,Compassionate,Empathic,Surface,8,same,3,2,-1,2,1,0,1,0.666667,0.333333,0.666667,1 2 30,1 30
+13,Compassionate,Empathic,Surface,8,cross,8,8,0,5,6,3,3,0.454545,0.545455,0.625000,3 7 11 14 17 21 24 28,3 7 10 11 13 21 28 31
+13,Compassionate,Empathic,Shallow,1,same,1,1,0,1,0,0,0,1.000000,0.000000,1.000000,1,1
+13,Compassionate,Empathic,Shallow,1,cross,1,1,0,1,0,0,0,1.000000,0.000000,1.000000,3,3
+13,Compassionate,Empathic,Shallow,2,same,2,2,0,1,2,1,1,0.333333,0.666667,0.500000,1 2,1 30
+13,Compassionate,Empathic,Shallow,2,cross,2,2,0,1,2,1,1,0.333333,0.666667,0.500000,3 18,3 13
+13,Compassionate,Empathic,Shallow,3,same,3,2,-1,2,1,0,1,0.666667,0.333333,0.666667,1 2 30,1 30
+13,Compassionate,Empathic,Shallow,3,cross,3,3,0,1,4,2,2,0.200000,0.800000,0.333333,3 14 24,3 11 28
+13,Compassionate,Empathic,Shallow,4,same,3,2,-1,2,1,0,1,0.666667,0.333333,0.666667,1 2 30,1 30
+13,Compassionate,Empathic,Shallow,4,cross,4,4,0,1,6,3,3,0.142857,0.857143,0.250000,3 11 17 24,3 10 13 28
+13,Compassionate,Empathic,Shallow,8,same,3,2,-1,2,1,0,1,0.666667,0.333333,0.666667,1 2 30,1 30
+13,Compassionate,Empathic,Shallow,8,cross,8,8,0,5,6,3,3,0.454545,0.545455,0.625000,3 7 11 14 17 21 24 28,3 7 10 11 13 21 28 31
+13,Compassionate,Empathic,Contextual,1,same,1,1,0,1,0,0,0,1.000000,0.000000,1.000000,1,1
+13,Compassionate,Empathic,Contextual,1,cross,1,1,0,1,0,0,0,1.000000,0.000000,1.000000,3,3
+13,Compassionate,Empathic,Contextual,2,same,2,2,0,1,2,1,1,0.333333,0.666667,0.500000,1 2,1 30
+13,Compassionate,Empathic,Contextual,2,cross,2,2,0,1,2,1,1,0.333333,0.666667,0.500000,3 17,3 13
+13,Compassionate,Empathic,Contextual,3,same,3,2,-1,2,1,0,1,0.666667,0.333333,0.666667,1 2 30,1 30
+13,Compassionate,Empathic,Contextual,3,cross,3,3,0,1,4,2,2,0.200000,0.800000,0.333333,3 11 21,3 10 13
+13,Compassionate,Empathic,Contextual,4,same,3,2,-1,2,1,0,1,0.666667,0.333333,0.666667,1 2 30,1 30
+13,Compassionate,Empathic,Contextual,4,cross,4,4,0,3,2,1,1,0.600000,0.400000,0.750000,3 10 17 28,3 10 13 28
+13,Compassionate,Empathic,Contextual,8,same,3,2,-1,2,1,0,1,0.666667,0.333333,0.666667,1 2 30,1 30
+13,Compassionate,Empathic,Contextual,8,cross,8,8,0,3,10,5,5,0.230769,0.769231,0.375000,3 6 9 11 15 17 21 23,3 7 10 11 13 21 28 31
+13,Compassionate,Empathic,Analogical,1,same,0,0,0,0,0,0,0,1.000000,0.000000,1.000000,,
+13,Compassionate,Empathic,Analogical,1,cross,1,1,0,1,0,0,0,1.000000,0.000000,1.000000,3,3
+13,Compassionate,Empathic,Analogical,2,same,0,0,0,0,0,0,0,1.000000,0.000000,1.000000,,
+13,Compassionate,Empathic,Analogical,2,cross,2,2,0,2,0,0,0,1.000000,0.000000,1.000000,3 13,3 13
+13,Compassionate,Empathic,Analogical,3,same,0,0,0,0,0,0,0,1.000000,0.000000,1.000000,,
+13,Compassionate,Empathic,Analogical,3,cross,3,3,0,2,2,1,1,0.500000,0.500000,0.666667,3 7 23,3 7 13
+13,Compassionate,Empathic,Analogical,4,same,0,0,0,0,0,0,0,1.000000,0.000000,1.000000,,
+13,Compassionate,Empathic,Analogical,4,cross,4,4,0,1,6,3,3,0.142857,0.857143,0.250000,3 6 9 23,3 7 13 28
+13,Compassionate,Empathic,Analogical,8,same,0,0,0,0,0,0,0,1.000000,0.000000,1.000000,,
+13,Compassionate,Empathic,Analogical,8,cross,8,5,-3,4,5,1,4,0.444444,0.555556,0.500000,3 4 6 7 9 13 23 28,3 7 13 28 31
+14,Supportive,Empathic,Surface,1,same,1,1,0,1,0,0,0,1.000000,0.000000,1.000000,1,1
+14,Supportive,Empathic,Surface,1,cross,1,1,0,1,0,0,0,1.000000,0.000000,1.000000,3,3
+14,Supportive,Empathic,Surface,2,same,2,2,0,1,2,1,1,0.333333,0.666667,0.500000,1 2,1 30
+14,Supportive,Empathic,Surface,2,cross,2,2,0,1,2,1,1,0.333333,0.666667,0.500000,3 18,3 13
+14,Supportive,Empathic,Surface,3,same,3,2,-1,2,1,0,1,0.666667,0.333333,0.666667,1 2 30,1 30
+14,Supportive,Empathic,Surface,3,cross,3,3,0,1,4,2,2,0.200000,0.800000,0.333333,3 14 24,3 11 28
+14,Supportive,Empathic,Surface,4,same,3,2,-1,2,1,0,1,0.666667,0.333333,0.666667,1 2 30,1 30
+14,Supportive,Empathic,Surface,4,cross,4,4,0,1,6,3,3,0.142857,0.857143,0.250000,3 11 17 24,3 10 13 28
+14,Supportive,Empathic,Surface,8,same,3,2,-1,2,1,0,1,0.666667,0.333333,0.666667,1 2 30,1 30
+14,Supportive,Empathic,Surface,8,cross,8,8,0,5,6,3,3,0.454545,0.545455,0.625000,3 7 11 14 17 21 24 28,3 7 10 11 13 21 28 31
+14,Supportive,Empathic,Shallow,1,same,1,1,0,1,0,0,0,1.000000,0.000000,1.000000,1,1
+14,Supportive,Empathic,Shallow,1,cross,1,1,0,1,0,0,0,1.000000,0.000000,1.000000,3,3
+14,Supportive,Empathic,Shallow,2,same,2,2,0,1,2,1,1,0.333333,0.666667,0.500000,1 2,1 30
+14,Supportive,Empathic,Shallow,2,cross,2,2,0,1,2,1,1,0.333333,0.666667,0.500000,3 18,3 13
+14,Supportive,Empathic,Shallow,3,same,3,2,-1,2,1,0,1,0.666667,0.333333,0.666667,1 2 30,1 30
+14,Supportive,Empathic,Shallow,3,cross,3,3,0,1,4,2,2,0.200000,0.800000,0.333333,3 14 24,3 11 28
+14,Supportive,Empathic,Shallow,4,same,3,2,-1,2,1,0,1,0.666667,0.333333,0.666667,1 2 30,1 30
+14,Supportive,Empathic,Shallow,4,cross,4,4,0,1,6,3,3,0.142857,0.857143,0.250000,3 11 17 24,3 10 13 28
+14,Supportive,Empathic,Shallow,8,same,3,2,-1,2,1,0,1,0.666667,0.333333,0.666667,1 2 30,1 30
+14,Supportive,Empathic,Shallow,8,cross,8,8,0,5,6,3,3,0.454545,0.545455,0.625000,3 7 11 14 17 21 24 28,3 7 10 11 13 21 28 31
+14,Supportive,Empathic,Contextual,1,same,1,1,0,1,0,0,0,1.000000,0.000000,1.000000,1,1
+14,Supportive,Empathic,Contextual,1,cross,1,1,0,1,0,0,0,1.000000,0.000000,1.000000,3,3
+14,Supportive,Empathic,Contextual,2,same,2,2,0,1,2,1,1,0.333333,0.666667,0.500000,1 2,1 30
+14,Supportive,Empathic,Contextual,2,cross,2,2,0,1,2,1,1,0.333333,0.666667,0.500000,3 17,3 13
+14,Supportive,Empathic,Contextual,3,same,3,2,-1,2,1,0,1,0.666667,0.333333,0.666667,1 2 30,1 30
+14,Supportive,Empathic,Contextual,3,cross,3,3,0,1,4,2,2,0.200000,0.800000,0.333333,3 11 21,3 10 13
+14,Supportive,Empathic,Contextual,4,same,3,2,-1,2,1,0,1,0.666667,0.333333,0.666667,1 2 30,1 30
+14,Supportive,Empathic,Contextual,4,cross,4,4,0,3,2,1,1,0.600000,0.400000,0.750000,3 10 17 28,3 10 13 28
+14,Supportive,Empathic,Contextual,8,same,3,2,-1,2,1,0,1,0.666667,0.333333,0.666667,1 2 30,1 30
+14,Supportive,Empathic,Contextual,8,cross,8,8,0,3,10,5,5,0.230769,0.769231,0.375000,3 6 9 11 15 17 21 23,3 7 10 11 13 21 28 31
+14,Supportive,Empathic,Analogical,1,same,0,0,0,0,0,0,0,1.000000,0.000000,1.000000,,
+14,Supportive,Empathic,Analogical,1,cross,1,1,0,1,0,0,0,1.000000,0.000000,1.000000,3,3
+14,Supportive,Empathic,Analogical,2,same,0,0,0,0,0,0,0,1.000000,0.000000,1.000000,,
+14,Supportive,Empathic,Analogical,2,cross,2,2,0,2,0,0,0,1.000000,0.000000,1.000000,3 13,3 13
+14,Supportive,Empathic,Analogical,3,same,0,0,0,0,0,0,0,1.000000,0.000000,1.000000,,
+14,Supportive,Empathic,Analogical,3,cross,3,3,0,2,2,1,1,0.500000,0.500000,0.666667,3 7 23,3 7 13
+14,Supportive,Empathic,Analogical,4,same,0,0,0,0,0,0,0,1.000000,0.000000,1.000000,,
+14,Supportive,Empathic,Analogical,4,cross,4,4,0,1,6,3,3,0.142857,0.857143,0.250000,3 6 9 23,3 7 13 28
+14,Supportive,Empathic,Analogical,8,same,0,0,0,0,0,0,0,1.000000,0.000000,1.000000,,
+14,Supportive,Empathic,Analogical,8,cross,8,5,-3,4,5,1,4,0.444444,0.555556,0.500000,3 4 6 7 9 13 23 28,3 7 13 28 31
+15,Nurturing,Empathic,Surface,1,same,1,1,0,1,0,0,0,1.000000,0.000000,1.000000,1,1
+15,Nurturing,Empathic,Surface,1,cross,1,1,0,1,0,0,0,1.000000,0.000000,1.000000,3,3
+15,Nurturing,Empathic,Surface,2,same,2,2,0,1,2,1,1,0.333333,0.666667,0.500000,1 2,1 30
+15,Nurturing,Empathic,Surface,2,cross,2,2,0,1,2,1,1,0.333333,0.666667,0.500000,3 18,3 13
+15,Nurturing,Empathic,Surface,3,same,3,2,-1,2,1,0,1,0.666667,0.333333,0.666667,1 2 30,1 30
+15,Nurturing,Empathic,Surface,3,cross,3,3,0,1,4,2,2,0.200000,0.800000,0.333333,3 14 24,3 11 28
+15,Nurturing,Empathic,Surface,4,same,3,2,-1,2,1,0,1,0.666667,0.333333,0.666667,1 2 30,1 30
+15,Nurturing,Empathic,Surface,4,cross,4,4,0,1,6,3,3,0.142857,0.857143,0.250000,3 11 17 24,3 10 13 28
+15,Nurturing,Empathic,Surface,8,same,3,2,-1,2,1,0,1,0.666667,0.333333,0.666667,1 2 30,1 30
+15,Nurturing,Empathic,Surface,8,cross,8,8,0,5,6,3,3,0.454545,0.545455,0.625000,3 7 11 14 17 21 24 28,3 7 10 11 13 21 28 31
+15,Nurturing,Empathic,Shallow,1,same,1,1,0,1,0,0,0,1.000000,0.000000,1.000000,1,1
+15,Nurturing,Empathic,Shallow,1,cross,1,1,0,1,0,0,0,1.000000,0.000000,1.000000,3,3
+15,Nurturing,Empathic,Shallow,2,same,2,2,0,1,2,1,1,0.333333,0.666667,0.500000,1 2,1 30
+15,Nurturing,Empathic,Shallow,2,cross,2,2,0,1,2,1,1,0.333333,0.666667,0.500000,3 18,3 13
+15,Nurturing,Empathic,Shallow,3,same,3,2,-1,2,1,0,1,0.666667,0.333333,0.666667,1 2 30,1 30
+15,Nurturing,Empathic,Shallow,3,cross,3,3,0,1,4,2,2,0.200000,0.800000,0.333333,3 14 24,3 11 28
+15,Nurturing,Empathic,Shallow,4,same,3,2,-1,2,1,0,1,0.666667,0.333333,0.666667,1 2 30,1 30
+15,Nurturing,Empathic,Shallow,4,cross,4,4,0,1,6,3,3,0.142857,0.857143,0.250000,3 11 17 24,3 10 13 28
+15,Nurturing,Empathic,Shallow,8,same,3,2,-1,2,1,0,1,0.666667,0.333333,0.666667,1 2 30,1 30
+15,Nurturing,Empathic,Shallow,8,cross,8,8,0,5,6,3,3,0.454545,0.545455,0.625000,3 7 11 14 17 21 24 28,3 7 10 11 13 21 28 31
+15,Nurturing,Empathic,Contextual,1,same,1,1,0,1,0,0,0,1.000000,0.000000,1.000000,1,1
+15,Nurturing,Empathic,Contextual,1,cross,1,1,0,1,0,0,0,1.000000,0.000000,1.000000,3,3
+15,Nurturing,Empathic,Contextual,2,same,2,2,0,1,2,1,1,0.333333,0.666667,0.500000,1 2,1 30
+15,Nurturing,Empathic,Contextual,2,cross,2,2,0,1,2,1,1,0.333333,0.666667,0.500000,3 17,3 13
+15,Nurturing,Empathic,Contextual,3,same,3,2,-1,2,1,0,1,0.666667,0.333333,0.666667,1 2 30,1 30
+15,Nurturing,Empathic,Contextual,3,cross,3,3,0,1,4,2,2,0.200000,0.800000,0.333333,3 11 21,3 10 13
+15,Nurturing,Empathic,Contextual,4,same,3,2,-1,2,1,0,1,0.666667,0.333333,0.666667,1 2 30,1 30
+15,Nurturing,Empathic,Contextual,4,cross,4,4,0,3,2,1,1,0.600000,0.400000,0.750000,3 10 17 28,3 10 13 28
+15,Nurturing,Empathic,Contextual,8,same,3,2,-1,2,1,0,1,0.666667,0.333333,0.666667,1 2 30,1 30
+15,Nurturing,Empathic,Contextual,8,cross,8,8,0,3,10,5,5,0.230769,0.769231,0.375000,3 6 9 11 15 17 21 23,3 7 10 11 13 21 28 31
+15,Nurturing,Empathic,Analogical,1,same,0,0,0,0,0,0,0,1.000000,0.000000,1.000000,,
+15,Nurturing,Empathic,Analogical,1,cross,1,1,0,1,0,0,0,1.000000,0.000000,1.000000,3,3
+15,Nurturing,Empathic,Analogical,2,same,0,0,0,0,0,0,0,1.000000,0.000000,1.000000,,
+15,Nurturing,Empathic,Analogical,2,cross,2,2,0,2,0,0,0,1.000000,0.000000,1.000000,3 13,3 13
+15,Nurturing,Empathic,Analogical,3,same,0,0,0,0,0,0,0,1.000000,0.000000,1.000000,,
+15,Nurturing,Empathic,Analogical,3,cross,3,3,0,2,2,1,1,0.500000,0.500000,0.666667,3 7 23,3 7 13
+15,Nurturing,Empathic,Analogical,4,same,0,0,0,0,0,0,0,1.000000,0.000000,1.000000,,
+15,Nurturing,Empathic,Analogical,4,cross,4,4,0,1,6,3,3,0.142857,0.857143,0.250000,3 6 9 23,3 7 13 28
+15,Nurturing,Empathic,Analogical,8,same,0,0,0,0,0,0,0,1.000000,0.000000,1.000000,,
+15,Nurturing,Empathic,Analogical,8,cross,8,5,-3,4,5,1,4,0.444444,0.555556,0.500000,3 4 6 7 9 13 23 28,3 7 13 28 31
+16,Gentle,Empathic,Surface,1,same,1,1,0,1,0,0,0,1.000000,0.000000,1.000000,1,1
+16,Gentle,Empathic,Surface,1,cross,1,1,0,1,0,0,0,1.000000,0.000000,1.000000,3,3
+16,Gentle,Empathic,Surface,2,same,2,2,0,1,2,1,1,0.333333,0.666667,0.500000,1 2,1 30
+16,Gentle,Empathic,Surface,2,cross,2,2,0,1,2,1,1,0.333333,0.666667,0.500000,3 18,3 13
+16,Gentle,Empathic,Surface,3,same,3,2,-1,2,1,0,1,0.666667,0.333333,0.666667,1 2 30,1 30
+16,Gentle,Empathic,Surface,3,cross,3,3,0,1,4,2,2,0.200000,0.800000,0.333333,3 14 24,3 11 28
+16,Gentle,Empathic,Surface,4,same,3,2,-1,2,1,0,1,0.666667,0.333333,0.666667,1 2 30,1 30
+16,Gentle,Empathic,Surface,4,cross,4,4,0,1,6,3,3,0.142857,0.857143,0.250000,3 11 17 24,3 10 13 28
+16,Gentle,Empathic,Surface,8,same,3,2,-1,2,1,0,1,0.666667,0.333333,0.666667,1 2 30,1 30
+16,Gentle,Empathic,Surface,8,cross,8,8,0,5,6,3,3,0.454545,0.545455,0.625000,3 7 11 14 17 21 24 28,3 7 10 11 13 21 28 31
+16,Gentle,Empathic,Shallow,1,same,1,1,0,1,0,0,0,1.000000,0.000000,1.000000,1,1
+16,Gentle,Empathic,Shallow,1,cross,1,1,0,1,0,0,0,1.000000,0.000000,1.000000,3,3
+16,Gentle,Empathic,Shallow,2,same,2,2,0,1,2,1,1,0.333333,0.666667,0.500000,1 2,1 30
+16,Gentle,Empathic,Shallow,2,cross,2,2,0,1,2,1,1,0.333333,0.666667,0.500000,3 18,3 13
+16,Gentle,Empathic,Shallow,3,same,3,2,-1,2,1,0,1,0.666667,0.333333,0.666667,1 2 30,1 30
+16,Gentle,Empathic,Shallow,3,cross,3,3,0,1,4,2,2,0.200000,0.800000,0.333333,3 14 24,3 11 28
+16,Gentle,Empathic,Shallow,4,same,3,2,-1,2,1,0,1,0.666667,0.333333,0.666667,1 2 30,1 30
+16,Gentle,Empathic,Shallow,4,cross,4,4,0,1,6,3,3,0.142857,0.857143,0.250000,3 11 17 24,3 10 13 28
+16,Gentle,Empathic,Shallow,8,same,3,2,-1,2,1,0,1,0.666667,0.333333,0.666667,1 2 30,1 30
+16,Gentle,Empathic,Shallow,8,cross,8,8,0,5,6,3,3,0.454545,0.545455,0.625000,3 7 11 14 17 21 24 28,3 7 10 11 13 21 28 31
+16,Gentle,Empathic,Contextual,1,same,1,1,0,1,0,0,0,1.000000,0.000000,1.000000,1,1
+16,Gentle,Empathic,Contextual,1,cross,1,1,0,1,0,0,0,1.000000,0.000000,1.000000,3,3
+16,Gentle,Empathic,Contextual,2,same,2,2,0,1,2,1,1,0.333333,0.666667,0.500000,1 2,1 30
+16,Gentle,Empathic,Contextual,2,cross,2,2,0,1,2,1,1,0.333333,0.666667,0.500000,3 17,3 13
+16,Gentle,Empathic,Contextual,3,same,3,2,-1,2,1,0,1,0.666667,0.333333,0.666667,1 2 30,1 30
+16,Gentle,Empathic,Contextual,3,cross,3,3,0,1,4,2,2,0.200000,0.800000,0.333333,3 11 21,3 10 13
+16,Gentle,Empathic,Contextual,4,same,3,2,-1,2,1,0,1,0.666667,0.333333,0.666667,1 2 30,1 30
+16,Gentle,Empathic,Contextual,4,cross,4,4,0,3,2,1,1,0.600000,0.400000,0.750000,3 10 17 28,3 10 13 28
+16,Gentle,Empathic,Contextual,8,same,3,2,-1,2,1,0,1,0.666667,0.333333,0.666667,1 2 30,1 30
+16,Gentle,Empathic,Contextual,8,cross,8,8,0,3,10,5,5,0.230769,0.769231,0.375000,3 6 9 11 15 17 21 23,3 7 10 11 13 21 28 31
+16,Gentle,Empathic,Analogical,1,same,0,0,0,0,0,0,0,1.000000,0.000000,1.000000,,
+16,Gentle,Empathic,Analogical,1,cross,1,1,0,1,0,0,0,1.000000,0.000000,1.000000,3,3
+16,Gentle,Empathic,Analogical,2,same,0,0,0,0,0,0,0,1.000000,0.000000,1.000000,,
+16,Gentle,Empathic,Analogical,2,cross,2,2,0,2,0,0,0,1.000000,0.000000,1.000000,3 13,3 13
+16,Gentle,Empathic,Analogical,3,same,0,0,0,0,0,0,0,1.000000,0.000000,1.000000,,
+16,Gentle,Empathic,Analogical,3,cross,3,3,0,2,2,1,1,0.500000,0.500000,0.666667,3 7 23,3 7 13
+16,Gentle,Empathic,Analogical,4,same,0,0,0,0,0,0,0,1.000000,0.000000,1.000000,,
+16,Gentle,Empathic,Analogical,4,cross,4,4,0,1,6,3,3,0.142857,0.857143,0.250000,3 6 9 23,3 7 13 28
+16,Gentle,Empathic,Analogical,8,same,0,0,0,0,0,0,0,1.000000,0.000000,1.000000,,
+16,Gentle,Empathic,Analogical,8,cross,8,5,-3,4,5,1,4,0.444444,0.555556,0.500000,3 4 6 7 9 13 23 28,3 7 13 28 31
+17,Warm,Empathic,Surface,1,same,1,1,0,1,0,0,0,1.000000,0.000000,1.000000,1,1
+17,Warm,Empathic,Surface,1,cross,1,1,0,1,0,0,0,1.000000,0.000000,1.000000,3,3
+17,Warm,Empathic,Surface,2,same,2,2,0,1,2,1,1,0.333333,0.666667,0.500000,1 2,1 30
+17,Warm,Empathic,Surface,2,cross,2,2,0,1,2,1,1,0.333333,0.666667,0.500000,3 18,3 13
+17,Warm,Empathic,Surface,3,same,3,2,-1,2,1,0,1,0.666667,0.333333,0.666667,1 2 30,1 30
+17,Warm,Empathic,Surface,3,cross,3,3,0,1,4,2,2,0.200000,0.800000,0.333333,3 14 24,3 11 28
+17,Warm,Empathic,Surface,4,same,3,2,-1,2,1,0,1,0.666667,0.333333,0.666667,1 2 30,1 30
+17,Warm,Empathic,Surface,4,cross,4,4,0,1,6,3,3,0.142857,0.857143,0.250000,3 11 17 24,3 10 13 28
+17,Warm,Empathic,Surface,8,same,3,2,-1,2,1,0,1,0.666667,0.333333,0.666667,1 2 30,1 30
+17,Warm,Empathic,Surface,8,cross,8,8,0,5,6,3,3,0.454545,0.545455,0.625000,3 7 11 14 17 21 24 28,3 7 10 11 13 21 28 31
+17,Warm,Empathic,Shallow,1,same,1,1,0,1,0,0,0,1.000000,0.000000,1.000000,1,1
+17,Warm,Empathic,Shallow,1,cross,1,1,0,1,0,0,0,1.000000,0.000000,1.000000,3,3
+17,Warm,Empathic,Shallow,2,same,2,2,0,1,2,1,1,0.333333,0.666667,0.500000,1 2,1 30
+17,Warm,Empathic,Shallow,2,cross,2,2,0,1,2,1,1,0.333333,0.666667,0.500000,3 18,3 13
+17,Warm,Empathic,Shallow,3,same,3,2,-1,2,1,0,1,0.666667,0.333333,0.666667,1 2 30,1 30
+17,Warm,Empathic,Shallow,3,cross,3,3,0,1,4,2,2,0.200000,0.800000,0.333333,3 14 24,3 11 28
+17,Warm,Empathic,Shallow,4,same,3,2,-1,2,1,0,1,0.666667,0.333333,0.666667,1 2 30,1 30
+17,Warm,Empathic,Shallow,4,cross,4,4,0,1,6,3,3,0.142857,0.857143,0.250000,3 11 17 24,3 10 13 28
+17,Warm,Empathic,Shallow,8,same,3,2,-1,2,1,0,1,0.666667,0.333333,0.666667,1 2 30,1 30
+17,Warm,Empathic,Shallow,8,cross,8,8,0,5,6,3,3,0.454545,0.545455,0.625000,3 7 11 14 17 21 24 28,3 7 10 11 13 21 28 31
+17,Warm,Empathic,Contextual,1,same,1,1,0,1,0,0,0,1.000000,0.000000,1.000000,1,1
+17,Warm,Empathic,Contextual,1,cross,1,1,0,1,0,0,0,1.000000,0.000000,1.000000,3,3
+17,Warm,Empathic,Contextual,2,same,2,2,0,1,2,1,1,0.333333,0.666667,0.500000,1 2,1 30
+17,Warm,Empathic,Contextual,2,cross,2,2,0,1,2,1,1,0.333333,0.666667,0.500000,3 17,3 13
+17,Warm,Empathic,Contextual,3,same,3,2,-1,2,1,0,1,0.666667,0.333333,0.666667,1 2 30,1 30
+17,Warm,Empathic,Contextual,3,cross,3,3,0,1,4,2,2,0.200000,0.800000,0.333333,3 11 21,3 10 13
+17,Warm,Empathic,Contextual,4,same,3,2,-1,2,1,0,1,0.666667,0.333333,0.666667,1 2 30,1 30
+17,Warm,Empathic,Contextual,4,cross,4,4,0,3,2,1,1,0.600000,0.400000,0.750000,3 10 17 28,3 10 13 28
+17,Warm,Empathic,Contextual,8,same,3,2,-1,2,1,0,1,0.666667,0.333333,0.666667,1 2 30,1 30
+17,Warm,Empathic,Contextual,8,cross,8,8,0,3,10,5,5,0.230769,0.769231,0.375000,3 6 9 11 15 17 21 23,3 7 10 11 13 21 28 31
+17,Warm,Empathic,Analogical,1,same,0,0,0,0,0,0,0,1.000000,0.000000,1.000000,,
+17,Warm,Empathic,Analogical,1,cross,1,1,0,1,0,0,0,1.000000,0.000000,1.000000,3,3
+17,Warm,Empathic,Analogical,2,same,0,0,0,0,0,0,0,1.000000,0.000000,1.000000,,
+17,Warm,Empathic,Analogical,2,cross,2,2,0,2,0,0,0,1.000000,0.000000,1.000000,3 13,3 13
+17,Warm,Empathic,Analogical,3,same,0,0,0,0,0,0,0,1.000000,0.000000,1.000000,,
+17,Warm,Empathic,Analogical,3,cross,3,3,0,2,2,1,1,0.500000,0.500000,0.666667,3 7 23,3 7 13
+17,Warm,Empathic,Analogical,4,same,0,0,0,0,0,0,0,1.000000,0.000000,1.000000,,
+17,Warm,Empathic,Analogical,4,cross,4,4,0,1,6,3,3,0.142857,0.857143,0.250000,3 6 9 23,3 7 13 28
+17,Warm,Empathic,Analogical,8,same,0,0,0,0,0,0,0,1.000000,0.000000,1.000000,,
+17,Warm,Empathic,Analogical,8,cross,8,5,-3,4,5,1,4,0.444444,0.555556,0.500000,3 4 6 7 9 13 23 28,3 7 13 28 31
+18,Direct,Direct,Surface,1,same,1,1,0,1,0,0,0,1.000000,0.000000,1.000000,3,3
+18,Direct,Direct,Surface,1,cross,1,1,0,1,0,0,0,1.000000,0.000000,1.000000,1,1
+18,Direct,Direct,Surface,2,same,2,2,0,1,2,1,1,0.333333,0.666667,0.500000,3 11,3 10
+18,Direct,Direct,Surface,2,cross,2,2,0,1,2,1,1,0.333333,0.666667,0.500000,1 22,1 30
+18,Direct,Direct,Surface,3,same,3,3,0,2,2,1,1,0.500000,0.500000,0.666667,3 10 17,3 7 10
+18,Direct,Direct,Surface,3,cross,3,3,0,1,4,2,2,0.200000,0.800000,0.333333,1 15 27,1 28 31
+18,Direct,Direct,Surface,4,same,4,4,0,4,0,0,0,1.000000,0.000000,1.000000,3 7 10 11,3 7 10 11
+18,Direct,Direct,Surface,4,cross,4,4,0,2,4,2,2,0.333333,0.666667,0.500000,1 13 22 29,1 13 28 30
+18,Direct,Direct,Surface,8,same,6,5,-1,5,1,0,1,0.833333,0.166667,0.833333,3 7 10 11 17 21,3 7 10 11 21
+18,Direct,Direct,Surface,8,cross,8,6,-2,3,8,3,5,0.272727,0.727273,0.375000,1 6 13 16 22 25 29 32,1 13 28 30 31 32
+18,Direct,Direct,Shallow,1,same,1,1,0,1,0,0,0,1.000000,0.000000,1.000000,3,3
+18,Direct,Direct,Shallow,1,cross,1,1,0,1,0,0,0,1.000000,0.000000,1.000000,1,1
+18,Direct,Direct,Shallow,2,same,2,2,0,1,2,1,1,0.333333,0.666667,0.500000,3 11,3 10
+18,Direct,Direct,Shallow,2,cross,2,2,0,1,2,1,1,0.333333,0.666667,0.500000,1 22,1 30
+18,Direct,Direct,Shallow,3,same,3,3,0,2,2,1,1,0.500000,0.500000,0.666667,3 10 17,3 7 10
+18,Direct,Direct,Shallow,3,cross,3,3,0,1,4,2,2,0.200000,0.800000,0.333333,1 15 27,1 28 31
+18,Direct,Direct,Shallow,4,same,4,4,0,4,0,0,0,1.000000,0.000000,1.000000,3 7 10 11,3 7 10 11
+18,Direct,Direct,Shallow,4,cross,4,4,0,2,4,2,2,0.333333,0.666667,0.500000,1 13 22 29,1 13 28 30
+18,Direct,Direct,Shallow,8,same,6,5,-1,5,1,0,1,0.833333,0.166667,0.833333,3 7 10 11 17 21,3 7 10 11 21
+18,Direct,Direct,Shallow,8,cross,8,6,-2,3,8,3,5,0.272727,0.727273,0.375000,1 6 13 16 22 25 29 32,1 13 28 30 31 32
+18,Direct,Direct,Contextual,1,same,1,1,0,1,0,0,0,1.000000,0.000000,1.000000,3,3
+18,Direct,Direct,Contextual,1,cross,1,1,0,1,0,0,0,1.000000,0.000000,1.000000,1,1
+18,Direct,Direct,Contextual,2,same,2,2,0,1,2,1,1,0.333333,0.666667,0.500000,3 11,3 10
+18,Direct,Direct,Contextual,2,cross,2,2,0,1,2,1,1,0.333333,0.666667,0.500000,1 18,1 28
+18,Direct,Direct,Contextual,3,same,3,3,0,2,2,1,1,0.500000,0.500000,0.666667,3 10 17,3 7 10
+18,Direct,Direct,Contextual,3,cross,3,3,0,2,2,1,1,0.500000,0.500000,0.666667,1 13 23,1 13 28
+18,Direct,Direct,Contextual,4,same,4,4,0,4,0,0,0,1.000000,0.000000,1.000000,3 7 10 11,3 7 10 11
+18,Direct,Direct,Contextual,4,cross,4,4,0,1,6,3,3,0.142857,0.857143,0.250000,1 9 18 29,1 13 28 30
+18,Direct,Direct,Contextual,8,same,6,5,-1,5,1,0,1,0.833333,0.166667,0.833333,3 7 10 11 17 21,3 7 10 11 21
+18,Direct,Direct,Contextual,8,cross,8,5,-3,2,9,3,6,0.181818,0.818182,0.250000,1 4 9 15 18 23 29 31,1 13 28 30 31
+18,Direct,Direct,Analogical,1,same,1,1,0,1,0,0,0,1.000000,0.000000,1.000000,3,3
+18,Direct,Direct,Analogical,1,cross,1,1,0,0,2,1,1,0.000000,1.000000,0.000000,4,13
+18,Direct,Direct,Analogical,2,same,2,2,0,2,0,0,0,1.000000,0.000000,1.000000,3 7,3 7
+18,Direct,Direct,Analogical,2,cross,2,2,0,0,4,2,2,0.000000,1.000000,0.000000,4 23,13 28
+18,Direct,Direct,Analogical,3,same,2,2,0,2,0,0,0,1.000000,0.000000,1.000000,3 7,3 7
+18,Direct,Direct,Analogical,3,cross,3,3,0,0,6,3,3,0.000000,1.000000,0.000000,4 9 23,13 28 31
+18,Direct,Direct,Analogical,4,same,2,2,0,2,0,0,0,1.000000,0.000000,1.000000,3 7,3 7
+18,Direct,Direct,Analogical,4,cross,4,3,-1,1,5,2,3,0.166667,0.833333,0.250000,4 9 23 31,13 28 31
+18,Direct,Direct,Analogical,8,same,2,2,0,2,0,0,0,1.000000,0.000000,1.000000,3 7,3 7
+18,Direct,Direct,Analogical,8,cross,8,3,-5,3,5,0,5,0.375000,0.625000,0.375000,4 6 9 13 23 28 31 34,13 28 31
+19,Concise,Direct,Surface,1,same,1,1,0,1,0,0,0,1.000000,0.000000,1.000000,3,3
+19,Concise,Direct,Surface,1,cross,1,1,0,1,0,0,0,1.000000,0.000000,1.000000,1,1
+19,Concise,Direct,Surface,2,same,2,2,0,1,2,1,1,0.333333,0.666667,0.500000,3 11,3 10
+19,Concise,Direct,Surface,2,cross,2,2,0,1,2,1,1,0.333333,0.666667,0.500000,1 22,1 30
+19,Concise,Direct,Surface,3,same,3,3,0,2,2,1,1,0.500000,0.500000,0.666667,3 10 17,3 7 10
+19,Concise,Direct,Surface,3,cross,3,3,0,1,4,2,2,0.200000,0.800000,0.333333,1 15 27,1 28 31
+19,Concise,Direct,Surface,4,same,4,4,0,4,0,0,0,1.000000,0.000000,1.000000,3 7 10 11,3 7 10 11
+19,Concise,Direct,Surface,4,cross,4,4,0,2,4,2,2,0.333333,0.666667,0.500000,1 13 22 29,1 13 28 30
+19,Concise,Direct,Surface,8,same,6,5,-1,5,1,0,1,0.833333,0.166667,0.833333,3 7 10 11 17 21,3 7 10 11 21
+19,Concise,Direct,Surface,8,cross,8,6,-2,3,8,3,5,0.272727,0.727273,0.375000,1 6 13 16 22 25 29 32,1 13 28 30 31 32
+19,Concise,Direct,Shallow,1,same,1,1,0,1,0,0,0,1.000000,0.000000,1.000000,3,3
+19,Concise,Direct,Shallow,1,cross,1,1,0,1,0,0,0,1.000000,0.000000,1.000000,1,1
+19,Concise,Direct,Shallow,2,same,2,2,0,1,2,1,1,0.333333,0.666667,0.500000,3 11,3 10
+19,Concise,Direct,Shallow,2,cross,2,2,0,1,2,1,1,0.333333,0.666667,0.500000,1 22,1 30
+19,Concise,Direct,Shallow,3,same,3,3,0,2,2,1,1,0.500000,0.500000,0.666667,3 10 17,3 7 10
+19,Concise,Direct,Shallow,3,cross,3,3,0,1,4,2,2,0.200000,0.800000,0.333333,1 15 27,1 28 31
+19,Concise,Direct,Shallow,4,same,4,4,0,4,0,0,0,1.000000,0.000000,1.000000,3 7 10 11,3 7 10 11
+19,Concise,Direct,Shallow,4,cross,4,4,0,2,4,2,2,0.333333,0.666667,0.500000,1 13 22 29,1 13 28 30
+19,Concise,Direct,Shallow,8,same,6,5,-1,5,1,0,1,0.833333,0.166667,0.833333,3 7 10 11 17 21,3 7 10 11 21
+19,Concise,Direct,Shallow,8,cross,8,6,-2,3,8,3,5,0.272727,0.727273,0.375000,1 6 13 16 22 25 29 32,1 13 28 30 31 32
+19,Concise,Direct,Contextual,1,same,1,1,0,1,0,0,0,1.000000,0.000000,1.000000,3,3
+19,Concise,Direct,Contextual,1,cross,1,1,0,1,0,0,0,1.000000,0.000000,1.000000,1,1
+19,Concise,Direct,Contextual,2,same,2,2,0,1,2,1,1,0.333333,0.666667,0.500000,3 11,3 10
+19,Concise,Direct,Contextual,2,cross,2,2,0,1,2,1,1,0.333333,0.666667,0.500000,1 18,1 28
+19,Concise,Direct,Contextual,3,same,3,3,0,2,2,1,1,0.500000,0.500000,0.666667,3 10 17,3 7 10
+19,Concise,Direct,Contextual,3,cross,3,3,0,2,2,1,1,0.500000,0.500000,0.666667,1 13 23,1 13 28
+19,Concise,Direct,Contextual,4,same,4,4,0,4,0,0,0,1.000000,0.000000,1.000000,3 7 10 11,3 7 10 11
+19,Concise,Direct,Contextual,4,cross,4,4,0,1,6,3,3,0.142857,0.857143,0.250000,1 9 18 29,1 13 28 30
+19,Concise,Direct,Contextual,8,same,6,5,-1,5,1,0,1,0.833333,0.166667,0.833333,3 7 10 11 17 21,3 7 10 11 21
+19,Concise,Direct,Contextual,8,cross,8,5,-3,2,9,3,6,0.181818,0.818182,0.250000,1 4 9 15 18 23 29 31,1 13 28 30 31
+19,Concise,Direct,Analogical,1,same,1,1,0,1,0,0,0,1.000000,0.000000,1.000000,3,3
+19,Concise,Direct,Analogical,1,cross,1,1,0,0,2,1,1,0.000000,1.000000,0.000000,4,13
+19,Concise,Direct,Analogical,2,same,2,2,0,2,0,0,0,1.000000,0.000000,1.000000,3 7,3 7
+19,Concise,Direct,Analogical,2,cross,2,2,0,0,4,2,2,0.000000,1.000000,0.000000,4 23,13 28
+19,Concise,Direct,Analogical,3,same,2,2,0,2,0,0,0,1.000000,0.000000,1.000000,3 7,3 7
+19,Concise,Direct,Analogical,3,cross,3,3,0,0,6,3,3,0.000000,1.000000,0.000000,4 9 23,13 28 31
+19,Concise,Direct,Analogical,4,same,2,2,0,2,0,0,0,1.000000,0.000000,1.000000,3 7,3 7
+19,Concise,Direct,Analogical,4,cross,4,3,-1,1,5,2,3,0.166667,0.833333,0.250000,4 9 23 31,13 28 31
+19,Concise,Direct,Analogical,8,same,2,2,0,2,0,0,0,1.000000,0.000000,1.000000,3 7,3 7
+19,Concise,Direct,Analogical,8,cross,8,3,-5,3,5,0,5,0.375000,0.625000,0.375000,4 6 9 13 23 28 31 34,13 28 31
+20,Efficient,Direct,Surface,1,same,1,1,0,1,0,0,0,1.000000,0.000000,1.000000,3,3
+20,Efficient,Direct,Surface,1,cross,1,1,0,1,0,0,0,1.000000,0.000000,1.000000,1,1
+20,Efficient,Direct,Surface,2,same,2,2,0,1,2,1,1,0.333333,0.666667,0.500000,3 11,3 10
+20,Efficient,Direct,Surface,2,cross,2,2,0,1,2,1,1,0.333333,0.666667,0.500000,1 22,1 30
+20,Efficient,Direct,Surface,3,same,3,3,0,2,2,1,1,0.500000,0.500000,0.666667,3 10 17,3 7 10
+20,Efficient,Direct,Surface,3,cross,3,3,0,1,4,2,2,0.200000,0.800000,0.333333,1 15 27,1 28 31
+20,Efficient,Direct,Surface,4,same,4,4,0,4,0,0,0,1.000000,0.000000,1.000000,3 7 10 11,3 7 10 11
+20,Efficient,Direct,Surface,4,cross,4,4,0,2,4,2,2,0.333333,0.666667,0.500000,1 13 22 29,1 13 28 30
+20,Efficient,Direct,Surface,8,same,6,5,-1,5,1,0,1,0.833333,0.166667,0.833333,3 7 10 11 17 21,3 7 10 11 21
+20,Efficient,Direct,Surface,8,cross,8,6,-2,3,8,3,5,0.272727,0.727273,0.375000,1 6 13 16 22 25 29 32,1 13 28 30 31 32
+20,Efficient,Direct,Shallow,1,same,1,1,0,1,0,0,0,1.000000,0.000000,1.000000,3,3
+20,Efficient,Direct,Shallow,1,cross,1,1,0,1,0,0,0,1.000000,0.000000,1.000000,1,1
+20,Efficient,Direct,Shallow,2,same,2,2,0,1,2,1,1,0.333333,0.666667,0.500000,3 11,3 10
+20,Efficient,Direct,Shallow,2,cross,2,2,0,1,2,1,1,0.333333,0.666667,0.500000,1 22,1 30
+20,Efficient,Direct,Shallow,3,same,3,3,0,2,2,1,1,0.500000,0.500000,0.666667,3 10 17,3 7 10
+20,Efficient,Direct,Shallow,3,cross,3,3,0,1,4,2,2,0.200000,0.800000,0.333333,1 15 27,1 28 31
+20,Efficient,Direct,Shallow,4,same,4,4,0,4,0,0,0,1.000000,0.000000,1.000000,3 7 10 11,3 7 10 11
+20,Efficient,Direct,Shallow,4,cross,4,4,0,2,4,2,2,0.333333,0.666667,0.500000,1 13 22 29,1 13 28 30
+20,Efficient,Direct,Shallow,8,same,6,5,-1,5,1,0,1,0.833333,0.166667,0.833333,3 7 10 11 17 21,3 7 10 11 21
+20,Efficient,Direct,Shallow,8,cross,8,6,-2,3,8,3,5,0.272727,0.727273,0.375000,1 6 13 16 22 25 29 32,1 13 28 30 31 32
+20,Efficient,Direct,Contextual,1,same,1,1,0,1,0,0,0,1.000000,0.000000,1.000000,3,3
+20,Efficient,Direct,Contextual,1,cross,1,1,0,1,0,0,0,1.000000,0.000000,1.000000,1,1
+20,Efficient,Direct,Contextual,2,same,2,2,0,1,2,1,1,0.333333,0.666667,0.500000,3 11,3 10
+20,Efficient,Direct,Contextual,2,cross,2,2,0,1,2,1,1,0.333333,0.666667,0.500000,1 18,1 28
+20,Efficient,Direct,Contextual,3,same,3,3,0,2,2,1,1,0.500000,0.500000,0.666667,3 10 17,3 7 10
+20,Efficient,Direct,Contextual,3,cross,3,3,0,2,2,1,1,0.500000,0.500000,0.666667,1 13 23,1 13 28
+20,Efficient,Direct,Contextual,4,same,4,4,0,4,0,0,0,1.000000,0.000000,1.000000,3 7 10 11,3 7 10 11
+20,Efficient,Direct,Contextual,4,cross,4,4,0,1,6,3,3,0.142857,0.857143,0.250000,1 9 18 29,1 13 28 30
+20,Efficient,Direct,Contextual,8,same,6,5,-1,5,1,0,1,0.833333,0.166667,0.833333,3 7 10 11 17 21,3 7 10 11 21
+20,Efficient,Direct,Contextual,8,cross,8,5,-3,2,9,3,6,0.181818,0.818182,0.250000,1 4 9 15 18 23 29 31,1 13 28 30 31
+20,Efficient,Direct,Analogical,1,same,1,1,0,1,0,0,0,1.000000,0.000000,1.000000,3,3
+20,Efficient,Direct,Analogical,1,cross,1,1,0,0,2,1,1,0.000000,1.000000,0.000000,4,13
+20,Efficient,Direct,Analogical,2,same,2,2,0,2,0,0,0,1.000000,0.000000,1.000000,3 7,3 7
+20,Efficient,Direct,Analogical,2,cross,2,2,0,0,4,2,2,0.000000,1.000000,0.000000,4 23,13 28
+20,Efficient,Direct,Analogical,3,same,2,2,0,2,0,0,0,1.000000,0.000000,1.000000,3 7,3 7
+20,Efficient,Direct,Analogical,3,cross,3,3,0,0,6,3,3,0.000000,1.000000,0.000000,4 9 23,13 28 31
+20,Efficient,Direct,Analogical,4,same,2,2,0,2,0,0,0,1.000000,0.000000,1.000000,3 7,3 7
+20,Efficient,Direct,Analogical,4,cross,4,3,-1,1,5,2,3,0.166667,0.833333,0.250000,4 9 23 31,13 28 31
+20,Efficient,Direct,Analogical,8,same,2,2,0,2,0,0,0,1.000000,0.000000,1.000000,3 7,3 7
+20,Efficient,Direct,Analogical,8,cross,8,3,-5,3,5,0,5,0.375000,0.625000,0.375000,4 6 9 13 23 28 31 34,13 28 31
+21,Pragmatic,Direct,Surface,1,same,1,1,0,1,0,0,0,1.000000,0.000000,1.000000,3,3
+21,Pragmatic,Direct,Surface,1,cross,1,1,0,1,0,0,0,1.000000,0.000000,1.000000,1,1
+21,Pragmatic,Direct,Surface,2,same,2,2,0,1,2,1,1,0.333333,0.666667,0.500000,3 11,3 10
+21,Pragmatic,Direct,Surface,2,cross,2,2,0,1,2,1,1,0.333333,0.666667,0.500000,1 22,1 30
+21,Pragmatic,Direct,Surface,3,same,3,3,0,2,2,1,1,0.500000,0.500000,0.666667,3 10 17,3 7 10
+21,Pragmatic,Direct,Surface,3,cross,3,3,0,1,4,2,2,0.200000,0.800000,0.333333,1 15 27,1 28 31
+21,Pragmatic,Direct,Surface,4,same,4,4,0,4,0,0,0,1.000000,0.000000,1.000000,3 7 10 11,3 7 10 11
+21,Pragmatic,Direct,Surface,4,cross,4,4,0,2,4,2,2,0.333333,0.666667,0.500000,1 13 22 29,1 13 28 30
+21,Pragmatic,Direct,Surface,8,same,6,5,-1,5,1,0,1,0.833333,0.166667,0.833333,3 7 10 11 17 21,3 7 10 11 21
+21,Pragmatic,Direct,Surface,8,cross,8,6,-2,3,8,3,5,0.272727,0.727273,0.375000,1 6 13 16 22 25 29 32,1 13 28 30 31 32
+21,Pragmatic,Direct,Shallow,1,same,1,1,0,1,0,0,0,1.000000,0.000000,1.000000,3,3
+21,Pragmatic,Direct,Shallow,1,cross,1,1,0,1,0,0,0,1.000000,0.000000,1.000000,1,1
+21,Pragmatic,Direct,Shallow,2,same,2,2,0,1,2,1,1,0.333333,0.666667,0.500000,3 11,3 10
+21,Pragmatic,Direct,Shallow,2,cross,2,2,0,1,2,1,1,0.333333,0.666667,0.500000,1 22,1 30
+21,Pragmatic,Direct,Shallow,3,same,3,3,0,2,2,1,1,0.500000,0.500000,0.666667,3 10 17,3 7 10
+21,Pragmatic,Direct,Shallow,3,cross,3,3,0,1,4,2,2,0.200000,0.800000,0.333333,1 15 27,1 28 31
+21,Pragmatic,Direct,Shallow,4,same,4,4,0,4,0,0,0,1.000000,0.000000,1.000000,3 7 10 11,3 7 10 11
+21,Pragmatic,Direct,Shallow,4,cross,4,4,0,2,4,2,2,0.333333,0.666667,0.500000,1 13 22 29,1 13 28 30
+21,Pragmatic,Direct,Shallow,8,same,6,5,-1,5,1,0,1,0.833333,0.166667,0.833333,3 7 10 11 17 21,3 7 10 11 21
+21,Pragmatic,Direct,Shallow,8,cross,8,6,-2,3,8,3,5,0.272727,0.727273,0.375000,1 6 13 16 22 25 29 32,1 13 28 30 31 32
+21,Pragmatic,Direct,Contextual,1,same,1,1,0,1,0,0,0,1.000000,0.000000,1.000000,3,3
+21,Pragmatic,Direct,Contextual,1,cross,1,1,0,1,0,0,0,1.000000,0.000000,1.000000,1,1
+21,Pragmatic,Direct,Contextual,2,same,2,2,0,1,2,1,1,0.333333,0.666667,0.500000,3 11,3 10
+21,Pragmatic,Direct,Contextual,2,cross,2,2,0,1,2,1,1,0.333333,0.666667,0.500000,1 18,1 28
+21,Pragmatic,Direct,Contextual,3,same,3,3,0,2,2,1,1,0.500000,0.500000,0.666667,3 10 17,3 7 10
+21,Pragmatic,Direct,Contextual,3,cross,3,3,0,2,2,1,1,0.500000,0.500000,0.666667,1 13 23,1 13 28
+21,Pragmatic,Direct,Contextual,4,same,4,4,0,4,0,0,0,1.000000,0.000000,1.000000,3 7 10 11,3 7 10 11
+21,Pragmatic,Direct,Contextual,4,cross,4,4,0,1,6,3,3,0.142857,0.857143,0.250000,1 9 18 29,1 13 28 30
+21,Pragmatic,Direct,Contextual,8,same,6,5,-1,5,1,0,1,0.833333,0.166667,0.833333,3 7 10 11 17 21,3 7 10 11 21
+21,Pragmatic,Direct,Contextual,8,cross,8,5,-3,2,9,3,6,0.181818,0.818182,0.250000,1 4 9 15 18 23 29 31,1 13 28 30 31
+21,Pragmatic,Direct,Analogical,1,same,1,1,0,1,0,0,0,1.000000,0.000000,1.000000,3,3
+21,Pragmatic,Direct,Analogical,1,cross,1,1,0,0,2,1,1,0.000000,1.000000,0.000000,4,13
+21,Pragmatic,Direct,Analogical,2,same,2,2,0,2,0,0,0,1.000000,0.000000,1.000000,3 7,3 7
+21,Pragmatic,Direct,Analogical,2,cross,2,2,0,0,4,2,2,0.000000,1.000000,0.000000,4 23,13 28
+21,Pragmatic,Direct,Analogical,3,same,2,2,0,2,0,0,0,1.000000,0.000000,1.000000,3 7,3 7
+21,Pragmatic,Direct,Analogical,3,cross,3,3,0,0,6,3,3,0.000000,1.000000,0.000000,4 9 23,13 28 31
+21,Pragmatic,Direct,Analogical,4,same,2,2,0,2,0,0,0,1.000000,0.000000,1.000000,3 7,3 7
+21,Pragmatic,Direct,Analogical,4,cross,4,3,-1,1,5,2,3,0.166667,0.833333,0.250000,4 9 23 31,13 28 31
+21,Pragmatic,Direct,Analogical,8,same,2,2,0,2,0,0,0,1.000000,0.000000,1.000000,3 7,3 7
+21,Pragmatic,Direct,Analogical,8,cross,8,3,-5,3,5,0,5,0.375000,0.625000,0.375000,4 6 9 13 23 28 31 34,13 28 31
+22,Blunt,Direct,Surface,1,same,1,1,0,1,0,0,0,1.000000,0.000000,1.000000,3,3
+22,Blunt,Direct,Surface,1,cross,1,1,0,1,0,0,0,1.000000,0.000000,1.000000,1,1
+22,Blunt,Direct,Surface,2,same,2,2,0,1,2,1,1,0.333333,0.666667,0.500000,3 11,3 10
+22,Blunt,Direct,Surface,2,cross,2,2,0,1,2,1,1,0.333333,0.666667,0.500000,1 22,1 30
+22,Blunt,Direct,Surface,3,same,3,3,0,2,2,1,1,0.500000,0.500000,0.666667,3 10 17,3 7 10
+22,Blunt,Direct,Surface,3,cross,3,3,0,1,4,2,2,0.200000,0.800000,0.333333,1 15 27,1 28 31
+22,Blunt,Direct,Surface,4,same,4,4,0,4,0,0,0,1.000000,0.000000,1.000000,3 7 10 11,3 7 10 11
+22,Blunt,Direct,Surface,4,cross,4,4,0,2,4,2,2,0.333333,0.666667,0.500000,1 13 22 29,1 13 28 30
+22,Blunt,Direct,Surface,8,same,6,5,-1,5,1,0,1,0.833333,0.166667,0.833333,3 7 10 11 17 21,3 7 10 11 21
+22,Blunt,Direct,Surface,8,cross,8,6,-2,3,8,3,5,0.272727,0.727273,0.375000,1 6 13 16 22 25 29 32,1 13 28 30 31 32
+22,Blunt,Direct,Shallow,1,same,1,1,0,1,0,0,0,1.000000,0.000000,1.000000,3,3
+22,Blunt,Direct,Shallow,1,cross,1,1,0,1,0,0,0,1.000000,0.000000,1.000000,1,1
+22,Blunt,Direct,Shallow,2,same,2,2,0,1,2,1,1,0.333333,0.666667,0.500000,3 11,3 10
+22,Blunt,Direct,Shallow,2,cross,2,2,0,1,2,1,1,0.333333,0.666667,0.500000,1 22,1 30
+22,Blunt,Direct,Shallow,3,same,3,3,0,2,2,1,1,0.500000,0.500000,0.666667,3 10 17,3 7 10
+22,Blunt,Direct,Shallow,3,cross,3,3,0,1,4,2,2,0.200000,0.800000,0.333333,1 15 27,1 28 31
+22,Blunt,Direct,Shallow,4,same,4,4,0,4,0,0,0,1.000000,0.000000,1.000000,3 7 10 11,3 7 10 11
+22,Blunt,Direct,Shallow,4,cross,4,4,0,2,4,2,2,0.333333,0.666667,0.500000,1 13 22 29,1 13 28 30
+22,Blunt,Direct,Shallow,8,same,6,5,-1,5,1,0,1,0.833333,0.166667,0.833333,3 7 10 11 17 21,3 7 10 11 21
+22,Blunt,Direct,Shallow,8,cross,8,6,-2,3,8,3,5,0.272727,0.727273,0.375000,1 6 13 16 22 25 29 32,1 13 28 30 31 32
+22,Blunt,Direct,Contextual,1,same,1,1,0,1,0,0,0,1.000000,0.000000,1.000000,3,3
+22,Blunt,Direct,Contextual,1,cross,1,1,0,1,0,0,0,1.000000,0.000000,1.000000,1,1
+22,Blunt,Direct,Contextual,2,same,2,2,0,1,2,1,1,0.333333,0.666667,0.500000,3 11,3 10
+22,Blunt,Direct,Contextual,2,cross,2,2,0,1,2,1,1,0.333333,0.666667,0.500000,1 18,1 28
+22,Blunt,Direct,Contextual,3,same,3,3,0,2,2,1,1,0.500000,0.500000,0.666667,3 10 17,3 7 10
+22,Blunt,Direct,Contextual,3,cross,3,3,0,2,2,1,1,0.500000,0.500000,0.666667,1 13 23,1 13 28
+22,Blunt,Direct,Contextual,4,same,4,4,0,4,0,0,0,1.000000,0.000000,1.000000,3 7 10 11,3 7 10 11
+22,Blunt,Direct,Contextual,4,cross,4,4,0,1,6,3,3,0.142857,0.857143,0.250000,1 9 18 29,1 13 28 30
+22,Blunt,Direct,Contextual,8,same,6,5,-1,5,1,0,1,0.833333,0.166667,0.833333,3 7 10 11 17 21,3 7 10 11 21
+22,Blunt,Direct,Contextual,8,cross,8,5,-3,2,9,3,6,0.181818,0.818182,0.250000,1 4 9 15 18 23 29 31,1 13 28 30 31
+22,Blunt,Direct,Analogical,1,same,1,1,0,1,0,0,0,1.000000,0.000000,1.000000,3,3
+22,Blunt,Direct,Analogical,1,cross,1,1,0,0,2,1,1,0.000000,1.000000,0.000000,4,13
+22,Blunt,Direct,Analogical,2,same,2,2,0,2,0,0,0,1.000000,0.000000,1.000000,3 7,3 7
+22,Blunt,Direct,Analogical,2,cross,2,2,0,0,4,2,2,0.000000,1.000000,0.000000,4 23,13 28
+22,Blunt,Direct,Analogical,3,same,2,2,0,2,0,0,0,1.000000,0.000000,1.000000,3 7,3 7
+22,Blunt,Direct,Analogical,3,cross,3,3,0,0,6,3,3,0.000000,1.000000,0.000000,4 9 23,13 28 31
+22,Blunt,Direct,Analogical,4,same,2,2,0,2,0,0,0,1.000000,0.000000,1.000000,3 7,3 7
+22,Blunt,Direct,Analogical,4,cross,4,3,-1,1,5,2,3,0.166667,0.833333,0.250000,4 9 23 31,13 28 31
+22,Blunt,Direct,Analogical,8,same,2,2,0,2,0,0,0,1.000000,0.000000,1.000000,3 7,3 7
+22,Blunt,Direct,Analogical,8,cross,8,3,-5,3,5,0,5,0.375000,0.625000,0.375000,4 6 9 13 23 28 31 34,13 28 31
+23,Frank,Direct,Surface,1,same,1,1,0,1,0,0,0,1.000000,0.000000,1.000000,3,3
+23,Frank,Direct,Surface,1,cross,1,1,0,1,0,0,0,1.000000,0.000000,1.000000,1,1
+23,Frank,Direct,Surface,2,same,2,2,0,1,2,1,1,0.333333,0.666667,0.500000,3 11,3 10
+23,Frank,Direct,Surface,2,cross,2,2,0,1,2,1,1,0.333333,0.666667,0.500000,1 22,1 30
+23,Frank,Direct,Surface,3,same,3,3,0,2,2,1,1,0.500000,0.500000,0.666667,3 10 17,3 7 10
+23,Frank,Direct,Surface,3,cross,3,3,0,1,4,2,2,0.200000,0.800000,0.333333,1 15 27,1 28 31
+23,Frank,Direct,Surface,4,same,4,4,0,4,0,0,0,1.000000,0.000000,1.000000,3 7 10 11,3 7 10 11
+23,Frank,Direct,Surface,4,cross,4,4,0,2,4,2,2,0.333333,0.666667,0.500000,1 13 22 29,1 13 28 30
+23,Frank,Direct,Surface,8,same,6,5,-1,5,1,0,1,0.833333,0.166667,0.833333,3 7 10 11 17 21,3 7 10 11 21
+23,Frank,Direct,Surface,8,cross,8,6,-2,3,8,3,5,0.272727,0.727273,0.375000,1 6 13 16 22 25 29 32,1 13 28 30 31 32
+23,Frank,Direct,Shallow,1,same,1,1,0,1,0,0,0,1.000000,0.000000,1.000000,3,3
+23,Frank,Direct,Shallow,1,cross,1,1,0,1,0,0,0,1.000000,0.000000,1.000000,1,1
+23,Frank,Direct,Shallow,2,same,2,2,0,1,2,1,1,0.333333,0.666667,0.500000,3 11,3 10
+23,Frank,Direct,Shallow,2,cross,2,2,0,1,2,1,1,0.333333,0.666667,0.500000,1 22,1 30
+23,Frank,Direct,Shallow,3,same,3,3,0,2,2,1,1,0.500000,0.500000,0.666667,3 10 17,3 7 10
+23,Frank,Direct,Shallow,3,cross,3,3,0,1,4,2,2,0.200000,0.800000,0.333333,1 15 27,1 28 31
+23,Frank,Direct,Shallow,4,same,4,4,0,4,0,0,0,1.000000,0.000000,1.000000,3 7 10 11,3 7 10 11
+23,Frank,Direct,Shallow,4,cross,4,4,0,2,4,2,2,0.333333,0.666667,0.500000,1 13 22 29,1 13 28 30
+23,Frank,Direct,Shallow,8,same,6,5,-1,5,1,0,1,0.833333,0.166667,0.833333,3 7 10 11 17 21,3 7 10 11 21
+23,Frank,Direct,Shallow,8,cross,8,6,-2,3,8,3,5,0.272727,0.727273,0.375000,1 6 13 16 22 25 29 32,1 13 28 30 31 32
+23,Frank,Direct,Contextual,1,same,1,1,0,1,0,0,0,1.000000,0.000000,1.000000,3,3
+23,Frank,Direct,Contextual,1,cross,1,1,0,1,0,0,0,1.000000,0.000000,1.000000,1,1
+23,Frank,Direct,Contextual,2,same,2,2,0,1,2,1,1,0.333333,0.666667,0.500000,3 11,3 10
+23,Frank,Direct,Contextual,2,cross,2,2,0,1,2,1,1,0.333333,0.666667,0.500000,1 18,1 28
+23,Frank,Direct,Contextual,3,same,3,3,0,2,2,1,1,0.500000,0.500000,0.666667,3 10 17,3 7 10
+23,Frank,Direct,Contextual,3,cross,3,3,0,2,2,1,1,0.500000,0.500000,0.666667,1 13 23,1 13 28
+23,Frank,Direct,Contextual,4,same,4,4,0,4,0,0,0,1.000000,0.000000,1.000000,3 7 10 11,3 7 10 11
+23,Frank,Direct,Contextual,4,cross,4,4,0,1,6,3,3,0.142857,0.857143,0.250000,1 9 18 29,1 13 28 30
+23,Frank,Direct,Contextual,8,same,6,5,-1,5,1,0,1,0.833333,0.166667,0.833333,3 7 10 11 17 21,3 7 10 11 21
+23,Frank,Direct,Contextual,8,cross,8,5,-3,2,9,3,6,0.181818,0.818182,0.250000,1 4 9 15 18 23 29 31,1 13 28 30 31
+23,Frank,Direct,Analogical,1,same,1,1,0,1,0,0,0,1.000000,0.000000,1.000000,3,3
+23,Frank,Direct,Analogical,1,cross,1,1,0,0,2,1,1,0.000000,1.000000,0.000000,4,13
+23,Frank,Direct,Analogical,2,same,2,2,0,2,0,0,0,1.000000,0.000000,1.000000,3 7,3 7
+23,Frank,Direct,Analogical,2,cross,2,2,0,0,4,2,2,0.000000,1.000000,0.000000,4 23,13 28
+23,Frank,Direct,Analogical,3,same,2,2,0,2,0,0,0,1.000000,0.000000,1.000000,3 7,3 7
+23,Frank,Direct,Analogical,3,cross,3,3,0,0,6,3,3,0.000000,1.000000,0.000000,4 9 23,13 28 31
+23,Frank,Direct,Analogical,4,same,2,2,0,2,0,0,0,1.000000,0.000000,1.000000,3 7,3 7
+23,Frank,Direct,Analogical,4,cross,4,3,-1,1,5,2,3,0.166667,0.833333,0.250000,4 9 23 31,13 28 31
+23,Frank,Direct,Analogical,8,same,2,2,0,2,0,0,0,1.000000,0.000000,1.000000,3 7,3 7
+23,Frank,Direct,Analogical,8,cross,8,3,-5,3,5,0,5,0.375000,0.625000,0.375000,4 6 9 13 23 28 31 34,13 28 31
+24,Curious,Exploratory,Surface,1,same,1,1,0,0,2,1,1,0.000000,1.000000,0.000000,4,13
+24,Curious,Exploratory,Surface,1,cross,1,1,0,1,0,0,0,1.000000,0.000000,1.000000,1,1
+24,Curious,Exploratory,Surface,2,same,2,2,0,0,4,2,2,0.000000,1.000000,0.000000,4 23,13 28
+24,Curious,Exploratory,Surface,2,cross,2,2,0,1,2,1,1,0.333333,0.666667,0.500000,1 18,1 11
+24,Curious,Exploratory,Surface,3,same,3,3,0,0,6,3,3,0.000000,1.000000,0.000000,4 9 23,13 28 31
+24,Curious,Exploratory,Surface,3,cross,3,3,0,1,4,2,2,0.200000,0.800000,0.333333,1 14 22,1 7 11
+24,Curious,Exploratory,Surface,4,same,4,3,-1,1,5,2,3,0.166667,0.833333,0.250000,4 9 23 31,13 28 31
+24,Curious,Exploratory,Surface,4,cross,4,4,0,2,4,2,2,0.333333,0.666667,0.500000,1 11 17 24,1 7 11 30
+24,Curious,Exploratory,Surface,8,same,8,3,-5,3,5,0,5,0.375000,0.625000,0.375000,4 6 9 13 23 28 31 34,13 28 31
+24,Curious,Exploratory,Surface,8,cross,8,8,0,3,10,5,5,0.230769,0.769231,0.375000,1 3 10 12 15 17 19 22,1 3 7 10 11 21 30 32
+24,Curious,Exploratory,Shallow,1,same,1,1,0,0,2,1,1,0.000000,1.000000,0.000000,4,13
+24,Curious,Exploratory,Shallow,1,cross,1,1,0,1,0,0,0,1.000000,0.000000,1.000000,1,1
+24,Curious,Exploratory,Shallow,2,same,2,2,0,0,4,2,2,0.000000,1.000000,0.000000,4 23,13 28
+24,Curious,Exploratory,Shallow,2,cross,2,2,0,1,2,1,1,0.333333,0.666667,0.500000,1 18,1 11
+24,Curious,Exploratory,Shallow,3,same,3,3,0,0,6,3,3,0.000000,1.000000,0.000000,4 9 23,13 28 31
+24,Curious,Exploratory,Shallow,3,cross,3,3,0,1,4,2,2,0.200000,0.800000,0.333333,1 14 22,1 7 11
+24,Curious,Exploratory,Shallow,4,same,4,3,-1,1,5,2,3,0.166667,0.833333,0.250000,4 9 23 31,13 28 31
+24,Curious,Exploratory,Shallow,4,cross,4,4,0,2,4,2,2,0.333333,0.666667,0.500000,1 11 17 24,1 7 11 30
+24,Curious,Exploratory,Shallow,8,same,8,3,-5,3,5,0,5,0.375000,0.625000,0.375000,4 6 9 13 23 28 31 34,13 28 31
+24,Curious,Exploratory,Shallow,8,cross,8,8,0,3,10,5,5,0.230769,0.769231,0.375000,1 3 10 12 15 17 19 22,1 3 7 10 11 21 30 32
+24,Curious,Exploratory,Contextual,1,same,1,1,0,0,2,1,1,0.000000,1.000000,0.000000,4,13
+24,Curious,Exploratory,Contextual,1,cross,1,1,0,1,0,0,0,1.000000,0.000000,1.000000,1,1
+24,Curious,Exploratory,Contextual,2,same,2,2,0,0,4,2,2,0.000000,1.000000,0.000000,4 23,13 28
+24,Curious,Exploratory,Contextual,2,cross,2,2,0,1,2,1,1,0.333333,0.666667,0.500000,1 16,1 10
+24,Curious,Exploratory,Contextual,3,same,3,3,0,0,6,3,3,0.000000,1.000000,0.000000,4 9 23,13 28 31
+24,Curious,Exploratory,Contextual,3,cross,3,3,0,2,2,1,1,0.500000,0.500000,0.666667,1 11 21,1 7 11
+24,Curious,Exploratory,Contextual,4,same,4,3,-1,1,5,2,3,0.166667,0.833333,0.250000,4 9 23 31,13 28 31
+24,Curious,Exploratory,Contextual,4,cross,4,4,0,2,4,2,2,0.333333,0.666667,0.500000,1 7 15 18,1 3 7 10
+24,Curious,Exploratory,Contextual,8,same,8,3,-5,3,5,0,5,0.375000,0.625000,0.375000,4 6 9 13 23 28 31 34,13 28 31
+24,Curious,Exploratory,Contextual,8,cross,8,7,-1,5,5,2,3,0.500000,0.500000,0.625000,1 2 3 7 10 11 15 16,1 3 7 10 11 21 30
+24,Curious,Exploratory,Analogical,1,same,1,1,0,0,2,1,1,0.000000,1.000000,0.000000,4,13
+24,Curious,Exploratory,Analogical,1,cross,1,1,0,1,0,0,0,1.000000,0.000000,1.000000,3,3
+24,Curious,Exploratory,Analogical,2,same,2,2,0,0,4,2,2,0.000000,1.000000,0.000000,4 23,13 28
+24,Curious,Exploratory,Analogical,2,cross,2,2,0,2,0,0,0,1.000000,0.000000,1.000000,3 7,3 7
+24,Curious,Exploratory,Analogical,3,same,3,3,0,0,6,3,3,0.000000,1.000000,0.000000,4 9 23,13 28 31
+24,Curious,Exploratory,Analogical,3,cross,2,2,0,2,0,0,0,1.000000,0.000000,1.000000,3 7,3 7
+24,Curious,Exploratory,Analogical,4,same,4,3,-1,1,5,2,3,0.166667,0.833333,0.250000,4 9 23 31,13 28 31
+24,Curious,Exploratory,Analogical,4,cross,2,2,0,2,0,0,0,1.000000,0.000000,1.000000,3 7,3 7
+24,Curious,Exploratory,Analogical,8,same,8,3,-5,3,5,0,5,0.375000,0.625000,0.375000,4 6 9 13 23 28 31 34,13 28 31
+24,Curious,Exploratory,Analogical,8,cross,2,2,0,2,0,0,0,1.000000,0.000000,1.000000,3 7,3 7
+25,Exploratory,Exploratory,Surface,1,same,1,1,0,0,2,1,1,0.000000,1.000000,0.000000,4,13
+25,Exploratory,Exploratory,Surface,1,cross,1,1,0,1,0,0,0,1.000000,0.000000,1.000000,1,1
+25,Exploratory,Exploratory,Surface,2,same,2,2,0,0,4,2,2,0.000000,1.000000,0.000000,4 23,13 28
+25,Exploratory,Exploratory,Surface,2,cross,2,2,0,1,2,1,1,0.333333,0.666667,0.500000,1 18,1 11
+25,Exploratory,Exploratory,Surface,3,same,3,3,0,0,6,3,3,0.000000,1.000000,0.000000,4 9 23,13 28 31
+25,Exploratory,Exploratory,Surface,3,cross,3,3,0,1,4,2,2,0.200000,0.800000,0.333333,1 14 22,1 7 11
+25,Exploratory,Exploratory,Surface,4,same,4,3,-1,1,5,2,3,0.166667,0.833333,0.250000,4 9 23 31,13 28 31
+25,Exploratory,Exploratory,Surface,4,cross,4,4,0,2,4,2,2,0.333333,0.666667,0.500000,1 11 17 24,1 7 11 30
+25,Exploratory,Exploratory,Surface,8,same,8,3,-5,3,5,0,5,0.375000,0.625000,0.375000,4 6 9 13 23 28 31 34,13 28 31
+25,Exploratory,Exploratory,Surface,8,cross,8,8,0,3,10,5,5,0.230769,0.769231,0.375000,1 3 10 12 15 17 19 22,1 3 7 10 11 21 30 32
+25,Exploratory,Exploratory,Shallow,1,same,1,1,0,0,2,1,1,0.000000,1.000000,0.000000,4,13
+25,Exploratory,Exploratory,Shallow,1,cross,1,1,0,1,0,0,0,1.000000,0.000000,1.000000,1,1
+25,Exploratory,Exploratory,Shallow,2,same,2,2,0,0,4,2,2,0.000000,1.000000,0.000000,4 23,13 28
+25,Exploratory,Exploratory,Shallow,2,cross,2,2,0,1,2,1,1,0.333333,0.666667,0.500000,1 18,1 11
+25,Exploratory,Exploratory,Shallow,3,same,3,3,0,0,6,3,3,0.000000,1.000000,0.000000,4 9 23,13 28 31
+25,Exploratory,Exploratory,Shallow,3,cross,3,3,0,1,4,2,2,0.200000,0.800000,0.333333,1 14 22,1 7 11
+25,Exploratory,Exploratory,Shallow,4,same,4,3,-1,1,5,2,3,0.166667,0.833333,0.250000,4 9 23 31,13 28 31
+25,Exploratory,Exploratory,Shallow,4,cross,4,4,0,2,4,2,2,0.333333,0.666667,0.500000,1 11 17 24,1 7 11 30
+25,Exploratory,Exploratory,Shallow,8,same,8,3,-5,3,5,0,5,0.375000,0.625000,0.375000,4 6 9 13 23 28 31 34,13 28 31
+25,Exploratory,Exploratory,Shallow,8,cross,8,8,0,3,10,5,5,0.230769,0.769231,0.375000,1 3 10 12 15 17 19 22,1 3 7 10 11 21 30 32
+25,Exploratory,Exploratory,Contextual,1,same,1,1,0,0,2,1,1,0.000000,1.000000,0.000000,4,13
+25,Exploratory,Exploratory,Contextual,1,cross,1,1,0,1,0,0,0,1.000000,0.000000,1.000000,1,1
+25,Exploratory,Exploratory,Contextual,2,same,2,2,0,0,4,2,2,0.000000,1.000000,0.000000,4 23,13 28
+25,Exploratory,Exploratory,Contextual,2,cross,2,2,0,1,2,1,1,0.333333,0.666667,0.500000,1 16,1 10
+25,Exploratory,Exploratory,Contextual,3,same,3,3,0,0,6,3,3,0.000000,1.000000,0.000000,4 9 23,13 28 31
+25,Exploratory,Exploratory,Contextual,3,cross,3,3,0,2,2,1,1,0.500000,0.500000,0.666667,1 11 21,1 7 11
+25,Exploratory,Exploratory,Contextual,4,same,4,3,-1,1,5,2,3,0.166667,0.833333,0.250000,4 9 23 31,13 28 31
+25,Exploratory,Exploratory,Contextual,4,cross,4,4,0,2,4,2,2,0.333333,0.666667,0.500000,1 7 15 18,1 3 7 10
+25,Exploratory,Exploratory,Contextual,8,same,8,3,-5,3,5,0,5,0.375000,0.625000,0.375000,4 6 9 13 23 28 31 34,13 28 31
+25,Exploratory,Exploratory,Contextual,8,cross,8,7,-1,5,5,2,3,0.500000,0.500000,0.625000,1 2 3 7 10 11 15 16,1 3 7 10 11 21 30
+25,Exploratory,Exploratory,Analogical,1,same,1,1,0,0,2,1,1,0.000000,1.000000,0.000000,4,13
+25,Exploratory,Exploratory,Analogical,1,cross,1,1,0,1,0,0,0,1.000000,0.000000,1.000000,3,3
+25,Exploratory,Exploratory,Analogical,2,same,2,2,0,0,4,2,2,0.000000,1.000000,0.000000,4 23,13 28
+25,Exploratory,Exploratory,Analogical,2,cross,2,2,0,2,0,0,0,1.000000,0.000000,1.000000,3 7,3 7
+25,Exploratory,Exploratory,Analogical,3,same,3,3,0,0,6,3,3,0.000000,1.000000,0.000000,4 9 23,13 28 31
+25,Exploratory,Exploratory,Analogical,3,cross,2,2,0,2,0,0,0,1.000000,0.000000,1.000000,3 7,3 7
+25,Exploratory,Exploratory,Analogical,4,same,4,3,-1,1,5,2,3,0.166667,0.833333,0.250000,4 9 23 31,13 28 31
+25,Exploratory,Exploratory,Analogical,4,cross,2,2,0,2,0,0,0,1.000000,0.000000,1.000000,3 7,3 7
+25,Exploratory,Exploratory,Analogical,8,same,8,3,-5,3,5,0,5,0.375000,0.625000,0.375000,4 6 9 13 23 28 31 34,13 28 31
+25,Exploratory,Exploratory,Analogical,8,cross,2,2,0,2,0,0,0,1.000000,0.000000,1.000000,3 7,3 7
+26,Questioning,Exploratory,Surface,1,same,1,1,0,0,2,1,1,0.000000,1.000000,0.000000,4,13
+26,Questioning,Exploratory,Surface,1,cross,1,1,0,1,0,0,0,1.000000,0.000000,1.000000,1,1
+26,Questioning,Exploratory,Surface,2,same,2,2,0,0,4,2,2,0.000000,1.000000,0.000000,4 23,13 28
+26,Questioning,Exploratory,Surface,2,cross,2,2,0,1,2,1,1,0.333333,0.666667,0.500000,1 18,1 11
+26,Questioning,Exploratory,Surface,3,same,3,3,0,0,6,3,3,0.000000,1.000000,0.000000,4 9 23,13 28 31
+26,Questioning,Exploratory,Surface,3,cross,3,3,0,1,4,2,2,0.200000,0.800000,0.333333,1 14 22,1 7 11
+26,Questioning,Exploratory,Surface,4,same,4,3,-1,1,5,2,3,0.166667,0.833333,0.250000,4 9 23 31,13 28 31
+26,Questioning,Exploratory,Surface,4,cross,4,4,0,2,4,2,2,0.333333,0.666667,0.500000,1 11 17 24,1 7 11 30
+26,Questioning,Exploratory,Surface,8,same,8,3,-5,3,5,0,5,0.375000,0.625000,0.375000,4 6 9 13 23 28 31 34,13 28 31
+26,Questioning,Exploratory,Surface,8,cross,8,8,0,3,10,5,5,0.230769,0.769231,0.375000,1 3 10 12 15 17 19 22,1 3 7 10 11 21 30 32
+26,Questioning,Exploratory,Shallow,1,same,1,1,0,0,2,1,1,0.000000,1.000000,0.000000,4,13
+26,Questioning,Exploratory,Shallow,1,cross,1,1,0,1,0,0,0,1.000000,0.000000,1.000000,1,1
+26,Questioning,Exploratory,Shallow,2,same,2,2,0,0,4,2,2,0.000000,1.000000,0.000000,4 23,13 28
+26,Questioning,Exploratory,Shallow,2,cross,2,2,0,1,2,1,1,0.333333,0.666667,0.500000,1 18,1 11
+26,Questioning,Exploratory,Shallow,3,same,3,3,0,0,6,3,3,0.000000,1.000000,0.000000,4 9 23,13 28 31
+26,Questioning,Exploratory,Shallow,3,cross,3,3,0,1,4,2,2,0.200000,0.800000,0.333333,1 14 22,1 7 11
+26,Questioning,Exploratory,Shallow,4,same,4,3,-1,1,5,2,3,0.166667,0.833333,0.250000,4 9 23 31,13 28 31
+26,Questioning,Exploratory,Shallow,4,cross,4,4,0,2,4,2,2,0.333333,0.666667,0.500000,1 11 17 24,1 7 11 30
+26,Questioning,Exploratory,Shallow,8,same,8,3,-5,3,5,0,5,0.375000,0.625000,0.375000,4 6 9 13 23 28 31 34,13 28 31
+26,Questioning,Exploratory,Shallow,8,cross,8,8,0,3,10,5,5,0.230769,0.769231,0.375000,1 3 10 12 15 17 19 22,1 3 7 10 11 21 30 32
+26,Questioning,Exploratory,Contextual,1,same,1,1,0,0,2,1,1,0.000000,1.000000,0.000000,4,13
+26,Questioning,Exploratory,Contextual,1,cross,1,1,0,1,0,0,0,1.000000,0.000000,1.000000,1,1
+26,Questioning,Exploratory,Contextual,2,same,2,2,0,0,4,2,2,0.000000,1.000000,0.000000,4 23,13 28
+26,Questioning,Exploratory,Contextual,2,cross,2,2,0,1,2,1,1,0.333333,0.666667,0.500000,1 16,1 10
+26,Questioning,Exploratory,Contextual,3,same,3,3,0,0,6,3,3,0.000000,1.000000,0.000000,4 9 23,13 28 31
+26,Questioning,Exploratory,Contextual,3,cross,3,3,0,2,2,1,1,0.500000,0.500000,0.666667,1 11 21,1 7 11
+26,Questioning,Exploratory,Contextual,4,same,4,3,-1,1,5,2,3,0.166667,0.833333,0.250000,4 9 23 31,13 28 31
+26,Questioning,Exploratory,Contextual,4,cross,4,4,0,2,4,2,2,0.333333,0.666667,0.500000,1 7 15 18,1 3 7 10
+26,Questioning,Exploratory,Contextual,8,same,8,3,-5,3,5,0,5,0.375000,0.625000,0.375000,4 6 9 13 23 28 31 34,13 28 31
+26,Questioning,Exploratory,Contextual,8,cross,8,7,-1,5,5,2,3,0.500000,0.500000,0.625000,1 2 3 7 10 11 15 16,1 3 7 10 11 21 30
+26,Questioning,Exploratory,Analogical,1,same,1,1,0,0,2,1,1,0.000000,1.000000,0.000000,4,13
+26,Questioning,Exploratory,Analogical,1,cross,1,1,0,1,0,0,0,1.000000,0.000000,1.000000,3,3
+26,Questioning,Exploratory,Analogical,2,same,2,2,0,0,4,2,2,0.000000,1.000000,0.000000,4 23,13 28
+26,Questioning,Exploratory,Analogical,2,cross,2,2,0,2,0,0,0,1.000000,0.000000,1.000000,3 7,3 7
+26,Questioning,Exploratory,Analogical,3,same,3,3,0,0,6,3,3,0.000000,1.000000,0.000000,4 9 23,13 28 31
+26,Questioning,Exploratory,Analogical,3,cross,2,2,0,2,0,0,0,1.000000,0.000000,1.000000,3 7,3 7
+26,Questioning,Exploratory,Analogical,4,same,4,3,-1,1,5,2,3,0.166667,0.833333,0.250000,4 9 23 31,13 28 31
+26,Questioning,Exploratory,Analogical,4,cross,2,2,0,2,0,0,0,1.000000,0.000000,1.000000,3 7,3 7
+26,Questioning,Exploratory,Analogical,8,same,8,3,-5,3,5,0,5,0.375000,0.625000,0.375000,4 6 9 13 23 28 31 34,13 28 31
+26,Questioning,Exploratory,Analogical,8,cross,2,2,0,2,0,0,0,1.000000,0.000000,1.000000,3 7,3 7
+27,Investigative,Exploratory,Surface,1,same,1,1,0,0,2,1,1,0.000000,1.000000,0.000000,4,13
+27,Investigative,Exploratory,Surface,1,cross,1,1,0,1,0,0,0,1.000000,0.000000,1.000000,1,1
+27,Investigative,Exploratory,Surface,2,same,2,2,0,0,4,2,2,0.000000,1.000000,0.000000,4 23,13 28
+27,Investigative,Exploratory,Surface,2,cross,2,2,0,1,2,1,1,0.333333,0.666667,0.500000,1 18,1 11
+27,Investigative,Exploratory,Surface,3,same,3,3,0,0,6,3,3,0.000000,1.000000,0.000000,4 9 23,13 28 31
+27,Investigative,Exploratory,Surface,3,cross,3,3,0,1,4,2,2,0.200000,0.800000,0.333333,1 14 22,1 7 11
+27,Investigative,Exploratory,Surface,4,same,4,3,-1,1,5,2,3,0.166667,0.833333,0.250000,4 9 23 31,13 28 31
+27,Investigative,Exploratory,Surface,4,cross,4,4,0,2,4,2,2,0.333333,0.666667,0.500000,1 11 17 24,1 7 11 30
+27,Investigative,Exploratory,Surface,8,same,8,3,-5,3,5,0,5,0.375000,0.625000,0.375000,4 6 9 13 23 28 31 34,13 28 31
+27,Investigative,Exploratory,Surface,8,cross,8,8,0,3,10,5,5,0.230769,0.769231,0.375000,1 3 10 12 15 17 19 22,1 3 7 10 11 21 30 32
+27,Investigative,Exploratory,Shallow,1,same,1,1,0,0,2,1,1,0.000000,1.000000,0.000000,4,13
+27,Investigative,Exploratory,Shallow,1,cross,1,1,0,1,0,0,0,1.000000,0.000000,1.000000,1,1
+27,Investigative,Exploratory,Shallow,2,same,2,2,0,0,4,2,2,0.000000,1.000000,0.000000,4 23,13 28
+27,Investigative,Exploratory,Shallow,2,cross,2,2,0,1,2,1,1,0.333333,0.666667,0.500000,1 18,1 11
+27,Investigative,Exploratory,Shallow,3,same,3,3,0,0,6,3,3,0.000000,1.000000,0.000000,4 9 23,13 28 31
+27,Investigative,Exploratory,Shallow,3,cross,3,3,0,1,4,2,2,0.200000,0.800000,0.333333,1 14 22,1 7 11
+27,Investigative,Exploratory,Shallow,4,same,4,3,-1,1,5,2,3,0.166667,0.833333,0.250000,4 9 23 31,13 28 31
+27,Investigative,Exploratory,Shallow,4,cross,4,4,0,2,4,2,2,0.333333,0.666667,0.500000,1 11 17 24,1 7 11 30
+27,Investigative,Exploratory,Shallow,8,same,8,3,-5,3,5,0,5,0.375000,0.625000,0.375000,4 6 9 13 23 28 31 34,13 28 31
+27,Investigative,Exploratory,Shallow,8,cross,8,8,0,3,10,5,5,0.230769,0.769231,0.375000,1 3 10 12 15 17 19 22,1 3 7 10 11 21 30 32
+27,Investigative,Exploratory,Contextual,1,same,1,1,0,0,2,1,1,0.000000,1.000000,0.000000,4,13
+27,Investigative,Exploratory,Contextual,1,cross,1,1,0,1,0,0,0,1.000000,0.000000,1.000000,1,1
+27,Investigative,Exploratory,Contextual,2,same,2,2,0,0,4,2,2,0.000000,1.000000,0.000000,4 23,13 28
+27,Investigative,Exploratory,Contextual,2,cross,2,2,0,1,2,1,1,0.333333,0.666667,0.500000,1 16,1 10
+27,Investigative,Exploratory,Contextual,3,same,3,3,0,0,6,3,3,0.000000,1.000000,0.000000,4 9 23,13 28 31
+27,Investigative,Exploratory,Contextual,3,cross,3,3,0,2,2,1,1,0.500000,0.500000,0.666667,1 11 21,1 7 11
+27,Investigative,Exploratory,Contextual,4,same,4,3,-1,1,5,2,3,0.166667,0.833333,0.250000,4 9 23 31,13 28 31
+27,Investigative,Exploratory,Contextual,4,cross,4,4,0,2,4,2,2,0.333333,0.666667,0.500000,1 7 15 18,1 3 7 10
+27,Investigative,Exploratory,Contextual,8,same,8,3,-5,3,5,0,5,0.375000,0.625000,0.375000,4 6 9 13 23 28 31 34,13 28 31
+27,Investigative,Exploratory,Contextual,8,cross,8,7,-1,5,5,2,3,0.500000,0.500000,0.625000,1 2 3 7 10 11 15 16,1 3 7 10 11 21 30
+27,Investigative,Exploratory,Analogical,1,same,1,1,0,0,2,1,1,0.000000,1.000000,0.000000,4,13
+27,Investigative,Exploratory,Analogical,1,cross,1,1,0,1,0,0,0,1.000000,0.000000,1.000000,3,3
+27,Investigative,Exploratory,Analogical,2,same,2,2,0,0,4,2,2,0.000000,1.000000,0.000000,4 23,13 28
+27,Investigative,Exploratory,Analogical,2,cross,2,2,0,2,0,0,0,1.000000,0.000000,1.000000,3 7,3 7
+27,Investigative,Exploratory,Analogical,3,same,3,3,0,0,6,3,3,0.000000,1.000000,0.000000,4 9 23,13 28 31
+27,Investigative,Exploratory,Analogical,3,cross,2,2,0,2,0,0,0,1.000000,0.000000,1.000000,3 7,3 7
+27,Investigative,Exploratory,Analogical,4,same,4,3,-1,1,5,2,3,0.166667,0.833333,0.250000,4 9 23 31,13 28 31
+27,Investigative,Exploratory,Analogical,4,cross,2,2,0,2,0,0,0,1.000000,0.000000,1.000000,3 7,3 7
+27,Investigative,Exploratory,Analogical,8,same,8,3,-5,3,5,0,5,0.375000,0.625000,0.375000,4 6 9 13 23 28 31 34,13 28 31
+27,Investigative,Exploratory,Analogical,8,cross,2,2,0,2,0,0,0,1.000000,0.000000,1.000000,3 7,3 7
+28,Speculative,Exploratory,Surface,1,same,1,1,0,0,2,1,1,0.000000,1.000000,0.000000,4,13
+28,Speculative,Exploratory,Surface,1,cross,1,1,0,1,0,0,0,1.000000,0.000000,1.000000,1,1
+28,Speculative,Exploratory,Surface,2,same,2,2,0,0,4,2,2,0.000000,1.000000,0.000000,4 23,13 28
+28,Speculative,Exploratory,Surface,2,cross,2,2,0,1,2,1,1,0.333333,0.666667,0.500000,1 18,1 11
+28,Speculative,Exploratory,Surface,3,same,3,3,0,0,6,3,3,0.000000,1.000000,0.000000,4 9 23,13 28 31
+28,Speculative,Exploratory,Surface,3,cross,3,3,0,1,4,2,2,0.200000,0.800000,0.333333,1 14 22,1 7 11
+28,Speculative,Exploratory,Surface,4,same,4,3,-1,1,5,2,3,0.166667,0.833333,0.250000,4 9 23 31,13 28 31
+28,Speculative,Exploratory,Surface,4,cross,4,4,0,2,4,2,2,0.333333,0.666667,0.500000,1 11 17 24,1 7 11 30
+28,Speculative,Exploratory,Surface,8,same,8,3,-5,3,5,0,5,0.375000,0.625000,0.375000,4 6 9 13 23 28 31 34,13 28 31
+28,Speculative,Exploratory,Surface,8,cross,8,8,0,3,10,5,5,0.230769,0.769231,0.375000,1 3 10 12 15 17 19 22,1 3 7 10 11 21 30 32
+28,Speculative,Exploratory,Shallow,1,same,1,1,0,0,2,1,1,0.000000,1.000000,0.000000,4,13
+28,Speculative,Exploratory,Shallow,1,cross,1,1,0,1,0,0,0,1.000000,0.000000,1.000000,1,1
+28,Speculative,Exploratory,Shallow,2,same,2,2,0,0,4,2,2,0.000000,1.000000,0.000000,4 23,13 28
+28,Speculative,Exploratory,Shallow,2,cross,2,2,0,1,2,1,1,0.333333,0.666667,0.500000,1 18,1 11
+28,Speculative,Exploratory,Shallow,3,same,3,3,0,0,6,3,3,0.000000,1.000000,0.000000,4 9 23,13 28 31
+28,Speculative,Exploratory,Shallow,3,cross,3,3,0,1,4,2,2,0.200000,0.800000,0.333333,1 14 22,1 7 11
+28,Speculative,Exploratory,Shallow,4,same,4,3,-1,1,5,2,3,0.166667,0.833333,0.250000,4 9 23 31,13 28 31
+28,Speculative,Exploratory,Shallow,4,cross,4,4,0,2,4,2,2,0.333333,0.666667,0.500000,1 11 17 24,1 7 11 30
+28,Speculative,Exploratory,Shallow,8,same,8,3,-5,3,5,0,5,0.375000,0.625000,0.375000,4 6 9 13 23 28 31 34,13 28 31
+28,Speculative,Exploratory,Shallow,8,cross,8,8,0,3,10,5,5,0.230769,0.769231,0.375000,1 3 10 12 15 17 19 22,1 3 7 10 11 21 30 32
+28,Speculative,Exploratory,Contextual,1,same,1,1,0,0,2,1,1,0.000000,1.000000,0.000000,4,13
+28,Speculative,Exploratory,Contextual,1,cross,1,1,0,1,0,0,0,1.000000,0.000000,1.000000,1,1
+28,Speculative,Exploratory,Contextual,2,same,2,2,0,0,4,2,2,0.000000,1.000000,0.000000,4 23,13 28
+28,Speculative,Exploratory,Contextual,2,cross,2,2,0,1,2,1,1,0.333333,0.666667,0.500000,1 16,1 10
+28,Speculative,Exploratory,Contextual,3,same,3,3,0,0,6,3,3,0.000000,1.000000,0.000000,4 9 23,13 28 31
+28,Speculative,Exploratory,Contextual,3,cross,3,3,0,2,2,1,1,0.500000,0.500000,0.666667,1 11 21,1 7 11
+28,Speculative,Exploratory,Contextual,4,same,4,3,-1,1,5,2,3,0.166667,0.833333,0.250000,4 9 23 31,13 28 31
+28,Speculative,Exploratory,Contextual,4,cross,4,4,0,2,4,2,2,0.333333,0.666667,0.500000,1 7 15 18,1 3 7 10
+28,Speculative,Exploratory,Contextual,8,same,8,3,-5,3,5,0,5,0.375000,0.625000,0.375000,4 6 9 13 23 28 31 34,13 28 31
+28,Speculative,Exploratory,Contextual,8,cross,8,7,-1,5,5,2,3,0.500000,0.500000,0.625000,1 2 3 7 10 11 15 16,1 3 7 10 11 21 30
+28,Speculative,Exploratory,Analogical,1,same,1,1,0,0,2,1,1,0.000000,1.000000,0.000000,4,13
+28,Speculative,Exploratory,Analogical,1,cross,1,1,0,1,0,0,0,1.000000,0.000000,1.000000,3,3
+28,Speculative,Exploratory,Analogical,2,same,2,2,0,0,4,2,2,0.000000,1.000000,0.000000,4 23,13 28
+28,Speculative,Exploratory,Analogical,2,cross,2,2,0,2,0,0,0,1.000000,0.000000,1.000000,3 7,3 7
+28,Speculative,Exploratory,Analogical,3,same,3,3,0,0,6,3,3,0.000000,1.000000,0.000000,4 9 23,13 28 31
+28,Speculative,Exploratory,Analogical,3,cross,2,2,0,2,0,0,0,1.000000,0.000000,1.000000,3 7,3 7
+28,Speculative,Exploratory,Analogical,4,same,4,3,-1,1,5,2,3,0.166667,0.833333,0.250000,4 9 23 31,13 28 31
+28,Speculative,Exploratory,Analogical,4,cross,2,2,0,2,0,0,0,1.000000,0.000000,1.000000,3 7,3 7
+28,Speculative,Exploratory,Analogical,8,same,8,3,-5,3,5,0,5,0.375000,0.625000,0.375000,4 6 9 13 23 28 31 34,13 28 31
+28,Speculative,Exploratory,Analogical,8,cross,2,2,0,2,0,0,0,1.000000,0.000000,1.000000,3 7,3 7
+29,Philosophical,Exploratory,Surface,1,same,1,1,0,0,2,1,1,0.000000,1.000000,0.000000,4,13
+29,Philosophical,Exploratory,Surface,1,cross,1,1,0,1,0,0,0,1.000000,0.000000,1.000000,1,1
+29,Philosophical,Exploratory,Surface,2,same,2,2,0,0,4,2,2,0.000000,1.000000,0.000000,4 23,13 28
+29,Philosophical,Exploratory,Surface,2,cross,2,2,0,1,2,1,1,0.333333,0.666667,0.500000,1 18,1 11
+29,Philosophical,Exploratory,Surface,3,same,3,3,0,0,6,3,3,0.000000,1.000000,0.000000,4 9 23,13 28 31
+29,Philosophical,Exploratory,Surface,3,cross,3,3,0,1,4,2,2,0.200000,0.800000,0.333333,1 14 22,1 7 11
+29,Philosophical,Exploratory,Surface,4,same,4,3,-1,1,5,2,3,0.166667,0.833333,0.250000,4 9 23 31,13 28 31
+29,Philosophical,Exploratory,Surface,4,cross,4,4,0,2,4,2,2,0.333333,0.666667,0.500000,1 11 17 24,1 7 11 30
+29,Philosophical,Exploratory,Surface,8,same,8,3,-5,3,5,0,5,0.375000,0.625000,0.375000,4 6 9 13 23 28 31 34,13 28 31
+29,Philosophical,Exploratory,Surface,8,cross,8,8,0,3,10,5,5,0.230769,0.769231,0.375000,1 3 10 12 15 17 19 22,1 3 7 10 11 21 30 32
+29,Philosophical,Exploratory,Shallow,1,same,1,1,0,0,2,1,1,0.000000,1.000000,0.000000,4,13
+29,Philosophical,Exploratory,Shallow,1,cross,1,1,0,1,0,0,0,1.000000,0.000000,1.000000,1,1
+29,Philosophical,Exploratory,Shallow,2,same,2,2,0,0,4,2,2,0.000000,1.000000,0.000000,4 23,13 28
+29,Philosophical,Exploratory,Shallow,2,cross,2,2,0,1,2,1,1,0.333333,0.666667,0.500000,1 18,1 11
+29,Philosophical,Exploratory,Shallow,3,same,3,3,0,0,6,3,3,0.000000,1.000000,0.000000,4 9 23,13 28 31
+29,Philosophical,Exploratory,Shallow,3,cross,3,3,0,1,4,2,2,0.200000,0.800000,0.333333,1 14 22,1 7 11
+29,Philosophical,Exploratory,Shallow,4,same,4,3,-1,1,5,2,3,0.166667,0.833333,0.250000,4 9 23 31,13 28 31
+29,Philosophical,Exploratory,Shallow,4,cross,4,4,0,2,4,2,2,0.333333,0.666667,0.500000,1 11 17 24,1 7 11 30
+29,Philosophical,Exploratory,Shallow,8,same,8,3,-5,3,5,0,5,0.375000,0.625000,0.375000,4 6 9 13 23 28 31 34,13 28 31
+29,Philosophical,Exploratory,Shallow,8,cross,8,8,0,3,10,5,5,0.230769,0.769231,0.375000,1 3 10 12 15 17 19 22,1 3 7 10 11 21 30 32
+29,Philosophical,Exploratory,Contextual,1,same,1,1,0,0,2,1,1,0.000000,1.000000,0.000000,4,13
+29,Philosophical,Exploratory,Contextual,1,cross,1,1,0,1,0,0,0,1.000000,0.000000,1.000000,1,1
+29,Philosophical,Exploratory,Contextual,2,same,2,2,0,0,4,2,2,0.000000,1.000000,0.000000,4 23,13 28
+29,Philosophical,Exploratory,Contextual,2,cross,2,2,0,1,2,1,1,0.333333,0.666667,0.500000,1 16,1 10
+29,Philosophical,Exploratory,Contextual,3,same,3,3,0,0,6,3,3,0.000000,1.000000,0.000000,4 9 23,13 28 31
+29,Philosophical,Exploratory,Contextual,3,cross,3,3,0,2,2,1,1,0.500000,0.500000,0.666667,1 11 21,1 7 11
+29,Philosophical,Exploratory,Contextual,4,same,4,3,-1,1,5,2,3,0.166667,0.833333,0.250000,4 9 23 31,13 28 31
+29,Philosophical,Exploratory,Contextual,4,cross,4,4,0,2,4,2,2,0.333333,0.666667,0.500000,1 7 15 18,1 3 7 10
+29,Philosophical,Exploratory,Contextual,8,same,8,3,-5,3,5,0,5,0.375000,0.625000,0.375000,4 6 9 13 23 28 31 34,13 28 31
+29,Philosophical,Exploratory,Contextual,8,cross,8,7,-1,5,5,2,3,0.500000,0.500000,0.625000,1 2 3 7 10 11 15 16,1 3 7 10 11 21 30
+29,Philosophical,Exploratory,Analogical,1,same,1,1,0,0,2,1,1,0.000000,1.000000,0.000000,4,13
+29,Philosophical,Exploratory,Analogical,1,cross,1,1,0,1,0,0,0,1.000000,0.000000,1.000000,3,3
+29,Philosophical,Exploratory,Analogical,2,same,2,2,0,0,4,2,2,0.000000,1.000000,0.000000,4 23,13 28
+29,Philosophical,Exploratory,Analogical,2,cross,2,2,0,2,0,0,0,1.000000,0.000000,1.000000,3 7,3 7
+29,Philosophical,Exploratory,Analogical,3,same,3,3,0,0,6,3,3,0.000000,1.000000,0.000000,4 9 23,13 28 31
+29,Philosophical,Exploratory,Analogical,3,cross,2,2,0,2,0,0,0,1.000000,0.000000,1.000000,3 7,3 7
+29,Philosophical,Exploratory,Analogical,4,same,4,3,-1,1,5,2,3,0.166667,0.833333,0.250000,4 9 23 31,13 28 31
+29,Philosophical,Exploratory,Analogical,4,cross,2,2,0,2,0,0,0,1.000000,0.000000,1.000000,3 7,3 7
+29,Philosophical,Exploratory,Analogical,8,same,8,3,-5,3,5,0,5,0.375000,0.625000,0.375000,4 6 9 13 23 28 31 34,13 28 31
+29,Philosophical,Exploratory,Analogical,8,cross,2,2,0,2,0,0,0,1.000000,0.000000,1.000000,3 7,3 7
+30,Reflective,Meta,Surface,1,same,1,1,0,0,2,1,1,0.000000,1.000000,0.000000,12,32
+30,Reflective,Meta,Surface,1,cross,1,1,0,1,0,0,0,1.000000,0.000000,1.000000,1,1
+30,Reflective,Meta,Surface,2,same,2,1,-1,0,3,1,2,0.000000,1.000000,0.000000,12 22,32
+30,Reflective,Meta,Surface,2,cross,2,2,0,1,2,1,1,0.333333,0.666667,0.500000,1 11,1 13
+30,Reflective,Meta,Surface,3,same,3,1,-2,0,4,1,3,0.000000,1.000000,0.000000,12 18 25,32
+30,Reflective,Meta,Surface,3,cross,3,3,0,1,4,2,2,0.200000,0.800000,0.333333,1 7 17,1 10 21
+30,Reflective,Meta,Surface,4,same,4,1,-3,0,5,1,4,0.000000,1.000000,0.000000,12 16 22 27,32
+30,Reflective,Meta,Surface,4,cross,4,4,0,2,4,2,2,0.333333,0.666667,0.500000,1 6 11 23,1 7 11 21
+30,Reflective,Meta,Surface,8,same,8,1,-7,0,9,1,8,0.000000,1.000000,0.000000,12 14 15 16 18 19 22 24,32
+30,Reflective,Meta,Surface,8,cross,8,8,0,3,10,5,5,0.230769,0.769231,0.375000,1 3 6 9 11 17 23 30,1 3 7 10 11 13 21 28
+30,Reflective,Meta,Shallow,1,same,1,1,0,0,2,1,1,0.000000,1.000000,0.000000,12,32
+30,Reflective,Meta,Shallow,1,cross,1,1,0,1,0,0,0,1.000000,0.000000,1.000000,1,1
+30,Reflective,Meta,Shallow,2,same,2,1,-1,0,3,1,2,0.000000,1.000000,0.000000,12 22,32
+30,Reflective,Meta,Shallow,2,cross,2,2,0,1,2,1,1,0.333333,0.666667,0.500000,1 11,1 13
+30,Reflective,Meta,Shallow,3,same,3,1,-2,0,4,1,3,0.000000,1.000000,0.000000,12 18 25,32
+30,Reflective,Meta,Shallow,3,cross,3,3,0,1,4,2,2,0.200000,0.800000,0.333333,1 7 17,1 10 21
+30,Reflective,Meta,Shallow,4,same,4,1,-3,0,5,1,4,0.000000,1.000000,0.000000,12 16 22 27,32
+30,Reflective,Meta,Shallow,4,cross,4,4,0,2,4,2,2,0.333333,0.666667,0.500000,1 6 11 23,1 7 11 21
+30,Reflective,Meta,Shallow,8,same,8,1,-7,0,9,1,8,0.000000,1.000000,0.000000,12 14 15 16 18 19 22 24,32
+30,Reflective,Meta,Shallow,8,cross,8,8,0,3,10,5,5,0.230769,0.769231,0.375000,1 3 6 9 11 17 23 30,1 3 7 10 11 13 21 28
+30,Reflective,Meta,Contextual,1,same,1,0,-1,0,1,0,1,0.000000,1.000000,0.000000,15,
+30,Reflective,Meta,Contextual,1,cross,1,1,0,1,0,0,0,1.000000,0.000000,1.000000,1,1
+30,Reflective,Meta,Contextual,2,same,2,0,-2,0,2,0,2,0.000000,1.000000,0.000000,15 22,
+30,Reflective,Meta,Contextual,2,cross,2,2,0,1,2,1,1,0.333333,0.666667,0.500000,1 11,1 13
+30,Reflective,Meta,Contextual,3,same,3,0,-3,0,3,0,3,0.000000,1.000000,0.000000,15 18 29,
+30,Reflective,Meta,Contextual,3,cross,3,3,0,1,4,2,2,0.200000,0.800000,0.333333,1 7 17,1 10 21
+30,Reflective,Meta,Contextual,4,same,4,0,-4,0,4,0,4,0.000000,1.000000,0.000000,15 16 18 22,
+30,Reflective,Meta,Contextual,4,cross,4,4,0,2,4,2,2,0.333333,0.666667,0.500000,1 6 11 23,1 7 11 21
+30,Reflective,Meta,Contextual,8,same,6,0,-6,0,6,0,6,0.000000,1.000000,0.000000,15 16 18 22 29 33,
+30,Reflective,Meta,Contextual,8,cross,8,8,0,3,10,5,5,0.230769,0.769231,0.375000,1 3 6 9 11 17 23 30,1 3 7 10 11 13 21 28
+30,Reflective,Meta,Analogical,1,same,0,0,0,0,0,0,0,1.000000,0.000000,1.000000,,
+30,Reflective,Meta,Analogical,1,cross,1,1,0,1,0,0,0,1.000000,0.000000,1.000000,3,3
+30,Reflective,Meta,Analogical,2,same,0,0,0,0,0,0,0,1.000000,0.000000,1.000000,,
+30,Reflective,Meta,Analogical,2,cross,2,2,0,2,0,0,0,1.000000,0.000000,1.000000,3 13,3 13
+30,Reflective,Meta,Analogical,3,same,0,0,0,0,0,0,0,1.000000,0.000000,1.000000,,
+30,Reflective,Meta,Analogical,3,cross,3,3,0,2,2,1,1,0.500000,0.500000,0.666667,3 7 23,3 7 13
+30,Reflective,Meta,Analogical,4,same,0,0,0,0,0,0,0,1.000000,0.000000,1.000000,,
+30,Reflective,Meta,Analogical,4,cross,4,4,0,1,6,3,3,0.142857,0.857143,0.250000,3 6 9 23,3 7 13 28
+30,Reflective,Meta,Analogical,8,same,0,0,0,0,0,0,0,1.000000,0.000000,1.000000,,
+30,Reflective,Meta,Analogical,8,cross,8,5,-3,4,5,1,4,0.444444,0.555556,0.500000,3 4 6 7 9 13 23 28,3 7 13 28 31
+31,Contemplative,Meta,Surface,1,same,1,1,0,0,2,1,1,0.000000,1.000000,0.000000,12,32
+31,Contemplative,Meta,Surface,1,cross,1,1,0,1,0,0,0,1.000000,0.000000,1.000000,1,1
+31,Contemplative,Meta,Surface,2,same,2,1,-1,0,3,1,2,0.000000,1.000000,0.000000,12 22,32
+31,Contemplative,Meta,Surface,2,cross,2,2,0,1,2,1,1,0.333333,0.666667,0.500000,1 11,1 13
+31,Contemplative,Meta,Surface,3,same,3,1,-2,0,4,1,3,0.000000,1.000000,0.000000,12 18 25,32
+31,Contemplative,Meta,Surface,3,cross,3,3,0,1,4,2,2,0.200000,0.800000,0.333333,1 7 17,1 10 21
+31,Contemplative,Meta,Surface,4,same,4,1,-3,0,5,1,4,0.000000,1.000000,0.000000,12 16 22 27,32
+31,Contemplative,Meta,Surface,4,cross,4,4,0,2,4,2,2,0.333333,0.666667,0.500000,1 6 11 23,1 7 11 21
+31,Contemplative,Meta,Surface,8,same,8,1,-7,0,9,1,8,0.000000,1.000000,0.000000,12 14 15 16 18 19 22 24,32
+31,Contemplative,Meta,Surface,8,cross,8,8,0,3,10,5,5,0.230769,0.769231,0.375000,1 3 6 9 11 17 23 30,1 3 7 10 11 13 21 28
+31,Contemplative,Meta,Shallow,1,same,1,1,0,0,2,1,1,0.000000,1.000000,0.000000,12,32
+31,Contemplative,Meta,Shallow,1,cross,1,1,0,1,0,0,0,1.000000,0.000000,1.000000,1,1
+31,Contemplative,Meta,Shallow,2,same,2,1,-1,0,3,1,2,0.000000,1.000000,0.000000,12 22,32
+31,Contemplative,Meta,Shallow,2,cross,2,2,0,1,2,1,1,0.333333,0.666667,0.500000,1 11,1 13
+31,Contemplative,Meta,Shallow,3,same,3,1,-2,0,4,1,3,0.000000,1.000000,0.000000,12 18 25,32
+31,Contemplative,Meta,Shallow,3,cross,3,3,0,1,4,2,2,0.200000,0.800000,0.333333,1 7 17,1 10 21
+31,Contemplative,Meta,Shallow,4,same,4,1,-3,0,5,1,4,0.000000,1.000000,0.000000,12 16 22 27,32
+31,Contemplative,Meta,Shallow,4,cross,4,4,0,2,4,2,2,0.333333,0.666667,0.500000,1 6 11 23,1 7 11 21
+31,Contemplative,Meta,Shallow,8,same,8,1,-7,0,9,1,8,0.000000,1.000000,0.000000,12 14 15 16 18 19 22 24,32
+31,Contemplative,Meta,Shallow,8,cross,8,8,0,3,10,5,5,0.230769,0.769231,0.375000,1 3 6 9 11 17 23 30,1 3 7 10 11 13 21 28
+31,Contemplative,Meta,Contextual,1,same,1,0,-1,0,1,0,1,0.000000,1.000000,0.000000,15,
+31,Contemplative,Meta,Contextual,1,cross,1,1,0,1,0,0,0,1.000000,0.000000,1.000000,1,1
+31,Contemplative,Meta,Contextual,2,same,2,0,-2,0,2,0,2,0.000000,1.000000,0.000000,15 22,
+31,Contemplative,Meta,Contextual,2,cross,2,2,0,1,2,1,1,0.333333,0.666667,0.500000,1 11,1 13
+31,Contemplative,Meta,Contextual,3,same,3,0,-3,0,3,0,3,0.000000,1.000000,0.000000,15 18 29,
+31,Contemplative,Meta,Contextual,3,cross,3,3,0,1,4,2,2,0.200000,0.800000,0.333333,1 7 17,1 10 21
+31,Contemplative,Meta,Contextual,4,same,4,0,-4,0,4,0,4,0.000000,1.000000,0.000000,15 16 18 22,
+31,Contemplative,Meta,Contextual,4,cross,4,4,0,2,4,2,2,0.333333,0.666667,0.500000,1 6 11 23,1 7 11 21
+31,Contemplative,Meta,Contextual,8,same,6,0,-6,0,6,0,6,0.000000,1.000000,0.000000,15 16 18 22 29 33,
+31,Contemplative,Meta,Contextual,8,cross,8,8,0,3,10,5,5,0.230769,0.769231,0.375000,1 3 6 9 11 17 23 30,1 3 7 10 11 13 21 28
+31,Contemplative,Meta,Analogical,1,same,0,0,0,0,0,0,0,1.000000,0.000000,1.000000,,
+31,Contemplative,Meta,Analogical,1,cross,1,1,0,1,0,0,0,1.000000,0.000000,1.000000,3,3
+31,Contemplative,Meta,Analogical,2,same,0,0,0,0,0,0,0,1.000000,0.000000,1.000000,,
+31,Contemplative,Meta,Analogical,2,cross,2,2,0,2,0,0,0,1.000000,0.000000,1.000000,3 13,3 13
+31,Contemplative,Meta,Analogical,3,same,0,0,0,0,0,0,0,1.000000,0.000000,1.000000,,
+31,Contemplative,Meta,Analogical,3,cross,3,3,0,2,2,1,1,0.500000,0.500000,0.666667,3 7 23,3 7 13
+31,Contemplative,Meta,Analogical,4,same,0,0,0,0,0,0,0,1.000000,0.000000,1.000000,,
+31,Contemplative,Meta,Analogical,4,cross,4,4,0,1,6,3,3,0.142857,0.857143,0.250000,3 6 9 23,3 7 13 28
+31,Contemplative,Meta,Analogical,8,same,0,0,0,0,0,0,0,1.000000,0.000000,1.000000,,
+31,Contemplative,Meta,Analogical,8,cross,8,5,-3,4,5,1,4,0.444444,0.555556,0.500000,3 4 6 7 9 13 23 28,3 7 13 28 31
+32,Metacognitive,Meta,Surface,1,same,1,1,0,0,2,1,1,0.000000,1.000000,0.000000,12,32
+32,Metacognitive,Meta,Surface,1,cross,1,1,0,1,0,0,0,1.000000,0.000000,1.000000,1,1
+32,Metacognitive,Meta,Surface,2,same,2,1,-1,0,3,1,2,0.000000,1.000000,0.000000,12 22,32
+32,Metacognitive,Meta,Surface,2,cross,2,2,0,1,2,1,1,0.333333,0.666667,0.500000,1 11,1 13
+32,Metacognitive,Meta,Surface,3,same,3,1,-2,0,4,1,3,0.000000,1.000000,0.000000,12 18 25,32
+32,Metacognitive,Meta,Surface,3,cross,3,3,0,1,4,2,2,0.200000,0.800000,0.333333,1 7 17,1 10 21
+32,Metacognitive,Meta,Surface,4,same,4,1,-3,0,5,1,4,0.000000,1.000000,0.000000,12 16 22 27,32
+32,Metacognitive,Meta,Surface,4,cross,4,4,0,2,4,2,2,0.333333,0.666667,0.500000,1 6 11 23,1 7 11 21
+32,Metacognitive,Meta,Surface,8,same,8,1,-7,0,9,1,8,0.000000,1.000000,0.000000,12 14 15 16 18 19 22 24,32
+32,Metacognitive,Meta,Surface,8,cross,8,8,0,3,10,5,5,0.230769,0.769231,0.375000,1 3 6 9 11 17 23 30,1 3 7 10 11 13 21 28
+32,Metacognitive,Meta,Shallow,1,same,1,1,0,0,2,1,1,0.000000,1.000000,0.000000,12,32
+32,Metacognitive,Meta,Shallow,1,cross,1,1,0,1,0,0,0,1.000000,0.000000,1.000000,1,1
+32,Metacognitive,Meta,Shallow,2,same,2,1,-1,0,3,1,2,0.000000,1.000000,0.000000,12 22,32
+32,Metacognitive,Meta,Shallow,2,cross,2,2,0,1,2,1,1,0.333333,0.666667,0.500000,1 11,1 13
+32,Metacognitive,Meta,Shallow,3,same,3,1,-2,0,4,1,3,0.000000,1.000000,0.000000,12 18 25,32
+32,Metacognitive,Meta,Shallow,3,cross,3,3,0,1,4,2,2,0.200000,0.800000,0.333333,1 7 17,1 10 21
+32,Metacognitive,Meta,Shallow,4,same,4,1,-3,0,5,1,4,0.000000,1.000000,0.000000,12 16 22 27,32
+32,Metacognitive,Meta,Shallow,4,cross,4,4,0,2,4,2,2,0.333333,0.666667,0.500000,1 6 11 23,1 7 11 21
+32,Metacognitive,Meta,Shallow,8,same,8,1,-7,0,9,1,8,0.000000,1.000000,0.000000,12 14 15 16 18 19 22 24,32
+32,Metacognitive,Meta,Shallow,8,cross,8,8,0,3,10,5,5,0.230769,0.769231,0.375000,1 3 6 9 11 17 23 30,1 3 7 10 11 13 21 28
+32,Metacognitive,Meta,Contextual,1,same,1,0,-1,0,1,0,1,0.000000,1.000000,0.000000,15,
+32,Metacognitive,Meta,Contextual,1,cross,1,1,0,1,0,0,0,1.000000,0.000000,1.000000,1,1
+32,Metacognitive,Meta,Contextual,2,same,2,0,-2,0,2,0,2,0.000000,1.000000,0.000000,15 22,
+32,Metacognitive,Meta,Contextual,2,cross,2,2,0,1,2,1,1,0.333333,0.666667,0.500000,1 11,1 13
+32,Metacognitive,Meta,Contextual,3,same,3,0,-3,0,3,0,3,0.000000,1.000000,0.000000,15 18 29,
+32,Metacognitive,Meta,Contextual,3,cross,3,3,0,1,4,2,2,0.200000,0.800000,0.333333,1 7 17,1 10 21
+32,Metacognitive,Meta,Contextual,4,same,4,0,-4,0,4,0,4,0.000000,1.000000,0.000000,15 16 18 22,
+32,Metacognitive,Meta,Contextual,4,cross,4,4,0,2,4,2,2,0.333333,0.666667,0.500000,1 6 11 23,1 7 11 21
+32,Metacognitive,Meta,Contextual,8,same,6,0,-6,0,6,0,6,0.000000,1.000000,0.000000,15 16 18 22 29 33,
+32,Metacognitive,Meta,Contextual,8,cross,8,8,0,3,10,5,5,0.230769,0.769231,0.375000,1 3 6 9 11 17 23 30,1 3 7 10 11 13 21 28
+32,Metacognitive,Meta,Analogical,1,same,0,0,0,0,0,0,0,1.000000,0.000000,1.000000,,
+32,Metacognitive,Meta,Analogical,1,cross,1,1,0,1,0,0,0,1.000000,0.000000,1.000000,3,3
+32,Metacognitive,Meta,Analogical,2,same,0,0,0,0,0,0,0,1.000000,0.000000,1.000000,,
+32,Metacognitive,Meta,Analogical,2,cross,2,2,0,2,0,0,0,1.000000,0.000000,1.000000,3 13,3 13
+32,Metacognitive,Meta,Analogical,3,same,0,0,0,0,0,0,0,1.000000,0.000000,1.000000,,
+32,Metacognitive,Meta,Analogical,3,cross,3,3,0,2,2,1,1,0.500000,0.500000,0.666667,3 7 23,3 7 13
+32,Metacognitive,Meta,Analogical,4,same,0,0,0,0,0,0,0,1.000000,0.000000,1.000000,,
+32,Metacognitive,Meta,Analogical,4,cross,4,4,0,1,6,3,3,0.142857,0.857143,0.250000,3 6 9 23,3 7 13 28
+32,Metacognitive,Meta,Analogical,8,same,0,0,0,0,0,0,0,1.000000,0.000000,1.000000,,
+32,Metacognitive,Meta,Analogical,8,cross,8,5,-3,4,5,1,4,0.444444,0.555556,0.500000,3 4 6 7 9 13 23 28,3 7 13 28 31
+33,Wise,Meta,Surface,1,same,1,1,0,0,2,1,1,0.000000,1.000000,0.000000,12,32
+33,Wise,Meta,Surface,1,cross,1,1,0,1,0,0,0,1.000000,0.000000,1.000000,1,1
+33,Wise,Meta,Surface,2,same,2,1,-1,0,3,1,2,0.000000,1.000000,0.000000,12 22,32
+33,Wise,Meta,Surface,2,cross,2,2,0,1,2,1,1,0.333333,0.666667,0.500000,1 11,1 13
+33,Wise,Meta,Surface,3,same,3,1,-2,0,4,1,3,0.000000,1.000000,0.000000,12 18 25,32
+33,Wise,Meta,Surface,3,cross,3,3,0,1,4,2,2,0.200000,0.800000,0.333333,1 7 17,1 10 21
+33,Wise,Meta,Surface,4,same,4,1,-3,0,5,1,4,0.000000,1.000000,0.000000,12 16 22 27,32
+33,Wise,Meta,Surface,4,cross,4,4,0,2,4,2,2,0.333333,0.666667,0.500000,1 6 11 23,1 7 11 21
+33,Wise,Meta,Surface,8,same,8,1,-7,0,9,1,8,0.000000,1.000000,0.000000,12 14 15 16 18 19 22 24,32
+33,Wise,Meta,Surface,8,cross,8,8,0,3,10,5,5,0.230769,0.769231,0.375000,1 3 6 9 11 17 23 30,1 3 7 10 11 13 21 28
+33,Wise,Meta,Shallow,1,same,1,1,0,0,2,1,1,0.000000,1.000000,0.000000,12,32
+33,Wise,Meta,Shallow,1,cross,1,1,0,1,0,0,0,1.000000,0.000000,1.000000,1,1
+33,Wise,Meta,Shallow,2,same,2,1,-1,0,3,1,2,0.000000,1.000000,0.000000,12 22,32
+33,Wise,Meta,Shallow,2,cross,2,2,0,1,2,1,1,0.333333,0.666667,0.500000,1 11,1 13
+33,Wise,Meta,Shallow,3,same,3,1,-2,0,4,1,3,0.000000,1.000000,0.000000,12 18 25,32
+33,Wise,Meta,Shallow,3,cross,3,3,0,1,4,2,2,0.200000,0.800000,0.333333,1 7 17,1 10 21
+33,Wise,Meta,Shallow,4,same,4,1,-3,0,5,1,4,0.000000,1.000000,0.000000,12 16 22 27,32
+33,Wise,Meta,Shallow,4,cross,4,4,0,2,4,2,2,0.333333,0.666667,0.500000,1 6 11 23,1 7 11 21
+33,Wise,Meta,Shallow,8,same,8,1,-7,0,9,1,8,0.000000,1.000000,0.000000,12 14 15 16 18 19 22 24,32
+33,Wise,Meta,Shallow,8,cross,8,8,0,3,10,5,5,0.230769,0.769231,0.375000,1 3 6 9 11 17 23 30,1 3 7 10 11 13 21 28
+33,Wise,Meta,Contextual,1,same,1,0,-1,0,1,0,1,0.000000,1.000000,0.000000,15,
+33,Wise,Meta,Contextual,1,cross,1,1,0,1,0,0,0,1.000000,0.000000,1.000000,1,1
+33,Wise,Meta,Contextual,2,same,2,0,-2,0,2,0,2,0.000000,1.000000,0.000000,15 22,
+33,Wise,Meta,Contextual,2,cross,2,2,0,1,2,1,1,0.333333,0.666667,0.500000,1 11,1 13
+33,Wise,Meta,Contextual,3,same,3,0,-3,0,3,0,3,0.000000,1.000000,0.000000,15 18 29,
+33,Wise,Meta,Contextual,3,cross,3,3,0,1,4,2,2,0.200000,0.800000,0.333333,1 7 17,1 10 21
+33,Wise,Meta,Contextual,4,same,4,0,-4,0,4,0,4,0.000000,1.000000,0.000000,15 16 18 22,
+33,Wise,Meta,Contextual,4,cross,4,4,0,2,4,2,2,0.333333,0.666667,0.500000,1 6 11 23,1 7 11 21
+33,Wise,Meta,Contextual,8,same,6,0,-6,0,6,0,6,0.000000,1.000000,0.000000,15 16 18 22 29 33,
+33,Wise,Meta,Contextual,8,cross,8,8,0,3,10,5,5,0.230769,0.769231,0.375000,1 3 6 9 11 17 23 30,1 3 7 10 11 13 21 28
+33,Wise,Meta,Analogical,1,same,0,0,0,0,0,0,0,1.000000,0.000000,1.000000,,
+33,Wise,Meta,Analogical,1,cross,1,1,0,1,0,0,0,1.000000,0.000000,1.000000,3,3
+33,Wise,Meta,Analogical,2,same,0,0,0,0,0,0,0,1.000000,0.000000,1.000000,,
+33,Wise,Meta,Analogical,2,cross,2,2,0,2,0,0,0,1.000000,0.000000,1.000000,3 13,3 13
+33,Wise,Meta,Analogical,3,same,0,0,0,0,0,0,0,1.000000,0.000000,1.000000,,
+33,Wise,Meta,Analogical,3,cross,3,3,0,2,2,1,1,0.500000,0.500000,0.666667,3 7 23,3 7 13
+33,Wise,Meta,Analogical,4,same,0,0,0,0,0,0,0,1.000000,0.000000,1.000000,,
+33,Wise,Meta,Analogical,4,cross,4,4,0,1,6,3,3,0.142857,0.857143,0.250000,3 6 9 23,3 7 13 28
+33,Wise,Meta,Analogical,8,same,0,0,0,0,0,0,0,1.000000,0.000000,1.000000,,
+33,Wise,Meta,Analogical,8,cross,8,5,-3,4,5,1,4,0.444444,0.555556,0.500000,3 4 6 7 9 13 23 28,3 7 13 28 31
+34,Transcendent,Meta,Surface,1,same,1,1,0,0,2,1,1,0.000000,1.000000,0.000000,12,32
+34,Transcendent,Meta,Surface,1,cross,1,1,0,1,0,0,0,1.000000,0.000000,1.000000,1,1
+34,Transcendent,Meta,Surface,2,same,2,1,-1,0,3,1,2,0.000000,1.000000,0.000000,12 22,32
+34,Transcendent,Meta,Surface,2,cross,2,2,0,1,2,1,1,0.333333,0.666667,0.500000,1 11,1 13
+34,Transcendent,Meta,Surface,3,same,3,1,-2,0,4,1,3,0.000000,1.000000,0.000000,12 18 25,32
+34,Transcendent,Meta,Surface,3,cross,3,3,0,1,4,2,2,0.200000,0.800000,0.333333,1 7 17,1 10 21
+34,Transcendent,Meta,Surface,4,same,4,1,-3,0,5,1,4,0.000000,1.000000,0.000000,12 16 22 27,32
+34,Transcendent,Meta,Surface,4,cross,4,4,0,2,4,2,2,0.333333,0.666667,0.500000,1 6 11 23,1 7 11 21
+34,Transcendent,Meta,Surface,8,same,8,1,-7,0,9,1,8,0.000000,1.000000,0.000000,12 14 15 16 18 19 22 24,32
+34,Transcendent,Meta,Surface,8,cross,8,8,0,3,10,5,5,0.230769,0.769231,0.375000,1 3 6 9 11 17 23 30,1 3 7 10 11 13 21 28
+34,Transcendent,Meta,Shallow,1,same,1,1,0,0,2,1,1,0.000000,1.000000,0.000000,12,32
+34,Transcendent,Meta,Shallow,1,cross,1,1,0,1,0,0,0,1.000000,0.000000,1.000000,1,1
+34,Transcendent,Meta,Shallow,2,same,2,1,-1,0,3,1,2,0.000000,1.000000,0.000000,12 22,32
+34,Transcendent,Meta,Shallow,2,cross,2,2,0,1,2,1,1,0.333333,0.666667,0.500000,1 11,1 13
+34,Transcendent,Meta,Shallow,3,same,3,1,-2,0,4,1,3,0.000000,1.000000,0.000000,12 18 25,32
+34,Transcendent,Meta,Shallow,3,cross,3,3,0,1,4,2,2,0.200000,0.800000,0.333333,1 7 17,1 10 21
+34,Transcendent,Meta,Shallow,4,same,4,1,-3,0,5,1,4,0.000000,1.000000,0.000000,12 16 22 27,32
+34,Transcendent,Meta,Shallow,4,cross,4,4,0,2,4,2,2,0.333333,0.666667,0.500000,1 6 11 23,1 7 11 21
+34,Transcendent,Meta,Shallow,8,same,8,1,-7,0,9,1,8,0.000000,1.000000,0.000000,12 14 15 16 18 19 22 24,32
+34,Transcendent,Meta,Shallow,8,cross,8,8,0,3,10,5,5,0.230769,0.769231,0.375000,1 3 6 9 11 17 23 30,1 3 7 10 11 13 21 28
+34,Transcendent,Meta,Contextual,1,same,1,0,-1,0,1,0,1,0.000000,1.000000,0.000000,15,
+34,Transcendent,Meta,Contextual,1,cross,1,1,0,1,0,0,0,1.000000,0.000000,1.000000,1,1
+34,Transcendent,Meta,Contextual,2,same,2,0,-2,0,2,0,2,0.000000,1.000000,0.000000,15 22,
+34,Transcendent,Meta,Contextual,2,cross,2,2,0,1,2,1,1,0.333333,0.666667,0.500000,1 11,1 13
+34,Transcendent,Meta,Contextual,3,same,3,0,-3,0,3,0,3,0.000000,1.000000,0.000000,15 18 29,
+34,Transcendent,Meta,Contextual,3,cross,3,3,0,1,4,2,2,0.200000,0.800000,0.333333,1 7 17,1 10 21
+34,Transcendent,Meta,Contextual,4,same,4,0,-4,0,4,0,4,0.000000,1.000000,0.000000,15 16 18 22,
+34,Transcendent,Meta,Contextual,4,cross,4,4,0,2,4,2,2,0.333333,0.666667,0.500000,1 6 11 23,1 7 11 21
+34,Transcendent,Meta,Contextual,8,same,6,0,-6,0,6,0,6,0.000000,1.000000,0.000000,15 16 18 22 29 33,
+34,Transcendent,Meta,Contextual,8,cross,8,8,0,3,10,5,5,0.230769,0.769231,0.375000,1 3 6 9 11 17 23 30,1 3 7 10 11 13 21 28
+34,Transcendent,Meta,Analogical,1,same,0,0,0,0,0,0,0,1.000000,0.000000,1.000000,,
+34,Transcendent,Meta,Analogical,1,cross,1,1,0,1,0,0,0,1.000000,0.000000,1.000000,3,3
+34,Transcendent,Meta,Analogical,2,same,0,0,0,0,0,0,0,1.000000,0.000000,1.000000,,
+34,Transcendent,Meta,Analogical,2,cross,2,2,0,2,0,0,0,1.000000,0.000000,1.000000,3 13,3 13
+34,Transcendent,Meta,Analogical,3,same,0,0,0,0,0,0,0,1.000000,0.000000,1.000000,,
+34,Transcendent,Meta,Analogical,3,cross,3,3,0,2,2,1,1,0.500000,0.500000,0.666667,3 7 23,3 7 13
+34,Transcendent,Meta,Analogical,4,same,0,0,0,0,0,0,0,1.000000,0.000000,1.000000,,
+34,Transcendent,Meta,Analogical,4,cross,4,4,0,1,6,3,3,0.142857,0.857143,0.250000,3 6 9 23,3 7 13 28
+34,Transcendent,Meta,Analogical,8,same,0,0,0,0,0,0,0,1.000000,0.000000,1.000000,,
+34,Transcendent,Meta,Analogical,8,cross,8,5,-3,4,5,1,4,0.444444,0.555556,0.500000,3 4 6 7 9 13 23 28,3 7 13 28 31
+35,Sovereign,Meta,Surface,1,same,1,1,0,0,2,1,1,0.000000,1.000000,0.000000,12,32
+35,Sovereign,Meta,Surface,1,cross,1,1,0,1,0,0,0,1.000000,0.000000,1.000000,1,1
+35,Sovereign,Meta,Surface,2,same,2,1,-1,0,3,1,2,0.000000,1.000000,0.000000,12 22,32
+35,Sovereign,Meta,Surface,2,cross,2,2,0,1,2,1,1,0.333333,0.666667,0.500000,1 11,1 13
+35,Sovereign,Meta,Surface,3,same,3,1,-2,0,4,1,3,0.000000,1.000000,0.000000,12 18 25,32
+35,Sovereign,Meta,Surface,3,cross,3,3,0,1,4,2,2,0.200000,0.800000,0.333333,1 7 17,1 10 21
+35,Sovereign,Meta,Surface,4,same,4,1,-3,0,5,1,4,0.000000,1.000000,0.000000,12 16 22 27,32
+35,Sovereign,Meta,Surface,4,cross,4,4,0,2,4,2,2,0.333333,0.666667,0.500000,1 6 11 23,1 7 11 21
+35,Sovereign,Meta,Surface,8,same,8,1,-7,0,9,1,8,0.000000,1.000000,0.000000,12 14 15 16 18 19 22 24,32
+35,Sovereign,Meta,Surface,8,cross,8,8,0,3,10,5,5,0.230769,0.769231,0.375000,1 3 6 9 11 17 23 30,1 3 7 10 11 13 21 28
+35,Sovereign,Meta,Shallow,1,same,1,1,0,0,2,1,1,0.000000,1.000000,0.000000,12,32
+35,Sovereign,Meta,Shallow,1,cross,1,1,0,1,0,0,0,1.000000,0.000000,1.000000,1,1
+35,Sovereign,Meta,Shallow,2,same,2,1,-1,0,3,1,2,0.000000,1.000000,0.000000,12 22,32
+35,Sovereign,Meta,Shallow,2,cross,2,2,0,1,2,1,1,0.333333,0.666667,0.500000,1 11,1 13
+35,Sovereign,Meta,Shallow,3,same,3,1,-2,0,4,1,3,0.000000,1.000000,0.000000,12 18 25,32
+35,Sovereign,Meta,Shallow,3,cross,3,3,0,1,4,2,2,0.200000,0.800000,0.333333,1 7 17,1 10 21
+35,Sovereign,Meta,Shallow,4,same,4,1,-3,0,5,1,4,0.000000,1.000000,0.000000,12 16 22 27,32
+35,Sovereign,Meta,Shallow,4,cross,4,4,0,2,4,2,2,0.333333,0.666667,0.500000,1 6 11 23,1 7 11 21
+35,Sovereign,Meta,Shallow,8,same,8,1,-7,0,9,1,8,0.000000,1.000000,0.000000,12 14 15 16 18 19 22 24,32
+35,Sovereign,Meta,Shallow,8,cross,8,8,0,3,10,5,5,0.230769,0.769231,0.375000,1 3 6 9 11 17 23 30,1 3 7 10 11 13 21 28
+35,Sovereign,Meta,Contextual,1,same,1,0,-1,0,1,0,1,0.000000,1.000000,0.000000,15,
+35,Sovereign,Meta,Contextual,1,cross,1,1,0,1,0,0,0,1.000000,0.000000,1.000000,1,1
+35,Sovereign,Meta,Contextual,2,same,2,0,-2,0,2,0,2,0.000000,1.000000,0.000000,15 22,
+35,Sovereign,Meta,Contextual,2,cross,2,2,0,1,2,1,1,0.333333,0.666667,0.500000,1 11,1 13
+35,Sovereign,Meta,Contextual,3,same,3,0,-3,0,3,0,3,0.000000,1.000000,0.000000,15 18 29,
+35,Sovereign,Meta,Contextual,3,cross,3,3,0,1,4,2,2,0.200000,0.800000,0.333333,1 7 17,1 10 21
+35,Sovereign,Meta,Contextual,4,same,4,0,-4,0,4,0,4,0.000000,1.000000,0.000000,15 16 18 22,
+35,Sovereign,Meta,Contextual,4,cross,4,4,0,2,4,2,2,0.333333,0.666667,0.500000,1 6 11 23,1 7 11 21
+35,Sovereign,Meta,Contextual,8,same,6,0,-6,0,6,0,6,0.000000,1.000000,0.000000,15 16 18 22 29 33,
+35,Sovereign,Meta,Contextual,8,cross,8,8,0,3,10,5,5,0.230769,0.769231,0.375000,1 3 6 9 11 17 23 30,1 3 7 10 11 13 21 28
+35,Sovereign,Meta,Analogical,1,same,0,0,0,0,0,0,0,1.000000,0.000000,1.000000,,
+35,Sovereign,Meta,Analogical,1,cross,1,1,0,1,0,0,0,1.000000,0.000000,1.000000,3,3
+35,Sovereign,Meta,Analogical,2,same,0,0,0,0,0,0,0,1.000000,0.000000,1.000000,,
+35,Sovereign,Meta,Analogical,2,cross,2,2,0,2,0,0,0,1.000000,0.000000,1.000000,3 13,3 13
+35,Sovereign,Meta,Analogical,3,same,0,0,0,0,0,0,0,1.000000,0.000000,1.000000,,
+35,Sovereign,Meta,Analogical,3,cross,3,3,0,2,2,1,1,0.500000,0.500000,0.666667,3 7 23,3 7 13
+35,Sovereign,Meta,Analogical,4,same,0,0,0,0,0,0,0,1.000000,0.000000,1.000000,,
+35,Sovereign,Meta,Analogical,4,cross,4,4,0,1,6,3,3,0.142857,0.857143,0.250000,3 6 9 23,3 7 13 28
+35,Sovereign,Meta,Analogical,8,same,0,0,0,0,0,0,0,1.000000,0.000000,1.000000,,
+35,Sovereign,Meta,Analogical,8,cross,8,5,-3,4,5,1,4,0.444444,0.555556,0.500000,3 4 6 7 9 13 23 28,3 7 13 28 31

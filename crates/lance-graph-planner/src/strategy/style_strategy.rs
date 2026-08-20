@@ -132,23 +132,25 @@ impl StyleStrategy {
         // `k` budget, so the channel could report agreement without having run
         // a single relevant tactic — silence produced by the sampler, not by
         // the evidence.
-        for watcher in rung.peripheral_sample_where(k, |r| r.mechanism == want) {
-            let Some(kern) = kernel(watcher.id) else {
-                continue;
-            };
-            let mut tc = Self::thought_ctx_from(ctx);
-            for r in Self::recipes_for_at(style, rung) {
-                if let Some(k2) = kernel(r.id) {
-                    let _ = k2.run(&mut tc);
-                }
-            }
-            let _ = kern.run(&mut tc);
-            if (tc.confidence.clamp(0.0, 1.0) - admitted).abs() > tol {
-                // Elevate to where this watcher would have been legal anyway.
-                return Some(watcher.min_rung());
-            }
-        }
-        None
+        //
+        // MATURITY is the second half of the same argument, and it was missing.
+        // A `Demonstration` kernel lands no effect by construction (enforced by
+        // `non_operational_kernels_land_no_effect` in the contract crate), so a
+        // watcher that is one CANNOT move `tc.confidence` and therefore cannot
+        // dissent — while still consuming a `k` slot and contributing its
+        // structural agreement to the verdict. That is the anti-eigenvalue
+        // failure inverted: a watchdog that can never bark reports the same
+        // silence as one with nothing to bark at, and only the first is a lie.
+        Self::dissent_over(
+            style,
+            ctx,
+            rung,
+            tol,
+            admitted,
+            rung.peripheral_sample_where(k, |r| Self::watcher_is_eligible(r, want, true)),
+        )
+        // Elevate to where the objecting watcher would have been legal anyway.
+        .map(|watcher| watcher.min_rung())
     }
 
     /// **Cross-family dissent** — the independence channel, deliberately NOT
@@ -188,7 +190,41 @@ impl StyleStrategy {
     ) -> Option<(RungLevel, Mechanism)> {
         let admitted = Self::reliability_at(style, ctx, rung);
         let want = Self::cluster_mechanism(style.cluster());
-        for watcher in rung.peripheral_sample_where(k, |r| r.mechanism != want) {
+        // Same maturity argument as `peripheral_dissent` — a watcher that
+        // cannot move the score is not an independent instrument, it is an
+        // empty slot wearing one.
+        Self::dissent_over(
+            style,
+            ctx,
+            rung,
+            tol,
+            admitted,
+            rung.peripheral_sample_where(k, |r| Self::watcher_is_eligible(r, want, false)),
+        )
+        .map(|watcher| (watcher.min_rung(), watcher.mechanism))
+    }
+
+    /// The shared body of both dissent channels: run each watcher after the
+    /// style's admitted set and return the FIRST one whose result departs from
+    /// `admitted` by more than `tol`. `None` = the sampled periphery agrees.
+    ///
+    /// Takes the already-sampled watchers rather than the predicate that
+    /// selected them, and returns the objecting RECIPE rather than either
+    /// channel's return shape. Both choices are deliberate: the channels differ
+    /// only in which side of the mechanism partition they sample and in what
+    /// they report about the objector, so this is a pure extraction of the part
+    /// that is identical — and a caller holding a different sample (the
+    /// Stage-2.5 census) exercises the SHIPPED verdict body instead of a
+    /// reimplementation of it, without production growing a probe knob.
+    fn dissent_over(
+        style: ThinkingStyle,
+        ctx: &PlanContext,
+        rung: RungLevel,
+        tol: f32,
+        admitted: f32,
+        watchers: impl IntoIterator<Item = &'static Recipe>,
+    ) -> Option<&'static Recipe> {
+        for watcher in watchers {
             let Some(kern) = kernel(watcher.id) else {
                 continue;
             };
@@ -200,10 +236,88 @@ impl StyleStrategy {
             }
             let _ = kern.run(&mut tc);
             if (tc.confidence.clamp(0.0, 1.0) - admitted).abs() > tol {
-                return Some((watcher.min_rung(), watcher.mechanism));
+                return Some(watcher);
             }
         }
         None
+    }
+
+    /// Can a watcher of this recipe id actually DISSENT?
+    ///
+    /// **The predicate is `moves_confidence()`, NOT `maturity().is_production()`
+    /// — and the difference is most of the population.** Both channels compare
+    /// `tc.confidence` against `admitted`, so the only thing that can produce a
+    /// dissent is a non-zero `delta_conf`. Measured over the 34 kernels: **31
+    /// are `Operational` but only 14 can move `delta_conf`**, because
+    /// `Operational` means *mutates some `ThoughtCtx` field OR moves
+    /// confidence* — a disjunction. `Etd` and `Cas` are the sharp cases: both
+    /// were carved to production in this same arc, both rewrite `candidates`,
+    /// and both return `0.0` forever. Sampling one spends a `k` slot on an
+    /// observer that is structurally incapable of objecting.
+    ///
+    /// A maturity filter alone therefore **preserved the exact budget loss it
+    /// was introduced to remove** — it excluded 3 kernels and admitted 17 that
+    /// could not dissent either. Found by codex review on PR #971, against the
+    /// first version of this function.
+    ///
+    /// Checking maturity as well would be a guard that can never fire:
+    /// `moves_confidence` ⇒ `Operational` is pinned upstream by
+    /// `moves_confidence_is_strictly_stronger_than_production`, so the
+    /// capability subsumes the maturity.
+    ///
+    /// # KNOWN GAP: capability is not REACHABILITY (measured, Stage-3)
+    ///
+    /// `moves_confidence()` says a kernel can move `delta_conf` on SOME input.
+    /// It does not say the kernel can move it **in the context this planner
+    /// dispatches**, and at least one watcher is admitted that cannot.
+    ///
+    /// Measured (codex review, PR #971): `Mcp` (recipe 10) declares
+    /// `moves_confidence() == true` truthfully — its branch needs
+    /// `confidence > 0.7 && free_energy > 0.5`. But
+    /// [`thought_ctx_from`](Self::thought_ctx_from) starts at
+    /// `ThoughtCtx::new`'s `free_energy = 0.5`, and **exactly one** of the 34
+    /// kernels writes that field at all (`Rte`, id 1), which only decays it.
+    /// Swept over all 36 styles × 5 rungs: `free_energy` never exceeds
+    /// **0.5**, and `Mcp` moves confidence in **0 of 180** cells. Sampling it
+    /// spends a `k` slot on a watcher that is guaranteed silent here.
+    ///
+    /// So this is the same lesson a third time — production → capability →
+    /// **reachability** — and it is deliberately NOT fixed in this predicate:
+    ///
+    /// 1. A reachability filter is close to circular for the budget argument.
+    ///    Deciding whether watcher `W` can move the answer in context `C`
+    ///    essentially requires evaluating `W` in `C`, which is what sampling it
+    ///    already does. What it would genuinely buy is not a cheaper budget but
+    ///    a refusal to count a *structural* silence as agreement — a change to
+    ///    what dissent MEANS.
+    /// 2. That change is Stage-3's to make, alongside the other half of the
+    ///    same question (the 17 Operational-but-confidence-mute kernels), and
+    ///    it would move the Stage-2.5 baseline the operator has just frozen.
+    ///
+    /// Tracked: `TD-THOUGHTCTX-IS-A-LOSSY-PROJECTION`.
+    fn watcher_can_dissent(id: u8) -> bool {
+        kernel(id).is_some_and(|k| k.moves_confidence())
+    }
+
+    /// The eligibility predicate BOTH dissent channels sample against —
+    /// `same_family` picks which side of the mechanism partition is wanted.
+    ///
+    /// One named function rather than two closures on purpose: the falsifier
+    /// samples through THIS, so the property it proves is the property the
+    /// channels actually run. Two copies of one condition can drift, and a test
+    /// owning its own copy keeps passing while they do.
+    ///
+    /// **Measured scope, stated so it is not overclaimed.** Adding the maturity
+    /// clause visibly changes WHICH watchers are sampled — the eligible list
+    /// shrinks, so the stride moves — but across the full 5,760-cell sweep of
+    /// style × rung × `k` ∈ {1,2,3,4,8} × `tol` ∈ {0, .001, .005, .01, .02,
+    /// .05, .1, .2} it changed **no verdict** on either channel. It is a
+    /// COVERAGE fix — `k` slots now buy `k` instruments that can actually
+    /// disagree — not a behaviour change, and it is deliberately not claimed as
+    /// one. The channel itself is emphatically not inert: suppressing the
+    /// watcher run outright moves 4,830 of those same 5,760 cells.
+    fn watcher_is_eligible(r: &Recipe, want: Mechanism, same_family: bool) -> bool {
+        (r.mechanism == want) == same_family && Self::watcher_can_dissent(r.id)
     }
 
     /// Build the recipe substrate's [`ThoughtCtx`] from the available `PlanContext`
@@ -398,6 +512,16 @@ impl StyleStrategy {
         }
     }
 }
+
+/// Stage-2.5 census — measurement only, compiled out of every non-test build.
+///
+/// A CHILD of this module rather than a sibling, deliberately: it must reach
+/// `dissent_over` and `watcher_can_dissent` to run the shipped verdict body over
+/// a differently-filtered sample, and widening those to `pub(crate)` for an
+/// instrument would put a probe seam in production visibility.
+#[cfg(test)]
+#[path = "stage25_census.rs"]
+mod stage25_census;
 
 #[cfg(test)]
 mod tests {
@@ -649,6 +773,116 @@ mod tests {
                     "{rung:?}: global sample is accidentally all-eligible, \
                      this fixture cannot distinguish the two samplers"
                 );
+            }
+        }
+    }
+
+    /// **A watcher slot is never spent on an observer that cannot dissent.**
+    ///
+    /// A `Demonstration` kernel lands no effect by construction (the contract
+    /// crate's `non_operational_kernels_land_no_effect` enforces it), so
+    /// sampling one costs a `k` slot and returns structural agreement — the
+    /// anti-eigenvalue failure inverted. A watchdog that can never bark reports
+    /// the same silence as one with nothing to bark at, and only the first is
+    /// a lie.
+    ///
+    /// Sampled through [`StyleStrategy::watcher_is_eligible`] — the same
+    /// predicate both channels run — rather than a copy of the condition, so
+    /// this cannot pass against a spelling the channels no longer use.
+    ///
+    /// The anti-vacuity half is the load-bearing one: without it this asserts a
+    /// property that would hold on a periphery containing no silent kernels at
+    /// all, which is a fact about the population, not about the filter.
+    #[test]
+    fn a_watcher_slot_is_never_spent_on_a_kernel_that_cannot_dissent() {
+        let rungs = [
+            RungLevel::Surface,
+            RungLevel::Shallow,
+            RungLevel::Contextual,
+            RungLevel::Analogical,
+        ];
+        let mechs = [
+            Mechanism::ParallelIndependence,
+            Mechanism::TruthAwareInference,
+            Mechanism::StructuralDivergence,
+            Mechanism::Infrastructure,
+        ];
+
+        let mut silent_without_the_clause = 0usize;
+        let mut sampled = 0usize;
+        for rung in rungs {
+            for want in mechs {
+                for same_family in [true, false] {
+                    for k in [1usize, 2, 3, 4, 8] {
+                        // The shipped predicate: nothing silent may survive it.
+                        for r in rung.peripheral_sample_where(k, |r| {
+                            StyleStrategy::watcher_is_eligible(r, want, same_family)
+                        }) {
+                            sampled += 1;
+                            assert!(
+                                StyleStrategy::watcher_can_dissent(r.id),
+                                "{rung:?}/{want:?}/same={same_family}/k={k}: sampled \
+                                 recipe {} which cannot dissent",
+                                r.id
+                            );
+                        }
+                        // Anti-vacuity: the mechanism clause ALONE would have.
+                        silent_without_the_clause += rung
+                            .peripheral_sample_where(k, |r| (r.mechanism == want) == same_family)
+                            .filter(|r| !StyleStrategy::watcher_can_dissent(r.id))
+                            .count();
+                    }
+                }
+            }
+        }
+
+        assert!(
+            sampled > 0,
+            "the sweep sampled nothing — it measures nothing"
+        );
+        assert!(
+            silent_without_the_clause > 0,
+            "no silent watcher was reachable without the maturity clause, so the \
+             clause is free and this test proves nothing about it"
+        );
+    }
+
+    /// **...and the filter must not STARVE a channel.** Excluding the silent
+    /// watchers shrinks the eligible list; if that emptied a channel the
+    /// coverage fix above would have bought silence instead of instruments —
+    /// the very failure `eligible_watchers_are_not_starved_by_the_sampler`
+    /// exists to catch, reintroduced one clause later.
+    #[test]
+    fn the_maturity_clause_does_not_starve_a_channel() {
+        let rungs = [
+            RungLevel::Surface,
+            RungLevel::Shallow,
+            RungLevel::Contextual,
+            RungLevel::Analogical,
+        ];
+        for rung in rungs {
+            for want in [
+                Mechanism::ParallelIndependence,
+                Mechanism::TruthAwareInference,
+                Mechanism::StructuralDivergence,
+                Mechanism::Infrastructure,
+            ] {
+                for same_family in [true, false] {
+                    let any_eligible = rung
+                        .peripheral_recipes()
+                        .any(|r| StyleStrategy::watcher_is_eligible(r, want, same_family));
+                    let sampled = rung
+                        .peripheral_sample_where(1, |r| {
+                            StyleStrategy::watcher_is_eligible(r, want, same_family)
+                        })
+                        .count();
+                    assert_eq!(
+                        any_eligible,
+                        sampled > 0,
+                        "{rung:?}/{want:?}/same={same_family}: eligible={any_eligible} but \
+                         sampled {sampled} at k=1"
+                    );
+                }
             }
         }
     }
