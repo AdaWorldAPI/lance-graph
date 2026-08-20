@@ -1,3 +1,36 @@
+## TD-THOUGHTCTX-IS-A-LOSSY-PROJECTION (2026-08-20) — OPEN, Stage-3
+
+**`ThoughtCtx` is not the reasoning state. It is a lossy projection of the
+reasoning substrate — measured from both sides in one session.**
+
+**Input side.** `thought_ctx_from(&PlanContext)` reads exactly two scalars
+(`free_will_modifier`, `features.estimated_complexity`). `lance-graph-contract`
+has no `causal-edge` dependency at all, so the entire Stage-2 recipe surface is
+causally blind to CE64/V3; `nars_hint` and `witness` sit on `PlanContext` unread
+by that projection (`E-THE-RECIPE-SURFACE-IS-CAUSALLY-BLIND-1`).
+
+**Output side.** 17 of 34 kernels are `Operational` and confidence-MUTE — real
+effects on `candidates` / `rung` / `temperature` / `beliefs`, observed by a
+dissent consumer that watches only `confidence`
+(`E-THE-FILTER-WAS-FILTERING-ON-THE-WRONG-PREDICATE-1`).
+
+**Explicitly NOT the fix:** rewriting the 17 to move confidence. That would
+destroy the producer/consumer distinction the audit just discovered, and it is
+ruled out by the operator. They are not stubs.
+
+**Stage 3 decides**, from measurement rather than preference, whether dissent
+becomes (A) a multidimensional comparison over each kernel's declared
+`writes()`, (B) separate watchers per capability/dimension, (C) a projection of
+effects into a common epistemically meaningful space, or some measured
+combination. The questions that make it tractable are already well-posed: which
+causal/NARS/V3/witness dimensions does each recipe READ; which epistemic
+dimensions does it WRITE; which consumers can observe those writes; what does
+the `ThoughtCtx` projection lose. That connects directly to the JC/HHTL
+psychometric program.
+
+**Paid when** the projection is explicit and measurable — not when the symptom
+(17 silent kernels) is papered over.
+
 ## TD-KERNEL-IDENTITY-FINGERPRINT-RAIL (2026-08-20) — OPEN
 
 **Three of the 34 NARS recipe kernels — `ARE`(19), `ZCF`(24), `HKF`(34) —

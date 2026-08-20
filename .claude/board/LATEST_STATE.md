@@ -1,3 +1,89 @@
+## 2026-08-20 — branch `claude/carve-nars-kernels` — Stage 2.6a: V3 representation invariance on the planner's REAL CE64 leg (measurement only)
+
+### Current Contract Inventory — no new types; one `#[cfg(test)]` census
+
+- **`cache::stage26_v3_parity`** — `#[cfg(test)]` sibling under `cache/`,
+  compiled out of every non-test build. Needs no visibility widening: every
+  symbol it uses (`NarsEngine`, `SpoHead`, `SpoDistances`, `CausalEdge64`,
+  `CausalEdgeV3`) is already public. 4 gates + 1 `#[ignore]`d artifact
+  generator.
+- **No production code changed.** No second reasoning engine, no V3-native
+  NARS, no CE64 layout touch, no `ThoughtCtx` wiring.
+
+### Scope correction, operator-ratified
+
+The original Stage-2.6 brief assumed `CE64 → recipe/runbook/planner`. **That
+arrow does not exist** — see `E-THE-RECIPE-SURFACE-IS-CAUSALLY-BLIND-1` for the
+three checks. Building a V3 entrance there would have produced
+`discordance = 0` for a trivial reason. The real uncovered leg is the planner's
+`cache/nars_engine.rs`, and that is what this covers.
+
+| surface | V3 invariance |
+|---|---|
+| `causal-edge` own `syllogize` | ✅ pre-existing |
+| `cognitive-shader-driver` emission path | ✅ `edge_v3_compare` |
+| **planner `cache/nars_engine.rs`** | ✅ **this** |
+
+### Result
+
+**Planner V3 representation discordance = 0**, by exact equality over 13
+invariants per leg (rehydrated CE64 · SPO after resolution · NARS
+frequency/confidence · causal mask · inference class · `SpoHead` round-trip ·
+`forward_edge` conclusion · that conclusion's `SpoHead` · `syllogize`
+conclusion edge · truth frequency/confidence · expectation). Representation-
+specific fields (V3 Lokal target, TE, payload width) deliberately excluded.
+
+The sweep spans every `inference` discriminant `to_causal_edge` maps — including
+the two Pearl-rung translations (local `7`→`Intervention`, `8`→`Counterfactual`)
+and the lossy `5 | 6`→`Synthesis` fold, which is exactly where a round-trip
+could diverge — × every 3-bit pearl mask × truth rails and midpoint × both
+palette rails. `temporal` is swept NON-zero on purpose: `to_causal_edge` passes
+it to `pack` where the v2 layout makes the write a no-op, so if that ever stops
+being a no-op the V3 arm (whose `rehydrate` packs `0`) diverges and this harness
+says so instead of the change landing silently.
+
+### Falsifiers — three disable-runs, all red-then-green
+
+| assertion | disable | observed |
+|---|---|---|
+| resolution-conditional equivalence | corruption made a no-op | falsifier FAILS |
+| the V3 arm actually goes through V3 | bypass `rehydrate`, use the direct edge | primary stays green, **falsifier FAILS** — which is exactly the vacuity it exists to catch |
+| the compose tables are not inert | make every table the identity | degeneracy guard FAILS *(only after strengthening — see below)* |
+
+**A disable-run corrected one of my own claims.** The degeneracy guard first
+asserted "`forward_edge` changed the edge on some leg" and documented that as
+proving the tables live. Measured: identity tables left it **green**, because
+`forward` also composes the NARS truth. The discriminating form is SPO-specific
+(`spo_of(fwd) != spo_of(input)`); both are kept, with the measurement written
+next to them.
+
+### JC's role, and where it stops
+
+Every quantity at this seam is exact (`u8` indices, `u8` truth bytes, a `u64`
+register), so **no naturally continuous quantity exists here for a correlation
+to characterise and none was manufactured**. `binary_association` summarises the
+syllogism-presence cross-tab — both categories occur, κ **defined** and 1.0.
+Exact discordance is the contract.
+
+### Artifact
+
+`docs/probes/stage26-v3-planner-parity-discordance.csv` — one row per
+discordant invariant. **Header-only is the result**, and it is the shape that
+stays useful the day something diverges.
+
+### Recorded, not patched (Stage 2.6b)
+
+The recipe/runbook surface is causally blind; the 17 Operational-but-mute
+kernels are the output-side twin of the same projection gap. Both are Stage-3
+wiring questions — `E-THE-RECIPE-SURFACE-IS-CAUSALLY-BLIND-1` and
+`TD-THOUGHTCTX-IS-A-LOSSY-PROJECTION`. The 3 Demonstrations (ARE/ZCF/HKF) stay
+honest Demonstrations; their blocker is a genuine substrate deliverable.
+
+### Gates
+
+`lance-graph-contract` 1171/1171 · `lance-graph-planner` 368/368 + 2 ignored ·
+fmt clean · clippy `-D warnings` clean on both.
+
 ## 2026-08-20 — branch `claude/carve-nars-kernels` — codex + CodeRabbit review corrections: the consumer filter was filtering on the wrong predicate
 
 ### Current Contract Inventory — 1 new trait method (`crates/lance-graph-contract/src/recipe_kernels.rs`)

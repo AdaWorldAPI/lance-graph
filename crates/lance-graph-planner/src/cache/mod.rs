@@ -10,4 +10,8 @@ pub mod convergence;
 pub mod kv_bundle;
 pub mod lane_eval;
 pub mod nars_engine;
+/// Stage-2.6a V3 representation-parity census — measurement only, compiled out
+/// of every non-test build.
+#[cfg(test)]
+mod stage26_v3_parity;
 pub mod triple_model;
