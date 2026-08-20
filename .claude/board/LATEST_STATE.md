@@ -36,7 +36,7 @@ The endpoint codebook and the DisMech-local identity scheme stay OPEN until the
 unprefixed population is probed — 63.6% of unprefixed endpoints are still
 unresolved and the tail contains three different KINDS (provenance leakage,
 mechanism propositions, lexical variants). Full numbers:
-`E-DISMECH-CORPUS-CENSUS-1`. Also open: HP needs its own resolution domain
+`E-DISMECH-CORPUS-CENSUS-1`. Also open: phenotype resolution must be scoped to the EXISTING `Domain::Phenomenology` (HP is its populated vocabulary, not a new domain — see the ⊘ correction on that entry)
 (23.7% of resolved phenotype labels are HP/MONDO-ambiguous), and
 `phenotypes[].category` at 261 distinct exceeds the 255 `Codebook` cap.
 

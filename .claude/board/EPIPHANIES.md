@@ -84,6 +84,40 @@ HP must be scoped FIRST, with any cross-namespace fallback deliberate.
 labels = **0.07%**. Anatomy is near-collision-free exactly where phenotype and
 disease are not, so it is the one layer safe to anchor against.
 
+> **⊘ ARCHITECTURAL CONCLUSION CORRECTED (2026-08-20, same day, measured).**
+> **The MEASUREMENTS above stand unchanged** — 1,169 multi-namespace labels,
+> 26.2% mis-landing, 23.7% ambiguous, UBERON at 0.07%. What is corrected is
+> the word **"OWN"**: the sanctioned abstraction already exists and this entry
+> did not know it.
+>
+> `medcare-cohorts/src/quad_tenant.rs` ships `Domain` (8 variants) with a
+> classid→domain map, an enforced two-witness contract (classid AND TUI must
+> agree), and `FacetRegime::PerRowTui` for the CUI horseshoe:
+>
+> | Domain | vocabularies mapped |
+> |---|---|
+> | `Domain::Phenomenology` | HP |
+> | `Domain::Anatomy` | **UBERON + FMA** |
+> | `Domain::Disease` | MONDO + ICD-10-GM + ORDO + OMIM + DECIPHER |
+> | `Domain::Lab` / `Substance` / `Procedure` | LOINC / ATC+RxNorm+Gelbe Liste / OPS |
+> | `Imaging`, `BiologicalProcess` | declared, no vocabulary yet |
+>
+> So the corrected statements are:
+>
+> - *Phenotype resolution must be constrained to the existing
+>   `Domain::Phenomenology`; **HP is its currently populated single-facet
+>   vocabulary, not a new resolution domain.***
+> - *Anatomy resolution targets `Domain::Anatomy` (UBERON **and** FMA);
+>   UBERON's 0.07% collision rate makes it a strong current
+>   projection/anchor, **not the semantic domain itself**.*
+>
+> **Why this pedantry earns its place:** the board is executable archaeology.
+> Left as written, "HP needs its own resolution domain" is precisely how a
+> later session mints an `HpResolutionDomain` beside the already-built
+> `Domain::Phenomenology` — the duplicate-vocabulary failure this workspace
+> has now recorded several times. Append-only: the original claim is regraded
+> here, not deleted.
+
 ---
 
 ## 2026-08-20 — I-STRINGS-ARE-CAM-INDEX-ONLY-1 — strings in the hot path resolve through a codebook; the ONLY string home is the CAM index codebook; NEVER in any SoA

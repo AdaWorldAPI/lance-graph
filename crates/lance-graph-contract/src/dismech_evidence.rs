@@ -132,9 +132,63 @@ impl DismechTopology {
     }
 
     /// Is the mediator slot legitimately unresolved in the SOURCE?
+    ///
+    /// **[`Unknown`](Self::Unknown) is deliberately NOT included**, and the
+    /// distinction is epistemic rather than cosmetic:
+    ///
+    /// ```text
+    /// IndirectUnknownIntermediates    A -> ? -> B
+    ///     the path is known indirect, the mediator ROLE is established,
+    ///     only its IDENTITY is missing  => SeekMediator is warranted
+    ///
+    /// Unknown                         A  ?  B
+    ///     direct-vs-indirect is itself undecided, so the mediator role is
+    ///     not established at all       => SeekMediator would MINT a schema
+    ///                                     slot the source never asserted
+    /// ```
+    ///
+    /// Conflating them lets `Unknown` dispatch a mediator search for a hole
+    /// nobody claimed exists. Ask [`topology_unresolved`](Self::topology_unresolved)
+    /// for that case instead.
+    ///
+    /// **This predicate answers what the SOURCE asserts, never whether a
+    /// mediator is actually present**, and on real data those differ sharply.
+    ///
+    /// Measured on `monarch-initiative/dismech` (2,100 disorder files),
+    /// **scoped to `pathophysiology[].downstream[]`** — the edge list that
+    /// actually carries `intermediate_mechanisms`. This is a SUBSET of the
+    /// corpus-wide `causal_link_type` census in the module header (which counts
+    /// the field wherever it occurs), so the totals differ by scope, not by
+    /// disagreement: 3,844 here against 3,978 corpus-wide.
+    ///
+    /// | declared | with ≥1 intermediate | with ZERO |
+    /// |---|---|---|
+    /// | `INDIRECT_KNOWN_INTERMEDIATES` (3,844) | 2,497 | **1,347 = 35.0%** |
+    /// | `INDIRECT_UNKNOWN_INTERMEDIATES` (4,325) | 92 (contradictory) | 4,233 |
+    ///
+    /// So a third of the edges that CLAIM known intermediates list none, and a
+    /// few that claim none list some. A consumer building the hidden-mediator
+    /// oracle must filter on the ACTUAL intermediate list, never on the topology
+    /// ordinal alone: the usable population is **2,497 distinct
+    /// `(disease, source, target, mediators)` tuples across 539 diseases**
+    /// (deduped — the raw and distinct counts coincide, so no many-to-many
+    /// mention inflation), not 3,844.
     #[must_use]
     pub const fn mediator_unresolved(self) -> bool {
-        matches!(self, Self::IndirectUnknownIntermediates | Self::Unknown)
+        matches!(self, Self::IndirectUnknownIntermediates)
+    }
+
+    /// Is the TOPOLOGY ITSELF unresolved — i.e. the source has not decided
+    /// direct vs indirect, so no mediator role is established?
+    ///
+    /// The companion to [`mediator_unresolved`](Self::mediator_unresolved):
+    /// together they partition the two genuinely-unresolved states without
+    /// collapsing them. Measured 403 `UNKNOWN` against 4,325
+    /// `INDIRECT_UNKNOWN_INTERMEDIATES` — a ~10.7x population difference that a
+    /// merged predicate would hide.
+    #[must_use]
+    pub const fn topology_unresolved(self) -> bool {
+        matches!(self, Self::Unknown)
     }
 }
 
@@ -329,9 +383,22 @@ impl CitationKey {
     /// Falls back to [`ContentAddressed`](Self::ContentAddressed) when the value
     /// carries no recognised namespace — deliberately explicit, so a consumer
     /// can always tell a real citation from a hashed string.
+    ///
+    /// Returns `None` for a blank or whitespace-only `raw`. **Absence is made
+    /// structurally unrepresentable**, because the alternative is worse than it
+    /// looks: `fnv1a(b"")` is the nonzero FNV offset basis
+    /// `0xcbf2_9ce4_8422_2325`, so hashing `""` would mint a perfectly
+    /// well-formed [`ContentAddressed`](Self::ContentAddressed) key meaning
+    /// "no citation supplied" — indistinguishable on replay from a real
+    /// content-addressed citation, and colliding every uncited row onto one
+    /// shared identity. `ContentId(0)` is the reserved sentinel
+    /// ([`ContentId::is_sentinel`]), and `of_str("")` does not produce it.
     #[must_use]
-    pub fn parse(raw: &str) -> Self {
+    pub fn parse(raw: &str) -> Option<Self> {
         let t = raw.trim();
+        if t.is_empty() {
+            return None;
+        }
         if let Some((p, rest)) = t.split_once(':') {
             if let Some(ns) = CitationNamespace::from_prefix(p) {
                 let id = if matches!(ns, CitationNamespace::Url) {
@@ -340,11 +407,11 @@ impl CitationKey {
                     rest.trim().to_string()
                 };
                 if !id.is_empty() {
-                    return Self::Identified { namespace: ns, id };
+                    return Some(Self::Identified { namespace: ns, id });
                 }
             }
         }
-        Self::ContentAddressed(ContentId::of_str(t))
+        Some(Self::ContentAddressed(ContentId::of_str(t)))
     }
 
     /// Does this key rest on a real external identifier?
@@ -362,19 +429,31 @@ impl CitationKey {
 pub struct BibliographyRecord {
     /// Stable identity.
     pub key: CitationKey,
-    /// CAM handle for the title text. [`ContentId::EMPTY`]-equivalent (`0`) when
-    /// no title was supplied.
+    /// CAM handle for the title text, or the reserved sentinel `ContentId(0)`
+    /// (see [`ContentId::is_sentinel`]) when no title was supplied.
+    ///
+    /// The sentinel must be written explicitly: `of_str("")` hashes the empty
+    /// byte string to the nonzero FNV offset basis, so an untitled record would
+    /// otherwise carry a real-looking content address that no store can resolve.
     pub title: ContentId,
 }
 
 impl BibliographyRecord {
     /// Build from a raw `reference` and its (possibly drifting) title.
+    ///
+    /// `None` when `reference` is blank — a bibliography row with no citation
+    /// is not a row (see [`CitationKey::parse`]). A blank `title` is legal and
+    /// lands on the `ContentId(0)` sentinel rather than on `fnv1a(b"")`.
     #[must_use]
-    pub fn new(reference: &str, title: &str) -> Self {
-        Self {
-            key: CitationKey::parse(reference),
-            title: ContentId::of_str(title),
-        }
+    pub fn new(reference: &str, title: &str) -> Option<Self> {
+        Some(Self {
+            key: CitationKey::parse(reference)?,
+            title: if title.trim().is_empty() {
+                ContentId(0)
+            } else {
+                ContentId::of_str(title)
+            },
+        })
     }
 }
 
@@ -458,18 +537,21 @@ mod tests {
         let a = BibliographyRecord::new(
             "PMID:25252",
             "Insulin resistance in type 2 diabetes mellitus",
-        );
+        )
+        .expect("a real citation");
         let b = BibliographyRecord::new(
             "PMID:25252",
             "Insulin Resistance in Type 2 Diabetes Mellitus: A Review",
-        );
+        )
+        .expect("a real citation");
         assert_eq!(a.key, b.key, "citation identity must survive a re-wording");
         assert_ne!(a.title, b.title, "the titles genuinely differ");
         // …and a different citation is a different key even with the same title
         let c = BibliographyRecord::new(
             "PMID:99999",
             "Insulin resistance in type 2 diabetes mellitus",
-        );
+        )
+        .expect("a real citation");
         assert_ne!(a.key, c.key);
         assert_eq!(a.title, c.title);
     }
@@ -478,8 +560,8 @@ mod tests {
     #[test]
     fn namespace_is_part_of_the_identity() {
         assert_ne!(
-            CitationKey::parse("PMID:123"),
-            CitationKey::parse("ORPHA:123")
+            CitationKey::parse("PMID:123").unwrap(),
+            CitationKey::parse("ORPHA:123").unwrap()
         );
         for ns in CitationNamespace::ALL {
             assert_eq!(CitationNamespace::from_prefix(ns.prefix()), Some(ns));
@@ -491,14 +573,90 @@ mod tests {
     /// bibliographic id synthesised from its title.
     #[test]
     fn unidentified_citations_are_explicitly_content_addressed() {
-        let k = CitationKey::parse("Smith et al, personal communication");
+        let k = CitationKey::parse("Smith et al, personal communication")
+            .expect("non-blank input parses");
         assert!(
             !k.is_identified(),
             "must not claim a bibliographic identity"
         );
         assert!(matches!(k, CitationKey::ContentAddressed(_)));
         // deterministic
-        assert_eq!(k, CitationKey::parse("Smith et al, personal communication"));
-        assert!(CitationKey::parse("PMID:25252").is_identified());
+        assert_eq!(
+            k,
+            CitationKey::parse("Smith et al, personal communication").unwrap()
+        );
+        assert!(CitationKey::parse("PMID:25252").unwrap().is_identified());
+    }
+    /// P1 FALSIFIER — `Unknown` must NOT dispatch a mediator search.
+    ///
+    /// `IndirectUnknownIntermediates` establishes the mediator ROLE and leaves
+    /// its identity open; `Unknown` leaves direct-vs-indirect itself undecided,
+    /// so treating it as an unresolved mediator MINTS a schema slot the source
+    /// never asserted. Two-sided, and the silence half is the point.
+    #[test]
+    fn unknown_topology_is_not_an_unresolved_mediator() {
+        assert!(DismechTopology::IndirectUnknownIntermediates.mediator_unresolved());
+        assert!(
+            !DismechTopology::Unknown.mediator_unresolved(),
+            "Unknown must not claim a mediator hole the source never established"
+        );
+        // …and the companion predicate covers it instead, exclusively.
+        assert!(DismechTopology::Unknown.topology_unresolved());
+        assert!(!DismechTopology::IndirectUnknownIntermediates.topology_unresolved());
+        // the two resolved states answer NEITHER
+        for t in [
+            DismechTopology::Direct,
+            DismechTopology::IndirectKnownIntermediates,
+        ] {
+            assert!(!t.mediator_unresolved(), "{t:?} is not mediator-unresolved");
+            assert!(!t.topology_unresolved(), "{t:?} is not topology-unresolved");
+        }
+        // anti-vacuity: the two predicates are disjoint and neither is constant
+        let any_med = DismechTopology::ALL
+            .iter()
+            .filter(|t| t.mediator_unresolved())
+            .count();
+        let any_top = DismechTopology::ALL
+            .iter()
+            .filter(|t| t.topology_unresolved())
+            .count();
+        assert_eq!(
+            (any_med, any_top),
+            (1, 1),
+            "each predicate names exactly one state"
+        );
+    }
+
+    /// P1 FALSIFIER — absence must not become a well-formed content address.
+    ///
+    /// `fnv1a(b"")` is the nonzero FNV offset basis, so hashing a blank would
+    /// mint a real-looking citation meaning "none supplied" and collide every
+    /// uncited row onto it.
+    #[test]
+    fn a_blank_citation_is_absent_not_content_addressed() {
+        for blank in ["", "   ", "\t\n "] {
+            assert_eq!(
+                CitationKey::parse(blank),
+                None,
+                "blank {blank:?} must not parse to a citation"
+            );
+            assert_eq!(BibliographyRecord::new(blank, "a title"), None);
+        }
+        // the trap this guards, stated as a measurement rather than a memory:
+        assert_ne!(
+            ContentId::of_str("").0,
+            0,
+            "of_str(\"\") is the FNV offset basis, NOT the sentinel"
+        );
+        // a blank TITLE is legal, and lands on the sentinel rather than the basis
+        let r = BibliographyRecord::new("PMID:25252", "   ").expect("real citation");
+        assert!(
+            r.title.is_sentinel(),
+            "an untitled record uses ContentId(0)"
+        );
+        assert_ne!(r.title, ContentId::of_str(""), "must not be the empty hash");
+        // anti-vacuity: a real title is NOT the sentinel
+        let t = BibliographyRecord::new("PMID:25252", "A real title").expect("real citation");
+        assert!(!t.title.is_sentinel());
     }
 }
