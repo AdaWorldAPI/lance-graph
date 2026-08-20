@@ -1,3 +1,41 @@
+## TD-KERNEL-IDENTITY-FINGERPRINT-RAIL (2026-08-20) — OPEN
+
+**Three of the 34 NARS recipe kernels — `ARE`(19), `ZCF`(24), `HKF`(34) —
+cannot be carved out of `Demonstration` because of ONE missing substrate
+capability, not three separate gaps.**
+
+All three are VSA bind/unbind identities: `A⊗B⊗B = A` (ARE), `bind(A,B)`
+recoverable (ZCF), `bind(domain_A, rel, domain_B)` reversible (HKF). Each is
+an exact algebraic statement and each is currently demonstrated on **hardcoded
+`u32` constants**, so the kernel ignores `ctx` entirely — measured and pinned
+by `context_blind_kernels_are_input_invariant`.
+
+**What they need:** an identity-fingerprint rail on the kernel substrate.
+`ThoughtCtx`'s eight-field basis (`ThoughtField`) is a scalar proxy —
+`sd`/`free_energy`/`dissonance`/`temperature`/`confidence`/`rung` are `f32`,
+`candidates` is `Vec<f32>`, `beliefs` is `Vec<(u32,f32,f32)>`. **None of them
+is a fingerprint**, so there is nothing in scope for a bind/unbind kernel to
+bind. This is the same gap `recipe_claim_audit`'s Axis B already names at
+scale: *"all 34 measure their claim against a lightweight scalar proxy, never
+the real organ named … the gap is WIRING, not composition."*
+
+**HKF needs one thing more**, and it is worth recording separately so a future
+session does not discover it half-way: its identity is over a **predicate**
+rail (`domain_A —rel→ domain_B`), and `SubstrateView::project` discards the
+predicate rail entirely. A fingerprint rail alone unblocks ARE and ZCF; HKF
+additionally needs a predicate-preserving projection.
+
+**Explicitly NOT the fix:** giving them an effect on the scalars they do not
+read. That would be the silent-effect-under-a-not-production-label failure
+`non_operational_kernels_land_no_effect` exists to catch, and it would trade
+an honest placeholder for a dishonest kernel. They stay `Demonstration` — and
+`MaturityPolicy::ProductionOnly` refuses them, pinned at exactly 3 by
+`the_policy_discriminates_over_the_live_kernels`.
+
+**Paid when:** a fingerprint rail (and, for HKF, a predicate-preserving
+projection) reaches the kernel substrate; then the three carve together and
+that pin, plus `G2` in `recipe_claim_audit`, are re-pinned to zero.
+
 ## TD-LANCE9-LANCEDB036-REMEASURE (2026-08-05, operator-noted, DEFERRED)
 
 **Pins today:** `lance`/`lance-linalg`/`lance-namespace` `=7.0.0`,

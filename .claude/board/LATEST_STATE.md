@@ -1,3 +1,90 @@
+## 2026-08-20 — branch `claude/carve-nars-kernels` — the NARS recipe-kernel carve: a maturity gate + four kernels moved from placeholder to production
+
+### Current Contract Inventory — 2 new types + 1 new field + 3 new policy pins (`crates/lance-graph-contract/src/recipe_kernels.rs`)
+
+- **`MaturityPolicy { Any, ProductionOnly }`** (`Default = Any`) — which
+  [`KernelMaturity`] levels a dispatch will let RUN. `ProductionOnly` is the
+  policy a dispatch that spends a BUDGET wants: a `Demonstration` lands no
+  effect by construction, so a channel sampling `k` kernels and asking whether
+  any moved the answer must not spend slots on kernels that structurally
+  cannot.
+- **`SkipReason { GatedOff, NonProduction(KernelMaturity) }`** — carried on the
+  new **`Outcome::skip: Option<SkipReason>`** field (always `None` when
+  `fired`). `fired: bool` alone conflated "the gate said no on this context"
+  with "the dispatch refuses non-production kernels"; a caller that cannot
+  tell them apart cannot report either honestly.
+- **`Tactic::run_with(&mut ThoughtCtx, MaturityPolicy) -> Outcome`** — the
+  policy-carrying sibling. **`run()` is byte-identical to before** (it
+  delegates with `Any`), so the surface is strictly additive and no existing
+  caller changes. The policy is checked BEFORE `gate()` on purpose: a
+  `Gate`-bucket `Demonstration` sitting in `GateState::Flow` would otherwise
+  report `GatedOff` and the refusal would be invisible. A refused kernel never
+  sees `ctx` — not `gate`, not `apply`.
+- **Policy pins (named, documented as pins, not measurements):**
+  `NEUTRAL_SCORE = 0.5` (was an unnamed literal inside `Sdd`),
+  `DISTORTION_WEIGHT = 0.2`, `POLE_SENSITIVITY_WEIGHT = 0.15`.
+
+### Four kernels carved: 27 Operational → 31; 6 Demonstration → 3; 1 Stub → 0
+
+| id | code | was | now | what it does now |
+|---|---|---|---|---|
+| 8 | CAS | Demonstration | Operational | quantizes `candidates` onto the rung's HDR grid (`hdr_level`) — it computed the level and dropped it |
+| 22 | ETD | Demonstration | Operational | splits at the widest adjacent gap, keeps the upper cluster; declines when no gap exceeds `NOISE_FLOOR` — it sorted a CLONE and discarded it |
+| 31 | ICR | **Stub** | Operational | split-pole SENSITIVITY: `\|1 − 2·free_energy\| · confidence`, charged. **Explicitly still NOT a Pearl `do()`** — the doc rewrite is in the same commit and `ISS-PEARL-VOCABULARY-WITHOUT-PEARL-MECHANICS` stands |
+| 32 | SDD | Demonstration | Operational | charges the distortion it already detected, PROPORTIONAL to the deviation, with an empty-field guard — it detected and returned a hardcoded `0.0` |
+
+`ARE(19)` / `ZCF(24)` / `HKF(34)` remain Demonstrations, blocked on ONE shared
+substrate deliverable (see `TECH_DEBT.md`
+`TD-KERNEL-IDENTITY-FINGERPRINT-RAIL`). They are the three the
+`ProductionOnly` policy refuses today, pinned as such.
+
+### Consumer (`lance-graph-planner`)
+
+- **`StyleStrategy::watcher_can_dissent(id)` + `watcher_is_eligible(r, want,
+  same_family)`** — one named predicate both dissent channels sample against,
+  so the falsifier proves the property the channels actually run. Coverage
+  fix; **measured to change no verdict** across a 5,760-cell sweep, and
+  documented at the call site as exactly that (`E-A-WATCHER-THAT-CANNOT-
+  DISSENT-IS-NOT-A-WATCHER-1`).
+
+### Gates
+
+`lance-graph-contract` 1169/1169 + all 4 examples green (`recipe_claim_audit`
+G1–G4 ALL GREEN after re-pinning; `sound` 30 → 31);
+`lance-graph-planner` 359/359 + 22/22 `style_strategy`; `cargo fmt --check`
+clean; `cargo clippy --all-targets --no-deps -D warnings` clean on both.
+**Nine disable-runs, every one red-then-green** — policy ignored (3 tests),
+policy checked after the gate, CAS rung ignored, ETD uniform guard removed,
+SDD fixed-cliff, SDD empty guard removed, ICR constant charge, plus both
+halves of the consumer falsifier.
+
+### Re-pinned, not silently widened (each with the reason in the test)
+
+`context_blind_kernels_are_input_invariant` (4 → 3, ICR is no longer blind);
+`maturity_discriminates_and_is_not_all_one_label` (`stub == 1` → `== 0`, plus
+a new `demonstration == 3`); `requires_matches_apply_reads` +
+`requires_masks_are_varied_not_a_constant_stub` (`empty == 4` → `== 3`);
+`icr_builds_counterfactual_via_xor_self_inverse` → `icr_charges_pole_
+dependence_and_is_silent_at_the_midpoint`; the `recipe_claim_audit` arms for
+8 / 22 / 31 and its `G2`.
+
+## 2026-08-20 — lance-graph #970 (MERGED, `781c3b9`) — board hygiene owed and now paid
+
+### Current Contract Inventory — 2 additive lenses over CE64 bits 59..63 (`crates/causal-edge/src/{layout,edge}.rs`)
+
+- **`CausalTopology { Direct, IndirectKnownIntermediates, IndirectUnknownIntermediates, Unknown }`**
+  over bits **59..60** — ordinal-compatible with the existing `TrustTexture`
+  band that already occupies those bits (`TRUTH_SHIFT`), so it is a second
+  READING of stored bits, never a relocation. No layout version, no CE64 v3.
+- **`ReasoningBand`** (8 levels, `Surface … Transcendent`) over bits
+  **61..63** — the previously-`SPARE_SHIFT` lens.
+- **`CausalEdge64::{topology, reasoning_band, with_topology, with_reasoning_band}`**
+  — consuming builders matching the crate's existing `with_truth` / `with_spare`
+  convention (the brief's `set_*` phrasing was bent to current main, not the
+  reverse).
+- **Wire-format impact: none.** `_LAYOUT_COVERAGE` unchanged; every existing
+  accessor reads the same bits it did before.
+
 ## 2026-08-19 — ARCHITECTURE RESET (operator): DUMB STORAGE × JAVA MECHANICAL API × HHTL EPISTEMIC SPINE — freeze/seal implementation STOPPED
 
 - **PR #968 MERGED** (merge commit 66fec27; operator-merged 14:05Z) — the

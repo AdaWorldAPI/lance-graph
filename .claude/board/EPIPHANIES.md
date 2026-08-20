@@ -1,3 +1,98 @@
+## 2026-08-20 — E-THE-AUDIT-GATE-WAS-PINNING-THE-BUG-1
+
+**Status:** FINDING (measured; `examples/recipe_claim_audit.rs`, branch
+`claude/carve-nars-kernels`). Sibling to
+`E-VACUOUS-ASSERTION-IS-THE-HOUSE-STYLE-1` — a *new* failure shape, not a
+restatement.
+
+Four of the 34 NARS recipe kernels were carved from non-production to
+production (CAS 8, ETD 22, ICR 31, SDD 32). The moment they were, the repo's
+own census example went **RED** — and the gate it failed was `G2 recipe-weak
+set is exactly {CAS,ETD}+{ARE,ZCF,ICR,HKF}`.
+
+**The audit's arms were written to confirm the defect, not to detect it.**
+`8 =>` asserted `unchanged` (candidates, rung and Δconf all untouched) and
+reported *"abstraction level computed then discarded — no observable
+effect"*. That is a correct description of a bug, encoded as an expectation,
+behind an equality gate. Fixing the bug is what breaks the suite.
+
+This is NOT the vacuous-assertion failure (a test that cannot fail). Every
+arm here CAN fail and did. It is the inverse: **an assertion that is real,
+two-sided, and pointed at the wrong side of the finding.** A census that
+pins "the weak set is exactly W" is only a census while W is a measurement;
+the day someone shrinks W, the pin argues against them.
+
+**What generalises.** A test that records a defect must say, in the test, that
+it is recording a defect and what its removal should look like — the
+`f_ord_real_defect_pin_*` convention (`E-…-FALSIFIER`) does exactly this and
+is the shape to copy. The four arms are now re-pinned to the CLAIMED
+POST-CONDITION instead (`realize(c1.candidates == vec![0.0, 1.0] …)`), so a
+regression to compute-then-discard fails them again — the pin now points the
+other way and the equality in G2 was kept deliberately (`n_inert == 0 &&
+n_constant == 3`), so a NEW inert kernel is a review, not an absorption.
+
+**Second, smaller finding in the same arm.** ICR sat in the shared
+`19 | 24 | 31 | 34` "input-independent" arm, which varies only `candidates`.
+ICR now reads `free_energy`, which that probe never varies — so it would have
+reported CONSTANT forever while the kernel discriminated. *The fixture's
+shape is part of the coverage*, again, and this time on a probe rather than a
+test.
+
+---
+
+## 2026-08-20 — E-A-WATCHER-THAT-CANNOT-DISSENT-IS-NOT-A-WATCHER-1
+
+**Status:** FINDING for the mechanism; **MEASURED NULL** for its present
+effect. Both halves recorded, because the second is what stops the first
+being overclaimed.
+
+`StyleStrategy::{peripheral_dissent, cross_family_dissent}` sample `k`
+peripheral tactics as observers and elevate the rung if one of them moves the
+score. Their eligibility predicate filtered on `Mechanism` only. But a
+`Demonstration` kernel lands **no effect by construction** — enforced, in the
+contract crate, by `non_operational_kernels_land_no_effect` — so sampling one
+spends a `k` slot on an observer that *structurally cannot dissent*, and its
+guaranteed silence is then counted as agreement.
+
+That is `E-ANTI-EIGENVALUE-MACHINERY-CAN-ITSELF-BECOME-THE-EIGENVALUE-1`
+inverted. The can-fire / can-stay-silent pair asks whether a guard
+discriminates; this asks something prior — **whether the instrument is
+connected at all**. A watchdog that can never bark reports the same silence
+as one with nothing to bark at, and only the first is a lie.
+
+Measured periphery before the fix: `Surface`/`Shallow` carry 3 silent
+watchers of 30 (ARE 19, ZCF 24, HKF 34); `Contextual`/`Analogical` carry 1 of
+23 and 1 of 10.
+
+**The null, stated plainly.** Adding the maturity clause visibly changes WHICH
+watchers are sampled (the eligible list shrinks, so the stride moves — e.g.
+`Surface`/`StructuralDivergence`/same/`k=8` goes `[4,6,9,13,23,28,31,34]` →
+`[4,6,9,13,23,28,31]`), but across the full **5,760-cell** sweep of
+style × rung × `k` ∈ {1,2,3,4,8} × `tol` ∈ {0, .001, .005, .01, .02, .05, .1,
+.2} it changed **no verdict on either channel**. It is a COVERAGE fix, not a
+behaviour change, and it is documented at the call site as exactly that.
+
+**Why the null is not a reason to drop it, and how it is kept falsifiable.**
+The channel is emphatically not inert — suppressing the watcher run outright
+moves **4,830 of those same 5,760 cells** — so the instrument matters; what
+does not currently matter is *which* of the surviving instruments is picked.
+A guard with no falsifier would be the anti-pattern, so the falsifier was
+written at the level the change actually operates: every watcher the shipped
+predicate samples can dissent, **plus** the anti-vacuity half proving the
+mechanism clause alone would have sampled one that cannot. Both halves are
+disable-verified red.
+
+**A structural note worth keeping.** The reason the identity of the watcher
+does not move the verdict is that `|tc.confidence − admitted|` is dominated by
+a term independent of the watcher: `tc` runs the admitted set *and* the
+watcher, while `admitted` comes from `reliability_at`, so any admitted-set
+effect cancels and any constant offset between the two paths crosses `tol`
+regardless of who observes. That is worth measuring before anyone tunes `tol`
+against this channel — recorded here rather than acted on, since it is
+outside this PR's scope.
+
+---
+
 ## 2026-08-19 — E-THE-OU-COLUMN-EXISTS-AND-NOTHING-WRITES-IT-1
 
 **Status:** FINDING (six-agent read-only sweep across lance-graph, ndarray,
