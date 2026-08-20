@@ -1,3 +1,57 @@
+## 2026-08-20 — branch `claude/s3-0-causal-literal` — S3.0: the exact HHTL causal-literal address
+
+### Current Contract Inventory — 1 new zero-dep type, no packed tenant
+
+- **`lance_graph_contract::causal_literal`** (new module):
+  - **`CausalLiteral { domain, subject, predicate, object }`** — four `u16`
+    canonical ordinals, **8 bytes of pure address**, `const _`-asserted at 8.
+    That assert is the structural guard behind the headline claim: identity
+    cannot depend on evidence count, NARS `f`/`c`, a source id, a CAM-PQ
+    assignment or a Lance version, because there is **nowhere to put them** —
+    adding such a field is a compile error, not a review catch.
+  - `new` / `domain` / `subject` / `predicate` / `object` / `is_fully_bound`
+  - `as_u64` / `from_u64` / `to_le_bytes` / `from_le_bytes` — the exact,
+    reversible, persisted identity (canonical ordinals, never runtime strings)
+  - `routing_prefix(depth)` / `full_path()` — the **lossy** HHTL cohort
+    projection, proven lossy by test, never identity
+  - `ConceptId` / `DomainId` / `UNBOUND` / `NIBBLES_PER_COMPONENT` /
+    `LITERAL_PATH_NIBBLES` (`const _`-asserted `== hhtl::MAX_DEPTH`)
+- **No `ValueTenant`, no CE64 bit added, no V3 reserved byte spent, no
+  `ENVELOPE_LAYOUT_VERSION` bump.** Ruling E's gate is answered in the module
+  doc rather than assumed.
+- **Deliberately absent:** `is_transitive`, relation class, composition policy.
+  Predicate *meaning* resolves through domain → codebook → `ResolvedPredicate`
+  and fails CLOSED on unknown — that is S3.3 and lives elsewhere. HHTL supplies
+  hierarchy, locality and exact addressing; it does not decide what `CAUSES`
+  means.
+
+### The measured constraint that decided the shape
+
+`domain+S+P+O` at `u16` each is **exactly 64 bits = exactly `MAX_DEPTH`**, so a
+literal expressed as one `NiblePath` leaves **zero** depth for the §4 evidence
+subtree — and `NiblePath` collides silently past the ceiling. Identity is
+therefore the tuple; the evidence tree ref-escapes. Full reasoning:
+`E-THE-LITERAL-CANNOT-LIVE-IN-THE-PATH-IT-ROOTS-1`.
+
+### Gates
+
+`lance-graph-contract` **1180/1180** (9 new) + every example suite green; fmt
+clean; clippy `--all-targets --no-deps -D warnings` clean; downstream
+`lance-graph-planner` Stage-2.6a harness still 4/4. **Four disable-runs,
+each verified red-then-green** — and a fifth attempt that came back green was
+diagnosed as an *inert disable* (arithmetically proven not to perturb the bits
+under test) and re-run correctly, recorded as
+`E-A-DISABLE-THAT-DOES-NOT-BIND-IS-NOT-A-DISABLE-2`.
+
+### Not in this PR (the brief's own order)
+
+S3.1 Meta tree · S3.2 V3 local proxy bridge · S3.3 `ResolvedPredicate` ·
+S3.4 DisMech · S3.5 NARS evidence mass · S3.6 JC measurement · S3.7 semantic
+recipe projection · S3.8 potholes/backcast · S3.9 Pearl validation.
+Stage-2/2.5/2.6 remain the frozen baseline — untouched here.
+
+---
+
 ## 2026-08-20 — branch `claude/carve-nars-kernels` — CE64 ⇄ V3 conversion losslessness (Stage-3 handoff gate)
 
 ### Current Contract Inventory — 8 new read accessors on `CausalEdgeV3`, no layout change

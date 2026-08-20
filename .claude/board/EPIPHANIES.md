@@ -1,3 +1,90 @@
+## 2026-08-20 — E-THE-LITERAL-CANNOT-LIVE-IN-THE-PATH-IT-ROOTS-1
+
+**Status:** FINDING (measured, S3.0 / PR arc). The Stage-3 brief asks for an
+exact HHTL causal-literal address AND (its §4) an evidence subtree hanging
+beneath it — `/causality/A/causes/B/{observed,interventional,counterfactual,…}`.
+**Those two requirements cannot both be met by one `NiblePath`, and the
+arithmetic says so exactly, with zero slack:**
+
+| component | width | nibbles |
+|---|---|---|
+| domain / ClassView `u16` | 16 bit | 4 |
+| canonical subject `u16` | 16 bit | 4 |
+| canonical predicate `u16` | 16 bit | 4 |
+| canonical object `u16` | 16 bit | 4 |
+| **total** | **64 bit** | **16 = `hhtl::MAX_DEPTH`** |
+
+`NiblePath` is a `u64` of 16 nibbles. A `domain·S·P·O` address consumes it
+**entirely** — remaining depth for the evidence subtree: **0**. And this is not
+a soft limit: `NiblePath`'s own docs record that descending past `MAX_DEPTH` is
+a *silent no-op which collides distinct deeper paths*, which is why
+`is_full`/`try_child` exist at all. A literal that spent the whole budget could
+never carry its own evidence tree in the same nibble space, and would fail
+silently rather than loudly.
+
+**So identity and routing are split, which is the canon's own ref-escape rule**
+(*"grows unbounded → path/ref"*): identity is the component tuple (`CausalLiteral`,
+8 bytes of pure address, `const _`-asserted); routing is a deliberately LOSSY
+prefix projection used for locality and cohort slicing (brief §29) and never for
+equality.
+
+**The load-bearing test is the one that proves the projection LOSSY.**
+`routing_prefix_is_not_identity` asserts that two genuinely different
+propositions — same domain, subject and predicate, different object — **share**
+their 12-nibble prefix, with a paired half proving full depth still separates
+them. Without it, "prefix ≠ identity" is a doc claim, and Stage-3 falsifiers #3
+(CAM-PQ as identity) and #19 (a local target read as absolute identity) are the
+same mistake this projection invites. Cf. the can-it-STAY-SILENT twin: a guard
+that fires on everything carries as much information as one that never fires.
+
+**Corollary that keeps S3.0 inside operator ruling E.** Ruling E
+(`ARC-B-OWNERSHIP-AND-ADDRESSING-REASSESSMENT.md` §4) gates every new tenant
+behind *"genuinely missing canonical information, or a container minted to avoid
+completing the address transition?"* — and answers, for the EW64 case, that the
+missing canonical reference "is the prerequisite" and that the tenant gap and
+the addressing gap "are the same problem wearing two hats". The causal literal
+**is** that prerequisite: it adds no bits to `CausalEdge64`, no slot to any
+tenant, and no packed layout. It is the address the ruling said had to come
+first.
+
+---
+
+## 2026-08-20 — E-A-DISABLE-THAT-DOES-NOT-BIND-IS-NOT-A-DISABLE-2
+
+**Status:** FINDING (second instance in two PRs; the first was
+`E-THE-COMPAT-ENUM-WAS-EATING-HALF-THE-REGISTER-1`'s method note). Same lesson,
+sharper failure, and this time the disable was **syntactically applied** — the
+anchor assertion I added after the last instance fired correctly and reported
+`[anchor found + replaced]`. It still proved nothing.
+
+**What happened.** To falsify `routing_prefix_is_not_identity` I made
+`routing_prefix` fold all four components together:
+`packed ^ (packed>>16) ^ (packed>>32) ^ (packed>>48)`. The test stayed GREEN,
+which reads exactly like *"this test does not actually check anything."*
+
+**It was the disable that was inert.** All three shifts move bits *right*, so
+the object (bits 15..0) never reaches the first 12 nibbles the test inspects —
+`folded[63..16]` is identical for the two fixtures by construction. Verified
+arithmetically before touching the file again: old fold → both `111133330000`;
+`packed ^ (packed<<48)` → `555522223333` vs `444422223333`. With the binding
+fold the test goes red on its exact message.
+
+**The generalisable rule, now with two independent instances.** A disable is
+only evidence if the perturbation reaches the quantity the assertion reads.
+Three ways to get this wrong, all seen in this workspace:
+
+1. the edit does not apply (malformed pattern) — fixed by asserting the anchor;
+2. the edit applies but the perturbed quantity cannot pass the relaxed test by
+   another route (tesseract-rs: zeroing a constant a negative value still fails);
+3. **the edit applies and perturbs the right function, but not the bits under
+   test** — this instance.
+
+The anchor assertion catches (1) only. For (3) the check is arithmetic: compute,
+before running, that the disabled version differs *at the position the assertion
+reads*. Two lines of Python beat one misread green.
+
+---
+
 ## 2026-08-20 — E-THE-COMPAT-ENUM-WAS-EATING-HALF-THE-REGISTER-1
 
 **Status:** FINDING (measured + fixed, PR #971). `CausalEdgeV3::rehydrate`

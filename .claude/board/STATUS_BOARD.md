@@ -1,3 +1,28 @@
+## stage-3 — exact causal literals + amortized epistemic trees (operator brief, 2026-08-20)
+
+Delivery order is the brief's own §38; **not** to be attempted in one PR.
+Stage-2/2.5/2.6 (PR #971) is the frozen substrate baseline: representation
+totality and reasoning parity are two SEPARATE proofs and neither is reopened
+without a real falsifier.
+
+| D-id | Deliverable | Status |
+|---|---|---|
+| S3.0 | exact HHTL causal-literal address (`contract::causal_literal`) | **In PR** |
+| S3.1 | `CausalMeta` + `EpistemicMeta` tree contract; rebuild-from-leaves | Queued |
+| S3.2 | V3 local-proxy bridge (absolute identity survives local indirection) | Queued |
+| S3.3 | `ResolvedPredicate`; unknown fails CLOSED; explicit composition | Queued |
+| S3.4 | DisMech adapter — map sources onto EXISTING literals, never mint per source | Queued |
+| S3.5 | NARS evidence mass: raw/source/HEEL/effective, deterministic W+/W− | Queued |
+| S3.6 | JC measurement per predicate × cohort × horizon × instrument | Queued |
+| S3.7 | `ReasoningSituation` → ThoughtCtx projection; measure the 17 mute kernels | Queued |
+| S3.8 | potholes, first_possible vs first_derived, strict historical replay | Queued |
+| S3.9 | Pearl validation — earn the SPO 2³ projections empirically | Queued |
+
+20 hard falsifiers are listed in the brief's §39. The ones S3.0 answers now:
+**#1** (same canonical tuple → same literal), **#2** (distinct predicates never
+collide), **#3** (CAM-PQ is not identity) and **#19** (a local target is not
+absolute identity) — the last two via the *proven-lossy* routing projection.
+
 ## preparation-arc plan wave — 2026-08-19 (operator: "integration plans for all open arcs")
 
 Five plans, each PROPOSED (no code — the reset charter's audit-first order
