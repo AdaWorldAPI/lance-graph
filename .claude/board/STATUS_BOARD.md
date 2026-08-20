@@ -1,3 +1,33 @@
+## stage-3 — exact causal literals + amortized epistemic trees (operator brief, 2026-08-20; recovery session after #973's overclaim retraction)
+
+Delivery order is the brief's own §38; **not** to be attempted in one PR.
+Stage-2/2.5/2.6 (PR #971) is the frozen substrate baseline: representation
+totality and reasoning parity are two SEPARATE proofs and neither is reopened
+without a real falsifier. PR #973 (S3.0, first attempt) was closed unmerged —
+its `CausalLiteral` struct was correct and is reintroduced here verbatim; its
+board-finding framing overclaimed and is retracted in `EPIPHANIES.md`
+(`E-NIBLEPATH-DEPTH-IS-NOT-HHTL-DIMENSIONALITY-1`).
+
+| D-id | Deliverable | Status |
+|---|---|---|
+| S3.0 | exact causal-literal address (`contract::causal_literal`) | **In PR** |
+| S3.0b | qualified causal regime | Queued |
+| S3.1 | `CausalMeta` + `EpistemicMeta` tree contract; rebuild-from-leaves; evidence placement OPEN (orthogonal-facet candidate, not ref-escape) | Queued |
+| S3.2 | V3 local-proxy bridge (absolute identity survives local indirection) | Queued |
+| S3.3 | `ResolvedPredicate`; unknown fails CLOSED; explicit composition | Queued |
+| S3.4 | DisMech adapter — map sources onto EXISTING literals, never mint per source | Queued |
+| S3.5 | NARS evidence mass: raw/source/HEEL/effective, deterministic W+/W− | Queued |
+| S3.6 | JC measurement per predicate × cohort × horizon × instrument | Queued |
+| S3.7 | `ReasoningSituation` → ThoughtCtx projection; measure the 17 mute kernels | Queued |
+| S3.8 | potholes, first_possible vs first_derived, strict historical replay | Queued |
+| S3.9 | Pearl validation — earn the SPO 2³ projections empirically | Queued |
+
+The ones S3.0 answers: **#1** (same canonical tuple → same literal), **#2**
+(distinct predicates never collide), **#3** (CAM-PQ is not identity) and
+**#19** (a local target is not absolute identity) via the *proven-lossy*
+`NiblePath` routing projection — same falsifiers #973 answered, code reused.
+
+---
 ## preparation-arc plan wave — 2026-08-19 (operator: "integration plans for all open arcs")
 
 Five plans, each PROPOSED (no code — the reset charter's audit-first order

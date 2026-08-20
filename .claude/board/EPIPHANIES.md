@@ -1,3 +1,99 @@
+## 2026-08-20 — E-NIBLEPATH-DEPTH-IS-NOT-HHTL-DIMENSIONALITY-1
+
+**Status:** FINDING (measured + corrected; supersedes and retracts
+`E-THE-LITERAL-CANNOT-LIVE-IN-THE-PATH-IT-ROOTS-1`, PR #973, which was closed
+unmerged before landing). **Confidence:** High — the arithmetic (16 nibbles =
+`NiblePath::MAX_DEPTH`) is unchanged and correct; what changes is the scope of
+what it is evidence FOR.
+
+**The retracted claim.** #973 measured, correctly, that a
+`domain·subject·predicate·object` literal at `u16` each is exactly 16 nibbles
+— the ENTIRE budget of [`hhtl::NiblePath`], a single sequential `u64`-backed
+router path purpose-built for the `subClassOf` Abstammung tree. From that true
+local fact it concluded that identity and an evidence subtree "cannot both be
+one `NiblePath`" and therefore evidence must **ref-escape** out of address
+space into a structurally separate mechanism — framed under the title
+"the literal cannot live in the path it roots". That title, read on its own,
+overclaims: it reads as a statement about HHTL addressing in general, not
+about one particular depth-limited path type.
+
+**Why the retraction, with receipts already in this repository.** Three
+already-MEASURED counterexamples show the general shape #973 needed and did
+not reach for:
+
+1. **`E-WORDNET-MAKES-THE-4-ARY-ADDRESS-SEMANTIC-1`** (PR #875/#876, MERGED)
+   — a full-width 4-ary HHTL fold of real WordNet ancestry is an EXACT
+   structural encoding (corr +0.494 real vs −0.036 shuffled), not a lossy
+   hash. "HHTL identity" and "one `NiblePath`'s 16-nibble ceiling" are
+   different claims; #973 conflated them.
+2. **`tekamolo_facet.rs` / `facet::FacetCascade`** (PR #839/#844, MERGED,
+   live code) — a 16-byte content-blind register supports SEVERAL
+   SIMULTANEOUS `ClassView`-selected readings of the SAME bytes
+   (`G3D4`/`G4D3`/`G6D2`/`24×i4`). New semantic capability (TEKAMOLO's four
+   orthogonal Temporal/Kausal/Modal/Lokal lanes) lands as a new READING, never
+   a deeper path. This is the concrete precedent for where an evidence/meta
+   facet over `CausalLiteral` should be sought first, instead of ref-escaping.
+3. **`E-ANAPHORA-BEYOND-I4-IS-A-BASIN-EDGE-1`** (measured, 7,657 real German
+   relative clauses) — the general pattern: a LOCAL fixed representation
+   (there, `i4`, `-8..+7`) exhausting cleanly at a real boundary marks a TYPE
+   boundary, and the sanctioned response is to switch to a DIFFERENT reading
+   of the SAME address register — never to declare the substrate exhausted or
+   to invent an unbounded escape hatch.
+
+**What survives, unchanged.** The measured fact itself: `LITERAL_PATH_NIBBLES
+== hhtl::MAX_DEPTH` (`const _`-asserted in `causal_literal.rs`), and
+`NiblePath::routing_prefix(16)` is `is_full()` — nothing can descend further
+via THAT router. `CausalLiteral { domain, subject, predicate, object }` as a
+free-standing 8-byte exact-identity struct (four `u16`, component equality,
+no CAM-PQ/evidence/source/version field possible by construction) is
+reintroduced verbatim from #973 — the struct and its nine tests were correct;
+only the surrounding architectural inference was overclaimed.
+
+**What is now OPEN rather than pre-decided.** Where S3.1's
+`CausalMeta`/`EpistemicMeta` evidence tree lands is NOT settled by this
+finding. The leading candidate, per (2) above, is an orthogonal facet/column
+keyed by `CausalLiteral` — not a "ref-escape" forced by NiblePath's ceiling.
+S3.1 decides this from measurement when it lands, not from this PR.
+
+**The process lesson — see the companion entry below
+(`E-A-LOCAL-DERIVATION-CANNOT-OVERRULE-A-MEASURED-COUNTEREXAMPLE-1`).**
+
+---
+
+## 2026-08-20 — E-A-LOCAL-DERIVATION-CANNOT-OVERRULE-A-MEASURED-COUNTEREXAMPLE-1
+
+**Status:** RULING (operator, cold-start recovery session following PR #973's
+closure). **Confidence:** High — process rule, not a technical claim.
+
+**The failure mode, named exactly.** A locally correct arithmetic derivation
+about ONE representation (`NiblePath`'s 16-nibble depth ceiling) was promoted,
+via a dramatic board-finding title, into an implied GLOBAL substrate
+conclusion (exact causal-literal identity cannot live in HHTL addressing;
+evidence must structurally escape address space) — while three
+already-measured counterexamples in the SAME repository
+(`E-WORDNET-MAKES-THE-4-ARY-ADDRESS-SEMANTIC-1`, the shipped
+`tekamolo_facet.rs`/`FacetCascade` orthogonal-reading pattern,
+`E-ANAPHORA-BEYOND-I4-IS-A-BASIN-EDGE-1`) demonstrate the opposite pattern
+working. None of the three were consulted before the finding was written.
+
+**The rule going forward, for this and every future session.** Before any
+board finding declares that the substrate "cannot" do something architectural:
+search `EPIPHANIES.md` and the relevant `.claude/knowledge/`/`docs/` for
+existing measurements and counterexamples FIRST. A new local proof whose
+premise silently omits an already-established substrate behaviour is not a
+discovery — it is exactly the shape of error this entry exists to name. Use
+explicit labels (`[MERGED]` / `[MEASURED]` / `[RULING]` / `[PROPOSED]` /
+`[REJECTED]`) so the provenance of every claim stays legible, and never blur
+"true fact about one type" into "true fact about the substrate" without
+saying so in the same sentence.
+
+**Cross-ref:** `E-NIBLEPATH-DEPTH-IS-NOT-HHTL-DIMENSIONALITY-1` (the
+technical retraction this ruling explains), PR #973 (closed unmerged, the
+originating incident), `.claude/handovers/2026-08-20-s3-0-cold-start-recovery-audit.md`
+(the full audit).
+
+---
+
 ## 2026-08-20 — E-THE-COMPAT-ENUM-WAS-EATING-HALF-THE-REGISTER-1
 
 **Status:** FINDING (measured + fixed, PR #971). `CausalEdgeV3::rehydrate`

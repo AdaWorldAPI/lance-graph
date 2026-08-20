@@ -1,3 +1,50 @@
+## 2026-08-20 — branch `claude/lance-graph-stage-3-recovery-2wrdbd` — S3.0 corrected: the exact causal-literal address (retracts #973's overclaim, salvages its code)
+
+### Current Contract Inventory — 1 new zero-dep contract type, no packed tenant
+
+- **`lance_graph_contract::causal_literal`** (new module, reintroduces #973's
+  struct verbatim; rewrites the surrounding claim):
+  - **`CausalLiteral { domain, subject, predicate, object }`** — four `u16`
+    canonical ordinals, **8 bytes of pure address**, `const _`-asserted at 8.
+  - `new` / `domain` / `subject` / `predicate` / `object` / `is_fully_bound`
+  - `as_u64` / `from_u64` / `to_le_bytes` / `from_le_bytes` — exact reversible
+    identity
+  - `routing_prefix(depth)` / `full_path()` — a **lossy** `NiblePath` cohort
+    projection, explicitly scoped as one property of `NiblePath` specifically,
+    never as "the HHTL form" of the literal
+  - `ConceptId` / `DomainId` / `UNBOUND` / `NIBBLES_PER_COMPONENT` /
+    `LITERAL_PATH_NIBBLES` (`const _`-asserted `== hhtl::MAX_DEPTH`)
+- **No `ValueTenant`, no CE64 bit added, no V3 reserved byte spent, no
+  `ENVELOPE_LAYOUT_VERSION` bump.** Same Ruling-E gate #973 satisfied.
+- **Corrected vs #973:** the module doc no longer claims identity+evidence
+  "cannot both be HHTL" — it names `NiblePath`'s 16-nibble ceiling as a fact
+  about ONE router type, cross-references the three counterexamples
+  (WordNet #875/#876, `tekamolo_facet.rs`/`FacetCascade`, the 24×i4 anaphora
+  boundary) that show orthogonal-facet/exact-address patterns already working
+  in this repo, and leaves S3.1's evidence/meta placement explicitly OPEN
+  rather than forcing a "ref-escape" conclusion.
+
+### Why this session exists
+
+PR #973 ("S3.0 — the exact HHTL causal-literal address") was closed unmerged
+by the operator: its code was sound but its board-finding title/framing
+(`E-THE-LITERAL-CANNOT-LIVE-IN-THE-PATH-IT-ROOTS-1`) turned a correct local
+fact about `NiblePath`'s depth budget into an implied global HHTL-impossibility
+claim, forgetting three already-measured counterexamples in this same
+repository. Full audit: `.claude/handovers/2026-08-20-s3-0-cold-start-recovery-audit.md`.
+Retraction + corrected finding: `E-NIBLEPATH-DEPTH-IS-NOT-HHTL-DIMENSIONALITY-1`
++ `E-A-LOCAL-DERIVATION-CANNOT-OVERRULE-A-MEASURED-COUNTEREXAMPLE-1` in
+`EPIPHANIES.md`.
+
+### Not in this PR (the brief's own order, unchanged from #973)
+
+S3.0b causal regime · S3.1 Meta tree (evidence placement now explicitly OPEN,
+not pre-decided) · S3.2 V3 local proxy bridge · S3.3 `ResolvedPredicate` ·
+S3.4 DisMech · S3.5 NARS evidence mass · S3.6 JC measurement · S3.7 semantic
+recipe projection · S3.8 potholes/backcast · S3.9 Pearl validation.
+Stage-2/2.5/2.6 (#971) remain the frozen baseline — untouched here.
+
+---
 ## 2026-08-20 — lance-graph #971 (MERGED, `2cbe62d`, head `d627f5c`) — Stage 2 carves + Stage 2.5 census + Stage 2.6a V3 invariance + CE64 ⇄ V3 losslessness
 
 Six commits, four stages. The per-stage Contract Inventory and results are in
