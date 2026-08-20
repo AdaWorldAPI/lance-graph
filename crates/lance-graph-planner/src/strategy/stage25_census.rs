@@ -317,8 +317,8 @@ fn channel_stats(pairs: &[Pair], same_family: bool) -> ChannelStats {
             )
         } else {
             (
-                p.v_cross_off.map(|(r, _)| r as usize + 1),
-                p.v_cross_on.map(|(r, _)| r as usize + 1),
+                p.v_cross_off.map(cross_label),
+                p.v_cross_on.map(cross_label),
             )
         };
         cs.fired_off.push(vo.is_some());
@@ -327,6 +327,27 @@ fn channel_stats(pairs: &[Pair], same_family: bool) -> ChannelStats {
         cs.label_on.push(vn.unwrap_or(0));
     }
     cs
+}
+
+/// Encode a cross-family verdict as ONE nominal label carrying **both** tuple
+/// components.
+///
+/// The production verdict is `(RungLevel, Mechanism)`, and reducing it to the
+/// rung would call a pair concordant whenever the filter swapped the first
+/// objector for one of a DIFFERENT mechanism at the SAME `min_rung` — silently
+/// supporting the report's claim that the reported mechanism agrees, using a
+/// measurement that never looked at it. (Codex review, PR #971.)
+///
+/// `0` stays reserved for "no dissent", so the encoding starts at 1.
+fn cross_label((rung, mech): (RungLevel, Mechanism)) -> usize {
+    const N_MECH: usize = 4; // ParallelIndependence | TruthAware | StructuralDivergence | Infrastructure
+    let m = match mech {
+        Mechanism::ParallelIndependence => 0,
+        Mechanism::TruthAwareInference => 1,
+        Mechanism::StructuralDivergence => 2,
+        Mechanism::Infrastructure => 3,
+    };
+    1 + (rung as usize) * N_MECH + m
 }
 
 fn mean(xs: &[f64]) -> f64 {
@@ -355,35 +376,32 @@ mod tests {
         assert_eq!(pairs.len(), 5760, "the design is 36 x 4 x 5 x 8");
     }
 
-    /// **The headline, both halves, pinned.**
+    /// **The headline, re-pinned — and the re-pin is the finding.**
     ///
-    /// This is the falsifier for the Stage-2 claim itself: the filter's watcher
-    /// effect must be non-trivial (or the coverage argument is decoration) AND
-    /// the verdict effect must be exactly zero (or the "no behaviour change"
-    /// documentation at the call site is false). Either half moving forces a
-    /// deliberate re-measure rather than a silent drift.
+    /// The first version of this test asserted `discordant == 0` on both
+    /// channels, and it passed, because the predicate it was measuring was
+    /// wrong: `watcher_can_dissent` filtered on `maturity().is_production()`,
+    /// which admits 31 of 34 kernels while only **14** can move `delta_conf` —
+    /// the only quantity either channel compares. The filter was excluding 3
+    /// mute watchers and admitting 17 more (codex review, PR #971).
+    ///
+    /// With the honest predicate the answer inverts: the filter changes **1,098
+    /// of 5,760** same-family verdicts and **384** cross-family. Pinned as
+    /// EQUALITIES, not bounds — this is a deterministic census, so any movement
+    /// is a real behavioural change that deserves a deliberate re-measure
+    /// rather than a widened assertion.
     #[test]
-    fn stage25_headline_watcher_delta_is_real_and_verdict_delta_is_zero() {
+    fn stage25_headline_watcher_delta_and_verdict_delta_are_both_real() {
         let pairs = census();
-
-        for same_family in [true, false] {
+        for (same_family, expect_changed, expect_discordant) in
+            [(true, 4080usize, 1098usize), (false, 4224, 384)]
+        {
             let cs = channel_stats(&pairs, same_family);
-
-            // (a) the watcher sample really moves
             let changed = cs
                 .deltas
                 .iter()
                 .filter(|d| d.symmetric_difference > 0)
                 .count();
-            assert!(
-                changed > 0,
-                "{}: the maturity clause changed no watcher sample anywhere — the \
-                 coverage claim is decoration",
-                cs.label
-            );
-
-            // (b) and no verdict moves, on the FINE label (elevation target),
-            //     which is strictly stronger than fired/not-fired
             let discordant = cs
                 .label_off
                 .iter()
@@ -391,91 +409,107 @@ mod tests {
                 .filter(|(a, b)| a != b)
                 .count();
             assert_eq!(
+                changed, expect_changed,
+                "{}: watcher-sample delta",
+                cs.label
+            );
+            assert_eq!(
                 discordant,
-                0,
-                "{}: {discordant} of {} paired configurations changed verdict — the \
-                 call-site documentation says none do",
+                expect_discordant,
+                "{}: verdict delta over {} pairs",
                 cs.label,
                 pairs.len()
             );
         }
     }
 
-    /// Cohen's κ is **defined** here — both outcome categories occur — so the
-    /// perfect agreement is a real 1.0 and not the degenerate `p_e == 1` case
-    /// `jc::stats::cohen_kappa` correctly refuses to score.
+    /// **The filter's effect has a DIRECTION, and on the same-family channel it
+    /// is one-way.**
     ///
-    /// Without this the zero-discordance result above could be an artifact of a
-    /// constant column, which is exactly the "a guard that fires on everything
-    /// carries as much information as one that never fires" trap.
+    /// `n10 == 0` there: no configuration that dissented with the filter OFF
+    /// goes silent with it ON. That is the coverage argument turned into a
+    /// measurement — replacing structurally-mute watchers with capable ones can
+    /// only ADD objections, never remove them, because the removed watchers
+    /// could not have raised one.
+    ///
+    /// The cross-family channel is *almost* one-way: 18 of 5,760 go the other
+    /// way, and the reason is the SAMPLER, not the filter.
+    /// `peripheral_sample_where` strides `k` picks over the eligible list, so
+    /// shrinking that list changes WHICH capable watchers are picked — a
+    /// capable dissenter selected under OFF can fall off the stride under ON.
+    /// Pinned exactly so it stays visible instead of being rounded to "one-way".
     #[test]
-    fn stage25_agreement_is_perfect_and_not_degenerate() {
+    fn stage25_the_filter_adds_dissent_and_on_one_channel_never_removes_it() {
         let pairs = census();
-        for same_family in [true, false] {
+        let same = binary_association(
+            &channel_stats(&pairs, true).fired_off,
+            &channel_stats(&pairs, true).fired_on,
+        )
+        .expect("columns");
+        assert_eq!(
+            same.n10, 0,
+            "same-family: {} configurations LOST a dissent — the filter is \
+             supposed to be unable to remove one",
+            same.n10
+        );
+        assert_eq!(same.n01, 1098, "same-family: dissents gained");
+
+        let cross = binary_association(
+            &channel_stats(&pairs, false).fired_off,
+            &channel_stats(&pairs, false).fired_on,
+        )
+        .expect("columns");
+        assert_eq!(cross.n01, 366, "cross-family: dissents gained");
+        assert_eq!(
+            cross.n10, 18,
+            "cross-family: dissents lost to the sampler stride"
+        );
+        assert!(
+            cross.n01 > cross.n10,
+            "the net direction must still be toward MORE dissent"
+        );
+    }
+
+    /// Agreement is now **partial and measured**, not perfect — and κ is
+    /// defined in every case, so the numbers are real rather than the
+    /// degenerate constant-column case `jc::stats::cohen_kappa` refuses to
+    /// score.
+    ///
+    /// Re-pinned from `κ == 1.0` when the watcher predicate was corrected. The
+    /// old assertion was true of a measurement of the wrong thing.
+    #[test]
+    fn stage25_agreement_is_partial_and_kappa_is_defined() {
+        let pairs = census();
+        for (same_family, lo, hi) in [(true, 0.60, 0.75), (false, 0.78, 0.92)] {
             let cs = channel_stats(&pairs, same_family);
-            let t = binary_association(&cs.fired_off, &cs.fired_on)
-                .expect("non-empty, equal-length columns");
-            assert_eq!(
-                (t.n10, t.n01),
-                (0, 0),
-                "{}: off-diagonal must be empty",
-                cs.label
-            );
+            let t = binary_association(&cs.fired_off, &cs.fired_on).expect("columns");
             assert!(
                 t.n11 > 0 && t.n00 > 0,
-                "{}: both outcomes must occur or agreement is vacuous (n11={}, n00={})",
-                cs.label,
-                t.n11,
-                t.n00
+                "{}: both outcomes must occur or agreement is vacuous",
+                cs.label
             );
             let k = t
                 .kappa
                 .expect("kappa is defined when both categories occur");
-            assert!((k - 1.0).abs() < 1e-12, "{}: kappa = {k}", cs.label);
-
-            // ...and the same on the finer elevation-target label.
-            let k_fine = cohen_kappa(&cs.label_off, &cs.label_on)
-                .expect("kappa defined on the fine label too");
             assert!(
-                (k_fine - 1.0).abs() < 1e-12,
-                "{}: fine kappa = {k_fine}",
+                (lo..=hi).contains(&k),
+                "{}: kappa {k:.4} outside the pinned window [{lo}, {hi}]",
                 cs.label
             );
-        }
-    }
+            assert!(
+                k < 1.0,
+                "{}: kappa 1.0 would mean the filter changed nothing",
+                cs.label
+            );
 
-    /// **The tolerance cannot move the watcher sample.** Structural — the
-    /// sample depends only on `(rung, want, k)` — and pinned because the
-    /// report leans on it when it declines to read `tol`'s eta-squared of
-    /// exactly 0.0000 as a finding about tolerance. If the two ever couple,
-    /// the census's factor table becomes misleading and this fails first.
-    #[test]
-    fn stage25_tolerance_cannot_move_the_watcher_sample() {
-        let pairs = census();
-        // Group by everything EXCEPT tol; every group must be constant.
-        for chunk in pairs.chunks(TOLS.len()) {
-            let head = &chunk[0];
-            for p in chunk {
-                assert_eq!(p.style_idx, head.style_idx, "chunking assumption broken");
-                assert_eq!(p.k, head.k, "chunking assumption broken");
-                assert_eq!(
-                    (&p.same_off, &p.same_on, &p.cross_off, &p.cross_on),
-                    (
-                        &head.same_off,
-                        &head.same_on,
-                        &head.cross_off,
-                        &head.cross_on
-                    ),
-                    "tol moved the watcher sample at style {} rung {:?} k {}",
-                    p.style_idx,
-                    p.rung,
-                    p.k
-                );
-            }
+            // The FINE label (elevation target, and for cross-family the
+            // Mechanism too) must also be scoreable — a `None` here would mean
+            // one column collapsed to a single category and the discordance
+            // counts above were measured against a constant.
+            let k_fine = cohen_kappa(&cs.label_off, &cs.label_on)
+                .expect("kappa defined on the fine label too");
+            assert!(k_fine < 1.0, "{}: fine kappa = {k_fine}", cs.label);
         }
-        // Anti-vacuity: the sweep must contain more than one tolerance, or the
-        // constancy above is a statement about a single column.
-        assert!(TOLS.len() > 1 && pairs.len() > TOLS.len());
     }
 
     /// The zero-event bound is the exact Clopper-Pearson limit and is
@@ -581,9 +615,11 @@ mod tests {
                         p.v_same_on.map(|r| r as usize + 1).unwrap_or(0),
                     )
                 } else {
+                    // Same `cross_label` the statistics use — the artifact and
+                    // the numbers must not disagree about what "changed" means.
                     (
-                        p.v_cross_off.map(|(r, _)| r as usize + 1).unwrap_or(0),
-                        p.v_cross_on.map(|(r, _)| r as usize + 1).unwrap_or(0),
+                        p.v_cross_off.map(cross_label).unwrap_or(0),
+                        p.v_cross_on.map(cross_label).unwrap_or(0),
                     )
                 };
                 if vo != vn {
@@ -619,7 +655,10 @@ mod tests {
         r.push_str(
             "> Generated by `strategy::stage25_census::tests::stage25_write_artifacts`\n\
              > (`cargo test -p lance-graph-planner --lib stage25_census -- --ignored`).\n\
-             > Data: `stage25-consumer-filter-census.csv` (watcher-sample surface, one row per\n             > style x rung x k x channel — collapsed over `tol`, losslessly, per the pinned\n             > invariant that the sample cannot depend on it) and\n             > `stage25-consumer-filter-verdict-discordance.csv` (one row per verdict flip;\n             > **header-only is the result**).\n\n",
+             > Data: `stage25-consumer-filter-census.csv` (watcher-sample surface, one row\n\
+             > per style x rung x k x channel — collapsed over `tol`, losslessly, per the\n\
+             > pinned invariant that the sample cannot depend on it) and\n\
+             > `stage25-consumer-filter-verdict-discordance.csv` (one row per verdict flip).\n\n",
         );
         r.push_str(&format!(
             "**Design.** {} paired configurations = {} styles x {} rungs x {} budgets x {} \
@@ -645,7 +684,10 @@ mod tests {
 
         // ── A. watcher-sample effect ──
         r.push_str("## A. Watcher-sample effect\n\n");
-        r.push_str("| channel | pairs changed | mean Jaccard dist | mean retention | mean |Δcount| | max sym-diff |\n");
+        r.push_str(
+            "| channel | pairs changed | mean Jaccard dist | mean retention | \
+             mean \\|Δcount\\| | max sym-diff |\n",
+        );
         r.push_str("|---|---|---|---|---|---|\n");
         for same_family in [true, false] {
             let cs = channel_stats(pairs, same_family);
@@ -803,21 +845,37 @@ mod tests {
                 t.n11,
                 t.n00
             ));
+            r.push_str(&format!(
+                "- fired {} -> {} on this channel\n",
+                t.n10 + t.n11,
+                t.n01 + t.n11
+            ));
+            r.push_str(&format!(
+                "- **direction**: {} silence -> dissent, {} dissent -> silence\n",
+                t.n01, t.n10
+            ));
             r.push_str(
-                "- **McNemar is NOT reported**: it is a test on the discordant cells and there \
-                 are none, so the statistic is degenerate rather than significant. Reporting it \
-                 would be manufacturing a result out of an empty table.\n\n",
+                "- **McNemar is NOT computed.** `jc` carries no implementation, and hand-rolling \
+                 a test statistic into an exhaustive deterministic census — which has no \
+                 sampling distribution for its p-value to describe — is the failure this report \
+                 exists to avoid. The transition matrix above carries the same information \
+                 without the borrowed authority.\n\n",
             );
         }
 
         // ── the bound ──
-        r.push_str("### Exact bound on an unseen flip rate\n\n");
+        r.push_str("### Exact bound on the one surface that IS still zero\n\n");
         r.push_str(
-            "One-sided Clopper-Pearson upper limit at zero observed events, `1 - alpha^(1/n)`, \
-             alpha = 0.05. **The 5,760 rows are repeated measures, not independent trials** — one \
-             style contributes 160 of them — so the bound is a LADDER over clustering \
-             assumptions, and the honest number to quote is the one whose independence \
-             assumption you are willing to defend.\n\n",
+            "The verdict surface has events now, so a zero-event bound no longer applies to it. \
+             What remains exactly zero is the DIRECTION on the same-family channel: **no \
+             configuration lost a dissent** (`n10 = 0` of 5,760). That is the coverage claim in \
+             its sharpest form — a filter that removes only structurally-mute watchers should be \
+             incapable of removing an objection — so that is the quantity worth bounding.\n\n\
+             One-sided Clopper-Pearson upper limit at zero observed events, `1 - alpha^(1/n)`, \
+             with **alpha = 0.05** (a 95 % one-sided confidence level). **The 5,760 rows are \
+             repeated measures, not independent trials** — one style contributes 160 of them — so \
+             the bound is a LADDER over clustering assumptions and each row names the unit it \
+             assumes; quote the one whose independence you are willing to defend.\n\n",
         );
         r.push_str("| independent unit | n | upper bound on flip rate |\n|---|---|---|\n");
         // `StyleCluster` is not `Ord`, so count distinct by linear scan rather
@@ -833,12 +891,21 @@ mod tests {
         let n_clusters = seen.len();
         for (label, m) in [
             (
-                "configuration cell (assumes full independence — optimistic)",
+                "one (style, rung, k, tol) cell — every cell its own trial; OPTIMISTIC",
                 n,
             ),
-            ("style x rung cell", ThinkingStyle::ALL.len() * RUNGS.len()),
-            ("style", ThinkingStyle::ALL.len()),
-            ("style cluster (most conservative)", n_clusters),
+            (
+                "one (style, rung) cell — k and tol treated as within-cell repeats",
+                ThinkingStyle::ALL.len() * RUNGS.len(),
+            ),
+            (
+                "one style — a style's whole 160-cell block as one observation",
+                ThinkingStyle::ALL.len(),
+            ),
+            (
+                "one style cluster — styles in a cluster share a Mechanism; most conservative",
+                n_clusters,
+            ),
         ] {
             r.push_str(&format!(
                 "| {label} | {m} | {:.3e} |\n",
@@ -852,10 +919,14 @@ mod tests {
             "The margin the channel actually thresholds — `|tc.confidence - admitted|` against \
              `tol` — is local to `dissent_over` and is not returned. **It was not exposed for \
              this measurement.** What IS naturally available is finer than fired/not-fired and is \
-             measured above: the elevation `RungLevel` (which watcher objected) and, on the \
-             cross-family channel, the reported `Mechanism`. Both agree exactly, so the zero \
-             discordance is not a coarse-label artifact — it survives the finest outcome the \
-             harness exposes without adding one.\n\n",
+             what the numbers above are computed over: the elevation `RungLevel` (which watcher \
+             objected) and, on the cross-family channel, the reported `Mechanism` — both encoded \
+             into ONE nominal label by `cross_label`, so a swap to a different mechanism at the \
+             same rung counts as a change rather than passing as agreement.\n\n\
+             That encoding is a correction, not a flourish. The first version of this census \
+             reduced the cross-family verdict to its rung and would have reported such a swap as \
+             concordant while the report claimed the mechanism agreed — a measurement that never \
+             looked at the thing it certified.\n\n",
         );
 
         // ── headline ──
@@ -884,10 +955,25 @@ mod tests {
             } else {
                 "not at all"
             };
+            // COMPUTED, never literal. The first version of this line wrote
+            // `Verdict change: 0/{n}` as a hardcoded string — so the report
+            // would have printed zero no matter what the census measured, and
+            // did, for one revision after the predicate was corrected. A report
+            // that states its conclusion instead of deriving it is not a
+            // measurement; `stage25_headline_watcher_delta_and_verdict_delta_are_both_real`
+            // is what caught it.
+            let t = binary_association(&cs.fired_off, &cs.fired_on).expect("columns");
+            let discordant = cs
+                .label_off
+                .iter()
+                .zip(&cs.label_on)
+                .filter(|(a, b)| a != b)
+                .count();
             r.push_str(&format!(
                 "- **{}: consumer filtering {strength} changes watcher sampling** — \
                  {changed}/{n} configurations differ ({:.1}%), mean Jaccard distance {jd:.4}, \
-                 mean retention {:.4}. **Verdict change: 0/{n}.**\n",
+                 mean retention {:.4}. **Verdict change: {discordant}/{n}**, direction \
+                 {} silence->dissent vs {} dissent->silence.\n",
                 cs.label,
                 100.0 * frac,
                 mean(
@@ -896,15 +982,23 @@ mod tests {
                         .map(SetDelta::retention)
                         .collect::<Vec<_>>()
                 ),
+                t.n01,
+                t.n10,
             ));
         }
         r.push('\n');
         r.push_str(
-            "Scope, stated so it is not over-read: this is a statement about the measured \
-             Stage-2 surface only. It is NOT \"the filter has no effect\" (it demonstrably \
-             changes watcher membership) and it is NOT \"the filter is semantically irrelevant \
-             forever\" (a different tolerance regime, a different admitted set, or a carve that \
-             changes which kernels are production all move the input to this measurement).\n",
+            "\n**This headline replaces an earlier one that read `0/5,760` on both channels.** \
+             That number was real but measured the wrong predicate: the first consumer filter \
+             tested `maturity().is_production()`, which admits 31 of 34 kernels, while only 14 \
+             can move `delta_conf` — the only quantity either channel compares. The filter was \
+             removing 3 mute watchers and admitting 17 more, so it changed the sample and could \
+             not change the answer. Corrected after codex review on PR #971.\n\n\
+             Scope, stated so it is not over-read: this is a statement about the measured \
+             Stage-2 surface only, under one fixed `PlanContext`. It says nothing about whether \
+             the ADDED dissent is correct — only that the periphery now contains instruments \
+             that can object, where before a majority of the sampled watchers structurally could \
+             not.\n",
         );
         r
     }

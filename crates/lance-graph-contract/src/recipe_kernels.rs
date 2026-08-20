@@ -304,6 +304,38 @@ pub trait Tactic: Sync {
     /// method exists to close.
     fn maturity(&self) -> KernelMaturity;
 
+    /// Can this tactic's [`apply`](Tactic::apply) return a **non-zero
+    /// `delta_conf`** on ANY branch?
+    ///
+    /// NON-defaulted, for the same reason as [`requires`](Tactic::requires) and
+    /// [`maturity`](Tactic::maturity): a default would let a tactic inherit a
+    /// claim by saying nothing.
+    ///
+    /// **This is NOT implied by [`writes`](Tactic::writes), and the gap is the
+    /// whole reason the method exists.** `writes` is the census of what `apply`
+    /// mutates through `&mut ThoughtCtx`; `delta_conf` is applied by
+    /// [`run`](Tactic::run) *afterwards* and is deliberately a separate effect
+    /// (`no_kernel_writes_outside_its_declared_mask` calls `apply` directly to
+    /// keep them apart). Measured over the 34: **no** kernel declares
+    /// `ThoughtField::Confidence` in `writes`, and only **14** can move
+    /// `delta_conf` — while 31 are `Operational`. So
+    /// `maturity().is_production()` is a far weaker statement than "this
+    /// tactic can move the confidence number", and a caller that needs the
+    /// latter must ask for it.
+    ///
+    /// The concrete consumer: a dispatch that samples `k` tactics and asks
+    /// whether any of them moved `ctx.confidence`. Every tactic it samples that
+    /// cannot move that number is a spent slot returning guaranteed agreement —
+    /// the failure `E-A-WATCHER-THAT-CANNOT-DISSENT-IS-NOT-A-WATCHER-1`
+    /// describes, which a maturity filter alone does NOT close (codex review,
+    /// PR #971: the newly-Operational `Etd` rewrites `candidates` and returns
+    /// `0.0` forever).
+    ///
+    /// Pinned two-sided against the probe matrix by
+    /// `moves_confidence_matches_observation`: over-declaring and
+    /// under-declaring both fail.
+    fn moves_confidence(&self) -> bool;
+
     /// The tactic's **output checklist**: which [`ThoughtField`]s its
     /// [`apply`](Tactic::apply) can mutate, on ANY branch.
     ///
@@ -426,6 +458,9 @@ impl Tactic for Rte {
     fn maturity(&self) -> KernelMaturity {
         KernelMaturity::Operational
     }
+    fn moves_confidence(&self) -> bool {
+        true
+    }
     fn writes(&self) -> ThoughtMask {
         ThoughtMask::of(&[ThoughtField::Rung, ThoughtField::FreeEnergy])
     }
@@ -454,6 +489,9 @@ impl Tactic for Htd {
     fn maturity(&self) -> KernelMaturity {
         KernelMaturity::Operational
     }
+    fn moves_confidence(&self) -> bool {
+        false
+    }
     fn writes(&self) -> ThoughtMask {
         ThoughtMask::of(&[ThoughtField::Candidates])
     }
@@ -476,6 +514,9 @@ impl Tactic for Smad {
     }
     fn maturity(&self) -> KernelMaturity {
         KernelMaturity::Operational
+    }
+    fn moves_confidence(&self) -> bool {
+        true
     }
     fn writes(&self) -> ThoughtMask {
         ThoughtMask::of(&[])
@@ -507,6 +548,9 @@ impl Tactic for Rcr {
     fn maturity(&self) -> KernelMaturity {
         KernelMaturity::Operational
     }
+    fn moves_confidence(&self) -> bool {
+        false
+    }
     fn writes(&self) -> ThoughtMask {
         ThoughtMask::of(&[ThoughtField::Candidates])
     }
@@ -527,6 +571,9 @@ impl Tactic for Tcp {
     }
     fn maturity(&self) -> KernelMaturity {
         KernelMaturity::Operational
+    }
+    fn moves_confidence(&self) -> bool {
+        true
     }
     fn writes(&self) -> ThoughtMask {
         ThoughtMask::of(&[ThoughtField::Candidates])
@@ -552,6 +599,9 @@ impl Tactic for Tr {
     fn maturity(&self) -> KernelMaturity {
         KernelMaturity::Operational
     }
+    fn moves_confidence(&self) -> bool {
+        false
+    }
     fn writes(&self) -> ThoughtMask {
         ThoughtMask::of(&[ThoughtField::Candidates])
     }
@@ -576,6 +626,9 @@ impl Tactic for Asc {
     }
     fn maturity(&self) -> KernelMaturity {
         KernelMaturity::Operational
+    }
+    fn moves_confidence(&self) -> bool {
+        true
     }
     fn writes(&self) -> ThoughtMask {
         ThoughtMask::of(&[])
@@ -604,6 +657,9 @@ impl Tactic for Cas {
     }
     fn maturity(&self) -> KernelMaturity {
         KernelMaturity::Operational
+    }
+    fn moves_confidence(&self) -> bool {
+        false
     }
     fn writes(&self) -> ThoughtMask {
         ThoughtMask::of(&[ThoughtField::Candidates])
@@ -635,6 +691,9 @@ impl Tactic for Irs {
     fn maturity(&self) -> KernelMaturity {
         KernelMaturity::Operational
     }
+    fn moves_confidence(&self) -> bool {
+        false
+    }
     fn writes(&self) -> ThoughtMask {
         ThoughtMask::of(&[ThoughtField::Candidates])
     }
@@ -657,6 +716,9 @@ impl Tactic for Mcp {
     }
     fn maturity(&self) -> KernelMaturity {
         KernelMaturity::Operational
+    }
+    fn moves_confidence(&self) -> bool {
+        true
     }
     fn writes(&self) -> ThoughtMask {
         ThoughtMask::of(&[])
@@ -685,6 +747,9 @@ impl Tactic for Cr {
     }
     fn maturity(&self) -> KernelMaturity {
         KernelMaturity::Operational
+    }
+    fn moves_confidence(&self) -> bool {
+        true
     }
     fn writes(&self) -> ThoughtMask {
         ThoughtMask::of(&[])
@@ -724,6 +789,9 @@ impl Tactic for Tca {
         KernelMaturity::Operational
     }
     /// only when `candidates` is non-empty
+    fn moves_confidence(&self) -> bool {
+        false
+    }
     fn writes(&self) -> ThoughtMask {
         ThoughtMask::of(&[ThoughtField::Candidates])
     }
@@ -748,6 +816,9 @@ impl Tactic for Cdt {
         KernelMaturity::Operational
     }
     /// both branches write; the convergent branch only when a max exists
+    fn moves_confidence(&self) -> bool {
+        true
+    }
     fn writes(&self) -> ThoughtMask {
         ThoughtMask::of(&[ThoughtField::Candidates])
     }
@@ -778,6 +849,9 @@ impl Tactic for Mct {
     fn maturity(&self) -> KernelMaturity {
         KernelMaturity::Operational
     }
+    fn moves_confidence(&self) -> bool {
+        false
+    }
     fn writes(&self) -> ThoughtMask {
         ThoughtMask::of(&[ThoughtField::Candidates])
     }
@@ -805,6 +879,9 @@ impl Tactic for Lsi {
     fn maturity(&self) -> KernelMaturity {
         KernelMaturity::Operational
     }
+    fn moves_confidence(&self) -> bool {
+        false
+    }
     fn writes(&self) -> ThoughtMask {
         ThoughtMask::of(&[ThoughtField::Sd])
     }
@@ -829,6 +906,9 @@ impl Tactic for Pso {
     fn maturity(&self) -> KernelMaturity {
         KernelMaturity::Operational
     }
+    fn moves_confidence(&self) -> bool {
+        false
+    }
     fn writes(&self) -> ThoughtMask {
         ThoughtMask::of(&[ThoughtField::Candidates])
     }
@@ -850,6 +930,9 @@ impl Tactic for Cdi {
     }
     fn maturity(&self) -> KernelMaturity {
         KernelMaturity::Operational
+    }
+    fn moves_confidence(&self) -> bool {
+        false
     }
     fn writes(&self) -> ThoughtMask {
         ThoughtMask::of(&[ThoughtField::Beliefs, ThoughtField::Dissonance])
@@ -879,6 +962,9 @@ impl Tactic for Cws {
         KernelMaturity::Operational
     }
     /// only when a max-scoring candidate exists
+    fn moves_confidence(&self) -> bool {
+        false
+    }
     fn writes(&self) -> ThoughtMask {
         ThoughtMask::of(&[ThoughtField::Beliefs])
     }
@@ -903,6 +989,9 @@ impl Tactic for Are {
     fn maturity(&self) -> KernelMaturity {
         KernelMaturity::Demonstration
     }
+    fn moves_confidence(&self) -> bool {
+        false
+    }
     fn writes(&self) -> ThoughtMask {
         ThoughtMask::of(&[])
     }
@@ -925,6 +1014,9 @@ impl Tactic for Tcf {
     }
     fn maturity(&self) -> KernelMaturity {
         KernelMaturity::Operational
+    }
+    fn moves_confidence(&self) -> bool {
+        true
     }
     fn writes(&self) -> ThoughtMask {
         ThoughtMask::of(&[ThoughtField::Candidates])
@@ -951,6 +1043,9 @@ impl Tactic for Ssr {
     fn maturity(&self) -> KernelMaturity {
         KernelMaturity::Operational
     }
+    fn moves_confidence(&self) -> bool {
+        true
+    }
     fn writes(&self) -> ThoughtMask {
         ThoughtMask::of(&[])
     }
@@ -973,6 +1068,9 @@ impl Tactic for Etd {
         KernelMaturity::Operational
     }
     /// only when the field proposes a boundary wider than [`NOISE_FLOOR`]
+    fn moves_confidence(&self) -> bool {
+        false
+    }
     fn writes(&self) -> ThoughtMask {
         ThoughtMask::of(&[ThoughtField::Candidates])
     }
@@ -1021,6 +1119,9 @@ impl Tactic for Amp {
         KernelMaturity::Operational
     }
     /// only when `free_energy > 0.5`
+    fn moves_confidence(&self) -> bool {
+        false
+    }
     fn writes(&self) -> ThoughtMask {
         ThoughtMask::of(&[ThoughtField::Rung])
     }
@@ -1044,6 +1145,9 @@ impl Tactic for Zcf {
     /// Demonstration: context-blind VSA bind identity; ignores ctx entirely.
     fn maturity(&self) -> KernelMaturity {
         KernelMaturity::Demonstration
+    }
+    fn moves_confidence(&self) -> bool {
+        false
     }
     fn writes(&self) -> ThoughtMask {
         ThoughtMask::of(&[])
@@ -1069,6 +1173,9 @@ impl Tactic for Hpm {
         KernelMaturity::Operational
     }
     /// only when `candidates` is non-empty
+    fn moves_confidence(&self) -> bool {
+        false
+    }
     fn writes(&self) -> ThoughtMask {
         ThoughtMask::of(&[ThoughtField::Candidates])
     }
@@ -1099,6 +1206,9 @@ impl Tactic for Cur {
         KernelMaturity::Operational
     }
     /// only while more than one candidate remains (the loop may not run)
+    fn moves_confidence(&self) -> bool {
+        true
+    }
     fn writes(&self) -> ThoughtMask {
         ThoughtMask::of(&[ThoughtField::Candidates])
     }
@@ -1129,6 +1239,9 @@ impl Tactic for Mpc {
     fn maturity(&self) -> KernelMaturity {
         KernelMaturity::Operational
     }
+    fn moves_confidence(&self) -> bool {
+        false
+    }
     fn writes(&self) -> ThoughtMask {
         ThoughtMask::of(&[ThoughtField::Candidates])
     }
@@ -1150,6 +1263,9 @@ impl Tactic for Ssam {
     }
     fn maturity(&self) -> KernelMaturity {
         KernelMaturity::Operational
+    }
+    fn moves_confidence(&self) -> bool {
+        true
     }
     fn writes(&self) -> ThoughtMask {
         ThoughtMask::of(&[])
@@ -1173,6 +1289,9 @@ impl Tactic for Idr {
         KernelMaturity::Operational
     }
     /// only when `candidates` is non-empty
+    fn moves_confidence(&self) -> bool {
+        false
+    }
     fn writes(&self) -> ThoughtMask {
         ThoughtMask::of(&[ThoughtField::Candidates])
     }
@@ -1196,6 +1315,9 @@ impl Tactic for Spp {
     }
     fn maturity(&self) -> KernelMaturity {
         KernelMaturity::Operational
+    }
+    fn moves_confidence(&self) -> bool {
+        true
     }
     fn writes(&self) -> ThoughtMask {
         ThoughtMask::of(&[])
@@ -1227,6 +1349,9 @@ impl Tactic for Icr {
     }
     fn maturity(&self) -> KernelMaturity {
         KernelMaturity::Operational
+    }
+    fn moves_confidence(&self) -> bool {
+        true
     }
     fn writes(&self) -> ThoughtMask {
         ThoughtMask::of(&[])
@@ -1289,6 +1414,9 @@ impl Tactic for Sdd {
     fn maturity(&self) -> KernelMaturity {
         KernelMaturity::Operational
     }
+    fn moves_confidence(&self) -> bool {
+        true
+    }
     fn writes(&self) -> ThoughtMask {
         ThoughtMask::of(&[])
     }
@@ -1336,6 +1464,9 @@ impl Tactic for Dtmf {
         KernelMaturity::Operational
     }
     /// only when the gate reads BLOCK
+    fn moves_confidence(&self) -> bool {
+        false
+    }
     fn writes(&self) -> ThoughtMask {
         ThoughtMask::of(&[ThoughtField::Temperature])
     }
@@ -1367,6 +1498,9 @@ impl Tactic for Hkf {
     /// Demonstration: context-blind cross-domain bind identity; ignores ctx entirely.
     fn maturity(&self) -> KernelMaturity {
         KernelMaturity::Demonstration
+    }
+    fn moves_confidence(&self) -> bool {
+        false
     }
     fn writes(&self) -> ThoughtMask {
         ThoughtMask::of(&[])
@@ -1573,10 +1707,11 @@ mod effect_census {
                 continue;
             }
             let has_write = !k.writes().is_empty();
-            let moves_confidence = probes().into_iter().any(|mut c| {
-                let out = k.apply(&mut c);
-                out.delta_conf != 0.0
-            });
+            // The DECLARATION, not a second measurement — `moves_confidence`
+            // is itself pinned against observation by
+            // `moves_confidence_matches_observation`, and re-deriving it here
+            // would make this test pass even if the declaration were a lie.
+            let moves_confidence = k.moves_confidence();
             assert!(
                 has_write || moves_confidence,
                 "{} ({}) claims Operational but writes nothing and never moves confidence",
@@ -1584,6 +1719,72 @@ mod effect_census {
                 k.meta().id
             );
         }
+    }
+
+    /// **`moves_confidence()` is a MEASUREMENT, not a wish** — pinned in both
+    /// directions, so neither over- nor under-declaring survives.
+    ///
+    /// Under-declaring is the dangerous one: a caller filtering on this to find
+    /// tactics that can dissent would silently drop a real dissenter. Over-
+    /// declaring is the one that reintroduces the defect this method exists to
+    /// close — a spent watcher slot returning guaranteed agreement.
+    ///
+    /// If a future kernel gains a confidence branch the probe matrix cannot
+    /// reach, this fails and the PROBES get extended — which is exactly what
+    /// happened to `Mcp` once already (see `probes`).
+    #[test]
+    fn moves_confidence_matches_observation() {
+        for k in all_kernels() {
+            let observed = probes()
+                .into_iter()
+                .any(|mut c| k.apply(&mut c).delta_conf != 0.0);
+            assert_eq!(
+                k.moves_confidence(),
+                observed,
+                "{} ({}) declares moves_confidence()={} but observation says {}",
+                k.meta().code,
+                k.meta().id,
+                k.moves_confidence(),
+                observed
+            );
+        }
+    }
+
+    /// **Confidence-capable is strictly STRONGER than production, and the gap
+    /// is large.** Measured: 14 of 34 can move `delta_conf`, 31 of 34 are
+    /// `Operational`.
+    ///
+    /// Both halves matter. The implication (`moves_confidence` ⇒
+    /// `Operational`) is what lets a caller filter on capability ALONE without
+    /// separately checking maturity — it is checked here rather than asserted
+    /// in a comment. The strictness (the two sets are NOT equal) is what stops
+    /// a future reader concluding the two predicates are interchangeable, which
+    /// is precisely the conflation codex caught on PR #971.
+    #[test]
+    fn moves_confidence_is_strictly_stronger_than_production() {
+        let (mut capable, mut production) = (0usize, 0usize);
+        for k in all_kernels() {
+            if k.moves_confidence() {
+                capable += 1;
+                assert!(
+                    k.maturity().is_production(),
+                    "{} moves confidence but is {:?} — a non-production kernel \
+                     must land no effect at all",
+                    k.meta().code,
+                    k.maturity()
+                );
+            }
+            if k.maturity().is_production() {
+                production += 1;
+            }
+        }
+        assert_eq!(capable, 14, "the confidence-capable set");
+        assert_eq!(production, 31, "the production set");
+        assert!(
+            capable < production,
+            "the two predicates coincide — filtering on maturity would be enough \
+             and this method would be redundant"
+        );
     }
 
     /// The converse: a `Demonstration` or `Stub` must NOT be quietly
@@ -1756,6 +1957,9 @@ mod tests {
         }
         fn maturity(&self) -> KernelMaturity {
             self.0
+        }
+        fn moves_confidence(&self) -> bool {
+            true // it returns 0.25 — see `apply`
         }
         fn writes(&self) -> ThoughtMask {
             ThoughtMask::of(&[ThoughtField::Rung])

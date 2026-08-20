@@ -1,3 +1,75 @@
+## 2026-08-20 — branch `claude/carve-nars-kernels` — codex + CodeRabbit review corrections: the consumer filter was filtering on the wrong predicate
+
+### Current Contract Inventory — 1 new trait method (`crates/lance-graph-contract/src/recipe_kernels.rs`)
+
+- **`Tactic::moves_confidence(&self) -> bool`** — non-defaulted, like
+  `requires` and `maturity`; 34 per-kernel declarations. Answers the question
+  the dissent channels actually ask, which **nothing on the trait previously
+  exposed**: `writes()` is the census of `&mut ThoughtCtx` mutations, while
+  `delta_conf` is applied by `run()` afterwards and is deliberately a separate
+  effect. Measured: **31 kernels are `Operational`, only 14 can move
+  `delta_conf`, and 0 declare `ThoughtField::Confidence` in `writes()`.**
+- Pinned two-sided by `moves_confidence_matches_observation` (over- and
+  under-declaring both fail against the probe matrix) and by
+  `moves_confidence_is_strictly_stronger_than_production` (the implication is
+  checked, and so is the strictness — 14 < 31 — so a future reader cannot
+  conclude the two predicates are interchangeable).
+- `maturity_operational_implies_an_effect` now reads the DECLARATION rather
+  than re-deriving it; re-deriving would let the test pass against a lie.
+
+### The consumer predicate is corrected — and the Stage-2.5 headline inverts
+
+`StyleStrategy::watcher_can_dissent` filtered on `maturity().is_production()`.
+`Operational` is a disjunction (*mutates a field* OR *moves confidence*) while
+both channels compare only `tc.confidence`, so the filter **removed 3 mute
+watchers and admitted 17 more** — preserving the exact budget loss it was
+introduced to remove. `Cas` and `Etd`, both carved to production in this same
+arc, are the sharp cases: both rewrite `candidates`, both return `0.0` forever.
+
+| channel | sample changed | verdict change | direction | κ (fired) |
+|---|---|---|---|---|
+| same-family | 4080/5760 (70.8 %) | **1098**/5760 | 1098 gained, **0 lost** | 0.6307 |
+| cross-family | 4224/5760 (73.3 %) | **384**/5760 | 366 gained, 18 lost | 0.8098 |
+
+`n10 = 0` on same-family is the coverage argument as a measurement: removing
+only mute watchers cannot remove an objection. The 18 on cross-family are the
+strided sampler, not the filter. Full record:
+`E-THE-FILTER-WAS-FILTERING-ON-THE-WRONG-PREDICATE-1`.
+
+### Review findings addressed (7 total, all valid)
+
+**codex (2 × P2)** — the predicate above; and the cross-family verdict label
+reduced `(RungLevel, Mechanism)` to the rung, so a mechanism swap at the same
+rung would have counted as agreement while the report claimed the mechanism
+agreed. Both components now encode into one nominal label (`cross_label`).
+
+**CodeRabbit (5 × minor)** — α and the per-rung independent unit now stated on
+the Clopper-Pearson ladder; the "byte-identical" wording for `run()` replaced
+with behavioural compatibility; the census chunk guard now asserts `rung`
+alongside `style_idx` and `k` (the push order is style → rung → k → tol, so
+two of three checks could pass on a broken chunking assumption); the report
+header's blockquote continuations fixed (source indentation after `\n` turned
+them into an indented code block); the `mean |Δcount|` header cell's pipes
+escaped (7 cells against a 6-cell rule).
+
+### Found while fixing the above, and worth its own line
+
+`render_report` wrote **`Verdict change: 0/{n}` as a hardcoded literal** — it
+would have printed zero regardless of the measurement, and did for one revision
+after the predicate was corrected. Now computed from `binary_association`; the
+re-pinned headline test is what caught it.
+
+### Artifacts
+
+`stage25-consumer-filter-verdict-discordance.csv` was header-only and is now
+**1,482 rows / 57 KB** — the file whose emptiness was the result now carries
+the flips, which is exactly the shape it was built for.
+
+### Gates
+
+`lance-graph-contract` 1171/1171 · `lance-graph-planner` 364/364 + 1 ignored ·
+fmt clean · clippy `-D warnings` clean on both.
+
 ## 2026-08-20 — branch `claude/carve-nars-kernels` — Stage 2.5: the consumer-filter census (measurement only, no semantic change)
 
 ### Current Contract Inventory — no new types; ONE behaviour-preserving extraction + a `#[cfg(test)]` instrument
@@ -75,9 +147,12 @@ one channel.
   with "the dispatch refuses non-production kernels"; a caller that cannot
   tell them apart cannot report either honestly.
 - **`Tactic::run_with(&mut ThoughtCtx, MaturityPolicy) -> Outcome`** — the
-  policy-carrying sibling. **`run()` is byte-identical to before** (it
-  delegates with `Any`), so the surface is strictly additive and no existing
-  caller changes. The policy is checked BEFORE `gate()` on purpose: a
+  policy-carrying sibling. **`run()` is behaviourally unchanged** — it now
+  delegates with `MaturityPolicy::Any`, so its implementation differs while
+  every existing caller's observable result does not (pinned by
+  `run_still_means_any`). The earlier wording here said "byte-identical", which
+  was wrong about the implementation and right only about the behaviour
+  (CodeRabbit, PR #971). The policy is checked BEFORE `gate()` on purpose: a
   `Gate`-bucket `Demonstration` sitting in `GateState::Flow` would otherwise
   report `GatedOff` and the refusal would be invisible. A refused kernel never
   sees `ctx` — not `gate`, not `apply`.

@@ -244,12 +244,28 @@ impl StyleStrategy {
 
     /// Can a watcher of this recipe id actually DISSENT?
     ///
-    /// Only if a kernel exists for it AND that kernel is production — a
-    /// non-production kernel is refused by
-    /// [`MaturityPolicy::ProductionOnly`](lance_graph_contract::recipe_kernels::MaturityPolicy::ProductionOnly)
-    /// and, even under `Any`, lands no effect it could dissent WITH.
+    /// **The predicate is `moves_confidence()`, NOT `maturity().is_production()`
+    /// — and the difference is most of the population.** Both channels compare
+    /// `tc.confidence` against `admitted`, so the only thing that can produce a
+    /// dissent is a non-zero `delta_conf`. Measured over the 34 kernels: **31
+    /// are `Operational` but only 14 can move `delta_conf`**, because
+    /// `Operational` means *mutates some `ThoughtCtx` field OR moves
+    /// confidence* — a disjunction. `Etd` and `Cas` are the sharp cases: both
+    /// were carved to production in this same arc, both rewrite `candidates`,
+    /// and both return `0.0` forever. Sampling one spends a `k` slot on an
+    /// observer that is structurally incapable of objecting.
+    ///
+    /// A maturity filter alone therefore **preserved the exact budget loss it
+    /// was introduced to remove** — it excluded 3 kernels and admitted 17 that
+    /// could not dissent either. Found by codex review on PR #971, against the
+    /// first version of this function.
+    ///
+    /// Checking maturity as well would be a guard that can never fire:
+    /// `moves_confidence` ⇒ `Operational` is pinned upstream by
+    /// `moves_confidence_is_strictly_stronger_than_production`, so the
+    /// capability subsumes the maturity.
     fn watcher_can_dissent(id: u8) -> bool {
-        kernel(id).is_some_and(|k| k.maturity().is_production())
+        kernel(id).is_some_and(|k| k.moves_confidence())
     }
 
     /// The eligibility predicate BOTH dissent channels sample against —
