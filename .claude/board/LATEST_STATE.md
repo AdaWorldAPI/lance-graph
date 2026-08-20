@@ -1,48 +1,70 @@
-## 2026-08-20 — branch `claude/lance-graph-stage-3-recovery-2wrdbd` — S3.0 corrected: the exact causal-literal address (retracts #973's overclaim, salvages its code)
+## 2026-08-20 — branch `claude/lance-graph-stage-3-recovery-2wrdbd` — S3.0 CLOSED AS NOT-NEEDED (no new type); #973 retraction + two overclaim corrections
 
-### Current Contract Inventory — 1 new zero-dep contract type, no packed tenant
+### Contract Inventory — NO CHANGE
 
-- **`lance_graph_contract::causal_literal`** (new module, reintroduces #973's
-  struct verbatim; rewrites the surrounding claim):
-  - **`CausalLiteral { domain, subject, predicate, object }`** — four `u16`
-    canonical ordinals, **8 bytes of pure address**, `const _`-asserted at 8.
-  - `new` / `domain` / `subject` / `predicate` / `object` / `is_fully_bound`
-  - `as_u64` / `from_u64` / `to_le_bytes` / `from_le_bytes` — exact reversible
-    identity
-  - `routing_prefix(depth)` / `full_path()` — a **lossy** `NiblePath` cohort
-    projection, explicitly scoped as one property of `NiblePath` specifically,
-    never as "the HHTL form" of the literal
-  - `ConceptId` / `DomainId` / `UNBOUND` / `NIBBLES_PER_COMPONENT` /
-    `LITERAL_PATH_NIBBLES` (`const _`-asserted `== hhtl::MAX_DEPTH`)
-- **No `ValueTenant`, no CE64 bit added, no V3 reserved byte spent, no
-  `ENVELOPE_LAYOUT_VERSION` bump.** Same Ruling-E gate #973 satisfied.
-- **Corrected vs #973:** the module doc no longer claims identity+evidence
-  "cannot both be HHTL" — it names `NiblePath`'s 16-nibble ceiling as a fact
-  about ONE router type, cross-references the three counterexamples
-  (WordNet #875/#876, `tekamolo_facet.rs`/`FacetCascade`, the 24×i4 anaphora
-  boundary) that show orthogonal-facet/exact-address patterns already working
-  in this repo, and leaves S3.1's evidence/meta placement explicitly OPEN
-  rather than forcing a "ref-escape" conclusion.
+**This PR adds no type, no module, no bit, no tenant, no layout version.** It
+is a retraction + audit. `crates/lance-graph-contract/src/lib.rs` is byte-clean
+against `main`.
 
-### Why this session exists
+### What was withdrawn, and why
 
-PR #973 ("S3.0 — the exact HHTL causal-literal address") was closed unmerged
-by the operator: its code was sound but its board-finding title/framing
-(`E-THE-LITERAL-CANNOT-LIVE-IN-THE-PATH-IT-ROOTS-1`) turned a correct local
-fact about `NiblePath`'s depth budget into an implied global HHTL-impossibility
-claim, forgetting three already-measured counterexamples in this same
-repository. Full audit: `.claude/handovers/2026-08-20-s3-0-cold-start-recovery-audit.md`.
-Retraction + corrected finding: `E-NIBLEPATH-DEPTH-IS-NOT-HHTL-DIMENSIONALITY-1`
-+ `E-A-LOCAL-DERIVATION-CANNOT-OVERRULE-A-MEASURED-COUNTEREXAMPLE-1` in
-`EPIPHANIES.md`.
+A first draft of this recovery PR reintroduced #973's `CausalLiteral`
+(`4 × u16`, 8 bytes) with corrected prose. **The operator stopped it before
+merge, and was right on four counts** — all now recorded as
+`E-A-LOCAL-DERIVATION-CANNOT-OVERRULE-A-MEASURED-COUNTEREXAMPLE-1` instance 2:
 
-### Not in this PR (the brief's own order, unchanged from #973)
+1. **Wrong universality.** Its own test asserted `TREATED_WITH` — the structure
+   is GENERIC. Causality is a predicate family / qualification, never universal
+   identity.
+2. **`4 × u16` is not absolute.** MedCare-rs `ONTOLOGY_BAKE_STATE.md`:182:
+   *"real OBO ids run past `u16` (MONDO:0700092 = 700,092)."* The V3 rail
+   already solves this.
+3. **A WordNet overclaim.** #875 was cited as an "EXACT structural encoding"; its
+   own W5 gate reports **256 cells, occupancy median 255, over 65,292 leaves** —
+   a locality/search prior, never an identity encoding.
+4. **`routing_prefix()` was unearned.** Lexicographic prefix over concatenated
+   ordinals, labelled an "HHTL locality projection", with no consumer and no
+   measurement.
 
-S3.0b causal regime · S3.1 Meta tree (evidence placement now explicitly OPEN,
-not pre-decided) · S3.2 V3 local proxy bridge · S3.3 `ResolvedPredicate` ·
-S3.4 DisMech · S3.5 NARS evidence mass · S3.6 JC measurement · S3.7 semantic
-recipe projection · S3.8 potholes/backcast · S3.9 Pearl validation.
-Stage-2/2.5/2.6 (#971) remain the frozen baseline — untouched here.
+### The question that closed the slot
+
+> **WHAT EXACT INFORMATION CANNOT BE EXPRESSED BY THE ADDRESSING THAT ALREADY
+> EXISTS?**
+
+**Nothing demonstrable.** `identity_quad::IdentityQuad` (operator-RATIFIED
+2026-08-17) already carries **four exact external identities as `4 × u24` in one
+96-bit V3 facet** behind a `classid(4)`, refuse-don't-truncate, bake-time
+crosswalk resolution. It strictly dominates the withdrawn type. Siblings:
+`ogar_elk::ClassAddr` (`u32 + u32`, a pre-bake join key by its own doc),
+`canonical_node::NodeGuid` + HHTL, the V3 OBO rail.
+
+Per the operator's rule — no concrete falsifier ⇒ **no new absolute-address
+type.** S3.0 is closed as NOT-NEEDED, not filled because a plan had a slot.
+
+### The genuinely open addressing gap (different, not fixed here)
+
+`ClassId = u16` (`class_view.rs:54`) is near-exhausted for **relations** —
+MedCare-rs `CLAUDE.md` #10: *"cannot address a relation — 11 prefixes, 8 of 280
+ids over the ceiling."* A classid-mint capacity question for OGAR/lance-graph;
+to be raised with the operator in session, not patched from a consumer.
+
+### Where the work actually is
+
+| | ADDRESS | HYDRATED SoA | TRAVERSAL |
+|---|---|---|---|
+| Bible / Rosetta | yes | **NO** | partial / context |
+| OSM | yes | yes | overlay / junction |
+| MedCare ontology | yes | yes | **YES, Stage 1** |
+| DisMech oracle | source | structured | causal oracle |
+
+The empty column is not ADDRESS. Next: **hydrate epistemic / causal nodes →
+reason over them → think about the reasoning**, with the DisMech oracle
+experiment as the gate (hide mechanism intermediates → hydrate the addressed
+neighbourhood → let NARS/recipes recover candidates → compare against DisMech
+truth).
+
+Full audit: `.claude/handovers/2026-08-20-s3-0-cold-start-recovery-audit.md`.
+Stage-2/2.5/2.6 (#971) untouched; #970's CE64 layout untouched.
 
 ---
 ## 2026-08-20 — lance-graph #971 (MERGED, `2cbe62d`, head `d627f5c`) — Stage 2 carves + Stage 2.5 census + Stage 2.6a V3 invariance + CE64 ⇄ V3 losslessness

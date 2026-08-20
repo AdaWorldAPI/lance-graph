@@ -1,180 +1,192 @@
 # S3.0 Cold-Start Recovery Audit — 2026-08-20
 
+**Outcome: no new address type. S3.0 as specified is WITHDRAWN.**
+This PR retracts #973's overclaim, corrects a WordNet overclaim this session
+itself introduced, and records why the S3.0 address slot needs no new type.
+
 ## A. MERGED substrate truth
 
-- **PR #970** [MERGED, `781c3b9b`]: `CausalEdge64` v2 layout final. Bits 59-60 =
-  `TrustTexture` (canonical) with an ADDITIVE second reading `CausalTopology`
-  over the *same* bits — no bits move, no auto-derivation. Bits 61-63 = spare,
-  with an ADDITIVE `ReasoningBand` reading — explicit `with_reasoning_band()`
-  only, never auto-derived from mantissa/confidence/style. Deprecated v1
-  `temporal` (bits 52-63) is NOT valid v2 chronology; a v1 edge with
-  `temporal >= 512` reads a nonzero band under v2 — version-gate required.
-  Confirmed live in `crates/causal-edge/src/layout.rs`.
-- **PR #971** [MERGED, `93dc57e`]: Stage-2/2.5/2.6a frozen baseline. Key
-  correction carried: `InferenceType` is a LOSSY compat projection of the
-  4-bit signed mantissa (8/16 states corrupted on round-trip, incl. the
-  `pack_v2` default `0 -> +1`) — never route a conversion through it; carry
-  the raw nibble. CE64<->V3 is bit-identical except (a) dedup'd 24-bit in-edge
-  SPO and (b) deprecated v1 temporal (deliberately NOT lifted — TE stays an
-  independent producer-set signed chain offset). "Recipe capability != NARS
-  reachability" measured (`Mcp` truthfully declares `moves_confidence()` and
-  is still silent 0/180).
-- **PR #973** [REJECTED, CLOSED UNMERGED, no comments from reviewers —
-  operator judgment call before any bot review completed]. Confirmed via
-  `git log`/`grep`: nothing from this PR is on `main` — `causal_literal.rs`
-  does not exist in the working tree.
+- **PR #970** [MERGED, `781c3b9b`]: CE64 v2 layout final. Bits 59-60 =
+  `TrustTexture` (canonical) + ADDITIVE `CausalTopology` reading over the same
+  bits. Bits 61-63 = spare + ADDITIVE `ReasoningBand`, explicit
+  `with_reasoning_band()` only, never auto-derived. Deprecated v1 `temporal`
+  (52-63) is NOT valid v2 chronology; version-gate edges of unknown
+  provenance. Confirmed in `crates/causal-edge/src/layout.rs`.
+- **PR #971** [MERGED]: Stage-2/2.5/2.6a frozen baseline. `InferenceType` is a
+  LOSSY compat projection of the 4-bit signed mantissa (8/16 states corrupted,
+  incl. `pack_v2` default `0 -> +1`) — carry the raw nibble. CE64<->V3
+  bit-identical modulo dedup'd SPO + deprecated temporal. Capability !=
+  reachability measured.
+- **PR #973** [REJECTED, closed unmerged]: nothing on `main`.
 
-## B. MEASURED substrate truth (the counterexamples #973 forgot)
+## B. MEASURED substrate truth
 
-All confirmed live/merged in this repo, read in full this session:
+1. **`identity_quad::IdentityQuad`** [MERGED, operator-RATIFIED 2026-08-17,
+   `ISS-IDENTITY-QUAD-WIDE-CARVING-HOME`]. **Four external identity spaces,
+   `4 × u24` contiguous, in ONE 96-bit V3 facet payload** via
+   `LegacyOutlier::WideTriple`, behind a `classid(4)`. Refuses rather than
+   truncates (`QuadError::OrdinalTooLarge`, `MAX_ORDINAL = 2^24 - 2`);
+   codebooks refuse rather than saturate (`CodebookError::TooLarge`). Its
+   stated purpose is resolving a crosswalk ONCE at bake time so a read is a
+   fixed-offset register read — no join, no crosswalk walk.
+2. **`ogar_elk::ClassAddr`** [MERGED]: `classid: u32 + identity: u32` — 8
+   bytes for ONE node, and its own doc is explicit that it is a pre-bake
+   **join key**, "not an ABI address, and deliberately not documented as one".
+3. **Real OBO identities exceed `u16`** [MEASURED, MedCare-rs
+   `docs/ONTOLOGY_BAKE_STATE.md`:182]: *"real OBO ids run past `u16`
+   (MONDO:0700092 = 700,092) and one V3 field cannot hold that."* The
+   substrate ALREADY solved this: the V3 rail splits a 24-bit CURIE numeric as
+   `family:identity = (num >> 16, num & 0xFFFF)`, read via
+   `obo_store::row_addr`. Corpus scale: MONDO 32,095 · HP 19,836 ·
+   UBERON 14,975 · PATO 1,887, and relations cross families.
+4. **`ClassId = u16` is near-exhausted for RELATIONS** [MEASURED, MedCare-rs
+   `CLAUDE.md` commitment #10 + `RAIL_OFFENE_POSTEN.md`]: *"`ClassId = u16`
+   cannot address a relation — 11 prefixes, 8 of 280 ids over the ceiling."*
+   That is a real open gap — and it is a **classid-mint capacity** question
+   owned by OGAR/lance-graph, NOT something a new literal type fixes.
+5. **WordNet #875/#876** [MERGED, MEASURED] — see §C2 for the corrected
+   reading. Also #876: a consumer can be structure-blind to an address's
+   hierarchy without that meaning the address lacks structure.
+6. **TEKAMOLO #839/#844** [MERGED, live code]: one 16-byte content-blind
+   register, several simultaneous ClassView-selected readings
+   (`G3D4`/`G4D3`/`G6D2`/`24×i4`). Capability lands as a new READING.
+7. **24×i4 anaphora #850** [MEASURED, 7,657 real German relative clauses,
+   88.01% in-window]: a local representation exhausting cleanly marks a TYPE
+   boundary — switch reading, never widen the pointer.
 
-1. **WordNet #875/#876** [MERGED, MEASURED]. A full 4-ary depth-4 (16-nibble)
-   HHTL fold of real ground-truth taxonomy is NOT lossy hashing — the ADDRESS
-   itself encodes ancestry (corr +0.494 vs shuffled -0.036), the sub-nibble
-   rung is load-bearing (2.47 hops the 16-ary router can't see), and #876
-   separately proved a *consumer* (the ruler) can be structure-blind to an
-   address's hierarchy without that meaning the address lacks structure —
-   "the address encodes taxonomy" vs "the calculator reads the address as a
-   number" are different, separable claims.
-2. **TEKAMOLO #839/#844** [MERGED, live code: `facet.rs` + `tekamolo_facet.rs`].
-   `FacetCascade = facet_classid(4) | 6×(8:8) = 16B`, ONE 128-bit register with
-   MULTIPLE simultaneous ClassView-selected readings (`G3D4`/`G4D3`/`G6D2`,
-   `24×i4`), never nested path-depth. TEKAMOLO names the `G4D3` carving as
-   4 ORTHOGONAL 256:256:256 lanes (Temporal/Kausal/Modal/Lokal) over the SAME
-   bytes — new semantic capability lands as a new *reading*, never a deeper
-   path. This is the concrete, shipped instance of "orthogonal facets over one
-   address" the mission brief's OSM/TEKAMOLO doctrine describes.
-3. **24×i4 anaphora #850** [MEASURED, 88.01% real German relative clauses].
-   Proves the general shape #973 needed but didn't reach for: a LOCAL fixed
-   representation (i4, -8..+7) exhausts cleanly at a real linguistic boundary,
-   and the correct response is NOT "widen the local pointer" — it's "the
-   exhausted local representation marks a TYPE boundary; switch to a
-   DIFFERENT sanctioned reading of the SAME address register (a basin edge),
-   never invent a deeper/wider path." Directly antithetical to reading
-   NiblePath's 16-nibble ceiling as grounds to abandon HHTL identity.
-4. **`hhtl.rs` `NiblePath`** [MERGED, confirmed]: `MAX_DEPTH: u8 = 16`, one
-   `u64`, single SEQUENTIAL router path for the specific `subClassOf`
-   Abstammung tree. This is ONE HHTL-shaped type among several in this repo —
-   NOT the only or canonical HHTL substrate. `FacetCascade` (item 2 above) is
-   a materially different HHTL-adjacent type: a fixed 16-byte register with
-   *simultaneous* multi-lens reads, not a depth-limited single path.
+## C. REJECTED claims
 
-## C. REJECTED #973 claims — precisely scoped
+### C1. #973's `E-THE-LITERAL-CANNOT-LIVE-IN-THE-PATH-IT-ROOTS-1` — RETRACTED
 
-**What #973's CODE actually did (and got right):** `CausalLiteral{domain:u16,
-subject:u16, predicate:u16, object:u16}`, 8 bytes, `const _`-asserted size,
-component equality, no CAM-PQ/evidence/source/version fields possible by
-construction. This is *exactly* the mission brief's own §25 recommended
-minimal S3.0 shape. The 9 tests (injectivity, field isolation, round-trip,
-unbound sentinel) are sound and reusable verbatim.
+#973 measured correctly that a `domain·S·P·O` at `u16` each is exactly 16
+nibbles = `NiblePath::MAX_DEPTH`, zero slack. It then promoted that local fact
+about ONE sequential depth-limited router path into an implied global claim
+that exact identity cannot live in HHTL addressing and evidence must
+"ref-escape" out of address space. The three counterexamples in §B5-B7 were
+never consulted. The arithmetic survives; the inference does not.
 
-**What #973's REASONING (the EPIPHANIES title + doc-comment framing)
-overclaimed:** the finding is titled
-`E-THE-LITERAL-CANNOT-LIVE-IN-THE-PATH-IT-ROOTS-1` and its argument runs:
-"a `domain·S·P·O` address exactly fills `NiblePath`'s 16-nibble budget with
-zero nibbles left for an evidence subtree beneath it -> therefore identity
-and routing SPLIT -> the evidence subtree must *ref-escape* out of address
-space entirely." The arithmetic (16 nibbles = `MAX_DEPTH`, zero slack) is
-correct and TRUE ONLY OF `NiblePath` — a single sequential depth-limited path
-type. The invalid generalization is treating that as proof that **HHTL
-identity itself** (not just this one path type) cannot carry the literal, and
-that evidence/meta state must therefore live in some conceptually separate,
-disconnected mechanism rather than as an **orthogonal facet keyed by the same
-8-byte address** — exactly the TEKAMOLO/anaphora/OSM pattern already proven
-in this repo. Nothing in #973 acknowledges that a `FacetCascade`-style
-multi-reading register (or simply: `CausalLiteral` as its own SoA
-column/plane, with a `CausalMeta`/`EpistemicMeta` column keyed by the SAME
-`CausalLiteral`) sidesteps the "budget" problem entirely, because it was
-never modeled as depth-based descent from a single path in the first place.
+### C2. This session's OWN WordNet overclaim — RETRACTED
 
-**Verdict: `E-THE-LITERAL-CANNOT-LIVE-IN-THE-PATH-IT-ROOTS-1` is RETRACTED as
-stated.** Superseded by a narrower, correctly-scoped finding (drafted below).
-This is the precise process failure named in the mission brief §0/§9: a local
-representation limit (NiblePath's depth ceiling) promoted into an implied
-global architecture conclusion (identity+evidence must structurally split
-away from HHTL) while forgetting three already-measured counterexamples in
-the SAME repository that show the opposite pattern working.
+The first draft of this recovery PR said #875 proved a *"full-width 4-ary HHTL
+fold of real WordNet ancestry is an EXACT structural encoding"*. **That is
+false, and #875's own numbers say so:** W5 reports *256/256 cells used,
+occupancy min 29 / median 255 / max 1270* over **65,292 leaves**. That is
+~255 leaves per cell — emphatically NOT injective, not an identity encoding.
 
-## D. Salvageable #973 code/math
+What #875 actually measured is a **deterministic, taxonomy-informed HHTL
+locality / search prior**: shared-address-levels vs LCA-depth corr +0.494 (vs
+−0.036 shuffled), out-of-cell band recall 0.763 vs 0.031 random = 24.71×, and
+a 2.47-hop sub-nibble distinction the 16-ary router cannot address. A
+discriminating prior that deliberately does NOT cover everything — #875 itself
+dropped its cover guard as inert for exactly this reason.
 
-- `CausalLiteral { domain, subject, predicate, object }` as 4×`u16`, 8 bytes,
-  `const _`-asserted, component equality — REUSE VERBATIM.
-- `packed_identity_is_injective`, `changing_only_the_predicate_changes_the_literal`,
-  `three_sources_asserting_the_same_proposition_mint_one_literal`,
-  `component_isolation_matrix`, `identity_round_trips_exactly_in_both_forms`,
-  `unbound_components_are_addressable_but_not_fully_bound` — REUSE VERBATIM
-  (these test IDENTITY, which #973 got right).
-- `routing_prefix(depth) -> NiblePath` / `full_path()` — REUSE, but RELABEL
-  the doc comments: this is *one particular* NiblePath-shaped projection
-  useful for cohort/locality queries against the existing `subClassOf`-style
-  router, not "the" HHTL reading of the literal, and its lossiness at
-  `depth < 16` is a fact about `NiblePath` specifically, not about HHTL
-  identity in general.
-- DROP/REWRITE: `routing_prefix_is_not_identity` and
-  `the_full_literal_path_exhausts_the_nibble_budget` stay as tests (they are
-  correct, falsifiable facts about `NiblePath`) but their surrounding prose
-  must not imply "therefore identity lives outside HHTL."
-- DROP the `E-THE-LITERAL-CANNOT-LIVE-IN-THE-PATH-IT-ROOTS-1` framing;
-  replace per §E below.
+So the Bible/Rosetta + WordNet composition is:
+`frozen verse identity × quasi-absolute taxonomy-informed semantic coordinate
+× witness/qualia planes` — **not** evidence that 256 HHTL cells uniquely
+identify a lexicon. Corrected in the PR body, EPIPHANIES, and this audit;
+the module doc carrying it is deleted with the type.
 
-## E. Remaining unknowns
+### C3. `CausalLiteral` was the wrong universal type — WITHDRAWN
 
-- Whether `CausalLiteral` should ALSO be constructible as a `FacetCascade`
-  reading (a 5th `CascadeShape`, `4×u16`-over-16B) for consumers that want it
-  to live inside the existing content-blind register alongside TEKAMOLO/rails/
-  SPO-triplet readings, vs. staying a free-standing 8-byte contract type
-  consumed by reference. Not resolved this session — S3.0 replacement below
-  ships the free-standing type only (matches the brief's own minimal-first
-  guidance in §25), and defers the FacetCascade-reading question to S3.1/S3.2
-  where the V3 local-proxy bridge is actually built.
-- CausalRegimeAddr (S3.0b), Meta tree (S3.1), predicate resolution (S3.3) —
-  all explicitly out of scope for this PR per the brief's own delivery order.
-- Rubicon threshold semantics (§19) — not investigated this session; will be
-  searched before any Rubicon-touching work, not asserted from memory.
+Two independent defects:
 
-## F. Proposed minimal S3.0 replacement
+- **Wrong name / wrong universality.** Its own test asserts
+  `CausalLiteral(7, 100, 43, 200)` as `TREATED_WITH` — demonstrating the
+  structure is generic, not causal. `ASSOCIATED_WITH` / `TREATED_WITH` /
+  `CAUSES` / `MEDIATES` / `PART_OF` are exact predicate identities over one
+  generic literal substrate. Causality is a **predicate family /
+  qualification**, never universal identity. If a primitive were needed it
+  would be `ExactLiteralAddr(D,S,P,O)`.
+- **`4 × u16` is NOT absolute, and cannot be.** A `u16` subject cannot hold
+  MONDO:0700092 = 700,092 (§B3). The type would have silently mis-addressed
+  the single largest ontology in the MedCare bake. Calling it "absolute
+  identity" was a second global overclaim in the same PR that retracted one.
 
-Reintroduce `crates/lance-graph-contract/src/causal_literal.rs` with:
-1. The same `CausalLiteral` struct, accessors, packing, and all 9 original
-   tests (salvaged per §D).
-2. Module-doc and EPIPHANIES entry REWRITTEN to state the narrow, correct
-   claim: `NiblePath::MAX_DEPTH` (16 nibbles) is exactly consumed by a
-   4×`u16` literal, so a literal's *own* identity cannot ALSO be expressed as
-   a strictly-shorter `NiblePath` prefix while remaining exact — a fact about
-   `NiblePath` depth budget, not about HHTL addressing dimensionality in
-   general. Explicitly cross-references WordNet #875/#876 (exact structural
-   HHTL address is real and proven), TEKAMOLO #839 (orthogonal-facet pattern
-   is the sanctioned way to attach evidence/meta without deepening a path),
-   and anaphora #850 (a locally-exhausted representation marks a TYPE
-   boundary, not a substrate ceiling) so a future session reads the
-   NiblePath-specific finding correctly.
-3. New finding name: `E-NIBLEPATH-DEPTH-IS-NOT-HHTL-DIMENSIONALITY-1`
-   (supersedes/retracts `E-THE-LITERAL-CANNOT-LIVE-IN-THE-PATH-IT-ROOTS-1`,
-   which is marked ⊘ RETRACTED in place per this repo's append-only
-   convention, not deleted).
-4. A second, process-level finding:
-   `E-A-LOCAL-DERIVATION-CANNOT-OVERRULE-A-MEASURED-COUNTEREXAMPLE-1`,
-   naming the general failure mode for future sessions.
-5. Evidence/Meta placement is left EXPLICITLY OPEN (not "ref-escaped" as a
-   forced conclusion) — noted as an S3.1 design question with the
-   FacetCascade-orthogonal-plane option named as the leading candidate,
-   rather than asserted-and-closed by this PR.
+## D. Salvageable
 
-## G. Falsifiers that would kill this proposal
+- The nine tests' SHAPE (injectivity sweep, component-isolation matrix,
+  many-sources-one-literal, unbound sentinel) is good discipline and should be
+  reused by whatever type actually lands — but it belongs on
+  `IdentityQuad`/`ClassAddr`-based composition, not on a new 4×u16 plane.
+- The retraction of C1 and the two process findings.
+- `routing_prefix()` is REMOVED, not merely deferred — see §G.
 
-- If a future S3.1/S3.2 session finds that keying `CausalMeta`/`EpistemicMeta`
-  as orthogonal facets over `CausalLiteral` (rather than ref-escaping) hits a
-  real capacity/addressing wall analogous to NiblePath's, that would validate
-  more of #973's original instinct — investigate before assuming either way.
-- If `CausalLiteral` needs to itself be routable through the DOLCE/basin
-  `NiblePath` tree (not just an opaque 8-byte key), the routing_prefix
-  question reopens for real; this PR does not build that consumer.
+## E. The development ladder (operator-requested matrix)
 
-## Central-constitution check (brief §27.5)
+|                    | ADDRESS | HYDRATED SoA | TRAVERSAL |
+|--------------------|---------|--------------|-----------|
+| Bible / Rosetta    | yes     | **NO**       | partial / context |
+| OSM                | yes     | yes          | overlay / junction |
+| MedCare ontology   | yes     | yes          | **YES, Stage 1** |
+| DisMech oracle     | source  | structured   | causal oracle |
 
-Does the proposed S3.0 replacement contradict OSM, WordNet #875/#876, Bible
-Rosetta, TEKAMOLO, or the 24×i4 anaphora boundary? **NO.** It ships the same
-minimal exact-identity primitive the brief itself specifies in §25, corrects
-only the RETRACTED overclaim in the board narrative, and explicitly leaves
-the evidence/meta placement question open rather than pre-deciding it against
-the TEKAMOLO/anaphora precedent.
+**The column that is empty is not ADDRESS.** Address is solved three times
+over (`ClassAddr`, the V3 rail, `IdentityQuad`, `NodeGuid`/HHTL). The missing
+work is: **hydrate epistemic / causal nodes → reason over them → think about
+the reasoning.**
+
+### The question S3.0 had to answer, and its answer
+
+> **WHAT EXACT INFORMATION CANNOT BE EXPRESSED BY THE ADDRESSING THAT ALREADY
+> EXISTS?**
+
+**Nothing that this session could demonstrate.** `IdentityQuad` (classid + 4 ×
+u24, ratified 2026-08-17) strictly dominates the withdrawn 4×u16 type on every
+axis: wider (handles real OBO ids, which u16 does not), already V3-carving
+conformant (rides a sanctioned reading rather than minting a parallel identity
+plane), already refuse-don't-truncate, already bake-time-join-resolving.
+
+There is therefore **no concrete falsifier showing existing addressing is
+insufficient**, and per the operator's rule no new absolute-address type is
+minted. The S3.0 slot in the Stage-3 plan is closed as NOT-NEEDED rather than
+filled because the plan had a slot.
+
+**The one genuinely open addressing gap found** is different and is NOT this:
+`ClassId = u16` is near-exhausted for RELATIONS (§B4). That is a classid-mint
+capacity question for OGAR/lance-graph, to be raised with the operator in
+session — not something a new literal type addresses.
+
+## F. Next target (per operator §6)
+
+```
+  EXISTING absolute address  (ClassAddr / V3 rail / IdentityQuad / NodeGuid)
+          |
+     hydrate node
+          |
+   CausalMeta + EpistemicMeta
+          |
+   EntropyWork · BasinSet · Attention
+          |
+   RowFocusMask × WideFieldMask
+          |
+      V3 / CE64  ->  NARS  ->  ReasoningEpisode  ->  Meta/Rubicon  ->  OGAR-loco
+```
+
+**DisMech as the oracle experiment:** hide known mechanism intermediates →
+hydrate the addressed ontology neighbourhood → let NARS/recipes recover
+candidates → compare against DisMech truth. Grounded: `dismech-rs`
+`graph::build_causal_graph` is a real transcode of the upstream Python
+resolver, falsified at **1,995 diseases / 33,458 edges** against the private
+`medcare-dismech` measurement (33,328, within 0.4%), and 1,903 committed
+`pathographs/MONDO_*.json` exist as ground truth. Not started this session.
+
+## G. `routing_prefix()` — REMOVED
+
+Concatenating D/S/P/O nibbles into a `NiblePath` yields deterministic
+**lexicographic** prefixes. It was labelled an "HHTL locality / cohort
+projection" — but no consumer exists and no measurement establishes that it
+preserves HHTL *semantic* locality. `NiblePath` is built for the `subClassOf`
+Abstammung tree, where a prefix is an ancestry claim; a lexicographic prefix
+over concatenated ordinals carries no such guarantee. Calling it one was a
+third unearned claim. Removed with the type; if it returns it needs a real
+consumer and a measurement first.
+
+## H. Falsifiers that would reopen S3.0
+
+1. A concrete case where `IdentityQuad` (4 × u24 + classid) provably cannot
+   express an exact proposition identity the substrate needs.
+2. A measured need for a 4th component space beyond `IdentityQuad`'s four
+   slots — noting its own doc says a fifth identifier space is a **second
+   facet**, never a wider field.
+3. Resolution of the `ClassId = u16` relation-capacity gap requiring a new
+   addressable relation identity (a classid-mint question first).
