@@ -1,3 +1,65 @@
+## 2026-08-20 — branch `claude/carve-nars-kernels` — CE64 ⇄ V3 conversion losslessness (Stage-3 handoff gate)
+
+### Current Contract Inventory — 8 new read accessors on `CausalEdgeV3`, no layout change
+
+- **`CausalEdgeV3`** (`crates/causal-edge/src/edge_v3.rs`) — still exactly 12
+  bytes (`const _` size assert unchanged); **two previously-dormant reserved
+  bytes are now allocated**:
+  - `[8]` = `w_slot(6 low) | truth/topology RAW(2 high)`
+  - `[9]` = `spare/ReasoningBand RAW(3 low) | reserved(5 high)`
+  - `[10..12]` still reserved (pinned by a test that asserts they stay zero).
+- **New read accessors** (read-only; no new setters, per the scope fence):
+  `frequency` · `confidence` · `causal_mask` · `direction` ·
+  `inference_mantissa` · `plasticity` · `w_slot` · `truth_raw` · `spare_raw`.
+- **`rehydrate` carries the RAW mantissa.** It no longer routes through
+  `InferenceType::from_mantissa → pack → to_mantissa` (a lossy compatibility
+  projection that rewrote 8 of 16 states, `0 → +1` among them). The
+  `InferenceType` argument to `pack` is now an explicitly-labelled throwaway
+  placeholder, overwritten by `set_inference_mantissa`.
+- **No CE64 layout touch, no `ENVELOPE_LAYOUT_VERSION` bump, no new type, no
+  `ThoughtCtx` wiring, no Stage-3 semantics.**
+
+### The conversion contract, now pinned
+
+`CausalEdge64 → from_v1 → rehydrate(same resolved SPO)` is **bit-identical**,
+asserted as whole-register equality over 6 varied non-zero edges (all 4 truth
+ordinals, `w_slot` at both ends of its 6 bits, spare across its 3, mantissa on
+both signs). Under the v2 layout the 64 bits are fully partitioned, so field
+parity *is* bit parity — and the whole-register assertion is what would catch a
+field a future session forgets to enumerate.
+
+Two exclusions, both principled:
+
+| excluded | why |
+|---|---|
+| the 24-bit in-edge SPO | intentionally deduplicated into the target node's CAM-PQ facet; resupply it and the round trip is exact |
+| the deprecated v2 `temporal` | not valid CE64-v2 state (bits 52..63 are the reclaim zone). NOT mapped into V3 TE — TE stays an independent producer-set signed chain offset |
+
+`w_slot` / truth / spare are preserved as **RAW ORDINALS**: ordinal `01`
+crossing means "ordinal 01 preserved", never "`IndirectKnown` is now
+source-authoritative".
+
+### Gates
+
+- `causal-edge`: **72/72** under the default v2 layout, **38/38** under
+  `--no-default-features` (v1). 11 tests in `edge_v3`, of which 7 are new.
+- **5 disable-runs, each verified red-then-green** — the old lossy mantissa
+  path (3 tests red), and each of the `w_slot` / truth / spare / `from_v1`
+  tail carries individually.
+- `cargo fmt --check` and `cargo clippy -D warnings`: **zero hits in
+  `edge_v3.rs`** in both feature states. (The crate is workspace-EXCLUDED, so
+  CI never lints it; 7 pre-existing clippy errors in `edge.rs`/`tables.rs` are
+  untouched and now recorded in `TECH_DEBT.md`.)
+- **Requirement 4 — the Stage-2.6 planner parity harness is untouched and
+  green** (`cache::stage26_v3_parity`, 4 passed / 1 `#[ignore]`d generator).
+  Both harnesses are needed and neither subsumes the other: the planner leg
+  only ever carries `InferenceType::Deduction` (mantissa `+1` — a *surviving*
+  state), so it was structurally blind to the mantissa defect. See
+  `E-THE-COMPAT-ENUM-WAS-EATING-HALF-THE-REGISTER-1`.
+- Downstream consumer `cognitive-shader-driver::edge_v3_compare`: **3/3**.
+
+---
+
 ## 2026-08-20 — branch `claude/carve-nars-kernels` — Stage 2.6a: V3 representation invariance on the planner's REAL CE64 leg (measurement only)
 
 ### Current Contract Inventory — no new types; one `#[cfg(test)]` census

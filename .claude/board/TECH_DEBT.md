@@ -1,3 +1,34 @@
+## TD-CAUSAL-EDGE-IS-EXCLUDED-SO-CI-NEVER-LINTS-IT (2026-08-20) — OPEN
+
+**`causal-edge` is in the root `Cargo.toml`'s `exclude` list, not `members`.**
+It therefore builds into its own `crates/causal-edge/target/` and the
+workspace's `cargo clippy --workspace -D warnings` gate **never sees it** —
+which is why 7 clippy errors have accumulated there unnoticed:
+
+| file | lint |
+|---|---|
+| `edge.rs:118` | `if_same_then_else` (the `mag == 5` arm of `InferenceType::from_mantissa` — both branches return `Synthesis`) |
+| `edge.rs:200` | `too_many_arguments` (10/7 — the v1 `pack`, kept for back-compat) |
+| `edge.rs:684` | `wildcard_in_or_patterns` |
+| `edge.rs:742`, `747` | `collapsible_if` ×2 |
+| `edge.rs:834` | `too_many_arguments` (8/7 — `pack_v2`) |
+| `tables.rs:37` | `doc_lazy_continuation` |
+| `v2_layout_tests.rs:20` | `module_inception` (lib-test only) |
+
+Not fixed in PR #971 — that PR is scoped to CE64⇄V3 conversion correctness, and
+`edge.rs`'s two `too_many_arguments` are load-bearing back-compat signatures
+whose change is a consumer-facing decision, not a lint cleanup. Verified in the
+same pass that the PR's own file (`edge_v3.rs`) is **fmt-clean and clippy-clean
+in both feature states**, so this debt is strictly pre-existing.
+
+**The generalisable half:** a workspace-excluded crate silently opts out of
+every workspace-level gate — not just clippy. Any excluded crate needs either
+its own CI job or an explicit note that its gates are manual. Same family as
+tesseract-rs's "the gate is LOCAL — a green PR says nothing."
+
+**Paid when** either the exclusion is revisited (it exists to keep the crate
+zero-dep and independently buildable) or a per-crate lint job is added.
+
 ## TD-THOUGHTCTX-IS-A-LOSSY-PROJECTION (2026-08-20) — OPEN, Stage-3
 
 **`ThoughtCtx` is not the reasoning state. It is a lossy projection of the
