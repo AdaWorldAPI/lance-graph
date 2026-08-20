@@ -68,9 +68,12 @@ pub const TRUTH_SHIFT: u32 = 59;
 /// Candidates: Rubicon-commit marker, Markov-decay quantum, I-NOISE-FLOOR-JIRAK threshold.
 ///
 /// Same three bits also carry an ADDITIVE quantized-projection view,
-/// [`TextureBand`] (below; name pending a vocabulary-collision audit — see
-/// its `// TODO(name)` marker). No auto-derivation: nothing writes this
-/// field except an explicit `with_texture_band()` call.
+/// [`ReasoningBand`] (below). No auto-derivation: nothing writes this
+/// field except an explicit `with_reasoning_band()` call.
+///
+/// **v1 provenance:** bits 61-63 were temporal bits 9-11, so a v1 edge with
+/// `temporal >= 512` reads a NON-ZERO band. Apply a version gate on edges of
+/// unknown provenance — the same rule `truth()` states for bits 59-60.
 pub const SPARE_SHIFT: u32 = 61;
 
 // ── Common masks ─────────────────────────────────────────────────────────────
@@ -117,10 +120,22 @@ const _LAYOUT_COVERAGE: () = {
 ///   0b11 = Murky       | Contradiction| Loud   | Compass (veto)
 /// ```
 ///
-/// NOTE: Local definition in causal-edge (zero-dep crate). The canonical
-/// contract type is `lance_graph_contract::mul::TrustTexture`.
-/// The 2-bit encoding is byte-compatible by construction.
-/// Long-term: add `From<TrustTexture> for contract::TrustTexture` at the planner boundary.
+/// NOTE: Local definition in causal-edge (zero-dep crate).
+///
+/// **CORRECTION (measured):** an earlier version of this note claimed
+/// `lance_graph_contract::mul::TrustTexture` is "the canonical contract type"
+/// and "byte-compatible by construction". Both halves are false. That type's
+/// variants are `Calibrated / Overconfident / Uncertain / Underconfident` —
+/// a different ontology (felt-vs-demonstrated competence), with no semantic
+/// mapping onto `Crystalline / Solid / Fuzzy / Murky`, and no `From` impl
+/// exists in either direction. `docs/TYPE_DUPLICATION_MAP.md` rules the
+/// opposite of the old note: **"Canonical: NONE — both are domain-correct
+/// and should keep distinct names."** Do not build a cast on the old claim.
+///
+/// This enum is the LEGACY/COMPATIBILITY projection of bits 59-60; the
+/// factual view over the same bits is [`CausalTopology`]. Not deprecated —
+/// nothing is ready to move, and the wider rename is owned by the existing
+/// TrustTexture-duplication debt item.
 #[derive(Copy, Clone, Eq, PartialEq, Debug, Default)]
 #[repr(u8)]
 pub enum TrustTexture {
@@ -285,14 +300,14 @@ impl CausalTopology {
 /// - `Causal` = the cognition currently operating at the causal reasoning
 ///   level. This is **not** [`super::pearl::CausalMask`] (bits 40-42),
 ///   which says WHICH Pearl/SPO projection (S/P/O planes) is represented.
-///   An edge may carry `TextureBand::Causal` under any `CausalMask`.
+///   An edge may carry `ReasoningBand::Causal` under any `CausalMask`.
 /// - `Counterfactual` = the reasoning CONTEXT is counterfactual. This is
 ///   **not** the signed inference mantissa's −6 slot (bits 46-49; see
 ///   `InferenceType::Counterfactual::to_mantissa() == -6`), which names one
 ///   specific NARS operation as counterfactual. An edge may carry
-///   `TextureBand::Counterfactual` while its mantissa encodes any NARS
+///   `ReasoningBand::Counterfactual` while its mantissa encodes any NARS
 ///   rule, and an edge with mantissa −6 need not carry
-///   `TextureBand::Counterfactual`.
+///   `ReasoningBand::Counterfactual`.
 /// - `Perspective` = perspective/decentration reasoning (I/Thou/It,
 ///   Self/Other/World). This is **not**
 ///   [`super::edge::CausalEdge64::direction`] (bits 43-45), the
@@ -309,17 +324,33 @@ impl CausalTopology {
 /// Nothing in this crate derives this field from `CausalMask`,
 /// `InferenceType`, NARS frequency/confidence, MUL, ReasoningGap,
 /// potholes, or `ThinkingStyle`. It is set ONLY by an explicit
-/// `with_texture_band()` call, and reads whatever the SPARE bits already
+/// `with_reasoning_band()` call, and reads whatever the SPARE bits already
 /// hold otherwise (0 / `Surface` for `CausalEdge64::ZERO` and for every row
 /// produced by this crate's own constructors, since `spare()` already
 /// defaults to 0 there — but not guaranteed for a raw `u64` from elsewhere).
-// TODO(name): "TextureBand" is a placeholder pending a vocabulary-collision
-// audit against the rest of the workspace (a parallel session is checking
-// whether the name is already spoken for elsewhere). Do not treat this name
-// as final; it may be renamed before this lands.
+/// # Why NOT "TextureBand"
+///
+/// The name was settled by a workspace vocabulary audit, not by preference.
+/// "Texture" is the most collided word in this stack's cognitive vocabulary:
+/// FOUR distinct `TrustTexture` enums exist (this crate's, the contract's
+/// `mul::TrustTexture`, the planner's 5-variant `mul::trust::TrustTexture`,
+/// and AriGraph's 3-variant orchestrator one), that duplication is already
+/// booked debt whose recorded remedy is a RENAME, and an operator ruling
+/// holds "Texture = binding topology, not polarity" — i.e. Texture is
+/// deliberately NOT an ordinal. Naming a 3-bit ordinal `TextureBand`, in
+/// this file, directly beneath `TrustTexture` and over the adjacent bits,
+/// would read as one 5-bit widening of it. It is an unrelated field.
+///
+/// # NOT `RungLevel`, despite four shared variant names
+///
+/// This band shares four variant NAMES with
+/// `lance_graph_contract::cognitive_shader::RungLevel` — `Surface`,
+/// `Counterfactual`, `Meta`, `Transcendent` — at DIFFERENT ordinals
+/// (0 / 6 / 7 / 9 there vs 0 / 4 / 6 / 7 here). The two are unrelated enums:
+/// never cast, compare, or map between them by ordinal.
 #[derive(Copy, Clone, Eq, PartialEq, Debug, Default)]
 #[repr(u8)]
-pub enum TextureBand {
+pub enum ReasoningBand {
     /// Surface-level reasoning. Default.
     #[default]
     Surface = 0,
@@ -341,7 +372,7 @@ pub enum TextureBand {
     Transcendent = 7,
 }
 
-impl TextureBand {
+impl ReasoningBand {
     /// Construct from the raw 3-bit field value (bits masked automatically).
     #[inline]
     pub fn from_bits_3(v: u8) -> Self {

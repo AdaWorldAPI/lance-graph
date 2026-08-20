@@ -651,7 +651,8 @@ impl CausalEdge64 {
         // weight.inference_type() is the v1 fallback below; v2 uses mantissa
         let resolved_infer = InferenceType::from_mantissa(weight.inference_mantissa());
         #[cfg(not(feature = "causal-edge-v2-layout"))]
-        #[allow(deprecated)] // v1 layout: 3-bit unsigned inference type is the canonical read
+        #[allow(deprecated)]
+        // v1 layout: 3-bit unsigned inference type is the canonical read
         let resolved_infer = weight.inference_type();
         let (f_out, c_out) = match resolved_infer {
             InferenceType::Deduction => {
@@ -954,7 +955,14 @@ impl CausalEdge64 {
     }
 
     /// Spare 3-bit field (bits 61-63). Reserved for sprint-12+ use.
-    /// Returns 0 for ZERO edges and all v1-written edges (temporal MSBs were ≤ 0xFFF).
+    /// Returns 0 for ZERO edges.
+    ///
+    /// **CORRECTION (measured):** this line previously also claimed "and all
+    /// v1-written edges (temporal MSBs were <= 0xFFF)". That is false. Bits
+    /// 61-63 are v1 temporal bits **9-11**, so any v1 edge with
+    /// `temporal >= 512` reads a NON-ZERO spare. Apply a version gate on
+    /// edges of unknown provenance — the same rule `truth()` already states
+    /// for bits 59-60 at its own threshold (`temporal >= 128`).
     #[inline(always)]
     pub fn spare(self) -> u8 {
         use crate::layout::{BITS3_MASK, SPARE_SHIFT};
@@ -963,14 +971,14 @@ impl CausalEdge64 {
 
     /// Quantized reasoning-level projection: reads the identical three bits
     /// as `spare()` (bits 61-63), projected through
-    /// [`crate::layout::TextureBand`]. Purely additive — no bits move, and
+    /// [`crate::layout::ReasoningBand`]. Purely additive — no bits move, and
     /// nothing auto-derives this value; see the type's doc comment for the
     /// no-auto-derivation guarantee and the orthogonality notes against
     /// `CausalMask` / the inference mantissa / `direction`.
     #[inline(always)]
-    pub fn texture_band(self) -> crate::layout::TextureBand {
-        use crate::layout::{TextureBand, BITS3_MASK, SPARE_SHIFT};
-        TextureBand::from_bits_3(((self.0 >> SPARE_SHIFT) & BITS3_MASK) as u8)
+    pub fn reasoning_band(self) -> crate::layout::ReasoningBand {
+        use crate::layout::{ReasoningBand, BITS3_MASK, SPARE_SHIFT};
+        ReasoningBand::from_bits_3(((self.0 >> SPARE_SHIFT) & BITS3_MASK) as u8)
     }
 
     // ── Builder-Shape Setters (functional update, returns Self) ─────────────
@@ -1025,14 +1033,28 @@ impl CausalEdge64 {
 
     /// Return new edge with the texture-band projection set (bits 61-63).
     ///
-    /// Consuming builder, register-style (`edge.with_texture_band(b)`),
+    /// Consuming builder, register-style (`edge.with_reasoning_band(b)`),
     /// matching `with_spare`/`with_topology`. Shares storage with
     /// `spare`/`with_spare` — the last writer of either view wins, by
     /// construction, since it is one 3-bit register read through two
-    /// lenses. See [`crate::layout::TextureBand`] for the full semantics,
+    /// lenses. See [`crate::layout::ReasoningBand`] for the full semantics,
+    /// # ⚠ Writing a non-zero band perturbs the deprecated `temporal()`
+    ///
+    /// `temporal()` reads bits **52..63**, a window that CONTAINS these three
+    /// bits (and the truth bits below them). Decomposed under v2 it is
+    /// `plast_bit2 | (w_slot << 1) | (truth << 7) | (band << 9)`. So a
+    /// non-zero band becomes the DOMINANT term of that composite.
+    ///
+    /// `Network::evidence_trail` sorts by `temporal()` and its comment claims
+    /// the sort "degrades to a stable no-op" under v2. That holds only while
+    /// bits 52..63 are all zero — it is already false for any edge carrying a
+    /// `w_slot` or a `truth`, and writing a band makes the ordering
+    /// band-dominated. That ordering is NOT meaningful. Nothing in-tree
+    /// writes a band today, so this is a trap for the first producer, not a
+    /// live defect.
     /// the orthogonality notes, and the no-auto-derivation guarantee.
     #[inline]
-    pub fn with_texture_band(self, band: crate::layout::TextureBand) -> Self {
+    pub fn with_reasoning_band(self, band: crate::layout::ReasoningBand) -> Self {
         use crate::layout::{BITS3_MASK, SPARE_MASK, SPARE_SHIFT};
         Self((self.0 & !SPARE_MASK) | ((band.to_bits_3() as u64 & BITS3_MASK) << SPARE_SHIFT))
     }
@@ -1127,11 +1149,11 @@ impl CausalEdge64 {
     pub fn spare(self) -> u8 {
         0
     }
-    /// V1 stub: additive `TextureBand` lens is a no-op under v1 (matches
+    /// V1 stub: additive `ReasoningBand` lens is a no-op under v1 (matches
     /// the `spare()` stub above — same bits, same "feature off" behaviour).
     #[inline(always)]
-    pub fn texture_band(self) -> crate::layout::TextureBand {
-        crate::layout::TextureBand::Surface
+    pub fn reasoning_band(self) -> crate::layout::ReasoningBand {
+        crate::layout::ReasoningBand::Surface
     }
     #[inline]
     pub fn with_w_slot(self, _w: u8) -> Self {
@@ -1154,7 +1176,7 @@ impl CausalEdge64 {
         self
     }
     #[inline]
-    pub fn with_texture_band(self, _band: crate::layout::TextureBand) -> Self {
+    pub fn with_reasoning_band(self, _band: crate::layout::ReasoningBand) -> Self {
         self
     }
     #[inline]

@@ -78,4 +78,4 @@ pub use layout::TrustTexture;
 // full wire/ordinal/behavioural/provenance compatibility statement. No bits
 // move; these are new readings of existing storage, not a new layout.
 #[cfg(feature = "causal-edge-v2-layout")]
-pub use layout::{CausalTopology, TextureBand};
+pub use layout::{CausalTopology, ReasoningBand};

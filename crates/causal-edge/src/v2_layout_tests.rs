@@ -19,7 +19,7 @@
 #[cfg(feature = "causal-edge-v2-layout")]
 mod v2_layout_tests {
     use crate::edge::{CausalEdge64, InferenceType};
-    use crate::layout::{CausalTopology, TextureBand, TrustTexture};
+    use crate::layout::{CausalTopology, ReasoningBand, TrustTexture};
     use crate::pearl::CausalMask;
     use crate::plasticity::PlasticityState;
 
@@ -477,7 +477,7 @@ mod v2_layout_tests {
 
     // ═══════════════════════════════════════════════════════════════════
     // CausalTopology (bits 59-60, additive factual view over TrustTexture)
-    // + TextureBand (bits 61-63, additive quantized view over `spare`)
+    // + ReasoningBand (bits 61-63, additive quantized view over `spare`)
     // ═══════════════════════════════════════════════════════════════════
     //
     // These fields do NOT move any bits and do NOT introduce a new layout
@@ -488,7 +488,7 @@ mod v2_layout_tests {
     // ── 1. Raw u64 fixtures round-trip byte-for-byte unchanged ─────────────
 
     #[test]
-    fn test_raw_fixtures_round_trip_byte_for_byte_via_topology_and_texture_band() {
+    fn test_raw_fixtures_round_trip_byte_for_byte_via_topology_and_reasoning_band() {
         // Arbitrary fixtures covering varied bit patterns across the whole
         // word, including every combination of the two shared registers
         // (bits 59-60, 61-63).
@@ -510,10 +510,10 @@ mod v2_layout_tests {
                 via_topology.0, raw,
                 "read-then-write-back through CausalTopology changed the raw word for {raw:#018x}"
             );
-            let via_texture = edge.with_texture_band(edge.texture_band());
+            let via_texture = edge.with_reasoning_band(edge.reasoning_band());
             assert_eq!(
                 via_texture.0, raw,
-                "read-then-write-back through TextureBand changed the raw word for {raw:#018x}"
+                "read-then-write-back through ReasoningBand changed the raw word for {raw:#018x}"
             );
         }
     }
@@ -664,10 +664,10 @@ mod v2_layout_tests {
         assert_eq!(after.spare(), 0b111, "spare disturbed by with_topology");
     }
 
-    // ── 6. with_texture_band changes ONLY bits 61-63 (exact XOR-diff-mask) ──
+    // ── 6. with_reasoning_band changes ONLY bits 61-63 (exact XOR-diff-mask) ──
 
     #[test]
-    fn test_with_texture_band_changes_only_bits_61_63_exact_mask_diff() {
+    fn test_with_reasoning_band_changes_only_bits_61_63_exact_mask_diff() {
         let base = CausalEdge64::pack_v2(
             0xAA,
             0xBB,
@@ -682,79 +682,83 @@ mod v2_layout_tests {
         .with_truth(TrustTexture::Murky)
         .with_inference_mantissa(-7);
         assert_eq!(
-            base.texture_band(),
-            TextureBand::Surface,
+            base.reasoning_band(),
+            ReasoningBand::Surface,
             "fixture spare-bits must start at 0 for the min->max diff to be exact"
         );
 
-        let after = base.with_texture_band(TextureBand::Transcendent);
+        let after = base.with_reasoning_band(ReasoningBand::Transcendent);
         let diff = base.0 ^ after.0;
         assert_eq!(
             diff,
             crate::layout::SPARE_MASK,
-            "with_texture_band(min->max) must flip exactly the SPARE_MASK bits, nothing else"
+            "with_reasoning_band(min->max) must flip exactly the SPARE_MASK bits, nothing else"
         );
 
-        assert_eq!(after.s_idx(), 0xAA, "S disturbed by with_texture_band");
-        assert_eq!(after.p_idx(), 0xBB, "P disturbed by with_texture_band");
-        assert_eq!(after.o_idx(), 0xCC, "O disturbed by with_texture_band");
+        assert_eq!(after.s_idx(), 0xAA, "S disturbed by with_reasoning_band");
+        assert_eq!(after.p_idx(), 0xBB, "P disturbed by with_reasoning_band");
+        assert_eq!(after.o_idx(), 0xCC, "O disturbed by with_reasoning_band");
         assert_eq!(
             after.frequency_u8(),
             0xDD,
-            "frequency disturbed by with_texture_band"
+            "frequency disturbed by with_reasoning_band"
         );
         assert_eq!(
             after.confidence_u8(),
             0xEE,
-            "confidence disturbed by with_texture_band"
+            "confidence disturbed by with_reasoning_band"
         );
         assert_eq!(
             after.causal_mask(),
             CausalMask::SPO,
-            "causal_mask disturbed by with_texture_band"
+            "causal_mask disturbed by with_reasoning_band"
         );
         assert_eq!(
             after.direction(),
             0b111,
-            "direction disturbed by with_texture_band"
+            "direction disturbed by with_reasoning_band"
         );
         assert_eq!(
             after.inference_mantissa(),
             -7,
-            "inference_mantissa disturbed by with_texture_band"
+            "inference_mantissa disturbed by with_reasoning_band"
         );
         assert_eq!(
             after.plasticity(),
             PlasticityState::ALL_HOT,
-            "plasticity disturbed by with_texture_band"
+            "plasticity disturbed by with_reasoning_band"
         );
-        assert_eq!(after.w_slot(), 63, "w_slot disturbed by with_texture_band");
+        assert_eq!(
+            after.w_slot(),
+            63,
+            "w_slot disturbed by with_reasoning_band"
+        );
         assert_eq!(
             after.truth(),
             TrustTexture::Murky,
-            "truth disturbed by with_texture_band"
+            "truth disturbed by with_reasoning_band"
         );
     }
 
-    // ── 7. spare() stays consistent with texture_band() after its write ────
+    // ── 7. spare() stays consistent with reasoning_band() after its write ────
 
     #[test]
-    fn test_spare_stays_consistent_with_texture_band_after_a_texture_band_write() {
+    fn test_spare_stays_consistent_with_reasoning_band_after_a_reasoning_band_write() {
         for band in [
-            TextureBand::Surface,
-            TextureBand::Association,
-            TextureBand::Relation,
-            TextureBand::Causal,
-            TextureBand::Counterfactual,
-            TextureBand::Perspective,
-            TextureBand::Meta,
-            TextureBand::Transcendent,
+            ReasoningBand::Surface,
+            ReasoningBand::Association,
+            ReasoningBand::Relation,
+            ReasoningBand::Causal,
+            ReasoningBand::Counterfactual,
+            ReasoningBand::Perspective,
+            ReasoningBand::Meta,
+            ReasoningBand::Transcendent,
         ] {
-            let edge = CausalEdge64::ZERO.with_texture_band(band);
+            let edge = CausalEdge64::ZERO.with_reasoning_band(band);
             assert_eq!(
                 edge.spare(),
                 band.to_bits_3(),
-                "spare() must still report the identical 3-bit value texture_band() encodes for {band:?}"
+                "spare() must still report the identical 3-bit value reasoning_band() encodes for {band:?}"
             );
         }
     }
@@ -762,22 +766,22 @@ mod v2_layout_tests {
     // ── 8. All eight texture-band values round-trip ─────────────────────────
 
     #[test]
-    fn test_texture_band_all_eight_values_round_trip() {
+    fn test_reasoning_band_all_eight_values_round_trip() {
         for band in [
-            TextureBand::Surface,
-            TextureBand::Association,
-            TextureBand::Relation,
-            TextureBand::Causal,
-            TextureBand::Counterfactual,
-            TextureBand::Perspective,
-            TextureBand::Meta,
-            TextureBand::Transcendent,
+            ReasoningBand::Surface,
+            ReasoningBand::Association,
+            ReasoningBand::Relation,
+            ReasoningBand::Causal,
+            ReasoningBand::Counterfactual,
+            ReasoningBand::Perspective,
+            ReasoningBand::Meta,
+            ReasoningBand::Transcendent,
         ] {
-            let edge = CausalEdge64::ZERO.with_texture_band(band);
+            let edge = CausalEdge64::ZERO.with_reasoning_band(band);
             assert_eq!(
-                edge.texture_band(),
+                edge.reasoning_band(),
                 band,
-                "texture_band round-trip failed for {band:?}"
+                "reasoning_band round-trip failed for {band:?}"
             );
         }
     }
@@ -789,7 +793,7 @@ mod v2_layout_tests {
         // One shared fixture with every field at a distinct, non-zero value,
         // then BOTH new setters applied together (a composable builder
         // chain, matching the intended call-site pattern:
-        // `edge.with_topology(...).with_texture_band(...)`).
+        // `edge.with_topology(...).with_reasoning_band(...)`).
         let base = CausalEdge64::pack_v2(
             11, // S
             22, // P
@@ -805,7 +809,7 @@ mod v2_layout_tests {
 
         let edge = base
             .with_topology(CausalTopology::IndirectUnknownIntermediates)
-            .with_texture_band(TextureBand::Causal);
+            .with_reasoning_band(ReasoningBand::Causal);
 
         assert_eq!(edge.s_idx(), 11, "S disturbed by new setters");
         assert_eq!(edge.p_idx(), 22, "P disturbed by new setters");
@@ -847,13 +851,13 @@ mod v2_layout_tests {
             edge.topology(),
             CausalTopology::IndirectUnknownIntermediates
         );
-        assert_eq!(edge.texture_band(), TextureBand::Causal);
+        assert_eq!(edge.reasoning_band(), ReasoningBand::Causal);
     }
 
     // ── 10. Counterfactual mantissa (-6) round-trips independent of band ───
 
     #[test]
-    fn test_counterfactual_mantissa_round_trips_independently_of_texture_band() {
+    fn test_counterfactual_mantissa_round_trips_independently_of_reasoning_band() {
         let base = CausalEdge64::pack_v2(
             1,
             2,
@@ -872,50 +876,50 @@ mod v2_layout_tests {
         );
 
         for band in [
-            TextureBand::Surface,
-            TextureBand::Meta,
-            TextureBand::Transcendent,
+            ReasoningBand::Surface,
+            ReasoningBand::Meta,
+            ReasoningBand::Transcendent,
         ] {
-            let edge = base.with_texture_band(band);
+            let edge = base.with_reasoning_band(band);
             assert_eq!(
                 edge.inference_mantissa(),
                 -6,
-                "counterfactual mantissa must survive a texture_band write for {band:?}"
+                "counterfactual mantissa must survive a reasoning_band write for {band:?}"
             );
-            assert_eq!(edge.texture_band(), band);
+            assert_eq!(edge.reasoning_band(), band);
         }
     }
 
-    // ── 11. TextureBand::Counterfactual does NOT imply mantissa == -6 ───────
+    // ── 11. ReasoningBand::Counterfactual does NOT imply mantissa == -6 ───────
 
     #[test]
-    fn test_texture_band_counterfactual_does_not_imply_mantissa_minus_six() {
-        // TextureBand::Counterfactual set, mantissa left at a DIFFERENT
+    fn test_reasoning_band_counterfactual_does_not_imply_mantissa_minus_six() {
+        // ReasoningBand::Counterfactual set, mantissa left at a DIFFERENT
         // value — proves the two are orthogonal, never derived from one
         // another.
         let edge = CausalEdge64::ZERO
-            .with_texture_band(TextureBand::Counterfactual)
+            .with_reasoning_band(ReasoningBand::Counterfactual)
             .with_inference_mantissa(3);
-        assert_eq!(edge.texture_band(), TextureBand::Counterfactual);
+        assert_eq!(edge.reasoning_band(), ReasoningBand::Counterfactual);
         assert_eq!(
             edge.inference_mantissa(),
             3,
-            "mantissa must NOT be derived from texture_band"
+            "mantissa must NOT be derived from reasoning_band"
         );
         assert_ne!(edge.inference_mantissa(), -6);
 
         // And the converse: mantissa == -6 (the Counterfactual InferenceType
-        // slot) with a DIFFERENT texture_band.
+        // slot) with a DIFFERENT reasoning_band.
         let edge2 = CausalEdge64::ZERO
             .with_inference_mantissa(InferenceType::Counterfactual.to_mantissa())
-            .with_texture_band(TextureBand::Meta);
+            .with_reasoning_band(ReasoningBand::Meta);
         assert_eq!(edge2.inference_mantissa(), -6);
         assert_eq!(
-            edge2.texture_band(),
-            TextureBand::Meta,
-            "texture_band must NOT be derived from inference_mantissa"
+            edge2.reasoning_band(),
+            ReasoningBand::Meta,
+            "reasoning_band must NOT be derived from inference_mantissa"
         );
-        assert_ne!(edge2.texture_band(), TextureBand::Counterfactual);
+        assert_ne!(edge2.reasoning_band(), ReasoningBand::Counterfactual);
     }
 
     // ── 12. CausalTopology::Direct does not imply any NARS confidence ──────
