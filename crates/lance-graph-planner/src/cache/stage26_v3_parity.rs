@@ -369,38 +369,75 @@ mod tests {
         assert_eq!(discordant, 0, "planner V3 representation discordance");
     }
 
-    /// **The falsifier.** Corrupt ONE resolved facet SPO and the comparator must
-    /// go red. A comparator that stays green after the resolution is corrupted
-    /// proves nothing — the equivalence is conditional on
-    /// `resolved node facet SPO == the original edge's SPO`, and this is what
-    /// makes that condition observable rather than assumed.
+    /// **The falsifier — and it must bite on BOTH operands.**
+    ///
+    /// Corrupt ONE resolved facet SPO and the comparator must go red. A
+    /// comparator that stays green after the resolution is corrupted proves
+    /// nothing: the equivalence is conditional on `resolved node facet SPO ==
+    /// the original edge's SPO`, and this is what makes that condition
+    /// observable rather than assumed.
+    ///
+    /// **The input-side assertion alone was not enough, and that was a real
+    /// hole.** Leg `t` uses target `t` as its INPUT while leg `t-1` uses it as
+    /// its WEIGHT. Requiring only "some leg is discordant, on the input-edge
+    /// invariants" let leg `t` satisfy every assertion by itself — so the
+    /// **weight** rehydration could be replaced with the direct edge, bypassing
+    /// V3 entirely and unnoticed, even though `forward_edge` and `syllogize`
+    /// both depend on it. (Codex review, PR #971.)
+    ///
+    /// So both legs are named, and the weight-side leg must fail on a
+    /// **composition** invariant specifically: its own input resolves fine, so
+    /// the input-edge invariants are clean there and only the composition can
+    /// see a corrupted weight.
     #[test]
-    fn v3_parity_detects_a_corrupted_resolution() {
-        let legs = census(Some(0x1000));
-        let discordant: Vec<&Leg> = legs.iter().filter(|l| !l.discordant().is_empty()).collect();
+    fn v3_parity_detects_a_corrupted_resolution_on_both_operands() {
+        const CORRUPT: u16 = 0x1000;
+        let legs = census(Some(CORRUPT));
+        let n = legs.len();
+        let input_leg = (CORRUPT - 0x1000) as usize;
+        let weight_leg = (input_leg + n - 1) % n;
+
+        let discordant: Vec<usize> = (0..n)
+            .filter(|&i| !legs[i].discordant().is_empty())
+            .collect();
         assert!(
             !discordant.is_empty(),
             "corrupting a resolved SPO changed nothing — the comparator is vacuous"
         );
 
-        // ...and it must be caught by the SPO-shaped invariants specifically,
-        // not merely by some incidental byte: a corrupted resolution is a
-        // SEMANTIC divergence, and naming which invariant sees it is the
-        // difference between a detector and an alarm.
-        let names: Vec<&'static str> = discordant.iter().flat_map(|l| l.discordant()).collect();
+        // (a) the INPUT-side leg fails on the SPO-shaped invariants — naming
+        //     WHICH invariant sees it is the difference between a detector and
+        //     an alarm.
+        let on_input = legs[input_leg].discordant();
         assert!(
-            names.contains(&"spo_after_resolution") && names.contains(&"rehydrated_ce64"),
-            "expected the SPO invariants to fire, got {names:?}"
+            on_input.contains(&"spo_after_resolution") && on_input.contains(&"rehydrated_ce64"),
+            "input-side leg {input_leg} did not fail on the SPO invariants: {on_input:?}"
         );
 
-        // And it must NOT fire everywhere — a comparator that reports every leg
-        // discordant after a single-facet corruption is not localising anything.
+        // (b) the WEIGHT-side leg fails on a COMPOSITION invariant. This is the
+        //     assertion that stops the second operand bypassing V3 unnoticed.
+        let on_weight = legs[weight_leg].discordant();
         assert!(
-            discordant.len() < legs.len(),
-            "a one-facet corruption made every leg discordant ({} of {}) — the \
+            on_weight.iter().any(|inv| matches!(
+                *inv,
+                "forward_edge_result" | "forward_spo_head" | "syllogism_conclusion"
+            )),
+            "weight-side leg {weight_leg} saw no composition divergence: {on_weight:?} \
+             — the weight rehydration could bypass V3 unnoticed"
+        );
+        assert!(
+            !on_weight.contains(&"rehydrated_ce64"),
+            "weight-side leg {weight_leg} failed on an INPUT invariant, so it is not \
+             isolating the weight path: {on_weight:?}"
+        );
+
+        // (c) and it must NOT fire everywhere — a comparator that reports every
+        //     leg discordant after a single-facet corruption is not localising.
+        assert!(
+            discordant.len() < n,
+            "a one-facet corruption made every leg discordant ({} of {n}) — the \
              comparator is not localising",
-            discordant.len(),
-            legs.len()
+            discordant.len()
         );
     }
 

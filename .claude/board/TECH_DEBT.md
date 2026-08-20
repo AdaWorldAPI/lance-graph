@@ -28,6 +28,15 @@ dimensions does it WRITE; which consumers can observe those writes; what does
 the `ThoughtCtx` projection lose. That connects directly to the JC/HHTL
 psychometric program.
 
+**Third measurement, same fact (2026-08-20, codex round 3).** `Mcp` declares
+`moves_confidence() == true` truthfully yet is guaranteed silent in the
+dispatched context: `free_energy` starts at 0.5, exactly one kernel writes it,
+and that one only decays it — swept 36 styles x 5 rungs, `free_energy` never
+exceeds 0.5 and `Mcp` moves confidence 0/180. Capability is not reachability.
+A reachability FILTER is near-circular (deciding it costs the same as sampling);
+what it would really buy is refusing to count structural silence as agreement,
+which is a change to what dissent MEANS. See `E-CAPABILITY-IS-NOT-REACHABILITY-1`.
+
 **Paid when** the projection is explicit and measurable — not when the symptom
 (17 silent kernels) is papered over.
 

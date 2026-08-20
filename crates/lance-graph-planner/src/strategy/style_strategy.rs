@@ -264,6 +264,37 @@ impl StyleStrategy {
     /// `moves_confidence` ⇒ `Operational` is pinned upstream by
     /// `moves_confidence_is_strictly_stronger_than_production`, so the
     /// capability subsumes the maturity.
+    ///
+    /// # KNOWN GAP: capability is not REACHABILITY (measured, Stage-3)
+    ///
+    /// `moves_confidence()` says a kernel can move `delta_conf` on SOME input.
+    /// It does not say the kernel can move it **in the context this planner
+    /// dispatches**, and at least one watcher is admitted that cannot.
+    ///
+    /// Measured (codex review, PR #971): `Mcp` (recipe 10) declares
+    /// `moves_confidence() == true` truthfully — its branch needs
+    /// `confidence > 0.7 && free_energy > 0.5`. But
+    /// [`thought_ctx_from`](Self::thought_ctx_from) starts at
+    /// `ThoughtCtx::new`'s `free_energy = 0.5`, and **exactly one** of the 34
+    /// kernels writes that field at all (`Rte`, id 1), which only decays it.
+    /// Swept over all 36 styles × 5 rungs: `free_energy` never exceeds
+    /// **0.5**, and `Mcp` moves confidence in **0 of 180** cells. Sampling it
+    /// spends a `k` slot on a watcher that is guaranteed silent here.
+    ///
+    /// So this is the same lesson a third time — production → capability →
+    /// **reachability** — and it is deliberately NOT fixed in this predicate:
+    ///
+    /// 1. A reachability filter is close to circular for the budget argument.
+    ///    Deciding whether watcher `W` can move the answer in context `C`
+    ///    essentially requires evaluating `W` in `C`, which is what sampling it
+    ///    already does. What it would genuinely buy is not a cheaper budget but
+    ///    a refusal to count a *structural* silence as agreement — a change to
+    ///    what dissent MEANS.
+    /// 2. That change is Stage-3's to make, alongside the other half of the
+    ///    same question (the 17 Operational-but-confidence-mute kernels), and
+    ///    it would move the Stage-2.5 baseline the operator has just frozen.
+    ///
+    /// Tracked: `TD-THOUGHTCTX-IS-A-LOSSY-PROJECTION`.
     fn watcher_can_dissent(id: u8) -> bool {
         kernel(id).is_some_and(|k| k.moves_confidence())
     }
