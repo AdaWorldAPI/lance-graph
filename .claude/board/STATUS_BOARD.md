@@ -1,3 +1,33 @@
+## stage-3 — RE-SCOPED 2026-08-20: S3.0 closed as NOT-NEEDED; the ladder's empty column is HYDRATION, not ADDRESS
+
+PR #973 (S3.0 address, first attempt) closed unmerged. Its retraction PR then
+attempted a corrected `CausalLiteral` and was **stopped before merge by the
+operator** — four unearned claims, recorded in
+`E-A-LOCAL-DERIVATION-CANNOT-OVERRULE-A-MEASURED-COUNTEREXAMPLE-1`. No new
+address type is minted: `IdentityQuad` (4 × u24 in one V3 facet, ratified
+2026-08-17) already carries exact four-component identity, and no falsifier
+showed existing addressing insufficient.
+
+| D-id | Deliverable | Status |
+|---|---|---|
+| S3.0 | exact literal address | **CLOSED — NOT NEEDED** (use `IdentityQuad` / `ClassAddr` / V3 rail) |
+| S3.0b | qualified causal regime | Queued |
+| S3.1 | hydrate `CausalMeta` + `EpistemicMeta` over EXISTING addresses | **Next** |
+| S3.1b | EntropyWork · BasinSet · Attention; `RowFocusMask × WideFieldMask` | Queued |
+| S3.2 | V3 / CE64 leg from the hydrated node | Queued |
+| S3.3 | `ResolvedPredicate`; unknown fails CLOSED; explicit composition | Queued |
+| S3.4 | DisMech ORACLE experiment — hide intermediates, hydrate neighbourhood, NARS recovers, compare vs truth | **the gate** |
+| S3.5 | NARS evidence mass: raw/source/HEEL/effective, deterministic W+/W− | Queued |
+| S3.6 | JC measurement per predicate × cohort × horizon × instrument | Queued |
+| S3.7 | `ReasoningEpisode`; measure the 17 confidence-mute kernels | Queued |
+| S3.8 | potholes, first_possible vs first_derived, strict historical replay | Queued |
+| S3.9 | Meta / Rubicon → OGAR-loco; Pearl qualification earned by receipts | Queued |
+
+**Open, and NOT an S3 deliverable:** `ClassId = u16` near-exhausted for
+relations (MedCare-rs commitment #10) — an OGAR/lance-graph classid-mint
+capacity question for the operator.
+
+---
 ## preparation-arc plan wave — 2026-08-19 (operator: "integration plans for all open arcs")
 
 Five plans, each PROPOSED (no code — the reset charter's audit-first order

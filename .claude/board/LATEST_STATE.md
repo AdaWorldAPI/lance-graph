@@ -1,3 +1,115 @@
+## 2026-08-20 — branch `claude/lance-graph-stage-3-recovery-2wrdbd` — DisMech compact evidence vocabulary + citation sidecar
+
+### Current Contract Inventory — 1 new zero-dep module
+
+- **`lance_graph_contract::dismech_evidence`** (new):
+  - `DismechTopology` — the four measured `causal_link_type` states, 2 bits,
+    `from_source`/`as_source`/`to_bits_2`/`from_bits_2`, plus
+    `source_knows_intermediates()` / `mediator_unresolved()` which separate the
+    3,978-edge ORACLE population from the 4,539-edge RESTRAINT CONTROL.
+  - `Supports` (4, 2 b), `EvidenceSource` (5, 3 b) — round-tripped exhaustively.
+  - `CitationNamespace` (PMID/DOI/ORPHA/NCT/CGGV/URL), `CitationKey`
+    (`Identified{namespace,id}` | `ContentAddressed(ContentId)`),
+    `BibliographyRecord{key, title: ContentId}`.
+- **SOURCE-SIDE ONLY — deliberately does NOT reference `CausalEdge64`.** The
+  durable causal overlay must not become a pile of hot reasoning registers
+  (operator ruling); `DismechTopology -> CE64 bits 59..60` happens at
+  HYDRATION, in the consumer, as a 1:1 read of `to_bits_2()`.
+- **Every parse FAILS CLOSED.** `UNKNOWN` is a value the corpus asserts 408
+  times, so minting it from a parse failure would forge an assertion the source
+  never made — pinned by
+  `unrecognised_topology_fails_closed_and_never_becomes_unknown`.
+- **Citation identity never derives from the title** — pinned by
+  `reference_identity_survives_a_title_rewording`, the falsifier that matters
+  for an LLM-generated corpus. Where no stable identifier exists,
+  `CitationKey::ContentAddressed` says so explicitly rather than synthesising a
+  bibliographic id.
+
+### Gates
+
+`lance-graph-contract` **1178/1178** (7 new); `cargo fmt` clean; `cargo clippy
+--all-targets --no-deps -D warnings` clean.
+
+### NOT frozen by this PR (measurement says do not)
+
+The endpoint codebook and the DisMech-local identity scheme stay OPEN until the
+unprefixed population is probed — 63.6% of unprefixed endpoints are still
+unresolved and the tail contains three different KINDS (provenance leakage,
+mechanism propositions, lexical variants). Full numbers:
+`E-DISMECH-CORPUS-CENSUS-1`. Also open: phenotype resolution must be scoped to the EXISTING `Domain::Phenomenology` (HP is its populated vocabulary, not a new domain — see the ⊘ correction on that entry)
+(23.7% of resolved phenotype labels are HP/MONDO-ambiguous), and
+`phenotypes[].category` at 261 distinct exceeds the 255 `Codebook` cap.
+
+---
+## 2026-08-20 — branch `claude/lance-graph-stage-3-recovery-2wrdbd` — S3.0 CLOSED AS NOT-NEEDED (no new type); #973 retraction + two overclaim corrections
+
+### Contract Inventory — NO CHANGE
+
+**This PR adds no type, no module, no bit, no tenant, no layout version.** It
+is a retraction + audit. `crates/lance-graph-contract/src/lib.rs` is byte-clean
+against `main`.
+
+### What was withdrawn, and why
+
+A first draft of this recovery PR reintroduced #973's `CausalLiteral`
+(`4 × u16`, 8 bytes) with corrected prose. **The operator stopped it before
+merge, and was right on four counts** — all now recorded as
+`E-A-LOCAL-DERIVATION-CANNOT-OVERRULE-A-MEASURED-COUNTEREXAMPLE-1` instance 2:
+
+1. **Wrong universality.** Its own test asserted `TREATED_WITH` — the structure
+   is GENERIC. Causality is a predicate family / qualification, never universal
+   identity.
+2. **`4 × u16` is not absolute.** MedCare-rs `ONTOLOGY_BAKE_STATE.md`:182:
+   *"real OBO ids run past `u16` (MONDO:0700092 = 700,092)."* The V3 rail
+   already solves this.
+3. **A WordNet overclaim.** #875 was cited as an "EXACT structural encoding"; its
+   own W5 gate reports **256 cells, occupancy median 255, over 65,292 leaves** —
+   a locality/search prior, never an identity encoding.
+4. **`routing_prefix()` was unearned.** Lexicographic prefix over concatenated
+   ordinals, labelled an "HHTL locality projection", with no consumer and no
+   measurement.
+
+### The question that closed the slot
+
+> **WHAT EXACT INFORMATION CANNOT BE EXPRESSED BY THE ADDRESSING THAT ALREADY
+> EXISTS?**
+
+**Nothing demonstrable.** `identity_quad::IdentityQuad` (operator-RATIFIED
+2026-08-17) already carries **four exact external identities as `4 × u24` in one
+96-bit V3 facet** behind a `classid(4)`, refuse-don't-truncate, bake-time
+crosswalk resolution. It strictly dominates the withdrawn type. Siblings:
+`ogar_elk::ClassAddr` (`u32 + u32`, a pre-bake join key by its own doc),
+`canonical_node::NodeGuid` + HHTL, the V3 OBO rail.
+
+Per the operator's rule — no concrete falsifier ⇒ **no new absolute-address
+type.** S3.0 is closed as NOT-NEEDED, not filled because a plan had a slot.
+
+### The genuinely open addressing gap (different, not fixed here)
+
+`ClassId = u16` (`class_view.rs:54`) is near-exhausted for **relations** —
+MedCare-rs `CLAUDE.md` #10: *"cannot address a relation — 11 prefixes, 8 of 280
+ids over the ceiling."* A classid-mint capacity question for OGAR/lance-graph;
+to be raised with the operator in session, not patched from a consumer.
+
+### Where the work actually is
+
+| | ADDRESS | HYDRATED SoA | TRAVERSAL |
+|---|---|---|---|
+| Bible / Rosetta | yes | **NO** | partial / context |
+| OSM | yes | yes | overlay / junction |
+| MedCare ontology | yes | yes | **YES, Stage 1** |
+| DisMech oracle | source | structured | causal oracle |
+
+The empty column is not ADDRESS. Next: **hydrate epistemic / causal nodes →
+reason over them → think about the reasoning**, with the DisMech oracle
+experiment as the gate (hide mechanism intermediates → hydrate the addressed
+neighbourhood → let NARS/recipes recover candidates → compare against DisMech
+truth).
+
+Full audit: `.claude/handovers/2026-08-20-s3-0-cold-start-recovery-audit.md`.
+Stage-2/2.5/2.6 (#971) untouched; #970's CE64 layout untouched.
+
+---
 ## 2026-08-20 — lance-graph #971 (MERGED, `2cbe62d`, head `d627f5c`) — Stage 2 carves + Stage 2.5 census + Stage 2.6a V3 invariance + CE64 ⇄ V3 losslessness
 
 Six commits, four stages. The per-stage Contract Inventory and results are in

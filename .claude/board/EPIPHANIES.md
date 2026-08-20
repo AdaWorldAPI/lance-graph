@@ -1,3 +1,396 @@
+## 2026-08-20 — E-DISMECH-CORPUS-CENSUS-1 — the DisMech corpus measured: 87.2 MB of strings, of which the entire causal semantics is bits + codebook ordinals
+
+**Status:** FINDING (measured on upstream `monarch-initiative/dismech`, 2,100
+disorder files, fetched ephemeral to `/tmp` — never committed, per the
+`/tmp`-fixture rule). **Confidence:** High — every number is a count.
+
+**Total string bytes across all properties: 87,222,222.** The top ~27
+properties by volume are free text (descriptions / snippets / explanations /
+reference titles). Everything that carries CAUSAL SEMANTICS is tiny.
+
+**`causal_link_type` is EXACTLY the four `CausalTopology` states** — measured,
+not assumed, so the CE64 bits 59+60 mapping is source-authoritative and needs
+no inference from confidence, edge count, or predicate name:
+
+| state | count |
+|---|---|
+| DIRECT | 9,073 |
+| INDIRECT_UNKNOWN_INTERMEDIATES | 4,539 |
+| INDIRECT_KNOWN_INTERMEDIATES | 3,978 |
+| UNKNOWN | 408 |
+| **total causal edges** | **17,998** |
+
+**The two experimental populations this hands us (better than hiding paths):**
+`IndirectKnownIntermediates` (3,978) is the ORACLE population — the source
+names the mediators, so they can be hidden and recovery measured.
+`IndirectUnknownIntermediates` (4,539) is the RESTRAINT CONTROL — the source
+itself does not know, so a reasoner that "recovers" a mediator there is
+hallucinating closure. Success is therefore two-sided: recovery sensitivity
+AND epistemic restraint.
+
+**Every evidence enum is bits:** `supports` 4 (2 b), `evidence_source` 5 (3 b),
+`modifier` 7 (3 b), `frequency` 19 (5 b), `treatment_effect` 5,
+`genetic[].relationship_type` 10, `prevalence[].measure_type` 8.
+⚠ `phenotypes[].category` is **261 distinct — OVER the 255 `Codebook` cap**,
+and its top values include both `Neurologic` AND `Neurological`: lexical noise
+inside an "enum". It needs normalization or a deliberate split, never a silent
+widening (`Codebook::intern` returning `None` IS the split signal).
+
+**Bibliography — LLM-generated, so identity must not be the title.** 131,904
+reference-title occurrences over 31,361 distinct (4.21x reuse); 12,124,736 B
+inline -> 3,051,438 B deduped (74.8% saved); with a u32 key per occurrence,
+3,579,054 B total = 3.4x smaller. A stable key ALREADY exists on ~104,700
+occurrences: PMID (dominant), DOI, ORPHA, CGGV, ClinicalTrials, URL. So the
+key is `(namespace, id)` — never a hash of the title, because wording drifts
+between regenerations while the citation does not.
+
+**"MONDO-derived" applies to the DISORDERS, not the EDGE ENDPOINTS.** Measured
+prefix distribution over edge endpoints: no prefix at all **25.2%**, HP 24.9%,
+GO 11.6%, NCIT 10.5%, hgnc 7.6%, CL 7.3%, **MONDO only 4.4%**, UBERON 3.3%,
+CHEBI 3.1%, NCBITaxon/ECTO/RO 2.0%. OBO_CORE's five namespaces cover **32.7%**.
+This is the single largest correction to the DisMech-overlay plan: grounding
+cannot lean on MONDO.
+
+**Deterministic resolution ladder — no LLM used.** Phenotypes carry NO CURIE at
+all (25,120 entries, 0.0%), so the mapping must be MADE. Against the real
+HP/MONDO/UBERON/PATO labels:
+
+| population | exact | +case/punct | +singular | RESOLVED | unresolved |
+|---|---|---|---|---|---|
+| phenotype labels (25,120) | 55.3% | 23.2% | 2.1% | **80.7%** | 19.3% (3,647 distinct) |
+| unprefixed endpoints (30,872) | 25.6% | 9.9% | 0.9% | **36.4%** | 63.6% (11,385 distinct) |
+
+**The unresolved tails are three DIFFERENT kinds, not one backlog:**
+(a) provenance leaking into the endpoint slot — `Orphanet` (120), `OMIM` (32),
+`ClinGen` (23) are database names, not concepts; (b) qualified mechanism
+PROPOSITIONS — `Impaired Terminal Electron Transfer and ATP Synthesis` (24),
+`Impaired Neurodevelopment` (20) — genuinely DisMech-local, and must not be
+bullied into an ontology node; (c) lexical variants of real concepts. Note
+`Sensorineural Hearing Loss` and `Sensorineural hearing loss` BOTH fail, so
+they are a SYNONYM miss (HPO's own label is "Sensorineural hearing
+impairment"), not a case miss — the next deterministic rung is the synonym
+table, before any model is invoked.
+
+**⚠ PHENOTYPES NEED THEIR OWN RESOLUTION DOMAIN (operator, confirmed by
+measurement).** Collapsing HP with MONDO does not merely strip edges — it
+MISROUTES them, which is harder to detect. Measured: **1,169 labels exist in
+more than one namespace, 1,129 of them HP+MONDO**. Of 19,738 resolved
+phenotype labels, **26.2% landed in MONDO rather than HP**, and **23.7%
+(4,678) are genuinely ambiguous** — a collapsed resolver picks by insertion
+order, silently reattaching a phenotype edge to a same-named disease node.
+HP must be scoped FIRST, with any cross-namespace fallback deliberate.
+
+**UBERON is the capstone, measurably:** 10 collisions across 14,975 UBERON
+labels = **0.07%**. Anatomy is near-collision-free exactly where phenotype and
+disease are not, so it is the one layer safe to anchor against.
+
+> **⊘ ARCHITECTURAL CONCLUSION CORRECTED (2026-08-20, same day, measured).**
+> **The MEASUREMENTS above stand unchanged** — 1,169 multi-namespace labels,
+> 26.2% mis-landing, 23.7% ambiguous, UBERON at 0.07%. What is corrected is
+> the word **"OWN"**: the sanctioned abstraction already exists and this entry
+> did not know it.
+>
+> `medcare-cohorts/src/quad_tenant.rs` ships `Domain` (8 variants) with a
+> classid→domain map, an enforced two-witness contract (classid AND TUI must
+> agree), and `FacetRegime::PerRowTui` for the CUI horseshoe:
+>
+> | Domain | vocabularies mapped |
+> |---|---|
+> | `Domain::Phenomenology` | HP |
+> | `Domain::Anatomy` | **UBERON + FMA** |
+> | `Domain::Disease` | MONDO + ICD-10-GM + ORDO + OMIM + DECIPHER |
+> | `Domain::Lab` / `Substance` / `Procedure` | LOINC / ATC+RxNorm+Gelbe Liste / OPS |
+> | `Imaging`, `BiologicalProcess` | declared, no vocabulary yet |
+>
+> So the corrected statements are:
+>
+> - *Phenotype resolution must be constrained to the existing
+>   `Domain::Phenomenology`; **HP is its currently populated single-facet
+>   vocabulary, not a new resolution domain.***
+> - *Anatomy resolution targets `Domain::Anatomy` (UBERON **and** FMA);
+>   UBERON's 0.07% collision rate makes it a strong current
+>   projection/anchor, **not the semantic domain itself**.*
+>
+> **Why this pedantry earns its place:** the board is executable archaeology.
+> Left as written, "HP needs its own resolution domain" is precisely how a
+> later session mints an `HpResolutionDomain` beside the already-built
+> `Domain::Phenomenology` — the duplicate-vocabulary failure this workspace
+> has now recorded several times. Append-only: the original claim is regraded
+> here, not deleted.
+
+---
+
+## 2026-08-20 — I-STRINGS-ARE-CAM-INDEX-ONLY-1 — strings in the hot path resolve through a codebook; the ONLY string home is the CAM index codebook; NEVER in any SoA
+
+**Status:** OPERATOR RULING (verbatim: *"All strings in hot path are mandatory to
+use codebooks, the only occurrence of strings is in content addressable memory
+index codebook / Never in any SoA"*; sharpened same message: *"In hot path, only
+patient data or KV Side Car table"*). **Confidence:** High — iron rule.
+
+**The rule.** In the hot path a semantic identity is an ORDINAL. A `String` may
+exist in exactly two places: (a) the **CAM index codebook** — the
+content-addressed cold store / family codebook that maps bytes or a label to its
+ordinal; (b) a **KV side-car table** or patient data. A string may NEVER live in
+an SoA row, a value tenant, an overlay, or any reasoning-path struct.
+
+**The sanctioned homes already exist — this rule is not a request for new
+machinery, it is a demand to stop bypassing what is built:**
+- `content_store.rs` — content-addressed cold text/blob store, `ContentAddress`
+  = fnv1a-64 of the stored bytes, write side membrane-only. This IS the CAM index.
+- `codebook.rs` — `family -> Codebook`, <=255 entries, 1-byte in-family index,
+  index 0 reserved as the `EdgeBlock` empty-slot sentinel; a family that
+  outgrows 255 SPLITS rather than widening the byte.
+
+**Measured compliance in this repo (2026-08-20 audit).**
+
+COMPLIANT, do not touch: `nars/belief.rs` carries ZERO strings — `CStmt { s: u16,
+cop: Copula, p: u16 }`, `Copula::Rel(u16)`; `stance.rs:51 Interner
+{ map: HashMap<String,u16>, names: Vec<String> }` is the correct string->ordinal
+membrane feeding it; `recipes.rs` `code`/`name`/`substrate` are `&'static str`
+catalogue metadata reached by `id: u8`, never used for dispatch or equality.
+
+VIOLATIONS:
+- `literal_graph.rs:72` `label_codebook: Vec<String>` — an ad-hoc codebook
+  duplicating `codebook::Codebook`'s exact shape. Worse: `ensure_label` COMPUTES
+  the ordinal on every `add_node`/`add_edge` and then DISCARDS it, keeping only
+  the `String` on the node/edge.
+- `literal_graph.rs:21,25,39,41,43` — `id`/`label`/`source`/`target` as `String`
+  IDENTITY, plus three `HashMap<String,_>` adjacency indices.
+- `exploration.rs:140-142` `FrontierEdge.source/target/label: String` — the LIVE
+  ranking substrate (`curiosity()` + MUL-weighted next-edge choice).
+- `exploration.rs:309-311` `ExplorationResult.confirmed/denied:
+  Vec<(String,String,String,NarsTruth)>` — an SPO triple driving NARS revision
+  as three heap Strings, in a repo whose NARS statement type is three `u16`s.
+- Additional interners beside the sanctioned two: `deepnsm/vocabulary.rs:82`
+  `forms: HashMap<String,u16>`; `lance-graph-cognitive/fabric/gel.rs:97`
+  `labels: HashMap<String,u16>`.
+
+**Predicate ordinals are TWO bytes, not one.** `ogar-loco/src/lib.rs:347` sets
+`DOMAIN_FLOOR = 0x90`: `0x00..=0x8F` is universal ABI forever, `0x90..=0xFF` is
+DOMAIN-LOCAL. `ogar-dismech` mints `0x90..=0xA2` (19, test-pinned) and `ogar-ro`
+mints `0x90..=0xA5` (22) — the SAME range. A bare `FnIndex` is therefore
+ambiguous; predicate identity is `(vocabulary, FnIndex)`, or the vocabulary is
+implied by the lane's classid exactly as `ogar-obo` already does it.
+
+**Correction recorded with the rule:** an audit pass this session reported
+`ClassRowSchema`/`RowField`/`ValueSchema` as ABSENT. They exist —
+`ogar-obo/src/layout.rs:36,61` and `lance_graph_contract::canonical_node::ValueSchema`.
+What IS absent is narrower: a slot->ROLE mapping (subject/predicate/mediator).
+`ClassRowSchema` carves FIELDS (`entity_type`, `edge_lanes`), not roles.
+
+**Consequence for the reasoning overlay.** An overlay stores an ordinal, a slot
+position and state bits — never a label, a relation name, or a path. Slot
+position and schema ARE information; re-encoding them as prose is the redundancy
+this rule exists to kill.
+
+---
+
+## 2026-08-20 — E-S3-0-NEEDED-NO-NEW-ADDRESS-1 — the Stage-3 "S3.0 address" slot is closed as NOT-NEEDED; `IdentityQuad` already carries an exact four-component identity, at u24, inside the sanctioned V3 facet
+
+**Status:** FINDING (operator-directed audit; measured against merged code).
+**Confidence:** High — every claim below is a read of shipped source or a
+merged measurement, not a derivation.
+
+**The question that closes it** (operator's rule, stated during this session):
+*"WHAT EXACT INFORMATION CANNOT BE EXPRESSED BY THE ADDRESSING THAT ALREADY
+EXISTS?"* — and if there is no concrete falsifier showing existing addressing
+insufficient, **no new absolute-address type is minted.**
+
+**Answer: nothing that could be demonstrated.** `identity_quad::IdentityQuad`
+(operator-RATIFIED 2026-08-17, `ISS-IDENTITY-QUAD-WIDE-CARVING-HOME`) already
+materializes **four external identity spaces as `4 × u24` contiguous in ONE
+96-bit V3 facet payload** behind a `classid(4)`, via
+`LegacyOutlier::WideTriple`. It refuses rather than truncates
+(`QuadError::OrdinalTooLarge`, `MAX_ORDINAL = 2^24 − 2`); its codebooks refuse
+rather than saturate (`CodebookError::TooLarge`). Its stated purpose is to
+resolve a crosswalk ONCE at bake time so a read becomes a fixed-offset register
+read — no join, no crosswalk walk.
+
+**A proposed `4 × u16` literal type was WITHDRAWN, on two independent grounds:**
+
+1. **`u16` cannot hold a real ontology identity.** MedCare-rs
+   `docs/ONTOLOGY_BAKE_STATE.md`:182 states it directly — *"real OBO ids run
+   past `u16` (MONDO:0700092 = 700,092) and one V3 field cannot hold that."*
+   The substrate already solved this with the V3 rail
+   (`family:identity = (num >> 16, num & 0xFFFF)`, read via
+   `obo_store::row_addr`). A u16 subject would have silently mis-addressed the
+   largest ontology in the bake. Calling such a tuple "absolute identity" was
+   an overclaim.
+2. **`CausalLiteral` was the wrong universality.** Its own test asserted
+   `TREATED_WITH` — proving the structure is GENERIC. `ASSOCIATED_WITH` /
+   `TREATED_WITH` / `CAUSES` / `MEDIATES` / `PART_OF` are exact predicate
+   identities over one generic literal substrate. **Causality is a predicate
+   family / qualification, never universal identity.** Had a primitive been
+   needed it would have been `ExactLiteralAddr(D,S,P,O)` — but per the rule
+   above, none was.
+
+**Sibling absolute-address surfaces already merged**, for a future session's
+map: `ogar_elk::ClassAddr` (`classid: u32 + identity: u32`, explicitly a
+pre-bake **join key**, *"not an ABI address, and deliberately not documented as
+one"*), `canonical_node::NodeGuid` + the HHTL cascade, and the V3 rail above.
+
+**The genuinely open addressing gap is a DIFFERENT one, and is not fixed by a
+literal type:** `ClassId = u16` (`class_view.rs:54`) is near-exhausted for
+RELATIONS — MedCare-rs `CLAUDE.md` commitment #10: *"cannot address a relation
+— 11 prefixes, 8 of 280 ids over the ceiling"*, echoed in
+`RAIL_OFFENE_POSTEN.md`. That is a **classid-mint capacity** question owned by
+OGAR/lance-graph, to be raised with the operator in session.
+
+**What the ladder says the real work is** (operator-requested matrix):
+
+| | ADDRESS | HYDRATED SoA | TRAVERSAL |
+|---|---|---|---|
+| Bible / Rosetta | yes | **NO** | partial / context |
+| OSM | yes | yes | overlay / junction |
+| MedCare ontology | yes | yes | **YES, Stage 1** |
+| DisMech oracle | source | structured | causal oracle |
+
+**The empty column is not ADDRESS.** The missing work is *hydrate epistemic /
+causal nodes → reason over them → think about the reasoning*. Next target is
+the DisMech oracle experiment: hide known mechanism intermediates, hydrate the
+addressed ontology neighbourhood, let NARS/recipes recover candidates, compare
+against DisMech truth (`dismech-rs` `graph::build_causal_graph`, falsified at
+1,995 diseases / 33,458 edges; 1,903 committed `pathographs/MONDO_*.json` as
+ground truth).
+
+**Also withdrawn with the type: `routing_prefix()`.** Concatenating D/S/P/O
+nibbles into a `NiblePath` yields deterministic **lexicographic** prefixes. It
+was labelled an "HHTL locality / cohort projection" with no consumer and no
+measurement establishing that it preserves HHTL *semantic* locality —
+`NiblePath` is built for the `subClassOf` Abstammung tree, where a prefix is an
+ancestry claim; a lexicographic prefix over concatenated ordinals carries no
+such guarantee. If it returns it needs a real consumer and a measurement first.
+
+**Cross-ref:** `E-NIBLEPATH-DEPTH-IS-NOT-HHTL-DIMENSIONALITY-1` (below),
+`E-WORDNET-IS-A-LOCALITY-PRIOR-NOT-AN-IDENTITY-ENCODING-1` (below), PR #973
+(closed unmerged), `.claude/handovers/2026-08-20-s3-0-cold-start-recovery-audit.md`.
+
+---
+
+## 2026-08-20 — E-WORDNET-IS-A-LOCALITY-PRIOR-NOT-AN-IDENTITY-ENCODING-1 — #875 measured a taxonomy-informed HHTL *search prior*; it did NOT prove an injective WordNet address, and a session citing it as one was corrected
+
+**Status:** CORRECTION (operator-caught, 2026-08-20). **Confidence:** High —
+#875's own W5 numbers settle it.
+
+**The overclaim.** A recovery session (this one) cited
+`E-WORDNET-MAKES-THE-4-ARY-ADDRESS-SEMANTIC-1` as proving *"a full-width 4-ary
+HHTL fold of real WordNet ancestry is an EXACT structural encoding"*, and used
+that as a counterexample licensing exact HHTL literal identity. **False.**
+
+**#875's own W5 gate says so:** *256/256 cells used, occupancy min 29 / median
+255 / max 1270* over **65,292 addressed leaves**. That is ~255 leaves per cell.
+The fold is **many-to-one by a factor of hundreds** — not injective, not an
+identity encoding, and never claimed to be one in #875's own text.
+
+**What #875 DID measure**, and it is a strong result on its own terms: a
+**deterministic, taxonomy-informed HHTL locality / search prior.**
+corr(shared address levels, LCA depth) **+0.494** real vs **−0.036** shuffled;
+out-of-cell band recall **0.763 vs 0.031 random = 24.71×**; a **2.47-hop**
+sub-nibble distinction the 16-ary router cannot address. Explicitly a
+*discriminating* prior that does NOT cover everything — #875 dropped its own
+cover guard as inert for exactly that reason, and its Boundaries section
+already warns that *"a concept with two genuine parents is representable at
+only one address"* (first-`@`-parent tree projection of a DAG).
+
+**Therefore the Bible/Rosetta + WordNet composition reads:**
+`frozen verse identity × quasi-absolute taxonomy-informed semantic coordinate ×
+witness / qualia planes` — **not** "256 HHTL cells uniquely identify a lexicon."
+
+**The transferable lesson, and it is the same shape as the one below.** The
+retraction of #973 was correct; the replacement reached for the nearest
+merged-and-measured result to license the opposite conclusion and **inflated
+what that result said** in the process. A counterexample cited past its own
+measured Boundaries section is not a counterexample — it is the original
+failure mode with the sign flipped. Read the gate table, not the headline.
+
+**Cross-ref:** `E-WORDNET-MAKES-THE-4-ARY-ADDRESS-SEMANTIC-1` (unchanged; its
+own Boundaries section was always correct), `E-S3-0-NEEDED-NO-NEW-ADDRESS-1`.
+
+---
+
+## 2026-08-20 — E-NIBLEPATH-DEPTH-IS-NOT-HHTL-DIMENSIONALITY-1 — retracts #973's `E-THE-LITERAL-CANNOT-LIVE-IN-THE-PATH-IT-ROOTS-1`
+
+**Status:** FINDING (retraction; PR #973 closed unmerged, so the retracted
+entry never landed on `main` — recorded here so the reasoning is not repeated).
+**Confidence:** High.
+
+**The retracted claim.** #973 measured, correctly, that a
+`domain·subject·predicate·object` at `u16` each is exactly 16 nibbles — the
+entire budget of `hhtl::NiblePath`, a single sequential `u64`-backed router
+path built for the `subClassOf` Abstammung tree. From that true LOCAL fact it
+concluded, under a title that reads as a global claim, that exact identity
+cannot live in HHTL addressing and evidence must **ref-escape** out of address
+space into a structurally separate mechanism.
+
+**Why the inference is not licensed.** `MAX_DEPTH` is a property of ONE
+depth-limited single-path router, not of HHTL addressing as a concept. The
+substrate carries other HHTL-adjacent shapes that are not sequential descent:
+`facet::FacetCascade` is a fixed 16-byte register supporting SEVERAL
+SIMULTANEOUS ClassView-selected readings of the same bytes
+(`G3D4`/`G4D3`/`G6D2`/`24×i4`), with `tekamolo_facet` as the shipped instance —
+four orthogonal 256:256:256 lanes over one register, not nested depth. And
+`E-ANAPHORA-BEYOND-I4-IS-A-BASIN-EDGE-1` (7,657 real German relative clauses,
+88.01% in-window) is the general pattern: a local representation exhausting
+cleanly marks a TYPE boundary — switch to another sanctioned reading of the
+same address, never widen the pointer or declare the substrate exhausted.
+
+**What survives.** The arithmetic, scoped: `4 × u16 == 16 nibbles ==
+NiblePath::MAX_DEPTH`, and such a path is `is_full()` for that router.
+
+**What does NOT follow from it**, and was separately settled by
+`E-S3-0-NEEDED-NO-NEW-ADDRESS-1` above: that a new address type was needed at
+all. It was not.
+
+---
+
+## 2026-08-20 — E-A-LOCAL-DERIVATION-CANNOT-OVERRULE-A-MEASURED-COUNTEREXAMPLE-1 — and its twin: a counterexample cited past its own Boundaries section is the same failure with the sign flipped
+
+**Status:** RULING (operator, cold-start recovery session after #973's
+closure). **Confidence:** High — process rule, with two instances measured in
+ONE session.
+
+**Instance 1 (#973).** A locally correct derivation about one representation
+(`NiblePath`'s 16-nibble ceiling) was promoted, via a dramatic finding title,
+into an implied GLOBAL substrate conclusion — while three already-measured
+counterexamples in the same repository showed the opposite pattern working.
+None were consulted before the finding was written.
+
+**Instance 2 (the recovery PR itself, caught by the operator).** The session
+correcting instance 1 then (a) cited #875 as proving an *exact* WordNet
+encoding when its own W5 gate reports ~255 leaves per cell, (b) called a
+`4 × u16` tuple "absolute identity" when a merged doc states plainly that real
+OBO ids exceed `u16`, (c) named a generic `(D,S,P,O)` structure `CausalLiteral`
+while its own test used `TREATED_WITH`, and (d) called a lexicographic prefix an
+"HHTL locality projection" with no consumer and no measurement. **Four unearned
+claims inside the PR whose entire purpose was retracting one.**
+
+**The rules that follow, for this and every future session:**
+
+1. Before declaring the substrate "cannot" do something architectural, search
+   `EPIPHANIES.md` and the relevant `.claude/knowledge/` / `docs/` for existing
+   measurements FIRST. A local proof whose premise omits established substrate
+   behaviour is not a discovery.
+2. **A counterexample must be read to its Boundaries section, not its
+   headline.** Citing a measured result past what it measured is the same
+   error, inverted — and it is *easier* to commit while correcting someone
+   else, because the counterexample feels like it is on your side.
+3. Before minting any new absolute-address type, answer in writing: *what exact
+   information cannot be expressed by the addressing that already exists?* No
+   concrete falsifier ⇒ no new type. A slot in a plan is not a falsifier.
+4. Name a type for what it structurally IS, not for the first use case that
+   motivated it. If a test can substitute a non-causal predicate and the type
+   still works, "Causal" does not belong in the name.
+5. Use explicit `[MERGED]` / `[MEASURED]` / `[RULING]` / `[PROPOSED]` /
+   `[REJECTED]` labels, and never blur "true of one type" into "true of the
+   substrate" without saying so in the same sentence.
+
+**Cross-ref:** `E-S3-0-NEEDED-NO-NEW-ADDRESS-1`,
+`E-WORDNET-IS-A-LOCALITY-PRIOR-NOT-AN-IDENTITY-ENCODING-1`,
+`E-NIBLEPATH-DEPTH-IS-NOT-HHTL-DIMENSIONALITY-1`, PR #973 (closed unmerged),
+`.claude/handovers/2026-08-20-s3-0-cold-start-recovery-audit.md`.
+
+---
+
 ## 2026-08-20 — E-THE-COMPAT-ENUM-WAS-EATING-HALF-THE-REGISTER-1
 
 **Status:** FINDING (measured + fixed, PR #971). `CausalEdgeV3::rehydrate`
