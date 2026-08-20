@@ -77,6 +77,7 @@ pub mod cycle_accumulator;
 /// `SquishedDawg` (dict/dawg binary loader) — Tesseract dictionary word-graph
 /// content store. See module docs for the `dawg.{h,cpp}` byte-parity scope.
 pub mod dawg;
+pub mod dismech_evidence;
 pub mod dispatch_guard;
 pub mod dispatch_mode;
 pub mod distance;

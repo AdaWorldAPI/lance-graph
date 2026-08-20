@@ -1,3 +1,46 @@
+## 2026-08-20 — branch `claude/lance-graph-stage-3-recovery-2wrdbd` — DisMech compact evidence vocabulary + citation sidecar
+
+### Current Contract Inventory — 1 new zero-dep module
+
+- **`lance_graph_contract::dismech_evidence`** (new):
+  - `DismechTopology` — the four measured `causal_link_type` states, 2 bits,
+    `from_source`/`as_source`/`to_bits_2`/`from_bits_2`, plus
+    `source_knows_intermediates()` / `mediator_unresolved()` which separate the
+    3,978-edge ORACLE population from the 4,539-edge RESTRAINT CONTROL.
+  - `Supports` (4, 2 b), `EvidenceSource` (5, 3 b) — round-tripped exhaustively.
+  - `CitationNamespace` (PMID/DOI/ORPHA/NCT/CGGV/URL), `CitationKey`
+    (`Identified{namespace,id}` | `ContentAddressed(ContentId)`),
+    `BibliographyRecord{key, title: ContentId}`.
+- **SOURCE-SIDE ONLY — deliberately does NOT reference `CausalEdge64`.** The
+  durable causal overlay must not become a pile of hot reasoning registers
+  (operator ruling); `DismechTopology -> CE64 bits 59..60` happens at
+  HYDRATION, in the consumer, as a 1:1 read of `to_bits_2()`.
+- **Every parse FAILS CLOSED.** `UNKNOWN` is a value the corpus asserts 408
+  times, so minting it from a parse failure would forge an assertion the source
+  never made — pinned by
+  `unrecognised_topology_fails_closed_and_never_becomes_unknown`.
+- **Citation identity never derives from the title** — pinned by
+  `reference_identity_survives_a_title_rewording`, the falsifier that matters
+  for an LLM-generated corpus. Where no stable identifier exists,
+  `CitationKey::ContentAddressed` says so explicitly rather than synthesising a
+  bibliographic id.
+
+### Gates
+
+`lance-graph-contract` **1178/1178** (7 new); `cargo fmt` clean; `cargo clippy
+--all-targets --no-deps -D warnings` clean.
+
+### NOT frozen by this PR (measurement says do not)
+
+The endpoint codebook and the DisMech-local identity scheme stay OPEN until the
+unprefixed population is probed — 63.6% of unprefixed endpoints are still
+unresolved and the tail contains three different KINDS (provenance leakage,
+mechanism propositions, lexical variants). Full numbers:
+`E-DISMECH-CORPUS-CENSUS-1`. Also open: HP needs its own resolution domain
+(23.7% of resolved phenotype labels are HP/MONDO-ambiguous), and
+`phenotypes[].category` at 261 distinct exceeds the 255 `Codebook` cap.
+
+---
 ## 2026-08-20 — branch `claude/lance-graph-stage-3-recovery-2wrdbd` — S3.0 CLOSED AS NOT-NEEDED (no new type); #973 retraction + two overclaim corrections
 
 ### Contract Inventory — NO CHANGE
