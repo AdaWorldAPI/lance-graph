@@ -936,12 +936,48 @@ impl CausalEdge64 {
         ((self.0 >> TRUTH_SHIFT) & BITS2_MASK) as u8
     }
 
+    /// Causal-topology lens: reads the identical two bits as `truth()` /
+    /// `truth_raw()` (bits 59-60), projected through
+    /// [`crate::layout::CausalTopology`] instead of
+    /// [`crate::layout::TrustTexture`]. Purely additive — no bits move.
+    ///
+    /// See [`crate::layout::CausalTopology`] for the full compatibility
+    /// statement: wire and ordinal compatibility with `TrustTexture` are
+    /// exact, the legacy behavioural projection onto old rows is
+    /// intentional, but the *historical factual provenance* of old rows is
+    /// **not** guaranteed — do not treat this as ground truth for a row
+    /// written before this accessor existed.
+    #[inline(always)]
+    pub fn topology(self) -> crate::layout::CausalTopology {
+        use crate::layout::{CausalTopology, BITS2_MASK, TRUTH_SHIFT};
+        CausalTopology::from_bits_2(((self.0 >> TRUTH_SHIFT) & BITS2_MASK) as u8)
+    }
+
     /// Spare 3-bit field (bits 61-63). Reserved for sprint-12+ use.
-    /// Returns 0 for ZERO edges and all v1-written edges (temporal MSBs were ≤ 0xFFF).
+    /// Returns 0 for ZERO edges.
+    ///
+    /// **CORRECTION (measured):** this line previously also claimed "and all
+    /// v1-written edges (temporal MSBs were <= 0xFFF)". That is false. Bits
+    /// 61-63 are v1 temporal bits **9-11**, so any v1 edge with
+    /// `temporal >= 512` reads a NON-ZERO spare. Apply a version gate on
+    /// edges of unknown provenance — the same rule `truth()` already states
+    /// for bits 59-60 at its own threshold (`temporal >= 128`).
     #[inline(always)]
     pub fn spare(self) -> u8 {
         use crate::layout::{BITS3_MASK, SPARE_SHIFT};
         ((self.0 >> SPARE_SHIFT) & BITS3_MASK) as u8
+    }
+
+    /// Quantized reasoning-level projection: reads the identical three bits
+    /// as `spare()` (bits 61-63), projected through
+    /// [`crate::layout::ReasoningBand`]. Purely additive — no bits move, and
+    /// nothing auto-derives this value; see the type's doc comment for the
+    /// no-auto-derivation guarantee and the orthogonality notes against
+    /// `CausalMask` / the inference mantissa / `direction`.
+    #[inline(always)]
+    pub fn reasoning_band(self) -> crate::layout::ReasoningBand {
+        use crate::layout::{ReasoningBand, BITS3_MASK, SPARE_SHIFT};
+        ReasoningBand::from_bits_3(((self.0 >> SPARE_SHIFT) & BITS3_MASK) as u8)
     }
 
     // ── Builder-Shape Setters (functional update, returns Self) ─────────────
@@ -959,6 +995,19 @@ impl CausalEdge64 {
     pub fn with_truth(self, t: crate::layout::TrustTexture) -> Self {
         use crate::layout::{BITS2_MASK, TRUTH_MASK, TRUTH_SHIFT};
         Self((self.0 & !TRUTH_MASK) | ((t.to_bits_2() as u64 & BITS2_MASK) << TRUTH_SHIFT))
+    }
+
+    /// Return new edge with the causal-topology lens set (bits 59-60).
+    ///
+    /// Consuming builder, register-style (`edge.with_topology(t)`), matching
+    /// `with_truth`/`with_spare`. Shares storage with `truth`/`with_truth`
+    /// — the last writer of either view wins, by construction, since it is
+    /// one 2-bit register read through two lenses. See
+    /// [`crate::layout::CausalTopology`] for the compatibility statement.
+    #[inline]
+    pub fn with_topology(self, topo: crate::layout::CausalTopology) -> Self {
+        use crate::layout::{BITS2_MASK, TRUTH_MASK, TRUTH_SHIFT};
+        Self((self.0 & !TRUTH_MASK) | ((topo.to_bits_2() as u64 & BITS2_MASK) << TRUTH_SHIFT))
     }
 
     /// Return new edge with signed inference mantissa set (range −8..+7).
@@ -979,6 +1028,34 @@ impl CausalEdge64 {
         use crate::layout::{BITS3_MASK, SPARE_MASK, SPARE_SHIFT};
         debug_assert!(s <= 7, "spare must fit 3 bits (0..=7), got {s}");
         Self((self.0 & !SPARE_MASK) | ((s as u64 & BITS3_MASK) << SPARE_SHIFT))
+    }
+
+    /// Return new edge with the texture-band projection set (bits 61-63).
+    ///
+    /// Consuming builder, register-style (`edge.with_reasoning_band(b)`),
+    /// matching `with_spare`/`with_topology`. Shares storage with
+    /// `spare`/`with_spare` — the last writer of either view wins, by
+    /// construction, since it is one 3-bit register read through two
+    /// lenses. See [`crate::layout::ReasoningBand`] for the full semantics,
+    /// # ⚠ Writing a non-zero band perturbs the deprecated `temporal()`
+    ///
+    /// `temporal()` reads bits **52..63**, a window that CONTAINS these three
+    /// bits (and the truth bits below them). Decomposed under v2 it is
+    /// `plast_bit2 | (w_slot << 1) | (truth << 7) | (band << 9)`. So a
+    /// non-zero band becomes the DOMINANT term of that composite.
+    ///
+    /// `Network::evidence_trail` sorts by `temporal()` and its comment claims
+    /// the sort "degrades to a stable no-op" under v2. That holds only while
+    /// bits 52..63 are all zero — it is already false for any edge carrying a
+    /// `w_slot` or a `truth`, and writing a band makes the ordering
+    /// band-dominated. That ordering is NOT meaningful. Nothing in-tree
+    /// writes a band today, so this is a trap for the first producer, not a
+    /// live defect.
+    /// the orthogonality notes, and the no-auto-derivation guarantee.
+    #[inline]
+    pub fn with_reasoning_band(self, band: crate::layout::ReasoningBand) -> Self {
+        use crate::layout::{BITS3_MASK, SPARE_MASK, SPARE_SHIFT};
+        Self((self.0 & !SPARE_MASK) | ((band.to_bits_3() as u64 & BITS3_MASK) << SPARE_SHIFT))
     }
 
     /// Set W-slot and truth-band in one mask-and-or operation (hot-path emit).
@@ -1061,9 +1138,21 @@ impl CausalEdge64 {
     pub fn truth_raw(self) -> u8 {
         0
     }
+    /// V1 stub: additive `CausalTopology` lens is a no-op under v1 (matches
+    /// the `truth()` stub above — same bits, same "feature off" behaviour).
+    #[inline(always)]
+    pub fn topology(self) -> crate::layout::CausalTopology {
+        crate::layout::CausalTopology::Direct
+    }
     #[inline(always)]
     pub fn spare(self) -> u8 {
         0
+    }
+    /// V1 stub: additive `ReasoningBand` lens is a no-op under v1 (matches
+    /// the `spare()` stub above — same bits, same "feature off" behaviour).
+    #[inline(always)]
+    pub fn reasoning_band(self) -> crate::layout::ReasoningBand {
+        crate::layout::ReasoningBand::Surface
     }
     #[inline]
     pub fn with_w_slot(self, _w: u8) -> Self {
@@ -1074,11 +1163,19 @@ impl CausalEdge64 {
         self
     }
     #[inline]
+    pub fn with_topology(self, _topo: crate::layout::CausalTopology) -> Self {
+        self
+    }
+    #[inline]
     pub fn with_inference_mantissa(self, _m: i8) -> Self {
         self
     }
     #[inline]
     pub fn with_spare(self, _s: u8) -> Self {
+        self
+    }
+    #[inline]
+    pub fn with_reasoning_band(self, _band: crate::layout::ReasoningBand) -> Self {
         self
     }
     #[inline]
