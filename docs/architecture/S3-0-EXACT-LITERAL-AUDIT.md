@@ -135,18 +135,48 @@ among others. #973 took the shipped router's ceiling for the substrate's.
 PR #876 (`PROBE-HHTL-INTAKE-BLINDNESS`) is the paired caution: a null produced
 by an intake limitation must not be reported as a property of the address.
 
-### 2.6 OSM / WebMercator and Bible Rosetta — coordinate-plus-facets, already shipped
+### 2.6 OSM / WebMercator and Bible Rosetta — coordinate-plus-facets
 
 - **OSM:** OGAR `MERCATOR-HHTL-HELIX-MAP.md` §1 + OGAR `CLAUDE.md` — *"domains
   bind the axes (**OSM: literal x/y**; semantic: PQ subspace pairs)"*; a tier is
   a 256×256 tile, canon "one byte per axis per tier" = exactly the `8:8` pair.
-  Exact Cartesian coordinates are an exact HHTL address, in a shipped domain.
+
+  > **⊘ I OVER-CLAIMED THIS ROW — corrected by a read-only audit, and the
+  > overclaim is the same failure mode this document exists to record.** An
+  > earlier revision ended this bullet: *"Exact Cartesian coordinates are an
+  > exact HHTL address, **in a shipped domain**."* **False.** Measured:
+  > `MERCATOR-HHTL-HELIX-MAP.md:5` sets the legend *"`[G]` = in code, `[H]` =
+  > design"* and **§1 at `:17` is graded `[H]`**; its round-trip falsifier
+  > (`:94-96`) is **unrun**. `ogar-osm/src/lib.rs:212-296` declares
+  > `GEO_V3_FACET` — a **byte-position table**; grep for lon/lat/mercator/
+  > morton/zoom math in that crate returns **zero hits**. The cited reader is a
+  > stub: `ndarray/crates/cesium/src/esri_crs.rs:285` `inverse_mercator` is
+  > `unimplemented!("scaffold only")`; `osm_pbf.rs:12` *"this file is
+  > **D-OSM-1** — the stub"*. `OGAR/docs/DISCOVERY-MAP.md:222` grades `D-OSM`
+  > **`H` / `IDEA` / queued**.
+  >
+  > **What OSM actually establishes:** the binding of Cartesian axes to HHTL
+  > tiers is DECLARED as a byte schema and minted as classids — not computed,
+  > and nothing hydrated. It still refutes #973's inference (nothing anywhere
+  > treats the address plane as unable to hold a Cartesian point), but it is a
+  > **design precedent, not a shipped one**. Citing it as shipped was
+  > strengthening a receipt to fit an argument — the reflex that produced #973,
+  > repeated inside the document written to record it.
+
 - **Rosetta:** `.claude/plans/rosetta-codebook-convergence-v1.md` — *"The verse
   address is a frozen external key … the exact sentence in ALL translations
   lands in [the same row]"*, while WordNet synsets supply a separate
   language-neutral semantic coordinate. One absolute coordinate roots orthogonal
   coordinate systems; language lane, clause index, sense and qualia vary as
   **facets**, never as nibbles appended below the verse.
+
+  > **⊘ SAME CORRECTION, SAME DIRECTION.** That plan's own status line (`:3`)
+  > is **PROPOSED (doc-only)**; the verse row is deliverable `D-RCC-2`
+  > (`:108-114`), and no verse-identity type exists in `crates/`. The book row's
+  > real state is the operator's point exactly: **the address exists, the
+  > concept field does not.** A book is a HORIZONTAL STREAM of addressed
+  > sentences; concepts are the VERTICAL axis and are not materialized as SoA
+  > at HEEL/HIP. Reasoning is what has to hydrate them.
 
 ### 2.7 MedCare-rs: FMA anatomy IS the HHTL address, in production
 
