@@ -81,6 +81,24 @@ reads the overlay.* One direction, compile-checkable at the owner, and it is
 what makes rung-n+1 safe to compute from rung-n residue without the residue
 becoming evidence.
 
+> **CORRECTED (CodeRabbit review, lance-graph #978, 2026-08-21).** Two
+> owners writing two tables establishes only that the session mailbox cannot
+> DIRECTLY mutate an ontology row. It does not, by itself, stop a
+> session-derived VALUE from being handed to the ontology-mailbox owner, who
+> then writes it as its own act. Mailbox ownership is a write-authorization
+> boundary; the invariant this section claims is an INFORMATION-FLOW
+> boundary, and those are not the same property -- a correct write-
+> authorization check can sit downstream of a completed contamination. Real
+> shape: an overlay computation f(patient_residue) = confidence_delta,
+> threaded through a shared parameter or return value into a call the
+> ontology owner makes on its own initiative. No direct write occurred; the
+> graph moved anyway.
+>
+> Section 4's D-ACR-3 is corrected to match: the test must show no
+> ontology-owned WRITE traces to a patient-tagged READ through any call
+> path -- not merely that the session mailbox cannot author the write. The
+> prohibited path must be named, not inferred from "the owners differ."
+
 > **Consequence that must not be lost:** this is also why the overlay may be
 > **discarded whole**. It is not a cache of derived truth (which would need
 > invalidation); it is a *record of where attention went*. Dropping it costs a
@@ -453,7 +471,7 @@ already in the tree; the frequency half needs an argument nobody has made.
 | **D-ACR-0** | Audit `attention_mask.rs` / `attention_mask_actor.rs` against piece E: is the shipped mask a residue carrier, or something else wearing the name? Report, no code. | lance-graph | the audit names a caller, or records EXISTS-UNCALLED |
 | **D-ACR-1** | `RowFocusMask` — the one missing primitive (piece D). Mask over rows visited, composable with `WideFieldMask` per S3.1b. | lance-graph | can-fire **and** can-stay-silent on non-trivial input; a focus over 0 rows and over all rows must be distinguishable from a real one |
 | **D-ACR-2** | Mint the **Rung ladder** rail (HTT §2.3 row) — gated on §8 Q3 mint decision, NOT on this plan | lance-graph | `rail_carving` gains its first non-default consumer |
-| **D-ACR-3** | The one-way invariant as a test, not prose: an overlay write addressed to an ontology-owned row must fail at the owner | lance-graph | the negative case is the test; a passing write is the bug |
+| **D-ACR-3** | The one-way invariant as a test, not prose: no ontology-owned write traces to a patient-tagged read through ANY call path (CodeRabbit-corrected from write-authorization-only) | lance-graph | the negative case is the test; a write whose call graph includes a session-tagged read is the bug, even if the write itself is authored by the ontology owner |
 | **D-ACR-4** | Second-order row (§3) over D-ACR-1 + D-ACR-2 | lance-graph | a rung-2 read reconstructs where rung-1 looked, on a fixture where the answer is known independently |
 | **D-ACR-5** | 64k lowering | lance-graph | **BLOCKED** — dialectic V4's own gate: V0–V3 green at small scale first |
 | **D-ACR-6** | KJV prestaging: missing epistemic-causality nodes as episodic basins (§3d) | lance-graph | **BLOCKED** — HTT X3, the basin-promotion seam does not exist; needs the same mint as D-ACR-2 |
