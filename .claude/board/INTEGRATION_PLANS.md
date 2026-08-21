@@ -1,3 +1,26 @@
+## 2026-08-21 — DISMECH × CAUSALITY-V3 REBASE REPORT (report first, no code)
+
+`.claude/plans/dismech-causality-v3-v1.md` — the operator-required §26
+deliverable that gates implementation of the DisMech/Causality-V3 arc. Twelve
+sections, every number carrying the command or `file:line` that produced it;
+anything not personally measured is labelled *claimed, unverified*.
+
+**Headline:** the expensive substrate really is largely built — AriGraph
+(8,750 LOC / 187 tests), CLAM+CHAODA (4,900 / 77), Aerial+ ARM discovery,
+HHTL, the OCR+DOM→doc.v1 convergence — but it is **read-rich and write-empty at
+four independent layers** (CE64 bits 53-63, `CausalEdgeV3`,
+`CausalWitnessFacet`, `dismech_evidence`), all with zero production writers.
+Three §0 claims are stale, two are wrong: the oracle population is **64%** of
+its label count (`E-THE-ORACLE-POPULATION-IS-64-PERCENT-...-1`), and HHTL is
+**100% minted** for the five OBO namespaces in the artifact the board does not
+cite (`E-HHTL-IS-MINTED-IN-THE-ARTIFACT-NOBODY-CITES-1`).
+
+**Sequence:** D-CV3-0..2 (pin corpus, freeze splits, Level-0 scorer) must be
+green BEFORE D-CV3-3 mints a `HoleV3` tenant — a carrier minted before its
+benchmark becomes the fifth EXISTS-UNCALLED entry. `HoleV3` is `ValueTenant =
+16` (15 is reserved for `BoardAggregates`), never CE64, which has **zero free
+bits**.
+
 ## 2026-08-19 — ARC-B OWNERSHIP + ADDRESSING REASSESSMENT (supersedes parts of the plan wave)
 
 Not a plan — the **assessment that corrects the plan wave**, per two

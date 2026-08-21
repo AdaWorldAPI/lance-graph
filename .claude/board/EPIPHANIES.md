@@ -1,3 +1,85 @@
+## 2026-08-21 — E-HHTL-IS-MINTED-IN-THE-ARTIFACT-NOBODY-CITES-1 — "zero on every baked row in both production bakes" is precise about the two it names and silent about the third, where the five OBO namespaces are 100% minted
+
+**Status:** FINDING (measured directly on the pinned `.soa` bytes, SHA-256
+verified against `MedCare-rs/data/config/bakes.tsv`). **Confidence:** High —
+every number is a count over 512-byte rows, tiers read at bytes 4..10.
+
+The board headline (`INTEGRATION_PLANS.md` ARC-B entry) and
+`EPIPHANIES.md:899` both state HHTL is **"zero on every baked row in both
+production bakes"**, citing `ogar-obo` (68,797 rows) and MedCare's
+`join-map.md` (68,797 rows). Both citations are correct. **Both describe the
+same artifact set of two.** A third pinned artifact exists:
+
+| artifact | rows | HHTL != 0 |
+|---|---:|---:|
+| `obo-core.soa` | 68,797 | **0 (0.00%)** |
+| `spine.soa` | 7,641 | **0 (0.00%)** |
+| `all-lanes.soa` | 770,360 | **164,031 (21.29%)** |
+
+Per lane in `all-lanes.soa`: **MONDO `0x0301` 32,095 rows 100% · HPO `0x0302`
+19,836 100% · UBERON `0x0303` 14,975 100% · PATO `0x0304` 1,887 100% ·
+ICD-10-GM `0x030F` 16,905 100% · OMIM `0x0319` 18,712 100% · OPS `0x0311`
+98.9% · Orphanet `0x0317` 67.6%**; LOINC / CUI / RxNorm / FMA ~0%.
+
+**Why this matters and is not a footnote:** the five 100%-minted namespaces are
+exactly the ones a DisMech overlay grounds against. The generalized claim
+("HHTL is dormant, the gap is mint + read") licenses a session to skip HHTL
+entirely; the measured claim says HHTL is available **if a reader names
+`all-lanes.soa`** and unavailable **if it names `obo-core.soa`**. So *which
+artifact a consumer reads* is a first-class design decision, not a detail — and
+a ladder level claiming "+ HHTL topology" must state its artifact or it is
+measuring nothing.
+
+**The generalization error is the transferable part.** Two independent
+citations agreeing is evidence about the *rows they counted*, not about the
+artifact set. Two sources counting the same 68,797 rows is ONE measurement
+reported twice. Before promoting "on every row" from "on these rows", enumerate
+the artifacts, not the citations.
+
+Cross-ref: `.claude/plans/dismech-causality-v3-v1.md` §8a; ARC-B
+`docs/architecture/ARC-B-OWNERSHIP-AND-ADDRESSING-REASSESSMENT.md:23` (regraded
+in place: its conclusion holds for `obo-core`/`spine`, needs the `all-lanes`
+qualifier); `EPIPHANIES.md:899`.
+
+## 2026-08-21 — E-THE-ORACLE-POPULATION-IS-64-PERCENT-AND-A-GATE-HARDCODES-THE-OTHER-36-1 — a third of the "known intermediates" name no intermediate, and the gate that would have caught it asserts the wrong number
+
+**Status:** FINDING (measured three independent ways on `/workspace/dismech`
+@`557e15436`, 1,968 disorder files). **Confidence:** High — the three methods
+agree exactly.
+
+The DisMech supervision story rests on `INDIRECT_KNOWN_INTERMEDIATES` being a
+population where "the source names the mediators, so they can be hidden and
+recovery measured" (`E-DISMECH-CORPUS-CENSUS-1`). Measured, **only 2,449 of
+3,825 (64.0%) such edges actually name one.** 1,376 (36.0%) carry the label and
+an absent or empty mediator list.
+
+Three methods, agreeing: (a) a line-oriented per-edge walk — **2,449** edges
+over **534** disorder files, 3,714 mediator strings; (b) key-occurrence count —
+`intermediate_mechanisms:` appears **2,525** times with **0** inline empty
+lists, and 2,525 = 2,449 + 74 + 1 + 1, exactly the per-bucket split;
+(c) `contract::dismech_evidence.rs:155-176` at the narrower
+`pathophysiology[].downstream[]` scope — **1,347 of 3,844 (35.0%)** empty.
+
+**Consequences.** The held-out corpus is **2,449 edges over 534 diseases**, so
+a 20% split is ~490 edges / ~107 diseases, not the 774 a 3,869 denominator
+implies. And **74 `INDIRECT_UNKNOWN_INTERMEDIATES` edges DO name mediators** —
+a source contradiction the four-label taxonomy does not anticipate; they must
+be removed from any restraint control or they will read as hallucinated
+closure by the benchmark's own definition.
+
+**The gate that should have caught this hardcodes the wrong number.**
+`MedCare-rs/.claude/plans/dismech-missing-links-v1.md` Gate W1.1 asserts
+`known_links.tsv == 3.869` — unsatisfiable on any corpus revision. Its own
+instruction is *"stoppen und melden, nicht die Zahl anpassen"*, so this entry
+is the report, not an edit.
+
+**Transferable:** a label that asserts a property and a field that carries it
+are two different measurements. Counting the label is not counting the data —
+and a supervision corpus sized from the label is oversized by exactly the rows
+where the source labelled but did not fill.
+
+Cross-ref: `.claude/plans/dismech-causality-v3-v1.md` §3a; `E-DISMECH-CORPUS-CENSUS-1`.
+
 ## 2026-08-20 — E-DISMECH-CORPUS-CENSUS-1 — the DisMech corpus measured: 87.2 MB of strings, of which the entire causal semantics is bits + codebook ordinals
 
 **Status:** FINDING (measured on upstream `monarch-initiative/dismech`, 2,100
