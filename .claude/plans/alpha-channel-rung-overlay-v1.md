@@ -215,6 +215,74 @@ bit is minted, and §3a's "reference, don't inline" is what makes that free.
    wrong answer, silently. Whichever this overlay uses must be named per
    `(classid, rail)` in the thinking table, not assumed.
 
+**Operator, 2026-08-21: "Und die Abhängigkeit, wann wird episodic zu
+epistemic."** Already ratified, not something to design —
+`EPIPHANIES.md:5194`, *"the honesty line: episodic vs epistemic
+causality"*:
+
+> Episodic = what happened, in stream order (Lance versions, `temporal.rs`,
+> "A preceded B"). Epistemic = what grounds belief (the warrant chain,
+> "A is why B is held"). Recency IS episodic proximity deployed as an
+> epistemic proxy — and W7's divergence gates measure precisely where that
+> proxy lies (3:1: the episodically-nearest candidate is not the epistemic
+> ground). The witness register's offsets are episodic ADDRESSES carrying
+> epistemic MEANING; conflating the two axes is the category error this
+> ruling fences.
+
+**With a live example in exactly this plan's own KJV territory**
+(`E-WHOLE-BOOK-REASONING-RUN-1`'s caveat): *"`is_a(god, light)` stores
+episodic adjacency wearing epistemic inheritance's label"* — a real,
+measured instance of temporal/textual proximity being mistaken for
+ontological grounding, on the same corpus §3d discusses.
+
+**Where `D-ACR-12` sits relative to this fence, checked rather than
+assumed:** `D-ACR-12`'s ascent walks `NiblePath` ancestry over MONDO/UBERON
+— a TAXONOMIC `is_a`/`part_of` tree, where a parent class genuinely,
+definitionally grounds its children (that IS what ontological subsumption
+means). It is not walking episodic/temporal proximity, so it does not
+commit the fenced error by construction. But the fence names the exact
+trap the NEXT session must not fall into: an ascent that instead walked
+`temporal.rs`'s version stream, or a `WitnessLens` reference chosen by
+recency, would be doing precisely what `is_a(god, light)` did — dressing
+episodic address in epistemic clothing. `D-ACR-12`'s falsifier gains a
+fourth condition: the ancestor a lookup resolves to must be reachable via
+`is_ancestor_of` (address containment), never via version proximity to the
+querying row.
+
+**Operator, same message: "potholes als 59..63 using deduction
+extrapolation syllogism counterfactual synthesis inference induction."**
+Seven named mechanisms. Checked against what is already at those bits and
+nearby, this does not get a new field:
+
+- **It collides with `RecipeInference`, already shipped at a DIFFERENT bit
+  position.** §3g/§3f already established: `inference_mantissa` (CE64 bits
+  46-49, signed i4) carries `RecipeInference::{Deduction, Induction,
+  Abduction, Revision, Counterfactual}` — 5 of the operator's 7 words
+  already map onto it directly (`Deduction`, `Induction`, `Counterfactual`
+  are literal matches; `syllogism`/`inference` are the general term-logic
+  mechanism `RecipeInference` already IS; `extrapolation`/`synthesis` are
+  closest to `Induction`/`Revision`'s existing job). Writing a NEW 7-value
+  vocabulary into the CE64 SPARE bits (61-63, 3 bits — not even enough
+  room for 7 values without waste) would duplicate a field that already
+  exists 13 bits away, and would be the fifth-derivation-path fence one
+  finding names again: 59-63 is graded, never mechanism-tagged.
+- **It is NOT the same "7" as `bgz-tensor`'s `Zipper7LevelDescriptor`, and
+  routing it there would be a homonym collision, not a fit.** Verified:
+  the zipper's *"7-level bipolar zipper — 7^7 = 823,543 states"* is 7
+  **discrete MAGNITUDE levels** (`{-3,-2,-1,0,1,2,3}`) per **continuous
+  embedding sample** — `encode(row: &[f32], k, …)` quantizes a real
+  vector's WHT-rotated, phase-strided values. There is no natural mapping
+  from a WORD like `"syllogism"` to a sample position; the zipper composes
+  and bundles vector magnitude, it does not carry discrete category
+  identity at all. The two "7"s are unrelated by count alone, the same
+  trap as `NiblePath`/anaphora-nibble/TEKAMOLO/`morton()` in §3k's table —
+  now a fifth confirmed instance this session, not a fourth.
+
+**Verdict: the 7-mechanism vocabulary's home is `RecipeInference` at
+CE64 46-49, already shipped, needing no new deliverable — and this closes
+out `D-ACR-7`'s reading-contract acceptance condition with a concrete
+answer rather than leaving it open.**
+
 ## §3c — Versioning is temporal, not a stored field
 
 Operator: *"Versioning using temporal."* `QueryReference::at(ref_version, rung)`
@@ -696,6 +764,22 @@ hop_distance)`, never a copy of the ancestor's content.
 > ever crosses an ABI boundary the whole chain marshals into one descriptor
 > per §3k's kernel-fusion note, exactly as `View.where()` does.
 >
+> **Governing choice for this whole plan, operator-stated, 2026-08-21:**
+> *"Wenn du später in die Verlegenheit kommst VSA-Masken für cascading rung
+> awareness zu erstellen, können wir darüber sprechen. Aber ich wäre für
+> explizite masking ABI traversal wie bei java. Sonst verwässern wir unsere
+> Architektur."* Every cascading/rung-awareness mechanism this plan touches
+> — `D-ACR-1` (`RowFocusMask`), `D-ACR-12` (bulk ascent), `D-ACR-13`
+> (coverage gate), `D-ACR-14b`/`D-ACR-16` (cartography, nested kanban) —
+> defaults to the EXPLICIT `Mask × ClassView/WideFieldMask → Mask` pattern
+> above, never `Vsa16kF32` bundling. This is a scoping choice, not a
+> contradiction of `I-VSA-IDENTITIES` (VSA keeps its own narrow,
+> already-bounded niche — `.claude/plans/*` and the iron rule stand
+> unchanged); it says explicitly that THIS plan's awareness cascade is not
+> where that niche gets reached for. If a real need for VSA superposition
+> surfaces later, it is a deliberate, separately-opened conversation — not a
+> default reached for because a mask felt insufficient.
+>
 > **This retroactively validates HTT's own X2 withdrawal, not just avoids
 > repeating it.** `D-HTT-6` (withdrawn) would have derived PARENTHOOD from
 > `morton()` bit-interleave arithmetic directly — a single-address
@@ -742,6 +826,176 @@ frontier must resolve in **at most `max_hops` bulk rounds**, never in a
 per-address loop — a benchmark scaling linearly with population size on a
 fixed tree depth is the mask-native discipline failing, not merely slow.
 
+## §3l — Book hydration as a checked precondition: NOT BUILT, and no near-miss quite fits
+
+Operator, 2026-08-21 (brutal-honesty request): *"in ogar-loco die
+Hydrierung von Knoten bei Büchern als fest maskierte awareness mit
+kanban_actor über HHTL masking. Dann kann die Massen-Hydrierung als
+Voraussetzung für higher-order thinking fest geprüft werden."*
+
+Checked three places, brutally, rather than designing on top of an
+assumption:
+
+1. **`ogar-loco` (OGAR): ZERO.** Grepped every file in
+   `crates/ogar-loco/src/` (`lib.rs`, `node.rs`, `pool.rs`, `program.rs`,
+   `registry.rs`, `statements.rs`, `telemetry.rs`, `vocabulary.rs`) for
+   `hydrat|awareness|precondition|gate` — the only hits are `RefusalGate`
+   (a conformance-refusal telemetry enum, `ConformanceDrift` /
+   `PoolFull` / …), unrelated to node hydration or awareness. **`ogar-loco`
+   is a program/statement/vocabulary interpreter and has never touched
+   this concern.**
+2. **`kanban_actor::PhaseCensus`: a bare tally, nothing more.**
+   `struct PhaseCensus { counts: [usize; 6] }` — one integer per
+   `KanbanColumn`. It answers *"how many entities are in `Planning`
+   right now,"* never *"are this book's nodes hydrated."* §1 piece C
+   graded it SHIPPED for the activity-mask reading, and that grade
+   stands — but a count is not a precondition gate, and nothing here
+   should be read as claiming otherwise.
+3. **"Hydration" is a THIRD homonym collision this session** — following
+   the four "witness" surfaces (§3a) and four "nibble" surfaces (§3k),
+   verified here rather than assumed:
+
+   | # | where | what it means | relation to the operator's ask |
+   |---|---|---|---|
+   | a | `bake_hydrate.rs` (MedCare-rs), `S3_BOOT_HYDRATION_WIRING.md` | boot-time fetch of pinned TSV/Lance artifacts | closest by NAME, unrelated by MECHANISM — a deploy-time fetch, not an awareness state |
+   | b | `lance-graph-ontology/src/hydrators/{owl,skos,dolce,fibo,…}.rs` | format PARSERS — external ontology syntax → internal types | "hydrate a schema," not "hydrate a node's awareness" |
+   | c | `helix::examples::mu_hydration_probe.rs` (`E-3DGS-MU-HYDRATION-1`) | whether an address-derived prediction reconstructs a stored 3D-gaussian-splat position (`ρ` metric) | GPU rendering; `μ` here is the 3DGS mean symbol, nothing to do with books or thinking |
+
+   None of the three is the operator's concept. A fourth, new meaning
+   would be minted if this is built — which is a reason for care, not a
+   blocker, but it means **do not silently reuse the word "hydrate" for
+   this and expect readers to disambiguate from context.**
+
+**The one real near-miss, and why it still doesn't fit.**
+`E-FOVEATED-AWARENESS-1` (board, cross-referenced at `recipe_loci.rs` +
+`cognitive_shader::{RungLevel,RungElevator}`) is genuinely about
+*awareness tied to a trajectory*: *"its own attention trajectory
+(KanbanStep/saccade sequence) IS the transmitted index… free energy = the
+saccade."* And `self_directed_graph.rs` (capstone, 6 KILL-gates measured)
+is a genuinely self-directed reasoning loop with a **COMMIT gate**. Read
+together they are the closest shipped material to *"awareness gated by a
+kanban-tracked trajectory."* But neither checks **bulk population
+readiness before higher-order thinking may run** — foveated-awareness
+gates a REPLAY index for rendering determinism; `self_directed_graph`
+gates a WRITE-BACK after reasoning concludes. Both are downstream of the
+question the operator is asking; neither is upstream of it.
+
+**Verdict was going to be "no design" — the operator supplied one before
+this landed.** Operator, immediately following: *"Brutal heißt, bevor wir
+über das Buch nachdenken wird ein Inhaltsverzeichnis als HHTL-Baum mit
+SoA-Knoten erstellt."* "Brutal" names the SEQUENCING, not a grading of
+honesty: no incremental, content-driven tree-growing — the table of
+contents is minted as the FULL HHTL tree skeleton, SoA nodes per entry,
+**before** any triple-level reasoning (`stance::stream()`, §3d) touches a
+single verse.
+
+**This is buildable, and it is the same primitive as `D-ACR-12`, run in the
+opposite direction.** A book's structure — book → chapter → section →
+verse — IS a tree; a table of contents is nothing but that tree's own
+enumeration. So the mint pass is: walk the TOC, and for each entry mint a
+`NiblePath` at the depth its level implies (book=1, chapter=2, … per the
+canon's own tier-per-nibble rule), with an SoA row addressed at that path —
+**before** any content triple exists. This gives `D-ACR-12`'s ascent
+primitive something real to walk: the tree is populated top-down by
+construction, so an ascent from any future verse-level witness is
+guaranteed to terminate at a real ancestor, never an unminted gap.
+
+**The precondition check falls out of this for free, and it is `D-ACR-12`'s
+own bulk-frontier loop run as a COVERAGE query rather than a lookup:** run
+the bulk ascent (§3k) from every leaf (verse) address up to the TOC root;
+higher-order thinking is permitted iff **every leaf's frontier reaches
+`resolved` before `max_hops` runs out — zero leaves left stuck in
+`frontier`**. A stuck leaf is a verse whose chapter/section was never
+minted into the TOC tree: exactly the "hole" a table of contents is
+supposed to rule out, made mechanically checkable rather than assumed.
+
+**`D-ACR-13`, redesigned:** two ordered steps.
+1. **TOC-mint** — walk the book's table of contents, mint one `NiblePath` +
+   SoA row per level, unconditionally, before content ingestion.
+2. **Coverage gate** — `D-ACR-12`'s bulk ascent run from all leaves at
+   once; `resolved == all leaves` is the precondition higher-order
+   thinking checks. `frontier ≠ ∅` after `max_hops` is a **hard refusal**,
+   not a warning — the same fail-closed posture `predicate_domains.tsv`
+   and `RefusalGate` already use elsewhere in this stack.
+
+Gates on `D-ACR-12` directly (step 2 IS `D-ACR-12`'s loop, reused) and on
+`D-ACR-1` for the same reason `D-ACR-12` does — the coverage result is
+itself a mask worth recording as an overlay trace, not recomputed silently
+on every check.
+
+## §3m — Cartography, rung-dependency reasoning, nested kanban: three different states of "not ready," none the same
+
+Operator's continuation, checked piece by piece rather than assumed to be
+one gap: *"Danach läuft eine feste Kartographie der Mindmap"* / *"Dann
+reasoning über rung Stufen mit dependency graph"* / *"Und nested kanban
+cascade für den awareness Aufbau."*
+
+**Cartography — `holograph::mindmap.rs` — real, rich, EXISTS-UNCALLED, has
+a KNOWN bug, AND lives in a substrate unrelated to this plan's own.**
+Verified empirically, per operator correction below: `holograph`'s
+`Cargo.toml` deps are Arrow/DataFusion/Lance; it imports NONE of
+`canonical_node`/`SoaEnvelope`/`MailboxSoA`/`ClassView`; its only
+consumers are `bgz-tensor` and `lance-graph-cognitive` — neither the
+canonical SoA/mailbox substrate this plan builds on
+(`lance-graph-contract`/`lance-graph-supervisor`). `mindmap.rs`'s tree is
+`holograph::dn_sparse::TreeAddr`, a GraphBLAS-backed address space that has
+NOTHING to do with `NiblePath`/`NodeGuid`/canonical SoA rows.
+
+> **⊘ CORRECTED (operator, 2026-08-21): "Holograph hat meines Erachtens
+> nichts mit SoA zu tun."** Right, and it corrects an implicit assumption
+> in this section's first draft — that a "wire a caller" fix could connect
+> `mindmap.rs`'s bug-fix to the `D-ACR-13`-built SoA tree. There is no such
+> connection to wire; the two trees are different substrates in different
+> crates, and no bridge exists. §3k's own citation of `dn_sparse.rs` stays
+> correctly scoped — it was explicit that the type is prior art for the
+> SHAPE only, never shared code — but this section's ORIGINAL framing of
+> `D-ACR-14` implied more than that and is corrected now.
+
+`mindmap.rs` still has a substantial API and a known bug (`dn_sparse.rs`'s
+own flag: *"unlike the mindmap.rs BFS which calls `mxv` (broken
+mutability)"*) — that stays true and worth fixing on ITS OWN terms, as
+`holograph`-local maintenance, unconnected to this plan. **"Fixed
+cartography of the [book's] mindmap"** — a mapping pass over the
+`D-ACR-13`-built SoA tree — has NO existing implementation anywhere and
+must be built fresh, on the SoA substrate, using this plan's own
+primitives (§3k's bulk-mask ascent/descent, `ClassView`-resolved reads)
+rather than `holograph`'s disconnected machinery.
+
+**Rung-dependency reasoning — `WorkflowDAG` (planner strategy #12) — a
+STUB, not a placeholder-with-a-name.** Registered in the 16-strategy
+dispatch (`strategy/mod.rs`), has a real `affinity()` (0.9 when
+`context.features.has_workflow`), but `plan()`'s body is literally:
+
+```rust
+// In full implementation:
+// 1. Parse workflow task declarations from query
+// 2. Build task dependency graph (just another graph pattern)
+// 3. Apply LangGraph-style channel+reducer semantics: ...
+```
+
+Comments describing what it would do, not code doing it. This matches
+CLAUDE.md's own Phase-3 status line, *"wire planner strategies to
+lance-graph core (actual parser, not regex)"* — WorkflowDAG is that line,
+named precisely.
+
+**Nested kanban cascade — genuinely absent, like `D-ACR-13`'s original
+verdict.** Grepped `lance-graph-supervisor/src/*.rs` for
+`nested.*kanban|kanban.*cascade` — zero. No near-miss found this time,
+foveated or otherwise.
+
+**Three different repairs, not one:**
+
+| piece | state | what it needs |
+|---|---|---|
+| Cartography (`holograph`) | shipped, uncalled, one known bug, **wrong substrate for this plan** | fix `mxv` on its own terms (`D-ACR-14a`) — separately, build a real cartography pass on SoA (`D-ACR-14b`, not designed) |
+| Rung-dependency reasoning | registered stub | implement `plan()` for real — the comment IS the spec, already written |
+| Nested kanban cascade | absent | design needed, same honesty as `D-ACR-13`'s first verdict |
+
+`D-ACR-14`/`D-ACR-15`/`D-ACR-16` respectively. None is sequenced ahead of
+`D-ACR-13`'s two steps (TOC-mint, coverage gate) — cartography and
+rung-dependency reasoning both presuppose a populated, verified-complete
+tree to run over, which is exactly what `D-ACR-13` produces.
+
 ## §4 — Deliverables
 
 | D-id | Scope | Repo | Falsifier |
@@ -757,6 +1011,11 @@ fixed tree depth is the mask-native discipline failing, not merely slow.
 | **D-ACR-8** | Rubicon witness (§3e): focus-mask breadth/persistence across `Planning → CognitiveWork`; closes the Rubikon plan's open *"Thinking styles ↔ Rubikon"* item | lance-graph | broader in `Planning` than in `CognitiveWork` on a deliberated task **AND** indistinguishable on a single-forced-candidate task |
 | **D-ACR-7** | The 59..63 reading contract (§3b): name, per `(classid, rail)`, which lens applies and which witness carrier discriminates evidence-kind. **Acceptance: any tactic sampling filters on `delta_conf` capability (14/34), never on `maturity().is_production()` (31/34)** — §3g | lance-graph | a producer/consumer pair disagreeing about `TrustTexture` vs `CausalTopology` must FAIL, not return a plausible value; and a sampling pass must reject a mute tactic |
 | **D-ACR-12** | Epistemic inheritance (§3k): BULK frontier ascent over `NiblePath` ancestry until content is found (mask-native, not per-address — pattern from `lance-graph-java`'s `hop()`), materialized as `(source_addr, resolved_addr, hop_distance)` in the Rung-ladder row | lance-graph | resolves to the nearest ancestor at the correct hop count; a node with its OWN witness never ascends past it; resolution cost scales with tree DEPTH (bulk rounds), never with population size |
+| **D-ACR-13** | Mass hydration as a checked precondition for higher-order thinking (§3l) | OGAR + lance-graph | **NOT DESIGNED** — zero shipped precedent found in `ogar-loco` or `kanban_actor`; open pending a registered design once `D-ACR-1` exists |
+| **D-ACR-14a** | `holograph`-local: fix `mindmap.rs`'s `mxv` mutability bug, on ITS OWN terms — unrelated to this plan's SoA substrate | holograph | fix ships WITH a real `holograph`-side caller — no bug-fix-with-no-consumer landing |
+| **D-ACR-14b** | Cartography over the `D-ACR-13`-built SoA tree — a NEW mapping pass, built on §3k's own bulk-mask primitives; `mindmap.rs` is NOT reusable here (different substrate) | lance-graph | **NOT DESIGNED** — same honest-empty grade as `D-ACR-13`/`D-ACR-16` |
+| **D-ACR-15** | Rung-dependency reasoning: implement `WorkflowDAG::plan()` for real — the strategy's own comment is the spec | lance-graph | a query with `has_workflow` actually dispatches through a built `DEPENDS_ON` graph, not the 0.9-affinity stub |
+| **D-ACR-16** | Nested kanban cascade for awareness build-up (§3m) | lance-graph | **NOT DESIGNED** — zero shipped precedent, matching `D-ACR-13`'s original honest-empty verdict |
 | **D-ACR-11** | DK/eigenvalue probe (§3i): perturb inputs, measure which tactics' confidence is invariant; cross-check the 20 non-`delta_conf` tactics land at invariance by construction | lance-graph | the 20 must show invariance (else the capability flag lies) **and** at least one of the 14 must actually move (else the flag is decoration) |
 | **D-ACR-10** | Hindsight probe (§3i): `first_possible` vs `first_derived` over `QueryReference::at` on a real trajectory | lance-graph | a claim derivable at every version must be reported as discriminating nothing |
 
@@ -764,7 +1023,11 @@ fixed tree depth is the mask-native discipline failing, not merely slow.
 D-ACR-7 (the reading contract — before anything writes a band) → D-ACR-3 (the
 boundary) → D-ACR-8 (Rubicon witness) → D-ACR-9 (loco recipe vocabulary) →
 D-ACR-12 (epistemic inheritance, gates on D-ACR-1) → D-ACR-2/4/6 (mint +
-second order + basins) → D-ACR-5. **D-ACR-9 additionally
+second order + basins) → D-ACR-5. **D-ACR-13 is explicitly NOT sequenced** —
+it has no design to sequence yet; it re-enters this order only once one is
+registered. **D-ACR-14b/15 sequence AFTER D-ACR-13's two steps (D-ACR-14a is unrelated and unsequenced — a holograph-local fix)** (both need a
+verified-complete tree to run over); **D-ACR-16 is unsequenced, same reason
+as D-ACR-13's original verdict.** **D-ACR-9 additionally
 waits on the window question in §3f** — a revision pass cannot be stamped into
 an interval that two documents describe differently. D-ACR-2
 and everything after it sit behind an operator mint decision that this plan
