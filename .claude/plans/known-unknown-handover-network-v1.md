@@ -178,3 +178,40 @@ The grade discipline of the parent plan applies verbatim
 (`alpha-channel-rung-overlay-v1.md` §0 piece 7): this is **a pruner, not a
 proof**. "AGI-aspiring" names a direction; it is not a property any deliverable
 here asserts.
+
+## §8 — The arithmetic of ↑n (operator sharpening, 2026-08-21, appended while the council ran)
+
+Operator: *"6×2×8bit ↑n is making n^n ⇒ n↑log(n) in any given thinking space —
+we take universes of rabbitholes one epistemic pothole at a time."*
+
+Translated into the measured property rather than left as poetry, this is the
+radix arithmetic the canon already pins (*"the key prerenders nodes with zero
+value decode"*), applied to the awareness axis:
+
+- One 12-byte atom under `G6D2` addresses `256^12 ≈ 7.9×10^28` distinct points
+  per class at full depth. A focus at depth `d` covers `256^(12−d)` of them —
+  measured in D-ACR-1's own test suite (`one_shallow_focus_covers_an_unbounded_
+  population`: depth 2, 65,536 addresses across the two units varied).
+- **The space is exponential in depth; the path is linear in depth.** Reaching
+  any specific address costs at most 12 refinement steps = `log₂₅₆(space)`.
+  That is the `n^n ⇒ n↑log(n)` claim in checkable form: exploration cost grows
+  with the *logarithm* of the space explored, because each step is one prefix
+  level, never a scan.
+- **Stacking (`↑n`) multiplies exponents while paths add.** A second register
+  (a V3 stack level, another of the node's 32 facet slots) squares the
+  addressable space and adds 12 to the worst-case path — exponent
+  multiplication bought at additive path cost. This is why growth is minting
+  rows/levels and never widening fields (§0): widening buys linear space at
+  layout-break cost; stacking buys exponential space at logarithmic
+  navigation cost.
+- **"One epistemic pothole at a time" is the descent rule.** The pothole marks
+  WHICH subtree to refine next; each handover/exploration step descends exactly
+  one prefix level of one Hole. The rabbit-hole universe is never entered
+  whole — it is entered one level of one hole at a time, which is what keeps
+  the sweep O(holes × depth) instead of O(space).
+
+Grade: the radix arithmetic is [G] (it is what a 256-ary prefix tree is); the
+identification of "pothole" with "descent selector" is design intent carried
+by D-KUH-1, not yet a measured behaviour. The `n↑log(n)` notation is the
+operator's shorthand for exponential-space/logarithmic-path and is recorded as
+such, not as a formal tetration claim.
