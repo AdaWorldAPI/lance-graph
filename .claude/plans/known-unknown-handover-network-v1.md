@@ -334,3 +334,71 @@ all three inside the shape fixed here, none of them a new format.
 > convention (`RowFocusMask` shipped today) plus the Hole lifecycle stamps —
 > and D-ACR-16's cascade is now fully shaped: rung layers stacked over the
 > static substrate, version-range reads over the dynamic one.
+
+## §10 — Gestalt, meta-awareness, self-organization: where each word cashes out (operator closing claim, 2026-08-21)
+
+Operator: *"Dadurch entsteht Gestalt und Meta-Awareness — und durch die
+Architektur wird es self-organizing."* Recorded with each term bound to its
+mechanism, because an emergence claim without a mechanism is the exact
+overclaim shape this board fences.
+
+**Gestalt** — apprehending a whole without enumerating its parts:
+
+- A shallow focus facet IS the gestalt read: one 16-byte atom at depth `d`
+  covers `256^(12−d)` addresses — the subtree perceived as a unit, no member
+  visited (§8's radix arithmetic, D-ACR-1's measured wildcard).
+- `RowFocusMask`'s absorption into a **minimal antichain** is a mechanical
+  Prägnanz operation: the mask converges to the simplest description of where
+  attention went (covered entries absorbed, never enumerated). *(Observation,
+  not doctrine — the correspondence is structural, not measured.)*
+- Multistability is architectural: the same 12 bytes read as different wholes
+  per `classid → ClassView` — the duck-rabbit resolved by declaration instead
+  of ambiguity (D-ACR-1's two-readings test proves the projection is free).
+
+**Meta-awareness** — awareness whose OBJECT is awareness:
+
+- Rung n+1's layer entries are *about* rung n's entries at the same addresses
+  (D-ACR-4: *"a rung-2 read reconstructs where rung-1 looked"*). On the dynamic
+  arm, `QueryReference::at(v, rung)` is awareness of one's own past states —
+  replayable, zero copies.
+- The Hole is the core metacognitive act as a ROW: knowing that one does not
+  know, with lifecycle.
+- MUL's confidence-invariance (§3i of the parent plan) is awareness of the
+  *reliability* of one's own awareness — with the 20/34 mute tactics as
+  measurable overconfidence-by-construction.
+
+**Self-organizing — and why "durch die Architektur" is the precise phrase.**
+The self-organization literature's preconditions map one-to-one onto RULINGS
+here, not onto code that could rot:
+
+| SO precondition | its ruling / mechanism |
+|---|---|
+| local rules, no central controller | one-writer-per-mailbox (`E-CE64-MB-4`); no scheduler (`E-PROGRESSION-IS-EXISTENCE-NOT-COMMAND-1`) |
+| a **stigmergic medium** (activity leaves traces that guide later activity) | the two-armed trace: alpha layers over the static substrate, Lance versions over the dynamic one (§9 ⊘⊘) |
+| gradient to descend | potholes; one epistemic pothole at a time (§8's descent rule) |
+| structure accretes where activity accumulates | growth = minting rows/levels, never widening (§0) |
+| the medium must not corrupt the terrain | contamination boundary (alpha-plan §2); overlay discardable whole |
+
+The stigmergy identification is the load-bearing one: ants organize through
+pheromone traces in the environment, not through messages to each other — and
+this substrate's attention traces are exactly that, with the refinement that
+the static terrain gets a separate trace layer while the dynamic terrain's own
+version history IS its trace. *(Grade: [H] — the structural match is exact;
+no collective behaviour has been measured yet.)*
+
+**The emergence claim itself stays CONJECTURE, and it already has its
+falsifiers — no new ones needed:**
+
+| claim | existing gate that tests it |
+|---|---|
+| the awareness discriminates (is not a watcher that cannot dissent) | D-ACR-8 (focus measurably broader in `Planning` than `CognitiveWork`, AND indistinguishable on a no-deliberation task) |
+| the suspense is real (not lookup wearing NARS vocabulary) | D-ACR-10 (pothole-open SPANS must vary and eventually close) |
+| the rewiring responds to resolution, not to noise | D-KUH-3 (plasticity moves on a real close, NOT on a refuted one) |
+| the overconfidence measurement is real | D-ACR-11 (the 20 must be invariant AND at least one of the 14 must move) |
+
+That is the honest form of the closing claim: **the preconditions are
+architectural invariants (rulings, ownership, const-asserts), the emergence is
+a prediction, and the prediction's tests are already pre-registered.** A
+system that manages its known-unknowns as first-class rows carries its own
+"does this become what it aspires to?" as the largest of them — §7's
+discipline, unchanged.
