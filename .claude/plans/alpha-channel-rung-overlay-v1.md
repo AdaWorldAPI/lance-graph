@@ -278,6 +278,61 @@ extended to say so explicitly: a promoted basin's own row must stay
 index-width, with content reached only by following its references — the
 same test §3a's `WitnessLens` already passes.
 
+**Operator, 2026-08-21: "Bei der Bibel müssen dagegen erst die episodic
+arc generiert werden und die lenses Gadamer Horizontverschmelzung usw
+erkennen dann logische Verknüpfungen."** — and further: *"Hermeneutik als
+logische Verknüpfungen"*, *"muss ggf als causality mechanical drin
+stehen."*
+
+This draws the line D-ACR-6 was missing: **KJV is not a rail-ancestry
+problem at all.** Ontology trees (MONDO/UBERON, §3k below) have parents
+because the domain is taxonomic; a book has no taxonomy to ascend — its
+epistemic-causality nodes have to be **generated**, not inherited, by
+reading the text. Two different mechanisms, two different sections; folding
+them together would have been the same conflation §3a's four-witness-surface
+correction just fixed.
+
+**And the generation mechanism is not a gap — it is SHIPPED, verified this
+session:**
+
+1. `bible_wave.rs`'s own comment (lines 96-99) already states the seam
+   precisely: the reasoning layer's stance panel *"needs verse TEXT, not
+   triples"* — `stance::stream()` mints rung-lifts inside a complementizer
+   window and reads negation polarity from the clause, and *"3 of 4 stances
+   measured UNREACHABLE"* on the flat `(s,p,o,verse)` export. Text is now
+   emitted as its own artifact for exactly this reason.
+2. `lance-graph-planner/src/nars/stance.rs::stream()` is the cue-driven
+   clause machine — pronoun-normalization, negation/modal/causal-cue
+   catalogues — whose `ReadOut` carries `pass2_admitted`/`pass2_revised`
+   counts *"the hermeneutic-circle termination check uses"* and, directly
+   answering the operator's causality demand:
+
+   ```rust
+   /// Causal edges observed from `because`-cued text, as (verse, cause, effect).
+   pub impls: Vec<(String, u16, u16)>,
+   ```
+
+   **This is Hermeneutik AS mechanical causality, already in the type.**
+   Not a metaphor needing translation — `impls` is a plain `(verse, cause,
+   effect)` triple, the same shape as every other causal record in this
+   substrate.
+3. **Horizontverschmelzung is not a design, it is `D-BLW-3`, SHIPPED +
+   MEASURED 2026-08-04** (`examples/blw_fusion.rs`, board `STATUS_BOARD.md`
+   line 336): two rank projections read under `Strict` (a-priori) vs
+   `Aware` (hindsight), κ movement measured (0.49/0.46 IN/IN bands), the
+   8-horizon table showing the gap **closing monotonically** rather than
+   staying flat. Its own KILL condition was *"flat kappa regrades the claim
+   to four independent stance reads — not Gadamer"* — and the KILL did not
+   fire. The fusion is real, not decorative.
+
+**Consequence for this plan: no new deliverable for KJV hermeneutics.** The
+Gadamer/hermeneutic-circle mechanism the operator asked for already exists,
+already measured, already named honestly (its own KILL condition was
+falsifiable and survived). What remained open was only the promotion-format
+question §3d already answers above — and that is an ontology-shaped worry
+that does not apply to `stance::stream()`'s output at all, since `impls` is
+already triple-width, never a fat concept.
+
 ## §3e — Rubicon: focus of attention is what witnesses the crossing
 
 Operator, 2026-08-21: *"The Rubicon model Heckhausen in kanban needs to use the
@@ -520,6 +575,102 @@ the analogy is inverted and dies.
 The asymmetry is the useful part: the confidence half is measurable with what is
 already in the tree; the frequency half needs an argument nobody has made.
 
+## §3k — HHTL nodes as a materialized meta-connection SoA, and the missing inheritance
+
+Operator, 2026-08-21: *"Die Idee wie gesagt HHTL nodes als Meta Verbindung
+in eigene SOA zu materialisieren. Das was bei Ontologien über rails bereits
+implicit ist. Aber die Vererbung fehlt (unsere Aufgabe, epistemic knowledge
+from parents)."*
+
+This is the sharpest form yet of §1 piece A / the HTT §2.3 **Rung ladder**
+row this whole plan exists to fill — and it names the exact primitive that
+is missing, verified this session:
+
+**The ascent primitive exists and has ZERO callers.**
+
+```rust
+// hhtl.rs:155
+pub const fn parent(self) -> Option<Self> {
+    if self.depth <= 1 { None } else { Some(Self { path: self.path >> 4, depth: self.depth - 1 }) }
+}
+```
+
+Grepped across the tree: every `.parent()` call site found is either
+`std::path::Path::parent` (unrelated) or `holograph::dn_sparse::DottedName`'s
+own `parent`/`ancestor`/`ancestors` — a **different type**, real prior art
+for the SHAPE, not a shared implementation:
+
+```rust
+// dn_sparse.rs:314 — "the vertical traversal operation", O(depth), no scanning
+pub fn ancestors(self) -> Vec<Self> {
+    let mut result = Vec::with_capacity(self.depth() as usize);
+    let mut current = self;
+    while let Some(p) = current.parent() { result.push(p); current = p; }
+    result
+}
+```
+
+`NiblePath::is_ancestor_of` (`hhtl.rs:176`) is the ONLY consumer-facing use
+of the ancestry relation today, and it answers a yes/no question — *"is A
+an ancestor of B"* — never *"what does the nearest ancestor with content
+know."* That second question is the missing inheritance, and it is
+mechanically the ascent loop above with an early-exit the moment a row has
+content:
+
+```text
+fn epistemic_lookup(addr: NiblePath, read: impl Fn(NiblePath) -> Option<Witness>) -> Option<(Witness, u8 /* hops */)> {
+    let mut current = Some(addr);
+    let mut hops = 0;
+    while let Some(a) = current {
+        if let Some(w) = read(a) { return Some((w, hops)); }
+        current = a.parent();
+        hops += 1;
+    }
+    None
+}
+```
+
+**Why this is exactly "materialize the meta-connection in its OWN SoA" and
+not a change to the ontology rows.** The lookup above never touches an
+ontology row's own content — it reads the KEY (`NiblePath`, zero value
+decode, per the canon's own P0) and walks it. The **result** — which
+ancestor answered, at what hop-distance — is what gets materialized as the
+Rung-ladder thinking-table row (§2.3), so a repeated query does not re-walk
+the chain from scratch. This is `§3a`'s reference discipline applied one
+more time: the meta-connection row holds `(source_addr, resolved_addr,
+hop_distance)`, never a copy of the ancestor's content.
+
+**Scope: ontology trees only, per §3d's correction above.** `is_ancestor_of`
+and `parent()` operate on `NiblePath`, which is HHTL's taxonomic/mereological
+address space (MONDO, UBERON, the rails). KJV's causal edges (`stance.rs`'s
+`impls`) are not addressed this way and do not inherit through it — the two
+mechanisms stay separate, as §3d now states explicitly.
+
+**"Nibble" is a unit (4 bits), not a namespace — FOUR unrelated encodings
+share the word, verified this session, and `D-ACR-12` touches exactly one:**
+
+| # | where | what it is | relation to `D-ACR-12` |
+|---|---|---|---|
+| 1 | `NiblePath` (`hhtl.rs`) | **16-nibble ABSOLUTE tree address**, `parent()`/`is_ancestor_of` walk it | **this is the one** |
+| 2 | `edge_v3.rs` anaphora nibble (`E-NIBBLE-ANAPHORA-EDGE-1`) | ONE signed `i4` (`−8..+7`) **RELATIVE** coreference offset — a pronoun-to-referent pointer, byte `[6]` low nibble of `CausalEdgeV3` | unrelated: relative grammar offset, not a tree address |
+| 3 | TEKAMOLO carving (`edge_v3.rs` header, `grammar::tekamolo`) | Temporal/Kausal/Modal/Lokal role slots, bytes `[10..12]` — **"reserved (dormant)"** | unrelated: grammar role encoding, not addressed at all yet |
+| 4 | `Facet::morton()` (`facet.rs:62`) | bit-interleave of two bytes into one `u16` — HTT **X2**: *"non-canonical research... nothing in the HHTL contract depends on it"* | unrelated by explicit prior ruling — **do not let `D-ACR-12` become its second consumer** |
+
+Operator, 2026-08-21, naming exactly this risk: *"Nibble ist in grammar
+heuristics Relativpronomen anaphora pointers und tekamolo"* and *"Aber
+nibble als Morton wäre ein parallel Universum."* Four homonyms, same word,
+each its own contract — the same discipline §3a already had to apply to
+four unrelated "witness" surfaces. `D-ACR-12` is scoped to row 1 alone; rows
+2-4 are named here so a future session does not rediscover the collision or
+accidentally wire `D-ACR-12`'s inheritance walk through the wrong one.
+
+**`D-ACR-12`.** Gates on `D-ACR-1` (`RowFocusMask`, so a lookup's ascent
+path is itself recordable as an overlay trace) and gets its own falsifier:
+a child with no witness of its own must resolve to its nearest ancestor's,
+at the correct hop count, and a child that HAS its own witness must never
+ascend past it (an eager-ascent bug would silently prefer a stale ancestor
+over fresh local knowledge — the can-stay-silent half).
+
 ## §4 — Deliverables
 
 | D-id | Scope | Repo | Falsifier |
@@ -534,13 +685,15 @@ already in the tree; the frequency half needs an argument nobody has made.
 | **D-ACR-9** | A `Vocabulary` impl exposing the 34 recipes as loco ops above `DOMAIN_FLOOR` (§3f); `ladder(ctx)` lowered to a loco program | OGAR | a pothole with a negative `rung_delta` executes as a loco call sequence and lands the same `RecipeStep` list `ladder()` returns |
 | **D-ACR-8** | Rubicon witness (§3e): focus-mask breadth/persistence across `Planning → CognitiveWork`; closes the Rubikon plan's open *"Thinking styles ↔ Rubikon"* item | lance-graph | broader in `Planning` than in `CognitiveWork` on a deliberated task **AND** indistinguishable on a single-forced-candidate task |
 | **D-ACR-7** | The 59..63 reading contract (§3b): name, per `(classid, rail)`, which lens applies and which witness carrier discriminates evidence-kind. **Acceptance: any tactic sampling filters on `delta_conf` capability (14/34), never on `maturity().is_production()` (31/34)** — §3g | lance-graph | a producer/consumer pair disagreeing about `TrustTexture` vs `CausalTopology` must FAIL, not return a plausible value; and a sampling pass must reject a mute tactic |
+| **D-ACR-12** | Epistemic inheritance (§3k): ascend `NiblePath::parent()` until content is found, materialized as `(source_addr, resolved_addr, hop_distance)` in the Rung-ladder row | lance-graph | a childless-witness node resolves to its nearest ancestor at the correct hop count; a node with its OWN witness never ascends past it |
 | **D-ACR-11** | DK/eigenvalue probe (§3i): perturb inputs, measure which tactics' confidence is invariant; cross-check the 20 non-`delta_conf` tactics land at invariance by construction | lance-graph | the 20 must show invariance (else the capability flag lies) **and** at least one of the 14 must actually move (else the flag is decoration) |
 | **D-ACR-10** | Hindsight probe (§3i): `first_possible` vs `first_derived` over `QueryReference::at` on a real trajectory | lance-graph | a claim derivable at every version must be reported as discriminating nothing |
 
 **Order is not negotiable:** D-ACR-0 (audit) → D-ACR-1 (the primitive) →
 D-ACR-7 (the reading contract — before anything writes a band) → D-ACR-3 (the
 boundary) → D-ACR-8 (Rubicon witness) → D-ACR-9 (loco recipe vocabulary) →
-D-ACR-2/4/6 (mint + second order + basins) → D-ACR-5. **D-ACR-9 additionally
+D-ACR-12 (epistemic inheritance, gates on D-ACR-1) → D-ACR-2/4/6 (mint +
+second order + basins) → D-ACR-5. **D-ACR-9 additionally
 waits on the window question in §3f** — a revision pass cannot be stamped into
 an interval that two documents describe differently. D-ACR-2
 and everything after it sit behind an operator mint decision that this plan
