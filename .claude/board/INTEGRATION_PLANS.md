@@ -1,3 +1,59 @@
+## 2026-08-21 — D-ACR-7 BAND-READING CONTRACT (council-ratified spec)
+
+`.claude/plans/dacr7-band-reading-contract-v1.md` — the 59..63 reading
+contract, ratified through a full 5+3 council (3 BLOCK(P0) raised and
+resolved; run details in AGENT_LOG same date). One contract, TWO carriers:
+`CausalEdge64` (muscle memory) and `CausalEdgeV3` (granularity — whose own
+module doc states the problem the contract solves: *"which lens the ordinal
+was written through is the producer's knowledge, not the conversion's"*).
+Design: total `ClassView::band_reading` declaration lookup (sibling-consistent
+with `rail_carving`/`edge_codec_flavor`) + fallible `BandReading::project`
+(mismatch and stale-v1 bits must FAIL, never return a plausible value).
+Headline finding: `from_v1` drops provenance, so the v1 temporal trap reaches
+V3 transitively — `V3Register` is a caller assertion, never an inference.
+Gates G1..G10b pre-registered. Implementation next.
+
+## 2026-08-21 — KNOWN-UNKNOWN HANDOVER NETWORK (the connective plan, not a new arc)
+
+`.claude/plans/known-unknown-handover-network-v1.md` — the operator's framing
+the same day: *"an awareness to hand over missing links in a 6×2×8bit growing
+BNN network as a self-organizing AGI-aspiring network … that includes expanding
+CE64 59..63 as a known-unknowns exploring brain plasticity."* Scraped onto
+existing homes; **mints no type**.
+
+**Headline: the loop's links are individually shipped or individually designed,
+except exactly one — handover.** `D-ACR-16` (nested kanban cascade) is NOT
+DESIGNED with zero shipped precedent, and this plan's contribution is naming
+what handover IS so it has a shape to be designed against: **a Hole is a kanban
+card for a missing link — an owned row moving between mailboxes**, never a
+message and never a shared log (`E-CE64-MB-4` one-writer;
+`E-AGENT-LOG-SHARED-SINK-ANTIPATTERN-1`). Self-organization follows from
+existence-not-command (`E-PROGRESSION-IS-EXISTENCE-NOT-COMMAND-1`), not from a
+scheduler.
+
+**The fence, measured twice:** *"expanding 59..63"* **cannot** mean widening.
+`causal-edge/src/layout.rs:93-111`'s `_LAYOUT_COVERAGE` const-asserts all 64
+bits covered exactly once, and `dismech-causality-v3-v1.md:503` states verbatim
+*"Not in CE64 — it has zero free bits."* So `↑n` is **stacking** — the canon's
+*"scale is the next cascade level, never field-widening"* applied to the
+awareness axis. Three stages, none of them a bit: readable (D-ACR-7's reading
+contract, spanning CE64 **and** `CausalEdgeV3`) → discriminating (`WitnessKind`
+→ Hole) → granular (`HoleV3`).
+
+**Hard blocker recorded as such:** `HoleV3 = ValueTenant 16` is blocked on
+`BoardAggregates = 15` resolving, because the discriminant→`VALUE_TENANTS`
+index requires contiguous descriptors — a prerequisite, not a queue position.
+
+**Ground truth stated honestly:** the public DisMech corpus marks its own gaps,
+but only **27** named intermediates match an actual graph node (113 have a real
+2-hop path) — so a supervised evaluation has 27–113 usable cases, not
+thousands. The gap count says how much work exists; the match count says how
+much is checkable today.
+
+Deliverables D-KUH-1..4. Only **D-KUH-1** (handover design) is unblocked.
+Grade discipline inherited from the parent plan: **a pruner, not a proof**;
+"AGI-aspiring" names a direction, not a property any deliverable asserts.
+
 ## 2026-08-21 — ALPHA-CHANNEL RUNG OVERLAY (scraping, not a new arc)
 
 `.claude/plans/alpha-channel-rung-overlay-v1.md` — the design for the ONE

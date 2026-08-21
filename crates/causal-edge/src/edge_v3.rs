@@ -713,4 +713,48 @@ mod tests {
         // and TE was NOT inherited from the deprecated v2 temporal composite
         assert_eq!(bytes[7], 0, "TE must not be lifted from v2 temporal");
     }
+
+    /// G10b (D-ACR-7 ratified gate, hosted HERE because both crates are
+    /// zero-dep): the lift preserves the truth/spare ordinals — the module doc
+    /// claims the round trip is byte-exact, and this is the test that asserts
+    /// the truth/spare half of that claim through the ACCESSORS (not just the
+    /// raw bytes), under BOTH lens vocabularies over the same unchanged bits.
+    #[cfg(feature = "causal-edge-v2-layout")]
+    #[test]
+    fn g10b_lift_preserves_truth_and_spare_ordinals_under_both_lenses() {
+        use crate::layout::{CausalTopology, ReasoningBand};
+
+        // Firing half: nonzero ordinals in both registers, set via the
+        // TOPOLOGY/BAND lens (the readings D-ACR-7 declares per class).
+        let e = sample_edges()[0]
+            .with_topology(CausalTopology::Unknown) // ordinal 0b11
+            .with_reasoning_band(ReasoningBand::Transcendent); // ordinal 0b111
+        let v3 = CausalEdgeV3::from_v1(e, 7);
+        assert_eq!(
+            v3.truth_raw(),
+            e.truth_raw(),
+            "truth ordinal dropped by lift"
+        );
+        assert_eq!(v3.spare_raw(), e.spare(), "spare ordinal dropped by lift");
+        assert_eq!(v3.truth_raw(), 0b11);
+        assert_eq!(v3.spare_raw(), 0b111);
+
+        // Round trip: rehydrate with the same SPO restores the ordinals so the
+        // reasoning carrier sees exactly what was stored.
+        let back = v3.rehydrate(e.s_idx(), e.p_idx(), e.o_idx());
+        assert_eq!(back.truth_raw(), e.truth_raw());
+        assert_eq!(back.spare(), e.spare());
+        assert_eq!(back.topology(), CausalTopology::Unknown);
+        assert_eq!(back.reasoning_band(), ReasoningBand::Transcendent);
+
+        // Stay-silent half: zero ordinals stay zero — the lift neither invents
+        // a band nor upgrades provenance (the from_v1 trap D-ACR-7 fences is a
+        // PROVENANCE gap, not a bit-copy defect; the bits themselves are exact).
+        let z = sample_edges()[1];
+        assert_eq!(z.truth_raw(), 0);
+        assert_eq!(z.spare(), 0);
+        let vz = CausalEdgeV3::from_v1(z, 7);
+        assert_eq!(vz.truth_raw(), 0);
+        assert_eq!(vz.spare_raw(), 0);
+    }
 }

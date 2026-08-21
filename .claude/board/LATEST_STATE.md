@@ -1,3 +1,54 @@
+## 2026-08-21 — D-ACR-7 IMPLEMENTED — `contract::band_reading` (the 59..63 reading contract)
+
+### Current Contract Inventory — 1 new zero-dep module + 1 ClassView provided method + 1 gate test in `causal-edge`
+
+- **`lance_graph_contract::band_reading`** (new, zero new bytes) — implements
+  the RATIFIED spec `.claude/plans/dacr7-band-reading-contract-v1.md`. **One
+  reading contract, TWO carriers**: `CausalEdge64` bits 59-60 (truth) / 61-63
+  (band) — the muscle memory — and `CausalEdgeV3` byte [8] hi-2 / byte [9] lo-3
+  via `truth_raw()` / `spare_raw()` — the granularity. The reading NEVER changes
+  stored bytes; it declares how a consumer projects them.
+  - `TruthLens { Trust, Topology }` — which vocabulary the 2-bit register means
+    for this `(class, rail)`. **Doc-comment pointers only**, never imports:
+    both crates are zero-dep and neither may depend on the other
+    (`lance-graph-contract/Cargo.toml:10-17`, `causal-edge/Cargo.toml:20-23`).
+  - `BandPresence { Absent, Present }` + `WitnessKind { None, Table,
+    CausalFacet, EpisodicBasin }` — the F5 evidence-kind discriminator.
+  - `EdgeProvenance { V2Stamped, V3Register, V1Legacy, Unknown }` with
+    `trusted()`. **`V3Register` is a CALLER ASSERTION ("minted clean"), never an
+    inference** — council BLOCK-1: `CausalEdgeV3::from_v1` (`edge_v3.rs:117`)
+    has no provenance parameter and raw-copies the tail (`:138-139`), so the v1
+    temporal trap (`temporal >= 512` aliases a non-zero band) reaches V3
+    **transitively**. Unstated ⇒ `Unknown` ⇒ refuse.
+  - `BandReading { truth_lens, band, witness }` + `ZERO_FALLBACK`
+    (`Trust`/`Absent`/`None`, `== Default`), `admits`, `admits_band`,
+    `project_truth`, `project_band`. **Projection order is provenance FIRST,
+    then lens** — an untrusted edge is refused before its lens is even asked.
+  - `BandDeclarations` — the registry. **L1 split (the council's Phase-4 fix):**
+    declaration lookup is TOTAL (`reading_or_default`, zero-fallback, sibling-
+    consistent with `edge_codec_flavor` / `rail_carving` / `value_schema`),
+    while raw-bit projection is FALLIBLE (`Result`, `UndeclaredClass`) — it must
+    FAIL, never return a plausible value.
+  - **L3 audit distinction preserved:** `get()` returns `Option<BandReading>` —
+    `None` = never declared vs `Some(Absent)` = explicit opt-out.
+    `declare()` returns `true` on replace: a redeclaration is visible, never silent.
+  - `sampling_admits(&dyn Tactic) -> bool` = `moves_confidence()` — the
+    **14/34** capability filter, never `maturity().is_production()` (**31/34**).
+    Asserted against the real `all_kernels()`, not a fixture.
+- **`ClassView::band_reading(class, rail)`** — provided method, defaults to
+  `BandReading::ZERO_FALLBACK`. Same registry-resolution pattern as its two
+  siblings; selection only, never a stride change.
+- **`causal-edge` `g10b_lift_preserves_truth_and_spare_ordinals_under_both_lenses`**
+  — hosted THERE because both crates refuse each other. Closes a measured
+  missing test: the module doc claimed the truth/spare round trip is byte-exact
+  and nothing asserted it through the accessors. Fires (nonzero `Unknown` /
+  `Transcendent` ordinals survive `from_v1` → `rehydrate`) **and** stays silent
+  (zero ordinals are not upgraded).
+- **Mints nothing**: no new tenant, no bit, no `ENVELOPE_LAYOUT_VERSION` bump,
+  no `cfg` feature that re-means a stored bit (G9).
+- Gates: G1 (1207 contract tests, +13), G2 clippy clean on the new module,
+  G3′/G4′/G5a/G5b/G6/G7′/G8/G9/G10b all green — pre-registered before any agent ran.
+
 ## 2026-08-21 — #975 MERGED (4a43698) — two measured corrections + a retracted absence
 
 - **`DismechTopology` doc + this file corrected**: the label-KNOWN 3,978 are
@@ -17,6 +68,32 @@
   the 1,466 label-only edges and the 92 contradictory ones.
 
 ## 2026-08-20 — #974 MERGED (8a93423) — DisMech compact evidence vocabulary + citation sidecar
+
+### Current Contract Inventory — 1 new zero-dep module (D-ACR-1)
+
+- **`lance_graph_contract::attention_facet`** (new, zero new bytes):
+  - `AttentionFocusFacet` — the **Attention reading** of the shipped
+    `FacetCascade` (`classid(4) | 6×(8:8)`) under `CascadeShape::G6D2`, plus an
+    explicit `depth: 0..=12` held OUTSIDE the 12 bytes (the `NiblePath`
+    precedent — inferring a wildcard from zero bytes would collide with the
+    zero-fallback ladder, where `0` is a dormant tier, not a terminator).
+    `exact` / `prefix` (loud refusal past 12) / `whole_class` / `coarse` /
+    `fine` / `axis` (all `None` past `depth` — never `0`, which is centroid
+    zero's value) / `covers` / `common_prefix`.
+  - `FocusAxis` — `Axis0..Axis5`, a **position, not a meaning**. The module
+    names no axis semantics: the cascade reading (HEEL·HIP·…) and a candidate
+    ontology-scope reading (disease/anatomy/process/substance/evidence/context)
+    are both ClassView-resolved projections, demonstrated over identical bytes
+    in `the_same_atom_reads_as_cascade_and_as_ontology_scope_without_changing_a_byte`.
+  - `RowFocusMask` — the sparse container. Membership is `covers`, set ops are
+    containment-shaped (`union` absorbs into a minimal antichain; `intersect`
+    yields the deeper of a covering pair; `difference` is deliberately
+    conservative). **Never a bit-OR**, and no `FieldMask`/`WideFieldMask`
+    cardinality is inherited — it does not index rows at all.
+  - `FOCUS_AXES = CASCADE_UNITS / 2` — derived, never a second literal.
+  - **Mints nothing**: no new tenant, no bit, no `ENVELOPE_LAYOUT_VERSION` bump.
+    Does not, and structurally cannot, reference `cognitive-shader-driver`'s
+    `attention_mask*` (the dependency edge runs the other way).
 
 ### Current Contract Inventory — 1 new zero-dep module
 

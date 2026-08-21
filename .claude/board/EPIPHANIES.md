@@ -78,6 +78,138 @@ a hard, loud cap on one side**. D-ACR-1 must state its basis and its
 composition operator before composing, or it inherits one of two accidents:
 loud refusal past 256 (borrowing the wide cap) or silent truncation past 64
 (borrowing the narrow rule).
+## 2026-08-21 — E-FROM-V1-DROPS-PROVENANCE-AND-THE-COUNCIL-CAUGHT-THE-CONTRACT-ABOUT-TO-TRUST-IT-1 — three BLOCK(P0)s in one 5+3 run, and the sharpest one falsified the spec's own asymmetry claim against the code it cited
+
+**Status:** FINDING (D-ACR-7 council, spec ratified as
+`.claude/plans/dacr7-band-reading-contract-v1.md`; every claim verified at
+source in Phase 4). **Confidence:** High.
+
+The D-ACR-7 reading contract (which lens wrote CE64 bits 59..63 —
+`TrustTexture` vs `CausalTopology` on 59-60, `ReasoningBand` presence on
+61-63) went through the full 5+3 council. Three BLOCK(P0)s were raised and all
+three survived verification; none was argued away.
+
+**BLOCK 1 (overclaim, the consequential one): "V3's bytes were never temporal"
+is false for populated instances.** `CausalEdgeV3::from_v1(e, target)`
+(`edge_v3.rs:117`) has **no provenance parameter** and copies truth/spare as a
+raw bit copy (`:138-139`). The reassuring comment above it — "under the v1
+layout every one of these accessors is a documented zero stub" — is a
+**compile-time feature condition, not a runtime provenance guarantee**: a CE64
+of v1/unknown provenance (bits 61-63 aliasing `temporal >= 512`) lifted under
+a v2 build carries the stale bits into V3 byte 9, and the result is
+**indistinguishable from a clean register**. The draft had declared
+`EdgeProvenance::V3Register` "always readable" — the exact plausible-wrong-
+answer the contract exists to refuse, at its own core. Resolution:
+`V3Register` means *"the caller asserts this register was minted clean"*,
+never *"V3 registers are clean"*; unstated origin = `Unknown` = refuse; the
+`from_v1` provenance drop is filed as a `causal-edge` follow-up, not patched
+from the contract side. The v1 trap thus applies to BOTH carriers — on CE64
+directly, on V3 **transitively through the lift**.
+
+**BLOCK 2 (overclaim): a gate contradicted the fix that preceded it, and
+another gate was a tautology.** After the council split the resolver
+(total `ClassView::band_reading` lookup / fallible `BandReading::project`),
+G5's carried-forward text ("an undeclared one errors") contradicted the total
+half — split into G5a (total: zero-fallback, no error) / G5b (fallible:
+`Err(UndeclaredClass)` must fire). And G10a ("project is a pure function of
+its arguments") fed the same input to the same function twice — the
+vacuous-assertion house pattern, deleted. Only G10b survives: compare
+`CausalEdge64::truth()` vs `CausalEdgeV3::truth_raw()` on the same edge
+post-`from_v1` — which tests the exact bit-copy site BLOCK 1 indicted, is
+hosted in `causal-edge` (both crates' zero-dep postures hold — measured:
+BOTH refuse the other as a dependency, `causal-edge/Cargo.toml:20-23`
+explicitly), and closes a **measured missing test**: `edge_v3.rs`'s module doc
+claims truth/spare survive the round trip byte-exact, and no test asserts it.
+
+**BLOCK 3 (firewall): the consolidation dropped board hygiene entirely.**
+Draft v2 contained zero occurrences of any board file — Savant 4 had answered
+the hygiene question in full, and Phase-2 consolidation lost the finding. The
+loss-prevention phase lost a finding; recorded as such, restored as the spec's
+§6′ commitment table.
+
+**Meta-catch worth keeping:** the same reviewer caught the fix ledger claiming
+a citation correction it had not applied ("fixed in §2.5" while §2.5 still
+read the old span) — the draft's own "measured, not assumed" standard applied
+to the draft. And the council's scope itself was corrected mid-flight by the
+operator (CE64 = muscle memory, `CausalEdgeV3` = granularity), a gap **no
+savant could have caught** because the v1 spec never mentioned V3 and savants
+answer only their question sets — the spec-writing phase is the only place
+scope errors can be prevented, which is why Phase 0 is "where the real work
+happens."
+
+Sibling finding folded in rather than given its own id: `TrustTexture` is a
+**×4 homonym with three arities** (4/4/5/3 — `causal-edge/layout.rs:141`,
+`contract/mul.rs:82`, `planner/mul/trust.rs:30` with `Dissonant`
+unrepresentable in 2 bits, `arigraph/orchestrator.rs:114`), against
+`TYPE_DUPLICATION_MAP.md:9`'s stale "×2"; lines 9, 16 and 19 of that doc must
+change together.
+
+## 2026-08-21 — E-THE-ATTENTION-ATOM-WAS-ALREADY-SHIPPED-WHAT-WAS-MISSING-WAS-A-COMPOSITION-THAT-IS-NOT-OR-1 — D-ACR-1's basis is a reuse, and the only real gap was that every set operation in the crate is a bitset union
+
+**Status:** FINDING (D-ACR-1, implemented; 14 new tests green, 1194 contract
+tests green, clippy clean). **Confidence:** High — the atom's existence is a
+read of `facet.rs`; the container's absence is a stated grep.
+
+D-ACR-1 was written as *"the one missing primitive"*. Half of that is right,
+and the half that is wrong is the more useful half.
+
+**The atom already existed, exactly.** `contract::facet::FacetCascade` is
+`facet_classid(4) | 6×(8:8) = 16 B` with `CascadeShape::G6D2` — literally the
+`6 × 2 × u8` shape D-ACR-1 needed, with `index`/`group_of`/`level_of`/`shift`
+shipped, `tier_bytes()` ordered coarse-first (`[t0.hi, t0.lo, …]`), and two
+existing readings to copy the pattern from (`awareness_facet::SpoFacet`,
+`tekamolo_facet::TekamoloFacet(pub FacetCascade)`). **Zero new bytes were
+needed and none were added.** Proposing a new 12-byte type here would have been
+the "type that already exists" rediscovery tax `CLAUDE.md` §Consult names.
+
+**What was genuinely absent is narrower and sharper: a composition that is not
+a bitset union.** Measured — every `union`/`intersect` in the contract crate is
+a bit operation over *field positions*: `FieldMask` (u64, `MAX_FIELDS = 64`),
+`WideFieldMask` (u8 positions, capped at 256 with a loud
+`UniverseExceedsSocCap`), `StepMask` (u64), `rbac`. **Not one of them composes
+addresses.** And a bit-OR of two addresses is not a coarser focus — it is a
+*third address neither side ever visited*. That is the defect the container had
+to avoid, and it is now a test (`composition_is_not_a_blind_or`: OR-ing
+`0b01` and `0b10` yields `0b11`, and the union must NOT contain it).
+
+**The composition that IS right was already in the canon, one type over.**
+`NiblePath::is_ancestor_of` is coarse→fine prefix containment with an
+**explicit** depth field. Reusing that rule on the 12-unit ladder gives
+`covers`, and reusing its explicit-depth discipline avoids a real trap:
+inferring the wildcard boundary from zero bytes would collide with the
+zero-fallback ladder, where `0` is a legitimate *dormant tier*, not a
+terminator. So `depth` lives OUTSIDE the 12 bytes and the wire shape stays
+exactly `6 × 2 × u8`.
+
+**This is also the answer to ">256 rows".** The `u8` per level bounds *axis
+resolution* (256 centroids), never population: one shallow facet is a wildcard
+over an unbounded subtree. Measured in a test — a depth-2 focus covers 65,536
+addresses across only the two units varied, and a container holds 1000 distinct
+entries where `FieldMask` would stop at 64 and `WideFieldMask` at 256. **The
+container does not index rows at all**, which is why neither cap transfers.
+
+**Content-blindness had to be defended twice in one deliverable.** A first
+draft named the axes `Heel/Hip/Twig/Leaf/Family/Identity` — baking the cascade
+reading into the low-level type, which is exactly what `FacetCascade`'s own
+contract forbids (*"only the CONSUMER projects meaning onto the bytes"*). The
+operator caught it while raising a second candidate reading (six **ontology
+scopes**: disease/anatomy/process/substance/evidence/context). Both readings
+now live only in a test, over byte-identical input, proving the projection is
+free — and `FocusAxis` is `Axis0..Axis5`, a position. The general lesson is the
+one this arc keeps paying for: **the moment a second plausible reading appears,
+any name in the substrate is a premature commitment to the first.** Four
+homonym collisions (witness / nibble / hydration / attention-mask) were the
+expensive form of this; naming the axes would have been the fifth, minted by
+us rather than inherited.
+
+**Deferred, named rather than silently absent:** `RowFocusMask::difference`
+keeps a partially-overlapped entry whole. Subtracting a subtree from a prefix
+requires enumerating siblings — inventing addresses the focus never visited —
+so splitting waits for a real consumer that needs it. `D-ACR-1`'s scope line
+also asks for composability with `WideFieldMask`; per D-ACR-0's measurement
+that is a **cardinality mismatch** (positions ≤ 256 vs an unbounded population)
+and remains §6 **Y2**'s parked basis collision — this deliverable states its
+own basis and does not cross into the other.
 
 ## 2026-08-21 — E-HHTL-IS-MINTED-IN-THE-ARTIFACT-NOBODY-CITES-1 — "zero on every baked row in both production bakes" is precise about the two it names and silent about the third, where the five OBO namespaces are 100% minted
 
