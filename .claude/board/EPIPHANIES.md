@@ -96,6 +96,276 @@ and a supervision corpus sized from the label is oversized by exactly the rows
 where the source labelled but did not fill.
 
 Cross-ref: `.claude/plans/dismech-causality-v3-v1.md` §3a; `E-DISMECH-CORPUS-CENSUS-1`.
+## 2026-08-21 — E-ABBREVIATION-GREP-MANUFACTURED-AN-ABSENCE-1 — I reported a shipped 15-module subsystem as non-existent because `fn .*ppr` matches `approx`, and a `head` limit hid the real hits
+
+**Status:** FINDING (self-inflicted, caught by the operator pointing at
+`E-ARIGRAPH-IS-AN-ISLAND`). **Confidence:** High — the mechanism is
+reproducible in one line.
+
+**What I claimed, in a deliverable handed to the operator:** *"the assumption
+is stale — no `ppr`, `personalized_page*`, `bm25`, `rrf`, or `community`
+function exists in the workspace… AriGraph appears only as narrative in doc
+comments."*
+
+**What is actually there:** `crates/lance-graph/src/graph/arigraph/` — **15
+modules, ~327 KB** — `ppr.rs` (`PersonalizedPageRank`,
+`personalized_pagerank()`), `bm25.rs` (`Bm25Index::{build,score,rank}`),
+`rrf.rs` (`reciprocal_rank_fusion()`), `community.rs` (`Communities`),
+`markov_soa.rs`, `episodic.rs` (`EpisodicBasins`), `witness_corpus.rs`,
+`retrieval.rs`, `triplet_graph.rs`, `orchestrator.rs`, and five more, all
+re-exported from `mod.rs`.
+
+**The mechanism, in two compounding parts.**
+
+1. **The abbreviation collided with a common word.** My pattern was
+   `fn .*ppr\|fn .*bm25\|fn .*rrf\|fn .*community`. `"ppr" in "approx"` is
+   **`True`** — `a-p-p-r-o-x`. Every `fn approx(a, b, tol)` test helper in
+   `jc`, `holograph`, and `sigker` matched. The real functions matched
+   *nothing*, because they are spelled out — `personalized_pagerank`,
+   `reciprocal_rank_fusion` — and `bm25` lives in the TYPE name, not the
+   function name.
+2. **`head -20` then converted noise into a false negative.** `community.rs`
+   genuinely had 5 matching lines. They were pushed off the end of the output
+   by the `approx` flood. I read "nothing relevant in the first 20 lines" as
+   "absent."
+
+Neither part is sufficient alone: a noisy pattern with full output would have
+shown the real hits; a clean pattern with a `head` limit would have found them
+first. **A pattern with a high false-positive rate and an output limit are
+individually survivable and jointly a lie.**
+
+**The rule.** *Searching for a function's NAME is not searching for a
+CAPABILITY.* Before reporting a subsystem absent, search the **filesystem** for
+it — `find . -path "*arigraph*"` would have ended this in one call, needed no
+guess about spelling, and cost less than the grep did. Names encode an author's
+abbreviation preference; directories encode the subsystem. Corollaries:
+
+- An abbreviation of ≤4 characters is a **substring**, not a token. Check it
+  against ordinary vocabulary before trusting it (`ppr`⊂`approx`,
+  `rrf`, `cam`⊂`camera`, `ppr`⊂`suppress`).
+- **Never conclude absence from a limited-output search.** Absence is a claim
+  about the whole set; a `head` reads a prefix of it. Re-run with a `-c` count
+  or no limit before writing "does not exist".
+- **Absence and unwiring have opposite remedies.** Absent ⇒ build the organs.
+  Unwired ⇒ build nothing, close the seam. I recommended the expensive one.
+
+**This is the second instance of a named class.** The board already carries
+*"a false negative manufactured by the intake"* (the sorted-histogram gate that
+discarded which cell mapped to which offset, codex P1 on #876). Same class,
+different mechanism: there the intake destroyed structure before comparison;
+here the intake's own noise outran the output window. Two instances with
+disjoint mechanisms make it a pattern rather than an anecdote: **the intake is
+part of the measurement, and it fails silently in whichever direction nobody
+checked.**
+
+**What the correct answer would have been**, and it was already on this board
+under `E-ARIGRAPH-IS-AN-ISLAND`: every AriGraph module exists and tests green;
+the chain is open at the joints; `HotWitness` is `todo!()`;
+`Ee→EW64(hot)+WitnessCorpus(cold)` is the unwired task. *"The most expensive
+kind of gap: invisible in green suites (every crate passes; the system doesn't
+do the thing) because the integrating seam was never built."* I cited that
+entry as prior art for a different claim **without reading it** — and it
+contained the correction to the claim I was making in the same breath.
+
+## 2026-08-21 — E-ACADEMIC-CARVE-UNDERFILLS-ROWS-ARE-NOT-WORDS-1 — 20,845 COCA rows are 18,559 distinct words, so the 80×256 academic carve fills 90.6% and basins 73..79 are empty
+
+**Status:** FINDING (measured on the committed
+`crates/deepnsm/word_frequency/academic_20k.csv`, produced while building the
+deepnsm-v2 academic codebook for S3). **Confidence:** High — a count over a
+committed file, reproducible with `csv.DictReader` and a `set`.
+
+**The falsified claim** is in `plans/causal-rung-standing-wave-v1.md:465`:
+
+> **Vocabulary 4096 → 20k academic:** **fits** the palette256² pair carve
+> NATIVELY — 20480 = 80×256, `(basin, identity) = (id>>8, id&0xFF)`
+
+It does not fit. It under-fills.
+
+| | measured |
+|---|---|
+| rows in `academic_20k.csv` | 20,845 |
+| **distinct surface forms** | **18,559** |
+| duplicate rows (same word, different `Pos`) | **2,286 (11.0%)** |
+| `PaletteVocab::ACADEMIC_20K` reserved slots | 20,480 |
+| **carve fill** | **18,559 / 20,480 = 90.6%** |
+| last id 18,558 lands at | basin **72**, slot 126 |
+| **empty basins** | **73..79 (7 of 80)** |
+
+**The inference that produced the error is arithmetic on the wrong noun.**
+`plans/deepnsm-morton-comma-facet-v1.md:140` records "20,845 rows" and calls
+them "the 20k most-frequent COCA-Academic words". 20,845 > 20,480, so the carve
+looks like it fits with 365 to spare. But `PaletteVocab::from_frequency_ranked`
+admits by **surface form**, deduplicating (`duplicates_keep_first_id` is its own
+pinned test), and COCA lists a word once per part of speech. The same plan file
+even notes the multiplicity two paragraphs later — *"The `Pos='v'` rows in
+`academic_20k.csv` (thousands of verbs)"* — without drawing the consequence for
+the carve. **The fact was present, the subtraction was not.**
+
+**Why no test caught it, and this is the reusable half.** The crate's own
+`academic_20k_carve_spans_80_basins` asserts exactly the property that fails on
+real data — `pair("w20479") == Some((79, 255))`, i.e. basin 79 is reached — and
+it passes, because its fixture is `(0..20480).map(|i| format!("w{i}"))`:
+**20,480 synthetic words that are all-distinct by construction.** The real
+input is 11% duplicates. A dedupe-sensitive property was tested on a
+duplicate-free fixture, so the test could only ever confirm the arithmetic it
+was written from.
+
+This is the fixture-shape failure this board already carries in other clothes
+(a single-band fixture cannot see a multi-band defect; a justified page cannot
+exercise the ragged branch). Stated for this class: **when the code under test
+deduplicates, filters, or otherwise reduces its input, a fixture with nothing to
+reduce measures the reservation, not the fill.** The falsifier is one line —
+give the fixture a duplicate and assert the admitted count drops.
+
+**What is NOT claimed.** 90.6% fill is not by itself a defect: `RESERVE, DON'T
+RECLAIM` is canon, and a partially-filled carve with `(basin, slot) = (id>>8,
+id&0xFF)` is correct, addressable, and stable. Nothing needs to move. What must
+change is the **claim**: the carve is under-filled by 1,921 slots, seven basins
+are empty, and any design that assumed basin 79 is populated — or that reads
+basin occupancy as a frequency signal — is reasoning from a number the data
+never supported. Whether to fill the tail (a larger COCA slice, or admitting
+`(word, Pos)` pairs rather than surface forms) is a deliberate decision with a
+semantic cost either way, not a gap to be quietly padded.
+
+> **⊕ CORRECTED SAME-DAY (2026-08-21, codex P1 on #975 + the operator's
+> "wieso pyyaml — hattest du nicht für dismech-rs schon was für Rust
+> gebaut").** The counts above came from a throwaway Python line-scanner and
+> were **wrong**. Codex caught it structurally without needing the corpus:
+> the module documents `pathophysiology[].downstream[]` as a SUBSET with
+> **2,497** mediator-bearing edges, and I had written **2,489** corpus-wide —
+> *a subset cannot exceed the whole*. Re-measured with the parser that
+> already existed (`dismech_oracle_census`, dismech-rs, over
+> `graph::build_causal_graph`), cross-checked against an independent pyyaml
+> structural parse — identical on every figure:
+>
+> | quantity | line-scan (wrong) | structural (authoritative) |
+> |---|---:|---:|
+> | label-KNOWN with ≥1 mediator | 2,489 | **2,512** (63.1%) |
+> | label-KNOWN naming nothing | 1,489 (37.4%) | **1,466** (36.9%) |
+> | distinct mediator strings | 3,048 | **3,095** |
+> | exact node references | 45 (1.5%) | **45** (1.5%) — unchanged |
+> | groundable by label alone | 59.4% | **59.3%** (1,834) |
+> | ungrounded prose | 40.6% | **40.7%** (1,261) |
+> | oracle diseases | not measured | **549** |
+> | `UNKNOWN_INT` that DO name mediators | **missed entirely** | **92** |
+>
+> There is no contradiction once the number is right: 2,512 corpus-wide vs
+> 2,497 in the downstream subset, the 15 sitting in `influences_mechanisms`
+> (115) and `sequelae` (19). **Every qualitative claim survives** — the
+> mediators are prose, the oracle is ~⅔ of the label-KNOWN set, the
+> label-only edges need a third bucket. The magnitudes moved by <1%.
+>
+> **Two lessons, and the second is the expensive one.** (1) A line-oriented
+> YAML walk is a parser you did not write and cannot test; it fails silently
+> on shapes you did not imagine. (2) **The repository already had the
+> structural parser** — `model::parse_disorder_raw` is serde_yaml over a
+> committed type and `graph::build_causal_graph` already carries
+> `intermediate_mechanisms: Vec<String>` on the edge. The right answer was
+> one `cargo run` away, is sub-second against pyyaml's two minutes, and is
+> now committed and re-runnable instead of living in a `/tmp` script. *A
+> measurement a committed parser can make must not be made by an ad-hoc
+> script.* This is the same family as
+> `E-ABBREVIATION-GREP-MANUFACTURED-AN-ABSENCE-1` two entries up — reaching
+> for an improvised tool over the one the repo already ships — twice in one
+> session, which makes it the session's dominant failure mode rather than an
+> incident.
+>
+> **A third finding neither pass had:** 92 `INDIRECT_UNKNOWN_INTERMEDIATES`
+> edges DO name mediators. The source contradicts its own label. They are
+> neither oracle nor restraint control, and left in the control they read as
+> hallucinated closure by the benchmark's own definition.
+
+**Artifact.** The derived codebook was uploaded round-trip-verified to S3 at
+`lance-graph/codebooks/deepnsm-v2-academic-coca-v1/` (TSV + source CSV +
+manifest), with the shortfall stated in the file's own header so a consumer
+cannot pin it without reading it. It reports 18,559 entries; it does not pad.
+
+## 2026-08-21 — E-DISMECH-KNOWN-INTERMEDIATES-ARE-PROSE-NOT-IDENTITIES-1 — the 3,978-edge "ORACLE population" is 2,489 edges, and its mediators are 5-word prose, not node references
+
+**Status:** FINDING (measured on upstream `monarch-initiative/dismech`, the same
+2,100-file ephemeral `/tmp` corpus as `E-DISMECH-CORPUS-CENSUS-1`).
+**Confidence:** High — every number is a count, and the first count was WRONG
+in a way worth recording (below).
+
+**This CORRECTS one sentence of `E-DISMECH-CORPUS-CENSUS-1`** (append-only: that
+entry is not edited). Its census is right and stands — 9,073 / 4,539 / 3,978 /
+408, total 17,998. What it also said is this:
+
+> `IndirectKnownIntermediates` (3,978) is the ORACLE population — **the source
+> names the mediators, so they can be hidden and recovery measured.**
+
+The source mostly does not name them, and where it does, they are not
+identities.
+
+| | measured |
+|---|---|
+| `INDIRECT_KNOWN_INTERMEDIATES` edges | 3,978 |
+| ...carrying >=1 named intermediate | **2,489** |
+| ...with **no** `intermediate_mechanisms` key at all | **1,489 (37.4%)** |
+| total intermediate strings | 3,424 (distinct 3,048) |
+| strings per edge | mean 1.38, max 4 |
+| **strings that are an exact node reference** | **45 / 3,048 (1.5%)** |
+| string length | median 4 words, mean 5.2, max 39 |
+
+A representative mediator: *"Classical-pathway inhibition yields serum
+resistance, permitting spirochete survival during hematogenous dissemination."*
+That is a sentence, not an address into the 48,467 distinct mechanism/target
+names the corpus carries.
+
+**Three consequences, in decreasing obviousness.**
+
+1. **The oracle population is 2,489, not 3,978** — a 37.4% overstatement. The
+   1,489 key-less edges are `KNOWN_INTERMEDIATES` **in label only**: the authors
+   asserted mediators exist and did not write them down. They are neither
+   oracle nor restraint control. Scored as positives they are unrecoverable and
+   depress every metric; scored as negatives they punish a correct answer. They
+   need a **third bucket**, or they poison the gold set. (This is the standing
+   iron falsifier *"unknown intermediates are treated as negative examples"*,
+   reached from an unexpected direction — via the KNOWN label, not the unknown
+   one.)
+
+2. **`Recall@k` over a mediator-identity candidate list has nothing to score
+   against.** At 1.5% exact reference there is no identity-typed gold. A gold
+   set must be MADE, and the making must not leak: grounding the 3,048 prose
+   strings by **label matching alone** shares no machinery with DeepNSM or
+   AriGraph, so it cannot launder the answer into the evaluation. Measured
+   headroom against the 48,467 names: exact (normalized) 204 (6.7%), a corpus
+   name is a substring 1,190 (39.0%), token-Jaccard >= 0.5 415 (13.6%) —
+   **1,809 groundable (59.4%), 1,239 ungrounded prose (40.6%)**. ~1,800 gold
+   mediators over ~2,489 supervised edges is enough to separate ablation
+   levels. **The 40.6% residue must be reported, not dropped** — dropping it
+   silently inflates every Recall@k, which is the vacuous-fence pattern this
+   board already carries under a different name.
+
+3. **`DismechTopology::source_knows_intermediates()` is correctly implemented
+   and its second doc sentence is not.** The function answers *"does the source
+   CLAIM to know"*, which is a question about the label and is exactly right.
+   Its doc then says *"This is what separates the oracle population from the
+   restraint control"* — and that is the falsified claim, because the
+   label-KNOWN population is not the oracle population. `LATEST_STATE.md`
+   carries the same overstatement ("the 3,978-edge ORACLE population"). **No
+   bits move and no API changes**; the correction is to the claim, and the
+   consumer that builds the oracle set must additionally require a non-empty
+   `intermediate_mechanisms`, which the contract crate cannot see because it is
+   deliberately source-side only.
+
+**A free by-product, needing no grounding at all:** predicting the 4-way
+`CausalTopology` of a masked edge is a benchmark over all **17,998** labelled
+examples with a stated majority-class prior of 50.4% (DIRECT). It can run
+before any grounding lands and calibrate the harness — which is worth having
+precisely because the identity benchmark now needs a build step first.
+
+**The method note, which generalizes past DisMech.** The first run of this
+measurement returned *"4 of 3,978 carry a named intermediate"* and I nearly
+recorded that. It was false: YAML block-list items sit at the SAME indent as
+their key, and the sibling-scan broke on `indent <= key_indent`, so it stepped
+off the list before reading a single item. The tell was the shape of the
+result — a 0.1% rate on a field the corpus populates 2,489 times is not a
+finding, it is a parser that missed. **A count that collapses to near-zero on a
+field the schema clearly uses is a claim about the reader, not the corpus** —
+the same rule this board already states for null probe results, applied to
+counting rather than to timing. Reading three raw blocks cost thirty seconds
+and moved the answer by a factor of 622.
 
 ## 2026-08-20 — E-DISMECH-CORPUS-CENSUS-1 — the DisMech corpus measured: 87.2 MB of strings, of which the entire causal semantics is bits + codebook ordinals
 

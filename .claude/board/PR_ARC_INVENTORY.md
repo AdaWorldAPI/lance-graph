@@ -1,3 +1,104 @@
+## 2026-08-21 — lance-graph #975 (MERGED, merge commit 4a43698, head 5577728) — two measured corrections: the DisMech oracle population, and the academic carve fill; plus a retracted absence
+
+- **Added — the oracle-population correction (`5fac79d` + `5577728`),
+  `lance-graph-contract`:** `DismechTopology::source_knows_intermediates()`'s
+  doc and the `LATEST_STATE` summary both claimed the 3,978 label-KNOWN edges
+  ARE the oracle population. Measured over the 2,100-file corpus: **1,466
+  (36.9%) carry no `intermediate_mechanisms` at all** — the source asserts
+  mediators exist and does not name them. The usable population is **2,512
+  over 549 diseases**, and it is the population *requiring grounding*, not a
+  usable oracle: only **45 of 3,095** distinct mediator strings are exact node
+  references (1.5%); label matching grounds 1,834 (59.3%) and leaves 1,261
+  (40.7%) ungrounded prose. **No bits move, no API changes** — the function
+  answers a question about the LABEL and is correct as implemented.
+- **Added — the academic-carve finding (`3fa7acb`), `deepnsm-v2`:**
+  `plans/causal-rung-standing-wave-v1.md:465` claimed the 20k academic
+  vocabulary "fits the palette256² pair carve NATIVELY". It under-fills:
+  `academic_20k.csv` is 20,845 ROWS but **18,559 distinct surface forms**
+  (2,286 duplicates — COCA lists a word once per part of speech), and
+  `from_frequency_ranked` admits by surface form. Carve fill **90.6%**; last id
+  at basin 72 slot 126; **basins 73..79 empty.** Companion falsifier added
+  (`duplicates_consume_ranks_but_not_slots_so_the_carve_underfills`),
+  disable-verified.
+- **Added — the AriGraph retraction (`ffc5218`):** a prior claim that "no
+  `ppr` / `bm25` / `rrf` / `community` function exists" was FALSE.
+  `crates/lance-graph/src/graph/arigraph/` is **15 modules, ~327 KB** with
+  exactly those organs. Cause: `fn .*ppr` matches **`approx`**, and `head -20`
+  pushed the real hits off the end.
+- **Locked:**
+  - **Absent ≠ unwired, and the remedies are opposite.** The board's own
+    `E-ARIGRAPH-IS-AN-ISLAND` already had the correct state — every module
+    ships and tests green, the chain is open at the joints. Absent ⇒ build the
+    organs. Unwired ⇒ build nothing, close the seam. The retracted claim
+    recommended the expensive one.
+  - **A measurement a committed parser can make must not be made by an ad-hoc
+    script.** The 2,489/1,489 figures in `5fac79d` came from a Python
+    line-scanner and were wrong by 23 edges; `dismech-rs`'s
+    `dismech_oracle_census` over `graph::build_causal_graph` gives 2,512/1,466
+    in under a second, and a pyyaml structural parse agrees on every figure.
+  - **92 `INDIRECT_UNKNOWN_INTERMEDIATES` edges DO name mediators** — the
+    source contradicting its own label. Neither oracle nor restraint control.
+- **Deferred:** the third bucket for the 1,466 label-only edges and the 92
+  contradictory ones (operator decision, blocks any gold set); grounding
+  against the baked ontology identity space (measured complementary, not
+  superior — see below).
+- **Docs:** `EPIPHANIES.md` ×3 —
+  `E-DISMECH-KNOWN-INTERMEDIATES-ARE-PROSE-NOT-IDENTITIES-1` (with its
+  same-day ⊕ correction), `E-ACADEMIC-CARVE-UNDERFILLS-ROWS-ARE-NOT-WORDS-1`,
+  `E-ABBREVIATION-GREP-MANUFACTURED-AN-ABSENCE-1`; `LATEST_STATE.md`;
+  `plans/causal-rung-standing-wave-v1.md` dated correction with the original
+  claim retained.
+- **Review:** codex 2×P1, both CONFIRMED and both fixed in `5577728` — the
+  impossible subset/corpus counts (a subset cannot exceed the whole; mine was
+  the wrong number, the subset's 2,497 was right all along), and "usable
+  oracle" being the wrong noun for an ungrounded population. CodeRabbit did
+  not review: the repo is under its 10-star auto-review threshold. Bugbot:
+  usage limit.
+- **Confidence:** High for every count (two independent structural parsers
+  agree, and the census line reproduces `E-DISMECH-CORPUS-CENSUS-1` exactly).
+  Medium for the grounding ratios — the rungs are heuristic label matching and
+  the 40.7% residue is reported, never dropped.
+
+## 2026-08-20 — lance-graph #974 (MERGED, merge commit 8a93423, head b38fe21) — DisMech compact evidence vocabulary + typed citation sidecar
+
+> Arc entry written 2026-08-21 (late — the obligation was missed at merge and
+> is recorded here rather than silently skipped; the Termination clause does
+> NOT apply, this PR shipped types).
+
+- **Added (`0a99c35`), `lance-graph-contract::dismech_evidence`** (new
+  zero-dep module): `DismechTopology` (the four measured `causal_link_type`
+  states, 2 bits, `from_source`/`as_source`/`to_bits_2`/`from_bits_2`,
+  `source_knows_intermediates()` / `mediator_unresolved()` /
+  `topology_unresolved()`); `Supports` (4, 2 b); `EvidenceSource` (5, 3 b);
+  `CitationNamespace` (PMID/DOI/ORPHA/NCT/CGGV/URL); `CitationKey`
+  (`Identified{namespace,id}` | `ContentAddressed(ContentId)`);
+  `BibliographyRecord{key, title: ContentId}`.
+- **Added (`e4a3cba` + `26c554e`):** S3.0 closed as NOT-NEEDED — the proposed
+  address type withdrawn, the retraction of #973's overclaim KEPT. A withdrawn
+  proposal whose retraction survives is the honest shape.
+- **Added (`f08750f`):** `I-STRINGS-ARE-CAM-INDEX-ONLY-1` (operator ruling).
+- **Locked:**
+  - **SOURCE-SIDE ONLY — deliberately does NOT reference `CausalEdge64`.** The
+    durable causal overlay must not become a pile of hot reasoning registers
+    (operator ruling); `DismechTopology → CE64 bits 59..60` happens at
+    HYDRATION, in the consumer, as a 1:1 read of `to_bits_2()`.
+  - **Every parse FAILS CLOSED.** `UNKNOWN` is a value the corpus asserts 408
+    times, so minting it from a parse failure would forge an assertion the
+    source never made — pinned by
+    `unrecognised_topology_fails_closed_and_never_becomes_unknown`.
+  - **Citation identity never derives from the title** — pinned by
+    `reference_identity_survives_a_title_rewording`, the falsifier that matters
+    for an LLM-generated corpus. Where no stable identifier exists,
+    `CitationKey::ContentAddressed` says so rather than synthesising one.
+- **Superseded by #975:** the doc claim that `source_knows_intermediates()`
+  "separates the oracle population from the restraint control". The predicate
+  is right; the population is 2,512, not 3,978.
+- **Docs:** `LATEST_STATE.md` Contract Inventory.
+- **Review:** codex 2×P1, both fixed in `b38fe21`, plus a stale HP board claim
+  corrected in the same commit.
+- **Confidence:** High — 1178/1178 at merge, every enum round-tripped
+  exhaustively.
+
 ## 2026-08-20 — lance-graph #971 (MERGED, merge commit 2cbe62d, head d627f5c) — four NARS kernels carved behind a maturity gate · Stage-2.5 census · Stage-2.6a V3 invariance · CE64 ⇄ V3 losslessness
 
 - **Added — Stage 2 (`ed2fe8b`), `lance-graph-contract`:** `MaturityPolicy

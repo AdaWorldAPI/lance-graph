@@ -1,4 +1,22 @@
-## 2026-08-20 — branch `claude/lance-graph-stage-3-recovery-2wrdbd` — DisMech compact evidence vocabulary + citation sidecar
+## 2026-08-21 — #975 MERGED (4a43698) — two measured corrections + a retracted absence
+
+- **`DismechTopology` doc + this file corrected**: the label-KNOWN 3,978 are
+  NOT the oracle population. **2,512 over 549 diseases** carry a mediator;
+  1,466 (36.9%) name nothing; **92** `INDIRECT_UNKNOWN_INTERMEDIATES` name
+  mediators despite their label. 2,512 is the population REQUIRING GROUNDING —
+  45 of 3,095 distinct mediator strings are exact node references (1.5%).
+- **`deepnsm-v2` academic carve under-fills**: 20,845 rows are 18,559 distinct
+  surface forms, carve 90.6% full, basins 73..79 empty. Falsifier added,
+  disable-verified.
+- **AriGraph retraction**: `crates/lance-graph/src/graph/arigraph/` is **15
+  modules, ~327 KB** (`ppr`/`bm25`/`rrf`/`community`/`markov_soa`/`episodic`/
+  `witness_corpus`/`retrieval`/…). It is IMPLEMENTED and UNWIRED — the state
+  `E-ARIGRAPH-IS-AN-ISLAND` already recorded. Absent ⇒ build the organs;
+  unwired ⇒ close the seam. Do not rebuild these under a new name.
+- **Open, blocking any gold set (operator decision):** the third bucket for
+  the 1,466 label-only edges and the 92 contradictory ones.
+
+## 2026-08-20 — #974 MERGED (8a93423) — DisMech compact evidence vocabulary + citation sidecar
 
 ### Current Contract Inventory — 1 new zero-dep module
 
@@ -6,7 +24,15 @@
   - `DismechTopology` — the four measured `causal_link_type` states, 2 bits,
     `from_source`/`as_source`/`to_bits_2`/`from_bits_2`, plus
     `source_knows_intermediates()` / `mediator_unresolved()` which separate the
-    3,978-edge ORACLE population from the 4,539-edge RESTRAINT CONTROL.
+    label-KNOWN 3,978 edges from the 4,539-edge RESTRAINT CONTROL. ⚠ The
+    label-KNOWN set is NOT the oracle population: 1,466 of the 3,978 (36.9%)
+    name no mediator at all. The remaining **2,512** (549 diseases) is the
+    population REQUIRING GROUNDING, not a usable oracle — only 45 of 3,095
+    distinct mediator strings are exact node references (1.5%); 40.7% stay
+    ungrounded prose after label matching. A further **92**
+    `INDIRECT_UNKNOWN_INTERMEDIATES` edges DO name mediators and belong to
+    neither population. Measured by `dismech_oracle_census`;
+    `E-DISMECH-KNOWN-INTERMEDIATES-ARE-PROSE-NOT-IDENTITIES-1` (2026-08-21).
   - `Supports` (4, 2 b), `EvidenceSource` (5, 3 b) — round-tripped exhaustively.
   - `CitationNamespace` (PMID/DOI/ORPHA/NCT/CGGV/URL), `CitationKey`
     (`Identified{namespace,id}` | `ContentAddressed(ContentId)`),
