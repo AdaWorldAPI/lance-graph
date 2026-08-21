@@ -1132,6 +1132,26 @@ pub trait ClassView {
         crate::rail_geometry::RailCarving::zero_fallback(axis)
     }
 
+    /// How this class's edge truth/spare bits are READ, per rail axis — the
+    /// D-ACR-7 band-reading contract (`.claude/plans/dacr7-band-reading-contract-v1.md`,
+    /// RATIFIED). Same registry-resolution pattern as
+    /// [`edge_codec_flavor`](ClassView::edge_codec_flavor) /
+    /// [`rail_carving`](ClassView::rail_carving): the default is the canon
+    /// zero-fallback ([`BandReading::ZERO_FALLBACK`](crate::band_reading::BandReading::ZERO_FALLBACK)
+    /// — `Trust` lens, band `Absent`, witness `None`), and a class that carries
+    /// topology-lensed truth or a live reasoning band overrides per
+    /// `(class, rail)`. Selection only: the reading never changes stored bytes
+    /// (bits 59-63 on CausalEdge64; bytes [8]/[9] hi-2/lo-3 on CausalEdgeV3) —
+    /// it declares how a consumer projects them.
+    #[inline]
+    fn band_reading(
+        &self,
+        _class: ClassId,
+        _rail: crate::rail_geometry::RailAxis,
+    ) -> crate::band_reading::BandReading {
+        crate::band_reading::BandReading::ZERO_FALLBACK
+    }
+
     /// Which value-slab schema preset this class materialises in
     /// [`NodeRow::value`](crate::canonical_node::NodeRow::value).
     ///

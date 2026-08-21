@@ -6,18 +6,20 @@
 
 New duplications discovered/predicted from the Wave F fleet (W-F4 through W-F8).
 
-### TrustTexture (×2) — different semantic axes `TECH_DEBT`
+### TrustTexture (×4) — different semantic axes, different arities `TECH_DEBT`
 
-Two enums with the same name encoding **different cognitive dimensions**:
+Four enums with the same name, none importing any other, encoding **different cognitive dimensions with different variant counts**:
 
-| # | Location | Line | Variants | Semantic axis |
-|---|----------|------|----------|---------------|
-| 1 | `crates/lance-graph-contract/src/mul.rs` | 74 | Calibrated / Overconfident / Underconfident / Uncertain | MUL meta-uncertainty layer (felt vs demonstrated competence) |
-| 2 | `crates/causal-edge/src/layout.rs` | 114 | Crystalline / Solid / Fuzzy / Murky | Pearl-3 epistemic lens (v2 from PR #383); discriminator = 2-bit field in CausalEdge64 |
+| # | Location | Line | Variants | Arity | Semantic axis |
+|---|----------|------|----------|-------|---------------|
+| 1 | `crates/causal-edge/src/layout.rs` | 141 | Crystalline / Solid / Fuzzy / Murky | 4 | Pearl-3 epistemic lens; discriminator = 2-bit truth field in CausalEdge64 (bits 59-60) |
+| 2 | `crates/lance-graph-contract/src/mul.rs` | 82 | Calibrated / Overconfident / Uncertain / Underconfident | 4 | MUL meta-uncertainty layer (felt vs demonstrated competence) |
+| 3 | `crates/lance-graph-planner/src/mul/trust.rs` | 30 | Crystalline / Solid / Fuzzy / Murky / Dissonant | 5 | MUL trust-quality axis; **5 variants are unrepresentable in the 2-bit CausalEdge64 truth field** — this one can never be the carrier-side type |
+| 4 | `crates/lance-graph/src/graph/arigraph/orchestrator.rs` | 114 | Crystalline / Fibrous / Fuzzy | 3 | AriGraph topology-weight reliability lens |
 
-**What differs**: Completely different variant sets encoding different ontologies. `mul.rs` is a 4-way MUL assessment axis. `layout.rs` is a 4-state Pearl-3 trust signal packed into 2 bits of the CausalEdge64 layout.
-**Canonical**: NONE — both are domain-correct and should keep distinct names. Recommended path: rename one (e.g. `PearlTrustTexture` in `causal-edge`) to disambiguate.
-**TECH_DEBT**: Name collision across zero-dep crates is a footgun; sprint-13 rename target.
+**What differs**: Four distinct ontologies, not one duplicated three times over. The variant sets overlap in name (`Crystalline`, `Fuzzy` recur) but not in count or meaning: #1 and #2 are both 4-way but encode unrelated axes (epistemic-lens vs meta-uncertainty); #3 is the 5-way superset of #1's axis and cannot be packed into the 2-bit carrier #1 was built for; #4 is a 3-way AriGraph-local lens.
+**Canonical**: NONE — all four are domain-correct in place. A single rename cannot disambiguate four homonyms, and the differing arities (4/4/5/3) rule out unification: #3's 5 variants would silently truncate if forced into #1's 2-bit field, so these are candidates for **per-site renaming only**, never for merging into one shared type. `crates/lance-graph-contract/Cargo.toml` (lines 10-17) is zero-dependency by design, and `crates/causal-edge/Cargo.toml` (lines 20-23) states explicitly that `TrustTexture` is defined locally rather than imported from `lance-graph-contract` to preserve that zero-dep invariant — neither crate may depend on the other, so this duplication is a deliberate architectural posture, not an oversight to be paid down by a shared type.
+**TECH_DEBT**: Name collision across zero-dep crates is a footgun; sprint-13 target is per-site renaming (e.g. `PearlTrustTexture`, `MulTrustTexture`, `PlannerTrustQuality`, `AriGraphTrustTexture`), not unification.
 
 ---
 

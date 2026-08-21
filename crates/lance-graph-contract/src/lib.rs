@@ -52,6 +52,7 @@ pub mod atoms;
 pub mod attention_facet;
 pub mod auth;
 pub mod awareness_facet;
+pub mod band_reading;
 pub mod callcenter;
 pub mod cam;
 pub mod canonical_node;
