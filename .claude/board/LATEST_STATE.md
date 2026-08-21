@@ -18,6 +18,32 @@
 
 ## 2026-08-20 — #974 MERGED (8a93423) — DisMech compact evidence vocabulary + citation sidecar
 
+### Current Contract Inventory — 1 new zero-dep module (D-ACR-1)
+
+- **`lance_graph_contract::attention_facet`** (new, zero new bytes):
+  - `AttentionFocusFacet` — the **Attention reading** of the shipped
+    `FacetCascade` (`classid(4) | 6×(8:8)`) under `CascadeShape::G6D2`, plus an
+    explicit `depth: 0..=12` held OUTSIDE the 12 bytes (the `NiblePath`
+    precedent — inferring a wildcard from zero bytes would collide with the
+    zero-fallback ladder, where `0` is a dormant tier, not a terminator).
+    `exact` / `prefix` (loud refusal past 12) / `whole_class` / `coarse` /
+    `fine` / `axis` (all `None` past `depth` — never `0`, which is centroid
+    zero's value) / `covers` / `common_prefix`.
+  - `FocusAxis` — `Axis0..Axis5`, a **position, not a meaning**. The module
+    names no axis semantics: the cascade reading (HEEL·HIP·…) and a candidate
+    ontology-scope reading (disease/anatomy/process/substance/evidence/context)
+    are both ClassView-resolved projections, demonstrated over identical bytes
+    in `the_same_atom_reads_as_cascade_and_as_ontology_scope_without_changing_a_byte`.
+  - `RowFocusMask` — the sparse container. Membership is `covers`, set ops are
+    containment-shaped (`union` absorbs into a minimal antichain; `intersect`
+    yields the deeper of a covering pair; `difference` is deliberately
+    conservative). **Never a bit-OR**, and no `FieldMask`/`WideFieldMask`
+    cardinality is inherited — it does not index rows at all.
+  - `FOCUS_AXES = CASCADE_UNITS / 2` — derived, never a second literal.
+  - **Mints nothing**: no new tenant, no bit, no `ENVELOPE_LAYOUT_VERSION` bump.
+    Does not, and structurally cannot, reference `cognitive-shader-driver`'s
+    `attention_mask*` (the dependency edge runs the other way).
+
 ### Current Contract Inventory — 1 new zero-dep module
 
 - **`lance_graph_contract::dismech_evidence`** (new):
