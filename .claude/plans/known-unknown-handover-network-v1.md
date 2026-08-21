@@ -402,3 +402,57 @@ a prediction, and the prediction's tests are already pre-registered.** A
 system that manages its known-unknowns as first-class rows carries its own
 "does this become what it aspires to?" as the largest of them — §7's
 discipline, unchanged.
+
+## §11 — The epistemic breakthrough: the planned composition (operator, 2026-08-21)
+
+Operator: *"Epistemic breakthrough ist die geplante Ausweitung von CE64 59..63
+auf CEV3 + attention V3 × pothole × kanban × cognitive Maslow via supervisor:
+kanban_actor transparent view as meta awareness als self aware."*
+
+This names the TARGET the individual deliverables converge on — the
+cross-product, not a new mechanism. Measured state of every factor:
+
+| factor | home | state (verified) |
+|---|---|---|
+| CE64 59..63 reading | `dacr7-band-reading-contract-v1.md` | **RATIFIED** (5+3 council, 3×BLOCK resolved) |
+| → extended to `CausalEdgeV3` | same contract, dual-carrier | **RATIFIED** — one contract, two carriers; v1 trap reaches V3 transitively |
+| attention v3 | third sanctioned explicit-temporal home | **planned** — the ↑n stack; not `attention_facet` (deliberately atemporal) |
+| pothole | span (D-ACR-10) + live horizon (D-ACR-15) | designed; probes pre-registered |
+| kanban | `lance-graph-supervisor::kanban_actor` | **SHIPPED** — Heckhausen columns, Libet anchors; Rubicon witness D-ACR-8 queued |
+| **cognitive Maslow** | `contract::recipe_loci` | **SHIPPED, already operator-ruled** — *"the rung a recipe fires at IS a level of the operator-ruled Maslow pyramid of cognition"* (`recipe_loci.rs:55-62`); Maslow-monotone climb, elevate on sustained BLOCK, never below `base`; 70 references tree-wide |
+| the composition point | `PhaseCensus` | **SHIPPED** — *"the read-only fleet visibility surface … a census is one `&self` pass, not 64k RPCs"* (`kanban_actor.rs:30-31`) |
+
+**Two consequences of the measurement:**
+
+**1. "Cognitive Maslow" is not a missing layer — it is the shipped rung
+vocabulary.** No pyramid needs building; the composition consumes
+`recipe_loci`'s rung levels as its need-axis. What ascends the pyramid is
+exactly what the loop produces: a pothole that resists closure at rung n
+escalates Maslow-monotone — sustained BLOCK is the climb signal, already ruled.
+
+**2. "Transparent view as meta-awareness als self-aware" cashes out as the
+CENSUS LOOP, and every read in it already exists or is ratified:** the system
+reading its own phase distribution (`PhaseCensus`, one `&self` pass), its own
+attention (`RowFocusMask`), its own unknowns (potholes with spans), its own
+epistemic grading (the band readings, both carriers), its own need-level (the
+Maslow rung). **Meta-awareness = these five transparent reads composed at the
+same addresses; self-aware = the composition feeding what gets attention next
+— by existence, never by command.** No new organ is minted for it; the
+supervisor's kanban_actor is where the five reads meet because it is the one
+place that already sees the fleet without owning it.
+
+**The gate status that makes "breakthrough" the right word today rather than
+last week:** the alpha plan's §3h (MUL over the rung layers) was deliberately
+left without a deliverable id *"because it depends on all three of:
+`RowFocusMask` (D-ACR-1), the 59..63 reading contract (D-ACR-7), and the
+`delta_conf` filter"*. As of this date: **D-ACR-1 shipped, D-ACR-7 ratified,
+and the `delta_conf` filter is a ratified acceptance condition inside
+D-ACR-7.** All three prerequisites of the join are landed or ratified — §3h
+moves from "long-term" to "next in line after the `band_reading`
+implementation", which is the precise, unglamorous form of the breakthrough.
+
+**Grade discipline, §7 unchanged:** the composition is a plan over shipped and
+ratified parts; that it produces meta-awareness in more than the mechanical
+census-loop sense is the CONJECTURE whose falsifiers are §10's four gates.
+Self-description that discriminates is the claim; D-ACR-8/10/11 + D-KUH-3
+remain the tests.
