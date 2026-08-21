@@ -215,3 +215,58 @@ identification of "pothole" with "descent selector" is design intent carried
 by D-KUH-1, not yet a measured behaviour. The `n↑log(n)` notation is the
 operator's shorthand for exponential-space/logarithmic-path and is recorded as
 such, not as a formal tetration claim.
+
+## §9 — The handover mechanism (operator design input, 2026-08-21)
+
+Operator: *"Handover soll dadurch ermöglicht werden, dass jedes Glied 6×2×8bit
+kann — mit einer classid — und Übergabe von attention durchgereicht werden
+kann, zero copy."*
+
+This supplies D-KUH-1's design core, and it survives verification against the
+substrate's own rulings — in fact it turns out to be the **only legal shape**:
+
+**1. Every link already speaks the payload.** That is what §Handover's parent
+finding measured: the `classid(4) | 6×(8:8)(12) = 16 B` atom is the shared
+format at six independent sites. A handover therefore needs NO new wire type,
+no message schema, no serialization — the thing being handed over is a facet
+every receiver can already read.
+
+**2. The classid IS the briefing.** The receiver needs no protocol negotiation:
+`classid → ClassView` resolves which reading applies to the 12 bytes (the
+canon's *"the key prerenders nodes with zero value decode"*). A handed-over
+attention facet is **self-describing** — the receiving mailbox reads the same
+bytes under its ClassView, full stop.
+
+**3. Zero-copy is not an optimization here — it is the compliance condition.**
+The V3 tombstone ruling (`soa-three-tier-model.md`, `CLAUDE.md` 2026-06-11
+supersession) states there is **no inter-mailbox handoff type at all**:
+*"nothing is serialized or transmitted between mailboxes"* — the Baton was
+removed from source. So a handover that copied or transmitted would not be
+slow, it would be **forbidden**. The only legal handover is **ownership
+transfer in place**: the bytes never move; what changes is who may write.
+
+**4. The narrow gap, measured this session:** `SoaEnvelope::mailbox_owner`
+exists (`soa_envelope.rs:195`, default `0` = bootstrap/unowned, overridable) —
+but **no ownership-transfer operation exists anywhere** (grep for
+`transfer`/`reassign`/`set_owner`/`change_owner` across contract + supervisor:
+zero hits). Ownership is static today. **The operator's design therefore
+reduces D-KUH-1 + D-ACR-16 from "design a handover protocol" to "design the
+owner-change operation"** — format, self-description and zero-copy all already
+exist; only the stamp-change is unbuilt. That operation must respect
+write-on-behalf (the current owner writes the new owner in; the receiver never
+grabs) and existence-not-command (receiving ownership IS the notification;
+there is no `advance()` call).
+
+**5. One open detail, named rather than smoothed:** the prefix `depth` lives
+OUTSIDE the 16 bytes (D-ACR-1's explicit-depth rule — zero bytes are dormant
+tiers, not terminators). A handed-over focus must carry its depth somewhere;
+the natural home is the Hole row's own value slab (480 B, `GUIDS_PER_NODE=32`
+slots of which the facet occupies one — const-asserted,
+`canonical_node.rs:805-808`). **D-KUH-1's design doc must fix that byte's
+position**; until then a raw 16-byte handover silently reads as depth-12
+(exact), which would make every wildcard focus look like a pinpoint claim.
+
+**Consequence for the deliverable table:** D-KUH-1's scope line stands, its
+design core is now operator-supplied; what remains is (a) the owner-change
+operation's contract, (b) the depth byte's home, (c) the lifecycle stamps —
+all three inside the shape fixed here, none of them a new format.
