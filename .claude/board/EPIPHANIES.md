@@ -71,6 +71,23 @@ owed in-repo), `ogar_codebook.rs:112-117` (0xC4 BinaryLifting),
 `E-DIA-V4-FIELD-SEARCH-LOOP-1` (the name collision),
 `E-V3-FACET-4-PLUS-12` (the V3 lock that stays untouched).
 
+**⊘ STORNO 2026-08-21 (operator correction, same day) — objection 2 above is
+RETRACTED; there is no name collision and no disambiguation is owed.**
+`dialectic-engine-v1.md`'s `V0…V5` are **integration-plan STEPS, like its own
+`S1…S11`** — §4 is literally headed "Build order", and `V4` there is one stage
+("the 64k SIMT lowering … only after V0–V3 green at small scale"), the fifth of
+six. A step ordinal and a substrate tier are not two meanings of one label
+competing for a namespace; they are two independent counters that never address
+the same kind of thing. `E-DIA-V4-FIELD-SEARCH-LOOP-1` inherits the STEP
+meaning — it names a finding from that stage — so it was never evidence of a
+tier collision either. **Nothing should be renamed**, and a future session must
+not read line 30's "disambiguation owed" as a live item; acting on it would
+rewrite a correct plan to resolve a conflict that does not exist. What this
+leaves: all three of my objections to the V4 label are now retracted, two as
+superseded by the ruling and this one as simply mistaken about what the source
+document says. The G3 reframing (below) and the five open questions are
+unaffected — they never rested on this point.
+
 ## 2026-08-21 — E-ADDRESS-FROM-THE-THING-NOT-THE-ACCIDENT-1 — the two blocked gates are one failure on two axes
 
 **Status:** SYNTHESIS / CONJECTURE — my cross-reading of two independently
