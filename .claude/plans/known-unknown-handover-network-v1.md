@@ -270,3 +270,42 @@ position**; until then a raw 16-byte handover silently reads as depth-12
 design core is now operator-supplied; what remains is (a) the owner-change
 operation's contract, (b) the depth byte's home, (c) the lifecycle stamps —
 all three inside the shape fixed here, none of them a new format.
+
+> **⊘ §9 KORRIGIERT (Operator, 2026-08-21): "kein Owner-Wechsel, nur Focus der
+> Aufmerksamkeit über rung levels mit Alpha layer für thinking about
+> thinking."** §9 point 4 read the static ownership as the gap ("the
+> owner-change operation is unbuilt"). That was backwards: **static ownership
+> is CORRECT and stays.** Nothing that moves ownership is to be built — an
+> owner change would be a substrate mutation, i.e. exactly the command-shaped
+> intervention `E-PROGRESSION-IS-EXISTENCE-NOT-COMMAND-1` deleted and the
+> alpha-channel plan's §2 contamination boundary exists to prevent.
+>
+> **Handover = the appearance of a focus entry in the NEXT rung layer of the
+> alpha overlay, at the same address.** The Hole does not move, does not change
+> owner, is not transmitted. Rung n could not close it → rung n+1's overlay
+> layer gains an `AttentionFocusFacet` entry covering the Hole's address —
+> written by that layer's own owner into its own layer (one-writer holds
+> trivially: every rung layer has exactly one owner, itself). Thinking about
+> thinking IS the handover mechanism: escalation is a second-order read plus an
+> own-layer focus entry, which is precisely `D-ACR-4`'s read path (*"a rung-2
+> read reconstructs where rung-1 looked"*).
+>
+> Three things this collapses:
+>
+> 1. **The remaining work is an OVERLAY operation, not a substrate one.**
+>    `RowFocusMask::insert` in the n+1 layer — shipped today (D-ACR-1) — with
+>    the Hole's focus facet. No new operation on rows, envelopes, or owners.
+> 2. **§9 point 5's open detail dissolves.** Depth travels in the overlay entry
+>    (`AttentionFocusFacet` carries it outside the 16 bytes, by design) — raw
+>    16-byte transport never happens, so the depth-12 misread cannot occur.
+> 3. **D-ACR-16's shape sharpens further:** the nested kanban cascade IS the
+>    stack of rung layers; the card is the focus entry, never the row. Zero
+>    copy is exceeded, not merely met — not even an ownership stamp changes,
+>    the graph stays untouched (the contamination boundary), and the overlay
+>    stays discardable whole (a lost handover costs a re-search, never
+>    correctness).
+>
+> §9's points 1–3 stand unchanged (shared format, classid-as-briefing,
+> zero-copy as compliance condition). Point 4's measurement stays true — no
+> transfer operation exists — but is regraded from GAP to **CONFIRMS**: its
+> absence is the design, not the debt.

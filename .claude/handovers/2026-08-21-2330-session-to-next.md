@@ -175,3 +175,17 @@ name in the substrate is a premature commitment to the first.** The five
 homonym collisions of this arc (witness / nibble / hydration / attention-mask /
 TrustTexture ×4) were the expensive form; naming the focus axes would have been
 the first self-inflicted one.
+
+---
+
+## ⊘ Nachtrag (später am selben Tag): das Handover-Framing oben ist superseded
+
+The line above — *"a Hole as a kanban card moving as an **owned row between
+mailboxes**"* — is corrected by the operator: **kein Owner-Wechsel.** Handover
+is a focus-of-attention entry in the NEXT rung layer of the alpha overlay at
+the same address; the Hole never moves and ownership stays static (its absence
+of a transfer operation is the design, not a gap). Full correction:
+`known-unknown-handover-network-v1.md` §9's ⊘ block. The remaining work is an
+overlay operation (`RowFocusMask::insert` in the n+1 layer — shipped, D-ACR-1),
+and D-ACR-16's cascade is the stack of rung layers, the card being the focus
+entry, never the row.
