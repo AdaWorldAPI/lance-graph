@@ -42,6 +42,24 @@ capacity question for the operator.
 | D-CV3-6 | Call `reciprocal_rank_fusion` in `OsintRetriever::retrieve` (cheapest real integration) | lance-graph | **Queued** — gated on G0 | fused ranking differs from BFS-only on >=1 real query |
 
 
+### D-ACR-* — Alpha-channel rung overlay (plan `alpha-channel-rung-overlay-v1.md`, 2026-08-21)
+
+Fills `hhtl-thinking-tables-le-contract-v1.md` §2.3's empty **Rung ladder**
+row. Mints no type. Six of nine brainstorm pieces already had homes; these are
+the rest.
+
+| D-id | Scope | Status | Falsifier |
+|---|---|---|---|
+| D-ACR-0 | Audit `attention_mask.rs`/`attention_mask_actor.rs`: residue carrier, or a name collision? Report only | **Next** | names a caller, or records EXISTS-UNCALLED |
+| D-ACR-1 | `RowFocusMask` — the one missing primitive (S3.1b names it; no crate contains it) | Queued — gates on D-ACR-0 | can-fire AND can-stay-silent on non-trivial input |
+| D-ACR-3 | The one-way invariant as a test: an overlay write to an ontology-owned row must fail at the owner | Queued — gates on D-ACR-1 | the negative case IS the test |
+| D-ACR-2 | Mint the Rung-ladder rail | Queued — gates on operator mint decision (HTT §8 Q3) | `rail_carving` gains its first non-default consumer |
+| D-ACR-4 | Second-order row at the same address, separate table | Queued | a rung-2 read reconstructs where rung-1 looked, on a fixture with an independent answer |
+| D-ACR-5 | 64k lowering | **BLOCKED** — dialectic V4's own gate (V0–V3 green at small scale) | — |
+
+**Not claimed:** that the residue improves recall or finds needles. Graded a
+pruner, never a proof.
+
 ## preparation-arc plan wave — 2026-08-19 (operator: "integration plans for all open arcs")
 
 Five plans, each PROPOSED (no code — the reset charter's audit-first order
