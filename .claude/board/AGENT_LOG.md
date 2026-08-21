@@ -1,3 +1,46 @@
+## 2026-08-21 — 5+3 council: D-ACR-7 (the 59..63 reading contract) — RATIFIED
+
+**Run shape:** Phase 0 spec (main thread) → 5 savants parallel (all Sonnet:
+prior-art-savant, iron-rule-savant, code-truth via general-purpose,
+cascade-impact-savant, creative-explorer-savant) → consolidate to draft v2 →
+3 reviewers parallel on v2 ONLY (Sonnet: overclaim-auditor,
+dilution-collapse-sentinel, firewall-warden) → Phase-4 fixes → v3 ratified.
+**Incident:** reviewers 1+3 lost to a container restart (no notification,
+`ListAgents` empty) and recast against the surviving draft v2 — verdicts were
+never invented in the gap.
+
+**Verdict counts:** savants 39 findings (code-truth 6/6 CONFIRMS — the
+inventory held). Reviewer 2: 8 PASS, 1 FIX(P2). Reviewer 3: 6 PASS, 1
+BLOCK(P0), 1 FIX(P1). Reviewer 1: 4 PASS, 2 BLOCK(P0), 2 FIX(P1), 1 FIX(P2).
+**3 BLOCKs raised, 3 resolved in Phase 4, none argued away, none needing a
+Phase-0 re-spec.**
+
+**v1→v2:** dual-carrier scope (operator: CE64 = muscle memory, CausalEdgeV3 =
+granularity — a gap no savant could catch, the v1 spec never named V3);
+Result-vs-total split (total `ClassView::band_reading` lookup / fallible
+`BandReading::project`); `Option<BandReading>` for the opted-out-vs-never-
+considered audit; writer-side `admits()`; G3′/G4′ can-stay-silent halves; G9
+(AP1 watch), G10 (carrier parity).
+
+**v2→v3 (the fixes):** §6′ board-hygiene commitment restored (firewall BLOCK —
+Phase 2 had dropped Savant 4's answer entirely); `V3Register` redefined as a
+caller assertion after `from_v1`'s provenance-agnostic bit copy falsified
+"V3's bytes were never temporal" for populated instances (overclaim BLOCK);
+G5 split G5a/G5b + tautological G10a deleted, G10b (lift-fidelity test in
+`causal-edge`, a measured missing test) kept (overclaim BLOCK); L6 bullets
+given file:line rigor; `admits()`-"cannot" grounded in
+`causal-edge/Cargo.toml:20-23`; the 319-322 citation actually applied.
+
+**Post-ratification operator addendum:** all V3-generation carriers confirmed
+unwired/planned; the temporal doctrine (implicit in the epistemic pothole via
+Lance versions; explicit ONLY in Rubikon revision / CausalEdgeV3 TE byte /
+future attention-v3; `EdgeProvenance` is layout epoch, never time).
+
+**Artifacts:** `.claude/plans/dacr7-band-reading-contract-v1.md` (v1+v2+v3
+ledgers, single file). Board: EPIPHANIES
+E-FROM-V1-DROPS-PROVENANCE-…-1, STATUS_BOARD D-ACR-7 → Spec RATIFIED.
+Implementation (the `band_reading` module + gates G1..G10b) is the next unit.
+
 ## 2026-08-19 — oracle-boundary reassessment sweep (6 agents, workflow, orchestrator-consolidated)
 
 Operator-directed after two superseding architecture rulings (the

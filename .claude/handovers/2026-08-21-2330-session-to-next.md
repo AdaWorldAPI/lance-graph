@@ -196,3 +196,17 @@ substrate → in place with Lance versioning** (episodic = Lance versions;
 rung n+1 reads "where rung n looked" via `QueryReference::at(v, rung)` — zero
 copies, replayable). The dynamic arm needs nothing built. Full table:
 `known-unknown-handover-network-v1.md` §9 ⊘⊘.
+
+---
+
+## ⊘ Council COMPLETED — v3 RATIFIED (later the same day)
+
+The mid-flight state above is superseded: reviewers 1+3 were lost to a
+container restart, recast against the surviving draft v2, and delivered.
+**3 BLOCK(P0) raised, 3 resolved, v3 ratified** —
+`.claude/plans/dacr7-band-reading-contract-v1.md` (single file: spec v1 +
+v2 ledger + v3 fix ledger + post-ratification operator addendum on the
+temporal doctrine). Headline: `from_v1` drops provenance, so the v1 temporal
+trap reaches V3 transitively; `V3Register` = caller assertion. Next unit:
+implement `contract::band_reading` against gates G1..G10b (G10b lives in
+`causal-edge` — a measured missing lift-fidelity test).

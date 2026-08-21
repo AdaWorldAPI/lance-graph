@@ -1,3 +1,18 @@
+## 2026-08-21 — D-ACR-7 BAND-READING CONTRACT (council-ratified spec)
+
+`.claude/plans/dacr7-band-reading-contract-v1.md` — the 59..63 reading
+contract, ratified through a full 5+3 council (3 BLOCK(P0) raised and
+resolved; run details in AGENT_LOG same date). One contract, TWO carriers:
+`CausalEdge64` (muscle memory) and `CausalEdgeV3` (granularity — whose own
+module doc states the problem the contract solves: *"which lens the ordinal
+was written through is the producer's knowledge, not the conversion's"*).
+Design: total `ClassView::band_reading` declaration lookup (sibling-consistent
+with `rail_carving`/`edge_codec_flavor`) + fallible `BandReading::project`
+(mismatch and stale-v1 bits must FAIL, never return a plausible value).
+Headline finding: `from_v1` drops provenance, so the v1 temporal trap reaches
+V3 transitively — `V3Register` is a caller assertion, never an inference.
+Gates G1..G10b pre-registered. Implementation next.
+
 ## 2026-08-21 — KNOWN-UNKNOWN HANDOVER NETWORK (the connective plan, not a new arc)
 
 `.claude/plans/known-unknown-handover-network-v1.md` — the operator's framing
