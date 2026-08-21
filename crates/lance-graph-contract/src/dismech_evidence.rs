@@ -128,14 +128,28 @@ impl DismechTopology {
     ///
     /// **This is NOT by itself the oracle population** (corrected 2026-08-21,
     /// `E-DISMECH-KNOWN-INTERMEDIATES-ARE-PROSE-NOT-IDENTITIES-1`). Measured
-    /// over the 2,100-file corpus, **1,489 of the 3,978 label-KNOWN edges
-    /// (37.4%) carry no `intermediate_mechanisms` key at all** — the source
-    /// asserts mediators exist and does not name them. Those are neither
-    /// oracle nor restraint control and need a third bucket, or they poison a
-    /// gold set in both directions. A consumer building the oracle population
-    /// must additionally require a non-empty `intermediate_mechanisms`, which
-    /// this crate cannot check because it is deliberately source-side only and
+    /// over the 2,100-file corpus by `dismech_oracle_census` (dismech-rs,
+    /// `graph::build_causal_graph`), cross-checked against an independent
+    /// structural parse: **1,466 of the 3,978 label-KNOWN edges (36.9%) carry
+    /// no `intermediate_mechanisms` at all** — the source asserts mediators
+    /// exist and does not name them. Those are neither oracle nor restraint
+    /// control and need a third bucket, or they poison a gold set in both
+    /// directions. A consumer building the oracle population must
+    /// additionally require a non-empty `intermediate_mechanisms`, which this
+    /// crate cannot check because it is deliberately source-side only and
     /// never sees the edge body.
+    ///
+    /// Consistent with the `pathophysiology[].downstream[]` figures below by
+    /// scope, not by disagreement: 2,512 corpus-wide against 2,497 in that
+    /// subset, the 15-edge difference sitting in `influences_mechanisms`
+    /// (115 label-KNOWN edges) and `sequelae` (19).
+    ///
+    /// **2,512 is the population REQUIRING GROUNDING, not a usable oracle.**
+    /// Only 45 of 3,095 distinct mediator strings are exact node references
+    /// (1.5%); label matching grounds 1,834 (59.3%) and leaves 1,261 (40.7%)
+    /// ungrounded prose. Ranking candidate identities against that population
+    /// without grounding it first either compares identities to prose or
+    /// silently drops the residue — both corrupt any reported recall.
     #[must_use]
     pub const fn source_knows_intermediates(self) -> bool {
         matches!(self, Self::IndirectKnownIntermediates)

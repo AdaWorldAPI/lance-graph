@@ -129,6 +129,54 @@ never supported. Whether to fill the tail (a larger COCA slice, or admitting
 `(word, Pos)` pairs rather than surface forms) is a deliberate decision with a
 semantic cost either way, not a gap to be quietly padded.
 
+> **⊕ CORRECTED SAME-DAY (2026-08-21, codex P1 on #975 + the operator's
+> "wieso pyyaml — hattest du nicht für dismech-rs schon was für Rust
+> gebaut").** The counts above came from a throwaway Python line-scanner and
+> were **wrong**. Codex caught it structurally without needing the corpus:
+> the module documents `pathophysiology[].downstream[]` as a SUBSET with
+> **2,497** mediator-bearing edges, and I had written **2,489** corpus-wide —
+> *a subset cannot exceed the whole*. Re-measured with the parser that
+> already existed (`dismech_oracle_census`, dismech-rs, over
+> `graph::build_causal_graph`), cross-checked against an independent pyyaml
+> structural parse — identical on every figure:
+>
+> | quantity | line-scan (wrong) | structural (authoritative) |
+> |---|---:|---:|
+> | label-KNOWN with ≥1 mediator | 2,489 | **2,512** (63.1%) |
+> | label-KNOWN naming nothing | 1,489 (37.4%) | **1,466** (36.9%) |
+> | distinct mediator strings | 3,048 | **3,095** |
+> | exact node references | 45 (1.5%) | **45** (1.5%) — unchanged |
+> | groundable by label alone | 59.4% | **59.3%** (1,834) |
+> | ungrounded prose | 40.6% | **40.7%** (1,261) |
+> | oracle diseases | not measured | **549** |
+> | `UNKNOWN_INT` that DO name mediators | **missed entirely** | **92** |
+>
+> There is no contradiction once the number is right: 2,512 corpus-wide vs
+> 2,497 in the downstream subset, the 15 sitting in `influences_mechanisms`
+> (115) and `sequelae` (19). **Every qualitative claim survives** — the
+> mediators are prose, the oracle is ~⅔ of the label-KNOWN set, the
+> label-only edges need a third bucket. The magnitudes moved by <1%.
+>
+> **Two lessons, and the second is the expensive one.** (1) A line-oriented
+> YAML walk is a parser you did not write and cannot test; it fails silently
+> on shapes you did not imagine. (2) **The repository already had the
+> structural parser** — `model::parse_disorder_raw` is serde_yaml over a
+> committed type and `graph::build_causal_graph` already carries
+> `intermediate_mechanisms: Vec<String>` on the edge. The right answer was
+> one `cargo run` away, is sub-second against pyyaml's two minutes, and is
+> now committed and re-runnable instead of living in a `/tmp` script. *A
+> measurement a committed parser can make must not be made by an ad-hoc
+> script.* This is the same family as
+> `E-ABBREVIATION-GREP-MANUFACTURED-AN-ABSENCE-1` two entries up — reaching
+> for an improvised tool over the one the repo already ships — twice in one
+> session, which makes it the session's dominant failure mode rather than an
+> incident.
+>
+> **A third finding neither pass had:** 92 `INDIRECT_UNKNOWN_INTERMEDIATES`
+> edges DO name mediators. The source contradicts its own label. They are
+> neither oracle nor restraint control, and left in the control they read as
+> hallucinated closure by the benchmark's own definition.
+
 **Artifact.** The derived codebook was uploaded round-trip-verified to S3 at
 `lance-graph/codebooks/deepnsm-v2-academic-coca-v1/` (TSV + source CSV +
 manifest), with the shortfall stated in the file's own header so a consumer
