@@ -6,7 +6,10 @@
   - `DismechTopology` — the four measured `causal_link_type` states, 2 bits,
     `from_source`/`as_source`/`to_bits_2`/`from_bits_2`, plus
     `source_knows_intermediates()` / `mediator_unresolved()` which separate the
-    3,978-edge ORACLE population from the 4,539-edge RESTRAINT CONTROL.
+    label-KNOWN 3,978 edges from the 4,539-edge RESTRAINT CONTROL. ⚠ The
+    label-KNOWN set is NOT the oracle population: 1,489 of the 3,978 (37.4%)
+    name no mediator at all, so the usable oracle is **2,489** —
+    `E-DISMECH-KNOWN-INTERMEDIATES-ARE-PROSE-NOT-IDENTITIES-1` (2026-08-21).
   - `Supports` (4, 2 b), `EvidenceSource` (5, 3 b) — round-tripped exhaustively.
   - `CitationNamespace` (PMID/DOI/ORPHA/NCT/CGGV/URL), `CitationKey`
     (`Identified{namespace,id}` | `ContentAddressed(ContentId)`),

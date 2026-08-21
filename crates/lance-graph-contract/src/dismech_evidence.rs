@@ -123,9 +123,19 @@ impl DismechTopology {
     /// Does the SOURCE claim to know the intermediates?
     ///
     /// True only for [`IndirectKnownIntermediates`](Self::IndirectKnownIntermediates).
-    /// This is what separates the oracle population from the restraint control:
-    /// for the other three a recovered mediator is not a success, it is an
+    /// For the other three a recovered mediator is not a success, it is an
     /// unsupported claim.
+    ///
+    /// **This is NOT by itself the oracle population** (corrected 2026-08-21,
+    /// `E-DISMECH-KNOWN-INTERMEDIATES-ARE-PROSE-NOT-IDENTITIES-1`). Measured
+    /// over the 2,100-file corpus, **1,489 of the 3,978 label-KNOWN edges
+    /// (37.4%) carry no `intermediate_mechanisms` key at all** — the source
+    /// asserts mediators exist and does not name them. Those are neither
+    /// oracle nor restraint control and need a third bucket, or they poison a
+    /// gold set in both directions. A consumer building the oracle population
+    /// must additionally require a non-empty `intermediate_mechanisms`, which
+    /// this crate cannot check because it is deliberately source-side only and
+    /// never sees the edge body.
     #[must_use]
     pub const fn source_knows_intermediates(self) -> bool {
         matches!(self, Self::IndirectKnownIntermediates)
