@@ -640,6 +640,73 @@ the chain from scratch. This is `§3a`'s reference discipline applied one
 more time: the meta-connection row holds `(source_addr, resolved_addr,
 hop_distance)`, never a copy of the ancestor's content.
 
+> **⊘ CORRECTED (operator, 2026-08-21): "Schau Mal in den session
+> transcripts wie wir es in lance-graph-java gelöst haben. Where über
+> ABI-shaped substrate als masking method."** The ascent-loop pseudocode
+> above is written as one address walking hop-by-hop — exactly the
+> per-row-crossing shape `lance-graph-java`'s own docs call out as
+> *"catastrophic"* (`Predicate.java`'s doc comment, on why a
+> `java.util.function.Predicate<Row>` was rejected: *"64,000 objects and
+> 64,000 crossings for 64,000 entities"*). That sibling repo already solved
+> the SAME shape of problem — one-hop reachability over an ABI substrate —
+> and the solution is BULK, not per-address:
+>
+> ```java
+> // RowStore.java:163-168 — measured, pinned by GraphHopTest, 2026-08-18
+> public Mask hop(int edgeClassid, WideFieldMask facets, Mask src) {
+>     long dst = Engine.createMask(handle, false);
+>     Engine.hop(handle, edgeClassid, facets.bits(), 0, src.handle(), dst);
+>     return new Mask(this, dst);
+> }
+> ```
+>
+> *"Two native crossings, flat … never per-row, never per-frontier-size."*
+> `src` and the returned `Mask` are both opaque native population handles the
+> whole way through — the CLAUDE.md invariant this implements verbatim:
+> **"hop may look like hop; it must execute as `Mask × ClassView/WideFieldMask
+> → Mask`."**
+>
+> **The pattern to reuse for `D-ACR-12`, not the code — `NiblePath` and
+> `RowStore`'s `EdgeBlock` facets are different substrates** (this session's
+> own lesson: do not conflate two ancestry-shaped things across crates
+> without verifying they share a wire, per §3a and §3k's own nibble table).
+> What transfers is the SHAPE: resolve the WHOLE frontier of
+> childless-witness rows in lockstep, one hop per round over ALL of them at
+> once, composed from kernels already shipped in `kernels.rs`:
+>
+> ```text
+> frontier = rows_without_own_witness           // a Mask, the whole population at once
+> resolved = empty Mask
+> for hop in 0..max_hops {
+>     frontier = ascend(frontier)                // one bulk hop, not one call per row
+>     found    = frontier ∩ has_witness_mask     // simd_eq_u32_to_mask-shaped
+>     resolved = resolved ∪ found                // simd_mask_or_assign — SHIPPED
+>     frontier = frontier \ found                 // simd_mask_andnot — SHIPPED
+>     if frontier.is_empty() { break }
+> }
+> ```
+>
+> `D-ACR-12`'s materialized `(source_addr, resolved_addr, hop_distance)`
+> triple (per §3a's reference discipline) is what this loop's `resolved`
+> mask carries out at each round — the hop number IS the hop-distance
+> column, for free. This does not commit `D-ACR-12` to using `lgj-abi`'s
+> literal `hop()` (it operates on `EdgeBlock` facets, not `NiblePath`
+> ancestry — an unverified wiring, not assumed here); it commits it to the
+> SAME discipline: bulk over the frontier, never per-address, and if this
+> ever crosses an ABI boundary the whole chain marshals into one descriptor
+> per §3k's kernel-fusion note, exactly as `View.where()` does.
+>
+> **This retroactively validates HTT's own X2 withdrawal, not just avoids
+> repeating it.** `D-HTT-6` (withdrawn) would have derived PARENTHOOD from
+> `morton()` bit-interleave arithmetic directly — a single-address
+> coordinate jump. `D-ACR-12` answers the same question — *who is the
+> ancestor* — correctly on BOTH axes X2's correction separated: the right
+> ADDRESS mechanism (prefix containment via `is_ancestor_of`/`parent()`,
+> never coordinate geometry) AND, from this correction, the right EXECUTION
+> mechanism (bulk mask algebra over the whole frontier, never a per-row
+> coordinate transform). Operator, 2026-08-21: *"Das verbessert vieles von
+> den Morton falsch abgebogenen."*
+
 **Scope: ontology trees only, per §3d's correction above.** `is_ancestor_of`
 and `parent()` operate on `NiblePath`, which is HHTL's taxonomic/mereological
 address space (MONDO, UBERON, the rails). KJV's causal edges (`stance.rs`'s
@@ -665,11 +732,15 @@ four unrelated "witness" surfaces. `D-ACR-12` is scoped to row 1 alone; rows
 accidentally wire `D-ACR-12`'s inheritance walk through the wrong one.
 
 **`D-ACR-12`.** Gates on `D-ACR-1` (`RowFocusMask`, so a lookup's ascent
-path is itself recordable as an overlay trace) and gets its own falsifier:
+path is itself recordable as an overlay trace) and gets its own falsifier —
+now a THIRD condition added by the mask-native correction above:
 a child with no witness of its own must resolve to its nearest ancestor's,
-at the correct hop count, and a child that HAS its own witness must never
+at the correct hop count; a child that HAS its own witness must never
 ascend past it (an eager-ascent bug would silently prefer a stale ancestor
-over fresh local knowledge — the can-stay-silent half).
+over fresh local knowledge — the can-stay-silent half); and the whole
+frontier must resolve in **at most `max_hops` bulk rounds**, never in a
+per-address loop — a benchmark scaling linearly with population size on a
+fixed tree depth is the mask-native discipline failing, not merely slow.
 
 ## §4 — Deliverables
 
@@ -685,7 +756,7 @@ over fresh local knowledge — the can-stay-silent half).
 | **D-ACR-9** | A `Vocabulary` impl exposing the 34 recipes as loco ops above `DOMAIN_FLOOR` (§3f); `ladder(ctx)` lowered to a loco program | OGAR | a pothole with a negative `rung_delta` executes as a loco call sequence and lands the same `RecipeStep` list `ladder()` returns |
 | **D-ACR-8** | Rubicon witness (§3e): focus-mask breadth/persistence across `Planning → CognitiveWork`; closes the Rubikon plan's open *"Thinking styles ↔ Rubikon"* item | lance-graph | broader in `Planning` than in `CognitiveWork` on a deliberated task **AND** indistinguishable on a single-forced-candidate task |
 | **D-ACR-7** | The 59..63 reading contract (§3b): name, per `(classid, rail)`, which lens applies and which witness carrier discriminates evidence-kind. **Acceptance: any tactic sampling filters on `delta_conf` capability (14/34), never on `maturity().is_production()` (31/34)** — §3g | lance-graph | a producer/consumer pair disagreeing about `TrustTexture` vs `CausalTopology` must FAIL, not return a plausible value; and a sampling pass must reject a mute tactic |
-| **D-ACR-12** | Epistemic inheritance (§3k): ascend `NiblePath::parent()` until content is found, materialized as `(source_addr, resolved_addr, hop_distance)` in the Rung-ladder row | lance-graph | a childless-witness node resolves to its nearest ancestor at the correct hop count; a node with its OWN witness never ascends past it |
+| **D-ACR-12** | Epistemic inheritance (§3k): BULK frontier ascent over `NiblePath` ancestry until content is found (mask-native, not per-address — pattern from `lance-graph-java`'s `hop()`), materialized as `(source_addr, resolved_addr, hop_distance)` in the Rung-ladder row | lance-graph | resolves to the nearest ancestor at the correct hop count; a node with its OWN witness never ascends past it; resolution cost scales with tree DEPTH (bulk rounds), never with population size |
 | **D-ACR-11** | DK/eigenvalue probe (§3i): perturb inputs, measure which tactics' confidence is invariant; cross-check the 20 non-`delta_conf` tactics land at invariance by construction | lance-graph | the 20 must show invariance (else the capability flag lies) **and** at least one of the 14 must actually move (else the flag is decoration) |
 | **D-ACR-10** | Hindsight probe (§3i): `first_possible` vs `first_derived` over `QueryReference::at` on a real trajectory | lance-graph | a claim derivable at every version must be reported as discriminating nothing |
 
