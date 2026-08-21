@@ -1067,6 +1067,39 @@ enum carries one); `ENVELOPE_LAYOUT_VERSION` unchanged (additive tenant,
 not a reclaim). Gates `D-ACR-13`'s write stage — nothing to write into
 until the slot exists.
 
+## §3o — Reading without the hindsight eigenvalue: a scope question, answered
+
+Operator, 2026-08-21: *"Die Frage ist nur ob wir DeepNSM-v2 durch thinking
+styles und epistemic potholes und CE64 59..63 erweitern, daß Lesen bereits
+ein intellektuelles Erlebnis ohne hindsight knowledge eigenvalue wird."*
+
+**No — extending `deepnsm-v2` itself would reverse a ruling this plan
+already relies on.** `E-DEEPNSM-V2-IS-INBOUND-LEG-REASONING-LIVES-IN-LANCE-
+GRAPH-1` deliberately moved the five tactics OUT of `deepnsm-v2` into
+`lance-graph-planner`; §3d already cites the boundary approvingly (*"this
+leg emits text, it does not reason over it"*). Pulling thinking styles,
+potholes, and CE64 grading back in would blur exactly that seam, for a
+result the seam does not require blurring to get.
+
+**The actual mechanism already exists, unbuilt but fully specified — it
+is `first_possible` vs `first_derived` (board S3.8), applied LIVE rather
+than only as a retrospective audit.** "An intellectual experience without
+hindsight" is precisely: at verse `v`, only what was derivable using
+`QueryReference::at(v, rung)` — never a conclusion that in fact depended
+on verse `v+4000`. §3i already named the primitive (`temporal.rs`); this
+sharpens its USE: it is not merely a post-hoc filter that flags tautologies
+after the fact, it is a **live horizon** the reasoning stage reads through
+while processing the stream in order.
+
+**Where this lands: `D-ACR-15`, not `deepnsm-v2`.** Once `WorkflowDAG::plan()`
+is real (its current stub state), its dependency-graph walk over `D-ACR-13`'s
+hydrated tree gains one constraint: each node's reasoning step is bound to
+`QueryReference::at(node's own version, rung)` — never the fully-hydrated
+end state. This is additive to `D-ACR-15`'s existing acceptance condition,
+not a new deliverable, and it is exactly what makes S3.8 (*"potholes,
+first_possible vs first_derived, strict historical replay"*) finally have a
+live consumer instead of staying an audit-only board line.
+
 ## §4 — Deliverables
 
 | D-id | Scope | Repo | Falsifier |
@@ -1086,7 +1119,7 @@ until the slot exists.
 | **D-ACR-14a** | `holograph`-local: fix `mindmap.rs`'s `mxv` mutability bug, on ITS OWN terms — unrelated to this plan's SoA substrate | holograph | fix ships WITH a real `holograph`-side caller — no bug-fix-with-no-consumer landing |
 | **D-ACR-14b** | **⊘ FOLDED into `D-ACR-13`'s write stage (§3n)** — cartography is a byproduct of the 64k parallel hydration writes, not a separate pass | lance-graph | superseded — see `D-ACR-13` |
 | **D-ACR-17** | Mint `ValueTenant::EpisodicEdges = 17` (§3n) — the byte-ready `episodic_edges.rs` type, gates `D-ACR-13`'s write stage | lance-graph | field-isolation matrix (`I-LEGACY-API-FEATURE-GATED`); `ENVELOPE_LAYOUT_VERSION` unchanged |
-| **D-ACR-15** | Rung-dependency reasoning: implement `WorkflowDAG::plan()` for real — the strategy's own comment is the spec | lance-graph | a query with `has_workflow` actually dispatches through a built `DEPENDS_ON` graph, not the 0.9-affinity stub |
+| **D-ACR-15** | Rung-dependency reasoning: implement `WorkflowDAG::plan()` for real — the strategy's own comment is the spec. **Bound to `QueryReference::at(node version, rung)` per node (§3o) — no hindsight leakage** | lance-graph | a query with `has_workflow` actually dispatches through a built `DEPENDS_ON` graph, not the 0.9-affinity stub; a node's conclusion changes if a LATER version is fed in and does NOT change if only earlier versions are, proving the horizon actually binds |
 | **D-ACR-16** | Nested kanban cascade for awareness build-up (§3m) | lance-graph | **NOT DESIGNED** — zero shipped precedent, matching `D-ACR-13`'s original honest-empty verdict |
 | **D-ACR-11** | DK/eigenvalue probe (§3i): perturb inputs, measure which tactics' confidence is invariant; cross-check the 20 non-`delta_conf` tactics land at invariance by construction | lance-graph | the 20 must show invariance (else the capability flag lies) **and** at least one of the 14 must actually move (else the flag is decoration) |
 | **D-ACR-10** | Hindsight probe (§3i): `first_possible` vs `first_derived` over `QueryReference::at` on a real trajectory | lance-graph | a claim derivable at every version must be reported as discriminating nothing |
