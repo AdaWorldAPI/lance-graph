@@ -315,6 +315,66 @@ the §12 ladder's HHTL level is blocked only if a level reads `obo-core.soa`,
 and available if it reads `all-lanes.soa`. **Which artifact a ladder level
 reads is a first-class decision.**
 
+#### ⊘ 2026-08-21 CORRECTION — §8a measured ONE of TWO readings
+
+Operator: *"Obo HHTL ist meines Wissens mit zipper bereits indirekt hydriert."*
+Verified, and the section above is incomplete a second time. It measured the
+**cascade tiers** (row bytes 4..10). `rails::HhtlMode::of_row` **prefers the
+RailHead reading** and falls back to Cascade only when the rail register is
+empty — so the cascade census is the *fallback* path, not the primary one.
+
+The Zipper hierarchy lives in four value-slab registers (`rails.rs:130-147`,
+value-relative, `value` starting at row byte 32): `is_a` 44..56, `part_of`
+56..68, `is_a_cont` 68..80, `part_of_cont` 80..92 — a 12-byte primary plus a
+12-byte continuation concatenated into ONE logical `RailPath` of
+`RAIL_DEPTH = 24`. Measured:
+
+| lane | rows | cascade | rail `is_a` | median DN depth | `part_of` | cont |
+|---|---:|---:|---:|---:|---:|---:|
+| MONDO | 32,095 | 32,095 | **32,094 (99.997%)** | 6 | 0 | 90 |
+| HPO | 19,836 | 19,836 | **19,835 (99.995%)** | 7 | 0 | 45 |
+| UBERON | 14,975 | 14,975 | **14,973 (99.99%)** | 8 | **8,525** | 129 |
+| PATO | 1,887 | 1,887 | 1,886 | 5 | 0 | 0 |
+| ICD-10-GM | 16,905 | 16,905 | 16,649 | 3 | 0 | 0 |
+| OPS | 38,956 | 38,544 | 38,544 | 4 | 0 | 0 |
+| ATC | 6,897 | 6,896 | 6,896 | 5 | 0 | 0 |
+| **Orphanet** | 20,809 | 14,063 | **0** | — | 0 | 0 |
+| **OMIM** | 18,712 | 18,712 | **0** | — | 0 | 0 |
+| CUI / RxNorm / FMA / LOINC | 599,244 | ~94 | 0 | — | 0 | 0 |
+
+`obo-core.soa` and `spine.soa` are zero on **both** readings (0/68,797 and
+0/7,641 across all four slabs) — so the earlier finding holds for those two
+artifacts and is simply not the whole hydration story.
+
+**Three things this adds that were not visible from the cascade census:**
+
+1. **Cascade and rail are INDEPENDENT, not redundant.** Orphanet (14,063
+   cascade rows) and OMIM (18,712) carry **zero** Zipper DN. A consumer reading
+   through `HhtlMode` gets the cascade arm there; a consumer expecting prefix
+   containment on a `RailPath` gets depth 0 — silently. Two registers read as
+   one feature is a real asymmetry, and it is per-lane.
+2. **Mereology is scoped exactly where the code says.** `part_of` is UBERON
+   only (8,525), matching `graph_feed.rs:730` — *"UBERON only (the zipper is
+   scoped there)"*. So the mereology axis is a single-namespace capability, not
+   a general one.
+3. **The continuation slab is load-bearing, not hypothetical.** 264 rows exceed
+   12 levels (UBERON 129, MONDO 90, HPO 45), so the two-register split carries
+   real depth and `rails::read`'s concatenation is exercised by production data.
+
+**Consequence for §12, revised:** the HHTL rung is **available at ~100% for
+MONDO / HPO / UBERON / PATO via the RailHead reading**, with genuine taxonomy
+depths (median 6 / 7 / 8 / 5) — and those are precisely the namespaces DisMech
+grounds against. What a ladder level must now declare is not only its artifact
+but its **reading**; and for Orphanet/OMIM the honest answer is that the rung
+is unavailable regardless.
+
+Operator-ruled context: `MedCare-rs docs/RAIL_OFFENE_POSTEN.md` Posten 1 is
+**ENTSCHIEDEN 2026-08-12** — *"Legacy-Read-Mode `rails::HhtlMode`, Version-Gate
+pro ZEILE (Register als Zeuge)"*, and *"Damit ist der Re-Bake für Posten 1
+nicht mehr blockiert."* The two-reading design is deliberate. (Note MedCare's
+`CLAUDE.md` still points at that Posten as *"der HHTL-Offset, der den Re-Bake
+blockiert"* — stale against its own ledger.)
+
 ## 9. Ingestion readiness — three links exist, one is missing
 
 1. **Acquisition — EXISTS.** Pixels: `tesseract-ogar::OcrExecutor::execute`

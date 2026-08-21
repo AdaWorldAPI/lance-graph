@@ -36,6 +36,23 @@ artifact set. Two sources counting the same 68,797 rows is ONE measurement
 reported twice. Before promoting "on every row" from "on these rows", enumerate
 the artifacts, not the citations.
 
+**⊘ CORRECTION 2026-08-21 (same day, operator-prompted) — the entry above
+measured ONE of TWO readings.** Operator: *"Obo HHTL ist meines Wissens mit
+zipper bereits indirekt hydriert."* Correct. The census above counted the
+**cascade tiers** (bytes 4..10); `rails::HhtlMode::of_row` PREFERS the
+**RailHead** reading and uses Cascade only as the fallback. Measured on the
+Zipper rail registers (`rails.rs:130-147`): MONDO **32,094/32,095**, HPO
+**19,835/19,836**, UBERON **14,973/14,975** (plus 8,525 `part_of`, the only
+lane with mereology), PATO 1,886/1,887 — median logical-DN depths 6/7/8/5, and
+264 rows deep enough to use the continuation slab. So the OBO hierarchy IS
+hydrated, indirectly, exactly as stated. `obo-core.soa`/`spine.soa` remain zero
+on BOTH readings. New in this correction: cascade and rail are **independent** —
+Orphanet (14,063 cascade) and OMIM (18,712) carry **zero** rail DN, so a
+prefix-containment consumer silently gets depth 0 there. **The lesson compounds
+the entry's own:** it is not enough to enumerate the artifacts — a claim about
+a field must also name which READING of it was counted, when the accessor
+picks between two registers. Full table: plan §8a ⊘ correction.
+
 Cross-ref: `.claude/plans/dismech-causality-v3-v1.md` §8a; ARC-B
 `docs/architecture/ARC-B-OWNERSHIP-AND-ADDRESSING-REASSESSMENT.md:23` (regraded
 in place: its conclusion holds for `obo-core`/`spine`, needs the `all-lanes`
