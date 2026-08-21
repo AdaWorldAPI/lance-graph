@@ -114,6 +114,11 @@ impl CausalEdgeV3 {
     ///
     /// **Not lifted:** the deprecated v2 `temporal` (not valid CE64-v2 state;
     /// V3's TE is an independent producer-set offset).
+    ///
+    /// **Provenance:** copying the v2 tail (`w_slot`/`truth`/`spare`) ASSERTS
+    /// that its producer stamped it deliberately. When you do not know that,
+    /// use [`Self::from_v1_tail_unstated`] — see its doc for why the signature
+    /// alone cannot tell the two cases apart (D-ACR-7 BLOCK-1).
     pub fn from_v1(e: CausalEdge64, target: u16) -> Self {
         let mut p = [0u8; 12];
         p[0] = e.frequency_u8();
@@ -138,6 +143,42 @@ impl CausalEdgeV3 {
         p[8] = (e.w_slot() & 0x3F) | ((e.truth_raw() & 0b11) << 6);
         p[9] = e.spare() & 0b111;
         Self { payload: p }
+    }
+
+    /// Lift a [`CausalEdge64`] whose v2 tail is **UNSTATED** — bytes `[8]`/`[9]`
+    /// are zeroed instead of copied.
+    ///
+    /// # Why this exists (D-ACR-7 BLOCK-1)
+    ///
+    /// [`Self::from_v1`] copies `w_slot`/`truth`/`spare` raw. Under the **v1**
+    /// layout that is provably safe: those accessors are documented zero stubs
+    /// (`edge.rs`, `truth_raw` and `spare` return `0`), so the copy writes
+    /// zeros anyway. Under **v2** they read real bits — and nothing in the
+    /// signature says whether a producer deliberately stamped them or whether
+    /// they are residue from a source that never meant anything by them.
+    ///
+    /// The reading contract that consumes these bits
+    /// (`lance_graph_contract::band_reading`) resolves that gap by making
+    /// provenance a **caller assertion**: unstated means refuse. This
+    /// constructor is that assertion's honest half on the WRITE side — a lift
+    /// that declines to claim the tail. A consumer then reads the zero-fallback
+    /// (`Trust` / band `Absent`) rather than a plausible wrong ordinal.
+    ///
+    /// **Pick by what you know**, not by convenience:
+    ///
+    /// | you know | use |
+    /// |---|---|
+    /// | the producer stamped the tail | [`Self::from_v1`] |
+    /// | you do not know, or the source predates the stamp | **this** |
+    ///
+    /// Every other field is lifted exactly as [`Self::from_v1`] lifts it.
+    /// Note that [`Self::rehydrate`] on the result is therefore **not** a
+    /// bit-exact round trip of the source: the tail was deliberately dropped.
+    pub fn from_v1_tail_unstated(e: CausalEdge64, target: u16) -> Self {
+        let mut v3 = Self::from_v1(e, target);
+        v3.payload[8] = 0;
+        v3.payload[9] = 0;
+        v3
     }
 
     /// NARS frequency (u8, `f = val/255`) — byte 0.
@@ -756,5 +797,77 @@ mod tests {
         let vz = CausalEdgeV3::from_v1(z, 7);
         assert_eq!(vz.truth_raw(), 0);
         assert_eq!(vz.spare_raw(), 0);
+    }
+
+    /// D-ACR-7 BLOCK-1, write side: the unstated lift DROPS the tail while the
+    /// plain lift CLAIMS it. Two-sided by construction — a constructor that
+    /// zeroed unconditionally, or one that never differed from `from_v1`,
+    /// would carry exactly as much information as no constructor at all.
+    #[cfg(feature = "causal-edge-v2-layout")]
+    #[test]
+    fn from_v1_tail_unstated_drops_what_from_v1_claims() {
+        use crate::layout::{CausalTopology, ReasoningBand};
+
+        // A source whose tail is NON-ZERO — without this the two lifts agree
+        // trivially and the test proves nothing.
+        let e = sample_edges()[0]
+            .with_w_slot(0x2A)
+            .with_topology(CausalTopology::Unknown)
+            .with_reasoning_band(ReasoningBand::Transcendent);
+        assert_ne!(
+            (e.truth_raw(), e.spare()),
+            (0, 0),
+            "fixture must have a tail"
+        );
+
+        let claimed = CausalEdgeV3::from_v1(e, 7);
+        let unstated = CausalEdgeV3::from_v1_tail_unstated(e, 7);
+
+        // CLAIMS: the tail survives, ordinal for ordinal.
+        assert_eq!(claimed.truth_raw(), e.truth_raw());
+        assert_eq!(claimed.spare_raw(), e.spare());
+        assert_eq!(claimed.w_slot(), e.w_slot() & 0x3F);
+
+        // DECLINES: the tail is zero, so a consumer reads the zero-fallback
+        // rather than an ordinal nobody vouched for.
+        assert_eq!(
+            unstated.truth_raw(),
+            0,
+            "unstated lift must not claim truth"
+        );
+        assert_eq!(
+            unstated.spare_raw(),
+            0,
+            "unstated lift must not claim a band"
+        );
+        assert_eq!(unstated.w_slot(), 0, "the whole tail is dropped, not half");
+
+        // And ONLY the tail differs — every other lifted field is identical.
+        let (a, b) = (claimed.to_le_bytes(), unstated.to_le_bytes());
+        assert_eq!(a[..8], b[..8], "bytes 0..8 must be untouched by the choice");
+        assert_eq!(
+            a[10..],
+            b[10..],
+            "bytes 10.. must be untouched by the choice"
+        );
+        assert_ne!(
+            a[8..10],
+            b[8..10],
+            "and the tail bytes must be what differs"
+        );
+    }
+
+    /// The can-stay-silent half: on a source whose tail is ALREADY zero the two
+    /// lifts are byte-identical. The constructor is a declaration about
+    /// provenance, never an unconditional mutation.
+    #[cfg(feature = "causal-edge-v2-layout")]
+    #[test]
+    fn on_a_zero_tail_the_two_lifts_agree() {
+        let z = sample_edges()[1];
+        assert_eq!((z.truth_raw(), z.spare()), (0, 0));
+        assert_eq!(
+            CausalEdgeV3::from_v1(z, 7).to_le_bytes(),
+            CausalEdgeV3::from_v1_tail_unstated(z, 7).to_le_bytes(),
+        );
     }
 }
