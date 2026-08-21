@@ -52,7 +52,7 @@ the rest.
 |---|---|---|---|
 | D-ACR-0 | Audit `attention_mask.rs`/`attention_mask_actor.rs`: residue carrier, or a name collision? Report only | **Next** | names a caller, or records EXISTS-UNCALLED |
 | D-ACR-1 | `RowFocusMask` — the one missing primitive (S3.1b names it; no crate contains it) | Queued — gates on D-ACR-0 | can-fire AND can-stay-silent on non-trivial input |
-| D-ACR-3 | The one-way invariant as a test: an overlay write to an ontology-owned row must fail at the owner | Queued — gates on D-ACR-1 | the negative case IS the test |
+| D-ACR-3 | The one-way invariant as a test: no ontology-owned write traces to a patient-tagged read through ANY call path (corrected from write-authorization-only after CodeRabbit found a session-derived value can flow to the ontology owner via a shared parameter/return, then be written as the owner's own act) | Queued — gates on D-ACR-1 | a write whose call graph includes a session-tagged read is the bug, even if the write itself is authored by the ontology owner |
 | D-ACR-2 | Mint the Rung-ladder rail | Queued — gates on operator mint decision (HTT §8 Q3) | `rail_carving` gains its first non-default consumer |
 | D-ACR-4 | Second-order row at the same address, separate table | Queued | a rung-2 read reconstructs where rung-1 looked, on a fixture with an independent answer |
 | D-ACR-5 | 64k lowering | **BLOCKED** — dialectic V4's own gate (V0–V3 green at small scale) | — |

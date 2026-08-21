@@ -365,8 +365,14 @@ artifacts and is simply not the whole hydration story.
 MONDO / HPO / UBERON / PATO via the RailHead reading**, with genuine taxonomy
 depths (median 6 / 7 / 8 / 5) — and those are precisely the namespaces DisMech
 grounds against. What a ladder level must now declare is not only its artifact
-but its **reading**; and for Orphanet/OMIM the honest answer is that the rung
-is unavailable regardless.
+but its **reading**. For Orphanet/OMIM the honest answer is narrower than
+"unavailable regardless" (CodeRabbit-corrected, 2026-08-21): `HhtlMode::of_row`
+falls back to the Cascade arm when RailHead is empty, and both lanes carry
+**full cascade coverage** (Orphanet 14,063/14,063 of its cascade-bearing rows,
+OMIM 18,712/18,712) — so a consumer reading through `HhtlMode` gets the rung
+there. It is unavailable ONLY for a consumer that specifically needs
+`RailPath` prefix containment (rail depth 0 on both lanes); that consumer's
+requirement, not the rung itself, is what excludes Orphanet/OMIM.
 
 Operator-ruled context: `MedCare-rs docs/RAIL_OFFENE_POSTEN.md` Posten 1 is
 **ENTSCHIEDEN 2026-08-12** — *"Legacy-Read-Mode `rails::HhtlMode`, Version-Gate
@@ -494,16 +500,18 @@ brief's F5.x — per §25's own instruction.
 | **D-CV3-0** | Pin the corpus (checksum + fetch entry). Emit the three frozen TSVs from a typed parse. **No new types.** | Re-running on a fresh container reproduces 2,449 / 4,076 / 361 **exactly**, or the pin is not a pin |
 | **D-CV3-1** | Splits A + B as committed artifacts (534 disease groups) | Group-disjointness test: no disease appears in both sides of B. Anti-vacuity: held-out share is 15–25%, not ~0 |
 | **D-CV3-2** | Level-0 scorer: Recall@K + MRR + abstention. Structural only | Must produce a NON-trivial number on both arms; a scorer that abstains always, or never, fails its own can-fire/can-stay-silent pair |
-| **D-CV3-3** | `HoleV3` as `ValueTenant = 16` (`BoardAggregates` already reserves 15), `awareness_state` ⟂ `unknown_kind`. **Not in CE64 — it has zero free bits** | Field-isolation matrix per I-LEGACY-API-FEATURE-GATED; `ENVELOPE_LAYOUT_VERSION` unchanged (292 B headroom); a round-trip that proves the two axes are independent |
+| **D-CV3-3** | `HoleV3` as `ValueTenant = 16`, `awareness_state` ⟂ `unknown_kind`. **Not in CE64 — it has zero free bits.** **BLOCKED, not merely gated on the benchmark** (CodeRabbit-corrected, 2026-08-21): `ValueTenant` currently ends at `CausalWitness = 14`; `BoardAggregates = 15` is only a GATED RESERVATION on `STATUS_BOARD.md`, its own width still open. The discriminant-to-`VALUE_TENANTS` index requires contiguous descriptors, so `HoleV3 = 16` cannot land until the `BoardAggregates` mint is completed and resolved — that mint is an explicit prerequisite of this row, not implied by D-CV3-0..2 alone | Field-isolation matrix per I-LEGACY-API-FEATURE-GATED; `ENVELOPE_LAYOUT_VERSION` unchanged (292 B headroom); a round-trip that proves the two axes are independent; **AND** the contiguity assertion over `VALUE_TENANTS` passes with `BoardAggregates` resolved at 15 |
 | **D-CV3-4** | The producer: `dismech_evidence` → hole rows. Gives the 662-line module its first caller | Before: 0 populated rows. After: 4,076 + 361. If it stays 0, the substrate has gained a fifth EXISTS-UNCALLED carrier |
 | **D-CV3-5** | `Communities` × `EpisodicBasins` cross-validation — the only real unknown-unknown detector available | Must fire on a synthetic bridge AND stay silent on a coherent graph. Both halves non-trivial |
 | **D-CV3-6** | Call `reciprocal_rank_fusion` in `OsintRetriever::retrieve` (cheapest real integration; gated on G0) | Fused ranking differs from BFS-only on ≥1 real query, or RRF is decoration |
 
-**Ordering rule:** D-CV3-0..2 must be green before D-CV3-3 exists. A carrier
-minted before its benchmark is a fifth entry in the EXISTS-UNCALLED column,
-which is the single most repeated shape in this inventory (CE64 high bits,
-CausalEdgeV3, CausalWitnessFacet, dismech_evidence — four independent layers,
-all read-rich and write-empty).
+**Ordering rule:** D-CV3-0..2 must be green before D-CV3-3 exists, **AND**
+the `BoardAggregates = 15` mint must be completed and resolved first — the
+discriminant sequence is contiguous, so `HoleV3 = 16` has no valid slot while
+15 is still an open reservation. A carrier minted before its benchmark is a
+fifth entry in the EXISTS-UNCALLED column, which is the single most repeated
+shape in this inventory (CE64 high bits, CausalEdgeV3, CausalWitnessFacet,
+dismech_evidence — four independent layers, all read-rich and write-empty).
 
 **What this report does NOT authorize:** any DeepNSM-v2 grammar claim (§6
 measured it absent), any HHTL ladder level that does not name its artifact

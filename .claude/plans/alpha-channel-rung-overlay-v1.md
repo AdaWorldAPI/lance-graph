@@ -1168,7 +1168,7 @@ falsifier should measure it as a DURATION, not just a boolean.
 | **D-ACR-8** | Rubicon witness (§3e): focus-mask breadth/persistence across `Planning → CognitiveWork`; closes the Rubikon plan's open *"Thinking styles ↔ Rubikon"* item | lance-graph | broader in `Planning` than in `CognitiveWork` on a deliberated task **AND** indistinguishable on a single-forced-candidate task |
 | **D-ACR-7** | The 59..63 reading contract (§3b): name, per `(classid, rail)`, which lens applies and which witness carrier discriminates evidence-kind. **Acceptance: any tactic sampling filters on `delta_conf` capability (14/34), never on `maturity().is_production()` (31/34)** — §3g | lance-graph | a producer/consumer pair disagreeing about `TrustTexture` vs `CausalTopology` must FAIL, not return a plausible value; and a sampling pass must reject a mute tactic |
 | **D-ACR-12** | Epistemic inheritance (§3k): BULK frontier ascent over `NiblePath` ancestry until content is found (mask-native, not per-address — pattern from `lance-graph-java`'s `hop()`), materialized as `(source_addr, resolved_addr, hop_distance)` in the Rung-ladder row | lance-graph | resolves to the nearest ancestor at the correct hop count; a node with its OWN witness never ascends past it; resolution cost scales with tree DEPTH (bulk rounds), never with population size |
-| **D-ACR-13** | Mass hydration as a checked precondition for higher-order thinking (§3l) | OGAR + lance-graph | **NOT DESIGNED** — zero shipped precedent found in `ogar-loco` or `kanban_actor`; open pending a registered design once `D-ACR-1` exists |
+| **D-ACR-13** | Mass hydration as a checked precondition for higher-order thinking — TOC-mint + coverage-gate design (§3l), dispatch+write+hydrate pipeline (§3n, folds former D-ACR-14b) | OGAR + lance-graph | **DESIGNED, not built** (corrected 2026-08-21 — the row previously said NOT DESIGNED after §3l/§3n specified it; that predated this correction). Two ordered steps per §3l + the tenant-write/hydrate/gate pipeline per §3n; gates on `D-ACR-17` (mint) |
 | **D-ACR-14a** | `holograph`-local: fix `mindmap.rs`'s `mxv` mutability bug, on ITS OWN terms — unrelated to this plan's SoA substrate | holograph | fix ships WITH a real `holograph`-side caller — no bug-fix-with-no-consumer landing |
 | **D-ACR-14b** | **⊘ FOLDED into `D-ACR-13`'s write stage (§3n)** — cartography is a byproduct of the 64k parallel hydration writes, not a separate pass | lance-graph | superseded — see `D-ACR-13` |
 | **D-ACR-17** | Mint `ValueTenant::EpisodicEdges = 17` (§3n) — the byte-ready `episodic_edges.rs` type, gates `D-ACR-13`'s write stage | lance-graph | field-isolation matrix (`I-LEGACY-API-FEATURE-GATED`); `ENVELOPE_LAYOUT_VERSION` unchanged |
@@ -1181,9 +1181,7 @@ falsifier should measure it as a DURATION, not just a boolean.
 D-ACR-7 (the reading contract — before anything writes a band) → D-ACR-3 (the
 boundary) → D-ACR-8 (Rubicon witness) → D-ACR-9 (loco recipe vocabulary) →
 D-ACR-12 (epistemic inheritance, gates on D-ACR-1) → D-ACR-2/4/6 (mint +
-second order + basins) → D-ACR-5. **D-ACR-13 is explicitly NOT sequenced** —
-it has no design to sequence yet; it re-enters this order only once one is
-registered. **D-ACR-17 (mint) → D-ACR-13 (dispatch+write+gate, folding in former D-ACR-14b) →
+second order + basins) → D-ACR-5. **D-ACR-17 (mint) → D-ACR-13 (dispatch+write+gate, folding in former D-ACR-14b) →
 D-ACR-15 (rung-dependency reasoning, downstream of the gate) (D-ACR-14a is
 unrelated and unsequenced — a holograph-local fix)** (both need a
 verified-complete tree to run over); **D-ACR-16 is unsequenced, same reason
