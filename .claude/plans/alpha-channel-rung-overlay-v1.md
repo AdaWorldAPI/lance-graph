@@ -141,7 +141,7 @@ surfaces, not one family, and the plan's own table papered over that.**
 |---|---:|---|---|
 | `WitnessLens<'a>` / `WitnessTable<N=64>` / `WitnessEntry` (`witness_table.rs`, `witness_fabric.rs`) | 11 / 9 / 8 | wired, generic register-slab machinery | no — domain-agnostic |
 | `CausalWitnessFacet` (`causal_witness.rs:201`) | **18** | **wired and heavily consumed** — `lance-graph-planner::nars::meta_basin`, `style_strategy`, `dispatch_guard`, and `deepnsm-v2::wave.rs`'s versioned event window (`push`/`window_at`/`window_range`) | no — a 12-byte register of loci offsets, addressed by `(Locus, i8)`, never episodic memory |
-| **`EpisodicWitness64`** | **0** | **NOT A CODE SYMBOL AT ALL** — `soa_view.rs:272` states it plainly: *"is NOT YET a code symbol (a queued design)"* | **yes — this is the one the operator means by "episodic witness"** |
+| **`EpisodicEdges64`** (`episodic_edges.rs`) | **10** | **THE real, current answer.** `(family, local)` **nibble**-structured edge refs (4 × u16, each `[nibble: family][12 bits: local]`) — grounded by locality probe #444, 98.6%/1.4% real cost model. Added 2026-07-23. **NOT mounted as a `ValueTenant`** — zero hits in `canonical_node.rs`'s list | the value shape exists; the row-slot that would make it a per-row-queryable field does not |
 | **`EpisodicBasins`** (`arigraph/episodic.rs:79`) | **2** | X3 confirmed: definition + `mod.rs` only | yes — the cold-path AriGraph type |
 
 **My previous entry mis-cited the CV3 rebase report's "write-empty" finding
@@ -159,6 +159,19 @@ mailbox SoA view."* AriGraph today lives only in the cold path
 column — the `CausalEdge64` W-slot to witness arc. `E-ARIGRAPH-IS-AN-ISLAND`
 names the gap directly: *"EW64/SpoWitness64 = 0 code symbols; the
 Lance→surreal→kanban subscription unbuilt; `HotWitness` = `todo!()`."*
+
+**⊘ CORRECTED, operator, 2026-08-21: "Episodic edges = nibbles. Episodic
+Witness [war] vorbelastet, weil es früher den CausalEdge64 vom Witness fett
+kopiert hat. Jetzt können wir die Vorbelastung ignorieren."** No further
+hedging needed: `soa_view.rs`'s `"EpisodicWitness64"` named an EARLIER,
+abandoned design that copied `CausalEdge64`'s witness fields wholesale —
+that approach stalled, which is why the comment still reads "not yet a
+code symbol." `EpisodicEdges64`'s nibble-`(family, local)` encoding is the
+real replacement that shipped instead, at 10 real call sites, and there is
+no live identity question left to resolve. The one remaining real gap is
+purely mechanical: `EpisodicEdges64` has no `ValueTenant` mount.
+`D-ACR-17` (below) closes exactly that, using the type that already
+exists.
 
 **And `bible_wave.rs` touches NONE of the four** — verified: its imports are
 entirely internal to `deepnsm_v2`, zero references to
@@ -996,6 +1009,64 @@ foveated or otherwise.
 rung-dependency reasoning both presuppose a populated, verified-complete
 tree to run over, which is exactly what `D-ACR-13` produces.
 
+## §3n — The mint, and the 64k-parallel hydration pipeline in full
+
+Operator, 2026-08-21, closing the thread: *"Und einen eigenen Tenant. Schau
+in lance-graph .claude v3, da stehen die alten Pläne."* — followed by the
+execution shape: *"Du hast 64k thoughts in parallel, du musst also nur
+einen Plan an 64k SoA ausliefern. Die schreiben dann ihr Ergebnis in den
+Tenant. Du liest den EpisodicWitness-Tenant aus und hydrierst daraus die
+witness arc facet rails für HHTL. Die nodes erstellen die Kartographie.
+Das reasoning higher order ist dann nachgelagert."*
+
+**The mint, verified against `.claude/v3/MODULE-TABLE.md` line 167 — not
+invented.** `episodic_edges.rs` is ALREADY byte-ready
+(`to/from_le_bytes`/`write_le`/`read_le`/`to_u64`/`from_u64`) and the
+module table's own classification already tags it **"W1 envelope/ownership
+(SoA edge column)"** — i.e. it was always headed for a `ValueTenant` mount,
+this is not a new idea. Stronger: `markov_soa.rs`'s own doc comment
+(`MODULE-TABLE.md` line 48) says it plainly — *"truly-correct home is
+still inside the EW64-in-SoA seam"* — a DIFFERENT module, already staged
+elsewhere, explicitly waiting for this exact mount to open.
+
+**Slot number, checked rather than assumed:** `ValueTenant = 15` is
+**already reserved** by `BoardAggregates` (`dismech-causality-v3-v1.md:497`
+— *"`HoleV3` as `ValueTenant = 16` (`BoardAggregates` already reserves
+15)"*), and `16` is `HoleV3` (D-CV3-3, queued). **`ValueTenant::EpisodicEdges
+= 17`** — the next free discriminant, additive, reserve-don't-reclaim, same
+discipline every prior mount in this enum used.
+
+**The 64k pipeline, three stages, matching the operator's own order:**
+
+1. **Dispatch.** One plan, delivered to the 64k-thought SoA field — the
+   kanban field's own native scale (dialectic pillar 2: *"you can't run 64k
+   parallel higher-order thoughts conventionally"* → SIMT over syllogisms).
+   Each of the TOC-mint pass's leaf addresses (`D-ACR-13` step 1) gets one
+   parallel worker.
+2. **Write.** Each worker writes its result into `ValueTenant::EpisodicEdges`
+   at its own row — `EpisodicEdges64`'s own shape is a **4-slot MRU
+   promote/evict tier**, not a flat append, so this is not a growing list
+   per row; it is a bounded hot-tier write, the same discipline that keeps
+   an SoA row fixed-width. **The nodes build the cartography AS they
+   write** — operator: *"die nodes erstellen die Kartographie"* — there is
+   no separate mapping pass; `D-ACR-14b` (§3m) is FOLDED into this step
+   rather than sequenced after it.
+3. **Hydrate + gate.** A read pass over the populated `EpisodicEdges`
+   tenant hydrates `ValueTenant::CausalWitness = 14`'s facet rail (§3b's
+   *"witness arc"*, the `CausalEdge64` W-slot lineage `soa_view.rs`
+   already names) — this is `D-ACR-12`'s bulk-ascent loop, now with a
+   real source column to read FROM. Its `resolved == all leaves` output
+   IS `D-ACR-13`'s coverage gate. **Higher-order (rung 2+) reasoning is
+   strictly downstream** — operator: *"das reasoning higher order ist
+   dann nachgelagert"* — it may only start once this gate passes, per
+   `D-ACR-13`'s original fail-closed posture.
+
+`D-ACR-17`: mint `ValueTenant::EpisodicEdges = 17`. Field-isolation matrix
+test mandatory per `I-LEGACY-API-FEATURE-GATED` (every prior mount in this
+enum carries one); `ENVELOPE_LAYOUT_VERSION` unchanged (additive tenant,
+not a reclaim). Gates `D-ACR-13`'s write stage — nothing to write into
+until the slot exists.
+
 ## §4 — Deliverables
 
 | D-id | Scope | Repo | Falsifier |
@@ -1013,7 +1084,8 @@ tree to run over, which is exactly what `D-ACR-13` produces.
 | **D-ACR-12** | Epistemic inheritance (§3k): BULK frontier ascent over `NiblePath` ancestry until content is found (mask-native, not per-address — pattern from `lance-graph-java`'s `hop()`), materialized as `(source_addr, resolved_addr, hop_distance)` in the Rung-ladder row | lance-graph | resolves to the nearest ancestor at the correct hop count; a node with its OWN witness never ascends past it; resolution cost scales with tree DEPTH (bulk rounds), never with population size |
 | **D-ACR-13** | Mass hydration as a checked precondition for higher-order thinking (§3l) | OGAR + lance-graph | **NOT DESIGNED** — zero shipped precedent found in `ogar-loco` or `kanban_actor`; open pending a registered design once `D-ACR-1` exists |
 | **D-ACR-14a** | `holograph`-local: fix `mindmap.rs`'s `mxv` mutability bug, on ITS OWN terms — unrelated to this plan's SoA substrate | holograph | fix ships WITH a real `holograph`-side caller — no bug-fix-with-no-consumer landing |
-| **D-ACR-14b** | Cartography over the `D-ACR-13`-built SoA tree — a NEW mapping pass, built on §3k's own bulk-mask primitives; `mindmap.rs` is NOT reusable here (different substrate) | lance-graph | **NOT DESIGNED** — same honest-empty grade as `D-ACR-13`/`D-ACR-16` |
+| **D-ACR-14b** | **⊘ FOLDED into `D-ACR-13`'s write stage (§3n)** — cartography is a byproduct of the 64k parallel hydration writes, not a separate pass | lance-graph | superseded — see `D-ACR-13` |
+| **D-ACR-17** | Mint `ValueTenant::EpisodicEdges = 17` (§3n) — the byte-ready `episodic_edges.rs` type, gates `D-ACR-13`'s write stage | lance-graph | field-isolation matrix (`I-LEGACY-API-FEATURE-GATED`); `ENVELOPE_LAYOUT_VERSION` unchanged |
 | **D-ACR-15** | Rung-dependency reasoning: implement `WorkflowDAG::plan()` for real — the strategy's own comment is the spec | lance-graph | a query with `has_workflow` actually dispatches through a built `DEPENDS_ON` graph, not the 0.9-affinity stub |
 | **D-ACR-16** | Nested kanban cascade for awareness build-up (§3m) | lance-graph | **NOT DESIGNED** — zero shipped precedent, matching `D-ACR-13`'s original honest-empty verdict |
 | **D-ACR-11** | DK/eigenvalue probe (§3i): perturb inputs, measure which tactics' confidence is invariant; cross-check the 20 non-`delta_conf` tactics land at invariance by construction | lance-graph | the 20 must show invariance (else the capability flag lies) **and** at least one of the 14 must actually move (else the flag is decoration) |
@@ -1025,7 +1097,9 @@ boundary) → D-ACR-8 (Rubicon witness) → D-ACR-9 (loco recipe vocabulary) →
 D-ACR-12 (epistemic inheritance, gates on D-ACR-1) → D-ACR-2/4/6 (mint +
 second order + basins) → D-ACR-5. **D-ACR-13 is explicitly NOT sequenced** —
 it has no design to sequence yet; it re-enters this order only once one is
-registered. **D-ACR-14b/15 sequence AFTER D-ACR-13's two steps (D-ACR-14a is unrelated and unsequenced — a holograph-local fix)** (both need a
+registered. **D-ACR-17 (mint) → D-ACR-13 (dispatch+write+gate, folding in former D-ACR-14b) →
+D-ACR-15 (rung-dependency reasoning, downstream of the gate) (D-ACR-14a is
+unrelated and unsequenced — a holograph-local fix)** (both need a
 verified-complete tree to run over); **D-ACR-16 is unsequenced, same reason
 as D-ACR-13's original verdict.** **D-ACR-9 additionally
 waits on the window question in §3f** — a revision pass cannot be stamped into
