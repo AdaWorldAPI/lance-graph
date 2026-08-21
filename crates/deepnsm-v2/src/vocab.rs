@@ -151,6 +151,52 @@ mod tests {
         assert_eq!(v.id("dog"), Some(2));
     }
 
+    /// The companion the synthetic carve test cannot be: its fixture is
+    /// all-distinct by construction, so it measures the RESERVATION and can
+    /// never see a fill shortfall.
+    ///
+    /// Real `academic_20k.csv` is 20,845 rows but only **18,559 distinct
+    /// surface forms** (2,286 duplicates — COCA lists a word once per part of
+    /// speech), and `from_frequency_ranked` admits by surface form. So the
+    /// academic carve fills 90.6% and basins 73..79 stay empty
+    /// (`E-ACADEMIC-CARVE-UNDERFILLS-ROWS-ARE-NOT-WORDS-1`, 2026-08-21).
+    ///
+    /// This pins the mechanism at unit scale: duplicates consume RANKS but not
+    /// SLOTS, so the last admitted id is strictly below the input length and
+    /// the reserved tail is unreachable. Falsified by deleting the
+    /// `contains_key` guard in `from_frequency_ranked` — the admitted count
+    /// then equals the input length and both assertions fail.
+    #[test]
+    fn duplicates_consume_ranks_but_not_slots_so_the_carve_underfills() {
+        let mut v = PaletteVocab::new();
+        // 300 ranks; the 100 multiples of 3 are all the SAME word, so the
+        // distinct set is 200 unique `w` forms + one `the` = 201.
+        let words: Vec<String> = (0..300)
+            .map(|i| {
+                if i % 3 == 0 {
+                    "the".to_string()
+                } else {
+                    format!("w{i}")
+                }
+            })
+            .collect();
+        let admitted = v.from_frequency_ranked(words);
+        assert_eq!(admitted, 201, "duplicates must not consume slots");
+        // The anti-vacuity half: the fixture really does contain duplicates,
+        // so a dedupe-free implementation would differ here.
+        assert!(admitted < 300, "fixture has nothing to deduplicate");
+        // The consequence that matters: the tail of the reserved range is
+        // unreachable from this input.
+        assert_eq!(v.pair("the"), Some((0, 0)));
+        // 99 duplicate ranks were skipped before it, so the last input word
+        // lands 99 slots below its own rank.
+        assert_eq!(v.id("w299"), Some(200));
+        assert!(
+            v.len() < 300,
+            "last admitted id sits below the input length -- the reserved tail is empty"
+        );
+    }
+
     #[test]
     fn academic_20k_carve_spans_80_basins() {
         // The 80×256 academic carve fills basins 0..80 in frequency order.

@@ -462,7 +462,14 @@ Mapping to shipped seams (each future item gets its own gated plan/probes):
   optional seed a consumer feeds (via OGAR) to lance-graph arm-discovery /
   DeepNSM (tesseract-rs consumer guide); spider-rs is the crawl ingress twin.
   Paper PDF/scan → doc.v1 → SPO stream = this plan's input, no model anywhere.
-- **Vocabulary 4096 → 20k academic:** fits the palette256² pair carve
+- **Vocabulary 4096 → 20k academic:** ⚠ **CORRECTED 2026-08-21** — it does NOT
+  fit; it UNDER-FILLS. `academic_20k.csv`'s 20,845 ROWS are only **18,559
+  distinct surface forms** (2,286 duplicates: same word, different `Pos`), and
+  `from_frequency_ranked` admits by surface form. The carve fills
+  **18,559/20,480 = 90.6%**; basins **73..79 are empty**. The addressing below
+  is unaffected and correct. See
+  `E-ACADEMIC-CARVE-UNDERFILLS-ROWS-ARE-NOT-WORDS-1`.
+  Original claim, retained: fits the palette256² pair carve
   NATIVELY — 20480 = 80×256, `(basin, identity) = (id>>8, id&0xFF)` — the
   "larger codebooks" case already in the facet design; the codebook lives on
   the Morton tile pyramid / gridlake SoA (the 256=4⁴ hierarchical-centroid
