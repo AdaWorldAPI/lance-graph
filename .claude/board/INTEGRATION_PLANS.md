@@ -1,3 +1,66 @@
+## 2026-08-21 — ALPHA-CHANNEL RUNG OVERLAY (scraping, not a new arc)
+
+`.claude/plans/alpha-channel-rung-overlay-v1.md` — the design for the ONE
+empty row of the thinking table (`hhtl-thinking-tables-le-contract-v1.md`
+§2.3, row **Rung ladder**: *"(unassigned) · unminted, undesigned"*), scraped
+from an operator brainstorm the same day: the Photoshop **alpha channel** as
+an ephemeral layer over the ontology carrying the residue of a search, rung
+levels 2-10 as layers, second-order thought at the same address in a separate
+thinking table, a mask over the activities, focus of attention.
+
+**Headline: six of the nine pieces already exist or are already planned, and
+the plan mints no new type.** `PhaseCensus` (kanban_actor) is the activity
+mask, shipped. The five tactics + `ReasoningGap` are the elimination search,
+shipped (V1). Rung layers are dialectic **V3**; 64k is dialectic **V4** and
+stays behind its own gate (*"only after V0-V3 green at small scale"*). The
+residue carrier may be the shipped `attention_mask.rs` -- unaudited, so
+D-ACR-0 is an audit before anything is built on it.
+
+**The one genuinely missing primitive is `RowFocusMask`** (S3.1b): named on
+this board, absent from every crate (grep hits only `STATUS_BOARD.md` and one
+handover). D-ACR-1 is that primitive and everything else queues behind it.
+
+**Two things the plan refuses.** No new address type -- S3.0/PR #973 was closed
+at exactly this spot (*"CLOSED -- NOT NEEDED (use `IdentityQuad` / `ClassAddr`
+/ V3 rail)"*, the empty column being HYDRATION not ADDRESS), and this overlay
+is hydration over existing addresses. No CE64 bit -- 59..63 is
+`TRUTH_SHIFT`+`SPARE_SHIFT`, the band set ONLY by an explicit
+`with_reasoning_band()` call, and an overlay must not become a fifth
+derivation path into it.
+
+**The contamination boundary is not new machinery.** *"Damit der Graph nicht
+von Patienten kontaminiert wird"* is the one-writer-per-mailbox rule already
+ratified: the overlay's owner is the session mailbox, so a patient-derived
+write to an ontology row has no owner that could perform it. The invariant is
+one-directional -- the overlay reads the graph, the graph never reads the
+overlay -- which is also what makes the residue safe to discard whole.
+
+Graded a **pruner, never a proof**, the same grade `ONTOLOGY_BAKE_STATE.md`
+already gives HHTL.
+
+## 2026-08-21 — DISMECH × CAUSALITY-V3 REBASE REPORT (report first, no code)
+
+`.claude/plans/dismech-causality-v3-v1.md` — the operator-required §26
+deliverable that gates implementation of the DisMech/Causality-V3 arc. Twelve
+sections, every number carrying the command or `file:line` that produced it;
+anything not personally measured is labelled *claimed, unverified*.
+
+**Headline:** the expensive substrate really is largely built — AriGraph
+(8,750 LOC / 187 tests), CLAM+CHAODA (4,900 / 77), Aerial+ ARM discovery,
+HHTL, the OCR+DOM→doc.v1 convergence — but it is **read-rich and write-empty at
+four independent layers** (CE64 bits 53-63, `CausalEdgeV3`,
+`CausalWitnessFacet`, `dismech_evidence`), all with zero production writers.
+Three §0 claims are stale, two are wrong: the oracle population is **64%** of
+its label count (`E-THE-ORACLE-POPULATION-IS-64-PERCENT-...-1`), and HHTL is
+**100% minted** for the five OBO namespaces in the artifact the board does not
+cite (`E-HHTL-IS-MINTED-IN-THE-ARTIFACT-NOBODY-CITES-1`).
+
+**Sequence:** D-CV3-0..2 (pin corpus, freeze splits, Level-0 scorer) must be
+green BEFORE D-CV3-3 mints a `HoleV3` tenant — a carrier minted before its
+benchmark becomes the fifth EXISTS-UNCALLED entry. `HoleV3` is `ValueTenant =
+16` (15 is reserved for `BoardAggregates`), never CE64, which has **zero free
+bits**.
+
 ## 2026-08-19 — ARC-B OWNERSHIP + ADDRESSING REASSESSMENT (supersedes parts of the plan wave)
 
 Not a plan — the **assessment that corrects the plan wave**, per two

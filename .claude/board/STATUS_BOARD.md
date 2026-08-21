@@ -28,6 +28,38 @@ relations (MedCare-rs commitment #10) — an OGAR/lance-graph classid-mint
 capacity question for the operator.
 
 ---
+
+### D-CV3-* — DisMech × Causality-V3 (plan `dismech-causality-v3-v1.md`, 2026-08-21)
+
+| D-id | Scope | Repo | Status | Falsifier |
+|---|---|---|---|---|
+| D-CV3-0 | Pin corpus (`/workspace/dismech` @`557e15436`) + emit 3 frozen TSVs from a typed parse; no new types | MedCare-rs | **Queued** | fresh container reproduces 2,449 / 4,076 / 361 exactly |
+| D-CV3-1 | Splits A (random edge) + B (disease-held-out, 534 groups) as committed artifacts | MedCare-rs | **Queued** — gates on D-CV3-0 | group-disjointness; held-out share 15-25% |
+| D-CV3-2 | Level-0 scorer: Recall@K + MRR + abstention, structural only | MedCare-rs | **Queued** — gates on D-CV3-1 | non-trivial on BOTH arms; can-fire + can-stay-silent pair |
+| D-CV3-3 | `HoleV3` as `ValueTenant = 16`; `awareness_state` orthogonal to `unknown_kind`; NOT in CE64 (0 free bits) | lance-graph | **Queued** — gates on D-CV3-2 green | field-isolation matrix; `ENVELOPE_LAYOUT_VERSION` unchanged; two-axis independence round-trip |
+| D-CV3-4 | Producer: `dismech_evidence` -> hole rows (its first caller) | lance-graph | **Queued** — gates on D-CV3-3 | populated rows 0 -> 4,076 + 361, else a 5th EXISTS-UNCALLED carrier |
+| D-CV3-5 | `Communities` x `EpisodicBasins` cross-validation (the only available unknown-unknown detector) | lance-graph | **Queued** | fires on a synthetic bridge AND stays silent on a coherent graph |
+| D-CV3-6 | Call `reciprocal_rank_fusion` in `OsintRetriever::retrieve` (cheapest real integration) | lance-graph | **Queued** — gated on G0 | fused ranking differs from BFS-only on >=1 real query |
+
+
+### D-ACR-* — Alpha-channel rung overlay (plan `alpha-channel-rung-overlay-v1.md`, 2026-08-21)
+
+Fills `hhtl-thinking-tables-le-contract-v1.md` §2.3's empty **Rung ladder**
+row. Mints no type. Six of nine brainstorm pieces already had homes; these are
+the rest.
+
+| D-id | Scope | Status | Falsifier |
+|---|---|---|---|
+| D-ACR-0 | Audit `attention_mask.rs`/`attention_mask_actor.rs`: residue carrier, or a name collision? Report only | **Next** | names a caller, or records EXISTS-UNCALLED |
+| D-ACR-1 | `RowFocusMask` — the one missing primitive (S3.1b names it; no crate contains it) | Queued — gates on D-ACR-0 | can-fire AND can-stay-silent on non-trivial input |
+| D-ACR-3 | The one-way invariant as a test: no ontology-owned write traces to a patient-tagged read through ANY call path (corrected from write-authorization-only after CodeRabbit found a session-derived value can flow to the ontology owner via a shared parameter/return, then be written as the owner's own act) | Queued — gates on D-ACR-1 | a write whose call graph includes a session-tagged read is the bug, even if the write itself is authored by the ontology owner |
+| D-ACR-2 | Mint the Rung-ladder rail | Queued — gates on operator mint decision (HTT §8 Q3) | `rail_carving` gains its first non-default consumer |
+| D-ACR-4 | Second-order row at the same address, separate table | Queued | a rung-2 read reconstructs where rung-1 looked, on a fixture with an independent answer |
+| D-ACR-5 | 64k lowering | **BLOCKED** — dialectic V4's own gate (V0–V3 green at small scale) | — |
+
+**Not claimed:** that the residue improves recall or finds needles. Graded a
+pruner, never a proof.
+
 ## preparation-arc plan wave — 2026-08-19 (operator: "integration plans for all open arcs")
 
 Five plans, each PROPOSED (no code — the reset charter's audit-first order
