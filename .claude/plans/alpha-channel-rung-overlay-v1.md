@@ -276,10 +276,16 @@ each style *runs*. They are not two names for one list.
 **`recipe_dispatch` already exposes the pothole machinery**, and the signature
 is the tell:
 
-- `rung_delta() -> i16` — **signed**. A negative delta is a rung *demotion*,
-  which is precisely the operator's earlier chain: *epistemic pothole → rung
-  degradation → revision*. The descent is a first-class recipe outcome, not an
-  error path.
+- `rung_delta() -> i16`.
+  > **⊘ MY OWN ERROR, CORRECTED SAME DAY.** A first version of this line said
+  > *"signed — a negative delta is a rung demotion, precisely the pothole →
+  > rung degradation chain."* **False.** The doc states it is the *"escalation
+  > depth offset (the ORDER cost, not the mantissa direction): Ded +1 → Ind +2
+  > → Rev +3 → Abd +4 → Counterfactual +5"* — **all five values are positive**.
+  > `i16` is a type width, not a semantic. I inferred a meaning from a type and
+  > wrote it into a pushed plan; it is the same error class this whole arc is
+  > about — reading a field whose population does not support the claim built
+  > on it. Rung *degradation* is elsewhere and is not identified here.
 - `nan_disqualifier(ctx, id) -> Option<ThoughtField>` — fail-closed.
 - **`ladder(ctx) -> Vec<RecipeStep>`** — this already returns a **step
   sequence**, i.e. a program. `ogar-loco` is a program surface where every call
@@ -321,6 +327,125 @@ veto and which is the revision window, and does the −200 000 µs stamp belong 
 `Planning → Prune` or somewhere else?* Whoever answers should cite the source,
 not recall it.
 
+## §3g — "5 oder 14": both numbers are right, for two different criteria
+
+Operator, 2026-08-21: *"nur 5 oder 14 von 34(36) sind bereits voll verdrahtet,
+die anderen haben keinen trust value oder Verlässlichkeit."*
+
+**The number is written in the source, and it settles the ambiguity.**
+`recipe_kernels.rs` (the doc heading the `delta_conf` capability method):
+
+> *"Measured over the 34: **no** kernel declares `ThoughtField::Confidence` in
+> `writes`, and only **14** can move `delta_conf` — while 31 are
+> `Operational`. So `maturity().is_production()` is a far weaker statement than
+> 'this tactic can move the confidence number', and a caller that needs the
+> latter must ask for it."*
+
+So the ladder, each rung measured this session:
+
+| criterion | count | what it means |
+|---|---:|---|
+| have a kernel | **34 / 34** | `all_kernels() -> [&dyn Tactic; 34]`, macro-generated — every recipe executes |
+| self-declare `Operational` | **31 / 34** | per-impl `maturity()`; 3 are `Demonstration` (`Are`, `Zcf`, `Hkf`) |
+| **can move `delta_conf`** | **14 / 34** | the source's own measured count |
+| **route through real NARS truth functions** | **5** | and **not in this crate** — see below |
+
+**The 5 are in a different crate, and that is the structural half of the
+finding.** Measured: **0 of the 34 contract kernels reference `TruthValue` at
+all**. The truth functions live in `lance-graph-planner/src/nars/tactics.rs`
+(33 `TruthValue::` uses — `deduction` 1, `induction` 1, `abduction` 2,
+`revise` 2, `analogy` 2), which is the V1 shipping location
+(`E-DIALECTIC-V1-TACTICS-IN-PLANNER-1`, the five RCR/TR/ASC/CAS/CR). **There
+are two tactic surfaces**: a 34-kernel contract catalogue and a 5-tactic
+planner engine over the one truth algebra. A plan that says "the 34 exist"
+without saying which surface invites building on the wrong one.
+
+**The failure mode is already named in-tree**, which is why this matters more
+than a maturity label:
+`E-A-WATCHER-THAT-CANNOT-DISSENT-IS-NOT-A-WATCHER-1` — a dispatch that samples
+`k` tactics and asks whether any moved `ctx.confidence` spends a slot on every
+sampled tactic that *cannot* move it, and gets guaranteed agreement back. The
+source cites the live instance (codex, PR #971): the newly-`Operational` `Etd`
+rewrites `candidates` and returns `0.0` forever. **A maturity filter does not
+close this; only the capability question does.**
+
+**Consequence for this plan, and it is a hard one:** any overlay deliverable
+that samples tactics must filter on **`delta_conf` capability**, never on
+`maturity().is_production()`. §3b's grading axis is worthless if the tactics
+feeding it cannot move a confidence number — the band would be set by
+unanimity among mutes. Added as an acceptance condition on `D-ACR-7`.
+
+## §3h — MUL over the rung layers (long-term)
+
+Operator: *"long-term sollte MUL (meta uncertainty layer) auch mit den rung
+layers und den epistemic knowledge vs potholes verkabelt werden über denken und
+kanban_actor higher order thinking."*
+
+`mul` is shipped (`contract::mul` — `SituationInput`, `MulAssessment`,
+`DkPosition`, `TrustTexture`, `FlowState`, `GateDecision`; planner `mul/` with
+Dunning-Kruger, trust qualia, compass, homeostasis, gate). It is a
+**meta**-layer, which is the same tier as §3's second-order overlay — so the
+join is not new plumbing but a question of *which* column each writes.
+
+Recorded as long-term, deliberately without a deliverable id, because it
+depends on all three of: `RowFocusMask` (D-ACR-1), the 59..63 reading contract
+(D-ACR-7), and the `delta_conf` filter above. Sequencing it before those would
+wire a meta-layer onto an axis nobody has pinned yet. Note also that
+`TrustTexture` appears on **both** sides — as a MUL output and as one of the
+two 2-bit readings of CE64 59..60 — so the §3b fence ("the reading must be
+named per `(classid, rail)`") is load-bearing exactly here.
+
+## §3i — Two filters the operator named, graded honestly
+
+**`temporal.rs` as a hindsight-tautology filter.** *(plausible, unbuilt)*
+`QueryReference::at(version, rung)` makes "was this derivable **at** v?" a
+question the substrate can actually answer, which is what turns hindsight into
+something falsifiable rather than rhetorical. The board already carries the
+matching pair — S3.8: *"potholes, **first_possible vs first_derived**, strict
+historical replay"*. A claim whose `first_possible` equals the beginning of the
+stream is derivable at every version and therefore discriminates nothing. This
+is a real use of a shipped primitive and needs no new type; it needs a probe.
+
+**NARS frequency as an eigenvalue filter.** *(CONJECTURE — analogy until
+measured)* The shape: a claim whose frequency `f` is unmoved by revision across
+contexts is a fixed point of the revision operator, and a fixed point carries no
+information about the context — which is what a tautology *is*. Combined with
+the filter above, "always derivable" and "never moved" would be the same
+property seen from two sides.
+
+**Split verdict, because the operator's follow-up cut it in two.**
+
+> *"Eigenvalue ist für MUL meta uncertainty Layer dunning kruger
+> overconfidence sicher auch ein Thema."*
+
+That is the stronger half, and it is **not** an analogy — it is Dunning-Kruger's
+own definition, operationalized. Justified confidence *moves* when disconfirming
+evidence arrives; **overconfidence is a confidence value that is a fixed point
+under evidence.** "Eigenvalue 1 under the revision operator" and "overconfident"
+are then the same statement, and MUL already has the carrier (`DkPosition`).
+
+**And §3g already measured a piece of that spectrum without calling it one.**
+`delta_conf` capability is exactly confidence-invariance: **20 of the 34 tactics
+cannot move a confidence number at all**, so their confidence output is
+invariant under every input — eigenvalue exactly 1, by construction, not by
+measurement error. Which makes
+`E-A-WATCHER-THAT-CANNOT-DISSENT-IS-NOT-A-WATCHER-1` and Dunning-Kruger **the
+same phenomenon at two levels**: a watcher that cannot dissent, and a confidence
+that cannot be lowered. That is mechanism, and it is why this half is
+probe-ready today: perturb the input, see whose confidence does not move.
+
+**The FREQUENCY half stays CONJECTURE.** "Tautology = fixed point of `f`" is
+still doing metaphorical work until someone shows revision is linear enough for
+a spectrum to mean anything, and `I-NOISE-FLOOR-JIRAK` is the fence: under weak
+dependence the naive statistical reading is wrong, and an eigenvalue argument is
+a statistical reading. **Falsifier before promotion:** take claims with measured
+near-constant `f` across contexts and show they are *independently* judged
+uninformative — if high-`f` stable claims turn out to be the load-bearing ones,
+the analogy is inverted and dies.
+
+The asymmetry is the useful part: the confidence half is measurable with what is
+already in the tree; the frequency half needs an argument nobody has made.
+
 ## §4 — Deliverables
 
 | D-id | Scope | Repo | Falsifier |
@@ -334,7 +459,9 @@ not recall it.
 | **D-ACR-6** | KJV prestaging: missing epistemic-causality nodes as episodic basins (§3d) | lance-graph | **BLOCKED** — HTT X3, the basin-promotion seam does not exist; needs the same mint as D-ACR-2 |
 | **D-ACR-9** | A `Vocabulary` impl exposing the 34 recipes as loco ops above `DOMAIN_FLOOR` (§3f); `ladder(ctx)` lowered to a loco program | OGAR | a pothole with a negative `rung_delta` executes as a loco call sequence and lands the same `RecipeStep` list `ladder()` returns |
 | **D-ACR-8** | Rubicon witness (§3e): focus-mask breadth/persistence across `Planning → CognitiveWork`; closes the Rubikon plan's open *"Thinking styles ↔ Rubikon"* item | lance-graph | broader in `Planning` than in `CognitiveWork` on a deliberated task **AND** indistinguishable on a single-forced-candidate task |
-| **D-ACR-7** | The 59..63 reading contract (§3b): name, per `(classid, rail)`, which lens applies and which witness carrier discriminates evidence-kind | lance-graph | a producer/consumer pair disagreeing about `TrustTexture` vs `CausalTopology` must FAIL, not return a plausible value |
+| **D-ACR-7** | The 59..63 reading contract (§3b): name, per `(classid, rail)`, which lens applies and which witness carrier discriminates evidence-kind. **Acceptance: any tactic sampling filters on `delta_conf` capability (14/34), never on `maturity().is_production()` (31/34)** — §3g | lance-graph | a producer/consumer pair disagreeing about `TrustTexture` vs `CausalTopology` must FAIL, not return a plausible value; and a sampling pass must reject a mute tactic |
+| **D-ACR-11** | DK/eigenvalue probe (§3i): perturb inputs, measure which tactics' confidence is invariant; cross-check the 20 non-`delta_conf` tactics land at invariance by construction | lance-graph | the 20 must show invariance (else the capability flag lies) **and** at least one of the 14 must actually move (else the flag is decoration) |
+| **D-ACR-10** | Hindsight probe (§3i): `first_possible` vs `first_derived` over `QueryReference::at` on a real trajectory | lance-graph | a claim derivable at every version must be reported as discriminating nothing |
 
 **Order is not negotiable:** D-ACR-0 (audit) → D-ACR-1 (the primitive) →
 D-ACR-7 (the reading contract — before anything writes a band) → D-ACR-3 (the
