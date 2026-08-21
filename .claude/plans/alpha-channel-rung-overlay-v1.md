@@ -257,6 +257,70 @@ overlay that *drives* a phase transition from a focus reading has rebuilt the
 scheduler this substrate removed. It reads; `PhaseCensus` already reads
 read-only in one `&self` pass, and that is the whole precedent.
 
+## §3f — ogar-loco executes the 34 recipes; revision runs in the pre-act window
+
+Operator, 2026-08-21: *"ogar-loco kann jetzt die 34,36 nars recipes direkt
+verwenden und in −220..0 über Revision die potholes und ggf reasoning with
+another style."*
+
+**Both numbers check out, measured this session:**
+
+| | count | where |
+|---|---:|---|
+| NARS recipes | **34** | `contract::recipe_dispatch::dispatch_order() -> [u8; 34]` |
+| ThinkingStyles | **36** | `contract::thinking::ThinkingStyle`, 36 variants |
+
+So *"reasoning with another style"* is a switch among the 36; the 34 are what
+each style *runs*. They are not two names for one list.
+
+**`recipe_dispatch` already exposes the pothole machinery**, and the signature
+is the tell:
+
+- `rung_delta() -> i16` — **signed**. A negative delta is a rung *demotion*,
+  which is precisely the operator's earlier chain: *epistemic pothole → rung
+  degradation → revision*. The descent is a first-class recipe outcome, not an
+  error path.
+- `nan_disqualifier(ctx, id) -> Option<ThoughtField>` — fail-closed.
+- **`ladder(ctx) -> Vec<RecipeStep>`** — this already returns a **step
+  sequence**, i.e. a program. `ogar-loco` is a program surface where every call
+  is `(function : value)`. **`ladder()`'s output IS a loco program**, and that
+  is mechanism rather than resemblance: one produces an ordered step list, the
+  other executes ordered `(fn : value)` calls over a 256-entry codebook.
+
+**⚠ The wiring does NOT exist yet, and the sentence should not be read as if it
+does.** Grep over `OGAR/crates/ogar-loco/src` for `recipe|Recipe|nars|Nars`
+returns **no files**. What is true is that loco is *domain-agnostic by design* —
+consumers implement `Vocabulary` and mint their own ops above `DOMAIN_FLOOR`,
+exactly as `ogar-dismech` did (`SEARCH_OPS`, `0xA3..0xA9`). So a recipe
+vocabulary is the natural next impl, and it is **unbuilt**. Recorded as
+`D-ACR-9`.
+
+### ⚠ OPEN — the window disagrees with the plan it would land in
+
+The operator's window is **−220..0**. `unified-soa-rubikon-integration-v1.md`
+§3 states the Libet veto window as **−550 ms .. −200 ms** and proposes stamping
+−200 000 µs on the `Planning → Prune` edge. These are not the same interval,
+and they are not reconcilable by rounding:
+
+| reading | interval | what happens there |
+|---|---|---|
+| the Rubikon plan | −550 .. −200 | veto, *before* the −200 mark |
+| the operator | −220 .. 0 | revision over potholes, style switch, *up to the act* |
+
+In the classic Libet paradigm the readiness potential begins ≈−550 ms and
+reported awareness of the intention (W) falls ≈−200 ms, which would put a
+*conscious* veto **after** W — i.e. in −200..0, the operator's interval —
+because before W there is nothing conscious to veto with. That favours the
+operator's reading, and would make the plan's −550..−200 the *pre-awareness*
+stretch rather than the veto window.
+
+**I am not ruling on it.** I have been wrong twice today asserting structure
+from memory, and this is a claim about an experimental paradigm, not about this
+codebase. It is recorded as `§8`-class open question: *which interval is the
+veto and which is the revision window, and does the −200 000 µs stamp belong on
+`Planning → Prune` or somewhere else?* Whoever answers should cite the source,
+not recall it.
+
 ## §4 — Deliverables
 
 | D-id | Scope | Repo | Falsifier |
@@ -268,13 +332,16 @@ read-only in one `&self` pass, and that is the whole precedent.
 | **D-ACR-4** | Second-order row (§3) over D-ACR-1 + D-ACR-2 | lance-graph | a rung-2 read reconstructs where rung-1 looked, on a fixture where the answer is known independently |
 | **D-ACR-5** | 64k lowering | lance-graph | **BLOCKED** — dialectic V4's own gate: V0–V3 green at small scale first |
 | **D-ACR-6** | KJV prestaging: missing epistemic-causality nodes as episodic basins (§3d) | lance-graph | **BLOCKED** — HTT X3, the basin-promotion seam does not exist; needs the same mint as D-ACR-2 |
+| **D-ACR-9** | A `Vocabulary` impl exposing the 34 recipes as loco ops above `DOMAIN_FLOOR` (§3f); `ladder(ctx)` lowered to a loco program | OGAR | a pothole with a negative `rung_delta` executes as a loco call sequence and lands the same `RecipeStep` list `ladder()` returns |
 | **D-ACR-8** | Rubicon witness (§3e): focus-mask breadth/persistence across `Planning → CognitiveWork`; closes the Rubikon plan's open *"Thinking styles ↔ Rubikon"* item | lance-graph | broader in `Planning` than in `CognitiveWork` on a deliberated task **AND** indistinguishable on a single-forced-candidate task |
 | **D-ACR-7** | The 59..63 reading contract (§3b): name, per `(classid, rail)`, which lens applies and which witness carrier discriminates evidence-kind | lance-graph | a producer/consumer pair disagreeing about `TrustTexture` vs `CausalTopology` must FAIL, not return a plausible value |
 
 **Order is not negotiable:** D-ACR-0 (audit) → D-ACR-1 (the primitive) →
 D-ACR-7 (the reading contract — before anything writes a band) → D-ACR-3 (the
-boundary) → D-ACR-8 (Rubicon witness) → D-ACR-2/4/6 (mint + second order +
-basins) → D-ACR-5. D-ACR-2
+boundary) → D-ACR-8 (Rubicon witness) → D-ACR-9 (loco recipe vocabulary) →
+D-ACR-2/4/6 (mint + second order + basins) → D-ACR-5. **D-ACR-9 additionally
+waits on the window question in §3f** — a revision pass cannot be stamped into
+an interval that two documents describe differently. D-ACR-2
 and everything after it sit behind an operator mint decision that this plan
 does not pre-empt.
 
