@@ -134,16 +134,39 @@ Two regimes, and the boundary between them is the whole rule:
 | mechanism | `WitnessEntry` / `WitnessTable<N=64>` / `WitnessLens<'a>` | the concept's own row |
 | alternative | `WideFieldMask` — *the field mask for thoughts*: which thought-fields participate, without naming a concept at all | — |
 
-**The witness carriers are live, not aspirational** (measured this session, file
-counts across crates, `target/` excluded):
+**⊘ CORRECTED (operator, 2026-08-21): these are THREE unrelated witness
+surfaces, not one family, and the plan's own table papered over that.**
 
-| carrier | files | verdict |
-|---|---:|---|
-| `WitnessLens<'a>` (`witness_fabric.rs:123`) | 11 | wired — planner, contract, holograph, deepnsm |
-| `WitnessTable<const N = 64>` (`witness_table.rs:112`) | 9 | wired |
-| `WitnessEntry` (`witness_table.rs:81`) | 8 | wired |
-| `CausalWitnessFacet` (`causal_witness.rs:201`) | — | (write-empty per the CV3 rebase report) |
-| **`EpisodicBasins`** (`arigraph/episodic.rs:79`) | **2** | **X3 confirmed: definition + `mod.rs` only** |
+| surface | files | maturity | is it AriGraph? |
+|---|---:|---|---|
+| `WitnessLens<'a>` / `WitnessTable<N=64>` / `WitnessEntry` (`witness_table.rs`, `witness_fabric.rs`) | 11 / 9 / 8 | wired, generic register-slab machinery | no — domain-agnostic |
+| `CausalWitnessFacet` (`causal_witness.rs:201`) | **18** | **wired and heavily consumed** — `lance-graph-planner::nars::meta_basin`, `style_strategy`, `dispatch_guard`, and `deepnsm-v2::wave.rs`'s versioned event window (`push`/`window_at`/`window_range`) | no — a 12-byte register of loci offsets, addressed by `(Locus, i8)`, never episodic memory |
+| **`EpisodicWitness64`** | **0** | **NOT A CODE SYMBOL AT ALL** — `soa_view.rs:272` states it plainly: *"is NOT YET a code symbol (a queued design)"* | **yes — this is the one the operator means by "episodic witness"** |
+| **`EpisodicBasins`** (`arigraph/episodic.rs:79`) | **2** | X3 confirmed: definition + `mod.rs` only | yes — the cold-path AriGraph type |
+
+**My previous entry mis-cited the CV3 rebase report's "write-empty" finding
+against `CausalWitnessFacet` — wrong target.** `CausalWitnessFacet` is not
+write-empty; it is the opposite, the most-consumed witness type in this
+sweep (18 files). The write-empty / EXISTS-UNCALLED finding belongs to
+`EpisodicWitness64`, which is not merely unwritten — it does not exist as
+Rust at all yet.
+
+**The AriGraph relationship, as the contract's own comment states it**
+(`soa_view.rs:262-270`): *"EpisodicWitness64 IS AriGraph living in the
+mailbox SoA view."* AriGraph today lives only in the cold path
+(`lance-graph::graph::arigraph`: `episodic` / `witness_corpus` /
+`triplet_graph`); EW64 would be that same graph promoted to a hot-path SoA
+column — the `CausalEdge64` W-slot to witness arc. `E-ARIGRAPH-IS-AN-ISLAND`
+names the gap directly: *"EW64/SpoWitness64 = 0 code symbols; the
+Lance→surreal→kanban subscription unbuilt; `HotWitness` = `todo!()`."*
+
+**And `bible_wave.rs` touches NONE of the four** — verified: its imports are
+entirely internal to `deepnsm_v2`, zero references to
+`CausalWitnessFacet`/`EpisodicBasins`/`witness_corpus`/`arigraph`. §3d's
+citation of it as "the whole-book falsifier" is accurate for what it
+measured (HHTL cascade coverage over Markov trajectories), but it is NOT
+evidence about episodic-basin prestaging, and §3d is corrected below to stop
+implying that.
 
 `WitnessLens` is a **lens**, which is the shape this needs: the row borrows the
 concept, it does not own a copy. That is the zero-copy law and
@@ -211,9 +234,15 @@ Operator: *"KJV Bible missing epistemic causality nodes that need to be
 prestaged with episodic basins."*
 
 `deepnsm-v2/examples/bible_wave.rs` is the whole-book falsifier that already
-ran. Prestaging its missing causality nodes as episodic basins is the
-**Type-B basin promotion** seam — and HTT **X3** records that it *does not
-exist*: `EpisodicMemory::basins()` (`episodic.rs:243`) returns `EpisodicBasins`
+ran — for HHTL cascade coverage over Markov trajectories. **⊘ CORRECTED:**
+it is NOT a falsifier for basin prestaging, and citing it as one was wrong;
+verified this session that it imports nothing from `arigraph`,
+`witness_corpus`, `EpisodicBasins`, or `CausalWitnessFacet`. §3a's audit of
+the witness surfaces found `bible_wave.rs` touches none of them.
+
+Prestaging missing causality nodes as episodic basins is the **Type-B basin
+promotion** seam, and HTT **X3** records that it *does not exist*:
+`EpisodicMemory::basins()` (`episodic.rs:243`) returns `EpisodicBasins`
 (`:79`) **by value**, with no `ValueTenant` slot reserved. Measured here: the
 type appears in **two** files, its own module and `arigraph/mod.rs`.
 
@@ -221,6 +250,33 @@ So this is not "someone should wire it" — a promoted basin is exactly a *new
 thinking-table row with no minted rail*, which puts it behind the same mint
 decision as D-ACR-2 (HTT §8 Q3). Recorded as `D-ACR-6`, blocked, with its
 blocker named.
+
+**Operator, 2026-08-21: "Bei KJV sind episodicwitness als fat concepts in
+den SoA."** Read as the design hazard for whoever builds D-ACR-6, not as a
+bug report on `bible_wave.rs` today — the file's own `Spo` struct is
+already the right shape and is the model to replicate, not the anti-pattern:
+
+```rust
+pub type WordId = u16;
+pub struct Spo { pub subject: WordId, pub predicate: WordId, pub object: WordId }
+```
+
+Three 16-bit indices into the shared `PaletteVocab`/Cam96 codebook — a
+reference, per §3a, not an inline concept. `TemporalStream` is
+`Vec<(u64, Spo)>`: thin rows, no verse text, no `Vsa16kF32` bundle stored
+per-triple.
+
+**The fat-concept failure mode arrives at the PROMOTION step, not before
+it.** A basin is a *cluster of witnessed triples*; the naive promotion is to
+materialise that cluster's content (full verse text, a per-basin bundle)
+inline in the basin row so a reader doesn't have to chase references — which
+is exactly what §3a forbids for atomic SoA rows. The correct shape is the
+one `Spo` already uses one level down: a basin row holds **references** into
+the triple stream (a version range via `QueryReference::at`, §3c) and into
+the vocab, never copies of their content. `D-ACR-6`'s acceptance criterion is
+extended to say so explicitly: a promoted basin's own row must stay
+index-width, with content reached only by following its references — the
+same test §3a's `WitnessLens` already passes.
 
 ## §3e — Rubicon: focus of attention is what witnesses the crossing
 
@@ -474,7 +530,7 @@ already in the tree; the frequency half needs an argument nobody has made.
 | **D-ACR-3** | The one-way invariant as a test, not prose: no ontology-owned write traces to a patient-tagged read through ANY call path (CodeRabbit-corrected from write-authorization-only) | lance-graph | the negative case is the test; a write whose call graph includes a session-tagged read is the bug, even if the write itself is authored by the ontology owner |
 | **D-ACR-4** | Second-order row (§3) over D-ACR-1 + D-ACR-2 | lance-graph | a rung-2 read reconstructs where rung-1 looked, on a fixture where the answer is known independently |
 | **D-ACR-5** | 64k lowering | lance-graph | **BLOCKED** — dialectic V4's own gate: V0–V3 green at small scale first |
-| **D-ACR-6** | KJV prestaging: missing epistemic-causality nodes as episodic basins (§3d) | lance-graph | **BLOCKED** — HTT X3, the basin-promotion seam does not exist; needs the same mint as D-ACR-2 |
+| **D-ACR-6** | KJV prestaging: missing epistemic-causality nodes as episodic basins, promoted rows kept index-width (§3d — never fat concepts) | lance-graph | **BLOCKED** — HTT X3, the basin-promotion seam does not exist; needs the same mint as D-ACR-2; when built, a promoted basin row must stay reference-only, same test as `WitnessLens` |
 | **D-ACR-9** | A `Vocabulary` impl exposing the 34 recipes as loco ops above `DOMAIN_FLOOR` (§3f); `ladder(ctx)` lowered to a loco program | OGAR | a pothole with a negative `rung_delta` executes as a loco call sequence and lands the same `RecipeStep` list `ladder()` returns |
 | **D-ACR-8** | Rubicon witness (§3e): focus-mask breadth/persistence across `Planning → CognitiveWork`; closes the Rubikon plan's open *"Thinking styles ↔ Rubikon"* item | lance-graph | broader in `Planning` than in `CognitiveWork` on a deliberated task **AND** indistinguishable on a single-forced-candidate task |
 | **D-ACR-7** | The 59..63 reading contract (§3b): name, per `(classid, rail)`, which lens applies and which witness carrier discriminates evidence-kind. **Acceptance: any tactic sampling filters on `delta_conf` capability (14/34), never on `maturity().is_production()` (31/34)** — §3g | lance-graph | a producer/consumer pair disagreeing about `TrustTexture` vs `CausalTopology` must FAIL, not return a plausible value; and a sampling pass must reject a mute tactic |
