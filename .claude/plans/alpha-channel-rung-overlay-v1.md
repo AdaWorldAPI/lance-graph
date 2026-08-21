@@ -1100,6 +1100,59 @@ not a new deliverable, and it is exactly what makes S3.8 (*"potholes,
 first_possible vs first_derived, strict historical replay"*) finally have a
 live consumer instead of staying an audit-only board line.
 
+## §3p — Knowing and not-knowing while reading: the pothole as forward suspense
+
+Operator, 2026-08-21: *"Das Wissen und Nicht-Wissen beim Lesen. Das epistemic
+knowledge pothole als 'binge reading' forward suspense."*
+
+This does not add a mechanism — it names what §3o's horizon binding and §3i's
+hindsight filter already produce as a byproduct, once you stop reading them
+only as audit guards and read them as the reader's actual experience.
+
+**A pothole IS a suspense state, not merely a contamination risk.** At verse
+`v`, `QueryReference::at(v, rung)` bounds what is derivable — that bound is
+"not yet knowing." A claim staged there with `RecipeInference::Revision`
+(`recipe_dispatch.rs:79`, `rung_delta` +3, §3g) is, structurally, an OPEN
+forward hypothesis: NARS has not yet folded the confirming or disconfirming
+evidence in. The moment a later verse supplies it and `TruthValue::revise`
+fires (the 5-tactic routing in `stance.rs`, §3d), the pothole closes — that
+closing event is what "resolving the suspense" *is*, mechanically, not just
+figuratively. "Binge reading" names the experiential correlate of a stream of
+these open→closed transitions arriving faster than the reader's own revision
+cycle would naturally pace them.
+
+**Why this is not a new deliverable.** Everything it needs already has a
+home:
+- the horizon that manufactures not-knowing → `D-ACR-15`'s live
+  `QueryReference::at` binding (§3o);
+- the closing event → `RecipeInference::Revision` dispatch, already graded
+  `delta_conf`-capable (§3g, §3i);
+- the measurable signal → **span between a claim's `first_possible` staging
+  (pothole opens, low/undetermined confidence) and its `Revision`-tactic
+  resolution (pothole closes)** — this is a duration over TWO fields
+  (`first_possible`/`first_derived`, board S3.8) that already exist; no new
+  CE64 bit, no new tenant.
+
+**What this sharpens, concretely: `D-ACR-10`'s falsifier gains a second half.**
+The hindsight probe currently only checks the negative case (a claim
+derivable at every version discriminates nothing). The positive case this
+section names: a claim's open-pothole SPAN should be measurably non-zero on a
+real narrative trajectory — some claims stay open for many verses before a
+later `because`-cue (`stance.rs`, §3d) closes them. A probe that finds every
+pothole closing on the SAME verse it opened has not built suspense at all —
+it has built instant lookup wearing NARS's vocabulary, the same "watcher that
+cannot dissent" shape §3i already named for confidence-invariance
+(`E-A-WATCHER-THAT-CANNOT-DISSENT-IS-NOT-A-WATCHER-1`). Two-sided, matching
+this plan's own falsifiability discipline: spans must vary (real suspense)
+AND must eventually close for claims with a real resolving cue (not
+permanent unknowing).
+
+**What this is not.** No claim that the system "feels" suspense — piece 7's
+non-goal stands (§5: "a pruner… not a proof"). The claim is narrower and
+mechanical: the pothole-open interval is the same object whether you call it
+"unresolved NARS confidence" or "narrative suspense," and D-ACR-10's
+falsifier should measure it as a DURATION, not just a boolean.
+
 ## §4 — Deliverables
 
 | D-id | Scope | Repo | Falsifier |
@@ -1122,7 +1175,7 @@ live consumer instead of staying an audit-only board line.
 | **D-ACR-15** | Rung-dependency reasoning: implement `WorkflowDAG::plan()` for real — the strategy's own comment is the spec. **Bound to `QueryReference::at(node version, rung)` per node (§3o) — no hindsight leakage** | lance-graph | a query with `has_workflow` actually dispatches through a built `DEPENDS_ON` graph, not the 0.9-affinity stub; a node's conclusion changes if a LATER version is fed in and does NOT change if only earlier versions are, proving the horizon actually binds |
 | **D-ACR-16** | Nested kanban cascade for awareness build-up (§3m) | lance-graph | **NOT DESIGNED** — zero shipped precedent, matching `D-ACR-13`'s original honest-empty verdict |
 | **D-ACR-11** | DK/eigenvalue probe (§3i): perturb inputs, measure which tactics' confidence is invariant; cross-check the 20 non-`delta_conf` tactics land at invariance by construction | lance-graph | the 20 must show invariance (else the capability flag lies) **and** at least one of the 14 must actually move (else the flag is decoration) |
-| **D-ACR-10** | Hindsight probe (§3i): `first_possible` vs `first_derived` over `QueryReference::at` on a real trajectory | lance-graph | a claim derivable at every version must be reported as discriminating nothing |
+| **D-ACR-10** | Hindsight probe (§3i, extended §3p): `first_possible` vs `first_derived` over `QueryReference::at` on a real trajectory. **Extended to measure pothole-open SPAN, not just a boolean** — the interval from a claim's `first_possible` staging to its `RecipeInference::Revision` closing | lance-graph | a claim derivable at every version must be reported as discriminating nothing; **AND** spans across a real trajectory must vary (non-zero suspense) while eventually closing for claims with a real resolving `because`-cue — a probe where every span is 0 has built lookup, not suspense |
 
 **Order is not negotiable:** D-ACR-0 (audit) → D-ACR-1 (the primitive) →
 D-ACR-7 (the reading contract — before anything writes a band) → D-ACR-3 (the
