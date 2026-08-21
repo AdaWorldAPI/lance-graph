@@ -309,3 +309,28 @@ all three inside the shape fixed here, none of them a new format.
 > zero-copy as compliance condition). Point 4's measurement stays true — no
 > transfer operation exists — but is regraded from GAP to **CONFIRMS**: its
 > absence is the design, not the debt.
+
+> **⊘⊘ REFINED (operator, same day, interrupting the push): "in dynamischem
+> Substrat in place mit Lance versioning, in statischem Ontologie-Substrat
+> Alpha layer."** The ⊘ block above made the overlay THE mechanism everywhere.
+> Refined: **handover has TWO ARMS, selected by the substrate's nature** —
+>
+> | substrate | attention travels as | residue/history carrier | ruling it lands on |
+> |---|---|---|---|
+> | **static ontology** (shared, durable, cacheable — must stay uncontaminated) | an alpha-layer entry (`AttentionFocusFacet` in the next rung layer) at the same address | the overlay itself — discardable whole | alpha-plan §2 contamination boundary |
+> | **dynamic substrate** (session / patient / working rows — allowed to change) | an **in-place write by the row's one owner** | **Lance versioning** — episodic = Lance versions; rung n+1's *"where did rung n look"* is a version-range read, `QueryReference::at(v, rung)`: a projection, zero copies, replayable | `E-MARKOV-TEMPORAL-STREAM-1`; alpha-plan §3c (*"a read at a version, never a stored history column"*) |
+>
+> The symmetry is the principle stated once: **attention leaves a replayable
+> trace without contaminating what it observed.** On the static side the trace
+> is a separate layer, because the substrate must not move; on the dynamic side
+> the trace is the substrate's own motion, because it moves anyway and Lance
+> keeps every version. Two implementations, one invariant — and both arms are
+> zero-copy readings, both one-writer-clean (the layer's owner writes its
+> layer; the row's owner writes its row).
+>
+> **The dynamic arm needs NOTHING built.** Lance versioning and
+> `QueryReference::at` are shipped; the version stream IS the alpha channel of
+> the dynamic side. What remains is solely the overlay arm's n+1-layer insert
+> convention (`RowFocusMask` shipped today) plus the Hole lifecycle stamps —
+> and D-ACR-16's cascade is now fully shaped: rung layers stacked over the
+> static substrate, version-range reads over the dynamic one.

@@ -189,3 +189,10 @@ of a transfer operation is the design, not a gap). Full correction:
 overlay operation (`RowFocusMask::insert` in the n+1 layer — shipped, D-ACR-1),
 and D-ACR-16's cascade is the stack of rung layers, the card being the focus
 entry, never the row.
+
+**⊘⊘ Second refinement, same day:** handover is TWO-ARMED by substrate nature —
+static ontology → alpha-layer entry (contamination boundary); **dynamic
+substrate → in place with Lance versioning** (episodic = Lance versions;
+rung n+1 reads "where rung n looked" via `QueryReference::at(v, rung)` — zero
+copies, replayable). The dynamic arm needs nothing built. Full table:
+`known-unknown-handover-network-v1.md` §9 ⊘⊘.
