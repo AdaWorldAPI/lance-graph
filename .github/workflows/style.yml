@@ -148,6 +148,12 @@ jobs:
           components: rustfmt
       - name: Check formatting (lance-graph)
         run: cargo fmt --manifest-path crates/lance-graph/Cargo.toml -- --check
+      # causal-edge: workspace-excluded, so `cargo fmt --all` never reaches it.
+      # It is rustfmt-clean today (verified before adding this step); the check
+      # keeps it that way. Its clippy debt is NOT gated here — see the
+      # rust-test.yml step for why.
+      - name: Rustfmt causal-edge (workspace-excluded, previously ungated)
+        run: cargo fmt --manifest-path crates/causal-edge/Cargo.toml -- --check
       # deepnsm is a standalone, workspace-excluded codec crate, so
       # `cargo fmt --all` never reaches it. It was brought to a rustfmt-clean
       # baseline in this PR; check it explicitly so it can't silently drift.
