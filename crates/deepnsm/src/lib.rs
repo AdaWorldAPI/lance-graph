@@ -54,10 +54,6 @@
 pub mod codebook;
 pub mod context;
 pub mod encoder;
-/// The OBO Ontology vocabulary — the second codebook, read through the
-/// contract mirror. See the module docs for why the two address spaces stay
-/// separate.
-pub mod ontology_vocab;
 pub mod parser;
 pub mod pipeline;
 pub mod pos;
