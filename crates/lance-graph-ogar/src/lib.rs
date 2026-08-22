@@ -119,6 +119,7 @@ pub use ogar_class_view::OgarClassView;
 pub use ogar_vocab::Class;
 
 pub mod bridges;
+pub mod recipe_vocab;
 
 pub mod actions;
 pub use actions::OgarActionProvider;

@@ -4794,6 +4794,7 @@ dependencies = [
  "lance-graph-contract 0.1.0",
  "lance-graph-ontology",
  "ogar-class-view",
+ "ogar-loco",
  "ogar-ontology",
  "ogar-vocab",
 ]
@@ -5957,6 +5958,10 @@ dependencies = [
  "lance-graph-contract 0.1.0 (git+https://github.com/AdaWorldAPI/lance-graph?branch=main)",
  "ogar-vocab",
 ]
+
+[[package]]
+name = "ogar-loco"
+version = "0.1.0"
 
 [[package]]
 name = "ogar-ontology"

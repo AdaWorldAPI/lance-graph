@@ -1,3 +1,13 @@
+## 2026-08-22 — arxiv-grounder: BPE × 6×2×8bit synergy check (operator-commissioned)
+
+One agent (arxiv-grounder, background). Input: the measured facet fact set
+(G6D2 carving, 4-ary centroid hierarchy, prefix containment, six-site
+convergence) + five graded questions. Output: RHYME-not-mechanism verdict,
+per-claim [G]/[H]/[S] with citations, five named hazards, three
+falsifiable probes. Banked as
+`E-BPE-IS-RHYME-VQ-IS-THE-MECHANISM-FOR-6X2X8BIT-1` (this commit).
+No files written by the agent; the entry is the record.
+
 ## 2026-08-21 — 5+3 council: D-ACR-7 (the 59..63 reading contract) — RATIFIED
 
 **Run shape:** Phase 0 spec (main thread) → 5 savants parallel (all Sonnet:
