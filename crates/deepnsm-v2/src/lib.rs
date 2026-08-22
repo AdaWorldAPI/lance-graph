@@ -42,6 +42,8 @@ pub mod corpus;
 pub mod evidence;
 pub mod fsm;
 pub mod introspect;
+/// D-ACR-6 — writing basins as SoA rows AT TOC node keys.
+pub mod promote;
 pub mod reason;
 pub mod shape;
 pub mod space;

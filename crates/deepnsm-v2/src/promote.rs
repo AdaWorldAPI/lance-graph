@@ -1,0 +1,319 @@
+//! `promote` — writing basins as SoA rows **at TOC node keys**.
+//!
+//! The step `D-ACR-6` was blocked on, now that its rail is minted and the tree
+//! is spawned. A basin stops being a partition held in RAM and becomes a row
+//! addressed at a literary unit.
+//!
+//! # Why the key is the whole point
+//!
+//! `E-HERMENEUTIK-RUNG-LADDER-1`: a basin keyed by a bare SUBJECT is rung-0 —
+//! it keeps grammatical adjacency and discards genre, pericope and canonical
+//! position, leaving SIZE as the only between-basin signal (which is what three
+//! independent gates then measured). Promoting at a [`TocEntry`]'s address
+//! keys the basin by **literary unit**, and it needs no change to the rail,
+//! because a node's cascade position lives in its own key.
+//!
+//! So this module writes TWO things into one row and they answer different
+//! questions:
+//!
+//! | half | carries | question |
+//! |---|---|---|
+//! | the KEY | classid + the TOC path folded into HEEL/HIP/TWIG/LEAF | *where in the book* |
+//! | the LANE | [`BasinRow`] — subject, count, self-code, version range | *what was observed there* |
+//!
+//! # The tier fold is generic, not hand-carved
+//!
+//! [`tiers_of`] packs a [`NiblePath`]'s nibbles **left-aligned** into the
+//! 16-nibble space the canon's tiers span, so
+//! `NiblePath::from_guid_prefix_v3(key).prefix(depth)` returns the original
+//! path by construction. Carving book/chapter/verse into bytes by hand would
+//! split a chapter across two tiers and would be a second home for an address
+//! the path already holds.
+//!
+//! # What this module does not decide
+//!
+//! **The classid is a parameter.** A corpus/book concept is a MINT, and minting
+//! is not this module's call — it takes the classid it is given and refuses
+//! nothing about it. Likewise `self_code` is copied from the basin's own
+//! [`Cam96`](crate::space::Cam96) when one exists and left zero when it does
+//! not; a fabricated centroid would be worse than an honest absence.
+
+use crate::basin::BasinCode;
+use crate::toc::TocEntry;
+use lance_graph_contract::canonical_node::{
+    classid_read_mode, EdgeBlock, NodeGuid, NodeRow, ValueTenant,
+};
+use lance_graph_contract::episodic_basin::{BasinRow, BASIN_ROW_BYTES};
+use lance_graph_contract::hhtl::{NiblePath, MAX_DEPTH};
+
+/// Fold a path into the four canonical tiers, **left-aligned**.
+///
+/// The v3 read (`NiblePath::from_guid_prefix_v3`) assembles
+/// `heel<<48 | hip<<32 | twig<<16 | leaf` as a full 16-nibble path, so a path
+/// shorter than 16 must occupy the HIGH nibbles for its prefix to survive the
+/// round trip. `packed()` right-aligns, hence the shift.
+#[must_use]
+pub fn tiers_of(path: NiblePath) -> (u16, u16, u16, u16) {
+    let (bits, depth) = path.packed();
+    let shift = 4 * u32::from(MAX_DEPTH - depth);
+    let full = bits << shift;
+    (
+        ((full >> 48) & 0xFFFF) as u16,
+        ((full >> 32) & 0xFFFF) as u16,
+        ((full >> 16) & 0xFFFF) as u16,
+        (full & 0xFFFF) as u16,
+    )
+}
+
+/// The node key for a TOC address under `classid`.
+///
+/// Minted through `mint_for(classid_read_mode(classid).tail_variant, …)` — the
+/// symmetric spine — never `NodeGuid::new`, which is the V1 tail the canon
+/// forbids for new units.
+#[must_use]
+pub fn key_at(classid: u32, path: NiblePath, family: u32, identity: u32) -> NodeGuid {
+    let (heel, hip, twig, leaf) = tiers_of(path);
+    NodeGuid::mint_for(
+        classid_read_mode(classid).tail_variant,
+        classid,
+        heel,
+        hip,
+        twig,
+        leaf,
+        family,
+        identity,
+    )
+}
+
+/// A [`BasinRow`] from this crate's own [`BasinCode`], over a version range.
+///
+/// `member_count` saturates rather than wraps: a basin with more than 65_535
+/// members reports the ceiling, which is visibly wrong, instead of a small
+/// number that looks plausible.
+#[must_use]
+pub fn row_of(code: &BasinCode, version_from: u64, version_to: u64) -> BasinRow {
+    BasinRow {
+        subject: code.subject,
+        member_count: u16::try_from(code.members).unwrap_or(u16::MAX),
+        self_code: code.self_code,
+        version_from,
+        version_to,
+    }
+}
+
+/// Write a basin into a row's [`ValueTenant::EpisodicBasin`] lane, in place.
+///
+/// The offset is **derived** from the tenant descriptor
+/// ([`ValueTenant::value_offset`]), never written as a literal — the table's own
+/// rule, after a reservation was recorded as an absolute offset three times
+/// running and went stale each time.
+pub fn write_lane(row: &mut NodeRow, basin: &BasinRow) {
+    let off = ValueTenant::EpisodicBasin.value_offset();
+    row.value[off..off + BASIN_ROW_BYTES].copy_from_slice(&basin.to_le_bytes());
+}
+
+/// Read the lane back. Returns [`BasinRow::EMPTY`] for an unwritten lane —
+/// zero-fallback, so "no basin promoted here" is a value, not an error.
+#[must_use]
+pub fn read_lane(row: &NodeRow) -> BasinRow {
+    let off = ValueTenant::EpisodicBasin.value_offset();
+    let mut b = [0u8; BASIN_ROW_BYTES];
+    b.copy_from_slice(&row.value[off..off + BASIN_ROW_BYTES]);
+    BasinRow::from_le_bytes(&b)
+}
+
+/// Promote one basin to a full row at a TOC address.
+///
+/// `identity` distinguishes rows that share an address — the caller's
+/// discriminator, not one this module invents.
+#[must_use]
+pub fn promote(entry: &TocEntry, basin: &BasinRow, classid: u32, identity: u32) -> NodeRow {
+    let mut row = NodeRow {
+        key: key_at(classid, entry.path, 0, identity),
+        edges: EdgeBlock::default(),
+        value: [0u8; 480],
+    };
+    write_lane(&mut row, basin);
+    row
+}
+
+/// Promote many, pairing each basin with the TOC entry it was observed at.
+///
+/// Pairs are `(entry, basin)` because a basin has no opinion about where it
+/// belongs — the promoter's caller decides that, and this signature makes the
+/// decision explicit instead of inferring it.
+#[must_use]
+pub fn promote_all(pairs: &[(TocEntry, BasinRow)], classid: u32) -> Vec<NodeRow> {
+    pairs
+        .iter()
+        .enumerate()
+        .map(|(i, (e, b))| promote(e, b, classid, u32::try_from(i).unwrap_or(0)))
+        .collect()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::toc::{spawn, CorpusToc, TocLevel};
+    use std::collections::HashSet;
+
+    const CLASSID: u32 = 0x0301_0000;
+
+    fn toy() -> Vec<TocEntry> {
+        spawn(
+            &CorpusToc {
+                chapters: vec![vec![3, 2], vec![1]],
+            },
+            3,
+        )
+    }
+
+    fn basin(subject: u16, members: u32) -> BasinRow {
+        BasinRow {
+            subject,
+            member_count: u16::try_from(members).unwrap_or(u16::MAX),
+            self_code: [9; 12],
+            version_from: 4,
+            version_to: 11,
+        }
+    }
+
+    /// **The load-bearing claim: the key still IS the TOC address.**
+    ///
+    /// Folding a path into tiers and reading it back through the canon's own
+    /// v3 fold must return the path. If it does not, a promoted basin is at an
+    /// address nobody can ascend from — which is precisely the gap the tree was
+    /// spawned to close.
+    #[test]
+    fn the_key_round_trips_to_the_toc_path() {
+        let entries = toy();
+        assert!(!entries.is_empty(), "anti-vacuity: there are entries");
+        let mut checked = 0usize;
+        for e in &entries {
+            let key = key_at(CLASSID, e.path, 0, 1);
+            let back = NiblePath::from_guid_prefix_v3(&key);
+            assert_eq!(
+                back.prefix(e.path.depth()),
+                Some(e.path),
+                "{e:?}: the key does not carry its own address back"
+            );
+            checked += 1;
+        }
+        assert!(checked >= 9, "only {checked} addresses round-tripped");
+    }
+
+    /// Distinct literary units get distinct keys. Two basins sharing a key
+    /// would be unreadable apart once written.
+    #[test]
+    fn distinct_toc_entries_get_distinct_keys() {
+        let entries = toy();
+        let keys: HashSet<[u8; 16]> = entries
+            .iter()
+            .map(|e| *key_at(CLASSID, e.path, 0, 0).as_bytes())
+            .collect();
+        assert_eq!(keys.len(), entries.len(), "an address collided");
+        // …and the ancestry survives the fold: a verse's key folds to a path
+        // whose parent-prefix is its chapter's path.
+        let verse = entries
+            .iter()
+            .find(|e| e.level == TocLevel::Verse)
+            .expect("a verse exists");
+        let chapter = entries
+            .iter()
+            .find(|e| {
+                e.level == TocLevel::Chapter && e.book == verse.book && e.chapter == verse.chapter
+            })
+            .expect("its chapter exists");
+        assert!(
+            chapter.path.is_ancestor_of(verse.path),
+            "the chapter must remain an ancestor of its verse"
+        );
+    }
+
+    /// The lane round-trips through a real row, and writing it **touches no
+    /// other byte of the 480-byte slab** — the row-level field-isolation half.
+    #[test]
+    fn the_lane_round_trips_and_disturbs_nothing_else() {
+        let e = toy()[0];
+        let b = basin(77, 5);
+        let row = promote(&e, &b, CLASSID, 3);
+        assert_eq!(
+            read_lane(&row),
+            b,
+            "the lane must read back what was written"
+        );
+
+        // Every byte outside the lane is still zero.
+        let off = ValueTenant::EpisodicBasin.value_offset();
+        for (i, byte) in row.value.iter().enumerate() {
+            if (off..off + BASIN_ROW_BYTES).contains(&i) {
+                continue;
+            }
+            assert_eq!(*byte, 0, "byte {i} outside the lane was written");
+        }
+        // Anti-vacuity: the lane itself is NOT all zero, so the loop above is
+        // not trivially true of the whole slab.
+        assert!(row.value[off..off + BASIN_ROW_BYTES]
+            .iter()
+            .any(|b| *b != 0));
+
+        // An unwritten row reads as "no basin", not as an error.
+        let bare = NodeRow {
+            key: row.key,
+            edges: EdgeBlock::default(),
+            value: [0u8; 480],
+        };
+        assert!(read_lane(&bare).is_empty());
+    }
+
+    /// `row_of` carries the basin's own Cam96 through unchanged, and saturates
+    /// the member count rather than wrapping.
+    #[test]
+    fn row_of_carries_the_self_code_and_saturates_the_count() {
+        let code = BasinCode {
+            subject: 42,
+            self_code: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12],
+            width: 0.5,
+            members: 7,
+            contradiction: 0.25,
+        };
+        let r = row_of(&code, 2, 8);
+        assert_eq!(r.subject, 42);
+        assert_eq!(r.self_code, code.self_code, "the Cam96 passes through");
+        assert_eq!(r.member_count, 7);
+        assert_eq!((r.version_from, r.version_to), (2, 8));
+
+        // Saturation, not wrap: 70_000 members must not report 4_464.
+        let huge = BasinCode {
+            members: 70_000,
+            ..code
+        };
+        assert_eq!(row_of(&huge, 0, 1).member_count, u16::MAX);
+    }
+
+    /// `promote_all` keeps each basin with the entry it was paired to — a
+    /// reordering would put a basin at the wrong literary unit.
+    #[test]
+    fn promote_all_keeps_each_basin_at_its_own_entry() {
+        let entries = toy();
+        let pairs: Vec<(TocEntry, BasinRow)> = entries
+            .iter()
+            .take(4)
+            .enumerate()
+            .map(|(i, e)| (*e, basin(u16::try_from(i).unwrap() + 1, i as u32 + 1)))
+            .collect();
+        let rows = promote_all(&pairs, CLASSID);
+        assert_eq!(rows.len(), pairs.len());
+        for (row, (e, b)) in rows.iter().zip(&pairs) {
+            assert_eq!(read_lane(row), *b, "basin landed on the wrong row");
+            assert_eq!(
+                NiblePath::from_guid_prefix_v3(&row.key).prefix(e.path.depth()),
+                Some(e.path),
+                "row is keyed at the wrong literary unit"
+            );
+        }
+        // Anti-vacuity: the subjects really differ, so a shuffle would show.
+        let subs: HashSet<u16> = pairs.iter().map(|(_, b)| b.subject).collect();
+        assert_eq!(subs.len(), pairs.len());
+    }
+}
