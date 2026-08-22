@@ -20,9 +20,9 @@
 //! never embedded in or emitted by this example (license: unverified, do not
 //! redistribute). Only derived shape statistics are printed.
 
-use deepnsm_v2::lexicon::{normalise, Lexicon};
 use deepnsm_v2::shape::{detect_all, Representation, ShapeClass};
 use deepnsm_v2::{parse_to_spo, PaletteVocab, Pos, Spo, Tagged};
+use std::collections::HashMap;
 
 /// Strip the Gutenberg header/footer; return the body between the START/END
 /// markers (or the whole text if unmarked).
@@ -45,16 +45,33 @@ fn main() {
     ))
     .expect("academic_20k.csv (sibling deepnsm crate, local-only)");
     let mut vocab = PaletteVocab::new();
-    // The academic table is lemma-keyed like `lemmas_5k.csv`, so the COCA form
-    // table goes under it — otherwise every inflected verb is untagged and the
-    // FSM emits nothing for the sentence. See `deepnsm_v2::lexicon`.
-    let lexicon = Lexicon::from_academic_20k(&vocab_csv).with_forms(
-        &std::fs::read_to_string(concat!(
-            env!("CARGO_MANIFEST_DIR"),
-            "/../deepnsm/word_frequency/word_forms.csv"
-        ))
-        .expect("word_forms.csv (sibling deepnsm crate)"),
-    );
+    // The academic table is lemma-keyed, so the COCA form table goes under it —
+    // otherwise every inflected verb is untagged and the FSM emits nothing.
+    let forms_csv = std::fs::read_to_string(concat!(
+        env!("CARGO_MANIFEST_DIR"),
+        "/../deepnsm/word_frequency/word_forms.csv"
+    ))
+    .expect("word_forms.csv (sibling deepnsm crate)");
+    let mut pos_of: HashMap<String, Pos> = HashMap::new();
+    for line in vocab_csv.lines().skip(1) {
+        let f: Vec<&str> = line.split(',').collect();
+        let (Some(word), Some(pos)) = (f.get(3), f.get(4)) else {
+            continue;
+        };
+        pos_of
+            .entry(word.to_lowercase())
+            .or_insert_with(|| coca_pos(pos));
+    }
+    for line in forms_csv.lines().skip(1) {
+        let f: Vec<&str> = line.split(',').collect();
+        let (Some(pos), Some(word)) = (f.get(2), f.get(5)) else {
+            continue;
+        };
+        pos_of
+            .entry(word.to_lowercase())
+            .or_insert_with(|| coca_pos(pos));
+    }
+
     // header: ID,band,status,word,Pos,...
     let mut words: Vec<String> = Vec::new();
     for line in vocab_csv.lines().skip(1) {
@@ -95,7 +112,12 @@ fn main() {
             let ends = tok.ends_with('.') || tok.ends_with('!') || tok.ends_with('?');
             let w = normalise(tok).unwrap_or_default();
             if let Some(id) = vocab.id(&w) {
-                tagged.push(Tagged::new(id, lexicon.pos(&w)));
+                let pos = pos_of
+                    .get(&w)
+                    .copied()
+                    .or_else(|| archaic_pos(&w))
+                    .unwrap_or(Pos::Other);
+                tagged.push(Tagged::new(id, pos));
             }
             if ends {
                 flush(&mut tagged, &mut all);
@@ -173,4 +195,48 @@ fn main() {
          (ancestry→key); dag = MaterializedFabric/TriePlusEscalate; cyclic = BoundedEscalate.\n\
          The detector classifies each genre's OWN shapes — it is not Bible-specific."
     );
+}
+
+/// COCA PoS letter → [`Pos`]. Inline here: `deepnsm_v2::lexicon` was deleted
+/// after an audit found the planner's `insight_coca_read` already grounds this
+/// in the master COCA `lexicon.tsv` (with lemmatisation). This example keeps a
+/// minimal local tagger rather than re-adding a v2 module that duplicates it.
+fn coca_pos(letter: &str) -> Pos {
+    match letter {
+        "n" | "p" => Pos::Noun,
+        "v" => Pos::Verb,
+        "j" => Pos::Adj,
+        "a" | "d" => Pos::Det,
+        _ => Pos::Other,
+    }
+}
+
+/// Early-modern forms COCA does not carry. The explicit list is load-bearing:
+/// `thou`/`hath`/`shall`/`saith` are among the corpus's most frequent tokens and
+/// none matches the `-eth`/`-est` suffix rule.
+fn archaic_pos(w: &str) -> Option<Pos> {
+    match w {
+        "thou" | "thee" | "ye" => Some(Pos::Noun),
+        "thy" | "thine" => Some(Pos::Det),
+        "shalt" | "hath" | "doth" | "saith" | "spake" | "begat" | "art" | "wilt" | "hast"
+        | "shall" | "cometh" | "wast" => Some(Pos::Verb),
+        "unto" | "thereof" | "wherefore" | "verily" | "yea" | "lo" => Some(Pos::Other),
+        _ => {
+            if w.ends_with("eth") || w.ends_with("est") {
+                Some(Pos::Verb)
+            } else {
+                None
+            }
+        }
+    }
+}
+
+/// Ascii letters only, lowercased; `None` under two letters.
+fn normalise(tok: &str) -> Option<String> {
+    let w: String = tok
+        .chars()
+        .filter(char::is_ascii_alphabetic)
+        .collect::<String>()
+        .to_lowercase();
+    (w.len() >= 2).then_some(w)
 }

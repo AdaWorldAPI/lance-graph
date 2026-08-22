@@ -41,23 +41,11 @@ pub mod codebook;
 pub mod corpus;
 pub mod evidence;
 pub mod fsm;
-/// D-ACR-6 — writing basins as SoA rows AT TOC node keys.
-/// D-ACR-6 — the triple stream laid over the spawned TOC tree.
-pub mod hydrate;
 pub mod introspect;
-pub mod lexicon;
-/// The adapter `wave` declares missing: `Spo` triples -> `CausalWitnessFacet` loci.
-pub mod loci;
-pub mod promote;
 pub mod reason;
 pub mod shape;
 pub mod space;
 pub mod spo;
-/// All four TEKAMOLO lanes, hydrated by a left-corner, style-driven read.
-pub mod tekamolo;
-/// D-ACR-6 precondition — the table of contents spawned as an HHTL tree of
-/// SoA node addresses, before any triple-level reasoning runs.
-pub mod toc;
 pub mod vocab;
 pub mod wave;
 
@@ -79,7 +67,6 @@ pub use introspect::{
     confidence_delta_recount, confidence_delta_self, most_frequent_belief, provenance_check,
     ConfidenceAnswer, ProvenanceReport,
 };
-pub use loci::{loci_from_triples, AnteRule, LociReport};
 pub use shape::{
     detect, detect_all, detect_all_measured, detect_measured, MeasuredShape, Representation,
     ShapeClass, ShapeReport,
