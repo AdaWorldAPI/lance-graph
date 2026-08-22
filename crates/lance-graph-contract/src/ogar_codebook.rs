@@ -171,6 +171,30 @@ pub fn classid_concept_domain(classid: u32) -> ConceptDomain {
     canonical_concept_domain(classid_canon(classid))
 }
 
+/// Every mirrored concept in one domain, in codebook order — the zero-dep
+/// twin of `ogar_vocab::concepts_in_domain`.
+///
+/// # Why a consumer needs this and not just [`canonical_concept_domain`]
+///
+/// The domain tag answers *"which domain is this id in"*. The question a
+/// consumer actually has is the inverse — *"what is IN this domain"* — and
+/// without it the options are to hard-code a list (a second source of truth
+/// that drifts) or to dep the authority crate (which the plug-and-play posture
+/// exists to avoid). This is derived from [`CODEBOOK`] by the same domain
+/// function every other reader uses, so it cannot disagree with the mirror it
+/// is filtering.
+///
+/// **`ConceptDomain::Ontology` was empty until 2026-08-22** and an empty answer
+/// reads exactly like "this domain has nothing in it" — which is how it was
+/// read. The operator's ruling that the domains are minted in `ogar-vocab`
+/// is what made this function able to answer at all.
+pub fn concepts_in_domain(domain: ConceptDomain) -> impl Iterator<Item = (&'static str, u16)> {
+    CODEBOOK
+        .iter()
+        .filter(move |(_, id)| canonical_concept_domain(*id) == domain)
+        .map(|(name, id)| (*name, *id))
+}
+
 /// Map a coarse curator `source_domain` tag (`"project"`, `"erp"`, `"german-erp"`)
 /// to the [`ConceptDomain`] its promotions live in. `None` for an unrecognised tag
 /// (the producer's source-domain → typed-domain seam). Mirrors OGAR
@@ -521,6 +545,23 @@ pub const CODEBOOK: &[(&str, u16)] = &[
     ("pricelist", 0x0209),
     ("pricelist_rule", 0x020A),
     ("unit_of_measure", 0x020B),
+    // ── 0x03XX — Ontology domain (minted in ogar-vocab 2026-08-22, operator
+    //    ruling "the domains should be minted in ogar-vocab"; the block there
+    //    carries the posture it reverses and what the prior split cost) ──
+    ("mondo", 0x0301),
+    ("hpo", 0x0302),
+    ("uberon", 0x0303),
+    ("pato", 0x0304),
+    ("ro", 0x0305),
+    ("ro_relation_body", 0x0306),
+    ("bfo", 0x0340),
+    ("cob", 0x0341),
+    ("iao", 0x0342),
+    ("obi", 0x0343),
+    ("obcs", 0x0344),
+    ("sepio", 0x0345),
+    ("eco", 0x0346),
+    ("fbbi", 0x0347),
     // ── 0x04XX — Weather / Atmosphere domain ──
     // Canonical cell meanings minted by OGAR #272. W1 field/level/unit slots
     // remain ClassView-owned payload structure, not promoted concept rows.
@@ -684,6 +725,45 @@ impl LabelDTO {
 
 #[cfg(test)]
 mod tests {
+
+    /// **The Ontology domain answers now.** It returned an empty iterator
+    /// before the mint, and an empty answer is indistinguishable from "this
+    /// domain holds nothing" — which is how it was read.
+    ///
+    /// Both halves, on non-trivial input: a domain that IS populated reports
+    /// its members, and a domain deliberately left empty still reports empty.
+    #[test]
+    fn concepts_in_domain_answers_for_ontology_and_stays_silent_for_a_reserved_block() {
+        let onto: Vec<_> = concepts_in_domain(ConceptDomain::Ontology).collect();
+        assert!(
+            onto.len() >= 14,
+            "the Ontology domain must carry the OBO core, the relation body and \
+             the meta-study spine, got {onto:?}"
+        );
+        for (name, id) in &onto {
+            assert_eq!(id >> 8, 0x03, "{name} is not in the 0x03 block");
+            assert_eq!(canonical_concept_domain(*id), ConceptDomain::Ontology);
+        }
+        // The three claimants are all present — the point of one mint site.
+        for want in ["mondo", "ro_relation_body", "bfo"] {
+            assert!(onto.iter().any(|(n, _)| *n == want), "{want} missing");
+        }
+
+        // Silence half, non-trivially: OSINT is a real reserved domain that is
+        // deliberately row-free, so it must still come back empty.
+        assert_eq!(
+            concepts_in_domain(ConceptDomain::Osint).count(),
+            0,
+            "a reserved domain must stay empty — otherwise this filter passes everything"
+        );
+
+        // Anti-vacuity: the filter really filters.
+        assert!(
+            onto.len() < CODEBOOK.len(),
+            "one domain cannot be the whole codebook"
+        );
+    }
+
     use super::*;
     use crate::NodeGuid;
 

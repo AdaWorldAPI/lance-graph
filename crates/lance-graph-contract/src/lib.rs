@@ -92,6 +92,8 @@ pub mod doc_graph;
 /// `classify_ddl_type`, `EmissionCounts`, `count_emission`), sibling of
 /// [`classid_scan`]. Requested by the op-nexgen consumer session.
 pub mod emission_scan;
+/// D-ACR-6 — the LE codec for the `EpisodicBasin` rail (references, never content).
+pub mod episodic_basin;
 pub mod episodic_edges;
 pub mod escalation;
 pub mod exploration;

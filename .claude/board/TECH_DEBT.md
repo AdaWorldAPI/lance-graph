@@ -1,3 +1,32 @@
+## TD-DEEPNSM-V2-SESSION-RESIDUE (2026-08-22) — OPEN
+
+Three leftovers from the corpus-addressing session, surfaced by its own review
+rather than by a gate. None is caught by CI.
+
+1. **An inert feature listing with a false stated cause.**
+   `crates/deepnsm-v2/Cargo.toml` pins
+   `lance-graph-contract = { …, features = ["guid-v3-tail"] }` with a comment
+   claiming that without it every key minted before 2026-08-22 was V1. The
+   feature is `default`-on (`lance-graph-contract/Cargo.toml:42`) and the crate
+   never set `default-features = false`, so it was **never off**. The change is
+   a no-op and the reason is fabricated — the failure mode of
+   `E-A-DOC-COMMENT-CAN-GIVE-THE-WRONG-REASON-FOR-A-CORRECT-GUARD-1`, except
+   here the guard is inert too. Whatever made those keys V1, it was not this.
+
+2. **`CorpusSplit::markers` has zero consumers.** Correct, aligned to `verses`,
+   and covered by five tests including a real anti-vacuity check — but its only
+   readers (`toc.rs`, `hydrate.rs`, `examples/toc_hydrate.rs`) were deleted in
+   the same PR. A public field on a public struct that nothing reads.
+
+3. **The `word_forms.csv` layering is unverified.** `load_pos` in
+   `examples/{bible_wave,genre_shapes}.rs` layers `word_forms.csv` under the
+   lemma table so inflected forms stop falling to `Pos::Other` — measured at the
+   time as 40,767 → 70,393 triples. Examples carry no tests and the pipeline
+   that measured it is gone. A real gap-fix with no falsifier.
+
+`git checkout origin/main -- crates/deepnsm-v2/` is the clean state; (3) is the
+only item worth re-landing deliberately, with a test.
+
 ## TD-LANCE-GRAPH-OGAR-IS-EXCLUDED-SO-CI-NEVER-LINTS-IT-EITHER (2026-08-22) — OPEN
 
 **Same structural cause as `TD-CAUSAL-EDGE-IS-EXCLUDED-…` below, second

@@ -1,3 +1,101 @@
+## 2026-08-22 — E-HHTL-NAMES-TWO-STRUCTURES-1 — "HHTL" is a homonym: the cascade key's `(X;Y)` tile and `NiblePath`'s subClassOf router are different objects, and conflating them produced five false structural claims in one session
+
+**Status:** FINDING (the collision is documented on both sides; the *cost* is
+measured on one session's output). **Confidence:** High — every claim below was
+checked against the cited line by a council code-truth pass (inventory 17/17).
+
+Two shipped structures wear the same name:
+
+| "HHTL" as… | is | where |
+|---|---|---|
+| the cascade key's coordinate reading | `(X;Y)` per `(part_of:is_a)` tile — `part_of` = X = hi byte, `is_a` = Y = lo byte | `E-V3-BASINS-ARE-MEREOLOGY-NOT-LABELS` (:12055) |
+| the Abstammung router | `NiblePath` — the `subClassOf` (P279) path, DOLCE basins 0..3, `mask-inherits-as-delta`, "walking DOWN the path is IS-A inheritance", ONE tree axis only | `hhtl.rs:1-38,56,176` |
+
+**The first is an address; the second is a taxonomy walk.** A containment
+hierarchy (book ⊃ chapter ⊃ verse) belongs to neither by default — it is
+**mereology**, which `le-contract.md:56` carries in the *other byte of the same
+pair*, and reading it onto the taxonomy axis is silently type-wrong.
+
+**Measured cost.** A session addressing the KJV corpus used the name as though
+it denoted one hierarchical path and produced five structural claims, every one
+false: that HHTL is the Book·Chapter·Verse path; that Book·Chapter "lands
+exactly" on HEEL (numerology over a self-chosen `ceil(log16 n)` carving); that
+the translation lane lives in the classid; that a CAM-PQ code could ride in the
+key tail; and that "MailboxId IS the NiblePath" is settled (it is flagged
+DOC-ONLY, `tenants.md` §7.3). None survived a read of the definitions.
+
+**The generalization:**
+
+> A name that denotes two structures is not a documentation problem, it is a
+> **type collision with no compiler behind it**. The two readings share a width
+> (12 bytes) and a carving (`6×(8:8)`), so every syntactic check passes and only
+> semantics disagree — which is precisely the class of error no gate catches.
+
+Practical consequence: when a design sentence contains "HHTL", say **which** —
+cascade-key `(X;Y)` or `NiblePath` — or the sentence is ambiguous. Nearest prior
+art is a "nibble homonym" table (`handovers/2026-08-21-2200:110-114`) and a
+traced collision section (`ATTENTION_MASK_AUDIT_2026_08_21.md:75`); neither
+names this pair, which is why it is banked here.
+
+Cross-ref: `E-V3-PART-OF-IS-A-TILE` (:12266), `E-FACET-8-8-ALWAYS` (:12088),
+`knowledge/ast-as-partof-isa-address.md:23-28` (the 3/4/6 count distinction).
+
+## 2026-08-22 — E-A-CONSTANT-OFFSET-CANNOT-ALIGN-TWO-VERSIFICATIONS-1 — the versification map's KJV side is exact, and 51 of its offsets address a verse that does not exist; the shape, not the values, is the defect
+
+**Status:** FINDING (arithmetic on the map's own columns — no scoring
+involved). **Confidence:** High for the 51; the head/tail split (22) reuses the
+original detector's cheap prefix-anchor signal and is a diagnosis, not a proof.
+
+**The map is right where it can be.** `rosetta-pd-bundle/versification_map.tsv`
+declares `kjv_verse_count` for every (lane, book, chapter); it matches the
+actual KJV lane for **3,567 / 3,567** rows (1,189 chapters × 3 lanes), with no
+gaps, no extras, and a dense KJV lane (count == max verse number everywhere).
+The offset census reproduces its report exactly (luther1545 36 /
+elberfelder1905 3 / bkr 8).
+
+**51 rows declare an offset that cannot be applied end-to-end:** 47 have
+`kjv_verse_count + offset > lane_verse_count`; 4 have `1 + offset < 1`. The
+dominant cluster is luther1545 Psalms carrying `offset=+1` on chapters where
+**both lanes have identical verse counts** — self-contradictory: an endpoint
+must fall off.
+
+**Psalm 84, the report's own worked receipt, shows why.** Luther counts the
+superscription as v1, so `+1` is correct for KJV v1–v10 — but the lane has
+**dropped KJV v11** ("For the Lord God is a sun and shield"), so KJV v12
+aligns at `+0`. The detection is linguistically right; the *carrier* cannot
+hold the answer.
+
+**The generalization:**
+
+> An integer offset is position made portable by arithmetic. It cannot express
+> either degenerate case an alignment actually needs — an **address with no
+> witness**, or a **witness with no address** — so on any interior insertion or
+> deletion it is forced to pick a number that is right for part of the chapter
+> and wrong for the rest.
+
+This is also why the map's measured payoff is thin (+21 verses, 0.14 pp over
+the naive join): where an offset was found, it is partly wrong. The report's
+caveat covers whole-*chapter* divergence and explicitly observed none; the
+failure here is intra-chapter verse loss, which that model does not name.
+
+**Operator ruling arising (2026-08-22):** *when referencing other versions you
+can never use token position — always the verse ADDRESS, distinguished-name
+style.* Alignment across lanes is a relation between addresses, including the
+two degenerate forms; repairing individual offset rows keeps the shape that
+cannot represent them.
+
+Corroborating contrast from the same pass: the Composite Gospel Index carries
+601 references as `Book.Chapter.Verse` ranges rather than offsets, is versified
+against **RSV**, and **600 of 601 resolved against the KJV lane on first
+contact** (the single failure is a typed book mismatch,
+`hasReference="Matt.4.33-Mark.4.34"` under `isPartOf="#Mark"`). An address
+ported across versifications; an offset did not.
+
+**Cross-refs — same asset, distinct defect classes** (added by the 5+3 council so the
+asset's finding history does not fragment across four ids): `E-VERSIFICATION-IS-PER-EDITION-NOT-PER-TRADITION-1` (:7487) and `E-A-MARGIN-IS-NOT-A-QUALITY-SCORE-1` (:5813) find *value* and *confidence-column* defects in this same map; this entry finds the **carrier shape** defect. `E-RCC-1-FOUR-LANES-ONE-KEY-1` (:7499) is the design the map serves.
+
+Artifacts + full defect census: `.claude/handovers/2026-08-22-corpus-addressing-session-to-next.md`.
+
 ## 2026-08-22 — E-A-DOC-COMMENT-CAN-GIVE-THE-WRONG-REASON-FOR-A-CORRECT-GUARD-1 — the guard was right, the justification was false, and the test read the justification
 
 **Status:** FINDING (measured — the mutation was run and initially did NOT

@@ -21,4 +21,9 @@ crate is untouched; this is the parallel v2.
 [workspace]
 
 [dependencies]
-lance-graph-contract = { path = "../lance-graph-contract" }
+# `guid-v3-tail` is REQUIRED, not optional. Without it `mint_for` compiles
+# only its V1 arm and silently falls back to the V1 tail for every V3 classid —
+# dropping `leaf` and writing family/identity as u24 at bytes 10..16, where
+# `identity_v2()` (bytes 14..16) cannot read them back. Every key this crate
+# minted before 2026-08-22 was a V1 key for that reason.
+lance-graph-contract = { path = "../lance-graph-contract", features = ["guid-v3-tail"] }

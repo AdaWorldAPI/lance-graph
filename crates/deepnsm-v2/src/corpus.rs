@@ -23,15 +23,28 @@ pub const GUTENBERG_FOOTER: &str = "*** END OF THE PROJECT GUTENBERG";
 /// parse landing exactly on it is the bug's signature.
 pub const KJV_OLD_TESTAMENT_VERSES: usize = 23_145;
 
-/// Is `tok` a `d+:d+` verse marker (e.g. `1:1`, `22:21`)?
+/// Parse a `d+:d+` verse marker (e.g. `1:1`, `22:21`) into `(chapter, verse)`.
+///
+/// This is the ONE rule; [`is_verse_marker`] delegates to it, so the predicate
+/// and the parse can never disagree about what a marker is. The explicit
+/// ascii-digit guard is load-bearing: `u16::from_str` accepts a leading `+`,
+/// which would make `+1:1` a marker here but not under the old predicate.
+/// Out-of-`u16` components (`99999:1`) are not markers — the widest real book
+/// is 150 chapters.
+#[must_use]
+pub fn parse_verse_marker(tok: &str) -> Option<(u16, u16)> {
+    let (c, v) = tok.split_once(':')?;
+    let digits = |s: &str| !s.is_empty() && s.bytes().all(|b| b.is_ascii_digit());
+    if !digits(c) || !digits(v) {
+        return None;
+    }
+    Some((c.parse().ok()?, v.parse().ok()?))
+}
+
+/// Is `tok` a `d+:d+` verse marker? See [`parse_verse_marker`].
 #[must_use]
 pub fn is_verse_marker(tok: &str) -> bool {
-    tok.split_once(':').is_some_and(|(a, b)| {
-        !a.is_empty()
-            && !b.is_empty()
-            && a.bytes().all(|c| c.is_ascii_digit())
-            && b.bytes().all(|c| c.is_ascii_digit())
-    })
+    parse_verse_marker(tok).is_some()
 }
 
 /// Split Gutenberg-formatted scripture into verses: a whitespace token shaped
@@ -71,6 +84,18 @@ pub fn split_verses(text: &str) -> Vec<String> {
 pub struct CorpusSplit {
     /// The verses, in order.
     pub verses: Vec<String>,
+    /// The `(chapter, verse)` marker that OPENED each verse, positionally
+    /// aligned with `verses` — `markers[i]` opened `verses[i]`.
+    ///
+    /// Collected in the SAME walk that produces `verses`, which is the point:
+    /// a caller that needs the markers must not re-scan the raw text with its
+    /// own `split_whitespace().filter(is_verse_marker)` loop. Such a loop does
+    /// not apply the footer trim and would admit any `d+:d+` token from the
+    /// Gutenberg header or license footer as if it were scripture. On the
+    /// shipped KJV file that second walk happens to be clean (measured: zero
+    /// markers outside the body), but nothing in the file's structure
+    /// guarantees it — the alignment here does.
+    pub markers: Vec<(u16, u16)>,
     /// Did the walk emit at least one verse that *began* after a New Testament
     /// heading? Detected case-insensitively, from the token stream.
     ///
@@ -100,6 +125,7 @@ pub fn split_verses_detailed(text: &str) -> CorpusSplit {
     };
 
     let mut verses: Vec<String> = Vec::new();
+    let mut markers: Vec<(u16, u16)> = Vec::new();
     let mut cur = String::new();
     let mut in_body = false;
     // Two-token state machine over "new" "testament", case-insensitive.
@@ -122,8 +148,9 @@ pub fn split_verses_detailed(text: &str) -> CorpusSplit {
             }
             saw_new = tok_eq_ci(tok, "new");
         }
-        if is_verse_marker(tok) {
+        if let Some(m) = parse_verse_marker(tok) {
             in_body = true;
+            markers.push(m);
             if !cur.is_empty() {
                 verses.push(std::mem::take(&mut cur));
                 if cur_started_after_heading {
@@ -150,8 +177,14 @@ pub fn split_verses_detailed(text: &str) -> CorpusSplit {
             crossed = true;
         }
     }
+    // A marker whose verse never accumulated any body text (two markers in a
+    // row, or a marker as the final token) would leave `markers` longer than
+    // `verses` and silently de-align every later index. Truncate rather than
+    // ship a mis-aligned pair; the alignment is the field's whole contract.
+    markers.truncate(verses.len());
     CorpusSplit {
         verses,
+        markers,
         crossed_new_testament: crossed,
     }
 }
@@ -252,6 +285,67 @@ mod tests {
     }
 
     #[test]
+    fn markers_are_positionally_aligned_with_verses() {
+        let s = split_verses_detailed("3:16 alpha 4:1 beta 4:2 gamma");
+        assert_eq!(s.verses, vec!["alpha", "beta", "gamma"]);
+        assert_eq!(s.markers, vec![(3, 16), (4, 1), (4, 2)]);
+    }
+
+    #[test]
+    fn markers_do_not_admit_footer_or_header_tokens() {
+        // The falsifier for the second-walk exposure: a `d+:d+` token AFTER
+        // the footer. A caller re-scanning the raw text with its own
+        // `split_whitespace().filter(is_verse_marker)` would collect 9:9 as a
+        // third marker and de-align every downstream index from there on. The
+        // splitter's own walk trims at the footer, so it cannot.
+        let src = "1:1 a 1:2 b \
+                   *** END OF THE PROJECT GUTENBERG EBOOK 10 *** \
+                   see section 9:9 of the license";
+        let s = split_verses_detailed(src);
+        assert_eq!(s.verses.len(), 2, "footer text must not become a verse");
+        assert_eq!(s.markers, vec![(1, 1), (1, 2)]);
+
+        // Anti-vacuity: the naive second walk really does over-collect, so the
+        // assertion above is discriminating and not tautological.
+        let naive = src
+            .split_whitespace()
+            .filter(|t| is_verse_marker(t))
+            .count();
+        assert_eq!(naive, 3, "the naive walk over-collects — that IS the bug");
+    }
+
+    #[test]
+    fn a_trailing_marker_with_no_text_does_not_misalign() {
+        // A marker as the final token opens a verse that never accumulates,
+        // so it is dropped from `verses`. `markers` must drop it too.
+        let s = split_verses_detailed("1:1 alpha 1:2");
+        assert_eq!(s.verses.len(), 1);
+        assert_eq!(s.markers, vec![(1, 1)]);
+    }
+
+    #[test]
+    fn markers_cross_the_testament_separator() {
+        // The bare `***` fence between the testaments is not a marker and not
+        // a terminator: the walk carries straight through it. 4:6 -> 1:1 is
+        // the real file's boundary (Malachi 4:6 -> Matthew 1:1), and 4:6 is
+        // exactly where the historical `contains("***") => break` stopped.
+        let s = split_verses_detailed("4:6 malachi last *** The New Testament 1:1 matthew first");
+        assert_eq!(s.markers, vec![(4, 6), (1, 1)]);
+        assert!(s.crossed_new_testament);
+    }
+
+    #[test]
+    fn a_marker_is_exactly_what_the_parse_accepts() {
+        assert_eq!(parse_verse_marker("22:21"), Some((22, 21)));
+        // `u16::from_str` would take the `+`; the digit guard refuses it.
+        assert_eq!(parse_verse_marker("+1:1"), None);
+        assert!(!is_verse_marker("+1:1"));
+        // Out of u16 range — not a chapter number any book has.
+        assert_eq!(parse_verse_marker("99999:1"), None);
+        assert!(!is_verse_marker("99999:1"));
+    }
+
+    #[test]
     fn marker_detection_rejects_non_numeric_colons() {
         assert!(is_verse_marker("1:1"));
         assert!(is_verse_marker("22:21"));
@@ -275,6 +369,7 @@ mod tests {
         // Simulated by a split whose walk never saw the heading.
         let truncated = CorpusSplit {
             verses: vec!["old verse".to_string()],
+            markers: vec![(1, 1)],
             crossed_new_testament: false,
         };
         assert_eq!(
@@ -348,6 +443,7 @@ mod tests {
         // ...and the gate must still be able to FAIL on that same casing.
         let truncated = CorpusSplit {
             verses: vec!["old verse".to_string()],
+            markers: vec![(1, 1)],
             crossed_new_testament: false,
         };
         assert_eq!(crossed_into_new_testament(upper, &truncated), Some(false));
