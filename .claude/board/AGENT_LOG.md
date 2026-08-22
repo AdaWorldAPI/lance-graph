@@ -1,3 +1,25 @@
+## 2026-08-22 — D-ACR-9 second half (main thread, no subagents)
+
+- **D-ids:** D-ACR-9 (second half — the grounding gate).
+- **Files:** `crates/lance-graph-ogar/src/recipe_vocab.rs` (+240/-1).
+- **Added:** `grounded_program(ctx, census)`, `refusal_of(ctx, census, f)`,
+  `enum Refusal { NotARecipe, AboveCeiling{rung,ceiling}, Ungrounded(field) }`.
+- **The load-bearing choice:** the grounding verdict is READ from
+  `recipe_dispatch::ladder(ctx)`, never recomputed from `nan_disqualifier`.
+  Two implementations of one gate can disagree; one cannot. The falsifier
+  asserts the program equals `ladder()`'s fired set in `ladder()`'s order.
+- **Tests:** 8 in `recipe_vocab`, 93 crate-wide, all green. `cargo fmt` clean.
+- **Mutations run (3):** (1) drop `disqualified_by.is_none()` → pothole test
+  fails "34 vs 34" AND the reason/program tie fails; (2) same mutation, second
+  test — fired; (3) swap the gate order → **did NOT fire at first**. Fixed by
+  adding an intersection fixture (search for an id that trips both gates);
+  re-ran, fired on recipe 17. Written up as
+  `E-A-DOC-PRECEDENCE-CLAIM-CAN-PASS-EIGHT-GREEN-TESTS-1`.
+- **Clippy:** 13 errors in this crate, **byte-identical with the change
+  stashed** → all pre-existing. Filed as `TD-LANCE-GRAPH-OGAR-IS-EXCLUDED-…`.
+- **Outcome:** D-ACR-9 shipped both halves. §3f's revision-window question
+  remains open and untouched; nothing in this module depends on it.
+
 ## 2026-08-22 — arxiv-grounder: BPE × 6×2×8bit synergy check (operator-commissioned)
 
 One agent (arxiv-grounder, background). Input: the measured facet fact set

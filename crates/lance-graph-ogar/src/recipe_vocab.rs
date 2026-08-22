@@ -23,6 +23,20 @@
 //! [`recipe_dispatch::dispatch_order`] (ascending rung, then id — the
 //! escalation ladder itself).
 //!
+//! # Two gates, and they answer different questions
+//!
+//! [`ladder_program`] is the whole ladder; the two gates narrow it:
+//!
+//! | gate | surface | refuses because the board is… |
+//! |---|---|---|
+//! | awareness | the kanban census ([`max_rung_admitted`]) | not **willing** to go that deep |
+//! | epistemic | the NaN pothole (`ladder(ctx)`) | not **able** — a required input is undefined |
+//!
+//! [`admitted_program`] applies the first, [`grounded_program`] both, and
+//! [`refusal_of`] reports which one spoke. They are kept distinguishable
+//! because an unwilling ladder and an unable one are different diagnoses, and
+//! a bare absence conflates them.
+//!
 //! # `6×2×8bit↑n` — why the operand is NOT a flat index
 //!
 //! A recipe's operand is **where to think**, and "where" ranges over the whole
@@ -55,7 +69,10 @@
 //! below depends on it.
 
 use lance_graph_contract::kanban::KanbanColumn;
-use lance_graph_contract::recipe_dispatch::{dispatch_order, inference, rung, RecipeInference};
+use lance_graph_contract::recipe_dispatch::{
+    dispatch_order, inference, ladder, nan_disqualifier, rung, RecipeInference,
+};
+use lance_graph_contract::recipe_kernels::{ThoughtCtx, ThoughtField};
 use lance_graph_contract::recipes::recipe;
 use ogar_loco::vocabulary::{ValueCodebook, Vocabulary};
 use ogar_loco::{FnIndex, DOMAIN_FLOOR};
@@ -232,6 +249,82 @@ pub fn inference_of(f: FnIndex) -> Option<RecipeInference> {
     recipe_of(f).map(inference)
 }
 
+/// Why an op is **not** in [`grounded_program`]. `None` from [`refusal_of`]
+/// means it lowered.
+///
+/// Two gates refuse for genuinely different reasons and a caller auditing its
+/// own orchestration needs to tell them apart: an `AboveCeiling` step is one
+/// the board is not *willing* to take, an `Ungrounded` step is one it is not
+/// *able* to take. Collapsing both into a bare absence would make the ladder's
+/// shape unattributable — the Versuchsleitereffekt
+/// [`RecipeStep`](lance_graph_contract::recipe_dispatch::RecipeStep) exists to
+/// record.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Refusal {
+    /// The byte names no recipe — every shared-core op, and every unminted
+    /// byte in the domain range.
+    NotARecipe,
+    /// The recipe sits deeper than the census admits (the AWARENESS gate).
+    AboveCeiling {
+        /// The recipe's own rung.
+        rung: u8,
+        /// What the census admitted.
+        ceiling: u8,
+    },
+    /// A required input is NaN or empty in this context (the GROUNDING gate) —
+    /// the epistemic pothole, naming the field that is missing.
+    Ungrounded(ThoughtField),
+}
+
+/// The ladder a given board may take **and** can actually ground, in dispatch
+/// order — the awareness gate and the epistemic gate composed.
+///
+/// # Why this delegates to [`recipe_dispatch::ladder`] instead of re-deriving
+///
+/// [`admitted_program`] gates on the census alone, so it will happily lower a
+/// recipe whose required inputs are NaN — a call the dispatcher itself would
+/// refuse. A program that emits calls its own dispatcher rejects is exactly the
+/// drift this module's mapping is supposed not to have, and re-deriving
+/// [`nan_disqualifier`](lance_graph_contract::recipe_dispatch::nan_disqualifier)
+/// here would make the two decisions two implementations that can disagree.
+/// So the grounding half is READ from `ladder(ctx)` rather than recomputed:
+/// there is one gate, and this function lowers its verdict.
+///
+/// The census ceiling is applied on top, and it is the OUTER gate — a board
+/// that will not go that deep does not ask whether it could.
+#[must_use]
+pub fn grounded_program<F>(ctx: &ThoughtCtx, census: F) -> Vec<FnIndex>
+where
+    F: Fn(KanbanColumn) -> usize,
+{
+    let ceiling = max_rung_admitted(census);
+    ladder(ctx)
+        .into_iter()
+        .filter(|s| s.rung <= ceiling && s.disqualified_by.is_none())
+        .filter_map(|s| op_of(s.id))
+        .collect()
+}
+
+/// The reason an op is absent from [`grounded_program`], or `None` if it is
+/// present. The gates are reported in the order they are applied — ceiling
+/// first, grounding second — so a recipe that is both too deep AND ungrounded
+/// reports `AboveCeiling`, deterministically.
+#[must_use]
+pub fn refusal_of<F>(ctx: &ThoughtCtx, census: F, f: FnIndex) -> Option<Refusal>
+where
+    F: Fn(KanbanColumn) -> usize,
+{
+    let Some(id) = recipe_of(f) else {
+        return Some(Refusal::NotARecipe);
+    };
+    let ceiling = max_rung_admitted(census);
+    let r = rung(id);
+    if r > ceiling {
+        return Some(Refusal::AboveCeiling { rung: r, ceiling });
+    }
+    nan_disqualifier(ctx, id).map(Refusal::Ungrounded)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -391,6 +484,171 @@ mod tests {
         // The knob is not decoration: raising the ceiling admits more, and the
         // maximum admits the whole ladder.
         assert_eq!(admitted_program(census(usize::MAX, 0)).len(), RECIPE_COUNT);
+    }
+
+    /// A fully grounded context: every scalar finite, both collections
+    /// non-empty. Nothing here is undefined, so nothing may be disqualified.
+    fn grounded() -> ThoughtCtx {
+        ThoughtCtx {
+            beliefs: vec![(1, 0.8, 0.7), (2, 0.3, 0.6)],
+            ..ThoughtCtx::new(vec![0.9, 0.5, 0.1])
+        }
+    }
+
+    /// A census that admits the whole ladder, so a test can isolate the
+    /// GROUNDING gate from the awareness gate.
+    fn wide_open(c: KanbanColumn) -> usize {
+        census(usize::MAX, 0)(c)
+    }
+
+    /// **The pothole falsifier.** A NaN in one required input removes exactly
+    /// the recipes that read it — and the program that results is precisely
+    /// what `ladder()` itself would fire, never a second opinion.
+    ///
+    /// Both directions, on non-trivial input: a grounded board lowers the whole
+    /// ladder; a potholed board lowers strictly less but never nothing.
+    #[test]
+    fn an_epistemic_pothole_removes_exactly_the_recipes_that_read_it() {
+        let ok = grounded();
+        let mut holed = grounded();
+        holed.free_energy = f32::NAN;
+
+        let full = grounded_program(&ok, wide_open);
+        let partial = grounded_program(&holed, wide_open);
+
+        // Silence half: nothing is undefined, so the grounding gate refuses
+        // nobody and the program is the whole ladder.
+        assert_eq!(
+            full,
+            ladder_program(),
+            "a fully grounded board lowers the entire ladder"
+        );
+        // Fire half, non-trivially: the hole costs real recipes…
+        assert!(
+            partial.len() < full.len(),
+            "the pothole must cost calls: {} vs {}",
+            partial.len(),
+            full.len()
+        );
+        // …and does not swallow the ladder — the board still thinks.
+        assert!(
+            !partial.is_empty(),
+            "one missing field may not silence the whole ladder"
+        );
+
+        // The equivalence that makes this a lowering and not a re-implementation:
+        // the program IS `ladder()`'s fired set, in `ladder()`'s order.
+        let fired: Vec<FnIndex> = ladder(&holed)
+            .into_iter()
+            .filter(|s| s.disqualified_by.is_none())
+            .filter_map(|s| op_of(s.id))
+            .collect();
+        assert_eq!(
+            partial, fired,
+            "the program must not out-vote the dispatcher"
+        );
+
+        // And every op the hole removed names THAT field as its reason — not
+        // some other one, which is what makes the diagnosis usable.
+        let removed: Vec<FnIndex> = full
+            .iter()
+            .copied()
+            .filter(|f| !partial.contains(f))
+            .collect();
+        assert!(!removed.is_empty(), "anti-vacuity: something was removed");
+        for f in removed {
+            assert_eq!(
+                refusal_of(&holed, wide_open, f),
+                Some(Refusal::Ungrounded(ThoughtField::FreeEnergy)),
+                "{f:?} was removed by the free-energy hole, so it must say so"
+            );
+        }
+    }
+
+    /// **The two gates are distinguishable.** Each `Refusal` variant fires on a
+    /// real input, and `None` means exactly membership — so the diagnostic and
+    /// the program cannot drift apart.
+    #[test]
+    fn every_refusal_reason_fires_and_none_means_present() {
+        let ok = grounded();
+        let mut holed = grounded();
+        holed.beliefs.clear(); // an empty collection is as undefined as a NaN
+
+        // NotARecipe — a shared-core byte, on any census.
+        assert_eq!(
+            refusal_of(&ok, wide_open, FnIndex::ADD),
+            Some(Refusal::NotARecipe)
+        );
+
+        // AboveCeiling — a closing board sits on the floor, so the ladder's
+        // DEEPEST recipe must be refused for depth, and report both numbers.
+        let closing = census(2, 2);
+        let deepest = dispatch_order()
+            .into_iter()
+            .max_by_key(|&id| rung(id))
+            .unwrap();
+        let ceiling = max_rung_admitted(&closing);
+        assert_eq!(
+            refusal_of(&ok, &closing, op_of(deepest).unwrap()),
+            Some(Refusal::AboveCeiling {
+                rung: rung(deepest),
+                ceiling
+            }),
+            "the deepest recipe is refused by the awareness gate, not the epistemic one"
+        );
+
+        // …and the PRECEDENCE, which only a recipe that trips BOTH gates can
+        // show. Without this the documented "ceiling first" is unfalsifiable:
+        // swapping the two checks passes every other assertion here, because
+        // nothing else in this test is simultaneously too deep and ungrounded.
+        let both = dispatch_order()
+            .into_iter()
+            .find(|&id| rung(id) > ceiling && nan_disqualifier(&holed, id).is_some())
+            .expect("anti-vacuity: some deep recipe must also read the emptied beliefs");
+        assert_eq!(
+            refusal_of(&holed, &closing, op_of(both).unwrap()),
+            Some(Refusal::AboveCeiling {
+                rung: rung(both),
+                ceiling
+            }),
+            "recipe {both} trips both gates, so the OUTER one must be reported"
+        );
+
+        // Ungrounded — fires somewhere under a wide-open census with a hole.
+        let ungrounded = (1..=RECIPE_COUNT as u8)
+            .filter_map(|id| refusal_of(&holed, wide_open, op_of(id).unwrap()))
+            .filter(|r| matches!(r, Refusal::Ungrounded(ThoughtField::Beliefs)))
+            .count();
+        assert!(
+            ungrounded > 0,
+            "an empty belief set must strand the belief-reading recipes"
+        );
+
+        // The tie: `None` from the diagnostic is exactly membership in the
+        // program, over the whole block and under a MIXED census (both gates
+        // live), so neither can drift from the other.
+        let mixed = census(5, 1);
+        let prog = grounded_program(&holed, &mixed);
+        for id in 1..=RECIPE_COUNT as u8 {
+            let f = op_of(id).unwrap();
+            assert_eq!(
+                refusal_of(&holed, &mixed, f).is_none(),
+                prog.contains(&f),
+                "{f:?}: the reason and the program disagree"
+            );
+        }
+        // Anti-vacuity on the mixed census: it must really run BOTH gates, or
+        // the loop above proved only one of them.
+        let reasons: Vec<Refusal> = (1..=RECIPE_COUNT as u8)
+            .filter_map(|id| refusal_of(&holed, &mixed, op_of(id).unwrap()))
+            .collect();
+        assert!(
+            reasons
+                .iter()
+                .any(|r| matches!(r, Refusal::AboveCeiling { .. }))
+                && reasons.iter().any(|r| matches!(r, Refusal::Ungrounded(_))),
+            "the mixed census must exercise both gates, got {reasons:?}"
+        );
     }
 
     /// The inference bridge resolves for minted ops and refuses elsewhere —
