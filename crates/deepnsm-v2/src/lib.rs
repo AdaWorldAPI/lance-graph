@@ -46,6 +46,9 @@ pub mod reason;
 pub mod shape;
 pub mod space;
 pub mod spo;
+/// D-ACR-6 precondition — the table of contents spawned as an HHTL tree of
+/// SoA node addresses, before any triple-level reasoning runs.
+pub mod toc;
 pub mod vocab;
 pub mod wave;
 
