@@ -1,5 +1,23 @@
 # Issues Log — Open + Resolved (double-entry, append-only)
 
+## ISS-HYDRATE-CRATE-HAS-NO-BUILD-GATE (2026-08-22) — OPEN, narrowed
+
+`crates/lance-graph-hydrate` did not compile at `origin/main` (#981) and was
+also fmt-dirty; both are fixed in the commit that files this. See
+`EPIPHANIES.md`
+`E-A-CRATE-WITH-ZERO-CONSUMERS-IS-BUILT-BY-NOTHING-AND-CAN-BE-MERGED-BROKEN-1`
+for the measurement and the mechanism.
+
+**What is fixed:** the two `ObjectStoreExt` imports and the formatting.
+
+**What is NOT fixed, and is the actual issue:** nothing in CI compiles this
+crate, because no consumer depends on it. The same class of upstream change
+can invalidate it again tomorrow with no gate firing. The durable fix is one
+of: (a) land the first real consumer — `VersionedGraph::hydrate_from`, the
+piece `ISS-REMOTE-URI-CONSTRUCTORS-PREDATE-THE-HYDRATION-DOCTRINE` names — so
+the crate enters `lance-graph`'s build graph; or (b) add it explicitly to the
+workspace job that runs on every PR. (a) is preferable: it closes two issues
+with one edge instead of adding a gate around an unused artifact.
 ## ISS-CAUSAL-EDGE-CARRIES-SEVEN-PRE-EXISTING-CLIPPY-FINDINGS (2026-08-22) — OPEN
 
 `crates/causal-edge` is workspace-EXCLUDED but a path-dep of `lance-graph`,
