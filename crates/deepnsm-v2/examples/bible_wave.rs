@@ -26,7 +26,6 @@
 //! links farther than ±5 (v1's ring forfeits them) and ±8 (the local reference
 //! horizon → the Escalate zone).
 
-use deepnsm_v2::lexicon::{normalise, Lexicon};
 use deepnsm_v2::{
     load_cam96_codes, load_cam96_space, parse_to_spo, Nsm, PaletteVocab, Pos, Spo, Tagged,
     TemporalStream,
@@ -125,22 +124,18 @@ fn main() {
         nsm.vocab.len()
     );
 
-    // ── PoS lexicon: COCA lemmas + FORMS + archaic fallback ──
-    // One lexicon, in the crate. Reading `lemmas_5k.csv` alone left every
-    // inflected verb (`created`, `made`, `called`) untagged; see
-    // `deepnsm_v2::lexicon` for the measurement.
-    let lexicon = Lexicon::from_coca(
-        &std::fs::read_to_string(concat!(
-            env!("CARGO_MANIFEST_DIR"),
-            "/../deepnsm/word_frequency/lemmas_5k.csv"
-        ))
-        .expect("lemmas_5k.csv (sibling deepnsm crate)"),
-        &std::fs::read_to_string(concat!(
-            env!("CARGO_MANIFEST_DIR"),
-            "/../deepnsm/word_frequency/word_forms.csv"
-        ))
-        .expect("word_forms.csv (sibling deepnsm crate)"),
-    );
+    // ── PoS: COCA lemmas + FORMS + archaic fallback ──
+    let lemmas_csv = std::fs::read_to_string(concat!(
+        env!("CARGO_MANIFEST_DIR"),
+        "/../deepnsm/word_frequency/lemmas_5k.csv"
+    ))
+    .expect("lemmas_5k.csv (sibling deepnsm crate)");
+    let forms_csv = std::fs::read_to_string(concat!(
+        env!("CARGO_MANIFEST_DIR"),
+        "/../deepnsm/word_frequency/word_forms.csv"
+    ))
+    .expect("word_forms.csv (sibling deepnsm crate)");
+    let pos_of = load_pos(&lemmas_csv, &forms_csv);
 
     // ── stream: verse index = version; FSM → SPO ──
     let mut stream = TemporalStream::new();
@@ -151,7 +146,12 @@ fn main() {
         for tok in verse.split_whitespace() {
             let Some(w) = normalise(tok) else { continue };
             let Some(id) = nsm.vocab.id(&w) else { continue };
-            tagged_buf.push(Tagged::new(id, lexicon.pos(&w)));
+            let pos = pos_of
+                .get(&w)
+                .copied()
+                .or_else(|| archaic_pos(&w))
+                .unwrap_or(Pos::Other);
+            tagged_buf.push(Tagged::new(id, pos));
         }
         tagged_buf.push(Tagged::new(0, Pos::Stop)); // verse boundary flushes
         for t in parse_to_spo(&tagged_buf) {
@@ -971,4 +971,72 @@ fn shuffle_null(groups: &[(u16, Vec<deepnsm_v2::Cam96>)]) -> Vec<(u16, Vec<deepn
             (*s, g)
         })
         .collect()
+}
+
+/// COCA PoS letter → [`Pos`]. Inline here: `deepnsm_v2::lexicon` was deleted
+/// after an audit found the planner's `insight_coca_read` already grounds this
+/// in the master COCA `lexicon.tsv` (with lemmatisation). This example keeps a
+/// minimal local tagger rather than re-adding a v2 module that duplicates it.
+fn coca_pos(letter: &str) -> Pos {
+    match letter {
+        "n" | "p" => Pos::Noun,
+        "v" => Pos::Verb,
+        "j" => Pos::Adj,
+        "a" | "d" => Pos::Det,
+        _ => Pos::Other,
+    }
+}
+
+/// Early-modern forms COCA does not carry. The explicit list is load-bearing:
+/// `thou`/`hath`/`shall`/`saith` are among the corpus's most frequent tokens and
+/// none matches the `-eth`/`-est` suffix rule.
+fn archaic_pos(w: &str) -> Option<Pos> {
+    match w {
+        "thou" | "thee" | "ye" => Some(Pos::Noun),
+        "thy" | "thine" => Some(Pos::Det),
+        "shalt" | "hath" | "doth" | "saith" | "spake" | "begat" | "art" | "wilt" | "hast"
+        | "shall" | "cometh" | "wast" => Some(Pos::Verb),
+        "unto" | "thereof" | "wherefore" | "verily" | "yea" | "lo" => Some(Pos::Other),
+        _ => {
+            if w.ends_with("eth") || w.ends_with("est") {
+                Some(Pos::Verb)
+            } else {
+                None
+            }
+        }
+    }
+}
+
+/// Ascii letters only, lowercased; `None` under two letters.
+fn normalise(tok: &str) -> Option<String> {
+    let w: String = tok
+        .chars()
+        .filter(char::is_ascii_alphabetic)
+        .collect::<String>()
+        .to_lowercase();
+    (w.len() >= 2).then_some(w)
+}
+
+/// `word -> Pos` from the COCA lemma table, with `word_forms.csv` layered UNDER
+/// it so inflected forms (`created`, `made`) are not lost to `Pos::Other`.
+/// Lemma-first, so no word that already had a tag gets a different one.
+fn load_pos(lemmas_csv: &str, forms_csv: &str) -> HashMap<String, Pos> {
+    let mut m: HashMap<String, Pos> = HashMap::new();
+    for line in lemmas_csv.lines().skip(1) {
+        let f: Vec<&str> = line.split(',').collect();
+        let (Some(lemma), Some(pos)) = (f.get(1), f.get(2)) else {
+            continue;
+        };
+        m.entry(lemma.to_lowercase())
+            .or_insert_with(|| coca_pos(pos));
+    }
+    for line in forms_csv.lines().skip(1) {
+        let f: Vec<&str> = line.split(',').collect();
+        let (Some(pos), Some(word)) = (f.get(2), f.get(5)) else {
+            continue;
+        };
+        m.entry(word.to_lowercase())
+            .or_insert_with(|| coca_pos(pos));
+    }
+    m
 }
