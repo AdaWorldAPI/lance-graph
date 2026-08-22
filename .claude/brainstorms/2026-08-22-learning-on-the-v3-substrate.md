@@ -4,7 +4,8 @@
 > ratified; no D-ids, no plan row owed. Grades: **[G]** shipped/cited,
 > **[H]** plausible+boundable, **[S]** analogy-grade.
 >
-> **This document was rewritten by a 5+3 council after its first draft.** The
+> **This document was rewritten by a 5+3 council, then corrected again by that
+> council's own reviewers.** The
 > first draft raised seven threads at equal weight. The council found that
 > **five of the seven were already decided** — one killed by a prior council,
 > one answered the same day, one deferred by the operator the day before, and
@@ -12,7 +13,8 @@
 > had no artifact behind it. What follows keeps the two questions that are
 > genuinely open and turns the other five into pointers, which is what a
 > discussion reference is for. The first draft's errors are recorded, not
-> erased: §0 is the list.
+> erased: §0 is the list — including one error the *rewrite itself* introduced
+> (row 9), which the reviewers caught and which is recorded in place.
 
 ---
 
@@ -22,20 +24,32 @@
 |---|---|
 | RL credit as a "TD-error sign + **magnitude** bucket" in spare CE64 bits | **A council already killed this and wrote it down against resurfacing.** EPIPHANIES:8560, *"Pruned dead-ends the council killed (recorded so they don't resurface): … storing any magnitude (regret price, oracle eval, lindy age, proof hash) in a reserved A9 locus (pointers-not-magnitudes + RESERVE-DON'T-RECLAIM)"*. |
 | bits 59..63 as an open design space | **The band has a ratified contract.** `INTEGRATION_PLANS` → `dacr7-band-reading-contract-v1.md` (council-ratified, G1..G10b pre-registered) and `known-unknown-handover-network-v1.md` (the operator's own 59..63 framing, fence measured twice: *"`↑n` is stacking, never widening"*). The live question is `BandReading::project`, not whether to pack new bits. |
-| a BPE reading of `6×2×8bit` as a fresh **[S]** idea | **Asked and answered the same day.** `E-BPE-IS-RHYME-VQ-IS-THE-MECHANISM-FOR-6X2X8BIT-1` (EPIPHANIES:91, 2026-08-22, arxiv-grounded): *"RHYME, not mechanism"* — the hazards are already named verbatim (*"loss of `is_ancestor_of` (BPE guarantees no subsumption)"*, *"frequency-optimal replacing distance-optimal"*), with three pre-registered probes stronger than the one the draft proposed. |
+| a BPE reading of `6×2×8bit` as a fresh **[S]** idea — the *analogy* half | **Asked and answered the same day.** `E-BPE-IS-RHYME-VQ-IS-THE-MECHANISM-FOR-6X2X8BIT-1` (EPIPHANIES:91, 2026-08-22, arxiv-grounded): *"RHYME, not mechanism"* — the hazards are already named verbatim (*"loss of `is_ancestor_of` (BPE guarantees no subsumption)"*, *"frequency-optimal replacing distance-optimal"*), with three pre-registered probes stronger than the one the draft proposed. |
 | BNN over `6×2×8bit` as a fresh **[H]** idea | **Raised by the operator 2026-08-21 and DEFERRED with a named blocker.** `handovers/2026-08-21-2330:107-115`: not taken into v2 because `edge_v3.rs:29-36` says the register is *"a packed EDGE REGISTER, **NOT** a slot-pure §3 facet"*, and adopting it would be **a sixth homonym**. It needs its own deliverable and its own resolution of the typed-register-vs-content-blind contradiction. |
 | Hebbian strengthening "via the plasticity counter" | **The exact conflation `E-BASIN-NOT-EDGE-PLASTICITY` killed** (EPIPHANIES:14182, *"the 4th-strike object conflation"*): "plasticity" names a cold-path basin cooling knob AND a hot-path per-edge Hebbian state, and they do not compose. With `Plasticity` = tenant 7 that was three distinct objects under one word in a single paragraph. |
 | "BNN" as a Bayesian neural network, cited to `ndarray/src/hpc/bnn.rs` | **That file is a BINARY neural network** — *"Binary weights and activations (1-bit)… XNOR + popcount"*. Deterministic, bit-exact, no distributions. The whole Bayesian mapping rested on a name. |
 | a "deterministic BNN" (coprime-walk sampling) satisfying Bayesian uncertainty *and* the never-RNG ruling | **Refuted on the mathematics.** A coprime-integer walk is a fixed full-period permutation: the same address always returns the identical value, so it has **zero draw-to-draw variance** and cannot represent a posterior. It is a low-discrepancy dither, which is a different object from weight-distribution sampling. |
 | `ValueTenant::EpisodicBasin = 15` cited as **[G]** | Tenant 15 exists on an **unmerged branch**, not on `main`. `[G]` means shipped; a branch is not shipped. |
-| "measured 0.727 / 0.455 / 0.273" as T4's pre-registered baseline | **The numbers appear nowhere in the repo** — no board file, plan, probe report, test, or commit. A session-memory claim with no artifact, offered as the document's only pre-registered gate. |
+| "measured 0.727 / 0.455 / 0.273" as the anaphora baseline, on "the German relative-clause set" | **The numbers are real and banked — the CORPUS and the MECHANISM were both mislabelled.** `E-L9-REAL-TEXT-1` (EPIPHANIES:8621, 2026-07-21, FINDING, deliverable `crates/jc/examples/l9_loci_real_text.rs`, *"Gates registered before the first run; never loosened"*) records antecedent loci **0.727**, agreement-blind baseline **0.273**, shipped noun-only rule **0.455** — on **three public-domain Aesop fables in English**, not a German set. And 0.727 is **loci CHAINING**: the entry is explicit that *"agreement adds +0.18, chaining adds +0.27"*. |
 
-**The pattern, twice over.** Three of the eight are the same failure the
-workspace keeps paying for: **a name taken for a mechanism** — BNN (binary vs
-Bayesian), plasticity (three objects), and the `6×2×8bit` homonym the 2026-08-21
-handover was already counting to six. The other five are a different failure:
-**proposing without reading the ledger.** Both are cheap to avoid and neither
-was.
+**The pattern.** The table has **nine** rows (an earlier revision of this
+paragraph said eight and mis-split them — corrected here rather than quietly).
+They fall into three groups, not two:
+
+- **A name taken for a mechanism** — BNN (binary vs Bayesian), plasticity
+  (three distinct objects under one word), and the `6×2×8bit` homonym the
+  2026-08-21 handover was already counting to six.
+- **Proposing without reading the ledger** — the killed magnitude-in-a-locus,
+  the ratified 59..63 contract, the same-day BPE finding, the deferred BNN
+  reading, and a `[G]` citing an unmerged branch.
+- **Getting the retraction wrong too** — row 9: the baseline was called absent
+  when it exists; the real defect was narrower (wrong corpus, wrong mechanism
+  label). A correction can overclaim in the opposite direction, and this one
+  did.
+
+The third group is the one worth remembering: it was caught by this document's
+own review, not by its author, and only because the reviewer re-ran the search
+the first pass had already reported as empty.
 
 ---
 
@@ -52,18 +66,25 @@ the `de-bundle` Release asset (relative-pronoun, satzklammer, valency tables).
 
 **The idea [H]:** learn the *resolver policy*, not the answers. Action space =
 cue weights shaped like `ScanParams`' seven knobs; credit = downstream coherence
-read from the witness lane. Policy parameters would live in the Learned lane.
+read from the witness lane. Policy parameters would need a home — the Learned
+lane is the obvious candidate, **and §2 is exactly why this thread may not yet
+assume it.**
 
 **Frictions (all four, not one):**
-- **The baseline does not exist in the repo.** Until the comparison is measured
-  and recorded as an artifact, this thread has **no gate**. That is the first
-  deliverable, and it is cheap.
+- **A baseline exists — for a different corpus.** `E-L9-REAL-TEXT-1`
+  (EPIPHANIES:8621) banks 0.727 / 0.455 / 0.273 with gates registered before the
+  run, but on **three English Aesop fables**, and its 0.727 is loci **chaining**
+  rather than agreement alone. The gate for a German-set policy is therefore not
+  missing in principle — it is **un-measured on that corpus**, and the first
+  deliverable is the German run against those same registered gates. Cheap,
+  because the harness already exists.
 - **Credit shape is constrained.** `E-CHAIN-PARITY-CREDIT-1` requires credit
   *"per proof-carrying `RecipeStep`, **never per endpoint**"* — it exists to
   block the self-referential free-energy-inflation hack. Endpoint-shaped credit
   is out.
-- **Scalar credit is operator-deferred.** `E-REGRET-PRICER-1` is ⏸ DEFERRED with
-  a stated trigger (*"when the stack begins driving real external systems"*).
+- **Scalar credit is operator-deferred.** `E-REGRET-PRICER-1` is ⏸ DEFERRED — its own
+  wording is *"Park until real-world-business-logic control is in scope; trigger
+  = the stack begins driving real external systems"*.
 - **D-QUANTGATE applies to the exploration itself** — any stochastic arm must be
   the address-derived coprime walk, not RNG. The first draft named this rule in
   its closing box but not on this thread.
@@ -128,6 +149,21 @@ which owner, or it is an orphan write.
   **in-binary** component (`old-stack-capability-parity.md:17,72`), not a sidecar
   to be eliminated — arguing to remove it means retiring a roadmap row, which is
   an operator call.
+- **an LSTM / recurrence reading of the register** — **restored here after the
+  council found it deleted outright rather than demoted.** The first draft
+  proposed a recurrence whose hidden state IS the 12-byte register, with gates as
+  palette-table lookups (the bgz-tensor attention-as-lookup lineage) and per-rail
+  int8 requant between steps (the tesseract `E-OCR-LSTM-1` precedent, byte-parity
+  proven). The BPE finding does **not** touch this: it rules on how centroids are
+  *allocated*, not on whether the register can carry a recurrence. It is also
+  distinct from the deferred `6×2×8bit`-as-BNN item, which is about a typed edge
+  register. Open, ungated, and nobody's — but it should not vanish.
+- **BPE merge RANK as a surprisal statistic** — likewise separable, likewise
+  restored. `E-BPE-IS-RHYME-…` answers whether BPE is the *mechanism* behind the
+  tile codebooks (it is not). It does not address whether a merge rank, being a
+  frequency order, is a cheap `-log p` proxy that could modulate the
+  `FieldModulation` knobs. That question is untouched by the finding that
+  retired its parent thread.
 - **the triangle** — `Frozen`/`Learned`/`Explore` already ship with a held-out
   promotion gate. Relabelling them Hebbian/Bayesian/BNN adds no mechanism, and
   the 226-atom cognitive palette256 codebook such a mixer would read *"does not
@@ -154,3 +190,8 @@ which a flat seven-item list hid.
   checking was this rewrite.
 - An idea graduates only through a probe with pre-registered gates — and its
   baseline is **recorded in the repo** before the probe runs, not remembered.
+- **A retraction is a claim and needs the same evidence as an assertion.** "This
+  does not exist" is falsifiable, and row 9 of §0 was falsified: a search that
+  came back empty was reported as absence, and the entry was sitting in
+  `EPIPHANIES.md` the whole time. Re-run the search before writing the word
+  *nowhere*.
