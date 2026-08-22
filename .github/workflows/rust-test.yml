@@ -184,6 +184,52 @@ jobs:
       # ISS-CAUSAL-EDGE-CARRIES-SEVEN-PRE-EXISTING-CLIPPY-FINDINGS instead.
       - name: Run causal-edge tests (workspace-excluded, previously ungated)
         run: cargo test --manifest-path crates/causal-edge/Cargo.toml
+      # ── The rest of the allowlist gap, closed in one pass ────────────────
+      #
+      # No workflow here runs `--workspace`, so `[workspace] members` gates
+      # nothing and ELEVEN of 25 members were reached by no job at all
+      # (EPIPHANIES E-THE-GATE-IS-A-HAND-MAINTAINED-ALLOWLIST-NOT-THE-WORKSPACE-1,
+      # ISSUES ISS-CI-GATE-IS-AN-ALLOWLIST-NINE-MEMBERS-UNGATED). Two of them
+      # (catalog, planner) are deps of lance-graph, so their LIBS compiled
+      # inside a gated build while their tests ran nowhere; the others compiled
+      # nowhere at all. That is how `lance-graph-hydrate` reached `main`
+      # un-compiling.
+      #
+      # Every step below was RUN LOCALLY on the pinned toolchain before being
+      # added, and the count in each comment is what it returned. A gate is
+      # only added for a crate that is green; nothing here is armed on hope.
+      - name: Run catalog tests (previously ungated)          # 12 + 15 green
+        run: cargo test --manifest-path crates/lance-graph-catalog/Cargo.toml
+      - name: Run planner tests (previously ungated)          # 368 + 4 green, 6 ignored
+        run: cargo test --manifest-path crates/lance-graph-planner/Cargo.toml
+      - name: Run ontology tests (previously ungated)         # 276 + 2 + 6 green
+        run: cargo test --manifest-path crates/lance-graph-ontology/Cargo.toml
+      - name: Run rbac tests (previously ungated)             # 23 green
+        run: cargo test --manifest-path crates/lance-graph-rbac/Cargo.toml
+      - name: Run archetype tests (previously ungated)        # 16 green
+        run: cargo test --manifest-path crates/lance-graph-archetype/Cargo.toml
+      - name: Run consumer-conformance tests (previously ungated)  # 8 green, 2 ignored
+        run: cargo test --manifest-path crates/lance-graph-consumer-conformance/Cargo.toml
+      - name: Run sigma-tier-router tests (previously ungated)     # 20 green
+        run: cargo test --manifest-path crates/sigma-tier-router/Cargo.toml
+      - name: Run neural-debug tests (previously ungated)     # 11 green
+        run: cargo test --manifest-path crates/neural-debug/Cargo.toml
+      - name: Run shader-driver tests (previously ungated)    # 107 + 2 green
+        run: cargo test --manifest-path crates/cognitive-shader-driver/Cargo.toml
+      # lance-graph-benches carries NO tests — it is a benches-only crate with
+      # one `harness = false` target (`graph_execution`). `cargo test` on it
+      # runs zero tests and would be a gate that cannot fail; the meaningful
+      # check is that the bench target still COMPILES, which is the same shape
+      # build.yml already uses for lance-graph's own benches.
+      - name: Check benches compile (previously ungated)      # no tests by design
+        run: cargo check --manifest-path crates/lance-graph-benches/Cargo.toml --benches
+      # lance-graph-hydrate: the crate this whole sweep came out of. It is a
+      # workspace MEMBER and did not compile at #981 — `object_store 0.13.2`, a
+      # semver-compatible release already in the lockfile, moved `get`/`put`
+      # onto `ObjectStoreExt`. The compile fix rides with the crate's own PR
+      # (claude/hydrate-from-zip); the GATE belongs here with the other nine.
+      - name: Run hydrate tests (previously ungated)          # 33 green
+        run: cargo test --manifest-path crates/lance-graph-hydrate/Cargo.toml
       # bgz-tensor: workspace-EXCLUDED metric-algebraic codec crate (deps the
       # ndarray sibling checked out above + in-repo holograph). None of the
       # steps above reach it, so its 207 lib tests — including the V3

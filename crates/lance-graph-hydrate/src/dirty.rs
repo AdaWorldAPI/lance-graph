@@ -109,7 +109,8 @@ mod tests {
         let dir = tempfile::tempdir().expect("tempdir");
         let path = dir.path().join("ds.lance");
         let schema = schema();
-        let reader = RecordBatchIterator::new(vec![Ok(batch(&schema, 5))].into_iter(), schema.clone());
+        let reader =
+            RecordBatchIterator::new(vec![Ok(batch(&schema, 5))].into_iter(), schema.clone());
         Dataset::write(
             reader,
             path.to_str().unwrap(),
@@ -121,7 +122,9 @@ mod tests {
         .await
         .expect("write v1");
 
-        let ds = Dataset::open(path.to_str().unwrap()).await.expect("open v1");
+        let ds = Dataset::open(path.to_str().unwrap())
+            .await
+            .expect("open v1");
         let hydrated_at = ds.version_id();
 
         // A local-only append, simulating drift since hydration.
@@ -148,7 +151,8 @@ mod tests {
         let dir = tempfile::tempdir().expect("tempdir");
         let path = dir.path().join("ds.lance");
         let schema = schema();
-        let reader = RecordBatchIterator::new(vec![Ok(batch(&schema, 5))].into_iter(), schema.clone());
+        let reader =
+            RecordBatchIterator::new(vec![Ok(batch(&schema, 5))].into_iter(), schema.clone());
         Dataset::write(
             reader,
             path.to_str().unwrap(),

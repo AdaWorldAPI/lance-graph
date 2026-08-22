@@ -94,7 +94,7 @@ impl WarmMarker {
     /// permissive `>= 3` read.
     pub fn read(marker_path: &Path) -> Option<Self> {
         let text = fs::read_to_string(marker_path).ok()?;
-        let mut parts = text.trim().split_whitespace();
+        let mut parts = text.split_whitespace();
         if parts.next()? != MARKER_FORMAT_TAG {
             return None;
         }

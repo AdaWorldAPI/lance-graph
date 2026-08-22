@@ -159,6 +159,38 @@ jobs:
       # rust-test.yml step for why.
       - name: Rustfmt causal-edge (workspace-excluded, previously ungated)
         run: cargo fmt --manifest-path crates/causal-edge/Cargo.toml -- --check
+      # The same ten crates the test steps above arm. All ten verified
+      # rustfmt-clean locally on the pinned toolchain before this was added —
+      # `sigma-tier-router` was NOT, and is formatted in this commit (14 hunks
+      # in one file, rustfmt output only, its 20 tests unchanged). Nine were
+      # already clean and simply had no gate holding them there.
+      #
+      # Formatting only. Clippy is deliberately NOT gated for these: it has not
+      # been measured crate-by-crate, and `causal-edge` alone already carries 7
+      # pre-existing findings — arming a lint gate on unmeasured crates would
+      # fail PRs for defects they did not introduce.
+      - name: Rustfmt lance-graph-catalog (previously ungated)
+        run: cargo fmt --manifest-path crates/lance-graph-catalog/Cargo.toml -- --check
+      - name: Rustfmt lance-graph-planner (previously ungated)
+        run: cargo fmt --manifest-path crates/lance-graph-planner/Cargo.toml -- --check
+      - name: Rustfmt lance-graph-ontology (previously ungated)
+        run: cargo fmt --manifest-path crates/lance-graph-ontology/Cargo.toml -- --check
+      - name: Rustfmt lance-graph-rbac (previously ungated)
+        run: cargo fmt --manifest-path crates/lance-graph-rbac/Cargo.toml -- --check
+      - name: Rustfmt lance-graph-archetype (previously ungated)
+        run: cargo fmt --manifest-path crates/lance-graph-archetype/Cargo.toml -- --check
+      - name: Rustfmt lance-graph-consumer-conformance (previously ungated)
+        run: cargo fmt --manifest-path crates/lance-graph-consumer-conformance/Cargo.toml -- --check
+      - name: Rustfmt sigma-tier-router (previously ungated)
+        run: cargo fmt --manifest-path crates/sigma-tier-router/Cargo.toml -- --check
+      - name: Rustfmt neural-debug (previously ungated)
+        run: cargo fmt --manifest-path crates/neural-debug/Cargo.toml -- --check
+      - name: Rustfmt cognitive-shader-driver (previously ungated)
+        run: cargo fmt --manifest-path crates/cognitive-shader-driver/Cargo.toml -- --check
+      - name: Rustfmt lance-graph-benches (previously ungated)
+        run: cargo fmt --manifest-path crates/lance-graph-benches/Cargo.toml -- --check
+      - name: Rustfmt lance-graph-hydrate (previously ungated)
+        run: cargo fmt --manifest-path crates/lance-graph-hydrate/Cargo.toml -- --check
       # deepnsm is a standalone, workspace-excluded codec crate, so
       # `cargo fmt --all` never reaches it. It was brought to a rustfmt-clean
       # baseline in this PR; check it explicitly so it can't silently drift.
