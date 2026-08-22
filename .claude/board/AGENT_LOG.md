@@ -1,3 +1,64 @@
+## 2026-08-22 — D-ACR-8 Rubicon witness (main thread, no subagents)
+
+- **D-ids:** D-ACR-8. Unblocked by D-ACR-1 (`contract::attention_facet`);
+  taken now because D-ACR-3, the next in the mandated order, is honestly
+  blocked (no write path exists to trace, so its test would be vacuous).
+- **Files:** `crates/lance-graph-contract/src/rubicon_witness.rs` (new, 300),
+  `lib.rs` (module registration).
+- **Added:** `FocusTrace`, `coverage`, `breadth_bits`, `read_crossing`,
+  `RubiconReading`, `RubiconVerdict{Crossed,Partial,Indistinguishable,Inverted}`,
+  `PRE_RUBICON`/`POST_RUBICON`.
+- **The load-bearing choices:** breadth is the covered POPULATION
+  (`256^(12−depth)`, exact in f64), never `RowFocusMask::len()` — one shallow
+  entry outweighs many deep ones, which is the `6×2×8bit↑n` property at the
+  measurement. `Inverted` stays a distinct verdict so a contradicted model is
+  visible instead of rounded into silence. Reads only: no `&mut` on anything
+  the substrate owns (`E-PROGRESSION-IS-EXISTENCE-NOT-COMMAND-1`).
+- **Tests:** 8 in-module; 1262 crate-wide green. clippy `-D warnings` exit 0,
+  0 errors. `cargo fmt` clean.
+- **Mutations run (5), all caught after a fix:** entry-count breadth; drop the
+  `1 +`; fold `Inverted`; ignore `epsilon`; persistence at one sample.
+  **M2 did not fire on the first pass** and exposed a FALSE doc claim — the
+  `1 +` was documented as keeping empty distinct from exact (it does not; they
+  read `-inf` and `0.0`), its real job is finiteness of the trace mean. Comment
+  corrected in place with the error recorded; real guard added. Written up as
+  `E-A-DOC-COMMENT-CAN-GIVE-THE-WRONG-REASON-FOR-A-CORRECT-GUARD-1`.
+- **Outcome:** D-ACR-8 shipped; closes the Rubikon plan's open
+  *"Thinking styles ↔ Rubikon"* checkbox. §3e's non-license honoured — the
+  witness reads which side the thinking is on and moves nothing.
+
+## 2026-08-22 — D-ACR-9 second half (main thread, no subagents)
+
+- **D-ids:** D-ACR-9 (second half — the grounding gate).
+- **Files:** `crates/lance-graph-ogar/src/recipe_vocab.rs` (+240/-1).
+- **Added:** `grounded_program(ctx, census)`, `refusal_of(ctx, census, f)`,
+  `enum Refusal { NotARecipe, AboveCeiling{rung,ceiling}, Ungrounded(field) }`.
+- **The load-bearing choice:** the grounding verdict is READ from
+  `recipe_dispatch::ladder(ctx)`, never recomputed from `nan_disqualifier`.
+  Two implementations of one gate can disagree; one cannot. The falsifier
+  asserts the program equals `ladder()`'s fired set in `ladder()`'s order.
+- **Tests:** 8 in `recipe_vocab`, 93 crate-wide, all green. `cargo fmt` clean.
+- **Mutations run (3):** (1) drop `disqualified_by.is_none()` → pothole test
+  fails "34 vs 34" AND the reason/program tie fails; (2) same mutation, second
+  test — fired; (3) swap the gate order → **did NOT fire at first**. Fixed by
+  adding an intersection fixture (search for an id that trips both gates);
+  re-ran, fired on recipe 17. Written up as
+  `E-A-DOC-PRECEDENCE-CLAIM-CAN-PASS-EIGHT-GREEN-TESTS-1`.
+- **Clippy:** 13 errors in this crate, **byte-identical with the change
+  stashed** → all pre-existing. Filed as `TD-LANCE-GRAPH-OGAR-IS-EXCLUDED-…`.
+- **Outcome:** D-ACR-9 shipped both halves. §3f's revision-window question
+  remains open and untouched; nothing in this module depends on it.
+
+## 2026-08-22 — arxiv-grounder: BPE × 6×2×8bit synergy check (operator-commissioned)
+
+One agent (arxiv-grounder, background). Input: the measured facet fact set
+(G6D2 carving, 4-ary centroid hierarchy, prefix containment, six-site
+convergence) + five graded questions. Output: RHYME-not-mechanism verdict,
+per-claim [G]/[H]/[S] with citations, five named hazards, three
+falsifiable probes. Banked as
+`E-BPE-IS-RHYME-VQ-IS-THE-MECHANISM-FOR-6X2X8BIT-1` (this commit).
+No files written by the agent; the entry is the record.
+
 ## 2026-08-21 — 5+3 council: D-ACR-7 (the 59..63 reading contract) — RATIFIED
 
 **Run shape:** Phase 0 spec (main thread) → 5 savants parallel (all Sonnet:

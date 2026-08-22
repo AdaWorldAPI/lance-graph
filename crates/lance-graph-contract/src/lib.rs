@@ -154,6 +154,8 @@ pub mod recipes;
 /// class-agnostic.
 pub mod recoder_adapter;
 pub mod repository;
+/// D-ACR-8 — reading the Heckhausen crossing from the focus of attention.
+pub mod rubicon_witness;
 pub mod savants;
 pub mod scenario;
 pub mod scheduler;

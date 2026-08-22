@@ -1,3 +1,38 @@
+## TD-LANCE-GRAPH-OGAR-IS-EXCLUDED-SO-CI-NEVER-LINTS-IT-EITHER (2026-08-22) — OPEN
+
+**Same structural cause as `TD-CAUSAL-EDGE-IS-EXCLUDED-…` below, second
+instance.** `lance-graph-ogar` carries its own `[workspace]` root (deliberate —
+its `ogar-*` path deps must not break workspace load in CI), so
+`cargo clippy --workspace --no-deps -D warnings` **never reaches it**. Measured
+2026-08-22 while landing D-ACR-9's second half:
+
+```
+cargo clippy --manifest-path crates/lance-graph-ogar/Cargo.toml \
+             --all-targets --no-deps -- -D warnings      → exit 101, 13 errors
+```
+
+| file | lint | count |
+|---|---|---|
+| `bridges/*_bridge.rs` | `dead_code` — `pub const NAMESPACE: &str = <Port>::NAMESPACE;` re-export unused | 7 |
+| `lib.rs` (module docs) | `doc_lazy_continuation` ("doc list item without indentation") | 2 |
+| `lib.rs` (module docs) | "link reference defined in list item" | 2 |
+
+**All pre-existing.** Verified by capturing clippy on the branch and on the
+same tree with the change stashed: the two error sets are **byte-identical**,
+so D-ACR-9 contributes none of them. That check is the point — an excluded
+crate has no green baseline to compare against, so "is this mine?" can only be
+answered by running both sides, never by reading the output.
+
+The `NAMESPACE` seven are the interesting half: each is a deliberate
+re-export for consumers, and `dead_code` cannot see a consumer that lives in
+another repo. The fix is a decision (annotate as intentional API, or drop the
+re-exports and have consumers name the Port), not a lint silencing — which is
+why this is debt and not a defect.
+
+**Blocks:** nothing today; the crate's 93 tests are green and its `cargo fmt`
+is clean. It blocks any future claim that "the lint gate is green" — which is
+true only of the workspace members, and this crate is not one.
+
 ## TD-CAUSAL-EDGE-IS-EXCLUDED-SO-CI-NEVER-LINTS-IT (2026-08-20) — OPEN
 
 **`causal-edge` is in the root `Cargo.toml`'s `exclude` list, not `members`.**

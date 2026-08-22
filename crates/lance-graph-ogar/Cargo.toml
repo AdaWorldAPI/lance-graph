@@ -106,6 +106,10 @@ lance-graph-ontology = { path = "../lance-graph-ontology" }
 ogar-vocab = { path = "../../../OGAR/crates/ogar-vocab" }
 ogar-class-view = { path = "../../../OGAR/crates/ogar-class-view" }
 ogar-ontology = { path = "../../../OGAR/crates/ogar-ontology" }
+# The call ABI the 34 NARS recipes lower onto (`recipe_vocab`, D-ACR-9).
+# ogar-loco is zero-dep and lance-graph-contract is zero-dep; neither may
+# import the other, so the vocabulary that needs both lives HERE.
+ogar-loco = { path = "../../../OGAR/crates/ogar-loco" }
 # ⊘ DEPRECATED IR-Arm (Operator, 2026-08-22): "SurrealQL wird gar nicht
 # verwendet, auch nicht ogar-*surreal*". OPTIONAL und aus dem unbedingten
 # Dependency-Satz heraus — ein Build, der das Feature nicht nennt, zieht die

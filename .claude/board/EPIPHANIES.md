@@ -1,3 +1,143 @@
+## 2026-08-22 — E-A-DOC-COMMENT-CAN-GIVE-THE-WRONG-REASON-FOR-A-CORRECT-GUARD-1 — the guard was right, the justification was false, and the test read the justification
+
+**Status:** FINDING (measured — the mutation was run and initially did NOT
+fire). **Confidence:** High; reproducible from the commit.
+**Relation:** second instance, same day, of the family opened by
+`E-A-DOC-PRECEDENCE-CLAIM-CAN-PASS-EIGHT-GREEN-TESTS-1` — but a **different
+mechanism**, so it is filed separately rather than folded in. There the claim
+was untested; here it was *false*, and the code it justified was *correct*.
+
+`rubicon_witness::breadth_bits` computes `log2(1 + coverage(mask))`. The `1 +`
+is load-bearing. Its doc comment explained why:
+
+> the `1 +` is what keeps **empty** (`0.0`) distinct from **exact** (`1.0`) —
+> without it both would read `0.0`
+
+**That is wrong.** Without the offset, empty reads `log2(0) = -inf` and exact
+reads `log2(1) = 0.0` — already distinct. The assertion written from that
+explanation (`breadth_bits(empty) < breadth_bits(exact)`) therefore passes
+**with or without** the guard, because `-inf < 0.0` holds.
+
+The offset's real job is **finiteness**: `-inf` in a mean carries the whole
+[`FocusTrace::breadth`] with it, so a single unsampled moment would make an
+entire phase read as infinitely narrow. Correct guard, false reason, and a test
+that tested the reason.
+
+Exposed by a mutation that removed the `1 +` and watched **all eight tests stay
+green**. The fix was to correct the comment in place (with the error recorded,
+not deleted) and add the assertion the real property needs: a trace holding one
+real focus and one empty sample must report a **finite** breadth, strictly
+between the two.
+
+**The generalization:**
+
+> A doc comment does not only make CLAIMS that need testing — it supplies the
+> REASON a test author writes their assertion from. A false reason yields a
+> true-but-inert assertion, and inert assertions are invisible: they pass, they
+> look like coverage, and they sit next to a guard they do not guard.
+
+Practical consequence: when a guard is small and "obviously" necessary
+(`1 +`, `saturating_`, a `+ 1`, a clamp), the mutation to run is **deleting the
+guard**, not exercising its stated purpose. If nothing goes red, the stated
+purpose is not the actual purpose — and the comment is the first suspect, not
+the last.
+
+Both instances this session share one method note: the finding only exists
+because the mutation was **executed**. Neither would have survived a reading.
+
+## 2026-08-22 — E-A-DOC-PRECEDENCE-CLAIM-CAN-PASS-EIGHT-GREEN-TESTS-1 — a two-gate ORDER is unfalsifiable until a fixture trips both
+
+**Status:** FINDING (measured, this session — the mutation was run, not
+reasoned about). **Confidence:** High; the instance is reproducible from the
+commit.
+
+`recipe_vocab::refusal_of` (D-ACR-9 second half) applies two gates and its doc
+committed to a precedence: *"a recipe that is both too deep AND ungrounded
+reports `AboveCeiling`, deterministically."* Eight tests were green, including
+one written specifically for the refusal surface, asserting all three variants
+fire.
+
+**Swapping the two checks changed nothing.** All eight still passed. The
+`AboveCeiling` assertion used a fully grounded fixture, so `nan_disqualifier`
+returned `None` for every recipe and the order could never be observed. The
+claim was **doc-only** while looking tested.
+
+The fix was a fixture, not a rewrite: search `dispatch_order()` for an id where
+`rung(id) > ceiling` **and** `nan_disqualifier(&holed, id).is_some()` — recipe
+17 (CDI, Revision, rung 6) under an emptied belief set — and assert the outer
+gate is what gets reported. The mutation then fired with exactly that id named.
+
+**The generalization, and it is the point:** the falsifiability rule already
+says *"a doc-comment claim is not a behaviour"* and *"a guard needs a
+can-it-fire test"*. This instance adds the case those two do not cover — **a
+claim about the INTERACTION of two guards that each fire correctly on their
+own.** Every individual variant here had a real fixture; what had none was the
+overlap. So:
+
+> When a function applies N gates and documents which one wins, the test suite
+> needs a fixture in the INTERSECTION. Fixtures that trip one gate each prove
+> the gates, never the precedence — and N passing single-gate tests read
+> exactly like coverage.
+
+The overlap fixture is also the one that must be searched for rather than
+hardcoded: writing `op_of(17)` would pin a recipe id that a re-tiering moves,
+and the search doubles as the anti-vacuity assertion (`.expect("some deep
+recipe must also read the emptied beliefs")`).
+
+Method note: the only reason this was caught is that the mutation was
+**executed**. Eight green tests plus a plausible doc sentence is precisely the
+shape that survives review.
+
+## 2026-08-22 — E-BPE-IS-RHYME-VQ-IS-THE-MECHANISM-FOR-6X2X8BIT-1 — the 256:256 tile codebooks are VQ-lineage; BPE shares numerology, not mechanism
+
+**Status:** FINDING (literature-grounded, arxiv-grounder run 2026-08-22; graded
+per-claim in the run's report). **Confidence:** High for the disanalogy; the
+three probes below are the promotion path for anything stronger.
+
+Asked (operator): does `6×2×8bit` (6× 256:256 centroid tiles) have synergies
+with Byte Pair Encoding? Answer: **RHYME, not mechanism.**
+
+- BPE (Gage 1994; Sennrich 2016, arXiv:1508.07909) is a **frequency-greedy
+  adjacent-pair merge** approximating an entropy/prefix code — Huffman/LZ
+  lineage ("Tokenization and the Noiseless Channel", arXiv:2306.16842). Its
+  merge tree carries **no containment semantics**, its tokens are
+  variable-length, its process is serial and corpus-global.
+- The facet's codebooks are **nearest-centroid quantization over a fixed
+  4-ary hierarchy** — VQ lineage. The honest literature bridge for `↑n`
+  (exponential space at additive path cost) is **residual / tree-structured
+  VQ** (RVQ: hierarchical codebooks, log-time tree search) and VQ-VAE
+  (learned codebook as tokenizer) — not BPE. Unigram-LM (Kudo 2018) is the
+  one tokenizer-family member with a comparable fixed-cardinality global
+  objective, but it optimizes segmentation likelihood, not distortion.
+- Named hazards of naive "BPE-ification": cross-axis merges on co-occurrence
+  where no adjacency exists; loss of `is_ancestor_of` (BPE guarantees no
+  subsumption); frequency-optimal replacing distance-optimal under lookups
+  that assume distance coherence; a shared vocabulary violating
+  classid-scoped codebooks.
+
+**⊘ Provenance note, same day (transcript audited after the fact — the run's
+own limits, so nobody cites this entry as more than it is):** the agent made
+**9 real WebSearches and ZERO WebFetches**, and every citation checked
+(`1508.07909`, `2306.16842`, `1910.13267`, `2305.07185`, `2602.22958`) appears
+in a tool RESULT before it appears in the report — so nothing is fabricated,
+but the evidence is **search-snippet level, never a paper read end-to-end**,
+and several anchors are secondary summarizer pages rather than primary
+sources. Its `[G]` grades are therefore over-graded by its own charter; read
+them as strong `[H]`. Second limit, and the sharper one: it made **no Read or
+Grep of the local files offered to it** (`facet.rs`, `attention_facet.rs`,
+`ogar-loco/src/lib.rs`, OGAR `CLAUDE.md`), so every claim about OUR side is
+the prompt's framing echoed back, not independent verification. What the run
+genuinely establishes is the **BPE side** and the disanalogy; that our
+codebooks are VQ-lineage remains our own (well-sourced, in-repo) claim, not
+this run's finding.
+
+Pre-registered probes (run before any code moves): (1) RVQ-vs-current
+retrain of ONE axis under the 4-level constraint, measured on containment +
+retrieval; (2) does distance-trained k-means already concentrate density on
+the high-frequency `(coarse,fine)` pairs a BPE allocator would pick —
+if yes, reallocation buys nothing; (3) containment-violation rate of a
+BPE-trained table vs the centroid tree on the same address stream.
+
 ## 2026-08-22 — E-THE-GATE-IS-A-HAND-MAINTAINED-ALLOWLIST-NOT-THE-WORKSPACE-1 — nine workspace members are in no CI job at all, and adding one to `members` adds it to nothing
 
 **Status:** FINDING (measured; every claim is a grep over `.github/workflows/`
