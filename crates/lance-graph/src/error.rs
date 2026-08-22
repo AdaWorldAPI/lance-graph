@@ -59,6 +59,19 @@ pub enum GraphError {
         source: arrow::error::ArrowError,
         location: Location,
     },
+
+    /// Hydration error — object store to local volume.
+    ///
+    /// `VersionedGraph::hydrate_from` is the only producer. Kept as its own
+    /// variant rather than folded into `ExecutionError { message }`: a caller
+    /// deciding whether to retry needs to tell a checksum mismatch (never
+    /// retry — the pin or the artifact is wrong) from a transport error
+    /// (retry), and a flattened string cannot be matched on.
+    #[snafu(display("Hydration error: {source}"))]
+    Hydration {
+        source: lance_graph_hydrate::HydrateArchiveError,
+        location: Location,
+    },
 }
 
 impl From<datafusion_common::DataFusionError> for GraphError {
@@ -82,6 +95,15 @@ impl From<lance::Error> for GraphError {
 impl From<arrow::error::ArrowError> for GraphError {
     fn from(source: arrow::error::ArrowError) -> Self {
         Self::Arrow {
+            source,
+            location: Location::new(file!(), line!(), column!()),
+        }
+    }
+}
+
+impl From<lance_graph_hydrate::HydrateArchiveError> for GraphError {
+    fn from(source: lance_graph_hydrate::HydrateArchiveError) -> Self {
+        Self::Hydration {
             source,
             location: Location::new(file!(), line!(), column!()),
         }

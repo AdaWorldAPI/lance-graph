@@ -4646,6 +4646,7 @@ dependencies = [
  "lance-graph-catalog",
  "lance-graph-cognitive",
  "lance-graph-contract 0.1.0",
+ "lance-graph-hydrate",
  "lance-graph-planner",
  "lance-index",
  "lance-linalg",

@@ -1,6 +1,40 @@
 # Issues Log — Open + Resolved (double-entry, append-only)
 
-## ISS-HYDRATE-CRATE-HAS-NO-BUILD-GATE (2026-08-22) — OPEN, narrowed
+## ISS-CI-GATE-IS-AN-ALLOWLIST-NINE-MEMBERS-UNGATED (2026-08-22) — OPEN
+
+No workflow runs `--workspace` or `--all`. Every gate names one crate by path
+(`--manifest-path crates/<name>/Cargo.toml`), so the CI surface is a
+hand-maintained allowlist and **adding a crate to `[workspace] members` adds it
+to no gate**. `style.yml:152` states this in a comment about `cargo fmt --all`.
+
+Measured 2026-08-22: 11 of 25 members appear in no workflow. Two
+(`lance-graph-catalog`, `lance-graph-planner`) are deps of `lance-graph`, so
+their libs compile inside a gated build but their tests never run. **Nine are
+gated by nothing:** `lance-graph-benches`, `neural-debug`,
+`lance-graph-archetype`, `lance-graph-rbac`, `lance-graph-ontology`,
+`lance-graph-consumer-conformance`, `sigma-tier-router`,
+`cognitive-shader-driver`, `lance-graph-hydrate`.
+
+This is not hypothetical: `lance-graph-hydrate` did not compile at `main`
+(#981) — `object_store 0.13.2`, a semver-COMPATIBLE upstream release already
+in the lockfile, moved `get`/`put` onto an extension trait. It was also
+fmt-dirty and carried a live clippy warning. Full account:
+`EPIPHANIES.md` `E-THE-GATE-IS-A-HAND-MAINTAINED-ALLOWLIST-NOT-THE-WORKSPACE-1`.
+
+**Fixed here:** `lance-graph-hydrate` gets its `rust-test.yml` + `style.yml`
+lines in this branch, and becomes a dependency of `lance-graph` (so its lib
+also compiles inside an existing gate).
+
+**Still open — deliberately not fixed blind:** the other eight. Some exclusions
+may be intentional (a benches crate, a research crate), and adding eight jobs
+without knowing which are meant to be gated would trade a silent hole for
+silent CI cost. What is needed is one decision — either a single `--workspace`
+job (cheapest, catches every future member automatically) or an explicit,
+per-crate rationale for each omission recorded next to the allowlist. That
+decision is the operator's; this entry is the measurement it needs.
+
+
+## ISS-HYDRATE-CRATE-HAS-NO-BUILD-GATE (2026-08-22) — SUPERSEDED same-day by ISS-CI-GATE-IS-AN-ALLOWLIST-NINE-MEMBERS-UNGATED (the cause was mis-stated; the crate is a workspace MEMBER)
 
 `crates/lance-graph-hydrate` did not compile at `origin/main` (#981) and was
 also fmt-dirty; both are fixed in the commit that files this. See

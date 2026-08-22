@@ -11,6 +11,19 @@ keywords = ["lance", "graph", "cypher", "query", "datafusion"]
 categories = ["database", "data-structures", "science"]
 
 [dependencies]
+# The hydration lifecycle, minted in this workspace, and `object_store` — the
+# client type `hydrate_from` takes. `object_store` was previously a DEV
+# dependency here: the lib named no object store, only examples and tests did.
+# `hydrate_from` is the first library surface that does.
+#
+# This dep closes two issues at once. It is the shape
+# ISS-REMOTE-URI-CONSTRUCTORS-PREDATE-THE-HYDRATION-DOCTRINE names, and it puts
+# `lance-graph-hydrate` into a build graph CI actually walks — the thing it
+# lacked when it was merged un-compiling (EPIPHANIES
+# E-A-CRATE-WITH-ZERO-CONSUMERS-IS-BUILT-BY-NOTHING-AND-CAN-BE-MERGED-BROKEN-1,
+# ISSUES ISS-HYDRATE-CRATE-HAS-NO-BUILD-GATE).
+lance-graph-hydrate = { path = "../lance-graph-hydrate" }
+object_store = { version = "0.13", features = ["aws"] }
 # arrow + datafusion bumped to 58 + 53 to align with lance 6.0's transitive versions.
 # TODO(lance-bump): downstream crates may need follow-up to align.
 arrow = { workspace = true, features = ["prettyprint"] }

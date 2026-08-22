@@ -1,5 +1,35 @@
 ## 2026-08-21 — D-ACR-7 IMPLEMENTED — `contract::band_reading` (the 59..63 reading contract)
 
+### Current Contract Inventory — `VersionedGraph::hydrate_from`, and the CI gate that should have caught all of this
+
+- **`lance_graph::graph::versioned::VersionedGraph::hydrate_from`** (new) —
+  the shape `ISS-REMOTE-URI-CONSTRUCTORS-PREDATE-THE-HYDRATION-DOCTRINE` names.
+  `local`/`s3`/`azure`/`gcs` address a store WHERE IT SITS; for the three
+  remote ones that makes the object store the store, which the doctrine
+  explicitly does not. They are KEPT (addressing a remote store is legitimate
+  when a caller means it, and better at >1 replica); this adds the doctrine's
+  own shape beside them.
+  - **Ensure-hydrated, not hydrate-or-fail**: an existing destination is the
+    warm path, returned as `Hydration::AlreadyLocal` rather than an error.
+  - **`Hydration { Fresh(ArchiveReport), AlreadyLocal }`** (new) — the
+    distinction is returned rather than folded away: a boot that fetched and a
+    boot that found it are different events.
+  - **`GraphError::Hydration { source, location }`** (new variant) — its own
+    variant, not a flattened message, so a caller can tell a checksum mismatch
+    (never retry) from a transport error (retry).
+- **CI: `lance-graph-hydrate` is gated for the first time** —
+  `rust-test.yml` (tests) + `style.yml` (clippy `-D warnings`, rustfmt). It is
+  a workspace MEMBER and was reached by no job, because **no workflow runs
+  `--workspace`**; every gate is a hand-maintained `--manifest-path` allowlist.
+  Eight more members are still ungated: `ISSUES.md`
+  `ISS-CI-GATE-IS-AN-ALLOWLIST-NINE-MEMBERS-UNGATED`. The mis-stated first
+  diagnosis (zero consumers) is corrected in `EPIPHANIES.md`
+  `E-THE-GATE-IS-A-HAND-MAINTAINED-ALLOWLIST-NOT-THE-WORKSPACE-1`.
+- Tests: `lance-graph-hydrate` 39 green; `lance-graph` `--lib` green incl. two
+  new `hydrate_from` falsifiers scoped to what that function adds (the warm/
+  error mapping — the archive mechanics are falsified one crate down).
+  `cargo clippy -p lance-graph --lib --tests -- -D warnings` clean.
+
 ### Current Contract Inventory — 1 new module in `lance-graph-hydrate`, and that crate now COMPILES
 
 - **`lance_graph_hydrate::archive`** (new) — the `absent -> hydrated` edge for a
