@@ -4772,7 +4772,6 @@ version = "0.1.0"
 dependencies = [
  "lance-graph-contract 0.1.0",
  "lance-graph-ontology",
- "ogar-adapter-surrealql",
  "ogar-class-view",
  "ogar-ontology",
  "ogar-vocab",
@@ -5929,14 +5928,6 @@ dependencies = [
  "opendal",
  "pin-project",
  "tokio",
-]
-
-[[package]]
-name = "ogar-adapter-surrealql"
-version = "0.1.0"
-source = "git+https://github.com/AdaWorldAPI/OGAR?branch=main#1a68071ba77bd8542964ac0f79e7df192a2e315c"
-dependencies = [
- "ogar-vocab",
 ]
 
 [[package]]

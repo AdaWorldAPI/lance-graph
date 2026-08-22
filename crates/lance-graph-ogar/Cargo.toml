@@ -58,12 +58,25 @@ license = "Apache-2.0"
 
 [features]
 default = []
-# The unmap(SurrealQL) -> Class half of the DO arm: pulls surrealdb-ast +
-# surrealdb-parser (heavy; rust-version 1.95+). The emit() DDL formatter half is
-# always available (no surrealdb deps).
-surrealql-parser = ["ogar-adapter-surrealql/surrealdb-parser"]
+# Der SurrealQL-Adapter, jetzt OPT-IN (2026-08-22).
+#
+# WARUM. SurrealQL ist als SPINE ausgeschieden (docs/SURREAL-AST-AS-ADAPTER.md;
+# `symbiont` steht seit 2026-08-18 auf operator-no-go). Was blieb, war ein
+# UNKONDITIONALES `pub use ogar_adapter_surrealql;` in dieser Kiste -- mit
+# gemessen NULL Aufrufern ausserhalb der eigenen Deklaration und der beiden
+# stillgelegten Kisten. Jeder Konsument, der die AR-Flaeche aktiviert, uebersetzte
+# damit einen Adapter mit, den er nie anfasst, und musste ihn in seinem
+# [patch]-Block fuehren. Ein Re-Export, den niemand benutzt, ist keine
+# Bequemlichkeit, sondern eine Kante im Graphen.
+#
+# Wer emit(Class) -> SurrealQL DDL braucht, schaltet `surrealql` an; wer auch
+# die unmap-Haelfte braucht, `surrealql-parser` (das zieht surrealdb-ast +
+# surrealdb-parser, schwer, rust-version 1.95+).
+surrealql = ["dep:ogar-adapter-surrealql"]
+# Die unmap(SurrealQL) -> Class Haelfte des DO-Arms.
+surrealql-parser = ["surrealql", "ogar-adapter-surrealql/surrealdb-parser"]
 # serde passthrough for the OGAR IR types.
-serde = ["ogar-vocab/serde", "ogar-adapter-surrealql/serde"]
+serde = ["ogar-vocab/serde", "ogar-adapter-surrealql?/serde"]
 
 [dependencies]
 # Contract surface (zero-dep): ClassView / ObjectView / ClassId / NodeGuid + the
@@ -99,7 +112,7 @@ ogar-class-view = { git = "https://github.com/AdaWorldAPI/OGAR", branch = "main"
 ogar-ontology = { git = "https://github.com/AdaWorldAPI/OGAR", branch = "main" }
 # default features only = the light emit() DDL formatter (no surrealdb tree);
 # the parser half is opt-in via this crate's `surrealql-parser` feature.
-ogar-adapter-surrealql = { git = "https://github.com/AdaWorldAPI/OGAR", branch = "main" }
+ogar-adapter-surrealql = { git = "https://github.com/AdaWorldAPI/OGAR", branch = "main", optional = true }
 
 # Fold ogar-class-view's transitive `lance-graph-contract` (git
 # AdaWorldAPI/lance-graph#main) onto the SAME path copy this crate uses, so there

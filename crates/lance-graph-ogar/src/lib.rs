@@ -22,8 +22,14 @@
 //!   whole 32-concept AR set through the contract's runtime projection trait
 //!   (`render_rows(id, mask)`).
 //! - [`ogar_ontology`] — prefix conventions + NiblePath identity routing.
-//! - [`ogar_adapter_surrealql`] — `emit(Class) -> SurrealQL DDL` (the DO arm);
-//!   the `unmap(SurrealQL) -> Class` parser half is behind `surrealql-parser`.
+//! - `ogar_adapter_surrealql` — `emit(Class) -> SurrealQL DDL` (the DO arm),
+//!   **opt-in behind the `surrealql` feature** since 2026-08-22; the
+//!   `unmap(SurrealQL) -> Class` parser half is behind `surrealql-parser`.
+//!   SurrealQL is an ADAPTER, never the spine (`docs/SURREAL-AST-AS-ADAPTER.md`),
+//!   so a consumer that never emits DDL should not carry it: the re-export was
+//!   unconditional and had zero call sites, which is a graph edge, not a
+//!   convenience. No intra-doc link here on purpose — the item does not exist
+//!   without the feature.
 //!
 //! OGAR depending on `lance-graph-contract` (the **zero-dep** trait crate) is
 //! *not* "needing lance-graph" — contract is the compile-time handshake (the
@@ -98,6 +104,7 @@
 #![forbid(unsafe_code)]
 #![warn(missing_docs)]
 
+#[cfg(feature = "surrealql")]
 pub use ogar_adapter_surrealql;
 pub use ogar_class_view;
 pub use ogar_ontology;
