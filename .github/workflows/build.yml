@@ -16,7 +16,18 @@ concurrency:
 
 env:
   CARGO_TERM_COLOR: always
-  RUSTFLAGS: "-C debuginfo=1 -C target-cpu=x86-64-v3"
+  # debuginfo=0, not 1. RUSTFLAGS are appended AFTER the flags cargo derives
+  # from the profile, so a `debuginfo=1` here OVERRIDES `[profile.dev] debug = 0`
+  # in Cargo.toml — the manifest default is silently defeated in CI, which is the
+  # opposite of what it is for. CI never opens a debugger; `RUST_BACKTRACE=1`
+  # below still yields a backtrace, just without line numbers.
+  #
+  # Four jobs already carried a job-level `debuginfo=0` for exactly this reason
+  # (measured in b56bb2cd: ~930 MB -> ~252 MB per binary at link, -73%). They
+  # keep the identical string, so their Swatinem cache keys are unchanged; the
+  # jobs that until now INHERITED `=1` (style's clippy + format, rust-publish's
+  # publish) get a new key and repopulate once.
+  RUSTFLAGS: "-C debuginfo=0 -C target-cpu=x86-64-v3"
   RUST_BACKTRACE: "1"
   CARGO_INCREMENTAL: "0"
 
