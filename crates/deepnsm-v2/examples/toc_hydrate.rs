@@ -15,6 +15,7 @@ use deepnsm_v2::corpus::split_verses_detailed;
 use deepnsm_v2::fsm::{parse_to_spo, Pos, Tagged};
 use deepnsm_v2::hydrate::hydrate;
 use deepnsm_v2::lexicon::{normalise, Lexicon};
+use deepnsm_v2::loci::{loci_from_triples, AnteRule};
 use deepnsm_v2::promote::{key_at, promote, read_lane, row_of};
 use deepnsm_v2::spo::Spo;
 use deepnsm_v2::vocab::PaletteVocab;
@@ -273,5 +274,42 @@ fn main() {
         rows.len(),
         core::mem::size_of::<lance_graph_contract::canonical_node::NodeRow>()
     );
+    // ── LOCI: the adapter wave.rs declares missing, on the real stream ──
+    let flat: Vec<Spo> = h.triples.iter().map(|t| t.spo).collect();
+    let pronoun_by_id: Vec<bool> = (0..vocab.len())
+        .map(|i| vocab.word(i as u16).is_some_and(|w| lexicon.is_pronoun(w)))
+        .collect();
+    let pcount = pronoun_by_id.iter().filter(|b| **b).count();
+    println!("pronouns    {pcount} of {} vocabulary ids", vocab.len());
+    for rule in [AnteRule::Recency, AnteRule::SelectionalFit] {
+        let (stream, rep) = loci_from_triples(&space, &codes, &pronoun_by_id, &flat, rule);
+        // Ground every bound locus through wave.rs's own resolver.
+        let (mut causal, mut escalate, mut unbound) = (0usize, 0usize, 0usize);
+        for pos in 0..stream.len() {
+            match stream.ground_at(
+                pos,
+                lance_graph_contract::causal_witness::Locus::Antecedent,
+                u64::MAX,
+                4,
+            ) {
+                lance_graph_contract::witness_fabric::WaveGrounding::Causal => causal += 1,
+                lance_graph_contract::witness_fabric::WaveGrounding::Escalate => escalate += 1,
+                lance_graph_contract::witness_fabric::WaveGrounding::Unbound => unbound += 1,
+            }
+        }
+        println!(
+            "loci {:<15} {} pronoun subjects · {} bound · {} thin-margin · {} beyond reach",
+            format!("{rule:?}"),
+            rep.pronoun_subjects,
+            rep.bound,
+            rep.refused_thin_margin,
+            rep.beyond_reach
+        );
+        println!(
+            "     wave grounding  {causal} Causal · {escalate} Escalate · {unbound} Unbound  (of {} events)",
+            stream.len()
+        );
+    }
+
     println!("\nEND-TO-END GREEN over the real corpus.");
 }
