@@ -20,32 +20,9 @@
 //! never embedded in or emitted by this example (license: unverified, do not
 //! redistribute). Only derived shape statistics are printed.
 
+use deepnsm_v2::lexicon::{normalise, Lexicon};
 use deepnsm_v2::shape::{detect_all, Representation, ShapeClass};
 use deepnsm_v2::{parse_to_spo, PaletteVocab, Pos, Spo, Tagged};
-use std::collections::HashMap;
-
-/// COCA/AVL PoS letter → the FSM's coarse tag (shared with `bible_wave`).
-fn coca_pos(letter: &str) -> Pos {
-    match letter {
-        "n" | "p" => Pos::Noun,
-        "v" => Pos::Verb,
-        "j" => Pos::Adj,
-        "a" | "d" => Pos::Det,
-        _ => Pos::Other,
-    }
-}
-
-/// Archaic/poetic fallback for forms absent from the modern AVL list (Milton,
-/// Homer, KJV share these). Documented heuristics, not a tagger.
-fn archaic_pos(w: &str) -> Option<Pos> {
-    match w {
-        "thou" | "thee" | "ye" => Some(Pos::Noun),
-        "thy" | "thine" => Some(Pos::Det),
-        "shalt" | "hath" | "doth" | "saith" | "spake" | "begat" | "art" | "wilt" | "hast"
-        | "shall" | "cometh" | "wast" | "didst" | "hadst" => Some(Pos::Verb),
-        _ => (w.ends_with("eth") || w.ends_with("est")).then_some(Pos::Verb),
-    }
-}
 
 /// Strip the Gutenberg header/footer; return the body between the START/END
 /// markers (or the whole text if unmarked).
@@ -68,20 +45,25 @@ fn main() {
     ))
     .expect("academic_20k.csv (sibling deepnsm crate, local-only)");
     let mut vocab = PaletteVocab::new();
-    let mut pos_of: HashMap<String, Pos> = HashMap::new();
+    // The academic table is lemma-keyed like `lemmas_5k.csv`, so the COCA form
+    // table goes under it — otherwise every inflected verb is untagged and the
+    // FSM emits nothing for the sentence. See `deepnsm_v2::lexicon`.
+    let lexicon = Lexicon::from_academic_20k(&vocab_csv).with_forms(
+        &std::fs::read_to_string(concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/../deepnsm/word_frequency/word_forms.csv"
+        ))
+        .expect("word_forms.csv (sibling deepnsm crate)"),
+    );
     // header: ID,band,status,word,Pos,...
     let mut words: Vec<String> = Vec::new();
     for line in vocab_csv.lines().skip(1) {
-        let mut f = line.split(',');
-        let (_, _, _, Some(word), Some(pos)) = (f.next(), f.next(), f.next(), f.next(), f.next())
-        else {
-            continue;
-        };
+        let f: Vec<&str> = line.split(',').collect();
+        let Some(word) = f.get(3) else { continue };
         let w = word.to_lowercase();
         if w.is_empty() {
             continue;
         }
-        pos_of.entry(w.clone()).or_insert_with(|| coca_pos(pos));
         words.push(w);
     }
     vocab.from_frequency_ranked(words.iter().map(String::as_str));
@@ -111,20 +93,9 @@ fn main() {
         };
         for tok in body.split_whitespace() {
             let ends = tok.ends_with('.') || tok.ends_with('!') || tok.ends_with('?');
-            let w: String = tok
-                .chars()
-                .filter(char::is_ascii_alphabetic)
-                .collect::<String>()
-                .to_lowercase();
-            if w.len() >= 2 {
-                if let Some(id) = vocab.id(&w) {
-                    let pos = pos_of
-                        .get(&w)
-                        .copied()
-                        .or_else(|| archaic_pos(&w))
-                        .unwrap_or(Pos::Other);
-                    tagged.push(Tagged::new(id, pos));
-                }
+            let w = normalise(tok).unwrap_or_default();
+            if let Some(id) = vocab.id(&w) {
+                tagged.push(Tagged::new(id, lexicon.pos(&w)));
             }
             if ends {
                 flush(&mut tagged, &mut all);

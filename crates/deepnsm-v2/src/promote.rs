@@ -41,7 +41,7 @@
 use crate::basin::BasinCode;
 use crate::toc::TocEntry;
 use lance_graph_contract::canonical_node::{
-    classid_read_mode, EdgeBlock, NodeGuid, NodeRow, ValueTenant,
+    classid_read_mode, EdgeBlock, NodeGuid, NodeRow, TailVariant, ValueTenant,
 };
 use lance_graph_contract::episodic_basin::{BasinRow, BASIN_ROW_BYTES};
 use lance_graph_contract::hhtl::{NiblePath, MAX_DEPTH};
@@ -65,24 +65,48 @@ pub fn tiers_of(path: NiblePath) -> (u16, u16, u16, u16) {
     )
 }
 
-/// The node key for a TOC address under `classid`.
+/// The node key for a TOC address under `classid`, or `None` if `classid`
+/// cannot carry one.
 ///
 /// Minted through `mint_for(classid_read_mode(classid).tail_variant, …)` — the
-/// symmetric spine — never `NodeGuid::new`, which is the V1 tail the canon
-/// forbids for new units.
+/// symmetric spine — never `NodeGuid::new`.
+///
+/// # Why this REFUSES the V1 tail instead of minting it
+///
+/// The canon forbids the V1 tail for new units, and this is a promoter for new
+/// units only. Refusing matters because the fallback is otherwise **silent** in
+/// two stacked ways:
+///
+/// 1. A classid with no registry entry resolves to `ReadMode::DEFAULT`, whose
+///    `tail_variant` is `V1`.
+/// 2. `mint_for` itself has a `#[cfg(not(feature = "guid-v2-tail"))]` arm that
+///    maps V2/V3 back onto the V1 layout "so the crate compiles".
+///
+/// Either path produces a key that looks fine — `Debug` prints, `Eq` works,
+/// the HHTL prefix even round-trips while `family == 0` — but has dropped
+/// `leaf` and written the tail as `family:u24 ++ identity:u24` at bytes 10..16,
+/// so `identity_v2()` (bytes 14..16) reads something else entirely. That was
+/// live in this crate until an identity assertion in `toc_hydrate` caught it.
+///
+/// `None` means *this concept has no mint yet* — an OGAR question, not
+/// something to paper over with a V1 key.
 #[must_use]
-pub fn key_at(classid: u32, path: NiblePath, family: u32, identity: u32) -> NodeGuid {
+pub fn key_at(classid: u32, path: NiblePath, family: u32, identity: u32) -> Option<NodeGuid> {
+    let tail = classid_read_mode(classid).tail_variant;
+    if tail == TailVariant::V1 {
+        return None;
+    }
     let (heel, hip, twig, leaf) = tiers_of(path);
-    NodeGuid::mint_for(
-        classid_read_mode(classid).tail_variant,
-        classid,
-        heel,
-        hip,
-        twig,
-        leaf,
-        family,
-        identity,
-    )
+    let key = NodeGuid::mint_for(tail, classid, heel, hip, twig, leaf, family, identity);
+    // The fallback arm above is a cfg, not a runtime branch, so a build without
+    // the feature would return a V1 key from a V3 request and this is the only
+    // place that can still see it.
+    debug_assert_eq!(
+        key.identity_v2(),
+        u16::try_from(identity).unwrap_or(u16::MAX),
+        "minted key does not read its own identity back — V1 fallback compiled in?"
+    );
+    Some(key)
 }
 
 /// A [`BasinRow`] from this crate's own [`BasinCode`], over a version range.
@@ -127,14 +151,14 @@ pub fn read_lane(row: &NodeRow) -> BasinRow {
 /// `identity` distinguishes rows that share an address — the caller's
 /// discriminator, not one this module invents.
 #[must_use]
-pub fn promote(entry: &TocEntry, basin: &BasinRow, classid: u32, identity: u32) -> NodeRow {
+pub fn promote(entry: &TocEntry, basin: &BasinRow, classid: u32, identity: u32) -> Option<NodeRow> {
     let mut row = NodeRow {
-        key: key_at(classid, entry.path, 0, identity),
+        key: key_at(classid, entry.path, 0, identity)?,
         edges: EdgeBlock::default(),
         value: [0u8; 480],
     };
     write_lane(&mut row, basin);
-    row
+    Some(row)
 }
 
 /// Promote many, pairing each basin with the TOC entry it was observed at.
@@ -147,7 +171,7 @@ pub fn promote_all(pairs: &[(TocEntry, BasinRow)], classid: u32) -> Vec<NodeRow>
     pairs
         .iter()
         .enumerate()
-        .map(|(i, (e, b))| promote(e, b, classid, u32::try_from(i).unwrap_or(0)))
+        .filter_map(|(i, (e, b))| promote(e, b, classid, u32::try_from(i).unwrap_or(0)))
         .collect()
 }
 
@@ -157,7 +181,7 @@ mod tests {
     use crate::toc::{spawn, CorpusToc, TocLevel};
     use std::collections::HashSet;
 
-    const CLASSID: u32 = 0x0301_0000;
+    const CLASSID: u32 = NodeGuid::CLASSID_OSINT_V3;
 
     fn toy() -> Vec<TocEntry> {
         spawn(
@@ -190,7 +214,7 @@ mod tests {
         assert!(!entries.is_empty(), "anti-vacuity: there are entries");
         let mut checked = 0usize;
         for e in &entries {
-            let key = key_at(CLASSID, e.path, 0, 1);
+            let key = key_at(CLASSID, e.path, 0, 1).expect("V3 classid mints");
             let back = NiblePath::from_guid_prefix_v3(&key);
             assert_eq!(
                 back.prefix(e.path.depth()),
@@ -209,7 +233,11 @@ mod tests {
         let entries = toy();
         let keys: HashSet<[u8; 16]> = entries
             .iter()
-            .map(|e| *key_at(CLASSID, e.path, 0, 0).as_bytes())
+            .map(|e| {
+                *key_at(CLASSID, e.path, 0, 0)
+                    .expect("V3 classid mints")
+                    .as_bytes()
+            })
             .collect();
         assert_eq!(keys.len(), entries.len(), "an address collided");
         // …and the ancestry survives the fold: a verse's key folds to a path
@@ -230,13 +258,38 @@ mod tests {
         );
     }
 
+    /// A classid with no registry entry resolves to the V1 tail, and the
+    /// promoter must REFUSE it rather than mint the forbidden shape.
+    ///
+    /// This is the can-fire half; `distinct_toc_entries_get_distinct_keys`
+    /// above is the can-stay-silent half — it mints on a real V3 classid and
+    /// gets `Some` for every entry, so the guard is not simply always-None.
+    #[test]
+    fn an_unminted_classid_is_refused_not_silently_downgraded() {
+        let e = toy()[0];
+        // 0x0301_0000 — MONDO's block, which is exactly what this crate used
+        // as a corpus stand-in. It has no read-mode entry, so it resolves to
+        // ReadMode::DEFAULT (V1) and the old code minted a V1 key from it.
+        let unminted = 0x0301_0000;
+        assert_eq!(
+            classid_read_mode(unminted).tail_variant,
+            TailVariant::V1,
+            "anti-vacuity: this classid really does resolve to V1"
+        );
+        assert!(key_at(unminted, e.path, 0, 1).is_none());
+        assert!(promote(&e, &basin(1, 1), unminted, 1).is_none());
+        // ...and the V3 classid the tests use is genuinely different.
+        assert_ne!(classid_read_mode(CLASSID).tail_variant, TailVariant::V1);
+        assert!(key_at(CLASSID, e.path, 0, 1).is_some());
+    }
+
     /// The lane round-trips through a real row, and writing it **touches no
     /// other byte of the 480-byte slab** — the row-level field-isolation half.
     #[test]
     fn the_lane_round_trips_and_disturbs_nothing_else() {
         let e = toy()[0];
         let b = basin(77, 5);
-        let row = promote(&e, &b, CLASSID, 3);
+        let row = promote(&e, &b, CLASSID, 3).expect("V3 classid mints");
         assert_eq!(
             read_lane(&row),
             b,
