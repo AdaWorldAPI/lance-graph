@@ -309,6 +309,156 @@ and a supervision corpus sized from the label is oversized by exactly the rows
 where the source labelled but did not fill.
 
 Cross-ref: `.claude/plans/dismech-causality-v3-v1.md` §3a; `E-DISMECH-CORPUS-CENSUS-1`.
+## 2026-08-21 — E-V4-IS-THE-100-PERCENT-TIER-V3-UNCHANGED-1 — operator ruling: V4 is a SIBLING for lossless/special-need coverage, not a successor
+
+**Status:** RULING `[operator]` — explicit in-session decision, verbatim below.
+**Confidence:** the ruling is authoritative; the CONSEQUENCES I draw from it are
+marked separately and several are open questions, not inferences to act on.
+
+**The ruling, verbatim (operator, 2026-08-21):**
+> *"Meine Auffassung ist, V4 ist für R2IL 100% coverage und andere Special
+> needs. V3 wie bisher."*
+> ("V4 is for R2IL 100% coverage and other special needs. V3 as before.")
+
+**What it settles.** V4 is **real and additive** — a sibling tier for workloads
+requiring lossless / 100 % coverage, NOT a replacement for V3. **V3 is
+explicitly unchanged** ("wie bisher"). The two coexist; V4 serves what V3's
+deliberately projective design does not.
+
+**Storno — this corrects my own entry from earlier today.**
+`E-R2IL-VARNODEFACET-IS-A-G3-CARVING-AND-0xC4-WOULD-BIRTH-A-CLASS-INTO-IT-1`
+argued the "V4" label "should not be adopted" on three grounds. Regraded, not
+deleted:
+1. *"reverses the ratified no-V4 verdict"* — **superseded.** The plan's
+   `:112` verdict ("V3 is sufficient. No V4.") was a session verdict; this is
+   an operator ruling, and rulings are frozen while verdicts are revisable.
+   The plan's §22.5 stop condition is now SUPERSEDED, not violated. The plan
+   text needs the correction appended.
+2. *"V4 already denotes the dialectic-engine V4 field-search slice"* —
+   **STANDS as a hygiene item only**, downgraded from architecture objection.
+   `E-DIA-V4-FIELD-SEARCH-LOOP-1` is a plan V-slice ordinal in a different
+   subsystem; the two are contextually separable but a future session grepping
+   "V4" will hit both. Disambiguation owed (suggest: "V4 tier" vs "V4 slice").
+3. *"implies V3-superseded"* — **WRONG, and the ruling says so directly.**
+   "V3 wie bisher" is the explicit denial. This was my strongest objection and
+   it was the one built on an assumption the operator did not share.
+
+**Consequence for the G3 carving question — the frame changes, and this is the
+part worth reading twice.** §3a's *"new classes MUST NOT be born into G1–G3"*
+is a **V3** rule. If R2IL is a V4 tenant, §3a does not govern it, and the whole
+carving question I posed — re-carve / named-exception / defer — was posed
+inside the wrong frame. `VarnodeFacet`'s 3×32 density is then not a V3
+violation needing an exception; it is **the reason R2IL is V4 in the first
+place**. [MY INFERENCE, not the operator's words — flagged as such.]
+
+**Consequence for `E-ADDRESS-FROM-THE-THING-NOT-THE-ACCIDENT-1` — its own
+falsifier is PARTIALLY triggered.** That entry pre-registered: *"if a gate is
+legitimately cleared by a fix that leaves the address derived from layout …
+this entry is scoped down to the other instance."* The ruling does not say
+"G3 is correct for R2IL" — it relocates R2IL to a tier whose carving discipline
+is not yet stated. So the spatial instance is **suspended, not refuted**,
+pending V4's actual layout. The temporal instance (F-ORD) is untouched and
+still stands on its own measurement. Scoping down now would be premature;
+scoping down later may be correct.
+
+**What the ruling does NOT say — open, do not invent answers:**
+- **V4's layout.** Facet width, carving discipline, whether rails apply at all,
+  whether the 512-byte row stride is reused. Unknown.
+- **Where V4 lives.** Contract crate? Separate module? A ClassView read-mode?
+  Unknown.
+- **What "andere Special needs" enumerates.** R2IL is one named tenant; the
+  set is open.
+- **How a reader routes V3 vs V4.** By classid? By domain byte (0xC4 is
+  already the R2IL destination)? By an explicit tier discriminator? Unknown —
+  and this is the question that most affects whether existing readers break.
+- **Whether the `0xC4` mint is a V3 mint or a V4 mint.** Given the ruling, it
+  is presumably V4 — but the domain enum lives in the V3-shaped
+  `ogar_codebook` mirror, so the interaction needs stating.
+
+**Cross-refs:** the two entries this corrects/suspends (both 2026-08-21),
+`le-contract.md` §3 (L1–L8) + §3a (G1–G3), ruff plan
+`r2il-behavioral-ir-v1.md` `:112` + §22.5 (both now superseded, correction
+owed in-repo), `ogar_codebook.rs:112-117` (0xC4 BinaryLifting),
+`E-DIA-V4-FIELD-SEARCH-LOOP-1` (the name collision),
+`E-V3-FACET-4-PLUS-12` (the V3 lock that stays untouched).
+
+**⊘ STORNO 2026-08-21 (operator correction, same day) — objection 2 above is
+RETRACTED; there is no name collision and no disambiguation is owed.**
+`dialectic-engine-v1.md`'s `V0…V5` are **integration-plan STEPS, like its own
+`S1…S11`** — §4 is literally headed "Build order", and `V4` there is one stage
+("the 64k SIMT lowering … only after V0–V3 green at small scale"), the fifth of
+six. A step ordinal and a substrate tier are not two meanings of one label
+competing for a namespace; they are two independent counters that never address
+the same kind of thing. `E-DIA-V4-FIELD-SEARCH-LOOP-1` inherits the STEP
+meaning — it names a finding from that stage — so it was never evidence of a
+tier collision either. **Nothing should be renamed**, and a future session must
+not read line 30's "disambiguation owed" as a live item; acting on it would
+rewrite a correct plan to resolve a conflict that does not exist. What this
+leaves: all three of my objections to the V4 label are now retracted, two as
+superseded by the ruling and this one as simply mistaken about what the source
+document says. The G3 reframing (below) and the five open questions are
+unaffected — they never rested on this point.
+
+## 2026-08-21 — E-ADDRESS-FROM-THE-THING-NOT-THE-ACCIDENT-1 — the two blocked gates are one failure on two axes
+
+**Status:** SYNTHESIS / CONJECTURE — my cross-reading of two independently
+authored, independently measured docs. **Not an operator ruling and not a new
+rule**; both constituent findings are separately graded FINDING and stand on
+their own if this framing is rejected. **Confidence:** the two instances are
+High (source-read, measured); the UNIFICATION is Medium — it is a lens, and
+its value is that it makes one test serve two gates.
+
+**The one sentence.** *An address must be derived from what the thing IS,
+never from the accident of how it was laid out or when it showed up.*
+
+**Two gates are currently blocked, in two different repos, by two different
+sessions, and they are the same failure rotated 90°:**
+
+| | SPATIAL — the carving | TEMPORAL — the landing |
+|---|---|---|
+| where | ruff `VarnodeFacet` / PR3 `0xC4` mint | lance-graph-java GridLake / F-ORD |
+| the accident | a **flat contiguous register** (3×32, G3) — no byte axis, so no rail exists to address it by | a key **minted from completion order** (`collect_casts` mints `stream_position`) — so identity encodes *when*, not *what* |
+| the symptom | ClassView cannot project rails; `group_of` is not a shift; saturates silently with no cascade spill | same work, two runs, two publication identities — measured hashes 2604999916736672513 vs 4858955943411201665 |
+| the doc's own exit | "**cosine-replacement** palette256 (L4)" — content-derived addressing (`le-contract.md` §3a) | "**identity-derived** or otherwise deterministic" — required property #1 (correction spec §12) |
+
+**The tell that this is convergence, not my imposition:** the two docs were
+written by different sessions for different subsystems and neither cites the
+other, yet both name their exit with the same word-family — *cosine-**replacement***
+(derive the address from content) and *identity-**derived*** (derive the key
+from identity). Nobody coordinated that.
+
+**The test, usable at either gate, in one question:**
+> If I re-ran this with the bytes laid out differently, or the workers
+> finishing in a different order, would the address change?
+>
+> **Yes → the address is coming from the accident.** No → it comes from the
+> thing.
+
+**What this does NOT license.** It does not decide either gate. Specifically:
+(a) it does not say `VarnodeFacet` must re-carve — a varnode genuinely needs
+64 bits of offset plus a size, `6×(8:8)` cannot hold that, and the
+`identity_quad` G2 precedent (`E-IDENTITY-QUAD-4X24-RATIFIED-PERMANENT-1`)
+exists precisely so a permanent honest wide resident can be **named** rather
+than hidden; (b) it does not prescribe F-ORD's fix mechanism, which A2/A3
+deliberately left unprescribed (four candidates, per-workload). The lens
+sharpens the question; the operator still answers it.
+
+**Falsifier — what would retire this entry.** If a gate is legitimately
+cleared by a fix that leaves the address derived from layout or schedule (e.g.
+an operator ruling that a G3 carving is permanently correct for R2IL *because*
+of its density, or an F-ORD resolution that canonicalises arrival order as
+semantically meaningful), then the "accident" framing is wrong for that
+instance and this entry is scoped down to the other one — or dropped. Two
+instances is a pattern, not a law; a third independent instance would raise
+confidence, a counter-example would end it.
+
+**Cross-refs:** `E-R2IL-VARNODEFACET-IS-A-G3-CARVING-AND-0xC4-WOULD-BIRTH-A-CLASS-INTO-IT-1`
+(the spatial instance, same day), `le-contract.md` §3a G1–G3 + the L4 exit,
+`E-IDENTITY-QUAD-4X24-RATIFIED-PERMANENT-1` (the named-exception precedent),
+lance-graph-java `.claude/plans/mask-native-navigation-correction-v1.md` §12
+(F-ORD/F-LAND split, the five frozen landing-key properties) + the Lotus
+F-ORD defect pin, `ogar_codebook.rs:112-117` (the 0xC4 destination).
+
 ## 2026-08-21 — E-ABBREVIATION-GREP-MANUFACTURED-AN-ABSENCE-1 — I reported a shipped 15-module subsystem as non-existent because `fn .*ppr` matches `approx`, and a `head` limit hid the real hits
 
 **Status:** FINDING (self-inflicted, caught by the operator pointing at
@@ -579,6 +729,119 @@ field the schema clearly uses is a claim about the reader, not the corpus** —
 the same rule this board already states for null probe results, applied to
 counting rather than to timing. Reading three raw blocks cost thirty seconds
 and moved the answer by a factor of 622.
+## 2026-08-21 — E-R2IL-VARNODEFACET-IS-A-G3-CARVING-AND-0xC4-WOULD-BIRTH-A-CLASS-INTO-IT-1
+
+**Status:** FINDING (measured at file:line this session, after rebasing
+`claude/ruff-r2il-lancegraph-3tdt8d` onto `main` @ `8a93423`).
+**Confidence:** High for the layout arithmetic and the §3a rule text (both
+read from source); the CONSEQUENCE is a gate question for PR3, deliberately
+not pre-decided here.
+
+**The finding.** `ruff_r2il::facet::VarnodeFacet` (`facet.rs:36-48`) carves its
+16 bytes as `classid: u32` + `offset_lo: u32` + `offset_hi: u32` + `size: u32`.
+The 12-byte payload is therefore **3 × 32-bit contiguous = exactly `le-contract.md`
+§3a's G3 "wide-quad"** (`:82`, `96 ✓`) — the axis-LESS grace carving, not the
+axis-grouped `3×(8:8:8:8)` L6/`CascadeShape::G3D4` shape. It carries no rail:
+there is no `X:Y` byte pair anywhere in it.
+
+Today this is invisible and legal: `PROVISIONAL_R2IL_VARNODE = 0x0000`
+(`facet.rs:21`) puts every varnode in the **default class** — the CANON
+zero-fallback ladder's "no prefix routing (dormant)" state, which is not a
+minted class at all.
+
+**Why the mint changes its status.** `lance_graph_contract::ogar_codebook`
+already names the destination in source (`ogar_codebook.rs:112-117`): *"`0xC4XX`
+— Binary lifting … the R2IL container concepts mint here in the ruff PR3 arc,
+**replacing `PROVISIONAL_R2IL_VARNODE = 0x0000`**"*. The moment that mint lands,
+the facet stops being the dormant default and becomes a **real, addressed class
+whose payload is G3** — and §3a is explicit (`le-contract.md:104`): *"New classes
+MUST NOT be born into G1–G3; the waiting room is not a destination."*
+
+So PR3 as currently specified would, without a deliberate decision, do the one
+thing §3a names. Three legible resolutions, none prescribed here:
+(a) re-carve the payload onto a rail shape before minting (e.g. the L4
+`6×(u8:u8)` reading, which would make space/offset/size rail-addressable);
+(b) mint and take a **named ratified exception**, the way
+`ISS-IDENTITY-QUAD-WIDE-CARVING-HOME` did for `identity_quad` in G2 (operator,
+2026-08-17) — that precedent exists precisely for a permanent, honest resident;
+(c) keep `0x0000` and defer the mint until the carving question is settled.
+The honest-cost accounting §3a already demands applies either way: a 64-bit
+varnode offset genuinely needs 64 bits, so (a) is a real design question about
+whether offset belongs in the facet at all, not a mechanical re-slice.
+
+**Two things this session checked that are NOT defects, recorded so they are
+not re-investigated:**
+
+1. **The ruff SPO intake arms do not use the R2IL/r2sleigh format — correctly.**
+   `ruff_{cpp,csharp,python,ruby,sqlalchemy}_spo` depend on `ruff_spo_triplet`
+   only; none depends on `r2il`/`r2ssa`/`ruff_r2il`. That is the plan's two-arm
+   split (`ruff/.claude/plans/r2il-behavioral-ir-v1.md:320`): structural
+   (AST → `ModelGraph` → `expand()` → `Vec<Triple>`) beside behavioral
+   (machine code → R2IL/SSA), converging only at OGAR/ClassView. Feeding R2IL
+   into an AST harvest would be the "backdoor opcode vocabulary" the plan
+   forbids at `:335`. Consistent with this board's own line 9347.
+2. **`ruff_spo_address` having zero in-ruff dependents is not dead code.** It is
+   consumed CROSS-REPO by OGAR `ogar-from-ruff` (`Cargo.toml:35`, a git dep on
+   ruff `main`; `mint.rs:35` imports `{Facet, Mint, mint_with_classid}`). The
+   in-ruff dependent count is the wrong measurement for a producer crate.
+
+**Correction of this session's own prior statement (storno).** Earlier this
+session I reported PR3's home as an OPEN question — "slot in `ogar_codebook`
+versus a new `ogar-r2il` crate, your call" — and leaned slot. That was wrong on
+the facts available: the decision was already made and landed. `BinaryLifting`
+(`0xC4`) is in the mirrored `ConceptDomain` enum on both sides, is pinned by
+`reserved_empty_domains_agree_across_the_mirror`, and
+`E-OGAR-CODEBOOK-MIRROR-DOMAIN-DRIFT-SYNCED-1` (2026-08-18) already states *"the
+R2IL container-concept mints under 0xC4 arrive with the ruff arc's PR3 and will
+rebase trivially on this."* No `ogar-r2il` crate was ever proposed anywhere
+(zero hits across `ruff/` and `OGAR/`). **The lesson is the process one:** the
+finding was reachable only by reading the board AFTER the rebase — I formed a
+conclusion from the ruff tree alone and presented a settled decision as open.
+Rebase, then read EPIPHANIES/plans, THEN conclude.
+
+**⚠ NAMING — a sibling session is calling `ruff_r2il` "V4"; the INSIGHT is
+right and the LABEL is wrong, and they must not be collapsed into each other.**
+Reported mid-session: *"another session called `ruff_r2il` V4, just because the
+IR format is way denser from the perspective of a compiler substrate."* The
+density observation is **correct and is the same fact as this entry's finding**
+— R2IL's address space genuinely is denser than a rail shape can express (a
+varnode needs a 64-bit offset plus a size; `6×(u8:u8)` cannot hold that), which
+is exactly WHY `VarnodeFacet` ended up carved as G3. Two sessions reached one
+fact from opposite sides. Preserve that.
+
+The LABEL collides three ways and should not be adopted:
+
+1. **It reverses a ratified verdict without falsifying it.** The r2il plan's own
+   `:112` reads *"Verdict: V3 is sufficient. **No V4.** The hypothesis stands
+   un-falsified"*, restated as stop condition §22.5 (`:397`, "no V4; variable
+   arity already routed upstream"). Nothing measured since has falsified it —
+   PR2's oracle went the other way, reconstructing 35,946 op sites with zero
+   mismatches *through V3 routes*. A version bump needs a falsifier, not a
+   density impression.
+2. **"V4" already denotes something else here.** `E-DIA-V4-FIELD-SEARCH-LOOP-1`
+   (2026-07-23) is the dialectic-engine's **V4 foveated field-search slice** — a
+   plan V-slice number in `dialectic-engine-v1.md`, an unrelated subsystem. A
+   second meaning on the same token divides the search surface for every future
+   session, which is the duplicate-id failure this board already fights.
+3. **It implies V3-superseded, which no ruling supports.** V3 is a LAYOUT canon
+   (4+12 content-blind facet, 512-byte row, classid canon-high). Density is not
+   a property of the canon; it is a property of ONE CLASS's carving choice
+   *inside* it. That is precisely what §3a's G-carvings and the `identity_quad`
+   named exception exist to express.
+
+**The honest reframing:** R2IL is not a new substrate version — it is a **dense
+class whose carving question is open** (the three options above). If the density
+is genuinely permanent and irreducible, the sanctioned vocabulary for saying so
+is a **named ratified G3 exception** in the `ISS-IDENTITY-QUAD-WIDE-CARVING-HOME`
+mould, not a version number. Route the disagreement to the operator as a carving
+ruling; do not let either session settle it by naming.
+
+**Cross-refs:** `le-contract.md` §3a (G1–G3 + the `identity_quad` named
+exception), `E-IDENTITY-QUAD-4X24-RATIFIED-PERMANENT-1` (the exception
+precedent), `E-OGAR-CODEBOOK-MIRROR-DOMAIN-DRIFT-SYNCED-1` (the 0xC4 sync),
+`E-V3-FACET-4-PLUS-12`, `ogar_codebook.rs:112-117`, ruff
+`crates/ruff_r2il/src/facet.rs:21,36-48`, ruff plan `r2il-behavioral-ir-v1.md`
+PR3 + O5.
 
 ## 2026-08-20 — E-DISMECH-CORPUS-CENSUS-1 — the DisMech corpus measured: 87.2 MB of strings, of which the entire causal semantics is bits + codebook ordinals
 
