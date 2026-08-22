@@ -94,12 +94,12 @@ lance-graph-ontology = { path = "../lance-graph-ontology" }
 # sibling paths, so all three resolve ONE OGAR copy (codex P2 on #648 intent
 # preserved). CI that builds these excluded crates must sibling-check-out OGAR
 # (tesseract-rs CI precedent for lance-graph/ndarray).
-ogar-vocab = { path = "../../../OGAR/crates/ogar-vocab" }
-ogar-class-view = { path = "../../../OGAR/crates/ogar-class-view" }
-ogar-ontology = { path = "../../../OGAR/crates/ogar-ontology" }
+ogar-vocab = { git = "https://github.com/AdaWorldAPI/OGAR", branch = "main" }
+ogar-class-view = { git = "https://github.com/AdaWorldAPI/OGAR", branch = "main" }
+ogar-ontology = { git = "https://github.com/AdaWorldAPI/OGAR", branch = "main" }
 # default features only = the light emit() DDL formatter (no surrealdb tree);
 # the parser half is opt-in via this crate's `surrealql-parser` feature.
-ogar-adapter-surrealql = { path = "../../../OGAR/crates/ogar-adapter-surrealql" }
+ogar-adapter-surrealql = { git = "https://github.com/AdaWorldAPI/OGAR", branch = "main" }
 
 # Fold ogar-class-view's transitive `lance-graph-contract` (git
 # AdaWorldAPI/lance-graph#main) onto the SAME path copy this crate uses, so there

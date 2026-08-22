@@ -53,7 +53,7 @@ snafu = "0.8"
 
 # AdaWorldAPI/ndarray fork with 55 HPC modules (Fingerprint, CAM-PQ, CLAM, BLAS, ZeckF64)
 # Source: https://github.com/AdaWorldAPI/ndarray
-ndarray = { path = "../../../ndarray", optional = true, default-features = false, features = ["std", "hpc-extras"] }
+ndarray = { git = "https://github.com/AdaWorldAPI/ndarray", branch = "master", optional = true, default-features = false, features = ["std", "hpc-extras"] }
 
 # Unified query planner (MUL, thinking, strategies, CAM-PQ scan)
 lance-graph-planner = { path = "../lance-graph-planner", optional = true }

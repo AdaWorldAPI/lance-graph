@@ -3008,6 +3008,7 @@ dependencies = [
 [[package]]
 name = "fractal"
 version = "0.1.0"
+source = "git+https://github.com/AdaWorldAPI/ndarray?branch=master#5bb1c2dfc9f0db05f605c0e1c5e21a945eb245cf"
 dependencies = [
  "libm",
 ]
@@ -5672,6 +5673,7 @@ dependencies = [
 [[package]]
 name = "ndarray"
 version = "0.17.2"
+source = "git+https://github.com/AdaWorldAPI/ndarray?branch=master#5bb1c2dfc9f0db05f605c0e1c5e21a945eb245cf"
 dependencies = [
  "fractal",
  "matrixmultiply",
@@ -5932,6 +5934,7 @@ dependencies = [
 [[package]]
 name = "ogar-adapter-surrealql"
 version = "0.1.0"
+source = "git+https://github.com/AdaWorldAPI/OGAR?branch=main#1a68071ba77bd8542964ac0f79e7df192a2e315c"
 dependencies = [
  "ogar-vocab",
 ]
@@ -5939,6 +5942,7 @@ dependencies = [
 [[package]]
 name = "ogar-class-view"
 version = "0.1.0"
+source = "git+https://github.com/AdaWorldAPI/OGAR?branch=main#1a68071ba77bd8542964ac0f79e7df192a2e315c"
 dependencies = [
  "lance-graph-contract 0.1.0 (git+https://github.com/AdaWorldAPI/lance-graph?branch=main)",
  "ogar-vocab",
@@ -5947,10 +5951,12 @@ dependencies = [
 [[package]]
 name = "ogar-ontology"
 version = "0.1.0"
+source = "git+https://github.com/AdaWorldAPI/OGAR?branch=main#1a68071ba77bd8542964ac0f79e7df192a2e315c"
 
 [[package]]
 name = "ogar-vocab"
 version = "0.1.0"
+source = "git+https://github.com/AdaWorldAPI/OGAR?branch=main#1a68071ba77bd8542964ac0f79e7df192a2e315c"
 
 [[package]]
 name = "once_cell"
@@ -6393,6 +6399,7 @@ dependencies = [
 [[package]]
 name = "p64"
 version = "0.1.0"
+source = "git+https://github.com/AdaWorldAPI/ndarray?branch=master#5bb1c2dfc9f0db05f605c0e1c5e21a945eb245cf"
 dependencies = [
  "fractal",
 ]
@@ -10245,3 +10252,7 @@ dependencies = [
  "cc",
  "pkg-config",
 ]
+
+[[patch.unused]]
+name = "ndarray"
+version = "0.17.2"

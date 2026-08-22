@@ -43,7 +43,8 @@ ndarray-simd = ["dep:ndarray"]
 landing = ["dep:lance-graph-contract"]
 
 [dependencies.ndarray]
-path = "../../../ndarray"
+git = "https://github.com/AdaWorldAPI/ndarray"
+branch = "master"
 optional = true
 default-features = false
 # `std` gates `ndarray::simd` (the `U64x8` polyfill); that is all we need.

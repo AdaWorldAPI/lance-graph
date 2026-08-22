@@ -59,7 +59,7 @@ presets = ["lane-g", "lane-h", "lane-i", "lane-j"]
 # path convention as crates/lance-graph/Cargo.toml's ndarray dep.
 # default-features = false + "std" exposes ndarray::simd (U8x32 etc.)
 # without dragging in hpc-extras.
-ndarray = { path = "../../../ndarray", optional = true, default-features = false, features = ["std"] }
+ndarray = { git = "https://github.com/AdaWorldAPI/ndarray", branch = "master", optional = true, default-features = false, features = ["std"] }
 # AdaWorldAPI fork of ractor (same coordinates as lance-graph-supervisor;
 # fork carries the MessagingErr::Saturated non-exhaustive-match fix).
 ractor = { git = "https://github.com/AdaWorldAPI/ractor", optional = true, default-features = false, features = ["tokio_runtime"] }

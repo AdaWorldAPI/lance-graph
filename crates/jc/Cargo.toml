@@ -30,7 +30,7 @@ lance-graph-contract = { path = "../lance-graph-contract" }
 # `substrate_compare` example only — the on-demand P64-vs-V3 comparison drives
 # the REAL Palette64 (compute) + NodeGuid (address) and records into the
 # neural-debug runtime registry. Dev-deps, so production JC stays zero-dep.
-p64 = { path = "../../../ndarray/crates/p64" }
+p64 = { git = "https://github.com/AdaWorldAPI/ndarray", branch = "master" }
 neural-debug = { path = "../neural-debug" }
 
 [[example]]

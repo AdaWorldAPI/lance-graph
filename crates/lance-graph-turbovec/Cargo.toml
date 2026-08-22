@@ -30,7 +30,7 @@ thresholds, preheating vs palette256 ranking) and the measured speed delta.
 turbovec = { path = "../../../turbovec/turbovec", default-features = false, features = ["ndarray-simd"] }
 # The fork, for `ndarray::simd::amx_available()` in the backend report. Same
 # canonical path turbovec resolves, so cargo unifies to one ndarray package.
-ndarray = { path = "../../../ndarray", default-features = false, features = ["std"] }
+ndarray = { git = "https://github.com/AdaWorldAPI/ndarray", branch = "master", default-features = false, features = ["std"] }
 
 [dev-dependencies]
 
