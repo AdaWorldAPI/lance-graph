@@ -62,7 +62,12 @@ jobs:
       # set it as default; inside the repo the toolchain file won anyway, so
       # these jobs already ran on the pin while the workflow said otherwise.
       - name: Setup rust toolchain (pinned by rust-toolchain.toml)
-        run: rustup show
+        run: |
+          rustup show
+          # Redundant with `rust-toolchain.toml`'s `components = ["rustfmt",
+          # "clippy"]`, which `rustup show` already installs — kept because it
+          # is idempotent and because removing it would be a second change in a
+          # step that just broke.
           rustup component add clippy
       - uses: Swatinem/rust-cache@v2
         with:
