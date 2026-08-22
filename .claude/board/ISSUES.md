@@ -1,5 +1,33 @@
 # Issues Log — Open + Resolved (double-entry, append-only)
 
+## ISS-CORPUS-ADDRESSING-OPEN-POINTS (2026-08-22) — OPEN
+
+Three points a 5+3 council left explicitly unresolved rather than settle by
+picking the newer text. All three are operator calls.
+
+1. **The `is_a` byte's referent.** Slot purity (`le-contract.md` §2) makes it a
+   ClassView matter and, for a taxonomy, an OGAR mint. No consumer may invent it.
+
+2. **Clause placement — within-row ordinal vs key rail slot.** D-RCC-2
+   (`plans/rosetta-codebook-convergence-v1.md:110-117`, `Status: PROPOSED`) puts
+   the clause as a within-row `clause_index`, for a stated reason: *verses ≠
+   sentences*. The corpus-addressing draft put it in a key rail slot. **Neither
+   design is ratified**, so this is a divergence between two proposals, not a
+   correction of one by the other.
+
+3. **F9 provenance for a derived clause boundary.** A clause split out of a verse
+   by punctuation is content-derived. Whether such a value may serve as an
+   address does not disappear when the clause moves from a key slot to
+   `clause_index` — it relocates onto `clause_index` unanswered. D-RCC-2's own
+   parenthetical is the same concern.
+
+Follow-ups filed here rather than actioned (the council ratified a document, not
+an implementation): `hhtl.rs`, `routing.md` §2 and `tenants.md` seam 3 carry no
+cross-reference to the HHTL name split, so anyone entering through those docs
+inherits the collision. Consumers keyed to the 3-slot tail reading, for the
+record: `canonical_node.rs`, `ocr.rs`, `aiwar.rs`, `soa_graph.rs`,
+`lance-graph-callcenter/src/graph_table.rs`.
+
 ## ISS-CI-GATE-IS-AN-ALLOWLIST-NINE-MEMBERS-UNGATED (2026-08-22) — RESOLVED same-day by PR #984
 
 No workflow runs `--workspace` or `--all`. Every gate names one crate by path
