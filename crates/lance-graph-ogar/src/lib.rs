@@ -98,6 +98,13 @@
 #![forbid(unsafe_code)]
 #![warn(missing_docs)]
 
+/// DEPRECATED IR arm — only under the existing `surrealql-parser` feature.
+///
+/// The SurrealQL branch is not in use (operator, 2026-08-22; measured zero
+/// consumers in lance-graph, MedCare-rs and OGAR). The re-export is not
+/// deleted, so the work stays reachable — it is simply no longer
+/// unconditional, so no default build pulls the crate.
+#[cfg(feature = "surrealql-parser")]
 pub use ogar_adapter_surrealql;
 pub use ogar_class_view;
 pub use ogar_ontology;
