@@ -41,8 +41,10 @@ pub mod codebook;
 pub mod corpus;
 pub mod evidence;
 pub mod fsm;
-pub mod introspect;
 /// D-ACR-6 — writing basins as SoA rows AT TOC node keys.
+/// D-ACR-6 — the triple stream laid over the spawned TOC tree.
+pub mod hydrate;
+pub mod introspect;
 pub mod promote;
 pub mod reason;
 pub mod shape;
