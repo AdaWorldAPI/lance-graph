@@ -14,6 +14,7 @@ use deepnsm_v2::codebook::{load_cam96_codes, load_cam96_space};
 use deepnsm_v2::corpus::split_verses_detailed;
 use deepnsm_v2::fsm::{parse_to_spo, Pos, Tagged};
 use deepnsm_v2::hydrate::hydrate;
+use deepnsm_v2::lexicon::{normalise, Lexicon};
 use deepnsm_v2::promote::{key_at, promote, read_lane, row_of};
 use deepnsm_v2::spo::Spo;
 use deepnsm_v2::vocab::PaletteVocab;
@@ -22,51 +23,21 @@ use std::collections::{HashMap, HashSet};
 use std::path::PathBuf;
 
 const BASIN: u8 = 3;
-const CLASSID: u32 = 0x0301_0000; // MONDO's block reused as a stand-in: the
-                                  // promoter takes the classid as a parameter
-                                  // and a corpus concept is an unmade MINT.
+// A KJV corpus concept has NO mint — that is a real gap, not a detail. This
+// borrows OSINT-V3 for ONE property only: it resolves to the V3 tail, so the
+// key can carry `leaf` and read its own identity back. It says nothing about
+// what a scripture node IS; the actual address needs an OGAR mint.
+//
+// The previous stand-in here was `0x0301_0000` (MONDO's block), which has no
+// registry entry and therefore resolves to the V1 tail. `key_at` now refuses
+// that outright — see its doc for how silently it used to succeed.
+const CLASSID: u32 = lance_graph_contract::canonical_node::NodeGuid::CLASSID_OSINT_V3;
 
 fn data_file(name: &str) -> Vec<u8> {
     let dir = std::env::var("DEEPNSM_V2_DATA")
         .map(PathBuf::from)
         .unwrap_or_else(|_| PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("data"));
     std::fs::read(dir.join(name)).unwrap_or_else(|e| panic!("{name}: {e}"))
-}
-
-/// Copied verbatim from `bible_wave`.
-fn coca_pos(letter: &str) -> Pos {
-    match letter {
-        "n" | "p" => Pos::Noun,
-        "v" => Pos::Verb,
-        "j" => Pos::Adj,
-        "a" | "d" => Pos::Det,
-        _ => Pos::Other,
-    }
-}
-
-/// Copied VERBATIM from `bible_wave` — not paraphrased.
-///
-/// A first version of this file kept only the `-eth/-est` rule and dropped the
-/// explicit KJV word list. That silently cost ~6.5k triples (34,277 vs the
-/// shipped 40,767), because `thou`/`hath`/`shall`/`saith` fell to `Pos::Other`
-/// and the FSM skips those. The module doc promises this example cannot
-/// disagree with the pipeline that already runs; paraphrasing the tagger broke
-/// that promise before the corpus caught it.
-fn archaic_pos(w: &str) -> Option<Pos> {
-    match w {
-        "thou" | "thee" | "ye" => Some(Pos::Noun),
-        "thy" | "thine" => Some(Pos::Det),
-        "shalt" | "hath" | "doth" | "saith" | "spake" | "begat" | "art" | "wilt" | "hast"
-        | "shall" | "cometh" | "wast" => Some(Pos::Verb),
-        "unto" | "thereof" | "wherefore" | "verily" | "yea" | "lo" => Some(Pos::Other),
-        _ => {
-            if w.ends_with("eth") || w.ends_with("est") {
-                Some(Pos::Verb)
-            } else {
-                None
-            }
-        }
-    }
 }
 
 fn main() {
@@ -105,21 +76,27 @@ fn main() {
     assert_eq!(codes.len(), vocab.len(), "codes/vocab misaligned");
     println!("codebook    {} words, {} codes", vocab.len(), codes.len());
 
-    let lemmas = std::fs::read_to_string(concat!(
-        env!("CARGO_MANIFEST_DIR"),
-        "/../deepnsm/word_frequency/lemmas_5k.csv"
-    ))
-    .expect("lemmas_5k.csv");
-    let mut pos_of: HashMap<String, Pos> = HashMap::new();
-    for line in lemmas.lines().skip(1) {
-        let mut f = line.split(',');
-        let (Some(_), Some(lemma), Some(pos)) = (f.next(), f.next(), f.next()) else {
-            continue;
-        };
-        pos_of
-            .entry(lemma.to_lowercase())
-            .or_insert_with(|| coca_pos(pos));
-    }
+    // ── PoS lexicon: COCA lemmas + FORMS + archaic fallback ──
+    // One lexicon, in the crate. Reading `lemmas_5k.csv` alone left every
+    // inflected verb (`created`, `made`, `called`) untagged; see
+    // `deepnsm_v2::lexicon` for the measurement.
+    let lexicon = Lexicon::from_coca(
+        &std::fs::read_to_string(concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/../deepnsm/word_frequency/lemmas_5k.csv"
+        ))
+        .expect("lemmas_5k.csv"),
+        &std::fs::read_to_string(concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/../deepnsm/word_frequency/word_forms.csv"
+        ))
+        .expect("word_forms.csv"),
+    );
+    println!(
+        "lexicon     {} lemmas + {} forms",
+        lexicon.sizes().0,
+        lexicon.sizes().1
+    );
 
     // ── per-verse SPO, same tagging as bible_wave ──
     let mut per_verse: Vec<Vec<Spo>> = Vec::with_capacity(verses.len());
@@ -127,21 +104,9 @@ fn main() {
     for verse in &verses {
         tagged.clear();
         for tok in verse.split_whitespace() {
-            let w: String = tok
-                .chars()
-                .filter(|c| c.is_ascii_alphabetic())
-                .collect::<String>()
-                .to_lowercase();
-            if w.len() < 2 {
-                continue;
-            }
+            let Some(w) = normalise(tok) else { continue };
             let Some(id) = vocab.id(&w) else { continue };
-            let pos = pos_of
-                .get(&w)
-                .copied()
-                .or_else(|| archaic_pos(&w))
-                .unwrap_or(Pos::Other);
-            tagged.push(Tagged::new(id, pos));
+            tagged.push(Tagged::new(id, lexicon.pos(&w)));
         }
         tagged.push(Tagged::new(0, Pos::Stop));
         per_verse.push(parse_to_spo(&tagged));
@@ -200,7 +165,7 @@ fn main() {
     // Keys round-trip: fold a path into tiers, read it back through the canon.
     let mut checked = 0usize;
     for e in h.entries.iter().take(2000) {
-        let k = key_at(CLASSID, e.path, 0, 1);
+        let k = key_at(CLASSID, e.path, 0, 1).expect("V3 classid mints");
         assert_eq!(
             NiblePath::from_guid_prefix_v3(&k).prefix(e.path.depth()),
             Some(e.path),
@@ -224,37 +189,81 @@ fn main() {
     for t in &h.triples {
         first_verse.entry(t.spo.subject).or_insert(t.path);
     }
+    // The entry a path addresses, indexed once. Scanning `h.entries` inside the
+    // loop was O(subjects x entries) — 702 x 32,357 — and only tolerable while
+    // the loop was capped.
+    let entry_at: HashMap<NiblePath, &deepnsm_v2::toc::TocEntry> =
+        h.entries.iter().map(|e| (e.path, e)).collect();
+
+    // Deterministic order. `HashMap::iter` is randomised per run, so the old
+    // `.take(64)` promoted a DIFFERENT 64 subjects each time — which is fine
+    // for proving the path and useless for anything that has to be reproduced.
+    let mut subjects: Vec<u16> = by_subject.keys().copied().collect();
+    subjects.sort_unstable();
+
     let mut rows = Vec::new();
-    for (subject, edges) in by_subject.iter().take(64) {
+    let mut no_members = 0usize;
+    let mut no_code = 0usize;
+    for subject in subjects {
+        let edges = &by_subject[&subject];
         let members: Vec<[u8; 12]> = edges
             .iter()
             .filter_map(|(_, o)| codes.get(*o as usize).copied())
             .collect();
         if members.is_empty() {
+            no_members += 1;
             continue;
         }
-        let Some(code) = basin_self_code(&space, *subject, &members, edges) else {
+        let Some(code) = basin_self_code(&space, subject, &members, edges) else {
+            no_code += 1;
             continue;
         };
         if code.self_code != [0u8; 12] {
             with_code += 1;
         }
-        let path = first_verse[subject];
-        let entry = h
-            .entries
-            .iter()
-            .find(|e| e.path == path)
+        let path = first_verse[&subject];
+        let entry = entry_at
+            .get(&path)
             .expect("the address came from a minted node");
+        // Identity is the SUBJECT, not a positional counter. The counter made
+        // the key depend on iteration order — two runs would address the same
+        // basin differently. The subject is the basin's own name, so the key
+        // is stable across runs and across corpus growth, and the lane
+        // round-trip below becomes a real check that key and payload agree.
         let row = promote(
             entry,
             &row_of(&code, 0, verses.len() as u64),
             CLASSID,
-            promoted as u32,
+            u32::from(subject),
+        )
+        .expect("CLASSID resolves to the V3 tail, so the mint cannot be refused");
+        assert_eq!(read_lane(&row).subject, subject, "lane round-trip");
+        assert_eq!(
+            row.key.identity_v2(),
+            subject,
+            "key identity must be the basin's own subject"
         );
-        assert_eq!(read_lane(&row).subject, *subject, "lane round-trip");
         rows.push(row);
         promoted += 1;
     }
+
+    // Every promoted basin must occupy its OWN address. Basins that first
+    // appear in the same verse share a path, so the identity half is what
+    // separates them — this is the assertion that proves it does.
+    let distinct: HashSet<_> = rows.iter().map(|r| r.key).collect();
+    assert_eq!(distinct.len(), rows.len(), "two basins collided on one key");
+    let shared_path = rows.len()
+        - rows
+            .iter()
+            .map(|r| NiblePath::from_guid_prefix_v3(&r.key))
+            .collect::<HashSet<_>>()
+            .len();
+    println!("skipped     {no_members} with no coded member, {no_code} with no self-code");
+    println!(
+        "collision   {} distinct keys / {} rows · {shared_path} rows share a verse address",
+        distinct.len(),
+        rows.len()
+    );
     println!(
         "basins      {} subjects total · {promoted} promoted at TOC keys · {with_code} carry a real Cam96 self-code",
         by_subject.len()

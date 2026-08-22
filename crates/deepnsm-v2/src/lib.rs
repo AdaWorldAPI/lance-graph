@@ -45,6 +45,7 @@ pub mod fsm;
 /// D-ACR-6 — the triple stream laid over the spawned TOC tree.
 pub mod hydrate;
 pub mod introspect;
+pub mod lexicon;
 pub mod promote;
 pub mod reason;
 pub mod shape;

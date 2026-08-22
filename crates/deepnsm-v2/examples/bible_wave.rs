@@ -26,6 +26,7 @@
 //! links farther than ±5 (v1's ring forfeits them) and ±8 (the local reference
 //! horizon → the Escalate zone).
 
+use deepnsm_v2::lexicon::{normalise, Lexicon};
 use deepnsm_v2::{
     load_cam96_codes, load_cam96_space, parse_to_spo, Nsm, PaletteVocab, Pos, Spo, Tagged,
     TemporalStream,
@@ -48,38 +49,6 @@ fn data_file(name: &str) -> Vec<u8> {
             path.display()
         )
     })
-}
-
-/// COCA PoS letter → the FSM's coarse tag. Pronouns ride as Noun so subjects
-/// like "he said" bind; adverbs/preps/conj are Other (skipped by the FSM).
-fn coca_pos(letter: &str) -> Pos {
-    match letter {
-        "n" | "p" => Pos::Noun,
-        "v" => Pos::Verb,
-        "j" => Pos::Adj,
-        "a" | "d" => Pos::Det,
-        _ => Pos::Other,
-    }
-}
-
-/// Tiny archaic supplement for KJV forms absent from the COCA lemma list.
-/// Documented heuristics, not a tagger: -eth/-est verb endings are Early
-/// Modern English 3rd/2nd-person inflections.
-fn archaic_pos(w: &str) -> Option<Pos> {
-    match w {
-        "thou" | "thee" | "ye" => Some(Pos::Noun),
-        "thy" | "thine" => Some(Pos::Det),
-        "shalt" | "hath" | "doth" | "saith" | "spake" | "begat" | "art" | "wilt" | "hast"
-        | "shall" | "cometh" | "wast" => Some(Pos::Verb),
-        "unto" | "thereof" | "wherefore" | "verily" | "yea" | "lo" => Some(Pos::Other),
-        _ => {
-            if w.ends_with("eth") || w.ends_with("est") {
-                Some(Pos::Verb)
-            } else {
-                None
-            }
-        }
-    }
 }
 
 fn main() {
@@ -156,22 +125,22 @@ fn main() {
         nsm.vocab.len()
     );
 
-    // ── PoS lexicon: COCA lemmas + archaic fallback ──
-    let lemmas = std::fs::read_to_string(concat!(
-        env!("CARGO_MANIFEST_DIR"),
-        "/../deepnsm/word_frequency/lemmas_5k.csv"
-    ))
-    .expect("lemmas_5k.csv (sibling deepnsm crate)");
-    let mut pos_of: HashMap<String, Pos> = HashMap::new();
-    for line in lemmas.lines().skip(1) {
-        let mut f = line.split(',');
-        let (Some(_), Some(lemma), Some(pos)) = (f.next(), f.next(), f.next()) else {
-            continue;
-        };
-        pos_of
-            .entry(lemma.to_lowercase())
-            .or_insert_with(|| coca_pos(pos));
-    }
+    // ── PoS lexicon: COCA lemmas + FORMS + archaic fallback ──
+    // One lexicon, in the crate. Reading `lemmas_5k.csv` alone left every
+    // inflected verb (`created`, `made`, `called`) untagged; see
+    // `deepnsm_v2::lexicon` for the measurement.
+    let lexicon = Lexicon::from_coca(
+        &std::fs::read_to_string(concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/../deepnsm/word_frequency/lemmas_5k.csv"
+        ))
+        .expect("lemmas_5k.csv (sibling deepnsm crate)"),
+        &std::fs::read_to_string(concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/../deepnsm/word_frequency/word_forms.csv"
+        ))
+        .expect("word_forms.csv (sibling deepnsm crate)"),
+    );
 
     // ── stream: verse index = version; FSM → SPO ──
     let mut stream = TemporalStream::new();
@@ -180,21 +149,9 @@ fn main() {
     for (vi, verse) in verses.iter().enumerate() {
         tagged_buf.clear();
         for tok in verse.split_whitespace() {
-            let w: String = tok
-                .chars()
-                .filter(|c| c.is_ascii_alphabetic())
-                .collect::<String>()
-                .to_lowercase();
-            if w.len() < 2 {
-                continue;
-            }
+            let Some(w) = normalise(tok) else { continue };
             let Some(id) = nsm.vocab.id(&w) else { continue };
-            let pos = pos_of
-                .get(&w)
-                .copied()
-                .or_else(|| archaic_pos(&w))
-                .unwrap_or(Pos::Other);
-            tagged_buf.push(Tagged::new(id, pos));
+            tagged_buf.push(Tagged::new(id, lexicon.pos(&w)));
         }
         tagged_buf.push(Tagged::new(0, Pos::Stop)); // verse boundary flushes
         for t in parse_to_spo(&tagged_buf) {
