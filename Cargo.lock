@@ -4793,7 +4793,6 @@ version = "0.1.0"
 dependencies = [
  "lance-graph-contract 0.1.0",
  "lance-graph-ontology",
- "ogar-adapter-surrealql",
  "ogar-class-view",
  "ogar-ontology",
  "ogar-vocab",
@@ -5695,7 +5694,6 @@ dependencies = [
 name = "ndarray"
 version = "0.17.2"
 dependencies = [
- "blake3",
  "fractal",
  "matrixmultiply",
  "num-complex",
@@ -5950,13 +5948,6 @@ dependencies = [
  "opendal",
  "pin-project",
  "tokio",
-]
-
-[[package]]
-name = "ogar-adapter-surrealql"
-version = "0.1.0"
-dependencies = [
- "ogar-vocab",
 ]
 
 [[package]]

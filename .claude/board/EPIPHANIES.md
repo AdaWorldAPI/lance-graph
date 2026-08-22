@@ -58,6 +58,16 @@ side effect, and it leaves its TESTS ungated and the other eight untouched.
 The fix is a workflow line per crate, or one `--workspace` job. Filed as
 `ISSUES.md` `ISS-CI-GATE-IS-AN-ALLOWLIST-NINE-MEMBERS-UNGATED`.
 
+**Outcome, same day (PR #984):** both, and the count above was wrong. A
+workflow line per crate for every member — each measured locally before its
+gate was armed — PLUS `cargo build --workspace` as the net that covers future
+members without a line. Wrong count because the member check extracted with
+`"crates/[a-z0-9-]+"`: no underscore, so `crates/surreal_container` was
+invisible to it, and `tools/dto-class-check` is not under `crates/` at all.
+Eleven, not nine. A membership check blind to two of its inputs is this
+entry's own defect class, one level up, in the instrument rather than the
+workflow — which is the part worth carrying forward.
+
 ## 2026-08-22 — E-A-CRATE-WITH-ZERO-CONSUMERS-IS-BUILT-BY-NOTHING-AND-CAN-BE-MERGED-BROKEN-1 — the hydration crate did not compile at `main`, and its own doc says why nobody found out
 
 **Status:** ⊘ SUPERSEDED SAME-DAY by

@@ -1,6 +1,6 @@
 # Issues Log — Open + Resolved (double-entry, append-only)
 
-## ISS-CI-GATE-IS-AN-ALLOWLIST-NINE-MEMBERS-UNGATED (2026-08-22) — OPEN
+## ISS-CI-GATE-IS-AN-ALLOWLIST-NINE-MEMBERS-UNGATED (2026-08-22) — RESOLVED same-day by PR #984
 
 No workflow runs `--workspace` or `--all`. Every gate names one crate by path
 (`--manifest-path crates/<name>/Cargo.toml`), so the CI surface is a
@@ -24,6 +24,28 @@ fmt-dirty and carried a live clippy warning. Full account:
 **Fixed here:** `lance-graph-hydrate` gets its `rust-test.yml` + `style.yml`
 lines in this branch, and becomes a dependency of `lance-graph` (so its lib
 also compiles inside an existing gate).
+
+**RESOLVED 2026-08-22 by PR #984**, and the resolution went further than what
+this entry proposed. The text below is kept as written — it was the state when
+filed — with the outcome recorded here rather than edited into it:
+
+- All members are gated now, not just `lance-graph-hydrate`. #984 measured each
+  crate locally first and added a test step plus a rustfmt step per crate.
+- `cargo build --workspace` landed as the structural net, so a FUTURE member is
+  covered the moment it is listed in `[workspace]`. That was the standing
+  choice this entry left to the operator; it was taken.
+- The count in this entry's own title is WRONG and stays wrong on purpose. It
+  says nine; there were eleven, because the member check behind it extracted
+  with `"crates/[a-z0-9-]+"` — no underscore — and could not see
+  `crates/surreal_container` or `tools/dto-class-check`. A membership check
+  blind to two of its inputs is the same defect class this entry describes,
+  one level up. Both are gated in #984.
+- Not taken, still open: a `cargo test --workspace` job. Measured at 14 GB
+  across 86 binaries against 3.5 GB for the compile — the same order as a
+  runner's free disk. The per-crate test steps remain, so a new member's TESTS
+  still need a line.
+
+Original text, as filed:
 
 **Still open — deliberately not fixed blind:** the other eight. Some exclusions
 may be intentional (a benches crate, a research crate), and adding eight jobs

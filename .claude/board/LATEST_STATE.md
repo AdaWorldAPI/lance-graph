@@ -17,13 +17,16 @@
   - **`GraphError::Hydration { source, location }`** (new variant) — its own
     variant, not a flattened message, so a caller can tell a checksum mismatch
     (never retry) from a transport error (retry).
-- **CI: `lance-graph-hydrate` is gated for the first time** —
-  `rust-test.yml` (tests) + `style.yml` (clippy `-D warnings`, rustfmt). It is
-  a workspace MEMBER and was reached by no job, because **no workflow runs
-  `--workspace`**; every gate is a hand-maintained `--manifest-path` allowlist.
-  Eight more members are still ungated: `ISSUES.md`
-  `ISS-CI-GATE-IS-AN-ALLOWLIST-NINE-MEMBERS-UNGATED`. The mis-stated first
-  diagnosis (zero consumers) is corrected in `EPIPHANIES.md`
+- **CI is no longer this branch's concern — PR #984 carries it.** An earlier
+  draft of this entry said `lance-graph-hydrate` is "gated for the first time"
+  here and that "eight more members are still ungated". Both were true when
+  written and are false now: #984 gated EVERY member (each measured locally
+  first), added `cargo build --workspace` as the structural net so future
+  members need no line, and pinned the toolchain in all seven workflows. The
+  count was also wrong — eleven, not nine, because the member check behind it
+  could not see names with an underscore. See `ISSUES.md`
+  `ISS-CI-GATE-IS-AN-ALLOWLIST-NINE-MEMBERS-UNGATED` (now RESOLVED, with the
+  outcome recorded above its original text) and `EPIPHANIES.md`
   `E-THE-GATE-IS-A-HAND-MAINTAINED-ALLOWLIST-NOT-THE-WORKSPACE-1`.
 - Tests: `lance-graph-hydrate` 39 green; `lance-graph` `--lib` green incl. two
   new `hydrate_from` falsifiers scoped to what that function adds (the warm/
