@@ -195,21 +195,26 @@ jobs:
       # Measured before landing (2026-08-22, clean tree, `[profile.dev]
       # debug = 0` from the manifest):
       #
-      #   cargo build --workspace     exit 0, 6m18s, target/ 3.5 GB
+      #   cargo build --workspace           exit 0, 6m18s, target/ 3.5 GB
+      #   cargo test  --workspace --no-run  exit 0, target/ 14 GB, 86 binaries
       #
-      # BUILD and not TEST, for now, and honestly: whether `cargo test
-      # --workspace` also fits a runner has NOT been established here. An
-      # earlier attempt hit ENOSPC, but that was against a target already
-      # holding 15 GB of debug-laden artifacts from builds that predate the
-      # manifest default — it measured the polluted tree, not the test scope.
-      # Until a clean-tree measurement exists, the workspace-scope gate is the
-      # compile and the per-crate steps below carry the tests, each with its
-      # own feature resolution rather than the workspace-unified one.
+      # BUILD and not TEST, and the reason is the second row. The test scope
+      # SUCCEEDS — an earlier ENOSPC was against a target already holding 15 GB
+      # of debug-laden artifacts from builds predating the manifest default, and
+      # measured that tree rather than the test scope. What rules it out here is
+      # size: linking every member's test binaries costs 14 GB, which is the
+      # same order as a GitHub runner's free disk. The compile costs 3.5 GB.
       #
-      # So a new member's TESTS still need a line below. That is a known edge,
-      # not an oversight, and it disappears the moment someone measures a
-      # workspace test run fitting the runner — at which point these ten steps
-      # collapse into one.
+      # KNOWN RISK, stated rather than discovered later: the per-crate test
+      # steps below run in THIS job and accumulate their test binaries into the
+      # same `target/`. They are a subset of those 14 GB, so this job's disk
+      # headroom is not proven — only the workspace compile is. If the job ever
+      # fails on disk, the fix is to split the per-crate tests into their own
+      # job (or `cargo clean -p` between them), not to drop the gate.
+      #
+      # A new member's TESTS therefore still need a line below. That edge
+      # disappears if the runner is ever measured to hold the 14 GB, at which
+      # point these ten steps collapse into one.
       - name: Build every workspace member (structural gate)
         run: cargo build --workspace
 
