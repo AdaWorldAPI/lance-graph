@@ -1,3 +1,51 @@
+## 2026-08-22 — 5+3 council on the learning-substrate brainstorm (PR #988)
+
+- **Subject:** `.claude/brainstorms/2026-08-22-learning-on-the-v3-substrate.md`
+  — seven operator-raised threads on learning over the V3 substrate. Convened
+  because a reference document that misstates what ships becomes what a later
+  session builds on.
+- **Declared panel swap:** slot 4 `cascade-impact-savant` → **falsifier-auditor**
+  (general-purpose charter). The artifact adds no type/plan/D-id, so the cascade
+  lens was near-empty; the document's whole contract is *"ideas graduate only
+  through probes with pre-registered gates"*, so whether the gates are real was
+  the load-bearing question.
+- **The 5:** `prior-art-savant` (Opus), `iron-rule-savant`, code-truth
+  (runtime-archaeologist charter), falsifier-auditor, `creative-explorer-savant`.
+  **6 VIOLATES, 11 GAP, 11 PRIOR-ART-AT, 6 RISK, ~22 CONFIRMS.**
+- **The 3** (on draft v2 only): `overclaim-auditor`,
+  `dilution-collapse-sentinel`, `firewall-warden`.
+  **2 BLOCK(P0), 3 FIX(P1), 3 FIX(P2), 8 PASS.**
+- **The finding that justified the whole run:** five of the seven threads were
+  already decided — one KILLED by a prior council and recorded against
+  resurfacing (EPIPHANIES:8560), one answered the SAME DAY
+  (`E-BPE-IS-RHYME-VQ-IS-THE-MECHANISM-FOR-6X2X8BIT-1`), one DEFERRED by the
+  operator the day before with a named blocker
+  (`handovers/2026-08-21-2330:107-115`), plus a ratified 59..63 contract
+  (`dacr7-band-reading-contract-v1`) and `E-BASIN-NOT-EDGE-PLASTICITY`.
+- **Three errors of one kind:** a name taken for a mechanism — `bnn.rs` is a
+  **Binary** neural network (XNOR + popcount), not Bayesian; "plasticity" named
+  three objects in one paragraph; `6×2×8bit` was already a six-way homonym.
+  Plus a mathematical refutation: a coprime walk is a fixed permutation with
+  zero draw-to-draw variance — a dither, not a posterior.
+- **The reviewers caught the savants.** Code-truth reported the anaphora
+  baseline ABSENT from the repo; the overclaim-auditor re-ran the search and
+  found `E-L9-REAL-TEXT-1` (EPIPHANIES:8621) with all three numbers and gates
+  registered before its first run. The v2 rewrite had therefore committed the
+  same error class it was indicting, in the opposite direction, and had put it
+  in a commit message. Corrected in v3 (`fcfabe3d`) with the narrower true
+  defect kept: wrong corpus (English Aesop, not German) and wrong mechanism
+  label (chaining, not agreement).
+- **Two COLLAPSEs caught by the sentinel:** the LSTM/recurrence reading was
+  deleted outright rather than demoted, and BPE merge-RANK-as-surprisal is
+  separable from the BPE-as-mechanism analogy that was retired. Both restored
+  as pointers.
+- **v1 → v2 → v3:** seven equal-weight threads → two live threads + a nine-row
+  error table + three pointers → the same, with the rewrite's own error
+  corrected in place and two collapsed sub-ideas restored.
+- **New house rule added to the artifact:** a retraction is a claim and needs
+  the same evidence as an assertion; a search that comes back empty is not
+  absence.
+
 ## 2026-08-22 — D-ACR-8 Rubicon witness (main thread, no subagents)
 
 - **D-ids:** D-ACR-8. Unblocked by D-ACR-1 (`contract::attention_facet`);
