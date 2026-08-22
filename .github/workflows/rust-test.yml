@@ -184,6 +184,102 @@ jobs:
       # ISS-CAUSAL-EDGE-CARRIES-SEVEN-PRE-EXISTING-CLIPPY-FINDINGS instead.
       - name: Run causal-edge tests (workspace-excluded, previously ungated)
         run: cargo test --manifest-path crates/causal-edge/Cargo.toml
+      # bgz-tensor: workspace-EXCLUDED metric-algebraic codec crate (deps the
+      # ndarray sibling checked out above + in-repo holograph). None of the
+      # steps above reach it, so its 207 lib tests — including the V3
+      # `morton_cascade` Fisher-z compute (E-MORTON-CASCADE-V3-1) — only ever
+      # ran on a developer machine. A green CI that never built the new module
+      # is exactly the "blind gate" this repo has repeatedly closed
+      # (deepnsm / supervisor / ogar above). One scoped step arms it. Gating.
+      - name: Run bgz-tensor tests (workspace-excluded, ndarray sibling)
+        run: cargo test --manifest-path crates/bgz-tensor/Cargo.toml --lib
+      # lance-graph-callcenter UNDER `--features query` — the same blind gate as
+      # supervisor above, but one level subtler: the crate was not merely
+      # untested, it has `default = []`, so even a bare `cargo test` on it would
+      # compile almost nothing and report a green it had not earned.
+      #
+      # Measured, not hypothetical. Running this combination by hand on
+      # 2026-08-05 found 209 passed / 2 FAILED: the `graph_table` fixture minted
+      # rows with the V1 `CLASSID_OSINT` while `OSINT_GOTHAM.classid` resolves to
+      # `CLASSID_OSINT_V3` under the default `guid-v3-tail`, so
+      # `project_snapshot`'s class filter matched zero of two rows and every
+      # assertion ran against an empty snapshot (fixed in #897; recorded as
+      # E-A-FEATURE-CONDITIONAL-CLASSID-SILENTLY-EMPTIED-A-FIXTURE-1). The same
+      # feature gap had already produced a clippy EXIT=0 over never-compiled
+      # `vsa_udfs` / `transcode::ontology_table` earlier the same day.
+      #
+      # 211 tests, ~2 min incremental. Gating.
+      - name: Run callcenter tests --features query (blind-gate closure)
+        run: cargo test --manifest-path crates/lance-graph-callcenter/Cargo.toml --features query --lib
+      # Codex P2 (PR #861): the two self-asserting probe examples validate
+      # their fixtures via assert! inside example main() — cargo test never
+      # executes an example's main(), so those asserts only ever ran on a
+      # developer's local `cargo run --example` invocation. Running the
+      # examples explicitly here closes that blind-gate (same posture as
+      # deepnsm / supervisor / bgz-tensor above).
+      - name: Probe falsifier - eyes opened (fixture asserts)
+        run: cargo run -p lance-graph-planner --example probe_eyes_opened
+      - name: Probe falsifier - babel stances (fixture asserts)
+        run: cargo run -p lance-graph-planner --example probe_babel_stances
+
+
+  # ── Split out of `test` DELIBERATELY, before it broke ─────────────────────
+  #
+  # Everything below was added to the `test` job in this branch: the workspace
+  # compile gate plus ten per-crate test steps for members that had no gate at
+  # all. They accumulate their test binaries into one `target/`, and `test` is
+  # a job with a MEASURED history at exactly that cliff — its own env block
+  # records "a hard `ld` SIGBUS (signal 7 = object file truncated when the
+  # runner partition fills mid-link)".
+  #
+  # Measured here (clean tree, manifest `debug = 0`): `cargo build --workspace`
+  # costs 3.5 GB, `cargo test --workspace --no-run` costs 14 GB across 86
+  # binaries — the same order as a runner's free disk. Adding a subset of that
+  # to a job already known to have filled its partition is a bet with no upside.
+  #
+  # So `test` goes back to exactly the disk profile it had before this branch,
+  # and every addition lives here with its own runner and its own cache key.
+  # This is preventive: the split is cheaper than the flake it avoids, and a
+  # flake here would be indistinguishable from a real failure.
+  member-tests:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    env:
+      # Same reason as `test`: CI never opens a debugger, and debug info is
+      # what pushes the link over the partition. See that job's env block.
+      RUSTFLAGS: "-C debuginfo=0 -C target-cpu=x86-64-v3"
+    defaults:
+      run:
+        working-directory: lance-graph
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          path: lance-graph
+      - name: Checkout AdaWorldAPI/ndarray (sibling dependency)
+        uses: actions/checkout@v4
+        with:
+          repository: AdaWorldAPI/ndarray
+          path: ndarray
+      - name: Checkout AdaWorldAPI/OGAR (sibling dependency, NO-PIN path deps)
+        uses: actions/checkout@v4
+        with:
+          repository: AdaWorldAPI/OGAR
+          path: OGAR
+      - name: Setup rust toolchain (pinned by rust-toolchain.toml)
+        run: rustup show
+      - name: Setup mold linker
+        uses: rui314/setup-mold@9c9c13bf4c3f1adef0cc596abc155580bcb04444 # v1
+      # Its OWN cache key. Sharing `lance-graph-deps` with `test` would have two
+      # jobs writing different contents under one key and thrashing it.
+      - uses: Swatinem/rust-cache@v2
+        with:
+          shared-key: "lance-graph-members"
+          workspaces: |
+            lance-graph
+      - name: Install dependencies
+        run: |
+          sudo apt update
+          sudo apt install -y protobuf-compiler
       # ── The structural net: every member, present and future ─────────────
       #
       # The per-crate steps below are a hand-maintained allowlist, and that is
@@ -264,43 +360,17 @@ jobs:
       # (claude/hydrate-from-zip); the GATE belongs here with the other nine.
       - name: Run hydrate tests (previously ungated)          # 33 green
         run: cargo test --manifest-path crates/lance-graph-hydrate/Cargo.toml
-      # bgz-tensor: workspace-EXCLUDED metric-algebraic codec crate (deps the
-      # ndarray sibling checked out above + in-repo holograph). None of the
-      # steps above reach it, so its 207 lib tests — including the V3
-      # `morton_cascade` Fisher-z compute (E-MORTON-CASCADE-V3-1) — only ever
-      # ran on a developer machine. A green CI that never built the new module
-      # is exactly the "blind gate" this repo has repeatedly closed
-      # (deepnsm / supervisor / ogar above). One scoped step arms it. Gating.
-      - name: Run bgz-tensor tests (workspace-excluded, ndarray sibling)
-        run: cargo test --manifest-path crates/bgz-tensor/Cargo.toml --lib
-      # lance-graph-callcenter UNDER `--features query` — the same blind gate as
-      # supervisor above, but one level subtler: the crate was not merely
-      # untested, it has `default = []`, so even a bare `cargo test` on it would
-      # compile almost nothing and report a green it had not earned.
-      #
-      # Measured, not hypothetical. Running this combination by hand on
-      # 2026-08-05 found 209 passed / 2 FAILED: the `graph_table` fixture minted
-      # rows with the V1 `CLASSID_OSINT` while `OSINT_GOTHAM.classid` resolves to
-      # `CLASSID_OSINT_V3` under the default `guid-v3-tail`, so
-      # `project_snapshot`'s class filter matched zero of two rows and every
-      # assertion ran against an empty snapshot (fixed in #897; recorded as
-      # E-A-FEATURE-CONDITIONAL-CLASSID-SILENTLY-EMPTIED-A-FIXTURE-1). The same
-      # feature gap had already produced a clippy EXIT=0 over never-compiled
-      # `vsa_udfs` / `transcode::ontology_table` earlier the same day.
-      #
-      # 211 tests, ~2 min incremental. Gating.
-      - name: Run callcenter tests --features query (blind-gate closure)
-        run: cargo test --manifest-path crates/lance-graph-callcenter/Cargo.toml --features query --lib
-      # Codex P2 (PR #861): the two self-asserting probe examples validate
-      # their fixtures via assert! inside example main() — cargo test never
-      # executes an example's main(), so those asserts only ever ran on a
-      # developer's local `cargo run --example` invocation. Running the
-      # examples explicitly here closes that blind-gate (same posture as
-      # deepnsm / supervisor / bgz-tensor above).
-      - name: Probe falsifier - eyes opened (fixture asserts)
-        run: cargo run -p lance-graph-planner --example probe_eyes_opened
-      - name: Probe falsifier - babel stances (fixture asserts)
-        run: cargo run -p lance-graph-planner --example probe_babel_stances
+      # These two were missed by the FIRST sweep on this branch, and the miss was
+      # in the measuring, not the workflow: the check extracted members with
+      # `"crates/[a-z0-9-]+"` — no underscore — so `surreal_container` was never
+      # in the list, and `tools/dto-class-check` is not under `crates/` at all.
+      # The claim "every member is gated" was therefore false when it was made.
+      # A membership check that cannot see two of its inputs is the same shape
+      # as a gate that cannot fire.
+      - name: Run surreal_container tests (missed by the first sweep)   # 5 + 5 green
+        run: cargo test --manifest-path crates/surreal_container/Cargo.toml
+      - name: Run dto-class-check tests (missed by the first sweep)     # 1 green
+        run: cargo test --manifest-path tools/dto-class-check/Cargo.toml
 
   test-with-coverage:
     runs-on: ubuntu-24.04

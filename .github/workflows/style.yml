@@ -191,6 +191,14 @@ jobs:
         run: cargo fmt --manifest-path crates/lance-graph-benches/Cargo.toml -- --check
       - name: Rustfmt lance-graph-hydrate (previously ungated)
         run: cargo fmt --manifest-path crates/lance-graph-hydrate/Cargo.toml -- --check
+      # See the rust-test.yml note: these two were missed by the first sweep
+      # because the member check's own regex could not see them.
+      # `surreal_container` was rustfmt-dirty (6 hunks in one test file,
+      # formatted in this commit, its 5 + 5 tests unchanged).
+      - name: Rustfmt surreal_container (missed by the first sweep)
+        run: cargo fmt --manifest-path crates/surreal_container/Cargo.toml -- --check
+      - name: Rustfmt dto-class-check (missed by the first sweep)
+        run: cargo fmt --manifest-path tools/dto-class-check/Cargo.toml -- --check
       # deepnsm is a standalone, workspace-excluded codec crate, so
       # `cargo fmt --all` never reaches it. It was brought to a rustfmt-clean
       # baseline in this PR; check it explicitly so it can't silently drift.
