@@ -1,4 +1,4 @@
-# Tenant Lanes — the value-slab catalogue (code ground truth 2026-07-02, refreshed 2026-07-28)
+# Tenant Lanes — the value-slab catalogue (code ground truth 2026-07-02, refreshed 2026-08-22)
 
 > READ BY: v3-envelope-auditor (mandatory), anyone reading/writing a tenant
 > lane, adding a ValueSchema, or wiring a consumer. Byte atom + payload
@@ -33,7 +33,7 @@
 every downstream tenant offset. Every tenant below carries its OWN LE
 contract nested in the envelope's (le-contract.md §3b).
 
-## §2 The 15 value tenants (`ValueTenant`, canonical_node.rs:828-909; `VALUE_TENANTS`, canonical_node.rs:935-1054)
+## §2 The 16 value tenants (`ValueTenant`, canonical_node.rs:828-943; `VALUE_TENANTS`, canonical_node.rs:935-1105)
 
 Discriminant = FieldMask bit = VALUE_TENANTS index (compile-asserted).
 Offsets are FULL-ROW; subtract 32 for slab-relative.
@@ -55,6 +55,7 @@ Offsets are FULL-ROW; subtract 32 for slab-relative.
 | 12 | ExploreStyle | U8 × 12 | 12 B | [176,188) | Autopoiesis-triangle EXPLORE lane — same 12-slot palette256 shape; exploration variant from the P64 perturbation ladder (StreamDto → PerturbationDto), deterministic address-derived jitter (D-QUANTGATE coprime walk, never RNG) |
 | 13 | Tekamolo | U8 × 16 | 16 B | [188,204) | TEKAMOLO facet lane — 16 B content-blind V3 4+12 facet (`classid(4) + 6×(u8:u8)`), read G4D3 as `temporal · kausal · modal · lokal` (when/why/how/where circumstance-frame). All-zero = unaddressed |
 | 14 | CausalWitness | U8 × 16 | 16 B | [204,220) | CausalWitness facet lane — 16 B content-blind V3 4+12 facet read as **G24N4** (24 signed i4 loci, a lane shape name, never a `CascadeShape` variant); each nibble is a context pointer (signed ±8 window offset), not a strength. Slots 16..24 reserved-zero. **Status: EXPERIMENTAL — not in the operator-locked §3 catalogue** (per its own doc-comment) |
+| 15 | EpisodicBasin | U8 × 32 | 32 B | [220,252) | **D-ACR-6 rail** — a promoted basin as REFERENCES: `subject` u16 · `member_count` u16 · `self_code` 12 B (Cam96 centroid) · `version_from`/`version_to` u64. Members are reached by following `(subject, [from,to))` into the triple stream, never inlined — the fat-concept guard `§3a` names. Width is NOT stored (recomputable through the references) |
 
 `ValueSchema::Full`'s `field_mask()` (canonical_node.rs:1132-1162, as read
 2026-07-28) lists all 15 tenants 0–14 (Meta … `CausalWitness`), spanning row

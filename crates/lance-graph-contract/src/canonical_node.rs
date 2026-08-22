@@ -906,6 +906,40 @@ pub enum ValueTenant {
     /// EXPERIMENTAL** — not in the operator-locked §3 catalogue. Appended
     /// additive / reserve-don't-reclaim after `Tekamolo`.
     CausalWitness = 14,
+    /// **Episodic-basin rail** (`D-ACR-6`) — a promoted basin as a 32-byte
+    /// row of REFERENCES, never of content.
+    ///
+    /// A basin is a subject's outgoing-object neighborhood over a read corpus
+    /// (the deepnsm-v2 realization of the le-contract L1–L3 `part_of:is_a`
+    /// episodic rail). The naive promotion materialises that neighborhood —
+    /// member names, verse text, a per-basin bundle — inline in the basin row,
+    /// which is the fat-concept failure `§3a` forbids and which
+    /// `arigraph::EpisodicBasins` shows today (`entities: Vec<String>`, held by
+    /// value).
+    ///
+    /// This lane stores the basin's ADDRESS instead. Carve of the 32 bytes:
+    ///
+    /// | bytes | field | what it is |
+    /// |---|---|---|
+    /// | `0..2` | `subject` | `u16` vocab reference — the anchor |
+    /// | `2..4` | `member_count` | `u16` — a guard, not the members |
+    /// | `4..16` | `self_code` | 12 B — the basin's own Cam96 centroid, `6×(u8:u8)` |
+    /// | `16..24` | `version_from` | `u64` — inclusive lower bound |
+    /// | `24..32` | `version_to` | `u64` — exclusive upper bound |
+    ///
+    /// The members are reached by following `(subject, [version_from,
+    /// version_to))` into the triple stream — the `QueryReference::at` read of
+    /// `§3c`. Nothing here is a copy of anything the stream holds.
+    ///
+    /// `self_code` is the one derived value stored, and it is stored because it
+    /// sits at a **strictly higher rung than its inputs**: it is the basin's
+    /// own identity, not a cached member. Width is deliberately NOT stored — it
+    /// is recomputable from the members the references reach, so keeping it
+    /// would be a second projection of data this row already addresses.
+    ///
+    /// Zero-fallback: an all-zero lane reads as *no basin promoted* (subject 0
+    /// with an empty `[0,0)` range), never as a basin over nothing.
+    EpisodicBasin = 15,
 }
 
 impl ValueTenant {
@@ -1025,7 +1059,9 @@ pub const VALUE_TENANTS: &[ColumnDescriptor] = &[
     //    reserve-don't-reclaim, layout-preserving (Full now ends 204 ≤ 480,
     //    NODE_ROW_STRIDE unchanged → no ENVELOPE_LAYOUT_VERSION bump).
     //    BoardAggregates (W2a) is reserved as the NEXT ValueTenant discriminant
-    //    after CausalWitness (i.e. `= 15`), NOT at a named row_offset — its
+    //    after the last mint — `= 16` since EpisodicBasin took 15 (it read
+    //    `= 15` before that mint; re-based by ordinal position per the rule
+    //    below, not cancelled) — NOT at a named row_offset; its
     //    offset is DERIVED (`value_offset()`) and must never be written down as
     //    a literal again. History of the drift this fixes: the reservation was
     //    recorded as an absolute byte offset three times running (152 → 188 →
@@ -1050,6 +1086,20 @@ pub const VALUE_TENANTS: &[ColumnDescriptor] = &[
         kind: ColumnKind::U8,
         elems_per_row: 16,
         row_offset: 204,
+    },
+    // ── Episodic-basin rail (D-ACR-6): 32 B of references appended after
+    //    CausalWitness at [220,252) (value-slab [188,220)); additive,
+    //    reserve-don't-reclaim, layout-preserving (Full now ends 252 ≤ 480,
+    //    NODE_ROW_STRIDE unchanged → no ENVELOPE_LAYOUT_VERSION bump).
+    //    This mint takes discriminant 15, so the BoardAggregates reservation
+    //    RE-BASES to 16 — the note above says a reservation "is re-based by
+    //    ordinal position, not cancelled", and this is that case. Its offset
+    //    stays derived (`value_offset()`), never written as a literal.
+    ColumnDescriptor {
+        name_id: ValueTenant::EpisodicBasin as u16,
+        kind: ColumnKind::U8,
+        elems_per_row: 32,
+        row_offset: 220,
     },
 ];
 
@@ -1159,6 +1209,10 @@ impl ValueSchema {
                 // tenant` compile assert). Cognitive is left unchanged: entity
                 // classes materialise the witness lane only when elected.
                 ValueTenant::CausalWitness as u8,
+                // Episodic-basin rail (D-ACR-6). Full is the densest node and
+                // the `Full covers every tenant` compile assert requires it —
+                // that assert is what caught this mint before any test ran.
+                ValueTenant::EpisodicBasin as u8,
             ]),
         }
     }
@@ -2301,8 +2355,8 @@ mod tests {
         assert!(prev_end <= NODE_ROW_STRIDE);
         assert_eq!(
             prev_end - VALUE_SLAB_ROW_OFFSET,
-            188,
-            "current Full carve uses 188 of 480 B (kanban×Rubicon 8 + autopoiesis triangle 3×12=36 + TEKAMOLO facet 16 + CausalWitness facet 16)"
+            220,
+            "current Full carve uses 220 of 480 B (kanban×Rubicon 8 + autopoiesis triangle 3×12=36 + TEKAMOLO facet 16 + CausalWitness facet 16 + episodic-basin rail 32)"
         );
         assert!(prev_end - VALUE_SLAB_ROW_OFFSET <= VALUE_SLAB_LEN);
     }
@@ -2334,16 +2388,61 @@ mod tests {
         }
     }
 
+    /// **Field isolation for the episodic-basin rail** (`I-LEGACY-API-FEATURE-GATED`
+    /// requires this whenever a layout gains a lane).
+    ///
+    /// Writing the new lane must leave EVERY byte of every other tenant
+    /// untouched. The mint is additive — it appends at `[220,252)` and reclaims
+    /// nothing — so the guard is that the appended bytes really are appended:
+    /// a lane whose offset overlapped an existing one would corrupt silently,
+    /// because both readings would still parse.
+    #[test]
+    fn the_episodic_basin_rail_touches_no_other_tenant() {
+        let d = VALUE_TENANTS[ValueTenant::EpisodicBasin as usize];
+        assert_eq!(d.name_id, ValueTenant::EpisodicBasin as u16);
+        let start = d.row_offset as usize;
+        let end = start + d.col_bytes_per_row();
+        assert_eq!((start, end), (220, 252), "the carve is [220,252)");
+
+        // Disjoint from every other tenant, both directions.
+        for other in VALUE_TENANTS {
+            if other.name_id == ValueTenant::EpisodicBasin as u16 {
+                continue;
+            }
+            let (os, oe) = (
+                other.row_offset as usize,
+                other.row_offset as usize + other.col_bytes_per_row(),
+            );
+            assert!(
+                end <= os || oe <= start,
+                "tenant {} [{os},{oe}) overlaps the basin rail [{start},{end})",
+                other.name_id
+            );
+        }
+
+        // Additive, not reclaiming: it begins where the previous lane ended.
+        let prev = VALUE_TENANTS[ValueTenant::CausalWitness as usize];
+        assert_eq!(
+            prev.row_offset as usize + prev.col_bytes_per_row(),
+            start,
+            "the rail must append, never reclaim"
+        );
+        // Stride untouched — the whole reason no ENVELOPE_LAYOUT_VERSION bump.
+        assert!(end <= VALUE_SLAB_ROW_OFFSET + VALUE_SLAB_LEN);
+        assert_eq!(NODE_ROW_STRIDE, 512);
+    }
+
     #[test]
     fn value_schema_byte_budgets_are_locked() {
         assert_eq!(ValueSchema::Bootstrap.tenant_bytes(), 0);
-        // Cognitive 58 + Kanban 8 = 66 (triangle + TEKAMOLO + CausalWitness NOT in
-        // Cognitive — entity classes keep their carve); Full 120 + 3×12 triangle +
-        // 16 TEKAMOLO facet + 16 CausalWitness facet = 188 (all additive —
-        // reserve-don't-reclaim, still ≤ 480, stride unchanged).
+        // Cognitive 58 + Kanban 8 = 66 (triangle + TEKAMOLO + CausalWitness +
+        // episodic basin NOT in Cognitive — entity classes keep their carve);
+        // Full 120 + 3×12 triangle + 16 TEKAMOLO facet + 16 CausalWitness facet
+        // + 32 episodic-basin rail = 220 (all additive — reserve-don't-reclaim,
+        // still ≤ 480, stride unchanged).
         assert_eq!(ValueSchema::Cognitive.tenant_bytes(), 66);
         assert_eq!(ValueSchema::Compressed.tenant_bytes(), 56);
-        assert_eq!(ValueSchema::Full.tenant_bytes(), 188);
+        assert_eq!(ValueSchema::Full.tenant_bytes(), 220);
         for s in [
             ValueSchema::Bootstrap,
             ValueSchema::Cognitive,
@@ -2460,8 +2559,8 @@ mod tests {
             VALUE_TENANTS.len(),
             "Full read-mode materialises every value tenant"
         );
-        assert_eq!(rm.value_schema.tenant_bytes(), 188);
-        // The slab has room (188 ≤ 480) and the choice never grows the stride.
+        assert_eq!(rm.value_schema.tenant_bytes(), 220);
+        // The slab has room (220 ≤ 480) and the choice never grows the stride.
         assert!(rm.value_schema.tenant_bytes() <= VALUE_SLAB_LEN);
         assert!(rm.is_layout_preserving());
     }
