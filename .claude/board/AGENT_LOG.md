@@ -1,3 +1,32 @@
+## 2026-08-22 — D-ACR-8 Rubicon witness (main thread, no subagents)
+
+- **D-ids:** D-ACR-8. Unblocked by D-ACR-1 (`contract::attention_facet`);
+  taken now because D-ACR-3, the next in the mandated order, is honestly
+  blocked (no write path exists to trace, so its test would be vacuous).
+- **Files:** `crates/lance-graph-contract/src/rubicon_witness.rs` (new, 300),
+  `lib.rs` (module registration).
+- **Added:** `FocusTrace`, `coverage`, `breadth_bits`, `read_crossing`,
+  `RubiconReading`, `RubiconVerdict{Crossed,Partial,Indistinguishable,Inverted}`,
+  `PRE_RUBICON`/`POST_RUBICON`.
+- **The load-bearing choices:** breadth is the covered POPULATION
+  (`256^(12−depth)`, exact in f64), never `RowFocusMask::len()` — one shallow
+  entry outweighs many deep ones, which is the `6×2×8bit↑n` property at the
+  measurement. `Inverted` stays a distinct verdict so a contradicted model is
+  visible instead of rounded into silence. Reads only: no `&mut` on anything
+  the substrate owns (`E-PROGRESSION-IS-EXISTENCE-NOT-COMMAND-1`).
+- **Tests:** 8 in-module; 1262 crate-wide green. clippy `-D warnings` exit 0,
+  0 errors. `cargo fmt` clean.
+- **Mutations run (5), all caught after a fix:** entry-count breadth; drop the
+  `1 +`; fold `Inverted`; ignore `epsilon`; persistence at one sample.
+  **M2 did not fire on the first pass** and exposed a FALSE doc claim — the
+  `1 +` was documented as keeping empty distinct from exact (it does not; they
+  read `-inf` and `0.0`), its real job is finiteness of the trace mean. Comment
+  corrected in place with the error recorded; real guard added. Written up as
+  `E-A-DOC-COMMENT-CAN-GIVE-THE-WRONG-REASON-FOR-A-CORRECT-GUARD-1`.
+- **Outcome:** D-ACR-8 shipped; closes the Rubikon plan's open
+  *"Thinking styles ↔ Rubikon"* checkbox. §3e's non-license honoured — the
+  witness reads which side the thinking is on and moves nothing.
+
 ## 2026-08-22 — D-ACR-9 second half (main thread, no subagents)
 
 - **D-ids:** D-ACR-9 (second half — the grounding gate).

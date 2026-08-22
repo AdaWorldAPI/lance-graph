@@ -1,3 +1,50 @@
+## 2026-08-22 — E-A-DOC-COMMENT-CAN-GIVE-THE-WRONG-REASON-FOR-A-CORRECT-GUARD-1 — the guard was right, the justification was false, and the test read the justification
+
+**Status:** FINDING (measured — the mutation was run and initially did NOT
+fire). **Confidence:** High; reproducible from the commit.
+**Relation:** second instance, same day, of the family opened by
+`E-A-DOC-PRECEDENCE-CLAIM-CAN-PASS-EIGHT-GREEN-TESTS-1` — but a **different
+mechanism**, so it is filed separately rather than folded in. There the claim
+was untested; here it was *false*, and the code it justified was *correct*.
+
+`rubicon_witness::breadth_bits` computes `log2(1 + coverage(mask))`. The `1 +`
+is load-bearing. Its doc comment explained why:
+
+> the `1 +` is what keeps **empty** (`0.0`) distinct from **exact** (`1.0`) —
+> without it both would read `0.0`
+
+**That is wrong.** Without the offset, empty reads `log2(0) = -inf` and exact
+reads `log2(1) = 0.0` — already distinct. The assertion written from that
+explanation (`breadth_bits(empty) < breadth_bits(exact)`) therefore passes
+**with or without** the guard, because `-inf < 0.0` holds.
+
+The offset's real job is **finiteness**: `-inf` in a mean carries the whole
+[`FocusTrace::breadth`] with it, so a single unsampled moment would make an
+entire phase read as infinitely narrow. Correct guard, false reason, and a test
+that tested the reason.
+
+Exposed by a mutation that removed the `1 +` and watched **all eight tests stay
+green**. The fix was to correct the comment in place (with the error recorded,
+not deleted) and add the assertion the real property needs: a trace holding one
+real focus and one empty sample must report a **finite** breadth, strictly
+between the two.
+
+**The generalization:**
+
+> A doc comment does not only make CLAIMS that need testing — it supplies the
+> REASON a test author writes their assertion from. A false reason yields a
+> true-but-inert assertion, and inert assertions are invisible: they pass, they
+> look like coverage, and they sit next to a guard they do not guard.
+
+Practical consequence: when a guard is small and "obviously" necessary
+(`1 +`, `saturating_`, a `+ 1`, a clamp), the mutation to run is **deleting the
+guard**, not exercising its stated purpose. If nothing goes red, the stated
+purpose is not the actual purpose — and the comment is the first suspect, not
+the last.
+
+Both instances this session share one method note: the finding only exists
+because the mutation was **executed**. Neither would have survived a reading.
+
 ## 2026-08-22 — E-A-DOC-PRECEDENCE-CLAIM-CAN-PASS-EIGHT-GREEN-TESTS-1 — a two-gate ORDER is unfalsifiable until a fixture trips both
 
 **Status:** FINDING (measured, this session — the mutation was run, not
