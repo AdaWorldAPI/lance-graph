@@ -56,10 +56,18 @@ pub fn coca_pos(letter: &str) -> Pos {
 /// The explicit word list is load-bearing and must not be paraphrased down to
 /// the `-eth`/`-est` rule: `thou`/`hath`/`shall`/`saith` are among the most
 /// frequent tokens in the corpus and none of them matches that suffix.
+/// Early-modern personal pronouns. COCA tags pronouns `p` but carries none of
+/// these, so they are named ONCE here and read by both [`archaic_pos`] (which
+/// gives them a noun slot) and [`Lexicon::is_pronoun`] (which remembers the
+/// slot holds a POINTER, not a referent).
+pub const ARCHAIC_PRONOUNS: [&str; 3] = ["thou", "thee", "ye"];
+
 #[must_use]
 pub fn archaic_pos(w: &str) -> Option<Pos> {
+    if ARCHAIC_PRONOUNS.contains(&w) {
+        return Some(Pos::Noun);
+    }
     match w {
-        "thou" | "thee" | "ye" => Some(Pos::Noun),
         "thy" | "thine" => Some(Pos::Det),
         "shalt" | "hath" | "doth" | "saith" | "spake" | "begat" | "art" | "wilt" | "hast"
         | "shall" | "cometh" | "wast" => Some(Pos::Verb),
@@ -79,6 +87,11 @@ pub fn archaic_pos(w: &str) -> Option<Pos> {
 pub struct Lexicon {
     lemmas: HashMap<String, Pos>,
     forms: HashMap<String, Pos>,
+    /// Words COCA tags `p`. [`coca_pos`] maps `p` to [`Pos::Noun`] — correct, a
+    /// pronoun fills a noun slot — which discards the fact that the slot holds
+    /// a POINTER. Keeping the set is what lets `loci` bind an antecedent
+    /// instead of committing `(he, said, them)` as though `he` named someone.
+    pronouns: std::collections::HashSet<String>,
 }
 
 impl Lexicon {
@@ -111,6 +124,8 @@ impl Lexicon {
     #[must_use]
     pub fn from_columns(csv: &str, word_col: usize, pos_col: usize) -> Self {
         let mut lemmas = HashMap::new();
+        let mut pronouns: std::collections::HashSet<String> =
+            ARCHAIC_PRONOUNS.iter().map(|s| (*s).to_string()).collect();
         for line in csv.lines().skip(1) {
             let f: Vec<&str> = line.split(',').collect();
             let (Some(word), Some(pos)) = (f.get(word_col), f.get(pos_col)) else {
@@ -119,13 +134,16 @@ impl Lexicon {
             if word.is_empty() {
                 continue;
             }
-            lemmas
-                .entry(word.to_lowercase())
-                .or_insert_with(|| coca_pos(pos));
+            let w = word.to_lowercase();
+            if *pos == "p" {
+                pronouns.insert(w.clone());
+            }
+            lemmas.entry(w).or_insert_with(|| coca_pos(pos));
         }
         Self {
             lemmas,
             forms: HashMap::new(),
+            pronouns,
         }
     }
 
@@ -140,9 +158,11 @@ impl Lexicon {
             let (Some(pos), Some(word)) = (f.get(2), f.get(5)) else {
                 continue;
             };
-            self.forms
-                .entry(word.to_lowercase())
-                .or_insert_with(|| coca_pos(pos));
+            let w = word.to_lowercase();
+            if *pos == "p" {
+                self.pronouns.insert(w.clone());
+            }
+            self.forms.entry(w).or_insert_with(|| coca_pos(pos));
         }
         self
     }
@@ -166,6 +186,20 @@ impl Lexicon {
     #[must_use]
     pub fn lemma_knows(&self, w: &str) -> bool {
         self.lemmas.contains_key(w)
+    }
+
+    /// Is `w` a pronoun — a word whose noun slot holds a POINTER, not a
+    /// referent? Derived from COCA's `p` tag plus [`ARCHAIC_PRONOUNS`]; there
+    /// is no hand-written list.
+    #[must_use]
+    pub fn is_pronoun(&self, w: &str) -> bool {
+        self.pronouns.contains(w)
+    }
+
+    /// How many pronouns the tables yielded.
+    #[must_use]
+    pub fn pronoun_count(&self) -> usize {
+        self.pronouns.len()
     }
 
     /// `(lemma rows, form rows)`.
@@ -194,7 +228,7 @@ mod tests {
     const LEMMAS: &str = "rank,lemma,PoS,freq\n1,create,v,9\n2,god,n,8\n3,light,n,7\n";
     const FORMS: &str =
         "lemRank,lemma,PoS,lemFreq,wordFreq,word\n1,create,v,9,4,created\n2,be,v,9,4,is\n\
-         3,god,n,8,2,god\n";
+         3,god,n,8,2,god\n4,he,p,9,9,he\n";
 
     #[test]
     fn the_forms_table_tags_what_the_lemma_table_cannot() {
@@ -244,6 +278,23 @@ mod tests {
         assert_eq!(bare.pos("is"), Pos::Other, "the lemma table alone is blind");
         let layered = Lexicon::from_academic_20k(acad).with_forms(FORMS);
         assert_eq!(layered.pos("is"), Pos::Verb);
+    }
+
+    #[test]
+    fn pronoun_hood_comes_from_the_table_not_a_hand_list() {
+        let lx = Lexicon::from_coca(LEMMAS, FORMS);
+        assert!(lx.is_pronoun("he"), "COCA tags `he` as p");
+        assert!(
+            lx.is_pronoun("thou"),
+            "archaic, named once in ARCHAIC_PRONOUNS"
+        );
+        // Stays silent on nouns and verbs — a set that flags everything carries
+        // as much information as one that flags nothing.
+        assert!(!lx.is_pronoun("god"));
+        assert!(!lx.is_pronoun("create"));
+        // A pronoun still fills a NOUN slot; the two facts coexist.
+        assert_eq!(lx.pos("he"), Pos::Noun);
+        assert_eq!(lx.pos("thou"), Pos::Noun);
     }
 
     #[test]
