@@ -146,7 +146,10 @@ mod tests {
             .await
             .expect("publish");
 
-        assert_eq!(std::fs::read(&publish_path).expect("published file"), b"payload");
+        assert_eq!(
+            std::fs::read(&publish_path).expect("published file"),
+            b"payload"
+        );
         assert!(!staging.exists(), "staging file must be gone after publish");
     }
 

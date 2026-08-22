@@ -237,6 +237,41 @@ resolver = "2"
 #     compat lands OR a 0.16-line branch is added to the fork.
 # The patch is a declared-intent override; effect on the transitive depends
 # on semver compat. See BLOCKED(D) comment above + TD-NDARRAY-PATCH-0_16.
+# ── One place per version, for the crates whose versions must move together ──
+#
+# These were declared in eight member manifests, in a dozen spellings
+# (`arrow = "58"`, `{ version = "58" }`, `{ version = "58", optional = true }`,
+# …). A bump was eight edits, and an inconsistent one was invisible until a
+# resolve produced two majors.
+#
+# What this does NOT do, and cannot: pin the TRANSITIVE closure. Cargo has no
+# recursive version pin — `[workspace.dependencies]` centralises OUR
+# declarations, `=x.y.z` pins only the edges we declare, and `[patch]`
+# redirects a source rather than a version graph. What `lancedb` pulls in as
+# ITS datafusion is governed by lancedb's own requirement. The artifact that
+# freezes the whole graph is `Cargo.lock`, which is why this workspace commits
+# 29 of them and why FLOAT AND FIX (MedCare-rs, OGAR) does not transfer here.
+#
+# The lance family moves in EXACT lockstep (`=`); arrow and datafusion are
+# caret by design, so the lockfile is what holds them still between bumps.
+# datafusion is a SINGLE major here since #962 removed the `delta` feature —
+# deltalake was the only thing that pulled 53, and it is gone (0 hits in the
+# lock).
+[workspace.dependencies]
+lance = "=9.0.0"
+lance-linalg = "=9.0.0"
+lance-index = "=9.0.0"
+lancedb = { version = "=0.33.0", default-features = false }
+arrow = "58"
+arrow-array = "58"
+arrow-schema = "58"
+datafusion = { version = "54", default-features = false }
+datafusion-common = "54"
+datafusion-expr = "54"
+datafusion-sql = "54"
+datafusion-functions-aggregate = "54"
+object_store = { version = "0.13", features = ["aws"] }
+
 [patch.crates-io]
 # Local sibling checkout of the SAME fork (P0: "prefer the local/fork source,
 # always"; the direct deps already assume the sibling via path = "../../../ndarray").

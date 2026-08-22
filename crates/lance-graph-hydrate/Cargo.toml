@@ -25,8 +25,8 @@ description = "Generic SoA -> S3 -> local volume -> Lance hydration lifecycle: h
 license = "Apache-2.0"
 
 [dependencies]
-lance = "=9.0.0"
-object_store = { version = "0.13", features = ["aws"] }
+lance = { workspace = true }
+object_store = { workspace = true }
 futures = "0.3"
 tokio = { version = "1.37", features = ["fs", "rt", "macros"] }
 sha2 = "0.10"
@@ -38,4 +38,4 @@ libc = "0.2"
 [dev-dependencies]
 tokio = { version = "1.37", features = ["rt-multi-thread", "macros"] }
 tempfile = "3"
-arrow = { version = "58" }
+arrow = { workspace = true }

@@ -41,7 +41,9 @@ jobs:
 
       - uses: actions-rust-lang/setup-rust-toolchain@v1
         with:
-          toolchain: stable
+          # No `toolchain:` input — the action reads `rust-toolchain.toml`, so the
+          # SHIPPED artifact is built with the pinned channel rather than whatever
+          # `stable` is that week. Same shape style.yml already uses for rustfmt.
           components: rustfmt, clippy
           cache: false
 

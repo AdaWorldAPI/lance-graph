@@ -36,7 +36,10 @@
 use crate::publish::{publish_by_rename, remove_staging, PublishError, StagingKind};
 use crate::staging::staging_suffix;
 use futures::TryStreamExt;
-use object_store::{path::Path as ObjPath, ObjectStore};
+// `get` / `put` moved onto an EXTENSION trait in object_store 0.13.2; the base
+// `ObjectStore` trait no longer carries them. Without this import the crate
+// does not compile at all — which went unnoticed because no CI job reached it.
+use object_store::{path::Path as ObjPath, ObjectStore, ObjectStoreExt};
 use std::path::{Path as FsPath, PathBuf};
 use thiserror::Error;
 
@@ -160,7 +163,10 @@ mod tests {
         let remote_tmp = tempfile::tempdir().expect("remote tempdir");
         let store = store_at(remote_tmp.path());
         store
-            .put(&ObjPath::from("ds/data.lance"), b"row-bytes".to_vec().into())
+            .put(
+                &ObjPath::from("ds/data.lance"),
+                b"row-bytes".to_vec().into(),
+            )
             .await
             .expect("put data file");
         store
@@ -194,7 +200,11 @@ mod tests {
             .filter_map(|e| e.ok())
             .map(|e| e.file_name())
             .collect();
-        assert_eq!(siblings.len(), 1, "only the published dir should remain: {siblings:?}");
+        assert_eq!(
+            siblings.len(),
+            1,
+            "only the published dir should remain: {siblings:?}"
+        );
     }
 
     #[tokio::test]
