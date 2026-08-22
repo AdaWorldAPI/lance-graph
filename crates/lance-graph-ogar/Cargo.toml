@@ -12,7 +12,7 @@
 #   ogar-class-view::OgarClassView  impl lance_graph_contract::ClassView
 #                                     (32 promoted concepts → ObjectView/render_rows)
 #   ogar-ontology                   = prefix conventions + NiblePath identity routing
-#   ogar-adapter-surrealql          = emit(Class) -> SurrealQL DDL (the DO arm)
+#   ogar-adapter-surrealql          = DEPRECATED, feature `surrealql-parser` only
 #
 # Auto-activation = Cargo presence: a build graph that pulls THIS crate gets the
 # real OGAR Class/ClassView/codebook + the parity-guard (lib.rs): a COMPILE-TIME
@@ -42,15 +42,15 @@
 # it the OgarClassView `impl ClassView` won't typecheck against the engine's.
 #
 # Build/verify:  cargo test --manifest-path crates/lance-graph-ogar/Cargo.toml
-# Full DO arm :  cargo test --manifest-path crates/lance-graph-ogar/Cargo.toml \
-#                  --features surrealql-parser   (pulls surrealdb-ast/parser, rust 1.95+)
+# ⊘ SurrealQL:  cargo test --manifest-path crates/lance-graph-ogar/Cargo.toml \
+#                  --features surrealql-parser  (deprecated IR arm, no consumer)
 
 [package]
 name = "lance-graph-ogar"
 version = "0.1.0"
 edition = "2021"
 publish = false
-description = "OGAR (Open Graph of Active Record) activation crate: re-exports ogar-vocab Class/codebook + ogar-class-view (impl lance_graph_contract::ClassView) + ogar-ontology + ogar-adapter-surrealql, with a codebook parity-guard against the contract's zero-dep ogar_codebook mirror. Auto-activates the real OGAR AR surface wherever it is compiled into the build (golden image / AR-aware consumers)."
+description = "OGAR (Open Graph of Active Record) activation crate: re-exports ogar-vocab Class/codebook + ogar-class-view (impl lance_graph_contract::ClassView) + ogar-ontology, with a codebook parity-guard against the contract's zero-dep ogar_codebook mirror. Auto-activates the real OGAR AR surface wherever it is compiled into the build (golden image / AR-aware consumers)."
 license = "Apache-2.0"
 
 # Own workspace root — keeps this crate out of the parent lance-graph workspace.
@@ -58,12 +58,21 @@ license = "Apache-2.0"
 
 [features]
 default = []
-# The unmap(SurrealQL) -> Class half of the DO arm: pulls surrealdb-ast +
-# surrealdb-parser (heavy; rust-version 1.95+). The emit() DDL formatter half is
-# always available (no surrealdb deps).
-surrealql-parser = ["ogar-adapter-surrealql/surrealdb-parser"]
-# serde passthrough for the OGAR IR types.
-serde = ["ogar-vocab/serde", "ogar-adapter-surrealql/serde"]
+# DEPRECATED IR arm. The SurrealQL branch is NOT in use: measured zero
+# consumers of the re-export in lance-graph, MedCare-rs and OGAR (2026-08-22).
+# It stays reachable so the work does not vanish — but nothing pulls it unless
+# a consumer names this feature.
+#
+# The feature NAME and MEANING are unchanged. What changed is that the adapter
+# crate below is now `optional`, so this feature also has to pull it in
+# (`dep:`) rather than only switching on its parser subfeature.
+# `crates/symbiont` and `crates/cognitive-stack` request this feature by name;
+# Cargo rejects a dependency spec naming a feature that does not exist, before
+# compiling anything, so renaming it would have broken both golden-image roots.
+surrealql-parser = ["dep:ogar-adapter-surrealql", "ogar-adapter-surrealql/surrealdb-parser"]
+# serde passthrough for the OGAR IR types. Der SurrealQL-Anteil hängt am
+# Feature, nicht am Default — `?/` aktiviert nur, wenn die Crate ohnehin da ist.
+serde = ["ogar-vocab/serde", "ogar-adapter-surrealql?/serde"]
 
 [dependencies]
 # Contract surface (zero-dep): ClassView / ObjectView / ClassId / NodeGuid + the
@@ -97,9 +106,11 @@ lance-graph-ontology = { path = "../lance-graph-ontology" }
 ogar-vocab = { path = "../../../OGAR/crates/ogar-vocab" }
 ogar-class-view = { path = "../../../OGAR/crates/ogar-class-view" }
 ogar-ontology = { path = "../../../OGAR/crates/ogar-ontology" }
-# default features only = the light emit() DDL formatter (no surrealdb tree);
-# the parser half is opt-in via this crate's `surrealql-parser` feature.
-ogar-adapter-surrealql = { path = "../../../OGAR/crates/ogar-adapter-surrealql" }
+# ⊘ DEPRECATED IR-Arm (Operator, 2026-08-22): "SurrealQL wird gar nicht
+# verwendet, auch nicht ogar-*surreal*". OPTIONAL und aus dem unbedingten
+# Dependency-Satz heraus — ein Build, der das Feature nicht nennt, zieht die
+# Crate nicht mehr, und der Re-Export existiert dann nicht.
+ogar-adapter-surrealql = { path = "../../../OGAR/crates/ogar-adapter-surrealql", optional = true }
 
 # Fold ogar-class-view's transitive `lance-graph-contract` (git
 # AdaWorldAPI/lance-graph#main) onto the SAME path copy this crate uses, so there
