@@ -30,6 +30,15 @@ object_store = { workspace = true }
 futures = "0.3"
 tokio = { version = "1.37", features = ["fs", "rt", "macros"] }
 sha2 = "0.10"
+# `zip` — the SHIPPING container for a dataset directory (operator ruling,
+# 2026-08-22: *"bitte als zip, nicht dass wir ein Verzeichnis mit einzelnen
+# Dateien shippen"*). Deliberately zip and not tar: a zip carries a central
+# directory, so a reader can enumerate and seek to one entry; a tar must be
+# scanned sequentially, which for a multi-hundred-MB dataset is the difference
+# between reading one file and reading all of them. Sync API, driven from
+# `spawn_blocking` — the work is CPU + local file I/O after the download, not
+# network.
+zip = { version = "2", default-features = false, features = ["deflate"] }
 thiserror = "1"
 
 [target.'cfg(unix)'.dependencies]

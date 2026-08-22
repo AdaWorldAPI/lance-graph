@@ -1,5 +1,79 @@
 # Issues Log — Open + Resolved (double-entry, append-only)
 
+## ISS-CI-GATE-IS-AN-ALLOWLIST-NINE-MEMBERS-UNGATED (2026-08-22) — RESOLVED same-day by PR #984
+
+No workflow runs `--workspace` or `--all`. Every gate names one crate by path
+(`--manifest-path crates/<name>/Cargo.toml`), so the CI surface is a
+hand-maintained allowlist and **adding a crate to `[workspace] members` adds it
+to no gate**. `style.yml:152` states this in a comment about `cargo fmt --all`.
+
+Measured 2026-08-22: 11 of 25 members appear in no workflow. Two
+(`lance-graph-catalog`, `lance-graph-planner`) are deps of `lance-graph`, so
+their libs compile inside a gated build but their tests never run. **Nine are
+gated by nothing:** `lance-graph-benches`, `neural-debug`,
+`lance-graph-archetype`, `lance-graph-rbac`, `lance-graph-ontology`,
+`lance-graph-consumer-conformance`, `sigma-tier-router`,
+`cognitive-shader-driver`, `lance-graph-hydrate`.
+
+This is not hypothetical: `lance-graph-hydrate` did not compile at `main`
+(#981) — `object_store 0.13.2`, a semver-COMPATIBLE upstream release already
+in the lockfile, moved `get`/`put` onto an extension trait. It was also
+fmt-dirty and carried a live clippy warning. Full account:
+`EPIPHANIES.md` `E-THE-GATE-IS-A-HAND-MAINTAINED-ALLOWLIST-NOT-THE-WORKSPACE-1`.
+
+**Fixed here:** `lance-graph-hydrate` gets its `rust-test.yml` + `style.yml`
+lines in this branch, and becomes a dependency of `lance-graph` (so its lib
+also compiles inside an existing gate).
+
+**RESOLVED 2026-08-22 by PR #984**, and the resolution went further than what
+this entry proposed. The text below is kept as written — it was the state when
+filed — with the outcome recorded here rather than edited into it:
+
+- All members are gated now, not just `lance-graph-hydrate`. #984 measured each
+  crate locally first and added a test step plus a rustfmt step per crate.
+- `cargo build --workspace` landed as the structural net, so a FUTURE member is
+  covered the moment it is listed in `[workspace]`. That was the standing
+  choice this entry left to the operator; it was taken.
+- The count in this entry's own title is WRONG and stays wrong on purpose. It
+  says nine; there were eleven, because the member check behind it extracted
+  with `"crates/[a-z0-9-]+"` — no underscore — and could not see
+  `crates/surreal_container` or `tools/dto-class-check`. A membership check
+  blind to two of its inputs is the same defect class this entry describes,
+  one level up. Both are gated in #984.
+- Not taken, still open: a `cargo test --workspace` job. Measured at 14 GB
+  across 86 binaries against 3.5 GB for the compile — the same order as a
+  runner's free disk. The per-crate test steps remain, so a new member's TESTS
+  still need a line.
+
+Original text, as filed:
+
+**Still open — deliberately not fixed blind:** the other eight. Some exclusions
+may be intentional (a benches crate, a research crate), and adding eight jobs
+without knowing which are meant to be gated would trade a silent hole for
+silent CI cost. What is needed is one decision — either a single `--workspace`
+job (cheapest, catches every future member automatically) or an explicit,
+per-crate rationale for each omission recorded next to the allowlist. That
+decision is the operator's; this entry is the measurement it needs.
+
+
+## ISS-HYDRATE-CRATE-HAS-NO-BUILD-GATE (2026-08-22) — SUPERSEDED same-day by ISS-CI-GATE-IS-AN-ALLOWLIST-NINE-MEMBERS-UNGATED (the cause was mis-stated; the crate is a workspace MEMBER)
+
+`crates/lance-graph-hydrate` did not compile at `origin/main` (#981) and was
+also fmt-dirty; both are fixed in the commit that files this. See
+`EPIPHANIES.md`
+`E-A-CRATE-WITH-ZERO-CONSUMERS-IS-BUILT-BY-NOTHING-AND-CAN-BE-MERGED-BROKEN-1`
+for the measurement and the mechanism.
+
+**What is fixed:** the two `ObjectStoreExt` imports and the formatting.
+
+**What is NOT fixed, and is the actual issue:** nothing in CI compiles this
+crate, because no consumer depends on it. The same class of upstream change
+can invalidate it again tomorrow with no gate firing. The durable fix is one
+of: (a) land the first real consumer — `VersionedGraph::hydrate_from`, the
+piece `ISS-REMOTE-URI-CONSTRUCTORS-PREDATE-THE-HYDRATION-DOCTRINE` names — so
+the crate enters `lance-graph`'s build graph; or (b) add it explicitly to the
+workspace job that runs on every PR. (a) is preferable: it closes two issues
+with one edge instead of adding a gate around an unused artifact.
 ## ISS-CAUSAL-EDGE-CARRIES-SEVEN-PRE-EXISTING-CLIPPY-FINDINGS (2026-08-22) — OPEN
 
 `crates/causal-edge` is workspace-EXCLUDED but a path-dep of `lance-graph`,

@@ -1,5 +1,70 @@
 ## 2026-08-21 — D-ACR-7 IMPLEMENTED — `contract::band_reading` (the 59..63 reading contract)
 
+### Current Contract Inventory — `VersionedGraph::hydrate_from`, and the CI gate that should have caught all of this
+
+- **`lance_graph::graph::versioned::VersionedGraph::hydrate_from`** (new) —
+  the shape `ISS-REMOTE-URI-CONSTRUCTORS-PREDATE-THE-HYDRATION-DOCTRINE` names.
+  `local`/`s3`/`azure`/`gcs` address a store WHERE IT SITS; for the three
+  remote ones that makes the object store the store, which the doctrine
+  explicitly does not. They are KEPT (addressing a remote store is legitimate
+  when a caller means it, and better at >1 replica); this adds the doctrine's
+  own shape beside them.
+  - **Ensure-hydrated, not hydrate-or-fail**: an existing destination is the
+    warm path, returned as `Hydration::AlreadyLocal` rather than an error.
+  - **`Hydration { Fresh(ArchiveReport), AlreadyLocal }`** (new) — the
+    distinction is returned rather than folded away: a boot that fetched and a
+    boot that found it are different events.
+  - **`GraphError::Hydration { source, location }`** (new variant) — its own
+    variant, not a flattened message, so a caller can tell a checksum mismatch
+    (never retry) from a transport error (retry).
+- **CI is no longer this branch's concern — PR #984 carries it.** An earlier
+  draft of this entry said `lance-graph-hydrate` is "gated for the first time"
+  here and that "eight more members are still ungated". Both were true when
+  written and are false now: #984 gated EVERY member (each measured locally
+  first), added `cargo build --workspace` as the structural net so future
+  members need no line, and pinned the toolchain in all seven workflows. The
+  count was also wrong — eleven, not nine, because the member check behind it
+  could not see names with an underscore. See `ISSUES.md`
+  `ISS-CI-GATE-IS-AN-ALLOWLIST-NINE-MEMBERS-UNGATED` (now RESOLVED, with the
+  outcome recorded above its original text) and `EPIPHANIES.md`
+  `E-THE-GATE-IS-A-HAND-MAINTAINED-ALLOWLIST-NOT-THE-WORKSPACE-1`.
+- Tests: `lance-graph-hydrate` 39 green; `lance-graph` `--lib` green incl. two
+  new `hydrate_from` falsifiers scoped to what that function adds (the warm/
+  error mapping — the archive mechanics are falsified one crate down).
+  `cargo clippy -p lance-graph --lib --tests -- -D warnings` clean.
+
+### Current Contract Inventory — 1 new module in `lance-graph-hydrate`, and that crate now COMPILES
+
+- **`lance_graph_hydrate::archive`** (new) — the `absent -> hydrated` edge for a
+  dataset shipped as ONE checksum-pinned **zip** object, alongside the existing
+  `copy::hydrate_dir` (a tree of objects) and `file::hydrate_file` (one plain
+  object).
+  - `hydrate_archive(store, remote_object, publish_dir, expected_sha256_hex,
+    root) -> ArchiveReport` — composes the two mechanisms the crate already
+    owns (`hydrate_file` for the pinned fetch, `publish::publish_by_rename` +
+    `StagingKind::Dir` for the atomic publish) and adds only the middle:
+    expanding one verified container into staging under a containment rule.
+  - `ArchiveReport { files, bytes }`; `HydrateArchiveError` adds
+    `EscapingEntry { entry, root }` (Zip-Slip refusal, whole archive rejected
+    off the CENTRAL DIRECTORY before any byte is written) and
+    `NoFiles { root }` (an all-directory tree would publish an unopenable
+    dataset).
+  - **Zip and not tar, by operator ruling 2026-08-22** (*"bitte als zip, nicht
+    dass wir ein Verzeichnis mit einzelnen Dateien shippen"*): a zip carries a
+    central directory, so entries can be enumerated and sought without a
+    sequential scan — which is also what makes the whole-index validation above
+    possible before extraction starts.
+- **`lance-graph-hydrate` builds again.** It did not compile at `origin/main`
+  (#981): `object_store 0.13.2` moved `get`/`put` onto `ObjectStoreExt`. Two
+  `use` lines; four files also picked up `cargo fmt`. Why a merged crate could
+  be broken at HEAD — and what that says about minting without a consumer — is
+  `EPIPHANIES.md`
+  `E-A-CRATE-WITH-ZERO-CONSUMERS-IS-BUILT-BY-NOTHING-AND-CAN-BE-MERGED-BROKEN-1`;
+  the durable gap is `ISSUES.md` `ISS-HYDRATE-CRATE-HAS-NO-BUILD-GATE`.
+- Tests: 39 green in the crate (33 pre-existing, 6 new). Both new guards are
+  mutation-checked — disabling the containment check and the file counter turns
+  exactly their two tests red and leaves the other four green.
+
 ### Current Contract Inventory — 1 new zero-dep module + 1 ClassView provided method + 1 gate test in `causal-edge`
 
 - **`lance_graph_contract::band_reading`** (new, zero new bytes) — implements

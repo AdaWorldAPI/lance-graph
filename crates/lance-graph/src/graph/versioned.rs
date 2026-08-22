@@ -85,6 +85,19 @@ pub struct GraphDiff {
     pub seal_status: GraphSealStatus,
 }
 
+/// Which path [`VersionedGraph::hydrate_from`] took.
+///
+/// Returned rather than folded away: a boot that fetched the artifact and one
+/// that found it already on the volume are different events, and the whole
+/// point of hydrating once is being able to see which happened.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Hydration {
+    /// The archive was fetched, verified, expanded and published by this call.
+    Fresh(lance_graph_hydrate::ArchiveReport),
+    /// The store was already on disk; nothing was fetched.
+    AlreadyLocal,
+}
+
 // ---------------------------------------------------------------------------
 // VersionedGraph
 // ---------------------------------------------------------------------------
@@ -134,6 +147,64 @@ impl VersionedGraph {
     pub fn gcs(uri: &str) -> Self {
         Self {
             base_path: uri.to_string(),
+        }
+    }
+
+    /// Hydrate this graph's whole store from ONE checksum-pinned zip object,
+    /// then open it locally.
+    ///
+    /// This is the shape `ISS-REMOTE-URI-CONSTRUCTORS-PREDATE-THE-HYDRATION-
+    /// DOCTRINE` names. The three constructors above take a URI and address the
+    /// store WHERE IT SITS; for `s3`/`azure`/`gcs` that makes the object store
+    /// the store itself, which the hydration doctrine
+    /// (`.claude/knowledge/s3-hydration-lifecycle.md`) explicitly does not:
+    /// there the object store is the hydration SOURCE and a local mmap-capable
+    /// directory is THE STORE. They are kept — addressing a remote store
+    /// directly is a legitimate choice when a caller means it, and at >1
+    /// replica it is the better one — but until now there was no way to express
+    /// the doctrine's own shape. This is that way.
+    ///
+    /// # Ensure-hydrated, not hydrate-or-fail
+    ///
+    /// A destination that already exists is the WARM PATH, not an error: a
+    /// caller asking for a hydrated graph has one. The distinction is returned
+    /// rather than discarded, because "downloaded 380 MB" and "found it
+    /// already there" are different facts and a boot log that prints the same
+    /// line for both hides the one that matters.
+    ///
+    /// # Arguments
+    ///
+    /// - `local_base` — where the store lives afterwards; this becomes
+    ///   [`Self::base_path`]. Never a URI.
+    /// - `root` — the single top-level directory inside the archive. It is the
+    ///   PRODUCER's name for the store; `local_base` is the caller's. Keeping
+    ///   both explicit is what lets a deploy name its volume independently of
+    ///   whoever baked the artifact.
+    /// - `expected_sha256_hex` — the pin. This IS the doctrine's
+    ///   "pinned source version" condition; without it the idempotency
+    ///   boundary has only half its premises.
+    pub async fn hydrate_from(
+        store: &dyn object_store::ObjectStore,
+        remote_archive: &object_store::path::Path,
+        local_base: &str,
+        expected_sha256_hex: &str,
+        root: &str,
+    ) -> crate::error::Result<(Self, Hydration)> {
+        let dest = std::path::Path::new(local_base);
+        match lance_graph_hydrate::hydrate_archive(
+            store,
+            remote_archive,
+            dest,
+            expected_sha256_hex,
+            root,
+        )
+        .await
+        {
+            Ok(report) => Ok((Self::local(local_base), Hydration::Fresh(report))),
+            Err(lance_graph_hydrate::HydrateArchiveError::AlreadyPublished(_)) => {
+                Ok((Self::local(local_base), Hydration::AlreadyLocal))
+            }
+            Err(e) => Err(e.into()),
         }
     }
 
@@ -669,6 +740,72 @@ impl VersionedGraph {
 
 #[cfg(test)]
 mod tests {
+    //! Note on scope: `hydrate_from`'s ARCHIVE mechanics — fetch, checksum,
+    //! Zip-Slip containment, atomic publish — are falsified in
+    //! `lance_graph_hydrate::archive` (6 tests, both guards mutation-checked).
+    //! What is tested HERE is only what this function adds on top: the mapping
+    //! from the hydration result onto an opened graph, and specifically that a
+    //! destination which already exists is a WARM SUCCESS rather than the
+    //! error the underlying call returns.
+
+    /// CAN STAY SILENT: an already-hydrated store is not re-fetched.
+    ///
+    /// The remote object deliberately does NOT exist. If `hydrate_from`
+    /// reached the store at all, this would fail with a transport error rather
+    /// than returning `AlreadyLocal` — so the assertion is evidence about
+    /// control flow, not just about the returned value.
+    #[tokio::test]
+    async fn an_already_hydrated_store_is_a_warm_success_and_is_not_refetched() {
+        let tmp = tempfile::tempdir().expect("tempdir");
+        let base = tmp.path().join("graph-store");
+        std::fs::create_dir_all(base.join("nodes.lance")).expect("pre-existing store");
+        let store = object_store::local::LocalFileSystem::new_with_prefix(tmp.path())
+            .expect("local object store");
+
+        let (graph, how) = VersionedGraph::hydrate_from(
+            &store,
+            &object_store::path::Path::from("absent.zip"),
+            base.to_str().unwrap(),
+            "00",
+            "graph-store",
+        )
+        .await
+        .expect("a hydrated store is not an error");
+
+        assert_eq!(how, Hydration::AlreadyLocal);
+        assert_eq!(graph.base_path(), base.to_str().unwrap());
+        assert!(base.join("nodes.lance").is_dir(), "left untouched");
+    }
+
+    /// CAN FIRE: a genuine failure is NOT laundered into a warm success.
+    ///
+    /// Same absent object, but with no local store — so the only honest answer
+    /// is an error. Without this, the test above would also pass on an
+    /// implementation that swallowed every error as `AlreadyLocal`.
+    #[tokio::test]
+    async fn a_missing_archive_with_no_local_store_is_an_error() {
+        let tmp = tempfile::tempdir().expect("tempdir");
+        let base = tmp.path().join("graph-store");
+        let store = object_store::local::LocalFileSystem::new_with_prefix(tmp.path())
+            .expect("local object store");
+
+        let err = VersionedGraph::hydrate_from(
+            &store,
+            &object_store::path::Path::from("absent.zip"),
+            base.to_str().unwrap(),
+            "00",
+            "graph-store",
+        )
+        .await
+        .expect_err("an absent archive with nothing local must fail");
+        assert!(
+            matches!(err, crate::error::GraphError::Hydration { .. }),
+            "the hydration error keeps its own variant rather than being \
+             flattened into a message: {err:?}"
+        );
+        assert!(!base.exists(), "nothing was published");
+    }
+
     use super::*;
     use arrow_array::builder::FixedSizeBinaryBuilder;
     use arrow_schema::DataType;

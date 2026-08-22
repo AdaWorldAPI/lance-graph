@@ -75,6 +75,7 @@
 //! open, so this follow-up closes it. See the `publish` module's doc for
 //! what merged and what stayed per-caller.
 
+pub mod archive;
 pub mod copy;
 pub mod dirty;
 pub mod env;
@@ -85,6 +86,7 @@ mod publish;
 pub mod release;
 mod staging;
 
+pub use archive::{hydrate_archive, ArchiveReport, HydrateArchiveError};
 pub use copy::{hydrate_dir, HydrateError, HydrationReport};
 pub use dirty::{is_dirty, lifecycle_of, DirtyCheckError};
 pub use env::{env as env_var, HydrationSource};
