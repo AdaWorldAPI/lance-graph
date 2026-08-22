@@ -24,7 +24,7 @@
 |---|---|
 | RL credit as a "TD-error sign + **magnitude** bucket" in spare CE64 bits | **A council already killed this and wrote it down against resurfacing.** EPIPHANIES:8560, *"Pruned dead-ends the council killed (recorded so they don't resurface): … storing any magnitude (regret price, oracle eval, lindy age, proof hash) in a reserved A9 locus (pointers-not-magnitudes + RESERVE-DON'T-RECLAIM)"*. |
 | bits 59..63 as an open design space | **The band has a ratified contract.** `INTEGRATION_PLANS` → `dacr7-band-reading-contract-v1.md` (council-ratified, G1..G10b pre-registered) and `known-unknown-handover-network-v1.md` (the operator's own 59..63 framing, fence measured twice: *"`↑n` is stacking, never widening"*). The live question is `BandReading::project`, not whether to pack new bits. |
-| a BPE reading of `6×2×8bit` as a fresh **[S]** idea — the *analogy* half | **Asked and answered the same day.** `E-BPE-IS-RHYME-VQ-IS-THE-MECHANISM-FOR-6X2X8BIT-1` (EPIPHANIES:91, 2026-08-22, arxiv-grounded): *"RHYME, not mechanism"* — the hazards are already named verbatim (*"loss of `is_ancestor_of` (BPE guarantees no subsumption)"*, *"frequency-optimal replacing distance-optimal"*), with three pre-registered probes stronger than the one the draft proposed. |
+| a BPE reading of `6×2×8bit` as a fresh **[S]** idea — **only the ontology/codec half (A below)** | **Asked and answered the same day.** `E-BPE-IS-RHYME-VQ-IS-THE-MECHANISM-FOR-6X2X8BIT-1` (EPIPHANIES:91, 2026-08-22, arxiv-grounded): *"RHYME, not mechanism"* — the hazards are already named verbatim (*"loss of `is_ancestor_of` (BPE guarantees no subsumption)"*, *"frequency-optimal replacing distance-optimal"*), with three pre-registered probes stronger than the one the draft proposed. |
 | BNN over `6×2×8bit` as a fresh **[H]** idea | **Raised by the operator 2026-08-21 and DEFERRED with a named blocker.** `handovers/2026-08-21-2330:107-115`: not taken into v2 because `edge_v3.rs:29-36` says the register is *"a packed EDGE REGISTER, **NOT** a slot-pure §3 facet"*, and adopting it would be **a sixth homonym**. It needs its own deliverable and its own resolution of the typed-register-vs-content-blind contradiction. |
 | Hebbian strengthening "via the plasticity counter" | **The exact conflation `E-BASIN-NOT-EDGE-PLASTICITY` killed** (EPIPHANIES:14182, *"the 4th-strike object conflation"*): "plasticity" names a cold-path basin cooling knob AND a hot-path per-edge Hebbian state, and they do not compose. With `Plasticity` = tenant 7 that was three distinct objects under one word in a single paragraph. |
 | "BNN" as a Bayesian neural network, cited to `ndarray/src/hpc/bnn.rs` | **That file is a BINARY neural network** — *"Binary weights and activations (1-bit)… XNOR + popcount"*. Deterministic, bit-exact, no distributions. The whole Bayesian mapping rested on a name. |
@@ -52,6 +52,25 @@ own review, not by its author, and only because the reviewer re-ran the search
 the first pass had already reported as empty.
 
 ---
+
+### ⊘ The word "BPE" spans THREE claims, and row 3 retired all three
+
+Corrected 2026-08-22 by the fathoming report
+(`.claude/brainstorms/2026-08-22-behavioral-ir-fathoming.md` §M). This is a
+**fourth** instance of the pattern named above — a name taken for a mechanism —
+and unlike the other three, this one is *this document's own*.
+
+| | claim | status |
+|---|---|---|
+| **A** | BPE is the *mechanism* behind the `6×2×8bit` centroid/ontology codebooks | **RETIRED, correctly** — `E-BPE-IS-RHYME-VQ-IS-THE-MECHANISM-FOR-6X2X8BIT-1`. Its named hazards (*loss of `is_ancestor_of`*, *frequency-optimal replacing distance-optimal*) are **codebook** hazards. |
+| **B** | BPE / Sequitur / Re-Pair induce reusable behavioural **macros over executed `(FnIndex : Value)` traces** | **NOT TESTED, NOT RETIRED — and published-positive.** FAST (arXiv:2501.09747, 2025) and Subwords as Skills (arXiv:2309.04459, NeurIPS 2024) do exactly this over action sequences; Sequitur (JAIR 7, 1997) and Re-Pair (DCC 1999) supply the exact-reversibility half. Blocked here by a missing interpreter, not by the cited finding. |
+| **C** | BPE merge **rank** as a cheap surprisal statistic | separable from both; untouched by the cited finding. |
+
+**A's evidence does not reach B.** Every falsifier in the cited finding concerns
+centroid allocation and prefix containment; none of them says anything about
+whether a *trace* can be merged into macros. A retraction requires evidence just
+as an assertion does — the rule this document itself adds in §4 — and row 3
+broke that rule one section above where it was written.
 
 ## §1 The two threads that are actually open
 
@@ -121,6 +140,23 @@ found both genuinely new and cheaply falsifiable.
 versus the static style table, **out-of-sample**? Without the out-of-sample arm a
 memorising dispatcher passes trivially.
 
+**⊘ Blocked — and the blockers are now named** (fathoming report, 2026-08-22):
+
+- **Prerequisite: an interpreter.** This thread assumed pothole → dispatch
+  labels are obtainable. They are not: **nothing executes the recipe IR.**
+  `ogar-loco` contains no `execute` / `eval` / `interpret` / `step` / `run`; its
+  own `telemetry.rs` says it *"only knows whether a candidate parses, casts, and
+  segments"*; and `recipe_vocab`'s module doc disclaims execution outright.
+  `ladder_program()` is a static ordering, not a corpus.
+- **The label is lossy at the source.** `refusal_of`
+  (`recipe_vocab.rs:313-326`) checks the ceiling and **returns**, so
+  `nan_disqualifier` is *never called* when both gates trip — the second cause is
+  not hidden, it is never computed. A learner would train on an `AboveCeiling`
+  class silently merging "too deep" with "too deep AND ungrounded".
+- **Rubicon is excluded** as feature or label: `overlap()` can exceed 1.0
+  (`union` absorbs into one minimal antichain while `intersect` inserts per
+  covering pair), breaking the bound `persistence_gain` and `verdict` rest on.
+
 ---
 
 ## §2 The one cross-thread defect worth keeping
@@ -185,6 +221,13 @@ which a flat seven-item list hid.
 - Nothing touches CE64 bit fields without the operator re-opening M20.
 - "Superposition" of the triangle is a **mixture**, never a bundle
   (I-VSA-IDENTITIES).
+- **Frequency is not success — and that now has a citation, not a house rule.**
+  Macro-FF (Botea et al., JAIR 24, 2005) ships a four-stage pipeline *because*
+  raw frequency-derived macro candidates are unusable without a filter/rank
+  stage; Newton & Levine (ECAI 2010) report a measured case where a macro used
+  without control rules performs **worse than the no-macro baseline**. The
+  failure mode is not "more search nodes" — it is *actively wrong choices
+  compiled into fast-to-select composite operators*.
 - **Read the ledger before proposing.** Five of the first draft's seven threads
   were already decided; the cost of checking was minutes and the cost of not
   checking was this rewrite.
