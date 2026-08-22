@@ -184,6 +184,35 @@ jobs:
       # ISS-CAUSAL-EDGE-CARRIES-SEVEN-PRE-EXISTING-CLIPPY-FINDINGS instead.
       - name: Run causal-edge tests (workspace-excluded, previously ungated)
         run: cargo test --manifest-path crates/causal-edge/Cargo.toml
+      # ── The structural net: every member, present and future ─────────────
+      #
+      # The per-crate steps below are a hand-maintained allowlist, and that is
+      # exactly how `lance-graph-hydrate` reached `main` un-compiling: it was a
+      # workspace MEMBER, but membership gates nothing when no job says
+      # `--workspace`. This step is the net that needs no maintenance — a member
+      # added tomorrow is covered the moment it is listed in `[workspace]`.
+      #
+      # Measured before landing (2026-08-22, clean tree, `[profile.dev]
+      # debug = 0` from the manifest):
+      #
+      #   cargo build --workspace     exit 0, 6m18s, target/ 3.5 GB
+      #
+      # BUILD and not TEST, for now, and honestly: whether `cargo test
+      # --workspace` also fits a runner has NOT been established here. An
+      # earlier attempt hit ENOSPC, but that was against a target already
+      # holding 15 GB of debug-laden artifacts from builds that predate the
+      # manifest default — it measured the polluted tree, not the test scope.
+      # Until a clean-tree measurement exists, the workspace-scope gate is the
+      # compile and the per-crate steps below carry the tests, each with its
+      # own feature resolution rather than the workspace-unified one.
+      #
+      # So a new member's TESTS still need a line below. That is a known edge,
+      # not an oversight, and it disappears the moment someone measures a
+      # workspace test run fitting the runner — at which point these ten steps
+      # collapse into one.
+      - name: Build every workspace member (structural gate)
+        run: cargo build --workspace
+
       # ── The rest of the allowlist gap, closed in one pass ────────────────
       #
       # No workflow here runs `--workspace`, so `[workspace] members` gates
