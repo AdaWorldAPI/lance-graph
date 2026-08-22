@@ -11,7 +11,7 @@
 
 use deepnsm_v2::basin::basin_self_code;
 use deepnsm_v2::codebook::{load_cam96_codes, load_cam96_space};
-use deepnsm_v2::corpus::{is_verse_marker, split_verses};
+use deepnsm_v2::corpus::split_verses_detailed;
 use deepnsm_v2::fsm::{parse_to_spo, Pos, Tagged};
 use deepnsm_v2::hydrate::hydrate;
 use deepnsm_v2::promote::{key_at, promote, read_lane, row_of};
@@ -75,16 +75,16 @@ fn main() {
         .expect("usage: toc_hydrate <pg10.txt>");
     let text = std::fs::read_to_string(&path).expect("corpus");
 
-    // ── verses + their (chapter, verse) markers, in one walk ──
-    let verses = split_verses(&text);
-    let markers: Vec<(u16, u16)> = text
-        .split_whitespace()
-        .filter(|t| is_verse_marker(t))
-        .filter_map(|t| {
-            let (a, b) = t.split_once(':')?;
-            Some((a.parse().ok()?, b.parse().ok()?))
-        })
-        .collect();
+    // ── verses + their (chapter, verse) markers, from ONE walk ──
+    // This used to be two walks: `split_verses` for the text, and a separate
+    // `split_whitespace().filter(is_verse_marker)` over the RAW text for the
+    // markers. The second walk did not apply the footer trim, so any `d+:d+`
+    // in the Gutenberg license would have been admitted as a verse marker and
+    // de-aligned every index after it. On the shipped file it happened to be
+    // clean (measured: 0 markers outside the body); nothing guaranteed it.
+    // `CorpusSplit::markers` is aligned with `verses` by construction.
+    let split = split_verses_detailed(&text);
+    let (verses, markers) = (split.verses, split.markers);
     println!(
         "corpus      {} verses, {} markers",
         verses.len(),
