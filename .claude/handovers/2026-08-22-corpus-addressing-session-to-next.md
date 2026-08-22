@@ -18,16 +18,24 @@ written after the errors below were found.
 | "HHTL is the Book·Chapter·Verse containment path" | `hhtl.rs:1-38` — HHTL/`NiblePath` is the `subClassOf` (P279) **Abstammung** axis; `mask-inherits-as-delta`, *"walking DOWN the path is IS-A inheritance"*. Book⊃Chapter⊃Verse is **mereology**. `le-contract.md:56` separates `part_of : is_a` as two bytes. |
 | "Book·Chapter = HEEL exactly, 6 nibbles free" | Numerology. The 2/2/2 nibble carving was chosen by the session via `ceil(log16 n)` and then reported as a discovery. Ignores that OGAR reads a tier as a 256×256 centroid tile needing hierarchical-4⁴ codebooks. |
 | "One address, four witnesses — the translation lane lives in the classid" | No canon support. `ConceptDomain` is ProjectMgmt/Commerce/Ontology/Weather/Osint/Ocr/Health/Anatomy/Auth/Genetics — no translation-lane notion. The session claimed `routing.md` "answers it in one row"; it does not. |
-| "Cam96 drops into the key tail" | Content-derived identity. CAM-PQ collisions are the *point* of the codec; identity's job is to discriminate. Correct home already exists: `ValueTenant::EpisodicBasin = 15`, `self_code` at bytes `4..16` — a **value** lane, licensed because it sits at a strictly higher rung than its inputs. |
 | "The pericope is an edge set" | It is a collision in a content-addressable index. Nothing stores the parallelism. |
 | "MailboxId IS the NiblePath" (quoted as fact) | `tenants.md` §7.3 and `le-contract.md` §5.3 both flag this as **DOC-ONLY**, awaiting a ruling. |
 
 **The pattern, so it is not repeated:** every failure was structure inferred
 from a *name* or a *width* instead of from the definition. "HHTL" sounded like
-a hierarchical path. Cam96 is 12 bytes read as `6×(8:8)` and so is the key
-register, so matching shape was taken for matching role. Read
-`.claude/v3/soa_layout/` (4 files, 905 lines) **before** proposing anything
-about keys, tenants, or rails.
+a hierarchical path, so it was used as one; two structures that share a 12-byte
+`6×(8:8)` carving were taken to share a role. Read `.claude/v3/soa_layout/`
+(4 files, 905 lines) **before** proposing anything about keys, tenants, or
+rails.
+
+**The invariant that bounds all of it** (not a finding — the standing rule):
+**identity is an address and is never derived from content.** A quantized code
+exists to make similar things collide; an identity exists to keep them apart.
+Anything content-derived — a CAM-PQ code, a hash, a pooled embedding — lives in
+a **value lane**, and the shipped example is `ValueTenant::EpisodicBasin = 15`,
+whose `self_code` (12 B, bytes `4..16`) is licensed precisely because it sits at
+a strictly higher rung than its inputs. A content code in the key would also
+re-address the whole corpus on any re-bake.
 
 ### Measured — these hold
 
