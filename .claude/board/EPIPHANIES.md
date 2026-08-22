@@ -25,6 +25,22 @@ with Byte Pair Encoding? Answer: **RHYME, not mechanism.**
   that assume distance coherence; a shared vocabulary violating
   classid-scoped codebooks.
 
+**⊘ Provenance note, same day (transcript audited after the fact — the run's
+own limits, so nobody cites this entry as more than it is):** the agent made
+**9 real WebSearches and ZERO WebFetches**, and every citation checked
+(`1508.07909`, `2306.16842`, `1910.13267`, `2305.07185`, `2602.22958`) appears
+in a tool RESULT before it appears in the report — so nothing is fabricated,
+but the evidence is **search-snippet level, never a paper read end-to-end**,
+and several anchors are secondary summarizer pages rather than primary
+sources. Its `[G]` grades are therefore over-graded by its own charter; read
+them as strong `[H]`. Second limit, and the sharper one: it made **no Read or
+Grep of the local files offered to it** (`facet.rs`, `attention_facet.rs`,
+`ogar-loco/src/lib.rs`, OGAR `CLAUDE.md`), so every claim about OUR side is
+the prompt's framing echoed back, not independent verification. What the run
+genuinely establishes is the **BPE side** and the disanalogy; that our
+codebooks are VQ-lineage remains our own (well-sourced, in-repo) claim, not
+this run's finding.
+
 Pre-registered probes (run before any code moves): (1) RVQ-vs-current
 retrain of ONE axis under the 4-level constraint, measured on containment +
 retrieval; (2) does distance-trained k-means already concentrate density on
