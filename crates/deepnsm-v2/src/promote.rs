@@ -44,7 +44,12 @@ use lance_graph_contract::canonical_node::{
     classid_read_mode, EdgeBlock, NodeGuid, NodeRow, TailVariant, ValueTenant,
 };
 use lance_graph_contract::episodic_basin::{BasinRow, BASIN_ROW_BYTES};
+use lance_graph_contract::facet::FacetCascade;
 use lance_graph_contract::hhtl::{NiblePath, MAX_DEPTH};
+use lance_graph_contract::tekamolo_facet::TekamoloFacet;
+
+/// The TEKAMOLO facet's on-row width — the 16-byte V3 4+12 facet.
+pub const TEKAMOLO_BYTES: usize = 16;
 
 /// Fold a path into the four canonical tiers, **left-aligned**.
 ///
@@ -175,6 +180,84 @@ pub fn promote_all(pairs: &[(TocEntry, BasinRow)], classid: u32) -> Vec<NodeRow>
         .collect()
 }
 
+// ── TEKAMOLO: the tenant every SoA row carries ─────────────────────────────
+
+/// The TEKAMOLO facet for a TOC address — the *when* lane, hydrated.
+///
+/// `ValueTenant::Tekamolo` is a lane on EVERY SoA row, not a property of the
+/// promoted basins: every node and every addressed triple carries its own
+/// when/why/how/where address. This builds the one lane this crate has
+/// evidence for.
+///
+/// - **Temporal (when)** = `[book, chapter, verse]`, the node's own place in
+///   corpus reading order, read as the lane's `256:256:256` coarse→fine
+///   cascade. Narrative position IS the temporal address of a scripture node,
+///   and it is exact — no inference.
+/// - **Kausal / Modal / Lokal** stay ALL-ZERO. The tenant's own doc fixes the
+///   meaning of that: *"Zero-fallback: an all-zero facet reads as unaddressed
+///   (no lane asserted), never a wrong circumstance."* This crate extracts no
+///   causal connective, no modal auxiliary and no place, so asserting any of
+///   the three would be a fabricated circumstance — worse than an absent one.
+///
+/// Returns `None` if a tier exceeds `u8` — a refusal, never a fold, matching
+/// [`crate::toc`]'s rule that silently wrapping two literary units onto one
+/// address is the failure to avoid.
+#[must_use]
+pub fn tekamolo_of(entry: &TocEntry, facet_classid: u32) -> Option<TekamoloFacet> {
+    let b = u8::try_from(entry.book).ok()?;
+    let c = u8::try_from(entry.chapter).ok()?;
+    let v = u8::try_from(entry.verse).ok()?;
+    Some(TekamoloFacet::from_lanes(
+        facet_classid,
+        [b, c, v], // temporal — the only lane with evidence
+        [0, 0, 0], // kausal  — unaddressed
+        [0, 0, 0], // modal   — unaddressed
+        [0, 0, 0], // lokal   — unaddressed
+    ))
+}
+
+/// Write the TEKAMOLO facet into a row's [`ValueTenant::Tekamolo`] lane.
+///
+/// Offset derived from the tenant descriptor, never a literal — same rule as
+/// [`write_lane`].
+pub fn write_tekamolo(row: &mut NodeRow, facet: &TekamoloFacet) {
+    let off = ValueTenant::Tekamolo.value_offset();
+    row.value[off..off + TEKAMOLO_BYTES].copy_from_slice(&facet.facet().to_bytes());
+}
+
+/// Read the TEKAMOLO lane back. An unwritten lane reads all-zero — the
+/// documented zero-fallback, i.e. *unaddressed*, not an error.
+#[must_use]
+pub fn read_tekamolo(row: &NodeRow) -> TekamoloFacet {
+    let off = ValueTenant::Tekamolo.value_offset();
+    let mut b = [0u8; TEKAMOLO_BYTES];
+    b.copy_from_slice(&row.value[off..off + TEKAMOLO_BYTES]);
+    TekamoloFacet::new(FacetCascade::from_bytes(&b))
+}
+
+/// A row for EVERY TOC entry, each with its TEKAMOLO lane hydrated.
+///
+/// The basin lane is left at its zero-fallback here; [`promote`] writes that
+/// for the subset of addresses a basin was measured at. TEKAMOLO is not that
+/// subset — it is on every row.
+#[must_use]
+pub fn rows_with_tekamolo(entries: &[TocEntry], classid: u32) -> Vec<NodeRow> {
+    entries
+        .iter()
+        .enumerate()
+        .filter_map(|(i, e)| {
+            let facet = tekamolo_of(e, classid)?;
+            let mut row = NodeRow {
+                key: key_at(classid, e.path, 0, u32::try_from(i).unwrap_or(0))?,
+                edges: EdgeBlock::default(),
+                value: [0u8; 480],
+            };
+            write_tekamolo(&mut row, &facet);
+            Some(row)
+        })
+        .collect()
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -256,6 +339,142 @@ mod tests {
             chapter.path.is_ancestor_of(verse.path),
             "the chapter must remain an ancestor of its verse"
         );
+    }
+
+    /// TEKAMOLO round-trips through a real row, and writing it touches NO
+    /// other byte — the field-isolation half for the second lane.
+    #[test]
+    fn tekamolo_round_trips_and_disturbs_nothing_else() {
+        let e = toy()[0];
+        let f = tekamolo_of(&e, CLASSID).expect("toy tiers fit u8");
+        let mut row = NodeRow {
+            key: key_at(CLASSID, e.path, 0, 1).expect("V3 mints"),
+            edges: EdgeBlock::default(),
+            value: [0u8; 480],
+        };
+        write_tekamolo(&mut row, &f);
+        assert_eq!(read_tekamolo(&row), f, "the lane must read back");
+
+        let off = ValueTenant::Tekamolo.value_offset();
+        for (i, b) in row.value.iter().enumerate() {
+            if i < off || i >= off + TEKAMOLO_BYTES {
+                assert_eq!(*b, 0, "byte {i} outside the TEKAMOLO lane was written");
+            }
+        }
+        // Anti-vacuity: the lane itself is NOT all-zero, so the sweep above is
+        // discriminating rather than asserting a zeroed row is zeroed.
+        assert!(
+            row.value[off..off + TEKAMOLO_BYTES].iter().any(|b| *b != 0),
+            "the lane must carry something"
+        );
+    }
+
+    /// The two lanes do not overlap: writing one leaves the other intact.
+    #[test]
+    fn tekamolo_and_basin_lanes_are_disjoint() {
+        let e = toy()[0];
+        let b = basin(77, 5);
+        let f = tekamolo_of(&e, CLASSID).expect("tiers fit");
+        let mut row = promote(&e, &b, CLASSID, 3).expect("V3 mints");
+        write_tekamolo(&mut row, &f);
+        assert_eq!(read_lane(&row), b, "basin survived the TEKAMOLO write");
+        assert_eq!(read_tekamolo(&row), f, "TEKAMOLO survived the basin write");
+    }
+
+    /// Only the temporal lane is asserted. The other three stay at the
+    /// documented zero-fallback — "unaddressed, never a wrong circumstance".
+    #[test]
+    fn only_the_temporal_lane_is_asserted() {
+        let entries = toy();
+        let verse = entries
+            .iter()
+            .find(|e| e.level == TocLevel::Verse)
+            .expect("a verse exists");
+        let f = tekamolo_of(verse, CLASSID).expect("tiers fit");
+        assert_eq!(
+            f.temporal(),
+            [
+                u8::try_from(verse.book).unwrap(),
+                u8::try_from(verse.chapter).unwrap(),
+                u8::try_from(verse.verse).unwrap()
+            ]
+        );
+        assert_eq!(f.causal(), [0, 0, 0]);
+        assert_eq!(f.modal(), [0, 0, 0]);
+        assert_eq!(f.local(), [0, 0, 0]);
+    }
+
+    /// The temporal lane is a REAL prefix-routing axis: two verses in the same
+    /// chapter share more coarse→fine temporal prefix than two in different
+    /// books. Without this the lane would be stored and meaningless.
+    #[test]
+    fn temporal_prefix_routing_separates_near_from_far() {
+        use lance_graph_contract::tekamolo_facet::TekamoloRole;
+        let mk = |b: u16, c: u16, v: u16| {
+            tekamolo_of(
+                &TocEntry {
+                    path: toy()[0].path,
+                    level: TocLevel::Verse,
+                    book: b,
+                    chapter: c,
+                    verse: v,
+                },
+                CLASSID,
+            )
+            .expect("tiers fit")
+        };
+        let a = mk(1, 2, 3);
+        let same_chapter = mk(1, 2, 9);
+        let same_book = mk(1, 7, 3);
+        let other_book = mk(5, 2, 3);
+        let s_ch = a.shared(&same_chapter, TekamoloRole::Temporal);
+        let s_bk = a.shared(&same_book, TekamoloRole::Temporal);
+        let s_ot = a.shared(&other_book, TekamoloRole::Temporal);
+        assert!(
+            s_ch > s_bk && s_bk > s_ot,
+            "temporal prefix must order near→far: same-chapter {s_ch} > same-book {s_bk} > other-book {s_ot}"
+        );
+        // Identity is the maximum, and it is reachable — the scale is not flat.
+        assert_eq!(a.shared(&a, TekamoloRole::Temporal), 3);
+    }
+
+    /// A tier past `u8` is REFUSED, not folded onto a wrong address.
+    #[test]
+    fn a_tier_past_u8_is_refused_not_folded() {
+        let bad = TocEntry {
+            path: toy()[0].path,
+            level: TocLevel::Verse,
+            book: 0,
+            chapter: 300, // > 255
+            verse: 1,
+        };
+        assert!(tekamolo_of(&bad, CLASSID).is_none());
+        // …and a legal one right at the boundary still mints, so the guard is
+        // not simply always-None.
+        let ok = TocEntry {
+            chapter: 255,
+            ..bad
+        };
+        assert!(tekamolo_of(&ok, CLASSID).is_some());
+    }
+
+    /// EVERY tree node gets a row with a hydrated lane — TEKAMOLO is not the
+    /// basin subset.
+    #[test]
+    fn every_toc_entry_gets_a_hydrated_row() {
+        let entries = toy();
+        let rows = rows_with_tekamolo(&entries, CLASSID);
+        assert_eq!(rows.len(), entries.len(), "one row per entry");
+        for (r, e) in rows.iter().zip(&entries) {
+            assert_eq!(
+                read_tekamolo(r).temporal(),
+                [
+                    u8::try_from(e.book).unwrap(),
+                    u8::try_from(e.chapter).unwrap(),
+                    u8::try_from(e.verse).unwrap()
+                ]
+            );
+        }
     }
 
     /// A classid with no registry entry resolves to the V1 tail, and the
