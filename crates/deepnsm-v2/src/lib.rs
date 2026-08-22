@@ -53,8 +53,6 @@ pub mod reason;
 pub mod shape;
 pub mod space;
 pub mod spo;
-/// All four TEKAMOLO lanes, hydrated by a left-corner, style-driven read.
-pub mod tekamolo;
 /// D-ACR-6 precondition — the table of contents spawned as an HHTL tree of
 /// SoA node addresses, before any triple-level reasoning runs.
 pub mod toc;
