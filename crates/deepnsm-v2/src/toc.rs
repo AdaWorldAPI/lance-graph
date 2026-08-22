@@ -129,17 +129,28 @@ impl CorpusToc {
     /// Derive the outline from an ordered `(chapter, verse)` marker stream —
     /// what [`crate::corpus`]'s `d+:d+` markers give.
     ///
-    /// **Book boundaries are inferred from a chapter RESET**: chapter numbers
-    /// restart at 1 in each book, so a marker whose chapter is `1` following a
-    /// higher chapter opens a new book. That is an inference from the corpus's
-    /// own numbering, not an external table — and it is the one assumption
-    /// here, stated so it can be checked rather than trusted.
+    /// **A book opens at `1:1`.** Every book starts at chapter 1 verse 1, and
+    /// `(1,1)` never recurs inside a book, so that marker is exactly the book
+    /// boundary. An inference from the corpus's own numbering, not an external
+    /// table.
+    ///
+    /// **⊘ CORRECTED 2026-08-22 by the real corpus.** The first rule here was
+    /// "a chapter RESET opens a book" — chapter 1 following a higher chapter.
+    /// Run against the real KJV it found **61 books, not 66**, and the missing
+    /// five are exactly the single-chapter books (Obadiah, Philemon, 2 John,
+    /// 3 John, Jude): such a book is followed by another that also starts at
+    /// chapter 1, so `prev_chapter == 1`, no reset is seen, and the two books
+    /// MERGE. The merge then costs verses too (the merged chapter keeps the
+    /// max verse count, not the sum), which is where 78 missing verse nodes and
+    /// 88 unaddressed triples came from.
+    ///
+    /// The synthetic fixtures could not catch it: none of them contained a
+    /// single-chapter book. It took the corpus.
     #[must_use]
     pub fn from_markers(markers: &[(u16, u16)]) -> Self {
         let mut chapters: Vec<Vec<u16>> = Vec::new();
-        let mut prev_chapter = 0u16;
         for &(ch, vs) in markers {
-            if ch == 1 && prev_chapter != 1 {
+            if ch == 1 && vs == 1 {
                 chapters.push(Vec::new());
             }
             let book = match chapters.last_mut() {
@@ -156,7 +167,6 @@ impl CorpusToc {
                 let slot = &mut book[ch as usize - 1];
                 *slot = (*slot).max(vs);
             }
-            prev_chapter = ch;
         }
         Self { chapters }
     }
@@ -355,11 +365,24 @@ mod tests {
         );
     }
 
-    /// The outline derived from markers finds book boundaries by chapter reset,
-    /// and the derivation is falsifiable: a stream with a reset yields two
-    /// books, one without yields one.
+    /// Book boundaries come from `1:1`, and — the case the real KJV caught —
+    /// **two single-chapter books in a row must still be two books.** The old
+    /// chapter-reset rule merged them, losing 5 books and 78 verses on the real
+    /// corpus. No synthetic fixture had a single-chapter book; this one does.
     #[test]
-    fn book_boundaries_come_from_the_chapter_reset() {
+    fn two_single_chapter_books_in_a_row_stay_two_books() {
+        // Obadiah-shaped: one chapter, then another one-chapter book.
+        let t = CorpusToc::from_markers(&[(1, 1), (1, 2), (1, 1), (1, 2), (1, 3)]);
+        assert_eq!(t.book_count(), 2, "the chapter-reset rule merged these");
+        assert_eq!(t.chapters[0], vec![2]);
+        assert_eq!(t.chapters[1], vec![3]);
+        assert_eq!(t.verse_count(), 5, "no verse may be lost to a merge");
+    }
+
+    /// Book boundaries come from `1:1`, and the derivation is falsifiable: a
+    /// stream with a second `1:1` yields two books, one without yields one.
+    #[test]
+    fn book_boundaries_come_from_chapter_one_verse_one() {
         let two = CorpusToc::from_markers(&[(1, 1), (1, 2), (2, 1), (1, 1), (1, 2)]);
         assert_eq!(
             two.book_count(),
