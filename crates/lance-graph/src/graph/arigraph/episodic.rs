@@ -181,7 +181,31 @@ impl EpisodicBasins {
     /// `ValueTenant::EpisodicBasin` lane.
     ///
     /// The anchor is the basin's lowest-id member (deterministic, and the
-    /// members are reached by following it). `self_code` is left zero: the
+    /// members are reached by following it).
+    ///
+    /// **⚠ This keying is RUNG-0, and that is a known limitation, not a
+    /// choice.** `E-HERMENEUTIK-RUNG-LADDER-1` diagnoses exactly this shape: a
+    /// basin keyed by a bare SUBJECT keeps grammatical adjacency and discards
+    /// genre, pericope and canonical position — and with every structural layer
+    /// gone, the only between-basin signal left is SIZE, which is what three
+    /// independent gates then measured (`E-DOOMSCROLL-VS-RUNG-LADDER-QUERY-1`,
+    /// `E-BASIN-WIDTH-IS-N-ARTIFACT-1`,
+    /// `E-EVIDENCE-COMPOSITE-COVERAGE-CONFOUND-1`).
+    ///
+    /// The prescribed fix is a basin keyed by LITERARY UNIT rather than bare
+    /// subject — and the rail already supports it with **no byte change**,
+    /// because a basin row is a node and its canonical position lives in its
+    /// own key. Promoting a basin at a spawned TOC node's key IS keying it by
+    /// literary unit; `subject` then stays the semantic anchor beside it. That
+    /// is why the book case needs the HHTL tree spawned first (see the
+    /// `episodic_basin` module docs) — the spawn is not a precondition for
+    /// addressing, it is the precondition for the basin to be
+    /// structure-bearing at all.
+    ///
+    /// This method does the mechanical migration off `Vec<String>`; it does not
+    /// lift the basin off rung 0.
+    ///
+    /// `self_code` is left zero: the
     /// Cam96 centroid is a codebook computation this carrier does not own, and
     /// writing a fabricated one would be worse than an honest absence.
     ///
