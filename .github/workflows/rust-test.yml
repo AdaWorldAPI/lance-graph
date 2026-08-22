@@ -165,6 +165,24 @@ jobs:
       # what this step ran before, so it cannot lose coverage.
       - name: Run supervisor tests (W2b real-owner probes + #879 cycle driver)
         run: cargo test --manifest-path crates/lance-graph-supervisor/Cargo.toml --features supervisor,cycle-driver
+      # causal-edge: workspace-EXCLUDED, but a path-dep of lance-graph,
+      # lance-graph-planner, cognitive-shader-driver and sigma-tier-router — so
+      # its LIB already compiles inside gated builds while its TESTS ran
+      # nowhere but on a developer machine. #981 landed a #[test] here and this
+      # PR lands two falsifiers here; none of them could ever have gone red in
+      # CI. Same "blind gate" closed above for deepnsm / supervisor /
+      # bgz-tensor, one crate at a time.
+      #
+      # Verified locally before landing: 75 passed, 0 failed.
+      #
+      # Deliberately TESTS ONLY. A `clippy -D warnings` step would be red on
+      # arrival: the crate carries 7 pre-existing findings, all in edge.rs /
+      # tables.rs / v2_layout_tests.rs and NONE in the edge_v3.rs this PR
+      # touches. Gating them here would fail this PR for defects it did not
+      # introduce; they are recorded in ISSUES
+      # ISS-CAUSAL-EDGE-CARRIES-SEVEN-PRE-EXISTING-CLIPPY-FINDINGS instead.
+      - name: Run causal-edge tests (workspace-excluded, previously ungated)
+        run: cargo test --manifest-path crates/causal-edge/Cargo.toml
       # bgz-tensor: workspace-EXCLUDED metric-algebraic codec crate (deps the
       # ndarray sibling checked out above + in-repo holograph). None of the
       # steps above reach it, so its 207 lib tests — including the V3

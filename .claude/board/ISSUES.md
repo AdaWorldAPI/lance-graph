@@ -1,5 +1,42 @@
 # Issues Log — Open + Resolved (double-entry, append-only)
 
+## ISS-CAUSAL-EDGE-CARRIES-SEVEN-PRE-EXISTING-CLIPPY-FINDINGS (2026-08-22) — OPEN
+
+`crates/causal-edge` is workspace-EXCLUDED but a path-dep of `lance-graph`,
+`lance-graph-planner`, `cognitive-shader-driver` and `sigma-tier-router`, so
+its LIB compiles inside gated builds while its TESTS ran nowhere but on a
+developer machine. #981 landed a `#[test]` there and #982 lands two
+falsifiers there; none of them could ever have gone red in CI.
+
+**Fixed in the same PR that files this:** a `cargo test --manifest-path
+crates/causal-edge/Cargo.toml` step in `rust-test.yml` (75 green, measured on
+the pinned 1.97.1) and a `cargo fmt … -- --check` step in `style.yml` (clean
+today).
+
+**Deliberately NOT gated: clippy.** `cargo clippy --manifest-path
+crates/causal-edge/Cargo.toml --all-targets -- -D warnings` returns **7
+errors**, all pre-existing and none in the file #982 touches:
+
+```
+src/edge.rs:118, :120, :200, :685, :743, :748, :835
+src/tables.rs:37
+src/v2_layout_tests.rs:20
+```
+
+(identical-if-blocks ×1, too-many-arguments ×2, wildcard-covers-any ×1,
+collapsible-if ×2, doc-list-item-without-indentation ×1)
+
+Gating them in this PR would fail it for defects it did not introduce. They
+need their own pass. Until then this crate has a test gate and a format gate
+but no lint gate, and that asymmetry is deliberate and recorded here rather
+than left to be rediscovered.
+
+Context: `EPIPHANIES.md`
+`E-THE-GATE-IS-A-HAND-MAINTAINED-ALLOWLIST-NOT-THE-WORKSPACE-1` — no workflow
+runs `--workspace`, so every gate is a hand-maintained allowlist; nine
+workspace members plus this excluded crate were reached by nothing.
+
+
 ## ISS-HYDRATE-ENV-READER-IS-A-SECOND-COPY-OF-DEV-S3-ENV (2026-08-17) — OPEN, deliberate-with-a-named-exit
 
 `crates/lance-graph-hydrate/src/env.rs` reproduces
