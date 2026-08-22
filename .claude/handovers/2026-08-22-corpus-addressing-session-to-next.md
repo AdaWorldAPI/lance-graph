@@ -17,7 +17,7 @@ written after the errors below were found.
 |---|---|
 | "HHTL is the Book·Chapter·Verse containment path" | `hhtl.rs:1-38` — HHTL/`NiblePath` is the `subClassOf` (P279) **Abstammung** axis; `mask-inherits-as-delta`, *"walking DOWN the path is IS-A inheritance"*. Book⊃Chapter⊃Verse is **mereology**. `le-contract.md:56` separates `part_of : is_a` as two bytes. |
 | "Book·Chapter = HEEL exactly, 6 nibbles free" | Numerology. The 2/2/2 nibble carving was chosen by the session via `ceil(log16 n)` and then reported as a discovery. Ignores that OGAR reads a tier as a 256×256 centroid tile needing hierarchical-4⁴ codebooks. |
-| "One address, four witnesses — the translation lane lives in the classid" | No canon support. `ConceptDomain` is ProjectMgmt/Commerce/Ontology/Weather/Osint/Ocr/Health/Anatomy/Auth/Genetics — no translation-lane notion. The session claimed `routing.md` "answers it in one row"; it does not. |
+| "One address, four witnesses — the translation lane lives in the classid" | **Asserted without a source — not false.** `ConceptDomain` has no translation notion and `routing.md` does not "answer it in one row" as the session claimed, so the assertion was unfounded as made. But D-RCC-2 does specify *"Language = lane discriminant **resolved from** classid — no LanguageDto"* (`plans/rosetta-codebook-convergence-v1.md:112`, `Status: PROPOSED`). Note the wording: **resolved from**, not *lives in* — the classid is an address and the lane is what it resolves to, never content carried in the id. The original error was asserting without reading; retracting it as fabricated was a second error, corrected here. |
 | "The pericope is an edge set" | It is a collision in a content-addressable index. Nothing stores the parallelism. |
 | "MailboxId IS the NiblePath" (quoted as fact) | `tenants.md` §7.3 and `le-contract.md` §5.3 both flag this as **DOC-ONLY**, awaiting a ruling. |
 
@@ -138,56 +138,122 @@ bundle. `theographic-bible-metadata` (CC BY-SA 4.0, whole-Bible people+places,
 the publicly-shippable one) is graded PUBLIC-eligible in `EPIPHANIES` but is
 **in no Release of any repo**, and the sibling clone did not survive.
 
-## §4 The corrected reading of `part_of : is_a` (re-derived from the spec)
+## §4 `part_of : is_a` — what is already banked, and the one new thing
 
-This section was written **after** the §1 errors were found and is the only
-architectural content in this handover. Verify it anyway.
+> **This section was rewritten by a 5+3 council** (2026-08-22; verdicts
+> 2 VIOLATES / 12 GAP / 6 PRIOR-ART-AT / 4 RISK, then 1 BLOCK(P0) + 5 FIX from
+> the three reviewers). Its first draft asserted seven propositions. Five were
+> already banked canon under E-ids it did not cite, one inverted its source's
+> emphasis, and one contradicted an existing design. What follows is what
+> survived. The council's own overreach is corrected in place, not hidden.
 
-- `le-contract.md:56` — **L1 = `part_of : is_a`, 6 × (8:8)**, *"the V3
-  mereology:taxonomy key rails; one-byte refs per slot."* Each slot is a
-  **pair**: a mereology ref and a taxonomy ref at the same level. L1–L4 share
-  `CascadeShape::G6D2` and are differentiated **only by the ClassView**
-  (§2 slot purity — labels and positions never live in a payload slot).
-- `tenants.md:97` — `TailVariant::V3` is the **cascade-key `(part_of:is_a)`
-  8:8 tile**, feature `guid-v3-tail` (default-on; implies `guid-v2-tail`).
-  `canonical_node.rs` states the bridge: *"`NodeGuid` and `FacetCascade` are
-  the SAME 16 bytes: `classid(4) | 6×(8:8)`."*
-  `TailVariant::is_layout_preserving()` returns `true` unconditionally — every
-  variant re-reads the same 16 bytes, so no `ENVELOPE_LAYOUT_VERSION` bump.
-- **The precedent is already ruled.** `CLASSID_CPIC_V3`, operator directive
-  2026-06-26: *"The 6 V3 basins are genomic MEREOLOGY, not labels … a gene's
-  identity is its position in the part-of hierarchy (genome → chromosome →
-  region → locus → gene), readable as HHTL `(X;Y)` coordinates per
-  `(part_of:is_a)` tile — never a flat type tag a HashMap would carry. The
-  6-basin + relative location is a substantial address; spending it on labels
-  wastes it."*
+### Cite these; do not restate them
 
-  Note this also disambiguates the name: **in the V3-tail context "HHTL" means
-  the `(X;Y)` coordinate reading of the cascade key**, not `NiblePath`'s
-  subClassOf router. One word, two structures.
-- **The corpus fits the constraint.** `part_of` is a one-byte ref per slot, so
-  each level must be countable *relative to its parent*. Measured on the KJV
-  lane: testament-in-canon 2; book-in-testament 39 (OT) / 27 (NT);
-  chapter-in-book 150 (Psalms); verse-in-chapter 176 (Psalm 119);
-  clause-in-verse 19 (Daniel 5:23, punctuation upper bound — over-counts, so
-  conclusive in the safe direction); word-in-clause 46. **Zero levels exceed
-  255 anywhere in 31,102 verses.**
-- **A Nebensatz is one slot, not an extension.** The `is_a` byte shares the
-  slot with its `part_of` byte, so the clause level answers both from one
-  16-bit pair: *which* clause of the verse, and *what kind*
-  (Hauptsatz / Relativsatz / Adverbialsatz). Currently zero = *not consulted*
-  per RESERVE-DON'T-RECLAIM.
+| what | where it is already banked |
+|---|---|
+| L1 is a PAIRED reading — `part_of` (hi byte, mereology) : `is_a` (lo byte, taxonomy), two hierarchies in one key | `E-V3-PART-OF-IS-A-TILE`, EPIPHANIES:12266 (2026-06-23) |
+| The bytes are content-blind; only the ClassView projects meaning | `E-FACET-8-8-ALWAYS` (:12088), `E-CONTEXT-ROLE-TISSUE-1` (:9517), `knowledge/context-role-traversal-tissue.md:37` |
+| Adopting the V3 reading needs no `ENVELOPE_LAYOUT_VERSION` bump | EPIPHANIES:12270 — **and the same entry carries a `NodeGuid::new_v2` 7-group `I-LEGACY-API-FEATURE-GATED` blocker. Do not quote the conclusion without the blocker.** |
+| The CPIC basins are mereology, readable as HHTL `(X;Y)` per tile | `E-V3-BASINS-ARE-MEREOLOGY-NOT-LABELS`, EPIPHANIES:12055 |
 
-### Two things this session deliberately did NOT resolve
+A second statement of a banked finding under a new name divides the search
+surface for every later session. The first draft of this section cited **zero**
+E-ids.
 
-1. **Three slots or six.** `TailVariant::V3`'s doc scopes the reading to
-   *bytes 10..16* — `leaf·family·identity`, i.e. **3** pairs — while CPIC's
-   directive speaks of **"the 6 V3 basins."** Different depths.
-   `le-contract.md` §3 flags the key-tail-vs-facet reconciliation as `[H]`
-   with *"do not unify silently in code."* **Do not pick one to make a design
-   work.** This needs an operator ruling.
-2. **The `is_a` byte's referent.** Per §2 that is a ClassView matter and, for a
-   taxonomy, an OGAR mint. Not something a consumer invents.
+### The emphasis runs the other way
+
+`.claude/knowledge/ast-as-partof-isa-address.md:26-28`, verbatim:
+
+> "the *key* carries only the **4-tier routing prefix**
+> (`NiblePath::from_guid_prefix_v3`), the complete 6-pair address lives in the
+> `FacetCascade` **value facet**."
+
+So the key carries a routing prefix and the complete address is a value facet —
+not "the rail is a key tail, not merely a value layout", which is how the first
+draft led. `TailVariant::V3` names the tail's *reading*; that is a narrow true
+claim, not the headline.
+
+### Three counts, three objects (a question that was malformed)
+
+"Three slots or six?" was one question hiding three. All three are settled:
+
+| count | what it counts | source |
+|---|---|---|
+| **3** | what the V3 tail re-reads — `leaf·family·identity` | `is_layout_preserving`'s doc scopes the tail to *"bytes 10..16"* (canonical_node.rs:1289-1297); `lance-graph-contract/Cargo.toml:65` — "V3 is a *reading* of the SAME leaf·family·identity 3×u16" |
+| **4** | the key's routing prefix | `NiblePath::from_guid_prefix_v3`; ast-as-partof-isa-address.md:26 |
+| **6** | the complete `FacetCascade` address, `const _`-asserted | facet.rs; ast-as-partof-isa-address.md:23 |
+
+**Do not cite `TailVariant::V3`'s own doc (canonical_node.rs:1284) for the "3".**
+That doc calls V3 *"the `(part_of:is_a)` 8:8 tile"* and names no field count;
+`leaf(u16)·family(u16)·identity(u16)` is the **V2** doc one variant above. The
+"3" is real but comes from the two sources in the table — and the gap between
+V3's aspirational doc and its V2-identical mint is itself worth knowing.
+
+`le-contract.md` §3's `[H]` "do not unify silently" flag is about **L7 helix(48)
+vs the CANON key tail** — a different question. It was borrowed for this one; it
+is untouched and still open.
+
+### The corpus is already specified — by a PROPOSED design
+
+`.claude/plans/rosetta-codebook-convergence-v1.md` §D-RCC-2 (`E-RCC-1-FOUR-LANES-ONE-KEY-1`,
+EPIPHANIES:7499) covers this corpus:
+
+> "Row = versification-normalized verse address (3-byte b/c/v core; scheme map
+> … as a lane property). Lanes = witnesses. **Within-row ordinal =
+> `clause_index` (verses ≠ sentences).** Absence = `TextAbsent`, never zero.
+> Language = lane discriminant **resolved from** classid — no LanguageDto.
+> ~31,102 rows."
+
+**It is `Status: PROPOSED (doc-only)`** (that file, line 3) — the plan marks its
+shipped pieces explicitly (lines 53-57, 224) and D-RCC-2 carries no such marker.
+So it is prior art to build ON, not a ratified contract to defer to. Two
+consequences:
+
+- **The measurement stands, and it is not novel.** Every KJV containment level
+  fits a one-byte ref relative to its parent — chapter-in-book 150,
+  verse-in-chapter 176, clause-in-verse 19 (a punctuation **upper bound**, which
+  over-counts), word-in-clause 46; zero spills in 31,102 verses. D-RCC-2's
+  3-byte b/c/v core is the same ground. Cite it; do not re-derive it.
+- **Clause placement is an open disagreement between two unratified designs.**
+  D-RCC-2 puts the clause as a **within-row ordinal**, for a stated reason —
+  *verses ≠ sentences*. The first draft of this section put it in a key rail
+  slot. Neither is ratified; the divergence is the operator's call, not
+  something to settle by picking the newer text.
+
+### The one genuinely new finding
+
+**"HHTL" names two different structures**, and conflating them caused real
+errors in this session. In the V3-tail context it is the `(X;Y)` coordinate
+reading of the cascade key (`E-V3-BASINS-ARE-MEREOLOGY-NOT-LABELS`); in
+`hhtl.rs` it is `NiblePath`, the `subClassOf` (P279) Abstammung router with
+DOLCE basins and `mask-inherits-as-delta`. No existing E-id names this
+collision — the nearest prior art is a "nibble homonym" table
+(`handovers/2026-08-21-2200:110-114`) and a traced collision section
+(`ATTENTION_MASK_AUDIT_2026_08_21.md:75`), neither of which covers it.
+
+### Two limitations, stated rather than assumed
+
+- **`is_layout_preserving()` is a hardcoded `true`** (canonical_node.rs:1289-1297),
+  not a computed check tied to V3's bit reading. "No version bump" holds by
+  convention, not by verification — and by the repo's own falsifiability rule it
+  is an assertion no input can falsify.
+- **The levels-reading is a ClassView CHOICE, not a property of the bytes.**
+  `le-contract.md:122-140` sanctions "area:location in stacked exactness" for the
+  identical `6×(8:8)` — six pairs as ONE refinement axis rather than six levels —
+  and "one-byte refs per slot" never says what the byte points at (within-parent
+  ordinal? palette index? relation-type code?). **No corpus classid has a
+  ClassView entry today**, so the reading is unselected.
+
+### Still open (operator, not a session)
+
+- **The `is_a` byte's referent.** Per slot purity a ClassView matter and, for a
+  taxonomy, an OGAR mint — not a consumer's invention.
+- **Clause placement** — within-row ordinal (D-RCC-2) vs key rail slot.
+- **F9 provenance.** A clause boundary derived by splitting text on punctuation
+  is content-derived. Whether such a value may serve as an address does **not**
+  go away when the clause moves from a key slot to `clause_index` — D-RCC-2's own
+  parenthetical (*verses ≠ sentences*) is that same concern. Unanswered against
+  `clause_index` today.
 
 ## §5 What changed in the tree
 

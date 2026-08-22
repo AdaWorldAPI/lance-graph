@@ -1,3 +1,55 @@
+## 2026-08-22 — 5+3 council on handover §4 (`part_of : is_a`)
+
+- **Subject:** §4 of `.claude/handovers/2026-08-22-corpus-addressing-session-to-next.md`
+  — the only architectural content in a handover whose §1 retracts the rest of
+  the session's architecture. Council-grade: LE-layout adjacent, and the next
+  session builds corpus addressing on it.
+- **Phase 0:** SPEC v1, 255 lines — 10 frozen decisions (cited), 17 file:line
+  inventory rows + 5 measurement rows with method, 7 committed propositions,
+  2 deliberately-open items, 5 pre-registered gates, per-savant question sets.
+- **The 5** (parallel, no cross-briefing): `prior-art-savant` (**Opus** — the
+  card's named multi-source exception), `iron-rule-savant`, code-truth
+  (runtime-archaeologist charter via general-purpose), `cascade-impact-savant`,
+  `creative-explorer-savant` — all Sonnet.
+  **Verdicts: 2 VIOLATES, 12 GAP, 6 PRIOR-ART-AT, 4 RISK, ~24 CONFIRMS.**
+- **Phase 2:** consolidated to draft v2 BEFORE any reviewer existed; raw savant
+  output banked in scratchpad, never forwarded.
+- **The 3** (parallel, on draft v2 only): `overclaim-auditor`,
+  `dilution-collapse-sentinel`, `firewall-warden` — all Sonnet.
+  **Verdicts: 1 BLOCK(P0), 5 FIX(P1), 2 FIX(P2), 20 PASS.**
+- **v1 → v2 → v3, what changed:**
+  - v1 asserted 7 propositions citing **zero** E-ids. Prior-art found 4 already
+    banked (`E-V3-PART-OF-IS-A-TILE`, `E-FACET-8-8-ALWAYS` +
+    `E-CONTEXT-ROLE-TISSUE-1`, EPIPHANIES:12270, `E-V3-BASINS-ARE-MEREOLOGY-NOT-LABELS`).
+    v3 cites instead of restating.
+  - **BLOCK(P0), overclaim-auditor:** v2 called D-RCC-2 "a shipped contract".
+    `rosetta-codebook-convergence-v1.md:3` is `Status: PROPOSED (doc-only)` and
+    the file marks its shipped pieces explicitly elsewhere. v3 treats it as
+    prior art to build on, and clause placement becomes an open divergence
+    between two *unratified* designs rather than a correction.
+  - **COLLAPSE ×2, dilution-collapse-sentinel:** v2 bundled a measurement (R6)
+    with a design (R7) under one "retracted"; and declared IR4's F9 provenance
+    question moot when it merely relocates onto `clause_index`. Both split.
+  - **FIX(P1), overclaim-auditor:** v2's "3" count cited `TailVariant::V3`'s doc,
+    which names no field count — `leaf·family·identity` is the **V2** doc one
+    variant above. Re-sourced to `is_layout_preserving`'s "bytes 10..16" +
+    `Cargo.toml:65`.
+  - **Anti-collapse in §1:** the council found the session had *wrongly retracted*
+    its own classid-lane claim. D-RCC-2 ships "Language = lane discriminant
+    **resolved from** classid" — the claim was unsourced when made, not false.
+    Amended to say so, in the source's own wording (*resolved from*, not *lives
+    in*: the classid is an address, never content).
+  - **FIX(P1), firewall-warden:** `LATEST_STATE.md`'s deepnsm-v2 test count is a
+    same-commit obligation because this PR performs the deletion; N5 cannot
+    excuse it. Added.
+- **Board hygiene, same commit:** this entry, `TECH_DEBT.md`
+  (`TD-DEEPNSM-V2-SESSION-RESIDUE`), `ISSUES.md`
+  (`ISS-CORPUS-ADDRESSING-OPEN-POINTS`), `LATEST_STATE.md`, and `EPIPHANIES.md`
+  (`E-HHTL-NAMES-TWO-STRUCTURES-1` + cross-refs onto the versification entry).
+- **Outcome:** §4 goes from 7 propositions to 1 new finding + a citation list +
+  a three-counts table + 2 stated limitations + 3 open points. The one thing the
+  session genuinely found is the HHTL homonym, now banked.
+
 ## 2026-08-22 — D-ACR-6 rail mint (main thread, no subagents)
 
 - **D-ids:** D-ACR-6 (the RAIL only; the promotion + consumer stay open).
