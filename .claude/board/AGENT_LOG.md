@@ -45,6 +45,41 @@
 - **New house rule added to the artifact:** a retraction is a claim and needs
   the same evidence as an assertion; a search that comes back empty is not
   absence.
+## 2026-08-22 — D-ACR-6 rail mint (main thread, no subagents)
+
+- **D-ids:** D-ACR-6 (the RAIL only; the promotion + consumer stay open).
+- **Files:** `crates/lance-graph-contract/src/canonical_node.rs`,
+  `.claude/v3/soa_layout/tenants.md`, `.claude/board/STATUS_BOARD.md`.
+- **Minted:** `ValueTenant::EpisodicBasin = 15`, `U8 × 32` at `[220,252)`.
+  Carve: `subject` u16 · `member_count` u16 · `self_code` 12 B (Cam96 centroid)
+  · `version_from`/`version_to` u64. References only — members reached by
+  following `(subject, [from,to))` into the triple stream. Width NOT stored:
+  recomputable through the references, so storing it would be a second
+  projection of data the row already addresses.
+- **Four guards fired during the mint and each was right:**
+  1. `Full.field_mask().count() == VALUE_TENANTS.len()` — a compile-time
+     assert; caught the missing schema entry before any test ran.
+  2/3/4. Three byte-budget pins locked at 188 → 220.
+- **The catch that mattered most was a comment, not a test:** discriminant 15
+  was already RESERVED for `BoardAggregates`. Nothing would have failed if I
+  had taken it silently — the reservation lives in prose. The same comment
+  carries the rule that resolves it ("re-based by ordinal position, not
+  cancelled") and a history of that reservation being written as an absolute
+  offset three times running (152 → 188 → 204), stale each time. Re-based to 16
+  and the note rewritten to be ordinal-relative rather than pointing at a
+  number that goes stale on the next mint.
+- **Consulted (and should have, first):** `.claude/v3/soa_layout/tenants.md`
+  (the catalogue — now says 16 tenants, row added) and `le-contract.md` §3b,
+  which carries the constraint that binds whoever reads this lane: a jc-pillar
+  certification run (ICC / Spearman ρ / Cronbach α) before the reading backs a
+  downstream claim. That is a consumer obligation, not a mint obligation, and
+  it is recorded on the D-ACR-6 row so it is not rediscovered.
+- **Tests:** 1217 contract green, clippy `-D warnings` exit 0, fmt clean. New
+  field-isolation matrix per `I-LEGACY-API-FEATURE-GATED`.
+- **Not done:** the promotion itself (writing basins into the lane) and the
+  consumer. `arigraph::EpisodicBasins` still holds `entities: Vec<String>` by
+  value — the fat-concept shape the rail exists to replace — and migrating it
+  is the next step, not this one.
 
 ## 2026-08-22 — D-ACR-8 Rubicon witness (main thread, no subagents)
 
