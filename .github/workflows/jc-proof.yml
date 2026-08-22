@@ -32,8 +32,8 @@ jobs:
         run: git clone --depth 1 https://github.com/AdaWorldAPI/ndarray ../ndarray
       - name: Setup Rust
         run: |
-          rustup toolchain install stable
-          rustup default stable
+          # Pinned by rust-toolchain.toml — never a version restated here.
+          rustup show
 
       - name: Run JC tests (6 unit tests)
         run: cargo test --manifest-path crates/jc/Cargo.toml

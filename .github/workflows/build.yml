@@ -39,10 +39,6 @@ jobs:
     defaults:
       run:
         working-directory: lance-graph
-    strategy:
-      matrix:
-        toolchain:
-          - stable
     steps:
       - uses: actions/checkout@v4
         with:
@@ -56,10 +52,15 @@ jobs:
         with:
           repository: AdaWorldAPI/OGAR
           path: OGAR
-      - name: Setup rust toolchain
-        run: |
-          rustup toolchain install ${{ matrix.toolchain }}
-          rustup default ${{ matrix.toolchain }}
+      # Toolchain comes from `rust-toolchain.toml` (channel + components), NOT
+      # from a version restated here. `rustup show` installs and activates
+      # whatever that file pins — so a bump is ONE edit in ONE file, which is
+      # exactly what that file's own comment asks for ("a bump edits `channel`
+      # and leaves the prose behind"). Previously this installed `stable` and
+      # set it as default; inside the repo the toolchain file won anyway, so
+      # these jobs already ran on the pin while the workflow said otherwise.
+      - name: Setup rust toolchain (pinned by rust-toolchain.toml)
+        run: rustup show
       - name: Setup mold linker
         # Parity with rust-test.yml: the heavy lance+datafusion build + test
         # binaries hit the GNU-ld/rust-lld RSS+disk cliff at the link step
