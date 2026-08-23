@@ -96,7 +96,7 @@ unwired but structurally sound target, not yet a home.
 expressible in existing edge/rail geometry was not settled this pass —
 `Copula` needs its own small audit before step 2 closes it.
 
-### The tree-overlay delegation (rung=depth, stamp=accumulation) — direction ruled, mechanism ABSENT
+### The tree-overlay hypothesis (rung=depth, stamp=accumulation) — mechanism ABSENT
 
 This is the harder, more important finding, and it changes what step 3 is.
 
