@@ -49,6 +49,50 @@ Control-bucket kernels all fire on the measured stalled fixture, and CAS's
 grid changes `[0,0,1,1] → [0.25,0.5,0.5,0.75]`. That is the whole result — it
 is not translated into an epistemic or metacognitive claim.
 
+**THE SHARPEST THING THE AUDIT FOUND — the Evaluation fork exists in the
+type system and nothing can drive it.** `KanbanColumn` already has the shape
+the architecture needs: `Evaluation → [Commit, Plan, Prune]`, with `Plan →
+Planning` documented as *"re-plan: re-enter Planning carrying the witness
+(the 'act differently next time' exit)"* (`kanban.rs:56-58,101-109`). So the
+re-run is ALREADY represented without a central scheduler — as a DAG edge.
+But `advance_on_gate` (`kanban.rs:146-153`), the only shipped lowering, is
+degenerate at `Evaluation`: `Flow` takes the first non-`Prune` ⇒ **always
+`Commit`**; `Block` ⇒ `Prune`; `Hold` ⇒ stay. **`Plan` is structurally
+unreachable through the gate** (grep: it is a transition target only in
+`#[cfg(test)]` and two examples, never production `src/`). The three-way
+deliberative fork collapses to commit-or-veto. And nothing reaches
+`Evaluation` anyway — `cognitive_pass` filters `phase() != CognitiveWork`
+(`cycle_driver.rs:719`), and `shade_owner`, the only production caller of
+`advance_on_gate`, is reachable only from that loop: **the `Evaluation →
+{Commit, Plan, Prune}` decision has no shipped production caller.**
+
+**A focus-of-attention representation EXISTS and must not be re-invented.**
+`contract::attention_facet::{AttentionFocusFacet, RowFocusMask, FocusAxis}`
+— *"Where focus landed or was projected"* (`attention_facet.rs:178`), breadth
+as covered POPULATION not entry count — with `contract::rubicon_witness` as
+its read-only instrument. Zero callers outside its own crate. Its constraint
+is already written: *"It READS. It never moves anything… An overlay that
+DRIVES a transition from a focus reading has rebuilt the scheduler this
+substrate removed"* (`rubicon_witness.rs:26-31`). Its falsifier `D-ACR-8` is
+two-sided and **queued, not run**. Unresolved placement question:
+`rubicon_witness` measures the Heckhausen crossing at `Planning →
+CognitiveWork`, while the pre-collapse deliberative surface in the target
+architecture is `Evaluation → Commit` — two Rubicons or one mis-placed
+label, unanswered.
+
+**Also established:** `Commit` is DECLARED, not implemented (`calcify` is a
+`todo!()`, D-ATOM-5), so the Rubicon's irreversibility today is the DAG
+legality table, not calcification; `RubiconPhase` (`cognitive-compiler`) is a
+SEPARATE enum in a scaffold crate with zero cross-references to
+`KanbanColumn`; and no `src/` file mentions both a Revision symbol and
+`KanbanColumn` — Revision does not touch the phase machine in production.
+
+**Audit hygiene note:** one lane cited this probe's own header as
+corroborating evidence for the absence of a focus mechanism. That is
+circular — the header is this session's own text — and the citation was
+struck. The absence claims above rest on call censuses, not on the probe's
+self-description.
+
 **NOT OBSERVED / OUT OF SCOPE.** This probe has no observer capable of
 establishing problem-texture discrimination, resonance behavior, MUL
 grounding behavior, or Frozen/Learned/Explore superposition. Its observation

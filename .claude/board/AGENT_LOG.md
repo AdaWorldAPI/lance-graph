@@ -1,3 +1,38 @@
+## 2026-08-23 — two Sonnet audit lanes for the Revision × attention × Evaluation hinge
+
+- **Why:** an operator focus-correction restored the architectural target
+  (can Revision, during Kanban `Evaluation`, redirect the next cognitive pass
+  before Rubicon commitment?) above the measured rung sub-result, with an
+  explicit instruction: *do not invent that hinge — audit the existing
+  attention/focus representations and the Evaluation→Commit|Plan|Prune
+  boundary first.* Both lanes read-only.
+- **Lane A — attention/focus census.** A representation DOES exist:
+  `contract::attention_facet::{AttentionFocusFacet, RowFocusMask, FocusAxis}`
+  plus the read-only `rubicon_witness` instrument, carrying the anti-scheduler
+  constraint verbatim. Zero callers outside its own crate. `select_tactic` has
+  zero production callers; `ScanParams`/`FieldModulation` are scan-tuning
+  dials with no address or region and exist as two independent copies (only
+  the planner's is live); `ResonanceDto::dominant_perspective` is written once
+  in its constructor and **never read anywhere**.
+- **Lane B — Evaluation boundary.** The three-way fork is real in the type,
+  but `advance_on_gate` collapses it to commit-or-veto (`Plan` structurally
+  unreachable), and `cognitive_pass` never admits an `Evaluation`-phase owner,
+  so the fork has no production driver at all. `Commit` is declared-not-
+  implemented (`calcify` = `todo!()`); `RubiconPhase` is a separate scaffold
+  enum; no backward edge to `CognitiveWork` (test-pinned).
+- **Orchestrator corrections applied to lane output:** (1) Lane A cited this
+  session's own probe header as independent evidence for the absence of a
+  focus mechanism — circular, struck; absence now rests on call censuses
+  only. (2) Lane B returned Q5 (Revision's position vs the phase machine) as
+  UNVERIFIED; the orchestrator closed it directly — `RevisionOutcome` lives
+  only in `counterfactual.rs:432` (BLOCKED scaffold) and no `src/` file
+  mentions both a Revision symbol and `KanbanColumn`.
+- **Outcome:** `STILL OPEN` written into #1000 naming only surfaces that
+  exist, each annotated shipped-vs-absent. 19/19 gates green, measurements
+  untouched. No new wiring, no merge.
+- **Model policy:** both lanes Sonnet (bounded grep/read census); synthesis,
+  verification and all edits on the Opus main thread.
+
 ## 2026-08-23 — two Sonnet grounding lanes for the #1000 architectural correction
 
 - **Why:** an operator STOP on PR #1000 rejected an in-session mapping of the

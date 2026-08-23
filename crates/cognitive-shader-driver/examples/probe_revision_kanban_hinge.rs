@@ -157,6 +157,90 @@
 //!                                                   recipe-set delta (F14)
 //! ```
 //!
+//! # STILL OPEN (audited 2026-08-23 — what exists, what does not)
+//!
+//! These are the questions the architectural target leaves open. Each is
+//! annotated with what is ALREADY SHIPPED, so a later session extends what
+//! is there instead of inventing a parallel mechanism.
+//!
+//! **1. What is the canonical focus-of-attention representation?**
+//! A representation EXISTS and must not be re-invented:
+//! `contract::attention_facet::{AttentionFocusFacet, RowFocusMask,
+//! FocusAxis}` — *"**Where focus landed or was projected** — a
+//! [FacetCascade] read as attention, plus the explicit prefix depth"*
+//! (`attention_facet.rs:178`); breadth is a covered POPULATION
+//! (`256^(CASCADE_UNITS − d)`), not an entry count. Its instrument is
+//! `contract::rubicon_witness` (`coverage` / `breadth_bits` / `overlap` /
+//! `FocusTrace`). **Status: zero callers outside its own crate** (the only
+//! external mention is a doc line in `lance-graph-ogar/src/recipe_vocab.rs:54`,
+//! with no `use` and no call). Nothing writes a `RowFocusMask` from live
+//! cognitive state.
+//!
+//! **2. How does Revision express a focus change?**
+//! Unanswered, and the constraint on answering it is already written down:
+//! *"It READS. It never moves anything… An overlay that DRIVES a transition
+//! from a focus reading has rebuilt the scheduler this substrate removed"*
+//! (`rubicon_witness.rs:26-31`, standing tombstone
+//! `E-PROGRESSION-IS-EXISTENCE-NOT-COMMAND-1`). So a focus change cannot be
+//! a command issued from a reading. `RevisionOutcome` today lives only in
+//! `counterfactual.rs:432`, in the BLOCKED scaffold; **no `src/` file
+//! mentions both a Revision symbol and `KanbanColumn`** — Revision does not
+//! touch the phase machine anywhere in production.
+//!
+//! **3. How do the concurrent thinking-style / autopoietic fields
+//! participate?** Open. `MailboxSoA::promote_family` (`mailbox_soa.rs:829`)
+//! is the lane actuator and has zero `src/` callers;
+//! `StyleStrategy::recipes_for_at` (`style_strategy.rs:232,477`) IS live in
+//! production but filters a recipe repertoire by (style, rung) — it selects
+//! WHAT TO DO, never WHERE TO LOOK. `select_tactic`
+//! (`materialize.rs:77`) likewise selects an action and has zero production
+//! callers (every call site is under `examples/`).
+//!
+//! **4. How is a re-run represented without a central scheduler?**
+//! **Already represented — as a DAG edge, not a scheduler.** `Evaluation →
+//! Plan → Planning → CognitiveWork` (`kanban.rs:101-109`); `Plan` is
+//! documented as *"re-plan: re-enter Planning carrying the witness (the
+//! 'act differently next time' exit)"* (`kanban.rs:56-58`). There is NO
+//! direct `Evaluation → CognitiveWork` back-edge, and a test pins it
+//! (`cognitive_work_has_exactly_one_legal_predecessor`, `kanban.rs:393`).
+//! What is missing is not the edge but its SELECTOR — see 5.
+//!
+//! **5. What evidence warrants Commit vs another pass?**
+//! Open, and this is where the gap is sharpest. `advance_on_gate`
+//! (`kanban.rs:146-153`) is the only shipped lowering, and at `Evaluation`
+//! (`nexts = [Commit, Plan, Prune]`) it is degenerate: `Flow` takes the
+//! first non-`Prune` ⇒ **always `Commit`**; `Block` ⇒ `Prune`; `Hold` ⇒
+//! stay. **`Plan` is structurally unreachable through the gate** — grep
+//! confirms `KanbanColumn::Plan` appears as a transition target only in
+//! `#[cfg(test)]` blocks and two examples, never in production `src/`. The
+//! three-way deliberative fork collapses to commit-or-veto under the only
+//! decision function that exists.
+//!
+//! And nothing reaches `Evaluation` to begin with: `cognitive_pass` filters
+//! `if owner.phase() != KanbanColumn::CognitiveWork { continue; }`
+//! (`cycle_driver.rs:719`), and `shade_owner` — the only production body
+//! calling `advance_on_gate` — is reachable only from that loop. **The
+//! `Evaluation → {Commit, Plan, Prune}` decision has no shipped production
+//! caller.**
+//!
+//! Two further facts a design session needs: `Commit` is DECLARED, not
+//! implemented (*"nothing implements the calcify step… the 'commit to
+//! Lance' action is intent"*, `kanban.rs:48-52`; `calcify` is a `todo!()`
+//! at `witness_tombstone.rs:150`, D-ATOM-5) — so the Rubicon's
+//! irreversibility is currently the DAG legality table, not calcification.
+//! And `RubiconPhase` (`cognitive-compiler/src/lib.rs:21-27`, Heckhausen's
+//! five phases) is a **separate enum in a scaffold crate with zero
+//! cross-references** to `KanbanColumn` — do not conflate them.
+//!
+//! **Placement caveat, unresolved:** `rubicon_witness` measures the
+//! Heckhausen crossing at `Planning → CognitiveWork`
+//! (`rubicon_witness.rs:9-12`), while this probe's architectural target
+//! places the pre-collapse deliberative surface at `Evaluation → Commit`.
+//! Whether those are two different Rubicons or one mis-placed label is an
+//! OPEN QUESTION this probe raises and does not answer. The registered
+//! falsifier `D-ACR-8` (`alpha-channel-rung-overlay-v1.md:1168`) is
+//! two-sided and **queued, not run**.
+//!
 //! # NOT OBSERVED / OUT OF SCOPE
 //!
 //! This probe has no observer capable of establishing:
