@@ -1,4 +1,4 @@
-## 2026-08-23 — E-THE-MISSING-MIDDLE-IS-REFUTABLE-AND-SEVEN-STATES-SURVIVE-1 — bounding a mediator from both sides turns a topology CLAIM into a topology TEST
+## 2026-08-23 — E-THE-MISSING-MIDDLE-IS-CONDITIONALLY-REFUTABLE-1 — bounding a mediator from both sides turns a topology CLAIM into a topology TEST, but ONLY under a closure warrant
 
 **Status:** FINDING — [MEASURED] on shipped operators
 (`PROBE-EPISTEMIC-FABRIC-1`, 7/7). Completes the arc with
