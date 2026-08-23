@@ -30,6 +30,915 @@
 - **Docs:** `E-ONE-RECEIPT-MANY-BORROWED-CONSUMERS-1`; LATEST_STATE updated.
 - **Confidence:** High for the two measured corpora; no scale claim — the
   vocabulary was full at 75 KB.
+## 2026-08-23 — GAP FILLED — arc rows for #976..#1005 (consolidated by the orchestrator from a wave scribe's primary-source reconstruction)
+
+The gap marker recorded below this block is now DISCHARGED for #977..#1005.
+Rows were reconstructed from PRIMARY SOURCES ONLY — merge commits, the merged
+commit bodies, `git diff --stat`, and date+subject matches against
+`EPIPHANIES.md` / `INTEGRATION_PLANS.md` — by a wave worker; the orchestrator
+(sole writer of this file) reviewed and spliced them in unedited except for
+this header. Nothing is inferred; thin commit bodies are marked as thin and
+graded Low/Medium rather than embellished.
+
+Three things the reconstruction surfaced and deliberately did NOT adjudicate —
+they are recorded as open, for the sessions that own those arcs:
+
+- **#976 is absent from history entirely.** No merge commit, no direct commit,
+  no textual reference on `main` under `--merges`, `--all --grep="#976"`, or a
+  plain grep. It may have been closed unmerged or merged elsewhere. Listed in
+  the `NOT FOUND` section at the end of this block with the exact searches run.
+- **#978 and #979 landed as direct commits, not merges** — identical bodies, no
+  GitHub merge commit for either. Flagged in their rows as a structural
+  irregularity, not smoothed over.
+- **#978's oracle-population figures (2,449/3,825/534) do not match the
+  similar-sounding figures in #975's row (2,512/3,095/549)** already in this
+  file. Flagged as an open discrepancy; NOT resolved here, because resolving it
+  requires the context of the session that produced them.
+
+## 2026-08-23 — lance-graph #1005 (MERGED, merge 7136bb9a) — charter: BELIEF-ABI-RESTORATION-1 — only the residue deserves a new tenant
+
+- **Added:** `.claude/plans/belief-abi-restoration-v1.md` — the bounded
+  follow-up #1004's receipt requires. Audit-first framing: the question is
+  "which semantics of `Belief` still have no ABI-native home after AriGraph
+  relation geometry + node support + witnesses + V3 tenants are composed" —
+  not "how do we make `BeliefArena` SoA"; deleting the arena entirely is a
+  valid outcome. Carries the memory-ABI law (classid chooses the reading, the
+  route chooses the traversal, the bytes never change shape), a grounded-homes
+  map (two likely residue candidates: stamp, rung; already-shipped homes:
+  `Locus::{SupportedBy,Supports,Contradiction}`, spo truth), explicit bounds
+  (no `BeliefArenaV2`, no five-`Vec` fake SoA, no nested premise vectors in any
+  outcome, `FlatFact.a/b` not free capacity, "B" retired from the candidate
+  alphabet, V4 persistence not canonizable while the classid is provisional),
+  falsifiers F1-F10, and a gated deliverable ladder whose step 3 uses the
+  arena's own G1..G7 results as the parity oracle.
+- **Locked:** the same commit body's `E-TYPE-COMPLEXITY-EXPOSED-A-MEMORY-ABI-ESCAPE-1`
+  EPIPHANIES entry (from #1004) is REWRITTEN IN PLACE and moved into this
+  plan file (the diff shows `EPIPHANIES.md` losing the 80-line entry and the
+  plan file gaining 95 lines) — the entry had not yet landed on `main` when
+  this PR wrote over it, so this is an in-branch rewrite, not a retraction of
+  a merged claim.
+- **Docs:** `.claude/plans/belief-abi-restoration-v1.md` (new); supersedes the
+  in-flight EPIPHANIES draft of `E-TYPE-COMPLEXITY-EXPOSED-A-MEMORY-ABI-ESCAPE-1`.
+- **Confidence:** High — commit body is a full charter with an explicit bound
+  list and falsifier set; no separate board entry located because the plan
+  file IS the record for this PR.
+
+## 2026-08-23 — lance-graph #1004 (MERGED, merge 167331ae) — probe: recut as a discovery receipt — `type_complexity` exposed a memory-ABI escape
+
+- **Added:** two commits in sequence. First (`fa2d0ee1`) replaced an AoS
+  population snapshot with a borrowed lane witness. Second (`90cada8e`, the
+  operator-STOP recut) went further: `rung_lane_witness` DELETED; gate G4 now
+  compares the arena's rung-0 lane against the probe's own authored fixture
+  (the four observations the probe wrote) bit-exact on truth via `to_bits`,
+  borrowed iteration, zero allocation, zero hash, zero snapshot — 7/7 gates
+  green, clippy `type_complexity` 0.
+- **Locked:** the escape reframed from "an accidental AoS copy" to a deeper
+  claim — `BeliefArena { entries: Vec<Belief> }` with `Belief.premises:
+  Vec<u32>` is an independent AoS cognitive-population owner OUTSIDE the
+  canonical V3 LE SoA substrate; fixing the copy inside it was "polish on the
+  violation," not a repair. The EPIPHANIES entry
+  `E-TYPE-COMPLEXITY-EXPOSED-A-MEMORY-ABI-ESCAPE-1` was rewritten in place
+  (branch unmerged at the time, entry never landed on `main`) carrying the
+  DOCK/ROUTE ABI separation and three evidence tiers (heterogeneous carvings
+  in one dock PROVEN; V4-as-tenant STRONGLY SUPPORTED; V4 persistence NOT YET
+  PROVEN, mint gated on O5).
+- **Deferred:** the question is handed forward as the #1005 charter
+  (BELIEF-ABI-RESTORATION-1) rather than resolved here.
+- **Docs:** `E-TYPE-COMPLEXITY-EXPOSED-A-MEMORY-ABI-ESCAPE-1` in EPIPHANIES.md
+  (line 811 in the current file — but note: per #1005's own commit body this
+  entry was subsequently rewritten/relocated into the #1005 plan file, so the
+  EPIPHANIES.md line found by grep may reflect a *later* state than what #1004
+  itself shipped; treat the #1004 diff, not the current EPIPHANIES.md text, as
+  this row's source).
+- **Confidence:** Medium — the two-step recut inside one PR, plus a
+  same-day rewrite by the next PR, means the EPIPHANIES.md entry as it reads
+  today does not cleanly map to "what #1004 shipped" vs "what #1005 changed
+  it to"; the file-diff evidence above is what this row is actually based on.
+
+## 2026-08-23 — lance-graph #1003 (MERGED, merge 2aae977c) — probe: PROBE-VIEW-EDIT-TRACE-1 — a cognitive trajectory reconstructible before it is learnable
+
+- **Added:** `examples/probe_view_edit_trace.rs` plus a companion "grounding
+  half" commit ("a warrant must be able to say NO"). Two commits merged:
+  `7e4f0eac` (the trace-reconstruction probe) and `280f72d3` (the grounding
+  half).
+- **Docs:** `E-A-WARRANT-MUST-BE-ABLE-TO-SAY-NO-1` (EPIPHANIES.md, dated
+  2026-08-23) matches the "grounding half" commit by subject; a second
+  EPIPHANIES entry for the trace-reconstruction half specifically was not
+  independently isolated from the diff (46 lines added to EPIPHANIES.md
+  total across both commits — the file diff does not split cleanly per
+  commit from `git diff --stat` alone).
+- **Confidence:** Medium — commit subjects and the EPIPHANIES header list
+  corroborate one clear entry (`E-A-WARRANT-MUST-BE-ABLE-TO-SAY-NO-1`); the
+  probe's own headline claim ("reconstructible before learnable") is stated
+  in the commit subject only, not independently confirmed against a second
+  named EPIPHANIES entry in this pass.
+
+## 2026-08-23 — lance-graph #1002 (MERGED, merge aa479e16) — probe: PROBE-FIRST-PARTICLE-1 — one typed view transformation under the #1001 conservation laws
+
+- **Added:** `examples/probe_first_particle.rs` (commit `0b9d40b9`), plus a
+  merge of `origin/main` into the branch.
+- **Docs:** `E-THE-FIRST-PARTICLE-1` — "the substrate changed how it looked at
+  the problem and can say exactly what changed" (EPIPHANIES.md, dated
+  2026-08-23). File-diff matches: 52 lines added to EPIPHANIES.md, one new
+  example file (377 lines).
+- **Confidence:** High — single-purpose PR, one new example, one clearly
+  matching EPIPHANIES entry by date and subject.
+
+## 2026-08-23 — lance-graph #1001 (MERGED, merge ae2d7995) — docs: charter revision attention view probe
+
+- **Added:** `.claude/plans/probe-revision-attention-view-1.md` (270 lines) —
+  a charter/plan document only, no code. Single commit `abb162c1`, empty
+  commit-message body beyond the subject line.
+- **Deferred:** the actual probe implementation, which landed in #1000 (merged
+  chronologically AFTER this PR despite the lower PR number — see #1000's row
+  below; `probe_revision_attention_view.rs` was added there).
+- **Docs:** none found in EPIPHANIES.md by date+subject match for this PR
+  specifically (it is plan-only; the corresponding EPIPHANIES entries land
+  with #1000's probe commits). `INTEGRATION_PLANS.md` line 143 area covers a
+  same-day-adjacent entry but was not confirmed to correspond to this exact
+  plan file by full-text read within this slice's scope.
+- **Confidence:** High for "added" (file exists, diff confirms); Medium/none
+  for docs cross-reference (plan-only PR, no EPIPHANIES entry of its own).
+
+## 2026-08-23 — lance-graph #1000 (MERGED, merge be6407e4) — probe: PROBE-REVISION-KANBAN-HINGE-1 (recut through several revisions) — the view moves, the population does not
+
+- **Added:** a 7-commit sequence, from `27cf432a` ("PROBE-REVISION-KANBAN-HINGE-1
+  — the vertical arrow, and the narrow two-key window it measured") through
+  several corrective recuts (`b6483282` "recut #1000 to
+  PROBE-REVISION-RUNG-ACTUATOR-1 — claims corrected, measurements untouched",
+  `925217be` "restore the architectural frame above the measured rung
+  actuator", `1becb848` "STILL OPEN for the Revision x attention x Evaluation
+  hinge, audited not invented", `0f666230` "F-PARALLEL-RUNG-1 constructive
+  half — one problem holds three rungs at once", `96c0d506` "retract 'nobody
+  builds a bridge to it later' — an import edge is not an architectural
+  relation") to the final `18528584` "PROBE-REVISION-ATTENTION-VIEW-1 — the
+  view moves, the population does not". Net file changes: new examples
+  `probe_revision_kanban_hinge.rs` (1513 lines), `probe_parallel_rung.rs`
+  (202 lines), `probe_revision_attention_view.rs` (477 lines); the charter
+  plan file `probe-revision-attention-view-1.md` (270 lines, added in #1001)
+  is DELETED here (270 lines removed) — consistent with the plan being
+  consumed/superseded once its probe landed.
+- **Locked:** per the final commit's own claim (measured, 8/8 gates green,
+  clippy clean, no production type changed): one `BeliefArena` at rungs
+  [0,1,2] plus 16 stationary `NodeRow`s; three selector families
+  (`BoundAt(Locus)`, `RungBand{lo,hi}`, `GapSubject(u16)`) compose into one
+  narrowing view with non-uniform provenance blame; zero population copy
+  (digest and base pointer byte-identical across all three lowerings); typed
+  edits reconstruct exactly (BEFORE + EDIT == AFTER, and the inverse
+  `RemoveAt` restores BEFORE); non-destructive (rung bands and population
+  bytes unchanged after every view change).
+- **Docs:** `E-AN-IMPORT-EDGE-IS-NOT-AN-ARCHITECTURAL-RELATION-1` and
+  `E-THE-VIEW-MOVES-THE-POPULATION-DOES-NOT-1` (both in EPIPHANIES.md, dated
+  2026-08-23, matching two of the seven commit subjects above); AGENT_LOG.md
+  gained 69 lines in the same merge.
+- **Confidence:** High for the mechanics (multiple corrective recuts inside
+  one PR, but the final measured claims and both EPIPHANIES entries are
+  directly traceable); Medium for the overall narrative because the PR
+  visibly changed its own name/claim three times in-branch before landing
+  (#1000 → PROBE-REVISION-RUNG-ACTUATOR-1 → PROBE-REVISION-KANBAN-HINGE-1)
+  and this row can only report the final state plus the visible history, not
+  adjudicate which intermediate framing was "right."
+
+## 2026-08-23 — lance-graph #999 (MERGED, merge b52c09ca) — ogar_codebook: retract the 14 hallucinated 0x03XX Ontology mirror rows
+
+- **Added:** a fix removing 14 "Ontology" concept rows (mondo/hpo/uberon/pato/ro
+  + the meta-study spine) that an earlier commit (`ae8e762e`, part of PR
+  #987's merged range) had mirrored into `crates/lance-graph-contract/src/ogar_codebook.rs`
+  under a doc comment claiming an operator ruling and a DeepNSM-v2 wiring that
+  the commit body states were both never true.
+- **Locked:** audit finding, verified against a freshly-synced OGAR `main` (not
+  the stale local clone the session started with) — OGAR's `ogar-vocab` has
+  never minted a `0x03XX` CODEBOOK row; its one commit touching that block
+  (`e9a2e45`, three weeks before the mirror commit) explicitly reserves the
+  0x03 Ontology domain as "plug-and-play, zero rows" and states on current
+  OGAR main "Carries ZERO shared vocabulary rows... Do NOT mint rows here."
+  `deepnsm` has no `ontology_vocab` module and no reference anywhere in its
+  source to `ogar_codebook`, `ConceptDomain`, or `concepts_in_domain`. This is
+  exactly the drift `lance-graph-ogar::parity::mirror_is_a_faithful_copy_of_ogar_codebook`
+  exists to catch, and it caught it: CI's "test" job had been failing on
+  every PR since the mirror commit, including two unrelated example-only PRs
+  (#997, #998) that inherited the broken `main` via their base SHA. Fix
+  removed the 14 rows, restored the `0x03XX` block to OGAR's actual "reserved,
+  zero vocabulary rows" posture (no OGAR-side change needed or made — OGAR
+  was never wrong), and corrected the two doc comments (`concepts_in_domain`'s
+  doc, the CODEBOOK block comment) plus one test that had asserted the
+  hallucinated content.
+- **Docs:** none found in EPIPHANIES.md by an exact `E-<NAME>` id match for
+  this specific retraction in the header scan performed for this slice; the
+  commit body itself is the fullest record.
+- **Confidence:** High — commit body is a self-contained, dated,
+  cross-checked-against-a-live-external-repo audit with an explicit
+  before/after and named CI symptom (the failing "test" job on #997/#998).
+
+## 2026-08-23 — lance-graph #998 (MERGED, merge 885f6ca2) — probe: PROBE-METACOGNITIVE-TRIANGLE-1 — close the triangle's missing control arrow through the shipped Revision/counterfactual surface
+
+- **Added:** `examples/probe_metacognitive_triangle.rs` (793 lines), single
+  commit `e2f28f17`. The audit behind it (4 survey lanes + direct reads
+  against `main` @ `f5e27c9d`) measured what `persona-vs-rung-ladder.md` O6
+  had asserted: the autopoiesis triangle was write-only — storage and
+  mechanics complete (`StyleLane`, `ValueTenant` lanes 152/164/176,
+  `MailboxSoA::{set_style_lane,set_style_atom,promote_family}`,
+  `MailboxSoaView::{style_lane_at,triangle_at}`) but no code anywhere read
+  `StyleLane::Frozen` to choose how to reason, no code consumed a receipt of a
+  reasoning run to decide keep/explore/promote, and `promote_family` had zero
+  callers outside its own unit tests.
+- **Locked:** the probe closes the loop once, falsifier-first, on the Sudoku
+  corpus (12/12 gates green): read side = a literal `style_lane_at(0, Frozen)`
+  read; after promotion the next run reads the promoted lane and solves what
+  previously stalled. Decide side = the higher rung assesses only the
+  `RungReceipt` (signature carries no Grid); first production-path
+  `promote_family` call in the codebase. The Revision hinge is the SHIPPED
+  surface (operator correction mid-build): `TryExplore` is a split;
+  `deposit_counterfactual` stamps a `RawEdge` -6 so the Explore arm runs in
+  the counterfactual lane, never observed truth;
+  `FreeEnergyComparison::minority_wins()` rules each A-vs-B; the verdict is a
+  `RevisionOutcome` (MajorityHolds → refuse on the base held-out, Revised →
+  promote on the stall held-out, mantissa clears to 0 per
+  `revise_if_minority_wins`'s documented step-5 protocol). Two `todo!()`
+  bodies stay uncalled, blocked on D-PERSONA-5, not faked. TCP/TCF/CUR
+  produces the first metacognitive event: coarse signatures collide, exact
+  `(len_before,len_after)` transitions separate TCF; verdict is
+  `ObserverInsufficient{colliding:[5,20,26], exact_separates:[20]}`.
+- **Docs:** none found in EPIPHANIES.md by an exact `E-<NAME>` id header match
+  for this PR in this slice's scan (the commit body IS the fullest record;
+  EPIPHANIES.md gained 72 lines in this merge per the file-diff stat, but the
+  new heading text was not isolated by the header grep performed).
+- **Confidence:** High — commit body is exceptionally detailed and
+  self-verifying (names its own gate count, its own blocked items, and its
+  own operator correction mid-build).
+
+## 2026-08-23 — lance-graph #997 (MERGED, merge 23e366bb) — lance-graph-ogar: PROBE-SUDOKU-COGNITIVE-CORPUS-1 — the first real corpus through the dispatch bridge
+
+- **Added:** `examples/sudoku_cognitive_corpus_probe.rs` (405 lines), commit
+  `bd54ec19`, plus a merge of `main` into the branch (`b0fc98f5`). The commit
+  message body itself was empty beyond the subject in the range read for this
+  slice.
+- **Docs:** `E-SUDOKU-COGNITIVE-CORPUS-1` — "the first real corpus through the
+  dispatch bridge: a real puzzle, warranted end-to-end, and TCP/TCF/CUR still
+  collide under real data" (EPIPHANIES.md, dated 2026-08-23). File-diff
+  matches: 52 lines added to EPIPHANIES.md.
+- **Confidence:** High for the "added" line (file + EPIPHANIES entry both
+  confirmed); Medium for narrative detail since the commit body carries no
+  prose of its own — the EPIPHANIES header is the only textual source beyond
+  the subject line.
+
+## 2026-08-23 — lance-graph #996 (MERGED, merge f5e27c9d) — lance-graph-ogar: PROBE-RECIPE-DISPATCH-BRIDGE-1 — the FnIndex → kernel(id) seam, built
+
+- **Added:** `examples/recipe_dispatch_bridge_probe.rs` (341 lines), commit
+  `39d62210`. Closes the seam PROBE-RECIPE-EXECUTION-1 (#995) left open: that
+  probe called `kernel(id)` directly, never through an `ogar_loco::Call`. This
+  probe is the bridge from a `Call` whose `FnIndex` is a minted recipe op to
+  the corresponding `Tactic` kernel, plus one canonical receipt spanning both
+  the shared-core and recipe instruction ranges.
+- **Locked:** three falsifiers, all green — (1) for all 34 ids, routed through
+  the bridge vs called directly on an identical starting `ThoughtCtx`, Outcome
+  and resulting `ThoughtCtx` are identical on all 34, no id resolves to the
+  wrong kernel; (2) determinism under replay, bridged, 4-slot focus battery;
+  (3) one 7-call program interleaves shared-core arithmetic with two recipe
+  dispatch calls, producing one ordered trace spanning both ranges. Layering
+  held per session direction: `ogar_loco` untouched (stays zero-dep,
+  recipe-blind); `lance_graph_contract::recipe_kernels` untouched (stays
+  zero-dep, loco-blind); the bridge is a small adapter living entirely in
+  `lance-graph-ogar`, not a new generic `DomainDispatch` trait.
+- **Deferred:** the recipe operand's real address resolution against the
+  basin-local attention-focus codebook — the probe stands in with a small,
+  honestly-labelled focus-slot array.
+- **Docs:** `E-RECIPE-DISPATCH-BRIDGE-1` (EPIPHANIES.md, dated 2026-08-23,
+  45 lines added).
+- **Confidence:** High — commit body is complete and self-verifying, matches
+  the EPIPHANIES entry by name and date.
+
+## 2026-08-23 — lance-graph #995 (MERGED, merge baddee3d) — lance-graph-ogar: PROBE-RECIPE-EXECUTION-1 — the 34 recipes' effects, measured
+
+- **Added:** `examples/recipe_execution_probe.rs` (304 lines), commit
+  `038cdc2b`. The reframed KC1 from PROBE-LOCO-INTERPRETER-1 (this repo's own
+  #992, §F1) — not "can the 34 recipes execute via `ogar_loco::Call` bytes"
+  (ABI plumbing) but "given the same starting context, do different recipe
+  ids produce state transitions an observer could tell apart."
+- **Locked:** correction this surfaces — `lance-graph-contract::recipe_kernels.rs`
+  already carries all 34 as real, tested `impl Tactic` blocks with a working
+  `kernel(id)` registry (id space 1..=34), the same id space
+  `recipe_vocab::op_of/recipe_of` uses for the `FnIndex` mapping (verified by
+  a round-trip assertion in the probe, not assumed). KC1 was never blocked on
+  missing semantics; it was untested because nobody had measured it. Result:
+  23/34 recipes are distinguishable across a 4-context battery
+  (hot/cold/empty/neutral) by a deliberately coarse effect signature (fired /
+  delta-confidence sign / which fields changed / candidate-count-delta sign);
+  11 collapse into 15 pairwise collisions. 31/34 kernels are Operational,
+  14/34 can move confidence at all; restricting to Operational-only kernels
+  barely moves the separability rate (23/31).
+- **Deferred:** the `ogar_loco::Call`/`FunctionBody` → `kernel(id)` dispatch
+  bridge (no `FnIndex` in `RECIPE_OP_BASE..RECIPE_OP_END` is invoked by any
+  interpreter as of this PR) — explicitly named as now a small, well-scoped
+  wiring task, delivered next by #996.
+- **Docs:** `E-RECIPE-EXECUTION-SEPARABILITY-1` (EPIPHANIES.md, dated
+  2026-08-23, 47 lines added).
+- **Confidence:** High — commit body is complete, names its own measured
+  numbers, and matches the EPIPHANIES entry by name and date.
+
+## 2026-08-23 — lance-graph #994 (MERGED, merge 38911ca9) — docs: preserve 2026-08-23 research digest snapshot / map recent research pressure to bounded forward probes
+
+- **Added:** two docs-only commits — `6ae31765` ("docs: map recent research
+  pressure to bounded forward probes") and `d2ac3772` ("docs: preserve
+  2026-08-23 research digest snapshot"). New files:
+  `docs/research/2026-08-23-digest-snapshot.md` (161 lines) and
+  `docs/research/2026-08-23-research-pressure-and-forward-momentum.md`
+  (587 lines). Both commit bodies were empty beyond the subject line in the
+  range read.
+- **Locked:** none stated in the commit bodies themselves (subject-only
+  commits); note that these two files are later DELETED by #987's merged
+  range (per that PR's file-diff, both files show as removed) and effectively
+  re-added again inside #987/#993's history — see those rows' file-diff notes
+  for the churn.
+- **Docs:** none found in EPIPHANIES.md by name for this PR specifically (it
+  IS the doc addition itself, not a separate EPIPHANIES entry).
+- **Confidence:** Medium — commit subjects and file additions are confirmed
+  directly; no prose body exists to source any narrative claim beyond "these
+  two research docs were added."
+
+## 2026-08-23 — lance-graph #993 (MERGED, merge 9f867b86) — docs: frame qualia alpha universal grammar experiment
+
+- **Added:** single commit `85520e30`, new file
+  `docs/research/2026-08-23-qualia-alpha-universal-grammar.md` (744 lines).
+  Commit body empty beyond subject. Same merge also DELETES
+  `docs/research/2026-08-23-digest-snapshot.md` (161 lines) and
+  `docs/research/2026-08-23-research-pressure-and-forward-momentum.md`
+  (587 lines) — both added by #994 above — per the file-diff stat.
+- **Docs:** none found in EPIPHANIES.md by name for this PR.
+- **Confidence:** Medium — file additions/deletions confirmed by diff; no
+  commit-body prose exists to source any narrative claim; the delete of
+  #994's two files inside this PR's diff is worth flagging as churn (a file
+  present after #994, absent after #993, despite #993 merging chronologically
+  after #994 — consistent with a rebase/branch-history artifact rather than a
+  deliberate content decision, but this worker cannot confirm which).
+
+## 2026-08-23 — lance-graph #992 (MERGED, merge 8d12ac29) — fathoming report: §F1a correction — KC1 was undersold; `recipe_kernels.rs` has real, tested `Tactic::apply` semantics
+
+- **Added:** two commits — `8a286ef8` ("fathoming report: record
+  PROBE-LOCO-INTERPRETER-1's actual results") and `2d68b935` (the §F1a
+  correction). §F1 of the fathoming report had said the 34 recipes' semantics
+  "live in ThoughtCtx/recipe_dispatch wiring, out of scope" — true but
+  understated. `lance-graph-contract`'s `recipe_kernels.rs` already carries
+  all 34 as real, tested `impl Tactic` blocks with a working `kernel(id)`
+  registry, using the SAME id space `recipe_vocab`'s `FnIndex` mapping uses
+  (round-trip checked, not assumed). §F1a adds the measured correction with
+  no code change in this PR — the companion PROBE-RECIPE-EXECUTION-1 (this
+  branch's sibling commit, landed as #995) is what actually measured it.
+- **Docs:** file `docs/research/2026-08-22-behavioral-ir-fathoming.md` gains
+  117 lines (the §F1a section); `E-` entries specific to this correction were
+  not isolated by name in the EPIPHANIES.md header scan for this slice — the
+  50 lines added to EPIPHANIES.md in this merge were not matched to one exact
+  heading with full confidence.
+- **Confidence:** Medium-High — commit body is explicit and self-correcting
+  (states its own prior understatement precisely); board-entry name not
+  independently confirmed.
+
+## 2026-08-23 — lance-graph #991 (MERGED, merge 6c2e13d4) — docs: map IntermediateUnknown as a constraint-addressed reasoning state
+
+- **Added:** single commit `f75f6947`, new file
+  `docs/research/2026-08-23-intermediate-unknown-sudoku-epiphany.md`
+  (814 lines). Commit body empty beyond subject.
+- **Docs:** none found in EPIPHANIES.md by name for this PR in this slice's
+  scan (the doc file itself appears to be the deliverable, not a separate
+  EPIPHANIES entry).
+- **Confidence:** Medium — file addition confirmed by diff; subject-only
+  commit body, no further narrative available.
+
+## 2026-08-23 — lance-graph #990 (MERGED, merge 4abbfeb8) — docs: frame self-learning self-programming endgame
+
+- **Added:** single commit `d0ae8973`, new file
+  `docs/research/2026-08-23-self-learning-self-programming-endgame.md`
+  (822 lines). Commit body EMPTY (no subject-line detail beyond the title
+  itself — `git log -1 --format='%b'` on this commit returned nothing). Same
+  merge DELETES `docs/research/2026-08-22-behavioral-ir-fathoming.md`
+  (457 lines, added by #989 below) and
+  `docs/research/2026-08-22-learning-on-the-v3-substrate.md` (240 lines,
+  added by #988 below) — both files are removed in this PR's diff, and
+  `AGENT_LOG.md` loses 48 lines (added by #988).
+- **Docs:** none found — commit body carries no detail whatsoever; flagged
+  per the instructions as a thin-body PR.
+- **Confidence:** Low — this row is subject-only; the file-churn (deleting
+  the prior two PRs' docs) is confirmed by diff but its rationale is not
+  stated anywhere this worker could read.
+
+## 2026-08-23 — lance-graph #989 (MERGED, merge 56cc6928) — fathoming report: the substrate is a compiler front-end missing its interpreter
+
+- **Added:** single commit `fca5aa0c`, new file
+  `docs/research/2026-08-22-behavioral-ir-fathoming.md` (457 lines). Also
+  DELETES `docs/research/2026-08-22-learning-on-the-v3-substrate.md`
+  (240 lines, added by #988) and removes 48 lines from `AGENT_LOG.md` (added
+  by #988) in the same merge.
+- **Locked:** architecture-fathoming pass on whether a learnable, reversible
+  behavioral micro-IR already exists, reconstructed from code across
+  lance-graph, OGAR (`ogar-loco`), lance-graph-java (cloned fresh), and ruff.
+  Four verdicts stated in the commit body: (1) cognitive micro-IR is a REAL
+  MECHANISM — `ogar_loco::Call{function: FnIndex(u8), values: [u8; N]}` is a
+  bytecode with bodies, branches, reference resolution, in-slab zero-copy
+  access, and a refusal taxonomy already shaped as data; (2) BPE behavioral
+  macros are BLOCKED ON MISSING TRACE — the algorithm is published and
+  positive over action sequences but the input does not exist; (3) potholes
+  as training events are BLOCKED ON MISSING TRACE, and separately damaged at
+  the label; (4) R2IL/cognitive shared layer is RHYME ONLY against the
+  proposed pairing — R2IL is not in ruff's working tree, but two op-streams
+  DO exist and have converged on the same 12-byte 6x(u8:u8) carving without
+  importing each other. Headline finding: nothing executes the IR — a
+  crate-wide search for `fn execute`/`eval`/`interpret`/`step`/`run` returns
+  nothing in `ogar-loco`, whose own telemetry doc says it "only knows whether
+  a candidate parses, casts, and segments"; `recipe_vocab` disclaims
+  execution in its own module doc; `ladder_program()` is a static ordering.
+  So every compiler front-end box is built (instruction format with
+  stored-byte ABI, opcode allocation, operand addressing modes, basic blocks,
+  branch resolution, static verifier) and every back-end box is empty
+  (interpreter, profile, trace, superinstructions, deopt).
+- **Docs:** the file itself is the record; this PR's content was later
+  corrected in place by #992's §F1a and re-audited by #987's council pass
+  (see those rows).
+- **Confidence:** High — commit body is a complete, dated, four-verdict
+  architectural audit citing specific searched crates and named absent
+  functions.
+
+## 2026-08-23 — lance-graph #988 (MERGED, merge 36f9cf4c) — brainstorm v4: "BPE" spans three claims and row 3 retired all three
+
+- **Added:** a 5-commit sequence (`6ddd4f55` "brainstorm: learning on the V3
+  substrate — discussion reference, graded, nothing ratified" through
+  `15458c78` "brainstorm v4"). New file
+  `docs/research/2026-08-22-learning-on-the-v3-substrate.md` (240 lines);
+  `AGENT_LOG.md` gains 48 lines (recording an 8-agent council run, 2 P0s,
+  "one of them mine" per the commit subject).
+- **Locked:** corrected by the fathoming report (#989, §M) — row 3 of this
+  document's §0 table had retracted "a BPE reading of 6x2x8bit" wholesale;
+  that retraction is stated as correct for ONE hypothesis (BPE as the
+  mechanism behind the centroid/ontology codebooks — RETIRED) and wrong for
+  another (BPE/Sequitur/Re-Pair inducing behavioral MACROS over executed
+  `(FnIndex : Value)` traces — NOT TESTED, NOT RETIRED, and published-positive
+  per cited arXiv:2501.09747 and arXiv:2309.04459, plus Sequitur (JAIR 1997)
+  and Re-Pair (DCC 1999) for exact reversibility). The commit body states this
+  is a "fourth instance of the pattern the document itself names — a name
+  taken for a mechanism — and the only one that is the document's own."
+- **Deferred:** T-B (potholes as escalation-routing labels) — noted as BLOCKED
+  with reasons the commit body begins to list but this worker's read of the
+  body was truncated at ~30 lines per the method step; full detail not
+  re-verified.
+- **Docs:** the document itself + the AGENT_LOG entry are the record; no
+  separate `E-<NAME>` EPIPHANIES entry located for this PR by name in this
+  slice's header scan.
+- **Confidence:** Medium-High — commit body is detailed and explicitly
+  self-correcting across four commits in the same PR (v2→v3→v4 rewrites are
+  visible in the commit list itself), which is itself informative about how
+  unsettled this document was even at merge time.
+
+## 2026-08-23 — lance-graph #987 (MERGED, merge dc5d5cf0) — handover §4: rewritten by a 5+3 council — cite what is banked, keep the one new finding
+
+- **Added:** a long commit range (22 commits, `ae8e762e`..`43423901`) spanning
+  ogar_codebook Ontology mirroring, DeepNSM-v2's TEKAMOLO/lexicon/TOC/promote
+  pipeline (built then substantially deleted: "delete tekamolo/lexicon/toc/
+  hydrate/promote/loci — all redundant"), an `EpisodicBasins` migration onto
+  the D-ACR-6 rail (`ValueTenant::EpisodicBasin = 15`), and a final 5+3
+  council pass on the handover document's §4.
+- **Locked:** council on §4 (the only architectural content in a handover
+  whose §1 retracts the rest of the session's architecture) returned, per the
+  commit body: the 5 (prior-art) pass gave 2 VIOLATES / 12 GAP / 6
+  PRIOR-ART-AT / 4 RISK / ~24 CONFIRMS, consolidated to draft v2 before any
+  reviewer existed; the 3 (brutal) pass gave 1 BLOCK(P0) / 5 FIX(P1) / 2
+  FIX(P2) / 20 PASS. The inventory held 17/17 (every file:line cited resolves
+  and says what was claimed) but the propositions built on it did not. Four
+  of seven findings were already banked canon that §4 had cited nowhere: the
+  paired part_of:is_a reading (`E-V3-PART-OF-IS-A-TILE`), content-blind bytes
+  (`E-FACET-8-8-ALWAYS` + `E-CONTEXT-ROLE-TISSUE-1`), the no-version-bump
+  conclusion, and the CPIC disambiguation
+  (`E-V3-BASINS-ARE-MEREOLOGY-NOT-LABELS`). One BLOCK(P0): draft v2 had
+  called D-RCC-2 "a shipped contract" and retracted two propositions on it,
+  when that file is `Status: PROPOSED` (doc-only). Two COLLAPSEs were caught
+  and split (a measurement bundled with a design under one retraction; an F9
+  provenance question declared moot when it merely relocates). §1's
+  previously-wrong self-retraction (of a classid-lane claim) was corrected in
+  the source's own wording ("resolved from", not "lives in").
+- **Note (important for accuracy):** this PR was found to have LATER been
+  corrected/retracted by #999 for a specific piece — the 14 "Ontology" mirror
+  rows added here by commit `ae8e762e` were removed by #999 as hallucinated
+  (see #999's row above). This PR's "Added" bullet is stated as what this PR
+  shipped; #999's row is where that specific piece is corrected.
+- **Docs:** `E-V3-PART-OF-IS-A-TILE`, `E-FACET-8-8-ALWAYS`,
+  `E-CONTEXT-ROLE-TISSUE-1`, `E-V3-BASINS-ARE-MEREOLOGY-NOT-LABELS` — all
+  cited BY NAME in the commit body as already-banked prior art (not
+  necessarily new entries from this PR); this worker did not independently
+  re-verify each against EPIPHANIES.md line numbers within this slice's time
+  budget.
+- **Confidence:** Medium — the commit body is highly detailed and internally
+  self-auditing, but the PR bundles a large amount of churn (an entire
+  DeepNSM-v2 subsystem built and then mostly deleted within the same merged
+  range) that this row summarizes at the top level rather than commit-by-commit.
+
+## 2026-08-22 — lance-graph #986 (MERGED, merge 49884935) — rubicon_witness: read the Heckhausen crossing from the focus of attention (D-ACR-8) / recipe_vocab: the epistemic gate (D-ACR-9)
+
+- **Added:** four commits — `f9a80807` (D-ACR-9 first half: `recipe_vocab`, the
+  34 recipes as loco ops, census-gated, prefix-scoped operands), `f958dc60`
+  (D-ACR-9 second half: `recipe_vocab`'s epistemic gate —
+  `grounded_program` + `Refusal`), `1eb07456` (a provenance-limits note: "9
+  searches, 0 fetches, 0 local reads" for a BPE literature check), and
+  `1a4e5474` (D-ACR-8: `rubicon_witness`, reading the Heckhausen crossing from
+  the focus of attention). New files:
+  `crates/lance-graph-contract/src/rubicon_witness.rs` (473 lines),
+  `crates/lance-graph-ogar/src/recipe_vocab.rs` (662 lines).
+- **Locked:** the Rubicon plan had an open checkbox, "Thinking styles ↔
+  Rubikon". Heckhausen's actual claim is about ATTENTION — deliberative
+  mindset broad and impartial before, implemental mindset narrow and
+  shielding after — and a focus mask measures exactly that. `FocusTrace`
+  samples a `RowFocusMask` per column; `read_crossing(pre, post, epsilon)`
+  reports breadth drop and persistence gain plus a verdict. Breadth is the
+  covered POPULATION (`256^(12−depth)`, exact in f64), never
+  `RowFocusMask::len()` — the commit states this explicitly as avoiding an
+  inversion of the measurement on exactly the input the facet exists for.
+  `Inverted` is its own verdict, never folded into `Indistinguishable`.
+  Nothing here takes `&mut` on anything the substrate owns; phase movement
+  stays `advance_on_gate`. D-ACR-3 (next in the mandated order) was skipped
+  as "honestly blocked" — the write path it would guard has no production
+  caller, so its test would assert something no code can violate.
+- **Docs:** `E-V4-IS-THE-100-PERCENT-TIER-V3-UNCHANGED-1` (EPIPHANIES.md,
+  dated 2026-08-21 — note: this is an earlier-dated entry than this PR's
+  merge date, so it is prior art cited, not necessarily minted by this PR) and
+  `E-ADDRESS-FROM-THE-THING-NOT-THE-ACCIDENT-1` (EPIPHANIES.md, dated
+  2026-08-21) — both located by header-grep as candidates; a same-day
+  (2026-08-22/23) EPIPHANIES entry specific to D-ACR-8's Rubicon-crossing
+  finding was not independently isolated by exact name in this slice's scan.
+- **Confidence:** Medium-High for the D-ACR-8/D-ACR-9 mechanics (commit body
+  is detailed and self-verifying with a two-sided falsifier description); the
+  Docs cross-reference is less certain since the two EPIPHANIES entries found
+  by header-grep predate this merge by a day and may be prior-art citations
+  rather than this PR's own new entries.
+
+## 2026-08-22 — lance-graph #985 (MERGED, merge a3c50487) — hydrate: ship a dataset as ONE zip, and make the crate compile again / hydrate_from doctrine + board correction
+
+- **Added:** three commits — `55a31716` ("hydrate: ship a dataset as ONE zip,
+  and make the crate compile again"), `de3e080e` ("hydrate_from: the
+  doctrine's shape, and the gate that should have caught this"), and
+  `e22b1ba1` ("board: bring this branch's entries onto the post-#984 state").
+  New files: `crates/lance-graph-hydrate/src/archive.rs` (545 lines);
+  `crates/lance-graph/src/graph/versioned.rs` (137 lines);
+  `crates/lance-graph/src/error.rs` gains 22 lines.
+- **Locked:** rebasing onto `main` after #984 merged had dropped this branch's
+  duplicate `ObjectStoreExt`/rustfmt/clippy hunks (now in `main`) but left its
+  board entries describing a world that no longer existed; this PR corrects
+  them before landing rather than after. `ISSUES.md`
+  `ISS-CI-GATE-IS-AN-ALLOWLIST-NINE-MEMBERS-UNGATED` is marked RESOLVED (the
+  outcome recorded ABOVE the original text, kept verbatim — "it was accurate
+  when filed"). `LATEST_STATE.md`'s claim that `lance-graph-hydrate` is
+  "gated for the first time" and "eight more members are still ungated" is
+  corrected — both were true when written and false now. Notably, the count
+  in all three prior entries was itself wrong: eleven ungated members, not
+  nine — the check behind it extracted crate names with a regex
+  (`"crates/[a-z0-9-]+"`, no underscore) that missed `crates/surreal_container`
+  and excluded `tools/dto-class-check` (not under `crates/` at all). The
+  commit body states this is carried forward rather than quietly corrected,
+  "because a membership check blind to two of its inputs is the same defect
+  class those entries describe, one level up: in the instrument instead of
+  the workflow." Still open per the commit: no `cargo test --workspace` job
+  (measured at 14 GB across 86 binaries vs 3.5 GB for the compile).
+- **Docs:** `ISSUES.md`, `LATEST_STATE.md`, `EPIPHANIES.md`
+  (`E-THE-GATE-IS-A-HAND-MAINTAINED-ALLOWLIST-NOT-THE-WORKSPACE-1`, dated
+  2026-08-22, gets an appended outcome paragraph per the commit body — entry
+  located in the header scan).
+- **Confidence:** High — commit body is a fully self-documenting board
+  correction with named specific numbers (nine vs eleven) and a stated root
+  cause (the regex's missing underscore).
+
+## 2026-08-22 — lance-graph #984 (MERGED, merge 9d1e6be1) — ci: gate every workspace member — eleven were reached by no job at all / pinned toolchain everywhere
+
+- **Added:** an 8-commit sequence — `090bd00c` ("ci: every job builds on the
+  pinned toolchain, not on `stable`"), `16e99293` ("ci: gate every workspace
+  member — eleven were reached by no job at all"), `b30f2c28` ("deps: one
+  place per version, and a workspace-scope build gate"), `ff3e34b4` ("ci: the
+  workspace gate's build-not-test choice, now measured instead of assumed"),
+  `ee3e7069` ("ci: split the additions into their own job, and gate the two
+  members my check could not see"), `85d5f465`/`b9bbc631` (an RUSTFLAGS change
+  then its own revert), and `f7768380` ("ci: fix the clippy step my toolchain
+  edit folded into one command").
+- **Locked:** a live CI failure this PR fixes forward — the toolchain commit
+  had replaced a two-line `rustup toolchain install stable`/`rustup default
+  stable` block with the single-line `rustup show`, but `style.yml`'s clippy
+  job had a THIRD line (`rustup component add clippy`) the replacement did
+  not match; under a single-line scalar, YAML folded the two lines into one
+  command, breaking as `unrecognized subcommand 'rustup'`. Fixed with a block
+  scalar carrying both lines; the extra `component add` is kept as redundant
+  but idempotent (already covered by `rust-toolchain.toml`'s `components =
+  ["rustfmt", "clippy"]`). The commit body is explicit about WHY the author's
+  own earlier check missed it: validating with `yaml.safe_load` proves the
+  file PARSES, not that the parsed value is the intended command — "a check
+  that can only see the former will pass a broken workflow every time." The
+  new check walks every step's `run`, splits it into lines, and fails on any
+  line carrying two `rustup` invocations (six other `rustup show` steps
+  confirmed single-line and clean).
+- **Docs:** relates to `E-THE-GATE-IS-A-HAND-MAINTAINED-ALLOWLIST-NOT-THE-WORKSPACE-1`
+  and `ISS-CI-GATE-IS-AN-ALLOWLIST-NINE-MEMBERS-UNGATED` (both from #983's
+  arc — the "nine" count referenced here is corrected to eleven by the
+  immediately-following #985, see that row).
+  Cargo Toml files changed:
+  `crates/lance-graph/Cargo.toml`, `crates/lance-graph-ogar/Cargo.toml`,
+  `crates/lance-graph-ontology/Cargo.toml`, `crates/surreal_container/Cargo.toml`,
+  plus `crates/sigma-tier-router/src/lib.rs` (88 lines changed),
+  `crates/lance-graph-hydrate/src/{marker.rs,publish.rs}`.
+- **Confidence:** High for the CI/YAML mechanics (a precisely reproduced live
+  failure with a named root cause); Medium for the full "eleven workspace
+  members gated" claim, since this worker did not enumerate all eleven from
+  the diff independently (the number is stated in the commit subject and
+  corroborated by #985's correction to the same number).
+
+## 2026-08-22 — lance-graph #983 (MERGED, merge 5a63cf3b) — SurrealQL: make the deprecated IR arm optional — without renaming the feature
+
+- **Added:** single commit `b01e2276`. Operator directive stated twice in the
+  commit body: the SurrealQL branch is not in use ("SurrealQL wird gar nicht
+  verwendet auch nicht ogar-*surreal*"), should sit behind a surrealdb-related
+  feature, and should come out of the default dependency set. Change is
+  exactly two things per the commit body: `ogar-adapter-surrealql = { …,
+  optional = true }` plus the `surrealql-parser` feature gaining
+  `dep:ogar-adapter-surrealql` and `ogar-adapter-surrealql/surrealdb-parser`;
+  and the `serde` feature gaining `ogar-adapter-surrealql?/serde` (the `?/`
+  syntax activates serde only when the crate is already in the graph, rather
+  than pulling it in). `#[cfg(feature = "surrealql-parser")]` gates the
+  re-export in `lib.rs`.
+- **Locked:** measured zero consumers of the unconditional re-export
+  `lance_graph_ogar::ogar_adapter_surrealql` across lance-graph, MedCare-rs,
+  and OGAR before making it optional. Commit body records a KORREKTUR against
+  its own first draft: that draft had the same effect but RENAMED the
+  existing feature `surrealql-parser` to a new name `surrealdb` — an
+  unrequested rename that codex caught breaking two golden-image root crates
+  (`crates/symbiont` and `crates/cognitive-stack`) which name
+  `features = ["surrealql-parser"]` literally, and Cargo rejects an unknown
+  feature name before compiling anything.
+- **Docs:** none found in EPIPHANIES.md by name for this PR in the header
+  scan; the commit body itself, including the self-corrected first-draft
+  mistake, is the fullest record.
+- **Confidence:** High — small, self-contained, self-correcting commit with
+  an explicit before/after and a named codex-caught regression in the first
+  draft.
+
+## 2026-08-21 — lance-graph #982 (MERGED, merge 7e97a5ff) — ci: arm causal-edge's tests — this PR's falsifiers could not go red / D-ACR-3 gate + from_v1 provenance / S3.0 audit
+
+- **Added:** a large merged range (multiple sub-branches merged in:
+  `d-acr-3-gate-and-from-v1-provenance`, `ruff-r2il-lancegraph-3tdt8d`,
+  `s3-0-exact-literal`), topped by `ed731fbc` ("ci: arm causal-edge's tests —
+  this PR's falsifiers could not go red"). New file
+  `docs/architecture/S3-0-EXACT-LITERAL-AUDIT.md` (308 lines);
+  `.github/workflows/rust-test.yml` gains 18 lines,
+  `.github/workflows/style.yml` gains 6 lines;
+  `crates/causal-edge/src/edge_v3.rs` gains 113 lines.
+- **Locked:** the topmost commit's own finding — this PR (and #981 before it)
+  had landed test/falsifier code in `causal-edge` that could never have
+  failed in CI, because no workflow named `causal-edge`. `causal-edge` is
+  workspace-EXCLUDED but a path-dep of `lance-graph`, `lance-graph-planner`,
+  `cognitive-shader-driver`, and `sigma-tier-router` — so its LIB compiled in
+  gated builds, but its TESTS were unarmed. Fix adds
+  `cargo test --manifest-path crates/causal-edge/Cargo.toml` (75 passed on
+  the pinned 1.97.1 toolchain before landing) to `rust-test.yml`, and
+  `cargo fmt --manifest-path crates/causal-edge/Cargo.toml -- --check` to
+  `style.yml`. Deliberately NOT added: a clippy gate — `clippy --all-targets
+  -- -D warnings` returns 7 pre-existing errors on this crate, none in the
+  `edge_v3.rs` this PR touches, filed instead as
+  `ISS-CAUSAL-EDGE-CARRIES-SEVEN-PRE-EXISTING-CLIPPY-FINDINGS` with exact
+  locations (`edge.rs` ×7 lines, `tables.rs:37`, `v2_layout_tests.rs:20`).
+  Wider measurement: no workflow in the repo runs `--workspace` or `--all`,
+  so nine workspace members plus this excluded crate were reached by no job
+  at all — filed as `ISS-CI-GATE-IS-AN-ALLOWLIST-NINE-MEMBERS-UNGATED` (later
+  corrected to eleven by #985).
+- **Deferred:** the D-ACR-3 gate itself (`31a70979` "D-ACR-3s Gate ist NICHT
+  gefallen, und from_v1 bekommt seine ehrliche Haelfte") — commit body (in
+  German) states D-ACR-3 looked like it had one blocker (dependency on
+  D-ACR-1, already shipped) but measured a second, unnoticed blocker: the
+  write path it is meant to guard does not exist (`SoaEnvelope` has ONE
+  productive implementor, `NodeRowPacket`; `mailbox_owner()` has zero callers
+  outside its own module) — so a test on it would assert something no code
+  can violate, which the falsifiability rule forbids.
+- **Docs:** `E-THE-GATE-IS-A-HAND-MAINTAINED-ALLOWLIST-NOT-THE-WORKSPACE-1`
+  (dated 2026-08-22, matches this PR's finding) — located by header-grep.
+  Other named board entries in the commit bodies
+  (`E-V4-IS-THE-100-PERCENT-TIER-V3-UNCHANGED-1`,
+  `E-ADDRESS-FROM-THE-THING-NOT-THE-ACCIDENT-1`,
+  `E-R2IL-VARNODEFACET-IS-A-G3-CARVING-AND-0xC4-WOULD-BIRTH-A-CLASS-INTO-IT-1`)
+  all confirmed present in EPIPHANIES.md by the header scan, dated
+  2026-08-21.
+- **Confidence:** High for the CI-gate finding (self-contained, numbers
+  named); Medium for the overall PR narrative because it is a merge of at
+  least three sub-branches and this row summarizes the topmost + one deferred
+  item rather than every sub-branch commit individually.
+
+## 2026-08-21 — lance-graph #981 (MERGED, merge 435e41b1) — contract: band_reading — the D-ACR-7 reading contract for CE64 bits 59..63
+
+- **Added:** a 10-commit sequence topped by `b045575a` ("contract:
+  band_reading — the D-ACR-7 reading contract for CE64 bits 59..63"),
+  implementing the RATIFIED spec
+  `.claude/plans/dacr7-band-reading-contract-v1.md` (5+3 council, 3×BLOCK(P0)
+  raised and resolved in Phase 4). New files:
+  `crates/lance-graph-contract/src/attention_facet.rs` (789 lines),
+  `crates/lance-graph-contract/src/band_reading.rs` (633 lines),
+  `.claude/plans/dacr7-band-reading-contract-v1.md` (649 lines),
+  `.claude/plans/known-unknown-handover-network-v1.md` (458 lines),
+  `.claude/handovers/2026-08-21-2330-session-to-next.md` (212 lines).
+- **Locked:** ONE reading contract, TWO carriers — `CausalEdge64` bits 59-60
+  (truth) / 61-63 (band) is the muscle memory; `CausalEdgeV3` bytes [8] hi-2 /
+  [9] lo-3 via `truth_raw()`/`spare_raw()` is the granularity, rehydrating
+  INTO CE64 to reason. The reading declares how a consumer PROJECTS stored
+  bytes; it never changes them, resolved per `(classid, rail)` through
+  `ClassView`, matching `edge_codec_flavor` and `rail_carving`. Provenance
+  gates FIRST, before the lens is asked — Council BLOCK-1 found
+  `CausalEdgeV3::from_v1` (edge_v3.rs:117) takes no provenance parameter and
+  raw-copies the tail, so a v1 temporal trap (`temporal >= 512` aliasing a
+  non-zero band) reaches V3 transitively; therefore
+  `EdgeProvenance::V3Register` is a CALLER ASSERTION, never an inference —
+  unstated means `Unknown` means refuse (a follow-up on `from_v1` itself is
+  filed, not owned here). The Phase-4 fix: declaration lookup is TOTAL
+  (`reading_or_default` folds an undeclared class to `ZERO_FALLBACK`) while
+  raw-bit projection is FALLIBLE and must FAIL. `sampling_admits` filters on
+  `Tactic::moves_confidence()` (14 of 34), never on `maturity().is_production()`
+  (31 of 34, which would silently admit 17 tactics that move nothing).
+  `TYPE_DUPLICATION_MAP`'s `TrustTexture` entry is corrected ×2 → ×4 (stale
+  line numbers, wrong arigraph path; arities are 4/4/5/3, so the old
+  "rename one to disambiguate" recommendation was incoherent). Mints nothing
+  — no tenant, no bit, no `ENVELOPE_LAYOUT_VERSION` bump, no cfg feature
+  re-meaning a stored bit. Gates named in the commit: G1 1207 contract tests
+  (+13) · G2 clippy clean · G3′ lens mismatch fails and match resolves · G4′
+  V1Legacy/Unknown refuse, V2Stamped/V3Register resolve · G5a total fold ·
+  G5b UndeclaredClass fires · G6 14 admitted / 20 rejected · G7′ arity pins ·
+  G8 no `with_*` or CE64 mask bit-ops · G9 no cfg · G10b green.
+- **Docs:** the 5+3-council-ratified plan
+  `.claude/plans/dacr7-band-reading-contract-v1.md`;
+  `.claude/board/EPIPHANIES.md` gains 132 lines,
+  `.claude/board/INTEGRATION_PLANS.md` gains 56 lines,
+  `.claude/board/LATEST_STATE.md` gains 77 lines, `STATUS_BOARD.md` moves
+  D-ACR-7 → Shipped — all confirmed by the file-diff stat, matching
+  INTEGRATION_PLANS.md's header "2026-08-21 — D-ACR-7 BAND-READING CONTRACT
+  (council-ratified spec)" (located by header-grep).
+- **Confidence:** High — this is the most heavily self-documenting PR in the
+  batch: explicit gate list, explicit council verdict counts, explicit
+  file:line citations for the found provenance gap.
+
+## 2026-08-21 — lance-graph #980 (MERGED, merge d478dee5) — D-ACR-0: attention_mask audit — EXISTS-UNCALLED, and a rename register file wearing the name
+
+- **Added:** single commit `46e5358e`. Report only, no code, per the stated
+  deliverable. New file `.claude/ATTENTION_MASK_AUDIT_2026_08_21.md`
+  (222 lines).
+- **Locked:** the audit's falsifier asked for one of two outcomes and returned
+  both, with the second load-bearing. `attention_mask` is EXISTS-UNCALLED:
+  three hits outside its two defining files, all non-consumers (two `pub mod`
+  lines, and `mailbox_soa.rs:11`, a doc comment stating the OPPOSITE — "wrap,
+  NO AttentionMask/LRU"). MedCare-rs / OGAR / ndarray: 0 files each. And it is
+  a DIFFERENT mechanism than the one wanted — the shipped type is a complete
+  implementation of `causaledge64-mailbox-rename-soa-v1.md` §4, "the
+  session-ephemeral rename register file": wide identity (u32 OGIT domain /
+  WitnessId / StyleId) into a scarce narrow slot (5-bit G / 6-bit W / 8-bit
+  style), LRU because slots are scarce — i.e. compression, where "attention"
+  means which identities are resident in the slot file, not where the eye
+  looked. Three properties settle it independently of provenance: keyed by
+  `MailboxId` with no `NodeGuid`/`NiblePath`/classid in the file; not a mask
+  (Vec + linear scan per operation, no bitset, no set algebra); records
+  occupancy, never a trajectory (`last_touched_cycle` is overwritten, so the
+  previous look is gone). Stated as the arc's fourth homonym collision after
+  four "witness" surfaces, four "nibble" encodings and three "hydration"
+  meanings — and the only one where the shipped type is finished and correct
+  for its OWN contract, which is what made it read as available. Piece E
+  regrades from "shipped; unaudited for this use" to "shipped for a DIFFERENT
+  use; uncalled; not a basis for piece D." Measured in passing:
+  `plasticity_residual` is declared, initialised to 0, and never read or
+  written non-zero (two grep hits total); `BindReply` carries three fields to
+  a NoOp handler; the originating §4's singleton actor would rebuild the
+  singleton the V3 mailbox ruling removed. Handed to D-ACR-1: `WideFieldMask`
+  positions are u8 (universe capped at 256), while `FieldMask` is
+  u64/MAX_FIELDS=64 and silently drops >= 64 — a row population is neither.
+- **Docs:** `E-ATTENTION-MASK-IS-A-RENAME-REGISTER-FILE-NOT-A-RESIDUE-CARRIER-1`
+  (EPIPHANIES.md, dated 2026-08-21, 81 lines added — located by header-grep,
+  exact match); `STATUS_BOARD.md` D-ACR-0 → Shipped, D-ACR-1 → Next with its
+  basis constraint (4 lines changed).
+- **Confidence:** High — audit is self-contained, cites its own file:line
+  evidence, and the EPIPHANIES entry is an exact name+date match.
+
+## 2026-08-21 — lance-graph #979 (MERGED as a direct commit `c2c65109`, NO merge-PR commit found on `main`) — Handover: alpha-channel plan session (post-#978)
+
+- **Added:** single squash-style commit `c2c65109ecd96cdef6cdb088315a810fa2a70844`
+  (2026-08-21 14:09:09 +0200), whose body is IDENTICAL to #978's (see below) —
+  both commits carry the same "DisMech x Causality-V3 rebase report" text
+  verbatim, differing only in the PR number in the subject line
+  ("Handover: alpha-channel plan session (post-#978)" vs "Plan: alpha-channel
+  rung overlay — the empty row of the thinking table"). This worker could not
+  locate a distinct `Merge pull request #979` commit on `main` — #978 and
+  #979 appear to have landed as two directly-authored commits carrying
+  duplicate bodies, rather than through GitHub's merge-commit mechanism used
+  by every other PR in this range.
+- **Docs:** the two `E-` findings named in the shared body —
+  `E-HHTL-IS-MINTED-IN-THE-ARTIFACT-NOBODY-CITES-1` and
+  `E-THE-ORACLE-POPULATION-IS-64-PERCENT-AND-A-GATE-HARDCODES-THE-OTHER-36-1`
+  — are both confirmed present in EPIPHANIES.md, dated 2026-08-21 (located by
+  header-grep).
+- **Confidence:** Medium — content is well-sourced (identical to #978, see
+  that row for the full finding text) but the PR-to-commit mapping itself is
+  irregular for this pair and this worker flags it rather than guessing at a
+  reconciliation.
+
+## 2026-08-21 — lance-graph #978 (MERGED as a direct commit `caddf9ef`, NO merge-PR commit found on `main`) — Plan: alpha-channel rung overlay — the empty row of the thinking table
+
+- **Added:** single commit `caddf9efd3ac12ee3db99250b6d138c53bbd7e16`
+  (2026-08-21 14:06:10 +0200). "Plan: DisMech x Causality-V3 rebase report —
+  measured, no code." Report-before-code deliverable, twelve sections, every
+  number carrying the command or file:line that produced it; anything not
+  personally measured labelled "claimed, unverified."
+- **Locked:** two findings correct the board itself, per the commit body.
+  `E-HHTL-IS-MINTED-IN-THE-ARTIFACT-NOBODY-CITES-1` — the standing claim
+  "HHTL is zero on every baked row in both production bakes" is precise about
+  the two artifacts it names and silent about a third. Measured on the pinned
+  bytes: `obo-core.soa` 0/68,797, `spine.soa` 0/7,641, but `all-lanes.soa`
+  164,031/770,360 (21.29%), with MONDO/HPO/UBERON/PATO/ICD-10-GM/OMIM at 100%
+  — exactly the namespaces a DisMech overlay grounds against. The
+  generalization error: two citations counting the same 68,797 rows is ONE
+  measurement reported twice. `E-THE-ORACLE-POPULATION-IS-64-PERCENT-AND-A-GATE-HARDCODES-THE-OTHER-36-1`
+  — only 2,449 of 3,825 `INDIRECT_KNOWN_INTERMEDIATES` edges actually name an
+  intermediate (three independent methods agree); the supervision corpus is
+  2,449 edges over 534 diseases, not 3,869; 74 `INDIRECT_UNKNOWN` edges DO
+  name mediators and must leave any restraint control; the gate that should
+  have caught this asserts `== 3.869` and cannot pass on any corpus revision.
+- **Note:** #999 (this repo, this same PR arc) later measures a related but
+  DIFFERENT number for a similar-sounding population — "3,978 label-KNOWN
+  edges" / "2,512 over 549 diseases" appears in #975's row (already in
+  `PR_ARC_INVENTORY.md` above the gap, not reconstructed by this worker) —
+  the two numbers (2,449/3,825/534 here vs 2,512/3,095/549 in #975) are
+  CLOSE but NOT IDENTICAL; this worker did not reconcile them and flags the
+  discrepancy rather than assuming either supersedes the other.
+- **Docs:** `E-HHTL-IS-MINTED-IN-THE-ARTIFACT-NOBODY-CITES-1` and
+  `E-THE-ORACLE-POPULATION-IS-64-PERCENT-AND-A-GATE-HARDCODES-THE-OTHER-36-1`
+  — both confirmed in EPIPHANIES.md, dated 2026-08-21 (header-grep exact
+  match).
+- **Confidence:** High for the two named findings (detailed, numbered,
+  matching board entries exactly); the cross-PR number discrepancy flagged
+  above is noted as an open question, not resolved.
+
+## 2026-08-21 — lance-graph #977 (MERGED, merge 74dac21c) — Board hygiene owed by #974 and #975
+
+- **Added:** single commit `e534afbd`. Both #974 and #975 (merged prior to
+  this gap, already recorded above the gap marker in `PR_ARC_INVENTORY.md`)
+  had shipped types and so were not discharged by the file's own Termination
+  clause; #974's board-hygiene obligation was missed at its own merge on
+  2026-08-20 and is recorded here late rather than silently skipped, with the
+  entry itself saying so.
+- **Locked:** `PR_ARC_INVENTORY.md` (101 lines added, per the diff) gained two
+  prepended entries — #974's carrying the source-side-only ruling, the
+  fail-closed parse, and the citation-identity falsifier, plus an explicit
+  "Superseded-by-#975" line for one doc claim that did not survive; #975's
+  carrying its three findings, two codex P1s, and two rules the session paid
+  for ("absent is not unwired and their remedies are opposite"; "a
+  measurement a committed parser can make must not be made by an ad-hoc
+  script"). `LATEST_STATE.md` (20 lines added) turns the #974 heading into a
+  merged-PR entry and adds #975 above it, including the AriGraph correction
+  as a standing warning that the 15 shipped modules must not be rebuilt under
+  a new name by a session that greps for a function spelling and concludes
+  absence.
+- **Docs:** this PR IS the board-hygiene action for #974/#975 — its own diff
+  (`.claude/board/LATEST_STATE.md`, `.claude/board/PR_ARC_INVENTORY.md`) is
+  the record; no separate EPIPHANIES entry expected or found for a pure
+  hygiene commit of this shape.
+- **Confidence:** High — small, self-contained, purely a board-hygiene commit
+  whose own body states exactly what it is compensating for and why.
+
+---
+
+## NOT FOUND
+
+- **#976** — no merge commit, no direct commit, and no textual reference of
+  any kind found on `main` via any of the following: `git log --merges
+  --oneline main | grep "#976"`; `git log --all --oneline | grep -E "#976\b"`;
+  `git log --all --oneline --grep="#976"`; `git log --all --oneline
+  --grep="976"` (this last one returns only unrelated substring matches —
+  e.g. commit hashes or unrelated numeric content, none referencing PR #976).
+  It may have been closed unmerged, merged into a branch never merged to
+  `main`, or its number may simply have been skipped/reserved by GitHub
+  (e.g. consumed by a PR opened and closed without any commits, or a
+  cross-repo reference). This worker found no primary-source trace to
+  reconstruct a row from, and is not guessing one.
+
+---
+
+## Summary of gaps/caveats for the orchestrator
+
+- PRs #976 through #1005 = 30 numbers. Merge commits found for 28 of them
+  (977, 980–1005 inclusive = 27, plus #978/#979 as direct non-merge commits =
+  2, totalling 29) — correction: recount is 977, 978, 979, 980, 981, 982,
+  983, 984, 985, 986, 987, 988, 989, 990, 991, 992, 993, 994, 995, 996, 997,
+  998, 999, 1000, 1001, 1002, 1003, 1004, 1005 = 29 PRs with a row above.
+  #976 = 1 PR with no trace found (NOT FOUND section).
+- #978 and #979 landed as direct commits with NO GitHub merge-commit — this
+  is a structural irregularity relative to every other PR in this range and
+  is called out explicitly in both of their rows.
+- Several rows are explicitly graded Medium or Low confidence where the
+  commit body was empty/thin (subject-only): #990 (empty body), #991, #993,
+  #994 (all thin), #997 (thin body, EPIPHANIES-header-sourced narrative
+  instead).
+- A numeric discrepancy between #978's oracle-population finding (2,449 /
+  3,825 / 534 diseases) and #975's (already-recorded, pre-gap) finding
+  (2,512 / 3,095 / 549 diseases) on what reads as a similar measurement is
+  flagged in #978's row and NOT resolved by this worker.
+- #999 retracts content shipped in #987 (the 14 hallucinated Ontology mirror
+  rows) — both rows cross-reference each other.
+- File churn across #987/#988/#989/#990/#991/#993/#994 shows several research
+  docs being added and then deleted by a LATER-numbered PR within the same
+  day (2026-08-23) — flagged in each affected row rather than silently
+  merged into one narrative, since this worker could not always confirm
+  intent (deliberate supersession vs. rebase artifact).
 
 ## 2026-08-23 — ⚠ GAP MARKER — #976..#1005 have no arc rows (other sessions' arcs)
 

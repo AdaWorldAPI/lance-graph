@@ -49,6 +49,73 @@
   locally and BLOCKED from pushing** — the GitHub App has no access to
   `AdaWorldAPI/paperless-rs` for this org, verified through both the session
   proxy and a proxy-bypassed attempt.
+## 2026-08-23 — autoattended R2IL wave: 4 Sonnet probe workers + 1 Sonnet scribe + 1 Opus synthesis + 1 Haiku guarded executor
+
+- **Why:** operator directive to run the pattern autonomously — "sonnet agents
+  for grindwork, opus for filigrane planning, haiku agents for churn", with
+  auto-resolve. The named next measurement (wider corpora) was BLOCKED: the
+  `r2sleigh` sibling is absent from this checkout, so no new binaries can be
+  lifted. The orchestrator re-planned around what the existing corpus can
+  actually answer — it holds two builds of ONE source at different optimization
+  levels (71 fns / 3040 ops vs 72 / 2300, disjoint address keys), which is a
+  real held-out generalization split.
+- **Slices (6, disjoint files, one worker each — unique-file write discipline):**
+  W1 optimization-transfer probe · W2 def-use-chain macro carrier probe ·
+  W3 slag-boundary probe · W4 stamp-capacity probe (all Sonnet, EDIT-ONLY,
+  no cargo) · W5 arc-row reconstruction for #976..#1005 (Sonnet scribe, wrote a
+  scratchpad draft, never a board file) · W6 the consolidated knowledge doc
+  (Opus — accumulation across the whole arc, per the model policy).
+- **Anti-fabrication rule added to every brief:** workers cannot run anything,
+  therefore they know no number; every gate had to be a RELATION with the value
+  printed, never `assert_eq!` against an invented statistic. The orchestrator
+  pins constants only after measuring them. All four probes complied.
+- **Haiku guarded executor** ran the 8-command gate card (fmt + 6 probes + a
+  deliberate corpus-absent guard). First run **STOPPED at cmd1** on a formatting
+  failure — a worker file landed after the orchestrator's format pass — wrote its
+  receipt, attempted no fix, escalated. Contract behaviour, exactly. Supervisor
+  fixed and re-carded: **8/8 GREEN**, including the corpus-absent guard (exit 2,
+  the never-fabricate path proven live).
+- **Results:** F-9 the idiom vocabulary survives optimization COMPLETELY (10/10
+  transfer; optimizer ADDED 33 trigram types; the partial-survival
+  pre-registration was refuted and recorded in place) · F-10 the def-use chain
+  carrier beats the window 27 vs 97 signatures and 0.887 vs 0.505 top-10
+  occupancy, with 95.9% of top-chain occurrences skipping past adjacency —
+  #1014's prescription confirmed as code · F-11 the convention's residual
+  EXCEEDS its classified output (0.478; 88.1% one named reason), which qualifies
+  every finding in the arc as a seven-opcode-projection claim, not an x86-64
+  claim · F-12 the Stamp loss curve, 0 at N<=64 and 55.2% at N=143.
+- **Two briefs were wrong and the workers caught it:** W3 found the slag
+  `by_address` section has 4 columns where the orchestrator's brief said 5, and
+  parsed what the file declares rather than what it was told. W2's own C4/C5
+  pre-registered bets held. A wave where no worker contradicts the orchestrator
+  is a wave that was not really checked.
+- **Meta-review: FIX-THEN-LAND, and it earned its keep.** One read-only Opus
+  reviewer over the four probes + the knowledge doc found **4 P0s** — three
+  vacuous gates that no input could fail (slag S4 re-asserted what S1/S2 had
+  already established AND its "can-fire" tested a hand-written `panic!` instead
+  of the gate's own code path; opt-transfer T2's `top1 < total` was implied by
+  the type-count assert three lines above; stamp K5's width=64 cross-check is
+  true by construction yet was LABELLED "the falsifier for this whole section")
+  — plus the knowledge doc's header stating F-1 as an unqualified claim about
+  "real machine code" that the same document later contradicts. Also caught: an
+  unchecked `prov_op_site` uniqueness assumption underpinning every span figure;
+  K3 awarding PASS with no assertion at all (an all-comment TSV would have
+  passed it); `frac > 0.0` and a pigeonhole-unfalsifiable `distinct < total`;
+  and F-11's ratio comparing ore ROWS to residual COUNT UNITS without
+  establishing they are the same unit.
+- **All 4 P0s and the load-bearing P1s fixed by the orchestrator; every gate
+  re-run and still green** — the gates are now strictly harder (`top1 * 2 <
+  total`, `distinct * 10 < total`, `frac > 0.5`, `n > 64`, a shared `reason_for`
+  join both the loop and its can-fire call) and the data still clears them with
+  margin. F-10's "prescription confirmed" was downgraded to the concentration
+  figures it actually proves, with the missing occurrence-matched control named;
+  F-11 now carries an explicit units caveat. The reviewer's own verdict line was
+  FIX-THEN-LAND, and that is what happened.
+- **Board writes:** this entry, EPIPHANIES
+  `E-THE-SEVEN-OPCODE-PROJECTION-IS-NOT-X86-AND-THE-CHAIN-CARRIER-WINS-1`,
+  INTEGRATION_PLANS, and the PR_ARC gap-fill for #977..#1005 — all by the
+  orchestrator as sole writer, consolidating the executor receipt at
+  `exec-runs/wave-r2il-gates.txt` and W5's scratchpad draft.
 
 ## 2026-08-23 — two Sonnet audit lanes for the Revision × attention × Evaluation hinge
 
