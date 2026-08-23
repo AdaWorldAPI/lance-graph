@@ -254,6 +254,116 @@ Pre-registered kill conditions, decided now:
 Only if all four survive does the §8 macro probe become constructible — and
 then it must carry the literature's baselines, not compression alone (below).
 
+## F1. Results — PROBE-LOCO-INTERPRETER-1 was run (2026-08-23)
+
+**[G] — this is no longer a proposal.** A minimal interpreter for
+`ogar_loco::FunctionBody` was built and run:
+`AdaWorldAPI/OGAR` branch `claude/probe-loco-interpreter-1`,
+`crates/ogar-loco/examples/interpret_probe.rs`. Corpus: four hand-authored
+real algorithms with independently-known-correct answers (GCD, a
+summation via `REPEAT`, FizzBuzz-style classification via nested
+`IF_ELSE`, Collatz step counts via `WHILE`), 44 real inputs total, each
+run twice for a determinism check. Every arithmetic answer was checked
+against a ground-truth function that shares no code with the
+interpreter.
+
+Kill conditions, as pre-registered above:
+
+- **KC2 (deterministic replay): PASS.** All 44 episodes replayed
+  byte-identical call-for-call.
+- **KC3 (median episode length ≥ 5): PASS.** Median = 23 calls across 44
+  episodes (Collatz(27) alone traced 2089 calls).
+- **KC4 (traces are not all `ladder_program()`'s static ordering):
+  PASS — and decisively.** 44 distinct call sequences across 44
+  episodes; this was the single most-likely-to-kill condition and it
+  did not fire. Real, input-dependent branching over `FunctionBody` is
+  now [G], not [H].
+- **Independent correctness check: all 44 episodes correct** against the
+  ground-truth functions — the interpreter is not merely deterministic,
+  it computes the right answers.
+- **KC1 (the 34 lance-graph-ogar recipes have separable effects):
+  explicitly NOT TESTED, as scoped.** This interpreter covers only the
+  shared computational core below `DOMAIN_FLOOR`; the recipes' semantics
+  live in `lance-graph-ogar`'s `ThoughtCtx`/`recipe_dispatch` wiring,
+  which this run did not pull in. This remains the next required step,
+  not a result this run can report — do not read KC1 as passed by
+  proximity to the other three.
+
+**A genuine, unregistered finding surfaced while building the
+interpreter, not while running it:** the shared core's own declared
+`pushes_result` table marks `VAR_SET`/`VAR_CHANGE` as *pushing* a result
+(chainable-assignment semantics), and there is no `DROP`/`POP` primitive
+in the shared core. That makes `ogar_loco::statements::statement_bounds`
+(the crate's whole-body segmentation, built for step-mask masking)
+correctly *refuse* — `DanglingOperands` — any ordinary imperative
+"set a; set b; …" sequence, because nothing consumes the leftover pushed
+values. Nobody had built a real multi-statement program against this ABI
+before this probe, so the property was real but untested. It is not a
+defect in the probe or in `statement_bounds` — they are answering
+different questions (masking vs. execution) — but it is a fact about the
+ABI a future macro/learning layer needs to know: **`statement_bounds`
+cannot be reused, unmodified, as the unit boundary for a learned-macro
+scheme**, because it refuses on exactly the ordinary-assignment bodies a
+real program is made of. The interpreter therefore does not use
+`statement_bounds` for dispatch; it walks each function body as one
+linear program-counter pass (treating `VAR_SET`/`VAR_CHANGE` as void),
+using a local backward operand-span scan only where `WHILE`/
+`REPEAT_UNTIL` must re-run a condition. See the module doc in
+`interpret_probe.rs` for the full account.
+
+**Consequence for §G/§H below:** the falsifier fired in the *surviving*
+direction. §H ("if it fails") does not apply. §G's sketch — a learned
+macro as a `MacroId` reference with a deopt-shaped fallback, never a new
+opcode — is now reasoning about a substrate with a confirmed-executing
+IR underneath it, not a hypothetical one. It remains [H]: nothing about
+macro induction, BPE-over-traces, or the 34 recipes was tested by this
+run, and KC1 in particular gates whether hypothesis 1 (learnable
+opcode vocabulary) extends past the shared core at all.
+
+## F1a. Correction — KC1 was undersold, and it has now been partially measured (2026-08-23)
+
+**§F1's "the recipes' semantics live in `ThoughtCtx`/`recipe_dispatch` wiring,
+which this run did not pull in" was true but understated in a way that
+matters.** It read as "the semantics do not yet exist, out of scope for now."
+They exist, and are tested: `lance-graph-contract::recipe_kernels.rs` carries
+all 34 as real `impl Tactic` blocks (`apply(&mut ThoughtCtx) -> Outcome`),
+behind a working registry — `kernel(id: u8) -> Option<&'static dyn Tactic>`
+and `all_kernels() -> [&'static dyn Tactic; 34]`, id space `1..=34`. That id
+space is the SAME one `lance-graph-ogar::recipe_vocab::op_of`/`recipe_of`
+uses for the `FnIndex` mapping (`FnIndex(0x90 + id - 1)`) — checked by a
+round-trip assertion in the probe below, not assumed. §J item 2 ("lance-graph
+symbol census: recipe_dispatch, recipe_kernels, …") named this file as an
+open investigation lane and the report shipped before that lane closed.
+
+**KC1, reframed and run:** the question was never "can the 34 execute via
+`ogar_loco::Call` bytes" (ABI plumbing) — it is "given the same starting
+context, do different recipe ids produce state transitions an observer could
+tell apart." `PROBE-RECIPE-EXECUTION-1`
+(`crates/lance-graph-ogar/examples/recipe_execution_probe.rs`, this PR) calls
+`kernel(id).run_with(&mut ctx, MaturityPolicy::Any)` directly for all 34 ids
+against a 4-context battery (hot / cold / empty / neutral, chosen to exercise
+the same conditional branches the crate's own effect-census tests already
+probe), and compares a coarse effect signature (fired / Δconfidence sign /
+which `ThoughtCtx` fields changed / candidate-count-delta sign) — coarse
+*by design*, so raw float noise cannot manufacture false separability.
+
+**Result: 23/34 recipes are distinguishable across the whole battery; 11
+collapse into 15 pairwise collisions** (e.g. `ARE`/`ZCF`/`HKF`/`MCP` all
+produce "fired, nothing observably changed" on every context tested;
+`RCR`==`IRS`==`TCA`). Measured, not quoted: 31/34 kernels are
+`KernelMaturity::Operational`, 14/34 can move `confidence` at all — restricting
+to Operational-only kernels barely changes the separability rate (23/31).
+**This is a real, qualified answer, not a pass-by-proximity claim: the recipe
+layer is executable cognition for a majority of the 34, and coarse-signature
+taxonomy for a measurable minority — both facts, together.**
+
+**What this does NOT do:** build the `ogar_loco::Call`/`FunctionBody` bridge.
+No `FnIndex` in `RECIPE_OP_BASE..RECIPE_OP_END` is dispatched to `kernel(id)`
+by any interpreter today — `PROBE-LOCO-INTERPRETER-1`'s interpreter (§F1)
+still only covers the shared core. That bridge is now a small, well-scoped,
+still-open task (id mapping already verified consistent) — not a missing-
+semantics question anymore.
+
 ## F2. What the literature demands of that later probe
 
 Primary sources, so the probe is not designed in a vacuum:
@@ -447,6 +557,13 @@ not reach B.
    lossy at the source (`refusal_of` short-circuits before computing the second
    cause). T-B should point at PROBE-LOCO-INTERPRETER-1 as its prerequisite and
    name the refusal defect as a blocker.
+   **Update (2026-08-23): the prerequisite is now half-met.** The interpreter
+   exists and runs (§F1) — but only over the shared core. T-B's actual
+   dispatch labels live in the 34 lance-graph-ogar recipes, which the probe
+   explicitly did not execute (KC1 untested). T-B is therefore un-blocked on
+   "does an interpreter exist" and still blocked on "does the recipe layer
+   execute" and "is `refusal_of`'s short-circuit fixed" — two separate,
+   still-open prerequisites, not one.
 5. **§4's honesty box** should gain the citation for "frequency is not success" —
    Macro-FF (JAIR 24, 2005) and Newton & Levine (ECAI 2010) — replacing the
    house-rule phrasing with the actual literature.

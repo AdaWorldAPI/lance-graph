@@ -97,6 +97,56 @@ asset's finding history does not fragment across four ids): `E-VERSIFICATION-IS-
 Artifacts + full defect census: `.claude/handovers/2026-08-22-corpus-addressing-session-to-next.md`.
 
 ## 2026-08-22 — E-A-DOC-COMMENT-CAN-GIVE-THE-WRONG-REASON-FOR-A-CORRECT-GUARD-1 — the guard was right, the justification was false, and the test read the justification
+## 2026-08-23 — E-OGAR-LOCO-INTERPRETER-RUN-1 — the missing interpreter was built, ran, and a real ABI property surfaced
+
+**Status:** FINDING (measured — `PROBE-LOCO-INTERPRETER-1`, pre-registered in
+`.claude/brainstorms/2026-08-22-behavioral-ir-fathoming.md` §F, was actually
+run). **Confidence:** High; reproducible from the commit.
+
+`AdaWorldAPI/OGAR` branch `claude/probe-loco-interpreter-1` adds
+`crates/ogar-loco/examples/interpret_probe.rs`: a minimal interpreter for
+`ogar_loco::FunctionBody` over its shared computational core (arithmetic,
+logic, variables, IF/IF_ELSE/REPEAT/WHILE/REPEAT_UNTIL). Corpus: four
+hand-authored real algorithms (GCD, summation, FizzBuzz-style classification,
+Collatz step counts), 44 real inputs total, each run twice.
+
+Results: KC2 (determinism) PASS, KC3 (median episode length ≥5) PASS at
+median=23, KC4 (traces are input-dependent, not `ladder_program()`'s static
+ordering) PASS with 44 distinct sequences across 44 episodes — the single
+most-likely-to-kill condition did not fire. All 44 episodes independently
+correct against ground-truth arithmetic. KC1 (the 34 lance-graph-ogar recipes
+have separable executable effects) explicitly NOT TESTED — the probe covers
+only the shared core below `DOMAIN_FLOOR`.
+
+**The genuine surprise was in building it, not in running it:** the shared
+core's own declared `pushes_result` table marks `VAR_SET`/`VAR_CHANGE` as
+*pushing* a result (chainable-assignment semantics), and there is no
+`DROP`/`POP` primitive. `ogar_loco::statements::statement_bounds` (whole-body
+segmentation, built for step-mask masking) therefore correctly *refuses*
+(`DanglingOperands`) any ordinary imperative "set a; set b; …" sequence,
+because nothing consumes the leftover pushed values. This is not a bug in
+`statement_bounds` or in the probe — masking and execution are different
+questions — but it means `statement_bounds` cannot be reused unmodified as a
+learned-macro unit boundary, since it refuses on exactly the bodies real
+programs are made of. The interpreter therefore does not use
+`statement_bounds` for dispatch; it walks each function body as one linear
+program-counter pass (treating `VAR_SET`/`VAR_CHANGE` as void), using a local
+backward operand-span scan only where `WHILE`/`REPEAT_UNTIL` must re-run a
+condition.
+
+**Consequence for the fathoming report (`AdaWorldAPI/lance-graph` PR #989):**
+§F was rewritten to §F1 with these results; §H ("if it fails") does not
+apply — the falsifier survived. §G's sketch (learned macro as a `MacroId`
+reference, deopt-shaped fallback, never a new opcode) is now reasoning about
+a substrate with a confirmed-executing IR underneath it, still [H] pending
+KC1.
+
+**The generalization:** a crate's own declared semantic table (here,
+`pushes_result`) can encode a design intent (chainable assignment) that no
+consumer has ever exercised against a real multi-statement program — so its
+correctness as a MASKING primitive and its usability as an EXECUTION
+primitive are separate claims, and the first building of a real interpreter
+is where the gap between them becomes visible.
 
 **Status:** FINDING (measured — the mutation was run and initially did NOT
 fire). **Confidence:** High; reproducible from the commit.
