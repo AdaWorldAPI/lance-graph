@@ -1,3 +1,116 @@
+## 2026-08-23 — ⚠ GAP MARKER — #976..#1005 have no arc rows (other sessions' arcs)
+
+Roughly 20 PRs merged 2026-08-21..23 between #975 (the last row below) and
+the #1006..#1014 arc recorded above this marker have NO arc-inventory rows.
+Their EPIPHANIES / INTEGRATION_PLANS entries exist; the arc rows must come
+from sessions that carry their context — this hygiene pass records only the
+belief-ABI arc it can vouch for. Append-only: fill the gap by PREPENDING
+dated rows above, never by editing here.
+
+## 2026-08-23 — lance-graph #1014 (MERGED, merge 4ec1e1b5, head 61df907d) — real FunctionBehavior episodes: opcode matching over-admits 99.7%
+
+- **Added:** `probe_r2il_real_episodes.rs` (5/5) — the frontier loop measured on
+  the REAL ruff-side R2IL pass-1 harvest (143 fns, 17,557 typed facts, Release
+  `r2il-harvest-pass1`; env-gated `R2IL_ORE_TSV`, exits CORPUS ABSENT, never
+  fabricates). E5 headline: 1/380 occurrences of the top opcode trigram are
+  dataflow-chained vs a 31.5% adjacency base rate — the macro carrier is the
+  def-use chain, never the linear opcode window.
+- **Locked:** sequential adjacency ≠ composition on real code; real structure is
+  trigram TYPE-collapse (97 vs 264 shuffled), not top-1 count (that
+  pre-registration was refuted 380 vs 387 and is recorded in the gate); the
+  Stamp mod-64 ceiling BINDS at 143 episodes (~26% evidence CHOICE-dropped).
+- **Deferred:** wider corpora; the Step-2 stamp residue ruling (now with a
+  measured capacity number).
+- **Docs:** `E-REAL-CODE-INTERLEAVES-THE-OPCODE-MACRO-IS-NOT-A-DATAFLOW-PIPE-1`;
+  INTEGRATION_PLANS same-commit.
+- **Confidence:** High for these 2 binaries at the pass-1 seven; not "all real
+  code."
+
+## 2026-08-23 — lance-graph #1013 (MERGED, merge c426547d, head ef91b30f) — Phase 2: R2IL typed receipts; happy-path RL would have learned the clobber
+
+- **Added:** `probe_r2il_frontier_phase2.rs` (7/7) — Phase-1 loop lifted onto
+  R2IL-shaped typed ops (probe-local mirror of `ruff_r2il`; never imported). R6:
+  a reckless macro (right value, wrong register, clobbers callee-saved r3)
+  reaches e=0.812 — above the trust bar — under a sloppy happy-path oracle and
+  is refused ONLY by the falsification intervention.
+- **Locked:** BEFORE + TYPED EDIT = AFTER at machine-state level; fence sizes
+  MEASURED not guessed (Vn=8B/R2Op=28B/MachState=32B — the gate's first run
+  failed on guesses).
+- **Deferred:** real episode streams (delivered by #1014).
+- **Docs:** `E-HAPPY-PATH-RL-WOULD-HAVE-LEARNED-THE-CLOBBER-1`.
+- **Confidence:** High for the mechanism; toy machine + probe-local oracles.
+
+## 2026-08-23 — lance-graph #1012 (MERGED, merge 794598aa) — Step 2 ruling request + copula addendum + five probes (Phase 1, membership, token-BPE, copula distribution, mask algebra)
+
+- **Added:** `belief-abi-step2-ruling-request-v1.md` (+ copula addendum) — six
+  residue items, ALL [RECOMMENDATION]-labelled with falsifiers, agent prepares /
+  operator rules; probes: `probe_style_microcode_frontier` (9/9 — the frontier
+  learner is ALREADY SHIPPED: revise + Stamp + CHOICE),
+  `probe_multi_group_membership` (11/11 — Membership 36B pinned),
+  `probe_token_bpe_geometry` (8/8 — CAN-FIT, NOT YET BUY),
+  `probe_copula_distribution` (5/5 — real KJV via `stance::stream`),
+  `probe_copula_group_mask` (9/9), `probe_mask_algebra_invariance` (7/7).
+- **Locked:** CONTENT NEVER TRAVELS IN CLASSID (copula→classid retracted in
+  place); copula home = shipped `nars::facet_fold` (0 bytes, candidate E);
+  GROUP MEMBERSHIP IS RELATION TOPOLOGY NOT HHTL ANCESTRY; BEHAVIORAL
+  COMPRESSION CARRIER: UNDECIDED; the widened R2IL x BPE / OGAR-loco / V4
+  synthesis recorded as a three-IF hypothesis, nothing decided.
+- **Corrections recorded:** "KJV Rel-heavy" REFUTED (Inh 13 / Rel 2);
+  "tactics Impl" was a phantom (stance is the producer); two prior commits'
+  claimed board entries had silently no-opped — re-authored with post-write
+  assertions (all board writes assertion-verified since).
+- **Docs:** `E-THE-FRONTIER-LEARNER-IS-ALREADY-SHIPPED-1`,
+  `E-MEMBERSHIP-IS-PARTICIPATION-NOT-ANCESTRY-1`,
+  `E-TOKEN-BPE-CAN-FIT-NOT-YET-BUY-1`, `E-CONTENT-NEVER-TRAVELS-IN-CLASSID-1`,
+  `E-HHTL-COMPILES-HIERARCHY-INTO-MASK-GEOMETRY-1`.
+- **Confidence:** High for the measurements; the ruling itself is PENDING —
+  operator's, not the agent's.
+
+## 2026-08-23 — lance-graph #1009 (MERGED, merge 4cb36614; carried the stacked #1010 + #1011 content) — three root-law probes
+
+- **Added:** `probe_evidence_generalization` (7/7 — HIERARCHY IS THE ADDRESS
+  SPACE, NOT THE ONTOLOGY; zero-copy where the carrier is ABI-resident);
+  `probe_falsification_asymmetry` (7/7 — Auslöschung is a READING, never a
+  stored sum; falsifier PROPAGATION is O(1), discovery not claimed);
+  `probe_epistemic_fabric` (9/9 — seven epistemic states;
+  `LearnedSurvivedTests` is the only state licensing a learned transformation;
+  absence is evidence only under closure receipts).
+- **Locked:** the three laws above, each with its measured boundary
+  (provenance required; closure warrant required).
+- **Note:** #1010/#1011 were stacked onto this branch during the dirty-merge
+  resolution; their content landed via this merge.
+- **Docs:** matching EPIPHANIES + INTEGRATION_PLANS entries per probe.
+- **Confidence:** High.
+
+## 2026-08-23 — lance-graph #1008 (MERGED, merge d333bd84) — stream-order-vs-prefix-tree epiphany + seam plan
+
+- **Added:** the banked negative finding (time is not recoverable from the
+  prefix tree; the sorted stream carries it) + the Step-3 seam plan.
+- **Locked (recut):** the invalid "A is not it, B is not it ⇒ A×B is it"
+  composition WITHDRAWN per review — "Time is time. Address is address."
+- **Confidence:** High for the negative finding.
+
+## 2026-08-23 — lance-graph #1007 (MERGED, merge c5b44541) — Tarski signed witness + four-plane causal medium
+
+- **Added:** `probe_tarski_signed_witness` (11/11 — 24×i4 signed derivational
+  field: +support / 0 unresolved / −falsification; falsification never erases
+  the proposition) and `probe_four_plane_causal_medium` (7/7 — HHTL WHERE /
+  CE64 WHAT / G24N4 WHY / V4 DID / NARS f,c HOW STRONGLY stay distinguishable
+  on one memory ABI).
+- **Locked (recut per review):** A9 semantic contract — same geometry, different
+  ClassView, ZERO shared vocabulary (magnitudes never through the `Locus` API);
+  rung proof de-circularized (`derive_depth_from_support`); `CausalRow`
+  labelled PROBE FIXTURE.
+- **Confidence:** High for the geometry; V4 classid provisional (O5).
+
+## 2026-08-23 — lance-graph #1006 (MERGED, merge 9a6532bf) — Step 1: delegation-verification audit (pure negative)
+
+- **Added:** the Step-1 audit of the belief-ABI restoration charter.
+- **Locked (recut per review):** the "trivial per-arena-position address" and
+  the premise-width conflation WITHDRAWN — the audit is a pure negative
+  deliverable; stale heading fixed in the second review round.
+- **Confidence:** High as an audit; it decides nothing.
+
 ## 2026-08-21 — lance-graph #975 (MERGED, merge commit 4a43698, head 5577728) — two measured corrections: the DisMech oracle population, and the academic carve fill; plus a retracted absence
 
 - **Added — the oracle-population correction (`5fac79d` + `5577728`),
