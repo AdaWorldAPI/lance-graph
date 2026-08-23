@@ -6,7 +6,7 @@
 `E-FALSIFICATION-IS-THE-CHEAP-DIRECTION-AND-AUSLOESCHUNG-IS-A-READING-1`.
 **Confidence:** High for the algebra; toy hierarchy, not a corpus.
 
-### The sharp result: `IndirectUnknownIntermediates` becomes FALSIFIABLE
+### The sharp result: `IndirectUnknownIntermediates` becomes CONDITIONALLY FALSIFIABLE
 
 `CausalTopology::IndirectUnknownIntermediates` asserts *"a mediator exists,
 we do not know which."* Until now that was **assertable but not testable** —
@@ -25,14 +25,42 @@ Bound the missing middle from BOTH sides and it becomes a test:
 - **Non-empty (E1)** → the candidate mask IS the search surface, obtained by
   `RowFocusMask::intersect` narrowing to the deeper region — **without
   enumerating a single mediator object.**
-- **EMPTY (E2)** → **no addressed mediator can satisfy both sides, so the
-  topology claim is REFUTED.**
+- **EMPTY (E2a)** → the topology claim is **REFUTED — but only under a
+  CLOSURE RECEIPT on BOTH masks.**
 
-**Honest limit, stated in the probe and not softened:** the refutation is
-scoped to the ADDRESSED universe. An unaddressed mediator — a genuine
-unknown-unknown — is *not* refuted. That is precisely why the state
-`UnknownUnlooked` must stay distinct from `UnknownMediatorUnresolved`, and
-E4 keeps them so.
+**⚠ THE MISSING PREMISE, corrected before merge.** An earlier revision read
+`U ∩ D = ∅` as refutation outright. **That is a logical error:** for sound
+but incomplete masks `U' ⊆ U` and `D' ⊆ D`, `U' ∩ D' = ∅` does **NOT**
+entail `U ∩ D = ∅`. The masks must be **complete** over the declared
+universe — not merely sound, not merely "where we have looked."
+
+**E2c demonstrates the failure rather than guarding against it:** complete
+`U ∩ D = {P.7}` (a mediator EXISTS), yet sound-but-incomplete subsets
+intersect to ∅. Reading that emptiness as refutation is a false negative
+about a mediator that is really there.
+
+So the verdict is a function of the warrant, not the geometry alone:
+
+```
+  CLOSED universe + complete upstream + complete downstream + empty ∩
+        ⇒ topology falsifier
+  otherwise (empty ∩, no closure receipt)
+        ⇒ epistemic pothole: gather more evidence
+```
+
+E2b proves the receipt is load-bearing: the SAME empty intersection yields
+`PotholeGatherMore` the moment closure is dropped on EITHER side.
+
+**The knife edge, stated as the law:**
+
+> **An empty region is a falsifier only when the search universe is proven
+> closed enough for absence to mean absence.** Otherwise it is still a
+> pothole — and an epistemic substrate must refuse to blur the two.
+
+**Second, independent limit:** even with closure, the refutation is scoped
+to the ADDRESSED universe. An unaddressed mediator — a genuine
+unknown-unknown — is never refuted, which is why `UnknownUnlooked` stays
+distinct from `UnknownMediatorUnresolved`.
 
 This replaces the enumerate-and-score shape (`enumerate thousands →
 allocate → score all → discard most`) with `prefix mask → scoped candidate
@@ -59,9 +87,16 @@ too. **A scalar rung collapses both distinctions.** So "deeply reasoned but
 only locally true" and "shallowly derived but broadly observed" are
 different facts the substrate can now hold apart.
 
-### SEVEN epistemic states, pairwise distinguishable (E4 — the strongest gate)
+### The planes ENCODE seven pairwise-distinguishable readings (E4)
 
-If any two collapsed, the fabric claim would fail. None do:
+**Scope of this result, stated precisely:** it shows the planes carry
+enough independent information to encode and distinguish seven readings. It
+does **not** show the seven are exhaustive or canonical, nor that
+production transitions naturally reach them — `read_state()` is
+hand-written and the fixtures are constructed to reach each variant.
+`LearnedSurvivedTests` in particular proves an **admission predicate is
+expressible**, not that a behavioural learner exists. If any two collapsed,
+the separation claim would fail. None do:
 
 | state | licence it grants |
 |---|---|
@@ -83,11 +118,13 @@ Two claims in the SAME state at expectation `0.505` vs `0.965`. Strength
 moves without the state moving — **no field impersonates another**, which
 is the property the whole plane separation exists to protect.
 
-### Connective tissue needs no second universe (E5)
+### Connective tissue needs no new ADDRESS universe (E5)
 
-An internal node carrying aggregate truth / witness / provenance / coverage
-uses the **identical** 16-byte dock, classid and address grammar as a leaf —
-it differs only in DEPTH. So the operator's own cost admission resolves
+An internal node reuses the **identical** 16-byte dock, classid and address
+grammar as a leaf — it differs only in DEPTH — and the aggregate planes
+(truth / witness / provenance / coverage) **attach to that same canonical
+identity**. This proves address reuse, NOT payload collapse: it does not
+claim all four planes physically fit inside one 16-byte dock. So the operator's own cost admission resolves
 cleanly into a law:
 
 > **If the leaves cannot express the relation economically, add
