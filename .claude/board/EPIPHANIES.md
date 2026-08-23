@@ -1,17 +1,23 @@
-## 2026-08-23 — E-TWO-KEY-ELEVATION-WINDOW-IS-NARROW-AND-THE-CORPUS-STRADDLES-IT-1 — the Revision→Kanban hinge is wired; the two shipped rules that must agree for elevation overlap in only a ~0.125-wide band, and both negative controls fall on opposite sides of it
+## 2026-08-23 — E-TWO-KEY-ELEVATION-WINDOW-IS-NARROW-AND-THE-CORPUS-STRADDLES-IT-1 — one `RungElevator` actuator path is driven end-to-end; the two shipped rules that must agree for elevation overlap in only a ~0.125-wide band, and both negative controls fall on opposite sides of it
 
-**Status:** FINDING (measured — `PROBE-REVISION-KANBAN-HINGE-1`, 19/19 gates
-green). **Confidence:** High; reproducible from the commit.
+**Status:** FINDING (measured — `PROBE-REVISION-RUNG-ACTUATOR-1`, 19/19 gates
+green). **Confidence:** High for the measurements; reproducible from the
+commit. **Scope:** this probe establishes one concrete `RungElevator`
+actuator path and measures the overlap of two existing heuristics around
+that actuator. It does **not** establish a canonical metacognitive
+controller.
 
-**The vertical arrow, closed.** #998 proved the triangle changes the NEXT
-thought (HOW I think). This closes the other axis (HOW MUCH / HOW DEEP I may
-think): receipt → membrane → `InnerCouncil::from_signals` → `CollapseHint` →
-`mul::GateDecision` → `KanbanColumn::advance_on_gate` →
-`MailboxSoaOwner::try_advance_phase`, plus the rung arm via
-`RungElevator::apply_delta` — **its first caller anywhere** (the same
-first-arrow shape as #998's `promote_family`). Everything after the membrane
-is shipped machinery; the only novel logic is `signals_from(&CycleEvidence)`,
-pure measured ratios with no tuned constants.
+**The actuator path, driven.** The chain receipt → membrane →
+`InnerCouncil::from_signals` → `CollapseHint` → `mul::GateDecision` →
+`KanbanColumn::advance_on_gate` → `MailboxSoaOwner::try_advance_phase`, plus
+the rung arm via `RungElevator::apply_delta` — **its first caller outside the
+type's own unit tests** (an `examples/` caller, not a production-path one).
+The same correction applies to #998's `MailboxSoA::promote_family`
+(`mailbox_soa.rs:829`): its exhaustive call census is unit tests plus one
+example, never `src/` — "first production-path call" was wrong wording and is
+retracted here. Everything after the membrane is shipped machinery; the only
+novel logic is `signals_from(&CycleEvidence)`, pure measured ratios with no
+tuned constants.
 
 **THE HEADLINE — the two keys barely overlap.** Operator-pinned rule:
 `CollapseHint::RungElevate` is qualitative INTENT, `rung_delta(emergence,
@@ -34,6 +40,57 @@ and the second one the run found rather than the design anticipating it:**
   CLOSED (Fanout) → held. **The council refuses to deepen from overwhelming
   ignorance** — it asks for evidence instead. Guardian dominates Catalyst
   above u ≈ 0.727 regardless of how saturated coverage is.
+
+**F14, stated as measured:** `Contextual → Analogical` changes the recipe set
+returned by the shipped rung-dependent selection path (`Recipe::admissible_at`
+/ `RungLevel::admissible_recipes`, consumed by the live
+`StyleStrategy::recipes_for_at`) from **11 to 24**; the 13 added
+Control-bucket kernels all fire on the measured stalled fixture, and CAS's
+grid changes `[0,0,1,1] → [0.25,0.5,0.5,0.75]`. That is the whole result — it
+is not translated into an epistemic or metacognitive claim.
+
+**NOT OBSERVED / OUT OF SCOPE.** This probe has no observer capable of
+establishing problem-texture discrimination, resonance behavior, MUL
+grounding behavior, or Frozen/Learned/Explore superposition. Its observation
+surface does not contain them; this bounds the probe, and is not a result
+about the architecture either way.
+
+**Anti-conflation note.** The probe's `RungLevel` / `RungElevator` vocabulary
+is unrelated to `lance_graph_planner::temporal`'s `QueryReference` /
+`EpistemicMode`; no conversion or call path exists between them. Worth
+stating only because both spell it "rung" — a census of every rung-named
+surface found nine distinct vocabularies and zero conversions across this
+pair (every `QueryReference::at` / `EpistemicMode::for_rung` call site passes
+a literal or a local `const`).
+
+**FOLLOW-UP OBSERVATION (recorded, not addressed).** The live driver
+numerically materializes `RungLevel` into `ThoughtCtx.rung`
+(`driver.rs:569-577` `elevator.on_gate(gate) as u8` → `driver.rs:978`
+`ctx.rung = rung`). `ThoughtCtx` documents `1..=9`
+(`recipe_kernels.rs:58-59`, default `1`) while `RungLevel` contains
+`Surface = 0`, so `Surface` can be materialized as `0`. No semantic failure
+was demonstrated here and this PR does not alter it; whether `0` has
+behavioral consequences or is stale documentation is for a later falsifier.
+
+**Behavioral learning: no production path exists.**
+`ScaffoldCompiler::synthesize` returns `Err(CompileError::NotImplemented)`
+unconditionally (`cognitive-compiler/src/lib.rs:155`), and `elixir-template`
+/ `template-runtime` / `template-equivalence` / `cognitive-compiler` are all
+in the root `Cargo.toml` `exclude` array. `witness_fabric::ForesightSample`
+(`:1704`) is a correctly-shaped, hindsight-blind prediction-vs-outcome
+primitive whose every caller is in its own `#[cfg(test)]` module — test-only,
+not a live learning receipt. The honest claim is therefore *future*
+behavioral learning will need equivalent prediction-time provenance; nothing
+today can establish that property.
+
+**Temporal placement (narrow).** `temporal.rs` = query-level admission of
+historical knowledge, tested, no production caller. `witness_fabric` = a
+SEPARATE shipped grounding mechanism whose hindsight discipline is enforced
+by API shape (the outcome is unreachable from the call signature) — this is
+the load-bearing one. temporal → Revision = BLOCKED / absent
+(`counterfactual.rs:335-336`, D-ATOM-5 / D-PERSONA-5). `temporal.rs` does not
+currently participate in the cognitive loop, and nothing in this probe
+touches it.
 
 **G19, the honest null:** this corpus's reachable exhaustion depths STRADDLE
 the window (0.564 < [0.600, 0.725] < 0.768), so the earned-elevation arm

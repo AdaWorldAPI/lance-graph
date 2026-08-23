@@ -1,14 +1,22 @@
-//! PROBE-REVISION-KANBAN-HINGE-1 — the vertical arrow: when metacognition
-//! stops changing policy inside the current rung (the triangle, #998) and
-//! instead changes how much / how deep cognition the owner-local Kanban
-//! admits — through the SHIPPED council, gate, and rung machinery only.
+//! PROBE-REVISION-RUNG-ACTUATOR-1 — one concrete `RungElevator` actuator
+//! path, and the measured overlap of the two shipped heuristics that gate
+//! it, through SHIPPED council / gate / rung machinery only.
 //!
-//! # The distinction under test
+//! # What this probe establishes, and what it does not
 //!
-//! ```text
-//!   Triangle = change HOW I think          (#998, closed)
-//!   Kanban   = change HOW MUCH / HOW DEEP I may think   (this probe)
-//! ```
+//! **Establishes:** that `RungElevator::apply_delta` can be driven from a
+//! cycle receipt through the shipped chain, and that the two rules gating
+//! it (`CollapseHint::RungElevate` and `escalation::rung_delta`) agree on
+//! only a ~0.125-wide band of the measured axis.
+//!
+//! **Does NOT establish:** a canonical metacognitive controller. This is a
+//! single-pathway measurement, not a model of cognition.
+//!
+//! # Anti-conflation note (two unrelated things both say "rung")
+//!
+//! This probe's `RungLevel` / `RungElevator` vocabulary is unrelated to
+//! `lance_graph_planner::temporal`'s `QueryReference` / `EpistemicMode`;
+//! no conversion or call path exists between them.
 //!
 //! # What the audit found (main @ 885f6ca2, two survey lanes + direct reads)
 //!
@@ -31,19 +39,20 @@
 //!   rung — never `on_gate` — so the trap is navigated, not tripped.
 //! - `RungElevator::apply_delta` — the documented consumer of
 //!   `escalation::rung_delta`'s ±1 — had ZERO callers anywhere. This probe
-//!   is its first caller (the same first-arrow shape as #998's
-//!   `promote_family`).
-//! - No kernel's `gate()` reads `ctx.rung` (verified negative). The REAL
-//!   shipped rung-capability gate is `Recipe::admissible_at(rung)` /
-//!   `RungLevel::admissible_recipes()` (`contract::recipes`, monotone,
+//!   is its first caller outside the type's own unit tests (an `examples/`
+//!   caller, not a production-path one — the same shape as #998's
+//!   `MailboxSoA::promote_family`, `mailbox_soa.rs:829`, whose call census
+//!   is likewise tests + this one example, never `src/`).
+//! - No kernel's `gate()` reads `ctx.rung` (verified negative). The
+//!   shipped rung-dependent selection path is `Recipe::admissible_at(rung)`
+//!   / `RungLevel::admissible_recipes()` (`contract::recipes`, monotone,
 //!   test-pinned, consumed by the live `StyleStrategy::recipes_for_at`):
 //!   Gate bucket ⇒ min_rung Surface, Datapath ⇒ Contextual, Control ⇒
 //!   Analogical, ExtremelyHard tier ⇒ Counterfactual floor. TCP/TCF/CUR/CAS
-//!   are all Gate bucket (the observer trio is never rung-gated); the 19
-//!   Control-bucket recipes are inadmissible at Contextual and the
-//!   Hard/CrossTier ones admit at Analogical — F14's actuator, per the
-//!   priority "rung-gated tactic admission" (no probe-local fake
-//!   capability).
+//!   are all Gate bucket (the observer trio is rung-independent); the 19
+//!   Control-bucket recipes are not selected at Contextual and the
+//!   Hard/CrossTier ones are selected at Analogical — this is what F14
+//!   measures (no probe-local synthetic selector).
 //!
 //! # The two-key rule (operator-pinned)
 //!
@@ -123,8 +132,58 @@
 //!                                                 → rung_delta gate
 //!                                                 → owner-local elevation
 //!                                                 → next cycle: measured
-//!                                                   capability delta (F14)
+//!                                                   recipe-set delta (F14)
 //! ```
+//!
+//! # NOT OBSERVED / OUT OF SCOPE
+//!
+//! This probe has no observer capable of establishing:
+//!
+//! - problem-texture discrimination
+//! - resonance behavior
+//! - MUL grounding behavior
+//! - Frozen / Learned / Explore superposition
+//!
+//! Its observation surface does not contain them. This is a limitation of
+//! the probe, not a result about the architecture — no claim here refutes
+//! or supports any of the four.
+//!
+//! # FOLLOW-UP OBSERVATION (recorded, not addressed here)
+//!
+//! The live driver numerically materializes `RungLevel` into
+//! `ThoughtCtx.rung`: `elevator.on_gate(gate) as u8`
+//! (`driver.rs:569-577`) → `materialize_provenance` → `ctx.rung = rung`
+//! (`driver.rs:978`). `ThoughtCtx.rung` documents "meaning-depth rung
+//! 1..=9" (`recipe_kernels.rs:58-59`, default `1`) while `RungLevel`
+//! includes `Surface = 0`, so `Surface` can be materialized as `0`. No
+//! semantic failure is demonstrated here and this PR does not alter it;
+//! whether `0` has behavioral consequences or is stale documentation is
+//! for a later falsifier.
+//!
+//! # Behavioral learning: no production path exists
+//!
+//! Nothing measured here feeds a learning path, because there is none.
+//! `ScaffoldCompiler::synthesize` — the only `TraceCompiler::synthesize`
+//! impl — returns `Err(CompileError::NotImplemented)` unconditionally
+//! (`cognitive-compiler/src/lib.rs:155`), and `elixir-template` /
+//! `template-runtime` / `template-equivalence` / `cognitive-compiler` are
+//! all in the root `Cargo.toml` `exclude` array. `witness_fabric`'s
+//! `ForesightSample` (`:1704`) is a correctly-shaped, hindsight-blind
+//! prediction-vs-outcome primitive whose callers are all in its own
+//! `#[cfg(test)]` module — a test-only primitive, not a live receipt.
+//!
+//! # Temporal placement (narrow, and NOT part of this probe's loop)
+//!
+//! - `temporal.rs` = query-level admission of historical knowledge
+//!   (`classify` / `deinterlace`); tested, and with no production caller.
+//! - `witness_fabric` = a SEPARATE shipped grounding mechanism whose
+//!   hindsight discipline is enforced by API shape (the outcome is
+//!   unreachable from the call signature).
+//! - temporal → Revision = BLOCKED / absent
+//!   (`counterfactual.rs:335-336`, D-ATOM-5 / D-PERSONA-5).
+//!
+//! `temporal.rs` does not currently participate in the cognitive loop, and
+//! nothing in this probe touches it.
 //!
 //! # Scope fences (this slice does NOT do)
 //!
@@ -598,8 +657,8 @@ struct Signals {
 /// - `trust` = (1 − task_unresolved)·coverage — CALIBRATED competence: an
 ///   assessment is only trustworthy to the extent observation backs it.
 /// - `humility` = task_unresolved — the acknowledged size of what we don't
-///   know (`from_signals` peaks Catalyst at humility 0.5: depth is worth
-///   seeking when ignorance is substantial but not overwhelming).
+///   know (`from_signals` peaks Catalyst at humility 0.5 — a shipped
+///   property of the curve, quoted here, not an interpretation).
 /// - `flow` = coverage — absorption in the evidence stream.
 /// - `load` = task_unresolved — the allostatic burden.
 fn signals_from(ev: &CycleEvidence) -> Signals {
@@ -630,7 +689,8 @@ fn emergence_coherence(ev: &CycleEvidence) -> (f32, f32) {
 /// Lower a council verdict to the Kanban gate (`mul::GateDecision` — the
 /// one `advance_on_gate` consumes; NOT `collapse_gate::GateDecision`).
 /// Flow advances the lifecycle; Fanout and RungElevate both HOLD the phase
-/// (breadth and depth change admission, never the column — F5/F6).
+/// (they change `fanout_width` / the `RungElevator` level, never the
+/// KanbanColumn — F5/F6).
 fn lower_to_gate(verdict: &CouncilVerdict) -> GateDecision {
     match verdict.hint {
         CollapseHint::Flow => GateDecision::Flow,
@@ -893,7 +953,7 @@ fn lanes_snapshot(mb: &MailboxSoA<4>) -> [[u8; 12]; 3] {
 
 #[allow(clippy::too_many_lines)]
 fn main() {
-    println!("═══ PROBE-REVISION-KANBAN-HINGE-1 ═══\n");
+    println!("═══ PROBE-REVISION-RUNG-ACTUATOR-1 ═══\n");
     let mut gates: Vec<(&str, bool, String)> = Vec::new();
 
     // The live CE64 non-interference witness: a genuinely nontrivial edge,
@@ -1159,15 +1219,16 @@ fn main() {
         format!("task-u={win_mid:.3} → hint RungElevate, rung_delta +1 (both keys)"),
     ));
     gates.push((
-        "F6 elevation changed the admitted rung ONLY: phase held, triangle bytes identical",
+        "F6 elevation changed the RungElevator level ONLY: phase held, triangle bytes identical",
         out_e.elevated
             && out_e.level_after == RungLevel::Analogical
             && out_e.phase_after == KanbanColumn::CognitiveWork
             && lanes_e_before == lanes_e_after,
-        "Contextual → Analogical via the FIRST production-path apply_delta call".into(),
+        "Contextual → Analogical via the first apply_delta call outside the type's own unit tests"
+            .into(),
     ));
 
-    // ── F14: capability delta on SHIPPED admission semantics ──────────
+    // ── F14: recipe-set delta on the SHIPPED rung-dependent selector ──
     let before_ids: Vec<u8> = RungLevel::Contextual
         .admissible_recipes()
         .map(|r| r.id)
@@ -1203,7 +1264,7 @@ fn main() {
     let cas_lo = cas_at(RungLevel::Contextual);
     let cas_hi = cas_at(RungLevel::Analogical);
     gates.push((
-        "F14 post-elevation cycle performs work UNAVAILABLE at the prior rung",
+        "F14 Contextual→Analogical changes the shipped rung-dependent recipe set 11→24; the added Control-bucket kernels fire on the measured fixture",
         out_e.elevated
             && after_ids.len() > before_ids.len()
             && !newly.is_empty()
@@ -1247,7 +1308,7 @@ fn main() {
 
     // ── F10 / F11 ─────────────────────────────────────────────────────
     gates.push((
-        "F10 only the stalling owner's admission changed; bystander untouched",
+        "F10 only the stalling owner's RungElevator level changed; bystander untouched",
         bystander.phase() == KanbanColumn::Planning
             && bystander_elev.level == RungLevel::Contextual
             && bystander.style_lane_at(0, StyleLane::Frozen).unwrap() == [7u8; 12]
@@ -1340,7 +1401,7 @@ fn main() {
     );
     assert!(
         all,
-        "PROBE-REVISION-KANBAN-HINGE-1: gate failure — see above"
+        "PROBE-REVISION-RUNG-ACTUATOR-1: gate failure — see above"
     );
-    println!("\nPROBE-REVISION-KANBAN-HINGE-1: ALL GATES GREEN");
+    println!("\nPROBE-REVISION-RUNG-ACTUATOR-1: ALL GATES GREEN");
 }
