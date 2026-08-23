@@ -1,3 +1,103 @@
+## 2026-08-23 — E-FALSIFICATION-IS-THE-CHEAP-DIRECTION-AND-AUSLOESCHUNG-IS-A-READING-1 — the address space makes Popper's asymmetry mechanical; two costs measured
+
+**Status:** FINDING — [MEASURED] on shipped operators
+(`PROBE-HHTL-FALSIFICATION-ASYMMETRY-1`, 7/7). Corollary of
+`E-HIERARCHY-IS-THE-ADDRESS-SPACE-NOT-THE-ONTOLOGY-1`.
+**Confidence:** High for the algebra; the toy hierarchy is an operator
+test, not a corpus.
+
+### Why a SIGNED field is categorically different
+
+A signed `24×i4` field admits **destructive interference** — *Auslöschung*.
+`+n` and `−n` at one address cancel. A purely positive confidence scalar
+structurally cannot do this: it can be diluted, never extinguished. That is
+the whole distance between *"my confidence went down"* and *"this was
+refuted"* — and refutation, not dilution, is what a learner can act on.
+
+### ⚠ COST 1 (F1) — Auslöschung must be a READING, never a stored sum
+
+Measured: `net(+3, −3) == net(unset) == 0`. **A summed slot cannot
+distinguish "support and refutation met and annihilated" from "nothing was
+ever asserted here."** Those license opposite actions — the first is a
+licence to LEARN (something is contested, go resolve it), the second a
+licence to LOOK (nothing here yet, go gather). Collapsing them destroys
+exactly the information falsification exists to create.
+
+Two slots keep the three-way state (`Unasserted` / `Supported` / `Refuted`
+/ `Contested{net}`) and the registers differ bitwise even when the net is
+zero. **So: cancellation is a projection over retained polarities, never a
+storage collapse.** This is the same shape as the standing rule that a
+contradiction is COMMITTED and preserved, not resolved away.
+
+### The asymmetry, made mechanical (F2/F3/F5)
+
+```
+  falsify a universal claim at P    ONE counterexample region     cost 1
+  verify  a universal claim at P    exhaust FAN_OUT (16)          cost 16
+                                    …and every level BELOW stays open
+```
+
+Falsification is the only operation here that is **`O(1)` and totally
+sound**. It reaches a whole subtree with **no enumeration** (F2: one
+depth-1 focus covers all 16 depth-2 and all 16 depth-3 probes by prefix
+test alone — the subtree is never materialized), and it does not over-kill
+(F5: silent on sibling subtrees, on other parents, and — importantly — on
+its own ANCESTOR, since a child's refutation is not the parent's).
+
+The hierarchy does not *create* Popper's asymmetry. It makes it
+**mechanical**: `covers` is the entire test. That is the concrete sense in
+which falsification is "a precondition for learning" here — it is the
+cheap direction, structurally.
+
+### The known-unknown is addressable-without-a-value (F4)
+
+Three epistemic states, and only the middle one admits a targeted
+counterfactual probe:
+
+| state | address | value |
+|---|---|---|
+| known-known | a covered address | present |
+| **known-unknown** | **a real region to drill into** | **absent** |
+| unknown-unknown | no region at all | absent |
+
+This is what makes "indirect intermediate known-unknowns" cheap: the WHERE
+is addressable while the WHAT is absent, so a probe has a target. It pairs
+exactly with the shipped `CausalTopology::IndirectUnknownIntermediates` —
+the topology register says *an* intermediate exists, the address space says
+*where it would live*, and the pothole says *we don't have it yet*.
+
+### Inheritance is DIRECTIONAL (F7)
+
+Downstream is `covers` (containment); upstream is `common_prefix` (the
+meet). `P.covers(C)` but **not** `C.covers(P)` — upstream is not
+containment, and conflating them would let a child's verdict masquerade as
+its parent's.
+
+### ⚠ COST 2 (F6) — "all but one" is the worst case, and `difference` cannot help
+
+The operator's own cost admission — *"in the worst case it just needs HHTL
+hierarchical nodes to express more connective tissue than the leaf
+nodes"* — measured rather than conceded:
+
+- **Collapse is free.** All 16 children explicitly = 16 antichain entries,
+  but absorbs to **1** parent entry.
+- **"All but one" costs 15 entries.** And `RowFocusMask::difference`
+  **cannot** reduce it: subtracting the hole from the parent yields **1
+  entry that STILL COVERS THE HOLE**.
+
+That last result is sharper than "conservative". It means `difference` is
+**not usable as an exclusion primitive** — reading its output as
+"everything except the hole" is unsound. This is the mechanical root of the
+already-standing P* rule (scoped-difference potholes are conservative
+candidate-unknown masks, never exact holes), and the shipped doc says why
+in its own words: splitting a prefix "would require enumerating siblings —
+inventing addresses the focus never visited."
+
+**Consequence:** an exclusion needs **its own channel** — a signed negative
+at the excluded address (which the signed field already provides) — never a
+subtracted prefix. Pleasingly, that is Auslöschung again: you mark the hole,
+you do not carve it out.
+
 ## 2026-08-23 — E-TYPE-COMPLEXITY-EXPOSED-A-MEMORY-ABI-ESCAPE-1 — the clippy warning was the surface symptom; `BeliefArena` is an independent AoS cognitive population owner outside the canonical memory ABI
 
 **Status:** FINDING (operator-escalated; #1004 recut to a discovery receipt).
