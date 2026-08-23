@@ -70,11 +70,18 @@ type could carry this, unwired · **[ABSENT]** no implementing code exists ·
 `elevation.rs`, `stance.rs`, `insights.rs`, `belief.rs` tests) passes `&[]`,
 `&[inner_id]` (1), or a 2-array. **Nothing in the codebase has ever
 constructed a `Belief` with 3+ premises.** The `Vec<u32>` signature is more
-general than any real caller needs — arity is ≤2 everywhere, which fits
-directly as two pointer slots (two 8:8 tiles, or two signed context
-nibbles) with room to spare, not the "cardinality = more rows" case the
-furnace rule guards against. The residue here is smaller than the charter
-assumed.
+general than any real caller needs.
+
+**What this establishes, and what it does NOT.** Established: real premise
+CARDINALITY ≤ 2, so this is not the "cardinality = more rows" case the
+furnace rule guards against. **Not established:** that two `u32` premise
+identities FIT in two 8:8 tiles, and emphatically not that they fit in two
+signed `i4` context nibbles. Cardinality and physical width are different
+facts, and an earlier revision of this section conflated them. A `u32`
+arena index is not an address; whether the identity it stands for can be
+expressed in a tile or a nibble depends on a locality/address
+transformation that has not been designed, let alone proven. The width
+question is OPEN and belongs to step 2.
 
 ### `stmt`/`truth` homes — one structural fit found, one open
 
@@ -114,18 +121,36 @@ of these compose into "read a node's children + siblings, fold their
 evidence, inherit from parent."** Grepped `children.*sibling` and
 `fn accumulate` in `lance-graph-contract/src/` directly: zero hits.
 
-**What this means for the ladder (correction to the prior entry).** The
-operator ruling settles **direction** (delegate, don't mint a `stamp`/`rung`
-tenant) and that stands. But it does NOT mean step 2 is fully discharged as
-"nothing to build" — the ruling names a mechanism (HHTL address-tree
-accumulate/inherit) that is currently **prose and precedent, not code**.
-Step 3's probe is therefore not a restatement of an existing fold; it must
-**build the first instance of it** — mint a `FacetCascade` address per
-belief position (even a trivial per-arena-position one), implement ONE
-accumulate-from-children/siblings fold, and only then check whether it
-reproduces the arena's `max(premise_rung)+1` / stamp-union results. If it
-cannot, that is the falsifier the charter asked for: report the exact
-missing bit/field/route invariant, do not force it.
+**What this means for the ladder.** The audit's output is the two [ABSENT]
+verdicts above. It does **not** license a mechanism, and this section
+deliberately proposes none.
+
+**A withdrawn proposal, recorded so it is not re-derived.** An earlier
+revision of this section instructed step 3 to *"mint a `FacetCascade`
+address per belief position (even a trivial per-arena-position one)"* and
+then build a fold until it reproduced the arena. **That is backwards and is
+withdrawn.** A synthetic address derived from arena POSITION would turn a
+`Vec` index into a pretty 16-byte `Vec` index — still a second physical
+belief universe, and now one wearing the canonical address format as
+camouflage. An address must come from the canonical node/relation identity
+or it is not an address; inventing one to make a hypothesis testable
+invents the result too.
+
+**The two ruled items are therefore hypotheses awaiting step 2, not
+directions awaiting implementation:**
+
+- `rung = HHTL tree depth` — the real open question is whether derivation
+  depth is reconstructible from SUPPORT TOPOLOGY (the premise DAG) at all,
+  which is answerable without any address. (Measured since, on one fixture:
+  `PROBE-TARSKI-SIGNED-WITNESS-1` gate A2, PR #1007 — depth derived from
+  the premise DAG alone reproduced the arena's stored `rung` 10/10. One
+  fixture is not a general result, and it is evidence about SUPPORT
+  topology, not about HHTL depth.)
+- `stamp = children/sibling accumulation` — any replacement must reproduce
+  `Stamp`'s load-bearing IDENTITY semantics: disjointness detection,
+  overlap detection, source-set union, and no-double-count
+  (`belief.rs:39-48`). A generic commutative fold is not automatically
+  equivalent to a source-set union, and must not be assumed to be.
 
 ## Bounds (the line not to cross)
 
