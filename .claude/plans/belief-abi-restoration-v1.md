@@ -53,6 +53,80 @@ NOT "how do we make BeliefArena SoA?" but:
 entity_index: HashMap<String, Vec<usize>> }` is NOT an ABI home — same
 escape shape. "Move it into AriGraph" as shipped today moves the violation.
 
+## Step 1 — Delegation-Verification Audit (2026-08-23)
+
+Grades: **[CODE]** shipped and load-bearing · **[STRUCTURAL FIT]** a shipped
+type could carry this, unwired · **[ABSENT]** no implementing code exists ·
+**[OPERATOR RULING]** the direction is decided, the mechanism is not yet code.
+
+### `premises: Vec<u32>` — delegation STRENGTHENED, not just confirmed
+
+**[CODE].** Every real construction site in the tree was checked —
+`close_transitive`'s `derived: HashMap<CStmt, (TruthValue, u32, [u32; 2])>`
+(`belief.rs:296,319`, fixed 2-array) and `tactics.rs`'s
+`Candidate.premises: [u32; 2]`, documented *"the pointer fabric"*
+(`tactics.rs:76-77`, four mint sites, all exactly 2). Every
+`admit_derived(..)` call in the workspace (11 sites, `epiphany.rs`,
+`elevation.rs`, `stance.rs`, `insights.rs`, `belief.rs` tests) passes `&[]`,
+`&[inner_id]` (1), or a 2-array. **Nothing in the codebase has ever
+constructed a `Belief` with 3+ premises.** The `Vec<u32>` signature is more
+general than any real caller needs — arity is ≤2 everywhere, which fits
+directly as two pointer slots (two 8:8 tiles, or two signed context
+nibbles) with room to spare, not the "cardinality = more rows" case the
+furnace rule guards against. The residue here is smaller than the charter
+assumed.
+
+### `stmt`/`truth` homes — one structural fit found, one open
+
+**[STRUCTURAL FIT].** `spo::truth::TruthValue { frequency: f32, confidence:
+f32 }` (`truth.rs:15-17`) is byte-identical in shape to
+`nars::truth::TruthValue` and is documented *"Each SPO edge carries a
+TruthValue"* — a real, shipped per-edge truth residence exists. **Open:**
+no code currently writes a `Belief`'s truth into an SPO edge; this is an
+unwired but structurally sound target, not yet a home.
+
+**Open, unresolved.** Whether `Copula::{Inh, Sim, Impl, Rel(u16)}` is
+expressible in existing edge/rail geometry was not settled this pass —
+`Copula` needs its own small audit before step 2 closes it.
+
+### The tree-overlay delegation (rung=depth, stamp=accumulation) — direction ruled, mechanism ABSENT
+
+This is the harder, more important finding, and it changes what step 3 is.
+
+**[ABSENT] — no `Belief` is ever minted an HHTL/`FacetCascade` address.**
+Grepped `FacetCascade`/`facet_classid` across every file in
+`nars/`: **zero occurrences.** `BeliefArena` indexes entries by plain `u32`
+position in a `Vec` — there is no address, so "rung = tree depth" has
+nothing to measure depth OF yet. The delegation names a destination; the
+bridge from a `Belief` to an addressed node does not exist in any form.
+
+**[ABSENT] — no accumulate-from-children-and-siblings fold exists.**
+Every precedent the ruling cited was re-checked individually and each is a
+**different** mechanism, not one shared fold: `carried_awareness`
+(`recipe_loci.rs:347`) is a lower→higher CARRY, not a children→parent
+accumulation; `rail_geometry.rs:183`'s Horner sum is a fixed-depth
+positional weighting, not a tree walk; `causal_audit`'s *"evidence
+accumulates"* is append-only history on ONE node, not aggregation ACROSS
+nodes; `orchestration_mode.rs:8`'s *"truth accumulates on the path"* is the
+closest in spirit but is documented, not implemented, at that line;
+`FieldMask::inherit` is a bitwise OR of two masks, not a tree fold. **None
+of these compose into "read a node's children + siblings, fold their
+evidence, inherit from parent."** Grepped `children.*sibling` and
+`fn accumulate` in `lance-graph-contract/src/` directly: zero hits.
+
+**What this means for the ladder (correction to the prior entry).** The
+operator ruling settles **direction** (delegate, don't mint a `stamp`/`rung`
+tenant) and that stands. But it does NOT mean step 2 is fully discharged as
+"nothing to build" — the ruling names a mechanism (HHTL address-tree
+accumulate/inherit) that is currently **prose and precedent, not code**.
+Step 3's probe is therefore not a restatement of an existing fold; it must
+**build the first instance of it** — mint a `FacetCascade` address per
+belief position (even a trivial per-arena-position one), implement ONE
+accumulate-from-children/siblings fold, and only then check whether it
+reproduces the arena's `max(premise_rung)+1` / stamp-union results. If it
+cannot, that is the falsifier the charter asked for: report the exact
+missing bit/field/route invariant, do not force it.
+
 ## Bounds (the line not to cross)
 
 - Do NOT optimize BeliefArena. Do NOT mechanically SoA-split its fields.
