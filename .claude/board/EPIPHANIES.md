@@ -1,3 +1,47 @@
+## 2026-08-23 — E-A-TYPE-ALIAS-CANNOT-REPAIR-MEMORY-GEOMETRY-1 — a `type_complexity` warning marked an accidental AoS copy of an AoS owner, and the owner is the real finding
+
+**Status:** FINDING (measured — `probe_parallel_rung.rs`, 7/7 gates green,
+witness proven falsifiable by sabotage). **Confidence:** High.
+
+**The warning was not about naming.** Clippy flagged
+`fn snapshot(a: &BeliefArena) -> Vec<((u16,u16),u32,(f32,f32))>`. A `type
+SnapshotRow = …` alias would have silenced it and changed **zero physical
+properties**. What the function actually did: build an **AoS copy of the whole
+population, twice**, to compare ONE lane — then discard 6 of 10 rows through a
+filter. The sort existed only to stabilise comparison order.
+
+**The deeper finding is in the owner, not the probe.** `BeliefArena` is
+`entries: Vec<Belief>` (`belief.rs:130`) — **already AoS**. There are no
+physical lanes to borrow, so the probe was making *a second AoS copy of an AoS
+owner*. Splitting it into five owned `Vec`s would have replaced one allocation
+with five while still moving the population — SoA-looking, not SoA. Recorded
+plainly: **`BeliefArena` is not (yet) the canonical 4+12 LE SoA substrate.**
+The probe now says so in its own doc rather than papering over it.
+
+**The correction, smallest lawful form.** `rung_lane_witness(&arena, rung) ->
+(usize, u64)`: a borrowed, **allocation-free** fold over the rung lane. No
+`Vec`, no sort, no tuple row. The XOR fold is order-independent — which is what
+removes the sort — and it is sound *because* `CStmt` is UNIQUE in the arena by
+construction (`Belief::stmt`: *"The statement (UNIQUE in the arena — S2)"*).
+Uniqueness is what licenses a commutative fold; without S2 a pair could cancel.
+
+**Proven falsifiable, not assumed.** A sabotage run perturbing one rung-0
+belief's truth between the two witnesses drove G4 **FAIL** — while the **count
+stayed 4**. So the digest half is load-bearing: a count-only check would have
+missed the mutation. Clippy's `type_complexity` count across the planner
+examples is now **0**, for a physical reason (the `Vec` is gone), not a naming
+one.
+
+**Census of the sibling sites (#1000..#1003), so this is not re-litigated.**
+Exactly one violation existed. `visible() -> Vec<usize>` is scalar result ids;
+`gates`/`histogram`/`per_band`/`blame` are terminal report rows (≤20);
+`picks` is a bounded 20-row fixture map; `trace.steps` is 3 entries; the
+kanban-hinge `Vec`s are the 81-cell Sudoku domain fixture, not the cognitive
+population. **One noted and deliberately untouched:** `rungs_present()`
+collects a population-sized single `u32` lane before sort+dedup to ≤7 values —
+reducible to a fold, but a single lane is not the multi-field AoS
+reconstruction this rule targets, and widening the fix would exceed the scope.
+
 ## 2026-08-23 — E-A-WARRANT-MUST-BE-ABLE-TO-SAY-NO-1 — the trajectory is reconstructible AND grounded; the warrant channel that could not refuse was the defect
 
 **Status:** FINDING (measured — `PROBE-WARRANTED-VIEW-TRACE-1`, 9/9 gates

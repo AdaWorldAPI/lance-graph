@@ -48,22 +48,47 @@ fn inh(s: u16, p: u16) -> CStmt {
     }
 }
 
-/// Every `(statement, rung, truth)` currently in the arena, sorted for a
-/// stable byte-comparable snapshot.
-fn snapshot(a: &BeliefArena) -> Vec<((u16, u16), u32, (f32, f32))> {
-    let mut v: Vec<_> = a
-        .entries()
-        .iter()
-        .map(|b| {
-            (
-                (b.stmt.s, b.stmt.p),
-                b.rung,
-                (b.truth.frequency, b.truth.confidence),
-            )
-        })
-        .collect();
-    v.sort_by_key(|(k, r, _)| (*k, *r));
-    v
+/// A borrowed, allocation-free witness for "the rung-`r` lane is unchanged":
+/// `(count, order-independent digest)`.
+///
+/// **Why not a `Vec<((u16,u16),u32,(f32,f32))>` snapshot** (which is what this
+/// replaced, and what clippy's `type_complexity` was pointing at): that built
+/// an AoS copy of the WHOLE population, twice, to compare one lane — and then
+/// discarded 6 of 10 rows through a filter. A type alias would have silenced
+/// the lint and changed no physical property. *A type alias can hide type
+/// complexity; it cannot repair memory geometry.*
+///
+/// **Why a fold and not five borrowed columns:** `BeliefArena` is
+/// `entries: Vec<Belief>` (`belief.rs:130`) — the owner is itself AoS. There
+/// are no physical lanes to borrow, so the probe was making a second AoS copy
+/// of an AoS owner. Splitting it into five owned `Vec`s would replace one
+/// allocation with five and still move the population. Recorded plainly:
+/// **`BeliefArena` is not (yet) the canonical 4+12 LE SoA substrate**, and
+/// this probe does not pretend otherwise.
+///
+/// **Why XOR is sound here:** the fold is order-independent, so no sort is
+/// needed — and it cannot silently cancel a pair, because `CStmt` is UNIQUE
+/// in the arena by construction (`Belief::stmt`: *"The statement (UNIQUE in
+/// the arena — S2)"*). Uniqueness is what licenses the commutative fold.
+fn rung_lane_witness(a: &BeliefArena, rung: u32) -> (usize, u64) {
+    let mut count = 0usize;
+    let mut acc = 0u64;
+    for b in a.entries().iter().filter(|b| b.rung == rung) {
+        let mut h: u64 = 0xcbf2_9ce4_8422_2325;
+        for v in [
+            u64::from(b.stmt.s),
+            u64::from(b.stmt.p),
+            u64::from(b.rung),
+            u64::from(b.truth.frequency.to_bits()),
+            u64::from(b.truth.confidence.to_bits()),
+        ] {
+            h ^= v;
+            h = h.wrapping_mul(0x0000_0100_0000_01b3);
+        }
+        acc ^= h;
+        count += 1;
+    }
+    (count, acc)
 }
 
 fn rungs_present(a: &BeliefArena) -> Vec<u32> {
@@ -88,12 +113,11 @@ fn main() {
             Stamp::source(i as u32),
         );
     }
-    let observed_snapshot = snapshot(&arena);
+    let observed_before = rung_lane_witness(&arena, 0);
     let observed_count = arena.entries().len();
 
     arena.close_transitive(16);
 
-    let after = snapshot(&arena);
     let present = rungs_present(&arena);
 
     // ── G1: at least three distinct rungs coexist in ONE arena ────────
@@ -129,14 +153,16 @@ fn main() {
     // ── G4: the rung-0 contributions survive the higher rungs' arrival ─
     // Requirement 5: creating higher-rung work must NOT delete, overwrite,
     // invalidate, or demote the lower-rung work.
-    let observed_still: Vec<_> = after.iter().filter(|(_, r, _)| *r == 0).cloned().collect();
+    let observed_after = rung_lane_witness(&arena, 0);
     gates.push((
         "G4 every rung-0 belief survives byte-identical after closure",
-        observed_still == observed_snapshot && observed_still.len() == observed_count,
+        observed_after == observed_before && observed_after.0 == observed_count,
         format!(
-            "{} observed before, {} identical rung-0 entries after",
+            "{} observed before -> ({}, 0x{:016x}) after, witness identical: {}",
             observed_count,
-            observed_still.len()
+            observed_after.0,
+            observed_after.1,
+            observed_after == observed_before
         ),
     ));
 
