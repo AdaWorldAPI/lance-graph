@@ -124,12 +124,17 @@ jobs:
       - name: Run weather-poc canonical-row agreement tests
         run: cargo test --manifest-path crates/weather-poc/Cargo.toml --features canonical-row
       # lance-graph-ogar is the workspace-EXCLUDED armed tier: it owns the
-      # mirror<->live-vocab fuses (COUNT_FUSE, per-entry parity, the
-      # authoritative-table roundtrip green light) against the OGAR sibling
-      # checked out above. Without this step those fuses only ever ran on a
-      # developer machine — a same-sized codebook remap would ship green
-      # (codex/coderabbit finding on PR #658). One scoped step closes it.
-      - name: Run lance-graph-ogar fuse tests (armed tier, OGAR sibling)
+      # mirror<->live-vocab codebook-parity check (`assert_codebook_parity`:
+      # forward, reverse, and domain agreement — the compile-time COUNT_FUSE
+      # was RETIRED 2026-08-14 in favor of this runtime bijection + per-plug
+      # hotplug activation, see lance-graph-ogar's crate docs) against the
+      # OGAR sibling checked out above. Without this step that check only
+      # ever ran on a developer machine — a same-sized codebook remap would
+      # ship green (codex/coderabbit finding on PR #658), and a stale mirror
+      # row would ship silently (caught live 2026-08-23: a mirror commit
+      # claiming 14 Ontology concepts were "minted in ogar-vocab" when OGAR
+      # had never minted them). One scoped step closes both.
+      - name: Run lance-graph-ogar codebook-parity + hotplug-activation tests (armed tier, OGAR sibling)
         run: cargo test --manifest-path crates/lance-graph-ogar/Cargo.toml
       # deepnsm: standalone 0-dep codec crate, workspace-excluded, so the
       # lance-graph test steps above never reached it. ~217 lib + integration +
