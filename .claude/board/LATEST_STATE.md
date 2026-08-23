@@ -1269,7 +1269,7 @@ Blast-radius classification (`CODE-PROVEN` / `OWNER-SPECIFIED` / `UNAUTHORIZED I
 ### Current Contract Inventory — one new module (D1)
 - `lance_graph_contract::settlement::{SettlementSignals, SettlementCell, SettlementScope}` — settlement as a FOUR-signal field. Discriminator is **closure × competence**, NOT entropy: Crystal / **Glass** (dense closure on thin evidence — the dangerous cell a scalar hides, since it looks like Crystal from one side and Fog from the other) / GroundedUnresolved / Fog. `field_entropy` + `eigenvalue_concentration` REFINE a cell and are pinned by test never to move it — the earlier "crystal = low entropy + high closure, glass = low entropy + low closure" formulation had entropy on both axes and silently deleted competence. `SettlementScope` (arena/basin/version/branch/witness-horizon) is carried WITH the signals and `comparable_to` refuses mismatched pairs — the alignment precondition that made `wisdom − competence` meaningless, made structural. **No `glass_gap()` scalar is provided**, deliberately: the subtraction is how four signals become one again, and neither axis is calibrated yet. 7 tests incl. an orthogonality receipt + threshold-inertness.
 
-Gate: contract 1093 green, planner 319, deepnsm-v2 96, fmt clean, no new warnings.
+Gate: contract 1093 green, planner 319, deepnsm-v2 96, fmt clean, no new warnings. **(deepnsm-v2 is 114 as of 2026-08-22** — PR #987 removed six modules added earlier that duplicated `insight_coca_read.rs` / `probe_antecedent_binder.rs` / the planner's TEKAMOLO write; the crate is back to its pre-session surface.)
 
 ## 2026-07-27 — branch `claude/medcare-rs-transcode-ruff-3y2olh` — causality-audit fixes A1/A2/A4/A5 + B1: typed causal edges, declared kernel effects, derived Libet window
 

@@ -6,6 +6,7 @@
 //! Stores observation episodes with fingerprint-based similarity retrieval,
 //! enabling agents to recall relevant past experiences.
 
+use lance_graph_contract::episodic_basin::BasinRow;
 use std::collections::{BTreeSet, HashMap};
 
 use crate::graph::fingerprint::{hamming_distance, label_fp, Fingerprint};
@@ -75,11 +76,78 @@ pub struct EpisodicMemory {
 /// **co-occurrence in episodes** (what was observed together), not by structural
 /// graph connectivity (what is linked). Same accessor shape as `Communities`, so
 /// the two partitions can be read the same way and compared by a caller.
+/// The **entity interner** — where the names live, once.
+///
+/// Split out of [`EpisodicBasins`] when the basins moved onto the
+/// `ValueTenant::EpisodicBasin` rail (`D-ACR-6`). The basins used to hold
+/// `entities: Vec<String>` inline, which is the fat-concept shape the rail
+/// exists to replace: a partition row carrying copies of its members' names.
+/// Now the names are here (one owner) and a basin carries `u16` references.
+///
+/// Ids are assignment order, which `basins()` seeds from a `BTreeSet`, so an
+/// id is stable for a given episode set.
+#[derive(Debug, Clone, Default)]
+pub struct EntityVocab {
+    names: Vec<String>,
+}
+
+impl EntityVocab {
+    /// An empty vocabulary.
+    #[must_use]
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    /// Intern a name, returning its id. `None` past `u16::MAX` — a **refusal,
+    /// not a wrap**: the rail addresses a subject with 16 bits, so silently
+    /// truncating here would alias two entities onto one basin anchor.
+    pub fn intern(&mut self, name: &str) -> Option<u16> {
+        if let Some(i) = self.id(name) {
+            return Some(i);
+        }
+        let next = u16::try_from(self.names.len()).ok()?;
+        self.names.push(name.to_string());
+        Some(next)
+    }
+
+    /// The id of an already-interned name.
+    #[must_use]
+    pub fn id(&self, name: &str) -> Option<u16> {
+        self.names
+            .iter()
+            .position(|n| n == name)
+            .and_then(|i| u16::try_from(i).ok())
+    }
+
+    /// The name behind an id.
+    #[must_use]
+    pub fn name(&self, id: u16) -> Option<&str> {
+        self.names.get(id as usize).map(String::as_str)
+    }
+
+    /// How many distinct entities are interned.
+    #[must_use]
+    pub fn len(&self) -> usize {
+        self.names.len()
+    }
+
+    /// Is the vocabulary empty?
+    #[must_use]
+    pub fn is_empty(&self) -> bool {
+        self.names.is_empty()
+    }
+}
+
 #[derive(Debug, Clone)]
 pub struct EpisodicBasins {
-    /// Sorted, deduped entity names observed across episodes.
-    pub entities: Vec<String>,
-    /// Basin id per entity, parallel to [`Self::entities`].
+    /// Entity **references**, ascending — ids into the paired [`EntityVocab`].
+    ///
+    /// This replaced `entities: Vec<String>`. The names are not gone, they are
+    /// not duplicated: they live once in the vocab, and this partition points
+    /// at them. That is the whole `D-ACR-6` shape — a basin row addresses its
+    /// members, it does not copy them.
+    pub subjects: Vec<u16>,
+    /// Basin id per entity, parallel to [`Self::subjects`].
     pub labels: Vec<u32>,
     /// Number of distinct basins.
     pub num_basins: usize,
@@ -87,19 +155,80 @@ pub struct EpisodicBasins {
 
 impl EpisodicBasins {
     /// The basin id of `entity`, if it was observed in any episode.
-    pub fn basin_of(&self, entity: &str) -> Option<u32> {
-        self.entities
+    ///
+    /// Takes the vocab because the names are no longer inline — the parameter
+    /// IS the migration, made visible at every call site.
+    #[must_use]
+    pub fn basin_of(&self, vocab: &EntityVocab, entity: &str) -> Option<u32> {
+        let id = vocab.id(entity)?;
+        self.subjects
             .iter()
-            .position(|e| e == entity)
+            .position(|s| *s == id)
             .map(|i| self.labels[i])
     }
 
-    /// The entity names in `basin`.
-    pub fn members(&self, basin: u32) -> Vec<&str> {
-        self.entities
+    /// The entity names in `basin`, resolved through the vocab.
+    #[must_use]
+    pub fn members<'v>(&self, vocab: &'v EntityVocab, basin: u32) -> Vec<&'v str> {
+        self.subjects
             .iter()
             .zip(&self.labels)
-            .filter_map(|(e, &b)| if b == basin { Some(e.as_str()) } else { None })
+            .filter_map(|(s, &b)| if b == basin { vocab.name(*s) } else { None })
+            .collect()
+    }
+
+    /// The basins as **rail rows** — one [`BasinRow`] per basin, ready for the
+    /// `ValueTenant::EpisodicBasin` lane.
+    ///
+    /// The anchor is the basin's lowest-id member (deterministic, and the
+    /// members are reached by following it).
+    ///
+    /// **⚠ This keying is RUNG-0, and that is a known limitation, not a
+    /// choice.** `E-HERMENEUTIK-RUNG-LADDER-1` diagnoses exactly this shape: a
+    /// basin keyed by a bare SUBJECT keeps grammatical adjacency and discards
+    /// genre, pericope and canonical position — and with every structural layer
+    /// gone, the only between-basin signal left is SIZE, which is what three
+    /// independent gates then measured (`E-DOOMSCROLL-VS-RUNG-LADDER-QUERY-1`,
+    /// `E-BASIN-WIDTH-IS-N-ARTIFACT-1`,
+    /// `E-EVIDENCE-COMPOSITE-COVERAGE-CONFOUND-1`).
+    ///
+    /// The prescribed fix is a basin keyed by LITERARY UNIT rather than bare
+    /// subject — and the rail already supports it with **no byte change**,
+    /// because a basin row is a node and its canonical position lives in its
+    /// own key. Promoting a basin at a spawned TOC node's key IS keying it by
+    /// literary unit; `subject` then stays the semantic anchor beside it. That
+    /// is why the book case needs the HHTL tree spawned first (see the
+    /// `episodic_basin` module docs) — the spawn is not a precondition for
+    /// addressing, it is the precondition for the basin to be
+    /// structure-bearing at all.
+    ///
+    /// This method does the mechanical migration off `Vec<String>`; it does not
+    /// lift the basin off rung 0.
+    ///
+    /// `self_code` is left zero: the
+    /// Cam96 centroid is a codebook computation this carrier does not own, and
+    /// writing a fabricated one would be worse than an honest absence.
+    ///
+    /// `version_from`/`version_to` are the caller's range — this carrier has no
+    /// Lance version of its own, so it does not invent one.
+    #[must_use]
+    pub fn rail_rows(&self, version_from: u64, version_to: u64) -> Vec<BasinRow> {
+        (0..self.num_basins as u32)
+            .map(|b| {
+                let members: Vec<u16> = self
+                    .subjects
+                    .iter()
+                    .zip(&self.labels)
+                    .filter_map(|(s, &l)| (l == b).then_some(*s))
+                    .collect();
+                BasinRow {
+                    subject: members.iter().copied().min().unwrap_or(0),
+                    member_count: u16::try_from(members.len()).unwrap_or(u16::MAX),
+                    self_code: [0; 12],
+                    version_from,
+                    version_to,
+                }
+            })
             .collect()
     }
 }
@@ -240,7 +369,9 @@ impl EpisodicMemory {
     ///
     /// Deterministic: entities are sorted, and the union-find merges by lower
     /// root, so the same episode set always yields the same partition.
-    pub fn basins(&self) -> EpisodicBasins {
+    /// Returns the interner alongside the partition: the names live in the
+    /// vocab (once), the partition holds `u16` references into it.
+    pub fn basins(&self) -> (EntityVocab, EpisodicBasins) {
         // 1. Per-episode entity sets + the global sorted entity list.
         let mut per_episode: Vec<Vec<String>> = Vec::with_capacity(self.episodes.len());
         let mut all: BTreeSet<String> = BTreeSet::new();
@@ -308,11 +439,28 @@ impl EpisodicMemory {
             })
             .collect();
         let num_basins = dense.len();
-        EpisodicBasins {
-            entities,
-            labels,
-            num_basins,
+
+        // Intern in the same order the partition was computed, so `subjects[i]`
+        // and `labels[i]` stay parallel. `intern` refuses past u16::MAX rather
+        // than wrapping; an entity that cannot be addressed is dropped WITH its
+        // label, never silently aliased onto another basin's anchor.
+        let mut vocab = EntityVocab::new();
+        let mut subjects: Vec<u16> = Vec::with_capacity(entities.len());
+        let mut kept_labels: Vec<u32> = Vec::with_capacity(labels.len());
+        for (name, label) in entities.iter().zip(&labels) {
+            if let Some(id) = vocab.intern(name) {
+                subjects.push(id);
+                kept_labels.push(*label);
+            }
         }
+        (
+            vocab,
+            EpisodicBasins {
+                subjects,
+                labels: kept_labels,
+                num_basins,
+            },
+        )
     }
 
     /// AriGraph **episodic search** (Anokhin et al. 2024, Eq. 1): rank stored
@@ -739,43 +887,115 @@ mod tests {
     #[test]
     fn basins_group_co_occurring_entities() {
         let m = basin_mem(&[&["alice - knows - bob"], &["carol - knows - dave"]]);
-        let b = m.basins();
+        let (v, b) = m.basins();
         assert_eq!(b.num_basins, 2);
-        assert_eq!(b.basin_of("alice"), b.basin_of("bob"));
-        assert_eq!(b.basin_of("carol"), b.basin_of("dave"));
-        assert_ne!(b.basin_of("alice"), b.basin_of("carol"));
+        assert_eq!(b.basin_of(&v, "alice"), b.basin_of(&v, "bob"));
+        assert_eq!(b.basin_of(&v, "carol"), b.basin_of(&v, "dave"));
+        assert_ne!(b.basin_of(&v, "alice"), b.basin_of(&v, "carol"));
     }
 
     #[test]
     fn basins_merge_on_a_shared_entity() {
         // `bob` bridges the two episodes → one basin of {alice, bob, carol}.
         let m = basin_mem(&[&["alice - knows - bob"], &["bob - knows - carol"]]);
-        let b = m.basins();
+        let (v, b) = m.basins();
         assert_eq!(b.num_basins, 1);
-        assert_eq!(b.members(b.basin_of("alice").unwrap()).len(), 3);
+        assert_eq!(b.members(&v, b.basin_of(&v, "alice").unwrap()).len(), 3);
     }
 
     #[test]
     fn basins_union_all_entities_in_one_episode() {
         let m = basin_mem(&[&["a - r - b", "b - r - c", "c - r - d"]]);
-        let b = m.basins();
+        let (v, b) = m.basins();
         assert_eq!(b.num_basins, 1);
-        assert_eq!(b.entities.len(), 4);
+        // The names live in the vocab now; the partition holds references.
+        assert_eq!(v.len(), 4);
+        assert_eq!(b.subjects.len(), 4);
     }
 
     #[test]
     fn basins_empty_memory_is_safe() {
-        let b = EpisodicMemory::new(8).basins();
+        let (v, b) = EpisodicMemory::new(8).basins();
         assert_eq!(b.num_basins, 0);
-        assert!(b.entities.is_empty());
+        assert!(v.is_empty());
+        assert!(b.subjects.is_empty());
     }
 
     #[test]
     fn basins_deterministic() {
         let m = basin_mem(&[&["alice - r - bob"], &["bob - r - carol"]]);
-        let (x, y) = (m.basins(), m.basins());
-        assert_eq!(x.entities, y.entities);
+        let ((vx, x), (vy, y)) = (m.basins(), m.basins());
+        assert_eq!(x.subjects, y.subjects);
         assert_eq!(x.labels, y.labels);
+        // Determinism now covers the interner too — ids are assignment order,
+        // so a reordered vocab would give the same labels with wrong names.
+        let names = |v: &EntityVocab, b: &EpisodicBasins| -> Vec<String> {
+            b.subjects
+                .iter()
+                .map(|s| v.name(*s).unwrap_or_default().to_string())
+                .collect()
+        };
+        assert_eq!(names(&vx, &x), names(&vy, &y));
+    }
+
+    /// **The migration's own claim, as a test.** Basins reach the
+    /// `ValueTenant::EpisodicBasin` rail, and a row addresses its members
+    /// rather than carrying them.
+    #[test]
+    fn basins_promote_to_rail_rows_that_reference_their_members() {
+        let m = basin_mem(&[&["alice - knows - bob"], &["carol - knows - dave"]]);
+        let (v, b) = m.basins();
+        let rows = b.rail_rows(7, 9);
+
+        assert_eq!(rows.len(), b.num_basins, "one row per basin");
+        assert!(
+            rows.len() >= 2,
+            "anti-vacuity: more than one basin to compare"
+        );
+
+        for r in &rows {
+            // The row round-trips through the shared codec — one home for the
+            // carve, so a writer here and a reader elsewhere cannot diverge.
+            assert_eq!(BasinRow::from_le_bytes(&r.to_le_bytes()), *r);
+            assert_eq!((r.version_from, r.version_to), (7, 9));
+            assert!(!r.is_empty(), "a promoted basin is not an absent one");
+
+            // The anchor RESOLVES — it is a reference into the vocab, not a
+            // number the row made up.
+            assert!(v.name(r.subject).is_some(), "anchor must resolve");
+
+            // And the count matches the members reached by following it — the
+            // row addresses them, it does not carry them.
+            let label = b
+                .basin_of(&v, v.name(r.subject).unwrap())
+                .expect("anchor is a member of its own basin");
+            assert_eq!(
+                usize::from(r.member_count),
+                b.members(&v, label).len(),
+                "member_count must equal what following the references reaches"
+            );
+        }
+
+        // The two basins are distinct anchors — otherwise one row would stand
+        // for both and the partition would be unreadable off the rail.
+        assert_ne!(rows[0].subject, rows[1].subject);
+    }
+
+    /// The u16 boundary **refuses, never wraps**. Aliasing two entities onto
+    /// one anchor would silently merge two basins on the rail.
+    #[test]
+    fn the_interner_refuses_past_u16_rather_than_aliasing() {
+        let mut v = EntityVocab::new();
+        // Fill to capacity; ids 0..=65535 are all valid.
+        for i in 0..=u16::MAX as u32 {
+            assert_eq!(v.intern(&format!("e{i}")), Some(i as u16));
+        }
+        assert_eq!(v.len(), 65_536);
+        // One past: refused, and the vocabulary is unchanged.
+        assert_eq!(v.intern("one_too_many"), None);
+        assert_eq!(v.len(), 65_536, "a refused intern must not grow the vocab");
+        // Silence half: an ALREADY-interned name still resolves at capacity.
+        assert_eq!(v.intern("e0"), Some(0));
     }
 
     // ── episodic search (AriGraph Eq. 1) ─────────────────────────────────
