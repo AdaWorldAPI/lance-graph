@@ -1,3 +1,22 @@
+## 2026-08-23 — TOKEN-BPE GEOMETRY PROBE (bounded; verdict CAN-FIT, NOT YET BUY)
+
+`PROBE-TOKEN-BPE-GEOMETRY-1` (8/8) answers the bounded operator question:
+can BPE act as a reconstructible intake tokenizer over the fixed `6×(8:8)`
+geometry without touching HHTL, classid semantics, or the resident ABI?
+**Yes it fits** (3.35× on the real in-tree KJV scene, byte-exact decode,
+`[u8;12]` Copy particles, zero classid involvement) — **nothing yet
+justifies a production carrier** (one fixture-scale corpus; the scale
+corpora are absent and reported absent). Reading C (BPE over lawful byte
+symbols) is the clean candidate; reading B is pair-encodable but its merge
+tree is MEASURABLY not a radix prefix partition (3 same-depth prefix
+collisions) — a merge tree is not the ontology tree, now as a fact.
+Surprises: scoped vocabularies LOST to global here (19% more tokens);
+vocab saturated at 180/255; EVERY verse overflows one particle (p50=4) so
+continuation rows are the norm. Board:
+`E-TOKEN-BPE-CAN-FIT-NOT-YET-BUY-1`. **Hard fence maintained:** this is
+TOKEN BPE; the behavioral-BPE / multi-group-membership investigation is a
+separate queued deliverable and inherits nothing from this result.
+
 ## 2026-08-23 — STEP 2: the open distributions MEASURED (addendum closed)
 
 `PROBE-COPULA-DISTRIBUTION-1` (5/5) ran the two distributions the addendum
