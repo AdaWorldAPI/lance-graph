@@ -1,3 +1,31 @@
+## 2026-08-23 — #1016 OPEN — the token seam: #1012's integration half answered, and the 8-bit lane's ceiling found
+
+- **What exists now:** `PROBE-TOKEN-SEAM-1` (37 gates, 13 disable-runs) in
+  `AdaWorldAPI/paperless-rs crates/paperless-token`, with
+  `docs/TOKEN-SEAM-ARCHITECTURE.md` as its bounded architecture. It answers the
+  question #1012 left open: ONE versioned BPE tokenization of a span drives
+  Tantivy, DeepNSM-v2 and a forward-prediction input surface simultaneously,
+  each consumer BORROWING, none re-tokenizing. Neither Tantivy nor DeepNSM-v2
+  needed a line changed.
+- **Standing laws banked:** ONE SOURCE SPAN → ONE TOKENIZATION RECEIPT;
+  TOKENIZE ONCE, PROJECT MANY TIMES; AN INDEX MAY ACCELERATE THE ABI, IT MUST
+  NEVER BECOME THE ABI; BPE SEQUENCE IDENTITY IS NOT A SEMANTIC WORD
+  COORDINATE; and (method) A KNOB THAT DOES NOT BIND IS NOT A DISABLE — a
+  fixture's SHAPE is part of a test's coverage.
+- **The number that bounds prior work:** the 8-bit id lane saturates at 75 KB
+  (247/255 ids, compression 3.18× → 2.03×). #1012's 3.35× is a 1 KB figure and
+  must not be read as corpus-independent. The hi-byte PAGE lane is the next
+  probe and no scale claim survives without it.
+- **Open, in order:** (1) the paged vocabulary; (2) byte offsets at the OCR
+  boundary — `doc.v1` carries bbox/conf/leading_space and NO span or offset
+  field, so a real scanned document cannot yet carry a span identity;
+  (3) a lawful resident lane (`SoaEnvelope` or a new `ValueTenant`, designed
+  against the measured 30–54 % framing overhead); (4) a real forward arm —
+  the seam supplies the input, but which representation a trained model prefers
+  is untested; (5) a structured-evidence corpus to exercise the parallel typed
+  path (`arm-discovery`'s `FeatureSpec` + category-index rows) and the shared
+  span identity where the two meet.
+
 ## 2026-08-23 — #1006..#1014 MERGED — the belief-ABI arc: Step 1 audit, root-law probes, Step 2 ruling request, frontier Phases 1+2, the real-episode measurement
 
 Nine PRs (#1010/#1011 landing stacked via #1009's merge) closed the arc:
