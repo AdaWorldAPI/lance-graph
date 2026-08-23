@@ -228,14 +228,18 @@ pub mod parity {
         #[test]
         fn reserved_empty_domains_agree_across_the_mirror() {
             // The codebook-parity walk above only visits ids that carry
-            // CONCEPT ROWS, so a reserved-EMPTY domain (Blocks, the C-band)
-            // added to one enum but not the other would slip past it — the
-            // exact drift this pairing exists to catch. Pin one id per
-            // reserved/new domain, an id from a POPULATED new domain
-            // (0x0333, the DisMech mints in Ontology), the deliberate
-            // C2-C3 gap, and the 0x0C/0xC0 digit-swap hazard two-sided.
+            // CONCEPT ROWS, so a reserved-EMPTY domain (Ontology, Blocks, the
+            // C-band) added to one enum but not the other would slip past it
+            // — the exact drift this pairing exists to catch. Pin one id per
+            // reserved domain, the deliberate C2-C3 gap, and the 0x0C/0xC0
+            // digit-swap hazard two-sided.
+            //
+            // Ontology (0x03XX) is reserved+row-free on BOTH sides by design
+            // (OBO reference concepts live in the producer crate `ogar-obo`,
+            // never in the shared codebook) — no populated id exists to pin
+            // here, unlike ProjectMgmt/Commerce/etc.
             for id in [
-                0x0300u16, 0x0333, // Ontology (populated: dismech)
+                0x0300u16, 0x0333, // Ontology (reserved, zero rows)
                 0x1701, 0x17FF, // Blocks
                 0xC000, 0xC0FF, // JavaRuntime (Panama FFM alone)
                 0xC100, // Analytics

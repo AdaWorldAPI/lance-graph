@@ -184,10 +184,11 @@ pub fn classid_concept_domain(classid: u32) -> ConceptDomain {
 /// function every other reader uses, so it cannot disagree with the mirror it
 /// is filtering.
 ///
-/// **`ConceptDomain::Ontology` was empty until 2026-08-22** and an empty answer
-/// reads exactly like "this domain has nothing in it" — which is how it was
-/// read. The operator's ruling that the domains are minted in `ogar-vocab`
-/// is what made this function able to answer at all.
+/// **`ConceptDomain::Ontology` answers empty**, by the same reserved,
+/// zero-vocabulary-row design as `ConceptDomain::Osint` — the OBO reference
+/// concepts (mondo/hpo/uberon/…) are minted in the producer crate `ogar-obo`,
+/// not in this shared mirror. An empty answer here is the correct, intended
+/// reading: "this domain is reserved but carries no shared CODEBOOK rows."
 pub fn concepts_in_domain(domain: ConceptDomain) -> impl Iterator<Item = (&'static str, u16)> {
     CODEBOOK
         .iter()
@@ -545,23 +546,32 @@ pub const CODEBOOK: &[(&str, u16)] = &[
     ("pricelist", 0x0209),
     ("pricelist_rule", 0x020A),
     ("unit_of_measure", 0x020B),
-    // ── 0x03XX — Ontology domain (minted in ogar-vocab 2026-08-22, operator
-    //    ruling "the domains should be minted in ogar-vocab"; the block there
-    //    carries the posture it reverses and what the prior split cost) ──
-    ("mondo", 0x0301),
-    ("hpo", 0x0302),
-    ("uberon", 0x0303),
-    ("pato", 0x0304),
-    ("ro", 0x0305),
-    ("ro_relation_body", 0x0306),
-    ("bfo", 0x0340),
-    ("cob", 0x0341),
-    ("iao", 0x0342),
-    ("obi", 0x0343),
-    ("obcs", 0x0344),
-    ("sepio", 0x0345),
-    ("eco", 0x0346),
-    ("fbbi", 0x0347),
+    // ── 0x03XX — Ontology domain: ZERO vocabulary rows BY DESIGN ──
+    // Mirrors OGAR `ogar_vocab::CODEBOOK`'s own posture exactly (OGAR commit
+    // e9a2e45, 2026-08-01: "reserve 0x03 Ontology domain (plug-and-play, zero
+    // rows)" — same as the 0x07XX OSINT and 0x0EXX-adjacent reserved blocks).
+    // The domain slot is RESERVED (`ConceptDomain::Ontology`, so
+    // `canonical_concept_domain` returns a stable tag) but the public OBO
+    // biomedical reference concepts (mondo/hpo/uberon/pato/ro and the
+    // meta-study spine bfo/cob/iao/obi/obcs/sepio/eco/fbbi) are NOT minted as
+    // shared CODEBOOK rows here — they live in the producer crate `ogar-obo`
+    // (`Namespace::concept_id`), keeping the OBO reference plug-and-play: only
+    // a consumer that deps `ogar-obo` compiles the concepts.
+    //
+    // A prior revision of this block (commit ae8e762e, 2026-08-22) mirrored
+    // 14 rows under a doc comment claiming "operator ruling: the domains
+    // should be minted in ogar-vocab" and "DeepNSM-v2 wired:
+    // deepnsm::ontology_vocab". Neither claim was ever true: OGAR's
+    // ogar-vocab has never once minted a 0x03XX CODEBOOK row (its only
+    // commit touching the block is the zero-rows reservation above, which
+    // predates the mirror commit by three weeks), and `deepnsm` has no
+    // `ontology_vocab` module and no reference to this codebook anywhere in
+    // its source. That mirror commit was stale-context contamination — the
+    // CI parity test (`lance-graph-ogar::parity::
+    // mirror_is_a_faithful_copy_of_ogar_codebook`) caught the drift, which is
+    // exactly the job that test exists to do. Removed to restore agreement
+    // with the actual, unchanged OGAR posture — no OGAR-side change was
+    // needed or made.
     // ── 0x04XX — Weather / Atmosphere domain ──
     // Canonical cell meanings minted by OGAR #272. W1 field/level/unit slots
     // remain ClassView-owned payload structure, not promoted concept rows.
@@ -726,28 +736,25 @@ impl LabelDTO {
 #[cfg(test)]
 mod tests {
 
-    /// **The Ontology domain answers now.** It returned an empty iterator
-    /// before the mint, and an empty answer is indistinguishable from "this
-    /// domain holds nothing" — which is how it was read.
+    /// **Ontology is a reserved, zero-vocabulary-row domain — same posture
+    /// as OSINT.** An empty answer here is correct: the OBO reference
+    /// concepts live in the producer crate `ogar-obo`, never in this shared
+    /// mirror (see the `CODEBOOK` doc comment on the 0x03XX block for the
+    /// 2026-08-22 mirror commit that got this wrong and was reverted).
     ///
-    /// Both halves, on non-trivial input: a domain that IS populated reports
-    /// its members, and a domain deliberately left empty still reports empty.
+    /// Both halves, on non-trivial input: a domain deliberately left empty
+    /// stays empty, and a domain that genuinely IS populated (`ProjectMgmt`)
+    /// reports its members — proving the filter isn't just silent for
+    /// everything.
     #[test]
     fn concepts_in_domain_answers_for_ontology_and_stays_silent_for_a_reserved_block() {
         let onto: Vec<_> = concepts_in_domain(ConceptDomain::Ontology).collect();
-        assert!(
-            onto.len() >= 14,
-            "the Ontology domain must carry the OBO core, the relation body and \
-             the meta-study spine, got {onto:?}"
+        assert_eq!(
+            onto.len(),
+            0,
+            "Ontology is reserved+row-free by design (OBO concepts live in \
+             ogar-obo, not this shared mirror), got {onto:?}"
         );
-        for (name, id) in &onto {
-            assert_eq!(id >> 8, 0x03, "{name} is not in the 0x03 block");
-            assert_eq!(canonical_concept_domain(*id), ConceptDomain::Ontology);
-        }
-        // The three claimants are all present — the point of one mint site.
-        for want in ["mondo", "ro_relation_body", "bfo"] {
-            assert!(onto.iter().any(|(n, _)| *n == want), "{want} missing");
-        }
 
         // Silence half, non-trivially: OSINT is a real reserved domain that is
         // deliberately row-free, so it must still come back empty.
@@ -757,9 +764,22 @@ mod tests {
             "a reserved domain must stay empty — otherwise this filter passes everything"
         );
 
+        // Anti-vacuity: a genuinely populated domain reports its members —
+        // proves the filter isn't just silent for every input.
+        let proj: Vec<_> = concepts_in_domain(ConceptDomain::ProjectMgmt).collect();
+        assert!(
+            !proj.is_empty(),
+            "ProjectMgmt is populated; an empty answer here would mean the \
+             filter passes nothing, not that it correctly filters"
+        );
+        for (name, id) in &proj {
+            assert_eq!(id >> 8, 0x01, "{name} is not in the 0x01 block");
+            assert_eq!(canonical_concept_domain(*id), ConceptDomain::ProjectMgmt);
+        }
+
         // Anti-vacuity: the filter really filters.
         assert!(
-            onto.len() < CODEBOOK.len(),
+            proj.len() < CODEBOOK.len(),
             "one domain cannot be the whole codebook"
         );
     }
