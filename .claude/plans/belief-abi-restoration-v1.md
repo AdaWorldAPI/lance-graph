@@ -44,14 +44,60 @@ NOT "how do we make BeliefArena SoA?" but:
 |---|---|---|
 | `stmt (s:u16, cop, p:u16)` | canonical node/edge geometry + SPO store; the `part_of:is_a` rails (le-contract L1–L3) | is the copula expressible in the edge/rail reading? |
 | `truth (f32, f32)` | `spo::truth` NARS truth (revision shipped, `spo/truth.rs`) | where does per-relation truth RESIDE (lane? SPO row?) |
-| `stamp: u64` | evidential bitset — nearest: witness corpus / merkle (`spo/merkle.rs`) | likely residue candidate; do not invent yet |
-| `rung: u32` | derivation depth — `Locus::MeaningLevel` is a context POINTER not a magnitude | likely residue candidate; check attention/rung readings first |
-| `premises: Vec<u32>` | `Locus::{SupportedBy, Supports}` context pointers + graph edges; cardinality = MORE ROWS (the furnace rule) | the nested heap Vec must not survive in any outcome |
+| `stamp: u64` | **DELEGATES to tree accumulation** (operator-ruled, below): a node's evidence accumulates from children + siblings; no per-belief u64 tenant | verify the accumulation reading in the step-3 probe |
+| `rung: u32` | **DELEGATES to the node's HHTL address** (operator-ruled, below): derivation depth IS tree depth; inherit from parent | verify depth≡rung equivalence in the step-3 probe |
+| `premises: Vec<u32>` | **anaphora pointers** — `Locus::{SupportedBy, Supports}` ±8 window nibbles for near refs; graph edges for far refs; cardinality = MORE ROWS | the nested heap Vec must not survive in any outcome |
 | `contradiction` | `Locus::Contradiction` — already shipped, already the store-licensed elevated object | wire, don't reinvent |
 
 **Known trap, recorded:** `TripletGraph { triplets: Vec<Triplet>,
 entity_index: HashMap<String, Vec<usize>> }` is NOT an ABI home — same
 escape shape. "Move it into AriGraph" as shipped today moves the violation.
+
+## Operator ruling (2026-08-23, arrived ahead of the audit — discharges most of ladder step 2)
+
+**The residue candidates are NOT new tenants. They delegate.**
+
+> The residue delegates to the node's HHTL, and attention has the same HHTL
+> masking algebra. It is a simple overlay mask projected as a tree: nodes in
+> HHTL **accumulate from children and siblings** and **inherit from parent**.
+
+Groundings, each verified in shipped code:
+
+- **"EpisodicEdge already has residue"** — [CODE] twice over: the
+  `EpisodicEdge` trait carries a signed 4-bit mantissa nibble
+  (`set_inference_mantissa`, the −6 counterfactual deposit —
+  `counterfactual.rs:178-183`), and `EdgeCodecFlavor::CoarseResidue` is
+  *"coarse index + a per-dimension signed-4-bit residue"*
+  (`canonical_node.rs:676-678`). Signed-i4 residue is established practice,
+  not a new invention.
+- **"Relativpronomen anaphora pointers"** — [CODE] literally:
+  `Locus::Antecedent = 7` is documented *"relativPronomen → its antecedent"*
+  (`causal_witness.rs:131-132`), and `resolves_to(locus, self_pos,
+  stream_len)` (`:334-344`) dereferences the signed nibble into a window
+  position — pronoun resolution as a bounds-checked pointer walk. The
+  anaphora election mask has its own can-fire/stay-silent tests.
+- **"TEKAMOLO already practices 24×i4"** — [CODE]: the `G24N4` witness lane;
+  Tekamolo loci 0..3 (Temporal/Kausal/Modal/Lokal) live inside the same
+  24-nibble register.
+- **Accumulate/inherit precedents** — [CODE], scattered but real:
+  `carried_awareness` *"carry accumulates lower→higher"*
+  (`recipe_loci.rs:347`); `rail_geometry.rs:183` Horner accumulation
+  `Σ slots[i]/256^(i+1)`; `causal_audit` append-only *"evidence
+  accumulates"*; `orchestration_mode.rs:8` *"NARS truth values accumulate on
+  the path, not individual nodes"*; `FieldMask::inherit`; the
+  `legacy_outliers` bucket-rollover doctrine. The unified tree-overlay
+  reading (one mask, projected as a tree, accumulate-up/inherit-down) is
+  [OPERATOR RULING] composed over those shipped pieces — the step-3 probe is
+  what promotes it to [CODE].
+
+**Consequence for the ladder:** step 1's audit VERIFIES the delegation
+(rather than hunting for homes); step 2 is discharged for `stamp`/`rung`
+(ruling: delegate, don't mint) and remains open only for anything the audit
+finds that the delegation cannot carry; step 3's probe must additionally
+show: (a) depth-as-rung over a real derivation tree, (b) evidence
+accumulation from children/siblings matching the arena's stamp-union
+semantics, (c) the SAME prefix-cover algebra serving both the attention mask
+and the belief overlay — one algebra, two tenants, zero conversion.
 
 ## Bounds (the line not to cross)
 
