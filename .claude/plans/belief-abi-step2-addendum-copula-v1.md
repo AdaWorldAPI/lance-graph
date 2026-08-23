@@ -144,6 +144,79 @@ standing law they remain addressed views/operators/sidecars over the same
 resident ABI — never another population owner. Nothing here builds one;
 recurrence has not been measured.
 
+## 7b. ⊘ MEASURED — the three corrections that close this addendum
+
+`PROBE-COPULA-DISTRIBUTION-1` (5/5) ran the two distributions §4 named as
+open. All three findings correct THIS document.
+
+### Correction A — the shipped fold this addendum failed to audit
+
+**`nars::facet_fold` (ENTROPY-MILESTONES M26) already carries the copula,
+losslessly, in the resident M20 register — with zero classid involvement.**
+§8 below listed "sparse relation rows with copula content resident in the
+row" as candidate C, a hypothesis to measure. It is not a hypothesis. A
+strictly cheaper form is shipped, tested, and green:
+
+```
+  CStmt {s, cop, p}  ⟷  SpoFacet (the 12-byte content-blind register)
+    rail 0  subject     s as (lo, hi)
+    rail 1  predicate   (copula TAG, Rel lo)   ← the copula lives HERE
+    rail 2  object      p as (lo, hi)
+    rail 3  ew_subject  (Rel hi, spare)        ← Rel's u16 completes here
+```
+
+Re-verified over the measured corpus, not trusted from unit tests: **16/16
+statements round-trip byte-exact** (D1), including `Rel(u16)` payloads
+spanning rails 1+3. Five copulas on one `(s,p)` yield five DISTINCT
+registers (D2) — the discriminating information is resident bytes, and
+nothing upstream is consulted.
+
+This is the **"consult before you guess" tax** the repo's own CLAUDE.md
+warns about, paid in full: *"Proposing a type that already exists is a
+30-turn rediscovery tax — check first."* The probe-local `RelRow` in
+§4 was exactly that.
+
+### Correction B — "KJV Rel-heavy" was REFUTED, not merely unmeasured
+
+§4 named the KJV corpus as the **Rel-heavy** regime that would contrast
+with the Inh-dominated closure fixture. Measured, through the REAL
+`stance::stream` producer on REAL KJV Genesis 2–3:
+
+| | Inh | Rel | Impl | Sim |
+|---|---|---|---|---|
+| closure fixture (§4) | 10 | 2 | 1 | 1 |
+| **real KJV narrative** | **13** | **2** | **1** | **0** |
+
+**Inh 6× Rel.** The prediction is refuted. Both corpora now measured lean
+the SAME way, so **a Rel-heavy regime is UNDEMONSTRATED, not merely
+unmeasured** — a materially different status, and the reason for naming
+predictions in advance.
+
+### Correction C — "tactics Impl" was a phantom
+
+`nars::tactics` emits **only `Inh` and `Sim`** (every `Copula::` site
+verified). There is no tactics Impl distribution. The real producers are
+`nars::stance` (both `Impl` and `Rel(verb)`) and `reason_whole_book`
+(`Rel(pid)`).
+
+### Cost, at the measured shape and extended
+
+| representation | at measured shape | at t=10k |
+|---|---|---|
+| **`facet_fold`** | **0 extra bytes** (relabels an existing register) | **0** |
+| §4's `RelRow` | 896 B (n=16) | grows with relations |
+| dense 4-group bitmap | 164 B (t=18) | **50 MB** regardless of content |
+
+§4's fixture-scale surprise (dense beating sparse) **inverts** at real term
+counts — and both lose to a fold that allocates nothing.
+
+### Still BLOCKED, and not fabricated
+
+The whole-KJV **scale** measurement cannot run: `data/coca/lexicon.tsv`
+(Release `coca-codebook-v2`) and `pg10.txt → kjv_spo.tsv` are both absent
+by design. A hand-written corpus would be a fabricated measurement, so none
+was produced. **Scale stays open; shape is now measured.**
+
 ## 8. What Step 2 now asks about `cop` (replacing Item 1's question)
 
 Not *"where do we encode Copula?"* but:
@@ -151,20 +224,26 @@ Not *"where do we encode Copula?"* but:
 > **What is the cheapest lawful resident relation + selection geometry
 > from which Copula is merely an ergonomic reading?**
 
-Candidate homes, in the order the measurements currently favour:
+**The answer is E, and it is already shipped.** Re-graded after §7b:
 
-- **C. sparse many-to-many relation rows** (copula content resident in the
-  row) — held every falsifier at fixture scale; the natural topology
-  carrier.
-- **D. relation rows + group masks** — C plus lossy-by-design selection
-  ergonomics; the composition measured green (G-COMPOSE).
-- **A/B. WideFieldMask / HHTL-region masks alone** — REJECTED as sole
-  carriers: classification cannot carry pairwise topology (G-F10 note),
-  and HHTL must not fake many-to-many (G-F4).
-- **E. existing-tenant composition** — the SPO store IS candidate C's
-  shipped ancestor; whether `Copula` maps onto its edge reading without
-  loss is the remaining wiring question.
-- **F. a new tenant** — NOT proposed. Nothing measured requires it.
+- **E. existing-tenant composition — `nars::facet_fold` → `SpoFacet`.**
+  **RECOMMENDED.** The copula is a 2-bit tag on rail 1 (plus `Rel`'s u16
+  across rails 1+3) of a 12-byte content-blind register the awareness
+  plane already holds. Lossless, round-trip-gated, **0 extra bytes**, zero
+  classid involvement. Verified on the measured corpus (D1/D2), not merely
+  on its own unit tests.
+- **C/D. sparse relation rows (± group masks)** — SUPERSEDED by E for the
+  copula question. The `PROBE-COPULA-GROUP-MASK-1` results still stand as
+  the general **many-to-many topology** finding (G-F1/F2/F4/F5/F6/F8 held),
+  and the group-mask ergonomics remain available as a SELECTION layer over
+  whatever carries the relation — but the copula itself needs no new row.
+- **A/B. masks alone** — REJECTED as sole carriers: classification cannot
+  carry pairwise topology; HHTL must not fake many-to-many (G-F4).
+- **F. a new tenant** — NOT proposed, and now clearly unnecessary.
 
-**No mint until the workload-scale distributions (KJV Rel-heavy, tactics
-Impl) are measured and composition is ruled out.**
+**What the ruling can now decide, and what it cannot.** SHAPE is measured
+and points at E. SCALE is still open (whole-KJV blocked on uncommitted
+Release data). Since E allocates nothing and is already shipped, the scale
+question does not gate adopting it — it gates only any FUTURE proposal to
+replace it. If the ruling accepts E, `cop` leaves the residue list
+entirely: it has a home, and that home costs nothing.

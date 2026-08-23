@@ -1,3 +1,19 @@
+## 2026-08-23 — STEP 2: the open distributions MEASURED (addendum closed)
+
+`PROBE-COPULA-DISTRIBUTION-1` (5/5) ran the two distributions the addendum
+named as open, and corrected the addendum twice. **`nars::facet_fold` (M26)
+already carries the copula losslessly in the M20 resident register** — a
+2-bit tag on rail 1 plus `Rel`'s u16 across rails 1+3, round-trip-exact on
+all 16 measured statements, **0 extra bytes, zero classid involvement**; the
+addendum's "sparse relation rows" was a hypothesis for shipped code.
+**"KJV Rel-heavy" was REFUTED** — real KJV through the real `stance`
+producer is Inh-dominated (Inh 13 vs Rel 2), so a Rel-heavy regime is
+UNDEMONSTRATED rather than unmeasured. **"tactics Impl" was a phantom**
+(tactics emits only Inh/Sim). Step 2's `cop` item now has a RECOMMENDATION:
+candidate **E — existing-tenant composition via `facet_fold`** — already
+shipped and costing nothing, so the still-blocked whole-KJV *scale*
+measurement does not gate adopting it.
+
 ## 2026-08-23 — STEP 2 ADDENDUM: the copula correction (retraction + measurement)
 
 `.claude/plans/belief-abi-step2-addendum-copula-v1.md` — operator-directed
