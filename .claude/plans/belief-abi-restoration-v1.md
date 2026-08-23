@@ -125,6 +125,23 @@ evidence, inherit from parent."** Grepped `children.*sibling` and
 verdicts above. It does **not** license a mechanism, and this section
 deliberately proposes none.
 
+**The test that makes this precise (added 2026-08-23,
+`E-HIERARCHY-IS-THE-ADDRESS-SPACE-NOT-THE-ONTOLOGY-1`):**
+
+> **If a datum exists but cannot be assigned a meaningful HHTL address
+> without using `Vec` position as identity, it has not yet been normalized
+> into the memory ABI.**
+
+That is the sharp form of what this section withdraws below. `arena[37]` is
+not a semantic hierarchy — it is an implementation accident wearing an HHTL
+costume. A real address would land through the belief's own semantic
+coordinates (something like: relation class → subject basin →
+predicate/relation basin → evidence/support context → instance) — **exact
+carving to be PROVEN, not invented here.** Under the address-space law the
+hierarchy supplies only WHERE; premise pointers, stamp provenance, the
+Tarski witness, attention and causal reading then all refer to addressed
+structure without any of them needing to be hierarchical themselves.
+
 **A withdrawn proposal, recorded so it is not re-derived.** An earlier
 revision of this section instructed step 3 to *"mint a `FacetCascade`
 address per belief position (even a trivial per-arena-position one)"* and
