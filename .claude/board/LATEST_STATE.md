@@ -1,3 +1,29 @@
+## 2026-08-23 — #1006..#1014 MERGED — the belief-ABI arc: Step 1 audit, root-law probes, Step 2 ruling request, frontier Phases 1+2, the real-episode measurement
+
+Nine PRs (#1010/#1011 landing stacked via #1009's merge) closed the arc:
+
+- **What exists now:** Step-1 delegation audit (#1006, pure negative);
+  `probe_tarski_signed_witness` + `probe_four_plane_causal_medium` (#1007);
+  the stream-order epiphany + seam plan (#1008); three root-law probes
+  (#1009 — evidence generalization / falsification asymmetry / epistemic
+  fabric); the Step-2 ruling request + copula addendum + five measurement
+  probes (#1012); the frontier loop Phase 1 (styles = microcode; learner =
+  shipped revise + Stamp + CHOICE) and Phase 2 (R2IL typed receipts, the
+  clobber result) (#1013); the REAL FunctionBehavior episode measurement
+  (#1014 — 99.7% opcode over-admission vs 31.5% base rate; trigram
+  type-collapse 97 vs 264; Stamp mod-64 ceiling binds at 143 episodes).
+- **Standing laws banked:** CONTENT NEVER TRAVELS IN CLASSID; HIERARCHY IS
+  THE ADDRESS SPACE NOT THE ONTOLOGY; GROUP MEMBERSHIP IS RELATION TOPOLOGY
+  NOT HHTL ANCESTRY; MEASURE THE DISTRIBUTION BEFORE BUYING THE
+  REPRESENTATION; sequential adjacency is not composition — the macro
+  carrier is the def-use chain.
+- **PENDING (operator's, not the agent's):** the Step-2 ruling on the six
+  residue items (the stamp item now carries #1014's measured mod-64
+  capacity number); the three-IF R2IL x BPE / OGAR-loco / V4 synthesis
+  remains hypothesis — nothing minted, reserved, or decided.
+- **Arc rows:** `PR_ARC_INVENTORY.md` (this hygiene pass); NOTE the recorded
+  GAP MARKER — #976..#1005 (other sessions' arcs) still lack arc rows.
+
 ## 2026-08-21 — D-ACR-7 IMPLEMENTED — `contract::band_reading` (the 59..63 reading contract)
 
 ### Current Contract Inventory — `VersionedGraph::hydrate_from`, and the CI gate that should have caught all of this
