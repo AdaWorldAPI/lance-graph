@@ -1,4 +1,4 @@
-## 2026-08-23 — #1016 OPEN — the token seam: #1012's integration half answered, and the 8-bit lane's ceiling found
+## 2026-08-23 — #1017 OPEN — the token seam: #1012's integration half answered, and the 8-bit lane's ceiling found
 
 - **What exists now:** `PROBE-TOKEN-SEAM-1` (37 gates, 13 disable-runs) in
   `AdaWorldAPI/paperless-rs crates/paperless-token`, with

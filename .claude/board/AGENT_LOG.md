@@ -45,7 +45,7 @@
   nothing. (2) An early disable batch reported "no failure" six times in a row
   because the probe binary path was wrong and nothing ran at all. A null result
   is a claim about the apparatus until proven otherwise.
-- **Outcome:** #1016 (board), plus a paperless-rs commit that is **committed
+- **Outcome:** #1017 (board), plus a paperless-rs commit that is **committed
   locally and BLOCKED from pushing** — the GitHub App has no access to
   `AdaWorldAPI/paperless-rs` for this org, verified through both the session
   proxy and a proxy-bypassed attempt.

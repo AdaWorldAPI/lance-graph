@@ -1,4 +1,4 @@
-## 2026-08-23 — lance-graph #1016 (OPEN) — the integration half of #1012: one receipt, three borrowed consumers
+## 2026-08-23 — lance-graph #1017 (OPEN) — the integration half of #1012: one receipt, three borrowed consumers
 
 - **Added:** `E-ONE-RECEIPT-MANY-BORROWED-CONSUMERS-1` — the board record of
   `PROBE-TOKEN-SEAM-1` (37 gates, 13 disable-runs red-then-green; probe code in
