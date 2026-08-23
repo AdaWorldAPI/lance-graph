@@ -52,6 +52,26 @@ accumulate operator. **Withdrawn**, for three reasons:
    container beside `TemporalStream`, not a zero-copy projection over the
    real `ValueTenant::CausalWitness` lane."*
 
+## Regrade (2026-08-23) — the opposition was overstated
+
+`E-HIERARCHY-IS-THE-ADDRESS-SPACE-NOT-THE-ONTOLOGY-1` weakens the framing
+above. The two candidates are **layered, not rival**: a temporal datum can
+be HHTL-addressed (`episode → version window → event region → event
+identity`) with the signed ±i4 offsets as LOCAL traversal inside that
+addressed neighborhood. Time stays time; HHTL supplies the home. There is
+no "separate temporal universe" to reconcile.
+
+This does NOT revive the withdrawn composition — it removes the motivation
+for it. The withdrawn proposal wanted to re-scope a version-ordered type to
+mean an address span; the address-space law says the correct move was
+always to give the temporal datum its own address and leave the ordering
+alone. The fence in § The withdrawn proposal is therefore *strengthened*,
+not relaxed.
+
+What survives unchanged: neither candidate implements a children-and-
+siblings accumulate fold, which was and remains this register's reason to
+exist.
+
 ## The open questions (each stated as a question, none as a direction)
 
 - **Q1** — Is derivation depth reconstructible from SUPPORT topology (the

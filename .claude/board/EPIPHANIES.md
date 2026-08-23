@@ -2,9 +2,34 @@
 
 **Status:** FINDING (grounds and sharpens the `BELIEF-ABI-RESTORATION-1`
 Step 1 audit's [ABSENT] verdict on the tree-overlay delegation mechanism;
-does not overturn it).
-**Confidence:** High — every claim below is grep- and read-verified against
-shipped code, not inferred from module-doc prose alone.
+does not overturn it). **⚠ PARTIALLY REGRADED 2026-08-23 — see the note
+immediately below.**
+**Confidence:** High for the [ABSENT] verdicts (the entry's actual result).
+**Lowered for the "different topologies" FRAMING**, which overstated an
+opposition.
+
+> **⊘ REGRADE (2026-08-23, `E-HIERARCHY-IS-THE-ADDRESS-SPACE-NOT-THE-
+> ONTOLOGY-1`).** This entry framed candidate A (stream order over time)
+> and candidate B (prefix tree over address) as an *opposition* — "a total
+> order over TIME, a partial order over ADDRESS," presented as if a datum
+> had to live in one universe or the other. **That framing is too strong.**
+> Under the address-space law, hierarchy is the ADDRESS SPACE, not the
+> ontology: a temporal datum is not a separate non-HHTL universe, it can be
+> HHTL-addressed (`episode → version window → event region → event
+> identity`) with the signed ±i4 offsets as LOCAL traversal *inside* an
+> addressed neighborhood. Stream ordering remains temporal semantics; HHTL
+> supplies its home. The two are **layered, not rival**, and no "separate
+> temporal universe" needs to exist.
+>
+> **What survives the regrade unchanged — the entry's actual finding:**
+> neither candidate implements a children-and-siblings accumulate fold
+> (`fn accumulate` / `children.*sibling`: zero hits;
+> `E-NO-BUNDLE-STANDING-WAVE-1` disclaims accumulation by name). Both
+> [ABSENT] verdicts stand. Also unchanged: the withdrawal of the
+> composition conclusion, and the fence against rebasing a version-ordered
+> type to mean an address span — that fence is *strengthened* here, because
+> the right move was never to re-scope `VersionRange` but to give the
+> temporal datum its own address and leave time as time.
 
 **The question that prompted this.** Step 1 of `BELIEF-ABI-RESTORATION-1`
 found that `Belief.rung`/`stamp`'s operator-ruled delegation — "rung = HHTL
