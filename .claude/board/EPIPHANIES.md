@@ -1,3 +1,60 @@
+## 2026-08-23 — E-A-TRAJECTORY-IS-RECONSTRUCTIBLE-BEFORE-IT-IS-LEARNABLE-1 — the cognitive trace exists as an object, with the hindsight gate structural
+
+**Status:** FINDING (measured — `PROBE-VIEW-EDIT-TRACE-1`, 6/6 gates green,
+`examples/probe_view_edit_trace.rs`). **Confidence:** High for the measured
+claim; the ABSENT below bounds it.
+
+**What a trajectory adds over a single edit.** The particle
+(`E-THE-FIRST-PARTICLE-1`) proved one transformation can be typed and
+inverted. A trace must additionally replay at EVERY prefix, invert
+step-by-step, carry the warrant that justified each step, and forbid backward
+leakage:
+
+```
+  A --e1--> B --e2--> C --e3--> D
+      w1        w2        w3
+```
+
+Measured over the same sealed field (2016 beliefs, 20 rows across rungs
+{1,2,3,4,6}): `A(10 rows) -> 4 -> 10 -> 4`.
+
+- **T2 is the one that matters more than end-to-end replay.** `replay(prefix
+  [0..k])` equals the view actually observed at step k for EVERY k. An
+  end-to-end match can hide two errors that cancel; a per-prefix match cannot.
+- **T3** inverts all three edits step-by-step back to A exactly. `Push` is
+  always invertible; `RemoveAt` only against the plan it acted on — hence
+  `inverse(&before)`, returning `None` for a no-op index rather than lying.
+- **T4 — the hindsight gate, structural first.** `warrant_at(step, initial,
+  prefix, ctx)` has NO parameter through which a later edit, the final view,
+  or an outcome could enter. This is `witness_fabric`'s shipped discipline
+  transplanted verbatim (`witness_fabric.rs:1476-1479`: *"Retrospective
+  judgement of a past state must not be able to see what came after it, or it
+  is hindsight wearing an audit's clothes"*). Behaviourally: all 3 warrants
+  reproduce byte-equal from their prefix alone.
+- **T5/T6 keep the replay gates honest.** A REORDERED trace and a TRUNCATED
+  trace both miss the final view — and the reordered one lands on a set of the
+  SAME SIZE (4 rows) as the real final, which is exactly why the gate compares
+  sets and not counts. T6 forbids a no-op trajectory: every step must move the
+  visible set.
+
+**The four objects that must not be conflated** now all exist separately and
+are exercised: STATE (stationary population) / VIEW PLAN (what is semantically
+visible) / LOWERED VIEW (the executable predicate) / VIEW EDIT (the exact
+transformation between plans) — plus, new here, TRACE (a warranted sequence of
+edits).
+
+**The honest distance to a real episode, restated as the headline limit.**
+F-REVISION-FOCUS-1 remains ABSENT: **no production surface emits a
+`ViewEdit`**, so this trajectory is AUTHORED by the probe, not harvested from
+a running cognition. A trace object exists; a trace PRODUCER does not. That,
+not the learner, is the next real gap.
+
+**Nothing is learned.** No compression, no promotion, no recurrence detection.
+A BPE-style learner would need MANY grounded traces before asking whether some
+`[e1,e2,e3]` recurs often enough to earn a behavioural symbol. This probe
+builds the input and stops. `BehaviorTrace` is probe-local and is NOT proposed
+as a production type.
+
 ## 2026-08-23 — E-THE-VIEW-MOVES-THE-POPULATION-DOES-NOT-1 — three incompatible selector families compose over one stationary cognitive state, provenance intact, zero population copy
 
 **Status:** FINDING (measured — `PROBE-REVISION-ATTENTION-VIEW-1`, 8/8 gates
