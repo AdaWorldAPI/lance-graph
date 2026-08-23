@@ -2,15 +2,37 @@
 //! path, and the measured overlap of the two shipped heuristics that gate
 //! it, through SHIPPED council / gate / rung machinery only.
 //!
-//! # What this probe establishes, and what it does not
+//! # Why this probe was opened (the architectural target)
 //!
-//! **Establishes:** that `RungElevator::apply_delta` can be driven from a
-//! cycle receipt through the shipped chain, and that the two rules gating
-//! it (`CollapseHint::RungElevate` and `escalation::rung_delta`) agree on
-//! only a ~0.125-wide band of the measured axis.
+//! **Can Revision, during Kanban `Evaluation`, redirect the next cognitive
+//! pass before Rubicon commitment?** `Evaluation` is the last deliberative
+//! phase before collapse: cognitive work has produced something, and before
+//! it is committed the reasoning itself can still be inspected. Kanban
+//! supplies the phase boundary (it does not say how to think); the
+//! Frozen/Learned/Explore field supplies the kinds of structure available;
+//! Revision is the hinge that looks at the receipts and can conclude the
+//! focus was wrong, the observer was wrong, the evidence is insufficient,
+//! the reasoning family should change, or the result is fine.
 //!
-//! **Does NOT establish:** a canonical metacognitive controller. This is a
-//! single-pathway measurement, not a model of cognition.
+//! The interesting output of that hinge is **what the next pass attends
+//! to** — same problem/different focus, same focus/different style, a new
+//! evidence target, a counterfactual branch, a different perspective, a
+//! different recipe family, hold-and-gather, re-plan. A rung change is ONE
+//! muscle Revision can recruit. It is not the hinge.
+//!
+//! # What this probe measured (one actuator underneath that hinge)
+//!
+//! **Measured fact:** one Revision-derived path reaches
+//! `RungElevator::apply_delta`, and changing `RungLevel` measurably changes
+//! the recipe repertoire the shipped selector returns (F14). The two rules
+//! gating that actuator (`CollapseHint::RungElevate` and
+//! `escalation::rung_delta`) agree on only a ~0.125-wide band.
+//!
+//! **Does NOT establish:** the focus-of-attention mechanism, or a canonical
+//! metacognitive controller. The probe *reaches* the `Evaluation` boundary
+//! (F1 asserts the phase arrives there) and stops. It never runs Revision
+//! DURING `Evaluation`, and never exercises `Evaluation → Commit | Plan |
+//! Prune`. The hinge is where this probe ends, not what it closed.
 //!
 //! # Anti-conflation note (two unrelated things both say "rung")
 //!
