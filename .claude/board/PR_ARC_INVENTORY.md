@@ -30,6 +30,7 @@
 - **Docs:** `E-ONE-RECEIPT-MANY-BORROWED-CONSUMERS-1`; LATEST_STATE updated.
 - **Confidence:** High for the two measured corpora; no scale claim — the
   vocabulary was full at 75 KB.
+
 ## 2026-08-23 — GAP FILLED — arc rows for #976..#1005 (consolidated by the orchestrator from a wave scribe's primary-source reconstruction)
 
 The gap marker recorded below this block is now DISCHARGED for #977..#1005.
