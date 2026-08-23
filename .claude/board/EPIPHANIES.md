@@ -1,3 +1,148 @@
+## 2026-08-23 — E-THE-MISSING-MIDDLE-IS-CONDITIONALLY-REFUTABLE-1 — bounding a mediator from both sides turns a topology CLAIM into a topology TEST, but ONLY under a closure warrant
+
+**Status:** FINDING — [MEASURED] on shipped operators
+(`PROBE-EPISTEMIC-FABRIC-1`, 7/7). Completes the arc with
+`E-HIERARCHY-IS-THE-ADDRESS-SPACE-NOT-THE-ONTOLOGY-1` and
+`E-FALSIFICATION-IS-THE-CHEAP-DIRECTION-AND-AUSLOESCHUNG-IS-A-READING-1`.
+**Confidence:** High for the algebra; toy hierarchy, not a corpus.
+
+### The sharp result: `IndirectUnknownIntermediates` becomes CONDITIONALLY FALSIFIABLE
+
+`CausalTopology::IndirectUnknownIntermediates` asserts *"a mediator exists,
+we do not know which."* Until now that was **assertable but not testable** —
+nothing could contradict it.
+
+Bound the missing middle from BOTH sides and it becomes a test:
+
+```
+   upstream admissible region   (what A can reach)
+              ∩
+   downstream admissible region (what B requires)
+              =
+   mediator candidate mask
+```
+
+- **Non-empty (E1)** → the candidate mask IS the search surface, obtained by
+  `RowFocusMask::intersect` narrowing to the deeper region — **without
+  enumerating a single mediator object.**
+- **EMPTY (E2a)** → the topology claim is **REFUTED — but only under a
+  CLOSURE RECEIPT on BOTH masks.**
+
+**⚠ THE MISSING PREMISE, corrected before merge.** An earlier revision read
+`U ∩ D = ∅` as refutation outright. **That is a logical error:** for sound
+but incomplete masks `U' ⊆ U` and `D' ⊆ D`, `U' ∩ D' = ∅` does **NOT**
+entail `U ∩ D = ∅`. The masks must be **complete** over the declared
+universe — not merely sound, not merely "where we have looked."
+
+**E2c demonstrates the failure rather than guarding against it:** complete
+`U ∩ D = {P.7}` (a mediator EXISTS), yet sound-but-incomplete subsets
+intersect to ∅. Reading that emptiness as refutation is a false negative
+about a mediator that is really there.
+
+So the verdict is a function of the warrant, not the geometry alone:
+
+```
+  CLOSED universe + complete upstream + complete downstream + empty ∩
+        ⇒ topology falsifier
+  otherwise (empty ∩, no closure receipt)
+        ⇒ epistemic pothole: gather more evidence
+```
+
+E2b proves the receipt is load-bearing: the SAME empty intersection yields
+`PotholeGatherMore` the moment closure is dropped on EITHER side.
+
+**The knife edge, stated as the law:**
+
+> **An empty region is a falsifier only when the search universe is proven
+> closed enough for absence to mean absence.** Otherwise it is still a
+> pothole — and an epistemic substrate must refuse to blur the two.
+
+**Second, independent limit:** even with closure, the refutation is scoped
+to the ADDRESSED universe. An unaddressed mediator — a genuine
+unknown-unknown — is never refuted, which is why `UnknownUnlooked` stays
+distinct from `UnknownMediatorUnresolved`.
+
+This replaces the enumerate-and-score shape (`enumerate thousands →
+allocate → score all → discard most`) with `prefix mask → scoped candidate
+region → signed elimination → pair-field over survivors` — A + C, with no
+materialization step in the middle.
+
+### Depth and scope are INDEPENDENT axes (E3)
+
+```
+                      BROADER SCOPE
+                            ↑
+        shallow proof       │      deep proof
+        broad support       │      broad support
+    ────────────────────────┼────────────────────→ DERIVATIONAL DEPTH
+        shallow proof       │      deep proof
+        local support       │      local support
+                            ↓
+                       LOCAL SCOPE
+```
+
+Measured: two claims with the SAME derivational depth (3) at scopes 3 vs 1
+read as different states; two with the SAME scope at depths 3 vs 1 differ
+too. **A scalar rung collapses both distinctions.** So "deeply reasoned but
+only locally true" and "shallowly derived but broadly observed" are
+different facts the substrate can now hold apart.
+
+### The planes ENCODE seven pairwise-distinguishable readings (E4)
+
+**Scope of this result, stated precisely:** it shows the planes carry
+enough independent information to encode and distinguish seven readings. It
+does **not** show the seven are exhaustive or canonical, nor that
+production transitions naturally reach them — `read_state()` is
+hand-written and the fixtures are constructed to reach each variant.
+`LearnedSurvivedTests` in particular proves an **admission predicate is
+expressible**, not that a behavioural learner exists. If any two collapsed,
+the separation claim would fail. None do:
+
+| state | licence it grants |
+|---|---|
+| `UnknownUnlooked` | go LOOK — nothing asserted, no region |
+| `UnknownMediatorUnresolved` | go PROBE — a real region, no value |
+| `SupportedLocally{depth}` | trust here, not elsewhere |
+| `SupportedBroadly{depth}` | trust across the ancestry |
+| `FalsifiedInOneBranch` | trust broadly, DESCEND to the exception |
+| `CounterfactuallyTested` | an intervention ran, unsettled |
+| `LearnedSurvivedTests` | **the only state licensing a learned transformation** |
+
+That last row is the learning rule made mechanical: *do not learn from
+recurrence; learn what survives exposure to falsification.* Recurrence
+alone never reaches the seventh state.
+
+### Strength is a separate plane (E7)
+
+Two claims in the SAME state at expectation `0.505` vs `0.965`. Strength
+moves without the state moving — **no field impersonates another**, which
+is the property the whole plane separation exists to protect.
+
+### Connective tissue needs no new ADDRESS universe (E5)
+
+An internal node reuses the **identical** 16-byte dock, classid and address
+grammar as a leaf — it differs only in DEPTH — and the aggregate planes
+(truth / witness / provenance / coverage) **attach to that same canonical
+identity**. This proves address reuse, NOT payload collapse: it does not
+claim all four planes physically fit inside one 16-byte dock. So the operator's own cost admission resolves
+cleanly into a law:
+
+> **If the leaves cannot express the relation economically, add
+> hierarchical connective tissue — not a second representation universe.**
+
+No special "belief object", no parallel heap graph. The connective node is
+just a shallower address obeying the same ABI.
+
+### Revision moves the view (E6)
+
+The attended region changed and the coverage answer changed with it, while
+every resident dock stayed bit-for-bit identical:
+
+```
+  THE POPULATION STAYS.  THE VIEW MOVES.
+  THE WITNESSES ACCUMULATE.  THE GENERALIZATION LEVEL MAY CHANGE.
+```
+
 ## 2026-08-23 — E-FALSIFICATION-IS-THE-CHEAP-DIRECTION-AND-AUSLOESCHUNG-IS-A-READING-1 — the address space makes Popper's asymmetry mechanical; two costs measured
 
 **Status:** FINDING — [MEASURED] on shipped operators
