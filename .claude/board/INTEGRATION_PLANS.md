@@ -1,22 +1,33 @@
-## 2026-08-23 — TARSKI-MARKOV-HHTL-SEAM-1 (deferred, gated on BELIEF-ABI-RESTORATION-1 Step 2)
+## 2026-08-23 — TARSKI-MARKOV-HHTL (open-questions register — HELD, not a plan)
 
-`.claude/plans/tarski-markov-hhtl-seam-v1.md` — names the seam a future
-`BELIEF-ABI-RESTORATION-1` Step 3 must build, motivated by
+`.claude/plans/tarski-markov-hhtl-seam-v1.md` — **holds open questions;
+proposes no mechanism and licenses no work.** Motivated by
 `.claude/board/EPIPHANIES.md`
 `E-STREAM-ORDER-VS-PREFIX-TREE-NEITHER-ACCUMULATES-1`: the operator-ruled
-tree-overlay delegation for `Belief.rung`/`stamp` (HHTL depth + accumulate
-from children/siblings) has NO shipped implementation, and its two closest
-candidates are different topologies that both explicitly fall short —
-`deepnsm-v2::wave::WitnessStream` is a stream-order Markov reading that
-disclaims accumulation by name (`E-NO-BUNDLE-STANDING-WAVE-1`);
-`AttentionFocusFacet` is a prefix-tree containment reading (`covers`/
-`common_prefix`) with no fold operator. Step 3 must COMPOSE a stream-order
-reading bound to a tree address, not restate either. Falsifiers SF1-SF5
-pre-registered; PROBE-TARSKI-SIGNED-WITNESS-1 and
-PROBE-FOUR-PLANE-CAUSAL-MEDIUM-1 (both #1007) are named as reusable,
-already-proven inputs. **Explicitly deferred** — do not start until
-`BELIEF-ABI-RESTORATION-1` Step 2 (operator ruling on the Step 1 residue)
-lands; this plan is input to that ruling, not a substitute.
+tree-overlay delegation for `Belief.rung`/`stamp` has NO shipped
+implementation, and its two closest candidates both fall short in
+different ways — `deepnsm-v2::wave::WitnessStream` is a stream-order
+(total-order-over-time) reading that disclaims accumulation by name
+(`E-NO-BUNDLE-STANDING-WAVE-1`); `AttentionFocusFacet` is a prefix-tree
+(partial-order-over-address) containment reading with no fold operator.
+
+**A first revision of this entry said Step 3 "must COMPOSE" the two. That
+is withdrawn.** From *A is not it* and *B is not it* the only conclusion
+is *we do not have it* — never *A × B is it*. The withdrawn composition
+also proposed rebasing a version-ordered stream into "address-scoped"
+order, which is exactly the semantic type drift the DOCK/ROUTE separation
+exists to prevent (time is time; address is address), and risked
+re-entering the memory escape through a newly materialized owned `Vec`.
+
+What the file now carries: open questions Q1–Q5 (is depth reconstructible
+from SUPPORT topology at all — needing no address; what must a `Stamp`
+replacement preserve, given its identity semantics are disjointness /
+overlap / source-set union / no-double-count, which a generic commutative
+fold does not supply; can a `Belief` acquire an identity-derived address;
+is route provenance load-bearing; **is there a mechanism neither candidate
+resembles**), plus standing fences that bind any future answer. Nothing
+here is startable; the next legitimate step is `BELIEF-ABI-RESTORATION-1`
+Step 2.
 
 ## 2026-08-21 — D-ACR-7 BAND-READING CONTRACT (council-ratified spec)
 

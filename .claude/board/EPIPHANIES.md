@@ -65,21 +65,51 @@ the chip is load-bearing, not decorative. It is not an accumulate-fold
 either: it is a pointer write/read on one register, the same shape
 `wave.rs`'s single-owner events already generalize.)
 
-**The consequence, stated precisely so Step 3 doesn't restate either
-candidate by mistake.** If the operator's ruling is to be built rather
-than merely re-asserted, Step 3's probe cannot pick ONE of these two
-shipped mechanisms and call it done — neither is the fold. It would need
-to COMPOSE them: a stream-order Markov reading (candidate A's window/
-offset walk) BOUND to a specific tree address (candidate B's prefix
-containment, so "depth" and "which subtree" are meaningful at all) —
-which is itself a new, undocumented seam, not a restatement of anything
-shipped. Flagged as a future integration item, not built here (Step 1's
-own scope: audit-first, no layout invented).
+**The consequence — and the inference NOT to draw.** The finding is
+negative and stops there:
+
+```
+  A is not the mechanism
+  B is not the mechanism
+  ⇒ WE DO NOT HAVE THE MECHANISM
+```
+
+**⇒ NOT `therefore A × B is the mechanism`.** An earlier revision of this
+entry concluded that Step 3 must COMPOSE the two (a stream-order walk
+bound to a tree address). **That leap is withdrawn.** "Neither of the two
+things I checked is it" licenses no claim whatever about what it is; the
+composition is one hypothesis among unknown others, and elevating it to
+"what Step 3 must build" would smuggle a design decision in through a
+negative result.
+
+**The specific danger that withdrawal avoids, recorded as a fence.** The
+withdrawn composition proposed rebasing `WitnessStream` from VERSION
+order into "address-scoped stream order," possibly repurposing
+`VersionRange`. That is precisely the semantic type drift this
+architecture exists to prevent: **time is time, address is address.**
+Sharing a memory ABI does not make two topologies interchangeable, and a
+`VersionRange` that sometimes means an address span is a type whose
+meaning depends on who is holding it. Further: any future address-scoped
+fold must be a BORROWED VIEW over ABI-resident rows — if it materializes
+another `Vec<(u64, CausalWitnessFacet)>`, the memory escape has simply
+re-entered through a different door (`E-TYPE-COMPLEXITY-EXPOSED-A-MEMORY-
+ABI-ESCAPE-1`), and `wave.rs`'s own honesty note already records that
+`WitnessStream` is TODAY *"a parallel OWNED container beside
+`TemporalStream`, not a zero-copy projection."*
+
+**Two inherited assumptions this entry does not carry forward.** Neither
+is established, and the negative finding does not support either: (a)
+`rung = HHTL tree depth` — the answerable question is whether derivation
+depth is reconstructible from SUPPORT topology, which needs no address at
+all; (b) `stamp = commutative accumulation` — any replacement must
+reproduce `Stamp`'s load-bearing IDENTITY semantics (disjointness,
+overlap, source-set union, no double-count, `belief.rs:39-48`), and a
+`vsa_bundle`-style fold is not automatically a source-set union.
 
 **Bounds respected:** no code changed by this finding; no tenant minted;
-no canonizing on either candidate as sufficient. See
-`.claude/plans/tarski-markov-hhtl-seam-v1.md` for the deferred integration
-plan this finding motivates.
+no mechanism proposed; no canonizing on either candidate. The open
+questions this finding leaves are registered — explicitly as questions,
+not a plan — in `.claude/plans/tarski-markov-hhtl-seam-v1.md`.
 
 ## 2026-08-23 — E-TYPE-COMPLEXITY-EXPOSED-A-MEMORY-ABI-ESCAPE-1 — the clippy warning was the surface symptom; `BeliefArena` is an independent AoS cognitive population owner outside the canonical memory ABI
 
