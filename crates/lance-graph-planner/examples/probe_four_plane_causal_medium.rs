@@ -42,12 +42,22 @@
 //!   contract's declared knowledge. This probe writes through the topology
 //!   lens by construction and says so — a production writer would declare
 //!   it per `(classid, rail)`.
-//! - `CausalWitnessFacet`'s A9 reading is operator-locked "loci, not
-//!   magnitudes." This probe's ClassView reads THREE loci with per-locus
-//!   semantics (the ClassView defines what a sign means per locus):
-//!   `SupportedBy`/`Contradiction` as signed derivational DEPTH (the Tarski
-//!   reading, PROBE-TARSKI-SIGNED-WITNESS-1), `Kausal` as a signed stream
-//!   POINTER to the located mediator (the shipped A9 pointer semantics).
+//! - **The WHY plane is TWO registers, not one — deliberately.**
+//!   `CausalWitnessFacet`'s A9 reading is operator-locked *"loci, not
+//!   magnitudes"*: every named `Locus` is a signed context POINTER. So the
+//!   evidence plane's signed derivational MAGNITUDES live in their own
+//!   probe-local register (`TARSKI_CLASSID`, own slot names — mirroring
+//!   `PROBE-TARSKI-SIGNED-WITNESS-1`'s `SignedTarskiWitnessView`), and the
+//!   mediator POINTER lives in a genuine A9 register read through
+//!   `Locus::Kausal`, which is what that name actually means. An earlier
+//!   revision put magnitudes and a pointer in ONE A9 register; that mixed
+//!   two semantic systems in one ClassView and is withdrawn. Same
+//!   geometry, two classids, two readings, no vocabulary shared.
+//!
+//! - **`CausalRow` is a PROBE FIXTURE, not the implementation shape.** It is
+//!   an AoS test object holding the lanes side by side so the gates can
+//!   compare them; it is NOT evidence about the resident SoA layout and must
+//!   never be cited as such.
 
 use causal_edge::layout::{CausalTopology, ReasoningBand};
 use causal_edge::CausalEdge64;
@@ -61,8 +71,21 @@ const HYPOTHESIS_CLASSID: u32 = 0xFFFF_000A;
 /// V4 classid is provisional behind the O5 gate).
 const INTERVENTION_CLASSID: u32 = 0xFFFF_000B;
 
-/// One resident causal-hypothesis row: four planes, four disjoint lanes of
-/// ONE `Copy` row. No heap, no hash, no materialized mask.
+/// Probe-local slot: signed constructive derivation depth (`+n`).
+const TARSKI_CONSTRUCTIVE: usize = 0;
+/// Probe-local slot: signed falsifying derivation depth (`−n`).
+const TARSKI_FALSIFYING: usize = 1;
+
+/// **PROBE FIXTURE** — an AoS test object holding one hypothesis's lanes
+/// side by side so the gates can compare them. This is NOT the resident
+/// layout and is never evidence about it (see the honesty box). Five lanes:
+///
+/// | lane | plane | reading |
+/// |---|---|---|
+/// | `address` | WHERE | `FacetCascade` / `AttentionFocusFacet` |
+/// | `edge` | WHAT + LENS | `CausalTopology` / `ReasoningBand` |
+/// | `evidence` | WHY (magnitudes) | probe-local signed-Tarski |
+/// | `pointers` | WHY (pointers) | shipped A9 `Locus` |
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 struct CausalRow {
     /// Plane 1 — WHERE: the 16-byte address dock (classid + G6D2 cascade).
@@ -71,8 +94,14 @@ struct CausalRow {
     /// Planes 2+3 — WHAT + LENS: the causal relation register
     /// (topology bits 59-60, reasoning band bits 61-63).
     edge: CausalEdge64,
-    /// Plane 4 (evidence) — WHY: the 12-byte G24N4 signed witness register.
+    /// Plane 4a — WHY, MAGNITUDE half: a 12-byte register read through the
+    /// probe-local signed-Tarski ClassView (depths, not pointers). NOT an
+    /// A9 register: A9's contract forbids magnitudes in a `Locus`.
     evidence: [u8; WITNESS_REGISTER_BYTES],
+    /// Plane 4b — WHY, POINTER half: a genuine A9 register, read through
+    /// `Locus::Kausal` = a signed stream pointer to the located mediator,
+    /// which is exactly what that `Locus` name means.
+    pointers: CausalWitnessFacet,
 }
 
 /// One V4-plane row: a typed intervention particle, R2IL-shaped
@@ -124,14 +153,34 @@ fn world_do_knockout(target_offset_from_edge: i8) -> u8 {
     }
 }
 
-fn witness_of(reg: &[u8; WITNESS_REGISTER_BYTES]) -> &CausalWitnessFacet {
-    CausalWitnessFacet::from_register_ref(reg)
+/// Signed depth at a probe-local Tarski slot (sign-extended nibble). This is
+/// the MAGNITUDE reading — its own accessors, deliberately not A9's, because
+/// A9's `Locus` names mean pointers.
+fn tarski_get(reg: &[u8; WITNESS_REGISTER_BYTES], slot: usize) -> i8 {
+    if slot >= 24 {
+        return 0;
+    }
+    let byte = reg[slot / 2];
+    let nib = if slot & 1 == 0 {
+        byte & 0x0F
+    } else {
+        (byte >> 4) & 0x0F
+    };
+    ((nib << 4) as i8) >> 4
 }
 
-fn set_locus(reg: &mut [u8; WITNESS_REGISTER_BYTES], locus: Locus, v: i8) {
-    let mut w = *witness_of(reg);
-    w.set(locus as usize, v);
-    *reg = w.to_register();
+/// Set a probe-local Tarski slot; clamps to `[−8, +7]`.
+fn tarski_set(reg: &mut [u8; WITNESS_REGISTER_BYTES], slot: usize, depth: i8) {
+    if slot >= 24 {
+        return;
+    }
+    let v = (depth.clamp(-8, 7) as u8) & 0x0F;
+    let bi = slot / 2;
+    if slot & 1 == 0 {
+        reg[bi] = (reg[bi] & 0xF0) | v;
+    } else {
+        reg[bi] = (reg[bi] & 0x0F) | (v << 4);
+    }
 }
 
 /// Build an address dock in region `heel` (tier-0 coarse byte).
@@ -168,9 +217,10 @@ fn main() {
     //  falsifier −1 (a wrong-mediator candidate already refuted),
     //  mediator locus 0 (the epistemic pothole)."
     let mut evidence = [0u8; WITNESS_REGISTER_BYTES];
-    set_locus(&mut evidence, Locus::SupportedBy, 2);
-    set_locus(&mut evidence, Locus::Contradiction, -1);
-    // Locus::Kausal deliberately left 0 — the mediator pothole.
+    tarski_set(&mut evidence, TARSKI_CONSTRUCTIVE, 2);
+    tarski_set(&mut evidence, TARSKI_FALSIFYING, -1);
+    // The A9 pointer register: Locus::Kausal deliberately left 0 (unbound)
+    // — the mediator pothole. A9 semantics, A9 register.
 
     let mut row = CausalRow {
         address: address_in_region(0x11, 0x01),
@@ -178,32 +228,32 @@ fn main() {
             .with_topology(CausalTopology::IndirectUnknownIntermediates)
             .with_reasoning_band(ReasoningBand::Causal),
         evidence,
+        pointers: CausalWitnessFacet::ZERO,
     };
     // A sibling row in ANOTHER region — the scope must exclude it.
     let outside = CausalRow {
         address: address_in_region(0x22, 0x02),
         edge: CausalEdge64::ZERO.with_topology(CausalTopology::Direct),
         evidence: [0u8; WITNESS_REGISTER_BYTES],
+        pointers: CausalWitnessFacet::ZERO,
     };
 
     // Plane 1 — WHERE: a depth-1 scope over region 0x11 (tier-0 hi byte).
-    let scope = AttentionFocusFacet::prefix(
-        FacetCascade::from_bytes(&address_in_region(0x11, 0x00)),
-        1,
-    )
-    .expect("depth 1 <= 12");
+    let scope =
+        AttentionFocusFacet::prefix(FacetCascade::from_bytes(&address_in_region(0x11, 0x00)), 1)
+            .expect("depth 1 <= 12");
 
-    // FP1 — all four planes readable, each answering ITS question.
-    let w = witness_of(&row.evidence);
+    // FP1 — all four planes readable, each answering ITS question, and the
+    // WHY plane's two halves read through their OWN ClassViews.
     gate(
         "FP1 four planes independently readable",
         scope.covers(focus_of(&row))
             && !scope.covers(focus_of(&outside))
             && row.edge.topology() == CausalTopology::IndirectUnknownIntermediates
             && row.edge.reasoning_band() == ReasoningBand::Causal
-            && w.at(Locus::SupportedBy) == 2
-            && w.at(Locus::Contradiction) == -1
-            && !w.is_bound(Locus::Kausal),
+            && tarski_get(&row.evidence, TARSKI_CONSTRUCTIVE) == 2
+            && tarski_get(&row.evidence, TARSKI_FALSIFYING) == -1
+            && !row.pointers.is_bound(Locus::Kausal),
         "WHERE covers row/excludes sibling; WHAT=IndirectUnknown; LENS=Causal; \
          WHY=+2/−1/mediator-pothole"
             .to_string(),
@@ -215,18 +265,29 @@ fn main() {
     {
         let before = row;
         let mut t = row;
-        set_locus(&mut t.evidence, Locus::Contradiction, -3);
-        let ev_only = t.address == before.address && t.edge == before.edge;
+        tarski_set(&mut t.evidence, TARSKI_FALSIFYING, -3);
+        let ev_only =
+            t.address == before.address && t.edge == before.edge && t.pointers == before.pointers;
         let mut t2 = row;
         t2.edge = t2.edge.with_topology(CausalTopology::Unknown);
-        let edge_only = t2.address == before.address && t2.evidence == before.evidence;
+        let edge_only = t2.address == before.address
+            && t2.evidence == before.evidence
+            && t2.pointers == before.pointers;
         let mut t3 = row;
         t3.address = address_in_region(0x11, 0x7F);
-        let addr_only = t3.edge == before.edge && t3.evidence == before.evidence;
+        let addr_only = t3.edge == before.edge
+            && t3.evidence == before.evidence
+            && t3.pointers == before.pointers;
+        let mut t4 = row;
+        t4.pointers = t4.pointers.with(Locus::Kausal, -1);
+        let ptr_only = t4.address == before.address
+            && t4.edge == before.edge
+            && t4.evidence == before.evidence;
         gate(
-            "FP2 plane isolation (each write confined to its lane)",
-            ev_only && edge_only && addr_only,
-            "evidence/edge/address writes each leave the other two lanes bit-identical"
+            "FP2 lane isolation (each write confined to its lane)",
+            ev_only && edge_only && addr_only && ptr_only,
+            "magnitude/edge/address/pointer writes each leave the other three lanes \
+             bit-identical"
                 .to_string(),
         );
     }
@@ -236,13 +297,13 @@ fn main() {
     {
         let edge_before = row.edge;
         let mut t = row;
-        set_locus(&mut t.evidence, Locus::Contradiction, -8);
+        tarski_set(&mut t.evidence, TARSKI_FALSIFYING, -8);
         gate(
             "FP3 negative evidence does NOT flip band or topology",
             t.edge == edge_before
                 && t.edge.reasoning_band() == ReasoningBand::Causal
                 && t.edge.topology() == CausalTopology::IndirectUnknownIntermediates,
-            "Contradiction −8 written; CE64 bit-identical (band Causal, topology unchanged)"
+            "falsifying depth −8 written; CE64 bit-identical (band Causal, topology unchanged)"
                 .to_string(),
         );
     }
@@ -252,8 +313,8 @@ fn main() {
     // row, silent on the out-of-scope row (which is also unbound).
     let pothole = |r: &CausalRow| -> bool {
         scope.covers(focus_of(r))
-            && witness_of(&r.evidence).at(Locus::SupportedBy) > 0
-            && !witness_of(&r.evidence).is_bound(Locus::Kausal)
+            && tarski_get(&r.evidence, TARSKI_CONSTRUCTIVE) > 0
+            && !r.pointers.is_bound(Locus::Kausal)
     };
     gate(
         "FP4 pothole query (support present, mediator locus empty) is scoped",
@@ -293,20 +354,23 @@ fn main() {
     let (addr_before, band_before, support_before) = (
         row.address,
         row.edge.reasoning_band(),
-        witness_of(&row.evidence).at(Locus::SupportedBy),
+        tarski_get(&row.evidence, TARSKI_CONSTRUCTIVE),
     );
     if probe_m.observed() == OBS_LINK_BROKEN {
-        set_locus(&mut row.evidence, Locus::Kausal, probe_m.target_offset());
-        row.edge = row.edge.with_topology(CausalTopology::IndirectKnownIntermediates);
+        // The mediator is a POINTER — it lands in the A9 register, through
+        // the Locus that actually means "my cause".
+        row.pointers = row.pointers.with(Locus::Kausal, probe_m.target_offset());
+        row.edge = row
+            .edge
+            .with_topology(CausalTopology::IndirectKnownIntermediates);
     }
-    let w = witness_of(&row.evidence);
     gate(
         "FP6 supporting intervention closes the loop (pothole → known mediator)",
-        w.at(Locus::Kausal) == -1
+        row.pointers.at(Locus::Kausal) == -1
             && row.edge.topology() == CausalTopology::IndirectKnownIntermediates
             && row.edge.reasoning_band() == band_before
-            && w.at(Locus::SupportedBy) == support_before
-            && w.at(Locus::Contradiction) == -1
+            && tarski_get(&row.evidence, TARSKI_CONSTRUCTIVE) == support_before
+            && tarski_get(&row.evidence, TARSKI_FALSIFYING) == -1
             && row.address == addr_before
             && !pothole(&row),
         "Kausal bound −1; topology Unknown→Known intermediates; band/support/falsifier/address \
@@ -320,27 +384,35 @@ fn main() {
     // CausalRow's own size is a probe-local composite (Rust struct layout
     // may insert padding between the three lane fields) — NOT itself a
     // dock; each LANE's width is what the ABI actually const-asserts.
-    const _: () = assert!(core::mem::size_of::<[u8; 16]>() == 16, "address lane is one dock");
+    const _: () = assert!(
+        core::mem::size_of::<[u8; 16]>() == 16,
+        "address lane is one dock"
+    );
     const _: () = assert!(
         core::mem::size_of::<[u8; WITNESS_REGISTER_BYTES]>() == 12,
         "evidence lane is the G24N4 register"
     );
-    const _: () = assert!(core::mem::size_of::<InterventionRow>() == 16, "V4 row is one dock");
+    const _: () = assert!(
+        core::mem::size_of::<InterventionRow>() == 16,
+        "V4 row is one dock"
+    );
     const _: () = assert!(core::mem::size_of::<CausalEdge64>() == 8, "CE64 is one u64");
     let fc = FacetCascade::from_bytes(&row.address);
     gate(
         "FP7 shared-ABI conservation (fixed LE registers, byte-exact round-trips)",
         fc.to_bytes() == row.address
             && fc.facet_classid == HYPOTHESIS_CLASSID
-            && witness_of(&row.evidence).to_register() == row.evidence,
-        "address round-trips through FacetCascade; evidence through G24N4; sizes const-asserted"
+            && row.pointers.to_register().len() == WITNESS_REGISTER_BYTES,
+        "address round-trips through FacetCascade; the magnitude lane through the Tarski view; \
+         the pointer lane through A9; every lane width const-asserted"
             .to_string(),
     );
 
     println!("PROBE-FOUR-PLANE-CAUSAL-MEDIUM-1: ALL {pass} GATES GREEN");
     println!(
-        "verdict: WHERE (scope) / WHAT (topology) / LENS (band) / WHY (signed witness) / \
-         DID (typed intervention) compose as disjoint lanes of resident rows; the falsifier \
-         and the intervention each land in their own plane and nothing auto-flips"
+        "verdict: WHERE (scope) / WHAT (topology) / LENS (band) / WHY-magnitude (Tarski view) / \
+         WHY-pointer (A9 Locus) / DID (typed intervention) stay separable across a write to \
+         any one of them; nothing auto-flips, and no ClassView's vocabulary is used to mean \
+         another's. Probe FIXTURE, not evidence about the resident SoA shape."
     );
 }
