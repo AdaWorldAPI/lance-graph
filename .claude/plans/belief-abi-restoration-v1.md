@@ -30,6 +30,26 @@ There is ONE physical population authority. Everything else is a view or an
 operator. Indexes are derived machinery: delete/rebuild must leave cognitive
 state intact. Hashes verify bytes; they never stand in for semantic geometry.
 
+## The poster (operator-issued, 2026-08-23)
+
+`docs/architecture/memory-abi-poster.png` — the visual canon of this
+charter's law: the content-blind dock (16 B = classid/ClassView + 6×(8:8),
+LE, align(16), zero-copy) as the railway; the seven tenants docked around
+it; the Allowed list (pointer · offset · ClassView · mask · route contract
+· borrowed lens · ephemeral acceleration index); and the Unacceptable
+Drift panel with `BeliefArena → Vec<Belief> → Vec<premises> → AoS owner →
+snapshot copies → hash-as-geometry → second physical universe` crossed
+out. *"Indexes may accelerate the ABI. They must not become the ABI."*
+
+**Reading note (honesty over gloss):** the ring depicts the RESTORED
+architecture, i.e. this charter's target — two of its tenants are not
+there yet in code. `EpistemicWitnessV3` has no stored tenant today
+(epistemic state = read-side `QueryReference` + `Quorum`/`Contradiction`
+loci inside the witness lane), and `AriGraph / Relation Geometry` as
+shipped (`TripletGraph`) is itself the escape shape this charter names.
+The poster is the destination, the homes table is the map, the ladder is
+the route.
+
 ## The question (brutal form)
 
 NOT "how do we make BeliefArena SoA?" but:
