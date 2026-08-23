@@ -1,3 +1,21 @@
+## 2026-08-23 — MULTI-GROUP MEMBERSHIP PROBE (root order executed; carrier UNDECIDED)
+
+`PROBE-MULTI-GROUP-MEMBERSHIP-1` (11/11) executes the operator's root
+order: the simple primitive FIRST. Multi-group membership is proven —
+one resident item in 2+ groups with a third addable (M1), one canonical
+`Membership` relation with inverse views (M2), masks as
+delete/rebuild-safe derived artifacts (M3), zero population movement
+across join/leave (M4), and scope inheriting down while cross-subtree
+membership stays pure relation topology (M5: GROUP MEMBERSHIP IS RELATION
+TOPOLOGY, NOT HHTL ANCESTRY). Behavioral half over #1001-shaped receipts:
+exact replay (B1), recurrence measured and honestly labelled as
+driver-recurrence (B2), ordered-group reconstruction with order preserved
+(B3), repeated-but-refused behavior structurally excluded from macro
+candidacy (B4/F6), and grouping currently ADDING bytes over raw receipts
+(B5). **BEHAVIORAL COMPRESSION CARRIER: UNDECIDED** — production-scale
+recurrence unmeasured; if too rare, the correct result is NO BPE. Board:
+`E-MEMBERSHIP-IS-PARTICIPATION-NOT-ANCESTRY-1`.
+
 ## 2026-08-23 — TOKEN-BPE GEOMETRY PROBE (bounded; verdict CAN-FIT, NOT YET BUY)
 
 `PROBE-TOKEN-BPE-GEOMETRY-1` (8/8) answers the bounded operator question:
