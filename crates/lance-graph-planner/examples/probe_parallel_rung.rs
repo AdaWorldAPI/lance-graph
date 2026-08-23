@@ -48,24 +48,18 @@ fn inh(s: u16, p: u16) -> CStmt {
     }
 }
 
-/// Every `(statement, rung, truth)` currently in the arena, sorted for a
-/// stable byte-comparable snapshot.
-fn snapshot(a: &BeliefArena) -> Vec<((u16, u16), u32, (f32, f32))> {
-    let mut v: Vec<_> = a
-        .entries()
-        .iter()
-        .map(|b| {
-            (
-                (b.stmt.s, b.stmt.p),
-                b.rung,
-                (b.truth.frequency, b.truth.confidence),
-            )
-        })
-        .collect();
-    v.sort_by_key(|(k, r, _)| (*k, *r));
-    v
-}
-
+/// ⚠ MEMORY-ABI ESCAPE, acknowledged in place (the #1004 finding).
+///
+/// This probe's population authority is `BeliefArena { entries: Vec<Belief> }`
+/// with `Belief.premises: Vec<u32>` — an independent AoS cognitive population
+/// owner OUTSIDE the canonical V3 LE SoA substrate (16-byte `classid + 6×(8:8)`
+/// docks, SoA lanes, zero-copy views). The clippy `type_complexity` warning on
+/// the old `snapshot()` was the surface symptom; the owner itself is the
+/// violation. This probe runs INSIDE that acknowledged escape and repairs
+/// nothing: the measured coexistence results (G1..G7) hold for the arena's
+/// object model, and their restatement over ABI-resident state is exactly what
+/// the ABI-restoration follow-up must prove. Do not read anything here as the
+/// canonical belief substrate.
 fn rungs_present(a: &BeliefArena) -> Vec<u32> {
     let mut r: Vec<u32> = a.entries().iter().map(|b| b.rung).collect();
     r.sort_unstable();
@@ -88,12 +82,19 @@ fn main() {
             Stamp::source(i as u32),
         );
     }
-    let observed_snapshot = snapshot(&arena);
+    // The rung-0 oracle is the AUTHORED FIXTURE itself — the four observations
+    // above, known a priori. No snapshot, no digest, no copy: G4 compares the
+    // arena's rung-0 lane against what the probe itself wrote.
+    let fixture: [((u16, u16), (f32, f32)); 4] = [
+        ((1, 2), (1.0, 0.9)),
+        ((2, 3), (1.0, 0.9)),
+        ((3, 4), (1.0, 0.9)),
+        ((4, 5), (1.0, 0.9)),
+    ];
     let observed_count = arena.entries().len();
 
     arena.close_transitive(16);
 
-    let after = snapshot(&arena);
     let present = rungs_present(&arena);
 
     // ── G1: at least three distinct rungs coexist in ONE arena ────────
@@ -129,15 +130,26 @@ fn main() {
     // ── G4: the rung-0 contributions survive the higher rungs' arrival ─
     // Requirement 5: creating higher-rung work must NOT delete, overwrite,
     // invalidate, or demote the lower-rung work.
-    let observed_still: Vec<_> = after.iter().filter(|(_, r, _)| *r == 0).cloned().collect();
+    // Borrowed iteration against the authored fixture: every rung-0 belief
+    // must still be exactly one fixture row (bit-exact truth), and there must
+    // be exactly as many as were observed.
+    let mut matched = 0usize;
+    let mut rung0 = 0usize;
+    for b in arena.entries().iter().filter(|b| b.rung == 0) {
+        rung0 += 1;
+        if fixture.iter().any(|((fs, fp), (ff, fc))| {
+            b.stmt.s == *fs
+                && b.stmt.p == *fp
+                && b.truth.frequency.to_bits() == ff.to_bits()
+                && b.truth.confidence.to_bits() == fc.to_bits()
+        }) {
+            matched += 1;
+        }
+    }
     gates.push((
-        "G4 every rung-0 belief survives byte-identical after closure",
-        observed_still == observed_snapshot && observed_still.len() == observed_count,
-        format!(
-            "{} observed before, {} identical rung-0 entries after",
-            observed_count,
-            observed_still.len()
-        ),
+        "G4 every rung-0 belief survives bit-identical to the authored fixture after closure",
+        rung0 == observed_count && matched == observed_count,
+        format!("{rung0} rung-0 entries, {matched}/{observed_count} match the fixture bit-exactly"),
     ));
 
     // ── G5: revision at a low rung does not move that belief's rung ────
