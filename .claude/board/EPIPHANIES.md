@@ -143,6 +143,408 @@ every resident dock stayed bit-for-bit identical:
   THE WITNESSES ACCUMULATE.  THE GENERALIZATION LEVEL MAY CHANGE.
 ```
 
+## 2026-08-23 — E-FALSIFICATION-IS-THE-CHEAP-DIRECTION-AND-AUSLOESCHUNG-IS-A-READING-1 — the address space makes Popper's asymmetry mechanical; two costs measured
+
+**Status:** FINDING — [MEASURED] on shipped operators
+(`PROBE-HHTL-FALSIFICATION-ASYMMETRY-1`, 7/7). Corollary of
+`E-HIERARCHY-IS-THE-ADDRESS-SPACE-NOT-THE-ONTOLOGY-1`.
+**Confidence:** High for the algebra; the toy hierarchy is an operator
+test, not a corpus.
+
+### Why a SIGNED field is categorically different
+
+A signed `24×i4` field admits **destructive interference** — *Auslöschung*.
+`+n` and `−n` at one address cancel. A purely positive confidence scalar
+structurally cannot do this: it can be diluted, never extinguished. That is
+the whole distance between *"my confidence went down"* and *"this was
+refuted"* — and refutation, not dilution, is what a learner can act on.
+
+### ⚠ COST 1 (F1) — Auslöschung must be a READING, never a stored sum
+
+Measured: `net(+3, −3) == net(unset) == 0`. **A summed slot cannot
+distinguish "support and refutation met and annihilated" from "nothing was
+ever asserted here."** Those license opposite actions — the first is a
+licence to LEARN (something is contested, go resolve it), the second a
+licence to LOOK (nothing here yet, go gather). Collapsing them destroys
+exactly the information falsification exists to create.
+
+Two slots keep the three-way state (`Unasserted` / `Supported` / `Refuted`
+/ `Contested{net}`) and the registers differ bitwise even when the net is
+zero. **So: cancellation is a projection over retained polarities, never a
+storage collapse.** This is the same shape as the standing rule that a
+contradiction is COMMITTED and preserved, not resolved away.
+
+### The asymmetry, made mechanical (F2/F3/F5)
+
+```
+  falsify a universal claim at P    ONE counterexample region     cost 1
+  verify  a universal claim at P    exhaust FAN_OUT (16)          cost 16
+                                    …and every level BELOW stays open
+```
+
+**The precise complexity claim.** Once a valid counterexample region is
+KNOWN, *applying* it to a universal claim over an addressed subtree is
+**`O(1)` in subtree population size** via prefix containment. **Discovering
+the counterexample is NOT proven cheap** — that may involve probing,
+search, causal inference, I/O, or pair-field work, none of which is
+measured here. What the hierarchy makes cheap is the PROPAGATION of a
+falsifier, never its discovery; the distinction matters the moment this is
+compared against GPU or causal-representation-learning approaches.
+
+Propagation reaches a whole subtree with **no enumeration** (F2: one
+depth-1 focus covers all 16 depth-2 and all 16 depth-3 probes by prefix
+test alone — the subtree is never materialized), and it does not over-kill
+(F5: silent on sibling subtrees, on other parents, and — importantly — on
+its own ANCESTOR, since a child's refutation is not the parent's).
+
+The hierarchy does not *create* Popper's asymmetry. It makes the
+propagation half **mechanical**: `covers` is the entire test. That is the
+concrete sense in which falsification is "a precondition for learning"
+here — its propagation is the cheap direction, structurally.
+
+### The known-unknown is addressable-without-a-value (F4)
+
+Three epistemic states, and only the middle one admits a targeted
+counterfactual probe:
+
+| state | address | value |
+|---|---|---|
+| known-known | a covered address | present |
+| **known-unknown** | **a real region to drill into** | **absent** |
+| unknown-unknown | no region at all | absent |
+
+This is what makes "indirect intermediate known-unknowns" cheap: the WHERE
+is addressable while the WHAT is absent, so a probe has a target. It pairs
+exactly with the shipped `CausalTopology::IndirectUnknownIntermediates` —
+the topology register says *an* intermediate exists, the address space says
+*where it would live*, and the pothole says *we don't have it yet*.
+
+### Inheritance is DIRECTIONAL (F7)
+
+Downstream is `covers` (containment); upstream is `common_prefix` (the
+meet). `P.covers(C)` but **not** `C.covers(P)` — upstream is not
+containment, and conflating them would let a child's verdict masquerade as
+its parent's.
+
+### ⚠ COST 2 (F6) — "all but one" is the worst case, and `difference` cannot help
+
+The operator's own cost admission — *"in the worst case it just needs HHTL
+hierarchical nodes to express more connective tissue than the leaf
+nodes"* — measured rather than conceded:
+
+- **Collapse is free.** All 16 children explicitly = 16 antichain entries,
+  but absorbs to **1** parent entry.
+- **"All but one" costs 15 entries.** And `RowFocusMask::difference`
+  **cannot** reduce it: subtracting the hole from the parent yields **1
+  entry that STILL COVERS THE HOLE**.
+
+That last result is sharper than "conservative". It means `difference` is
+**not usable as an exclusion primitive** — reading its output as
+"everything except the hole" is unsound. This is the mechanical root of the
+already-standing P* rule (scoped-difference potholes are conservative
+candidate-unknown masks, never exact holes), and the shipped doc says why
+in its own words: splitting a prefix "would require enumerating siblings —
+inventing addresses the focus never visited."
+
+**Consequence:** an exclusion needs **its own channel** — a signed negative
+at the excluded address (which the signed field already provides) — never a
+subtracted prefix. Pleasingly, that is Auslöschung again: you mark the hole,
+you do not carve it out.
+## 2026-08-23 — E-HIERARCHY-IS-THE-ADDRESS-SPACE-NOT-THE-ONTOLOGY-1 — HHTL is the universal address grammar, beneath the V3/V4 distinction; and globality is geometry ONLY WITH provenance
+
+**Status:** ROOT LAW proposed by the operator, with one part [MEASURED]
+and one part [CONJECTURE] — the split is stated below rather than blurred.
+**Confidence:** High for the address-space law and the measured corollary;
+the universal-addressability claim is explicitly NOT demonstrated for
+`Belief`.
+
+### The law (operator, 2026-08-23)
+
+> **Hierarchy is the address space, not the ontology.**
+>
+> HHTL need not claim that reality is a tree. It claims that every resident
+> datum can receive a hierarchical address FROM WHICH non-hierarchical
+> relations can be expressed **without changing its physical identity — and
+> zero-copy where the carrier is ABI-resident.**
+
+**Why that qualifier is exact, not hedging.** Hierarchical addressability
+by itself guarantees nothing about copies; the PHYSICAL ABI does. An
+address over a non-resident carrier (an owned container, a materialized
+window) is still an address, and it is still not zero-copy — which is
+precisely the `WitnessStream` situation recorded in its own honesty note.
+Keeping the two clauses separate stops the law from silently importing a
+performance guarantee it does not itself supply.
+
+The Active Directory lesson, exactly. A DN gives an object a deterministic
+hierarchical home —
+`CN=Jan,OU=Engineering,DC=example,DC=com` — without asserting that
+everything about Jan is ancestry. Group membership, manager links, ACLs and
+mail routing are cross-links between objects that already have hierarchical
+identities. The directory hierarchy solves **where**; the references solve
+**how things relate**.
+
+```
+  EVERY COGNITIVE DATUM GETS AN HHTL HOME.
+
+  Relations may then: inherit · cross-link · point sideways · backward ·
+  forward · contradict · support · cause · observe · intervene
+  — without changing the object's addressability.
+```
+
+**What this corrects (a narrowness in my own prior caution).** The earlier
+entry `E-STREAM-ORDER-VS-PREFIX-TREE-NEITHER-ACCUMULATES-1` framed
+"stream-order Markov" and "prefix-tree HHTL" as an opposition. Under this
+law that opposition is **weaker than it was stated** — see that entry's own
+regrade note. A temporal datum is not a separate non-HHTL universe; it can
+be HHTL-addressed (`episode → version window → event region → event
+identity`) with the signed ±i4 offsets as LOCAL traversal inside an
+addressed neighborhood. Stream ordering remains temporal semantics; HHTL
+gives it its home. The two are layered, not rival. Same for graphs: a node
+has a canonical HHTL home while edges are `address A → address B`, and the
+graph itself needs no tree structure at all — AriGraph, `CausalEdge`,
+`EpisodicEdge`, anaphora pointers, support/premise relations and R2IL
+operations can all point between HHTL-resident things.
+
+### HHTL is BENEATH the V3/V4 distinction
+
+```
+                 HHTL ADDRESS SPACE
+                       │
+         ┌─────────────┼─────────────┐
+        V3            V3            V4
+      state         witness       behavior
+         │             │             │
+     ClassView     ClassView     ClassView
+         │             │             │
+  route semantics  route semantics  route semantics
+```
+
+V3 and V4 do not own the railway. They are payload/read contracts for
+objects that **already have a hierarchical home**. This is a cleaner
+statement than the earlier "V4 may ride V3 routes" framing.
+
+### The brutal admission rule (the sharp test this gives us)
+
+> **If a datum exists but cannot be assigned a meaningful HHTL address
+> without using `Vec` position as identity, it has not yet been normalized
+> into the memory ABI.**
+
+This names precisely what was wrong with the withdrawn "trivial
+per-arena-position address" proposal (`BELIEF-ABI-RESTORATION-1` Step 1,
+recut): **`arena[37]` is not a semantic hierarchy — it is an implementation
+accident wearing an HHTL costume.** A real address would land through
+semantic coordinates (relation class → subject basin → predicate basin →
+evidence context → instance; exact carving to be PROVEN, not invented).
+
+### The corollary, and where it breaks — [MEASURED]
+
+> **Evidence rises only as high in the HHTL tree as its independent support
+> generalizes.**
+
+The prize is deleting a metadata system: no `enum Scope {Local, Regional,
+Global}`, no global-concern score, no scheduler that "promotes" a belief.
+Globality becomes geometry. `PROBE-EVIDENCE-RISES-BY-GENERALIZATION-1`
+(7/7) measured it on shipped operators:
+
+- **[CODE]** The pieces already exist and were not written for this:
+  `AttentionFocusFacet::common_prefix` is the MEET (deepest focus covering
+  both, and it *never invents an address*); `RowFocusMask` is literally
+  "antichain of HHTL regions" with absorbing `union` and conservative
+  `difference`; `TruthValue::revise` (`nars/truth.rs:57`) pools by
+  `evidence_weight() = c/(1−c)`.
+- **[MEASURED]** Support rises exactly as far as it generalizes (G1 one
+  basin stays local; G2 three independent siblings rise to the common
+  ancestor with pooled `c=0.9444 > 0.85`; G6 cross-region support rises
+  COARSER, never sideways), the operator can refuse (G7: no common ancestor
+  across classes ⇒ `None`), a dissenting region stays ADDRESSABLE instead
+  of being averaged away (G4), and nothing moves (G5: children byte-
+  identical; the parent acquires a derived reading at an address that
+  already existed — **children stay, parent learns**).
+- **⚠ [MEASURED] THE BOUNDARY — G3.** *Geometry alone over-generalizes.*
+  One source observed through three sibling basins pools naively to
+  `c=0.9444` — **bit-identical to three genuinely independent sources.**
+  The two situations are *geometrically indistinguishable*. So:
+
+  > `globality = geometry` is TRUE **only with provenance**.
+
+  This is not a caveat, it is the load-bearing constraint: the hard problem
+  was never aggregation (NARS already revises correctly) but **independence
+  detection** — are these siblings independent evidence, or descendants of
+  one observation? That is exactly what `Stamp`'s `disjoint → revise /
+  overlap → CHOICE` guard protects today, and `spo::truth`'s revision doc
+  already states the precondition verbatim: *"combine two truth values with
+  **independent** evidence."*
+
+### The correct decomposition (with the operator's own correction applied)
+
+```
+  NARS frequency   observed proportion / effect estimate
+  NARS confidence  effective evidence mass  ← NOT frequency
+  HHTL address     the scope at which it holds
+  HHTL ancestry    how far that support generalizes
+```
+
+Frequency alone is not sample count; `evidence_weight() = c/(1−c)` in the
+shipped `revise` confirms confidence is the evidence-mass side.
+
+### [CONJECTURE] — stated as such
+
+That **every** cognitive datum CAN receive a lawful HHTL address is not
+demonstrated. For `Belief` specifically the audit found the opposite of a
+demonstration: zero `FacetCascade`/`facet_classid` occurrences anywhere in
+`nars/`. The law says such an address is *possible in principle*; whether
+the semantic carving exists for beliefs is open, and is the real content of
+`BELIEF-ABI-RESTORATION-1` Step 2. Nothing here mints a tenant, an address,
+or a classid.
+
+**One consequence worth recording if the conjecture holds:** attention
+would need no foreign mask representation at all — `Attention = set /
+antichain / scoped difference of HHTL regions` is `RowFocusMask` as it
+already ships; epistemic potholes become scoped ABSENCE within an addressed
+universe (still the conservative P* reading, `RowFocusMask::difference`
+keeps partially-overlapped entries whole); and R2IL applicability points
+into the same coordinate grammar. `DATA` has an address, `ATTENTION` is
+region selection, `UNKNOWN` is scoped absence, `BEHAVIOR` has applicability
+routes, `PROVENANCE` points to evidence, `CAUSALITY` links resident state —
+and C operates on the surviving addressed slices.
+## 2026-08-23 — E-STREAM-ORDER-VS-PREFIX-TREE-NEITHER-ACCUMULATES-1 — the two closest shipped candidates for the belief tree-overlay delegation are different topologies, and NEITHER implements an accumulate-fold
+
+**Status:** FINDING (grounds and sharpens the `BELIEF-ABI-RESTORATION-1`
+Step 1 audit's [ABSENT] verdict on the tree-overlay delegation mechanism;
+does not overturn it). **⚠ PARTIALLY REGRADED 2026-08-23 — see the note
+immediately below.**
+**Confidence:** High for the [ABSENT] verdicts (the entry's actual result).
+**Lowered for the "different topologies" FRAMING**, which overstated an
+opposition.
+
+> **⊘ REGRADE (2026-08-23, `E-HIERARCHY-IS-THE-ADDRESS-SPACE-NOT-THE-
+> ONTOLOGY-1`).** This entry framed candidate A (stream order over time)
+> and candidate B (prefix tree over address) as an *opposition* — "a total
+> order over TIME, a partial order over ADDRESS," presented as if a datum
+> had to live in one universe or the other. **That framing is too strong.**
+> Under the address-space law, hierarchy is the ADDRESS SPACE, not the
+> ontology: a temporal datum is not a separate non-HHTL universe, it can be
+> HHTL-addressed (`episode → version window → event region → event
+> identity`) with the signed ±i4 offsets as LOCAL traversal *inside* an
+> addressed neighborhood. Stream ordering remains temporal semantics; HHTL
+> supplies its home. The two are **layered, not rival**, and no "separate
+> temporal universe" needs to exist.
+>
+> **What survives the regrade unchanged — the entry's actual finding:**
+> neither candidate implements a children-and-siblings accumulate fold
+> (`fn accumulate` / `children.*sibling`: zero hits;
+> `E-NO-BUNDLE-STANDING-WAVE-1` disclaims accumulation by name). Both
+> [ABSENT] verdicts stand. Also unchanged: the withdrawal of the
+> composition conclusion, and the fence against rebasing a version-ordered
+> type to mean an address span — that fence is *strengthened* here, because
+> the right move was never to re-scope `VersionRange` but to give the
+> temporal datum its own address and leave time as time.
+
+**The question that prompted this.** Step 1 of `BELIEF-ABI-RESTORATION-1`
+found that `Belief.rung`/`stamp`'s operator-ruled delegation — "rung = HHTL
+tree depth, stamp = children-and-siblings accumulation, inherit from
+parent" — names a mechanism that is currently prose and precedent, not
+code (`.claude/plans/belief-abi-restoration-v1.md` §Step 1: zero
+`FacetCascade`/`facet_classid` occurrences in `nars/`, zero `fn accumulate`
+or `children.*sibling` hits in `lance-graph-contract/src/`). A follow-up
+asked directly: is the "24×i4 Markov left-right-corner parsing" the
+missing mechanism, compared against "AriGraph-style HHTL basins"? Grounding
+both candidates in shipped code answers: **they are not rival
+implementations of the same job — one is a total order over TIME, the
+other a partial order over ADDRESS — and neither one accumulates.**
+
+**Candidate A — `deepnsm-v2::wave::WitnessStream` (the G24N4/Markov
+reading).** `wave.rs` module doc, verbatim: *"Each versioned event owns its
+`CausalWitnessFacet` loci; the wave **reads** a version-range window and
+mutates nothing — there is no accumulator and no shared register. The
+Markov property is STREAM ORDER (`E-MARKOV-TEMPORAL-STREAM-1`), never a
+superposition into one carrier."* Concretely: `events: Vec<(u64,
+CausalWitnessFacet)>` in append order; `ground_at`/`resolve_at` walk a
+SIGNED OFFSET through that flat line within a version-visibility window
+(`TemporalPov::at`). This is where left-corner parsing theory actually
+enters the codebase — but only as a CITATION justifying the ±8 nibble
+range (Manning & Carpenter 1997, IWPT-97 Table 7: max left-corner stack
+depth over the whole binarized WSJ treebank is 8), never as an executing
+parser. There is no tree here. `E-NO-BUNDLE-STANDING-WAVE-1` is a standing
+refusal to accumulate, not an oversight.
+
+**Candidate B — `AttentionFocusFacet` (the AriGraph/HHTL-basin reading).**
+`covers`/`common_prefix` (`attention_facet.rs:297,314`) give coarse→fine
+PREFIX containment over the same 12-byte cascade — ancestor/descendant by
+shared byte prefix, ordinal position, never stream position.
+`common_prefix` computes the meet (deepest common ancestor) two focuses
+share, which IS the shape a "rung = tree depth" claim would need to walk.
+But nothing here sums, folds, or aggregates evidence across a node's
+children into a parent value — `covers`/`common_prefix` answer "is A an
+ancestor of B" / "what do A and B share", never "what do B's children
+contribute to A". Grepped independently for this pass: zero `fn
+accumulate` hits and zero `children.*sibling` hits anywhere under
+`lance-graph-contract/src/attention_facet.rs`, `facet.rs`, or `hhtl.rs`.
+
+**A third, previously-conflated shipped thing, named so it stops being
+confused with either candidate:** `insight_right_corner_read.rs`
+(`lance-graph-planner/examples/`) is a REAL left-corner/right-corner SVO
+clause parser running on real KJV text — but it is a `Basins`-driven token
+scan with its own `RightCornerReason`/`Triple` types and touches
+`CausalWitnessFacet`/G24N4 **not at all**. "Left-corner parsing" and
+"G24N4" are two unconnected machines in this codebase; only `wave.rs`'s
+module-doc citation bridges them, and only as a numeric-range
+justification, not a shared mechanism.
+
+(A fourth precedent worth naming for completeness, since it was checked in
+the same pass and is the closest thing to a REAL KJV+G24N4 example:
+`probe_binding_not_heuristic.rs` resolves `Locus::Antecedent` — a single
+locus, single-hop structural anaphora binding — on Gen 3:1/3:7. It proves
+the chip is load-bearing, not decorative. It is not an accumulate-fold
+either: it is a pointer write/read on one register, the same shape
+`wave.rs`'s single-owner events already generalize.)
+
+**The consequence — and the inference NOT to draw.** The finding is
+negative and stops there:
+
+```
+  A is not the mechanism
+  B is not the mechanism
+  ⇒ WE DO NOT HAVE THE MECHANISM
+```
+
+**⇒ NOT `therefore A × B is the mechanism`.** An earlier revision of this
+entry concluded that Step 3 must COMPOSE the two (a stream-order walk
+bound to a tree address). **That leap is withdrawn.** "Neither of the two
+things I checked is it" licenses no claim whatever about what it is; the
+composition is one hypothesis among unknown others, and elevating it to
+"what Step 3 must build" would smuggle a design decision in through a
+negative result.
+
+**The specific danger that withdrawal avoids, recorded as a fence.** The
+withdrawn composition proposed rebasing `WitnessStream` from VERSION
+order into "address-scoped stream order," possibly repurposing
+`VersionRange`. That is precisely the semantic type drift this
+architecture exists to prevent: **time is time, address is address.**
+Sharing a memory ABI does not make two topologies interchangeable, and a
+`VersionRange` that sometimes means an address span is a type whose
+meaning depends on who is holding it. Further: any future address-scoped
+fold must be a BORROWED VIEW over ABI-resident rows — if it materializes
+another `Vec<(u64, CausalWitnessFacet)>`, the memory escape has simply
+re-entered through a different door (`E-TYPE-COMPLEXITY-EXPOSED-A-MEMORY-
+ABI-ESCAPE-1`), and `wave.rs`'s own honesty note already records that
+`WitnessStream` is TODAY *"a parallel OWNED container beside
+`TemporalStream`, not a zero-copy projection."*
+
+**Two inherited assumptions this entry does not carry forward.** Neither
+is established, and the negative finding does not support either: (a)
+`rung = HHTL tree depth` — the answerable question is whether derivation
+depth is reconstructible from SUPPORT topology, which needs no address at
+all; (b) `stamp = commutative accumulation` — any replacement must
+reproduce `Stamp`'s load-bearing IDENTITY semantics (disjointness,
+overlap, source-set union, no double-count, `belief.rs:39-48`), and a
+`vsa_bundle`-style fold is not automatically a source-set union.
+
+**Bounds respected:** no code changed by this finding; no tenant minted;
+no mechanism proposed; no canonizing on either candidate. The open
+questions this finding leaves are registered — explicitly as questions,
+not a plan — in `.claude/plans/tarski-markov-hhtl-seam-v1.md`.
+
 ## 2026-08-23 — E-TYPE-COMPLEXITY-EXPOSED-A-MEMORY-ABI-ESCAPE-1 — the clippy warning was the surface symptom; `BeliefArena` is an independent AoS cognitive population owner outside the canonical memory ABI
 
 **Status:** FINDING (operator-escalated; #1004 recut to a discovery receipt).
