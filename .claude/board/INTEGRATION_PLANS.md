@@ -1,3 +1,17 @@
+## 2026-08-23 — R2IL REAL-EPISODE MEASUREMENT (closes the Phase-2 named-not-built item)
+
+`PROBE-R2IL-REAL-EPISODES-1` (5/5) runs the frontier loop against the REAL
+ruff-side harvest (143 functions, 17,557 typed facts, Release
+`r2il-harvest-pass1`; env-gated, never fabricated). Measured: opcode
+matching over-admits 99.7% on the top real idiom (1/380 dataflow-chained vs
+31.5% adjacency base rate) — the macro carrier must be the def-use chain,
+never the linear opcode window; real streams collapse to 97 trigram types
+vs 264 shuffled (the top-1-count pre-registration was refuted and is
+recorded in place); the Stamp mod-64 ceiling BINDS at 143 episodes
+(~26% evidence CHOICE-dropped for the widest idiom — feeds the Step-2 stamp
+residue item). Reader cross-validated against ruff's committed census,
+exact. Entry: `E-REAL-CODE-INTERLEAVES-THE-OPCODE-MACRO-IS-NOT-A-DATAFLOW-PIPE-1`.
+
 ## 2026-08-23 — STYLE-MICROCODE FRONTIER, PHASE 2 (R2IL typed ops; the falsification intervention is load-bearing)
 
 `PROBE-R2IL-FRONTIER-PHASE2-1` (7/7) lifts the Phase-1 frontier loop
