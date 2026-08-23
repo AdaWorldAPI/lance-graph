@@ -1,3 +1,22 @@
+## 2026-08-23 — BELIEF-ABI-RESTORATION-1 STEP 2 (ruling request — awaiting operator decision)
+
+`.claude/plans/belief-abi-step2-ruling-request-v1.md` — prepares the
+charter's Step 2 (*"operator ruling on the residue, per item, not
+wholesale"*). **Makes no ruling**; every entry is a labelled
+[RECOMMENDATION] with its own falsifier.
+
+Headline: **five probes moved four of the six residue items since Step 1**,
+so the ruling should be made against the current state, not #1006's table.
+`cop` is SETTLED as not rail-expressible (this PR's C1–C4 — a rail is the
+taxonomy, a belief is a claim about it). `stamp` is **provably irreducible
+to geometry** (#1009 G3) and is the one genuine mint candidate. `rung`
+**conflates two independent axes** (#1011 E3) and both halves are
+ELIMINATION candidates, not mint candidates — though the depth-is-derivable
+result is one fixture and is flagged as the document's weakest claim.
+`contradiction` is the wrong SHAPE, not merely unwired (#1010 F1): a
+magnitude cannot express Auslöschung. `truth` is unchanged
+(compose-don't-mint); `premises` defers to the open address question.
+
 ## 2026-08-23 — TARSKI-MARKOV-HHTL (open-questions register — HELD, not a plan)
 
 `.claude/plans/tarski-markov-hhtl-seam-v1.md` — **holds open questions;
