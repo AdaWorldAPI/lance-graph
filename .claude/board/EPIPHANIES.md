@@ -10,9 +10,18 @@ the universal-addressability claim is explicitly NOT demonstrated for
 
 > **Hierarchy is the address space, not the ontology.**
 >
-> HHTL need not claim that reality is a tree. It claims that every piece of
-> reality can be given a hierarchical address FROM WHICH non-hierarchical
-> relations can be expressed zero-copy.
+> HHTL need not claim that reality is a tree. It claims that every resident
+> datum can receive a hierarchical address FROM WHICH non-hierarchical
+> relations can be expressed **without changing its physical identity — and
+> zero-copy where the carrier is ABI-resident.**
+
+**Why that qualifier is exact, not hedging.** Hierarchical addressability
+by itself guarantees nothing about copies; the PHYSICAL ABI does. An
+address over a non-resident carrier (an owned container, a materialized
+window) is still an address, and it is still not zero-copy — which is
+precisely the `WitnessStream` situation recorded in its own honesty note.
+Keeping the two clauses separate stops the law from silently importing a
+performance guarantee it does not itself supply.
 
 The Active Directory lesson, exactly. A DN gives an object a deterministic
 hierarchical home —
