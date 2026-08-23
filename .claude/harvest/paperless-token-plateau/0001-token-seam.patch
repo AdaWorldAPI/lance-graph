@@ -1,8 +1,8 @@
 From b0e5e78307373503373c61c20046a900b272c1c0 Mon Sep 17 00:00:00 2001
 From: Claude <noreply@anthropic.com>
 Date: Sun, 23 Aug 2026 23:04:46 +0000
-Subject: [PATCH] =?UTF-8?q?one=20tokenization=20receipt,=20three=20borrowe?=
- =?UTF-8?q?d=20consumers=20=E2=80=94=20the=20seam=20probe?=
+Subject: [PATCH 1/2] =?UTF-8?q?one=20tokenization=20receipt,=20three=20bor?=
+ =?UTF-8?q?rowed=20consumers=20=E2=80=94=20the=20seam=20probe?=
 MIME-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: 8bit
@@ -3011,6 +3011,1147 @@ index 0000000..5964c33
 +   A, B or C wins is untested and needs training, not assertion.
 +5. **F10 — a structured-evidence corpus** to exercise the parallel typed path
 +   and the shared span identity where the two meet.
+-- 
+2.43.0
+
+
+From 4b1ec2a5b4d8f5543abb4c59ffd2428b37d7b602 Mon Sep 17 00:00:00 2001
+From: Claude <noreply@anthropic.com>
+Date: Sun, 23 Aug 2026 23:31:15 +0000
+Subject: [PATCH 2/2] re-cut the seam onto ogar-doc-ir: the receipt mints
+ nothing
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+The first cut invented `source_id: u32` / `span_id: u32` — a second population
+wearing the document layer's job. `ogar-doc-ir` already answers all three
+questions a tokenization receipt asks, so the seam now reads them instead:
+
+  WHICH document  -> DocIr::content_sha256, interned once per document
+  WHICH span      -> a Region, at (DocPage::number, Region::reading_order)
+  the span's text -> Region::text
+
+Three consequences.
+
+`content_sha256` is a PER-ACQUISITION dedup key, not a cross-retina identity —
+the crate's own docs correct its plan's first sketch on exactly this point, and
+for a tokenization receipt the per-acquisition reading is the right one: you
+tokenize bytes, so different bytes are a different tokenization. Cross-retina
+convergence is a facts question and is not this seam's business.
+
+Byte offsets are REGION-LOCAL, because the region owns its text. That retires
+the "the OCR boundary supplies no byte offsets" gap this report carried as the
+thing blocking real documents. What remains is far smaller: a sub-region span
+needs a non-zero byte_from, which the receipt already has and no producer emits.
+
+The seam is source-agnostic for free — docir.rs has no line that knows which
+retina produced the IR.
+
+New gates (41 total, 18 disable-runs):
+  T-DOCIR       both corpora round-trip through the IR's own load gate; an
+                off-vocabulary region kind AND a doc.v2 version are both
+                refused, so "closed vocabulary" is a mechanism not a word
+  T-DOCIR-KEY   every receipt resolves to the IR's address, checked against the
+                DocIr walked independently; re-interning the same hash returns
+                the same index (S-2 dedup at lane scope)
+  T-DOCIR-SPANS a container descends, a figure contributes nothing, and a
+                table's cells are NOT flattened into the token stream
+
+Two method notes. T-DOCIR-KEY's first version compared each receipt against the
+SAME spans() call it was validating — an implementation checked against itself
+— and stayed green when spans() was changed to renumber by position; it now
+walks the IR independently, and the fixture's reading_order is 2i+1 rather than
+the positional index so the two are distinguishable at all. The table-flattening
+disable initially found nothing because neither text corpus contains a table or
+a figure; that was a fixture-coverage gap, closed with a three-region page.
+
+Also corrected: `uniq` is the count of ids APPEARING in the lane, not the
+vocabulary size. The trained table is full at 255/255 on Alice and 180/255 on
+the KJV fixture, where the corpus rather than the cap set it. An earlier draft
+quoted the first number as the second.
+
+Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>
+Claude-Session: https://claude.ai/code/session_01ArVbbq3DsToBM7r79zGeEf
+---
+ Cargo.toml                                    |   5 +
+ crates/paperless-token/Cargo.toml             |   6 +
+ .../examples/probe_token_seam.rs              | 397 +++++++++++++++---
+ crates/paperless-token/src/docir.rs           |  97 +++++
+ crates/paperless-token/src/lane.rs            |  55 ++-
+ crates/paperless-token/src/lib.rs             |   1 +
+ docs/TOKEN-SEAM-ARCHITECTURE.md               | 132 ++++--
+ 7 files changed, 581 insertions(+), 112 deletions(-)
+ create mode 100644 crates/paperless-token/src/docir.rs
+
+diff --git a/Cargo.toml b/Cargo.toml
+index 50f16e6..4908d38 100644
+--- a/Cargo.toml
++++ b/Cargo.toml
+@@ -56,6 +56,11 @@ repository = "https://github.com/AdaWorldAPI/paperless-rs"
+ [workspace.dependencies]
+ tesseract-ogar = { git = "https://github.com/AdaWorldAPI/tesseract-rs", rev = "b369a9758d642d1b7f3a02b3aca2f53497f74531" }
+ ogar-vocab = { git = "https://github.com/AdaWorldAPI/OGAR", rev = "70296bec67d1a5db99dd3fa92a532ba060eb0838" }
++# The source-agnostic perceptual IR — the document layer's OWN identity and
++# span addressing. The token seam consumes it rather than minting a parallel
++# `source_id`/`span_id`. Default features only: `classview` is OFF, so this
++# edge stays serde-only and pulls no canon dependency.
++ogar-doc-ir = { git = "https://github.com/AdaWorldAPI/OGAR", rev = "70296bec67d1a5db99dd3fa92a532ba060eb0838" }
+ lance-graph-contract = { git = "https://github.com/AdaWorldAPI/lance-graph", rev = "51c54faef235454401c6a7461ea05929c19f2140" }
+ # The semantic consumer of the token seam. Standalone crate (its own empty
+ # `[workspace]` table) inside the same checkout; only dep is the contract crate
+diff --git a/crates/paperless-token/Cargo.toml b/crates/paperless-token/Cargo.toml
+index 1bc624a..05b9cca 100644
+--- a/crates/paperless-token/Cargo.toml
++++ b/crates/paperless-token/Cargo.toml
+@@ -8,6 +8,12 @@ license.workspace = true
+ repository.workspace = true
+ 
+ [dependencies]
++# The document layer's IR: `DocIr` supplies the span population AND the
++# identity a receipt is keyed by. A span is a `Region`, addressed by
++# `(page.number, reading_order)`; `Region::text` is its own canonical text, so
++# a byte offset is region-local and this crate never invents a document id.
++ogar-doc-ir.workspace = true
++
+ # The contract identity. Already a workspace dep for the S-2 convergence key.
+ sha2.workspace = true
+ 
+diff --git a/crates/paperless-token/examples/probe_token_seam.rs b/crates/paperless-token/examples/probe_token_seam.rs
+index a72b778..2cd89a9 100644
+--- a/crates/paperless-token/examples/probe_token_seam.rs
++++ b/crates/paperless-token/examples/probe_token_seam.rs
+@@ -43,11 +43,17 @@ use std::collections::HashMap;
+ use std::sync::Arc;
+ 
+ use deepnsm_v2::{parse_to_spo, PaletteVocab, Pos, Spo, Tagged};
++use ogar_doc_ir::{
++    from_json, to_json, BBoxRail, DocIr, DocPage, Geometry, Provenance, Rail, Region, RegionKind,
++    TableCell, DOC_IR_VERSION,
++};
+ use paperless_token::contract::{query_passes, source_passes, NormRule, TokenizerContract};
++use paperless_token::docir::{spans, SpanKey};
+ use paperless_token::forward::{score, windows, CountPredictor};
+ use paperless_token::lane::{TokenLane, TokenStreamReceipt, IDS_PER_PARTICLE};
+ use paperless_token::lexical::project;
+ use paperless_token::seam_tantivy::{handle, ReceiptTokenizer, SeamStore, TermMode};
++use sha2::{Digest, Sha256};
+ use tantivy::collector::TopDocs;
+ use tantivy::query::PhraseQuery;
+ use tantivy::schema::{IndexRecordOption, Schema, TextFieldIndexing, TextOptions, Value};
+@@ -77,31 +83,75 @@ const SCENE: &[&str] = &[
+      and I hid myself.",
+ ];
+ 
+-/// One corpus under test.
++/// One corpus under test — carried as the document layer's own IR, not as a
++/// bag of strings this crate invented a span numbering for.
+ struct Corpus {
+     name: &'static str,
+-    /// The canonical text, and the span boundaries within it.
+-    text: String,
+-    spans: Vec<(u32, u32)>,
++    /// The ORIGINAL bytes, whose sha256 is the document identity.
++    source: Vec<u8>,
++    /// The perceptual IR a retina would have produced for those bytes.
++    ir: DocIr,
+ }
+ 
+-fn kjv() -> Corpus {
+-    let mut text = String::new();
+-    let mut spans = Vec::new();
+-    for v in SCENE {
+-        let from = u32::try_from(text.len()).expect("fits");
+-        text.push_str(v);
+-        text.push('\n');
+-        spans.push((from, u32::try_from(text.len()).expect("fits")));
++/// Build a `DocIr` whose regions are the given paragraphs, in reading order.
++///
++/// [`Geometry::DomOrder`] is the honest value: these are reading-order
++/// placements quantized onto the unit square, NOT measured layout. The IR has
++/// a variant for exactly that distinction and using `Rendered` here would
++/// claim a measurement nobody took.
++fn ir_from_paragraphs(source: &[u8], paras: &[String], prov: Provenance) -> DocIr {
++    let n = paras.len().max(1);
++    let regions = paras
++        .iter()
++        .enumerate()
++        .map(|(i, p)| {
++            let y0 = u8::try_from(i * 255 / n).unwrap_or(u8::MAX);
++            let y1 = u8::try_from((i + 1) * 255 / n).unwrap_or(u8::MAX);
++            Region {
++                kind: RegionKind::Text,
++                bbox: BBoxRail {
++                    tl: Rail { x: 0, y: y0 },
++                    br: Rail { x: 255, y: y1 },
++                },
++                // Deliberately NOT the positional index: `2i+1` makes
++                // "read the field" and "renumber by position" distinguishable.
++                // With them equal, a gate that renumbers passes identically —
++                // the fixture's SHAPE is part of the coverage.
++                reading_order: u16::try_from(i * 2 + 1).unwrap_or(u16::MAX),
++                text: Some(p.clone()),
++                cells: Vec::new(),
++                children: Vec::new(),
++            }
++        })
++        .collect();
++    DocIr {
++        version: DOC_IR_VERSION.to_string(),
++        source: prov,
++        geometry: Geometry::DomOrder,
++        content_sha256: Sha256::digest(source).into(),
++        mime: "text/plain".to_string(),
++        pages: vec![DocPage {
++            number: 0,
++            width: 1,
++            height: u32::try_from(n).unwrap_or(u32::MAX),
++            regions,
++        }],
++        fields: Vec::new(),
+     }
++}
++
++fn kjv() -> Corpus {
++    let paras: Vec<String> = SCENE.iter().map(|v| (*v).to_string()).collect();
++    let source = paras.join("\n").into_bytes();
++    let ir = ir_from_paragraphs(&source, &paras, Provenance::Ocr);
+     Corpus {
+         name: "kjv-genesis-scene",
+-        text,
+-        spans,
++        source,
++        ir,
+     }
+ }
+ 
+-/// Alice, split into paragraphs. Blank-line separated; a paragraph is the span.
++/// Alice, split into paragraphs. Blank-line separated; a paragraph is a region.
+ fn alice(max_spans: usize) -> Corpus {
+     // The committed file is CRLF with a BOM. A naive `split("\n\n")` finds
+     // NOTHING in it — the first version of this probe silently produced ONE
+@@ -111,25 +161,23 @@ fn alice(max_spans: usize) -> Corpus {
+     let raw = include_str!("../corpus/alice.txt")
+         .trim_start_matches('\u{feff}')
+         .replace("\r\n", "\n");
+-    let mut text = String::new();
+-    let mut spans = Vec::new();
++    let mut paras: Vec<String> = Vec::new();
+     for para in raw.split("\n\n") {
+         let p = para.split_whitespace().collect::<Vec<_>>().join(" ");
+         if p.len() < 40 {
+             continue;
+         }
+-        let from = u32::try_from(text.len()).expect("fits");
+-        text.push_str(&p);
+-        text.push('\n');
+-        spans.push((from, u32::try_from(text.len()).expect("fits")));
+-        if spans.len() >= max_spans {
++        paras.push(p);
++        if paras.len() >= max_spans {
+             break;
+         }
+     }
++    let source = paras.join("\n").into_bytes();
++    let ir = ir_from_paragraphs(&source, &paras, Provenance::Dom);
+     Corpus {
+         name: "alice-paragraphs",
+-        text,
+-        spans,
++        source,
++        ir,
+     }
+ }
+ 
+@@ -227,17 +275,20 @@ struct Summary {
+ /// Tokenize a whole corpus into ONE lane under ONE contract, then measure it.
+ fn ingest(c: &Corpus, contract: &TokenizerContract, g: &mut Gate) -> (TokenLane, Summary) {
+     let mut lane = TokenLane::new();
++    let doc = lane.intern_document(c.ir.content_sha256);
++    let sp = spans(&c.ir, doc);
+     let mut probes = 0usize;
+     let mut per_span: Vec<usize> = Vec::new();
+     let before = source_passes();
+-    for (i, &(from, to)) in c.spans.iter().enumerate() {
+-        let bytes = &c.text.as_bytes()[from as usize..to as usize];
++    for s in &sp {
+         let (tokens, p) = contract
+-            .try_encode(bytes)
++            .try_encode(s.text.as_bytes())
+             .expect("contract trained on this corpus");
+         probes += p;
+         per_span.push(tokens.len().div_ceil(IDS_PER_PARTICLE));
+-        lane.append(0, u32::try_from(i).expect("fits"), from, contract, &tokens);
++        // byte_from is 0: a whole region, and the offset is REGION-LOCAL
++        // because the region owns its canonical text.
++        lane.append(s.key, 0, contract, &tokens);
+     }
+     let passes = source_passes() - before;
+     g.run(
+@@ -245,11 +296,57 @@ fn ingest(c: &Corpus, contract: &TokenizerContract, g: &mut Gate) -> (TokenLane,
+             "T-PASSES[{}] exactly one source tokenization per span",
+             c.name
+         ),
+-        passes == c.spans.len(),
++        passes == sp.len(),
+         &format!(
+             "{passes} source tokenizations for {} spans (1.000 per span); the three consumers \
+              below add ZERO further source passes — every one of them reads the lane",
+-            c.spans.len()
++            sp.len()
++        ),
++    );
++
++    // ---- the receipt is keyed by the DOCUMENT LAYER's address ----
++    // Independent ground truth: walk the IR directly rather than trusting the
++    // same `spans()` call under test.
++    let truth: Vec<(u16, u16)> =
++        c.ir.pages
++            .iter()
++            .flat_map(|pg| pg.regions.iter().map(move |r| (pg.number, r.reading_order)))
++            .collect();
++    let key_ok = truth.len() == lane.receipts().len()
++        && lane
++            .receipts()
++            .iter()
++            .zip(&truth)
++            .all(|(r, &(page, ro))| {
++                r.key.page == page
++                    && r.key.reading_order == ro
++                    && lane.document_of(r) == Some(&c.ir.content_sha256)
++            })
++        // and the orders are genuinely not the positional index, so the check
++        // above cannot be satisfied by renumbering
++        && truth.iter().enumerate().any(|(i, &(_, ro))| ro as usize != i);
++    let reinterned = {
++        let mut l2 = lane.clone();
++        let same = l2.intern_document(c.ir.content_sha256);
++        let other = l2.intern_document([0xAB; 32]);
++        same == doc && other != doc && l2.document_len() == 2
++    };
++    g.run(
++        &format!(
++            "T-DOCIR-KEY[{}] the receipt carries no id this crate minted",
++            c.name
++        ),
++        key_ok && reinterned && !sp.is_empty(),
++        &format!(
++            "every one of {} receipts resolves to the IR's own address — `content_sha256` for \
++             WHICH document and `(page, reading_order)` for WHICH span, the reading order \
++             `ogar-doc-ir` documents as the one the temporal stream and DeepNSM consume. \
++             Re-interning the same `content_sha256` returns the SAME index and a different one \
++             does not: that is the S-2 dedup property at lane scope. The hash is interned once \
++             per document, not stamped on every receipt — at these span sizes a receipt is \
++             already a third of the resident bytes and 32 more per span would have more than \
++             doubled that for no addressing gain",
++            sp.len()
+         ),
+     );
+ 
+@@ -257,11 +354,11 @@ fn ingest(c: &Corpus, contract: &TokenizerContract, g: &mut Gate) -> (TokenLane,
+     let mut recon_ok = true;
+     let mut tokens_total = 0usize;
+     let mut uniq = std::collections::HashSet::new();
+-    for (r, &(from, to)) in lane.receipts().iter().zip(&c.spans) {
++    for (r, sr) in lane.receipts().iter().zip(&sp) {
+         let v = lane.view(r, contract).expect("same contract");
+         tokens_total += v.len();
+         uniq.extend(v.ids().iter().copied());
+-        if v.decode() != c.text.as_bytes()[from as usize..to as usize] {
++        if v.decode() != sr.text.as_bytes() {
+             recon_ok = false;
+         }
+     }
+@@ -277,17 +374,17 @@ fn ingest(c: &Corpus, contract: &TokenizerContract, g: &mut Gate) -> (TokenLane,
+             "{} spans, {tokens_total} tokens, {} distinct ids; decode reads the lane and the \
+              codebook and nothing else — the canonical text stays authoritative and is never \
+              consulted to read a span back",
+-            c.spans.len(),
++            sp.len(),
+             uniq.len()
+         ),
+     );
+ 
+     // ---- derived offsets ----
+     let mut off_ok = true;
+-    for (r, &(from, _)) in lane.receipts().iter().zip(&c.spans) {
++    for (r, sr) in lane.receipts().iter().zip(&sp) {
+         let v = lane.view(r, contract).expect("same contract");
+         // Ground truth computed the expensive way: decode each prefix.
+-        let mut cursor = from;
++        let mut cursor = 0u32;
+         for t in v.tokens() {
+             let truth_len = contract.decode(&[t.id]).0.len();
+             if t.byte_from != cursor
+@@ -297,7 +394,7 @@ fn ingest(c: &Corpus, contract: &TokenizerContract, g: &mut Gate) -> (TokenLane,
+             }
+             cursor = t.byte_to;
+         }
+-        if cursor != c.spans[r.span_id as usize].1 {
++        if cursor as usize != sr.text.len() {
+             off_ok = false;
+         }
+     }
+@@ -317,8 +414,8 @@ fn ingest(c: &Corpus, contract: &TokenizerContract, g: &mut Gate) -> (TokenLane,
+ 
+     let summary = Summary {
+         name: c.name,
+-        bytes: c.text.len(),
+-        spans: c.spans.len(),
++        bytes: c.source.len(),
++        spans: sp.len(),
+         tokens: tokens_total,
+         uniq_tokens: uniq.len(),
+         particles: lane.particle_len(),
+@@ -356,7 +453,8 @@ fn deepnsm_arm(
+     let mut flattened: Vec<Spo> = Vec::new();
+     let mut offsets_ok = true;
+ 
+-    for r in lane.receipts() {
++    let sp = spans(&c.ir, 0);
++    for (r, sr) in lane.receipts().iter().zip(&sp) {
+         let v = lane.view(r, contract).expect("same contract");
+         let lex = project(&v);
+         // A token that carries more than one unit's start is a token straddling
+@@ -370,7 +468,7 @@ fn deepnsm_arm(
+             // The unit's byte span must address the canonical text and land on
+             // exactly the bytes it claims (modulo the normalisation that drops
+             // non-alphabetic characters inside a word).
+-            let raw = &c.text.as_bytes()[u.byte_from as usize..u.byte_to as usize];
++            let raw = &sr.text.as_bytes()[u.byte_from as usize..u.byte_to as usize];
+             let renorm: String = raw
+                 .iter()
+                 .filter(|b| b.is_ascii_alphabetic())
+@@ -671,7 +769,7 @@ fn main() {
+     let exotic_ws: usize = corpora
+         .iter()
+         .map(|c| {
+-            c.text
++            String::from_utf8_lossy(&c.source)
+                 .chars()
+                 .filter(|ch| ch.is_whitespace() && !ch.is_ascii_whitespace())
+                 .count()
+@@ -680,9 +778,9 @@ fn main() {
+     g.run(
+         "T-CORPUS committed, real, hermetic; span population and the unicode-whitespace \
+          divergence both measured",
+-        corpora.iter().all(|c| c.text.len() > 1000)
+-            && corpora[0].spans.len() >= 8
+-            && corpora[1].spans.len() >= 100
++        corpora.iter().all(|c| c.source.len() > 1000)
++            && spans(&corpora[0].ir, 0).len() >= 8
++            && spans(&corpora[1].ir, 0).len() >= 100
+             && vocab.len() > 10_000
+             && exotic_ws == 0,
+         &format!(
+@@ -697,21 +795,161 @@ fn main() {
+              char-level `is_whitespace`, occurs {exotic_ws} times across both corpora — the \
+              divergence is bounded by measurement, and named as a gap rather than denied",
+             corpora[0].name,
+-            corpora[0].text.len(),
+-            corpora[0].spans.len(),
++            corpora[0].source.len(),
++            spans(&corpora[0].ir, 0).len(),
+             corpora[1].name,
+-            corpora[1].text.len(),
+-            corpora[1].spans.len(),
++            corpora[1].source.len(),
++            spans(&corpora[1].ir, 0).len(),
+             vocab.len()
+         ),
+     );
+ 
++    // ---- T-DOCIR: through the IR's OWN closed-vocabulary gate ----
++    let mut roundtrip_ok = true;
++    let mut sha_ok = true;
++    for c in &corpora {
++        let json = to_json(&c.ir).expect("serialize");
++        match from_json(&json) {
++            Ok(back) => {
++                if back != c.ir {
++                    roundtrip_ok = false;
++                }
++            }
++            Err(_) => roundtrip_ok = false,
++        }
++        if c.ir.content_sha256 != <[u8; 32]>::from(Sha256::digest(&c.source)) {
++            sha_ok = false;
++        }
++    }
++    // The gate must also REFUSE: swap a region kind for one outside the closed
++    // vocabulary and the IR's own loader has to reject it, or "closed" is a
++    // word rather than a mechanism. Same for a version bump.
++    let off_vocab = to_json(&corpora[0].ir)
++        .expect("serialize")
++        .replace("\"kind\":\"text\"", "\"kind\":\"paragraph\"");
++    let refused = from_json(&off_vocab).is_err();
++    let wrong_version = to_json(&corpora[0].ir)
++        .expect("serialize")
++        .replace("\"version\":\"doc.v1\"", "\"version\":\"doc.v2\"");
++    let version_refused = from_json(&wrong_version).is_err();
++    g.run(
++        "T-DOCIR the span population comes from ogar-doc-ir, through its own load gate",
++        roundtrip_ok && sha_ok && refused && version_refused,
++        "both corpora round-trip `to_json` -> `from_json` unchanged and their \
++         `content_sha256` is the sha256 of the ORIGINAL bytes; an off-vocabulary region kind \
++         (`paragraph`) and a `doc.v2` version are BOTH refused by the IR's loader, so the \
++         closed vocabulary is a mechanism and not a word. Note what that hash IS, per the \
++         crate's own correction of its plan: a PER-ACQUISITION dedup key, not a cross-retina \
++         identity — a scan and an HTML page of one invoice have different bytes. For a \
++         TOKENIZATION receipt that is exactly the right reading: you tokenize bytes, so \
++         different bytes are a different tokenization, and cross-retina convergence is a facts \
++         question (`converges_on_facts`) that is not this seam's business. Geometry is \
++         `DomOrder` on both corpora because these are reading-order placements; claiming \
++         `Rendered` would assert a measurement nobody took",
++    );
++
++    // ---- T-DOCIR-SPANS: which regions become spans, and which do NOT ----
++    // The two text corpora contain only `Text` regions, so nothing in them can
++    // falsify how a figure or a table is handled. This purpose-built IR can:
++    // a `Figure` has no text and a `Table` carries typed `(row, col)` cells
++    // that must NOT be poured into a token stream — flattening a table into
++    // text is the mistake the ingestion doctrine names, and pouring cells in
++    // here would destroy exactly the typed structure the structured path
++    // consumes.
++    let mixed = DocIr {
++        version: DOC_IR_VERSION.to_string(),
++        source: Provenance::Ocr,
++        geometry: Geometry::Rendered,
++        content_sha256: [7u8; 32],
++        mime: "image/png".to_string(),
++        pages: vec![DocPage {
++            number: 3,
++            width: 1000,
++            height: 2000,
++            regions: vec![
++                Region {
++                    kind: RegionKind::Main,
++                    bbox: BBoxRail {
++                        tl: Rail { x: 0, y: 0 },
++                        br: Rail { x: 255, y: 255 },
++                    },
++                    reading_order: 11,
++                    text: None, // a pure container
++                    cells: Vec::new(),
++                    children: vec![Region {
++                        kind: RegionKind::Text,
++                        bbox: BBoxRail {
++                            tl: Rail { x: 0, y: 0 },
++                            br: Rail { x: 255, y: 60 },
++                        },
++                        reading_order: 12,
++                        text: Some("the nested paragraph".to_string()),
++                        cells: Vec::new(),
++                        children: Vec::new(),
++                    }],
++                },
++                Region {
++                    kind: RegionKind::Figure,
++                    bbox: BBoxRail {
++                        tl: Rail { x: 0, y: 60 },
++                        br: Rail { x: 255, y: 120 },
++                    },
++                    reading_order: 13,
++                    text: None,
++                    cells: Vec::new(),
++                    children: Vec::new(),
++                },
++                Region {
++                    kind: RegionKind::Table,
++                    bbox: BBoxRail {
++                        tl: Rail { x: 0, y: 120 },
++                        br: Rail { x: 255, y: 255 },
++                    },
++                    reading_order: 14,
++                    text: None,
++                    cells: vec![TableCell {
++                        row: 0,
++                        col: 0,
++                        text: "Haemoglobin".to_string(),
++                        bbox: BBoxRail {
++                            tl: Rail { x: 0, y: 120 },
++                            br: Rail { x: 80, y: 140 },
++                        },
++                        confidence: 97,
++                    }],
++                    children: Vec::new(),
++                },
++            ],
++        }],
++        fields: Vec::new(),
++    };
++    let mixed_spans = spans(&mixed, 0);
++    let cell_text_leaked = mixed_spans.iter().any(|s| s.text.contains("Haemoglobin"));
++    g.run(
++        "T-DOCIR-SPANS a container descends, a figure contributes nothing, a table is not flattened",
++        mixed_spans.len() == 1
++            && mixed_spans[0].text == "the nested paragraph"
++            && mixed_spans[0].key.reading_order == 12
++            && mixed_spans[0].key.page == 3
++            && !cell_text_leaked,
++        &format!(
++            "a 3-region page (a text-less `Main` container holding one `Text` child, a \
++             `Figure`, and a `Table` with one cell) yields exactly {} span — the nested \
++             paragraph, keyed (page 3, reading_order 12). The figure adds nothing, the \
++             container adds nothing of its own, and the cell text \"Haemoglobin\" does NOT \
++             appear in any span: a table's typed (row, col) values go to the structured path, \
++             and pouring them into a token stream would destroy the structure that path \
++             exists to read",
++            mixed_spans.len()
++        ),
++    );
++
+     let mut summaries: Vec<Summary> = Vec::new();
+     let mut index_rows: Vec<(String, IndexStats)> = Vec::new();
+     let mut forward_rows: Vec<(String, usize, f64, usize, f64)> = Vec::new();
+ 
+     for c in &corpora {
+-        let contract = TokenizerContract::train(c.text.as_bytes(), NormRule::Identity);
++        let contract = TokenizerContract::train(&c.source, NormRule::Identity);
+         let (lane, mut s) = ingest(c, &contract, &mut g);
+         deepnsm_arm(c, &contract, &lane, &vocab, &posmap, &mut s, &mut g);
+ 
+@@ -810,11 +1048,11 @@ fn main() {
+ 
+     // ---- T-CONTRACT: the codebook law ----
+     let c0 = &corpora[0];
+-    let a = TokenizerContract::train(c0.text.as_bytes(), NormRule::Identity);
+-    let b = TokenizerContract::train(c0.text.as_bytes(), NormRule::Identity);
+-    let other = TokenizerContract::train(corpora[1].text.as_bytes(), NormRule::Identity);
+-    let lower = TokenizerContract::train(c0.text.as_bytes(), NormRule::AsciiLowercase);
+-    let sample = c0.text.as_bytes();
++    let a = TokenizerContract::train(&c0.source, NormRule::Identity);
++    let b = TokenizerContract::train(&c0.source, NormRule::Identity);
++    let other = TokenizerContract::train(&corpora[1].source, NormRule::Identity);
++    let lower = TokenizerContract::train(&c0.source, NormRule::AsciiLowercase);
++    let sample: &[u8] = &c0.source;
+     let (ta, _) = a.try_encode(sample).expect("trained on it");
+     let (tb, _) = b.try_encode(sample).expect("trained on it");
+     g.run(
+@@ -853,9 +1091,9 @@ fn main() {
+     // an id while behaving differently on mixed-case input. That is the only
+     // corpus shape on which this claim is falsifiable; a mixed-case corpus
+     // makes the tables differ and the assertion passes for the wrong reason.
+-    let lc = c0.text.to_ascii_lowercase();
+-    let r_id = TokenizerContract::train(lc.as_bytes(), NormRule::Identity);
+-    let r_lo = TokenizerContract::train(lc.as_bytes(), NormRule::AsciiLowercase);
++    let lc = c0.source.to_ascii_lowercase();
++    let r_id = TokenizerContract::train(&lc, NormRule::Identity);
++    let r_lo = TokenizerContract::train(&lc, NormRule::AsciiLowercase);
+     let mixed = b"The Garden";
+     let id_takes_mixed = r_id.try_encode(mixed).is_some();
+     let lo_takes_mixed = r_lo.try_encode(mixed).is_some();
+@@ -879,10 +1117,28 @@ fn main() {
+ 
+     // ---- T-FRAME: token_count is authoritative, PAD is not a length ----
+     let mut frame_lane = TokenLane::new();
+-    let (full, _) = a.try_encode(c0.text.as_bytes()).expect("trained");
++    let (full, _) = a.try_encode(&c0.source).expect("trained");
+     let exact = full.len() - (full.len() % IDS_PER_PARTICLE); // a 12-aligned run
+-    let r0 = frame_lane.append(0, 0, 0, &a, &full[..exact]);
+-    let r1 = frame_lane.append(0, 1, 0, &a, &full[exact..]);
++    let r0 = frame_lane.append(
++        SpanKey {
++            doc: 0,
++            page: 0,
++            reading_order: 0,
++        },
++        0,
++        &a,
++        &full[..exact],
++    );
++    let r1 = frame_lane.append(
++        SpanKey {
++            doc: 0,
++            page: 0,
++            reading_order: 1,
++        },
++        0,
++        &a,
++        &full[exact..],
++    );
+     let flat = frame_lane.particles().as_flattened();
+     let pad_scan = flat
+         .iter()
+@@ -914,13 +1170,13 @@ fn main() {
+     joined.extend_from_slice(&v1.decode());
+     g.run(
+         "T-FRAME-ADJ adjacent receipts decode independently and concatenate exactly",
+-        v0.len() == exact && v1.len() == full.len() - exact && joined == c0.text.as_bytes(),
++        v0.len() == exact && v1.len() == full.len() - exact && joined == c0.source,
+         &format!(
+             "receipt 0 -> {} tokens, receipt 1 -> {} tokens, and their decodes concatenate back to \
+              the full {} canonical bytes with no bleed in either direction",
+             v0.len(),
+             v1.len(),
+-            c0.text.len()
++            c0.source.len()
+         ),
+     );
+     g.run(
+@@ -1080,12 +1336,15 @@ fn main() {
+     println!(
+         "\nverdict: ONE receipt drove all three consumers. Tantivy indexed a receipt HANDLE and \
+          never received the source; DeepNSM-v2 projected from ids alone through an unmodified \
+-         library; the forward surface is a borrowed slice of the same particles. Byte offsets are \
+-         DERIVED from the codebook's length table, so the receipt stores none. What is NOT settled \
+-         here is stated in the report: the resident carrier is still a probe-local Vec, the OCR \
+-         boundary supplies no byte offsets to attach a span to, the 8-bit vocabulary lane \
+-         saturated at 75 KB, and there is no callable PoS surface anywhere — the module that \
+-         held one was deliberately deleted, and the grounding cited for that deletion is \
+-         itself an example binary outside this repo's dependency barrier."
++         library; the forward surface is a borrowed slice of the same particles. Byte offsets \
++         are DERIVED from the codebook's length table, so the receipt stores none — and the \
++         span population and every span's identity come from `ogar-doc-ir`, so the receipt \
++         mints nothing either. An offset is therefore REGION-LOCAL, which is what retires the \
++         old no-offsets-at-the-OCR-boundary gap. What is NOT settled: the resident carrier is \
++         still a probe-local Vec; the 8-bit vocabulary table is FULL at 255/255 on 75 KB of \
++         English; this probe builds its DocIr from text rather than from a real retina; and \
++         there is no callable PoS surface anywhere — the module that held one was deliberately \
++         deleted, and the grounding cited for that deletion is itself an example binary \
++         outside this repo's dependency barrier."
+     );
+ }
+diff --git a/crates/paperless-token/src/docir.rs b/crates/paperless-token/src/docir.rs
+new file mode 100644
+index 0000000..b6353e6
+--- /dev/null
++++ b/crates/paperless-token/src/docir.rs
+@@ -0,0 +1,97 @@
++//! The span population, taken from the document layer's own IR.
++//!
++//! ```text
++//!   THE DOCUMENT LAYER ALREADY HAS AN IDENTITY.  DO NOT MINT A SECOND ONE.
++//! ```
++//!
++//! A tokenization receipt needs three things from upstream: WHICH document,
++//! WHICH span of it, and the span's canonical text. All three already exist in
++//! [`ogar_doc_ir::DocIr`], and an earlier cut of this crate invented parallel
++//! `source_id`/`span_id` integers instead of reading them — a second
++//! population wearing the document layer's job.
++//!
++//! - **which document** — [`ogar_doc_ir::DocIr::content_sha256`], the sha256 of
++//!   the ORIGINAL bytes. The crate's own docs correct the plan's first sketch
++//!   here and the correction matters for this seam: that hash is a
++//!   **per-acquisition dedup key**, NOT a cross-retina semantic identity (a
++//!   scan and an HTML page of the same invoice have different bytes). For a
++//!   TOKENIZATION receipt the per-acquisition reading is exactly the right
++//!   one: you tokenize bytes, and different bytes are a different tokenization.
++//!   Cross-retina convergence is a facts question
++//!   (`ogar_doc_ir::converges_on_facts`) and is not this seam's business.
++//! - **which span** — a [`ogar_doc_ir::Region`], addressed by its page number
++//!   and its `reading_order`, which the IR documents as "the reading-order the
++//!   temporal stream (and `DeepNSM`) consumes". The seam does not choose an
++//!   order; it inherits the one the document layer already fixed.
++//! - **the text** — [`ogar_doc_ir::Region::text`]. Each region owns its own
++//!   canonical text, so a byte offset is REGION-LOCAL. This is what dissolves
++//!   the "the OCR boundary supplies no byte offsets" gap: the boundary supplies
++//!   no PAGE-wide offsets, and does not need to.
++//!
++//! Because the IR is source-agnostic, so is the seam: a crawled page
++//! (`Provenance::Dom`) and a scan (`Provenance::Ocr`) present the same span
++//! population to the tokenizer, and this module contains not one line that
++//! knows which retina produced it.
++
++use ogar_doc_ir::{DocIr, Region};
++
++/// Where a span sits in the document layer's own address space.
++///
++/// The document half is an INDEX into [`crate::lane::TokenLane`]'s document
++/// table rather than a repeated 32-byte hash: at these span sizes a receipt is
++/// already a third of the resident bytes, and stamping the sha256 on every one
++/// of them would more than double that for no addressing gain.
++#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
++pub struct SpanKey {
++    /// Index into the lane's document table (which holds the `content_sha256`).
++    pub doc: u16,
++    /// [`ogar_doc_ir::DocPage::number`].
++    pub page: u16,
++    /// [`ogar_doc_ir::Region::reading_order`].
++    pub reading_order: u16,
++}
++
++/// One span the tokenizer will consume: its address and its canonical text.
++#[derive(Clone, Copy, Debug)]
++pub struct SpanRef<'a> {
++    /// The document-layer address.
++    pub key: SpanKey,
++    /// The region's own canonical text — the bytes that get tokenized.
++    pub text: &'a str,
++}
++
++/// Walk a [`DocIr`] into its text-bearing spans, in page then reading order.
++///
++/// Container regions are descended into; a region with no `text` contributes
++/// nothing itself (a `Figure` has no text, a `Main` holding tables is a
++/// container). Table cells are deliberately NOT flattened into text here —
++/// a cell is typed, addressed `(row, col)` data that the structured path
++/// consumes directly, and pouring it into a token stream is the
++/// flatten-the-table mistake the ingestion doctrine names.
++#[must_use]
++pub fn spans(ir: &DocIr, doc: u16) -> Vec<SpanRef<'_>> {
++    let mut out = Vec::new();
++    for page in &ir.pages {
++        for r in &page.regions {
++            walk(r, doc, page.number, &mut out);
++        }
++    }
++    out
++}
++
++fn walk<'a>(r: &'a Region, doc: u16, page: u16, out: &mut Vec<SpanRef<'a>>) {
++    // (Edition 2021 here, so no let-chain: the workspace pins edition 2021.)
++    if let Some(t) = r.text.as_deref().filter(|t| !t.is_empty()) {
++        out.push(SpanRef {
++            key: SpanKey {
++                doc,
++                page,
++                reading_order: r.reading_order,
++            },
++            text: t,
++        });
++    }
++    for c in &r.children {
++        walk(c, doc, page, out);
++    }
++}
+diff --git a/crates/paperless-token/src/lane.rs b/crates/paperless-token/src/lane.rs
+index f49ef41..b66a413 100644
+--- a/crates/paperless-token/src/lane.rs
++++ b/crates/paperless-token/src/lane.rs
+@@ -30,6 +30,7 @@
+ //! straight into the next receipt. The probe exercises exactly that case.
+ 
+ use crate::contract::{TokenizerContract, PAD};
++use crate::docir::SpanKey;
+ 
+ /// Ids per particle: the 12-byte payload, one `u8` per byte.
+ pub const IDS_PER_PARTICLE: usize = 12;
+@@ -41,25 +42,20 @@ pub const IDS_PER_PARTICLE_U32: u32 = 12;
+ /// The resident particle: the V3 content-blind 12-byte payload.
+ pub type TokenParticle = [u8; IDS_PER_PARTICLE];
+ 
+-/// A source document's identity. Opaque to this crate — supplied by intake.
+-pub type SourceId = u32;
+-
+-/// A span within a source (a page, a paragraph, a verse, a cell).
+-pub type SpanId = u32;
+-
+ /// What one tokenization produced, and everything needed to read it back.
+ ///
+ /// This is the RECEIPT. It carries no bytes and no offsets: the ids live in the
+ /// lane, and offsets are a prefix sum over the contract's per-id length table.
+ #[derive(Clone, Copy, Debug, PartialEq, Eq)]
+ pub struct TokenStreamReceipt {
+-    /// Which document.
+-    pub source_id: SourceId,
+-    /// Which span of it.
+-    pub span_id: SpanId,
++    /// WHERE, in the document layer's own address space — never an id this
++    /// crate minted. See [`crate::docir`].
++    pub key: SpanKey,
+     /// Which codebook assigned these ids. Without it they are meaningless.
+     pub tokenizer_contract_id: [u8; 32],
+-    /// Byte offset of the span within the source's canonical text.
++    /// Byte offset of the span within its REGION's canonical text. A whole
++    /// region is 0; the field exists because a sub-region span is lawful and
++    /// would not be.
+     pub byte_from: u32,
+     /// AUTHORITATIVE token count. Not derivable from padding.
+     pub token_count: u32,
+@@ -86,6 +82,9 @@ impl TokenStreamReceipt {
+ pub struct TokenLane {
+     particles: Vec<TokenParticle>,
+     receipts: Vec<TokenStreamReceipt>,
++    /// `content_sha256` per document, interned once. A receipt carries a
++    /// `u16` index into this, not the hash itself.
++    docs: Vec<[u8; 32]>,
+ }
+ 
+ impl TokenLane {
+@@ -95,6 +94,33 @@ impl TokenLane {
+         Self::default()
+     }
+ 
++    /// Intern a document's `content_sha256`, returning the index a
++    /// [`SpanKey`] addresses it by. Re-interning the same hash returns the
++    /// same index — which IS the S-2 dedup property, at lane scope: the same
++    /// bytes acquired twice are one document here, not two.
++    ///
++    /// # Panics
++    /// If a lane accumulates more than `u16::MAX` documents.
++    pub fn intern_document(&mut self, content_sha256: [u8; 32]) -> u16 {
++        if let Some(i) = self.docs.iter().position(|d| *d == content_sha256) {
++            return u16::try_from(i).expect("bounded by the check below");
++        }
++        self.docs.push(content_sha256);
++        u16::try_from(self.docs.len() - 1).expect("lane holds <= u16::MAX documents")
++    }
++
++    /// The `content_sha256` a receipt's key addresses.
++    #[must_use]
++    pub fn document_of(&self, r: &TokenStreamReceipt) -> Option<&[u8; 32]> {
++        self.docs.get(r.key.doc as usize)
++    }
++
++    /// Documents interned in this lane.
++    #[must_use]
++    pub fn document_len(&self) -> usize {
++        self.docs.len()
++    }
++
+     /// Append one tokenized span. The ids are packed 12 per particle with a PAD
+     /// tail; `token_count` is recorded because the tail is not a length.
+     ///
+@@ -104,8 +130,7 @@ impl TokenLane {
+     /// mis-framed span rather than a large one.
+     pub fn append(
+         &mut self,
+-        source_id: SourceId,
+-        span_id: SpanId,
++        key: SpanKey,
+         byte_from: u32,
+         contract: &TokenizerContract,
+         tokens: &[u8],
+@@ -118,8 +143,7 @@ impl TokenLane {
+         }
+         let token_count = u32::try_from(tokens.len()).expect("span fits u32");
+         let receipt = TokenStreamReceipt {
+-            source_id,
+-            span_id,
++            key,
+             tokenizer_contract_id: contract.contract_id(),
+             byte_from,
+             token_count,
+@@ -156,6 +180,7 @@ impl TokenLane {
+     pub fn resident_bytes(&self) -> usize {
+         self.particles.len() * IDS_PER_PARTICLE
+             + self.receipts.len() * core::mem::size_of::<TokenStreamReceipt>()
++            + self.docs.len() * 32
+     }
+ 
+     /// A BORROWED view of one receipt's ids. No copy, no allocation: this is a
+diff --git a/crates/paperless-token/src/lib.rs b/crates/paperless-token/src/lib.rs
+index bfb8091..c2faf22 100644
+--- a/crates/paperless-token/src/lib.rs
++++ b/crates/paperless-token/src/lib.rs
+@@ -33,6 +33,7 @@
+ #![forbid(unsafe_code)]
+ 
+ pub mod contract;
++pub mod docir;
+ pub mod forward;
+ pub mod lane;
+ pub mod lexical;
+diff --git a/docs/TOKEN-SEAM-ARCHITECTURE.md b/docs/TOKEN-SEAM-ARCHITECTURE.md
+index 5964c33..05a41dc 100644
+--- a/docs/TOKEN-SEAM-ARCHITECTURE.md
++++ b/docs/TOKEN-SEAM-ARCHITECTURE.md
+@@ -27,8 +27,13 @@ load-bearing: the OCR boundary hands over no byte offsets to attach a span to
+ ## 1. The shape
+ 
+ ```
+-                      canonical text  (AUTHORITATIVE)
++     retina: tesseract-rs (pixels) │ spider-rs (DOM)
+                              │
++                             ▼
++              ogar_doc_ir::DocIr   (AUTHORITATIVE)
++        content_sha256 · pages · regions · reading_order
++                             │
++                             │  a span IS a Region; its text is Region::text
+                              │  exactly one pass per span
+                              ▼
+                    versioned BPE contract
+@@ -57,6 +62,7 @@ shared table.
+ 
+ | layer | owns | never |
+ |---|---|---|
++| `docir` | the span population, read from `ogar-doc-ir` | mints an identity |
+ | `contract` | the codebook and its identity | reads the lane |
+ | `lane` | resident particles + framing | owns text |
+ | `lexical` | the DeepNSM projection | reads the source |
+@@ -66,6 +72,47 @@ shared table.
+ Each "never" is proven by a gate, not asserted — §8 lists which disable turns
+ each one red.
+ 
++## 1b. The identity is the document layer's, not this crate's
++
++An earlier cut of this crate minted `source_id: u32` and `span_id: u32`. That
++was a second population wearing the document layer's job, and `ogar-doc-ir`
++already answers all three questions a receipt has to ask:
++
++| the receipt needs | `ogar-doc-ir` supplies |
++|---|---|
++| WHICH document | `DocIr::content_sha256` — sha256 of the ORIGINAL bytes |
++| WHICH span | a `Region`, addressed by `(DocPage::number, Region::reading_order)` |
++| the span's text | `Region::text` — each region owns its own canonical text |
++
++Three consequences, and the second is the one that removes a gap this report
++previously carried:
++
++- **`content_sha256` is a PER-ACQUISITION dedup key, not a cross-retina
++  identity.** The crate's own docs correct its plan's first sketch on exactly
++  this point: a scan and an HTML page of the same invoice have different bytes
++  and therefore different hashes. For a *tokenization* receipt that is the
++  right reading — you tokenize bytes, so different bytes are a different
++  tokenization. Cross-retina convergence is a facts question
++  (`converges_on_facts`) and is not this seam's business.
++- **Byte offsets are REGION-LOCAL, so the "no offsets at the OCR boundary" gap
++  largely dissolves.** The boundary supplies no PAGE-wide offset and does not
++  need to: the region owns its text, and `ogar-from-docv1::region_text` is
++  where tesseract's `leading_space`-aware join already happens.
++- **The seam is source-agnostic for free.** `docir.rs` contains no line that
++  knows which retina produced the IR, so a crawled page presents the same span
++  population as a scan.
++
++The receipt interns the 32-byte hash **once per document** and carries a `u16`
++index. At these span sizes a receipt is already about a third of the resident
++bytes; stamping the hash on every one would have more than doubled that for no
++addressing gain.
++
++Two things `docir::spans` deliberately does NOT do, both gated: a `Figure`
++contributes nothing (it has no text), and a `Table`'s cells are **not**
++flattened into the token stream — a cell is typed `(row, col)` data the
++structured path consumes, and pouring it into text destroys exactly the
++structure that path exists to read.
++
+ ## 2. What was measured
+ 
+ Two committed, real, hermetic corpora. `kjv-genesis-scene` is the same in-tree
+@@ -77,15 +124,24 @@ Adventures in Wonderland*, carried from `tantivy/benches/alice.txt`.
+ 
+ | corpus | bytes | spans | tokens | ratio | uniq ids | particles | resident B | particles/span p50/p95/max | continuation |
+ |---|---|---|---|---|---|---|---|---|---|
+-| kjv-genesis-scene | 1 126 | 8 | 354 | 3.18× | 137 | 32 | 832 | 4 / 8 / 8 | 87.5 % |
+-| alice-paragraphs | 75 514 | 300 | 37 149 | 2.03× | 247 | 3 231 | 55 572 | 8 / 30 / 43 | 100 % |
++| kjv-genesis-scene | 1 125 | 8 | 352 | 3.20× | 135 | 32 | 864 | 4 / 8 / 8 | 87.5 % |
++| alice-paragraphs | 75 513 | 300 | 36 994 | 2.04× | 245 | 3 214 | 55 400 | 8 / 30 / 43 | 100 % |
+ 
+ Encode cost, in #1012's honest unit (merge-table probes, never wall time):
+-86 640 and 7 929 358.
+-
+-**The resident lane is ~74 % of the source text, not a fraction of it.** For
+-Alice the particles alone are 38 772 B (51 % of source) and the receipts add
+-16 800 B. At these span sizes the FRAMING, not the payload, is where the bytes
++85 748 and 7 879 322.
++
++The `uniq` column is the number of distinct ids that APPEAR in the lane, and
++that is not the vocabulary size — a distinction worth stating because an
++earlier draft of this report conflated them. The trained table is **full at
++255 of 255** on Alice (and still full on the whole 170 KB file); 245 of those
++ids occur. On the KJV fixture the table is **180 of 255** — there the CORPUS,
++not the cap, set the size, which is what #1016's own record of the fixture
++says. The two corpora sit on opposite sides of that line, and that is the
++interesting fact rather than either number alone.
++
++**The resident lane is ~73 % of the source text, not a fraction of it.** For
++Alice the particles alone are 38 568 B (51 % of source), the 300 receipts add
++16 800 B, and the interned document hash adds 32. At these span sizes the FRAMING, not the payload, is where the bytes
+ go: a 56-byte receipt against 12-byte particles is 30 % of the resident total
+ at paragraph granularity and 54 % at verse granularity. #1012 could not see
+ this — it had no receipt.
+@@ -243,9 +299,12 @@ fixture-scale `[u8;12]` result?** Five things, all now specified and gated:
+   truth.
+ - a **per-id surface table**, which is what lets every downstream projection
+   run without the source.
+-- **span identity** `(source_id, span_id, byte_from)` — and the measured
+-  consequence that at these span sizes the receipt is 30–54 % of resident
+-  bytes, so the receipt's own layout matters more than the particle's.
++- **span identity — taken from `ogar-doc-ir`, not minted**: `content_sha256`
++  interned once per document, plus `(page, reading_order)` per span, plus a
++  region-local `byte_from`. The measured consequence is that at these span
++  sizes the receipt is ~30 % of resident bytes, so the receipt's own layout
++  matters more than the particle's — which is also why the hash is interned
++  rather than stamped per span.
+ 
+ **5. Does any online step still require Polars?** No — and the honest form of
+ that answer is that it never did. A sweep of nine checkouts found **zero**
+@@ -266,10 +325,11 @@ DataFrame (G8).
+ 
+ **6. What remains authoritative?** In order, and the order is enforced rather
+ than described:
+-`canonical source text` (authoritative) → `contract` (authoritative for what an
+-id MEANS) → `receipt + lane` (exact and reconstructible; byte-identical decode
+-on both corpora) → `Tantivy index` (derived, deletable) → `DeepNSM projection`
+-(derived, deletable) → `model state` (ephemeral, owns nothing).
++`ogar_doc_ir::DocIr` (authoritative — it owns the document's identity, its span
++population and each span's canonical text) → `contract` (authoritative for what
++an id MEANS) → `receipt + lane` (exact and reconstructible; byte-identical
++decode on both corpora) → `Tantivy index` (derived, deletable) → `DeepNSM
++projection` (derived, deletable) → `model state` (ephemeral, owns nothing).
+ 
+ **7. Can Tantivy be deleted and rebuilt without semantic loss?** Yes. It holds
+ terms and positions derived from the lane, stores a handle rather than text,
+@@ -360,15 +420,15 @@ decision needs and did not have.
+ 
+ ## 7. The named gaps
+ 
+-**G1 — the OCR boundary supplies no byte offsets, and this is the one that
+-blocks real documents.** `doc.v1` carries `bbox`, `conf`, `leading_space` and a
+-page-level `plain_text`, and no `offset`/`span`/`start`/`end` field on any of
+-`DocWord`/`DocLine`/`DocPage`. The word→text mapping is *derivable* by replaying
+-the documented join rule, but nothing stores it — so intake would have to
+-re-implement a rule that lives in `tesseract-ocr/src/renderer.rs`, which is a
+-second implementation of one rule and will drift. The fix belongs upstream and
+-is small: emit the per-word byte offset where the join is performed, since that
+-is the one place the rule exists.
++**G1 — RESOLVED by reading `ogar-doc-ir`; what remains is much smaller.** This
++report previously carried "the OCR boundary supplies no byte offsets" as the
++gap that blocked real documents. It is not one. `doc.v1` carries no page-wide
++offset, but the perceptual IR does not need one: a span is a `Region` and
++`Region::text` is its own canonical text, so an offset is region-local and
++`ogar-from-docv1::region_text` is where the `leading_space`-aware join already
++lives. What actually remains: a SUB-region span (half a paragraph) needs a
++non-zero `byte_from`, which the receipt already carries and no producer yet
++emits.
+ 
+ **G2 — no resident SoA carrier.** The lane is a probe-local `Vec`. Lawful
+ options: implement `SoaEnvelope`, or mint a new `ValueTenant` (16 variants
+@@ -445,6 +505,11 @@ A gate nobody has tried to break is not evidence.
+ | every lexical unit claims a single-token span | `T-DEEPNSM-CARD` |
+ | the PoS-blind control keeps the real tags | `T-DEEPNSM-FSM` |
+ | build the phrase from receipt 1, assert receipt 0 | `T-TANTIVY-PHRASE` |
++| `spans()` renumbers by position instead of reading `reading_order` | `T-DOCIR-KEY` |
++| `intern_document` never dedups | `T-DOCIR-KEY` |
++| the IR hashes something other than the source bytes | `T-DOCIR` |
++| `spans()` flattens table cells into the token stream | `T-DOCIR-SPANS` |
++| a text-less container emits an empty span | `T-DOCIR-SPANS` |
+ 
+ The last four exist because an independent vacuity audit of the finished probe
+ found five holes, and all five were real:
+@@ -467,8 +532,17 @@ found five holes, and all five were real:
+   `char::is_whitespace`. Real divergence, unexercised here — now BOUNDED by
+   measurement (G9) rather than by hope.
+ 
+-**Two of the disables were themselves wrong first, and that is the part worth
+-keeping.** (a) A first attempt at the framing disable replaced the
++**Three of the disables were themselves wrong first, and that is the part worth
++keeping.** The third is from the `ogar-doc-ir` re-cut: the first version of
++`T-DOCIR-KEY` compared each receipt's key against the SAME `spans()` call it
++was validating — an implementation checked against itself, which stayed green
++when `spans()` was changed to renumber by position. It now walks the `DocIr`
++independently, and the fixture's `reading_order` is deliberately `2i+1` rather
++than the positional index, so "reads the field" and "renumbers by position" are
++distinguishable at all. A fourth disable (flattening table cells) initially
++found nothing for a different reason — neither text corpus contains a table or
++a figure, so no fixture could express it. That is a coverage gap, not a sound
++gate, and it was closed by building a three-region page that has both. (a) A first attempt at the framing disable replaced the
+ `token_count` trim with a PAD scan *inside the receipt's own particle range* and
+ stayed green — correctly, because within a bounded run a scan for a RESERVED id
+ is exact. The gate's prose had over-claimed; it now states both lawful framings
+@@ -490,8 +564,10 @@ proven otherwise.
+ 1. **G6 — the paged vocabulary.** Does `hi:lo` as `(page, id)` extend the
+    alphabet without widening a lane, and what does compression do at 1 MB?
+    Until measured, no scale claim.
+-2. **G1 — offsets at the OCR boundary.** One upstream change, small, and it is
+-   what makes the seam usable on scanned documents rather than on text files.
++2. **A real retina.** This probe builds its `DocIr` from text; the next one
++   should take `ogar-from-docv1`'s output on an actual scan and a
++   `spider_doc_ir` crawl of the same content, and check that both present the
++   same span population shape to the tokenizer.
+ 3. **G2 — the lawful lane.** `SoaEnvelope` or a tenant, with the receipt column
+    layout designed against the measured 30–54 % framing overhead.
+ 4. **A real forward arm.** The seam supplies the input; whether representation
 -- 
 2.43.0
 

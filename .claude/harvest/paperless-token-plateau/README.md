@@ -19,7 +19,8 @@ already documents for a denied repo.
 
 ## What is here
 
-`0001-token-seam.patch` — the full commit **minus the two corpus fixtures**,
+`0001-token-seam.patch` — **both commits** (the seam probe, then the re-cut
+onto `ogar-doc-ir`) **minus the two corpus fixtures**,
 which are 350 KB of bytes that are exactly reproducible by two commands (below).
 Everything else — `crates/paperless-token/{src,examples,README.md,Cargo.toml}`,
 `docs/TOKEN-SEAM-ARCHITECTURE.md`, the root `Cargo.toml` wiring and the
@@ -29,7 +30,7 @@ Everything else — `crates/paperless-token/{src,examples,README.md,Cargo.toml}`
 
 ```sh
 git -C paperless-rs checkout -b claude/bpe-tokenization-architecture-3xd4eh
-git -C paperless-rs am 0001-token-seam.patch
+git -C paperless-rs am 0001-token-seam.patch   # two commits
 
 # the two fixtures the patch deliberately omits:
 mkdir -p paperless-rs/crates/paperless-token/corpus
@@ -59,5 +60,9 @@ to do so is `T-CORPUS`.
 cargo run --release -p paperless-token --example probe_token_seam
 ```
 
-Expected: `PROBE-TOKEN-SEAM-1: ALL 37 GATES GREEN`, and the four measured
+Expected: `PROBE-TOKEN-SEAM-1: ALL 41 GATES GREEN`, and the four measured
 tables the epiphany quotes.
+
+Note the second commit adds an `ogar-doc-ir` dependency, so the reconstruction
+needs the workspace `Cargo.toml` from the patch (it is in there) and network
+access to the pinned OGAR rev.

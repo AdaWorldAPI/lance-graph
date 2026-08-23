@@ -16,9 +16,10 @@
   (247/255 ids, compression 3.18× → 2.03×). #1012's 3.35× is a 1 KB figure and
   must not be read as corpus-independent. The hi-byte PAGE lane is the next
   probe and no scale claim survives without it.
-- **Open, in order:** (1) the paged vocabulary; (2) byte offsets at the OCR
-  boundary — `doc.v1` carries bbox/conf/leading_space and NO span or offset
-  field, so a real scanned document cannot yet carry a span identity;
+- **Open, in order:** (1) the paged vocabulary; (2) a real retina — this probe
+  builds its `DocIr` from text, so the next one should take
+  `ogar-from-docv1` on an actual scan and a `spider_doc_ir` crawl of the same
+  content and check both present the same span-population shape;
   (3) a lawful resident lane (`SoaEnvelope` or a new `ValueTenant`, designed
   against the measured 30–54 % framing overhead); (4) a real forward arm —
   the seam supplies the input, but which representation a trained model prefers

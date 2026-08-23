@@ -118,6 +118,33 @@ and nothing ran. **A knob that does not bind is not a disable; a fixture's SHAPE
 is part of a test's coverage; and a null result is a claim about the apparatus
 until proven otherwise.**
 
+**⚠ SELF-CORRECTION, same session, after being pointed at `ogar-doc-ir`.** Two
+claims above were wrong and are corrected here rather than left standing:
+
+1. **The seam invented an identity that already existed.** The first cut minted
+   `source_id`/`span_id` integers. `ogar_doc_ir::DocIr` already answers all
+   three questions a tokenization receipt asks — `content_sha256` for WHICH
+   document, `(DocPage::number, Region::reading_order)` for WHICH span, and
+   `Region::text` for the span's canonical text. The probe was re-cut to read
+   them (`docir.rs`; gates `T-DOCIR` / `T-DOCIR-KEY` / `T-DOCIR-SPANS`, 41
+   total, 18 disable-runs). Note the crate's own docs CORRECT its plan's first
+   sketch on what that hash is: a **per-acquisition dedup key**, not a
+   cross-retina identity — which is exactly the right reading for a receipt,
+   because you tokenize bytes.
+2. **"The OCR boundary supplies no byte offsets" is RETIRED as a gap.** It
+   supplies no PAGE-wide offset and does not need to: a region owns its text,
+   so an offset is region-local, and `ogar-from-docv1::region_text` is where the
+   `leading_space`-aware join already happens. What remains is far smaller — a
+   sub-region span needs a non-zero `byte_from`, which the receipt already
+   carries and no producer emits.
+
+Also corrected: the `247 of 255` figure quoted above is the count of ids
+APPEARING in the lane, not the vocabulary size. Measured, the trained table is
+**full at 255/255** on Alice (and on the whole 170 KB file), and **180 of 255**
+on the KJV fixture — where, as #1016's own record of that fixture says, the
+CORPUS rather than the cap set it. The saturation conclusion holds and is
+stronger; the number was the wrong quantity.
+
 **Untouched by this.** HHTL is address geometry and BPE is tokenization —
 #1012's measured refutation of the merge tree as a radix prefix partition
 stands. Content never travels in classid: the contract id is a FIELD on the

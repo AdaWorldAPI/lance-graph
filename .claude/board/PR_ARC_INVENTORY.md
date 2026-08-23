@@ -17,6 +17,12 @@
   of 255 ids on 75 KB, compression 3.18× → **2.03×**. The resident lane is 74 %
   of source and framing is 30–54 % of THAT (56-byte receipt vs 12-byte
   particles), so the receipt's layout outranks the particle's.
+- **Self-corrected in-session:** the first cut minted `source_id`/`span_id`;
+  re-cut onto `ogar_doc_ir::DocIr` (`content_sha256` + `(page, reading_order)` +
+  `Region::text`), so the receipt mints nothing. That RETIRES the
+  "no byte offsets at the OCR boundary" gap — offsets are region-local — and
+  corrects `247 of 255` (ids appearing in the lane) to a table that is FULL at
+  255/255 on Alice and 180/255 on the KJV fixture.
 - **Deferred / named:** no shipped token continuation mechanism (the
   `RailCarving::AxisSlab` precedent caps at 24 levels, under the measured p50 of
   4 particles); `ValueTenant` has no token variant; no callable PoS surface —
