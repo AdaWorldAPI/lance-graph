@@ -1,3 +1,26 @@
+## 2026-08-23 — STYLE-MICROCODE FRONTIER, PHASE 1 (learner = revise + CHOICE; Phase 2 = R2IL, recorded)
+
+`PROBE-STYLE-MICROCODE-FRONTIER-1` (9/9) maps the operator's intent —
+thinking styles as microcode with Autopoiesis-frontier reinforcement —
+onto shipped machinery and finds **no learner subsystem is needed**:
+styles are ordered groups of typed ops; frozen + explore coexist as a
+superposition over one op vocabulary; outcomes revise style-level NARS
+claims at runtime (stamped, double-count-inert); dispatch is
+expectation() + measured cost, flipping to the cheaper PROVEN style;
+freezing is the LearnedSurvivedTests admission predicate (#1011) at the
+style level; cheap-but-failing exploration is never reinforced (F6);
+evolution mints new frontier variants without mutating frozen microcode.
+Per-style learned state = one TruthValue + one Stamp, both shipped.
+**PHASE 2, recorded not built:** R2IL is the way richer op vocabulary
+(reconstructible typed behavior — typed drill, interventions,
+counterfactuals) and the identical loop lifts onto it once Phase 1's
+shape is ruled sound; V4 classid stays provisional, no R2IL type
+imported. **Widened synthesis recorded as hypothesis (three IFs, zero
+decisions): R2IL × BPE with OGAR-loco-shaped routing macros, V4 as the
+thinking-dynamic plane** — each conditional on measured recurrence per
+the root order's admission conditions; nothing built or reserved.
+Board: `E-THE-FRONTIER-LEARNER-IS-ALREADY-SHIPPED-1`.
+
 ## 2026-08-23 — MULTI-GROUP MEMBERSHIP PROBE (root order executed; carrier UNDECIDED)
 
 `PROBE-MULTI-GROUP-MEMBERSHIP-1` (11/11) executes the operator's root
