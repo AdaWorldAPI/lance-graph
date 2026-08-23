@@ -1,3 +1,115 @@
+## 2026-08-23 — STYLE-MICROCODE FRONTIER, PHASE 1 (learner = revise + CHOICE; Phase 2 = R2IL, recorded)
+
+`PROBE-STYLE-MICROCODE-FRONTIER-1` (9/9) maps the operator's intent —
+thinking styles as microcode with Autopoiesis-frontier reinforcement —
+onto shipped machinery and finds **no learner subsystem is needed**:
+styles are ordered groups of typed ops; frozen + explore coexist as a
+superposition over one op vocabulary; outcomes revise style-level NARS
+claims at runtime (stamped, double-count-inert); dispatch is
+expectation() + measured cost, flipping to the cheaper PROVEN style;
+freezing is the LearnedSurvivedTests admission predicate (#1011) at the
+style level; cheap-but-failing exploration is never reinforced (F6);
+evolution mints new frontier variants without mutating frozen microcode.
+Per-style learned state = one TruthValue + one Stamp, both shipped.
+**PHASE 2, recorded not built:** R2IL is the way richer op vocabulary
+(reconstructible typed behavior — typed drill, interventions,
+counterfactuals) and the identical loop lifts onto it once Phase 1's
+shape is ruled sound; V4 classid stays provisional, no R2IL type
+imported. **Widened synthesis recorded as hypothesis (three IFs, zero
+decisions): R2IL × BPE with OGAR-loco-shaped routing macros, V4 as the
+thinking-dynamic plane** — each conditional on measured recurrence per
+the root order's admission conditions; nothing built or reserved.
+Board: `E-THE-FRONTIER-LEARNER-IS-ALREADY-SHIPPED-1`.
+
+## 2026-08-23 — MULTI-GROUP MEMBERSHIP PROBE (root order executed; carrier UNDECIDED)
+
+`PROBE-MULTI-GROUP-MEMBERSHIP-1` (11/11) executes the operator's root
+order: the simple primitive FIRST. Multi-group membership is proven —
+one resident item in 2+ groups with a third addable (M1), one canonical
+`Membership` relation with inverse views (M2), masks as
+delete/rebuild-safe derived artifacts (M3), zero population movement
+across join/leave (M4), and scope inheriting down while cross-subtree
+membership stays pure relation topology (M5: GROUP MEMBERSHIP IS RELATION
+TOPOLOGY, NOT HHTL ANCESTRY). Behavioral half over #1001-shaped receipts:
+exact replay (B1), recurrence measured and honestly labelled as
+driver-recurrence (B2), ordered-group reconstruction with order preserved
+(B3), repeated-but-refused behavior structurally excluded from macro
+candidacy (B4/F6), and grouping currently ADDING bytes over raw receipts
+(B5). **BEHAVIORAL COMPRESSION CARRIER: UNDECIDED** — production-scale
+recurrence unmeasured; if too rare, the correct result is NO BPE. Board:
+`E-MEMBERSHIP-IS-PARTICIPATION-NOT-ANCESTRY-1`.
+
+## 2026-08-23 — TOKEN-BPE GEOMETRY PROBE (bounded; verdict CAN-FIT, NOT YET BUY)
+
+`PROBE-TOKEN-BPE-GEOMETRY-1` (8/8) answers the bounded operator question:
+can BPE act as a reconstructible intake tokenizer over the fixed `6×(8:8)`
+geometry without touching HHTL, classid semantics, or the resident ABI?
+**Yes it fits** (3.35× on the real in-tree KJV scene, byte-exact decode,
+`[u8;12]` Copy particles, zero classid involvement) — **nothing yet
+justifies a production carrier** (one fixture-scale corpus; the scale
+corpora are absent and reported absent). Reading C (BPE over lawful byte
+symbols) is the clean candidate; reading B is pair-encodable but its merge
+tree is MEASURABLY not a radix prefix partition (3 same-depth prefix
+collisions) — a merge tree is not the ontology tree, now as a fact.
+Surprises: scoped vocabularies LOST to global here (19% more tokens);
+vocab saturated at 180/255; EVERY verse overflows one particle (p50=4) so
+continuation rows are the norm. Board:
+`E-TOKEN-BPE-CAN-FIT-NOT-YET-BUY-1`. **Hard fence maintained:** this is
+TOKEN BPE; the behavioral-BPE / multi-group-membership investigation is a
+separate queued deliverable and inherits nothing from this result.
+
+## 2026-08-23 — STEP 2: the open distributions MEASURED (addendum closed)
+
+`PROBE-COPULA-DISTRIBUTION-1` (5/5) ran the two distributions the addendum
+named as open, and corrected the addendum twice. **`nars::facet_fold` (M26)
+already carries the copula losslessly in the M20 resident register** — a
+2-bit tag on rail 1 plus `Rel`'s u16 across rails 1+3, round-trip-exact on
+all 16 measured statements, **0 extra bytes, zero classid involvement**; the
+addendum's "sparse relation rows" was a hypothesis for shipped code.
+**"KJV Rel-heavy" was REFUTED** — real KJV through the real `stance`
+producer is Inh-dominated (Inh 13 vs Rel 2), so a Rel-heavy regime is
+UNDEMONSTRATED rather than unmeasured. **"tactics Impl" was a phantom**
+(tactics emits only Inh/Sim). Step 2's `cop` item now has a RECOMMENDATION:
+candidate **E — existing-tenant composition via `facet_fold`** — already
+shipped and costing nothing, so the still-blocked whole-KJV *scale*
+measurement does not gate adopting it.
+
+## 2026-08-23 — STEP 2 ADDENDUM: the copula correction (retraction + measurement)
+
+`.claude/plans/belief-abi-step2-addendum-copula-v1.md` — operator-directed
+correction of the ruling request's Item 1. **Retracts** `Copula → classid
+reference` (C1–C4 proved `COPULA ≠ RAIL PLACEMENT`, which never implied
+`COPULA = CLASSID`); **states the law** (CONTENT NEVER TRAVELS IN CLASSID —
+classid selects the reading); **measures** the Active-Directory
+group/membership interpretation on shipped operators
+(`PROBE-COPULA-GROUP-MASK-1`, 9/9: copula content resident in relation
+rows, groups as lossy-by-design ergonomics, members/memberOf as inverse
+views over one relation, no ancestry-faking, one classid across four
+copulas, one-pass group ∩ region ∩ condition composition); and **proposes
+NO mint** — candidate homes graded with masks-alone rejected as sole
+carriers and workload-scale distributions (KJV Rel-heavy, tactics Impl)
+named as the open measurements. Board entry:
+`E-CONTENT-NEVER-TRAVELS-IN-CLASSID-1`.
+
+## 2026-08-23 — BELIEF-ABI-RESTORATION-1 STEP 2 (ruling request — awaiting operator decision)
+
+`.claude/plans/belief-abi-step2-ruling-request-v1.md` — prepares the
+charter's Step 2 (*"operator ruling on the residue, per item, not
+wholesale"*). **Makes no ruling**; every entry is a labelled
+[RECOMMENDATION] with its own falsifier.
+
+Headline: **five probes moved four of the six residue items since Step 1**,
+so the ruling should be made against the current state, not #1006's table.
+`cop` is SETTLED as not rail-expressible (this PR's C1–C4 — a rail is the
+taxonomy, a belief is a claim about it). `stamp` is **provably irreducible
+to geometry** (#1009 G3) and is the one genuine mint candidate. `rung`
+**conflates two independent axes** (#1011 E3) and both halves are
+ELIMINATION candidates, not mint candidates — though the depth-is-derivable
+result is one fixture and is flagged as the document's weakest claim.
+`contradiction` is the wrong SHAPE, not merely unwired (#1010 F1): a
+magnitude cannot express Auslöschung. `truth` is unchanged
+(compose-don't-mint); `premises` defers to the open address question.
+
 ## 2026-08-23 — TARSKI-MARKOV-HHTL (open-questions register — HELD, not a plan)
 
 `.claude/plans/tarski-markov-hhtl-seam-v1.md` — **holds open questions;

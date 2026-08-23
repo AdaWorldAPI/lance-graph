@@ -1,3 +1,415 @@
+## 2026-08-23 — E-THE-FRONTIER-LEARNER-IS-ALREADY-SHIPPED-1 — thinking styles are microcode; Autopoiesis-frontier reinforcement is NARS revise + CHOICE, and needs no new subsystem
+
+**Status:** FINDING — [MEASURED] (`PROBE-STYLE-MICROCODE-FRONTIER-1`, 9/9).
+**Phase 1 of 2** — Phase 2 (R2IL as the richer op vocabulary) is RECORDED,
+not built.
+**Confidence:** High for the loop machinery; the world oracle is a toy
+(stated), so no claim that any real style wins — production episodes are
+Phase 2 material.
+
+### The operator's intent, mapped onto shipped machinery
+
+```
+  "microcode for thinking styles"      style = ORDERED GROUP of typed ops
+                                       (the B3 ordered-group result applied)
+  "runtime evolvement of outcome       TruthValue::revise over per-style
+   revision"                           claims, Stamp-gated per episode
+  "resonance based thinking"           dispatch = expectation() (CHOICE)
+  "frozen learned explore              both groups RESIDENT over one op
+   superposition"                      vocabulary — a group distinction,
+                                       never a subsystem
+  "what is more efficient,             measured op-count cost; takeover
+   reusing that"                       requires truth AND lower cost
+  Autopoiesis                          rung 4 of the content ladder
+                                       (StyleFamily macros + autopoiesis
+                                       triangle; StyleLane/cognitive_palette
+                                       ship the triangle lanes today)
+```
+
+### The headline: no learner subsystem exists, and none is needed
+
+Per-style learned state is exactly one shipped `TruthValue` (8 B) + one
+shipped `Stamp` (8 B). The "reinforcement learning" is:
+
+- **Revision** — episode outcomes revise the style-level claim via the
+  SAME `revise()` that pools belief evidence, with the SAME
+  stamp-disjointness guard: a replayed episode is bit-inert (S4 — no
+  double-count, measured).
+- **Choice** — dispatch is `expectation()` + measured cost: among styles
+  clearing the trust bar, the cheapest PROVEN one wins (S6: the lean
+  3-op explorer overtook the 4-op incumbent — *"frozen learned explore
+  superposition of what is more efficient and reusing that"*, as a gate).
+- **Admission** — freezing is the `LearnedSurvivedTests` predicate from
+  #1011 applied at the style level: high expectation AND a survived
+  falsification episode (S5). The cheapest-but-unsound explorer was
+  revised DOWN to e=0.07 and can neither freeze nor dispatch (S7) —
+  **repeats-but-fails cannot be reinforced**, F6 again, one level up.
+- **Evolution** — mints NEW explore groups; frozen microcode is
+  bit-immutable (S8). The population does not move; the frontier does.
+
+No gradient, no bandit, no Q-table, no reward-model type (S9 pins the
+sizes so a smuggled subsystem fails the gate).
+
+### Phase 2 — R2IL, recorded not built (operator: "R2IL is way richer")
+
+Where Phase 1's ops are #1001 view-edit atoms, R2IL carries
+reconstructible typed BEHAVIOR — the `VarnodeFacet` typed drill,
+`FlatFact` no-heap rows, intervention/counterfactual operations (the
+four-plane DID plane). **The identical loop lifts onto it:** R2IL ops as
+microcode members, episodes as interventions with observed consequences,
+revision from outcome, freezing gated on surviving falsification.
+Fences carried forward: the V4 classid stays provisional (O5 gate), no
+R2IL type was imported in Phase 1, same-dock ≠ same-ClassView, and
+behavior semantics stay V4's. Phase 2 begins only after this loop shape
+is ruled sound.
+
+**The widened synthesis (operator, same session — recorded as HYPOTHESIS
+in the mandated conditional phrasing):** `R2IL × BPE`, OGAR-loco macro,
+**V4 as the thinking dynamic.** Precisely: IF measured recurrent typed
+R2IL behavior requires a resident macro representation, the
+recurrence/compression machinery MAY compress ordered groups of R2IL
+transformations into reconstructible macros (token-BPE measured CAN-FIT;
+the behavioral carrier stays UNDECIDED); IF that recurrence produces
+reusable routing structure, OGAR-loco-shaped routing MAY carry it; and
+V4-shaped behavior geometry is one possible future carrier for the
+resulting thinking DYNAMICS. Three IFs, zero decisions: every admission
+condition from the root order applies unchanged, and none of the three
+is built, reserved, or minted.
+
+## 2026-08-23 — E-MEMBERSHIP-IS-PARTICIPATION-NOT-ANCESTRY-1 — multi-group membership proven on the simple primitive; behavioral compression stays UNDECIDED
+
+**Status:** FINDING — [MEASURED] (`PROBE-MULTI-GROUP-MEMBERSHIP-1`, 11/11).
+Executes the operator's root order: exhaust MANY-TO-MANY GROUP MEMBERSHIP
+before any behavioral compression carrier exists even as a proposal.
+**Confidence:** High for the membership half. The behavioral half proves
+MACHINERY only — its recurrence is a property of the mechanical driver,
+deliberately, and production-scale recurrence is UNMEASURED and open.
+
+### The three things, kept distinct (the AD lesson, measured)
+
+```
+  hierarchy   gives scope / address      (HHTL home)
+  membership  gives participation        (many-to-many relation rows)
+  masks       give cheap selection       (derived execution artifacts)
+```
+
+- **M1** — one resident item belongs to Group A AND Group B simultaneously,
+  and Group C is addable by appending ONE relation row; every canonical
+  byte stationary throughout.
+- **M2** — `members`/`memberOf` are inverse VIEWS over ONE
+  `Membership { member_address, group_address, order? }` relation (a
+  probe-local shape, NOT a prescribed layout); no duplicated truth exists
+  to diverge.
+- **M3** — a group's `RowFocusMask` is compiled FROM the relation,
+  deleted, and recompiled to identical coverage: the mask is a derived
+  execution artifact, never a semantic owner.
+- **M4** — join + leave touch only membership rows; all resident docks
+  stay byte- and order-identical (F12 held).
+- **M5 — the demarcation, now measured from the membership side too:**
+  a group's applicability inherits DOWN a region via `covers`, while a
+  cross-subtree member belongs with NO ancestry in any direction.
+  **GROUP MEMBERSHIP IS RELATION TOPOLOGY, NOT HHTL ANCESTRY.**
+
+### The behavioral half — #1001 receipts as the ONLY lawful source
+
+- **B1** — 26 receipts replay to the exact final state:
+  `BEFORE + TYPED EDIT = AFTER`, with REFUSED edits retained together with
+  their refusal. A trajectory, not a log.
+- **B2** — recurrence measured, not assumed: 24 granted ops, 7 unique,
+  repeated 2- and 3-subsequences detected. **Honestly labelled:** the
+  recurrence is the mechanical driver's (same typed pattern per subject) —
+  it proves detection machinery, never that production behavior recurs.
+- **B3** — the recurrent pattern becomes an ORDERED group over typed ops
+  (order is the only new ingredient vs an ordinary group): op REFERENCES +
+  positions, replayed by order to the exact typed sequence. Nothing
+  copied, nothing mutated, F3 held.
+- **B4 — falsifier F6, run as code:** a `PushRungBand(9,9)` edit recurred
+  twice and was warrant-refused both times; the candidate filter (granted
+  receipts only) structurally never sees it. **Behavior that merely
+  repeats but repeatedly fails cannot be learned.**
+- **B5 — the comparison:** raw receipts 624 B (AUTHORITATIVE; groups
+  reference, never replace), ordered group +288 B ON TOP. At this scale
+  grouping ADDS cost and buys only addressability of the recurrence.
+
+### The verdict line, verbatim as the root order requires
+
+```
+  BEHAVIORAL COMPRESSION CARRIER: UNDECIDED
+```
+
+Admission conditions stand exactly as the operator listed them (typed-IR
+source units, measured recurrence, exact reconstruction, order preserved,
+applicability preserved, truth/provenance/warrants survive, falsification
+history survives, no copy/repack, carrier follows measured distribution,
+no second cognitive universe). No `BpeTable`, no token universe, no
+learner, no V3/V4 sidecar, no speculative object fields — B-FENCE pins
+the exact type sizes so a smuggled subsystem fails the gate. If
+production recurrence turns out too rare, **the correct result is NO
+BPE.**
+
+## 2026-08-23 — E-TOKEN-BPE-CAN-FIT-NOT-YET-BUY-1 — BPE fits the fixed 6×(8:8) geometry reconstructibly; the merge tree is measurably NOT HHTL ancestry; nothing yet justifies a production carrier
+
+**Status:** FINDING — [MEASURED] (`PROBE-TOKEN-BPE-GEOMETRY-1`, 8/8), on
+ONE real fixture-scale corpus (the in-tree KJV Genesis 2–3 scene, 1125
+bytes). **Scope fence:** this is TOKEN BPE (intake tokenization into the
+existing 12-byte payload) — NOT behavioral BPE (recurring typed #1001/R2IL
+transformations), which remains a separate queued investigation. Results
+do not transfer between the two in either direction.
+**Confidence:** High for what is measured; every number is fixture-scale,
+and the scale corpora (COCA, whole-KJV, R2IL streams, AST intake) are
+ABSENT from this checkout — reported absent, never simulated.
+
+### The question and the verdict
+
+> Can BPE act as a reconstructible intake tokenizer over the fixed
+> `6×(8:8)` geometry without changing HHTL, classid semantics, or the
+> resident memory ABI?
+
+**CAN-FIT, NOT YET BUY.** It fits: 1125 bytes → 336 tokens (3.35×) at a
+255-cap vocabulary, decoded byte-exact, packed into 28 resident `[u8;12]`
+`Copy` particles, with no classid anywhere in the token path, no
+token-object population proposed as canonical, no hash standing in for
+content, and no ML machinery. Nothing at this scale justifies a
+production token carrier.
+
+### The three readings, measured
+
+- **A — six independent pair subspaces:** works; slot-scoped word
+  vocabularies (sizes 25–31 here) fit the LO lane with the HI lane free
+  as a page. `u8:u8` stays two bytes, never a u16.
+- **B — hierarchical/refinement pairs:** pair-ENCODABLE by construction
+  (every merge is `(left:right)`, both ids u8) — but **measurably NOT
+  lawful HHTL ancestry**: 3 same-depth token pairs are prefixes of each
+  other, so "siblings" OVERLAP. A binary merge DAG over strings is not a
+  radix prefix partition. **Encodability ≠ hierarchy** — the fence "do not
+  confuse a merge tree with the ontology tree" is now a measured fact,
+  not a warning.
+- **C — BPE over already-lawful byte symbols:** the clean candidate.
+  Compression and reconstruction both green; cost reported as OPERATION
+  COUNTS (81852 encode probes, 1914 decode expansions), never wall time.
+
+### Measured surprises worth keeping
+
+1. **Scoped vocabularies LOST here** — per-chapter tables produced 19%
+   MORE tokens than one global table, against the intuition that a scoped
+   256-entry codebook wins. Weak signal (two chapters of one book), but it
+   converts "scoped is obviously right" into "the comparison must be run
+   per real corpus."
+2. **The vocabulary saturated at 180 of 255** — merging stopped when no
+   adjacent pair repeated ≥2×. The corpus, not the cap, set the vocab.
+3. **Overflow is the norm, not the exception:** EVERY verse needs
+   continuation (p50=4, max=8 particles per verse). A
+   one-particle-per-item reading is refuted at verse granularity; any
+   production design must budget continuation rows from the start.
+4. **No HHTL locality:** chapter token-usage Jaccard 0.32 with heavy
+   sharing — BPE stayed orthogonal to scope on this corpus, exactly as
+   the law assumes rather than hopes.
+
+### The authority order (the reconstruction law, enforced)
+
+```
+  canonical source        AUTHORITATIVE
+  tokenized form          exact, reconstructible (measured byte-exact)
+  compressed shorthand    must round-trip or is non-canonical
+```
+
+A token may accelerate access; it must not destroy the source semantics
+required for reasoning. Falsifiers F4/F5/F13/F14 held structurally; F7
+(merge-tree-as-ancestry) was made to FAIL measurably, which is the fence
+working.
+
+## 2026-08-23 — E-CONTENT-NEVER-TRAVELS-IN-CLASSID-1 — "not rail-expressible" never meant "therefore classid"; and the copula already had a shipped home
+
+**Status:** ROOT LAW (operator-issued) + FINDING — [MEASURED]
+(`PROBE-COPULA-GROUP-MASK-1` 9/9, `PROBE-COPULA-DISTRIBUTION-1` 5/5).
+Retracts the Step 2 ruling request's Item 1 recommendation in place.
+**Confidence:** High for the law and for every falsifier listed.
+Whole-corpus SCALE is explicitly OPEN and reported as blocked.
+
+### The retraction
+
+The Step 2 ruling request recommended `Copula → relation concept →
+classid reference`. **Withdrawn.** C1–C4 established only
+`COPULA ≠ RAIL PLACEMENT`; that does NOT establish `COPULA = CLASSID`.
+Unrelated conclusions — and the leap between them was content drifting
+into the reading selector, the exact smuggle the dock/route separation
+exists to prevent.
+
+### The law (operator, 2026-08-23)
+
+```
+  CONTENT NEVER TRAVELS IN CLASSID.
+  CLASSID SELECTS THE READING.
+
+  classid = HOW these bytes may be read
+  HHTL    = WHERE the resident thing lives
+  mask    = WHAT part / group / region conducts
+  edges   = HOW addressed things relate
+```
+
+No per-copula classids; no predicates, relation identity, group identity
+or belief identity smuggled into classid — for copula or anything else.
+Companion laws: SHARE THE HIERARCHY, NOT NECESSARILY THE PAYLOAD; AN INDEX
+OR MASK MAY ACCELERATE THE ABI, IT MUST NEVER BECOME A SECOND ABI;
+MEASURE THE DISTRIBUTION BEFORE BUYING THE REPRESENTATION.
+
+### ⊘ The answer was already shipped — and this arc failed to check first
+
+**`nars::facet_fold` (ENTROPY-MILESTONES M26) already carries the copula,
+losslessly, in the resident M20 register, with ZERO classid involvement:**
+
+```
+  CStmt {s, cop, p}  ⟷  SpoFacet (12-byte content-blind register)
+    rail 0  subject     s as (lo, hi)
+    rail 1  predicate   (copula TAG, Rel lo)   ← the copula lives HERE
+    rail 2  object      p as (lo, hi)
+    rail 3  ew_subject  (Rel hi, spare)        ← Rel's u16 completes here
+```
+
+Re-verified over the measured corpus rather than trusted from its unit
+tests: **16/16 statements round-trip byte-exact**, `Rel(u16)` payloads
+included; five copulas on one `(s,p)` produce five DISTINCT registers, so
+the discriminating information is resident bytes and nothing upstream is
+consulted. **0 extra bytes** — it relabels a register the awareness plane
+already holds.
+
+The intermediate `RelRow` hypothesis was therefore a proposal for shipped
+code — precisely the rediscovery tax `CLAUDE.md` names: *"Proposing a type
+that already exists is a 30-turn rediscovery tax — check first."*
+
+### The Active-Directory shape (the general topology finding, which stands)
+
+A DN homes an object; `member`/`memberOf` are NOT ancestry — inverse VIEWS
+over ONE many-to-many relation between already-addressed objects. Measured
+on shipped operators: copulas reconstruct exactly from resident row
+content while the group reading is lossy BY DESIGN (`Rel(7)`/`Rel(12)`
+share a group, stay distinct) (G-F1); members/memberOf are inverse views
+with no duplicated canonical state (G-F2); a cross-subtree Sim pair is
+expressible ONLY as a row — the hierarchy homes both ends, it does not
+pretend to BE the relation (G-F4); ONE classid spans four differing
+copulas (G-F5); regrouping is view-only (G-F6); truth/provenance ride the
+CLAIM, never the classification (G-F8); and `group ∩ HHTL region ∩
+truth-condition` composes in one pass over borrowed rows (G-COMPOSE).
+
+**The demarcation this settles:** applicability and scope inherit up/down
+HHTL; **the pairwise relation itself never does.** The Sim row is the
+standing witness.
+
+### ⊘ A prediction of this arc's own, REFUTED by measuring it
+
+The addendum named the KJV corpus as the **Rel-heavy** regime that would
+contrast with the Inh-dominated closure fixture. Measured, through the
+REAL `stance::stream` producer on REAL KJV Genesis 2–3:
+
+| | Inh | Rel | Impl | Sim |
+|---|---|---|---|---|
+| closure fixture | 10 | 2 | 1 | 1 |
+| **real KJV narrative** | **13** | **2** | **1** | **0** |
+
+**Inh 6× Rel.** Both corpora now measured lean the SAME way, so a
+Rel-heavy regime is **UNDEMONSTRATED, not merely unmeasured** — a
+materially different status. Relatedly, *"tactics Impl"* was a phantom:
+`tactics` emits only `Inh`/`Sim`; the real `Impl` producer is `stance`.
+
+### Cost, measured and extended
+
+| representation | at measured shape | at t=10k |
+|---|---|---|
+| **`facet_fold`** | **0 extra bytes** | **0** |
+| a `RelRow`-style row | 896 B (n=16) | grows with relations |
+| dense 4-group bitmap | 164 B (t=18) | **50 MB** regardless of content |
+
+The fixture-scale surprise (dense beating sparse) **inverts** at real term
+counts — and both lose to a fold that allocates nothing.
+
+### Blocked, and not fabricated
+
+The whole-KJV **scale** measurement cannot run: `data/coca/lexicon.tsv`
+(Release `coca-codebook-v2`) and `pg10.txt → kjv_spo.tsv` are absent by
+design. A hand-written corpus would be a fabricated measurement, so none
+was produced. **Scale stays open; shape is measured.** Because the
+recommended carrier is already shipped and costs nothing, the open scale
+question does not gate adopting it — it gates only any future proposal to
+replace it.
+
+## 2026-08-23 — E-HHTL-COMPILES-HIERARCHY-INTO-MASK-GEOMETRY-1 — the algebra is indifferent to WHY the hierarchy exists; and no copula is rail-expressible
+
+**Status:** FINDING — [MEASURED] (`PROBE-MASK-ALGEBRA-INVARIANCE-1`, 7/7).
+Positive half completes `E-HIERARCHY-IS-THE-ADDRESS-SPACE-NOT-THE-ONTOLOGY-1`;
+negative half CLOSES the `Copula` item Step 1 deferred.
+**Confidence:** High for both halves. Novelty explicitly NOT claimed.
+
+### The formulation (operator, 2026-08-23)
+
+> **HHTL does not execute a tree. It compiles hierarchy into mask
+> geometry.** Once hierarchy is mask geometry, the math stops caring why
+> the hierarchy exists.
+
+A tree normally forces tree-shaped operations — traversal, recursion,
+pointer chasing, ancestor tables. If every level obeys the same physical
+grammar, ancestry stops being a pointer between heterogeneous objects and
+becomes **a progressively constrained portion of one regular address**:
+
+```
+  Universe   xxxxxxxx xxxxxxxx …
+  Level 1    0011xxxx xxxxxxxx …
+  Level 2    001101xx xxxxxxxx …
+  Level 3    00110110 11xxxxxx …
+```
+
+Each deeper level merely FIXES MORE of the address, so `M0 ⊇ M1 ⊇ … ⊇ M5`
+is nested restriction over fixed-width coordinates — the algebra can be
+recursive without the implementation being recursively shaped.
+
+**The tree is semantic. The mask algebra is geometric.**
+
+### [MEASURED] Indifference to meaning (M1–M3)
+
+The same address pair, the same five operators (`covers` /
+`common_prefix` / `intersect` / `union` / `difference`), interpreted as
+six unrelated semantics — ontology depth, attention scope, causal
+candidate region, belief generalization scope, episodic context, behaviour
+applicability — returns **byte-identical results across all six**. Had they
+diverged, the claim would be false.
+
+> **The ClassView cares what the bits mean. The algebra provably does not.**
+
+M2: six levels are six restrictions of ONE coordinate space, and
+transitivity is FREE (`L0.covers(L5)` with no traversal of `L1..L4`).
+M3: an internal node is another occupied COORDINATE, not another
+representation — which is why connective tissue buys coordinates rather
+than a second graph.
+
+**Prior art, stated honestly:** tries, radix trees, hierarchical bitmaps,
+prefix routing, Morton coding, masked SIMD and succinct trees each contain
+pieces of this. No novelty is claimed for the mechanism; what is measured
+is that the *combination* holds within this ABI.
+
+### [MEASURED] No copula is rail-expressible (C1–C4)
+
+```
+  RAILS      unconditionally transitive (prefix containment IS transitivity)
+             antisymmetric (a strict ancestry order)
+             COMMITTED (RailPath = {len, slots} — no truth, no polarity)
+
+  COPULAS    selectively transitive (`transits()`: only Inh, Sim)
+             sometimes symmetric (Sim)
+             always DEFEASIBLE (a Belief carries (frequency, confidence))
+```
+
+`Impl`/`Rel` fail on transitivity; `Sim` on symmetry; and `Inh` — the ONLY
+rail-SHAPED copula — on defeasibility:
+
+> **A rail IS the taxonomy. A belief is a CLAIM ABOUT the taxonomy.**
+
+There is no slot in `RailPath` for *"`A is_a B` at confidence 0.85"*, so
+storing a defeasible claim as a placement would silently promote a
+hypothesis to structure.
+
+**Scope:** this is about RAILS. It does not prove `Copula` has no ABI home
+anywhere — and indeed it has one (`E-CONTENT-NEVER-TRAVELS-IN-CLASSID-1`,
+above: `facet_fold` into the M20 register).
+
 ## 2026-08-23 — E-HIERARCHY-IS-THE-ADDRESS-SPACE-NOT-THE-ONTOLOGY-1 — HHTL is the universal address grammar, beneath the V3/V4 distinction; and globality is geometry ONLY WITH provenance
 
 **Status:** ROOT LAW proposed by the operator, with one part [MEASURED]
