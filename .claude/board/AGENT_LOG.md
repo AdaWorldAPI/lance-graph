@@ -1,3 +1,72 @@
+## 2026-08-23 — two Sonnet audit lanes for the Revision × attention × Evaluation hinge
+
+- **Why:** an operator focus-correction restored the architectural target
+  (can Revision, during Kanban `Evaluation`, redirect the next cognitive pass
+  before Rubicon commitment?) above the measured rung sub-result, with an
+  explicit instruction: *do not invent that hinge — audit the existing
+  attention/focus representations and the Evaluation→Commit|Plan|Prune
+  boundary first.* Both lanes read-only.
+- **Lane A — attention/focus census.** A representation DOES exist:
+  `contract::attention_facet::{AttentionFocusFacet, RowFocusMask, FocusAxis}`
+  plus the read-only `rubicon_witness` instrument, carrying the anti-scheduler
+  constraint verbatim. Zero callers outside its own crate. `select_tactic` has
+  zero production callers; `ScanParams`/`FieldModulation` are scan-tuning
+  dials with no address or region and exist as two independent copies (only
+  the planner's is live); `ResonanceDto::dominant_perspective` is written once
+  in its constructor and **never read anywhere**.
+- **Lane B — Evaluation boundary.** The three-way fork is real in the type,
+  but `advance_on_gate` collapses it to commit-or-veto (`Plan` structurally
+  unreachable), and `cognitive_pass` never admits an `Evaluation`-phase owner,
+  so the fork has no production driver at all. `Commit` is declared-not-
+  implemented (`calcify` = `todo!()`); `RubiconPhase` is a separate scaffold
+  enum; no backward edge to `CognitiveWork` (test-pinned).
+- **Orchestrator corrections applied to lane output:** (1) Lane A cited this
+  session's own probe header as independent evidence for the absence of a
+  focus mechanism — circular, struck; absence now rests on call censuses
+  only. (2) Lane B returned Q5 (Revision's position vs the phase machine) as
+  UNVERIFIED; the orchestrator closed it directly — `RevisionOutcome` lives
+  only in `counterfactual.rs:432` (BLOCKED scaffold) and no `src/` file
+  mentions both a Revision symbol and `KanbanColumn`.
+- **Outcome:** `STILL OPEN` written into #1000 naming only surfaces that
+  exist, each annotated shipped-vs-absent. 19/19 gates green, measurements
+  untouched. No new wiring, no merge.
+- **Model policy:** both lanes Sonnet (bounded grep/read census); synthesis,
+  verification and all edits on the Opus main thread.
+
+## 2026-08-23 — two Sonnet grounding lanes for the #1000 architectural correction
+
+- **Why:** an operator STOP on PR #1000 rejected an in-session mapping of the
+  autopoiesis triangle (`Frozen`/`Learned`/`Explore`) onto `temporal.rs`'s
+  `EpistemicMode` (`Strict`/`Aware`/`Retro`) as a category error, and required
+  a first-hand grounding report before any edit. Two lanes were dispatched to
+  gather evidence only (no edits, no commits, no PRs).
+- **Lane 1 — rung vocabulary census (falsifier #5).** Result: **nine** distinct
+  rung-named vocabularies, not the five the triangle plan lists; five of them
+  have zero callers. Key negative, proven by exhaustive call-site enumeration:
+  **no path converts `RungLevel`/`RungElevator.level` into the `u8` passed to
+  `QueryReference::at` / `EpistemicMode::for_rung`** — all 34 call sites pass a
+  literal or a local `const`, and no calling file imports `cognitive_shader`.
+  Also refuted a premise: `thinking-engine`'s `RungLevel` is a `pub use`
+  re-export (D-TRI-6 dedup), not a duplicate. Found the one real
+  cross-vocabulary conversion, a different pair entirely: `RungElevator.level
+  as u8` → `ThoughtCtx.rung` (recorded as a bounded FOLLOW-UP OBSERVATION on
+  #1000, not fixed).
+- **Lane 2 — provenance audit.** `witness_fabric::ForesightSample` (`:1704`) is
+  a genuine hindsight-blind prediction-vs-outcome primitive — **test-only**,
+  zero production callers. `CausalEdge64` carries no temporal-provenance bit
+  (the v1 12-bit temporal field is `#[deprecated]` and reclaimed under
+  `causal-edge-v2-layout`). Behavioral learning: **no path to contaminate** —
+  `ScaffoldCompiler::synthesize` always returns `NotImplemented`; the four
+  template crates are workspace-excluded. Corrected two of the orchestrator's
+  own claims: `promote_family` lives in `mailbox_soa.rs:829` (not
+  `soa_view.rs`) with zero `src/` callers, and `MacroCandidate` does not exist.
+- **Outcome:** the refuted mapping appears in **zero committed artifacts** —
+  probe source and board entry were both clean; the contamination was
+  chat-only. #1000 recut text-only to `PROBE-REVISION-RUNG-ACTUATOR-1`;
+  19/19 gates rerun green with every measured value byte-identical.
+- **Model policy:** both lanes Sonnet (bounded grep/read grindwork, one shape
+  out); synthesis and all edits on the Opus main thread.
+
 ## 2026-08-22 — 5+3 council on the learning-substrate brainstorm (PR #988)
 
 - **Subject:** `.claude/brainstorms/2026-08-22-learning-on-the-v3-substrate.md`
