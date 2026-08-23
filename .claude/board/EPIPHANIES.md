@@ -1,3 +1,111 @@
+## 2026-08-23 — E-THE-MISSING-MIDDLE-IS-REFUTABLE-AND-SEVEN-STATES-SURVIVE-1 — bounding a mediator from both sides turns a topology CLAIM into a topology TEST
+
+**Status:** FINDING — [MEASURED] on shipped operators
+(`PROBE-EPISTEMIC-FABRIC-1`, 7/7). Completes the arc with
+`E-HIERARCHY-IS-THE-ADDRESS-SPACE-NOT-THE-ONTOLOGY-1` and
+`E-FALSIFICATION-IS-THE-CHEAP-DIRECTION-AND-AUSLOESCHUNG-IS-A-READING-1`.
+**Confidence:** High for the algebra; toy hierarchy, not a corpus.
+
+### The sharp result: `IndirectUnknownIntermediates` becomes FALSIFIABLE
+
+`CausalTopology::IndirectUnknownIntermediates` asserts *"a mediator exists,
+we do not know which."* Until now that was **assertable but not testable** —
+nothing could contradict it.
+
+Bound the missing middle from BOTH sides and it becomes a test:
+
+```
+   upstream admissible region   (what A can reach)
+              ∩
+   downstream admissible region (what B requires)
+              =
+   mediator candidate mask
+```
+
+- **Non-empty (E1)** → the candidate mask IS the search surface, obtained by
+  `RowFocusMask::intersect` narrowing to the deeper region — **without
+  enumerating a single mediator object.**
+- **EMPTY (E2)** → **no addressed mediator can satisfy both sides, so the
+  topology claim is REFUTED.**
+
+**Honest limit, stated in the probe and not softened:** the refutation is
+scoped to the ADDRESSED universe. An unaddressed mediator — a genuine
+unknown-unknown — is *not* refuted. That is precisely why the state
+`UnknownUnlooked` must stay distinct from `UnknownMediatorUnresolved`, and
+E4 keeps them so.
+
+This replaces the enumerate-and-score shape (`enumerate thousands →
+allocate → score all → discard most`) with `prefix mask → scoped candidate
+region → signed elimination → pair-field over survivors` — A + C, with no
+materialization step in the middle.
+
+### Depth and scope are INDEPENDENT axes (E3)
+
+```
+                      BROADER SCOPE
+                            ↑
+        shallow proof       │      deep proof
+        broad support       │      broad support
+    ────────────────────────┼────────────────────→ DERIVATIONAL DEPTH
+        shallow proof       │      deep proof
+        local support       │      local support
+                            ↓
+                       LOCAL SCOPE
+```
+
+Measured: two claims with the SAME derivational depth (3) at scopes 3 vs 1
+read as different states; two with the SAME scope at depths 3 vs 1 differ
+too. **A scalar rung collapses both distinctions.** So "deeply reasoned but
+only locally true" and "shallowly derived but broadly observed" are
+different facts the substrate can now hold apart.
+
+### SEVEN epistemic states, pairwise distinguishable (E4 — the strongest gate)
+
+If any two collapsed, the fabric claim would fail. None do:
+
+| state | licence it grants |
+|---|---|
+| `UnknownUnlooked` | go LOOK — nothing asserted, no region |
+| `UnknownMediatorUnresolved` | go PROBE — a real region, no value |
+| `SupportedLocally{depth}` | trust here, not elsewhere |
+| `SupportedBroadly{depth}` | trust across the ancestry |
+| `FalsifiedInOneBranch` | trust broadly, DESCEND to the exception |
+| `CounterfactuallyTested` | an intervention ran, unsettled |
+| `LearnedSurvivedTests` | **the only state licensing a learned transformation** |
+
+That last row is the learning rule made mechanical: *do not learn from
+recurrence; learn what survives exposure to falsification.* Recurrence
+alone never reaches the seventh state.
+
+### Strength is a separate plane (E7)
+
+Two claims in the SAME state at expectation `0.505` vs `0.965`. Strength
+moves without the state moving — **no field impersonates another**, which
+is the property the whole plane separation exists to protect.
+
+### Connective tissue needs no second universe (E5)
+
+An internal node carrying aggregate truth / witness / provenance / coverage
+uses the **identical** 16-byte dock, classid and address grammar as a leaf —
+it differs only in DEPTH. So the operator's own cost admission resolves
+cleanly into a law:
+
+> **If the leaves cannot express the relation economically, add
+> hierarchical connective tissue — not a second representation universe.**
+
+No special "belief object", no parallel heap graph. The connective node is
+just a shallower address obeying the same ABI.
+
+### Revision moves the view (E6)
+
+The attended region changed and the coverage answer changed with it, while
+every resident dock stayed bit-for-bit identical:
+
+```
+  THE POPULATION STAYS.  THE VIEW MOVES.
+  THE WITNESSES ACCUMULATE.  THE GENERALIZATION LEVEL MAY CHANGE.
+```
+
 ## 2026-08-23 — E-TYPE-COMPLEXITY-EXPOSED-A-MEMORY-ABI-ESCAPE-1 — the clippy warning was the surface symptom; `BeliefArena` is an independent AoS cognitive population owner outside the canonical memory ABI
 
 **Status:** FINDING (operator-escalated; #1004 recut to a discovery receipt).
