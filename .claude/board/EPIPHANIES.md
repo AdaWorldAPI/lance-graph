@@ -1,3 +1,110 @@
+## 2026-08-23 — E-TWO-KEY-ELEVATION-WINDOW-IS-NARROW-AND-THE-CORPUS-STRADDLES-IT-1 — the Revision→Kanban hinge is wired; the two shipped rules that must agree for elevation overlap in only a ~0.125-wide band, and both negative controls fall on opposite sides of it
+
+**Status:** FINDING (measured — `PROBE-REVISION-KANBAN-HINGE-1`, 19/19 gates
+green). **Confidence:** High; reproducible from the commit.
+
+**The vertical arrow, closed.** #998 proved the triangle changes the NEXT
+thought (HOW I think). This closes the other axis (HOW MUCH / HOW DEEP I may
+think): receipt → membrane → `InnerCouncil::from_signals` → `CollapseHint` →
+`mul::GateDecision` → `KanbanColumn::advance_on_gate` →
+`MailboxSoaOwner::try_advance_phase`, plus the rung arm via
+`RungElevator::apply_delta` — **its first caller anywhere** (the same
+first-arrow shape as #998's `promote_family`). Everything after the membrane
+is shipped machinery; the only novel logic is `signals_from(&CycleEvidence)`,
+pure measured ratios with no tuned constants.
+
+**THE HEADLINE — the two keys barely overlap.** Operator-pinned rule:
+`CollapseHint::RungElevate` is qualitative INTENT, `rung_delta(emergence,
+coherence)` decides whether the shift is EARNED; elevation requires both.
+`measure_two_key_window` sweeps the task-unresolved axis at saturated
+coverage and measures where they agree:
+
+```
+  task-unresolved  <0.316  → Balanced / Flow          (settle)
+           0.316 … 0.600   → Catalyst / RungElevate,  rung_delta =  0
+           0.600 … 0.725   → Catalyst / RungElevate,  rung_delta = +1  ← the ONLY window
+           0.725 …         → Guardian / Fanout,       rung_delta = +1
+```
+
+**Both negative controls are real fixtures on opposite sides of the window,
+and the second one the run found rather than the design anticipating it:**
+- **G16** (mid stall, task-u 0.564): intent key OPEN (RungElevate), earned key
+  CLOSED (delta 0) → held. RungElevate is not a magic elevator button.
+- **G18** (deep stall, task-u 0.768): earned key OPEN (delta +1), intent key
+  CLOSED (Fanout) → held. **The council refuses to deepen from overwhelming
+  ignorance** — it asks for evidence instead. Guardian dominates Catalyst
+  above u ≈ 0.727 regardless of how saturated coverage is.
+
+**G19, the honest null:** this corpus's reachable exhaustion depths STRADDLE
+the window (0.564 < [0.600, 0.725] < 0.768), so the earned-elevation arm
+(F4/F6) is driven by a clearly-labelled synthetic evidence state at the
+window midpoint. Everything downstream of `CycleEvidence` is the same shipped
+path either way. Whether a ~0.125-wide window is the intended design or an
+accident of two independently-authored rules is an OPEN QUESTION this probe
+raises and does not answer — it is measured, not judged.
+
+**A corrected premise (the self-falsifier fired, as designed).** The first
+draft used {naked-only, naked+hidden-ALL-units} and asserted a deep
+both-policy stall; `derive_both_stall` panicked. A sweep showed why:
+naked+hidden-over-all-units solves EVERY uniqueness-preserving reduction of
+the #997 puzzle (`hidden_stall` reachable set = `[0]`; only 7 clues are
+removable before uniqueness breaks), so with that pair "the admitted family
+is exhausted" is UNREACHABLE and the whole escalation arm has no receipt. The
+family is now {naked-only, naked+hidden-ROWS-only} — a real, sound,
+oracle-checked technique with a narrower scan scope — under which exhaustion
+is reachable at task-u ∈ {0.564, 0.754, 0.768}.
+
+**The membrane is task-normalized, deliberately the harsher reading.**
+coherence = what the policy explained *of its own task* (cells empty at cycle
+start), never *of the board*: "24 of 81 board cells" conflates the reasoning's
+competence with the puzzle's generosity in givens; "24 of the 55 I was asked
+to resolve" is a statement about the reasoning. It yields SMALLER coherence
+than the board reading — the stricter choice, not the flattering one.
+
+**F14's actuator is shipped, not invented.** No kernel `gate()` reads
+`ctx.rung` (verified negative). The real rung-capability gate is
+`Recipe::admissible_at` / `RungLevel::admissible_recipes` (monotone,
+test-pinned, consumed by the live `StyleStrategy::recipes_for_at`): elevating
+Contextual → Analogical takes admissible recipes **11 → 24**, and all 13
+newly-admitted Control-bucket kernels (RTE HTD MCP CR LSI PSO CDI CWS SSR ETD
+IDR SPP DTMF) actually FIRE on the stalled context — work refused at the prior
+rung. Second arm: `Cas`'s shipped `hdr_level` grid re-quantizes the SAME field
+`[0,0,1,1]` → `[0.25,0.5,0.5,0.75]` across the same boundary.
+
+**F5's evidence-thin vs evidence-saturated split is visible in the log:** at
+IDENTICAL unresolved count, coverage 14/31 → Fanout and coverage 19/31 →
+RungElevate. The distinction the operator asked for is measured, not
+hand-picked; Fanout terminates honestly when coverage saturates ("cannot
+gather more" is a no-op, not a loop).
+
+**CE64 non-interference is proven ACTIVELY, not by absence-of-import** (the
+#998 approach, strengthened): a live edge carrying
+`CausalTopology::IndirectUnknownIntermediates` + `ReasoningBand::Causal` is
+lens-verified pre-flight, passed through the entire loop, and asserted
+byte-identical after (F7/F8, raw `0x7000000000000000`). F9 goes further:
+Direct vs IndirectUnknownIntermediates yield IDENTICAL verdicts — epistemic
+topology does not secretly act as a scheduling trigger.
+
+**Two-`GateDecision` trap, recorded:** `mul::GateDecision` (Flow/Hold/Block,
+String reasons) feeds `advance_on_gate`; the UNRELATED
+`collapse_gate::GateDecision` (byte struct) feeds `RungElevator::on_gate`.
+Same name, same crate, no conversion exists. This probe uses the mul one for
+phase and `apply_delta` for rung — navigating the trap rather than tripping it.
+
+**Gates green (19/19):** F1 Flow-on-progress; F2/F15 triangle success →
+elevation NEVER requested ("a different way of thinking" ≠ "a more powerful
+level"); F3 unwarranted TCF singleton is no lever; F5 Fanout = breadth only,
+phase held; G16/G18 the two negative controls; G19 the straddle; F4/F6 earned
+elevation, rung only, triangle bytes identical; F14 the capability delta;
+F7/F8/F9 CE64 untouched and not a trigger; F10 owner-locality; F11 read-only
+witnesses; F13 observer-insufficiency → gather, never escalate; F12 full-run
+determinism; G17 membrane monotonicity + regime discrimination.
+
+**Next slice (named, not hidden):** repeated-elevation dynamics,
+Evaluation→Commit calcify, and the long-run fate of a
+held-with-two-key-disagreement owner — the owner that wants depth and has not
+earned it currently stays held at full coverage forever.
+
 ## 2026-08-23 — E-SUDOKU-COGNITIVE-CORPUS-1 — the first real corpus through the dispatch bridge: a real puzzle, warranted end-to-end, and TCP/TCF/CUR still collide under real data
 
 **Status:** FINDING (measured — `PROBE-SUDOKU-COGNITIVE-CORPUS-1`, run
