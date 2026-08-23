@@ -1,3 +1,86 @@
+## 2026-08-23 — E-STREAM-ORDER-VS-PREFIX-TREE-NEITHER-ACCUMULATES-1 — the two closest shipped candidates for the belief tree-overlay delegation are different topologies, and NEITHER implements an accumulate-fold
+
+**Status:** FINDING (grounds and sharpens the `BELIEF-ABI-RESTORATION-1`
+Step 1 audit's [ABSENT] verdict on the tree-overlay delegation mechanism;
+does not overturn it).
+**Confidence:** High — every claim below is grep- and read-verified against
+shipped code, not inferred from module-doc prose alone.
+
+**The question that prompted this.** Step 1 of `BELIEF-ABI-RESTORATION-1`
+found that `Belief.rung`/`stamp`'s operator-ruled delegation — "rung = HHTL
+tree depth, stamp = children-and-siblings accumulation, inherit from
+parent" — names a mechanism that is currently prose and precedent, not
+code (`.claude/plans/belief-abi-restoration-v1.md` §Step 1: zero
+`FacetCascade`/`facet_classid` occurrences in `nars/`, zero `fn accumulate`
+or `children.*sibling` hits in `lance-graph-contract/src/`). A follow-up
+asked directly: is the "24×i4 Markov left-right-corner parsing" the
+missing mechanism, compared against "AriGraph-style HHTL basins"? Grounding
+both candidates in shipped code answers: **they are not rival
+implementations of the same job — one is a total order over TIME, the
+other a partial order over ADDRESS — and neither one accumulates.**
+
+**Candidate A — `deepnsm-v2::wave::WitnessStream` (the G24N4/Markov
+reading).** `wave.rs` module doc, verbatim: *"Each versioned event owns its
+`CausalWitnessFacet` loci; the wave **reads** a version-range window and
+mutates nothing — there is no accumulator and no shared register. The
+Markov property is STREAM ORDER (`E-MARKOV-TEMPORAL-STREAM-1`), never a
+superposition into one carrier."* Concretely: `events: Vec<(u64,
+CausalWitnessFacet)>` in append order; `ground_at`/`resolve_at` walk a
+SIGNED OFFSET through that flat line within a version-visibility window
+(`TemporalPov::at`). This is where left-corner parsing theory actually
+enters the codebase — but only as a CITATION justifying the ±8 nibble
+range (Manning & Carpenter 1997, IWPT-97 Table 7: max left-corner stack
+depth over the whole binarized WSJ treebank is 8), never as an executing
+parser. There is no tree here. `E-NO-BUNDLE-STANDING-WAVE-1` is a standing
+refusal to accumulate, not an oversight.
+
+**Candidate B — `AttentionFocusFacet` (the AriGraph/HHTL-basin reading).**
+`covers`/`common_prefix` (`attention_facet.rs:297,314`) give coarse→fine
+PREFIX containment over the same 12-byte cascade — ancestor/descendant by
+shared byte prefix, ordinal position, never stream position.
+`common_prefix` computes the meet (deepest common ancestor) two focuses
+share, which IS the shape a "rung = tree depth" claim would need to walk.
+But nothing here sums, folds, or aggregates evidence across a node's
+children into a parent value — `covers`/`common_prefix` answer "is A an
+ancestor of B" / "what do A and B share", never "what do B's children
+contribute to A". Grepped independently for this pass: zero `fn
+accumulate` hits and zero `children.*sibling` hits anywhere under
+`lance-graph-contract/src/attention_facet.rs`, `facet.rs`, or `hhtl.rs`.
+
+**A third, previously-conflated shipped thing, named so it stops being
+confused with either candidate:** `insight_right_corner_read.rs`
+(`lance-graph-planner/examples/`) is a REAL left-corner/right-corner SVO
+clause parser running on real KJV text — but it is a `Basins`-driven token
+scan with its own `RightCornerReason`/`Triple` types and touches
+`CausalWitnessFacet`/G24N4 **not at all**. "Left-corner parsing" and
+"G24N4" are two unconnected machines in this codebase; only `wave.rs`'s
+module-doc citation bridges them, and only as a numeric-range
+justification, not a shared mechanism.
+
+(A fourth precedent worth naming for completeness, since it was checked in
+the same pass and is the closest thing to a REAL KJV+G24N4 example:
+`probe_binding_not_heuristic.rs` resolves `Locus::Antecedent` — a single
+locus, single-hop structural anaphora binding — on Gen 3:1/3:7. It proves
+the chip is load-bearing, not decorative. It is not an accumulate-fold
+either: it is a pointer write/read on one register, the same shape
+`wave.rs`'s single-owner events already generalize.)
+
+**The consequence, stated precisely so Step 3 doesn't restate either
+candidate by mistake.** If the operator's ruling is to be built rather
+than merely re-asserted, Step 3's probe cannot pick ONE of these two
+shipped mechanisms and call it done — neither is the fold. It would need
+to COMPOSE them: a stream-order Markov reading (candidate A's window/
+offset walk) BOUND to a specific tree address (candidate B's prefix
+containment, so "depth" and "which subtree" are meaningful at all) —
+which is itself a new, undocumented seam, not a restatement of anything
+shipped. Flagged as a future integration item, not built here (Step 1's
+own scope: audit-first, no layout invented).
+
+**Bounds respected:** no code changed by this finding; no tenant minted;
+no canonizing on either candidate as sufficient. See
+`.claude/plans/tarski-markov-hhtl-seam-v1.md` for the deferred integration
+plan this finding motivates.
+
 ## 2026-08-23 — E-TYPE-COMPLEXITY-EXPOSED-A-MEMORY-ABI-ESCAPE-1 — the clippy warning was the surface symptom; `BeliefArena` is an independent AoS cognitive population owner outside the canonical memory ABI
 
 **Status:** FINDING (operator-escalated; #1004 recut to a discovery receipt).

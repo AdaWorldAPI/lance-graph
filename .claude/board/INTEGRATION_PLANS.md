@@ -1,3 +1,23 @@
+## 2026-08-23 — TARSKI-MARKOV-HHTL-SEAM-1 (deferred, gated on BELIEF-ABI-RESTORATION-1 Step 2)
+
+`.claude/plans/tarski-markov-hhtl-seam-v1.md` — names the seam a future
+`BELIEF-ABI-RESTORATION-1` Step 3 must build, motivated by
+`.claude/board/EPIPHANIES.md`
+`E-STREAM-ORDER-VS-PREFIX-TREE-NEITHER-ACCUMULATES-1`: the operator-ruled
+tree-overlay delegation for `Belief.rung`/`stamp` (HHTL depth + accumulate
+from children/siblings) has NO shipped implementation, and its two closest
+candidates are different topologies that both explicitly fall short —
+`deepnsm-v2::wave::WitnessStream` is a stream-order Markov reading that
+disclaims accumulation by name (`E-NO-BUNDLE-STANDING-WAVE-1`);
+`AttentionFocusFacet` is a prefix-tree containment reading (`covers`/
+`common_prefix`) with no fold operator. Step 3 must COMPOSE a stream-order
+reading bound to a tree address, not restate either. Falsifiers SF1-SF5
+pre-registered; PROBE-TARSKI-SIGNED-WITNESS-1 and
+PROBE-FOUR-PLANE-CAUSAL-MEDIUM-1 (both #1007) are named as reusable,
+already-proven inputs. **Explicitly deferred** — do not start until
+`BELIEF-ABI-RESTORATION-1` Step 2 (operator ruling on the Step 1 residue)
+lands; this plan is input to that ruling, not a substitute.
+
 ## 2026-08-21 — D-ACR-7 BAND-READING CONTRACT (council-ratified spec)
 
 `.claude/plans/dacr7-band-reading-contract-v1.md` — the 59..63 reading
