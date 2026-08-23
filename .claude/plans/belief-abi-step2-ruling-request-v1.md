@@ -48,17 +48,29 @@ fails because **a rail placement is committed and a belief is defeasible.**
 A rail IS the taxonomy; a belief is a CLAIM ABOUT the taxonomy, and storing
 the claim as a placement silently promotes a hypothesis to structure.
 
-**[RECOMMENDATION] — existing-tenant composition, via the operator's own
-prior ruling.** *"A relation is a class; an edge's predicate is a classid
-reference."* `Rel(u16)` is already a 16-bit id, and `Inh`/`Sim`/`Impl` are
-three more relations. If each copula is a minted concept, `cop` becomes a
-classid reference and needs no copula-specific tenant.
-
-**What would falsify it:** classid capacity. If the addressable class space
-cannot admit relation concepts alongside entity concepts, this
-recommendation is void and the item returns as a genuine mint candidate.
-**This is an OGAR-side question this repo cannot answer** — flagged, not
-assumed.
+> **⊘ RECOMMENDATION RETRACTED (operator-directed, 2026-08-23).** The text
+> that stood here recommended `Copula → relation concept → classid
+> reference`. **That was a drift and is withdrawn**: C1–C4 established only
+> `COPULA ≠ RAIL PLACEMENT`, which does NOT establish `COPULA = CLASSID` —
+> unrelated conclusions. Routing relation content through classid would
+> smuggle content into the reading selector. The law:
+>
+> ```
+>   CONTENT NEVER TRAVELS IN CLASSID.
+>   CLASSID SELECTS THE READING.
+> ```
+>
+> The replacement analysis — machinery audit, measured distribution
+> (`PROBE-COPULA-GROUP-MASK-1`, 9/9), the Active-Directory group/membership
+> interpretation, candidate homes A–F with A/B rejected as sole carriers
+> and F not proposed — lives in
+> `.claude/plans/belief-abi-step2-addendum-copula-v1.md`. The question is
+> no longer *"where do we encode Copula?"* but *"what is the cheapest
+> lawful resident relation + selection geometry from which Copula is merely
+> an ergonomic reading?"* Current measurements favour sparse relation rows
+> (copula content RESIDENT in the row) with group masks as lossy-by-design
+> selection ergonomics; **no mint until workload-scale distributions rule
+> out composition.**
 
 ---
 
@@ -189,8 +201,11 @@ own signed channel rather than a subtracted prefix.
 
 ## What the ruling actually has to decide
 
-1. **`cop`** — classid-reference composition, or a mint? (Gated on an
-   OGAR-side classid-capacity answer this repo cannot supply.)
+1. **`cop`** — *(reframed by the addendum; the classid-reference option is
+   retracted)* accept sparse relation rows (copula content resident in the
+   row) + group-mask ergonomics as the working hypothesis, pending the
+   workload-scale distribution measurements? See
+   `belief-abi-step2-addendum-copula-v1.md` §8.
 2. **`truth`** — confirm compose-don't-mint, and rule on WHERE it resides.
 3. **`stamp`** — mint what, exactly? Provenance tenant vs
    witness/merkle composition vs a closure-receipt-shaped carrier serving

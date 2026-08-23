@@ -1,3 +1,20 @@
+## 2026-08-23 — STEP 2 ADDENDUM: the copula correction (retraction + measurement)
+
+`.claude/plans/belief-abi-step2-addendum-copula-v1.md` — operator-directed
+correction of the ruling request's Item 1. **Retracts** `Copula → classid
+reference` (C1–C4 proved `COPULA ≠ RAIL PLACEMENT`, which never implied
+`COPULA = CLASSID`); **states the law** (CONTENT NEVER TRAVELS IN CLASSID —
+classid selects the reading); **measures** the Active-Directory
+group/membership interpretation on shipped operators
+(`PROBE-COPULA-GROUP-MASK-1`, 9/9: copula content resident in relation
+rows, groups as lossy-by-design ergonomics, members/memberOf as inverse
+views over one relation, no ancestry-faking, one classid across four
+copulas, one-pass group ∩ region ∩ condition composition); and **proposes
+NO mint** — candidate homes graded with masks-alone rejected as sole
+carriers and workload-scale distributions (KJV Rel-heavy, tactics Impl)
+named as the open measurements. Board entry:
+`E-CONTENT-NEVER-TRAVELS-IN-CLASSID-1`.
+
 ## 2026-08-23 — BELIEF-ABI-RESTORATION-1 STEP 2 (ruling request — awaiting operator decision)
 
 `.claude/plans/belief-abi-step2-ruling-request-v1.md` — prepares the
