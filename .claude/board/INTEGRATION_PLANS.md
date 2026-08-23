@@ -1,3 +1,19 @@
+## 2026-08-23 — STYLE-MICROCODE FRONTIER, PHASE 2 (R2IL typed ops; the falsification intervention is load-bearing)
+
+`PROBE-R2IL-FRONTIER-PHASE2-1` (7/7) lifts the Phase-1 frontier loop
+(revise + Stamp + CHOICE — nothing new) onto R2IL-shaped typed behavior
+ops (probe-local mirror of `ruff_r2il` FactKind/Varnode discipline; ruff
+never imported). Result: typed operand signatures make BEFORE + TYPED
+EDIT = AFTER checkable at machine-state level, and the headline R6 gate
+shows a reckless macro (right value, wrong register, clobbers callee-saved
+r3) driven to e=0.812 — above the trust bar — by a sloppy happy-path
+oracle, refused ONLY by the falsification intervention. Happy-path RL
+would have learned the clobber. Sizes in the fence gate are MEASURED
+(Vn=8B, R2Op=28B, MachState=32B; first run failed on guesses — the gate
+working). Next measurement (named, not built): real FunctionBehavior
+episode streams from the ruff-side corpus. Entry:
+`E-HAPPY-PATH-RL-WOULD-HAVE-LEARNED-THE-CLOBBER-1`.
+
 ## 2026-08-23 — STYLE-MICROCODE FRONTIER, PHASE 1 (learner = revise + CHOICE; Phase 2 = R2IL, recorded)
 
 `PROBE-STYLE-MICROCODE-FRONTIER-1` (9/9) maps the operator's intent —
