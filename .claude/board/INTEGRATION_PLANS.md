@@ -1,3 +1,18 @@
+## 2026-08-23 — R2IL WAVE: chain carrier confirmed, optimization-transfer measured, boundary named
+
+Autoattended 6-slice wave (4 Sonnet probes, 1 Sonnet scribe, 1 Opus synthesis,
+1 Haiku guarded executor). Four new probes, all green: the def-use chain carrier
+beats the opcode window 27 vs 97 signatures and 0.887 vs 0.505 top-10 occupancy
+with 95.9% of top-chain occurrences skipping past adjacency (F-10, confirms
+#1014's prescription); the idiom vocabulary survives optimization 10/10 with the
+optimizer ADDING 33 trigram types (F-9, partial-survival pre-registration
+refuted in place); the convention's residual EXCEEDS its classified output
+0.478, 88.1% one named reason — which qualifies every finding in the arc as a
+seven-opcode-projection claim, not an x86-64 claim (F-11); and the Stamp loss
+curve is 0 at N<=64, 55.2% at N=143 (F-12, input to the pending operator
+ruling). Consolidated reference: `.claude/knowledge/r2il-behavioral-carrier.md`.
+Entry: `E-THE-SEVEN-OPCODE-PROJECTION-IS-NOT-X86-AND-THE-CHAIN-CARRIER-WINS-1`.
+
 ## 2026-08-23 — R2IL REAL-EPISODE MEASUREMENT (closes the Phase-2 named-not-built item)
 
 `PROBE-R2IL-REAL-EPISODES-1` (5/5) runs the frontier loop against the REAL

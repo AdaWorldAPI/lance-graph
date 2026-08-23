@@ -1,0 +1,12 @@
+### 2026-08-23T23:35:42Z — haiku-exec — wave-r2il-gates (re-card after fmt fix)
+- commands: 8/8 completed
+- status: GREEN
+- gates: fmt-check → PASS, probe_r2il_real_episodes → PASS, probe_r2il_frontier_phase2 → PASS, probe_r2il_optimization_transfer → PASS, probe_r2il_defuse_macros → PASS, probe_r2il_slag_boundary → PASS, probe_stamp_capacity → PASS, corpus-absent-guard → PASS
+- summaries:
+  - probe_r2il_real_episodes → 5/5 gates green — real FunctionBehavior episode measurement complete.
+  - probe_r2il_frontier_phase2 → PROBE-R2IL-FRONTIER-PHASE2-1: ALL 7 GATES GREEN
+  - probe_r2il_optimization_transfer → 5/5 gates green — TRAIN/TEST optimization-transfer measurement complete.
+  - probe_r2il_defuse_macros → 6/6 gates green — def-use chain macro carrier measured on real episodes.
+  - probe_r2il_slag_boundary → 5/5 gates green — R2IL pass-1 slag boundary measurement complete.
+  - probe_stamp_capacity → 6/6 gates green (K3 counts only when the corpus was present).
+- tail: (no errors; all commands passed)
