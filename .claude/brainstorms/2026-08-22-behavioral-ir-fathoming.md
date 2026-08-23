@@ -320,6 +320,50 @@ macro induction, BPE-over-traces, or the 34 recipes was tested by this
 run, and KC1 in particular gates whether hypothesis 1 (learnable
 opcode vocabulary) extends past the shared core at all.
 
+## F1a. Correction — KC1 was undersold, and it has now been partially measured (2026-08-23)
+
+**§F1's "the recipes' semantics live in `ThoughtCtx`/`recipe_dispatch` wiring,
+which this run did not pull in" was true but understated in a way that
+matters.** It read as "the semantics do not yet exist, out of scope for now."
+They exist, and are tested: `lance-graph-contract::recipe_kernels.rs` carries
+all 34 as real `impl Tactic` blocks (`apply(&mut ThoughtCtx) -> Outcome`),
+behind a working registry — `kernel(id: u8) -> Option<&'static dyn Tactic>`
+and `all_kernels() -> [&'static dyn Tactic; 34]`, id space `1..=34`. That id
+space is the SAME one `lance-graph-ogar::recipe_vocab::op_of`/`recipe_of`
+uses for the `FnIndex` mapping (`FnIndex(0x90 + id - 1)`) — checked by a
+round-trip assertion in the probe below, not assumed. §J item 2 ("lance-graph
+symbol census: recipe_dispatch, recipe_kernels, …") named this file as an
+open investigation lane and the report shipped before that lane closed.
+
+**KC1, reframed and run:** the question was never "can the 34 execute via
+`ogar_loco::Call` bytes" (ABI plumbing) — it is "given the same starting
+context, do different recipe ids produce state transitions an observer could
+tell apart." `PROBE-RECIPE-EXECUTION-1`
+(`crates/lance-graph-ogar/examples/recipe_execution_probe.rs`, this PR) calls
+`kernel(id).run_with(&mut ctx, MaturityPolicy::Any)` directly for all 34 ids
+against a 4-context battery (hot / cold / empty / neutral, chosen to exercise
+the same conditional branches the crate's own effect-census tests already
+probe), and compares a coarse effect signature (fired / Δconfidence sign /
+which `ThoughtCtx` fields changed / candidate-count-delta sign) — coarse
+*by design*, so raw float noise cannot manufacture false separability.
+
+**Result: 23/34 recipes are distinguishable across the whole battery; 11
+collapse into 15 pairwise collisions** (e.g. `ARE`/`ZCF`/`HKF`/`MCP` all
+produce "fired, nothing observably changed" on every context tested;
+`RCR`==`IRS`==`TCA`). Measured, not quoted: 31/34 kernels are
+`KernelMaturity::Operational`, 14/34 can move `confidence` at all — restricting
+to Operational-only kernels barely changes the separability rate (23/31).
+**This is a real, qualified answer, not a pass-by-proximity claim: the recipe
+layer is executable cognition for a majority of the 34, and coarse-signature
+taxonomy for a measurable minority — both facts, together.**
+
+**What this does NOT do:** build the `ogar_loco::Call`/`FunctionBody` bridge.
+No `FnIndex` in `RECIPE_OP_BASE..RECIPE_OP_END` is dispatched to `kernel(id)`
+by any interpreter today — `PROBE-LOCO-INTERPRETER-1`'s interpreter (§F1)
+still only covers the shared core. That bridge is now a small, well-scoped,
+still-open task (id mapping already verified consistent) — not a missing-
+semantics question anymore.
+
 ## F2. What the literature demands of that later probe
 
 Primary sources, so the probe is not designed in a vacuum:
