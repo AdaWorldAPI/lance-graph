@@ -1,3 +1,353 @@
+## 2026-08-23 — E-THE-VIEW-MOVES-THE-POPULATION-DOES-NOT-1 — three incompatible selector families compose over one stationary cognitive state, provenance intact, zero population copy
+
+**Status:** FINDING (measured — `PROBE-REVISION-ATTENTION-VIEW-1`, 8/8 gates
+green). **Confidence:** High for what it measures; the scope fence below is
+part of the finding, not a disclaimer.
+
+**Measured.** One `BeliefArena` holding rungs `[0, 1, 2]` and 16 stationary
+`NodeRow`s (8 KiB). Three selector families with NO common representation —
+`BoundAt(Locus)` (signed nibble in a 12-byte witness register, read through
+`WitnessLens`), `RungBand{lo,hi}` (`u32` arena field), `GapSubject(u16)`
+(scan-derived `Vec<ReasoningGap>`) — compose into one narrowing view:
+
+```
+  A [BoundAt(SupportedBy)]                      -> 8 rows
+  + Push(RungBand{1,2})
+  B [BoundAt, RungBand]                         -> 4 rows
+  + Push(GapSubject(1))
+  C [BoundAt, RungBand, GapSubject]             -> 3 rows
+```
+
+- **Provenance survives.** 3 rows admitted, **4 blamed by exactly one**
+  selector, **9 by two or more** — non-uniform blame, so the channel carries
+  information. This is what a fused `union()`/`intersect()` on a packed mask
+  cannot answer, and it is retained because the plan is a stack of typed
+  descriptors while only the LOWERED artifact is opaque.
+- **Zero population copy.** Population digest and base pointer byte-identical
+  across all three lowerings. Descriptors allocated: **36 B**, against 16 × 512 B
+  of population never touched. Reported separately, per the charter: the
+  invariant is zero POPULATION copy, not zero allocation.
+- **Typed edit reconstructs exactly.** `BEFORE + EDIT == AFTER` on BOTH layers
+  (descriptor stack and lowered visible set), and the inverse `RemoveAt`
+  restores `BEFORE`.
+- **Non-destructive.** Rung bands and population bytes unchanged after every
+  view change. Only visibility moved.
+- **Controls.** Empty plan admits all 16; a contradictory plan admits 0. So the
+  composition can both speak and stay silent.
+
+**A measured surprise, kept visible rather than tidied away.** The first fixture
+used `rcr_abduce` as the absence-shaped selector and the gate FAILED with
+`gap=0`. Cause, measured not guessed: on a fully-closed transitive chain
+`rcr_abduce` returns **20 candidates and ZERO gaps** — its gap channel fires on
+a different condition (no shared middle / hub exclusion / budget), not on a
+complete chain. `tr_diverge` on a siblingless focus emits the real
+`ReasoningGap { kind: NoSibling, subject: Some(1) }`. The fix was to use the
+call that actually produces the signal; the assertion was never weakened, and
+the probe still prints `rcr_abduce`'s empty channel so a future reader sees the
+distinction instead of rediscovering it.
+
+**What this does NOT establish**, stated because the charter demands nothing
+stronger: no behavioral BPE (this is the receipt substrate only); no wall-clock
+or thread parallelism (occupancy is semantic — `close_transitive` is a
+sequential fixpoint); no Rubicon persistence (`KanbanMove` carries no attention
+provenance, `calcify` is `todo!()`); and no production Revision surface —
+**F-REVISION-FOCUS-1 is ABSENT** and the `ViewEdit` used here is an explicitly
+probe-local adapter. `RungElevator` does not appear in this probe at all.
+
+**Existing-container audit ran first**, per the charter's probe law.
+`contract::selection::{NamedView, ViewRegistry}` is the shipped precedent with
+exactly the right two-layer shape — `union_of(&[ViewId]) -> WideFieldMask`
+takes retained descriptor identities and returns one fused artifact. It was not
+reused for one honest reason: it composes a SINGLE family over one
+representation, and heterogeneity is the whole question. `CycleFrame` records a
+cycle, `SupportReceipt` records support; neither is a view. The probe-local
+`ViewPlan` follows `ViewRegistry`'s shape rather than inventing one, and does
+not propose replacing it.
+
+**No `CommonMask` was built. No NOT/XOR was added.** The three families meet
+only at the lowering boundary, as one `impl Fn(usize) -> bool` — the seam that
+already exists seven times over in `witness_fabric`.
+
+## 2026-08-23 — E-AN-IMPORT-EDGE-IS-NOT-AN-ARCHITECTURAL-RELATION-1 — auditing "does A import B" and concluding "no architectural connection" erased a lineage documented in this repo's own docs
+
+**Status:** CORRECTION (operator-caught). **Confidence:** High — the erased
+lineage is quoted below from `docs/architecture/`, in-repo, verifiable.
+
+**What happened.** Asked to audit the Ghidra/R2IL relation, this session
+grepped `lance-graph-java` for imports of `ghidra`/`r2sleigh`/`sleigh`/`pcode`,
+found none, cloned `r2sleigh`, found no `lance` dependency and only bit-width
+masking, and wrote: *"Settled with evidence, so nobody builds a bridge to it
+later."* **That sentence is retracted.** It converted a true dependency-level
+negative into a false architecture-level negative, and it did so pre-emptively
+— telling future sessions not to look.
+
+**What was actually there, in THIS repo, unread.**
+`docs/architecture/ARC-B-OWNERSHIP-AND-ADDRESSING-REASSESSMENT.md` §7, titled
+"THE GHIDRA / JAVA ABI STANDARD" (2026-08-19):
+
+> *"The external path is the reference discipline: `binary → Ghidra/SLEIGH/
+> P-code → r2sleigh → V4 R2IL`, with the domain oracle keeping semantic
+> authority and the ABI exposing address + mask + view."*
+
+That section connects Ghidra, the Java ABI, and the address+mask+view
+discipline — the exact three subjects being audited separately — and states a
+falsifier and a debt against them. `EPIPHANIES.md:1145`
+(`E-V4-IS-THE-100-PERCENT-TIER-V3-UNCHANGED-1`) is the ruling it references.
+
+**The four claims that must not be collapsed into one verdict:**
+
+| Claim | Verdict |
+|---|---|
+| direct code dependency `lance-graph-java → r2sleigh`/Ghidra | **ABSENT** — verified, and unsurprising: lance-graph-java is the ABI/execution membrane |
+| cross-repo architectural lineage | **PRESENT** — ARC-B §7 above; ruff PR #94/#103/#104, all merged |
+| directly reusable mask implementation inside r2sleigh | **ABSENT** — every `mask` there is bit-width/taint masking in the SSA lifter |
+| reusable substrate pattern | **PRESENT and load-bearing** |
+
+**A dependency edge I also missed by auditing the wrong pair.** ruff PR #94
+(merged) ships `crates/ruff_r2il`, workspace-excluded, which **path-deps the
+`r2sleigh` sibling checkout** and whose `vocab.rs` *"feeds lance-graph's
+`ogar_codebook` read-only"*, with a *"16-byte V3-shaped `VarnodeFacet`"*. So a
+real code edge exists — `ruff_r2il → r2sleigh` and `ruff_r2il → lance-graph` —
+just not on the `lance-graph-java → r2sleigh` pair this session chose to test.
+PR #94 names its own origin as a *"three-repo Phase Zero audit (ruff frontends
+/ r2sleigh's typed surface / lance-graph V3 ABI)"*.
+
+**The two laws that transfer (and the honest tier of each):**
+- **[SHIPPED] Mask-native execution** — lance-graph-java: descriptors compose
+  with zero membrane crossings, one fused terminal, `materializeRows()` the
+  only named materialisation, enforced reflectively in test.
+- **[SHIPPED] Typed behavioural IR** — ruff_r2il: `FunctionBehavior` over
+  `SsaArtifact`, lossless/zero-copy, `harvested = classified + residual`,
+  `dropped == 0` by construction, no catch-all slag variant, and SPO demoted to
+  *"an optional lossy projection, never the behavioral truth"*.
+- **[ARCHITECTURAL TRANSFER]** masking as zero-copy attention conductivity;
+  BPE-style compression over behavioural IR.
+- **[NOT YET PROVEN]** a production behavioural-BPE learner joining the two.
+  Corroborating: PR #103's headline (*zero reconstruction mismatches across
+  35,946 matched op sites*) is explicitly scoped by its own body to the
+  oracle's `permissive_convention` and proves the reconstruction MECHANISM —
+  the shipped `minimal_pass_one` measures `matched = 0` and round-trips
+  through accounting, not matching. PR #103 also lists codebook wiring
+  (`ogar_codebook`) as still open.
+
+**The lesson, generalised.** "No reusable primitive" and "no architectural
+connection" are different findings with different evidence. A grep for import
+edges can only ever settle the first. Before writing an absence verdict about
+a *relation*, search this repo's own `docs/architecture/` and board for the
+relation by NAME — the answer here was two directories away the whole time.
+
+**Reflexive note.** The failure has the same shape as the one this session was
+convened to fix: reducing a structured relation to a single scalar test
+(one grep, one boolean) and reporting the scalar as the whole answer.
+
+## 2026-08-23 — E-TWO-KEY-ELEVATION-WINDOW-IS-NARROW-AND-THE-CORPUS-STRADDLES-IT-1 — one `RungElevator` actuator path is driven end-to-end; the two shipped rules that must agree for elevation overlap in only a ~0.125-wide band, and both negative controls fall on opposite sides of it
+
+**Status:** FINDING (measured — `PROBE-REVISION-RUNG-ACTUATOR-1`, 19/19 gates
+green). **Confidence:** High for the measurements; reproducible from the
+commit. **Scope:** this probe establishes one concrete `RungElevator`
+actuator path and measures the overlap of two existing heuristics around
+that actuator. It does **not** establish a canonical metacognitive
+controller.
+
+**The actuator path, driven.** The chain receipt → membrane →
+`InnerCouncil::from_signals` → `CollapseHint` → `mul::GateDecision` →
+`KanbanColumn::advance_on_gate` → `MailboxSoaOwner::try_advance_phase`, plus
+the rung arm via `RungElevator::apply_delta` — **its first caller outside the
+type's own unit tests** (an `examples/` caller, not a production-path one).
+The same correction applies to #998's `MailboxSoA::promote_family`
+(`mailbox_soa.rs:829`): its exhaustive call census is unit tests plus one
+example, never `src/` — "first production-path call" was wrong wording and is
+retracted here. Everything after the membrane is shipped machinery; the only
+novel logic is `signals_from(&CycleEvidence)`, pure measured ratios with no
+tuned constants.
+
+**THE HEADLINE — the two keys barely overlap.** Operator-pinned rule:
+`CollapseHint::RungElevate` is qualitative INTENT, `rung_delta(emergence,
+coherence)` decides whether the shift is EARNED; elevation requires both.
+`measure_two_key_window` sweeps the task-unresolved axis at saturated
+coverage and measures where they agree:
+
+```
+  task-unresolved  <0.316  → Balanced / Flow          (settle)
+           0.316 … 0.600   → Catalyst / RungElevate,  rung_delta =  0
+           0.600 … 0.725   → Catalyst / RungElevate,  rung_delta = +1  ← the ONLY window
+           0.725 …         → Guardian / Fanout,       rung_delta = +1
+```
+
+**Both negative controls are real fixtures on opposite sides of the window,
+and the second one the run found rather than the design anticipating it:**
+- **G16** (mid stall, task-u 0.564): intent key OPEN (RungElevate), earned key
+  CLOSED (delta 0) → held. RungElevate is not a magic elevator button.
+- **G18** (deep stall, task-u 0.768): earned key OPEN (delta +1), intent key
+  CLOSED (Fanout) → held. **The council refuses to deepen from overwhelming
+  ignorance** — it asks for evidence instead. Guardian dominates Catalyst
+  above u ≈ 0.727 regardless of how saturated coverage is.
+
+**F14, stated as measured:** `Contextual → Analogical` changes the recipe set
+returned by the shipped rung-dependent selection path (`Recipe::admissible_at`
+/ `RungLevel::admissible_recipes`, consumed by the live
+`StyleStrategy::recipes_for_at`) from **11 to 24**; the 13 added
+Control-bucket kernels all fire on the measured stalled fixture, and CAS's
+grid changes `[0,0,1,1] → [0.25,0.5,0.5,0.75]`. That is the whole result — it
+is not translated into an epistemic or metacognitive claim.
+
+**THE SHARPEST THING THE AUDIT FOUND — the Evaluation fork exists in the
+type system and nothing can drive it.** `KanbanColumn` already has the shape
+the architecture needs: `Evaluation → [Commit, Plan, Prune]`, with `Plan →
+Planning` documented as *"re-plan: re-enter Planning carrying the witness
+(the 'act differently next time' exit)"* (`kanban.rs:56-58,101-109`). So the
+re-run is ALREADY represented without a central scheduler — as a DAG edge.
+But `advance_on_gate` (`kanban.rs:146-153`), the only shipped lowering, is
+degenerate at `Evaluation`: `Flow` takes the first non-`Prune` ⇒ **always
+`Commit`**; `Block` ⇒ `Prune`; `Hold` ⇒ stay. **`Plan` is structurally
+unreachable through the gate** (grep: it is a transition target only in
+`#[cfg(test)]` and two examples, never production `src/`). The three-way
+deliberative fork collapses to commit-or-veto. And nothing reaches
+`Evaluation` anyway — `cognitive_pass` filters `phase() != CognitiveWork`
+(`cycle_driver.rs:719`), and `shade_owner`, the only production caller of
+`advance_on_gate`, is reachable only from that loop: **the `Evaluation →
+{Commit, Plan, Prune}` decision has no shipped production caller.**
+
+**A focus-of-attention representation EXISTS and must not be re-invented.**
+`contract::attention_facet::{AttentionFocusFacet, RowFocusMask, FocusAxis}`
+— *"Where focus landed or was projected"* (`attention_facet.rs:178`), breadth
+as covered POPULATION not entry count — with `contract::rubicon_witness` as
+its read-only instrument. Zero callers outside its own crate. Its constraint
+is already written: *"It READS. It never moves anything… An overlay that
+DRIVES a transition from a focus reading has rebuilt the scheduler this
+substrate removed"* (`rubicon_witness.rs:26-31`). Its falsifier `D-ACR-8` is
+two-sided and **queued, not run**. Unresolved placement question:
+`rubicon_witness` measures the Heckhausen crossing at `Planning →
+CognitiveWork`, while the pre-collapse deliberative surface in the target
+architecture is `Evaluation → Commit` — two Rubicons or one mis-placed
+label, unanswered.
+
+**Also established:** `Commit` is DECLARED, not implemented (`calcify` is a
+`todo!()`, D-ATOM-5), so the Rubicon's irreversibility today is the DAG
+legality table, not calcification; `RubiconPhase` (`cognitive-compiler`) is a
+SEPARATE enum in a scaffold crate with zero cross-references to
+`KanbanColumn`; and no `src/` file mentions both a Revision symbol and
+`KanbanColumn` — Revision does not touch the phase machine in production.
+
+**Audit hygiene note:** one lane cited this probe's own header as
+corroborating evidence for the absence of a focus mechanism. That is
+circular — the header is this session's own text — and the citation was
+struck. The absence claims above rest on call censuses, not on the probe's
+self-description.
+
+**NOT OBSERVED / OUT OF SCOPE.** This probe has no observer capable of
+establishing problem-texture discrimination, resonance behavior, MUL
+grounding behavior, or Frozen/Learned/Explore superposition. Its observation
+surface does not contain them; this bounds the probe, and is not a result
+about the architecture either way.
+
+**Anti-conflation note.** The probe's `RungLevel` / `RungElevator` vocabulary
+is unrelated to `lance_graph_planner::temporal`'s `QueryReference` /
+`EpistemicMode`; no conversion or call path exists between them. Worth
+stating only because both spell it "rung" — a census of every rung-named
+surface found nine distinct vocabularies and zero conversions across this
+pair (every `QueryReference::at` / `EpistemicMode::for_rung` call site passes
+a literal or a local `const`).
+
+**FOLLOW-UP OBSERVATION (recorded, not addressed).** The live driver
+numerically materializes `RungLevel` into `ThoughtCtx.rung`
+(`driver.rs:569-577` `elevator.on_gate(gate) as u8` → `driver.rs:978`
+`ctx.rung = rung`). `ThoughtCtx` documents `1..=9`
+(`recipe_kernels.rs:58-59`, default `1`) while `RungLevel` contains
+`Surface = 0`, so `Surface` can be materialized as `0`. No semantic failure
+was demonstrated here and this PR does not alter it; whether `0` has
+behavioral consequences or is stale documentation is for a later falsifier.
+
+**Behavioral learning: no production path exists.**
+`ScaffoldCompiler::synthesize` returns `Err(CompileError::NotImplemented)`
+unconditionally (`cognitive-compiler/src/lib.rs:155`), and `elixir-template`
+/ `template-runtime` / `template-equivalence` / `cognitive-compiler` are all
+in the root `Cargo.toml` `exclude` array. `witness_fabric::ForesightSample`
+(`:1704`) is a correctly-shaped, hindsight-blind prediction-vs-outcome
+primitive whose every caller is in its own `#[cfg(test)]` module — test-only,
+not a live learning receipt. The honest claim is therefore *future*
+behavioral learning will need equivalent prediction-time provenance; nothing
+today can establish that property.
+
+**Temporal placement (narrow).** `temporal.rs` = query-level admission of
+historical knowledge, tested, no production caller. `witness_fabric` = a
+SEPARATE shipped grounding mechanism whose hindsight discipline is enforced
+by API shape (the outcome is unreachable from the call signature) — this is
+the load-bearing one. temporal → Revision = BLOCKED / absent
+(`counterfactual.rs:335-336`, D-ATOM-5 / D-PERSONA-5). `temporal.rs` does not
+currently participate in the cognitive loop, and nothing in this probe
+touches it.
+
+**G19, the honest null:** this corpus's reachable exhaustion depths STRADDLE
+the window (0.564 < [0.600, 0.725] < 0.768), so the earned-elevation arm
+(F4/F6) is driven by a clearly-labelled synthetic evidence state at the
+window midpoint. Everything downstream of `CycleEvidence` is the same shipped
+path either way. Whether a ~0.125-wide window is the intended design or an
+accident of two independently-authored rules is an OPEN QUESTION this probe
+raises and does not answer — it is measured, not judged.
+
+**A corrected premise (the self-falsifier fired, as designed).** The first
+draft used {naked-only, naked+hidden-ALL-units} and asserted a deep
+both-policy stall; `derive_both_stall` panicked. A sweep showed why:
+naked+hidden-over-all-units solves EVERY uniqueness-preserving reduction of
+the #997 puzzle (`hidden_stall` reachable set = `[0]`; only 7 clues are
+removable before uniqueness breaks), so with that pair "the admitted family
+is exhausted" is UNREACHABLE and the whole escalation arm has no receipt. The
+family is now {naked-only, naked+hidden-ROWS-only} — a real, sound,
+oracle-checked technique with a narrower scan scope — under which exhaustion
+is reachable at task-u ∈ {0.564, 0.754, 0.768}.
+
+**The membrane is task-normalized, deliberately the harsher reading.**
+coherence = what the policy explained *of its own task* (cells empty at cycle
+start), never *of the board*: "24 of 81 board cells" conflates the reasoning's
+competence with the puzzle's generosity in givens; "24 of the 55 I was asked
+to resolve" is a statement about the reasoning. It yields SMALLER coherence
+than the board reading — the stricter choice, not the flattering one.
+
+**F14's actuator is shipped, not invented.** No kernel `gate()` reads
+`ctx.rung` (verified negative). The real rung-capability gate is
+`Recipe::admissible_at` / `RungLevel::admissible_recipes` (monotone,
+test-pinned, consumed by the live `StyleStrategy::recipes_for_at`): elevating
+Contextual → Analogical takes admissible recipes **11 → 24**, and all 13
+newly-admitted Control-bucket kernels (RTE HTD MCP CR LSI PSO CDI CWS SSR ETD
+IDR SPP DTMF) actually FIRE on the stalled context — work refused at the prior
+rung. Second arm: `Cas`'s shipped `hdr_level` grid re-quantizes the SAME field
+`[0,0,1,1]` → `[0.25,0.5,0.5,0.75]` across the same boundary.
+
+**F5's evidence-thin vs evidence-saturated split is visible in the log:** at
+IDENTICAL unresolved count, coverage 14/31 → Fanout and coverage 19/31 →
+RungElevate. The distinction the operator asked for is measured, not
+hand-picked; Fanout terminates honestly when coverage saturates ("cannot
+gather more" is a no-op, not a loop).
+
+**CE64 non-interference is proven ACTIVELY, not by absence-of-import** (the
+#998 approach, strengthened): a live edge carrying
+`CausalTopology::IndirectUnknownIntermediates` + `ReasoningBand::Causal` is
+lens-verified pre-flight, passed through the entire loop, and asserted
+byte-identical after (F7/F8, raw `0x7000000000000000`). F9 goes further:
+Direct vs IndirectUnknownIntermediates yield IDENTICAL verdicts — epistemic
+topology does not secretly act as a scheduling trigger.
+
+**Two-`GateDecision` trap, recorded:** `mul::GateDecision` (Flow/Hold/Block,
+String reasons) feeds `advance_on_gate`; the UNRELATED
+`collapse_gate::GateDecision` (byte struct) feeds `RungElevator::on_gate`.
+Same name, same crate, no conversion exists. This probe uses the mul one for
+phase and `apply_delta` for rung — navigating the trap rather than tripping it.
+
+**Gates green (19/19):** F1 Flow-on-progress; F2/F15 triangle success →
+elevation NEVER requested ("a different way of thinking" ≠ "a more powerful
+level"); F3 unwarranted TCF singleton is no lever; F5 Fanout = breadth only,
+phase held; G16/G18 the two negative controls; G19 the straddle; F4/F6 earned
+elevation, rung only, triangle bytes identical; F14 the capability delta;
+F7/F8/F9 CE64 untouched and not a trigger; F10 owner-locality; F11 read-only
+witnesses; F13 observer-insufficiency → gather, never escalate; F12 full-run
+determinism; G17 membrane monotonicity + regime discrimination.
+
+**Next slice (named, not hidden):** repeated-elevation dynamics,
+Evaluation→Commit calcify, and the long-run fate of a
+held-with-two-key-disagreement owner — the owner that wants depth and has not
+earned it currently stays held at full coverage forever.
+
 ## 2026-08-23 — E-SUDOKU-COGNITIVE-CORPUS-1 — the first real corpus through the dispatch bridge: a real puzzle, warranted end-to-end, and TCP/TCF/CUR still collide under real data
 
 **Status:** FINDING (measured — `PROBE-SUDOKU-COGNITIVE-CORPUS-1`, run
