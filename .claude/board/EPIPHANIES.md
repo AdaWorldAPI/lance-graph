@@ -1,46 +1,82 @@
-## 2026-08-23 — E-A-TYPE-ALIAS-CANNOT-REPAIR-MEMORY-GEOMETRY-1 — a `type_complexity` warning marked an accidental AoS copy of an AoS owner, and the owner is the real finding
+## 2026-08-23 — E-TYPE-COMPLEXITY-EXPOSED-A-MEMORY-ABI-ESCAPE-1 — the clippy warning was the surface symptom; `BeliefArena` is an independent AoS cognitive population owner outside the canonical memory ABI
 
-**Status:** FINDING (measured — `probe_parallel_rung.rs`, 7/7 gates green,
-witness proven falsifiable by sabotage). **Confidence:** High.
+**Status:** FINDING (operator-escalated; #1004 recut to a discovery receipt).
+**Confidence:** High for the escape; the restoration is CHARTERED, not done.
 
-**The warning was not about naming.** Clippy flagged
-`fn snapshot(a: &BeliefArena) -> Vec<((u16,u16),u32,(f32,f32))>`. A `type
-SnapshotRow = …` alias would have silenced it and changed **zero physical
-properties**. What the function actually did: build an **AoS copy of the whole
-population, twice**, to compare ONE lane — then discard 6 of 10 rows through a
-filter. The sort existed only to stabilise comparison order.
+**The escalation, in order.** Clippy flagged `snapshot() ->
+Vec<((u16,u16),u32,(f32,f32))>` in `probe_parallel_rung.rs`. First reading:
+an accidental AoS copy — fixed with a borrowed digest witness. **Both
+readings were too small.** The copy was inside an owner that is itself the
+escape: `BeliefArena { entries: Vec<Belief> }` with `Belief { stmt, truth,
+stamp, rung, premises: Vec<u32>, .. }` (`belief.rs:89,129`) — a second
+physical representation of cognition outside the canonical V3 LE substrate
+(16-byte `classid + 6×(8:8)` docks, SoA lanes, zero-copy views). Removing
+the snapshot removed a copy INSIDE the wrong representation. The hash
+witness that replaced it was polish on the violation and is now DELETED;
+G4 compares the rung-0 lane against the probe's own authored fixture,
+bit-exact, borrowed, no snapshot, no digest.
 
-**The deeper finding is in the owner, not the probe.** `BeliefArena` is
-`entries: Vec<Belief>` (`belief.rs:130`) — **already AoS**. There are no
-physical lanes to borrow, so the probe was making *a second AoS copy of an AoS
-owner*. Splitting it into five owned `Vec`s would have replaced one allocation
-with five while still moving the population — SoA-looking, not SoA. Recorded
-plainly: **`BeliefArena` is not (yet) the canonical 4+12 LE SoA substrate.**
-The probe now says so in its own doc rather than papering over it.
+**Retracted phrasing:** an earlier version of this entry said *"BeliefArena
+is not (yet) the canonical 4+12 LE SoA substrate"* — implying an SoA rewrite
+is the fix. Wrong frame. The question is whether `BeliefArena` should
+physically exist at all: the substrate already expresses relation
+(node/edge geometry, SPO), support (`Locus::{SupportedBy,Supports}`),
+contradiction (`Locus::Contradiction`), provenance (witness lanes), causal
+reading (CE64), attention scope (focus facets). **Only the residue with no
+ABI-native home after composing those deserves a new tenant.** Notably, the
+sibling `TripletGraph { triplets: Vec<Triplet>, entity_index:
+HashMap<String, Vec<usize>> }` (`triplet_graph.rs:86-93`) is the SAME
+escape shape — "move belief into AriGraph" as it ships today would move it
+between two violations.
 
-**The correction, smallest lawful form.** `rung_lane_witness(&arena, rung) ->
-(usize, u64)`: a borrowed, **allocation-free** fold over the rung lane. No
-`Vec`, no sort, no tuple row. The XOR fold is order-independent — which is what
-removes the sort — and it is sound *because* `CStmt` is UNIQUE in the arena by
-construction (`Belief::stmt`: *"The statement (UNIQUE in the arena — S2)"*).
-Uniqueness is what licenses a commutative fold; without S2 a pair could cancel.
+**The DOCK/ROUTE separation (operator-sharpened), now the reading of the
+compatibility table:**
 
-**Proven falsifiable, not assumed.** A sabotage run perturbing one rung-0
-belief's truth between the two witnesses drove G4 **FAIL** — while the **count
-stayed 4**. So the digest half is load-bearing: a count-only check would have
-missed the mutation. Clippy's `type_complexity` count across the planner
-examples is now **0**, for a physical reason (the `Vec` is gone), not a naming
-one.
+```
+  DOCK ABI    16 B LE = classid(4) + payload(12); content-blind storage
+      ↓ classid
+  ROUTE ABI   G6D2 / G4D3 / G3D4 / G24N4 / Varnode space→offset→size drill
+      ↓
+  SEMANTIC VIEW   attention / TEKAMOLO / causal witness / R2IL / …
+```
 
-**Census of the sibling sites (#1000..#1003), so this is not re-litigated.**
-Exactly one violation existed. `visible() -> Vec<usize>` is scalar result ids;
-`gates`/`histogram`/`per_band`/`blame` are terminal report rows (≤20);
-`picks` is a bounded 20-row fixture map; `trace.steps` is 3 entries; the
-kanban-hinge `Vec`s are the 81-cell Sudoku domain fixture, not the cognitive
-population. **One noted and deliberately untouched:** `rungs_present()`
-collects a population-sized single `u32` lane before sort+dedup to ≤7 values —
-reducible to a fold, but a single lane is not the multi-field AoS
-reconstruction this rule targets, and widening the fix would exceed the scope.
+`VarnodeFacet` storing `offset_lo` before `offset_hi` is therefore NOT
+malformed — byte-monotone prefix traversal is simply not its route
+contract; its typed `prefixes()` drill is. CLASSID CHOOSES THE READING.
+THE ROUTE CHOOSES THE TRAVERSAL. THE BYTES NEVER CHANGE SHAPE.
+
+**Evidence tiers, kept separate:** PROVEN — heterogeneous carvings share
+one dock without changing it (`ValueTenant::CausalWitness` reads the same
+16-byte lane as `G24N4` = 24 signed nibbles). STRONGLY SUPPORTED — V4 as
+another tenant of the dock (`VarnodeFacet` is byte-for-byte the envelope,
+and independently converged on the `G3D4` carving). NOT YET PROVEN — the
+V4 persistence slot/tenant mint (`ruff_r2il` explicitly commits no storage
+layout; the classid is PROVISIONAL, mint gated on O5).
+
+**Standing demotions and labels:** **B is removed from the architectural
+alphabet** — A (address/mask/traversal) and C (pair-field compute) are
+laws; a materialized rotation is an optional derived accelerator that must
+EARN existence by measurement, since re-carving the dock is already an
+unmaterialized rotation. `RowFocusMask::difference` potholes are a
+**conservative candidate-unknown mask (P\*)**, never an exact epistemic
+hole — refine before asserting absence. `FlatFact.a/b` are NOT free dock
+capacity (per-`FactKind` semantics); an effect facet becomes ANOTHER
+ADDRESSED ROW, per the furnace's own rule. The FNV residual grouping hash
+is diagnostic bookkeeping only — if it ever becomes an address, key,
+identity, token, or route, kill it.
+
+**#1004's honest scope (verdict C):** finding-only plateau. The probe now
+carries the escape notice in place; the measured G1..G7 coexistence results
+hold FOR THE ARENA'S OBJECT MODEL, and restating them over ABI-resident
+state is the restoration charter's job. Falsifiers for that follow-up:
+F1 no canonical population as `Vec<RowStruct>` · F2 no nested `Vec` in a
+population row · F3 reasoning over immutable ABI views · F4 index
+delete/rebuild leaves state intact · F5 premises without per-belief heap
+vectors · F6 no representation conversion between graph state and
+reasoning · F7 classid+ClassView select interpretation over predefined LE
+geometry · F8 same resident bytes consumed by attention/relational/
+epistemic/causal contracts · F9 no hash as cognitive representation ·
+F10 the population does not move; the view does.
 
 ## 2026-08-23 — E-A-WARRANT-MUST-BE-ABLE-TO-SAY-NO-1 — the trajectory is reconstructible AND grounded; the warrant channel that could not refuse was the defect
 

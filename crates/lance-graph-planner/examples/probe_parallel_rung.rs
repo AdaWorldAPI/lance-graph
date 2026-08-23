@@ -48,49 +48,18 @@ fn inh(s: u16, p: u16) -> CStmt {
     }
 }
 
-/// A borrowed, allocation-free witness for "the rung-`r` lane is unchanged":
-/// `(count, order-independent digest)`.
+/// ⚠ MEMORY-ABI ESCAPE, acknowledged in place (the #1004 finding).
 ///
-/// **Why not a `Vec<((u16,u16),u32,(f32,f32))>` snapshot** (which is what this
-/// replaced, and what clippy's `type_complexity` was pointing at): that built
-/// an AoS copy of the WHOLE population, twice, to compare one lane — and then
-/// discarded 6 of 10 rows through a filter. A type alias would have silenced
-/// the lint and changed no physical property. *A type alias can hide type
-/// complexity; it cannot repair memory geometry.*
-///
-/// **Why a fold and not five borrowed columns:** `BeliefArena` is
-/// `entries: Vec<Belief>` (`belief.rs:130`) — the owner is itself AoS. There
-/// are no physical lanes to borrow, so the probe was making a second AoS copy
-/// of an AoS owner. Splitting it into five owned `Vec`s would replace one
-/// allocation with five and still move the population. Recorded plainly:
-/// **`BeliefArena` is not (yet) the canonical 4+12 LE SoA substrate**, and
-/// this probe does not pretend otherwise.
-///
-/// **Why XOR is sound here:** the fold is order-independent, so no sort is
-/// needed — and it cannot silently cancel a pair, because `CStmt` is UNIQUE
-/// in the arena by construction (`Belief::stmt`: *"The statement (UNIQUE in
-/// the arena — S2)"*). Uniqueness is what licenses the commutative fold.
-fn rung_lane_witness(a: &BeliefArena, rung: u32) -> (usize, u64) {
-    let mut count = 0usize;
-    let mut acc = 0u64;
-    for b in a.entries().iter().filter(|b| b.rung == rung) {
-        let mut h: u64 = 0xcbf2_9ce4_8422_2325;
-        for v in [
-            u64::from(b.stmt.s),
-            u64::from(b.stmt.p),
-            u64::from(b.rung),
-            u64::from(b.truth.frequency.to_bits()),
-            u64::from(b.truth.confidence.to_bits()),
-        ] {
-            h ^= v;
-            h = h.wrapping_mul(0x0000_0100_0000_01b3);
-        }
-        acc ^= h;
-        count += 1;
-    }
-    (count, acc)
-}
-
+/// This probe's population authority is `BeliefArena { entries: Vec<Belief> }`
+/// with `Belief.premises: Vec<u32>` — an independent AoS cognitive population
+/// owner OUTSIDE the canonical V3 LE SoA substrate (16-byte `classid + 6×(8:8)`
+/// docks, SoA lanes, zero-copy views). The clippy `type_complexity` warning on
+/// the old `snapshot()` was the surface symptom; the owner itself is the
+/// violation. This probe runs INSIDE that acknowledged escape and repairs
+/// nothing: the measured coexistence results (G1..G7) hold for the arena's
+/// object model, and their restatement over ABI-resident state is exactly what
+/// the ABI-restoration follow-up must prove. Do not read anything here as the
+/// canonical belief substrate.
 fn rungs_present(a: &BeliefArena) -> Vec<u32> {
     let mut r: Vec<u32> = a.entries().iter().map(|b| b.rung).collect();
     r.sort_unstable();
@@ -113,7 +82,15 @@ fn main() {
             Stamp::source(i as u32),
         );
     }
-    let observed_before = rung_lane_witness(&arena, 0);
+    // The rung-0 oracle is the AUTHORED FIXTURE itself — the four observations
+    // above, known a priori. No snapshot, no digest, no copy: G4 compares the
+    // arena's rung-0 lane against what the probe itself wrote.
+    let fixture: [((u16, u16), (f32, f32)); 4] = [
+        ((1, 2), (1.0, 0.9)),
+        ((2, 3), (1.0, 0.9)),
+        ((3, 4), (1.0, 0.9)),
+        ((4, 5), (1.0, 0.9)),
+    ];
     let observed_count = arena.entries().len();
 
     arena.close_transitive(16);
@@ -153,17 +130,26 @@ fn main() {
     // ── G4: the rung-0 contributions survive the higher rungs' arrival ─
     // Requirement 5: creating higher-rung work must NOT delete, overwrite,
     // invalidate, or demote the lower-rung work.
-    let observed_after = rung_lane_witness(&arena, 0);
+    // Borrowed iteration against the authored fixture: every rung-0 belief
+    // must still be exactly one fixture row (bit-exact truth), and there must
+    // be exactly as many as were observed.
+    let mut matched = 0usize;
+    let mut rung0 = 0usize;
+    for b in arena.entries().iter().filter(|b| b.rung == 0) {
+        rung0 += 1;
+        if fixture.iter().any(|((fs, fp), (ff, fc))| {
+            b.stmt.s == *fs
+                && b.stmt.p == *fp
+                && b.truth.frequency.to_bits() == ff.to_bits()
+                && b.truth.confidence.to_bits() == fc.to_bits()
+        }) {
+            matched += 1;
+        }
+    }
     gates.push((
-        "G4 every rung-0 belief survives byte-identical after closure",
-        observed_after == observed_before && observed_after.0 == observed_count,
-        format!(
-            "{} observed before -> ({}, 0x{:016x}) after, witness identical: {}",
-            observed_count,
-            observed_after.0,
-            observed_after.1,
-            observed_after == observed_before
-        ),
+        "G4 every rung-0 belief survives bit-identical to the authored fixture after closure",
+        rung0 == observed_count && matched == observed_count,
+        format!("{rung0} rung-0 entries, {matched}/{observed_count} match the fixture bit-exactly"),
     ));
 
     // ── G5: revision at a low rung does not move that belief's rung ────
