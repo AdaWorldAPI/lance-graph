@@ -254,6 +254,72 @@ Pre-registered kill conditions, decided now:
 Only if all four survive does the §8 macro probe become constructible — and
 then it must carry the literature's baselines, not compression alone (below).
 
+## F1. Results — PROBE-LOCO-INTERPRETER-1 was run (2026-08-23)
+
+**[G] — this is no longer a proposal.** A minimal interpreter for
+`ogar_loco::FunctionBody` was built and run:
+`AdaWorldAPI/OGAR` branch `claude/probe-loco-interpreter-1`,
+`crates/ogar-loco/examples/interpret_probe.rs`. Corpus: four hand-authored
+real algorithms with independently-known-correct answers (GCD, a
+summation via `REPEAT`, FizzBuzz-style classification via nested
+`IF_ELSE`, Collatz step counts via `WHILE`), 44 real inputs total, each
+run twice for a determinism check. Every arithmetic answer was checked
+against a ground-truth function that shares no code with the
+interpreter.
+
+Kill conditions, as pre-registered above:
+
+- **KC2 (deterministic replay): PASS.** All 44 episodes replayed
+  byte-identical call-for-call.
+- **KC3 (median episode length ≥ 5): PASS.** Median = 23 calls across 44
+  episodes (Collatz(27) alone traced 2089 calls).
+- **KC4 (traces are not all `ladder_program()`'s static ordering):
+  PASS — and decisively.** 44 distinct call sequences across 44
+  episodes; this was the single most-likely-to-kill condition and it
+  did not fire. Real, input-dependent branching over `FunctionBody` is
+  now [G], not [H].
+- **Independent correctness check: all 44 episodes correct** against the
+  ground-truth functions — the interpreter is not merely deterministic,
+  it computes the right answers.
+- **KC1 (the 34 lance-graph-ogar recipes have separable effects):
+  explicitly NOT TESTED, as scoped.** This interpreter covers only the
+  shared computational core below `DOMAIN_FLOOR`; the recipes' semantics
+  live in `lance-graph-ogar`'s `ThoughtCtx`/`recipe_dispatch` wiring,
+  which this run did not pull in. This remains the next required step,
+  not a result this run can report — do not read KC1 as passed by
+  proximity to the other three.
+
+**A genuine, unregistered finding surfaced while building the
+interpreter, not while running it:** the shared core's own declared
+`pushes_result` table marks `VAR_SET`/`VAR_CHANGE` as *pushing* a result
+(chainable-assignment semantics), and there is no `DROP`/`POP` primitive
+in the shared core. That makes `ogar_loco::statements::statement_bounds`
+(the crate's whole-body segmentation, built for step-mask masking)
+correctly *refuse* — `DanglingOperands` — any ordinary imperative
+"set a; set b; …" sequence, because nothing consumes the leftover pushed
+values. Nobody had built a real multi-statement program against this ABI
+before this probe, so the property was real but untested. It is not a
+defect in the probe or in `statement_bounds` — they are answering
+different questions (masking vs. execution) — but it is a fact about the
+ABI a future macro/learning layer needs to know: **`statement_bounds`
+cannot be reused, unmodified, as the unit boundary for a learned-macro
+scheme**, because it refuses on exactly the ordinary-assignment bodies a
+real program is made of. The interpreter therefore does not use
+`statement_bounds` for dispatch; it walks each function body as one
+linear program-counter pass (treating `VAR_SET`/`VAR_CHANGE` as void),
+using a local backward operand-span scan only where `WHILE`/
+`REPEAT_UNTIL` must re-run a condition. See the module doc in
+`interpret_probe.rs` for the full account.
+
+**Consequence for §G/§H below:** the falsifier fired in the *surviving*
+direction. §H ("if it fails") does not apply. §G's sketch — a learned
+macro as a `MacroId` reference with a deopt-shaped fallback, never a new
+opcode — is now reasoning about a substrate with a confirmed-executing
+IR underneath it, not a hypothetical one. It remains [H]: nothing about
+macro induction, BPE-over-traces, or the 34 recipes was tested by this
+run, and KC1 in particular gates whether hypothesis 1 (learnable
+opcode vocabulary) extends past the shared core at all.
+
 ## F2. What the literature demands of that later probe
 
 Primary sources, so the probe is not designed in a vacuum:
@@ -447,6 +513,13 @@ not reach B.
    lossy at the source (`refusal_of` short-circuits before computing the second
    cause). T-B should point at PROBE-LOCO-INTERPRETER-1 as its prerequisite and
    name the refusal defect as a blocker.
+   **Update (2026-08-23): the prerequisite is now half-met.** The interpreter
+   exists and runs (§F1) — but only over the shared core. T-B's actual
+   dispatch labels live in the 34 lance-graph-ogar recipes, which the probe
+   explicitly did not execute (KC1 untested). T-B is therefore un-blocked on
+   "does an interpreter exist" and still blocked on "does the recipe layer
+   execute" and "is `refusal_of`'s short-circuit fixed" — two separate,
+   still-open prerequisites, not one.
 5. **§4's honesty box** should gain the citation for "frequency is not success" —
    Macro-FF (JAIR 24, 2005) and Newton & Levine (ECAI 2010) — replacing the
    house-rule phrasing with the actual literature.
