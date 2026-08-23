@@ -1,5 +1,31 @@
-//! `PROBE-VIEW-EDIT-TRACE-1` — make a cognitive trajectory reconstructible
+//! `PROBE-WARRANTED-VIEW-TRACE-1` — make a cognitive trajectory reconstructible
 //! BEFORE learning it. The seam one step short of the learner.
+//!
+//! # The three vicious invariants
+//!
+//! ```text
+//!   RECONSTRUCTION  replay(A, [e1..en]) == final, AND at every prefix
+//!   GROUNDING       each ei NAMES evidence available BEFORE ei
+//!   ANTI-HINDSIGHT  no future outcome can manufacture a warrant
+//! ```
+//!
+//! # Why GROUNDING needed a second pass
+//!
+//! The first draft's warrant carried `visible_before` / `rungs_before` — a
+//! DESCRIPTION of the situation, which every possible edit satisfies. That is
+//! the house anti-pattern: *"a guard that fires on everything carries exactly
+//! as much information as one that never fires"* (`CLAUDE.md`
+//! §falsifiability). A warrant must instead NAME evidence — `Evidence::
+//! BeliefsAtRung { rung, count }` / `RowsBoundAt { locus, count }` — objects
+//! drawn from the sealed state, and **G2 proves the channel can say NO**: an
+//! off-field band (`RungBand{50,60}`, above the R6 ceiling) and an unbound
+//! locus both come back UNGROUNDED. **G3** re-counts every named number
+//! against the sealed state, so a warrant cannot pass by inventing plausible
+//! figures.
+//!
+//! This is the difference between acquiring reasoning skill and acquiring
+//! superstition: without G2, a later learner could compress a recurrent bad
+//! habit exactly as efficiently as a good one.
 //!
 //! # What this adds over the single-edit particle
 //!
@@ -122,33 +148,103 @@ impl ViewEdit {
     }
 }
 
-/// What justified one edit, computed from the PREFIX only.
+/// A concrete piece of evidence drawn from the sealed state — an OBJECT the
+/// edit can point at, never a description of the situation.
+#[derive(Debug, Clone, PartialEq, Eq)]
+enum Evidence {
+    /// The arena actually holds `count` beliefs at this rung.
+    BeliefsAtRung { rung: u32, count: usize },
+    /// `count` rows in the population are actually bound at this locus.
+    RowsBoundAt { locus: Locus, count: usize },
+}
+
+/// What EARNED one edit, computed from the PREFIX only.
 ///
-/// The fields are deliberately observations of the pre-edit situation, never
-/// of its consequence: how much was visible, which rung bands were on screen,
-/// how many edits had already been spent.
+/// **`support` is the whole point.** An earlier draft carried only
+/// `visible_before` / `rungs_before` — a description of the situation, which
+/// EVERY edit satisfies. A channel that fires on everything carries exactly as
+/// much information as one that never fires (`CLAUDE.md` §falsifiability). So
+/// the warrant must NAME evidence, and an edit that can name none is
+/// `is_grounded() == false` — which G2 proves is reachable.
 #[derive(Debug, Clone, PartialEq, Eq)]
 struct Warrant {
     step: usize,
     visible_before: usize,
-    rungs_before: Vec<u32>,
+    /// Evidence in the sealed state that supports THIS edit. Empty = ungrounded.
+    support: Vec<Evidence>,
 }
 
-/// **The hindsight gate.** `prefix` is `edits[..k]` and there is no parameter
-/// through which a later edit, the final view, or an outcome could enter.
-fn warrant_at(step: usize, initial: &ViewPlan, prefix: &[ViewEdit], ctx: &Ctx<'_>) -> Warrant {
+impl Warrant {
+    fn is_grounded(&self) -> bool {
+        !self.support.is_empty()
+    }
+}
+
+/// **The hindsight gate.** `prefix` is `edits[..k]`; `edit` is the one being
+/// justified. There is no parameter through which a LATER edit, the final
+/// view, or any outcome could enter — so no future edit can quietly introduce
+/// backward leakage without changing this signature and failing review.
+fn warrant_at(
+    step: usize,
+    initial: &ViewPlan,
+    prefix: &[ViewEdit],
+    edit: ViewEdit,
+    arena: &BeliefArena,
+    ctx: &Ctx<'_>,
+) -> Warrant {
     let mut plan = initial.clone();
     for e in prefix {
         plan = e.apply(&plan);
     }
-    let vis = plan.visible(ctx);
-    let mut rungs: Vec<u32> = vis.iter().map(|p| ctx.rung_of_row[*p]).collect();
-    rungs.sort_unstable();
-    rungs.dedup();
+    let visible_before = plan.visible(ctx).len();
+
+    // What in the sealed state SUPPORTS this particular edit?
+    let support = match edit {
+        ViewEdit::Push(Selector::RungBand { lo, hi }) => (lo..=hi)
+            .filter_map(|rung| {
+                let count = arena.entries().iter().filter(|b| b.rung == rung).count();
+                (count > 0).then_some(Evidence::BeliefsAtRung { rung, count })
+            })
+            .collect(),
+        ViewEdit::Push(Selector::BoundAt(locus)) => {
+            let count = (0..ctx.lens.len())
+                .filter(|p| ctx.lens.at(*p).is_some_and(|f| f.is_bound(locus)))
+                .count();
+            if count > 0 {
+                vec![Evidence::RowsBoundAt { locus, count }]
+            } else {
+                vec![]
+            }
+        }
+        // Removing a selector is warranted by what the CURRENT plan still
+        // shows: the rungs on screen right now are the evidence that the
+        // narrowing being dropped was ever doing work.
+        ViewEdit::RemoveAt(i) => match plan.selectors.get(i) {
+            Some(Selector::RungBand { lo, hi }) => (*lo..=*hi)
+                .filter_map(|rung| {
+                    let count = arena.entries().iter().filter(|b| b.rung == rung).count();
+                    (count > 0).then_some(Evidence::BeliefsAtRung { rung, count })
+                })
+                .collect(),
+            Some(Selector::BoundAt(locus)) => {
+                let l = *locus;
+                let count = (0..ctx.lens.len())
+                    .filter(|p| ctx.lens.at(*p).is_some_and(|f| f.is_bound(l)))
+                    .count();
+                if count > 0 {
+                    vec![Evidence::RowsBoundAt { locus: l, count }]
+                } else {
+                    vec![]
+                }
+            }
+            None => vec![],
+        },
+    };
+
     Warrant {
         step,
-        visible_before: vis.len(),
-        rungs_before: rungs,
+        visible_before,
+        support,
     }
 }
 
@@ -237,7 +333,7 @@ fn main() {
     let mut observed: Vec<Vec<usize>> = Vec::new();
     for (k, e) in edits.iter().enumerate() {
         // Warrant BEFORE applying — sees edits[..k] and nothing later.
-        let w = warrant_at(k, &initial, &edits[..k], &ctx);
+        let w = warrant_at(k, &initial, &edits[..k], *e, &arena, &ctx);
         plan = e.apply(&plan);
         observed.push(plan.visible(&ctx));
         steps.push((*e, w));
@@ -249,7 +345,7 @@ fn main() {
         observed,
     };
 
-    println!("═══ PROBE-VIEW-EDIT-TRACE-1 ═══\n");
+    println!("═══ PROBE-WARRANTED-VIEW-TRACE-1 ═══\n");
     println!(
         "  sealed field: {} beliefs, {n_rows} rows sampled across rungs {:?}\n",
         arena.entries().len(),
@@ -258,10 +354,11 @@ fn main() {
     println!("  A {:?}", trace.initial.selectors);
     for (k, (e, w)) in trace.steps.iter().enumerate() {
         println!(
-            "   ├─ e{} {e:?}\n   │   warrant: visible_before={} rungs_before={:?}\n   ├─ view -> {:?}",
+            "   ├─ e{} {e:?}\n   │   warrant [{}]: visible_before={} support={:?}\n   ├─ view -> {:?}",
             k + 1,
+            if w.is_grounded() { "GROUNDED" } else { "UNGROUNDED" },
             w.visible_before,
-            w.rungs_before,
+            w.support,
             trace.observed[k]
         );
     }
@@ -324,7 +421,7 @@ fn main() {
     // could enter. Behavioural: every recorded warrant must be reproducible
     // from its prefix alone, with the rest of the trace unavailable.
     let recomputed: Vec<Warrant> = (0..edits.len())
-        .map(|k| warrant_at(k, &trace.initial, &edits[..k], &ctx))
+        .map(|k| warrant_at(k, &trace.initial, &edits[..k], edits[k], &arena, &ctx))
         .collect();
     let recorded: Vec<Warrant> = trace.steps.iter().map(|(_, w)| w.clone()).collect();
     gates.push((
@@ -374,6 +471,77 @@ fn main() {
         ),
     ));
 
+    // ═══ G1 — every edit in the trajectory NAMES its evidence ═════════
+    let all_grounded = trace.steps.iter().all(|(_, w)| w.is_grounded());
+    gates.push((
+        "G1 GROUNDING: every edit names evidence available BEFORE it (support non-empty)",
+        all_grounded,
+        format!(
+            "support sizes {:?}",
+            trace
+                .steps
+                .iter()
+                .map(|(_, w)| w.support.len())
+                .collect::<Vec<_>>()
+        ),
+    ));
+
+    // ═══ G2 — the channel DISCRIMINATES (can-it-stay-silent) ══════════
+    // An edit selecting a band the sealed state does not populate must come
+    // back UNGROUNDED. Without this, G1 is true of any edit and measures
+    // nothing. `RungBand{50,60}` is off-field: the arena's ceiling is R6.
+    let ungrounded_edit = ViewEdit::Push(Selector::RungBand { lo: 50, hi: 60 });
+    let w_bad = warrant_at(0, &initial, &[], ungrounded_edit, &arena, &ctx);
+    // ...and a locus no row is bound at.
+    let w_bad2 = warrant_at(
+        0,
+        &initial,
+        &[],
+        ViewEdit::Push(Selector::BoundAt(Locus::Contradiction)),
+        &arena,
+        &ctx,
+    );
+    gates.push((
+        "G2 the warrant channel DISCRIMINATES: an off-field band and an unbound locus are UNGROUNDED",
+        !w_bad.is_grounded() && !w_bad2.is_grounded() && all_grounded,
+        format!(
+            "off-field band support={} unbound locus support={} vs real trace all grounded={}",
+            w_bad.support.len(),
+            w_bad2.support.len(),
+            all_grounded
+        ),
+    ));
+
+    // ═══ G3 — evidence counts are REAL, not decorative ════════════════
+    // Every BeliefsAtRung count must equal a recount of the sealed arena, and
+    // every RowsBoundAt count a recount of the population. A warrant that
+    // named plausible-but-wrong numbers would pass G1 and G2.
+    let counts_true = trace.steps.iter().all(|(_, w)| {
+        w.support.iter().all(|ev| match ev {
+            Evidence::BeliefsAtRung { rung, count } => {
+                arena.entries().iter().filter(|b| b.rung == *rung).count() == *count
+            }
+            Evidence::RowsBoundAt { locus, count } => {
+                (0..ctx.lens.len())
+                    .filter(|p| ctx.lens.at(*p).is_some_and(|f| f.is_bound(*locus)))
+                    .count()
+                    == *count
+            }
+        })
+    });
+    gates.push((
+        "G3 every named evidence count re-verifies against the sealed state",
+        counts_true,
+        format!(
+            "{} evidence items re-counted",
+            trace
+                .steps
+                .iter()
+                .map(|(_, w)| w.support.len())
+                .sum::<usize>()
+        ),
+    ));
+
     let mut all_green = true;
     for (name, pass, detail) in &gates {
         println!(
@@ -389,9 +557,10 @@ fn main() {
          `BehaviorTrace` is probe-local and is NOT proposed as a production type.\n\
          F-REVISION-FOCUS-1 remains ABSENT: no production surface emits a\n\
          `ViewEdit`, so this trajectory is AUTHORED by the probe, not harvested\n\
-         from a running cognition. That gap is the honest distance between this\n\
-         object and a real episode."
+         from a running cognition. A trace OBJECT exists; a trace PRODUCER does\n\
+         not. That arrow -- Evaluation -> Revision -> warranted ViewEdit -- is\n\
+         the honest remaining gap, and it is one arrow, not a subsystem."
     );
-    assert!(all_green, "PROBE-VIEW-EDIT-TRACE-1: a gate failed");
-    println!("\nPROBE-VIEW-EDIT-TRACE-1: ALL GATES GREEN");
+    assert!(all_green, "PROBE-WARRANTED-VIEW-TRACE-1: a gate failed");
+    println!("\nPROBE-WARRANTED-VIEW-TRACE-1: ALL GATES GREEN");
 }

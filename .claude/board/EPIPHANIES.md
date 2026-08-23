@@ -1,59 +1,48 @@
-## 2026-08-23 — E-A-TRAJECTORY-IS-RECONSTRUCTIBLE-BEFORE-IT-IS-LEARNABLE-1 — the cognitive trace exists as an object, with the hindsight gate structural
+## 2026-08-23 — E-A-WARRANT-MUST-BE-ABLE-TO-SAY-NO-1 — the trajectory is reconstructible AND grounded; the warrant channel that could not refuse was the defect
 
-**Status:** FINDING (measured — `PROBE-VIEW-EDIT-TRACE-1`, 6/6 gates green,
-`examples/probe_view_edit_trace.rs`). **Confidence:** High for the measured
-claim; the ABSENT below bounds it.
+**Status:** FINDING (measured — `PROBE-WARRANTED-VIEW-TRACE-1`, 9/9 gates
+green, `examples/probe_view_edit_trace.rs`). **Confidence:** High; the ABSENT
+at the end bounds it precisely.
 
-**What a trajectory adds over a single edit.** The particle
-(`E-THE-FIRST-PARTICLE-1`) proved one transformation can be typed and
-inverted. A trace must additionally replay at EVERY prefix, invert
-step-by-step, carry the warrant that justified each step, and forbid backward
-leakage:
+**Three vicious invariants, all green.** Over the sealed field (2016 beliefs,
+20 rows across rungs {1,2,3,4,6}), trajectory `A(10) -e1-> 4 -e2-> 10 -e3-> 4`:
 
-```
-  A --e1--> B --e2--> C --e3--> D
-      w1        w2        w3
-```
+- **RECONSTRUCTION** — `replay(A, edits) == final` (T1), and stronger,
+  `replay(prefix[0..k])` equals the view actually observed at step k for EVERY
+  k (T2). An end-to-end match can hide two errors that cancel; a per-prefix
+  match cannot. All three edits invert step-by-step back to A exactly (T3).
+- **GROUNDING** — every edit NAMES evidence from the sealed state (G1);
+  every named count re-verifies against that state (G3, 9 items recounted).
+- **ANTI-HINDSIGHT** — `warrant_at(step, initial, prefix, edit, arena, ctx)`
+  has no parameter through which a later edit, the final view, or an outcome
+  could enter, and all warrants reproduce byte-equal from their prefix alone
+  (T4). `witness_fabric`'s `upto` discipline, transplanted.
 
-Measured over the same sealed field (2016 beliefs, 20 rows across rungs
-{1,2,3,4,6}): `A(10 rows) -> 4 -> 10 -> 4`.
+**THE CORRECTION THAT MATTERS — the first warrant channel could not say no.**
+The draft `Warrant` carried `visible_before` / `rungs_before`: a DESCRIPTION
+of the situation, which EVERY possible edit satisfies. It would have passed a
+reconstruction suite while measuring nothing about justification — the exact
+house anti-pattern (*"a guard that fires on everything carries exactly as much
+information as one that never fires"*). The fix was not a stronger assertion
+but a different object: `Evidence::{BeliefsAtRung{rung,count},
+RowsBoundAt{locus,count}}`, drawn from the sealed state, plus **G2, which
+proves the channel can REFUSE** — an off-field `RungBand{50,60}` (above the
+measured R6 ceiling) and an unbound `Locus::Contradiction` both come back
+UNGROUNDED while the real trace stays fully grounded.
 
-- **T2 is the one that matters more than end-to-end replay.** `replay(prefix
-  [0..k])` equals the view actually observed at step k for EVERY k. An
-  end-to-end match can hide two errors that cancel; a per-prefix match cannot.
-- **T3** inverts all three edits step-by-step back to A exactly. `Push` is
-  always invertible; `RemoveAt` only against the plan it acted on — hence
-  `inverse(&before)`, returning `None` for a no-op index rather than lying.
-- **T4 — the hindsight gate, structural first.** `warrant_at(step, initial,
-  prefix, ctx)` has NO parameter through which a later edit, the final view,
-  or an outcome could enter. This is `witness_fabric`'s shipped discipline
-  transplanted verbatim (`witness_fabric.rs:1476-1479`: *"Retrospective
-  judgement of a past state must not be able to see what came after it, or it
-  is hindsight wearing an audit's clothes"*). Behaviourally: all 3 warrants
-  reproduce byte-equal from their prefix alone.
-- **T5/T6 keep the replay gates honest.** A REORDERED trace and a TRUNCATED
-  trace both miss the final view — and the reordered one lands on a set of the
-  SAME SIZE (4 rows) as the real final, which is exactly why the gate compares
-  sets and not counts. T6 forbids a no-op trajectory: every step must move the
-  visible set.
+**Why that gate is load-bearing for anything downstream.** Without G2, a
+later BPE-style learner would compress a recurrent BAD habit exactly as
+efficiently as a good one — the same `[e1,e2,e3]` subsequence looks identical
+whether real evidence or circular reasoning drove it. G2 is the difference
+between acquiring reasoning skill and acquiring superstition, and it belongs
+BEFORE the learner, not after.
 
-**The four objects that must not be conflated** now all exist separately and
-are exercised: STATE (stationary population) / VIEW PLAN (what is semantically
-visible) / LOWERED VIEW (the executable predicate) / VIEW EDIT (the exact
-transformation between plans) — plus, new here, TRACE (a warranted sequence of
-edits).
-
-**The honest distance to a real episode, restated as the headline limit.**
-F-REVISION-FOCUS-1 remains ABSENT: **no production surface emits a
-`ViewEdit`**, so this trajectory is AUTHORED by the probe, not harvested from
-a running cognition. A trace object exists; a trace PRODUCER does not. That,
-not the learner, is the next real gap.
-
-**Nothing is learned.** No compression, no promotion, no recurrence detection.
-A BPE-style learner would need MANY grounded traces before asking whether some
-`[e1,e2,e3]` recurs often enough to earn a behavioural symbol. This probe
-builds the input and stops. `BehaviorTrace` is probe-local and is NOT proposed
-as a production type.
+**The remaining gap is now one arrow.** `Evaluation → Revision → warranted
+ViewEdit`. A trace OBJECT exists; a trace PRODUCER does not —
+F-REVISION-FOCUS-1 stays ABSENT and every trajectory here is AUTHORED by the
+probe, not harvested from a running cognition. `BehaviorTrace` is probe-local
+and is NOT proposed as a production type. Nothing is learned, compressed,
+promoted, or recurrence-detected.
 
 ## 2026-08-23 — E-THE-VIEW-MOVES-THE-POPULATION-DOES-NOT-1 — three incompatible selector families compose over one stationary cognitive state, provenance intact, zero population copy
 
