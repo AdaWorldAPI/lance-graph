@@ -53,6 +53,122 @@ NOT "how do we make BeliefArena SoA?" but:
 entity_index: HashMap<String, Vec<usize>> }` is NOT an ABI home — same
 escape shape. "Move it into AriGraph" as shipped today moves the violation.
 
+## Step 1 — Delegation-Verification Audit (2026-08-23)
+
+Grades: **[CODE]** shipped and load-bearing · **[STRUCTURAL FIT]** a shipped
+type could carry this, unwired · **[ABSENT]** no implementing code exists ·
+**[OPERATOR RULING]** the direction is decided, the mechanism is not yet code.
+
+### `premises: Vec<u32>` — delegation STRENGTHENED, not just confirmed
+
+**[CODE].** Every real construction site in the tree was checked —
+`close_transitive`'s `derived: HashMap<CStmt, (TruthValue, u32, [u32; 2])>`
+(`belief.rs:296,319`, fixed 2-array) and `tactics.rs`'s
+`Candidate.premises: [u32; 2]`, documented *"the pointer fabric"*
+(`tactics.rs:76-77`, four mint sites, all exactly 2). Every
+`admit_derived(..)` call in the workspace (11 sites, `epiphany.rs`,
+`elevation.rs`, `stance.rs`, `insights.rs`, `belief.rs` tests) passes `&[]`,
+`&[inner_id]` (1), or a 2-array. **Nothing in the codebase has ever
+constructed a `Belief` with 3+ premises.** The `Vec<u32>` signature is more
+general than any real caller needs.
+
+**What this establishes, and what it does NOT.** Established: real premise
+CARDINALITY ≤ 2, so this is not the "cardinality = more rows" case the
+furnace rule guards against. **Not established:** that two `u32` premise
+identities FIT in two 8:8 tiles, and emphatically not that they fit in two
+signed `i4` context nibbles. Cardinality and physical width are different
+facts, and an earlier revision of this section conflated them. A `u32`
+arena index is not an address; whether the identity it stands for can be
+expressed in a tile or a nibble depends on a locality/address
+transformation that has not been designed, let alone proven. The width
+question is OPEN and belongs to step 2.
+
+### `stmt`/`truth` homes — one structural fit found, one open
+
+**[STRUCTURAL FIT].** `spo::truth::TruthValue { frequency: f32, confidence:
+f32 }` (`truth.rs:15-17`) is byte-identical in shape to
+`nars::truth::TruthValue` and is documented *"Each SPO edge carries a
+TruthValue"* — a real, shipped per-edge truth residence exists. **Open:**
+no code currently writes a `Belief`'s truth into an SPO edge; this is an
+unwired but structurally sound target, not yet a home.
+
+**Open, unresolved.** Whether `Copula::{Inh, Sim, Impl, Rel(u16)}` is
+expressible in existing edge/rail geometry was not settled this pass —
+`Copula` needs its own small audit before step 2 closes it.
+
+### The tree-overlay hypothesis (rung=depth, stamp=accumulation) — mechanism ABSENT
+
+This is the harder, more important finding, and it changes what step 3 is.
+
+**[ABSENT] — no `Belief` is ever minted an HHTL/`FacetCascade` address.**
+Grepped `FacetCascade`/`facet_classid` across every file in
+`nars/`: **zero occurrences.** `BeliefArena` indexes entries by plain `u32`
+position in a `Vec` — there is no address, so "rung = tree depth" has
+nothing to measure depth OF yet. The delegation names a destination; the
+bridge from a `Belief` to an addressed node does not exist in any form.
+
+**[ABSENT] — no accumulate-from-children-and-siblings fold exists.**
+Every precedent the ruling cited was re-checked individually and each is a
+**different** mechanism, not one shared fold: `carried_awareness`
+(`recipe_loci.rs:347`) is a lower→higher CARRY, not a children→parent
+accumulation; `rail_geometry.rs:183`'s Horner sum is a fixed-depth
+positional weighting, not a tree walk; `causal_audit`'s *"evidence
+accumulates"* is append-only history on ONE node, not aggregation ACROSS
+nodes; `orchestration_mode.rs:8`'s *"truth accumulates on the path"* is the
+closest in spirit but is documented, not implemented, at that line;
+`FieldMask::inherit` is a bitwise OR of two masks, not a tree fold. **None
+of these compose into "read a node's children + siblings, fold their
+evidence, inherit from parent."** Grepped `children.*sibling` and
+`fn accumulate` in `lance-graph-contract/src/` directly: zero hits.
+
+**What this means for the ladder.** The audit's output is the two [ABSENT]
+verdicts above. It does **not** license a mechanism, and this section
+deliberately proposes none.
+
+**The test that makes this precise (added 2026-08-23,
+`E-HIERARCHY-IS-THE-ADDRESS-SPACE-NOT-THE-ONTOLOGY-1`):**
+
+> **If a datum exists but cannot be assigned a meaningful HHTL address
+> without using `Vec` position as identity, it has not yet been normalized
+> into the memory ABI.**
+
+That is the sharp form of what this section withdraws below. `arena[37]` is
+not a semantic hierarchy — it is an implementation accident wearing an HHTL
+costume. A real address would land through the belief's own semantic
+coordinates (something like: relation class → subject basin →
+predicate/relation basin → evidence/support context → instance) — **exact
+carving to be PROVEN, not invented here.** Under the address-space law the
+hierarchy supplies only WHERE; premise pointers, stamp provenance, the
+Tarski witness, attention and causal reading then all refer to addressed
+structure without any of them needing to be hierarchical themselves.
+
+**A withdrawn proposal, recorded so it is not re-derived.** An earlier
+revision of this section instructed step 3 to *"mint a `FacetCascade`
+address per belief position (even a trivial per-arena-position one)"* and
+then build a fold until it reproduced the arena. **That is backwards and is
+withdrawn.** A synthetic address derived from arena POSITION would turn a
+`Vec` index into a pretty 16-byte `Vec` index — still a second physical
+belief universe, and now one wearing the canonical address format as
+camouflage. An address must come from the canonical node/relation identity
+or it is not an address; inventing one to make a hypothesis testable
+invents the result too.
+
+**The two ruled items are therefore hypotheses awaiting step 2, not
+directions awaiting implementation:**
+
+- `rung = HHTL tree depth` — the real open question is whether derivation
+  depth is reconstructible from SUPPORT TOPOLOGY (the premise DAG) at all,
+  which is answerable without any address. (Measured since, on one fixture:
+  `PROBE-TARSKI-SIGNED-WITNESS-1` gate A2, PR #1007 — depth derived from
+  the premise DAG alone reproduced the arena's stored `rung` 10/10. One
+  fixture is not a general result, and it is evidence about SUPPORT
+  topology, not about HHTL depth.)
+- `stamp = children/sibling accumulation` — any replacement must reproduce
+  `Stamp`'s load-bearing IDENTITY semantics: disjointness detection,
+  overlap detection, source-set union, and no-double-count
+  (`belief.rs:39-48`). A generic commutative fold is not automatically
+  equivalent to a source-set union, and must not be assumed to be.
+
 ## Bounds (the line not to cross)
 
 - Do NOT optimize BeliefArena. Do NOT mechanically SoA-split its fields.
