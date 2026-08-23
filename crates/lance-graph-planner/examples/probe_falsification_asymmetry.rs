@@ -197,23 +197,27 @@ fn main() {
         ),
     );
 
-    // ---- F3 — THE ASYMMETRY. Falsification is O(1) and total; verification
-    // costs the whole fan-out and STILL does not close the levels below ----
+    // ---- F3 — THE ASYMMETRY, in PROPAGATION cost. Applying a KNOWN
+    // counterexample is O(1) in subtree population; verification costs the
+    // whole fan-out and STILL does not close the levels below. Discovery
+    // cost is explicitly NOT measured here. ----
     let one_counterexample = at([0x40, 0x07, 0, 0], 2);
-    let falsification_cost = 1; // regions needed to refute "all of P has X"
+    // Regions needed to refute "all of P has X", GIVEN the counterexample.
+    let falsification_cost = 1;
     let verification_cost = FAN_OUT as usize; // must exhaust the fan-out…
     let closes_below = false; // …and each child's own subtree stays open
     gate(
-        "F3 falsification is O(1) and sound; verification costs the fan-out and \
-         still doesn't close",
+        "F3 applying a KNOWN counterexample is O(1) in subtree population; \
+         verification costs the fan-out and still doesn't close",
         parent.covers(one_counterexample)
             && falsification_cost == 1
             && verification_cost == 16
             && !closes_below,
         format!(
-            "refute cost {falsification_cost} region; verify cost {verification_cost} \
-             regions at this depth AND the levels below remain open — this is why \
-             falsification is the precondition for learning"
+            "propagate a known refutation: {falsification_cost} region, independent of \
+             subtree size; verify: {verification_cost} regions at this depth AND the \
+             levels below stay open. DISCOVERY of the counterexample is not measured \
+             here and is not claimed cheap"
         ),
     );
 
@@ -312,9 +316,10 @@ fn main() {
 
     println!("PROBE-HHTL-FALSIFICATION-ASYMMETRY-1: ALL {pass} GATES GREEN");
     println!(
-        "measured: falsification IS cheap and structurally privileged — O(1) and sound \
-         (F3), reaching a whole subtree with no enumeration (F2) and without over-killing \
-         (F5); the known-unknown intermediate is addressable-without-a-value, which is \
+        "measured: falsifier PROPAGATION is cheap and structurally privileged — applying \
+         a KNOWN counterexample is O(1) in subtree population (F3; discovery cost is NOT \
+         claimed), reaching a whole subtree with no enumeration (F2) and without \
+         over-killing (F5); the known-unknown intermediate is addressable-without-a-value, which is \
          what makes a counterfactual probe targetable (F4); and inheritance is directional \
          — covers down, common_prefix up (F7). TWO COSTS FOUND: Auslöschung must be a \
          READING, since a summed slot cannot distinguish 'annihilated' from 'never \

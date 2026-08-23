@@ -37,17 +37,25 @@ contradiction is COMMITTED and preserved, not resolved away.
                                     …and every level BELOW stays open
 ```
 
-Falsification is the only operation here that is **`O(1)` and totally
-sound**. It reaches a whole subtree with **no enumeration** (F2: one
+**The precise complexity claim.** Once a valid counterexample region is
+KNOWN, *applying* it to a universal claim over an addressed subtree is
+**`O(1)` in subtree population size** via prefix containment. **Discovering
+the counterexample is NOT proven cheap** — that may involve probing,
+search, causal inference, I/O, or pair-field work, none of which is
+measured here. What the hierarchy makes cheap is the PROPAGATION of a
+falsifier, never its discovery; the distinction matters the moment this is
+compared against GPU or causal-representation-learning approaches.
+
+Propagation reaches a whole subtree with **no enumeration** (F2: one
 depth-1 focus covers all 16 depth-2 and all 16 depth-3 probes by prefix
 test alone — the subtree is never materialized), and it does not over-kill
 (F5: silent on sibling subtrees, on other parents, and — importantly — on
 its own ANCESTOR, since a child's refutation is not the parent's).
 
-The hierarchy does not *create* Popper's asymmetry. It makes it
-**mechanical**: `covers` is the entire test. That is the concrete sense in
-which falsification is "a precondition for learning" here — it is the
-cheap direction, structurally.
+The hierarchy does not *create* Popper's asymmetry. It makes the
+propagation half **mechanical**: `covers` is the entire test. That is the
+concrete sense in which falsification is "a precondition for learning"
+here — its propagation is the cheap direction, structurally.
 
 ### The known-unknown is addressable-without-a-value (F4)
 
