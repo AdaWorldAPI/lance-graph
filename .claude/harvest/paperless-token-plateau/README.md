@@ -1,4 +1,25 @@
-# paperless-token plateau — banked because the repo will not accept a push
+# paperless-token plateau — an ARCHIVE, no longer the way to get this code
+
+> **⊘ SUPERSEDED 2026-08-24 — read this first.** This code now lives in
+> `AdaWorldAPI/tesseract-rs` as `crates/tesseract-paperless`, feature-gated
+> (`default` = the S-2 gate + `doc.v1` → `DocIr`; `ocr` = the in-process
+> recognizer; `token` = the lexical seam). tesseract-rs accepts pushes and
+> runs CI on all three tiers, so **that is the one source of truth.** Nothing
+> should be reconstructed from this patch except as forensics — and nothing
+> should be synced back to paperless-rs, which is a dead copy.
+>
+> Two corrections carried by the move, both worth keeping: the `[patch]`
+> section is gone entirely (tesseract-rs path-deps its siblings, so the
+> escaping-relative-path trap does not arise), and `ingest_html` was replaced
+> by a producer-agnostic `ingest_doc_ir(bytes, index, build)` — the caller
+> brings its own producer as a closure, so the broken `spider_doc_ir` build is
+> no longer anyone's dependency.
+>
+> **A correction to this file's own table:** it stated
+> `coca_academic_20k.tsv` as 180 361 bytes. Measured, it is **226 651**. The
+> sha256 column was right, which is why the reconstruction check passed — but
+> the verification I ran covered *patch-applies* and *tests-pass*, not the byte
+> counts, and saying "verified" without that scope was too broad.
 
 `PROBE-TOKEN-SEAM-1` and its architecture doc live in
 `AdaWorldAPI/paperless-rs`. That repo is in this session's scope for READS but
@@ -54,7 +75,7 @@ every measured number in the report:
 | file | bytes | sha256 |
 |---|---|---|
 | `corpus/alice.txt` | 174 693 | `15124d40c182677c2d90fba80310173d63428e0591ce0df3e9bdc01a789a89c6` |
-| `corpus/coca_academic_20k.tsv` | 180 361 | `4ae20ce39dd3018346700e0f88df2b59e1a7df4e4a06e0f285fd44065166e0f0` |
+| `corpus/coca_academic_20k.tsv` | 226 651 | `4ae20ce39dd3018346700e0f88df2b59e1a7df4e4a06e0f285fd44065166e0f0` |
 | source `academic_20k.csv` | — | `1dfd5edaa5a6ac9b8ac5abbf87894abaf7de8a449ad7c09ca1f6324226396e2d` |
 
 `alice.txt` is Project Gutenberg's *Alice's Adventures in Wonderland* (public
