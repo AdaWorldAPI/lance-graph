@@ -60,8 +60,21 @@
 //!   minted `0x90..0xA5` (22 RO/BFO predicates — verified live against
 //!   `ogar-ro`'s codebook in this checkout) — so only `0xA6..0xFF`
 //!   (**90 slots**) are free for new domain mints. This probe's atoms AND
-//!   its BPE-learned merges together share that 90-slot budget: this is
-//!   the real headroom for merges, not 255.
+//!   its BPE-learned merges together share that 90-slot budget for THIS
+//!   ONE ENCODING SCHEME (one `FnIndex` minted per macro).
+//!
+//! ⚠ CORRECTED (architecture review, post-B6-correction): **90 is a
+//! property of the one-FnIndex-per-macro encoding measured here, NOT the
+//! autopoiesis vocabulary ceiling.** `StyleLane::{Learned,Explore}` are
+//! `[u8; 12]` — 12 palette256-indexed slots, one per `StyleFamily` ordinal
+//! (`lance-graph-contract/src/soa_view.rs`), each byte selecting one of
+//! **256** entries in that lane's own palette — a SEPARATE 256-wide
+//! address space per lane, not bounded by `FnIndex`'s domain band at all.
+//! `ogar-loco` ROUTES R2IL x BPE microcode into those planes; it does not
+//! have to OWN one `FnIndex` per macro to do so. Read every "90 slots" /
+//! "50 free" number below as: *if a consumer chose to mint one FnIndex per
+//! learned macro, this is that encoding's headroom* — not as an upper
+//! bound on how many macros the Learned/Explore palettes could ever hold.
 //!
 //! This probe does **NOT** import `ogar-loco` (a separate cargo
 //! workspace). The shapes above are mirrored probe-locally, exactly as the
@@ -104,8 +117,14 @@
 //! `total_corpus_atoms` (one stream per episode, covering every Op row
 //! exactly once) — asserted equal to `total_corpus_atoms` at B3's setup.
 //! The two BPE runs therefore operate over different-sized inputs by
-//! design; B3's per-slot metric (tokens saved / merges used) is what makes
-//! the comparison fair despite that, not equal input sizes.
+//! design. ⚠ CORRECTED (architecture review): normalizing by merges used
+//! does NOT make the two runs an unconditional apples-to-apples
+//! comparison — `chain_atoms_before` is inflated by overlapping
+//! chain-occurrence exposure (the same `Op` row can be counted more than
+//! once), while `total_corpus_atoms` counts each row exactly once. B3's
+//! result is read as "def-use-chain BPE saves more per merge on its own
+//! occurrence stream," not as proven compression superiority; see B3's
+//! printed text for the full caveat.
 //!
 //! # Pre-registration — B3 (control)
 //!
@@ -269,9 +288,12 @@ struct Episode {
     ins: BTreeMap<String, Vec<u64>>,  // op_site -> ValueIds CONSUMED
 }
 
+/// (fact_id, op_site, opcode) — the pre-sort staging tuple for one episode's `Op` rows.
+type OpOrderEntry = (u64, String, String);
+
 fn episodes(rows: &[Row]) -> BTreeMap<(String, String), Episode> {
     let mut map: BTreeMap<(String, String), Episode> = BTreeMap::new();
-    let mut op_order: BTreeMap<(String, String), Vec<(u64, String, String)>> = BTreeMap::new();
+    let mut op_order: BTreeMap<(String, String), Vec<OpOrderEntry>> = BTreeMap::new();
     for r in rows {
         let key = (r.binary.clone(), r.function.clone());
         let ep = map.entry(key.clone()).or_insert_with(|| Episode {
@@ -495,12 +517,64 @@ fn atoms_of(table: &SymTable, id: u32) -> Vec<u32> {
     decode(table, &[id])
 }
 
+// -------------------------------------------------------------------------------------------
+// B5's real live-in accounting (codex review fix, P2): `n_atoms - 1` is the number of INTERNAL
+// merge-tree edges (always constant for a given atom count, structural), NOT the number of
+// EXTERNAL `Call.values` a macro actually needs — those come from `Episode::ins`, the real
+// operand contract per opcode, not from the shape of the BPE merge tree.
+// -------------------------------------------------------------------------------------------
+
+/// Where a merge id's atom pattern occurs (as a CONTIGUOUS span) within one occurrence's
+/// original 3-atom chain `[x_sym, y_sym, z_sym]` — content-matched, not final-encoding-matched.
+///
+/// A merge id from `chain_merges` need NOT survive into a given occurrence's FINAL
+/// `chain_streams` entry (a later merge can subsume it into a larger symbol, or a different
+/// merge order can apply first) — so walking `chain_streams` to find a merge id's occurrences
+/// silently misses every occurrence where it was absorbed. Matching by ATOM CONTENT against
+/// the ORIGINAL (pre-merge) chain is order-independent and answers the question B5/INV3
+/// actually need: "wherever this atom pattern occurs, real or counterfactual mint order,
+/// how many real call sites would this candidate macro serve."
+fn macro_span_in_occurrence(table: &SymTable, id: u32, chain: &ChainOcc) -> Option<(usize, usize)> {
+    let atoms = atoms_of(table, id);
+    let n = atoms.len();
+    let full = [chain.x_sym, chain.y_sym, chain.z_sym];
+    for start in 0..=(3usize.saturating_sub(n)) {
+        if full[start..start + n] == atoms[..] {
+            return Some((start, start + n - 1));
+        }
+    }
+    None
+}
+
+/// The REAL external live-in count for a token covering chain-local span `[a, b]` in one
+/// occurrence: sum of `Episode::ins` lengths at the covered sites, minus the internal def-use
+/// edges consumed within the span (`b - a` of them — `extract_chains` guarantees exactly one
+/// internal edge per adjacent covered pair: x->y and y->z). This is a real per-occurrence
+/// measurement of the opcode's own operand arity, not a structural property of the merge tree.
+fn real_external_immediates(
+    eps: &BTreeMap<(String, String), Episode>,
+    chain: &ChainOcc,
+    span: (usize, usize),
+) -> usize {
+    let ep = &eps[&chain.ep_key];
+    let sites = [
+        &ep.ops[chain.x_pos].0,
+        &ep.ops[chain.y_pos].0,
+        &ep.ops[chain.z_pos].0,
+    ];
+    let (a, b) = span;
+    let total_ins: usize = (a..=b)
+        .map(|p| ep.ins.get(sites[p]).map(|v| v.len()).unwrap_or(0))
+        .sum();
+    total_ins.saturating_sub(b - a)
+}
+
 /// Greedily merge the most frequent adjacent pair, across ALL streams, until
 /// `cap` merges are minted or no pair recurs (count < 2). Deterministic
 /// tie-break: count desc, then pair asc (mirrors `probe_token_bpe_geometry`'s
 /// `BpeTable::train`). Returns `((left,right), new_id, count_at_merge_time)`.
 fn bpe_merge(
-    streams: &mut Vec<Vec<u32>>,
+    streams: &mut [Vec<u32>],
     table: &mut SymTable,
     cap: usize,
 ) -> Vec<((u32, u32), u32, usize)> {
@@ -630,8 +704,10 @@ fn main() -> ExitCode {
         pass += 1;
         println!(
             "B1 PASS  {} distinct R2IL atom opcodes ({:?}) across {total_corpus_atoms} total Op \
-             rows in the corpus; merge budget = 90 - {} atoms = {} slots; after B2's {} merges, \
-             {} domain slots remain (this can fail on a richer corpus with more atom opcodes or \
+             rows in the corpus; ONE-FNINDEX-PER-MACRO ENCODING budget = 90 - {} atoms = {} \
+             slots (this is a property of that encoding choice, not the autopoiesis vocabulary \
+             ceiling — see the doc-comment correction above); after B2's {} merges, {} of those \
+             encoding slots remain (this can fail on a richer corpus with more atom opcodes or \
              a larger merge budget consumed)",
             atom_labels.len(),
             atom_labels,
@@ -711,18 +787,26 @@ fn main() -> ExitCode {
             / linear_merges.len().max(1) as f64;
         assert!(
             chain_per_slot > linear_per_slot,
-            "B3 pre-registered: def-use-chain BPE should achieve MORE compression per domain \
-             slot spent than linear-window BPE on the same episodes (chain {chain_per_slot:.3} \
-             tokens/slot vs linear {linear_per_slot:.3} tokens/slot) — REFUTED if the inequality \
-             does not hold; the refutation is recorded here, not adjusted away"
+            "B3 pre-registered: def-use-chain BPE should achieve MORE tokens saved per merge \
+             than linear-window BPE on the same episodes (chain {chain_per_slot:.3} \
+             tokens/merge vs linear {linear_per_slot:.3} tokens/merge) — REFUTED if the \
+             inequality does not hold; the refutation is recorded here, not adjusted away"
         );
         pass += 1;
         println!(
-            "B3 PASS  compression-per-slot: def-use chains {chain_per_slot:.3} tokens/merge \
-             ({} merges over {chain_atoms_before} chain-occurrence atom-slots) vs linear stream \
-             {linear_per_slot:.3} tokens/merge ({} merges over {linear_atoms_before} corpus-total \
-             atoms, == the {total_corpus_atoms} from B1) — two DIFFERENT input sizes, but the \
-             metric normalizes by merges used, so the per-slot comparison is fair",
+            "B3 PASS  occurrence-stream savings per merge: def-use chains {chain_per_slot:.3} \
+             tokens/merge ({} merges over {chain_atoms_before} chain-OCCURRENCE atom-slots) vs \
+             linear stream {linear_per_slot:.3} tokens/merge ({} merges over \
+             {linear_atoms_before} corpus-total atoms, == the {total_corpus_atoms} from B1). \
+             ⚠ CORRECTED LABEL (architecture review): this is NOT an unconditional compression- \
+             superiority claim — {chain_atoms_before} chain-occurrence atom-slots OVERLAP (the \
+             same Op row can sit in more than one def-use chain, so it is counted more than \
+             once), while {linear_atoms_before} counts each Op row exactly once. Normalizing \
+             by merge count does not remove that exposure-multiplicity confound. Read this as \
+             \"the def-use-chain carrier saves more tokens per merge on its own \
+             (overlap-inflated) occurrence stream\" — an equal-source-budget control (same atom \
+             count on both sides) would be needed before calling this true compression \
+             superiority.",
             chain_merges.len(),
             linear_merges.len(),
         );
@@ -797,12 +881,37 @@ fn main() -> ExitCode {
     // B5 LOCO FIT
     // -------------------------------------------------------------------------------------------
     {
+        // Real per-occurrence external live-in accounting (codex review fix, P2, corrected
+        // twice): `n_atoms - 1` is the merge-tree's internal edge count, a structural constant
+        // unrelated to the opcode's actual operand arity — real immediates come from
+        // `Episode::ins` at the covered sites. Occurrences are found by CONTENT match
+        // (`macro_span_in_occurrence`), not by walking final `chain_streams` — a merge id need
+        // not survive to an occurrence's final encoding (a later merge can subsume it), so a
+        // final-stream walk silently misses occurrences. Content match is order-independent
+        // and directly answers "wherever this atom pattern occurs, what would it cost."
+        let mut observed_imm: HashMap<u32, BTreeSet<usize>> = HashMap::new();
+        for &(_, id, _count) in &chain_merges {
+            for chain in &chains {
+                if let Some(span) = macro_span_in_occurrence(&chain_table, id, chain) {
+                    let imm = real_external_immediates(&eps, chain, span);
+                    observed_imm.entry(id).or_default().insert(imm);
+                }
+            }
+        }
+
         let (mut fit_pairs, mut fit_triples, mut fit_quads, mut fit_none) =
             (0usize, 0usize, 0usize, 0usize);
         let mut none_examples: Vec<u32> = Vec::new();
+        let mut variable_arity: Vec<u32> = Vec::new();
         for &(_, id, _count) in &chain_merges {
-            let n_atoms = atoms_of(&chain_table, id).len();
-            let immediates_needed = n_atoms.saturating_sub(1);
+            let seen = observed_imm
+                .get(&id)
+                .expect("every learned merge id's atom pattern must occur in at least one chain occurrence (it was minted from one)");
+            if seen.len() > 1 {
+                variable_arity.push(id);
+            }
+            // Conservative: a Call must fit the WORST observed case across all occurrences.
+            let immediates_needed = *seen.iter().max().expect("non-empty by construction");
             if immediates_needed <= LaneShape::Pairs.max_immediates() {
                 fit_pairs += 1;
             } else if immediates_needed <= LaneShape::Triples.max_immediates() {
@@ -833,14 +942,20 @@ fn main() -> ExitCode {
 
         pass += 1;
         println!(
-            "B5 PASS  of {} learned macros: fits-Pairs(<=1 imm)={fit_pairs} \
-             fits-Triples(<=2 imm)={fit_triples} fits-Quads(<=3 imm)={fit_quads} \
-             fits-NONE(>3 imm)={fit_none} {:?} — this corpus's def-use chains are fixed at \
-             length 3 by construction (extract_chains), so no macro here can exceed 3 atoms / \
-             2 immediates; a fit-NONE macro would require a longer chain than this pass-1 \
-             extractor produces. That is a disclosed methodology ceiling, not a hidden result.",
+            "B5 PASS  of {} learned macros: fits-Pairs(<=1 real imm)={fit_pairs} \
+             fits-Triples(<=2 real imm)={fit_triples} fits-Quads(<=3 real imm)={fit_quads} \
+             fits-NONE(>3 real imm)={fit_none} {:?} — immediates measured from Episode::ins \
+             at the actual covered sites (real operand arity), NOT the merge-tree's internal \
+             edge count; {} of {} macros show variable real arity across occurrences {:?} \
+             (worst-case taken, conservative for a Call). This corpus's def-use chains are \
+             fixed at length 3 by construction (extract_chains), so no macro here can span \
+             more than 3 opcodes — that bounds the SPAN, not the real immediates count \
+             directly, since real arity depends on each opcode's own operand count.",
             chain_merges.len(),
-            none_examples
+            none_examples,
+            variable_arity.len(),
+            chain_merges.len(),
+            variable_arity
         );
         for shape in [LaneShape::Pairs, LaneShape::Triples, LaneShape::Quads] {
             let nodes_median = median_calls.div_ceil(shape.calls_per_node());
@@ -856,6 +971,16 @@ fn main() -> ExitCode {
 
     // -------------------------------------------------------------------------------------------
     // B6 CANDIDATE RANKING (NOT admission)
+    //
+    // NOTE (codex review fix, P2): `groups` keys are FINAL ENCODED STREAM signatures, one key
+    // per distinct fully-folded occurrence — NOT one key per learned merge id from
+    // `chain_merges`. A group's key can be a single learned macro token, a partial merge plus
+    // a leftover raw atom, or (rarely, at this corpus's merge cap) two merge tokens — so a
+    // group is "a distinct way an occurrence ended up encoded," not "one candidate mint." This
+    // ranking exercise is still valid on its own terms (comparing raw-occurrence vs
+    // disjoint-evidence rankings over those signatures), but the printed language below no
+    // longer implies groups == macros; INV3 below uses a SEPARATE, per-merge-id count for its
+    // "episodes-per-mint" claim, which is the metric that actually needs one-mint-per-key.
     // -------------------------------------------------------------------------------------------
     let groups: BTreeMap<Vec<u32>, Vec<usize>> = {
         let mut g: BTreeMap<Vec<u32>, Vec<usize>> = BTreeMap::new();
@@ -937,12 +1062,14 @@ fn main() -> ExitCode {
 
         pass += 1;
         println!(
-            "B6 PASS  {} candidate macro groups ranked. NOT admission: this ranks candidates \
-             only; freezing/admitting/promoting/gating a macro is MUL's and the autopoiesis \
-             triangle's job, never this probe's. Ranking-sensitivity: raw-count top group vs \
-             disjoint-evidence top group differ at by_raw indices {flip_pair_s}; some pair \
-             still agrees at {agree_pair_s} — the by-raw-count and by-disjoint-evidence \
-             rankings are DIFFERENT lenses on the same candidates, not the same ranking twice",
+            "B6 PASS  {} distinct final-encoding signatures ranked (NOT one-per-learned-macro \
+             — see the note above `groups`; INV3 below uses a separate per-merge-id count for \
+             that claim). NOT admission: this ranks candidates only; freezing/admitting/ \
+             promoting/gating a macro is MUL's and the autopoiesis triangle's job, never this \
+             probe's. Ranking-sensitivity: raw-count top group vs disjoint-evidence top group \
+             differ at by_raw indices {flip_pair_s}; some pair still agrees at {agree_pair_s} \
+             — the by-raw-count and by-disjoint-evidence rankings are DIFFERENT lenses on the \
+             same candidates, not the same ranking twice",
             group_stats.len()
         );
     }
@@ -1056,51 +1183,68 @@ fn main() -> ExitCode {
     }
 
     // -------------------------------------------------------------------------------------------
-    // INV3 — shared-palette amortization (BGZ-HHTL-D precedent); reuses B6's `groups`, per spec
+    // INV3 — shared-palette amortization (BGZ-HHTL-D precedent)
+    //
+    // NOTE (codex review fix, P2): does NOT reuse B6's `groups` (final-encoding signatures) —
+    // "episodes-per-mint" needs one row per LEARNED MERGE ID (`chain_merges`), the actual unit
+    // a mint would be, not per distinct fully-folded stream (which can bundle multiple merge
+    // ids or a merge id plus a leftover atom under one key). Counted directly: for each merge
+    // id, every occurrence whose ORIGINAL atom pattern CONTAINS this macro (content match via
+    // `macro_span_in_occurrence`, not final-stream presence — see the B5 comment above for why
+    // final-stream presence undercounts: a merge id need not survive a later subsuming merge).
     // -------------------------------------------------------------------------------------------
     {
-        let mut per_group_ep_count: Vec<(usize, usize)> = groups
-            .values()
-            .map(|idxs| {
-                let eps_set: HashSet<&(String, String)> =
-                    idxs.iter().map(|&i| &chains[i].ep_key).collect();
-                (idxs.len(), eps_set.len())
-            })
-            .collect();
-        per_group_ep_count.sort_by_key(|(raw, _)| std::cmp::Reverse(*raw));
+        let mut per_macro_ep_count: Vec<(u32, usize, usize)> = Vec::new();
+        for &(_, id, _count) in &chain_merges {
+            let mut occ_count = 0usize;
+            let mut eps_set: HashSet<&(String, String)> = HashSet::new();
+            for chain in &chains {
+                if macro_span_in_occurrence(&chain_table, id, chain).is_some() {
+                    occ_count += 1;
+                    eps_set.insert(&chain.ep_key);
+                }
+            }
+            per_macro_ep_count.push((id, occ_count, eps_set.len()));
+        }
+        per_macro_ep_count.sort_by_key(|(_, raw, _)| std::cmp::Reverse(*raw));
 
-        let shared = per_group_ep_count
+        let shared = per_macro_ep_count
             .iter()
-            .find(|(_, ep_count)| *ep_count > 1);
-        let unshared = per_group_ep_count
+            .find(|(_, _, ep_count)| *ep_count > 1);
+        let unshared = per_macro_ep_count
             .iter()
-            .find(|(_, ep_count)| *ep_count == 1);
+            .find(|(_, _, ep_count)| *ep_count == 1);
         assert!(
             shared.is_some(),
-            "INV3 can-fire: at least one converged macro group must be shared across more than \
-             one episode (amortization actually happens)"
+            "INV3 can-fire: at least one learned macro must be shared across more than one \
+             episode (amortization actually happens)"
         );
         assert!(
             unshared.is_some(),
-            "INV3 can-stay-silent: at least one macro group must stay unshared (exactly one \
+            "INV3 can-stay-silent: at least one learned macro must stay unshared (exactly one \
              episode) — proving the check isn't vacuously true for every macro"
         );
 
-        let top5: Vec<usize> = per_group_ep_count.iter().take(5).map(|(_, e)| *e).collect();
-        let fmt_hit = |h: Option<&(usize, usize)>| match h {
-            Some((raw, ep)) => format!("(occurrences={raw}, episodes={ep})"),
+        let top5: Vec<usize> = per_macro_ep_count
+            .iter()
+            .take(5)
+            .map(|(_, _, e)| *e)
+            .collect();
+        let fmt_hit = |h: Option<&(u32, usize, usize)>| match h {
+            Some((id, raw, ep)) => format!("(id={id}, occurrences={raw}, episodes={ep})"),
             None => "none".to_string(),
         };
         let shared_s = fmt_hit(shared);
         let unshared_s = fmt_hit(unshared);
         pass += 1;
         println!(
-            "INV3 PASS  exploratory (BGZ-HHTL-D shared-palette precedent): {} converged macro \
-             groups measured; top-5 by occurrence carry episodes-per-mint {:?}; shared example \
-             {shared_s}, unshared example {unshared_s} — some macros amortize across \
-             episodes (one mint reused), some stay episode-local (would risk a duplicate mint if \
-             minted per-instance)",
-            per_group_ep_count.len(),
+            "INV3 PASS  exploratory (BGZ-HHTL-D shared-palette precedent): {} learned macros \
+             measured (one row per merge id, corrected from a prior draft that grouped by \
+             final-encoding signature); top-5 by occurrence carry episodes-per-mint {:?}; \
+             shared example {shared_s}, unshared example {unshared_s} — some macros amortize \
+             across episodes (one mint reused), some stay episode-local (would risk a \
+             duplicate mint if minted per-instance)",
+            per_macro_ep_count.len(),
             top5,
         );
     }

@@ -1,47 +1,72 @@
-## 2026-08-24 — PROPOSAL (unbuilt, unprobed): typed genetic recombination over Learned/Explore lanes, `.claude/plans/r2il-bpe-typed-genetic-recombination-v1.md`
+## 2026-08-24 — PROPOSAL (unbuilt, unprobed), CORRECTED: typed genetic recombination over Learned/Explore PALETTES (not a 12-byte genome), `.claude/plans/r2il-bpe-typed-genetic-recombination-v1.md`
 
-Follow-on to the POC below, written during a same-day API outage (4/4
-meta-review dispatches failed to 529) so the design is captured before it's
-lost. Names the split explicitly: Frozen stays native Rust (instinct, no
-BPE expansion needed); Learned/Explore route through OGAR-loco → BPE macro
-composition → V4/R2IL SoA ops. Genotype = ordered composition of BPE
-macro-id references into the existing 12-byte `StyleLane::{Learned,
-Explore}` payload (no new field — a new `ClassView` reading of bytes
-already shipped, `soa_view.rs:52`), not the R2IL atoms themselves (those
-stay fixed, matching this session's own B2/B3 measurement: atoms fixed,
-composition varies, def-use-chain carrier 2.3x denser). Four typed
-operators proposed (splice/substitute/duplicate/delete), each requiring a
-live-out/live-in contract check over R2IL's typed operands before it's
-legal — none built. Selection routes through the EXISTING
-`FreeEnergyComparison`/counterfactual-lane verdict path (PR #998) — this
-proposal adds a candidate SOURCE, explicitly not a second admission gate.
-Three concrete falsifiers named in the doc §7, none run. **Status: spec
-only — do not treat any of §3-§5 as a finding until probed.**
+Follow-on to the POC below. **Architecture correction, same day:** the
+proposal's §1 originally read `StyleLane::{Learned,Explore}`'s 12-byte
+payload as ONE style's ordered macro-genome (up to 12 macro-id bytes for
+one row). Corrected: `soa_view.rs:41` documents each lane as **12
+palette256-indexed slots, one per `StyleFamily` ordinal** — each byte
+selects one of **256** entries in that lane's OWN palette, a separate
+256-wide address space per lane. Corrected architecture: `System[256,
+native Rust, fixed] | Learned[≤256, R2IL x BPE] | Explore[≤256, R2IL x
+BPE]`, addressed as `Frozen byte -> SystemPalette[id] -> native Rust`,
+`Learned/Explore byte -> {Learned,Explore}Palette[id] -> R2IL x BPE
+microcode`. `ogar-loco` ROUTES that microcode into the palettes; it does
+not have to own one `FnIndex` per macro (see the POC entry's own 90-slot
+demotion below — same correction, same day). Four typed operators still
+proposed (splice/substitute/duplicate/delete), each requiring a
+live-out/live-in contract check over R2IL's typed operands — none built.
+Selection still routes through the EXISTING
+`FreeEnergyComparison`/counterfactual-lane verdict path (PR #998) — a
+candidate SOURCE, not a second admission gate. **Status: spec only — do
+not treat any of §3-§5 as a finding until probed; §1's palette correction
+is architecture-review-verified against shipped code, not itself a probe.**
 
-## 2026-08-24 — R2IL x BPE POC: def-use compresses 2.3x denser than linear per domain slot; the 90-slot ceiling; B6 corrected off a self-built admission scheme onto MUL/the triangle
+## 2026-08-24 — R2IL x BPE POC, corrected twice: real per-merge-id measurements (codex review) + the 90-slot number demoted from "ceiling" to "one encoding's headroom" (architecture review)
 
-Autoattended 2-probe POC (`PROBE-BPE-R2IL-LOCO-MICROCODE-1` 10/10,
-`PROBE-STAMP-MORTON-CASCADE-1` 7/7). Headline: BPE over def-use chains
-saves 113.4 tokens/merge vs 50.1 for the same algorithm over the linear
-opcode stream — 2.3x denser compression per `FnIndex` domain slot
-(corrected ceiling: 90 free slots, `0xA6..0xFF`, not 255/248, since
-`ogar-ro` already mints 22 of the 112-slot domain band). B5 confirms 33
-learned macros fit real loco call geometry (7 Pairs, 26 Triples, 0
-Quads/NONE — chains fixed at length 3, a disclosed ceiling). B6 was
-rewritten mid-session: it ranks candidates via shipped `revise`+`Stamp`
-only, forbidden from freeze/admit/promote/gate vocabulary — real admission
-is MUL's `GateDecision` and the autopoiesis triangle's
-`RungReceipt`-judged, counterfactual-Explore resonance thinking
-(`PROBE-METACOGNITIVE-TRIANGLE-1`), never an RL policy this probe could
-claim to run. Three exploratory cross-checks against shipped codecs
-(HighHeelBGZ stride-as-role, bgz17 HHTL scent-prune-then-escalate,
-BGZ-HHTL-D shared-palette amortization) all measured real effects on this
-corpus. Companion: the stamp Morton cascade adopts φ-Weyl constants under
-an explicit PRECISION ruling, with the coprime-stride inertness measured
-and disclosed (not a performance win) and the spread-vs-concentration
-tension named. Meta-review pending (3 consecutive infra 529s, retrying);
-findings land as a follow-up commit before the PR. Entry:
+Autoattended POC (`PROBE-BPE-R2IL-LOCO-MICROCODE-1` 10/10, re-measured
+after two review passes). The companion stamp-cascade probe was SPLIT OUT
+to its own PR (orthogonal design decision, muddied this receipt) — see
+its own entry. Headline: BPE over def-use chains saves 113.4 tokens/merge
+vs 50.1 for linear — relabeled from "2.3x denser compression per domain
+slot" to **"occurrence-stream savings per merge, not proven compression
+superiority"** (the chain-occurrence input overlaps/double-counts Op
+rows; normalizing by merge count doesn't remove that confound).
+**The 90-free-`FnIndex`-slots number is DEMOTED**: it is the headroom of
+ONE encoding choice (one FnIndex per macro), NOT the autopoiesis
+vocabulary ceiling — `StyleLane::{Learned,Explore}` are 12
+palette256-indexed slots (256 entries each), a wholly separate address
+space `ogar-loco` merely routes into (see the proposal entry above).
+**B5 re-measured (codex P2):** real per-occurrence `Episode::ins` arity,
+not merge-tree edge count — 7 fit Pairs, **13 fit Triples** (was 26), **11
+fit Quads** (was 0), **2 fit NONE** (was 0) — the "0 fit NONE" framing was
+too triumphant. **INV3 re-measured (codex P2):** per learned-merge-id, not
+per B6 final-encoding-signature group (27 groups ≠ 33 macros, the wrong
+unit) — 33 macros, top-5 episodes-per-mint now [86,90,63,80,56].
+Three exploratory cross-checks (HighHeelBGZ stride-as-role, bgz17 HHTL
+scent-prune-then-escalate, BGZ-HHTL-D shared-palette amortization) still
+hold on the corrected measurements. All fixes reverified by full
+recompile + rerun against the real corpus. Entry:
 `E-BPE-OVER-DEFUSE-CHAINS-BEATS-LINEAR-AND-FITS-LOCO-1`.
+
+## 2026-08-24 — PROBE-STAMP-MORTON-CASCADE-1 (7/7), split out from the POC above: φ-Weyl stamp cascade under an explicit PRECISION ruling
+
+Builds a 2-level Morton cascade over the shipped `Stamp(u64)`. For a
+bijective id->leaf map, every coprime stride gives IDENTICAL
+discrimination (39/17/11/41 produce the same word counts/conservatism) —
+φ-Weyl (`LEVEL0=39`, `LEVEL1=17`, `WEYL_OFFSET=21`) is adopted as the
+CANONICAL choice (`[FORMAL-SCAFFOLD]`'s φ-Weyl pillar), explicitly NOT a
+measured performance win. Measured TENSION: coprime strides maximize
+spread (65 words @ N=143, max discrimination); `gcd>1` strides concentrate
+(17/9 words, coarser). Operator ruled PRECISION over amortization, so
+spread was chosen. Real corpus: cascade pooled=143 dropped=0 vs shipped
+flat Stamp pooled=64 dropped=79 (55.2% CHOICE-dropped) — reproduces
+`PROBE-STAMP-CAPACITY-1`'s K3 exactly, zero-loss on the cascade side.
+Load-bearing constraint: a stamp address must be a pure function of the
+SOURCE ID, never arrival order. **Doc-comment correction (codex review,
+P2):** a prior claim that FINE-first's tier 0 is "bit-identical" to the
+shipped `Stamp` was WRONG post-φ-Weyl-adoption (`root_leaf(0) = 21`, not
+`0`) — corrected to "same fold-cardinality shape, not bit-reusable"; M1/M4
+compare against the real `Stamp::source` directly and were unaffected.
 
 ## 2026-08-23 — R2IL WAVE: chain carrier confirmed, optimization-transfer measured, boundary named
 

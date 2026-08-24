@@ -1,4 +1,4 @@
-# R2IL × BPE as typed genetic recombination over the autopoiesis lanes (v1)
+# R2IL × BPE as typed genetic recombination over the autopoiesis PALETTES (v1)
 
 **Status: PROPOSAL.** Nothing in this doc is built or probed except where
 explicitly marked GROUNDED. Do not cite this as an EPIPHANIES-grade finding —
@@ -6,16 +6,25 @@ it earns that only after the falsifiers in §5 run green. Written during a
 same-day API outage (4/4 meta-review dispatch attempts failed to 529) so the
 architecture doesn't evaporate before it can be probed.
 
+⚠ **§1 CORRECTED (architecture review, same day).** The original §1 read
+`StyleLane`'s 12-byte payload as ONE style's ordered macro-genome (up to
+12 macro-id bytes in a single row). That is wrong: `soa_view.rs:41`
+documents each lane as **12 palette256-indexed slots, one per
+`StyleFamily` ordinal**, each byte selecting one of **256 entries in that
+lane's own palette** — a separate 256-wide address space per lane. The
+12 bytes are ADDRESSES, not the genome. Corrected below; the rest of this
+doc (§2–§7) is updated to match.
+
 ## 1. The split (GROUNDED — matches shipped code + PR #998)
 
 ```
- SYSTEM / FROZEN                      AUTOPOIETIC SPACE
- native Rust, instinct                R2IL × BPE, evolvable thought
+ SYSTEM / FROZEN 256                  AUTOPOIETIC SPACE
+ native Rust, fixed                   R2IL × BPE, evolvable thought
  immutable execution                  recombinable microcode
       │                                      │
       │                         ┌────────────┴────────────┐
       │                         ▼                         ▼
-      │                    LEARNED lane               EXPLORE lane
+      │                  LEARNED palette [≤256]    EXPLORE palette [≤256]
       │                    retained                    frontier
       │                         ▲                         │
       └─────────────────────────┼─────────────────────────┘
@@ -33,26 +42,38 @@ architecture doesn't evaporate before it can be probed.
   session from PR #998's actual commit body. MUL is the real admission
   gate (`GateDecision`, `Homeostasis`); the triangle judges the
   `RungReceipt`, never the raw problem.
-- `[u8; 12]` per lane is exactly wide enough to hold an ordered sequence of
-  BPE macro-id bytes (up to 12 macros/row at 1-byte ids, fewer at wider
-  ids) — the SAME bytes the palette-rail reading (`style_rails_at`,
-  `6×(u8:u8)`) already uses. Reading those 12 bytes as a macro-composition
-  genome is a NEW `ClassView`-selected reading, not a new field — consistent
-  with the "classid selects the reading, V4 never widens" rule.
+- **Corrected addressing:** each of the 12 bytes in a lane is one
+  `StyleFamily` ordinal's entry, and its VALUE is a palette256 index —
+  `Frozen byte -> SystemPalette[id] -> native Rust`, `Learned/Explore byte
+  -> {Learned,Explore}Palette[id] -> R2IL × BPE microcode`. The 256-wide
+  palette per lane is where a composed macro-sequence actually LIVES (the
+  genotype, §2); the 12-byte row only says which of up to 12 concurrent
+  `StyleFamily` readers currently points at which palette entry. This is
+  still a `ClassView`-selected reading of bytes already shipped — no new
+  field — it is just not "12 macro-ids in one row."
+- `ogar-loco` ROUTES R2IL × BPE microcode into these palettes; it does
+  not have to OWN one `FnIndex` per macro to do so (the POC's own 90-slot
+  number was demoted from "ceiling" to "one encoding's headroom" the same
+  day this section was corrected — see `EPIPHANIES.md`).
 
 ## 2. Genotype, not atoms (GROUNDED — matches this session's POC finding)
 
 > The genotype is not R2IL. The genotype is the ordered composition of
 > R2IL/BPE microcode.
 
-This is exactly what `probe_bpe_r2il_loco_microcode.rs` measured (B2,
-committed `77e96863`): R2IL atoms (7, `call/cbranch/copy/int_add/load/
-return/store`) are fixed; BPE merges over real def-use chains produce 33
-reusable macros; def-use-chain carrier compresses 2.3× denser per domain
-slot than a linear token stream (B3). The atoms never mutated — only their
-composition did. That IS the "stable chemical language / reusable genes"
-split the user names, already measured, just not yet named that way in the
-probe's own language.
+This is exactly what `probe_bpe_r2il_loco_microcode.rs` measured (B2): R2IL
+atoms (7, `call/cbranch/copy/int_add/load/return/store`) are fixed; BPE
+merges over real def-use chains produce 33 reusable macros. The atoms
+never mutated — only their composition did. **B3's comparison against a
+linear control was later relabeled** (architecture review): "saves more
+tokens per merge on its own occurrence stream," not proven unconditional
+compression superiority — the def-use-chain input overlaps/double-counts
+source ops relative to the linear control. That relabeling does not touch
+this section's claim (atoms fixed, composition varies) — only the
+compression-superiority framing was too strong. The genotype — the
+composed sequence, e.g. `[μ12, μ7, μ31, μ4]` — is content that would live
+as ONE entry in a `{Learned,Explore}Palette` (§1), addressed by a
+`StyleFamily` byte, not stored inline in the 12-byte row itself.
 
 ## 3. Four typed genetic operators (PROPOSED, unbuilt)
 
@@ -133,9 +154,13 @@ None of these are run. This doc is the spec for that probe, not its result.
 ## Fences
 
 - Does NOT propose a new admission gate — MUL/triangle stays the only one.
-- Does NOT propose a new SoA field — reads the existing 12-byte lanes
-  differently, gated by `ClassView`, per the V4 "classid selects the
-  reading" rule.
+- Does NOT propose a new SoA field — reads the existing 12-byte lanes as
+  `StyleFamily`-indexed palette256 addresses (per §1's correction), gated
+  by `ClassView`, per the V4 "classid selects the reading" rule. Does NOT
+  propose that the 12 bytes themselves store an ordered macro genome.
+- Does NOT claim the 90-free-`FnIndex`-slots number bounds this
+  proposal's capacity — that number is one encoding's headroom, not the
+  Learned/Explore palette size (256 each, per §1).
 - Does NOT commit to a compilation/AOT mechanism — named as a non-goal to
   avoid foreclosing, not as a design.
 - Does NOT claim "genetic recombination" is proven to work here — the name
