@@ -1,3 +1,54 @@
+## 2026-08-23 — the token-seam arc: four read-only research lanes, one probe, one vacuity audit
+
+- **Why:** an operator brief asked whether ONE versioned BPE tokenization can
+  simultaneously serve Tantivy lexical indexing, DeepNSM-v2 lexical/grammar
+  projection and an LSTM forward-prediction input surface, without
+  retokenizing, without rebuilding a DataFrame, and without a second cognitive
+  population — the integration half `E-TOKEN-BPE-CAN-FIT-NOT-YET-BUY-1` (#1012)
+  explicitly did not ask. Tiering: Opus on the main thread for the architecture,
+  the probe and every gate; Sonnet for the bounded read-only lanes; no worker
+  ran cargo (the orchestrator compiled centrally, per the shared-target rule).
+- **Lane A — DeepNSM-v2 lexical contract.** The decisive finding: the LIBRARY is
+  already tokenizer-free. `parse_to_spo(&[Tagged])` takes `(WordId, Pos)` and no
+  string; `split_whitespace`/`normalise` live only in the two examples. The seam
+  therefore needed no change to the crate. Also: `academic_20k.csv` is present
+  (20 845 rows, 18 559 distinct surface forms); `bible_vocab.txt` and the cam96
+  codebook/codes are ABSENT.
+- **Lane B — Polars / online-path falsifier.** Zero `polars` occurrences across
+  nine checkouts; every `DataFrame` mention is prose. `paperless-rs` and
+  `tesseract-rs` declare no arrow/datafusion/lance/lancedb. Also established
+  that `doc.v1` carries bbox/conf/leading_space and NO offset or span field —
+  which is the gap that blocks the seam on real scanned documents.
+- **Lane C — Tantivy indexing-path audit.** The indexer never reads
+  `offset_from`/`offset_to` outside its own tests; snippets re-tokenize STORED
+  text at query time; `PreTokenizedString` costs ≈ `4 + 2N` allocations because
+  `segment_writer` deep-clones the boxed value. That last number is why the seam
+  uses a custom tokenizer with one reused `Token` buffer.
+- **Lane D — SoA lane / continuation precedent.** No shipped token continuation
+  mechanism anywhere; the nearest in shape, `RailCarving::AxisSlab`, caps at 24
+  levels — below the measured p50 of 4 particles. `ValueTenant` has 16 variants
+  and none for text.
+- **The probe (main thread, Opus).** `PROBE-TOKEN-SEAM-1` — 37 gates, 13
+  disable-runs verified red-then-green, in `AdaWorldAPI/paperless-rs`
+  (`crates/paperless-token`), with `docs/TOKEN-SEAM-ARCHITECTURE.md` as the
+  bounded architecture. Result: `E-ONE-RECEIPT-MANY-BORROWED-CONSUMERS-1`.
+- **Lane E — vacuity audit (Sonnet, read-only, adversarial).** Found FIVE holes
+  in the finished probe, all real: a gate checking byte counts but not span
+  counts (the CRLF bug that collapsed 300 spans into 1 would have re-passed), a
+  threshold true by construction, an assertion about a type signature rather
+  than behaviour, an unconditional prefix check, and an unexercised
+  ASCII-vs-Unicode whitespace divergence. All five fixed; four gained their own
+  disable-runs; the fifth is bounded by a measured count of zero.
+- **Two method failures worth the entry.** (1) Two disable-runs were themselves
+  wrong first — one relaxed a constant that does not bind on the fixture, one
+  targeted a mechanism the gate did not rest on — so both "passed" while proving
+  nothing. (2) An early disable batch reported "no failure" six times in a row
+  because the probe binary path was wrong and nothing ran at all. A null result
+  is a claim about the apparatus until proven otherwise.
+- **Outcome:** #1017 (board), plus a paperless-rs commit that is **committed
+  locally and BLOCKED from pushing** — the GitHub App has no access to
+  `AdaWorldAPI/paperless-rs` for this org, verified through both the session
+  proxy and a proxy-bypassed attempt.
 ## 2026-08-23 — autoattended R2IL wave: 4 Sonnet probe workers + 1 Sonnet scribe + 1 Opus synthesis + 1 Haiku guarded executor
 
 - **Why:** operator directive to run the pattern autonomously — "sonnet agents
