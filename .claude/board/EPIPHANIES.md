@@ -1,3 +1,60 @@
+## 2026-08-24 — E-GIT-SOURCED-CRATE-CANNOT-PATH-DEP-OUTSIDE-ITS-REPO-1 — `lance-graph-ogar`'s OGAR path deps could not resolve for ANY external `git` consumer; the "sibling-checkout" mental model does not survive a `git` dependency
+
+**Status:** FIX — [MEASURED] (verified: `cargo check` + `cargo test`
+green, 72+ lib tests including the codebook COUNT_FUSE, all under the new
+`git` deps).
+
+**Root cause, generic to every external consumer, not one project:**
+`crates/lance-graph-ogar/Cargo.toml` depended on five OGAR crates via
+`path = "../../../OGAR/crates/..."` — an escaping relative path,
+justified by a documented "operator policy (2026-07-07): NO PINS" note
+for this sandbox's local multi-repo layout. That policy is correct for a
+LOCAL build (this session, tesseract-rs CI's sibling-checkout precedent)
+but cannot survive `lance-graph-ogar` being pulled as a `git` dependency
+by ANY external repo (`some-consumer -> lance-graph-ogar` via
+`git = "https://github.com/AdaWorldAPI/lance-graph", branch = "main"`).
+Cargo clones a git-sourced crate into its own opaque checkout cache
+(`~/.cargo/git/checkouts/lance-graph-<hash>/<rev>/`); a `path =
+"../../../OGAR/..."` inside it resolves relative to THAT cache directory,
+which has no OGAR sibling — nothing ever puts one there, regardless of
+how fresh either repo is on GitHub or on the builder's disk. **A crate
+with an escaping path dependency cannot be consumed via `git` by any
+external repo, ever — this is a hard Cargo constraint, not a missing
+setup step, and it affects every one of `lance-graph-ogar`'s consumers
+identically**, not a single project's build. First checked "is OGAR
+stale?" and ruled it out: local `/home/user/OGAR` matched `origin/main`
+exactly, `ogar-loco` has been on `origin/main` since 2026-08-05
+(`89d0d3a9`).
+
+**Fix:** switched all five OGAR deps (`ogar-vocab`, `ogar-class-view`,
+`ogar-ontology`, `ogar-loco`, `ogar-adapter-surrealql`) from `path` to
+`git = "https://github.com/AdaWorldAPI/OGAR", branch = "main"`.
+Verified `cargo check`/`cargo test` green standalone (this crate owns its
+own `[workspace]` root); both git deps resolved to the identical rev
+(`#719471db`) already referenced by the existing `[patch]` section, so no
+new contract-source divergence was introduced. Tradeoff accepted
+explicitly: the 2026-07-07 policy's "always current sibling, no
+Cargo.lock pin" property is gone for this crate — a pin is now unavoidable
+for external consumability. Local/in-sandbox dev is unaffected (same
+public repo, still fetched/cached).
+
+**Known residue, NOT fixed here:** `symbiont` and `cognitive-stack`
+(named in the same superseded comment as sharing this pattern) carry the
+identical escaping-path shape and were left untouched — `symbiont` is
+separately marked deprecated/operator no-go; `cognitive-stack` is
+unaudited for external git-consumers. Tracked here so a future session
+does not assume this fix covers them.
+
+**Fences:** no behavior change to OGAR's contract surface, only the
+dependency SOURCE type; the `[patch]` section (already redirecting
+`ogar-class-view`'s transitive `lance-graph-contract` onto the path copy)
+is untouched and still correct, since patches redirect FROM a git source
+TO a path source — the broken direction was the reverse (a path
+dependency escaping a git-sourced crate), which `[patch]` cannot fix at
+all (path dependencies are not patchable).
+
+**Files:** `crates/lance-graph-ogar/Cargo.toml`.
+
 ## 2026-08-23 — E-ONE-RECEIPT-MANY-BORROWED-CONSUMERS-1 — the integration half of #1012: one versioned tokenization drives Tantivy, DeepNSM-v2 and a forward surface with zero re-tokenization, and the four gaps that stand between that and a carrier
 
 **Status:** FINDING — [MEASURED] (`PROBE-TOKEN-SEAM-1`, 37 gates, **13
