@@ -19,18 +19,26 @@ already documents for a denied repo.
 
 ## What is here
 
-`0001-token-seam.patch` — **both commits** (the seam probe, then the re-cut
-onto `ogar-doc-ir`) **minus the two corpus fixtures**,
-which are 350 KB of bytes that are exactly reproducible by two commands (below).
-Everything else — `crates/paperless-token/{src,examples,README.md,Cargo.toml}`,
-`docs/TOKEN-SEAM-ARCHITECTURE.md`, the root `Cargo.toml` wiring and the
-`CLAUDE.md` update — is in the patch verbatim.
+`0001-token-seam.patch` — **all four commits, minus the two corpus fixtures**,
+which are 350 KB of bytes exactly reproducible by two commands (below).
+Everything else is in the patch verbatim:
+`crates/paperless-token/{src,examples,README.md,Cargo.toml}`,
+`crates/paperless-intake/{src,Cargo.toml}`,
+`docs/TOKEN-SEAM-ARCHITECTURE.md`, the root `Cargo.toml` wiring, and the
+`CLAUDE.md` update.
+
+| # | commit | what it adds |
+|---|---|---|
+| 1 | `one tokenization receipt, three borrowed consumers` | the seam probe: contract, lane, view, the three consumer surfaces, 41 gates |
+| 2 | `re-cut the seam onto ogar-doc-ir` | the receipt mints no identity — `SpanKey` is read from the document layer's own IR |
+| 3 | `two measurement probes` | carrier width (flat u8 vs the 256:256 rail) and WordId vs TokenId in the tile |
+| 4 | `wire both retinas into intake` | `paperless-intake` stops being a stub: the S-2 gate in front of the DOM and pixel producers |
 
 ## Reconstruction
 
 ```sh
 git -C paperless-rs checkout -b claude/bpe-tokenization-architecture-3xd4eh
-git -C paperless-rs am 0001-token-seam.patch   # two commits
+git -C paperless-rs am 0001-token-seam.patch   # four commits
 
 # the two fixtures the patch deliberately omits:
 mkdir -p paperless-rs/crates/paperless-token/corpus
@@ -65,4 +73,22 @@ tables the epiphany quotes.
 
 Note the second commit adds an `ogar-doc-ir` dependency, so the reconstruction
 needs the workspace `Cargo.toml` from the patch (it is in there) and network
-access to the pinned OGAR rev.
+access to OGAR. That pair floats on `branch = "main"` rather than a rev, and
+the patch's own manifest comment says why: cargo does not unify a `branch` and
+a `rev` source even at the same commit, and two SourceIds for `ogar-doc-ir`
+means two incompatible `DocIr` types in one binary.
+
+`paperless-intake` compiles with `--features ocr` (the in-process recognizer)
+but NOT with `--features dom`: `spider_doc_ir` omits `TableCell::confidence`,
+a field `ogar-doc-ir` added after spider's only commit. That is an upstream
+break, recorded in full in `crates/paperless-intake/Cargo.toml`, not something
+the reconstruction did wrong.
+
+## This patch was verified, not assumed
+
+A banked patch that does not apply is not insurance. Checked before landing:
+`git am` of all four onto the base commit applies clean, and
+`cargo test -p paperless-intake -p paperless-kv` on the reconstructed tree is
+green (2 + 6 tests). The `paperless-token` probe is NOT part of that check —
+it needs the two corpus fixtures the patch deliberately omits, so run it only
+after the reconstruction step above.

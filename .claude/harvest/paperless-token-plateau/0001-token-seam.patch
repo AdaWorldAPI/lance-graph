@@ -1,7 +1,7 @@
 From b0e5e78307373503373c61c20046a900b272c1c0 Mon Sep 17 00:00:00 2001
 From: Claude <noreply@anthropic.com>
 Date: Sun, 23 Aug 2026 23:04:46 +0000
-Subject: [PATCH 1/2] =?UTF-8?q?one=20tokenization=20receipt,=20three=20bor?=
+Subject: [PATCH 1/4] =?UTF-8?q?one=20tokenization=20receipt,=20three=20bor?=
  =?UTF-8?q?rowed=20consumers=20=E2=80=94=20the=20seam=20probe?=
 MIME-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
@@ -3018,7 +3018,7 @@ index 0000000..5964c33
 From 4b1ec2a5b4d8f5543abb4c59ffd2428b37d7b602 Mon Sep 17 00:00:00 2001
 From: Claude <noreply@anthropic.com>
 Date: Sun, 23 Aug 2026 23:31:15 +0000
-Subject: [PATCH 2/2] re-cut the seam onto ogar-doc-ir: the receipt mints
+Subject: [PATCH 2/4] re-cut the seam onto ogar-doc-ir: the receipt mints
  nothing
 MIME-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
@@ -4152,6 +4152,1360 @@ index 5964c33..05a41dc 100644
  3. **G2 — the lawful lane.** `SoaEnvelope` or a tenant, with the receipt column
     layout designed against the measured 30–54 % framing overhead.
  4. **A real forward arm.** The seam supplies the input; whether representation
+-- 
+2.43.0
+
+
+From 070b93560795cc96c1782d100ac37b0dad58d098 Mon Sep 17 00:00:00 2001
+From: Claude <noreply@anthropic.com>
+Date: Sun, 23 Aug 2026 23:57:17 +0000
+Subject: [PATCH 3/4] two measurement probes: carrier width, and WordId vs
+ TokenId in the tile
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+Neither changes library code. Both are examples; all three probes still run and
+the seam probe is still 41/41. fmt + clippy -D warnings clean.
+
+PROBE-TILE-H2H-1 — flat u8 (255-cap, 12 per particle) vs the 256:256 rail token
+(u16, one per rail, 6 per particle). Same trainer, same corpora, same spans;
+only cap and packing differ. On alice-full (166 KB, 805 spans):
+
+  u8 :  table CAP-bound at 255,           ratio 1.95x, resident 87.6 KB
+  u16:  table 7 675 of 65 535 CORPUS-bound (88% of the tile free),
+        ratio 6.13x, resident 56.8 KB (-35%), 3.1x fewer tokens
+
+So the earlier "saturates at 75 KB" was a property of a cap the first cut
+invented, not of the corpus. kjv-scene lands identical under both caps (table
+198, corpus-bound below 255) — the sanity check that only the cap differs.
+H2H-SHAPE verifies a rail token is the same split/join arithmetic as
+deepnsm_v2::vocab on a u16, in a SEPARATE tile (nothing touches PaletteVocab).
+
+The trainer is a positions-list BPE (linked list + lazy heap); the naive
+full-pass form carried from #1012 is O(merges x stream) and unusable at a
+65 536 cap. Both widths use it, so the comparison is fair, and every span is
+validated by byte-exact decode rather than assumption.
+
+PROBE-WORDID-VS-TOKENID-1 — what each candidate puts INTO the tile, same corpus:
+
+  carrier            units  distinct  of its space  reconstruct  hi byte means
+  TokenId u8/255     85241       244        95.31%        EXACT  merge order
+  WordId (DeepNSM)   28104      1858         2.84%        67.7%  freq band
+  TokenId u16 rail   27134      6351         9.69%        EXACT  merge order
+  WordNet synset         -     65292        99.63%          n/a  ancestry
+
+Findings. (1) The rail token and WordId land on near-identical unit counts
+(27 134 vs 28 104) — at rail width a BPE token is about word-sized on this
+corpus, so they do not compete on granularity. (2) WordId recovers only 67.7%
+of source bytes; 32.3% is gone to case, punctuation, digits and sub-2-letter
+words. Not a defect — it is a semantic coordinate, never a codec — but it
+settles the carrier question: a WordId stream cannot be canonical. (3) Only
+WordNet puts meaning in the ADDRESS. TokenId's hi byte is merge order; WordId's
+is a frequency band; DeepNSM's actual meaning lives in the cam96 codebook,
+which is a separate structure from the id (and ABSENT here).
+
+WordNet's row is CITED, not re-measured: wordnetcode.princeton.edu is outside
+this environment's egress allowlist. Figures come from lance-graph's
+PROBE-WORDNET-44-ACTIVATION (5/5) with provenance at the print site. Worth
+noting: 65 292 noun leaves against a 65 536 tile is a 99.6% fit.
+
+Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>
+Claude-Session: https://claude.ai/code/session_01ArVbbq3DsToBM7r79zGeEf
+---
+ .../examples/probe_tile_head_to_head.rs       | 455 ++++++++++++++++++
+ .../examples/probe_wordid_vs_tokenid.rs       | 241 ++++++++++
+ 2 files changed, 696 insertions(+)
+ create mode 100644 crates/paperless-token/examples/probe_tile_head_to_head.rs
+ create mode 100644 crates/paperless-token/examples/probe_wordid_vs_tokenid.rs
+
+diff --git a/crates/paperless-token/examples/probe_tile_head_to_head.rs b/crates/paperless-token/examples/probe_tile_head_to_head.rs
+new file mode 100644
+index 0000000..0aebbcc
+--- /dev/null
++++ b/crates/paperless-token/examples/probe_tile_head_to_head.rs
+@@ -0,0 +1,455 @@
++//! `PROBE-TILE-H2H-1` — head-to-head: the flat 8-bit token id (255-cap, the
++//! first cut's invention) vs the **256:256 rail token** (`u16`, 65 536-cap,
++//! one token per `(hi:lo)` rail, six per 12-byte particle — the native V3
++//! reading, and byte-for-byte the same SHAPE as `DeepNSM`-v2's `WordId`).
++//!
++//! Separate tiles, same shape (operator ruling): a token id lives in its OWN
++//! 256×256 tile; `WordId` lives in `DeepNSM`'s. Nothing here touches
++//! `PaletteVocab` — the shape is shared, the space is not.
++//!
++//! Same trainer, same corpora, same span population. ONLY the cap and the
++//! packing differ, so any difference in the table is the carrier's.
++//!
++//! # Honesty box
++//! - The 8-bit side's "saturation at 75 KB" was an artifact of a cap the first
++//!   cut invented. This probe measures what the substrate's own width does on
++//!   the same bytes.
++//! - Cost is reported as merge/apply operation counts, never wall time.
++//! - The trainer here is a positions-list BPE (linked token list + lazy heap),
++//!   NOT the naive full-pass one carried from #1012 — the naive form is
++//!   O(merges × stream) and unusable at a 65 536 cap. Both widths use THIS
++//!   trainer, so the comparison stays fair; its output is validated by
++//!   byte-exact reconstruction, not assumed.
++
++#![allow(
++    clippy::many_single_char_names,
++    clippy::too_many_lines,
++    clippy::cast_precision_loss
++)]
++
++use std::collections::{BinaryHeap, HashMap};
++
++/// Dead-node marker in the linked token list.
++const DEAD: u32 = u32::MAX;
++
++#[derive(Clone, Copy)]
++enum Exp {
++    Base(u8),
++    Pair(u32, u32),
++}
++
++/// One trained table, id width = u32 internally, capped by `cap` (255 for the
++/// u8 carrier, `65_535` for the u16 rail carrier — one id reserved as PAD in
++/// each width).
++struct Bpe {
++    expand: Vec<Exp>,
++    base_of: HashMap<u8, u32>,
++    /// (left,right) -> merged id, in training order (rank = id).
++    ranks: HashMap<(u32, u32), u32>,
++    strings: Vec<Vec<u8>>,
++    hit_cap: bool,
++    apply_ops: usize,
++}
++
++impl Bpe {
++    fn train(corpus: &[u8], cap: usize) -> Self {
++        // Base alphabet.
++        let mut base_of: HashMap<u8, u32> = HashMap::new();
++        let mut expand: Vec<Exp> = Vec::new();
++        let mut strings: Vec<Vec<u8>> = Vec::new();
++        for &b in corpus {
++            base_of.entry(b).or_insert_with(|| {
++                expand.push(Exp::Base(b));
++                strings.push(vec![b]);
++                u32::try_from(expand.len() - 1).expect("alphabet fits")
++            });
++        }
++        // Linked token list.
++        let n = corpus.len();
++        let mut id: Vec<u32> = corpus.iter().map(|b| base_of[b]).collect();
++        let n32 = u32::try_from(n).expect("corpus fits u32");
++        let mut next: Vec<u32> = (1..=n32).collect();
++        let mut prev: Vec<u32> = (0..n32).map(|i| i.wrapping_sub(1)).collect();
++        if n > 0 {
++            next[n - 1] = DEAD;
++        }
++        // Pair counts, occurrence positions (left-node index), lazy max-heap.
++        let mut counts: HashMap<(u32, u32), i64> = HashMap::new();
++        let mut occ: HashMap<(u32, u32), Vec<u32>> = HashMap::new();
++        let mut heap: BinaryHeap<(i64, (u32, u32))> = BinaryHeap::new();
++        for i in 0..n.saturating_sub(1) {
++            let p = (id[i], id[i + 1]);
++            *counts.entry(p).or_default() += 1;
++            occ.entry(p)
++                .or_default()
++                .push(u32::try_from(i).expect("fits"));
++        }
++        for (&p, &c) in &counts {
++            heap.push((c, p));
++        }
++        let mut ranks: HashMap<(u32, u32), u32> = HashMap::new();
++        let mut apply_ops = 0usize;
++        let mut hit_cap = false;
++        loop {
++            if expand.len() >= cap {
++                hit_cap = true;
++                break;
++            }
++            // Pop until a live entry.
++            let Some((c, p)) = heap.pop() else { break };
++            if counts.get(&p).copied().unwrap_or(0) != c {
++                continue; // stale
++            }
++            if c < 2 {
++                break;
++            }
++            let new_id = u32::try_from(expand.len()).expect("bounded by cap");
++            expand.push(Exp::Pair(p.0, p.1));
++            let mut s = strings[p.0 as usize].clone();
++            s.extend_from_slice(&strings[p.1 as usize]);
++            strings.push(s);
++            ranks.insert(p, new_id);
++            counts.insert(p, 0);
++            let positions = occ.remove(&p).unwrap_or_default();
++            for i in positions {
++                apply_ops += 1;
++                let i = i as usize;
++                // Validate: node alive, still this pair.
++                if id[i] == DEAD || id[i] != p.0 {
++                    continue;
++                }
++                let j = next[i];
++                if j == DEAD || id[j as usize] != p.1 {
++                    continue;
++                }
++                let j = j as usize;
++                // Merge j into i.
++                let l = prev[i];
++                let r = next[j];
++                id[i] = new_id;
++                id[j] = DEAD;
++                next[i] = r;
++                if r != DEAD {
++                    prev[r as usize] = u32::try_from(i).expect("fits");
++                }
++                // Left neighbour pair updates.
++                if l != DEAD {
++                    let ol = (id[l as usize], p.0);
++                    let e = counts.entry(ol).or_default();
++                    *e -= 1;
++                    heap.push((*e, ol));
++                    let nl = (id[l as usize], new_id);
++                    let e = counts.entry(nl).or_default();
++                    *e += 1;
++                    heap.push((*e, nl));
++                    occ.entry(nl).or_default().push(l);
++                }
++                // Right neighbour pair updates.
++                if r != DEAD {
++                    let or_ = (p.1, id[r as usize]);
++                    let e = counts.entry(or_).or_default();
++                    *e -= 1;
++                    heap.push((*e, or_));
++                    let nr = (new_id, id[r as usize]);
++                    let e = counts.entry(nr).or_default();
++                    *e += 1;
++                    heap.push((*e, nr));
++                    occ.entry(nr)
++                        .or_default()
++                        .push(u32::try_from(i).expect("fits"));
++                }
++            }
++        }
++        Self {
++            expand,
++            base_of,
++            ranks,
++            strings,
++            hit_cap,
++            apply_ops,
++        }
++    }
++
++    /// Encode a span: repeatedly merge the lowest-rank adjacent pair present.
++    /// Returns `None` on a byte outside the trained alphabet.
++    fn encode(&self, src: &[u8], ops: &mut usize) -> Option<Vec<u32>> {
++        let mut s: Vec<u32> = Vec::with_capacity(src.len());
++        for b in src {
++            s.push(*self.base_of.get(b)?);
++        }
++        loop {
++            let mut best: Option<(u32, usize)> = None;
++            for k in 0..s.len().saturating_sub(1) {
++                *ops += 1;
++                if let Some(&r) = self.ranks.get(&(s[k], s[k + 1])) {
++                    if best.is_none_or(|(br, _)| r < br) {
++                        best = Some((r, k));
++                    }
++                }
++            }
++            let Some((rank, _)) = best else { break };
++            let (a, b) = match self.expand[rank as usize] {
++                Exp::Pair(a, b) => (a, b),
++                Exp::Base(_) => unreachable!("ranks map only holds pairs"),
++            };
++            let mut out = Vec::with_capacity(s.len());
++            let mut k = 0;
++            while k < s.len() {
++                if k + 1 < s.len() && s[k] == a && s[k + 1] == b {
++                    out.push(rank);
++                    k += 2;
++                } else {
++                    out.push(s[k]);
++                    k += 1;
++                }
++            }
++            s = out;
++        }
++        Some(s)
++    }
++
++    fn decode(&self, tokens: &[u32]) -> Vec<u8> {
++        let mut out = Vec::new();
++        let mut stack = Vec::new();
++        for &t in tokens {
++            stack.push(t);
++            while let Some(x) = stack.pop() {
++                match self.expand[x as usize] {
++                    Exp::Base(b) => out.push(b),
++                    Exp::Pair(a, b) => {
++                        stack.push(b);
++                        stack.push(a);
++                    }
++                }
++            }
++        }
++        out
++    }
++}
++
++/// One measured row.
++struct Row {
++    corpus: &'static str,
++    width: &'static str,
++    cap: usize,
++    table: usize,
++    hit_cap: bool,
++    tokens: usize,
++    ratio: f64,
++    particles: usize,
++    particle_bytes: usize,
++    uniq: usize,
++    max_surface: usize,
++    train_ops: usize,
++    enc_ops: usize,
++}
++
++fn paragraphs(raw: &str, max: usize) -> Vec<String> {
++    let raw = raw.trim_start_matches('\u{feff}').replace("\r\n", "\n");
++    let mut out = Vec::new();
++    for para in raw.split("\n\n") {
++        let p = para.split_whitespace().collect::<Vec<_>>().join(" ");
++        if p.len() < 40 {
++            continue;
++        }
++        out.push(p);
++        if out.len() >= max {
++            break;
++        }
++    }
++    out
++}
++
++fn run(corpus: &'static str, spans: &[String], width: &'static str, cap: usize, per: usize) -> Row {
++    let joined = spans.join("\n").into_bytes();
++    let t = Bpe::train(&joined, cap);
++    let mut tokens = 0usize;
++    let mut particles = 0usize;
++    let mut enc_ops = 0usize;
++    let mut uniq = std::collections::HashSet::new();
++    for s in spans {
++        let ids = t
++            .encode(s.as_bytes(), &mut enc_ops)
++            .expect("trained on this corpus");
++        assert_eq!(
++            t.decode(&ids),
++            s.as_bytes(),
++            "[FAIL] H2H-RECON {corpus}/{width}: span does not decode byte-exact"
++        );
++        tokens += ids.len();
++        particles += ids.len().div_ceil(per);
++        uniq.extend(ids.iter().copied());
++    }
++    let src: usize = spans.iter().map(String::len).sum();
++    Row {
++        corpus,
++        width,
++        cap,
++        table: t.expand.len(),
++        hit_cap: t.hit_cap,
++        tokens,
++        ratio: src as f64 / tokens as f64,
++        particles,
++        particle_bytes: particles * 12,
++        uniq: uniq.len(),
++        max_surface: uniq
++            .iter()
++            .map(|&i| t.strings[i as usize].len())
++            .max()
++            .unwrap_or(0),
++        train_ops: t.apply_ops,
++        enc_ops,
++    }
++}
++
++fn main() {
++    println!("PROBE-TILE-H2H-1 — flat u8 (255-cap) vs 256:256 rail token (u16, 65 536-cap)\n");
++
++    // ---- H2H-SHAPE: the rail token IS WordId's shape, in a separate tile ----
++    // Same split/join arithmetic as deepnsm_v2::vocab — proven by calling both
++    // on a sweep, not by asserting prose. Separate tiles: nothing in this probe
++    // constructs or consults a PaletteVocab.
++    for id in [0u16, 1, 0x00FF, 0x0100, 0x50AA, 0xFFFE] {
++        let (hi, lo) = ((id >> 8) as u8, (id & 0xFF) as u8);
++        assert_eq!(deepnsm_v2::vocab::split(id), (hi, lo), "shape drift");
++        assert_eq!(deepnsm_v2::vocab::join(hi, lo), id, "shape drift");
++    }
++    println!(
++        "  [PASS] H2H-SHAPE a rail token (hi:lo) and a DeepNSM WordId (basin:identity) are the \
++         SAME split/join arithmetic on a u16 — verified against deepnsm_v2::vocab::split/join \
++         on a sweep incl. both byte boundaries. Separate tiles: this probe never touches \
++         PaletteVocab, so the shape is shared and the space is not"
++    );
++
++    let kjv: Vec<String> = super_scene();
++    let alice300 = paragraphs(include_str!("../corpus/alice.txt"), 300);
++    let alice_full = paragraphs(include_str!("../corpus/alice.txt"), usize::MAX);
++    println!(
++        "\n  corpora: kjv-scene {} B / {} spans; alice-300 {} B / {} spans; alice-full {} B / {} spans\n",
++        kjv.iter().map(String::len).sum::<usize>(),
++        kjv.len(),
++        alice300.iter().map(String::len).sum::<usize>(),
++        alice300.len(),
++        alice_full.iter().map(String::len).sum::<usize>(),
++        alice_full.len()
++    );
++
++    let mut rows = Vec::new();
++    for (name, spans) in [
++        ("kjv-scene", &kjv),
++        ("alice-300", &alice300),
++        ("alice-full", &alice_full),
++    ] {
++        rows.push(run(name, spans, "u8/12per", 255, 12));
++        rows.push(run(name, spans, "u16/6per", 65_535, 6));
++    }
++
++    println!(
++        "{:<12} {:<9} {:>6} {:>7} {:>8} {:>8} {:>7} {:>6} {:>10} {:>7} {:>6} {:>11} {:>11}",
++        "corpus",
++        "carrier",
++        "cap",
++        "table",
++        "capped?",
++        "tokens",
++        "ratio",
++        "uniq",
++        "maxB/tok",
++        "part.",
++        "res.KB",
++        "train ops",
++        "enc ops"
++    );
++    for r in &rows {
++        println!(
++            "{:<12} {:<9} {:>6} {:>7} {:>8} {:>8} {:>7.2} {:>6} {:>10} {:>7} {:>6.1} {:>11} {:>11}",
++            r.corpus,
++            r.width,
++            r.cap,
++            r.table,
++            if r.hit_cap { "CAP" } else { "corpus" },
++            r.tokens,
++            r.ratio,
++            r.uniq,
++            r.max_surface,
++            r.particles,
++            r.particle_bytes as f64 / 1024.0,
++            r.train_ops,
++            r.enc_ops
++        );
++    }
++
++    // ---- H2H-SAT: who set the table size, the cap or the corpus? ----
++    let u8_alice = rows
++        .iter()
++        .find(|r| r.corpus == "alice-full" && r.width == "u8/12per")
++        .expect("row");
++    let u16_alice = rows
++        .iter()
++        .find(|r| r.corpus == "alice-full" && r.width == "u16/6per")
++        .expect("row");
++    assert!(
++        u8_alice.hit_cap,
++        "[FAIL] H2H-SAT: expected the u8 table to be cap-bound on alice-full"
++    );
++    assert!(
++        !u16_alice.hit_cap,
++        "[FAIL] H2H-SAT: expected the u16 table to be corpus-bound on alice-full"
++    );
++    println!(
++        "\n  [PASS] H2H-SAT on alice-full the u8 table is CAP-bound at {} while the u16 table \
++         stops at {} of 65 535 — the CORPUS set it (no adjacent pair repeats), with {:.1}% of \
++         the tile still free. The old \"saturates at 75 KB\" was the cap's property, not the \
++         corpus's",
++        u8_alice.table,
++        u16_alice.table,
++        100.0 * (65_535.0 - u16_alice.table as f64) / 65_535.0
++    );
++    let bytes_u8 = u8_alice.particle_bytes;
++    let bytes_u16 = u16_alice.particle_bytes;
++    println!(
++        "\n  resident particle bytes, alice-full: u8 {} vs u16 {} ({}) — six wider tokens per \
++         particle vs twelve narrower ones; the RATIO of surface covered per particle is what \
++         decides, and it is measured above, not assumed",
++        bytes_u8,
++        bytes_u16,
++        if bytes_u16 < bytes_u8 {
++            format!(
++                "u16 smaller by {:.1}%",
++                100.0 * (bytes_u8 - bytes_u16) as f64 / bytes_u8 as f64
++            )
++        } else {
++            format!(
++                "u16 LARGER by {:.1}%",
++                100.0 * (bytes_u16 - bytes_u8) as f64 / bytes_u8 as f64
++            )
++        }
++    );
++    println!("\nPROBE-TILE-H2H-1: measured; reconstruction byte-exact on every span, both widths");
++}
++
++/// The same KJV scene the seam probe uses, as spans.
++fn super_scene() -> Vec<String> {
++    [
++        "But of the tree of the knowledge of good and evil, thou shalt not eat of it: for in \
++         the day that thou eatest thereof thou shalt surely die.",
++        "And they were both naked, the man and his wife, and were not ashamed.",
++        "Now the serpent was more subtil than any beast of the field which the LORD God had \
++         made. And he said unto the woman, Yea, hath God said, Ye shall not eat of every tree \
++         of the garden?",
++        "And the serpent said unto the woman, Ye shall not surely die:",
++        "And when the woman saw that the tree was good for food, and that it was pleasant to \
++         the eyes, and a tree to be desired to make one wise, she took of the fruit thereof, \
++         and did eat, and gave also unto her husband with her; and he did eat.",
++        "And the eyes of them both were opened, and they knew that they were naked; and they \
++         sewed fig leaves together, and made themselves aprons.",
++        "And they heard the voice of the LORD God walking in the garden in the cool of the \
++         day: and Adam and his wife hid themselves from the presence of the LORD God amongst \
++         the trees of the garden.",
++        "And he said, I heard thy voice in the garden, and I was afraid, because I was naked; \
++         and I hid myself.",
++    ]
++    .iter()
++    .map(|s| (*s).to_string())
++    .collect()
++}
+diff --git a/crates/paperless-token/examples/probe_wordid_vs_tokenid.rs b/crates/paperless-token/examples/probe_wordid_vs_tokenid.rs
+new file mode 100644
+index 0000000..8f07621
+--- /dev/null
++++ b/crates/paperless-token/examples/probe_wordid_vs_tokenid.rs
+@@ -0,0 +1,241 @@
++//! `PROBE-WORDID-VS-TOKENID-1` — side by side: what does each candidate put
++//! INTO the 256:256 tile, and what does it cost you?
++//!
++//! Three candidates want the same two bytes. They are not variants of one
++//! thing; they differ in what the ADDRESS means and in what you can get back.
++//!
++//! | | the hi byte means | reconstruction |
++//! |---|---|---|
++//! | `WordId` (`DeepNSM`-v2) | frequency band | LOSSY — measured below |
++//! | `TokenId` (BPE rail) | merge order (nothing) | EXACT — measured below |
++//! | `WordNet` synset | taxonomic ancestry | n/a — not a tokenization |
++//!
++//! Separate tiles, same shape (operator ruling). This probe measures the first
++//! two on identical spans. The third is CITED, not re-measured: `WordNet`'s
++//! source host is outside this environment's network egress allowlist
++//! (`Host not in allowlist: wordnetcode.princeton.edu`), so the corpus cannot
++//! be fetched here — but lance-graph already measured it
++//! (`PROBE-WORDNET-44-ACTIVATION`, 5/5) and those numbers are quoted with
++//! their provenance rather than re-derived.
++//!
++//! # Honesty box
++//! - `PaletteVocab` is loaded from the committed COCA projection; the trained
++//!   `cam96` codebook is ABSENT, so `DeepNSM`'s SEMANTIC DISTANCE is not
++//!   exercised. What is measured is the id space and the round trip.
++//! - The `WordId` round trip joins surviving words with single spaces. That is
++//!   the most favourable reconstruction available — the normalisation genuinely
++//!   discards case, punctuation and short words, so a kinder join cannot exist.
++//! - No claim is made about which is "better". They answer different questions.
++
++// A probe is one linear argument: splitting `main` into helpers hides the order
++// the measurements run in, which is what a reader checks.
++#![allow(
++    clippy::many_single_char_names,
++    clippy::cast_precision_loss,
++    clippy::too_many_lines
++)]
++
++use std::collections::{HashMap, HashSet};
++
++use deepnsm_v2::PaletteVocab;
++use paperless_token::contract::{NormRule, TokenizerContract};
++
++/// `WordNet`, quoted from `PROBE-WORDNET-44-ACTIVATION` (lance-graph, 5/5 gates).
++/// Not re-measured here: the corpus host is outside the egress allowlist.
++const WORDNET_SYNSETS: usize = 82_192;
++const WORDNET_LEAVES: usize = 65_292;
++const WORDNET_BAND_RECALL: f64 = 0.763;
++const WORDNET_RANDOM_RECALL: f64 = 0.031;
++
++/// The 256:256 rail carrier on this same corpus, from `PROBE-TILE-H2H-1`.
++/// Cited, not re-trained here — see the note at the print site.
++const RAIL_UNITS: usize = 27_134;
++const RAIL_DISTINCT: usize = 6_351;
++
++/// The `DeepNSM` lexical rule, from its own consumers.
++fn normalise(tok: &str) -> Option<String> {
++    let w: String = tok
++        .chars()
++        .filter(char::is_ascii_alphabetic)
++        .collect::<String>()
++        .to_lowercase();
++    (w.len() >= 2).then_some(w)
++}
++
++fn paragraphs(raw: &str, max: usize) -> Vec<String> {
++    let raw = raw.trim_start_matches('\u{feff}').replace("\r\n", "\n");
++    let mut out = Vec::new();
++    for para in raw.split("\n\n") {
++        let p = para.split_whitespace().collect::<Vec<_>>().join(" ");
++        if p.len() >= 40 {
++            out.push(p);
++        }
++        if out.len() >= max {
++            break;
++        }
++    }
++    out
++}
++
++fn main() {
++    println!("PROBE-WORDID-VS-TOKENID-1 — what goes in the 256:256 tile\n");
++
++    // ---- vocabulary (committed COCA projection) ----
++    let tsv = include_str!("../corpus/coca_academic_20k.tsv");
++    let mut vocab = PaletteVocab::new();
++    let words: Vec<&str> = tsv
++        .lines()
++        .filter_map(|l| l.split('\t').next())
++        .filter(|w| !w.is_empty())
++        .collect();
++    vocab.from_frequency_ranked(words);
++
++    let spans = paragraphs(include_str!("../corpus/alice.txt"), usize::MAX);
++    let src_bytes: usize = spans.iter().map(String::len).sum();
++
++    // ---- TokenId arm: BPE over the 256:256 rail tile ----
++    let joined = spans.join("\n").into_bytes();
++    let contract = TokenizerContract::train(&joined, NormRule::Identity);
++    let mut tok_units = 0usize;
++    let mut tok_ids: HashSet<u8> = HashSet::new();
++    let mut tok_exact = true;
++    for s in &spans {
++        let (ids, _) = contract.try_encode(s.as_bytes()).expect("trained");
++        if contract.decode(&ids).0 != s.as_bytes() {
++            tok_exact = false;
++        }
++        tok_units += ids.len();
++        tok_ids.extend(ids.iter().copied());
++    }
++
++    // ---- WordId arm: the same spans through DeepNSM's own lexical rule ----
++    let mut word_units = 0usize;
++    let mut word_resolved = 0usize;
++    let mut word_ids: HashSet<u16> = HashSet::new();
++    let mut basins: HashSet<u8> = HashSet::new();
++    let mut recovered_bytes = 0usize;
++    let mut oov: HashMap<String, usize> = HashMap::new();
++    for s in &spans {
++        let mut rebuilt: Vec<&str> = Vec::new();
++        for t in s.split_whitespace() {
++            let Some(w) = normalise(t) else { continue };
++            word_units += 1;
++            if let Some(id) = vocab.id(&w) {
++                word_resolved += 1;
++                word_ids.insert(id);
++                basins.insert(deepnsm_v2::vocab::split(id).0);
++                rebuilt.push(vocab.word(id).expect("just resolved"));
++            } else {
++                *oov.entry(w).or_default() += 1;
++            }
++        }
++        // The kindest possible round trip: surviving words, single-spaced.
++        recovered_bytes += rebuilt.join(" ").len();
++    }
++
++    println!(
++        "corpus: alice-full, {} spans, {} source bytes\n",
++        spans.len(),
++        src_bytes
++    );
++    println!(
++        "{:<16} {:>9} {:>9} {:>12} {:>13} {:>11}",
++        "carrier", "units", "distinct", "of its space", "reconstruct", "hi byte =",
++    );
++    println!(
++        "{:<16} {:>9} {:>9} {:>11.2}% {:>13} {:>11}",
++        "TokenId u8/255",
++        tok_units,
++        tok_ids.len(),
++        100.0 * tok_ids.len() as f64 / 256.0,
++        if tok_exact { "EXACT" } else { "BROKEN" },
++        "merge order",
++    );
++    println!(
++        "{:<16} {:>9} {:>9} {:>11.2}% {:>12.1}% {:>11}",
++        "WordId (DeepNSM)",
++        word_units,
++        word_ids.len(),
++        100.0 * word_ids.len() as f64 / 65_536.0,
++        100.0 * recovered_bytes as f64 / src_bytes as f64,
++        "freq band",
++    );
++    // The rail carrier's row is CITED from PROBE-TILE-H2H-1 rather than
++    // re-trained here: this crate's `contract.rs` is still the u8 carrier, and
++    // scoring a u8 vocabulary against a 65 536 tile is the wrong-quantity
++    // mistake. Provenance is explicit so the cell cannot be read as measured
++    // here.
++    println!(
++        "{:<16} {:>9} {:>9} {:>11.2}% {:>13} {:>11}",
++        "TokenId u16 rail",
++        RAIL_UNITS,
++        RAIL_DISTINCT,
++        100.0 * RAIL_DISTINCT as f64 / 65_536.0,
++        "EXACT",
++        "merge order",
++    );
++    println!(
++        "{:<16} {:>9} {:>9} {:>11.2}% {:>13} {:>11}",
++        "WordNet synset",
++        "-",
++        WORDNET_LEAVES,
++        100.0 * WORDNET_LEAVES as f64 / 65_536.0,
++        "n/a",
++        "ancestry",
++    );
++
++    let lost = src_bytes - recovered_bytes;
++    println!(
++        "\nWordId round trip: {} of {} source bytes recover ({:.1}%); {} bytes ({:.1}%) are \
++         GONE — case, punctuation, digits and every sub-2-letter word. {} of {} lexical units \
++         resolved ({:.1}% OOV). This is not a defect: DeepNSM's id is a SEMANTIC coordinate \
++         and was never a codec. But it means a WordId stream cannot be the canonical carrier — \
++         you cannot get the document back from it.",
++        recovered_bytes,
++        src_bytes,
++        100.0 * recovered_bytes as f64 / src_bytes as f64,
++        lost,
++        100.0 * lost as f64 / src_bytes as f64,
++        word_resolved,
++        word_units,
++        100.0 * (word_units - word_resolved) as f64 / word_units as f64,
++    );
++    println!(
++        "\nTokenId round trip: byte-exact on every span. At the 256:256 rail the tile is \
++         {:.1}% EMPTY ({} ids used of 65 536) — the corpus, not the cap, set that. But its hi byte is merge \
++         order: two ids sharing a basin share NOTHING semantic, so address adjacency in this \
++         tile is not a search prior.",
++        100.0 * (65_536.0 - RAIL_DISTINCT as f64) / 65_536.0,
++        RAIL_DISTINCT,
++    );
++    println!(
++        "\nWordId basins actually occupied: {} of 256. The hi byte is the FREQUENCY band, so \
++         basin adjacency means 'similar corpus frequency' — which is not semantic adjacency \
++         either. DeepNSM gets its meaning from the trained cam96 codebook, which is ABSENT \
++         here and is a SEPARATE structure from the id.",
++        basins.len(),
++    );
++    println!(
++        "\nWordNet, CITED not re-measured (host outside this environment's egress allowlist; \
++         lance-graph PROBE-WORDNET-44-ACTIVATION 5/5): {} noun synsets, {} leaves — {:.1}% of \
++         a 65 536 tile, a near-exact fit. Folded to 4^4 = 256 cells, ancestry-band recall is \
++         {:.3} vs {:.3} random = {:.1}x. That is the ONLY one of the three whose ADDRESS \
++         carries meaning: prefix = ancestor, by construction rather than by training.",
++        WORDNET_SYNSETS,
++        WORDNET_LEAVES,
++        100.0 * WORDNET_LEAVES as f64 / 65_536.0,
++        WORDNET_BAND_RECALL,
++        WORDNET_RANDOM_RECALL,
++        WORDNET_BAND_RECALL / WORDNET_RANDOM_RECALL,
++    );
++    let mut top: Vec<(&String, &usize)> = oov.iter().collect();
++    top.sort_by(|a, b| b.1.cmp(a.1).then(a.0.cmp(b.0)));
++    println!(
++        "\ntop OOV against the academic vocabulary: {}",
++        top.iter()
++            .take(12)
++            .map(|(w, c)| format!("{w}({c})"))
++            .collect::<Vec<_>>()
++            .join(" ")
++    );
++}
+-- 
+2.43.0
+
+
+From 4a3db4e393781d75dc0253b0f4ab7680c103ea20 Mon Sep 17 00:00:00 2001
+From: Claude <noreply@anthropic.com>
+Date: Mon, 24 Aug 2026 00:24:15 +0000
+Subject: [PATCH 4/4] wire both retinas into intake: hash before you spend, one
+ shape out
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+`paperless-intake` was a stub that existed only to exercise the [patch]
+chain. It is now the S-2 gate in front of the two producers that already
+emit `ogar_doc_ir::DocIr`, and it writes no producer of its own.
+
+Three entry points, each hashing BEFORE it touches a retina:
+
+  ingest_html     DOM   spider_doc_ir::harvest          (feature `dom`)
+  ingest_doc_v1   pixel ogar_from_docv1::from_doc_v1    (always)
+  ingest_image    pixel OcrExecutor -> doc.v1 -> above  (feature `ocr`)
+
+S-2 says dedup precedes recognition SPEND, and that is a per-entry-point
+property — so each leg proves it separately, with an input the retina
+itself would reject. `a_duplicate_never_reaches_the_doc_v1_seam` feeds
+`}{ not json`; landing on Duplicate can only mean the gate answered
+first. Disable-verified: moving the seam ahead of the short-circuit
+turns it red, and the paired novel-input assertion stops it passing for
+the wrong reason.
+
+Identity is READ, never minted. `spider_doc_ir::harvest` hashes
+`content.as_bytes()`; `preflight` hashes the same bytes; the DOM test
+asserts the two agree rather than assuming it. The pixel leg hashes the
+IMAGE, not the JSON, so two renderings of one scan are one document.
+
+The `ocr` leg is off by default because the doc.v1 leg converts JSON
+from any producer with no recognizer dependency at all — pulling
+tesseract (and ndarray under it) into a consumer that ingests web pages
+is a real cost for nothing. It compiles and lints clean when enabled.
+
+The `dom` leg is off for a worse reason, stated in full in the manifest:
+`spider_doc_ir` does not compile against `ogar-doc-ir` main. It omits
+`TableCell::confidence`, added upstream after spider's only commit, and
+spider floats on `branch = "main"` — so it broke the moment the field
+landed and nothing builds the pair to notice. One line fixes it
+upstream; this session cannot push there. Nothing here works around it,
+because working around a broken producer is how two IRs diverge.
+
+The workspace manifest floats the doc-IR pair on `main`, deviating from
+its own no-branch-refs rule and saying so. cargo does not unify a
+`branch` and a `rev` source even at the same commit (measured: two
+ogar-doc-ir entries, identical #719471db), and two SourceIds means two
+DocIr TYPES — which defeats a source-agnostic IR entirely.
+
+Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>
+Claude-Session: https://claude.ai/code/session_01ArVbbq3DsToBM7r79zGeEf
+---
+ Cargo.toml                         |  23 +-
+ crates/paperless-intake/Cargo.toml |  58 +++-
+ crates/paperless-intake/src/lib.rs | 411 ++++++++++++++++++++++++++++-
+ 3 files changed, 489 insertions(+), 3 deletions(-)
+
+diff --git a/Cargo.toml b/Cargo.toml
+index 4908d38..f984218 100644
+--- a/Cargo.toml
++++ b/Cargo.toml
+@@ -60,7 +60,28 @@ ogar-vocab = { git = "https://github.com/AdaWorldAPI/OGAR", rev = "70296bec67d1a
+ # span addressing. The token seam consumes it rather than minting a parallel
+ # `source_id`/`span_id`. Default features only: `classview` is OFF, so this
+ # edge stays serde-only and pulls no canon dependency.
+-ogar-doc-ir = { git = "https://github.com/AdaWorldAPI/OGAR", rev = "70296bec67d1a5db99dd3fa92a532ba060eb0838" }
++# ⚠ DELIBERATE DEVIATION from this file's own "branch refs are forbidden" rule,
++# for the doc-IR pair ONLY. `spider_doc_ir` declares
++# `ogar-doc-ir = { branch = "main" }`, and cargo does NOT unify a `branch` and a
++# `rev` source even when both resolve to the SAME commit (measured: two
++# `ogar-doc-ir` entries in Cargo.lock, identical `#719471db` suffix). Two
++# SourceIds means two `DocIr` TYPES in one binary, so `spider_doc_ir::harvest`'s
++# output could not be handed to `ogar_from_docv1`'s consumer — which defeats the
++# entire point of a source-agnostic IR.
++#
++# Floating is the lesser evil here, and the drift protection is STRUCTURAL
++# rather than a pin: `ogar_doc_ir::from_json` hard-fails on an off-vocabulary
++# `RegionKind` or a `DOC_IR_VERSION` that is not `doc.v1`. That gate catches
++# SEMANTIC drift, which a rev pin cannot. spider floats for the same reason and
++# says so in its own manifest.
++ogar-doc-ir = { git = "https://github.com/AdaWorldAPI/OGAR", branch = "main" }
++# The PIXEL retina's adapter: tesseract's `doc.v1` JSON -> `DocIr`. serde-only,
++# so this edge costs nothing; note it does NOT pull tesseract itself — a caller
++# that already has doc.v1 from anywhere converts without an OCR dependency.
++ogar-from-docv1 = { git = "https://github.com/AdaWorldAPI/OGAR", branch = "main" }
++# The DOM retina: HTML -> `DocIr`, one function, `lol_html` + `sha2`. Merged in
++# the spider fork; a web page and a scan therefore land as ONE shape.
++spider_doc_ir = { git = "https://github.com/AdaWorldAPI/spider", branch = "main" }
+ lance-graph-contract = { git = "https://github.com/AdaWorldAPI/lance-graph", rev = "51c54faef235454401c6a7461ea05929c19f2140" }
+ # The semantic consumer of the token seam. Standalone crate (its own empty
+ # `[workspace]` table) inside the same checkout; only dep is the contract crate
+diff --git a/crates/paperless-intake/Cargo.toml b/crates/paperless-intake/Cargo.toml
+index 4527cbe..6c7132c 100644
+--- a/crates/paperless-intake/Cargo.toml
++++ b/crates/paperless-intake/Cargo.toml
+@@ -9,4 +9,60 @@ repository.workspace = true
+ 
+ [dependencies]
+ paperless-kv = { path = "../paperless-kv" }
+-tesseract-ogar.workspace = true
++
++# The one shape both retinas produce.
++ogar-doc-ir.workspace = true
++
++# The PIXEL retina's adapter. serde-only, and it does NOT pull tesseract: a
++# caller holding doc.v1 from anywhere converts with no OCR dependency.
++ogar-from-docv1.workspace = true
++
++# The DOM retina. OPTIONAL and OFF by default — not by preference but because
++# it does not currently compile: see the `dom` feature below.
++spider_doc_ir = { workspace = true, optional = true }
++
++# Running the pixel retina IN-PROCESS is optional. Default OFF: the doc.v1 leg
++# converts JSON from any producer without an OCR dependency at all, and pulling
++# the recognizer (and ndarray under it) into every consumer that only needs to
++# ingest a web page would be a real cost for nothing.
++tesseract-ogar = { workspace = true, optional = true }
++
++[features]
++default = []
++
++# Run the pixel retina IN-PROCESS. Off by default: pulling the recognizer (and
++# `ndarray` beneath it) into a consumer that only converts doc.v1 is a real
++# cost for nothing.
++ocr = ["dep:tesseract-ogar"]
++
++# The DOM retina (`spider_doc_ir::harvest`). OFF because it is BROKEN UPSTREAM,
++# not because it is unwanted:
++#
++#   error[E0063]: missing field `confidence` in initializer of `TableCell`
++#     --> spider_doc_ir/src/lib.rs:145
++#
++# `spider_doc_ir` was merged 2026-07-14 and has not been touched since;
++# `ogar-doc-ir` later added `TableCell::confidence` (a fail-closed `0` default,
++# so an OCR cell of 95 and 40 reports 40 and routes to review). spider declares
++# `ogar-doc-ir = { branch = "main" }`, so it broke the moment that field landed
++# — and nothing builds the pair, so nothing noticed. The fix is one line in
++# spider (`confidence: 0`, which is exactly the documented fail-closed default
++# for a producer that has no per-cell signal); this session cannot push there.
++#
++# The lesson is worth more than the fix: a floating branch dep with no CI that
++# exercises it is drift with NO detector. `ogar-doc-ir`'s closed vocabulary and
++# version marker guard the DATA shape at runtime; neither can see a struct
++# field added at compile time.
++dom = ["dep:spider_doc_ir"]
++
++[dev-dependencies]
++# The tests construct a `DocumentGuid`, which wraps a `FacetCascade`.
++lance-graph-contract.workspace = true
++
++[lints.rust]
++unsafe_code = "forbid"
++missing_docs = "warn"
++
++[lints.clippy]
++all = { level = "deny", priority = -1 }
++pedantic = { level = "warn", priority = -1 }
+diff --git a/crates/paperless-intake/src/lib.rs b/crates/paperless-intake/src/lib.rs
+index 2feaf37..35153be 100644
+--- a/crates/paperless-intake/src/lib.rs
++++ b/crates/paperless-intake/src/lib.rs
+@@ -1 +1,410 @@
+-//! Intake stub — exists to prove the [patch] wiring resolves.
++//! Intake: raw bytes → the S-2 gate → a retina → one `DocIr`.
++//!
++//! ```text
++//!   HASH BEFORE YOU SPEND.  TWO RETINAS, ONE SHAPE.
++//! ```
++//!
++//! # The two retinas, and why neither is written here
++//!
++//! Both already exist and both already emit [`ogar_doc_ir::DocIr`]:
++//!
++//! | retina | producer | this crate calls |
++//! |---|---|---|
++//! | DOM (a web page) | `spider_doc_ir` (`AdaWorldAPI/spider`) | `ingest_html` (feature `dom`) |
++//! | pixel (a scan) | tesseract-rs → `doc.v1` → `ogar-from-docv1` | [`ingest_doc_v1`] |
++//!
++//! ⚠ The DOM leg is behind the OFF-by-default `dom` feature because
++//! `spider_doc_ir` does not currently compile against `ogar-doc-ir` main — it
++//! omits `TableCell::confidence`, a field added upstream after spider's only
++//! commit (2026-07-14). One line upstream fixes it; the manifest carries the
++//! detail. Nothing here works around it, because working around a broken
++//! producer is how two IRs start diverging.
++//!
++//! So intake's job is not to build a producer. It is to run the **gate** in
++//! front of them, hand back one shape, and be honest about which retina
++//! produced it — which [`DocIr::source`] already records
++//! ([`ogar_doc_ir::Provenance`]), so nothing here has to track it separately.
++//!
++//! # The pixel retina has two legs, and the split is deliberate
++//!
++//! [`ingest_doc_v1`] takes `doc.v1` JSON from ANY producer and needs no OCR
++//! dependency at all. [`ingest_image`] runs the recognizer in-process and is
++//! behind the **off-by-default `ocr` feature**, because pulling the recognizer
++//! (and `ndarray` beneath it) into a consumer that only ingests web pages is a
++//! real cost for nothing.
++//!
++//! # The gate runs FIRST, and that is the whole point of S-2
++//!
++//! `OGAR-DOC-INGESTION-SPINE` S-2: dedup must precede recognition SPEND. Every
++//! entry point here hashes and asks the index *before* touching a retina —
++//! [`ingest_image`] especially, where the retina is the expensive one. A
++//! duplicate costs a hash and a lookup. The gate matches BOTH the original and
++//! derived-artifact hashes (S-2's second half), which [`paperless_kv::preflight`]
++//! already implements.
++//!
++//! # What `content_sha256` means, stated because the IR's own docs correct
++//! their plan on it
++//!
++//! It is the hash of the ORIGINAL bytes — a **per-acquisition dedup key**, not
++//! a cross-retina identity. The same invoice as a scan and as HTML has
++//! different bytes and therefore different hashes; cross-retina convergence is
++//! a facts question (`ogar_doc_ir::converges_on_facts`). Per-acquisition is
++//! exactly what a dedup gate wants, so the two agree here rather than merely
++//! coexisting: `spider_doc_ir::harvest` hashes `content.as_bytes()`, which is
++//! the same hash [`paperless_kv::preflight`] computes over the same bytes —
++//! asserted, not assumed (see `dom_identity_matches_the_gate`).
++
++#![forbid(unsafe_code)]
++
++use ogar_doc_ir::DocIr;
++use paperless_kv::{ContentSha256, DedupIndex, MatchedOn, Verdict};
++
++/// What one intake attempt produced.
++#[derive(Debug, Clone)]
++pub enum Ingested {
++    /// The gate matched. No retina ran.
++    Duplicate {
++        /// The hash that matched.
++        hash: ContentSha256,
++        /// Which stored hash it matched — original bytes, or a derived
++        /// artifact (S-2's second half).
++        matched: MatchedOn,
++    },
++    /// Novel bytes; a retina ran and produced one shape.
++    Novel {
++        /// The per-acquisition dedup key.
++        hash: ContentSha256,
++        /// The perceptual IR. [`DocIr::source`] says which retina.
++        ir: Box<DocIr>,
++    },
++}
++
++impl Ingested {
++    /// The IR, if a retina ran.
++    #[must_use]
++    pub fn ir(&self) -> Option<&DocIr> {
++        match self {
++            Self::Novel { ir, .. } => Some(ir),
++            Self::Duplicate { .. } => None,
++        }
++    }
++
++    /// The hash either way — a duplicate still has an identity.
++    #[must_use]
++    pub const fn hash(&self) -> &ContentSha256 {
++        match self {
++            Self::Novel { hash, .. } | Self::Duplicate { hash, .. } => hash,
++        }
++    }
++}
++
++/// Why an intake attempt failed.
++#[derive(Debug)]
++pub enum IntakeError {
++    /// The DOM retina needs UTF-8; these bytes are not.
++    #[cfg(feature = "dom")]
++    NotUtf8(core::str::Utf8Error),
++    /// The pixel retina's adapter refused the JSON — malformed, wrong schema,
++    /// or a region kind outside the closed vocabulary. Fail-loud is the point:
++    /// a producer that drifts is caught at the seam.
++    DocV1(ogar_from_docv1::FromDocV1Error),
++    /// The recognizer refused the page (`ocr` feature only).
++    #[cfg(feature = "ocr")]
++    Ocr(tesseract_ogar::OcrExecError),
++    /// The recognizer answered, but not with a document (`ocr` feature only).
++    /// Structurally unreachable for a `RecognizeDocument` request; kept
++    /// because an enum match that cannot fail is a claim, not a guarantee.
++    #[cfg(feature = "ocr")]
++    NotADocument,
++}
++
++impl core::fmt::Display for IntakeError {
++    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
++        match self {
++            #[cfg(feature = "dom")]
++            Self::NotUtf8(e) => write!(f, "the DOM retina needs UTF-8: {e}"),
++            Self::DocV1(e) => write!(f, "doc.v1 refused at the seam: {e}"),
++            #[cfg(feature = "ocr")]
++            Self::Ocr(e) => write!(f, "recognition failed: {e:?}"),
++            #[cfg(feature = "ocr")]
++            Self::NotADocument => {
++                write!(f, "the recognizer returned a non-document response")
++            }
++        }
++    }
++}
++
++impl std::error::Error for IntakeError {}
++
++/// DOM retina: an HTML page → one `DocIr`, gated.
++///
++/// # Errors
++/// [`IntakeError::NotUtf8`] if the bytes are not UTF-8.
++#[cfg(feature = "dom")]
++pub fn ingest_html<I: DedupIndex>(bytes: &[u8], index: &I) -> Result<Ingested, IntakeError> {
++    let (hash, verdict) = paperless_kv::preflight(bytes, index);
++    if let Verdict::Duplicate { matched } = verdict {
++        return Ok(Ingested::Duplicate { hash, matched });
++    }
++    let html = core::str::from_utf8(bytes).map_err(IntakeError::NotUtf8)?;
++    Ok(Ingested::Novel {
++        hash,
++        ir: Box::new(spider_doc_ir::harvest(html)),
++    })
++}
++
++/// Pixel retina, JSON leg: `doc.v1` from any producer → one `DocIr`, gated.
++///
++/// `source_bytes` are the ORIGINAL image bytes — what the gate hashes and what
++/// the IR's identity is taken over. The JSON is a rendition of them, so
++/// hashing the JSON instead would make two renderings of one scan look like
++/// two documents.
++///
++/// # Errors
++/// [`IntakeError::DocV1`] if the JSON is malformed, carries the wrong schema
++/// marker, or names a region kind outside the closed vocabulary.
++pub fn ingest_doc_v1<I: DedupIndex>(
++    source_bytes: &[u8],
++    doc_v1_json: &str,
++    mime: &str,
++    index: &I,
++) -> Result<Ingested, IntakeError> {
++    let (hash, verdict) = paperless_kv::preflight(source_bytes, index);
++    if let Verdict::Duplicate { matched } = verdict {
++        return Ok(Ingested::Duplicate { hash, matched });
++    }
++    let ir = ogar_from_docv1::from_doc_v1(doc_v1_json, hash.0, mime).map_err(IntakeError::DocV1)?;
++    Ok(Ingested::Novel {
++        hash,
++        ir: Box::new(ir),
++    })
++}
++
++/// Pixel retina, full leg: a grey page → recognition → `doc.v1` → one `DocIr`,
++/// gated. Behind the off-by-default `ocr` feature.
++///
++/// The gate runs before the executor is touched, so a duplicate page costs a
++/// hash and a lookup rather than a recognition pass. That ordering is the
++/// reason S-2 exists and it is asserted, not assumed
++/// (see `duplicate_never_reaches_the_retina`).
++///
++/// # Errors
++/// [`IntakeError::Ocr`] if recognition fails, [`IntakeError::NotADocument`] if
++/// the executor answers with another response shape, [`IntakeError::DocV1`] if
++/// its own `doc.v1` does not pass the seam.
++#[cfg(feature = "ocr")]
++pub fn ingest_image<I: DedupIndex>(
++    grey: &[u8],
++    width: usize,
++    height: usize,
++    mime: &str,
++    executor: &tesseract_ogar::OcrExecutor,
++    index: &I,
++) -> Result<Ingested, IntakeError> {
++    use tesseract_ogar::{BinarizeMode, OcrRequest, OcrResponse};
++
++    let (hash, verdict) = paperless_kv::preflight(grey, index);
++    if let Verdict::Duplicate { matched } = verdict {
++        return Ok(Ingested::Duplicate { hash, matched });
++    }
++    let resp = executor
++        .execute(OcrRequest::RecognizeDocument {
++            grey,
++            width,
++            height,
++            with_dict: false,
++            harvest_profile: None,
++            binarize: BinarizeMode::default(),
++        })
++        .map_err(IntakeError::Ocr)?;
++    let OcrResponse::DocumentOut { doc_json, .. } = resp else {
++        return Err(IntakeError::NotADocument);
++    };
++    let ir = ogar_from_docv1::from_doc_v1(&doc_json, hash.0, mime).map_err(IntakeError::DocV1)?;
++    Ok(Ingested::Novel {
++        hash,
++        ir: Box::new(ir),
++    })
++}
++
++#[cfg(test)]
++mod tests {
++    use super::*;
++    use paperless_kv::DocumentGuid;
++    use std::cell::Cell;
++
++    /// An index that knows nothing.
++    struct Empty;
++    impl DedupIndex for Empty {
++        fn look_up(&self, _: &ContentSha256) -> Option<(DocumentGuid, MatchedOn)> {
++            None
++        }
++    }
++
++    /// An index that has seen everything, and counts how often it was asked.
++    struct SeenAll {
++        asked: Cell<usize>,
++        matched: MatchedOn,
++    }
++    impl DedupIndex for SeenAll {
++        fn look_up(&self, _: &ContentSha256) -> Option<(DocumentGuid, MatchedOn)> {
++            self.asked.set(self.asked.get() + 1);
++            Some((
++                DocumentGuid(lance_graph_contract::facet::FacetCascade::default()),
++                self.matched,
++            ))
++        }
++    }
++
++    /// The DOM fixture. Gated with its tests: without `dom` nothing reads it,
++    /// and an unused-const warning in the DEFAULT build would be noise a real
++    /// warning could hide behind.
++    #[cfg(feature = "dom")]
++    const PAGE: &str = "<html><body><header>Acme GmbH</header><main>Invoice body text \
++                        here</main><footer>Seite 1</footer></body></html>";
++
++    #[cfg(feature = "dom")]
++    #[test]
++    fn dom_retina_produces_one_shape() {
++        let out = ingest_html(PAGE.as_bytes(), &Empty).expect("utf-8");
++        let ir = out.ir().expect("novel");
++        assert_eq!(ir.source, ogar_doc_ir::Provenance::Dom);
++        assert_eq!(ir.version, ogar_doc_ir::DOC_IR_VERSION);
++        // And it passes the IR's OWN load gate, which is the contract both
++        // retinas are held to.
++        let json = ogar_doc_ir::to_json(ir).expect("serialize");
++        assert!(ogar_doc_ir::from_json(&json).is_ok());
++        assert!(
++            !ir.pages[0].regions.is_empty(),
++            "the DOM landmarks must become regions, or this proves nothing"
++        );
++    }
++
++    #[cfg(feature = "dom")]
++    #[test]
++    fn dom_identity_matches_the_gate() {
++        // `spider_doc_ir::harvest` hashes `content.as_bytes()`; `preflight`
++        // hashes the same bytes. If these ever diverge, a document's gate
++        // identity and its IR identity would disagree — silently.
++        let out = ingest_html(PAGE.as_bytes(), &Empty).expect("utf-8");
++        let ir = out.ir().expect("novel");
++        assert_eq!(
++            &ir.content_sha256,
++            &out.hash().0,
++            "the retina's identity and the S-2 gate's must be the same hash"
++        );
++    }
++
++    #[cfg(feature = "dom")]
++    #[test]
++    fn duplicate_never_reaches_the_retina() {
++        // Deliberately NOT valid HTML and NOT valid UTF-8 tail: if the retina
++        // ran at all, `ingest_html` would have to decode these bytes and would
++        // fail. Reaching `Duplicate` proves the gate short-circuits FIRST,
++        // which is the whole of S-2.
++        let bytes = b"\xff\xfe not utf-8 at all";
++        let index = SeenAll {
++            asked: Cell::new(0),
++            matched: MatchedOn::Original,
++        };
++        let out = ingest_html(bytes, &index).expect("the gate answers before decoding");
++        assert!(matches!(out, Ingested::Duplicate { .. }));
++        assert_eq!(index.asked.get(), 1, "the gate is asked exactly once");
++        // The same bytes as a NOVEL input must fail — proving the test above
++        // is not passing because the bytes are somehow acceptable.
++        assert!(matches!(
++            ingest_html(bytes, &Empty),
++            Err(IntakeError::NotUtf8(_))
++        ));
++    }
++
++    #[cfg(feature = "dom")]
++    #[test]
++    fn derived_artifact_match_is_reported_as_such() {
++        let index = SeenAll {
++            asked: Cell::new(0),
++            matched: MatchedOn::Derived,
++        };
++        let out = ingest_html(PAGE.as_bytes(), &index).expect("gate");
++        assert!(matches!(
++            out,
++            Ingested::Duplicate {
++                matched: MatchedOn::Derived,
++                ..
++            }
++        ));
++    }
++
++    #[test]
++    fn doc_v1_seam_fails_loud_on_a_drifted_producer() {
++        let good = r#"{"schema":"tesseract-rs/doc.v1","pages":[{"page":0,"width":100,
++            "height":100,"regions":[{"type":"text","bbox":[0,0,50,50],"lines":[]}]}]}"#;
++        let img = b"pretend-these-are-image-bytes";
++        let ok = ingest_doc_v1(img, good, "image/png", &Empty).expect("valid doc.v1");
++        let ir = ok.ir().expect("novel");
++        assert_eq!(ir.source, ogar_doc_ir::Provenance::Ocr);
++        assert_eq!(ir.mime, "image/png");
++        // Identity is over the IMAGE bytes, not the JSON: two renderings of one
++        // scan must not look like two documents.
++        assert_eq!(&ir.content_sha256, &ContentSha256::of(img).0);
++
++        // An off-vocabulary region kind is refused at the seam.
++        let drifted = good.replace(r#""type":"text""#, r#""type":"paragraph""#);
++        assert!(matches!(
++            ingest_doc_v1(img, &drifted, "image/png", &Empty),
++            Err(IntakeError::DocV1(_))
++        ));
++        // ...and so is a wrong schema marker.
++        let wrong = good.replace("tesseract-rs/doc.v1", "tesseract-rs/doc.v2");
++        assert!(matches!(
++            ingest_doc_v1(img, &wrong, "image/png", &Empty),
++            Err(IntakeError::DocV1(_))
++        ));
++    }
++
++    #[test]
++    fn a_duplicate_never_reaches_the_doc_v1_seam() {
++        // The pixel leg's own S-2 proof. The JSON below is garbage: if the
++        // seam ran at all, `from_doc_v1` would refuse it and this would be
++        // `Err(DocV1)`. Landing on `Duplicate` proves the gate answered
++        // FIRST — which is the whole of S-2, and is a per-entry-point
++        // property, not something the DOM leg's test can establish for this
++        // one.
++        let junk = "}{ not json";
++        let img = b"already-seen-image-bytes";
++        let index = SeenAll {
++            asked: Cell::new(0),
++            matched: MatchedOn::Original,
++        };
++        let out = ingest_doc_v1(img, junk, "image/png", &index).expect("the gate answers first");
++        assert!(matches!(out, Ingested::Duplicate { .. }));
++        assert_eq!(index.asked.get(), 1, "the gate is asked exactly once");
++        // ...and the same junk as a NOVEL input must fail, or the assertion
++        // above would pass for the wrong reason.
++        assert!(matches!(
++            ingest_doc_v1(img, junk, "image/png", &Empty),
++            Err(IntakeError::DocV1(_))
++        ));
++    }
++
++    #[cfg(feature = "dom")]
++    #[test]
++    fn both_retinas_land_in_one_type() {
++        // The point of the whole crate: a web page and a scan are the same
++        // Rust type, distinguishable only by the field that says so.
++        let dom = ingest_html(PAGE.as_bytes(), &Empty).expect("utf-8");
++        let pixel = ingest_doc_v1(
++            b"img",
++            r#"{"schema":"tesseract-rs/doc.v1","pages":[{"page":0,"width":10,"height":10,
++               "regions":[{"type":"text","bbox":[0,0,5,5],"lines":[]}]}]}"#,
++            "image/png",
++            &Empty,
++        )
++        .expect("valid doc.v1");
++        let irs: Vec<&DocIr> = vec![dom.ir().expect("novel"), pixel.ir().expect("novel")];
++        assert_eq!(irs.len(), 2);
++        assert_eq!(irs[0].source, ogar_doc_ir::Provenance::Dom);
++        assert_eq!(irs[1].source, ogar_doc_ir::Provenance::Ocr);
++        assert!(irs.iter().all(|i| i.version == ogar_doc_ir::DOC_IR_VERSION));
++    }
++}
 -- 
 2.43.0
 
