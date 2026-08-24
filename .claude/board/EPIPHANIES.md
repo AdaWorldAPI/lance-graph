@@ -1,3 +1,56 @@
+## 2026-08-24 — E-GIT-SOURCED-CRATE-CANNOT-PATH-DEP-OUTSIDE-ITS-REPO-1 (follow-up) — `cognitive-stack`'s OGAR deps fixed the same way; its `ndarray` dep left path-only, and why: a same-version git+path duplicate is a real type-identity hazard, not just style
+
+**Status:** FIX — [MEASURED] (`cargo check -p cognitive-stack` green, 4m52s
+clean build under the new deps; `cargo check` also directly demonstrated
+the hazard this entry warns about — see below).
+
+`crates/cognitive-stack` carried the identical escaping-path shape as
+`lance-graph-ogar` before PR #1019 (`ogar-vocab`/`ogar-ontology`/
+`ogar-adapter-surrealql` all `path = "../../../OGAR/crates/..."`, from the
+same 2026-07-07 "NO-PIN" policy note that also covered `symbiont`).
+Switched to `git = "https://github.com/AdaWorldAPI/OGAR", branch = "main"`
+— identical URL+branch to `lance-graph-ogar`'s own pin (which
+`cognitive-stack` also depends on), so Cargo unifies both into ONE
+resolved OGAR source. Safe specifically because `lance-graph` (also a
+dependency here) has NO OGAR dependency at all — nothing else in the
+graph could bring in a competing OGAR source.
+
+**`ndarray` was NOT switched — a first attempt was, and directly
+demonstrated why not.** `lance-graph` (path-dep'd by `cognitive-stack`)
+has its OWN escaping path dep on `ndarray`
+(`crates/lance-graph/Cargo.toml`, gated behind the `ndarray-hpc` feature,
+which is in `lance-graph`'s DEFAULT feature set), unfixed. Switching
+`cognitive-stack`'s OWN direct `ndarray` dep to `git` while `lance-graph`'s
+stayed `path` produced a build with **two distinct `ndarray v0.17.2`
+package instances** (`git...?rev=0129b5c8...` — a pre-existing pinned
+instance, likely from `p64`/`causal-edge` — plus a NEW
+`git...#80f0b01f` branch-tracked instance, plus the still-present local
+path instance) — visible directly in `cargo check`'s package list, their
+`fractal` sub-crate duplicated the same way. Cargo treats path and git
+sources as different identities even at the same version (the same
+reason the `[patch]` sections elsewhere in this repo exist for
+`lance-graph-contract`) — a real type-identity hazard if any code path
+ever passes a value between the two instances, not merely a naming
+inconsistency. It compiled anyway (Rust tolerates multiple crate
+instances until a signature unifies them directly), which makes this an
+easy footgun to miss: **a clean `cargo check` does not prove dependency
+source unification.** Reverted before commit; `ndarray` stays `path` here.
+
+**The real fix is upstream, out of scope for this commit:**
+`lance-graph`'s own `ndarray-hpc` feature (in its DEFAULT feature set)
+still path-deps `ndarray` the same escaping way. This means the MAIN
+`lance-graph` crate itself would fail the identical way `lance-graph-ogar`
+did for any external `git` consumer that enables `ndarray-hpc` (or
+anything requiring it) — currently LATENT, not yet triggered, because no
+observed external consumer has needed that feature (MedCare-rs's Railway
+break was specifically about `ogar-loco`, an unconditional dependency;
+`ndarray-hpc` being optional means Cargo's resolver never touches the
+escaping path unless the feature is actually activated). Flagged, not
+fixed here — touching `lance-graph`'s default feature set is a bigger,
+more sensitive change than this follow-up's scope.
+
+**Files:** `crates/cognitive-stack/Cargo.toml`.
+
 ## 2026-08-24 — E-PHI-WEYL-STAMP-CASCADE-PRECISION-RULING-1 — φ-Weyl 2-level Morton stamp cascade: coprime strides give identical discrimination, gcd>1 strides concentrate, operator ruled PRECISION over amortization
 
 **Status:** FINDING — [MEASURED] (`PROBE-STAMP-MORTON-CASCADE-1`, 7/7).

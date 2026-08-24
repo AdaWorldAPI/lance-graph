@@ -41,20 +41,54 @@ template-equivalence = { path = "../template-equivalence" }
 cognitive-compiler = { path = "../cognitive-compiler" }
 
 # ── OLD stack, same-repo crates: path deps ──
+# lance-graph / lance-graph-contract stay path deps — both live INSIDE this
+# repo (../lance-graph, ../lance-graph-contract relative to this crate), so
+# they resolve fine even when this crate is git-deps'd externally.
 lance-graph = { path = "../lance-graph" }
 lance-graph-contract = { path = "../lance-graph-contract" }
+
+# ndarray STAYS a path dep here, deliberately — see the note below the OGAR
+# fix for why (a git-dep switch here would create a SECOND, incompatible
+# ndarray instance alongside lance-graph's own still-path-sourced one).
 ndarray = { path = "../../../ndarray" }
 
-# ── OLD stack, external AdaWorldAPI forks: git deps (mirrors crates/symbiont) ──
+# ⊘ CORRECTED (2026-08-24, `E-GIT-SOURCED-CRATE-CANNOT-PATH-DEP-OUTSIDE-ITS-REPO-1`
+# follow-up — same escaping-path shape as `lance-graph-ogar` before its fix,
+# PR #1019). ogar-vocab/ogar-ontology/ogar-adapter-surrealql below used to be
+# `path = "../../../OGAR/crates/..."` — a relative path escaping THIS repo,
+# which cannot resolve for any external `git` consumer of `cognitive-stack`
+# (Cargo clones a git-sourced crate into its own opaque checkout cache; a
+# path escaping that repo has no sibling to resolve against there, no
+# matter what exists on GitHub or on the builder's disk). Switched to `git`
+# deps, matching `lance-graph-ogar`'s OGAR pins EXACTLY (same URL + branch)
+# so Cargo unifies them into ONE resolved OGAR source — `lance-graph-ogar`
+# is ALSO a dependency of this crate (below), so a mismatched OGAR source
+# here would duplicate `ogar-vocab`'s types the same way a mismatched
+# ndarray source would (see the note above `ndarray`). Safe specifically
+# because lance-graph itself has NO OGAR dependency at all — nothing else
+# in this crate's graph brings in a competing OGAR source. ndarray is NOT
+# analogous: lance-graph (path-dep'd below) has its OWN escaping path dep
+# on ndarray, unfixed as of this commit — switching cognitive-stack's
+# direct ndarray dep to git while lance-graph's stays path would link TWO
+# distinct ndarray package instances (Cargo treats path and git sources as
+# different identities even at the same version — same problem the
+# `lance-graph-contract` git/path `[patch]` below exists to prevent for a
+# different crate), a real duplicate-type hazard, not just a style
+# inconsistency. Fixing that properly means fixing lance-graph's own
+# `ndarray-hpc` feature's path dep (`crates/lance-graph/Cargo.toml`) — out
+# of scope here; flagged, not silently worked around.
+ogar-vocab = { git = "https://github.com/AdaWorldAPI/OGAR", branch = "main" }
+ogar-ontology = { git = "https://github.com/AdaWorldAPI/OGAR", branch = "main" }
+ogar-adapter-surrealql = { git = "https://github.com/AdaWorldAPI/OGAR", branch = "main", features = ["surrealdb-parser"] }
+
+# ── OLD stack, external AdaWorldAPI forks: git deps (mirrors crates/symbiont;
+# pre-existing, unchanged by this fix) ──
 # ractor: jirak branch (carries the MessagingErr::Saturated fix; on github).
-# surrealdb + OGAR: `main` — each fork's jirak HEAD is an ANCESTOR of its main
+# surrealdb: `main` — each fork's jirak HEAD is an ANCESTOR of its main
 # (main is the canonical superset), and kv-lance lives on surrealdb main; pinning
 # surrealdb to main matches OGAR's own surrealdb pin so they resolve to ONE source.
 ractor = { git = "https://github.com/AdaWorldAPI/ractor", branch = "claude/jirak-math-theorems-harvest-rfii13" }
 surrealdb-core = { git = "https://github.com/AdaWorldAPI/surrealdb", branch = "main", default-features = false, features = ["kv-lance"] }
-ogar-vocab = { path = "../../../OGAR/crates/ogar-vocab" }
-ogar-ontology = { path = "../../../OGAR/crates/ogar-ontology" }
-ogar-adapter-surrealql = { path = "../../../OGAR/crates/ogar-adapter-surrealql", features = ["surrealdb-parser"] }
 
 # The OGAR activation crate (in-repo, path) — links the full Active-Record surface
 # (ogar-class-view's `impl lance_graph_contract::ClassView` + codebook parity-guard).
