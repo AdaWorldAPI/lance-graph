@@ -91,30 +91,55 @@ lance-graph-contract = { path = "../lance-graph-contract" }
 # against live in lance-graph-ontology (OGIT). OGIT does NOT depend on OGAR.
 lance-graph-ontology = { path = "../lance-graph-ontology" }
 
-# ── OGAR Active-Record forks: git deps @ main (the canonical superset; matches
-#    symbiont's + cognitive-stack's pins so ALL golden-image roots resolve to
-#    ONE OGAR source) ──
+# ── OGAR Active-Record forks: git deps @ main ──
 #
-# NO PINS — operator policy (2026-07-07): OGAR resolves as a PATH dep to the
-# local sibling checkout /home/user/OGAR (clone of AdaWorldAPI/OGAR main), the
-# same pattern as the ndarray path dep. A git dep always writes a rev pin into
-# Cargo.lock; a path dep never does — the fuse (COUNT_FUSE) then always checks
-# against the sibling's CURRENT state. symbiont / cognitive-stack use the same
-# sibling paths, so all three resolve ONE OGAR copy (codex P2 on #648 intent
-# preserved). CI that builds these excluded crates must sibling-check-out OGAR
-# (tesseract-rs CI precedent for lance-graph/ndarray).
-ogar-vocab = { path = "../../../OGAR/crates/ogar-vocab" }
-ogar-class-view = { path = "../../../OGAR/crates/ogar-class-view" }
-ogar-ontology = { path = "../../../OGAR/crates/ogar-ontology" }
+# ⊘ SUPERSEDED (2026-08-24, `medcare-rs` PR #565 Railway build failure —
+# `error: no matching package named 'ogar-loco' found, location searched:
+# Git repository https://github.com/AdaWorldAPI/lance-graph?branch=main`).
+# The prior "NO PINS — operator policy (2026-07-07)" note below is a REAL
+# policy this repo's own local/CI builds relied on, but it does not survive
+# `lance-graph-ogar` being consumed as a `git` dependency by an EXTERNAL
+# repo (medcare-analytics -> lance-graph-ogar via
+# `git = "https://github.com/AdaWorldAPI/lance-graph", branch = "main"`).
+# Cargo clones a git-sourced crate into its own opaque checkout cache
+# (`~/.cargo/git/checkouts/lance-graph-<hash>/<rev>/`); a `path =
+# "../../../OGAR/..."` dependency inside it resolves relative to THAT
+# cache directory, which has no OGAR sibling — nothing ever puts one
+# there, regardless of how fresh either repo is on GitHub or on the
+# builder's disk. This is a hard Cargo constraint (git sources cannot
+# contain path dependencies that escape the fetched repository), not a
+# missing sibling-checkout step. Fixed by switching to `git` deps here —
+# the tradeoff the 2026-07-07 policy explicitly declined (a Cargo.lock rev
+# pin, so the local "always current sibling" property is gone for THIS
+# crate) is accepted because the alternative is "unconsumable by any
+# external repo, ever." Local/in-sandbox development still resolves fine
+# (Cargo fetches/caches the same public GitHub repo); what is lost is only
+# the zero-lag reflection of uncommitted local OGAR edits.
+#
+# Prior text, retained for the historical record (regraded, not deleted):
+# "matches symbiont's + cognitive-stack's pins so ALL golden-image roots
+# resolve to ONE OGAR source. NO PINS — operator policy (2026-07-07): OGAR
+# resolves as a PATH dep to the local sibling checkout /home/user/OGAR...
+# A git dep always writes a rev pin into Cargo.lock; a path dep never
+# does — the fuse (COUNT_FUSE) then always checks against the sibling's
+# CURRENT state. symbiont / cognitive-stack use the same sibling paths, so
+# all three resolve ONE OGAR copy (codex P2 on #648 intent preserved)."
+# `symbiont` and `cognitive-stack` carry the SAME escaping-path shape and
+# are NOT fixed by this commit (symbiont is separately marked deprecated /
+# operator no-go; cognitive-stack is unaudited for external git-consumers)
+# — tracked as a follow-up, not silently assumed fixed.
+ogar-vocab = { git = "https://github.com/AdaWorldAPI/OGAR", branch = "main" }
+ogar-class-view = { git = "https://github.com/AdaWorldAPI/OGAR", branch = "main" }
+ogar-ontology = { git = "https://github.com/AdaWorldAPI/OGAR", branch = "main" }
 # The call ABI the 34 NARS recipes lower onto (`recipe_vocab`, D-ACR-9).
 # ogar-loco is zero-dep and lance-graph-contract is zero-dep; neither may
 # import the other, so the vocabulary that needs both lives HERE.
-ogar-loco = { path = "../../../OGAR/crates/ogar-loco" }
+ogar-loco = { git = "https://github.com/AdaWorldAPI/OGAR", branch = "main" }
 # ⊘ DEPRECATED IR-Arm (Operator, 2026-08-22): "SurrealQL wird gar nicht
 # verwendet, auch nicht ogar-*surreal*". OPTIONAL und aus dem unbedingten
 # Dependency-Satz heraus — ein Build, der das Feature nicht nennt, zieht die
 # Crate nicht mehr, und der Re-Export existiert dann nicht.
-ogar-adapter-surrealql = { path = "../../../OGAR/crates/ogar-adapter-surrealql", optional = true }
+ogar-adapter-surrealql = { git = "https://github.com/AdaWorldAPI/OGAR", branch = "main", optional = true }
 
 # Fold ogar-class-view's transitive `lance-graph-contract` (git
 # AdaWorldAPI/lance-graph#main) onto the SAME path copy this crate uses, so there
