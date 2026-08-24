@@ -1,10 +1,13 @@
 # R2IL × BPE as typed genetic recombination over the autopoiesis PALETTES (v1)
 
-**Status: PROPOSAL.** Nothing in this doc is built or probed except where
-explicitly marked GROUNDED. Do not cite this as an EPIPHANIES-grade finding —
-it earns that only after the falsifiers in §5 run green. Written during a
-same-day API outage (4/4 meta-review dispatch attempts failed to 529) so the
-architecture doesn't evaporate before it can be probed.
+**Status: PROPOSAL, §7's three falsifiers now RUN (see §7).** The
+recombination MECHANISM (§3's four operators as a buildable pass, §4's
+contract-checking pass, §5's v3 admission/revision loop) is still
+unbuilt/unprobed. Only §7's three narrow questions — do splice points
+exist, does recombination round-trip, does the counterfactual lane
+distinguish — have real measured answers now. Written during a same-day
+API outage (4/4 meta-review dispatch attempts failed to 529) so the
+architecture doesn't evaporate before it could be probed.
 
 ⚠ **§1 CORRECTED (architecture review, same day).** The original §1 read
 `StyleLane`'s 12-byte payload as ONE style's ordered macro-genome (up to
@@ -139,17 +142,36 @@ accidentally foreclose it.
 
 ## 7. What would need to be probed before any of §3–§5 lands as a finding
 
-- Do the 33 macros mined in the POC actually admit non-trivial splice
-  points under a live-out/live-in contract check (§4), or do real def-use
-  chains turn out too entangled for splice to ever fire cleanly?
-- Does `substitute`/`duplicate`/`delete` on a mined macro round-trip
-  byte-exact through the existing B4 gate (it already proves round-trip for
-  the UN-recombined macros; recombined ones are new territory)?
-- Does routing a recombined candidate through the existing counterfactual
-  lane (`deposit_counterfactual`) actually produce a distinguishable
-  verdict from a non-recombined one, or does the signal wash out?
+**RUN — `PROBE-R2IL-BPE-RECOMBINATION-FALSIFIERS-1`, 4/4 gates green,
+`crates/lance-graph-planner/examples/probe_r2il_bpe_recombination_falsifiers.rs`.**
+All three named below now have real, measured answers — see
+`EPIPHANIES.md` for the full findings. §3–§5 are still PROPOSAL-status
+for the parts these three falsifiers don't cover (the four operators as a
+*building* mechanism, the contract-checking *pass*, and the v3
+admission/revision loop are still unbuilt) — but the three questions
+originally posed here are resolved:
 
-None of these are run. This doc is the spec for that probe, not its result.
+- **Do the 33 macros admit non-trivial splice points under a live-out/
+  live-in contract check?** YES, selectively: **107 of 1056 ordered pairs
+  (10.1%)** admit ≥1 real type-legal splice point (a genuine observed
+  def-use edge from A's tail into B's head, same episode); 949 do not.
+  Real def-use chains discriminate — neither uniformly entangled nor
+  uniformly permissive.
+- **Does substitute/duplicate/delete round-trip through the B4-equivalent
+  decode machinery?** YES — 10 genuinely distinguishable recombined
+  sequences, 5 correctly-silent identity substitutions, plus a
+  corrupt-table falsifiability demo (mirroring B4's own) proving the
+  check can actually fail, not just pass.
+- **Does a recombined candidate produce a distinguishable counterfactual
+  verdict?** YES, at the REAL scope (`deposit_counterfactual` +
+  `FreeEnergyComparison::minority_wins()` only — the v3
+  `CounterfactualMailbox`/`revise_if_minority_wins`/`awareness.revise`
+  path is still `todo!()`-stubbed, blocked on D-PERSONA-5, never called).
+  An ordinary evidence-matched baseline correctly does NOT win
+  (`minority_wins()=false`); the strongest recombined splice pair (45
+  pooled disjoint episodes) DOES win (`minority_wins()=true`) against the
+  identical weak majority. The verdicts differ — the signal does not wash
+  out on this corpus, at the primitive level that is actually shipped.
 
 ## Fences
 
