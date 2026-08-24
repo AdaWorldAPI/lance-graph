@@ -1,3 +1,42 @@
+## 2026-08-23 — lance-graph #1017 (OPEN) — the integration half of #1012: one receipt, three borrowed consumers
+
+- **Added:** `E-ONE-RECEIPT-MANY-BORROWED-CONSUMERS-1` — the board record of
+  `PROBE-TOKEN-SEAM-1` (37 gates, 13 disable-runs red-then-green; probe code in
+  `AdaWorldAPI/paperless-rs crates/paperless-token` + `docs/TOKEN-SEAM-ARCHITECTURE.md`,
+  which lives there because it needs a Tantivy dep this workspace does not carry).
+  ONE tokenization per span drove Tantivy, DeepNSM-v2 and a forward-prediction
+  surface; each added ZERO further tokenizations (313 source for 308 spans + 5
+  fixtures; 1 query on a separate counter).
+- **Locked:** DeepNSM-v2's library is ALREADY the seam — `parse_to_spo(&[Tagged])`
+  takes `(WordId, Pos)` and no string, so the crate needed no change; a BPE token
+  is never assigned a `WordId` (different id spaces, cardinality measured
+  non-1:1 in both directions); byte offsets are DERIVED by prefix sum over a
+  per-id length table, so a receipt stores no offset column; Tantivy cannot own
+  offsets (its indexer never reads them).
+- **Measured, and it bounds #1012's headline:** the 8-bit lane SATURATES — 247
+  of 255 ids on 75 KB, compression 3.18× → **2.03×**. The resident lane is 74 %
+  of source and framing is 30–54 % of THAT (56-byte receipt vs 12-byte
+  particles), so the receipt's layout outranks the particle's.
+- **Self-corrected in-session:** the first cut minted `source_id`/`span_id`;
+  re-cut onto `ogar_doc_ir::DocIr` (`content_sha256` + `(page, reading_order)` +
+  `Region::text`), so the receipt mints nothing. That RETIRES the
+  "no byte offsets at the OCR boundary" gap — offsets are region-local — and
+  corrects `247 of 255` (ids appearing in the lane) to a table that is FULL at
+  255/255 on Alice and 180/255 on the KJV fixture.
+- **Deferred / named:** no shipped token continuation mechanism (the
+  `RailCarving::AxisSlab` precedent caps at 24 levels, under the measured p50 of
+  4 particles); `ValueTenant` has no token variant; no callable PoS surface —
+  `deepnsm_v2::lexicon` was deliberately deleted and the `insight_coca_read`
+  grounding cited for it is an example binary outside a lean consumer's
+  dependency barrier; cam96 codebook/codes ABSENT so the semantic half never
+  ran; the hi-byte PAGE lane untested, which is the next probe.
+- **Refuted:** Polars in the online path — zero occurrences across nine
+  checkouts; `paperless-rs`/`tesseract-rs` declare no arrow/datafusion/lance/lancedb
+  at all. There was nothing to remove.
+- **Docs:** `E-ONE-RECEIPT-MANY-BORROWED-CONSUMERS-1`; LATEST_STATE updated.
+- **Confidence:** High for the two measured corpora; no scale claim — the
+  vocabulary was full at 75 KB.
+
 ## 2026-08-23 — GAP FILLED — arc rows for #976..#1005 (consolidated by the orchestrator from a wave scribe's primary-source reconstruction)
 
 The gap marker recorded below this block is now DISCHARGED for #977..#1005.
