@@ -1,3 +1,28 @@
+## 2026-08-24 — R2IL x BPE POC: def-use compresses 2.3x denser than linear per domain slot; the 90-slot ceiling; B6 corrected off a self-built admission scheme onto MUL/the triangle
+
+Autoattended 2-probe POC (`PROBE-BPE-R2IL-LOCO-MICROCODE-1` 10/10,
+`PROBE-STAMP-MORTON-CASCADE-1` 7/7). Headline: BPE over def-use chains
+saves 113.4 tokens/merge vs 50.1 for the same algorithm over the linear
+opcode stream — 2.3x denser compression per `FnIndex` domain slot
+(corrected ceiling: 90 free slots, `0xA6..0xFF`, not 255/248, since
+`ogar-ro` already mints 22 of the 112-slot domain band). B5 confirms 33
+learned macros fit real loco call geometry (7 Pairs, 26 Triples, 0
+Quads/NONE — chains fixed at length 3, a disclosed ceiling). B6 was
+rewritten mid-session: it ranks candidates via shipped `revise`+`Stamp`
+only, forbidden from freeze/admit/promote/gate vocabulary — real admission
+is MUL's `GateDecision` and the autopoiesis triangle's
+`RungReceipt`-judged, counterfactual-Explore resonance thinking
+(`PROBE-METACOGNITIVE-TRIANGLE-1`), never an RL policy this probe could
+claim to run. Three exploratory cross-checks against shipped codecs
+(HighHeelBGZ stride-as-role, bgz17 HHTL scent-prune-then-escalate,
+BGZ-HHTL-D shared-palette amortization) all measured real effects on this
+corpus. Companion: the stamp Morton cascade adopts φ-Weyl constants under
+an explicit PRECISION ruling, with the coprime-stride inertness measured
+and disclosed (not a performance win) and the spread-vs-concentration
+tension named. Meta-review pending (3 consecutive infra 529s, retrying);
+findings land as a follow-up commit before the PR. Entry:
+`E-BPE-OVER-DEFUSE-CHAINS-BEATS-LINEAR-AND-FITS-LOCO-1`.
+
 ## 2026-08-23 — R2IL WAVE: chain carrier confirmed, optimization-transfer measured, boundary named
 
 Autoattended 6-slice wave (4 Sonnet probes, 1 Sonnet scribe, 1 Opus synthesis,
