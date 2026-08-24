@@ -1,3 +1,73 @@
+## 2026-08-24 — PROPOSAL (unbuilt, unprobed), CORRECTED: typed genetic recombination over Learned/Explore PALETTES (not a 12-byte genome), `.claude/plans/r2il-bpe-typed-genetic-recombination-v1.md`
+
+Follow-on to the POC below. **Architecture correction, same day:** the
+proposal's §1 originally read `StyleLane::{Learned,Explore}`'s 12-byte
+payload as ONE style's ordered macro-genome (up to 12 macro-id bytes for
+one row). Corrected: `soa_view.rs:41` documents each lane as **12
+palette256-indexed slots, one per `StyleFamily` ordinal** — each byte
+selects one of **256** entries in that lane's OWN palette, a separate
+256-wide address space per lane. Corrected architecture: `System[256,
+native Rust, fixed] | Learned[≤256, R2IL x BPE] | Explore[≤256, R2IL x
+BPE]`, addressed as `Frozen byte -> SystemPalette[id] -> native Rust`,
+`Learned/Explore byte -> {Learned,Explore}Palette[id] -> R2IL x BPE
+microcode`. `ogar-loco` ROUTES that microcode into the palettes; it does
+not have to own one `FnIndex` per macro (see the POC entry's own 90-slot
+demotion below — same correction, same day). Four typed operators still
+proposed (splice/substitute/duplicate/delete), each requiring a
+live-out/live-in contract check over R2IL's typed operands — none built.
+Selection still routes through the EXISTING
+`FreeEnergyComparison`/counterfactual-lane verdict path (PR #998) — a
+candidate SOURCE, not a second admission gate. **Status: spec only — do
+not treat any of §3-§5 as a finding until probed; §1's palette correction
+is architecture-review-verified against shipped code, not itself a probe.**
+
+## 2026-08-24 — R2IL x BPE POC, corrected twice: real per-merge-id measurements (codex review) + the 90-slot number demoted from "ceiling" to "one encoding's headroom" (architecture review)
+
+Autoattended POC (`PROBE-BPE-R2IL-LOCO-MICROCODE-1` 10/10, re-measured
+after two review passes). The companion stamp-cascade probe was SPLIT OUT
+to its own PR (orthogonal design decision, muddied this receipt) — see
+its own entry. Headline: BPE over def-use chains saves 113.4 tokens/merge
+vs 50.1 for linear — relabeled from "2.3x denser compression per domain
+slot" to **"occurrence-stream savings per merge, not proven compression
+superiority"** (the chain-occurrence input overlaps/double-counts Op
+rows; normalizing by merge count doesn't remove that confound).
+**The 90-free-`FnIndex`-slots number is DEMOTED**: it is the headroom of
+ONE encoding choice (one FnIndex per macro), NOT the autopoiesis
+vocabulary ceiling — `StyleLane::{Learned,Explore}` are 12
+palette256-indexed slots (256 entries each), a wholly separate address
+space `ogar-loco` merely routes into (see the proposal entry above).
+**B5 re-measured (codex P2):** real per-occurrence `Episode::ins` arity,
+not merge-tree edge count — 7 fit Pairs, **13 fit Triples** (was 26), **11
+fit Quads** (was 0), **2 fit NONE** (was 0) — the "0 fit NONE" framing was
+too triumphant. **INV3 re-measured (codex P2):** per learned-merge-id, not
+per B6 final-encoding-signature group (27 groups ≠ 33 macros, the wrong
+unit) — 33 macros, top-5 episodes-per-mint now [86,90,63,80,56].
+Three exploratory cross-checks (HighHeelBGZ stride-as-role, bgz17 HHTL
+scent-prune-then-escalate, BGZ-HHTL-D shared-palette amortization) still
+hold on the corrected measurements. All fixes reverified by full
+recompile + rerun against the real corpus. Entry:
+`E-BPE-OVER-DEFUSE-CHAINS-BEATS-LINEAR-AND-FITS-LOCO-1`.
+
+## 2026-08-24 — PROBE-STAMP-MORTON-CASCADE-1 (7/7), split out from the POC above: φ-Weyl stamp cascade under an explicit PRECISION ruling
+
+Builds a 2-level Morton cascade over the shipped `Stamp(u64)`. For a
+bijective id->leaf map, every coprime stride gives IDENTICAL
+discrimination (39/17/11/41 produce the same word counts/conservatism) —
+φ-Weyl (`LEVEL0=39`, `LEVEL1=17`, `WEYL_OFFSET=21`) is adopted as the
+CANONICAL choice (`[FORMAL-SCAFFOLD]`'s φ-Weyl pillar), explicitly NOT a
+measured performance win. Measured TENSION: coprime strides maximize
+spread (65 words @ N=143, max discrimination); `gcd>1` strides concentrate
+(17/9 words, coarser). Operator ruled PRECISION over amortization, so
+spread was chosen. Real corpus: cascade pooled=143 dropped=0 vs shipped
+flat Stamp pooled=64 dropped=79 (55.2% CHOICE-dropped) — reproduces
+`PROBE-STAMP-CAPACITY-1`'s K3 exactly, zero-loss on the cascade side.
+Load-bearing constraint: a stamp address must be a pure function of the
+SOURCE ID, never arrival order. **Doc-comment correction (codex review,
+P2):** a prior claim that FINE-first's tier 0 is "bit-identical" to the
+shipped `Stamp` was WRONG post-φ-Weyl-adoption (`root_leaf(0) = 21`, not
+`0`) — corrected to "same fold-cardinality shape, not bit-reusable"; M1/M4
+compare against the real `Stamp::source` directly and were unaffected.
+
 ## 2026-08-23 — R2IL WAVE: chain carrier confirmed, optimization-transfer measured, boundary named
 
 Autoattended 6-slice wave (4 Sonnet probes, 1 Sonnet scribe, 1 Opus synthesis,
