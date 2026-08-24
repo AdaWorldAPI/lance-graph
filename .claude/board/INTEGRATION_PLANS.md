@@ -1,3 +1,23 @@
+## 2026-08-24 — PROPOSAL (unbuilt, unprobed): typed genetic recombination over Learned/Explore lanes, `.claude/plans/r2il-bpe-typed-genetic-recombination-v1.md`
+
+Follow-on to the POC below, written during a same-day API outage (4/4
+meta-review dispatches failed to 529) so the design is captured before it's
+lost. Names the split explicitly: Frozen stays native Rust (instinct, no
+BPE expansion needed); Learned/Explore route through OGAR-loco → BPE macro
+composition → V4/R2IL SoA ops. Genotype = ordered composition of BPE
+macro-id references into the existing 12-byte `StyleLane::{Learned,
+Explore}` payload (no new field — a new `ClassView` reading of bytes
+already shipped, `soa_view.rs:52`), not the R2IL atoms themselves (those
+stay fixed, matching this session's own B2/B3 measurement: atoms fixed,
+composition varies, def-use-chain carrier 2.3x denser). Four typed
+operators proposed (splice/substitute/duplicate/delete), each requiring a
+live-out/live-in contract check over R2IL's typed operands before it's
+legal — none built. Selection routes through the EXISTING
+`FreeEnergyComparison`/counterfactual-lane verdict path (PR #998) — this
+proposal adds a candidate SOURCE, explicitly not a second admission gate.
+Three concrete falsifiers named in the doc §7, none run. **Status: spec
+only — do not treat any of §3-§5 as a finding until probed.**
+
 ## 2026-08-24 — R2IL x BPE POC: def-use compresses 2.3x denser than linear per domain slot; the 90-slot ceiling; B6 corrected off a self-built admission scheme onto MUL/the triangle
 
 Autoattended 2-probe POC (`PROBE-BPE-R2IL-LOCO-MICROCODE-1` 10/10,
