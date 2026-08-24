@@ -1,3 +1,19 @@
+## 2026-08-24 — §7's three falsifiers RUN: `PROBE-R2IL-BPE-RECOMBINATION-FALSIFIERS-1` (4/4), splice legality 10.1%, round-trip confirmed, counterfactual lane distinguishes at the real v2-only scope
+
+Autoattended (1 Sonnet worker, orchestrator independently re-verified
+bit-for-bit before landing). Resolves the proposal doc's three §7
+questions, previously unrun: F1 — 107/1056 ordered macro pairs (10.1%)
+admit a real type-legal splice point via genuine def-use edges; F2 —
+substitute/duplicate/delete round-trip through B4-equivalent decode,
+with a corrupt-table falsifiability demo proving it's a real check; F3 —
+`deposit_counterfactual`+`FreeEnergyComparison::minority_wins()` (the
+REAL shipped v2 half — `CounterfactualMailbox`/`revise_if_minority_wins`
+are `todo!()` stubs blocked on D-PERSONA-5, never called) distinguishes
+an evidence-matched baseline (`false`) from the strongest recombined
+splice pair (`true`) against the identical weak majority. Two honest
+design refutations recorded in the probe's own comments before landing
+on the final pairing. Entry: `E-R2IL-BPE-RECOMBINATION-FALSIFIERS-CONFIRMED-1`.
+
 ## 2026-08-24 — PROPOSAL (unbuilt, unprobed), CORRECTED: typed genetic recombination over Learned/Explore PALETTES (not a 12-byte genome), `.claude/plans/r2il-bpe-typed-genetic-recombination-v1.md`
 
 Follow-on to the POC below. **Architecture correction, same day:** the
