@@ -101,9 +101,27 @@ use lance_graph_planner::nars::truth::TruthValue;
 
 /// Level-0 (root) odd multiplier, invertible mod 64 (any odd number is,
 /// since gcd(odd, 2^6) = 1).
-const LEVEL0_MULT: u64 = 41;
-/// Level-1 (child) odd multiplier — DIFFERENT from level 0 (the comma).
-const LEVEL1_MULT: u64 = 19;
+/// **φ-Weyl stride**, coprime to 64: `round(64/φ) = 40` is NOT coprime
+/// (`gcd(40,64) = 8`), so the nearest coprime value is used. Chosen for
+/// PRECISION (operator ruling): a coprime stride is a bijection on `id mod 64`,
+/// so no two sources ever share a leaf that the tier could have separated.
+///
+/// **Measured honesty about this constant (orchestrator, before adoption):**
+/// for a bijective id→leaf map, EVERY coprime stride is a permutation of the
+/// same leaf set, so 39 / 17 / 11 / 41 produce IDENTICAL discrimination AND
+/// identical word counts — verified across six candidate pairs and five id
+/// families. The φ-Weyl value is therefore a CANONICAL choice
+/// (`[FORMAL-SCAFFOLD]`'s φ-Weyl pillar), not a measured performance win, and
+/// this file does not claim otherwise.
+const LEVEL0_MULT: u64 = 39;
+/// Level-1 (child) stride — a different coprime value. See the comma note on
+/// [`child_leaf`]: the comma's measured mechanism is the DIFFERENT DIGIT, not
+/// this different constant.
+const LEVEL1_MULT: u64 = 17;
+/// Weyl offset (operator-specified). An additive offset is a relabeling of the
+/// leaf set — it cannot change occupancy or discrimination, and is recorded as
+/// convention, never as a measured effect.
+const WEYL_OFFSET: u64 = 21;
 const _: () = assert!(
     LEVEL0_MULT % 2 == 1,
     "root multiplier must be invertible mod 64"
@@ -154,8 +172,16 @@ enum Nesting {
 ///
 /// The comma is orthogonal to the order: what makes it a comma is that the two
 /// levels use DIFFERENT invertible multipliers, not which digit each reads.
+/// φ-Weyl affine map on the SOURCE ID — never on arrival order.
+///
+/// **Load-bearing constraint (orchestrator):** a stamp address MUST be a pure
+/// function of the source id. An arrival-indexed walk (`offset + k·stride` over
+/// the k-th arriving source) would make two stamps carrying the SAME source
+/// compare disjoint or not depending on insertion order, which destroys the
+/// meaning of [`CascadeStamp::disjoint`]. Precision-first therefore forces the
+/// affine-on-id form below.
 fn root_leaf(id: u32) -> u8 {
-    (((id as u64).wrapping_mul(LEVEL0_MULT)) % 64) as u8
+    ((WEYL_OFFSET.wrapping_add((id as u64).wrapping_mul(LEVEL0_MULT))) % 64) as u8
 }
 
 /// Child leaf for `id` under the given nesting.
@@ -164,7 +190,7 @@ fn child_leaf(id: u32, nesting: Nesting) -> u8 {
         Nesting::SameMap => root_leaf(id),
         Nesting::CommaRotated => {
             let next_digit = (id as u64) >> 6; // the digit ABOVE the root's own
-            ((next_digit.wrapping_mul(LEVEL1_MULT)) % 64) as u8
+            ((WEYL_OFFSET.wrapping_add(next_digit.wrapping_mul(LEVEL1_MULT))) % 64) as u8
         }
     }
 }
