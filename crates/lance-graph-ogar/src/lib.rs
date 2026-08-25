@@ -161,33 +161,24 @@ pub mod parity {
     /// total match so a new OGAR domain variant trips this (`#[non_exhaustive]`).
     #[must_use]
     pub fn domains_agree(id: u16) -> bool {
-        use lance_graph_contract::ogar_codebook::ConceptDomain as C;
-        use ogar_vocab::ConceptDomain as O;
-        matches!(
-            (
-                ogar_vocab::canonical_concept_domain(id),
-                mirror::canonical_concept_domain(id)
-            ),
-            (O::Reserved, C::Reserved)
-                | (O::ProjectMgmt, C::ProjectMgmt)
-                | (O::Commerce, C::Commerce)
-                | (O::Weather, C::Weather)
-                | (O::Osint, C::Osint)
-                | (O::Ocr, C::Ocr)
-                | (O::Health, C::Health)
-                | (O::Anatomy, C::Anatomy)
-                | (O::Auth, C::Auth)
-                | (O::Automation, C::Automation)
-                | (O::HR, C::HR)
-                | (O::Genetics, C::Genetics)
-                | (O::Geo, C::Geo)
-                | (O::Ontology, C::Ontology)
-                | (O::Blocks, C::Blocks)
-                | (O::JavaRuntime, C::JavaRuntime)
-                | (O::Analytics, C::Analytics)
-                | (O::BinaryLifting, C::BinaryLifting)
-                | (O::Unassigned, C::Unassigned)
-        )
+        // DERIVED, never enumerated. This used to be a 19-arm
+        // `matches!((O::X, C::X) | ...)` listing every domain pair by hand —
+        // which is a LOCK: a hand-maintained mirror of the authority that has
+        // to be bumped every time the authority mints a domain, and whose
+        // omission shows up as a parity failure that looks like real drift.
+        // (Measured: the 0xC6 `Mmio` mint failed here for exactly that reason,
+        // and the first fix attempted was to add a 20th arm — answering a
+        // stale pin with another pin.)
+        //
+        // The two enums are wire-compatible by construction (same `id >> 8`
+        // discriminant, same variant names — the contract's own doc comment
+        // says so), so the agreement to check is that both sides NAME the id's
+        // domain identically. `Debug` gives the variant name as data, so a new
+        // domain minted on both sides agrees with no edit here, and one minted
+        // on only one side still fails: the authority reports its new name
+        // while the mirror reports `Unassigned`.
+        format!("{:?}", ogar_vocab::canonical_concept_domain(id))
+            == format!("{:?}", mirror::canonical_concept_domain(id))
     }
 
     /// Assert the mirror is a faithful, complete copy of OGAR's codebook —

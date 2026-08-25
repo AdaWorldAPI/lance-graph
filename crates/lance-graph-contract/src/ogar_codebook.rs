@@ -115,10 +115,18 @@ pub enum ConceptDomain {
     /// arc, replacing `PROVISIONAL_R2IL_VARNODE = 0x0000`). Mirrors
     /// `ogar_vocab::ConceptDomain::BinaryLifting`.
     BinaryLifting,
+    /// `0xC6XX` — MMIO hardware platform (memory-mapped hardware as
+    /// addressable ontology: chip / register / ROM image / memory map; C64
+    /// = founding tenant, "C6, one hex digit short of the C64"). Sits
+    /// beside `BinaryLifting`, not inside it: C4 is the architecture-
+    /// agnostic lift/IR ontology; a `$D021` register is a platform fact a
+    /// lifted program references. Mirrors `ogar_vocab::ConceptDomain::Mmio`
+    /// (OGAR PR #284, 2026-08-25).
+    Mmio,
     /// Any high-byte slot not yet assigned a domain (`0x05XX`–`0x06XX`,
     /// `0x10XX`–`0x16XX`, `0x18XX`–`0xBFXX`, `0xC2XX`–`0xC3XX` — a
     /// DELIBERATE gap, pinned like OGAR's own `0x10`–`0x16` — and
-    /// `0xC5XX`+).
+    /// `0xC5XX`, `0xC7XX`+).
     Unassigned,
 }
 
@@ -147,6 +155,7 @@ pub fn canonical_concept_domain(id: u16) -> ConceptDomain {
         0xC0 => ConceptDomain::JavaRuntime,
         0xC1 => ConceptDomain::Analytics,
         0xC4 => ConceptDomain::BinaryLifting,
+        0xC6 => ConceptDomain::Mmio,
         _ => ConceptDomain::Unassigned,
     }
 }
@@ -681,6 +690,14 @@ pub const CODEBOOK: &[(&str, u16)] = &[
     // matrix, and nothing on disk otherwise separates that reading from an
     // ordinary `osm_node`'s tag slots.
     ("osm_street_node", 0x0F0B),
+    // ── 0xC6XX — MMIO hardware-platform domain (C64 = founding tenant;
+    // OGAR PR #284). Container KINDS only, per the 0x08XX OCR precedent:
+    // concrete VIC-II/SID/CIA registers and 6502 mnemonics are CONTENT
+    // rows keyed by address/decode, never concept slots.
+    ("mmio_chip", 0xC601),
+    ("mmio_register", 0xC602),
+    ("rom_image", 0xC603),
+    ("machine_memory_map", 0xC604),
 ];
 
 /// Resolve a **canonical-concept** string to its stable `u16` codebook id via
