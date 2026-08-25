@@ -1,5 +1,96 @@
 # Issues Log — Open + Resolved (double-entry, append-only)
 
+## ISS-STALE-AUTHORITY-LOCKS (2026-08-25) — RESOLVED
+
+**Project rule: no tracked `Cargo.lock`.** Dependency authority comes from
+`lance-graph-contract` `hotplug.rs` / `ogar-vocab` / `lance-graph-ogar`; a
+committed lock beside that authority is a second, silently-diverging reading of
+it.
+
+Two tracked locks pinned the OGAR authority at `719471d` — **two commits
+stale**, predating both `typed_field` (0x080A) and the `0xC6 Mmio` mint
+(OGAR #284, `c02efa1`):
+
+- `Cargo.lock` (workspace root)
+- `crates/cognitive-stack/Cargo.lock`
+
+A build routed through either resolved a pre-Mmio, pre-`typed_field` codebook,
+while `lance-graph-ogar` — which tracks no lock — resolved the real one. Two
+readings of "what the codebook contains" in one repo.
+
+Measured 2026-08-25: 29 tracked locks total; only these two referenced
+`AdaWorldAPI/OGAR`. `lance-graph-ogar` correctly tracks none (a lock seen there
+during this session was a local build artifact, not a committed pin).
+
+CI never surfaced it: the workflow checks OGAR out as a sibling directory, so
+the parity job resolves the authority live regardless of any lock.
+
+### What shipped
+
+Both tracked locks deleted; `.gitignore` carries a blanket `Cargo.lock` rule.
+The ignore entry is load-bearing, not cosmetic: `release.yml` regenerates the
+root lock (`cargo check`) then runs `git add -A`, which would otherwise
+resurrect it on the next release.
+
+Exact `=` pins for `arrow` (58.4.0) and `datafusion` (54.1.0) landed with the
+deletion, in the workspace and in the two crates carrying their own ranges
+(`lance-graph-python`, `holograph`). The lock was what kept those caret ranges
+from moving; unpinned they would take the newest 58.x / 54.x on publication —
+the drift `E-PIN-LANCE9-LANCEDB033-DF541-ARROW58-NO-DF53-1` forbids. The pins
+match the versions resolving today, so the graph is unchanged.
+
+Verified rather than asserted: a fresh resolve of the root workspace now pins
+OGAR at `c02efa1` (Mmio included) where the tracked lock said `719471d`.
+`cargo metadata` succeeds and reports one version each — arrow 58.4.0,
+datafusion 54.1.0, lance 9.0.0. `lance-graph-ogar` parity 72/72;
+`lance-graph-contract` 6/6 suites green. No `--locked` / `--frozen` anywhere in
+CI, Dockerfiles, or scripts, so nothing depended on the pinned resolution.
+
+### The consumer the first pass missed
+
+Four Dockerfiles executed `COPY Cargo.toml Cargo.lock ./`, which fails at build
+time in a fresh checkout once the root lock is gone: `Dockerfile:30`,
+`Dockerfile.avx512:29`, `crates/thinking-engine/Dockerfile:5`, and
+`Dockerfile.railway:13` — the last two use a repo-root build context (they
+`COPY crates/...`), so their `Cargo.lock` is the root one, despite
+thinking-engine tracking a lock of its own. All four now `COPY Cargo.toml ./`
+and resolve during the build.
+
+The pre-deletion audit grepped Dockerfiles for `--locked` / `--frozen` and
+grepped `.github/`, `docs/`, `.claude/board/` for `Cargo.lock`, but never
+grepped Dockerfiles for `COPY ... Cargo.lock`. **A consumer can depend on a
+lock by copying it, not only by passing a flag** — that is the reusable lesson,
+and the audit shape was wrong, not the tooling that caught it late.
+
+No regression guard added, deliberately: a re-added `COPY Cargo.lock` fails
+loudly at image-build time on the missing source file, so the failure mode is
+self-detecting at the point of use.
+
+### Left open, deliberately
+
+- **The other 27 tracked locks stay tracked.** `.gitignore` never applies to
+  tracked files, so the blanket rule does not untrack them. Doing so needs
+  `git rm --cached` plus a pin sweep across those crates — its own change, its
+  own review.
+- **`build.yml` / `rust-test.yml` / `style.yml`** still list `Cargo.lock` as a
+  path trigger. Inert (a filter on a file that cannot change never matches);
+  removing it would pull three unrelated workflow files into scope.
+
+### Accepted cost
+
+Without a root lock, two builds at different times may resolve different
+versions for the workspace's binaries. That is the cost the rule accepts. The
+exact pins confine it to everything except the lance / arrow / datafusion
+family, which is where drift would actually break something.
+
+### Related, already merged
+
+`lance_graph_ogar::parity::domains_agree` was a 19-arm hand-written `matches!`
+over every domain pair — a lock in substance, needing a bump on every mint. It
+went red on `Mmio` for exactly that reason, and the first attempted fix was a
+20th arm. Now derived from the two enums' variant names (PR #1030, `d48496d`),
+disable-run verified red-then-green.
+
 ## ISS-CORPUS-ADDRESSING-OPEN-POINTS (2026-08-22) — OPEN
 
 Three points a 5+3 council left explicitly unresolved rather than settle by

@@ -26,8 +26,8 @@ RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | \
 
 WORKDIR /app
 
-# Copy workspace manifest and lock
-COPY Cargo.toml Cargo.lock ./
+# Copy workspace manifest (no lock — see ISS-STALE-AUTHORITY-LOCKS)
+COPY Cargo.toml ./
 
 # Copy all crate manifests for dep resolution
 COPY crates/lance-graph/Cargo.toml crates/lance-graph/Cargo.toml
