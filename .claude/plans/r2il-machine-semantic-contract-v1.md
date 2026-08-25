@@ -287,3 +287,55 @@ mechanism read in two directions, and the falsifier for the pair is:
 inject a deliberately corpus-local macro into System, present the new
 corpus, assert it is demoted (can-fire) — and assert the 25 transferable
 ones are NOT (can-stay-silent).
+
+### 7.4 Operator refinement, same day: the reversible-trust state machine
+
+Converged wording, recorded verbatim in substance because it is the
+demarcation the rest of the plan leans on:
+
+> **White Matter ist Wahrheit und Zwang. Grey Matter ist Hypothese und
+> Plastizität. Crystal ist der reversible Vertrauensstatus gelernter
+> Muster. Hexagon ist noch gar nichts außer einem Kandidaten für lokale
+> Rechengeometrie.**
+
+`System` therefore means *"currently confirmed strongly enough to be
+treated as a fixed palette"* — long-term memory, never truth. Truth is
+carried by white matter only (the CLAIM boundary, B4 expansion, the
+contract veto). Crystal is a STATUS of a pattern, not a third storage
+technology.
+
+```
+             promote                    promote
+Explore ───────────────→ Learned ───────────────→ System
+   ↑                        ↑                        │
+   └──────── demote ────────┴──────── demote ────────┘
+```
+
+**Symmetric criteria, one epistemic yardstick in both directions:**
+
+```
+PROMOTE if   B4 exact round-trip
+             AND fits loco geometry
+             AND transfer density stable
+             AND REAL outside the marginal-preserving null
+             AND the contract falsifier passes
+
+DEMOTE  if   B4 breaks
+             OR the contract falsifier fails
+             OR a new held-out corpus falls into the null range
+             OR transfer density collapses beyond admitted tolerance
+```
+
+**Hysteresis is REQUIRED, not optional:** `promote threshold > demote
+threshold` — so a single exotic binary cannot flap the state machine at
+a boundary case. This is an anti-flutter measure, not leniency; the
+tolerance values are POLICY PINS to be measured when the first promotion
+ships, not defended.
+
+**Hex burden of proof, sharpened.** The question is never "can a hexagon
+do association" (the shipped systems already do). It is: *can a
+6-neighbour topology beat the existing Morton/Cartesian structure
+measurably* — same macros, same corpus, same promotion rules, same
+resonance rule. Metrics extend §7.2's list with: promotion stability and
+demotion rate. If hex wins, it wins as a COMPUTE topology — never
+retroactively as an explanation of the 96-bit register.
