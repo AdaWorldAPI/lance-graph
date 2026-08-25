@@ -1132,6 +1132,47 @@ pub trait ClassView {
         crate::rail_geometry::RailCarving::zero_fallback(axis)
     }
 
+    /// How this class's 12-byte content-blind register is CARVED — which of the
+    /// three `G·D = 12` groupings a consumer reads it under
+    /// ([`CascadeShape`](crate::facet::CascadeShape): `G6D2` rails, `G4D3`
+    /// triplets, `G3D4` quads).
+    ///
+    /// Same registry-resolution pattern as
+    /// [`edge_codec_flavor`](ClassView::edge_codec_flavor) /
+    /// [`rail_carving`](ClassView::rail_carving) /
+    /// [`band_reading`](ClassView::band_reading): the default is the canon
+    /// zero-fallback and a class overrides per classid. Selection only — every
+    /// grouping reads the SAME 12 bytes, so the choice never moves a byte and
+    /// never changes `NODE_ROW_STRIDE`.
+    ///
+    /// The zero-fallback is [`CascadeShape::G3D4`](crate::facet::CascadeShape::G3D4),
+    /// which `CascadeShape`'s own doc already names "the canonical GUID shape"
+    /// — Rails classes override to `G6D2`, other frameworks to `G4D3`, exactly
+    /// as [`from_levels`](crate::facet::CascadeShape::from_levels) describes.
+    ///
+    /// # Why this accessor exists
+    ///
+    /// [`CascadeShape`](crate::facet::CascadeShape) has carried the full algebra
+    /// (`groups`/`levels`/`group_of`/`level_of`/`index`) and the statement that
+    /// the grouping is "class-conditioned: `classid` selects it from the
+    /// inherited schema" since it was written — but nothing on `ClassView`
+    /// RETURNED one, so every consumer had to supply the grouping itself and no
+    /// consumer could verify the one it was handed. `lance-graph-java` minted a
+    /// local `Carving` enum for exactly this reason and documented that it
+    /// claimed no authority it could check. This method is that missing
+    /// resolution: the class answers, and a consumer can now bind the answer to
+    /// a population once instead of trusting a parameter.
+    ///
+    /// Note this is a DIFFERENT question from
+    /// [`FacetSchema::of_classid`](crate::facet_schema::FacetSchema::of_classid),
+    /// whose third reading is `Pair48` (`2 × 48-bit`) rather than the
+    /// le-contract L6 quads — that resolver answers "which payload FORMAT",
+    /// this one "which `G·D = 12` grouping".
+    #[inline]
+    fn cascade_shape(&self, _class: ClassId) -> crate::facet::CascadeShape {
+        crate::facet::CascadeShape::G3D4
+    }
+
     /// How this class's edge truth/spare bits are READ, per rail axis — the
     /// D-ACR-7 band-reading contract (`.claude/plans/dacr7-band-reading-contract-v1.md`,
     /// RATIFIED). Same registry-resolution pattern as
@@ -1947,6 +1988,19 @@ mod tests {
         // The edge-codec axis is SEPARATE and untouched (still the CoarseOnly
         // zero-fallback) — only the value slab flipped to Full.
         assert_eq!(classes.edge_codec_flavor(0), EdgeCodecFlavor::CoarseOnly);
+
+        // cascade_shape's zero-fallback is the canonical GUID grouping, and an
+        // override is a real per-class answer rather than decoration.
+        use crate::facet::{CascadeShape, CASCADE_UNITS};
+        assert_eq!(classes.cascade_shape(0), CascadeShape::G3D4);
+        // Whatever a class answers, the grouping must tile the SAME 12 units —
+        // that is what makes it a reading rather than a re-encoding.
+        for shape in CascadeShape::ROTATIONS {
+            assert_eq!(
+                shape.groups() as usize * shape.levels() as usize,
+                CASCADE_UNITS
+            );
+        }
         // The TYPE-level default is unchanged: substrate zero-fallback stays Bootstrap.
         assert_eq!(ValueSchema::default(), ValueSchema::Bootstrap);
     }
