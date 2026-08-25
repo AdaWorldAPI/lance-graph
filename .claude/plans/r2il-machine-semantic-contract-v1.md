@@ -128,7 +128,14 @@ that it does not belong. **CONJECTURE** — the falsifier is in §6.
 > registration-order counter. Two facets from two arches are byte-identical
 > while denoting different spaces (demonstrated against the shipped API).
 > Census: **0 custom spaces in 94,536 rows across all four binaries** — the
-> case is LATENT on x86 and fires first on the 6502/C64 arc. Verdict: fixed
+> case is LATENT on x86 and fires first on the 6502/C64 arc.
+> **⊘ AND IT NOW FIRES (same day):** the arch census over the real SLEIGH
+> specs finds the 6502 minting TWO custom spaces — `OTHER` → `Custom(0)`
+> and, because the alias map is case-SENSITIVE, its own main memory `RAM`
+> → `Custom(1)`. The 6502's RAM is not `SpaceId::Ram`. Latent → live;
+> verdict unchanged, urgency changed. See
+> `E-W0-IS-LIVE-ON-THE-6502-AND-ITS-MAIN-MEMORY-IS-NOT-SpaceId-Ram-1`.
+> Verdict: fixed
 > spaces 0–3 stay; the custom axis is BLOCKED from the `0xC4` mint as
 > carved. Full entry:
 > `E-W0-THE-SPACE-ORDINAL-IS-A-RANK-RELATIVE-TO-A-TABLE-THE-CLASSID-NEVER-NAMES-1`.
