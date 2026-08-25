@@ -57,6 +57,24 @@ Known and accepted, stated once rather than re-litigated: without a root lock,
 two builds at different times may resolve different dependency versions for the
 workspace's binaries. That is the cost the no-locks rule accepts.
 
+**Consumer missed in the first pass, caught by codex review (P1) — and the bot
+undercounted.** Four Dockerfiles executed `COPY Cargo.toml Cargo.lock ./`,
+which fails at build time in a fresh checkout once the root lock is gone:
+`Dockerfile:30`, `Dockerfile.avx512:29` (both flagged), plus
+`crates/thinking-engine/Dockerfile:5` and `Dockerfile.railway:13` — the latter
+two use a REPO-ROOT build context (they `COPY crates/...`), so their
+`Cargo.lock` is the root one too, despite thinking-engine tracking a lock of
+its own. All four now `COPY Cargo.toml ./` and resolve during the build.
+
+Why the pre-deletion audit missed it: it grepped Dockerfiles for
+`--locked`/`--frozen` and greppped `.github/`, `docs/`, `.claude/board/` for
+`Cargo.lock` — but never grepped Dockerfiles for `COPY ... Cargo.lock`. A
+consumer can depend on a lock by COPYING it, not only by passing `--locked`.
+
+No regression guard added, deliberately: a re-added `COPY Cargo.lock` fails
+loudly and immediately at image-build time (missing source file), so the
+failure mode is already self-detecting at the point of use.
+
 Left alone deliberately: `build.yml` / `rust-test.yml` / `style.yml` still list
 `Cargo.lock` as a path trigger. Harmless (a filter on a file that cannot change
 simply never matches) and removing it would widen this into three unrelated

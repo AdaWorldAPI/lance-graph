@@ -2,7 +2,7 @@ FROM rust:1.82-bookworm AS builder
 WORKDIR /app
 
 # Dependencies first (cached layer)
-COPY Cargo.toml Cargo.lock ./
+COPY Cargo.toml ./
 COPY crates/thinking-engine/Cargo.toml crates/thinking-engine/
 COPY crates/bgz-tensor/Cargo.toml crates/bgz-tensor/
 COPY crates/highheelbgz/Cargo.toml crates/highheelbgz/
