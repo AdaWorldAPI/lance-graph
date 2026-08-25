@@ -1,3 +1,9 @@
+## ⊘ kognitionswirtschaft-v1 — RETRACTED 2026-08-25 (Chinese-wall violation)
+
+All D-KW rows below are void; the plan file is deleted. See
+`INTEGRATION_PLANS.md` for the retraction. No code was ever merged — the one
+implementation attempt was reverted in the working tree before commit.
+
 ## kognitionswirtschaft-v1 — PROPOSED 2026-08-25 (operator-initiated)
 
 Plan: `.claude/plans/kognitionswirtschaft-v1.md`. Typed epistemic deficits

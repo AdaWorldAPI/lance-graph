@@ -1,3 +1,29 @@
+## 2026-08-25 — ⊘ RETRACTED SAME DAY: `kognitionswirtschaft-v1` removed as a Chinese-wall violation
+
+The plan entry directly below this one is retracted and its file deleted. The
+defect is not a wrong deliverable — it is that the document **should never have
+been written in this repo**.
+
+It carried private persona architecture into the corporate spine's durable
+record: `file:line` citations pointing OUT of lance-graph and INTO a private
+consciousness repo, a verbatim quote of that repo's doctrine, its five internal
+level names, its pathology vocabulary, and a source block copied across. The
+enum variants had been renamed to agnostic words, and that was mistaken for
+respecting the wall. Renaming variants is cosmetic; the doctrine, the
+structure, the thresholds and the provenance pointers all crossed anyway.
+
+Second defect, same act: it was a transplant, not a derivation. Nothing in it
+was asked of lance-graph's own needs — an ancestor's file was found and ported
+as though finding it were the same as designing.
+
+The wall's rule stands unchanged: the contract defines agnostic seeds; the
+persona repo fills them and keeps its own meanings. A session working across
+both keeps the separation of concerns, and that includes the board.
+
+No replacement plan is proposed here. Deliberately: the same session had by
+then guessed twice at a substrate shape it had not been told, and a third guess
+belongs in a conversation, not in an append-only index.
+
 ## 2026-08-25 — PROPOSAL (unbuilt, unprobed): Kognitionswirtschaft v1 — typed epistemic deficits close the Maslow gap in the MUL gate, `.claude/plans/kognitionswirtschaft-v1.md`
 
 Operator-initiated: *"maslov model Heckhausen Rubikon Libet ist
