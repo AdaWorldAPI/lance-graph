@@ -38,6 +38,12 @@ substance, requiring a bump on every mint. It went red on `Mmio` for exactly
 that reason. Now derived from the two enums' variant names (PR #1030,
 `d48496d`), disable-run verified.
 
+**Session close (2026-08-25):** the four-PR arc this entry came out of is fully
+merged — OGAR #284 (`c02efa1`, the `0xC6` mint), C64-rs #11 (fence widening),
+ruff #106 (the 6502 Elite harvest), lance-graph #1030 (`87a3210`, the mirror +
+the derived `domains_agree`). The two stale locks above are therefore the ONLY
+part of that arc left open, and they were never part of any of those PRs.
+
 ## ISS-CORPUS-ADDRESSING-OPEN-POINTS (2026-08-22) — OPEN
 
 Three points a 5+3 council left explicitly unresolved rather than settle by
