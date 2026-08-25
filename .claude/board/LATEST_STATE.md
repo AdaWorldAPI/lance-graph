@@ -1,3 +1,28 @@
+## 2026-08-25 — `contract::ogar_codebook` gains `typed_field` (0x080A) — the OGAR W4 doc-layer council's cross-repo mirror obligation
+
+### Current Contract Inventory — `ogar_codebook::CODEBOOK` +1 row
+
+- **`("typed_field", 0x080A)`** added to `lance-graph-contract::ogar_codebook::CODEBOOK`,
+  immediately before the existing `("document", 0x080B)` row it was previously
+  reserved-but-unminted alongside. Wire-compatible mirror of OGAR
+  `ogar_vocab::class_ids::TYPED_FIELD`, minted by OGAR's own W4 5+3 council
+  (`.claude/agents/5plus3-council.md` pattern; spec v1→v2→v3 =
+  `OGAR-DOC-W4-BUILD-SPEC.md`; OGAR `docs/DISCOVERY-MAP.md` `D-OGAR-DOC-LAYER`
+  Status 2026-08-25, OGAR commit `3fbd9f36055299003e3c820156ad86c9518d8e78` on
+  branch `claude/bpe-tokenization-architecture-3xd4eh`). No count-fuse in this
+  crate needed bumping (`ogar_codebook.rs` carries no hardcoded `CODEBOOK.len()`
+  literal, unlike OGAR's own three internal fuses) — the row addition alone
+  keeps the mirror in sync. This is the completeness item OGAR's own
+  `COUNT_FUSE` removal (2026-08-14) can no longer catch automatically: a
+  mint landing on the OGAR side with no corresponding mirror row here would
+  now go silently stale. `cargo test -p lance-graph-contract` (1220+7+8+7+4+21
+  across the crate's test binaries) green, `clippy -p lance-graph-contract
+  --all-targets -- -D warnings` clean, `cargo fmt -p lance-graph-contract
+  -- --check` clean.
+- **Downstream:** `paperless-rs`'s `paperless-kv::HOT_PLUG` activation (against
+  OGAR's new `ogar_vocab::document_actions` table) is the consumer-side
+  follow-through, tracked in that repo — not this one.
+
 ## 2026-08-23 — #1017 OPEN — the token seam: #1012's integration half answered, and the 8-bit lane's ceiling found
 
 - **What exists now:** `PROBE-TOKEN-SEAM-1` (37 gates, 13 disable-runs) in

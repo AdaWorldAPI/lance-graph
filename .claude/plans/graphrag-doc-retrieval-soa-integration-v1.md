@@ -427,7 +427,12 @@ rendering over ClassView×WideFieldMask. Grounded:
   a2ui `project_node`; PDF = the unbuilt `ogar-doc reconstruct_document`), RBAC
   `template ∩ role` fail-closed. **Sequencing:** the `0x080B`/`0x080A` mints +
   persist/reconstruct are BLUEPRINT-ONLY, council/mint-gated — D-GR-5/6 sequence
-  AFTER the doc-W4 council.
+  AFTER the doc-W4 council. **Status 2026-08-25: the doc-W4 council has run and
+  the mints shipped** (both classids confirmed, `persist_document`/
+  `read_document`/`reconstruct_document` ActionDefs in `ogar_vocab::
+  document_actions` — see OGAR `docs/DISCOVERY-MAP.md` `D-OGAR-DOC-LAYER`).
+  D-GR-5/6 are UNBLOCKED to sequence, still blueprint-only in THIS plan
+  (nothing in this document's own scope has been built).
 
 ## §5. Wave sequencing (aligned to v3 W0–W6 + D-TRI)
 
