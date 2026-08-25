@@ -415,3 +415,65 @@ level up: not only the specimen must be falsifiable — **the instrument
 must prove it can currently measure.** (Precedent, small scale: the
 shuffle runs of 2026-08-25 asserted their multiset/marginal preservation
 on every draw — each null was itself checked before its verdict counted.)
+
+### 7.6 §7.2's probe gets its real task: ONTOLOGY-MORPHOGENESIS (operator-approved + leakage-hardened, 2026-08-25)
+
+Supersedes the "cheap first version" in §7.2 (the 33-macro co-occurrence
+graph) as the PRIMARY form of `PROBE-GREY-TOPOLOGY-AB`: independently
+curated open ontologies (MONDO / HPO / GO / ChEBI — different projections
+of one biological reality) are a far stronger oracle than internal
+machine patterns held against each other. The baked corpus already
+exists on the consumer side (the open-ontology SoA bake with
+`(classid, identity)` lanes and `part_of:is_a` rails); the data half of
+this probe lives in that repo's own ledger, only the topology half here.
+
+```
+PROBE-GREY-TOPOLOGY-AB / ONTOLOGY-MORPHOGENESIS   (unbuilt, gated)
+
+INPUT:
+  exclusively intra-ontology structure:
+  is_a, part_of, roles, evidence, causal edges.
+  LEAKAGE FENCE (operator-added, load-bearing): not only explicit
+  crosswalks are withheld — DERIVED features that already betray them
+  are banned from the fold rule too: no xref-derived labels, no
+  pre-normalized shared IDs, no bridge features that carry the answer.
+
+WITHHELD ORACLE:
+  the known cross-ontology mappings (xrefs, curated anatomy mappings,
+  curated axis crosswalks). Hidden during folding; scored against after.
+
+COMPARE (same data, same fold rule, same budgets):
+  A = the substrate's native Morton/Cartesian neighbourhood
+  B = the experimental local topology (hex, if it applies)
+
+NULLS (all four; each must be qualified per §7.5 before it may veto):
+  degree-preserving rewiring          (kills hub bias)
+  relation-type shuffle
+  label/identity shuffle
+  is_a-DEPTH-PRESERVING leaf permutation   (kills common-root attraction —
+      without this, "everything near the root looks alike" gets celebrated
+      as morphogenesis)
+
+GATE:
+  A fold is interesting only if it survives destruction of the semantics
+  that supposedly caused it AND recovers withheld mappings better than
+  every qualified null/control.
+```
+
+**§7.5 applies to the oracle itself:** a null model or held-out set may
+demote a fold only after proving it can separate known withheld
+relationships as its positive control. A broken oracle gets no veto.
+
+**Sequencing, deliberately two-phase:** first the probe must RECOVER
+what curators independently already knew, despite it being hidden —
+self-supervised structure discovery with uncontaminated ground truth.
+Only THEN do the novel basins (folds with no existing crosswalk) become
+admissible as candidates — and they enter as Explore-status crystals
+under §7.4/§7.5, never as findings. The ontologies themselves stay
+separately true throughout: the geometry learns PROXIMITY, white matter
+keeps the explicit edges, provenance, and truth.
+
+**Both outcomes pay:** if B/hex does not beat A on withheld recovery,
+false resonance, and promotion/demotion stability, hex is dead and the
+crystal stays square — a real answer. If it wins, the honeycomb has its
+first empirical lease.
