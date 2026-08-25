@@ -601,10 +601,16 @@ pub const CODEBOOK: &[(&str, u16)] = &[
     ("page_layout", 0x0807),
     ("page_image", 0x0808),
     ("ocr_renderer", 0x0809),
+    // typed_field (0x080A) — one harvested key/value field as a graph node:
+    // a `document`'s per-field awareness (key/value/confidence/geometry).
+    // Mirror of `ogar_vocab::class_ids::TYPED_FIELD`, minted alongside
+    // `document` by the W4 5+3 council (`OGAR-DOC-W4-BUILD-SPEC.md`,
+    // ratified 2026-08-25; OGAR `docs/DISCOVERY-MAP.md` D-OGAR-DOC-LAYER).
+    ("typed_field", 0x080A),
     // document (0x080B) — the generic, source-agnostic document concept the
     // OCR arc converges on: the reusable `ogar-doc-ir::DocIr` DTO produced by
     // `tesseract-rs → doc.v1 → ogar-from-docv1 → DocIr → render`. Mirror of
-    // `ogar_vocab::class_ids::DOCUMENT`. 0x080A reserved.
+    // `ogar_vocab::class_ids::DOCUMENT`.
     ("document", 0x080B),
     // ── 0x09XX — Health domain (MedCare; 0x0901..0x0907 = OGIT
     // NTO/Healthcare promotion; 0x0908..0x090C = harvest-derived mints,
