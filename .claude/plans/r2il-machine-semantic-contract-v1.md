@@ -118,6 +118,23 @@ The open item O3 currently reads *"does `Custom(u32)` fit the 16-byte
 projection?"*; under this reading the question is not whether it fits but
 that it does not belong. **CONJECTURE** — the falsifier is in §6.
 
+> **⊘ RESOLVED 2026-08-25 by W0 — and the conjecture above named the WRONG
+> mechanism.** `Custom(n)` is NOT per-binary: the table is built by
+> `CustomSpaceTable::from_arch` from `ArchSpec.spaces`, i.e. per
+> ARCHITECTURE, so within one arch the ordinal is stable across binaries.
+> The real defect is one level up — `ordinal_of` returns
+> `CUSTOM_ORDINAL_BASE + rank(raw)`, so the lo-u16 is a RANK inside a table
+> the classid never names, over a raw id that is itself an upstream
+> registration-order counter. Two facets from two arches are byte-identical
+> while denoting different spaces (demonstrated against the shipped API).
+> Census: **0 custom spaces in 94,536 rows across all four binaries** — the
+> case is LATENT on x86 and fires first on the 6502/C64 arc. Verdict: fixed
+> spaces 0–3 stay; the custom axis is BLOCKED from the `0xC4` mint as
+> carved. Full entry:
+> `E-W0-THE-SPACE-ORDINAL-IS-A-RANK-RELATIVE-TO-A-TABLE-THE-CLASSID-NEVER-NAMES-1`.
+> Prior art: `facet.rs:18-20`'s own `⚠ Known tension` note flagged the
+> shape-ordinal problem first; W0 supplies the measurement and mechanism.
+
 ---
 
 ## §4 — THE ANSWER: how a session should store R2IL
@@ -190,7 +207,7 @@ per workspace rule (grindwork → Sonnet; accumulation/orchestration/gates
 
 | wave | deliverable | falsifier / kill condition |
 |---|---|---|
-| **W0** | `Custom(n)` census (closes §3's defect + O3): over the 4-binary corpus, count distinct `Custom(n)` and whether the same `n` denotes the same thing across binaries | same `n`, different meaning across binaries ⇒ `Custom(n)` is CONTENT ⇒ it moves OUT of classid into payload/edge before ANY mint. Same meaning everywhere ⇒ reading, stays |
+| **W0** | ~~`Custom(n)` census~~ **RUN 2026-08-25 — see the ⊘ note in §3.** Census: 0 custom spaces in 94,536 rows / 4 binaries (latent). Mechanism falsified in code: the lo-u16 is a rank in an unnamed table; two arches collide byte-identically | **VERDICT: fixed spaces 0–3 stay; the custom axis is BLOCKED from the `0xC4` mint as carved.** The kill condition fired on a third possibility the row did not anticipate — neither "content" nor "reading", but a reading relative to a table absent from the address |
 | **W1** | the R2IL V4 tenant spec: ClassView carving of the 12 bytes for Op / Varnode-ref / macro-ref rows, written against `le-contract.md` §3 | field-isolation matrix test (I-LEGACY-API-FEATURE-GATED): write each field, assert all others unchanged. Any aliasing ⇒ re-carve |
 | **W2** | the `0xC4 BinaryLifting` mint (ruff PR3 arc, O5) — container concepts only, gated on W0's verdict for the space axis | mint request names concepts; a concept that encodes per-binary content is rejected by W0's rule |
 | **W3** | palette wiring: macro-id byte → `{Learned,Explore}Palette[id]` → R2IL×BPE microcode, `ogar-loco` routing | B4-equivalent byte-exact round-trip through the palette; admission stays MUL's/the triangle's, NEVER the wiring's |
