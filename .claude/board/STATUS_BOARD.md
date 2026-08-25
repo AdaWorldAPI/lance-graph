@@ -1,3 +1,18 @@
+## kognitionswirtschaft-v1 — PROPOSED 2026-08-25 (operator-initiated)
+
+Plan: `.claude/plans/kognitionswirtschaft-v1.md`. Typed epistemic deficits
+(Maslow-ported, agnostic names) as the demand side of the Libet/Rubikon/MUL
+economy. No code yet; every D-id below is gated on its falsifier.
+
+| D-id | Deliverable | Status |
+|---|---|---|
+| D-KW-1 | `EpistemicDeficit` enum (5 variants) in `contract::mul` | Queued |
+| D-KW-2 | `MulAssessment.deficit: Option<…>` additive; `Hold.reason` demoted to display | Queued |
+| D-KW-3 | four snapshot predicates over `SituationInput` (thresholds hand-tuned, declared) | Queued |
+| D-KW-4 | `Mobility` window predicate over resolution-loop history (F-0 fix) | Queued |
+| D-KW-5 | deficit → typed supply-request dispatch (no actor, no fetch) | Queued |
+| D-KW-6 | gate ordering: MUL(deficit) before `rubicon_witness` read; reads only | Queued |
+
 ## stage-3 — RE-SCOPED 2026-08-20: S3.0 closed as NOT-NEEDED; the ladder's empty column is HYDRATION, not ADDRESS
 
 PR #973 (S3.0 address, first attempt) closed unmerged. Its retraction PR then

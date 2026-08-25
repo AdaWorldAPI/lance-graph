@@ -1,3 +1,25 @@
+## 2026-08-25 — PROPOSAL (unbuilt, unprobed): Kognitionswirtschaft v1 — typed epistemic deficits close the Maslow gap in the MUL gate, `.claude/plans/kognitionswirtschaft-v1.md`
+
+Operator-initiated: *"maslov model Heckhausen Rubikon Libet ist
+Kognitionswirtschaft."* Three of the four layers exist already —
+`CycleBudget` prices the Libet window in µs (`elevation/cycle.rs`),
+`rubicon_witness` reads the Heckhausen crossing (D-ACR-8), the MUL gate
+holds at the deliberation boundary. The missing fourth is the demand
+signal: `GateDecision::Hold { reason: String }` grounds a hold in PROSE,
+so every Hold spends budget on "more context" indiscriminately. The plan
+adds one `#[repr(u8)]` deficit enum (Signal / Stability / Relation /
+Warrant / Mobility, ported from `ada-consciousness/atoms/
+cognitive_maslow.py` with agnostic names), widens `MulAssessment`
+additively, and wires deficit → typed supply request. Headline finding
+(F-0, candidate `E-THE-CROWN-NEVER-FIRED-1`): the ancestor's fifth level
+is UNREACHABLE code — `NAVIGATION.satisfied = True` hardcoded
+(`:207–208`) — because rigidity is a trajectory property no field
+snapshot can see; the port defines it as a window predicate over the
+resolution loop's own history. Load-bearing falsifier F-KW-TARGETED-1:
+resolving the *named* deficit must beat resolving a *random* one against
+a shuffled control, or the taxonomy is decoration. D-KW-1..6, six
+falsifiers, each with can-fire and can-stay-silent legs.
+
 ## 2026-08-24 — §7's three falsifiers RUN: `PROBE-R2IL-BPE-RECOMBINATION-FALSIFIERS-1` (4/4), splice legality 10.1%, round-trip confirmed, counterfactual lane distinguishes at the real v2-only scope
 
 Autoattended (1 Sonnet worker, orchestrator independently re-verified
