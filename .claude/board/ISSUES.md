@@ -38,6 +38,30 @@ substance, requiring a bump on every mint. It went red on `Mmio` for exactly
 that reason. Now derived from the two enums' variant names (PR #1030,
 `d48496d`), disable-run verified.
 
+**RESOLVED (2026-08-25, operator-directed "remove those two locks").** Both
+tracked locks deleted and ignored BY PATH (`/Cargo.lock`,
+`/crates/cognitive-stack/Cargo.lock`) — path patterns, not a blanket
+`Cargo.lock` rule, because the other 27 tracked locks are a separate, unruled
+question. The ignore entries are load-bearing, not cosmetic: `release.yml`
+regenerates the root lock (`cargo check`) and then runs `git add -A`, which
+would silently resurrect it on the next release.
+
+Verified rather than asserted: a fresh resolve of the root workspace now pins
+OGAR at `c02efa1` (current, Mmio included) where the tracked lock said
+`719471d`. `cargo metadata` succeeds and the regenerated lock stays untracked.
+`lance-graph-ogar` parity 72/72; `lance-graph-contract` 6/6 suites green. No
+`--locked`/`--frozen` anywhere in CI, Dockerfiles, or scripts, so nothing
+depended on the pinned resolution.
+
+Known and accepted, stated once rather than re-litigated: without a root lock,
+two builds at different times may resolve different dependency versions for the
+workspace's binaries. That is the cost the no-locks rule accepts.
+
+Left alone deliberately: `build.yml` / `rust-test.yml` / `style.yml` still list
+`Cargo.lock` as a path trigger. Harmless (a filter on a file that cannot change
+simply never matches) and removing it would widen this into three unrelated
+workflow files.
+
 **Session close (2026-08-25):** the four-PR arc this entry came out of is fully
 merged — OGAR #284 (`c02efa1`, the `0xC6` mint), C64-rs #11 (fence widening),
 ruff #106 (the 6502 Elite harvest), lance-graph #1030 (`87a3210`, the mirror +
