@@ -202,6 +202,9 @@ pub use canonical_node::{
     KanbanTenant, NodeGuid, NodeRow, NodeRowPacket, ReadMode, ValueSchema, ValueTenant,
     VALUE_TENANTS,
 };
+pub use causal_witness::{
+    CausalWitnessFacet, Locus, LOCUS_LABELS, NAMED_LOCI, WITNESS_LOCI, WITNESS_REGISTER_BYTES,
+};
 pub use class_view::{
     ClassId, ClassProjection, ClassView, FieldMask, RenderRow, ValueRow, WideFieldMask,
 };
@@ -224,3 +227,13 @@ pub use soa_view::{MailboxSoaOwner, MailboxSoaView};
 pub use step_mask::StepMask;
 pub use style_family::StyleFamily;
 pub use view_angle::ViewAngle;
+pub use witness_fabric::{
+    absolute_agreement, belief_runs, elect_peers, elect_peers_lens, foresight_calibration,
+    foresight_sample, is_opinion, opinion_strength, quorum_mantissa, quorum_mantissa_lens,
+    resolve_chain, resolve_chain_lens, revision_trajectory, standing_wave_diagnosed,
+    standing_wave_diagnosed_lens, standing_wave_grounded, standing_wave_grounded_lens,
+    standing_wave_stratified, standing_wave_stratified_lens, suggest_reopening, superseded_runs,
+    superseded_spread_sample, trajectory_of, trajectory_of_lens, BeliefRun, ChainResolution,
+    EscalateReason, ForesightSample, PeerElection, ReopeningEvidence, ReopeningReason,
+    ReopeningSuggestion, RevisionTrajectory, TrajectorySignature, WaveGrounding, WitnessLens,
+};
