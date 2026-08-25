@@ -477,3 +477,17 @@ keeps the explicit edges, provenance, and truth.
 false resonance, and promotion/demotion stability, hex is dead and the
 crystal stays square — a real answer. If it wins, the honeycomb has its
 first empirical lease.
+
+**Responsibility boundary (operator, same day — the cut that keeps this
+plan from owning MedCare):**
+
+```
+lance-graph plan:   defines the topology experiment + falsifiers.  NOTHING ELSE.
+MedCare-rs:         owns corpus, bake state, withheld mapping lists, receipts
+                    (its own ledger, RAIL_OFFENE_POSTEN).
+```
+
+§7.6 defines the FORM of the experiment. The moment a future edit here
+starts specifying ontology ingestion, bake artifacts, or concrete
+crosswalk lists, the clean cut has failed — move that text to the
+consumer repo and leave a pointer.
