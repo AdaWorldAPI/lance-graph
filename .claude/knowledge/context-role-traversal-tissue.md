@@ -134,10 +134,11 @@ Both consume `jc::reliability` (scientific crate — consumed, never extended;
 - **graphrag v1.2 (ACTIVE):** D-GR-2's rung walk = the vertical axis; the
   §4a DocumentID-KV seam = the document instantiation; §3b.1 sharpened to
   cite this doc.
-- **doc-W4 (council-gated):** document reconstruction reads = the vertical
-  radix path; "documents in this community" = horizontal. The `document
-  0x080B` / `typed_field 0x080A` walks should be specified AS lens-stack
-  walks, not bespoke.
+- **doc-W4 (mints council-shipped 2026-08-25; the walk spec itself is still
+  unbuilt):** document reconstruction reads = the vertical radix path;
+  "documents in this community" = horizontal. The `document 0x080B` /
+  `typed_field 0x080A` walks should be specified AS lens-stack walks, not
+  bespoke.
 - **temporal-markov (ACTIVE):** the sorted-stream window IS the temporal
   vertical (coarse→fine version ranges); D-MTS probes unaffected, this doc
   only names the correspondence.
