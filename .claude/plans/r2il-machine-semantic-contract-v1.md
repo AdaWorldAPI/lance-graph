@@ -209,3 +209,81 @@ not a prerequisite of anything.
 ruling, still with the operator): V4's exact special-needs set beyond
 R2IL; the V3-vs-V4 routing rule; whether the W2 mint is registered as V3
 or V4.
+---
+
+## §7 — ADDENDUM 2026-08-25: the white/grey reading, hex demoted to a testable overlay, and the demotion gate
+
+> Register: PLAN + vocabulary. One operator-converged framing, recorded
+> because it names shipped structure correctly and turns the one unbacked
+> piece (hexagonal topology) from a rejected reading into a falsifiable
+> experiment. Nothing here changes W0–W5.
+
+### 7.1 The layer vocabulary (naming, not new machinery)
+
+```
+PHYSICS       SoA V4                       (shipped)
+SEMANTICS     R2IL contract                (shipped; ruff_r2il consumes it)
+ADDRESSING    Cartesian / Morton / HHTL    (shipped; 256×256 per rail, 4⁴ centroids)
+HOLOGRAPHY    bounded VSA superposition    (shipped, NICHE: N ≤ √d/4 ≈ 32,
+                                            I-VSA-IDENTITIES; not a storage story)
+VOCABULARY    transferable BPE macros      (measured 2026-08-25: −0.6% gcc→gcc,
+                                            −4.7% gcc→rustc, both outside the
+                                            marginal-preserving null)
+COGNITION     learned topology + resonance (System/Learned/Explore lanes shipped;
+                                            the TOPOLOGY half is UNBUILT)
+```
+
+White matter = PHYSICS…VOCABULARY's exact half (deterministic, addressed,
+replayable; `expand(macro) → exact R2IL` is B4, already green). Grey
+matter = the plastic half (resonance, counterfactual lane, revision —
+`PROBE-METACOGNITIVE-TRIANGLE-1`, PR #1013's veto). The bridge invariant,
+already ratified in the POC entry: **a macro never becomes a second
+truth.**
+
+### 7.2 Hexagonal topology — demoted correctly, and thereby testable
+
+The #1023 audit's FALSE/net-new verdict on "6 directional 16-bit facets"
+stands UNTOUCHED: hex is **not** the storage geometry, and no rereading
+of the 96-bit register claims otherwise. The corrected proposal is an
+**optional learned neighbourhood graph ON TOP of the Cartesian crystal**:
+
+```
+Cartesian resident crystal → addressed cells/masks/edges
+    → optional learned neighbourhood overlay → 6-neighbour resonance
+```
+
+**PROBE-GREY-TOPOLOGY-AB (unbuilt, gated).** Two topologies, same macros,
+same tasks, same activation rules:
+  A = Morton/Cartesian neighbourhood (the substrate's native reading)
+  B = six-neighbour graph overlay
+Metrics: pattern completion, transfer, steps-to-convergence, false
+resonance, memory footprint, counterfactual quality.
+Kill condition: B must beat A on ≥2 metrics without losing on footprint
+by more than it gains — otherwise the crystal stays square.
+
+**Honest gate:** the experiment as specced requires a learned-topology
+layer that does not exist. The cheapest real first version needs no new
+tissue: the 33-macro co-occurrence graph over the existing 4-binary
+corpus IS a learned neighbourhood — run completion/false-resonance on it
+under both adjacency readings before building anything. If even that
+cheap form shows no B-advantage, the full probe is not worth its cost.
+
+### 7.3 Crystallization has a measurable admission criterion now — and needs a DEMOTION gate
+
+Admission (Explore→Learned→System) stays MUL's + the triangle's. What
+2026-08-25 adds is the evidence shape: **a System candidate must
+(a) B4-round-trip, (b) fit a loco lane, (c) fire across program AND
+toolchain boundaries outside the marginal-preserving null.** On today's
+corpus: 25 macros qualify, 7 stay lane-local, 2 (`fits-NONE`, both
+binary-local) never crystallize.
+
+**The missing half, required before any promotion ships:** the demotion
+path. A System macro that falls INSIDE the null range on a new corpus
+goes back to Learned — same gate, run in reverse. Without it,
+crystallization is the 150/150 guard one level up
+(`E-ANTI-EIGENVALUE-…-1`): a vocabulary that can only grow carries
+progressively less information per entry. Promotion and demotion are one
+mechanism read in two directions, and the falsifier for the pair is:
+inject a deliberately corpus-local macro into System, present the new
+corpus, assert it is demoted (can-fire) — and assert the 25 transferable
+ones are NOT (can-stay-silent).
