@@ -1,14 +1,18 @@
 # Build artifacts (Rust & cargo)
-# No locks (operator rule, 2026-08-25): a Cargo.lock that pins the OGAR
-# authority is a second, silently-stale reading of the codebook — see
-# .claude/board/ISSUES.md ISS-STALE-AUTHORITY-LOCKS. These two are ignored
-# by PATH, not by a blanket `Cargo.lock` pattern, because the other 27
-# tracked locks in this repo are a separate, unruled question. The entries
-# are load-bearing rather than cosmetic: release.yml regenerates the root
-# lock (`cargo check`) and then `git add -A`, which would silently
+# No locks (operator rule, 2026-08-25) — see .claude/board/ISSUES.md
+# ISS-STALE-AUTHORITY-LOCKS. A tracked Cargo.lock that pins the OGAR
+# authority is a second, silently-stale reading of the codebook.
+#
+# Blanket, not per-path: the rule is "no locks ever", and a path list would
+# have to grow on every new crate. NOTE this does NOT untrack the 27 locks
+# still committed under crates/ — .gitignore never applies to tracked files;
+# untracking those is its own PR (`git rm --cached`), gated on the same
+# exact-pin sweep the root workspace just took.
+#
+# Load-bearing, not cosmetic: release.yml regenerates the root lock
+# (`cargo check`) and then runs `git add -A`, which would otherwise silently
 # resurrect it on the next release.
-/Cargo.lock
-/crates/cognitive-stack/Cargo.lock
+Cargo.lock
 /target/
 /debug/
 /release/
