@@ -1,5 +1,43 @@
 # Issues Log — Open + Resolved (double-entry, append-only)
 
+## ISS-STALE-AUTHORITY-LOCKS (2026-08-25) — OPEN
+
+**Operator rule (this session): "we don't use any locks ever — deprecated in
+favour of `lance-graph-contract` `hotplug.rs` / `ogar-vocab` /
+`lance-graph-ogar`", and "if you have a lock it means your code has a
+regression."**
+
+Two TRACKED `Cargo.lock` files in this repo pin the OGAR authority, both at
+`719471d` — **two commits stale**, predating BOTH `typed_field` (0x080A) and
+the `0xC6 Mmio` mint (OGAR #284, merged `c02efa1`):
+
+- `Cargo.lock` (workspace root)
+- `crates/cognitive-stack/Cargo.lock`
+
+Consequence, which is the regression the rule names: a build routed through
+either lock resolves a **pre-Mmio, pre-typed_field** authority, while
+`lance-graph-ogar` — which tracks no lock — resolves the real one. Two readings
+of "what the codebook contains" in one repo.
+
+Measured 2026-08-25: 29 tracked `Cargo.lock` files total; only these two
+reference `AdaWorldAPI/OGAR`. `lance-graph-ogar` correctly tracks none
+(`git ls-files` empty for it) — a lock seen there during this session was a
+local build artifact, not a committed pin.
+
+CI already does the right thing independently: the workflow checks OGAR out as
+a **sibling directory** (`/home/runner/work/lance-graph/lance-graph/OGAR`), so
+the parity job resolves the authority live regardless of the lock.
+
+**NOT actioned — operator call.** Deleting the root workspace lock has
+reproducible-binary-build consequences beyond the authority question, so the
+scope ("all locks" vs "the two that pin OGAR") is not an agent decision.
+
+Related, same rule, already fixed: `lance_graph_ogar::parity::domains_agree` was
+a 19-arm hand-written `matches!` enumerating every domain pair — a lock in
+substance, requiring a bump on every mint. It went red on `Mmio` for exactly
+that reason. Now derived from the two enums' variant names (PR #1030,
+`d48496d`), disable-run verified.
+
 ## ISS-CORPUS-ADDRESSING-OPEN-POINTS (2026-08-22) — OPEN
 
 Three points a 5+3 council left explicitly unresolved rather than settle by
