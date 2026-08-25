@@ -339,3 +339,79 @@ measurably* — same macros, same corpus, same promotion rules, same
 resonance rule. Metrics extend §7.2's list with: promotion stability and
 demotion rate. If hex wins, it wins as a COMPUTE topology — never
 retroactively as an explanation of the 96-bit register.
+
+### 7.5 Calibration-before-demotion — the instrument must qualify before it may judge (operator-hardened, 2026-08-25)
+
+> **A corpus may falsify a crystal only after it has falsified the
+> hypothesis that it is an incompetent instrument.**
+
+**⊘ The defect this corrects was in MY first draft of the positive
+control, and the operator caught it.** The draft rule — "a corpus may
+only demote if the 25 established macros do NOT fall into its null
+range" — contains an immortality loop: the very macros a corpus might
+legitimately demote also decide whether the corpus is allowed to demote
+at all. `25 fall into the null → corpus ruled bad → the 25 may not be
+demoted.` A self-immunizing vocabulary is the anti-eigenvalue failure
+wearing a lab coat. Recorded rather than silently fixed.
+
+**The rule:** corpus qualification must be INDEPENDENT of the candidate
+it judges.
+
+```
+CORPUS QUALIFICATION (all six, before any demotion verdict)
+
+1. sufficient chains / effective sample size
+2. no degenerate opcode monoculture
+3. the null model's variance/range has not collapsed
+4. known POSITIVE controls separate from the null      (known signal → seen)
+5. known NEGATIVE controls stay in/near the null       (known noise → not seen)
+6. the candidate under evaluation takes NO part
+   in its own corpus qualification
+```
+
+Point 5 is load-bearing: a positive control alone cannot catch a corpus
+that makes EVERYTHING look strong. The instrument must demonstrate both
+halves — `known signal → erkannt, known noise → nicht erkannt` — before
+it may rule on an unknown.
+
+**Cheap immediate form — leave-one-out calibration:**
+
+```
+demote M17?
+  qualify the corpus using  {established macros} \ {M17}  + frozen negative controls
+  only then evaluate M17
+```
+
+M17 can now actually die.
+
+**Target form — a frozen calibration panel, NOT identical to the System
+palette:**
+
+```
+CAL+   a few provably portable R2IL macros (frozen at panel creation)
+CAL−   shuffled / corrupted / contract-invalid macros
+       (seed material exists: B4's corruption demo already constructs a
+        contract-invalid macro and proves the check catches it)
+
+held-out corpus → CAL+ separates? → CAL− stays null? → corpus is
+COMPETENT → may contribute demotion evidence
+```
+
+**And even a qualified failure is EVIDENCE, not a verdict** — the §7.4
+hysteresis applied to demotion:
+
+```
+qualified failure → demotion evidence accumulates
+                  → crosses the measured lower threshold
+                  → System → Learned
+```
+
+Otherwise "never demote" is merely traded for "one strange Rust binary
+in a bad mood empties the library." The accumulation threshold is a
+POLICY PIN, measured when the first real demotion case exists.
+
+This is the same philosophy as every falsifier in this workspace, one
+level up: not only the specimen must be falsifiable — **the instrument
+must prove it can currently measure.** (Precedent, small scale: the
+shuffle runs of 2026-08-25 asserted their multiset/marginal preservation
+on every draw — each null was itself checked before its verdict counted.)
