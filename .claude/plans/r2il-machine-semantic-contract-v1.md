@@ -1190,3 +1190,19 @@ YES, and the zipper FINDING makes it well-defined:**
   §7.4 reversible trust. A frozen artifact that disagrees with the
   interpreted authority under sampled differential execution is demoted
   (re-thawed) — the tier-0 propose/verify structure applied at tier 2.
+
+**r2conc SHIPPED (2026-08-26 — r2sleigh PR #5, branch
+claude/c64-6502-falsifier-shztkk restarted from master per merged-PR
+rule).** The concrete slab executor the §7.8 census called for:
+`SlabState` borrows `register`/`ram` (`&mut [u8]` — machine state lives
+with the caller), owns `unique` scratch, registers `Custom(n)` slabs
+explicitly (the 6502's case-sensitive `RAM` alias → `UnknownSpace` when
+forgotten, never conjured). Transient LE u64 values, nothing reified;
+semantics anchored to r2sym for differential runs (carry-out, sign-fill
+ashr, byte-offset subpiece with OOR as refusal, trunc-toward-zero sdiv);
+direct branch targets = varnode OFFSET (p-code), indirect = value;
+everything outside the concrete subset fails LOUD. 12 falsifiers, 6
+disable runs red-then-green (logged in the module doc), clippy/fmt/
+workspace-check green. PROBE-R2IL-LIVE-REGFILE is now unblocked: lift a
+6502 routine → run through SlabState → register-file byte parity vs a
+reference emulator.
