@@ -254,3 +254,66 @@ the scalar era rebuilt and fails.
 Board: `E-STYLES-ANCHOR-AT-RUNG-4-IS-A-SCALAR-ERA-ARTIFACT-...-1`;
 demarcation: `persona-vs-rung-ladder.md` O9 (content rows 0–3 untouched;
 persona-36 storyline untouched).
+
+### 7h. The recovered pipeline — occupants 5–9, resonance demoted to predictor (2026-08-26)
+
+The rung-4 anchoring (7g) was not arbitrary: it was the imprint of a larger,
+then only partially realisable pipeline. The original architecture read:
+
+```
+L0–2  observation + atoms
+L3    34 NARS tactics (higher-order transformations)
+L4    thinking/persona styles — "how do I think about this problem?"
+L5–7+ superposition / resonance — "which style FITS this problem's texture?"
+      → result feedback → selection / revision
+```
+
+The demarcation doc conserved the lower half and turned the tower into a
+content list because the substrate to run the strata CONCURRENTLY did not
+exist. What was missing is exactly what the alpha geometry now provides: **ten
+address-equal process fields over the SAME resident world** — not ten copies,
+no JSON scenes, no reconstructed thought objects. `α[r+1] observes α[r]`
+directly, because they address the same rows.
+
+**Occupancy 5–9, recovered (PROVISIONAL — historically grounded, unprobed;
+partially closes O1's upper half):** the height at which each aspect of
+operation becomes an OBJECT. 7g stands (every stratum operates, always);
+7h adds what becomes *explicit* per height:
+
+```
+all rungs   think somehow (per-stratum style, 7g)
+r4          style becomes explicit / selectable
+r5          style × problem interaction becomes observable — resonance
+r6          the alternative style becomes counterfactual
+r7          the selection process itself becomes object
+r8          recursive supervision
+r9          highest active reflection
+```
+
+**Resonance is demoted from oracle to predictor.** The old loop had resonance
+*assert* fit; now it supplies a prior and ΔF supplies the outcome:
+
+```
+resonance(style, texture)  =  which style SHOULD work        (prior)
+ΔF[r]                      =  did it ACTUALLY work           (outcome)
+revision                   =  prior × outcome → next choice
+```
+
+This satisfies the no-model-mediated-value-gate rule structurally: resonance
+alone would be the oracle; grounded by ΔF it is a hypothesis with a
+scoreboard. **Falsifier (rescues F-KW-TARGETED-1's intent on the axis that
+has a feeder):** the resonance prior must beat uniform-random style selection
+in expected ΔF, on non-induced input — else resonance is decoration over
+"pick any style". Both legs writable.
+
+**CE64 positioning, restated with the flow direction:** higher thought /
+alpha field → measured relation → witness + provenance → OPTIONAL durable
+projection → CE64 → MUL and other consumers. CE64 is compact transportable
+knowledge — never where meta-cognition lives (7c's rule, now with its
+pipeline).
+
+Worth recording as the closing irony: the deliberately dumb substrate
+(#969's own charter — semantics as interpretations layered above) is not the
+opposite of the soft architecture. It is the floor it always needed: the
+paper tower failed for lack of exactly the address-equal, mask-native,
+alpha-instrumented ground the "stupid" decisions built.
