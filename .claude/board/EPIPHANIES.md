@@ -1,4 +1,4 @@
-## 2026-08-26 — E-THE-HELIX-POLE-PENALTY-IS-THE-POLAR-BYTE-NOT-THE-CODEC-AND-THE-SPRITE-DECODE-NEVER-TOUCHES-THE-GEOMETRY-1 — measured: uniform 7-bit `y` costs 4.2× mean / 22× max latitude error at the pole; helix24's pole cap is its BEST region; and two of my own first-pass metrics were artefacts
+## 2026-08-26 — E-THE-HELIX-POLE-PENALTY-IS-THE-POLAR-BYTE-NOT-THE-CODEC-AND-THE-SPRITE-DECODE-NEVER-TOUCHES-THE-GEOMETRY-1 — measured: BOTH carriers degrade toward the pole, but helix24's term is BOUNDED (∝ y) while helix48's polar byte DIVERGES (∝ 1/r); helix24's cap wins on index and loses on angle; and three of my own claims were wrong
 
 **Status:** FINDING [MEASURED] — three probes over the shipped `helix`
 public API, run in a copy OUTSIDE the repo (no crate mutated), N ∈
@@ -36,7 +36,7 @@ the *meaning* is not. **Δlat is 4.2× worse at the pole in the mean,
 22× in the max**, and sharpens into the cap: innermost 16 = **2.391°**,
 innermost 4 = **1.205°**, innermost 1 = **0.633°**.
 
-### helix24's pole cap is its BEST region — the penalty is helix48-only
+### helix24's cap wins on INDEX and loses on ANGLE — and it is not exempt
 
 `helix24` = `ResidueEdge` (3 B); `helix48` = `Signed360` (6 B) — the
 crate's own words: *"the 24-bit hemisphere `ResidueEdge` **doubled to
@@ -50,19 +50,48 @@ crate's own words: *"the 24-bit hemisphere `ResidueEdge` **doubled to
 | 256 | 0.10 % | 0.180° | 0.20 % |
 | **ALL n** | **0.17 %** | 0.130° | 0.14 % |
 
-**The cap beats the codec average.** Structurally it must:
-**`ResidueEdge` has no polar byte at all.** Latitude reaches it only
-through `z = arctanh(r)`, and arctanh **stretches** as r→0, so
-consecutive indices separate widely in aligned-space and the 8-bit
-floor resolves the cap finely. helix24's index error is otherwise pure
+**The cap beats the codec average on INDEX error (0.00–0.10 % vs
+0.17 %) and LOSES on ANGULAR error (0.145–0.180° vs 0.130°).** Both
+follow from the same fact and the units decide which you see:
+`ResidueEdge` has no polar byte, so latitude reaches it only through
+`z = arctanh(r)`, which **stretches** as r→0 — consecutive indices
+separate widely in aligned-space (finer *index* recovery) while each
+z-bucket spans more *latitude* (coarser *angular* recovery).
+
+**⊘ CORRECTION (codex P2 on #1040, before merge).** An earlier draft of
+this entry said helix24 "never had" a latitude-dependent error term.
+**That is false**, and the correct derivation is short: with `u = r²`,
+`z = atanh(r)` ⇒ `dr/dz = 1 − r²`, and `lat = acos(r)` ⇒
+`dlat/dr = −1/√(1−r²)`, hence
+
+> **`dlat/dz = −√(1−r²) = −y`**
+
+so equal-width `z` quantisation gives a latitude error **∝ y** —
+**largest at the pole**, vanishing at the equator. The measured clean-
+regime trend is exactly that: polar **0.167°** → mid **0.122°** → low
+**0.067°**. So **both carriers are worst at the pole**; what separates
+them is severity class, not presence:
+
+| carrier | latitude term | at the pole | bound |
+|---|---|---|---|
+| helix24 (`arctanh(r)`, 8-bit) | `dlat/dz = −y` | maximal | **bounded**, ‖·‖ ≤ 1 |
+| helix48 (`polar` byte, 7-bit `y`) | `dlat/dy = 1/r` | maximal | **divergent**, → ∞ |
+
+The equatorial 0.422° / **4.317°** in the band table is a *different*
+effect — the designed floor-range saturation of the top ~1 %
+(`new()` seeds `hi = aligned(0.99·N)`) — not the `z`-quantisation law,
+and it must not be read as the clean-regime trend. helix24's index error is otherwise pure
 bucket quantisation — 0.14–0.20 %, i.e. `1/(2·256)`, **flat in N** —
 with a mild trend the *same* direction (polar band 0.18 % vs low band
 0.08 %).
 
-**So the 1/r pole penalty is a property of the POLAR BYTE, and the
-polar byte exists only in helix48.** Doubling 24→48 bits buys the
-sign and the full sphere; it also *introduces* the latitude-dependent
-error term that the 24-bit carrier never had.
+**So the DIVERGENT pole penalty is a property of the POLAR BYTE, and
+the polar byte exists only in helix48.** Doubling 24→48 bits buys the
+sign and the full sphere; it also replaces a **bounded** pole term
+(`∝ y`, already present in the 24-bit carrier) with an **unbounded**
+one (`∝ 1/r`). The upgrade is not free in angular fidelity near the
+axis — which is the whole point of the removable-singularity note
+below.
 
 ### ⊘ Two metrics from my own first pass, retracted
 
