@@ -1,3 +1,16 @@
+## entropy-closure-causal-ground-v1 — PROPOSED 2026-08-26 (measured)
+
+Plan: `.claude/plans/entropy-closure-causal-ground-v1.md`. PLAN/BOARD ONLY.
+
+| D-id | Deliverable | Status |
+|---|---|---|
+| D-ECG-1 | closure answered by `SettlementCell`, never a nearest-entropy scalar | Queued |
+| D-ECG-2 | `CausalTopology` census per basin → competence axis (fallible projection, asserted provenance) | Queued |
+| D-ECG-3 | Glass routing → Sandbox (CF+Revision) + T9 actuators; never an execution gate | Queued |
+| D-ECG-4 | five-state humility ladder documented onto existing carriers | Queued |
+| D-ECG-5 | unasserted-register REFUSES restated as binding | Queued |
+| D-ECG-6 | Sudoku-walker steering spec (detect/bound/propose/filter/gate/test loop) | Queued |
+
 ## mul-calibration-not-verdict-v1 — PROPOSED 2026-08-26 (storno-successor to #1054)
 
 Plan: `.claude/plans/mul-calibration-not-verdict-v1.md`. PLAN/BOARD ONLY, no

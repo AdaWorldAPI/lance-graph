@@ -1,3 +1,18 @@
+## 2026-08-26 — PROPOSAL (measured, unbuilt): entropy measures closure, bits 59-60 tell whether it is causally earned, `.claude/plans/entropy-closure-causal-ground-v1.md`
+
+Law under test: entropy finds the holes, causal topology (CE64 59-60,
+`CausalTopology` lens under the D-ACR-7 band-reading contract) gives them
+shape, the reasoning band (61-63) controls what kind of bridge may cross them
+as a PERMISSION level (never a confidence float), Counterfactual + Revision
+tests whether the bridge carries explanatory weight. Measured: the operator's
+cross-product already ships as `SettlementCell` (Crystal/Glass/
+GroundedUnresolved/Fog; Glass = suspicious closure = the humility cell), with
+settlement's own correction adopted (entropy refines, closure×competence
+define); six uncoordinated entropy surfaces enumerated; MUL/DK already
+approximates felt-minus-demonstrated. Only new mechanism: the CausalTopology
+census per basin feeding the competence axis (D-ECG-2) + the Sudoku walker
+(constraint-directed epistemic completion, D-ECG-6). D-ECG-1..6, F-ECG-1..7.
+
 ## 2026-08-26 — PROPOSAL (unbuilt, PLAN/BOARD ONLY): MUL calibrates, it does not adjudicate, `.claude/plans/mul-calibration-not-verdict-v1.md`
 
 Storno-successor to `mul-gate-outcome-vs-ground-v1` (#1054), whose thesis is
