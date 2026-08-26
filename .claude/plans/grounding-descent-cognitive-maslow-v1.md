@@ -225,3 +225,52 @@ The `L0 Substrate → L9 Crystallization` stack is not this ladder and does not
 enter §3. If it is ever wired in, it is a second, separate 0..9 axis
 (processing stage), and conflating the two would be the homeostasis/GateDecision
 homonym failure a third time.
+
+### 7f. The tower reading — and the masked delta vector (2026-08-26, later same day)
+
+**The elevation axis is not yet cleanly specified as ten strata each observing
+the one below.** The mandatory demarcation (`.claude/v3/knowledge/
+persona-vs-rung-ladder.md`) says so itself: the rung↔content wiring is "the
+half-hearted part of the 0–9 rewiring and is OPEN" (O1). What exists:
+
+- the shipped `RungLevel` is a **position** — one scalar, `apply_delta` moves
+  *the* current rung;
+- the Pearl bands (0–2 observe / 3–5 intervene / 6–9 counterfactual) already
+  assert the meta-relation at BAND granularity — L2 reasons about L1's
+  distributions, L3 about L2's models;
+- the content ladder is compositional up to rung 4 (observations → verb atoms
+  → recipes → macros: each stratum's objects are built from the stratum
+  below's outputs) and **unassigned above 4**.
+
+The tower reading — stratum r+1 holds a live model of stratum r's *process*,
+all instantiated strata running in parallel — is therefore a **relation
+between adjacent rungs of the existing ladder**, to be declared as such.
+It must NOT become a fourth 0–9 ladder (O8 already documents a third,
+divergent one; the homonym failure again). Parallelism is load-bearing, not
+decorative: the Libet veto requires the observer at r+1 to be live DURING
+r's work — a veto after completion is not one — and the escalation checklist
+states the same ("continuous, not one-time").
+
+**Consequence — ΔF is a vector, and the descent is a masked read.** Each
+instantiated stratum r+1 carries its own F over its object (stratum r). Then:
+
+```
+ΔF vector      [ΔF₀ … ΔF₉]   already computed in parallel — the strata run
+INSTANTIATED   mask: which strata live (the tower is a window, rarely all ten)
+STALL          mask: bit r set ⇔ ΔFᵣ ≥ −EPIPHANY_MARGIN
+diagnosis    = lowest set bit of STALL ∧ INSTANTIATED
+7d loop      = repair → recompute STALL → next lowest set bit
+```
+
+The walk may look like a walk; it executes as a mask (the lgj doctrine, one
+level up). Both masks in the `StepMask` idiom — ten bits fit a u16. Revision
+decisions (`awareness.revise`, `revise_if_minority_wins`) take the masked
+vector as typed input instead of a narrated descent result; the Maslow steps
+G1–G5 become the *interpretation* of where the lowest set bit landed, not a
+procedure that visits levels one at a time.
+
+Amends §1 (the trigger generalises from "the ΔF at the top" to "any set bit"),
+amends 7d (the loop is a mask recompute), leaves §3's semantics intact (the
+five questions stay; only their execution form changes). Open: the occupants
+of strata 5–9 (O1) — the tower above rung 4 is structural until the content
+ladder assigns them, and this plan does not assign them.
