@@ -624,3 +624,104 @@ build digital associative tissue with properties biology does not
 naturally provide: exact provenance, reversible learned macros,
 qualified evidence for promotion/demotion, and a falsifier attached to
 every claim of plasticity.
+
+---
+
+## 9. Q6 — the hex A/B topology experiment (PRE-REGISTERED 2026-08-26, before any harness existed)
+
+Q1 ungated this: it showed the current store *cannot* interfere,
+because it is additive and unbounded — "did not forget" was an
+architectural property, not a learning rule. Interference first becomes
+possible under **bounded capacity with eviction**. Q6 therefore does not
+compare "hex vs no-hex" on the Q1 store; it builds the smallest store in
+which forgetting is *possible at all*, and asks whether hexagonal
+locality makes that forgetting better-behaved than a global pool.
+
+### 9.1 The question, restated as something that can fail
+
+> At equal capacity and equal newly-learned associations, does confining
+> eviction to a hex neighbourhood produce LESS interference on prior
+> knowledge than a global pool — and is any advantage due to *hexagonal
+> content addressing*, or merely to *partitioned capacity*?
+
+The second clause is the one that kills a pretty result. It is why the
+random-partition arm below is not optional.
+
+### 9.2 Corpora (identical ore to Q1, `ore_all.tsv`, 94,536 rows)
+
+- **A** (prior knowledge, train): the two gcc `stress_test*` binaries.
+- **H_A** (held-out A probe, interference is measured here): `vuln_test`.
+- **B_train / H_B**: `build-script-build` (rustc), split at FUNCTION
+  granularity — distinct function names sorted, every 5th to H_B — so no
+  chain leaks across the split. H_B is where *learning* is measured.
+
+Learning B after A uses Q1's incremental protocol verbatim (apply A's
+merges to B's raw streams in learned order, then continue).
+
+### 9.3 The three arms (same capacity C, same corpora, same order)
+
+1. **GLOBAL — the control.** One pool of C slots. On overflow, evict the
+   globally lowest-utility macro (utility = measured training
+   occurrences; Q1's EVICT-AMORTIZED, which won there).
+2. **HEX.** C slots as 7 cells of ⌊C/7⌋ (a radius-1 hex tile: centre +
+   ring of 6). A macro's cell is its **first atom's A-frequency rank**
+   (rank 0 = centre; ranks ≥7 wrap to cell `(rank mod 6) + 1` — the ore
+   carries 9 opcodes, and this wrap is a documented convention affecting
+   only the two rarest, not a tuned parameter). Adjacency: centre is
+   adjacent to all six; ring cell *i* is adjacent to {centre, i−1, i+1}.
+   On overflow in cell *c*, eviction may take **only** from
+   N(c) = {c} ∪ neighbours(c), lowest utility first; if all of N(c) holds
+   higher-utility macros, the new macro is **REFUSED**. One learning
+   event may therefore perturb at most one hop.
+3. **RAND — the topology null.** Identical cell count, per-cell capacity,
+   adjacency, eviction and refusal rules; only the *address* changes: the
+   cell is a SplitMix64 hash of the macro's atom pattern
+   (`0x9E3779B97F4A7C15`, the workspace seed). Capacity partitioning and
+   eviction locality are preserved; content locality is destroyed.
+
+### 9.4 Capacities
+
+C ∈ **{14, 21, 28}** — below the 33 macros A learns uncapped (an
+already-published Q1 number, so no measurement precedes this
+registration), and divisible by 7 for per-cell capacity 2 / 3 / 4.
+
+### 9.5 Metrics, per arm per cap
+
+`d_A_postA` (that arm's own H_A baseline after A alone — this exposes
+any handicap the partitioning itself imposes) · `d_A_postB` ·
+**interference = d_A_postA − d_A_postB** (within-arm delta, so an arm is
+neither credited nor punished for its own baseline) · `d_B_postB` on H_B
+(**learning**) · `evicted_A` (changed entries) · `refused` ·
+`max_hop` (propagation radius) · byte-exact decode.
+
+### 9.6 Pre-registered gates — read in this order
+
+- **G0 — inertness guard.** A cap counts only if GLOBAL actually evicts
+  ≥1 A-macro AND shows interference > 0 there. A cap where the control
+  does not forget cannot measure forgetting; such a cap is excluded and
+  reported as excluded, not quietly dropped.
+- **G1 — equal-learning gate.** HEX passes only if
+  `d_B_postB(HEX) ≥ 0.95 × d_B_postB(GLOBAL)`. **Buying less
+  interference by learning less is the trivial failure and is an
+  automatic FAIL**, no matter how good the interference number looks.
+- **G2 — headline.** HEX must show `interference(HEX) <
+  interference(GLOBAL)` at ≥2 of the counting caps, with G1 met there.
+- **G3 — topology null.** Even with G2 passed, the finding is
+  *"partitioning helps; hexagonality is irrelevant"* unless
+  `interference(HEX) < interference(RAND)` at ≥2 counting caps with G1
+  also met against RAND.
+- **G4 — byte-exact.** decode(streams) == original atoms in every arm at
+  every cap; any mismatch aborts that arm. R2IL stays the sole truth.
+
+### 9.7 Predicted outcome, stated in advance and against the hypothesis
+
+Structurally, HEX should evict fewer A-macros — cells B never addresses
+are unreachable. **The risk is G1**: refusals mean HEX may simply learn
+less of B, in which case its low interference is the trivial failure and
+Q6 FAILS by the operator's own rule (*"a hex topology that merely looks
+brain-like but does not reduce interference FAILS"*). G3 is genuinely
+uncertain: if A and B are dominated by different opcodes, content
+addressing separates them and HEX earns its result; if they share
+dominant opcodes, HEX collides precisely where it hurts and should land
+on RAND. A FAIL is a publishable result and is recorded append-only,
+exactly like a pass.
