@@ -738,3 +738,107 @@ Mechanism and the generalized finding (*content addressing under a
 heavy-tailed distribution is capacity-destroying*) are on the board:
 `E-Q6-HEX-FAILS-CONTENT-ADDRESSING-IS-CAPACITY-DESTROYING-UNDER-A-SKEWED-DISTRIBUTION-1`.
 The instrument was reverted; board-only outcome, no retune attempted.
+
+---
+
+## 10. Q7 — frequency-sized cells, and what a 2-byte rail should carry (PRE-REGISTERED 2026-08-26, before any harness existed)
+
+Two arms. **Q7a** runs the disposal Q6's own mechanism analysis named
+(cells sized by content mass), so the hex line closes on evidence rather
+than on one badly-sized construction. **Q7b** asks the question the
+canon actually needs answered: the V3 facet register is `6×(u8:u8)`
+(`le-contract.md` §3) — so **what should a 2-byte rail carry?**
+
+### 10.1 Q7a — frequency-sized cells
+
+Q6's HEX held 6/9/12 macros of a nominal 14/21/28 because uniform
+`cap/7` cells met a heavy-tailed address distribution: cells 0–2
+saturated, 3–6 were never addressed. HEX-FREQ apportions the same total
+capacity **proportional to each cell's A-mass** (largest-remainder;
+minimum 1 slot for a cell with nonzero mass, **0 for a cell with none** —
+a zero-mass cell is never addressed, so a slot there is pure waste).
+Everything else — adjacency, neighbourhood-bounded eviction, refusal,
+utility — is Q6's, unchanged. Arms: GLOBAL · HEX-FREQ · RAND, caps
+{14, 21, 28}, gates G0–G4 exactly as §9.6.
+
+**Pre-registered degeneracy check, and it binds a PASS as hard as a
+FAIL.** Report `max_cell_share` = largest cell capacity ÷ cap. If it is
+**≥ 0.80**, HEX-FREQ has degenerated into a global pool with a fringe,
+and a passing G2 must be read as *"capacity utilization was the whole
+story; hexagonal locality contributed nothing"* — it does **not**
+resurrect the hex hypothesis. Naming this in advance is what stops a
+degenerate pass being sold as a win.
+
+### 10.2 Q7b — three carriers, the same two bytes
+
+Equal budget in **bytes**, not entries — and all three entries happen to
+cost exactly 2, which is what makes this a fair fight:
+
+| carrier | the 2 bytes hold | matching rule | what it bets on |
+|---|---|---|---|
+| **BPE** | a merge pair `(l, r)`, symbol ids < 256 | its atom pattern occurs as a contiguous span in the chain | symbolic identity, variable length, reusable wherever it occurs |
+| **PAL** (`palette256:palette256`) | `(code(x,y), code(y,z))`, codes from A's frequency-ranked adjacent-pair codebook capped at 256 | exact equality on the chain | categorical identity of the whole chain — high specificity |
+| **I8** (`i8:i8`) | `(clamp₈(y_pos−x_pos), clamp₈(z_pos−y_pos))`, saturating ±127 | exact equality on the chain | metric def-use distance — signed, SIMD-native |
+
+Budgets N ∈ {14, 21, 28} entries (28/42/56 bytes). Train on **A**;
+measure on **H_A** (`vuln_test`, unseen C) and **H_B**
+(`build-script-build`, rustc — cross-language transfer). Vocabulary =
+top-N by training frequency (BPE: the first N merges).
+
+**The comparison metric is HIT-RATE** (fraction of held-out chains with
+≥1 match), *not* density: PAL and I8 match a whole chain exactly, so
+their density is capped at 1.0 by construction while BPE's is not.
+Density is reported but is only comparable within BPE. Comparing the two
+across carriers would be an artefact, not a result.
+
+### 10.3 Gates
+
+- **C0 — null separation, mandatory, per carrier per budget.** Rebuild
+  the vocabulary from a **per-column shuffled** training set (each of the
+  three chain columns — and, for I8, the three position columns —
+  permuted independently across chains, preserving every column marginal
+  exactly), 20 seeds, SplitMix64 `0x9E3779B97F4A7C15`; measure on the
+  unshuffled held-out sets. A carrier carries structure only if its real
+  H_A hit-rate lies **strictly outside** `[null_min, null_max]`. Per
+  `I-NOISE-FLOOR-JIRAK` the separation is read distribution-free
+  (range non-overlap), never as a σ claim.
+- **C1 — ranking.** Rank carriers by H_A hit-rate at each budget.
+- **C2 — transfer.** `hit(H_B) / hit(H_A)`: ≥0.8 language-portable ·
+  0.5–0.8 partial · <0.5 corpus-specific.
+- **C3 — no unqualified claim.** No carrier may be called "better"
+  at a budget where it failed C0.
+- **C4 — byte-exact** for the BPE arm, as always.
+
+### 10.4 Predictions, stated in advance
+
+1. **BPE transfers best** — already-measured precedent (density fell
+   only 4.7% gcc→rustc, `E-R2IL-MACRO-VOCABULARY-TRANSFERS-…-1`).
+2. **PAL** buys specificity at the cost of coverage: lower hit-rate at
+   equal budget, and worse transfer, because a whole-chain signature is
+   more corpus-specific than a reusable 2-opcode fragment.
+3. **I8 is the wildcard and my named risk**: I predict it beats its null
+   on H_A and **degrades most on H_B** — *metric def-use distance is
+   compiler idiom; symbolic identity is language-portable.* If I8
+   instead transfers well, that falsifies my model of what positional
+   deltas encode, and I record it as such.
+4. **Q7a**: with the addressed cells now sized to their mass, HEX-FREQ
+   should hold near its full capacity — so Q7a is a clean test of
+   whether *neighbourhood-bounded eviction itself* helps once the
+   capacity waste is removed. I expect it to land on GLOBAL, not beat
+   it; if so, the hex line closes.
+
+**⊕ RUN 2026-08-26 (append-only results pointer).** Q7 executed after
+§10's commit (`95ea634`). **Q7a:** degeneracy check did not fire
+(max_cell_share 0.286/0.333/0.357); frequency sizing lifted utilization
+from Q6's 43% to 79–86% and **G1 now PASSES 3/3** — so Q6's
+"learns less" half was a construction artefact — but **G2 still fails
+(1/3)** and the arm's own resolution limit (n=1, between-arm spread ≤
+within-arm spread) forbids claiming HEX-FREQ is *worse*, only that it
+misses the bar. **Q7b:** PAL and I8 pass C0 at every budget; PAL
+transfers 0.99–1.00 (**falsifying prediction #2**), I8 transfers
+0.65–0.67 with a ~10× null margin (**confirming #3**); **BPE failed C0
+because hit-rate — the metric I chose to make the carriers comparable —
+saturates and inverts**, so C3 binds and BPE is unranked. Full reading,
+the post-hoc density sweep, and the follow-up a valid comparison needs:
+`E-Q7-FREQUENCY-SIZING-RESCUES-THE-LEARNING-GATE-BUT-NOT-THE-INTERFERENCE-CLAIM-AND-THE-2-BYTE-RAILS-ARE-COMPLEMENTARY-NOT-COMPETING-1`.
+Instrument reverted; board-only outcome.
