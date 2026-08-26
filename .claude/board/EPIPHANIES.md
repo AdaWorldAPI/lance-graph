@@ -126,6 +126,7 @@ Cross-ref: plan §10 (pre-registration + gates);
 range non-overlap, never as σ).
 
 ## 2026-08-26 — E-Q6-HEX-FAILS-CONTENT-ADDRESSING-IS-CAPACITY-DESTROYING-UNDER-A-SKEWED-DISTRIBUTION-1 — the hex A/B experiment fails every pre-registered gate; a random partition with the identical locality rule beats it outright
+## 2026-08-26 — E-Q6-HEX-FAILS-CONTENT-ADDRESSING-IS-CAPACITY-DESTROYING-UNDER-A-SKEWED-DISTRIBUTION-1 — the hex A/B experiment fails every hypothesis gate (G1–G3) at every cap while both validity gates pass; a random partition with the identical locality rule beats it outright
 
 **Status:** FINDING [MEASURED] — **NEGATIVE RESULT, recorded exactly as
 a pass would be.** One run of the Q6 harness over the four-binary ore
@@ -135,6 +136,14 @@ no source change. **Confidence:** High for the failure and its
 mechanism; the named caveat below is stated with its direction of bias.
 
 ### The verdict, against the pre-registered gates (plan §9.6)
+
+The five gates split into two kinds, and the distinction is load-bearing:
+**G0 and G4 are VALIDITY gates** (does this experiment measure anything,
+and is it sound?) — **both PASSED**. **G1–G3 are HYPOTHESIS gates** — all
+three failed at all three caps. The validity passes are what make the
+hypothesis failure trustworthy instead of an artefact; an earlier
+wording of this entry said "fails every gate", which contradicted its
+own G0/G4 rows (caught in review on #1036, corrected before merge).
 
 | cap | G1 equal-learning (hex_B ≥ 0.95·global_B) | G2 headline (int hex < global) | G3 topology null (int hex < rand) |
 |---|---|---|---|
