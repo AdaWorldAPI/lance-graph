@@ -411,6 +411,41 @@ anti-pattern. The 2026-04-20 session surfaced this gap between
 PR #223/#224/#225 merges and the LATEST_STATE / PR_ARC update;
 this rule exists so it does not recur.
 
+### `SUPERSESSION-INDEX.md` is generated and CI-gated — never hand-edit it
+
+`.claude/board/SUPERSESSION-INDEX.md` is produced by
+`.claude/tools/supersession_index.py`, which reads `.claude/plans/`,
+`crates/`, and `.claude/v3/COMPONENT-MAP.md`. It lists every ruled symbol
+(RETIRE / REPURPOSE / …) and every plan that names one without citing the
+ruling.
+
+- If your PR adds or edits a plan, or changes a symbol's verdict,
+  regenerate and commit in the same PR:
+
+  ```
+  python3 .claude/tools/supersession_index.py > .claude/board/SUPERSESSION-INDEX.md
+  ```
+
+- The `Supersession index is current` workflow regenerates and diffs on
+  every PR touching those inputs. A stale index fails CI with the command
+  above in the error. Do not edit the file by hand to make the diff pass —
+  the commentary is generated too, so hand-edits are wiped on the next run.
+- Why the gate exists: a stale table authorises work against a retired
+  symbol. It went stale within the hour of first landing, because
+  generation was manual and another PR added a plan. A generated artifact
+  with no staleness gate is a hand-maintained artifact with extra steps.
+
+**What the gate does NOT prove.** It proves the table is current, never
+that a route is right. `ARCHIVE?` reads the status's leading token from
+the plan's metadata region only — it cannot tell you whether a plan is
+genuinely finished. The first `ARCHIVE?` batch was current and 3/3 wrong:
+every plan was live, matched on a word that did not predicate it (a phase
+inside an `ACTIVE` status, a predecessor inside a `PROPOSAL`, a
+`Status legend:` defining a tick mark). A route is a prompt to read the
+plan, never a licence to act on it — verify against `STATUS_BOARD.md`,
+anchoring the join on each row's own leading cell, before archiving or
+rescoping anything.
+
 ### Consult before you guess (agent + knowledge activation)
 
 Before grep'ing, reading source files, or proposing a type:
