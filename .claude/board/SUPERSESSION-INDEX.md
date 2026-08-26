@@ -88,28 +88,28 @@ a licence to act on it.
 | **READ** | `mask-algebra-revision-read-v1` | `StepMask` | DRAFT, awaiting operator ruling on §5 | 1/3 |
 | **READ** | `persistence-artifact-backed-commit-v1` | `persist_cycle` | RATIFIED (operator ruling 2026-08-09). Phase | 0/0 |
 | **READ** | `r2il-bpe-typed-genetic-recombination-v1` | `GateDecision` | PROPOSAL, §7's three falsifiers now RUN (see | 1/1 |
-| **READ** | `scientific-kg-substrate-v1` | `GateDecision` | (§0):** PROPOSED — **scoping doc**, no code. | 8/9 |
-| **READ** | `self-reasoning-substrate-v1` | `GateDecision` | - **Status:** PROPOSED — doc-only. No code,  | 5/5 |
+| **READ** | `scientific-kg-substrate-v1` | `GateDecision` | PROPOSED — **scoping doc**, no code. Records | 8/9 |
+| **READ** | `self-reasoning-substrate-v1` | `GateDecision` | PROPOSED — doc-only. No code, no contract ch | 5/5 |
 | **READ** | `v3-convergence-wiring-v1` | `GateDecision` | ACTIVE (2026-07-01). Operator: "I'm all in f | 0/0 |
-| **RESCOPE** | `soa-migration-diff-resolution-2026-06-13` | `BindSpace`, `CollapseGateEmission`, `GateDecision`, `MergeMode` … | The SoA / BindSpace / identity plan family,  | 3/5 |
-| **RESCOPE** | `cognitive-substrate-convergence-v1` | `BindSpace`, `CollapseGateEmission`, `GateDecision`, `MergeMode` … | PROPOSAL (sprint-10 architectural decisions  | 5/13 |
-| **RESCOPE** | `cognitive-substrate-convergence-v2` | `BindSpace`, `CollapseGateEmission`, `GateDecision`, `MergeMode` … | ACTIVE — sprint-11 Phase A/B COMPLETE (pendi | 5/15 |
+| **RESCOPE** | `soa-migration-diff-resolution-2026-06-13` | `BindSpace`, `CollapseGateEmission`, `GateDecision`, `MergeMode` … | — | 3/5 |
+| **RESCOPE** | `cognitive-substrate-convergence-v1` | `BindSpace`, `CollapseGateEmission`, `GateDecision`, `MergeMode` … | PROPOSAL (sprint-10 architectural decisions  | 6/13 |
+| **RESCOPE** | `cognitive-substrate-convergence-v2` | `BindSpace`, `CollapseGateEmission`, `GateDecision`, `MergeMode` … | ACTIVE — sprint-11 Phase A/B COMPLETE (pendi | 7/15 |
 | **RESCOPE** | `bindspace-singleton-to-mailbox-soa-v1` | `BindSpace`, `CollapseGateEmission`, `ResonanceDto`, `ThinkingStyle` | CONJECTURE / design (migration spec). NOT ye | 18/19 |
 | **RESCOPE** | `callcenter-membrane-v1` | `BindSpace`, `GateDecision`, `MergeMode`, `ThinkingStyle` | Active | 0/0 |
 | **RESCOPE** | `causaledge64-mailbox-rename-soa-v1` | `BindSpace`, `GateDecision`, `MergeMode`, `ThinkingStyle` | Active (draft, 2026-05-14) | 1/10 |
-| **RESCOPE** | `integrated-cognitive-planner-v1` | `BindSpace`, `GateDecision`, `ResonanceDto`, `dispatch_busdto` | ` (:90), `QueryReference{server_id,ref_versi | 2/3 |
+| **RESCOPE** | `integrated-cognitive-planner-v1` | `BindSpace`, `GateDecision`, `ResonanceDto`, `dispatch_busdto` | — | 2/3 |
 | **RESCOPE** | `palantir-parity-cascade-v2` | `BindSpace`, `MergeMode`, `ResonanceDto`, `ThinkingStyle` | plan, not implementation. | 1/17 |
 | **RESCOPE** | `temporal-markov-and-style-classes-v1` | `BindSpace`, `MergeMode`, `StepMask`, `ThinkingStyle` | ACTIVE (operator-ratified 2026-07-10: "other | 16/19 |
 | **RESCOPE** | `unified-soa-convergence-v1` | `BindSpace`, `CollapseGateEmission`, `ResonanceDto`, `ThinkingStyle` | PROPOSAL / integration plan. Design-spec onl | 22/25 |
 | **RESCOPE** | `bindspace-mailbox-soa-dependency-map-v1` | `BindSpace`, `dispatch_busdto`, `persist_cycle` | MAP / preflight. No source wired yet. Read-b | 2/2 |
 | **RESCOPE** | `bindspace-mailbox-soa-w3-w4a-impl-v1` | `BindSpace`, `dispatch_busdto`, `persist_cycle` | v2 — 5-consolidation + 3-brutal-critic pass  | 1/1 |
-| **RESCOPE** | `cognitive-substrate-convergence-v3` | `BindSpace`, `CollapseGateEmission`, `MergeMode` | ACTIVE — sprint-12 Wave F + Wave G complete  | 5/16 |
+| **RESCOPE** | `cognitive-substrate-convergence-v3` | `BindSpace`, `CollapseGateEmission`, `MergeMode` | ACTIVE — sprint-12 Wave F + Wave G complete  | 7/16 |
 | **RESCOPE** | `mailbox-cycle-aware-write-contract-v1` | `BindSpace`, `dispatch_busdto`, `persist_cycle` | CONJECTURE / design. 5+3-gated before code. | 1/1 |
 | **RESCOPE** | `unified-integration-v1` | `BindSpace`, `MergeMode`, `ThinkingStyle` | Active — brainstorm phase complete; delivera | 0/0 |
 | **RESCOPE** | `2026-05-06-splat-osint-ingestion-v1` | `BindSpace`, `MergeMode` | Active — PR 1+2 of 6 in flight on `claude/sp | 1/7 |
 | **RESCOPE** | `Palette256-3DSB-PhiSpiral-attention-integration-plan` | `BindSpace`, `CollapseGateEmission` | — | 0/0 |
-| **RESCOPE** | `anatomy-realtime-v1` | `BindSpace`, `ThinkingStyle` | . | 0/1 |
-| **RESCOPE** | `elegant-herding-rocket-v1` | `BindSpace`, `ThinkingStyle` | ") vs | 0/0 |
+| **RESCOPE** | `anatomy-realtime-v1` | `BindSpace`, `ThinkingStyle` | — | 0/1 |
+| **RESCOPE** | `elegant-herding-rocket-v1` | `BindSpace`, `ThinkingStyle` | — | 0/0 |
 | **RESCOPE** | `kognitionswirtschaft-v1` | `GateDecision`, `ThinkingStyle` | PROPOSED (unbuilt, unprobed). Operator-initi | 1/7 |
 | **RESCOPE** | `lance-graph-ontology-v5` | `BindSpace`, `GateDecision` | Drafted (2026-05-07). Picks up where v4 (`cl | 3/16 |
 | **RESCOPE** | `north-star-integration-v1` | `CollapseGateEmission`, `ThinkingStyle` | RATIFIED (council resolved + gates ratified  | 1/1 |
@@ -125,7 +125,7 @@ a licence to act on it.
 | **RESCOPE** | `bindspace-columns-v1` | `BindSpace` | Active | 0/0 |
 | **RESCOPE** | `codec-sweep-via-lab-infra-v1` | `BindSpace` | — | 0/0 |
 | **RESCOPE** | `cycle-coherent-soa-snapshot-v1` | `CollapseGateEmission` | Queued | 0/6 |
-| **RESCOPE** | `dacr7-band-reading-contract-v1` | `ThinkingStyle` | + the temporal doctrine | 3/5 |
+| **RESCOPE** | `dacr7-band-reading-contract-v1` | `ThinkingStyle` | — | 3/5 |
 | **RESCOPE** | `foundry-consumer-parity-v1` | `BindSpace` | Active | 0/0 |
 | **RESCOPE** | `foundry-roadmap-unified-smb-medcare-v1` | `BindSpace` | Active | 0/0 |
 | **RESCOPE** | `lf-integration-mapping-v1` | `BindSpace` | Active (2026-04-25) | 0/0 |
@@ -139,8 +139,8 @@ a licence to act on it.
 | **RESCOPE** | `sql-spo-ontology-bridge-v1` | `BindSpace` | Active | 0/0 |
 | **RESCOPE** | `super-domain-rbac-tenancy-v1` | `BindSpace` | Active | 23/41 |
 | **RESCOPE** | `thought-cycle-soa-awareness-integration-v1` | `BindSpace` | integration plan. No implementation claimed  | 0/0 |
-| **RESCOPE** | `unified-ogit-architecture-v1` | `ThinkingStyle` | , **code refs**, and where it | 0/0 |
-| **RESCOPE** | `unified-soa-rubikon-integration-v1` | `BindSpace` | (no overclaim) | 8/8 |
+| **RESCOPE** | `unified-ogit-architecture-v1` | `ThinkingStyle` | — | 0/0 |
+| **RESCOPE** | `unified-soa-rubikon-integration-v1` | `BindSpace` | — | 8/8 |
 
 - **ARCHIVE?**: 0
 - **RESCOPE**: 50

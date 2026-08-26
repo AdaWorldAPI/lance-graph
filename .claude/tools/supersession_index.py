@@ -54,8 +54,28 @@ AWARE = re.compile(r'v3/COMPONENT-MAP|\.claude/v3|RETIRE|REPURPOSE|D-PERT')
 # first ARCHIVE? batch were that error (2026-08-26 routing pass).
 SHIPPED = re.compile(r'^\W*(SHIPPED|COMPLETE[D]?|SUPERSEDED|DONE|CLOSED|LANDED)\b', re.I)
 # `(?!\s*legend)` so "Status legend:** OK SHIPPED (verified...)" is not read as a status.
-STATUS = re.compile(r'[Ss]tatus(?!\s*legend):?\*{0,2}\s*([^\n|]{0,52})')
+# Searched over the PREAMBLE only (text before the first `## ` heading), because a
+# plan's status is metadata, not prose. Skipping `legend` by name was whack-a-mole:
+# the next unanchored hit was the section heading `## 6. Honest status (no overclaim)`,
+# which the table then reported as a status -- and any mid-document heading whose text
+# after `status` leads with a shipped token would have recreated the false `ARCHIVE?`.
+# (codex P2 on #1046, verified.)
+STATUS = re.compile(r'[Ss]tatus(?!\s*legend)\s*(?:\([^)]{0,12}\))?:?\*{0,2}\s*([^\n|]{0,52})')
 DID = re.compile(r'\b(D-[A-Z]{2,}[A-Z0-9]*(?:-[A-Z0-9]+)*)\b')
+
+def plan_head(txt):
+    """The plan's metadata region: the preamble, extended through any LEADING
+    section whose heading is itself about status (`## §0 - Status`). Status is
+    metadata, not prose -- searching the whole document scraped section headings
+    and mid-document sentences as if they were statuses."""
+    parts = re.split(r'(?m)^(## .*)$', txt)
+    out = [parts[0]]
+    for i in range(1, len(parts) - 1, 2):
+        if re.search(r'status', parts[i], re.I):
+            out.append(parts[i + 1])
+        else:
+            break
+    return "\n".join(out)
 
 rows = []
 for p, txt in plans.items():
@@ -63,7 +83,8 @@ for p, txt in plans.items():
     if not named or AWARE.search(txt): continue
     dids = set(DID.findall(txt))
     cited = sum(1 for d in dids if d in board)
-    st = (STATUS.search(txt).group(1).strip() if STATUS.search(txt) else '')
+    head = plan_head(txt)
+    st = (STATUS.search(head).group(1).strip() if STATUS.search(head) else '')
     retires = [s for s in named if syms[s][0].startswith('RETIRE')]
     route = ("ARCHIVE?" if SHIPPED.search(st) else
              "RESCOPE"  if retires else

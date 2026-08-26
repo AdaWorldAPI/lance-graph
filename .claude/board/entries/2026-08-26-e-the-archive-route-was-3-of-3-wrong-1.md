@@ -64,3 +64,40 @@ captured group. The test was wrong, not the code.)
 licence to act. The value of taking the smallest, most-decided-looking batch
 first was that it was small enough to check every member — and checking every
 member is what found that the category was empty.
+
+---
+
+**⊕ CORRECTION (same day, codex P2 on #1046 — verified, and it was right).**
+The first fix skipped `Status legend:` **by name**. That is whack-a-mole, not a
+fix: `STATUS` still searched the whole document and took the first hit anywhere,
+so for `unified-soa-rubikon-integration-v1` the next match became the section
+heading `## 6. Honest status (no overclaim)` at line 181 — and the table duly
+reported **`(no overclaim)`** as that plan's self-declared status. Codex also
+named the escalation I had not: any mid-document heading whose text after
+`status` leads with a shipped token (`## 9. Status: SHIPPED items`) recreates
+the false `ARCHIVE?` outright.
+
+The class, not the instance: **a status is metadata, not prose.** Extraction now
+runs over `plan_head()` — the preamble, extended through any *leading*
+status-titled section (`## §0 — Status` is metadata; line 181 is not). A strict
+preamble cut was measured first and was too tight: it lost
+`self-reasoning-substrate-v1`, whose real status sits in exactly such a `## §0`
+section. A 40-line window was also measured — its only marginal catch was itself
+prose, so the principled rule beat the magic constant on the evidence.
+
+Nine junk statuses disappear, not one: alongside `(no overclaim)` the table had
+been reporting `` ` (:90), `QueryReference{server_id,ref_versi ``, `") vs `,
+`, **code refs**, and where it `, and `. ` as statuses. Two more rows were
+near-misses recovered by allowing a parenthetical (`**Status (§0):** PROPOSED`).
+Twelve rows now read `—`; an honest absence beats a fabricated status.
+
+Routes are unchanged (`ARCHIVE?` 0 · `RESCOPE` 50 · `READ` 12) and generation is
+still idempotent. The falsifier suite gained codex's escalation case and stays
+two-sided: fires on `SHIPPED in #420` / `DONE (2026-06-01)` / `SUPERSEDED by v3`,
+silent on all five negatives.
+
+**What this adds to the entry above:** the original finding was that a route is a
+prompt to read, never a licence to act. This correction is the same error one
+level up — I fixed the *instance* I had measured rather than the *class* it
+belonged to, and shipped a table with a fabricated value in it. Naming the
+failing input is not the same as naming the failure.
