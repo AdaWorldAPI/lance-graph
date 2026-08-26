@@ -216,6 +216,104 @@ decorative; **F-ECG-7** — a candidate that fails counterfactual removal must
 not be accepted even when it passes every static filter (the removal test must
 be able to veto), and at least one corpus candidate must fail exactly there.
 
+### 4b-i. The walker's FILTER stage is a compiler pipeline (ratified 2026-08-26)
+
+The §4b loop's FILTER/GATE steps decompose into four mechanisms with **one job
+each** — and the ordering matters more than any of them individually:
+
+```text
+PROPOSE   resident candidate neighbours
+   ↓
+ADMIT     "is this even the right KIND of thing to participate in this target?"
+   ↓       — a semantic TYPE CHECK, not pruning
+BUDGET    "of the admissible candidates, which few deserve attention now?"
+   ↓       — beam width
+PERMIT    "is this epistemic reading allowed to perform the claimed operation?"
+   ↓       — CE64 61..63
+TEST      Counterfactual + Revision — the court of appeal
+   ↓
+LAND / KEEP UNKNOWN
+```
+
+**Admission is a type system; budget is beam width; CE64 is epistemic
+privilege; counterfactual+revision is the court of appeal.** Conflating
+admission with budget is the failure the ablation below measures.
+
+### 4b-ii. Target alignment fills a slot nothing else in the stack occupies
+
+| mechanism | question |
+|---|---|
+| entropy | **WHERE** to search |
+| CE64 59..60 | **WHAT KIND** of hole |
+| **target alignment (new slot)** | **WHICH** candidates are structurally relevant to *this* hole |
+| budget | which relevant candidates get attention *this cycle* |
+| CE64 61..63 | **HOW** / under which reading a bridge is permitted |
+| TruthValue | evidential support |
+| Counterfactual + Revision | does the bridge carry explanatory weight? |
+
+The alignment question — *even before the epistemic tests, is this candidate
+semantically CAPABLE of helping reach this particular hole?* — is not answered
+anywhere else in the #1057 stack. That is why it earns a slot rather than
+duplicating one.
+
+### 4b-iii. Three axes, answered by the DOMAIN VIEW rather than a judge
+
+*(Ablation figures operator-supplied, unverified in session — used as shape and
+lower bound only. Degrading three-axis alignment to simple alignment: accuracy
+−12.26pp, path reach **−81.61pp**. Replacing target-aware ranking with random
+Top-K: accuracy −3.32pp, reach **+0.94pp**.)*
+
+| axis | asks | answered by |
+|---|---|---|
+| **Entity** | identity compatibility | `ClassView` / ontology |
+| **Quantity** | granularity compatibility | measurement semantics / ontology grain |
+| **State** | directional / polarity compatibility | edge polarity / state semantics |
+
+These are the three places where superficially plausible causal retrieval
+cheats. *infection risk* / *infection prevalence* / *individual probability* /
+*case count* are not cosmetic variants — a walker treating them as
+embedding-near synonyms builds a beautifully wrong path. And `↑steroid ⊣
+↓inflammation` must not silently align to a target requiring `↑inflammation`
+merely because the entity matches: **state conflict is a hard reject even on a
+perfect entity match.**
+
+**This is where "domain-aware" becomes concrete rather than marketing.**
+Different domain arms may legitimately hold *different notions of quantity
+equivalence and state compatibility over the same resident node identities* —
+the arm supplies the reading, not another graph. It also replaces
+expand/align/rank LLM calls with `resident graph walk → typed domain alignment
+→ bounded frontier`, matching the substrate direction: **one expensive semantic
+decision, then a typed/masked field, then cheap repeated SIMD traversal.**
+
+**Priority that follows from the ablation: spend sophistication on ADMISSION,
+not ranking.** Once the candidate set is properly typed, ranking may be
+brutally cheap.
+
+**No `FgvaAlignment` DTO is created.** The axes are questions put to the active
+domain view, not a new universal carrier.
+
+### 4b-iv. Two places we are deliberately STRICTER than the source
+
+1. **`None` masks a view; it never blacklists an identity.** In the source,
+   a rejected candidate never enters the visited set and cannot return. Here
+   `None` means *None under this reading, this target, this evidence state,
+   this cycle* — new evidence, a different domain lens, a `ThinkingStyle`
+   change, or a revision may re-admit the same resident node. So:
+   `None → mask out of THIS borrowed frontier`, never
+   `None → delete / permanently blacklist`. Canonical identity is not poisoned
+   by a view's verdict (§0's law again: the view is a projection).
+2. **A `CloseHit` does not auto-bridge.** The source lets a verifier synthesize
+   a `CloseHit → target` edge. Here a CloseHit stays **"we narrowed the hole"**
+   until permission (61..63), evidence, and counterfactual necessity have each
+   earned the bridge — which is exactly #1057's rule that *narrowing 60,000
+   candidates to 7 is already knowledge, and unknown never forces guessing.*
+
+Added falsifiers: **F-ECG-8** — a node classed `None` under one lens/target/
+evidence state must be re-admissible under another, and a corpus case must
+exercise it (else the mask has become a blacklist). **F-ECG-9** — a `CloseHit`
+must NOT close a hole without passing permission + evidence + counterfactual
+necessity; at least one corpus CloseHit must stop at "narrowed".
+
 ## 5. TruthValue and MUL/DK placement (Q6, Q7)
 
 - **TruthValue (NARS f,c) is complementary, not duplicative** of 59–60: `(f,c)`
@@ -247,6 +345,7 @@ census:
 | D-ECG-4 | the five-state ladder documented onto its existing carriers (§4 table), incl. "stable Unknown edge = I know that I don't know" | doc-first |
 | D-ECG-5 | provenance discipline: any 59-60 ground reading from an unasserted register REFUSES (already the D-ACR-7 rule; restated as binding on this plan's consumers) | F-ECG-5 |
 | D-ECG-6 | Sudoku-walker steering spec (§4b loop): census-ranked frontier, counterfactual-lane fills, 61-63 permission-band acceptance, revision write-back, narrowing persisted | F-ECG-6, F-ECG-7 |
+| D-ECG-7 | ADMIT/BUDGET/PERMIT/TEST split (§4b-i..iv): three-axis alignment answered by the domain view, no new DTO; `None` masks a view, `CloseHit` does not auto-bridge | F-ECG-8, F-ECG-9 |
 
 ## 7. Falsifiers — earned vs information-poor low entropy
 
@@ -259,6 +358,8 @@ census:
 | F-ECG-5 | a v1-lifted register with nonzero legacy temporal bits must NOT read as a valid topology | the v1 trap leaks through the lift into "ground" |
 | F-ECG-6 | a Surface/Association-band fill must not close a causal-topology hole; a Causal+-band fill must (both cases present in corpus) | the band gate is decorative |
 | F-ECG-7 | a candidate passing all static filters but failing counterfactual removal is rejected; at least one corpus candidate fails exactly there | the removal test cannot veto — it is ceremony |
+| F-ECG-8 | a node classed `None` under one lens/target/evidence state is re-admissible under another (corpus case required) | the mask became a blacklist — a view poisoned canonical identity |
+| F-ECG-9 | a `CloseHit` does not close a hole without permission + evidence + counterfactual necessity; one corpus CloseHit stops at "narrowed" | narrowing silently became guessing |
 
 ## 8. Explicitly out of scope
 

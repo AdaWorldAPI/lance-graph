@@ -24,6 +24,7 @@ Plan: `.claude/plans/entropy-closure-causal-ground-v1.md`. PLAN/BOARD ONLY.
 | D-ECG-4 | five-state humility ladder documented onto existing carriers | Queued |
 | D-ECG-5 | unasserted-register REFUSES restated as binding | Queued |
 | D-ECG-6 | Sudoku-walker steering spec (detect/bound/propose/filter/gate/test loop) | Queued |
+| D-ECG-7 | ADMIT/BUDGET/PERMIT/TEST split; three-axis alignment via domain view; `None` masks not blacklists | Queued |
 
 ## mul-calibration-not-verdict-v1 — PROPOSED 2026-08-26 (storno-successor to #1054)
 

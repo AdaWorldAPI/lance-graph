@@ -86,6 +86,137 @@ properties make this the right first target:
    unchanged. The null is not invented for the probe; the code already
    committed to it, which means the probe can falsify a documented claim.
 
+## 1b. The receipt geometry — and the two axes that must not fold together
+
+> **The 8×10 is the receipt. Do not graph it. And do not confuse rung with
+> semantic grain.**
+
+Distilled shape (ratified 2026-08-26):
+
+```text
+logical geometry   domain × reflective rung
+content            stable ontology / world state          ← the picture
+alpha              active participation mask              ← which of it is cognition NOW
+saccade            a transition of that participation
+receipt            sparse typed record of the transition
+views              admission / budget / influence / ladder projections
+causal falsifier   intervene on alpha, test the next transition
+world causality    remains CE64
+epistemic permit   remains CE64 61..63
+Sandbox            remains Counterfactual + Revision
+```
+
+The Photoshop reading is exact and worth keeping: **the ontology is the picture;
+alpha is which pixels participate in the composite.** Content is stable; the
+mask is the claim; the saccade paints and erases.
+
+### M1 — the rung axis is shipped; the domain axis is not, and its name is taken
+
+- **`RungLevel` is exactly ten variants, 0..9** (`cognitive_shader.rs:159-168`:
+  Surface, Shallow, Contextual, Analogical, Abstract, Structural,
+  Counterfactual, Meta, Recursive, Transcendent). The reflective-elevation half
+  of the lattice is real, ordinal, and already carries the one-way visibility
+  doctrine from the merged rung work.
+- **There is no shipped 8-valued ontology axis**, and — measured — **`Domain` is
+  already taken**: `dispatch_mode::Domain` is the *Cynefin* sense-making domain
+  (`Clear / Complicated / Complex / Chaotic / Confused`, five variants) in the
+  very module this probe targets. Using "domain" for the ontology/lens axis
+  would be the fifth same-word collision this arc has caught (two
+  `GateDecision`s, `MulGateDecision`, five `TrustTexture`s). **The ontology axis
+  needs its own name before it is written down anywhere normative** — and it is
+  hypothesis, not inventory.
+
+### M2 — 80 is a logical address, never 80 resident objects
+
+`α[lens, rung]` is a useful *address*. It does not imply eighty independently
+allocated resident channels. A sparse/SoA receipt —
+`(receipt_id, lens, rung, mask, payload, surprise)` — satisfies the lattice
+exactly, and the ABI views are **queries over those columns**. Materialising
+the cells as a population would collapse the receipt back into an invented
+graph, i.e. §0's law violated from the inside.
+
+### The four-coordinate admission test (stronger than the source's three)
+
+The source's *Quantity* axis means **semantic grain** (*infection probability*
+vs *infection risk* vs *case count*). The rung means **reflective elevation**
+(surface … meta … recursive). **These are orthogonal, and mapping quantity onto
+rung folds two axes into one.** Octopus therefore admits on four coordinates —
+the fourth is a dimension the source does not have:
+
+| coordinate | asks |
+|---|---|
+| **Entity** | same lens / ontology region? |
+| **Grain** | same semantic quantity / abstraction grain? |
+| **State** | compatible polarity? (conflict = hard kill) |
+| **Rung** | is this cognitive level permitted to consume / project this evidence? |
+
+`r2 finding ≠ r7 differential` is a **rung** mismatch, not a quantity one; two
+r2 findings can still differ in grain. Both tests must be able to fire
+independently, or the fold has happened silently (see F-OCT-11).
+
+### The cross-rung intervention law (bank this)
+
+One-way visibility — higher rungs read the composite of lower, lower cannot see
+up — is not a rendering convention if it is causal. That is testable, and it is
+a **stronger HOT falsifier than textual ablation**:
+
+```text
+higher rung claims dependence on the lower composite
+        ↓ intervene BELOW
+higher state must respond in the predicted way
+```
+
+with the directionality dual:
+
+```text
+lower intervention  → higher changes    proves UPWARD causal dependence
+higher intervention → lower unchanged   preserves ONE-WAY visibility
+```
+
+A higher alpha that claims dependence and does not move when the composite
+beneath it is rewritten is decorative — structured elevation with no causal
+job. Intervening higher may change what is *reported* about lower; that is
+readout, and it does not falsify the lower claim.
+
+### Two corrections to the naive probe
+
+**(a) Contribution ≠ necessity.** `do(Exact) MUST change the next saccade` is
+too strong: when several alpha claims *jointly* determine a transition, a
+genuinely causal cell may not be individually necessary, and calling that
+redundancy "decorative" is a false positive. The relevant intervention must
+therefore either
+
+- **(A)** change the deterministic next transition, **or**
+- **(B)** measurably move its score / rank / probability in the *predicted
+  direction*,
+
+while the matched irrelevant cell does neither. This yields the clean triple —
+**alpha intervention → contribution · counterfactual removal → necessity ·
+successful insertion → sufficiency** — with necessity asked separately by the
+walker's removal test (F-OCT-8) rather than smuggled into the contribution
+test.
+
+**(b) Silence must be scoped, or the test becomes the homunculus.** A cell
+classed `None` **for target T** must have no causal effect **on T, with the
+orthogonal modulators frozen** — it may still legitimately touch
+Flow/Homeostasis, `ThinkingStyle`, resonance, or a later revision without
+participating in *this* saccade. So the arm reads *"None for T → no effect on
+T"*, never *"no effect anywhere in cognition"*. Freezing the orthogonal paths is
+part of the protocol, not an afterthought.
+
+### ABI restraint
+
+These operations are Rust-level probes. The path to a stable membrane symbol is
+
+```text
+Rust cognitive implementation → measured stable primitive
+   → an actual cross-language consumer? → ABI
+```
+
+never *interesting architecture → ABI symbol*. A falsifier surface promoted
+early becomes permanent membrane API for an experiment that may not survive its
+own test.
+
 ## 2. Two proofs, not one (the replay/localize split)
 
 > **replayable ≠ diagnostically complete**
@@ -224,6 +355,15 @@ topology carried the information.
 
 
 ## 3c. Admission vs budget — the three-axis filter is the load-bearing steal
+
+> **Placement (ratified 2026-08-26): the NATIVE home of this material is the
+> Sudoku walker, `entropy-closure-causal-ground-v1` §4b-i..iv / D-ECG-7** — its
+> `A → ? → C` hole is the literal analogue of the source's `X → ? → Y_b`, and
+> the ADMIT/BUDGET/PERMIT/TEST pipeline is specified there. What stays *here* is
+> the second, alpha-specific application below: re-targeting the same admission
+> grammar at the **next predicted transition** makes the two probe arms
+> derivable rather than hand-assigned. Read the walker plan first; this section
+> does not restate its rules.
 
 *(Numbers operator-supplied, UNVERIFIED in session — see the header caveat.
 They are used here as a lower bound and a shape, never as our measurement.)*
@@ -395,8 +535,8 @@ architecture*.
 
 | this plan | F-OCT | note |
 |---|---|---|
-| F-AIF-1 | **F-OCT-1** | relevant alpha perturbation moves the next transition |
-| F-AIF-2 | **F-OCT-2** | matched irrelevant perturbation stays silent |
+| F-AIF-1 | **F-OCT-1** | relevant alpha perturbation moves the next transition — in the **(A) changes it / (B) moves its score in the predicted direction** form (§1b(a)) |
+| F-AIF-2 | **F-OCT-2** | matched irrelevant perturbation stays silent — **scoped to target T with orthogonal modulators frozen** (§1b(b)) |
 | F-AIF-3 | **F-OCT-5** | stage masking exposes localization dependence |
 | F-AIF-4 | **F-OCT-3** | right entities + wrong edges must fail despite a right answer |
 | F-AIF-5 | **F-OCT-4** | topology must beat a shuffled-edge null preserving counts |
@@ -407,6 +547,14 @@ re-opened here: **F-OCT-6** (twin-basin settlement) = `F-ECG-1` in
 **F-OCT-8** (counterfactual necessity) = `F-ECG-7`; **F-OCT-9** (unknown may
 remain unknown) is the #1057 §4b `KEEP UNKNOWN` outcome; **F-OCT-10** (no second
 world) is §0's law plus §3b's ontology rule.
+
+**New ids opened by §1b, owned here:**
+
+| id | falsifier | fails when |
+|---|---|---|
+| **F-OCT-11** | rung and grain fire independently: two same-rung candidates differing only in grain must classify differently, and two same-grain candidates differing only in rung must classify differently | the two axes were folded into one |
+| **F-OCT-12** | intervening on the lower composite moves a higher rung that claimed dependence on it | the higher alpha is decorative elevation |
+| **F-OCT-13** | intervening on a higher rung leaves the lower unchanged (one-way visibility holds causally, not merely by convention) | the hierarchy leaks upward — visibility was a rendering choice |
 
 So the whole F-OCT set already has a home across three plans, with no duplicate
 population and no orphan. A session running the audit reports against F-OCT ids

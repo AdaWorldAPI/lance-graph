@@ -110,3 +110,68 @@ change from evidence-side tests; sanctioned non-answers (`KEEP UNKNOWN` /
 `ASK FOR MEANS`) stay outcomes — a metric penalising them re-imports
 answer-completion as the target, which is the failure this whole arc exists to
 avoid.
+
+
+---
+
+## Addendum (2026-08-26) — receipt geometry, the four-coordinate admission, and the cross-rung law
+
+**The 8×10 is the receipt. Do not graph it. And do not confuse rung with
+semantic grain.**
+
+Photoshop reading, kept: the ontology is the picture; alpha is which pixels
+participate in the composite; the saccade paints and erases; the receipt records
+what was cognitively active. World graph canonical · alpha = participation ·
+reasoning graph = derived projection.
+
+**Measured:** `RungLevel` is exactly ten variants 0..9 (Surface … Transcendent),
+so the reflective-elevation axis is shipped. **The ontology axis is not, and its
+obvious name is taken** — `dispatch_mode::Domain` is the *Cynefin* domain
+(Clear/Complicated/Complex/Chaotic/Confused) in the very module the probe
+targets. Naming the lens axis "domain" would be the fifth same-word collision
+this arc has caught. It needs its own name before anything normative is written.
+
+**80 is a logical address, never 80 resident objects.** A sparse SoA receipt
+`(receipt_id, lens, rung, mask, payload, surprise)` satisfies the lattice; the
+views are queries over those columns. Materialising the cells would collapse the
+receipt into an invented graph — §0's law violated from the inside.
+
+**Four coordinates, not three.** The source's *Quantity* means semantic grain;
+the rung means reflective elevation; folding them loses a dimension Octopus
+has and the source does not. Entity · **Grain** · State · **Rung**. `r2 finding
+≠ r7 differential` is a rung mismatch, not a quantity one (F-OCT-11 requires the
+two to fire independently).
+
+**The cross-rung intervention law** — the piece worth banking hardest, and a
+stronger HOT falsifier than textual ablation:
+
+```text
+lower intervention  → higher changes    proves UPWARD causal dependence  (F-OCT-12)
+higher intervention → lower unchanged   preserves ONE-WAY visibility     (F-OCT-13)
+```
+
+A higher alpha claiming dependence that does not move when the composite beneath
+it is rewritten is decorative elevation. Intervening higher may change what is
+*reported* about lower — readout, not falsification.
+
+**Two corrections to the naive probe.** (a) *Contribution ≠ necessity*: when
+several claims jointly determine a transition, a causal cell need not be
+individually necessary, so the relevant arm reads **(A) changes the transition
+OR (B) moves its score in the predicted direction** — giving the triple *alpha
+intervention → contribution · counterfactual removal → necessity · insertion →
+sufficiency*. (b) *Silence is scoped*: `None` **for target T** means no effect
+**on T with orthogonal modulators frozen** — a cell may still touch
+Flow/Homeostasis, ThinkingStyle, resonance or a later revision without joining
+*this* saccade. Unscoped silence would turn the test itself into the homunculus
+it exists to prevent.
+
+**ABI restraint:** Rust implementation → measured stable primitive → an actual
+cross-language consumer → *then* ABI. Never *interesting architecture → ABI
+symbol*; a falsifier surface promoted early becomes permanent membrane API for
+an experiment that may not survive its own test.
+
+**Placement correction:** the admission/budget material's native home is the
+Sudoku walker (`entropy-closure-causal-ground-v1` §4b-i..iv, D-ECG-7). What
+stays in the alpha plan is the alpha-specific application — re-targeting the
+admission grammar at the *next predicted transition*, which makes the two probe
+arms derivable rather than hand-assigned.
