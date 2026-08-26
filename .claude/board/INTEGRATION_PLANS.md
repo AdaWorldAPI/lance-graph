@@ -16,6 +16,32 @@ memory subsystem; topology must beat a shuffled-edge null before any derived
 view is canonical; tail tests change an edge's evidence, never CE64's meaning.
 Literature is operator-supplied and UNVERIFIED in session — recorded as
 provenance, never as evidence. D-AIF-1..6, F-AIF-1..5.
+## 2026-08-26 — MEASUREMENT REPORT (no code, no type, no rename): Octopus causal-CoT contract + related-work audit, `.claude/plans/octopus-causal-cot-audit-v1.md`
+
+Audits the "domain-conditioned causal Graph-CoT over resident causal topology"
+thesis against measured source across three repos (lance-graph, MedCare-rs @
+572eb87, OGAR @ c02efa1, the latter two read-only). Headline measurements:
+`grep -ri octopus` returns ZERO tree-wide (the name is session-external, so
+nothing must be renamed); no thought-graph population exists anywhere, so
+F-OCT-10 is satisfied by absence rather than by a guard; `AttentionMaskSoA` has
+NO production consumer and the transition function (`elect_mode` -> `DispatchMode`)
+never reads it, so alpha is observational, not load-bearing; `SettlementCell::cell()`
+never reads `CausalTopology`, so entropy and causal ground do not yet meet;
+`ReasoningBand` 61..63 is minted, round-trip-tested, asserted-untouched — and
+gates nothing, because OGAR (the ClassView producer) never mints a `band_reading`
+declaration. Six of ten F-OCT falsifiers are EXPECTED-FAIL today, one is N/A,
+two vacuous, one likely-pass. Corrects the brief on two points: alpha is a flat
+LRU residency receipt (not a projection), and `Domain` in-tree is Cynefin
+(Clear/Complicated/Complex/Chaotic/Confused), not subject matter — so
+"domain-aware" is ambiguous inside this codebase. Adds the Causal-Audit ablation
+correction (FGVA admission is load-bearing at 96%->15% Path Reach; TAP Top-K is
+worth only 3.3pp over random prune, which becomes the FLOOR any claimed topology
+must clear). Naming: do NOT adopt Octopus publicly and do not rename; the
+measured architecture is Graph-CoT-shaped (closest published relative is Luo
+et al., completion-by-retrieval), and the differentiator is the two CE64 fields,
+neither of which any producer stamps yet. Consumes and does not re-plan #1057
+(entropy/closure/59-60), dacr7-band-reading, alpha-channel-rung-overlay,
+counterfactual-rung3-closure. D-OCT-1..10 = the falsifier table.
 
 ## 2026-08-26 — PROPOSAL (measured, unbuilt): entropy measures closure, bits 59-60 tell whether it is causally earned, `.claude/plans/entropy-closure-causal-ground-v1.md`
 

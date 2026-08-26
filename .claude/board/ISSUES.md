@@ -1,5 +1,71 @@
 # Issues Log — Open + Resolved (double-entry, append-only)
 
+## ISS-ALPHA-NOT-LOAD-BEARING (2026-08-26) — OPEN
+
+`AttentionMaskSoA` (`cognitive-shader-driver/src/attention_mask.rs`) has **no
+production consumer**. Measured: every hit outside its own module is a `pub mod`
+line or a doc-comment (`lib.rs:93,94`; `mailbox_soa.rs:11`, which explicitly says
+*"NO AttentionMask/LRU"*; `attention_facet.rs:103`). The transition function is
+`elect_mode(Domain) -> DispatchMode` (`contract/src/dispatch_mode.rs`), and
+`Domain` is derived from gate + surprise + contradiction — never from the
+attention mask. There is no edge from the attention carrier into the next
+transition at all.
+
+Consequence: an intervention on a claimed alpha state would be silent in BOTH
+the relevant and the irrelevant arm, so F-OCT-1 fails and F-OCT-2 passes
+*vacuously*. A vacuously-passing silent arm is the `closed_class_guess` 150/150
+defect one level up (CLAUDE.md falsifiability rule), so F-OCT-2 must be reported
+RED until F-OCT-1 is green.
+
+**The fix is NOT to wire alpha into dispatch so the falsifier passes** — that is
+building the test's answer. The measurement stands: the "interventionally
+load-bearing" axis of the thesis is currently unearned.
+Ref: `.claude/plans/octopus-causal-cot-audit-v1.md` §2, D-OCT-1/2.
+
+## ISS-REASONING-BAND-GATES-NOTHING (2026-08-26) — OPEN
+
+`ReasoningBand` (CE64 61..63) is minted, decoded, round-trip-tested
+(`causal-edge/src/v2_layout_tests.rs:480`) and asserted untouched by the whole
+control loop (`probe_revision_kanban_hinge.rs:1404`) — and **gates nothing**.
+Every grep hit is a probe, a test, or a doc-comment; `ogar/recipe_vocab.rs:63`
+states outright that it *does not write* one. The sudoku walker's GATE stage
+therefore has a carrier and no mechanism, which is what F-OCT-7 measures.
+Cross-ref `ISS-BAND-READING-UNMINTED-IN-OGAR` — the blocker is upstream.
+Ref: `.claude/plans/octopus-causal-cot-audit-v1.md` §4, §6, D-OCT-7.
+
+## ISS-BAND-READING-UNMINTED-IN-OGAR (2026-08-26) — OPEN
+
+The two halves of the domain lens live in different repos and do not meet.
+`ClassView::band_reading` (`lance-graph-contract/src/band_reading.rs`) is a
+total, zero-fallback, fallible per-`(classid, rail)` lookup — the consumer side
+of the D-ACR-7 contract. `OGAR/crates/ogar-class-view/src/lib.rs` (662 lines,
+`OgarClassView` / `known_class_ids()` / `object_view()`) is the producer that
+mints class views, and `grep -rn band_reading` over `OGAR/crates` returns
+**nothing**. The contract can ask a class which lens it declares; the producer
+never answers.
+
+Per the missing-capability STOP rule this lands as an **OGAR-tier change first**
+— never a hand-rolled default in the consumer or in the walker. F-OCT-7 is
+blocked on it. Measured at OGAR `c02efa1` (read-only clone, this session).
+Ref: `.claude/plans/octopus-causal-cot-audit-v1.md` §14.2.
+
+## ISS-DOMAIN-LENS-BY-CONVENTION-ONLY (2026-08-26) — OPEN
+
+`medcare-rs/crates/medcare-first-thought/src/plateau.rs` documents a real
+domain-conditioned reading ruling: qualia is a legitimate substrate tenant, but
+*for medicine* a proven ontological relation is evidence with a truth value, not
+a felt state — so clinical evidence rides the **edge tenant** and the **qualia
+tenant stays ZERO**. Same world, same columns, same `CausalEdge64`; the domain
+rules one tenant out. This is the strongest empirical support in the stack for
+the domain-conditioned-lens thesis.
+
+It is also **prose in one consumer**. Nothing in the spine enforces it, records
+it, or could detect its violation, and `medcare-rs` has zero hits for
+`CausalTopology` / `ReasoningBand` / `SettlementCell`. A lens honoured by
+convention is not a lens the architecture has.
+Measured at medcare-rs `572eb87` (read-only clone, this session).
+Ref: `.claude/plans/octopus-causal-cot-audit-v1.md` §14.1, §14.3.
+
 ## ISS-MUL-GATE-OUTCOME-COUPLED-TO-PRODUCER-GROUND (2026-08-26) — OPEN (thesis storno-corrected same day)
 
 **PR #1045 correctly removed redundant prose from the MUL hot path, but

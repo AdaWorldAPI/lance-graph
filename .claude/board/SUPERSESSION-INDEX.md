@@ -56,7 +56,7 @@ coverage instead.
 | `persist_cycle` | BLOCKED | — | 10 | 6 | 5 |
 | `CognitiveMarkers` | REPURPOSE | `Commit` | 2 | 0 | 0 |
 | `DominoCascade` | REPURPOSE | `Commit` | 8 | 0 | 0 |
-| `GateDecision` | REPURPOSE | — | 24 | 23 | 20 |
+| `GateDecision` | REPURPOSE | — | 24 | 24 | 21 |
 | `GateState` | REPURPOSE | — | 14 | 1 | 1 |
 | `MergeMode` | REPURPOSE | — | 8 | 12 | 11 |
 | `ResonanceDto` | REPURPOSE | `PerturbationDto` | 2 | 6 | 5 |
@@ -64,7 +64,7 @@ coverage instead.
 | `CollapseGateEmission` | RETIRE | — | 5 | 12 | 12 |
 | `ThinkingStyle` | RETIRE-toward-contract | — | 51 | 26 | 23 |
 
-## Table 2 — plans naming a ruled symbol without citing the ruling (66)
+## Table 2 — plans naming a ruled symbol without citing the ruling (67)
 
 Route is **mechanical triage, not a verdict**: `ARCHIVE?` = the plan's own status says
 it shipped; `RESCOPE` = it targets a symbol marked RETIRE; `READ` = neither signal fires
@@ -87,6 +87,7 @@ a licence to act on it.
 | **READ** | `integration-actionhandler-rbac-orchestration-v1` | `GateDecision` | HARDENING (5+3 in progress). | 0/0 |
 | **READ** | `mask-algebra-revision-read-v1` | `StepMask` | DRAFT, awaiting operator ruling on §5 | 1/3 |
 | **READ** | `mul-calibration-not-verdict-v1` | `GateDecision` | PROPOSAL (unbuilt) — 2026-08-26. PLAN/BOARD  | 4/12 |
+| **READ** | `octopus-causal-cot-audit-v1` | `GateDecision` | MEASUREMENT REPORT. **No code. No new type.  | 0/1 |
 | **READ** | `persistence-artifact-backed-commit-v1` | `persist_cycle` | RATIFIED (operator ruling 2026-08-09). Phase | 0/0 |
 | **READ** | `r2il-bpe-typed-genetic-recombination-v1` | `GateDecision` | PROPOSAL, §7's three falsifiers now RUN (see | 1/1 |
 | **READ** | `scientific-kg-substrate-v1` | `GateDecision` | PROPOSED — **scoping doc**, no code. Records | 8/9 |
@@ -109,7 +110,7 @@ a licence to act on it.
 | **RESCOPE** | `unified-integration-v1` | `BindSpace`, `MergeMode`, `ThinkingStyle` | Active — brainstorm phase complete; delivera | 0/0 |
 | **RESCOPE** | `2026-05-06-splat-osint-ingestion-v1` | `BindSpace`, `MergeMode` | Active — PR 1+2 of 6 in flight on `claude/sp | 1/7 |
 | **RESCOPE** | `Palette256-3DSB-PhiSpiral-attention-integration-plan` | `BindSpace`, `CollapseGateEmission` | — | 0/0 |
-| **RESCOPE** | `alpha-interventional-faithfulness-v1` | `GateDecision`, `ThinkingStyle` | PROPOSAL (measured targets, unbuilt) — 2026- | 0/7 |
+| **RESCOPE** | `alpha-interventional-faithfulness-v1` | `GateDecision`, `ThinkingStyle` | PROPOSAL (measured targets, unbuilt) — 2026- | 1/7 |
 | **RESCOPE** | `anatomy-realtime-v1` | `BindSpace`, `ThinkingStyle` | — | 0/1 |
 | **RESCOPE** | `elegant-herding-rocket-v1` | `BindSpace`, `ThinkingStyle` | — | 0/0 |
 | **RESCOPE** | `grounding-descent-cognitive-maslow-v1` | `GateDecision`, `ThinkingStyle` | PROPOSED (unbuilt; every mechanism cited exi | 1/7 |
@@ -129,7 +130,7 @@ a licence to act on it.
 | **RESCOPE** | `codec-sweep-via-lab-infra-v1` | `BindSpace` | — | 0/0 |
 | **RESCOPE** | `cycle-coherent-soa-snapshot-v1` | `CollapseGateEmission` | Queued | 0/6 |
 | **RESCOPE** | `dacr7-band-reading-contract-v1` | `ThinkingStyle` | — | 3/5 |
-| **RESCOPE** | `entropy-closure-causal-ground-v1` | `ThinkingStyle` | PROPOSAL (measured, unbuilt) — 2026-08-26. P | 2/8 |
+| **RESCOPE** | `entropy-closure-causal-ground-v1` | `ThinkingStyle` | PROPOSAL (measured, unbuilt) — 2026-08-26. P | 3/8 |
 | **RESCOPE** | `foundry-consumer-parity-v1` | `BindSpace` | Active | 0/0 |
 | **RESCOPE** | `foundry-roadmap-unified-smb-medcare-v1` | `BindSpace` | Active | 0/0 |
 | **RESCOPE** | `lf-integration-mapping-v1` | `BindSpace` | Active (2026-04-25) | 0/0 |
@@ -148,5 +149,5 @@ a licence to act on it.
 
 - **ARCHIVE?**: 0
 - **RESCOPE**: 53
-- **READ**: 13
+- **READ**: 14
 - ruled symbols tracked: 14
