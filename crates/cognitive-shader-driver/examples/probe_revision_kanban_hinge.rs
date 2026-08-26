@@ -320,7 +320,7 @@ use lance_graph_contract::escalation::{
     fanout_width, rung_delta, CollapseHint, CouncilVerdict, InnerCouncil,
 };
 use lance_graph_contract::kanban::KanbanColumn;
-use lance_graph_contract::mul::GateDecision;
+use lance_graph_contract::mul::{FlowState, GateDecision, TrustTexture};
 use lance_graph_contract::recipe_kernels::{kernel, MaturityPolicy, ThoughtCtx};
 use lance_graph_contract::recipes::Recipe;
 use lance_graph_contract::soa_view::{MailboxSoaOwner, MailboxSoaView, StyleLane};
@@ -800,11 +800,16 @@ fn emergence_coherence(ev: &CycleEvidence) -> (f32, f32) {
 fn lower_to_gate(verdict: &CouncilVerdict) -> GateDecision {
     match verdict.hint {
         CollapseHint::Flow => GateDecision::Flow,
+        // Both hints lower to Hold; the hint itself is what distinguishes
+        // them and it is already carried by `verdict.hint`, so the decision
+        // does not restate it in prose.
         CollapseHint::Fanout => GateDecision::Hold {
-            reason: "fanout: gather more evidence (breadth)".to_string(),
+            texture: TrustTexture::Calibrated,
+            flow: FlowState::Anxiety,
         },
         CollapseHint::RungElevate => GateDecision::Hold {
-            reason: "rung-elevate intent: deepen pending the two-key gate".to_string(),
+            texture: TrustTexture::Overconfident,
+            flow: FlowState::Transition,
         },
     }
 }

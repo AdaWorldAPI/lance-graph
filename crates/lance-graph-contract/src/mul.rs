@@ -193,7 +193,11 @@ impl GateDecision {
     #[must_use]
     pub const fn reason(&self) -> &'static str {
         match self {
-            GateDecision::Flow => "calibrated trust in flow: full autonomy",
+            // Flow carries no payload, so its text must claim no specific
+            // texture or state: gate_decision_i4 returns Flow for
+            // (Calibrated | Underconfident) × (Flow | Transition), four
+            // input classes, and naming one of them would be wrong for three.
+            GateDecision::Flow => "preconditions for commitment hold: full autonomy",
             GateDecision::Block {
                 texture: TrustTexture::Uncertain,
                 ..
