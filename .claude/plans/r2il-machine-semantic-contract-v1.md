@@ -1035,3 +1035,39 @@ saturates and inverts**, so C3 binds and BPE is unranked. Full reading,
 the post-hoc density sweep, and the follow-up a valid comparison needs:
 `E-Q7-FREQUENCY-SIZING-RESCUES-THE-LEARNING-GATE-BUT-NOT-THE-INTERFERENCE-CLAIM-AND-THE-2-BYTE-RAILS-ARE-COMPLEMENTARY-NOT-COMPETING-1`.
 Instrument reverted; board-only outcome.
+
+**§7.8 continuation (operator-ruled, same day) — RDF intake IS the V4
+program source; the lowering is a PROJECTION, not a compilation:**
+
+The lance-graph-ontology RDF intake arm produces V3 (baked axiom rows).
+**Treated as V4, the SAME rows are the execution projection + behavior
+learning** — no second pipeline, no emitted artifact:
+
+- The predicate classid SELECTS an R2IL template; the row's own facet
+  bytes ARE the operands. `SubClassOf` → masked-check-and-union;
+  property chain → masked hop sequence. The program is a ClassView-style
+  projection over rows that already exist — the zero-copy law extended
+  one rung (*the array is a projection* → *the program is a projection*).
+  Re-bake and the "code" updates for free; there is no second artifact
+  to drift.
+- This is the shape `lance-graph-contract::jit` already has:
+  `JitCompiler::compile(&JitTemplate)` — **one template per RULE KIND,
+  never per axiom**; instances are rows. The template seam was pre-built.
+- Consequence for the earlier open question (content-tier vs ActionDef
+  field): it only ever applied to the HARVEST arm. Two program sources,
+  one interpreter: **projected** (ontology rules — stored nowhere) and
+  **stored** (harvested imperative bodies — content tier, keyed by
+  action address). The intake pipeline changes not at all; V4 costs the
+  bake nothing.
+- **"Behavior learning" defined:** execution of projected rules deposits
+  alpha (visits per template × population); hot templates tier up
+  through jitson; the decode-disagreement stream trains the learned
+  overlay. The substrate learns WHICH OF ITS OWN AXIOMS IT USES and gets
+  faster at exactly those. The ontology stays declarative cold truth
+  (CE64-fenced per §7.7 — learned wiring never creates/mutates an edge);
+  what is learned is the conduction pattern over it (hot). Coupled
+  materials and the JIT are one mechanism.
+
+PROBE-OWL-RL-FIXPOINT is unchanged in intent but sharpened in form: it
+runs the PROJECTED reading (template × axiom-row operands) against the
+bake's own closure — proving the lens, not a compiler.
