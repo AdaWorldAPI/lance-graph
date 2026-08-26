@@ -1,6 +1,6 @@
 # Issues Log — Open + Resolved (double-entry, append-only)
 
-## ISS-MUL-GATE-OUTCOME-COUPLED-TO-PRODUCER-GROUND (2026-08-26) — OPEN
+## ISS-MUL-GATE-OUTCOME-COUPLED-TO-PRODUCER-GROUND (2026-08-26) — OPEN (thesis storno-corrected same day)
 
 **PR #1045 correctly removed redundant prose from the MUL hot path, but
 accidentally promoted MUL-specific ground into the public gate outcome
@@ -197,6 +197,47 @@ Block == 2 == Block — so a drift in either type fails the contract suite.
 Raw-byte consumer sweep re-run on the final diff: every call site reads
 through accessors or named constants; no `gate == 1` comparison exists
 outside the type itself; no persisted or serialized gate byte anywhere.
+
+### ⊘ Storno, same day: the thesis was still too close to the old mistake
+
+This entry framed the fix as *separate the universal OUTCOME from producer-owned
+GROUND* and proposed `GateLevel`. Measured against the code, that is wrong twice:
+
+1. **`GateLevel` would have generified the EXECUTION gate.** Every in-tree
+   consumer of `mul::GateDecision` is a commit/cancel/defer path
+   (`kanban::advance_on_gate` phase DAG + Libet veto, `action.rs` ActionState,
+   `sigma-tier-router` Rest dispatch, `kanban_actor::mul_target`). Not one routes
+   it to a compass, an exploration, or a learn-first path. MUL's actual output
+   already exists as the planner's `MulGateDecision{Proceed{free_will_modifier},
+   Sandbox{reason}, Compass}`, whose four gate checks match the operator
+   diagram's four checkboxes verbatim and in order.
+2. **The first correction is not outcome-vs-ground at all — it is axis
+   orthogonality.** `TrustTexture` (calibration) and `FlowState`
+   (Csikszentmihalyi challenge/skill) are independent coordinates that
+   `MulAssessment` already carries apart. `Hold { texture, flow }` fuses them at
+   the exact boundary where the caller already holds both (the trait takes
+   `&MulAssessment`) — a second projection across axes. The flow axis's measured
+   consumer is thinking-style adaptation (`planner/thinking/style.rs:272-275`,
+   `FlowState → StyleFamily`), i.e. attention-field modulation, not a reason a
+   gate said Hold.
+
+**#1045 is therefore more correct than this entry assumed.** Its core stands
+whole: strings out of the hot path, typed `Copy` state, SIMD≡scalar equivalence.
+The one step past it was *typed state exists → therefore stuff it into
+`GateDecision`*, instead of keeping it in the assessment and deriving planner
+behaviour separately. The ada-rs break is the **diagnosis**, not the defect: a
+consumer had been using MUL as a generic three-state control channel.
+`MulProvider` and `PlannerContract::gate_check` have **zero in-tree
+implementors** — the canonical evaluator is the free function
+`gate_decision_i4` — so both traits exist only as an external verdict surface.
+
+Corrected thesis: `DOMAIN EVIDENCE → MUL CALIBRATION → PLANNER HINT`, axis
+orthogonality first. `GateLevel` (D-GATE-2) and the trait-signature change
+(D-GATE-3) are WITHDRAWN. Successor plan:
+`.claude/plans/mul-calibration-not-verdict-v1.md` (D-MCAL-0..6, F-MUL-1..7).
+What survives verbatim from this entry: the measured break in ada-rs, and the
+rule that a source-breaking contract change is unverified until known
+unbound-git consumers BUILD against the proposed head.
 
 ## ISS-STRINGS-IN-THE-I4-GATE-HOT-PATH (2026-08-26) — RESOLVED (this PR)
 
