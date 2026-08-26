@@ -510,7 +510,6 @@ Cross-ref: plan §10 (pre-registration + gates);
 `I-NOISE-FLOOR-JIRAK` (all separations read distribution-free, as
 range non-overlap, never as σ).
 
-## 2026-08-26 — E-Q6-HEX-FAILS-CONTENT-ADDRESSING-IS-CAPACITY-DESTROYING-UNDER-A-SKEWED-DISTRIBUTION-1 — the hex A/B experiment fails every pre-registered gate; a random partition with the identical locality rule beats it outright
 ## 2026-08-26 — E-Q6-HEX-FAILS-CONTENT-ADDRESSING-IS-CAPACITY-DESTROYING-UNDER-A-SKEWED-DISTRIBUTION-1 — the hex A/B experiment fails every hypothesis gate (G1–G3) at every cap while both validity gates pass; a random partition with the identical locality rule beats it outright
 
 **Status:** FINDING [MEASURED] — **NEGATIVE RESULT, recorded exactly as
