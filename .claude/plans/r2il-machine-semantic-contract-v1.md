@@ -1134,3 +1134,59 @@ arm; after that it is codebook-index masking algebra.* Scope honesty:
 proven for the PURE fragment at depth ≤ 3 over a synthetic slab; the
 effectful fragment and real baked populations remain with
 LIVE-REGFILE / LANES / OWL-RL-FIXPOINT.
+
+**§7.8 third continuation (operator paradox + census, 2026-08-26) — the
+Valhalla/Panama paradox resolves; r2sleigh has NO zero-copy executor yet
+but its IR is already zero-copy-shaped; freeze/thaw are the zipper's two
+directions:**
+
+Operator: *"it might be faster to use Java Panama Valhalla as a C64
+emulator than running it in JITson, because Valhalla knows ABI-shaped
+masking and Panama knows zero copy… JITson on the other hand becomes
+materialization."*
+
+**Census (r2sleigh fork, measured):** `Varnode {space, offset, size}` is
+LITERALLY a MemorySegment slice descriptor — the IR was born zero-copy.
+The ONLY executor is `r2sym`, and it materializes everywhere BY DESIGN
+(string-keyed `HashMap` register file; `HashMap<u64,u8>` per-byte
+memory; `Clone` values boxing Z3 ASTs; `step → Vec<SymState>` whole-state
+forks). Correct for symbolic path exploration; structurally the opposite
+of realtime execution. **No concrete interpreter exists in the fork.**
+
+**Paradox resolution:** Java would be fast there because Panama (state =
+slab addressed by offset/size, never a keyed map) + Valhalla (values
+scalarized, never reified) + HotSpot PGO accidentally implement the
+three properties this arc already ruled: zero-copy slabs, masked value
+flow, alpha-profiled tier-up. Rust provides the first two DELIBERATELY
+(`&mut [u8]` per space; `Copy` + monomorphization — Rust has had
+Valhalla since 1.0) and the third is the alpha/jitson tier. **Verdict:
+no JVM; build the concrete slab executor in the fork** — an `r2conc`-
+shaped crate beside r2sym, sharing the IR: `SlabState` (one flat slab
+per space: register = the facet register slab, ram = the lane slab,
+unique = scratch) + `step(&mut self, op: &R2ILOp)` over the concrete
+subset. This is LIVE-REGFILE's prerequisite and its natural first
+deliverable.
+
+**"jitson becomes materialization" — affirmed, precisely:** a compiled
+kernel is a materialized second projection of behavior, legitimate ONLY
+as an ELEVATED cache (profile-derived, `KernelHandle`-held, discardable,
+regenerable), never authority. Index-never-authority applies at tier 2
+identically: the IR / axiom rows stay truth; the kernel is a cache entry
+with a demotion path.
+
+**"Can behavior with R2IL and hexagon become frozen and learned?" —
+YES, and the zipper FINDING makes it well-defined:**
+- LEARNED (soft) = hexagon decode recall + alpha's conduction pattern,
+  grown in production from the disagreement stream.
+- FROZEN (crystallized) = a hot behavior compressed into its composed
+  form. Three freeze targets, ascending: a composed MASK (result
+  frozen, the baked-closure shape) · a jitson KERNEL (execution frozen)
+  · a new straight-line R2IL BODY (trace-JIT: the hot path through
+  branches frozen branchless).
+- **Freeze = program → address; thaw/learn = address → program** — the
+  two directions of the zipper isomorphism, whose pure-fragment round
+  trip PROBE-ZIPPER-HOP-PARITY just proved exact.
+- Gates already shipped: §7.3 crystallization admission + DEMOTION gate,
+  §7.4 reversible trust. A frozen artifact that disagrees with the
+  interpreted authority under sampled differential execution is demoted
+  (re-thawed) — the tier-0 propose/verify structure applied at tier 2.
