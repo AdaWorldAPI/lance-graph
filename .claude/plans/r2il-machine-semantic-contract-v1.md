@@ -823,3 +823,19 @@ across carriers would be an artefact, not a result.
    whether *neighbourhood-bounded eviction itself* helps once the
    capacity waste is removed. I expect it to land on GLOBAL, not beat
    it; if so, the hex line closes.
+
+**⊕ RUN 2026-08-26 (append-only results pointer).** Q7 executed after
+§10's commit (`95ea634`). **Q7a:** degeneracy check did not fire
+(max_cell_share 0.286/0.333/0.357); frequency sizing lifted utilization
+from Q6's 43% to 79–86% and **G1 now PASSES 3/3** — so Q6's
+"learns less" half was a construction artefact — but **G2 still fails
+(1/3)** and the arm's own resolution limit (n=1, between-arm spread ≤
+within-arm spread) forbids claiming HEX-FREQ is *worse*, only that it
+misses the bar. **Q7b:** PAL and I8 pass C0 at every budget; PAL
+transfers 0.99–1.00 (**falsifying prediction #2**), I8 transfers
+0.65–0.67 with a ~10× null margin (**confirming #3**); **BPE failed C0
+because hit-rate — the metric I chose to make the carriers comparable —
+saturates and inverts**, so C3 binds and BPE is unranked. Full reading,
+the post-hoc density sweep, and the follow-up a valid comparison needs:
+`E-Q7-FREQUENCY-SIZING-RESCUES-THE-LEARNING-GATE-BUT-NOT-THE-INTERFERENCE-CLAIM-AND-THE-2-BYTE-RAILS-ARE-COMPLEMENTARY-NOT-COMPETING-1`.
+Instrument reverted; board-only outcome.
