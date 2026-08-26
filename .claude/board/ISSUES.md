@@ -1,5 +1,103 @@
 # Issues Log — Open + Resolved (double-entry, append-only)
 
+## ISS-GATEDECISION-ORDINAL-COLLISION (2026-08-26) — OPEN
+
+**Two live types are named `GateDecision`, and their locked byte mappings are
+inverted.** Anything that packs one and reads the other silently swaps *hold*
+and *block* — proceed-with-caution becomes reject.
+
+| | 0 | 1 | 2 | doc |
+|---|---|---|---|---|
+| `mul::GateDecision::to_disc` | Flow | **Hold** | **Block** | *"Mapping is locked"* |
+| `collapse_gate::GateDecision.gate` | Flow | **Block** | **Hold** | *"matches ndarray CollapseGate ordinals"* |
+
+`lance_graph_contract::GateDecision` at the crate root (`lib.rs:211`) resolves to
+the **collapse_gate** one — a 2-byte `Copy` struct (`gate: u8` + `MergeMode`).
+`kanban.rs:26` imports the **mul** one. Both are reachable, both are exported,
+and the names do not disambiguate at a call site.
+
+### ⊘ Correction, same day: the substrate backs `mul`, not `collapse_gate`
+
+The first version of this entry said aligning `mul` to ndarray would supersede
+`mul`'s lock, on the assumption that `collapse_gate`'s comment — *"matches
+ndarray CollapseGate ordinals"* — was true. **It is not.** Measured in the fork:
+
+- `ndarray::hpc::qualia_gate::QualiaGateLevel` is `#[repr(u8)]` with explicit
+  discriminants: `Flow = 0`, `Hold = 1`, `Block = 2`.
+- `ndarray::hpc::bnn_cross_plane::CollapseGate` declares `Flow, Hold, Block`
+  in that order (implicit 0, 1, 2).
+
+Both match `mul::to_disc`. So `collapse_gate::GateDecision` is the side that
+disagrees with the substrate, **and its stated justification cites the substrate
+incorrectly** — the comment is the defect, not merely the constants.
+
+Independent corroboration inside this repo: `deepnsm-v2/src/evidence.rs:476-493`
+asserts `to_disc()` as 0 = Flow, 1 = Hold, 2 = Block, against live evidence
+values. A consumer already depends on `mul`'s ordering.
+
+**Blast radius of the fix, measured.** Every consumer of
+`collapse_gate::GateDecision` reads it through `is_flow()` / `is_hold()` /
+`is_block()` or the named constants (`FLOW_XOR`, `FLOW_BUNDLE`, `FLOW_SUPER`,
+`HOLD`, `BLOCK`) — no call site compares the raw `gate: u8`. Searched
+`soa_envelope.rs` and `canonical_node.rs` for a persisted gate byte: none (the
+hits are version gates and `MailboxId`). `lance-graph-java` names `GateDecision`
+only in a plan document, never in `native/lgj-abi`, so no ABI carries it. The
+change is three constant values plus three accessor comparisons; behaviour is
+preserved through the accessors.
+
+Still not actioned in this PR, and now for a smaller reason than before: it
+changes values in a type the crate root exports, which deserves its own diff and
+its own review rather than riding along with a hot-path allocation fix.
+
+Found while auditing PR #1033's claims, but it exists independently of that PR
+and predates it.
+
+## ISS-STRINGS-IN-THE-I4-GATE-HOT-PATH (2026-08-26) — RESOLVED (this PR)
+
+**Rule: no strings in a hot path.**
+
+`mul::GateDecision::{Hold, Block}` carried `reason: String`. `gate_decision_i4`
+— i4-quantised qualia, the name says hot path — allocated on the heap five times
+per call (3× `Hold`, 2× `Block`).
+
+Three things made it worse than a missed optimisation:
+
+1. **The module header already claimed otherwise.** The D-CSV-8 banner
+   (`mul.rs`, above the i4 path) reads *"no heap allocation"* and
+   *"GateDecision::Hold/Block carry &'static str reason to preserve zero-alloc"*.
+   Neither was true of the code directly beneath it.
+2. **The workaround was already built.** A separate scalar batch path exists
+   *because* the strings cannot be SIMD-packed — stated in the source at two
+   places, plus a comment naming the allocation as the bottleneck.
+3. **The strings were derived and never read.** Each was a rendering of the
+   `(TrustTexture, FlowState)` pair computed two lines earlier and already typed
+   `Copy + repr(u8)`. Searched the workspace for a read of the field: none. The
+   type's own batch test compared discriminants only.
+
+Storing a second, unpackable projection of state that already exists in typed
+form is the defect; the allocation is the symptom.
+
+**Fix:** the payload is the typed pair. `GateDecision` is now
+`Copy + PartialEq + Eq`, heap-free, and every payload byte is a `repr(u8)` enum.
+`GateDecision::reason()` renders the prose on demand, `&'static str`, derived
+from the payload so it cannot drift from the decision it describes.
+
+Falsifier, both legs: `grep -n "to_string()" crates/lance-graph-contract/src/mul.rs`
+returns 0; and the batch/scalar equivalence test now asserts full equality
+instead of the discriminant, so a divergence in `texture` or `flow` is
+observable — it was masked before.
+
+Age at removal: 6 days (`b67f195`, 2026-08-20, PR #969 — the commit whose own
+message declares an *"intentionally stupid substrate … all semantics as
+interpretations layered above it"*). Prose reasons inside the substrate's own
+decision type are semantics baked into the substrate, not layered above it.
+
+Left open deliberately: `Hold` is the `_ =>` catch-all and 3 of 5 match arms
+reach it. Whether a state that fires on most inputs is a state or a default with
+a name is a distribution question over the qualia space, unmeasured. It is not
+answered by this PR and should not be answered by inspection.
+
+
 ## ISS-STALE-AUTHORITY-LOCKS (2026-08-25) — RESOLVED
 
 **Project rule: no tracked `Cargo.lock`.** Dependency authority comes from

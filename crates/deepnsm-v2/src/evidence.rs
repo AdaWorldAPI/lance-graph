@@ -28,7 +28,7 @@
 
 use crate::basin::spearman;
 use lance_graph_contract::kanban::KanbanColumn;
-use lance_graph_contract::mul::GateDecision;
+use lance_graph_contract::mul::{FlowState, GateDecision, TrustTexture};
 
 /// One distinct belief under a subject: `(predicate, object, occurrence_count)`.
 pub type BeliefRecord = (u16, u16, usize);
@@ -88,15 +88,19 @@ impl EvidenceBasin {
         if u < 1.0 / 3.0 {
             GateDecision::Flow
         } else if u >= 2.0 / 3.0 {
+            // The U value is not carried in the decision: it belongs to the
+            // evidence that computed it, and `uncertainty()` hands it to any
+            // caller that wants to report it. The decision carries the state
+            // that produced it, in the same typed pair `gate_decision_i4`
+            // would produce for this classification.
             GateDecision::Block {
-                reason: format!(
-                    "evidence too thin: U={u:.2} (conf {:.2}, contra {:.2}, rung {:.2})",
-                    self.u_conf, self.u_contra, self.u_rung
-                ),
+                texture: TrustTexture::Uncertain,
+                flow: FlowState::Anxiety,
             }
         } else {
             GateDecision::Hold {
-                reason: format!("gathering evidence: U={u:.2}"),
+                texture: TrustTexture::Calibrated,
+                flow: FlowState::Anxiety,
             }
         }
     }

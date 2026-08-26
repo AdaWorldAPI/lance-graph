@@ -1,5 +1,17 @@
 # Kognitionswirtschaft v1 — Maslow · Heckhausen/Rubikon · Libet as one cognitive economy
 
+> **⊘ NOT CANONICAL (2026-08-26).** This document is a re-import of historical
+> extracts from earlier sessions, assembled against an architecture that has
+> since moved. Its citations were not re-verified against the head it was
+> written on: it names `KanbanMove::libet_offset_us` as the live Libet carrier
+> (retired — see `contract::kanban` `LIBET_COMMIT_WINDOW_US`), and it diagnoses
+> "the MUL gate" through `mul::GateDecision` without noting that the
+> crate-root `GateDecision` is a different type with inverted discriminants
+> (`ISS-GATEDECISION-ORDINAL-COLLISION`). Read it as a sketch of an idea, never
+> as a description of the substrate. It is exactly the staleness class
+> `board/SUPERSESSION-INDEX.md` measures: plan-mentions outliving the code.
+> Nothing here authorises work until re-derived from the current head.
+>
 > **Status:** PROPOSED (unbuilt, unprobed). Operator-initiated 2026-08-25:
 > *"maslov model Heckhausen Rubikon Libet ist Kognitionswirtschaft."*
 > **Scope:** `lance-graph-contract` (one typed vocabulary) + `lance-graph-planner`

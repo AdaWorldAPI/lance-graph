@@ -44,7 +44,7 @@ use lance_graph::graph::arigraph::triplet_graph::{Triplet, TripletGraph};
 use lance_graph::graph::spo::TruthValue;
 use lance_graph_contract::kanban::{ExecTarget, KanbanColumn, KanbanMove};
 use lance_graph_contract::materialize::materialize;
-use lance_graph_contract::mul::GateDecision;
+use lance_graph_contract::mul::{FlowState, GateDecision, TrustTexture};
 use lance_graph_contract::qualia::{QualiaI4_16D, QUALIA_I4_LABELS};
 use lance_graph_contract::recipe_kernels::ThoughtCtx;
 use lance_graph_contract::recipes::recipe;
@@ -235,7 +235,8 @@ fn main() {
         &mut trail,
         col,
         &GateDecision::Hold {
-            reason: "both poles held".into(),
+            texture: TrustTexture::Overconfident,
+            flow: FlowState::Transition,
         },
         step,
     );
