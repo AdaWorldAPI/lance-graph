@@ -515,6 +515,199 @@ MedCare-rs:         owns corpus, bake state, withheld mapping lists, receipts
 starts specifying ontology ingestion, bake artifacts, or concrete
 crosswalk lists, the clean cut has failed — move that text to the
 consumer repo and leave a pointer.
+
+### 7.7 ADDENDUM 2026-08-26 — no executive chooser; the two materials are COUPLED, not controller-and-controlled
+
+> Register: PLAN + vocabulary correction. Operator-ruled. Scoped to this
+> plan's own boundary (§7.6): the FORM of the mechanism and its topology
+> falsifier. The consumer-side half — expected-vs-observed firing over a
+> real corpus, focus dynamics, candidate pruning — belongs to MedCare-rs
+> and is recorded there, not here.
+
+**The rejected formulation, recorded because it is the tempting one.** A
+session proposed closing the activation loop with
+
+```
+chooser(spine, alpha) -> next_address
+```
+
+— an executive selector holding both planes and deciding. **Rejected.**
+It reintroduces a scheduler layer the architecture does not have, and it
+makes the transition an act of selection rather than a consequence of
+substrate state. The wording never reached a document; it is written down
+here so it is not re-proposed as an obvious move.
+
+**The corrected mechanism — two materials running simultaneously:**
+
+```
+COLD  readonly ontology/SoA + baked executable routes
+      → where activation is EXPECTED to conduct
+HOT   local reaction field: activation · focus · signed conductance
+      → where it ACTUALLY conducts, and where resolution is concentrated
+
+cold route fires → hot field reacts → hot field changes local conductance
+                → another cold route fires → repeat
+```
+
+Neither material controls the other. The next firing is a consequence of
+the coupled state. This is a strictly stronger claim than the open-loop
+diagnosis it replaces, and a strictly weaker one than a chooser: it must
+be shown that the coupling *alone* produces a transition.
+
+**The local field carries TWO readings, not one.** Activation (which
+material is firing) and focus (where gain/resolution is concentrated) are
+co-located at the same coordinate. Focus is **not** a selector — it is
+modulation, `effective ≈ activation × focus`, so a wide region may be
+active while attention occupies one aperture. A saccade is then the
+movement of the focus field over the active field, never a pick from a
+candidate list. **Do not hard-code this as an ABI struct**; the
+requirement is semantic co-location at one address, and §7.2's verdict
+that the geometry itself is unearned is untouched by it.
+
+**Signed learned conductance is a hypothesis with a separation
+requirement.** Token/macro identity stays a stable id; the *contextual*
+contribution may be a signed `i8` (positive retain, near-zero dormant,
+negative suppress-from-frontier). Suppression removes a candidate from
+the current frontier and **never** deletes its canonical identity. The
+ordering that follows — **prune before hydration**: compact weights →
+mask/threshold/top-k → hydrate only survivors — is an efficiency claim
+and owes the null in `F-HOT-6` (recorded consumer-side).
+
+**Unchanged and re-affirmed:** `R2IL carries fidelity, BPE carries
+repetition` — `expand(macro)` must be byte/operation-identical to the
+underlying sequence (B4). Hot learned wiring is **not** a world-causal
+claim: it may never create or mutate a CE64 edge, and the promotion
+ladder of §7.3/§7.4 (with its demotion half and hysteresis) governs any
+crystallization back into cold material. Frequency is not truth.
+
+**Topology falsifier, extending §7.2's control set:**
+
+```
+F-HOT-9   Replace the local geometry with random-6 / square-4 / square-8 /
+          k-NN under an otherwise identical coupled loop.
+          If behaviour is unchanged, the GEOMETRY is rejected while the
+          hot-field abstraction survives.
+```
+
+That split is the point: this addendum increases what the hot field is
+asked to *do* without granting the honeycomb one inch of unearned lease.
+
+### 7.8 ADDENDUM 2026-08-26 — V4 = V3 + executable content; the three-tier JIT; OWL lowered to IR
+
+Operator-ruled, same day as §7.7. Three sentences of doctrine, then the
+architecture they imply. All CONJECTURE-graded until the probes at the end
+run; the doctrine sentences themselves are operator rulings, not findings.
+
+**The doctrine (pin verbatim):**
+
+1. **V4 = V3 + executable content.** Nothing about the bytes moves — same
+   4+12 facet, same 512-byte stride, same `ENVELOPE_LAYOUT_VERSION`. What
+   changes is what a classid can RESOLVE to: a ClassView whose content tier
+   holds executable R2IL. A V4 row IS a V3 row; a V3 reader just doesn't
+   know it can run. The "version" lives in the resolver's capability —
+   exactly where I-LEGACY-API-FEATURE-GATED wants it. No migration, no
+   layout gate, no bit reclaim.
+2. **The learned encoding is an INDEX, never the AUTHORITY.** The hexagon
+   substrate's measured 99.6% op-decode (3 training programs, muscle-memory
+   arc) is a recall number, and execution cannot ride on recall — a
+   mis-decoded op that executes is silent corruption. Two-tier decode:
+   hexagon PROPOSES (associative, ~always right), the exact ogar-r2il
+   tables (ARITY/MNEMONICS, O(1)) VERIFY. Agree → execute. Differ → table
+   wins, the disagreement becomes a training example. The 0.4% tail fails
+   LOUD into the slow lane and teaches; it never mis-executes. Same
+   relationship CAM-PQ has to the full fingerprint (search tier vs truth
+   tier, I-VSA-IDENTITIES).
+3. **Execution is population-masked, never per-row.** The interpreter's
+   unit of work is (program, mask), not (program, row). One instruction,
+   N lanes: the varnode read/write is an ndarray SIMD sweep over the
+   facet-register columns; dispatch amortizes over the mask's popcount.
+   Divergence = split the mask, run both arms masked, re-join (an
+   `and_not`, not an architecture). The interpreter never sees a `long[]`
+   of rows — mask-native law applied to interpretation.
+
+**The three-tier JIT (the operator's Cranelift framing, grounded):**
+
+| tier | engine | trigger | status |
+|---|---|---|---|
+| 0 — decode | hexagon recall + exact-table verify | every op | hexagon measured 99.6%; verify tables SHIPPED (ogar-r2il) |
+| 1 — interpret | vectorized r2sym (r2sleigh × ndarray masks) | every (program, mask) | r2sym exists row-at-a-time; vectorization is the build |
+| 2 — native | `ndarray::hpc::jitson_cranelift` via `lance-graph-contract::jit::JitCompiler` | HOT programs | Cranelift engine SHIPPED behind `jit-native`; trait SHIPPED |
+
+**The profiler already exists and it is the alpha channel.** Tier-up needs
+a hotness counter; `AlphaStamp{cycle, seq, visits}` IS one. A program body
+whose alpha visit count crosses threshold gets handed to jitson;
+`KernelHandle` caches it. The meta-awareness concern and profile-guided
+optimization are the SAME mechanism read at two rungs — the open-loop
+activation plane (§7.7's hot material) doubles as the JIT profile with
+zero new machinery. This is the strongest structural argument yet that
+alpha belongs in the contract tier (beside `attention_facet`), consumed by
+whatever hosts the interpreter.
+
+**OWL/RDF lowered to IR — the scope fence that keeps it honest:**
+
+The lowering target is **OWL RL** (the forward-chaining rule profile),
+NOT full OWL DL. OWL RL rules compile to R2IL naturally: a SubClassOf
+axiom = a masked facet check + mask union; a property chain = a masked
+hop sequence; materialization = run rules to fixpoint, where the fixpoint
+test is FREE in mask algebra (the delta mask is empty). Full DL needs
+tableau reasoning — do not promise it, do not build it.
+
+This completes the compiler picture with the tier the stack already has:
+
+- **AOT** = the ontology BAKE (MedCare's closure tables — `is_a` rails,
+  ancestor closures). What is known at bake time is compiled ahead.
+- **Interpreter** = R2IL over masks, for rules that arrive AFTER the bake
+  (dynamic axioms, per-tenant rules) — no re-bake needed.
+- **JIT** = jitson for the dynamic rules that alpha proves hot.
+
+So "lower OWL into IR like Cranelift" is not a metaphor: bake/interpret/
+tier-up is literally the JVM/V8 model with the alpha plane as the
+profiler and the ontology bake as AOT.
+
+**Space binding + write-back (from the same-day co-architecting, so it
+doesn't dilute):** R2IL `register` space = the node's own 12-byte facet
+register; `ram` = classid-prefixed SoA lanes (the GUID is the pointer);
+`unique` = never-persisted scratch. `machine_memory_map` (0xC604) is the
+per-class binding table — which rails a program may read/write:
+ClassView for behavior. The interpreter's `Store` never writes through;
+it emits into the open cycle image (mailbox-owned) — R2IL executes hot,
+lands cold, one writer preserved.
+
+**Probes, in dependency order (each independent; 1–2 need no ndarray
+wiring):**
+
+- **PROBE-R2IL-DECODE-AUTHORITY** — hexagon-proposes/table-verifies over
+  the trained corpus: the 0.4% must be CAUGHT (disagreement detected),
+  zero silent mis-executes. The safety case for everything above.
+- **PROBE-R2IL-LIVE-REGFILE** — one harvested 6502 routine, N=1,
+  facet-register byte-parity vs a reference emulator after N instructions.
+  Proves the space binding.
+- **PROBE-R2IL-LANES** — same routine, N=64K masked lanes through the
+  ndarray sweep. The throughput number that makes "realtime" credible.
+- **PROBE-OWL-RL-FIXPOINT** — one OWL RL rule set lowered to R2IL, run to
+  fixpoint over a baked population; inferred-mask parity vs the bake's own
+  closure for the axioms both know. Gates the AOT/interpreter seam.
+
+**Java/Valhalla arm, settled:** a Java interpreter (even value-class
+flattened) ends where lance-graph-java's own law points — compute lands
+through Panama into ndarray kernels anyway, so it buys a second
+interpreter that drifts. Java STEERS (which mask, which program address,
+when): one ABI call `(program_ref, mask_handle) → mask_handle`, bulk and
+lifecycle-clean. Rust EXECUTES. One interpreter, two front-ends.
+
+**§7.8 grading note (same day, measurement-skeptic pass):** the 99.6%
+hexagon decode figure is **operator-reported; the artifact is NOT located
+in this workspace.** Grep over this board + plan finds no such
+measurement, and §7.2's own honest gate (2026-08-25) states the learned
+hex-topology layer "does not exist" here. So either the measurement lives
+in another session/repo (to be linked when named), or it is remembered
+imprecisely. Either way the doctrine is UNCHANGED — sentence (2) is
+precisely the rule that makes the architecture safe under an unverified
+recall number: the exact tables are the authority regardless of what the
+proposer's true recall is. Consequence for sequencing:
+PROBE-R2IL-DECODE-AUTHORITY's *verify seam* is buildable now against a
+pluggable proposer; the hexagon plugs in when its artifact is located.
+PROBE-R2IL-LIVE-REGFILE needs no proposer at all and is buildable today.
 ---
 
 ## §8 — The plasticity falsifier ladder (operator brief merged, 2026-08-26): one queue, pre-registered first experiment
@@ -842,3 +1035,174 @@ saturates and inverts**, so C3 binds and BPE is unranked. Full reading,
 the post-hoc density sweep, and the follow-up a valid comparison needs:
 `E-Q7-FREQUENCY-SIZING-RESCUES-THE-LEARNING-GATE-BUT-NOT-THE-INTERFERENCE-CLAIM-AND-THE-2-BYTE-RAILS-ARE-COMPLEMENTARY-NOT-COMPETING-1`.
 Instrument reverted; board-only outcome.
+
+**§7.8 continuation (operator-ruled, same day) — RDF intake IS the V4
+program source; the lowering is a PROJECTION, not a compilation:**
+
+The lance-graph-ontology RDF intake arm produces V3 (baked axiom rows).
+**Treated as V4, the SAME rows are the execution projection + behavior
+learning** — no second pipeline, no emitted artifact:
+
+- The predicate classid SELECTS an R2IL template; the row's own facet
+  bytes ARE the operands. `SubClassOf` → masked-check-and-union;
+  property chain → masked hop sequence. The program is a ClassView-style
+  projection over rows that already exist — the zero-copy law extended
+  one rung (*the array is a projection* → *the program is a projection*).
+  Re-bake and the "code" updates for free; there is no second artifact
+  to drift.
+- This is the shape `lance-graph-contract::jit` already has:
+  `JitCompiler::compile(&JitTemplate)` — **one template per RULE KIND,
+  never per axiom**; instances are rows. The template seam was pre-built.
+- Consequence for the earlier open question (content-tier vs ActionDef
+  field): it only ever applied to the HARVEST arm. Two program sources,
+  one interpreter: **projected** (ontology rules — stored nowhere) and
+  **stored** (harvested imperative bodies — content tier, keyed by
+  action address). The intake pipeline changes not at all; V4 costs the
+  bake nothing.
+- **"Behavior learning" defined:** execution of projected rules deposits
+  alpha (visits per template × population); hot templates tier up
+  through jitson; the decode-disagreement stream trains the learned
+  overlay. The substrate learns WHICH OF ITS OWN AXIOMS IT USES and gets
+  faster at exactly those. The ontology stays declarative cold truth
+  (CE64-fenced per §7.7 — learned wiring never creates/mutates an edge);
+  what is learned is the conduction pattern over it (hot). Coupled
+  materials and the JIT are one mechanism.
+
+PROBE-OWL-RL-FIXPOINT is unchanged in intent but sharpened in form: it
+runs the PROJECTED reading (template × axiom-row operands) against the
+bake's own closure — proving the lens, not a compiler.
+
+**§7.8 second continuation (operator-compressed, same day) — the zipper
+isomorphism: R2IL is stacked masks over codebooks, and a masked rail
+zipper is the same object (pure fragment only):**
+
+The operator's compression: *"R2IL is a bunch of stacked masks of
+codebooks; if you stack masked rail as a zipper it might work
+similarly."* Named mechanism, not rhyme: both are **prefix-scoped
+codebook selection**. An R2IL opcode is a codebook index that scopes how
+the following slots decode; a rail byte-pair is a codebook index whose
+codebook the prefix selected (longest-prefix binding, OGAR canon). SLEIGH
+decode is the same automaton (bit prefix → constructor table → operand
+fields). Consequences:
+
+- **Tier-0 decode is ONE mechanism** — `decode(prefix_state, bytes) →
+  (op, state)` serves the 6502 stream, the GUID rails, and the R2IL
+  stream. The muscle-memory training trains one learned object: the
+  prefix-scoped codebook family. Address recall and op recall are the
+  same skill.
+- **An address IS a program.** One zipper descent step = one
+  op-application = the hop law `Mask × ClassView → Mask`. A rail path is
+  a maximally compressed straight-line program (the level implies the
+  operation; the per-level op vocabulary is the ClassView carving).
+  Navigation needs no special case in the interpreter.
+- **A baked ancestor closure IS a JIT-compiled navigation program** —
+  the composed mask of a hot descent, precomputed. §7.8's "bake = AOT"
+  is literal under this reading, with rail paths as the source language.
+
+**THE FENCE (load-bearing):** the isomorphism holds for the PURE fragment
+only — selection, load, mask algebra. Rail descent has no `Store`; R2IL
+does. Addresses are pure straight-line programs; the effectful fragment
+(stores → open cycle image) is R2IL-only. Without this fence, "an address
+with side effects" is the SURREAL-AST trap in a new coat — behavior
+riding the address, T2 violated.
+
+**PROBE-ZIPPER-HOP-PARITY (new, and the CHEAPEST in the queue — run it
+first):** take one real rail path, replay it as explicit R2IL ops through
+the masked interpreter, and require the resulting mask to be
+BIT-IDENTICAL to the native hop path's mask over the same population.
+Green → navigation and execution are one algebra, proven. Red → the
+zipper reading is demoted to poetry before anything is built on it.
+Needs only existing pieces (masks, ClassView carving, ogar-r2il tables) —
+no r2sleigh, no hexagon, no emulator.
+
+**PROBE-ZIPPER-HOP-PARITY: RUN, GREEN (2026-08-26 — OGAR
+`crates/ogar-r2il/tests/zipper_hop_parity.rs`, commit 66946e8, PR #286).**
+The zipper isomorphism's pure fragment is promoted **CONJECTURE →
+FINDING**: a 3-level rail descent over a 197-row `FacetCascade` slab,
+answered as (a) one fused u128 prefix compare (the compiled/closure
+shape) and (b) an op-at-a-time interpretation of a straight-line
+`Load`/`IntEqual`/`BoolAnd` program dispatched through the real `R2ILFn`
+table, is **bit-identical** — with a trap population making per-level,
+per-byte, in-order matching load-bearing (rows for AND→OR, lo-byte-only
+compare, skipped level, out-of-order pairs, half-pair), all five disable
+runs red-then-green. The fence is executable: `Store` is refused by the
+pure-fragment interpreter; a core byte below the domain floor is refused
+by the table. Zero-copy end to end (reinterpret views, in-place register
+reads, unique-space scratch, masks both sides) per the operator nudge:
+*V3 and V4 are both zero-copy — serialization exists only in the intake
+arm; after that it is codebook-index masking algebra.* Scope honesty:
+proven for the PURE fragment at depth ≤ 3 over a synthetic slab; the
+effectful fragment and real baked populations remain with
+LIVE-REGFILE / LANES / OWL-RL-FIXPOINT.
+
+**§7.8 third continuation (operator paradox + census, 2026-08-26) — the
+Valhalla/Panama paradox resolves; r2sleigh has NO zero-copy executor yet
+but its IR is already zero-copy-shaped; freeze/thaw are the zipper's two
+directions:**
+
+Operator: *"it might be faster to use Java Panama Valhalla as a C64
+emulator than running it in JITson, because Valhalla knows ABI-shaped
+masking and Panama knows zero copy… JITson on the other hand becomes
+materialization."*
+
+**Census (r2sleigh fork, measured):** `Varnode {space, offset, size}` is
+LITERALLY a MemorySegment slice descriptor — the IR was born zero-copy.
+The ONLY executor is `r2sym`, and it materializes everywhere BY DESIGN
+(string-keyed `HashMap` register file; `HashMap<u64,u8>` per-byte
+memory; `Clone` values boxing Z3 ASTs; `step → Vec<SymState>` whole-state
+forks). Correct for symbolic path exploration; structurally the opposite
+of realtime execution. **No concrete interpreter exists in the fork.**
+
+**Paradox resolution:** Java would be fast there because Panama (state =
+slab addressed by offset/size, never a keyed map) + Valhalla (values
+scalarized, never reified) + HotSpot PGO accidentally implement the
+three properties this arc already ruled: zero-copy slabs, masked value
+flow, alpha-profiled tier-up. Rust provides the first two DELIBERATELY
+(`&mut [u8]` per space; `Copy` + monomorphization — Rust has had
+Valhalla since 1.0) and the third is the alpha/jitson tier. **Verdict:
+no JVM; build the concrete slab executor in the fork** — an `r2conc`-
+shaped crate beside r2sym, sharing the IR: `SlabState` (one flat slab
+per space: register = the facet register slab, ram = the lane slab,
+unique = scratch) + `step(&mut self, op: &R2ILOp)` over the concrete
+subset. This is LIVE-REGFILE's prerequisite and its natural first
+deliverable.
+
+**"jitson becomes materialization" — affirmed, precisely:** a compiled
+kernel is a materialized second projection of behavior, legitimate ONLY
+as an ELEVATED cache (profile-derived, `KernelHandle`-held, discardable,
+regenerable), never authority. Index-never-authority applies at tier 2
+identically: the IR / axiom rows stay truth; the kernel is a cache entry
+with a demotion path.
+
+**"Can behavior with R2IL and hexagon become frozen and learned?" —
+YES, and the zipper FINDING makes it well-defined:**
+- LEARNED (soft) = hexagon decode recall + alpha's conduction pattern,
+  grown in production from the disagreement stream.
+- FROZEN (crystallized) = a hot behavior compressed into its composed
+  form. Three freeze targets, ascending: a composed MASK (result
+  frozen, the baked-closure shape) · a jitson KERNEL (execution frozen)
+  · a new straight-line R2IL BODY (trace-JIT: the hot path through
+  branches frozen branchless).
+- **Freeze = program → address; thaw/learn = address → program** — the
+  two directions of the zipper isomorphism, whose pure-fragment round
+  trip PROBE-ZIPPER-HOP-PARITY just proved exact.
+- Gates already shipped: §7.3 crystallization admission + DEMOTION gate,
+  §7.4 reversible trust. A frozen artifact that disagrees with the
+  interpreted authority under sampled differential execution is demoted
+  (re-thawed) — the tier-0 propose/verify structure applied at tier 2.
+
+**r2conc SHIPPED (2026-08-26 — r2sleigh PR #5, branch
+claude/c64-6502-falsifier-shztkk restarted from master per merged-PR
+rule).** The concrete slab executor the §7.8 census called for:
+`SlabState` borrows `register`/`ram` (`&mut [u8]` — machine state lives
+with the caller), owns `unique` scratch, registers `Custom(n)` slabs
+explicitly (the 6502's case-sensitive `RAM` alias → `UnknownSpace` when
+forgotten, never conjured). Transient LE u64 values, nothing reified;
+semantics anchored to r2sym for differential runs (carry-out, sign-fill
+ashr, byte-offset subpiece with OOR as refusal, trunc-toward-zero sdiv);
+direct branch targets = varnode OFFSET (p-code), indirect = value;
+everything outside the concrete subset fails LOUD. 12 falsifiers, 6
+disable runs red-then-green (logged in the module doc), clippy/fmt/
+workspace-check green. PROBE-R2IL-LIVE-REGFILE is now unblocked: lift a
+6502 routine → run through SlabState → register-file byte parity vs a
+reference emulator.
