@@ -225,3 +225,32 @@ The `L0 Substrate → L9 Crystallization` stack is not this ladder and does not
 enter §3. If it is ever wired in, it is a second, separate 0..9 axis
 (processing stage), and conflating the two would be the homeostasis/GateDecision
 homonym failure a third time.
+
+### 7g. Styles are a per-stratum axis, not the fourth floor (operator-ruled 2026-08-26)
+
+The rung-4 anchoring of `StyleFamily` predates the tower: it comes from the
+era when `RungLevel` was one scalar position and no alpha layer existed — the
+same world-model the NOT-CANONICAL 1033 plan was written in. With ten rung
+instances, no instantiated stratum may be operationally idle because the old
+model had a single active position.
+
+So the demarcation sharpens once more:
+
+```
+content ladder (0–3)   hierarchy of OBJECTS      observations / verb atoms / recipes
+style                  per-stratum AXIS           frozen × learned × exploration,
+                                                  chosen PER instantiated stratum
+selector input         that stratum's ΔF bit      paying → frozen templates
+                                                  stalled → exploration
+                                                  between → learned revision
+```
+
+Style-per-stratum is the response dimension of §7f's masked ΔF vector — one
+design, two faces: the vector says WHERE it stalls, the style says HOW that
+stratum answers. Falsifier: two instantiated strata must hold two different
+styles simultaneously, switchable independently; tower-global style state is
+the scalar era rebuilt and fails.
+
+Board: `E-STYLES-ANCHOR-AT-RUNG-4-IS-A-SCALAR-ERA-ARTIFACT-...-1`;
+demarcation: `persona-vs-rung-ladder.md` O9 (content rows 0–3 untouched;
+persona-36 storyline untouched).
