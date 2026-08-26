@@ -295,6 +295,30 @@ type instead of driving these is drift — the entropy-band regulator's actuator
 set is `FieldModulation` (aperture) × `WeightingKernel` (inhibition) ×
 `StyleFamily` (row), all shipped.
 
+### T10 — Sandbox is already built: Counterfactual + Revision, period (operator-ruled, 2026-08-26)
+
+The diagram's SANDBOX / HUMAN REQUEST box, and the planner's
+`MulGateDecision::Sandbox`, map onto existing substrate — nothing to mint:
+
+```text
+Sandbox = Counterfactual + Revision
+```
+
+- **Counterfactual** = `contract::counterfactual` — the isolated what-if lane
+  (`CounterfactualMailbox`, the CE64 −6 inference-mantissa lane): run the
+  hypothesis against the world model without committing it.
+- **Revision** = `revise_if_minority_wins` (`counterfactual.rs:347`) + the
+  witness-fabric revision machinery: if the sandboxed reading wins, a NARS
+  revision lands on the axis; if not, nothing touched the committed state.
+
+So "sandbox" in this architecture is not a mode flag, a container, or a
+permission level — it is *reasoning routed through the counterfactual lane with
+revision as its only write-back path*. `Sandbox { reason: String }` in the
+planner therefore has a typed successor already on the shelf: the counterfactual
+mailbox is the sandbox, and the revision verdict is its exit. This also
+tightens F-MUL-4: a "need more data / not ready" state routes to counterfactual
++ revision (learn first), never to a domain `Hold`.
+
 ---
 
 ## 2. Classification of every `mul::GateDecision` producer/consumer
