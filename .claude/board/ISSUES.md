@@ -49,7 +49,7 @@ fixed point) — winner excluded or clamped at documented depth (2Z ceiling
 Not actioned: the probe needs real (non-induced) perturbation fields, and the
 mapping proof is a measurement, not an inspection.
 
-## ISS-GATEDECISION-ORDINAL-COLLISION (2026-08-26) — OPEN
+## ISS-GATEDECISION-ORDINAL-COLLISION (2026-08-26) — RESOLVED (2026-08-26)
 
 **Two live types are named `GateDecision`, and their locked byte mappings are
 inverted.** Anything that packs one and reads the other silently swaps *hold*
@@ -100,6 +100,21 @@ its own review rather than riding along with a hot-path allocation fix.
 
 Found while auditing PR #1033's claims, but it exists independently of that PR
 and predates it.
+
+
+### ⊘ Resolution (2026-08-26, this branch)
+
+`collapse_gate::GateDecision` is now aligned to the substrate ordering:
+`HOLD.gate = 1`, `BLOCK.gate = 2`, accessors updated (`is_hold() == 1`,
+`is_block() == 2`), and the false "matches ndarray" comment replaced with a
+truthful citation of `ndarray::hpc::qualia_gate::QualiaGateLevel`
+(Flow = 0, Hold = 1, Block = 2). A cross-type falsifier
+(`test_gate_ordinals_agree_with_mul_gate_decision`) pins both `GateDecision`
+types to the same ladder — Flow == 0 == Flow, Hold == 1 == Hold,
+Block == 2 == Block — so a drift in either type fails the contract suite.
+Raw-byte consumer sweep re-run on the final diff: every call site reads
+through accessors or named constants; no `gate == 1` comparison exists
+outside the type itself; no persisted or serialized gate byte anywhere.
 
 ## ISS-STRINGS-IN-THE-I4-GATE-HOT-PATH (2026-08-26) — RESOLVED (this PR)
 
