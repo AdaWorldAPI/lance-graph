@@ -1,3 +1,17 @@
+## 2026-08-26 — PROPOSAL (unbuilt): separate the gate OUTCOME from producer-owned GROUND, `.claude/plans/mul-gate-outcome-vs-ground-v1.md`
+
+Follow-up arc to #1045 (`GateDecision` de-stringing) and #1052 (ordinal
+alignment). #1045 fixed the MUL hot path correctly but promoted MUL-specific
+ground (`TrustTexture`, `FlowState`) into the public gate outcome, so no
+producer can say `Block` without claiming MUL provenance — measured break:
+`ada-rs/src/contract_impls.rs:72` against an unbound git dep. The plan splits
+`GateLevel` (public, `#[repr(u8)]` 0/1/2) from producer-owned ground (which
+stays with the producer and reaches the record via witness/alpha), keeping
+#1045's typed heap-free evaluator untouched. Anti-goal: no `GateGround` sum
+type in the contract. Durable half: a source-breaking contract change is not
+verified until known unbound-git consumers BUILD against the proposed head.
+Issue: `ISS-MUL-GATE-OUTCOME-COUPLED-TO-PRODUCER-GROUND`.
+
 ## 2026-08-26 — PROPOSAL (unbuilt): grounding descent via cognitive Maslow — ΔF-stalled elevation walks the needs ladder over revisions + observations, `.claude/plans/grounding-descent-cognitive-maslow-v1.md`
 
 When elevation fails to lower F (`ΔF ≥ −EPIPHANY_MARGIN` on a RungShift), walk

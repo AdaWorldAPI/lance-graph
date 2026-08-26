@@ -1,5 +1,87 @@
 # Issues Log — Open + Resolved (double-entry, append-only)
 
+## ISS-MUL-GATE-OUTCOME-COUPLED-TO-PRODUCER-GROUND (2026-08-26) — OPEN
+
+**PR #1045 correctly removed redundant prose from the MUL hot path, but
+accidentally promoted MUL-specific ground into the public gate outcome
+contract.** `GateDecision::{Hold, Block}` went from `{ reason: String }` to
+`{ texture: TrustTexture, flow: FlowState }`. Inside MUL that is strictly
+better — typed, `Copy`, heap-free, SIMD-packable, and the pair is exactly what
+`gate_decision_i4` already computed. At the **public** boundary it is a
+narrowing: every implementor of `MulProvider` must now phrase its verdict in
+MUL's vocabulary, whether or not MUL's vocabulary is where its reason lives.
+
+A consent veto is not a trust texture. An evidence contradiction is not a flow
+state. The contract offers no way to say `Block` without claiming MUL
+provenance.
+
+### The break is real, not hypothetical
+
+`ada-rs/src/contract_impls.rs:72` implements `MulProvider` and constructs
+`GateDecision::Block { reason: format!("consent {:?}", …) }` — the removed API.
+`ada-rs/Cargo.toml:61` binds `lance-graph-contract` by **git URL with no branch
+or rev**, and the repo carries **no `Cargo.lock`**, so the break is live on any
+fresh build, not merely on a future `cargo update`. Verified 2026-08-26 against
+`origin/main`.
+
+### Why the workspace gates did not catch it
+
+#1045 passed clippy `-D warnings`, member-tests, and the full contract suite.
+Every *in-workspace* caller matches with `{ .. }` or constructs through the
+evaluator, so nothing in this repo noticed. **Workspace-green is not
+contract-green**: the consumer that broke is not in the workspace and pins no
+rev. This is the generalizable half of the finding.
+
+### Measured scope
+
+- The public surface is **two traits**, not one: `MulProvider::gate_check`
+  (`mul.rs:245`) and `PlannerContract::gate_check` (`plan.rs:160`) — `plan.rs:7`
+  imports the same `mul::GateDecision`.
+- `MulGateDecision` is **already taken** by
+  `lance-graph-planner/src/mul/gate.rs:19` (`Proceed`/`Sandbox`/`Compass`), and
+  its doc records that it was renamed from `GateDecision` in M15 *to escape this
+  exact collision*. Reusing that name for a new MUL-ground type would re-collide
+  it a second time.
+- `TrustTexture` exists twice with different variants (contract:
+  `Calibrated/Overconfident/Underconfident/Uncertain`; planner:
+  `Murky/Dissonant/Fuzzy/…`) — independent corroboration that trust texture is
+  producer ground, not a universal gate field.
+- In-tree EXCLUDED crates (`lance-graph-ogar`, `symbiont`, `cognitive-stack`)
+  reach the contract transitively through OGAR but each `[patch]`es it onto the
+  working-tree path copy, so they are **protected** — and correspondingly are
+  **not** evidence of consumer coverage.
+
+### The correction
+
+Separate the universal ordinal **outcome** (`GateLevel`: Flow=0, Hold=1,
+Block=2 — the ladder #1052 aligned) from **producer-owned provenance**, which
+stays with the producer and reaches the record through witness/alpha, never
+through the gate type. `#1045 is not reverted`: MUL keeps its typed ground
+internally and its hot path stays heap-free.
+
+Explicit anti-goal: **no** `enum GateGround { TrustFlow, Consent, MedicalEvidence, … }`
+in the contract. That moves the coupling outward and makes
+`lance-graph-contract` own everybody's epistemology.
+
+### Companion rule (the durable half)
+
+> A source-breaking change in `lance-graph-contract` is not verified until
+> known unbound-git consumers **build** against the proposed head. Not grep.
+> Not "all workspace callers use `{ .. }`."
+
+### Not fixed in this entry
+
+No consumer-side stopgap was pushed. Reconstructing `TrustTexture`/`FlowState`
+at an ada-rs consent veto would compile while fabricating provenance the
+producer never asserted — a green lie is worse than an honest red build. The
+consumer lands after the contract does.
+
+Plan: `.claude/plans/mul-gate-outcome-vs-ground-v1.md` (D-GATE-1..6,
+falsifiers F-GATE-1..5). Related: `ISS-GATEDECISION-ORDINAL-COLLISION`
+(RESOLVED, #1052) — that one aligned the ordinals this entry's `GateLevel`
+would carry.
+
+
 ## ISS-PERTURBATION-P64-ADDRESS-IDENTITY-UNPROVEN (2026-08-26) — OPEN
 
 The dense perturbation field (`PerturbationDto.energy`, canonically 4096
