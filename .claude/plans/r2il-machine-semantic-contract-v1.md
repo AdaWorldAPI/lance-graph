@@ -592,6 +592,18 @@ ids), then continue `bpe_merge` on B's streams under the SHARED cap.
 - **BYTE-EXACT gate, every arm:** decode(streams) == original atoms for
   every training stream under every table. Any mismatch aborts that arm.
 
+**⊕ RUN 2026-08-26 (append-only results pointer).** Q1 was executed
+after this section's commit (`7b00847`); results and per-arm reading
+against the thresholds above are on the board:
+`E-Q1-THE-ADDITIVE-STORE-CANNOT-INTERFERE-YET-AND-THE-VOCABULARY-IS-ORDER-ROBUST-1`.
+One-line verdicts: SABOTAGE valid (0.766 / 2.510) · INT = CONTROL
+(2.554, no drop — additivity holds, plasticity NOT demonstrated) ·
+ORD robust (Jaccard 0.872) · SAT both policies clear the 2.03 kill
+(REFUSE 2.222, EVICT-AMORTIZED 2.365, evict keeps 15/16) · byte-exact
+in every arm. The instrument was reverted; this experiment justified
+NO source change (board-only outcome, per the brief). **Q6 is now
+ungated.**
+
 ### 8.4 The learning loop as control law (operator-stated; placement, not prose)
 
 Plasticity is the LAST gate, never the first reflex:
