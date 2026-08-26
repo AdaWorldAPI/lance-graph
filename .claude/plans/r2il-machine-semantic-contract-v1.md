@@ -687,3 +687,17 @@ through Panama into ndarray kernels anyway, so it buys a second
 interpreter that drifts. Java STEERS (which mask, which program address,
 when): one ABI call `(program_ref, mask_handle) → mask_handle`, bulk and
 lifecycle-clean. Rust EXECUTES. One interpreter, two front-ends.
+
+**§7.8 grading note (same day, measurement-skeptic pass):** the 99.6%
+hexagon decode figure is **operator-reported; the artifact is NOT located
+in this workspace.** Grep over this board + plan finds no such
+measurement, and §7.2's own honest gate (2026-08-25) states the learned
+hex-topology layer "does not exist" here. So either the measurement lives
+in another session/repo (to be linked when named), or it is remembered
+imprecisely. Either way the doctrine is UNCHANGED — sentence (2) is
+precisely the rule that makes the architecture safe under an unverified
+recall number: the exact tables are the authority regardless of what the
+proposer's true recall is. Consequence for sequencing:
+PROBE-R2IL-DECODE-AUTHORITY's *verify seam* is buildable now against a
+pluggable proposer; the hexagon plugs in when its artifact is located.
+PROBE-R2IL-LIVE-REGFILE needs no proposer at all and is buildable today.
