@@ -48,8 +48,13 @@ plans = {p: open(p,encoding='utf-8',errors='ignore').read() for p in sorted(glob
 board = "\n".join(open(f,encoding='utf-8',errors='ignore').read()
                   for f in glob.glob(".claude/board/entries/*.md")+[".claude/board/EPIPHANIES.md"])
 AWARE = re.compile(r'v3/COMPONENT-MAP|\.claude/v3|RETIRE|REPURPOSE|D-PERT')
-SHIPPED = re.compile(r'\b(SHIPPED|COMPLETE[D]?|SUPERSEDED|DONE|CLOSED|LANDED)\b')
-STATUS = re.compile(r'[Ss]tatus:?\*{0,2}\s*([^\n|]{0,52})')
+# Anchored to the status's LEADING token on purpose. An unanchored search matched
+# a word that did not predicate the plan -- "ACTIVE ... Phase A/B COMPLETE",
+# "PROPOSAL. v1 SHIPPED in PR #420" -- routing live plans to ARCHIVE?. 3/3 of the
+# first ARCHIVE? batch were that error (2026-08-26 routing pass).
+SHIPPED = re.compile(r'^\W*(SHIPPED|COMPLETE[D]?|SUPERSEDED|DONE|CLOSED|LANDED)\b', re.I)
+# `(?!\s*legend)` so "Status legend:** OK SHIPPED (verified...)" is not read as a status.
+STATUS = re.compile(r'[Ss]tatus(?!\s*legend):?\*{0,2}\s*([^\n|]{0,52})')
 DID = re.compile(r'\b(D-[A-Z]{2,}[A-Z0-9]*(?:-[A-Z0-9]+)*)\b')
 
 rows = []
@@ -134,6 +139,12 @@ out(f"\n## Table 2 — plans naming a ruled symbol without citing the ruling ({l
 out("Route is **mechanical triage, not a verdict**: `ARCHIVE?` = the plan's own status says\n")
 out("it shipped; `RESCOPE` = it targets a symbol marked RETIRE; `READ` = neither signal fires\n")
 out("and a human read decides. Board coverage counts this plan's D-ids cited on the board.\n\n")
+out("`ARCHIVE?` reads the status's LEADING token only. The first batch it produced was\n")
+out("**3/3 false positives** -- an unanchored match on a word that did not predicate the\n")
+out("plan (`ACTIVE ... Phase A/B COMPLETE`, `PROPOSAL. v1 SHIPPED in PR #420`, and a\n")
+out("`Status legend:` defining the tick mark). All three were live, and archiving them\n")
+out("would have retired work in flight. A route here is a prompt to read the plan, never\n")
+out("a licence to act on it.\n\n")
 out("| route | plan | ruled symbols named | self-declared status | board coverage |\n")
 out("|---|---|---|---|---|\n")
 for route, n, stem, named, st, cited, tot in sorted(rows, key=lambda r: (r[0], -r[1])):

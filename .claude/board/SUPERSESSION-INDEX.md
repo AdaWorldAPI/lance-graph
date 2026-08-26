@@ -70,11 +70,15 @@ Route is **mechanical triage, not a verdict**: `ARCHIVE?` = the plan's own statu
 it shipped; `RESCOPE` = it targets a symbol marked RETIRE; `READ` = neither signal fires
 and a human read decides. Board coverage counts this plan's D-ids cited on the board.
 
+`ARCHIVE?` reads the status's LEADING token only. The first batch it produced was
+**3/3 false positives** -- an unanchored match on a word that did not predicate the
+plan (`ACTIVE ... Phase A/B COMPLETE`, `PROPOSAL. v1 SHIPPED in PR #420`, and a
+`Status legend:` defining the tick mark). All three were live, and archiving them
+would have retired work in flight. A route here is a prompt to read the plan, never
+a licence to act on it.
+
 | route | plan | ruled symbols named | self-declared status | board coverage |
 |---|---|---|---|---|
-| **ARCHIVE?** | `cognitive-substrate-convergence-v2` | `BindSpace`, `CollapseGateEmission`, `GateDecision`, `MergeMode` … | ACTIVE — sprint-11 Phase A/B COMPLETE (pendi | 5/15 |
-| **ARCHIVE?** | `odoo-savant-reasoners-v2` | `BindSpace`, `CollapseGateEmission` | PROPOSAL. v1 SHIPPED in PR #420 (`D-ODOO-SAV | 2/3 |
-| **ARCHIVE?** | `unified-soa-rubikon-integration-v1` | `BindSpace` | legend:** ✅ SHIPPED (verified file:line this | 8/8 |
 | **READ** | `archetype-scaffold-v1` | `GateDecision` | In progress (2026-04-24) | 0/0 |
 | **READ** | `capstone-cognitive-loop-wiring-nan-census-v1` | `GateDecision` | PROPOSED (2026-06-20). The measurement compa | 0/0 |
 | **READ** | `deepnsm-v3-convergence-v1` | `StepMask` | PROPOSED (doc-only). Extends `v3-convergence | 5/5 |
@@ -89,6 +93,7 @@ and a human read decides. Board coverage counts this plan's D-ids cited on the b
 | **READ** | `v3-convergence-wiring-v1` | `GateDecision` | ACTIVE (2026-07-01). Operator: "I'm all in f | 0/0 |
 | **RESCOPE** | `soa-migration-diff-resolution-2026-06-13` | `BindSpace`, `CollapseGateEmission`, `GateDecision`, `MergeMode` … | The SoA / BindSpace / identity plan family,  | 3/5 |
 | **RESCOPE** | `cognitive-substrate-convergence-v1` | `BindSpace`, `CollapseGateEmission`, `GateDecision`, `MergeMode` … | PROPOSAL (sprint-10 architectural decisions  | 5/13 |
+| **RESCOPE** | `cognitive-substrate-convergence-v2` | `BindSpace`, `CollapseGateEmission`, `GateDecision`, `MergeMode` … | ACTIVE — sprint-11 Phase A/B COMPLETE (pendi | 5/15 |
 | **RESCOPE** | `bindspace-singleton-to-mailbox-soa-v1` | `BindSpace`, `CollapseGateEmission`, `ResonanceDto`, `ThinkingStyle` | CONJECTURE / design (migration spec). NOT ye | 18/19 |
 | **RESCOPE** | `callcenter-membrane-v1` | `BindSpace`, `GateDecision`, `MergeMode`, `ThinkingStyle` | Active | 0/0 |
 | **RESCOPE** | `causaledge64-mailbox-rename-soa-v1` | `BindSpace`, `GateDecision`, `MergeMode`, `ThinkingStyle` | Active (draft, 2026-05-14) | 1/10 |
@@ -108,6 +113,7 @@ and a human read decides. Board coverage counts this plan's D-ids cited on the b
 | **RESCOPE** | `kognitionswirtschaft-v1` | `GateDecision`, `ThinkingStyle` | PROPOSED (unbuilt, unprobed). Operator-initi | 1/7 |
 | **RESCOPE** | `lance-graph-ontology-v5` | `BindSpace`, `GateDecision` | Drafted (2026-05-07). Picks up where v4 (`cl | 3/16 |
 | **RESCOPE** | `north-star-integration-v1` | `CollapseGateEmission`, `ThinkingStyle` | RATIFIED (council resolved + gates ratified  | 1/1 |
+| **RESCOPE** | `odoo-savant-reasoners-v2` | `BindSpace`, `CollapseGateEmission` | PROPOSAL. v1 SHIPPED in PR #420 (`D-ODOO-SAV | 2/3 |
 | **RESCOPE** | `ogar-ar-shape-endgame-v1` | `GateDecision`, `ThinkingStyle` | when filed:** PLAN (pre-council). Becomes PL | 0/0 |
 | **RESCOPE** | `rung-ladder-grounding-v1` | `CollapseGateEmission`, `GateState` | PROPOSAL (the most-obvious first grounding p | 0/4 |
 | **RESCOPE** | `rung-persona-orchestration-v1` | `BindSpace`, `ThinkingStyle` | PROPOSAL (sibling to `rung-mul-grounding-v1` | 4/9 |
@@ -134,8 +140,9 @@ and a human read decides. Board coverage counts this plan's D-ids cited on the b
 | **RESCOPE** | `super-domain-rbac-tenancy-v1` | `BindSpace` | Active | 23/41 |
 | **RESCOPE** | `thought-cycle-soa-awareness-integration-v1` | `BindSpace` | integration plan. No implementation claimed  | 0/0 |
 | **RESCOPE** | `unified-ogit-architecture-v1` | `ThinkingStyle` | , **code refs**, and where it | 0/0 |
+| **RESCOPE** | `unified-soa-rubikon-integration-v1` | `BindSpace` | (no overclaim) | 8/8 |
 
-- **ARCHIVE?**: 3
-- **RESCOPE**: 47
+- **ARCHIVE?**: 0
+- **RESCOPE**: 50
 - **READ**: 12
 - ruled symbols tracked: 14
