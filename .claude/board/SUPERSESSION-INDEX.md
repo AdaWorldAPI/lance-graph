@@ -56,15 +56,15 @@ coverage instead.
 | `persist_cycle` | BLOCKED | — | 10 | 6 | 5 |
 | `CognitiveMarkers` | REPURPOSE | `Commit` | 2 | 0 | 0 |
 | `DominoCascade` | REPURPOSE | `Commit` | 8 | 0 | 0 |
-| `GateDecision` | REPURPOSE | — | 24 | 19 | 17 |
+| `GateDecision` | REPURPOSE | — | 24 | 20 | 18 |
 | `GateState` | REPURPOSE | — | 14 | 1 | 1 |
 | `MergeMode` | REPURPOSE | — | 8 | 11 | 11 |
 | `ResonanceDto` | REPURPOSE | `PerturbationDto` | 2 | 6 | 5 |
 | `BindSpace` | RETIRE | — | 67 | 41 | 40 |
 | `CollapseGateEmission` | RETIRE | — | 5 | 12 | 12 |
-| `ThinkingStyle` | RETIRE-toward-contract | — | 51 | 23 | 20 |
+| `ThinkingStyle` | RETIRE-toward-contract | — | 51 | 24 | 21 |
 
-## Table 2 — plans naming a ruled symbol without citing the ruling (62)
+## Table 2 — plans naming a ruled symbol without citing the ruling (63)
 
 Route is **mechanical triage, not a verdict**: `ARCHIVE?` = the plan's own status says
 it shipped; `RESCOPE` = it targets a symbol marked RETIRE; `READ` = neither signal fires
@@ -110,6 +110,7 @@ a licence to act on it.
 | **RESCOPE** | `Palette256-3DSB-PhiSpiral-attention-integration-plan` | `BindSpace`, `CollapseGateEmission` | — | 0/0 |
 | **RESCOPE** | `anatomy-realtime-v1` | `BindSpace`, `ThinkingStyle` | — | 0/1 |
 | **RESCOPE** | `elegant-herding-rocket-v1` | `BindSpace`, `ThinkingStyle` | — | 0/0 |
+| **RESCOPE** | `grounding-descent-cognitive-maslow-v1` | `GateDecision`, `ThinkingStyle` | PROPOSED (unbuilt; every mechanism cited exi | 1/7 |
 | **RESCOPE** | `kognitionswirtschaft-v1` | `GateDecision`, `ThinkingStyle` | PROPOSED (unbuilt, unprobed). Operator-initi | 1/7 |
 | **RESCOPE** | `lance-graph-ontology-v5` | `BindSpace`, `GateDecision` | Drafted (2026-05-07). Picks up where v4 (`cl | 3/16 |
 | **RESCOPE** | `north-star-integration-v1` | `CollapseGateEmission`, `ThinkingStyle` | RATIFIED (council resolved + gates ratified  | 1/1 |
@@ -143,6 +144,6 @@ a licence to act on it.
 | **RESCOPE** | `unified-soa-rubikon-integration-v1` | `BindSpace` | — | 8/8 |
 
 - **ARCHIVE?**: 0
-- **RESCOPE**: 50
+- **RESCOPE**: 51
 - **READ**: 12
 - ruled symbols tracked: 14
