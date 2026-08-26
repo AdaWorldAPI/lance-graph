@@ -1,3 +1,14 @@
+## 2026-08-26 — PROPOSAL (unbuilt): grounding descent via cognitive Maslow — ΔF-stalled elevation walks the needs ladder over revisions + observations, `.claude/plans/grounding-descent-cognitive-maslow-v1.md`
+
+When elevation fails to lower F (`ΔF ≥ −EPIPHANY_MARGIN` on a RungShift), walk
+the cognitive-Maslow needs ladder bottom-up over the revision history and
+observations (`witness_fabric::{belief_runs, suggest_reopening, resolve_chain}`
++ `counterfactual.rs`), short-circuit at the first dirty level, certify a clean
+ground rather than staying silent. Supplies the `outcome_at` oracle
+`witness_fabric`'s doc prescribes as consumer-side. Fixes F-0's unreachable
+crown by construction (G5 reachable only through four clean gates).
+Plan: `.claude/plans/grounding-descent-cognitive-maslow-v1.md`.
+
 ## 2026-08-25 — PROPOSAL (unbuilt, unprobed): Kognitionswirtschaft v1 — typed epistemic deficits close the Maslow gap in the MUL gate, `.claude/plans/kognitionswirtschaft-v1.md`
 
 Operator-initiated: *"maslov model Heckhausen Rubikon Libet ist
