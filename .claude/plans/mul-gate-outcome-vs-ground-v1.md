@@ -1,6 +1,12 @@
 # Plan: separate the gate OUTCOME from producer-owned GROUND (`mul-gate-outcome-vs-ground-v1`)
 
-> **Status:** PROPOSAL (unbuilt) — 2026-08-26
+> **Status:** SUPERSEDED (thesis) 2026-08-26 — measurements M1–M5 and the
+> consumer-build rule STAND; the OUTCOME-vs-GROUND thesis and `GateLevel`
+> (D-GATE-2/3) are WITHDRAWN. Successor:
+> `.claude/plans/mul-calibration-not-verdict-v1.md`. Reason: measured — the
+> type `GateLevel` would have generified is the EXECUTION gate, not MUL's
+> output; MUL's actual output already exists as the planner's
+> `MulGateDecision{Proceed, Sandbox, Compass}`.
 > **Origin:** follow-up arc to PR #1045 (`GateDecision` de-stringing) and
 > PR #1052 (`collapse_gate` ordinal alignment).
 > **Issue:** `ISS-MUL-GATE-OUTCOME-COUPLED-TO-PRODUCER-GROUND`

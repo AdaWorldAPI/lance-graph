@@ -1,3 +1,20 @@
+## 2026-08-26 — PROPOSAL (unbuilt, PLAN/BOARD ONLY): MUL calibrates, it does not adjudicate, `.claude/plans/mul-calibration-not-verdict-v1.md`
+
+Storno-successor to `mul-gate-outcome-vs-ground-v1` (#1054), whose thesis is
+withdrawn the same day. Two corrections in order: (1) restore axis orthogonality
+— `TrustTexture` (calibration) and `FlowState` (Csikszentmihalyi challenge/skill,
+whose measured consumer is `FlowState → StyleFamily` thinking-style adaptation)
+are independent coordinates `MulAssessment` already carries apart, fused by
+#1045 into `Hold{texture, flow}` at the boundary where the caller already holds
+both; (2) `DOMAIN EVIDENCE → MUL CALIBRATION → PLANNER HINT`, not OUTCOME vs
+GROUND. Measured: two parallel MUL implementations with disjoint TrustTexture
+vocabularies; the planner's `MulGateDecision{Proceed, Sandbox, Compass}` matches
+the operator diagram's gate verbatim; every in-tree consumer of
+`contract::mul::GateDecision` is an execution/commit gate; ZERO in-tree
+implementors of `MulProvider` / `PlannerContract`. `GateLevel` withdrawn; no
+`MulHint` invented. Issue: `ISS-MUL-GATE-OUTCOME-COUPLED-TO-PRODUCER-GROUND`
+(storno appended).
+
 ## 2026-08-26 — PROPOSAL (unbuilt): separate the gate OUTCOME from producer-owned GROUND, `.claude/plans/mul-gate-outcome-vs-ground-v1.md`
 
 Follow-up arc to #1045 (`GateDecision` de-stringing) and #1052 (ordinal
