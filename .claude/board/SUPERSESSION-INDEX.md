@@ -6,47 +6,44 @@
 > so it cannot disagree with the repo. A hand-kept supersession table goes stale at
 > the next rename, and a stale one is worse than none: it authorises work against a
 > symbol that is already retired.
+>
+> The commentary below is generated too: every measurement in it is interpolated from
+> the same values as the tables, so prose and table cannot disagree. Methods are
+> literal; measurements never are.
 
-## What this table says, read once
+## What this table says
 
-**`BindSpace` is the whole shape of the problem.** Marked RETIRE, and it is the
-most-referenced symbol in the table: **67 crate files, 41 plans, 40 of them
-blind.** Retiring it is not a cleanup, it is a programme — and forty plans are
-still specifying work against it.
+**`BindSpace` is the shape of the problem.** Marked RETIRE, and simultaneously the
+most-referenced symbol here: **67 crate files, 41 plans, 40 of them blind.**
+That is a programme, not a cleanup.
 
-**`CollapseGateEmission` is the sharpest case: 12 plans name it, and every one
-is blind.** COMPONENT-MAP records it as *already tombstoned (PR #477),
-comment-only remains*. Twelve plans are specifying work against a tombstone.
+**`CollapseGateEmission` is the sharpest case: 12 plans name it and *every one* is blind.**
+Its COMPONENT-MAP note reads: already tombstoned (PR #477); comment-only remains
 
-**`ResonanceDto → PerturbationDto` is the clean rename, and the ratio proves it
-without the map:** 2 crate files still name the old symbol against 6 plans. The
-code migrated; the plans did not. **Plan-mentions exceeding crate-mentions is a
-staleness signal on its own** — it means a document is discussing a name the
-code has left.
+**`ResonanceDto` → `PerturbationDto` gives the rule that needs no map at all:**
+2 crate files against 6 plans. The code moved; the plans did not.
+**Plan-mentions exceeding crate-mentions is a staleness signal on its own.**
 
 ### The limit of the mechanical route
 
-`RESCOPE` (47) fires on "names a RETIRE symbol" alone. That is a *reason to
-look*, not a verdict: a plan that mentions `BindSpace` once in a background
-paragraph and a plan built entirely around retiring it both land in the same
-bucket. The routing that matters — archive / re-scope / still-live — needs a
-read, and this table's job is to make that read finite and ordered rather than
-to replace it.
+`RESCOPE` fires on "names a RETIRE symbol" alone. That is a *reason to look*, not a
+verdict: a plan mentioning the symbol once in background and a plan built around
+retiring it land in the same bucket. Separating them needs a read; this table's job
+is to make that read finite and ordered, not to replace it.
 
 ### What cannot be found this way
 
-A rename that left no trace. `Blumenstrauß → cognitive-shader-driver SoA` has
-**zero hits** in `.claude/`, `crates/`, plans, or board — so nothing connects
-prior reasoning about it to the current name, and no script can recover what was
-never written down. An alias only enters this table if someone records it in
-COMPONENT-MAP. That is the table's single dependency and its single failure mode.
+A rename that left no trace. `Blumenstrauss -> cognitive-shader-driver SoA` has zero
+hits in `.claude/`, `crates/`, plans, or board, so nothing connects prior reasoning to
+the current name and no script recovers what was never written down. An alias enters
+this table only if someone records it in COMPONENT-MAP -- the method's single
+dependency and single failure mode.
 
 ### Deliberately not a signal
 
-`git log` dates on plans. **2026-07-24 is a bulk import** — one merge, 2,718
-files, 1.2M insertions — carrying 144 of ~180 plans. Git dates the import, not
-the work, so mtime is inert here and the routing uses self-declared status and
-board coverage instead.
+`git log` dates on plans. 2026-07-24 is a bulk import -- one merge, 2,718 files -- so
+git dates the import, not the work. Routing uses self-declared status and board
+coverage instead.
 
 ## Table 1 — ruled symbols: verdict, successor, and where each side actually lives
 
