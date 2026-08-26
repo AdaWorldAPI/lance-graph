@@ -225,15 +225,17 @@ const NARS_F_FROM_INDEX_LOW: bool = true;
 #[cfg(feature = "with-engine")]
 const TOP_K_ENERGY_BASE_DIM: usize = 1; // qualia[0] = headline energy, [1..9] = top_k energies
 
-/// Encode a BusDto's codebook_index + top_k indices as a `[u64; WORDS_PER_FP]`
-/// Binary16K accumulator. Each index sets one bit at `idx % WIDTH_BITS`.
-/// `top_k` entries with energy ≤ 0.0 are skipped (zero-energy = no support).
-#[cfg(feature = "with-engine")]
 /// Energy above which a top-k entry is *worth recording as support* — the
 /// commit-bit threshold of [`busdto_to_binary16k`]. Deliberately LOOSER than
 /// [`SCAN_WORTHY_ENERGY`]: see that constant's doc for why the two differ.
+#[cfg(feature = "with-engine")]
 pub const SUPPORT_ENERGY: f32 = 0.0;
 
+/// Encode a BusDto's codebook_index + top_k indices as a `[u64; WORDS_PER_FP]`
+/// Binary16K accumulator. Each in-plane index sets one bit; out-of-plane
+/// indices set none (see the closure comment). `top_k` entries with energy
+/// ≤ [`SUPPORT_ENERGY`] are skipped (no support recorded).
+#[cfg(feature = "with-engine")]
 fn busdto_to_binary16k(bus: &BusDto) -> [u64; WORDS_PER_FP] {
     let width_bits = WORDS_PER_FP * 64;
     let mut bits = [0u64; WORDS_PER_FP];
