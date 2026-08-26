@@ -1,3 +1,19 @@
+## mul-gate-outcome-vs-ground-v1 — PROPOSED 2026-08-26 (follow-up arc to #1045/#1052)
+
+Plan: `.claude/plans/mul-gate-outcome-vs-ground-v1.md`. Separate the public
+gate OUTCOME (`GateLevel`) from producer-owned GROUND. No code yet.
+D-GATE-1 gates the rest: implementing before the consumer enumeration repeats
+#1045's mistake one level up.
+
+| D-id | Deliverable | Status |
+|---|---|---|
+| D-GATE-1 | enumerate real `lance-graph-contract` git consumers from GitHub, per-symbol | Queued |
+| D-GATE-2 | `GateLevel` (`#[repr(u8)]` 0/1/2) + `GateDecision::level()` in `contract::mul` | Queued |
+| D-GATE-3 | `MulProvider::gate_check` + `PlannerContract::gate_check` return `GateLevel` | Queued |
+| D-GATE-4 | in-workspace call-site migration (planner, driver, kanban, deepnsm-v2) | Queued |
+| D-GATE-5 | consumer-build gate: procedure + one recorded red→green run per consumer | Queued |
+| D-GATE-6 | consumer-side landings (ada-rs first), after D-GATE-3 is on main | Queued |
+
 ## kognitionswirtschaft-v1 — PROPOSED 2026-08-25 (operator-initiated)
 
 Plan: `.claude/plans/kognitionswirtschaft-v1.md`. Typed epistemic deficits
