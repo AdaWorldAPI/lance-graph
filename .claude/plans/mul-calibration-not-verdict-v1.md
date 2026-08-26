@@ -251,6 +251,50 @@ This is the same shape already ratified for styles per stratum
 is its measured footprint in code (`style.rs:272-275`, flow → `StyleFamily`);
 T8 is why that wiring is the axis's *correct* home and the gate verdict is not.
 
+### T9 — the focus/wide lens and the inhibitor ALREADY EXIST (found on ask, 2026-08-26)
+
+The T8 loop's actuators — widen/narrow the attention field, suppress the
+too-similar ring — are not to be invented. Three cooperating pieces are live:
+
+**1. The aperture (focus ↔ wide lens).** `ThinkingCluster::Attention` =
+`{Focused, Diffuse, Peripheral}` (`planner/thinking/style.rs:52`), each carrying
+a `FieldModulation` whose `resonance_threshold` + `fan_out` ARE the lens, and
+`FieldModulation::to_scan_params()` compiles them straight to SIMD
+`threshold`/`top_k` (`contract/thinking.rs:232`). The canonical table
+(`style.rs:318-323`, proved byte-identical to `engine_bridge.rs UNIFIED_STYLES`
+== `cognitive_stack.rs StyleParams` by D-TSC-1b):
+
+| family | resonance_threshold | fan_out | exploration |
+|---|---|---|---|
+| Convergent | 0.75 | 4 | 0.10 |
+| Systematic | 0.70 | 5 | 0.10 |
+| Divergent | 0.40 | 10 | 0.70 |
+| Diffuse | 0.45 | 8 | 0.40 |
+| Peripheral | 0.20 | 20 | 0.60 |
+
+`Peripheral (0.20, 20)` is the wide lens; `Focused`/`Analytical (0.85, 4)` the
+narrow one. T7's `FlowState → StyleFamily` dispatch lands exactly here: the flow
+axis modulates by SELECTING a row of this table.
+
+**2. The inhibitor.** The Mexican hat (difference-of-Gaussians) —
+`holograph::hdr_cascade::MexicanHat { excite, inhibit, inhibit_strength }`:
+excitation center, **inhibition ring for the too-similar** (lateral inhibition),
+zero far-field. Live consumers: `lance-graph-cognitive/search/cognitive.rs:338`
+(`qualia_hat: MexicanHat::new(500, 2000)`) and the HDR cascade.
+
+**3. The per-style kernel selector.** `WeightingKernel::{Uniform, MexicanHat,
+Gaussian}` in `contract::grammar::context_chain` — **MexicanHat is the
+default** (`context_chain.rs:102`) — selectable per thinking-style config
+(`thinking_styles.rs`, YAML `kernel: mexican_hat`). So the inhibitor is already
+a style-owned parameter, not a global.
+
+Consequence for D-MCAL-0/5 and §8: "widen attention / change style / inhibit
+the collapsed neighbourhood" are TABLE-ROW SELECTIONS and KERNEL SWITCHES on
+existing surfaces. Any adaptation design that mints a new lens or inhibitor
+type instead of driving these is drift — the entropy-band regulator's actuator
+set is `FieldModulation` (aperture) × `WeightingKernel` (inhibition) ×
+`StyleFamily` (row), all shipped.
+
 ---
 
 ## 2. Classification of every `mul::GateDecision` producer/consumer
