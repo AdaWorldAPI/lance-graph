@@ -225,3 +225,111 @@ The `L0 Substrate → L9 Crystallization` stack is not this ladder and does not
 enter §3. If it is ever wired in, it is a second, separate 0..9 axis
 (processing stage), and conflating the two would be the homeostasis/GateDecision
 homonym failure a third time.
+
+### 7g. Styles are a per-stratum axis, not the fourth floor (operator-ruled 2026-08-26)
+
+The rung-4 anchoring of `StyleFamily` predates the tower: it comes from the
+era when `RungLevel` was one scalar position and no alpha layer existed — the
+same world-model the NOT-CANONICAL 1033 plan was written in. With ten rung
+instances, no instantiated stratum may be operationally idle because the old
+model had a single active position.
+
+So the demarcation sharpens once more:
+
+```
+content ladder (0–3)   hierarchy of OBJECTS       observations / verb atoms / recipes
+style                  per-stratum AXIS            chosen PER instantiated stratum
+selector               Resonance[r](texture,       the PRIOR — which style should
+                       candidate styles)           probably fit this stratum's problem
+outcome channel        that stratum's ΔF           the FEEDBACK — reinforce, revise,
+                                                   or reopen the selection
+```
+
+ΔF is NOT the selector — it is the outcome channel. Deriving the style
+directly from the ΔF band ("paying → frozen, stalled → explore") would turn
+the feedback signal back into a small global control rule and erase the
+selection intelligence of the original architecture. The loop per stratum:
+
+```
+ProblemTexture[r] → Resonance[r](texture, candidates) → StyleFamily[r]
+    → execute against stratum r−1 → ΔF[r]
+        paid strongly → reinforce / crystallize (frozen bias)
+        ambiguous     → learned revision
+        stalled       → weaken current fit / open exploration
+    ↺ feeds the next resonance
+```
+
+The triangle's three poles — FROZEN / LEARNED / EXPLORE — are therefore not
+three bands of a ΔF scale; they are three response REGIMES whose switching is
+qualified by outcome. The ΔF vector says WHERE cognition failed; resonance
+proposes HOW each stratum should think; ΔF feedback decides whether that
+proposal earned reinforcement, revision, or exploration. Falsifier: two instantiated strata must hold two different
+styles simultaneously, switchable independently; tower-global style state is
+the scalar era rebuilt and fails.
+
+Board: `E-STYLES-ANCHOR-AT-RUNG-4-IS-A-SCALAR-ERA-ARTIFACT-...-1`;
+demarcation: `persona-vs-rung-ladder.md` O9 (content rows 0–3 untouched;
+persona-36 storyline untouched).
+
+### 7h. The recovered pipeline — occupants 5–9, resonance demoted to predictor (2026-08-26)
+
+The rung-4 anchoring (7g) was not arbitrary: it was the imprint of a larger,
+then only partially realisable pipeline. The original architecture read:
+
+```
+L0–2  observation + atoms
+L3    34 NARS tactics (higher-order transformations)
+L4    thinking/persona styles — "how do I think about this problem?"
+L5–7+ superposition / resonance — "which style FITS this problem's texture?"
+      → result feedback → selection / revision
+```
+
+The demarcation doc conserved the lower half and turned the tower into a
+content list because the substrate to run the strata CONCURRENTLY did not
+exist. What was missing is exactly what the alpha geometry now provides: **ten
+address-equal process fields over the SAME resident world** — not ten copies,
+no JSON scenes, no reconstructed thought objects. `α[r+1] observes α[r]`
+directly, because they address the same rows.
+
+**Occupancy 5–9, recovered (PROVISIONAL — historically grounded, unprobed;
+partially closes O1's upper half):** the height at which each aspect of
+operation becomes an OBJECT. 7g stands (every stratum operates, always);
+7h adds what becomes *explicit* per height:
+
+```
+all rungs   think somehow (per-stratum style, 7g)
+r4          style becomes explicit / selectable
+r5          style × problem interaction becomes observable — resonance
+r6          the alternative style becomes counterfactual
+r7          the selection process itself becomes object
+r8          recursive supervision
+r9          highest active reflection
+```
+
+**Resonance is demoted from oracle to predictor.** The old loop had resonance
+*assert* fit; now it supplies a prior and ΔF supplies the outcome:
+
+```
+resonance(style, texture)  =  which style SHOULD work        (prior)
+ΔF[r]                      =  did it ACTUALLY work           (outcome)
+revision                   =  prior × outcome → next choice
+```
+
+This satisfies the no-model-mediated-value-gate rule structurally: resonance
+alone would be the oracle; grounded by ΔF it is a hypothesis with a
+scoreboard. **Falsifier (rescues F-KW-TARGETED-1's intent on the axis that
+has a feeder):** the resonance prior must beat uniform-random style selection
+in expected ΔF, on non-induced input — else resonance is decoration over
+"pick any style". Both legs writable.
+
+**CE64 positioning, restated with the flow direction:** higher thought /
+alpha field → measured relation → witness + provenance → OPTIONAL durable
+projection → CE64 → MUL and other consumers. CE64 is compact transportable
+knowledge — never where meta-cognition lives (7c's rule, now with its
+pipeline).
+
+Worth recording as the closing irony: the deliberately dumb substrate
+(#969's own charter — semantics as interpretations layered above) is not the
+opposite of the soft architecture. It is the floor it always needed: the
+paper tower failed for lack of exactly the address-equal, mask-native,
+alpha-instrumented ground the "stupid" decisions built.

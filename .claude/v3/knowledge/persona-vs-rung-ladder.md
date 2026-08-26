@@ -120,6 +120,21 @@ its "runbook" naming and the board label cross storylines.
   `RungLevel` while the endpoints deceptively agree. Needs the persona-36
   treatment: demarcate as its own storyline or rename. Debt row:
   `TD-THIRD-RUNG-LADDER-LEARNING`.
+- **O9 — the rung-4 ANCHORING of StyleFamily is scalar-era (⊘ scope
+  correction, operator-ruled 2026-08-26).** The rung-4 row above stands
+  as vocabulary (StyleFamily + the autopoiesis triangle); its address
+  does not. It was written when RungLevel was one scalar position and no
+  alpha layer existed. Under the tower reading (grounding-descent plan
+  §7f: ten strata, each a live model of the one below, in parallel),
+  style is a PER-STRATUM axis — every instantiated stratum carries its
+  own operating mode, selected from problem-texture resonance; that
+  stratum's ΔF provides outcome feedback that can reinforce, revise,
+  or reopen the selection. None is idle because the old model had a
+  single active position, and ΔF is the outcome channel, never the
+  selector. The content rows
+  0–3 (observations / verb atoms / recipes) are untouched: objects stay
+  ordinal; operation does not. Board:
+  `E-STYLES-ANCHOR-AT-RUNG-4-IS-A-SCALAR-ERA-ARTIFACT-...-1`.
 
 ## Cross-refs
 
