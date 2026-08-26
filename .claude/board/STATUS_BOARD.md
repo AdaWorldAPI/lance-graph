@@ -11,6 +11,25 @@ F-AIF-1/F-AIF-2 are the load-bearing can-fire/can-stay-silent pair.
 | D-AIF-4 | native Relation Faithfulness from the receipt + CE64 refinements | Queued |
 | D-AIF-5 | shuffled-edge null harness for any derived diagnostic view | Queued |
 | D-AIF-6 | external naming decision (Octopus internal; CoT genus reservation recorded) | Queued |
+## octopus-causal-cot-audit-v1 — MEASUREMENT REPORT 2026-08-26 (measured, no code)
+
+Plan: `.claude/plans/octopus-causal-cot-audit-v1.md`. PLAN/BOARD ONLY.
+Each D-id is one F-OCT falsifier; "expected today" is the audit's measured
+prediction, and a falsifier is not green until it has actually run.
+
+| D-id | Deliverable | Status |
+|---|---|---|
+| D-OCT-1 | F-OCT-1 alpha load-bearing (`do(alpha)` moves next `DispatchMode`) — expected FAIL, no edge exists | Queued |
+| D-OCT-2 | F-OCT-2 matched-irrelevant arm silent — RED while D-OCT-1 is red (vacuous pass is the 150/150 defect) | Queued |
+| D-OCT-3 | F-OCT-3 relation faithfulness (right entities + wrong edges + right answer must fail) | Queued |
+| D-OCT-4 | F-OCT-4 shuffled-topology null — N/A until a projection exists; must beat a K-slot shuffle by >3pp | Queued |
+| D-OCT-5 | F-OCT-5 stage-ablation diagnostic completeness over existing receipts | Queued |
+| D-OCT-6 | F-OCT-6 twin-basin routing — expected FAIL, `SettlementCell::cell()` never reads topology | Queued |
+| D-OCT-7 | F-OCT-7 band permission — expected FAIL, blocked on an OGAR-tier `band_reading` mint | Queued |
+| D-OCT-8 | F-OCT-8 counterfactual necessity (mediator removal) — blocked on the `from_mantissa(-6)` inversion | Queued |
+| D-OCT-9 | F-OCT-9 unknown may remain unknown (`GapKind::{HubExcluded,BudgetExhausted}`) — likely PASS | Queued |
+| D-OCT-10 | F-OCT-10 no second world — passes by absence; the guard is prospective | Queued |
+| D-OCT-11 | F-OCT-11 cross-rung directionality (below moves higher / above leaves lower unchanged) — `RungLevel` ships, `visible_from(r)` absent | Queued |
 
 ## entropy-closure-causal-ground-v1 — PROPOSED 2026-08-26 (measured)
 

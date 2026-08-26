@@ -1,5 +1,129 @@
 # Issues Log — Open + Resolved (double-entry, append-only)
 
+## ISS-NO-CAUSAL-SIGN-ON-EDGES (2026-08-26) — OPEN
+
+`CausalEdge64` carries **no Inc/Dec polarity**. Measured: `grep -niE
+"polarity|Increase|Decrease"` over `lance-graph-contract/src` + `causal-edge/src`
+returns only clause-level negation cues (`grammar/clause_cues.rs:128`, *"words
+that flip a clause's predicate polarity"*) and NARS observation polarity
+`f ∈ {0,1}` (`grammar/thinking_styles.rs:151`). Neither is an edge-level causal
+sign.
+
+Consequence: the **state axis** of a target-relative admission test has no
+carrier, so
+
+```
+↑ steroid → ↓ inflammation      admitted silently against a target needing  ↑ inflammation
+```
+
+on a perfect entity match. Causal-Audit's expander emits signed triples
+`(u, Inc|Dec, v)` and its hard state-conflict kill depends on that sign; ours
+cannot express the conflict at all. This is a substrate-tier question — where
+does causal sign live: an edge field, a `ValueTenant` lane, or a
+`ClassView`-declared reading? — and per the missing-capability STOP rule it is
+answered one tier down BEFORE any walker consumes it. Deliberately left open.
+Ref: `.claude/plans/octopus-causal-cot-audit-v1.md` §15.3, §16.3.
+
+## ISS-D-ECG-6-BUDGET-WITHOUT-ADMISSION (2026-08-26) — OPEN
+
+D-ECG-6 (`entropy-closure-causal-ground-v1.md:208`) specifies a *"census-ranked
+frontier: prefer `IndirectKnown` > `IndirectUnknown` > `Unknown` for
+tractability"*. That ranks by how tractable a candidate's **own topology** is —
+never by whether the candidate is **relevant to the hole being filled**. It is a
+BUDGET with no ADMIT stage in front of it.
+
+Against the measured Causal-Audit ablation that is the failure mode with the
+large coefficient: budget without admission is the "simple alignment" arm
+(Path Reach 96% → 15%), while the ranking itself is worth 3.3pp over random
+prune. D-ECG-6 has the cheap half and is missing the expensive one.
+
+Amendment (that plan's to make, not the audit's): insert ADMIT before the census
+rank — a sharpening of the existing FILTER stage from "static constraints" to
+"target-relative type check". No new D-id, no new plan.
+Ref: `.claude/plans/octopus-causal-cot-audit-v1.md` §15.2.
+
+## ISS-RUNG-VS-BAND-CARDINALITY-COLLISION (2026-08-26) — OPEN
+
+Two ladders share both endpoint names and differ in cardinality and meaning:
+
+| type | file | values |
+|---|---|---|
+| `RungLevel` | `contract/src/cognitive_shader.rs:157` | **10** — `Surface 0 … Transcendent 9` |
+| `ReasoningBand` | `causal-edge/src/layout.rs:353` | **8** — `Surface 0 · Association · Relation · Causal · Counterfactual · Perspective · Meta · Transcendent 7` |
+
+CE64 61..63 is three bits, so it **physically cannot hold a `RungLevel`**
+(10 > 2³). Any "8×10" shorthand for the alpha receipt must state which 8 it
+means: the 8 is DOMAINS (for which no carrier exists — measured absent), NOT the
+eight reasoning bands. A session reading "8×10" inside this codebase will
+collide the two by default.
+Ref: `.claude/plans/octopus-causal-cot-audit-v1.md` §16.1.
+
+## ISS-ALPHA-NOT-LOAD-BEARING (2026-08-26) — OPEN
+
+`AttentionMaskSoA` (`cognitive-shader-driver/src/attention_mask.rs`) has **no
+production consumer**. Measured: every hit outside its own module is a `pub mod`
+line or a doc-comment (`lib.rs:93,94`; `mailbox_soa.rs:11`, which explicitly says
+*"NO AttentionMask/LRU"*; `attention_facet.rs:103`). The transition function is
+`elect_mode(Domain) -> DispatchMode` (`contract/src/dispatch_mode.rs`), and
+`Domain` is derived from gate + surprise + contradiction — never from the
+attention mask. There is no edge from the attention carrier into the next
+transition at all.
+
+Consequence: an intervention on a claimed alpha state would be silent in BOTH
+the relevant and the irrelevant arm, so F-OCT-1 fails and F-OCT-2 passes
+*vacuously*. A vacuously-passing silent arm is the `closed_class_guess` 150/150
+defect one level up (CLAUDE.md falsifiability rule), so F-OCT-2 must be reported
+RED until F-OCT-1 is green.
+
+**The fix is NOT to wire alpha into dispatch so the falsifier passes** — that is
+building the test's answer. The measurement stands: the "interventionally
+load-bearing" axis of the thesis is currently unearned.
+Ref: `.claude/plans/octopus-causal-cot-audit-v1.md` §2, D-OCT-1/2.
+
+## ISS-REASONING-BAND-GATES-NOTHING (2026-08-26) — OPEN
+
+`ReasoningBand` (CE64 61..63) is minted, decoded, round-trip-tested
+(`causal-edge/src/v2_layout_tests.rs:480`) and asserted untouched by the whole
+control loop (`probe_revision_kanban_hinge.rs:1404`) — and **gates nothing**.
+Every grep hit is a probe, a test, or a doc-comment; `ogar/recipe_vocab.rs:63`
+states outright that it *does not write* one. The sudoku walker's GATE stage
+therefore has a carrier and no mechanism, which is what F-OCT-7 measures.
+Cross-ref `ISS-BAND-READING-UNMINTED-IN-OGAR` — the blocker is upstream.
+Ref: `.claude/plans/octopus-causal-cot-audit-v1.md` §4, §6, D-OCT-7.
+
+## ISS-BAND-READING-UNMINTED-IN-OGAR (2026-08-26) — OPEN
+
+The two halves of the domain lens live in different repos and do not meet.
+`ClassView::band_reading` (`lance-graph-contract/src/band_reading.rs`) is a
+total, zero-fallback, fallible per-`(classid, rail)` lookup — the consumer side
+of the D-ACR-7 contract. `OGAR/crates/ogar-class-view/src/lib.rs` (662 lines,
+`OgarClassView` / `known_class_ids()` / `object_view()`) is the producer that
+mints class views, and `grep -rn band_reading` over `OGAR/crates` returns
+**nothing**. The contract can ask a class which lens it declares; the producer
+never answers.
+
+Per the missing-capability STOP rule this lands as an **OGAR-tier change first**
+— never a hand-rolled default in the consumer or in the walker. F-OCT-7 is
+blocked on it. Measured at OGAR `c02efa1` (read-only clone, this session).
+Ref: `.claude/plans/octopus-causal-cot-audit-v1.md` §14.2.
+
+## ISS-DOMAIN-LENS-BY-CONVENTION-ONLY (2026-08-26) — OPEN
+
+`medcare-rs/crates/medcare-first-thought/src/plateau.rs` documents a real
+domain-conditioned reading ruling: qualia is a legitimate substrate tenant, but
+*for medicine* a proven ontological relation is evidence with a truth value, not
+a felt state — so clinical evidence rides the **edge tenant** and the **qualia
+tenant stays ZERO**. Same world, same columns, same `CausalEdge64`; the domain
+rules one tenant out. This is the strongest empirical support in the stack for
+the domain-conditioned-lens thesis.
+
+It is also **prose in one consumer**. Nothing in the spine enforces it, records
+it, or could detect its violation, and `medcare-rs` has zero hits for
+`CausalTopology` / `ReasoningBand` / `SettlementCell`. A lens honoured by
+convention is not a lens the architecture has.
+Measured at medcare-rs `572eb87` (read-only clone, this session).
+Ref: `.claude/plans/octopus-causal-cot-audit-v1.md` §14.1, §14.3.
+
 ## ISS-MUL-GATE-OUTCOME-COUPLED-TO-PRODUCER-GROUND (2026-08-26) — OPEN (thesis storno-corrected same day)
 
 **PR #1045 correctly removed redundant prose from the MUL hot path, but
