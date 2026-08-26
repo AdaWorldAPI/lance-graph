@@ -123,6 +123,41 @@ selects ≤ 4096 active relations, and THOSE live on the 64×64 mask field —
 **where between `tesseract-paperless → token receipt → DeepNSM-v2` does a
 small-enough active set first arise to justify a 64×64 mask-native ALU?**
 
+
+**Addendum, same session — can helix24 (Fisher-2Z LUT) carry the perturbation
+energy? Gated YES (idea, unprobed).** The alignment is threefold and each leg
+is already measured elsewhere today:
+
+1. **The energy values are similarity-shaped.** `PerturbationDto.energy` is
+   produced as `next[j] += table[i][j] · energy[i]` over the 4096×4096 u8
+   distance table (`thinking-engine/src/engine.rs`, scale `1/(255−floor)`) —
+   correlation-derived, non-negative. Fisher z is the variance-stabilising
+   axis for exactly this shape, and
+   `E-THE-FOUR-READINGS-OF-ONE-HELIX-CARRIER-…-1` measured 2Z as EXACTLY
+   uniform as a LUT-over-field axis (r distorts 204×, y 11.6×) — and the
+   perturbation field IS a LUT over a field.
+2. **helix24's weakness is irrelevant here, its strength is the point.**
+   The pole-penalty entry measured helix24 (`ResidueEdge`, 3 B) as bounded
+   (∝ y) where helix48's polar byte diverges (∝ 1/r), winning on INDEX and
+   losing on ANGLE. Perturbation energy needs index/magnitude, never angle —
+   the carrier's losing axis is unused.
+3. **The geometry already meets in the middle.** The engine's own compute
+   plan ("Option B: Block Tiling / Rollrasen") tiles the 4096×4096 table
+   into **64×64 blocks** with the energy chunk register-resident — the p64
+   working-field geometry is already the engine's tiling unit. A 64×64
+   working set with per-cell helix24 energy is 12 KB (vs 16 KB f32), in the
+   units (2Z = geodesic ρ) that compose across families — and additive
+   thresholds in z-space make the SCAN_WORTHY/SUPPORT pair scale-free.
+
+Gates, in order: (a) the DOMAIN proof — accumulated energy is not bounded to
+the arctanh domain a priori; the normalisation (converged fixed point? per-cycle
+renorm?) must be measured before any `atanh` touches it (`Similarity::CLAMP_EPS`
+exists, but clamping is a bandage, not a domain proof); (b) sequenced BEHIND
+`ISS-PERTURBATION-P64-ADDRESS-IDENTITY-UNPROVEN` — an energy register on a
+field whose addressing is unproven inherits the scramble; (c) zero-copy law —
+helix24 as THE carrier of the working-set cell or as a transport codec, never
+a second store beside the f32.
+
 The intake seam already practices the same derive-at-the-address doctrine
 this arc keeps confirming: DocIr has document identity (no minted source_id),
 Region has span identity (no span_id), the token receipt exists (no
