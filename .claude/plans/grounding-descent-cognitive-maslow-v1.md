@@ -237,17 +237,33 @@ model had a single active position.
 So the demarcation sharpens once more:
 
 ```
-content ladder (0–3)   hierarchy of OBJECTS      observations / verb atoms / recipes
-style                  per-stratum AXIS           frozen × learned × exploration,
-                                                  chosen PER instantiated stratum
-selector input         that stratum's ΔF bit      paying → frozen templates
-                                                  stalled → exploration
-                                                  between → learned revision
+content ladder (0–3)   hierarchy of OBJECTS       observations / verb atoms / recipes
+style                  per-stratum AXIS            chosen PER instantiated stratum
+selector               Resonance[r](texture,       the PRIOR — which style should
+                       candidate styles)           probably fit this stratum's problem
+outcome channel        that stratum's ΔF           the FEEDBACK — reinforce, revise,
+                                                   or reopen the selection
 ```
 
-Style-per-stratum is the response dimension of §7f's masked ΔF vector — one
-design, two faces: the vector says WHERE it stalls, the style says HOW that
-stratum answers. Falsifier: two instantiated strata must hold two different
+ΔF is NOT the selector — it is the outcome channel. Deriving the style
+directly from the ΔF band ("paying → frozen, stalled → explore") would turn
+the feedback signal back into a small global control rule and erase the
+selection intelligence of the original architecture. The loop per stratum:
+
+```
+ProblemTexture[r] → Resonance[r](texture, candidates) → StyleFamily[r]
+    → execute against stratum r−1 → ΔF[r]
+        paid strongly → reinforce / crystallize (frozen bias)
+        ambiguous     → learned revision
+        stalled       → weaken current fit / open exploration
+    ↺ feeds the next resonance
+```
+
+The triangle's three poles — FROZEN / LEARNED / EXPLORE — are therefore not
+three bands of a ΔF scale; they are three response REGIMES whose switching is
+qualified by outcome. The ΔF vector says WHERE cognition failed; resonance
+proposes HOW each stratum should think; ΔF feedback decides whether that
+proposal earned reinforcement, revision, or exploration. Falsifier: two instantiated strata must hold two different
 styles simultaneously, switchable independently; tower-global style state is
 the scalar era rebuilt and fails.
 

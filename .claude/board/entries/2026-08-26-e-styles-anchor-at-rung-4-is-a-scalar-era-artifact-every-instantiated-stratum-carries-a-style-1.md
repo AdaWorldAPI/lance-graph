@@ -23,11 +23,14 @@ Consequence, stated as the new demarcation:
   × exploration — the triangle), selected per stratum, not once for the
   tower. `StyleFamily` remains the vocabulary; "rung 4" was its era-bound
   address, not its type.
-- **The natural selector input already exists since §7f:** each stratum's own
-  ΔF bit. A stratum whose model of below is paying leans frozen (compiled
-  templates / StepMask); a stalled stratum leans exploration; revision sits
-  between. Style-per-stratum is the RESPONSE dimension to the masked ΔF
-  vector — the two designs are one design.
+- **Selection and outcome are two roles, not one.** The style is selected
+  per stratum from problem-texture RESONANCE (the prior: which style should
+  probably fit); that stratum's ΔF is the OUTCOME channel — it reinforces,
+  revises, or reopens the selection, it never selects directly. Deriving the
+  style from the ΔF band alone would turn the feedback signal back into a
+  small global control rule and erase the original architecture's selection
+  intelligence. FROZEN / LEARNED / EXPLORE are three response regimes whose
+  switching is qualified by outcome, not three bands of a ΔF scale.
 
 **What this does NOT reopen:** the persona-36 demarcation is untouched (the
 adjective styles remain the separate, unwired persona storyline — this entry
