@@ -257,3 +257,30 @@ Full log in the test file's module doc.
   path. This is deliberate: a test whose fixture may be absent
   skips-and-passes, which hides failure exactly where a fresh CI would
   otherwise catch it.
+
+## 9. What actually gates this (measured, and it is not what the config says)
+
+**r2sleigh's CI has never run.** `.github/workflows/ci.yml` declares
+`cargo test --workspace --all-features` — which *would* enable
+`probe-6502` and execute the whole differential probe — but the
+repository reports **`total_count: 0` workflow runs, ever**
+(`GET /repos/AdaWorldAPI/r2sleigh/actions/runs`). The workflow is written
+for a self-hosted runner (`CARGO_TARGET_DIR: /tmp/r2sleigh-target`,
+"Self-hosted runner optimization") that is not registered.
+
+So every green in §6/§7 is a **local** run, and the same is true of the
+`r2conc` crate that merged in PR #5. Recorded here and in the probe's own
+module doc, because the failure mode is specific and cheap to fall into:
+a future session reads `--all-features` in the CI config and concludes
+the probe is covered.
+
+**A gate that never runs is not a gate.** This is the same lesson
+tesseract-rs recorded when two of its tests sat red for thirteen days
+behind a skip-guard and a CI that never fired on that repo's PRs — worth
+naming twice, because the second instance was found by checking rather
+than by being bitten.
+
+Not fixed here: switching the workflow to a hosted runner is an infra
+decision with a cost (the `--all-features` job compiles Ghidra's SLEIGH
+specs for every architecture), and it is the operator's call, not a
+drive-by inside a probe PR.
