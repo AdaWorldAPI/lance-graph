@@ -116,7 +116,7 @@ a licence to act on it.
 | **RESCOPE** | `kognitionswirtschaft-v1` | `GateDecision`, `ThinkingStyle` | PROPOSED (unbuilt, unprobed). Operator-initi | 1/7 |
 | **RESCOPE** | `lance-graph-ontology-v5` | `BindSpace`, `GateDecision` | Drafted (2026-05-07). Picks up where v4 (`cl | 3/16 |
 | **RESCOPE** | `north-star-integration-v1` | `CollapseGateEmission`, `ThinkingStyle` | RATIFIED (council resolved + gates ratified  | 1/1 |
-| **RESCOPE** | `octopus-causal-cot-audit-v1` | `GateDecision`, `ThinkingStyle` | MEASUREMENT REPORT. **No code. No new type.  | 0/4 |
+| **RESCOPE** | `octopus-causal-cot-audit-v1` | `GateDecision`, `ThinkingStyle` | MEASUREMENT REPORT. **No code. No new type.  | 2/9 |
 | **RESCOPE** | `odoo-savant-reasoners-v2` | `BindSpace`, `CollapseGateEmission` | PROPOSAL. v1 SHIPPED in PR #420 (`D-ODOO-SAV | 2/3 |
 | **RESCOPE** | `ogar-ar-shape-endgame-v1` | `GateDecision`, `ThinkingStyle` | when filed:** PLAN (pre-council). Becomes PL | 0/0 |
 | **RESCOPE** | `rung-ladder-grounding-v1` | `CollapseGateEmission`, `GateState` | PROPOSAL (the most-obvious first grounding p | 0/4 |
