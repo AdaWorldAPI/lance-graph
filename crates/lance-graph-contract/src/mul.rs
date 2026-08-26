@@ -1816,15 +1816,6 @@ pub mod i4_eval {
             }
         }
 
-        fn matches_gate_discriminant(a: &GateDecision, b: &GateDecision) -> bool {
-            matches!(
-                (a, b),
-                (GateDecision::Flow, GateDecision::Flow)
-                    | (GateDecision::Hold { .. }, GateDecision::Hold { .. })
-                    | (GateDecision::Block { .. }, GateDecision::Block { .. })
-            )
-        }
-
         #[test]
         fn test_mul_assess_batch_matches_scalar() {
             let (qualia, mantissas) = make_batch(10);
