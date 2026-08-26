@@ -515,3 +515,100 @@ MedCare-rs:         owns corpus, bake state, withheld mapping lists, receipts
 starts specifying ontology ingestion, bake artifacts, or concrete
 crosswalk lists, the clean cut has failed — move that text to the
 consumer repo and leave a pointer.
+---
+
+## §8 — The plasticity falsifier ladder (operator brief merged, 2026-08-26): one queue, pre-registered first experiment
+
+> Register: PLAN + PRE-REGISTRATION. Merges the operator's resume brief
+> with the four open steps this arc already carried. Board-only unless
+> an experiment justifies code; the first experiment (Q1) is run with a
+> TEMPORARY instrument over the shipped probe, reverted after — same
+> method as every measurement in this arc.
+
+### 8.1 Doctrine lines (restated so no experiment drifts past them)
+
+- **R2IL carries fidelity. BPE carries repetition. Plasticity changes
+  association strength or residency — it must NEVER rewrite executable
+  truth.** Every learned macro stays byte-exactly expandable to R2IL
+  atoms, in every arm of every experiment, or the arm aborts.
+- **Coverage is never the headline.** With 7 atoms and chain length 3,
+  "≥1 macro fires" saturates (the strict null already reaches 92.8%).
+  Density per chain + null separation is the primary transfer metric.
+- **"Association demonstrated" ≠ "plasticity demonstrated."** The first
+  is measured (batch, 4 binaries, two nulls). The second requires Q1
+  below, and until it runs the tissue is a slide, not a culture.
+- **Do not quietly optimize around a failure. Measure it.** Negative
+  findings land append-only.
+
+### 8.2 The unified queue
+
+| # | item | status/gate |
+|---|---|---|
+| **Q1** | interference × saturation × order harness (§8.3, ONE instrument, three arms + sabotage) | pre-registered below; **runs in this PR arc** |
+| Q2 | 6502 lift `SpaceId` measurement (does a real lifted memory access carry `Custom(1)` or `Ram`?) | cheap; r2sleigh-side; settles the E-W0-IS-LIVE conditional |
+| Q3 | OGAR mint decision (three custom-space options) | EXTERNAL gate; W2 stays blocked |
+| Q4 | W1 op-row carving, non-space subset | may proceed |
+| Q5 | ontology-morphogenesis probe (§7.6) | data half owned by the consumer repo |
+| **Q6** | **hex A/B topology experiment** | **GATED on Q1's results.** Role hypothesis (NOT cell=concept, NOT six-directions=six-categories): hex cell = addressable learned residence; six neighbours = local candidate associations; potentiation/depression = strengthen/weaken a local relation; plastic frontier = the region where Explore may alter Learned; locality = a bound on how far one learning event may perturb existing knowledge. Falsifiable question: *can local hexagonal plasticity learn the SAME new associations as the global palette while producing LESS interference, controlled forgetting, and bounded propagation?* Metrics held constant vs the global baseline: held-out density before/after learning B, interference on A, changed-entry count, propagation radius, saturation behavior, order sensitivity, exact R2IL expandability, white-matter veto rate, recovery after demotion. **A hex topology that merely looks brain-like but does not reduce interference FAILS.** |
+
+### 8.3 Q1 PRE-REGISTRATION (written and committed BEFORE the run)
+
+**Corpora.** A = the two gcc `stress_test` binaries (train). H_A =
+`vuln_test` (held-out, unseen C — the A-domain probe). B =
+`build-script-build` (rustc). Same ore, same seven-opcode convention,
+same chain extractor as the shipped probe.
+
+**Incremental protocol.** "Learn B after A" = keep A's SymTable, apply
+A's merges to B's raw streams in learned order (standard encode-then-
+continue; skipping this would re-mint A-equivalent pairs as duplicate
+ids), then continue `bpe_merge` on B's streams under the SHARED cap.
+
+**Arms and pre-registered predictions:**
+
+- **INT (interference).** density(V_{A→B} on H_A) vs baseline 2.515.
+  **Structural prediction: it cannot drop** — the store is additive and
+  the matcher monotone, so new merges only add hits. A measured drop >1%
+  falsifies the additivity model itself (major finding). Confirmation is
+  a CONTROL result and must be recorded as *"no destructive interference
+  is possible yet because no destructive mechanism exists"* — explicitly
+  NOT a plasticity success. Real interference first becomes possible at
+  saturation, which is why SAT is the load-bearing arm.
+- **SAT (saturation).** Forced cap = 16 (< the 33 A-macros), two naive
+  policies: REFUSE (A's first 16 merges keep their slots; B learns
+  nothing) and EVICT-AMORTIZED (learn uncapped, keep the top-16 by
+  measured training occurrences). **Kill threshold, from the already-
+  measured column null on H_A (max 1232/608): a policy FAILS if its
+  held-out-A density ≤ 2.03** — i.e. the vocabulary becomes
+  indistinguishable from the marginal-preserving null on A.
+- **ORD (order dependence).** V_{A→B} vs V_{B→A}; primary metric =
+  Jaccard over the macros' atom-pattern sets. Pre-registered reading:
+  ≥0.8 order-robust · 0.5–0.8 path-sensitive (consolidation needed) ·
+  **<0.5 = "the vocabulary" is a path artifact.**
+- **SABOTAGE (harness validity, can-fire + can-stay-silent).** Deleting
+  A's top-5 macros (they carried 1,063 of 1,529 H_A hits = 69.5%) must
+  drop H_A density below 1.8; deleting the bottom-5 must move it <2%.
+  If either half fails, the harness — not the store — is broken, and no
+  arm result counts.
+- **BYTE-EXACT gate, every arm:** decode(streams) == original atoms for
+  every training stream under every table. Any mismatch aborts that arm.
+
+### 8.4 The learning loop as control law (operator-stated; placement, not prose)
+
+Plasticity is the LAST gate, never the first reflex:
+
+```
+experience → attention (Alpha) → reason → hydrate-if-missing (cognitive
+Maslow) → counterfactual → commit (Rubicon) → act ← veto window (Libet)
+→ observe → revise → qualify evidence (§7.5 instrument) → plasticity
+gate → MAYBE learn
+```
+
+never `experience → immediately change weights`. Q1's harness tests the
+final two stations; everything upstream already ships (#879, #998,
+elevation/cycle, kanban census).
+
+**Goal line, verbatim intent:** not to imitate a biological brain — to
+build digital associative tissue with properties biology does not
+naturally provide: exact provenance, reversible learned macros,
+qualified evidence for promotion/demotion, and a falsifier attached to
+every claim of plasticity.
