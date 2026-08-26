@@ -146,3 +146,82 @@ Three properties, each load-bearing:
 - **OQ-3:** G3 needs `all_projections` de-grounded first (D-RUNG-MUL-1, the
   cube-metric misreading). If that ships late, G3 degrades to edge-existence
   checks on the `part_of:is_a` rails — stated, not hidden.
+
+---
+
+## 7. Ratified sharpenings (2026-08-26, same day — session review of the CE64 thread)
+
+Appended after review of the full arc (#970 → the epiphany-detector thread →
+this plan). Ratified direction; the base sections above stand, these bind them.
+
+### 7a. The three-axis separation is final
+
+```
+RungLevel 0..9        LIVE cognitive process — rung_delta → apply_delta.
+                      Elevation happens HERE. Has a feeder today.
+CausalTopology 59..60 DURABLE causal-path fact. No in-tree producer today.
+ReasoningBand 61..63  DURABLE edge reading, 8 states. NOT the rung ladder
+                      (8 states cannot carry 10 rungs; shared names sit at
+                      different ordinals — #970 refused any *Rung* name).
+```
+
+The old thread's error was representation-before-generator: hunting CE64 for
+the carrier of "associated with → explains" before noticing the live
+elevation axis already had a feeder. `Topology 2 → 1` remains a real epistemic
+event (a mediator became known — a change in causal KNOWLEDGE); `Rung 5 → 6`
+is a change in thinking MODE. They may meet causally; they are not one axis.
+
+**One-line form:** CE64 records what became known. RungLevel records how far
+thinking climbed. Free energy tells whether the climb earned its height.
+
+### 7b. RungLevel is an ordinal elevation axis, NOT ten dimensions
+
+Ten *states* on one ordinal ladder (Surface 0 … Transcendent 9), never a 10-D
+vector. This is a standing trap: the 33-TSV already groups nine Rung dims as a
+dimension-group, so the vectorising misread is one refactor away. Anything that
+sums, averages, or dot-products rung values has left the semantics.
+
+Corollary: **rung 9 is not truth.** Transcendent is the highest reflection
+height, and can be built entirely on sand — which is exactly when §1's trigger
+sends it back down to Signal and the witnesses. Higher ≠ righter is what
+separates this ladder from a pyramid.
+
+### 7c. Provenance rule for any future topology projection
+
+Derivation lives in witness / revision / evidence, where every step keeps its
+provenance and stays addressable. Bits 59–60 may carry a *projection of the
+result* — only under the #970 provenance contract (source-authoritative begins
+with an explicit producer; nothing derives it). A traversal-derived `1` written
+into the same two bits as a corpus-asserted `1` is byte-identical and
+epistemically different — the second-truth shape this whole arc is allergic to.
+So the parent-topology inheritance rule (`parent + part_of:is_a rail → child`),
+attractive as it is, does NOT get to write 59–60; it lives witness-side, and a
+durable projection is a separate, gated act.
+
+### 7d. Dirty ≠ diagnostic — the descent must re-measure after repair
+
+§3's short-circuit stops at the first dirty level. The negative finding
+(`Topology 2 → 1` occurred, ΔF did not fall) proves a level can be repairably
+dirty and still not be the missing grounding component. Therefore the walker
+loops:
+
+```
+descend → first dirty level → repair/supply → re-measure ΔF
+    ΔF falls   → done; that WAS the missing ground (positive finding)
+    ΔF flat    → record "repaired but not the deficit" (negative finding,
+                 kept — it prunes the search for every later descent)
+               → CONTINUE descending from the next level
+all levels clean/repaired, ΔF still flat → GroundCertificate + route to G5
+```
+
+Without this, the walker halts at the first *plausible* cause rather than the
+first *causal* one — the System-1 shortcut, mechanized. The negative findings
+are first-class output: "the mediator was not what this thought was missing"
+is knowledge, and D-GDM-5's distribution probe should count them.
+
+### 7e. Scope pin: the other 0..9 stack stays out
+
+The `L0 Substrate → L9 Crystallization` stack is not this ladder and does not
+enter §3. If it is ever wired in, it is a second, separate 0..9 axis
+(processing stage), and conflating the two would be the homeostasis/GateDecision
+homonym failure a third time.
