@@ -128,14 +128,26 @@ small-enough active set first arise to justify a 64×64 mask-native ALU?**
 energy? Gated YES (idea, unprobed).** The alignment is threefold and each leg
 is already measured elsewhere today:
 
-1. **The energy values are similarity-shaped.** `PerturbationDto.energy` is
-   produced as `next[j] += table[i][j] · energy[i]` over the 4096×4096 u8
-   distance table (`thinking-engine/src/engine.rs`, scale `1/(255−floor)`) —
-   correlation-derived, non-negative. Fisher z is the variance-stabilising
-   axis for exactly this shape, and
-   `E-THE-FOUR-READINGS-OF-ONE-HELIX-CARRIER-…-1` measured 2Z as EXACTLY
-   uniform as a LUT-over-field axis (r distorts 204×, y 11.6×) — and the
-   perturbation field IS a LUT over a field.
+1. **The energy is accumulated from a correlation-derived kernel — which
+   is NOT the same as being a correlation coefficient.** `next[j] +=
+   table[i][j] · energy[i]` over the 4096×4096 u8 table makes `next[j]` an
+   accumulated field; normalising it into `(−1, 1)` proves only that
+   `atanh` is *defined*, never that Fisher-z keeps its variance-stabilising
+   *meaning*. Matching #1040's own split (1Z = statistical Fisher-z, 2Z =
+   spatial geodesic ρ), two independent claims:
+
+   ```
+   MEASURED ALREADY   2Z gives uniform geodesic bins for LUT-over-field
+                      (r 203.9×, y 11.6× distorted) — and the perturbation
+                      field IS a LUT over a field
+   TO PROVE           accumulated energy admits a lawful similarity
+                      coordinate r_eff ∈ (−1,1) whose 2Z transform
+                      preserves useful field structure
+   ```
+
+   **2Z is already justified as a CANDIDATE field metric; Fisher semantics
+   are gated on proving `r_eff` is lawful.** Test the geometric hypothesis
+   first; bring "variance stabilisation" back only if `r_eff` earns it.
 2. **helix24's weakness is irrelevant here, its strength is the point.**
    The pole-penalty entry measured helix24 (`ResidueEdge`, 3 B) as bounded
    (∝ y) where helix48's polar byte diverges (∝ 1/r), winning on INDEX and
@@ -146,13 +158,21 @@ is already measured elsewhere today:
    into **64×64 blocks** with the energy chunk register-resident — the p64
    working-field geometry is already the engine's tiling unit. A 64×64
    working set with per-cell helix24 energy is 12 KB (vs 16 KB f32), in the
-   units (2Z = geodesic ρ) that compose across families — and additive
-   thresholds in z-space make the SCAN_WORTHY/SUPPORT pair scale-free.
+   units (2Z = geodesic ρ) that compose across families. Additive z-space
+   thresholds for SCAN_WORTHY/SUPPORT are *plausible, not free*: families
+   accumulating differently (2 vs 200 contributors) can both be pressed
+   into `(−1,1)` without `z = 0.4` meaning the same thing. Falsifier,
+   deliberately small: same semantic fixture × different amplitude /
+   contributor count → normalise → 2Z → SCAN_WORTHY crossing, SUPPORT
+   crossing, Top-K order must stay invariant — else the ClassView/family
+   keeps its own calibration.
 
-Gates, in order: (a) the DOMAIN proof — accumulated energy is not bounded to
-the arctanh domain a priori; the normalisation (converged fixed point? per-cycle
-renorm?) must be measured before any `atanh` touches it (`Similarity::CLAMP_EPS`
-exists, but clamping is a bandage, not a domain proof); (b) sequenced BEHIND
+Gates, in order: **(a0) SEMANTIC domain** — define `r_eff(E_j, cycle_state)`
+and prove it bounded in `(−1,1)`, ranking-monotone, stable across cycle
+amplitude, and not merely "divide by current max"; **(a1) NUMERIC domain** —
+the `atanh` input stays inside `(−1,1)` *without the clamp carrying the
+result* (`Similarity::CLAMP_EPS` proves numerical survival, never semantic
+legitimacy); (b) sequenced BEHIND
 `ISS-PERTURBATION-P64-ADDRESS-IDENTITY-UNPROVEN` — an energy register on a
 field whose addressing is unproven inherits the scramble; (c) zero-copy law —
 helix24 as THE carrier of the working-set cell or as a transport codec, never
@@ -173,3 +193,74 @@ exist.
 Receipts: `engine_bridge.rs` (seam + fixes), `thinking-engine/src/dto.rs`,
 `p64-bridge/src/lib.rs` (`edge_to_block` S/4×O/4), `busdto_bridge_test.rs`
 (plane contract + new falsifier legs).
+
+**Addendum 2 — (a1) MEASURED (`PROBE-ENERGY-ARCTANH-DOMAIN`, this PR, real
+`ThinkingEngine::cycle` via the crate's own example harness):**
+
+| leg | result |
+|---|---|
+| P1 invariant | 8 random tables × 32 cycles: max ≤ 1.0, abs(Σ−1) ≤ 8.34e-7 — `cycle()` sum-normalises; energy IS a probability distribution |
+| P3 can-stay-silent | diffuse tables: worst max **0.0209**, atanh finite everywhere |
+| P2 can-fire | funnel table reaches max **== 1.0 exactly** (f32 bits `0x3F800000`), exactly one `atanh = ∞` cell |
+| P4 saturation | clamp `1−1e-6` → 2Z ceiling **14.509 ρ** (8-bit bin 0.057 ρ); `1−1e-9` → **21.416 ρ** (0.084 ρ) |
+
+**This settles (a1) only.** The field stays inside `(−1,1)` except at the
+attractor — and `energy == 1.0` is the engine's fixed point, not an outlier.
+A helix24 register must EXCLUDE the committed winner (it is the BusDto
+headline, lossless elsewhere) or clamp at the documented depth — silent
+clamping would place every converged thought at the same depth. **(a0)
+remains open**, and the fixed point doubles as its counterexample: a
+probability mass reaching 1.0 is exactly the kind of coordinate that is not
+yet a lawful similarity `r_eff`.
+
+**Carrier falsifier, before "helix24 IS the energy carrier"** (the 25 %
+footprint win buys nothing if the codec moves decisions):
+`f32 oracle → normalise → 2Z → helix24 quantise → recover`, then measure
+Top-K preservation, threshold-crossing flips at SCAN_WORTHY/SUPPORT,
+kernel-output error, ΔF difference. **The deciding figure is decision
+invariance of the field, never the carrier's RMS error.**
+
+**The three gears, finally on one shaft (operator synthesis):**
+
+```
+COCA → Morton 12-bit / 6+6   ADDRESS    "WHERE is the active relation?"
+normalised 2Z / helix24      METRIC     "HOW FAR, in this ClassView's geometry?"
+p64 64×64 mask field         ALU        "WHICH are active together?"
+energy                       AMPLITUDE  "HOW STRONGLY?"
+Top-K                        observation AFTER field interaction
+```
+
+Address is not relation; relation is not meaning — Morton and 2Z are
+orthogonal duties, never competitors. Today's `top_k → min..max` destroys
+topology AND metric at once; the field idea was three energy centres → three
+local kernels → superposition → THEN Top-K — a splat, not a range scan.
+Binding guard: **the metric hypothesis is GATE 2 and must not appear to
+solve Q1** — cell identity first, distance after. Decisive sabotage (same
+IDs/energies/masks/Top-K budget): A = Morton+2Z, B = Morton+grid,
+C = Morton+permuted-2Z. `A ≈ C` ⇒ decoration; `A > B ∧ A > C` ⇒ the metric
+carries information. The dynamic comma enters here if ever — as local
+metric modulation of σ/phase/residue (phyllotactic perturbation against the
+grid's own symmetry becoming a blind spot), testable only against explicit
+per-cell parameters, after A/B/C.
+
+**Lineage (the Blumenstrauß thread).** The old artifacts name it directly:
+*"p64 Blumenstrauß — 64×64 BNN attention matrix"*, the thinking-engine idea
+*"4096² distance table × energy vector"* (4096 excited atoms → interference
+→ few peaks → one crystallised thought), and a later architecture doc calls
+Layer 2 *"CognitiveShader (née Blumenstrauß)"* with exactly
+`layer_mask + combine + contra + density_target` over eight 64×64 predicate
+planes plus a metric. The image was never the name — it was the two opposed
+motions: ADDRESSING runs coarse→fine (HEEL→HIP→TWIG→LEAF), RESONANCE runs
+many→few (field → sparse survivors → Top-K), and φ/γ phyllotaxis (already in
+the old P64 distillation, anti-moiré + radial correction) keeps the grid
+from making its own symmetry a blind spot. The rename to
+cognitive-shader-driver was a precision gain, not a loss: a shader does not
+materialise a world per pixel — it lights resident state through several
+address-equal readings until few relevant peaks remain. Which re-reads THIS
+entry's defect one level deeper: of the original
+`field → metric/topology/algebra → sparse result` computation, only the bus
+and the window survived the wiring. The name was deleted by regex; the
+bones are still everywhere in the code. The same thought later became
+`bodyhelix.tsx` in q2 — 400k surfels (Gaussian splat, golden-ruler 4M
+triangles) from the 80k-FMA anatomy ontology — the architecture's first
+working proof, now come home to the field it was originally about.

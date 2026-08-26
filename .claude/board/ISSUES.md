@@ -41,10 +41,15 @@ exactly-uniform LUT axis per #1040). It must not appear to solve Q1: cell
 identity first, distance-between-cells after. Decisive design: same IDs /
 energies / masks / Top-K budget, A = Morton+2Z, B = Morton+grid, C =
 Morton+permuted-2Z; `A ≈ C` kills the metric, `A > B ∧ A > C` confirms it.
-Gate (a) for the energy register is MEASURED (PROBE-ENERGY-ARCTANH-DOMAIN):
-domain holds for the field, fails exactly at the attractor (max == 1.0 is the
-fixed point) — winner excluded or clamped at documented depth (2Z ceiling
-14.5/21.4 ρ for ε = 1e-6/1e-9).
+Gate (a) is SPLIT: (a1) NUMERIC domain MEASURED
+(PROBE-ENERGY-ARCTANH-DOMAIN: field inside (−1,1); attractor == 1.0 exactly —
+the fixed point, not an outlier; winner excluded or clamped at documented
+depth, 2Z ceiling 14.5/21.4 ρ for ε = 1e-6/1e-9). (a0) SEMANTIC domain OPEN:
+accumulated energy must admit a lawful `r_eff` (bounded, ranking-monotone,
+amplitude-stable, not divide-by-max) before any Fisher reading attaches —
+until then 2Z is a CANDIDATE geometric metric only. Two further falsifiers
+in the entry: threshold amplitude-invariance (2 vs 200 contributors) and
+carrier decision-invariance (Top-K / crossing flips / ΔF, never RMS).
 
 Not actioned: the probe needs real (non-induced) perturbation fields, and the
 mapping proof is a measurement, not an inspection.
