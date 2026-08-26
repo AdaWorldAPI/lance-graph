@@ -16,11 +16,38 @@ the **collapse_gate** one — a 2-byte `Copy` struct (`gate: u8` + `MergeMode`).
 `kanban.rs:26` imports the **mul** one. Both are reachable, both are exported,
 and the names do not disambiguate at a call site.
 
-Not actioned here, and the reason is not caution: `mul`'s ordering is documented
-as *locked*, so aligning it to ndarray supersedes a lock. That is a decision with
-an owner, not cleanup. Whoever takes it should note the asymmetry — ndarray is
-the substrate, so if one of the two is wrong it is the one that disagrees with
-the substrate, and `mul`'s "locked" comment is then what falls under storno.
+### ⊘ Correction, same day: the substrate backs `mul`, not `collapse_gate`
+
+The first version of this entry said aligning `mul` to ndarray would supersede
+`mul`'s lock, on the assumption that `collapse_gate`'s comment — *"matches
+ndarray CollapseGate ordinals"* — was true. **It is not.** Measured in the fork:
+
+- `ndarray::hpc::qualia_gate::QualiaGateLevel` is `#[repr(u8)]` with explicit
+  discriminants: `Flow = 0`, `Hold = 1`, `Block = 2`.
+- `ndarray::hpc::bnn_cross_plane::CollapseGate` declares `Flow, Hold, Block`
+  in that order (implicit 0, 1, 2).
+
+Both match `mul::to_disc`. So `collapse_gate::GateDecision` is the side that
+disagrees with the substrate, **and its stated justification cites the substrate
+incorrectly** — the comment is the defect, not merely the constants.
+
+Independent corroboration inside this repo: `deepnsm-v2/src/evidence.rs:476-493`
+asserts `to_disc()` as 0 = Flow, 1 = Hold, 2 = Block, against live evidence
+values. A consumer already depends on `mul`'s ordering.
+
+**Blast radius of the fix, measured.** Every consumer of
+`collapse_gate::GateDecision` reads it through `is_flow()` / `is_hold()` /
+`is_block()` or the named constants (`FLOW_XOR`, `FLOW_BUNDLE`, `FLOW_SUPER`,
+`HOLD`, `BLOCK`) — no call site compares the raw `gate: u8`. Searched
+`soa_envelope.rs` and `canonical_node.rs` for a persisted gate byte: none (the
+hits are version gates and `MailboxId`). `lance-graph-java` names `GateDecision`
+only in a plan document, never in `native/lgj-abi`, so no ABI carries it. The
+change is three constant values plus three accessor comparisons; behaviour is
+preserved through the accessors.
+
+Still not actioned in this PR, and now for a smaller reason than before: it
+changes values in a type the crate root exports, which deserves its own diff and
+its own review rather than riding along with a hot-path allocation fix.
 
 Found while auditing PR #1033's claims, but it exists independently of that PR
 and predates it.
