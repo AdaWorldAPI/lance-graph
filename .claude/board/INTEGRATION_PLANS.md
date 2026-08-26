@@ -1,3 +1,22 @@
+## 2026-08-26 — PROPOSAL (unbuilt, PLAN/BOARD ONLY): a recorded alpha is instrumentation until it is interventionally load-bearing, `.claude/plans/alpha-interventional-faithfulness-v1.md`
+
+Humility about INTROSPECTION, where #1057 was humility about the world. Two
+axes: interventional faithfulness (does perturbing the claimed internal state
+move the next transition?) and causal-graph faithfulness (does the traversal
+preserve the actual edges, not merely the right entities?). Measured target:
+`contract::dispatch_mode` elects Domain -> DispatchMode per dispatch from
+exactly the claimed states (gate / surprise / dissonance / DK veto), never
+stores the election, AND pre-declares its own null ("reads only LOGICAL markers
++ optional MUL — never qualia") — so the can-fire and can-stay-silent arms both
+have shipped, typed targets and the silent arm falsifies a documented claim.
+Five-metric stack (Entity / Relation / Interventional / Epistemic /
+Counterfactual-Necessity faithfulness), the last three computable natively from
+an execution receipt without an LLM judge. Three banking rules: falsifier not a
+memory subsystem; topology must beat a shuffled-edge null before any derived
+view is canonical; tail tests change an edge's evidence, never CE64's meaning.
+Literature is operator-supplied and UNVERIFIED in session — recorded as
+provenance, never as evidence. D-AIF-1..6, F-AIF-1..5.
+
 ## 2026-08-26 — PROPOSAL (measured, unbuilt): entropy measures closure, bits 59-60 tell whether it is causally earned, `.claude/plans/entropy-closure-causal-ground-v1.md`
 
 Law under test: entropy finds the holes, causal topology (CE64 59-60,

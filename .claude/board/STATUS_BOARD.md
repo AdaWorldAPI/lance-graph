@@ -1,3 +1,17 @@
+## alpha-interventional-faithfulness-v1 — PROPOSED 2026-08-26
+
+Plan: `.claude/plans/alpha-interventional-faithfulness-v1.md`. PLAN/BOARD ONLY.
+F-AIF-1/F-AIF-2 are the load-bearing can-fire/can-stay-silent pair.
+
+| D-id | Deliverable | Status |
+|---|---|---|
+| D-AIF-1 | receipt schema over existing artifacts (a read, not a new store) | Queued |
+| D-AIF-2 | alpha intervention probe vs `DispatchMode` election (+ qualia silence arm) | Queued |
+| D-AIF-3 | stage ladder ablation: earliest-lost-stage nameable, replay alone FAILS | Queued |
+| D-AIF-4 | native Relation Faithfulness from the receipt + CE64 refinements | Queued |
+| D-AIF-5 | shuffled-edge null harness for any derived diagnostic view | Queued |
+| D-AIF-6 | external naming decision (Octopus internal; CoT genus reservation recorded) | Queued |
+
 ## entropy-closure-causal-ground-v1 — PROPOSED 2026-08-26 (measured)
 
 Plan: `.claude/plans/entropy-closure-causal-ground-v1.md`. PLAN/BOARD ONLY.
@@ -10,6 +24,7 @@ Plan: `.claude/plans/entropy-closure-causal-ground-v1.md`. PLAN/BOARD ONLY.
 | D-ECG-4 | five-state humility ladder documented onto existing carriers | Queued |
 | D-ECG-5 | unasserted-register REFUSES restated as binding | Queued |
 | D-ECG-6 | Sudoku-walker steering spec (detect/bound/propose/filter/gate/test loop) | Queued |
+| D-ECG-7 | ADMIT/BUDGET/PERMIT/TEST split; three-axis alignment via domain view; `None` masks not blacklists | Queued |
 
 ## mul-calibration-not-verdict-v1 — PROPOSED 2026-08-26 (storno-successor to #1054)
 
