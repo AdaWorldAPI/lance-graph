@@ -1,3 +1,33 @@
+## 2026-08-26 — #1059 MERGED (e5f750e) — the Octopus causal-CoT audit (measurement only; NO contract change)
+
+### Current Contract Inventory — UNCHANGED
+
+This PR added **no type, no module, no bit, no ABI symbol**. It is a measurement
+report plus board entries. The inventory below is therefore stated as *what the
+audit measured about existing types*, not as an addition.
+
+| type (existing) | measured state, 2026-08-26 |
+|---|---|
+| `AttentionMaskSoA` (`cognitive-shader-driver`) | **no production consumer**; not read by `elect_mode` |
+| `elect_mode` / `DispatchMode` (`contract::dispatch_mode`) | the actual transition fn; reads gate+surprise+contradiction, never alpha |
+| `SettlementCell` (`contract::settlement`) | shipped; `cell()` never reads `CausalTopology` |
+| `CausalTopology` (CE64 59..60) | shipped; **no producer stamps it** in the three repos measured |
+| `ReasoningBand` (CE64 61..63) | shipped as a carrier; **gates nothing**; OGAR mints no `band_reading` |
+| `RungLevel` (`contract::cognitive_shader`) | shipped, 10 levels — collides in name with `ReasoningBand`'s 8 |
+| `GapKind`/`Frontier`/`Throttle` (`planner::nars::tactics`) | shipped; GATE and removal-TEST stages absent |
+| `CausalEdge64` | carries **no Inc/Dec polarity** — the state axis has no carrier |
+| `Sandbox` | **no symbol exists** — correct; it is a definition, not a type |
+
+### Open follow-ups this PR created (none blocking)
+
+`ISS-ALPHA-NOT-LOAD-BEARING`, `ISS-REASONING-BAND-GATES-NOTHING`,
+`ISS-BAND-READING-UNMINTED-IN-OGAR`, `ISS-DOMAIN-LENS-BY-CONVENTION-ONLY`,
+`ISS-NO-CAUSAL-SIGN-ON-EDGES`, `ISS-D-ECG-6-BUDGET-WITHOUT-ADMISSION`,
+`ISS-RUNG-VS-BAND-CARDINALITY-COLLISION`. D-OCT-1..11 queued on STATUS_BOARD.
+
+**Naming:** "Octopus" stays internal to the audit track. Nothing renamed.
+Publish nothing until F-OCT-1, F-OCT-3 and F-OCT-7 have run.
+
 ## 2026-08-25 — `contract::ogar_codebook` gains `typed_field` (0x080A) — the OGAR W4 doc-layer council's cross-repo mirror obligation
 
 ### Current Contract Inventory — `ogar_codebook::CODEBOOK` +1 row
