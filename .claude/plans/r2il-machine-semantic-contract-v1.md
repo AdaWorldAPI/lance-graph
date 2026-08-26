@@ -727,10 +727,13 @@ on RAND. A FAIL is a publishable result and is recorded append-only,
 exactly like a pass.
 
 **⊕ RUN 2026-08-26 (append-only results pointer).** Q6 was executed
-after §9's commit (`6d6f3c6`). **Result: FAIL at every gate and every
-cap** — hex learns less (G1) *and* interferes 2.8–4.2× more (G2), and a
-random partition with the identical locality rule beats it (G3). G0
-confirmed all three caps count; G4 byte-exact held in all nine runs.
+after §9's commit (`6d6f3c6`). **Result: FAIL at every HYPOTHESIS
+gate (G1–G3) at every cap** — hex learns less (G1) *and* interferes
+2.8–4.2× more (G2), and a random partition with the identical locality
+rule beats it (G3). The two VALIDITY gates **passed**, which is what
+makes the failure trustworthy rather than an artefact: G0 confirmed all
+three caps count (the control genuinely forgets) and G4 byte-exact held
+in all nine runs.
 Mechanism and the generalized finding (*content addressing under a
 heavy-tailed distribution is capacity-destroying*) are on the board:
 `E-Q6-HEX-FAILS-CONTENT-ADDRESSING-IS-CAPACITY-DESTROYING-UNDER-A-SKEWED-DISTRIBUTION-1`.
