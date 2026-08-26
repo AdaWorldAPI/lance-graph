@@ -508,3 +508,79 @@ MedCare-rs:         owns corpus, bake state, withheld mapping lists, receipts
 starts specifying ontology ingestion, bake artifacts, or concrete
 crosswalk lists, the clean cut has failed — move that text to the
 consumer repo and leave a pointer.
+
+### 7.7 ADDENDUM 2026-08-26 — no executive chooser; the two materials are COUPLED, not controller-and-controlled
+
+> Register: PLAN + vocabulary correction. Operator-ruled. Scoped to this
+> plan's own boundary (§7.6): the FORM of the mechanism and its topology
+> falsifier. The consumer-side half — expected-vs-observed firing over a
+> real corpus, focus dynamics, candidate pruning — belongs to MedCare-rs
+> and is recorded there, not here.
+
+**The rejected formulation, recorded because it is the tempting one.** A
+session proposed closing the activation loop with
+
+```
+chooser(spine, alpha) -> next_address
+```
+
+— an executive selector holding both planes and deciding. **Rejected.**
+It reintroduces a scheduler layer the architecture does not have, and it
+makes the transition an act of selection rather than a consequence of
+substrate state. The wording never reached a document; it is written down
+here so it is not re-proposed as an obvious move.
+
+**The corrected mechanism — two materials running simultaneously:**
+
+```
+COLD  readonly ontology/SoA + baked executable routes
+      → where activation is EXPECTED to conduct
+HOT   local reaction field: activation · focus · signed conductance
+      → where it ACTUALLY conducts, and where resolution is concentrated
+
+cold route fires → hot field reacts → hot field changes local conductance
+                → another cold route fires → repeat
+```
+
+Neither material controls the other. The next firing is a consequence of
+the coupled state. This is a strictly stronger claim than the open-loop
+diagnosis it replaces, and a strictly weaker one than a chooser: it must
+be shown that the coupling *alone* produces a transition.
+
+**The local field carries TWO readings, not one.** Activation (which
+material is firing) and focus (where gain/resolution is concentrated) are
+co-located at the same coordinate. Focus is **not** a selector — it is
+modulation, `effective ≈ activation × focus`, so a wide region may be
+active while attention occupies one aperture. A saccade is then the
+movement of the focus field over the active field, never a pick from a
+candidate list. **Do not hard-code this as an ABI struct**; the
+requirement is semantic co-location at one address, and §7.2's verdict
+that the geometry itself is unearned is untouched by it.
+
+**Signed learned conductance is a hypothesis with a separation
+requirement.** Token/macro identity stays a stable id; the *contextual*
+contribution may be a signed `i8` (positive retain, near-zero dormant,
+negative suppress-from-frontier). Suppression removes a candidate from
+the current frontier and **never** deletes its canonical identity. The
+ordering that follows — **prune before hydration**: compact weights →
+mask/threshold/top-k → hydrate only survivors — is an efficiency claim
+and owes the null in `F-HOT-6` (recorded consumer-side).
+
+**Unchanged and re-affirmed:** `R2IL carries fidelity, BPE carries
+repetition` — `expand(macro)` must be byte/operation-identical to the
+underlying sequence (B4). Hot learned wiring is **not** a world-causal
+claim: it may never create or mutate a CE64 edge, and the promotion
+ladder of §7.3/§7.4 (with its demotion half and hysteresis) governs any
+crystallization back into cold material. Frequency is not truth.
+
+**Topology falsifier, extending §7.2's control set:**
+
+```
+F-HOT-9   Replace the local geometry with random-6 / square-4 / square-8 /
+          k-NN under an otherwise identical coupled loop.
+          If behaviour is unchanged, the GEOMETRY is rejected while the
+          hot-field abstraction survives.
+```
+
+That split is the point: this addendum increases what the hot field is
+asked to *do* without granting the honeycomb one inch of unearned lease.

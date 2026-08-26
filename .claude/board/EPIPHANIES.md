@@ -1,3 +1,66 @@
+## 2026-08-26 — E-COUPLED-MATERIALS-NOT-A-CHOOSER-1 — closing an activation loop with an executive selector is the tempting wrong move; the transition must be a consequence of coupled cold/hot state
+
+**Status:** CORRECTION — [OPERATOR-RULED]. Records a formulation that was
+proposed and rejected in session, plus the two-part diagnosis it replaces.
+Detail: `r2il-machine-semantic-contract-v1.md` §7.7 (form + topology
+falsifier); consumer half in MedCare-rs `2026-08-24-octopus-suction-
+digestion-v1.md` §14 (per §7.6's responsibility cut).
+**Confidence:** High on the rejection and on the census below; the coupled
+mechanism itself is HYPOTHESIS until F-HOT-1/2 run.
+
+### The rejected shape, and why it is worth writing down
+
+`chooser(spine, alpha) -> next_address` — an executive holding both planes.
+It reintroduces a scheduler the architecture does not have and makes the
+next firing an *act of selection* rather than a *consequence of substrate
+state*. It never reached a file (`grep -rli chooser` over MedCare-rs: 0
+hits); it is recorded because it is the obvious move a future session will
+re-derive when told "close the loop".
+
+### Two census corrections that produced it
+
+Both were mine, both overreached, both are measured:
+
+- **"alpha is pure instrumentation"** — WRONG. `alpha.rs:192` holds the
+  spine as `base: &'a [NodeRow]`, an immutable slice *by type*, so a
+  writable plane at a canonical address is structurally required, not
+  optional. The implementation is contingent; the role is not. An EEG
+  electrode is instrumentation because the brain runs identically without
+  it — this does not have that relationship. Correct term:
+  **open-loop activation plane**.
+- **"nothing reads alpha"** — WRONG in the other direction, in the same
+  turn. `medcare-first-thought/src/attention.rs:153` reads `scanpath()`;
+  `obo.rs:792` too. What is missing is narrower and sharper: alpha is read
+  to **project**, never to steer the next edge — and that is *deliberate*,
+  because `WatchedRows` mutates through a `RefCell` precisely so the walk
+  stays ignorant of it (*"a recorder that demanded `&mut self` would be a
+  change to the trait, and then every walk would know about it"*). The loop
+  is open BY DESIGN, and the openness is load-bearing.
+
+### The word "receipt" was carrying three meanings
+
+An earlier claim here — *"a discardable thing cannot be a receipt"* — is
+withdrawn. It is true only for the durable sense. Three layers, no
+contradiction between them:
+
+| layer | durability |
+|---|---|
+| alpha **state** — current activation | ephemeral, recomputable |
+| alpha **delta/trace** — self-recording participation | ephemeral, recomputable |
+| **merkle witness** — audit history | durable, tamper-evident |
+
+A CPU register records its value without surviving a reboot. The real
+contradiction to refuse is only `alpha delta == durable witness`, which
+this workspace already refuses on other grounds (MedCare commitment #7).
+
+**What survives the correction:** first-write-wins
+(`a_revisit_keeps_the_first_stamp_and_does_not_grow_the_table`) is a
+limitation of the TRACE layer, and it predicts *which* falsifier fails and
+why — stage-localization cannot recover a later visit whose rung was
+frozen at first touch.
+
+---
+
 ## 2026-08-25 — E-W0-THE-SPACE-ORDINAL-IS-A-RANK-RELATIVE-TO-A-TABLE-THE-CLASSID-NEVER-NAMES-1 — W0 run: zero custom spaces in 94,536 rows, so the defect is LATENT; but the mechanism is worse than the conjecture and blocks the mint's space axis anyway
 
 **Status:** FINDING — [MEASURED] (census over the full 4-binary corpus)
