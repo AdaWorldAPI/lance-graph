@@ -101,3 +101,34 @@ prompt to read, never a licence to act. This correction is the same error one
 level up — I fixed the *instance* I had measured rather than the *class* it
 belonged to, and shipped a table with a fabricated value in it. Naming the
 failing input is not the same as naming the failure.
+
+---
+
+**⊕ THE GENERATED TABLE WENT STALE WITHIN THE HOUR (same day, post-merge).**
+#1046 merged at 09:06 alongside #1045 and #1047. #1047 added
+`grounding-descent-cognitive-maslow-v1`, which names `GateDecision` and
+`ThinkingStyle` without citing the ruling — a 63rd blind plan. So the index
+committed minutes earlier no longer reproduced: `RESCOPE` 50 → 51,
+`GateDecision` 19 → 20 plans, `ThinkingStyle` 23 → 24.
+
+Nothing was wrong with the generator. The table is generated from
+`.claude/plans/` + `crates/` + `COMPONENT-MAP.md`, and **any PR that adds a
+plan makes it stale** — generation was manual, so the freshness lasted exactly
+as long as nobody else merged.
+
+This is the same defect the index was built to solve, one level up. The
+original argument was that *a hand-kept supersession table goes stale at the
+next rename, and a stale one authorises work against a retired symbol.*
+Generating it removed the transcription error and left the staleness — because
+"generated" only means current at the moment someone last ran it. **A generated
+artifact with no staleness gate is a hand-maintained artifact with extra
+steps.**
+
+Closed with `.github/workflows/supersession-index.yml`: regenerate, `diff`, fail
+with the regenerate command on drift. It watches the generator's **inputs**
+(`.claude/plans/**`, `COMPONENT-MAP.md`) and not merely the generator, since
+inputs are what actually made it stale. Falsified both ways before committing —
+appending one comment to the index makes it exit 1; regenerating makes it pass.
+
+**Standing limit, unfixed:** the gate proves the table is *current*, never that
+a route is *right*. The ARCHIVE? batch was current and 3/3 wrong.

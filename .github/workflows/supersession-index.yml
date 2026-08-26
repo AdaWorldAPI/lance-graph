@@ -1,0 +1,42 @@
+name: Supersession index is current
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    paths:
+      # The generator's INPUTS, not just the generator. A plan or a ruled-symbol
+      # verdict is what makes the committed table stale -- that is how it went
+      # stale the first time (#1047 added a plan naming two ruled symbols, and
+      # nothing noticed).
+      - .claude/plans/**
+      - .claude/v3/COMPONENT-MAP.md
+      - .claude/tools/supersession_index.py
+      - .claude/board/SUPERSESSION-INDEX.md
+      - .github/workflows/supersession-index.yml
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  regenerate-and-diff:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Regenerate and compare
+        run: |
+          python3 .claude/tools/supersession_index.py > /tmp/regen.md
+          if ! diff -u .claude/board/SUPERSESSION-INDEX.md /tmp/regen.md; then
+            echo
+            echo "::error::SUPERSESSION-INDEX.md is stale."
+            echo "It is GENERATED from .claude/plans/ + crates/ + COMPONENT-MAP.md,"
+            echo "so adding a plan that names a ruled symbol makes it stale."
+            echo "Regenerate and commit:"
+            echo "  python3 .claude/tools/supersession_index.py > .claude/board/SUPERSESSION-INDEX.md"
+            exit 1
+          fi
+          echo "index is current"
