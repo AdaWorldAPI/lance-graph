@@ -1071,3 +1071,46 @@ learning** — no second pipeline, no emitted artifact:
 PROBE-OWL-RL-FIXPOINT is unchanged in intent but sharpened in form: it
 runs the PROJECTED reading (template × axiom-row operands) against the
 bake's own closure — proving the lens, not a compiler.
+
+**§7.8 second continuation (operator-compressed, same day) — the zipper
+isomorphism: R2IL is stacked masks over codebooks, and a masked rail
+zipper is the same object (pure fragment only):**
+
+The operator's compression: *"R2IL is a bunch of stacked masks of
+codebooks; if you stack masked rail as a zipper it might work
+similarly."* Named mechanism, not rhyme: both are **prefix-scoped
+codebook selection**. An R2IL opcode is a codebook index that scopes how
+the following slots decode; a rail byte-pair is a codebook index whose
+codebook the prefix selected (longest-prefix binding, OGAR canon). SLEIGH
+decode is the same automaton (bit prefix → constructor table → operand
+fields). Consequences:
+
+- **Tier-0 decode is ONE mechanism** — `decode(prefix_state, bytes) →
+  (op, state)` serves the 6502 stream, the GUID rails, and the R2IL
+  stream. The muscle-memory training trains one learned object: the
+  prefix-scoped codebook family. Address recall and op recall are the
+  same skill.
+- **An address IS a program.** One zipper descent step = one
+  op-application = the hop law `Mask × ClassView → Mask`. A rail path is
+  a maximally compressed straight-line program (the level implies the
+  operation; the per-level op vocabulary is the ClassView carving).
+  Navigation needs no special case in the interpreter.
+- **A baked ancestor closure IS a JIT-compiled navigation program** —
+  the composed mask of a hot descent, precomputed. §7.8's "bake = AOT"
+  is literal under this reading, with rail paths as the source language.
+
+**THE FENCE (load-bearing):** the isomorphism holds for the PURE fragment
+only — selection, load, mask algebra. Rail descent has no `Store`; R2IL
+does. Addresses are pure straight-line programs; the effectful fragment
+(stores → open cycle image) is R2IL-only. Without this fence, "an address
+with side effects" is the SURREAL-AST trap in a new coat — behavior
+riding the address, T2 violated.
+
+**PROBE-ZIPPER-HOP-PARITY (new, and the CHEAPEST in the queue — run it
+first):** take one real rail path, replay it as explicit R2IL ops through
+the masked interpreter, and require the resulting mask to be
+BIT-IDENTICAL to the native hop path's mask over the same population.
+Green → navigation and execution are one algebra, proven. Red → the
+zipper reading is demoted to poetry before anything is built on it.
+Needs only existing pieces (masks, ClassView carving, ogar-r2il tables) —
+no r2sleigh, no hexagon, no emulator.
