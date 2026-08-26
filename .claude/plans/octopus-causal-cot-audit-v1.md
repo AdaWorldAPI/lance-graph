@@ -13,6 +13,48 @@
 
 ---
 
+## 0.0 Reconciliation with `alpha-interventional-faithfulness-v1` (#1058, merged)
+
+A parallel session audited the **same operator brief**
+(`.claude/prompts/OCTOPUS_AUDIT_MEASUREMENT_FIRST.md`) and landed first. The two
+are complementary, and this section exists so no future session reads them as
+rival accounts.
+
+| | #1058 `alpha-interventional-faithfulness-v1` | this audit |
+|---|---|---|
+| Kind | **doctrine + probe design** (D-AIF-1..6, F-AIF-1/2) | **measurement report** (F-OCT-1..11) |
+| Literature | operator-supplied, **explicitly unverified in session** | classified by ontology; Causal-Audit ablation read for its coefficients |
+| Repos | lance-graph | lance-graph + MedCare-rs + OGAR |
+| Alpha carrier | not named | `AttentionMaskSoA` measured, **no production consumer** |
+| Transition fn | not named | `elect_mode(Domain) -> DispatchMode`, measured not to read alpha |
+
+**Its governing law is adopted here verbatim** — *"the world graph remains
+canonical; the thought graph is a receipt or a projection, never a second
+world"* — and its two-axis split (interventional faithfulness × causal-graph
+faithfulness) is the same split §14.3 reports on. Its doctrine entry
+`E-A-RECORDED-ALPHA-IS-INSTRUMENTATION-UNTIL-AN-INTERVENTION-ON-IT-MOVES-THE-NEXT-TRANSITION-1`
+is the ratified statement; nothing here restates it.
+
+**What this audit adds that #1058 does not have:** the carrier measurement
+(§2 — grep shows `AttentionMaskSoA` has no consumer and the transition function
+never reads it, so D-AIF-2's probe currently has **no edge to intervene on**);
+the four-ontology classification (§1); the cross-repo split of the domain lens
+(§14); the two cardinality/vocabulary collisions (§8 Cynefin-`Domain`, §16.1
+`RungLevel` 10 vs `ReasoningBand` 8); and the Causal-Audit admission-vs-budget
+correction with its 3.3pp floor (§13, §15).
+
+**One correction this audit makes to #1058's framing.** #1058 records its
+targets as "measured targets, unbuilt". For D-AIF-2 specifically that is
+optimistic: the probe is not merely unbuilt, its subject is **unwired** — there
+is no path from the attention carrier into the transition, so the probe as
+specified would return silence on both arms and read as a vacuous pass. The
+probe needs the wiring question answered first, and answering it by wiring alpha
+into dispatch *in order to* pass the probe would be building the test's answer.
+D-AIF-2 and D-OCT-1/2 are the same falsifier; **track it once, in #1058's plan**,
+with this measurement attached.
+
+---
+
 ## 0. The headline measurement
 
 **`grep -ri "octopus"` over the whole tree returns ZERO hits** — no `.rs`, no
