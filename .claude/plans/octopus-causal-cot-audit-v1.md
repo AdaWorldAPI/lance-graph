@@ -903,3 +903,102 @@ type. Neither materialises a graph.
 11. `STATUS_BOARD.md`: D-OCT-11 — the cross-rung directionality law (F-OCT-11
     a/b), gated on measuring whether a `visible_from(r)` downward flatten exists.
 12. F-OCT-1 and F-OCT-2 amended in §10's table per §16.4 / §16.5.
+
+---
+
+## 17. Lineage — where each organ came from, graded against the tree
+
+Operator-supplied architectural lineage, 2026-08-26, reconstructed against
+measured source. **Grades:** `SHIPPED` (type exists in code) · `DOCTRINE`
+(operator-ruled, recorded on the board, no single type) · `PLANNED` (a plan
+names it with D-ids) · `HYPOTHESIS` (no carrier, no plan).
+
+### 17.1 The ladder, graded
+
+| # | Step | Carrier measured | Grade |
+|---|---|---|---|
+| 1 | stable world, ephemeral attention (Photoshop alpha) | `AttentionMaskSoA` exists but is unconsumed; `alpha-channel-rung-overlay-v1` §1 rows C/E shipped, D absent | **PLANNED** (carrier partial) |
+| 1b | `α[domain, rung]` receipt geometry | no receipt store; no domain axis | **HYPOTHESIS** |
+| 2 | multiple domains = lenses, not vocabulary | `ClassView::band_reading` (total, zero-fallback, fallible) + MedCare's qualia-zero ruling | **DOCTRINE**, spine-unenforced (§14.1) |
+| 3 | ten reflective rungs, one-way visibility | `RungLevel` 0..9 **SHIPPED** (`cognitive_shader.rs:157`); `RungElevator` **SHIPPED** (`:272`, `E-RUNG-ASCENT-WIRED-1`); `visible_from(r)` downward flatten **absent** | **SHIPPED / partial** |
+| 4 | saccade as the unit of cognitive motion | `DispatchMode::Saccade` + `select_tactic` **SHIPPED**; driven by `Domain`, not by alpha | **SHIPPED** (but §2: not alpha-driven) |
+| 5 | Sandbox := Counterfactual + Revision | **no `Sandbox` symbol anywhere** — correct, and the point: it is a *definition*, not a type. Counterfactual runtime absent (`counterfactual-rung3-closure-v1`) | **DOCTRINE**; CF half **PLANNED** |
+| 6 | Flow / homeostasis as regulator | `Homeostasis` **SHIPPED** twice (`contract/mul.rs:113`, `planner/mul/homeostasis.rs:28` + `assess`) | **SHIPPED** |
+| 7 | MUL / DK calibration | `MulAssessment`, `DkPosition` (MountStupid→Plateau), `TrustQualia`, `GateDecision` — all **SHIPPED** | **SHIPPED**, with `mul-calibration-not-verdict-v1` correcting its role |
+| 8 | entropy regulated, not minimized | six uncoordinated per-layer surfaces (#1057 §2) | **DOCTRINE** (no canonical H, deliberately) |
+| 9 | `SettlementCell` closure × competence | `contract/src/settlement.rs:79`, `is_glass()` at `:171` | **SHIPPED** |
+| 10 | CE64 59..60 causal-epistemic topology | `CausalTopology` + D-ACR-7 two-lens reading | **SHIPPED** (nobody stamps it — §14.3) |
+| 11 | CE64 61..63 epistemic permission | `ReasoningBand` 8 variants | **SHIPPED as carrier**, gates nothing (§4) |
+| 12 | Sudoku walker | `GapKind` / `Frontier` / `Throttle` / `rcr_abduce` **SHIPPED**; GATE + removal TEST absent | **SHIPPED / partial**, steering = D-ECG-6 **PLANNED** |
+| 13 | five-state humility ladder | emerges from 7+9+10; D-ECG-4 doc-first | **PLANNED** (carriers shipped) |
+| 14 | related work as strictening | F-OCT/F-AIF tables | **PLANNED** — no falsifier has run |
+| 15 | FGVA/TAP admission-vs-budget | §15; polarity axis has **no carrier** | **HYPOTHESIS** + one substrate gap |
+
+**Reading of the grades:** the *organs* are overwhelmingly shipped; the
+*connective tissue* is not. Nine of fifteen rows have a real type. What is
+missing is in every case a **wire** — alpha→transition, topology→settlement,
+band→gate, producer→`band_reading`, receipt→geometry. That is a coherent state
+for an architecture that grew organ-first, and it is exactly why no falsifier has
+run: each one tests a wire.
+
+### 17.2 Where the lineage narrative merges orthogonal axes
+
+Four places, each measurable:
+
+1. **"8 semantic/domain arms"** — no carrier exists, *and* the number collides
+   with `ReasoningBand`'s eight variants while `RungLevel` has ten (§16.1). The
+   narrative's `8 × 10` reads inside this codebase as band × rung. **Say which 8.**
+2. **"domain-aware"** — collides with the shipped Cynefin `Domain`
+   (`Clear/Complicated/Complex/Chaotic/Confused`, `Confused` = *"the defect
+   zone"*). The lineage means *semantic lens*; the type means *state class*
+   (§8). Two different words are needed.
+3. **"entropy"** as a singular quantity (§8 of the narrative) — measured, there
+   are **six** per-layer surfaces and #1057 ruled that acceptable *because the
+   fields differ*. "Regulate entropy" has no single referent; it is six local
+   regulations, and D-ECG-1 forbids any of them serving as the closure axis.
+4. **"domain-conditioned causal Graph-CoT"** (§14 of the narrative) fuses two
+   genera the narrative itself had just separated: Graph-CoT is *reasoning over
+   an existing graph*, Causal-CoT is *constructing/completing one*. Measured, the
+   tree does the former and must not do the latter (§3). The compound phrase
+   re-imports the thing being excluded.
+
+The narrative gets **rung ≠ grain** right on its own (§15 of the narrative says
+so explicitly). That is the one axis-merge it anticipated.
+
+### 17.3 The smallest accurate "where we came from" note
+
+Nine lines. Everything else in this file is the evidence for them.
+
+> **Octopus did not start from Chain of Thought.** It started from: *if cognition
+> is stable world state plus a changing attention field, can thinking be causal,
+> inspectable and revisable rather than explained after the fact?*
+>
+> The organs were grown one constraint at a time, and each already exists in
+> code: **`RungLevel`** gave reflective depth; **`DispatchMode::Saccade`** gave
+> the unit of motion; **`Homeostasis`** gave regime fit (a control signal, never
+> an agent); **`MulAssessment`/`DkPosition`** gave calibration of felt-vs-earned
+> certainty; **`SettlementCell`** gave closure × competence; **CE64 59..60** gave
+> causal footing and **61..63** epistemic permission; **`GapKind`/`Frontier`**
+> gave a hole a shape before an identity. **Sandbox** was never a type — it is
+> the definition *Counterfactual + Revision*.
+>
+> The published literature did not define this architecture; it **made its
+> standard stricter** — a recorded trace can be decorative (Afolabi), a right
+> answer can carry wrong relations (CausalPhys), replay is not localisation
+> (D²ACCI), a diagnostic graph must stay a derived view (AIG), and admission
+> semantics outrank ranking (Causal-Audit).
+>
+> **The wrong turns deliberately avoided:** a second canonical thought graph;
+> importing Causal-CoT's invented mediators as resident state; a per-trace
+> influence graph as storage; tail-evidence bits inside CE64; `ReasoningBand`
+> degraded to a confidence float; a Sandbox state machine; a humility boolean;
+> low entropy read as mastery.
+>
+> **What remains unearned, measured:** every connective wire. The organs are
+> shipped; nothing yet stamps the topology, gates on the band, or moves the next
+> transition from a claimed alpha. That is the work, and it is falsifier-shaped.
+
+### 17.4 Board consequence
+
+13. No new plan, no new D-id. §17 is the lineage note itself; if a standalone
+    `docs/` page is later wanted, it is §17.3 verbatim and nothing more.
