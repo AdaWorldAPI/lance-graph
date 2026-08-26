@@ -584,3 +584,106 @@ F-HOT-9   Replace the local geometry with random-6 / square-4 / square-8 /
 
 That split is the point: this addendum increases what the hot field is
 asked to *do* without granting the honeycomb one inch of unearned lease.
+
+### 7.8 ADDENDUM 2026-08-26 — V4 = V3 + executable content; the three-tier JIT; OWL lowered to IR
+
+Operator-ruled, same day as §7.7. Three sentences of doctrine, then the
+architecture they imply. All CONJECTURE-graded until the probes at the end
+run; the doctrine sentences themselves are operator rulings, not findings.
+
+**The doctrine (pin verbatim):**
+
+1. **V4 = V3 + executable content.** Nothing about the bytes moves — same
+   4+12 facet, same 512-byte stride, same `ENVELOPE_LAYOUT_VERSION`. What
+   changes is what a classid can RESOLVE to: a ClassView whose content tier
+   holds executable R2IL. A V4 row IS a V3 row; a V3 reader just doesn't
+   know it can run. The "version" lives in the resolver's capability —
+   exactly where I-LEGACY-API-FEATURE-GATED wants it. No migration, no
+   layout gate, no bit reclaim.
+2. **The learned encoding is an INDEX, never the AUTHORITY.** The hexagon
+   substrate's measured 99.6% op-decode (3 training programs, muscle-memory
+   arc) is a recall number, and execution cannot ride on recall — a
+   mis-decoded op that executes is silent corruption. Two-tier decode:
+   hexagon PROPOSES (associative, ~always right), the exact ogar-r2il
+   tables (ARITY/MNEMONICS, O(1)) VERIFY. Agree → execute. Differ → table
+   wins, the disagreement becomes a training example. The 0.4% tail fails
+   LOUD into the slow lane and teaches; it never mis-executes. Same
+   relationship CAM-PQ has to the full fingerprint (search tier vs truth
+   tier, I-VSA-IDENTITIES).
+3. **Execution is population-masked, never per-row.** The interpreter's
+   unit of work is (program, mask), not (program, row). One instruction,
+   N lanes: the varnode read/write is an ndarray SIMD sweep over the
+   facet-register columns; dispatch amortizes over the mask's popcount.
+   Divergence = split the mask, run both arms masked, re-join (an
+   `and_not`, not an architecture). The interpreter never sees a `long[]`
+   of rows — mask-native law applied to interpretation.
+
+**The three-tier JIT (the operator's Cranelift framing, grounded):**
+
+| tier | engine | trigger | status |
+|---|---|---|---|
+| 0 — decode | hexagon recall + exact-table verify | every op | hexagon measured 99.6%; verify tables SHIPPED (ogar-r2il) |
+| 1 — interpret | vectorized r2sym (r2sleigh × ndarray masks) | every (program, mask) | r2sym exists row-at-a-time; vectorization is the build |
+| 2 — native | `ndarray::hpc::jitson_cranelift` via `lance-graph-contract::jit::JitCompiler` | HOT programs | Cranelift engine SHIPPED behind `jit-native`; trait SHIPPED |
+
+**The profiler already exists and it is the alpha channel.** Tier-up needs
+a hotness counter; `AlphaStamp{cycle, seq, visits}` IS one. A program body
+whose alpha visit count crosses threshold gets handed to jitson;
+`KernelHandle` caches it. The meta-awareness concern and profile-guided
+optimization are the SAME mechanism read at two rungs — the open-loop
+activation plane (§7.7's hot material) doubles as the JIT profile with
+zero new machinery. This is the strongest structural argument yet that
+alpha belongs in the contract tier (beside `attention_facet`), consumed by
+whatever hosts the interpreter.
+
+**OWL/RDF lowered to IR — the scope fence that keeps it honest:**
+
+The lowering target is **OWL RL** (the forward-chaining rule profile),
+NOT full OWL DL. OWL RL rules compile to R2IL naturally: a SubClassOf
+axiom = a masked facet check + mask union; a property chain = a masked
+hop sequence; materialization = run rules to fixpoint, where the fixpoint
+test is FREE in mask algebra (the delta mask is empty). Full DL needs
+tableau reasoning — do not promise it, do not build it.
+
+This completes the compiler picture with the tier the stack already has:
+
+- **AOT** = the ontology BAKE (MedCare's closure tables — `is_a` rails,
+  ancestor closures). What is known at bake time is compiled ahead.
+- **Interpreter** = R2IL over masks, for rules that arrive AFTER the bake
+  (dynamic axioms, per-tenant rules) — no re-bake needed.
+- **JIT** = jitson for the dynamic rules that alpha proves hot.
+
+So "lower OWL into IR like Cranelift" is not a metaphor: bake/interpret/
+tier-up is literally the JVM/V8 model with the alpha plane as the
+profiler and the ontology bake as AOT.
+
+**Space binding + write-back (from the same-day co-architecting, so it
+doesn't dilute):** R2IL `register` space = the node's own 12-byte facet
+register; `ram` = classid-prefixed SoA lanes (the GUID is the pointer);
+`unique` = never-persisted scratch. `machine_memory_map` (0xC604) is the
+per-class binding table — which rails a program may read/write:
+ClassView for behavior. The interpreter's `Store` never writes through;
+it emits into the open cycle image (mailbox-owned) — R2IL executes hot,
+lands cold, one writer preserved.
+
+**Probes, in dependency order (each independent; 1–2 need no ndarray
+wiring):**
+
+- **PROBE-R2IL-DECODE-AUTHORITY** — hexagon-proposes/table-verifies over
+  the trained corpus: the 0.4% must be CAUGHT (disagreement detected),
+  zero silent mis-executes. The safety case for everything above.
+- **PROBE-R2IL-LIVE-REGFILE** — one harvested 6502 routine, N=1,
+  facet-register byte-parity vs a reference emulator after N instructions.
+  Proves the space binding.
+- **PROBE-R2IL-LANES** — same routine, N=64K masked lanes through the
+  ndarray sweep. The throughput number that makes "realtime" credible.
+- **PROBE-OWL-RL-FIXPOINT** — one OWL RL rule set lowered to R2IL, run to
+  fixpoint over a baked population; inferred-mask parity vs the bake's own
+  closure for the axioms both know. Gates the AOT/interpreter seam.
+
+**Java/Valhalla arm, settled:** a Java interpreter (even value-class
+flattened) ends where lance-graph-java's own law points — compute lands
+through Panama into ndarray kernels anyway, so it buys a second
+interpreter that drifts. Java STEERS (which mask, which program address,
+when): one ABI call `(program_ref, mask_handle) → mask_handle`, bulk and
+lifecycle-clean. Rust EXECUTES. One interpreter, two front-ends.

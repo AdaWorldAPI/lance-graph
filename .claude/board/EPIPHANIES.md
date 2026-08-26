@@ -1,3 +1,32 @@
+## 2026-08-26 — E-V4-EXECUTABLE-CONTENT-THREE-TIER-JIT-1 — V4 = V3 + executable content; learned encoding is an index never the authority; execution is population-masked; alpha IS the JIT profiler
+
+**Status:** DOCTRINE — [OPERATOR-RULED], same-day pair with
+E-COUPLED-MATERIALS-NOT-A-CHOOSER-1. Full architecture + probe queue:
+`r2il-machine-semantic-contract-v1.md` §7.8.
+**Confidence:** High on the three doctrine sentences (rulings). The tier
+table is grounded in shipped code (`ndarray::hpc::jitson_cranelift` behind
+`jit-native`; `lance-graph-contract::jit::JitCompiler`; ogar-r2il exact
+tables). Everything execution-shaped is CONJECTURE until
+PROBE-R2IL-DECODE-AUTHORITY / -LIVE-REGFILE / -LANES / PROBE-OWL-RL-FIXPOINT
+run.
+
+The three sentences: (1) **V4 = V3 + executable content** — same bytes,
+same stride, same `ENVELOPE_LAYOUT_VERSION`; the version lives in the
+resolver's capability, not the layout. (2) **The learned encoding (hexagon,
+99.6% measured) is an INDEX, never the AUTHORITY** — hexagon proposes,
+ogar-r2il's exact tables verify; the 0.4% tail fails loud and becomes
+training signal, never a silent mis-execute. (3) **Execution is
+population-masked, never per-row** — the interpreter's unit is
+(program, mask); divergence is mask algebra.
+
+The closure that earns the entry: **tier-up needs a hotness counter and
+`AlphaStamp.visits` already is one** — the meta-awareness plane and
+profile-guided optimization are the same mechanism read at two rungs. And
+the OWL arm is scope-fenced to **OWL RL only** (forward-chaining rules →
+R2IL, fixpoint = empty delta mask); the ontology BAKE is the AOT tier,
+R2IL the interpreter for post-bake rules, jitson the JIT for the hot ones.
+Full DL / tableau reasoning is explicitly NOT promised.
+
 ## 2026-08-26 — E-COUPLED-MATERIALS-NOT-A-CHOOSER-1 — closing an activation loop with an executive selector is the tempting wrong move; the transition must be a consequence of coupled cold/hot state
 
 **Status:** CORRECTION — [OPERATOR-RULED]. Records a formulation that was
