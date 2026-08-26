@@ -384,6 +384,7 @@ impl ActionInvocation {
 #[cfg(test)]
 mod commit_via_tests {
     use super::*;
+    use crate::mul::{FlowState, TrustTexture};
 
     // Minimal ClassRbac test double: a fixed grant table.
     struct TestRbac {
@@ -478,7 +479,8 @@ mod commit_via_tests {
             &rbac,
             actor("u1"),
             &GateDecision::Block {
-                reason: "x".to_string(),
+                texture: TrustTexture::Uncertain,
+                flow: FlowState::Transition,
             },
             Some("draft"),
             3000,
@@ -579,6 +581,7 @@ mod commit_via_tests {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::mul::{FlowState, TrustTexture};
 
     /// `const`-constructibility — the exact shape a generated
     /// `const ACTIONS: &[ActionDef]` emits (mirrors the `MethodSig` guard).
@@ -718,7 +721,8 @@ mod tests {
                 def,
                 &actor_with(&["sales_manager"]),
                 &GateDecision::Block {
-                    reason: "x".to_string()
+                    texture: TrustTexture::Uncertain,
+                    flow: FlowState::Transition,
                 },
                 Some("draft"),
                 2000
@@ -757,7 +761,8 @@ mod tests {
                 def,
                 &any,
                 &GateDecision::Hold {
-                    reason: "low confidence".to_string()
+                    texture: TrustTexture::Overconfident,
+                    flow: FlowState::Transition,
                 },
                 None,
                 1000
@@ -772,7 +777,8 @@ mod tests {
                 def,
                 &any,
                 &GateDecision::Block {
-                    reason: "unsound impact".to_string()
+                    texture: TrustTexture::Uncertain,
+                    flow: FlowState::Transition,
                 },
                 None,
                 1000

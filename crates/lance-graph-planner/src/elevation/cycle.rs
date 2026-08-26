@@ -5,8 +5,10 @@
 //! - the **per-cycle** −550 000 µs **Libet anchor** the contract's scheduler
 //!   stamps on the `Planning → CognitiveWork` Σ-commit crossing
 //!   (`lance_graph_contract::scheduler::NextPhaseScheduler`,
-//!   `KanbanMove::libet_offset_us`) — the readiness window a thinking cycle
-//!   has before its commit lands;
+//!   `KanbanMove::libet_window_us`) — the readiness window a thinking cycle
+//!   has before its commit lands. (Was `libet_offset_us` until that field was
+//!   retired; magnitude now lives in `contract::kanban::LIBET_COMMIT_WINDOW_US`
+//!   and direction is carried by the transition itself.);
 //! - the **per-strategy** [`PatienceBudget`] this module's sibling
 //!   [`budget`](super::budget) derives from the thinking cluster.
 //!
@@ -25,7 +27,7 @@
 //! throughput ≥ delta production rate — instrument both, gate neither.
 //!
 //! Cross-ref (M12 "both ways"): `contract::scheduler` (the anchor's write
-//! side), `contract::kanban::KanbanMove::libet_offset_us` (the carrier),
+//! side), `contract::kanban::KanbanMove::libet_window_us` (the carrier),
 //! `.claude/v3/ENTROPY-MILESTONES.md` M12, INTEGRATION-PLAN W2d.
 
 use super::budget::{budget_for_cluster, PatienceBudget};
