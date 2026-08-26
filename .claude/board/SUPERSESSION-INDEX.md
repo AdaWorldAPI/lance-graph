@@ -109,7 +109,7 @@ a licence to act on it.
 | **RESCOPE** | `unified-integration-v1` | `BindSpace`, `MergeMode`, `ThinkingStyle` | Active — brainstorm phase complete; delivera | 0/0 |
 | **RESCOPE** | `2026-05-06-splat-osint-ingestion-v1` | `BindSpace`, `MergeMode` | Active — PR 1+2 of 6 in flight on `claude/sp | 1/7 |
 | **RESCOPE** | `Palette256-3DSB-PhiSpiral-attention-integration-plan` | `BindSpace`, `CollapseGateEmission` | — | 0/0 |
-| **RESCOPE** | `alpha-interventional-faithfulness-v1` | `GateDecision`, `ThinkingStyle` | PROPOSAL (measured targets, unbuilt) — 2026- | 0/7 |
+| **RESCOPE** | `alpha-interventional-faithfulness-v1` | `GateDecision`, `ThinkingStyle` | PROPOSAL (measured targets, unbuilt) — 2026- | 1/7 |
 | **RESCOPE** | `anatomy-realtime-v1` | `BindSpace`, `ThinkingStyle` | — | 0/1 |
 | **RESCOPE** | `elegant-herding-rocket-v1` | `BindSpace`, `ThinkingStyle` | — | 0/0 |
 | **RESCOPE** | `grounding-descent-cognitive-maslow-v1` | `GateDecision`, `ThinkingStyle` | PROPOSED (unbuilt; every mechanism cited exi | 1/7 |
@@ -129,7 +129,7 @@ a licence to act on it.
 | **RESCOPE** | `codec-sweep-via-lab-infra-v1` | `BindSpace` | — | 0/0 |
 | **RESCOPE** | `cycle-coherent-soa-snapshot-v1` | `CollapseGateEmission` | Queued | 0/6 |
 | **RESCOPE** | `dacr7-band-reading-contract-v1` | `ThinkingStyle` | — | 3/5 |
-| **RESCOPE** | `entropy-closure-causal-ground-v1` | `ThinkingStyle` | PROPOSAL (measured, unbuilt) — 2026-08-26. P | 2/8 |
+| **RESCOPE** | `entropy-closure-causal-ground-v1` | `ThinkingStyle` | PROPOSAL (measured, unbuilt) — 2026-08-26. P | 3/8 |
 | **RESCOPE** | `foundry-consumer-parity-v1` | `BindSpace` | Active | 0/0 |
 | **RESCOPE** | `foundry-roadmap-unified-smb-medcare-v1` | `BindSpace` | Active | 0/0 |
 | **RESCOPE** | `lf-integration-mapping-v1` | `BindSpace` | Active (2026-04-25) | 0/0 |
