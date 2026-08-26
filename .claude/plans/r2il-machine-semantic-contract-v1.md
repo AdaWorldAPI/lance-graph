@@ -1206,3 +1206,45 @@ disable runs red-then-green (logged in the module doc), clippy/fmt/
 workspace-check green. PROBE-R2IL-LIVE-REGFILE is now unblocked: lift a
 6502 routine → run through SlabState → register-file byte parity vs a
 reference emulator.
+
+**PROBE-R2IL-LIVE-REGFILE: RUN, GREEN (2026-08-26 — r2sleigh
+`crates/r2conc/tests/live_regfile.rs`, feature `probe-6502`; plan
+`probe-r2il-live-regfile-v1.md`).** A hand-assembled 6502 multiply routine
+lifted by **Ghidra's own compiled SLEIGH spec** and executed op-at-a-time
+through `SlabState` matches an **independently written** reference 6502 on
+the full architectural state, across operand pairs whose products exceed
+255. 18/18; seven disable runs red-then-green. Three legs keep it from
+being an echo: Ghidra's semantics (external), an isolation-enforced oracle
+(never saw the R2IL side), and arithmetic itself.
+
+Four things it MEASURED rather than assumed, each pinned:
+
+1. **6502 memory lifts to `SpaceId::Ram`, not `Custom(n)`** — completing
+   the §7.8 correction. The case-sensitive alias finding is TRUE of
+   `LiftContext`/`ArchSpec` and FALSE of the `Vec<R2ILOp>` stream, which
+   dispatches on libsla's `AddressSpaceType`. Both sites corrected.
+   *A finding about a data structure is not automatically a finding about
+   every path that touches it.*
+2. **The facet binding is a PROJECTION, not a byte-identity.** SLEIGH's
+   6502 register space spans **55 bytes** (each status flag is its own
+   byte register); the *semantic* register file is **7 bytes** and fits a
+   12-byte V3 facet register with room to spare. §7.8's binding stands,
+   with that word corrected from identity to projection.
+3. **Ghidra's 6502 `ADC` is defective**: carry-out ignores the carry-in,
+   and `V := C`. Not our bug; the probe drives it deliberately and asserts
+   the two sides DISAGREE, which is what proves the harness can fire.
+4. **The probe corrected its own prediction.** The plan predicted the
+   routine was immune (it `CLC`s before every `ADC`, never *reads* `V`) —
+   premises true, conclusion false, because `ADC` still *writes* `V`. On
+   `255 × 255` both sides agree on the product `0xFE01` and every other
+   field while `V` diverges. **"The buggy path is unreachable" is a claim
+   about the whole architectural state, not just the computed result.**
+
+Also forced by building it: `r2conc` now **refuses a `Const`-space branch
+target** (a p-code-relative branch within one instruction, not an address)
+rather than misreading the displacement as an address — a latent
+silent-wrong, now loud. The 6502 emits none, so the gap was invisible
+until the probe went looking.
+
+Remaining in the §7.8 queue: PROBE-R2IL-LANES (the masked-population
+sweep) and PROBE-OWL-RL-FIXPOINT (the projected-rule lens).
