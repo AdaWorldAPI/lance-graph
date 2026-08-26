@@ -1114,3 +1114,23 @@ Green → navigation and execution are one algebra, proven. Red → the
 zipper reading is demoted to poetry before anything is built on it.
 Needs only existing pieces (masks, ClassView carving, ogar-r2il tables) —
 no r2sleigh, no hexagon, no emulator.
+
+**PROBE-ZIPPER-HOP-PARITY: RUN, GREEN (2026-08-26 — OGAR
+`crates/ogar-r2il/tests/zipper_hop_parity.rs`, commit 66946e8, PR #286).**
+The zipper isomorphism's pure fragment is promoted **CONJECTURE →
+FINDING**: a 3-level rail descent over a 197-row `FacetCascade` slab,
+answered as (a) one fused u128 prefix compare (the compiled/closure
+shape) and (b) an op-at-a-time interpretation of a straight-line
+`Load`/`IntEqual`/`BoolAnd` program dispatched through the real `R2ILFn`
+table, is **bit-identical** — with a trap population making per-level,
+per-byte, in-order matching load-bearing (rows for AND→OR, lo-byte-only
+compare, skipped level, out-of-order pairs, half-pair), all five disable
+runs red-then-green. The fence is executable: `Store` is refused by the
+pure-fragment interpreter; a core byte below the domain floor is refused
+by the table. Zero-copy end to end (reinterpret views, in-place register
+reads, unique-space scratch, masks both sides) per the operator nudge:
+*V3 and V4 are both zero-copy — serialization exists only in the intake
+arm; after that it is codebook-index masking algebra.* Scope honesty:
+proven for the PURE fragment at depth ≤ 3 over a synthetic slab; the
+effectful fragment and real baked populations remain with
+LIVE-REGFILE / LANES / OWL-RL-FIXPOINT.
