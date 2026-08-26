@@ -311,13 +311,52 @@ Sandbox = Counterfactual + Revision
   witness-fabric revision machinery: if the sandboxed reading wins, a NARS
   revision lands on the axis; if not, nothing touched the committed state.
 
-So "sandbox" in this architecture is not a mode flag, a container, or a
-permission level — it is *reasoning routed through the counterfactual lane with
-revision as its only write-back path*. `Sandbox { reason: String }` in the
-planner therefore has a typed successor already on the shelf: the counterfactual
-mailbox is the sandbox, and the revision verdict is its exit. This also
-tightens F-MUL-4: a "need more data / not ready" state routes to counterfactual
-+ revision (learn first), never to a domain `Hold`.
+So "sandbox" in this architecture is not a mode flag, a container, a
+permission level, **or a planner hint** — it is *reasoning routed through the
+counterfactual lane with revision as its only write-back path*.
+`Sandbox { reason: String }` in the planner therefore has a typed successor
+already on the shelf: the counterfactual mailbox is the sandbox, and the
+revision verdict is its exit. This also tightens F-MUL-4: a "need more data /
+not ready" state routes to counterfactual + revision (learn first), never to a
+domain `Hold`.
+
+**Ratified sharpening (operator, same day): Sandbox sits on its OWN axis.** The
+earlier candidate shape `Trusted / Explore / Sandbox / Human` (already not
+adopted per §4) was wrong for a second reason — `Sandbox` does not belong
+*beside* MUL outcomes as another advisory category at all. The three mechanisms
+are orthogonal axes over the same cognitive state:
+
+```text
+                current cognitive state
+                         │
+         ┌───────────────┼────────────────┐
+         │               │                │
+         ▼               ▼                ▼
+        MUL        Flow/Homeostasis   Counterfactual
+   confidence       regime fitness          +
+   calibration      / adaptation         Revision
+         │               │                │
+         │               │                ▼
+         │               │             Sandbox
+         └───────────────┼────────────────┘
+                         ▼
+                next cognitive state
+```
+
+The compact rule:
+
+```text
+MUL ≠ Sandbox
+Flow ≠ Sandbox
+Sandbox ≠ generic safety mode
+
+Sandbox := Counterfactual + Revision
+```
+
+No extra organ needed — the organism already had both halves. Consequence for
+D-MCAL-5: the planner's `Sandbox` arm is read as *routing into* the
+counterfactual+revision pair, never as a sibling advisory category of MUL's
+output; a future typed surface names the routing, not a new mode.
 
 ---
 
