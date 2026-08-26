@@ -1,5 +1,43 @@
 # Issues Log — Open + Resolved (double-entry, append-only)
 
+## ISS-PERTURBATION-P64-ADDRESS-IDENTITY-UNPROVEN (2026-08-26) — OPEN
+
+The dense perturbation field (`PerturbationDto.energy`, canonically 4096
+codebook-indexed f32) and the p64 palette field (64×64 = 4096 cells, addressed
+`S/4 × O/4` from `CausalEdge64` via `edge_to_block`) were DESIGNED as one
+space — the 64×64 field as the COCA codebook LUT, SPO 2³ as its 8×
+amortization, CE64's 3×8 = 24 SPO bits carrying the NARS decomposition
+(design intent, operator 2026-08-26). But intent is not identity: the code
+has never proven `energy[i] ↔ cell[i/64][i%64] ↔ (S/4, O/4)`, and the two
+spaces may have drifted apart across the format history. The audit question (Q1),
+before any wiring: what was the canonical `codebook_id[0..4095] ↔
+(row, col)[0..63]²` map — (A) row-major `id>>6, id&63`, (B) Morton
+deinterleave 12→6+6, (C) codebook-specific permutation? No mapping exists in
+code today (grep: thinking-engine, p64-bridge, deepnsm — zero hits for the
+6+6 split); historical P64/COCA/Morton docs and fixtures are the evidence
+base. A row-major cast tests green under bijection even if the truth was
+Morton — and still spatially scrambles the field. Until `energy[i] ↔ cell[row][col]`
+is proven, no lowering of the perturbation field onto the p64 mask ALU may be
+wired — count-equality is not identity, and wiring on it would be
+representation-before-generator (grounding-descent plan §7a's named error).
+
+Probe design (CONTROL: today's top_k→min/max window as baseline; EXPERIMENT:
+energy → proven 64×64 mask → p64 combine/contra/style; SABOTAGE: permute the
+energy↔cell addressing — same result under permutation kills the ALU
+hypothesis) recorded in
+`E-THE-PERTURBATION-FIELD-NEVER-REACHED-THE-MASK-ALU-1`.
+
+Scope sharpened same day (operator): the FORWARD design question is not to
+restore the 4096-lexicon mapping — the idea migrated up into the token seam
+(tesseract-paperless → #1017 token receipt → DeepNSM-v2 on the 256:256 rail,
+#798). p64's modern role is a WORKING-SET ALU: the question is where in that
+intake path a ≤ 4096 active set first arises to justify the 64×64 mask field.
+Q1 stays open as history forensics (it decides whether any legacy fixture can
+be read spatially at all).
+
+Not actioned: the probe needs real (non-induced) perturbation fields, and the
+mapping proof is a measurement, not an inspection.
+
 ## ISS-GATEDECISION-ORDINAL-COLLISION (2026-08-26) — OPEN
 
 **Two live types are named `GateDecision`, and their locked byte mappings are

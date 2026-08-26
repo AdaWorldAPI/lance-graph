@@ -71,6 +71,13 @@ pub fn ingest_codebook_indices(
         }
 
         // Build content fingerprint: set bit at `idx` position.
+        //
+        // The modulo wrap below shares the aliasing defect fixed in
+        // `busdto_to_binary16k` (an index >= 16384 lands on a foreign bit),
+        // but this arm is fed by the LAB-ONLY gRPC/serve surface with
+        // caller-supplied indices — a hard assert here would let a network
+        // client panic the lab server. Documented instead of asserted;
+        // canonical inputs are codebook indices < 4096 and never wrap.
         let mut content = [0u64; WORDS_PER_FP];
         let bit = idx as usize % (WORDS_PER_FP * 64);
         content[bit / 64] |= 1u64 << (bit % 64);
@@ -91,7 +98,25 @@ pub fn ingest_codebook_indices(
 // PerturbationDto → ShaderDispatch (top-k seeds the scan window)
 // ═══════════════════════════════════════════════════════════════════════════
 
+/// Energy above which a top-k index is *worth scanning* — the control-plane
+/// admission threshold of [`dispatch_from_top_k`]. Deliberately STRICTER than
+/// [`SUPPORT_ENERGY`]: scanning costs cycles, recording support costs a bit.
+/// The two thresholds are distinct on purpose; a change to either must say
+/// which role it means (they are not accidental drift — this comment is the
+/// receipt).
+pub const SCAN_WORTHY_ENERGY: f32 = 0.01;
+
 /// Build a ShaderDispatch from resonance top-k.
+///
+/// **This is a control-plane WINDOW heuristic, not a mask.** The surviving
+/// indices collapse to `min..=max` — `{7, 42, 900}` scans rows `7..901`, not
+/// the set `{7, 42, 900}`. The dense `PerturbationDto::energy` field never
+/// reaches this seam at all; only `top_k` does. See the board entry
+/// `E-THE-PERTURBATION-FIELD-NEVER-REACHED-THE-MASK-ALU-1` and
+/// `ISS-PERTURBATION-P64-ADDRESS-IDENTITY-UNPROVEN` before "fixing" this into
+/// a mask: the address identity between `energy[i]` and the p64 64×64 cell
+/// (`S/4 × O/4`) is UNPROVEN, and lowering without that proof is
+/// representation-before-generator.
 ///
 /// The top-k codebook indices from the thinking-engine's resonance field
 /// become the row window for the shader to scan. If the BindSpace has
@@ -104,7 +129,7 @@ pub fn dispatch_from_top_k(
 ) -> ShaderDispatch {
     let active: Vec<u16> = top_k
         .iter()
-        .filter(|&&(_, e)| e > 0.01)
+        .filter(|&&(_, e)| e > SCAN_WORTHY_ENERGY)
         .map(|&(idx, _)| idx)
         .collect();
 
@@ -204,18 +229,33 @@ const TOP_K_ENERGY_BASE_DIM: usize = 1; // qualia[0] = headline energy, [1..9] =
 /// Binary16K accumulator. Each index sets one bit at `idx % WIDTH_BITS`.
 /// `top_k` entries with energy ≤ 0.0 are skipped (zero-energy = no support).
 #[cfg(feature = "with-engine")]
+/// Energy above which a top-k entry is *worth recording as support* — the
+/// commit-bit threshold of [`busdto_to_binary16k`]. Deliberately LOOSER than
+/// [`SCAN_WORTHY_ENERGY`]: see that constant's doc for why the two differ.
+pub const SUPPORT_ENERGY: f32 = 0.0;
+
 fn busdto_to_binary16k(bus: &BusDto) -> [u64; WORDS_PER_FP] {
     let width_bits = WORDS_PER_FP * 64;
     let mut bits = [0u64; WORDS_PER_FP];
     let mut set_bit = |idx: u16| {
-        let pos = (idx as usize) % width_bits;
-        bits[pos / 64] |= 1u64 << (pos % 64);
+        // Out-of-plane indices set NO bit — never a foreign one. The modulo
+        // this replaces aliased any idx >= 16384 onto an unrelated bit (a
+        // plausible wrong answer). A hard assert is ALSO wrong here: the
+        // corner-corpus roundtrip test pins u16::MAX as a legal transport
+        // value (the headline survives losslessly via qualia[9], not via
+        // this plane), so out-of-plane is a DOCUMENTED loss — the same
+        // class as supporters with energy <= SUPPORT_ENERGY, whose indices
+        // are likewise unrecoverable from the plane. Skip, don't lie.
+        let pos = idx as usize;
+        if pos < width_bits {
+            bits[pos / 64] |= 1u64 << (pos % 64);
+        }
     };
     // Headline: codebook_index always sets a bit (BusDto IS a committed thought).
     set_bit(bus.codebook_index);
-    // Top-K supporters: only those with positive energy contribute a bit.
+    // Top-K supporters: only those above SUPPORT_ENERGY contribute a bit.
     for &(idx, e) in bus.top_k.iter() {
-        if e > 0.0 {
+        if e > SUPPORT_ENERGY {
             set_bit(idx);
         }
     }
