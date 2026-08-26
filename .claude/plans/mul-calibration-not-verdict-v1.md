@@ -367,3 +367,66 @@ Anti-vacuity: F-MUL-1/2 must be shown **red first** against today's `main`
 - **OQ-MCAL-5** — three `TrustTexture` definitions exist beyond the two MULs
   (`causal-edge/src/layout.rs:141`, `arigraph/orchestrator.rs:114`). Five total.
   Out of scope here; named so it is not rediscovered.
+
+---
+
+## 8. The regulator's target: entropy REGULATION, not minimization (operator, 2026-08-26)
+
+The loop in T8 has a target variable, and it is not `H → 0`. Introspection and
+exploration are a thermodynamic pair:
+
+```text
+INTROSPECTION                 EXPLORATION
+entropy ↓                     entropy ↑
+compression, structure,       novelty, sampling,
+convergence                   divergence
+```
+
+Homeostasis does not let either side win — it holds cognition in a **productive
+entropy band**. And entropy alone cannot distinguish *"I know it"* from *"I have
+seen almost nothing"*: both produce a low-entropy attention field. That is what
+makes the NARS truth value essential as the second sensor, and gives the DK
+detector its precise job:
+
+| attention entropy H | evidence / confidence c | reading | adaptation |
+|---|---|---|---|
+| low | high | genuine compression / understood | hold introspective style; maybe commit |
+| low | low | **epistemic poverty** | open the field; think more exploratively |
+| high | high | genuine complexity / ambiguity | structure; become more introspective |
+| high | low | noise / overload | raise data quality; do not fan out blindly |
+
+The DK gate's single task in this loop:
+
+```text
+H low + c high                       → legitimate convergence
+H low + c low                        → suspicious simplicity → exploration
+H low + c low + felt certainty high  → DK danger → definitely do not commit
+```
+
+It does not decide content, and it does not select the thinking style directly.
+It prevents one specific equivocation: **`low entropy == mastery`** — unearned
+closure masquerading as understanding, by watching the discrepancy between
+*felt* closure and *evidenced* closure.
+
+The Csikszentmihalyi/homeostasis axis is then the **regulator around this
+oscillator** — not `boredom → do X`, but: too little cognitive tension → the
+field may have collapsed too early, widen/change style; productive tension →
+keep the regime; too much unresolved tension → narrow, structure, introspect.
+This is the cognitive-shader-driver reading exactly: the shader changes the
+**conductivity of the attention field**, never the world.
+
+The rule, in one line:
+
+> **Entropy tells us how open the cognitive field is. Truth confidence tells us
+> whether that openness or closure is earned. DK prevents unearned closure from
+> masquerading as understanding.** Only from there follows thinking-style
+> modulation.
+
+This is a living control loop, not a gate tree — which is the final argument
+for §0's withdrawal of `GateLevel`: generifying the gate would have hardened
+the gate-tree reading of a system whose actual shape is an oscillator with a
+band-keeping regulator.
+
+Falsifier hook (future, not this plan's gate): the four-quadrant matrix is
+testable — construct low-H/low-c and low-H/high-c fields and show the system
+routes them differently. If it cannot, entropy is being read as mastery.
