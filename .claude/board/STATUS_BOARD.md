@@ -29,6 +29,7 @@ prediction, and a falsifier is not green until it has actually run.
 | D-OCT-8 | F-OCT-8 counterfactual necessity (mediator removal) — blocked on the `from_mantissa(-6)` inversion | Queued |
 | D-OCT-9 | F-OCT-9 unknown may remain unknown (`GapKind::{HubExcluded,BudgetExhausted}`) — likely PASS | Queued |
 | D-OCT-10 | F-OCT-10 no second world — passes by absence; the guard is prospective | Queued |
+| D-OCT-11 | F-OCT-11 cross-rung directionality (below moves higher / above leaves lower unchanged) — `RungLevel` ships, `visible_from(r)` absent | Queued |
 
 ## entropy-closure-causal-ground-v1 — PROPOSED 2026-08-26 (measured)
 

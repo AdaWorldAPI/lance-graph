@@ -1,5 +1,63 @@
 # Issues Log — Open + Resolved (double-entry, append-only)
 
+## ISS-NO-CAUSAL-SIGN-ON-EDGES (2026-08-26) — OPEN
+
+`CausalEdge64` carries **no Inc/Dec polarity**. Measured: `grep -niE
+"polarity|Increase|Decrease"` over `lance-graph-contract/src` + `causal-edge/src`
+returns only clause-level negation cues (`grammar/clause_cues.rs:128`, *"words
+that flip a clause's predicate polarity"*) and NARS observation polarity
+`f ∈ {0,1}` (`grammar/thinking_styles.rs:151`). Neither is an edge-level causal
+sign.
+
+Consequence: the **state axis** of a target-relative admission test has no
+carrier, so
+
+```
+↑ steroid → ↓ inflammation      admitted silently against a target needing  ↑ inflammation
+```
+
+on a perfect entity match. Causal-Audit's expander emits signed triples
+`(u, Inc|Dec, v)` and its hard state-conflict kill depends on that sign; ours
+cannot express the conflict at all. This is a substrate-tier question — where
+does causal sign live: an edge field, a `ValueTenant` lane, or a
+`ClassView`-declared reading? — and per the missing-capability STOP rule it is
+answered one tier down BEFORE any walker consumes it. Deliberately left open.
+Ref: `.claude/plans/octopus-causal-cot-audit-v1.md` §15.3, §16.3.
+
+## ISS-D-ECG-6-BUDGET-WITHOUT-ADMISSION (2026-08-26) — OPEN
+
+D-ECG-6 (`entropy-closure-causal-ground-v1.md:208`) specifies a *"census-ranked
+frontier: prefer `IndirectKnown` > `IndirectUnknown` > `Unknown` for
+tractability"*. That ranks by how tractable a candidate's **own topology** is —
+never by whether the candidate is **relevant to the hole being filled**. It is a
+BUDGET with no ADMIT stage in front of it.
+
+Against the measured Causal-Audit ablation that is the failure mode with the
+large coefficient: budget without admission is the "simple alignment" arm
+(Path Reach 96% → 15%), while the ranking itself is worth 3.3pp over random
+prune. D-ECG-6 has the cheap half and is missing the expensive one.
+
+Amendment (that plan's to make, not the audit's): insert ADMIT before the census
+rank — a sharpening of the existing FILTER stage from "static constraints" to
+"target-relative type check". No new D-id, no new plan.
+Ref: `.claude/plans/octopus-causal-cot-audit-v1.md` §15.2.
+
+## ISS-RUNG-VS-BAND-CARDINALITY-COLLISION (2026-08-26) — OPEN
+
+Two ladders share both endpoint names and differ in cardinality and meaning:
+
+| type | file | values |
+|---|---|---|
+| `RungLevel` | `contract/src/cognitive_shader.rs:157` | **10** — `Surface 0 … Transcendent 9` |
+| `ReasoningBand` | `causal-edge/src/layout.rs:353` | **8** — `Surface 0 · Association · Relation · Causal · Counterfactual · Perspective · Meta · Transcendent 7` |
+
+CE64 61..63 is three bits, so it **physically cannot hold a `RungLevel`**
+(10 > 2³). Any "8×10" shorthand for the alpha receipt must state which 8 it
+means: the 8 is DOMAINS (for which no carrier exists — measured absent), NOT the
+eight reasoning bands. A session reading "8×10" inside this codebase will
+collide the two by default.
+Ref: `.claude/plans/octopus-causal-cot-audit-v1.md` §16.1.
+
 ## ISS-ALPHA-NOT-LOAD-BEARING (2026-08-26) — OPEN
 
 `AttentionMaskSoA` (`cognitive-shader-driver/src/attention_mask.rs`) has **no

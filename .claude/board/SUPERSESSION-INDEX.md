@@ -62,7 +62,7 @@ coverage instead.
 | `ResonanceDto` | REPURPOSE | `PerturbationDto` | 2 | 6 | 5 |
 | `BindSpace` | RETIRE | — | 67 | 41 | 40 |
 | `CollapseGateEmission` | RETIRE | — | 5 | 12 | 12 |
-| `ThinkingStyle` | RETIRE-toward-contract | — | 51 | 26 | 23 |
+| `ThinkingStyle` | RETIRE-toward-contract | — | 51 | 27 | 24 |
 
 ## Table 2 — plans naming a ruled symbol without citing the ruling (67)
 
@@ -87,7 +87,6 @@ a licence to act on it.
 | **READ** | `integration-actionhandler-rbac-orchestration-v1` | `GateDecision` | HARDENING (5+3 in progress). | 0/0 |
 | **READ** | `mask-algebra-revision-read-v1` | `StepMask` | DRAFT, awaiting operator ruling on §5 | 1/3 |
 | **READ** | `mul-calibration-not-verdict-v1` | `GateDecision` | PROPOSAL (unbuilt) — 2026-08-26. PLAN/BOARD  | 4/12 |
-| **READ** | `octopus-causal-cot-audit-v1` | `GateDecision` | MEASUREMENT REPORT. **No code. No new type.  | 0/1 |
 | **READ** | `persistence-artifact-backed-commit-v1` | `persist_cycle` | RATIFIED (operator ruling 2026-08-09). Phase | 0/0 |
 | **READ** | `r2il-bpe-typed-genetic-recombination-v1` | `GateDecision` | PROPOSAL, §7's three falsifiers now RUN (see | 1/1 |
 | **READ** | `scientific-kg-substrate-v1` | `GateDecision` | PROPOSED — **scoping doc**, no code. Records | 8/9 |
@@ -117,6 +116,7 @@ a licence to act on it.
 | **RESCOPE** | `kognitionswirtschaft-v1` | `GateDecision`, `ThinkingStyle` | PROPOSED (unbuilt, unprobed). Operator-initi | 1/7 |
 | **RESCOPE** | `lance-graph-ontology-v5` | `BindSpace`, `GateDecision` | Drafted (2026-05-07). Picks up where v4 (`cl | 3/16 |
 | **RESCOPE** | `north-star-integration-v1` | `CollapseGateEmission`, `ThinkingStyle` | RATIFIED (council resolved + gates ratified  | 1/1 |
+| **RESCOPE** | `octopus-causal-cot-audit-v1` | `GateDecision`, `ThinkingStyle` | MEASUREMENT REPORT. **No code. No new type.  | 0/4 |
 | **RESCOPE** | `odoo-savant-reasoners-v2` | `BindSpace`, `CollapseGateEmission` | PROPOSAL. v1 SHIPPED in PR #420 (`D-ODOO-SAV | 2/3 |
 | **RESCOPE** | `ogar-ar-shape-endgame-v1` | `GateDecision`, `ThinkingStyle` | when filed:** PLAN (pre-council). Becomes PL | 0/0 |
 | **RESCOPE** | `rung-ladder-grounding-v1` | `CollapseGateEmission`, `GateState` | PROPOSAL (the most-obvious first grounding p | 0/4 |
@@ -148,6 +148,6 @@ a licence to act on it.
 | **RESCOPE** | `unified-soa-rubikon-integration-v1` | `BindSpace` | — | 8/8 |
 
 - **ARCHIVE?**: 0
-- **RESCOPE**: 53
-- **READ**: 14
+- **RESCOPE**: 54
+- **READ**: 13
 - ruled symbols tracked: 14
