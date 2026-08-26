@@ -1,5 +1,5 @@
 # Build artifacts (Rust & cargo)
-# No locks (operator rule, 2026-08-25) — see .claude/board/ISSUES.md
+# No tracked Cargo.lock (project rule) — see .claude/board/ISSUES.md
 # ISS-STALE-AUTHORITY-LOCKS. A tracked Cargo.lock that pins the OGAR
 # authority is a second, silently-stale reading of the codebook.
 #
