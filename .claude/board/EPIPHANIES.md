@@ -7584,141 +7584,12 @@ Three probes have been carried independently, in three places, each named as blo
 **Why weather is the right dataset for it, not merely a convenient one.** Every prior corroboration in this arc has been internal — four sessions converging, probes designed by the same people holding the thesis (thesis §5 warns explicitly that convergence can be shared blind spots as easily as shared truth). Weather supplies a **physical** ground-truth distance (field RMSE) that no one here chose, at a scale (10⁶ points) that exercises the hierarchy rather than a toy. Running the bake-off on weather answers all three questions with one number — and a **negative is thesis-relevant, not weather-relevant**: it would demote prefix-ancestry workspace-wide, which is precisely why it must be run before more is built on top.
 
 **Consequence for planning:** do not schedule these as three separate probes in three repos. One bake-off (`D-WX-5`), arms C vs D carrying F-1, arms A/B carrying helix's gate, all under Jirak-bounded significance (`I-NOISE-FLOOR-JIRAK` — grid fields are weakly dependent by construction; classical Berry-Esseen is wrong here). Mandatory anti-vacuity per `E-VACUOUS-ASSERTION-IS-THE-HOUSE-STYLE-1`: include a shuffled-codebook encoder that **must** fail — a bake-off where every arm passes has measured nothing.
+> **Entries from 2026-08-06 onward live in `entries/` — one file each.**
+> See `entries/README.md` for the index. This file is the archive of everything
+> before that date, plus two bare-date group headers that need a boundary
+> decision before they can be split.
 
 ## 2026-08-09
-
-## E-A-RECONCILED-HEAD-IS-NOT-A-PUBLICATION-1 (2026-08-09)
-
-**Status:** FINDING. **Confidence:** high — falsified both ways.
-
-Renaming a field is not the same as removing the confusion it names.
-`CommitOutcome::Reconciled.current_head` was deliberately NOT called
-`version` (#912) precisely because it is the store head AT RECONCILIATION
-TIME. One layer up, `seal_cycle` then adopted it as `SealedCycle.version`
-anyway — so retrying cycle 1 while the head stood at V5 recorded cycle 1
-as "sealed into V5". The careful name survived; the meaning did not.
-
-The repair is structural, not documentary: `SealedCycle` now carries
-`publication_version: Option<DatasetVersion>` (`Some` ONLY for a fresh
-`Committed`) beside `observed_head: Option<DatasetVersion>` (`Some` only
-when a sink actually observed one — `None` on `NoChange`, which calls no
-sink and whose `head` is the caller's asserted base). A publication
-position that was never observed stays **unknown**; the durable identity
-is `(cycle, batch_hash)` and the position is an audit-path read.
-
-**The general shape:** when a type distinguishes two things a consumer
-will conflate, the distinction has to be *unrepresentable* at the
-consumer, not merely *documented* at the producer. A doc comment warning
-"this is not X" is evidence that the next layer will use it as X.
-
-Falsifier: `a_reconciled_retry_never_reports_the_current_head_as_publication`
-(cycle 1 → V1, cycle 2 → V2, retry cycle 1 → `Reconciled`, observed head
-V2, publication `None`, zero extra appends).
-
-## E-A-DOC-COMMENT-IS-NOT-AN-ENFORCEMENT-1 (2026-08-09)
-
-**Status:** FINDING. **Confidence:** high.
-
-`FleetRecovery::foreign_min_cycle` shipped with the correct rule written
-in its doc comment: *"the caller must NEVER raise its durable
-`after_cycle` bound to or past this cycle."* A rule stated in prose to a
-caller who holds a plain `Option<CycleId>` is an instruction, not a
-guard — the unsafe checkpoint stays one obvious line away.
-
-`FleetRecovery::checkpoint_bound(recovered_through)` is the same rule as
-an API: it returns the bound the caller MAY store, capped strictly below
-any foreign landing. The caller can still ignore it, but the safe path is
-now the shortest one.
-
-Companion: the same session made the writer's single-owner claim
-enforceable rather than narrated (lexical `store_identity` so
-`x/./s.lance` cannot claim a second slot beside `x/s.lance`; an RAII
-`WriterClaim` taken before the first `.await`, so a cancelled `open`
-cannot leak a reservation). Both are the same move — *carry the
-invariant in a value, not in a sentence.*
-
-## E-A-A-PERMANENT-FAULT-REPORTED-AS-RETRYABLE-IS-AN-INFINITE-LOOP-1 (2026-08-09)
-
-**Status:** FINDING. **Confidence:** high.
-
-A 511-byte artifact payload violates the writer's 512-byte ABI. It was
-reported as `CommitError::Io` — the variant whose documented meaning is
-"nothing published, safe to REGENERATE". A caller obeying that contract
-regenerates the identical malformed batch and fails identically, forever:
-the error classification, not the bug, is what makes it unbounded.
-
-`CommitError::InvalidArtifact { row, len }` is permanent by construction.
-The taxonomy rule this instance teaches: **an error variant's retry
-semantics are part of its contract**, so a producer-side defect must never
-borrow a transport-side variant merely because both mean "did not
-commit".
-
-Falsifier: `a_malformed_artifact_is_refused_permanently_not_as_retryable_io`
-(refused twice, identically, store untouched).
-
-### E-THE-ARTIFACT-WRITE-DECIDES-WHAT-KANBAN-PROGRESS-BECOMES-DURABLE-1
-
-**FINDING (operator-ruled, implemented Phase A).** The persistence question was
-being asked backwards. The old contract let the *cycle* decide when to write —
-every 550 ms sweep sealed a `DatasetVersion`, so a thought crossing dozens of
-cheap Rubicon steps in ~2 s minted dozens of versions and stretched a ~2 s
-ladder across ~32-35 s of barriers. The correct rule inverts the initiative:
-
-> **Kanban never decides when to persist. The semantic write that happens
-> anyway decides which kanban progress gets a durable anchor.**
-
-Thinking is cheaper than persisting its intermediate control flow. Rubicon
-state, `Continue`, `Hold`, held work, the current rung and scheduler progress
-stay **transient** — after a crash they are cheaply regenerated from the pinned
-sealed inputs, which is exactly the property that makes discarding them safe.
-
-**The mechanical form is smaller than the ruling sounds.** The gate already
-existed in the data: a cast's payload. Non-empty = an artifact (grounding
-result, reusable walk product, adjudication, conclusion) → persisted.
-Empty = intent-only → ephemeral. `restage_held` had been casting empty payloads
-since #879 (`cycle_driver.rs:303`), and #911's 512-byte ABI gate contradicted
-it — the *fix* was not padding those casts to 512 bytes to satisfy the gate but
-recognizing that **the empty payload IS the ephemerality mechanism**. Two
-post-merge P1s dissolved at once: intent-only casts can never trip a payload
-gate they never reach, and the empty-cycle version disappears because zero
-artifact casts means the sink is never called at all.
-
-**The general lesson.** When a gate and a producer contradict each other, the
-question "which one do I bend?" often has a third answer: the contradiction is
-the system telling you the two things were never in the same category. A
-lifecycle transition and a semantic artifact are not the same kind of fact, and
-only one of them belongs in durable storage.
-
-### E-A-PUBLISHED-MANIFEST-IS-HISTORY-RECONCILIATION-NOT-ROLLBACK-1
-
-**FINDING (measured against `lance-9.0.0/src/io/commit.rs:914-950`).** #911
-tried to make an optimistic fence *effective* after the fact: on detecting that
-a foreign writer had shifted the published version, it issued a compensating
-`Dataset::delete` scoped to the cycle, then returned a retryable error. Review
-found the flaw (the `(cycle, base_version)` predicate can delete a *successful
-concurrent writer's* rows — the very race it exists to handle), but the deeper
-error is categorical: **`Dataset::delete` creates another version. It is not
-rollback.** There is no undo in an MVCC manifest chain.
-
-The measured constraint underneath: **Lance 9 has no atomic expected-version
-fence for `Append`** — the conflict rebase runs even on a single-attempt commit;
-strict no-rebase mode exists only for `Overwrite`. A read-then-append is not a
-compare-and-swap, and dressing it as one produces exactly the
-committed-but-reported-failed hole that made the driver regenerate work that
-had already landed.
-
-The resolution is to stop trying to make the fence retroactive and make
-**reconciliation authoritative** instead: commit the batch's identity
-`(cycle, batch_hash)` *in the same commit as its rows*, look it up before
-appending, and let a lost acknowledgement resolve by re-submitting the SAME
-frozen batch. Same identity + same hash ⇒ `Reconciled` (success, no second
-append). Same identity + different hash ⇒ fail closed. Genuinely unknown ⇒ an
-`Ambiguous` state that says so, instead of an error that falsely promises
-nothing landed.
-
-**The rule this leaves behind:** never return an error meaning "nothing
-landed" when failure could have occurred after publication — and never delete
-history to restore an expected version number.
 
 ## 2026-08-07
 
@@ -7779,84 +7650,6 @@ local filesystem.
 **Also settled, cheaply:** T10 (flush → rehydrate → read equality) is **green** at all three sizes by full-scan `id` checksum — a row-count check would have passed a truncated hydration. And §1's unmeasured request count is **3 remote objects per dataset** here (`.txn` + `.manifest` + one data file), which bounds the small case; it grows with fragment count, which single-fragment writes do not exercise.
 
 **Scope, so the numbers are not over-read:** nothing was evicted, no policy was implemented, and none of the plan's other acceptance criteria ran. Companion tool: `lab/s3rm.py` — written because `s3put.py` could only write, so the probe had no way to remove its own scratch and would have left debris in a curated prefix.
-
-## 2026-08-06 — E-D-IGN-B-CORPUS-PRODUCED-NOTHING-TO-READ-1 — arming a CI gate that ran zero tests exposed an empty-vs-empty digest collision; the corpus was the defect, the untagged digest was correct
-
-**Status:** FINDING (reproduced at `f9206fc`, fixed, both mutation directions verified). **Confidence:** High for the mechanism (the empty-hash constant was computed and matched; the pre-fix corpus was traced token-by-token through the clause machine and emits nothing); High for the fix (all four lens arms now measured non-empty, 4/4 distinct digests on one owner). Test-fixture only — `stance.rs` is untouched.
-
-**The failure.** `cargo test -p lance-graph-supervisor --features cycle-driver --test d_ign_b_lenses` panicked at L1's can-fire half: two *different* lenses (z=3 Kant, z=4 Wittgenstein) over byte-identical rows produced the *same* digest `15130871412783076140`. That number is `DefaultHasher::new().finish()` — the hash of **zero bytes**. Both readouts were EMPTY, and `LensReadout::digest` folds contents only, so two empties of any two variants collide.
-
-**Root cause: the corpus, not the lenses.** `load_or_synthesize_corpus` reads `$BLW_KJV_TSV` or `/tmp/kjv_verses.tsv`; neither exists in CI, so it fell back to `synthetic_corpus`, which emitted `"d-ign-b synthetic verse {i} token{salt}"`. That text carries **no copula, no auxiliary, no modal, no typed relational verb and no `-ed` morphology**, so `stance::stream` never sets `armed` and emits **zero** statements. Empty arena + empty `ReadOut` ⇒ all four `stance_panel` arms empty ⇒ every lens digests identically. The test's own risk-check line had been printing `Hegel empty = true, Nietzsche empty = true` all along; nothing was reading it.
-
-**Pre-existing, and newly VISIBLE rather than newly broken — the transferable half.** Reproduced identically at `f9206fc`. Without `--features cycle-driver` the whole test module is `#[cfg]`-ed out and the binary runs **0 tests** — reporting `ok` and passing CI **vacuously**. `LATEST_STATE.md` recorded that step as a standing gate; it was *unarmed*. **A test binary that runs zero tests is indistinguishable from a passing one in CI summary output, and a feature-gated integration test is the standard way to arrive there by accident.** Arming the gate did not cause a regression — it ended one.
-
-**Why the "obvious" fix was the wrong one, explicitly.** Folding a variant-discriminant tag into `digest()` turns the collision green instantly — and makes L1's cross-lens `!=` pass **by construction of the tag alone**, for any input, forever. That is precisely `E-VACUOUS-ASSERTION-IS-THE-HOUSE-STYLE-1`'s shape, and the digest's own doc comment already forbade it in advance (deviation 3 in the module doc records an earlier draft being talked out of exactly this). **A red test whose green fix would delete its own falsifier is telling you the defect is upstream of the assertion.** The untagged digest is what made an empty corpus *observable at all*; tagging it would have hidden the empty corpus permanently while displaying green.
-
-**The fix.** `synthetic_window(w)` builds each 48-verse owner slice from templates the shipped clause machine genuinely extracts from, one per arm: affirm-then-negate and negate-then-affirm pairs on the same term (`revise_at` records `|f₁−f₂| = 0.85` ⇒ Hegel's `> 0.05` floor, with both flip directions legible from the provenance endpoints ⇒ Nietzsche's `Transvaluation`/`Devaluation`), `they knew that they were X` (perception verb + complementizer within the 3-token window ⇒ Kant's `ReadOut::lifts`), and `<effect> because <cause>` (⇒ Wittgenstein's `impl-cause`/`impl-effect` games on top of the `Inh` games every emission already feeds). Predicates are nonsense stems shaped `{stem}{window:02}{n:02}` — chosen to collide with **no** catalogue the machine consults, so a template can only give them the role it means to.
-
-**The non-obvious constraint the fix had to satisfy — worth its own line.** Three of the four arms fold interned **`u16` ids**, never the strings behind them, and the `Interner` assigns ids by order of first appearance. So two owner slices with identical STRUCTURE digest **identically no matter how their tokens are spelled** — renaming the vocabulary buys nothing. L4's "≥2 distinct digests across the in-scope owners" half would have stayed unfalsifiable. The window *shape* is therefore driven by `w % 5|3|7`, deliberately **coprime with the stride-4 arming cycle** (`(id - SPREAD_LO) % 4 + 1`) so each lens's own owner set spans several shapes instead of landing on one residue class. **Generalizable: when a digest folds identity rather than content, varying the content is a no-op; you must vary the structure — and the modulus that varies it must be coprime with whatever modulus selected the sample.**
-
-**The diagnostic the failure lacked, added.** L1 now asserts each readout is non-empty **before** comparing digests, naming the corpus provenance in the message. An empty corpus now reports *"the corpus produced no extractable content … this is a CORPUS defect, not a lens collision"* instead of accusing the lenses. The original message was not merely unhelpful, it was **actively misleading** — it named a conclusion (distinct lenses collide) that the evidence did not support and that sent the first read of this failure looking at `stance.rs`.
-
-**Falsifiability, verified in both directions rather than asserted.** (a) Make `run_lens(4, …)` return the Kant arm: L1 fails on `1790839806321388433` — a **non-empty** digest, so the assertion still discriminates content and did not merely become unreachable. (b) Restore the pre-fix filler corpus: the new precondition fires with the corpus-defect message, not the collision message. Measured after the fix: all four arms non-empty on the twin base, 4/4 distinct digests over one owner, and 4/7/6/6 distinct digests across each lens's owner set.
-
-## 2026-08-06 — E-A-REPEATABLE-TRANSFER-IS-NOT-IDEMPOTENCE-OVER-A-MULTI-FILE-DIRECTORY-1 — the PR #901 review round: four corrections, one of them load-bearing on a safety claim
-
-**Status:** FINDING (review round, PR #901) — corrections to the two entries below, which stay as written so the first draft's claims remain visible. **Confidence:** High for the manifest correction (probe re-run, recorded in the knowledge doc's evidence table) and for the atomicity gap (it follows from Lance datasets being multi-file directories, which is not in dispute); the eviction plan remains a PROPOSAL and nothing in it is measured. Documentation-only.
-
-**1. "Safe to repeat, it is idempotent" was doing work it could not support — the load-bearing one.** The plan's §5 rejects a lease protocol and asserts the worst case of a lost flush/read race is a wasted rehydration. That assertion rested on `absent → hydrated` being idempotent. **A Lance dataset is a multi-file DIRECTORY**, so a repeatable *transfer* is not idempotence over the *destination*: a partial fetch leaves debris that a retry merges into, a fetch against a different source version mixes two snapshots into one directory, and a concurrent reclaim can delete files a hydration just wrote or expose a reader to a directory that is neither present nor absent. Two of those are torn reads and one is a silent wrong answer — **none is a wasted rehydration**, which is the bar §5 set for itself. The age floor makes them *rare*; rarity is not the property that was claimed.
-
-**The fix is a filesystem boundary, NOT the protocol the operator walked back — and the distinction is the whole point.** *Hydrate aside, publish by rename, retire by rename*: fetch into a private temporary directory, make it visible with one atomic directory rename, and reclaim by renaming away first and deleting afterwards. A reader resolving the published name sees either absent or a complete dataset, always. This costs the **sweeper** a rename and the **reader** nothing — no guard in a signature, no per-read atomic step, no refcount, no lease, no second gate-off code path. Every objection that priced out the lease protocol in §5 leaves this untouched, so the operator's scope ruling stands *and* the corruption hole closes. Knowledge doc §4a; plan §5a; new tests T9 (three enumerated interleavings, not one convenient one) and T9b.
-
-**2. The document fell into its own trap, one layer out.** §3 teaches "diagnose the feature on the crate that actually opens the URI", and the first draft then diagnosed **`lancedb`** — while this repository opens datasets through **`lance`**, taken as a direct, non-optional dependency **with default features**, whose own `default` includes the object-store feature. `lancedb` here is `optional = true, default-features = false` behind its own flag and no production path uses it for these reads. So the §3 story was true about the wrong crate *for this consumer*, which is precisely the failure §3 exists to name. Corrected as §3a with the probe commands, their output, and an explicit promotion decision (the manifest rows stay FINDING; the *inference* the first draft drew from them is corrected, not promoted). **The generalizable form: a document that states a diagnostic rule is not thereby immune to it — the defence is running the rule on yourself, mechanically.**
-
-**3. A categorical rule silently condemned shipped public API.** §6's "never open a network-scheme URI as the runtime store" reads as invalidating `VersionedGraph::{s3, azure, gcs}` — public, tested, and passing the URI straight to the dataset open — while offering no replacement. Scoped in §6a: the rule binds the **hot zero-copy substrate**, where a network scheme *voids* rather than degrades the guarantee; it does not bind occasional non-hot access making no zero-copy claim. The constructors are **usable and unmigrated**, and the missing hydrating counterpart is recorded (`ISSUES.md` `ISS-REMOTE-URI-CONSTRUCTORS-PREDATE-THE-HYDRATION-DOCTRINE`) rather than implied. **A doctrine that condemns an API it does not replace produces silent non-compliance, not migration.**
-
-**4. Three smaller corrections, each a real over-claim.** (a) *"Any local path satisfies it"* → **a supported, mmap-capable local filesystem**: a network mount or FUSE layer presents an ordinary-looking directory while changing page-cache, consistency and lock semantics — the same trap as putting the network in the read path, wearing a directory's clothes. Durability stays purely an optimization; the *filesystem* is the correctness axis. (b) *"VIABLE for hydration"* is a verdict about the access **shape**, not about any size: at the observed sequential rate ~1 GiB is **~49 s**, so boot-viability is a size question answered per dataset, and only the tens-of-megabytes case was measured. The RAM/NVMe ratios are conventional figures, not measurements taken here. (c) The cost model priced only **retained bytes**; object stores also bill request count, retrieval, transfer and storage-management, and every one of those falls on the side this policy *increases* — so the honest claim is that the retained-byte saving must exceed the rehydration cost, which is the same quantity the thrash criterion already gates on.
-
-**5. The thrash metric could not do its job, in three separate ways, and all three were real.** `rehydrations / distinct_datasets_accessed > 1.0` (a) counted restarts, retries, manual invalidation and version reloads in the numerator — a metric that cannot attribute cannot falsify; (b) false-alarmed on *correct* sparse usage whenever the window outran the age floor, since a legitimately-evicted dataset starting a new working-set interval later looks identical to thrash; and (c) could not fire at the granularity that matters, because one thrashing dataset among many never reaches 1.0. Redefined as **`eviction_caused_rehydrations` (stamped by the sweeper at reclaim, so first hydrations are excluded by construction) over a window bounded to the age floor, with the threshold at `> 0`** and the ratio retained as a severity measure. New T11b asserts the attribution itself — that a restart, a failed retry and a manual invalidation each fail to increment it — because without that the metric is a hydration counter wearing a thrash label.
-
-**6. The plan and its own board summaries disagreed about dirty candidates** — the summaries said push-back-then-evict, the plan's open item said skip. Different data-integrity contracts, so it is now **decided: the sweep does CLEAN EVICTION ONLY** (plan §9a). A dirty candidate is skipped and reported. The reasoning is already in the material: the one hard rule is *flush is legal only from `hydrated`*, and a sweep that pushed first would be **manufacturing the precondition for its own destructive step, unattended, on a timer** — inverting a safety check into a workflow. Consequence made observable: *"every candidate was dirty"* is a **third** distinct stop reason, never collapsed into "none old enough" or "every candidate in use", because a deployment stuck permanently over budget on dirty data is exactly where a human should enter the loop. T6b asserts both halves.
-
-**Triage note (method).** 19 review comments across the two PRs; several were the same finding reached from different angles, which is signal rather than noise — the four comments converging on the atomicity gap are what made it obvious the claim, not the wording, was wrong. One class was **not** accepted: the request to obtain a sanctioned home for the sibling PR's carving before publishing is not an oversight but an open operator question already recorded. **Comment count is not defect count, and neither is it a compliance quota.**
-
-## 2026-08-06 — E-OBJECT-STORE-HYDRATES-IT-DOES-NOT-STORE-1 — the object store is the hydration path; the local filesystem is the store; the volume only decides whether hydration repeats
-
-**Status:** FINDING (mechanism) + one reported single-observation measurement set. **Confidence:** High for the layer split and the feature-gate facts (manifest-verified in session); Medium for the endpoint numbers (one provider, one region, one point in time, not re-run); the flush/rehydrate lifecycle is labelled CONJECTURE in the doc with its falsifier stated. Documentation-only — no Rust changed.
-
-**The three layers, one job each.** Object store = hydration source (durable, versioned, shared; absent → fall back to whatever secondary source the consumer has). Local directory = **THE** store — zero-copy mmap reads, page cache, no network in the read path; **no fallback, always required**, and **any** local path satisfies it. Persistent volume = decides *which* local directory, chosen only because it survives redeploys; absent → hydrate every boot, still correct, merely slower. **The volume is an optimization on hydration frequency, not a component of the store** — a design that says "we need a volume or this doesn't work" has mis-assigned a job: what it needs is a directory.
-
-**Lance opens a network-scheme URI natively, and that is exactly the trap** — the wrong architecture *runs*, correctly, and only degrades. A local read is a mapped page a lens can borrow with a cast; a remote read is a range request landing in a freshly allocated buffer — one copy per read minimum, no page cache. So mounting the object store as the runtime store **deletes the mmap layer from the architecture**, and every zero-copy guarantee below it becomes a claim about buffers that were copied into existence (`zero-copy-lens-law.md`, one layer down). Review question: *where does the process open its dataset from?* A network scheme voids the zero-copy story regardless of type signatures.
-
-**The feature gate that costs an hour (manifest-verified this session, two releases apart).** `lancedb` ships `default = []`; its `aws` feature forwards to `lance/aws` + `lance-io/aws` (+ `object_store/aws`), and *that* is what registers the provider. `lance-io` DOES carry `aws` in its own defaults — so "the Lance stack supports object storage by default" is **true one layer down and false at the layer we depend on**; `lancedb` is the layer that opts out, which is why the diagnosis goes wrong (the mental model is correct about the wrong crate). Without it the URI fails at provider lookup **by scheme**, before any credential/endpoint/region is read — no amount of endpoint or quoting debugging can help, because that code is not in the binary. **Mechanical rule: an error naming a *scheme* is a BUILD problem; an error naming a *credential/host/bucket/region/signature* is a CONFIG problem. Read the error's noun before touching an env var.**
-
-**Ratios, not numbers, are the finding** (single observation, provider- and region-dependent, deliberately unnamed): a small-object round trip ≈ **2.5 million×** slower than RAM and **~2500×** slower than NVMe ⇒ **NOT viable as swap, NOT viable as a page-fault backing store** (which is the mmap argument restated in numbers — mounting it as the store puts that latency under every read); a cold re-open + full count of a tens-of-MB dataset is boot-viable, while writing the same dataset costs ~5× that and carries object-per-fragment overhead on top of raw throughput ⇒ **writes are an ops step, never a boot path**. One sentence generalizes every verdict: **the object store is fine when the object count is small and the objects are large; unusable when the access count is large and the accesses are small.**
-
-**Lifecycle (CONJECTURE, falsifier stated in the doc):** absent → hydrated → dirty → flushed → rehydrate. The single load-bearing rule: **flush is legal only from `hydrated`, never from `dirty`** — the `dirty → flushed` edge is data loss with **no error**, so it must be an asserted condition rather than an assumption.
-
-Doc: `.claude/knowledge/s3-hydration-lifecycle.md` (READ BY header + per-claim evidence table). Cross-ref section: `docs/DATAFUSION-PERIMETER.md` §9a — the same "capability behind a default-off feature, diagnosed at the wrong layer" shape that document's §9 already catalogues for a different dependency. Follow-on plan (PROPOSAL, unimplemented): `.claude/plans/idle-flush-dataset-eviction-v1.md`.
-
-## 2026-08-06 — E-IDLE-FLUSH-IS-COST-SMOOTHING-NOT-CAPACITY-AND-THE-3-DAY-FLOOR-PRICES-OUT-A-LEASE-PROTOCOL-1 — plan v1 for a feature-gated idle-flush: operator-set policy defaults, and the guards that must each fire AND stay silent
-
-**Status:** PROPOSAL — **nothing implemented, nothing measured.** The policy defaults and the scope ruling on the race are **OPERATOR-SET**, not findings; the rest is CONJECTURE. **Confidence:** Medium for the design shape (argued from the named failure modes of each rejected alternative); the dirty-detector carries an explicit unclosed verification gate. Documentation-only.
-
-**The purpose is COST SMOOTHING, not capacity** (operator framing). This is **not** a mechanism for fitting a working set into a disk that is too small, and the plan explicitly does not justify itself with "otherwise you run out of disk." Local disk is billed **continuously for capacity provisioned**; object storage is billed for **what is kept** — so a dataset touched once and retained forever pays a standing charge for a one-time access, and eviction flattens that curve into one transfer plus storage-at-rest. The binding consequence: **never fail an operation to hold the number** — a smoothing mechanism that breaks a workload has traded a billing improvement for an outage.
-
-**The default policy (OPERATOR-SET, heuristic, both config): TWO conditions, both required.** Age — idle **> 3 days** ⇒ a *candidate*. Budget — total local footprint **> ~300 MB** ⇒ eviction *engages at all*. The trigger is **pressure-driven and age-ordered**: under budget **nothing is ever evicted no matter how stale** (a small deployment pays nothing, not even churn); over budget the **stalest go first** until back under. **Q1** resolves to age measured from **last USE (read or write)** — either touch is working-set evidence; dirtiness stays the separate axis governing whether flushing is *legal*, never whether it is *desirable*. **Q2** resolves to the watermark over both bare alternatives (a bare timer works on datasets nobody is asking about and pays when disk is abundant; a bare allocation-failure signal acts only **inside a request**, charging eviction *and* rehydration to a waiting caller). A `bytes × idle_seconds` ranking is **deferred, not rejected** — it would reach the budget in fewer evictions but preferentially evicts what is most expensive to get back, since rehydration cost is *also* size-proportional; revisit only with measured access-pattern data.
-
-**"Soft spot" is load-bearing.** ~300 MB is where pressure **BEGINS**, never a hard cap: no operation may fail because the budget is exceeded (no admission control, no back-pressure), an in-use dataset larger than the whole budget **stays resident** (**correctness beats the watermark, always**), and the sweep may therefore **fail to reach the target** — a legitimate steady state, not an error. Which forces the observability requirement: **a deployment silently over budget must not look identical to one under it**, so a no-target sweep reports footprint-vs-budget AND distinguishes *"no candidate was old enough"* from *"every candidate was in use"* — different situations, different responses, must not collapse into one line. **Over-budget-but-nothing-stale is INTENDED** (the age floor protecting a hot working set from being thrashed by budget pressure); if that line persists the working set genuinely exceeds the budget — a **capacity finding**, not a policy failure.
-
-**Q3 — dirty detection is the Lance dataset VERSION, never a hash** (hashing tens of MB to answer a boolean is the wrong cost class and scales with the thing being avoided): record `version_at_hydration`, dirty ⇔ current ≠ recorded — an integer compare against a generation counter the storage layer already maintains, correct across append and compaction alike. mtime is a cheap pre-check but **never the authority** (unreliable across filesystems/maintenance); on disagreement version wins **and the disagreement is logged**. **VERIFICATION GATE, explicitly unclosed:** that a cheap local version read exists has **not** been checked against the API — if it fails this is a BLOCKER needing a different detector, and the honest response is to say so, not substitute a heuristic.
-
-**Q4 — SCOPE REDUCED by operator correction; a lease/refcount protocol was CONSIDERED AND REJECTED.** *"Given 3 days not used it's just flattening the payment curve and hardly attributing to race conditions."* An earlier draft called the flush/read race "the part most likely to be subtly wrong" and specified a refcounted guard type — **walked back as disproportionate.** A dataset untouched for three days is not plausibly under an active mmap at the instant the sweeper picks it, so the design must be **safe if it happens, not engineered around the possibility**; the protocol is priced for a hot cache and this is not one (it would put a guard in every read signature, an atomic state-machine step, and a second gate-off code path onto **every** read to close a window the age floor already makes negligible). **Instead: cheap check-then-act** — skip the flush if a read is in flight (a non-authoritative check suffices, because losing the race is not harmful); if a read begins mid-flush, **let it rehydrate rather than block** (the `absent → hydrated` path is idempotent and already the recovery mechanism). **The bar is that the failure mode is RECOVERABLE, never CORRUPTING** — worst case a wasted rehydration (~1.4 s at the reported scale), never a torn read or bytes removed from under a live mapping. **The rejection is recorded rather than left silent so a future reader does not re-add it believing it was overlooked. Revisit condition: if the threshold ever drops from DAYS to HOURS, the calculus changes and the protocol question reopens.**
-
-**Q5 — the thrash falsifier is the gating acceptance criterion**, because a thrashing policy makes the system strictly worse than not having it *while appearing to function*: over a window, `rehydrations / distinct_datasets_accessed > 1.0` means a dataset was evicted and re-fetched **within its own working set**; a second hydration of the same dataset inside one `T_min` window is the sharper single-dataset signal. Supporting: `total_hydration_seconds / total_read_seconds` (the amortization ratio). **Both must be instrumented before the policy is enabled anywhere, or a thrashing deployment is indistinguishable from a working one.**
-
-**Q6 — off by default, and "nothing" is literal, not "a cheap timer":** gate-off removes the sweep task and its wakeups, the size/last-read accounting, the key computation, the watermark checks, and the push-back path. **The one place a gate can silently change semantics is the lease guard** (`I-LEGACY-API-FEATURE-GATED` shape) — either keep it present-but-inert (one code path) or compile it out and **owe a proof of equivalence**; the same function name must not mean different things under different gate states. Orthogonality: idle-flush **requires** the object-store feature but does not **imply** it — enabling it without the provider must be a build-time or startup-time refusal, never a runtime surprise on the first eviction (the scheme-error trap one layer up).
-
-**Per the P0 falsifiability rule the plan enumerates the acceptance tests as fire/silence PAIRS** — an eviction policy that never evicts and one that evicts everything are equally useless and both pass a naive assertion. Because the trigger is a **conjunction**, the silence half splits: **under budget + a very stale dataset ⇒ nothing evicted** (the sharpest test — *a policy that evicted on staleness alone would pass the can-fire test and still be wrong*), and **over budget + everything fresh ⇒ nothing evicted, and the sweep says so**. Plus: age-ordering is load-bearing (stalest first among candidates), age-floor and budget **inertness** (raising each must silence what lowering admits), the budget is **soft** (an in-use over-budget dataset stays resident and no operation fails), the dirty detector discriminates, the in-flight check both skips **and then releases**, and the thrash detector itself both fires and stays silent. **The race test is deliberately shaped as a corruption test, not an impossibility proof** — force the interleaving and assert the reader gets a correct complete dataset via rehydration; asserting the race "cannot happen" would be exactly the vacuous, code-implied assertion the P0 rule forbids. The two policy numbers are **operator-set defaults, not derived** — the access-pattern distribution that would justify them has not been measured, which is precisely why they are config.
-
-Plan: `.claude/plans/idle-flush-dataset-eviction-v1.md` (five open items listed there, incl. multi-process access and whether a sweep may *initiate* push-back — currently assumed **skip**, the conservative and possibly wrong choice).
 
 ## E-A-FEATURE-CONDITIONAL-CLASSID-SILENTLY-EMPTIED-A-FIXTURE-1 (2026-08-05, measured)
 
@@ -8563,33 +8356,6 @@ A valid sign assignment exists — so the fixture is **consistent**, and the "co
 **The CI corollary (#862, arguably the most consequential single item in the three).** `cargo test` **never executes an example's `main()`** — so every `assert!` in these probe examples had only ever run on a developer's local invocation. Until `rust-test.yml` was changed to run the probes explicitly, an entire class of falsifier was **decorative in CI**. A falsifier that never runs is the limit case of a falsifier that cannot fail.
 
 **Scope fence.** This says the *review-found* defects clustered in falsifiers; it does **not** claim the measurements were correct — only that no review round found a defect in one. That is an absence of evidence over three PRs, not proof, and the honest reading is that falsifier code got less scrutiny while being written than the numbers it guarded.
-## 2026-08-06 — E-A-SORTED-CODEBOOK-ORDINAL-IS-A-PROPERTY-OF-THE-KEY-SET-NOT-THE-KEY-1 — a within-book bijectivity witness cannot see a between-book shift, and that is the gap review found
-
-**Status:** FINDING (review round on PR #902; both reviewers converged on it independently). **Confidence:** High — the failure is reproduced by a test in the same commit, and the fix's own guard was mutation-tested. Shipped with `lance_graph_contract::identity_quad`.
-
-**The finding, and it is a genuine one that the original design missed.** `IdentityCodebook::try_new` sorts the key list and derives each ordinal from the sorted position. So **an ordinal is a property of the whole key set, not of the key alone**: grow a book by one key that sorts early and every ordinal at or after it shifts by one. Because the quad is a **persisted payload** rather than a transient value, the ordinal outlives the process that computed it — a facet baked against the old book resolves, through the new book, to a *neighbouring* key.
-
-**Why the existing witness could not catch it — the load-bearing part.** `verify_bijective()` sweeps the whole book and proves `ordinal → key → ordinal` is the identity. It passes on **both** revisions, because each book is internally consistent. A within-book property cannot detect a between-book disagreement, however exhaustively it is checked. That is the general shape worth keeping: **an invariant proved inside one artifact says nothing about two artifacts that must agree with each other**, and a persisted encoding always has the second problem whether or not anyone wrote it down.
-
-**What shipped, and what deliberately did not.** `IdentityCodebook::digest()` — a deterministic FNV-1a over the *ordered* key list, each key fed length-first so `["ab","c"]` and `["a","bc"]` cannot collide through concatenation. A bake records the digest beside the rows it wrote; a later read compares and refuses a shifted book instead of resolving a wrong key. It is a **witness, not an enforcement** — nothing in the type can stop a caller that declines to compare, and that limit is stated in the doc rather than papered over. An **append-preserving constructor was considered and NOT added**: a book that preserved assignments would no longer be sorted, and `ordinal()`'s `binary_search` would be unsound. Growing a book is therefore a **rebake**, stated as a constraint. Binding facets to a versioned codebook at the contract level stays open: `ISSUES.md` `ISS-IDENTITY-CODEBOOK-ORDINAL-STABILITY`.
-
-**Two tests, both falsifiable, and the guard was broken on purpose to confirm it bites.** `growing_a_codebook_with_an_early_key_renumbers_the_existing_ones` makes the hazard *observable* — it asserts the mis-explanation happens and that both books pass `verify_bijective` — so the documented constraint is a demonstrated behaviour rather than a claim. `the_digest_fires_on_a_shift_and_stays_silent_on_an_equivalent_book` is the fire/silence pair on one value: different digest for a renumbering book, **same** digest for the same key set supplied in a different input order, and different digests for the concatenation-colliding pair. Mutation check: deleting the length prefix fails the third assertion — so the delimiter is load-bearing and not decoration.
-
-**Review-triage note (method, not content).** Of the four review comments on #902, two were the finding above (the same defect reached from opposite directions), one was a real wording imprecision (capacity: `2^24 - 2` is `MAX_ORDINAL`, a *slot bound*; `MAX_ENTRIES = 2^24 - 1` is the *entry count* `check_capacity` gates — both now named separately in the doc), and one asked for the carving's sanction before publishing, which is not an oversight but the already-recorded `ISS-IDENTITY-QUAD-WIDE-CARVING-HOME` awaiting an operator ruling. Comment count is not defect count; each was priced separately.
-
-## 2026-08-06 — E-AN-IDENTITY-SLOT-IS-NOT-A-RAIL-REF-WHICH-IS-WHY-A-WIDE-CARVING-CAN-BE-CORRECT-1 — the byte-axis rule is a rule about REFERENCES, and an exact identity is not one
-
-**Status:** FINDING (shipped with `lance_graph_contract::identity_quad`, branch `claude/vocab-tenant-bake`). **Confidence:** High for the distinction and the encoding; the *home* of the carving is an OPEN operator question, tracked as `ISS-IDENTITY-QUAD-WIDE-CARVING-HOME` rather than settled in code.
-
-**The finding.** `le-contract.md` §3's byte-axis catalogue (L1-L8) and §3a's discouragement of the wide carvings (G1-G3) are, read carefully, rules about **references**: a rail byte is a one-byte ref addressing 256 targets local to a basin, and the cap exists precisely so a ref can never become an unbounded global pointer. Widening a rail pair to `u16`/`u24` reopens that — which is the bug `lane16b` and `facet_lane` were both written to close, and it stays a bug.
-
-**An exact external identity is a different kind of value, and the rule does not transfer to it.** It is not adjacency, it does not reach anywhere, and it has exactly one correctness property: **invertibility**. A `u24` split into three independently-meaningful bytes is three values, and three values are not one invertible identity. So the same arithmetic (12 bytes, 96 bits) is right one way and wrong the other, decided entirely by what the value IS — which is the slot-purity doctrine (§2) pointing at its own consequence: the ClassView selects the reading, and a reading that destroys invertibility is not available to a class whose slots are identities.
-
-**The corollary that made the encoding work.** Because the value is an identity, "absent" cannot be spelled `0` — the zeroth entry of a codebook is a real identity. Slots therefore store `ordinal + 1`, and raw `0` is the CANON zero-fallback ladder's "not consulted". Without that offset a partially-joined row reads as fully joined, silently, which is the failure mode this tenant exists to remove rather than relocate. The largest ordinal a slot can hold is `MAX_ORDINAL = 2^24 - 2`; a book may hold one more *entry* than that number (`MAX_ENTRIES = 2^24 - 1`, the count `check_capacity` gates) because ordinals start at zero — the two are separate constants on purpose. The codebook **refuses** past capacity instead of truncating.
-
-**The second corollary: bijectivity is a CONSTRUCTOR obligation, not a test obligation.** `IdentityCodebook::try_new` rejects a non-injective key list, so the many-to-one mapping cannot be built and therefore cannot be found later at a call site. The whole-book `verify_bijective()` sweep exists anyway, because "the constructor guarantees it" is an argument and a bake wants a measurement. Both halves shipped; the negative case (a duplicate is refused, a non-duplicate is not) is its own test.
-
-**Method note worth keeping.** Two guards were **mutation-tested in-session** rather than trusted: replacing the duplicate check with `dedup()` failed the injectivity test; dropping the absent sentinel failed four tests. This is the cheap form of the falsifiability rule — write the guard, then break it on purpose and watch the suite notice. One test in the first draft (`over_capacity_codebook_is_refused`) was caught **vacuous by this discipline** — it asserted a value equalled itself — and was rewritten as a boundary assertion against an extracted `check_capacity`, because a guard whose failure path cannot be reached by any input is the defect one level up (`E-VACUOUS-ASSERTION-IS-THE-HOUSE-STYLE-1`).
 ## 2026-08-02 — E-TWO-MEDCARE-LINEAGES-THE-LIVE-ONE-PULLS-THE-DEAD-ONE-HOSTS-1 — MedCare is integrated through consumer-pull; the host-side actor/manifest scaffold froze on its birth day
 
 **Status:** FINDING (six-agent read-only investigation + unshallowed git history, HEAD `71d1db1`). **Confidence:** High — every claim carries a commit sha or file:line; contradicting prose ledgers were checked against code. Plan: `.claude/plans/medcare-consumer-pull-thinking-proof-v1.md`.

@@ -1,3 +1,17 @@
+# OCTOPUS AUDIT (measurement-first) — `OCTOPUS_AUDIT_MEASUREMENT_FIRST.md`
+
+Filed 2026-08-26, operator-issued, **NOT YET RUN**. Measurement-first
+related-work + contract audit for the Octopus / alpha / causal-reasoning
+architecture: classify the four graph ontologies (World DAG / Reasoning DAG /
+Attribution / Scoring) against current code, verify the adjacent literature,
+map CausalPhys-style metrics onto native carriers, and complete F-OCT-1..10
+before any code. Standing law under test: *the world graph remains canonical;
+the thought graph is a receipt or projection, never a second world.* Carries
+the §17 report contract. Doctrine plan:
+`.claude/plans/alpha-interventional-faithfulness-v1.md`.
+
+---
+
 # SCOPE A: Reactive Runtime Transcode (marimo Python → Rust)
 
 ## You touch: marimo

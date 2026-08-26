@@ -57,8 +57,19 @@ pub enum MergeMode {
 /// Copy type, 2 bytes. The microcopy returned by gate evaluation.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct GateDecision {
-    /// Flow = apply delta. Block = reject. Hold = queue for next cycle.
-    pub gate: u8, // 0=Flow, 1=Block, 2=Hold (matches ndarray CollapseGate ordinals)
+    /// Flow = apply delta. Hold = queue for next cycle. Block = reject.
+    ///
+    /// Ordinals are locked to the workspace-wide gate encoding:
+    /// 0 = Flow, 1 = Hold, 2 = Block — the same order as
+    /// `mul::GateDecision::to_disc()` and the substrate's
+    /// `ndarray::hpc::qualia_gate::QualiaGateLevel` (`repr(u8)`:
+    /// Flow=0, Hold=1, Block=2). Severity is monotone in the byte.
+    ///
+    /// History: until 2026-08-26 this type carried 1=Block, 2=Hold with a
+    /// comment claiming it "matches ndarray" — it did not
+    /// (ISS-GATEDECISION-ORDINAL-COLLISION). No gate byte was ever
+    /// persisted or serialized, so the swap is source-level only.
+    pub gate: u8, // 0=Flow, 1=Hold, 2=Block
     /// How to merge if Flow.
     pub merge: MergeMode,
 }
@@ -76,11 +87,11 @@ impl GateDecision {
         gate: 0,
         merge: MergeMode::Superposition,
     };
-    pub const BLOCK: Self = Self {
+    pub const HOLD: Self = Self {
         gate: 1,
         merge: MergeMode::Xor,
     };
-    pub const HOLD: Self = Self {
+    pub const BLOCK: Self = Self {
         gate: 2,
         merge: MergeMode::Xor,
     };
@@ -90,11 +101,11 @@ impl GateDecision {
         self.gate == 0
     }
     #[inline]
-    pub fn is_block(&self) -> bool {
+    pub fn is_hold(&self) -> bool {
         self.gate == 1
     }
     #[inline]
-    pub fn is_hold(&self) -> bool {
+    pub fn is_block(&self) -> bool {
         self.gate == 2
     }
 }
@@ -135,6 +146,38 @@ mod tests {
         assert_eq!(GateDecision::FLOW_SUPER.merge, MergeMode::Superposition);
         assert!(GateDecision::BLOCK.is_block());
         assert!(GateDecision::HOLD.is_hold());
+    }
+
+    /// Cross-type falsifier (ISS-GATEDECISION-ORDINAL-COLLISION resolution):
+    /// pins both `GateDecision` types to the SAME ordinal ladder,
+    /// Flow == 0, Hold == 1, Block == 2. If either type drifts, this fails —
+    /// a raw gate byte must mean the same severity everywhere.
+    #[test]
+    fn test_gate_ordinals_agree_with_mul_gate_decision() {
+        use crate::mul::{self, FlowState, TrustTexture};
+        let hold = mul::GateDecision::Hold {
+            texture: TrustTexture::Overconfident,
+            flow: FlowState::Flow,
+        };
+        let block = mul::GateDecision::Block {
+            texture: TrustTexture::Uncertain,
+            flow: FlowState::Anxiety,
+        };
+        // Flow == 0 == Flow
+        assert_eq!(
+            GateDecision::FLOW_XOR.gate,
+            mul::GateDecision::Flow.to_disc()
+        );
+        assert_eq!(GateDecision::FLOW_XOR.gate, 0);
+        // Hold == 1 == Hold
+        assert_eq!(GateDecision::HOLD.gate, hold.to_disc());
+        assert_eq!(GateDecision::HOLD.gate, 1);
+        // Block == 2 == Block
+        assert_eq!(GateDecision::BLOCK.gate, block.to_disc());
+        assert_eq!(GateDecision::BLOCK.gate, 2);
+        // Accessors read the aligned ordinals.
+        assert!(GateDecision::HOLD.is_hold() && !GateDecision::HOLD.is_block());
+        assert!(GateDecision::BLOCK.is_block() && !GateDecision::BLOCK.is_hold());
     }
 
     /// MergeMode is a 1-byte discriminant (repr(u8)) with stable ordinals.

@@ -128,7 +128,14 @@ that it does not belong. **CONJECTURE** — the falsifier is in §6.
 > registration-order counter. Two facets from two arches are byte-identical
 > while denoting different spaces (demonstrated against the shipped API).
 > Census: **0 custom spaces in 94,536 rows across all four binaries** — the
-> case is LATENT on x86 and fires first on the 6502/C64 arc. Verdict: fixed
+> case is LATENT on x86 and fires first on the 6502/C64 arc.
+> **⊘ AND IT NOW FIRES (same day):** the arch census over the real SLEIGH
+> specs finds the 6502 minting TWO custom spaces — `OTHER` → `Custom(0)`
+> and, because the alias map is case-SENSITIVE, its own main memory `RAM`
+> → `Custom(1)`. The 6502's RAM is not `SpaceId::Ram`. Latent → live;
+> verdict unchanged, urgency changed. See
+> `E-W0-IS-LIVE-ON-THE-6502-AND-ITS-MAIN-MEMORY-IS-NOT-SpaceId-Ram-1`.
+> Verdict: fixed
 > spaces 0–3 stay; the custom axis is BLOCKED from the `0xC4` mint as
 > carved. Full entry:
 > `E-W0-THE-SPACE-ORDINAL-IS-A-RANK-RELATIVE-TO-A-TABLE-THE-CLASSID-NEVER-NAMES-1`.
@@ -701,3 +708,330 @@ proposer's true recall is. Consequence for sequencing:
 PROBE-R2IL-DECODE-AUTHORITY's *verify seam* is buildable now against a
 pluggable proposer; the hexagon plugs in when its artifact is located.
 PROBE-R2IL-LIVE-REGFILE needs no proposer at all and is buildable today.
+---
+
+## §8 — The plasticity falsifier ladder (operator brief merged, 2026-08-26): one queue, pre-registered first experiment
+
+> Register: PLAN + PRE-REGISTRATION. Merges the operator's resume brief
+> with the four open steps this arc already carried. Board-only unless
+> an experiment justifies code; the first experiment (Q1) is run with a
+> TEMPORARY instrument over the shipped probe, reverted after — same
+> method as every measurement in this arc.
+
+### 8.1 Doctrine lines (restated so no experiment drifts past them)
+
+- **R2IL carries fidelity. BPE carries repetition. Plasticity changes
+  association strength or residency — it must NEVER rewrite executable
+  truth.** Every learned macro stays byte-exactly expandable to R2IL
+  atoms, in every arm of every experiment, or the arm aborts.
+- **Coverage is never the headline.** With 7 atoms and chain length 3,
+  "≥1 macro fires" saturates (the strict null already reaches 92.8%).
+  Density per chain + null separation is the primary transfer metric.
+- **"Association demonstrated" ≠ "plasticity demonstrated."** The first
+  is measured (batch, 4 binaries, two nulls). The second requires Q1
+  below, and until it runs the tissue is a slide, not a culture.
+- **Do not quietly optimize around a failure. Measure it.** Negative
+  findings land append-only.
+
+### 8.2 The unified queue
+
+| # | item | status/gate |
+|---|---|---|
+| **Q1** | interference × saturation × order harness (§8.3, ONE instrument, three arms + sabotage) | pre-registered below; **runs in this PR arc** |
+| Q2 | 6502 lift `SpaceId` measurement (does a real lifted memory access carry `Custom(1)` or `Ram`?) | cheap; r2sleigh-side; settles the E-W0-IS-LIVE conditional |
+| Q3 | OGAR mint decision (three custom-space options) | EXTERNAL gate; W2 stays blocked |
+| Q4 | W1 op-row carving, non-space subset | may proceed |
+| Q5 | ontology-morphogenesis probe (§7.6) | data half owned by the consumer repo |
+| **Q6** | **hex A/B topology experiment** | **GATED on Q1's results.** Role hypothesis (NOT cell=concept, NOT six-directions=six-categories): hex cell = addressable learned residence; six neighbours = local candidate associations; potentiation/depression = strengthen/weaken a local relation; plastic frontier = the region where Explore may alter Learned; locality = a bound on how far one learning event may perturb existing knowledge. Falsifiable question: *can local hexagonal plasticity learn the SAME new associations as the global palette while producing LESS interference, controlled forgetting, and bounded propagation?* Metrics held constant vs the global baseline: held-out density before/after learning B, interference on A, changed-entry count, propagation radius, saturation behavior, order sensitivity, exact R2IL expandability, white-matter veto rate, recovery after demotion. **A hex topology that merely looks brain-like but does not reduce interference FAILS.** |
+
+### 8.3 Q1 PRE-REGISTRATION (written and committed BEFORE the run)
+
+**Corpora.** A = the two gcc `stress_test` binaries (train). H_A =
+`vuln_test` (held-out, unseen C — the A-domain probe). B =
+`build-script-build` (rustc). Same ore, same seven-opcode convention,
+same chain extractor as the shipped probe.
+
+**Incremental protocol.** "Learn B after A" = keep A's SymTable, apply
+A's merges to B's raw streams in learned order (standard encode-then-
+continue; skipping this would re-mint A-equivalent pairs as duplicate
+ids), then continue `bpe_merge` on B's streams under the SHARED cap.
+
+**Arms and pre-registered predictions:**
+
+- **INT (interference).** density(V_{A→B} on H_A) vs baseline 2.515.
+  **Structural prediction: it cannot drop** — the store is additive and
+  the matcher monotone, so new merges only add hits. A measured drop >1%
+  falsifies the additivity model itself (major finding). Confirmation is
+  a CONTROL result and must be recorded as *"no destructive interference
+  is possible yet because no destructive mechanism exists"* — explicitly
+  NOT a plasticity success. Real interference first becomes possible at
+  saturation, which is why SAT is the load-bearing arm.
+- **SAT (saturation).** Forced cap = 16 (< the 33 A-macros), two naive
+  policies: REFUSE (A's first 16 merges keep their slots; B learns
+  nothing) and EVICT-AMORTIZED (learn uncapped, keep the top-16 by
+  measured training occurrences). **Kill threshold, from the already-
+  measured column null on H_A (max 1232/608): a policy FAILS if its
+  held-out-A density ≤ 2.03** — i.e. the vocabulary becomes
+  indistinguishable from the marginal-preserving null on A.
+- **ORD (order dependence).** V_{A→B} vs V_{B→A}; primary metric =
+  Jaccard over the macros' atom-pattern sets. Pre-registered reading:
+  ≥0.8 order-robust · 0.5–0.8 path-sensitive (consolidation needed) ·
+  **<0.5 = "the vocabulary" is a path artifact.**
+- **SABOTAGE (harness validity, can-fire + can-stay-silent).** Deleting
+  A's top-5 macros (they carried 1,063 of 1,529 H_A hits = 69.5%) must
+  drop H_A density below 1.8; deleting the bottom-5 must move it <2%.
+  If either half fails, the harness — not the store — is broken, and no
+  arm result counts.
+- **BYTE-EXACT gate, every arm:** decode(streams) == original atoms for
+  every training stream under every table. Any mismatch aborts that arm.
+
+**⊕ RUN 2026-08-26 (append-only results pointer).** Q1 was executed
+after this section's commit (`7b00847`); results and per-arm reading
+against the thresholds above are on the board:
+`E-Q1-THE-ADDITIVE-STORE-CANNOT-INTERFERE-YET-AND-THE-VOCABULARY-IS-ORDER-ROBUST-1`.
+One-line verdicts: SABOTAGE valid (0.766 / 2.510) · INT = CONTROL
+(2.554, no drop — additivity holds, plasticity NOT demonstrated) ·
+ORD robust (Jaccard 0.872) · SAT both policies clear the 2.03 kill
+(REFUSE 2.222, EVICT-AMORTIZED 2.365, evict keeps 15/16) · byte-exact
+in every arm. The instrument was reverted; this experiment justified
+NO source change (board-only outcome, per the brief). **Q6 is now
+ungated.**
+
+### 8.4 The learning loop as control law (operator-stated; placement, not prose)
+
+Plasticity is the LAST gate, never the first reflex:
+
+```
+experience → attention (Alpha) → reason → hydrate-if-missing (cognitive
+Maslow) → counterfactual → commit (Rubicon) → act ← veto window (Libet)
+→ observe → revise → qualify evidence (§7.5 instrument) → plasticity
+gate → MAYBE learn
+```
+
+never `experience → immediately change weights`. Q1's harness tests the
+final two stations; everything upstream already ships (#879, #998,
+elevation/cycle, kanban census).
+
+**Goal line, verbatim intent:** not to imitate a biological brain — to
+build digital associative tissue with properties biology does not
+naturally provide: exact provenance, reversible learned macros,
+qualified evidence for promotion/demotion, and a falsifier attached to
+every claim of plasticity.
+
+---
+
+## 9. Q6 — the hex A/B topology experiment (PRE-REGISTERED 2026-08-26, before any harness existed)
+
+Q1 ungated this: it showed the current store *cannot* interfere,
+because it is additive and unbounded — "did not forget" was an
+architectural property, not a learning rule. Interference first becomes
+possible under **bounded capacity with eviction**. Q6 therefore does not
+compare "hex vs no-hex" on the Q1 store; it builds the smallest store in
+which forgetting is *possible at all*, and asks whether hexagonal
+locality makes that forgetting better-behaved than a global pool.
+
+### 9.1 The question, restated as something that can fail
+
+> At equal capacity and equal newly-learned associations, does confining
+> eviction to a hex neighbourhood produce LESS interference on prior
+> knowledge than a global pool — and is any advantage due to *hexagonal
+> content addressing*, or merely to *partitioned capacity*?
+
+The second clause is the one that kills a pretty result. It is why the
+random-partition arm below is not optional.
+
+### 9.2 Corpora (identical ore to Q1, `ore_all.tsv`, 94,536 rows)
+
+- **A** (prior knowledge, train): the two gcc `stress_test*` binaries.
+- **H_A** (held-out A probe, interference is measured here): `vuln_test`.
+- **B_train / H_B**: `build-script-build` (rustc), split at FUNCTION
+  granularity — distinct function names sorted, every 5th to H_B — so no
+  chain leaks across the split. H_B is where *learning* is measured.
+
+Learning B after A uses Q1's incremental protocol verbatim (apply A's
+merges to B's raw streams in learned order, then continue).
+
+### 9.3 The three arms (same capacity C, same corpora, same order)
+
+1. **GLOBAL — the control.** One pool of C slots. On overflow, evict the
+   globally lowest-utility macro (utility = measured training
+   occurrences; Q1's EVICT-AMORTIZED, which won there).
+2. **HEX.** C slots as 7 cells of ⌊C/7⌋ (a radius-1 hex tile: centre +
+   ring of 6). A macro's cell is its **first atom's A-frequency rank**
+   (rank 0 = centre; ranks ≥7 wrap to cell `(rank mod 6) + 1` — the ore
+   carries 9 opcodes, and this wrap is a documented convention affecting
+   only the two rarest, not a tuned parameter). Adjacency: centre is
+   adjacent to all six; ring cell *i* is adjacent to {centre, i−1, i+1}.
+   On overflow in cell *c*, eviction may take **only** from
+   N(c) = {c} ∪ neighbours(c), lowest utility first; if all of N(c) holds
+   higher-utility macros, the new macro is **REFUSED**. One learning
+   event may therefore perturb at most one hop.
+3. **RAND — the topology null.** Identical cell count, per-cell capacity,
+   adjacency, eviction and refusal rules; only the *address* changes: the
+   cell is a SplitMix64 hash of the macro's atom pattern
+   (`0x9E3779B97F4A7C15`, the workspace seed). Capacity partitioning and
+   eviction locality are preserved; content locality is destroyed.
+
+### 9.4 Capacities
+
+C ∈ **{14, 21, 28}** — below the 33 macros A learns uncapped (an
+already-published Q1 number, so no measurement precedes this
+registration), and divisible by 7 for per-cell capacity 2 / 3 / 4.
+
+### 9.5 Metrics, per arm per cap
+
+`d_A_postA` (that arm's own H_A baseline after A alone — this exposes
+any handicap the partitioning itself imposes) · `d_A_postB` ·
+**interference = d_A_postA − d_A_postB** (within-arm delta, so an arm is
+neither credited nor punished for its own baseline) · `d_B_postB` on H_B
+(**learning**) · `evicted_A` (changed entries) · `refused` ·
+`max_hop` (propagation radius) · byte-exact decode.
+
+### 9.6 Pre-registered gates — read in this order
+
+- **G0 — inertness guard.** A cap counts only if GLOBAL actually evicts
+  ≥1 A-macro AND shows interference > 0 there. A cap where the control
+  does not forget cannot measure forgetting; such a cap is excluded and
+  reported as excluded, not quietly dropped.
+- **G1 — equal-learning gate.** HEX passes only if
+  `d_B_postB(HEX) ≥ 0.95 × d_B_postB(GLOBAL)`. **Buying less
+  interference by learning less is the trivial failure and is an
+  automatic FAIL**, no matter how good the interference number looks.
+- **G2 — headline.** HEX must show `interference(HEX) <
+  interference(GLOBAL)` at ≥2 of the counting caps, with G1 met there.
+- **G3 — topology null.** Even with G2 passed, the finding is
+  *"partitioning helps; hexagonality is irrelevant"* unless
+  `interference(HEX) < interference(RAND)` at ≥2 counting caps with G1
+  also met against RAND.
+- **G4 — byte-exact.** decode(streams) == original atoms in every arm at
+  every cap; any mismatch aborts that arm. R2IL stays the sole truth.
+
+### 9.7 Predicted outcome, stated in advance and against the hypothesis
+
+Structurally, HEX should evict fewer A-macros — cells B never addresses
+are unreachable. **The risk is G1**: refusals mean HEX may simply learn
+less of B, in which case its low interference is the trivial failure and
+Q6 FAILS by the operator's own rule (*"a hex topology that merely looks
+brain-like but does not reduce interference FAILS"*). G3 is genuinely
+uncertain: if A and B are dominated by different opcodes, content
+addressing separates them and HEX earns its result; if they share
+dominant opcodes, HEX collides precisely where it hurts and should land
+on RAND. A FAIL is a publishable result and is recorded append-only,
+exactly like a pass.
+
+**⊕ RUN 2026-08-26 (append-only results pointer).** Q6 was executed
+after §9's commit (`6d6f3c6`). **Result: FAIL at every HYPOTHESIS
+gate (G1–G3) at every cap** — hex learns less (G1) *and* interferes
+2.8–4.2× more (G2), and a random partition with the identical locality
+rule beats it (G3). The two VALIDITY gates **passed**, which is what
+makes the failure trustworthy rather than an artefact: G0 confirmed all
+three caps count (the control genuinely forgets) and G4 byte-exact held
+in all nine runs.
+Mechanism and the generalized finding (*content addressing under a
+heavy-tailed distribution is capacity-destroying*) are on the board:
+`E-Q6-HEX-FAILS-CONTENT-ADDRESSING-IS-CAPACITY-DESTROYING-UNDER-A-SKEWED-DISTRIBUTION-1`.
+The instrument was reverted; board-only outcome, no retune attempted.
+
+---
+
+## 10. Q7 — frequency-sized cells, and what a 2-byte rail should carry (PRE-REGISTERED 2026-08-26, before any harness existed)
+
+Two arms. **Q7a** runs the disposal Q6's own mechanism analysis named
+(cells sized by content mass), so the hex line closes on evidence rather
+than on one badly-sized construction. **Q7b** asks the question the
+canon actually needs answered: the V3 facet register is `6×(u8:u8)`
+(`le-contract.md` §3) — so **what should a 2-byte rail carry?**
+
+### 10.1 Q7a — frequency-sized cells
+
+Q6's HEX held 6/9/12 macros of a nominal 14/21/28 because uniform
+`cap/7` cells met a heavy-tailed address distribution: cells 0–2
+saturated, 3–6 were never addressed. HEX-FREQ apportions the same total
+capacity **proportional to each cell's A-mass** (largest-remainder;
+minimum 1 slot for a cell with nonzero mass, **0 for a cell with none** —
+a zero-mass cell is never addressed, so a slot there is pure waste).
+Everything else — adjacency, neighbourhood-bounded eviction, refusal,
+utility — is Q6's, unchanged. Arms: GLOBAL · HEX-FREQ · RAND, caps
+{14, 21, 28}, gates G0–G4 exactly as §9.6.
+
+**Pre-registered degeneracy check, and it binds a PASS as hard as a
+FAIL.** Report `max_cell_share` = largest cell capacity ÷ cap. If it is
+**≥ 0.80**, HEX-FREQ has degenerated into a global pool with a fringe,
+and a passing G2 must be read as *"capacity utilization was the whole
+story; hexagonal locality contributed nothing"* — it does **not**
+resurrect the hex hypothesis. Naming this in advance is what stops a
+degenerate pass being sold as a win.
+
+### 10.2 Q7b — three carriers, the same two bytes
+
+Equal budget in **bytes**, not entries — and all three entries happen to
+cost exactly 2, which is what makes this a fair fight:
+
+| carrier | the 2 bytes hold | matching rule | what it bets on |
+|---|---|---|---|
+| **BPE** | a merge pair `(l, r)`, symbol ids < 256 | its atom pattern occurs as a contiguous span in the chain | symbolic identity, variable length, reusable wherever it occurs |
+| **PAL** (`palette256:palette256`) | `(code(x,y), code(y,z))`, codes from A's frequency-ranked adjacent-pair codebook capped at 256 | exact equality on the chain | categorical identity of the whole chain — high specificity |
+| **I8** (`i8:i8`) | `(clamp₈(y_pos−x_pos), clamp₈(z_pos−y_pos))`, saturating ±127 | exact equality on the chain | metric def-use distance — signed, SIMD-native |
+
+Budgets N ∈ {14, 21, 28} entries (28/42/56 bytes). Train on **A**;
+measure on **H_A** (`vuln_test`, unseen C) and **H_B**
+(`build-script-build`, rustc — cross-language transfer). Vocabulary =
+top-N by training frequency (BPE: the first N merges).
+
+**The comparison metric is HIT-RATE** (fraction of held-out chains with
+≥1 match), *not* density: PAL and I8 match a whole chain exactly, so
+their density is capped at 1.0 by construction while BPE's is not.
+Density is reported but is only comparable within BPE. Comparing the two
+across carriers would be an artefact, not a result.
+
+### 10.3 Gates
+
+- **C0 — null separation, mandatory, per carrier per budget.** Rebuild
+  the vocabulary from a **per-column shuffled** training set (each of the
+  three chain columns — and, for I8, the three position columns —
+  permuted independently across chains, preserving every column marginal
+  exactly), 20 seeds, SplitMix64 `0x9E3779B97F4A7C15`; measure on the
+  unshuffled held-out sets. A carrier carries structure only if its real
+  H_A hit-rate lies **strictly outside** `[null_min, null_max]`. Per
+  `I-NOISE-FLOOR-JIRAK` the separation is read distribution-free
+  (range non-overlap), never as a σ claim.
+- **C1 — ranking.** Rank carriers by H_A hit-rate at each budget.
+- **C2 — transfer.** `hit(H_B) / hit(H_A)`: ≥0.8 language-portable ·
+  0.5–0.8 partial · <0.5 corpus-specific.
+- **C3 — no unqualified claim.** No carrier may be called "better"
+  at a budget where it failed C0.
+- **C4 — byte-exact** for the BPE arm, as always.
+
+### 10.4 Predictions, stated in advance
+
+1. **BPE transfers best** — already-measured precedent (density fell
+   only 4.7% gcc→rustc, `E-R2IL-MACRO-VOCABULARY-TRANSFERS-…-1`).
+2. **PAL** buys specificity at the cost of coverage: lower hit-rate at
+   equal budget, and worse transfer, because a whole-chain signature is
+   more corpus-specific than a reusable 2-opcode fragment.
+3. **I8 is the wildcard and my named risk**: I predict it beats its null
+   on H_A and **degrades most on H_B** — *metric def-use distance is
+   compiler idiom; symbolic identity is language-portable.* If I8
+   instead transfers well, that falsifies my model of what positional
+   deltas encode, and I record it as such.
+4. **Q7a**: with the addressed cells now sized to their mass, HEX-FREQ
+   should hold near its full capacity — so Q7a is a clean test of
+   whether *neighbourhood-bounded eviction itself* helps once the
+   capacity waste is removed. I expect it to land on GLOBAL, not beat
+   it; if so, the hex line closes.
+
+**⊕ RUN 2026-08-26 (append-only results pointer).** Q7 executed after
+§10's commit (`95ea634`). **Q7a:** degeneracy check did not fire
+(max_cell_share 0.286/0.333/0.357); frequency sizing lifted utilization
+from Q6's 43% to 79–86% and **G1 now PASSES 3/3** — so Q6's
+"learns less" half was a construction artefact — but **G2 still fails
+(1/3)** and the arm's own resolution limit (n=1, between-arm spread ≤
+within-arm spread) forbids claiming HEX-FREQ is *worse*, only that it
+misses the bar. **Q7b:** PAL and I8 pass C0 at every budget; PAL
+transfers 0.99–1.00 (**falsifying prediction #2**), I8 transfers
+0.65–0.67 with a ~10× null margin (**confirming #3**); **BPE failed C0
+because hit-rate — the metric I chose to make the carriers comparable —
+saturates and inverts**, so C3 binds and BPE is unranked. Full reading,
+the post-hoc density sweep, and the follow-up a valid comparison needs:
+`E-Q7-FREQUENCY-SIZING-RESCUES-THE-LEARNING-GATE-BUT-NOT-THE-INTERFERENCE-CLAIM-AND-THE-2-BYTE-RAILS-ARE-COMPLEMENTARY-NOT-COMPETING-1`.
+Instrument reverted; board-only outcome.

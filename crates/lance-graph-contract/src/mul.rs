@@ -137,17 +137,41 @@ pub enum FlowState {
 
 /// Gate decision: should the system proceed, pause, or block?
 ///
-/// Cannot be `#[repr(u8)]` because `Hold` and `Block` carry `String` payloads.
-/// Use [`GateDecision::to_disc`] for the SIMD-packable byte discriminant, or
-/// [`batch::gate_decision_disc_batch`] for bulk processing.
-#[derive(Debug, Clone)]
+/// `Copy`, heap-free, and every payload byte is a `#[repr(u8)]` enum, so the
+/// whole decision is byte-packable. Use [`GateDecision::to_disc`] for the
+/// bare discriminant, or [`batch::gate_decision_disc_batch`] for bulk work.
+///
+/// # Why the payload is typed and not prose
+///
+/// `Hold` and `Block` carried `reason: String` until 2026-08-26 — five heap
+/// allocations per call inside `gate_decision_i4`, on a path whose own module
+/// header (see the D-CSV-8 banner above) declares "no heap allocation" and
+/// claims this type carries `&'static str`. Neither was true.
+///
+/// The strings were also *derived*: each was a rendering of the
+/// `(TrustTexture, FlowState)` pair computed two lines earlier and already
+/// typed. Storing a second, unpackable projection of state that exists in
+/// typed form beside it is the defect, not the allocation alone. The pair is
+/// now carried directly; [`GateDecision::reason`] renders it on demand, for
+/// display only, without allocating.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum GateDecision {
     /// Proceed with full autonomy.
     Flow,
     /// Proceed with caution (reduced autonomy).
-    Hold { reason: String },
+    Hold {
+        /// The trust texture that produced the hold.
+        texture: TrustTexture,
+        /// The flow state that produced the hold.
+        flow: FlowState,
+    },
     /// Block execution (require human input).
-    Block { reason: String },
+    Block {
+        /// The trust texture that produced the block.
+        texture: TrustTexture,
+        /// The flow state that produced the block.
+        flow: FlowState,
+    },
 }
 
 impl GateDecision {
@@ -160,6 +184,34 @@ impl GateDecision {
             GateDecision::Flow => 0,
             GateDecision::Hold { .. } => 1,
             GateDecision::Block { .. } => 2,
+        }
+    }
+
+    /// Human-readable ground for this decision — **display only**, never a
+    /// selector. Derived from the typed payload, so it allocates nothing and
+    /// cannot drift from the decision it describes.
+    #[must_use]
+    pub const fn reason(&self) -> &'static str {
+        match self {
+            // Flow carries no payload, so its text must claim no specific
+            // texture or state: gate_decision_i4 returns Flow for
+            // (Calibrated | Underconfident) × (Flow | Transition), four
+            // input classes, and naming one of them would be wrong for three.
+            GateDecision::Flow => "preconditions for commitment hold: full autonomy",
+            GateDecision::Block {
+                texture: TrustTexture::Uncertain,
+                ..
+            } => "uncertain trust: coherence low, tension high",
+            GateDecision::Block { .. } => "underconfident + anxiety: execution blocked",
+            GateDecision::Hold {
+                texture: TrustTexture::Overconfident,
+                ..
+            } => "overconfident trust: caution required",
+            GateDecision::Hold {
+                flow: FlowState::Anxiety,
+                ..
+            } => "anxiety flow state: reduced autonomy",
+            GateDecision::Hold { .. } => "boredom or moderate state: hold for re-evaluation",
         }
     }
 }
@@ -436,7 +488,8 @@ fn flow_state_from(challenge: f64, skill: f64) -> FlowState {
 // vectorise without changing API.
 //
 // All decision logic is pure: no heap allocation, no f64, no f32.
-// GateDecision::Hold/Block carry &'static str reason to preserve zero-alloc.
+// GateDecision::Hold/Block carry a typed (TrustTexture, FlowState) payload —
+// Copy and byte-packable. Prose is rendered on demand by GateDecision::reason.
 // ═══════════════════════════════════════════════════════════════════════════
 
 /// i4-scalar MUL evaluation.
@@ -577,25 +630,17 @@ pub mod i4_eval {
         let flow = flow_state_i4(qualia, signed_mantissa);
 
         match (texture, flow) {
-            (TrustTexture::Uncertain, _) => GateDecision::Block {
-                reason: "uncertain trust: coherence low, tension high".to_string(),
-            },
-            (TrustTexture::Underconfident, FlowState::Anxiety) => GateDecision::Block {
-                reason: "underconfident + anxiety: execution blocked".to_string(),
-            },
-            (TrustTexture::Overconfident, _) => GateDecision::Hold {
-                reason: "overconfident trust: caution required".to_string(),
-            },
-            (_, FlowState::Anxiety) => GateDecision::Hold {
-                reason: "anxiety flow state: reduced autonomy".to_string(),
-            },
+            (TrustTexture::Uncertain, _) => GateDecision::Block { texture, flow },
+            (TrustTexture::Underconfident, FlowState::Anxiety) => {
+                GateDecision::Block { texture, flow }
+            }
+            (TrustTexture::Overconfident, _) => GateDecision::Hold { texture, flow },
+            (_, FlowState::Anxiety) => GateDecision::Hold { texture, flow },
             (
                 TrustTexture::Calibrated | TrustTexture::Underconfident,
                 FlowState::Flow | FlowState::Transition,
             ) => GateDecision::Flow,
-            _ => GateDecision::Hold {
-                reason: "boredom or moderate state: hold for re-evaluation".to_string(),
-            },
+            _ => GateDecision::Hold { texture, flow },
         }
     }
 
@@ -679,10 +724,11 @@ pub mod i4_eval {
     /// `scalar_impl` when AVX-512BW or NEON is absent.
     ///
     /// # Gate-decision carve-out
-    /// `GateDecision` carries a `String` payload and cannot be `#[repr(u8)]`.
-    /// `gate_decision_disc_batch` returns a `Vec<u8>` (0=Flow, 1=Hold, 2=Block)
-    /// for SIMD-fast callers. `gate_decision_batch` returns the full
-    /// `GateDecision` with reason strings via the scalar path.
+    /// `gate_decision_disc_batch` writes bare discriminants (0=Flow, 1=Hold,
+    /// 2=Block) for callers that only need the branch. `gate_decision_batch`
+    /// returns the full `GateDecision` — since 2026-08-26 that is also
+    /// heap-free and `Copy`, so the split is about output width, not about
+    /// allocation.
     pub mod batch {
         use super::*;
 
@@ -1346,8 +1392,9 @@ pub mod i4_eval {
                 mantissas: &[i8],
                 out: &mut [u8],
             ) {
-                // Use scalar path: String allocation in gate_decision_i4 is the bottleneck,
-                // not the comparison logic. NEON benefit is in the disc functions above.
+                // Scalar path: the comparison logic, not allocation, is what is
+                // left to vectorise here (gate_decision_i4 has been heap-free
+                // since 2026-08-26). NEON benefit is in the disc functions above.
                 for i in 0..qualia.len() {
                     out[i] = super::super::gate_decision_i4(&qualia[i], mantissas[i]).to_disc();
                 }
@@ -1446,8 +1493,8 @@ pub mod i4_eval {
 
         /// Batch gate decision discriminants: 0=Flow, 1=Hold, 2=Block.
         ///
-        /// SIMD-fast alternative to `gate_decision_batch`. Use when reason strings
-        /// are not needed. Dispatches to AVX-512/NEON if available at runtime.
+        /// SIMD-fast alternative to `gate_decision_batch`. Use when only the
+        /// branch is needed. Dispatches to AVX-512/NEON if available at runtime.
         pub fn gate_decision_disc_batch(qualia: &[QualiaI4_16D], mantissas: &[i8], out: &mut [u8]) {
             assert_eq!(
                 qualia.len(),
@@ -1471,7 +1518,8 @@ pub mod i4_eval {
             scalar_impl::gate_decision_disc_batch(qualia, mantissas, out);
         }
 
-        /// Batch full GateDecision with reason strings (scalar path — Strings cannot be SIMD-packed).
+        /// Batch full `GateDecision` (scalar path — writes the typed payload,
+        /// not just the discriminant).
         pub fn gate_decision_batch(
             qualia: &[QualiaI4_16D],
             mantissas: &[i8],
@@ -1761,24 +1809,15 @@ pub mod i4_eval {
             batch::gate_decision_batch(&qualia, &mantissas, &mut out);
             for (i, (q, &m)) in qualia.iter().zip(mantissas.iter()).enumerate() {
                 let scalar = gate_decision_i4(q, m);
-                // Compare discriminant since GateDecision carries String fields
-                assert!(
-                    matches_gate_discriminant(&out[i], &scalar),
-                    "gate decision discriminant mismatch at index {}: batch={:?} scalar={:?}",
-                    i,
-                    out[i],
-                    scalar
+                // Full equality, not just the discriminant: the payload is typed
+                // and Copy, so a batch/scalar divergence in texture or flow is
+                // now observable instead of being masked by a String compare.
+                assert_eq!(
+                    out[i], scalar,
+                    "gate decision mismatch at index {i}: batch={:?} scalar={:?}",
+                    out[i], scalar
                 );
             }
-        }
-
-        fn matches_gate_discriminant(a: &GateDecision, b: &GateDecision) -> bool {
-            matches!(
-                (a, b),
-                (GateDecision::Flow, GateDecision::Flow)
-                    | (GateDecision::Hold { .. }, GateDecision::Hold { .. })
-                    | (GateDecision::Block { .. }, GateDecision::Block { .. })
-            )
         }
 
         #[test]

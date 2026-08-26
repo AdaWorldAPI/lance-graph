@@ -1,7 +1,7 @@
 //! DTOs: bus adapters between cognitive speed zones.
 //!
 //! Φ Dispersion:   StreamDto        — sensor output enters the field
-//! Ψ Interference: PerturbationDto  — the ripple field IS f64[4096]
+//! Ψ Interference: PerturbationDto  — the ripple field: f32 energy, canonically CODEBOOK_SIZE = 4096
 //! B Consequence:   BusDto           — committed thought with provenance
 //! Γ Collapse:      ThoughtStruct    — stabilized, persisted, text is lazy
 
@@ -50,7 +50,9 @@ pub struct StreamDto {
 // Ψ — PerturbationDto: the ripple field
 // ═══════════════════════════════════════════════════════════════════════════
 
-/// PerturbationDto IS f64[4096] energy. Not a struct with candidate lists.
+/// PerturbationDto carries `Vec<f32>` energy (canonically CODEBOOK_SIZE = 4096
+/// entries — the doc previously claimed `f64[4096]`, wrong on both scalar type
+/// and shape; `from_energy_f32` accepts arbitrary slice lengths, unchecked).
 ///
 /// High energy at entry 42 = "thought 42 resonates."
 /// Zero at entry 200 = "thought 200 destructively interfered."

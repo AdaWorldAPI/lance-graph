@@ -317,3 +317,59 @@ fn busdto_codebook_index_corner_corpus_round_trips_bit_exact() {
         );
     }
 }
+
+/// Anti-aliasing leg: an out-of-plane supporter index (16385 — under the old
+/// modulo this aliased onto bit 1) must produce NO phantom bit. Before the
+/// fix, recovery reported a top_k index of 1 that no producer ever emitted.
+/// (A hard assert was tried first and refuted by the corner-corpus test:
+/// u16::MAX is a pinned legal transport value, lossless via qualia[9].)
+#[test]
+fn busdto_out_of_plane_index_sets_no_foreign_bit() {
+    let mut bs = BindSpace::zeros(2);
+    let bus = BusDto {
+        codebook_index: 4321,
+        energy: 0.5,
+        top_k: [
+            (4321, 0.5),
+            (16385, 0.4), // out-of-plane: old code aliased this onto bit 1
+            (0, -1.0),
+            (0, -1.0),
+            (0, -1.0),
+            (0, -1.0),
+            (0, -1.0),
+            (0, -1.0),
+        ],
+        cycle_count: 1,
+        converged: true,
+    };
+    dispatch_busdto(&mut bs, 0, &bus, 0);
+    let recovered = unbind_busdto(&bs, 0);
+    assert!(
+        !recovered.top_k.iter().any(|&(idx, _)| idx == 1),
+        "phantom bit 1 recovered — out-of-plane index was aliased: {:?}",
+        recovered.top_k
+    );
+}
+
+/// Can-stay-silent leg: the highest VALID position (16383) commits cleanly.
+#[test]
+fn busdto_index_at_plane_edge_is_valid() {
+    let mut bs = BindSpace::zeros(2);
+    let bus = BusDto {
+        codebook_index: 16383,
+        energy: 0.5,
+        top_k: [
+            (16383, 0.5),
+            (0, -1.0),
+            (0, -1.0),
+            (0, -1.0),
+            (0, -1.0),
+            (0, -1.0),
+            (0, -1.0),
+            (0, -1.0),
+        ],
+        cycle_count: 1,
+        converged: true,
+    };
+    let _ = dispatch_busdto(&mut bs, 0, &bus, 0);
+}

@@ -1,3 +1,127 @@
+## 2026-08-26 — PROPOSAL (unbuilt, PLAN/BOARD ONLY): a recorded alpha is instrumentation until it is interventionally load-bearing, `.claude/plans/alpha-interventional-faithfulness-v1.md`
+
+Humility about INTROSPECTION, where #1057 was humility about the world. Two
+axes: interventional faithfulness (does perturbing the claimed internal state
+move the next transition?) and causal-graph faithfulness (does the traversal
+preserve the actual edges, not merely the right entities?). Measured target:
+`contract::dispatch_mode` elects Domain -> DispatchMode per dispatch from
+exactly the claimed states (gate / surprise / dissonance / DK veto), never
+stores the election, AND pre-declares its own null ("reads only LOGICAL markers
++ optional MUL — never qualia") — so the can-fire and can-stay-silent arms both
+have shipped, typed targets and the silent arm falsifies a documented claim.
+Five-metric stack (Entity / Relation / Interventional / Epistemic /
+Counterfactual-Necessity faithfulness), the last three computable natively from
+an execution receipt without an LLM judge. Three banking rules: falsifier not a
+memory subsystem; topology must beat a shuffled-edge null before any derived
+view is canonical; tail tests change an edge's evidence, never CE64's meaning.
+Literature is operator-supplied and UNVERIFIED in session — recorded as
+provenance, never as evidence. D-AIF-1..6, F-AIF-1..5.
+## 2026-08-26 — MEASUREMENT REPORT (no code, no type, no rename): Octopus causal-CoT contract + related-work audit, `.claude/plans/octopus-causal-cot-audit-v1.md`
+
+Audits the "domain-conditioned causal Graph-CoT over resident causal topology"
+thesis against measured source across three repos (lance-graph, MedCare-rs @
+572eb87, OGAR @ c02efa1, the latter two read-only). Headline measurements:
+`grep -ri octopus` returns ZERO tree-wide (the name is session-external, so
+nothing must be renamed); no thought-graph population exists anywhere, so
+F-OCT-10 is satisfied by absence rather than by a guard; `AttentionMaskSoA` has
+NO production consumer and the transition function (`elect_mode` -> `DispatchMode`)
+never reads it, so alpha is observational, not load-bearing; `SettlementCell::cell()`
+never reads `CausalTopology`, so entropy and causal ground do not yet meet;
+`ReasoningBand` 61..63 is minted, round-trip-tested, asserted-untouched — and
+gates nothing, because OGAR (the ClassView producer) never mints a `band_reading`
+declaration. Six of ten F-OCT falsifiers are EXPECTED-FAIL today, one is N/A,
+two vacuous, one likely-pass. Corrects the brief on two points: alpha is a flat
+LRU residency receipt (not a projection), and `Domain` in-tree is Cynefin
+(Clear/Complicated/Complex/Chaotic/Confused), not subject matter — so
+"domain-aware" is ambiguous inside this codebase. Adds the Causal-Audit ablation
+correction (FGVA admission is load-bearing at 96%->15% Path Reach; TAP Top-K is
+worth only 3.3pp over random prune, which becomes the FLOOR any claimed topology
+must clear). Naming: do NOT adopt Octopus publicly and do not rename; the
+measured architecture is Graph-CoT-shaped (closest published relative is Luo
+et al., completion-by-retrieval), and the differentiator is the two CE64 fields,
+neither of which any producer stamps yet. Consumes and does not re-plan #1057
+(entropy/closure/59-60), dacr7-band-reading, alpha-channel-rung-overlay,
+counterfactual-rung3-closure. D-OCT-1..10 = the falsifier table.
+
+## 2026-08-26 — PROPOSAL (measured, unbuilt): entropy measures closure, bits 59-60 tell whether it is causally earned, `.claude/plans/entropy-closure-causal-ground-v1.md`
+
+Law under test: entropy finds the holes, causal topology (CE64 59-60,
+`CausalTopology` lens under the D-ACR-7 band-reading contract) gives them
+shape, the reasoning band (61-63) controls what kind of bridge may cross them
+as a PERMISSION level (never a confidence float), Counterfactual + Revision
+tests whether the bridge carries explanatory weight. Measured: the operator's
+cross-product already ships as `SettlementCell` (Crystal/Glass/
+GroundedUnresolved/Fog; Glass = suspicious closure = the humility cell), with
+settlement's own correction adopted (entropy refines, closure×competence
+define); six uncoordinated entropy surfaces enumerated; MUL/DK already
+approximates felt-minus-demonstrated. Only new mechanism: the CausalTopology
+census per basin feeding the competence axis (D-ECG-2) + the Sudoku walker
+(constraint-directed epistemic completion, D-ECG-6). D-ECG-1..6, F-ECG-1..7.
+
+## 2026-08-26 — PROPOSAL (unbuilt, PLAN/BOARD ONLY): MUL calibrates, it does not adjudicate, `.claude/plans/mul-calibration-not-verdict-v1.md`
+
+Storno-successor to `mul-gate-outcome-vs-ground-v1` (#1054), whose thesis is
+withdrawn the same day. Two corrections in order: (1) restore axis orthogonality
+— `TrustTexture` (calibration) and `FlowState` (Csikszentmihalyi challenge/skill,
+whose measured consumer is `FlowState → StyleFamily` thinking-style adaptation)
+are independent coordinates `MulAssessment` already carries apart, fused by
+#1045 into `Hold{texture, flow}` at the boundary where the caller already holds
+both; (2) `DOMAIN EVIDENCE → MUL CALIBRATION → PLANNER HINT`, not OUTCOME vs
+GROUND. Measured: two parallel MUL implementations with disjoint TrustTexture
+vocabularies; the planner's `MulGateDecision{Proceed, Sandbox, Compass}` matches
+the operator diagram's gate verbatim; every in-tree consumer of
+`contract::mul::GateDecision` is an execution/commit gate; ZERO in-tree
+implementors of `MulProvider` / `PlannerContract`. `GateLevel` withdrawn; no
+`MulHint` invented. Issue: `ISS-MUL-GATE-OUTCOME-COUPLED-TO-PRODUCER-GROUND`
+(storno appended).
+
+## 2026-08-26 — PROPOSAL (unbuilt): separate the gate OUTCOME from producer-owned GROUND, `.claude/plans/mul-gate-outcome-vs-ground-v1.md`
+
+Follow-up arc to #1045 (`GateDecision` de-stringing) and #1052 (ordinal
+alignment). #1045 fixed the MUL hot path correctly but promoted MUL-specific
+ground (`TrustTexture`, `FlowState`) into the public gate outcome, so no
+producer can say `Block` without claiming MUL provenance — measured break:
+`ada-rs/src/contract_impls.rs:72` against an unbound git dep. The plan splits
+`GateLevel` (public, `#[repr(u8)]` 0/1/2) from producer-owned ground (which
+stays with the producer and reaches the record via witness/alpha), keeping
+#1045's typed heap-free evaluator untouched. Anti-goal: no `GateGround` sum
+type in the contract. Durable half: a source-breaking contract change is not
+verified until known unbound-git consumers BUILD against the proposed head.
+Issue: `ISS-MUL-GATE-OUTCOME-COUPLED-TO-PRODUCER-GROUND`.
+
+## 2026-08-26 — PROPOSAL (unbuilt): grounding descent via cognitive Maslow — ΔF-stalled elevation walks the needs ladder over revisions + observations, `.claude/plans/grounding-descent-cognitive-maslow-v1.md`
+
+When elevation fails to lower F (`ΔF ≥ −EPIPHANY_MARGIN` on a RungShift), walk
+the cognitive-Maslow needs ladder bottom-up over the revision history and
+observations (`witness_fabric::{belief_runs, suggest_reopening, resolve_chain}`
++ `counterfactual.rs`), short-circuit at the first dirty level, certify a clean
+ground rather than staying silent. Supplies the `outcome_at` oracle
+`witness_fabric`'s doc prescribes as consumer-side. Fixes F-0's unreachable
+crown by construction (G5 reachable only through four clean gates).
+Plan: `.claude/plans/grounding-descent-cognitive-maslow-v1.md`.
+
+## 2026-08-25 — PROPOSAL (unbuilt, unprobed): Kognitionswirtschaft v1 — typed epistemic deficits close the Maslow gap in the MUL gate, `.claude/plans/kognitionswirtschaft-v1.md`
+
+Operator-initiated: *"maslov model Heckhausen Rubikon Libet ist
+Kognitionswirtschaft."* Three of the four layers exist already —
+`CycleBudget` prices the Libet window in µs (`elevation/cycle.rs`),
+`rubicon_witness` reads the Heckhausen crossing (D-ACR-8), the MUL gate
+holds at the deliberation boundary. The missing fourth is the demand
+signal: `GateDecision::Hold { reason: String }` grounds a hold in PROSE,
+so every Hold spends budget on "more context" indiscriminately. The plan
+adds one `#[repr(u8)]` deficit enum (Signal / Stability / Relation /
+Warrant / Mobility, ported from `ada-consciousness/atoms/
+cognitive_maslow.py` with agnostic names), widens `MulAssessment`
+additively, and wires deficit → typed supply request. Headline finding
+(F-0, candidate `E-THE-CROWN-NEVER-FIRED-1`): the ancestor's fifth level
+is UNREACHABLE code — `NAVIGATION.satisfied = True` hardcoded
+(`:207–208`) — because rigidity is a trajectory property no field
+snapshot can see; the port defines it as a window predicate over the
+resolution loop's own history. Load-bearing falsifier F-KW-TARGETED-1:
+resolving the *named* deficit must beat resolving a *random* one against
+a shuffled control, or the taxonomy is decoration. D-KW-1..6, six
+falsifiers, each with can-fire and can-stay-silent legs.
+
 ## 2026-08-24 — §7's three falsifiers RUN: `PROBE-R2IL-BPE-RECOMBINATION-FALSIFIERS-1` (4/4), splice legality 10.1%, round-trip confirmed, counterfactual lane distinguishes at the real v2-only scope
 
 Autoattended (1 Sonnet worker, orchestrator independently re-verified

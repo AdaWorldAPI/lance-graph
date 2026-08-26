@@ -1,3 +1,96 @@
+## alpha-interventional-faithfulness-v1 — PROPOSED 2026-08-26
+
+Plan: `.claude/plans/alpha-interventional-faithfulness-v1.md`. PLAN/BOARD ONLY.
+F-AIF-1/F-AIF-2 are the load-bearing can-fire/can-stay-silent pair.
+
+| D-id | Deliverable | Status |
+|---|---|---|
+| D-AIF-1 | receipt schema over existing artifacts (a read, not a new store) | Queued |
+| D-AIF-2 | alpha intervention probe vs `DispatchMode` election (+ qualia silence arm) | Queued |
+| D-AIF-3 | stage ladder ablation: earliest-lost-stage nameable, replay alone FAILS | Queued |
+| D-AIF-4 | native Relation Faithfulness from the receipt + CE64 refinements | Queued |
+| D-AIF-5 | shuffled-edge null harness for any derived diagnostic view | Queued |
+| D-AIF-6 | external naming decision (Octopus internal; CoT genus reservation recorded) | Queued |
+## octopus-causal-cot-audit-v1 — MEASUREMENT REPORT 2026-08-26 (measured, no code)
+
+Plan: `.claude/plans/octopus-causal-cot-audit-v1.md`. PLAN/BOARD ONLY.
+Each D-id is one F-OCT falsifier; "expected today" is the audit's measured
+prediction, and a falsifier is not green until it has actually run.
+
+| D-id | Deliverable | Status |
+|---|---|---|
+| D-OCT-1 | F-OCT-1 alpha load-bearing (`do(alpha)` moves next `DispatchMode`) — expected FAIL, no edge exists | Queued |
+| D-OCT-2 | F-OCT-2 matched-irrelevant arm silent — RED while D-OCT-1 is red (vacuous pass is the 150/150 defect) | Queued |
+| D-OCT-3 | F-OCT-3 relation faithfulness (right entities + wrong edges + right answer must fail) | Queued |
+| D-OCT-4 | F-OCT-4 shuffled-topology null — N/A until a projection exists; must beat a K-slot shuffle by >3pp | Queued |
+| D-OCT-5 | F-OCT-5 stage-ablation diagnostic completeness over existing receipts | Queued |
+| D-OCT-6 | F-OCT-6 twin-basin routing — expected FAIL, `SettlementCell::cell()` never reads topology | Queued |
+| D-OCT-7 | F-OCT-7 band permission — expected FAIL, blocked on an OGAR-tier `band_reading` mint | Queued |
+| D-OCT-8 | F-OCT-8 counterfactual necessity (mediator removal) — blocked on the `from_mantissa(-6)` inversion | Queued |
+| D-OCT-9 | F-OCT-9 unknown may remain unknown (`GapKind::{HubExcluded,BudgetExhausted}`) — likely PASS | Queued |
+| D-OCT-10 | F-OCT-10 no second world — passes by absence; the guard is prospective | Queued |
+| D-OCT-11 | F-OCT-11 cross-rung directionality (below moves higher / above leaves lower unchanged) — `RungLevel` ships, `visible_from(r)` absent | Queued |
+
+## entropy-closure-causal-ground-v1 — PROPOSED 2026-08-26 (measured)
+
+Plan: `.claude/plans/entropy-closure-causal-ground-v1.md`. PLAN/BOARD ONLY.
+
+| D-id | Deliverable | Status |
+|---|---|---|
+| D-ECG-1 | closure answered by `SettlementCell`, never a nearest-entropy scalar | Queued |
+| D-ECG-2 | `CausalTopology` census per basin → competence axis (fallible projection, asserted provenance) | Queued |
+| D-ECG-3 | Glass routing → Sandbox (CF+Revision) + T9 actuators; never an execution gate | Queued |
+| D-ECG-4 | five-state humility ladder documented onto existing carriers | Queued |
+| D-ECG-5 | unasserted-register REFUSES restated as binding | Queued |
+| D-ECG-6 | Sudoku-walker steering spec (detect/bound/propose/filter/gate/test loop) | Queued |
+| D-ECG-7 | ADMIT/BUDGET/PERMIT/TEST split; three-axis alignment via domain view; `None` masks not blacklists | Queued |
+
+## mul-calibration-not-verdict-v1 — PROPOSED 2026-08-26 (storno-successor to #1054)
+
+Plan: `.claude/plans/mul-calibration-not-verdict-v1.md`. PLAN/BOARD ONLY, no
+code. `mul-gate-outcome-vs-ground-v1`'s D-GATE-2/D-GATE-3 are WITHDRAWN.
+
+| D-id | Deliverable | Status |
+|---|---|---|
+| D-MCAL-0 | axis restoration: coordinates stay in the assessment; unfuse the verdict payload at the trait boundary | Queued |
+| D-MCAL-1 | per-symbol consumer enumeration from GitHub, classified A/B/C/D | Queued |
+| D-MCAL-2 | fate of `MulProvider` + `PlannerContract::gate_check` (0 in-tree impls) | Queued |
+| D-MCAL-3 | name the execution gate what it is (doc-first; rename is a later PR) | Queued |
+| D-MCAL-4 | consent veto + evidence contradiction as domain evidence, no MUL ground | Queued |
+| D-MCAL-5 | if a public MUL output is needed, promote the planner's existing type — never mint a fourth | Queued |
+| D-MCAL-6 | consumer-build gate: BUILD them, don't grep them | Queued |
+
+## mul-gate-outcome-vs-ground-v1 — PROPOSED 2026-08-26 (follow-up arc to #1045/#1052)
+
+Plan: `.claude/plans/mul-gate-outcome-vs-ground-v1.md`. Separate the public
+gate OUTCOME (`GateLevel`) from producer-owned GROUND. No code yet.
+D-GATE-1 gates the rest: implementing before the consumer enumeration repeats
+#1045's mistake one level up.
+
+| D-id | Deliverable | Status |
+|---|---|---|
+| D-GATE-1 | enumerate real `lance-graph-contract` git consumers from GitHub, per-symbol | Queued |
+| D-GATE-2 | `GateLevel` (`#[repr(u8)]` 0/1/2) + `GateDecision::level()` in `contract::mul` | Queued |
+| D-GATE-3 | `MulProvider::gate_check` + `PlannerContract::gate_check` return `GateLevel` | Queued |
+| D-GATE-4 | in-workspace call-site migration (planner, driver, kanban, deepnsm-v2) | Queued |
+| D-GATE-5 | consumer-build gate: procedure + one recorded red→green run per consumer | Queued |
+| D-GATE-6 | consumer-side landings (ada-rs first), after D-GATE-3 is on main | Queued |
+
+## kognitionswirtschaft-v1 — PROPOSED 2026-08-25 (operator-initiated)
+
+Plan: `.claude/plans/kognitionswirtschaft-v1.md`. Typed epistemic deficits
+(Maslow-ported, agnostic names) as the demand side of the Libet/Rubikon/MUL
+economy. No code yet; every D-id below is gated on its falsifier.
+
+| D-id | Deliverable | Status |
+|---|---|---|
+| D-KW-1 | `EpistemicDeficit` enum (5 variants) in `contract::mul` | Queued |
+| D-KW-2 | `MulAssessment.deficit: Option<…>` additive; `Hold.reason` demoted to display | Queued |
+| D-KW-3 | four snapshot predicates over `SituationInput` (thresholds hand-tuned, declared) | Queued |
+| D-KW-4 | `Mobility` window predicate over resolution-loop history (F-0 fix) | Queued |
+| D-KW-5 | deficit → typed supply-request dispatch (no actor, no fetch) | Queued |
+| D-KW-6 | gate ordering: MUL(deficit) before `rubicon_witness` read; reads only | Queued |
+
 ## stage-3 — RE-SCOPED 2026-08-20: S3.0 closed as NOT-NEEDED; the ladder's empty column is HYDRATION, not ADDRESS
 
 PR #973 (S3.0 address, first attempt) closed unmerged. Its retraction PR then

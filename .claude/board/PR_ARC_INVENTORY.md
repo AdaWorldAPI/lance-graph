@@ -1,3 +1,79 @@
+## 2026-08-26 — lance-graph #1059 (MERGED e5f750e) — the Octopus causal-CoT audit: measured across three repos, six of ten falsifiers expected-fail
+
+- **Added:** `.claude/plans/octopus-causal-cot-audit-v1.md` — a MEASUREMENT
+  REPORT, not a design. No code, no type, no rename, no graph population, no
+  CE64 bit, no ABI symbol. D-OCT-1..11 = the falsifier table; seven `ISSUES.md`
+  entries; the lineage grading (§17).
+- **Measured, and this is the headline:** `grep -ri octopus` returns **ZERO**
+  tree-wide — the name is session-external, so nothing is preserved by adopting
+  it and nothing broken by declining it. No thought-graph population exists
+  anywhere (`ThoughtGraph`/`InfluenceGraph`/`trace_graph`/`ReasoningTrace` all
+  absent), so "no second world" holds **by absence, not by a guard**.
+- **The load-bearing negative:** `AttentionMaskSoA` has **no production
+  consumer** — every hit outside its module is a `pub mod` line or a
+  doc-comment, and `mailbox_soa.rs:11` says *"NO AttentionMask/LRU"*. The
+  transition function is `elect_mode(Domain) -> DispatchMode`, derived from gate
+  + surprise + contradiction, and it never reads alpha. So alpha is
+  observational: F-OCT-1 fails and F-OCT-2 would pass **vacuously** — the
+  `closed_class_guess` 150/150 defect one level up. The fix is NOT to wire alpha
+  into dispatch to make the probe pass; that builds the test's answer.
+- **Three more expected-fails, each a missing WIRE not a missing type:**
+  `SettlementCell::cell()` never reads `CausalTopology` (entropy and causal
+  ground do not meet); `ReasoningBand` 61..63 is minted, round-trip-tested,
+  asserted-untouched by the control loop — and **gates nothing**, because OGAR
+  (`ogar-class-view`, 662 LOC) never mints a `band_reading`; and D-ECG-6's
+  census rank is a BUDGET with no ADMIT in front of it.
+- **Corrections to the operator brief:** alpha is a flat LRU residency receipt,
+  **not** a projection (it has no topology to project); `Domain` in-tree is
+  **Cynefin**, not subject matter, so "domain-aware" is ambiguous here; and
+  `RungLevel` is **10** while `ReasoningBand` is **8** — they share the
+  `Surface`/`Transcendent` endpoint names, and 61..63 physically cannot hold a
+  rung, so any "8×10" shorthand must say which 8.
+- **Related work, classified:** the closest published relative is Luo et al.
+  (completion by **retrieval** over an existing causal KG), NOT Causal-CoT
+  (completion by **invention**). Causal-Audit's ablation folded in with its
+  correction: FGVA **admission** is load-bearing (Path Reach 96% → 15% without
+  it), TAP Top-K is worth only **3.3pp** over random prune — which becomes the
+  FLOOR any claimed topology must clear, never a precedent. The 3-axis grammar
+  is borrowable only because here it types against **stored fields**, not an
+  LLM judge.
+- **Cross-repo (read-only clones, MedCare-rs `572eb87` / OGAR `c02efa1`):**
+  MedCare's `plateau.rs` is the strongest empirical support for the domain-lens
+  thesis — for medicine, evidence rides the edge tenant and **qualia stays
+  ZERO**, same world, same columns, the domain rules one tenant out. It is also
+  **prose in one consumer**, unenforced and undetectable by the spine.
+- **Locked:** the world graph remains canonical; the thought graph is a receipt
+  or a projection, never a second world (adopted verbatim from #1058). Sandbox
+  has **no symbol anywhere** — correct, and the point: it is a definition
+  (Counterfactual + Revision), not a type. `None` is view-scoped, never a
+  permanent blacklist. No `FgvaAlignment` DTO.
+- **Reconciled with #1058** (parallel session, same operator brief, landed
+  first): that plan is doctrine + probe design, this is the measurement report.
+  One correction to its framing — D-AIF-2's subject is **unwired**, not merely
+  unbuilt, so the probe as specified returns silence on both arms. D-AIF-2 and
+  D-OCT-1/2 are the same falsifier; tracked once, in #1058's plan.
+- **Lineage graded (§17):** nine of fifteen organs have a real shipped type
+  (`RungLevel`, `RungElevator`, `DispatchMode::Saccade`, `Homeostasis`,
+  `MulAssessment`/`DkPosition`/`TrustQualia`, `SettlementCell`,
+  `CausalTopology`, `ReasoningBand`, `GapKind`/`Frontier`/`Throttle`). **The
+  organs are shipped; the connective tissue is not** — every gap is a wire, which
+  is exactly why no falsifier has run.
+- **Deferred, deliberately:** every F-OCT falsifier (none has run — the audit
+  predicts outcomes, it does not claim them); the causal-sign carrier question
+  (substrate tier, STOP rule); the ADMIT amendment to D-ECG-6 (that plan's to
+  make); any `docs/` page (§17.3 verbatim if wanted, nothing more).
+- **Docs:** the plan is the doc. No `EPIPHANIES.md` entry — the headline
+  findings are *absences*, and an absence earns an entry when a falsifier makes
+  it a measurement.
+- **Self-corrected in-session:** the `regenerate-and-diff` gate went red on
+  `88d95b2` because the index is generated from `.claude/plans/` and the added
+  sections changed the audit plan's citation counts (0/4 → 2/9). Reproduced red
+  locally, regenerated with the documented command, verified byte-identical.
+  Standing hazard: any further edit to that plan restales the index.
+- **Confidence:** HIGH on every measured absence/presence (each is a named
+  grep or a file:line read this session). NONE on any predicted falsifier
+  outcome — those are predictions, and a falsifier is not green until it runs.
+
 ## 2026-08-23 — lance-graph #1017 (OPEN) — the integration half of #1012: one receipt, three borrowed consumers
 
 - **Added:** `E-ONE-RECEIPT-MANY-BORROWED-CONSUMERS-1` — the board record of

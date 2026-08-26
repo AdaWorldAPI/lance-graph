@@ -1,5 +1,414 @@
 # Issues Log — Open + Resolved (double-entry, append-only)
 
+## ISS-NO-CAUSAL-SIGN-ON-EDGES (2026-08-26) — OPEN
+
+`CausalEdge64` carries **no Inc/Dec polarity**. Measured: `grep -niE
+"polarity|Increase|Decrease"` over `lance-graph-contract/src` + `causal-edge/src`
+returns only clause-level negation cues (`grammar/clause_cues.rs:128`, *"words
+that flip a clause's predicate polarity"*) and NARS observation polarity
+`f ∈ {0,1}` (`grammar/thinking_styles.rs:151`). Neither is an edge-level causal
+sign.
+
+Consequence: the **state axis** of a target-relative admission test has no
+carrier, so
+
+```
+↑ steroid → ↓ inflammation      admitted silently against a target needing  ↑ inflammation
+```
+
+on a perfect entity match. Causal-Audit's expander emits signed triples
+`(u, Inc|Dec, v)` and its hard state-conflict kill depends on that sign; ours
+cannot express the conflict at all. This is a substrate-tier question — where
+does causal sign live: an edge field, a `ValueTenant` lane, or a
+`ClassView`-declared reading? — and per the missing-capability STOP rule it is
+answered one tier down BEFORE any walker consumes it. Deliberately left open.
+Ref: `.claude/plans/octopus-causal-cot-audit-v1.md` §15.3, §16.3.
+
+## ISS-D-ECG-6-BUDGET-WITHOUT-ADMISSION (2026-08-26) — OPEN
+
+D-ECG-6 (`entropy-closure-causal-ground-v1.md:208`) specifies a *"census-ranked
+frontier: prefer `IndirectKnown` > `IndirectUnknown` > `Unknown` for
+tractability"*. That ranks by how tractable a candidate's **own topology** is —
+never by whether the candidate is **relevant to the hole being filled**. It is a
+BUDGET with no ADMIT stage in front of it.
+
+Against the measured Causal-Audit ablation that is the failure mode with the
+large coefficient: budget without admission is the "simple alignment" arm
+(Path Reach 96% → 15%), while the ranking itself is worth 3.3pp over random
+prune. D-ECG-6 has the cheap half and is missing the expensive one.
+
+Amendment (that plan's to make, not the audit's): insert ADMIT before the census
+rank — a sharpening of the existing FILTER stage from "static constraints" to
+"target-relative type check". No new D-id, no new plan.
+Ref: `.claude/plans/octopus-causal-cot-audit-v1.md` §15.2.
+
+## ISS-RUNG-VS-BAND-CARDINALITY-COLLISION (2026-08-26) — OPEN
+
+Two ladders share both endpoint names and differ in cardinality and meaning:
+
+| type | file | values |
+|---|---|---|
+| `RungLevel` | `contract/src/cognitive_shader.rs:157` | **10** — `Surface 0 … Transcendent 9` |
+| `ReasoningBand` | `causal-edge/src/layout.rs:353` | **8** — `Surface 0 · Association · Relation · Causal · Counterfactual · Perspective · Meta · Transcendent 7` |
+
+CE64 61..63 is three bits, so it **physically cannot hold a `RungLevel`**
+(10 > 2³). Any "8×10" shorthand for the alpha receipt must state which 8 it
+means: the 8 is DOMAINS (for which no carrier exists — measured absent), NOT the
+eight reasoning bands. A session reading "8×10" inside this codebase will
+collide the two by default.
+Ref: `.claude/plans/octopus-causal-cot-audit-v1.md` §16.1.
+
+## ISS-ALPHA-NOT-LOAD-BEARING (2026-08-26) — OPEN
+
+`AttentionMaskSoA` (`cognitive-shader-driver/src/attention_mask.rs`) has **no
+production consumer**. Measured: every hit outside its own module is a `pub mod`
+line or a doc-comment (`lib.rs:93,94`; `mailbox_soa.rs:11`, which explicitly says
+*"NO AttentionMask/LRU"*; `attention_facet.rs:103`). The transition function is
+`elect_mode(Domain) -> DispatchMode` (`contract/src/dispatch_mode.rs`), and
+`Domain` is derived from gate + surprise + contradiction — never from the
+attention mask. There is no edge from the attention carrier into the next
+transition at all.
+
+Consequence: an intervention on a claimed alpha state would be silent in BOTH
+the relevant and the irrelevant arm, so F-OCT-1 fails and F-OCT-2 passes
+*vacuously*. A vacuously-passing silent arm is the `closed_class_guess` 150/150
+defect one level up (CLAUDE.md falsifiability rule), so F-OCT-2 must be reported
+RED until F-OCT-1 is green.
+
+**The fix is NOT to wire alpha into dispatch so the falsifier passes** — that is
+building the test's answer. The measurement stands: the "interventionally
+load-bearing" axis of the thesis is currently unearned.
+Ref: `.claude/plans/octopus-causal-cot-audit-v1.md` §2, D-OCT-1/2.
+
+## ISS-REASONING-BAND-GATES-NOTHING (2026-08-26) — OPEN
+
+`ReasoningBand` (CE64 61..63) is minted, decoded, round-trip-tested
+(`causal-edge/src/v2_layout_tests.rs:480`) and asserted untouched by the whole
+control loop (`probe_revision_kanban_hinge.rs:1404`) — and **gates nothing**.
+Every grep hit is a probe, a test, or a doc-comment; `ogar/recipe_vocab.rs:63`
+states outright that it *does not write* one. The sudoku walker's GATE stage
+therefore has a carrier and no mechanism, which is what F-OCT-7 measures.
+Cross-ref `ISS-BAND-READING-UNMINTED-IN-OGAR` — the blocker is upstream.
+Ref: `.claude/plans/octopus-causal-cot-audit-v1.md` §4, §6, D-OCT-7.
+
+## ISS-BAND-READING-UNMINTED-IN-OGAR (2026-08-26) — OPEN
+
+The two halves of the domain lens live in different repos and do not meet.
+`ClassView::band_reading` (`lance-graph-contract/src/band_reading.rs`) is a
+total, zero-fallback, fallible per-`(classid, rail)` lookup — the consumer side
+of the D-ACR-7 contract. `OGAR/crates/ogar-class-view/src/lib.rs` (662 lines,
+`OgarClassView` / `known_class_ids()` / `object_view()`) is the producer that
+mints class views, and `grep -rn band_reading` over `OGAR/crates` returns
+**nothing**. The contract can ask a class which lens it declares; the producer
+never answers.
+
+Per the missing-capability STOP rule this lands as an **OGAR-tier change first**
+— never a hand-rolled default in the consumer or in the walker. F-OCT-7 is
+blocked on it. Measured at OGAR `c02efa1` (read-only clone, this session).
+Ref: `.claude/plans/octopus-causal-cot-audit-v1.md` §14.2.
+
+## ISS-DOMAIN-LENS-BY-CONVENTION-ONLY (2026-08-26) — OPEN
+
+`medcare-rs/crates/medcare-first-thought/src/plateau.rs` documents a real
+domain-conditioned reading ruling: qualia is a legitimate substrate tenant, but
+*for medicine* a proven ontological relation is evidence with a truth value, not
+a felt state — so clinical evidence rides the **edge tenant** and the **qualia
+tenant stays ZERO**. Same world, same columns, same `CausalEdge64`; the domain
+rules one tenant out. This is the strongest empirical support in the stack for
+the domain-conditioned-lens thesis.
+
+It is also **prose in one consumer**. Nothing in the spine enforces it, records
+it, or could detect its violation, and `medcare-rs` has zero hits for
+`CausalTopology` / `ReasoningBand` / `SettlementCell`. A lens honoured by
+convention is not a lens the architecture has.
+Measured at medcare-rs `572eb87` (read-only clone, this session).
+Ref: `.claude/plans/octopus-causal-cot-audit-v1.md` §14.1, §14.3.
+
+## ISS-MUL-GATE-OUTCOME-COUPLED-TO-PRODUCER-GROUND (2026-08-26) — OPEN (thesis storno-corrected same day)
+
+**PR #1045 correctly removed redundant prose from the MUL hot path, but
+accidentally promoted MUL-specific ground into the public gate outcome
+contract.** `GateDecision::{Hold, Block}` went from `{ reason: String }` to
+`{ texture: TrustTexture, flow: FlowState }`. Inside MUL that is strictly
+better — typed, `Copy`, heap-free, SIMD-packable, and the pair is exactly what
+`gate_decision_i4` already computed. At the **public** boundary it is a
+narrowing: every implementor of `MulProvider` must now phrase its verdict in
+MUL's vocabulary, whether or not MUL's vocabulary is where its reason lives.
+
+A consent veto is not a trust texture. An evidence contradiction is not a flow
+state. The contract offers no way to say `Block` without claiming MUL
+provenance.
+
+### The break is real, not hypothetical
+
+`ada-rs/src/contract_impls.rs:72` implements `MulProvider` and constructs
+`GateDecision::Block { reason: format!("consent {:?}", …) }` — the removed API.
+`ada-rs/Cargo.toml:61` binds `lance-graph-contract` by **git URL with no branch
+or rev**, and the repo carries **no `Cargo.lock`**, so the break is live on any
+fresh build, not merely on a future `cargo update`. Verified 2026-08-26 against
+`origin/main`.
+
+### Why the workspace gates did not catch it
+
+#1045 passed clippy `-D warnings`, member-tests, and the full contract suite.
+Every *in-workspace* caller matches with `{ .. }` or constructs through the
+evaluator, so nothing in this repo noticed. **Workspace-green is not
+contract-green**: the consumer that broke is not in the workspace and pins no
+rev. This is the generalizable half of the finding.
+
+### Measured scope
+
+- The public surface is **two traits**, not one: `MulProvider::gate_check`
+  (`mul.rs:245`) and `PlannerContract::gate_check` (`plan.rs:160`) — `plan.rs:7`
+  imports the same `mul::GateDecision`.
+- `MulGateDecision` is **already taken** by
+  `lance-graph-planner/src/mul/gate.rs:19` (`Proceed`/`Sandbox`/`Compass`), and
+  its doc records that it was renamed from `GateDecision` in M15 *to escape this
+  exact collision*. Reusing that name for a new MUL-ground type would re-collide
+  it a second time.
+- `TrustTexture` exists twice with different variants (contract:
+  `Calibrated/Overconfident/Underconfident/Uncertain`; planner:
+  `Murky/Dissonant/Fuzzy/…`) — independent corroboration that trust texture is
+  producer ground, not a universal gate field.
+- In-tree EXCLUDED crates (`lance-graph-ogar`, `symbiont`, `cognitive-stack`)
+  reach the contract transitively through OGAR but each `[patch]`es it onto the
+  working-tree path copy, so they are **protected** — and correspondingly are
+  **not** evidence of consumer coverage.
+
+### The correction
+
+Separate the universal ordinal **outcome** (`GateLevel`: Flow=0, Hold=1,
+Block=2 — the ladder #1052 aligned) from **producer-owned provenance**, which
+stays with the producer and reaches the record through witness/alpha, never
+through the gate type. `#1045 is not reverted`: MUL keeps its typed ground
+internally and its hot path stays heap-free.
+
+Explicit anti-goal: **no** `enum GateGround { TrustFlow, Consent, MedicalEvidence, … }`
+in the contract. That moves the coupling outward and makes
+`lance-graph-contract` own everybody's epistemology.
+
+### Companion rule (the durable half)
+
+> A source-breaking change in `lance-graph-contract` is not verified until
+> known unbound-git consumers **build** against the proposed head. Not grep.
+> Not "all workspace callers use `{ .. }`."
+
+### Not fixed in this entry
+
+No consumer-side stopgap was pushed. Reconstructing `TrustTexture`/`FlowState`
+at an ada-rs consent veto would compile while fabricating provenance the
+producer never asserted — a green lie is worse than an honest red build. The
+consumer lands after the contract does.
+
+Plan: `.claude/plans/mul-gate-outcome-vs-ground-v1.md` (D-GATE-1..6,
+falsifiers F-GATE-1..5). Related: `ISS-GATEDECISION-ORDINAL-COLLISION`
+(RESOLVED, #1052) — that one aligned the ordinals this entry's `GateLevel`
+would carry.
+
+
+## ISS-PERTURBATION-P64-ADDRESS-IDENTITY-UNPROVEN (2026-08-26) — OPEN
+
+The dense perturbation field (`PerturbationDto.energy`, canonically 4096
+codebook-indexed f32) and the p64 palette field (64×64 = 4096 cells, addressed
+`S/4 × O/4` from `CausalEdge64` via `edge_to_block`) were DESIGNED as one
+space — the 64×64 field as the COCA codebook LUT, SPO 2³ as its 8×
+amortization, CE64's 3×8 = 24 SPO bits carrying the NARS decomposition
+(design intent, operator 2026-08-26). But intent is not identity: the code
+has never proven `energy[i] ↔ cell[i/64][i%64] ↔ (S/4, O/4)`, and the two
+spaces may have drifted apart across the format history. The audit question (Q1),
+before any wiring: what was the canonical `codebook_id[0..4095] ↔
+(row, col)[0..63]²` map — (A) row-major `id>>6, id&63`, (B) Morton
+deinterleave 12→6+6, (C) codebook-specific permutation? No mapping exists in
+code today (grep: thinking-engine, p64-bridge, deepnsm — zero hits for the
+6+6 split); historical P64/COCA/Morton docs and fixtures are the evidence
+base. A row-major cast tests green under bijection even if the truth was
+Morton — and still spatially scrambles the field. Until `energy[i] ↔ cell[row][col]`
+is proven, no lowering of the perturbation field onto the p64 mask ALU may be
+wired — count-equality is not identity, and wiring on it would be
+representation-before-generator (grounding-descent plan §7a's named error).
+
+Probe design (CONTROL: today's top_k→min/max window as baseline; EXPERIMENT:
+energy → proven 64×64 mask → p64 combine/contra/style; SABOTAGE: permute the
+energy↔cell addressing — same result under permutation kills the ALU
+hypothesis) recorded in
+`E-THE-PERTURBATION-FIELD-NEVER-REACHED-THE-MASK-ALU-1`.
+
+Scope sharpened same day (operator): the FORWARD design question is not to
+restore the 4096-lexicon mapping — the idea migrated up into the token seam
+(tesseract-paperless → #1017 token receipt → DeepNSM-v2 on the 256:256 rail,
+#798). p64's modern role is a WORKING-SET ALU: the question is where in that
+intake path a ≤ 4096 active set first arises to justify the 64×64 mask field.
+Q1 stays open as history forensics (it decides whether any legacy fixture can
+be read spatially at all).
+
+Second gate, sequenced strictly behind Q1 (added same day): the METRIC
+hypothesis — helix24/Fisher-2Z as the field's distance (2Z = geodesic ρ, the
+exactly-uniform LUT axis per #1040). It must not appear to solve Q1: cell
+identity first, distance-between-cells after. Decisive design: same IDs /
+energies / masks / Top-K budget, A = Morton+2Z, B = Morton+grid, C =
+Morton+permuted-2Z; `A ≈ C` kills the metric, `A > B ∧ A > C` confirms it.
+Gate (a) for the energy register is MEASURED (PROBE-ENERGY-ARCTANH-DOMAIN):
+domain holds for the field, fails exactly at the attractor (max == 1.0 is the
+fixed point) — winner excluded or clamped at documented depth (2Z ceiling
+14.5/21.4 ρ for ε = 1e-6/1e-9).
+
+Not actioned: the probe needs real (non-induced) perturbation fields, and the
+mapping proof is a measurement, not an inspection.
+
+## ISS-GATEDECISION-ORDINAL-COLLISION (2026-08-26) — RESOLVED (2026-08-26)
+
+**Two live types are named `GateDecision`, and their locked byte mappings are
+inverted.** Anything that packs one and reads the other silently swaps *hold*
+and *block* — proceed-with-caution becomes reject.
+
+| | 0 | 1 | 2 | doc |
+|---|---|---|---|---|
+| `mul::GateDecision::to_disc` | Flow | **Hold** | **Block** | *"Mapping is locked"* |
+| `collapse_gate::GateDecision.gate` | Flow | **Block** | **Hold** | *"matches ndarray CollapseGate ordinals"* |
+
+`lance_graph_contract::GateDecision` at the crate root (`lib.rs:211`) resolves to
+the **collapse_gate** one — a 2-byte `Copy` struct (`gate: u8` + `MergeMode`).
+`kanban.rs:26` imports the **mul** one. Both are reachable, both are exported,
+and the names do not disambiguate at a call site.
+
+### ⊘ Correction, same day: the substrate backs `mul`, not `collapse_gate`
+
+The first version of this entry said aligning `mul` to ndarray would supersede
+`mul`'s lock, on the assumption that `collapse_gate`'s comment — *"matches
+ndarray CollapseGate ordinals"* — was true. **It is not.** Measured in the fork:
+
+- `ndarray::hpc::qualia_gate::QualiaGateLevel` is `#[repr(u8)]` with explicit
+  discriminants: `Flow = 0`, `Hold = 1`, `Block = 2`.
+- `ndarray::hpc::bnn_cross_plane::CollapseGate` declares `Flow, Hold, Block`
+  in that order (implicit 0, 1, 2).
+
+Both match `mul::to_disc`. So `collapse_gate::GateDecision` is the side that
+disagrees with the substrate, **and its stated justification cites the substrate
+incorrectly** — the comment is the defect, not merely the constants.
+
+Independent corroboration inside this repo: `deepnsm-v2/src/evidence.rs:476-493`
+asserts `to_disc()` as 0 = Flow, 1 = Hold, 2 = Block, against live evidence
+values. A consumer already depends on `mul`'s ordering.
+
+**Blast radius of the fix, measured.** Every consumer of
+`collapse_gate::GateDecision` reads it through `is_flow()` / `is_hold()` /
+`is_block()` or the named constants (`FLOW_XOR`, `FLOW_BUNDLE`, `FLOW_SUPER`,
+`HOLD`, `BLOCK`) — no call site compares the raw `gate: u8`. Searched
+`soa_envelope.rs` and `canonical_node.rs` for a persisted gate byte: none (the
+hits are version gates and `MailboxId`). `lance-graph-java` names `GateDecision`
+only in a plan document, never in `native/lgj-abi`, so no ABI carries it. The
+change is three constant values plus three accessor comparisons; behaviour is
+preserved through the accessors.
+
+Still not actioned in this PR, and now for a smaller reason than before: it
+changes values in a type the crate root exports, which deserves its own diff and
+its own review rather than riding along with a hot-path allocation fix.
+
+Found while auditing PR #1033's claims, but it exists independently of that PR
+and predates it.
+
+
+### ⊘ Resolution (2026-08-26, this branch)
+
+`collapse_gate::GateDecision` is now aligned to the substrate ordering:
+`HOLD.gate = 1`, `BLOCK.gate = 2`, accessors updated (`is_hold() == 1`,
+`is_block() == 2`), and the false "matches ndarray" comment replaced with a
+truthful citation of `ndarray::hpc::qualia_gate::QualiaGateLevel`
+(Flow = 0, Hold = 1, Block = 2). A cross-type falsifier
+(`test_gate_ordinals_agree_with_mul_gate_decision`) pins both `GateDecision`
+types to the same ladder — Flow == 0 == Flow, Hold == 1 == Hold,
+Block == 2 == Block — so a drift in either type fails the contract suite.
+Raw-byte consumer sweep re-run on the final diff: every call site reads
+through accessors or named constants; no `gate == 1` comparison exists
+outside the type itself; no persisted or serialized gate byte anywhere.
+
+### ⊘ Storno, same day: the thesis was still too close to the old mistake
+
+This entry framed the fix as *separate the universal OUTCOME from producer-owned
+GROUND* and proposed `GateLevel`. Measured against the code, that is wrong twice:
+
+1. **`GateLevel` would have generified the EXECUTION gate.** Every in-tree
+   consumer of `mul::GateDecision` is a commit/cancel/defer path
+   (`kanban::advance_on_gate` phase DAG + Libet veto, `action.rs` ActionState,
+   `sigma-tier-router` Rest dispatch, `kanban_actor::mul_target`). Not one routes
+   it to a compass, an exploration, or a learn-first path. MUL's actual output
+   already exists as the planner's `MulGateDecision{Proceed{free_will_modifier},
+   Sandbox{reason}, Compass}`, whose four gate checks match the operator
+   diagram's four checkboxes verbatim and in order.
+2. **The first correction is not outcome-vs-ground at all — it is axis
+   orthogonality.** `TrustTexture` (calibration) and `FlowState`
+   (Csikszentmihalyi challenge/skill) are independent coordinates that
+   `MulAssessment` already carries apart. `Hold { texture, flow }` fuses them at
+   the exact boundary where the caller already holds both (the trait takes
+   `&MulAssessment`) — a second projection across axes. The flow axis's measured
+   consumer is thinking-style adaptation (`planner/thinking/style.rs:272-275`,
+   `FlowState → StyleFamily`), i.e. attention-field modulation, not a reason a
+   gate said Hold.
+
+**#1045 is therefore more correct than this entry assumed.** Its core stands
+whole: strings out of the hot path, typed `Copy` state, SIMD≡scalar equivalence.
+The one step past it was *typed state exists → therefore stuff it into
+`GateDecision`*, instead of keeping it in the assessment and deriving planner
+behaviour separately. The ada-rs break is the **diagnosis**, not the defect: a
+consumer had been using MUL as a generic three-state control channel.
+`MulProvider` and `PlannerContract::gate_check` have **zero in-tree
+implementors** — the canonical evaluator is the free function
+`gate_decision_i4` — so both traits exist only as an external verdict surface.
+
+Corrected thesis: `DOMAIN EVIDENCE → MUL CALIBRATION → PLANNER HINT`, axis
+orthogonality first. `GateLevel` (D-GATE-2) and the trait-signature change
+(D-GATE-3) are WITHDRAWN. Successor plan:
+`.claude/plans/mul-calibration-not-verdict-v1.md` (D-MCAL-0..6, F-MUL-1..7).
+What survives verbatim from this entry: the measured break in ada-rs, and the
+rule that a source-breaking contract change is unverified until known
+unbound-git consumers BUILD against the proposed head.
+
+## ISS-STRINGS-IN-THE-I4-GATE-HOT-PATH (2026-08-26) — RESOLVED (this PR)
+
+**Rule: no strings in a hot path.**
+
+`mul::GateDecision::{Hold, Block}` carried `reason: String`. `gate_decision_i4`
+— i4-quantised qualia, the name says hot path — allocated on the heap five times
+per call (3× `Hold`, 2× `Block`).
+
+Three things made it worse than a missed optimisation:
+
+1. **The module header already claimed otherwise.** The D-CSV-8 banner
+   (`mul.rs`, above the i4 path) reads *"no heap allocation"* and
+   *"GateDecision::Hold/Block carry &'static str reason to preserve zero-alloc"*.
+   Neither was true of the code directly beneath it.
+2. **The workaround was already built.** A separate scalar batch path exists
+   *because* the strings cannot be SIMD-packed — stated in the source at two
+   places, plus a comment naming the allocation as the bottleneck.
+3. **The strings were derived and never read.** Each was a rendering of the
+   `(TrustTexture, FlowState)` pair computed two lines earlier and already typed
+   `Copy + repr(u8)`. Searched the workspace for a read of the field: none. The
+   type's own batch test compared discriminants only.
+
+Storing a second, unpackable projection of state that already exists in typed
+form is the defect; the allocation is the symptom.
+
+**Fix:** the payload is the typed pair. `GateDecision` is now
+`Copy + PartialEq + Eq`, heap-free, and every payload byte is a `repr(u8)` enum.
+`GateDecision::reason()` renders the prose on demand, `&'static str`, derived
+from the payload so it cannot drift from the decision it describes.
+
+Falsifier, both legs: `grep -n "to_string()" crates/lance-graph-contract/src/mul.rs`
+returns 0; and the batch/scalar equivalence test now asserts full equality
+instead of the discriminant, so a divergence in `texture` or `flow` is
+observable — it was masked before.
+
+Age at removal: 6 days (`b67f195`, 2026-08-20, PR #969 — the commit whose own
+message declares an *"intentionally stupid substrate … all semantics as
+interpretations layered above it"*). Prose reasons inside the substrate's own
+decision type are semantics baked into the substrate, not layered above it.
+
+Left open deliberately: `Hold` is the `_ =>` catch-all and 3 of 5 match arms
+reach it. Whether a state that fires on most inputs is a state or a default with
+a name is a distribution question over the qualia space, unmeasured. It is not
+answered by this PR and should not be answered by inspection.
+
+
 ## ISS-STALE-AUTHORITY-LOCKS (2026-08-25) — RESOLVED
 
 **Project rule: no tracked `Cargo.lock`.** Dependency authority comes from
