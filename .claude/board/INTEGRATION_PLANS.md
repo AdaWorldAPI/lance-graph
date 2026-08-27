@@ -1,3 +1,25 @@
+## 2026-08-27 — GATE RUN (D-MCAL-6): the arc built against its real consumers, `.claude/plans/mul-consumer-build-gate-v1.md`
+
+Discharges the second half of F-MUL-6, the half a grep cannot reach. ada-rs was
+compiled against the combined arc head (#1065 merged + #1066 + #1067 + #1068 +
+#1069) via a temporary `paths` override — and the override was VERIFIED to bind
+rather than assumed, by compiling a probe that calls `KanbanColumn::veto()`, a
+method that exists only on the head under test. Without that check the gate
+could have passed against `main` and reported nothing. Result: ada-rs does not
+compile, with exactly three errors, and all three are the pre-existing #1045
+`reason:` break that predates every deliverable in this arc. Zero errors are
+attributable to the arc: the `PlannerContract::gate_check` removal touches
+nothing ada-rs implements, the `MulProvider::gate_check` deprecation is a
+warning by construction, and D-MCAL-4's two methods are additive. So the arc is
+source-compatible with its one live external implementor. The stopgap stays
+unpushed per the §6 invariant — supplying a texture and a flow ada-rs never
+measured would reproduce the exact defect the census found in MedCare-rs; the
+honest fix is D-MCAL-4's `veto()` route, which now exists. MedCare-rs is covered
+at symbol level plus in-tree pins rather than by a compile, and that asymmetry
+is stated as a LIMITATION in §3 rather than reported as a pass. §5 records what
+the gate does not certify, including the 15 other dependent repos whose
+non-involvement rests on a grep.
+
 ## 2026-08-27 — DECIDED + LANDED (D-MCAL-2): the two gate-returning trait methods, `crates/lance-graph-contract/src/{mul,plan}.rs`
 
 Fate decided on the D-MCAL-1 census, not on argument. `PlannerContract::gate_check`

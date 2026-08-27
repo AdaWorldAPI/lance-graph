@@ -56,7 +56,7 @@ coverage instead.
 | `persist_cycle` | BLOCKED | — | 10 | 6 | 5 |
 | `CognitiveMarkers` | REPURPOSE | `Commit` | 2 | 0 | 0 |
 | `DominoCascade` | REPURPOSE | `Commit` | 8 | 0 | 0 |
-| `GateDecision` | REPURPOSE | — | 25 | 25 | 22 |
+| `GateDecision` | REPURPOSE | — | 25 | 26 | 23 |
 | `GateState` | REPURPOSE | — | 14 | 1 | 1 |
 | `MergeMode` | REPURPOSE | — | 8 | 12 | 11 |
 | `ResonanceDto` | REPURPOSE | `PerturbationDto` | 2 | 6 | 5 |
@@ -64,7 +64,7 @@ coverage instead.
 | `CollapseGateEmission` | RETIRE | — | 5 | 12 | 12 |
 | `ThinkingStyle` | RETIRE-toward-contract | — | 51 | 27 | 24 |
 
-## Table 2 — plans naming a ruled symbol without citing the ruling (68)
+## Table 2 — plans naming a ruled symbol without citing the ruling (69)
 
 Route is **mechanical triage, not a verdict**: `ARCHIVE?` = the plan's own status says
 it shipped; `RESCOPE` = it targets a symbol marked RETIRE; `READ` = neither signal fires
@@ -87,6 +87,7 @@ a licence to act on it.
 | **READ** | `integration-actionhandler-rbac-orchestration-v1` | `GateDecision` | HARDENING (5+3 in progress). | 0/0 |
 | **READ** | `mask-algebra-revision-read-v1` | `StepMask` | DRAFT, awaiting operator ruling on §5 | 1/3 |
 | **READ** | `mul-calibration-not-verdict-v1` | `GateDecision` | PROPOSAL (unbuilt) — 2026-08-26. PLAN/BOARD  | 6/12 |
+| **READ** | `mul-consumer-build-gate-v1` | `GateDecision` | GATE RUN — 2026-08-27. Discharges D-MCAL-6 a | 3/7 |
 | **READ** | `mul-consumer-census-v1` | `GateDecision` | MEASUREMENT COMPLETE — 2026-08-27. Measureme | 1/2 |
 | **READ** | `persistence-artifact-backed-commit-v1` | `persist_cycle` | RATIFIED (operator ruling 2026-08-09). Phase | 0/0 |
 | **READ** | `r2il-bpe-typed-genetic-recombination-v1` | `GateDecision` | PROPOSAL, §7's three falsifiers now RUN (see | 1/1 |
@@ -150,5 +151,5 @@ a licence to act on it.
 
 - **ARCHIVE?**: 0
 - **RESCOPE**: 54
-- **READ**: 14
+- **READ**: 15
 - ruled symbols tracked: 14
