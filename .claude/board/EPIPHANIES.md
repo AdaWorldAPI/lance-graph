@@ -1,3 +1,34 @@
+## 2026-08-27 — E-THE-FUSED-PAYLOAD-IS-INERT-AT-EVERY-EXECUTION-GATE-THAT-CONSUMES-IT-1 — a required field no consumer reads does not stay empty, it fills with fiction
+
+**Status:** FINDING (measured). Deliverable D-MCAL-1. Full entry:
+`.claude/board/entries/2026-08-27-e-the-fused-payload-is-inert-at-every-execution-gate-that-consumes-it-1.md`.
+Census: `.claude/plans/mul-consumer-census-v1.md`.
+**Confidence:** High — counted, not argued. Every class-C consumer verified
+at file:line; both fabricating producers verified in source.
+
+`GateDecision::{Hold,Block} { texture, flow }` requires two coordinates that
+**not one** execution-gate consumer reads: `kanban.rs:146`, `action.rs:301,373`,
+`sigma-tier-router:365` and `supervisor::kanban_actor::mul_target` all
+destructure `{ .. }`. T6 argued the payload was a *second projection*; the
+census finds it one step worse — at the gates it is **inert**.
+
+Inertness and fabrication are the same defect from opposite ends of the type.
+The reader's end shows a field deletable with no behaviour change; the
+writer's end shows a field filled by hand to satisfy a compiler. Measured,
+both producers invented values they never computed — ada-rs's consent veto
+(no trust axis, no flow axis) and MedCare's four sites (NARS expectation,
+evidence cardinality, Pearson r, Spearman rho — no MUL coordinate anywhere in
+the data flow). MedCare's source says it outright: "advance_on_gate matches
+on the variant alone — so this mapping is descriptive, not behavior-affecting."
+Unread, therefore unconstrained, therefore invented.
+
+Review corollary: when a payload is added to a verdict "for diagnostics", the
+falsifiable question is not *is it useful?* but **which consumer reads it, by
+name?** None means it is not diagnostic — it is a fabrication surface with a
+docstring. Scope: this is the FUSED PAYLOAD at the verdict boundary, never
+`gate_decision_i4`, which derives both coordinates and earns them. #1045 is
+not reverted.
+
 ## 2026-08-26 — E-V4-EXECUTABLE-CONTENT-THREE-TIER-JIT-1 — V4 = V3 + executable content; learned encoding is an index never the authority; execution is population-masked; alpha IS the JIT profiler
 
 **Status:** DOCTRINE — [OPERATOR-RULED], same-day pair with
