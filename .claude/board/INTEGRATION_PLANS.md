@@ -18,6 +18,29 @@ phase-stay with no learning path, OQ-MCAL-2); its anti-vacuity twin proving
 test proving two `Block`s with DIFFERENT (texture, flow) pairs route identically
 from every column — the naming evidence in executable form.
 
+## 2026-08-27 — MEASUREMENT COMPLETE (no code, no type): per-symbol MUL consumer census, `.claude/plans/mul-consumer-census-v1.md`
+
+Discharges D-MCAL-1. Nine symbols from `contract::mul` + `contract::plan`,
+resolved to defining module first (four distinct types answer to
+`GateDecision`/`TrustTexture`; the bare name over-counts 906:36). Dependent
+repos found by one org-wide manifest search: 58 manifests, 17 repos, MUL
+symbols in four. Three corrections to the calibration plan, filed as an
+addendum: (C1) the `Hold/Block { texture, flow }` payload is INERT at every
+class-C consumer — all four destructure `{ .. }`, so the type demands data no
+consumer of that arm reads, which is T6's second-projection argument in
+counted form; (C2) `PlannerContract` has ZERO implementors org-wide and its
+`gate_check` takes `SituationInput` not `MulAssessment`, invalid at three
+points not two; (C3) MedCare is confirmed not presumed, at FOUR sites, with
+the fabrication documented in-source by its own author ("descriptive, not
+behavior-affecting") — nothing in that crate measures either coordinate.
+ada-rs's adapter is sharper than "class B": two of three non-Flow arms are
+genuine MUL (Dunning-Kruger, allostatic load); exactly ONE — the consent veto
+— is domain evidence, and that is the arm #1045 broke. F-MUL-1 and F-MUL-2 are
+now RED-on-main with file:line evidence, satisfying the anti-vacuity rule
+before any code moves. A sixth `TrustTexture` found for OQ-MCAL-5
+(`ada-rs/src/memory/trust.rs`, the planner's five-variant vocabulary beside
+that same crate's import of the contract's four). Build half of F-MUL-6 is
+NOT discharged — that is D-MCAL-6.
 ## 2026-08-26 — PROPOSAL (unbuilt, PLAN/BOARD ONLY): a recorded alpha is instrumentation until it is interventionally load-bearing, `.claude/plans/alpha-interventional-faithfulness-v1.md`
 
 Humility about INTROSPECTION, where #1057 was humility about the world. Two

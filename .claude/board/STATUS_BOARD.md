@@ -53,7 +53,7 @@ code. `mul-gate-outcome-vs-ground-v1`'s D-GATE-2/D-GATE-3 are WITHDRAWN.
 | D-id | Deliverable | Status |
 |---|---|---|
 | D-MCAL-0 | axis restoration: coordinates stay in the assessment; unfuse the verdict payload at the trait boundary | Queued |
-| D-MCAL-1 | per-symbol consumer enumeration from GitHub, classified A/B/C/D | Queued |
+| D-MCAL-1 | per-symbol consumer enumeration from GitHub, classified A/B/C/D | In PR — census at `.claude/plans/mul-consumer-census-v1.md` |
 | D-MCAL-2 | fate of `MulProvider` + `PlannerContract::gate_check` (0 in-tree impls) | Queued |
 | D-MCAL-3 | name the execution gate what it is (doc-first; rename is a later PR) | In PR — doc-first landed + F-MUL-4 pins; rename tracked as `ISS-MUL-GATE-NAMED-FOR-THE-WRONG-LAYER` |
 | D-MCAL-4 | consent veto + evidence contradiction as domain evidence, no MUL ground | Queued |
