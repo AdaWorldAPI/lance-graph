@@ -49,6 +49,17 @@ the published git source. Without this check the whole gate could have passed
 against `main` and reported nothing. The probe and the override were both
 reverted afterwards; ada-rs's working tree is unchanged.
 
+> **A note on what this probe does and does not prove**, because the same fact
+> was misused elsewhere in this arc and the distinction is worth keeping.
+> "`veto` is absent from `main`" is valid evidence for **which source cargo
+> bound** — that is a question about symbol availability, and symbol
+> availability is exactly what it answers. It is *not* valid evidence that
+> routing without MUL ground was previously **impossible**: `next_phases()` was
+> already public and already exposed `Prune`, so the capability existed
+> unnamed. D-MCAL-4's original red-state claim made that second, invalid
+> inference and has been corrected (see its test file's header). The probe here
+> makes only the first.
+
 ---
 
 ## 2. Result — ada-rs
