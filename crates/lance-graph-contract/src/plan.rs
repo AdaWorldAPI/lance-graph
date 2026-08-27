@@ -4,7 +4,7 @@
 //! consumers (ladybug-rs, n8n-rs) call.
 
 use crate::cognitive_shader::RungLevel;
-use crate::mul::{GateDecision, MulAssessment, SituationInput};
+use crate::mul::{MulAssessment, SituationInput};
 use crate::nars::{InferenceType, SemiringChoice};
 use crate::thinking::{FieldModulation, ThinkingStyle};
 
@@ -122,24 +122,56 @@ impl Default for StrategySelector {
 // THE CONTRACT TRAIT
 // =============================================================================
 
-/// The planner contract — the single trait that consumers depend on.
+/// The planner contract — the trait an external planner provider implements.
 ///
-/// lance-graph-planner implements this. ladybug-rs, crewai-rust, n8n-rs
-/// call it. Nobody else needs to know about the planner internals.
+/// # Measured implementor count: zero (D-MCAL-1)
 ///
-/// # Usage from ladybug-rs
+/// The doc-comment here used to read "lance-graph-planner implements this.
+/// ladybug-rs, crewai-rust, n8n-rs call it." Every clause of that was stale:
+/// the census (`.claude/plans/mul-consumer-census-v1.md`) found **no
+/// implementor of this trait anywhere in the organisation**, in-tree or out;
+/// `crewai-rust` and `n8n-rs` were evicted as consumers 2026-06-21
+/// (`EPIPHANIES` `E-CREWAI-N8N-EVICTED`); and `ladybug-rs` neither implements
+/// nor calls it. `lance-graph-planner`'s `Planner` is an inherent API, not an
+/// impl of this trait.
+///
+/// It is kept as the declared extension point for an out-of-tree planner. Two
+/// consequences follow, and both are load-bearing:
+///
+/// - **Anything added here has no in-tree proof.** A method on this trait is
+///   a claim about a caller that does not exist yet, so it cannot be
+///   validated by the workspace building.
+/// - **It must not carry execution-gate types.** See the removal note below.
+///
+/// # Removed: `gate_check` (D-MCAL-2)
+///
+/// This trait previously carried
+/// `fn gate_check(&self, situation: &SituationInput) -> GateDecision`. It was
+/// invalid at three points, not one:
+///
+/// 1. It returned [`crate::mul::GateDecision`] — measured as the **execution /
+///    commit gate** (kanban phase moves, `ActionState`, tier-router dispatch),
+///    never a planner output.
+/// 2. It took [`SituationInput`], so a *planner* trait performed a **MUL
+///    assessment** — a layer it does not own.
+/// 3. The planner's own navigation output is
+///    `Proceed / Sandbox / Compass` (`lance_graph_planner::api::Gate`), a
+///    shape this signature could not express at all.
+///
+/// Removal is source-breaking in principle and provably inert in practice:
+/// zero implementors, zero callers. The two in-tree `.gate_check(` call sites
+/// (`lance-graph-planner/src/api.rs`, `lance-graph/src/lance_native_planner.rs`)
+/// bind the planner's **inherent** method returning `Gate`, and are untouched.
+///
+/// A planner that needs to surface a navigation decision returns
+/// [`PlanResult`] / [`PlanError`] as it already does, or the planner's own
+/// `Gate` — never a fourth gate enum (D-MCAL-5).
+///
+/// # Usage
 ///
 /// ```rust,ignore
-/// let planner: Box<dyn PlannerContract> = lance_graph_planner::create_planner();
+/// let planner: Box<dyn PlannerContract> = my_planner::create_planner();
 /// let result = planner.plan_full(cypher_query, &situation)?;
-/// ```
-///
-/// # Usage from n8n-rs (workflow node)
-///
-/// ```rust,ignore
-/// let planner: Box<dyn PlannerContract> = lance_graph_planner::create_planner();
-/// planner.set_selector(StrategySelector::Resonance { ... });
-/// let result = planner.plan_auto(query)?;
 /// ```
 pub trait PlannerContract: Send + Sync {
     /// Plan with full MUL assessment pipeline.
@@ -155,7 +187,4 @@ pub trait PlannerContract: Send + Sync {
 
     /// Orchestrate: resolve thinking context from query + MUL.
     fn orchestrate(&self, query: &str, mul: &MulAssessment) -> ThinkingContext;
-
-    /// Gate check only (without full planning).
-    fn gate_check(&self, situation: &SituationInput) -> GateDecision;
 }
