@@ -130,24 +130,82 @@ impl KanbanColumn {
         }
     }
 
+    /// Move one step **forward** through the lifecycle DAG: the first non-`Prune`
+    /// successor. `Planning → CognitiveWork → Evaluation → Commit`,
+    /// `Plan → Planning`; absorbing columns (`Commit` / `Prune`) return `None`.
+    ///
+    /// This is the routing primitive, stated as the transition it is. A caller
+    /// that has decided to proceed says so directly — it does **not** need a
+    /// [`GateDecision`], and therefore does not need the calibration coordinates
+    /// a `GateDecision` payload would demand (D-MCAL-4).
+    #[inline]
+    #[must_use]
+    pub fn advance(self) -> Option<KanbanColumn> {
+        self.next_phases()
+            .iter()
+            .copied()
+            .find(|c| *c != KanbanColumn::Prune)
+    }
+
+    /// **Veto** this phase: route to `Prune` iff `Prune` is a legal successor —
+    /// the Libet "free won't" edge, available at `Planning` (pre-Rubicon) and
+    /// `Evaluation` (post-actional). Mid-`CognitiveWork` has no veto edge, so
+    /// this returns `None` there: the caller stays put rather than performing an
+    /// out-of-DAG transition.
+    ///
+    /// The counterpart of [`advance`](KanbanColumn::advance) for a caller that
+    /// has decided to refuse. "Stay put" needs no method — it is `None`.
+    ///
+    /// # Why this exists (D-MCAL-4)
+    ///
+    /// **This is an ergonomic named wrapper, not a new capability.** A caller
+    /// could always have walked the DAG by hand — `next_phases()` is public and
+    /// already exposes `Prune` — and
+    /// `veto_agrees_with_the_pre_existing_next_phases_route` pins that
+    /// equivalence so the two can never diverge.
+    ///
+    /// What the name changes is which route is *obvious*. A **domain** veto — a
+    /// consent refusal, a contradicted hypothesis, a policy denial — is not a
+    /// statement about the system's confidence in its own uncertainty estimate.
+    /// But the only *named* entry point was
+    /// [`advance_on_gate`](KanbanColumn::advance_on_gate), whose
+    /// `GateDecision::Block` variant requires a `TrustTexture` **and** a
+    /// `FlowState`; a domain measuring neither had to supply both anyway, and
+    /// the two measured external producers invented them
+    /// (`.claude/plans/mul-consumer-census-v1.md` §3).
+    ///
+    /// The routing never read those coordinates
+    /// (`f_mul_4_routing_ignores_the_calibration_payload`), so naming the
+    /// transition costs nothing and removes the pressure to fabricate.
+    #[inline]
+    #[must_use]
+    pub fn veto(self) -> Option<KanbanColumn> {
+        self.next_phases()
+            .iter()
+            .copied()
+            .find(|c| *c == KanbanColumn::Prune)
+    }
+
     /// The next Rubicon column a [`GateDecision`] drives this phase to — the S2
     /// "MUL → phase" seam (capstone `cognitive-loop-wiring` plan). Returns ONLY a
     /// legal successor ([`next_phases`](KanbanColumn::next_phases)), so the gate
     /// can never produce an out-of-DAG transition:
-    /// - [`GateDecision::Flow`] → the forward successor (the first non-`Prune`
-    ///   next phase): `Planning → CognitiveWork → Evaluation → Commit`,
-    ///   `Plan → Planning`. Absorbing columns (`Commit`/`Prune`) have none.
-    /// - [`GateDecision::Block`] → `Prune` **iff** it is a legal successor here
-    ///   (the Libet "free won't" veto at `Planning`/`Evaluation`); else `None`
-    ///   (mid-`CognitiveWork` has no veto edge — hold instead).
+    /// - [`GateDecision::Flow`] → [`advance`](KanbanColumn::advance).
+    /// - [`GateDecision::Block`] → [`veto`](KanbanColumn::veto).
     /// - [`GateDecision::Hold`] → `None` (stay in place, re-evaluate next cycle).
+    ///
+    /// Delegates to the two primitives above so there is exactly **one** copy of
+    /// the DAG routing rule. This method is the right entry point for a caller
+    /// that genuinely holds a MUL assessment (`gate_decision_i4` and the
+    /// supervisor's cycle driver); a caller reasoning from domain evidence
+    /// should call [`advance`](KanbanColumn::advance) /
+    /// [`veto`](KanbanColumn::veto) instead (D-MCAL-4).
     #[inline]
     #[must_use]
     pub fn advance_on_gate(self, gate: &GateDecision) -> Option<KanbanColumn> {
-        let nexts = self.next_phases();
         match gate {
-            GateDecision::Flow => nexts.iter().copied().find(|c| *c != KanbanColumn::Prune),
-            GateDecision::Block { .. } => nexts.iter().copied().find(|c| *c == KanbanColumn::Prune),
+            GateDecision::Flow => self.advance(),
+            GateDecision::Block { .. } => self.veto(),
             GateDecision::Hold { .. } => None,
         }
     }

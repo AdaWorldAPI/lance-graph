@@ -153,7 +153,7 @@ pub enum FlowState {
 /// | consumer | what it does |
 /// |---|---|
 /// | [`crate::kanban::KanbanColumn::advance_on_gate`] | phase-DAG move; `Block` → `Prune` (Libet "free won't" veto) |
-/// | [`crate::action::ActionInstance`] `commit` / `emit` | `ActionState::{Committed, Pending, Cancelled}` |
+/// | [`crate::action::ActionInvocation`] `commit` / `commit_via` | `ActionState::{Committed, Pending, Cancelled}` |
 /// | `sigma-tier-router` | `Block` → `Rest { GateBlocked }` dispatch |
 /// | `lance-graph-supervisor::kanban_actor::mul_target` | next kanban column |
 ///
@@ -220,6 +220,37 @@ pub enum GateDecision {
 }
 
 impl GateDecision {
+    /// The canonical `(TrustTexture, FlowState) -> GateDecision` rule — the ONE
+    /// place this mapping lives.
+    ///
+    /// Both the i4 evaluator ([`i4_eval::gate_decision_i4`], which derives the
+    /// two coordinates from raw qualia) and the default
+    /// [`MulProvider::gate_check`] (which reads them off a computed
+    /// [`MulAssessment`]) route through here, so there is no second copy to
+    /// drift.
+    ///
+    /// The rule, in order: `Uncertain` blocks under every flow state;
+    /// `Underconfident + Anxiety` blocks; `Overconfident` holds; anything under
+    /// `Anxiety` holds; a calibrated-or-underconfident reading in `Flow` or
+    /// `Transition` passes; everything else holds.
+    #[inline]
+    #[must_use]
+    pub fn from_axes(texture: TrustTexture, flow: FlowState) -> Self {
+        match (texture, flow) {
+            (TrustTexture::Uncertain, _) => GateDecision::Block { texture, flow },
+            (TrustTexture::Underconfident, FlowState::Anxiety) => {
+                GateDecision::Block { texture, flow }
+            }
+            (TrustTexture::Overconfident, _) => GateDecision::Hold { texture, flow },
+            (_, FlowState::Anxiety) => GateDecision::Hold { texture, flow },
+            (
+                TrustTexture::Calibrated | TrustTexture::Underconfident,
+                FlowState::Flow | FlowState::Transition,
+            ) => GateDecision::Flow,
+            _ => GateDecision::Hold { texture, flow },
+        }
+    }
+
     /// Return the discriminant as a SIMD-packable byte (D-CSV-13b).
     ///
     /// Mapping is locked: 0 = Flow, 1 = Hold, 2 = Block.
@@ -405,6 +436,23 @@ pub trait MulProvider: Send + Sync {
     ///    evidence contradiction enters as `SituationInput` / a domain
     ///    constraint, and the domain's own execution gate acts on it.
     ///
+    /// # This method now has a DEFAULT — you may omit it entirely
+    ///
+    /// Deprecating a *required* trait item does not make it optional: an
+    /// implementor that simply deleted its `gate_check` got `E0046`, so the
+    /// documented migration did not actually compile (found by review on
+    /// #1070, D-MCAL-6). It is now a **provided** method, so
+    /// `impl MulProvider for T { fn assess(..) {..} fn compass(..) {..} }` is a
+    /// complete implementation.
+    ///
+    /// The default fabricates nothing. It reads the two coordinates off the
+    /// [`MulAssessment`] the implementor just computed — `trust.texture` and
+    /// `homeostasis.flow_state` — and applies the canonical
+    /// [`GateDecision::from_axes`] rule, the same rule the i4 evaluator uses.
+    /// Those are measured values, not invented ones, which is precisely the
+    /// difference between this default and what the two external producers were
+    /// doing by hand.
+    ///
     /// **Migration:** implement [`assess`](MulProvider::assess) only, and let
     /// the domain's own gate consume the assessment plus its own evidence.
     /// The calibration coordinates are on [`MulAssessment`] already. For a
@@ -418,7 +466,9 @@ pub trait MulProvider: Send + Sync {
                 assessment plus its own evidence. See .claude/plans/mul-calibration-not-verdict-v1.md \
                 (D-MCAL-2). Scheduled for removal after D-MCAL-4/D-MCAL-6."
     )]
-    fn gate_check(&self, assessment: &MulAssessment) -> GateDecision;
+    fn gate_check(&self, assessment: &MulAssessment) -> GateDecision {
+        GateDecision::from_axes(assessment.trust.texture, assessment.homeostasis.flow_state)
+    }
 
     /// Compass check: should we go meta?
     fn compass(&self, assessment: &MulAssessment) -> CompassResult;
@@ -804,20 +854,7 @@ pub mod i4_eval {
     pub fn gate_decision_i4(qualia: &QualiaI4_16D, signed_mantissa: i8) -> GateDecision {
         let texture = trust_texture_i4(qualia);
         let flow = flow_state_i4(qualia, signed_mantissa);
-
-        match (texture, flow) {
-            (TrustTexture::Uncertain, _) => GateDecision::Block { texture, flow },
-            (TrustTexture::Underconfident, FlowState::Anxiety) => {
-                GateDecision::Block { texture, flow }
-            }
-            (TrustTexture::Overconfident, _) => GateDecision::Hold { texture, flow },
-            (_, FlowState::Anxiety) => GateDecision::Hold { texture, flow },
-            (
-                TrustTexture::Calibrated | TrustTexture::Underconfident,
-                FlowState::Flow | FlowState::Transition,
-            ) => GateDecision::Flow,
-            _ => GateDecision::Hold { texture, flow },
-        }
+        GateDecision::from_axes(texture, flow)
     }
 
     // ── MulAssessment ─────────────────────────────────────────────────────────
