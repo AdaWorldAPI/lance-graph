@@ -286,18 +286,41 @@ pub enum CompassDecision {
 // derive it from the planner's Proceed/Sandbox/Compass — NEVER invent a fresh
 // enum."
 //
-// Measured answer (2026-08-27): **no new type is needed, and no promotion is
-// needed either.** The planner's `MulGateDecision{Proceed, Sandbox, Compass}`
-// is a private packaging of three things the contract already exports — or, in
-// the third case, already has a ruled carrier for:
+// Measured answer (2026-08-27), **corrected same day after codex review**:
+// no new type is needed — but the original claim that "no promotion is needed
+// either" was TOO STRONG and is withdrawn. The distinction that was missed:
 //
-// | planner arm                      | contract carrier                                        | status |
-// |----------------------------------|---------------------------------------------------------|--------|
-// | `Proceed { free_will_modifier }` | `MulAssessment::free_will_modifier: f64`                  | LIVE — public field, computed by `MulAssessment::compute` |
-// | `Compass`                        | `CompassResult` / `CompassDecision{StaySurface, GoMeta}`  | LIVE — public types, already the return of `MulProvider::compass` |
-// | `Sandbox { reason: String }`     | `crate::counterfactual::{CounterfactualMailbox, revise_if_minority_wins}` | DECLARED, NOT IMPLEMENTED — both entry points are `todo!()`, blocked on D-PERSONA-5 |
+//   the ARMS' PAYLOADS are reachable from the contract.
+//   the ARM SELECTION — which of the three fires — is NOT.
 //
-// The third row is the operator ruling recorded as T10 in
+// | planner arm                      | payload carrier in this crate                             | payload | selection |
+// |----------------------------------|-----------------------------------------------------------|---------|-----------|
+// | `Proceed { free_will_modifier }` | `MulAssessment::free_will_modifier: f64`                   | LIVE    | see below |
+// | `Compass`                        | `CompassResult` / `CompassDecision{StaySurface, GoMeta}`   | LIVE    | NOT reachable |
+// | `Sandbox { reason: String }`     | `crate::counterfactual` (T10's ruling)                     | DECLARED, NOT IMPLEMENTED | partly |
+//
+// **Why the selection is not reachable.** `planner::mul::gate::check` branches on
+// five conditions. Two are on `MulAssessment` and so ARE available here
+// (`dk_position == MountStupid`, `!complexity_mapped`, both routing to
+// `Sandbox`). The remaining three are not: they test
+// `TrustTexture::{Murky, Dissonant, Fuzzy}` — variants of the PLANNER's
+// `TrustTexture`, which this crate's four-variant
+// `{Calibrated, Overconfident, Underconfident, Uncertain}` does not contain and
+// cannot be mapped onto without a decision. `Fuzzy` in particular is what
+// selects `Compass` over `Sandbox`, so a contract-only consumer cannot tell
+// those two arms apart at all.
+//
+// **The corrected conclusion, which is stronger than the original, not weaker:**
+// the gap is real and it is NOT an enum-shaped gap. Minting a public
+// `Proceed/Sandbox/Compass` here would produce a type this crate cannot
+// populate — the selection logic needs a trust vocabulary that does not exist
+// on this side of the boundary. So the blocker is **OQ-MCAL-1** (two MUL
+// implementations with disjoint `TrustTexture` vocabularies; which is
+// canonical?), and it must be resolved before any public MUL output is
+// meaningful. A fourth gate enum would not resolve it; it would only hide it
+// behind a type that is always constructed from a guess.
+//
+// The Sandbox row is the operator ruling recorded as T10 in
 // `.claude/plans/mul-calibration-not-verdict-v1.md`:
 //
 //     Sandbox := Counterfactual + Revision
@@ -307,11 +330,27 @@ pub enum CompassDecision {
 // as its only write-back path*. So "completing the Sandbox arm" means finishing
 // the counterfactual scaffold — never minting a gate variant to name it.
 //
+// **Sandbox is blocked on FOUR things, not one** (corrected after codex review;
+// the earlier text named only D-PERSONA-5 and would have read as "ready to
+// implement" the moment that landed). Per `counterfactual.rs`:
+//
+//   spawn half  — `CounterfactualMailbox::new`: D-PERSONA-5 (ractor outer-swarm
+//                 registration).
+//   revision half — `revise_if_minority_wins`: D-PERSONA-5 for dispatch, PLUS
+//                 the `awareness.revise` signature (unconfirmed on the current
+//                 contract surface — do NOT infer it from CLAUDE.md
+//                 pseudo-code), PLUS D-ATOM-1 for the `axis_key` type, PLUS
+//                 D-ATOM-5 for the revision tombstone into Lance storage.
+//
+// The two halves are pinned SEPARATELY in the falsifiers, so D-PERSONA-5
+// landing cannot make the revision half look unblocked.
+//
 // **Consequence, and the reason this comment exists where a type might have
 // gone:** a future session that finds the contract cannot express
-// `Proceed/Sandbox/Compass` must not conclude that a new enum is missing.
-// Two arms are already here; the third is a scaffold with a known blocker.
-// Minting a fourth gate enum beside the three that exist
+// `Proceed/Sandbox/Compass` must not conclude that a new enum is missing. Two
+// payloads are already here; the third is a scaffold with four named blockers;
+// and the selection gap is a vocabulary question, not a type question. Minting
+// a fourth gate enum beside the three that exist
 // (`mul::GateDecision`, `collapse_gate::GateDecision`,
 // `planner::mul::gate::MulGateDecision`) would be the same mistake a third
 // time. `MulHint{Trusted, Explore, Sandbox, Human}` was considered and is NOT
