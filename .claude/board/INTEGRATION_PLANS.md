@@ -42,8 +42,6 @@ equivalence so the wrappers cannot drift from the DAG walk they wrap. Each case 
 the fabricating route it replaces, which is F-MUL-5's premise (removing the
 fabrication costs no behaviour), and exercises advance/stay/veto from one domain
 axis so no arm can pass by accident.
-## 2026-08-27 — DOC-FIRST + PINNED (D-MCAL-3): the execution gate named for what it is, `crates/lance-graph-contract/src/{mul,kanban}.rs`
-
 ## 2026-08-27 — DECIDED + LANDED (D-MCAL-2): the two gate-returning trait methods, `crates/lance-graph-contract/src/{mul,plan}.rs`
 
 Fate decided on the D-MCAL-1 census, not on argument. `PlannerContract::gate_check`
