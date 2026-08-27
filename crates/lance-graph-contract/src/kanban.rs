@@ -158,18 +158,25 @@ impl KanbanColumn {
     ///
     /// # Why this exists (D-MCAL-4)
     ///
-    /// A **domain** veto — a consent refusal, a contradicted hypothesis, a
-    /// policy denial — is not a statement about the system's confidence in its
-    /// own uncertainty estimate. Before this method, the only route into the
-    /// phase DAG was [`advance_on_gate`](KanbanColumn::advance_on_gate), whose
+    /// **This is an ergonomic named wrapper, not a new capability.** A caller
+    /// could always have walked the DAG by hand — `next_phases()` is public and
+    /// already exposes `Prune` — and
+    /// `veto_agrees_with_the_pre_existing_next_phases_route` pins that
+    /// equivalence so the two can never diverge.
+    ///
+    /// What the name changes is which route is *obvious*. A **domain** veto — a
+    /// consent refusal, a contradicted hypothesis, a policy denial — is not a
+    /// statement about the system's confidence in its own uncertainty estimate.
+    /// But the only *named* entry point was
+    /// [`advance_on_gate`](KanbanColumn::advance_on_gate), whose
     /// `GateDecision::Block` variant requires a `TrustTexture` **and** a
-    /// `FlowState`. A domain that measures neither had to invent both, and the
-    /// two measured external producers did exactly that
+    /// `FlowState`; a domain measuring neither had to supply both anyway, and
+    /// the two measured external producers invented them
     /// (`.claude/plans/mul-consumer-census-v1.md` §3).
     ///
     /// The routing never read those coordinates
-    /// (`f_mul_4_routing_ignores_the_calibration_payload`), so nothing is lost
-    /// by naming the transition directly and nothing is fabricated by taking it.
+    /// (`f_mul_4_routing_ignores_the_calibration_payload`), so naming the
+    /// transition costs nothing and removes the pressure to fabricate.
     #[inline]
     #[must_use]
     pub fn veto(self) -> Option<KanbanColumn> {

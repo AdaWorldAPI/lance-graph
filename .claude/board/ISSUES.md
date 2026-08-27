@@ -1,5 +1,28 @@
 # Issues Log — Open + Resolved (double-entry, append-only)
 
+## ISS-F-MUL-6-HALF-BUILT (2026-08-27) — OPEN
+
+D-MCAL-6 built **one** of two known consumers. ada-rs was compiled against the
+combined arc head (3 errors, all pre-existing #1045, zero from the arc).
+MedCare-rs was **not** built — it is covered by symbol-level reasoning plus the
+in-tree pins, which is exactly what F-MUL-6 says is not a substitute for a
+build.
+
+The first version of the gate report marked the falsifier *discharged* anyway.
+That contradicted its own §0 criterion, and was corrected on review (#1070):
+the falsifier is **OPEN**.
+
+**Consequence, and the reason this is an issue rather than a footnote:** the
+contract rename tracked by `ISS-MUL-GATE-NAMED-FOR-THE-WRONG-LAYER` is blocked
+on D-MCAL-6. If this gate is read as passed, the rename unblocks without the
+compatibility proof it is supposed to wait for.
+
+**To close:** stand up the MedCare-rs build (`ogar-obo`, `jc`,
+`medcare-cohorts` and the lance stack, all git deps) and compile
+`medcare-first-thought` against the arc head. Expected result is green —
+MedCare touches no symbol the arc changed — but expected is not measured.
+
+
 ## ISS-MUL-GATE-NAMED-FOR-THE-WRONG-LAYER (2026-08-27) — OPEN
 
 `contract::mul::GateDecision` is measured (D-MCAL-1) as the **execution /

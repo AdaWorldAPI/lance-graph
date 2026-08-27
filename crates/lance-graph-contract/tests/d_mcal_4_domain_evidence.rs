@@ -325,6 +325,102 @@ fn f_mul_2_domain_route_equals_the_fabricating_route_it_replaces() {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
+// The migration itself compiles (D-MCAL-6 review finding, #1070)
+// ═══════════════════════════════════════════════════════════════════════════
+
+/// The documented migration, executed: an implementor that supplies **only**
+/// `assess` and `compass`, routes its domain veto through `veto()`, and never
+/// constructs a `GateDecision`.
+///
+/// This exists because the claim "the honest fix is D-MCAL-4's route" was
+/// asserted before it was true. `MulProvider::gate_check` was a *required*
+/// trait item, so deleting it produced `E0046` — deprecation does not make a
+/// method optional. It is now a provided method, and this type is the proof:
+/// if `gate_check` ever goes back to being required, this file stops compiling.
+struct DomainOnlyProvider {
+    consent: ConsentLevel,
+}
+
+impl lance_graph_contract::mul::MulProvider for DomainOnlyProvider {
+    fn assess(
+        &self,
+        input: &lance_graph_contract::mul::SituationInput,
+    ) -> lance_graph_contract::mul::MulAssessment {
+        lance_graph_contract::mul::MulAssessment::compute(input)
+    }
+
+    fn compass(
+        &self,
+        assessment: &lance_graph_contract::mul::MulAssessment,
+    ) -> lance_graph_contract::mul::CompassResult {
+        lance_graph_contract::mul::CompassResult {
+            score: assessment.free_will_modifier,
+            decision: lance_graph_contract::mul::CompassDecision::StaySurface,
+        }
+    }
+    // NOTE: no `gate_check`. That is the point.
+}
+
+impl DomainOnlyProvider {
+    /// The consent veto, where it belongs: on the domain's own gate, reading
+    /// domain evidence, returning a phase transition.
+    fn route(&self, phase: KanbanColumn) -> Option<KanbanColumn> {
+        route_on_consent(phase, self.consent)
+    }
+}
+
+#[test]
+fn the_documented_migration_compiles_and_behaves() {
+    use lance_graph_contract::mul::{MulProvider, SituationInput};
+
+    let vetoing = DomainOnlyProvider {
+        consent: ConsentLevel::Veto,
+    };
+    let consenting = DomainOnlyProvider {
+        consent: ConsentLevel::Full,
+    };
+
+    // The MUL half still works, through `assess` alone.
+    let a = vetoing.assess(&SituationInput::default());
+    assert!(a.free_will_modifier.is_finite());
+    assert!(vetoing.compass(&a).score.is_finite());
+
+    // The consent half routes without any MUL ground …
+    assert_eq!(
+        vetoing.route(KanbanColumn::Planning),
+        Some(KanbanColumn::Prune)
+    );
+    // … and is genuinely discriminating, not a constant.
+    assert_eq!(
+        consenting.route(KanbanColumn::Planning),
+        Some(KanbanColumn::CognitiveWork)
+    );
+}
+
+#[test]
+fn the_inherited_gate_check_default_reads_measured_axes_not_invented_ones() {
+    use lance_graph_contract::mul::{GateDecision, MulProvider, SituationInput};
+
+    let p = DomainOnlyProvider {
+        consent: ConsentLevel::Full,
+    };
+    let assessment = p.assess(&SituationInput {
+        felt_competence: 0.95,
+        demonstrated_competence: 0.10,
+        ..SituationInput::default()
+    });
+
+    // The inherited default must equal the canonical rule applied to the
+    // assessment's OWN coordinates — that is what makes it a derivation rather
+    // than a fabrication.
+    #[allow(deprecated)]
+    let inherited = p.gate_check(&assessment);
+    let canonical =
+        GateDecision::from_axes(assessment.trust.texture, assessment.homeostasis.flow_state);
+    assert_eq!(inherited, canonical);
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
 // The primitives themselves
 // ═══════════════════════════════════════════════════════════════════════════
 

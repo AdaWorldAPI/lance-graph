@@ -102,10 +102,29 @@ operator ruling that produced it: a red compiler is preferable to a green lie.
 Inventing two calibration coordinates that ada-rs never measured would
 reproduce exactly the defect the census found in MedCare-rs.
 
-**The honest fix is D-MCAL-4's route**, now available on this head: ada-rs's
-consent veto is domain evidence, so it calls `KanbanColumn::veto()` and
-constructs no `GateDecision` at all. That migration is ada-rs's to make, in
-ada-rs's repo — this gate only proves the destination exists and compiles.
+**The honest fix is D-MCAL-4's route** — but the first version of this report
+claimed that route was ready before it was, and the correction is worth stating
+because it is the same class of error as the red-state claim it sits next to.
+
+`MulProvider::gate_check` was a **required** trait item. Deprecating it did not
+make it optional, so an implementor that deleted its `gate_check` and kept only
+`assess` got `E0046`; and one that kept the method still had to return a
+`GateDecision`, which still meant fixing the two `Hold` constructors. `veto()`
+alone was therefore not a compiling route out of all three errors.
+
+Fixed on this head rather than documented around: `gate_check` is now a
+**provided** method whose default applies the canonical
+[`GateDecision::from_axes`] rule to the two coordinates already on the
+`MulAssessment` the implementor computed. Nothing is fabricated — those are
+measured values, which is exactly the difference between the default and what
+the two external producers were doing by hand. The same rule now has one
+definition, shared with the i4 evaluator.
+
+The migration ada-rs makes is therefore: implement `assess` and `compass`, drop
+`gate_check` entirely, and route the consent veto through
+`KanbanColumn::veto()`. `the_documented_migration_compiles_and_behaves` executes
+exactly that shape in-tree, so the claim is now carried by a compiler rather
+than by this paragraph. It remains ada-rs's change to land in ada-rs's repo.
 
 Two of `AdaMulAdapter::gate_check`'s three arms are genuine MUL (Dunning-Kruger,
 allostatic load) and keep working through `assess()`; only the consent arm
@@ -152,12 +171,18 @@ session with the MedCare build stood up should close that gap.
 | falsifier | status |
 |---|---|
 | F-MUL-6, first half (classify per symbol) | discharged by D-MCAL-1 (#1065) |
-| F-MUL-6, second half (BUILD against the head) | **discharged for ada-rs by compilation**; MedCare covered at symbol level with the limitation stated in §3 |
+| F-MUL-6, second half (BUILD against the head) | **OPEN — not discharged.** ada-rs: built, real compile. MedCare-rs: NOT built (§3). §0 requires every known consumer to be built and says a grep is not a substitute, so one built consumer out of two is a partial result, not a pass. |
 | F-MUL-5 (removing/reframing preserves behaviour) | MUL half green in-tree; consumer half green in principle — the two genuine arms compile unchanged, only the class-B arm moves |
 
 **The arc adds zero new breakage to either consumer.** The single red consumer
 is red from #1045, and the route out of that red now exists on this head
 without requiring anyone to fabricate a calibration reading.
+
+**That is not the same as F-MUL-6 being discharged.** One of two known consumers
+was built. The falsifier stays OPEN until MedCare-rs is compiled against this
+head, and the contract rename tracked by
+`ISS-MUL-GATE-NAMED-FOR-THE-WRONG-LAYER` must not treat this gate as its
+compatibility proof before then.
 
 ---
 
