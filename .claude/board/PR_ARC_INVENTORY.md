@@ -1,3 +1,185 @@
+## 2026-08-27 — lance-graph #1070 (MERGED 32a130a9) — D-MCAL-6: the arc built against a real consumer, and F-MUL-6 left OPEN
+
+- **Added:** `.claude/plans/mul-consumer-build-gate-v1.md` + `ISS-F-MUL-6-HALF-BUILT`.
+  No contract change of its own; carried the corrected D-MCAL-4/5 content so the
+  gate measured the arc as a whole.
+- **Method, and the part that made it worth anything:** ada-rs consumes
+  lance-graph as a git dep, so the arc head was bound with a temporary `paths`
+  override — and **the override was verified to bind rather than assumed**, by
+  compiling a probe calling `KanbanColumn::veto()`, a method that exists only on
+  the head under test. Without that check the whole gate could have run against
+  `main` and reported a meaningless pass.
+- **Result:** ada-rs does **not** compile — three errors, and all three are the
+  pre-existing #1045 `reason:` break. **Zero** attributable to the arc: the
+  `PlannerContract::gate_check` removal touches nothing ada-rs implements, the
+  `MulProvider::gate_check` deprecation is a warning by construction, and
+  `KanbanColumn::{advance, veto}` are additive. The arc is source-compatible
+  with its one live external implementor.
+- **F-MUL-6 is OPEN, not discharged — corrected in-PR after review.** The first
+  version marked the build half passed while §3 admitted MedCare-rs was never
+  built. That contradicted the report's own §0 (every known consumer BUILT; a
+  grep is not a substitute). One built consumer out of two is a partial result.
+  **Consequence:** `ISS-MUL-GATE-NAMED-FOR-THE-WRONG-LAYER`'s rename is blocked
+  on this gate, so a gate read as passed would unblock it without the
+  compatibility proof it exists to wait for.
+- **Third review fix, which was a real bug not a doc nit:** the migration this
+  report documented did not compile. Deprecating `MulProvider::gate_check` in
+  #1066 did not make it optional, so implementing only `assess` gave `E0046`.
+  Fixed at the trait in #1068 (default body reading the assessment's own
+  coordinates) rather than documented around.
+- **Locked:** the distinction between the two uses of "`veto` is absent from
+  `main`" — valid evidence for WHICH SOURCE cargo bound, invalid as evidence
+  that ground-free routing was impossible. The arc made the second, wrong
+  inference once; the note keeps both readings visible so it is not re-derived.
+- **The stopgap stays unpushed.** Three errors are trivially silenced by
+  supplying a texture and a flow ada-rs never measured; that is refused. A red
+  compiler is preferable to a green lie.
+- **Confidence:** High on the ada-rs half (a real compile). The MedCare half is
+  symbol-level reasoning plus in-tree pins, and the report says so in §3 rather
+  than reporting a pass.
+
+## 2026-08-27 — lance-graph #1069 (MERGED f7350d88) — D-MCAL-5: no fourth gate enum, and the selection gap is a VOCABULARY gap
+
+- **Added:** the D-MCAL-5 decision block in `contract/src/mul.rs` (prose, at the
+  place a type might otherwise have gone) + `tests/d_mcal_5_arms_already_public.rs`
+  (8 falsifiers). No type minted. `ISS-PLANNER-SANDBOX-STILL-CARRIES-FREE-TEXT`.
+- **Decided:** the planner's `MulGateDecision{Proceed, Sandbox, Compass}` needs
+  no promotion into the contract, because its arms' PAYLOADS are already here —
+  `Proceed`'s is `MulAssessment::free_will_modifier`, `Compass`'s is
+  `CompassResult`/`CompassDecision` (strictly richer than the planner's
+  payload-free arm), `Sandbox`'s is `contract::counterfactual` per T10's ruling.
+- **CORRECTED IN-PR after codex review, and the correction is the finding:** the
+  first version also claimed "no promotion is needed either". That conflated
+  payload with SELECTION. `planner::mul::gate::check` branches on five
+  conditions; two live on `MulAssessment` and are checkable here, but three test
+  `TrustTexture::{Murky, Dissonant, Fuzzy}` — planner-private variants the
+  contract's four-variant enum does not contain. `Fuzzy` is what picks `Compass`
+  over `Sandbox`, so a contract-only consumer cannot tell those two arms apart
+  at all. **The public-output gap is REAL and OPEN.**
+- **Why that makes "no fourth enum" STRONGER, not weaker:** minting
+  `Proceed/Sandbox/Compass` here would produce a type this crate cannot
+  populate. The blocker is **OQ-MCAL-1** (two MUL implementations, disjoint
+  `TrustTexture` vocabularies, neither ruled canonical). An enum would hide a
+  vocabulary question behind a type always constructed from a guess.
+- **Sandbox blockers corrected 1 → 4:** spawn (`CounterfactualMailbox::new`) is
+  blocked on D-PERSONA-5; revision (`revise_if_minority_wins`) additionally on
+  the unconfirmed `awareness.revise` signature, D-ATOM-1's `axis_key`, and
+  D-ATOM-5's tombstone wiring. Pinned as TWO `#[should_panic]` tests so
+  D-PERSONA-5 landing cannot produce a false all-clear. The revision pin states
+  honestly that it cannot isolate its half while the spawn is itself a stub.
+- **Confidence:** High on the measurements (branch conditions read from source).
+  The OQ-MCAL-1 routing is a decision recorded, not a decision ratified.
+
+## 2026-08-27 — lance-graph #1068 (MERGED 012fe7f7) — D-MCAL-4: a domain route into the phase DAG, and a red-state claim withdrawn
+
+- **Added:** `KanbanColumn::{advance, veto}`; a DEFAULT body for
+  `MulProvider::gate_check`; `GateDecision::from_axes` (the canonical
+  `(texture, flow) -> decision` rule, now ONE definition shared with the i4
+  evaluator); `tests/d_mcal_4_domain_evidence.rs` (12 falsifiers).
+  `advance_on_gate` delegates to the two new methods, so the DAG rule is not
+  copied. **No enum minted** — D-MCAL-5's prohibition respected.
+- **Withdrawn, in-PR, after codex review:** the original claim that F-MUL-1/2
+  were shown red "mechanically" because the falsifier file failed to compile
+  against `main`. `next_phases()` was already public and already exposed
+  `Prune`, so the capability existed **unnamed**; the compile failure proved
+  only that two convenience method NAMES were absent. Presenting a naming
+  artifact as the strongest evidence is the vacuous-falsifier trap `CLAUDE.md`
+  warns about. **The claim is retracted in the test header, `LATEST_STATE`,
+  `INTEGRATION_PLANS`, the `veto()` rustdoc, and the `STATUS_BOARD` row — it had
+  to be chased to five surfaces, which is itself the lesson.**
+- **What survives, scoped:** the honest route existed but was unnamed, so the
+  OBVIOUS path (`advance_on_gate`) demanded two calibration coordinates, and
+  both measured producers invented them. This is an ergonomics-and-naming fix
+  with a measured behavioural consequence — **not a new capability**.
+  `veto_agrees_with_the_pre_existing_next_phases_route` pins the equivalence.
+- **Second review fix:** deprecating `MulProvider::gate_check` in #1066 did NOT
+  make it optional, so the documented migration produced `E0046`. Fixed at the
+  trait: it is now a PROVIDED method whose default reads the two coordinates off
+  the `MulAssessment` the implementor computed — measured values, not invented
+  ones, which is the whole distinction this arc turns on.
+  `the_documented_migration_compiles_and_behaves` executes the migration shape,
+  so the claim is carried by a compiler rather than by prose.
+- **Also fixed here:** the `crate::action::ActionInstance` doc link introduced by
+  #1067 — the type is `ActionInvocation`, methods `commit`/`commit_via`.
+- **Confidence:** High. The behaviour-preservation arm (domain route ==
+  fabricating route, across all six columns) is the load-bearing test.
+
+## 2026-08-27 — lance-graph #1067 (MERGED fc5a5eeb) — D-MCAL-3: the execution gate named for what it is (doc-first)
+
+- **Added:** the "What this type actually is" section on
+  `contract::mul::GateDecision`; three pins in `kanban.rs`;
+  `ISS-MUL-GATE-NAMED-FOR-THE-WRONG-LAYER`.
+- **Named, not renamed:** `mul::GateDecision` is the EXECUTION / COMMIT gate, not
+  MUL's output. Every consumer commits, cancels, or defers work; none routes to
+  a compass, an exploration, or a learn-first path. The MUL-shaped output the
+  diagram calls for exists separately as the planner's `MulGateDecision`.
+- **Deferred deliberately:** the rename touches four in-tree consumers plus two
+  external repos and would bury a semantic decision in a mechanical diff. The
+  wrong name is LOAD-BEARING — it is why two external repos reached for a MUL
+  type to express a consent veto and an evidence contradiction — so it gets its
+  own PR, blocked on D-MCAL-4 + D-MCAL-6.
+- **Pins:** `Hold` returns `None` from every column (F-MUL-4's RED state, a
+  phase-stay with no learning path, asserted on purpose); its anti-vacuity twin
+  proving `Flow` moves and does not invent successors; and two `Block`s with
+  DIFFERENT `(texture, flow)` routing identically from every column — the naming
+  evidence in executable form.
+- **Locked (found by review, fixed in #1068):** the consumer table named
+  `ActionInstance`, a type that does not exist.
+- **Confidence:** High on the classification; the rename shape is a candidate.
+
+## 2026-08-27 — lance-graph #1066 (MERGED d9dccea4) — D-MCAL-2: one gate-returning trait method removed, one deprecated
+
+- **Removed:** `PlannerContract::gate_check`. Invalid at THREE points: it
+  returned the execution-gate type; it took `SituationInput`, so a planner trait
+  performed a MUL assessment it does not own; and it could not express the
+  planner's own `Proceed/Sandbox/Compass` shape. Zero implementors org-wide,
+  zero callers — the two in-tree `.gate_check(` sites bind the planner's
+  INHERENT method returning `Gate`. Source-breaking in principle, provably inert.
+- **Deprecated (not removed):** `MulProvider::gate_check` — one external
+  implementor (ada-rs), so the cut waits on D-MCAL-4 + D-MCAL-6.
+- **Locked (found by review on #1070, fixed in #1068):** deprecation does NOT
+  make a trait item optional. The migration this PR documented produced `E0046`
+  until #1068 gave the method a default. Recorded so this row is not read as
+  "the migration worked from here onward" — it did not.
+- **Corrected:** both traits' doc-comments claimed `lance-graph-planner`
+  implements them. Neither does. `PlannerContract`'s also instructed the
+  crewai-rust/n8n-rs consumers evicted 2026-06-21.
+- **Falsifiers:** three for F-MUL-5's MUL half — both genuine arms
+  (Dunning-Kruger, allostatic depletion) readable off `MulAssessment` with no
+  verdict constructed; the can-stay-silent twin on a NON-degenerate healthy
+  input; axis independence (F-MUL-7's premise).
+- **Confidence:** High.
+
+## 2026-08-27 — lance-graph #1065 (MERGED 21812bdc) — D-MCAL-1: per-symbol MUL consumer census, A/B/C/D
+
+- **Added:** `.claude/plans/mul-consumer-census-v1.md` + the entry
+  `E-THE-FUSED-PAYLOAD-IS-INERT-AT-EVERY-EXECUTION-GATE-THAT-CONSUMES-IT-1`.
+  Measurement only: no code, no type, no rename.
+- **Method:** nine symbols, each resolved to its DEFINING MODULE before
+  classification — four distinct types answer to `GateDecision`/`TrustTexture`,
+  and the bare name over-counts 906 raw hits down to 36 real ones. Cross-repo
+  consumers found by one org-wide manifest search: 58 manifests, 17 repos, MUL
+  symbols in four.
+- **The headline measurement:** the `Hold/Block { texture, flow }` payload is
+  **INERT** at every class-C consumer — `kanban.rs:146`, `action.rs:301,373`,
+  `sigma-tier-router:365`, `supervisor::kanban_actor::mul_target` all
+  destructure `{ .. }`. T6 argued a second projection; the count shows worse.
+- **The generalisation:** a required field no consumer reads does not stay
+  empty, it fills with fiction. Inertness and fabrication are one defect seen
+  from the two ends of a type.
+- **Corrections to the plan's §2:** `PlannerContract` has ZERO implementors
+  org-wide and its `gate_check` takes `SituationInput` (invalid at three points,
+  not two); MedCare is CONFIRMED not presumed, at FOUR sites, with the
+  fabrication documented in-source by its own author; ada-rs is sharper than
+  "class B" — two of three non-`Flow` arms are genuine MUL, exactly ONE (the
+  consent veto) is domain evidence, and that is the arm #1045 broke.
+- **Deferred:** the BUILD half of F-MUL-6 (D-MCAL-6). A classification is not a
+  build, and this PR does not pretend otherwise.
+- **Also recorded:** a SIXTH `TrustTexture` for OQ-MCAL-5 —
+  `ada-rs/src/memory/trust.rs`, the planner's five-variant vocabulary in a crate
+  that also imports the contract's four.
+- **Confidence:** High — counted, with file:line, not argued.
+
 ## 2026-08-26 — lance-graph #1059 (MERGED e5f750e) — the Octopus causal-CoT audit: measured across three repos, six of ten falsifiers expected-fail
 
 - **Added:** `.claude/plans/octopus-causal-cot-audit-v1.md` — a MEASUREMENT

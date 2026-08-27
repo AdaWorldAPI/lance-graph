@@ -1,3 +1,47 @@
+## 2026-08-27 — the D-MCAL arc, #1065–#1070 ALL MERGED (six of six deliverables)
+
+### Current Contract Inventory — net delta of the arc
+
+| symbol | change |
+|---|---|
+| `contract::plan::PlannerContract::gate_check` | **REMOVED** (#1066) — 0 implementors org-wide, 0 callers |
+| `contract::mul::MulProvider::gate_check` | **DEPRECATED** (#1066), then given a **DEFAULT** (#1068) — deprecation alone left it required, so the documented migration produced `E0046` until the default landed |
+| `contract::mul::GateDecision::from_axes` | **NEW** (#1068) — the canonical `(TrustTexture, FlowState) -> GateDecision` rule, now ONE definition shared by the i4 evaluator and the trait default |
+| `contract::kanban::KanbanColumn::advance` | **NEW** (#1068) — forward successor |
+| `contract::kanban::KanbanColumn::veto` | **NEW** (#1068) — `Prune` iff legal (Libet free-won't). An ergonomic named wrapper over the already-public `next_phases()` walk, **not a new capability** |
+| `contract::kanban::KanbanColumn::advance_on_gate` | behaviour unchanged; now DELEGATES to the two above |
+| everything else | unchanged — **no enum minted anywhere in the arc** |
+
+### What the arc established
+
+The `Hold/Block { texture, flow }` payload is **inert** at all four
+execution-gate consumers, which is why both external producers invented
+coordinates they never measured. `mul::GateDecision` is the **execution / commit
+gate**, not MUL's output (rename deferred, `ISS-MUL-GATE-NAMED-FOR-THE-WRONG-LAYER`).
+A public MUL output is **not** derivable from the contract, and the blocker is
+**OQ-MCAL-1** — a vocabulary question, not a missing enum.
+
+### Open, and deliberately so
+
+- **F-MUL-6 is OPEN** — ada-rs was compiled against the arc head (3 errors, all
+  pre-existing #1045, zero from the arc); MedCare-rs was **not** built.
+  `ISS-F-MUL-6-HALF-BUILT`. The rename is blocked on this.
+- **`ISS-PLANNER-SANDBOX-STILL-CARRIES-FREE-TEXT`** — the planner's
+  `Sandbox { reason: String }`, unfixable until the counterfactual scaffold's
+  four blockers clear.
+- **The ada-rs stopgap stays unpushed.** A red compiler is preferable to a
+  green lie; the honest route now exists.
+
+### Two claims withdrawn during the arc, recorded because both were mine
+
+1. D-MCAL-4's "red-state proved mechanically" — a naming artifact.
+   `next_phases()` already exposed `Prune`.
+2. D-MCAL-5's "no promotion needed either" — conflated arm payload with arm
+   selection.
+
+Both were caught by review after landing in several places at once. The cost of
+a wrong claim is proportional to how many surfaces repeat it.
+
 ## 2026-08-27 — D-MCAL-2 (IN PR) — the two gate-returning trait methods
 
 ### Current Contract Inventory — CHANGED (one method removed, one deprecated)
