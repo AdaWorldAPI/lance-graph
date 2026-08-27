@@ -24,9 +24,17 @@ transition directly loses nothing and fabricates nothing.
 ada-rs's shape) and F-MUL-2 (evidence contradiction, MedCare's shape) each
 assert the route is correct, that no `GateDecision` is constructed in the
 domain path, and that the route is IDENTICAL to the fabricating path it
-replaces. Red-first verified mechanically: the same file against `main` fails
-to compile (`no method named veto`), i.e. on `main` there is no route into the
-DAG that does not construct MUL ground.
+replaces. **Red-first claim CORRECTED (codex review, same day):** the earlier text said
+the red state was proved mechanically because the file failed to compile against
+`main`. That was wrong. `next_phases()` is public on `main` and already returns
+`Prune` for `Planning`/`Evaluation`, so a domain could always have routed a veto
+by hand without touching `GateDecision`; the compile failure proved only that two
+convenience method NAMES were absent. What is true: the honest route existed but
+was unnamed, so the obvious path (`advance_on_gate`) demanded two calibration
+coordinates and both measured producers invented them. This is an
+ergonomics-and-naming fix with a measured behavioural consequence, not a new
+capability. `veto_agrees_with_the_pre_existing_next_phases_route` pins the
+equivalence.
 ## 2026-08-27 — D-MCAL-2 (IN PR) — the two gate-returning trait methods
 
 ### Current Contract Inventory — CHANGED (one method removed, one deprecated)

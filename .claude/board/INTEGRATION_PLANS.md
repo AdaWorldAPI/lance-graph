@@ -11,10 +11,15 @@ Since routing never read those coordinates, naming the transition directly
 loses nothing and fabricates nothing. D-MCAL-5's prohibition is respected: no
 fourth gate enum, because these are transitions named as transitions rather
 than a new verdict vocabulary; "stay put" is `None` and needs no symbol.
-Anti-vacuity satisfied MECHANICALLY rather than by assertion: the falsifier file
-compiled against `main` fails with `no method named veto` / `no method named
-advance`, which is the red state in its strongest form — on main the domain path
-does not exist. Each case additionally proves the domain route is IDENTICAL to
+CORRECTED same-day after codex review: the original entry claimed anti-vacuity
+was satisfied MECHANICALLY because the falsifier file fails to compile against
+`main`. That was a naming artifact, not a capability proof — `next_phases()` is
+public on main and already exposes `Prune`, so the veto was always expressible by
+hand. The honest scope is narrower and still real: the obvious route
+(`advance_on_gate`) demanded two calibration coordinates, so both measured
+producers invented them; naming the transition makes the honest route the
+reachable one. `veto_agrees_with_the_pre_existing_next_phases_route` pins the
+equivalence so the wrappers cannot drift from the DAG walk they wrap. Each case additionally proves the domain route is IDENTICAL to
 the fabricating route it replaces, which is F-MUL-5's premise (removing the
 fabrication costs no behaviour), and exercises advance/stay/veto from one domain
 axis so no arm can pass by accident.

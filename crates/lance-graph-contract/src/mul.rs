@@ -153,7 +153,7 @@ pub enum FlowState {
 /// | consumer | what it does |
 /// |---|---|
 /// | [`crate::kanban::KanbanColumn::advance_on_gate`] | phase-DAG move; `Block` → `Prune` (Libet "free won't" veto) |
-/// | [`crate::action::ActionInstance`] `commit` / `emit` | `ActionState::{Committed, Pending, Cancelled}` |
+/// | [`crate::action::ActionInvocation`] `commit` / `commit_via` | `ActionState::{Committed, Pending, Cancelled}` |
 /// | `sigma-tier-router` | `Block` → `Rest { GateBlocked }` dispatch |
 /// | `lance-graph-supervisor::kanban_actor::mul_target` | next kanban column |
 ///
