@@ -1,4 +1,4 @@
-## 2026-08-27 — the D-MCAL arc, #1065–#1069 MERGED (D-MCAL-6 / #1070 still open)
+## 2026-08-27 — the D-MCAL arc, #1065–#1070 ALL MERGED (six of six deliverables)
 
 ### Current Contract Inventory — net delta of the arc
 

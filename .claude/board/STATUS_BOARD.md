@@ -58,7 +58,7 @@ code. `mul-gate-outcome-vs-ground-v1`'s D-GATE-2/D-GATE-3 are WITHDRAWN.
 | D-MCAL-3 | name the execution gate what it is (doc-first; rename is a later PR) | Shipped — #1067. Doc-first + F-MUL-4 pins; rename tracked as `ISS-MUL-GATE-NAMED-FOR-THE-WRONG-LAYER`, blocked on D-MCAL-6 |
 | D-MCAL-4 | consent veto + evidence contradiction as domain evidence, no MUL ground | Shipped — #1068. `KanbanColumn::{advance, veto}` + a DEFAULT `gate_check` so the migration compiles. ⚠ The earlier "F-MUL-1/2 red-on-main (no compile)" claim on this row is **WITHDRAWN**: `next_phases()` already exposed `Prune`, so the capability existed unnamed — this is an ergonomics/naming fix with a measured consequence, not a new capability |
 | D-MCAL-5 | if a public MUL output is needed, promote the planner's existing type — never mint a fourth | Shipped — #1069. Arm PAYLOADS reachable, arm SELECTION is NOT (needs planner-private `Fuzzy`/`Murky`/`Dissonant`). Gap real and OPEN, but NOT enum-shaped — blocker is OQ-MCAL-1. Nothing minted. |
-| D-MCAL-6 | consumer-build gate: BUILD them, don't grep them | In PR — ada-rs COMPILED against the arc (3 errors, all pre-existing #1045, zero from the arc). **F-MUL-6 stays OPEN**: MedCare-rs not built. Gate report: `.claude/plans/mul-consumer-build-gate-v1.md` |
+| D-MCAL-6 | consumer-build gate: BUILD them, don't grep them | Shipped — #1070. ada-rs COMPILED against the arc (3 errors, all pre-existing #1045, zero from the arc). **F-MUL-6 remains OPEN** — MedCare-rs not built (`ISS-F-MUL-6-HALF-BUILT`); the rename is blocked on it. Gate report: `.claude/plans/mul-consumer-build-gate-v1.md` |
 
 ## mul-gate-outcome-vs-ground-v1 — PROPOSED 2026-08-26 (follow-up arc to #1045/#1052)
 

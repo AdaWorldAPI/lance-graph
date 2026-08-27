@@ -1,3 +1,43 @@
+## 2026-08-27 — lance-graph #1070 (MERGED 32a130a9) — D-MCAL-6: the arc built against a real consumer, and F-MUL-6 left OPEN
+
+- **Added:** `.claude/plans/mul-consumer-build-gate-v1.md` + `ISS-F-MUL-6-HALF-BUILT`.
+  No contract change of its own; carried the corrected D-MCAL-4/5 content so the
+  gate measured the arc as a whole.
+- **Method, and the part that made it worth anything:** ada-rs consumes
+  lance-graph as a git dep, so the arc head was bound with a temporary `paths`
+  override — and **the override was verified to bind rather than assumed**, by
+  compiling a probe calling `KanbanColumn::veto()`, a method that exists only on
+  the head under test. Without that check the whole gate could have run against
+  `main` and reported a meaningless pass.
+- **Result:** ada-rs does **not** compile — three errors, and all three are the
+  pre-existing #1045 `reason:` break. **Zero** attributable to the arc: the
+  `PlannerContract::gate_check` removal touches nothing ada-rs implements, the
+  `MulProvider::gate_check` deprecation is a warning by construction, and
+  `KanbanColumn::{advance, veto}` are additive. The arc is source-compatible
+  with its one live external implementor.
+- **F-MUL-6 is OPEN, not discharged — corrected in-PR after review.** The first
+  version marked the build half passed while §3 admitted MedCare-rs was never
+  built. That contradicted the report's own §0 (every known consumer BUILT; a
+  grep is not a substitute). One built consumer out of two is a partial result.
+  **Consequence:** `ISS-MUL-GATE-NAMED-FOR-THE-WRONG-LAYER`'s rename is blocked
+  on this gate, so a gate read as passed would unblock it without the
+  compatibility proof it exists to wait for.
+- **Third review fix, which was a real bug not a doc nit:** the migration this
+  report documented did not compile. Deprecating `MulProvider::gate_check` in
+  #1066 did not make it optional, so implementing only `assess` gave `E0046`.
+  Fixed at the trait in #1068 (default body reading the assessment's own
+  coordinates) rather than documented around.
+- **Locked:** the distinction between the two uses of "`veto` is absent from
+  `main`" — valid evidence for WHICH SOURCE cargo bound, invalid as evidence
+  that ground-free routing was impossible. The arc made the second, wrong
+  inference once; the note keeps both readings visible so it is not re-derived.
+- **The stopgap stays unpushed.** Three errors are trivially silenced by
+  supplying a texture and a flow ada-rs never measured; that is refused. A red
+  compiler is preferable to a green lie.
+- **Confidence:** High on the ada-rs half (a real compile). The MedCare half is
+  symbol-level reasoning plus in-tree pins, and the report says so in §3 rather
+  than reporting a pass.
+
 ## 2026-08-27 — lance-graph #1069 (MERGED f7350d88) — D-MCAL-5: no fourth gate enum, and the selection gap is a VOCABULARY gap
 
 - **Added:** the D-MCAL-5 decision block in `contract/src/mul.rs` (prose, at the
