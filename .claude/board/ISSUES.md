@@ -1,5 +1,35 @@
 # Issues Log — Open + Resolved (double-entry, append-only)
 
+## ISS-PLANNER-SANDBOX-STILL-CARRIES-FREE-TEXT (2026-08-27) — OPEN
+
+`lance_graph_planner::mul::gate::MulGateDecision::Sandbox { reason: String }`
+still carries the free-text field that #1045 removed from the contract's gate,
+for the same reasons: it heap-allocates on a decision path, and it stores a
+*rendering* of state that exists in typed form beside it.
+
+Found while measuring D-MCAL-5. The defect is one crate over from where it was
+fixed, which is why the earlier sweep missed it.
+
+**The typed successor already exists and is already ruled.** T10
+(`mul-calibration-not-verdict-v1.md`, operator-ruled 2026-08-26):
+
+    Sandbox := Counterfactual + Revision
+
+so the arm's payload is not a string describing why a sandbox was chosen — it
+is the counterfactual lane the reasoning was routed into
+(`contract::counterfactual::CounterfactualMailbox`) and the revision verdict
+that lane exits through (`revise_if_minority_wins`).
+
+**Blocked, and honestly so:** both of those entry points are `todo!()`, blocked
+on D-PERSONA-5 (ractor outer-swarm registration). So this cannot be fixed by
+swapping the field today — the replacement carrier is declared, not built.
+`tests/d_mcal_5_arms_already_public.rs::sandbox_arm_carrier_is_declared_but_not_implemented`
+pins that unimplemented state with `#[should_panic]`, so when D-PERSONA-5 lands
+the pin fails and this issue surfaces again instead of aging quietly.
+
+**Not fixed by minting anything.** D-MCAL-5's prohibition applies here too: the
+fix is to finish the counterfactual scaffold, never to add a gate variant that
+names the sandbox.
 ## ISS-MUL-GATE-NAMED-FOR-THE-WRONG-LAYER (2026-08-27) — OPEN
 
 `contract::mul::GateDecision` is measured (D-MCAL-1) as the **execution /

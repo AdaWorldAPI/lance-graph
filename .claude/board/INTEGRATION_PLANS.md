@@ -23,6 +23,49 @@ equivalence so the wrappers cannot drift from the DAG walk they wrap. Each case 
 the fabricating route it replaces, which is F-MUL-5's premise (removing the
 fabrication costs no behaviour), and exercises advance/stay/veto from one domain
 axis so no arm can pass by accident.
+## 2026-08-27 — DECIDED: NO fourth gate enum, and no promotion either (D-MCAL-5), `crates/lance-graph-contract/src/mul.rs`
+
+The deliverable asked: if a public MUL output is still needed, derive it from
+the planner's Proceed/Sandbox/Compass, never invent a fresh enum. Measured
+answer, CORRECTED same day after codex review — the original "nothing needs
+deriving" was too strong. The distinction it missed: the arms' PAYLOADS are
+reachable from the contract; the arm SELECTION is not. `planner::mul::gate::check`
+branches on five conditions; two live on `MulAssessment` and are checkable here
+(MountStupid, complexity_mapped, both routing to Sandbox), but three test
+`TrustTexture::{Murky, Dissonant, Fuzzy}` — planner-private variants the
+contract's four-variant enum does not contain, and `Fuzzy` is precisely what
+selects Compass over Sandbox. So a contract-only consumer cannot tell those two
+arms apart at all, and the public-output gap D-MCAL-5 was asked about is REAL
+and still OPEN. The conclusion this forces is stronger than the original, not
+weaker: the gap is not enum-shaped. Minting Proceed/Sandbox/Compass here would
+produce a type this crate cannot populate, because the selection needs a trust
+vocabulary that does not exist on this side of the boundary. The blocker is
+OQ-MCAL-1 (two MUL implementations, disjoint TrustTexture vocabularies, neither
+ruled canonical), and a fourth gate enum would only hide it behind a type always
+constructed from a guess. Sandbox's blocker list also corrected: FOUR blockers,
+not one — D-PERSONA-5 for both halves, plus the unconfirmed `awareness.revise`
+signature, D-ATOM-1's `axis_key` type and D-ATOM-5's tombstone wiring for the
+revision half alone, which is now pinned separately so D-PERSONA-5 landing
+cannot make the revision half look unblocked. `Proceed
+{ free_will_modifier }` IS `MulAssessment::free_will_modifier`, a public f64
+field computed by `compute`. `Compass` IS `CompassResult` /
+`CompassDecision{StaySurface, GoMeta}`, already the declared return of
+`MulProvider::compass` and strictly richer than the planner's payload-free arm.
+`Sandbox` is T10's operator ruling — Sandbox := Counterfactual + Revision — so
+its carrier is `contract::counterfactual`, which is DECLARED BUT NOT
+IMPLEMENTED: both `CounterfactualMailbox::new` and `revise_if_minority_wins`
+are `todo!()`, blocked on D-PERSONA-5. That third row is stated honestly rather
+than glossed, and pinned with a `#[should_panic]` falsifier so the day the
+scaffold lands the pin fails and forces the table to be corrected instead of
+going stale. Consequence recorded in the contract source where a type might
+otherwise have gone: a future session finding the contract cannot express
+Proceed/Sandbox/Compass must NOT conclude an enum is missing — two arms are
+here and the third is a scaffold with a known blocker. `MulHint{Trusted,
+Explore, Sandbox, Human}` stays not-adopted. Side finding filed as
+`ISS-PLANNER-SANDBOX-STILL-CARRIES-FREE-TEXT`: the planner's `Sandbox { reason:
+String }` still carries the heap-allocating free-text field #1045 removed from
+the contract's gate — same defect, one crate over, and unfixable today because
+its typed successor is the blocked scaffold.
 ## 2026-08-27 — DOC-FIRST + PINNED (D-MCAL-3): the execution gate named for what it is, `crates/lance-graph-contract/src/{mul,kanban}.rs`
 
 `contract::mul::GateDecision` gets a "what this type actually is" section: it
