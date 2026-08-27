@@ -497,4 +497,106 @@ mod tests {
         assert_eq!(ExecTarget::Native as u8, 0);
         assert_eq!(ExecTarget::Elixir as u8, 3);
     }
+
+    // ── D-MCAL-3 / F-MUL-4: what `advance_on_gate` actually does with the
+    //    decision, pinned so a semantic change shows up as a diff ──
+
+    /// F-MUL-4, **red-state pin**. Under the architecture diagram a
+    /// *need-more-data* condition routes to learn / map / recover / sandbox.
+    /// This gate's `Hold` does none of those: it returns `None` from **every**
+    /// column, so the mailbox stays put and re-evaluates next cycle with no
+    /// learning path attached. That is a phase-stay, not a MUL verdict
+    /// (OQ-MCAL-2).
+    ///
+    /// This test asserts the CURRENT behaviour on purpose. When a learn-routing
+    /// path lands, this test must be updated in the same commit — which is the
+    /// point: the change becomes visible rather than silent.
+    #[test]
+    fn f_mul_4_hold_is_a_phase_stay_with_no_learning_path() {
+        let hold = GateDecision::Hold {
+            texture: crate::mul::TrustTexture::Overconfident,
+            flow: crate::mul::FlowState::Anxiety,
+        };
+        for col in [
+            KanbanColumn::Planning,
+            KanbanColumn::CognitiveWork,
+            KanbanColumn::Evaluation,
+            KanbanColumn::Commit,
+            KanbanColumn::Plan,
+            KanbanColumn::Prune,
+        ] {
+            assert_eq!(
+                col.advance_on_gate(&hold),
+                None,
+                "Hold moved {col:?} — if a learn/map/recover route was added, \
+                 update this pin and F-MUL-4 in mul-calibration-not-verdict-v1"
+            );
+        }
+    }
+
+    /// Anti-vacuity twin for the pin above: `Hold` returning `None` everywhere
+    /// would be uninformative if the gate moved nothing at all. `Flow` must
+    /// advance from the columns that have a forward successor, and must not
+    /// invent one where the DAG has none.
+    #[test]
+    fn f_mul_4_flow_does_move_so_the_hold_pin_is_not_vacuous() {
+        let flow = GateDecision::Flow;
+        assert_eq!(
+            KanbanColumn::Planning.advance_on_gate(&flow),
+            Some(KanbanColumn::CognitiveWork)
+        );
+        assert_eq!(
+            KanbanColumn::CognitiveWork.advance_on_gate(&flow),
+            Some(KanbanColumn::Evaluation)
+        );
+        assert_eq!(
+            KanbanColumn::Evaluation.advance_on_gate(&flow),
+            Some(KanbanColumn::Commit)
+        );
+        assert_eq!(
+            KanbanColumn::Plan.advance_on_gate(&flow),
+            Some(KanbanColumn::Planning)
+        );
+        // Absorbing columns have no forward successor.
+        assert_eq!(KanbanColumn::Commit.advance_on_gate(&flow), None);
+        assert_eq!(KanbanColumn::Prune.advance_on_gate(&flow), None);
+    }
+
+    /// D-MCAL-3, the naming evidence in executable form: this gate's consumers
+    /// commit, cancel, or defer WORK — they never read the calibration payload.
+    /// Two `Block`s carrying different `(texture, flow)` pairs must produce
+    /// byte-identical routing from every column. If this ever fails, the
+    /// payload became load-bearing and the D-MCAL-2 deprecation needs revisiting.
+    #[test]
+    fn f_mul_4_routing_ignores_the_calibration_payload() {
+        let block_a = GateDecision::Block {
+            texture: crate::mul::TrustTexture::Uncertain,
+            flow: crate::mul::FlowState::Anxiety,
+        };
+        let block_b = GateDecision::Block {
+            texture: crate::mul::TrustTexture::Underconfident,
+            flow: crate::mul::FlowState::Boredom,
+        };
+        assert_ne!(block_a, block_b, "the two payloads must actually differ");
+        for col in [
+            KanbanColumn::Planning,
+            KanbanColumn::CognitiveWork,
+            KanbanColumn::Evaluation,
+            KanbanColumn::Commit,
+            KanbanColumn::Plan,
+            KanbanColumn::Prune,
+        ] {
+            assert_eq!(
+                col.advance_on_gate(&block_a),
+                col.advance_on_gate(&block_b),
+                "routing from {col:?} depended on the calibration payload"
+            );
+        }
+        // …and the Block route itself is real where the DAG allows a veto.
+        assert_eq!(
+            KanbanColumn::Planning.advance_on_gate(&block_a),
+            Some(KanbanColumn::Prune)
+        );
+        assert_eq!(KanbanColumn::CognitiveWork.advance_on_gate(&block_a), None);
+    }
 }

@@ -27,6 +27,32 @@ domain path, and that the route is IDENTICAL to the fabricating path it
 replaces. Red-first verified mechanically: the same file against `main` fails
 to compile (`no method named veto`), i.e. on `main` there is no route into the
 DAG that does not construct MUL ground.
+## 2026-08-27 — D-MCAL-2 (IN PR) — the two gate-returning trait methods
+
+### Current Contract Inventory — CHANGED (one method removed, one deprecated)
+
+| symbol | before | after |
+|---|---|---|
+| `contract::plan::PlannerContract::gate_check` | `fn gate_check(&self, situation: &SituationInput) -> GateDecision` | **REMOVED** |
+| `contract::mul::MulProvider::gate_check` | required method, undocumented direction | **`#[deprecated]`** with migration pointer; still required, removal scheduled after D-MCAL-4/D-MCAL-6 |
+| `contract::mul::MulProvider::{assess, compass}` | unchanged | unchanged — the kept, legitimate direction |
+| `contract::plan::PlannerContract::{plan_full, plan_auto, set_selector, orchestrate}` | unchanged | unchanged |
+
+**Breakage surface, measured before the cut (D-MCAL-1):** `PlannerContract` has
+**zero implementors org-wide** and zero callers. The two in-tree `.gate_check(`
+call sites — `lance-graph-planner/src/api.rs:637` and
+`lance-graph/src/lance_native_planner.rs:61` — bind the planner's **inherent**
+method returning `Gate` (`MulGateDecision{Proceed, Sandbox, Compass}`), not the
+trait, and are untouched. `MulProvider` has exactly one implementor anywhere
+(`ada-rs::contract_impls::AdaMulAdapter`), which is why it is deprecated rather
+than cut: the invariant is that a source-breaking contract change is not
+verified until the known consumer builds (D-MCAL-6).
+
+**Tests:** +3 falsifiers in `mul.rs` discharging F-MUL-5's MUL half — both
+genuine arms (Dunning-Kruger, allostatic depletion) readable off
+`MulAssessment` with no verdict constructed; the mandatory can-stay-silent
+twin on a non-degenerate input; axis independence (F-MUL-7's premise).
+1224 lib tests green, clippy `--all-targets` clean.
 
 ## 2026-08-26 — #1059 MERGED (e5f750e) — the Octopus causal-CoT audit (measurement only; NO contract change)
 

@@ -18,6 +18,45 @@ does not exist. Each case additionally proves the domain route is IDENTICAL to
 the fabricating route it replaces, which is F-MUL-5's premise (removing the
 fabrication costs no behaviour), and exercises advance/stay/veto from one domain
 axis so no arm can pass by accident.
+## 2026-08-27 — DOC-FIRST + PINNED (D-MCAL-3): the execution gate named for what it is, `crates/lance-graph-contract/src/{mul,kanban}.rs`
+
+`contract::mul::GateDecision` gets a "what this type actually is" section: it
+is the EXECUTION / COMMIT gate, not MUL's output, and it lives in a module
+called `mul` for historical reasons that have been misleading consumers for as
+long as the name has existed. The consumer table is inlined from the D-MCAL-1
+census — kanban phase moves, ActionState, tier-router Rest dispatch, supervisor
+next-column; none routes to a compass, an exploration, or a learn-first path,
+and none reads the calibration payload. The MUL-shaped output the diagram calls
+for already exists as the planner's `MulGateDecision{Proceed, Sandbox, Compass}`.
+NO rename: it would touch four in-tree consumers plus two external repos and
+bury a semantic decision inside a mechanical diff, so the symbol move is its own
+PR, tracked as `ISS-MUL-GATE-NAMED-FOR-THE-WRONG-LAYER` and blocked on D-MCAL-4
++ D-MCAL-6. Three falsifiers pin the behaviour so a future change is a diff, not
+a drift: `Hold` returns None from EVERY column (F-MUL-4's red state — a
+phase-stay with no learning path, OQ-MCAL-2); its anti-vacuity twin proving
+`Flow` does move and does not invent successors the DAG lacks; and a routing
+test proving two `Block`s with DIFFERENT (texture, flow) pairs route identically
+from every column — the naming evidence in executable form.
+## 2026-08-27 — DECIDED + LANDED (D-MCAL-2): the two gate-returning trait methods, `crates/lance-graph-contract/src/{mul,plan}.rs`
+
+Fate decided on the D-MCAL-1 census, not on argument. `PlannerContract::gate_check`
+is REMOVED: zero implementors org-wide, zero callers, and invalid at three
+points (returns the execution-gate type; takes `SituationInput` so a planner
+trait performed a MUL assessment; could not express the planner's own
+Proceed/Sandbox/Compass shape). The two in-tree `.gate_check(` call sites bind
+the planner's INHERENT method returning `Gate` and are untouched — the removal
+is source-breaking in principle and provably inert in practice.
+`MulProvider::gate_check` is DEPRECATED rather than removed: it has one
+external implementor (ada-rs), so removal waits for D-MCAL-4 to express the
+domain fact as a domain fact and D-MCAL-6 to build it green. The trait keeps
+`assess` (the legitimate direction: situation in, calibration state out) and
+`compass`. Both stale doc-comments corrected — neither trait was implemented by
+lance-graph-planner, and crewai-rust/n8n-rs were evicted 2026-06-21. F-MUL-5's
+MUL half is discharged by three new falsifiers proving both genuine arms
+(Dunning-Kruger, allostatic depletion) are readable straight off
+`MulAssessment` with no verdict constructed, plus the mandatory can-stay-silent
+twin on a non-degenerate input and an axis-independence check (F-MUL-7's
+premise at the surface D-MCAL-2 keeps).
 
 ## 2026-08-27 — MEASUREMENT COMPLETE (no code, no type): per-symbol MUL consumer census, `.claude/plans/mul-consumer-census-v1.md`
 
