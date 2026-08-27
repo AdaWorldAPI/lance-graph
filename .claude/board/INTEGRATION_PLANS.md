@@ -107,8 +107,26 @@ axis so no arm can pass by accident.
 
 The deliverable asked: if a public MUL output is still needed, derive it from
 the planner's Proceed/Sandbox/Compass, never invent a fresh enum. Measured
-answer: nothing needs deriving, because the planner's `MulGateDecision` is a
-private packaging of what the contract already exports. `Proceed
+answer, CORRECTED same day after codex review — the original "nothing needs
+deriving" was too strong. The distinction it missed: the arms' PAYLOADS are
+reachable from the contract; the arm SELECTION is not. `planner::mul::gate::check`
+branches on five conditions; two live on `MulAssessment` and are checkable here
+(MountStupid, complexity_mapped, both routing to Sandbox), but three test
+`TrustTexture::{Murky, Dissonant, Fuzzy}` — planner-private variants the
+contract's four-variant enum does not contain, and `Fuzzy` is precisely what
+selects Compass over Sandbox. So a contract-only consumer cannot tell those two
+arms apart at all, and the public-output gap D-MCAL-5 was asked about is REAL
+and still OPEN. The conclusion this forces is stronger than the original, not
+weaker: the gap is not enum-shaped. Minting Proceed/Sandbox/Compass here would
+produce a type this crate cannot populate, because the selection needs a trust
+vocabulary that does not exist on this side of the boundary. The blocker is
+OQ-MCAL-1 (two MUL implementations, disjoint TrustTexture vocabularies, neither
+ruled canonical), and a fourth gate enum would only hide it behind a type always
+constructed from a guess. Sandbox's blocker list also corrected: FOUR blockers,
+not one — D-PERSONA-5 for both halves, plus the unconfirmed `awareness.revise`
+signature, D-ATOM-1's `axis_key` type and D-ATOM-5's tombstone wiring for the
+revision half alone, which is now pinned separately so D-PERSONA-5 landing
+cannot make the revision half look unblocked. `Proceed
 { free_will_modifier }` IS `MulAssessment::free_will_modifier`, a public f64
 field computed by `compute`. `Compass` IS `CompassResult` /
 `CompassDecision{StaySurface, GoMeta}`, already the declared return of
