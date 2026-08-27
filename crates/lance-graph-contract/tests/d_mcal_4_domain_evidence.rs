@@ -4,26 +4,61 @@
 //! Falsifies F-MUL-1 and F-MUL-2 from
 //! `.claude/plans/mul-calibration-not-verdict-v1.md` §5.
 //!
-//! # The red state this replaces
+//! # The measured behaviour this replaces
 //!
 //! Measured on `main` before this change
-//! (`.claude/plans/mul-consumer-census-v1.md` §3), the only route into the
-//! kanban phase DAG was `advance_on_gate(&GateDecision)`, whose `Block` and
-//! `Hold` variants require a `TrustTexture` **and** a `FlowState`. Two external
-//! producers reached it with neither axis in their data flow and invented both:
+//! (`.claude/plans/mul-consumer-census-v1.md` §3), the only *named* route into
+//! the kanban phase DAG was `advance_on_gate(&GateDecision)`, whose `Block` and
+//! `Hold` variants require a `TrustTexture` **and** a `FlowState`. (A caller
+//! could always walk `next_phases()` by hand — see the correction below; what
+//! was missing was a name for it, not the capability.) Two external producers
+//! reached for the named route with neither axis in their data flow, and
+//! invented both:
 //!
 //! - `ada-rs::contract_impls::gate_check` — a consent veto returning `Block`.
 //! - `medcare-first-thought` (4 sites) — an evidence contradiction returning
 //!   `Block { texture: Uncertain, flow: Anxiety }`, whose own source comment
 //!   records that the payload is "descriptive, not behavior-affecting".
 //!
-//! # What makes this a real falsifier and not a restatement
+//! # Correction — what was NOT red (codex review of #1068, 2026-08-27)
+//!
+//! An earlier version of this file claimed the red state was proved
+//! *mechanically*, because compiling it against `main` failed with
+//! `no method named veto`. **That claim was wrong and is withdrawn.**
+//!
+//! `KanbanColumn::next_phases()` is public on `main` and already returns
+//! `Prune` for `Planning` and `Evaluation`, so a domain could always have
+//! routed a veto without touching `GateDecision`:
+//!
+//! ```ignore
+//! phase.next_phases().iter().copied().find(|c| *c == KanbanColumn::Prune)
+//! ```
+//!
+//! The compile failure therefore proved only that two *convenience method
+//! names* were absent — not that the capability was. Presenting a naming
+//! artifact as the strongest form of evidence is exactly the vacuous-falsifier
+//! trap this workspace's `CLAUDE.md` warns about, and it is recorded here
+//! rather than quietly deleted.
+//!
+//! **What is actually true, and is what D-MCAL-4 delivers:** the honest route
+//! existed but was unnamed, so the *obvious* path into the phase DAG —
+//! `advance_on_gate(&GateDecision)` — demanded two calibration coordinates.
+//! Both measured producers took the obvious path and invented the coordinates.
+//! Naming the transition makes the honest route the reachable one. That is an
+//! ergonomics-and-naming fix with a measured behavioural consequence, not a new
+//! capability, and the falsifiers below are scoped to that claim.
+//!
+//! # What these tests do establish
 //!
 //! Each case asserts three things: the domain route is correct; **no
 //! `GateDecision` is constructed anywhere in the domain path**; and the route
-//! is *identical* to what the fabricating path produced. The third is the load-
-//! bearing one — it shows behaviour is preserved, so removing the fabrication
-//! costs nothing (F-MUL-5's premise).
+//! is *identical* to what the fabricating path produced. The third is the
+//! load-bearing one — it shows behaviour is preserved, so removing the
+//! fabrication costs nothing (F-MUL-5's premise).
+//!
+//! `veto_agrees_with_the_pre_existing_next_phases_route` pins the equivalence
+//! codex identified, so the new methods can never drift from the raw DAG walk
+//! they wrap.
 //!
 //! Each case also exercises all three outcomes (advance / stay / veto) from one
 //! domain type, so a test that merely proved "the veto arm works" cannot pass
@@ -317,6 +352,36 @@ fn advance_and_veto_never_leave_the_dag() {
             );
             assert_eq!(to, KanbanColumn::Prune);
         }
+    }
+}
+
+/// The equivalence codex identified: `advance()` / `veto()` are *names* for a
+/// walk callers could always have written by hand over the already-public
+/// `next_phases()`. Pinned so the wrappers can never drift from the DAG they
+/// wrap — and so the honest scope of D-MCAL-4 stays visible in code.
+#[test]
+fn veto_agrees_with_the_pre_existing_next_phases_route() {
+    for phase in [
+        KanbanColumn::Planning,
+        KanbanColumn::CognitiveWork,
+        KanbanColumn::Evaluation,
+        KanbanColumn::Commit,
+        KanbanColumn::Plan,
+        KanbanColumn::Prune,
+    ] {
+        let by_hand = phase
+            .next_phases()
+            .iter()
+            .copied()
+            .find(|c| *c == KanbanColumn::Prune);
+        assert_eq!(phase.veto(), by_hand, "veto() drifted from next_phases()");
+
+        let fwd = phase
+            .next_phases()
+            .iter()
+            .copied()
+            .find(|c| *c != KanbanColumn::Prune);
+        assert_eq!(phase.advance(), fwd, "advance() drifted from next_phases()");
     }
 }
 
