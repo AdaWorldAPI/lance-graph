@@ -57,6 +57,31 @@ does not exist. Each case additionally proves the domain route is IDENTICAL to
 the fabricating route it replaces, which is F-MUL-5's premise (removing the
 fabrication costs no behaviour), and exercises advance/stay/veto from one domain
 axis so no arm can pass by accident.
+## 2026-08-27 — DECIDED: NO fourth gate enum, and no promotion either (D-MCAL-5), `crates/lance-graph-contract/src/mul.rs`
+
+The deliverable asked: if a public MUL output is still needed, derive it from
+the planner's Proceed/Sandbox/Compass, never invent a fresh enum. Measured
+answer: nothing needs deriving, because the planner's `MulGateDecision` is a
+private packaging of what the contract already exports. `Proceed
+{ free_will_modifier }` IS `MulAssessment::free_will_modifier`, a public f64
+field computed by `compute`. `Compass` IS `CompassResult` /
+`CompassDecision{StaySurface, GoMeta}`, already the declared return of
+`MulProvider::compass` and strictly richer than the planner's payload-free arm.
+`Sandbox` is T10's operator ruling — Sandbox := Counterfactual + Revision — so
+its carrier is `contract::counterfactual`, which is DECLARED BUT NOT
+IMPLEMENTED: both `CounterfactualMailbox::new` and `revise_if_minority_wins`
+are `todo!()`, blocked on D-PERSONA-5. That third row is stated honestly rather
+than glossed, and pinned with a `#[should_panic]` falsifier so the day the
+scaffold lands the pin fails and forces the table to be corrected instead of
+going stale. Consequence recorded in the contract source where a type might
+otherwise have gone: a future session finding the contract cannot express
+Proceed/Sandbox/Compass must NOT conclude an enum is missing — two arms are
+here and the third is a scaffold with a known blocker. `MulHint{Trusted,
+Explore, Sandbox, Human}` stays not-adopted. Side finding filed as
+`ISS-PLANNER-SANDBOX-STILL-CARRIES-FREE-TEXT`: the planner's `Sandbox { reason:
+String }` still carries the heap-allocating free-text field #1045 removed from
+the contract's gate — same defect, one crate over, and unfixable today because
+its typed successor is the blocked scaffold.
 
 ## 2026-08-27 — MEASUREMENT COMPLETE (no code, no type): per-symbol MUL consumer census, `.claude/plans/mul-consumer-census-v1.md`
 

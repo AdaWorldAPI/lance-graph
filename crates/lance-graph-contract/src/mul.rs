@@ -279,6 +279,47 @@ pub enum CompassDecision {
     GoMeta,
 }
 
+// ═══════════════════════════════════════════════════════════════════════════
+// D-MCAL-5 — reaching the planner's MUL arms from the contract
+//
+// The question the deliverable asks: "if a public MUL output is still needed,
+// derive it from the planner's Proceed/Sandbox/Compass — NEVER invent a fresh
+// enum."
+//
+// Measured answer (2026-08-27): **no new type is needed, and no promotion is
+// needed either.** The planner's `MulGateDecision{Proceed, Sandbox, Compass}`
+// is a private packaging of three things the contract already exports — or, in
+// the third case, already has a ruled carrier for:
+//
+// | planner arm                      | contract carrier                                        | status |
+// |----------------------------------|---------------------------------------------------------|--------|
+// | `Proceed { free_will_modifier }` | `MulAssessment::free_will_modifier: f64`                  | LIVE — public field, computed by `MulAssessment::compute` |
+// | `Compass`                        | `CompassResult` / `CompassDecision{StaySurface, GoMeta}`  | LIVE — public types, already the return of `MulProvider::compass` |
+// | `Sandbox { reason: String }`     | `crate::counterfactual::{CounterfactualMailbox, revise_if_minority_wins}` | DECLARED, NOT IMPLEMENTED — both entry points are `todo!()`, blocked on D-PERSONA-5 |
+//
+// The third row is the operator ruling recorded as T10 in
+// `.claude/plans/mul-calibration-not-verdict-v1.md`:
+//
+//     Sandbox := Counterfactual + Revision
+//
+// Sandbox is not a mode flag, a container, a permission level, or a planner
+// hint. It is *reasoning routed through the counterfactual lane with revision
+// as its only write-back path*. So "completing the Sandbox arm" means finishing
+// the counterfactual scaffold — never minting a gate variant to name it.
+//
+// **Consequence, and the reason this comment exists where a type might have
+// gone:** a future session that finds the contract cannot express
+// `Proceed/Sandbox/Compass` must not conclude that a new enum is missing.
+// Two arms are already here; the third is a scaffold with a known blocker.
+// Minting a fourth gate enum beside the three that exist
+// (`mul::GateDecision`, `collapse_gate::GateDecision`,
+// `planner::mul::gate::MulGateDecision`) would be the same mistake a third
+// time. `MulHint{Trusted, Explore, Sandbox, Human}` was considered and is NOT
+// adopted, for exactly this reason.
+//
+// Falsifiers: `tests/d_mcal_5_arms_already_public.rs`.
+// ═══════════════════════════════════════════════════════════════════════════
+
 /// Trait for MUL assessment providers — **input supply, not adjudication**.
 ///
 /// The doc-comment here used to read "lance-graph-planner implements this."
