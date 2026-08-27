@@ -1,5 +1,57 @@
 # Issues Log — Open + Resolved (double-entry, append-only)
 
+## ISS-F-MUL-6-HALF-BUILT (2026-08-27) — OPEN
+
+D-MCAL-6 built **one** of two known consumers. ada-rs was compiled against the
+combined arc head (3 errors, all pre-existing #1045, zero from the arc).
+MedCare-rs was **not** built — it is covered by symbol-level reasoning plus the
+in-tree pins, which is exactly what F-MUL-6 says is not a substitute for a
+build.
+
+The first version of the gate report marked the falsifier *discharged* anyway.
+That contradicted its own §0 criterion, and was corrected on review (#1070):
+the falsifier is **OPEN**.
+
+**Consequence, and the reason this is an issue rather than a footnote:** the
+contract rename tracked by `ISS-MUL-GATE-NAMED-FOR-THE-WRONG-LAYER` is blocked
+on D-MCAL-6. If this gate is read as passed, the rename unblocks without the
+compatibility proof it is supposed to wait for.
+
+**To close:** stand up the MedCare-rs build (`ogar-obo`, `jc`,
+`medcare-cohorts` and the lance stack, all git deps) and compile
+`medcare-first-thought` against the arc head. Expected result is green —
+MedCare touches no symbol the arc changed — but expected is not measured.
+
+
+## ISS-MUL-GATE-NAMED-FOR-THE-WRONG-LAYER (2026-08-27) — OPEN
+
+`contract::mul::GateDecision` is measured (D-MCAL-1) as the **execution /
+commit gate**: every consumer commits, cancels, or defers work — kanban phase
+moves (`Block` → `Prune`, the Libet veto), `ActionState::{Committed, Pending,
+Cancelled}`, the tier-router's `Rest` dispatch, the supervisor's next column.
+None routes to a compass, an exploration, or a learn-first path. The MUL-shaped
+output the architecture diagram calls for exists separately as
+`lance_graph_planner::mul::gate::MulGateDecision{Proceed, Sandbox, Compass}`.
+
+So the type is correct and its **module name is wrong**, and the wrong name is
+load-bearing: it is why two external repos reached for a MUL type to express a
+consent veto and an evidence contradiction (D-MCAL-4). A name that tells a
+consumer "this is where decisions about confidence go" will keep attracting
+producers that have no confidence state.
+
+**Not fixed in D-MCAL-3, deliberately.** A rename touches four in-tree
+consumers plus ada-rs and MedCare-rs, and would bury a semantic decision inside
+a mechanical diff. D-MCAL-3 names it correctly in prose and pins the behaviour
+with falsifiers (`f_mul_4_*` in `kanban.rs`); the symbol move is its own
+reviewable PR.
+
+**Blocked on:** D-MCAL-4 (domain producers off the type) and D-MCAL-6 (consumer
+builds green). Renaming before those land would break consumers twice.
+
+**Candidate landing shape** (not decided): the type moves to a module named for
+what it gates — `contract::execution_gate` or alongside `contract::kanban` —
+with a deprecated re-export at `mul::GateDecision` for one cycle, per
+I-LEGACY-API-FEATURE-GATED's rule that a name must not silently change meaning.
 ## ISS-PLANNER-SANDBOX-STILL-CARRIES-FREE-TEXT (2026-08-27) — OPEN
 
 `lance_graph_planner::mul::gate::MulGateDecision::Sandbox { reason: String }`
@@ -30,37 +82,6 @@ the pin fails and this issue surfaces again instead of aging quietly.
 **Not fixed by minting anything.** D-MCAL-5's prohibition applies here too: the
 fix is to finish the counterfactual scaffold, never to add a gate variant that
 names the sandbox.
-## ISS-MUL-GATE-NAMED-FOR-THE-WRONG-LAYER (2026-08-27) — OPEN
-
-`contract::mul::GateDecision` is measured (D-MCAL-1) as the **execution /
-commit gate**: every consumer commits, cancels, or defers work — kanban phase
-moves (`Block` → `Prune`, the Libet veto), `ActionState::{Committed, Pending,
-Cancelled}`, the tier-router's `Rest` dispatch, the supervisor's next column.
-None routes to a compass, an exploration, or a learn-first path. The MUL-shaped
-output the architecture diagram calls for exists separately as
-`lance_graph_planner::mul::gate::MulGateDecision{Proceed, Sandbox, Compass}`.
-
-So the type is correct and its **module name is wrong**, and the wrong name is
-load-bearing: it is why two external repos reached for a MUL type to express a
-consent veto and an evidence contradiction (D-MCAL-4). A name that tells a
-consumer "this is where decisions about confidence go" will keep attracting
-producers that have no confidence state.
-
-**Not fixed in D-MCAL-3, deliberately.** A rename touches four in-tree
-consumers plus ada-rs and MedCare-rs, and would bury a semantic decision inside
-a mechanical diff. D-MCAL-3 names it correctly in prose and pins the behaviour
-with falsifiers (`f_mul_4_*` in `kanban.rs`); the symbol move is its own
-reviewable PR.
-
-**Blocked on:** D-MCAL-4 (domain producers off the type) and D-MCAL-6 (consumer
-builds green). Renaming before those land would break consumers twice.
-
-**Candidate landing shape** (not decided): the type moves to a module named for
-what it gates — `contract::execution_gate` or alongside `contract::kanban` —
-with a deprecated re-export at `mul::GateDecision` for one cycle, per
-I-LEGACY-API-FEATURE-GATED's rule that a name must not silently change meaning.
-
-
 ## ISS-NO-CAUSAL-SIGN-ON-EDGES (2026-08-26) — OPEN
 
 `CausalEdge64` carries **no Inc/Dec polarity**. Measured: `grep -niE

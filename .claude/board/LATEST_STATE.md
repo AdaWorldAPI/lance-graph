@@ -1,40 +1,3 @@
-## 2026-08-27 — D-MCAL-4 (IN PR) — a domain route into the phase DAG
-
-### Current Contract Inventory — CHANGED (two methods added, no type minted)
-
-| symbol | status |
-|---|---|
-| `contract::kanban::KanbanColumn::advance()` | **NEW** — forward successor (first non-`Prune`); `None` at absorbing columns |
-| `contract::kanban::KanbanColumn::veto()` | **NEW** — `Prune` iff a legal successor (the Libet free-won't edge); `None` mid-`CognitiveWork` |
-| `contract::kanban::KanbanColumn::advance_on_gate()` | unchanged behaviour; now DELEGATES to the two above, so there is one copy of the DAG routing rule |
-
-**No enum minted.** D-MCAL-5's prohibition (never a fourth gate enum beside the
-three that exist) is honoured: `advance` / `veto` are transitions named as
-transitions, not a new verdict vocabulary. "Stay put" needs no symbol — it is
-`None`.
-
-**Why the gap existed:** before this, the only route into the phase DAG was
-`advance_on_gate(&GateDecision)`, whose `Block`/`Hold` variants demand a
-`TrustTexture` AND a `FlowState`. A domain measuring neither had to invent both.
-Since the routing never read those coordinates (pinned by
-`f_mul_4_routing_ignores_the_calibration_payload`, D-MCAL-3), naming the
-transition directly loses nothing and fabricates nothing.
-
-**Tests:** +9 in `tests/d_mcal_4_domain_evidence.rs`. F-MUL-1 (consent veto,
-ada-rs's shape) and F-MUL-2 (evidence contradiction, MedCare's shape) each
-assert the route is correct, that no `GateDecision` is constructed in the
-domain path, and that the route is IDENTICAL to the fabricating path it
-replaces. **Red-first claim CORRECTED (codex review, same day):** the earlier text said
-the red state was proved mechanically because the file failed to compile against
-`main`. That was wrong. `next_phases()` is public on `main` and already returns
-`Prune` for `Planning`/`Evaluation`, so a domain could always have routed a veto
-by hand without touching `GateDecision`; the compile failure proved only that two
-convenience method NAMES were absent. What is true: the honest route existed but
-was unnamed, so the obvious path (`advance_on_gate`) demanded two calibration
-coordinates and both measured producers invented them. This is an
-ergonomics-and-naming fix with a measured behavioural consequence, not a new
-capability. `veto_agrees_with_the_pre_existing_next_phases_route` pins the
-equivalence.
 ## 2026-08-27 — D-MCAL-2 (IN PR) — the two gate-returning trait methods
 
 ### Current Contract Inventory — CHANGED (one method removed, one deprecated)
@@ -61,7 +24,46 @@ genuine arms (Dunning-Kruger, allostatic depletion) readable off
 `MulAssessment` with no verdict constructed; the mandatory can-stay-silent
 twin on a non-degenerate input; axis independence (F-MUL-7's premise).
 1224 lib tests green, clippy `--all-targets` clean.
+## 2026-08-27 — D-MCAL-4 (IN PR) — a domain route into the phase DAG
 
+### Current Contract Inventory — CHANGED (two methods added, no type minted)
+
+| symbol | status |
+|---|---|
+| `contract::kanban::KanbanColumn::advance()` | **NEW** — forward successor (first non-`Prune`); `None` at absorbing columns |
+| `contract::kanban::KanbanColumn::veto()` | **NEW** — `Prune` iff a legal successor (the Libet free-won't edge); `None` mid-`CognitiveWork` |
+| `contract::kanban::KanbanColumn::advance_on_gate()` | unchanged behaviour; now DELEGATES to the two above, so there is one copy of the DAG routing rule |
+
+**No enum minted.** D-MCAL-5's prohibition (never a fourth gate enum beside the
+three that exist) is honoured: `advance` / `veto` are transitions named as
+transitions, not a new verdict vocabulary. "Stay put" needs no symbol — it is
+`None`.
+
+**Why the gap existed:** before this, the only route into the phase DAG was
+`advance_on_gate(&GateDecision)`, whose `Block`/`Hold` variants demand a
+`TrustTexture` AND a `FlowState`. A domain measuring neither had to invent both.
+Since the routing never read those coordinates (pinned by
+`f_mul_4_routing_ignores_the_calibration_payload`, D-MCAL-3), naming the
+transition directly loses nothing and fabricates nothing.
+
+**Tests:** +9 in `tests/d_mcal_4_domain_evidence.rs`. F-MUL-1 (consent veto,
+ada-rs's shape) and F-MUL-2 (evidence contradiction, MedCare's shape) each
+assert the route is correct, that no `GateDecision` is constructed in the
+domain path, and that the route is IDENTICAL to the fabricating path it
+replaces. Red-first verified mechanically: the same file against `main` fails
+to compile (`no method named veto`), i.e. on `main` there is no route into the
+DAG that does not construct MUL ground.
+replaces. **Red-first claim CORRECTED (codex review, same day):** the earlier text said
+the red state was proved mechanically because the file failed to compile against
+`main`. That was wrong. `next_phases()` is public on `main` and already returns
+`Prune` for `Planning`/`Evaluation`, so a domain could always have routed a veto
+by hand without touching `GateDecision`; the compile failure proved only that two
+convenience method NAMES were absent. What is true: the honest route existed but
+was unnamed, so the obvious path (`advance_on_gate`) demanded two calibration
+coordinates and both measured producers invented them. This is an
+ergonomics-and-naming fix with a measured behavioural consequence, not a new
+capability. `veto_agrees_with_the_pre_existing_next_phases_route` pins the
+equivalence.
 ## 2026-08-26 — #1059 MERGED (e5f750e) — the Octopus causal-CoT audit (measurement only; NO contract change)
 
 ### Current Contract Inventory — UNCHANGED
