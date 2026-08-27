@@ -279,14 +279,65 @@ pub enum CompassDecision {
     GoMeta,
 }
 
-/// Trait for MUL assessment providers.
+/// Trait for MUL assessment providers — **input supply, not adjudication**.
 ///
-/// lance-graph-planner implements this. Consumers call it.
+/// The doc-comment here used to read "lance-graph-planner implements this."
+/// It does not, and never did: the census (`.claude/plans/mul-consumer-census-v1.md`)
+/// measured **zero** in-tree implementors and exactly one anywhere
+/// (`ada-rs::contract_impls::AdaMulAdapter`). The canonical MUL evaluator in
+/// this crate is the free function [`i4_eval::gate_decision_i4`], not a trait
+/// method — so this trait is a surface for *external* providers to supply an
+/// assessment, and that is the only direction it should carry.
+///
+/// # The narrowing (D-MCAL-2)
+///
+/// [`assess`](MulProvider::assess) is the legitimate direction: situation in,
+/// calibration state out. [`compass`](MulProvider::compass) likewise returns a
+/// navigation signal, not a verdict. `gate_check` was the odd one — it let an
+/// arbitrary consumer return the **execution-gate** type
+/// ([`GateDecision`], consumed only by kanban phase moves, `ActionState`
+/// commits, and tier-router dispatch) from a trait about *calibration*. It is
+/// deprecated here and removed once the two measured producers express their
+/// domain facts as domain facts (D-MCAL-4) and build green (D-MCAL-6).
 pub trait MulProvider: Send + Sync {
     /// Assess a situation and return MUL result.
+    ///
+    /// This is the trait's real job. Both coordinates a gate would need —
+    /// `assessment.trust.texture` and `assessment.homeostasis.flow_state` —
+    /// are already separate fields on the returned [`MulAssessment`], so a
+    /// caller that wants them has them without a second projection.
     fn assess(&self, input: &SituationInput) -> MulAssessment;
 
     /// Gate check: should execution proceed?
+    ///
+    /// # Deprecated — do not implement in new code
+    ///
+    /// Returns [`GateDecision`], whose measured role is the **execution /
+    /// commit gate** (`kanban::advance_on_gate`, `ActionState`,
+    /// `sigma-tier-router`), not a MUL output. Two problems, both measured:
+    ///
+    /// 1. **The payload is inert at every consumer of it.** All four
+    ///    execution gates destructure `Hold { .. }` / `Block { .. }`; none
+    ///    reads `texture` or `flow`. A producer without those axes must
+    ///    therefore invent them to satisfy the type, and both measured
+    ///    producers did (`E-THE-FUSED-PAYLOAD-IS-INERT-AT-EVERY-EXECUTION-GATE-THAT-CONSUMES-IT-1`).
+    /// 2. **A domain fact is not a MUL verdict.** A consent veto or an
+    ///    evidence contradiction enters as `SituationInput` / a domain
+    ///    constraint, and the domain's own execution gate acts on it.
+    ///
+    /// **Migration:** implement [`assess`](MulProvider::assess) only, and let
+    /// the domain's own gate consume the assessment plus its own evidence.
+    /// The calibration coordinates are on [`MulAssessment`] already. For a
+    /// navigation-shaped output (proceed / sandbox / compass) see
+    /// `lance_graph_planner::api::Gate`, which is the diagram's MUL and
+    /// already exists — do not mint a fourth gate enum.
+    #[deprecated(
+        since = "0.1.0",
+        note = "MUL calibrates, it does not adjudicate: `GateDecision` is the execution gate, \
+                not a MUL output. Implement `assess` only and let the domain gate act on the \
+                assessment plus its own evidence. See .claude/plans/mul-calibration-not-verdict-v1.md \
+                (D-MCAL-2). Scheduled for removal after D-MCAL-4/D-MCAL-6."
+    )]
     fn gate_check(&self, assessment: &MulAssessment) -> GateDecision;
 
     /// Compass check: should we go meta?
@@ -2200,5 +2251,108 @@ mod tests {
         let mul = MulAssessment::compute(&input);
         assert_eq!(mul.dk_position, DkPosition::Plateau);
         assert!(!mul.is_unskilled_overconfident());
+    }
+
+    // ── F-MUL-5 (D-MCAL-2): the assessment carries everything a caution
+    //    signal needs, so `MulProvider::gate_check` is not load-bearing ──
+    //
+    // The measured external implementor (`ada-rs::AdaMulAdapter::gate_check`)
+    // has three non-`Flow` arms. Two are genuine MUL — Dunning-Kruger
+    // overconfidence and allostatic depletion — and one (a consent veto) is
+    // domain evidence that does not belong here at all (D-MCAL-4).
+    //
+    // F-MUL-5 asks whether removing the verdict method loses behaviour. These
+    // tests answer the MUL half: both genuine arms are readable straight off
+    // `MulAssessment`, with no `GateDecision` constructed anywhere below.
+
+    /// A caution signal derived from the assessment alone — the shape a domain
+    /// gate uses in place of `MulProvider::gate_check`. Deliberately NOT a
+    /// gate type: it is advice about calibration, and the domain decides.
+    #[derive(Debug, PartialEq, Eq, Clone, Copy)]
+    enum Caution {
+        None,
+        Overconfident,
+        Depleted,
+    }
+
+    /// Reads only the two coordinates `MulAssessment` already separates.
+    /// No verdict, no fused payload, no `GateDecision`.
+    fn caution_from(mul: &MulAssessment) -> Caution {
+        if mul.dk_position == DkPosition::MountStupid {
+            Caution::Overconfident
+        } else if mul.homeostasis.allostatic_load > 0.8 {
+            Caution::Depleted
+        } else {
+            Caution::None
+        }
+    }
+
+    #[test]
+    fn f_mul_5_genuine_mul_arms_survive_without_a_verdict_method() {
+        // Arm 1 — Dunning-Kruger. Felt >> demonstrated.
+        let overconfident = MulAssessment::compute(&SituationInput {
+            felt_competence: 0.95,
+            demonstrated_competence: 0.10,
+            ..SituationInput::default()
+        });
+        assert_eq!(caution_from(&overconfident), Caution::Overconfident);
+
+        // Arm 2 — allostatic depletion, with calibration deliberately fine so
+        // the signal cannot be coming from the DK branch.
+        let depleted = MulAssessment::compute(&SituationInput {
+            felt_competence: 0.6,
+            demonstrated_competence: 0.6,
+            calibration_accuracy: 0.9,
+            allostatic_load: 0.95,
+            ..SituationInput::default()
+        });
+        assert_ne!(depleted.dk_position, DkPosition::MountStupid);
+        assert_eq!(caution_from(&depleted), Caution::Depleted);
+    }
+
+    #[test]
+    fn f_mul_5_caution_can_stay_silent_on_a_non_trivial_input() {
+        // The twin of the can-it-fire test (CLAUDE.md falsifiability rule): a
+        // guard that fires on everything carries as much information as one
+        // that never fires. This input is NOT degenerate — a competent, mildly
+        // loaded, well-calibrated situation — and must produce no caution.
+        let healthy = MulAssessment::compute(&SituationInput {
+            felt_competence: 0.75,
+            demonstrated_competence: 0.78,
+            calibration_accuracy: 0.9,
+            challenge_level: 0.6,
+            skill_level: 0.6,
+            allostatic_load: 0.35,
+            ..SituationInput::default()
+        });
+        assert_eq!(caution_from(&healthy), Caution::None);
+    }
+
+    #[test]
+    fn f_mul_5_the_two_axes_are_independently_readable_from_the_assessment() {
+        // F-MUL-7's premise, checked at the surface D-MCAL-2 keeps: the
+        // calibration axis and the Csikszentmihalyi axis are separate FIELDS
+        // on `MulAssessment`, so a caller holds both without a second
+        // projection through a fused verdict payload. Vary one, hold the other.
+        let low_load = MulAssessment::compute(&SituationInput {
+            felt_competence: 0.95,
+            demonstrated_competence: 0.10,
+            allostatic_load: 0.10,
+            ..SituationInput::default()
+        });
+        let high_load = MulAssessment::compute(&SituationInput {
+            felt_competence: 0.95,
+            demonstrated_competence: 0.10,
+            allostatic_load: 0.95,
+            ..SituationInput::default()
+        });
+
+        // Same calibration reading …
+        assert_eq!(low_load.dk_position, high_load.dk_position);
+        assert_eq!(low_load.trust.texture, high_load.trust.texture);
+        // … while the homeostatic axis moved independently.
+        assert!(high_load.homeostasis.allostatic_load > low_load.homeostasis.allostatic_load);
+        assert_eq!(caution_from(&low_load), Caution::Overconfident);
+        assert_eq!(caution_from(&high_load), Caution::Overconfident);
     }
 }
