@@ -141,6 +141,51 @@ pub enum FlowState {
 /// whole decision is byte-packable. Use [`GateDecision::to_disc`] for the
 /// bare discriminant, or [`batch::gate_decision_disc_batch`] for bulk work.
 ///
+/// # What this type actually is (D-MCAL-3 — read before extending it)
+///
+/// **This is the execution / commit gate. It is not MUL's output.** It lives
+/// in a module called `mul` for historical reasons, and that name has been
+/// misleading consumers for as long as it has existed.
+///
+/// The census (`.claude/plans/mul-consumer-census-v1.md`) enumerated every
+/// consumer. Each of them commits, cancels, or defers **work**:
+///
+/// | consumer | what it does |
+/// |---|---|
+/// | [`crate::kanban::KanbanColumn::advance_on_gate`] | phase-DAG move; `Block` → `Prune` (Libet "free won't" veto) |
+/// | [`crate::action::ActionInstance`] `commit` / `emit` | `ActionState::{Committed, Pending, Cancelled}` |
+/// | `sigma-tier-router` | `Block` → `Rest { GateBlocked }` dispatch |
+/// | `lance-graph-supervisor::kanban_actor::mul_target` | next kanban column |
+///
+/// **Not one of them routes to a compass, an exploration, or a learn-first
+/// path**, and not one of them reads `texture` or `flow` — all four
+/// destructure `{ .. }`. The MUL-shaped output the architecture diagram calls
+/// for already exists elsewhere, as
+/// `lance_graph_planner::mul::gate::MulGateDecision{Proceed, Sandbox, Compass}`.
+///
+/// Two distinct things therefore wear one name, and this is the one that is
+/// **not** MUL. Producers that have no calibration state should not be reaching
+/// for it (D-MCAL-4); a fourth gate enum must not be minted for the shape it
+/// cannot express (D-MCAL-5).
+///
+/// ## Why it is not renamed here
+///
+/// A rename touches every consumer above plus two external repos, and it would
+/// bury the semantic decision inside a mechanical diff. D-MCAL-3 is
+/// deliberately **doc-first**: name the thing correctly in prose now, move the
+/// symbol in its own reviewable PR later. `ISS-MUL-GATE-NAMED-FOR-THE-WRONG-LAYER`
+/// tracks the rename.
+///
+/// ## `Hold` is a phase-stay, not a MUL verdict (OQ-MCAL-2, F-MUL-4)
+///
+/// Under the architecture diagram there is no "hold" state at all: a
+/// *need-more-data* condition routes to learn / map / recover / sandbox.
+/// Measured, this type's `Hold` does none of those — `advance_on_gate` returns
+/// `None`, so the mailbox stays in its column and re-evaluates next cycle with
+/// **no learning path attached**. See `f_mul_4_hold_is_a_phase_stay_with_no_learning_path`,
+/// which pins that as the current (red) behaviour so a future learn-routing
+/// change is visible as a diff rather than a silent semantic drift.
+///
 /// # Why the payload is typed and not prose
 ///
 /// `Hold` and `Block` carried `reason: String` until 2026-08-26 — five heap
