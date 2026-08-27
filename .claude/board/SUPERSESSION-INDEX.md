@@ -56,7 +56,7 @@ coverage instead.
 | `persist_cycle` | BLOCKED | — | 10 | 6 | 5 |
 | `CognitiveMarkers` | REPURPOSE | `Commit` | 2 | 0 | 0 |
 | `DominoCascade` | REPURPOSE | `Commit` | 8 | 0 | 0 |
-| `GateDecision` | REPURPOSE | — | 24 | 24 | 21 |
+| `GateDecision` | REPURPOSE | — | 25 | 24 | 21 |
 | `GateState` | REPURPOSE | — | 14 | 1 | 1 |
 | `MergeMode` | REPURPOSE | — | 8 | 12 | 11 |
 | `ResonanceDto` | REPURPOSE | `PerturbationDto` | 2 | 6 | 5 |

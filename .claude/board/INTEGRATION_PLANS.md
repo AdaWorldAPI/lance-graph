@@ -1,3 +1,24 @@
+## 2026-08-27 — LANDED (D-MCAL-4): domain evidence routes the phase DAG without MUL ground, `crates/lance-graph-contract/src/kanban.rs`
+
+Discharges F-MUL-1 and F-MUL-2. Two methods, no type: `KanbanColumn::advance()`
+(forward successor) and `KanbanColumn::veto()` (Prune iff legal — the Libet
+free-won't edge). `advance_on_gate` now delegates to both, so one copy of the
+DAG rule survives and MUL-holding callers are unaffected. The gap being closed:
+the only prior route into the DAG demanded a TrustTexture AND a FlowState, so a
+domain that measured neither had to invent both — which is exactly what ada-rs
+(consent veto) and medcare-first-thought (evidence contradiction, 4 sites) did.
+Since routing never read those coordinates, naming the transition directly
+loses nothing and fabricates nothing. D-MCAL-5's prohibition is respected: no
+fourth gate enum, because these are transitions named as transitions rather
+than a new verdict vocabulary; "stay put" is `None` and needs no symbol.
+Anti-vacuity satisfied MECHANICALLY rather than by assertion: the falsifier file
+compiled against `main` fails with `no method named veto` / `no method named
+advance`, which is the red state in its strongest form — on main the domain path
+does not exist. Each case additionally proves the domain route is IDENTICAL to
+the fabricating route it replaces, which is F-MUL-5's premise (removing the
+fabrication costs no behaviour), and exercises advance/stay/veto from one domain
+axis so no arm can pass by accident.
+
 ## 2026-08-26 — PROPOSAL (unbuilt, PLAN/BOARD ONLY): a recorded alpha is instrumentation until it is interventionally load-bearing, `.claude/plans/alpha-interventional-faithfulness-v1.md`
 
 Humility about INTROSPECTION, where #1057 was humility about the world. Two

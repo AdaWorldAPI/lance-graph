@@ -56,7 +56,7 @@ code. `mul-gate-outcome-vs-ground-v1`'s D-GATE-2/D-GATE-3 are WITHDRAWN.
 | D-MCAL-1 | per-symbol consumer enumeration from GitHub, classified A/B/C/D | Queued |
 | D-MCAL-2 | fate of `MulProvider` + `PlannerContract::gate_check` (0 in-tree impls) | Queued |
 | D-MCAL-3 | name the execution gate what it is (doc-first; rename is a later PR) | Queued |
-| D-MCAL-4 | consent veto + evidence contradiction as domain evidence, no MUL ground | Queued |
+| D-MCAL-4 | consent veto + evidence contradiction as domain evidence, no MUL ground | In PR — `KanbanColumn::{advance, veto}`; F-MUL-1/F-MUL-2 red-on-main (no compile) then green |
 | D-MCAL-5 | if a public MUL output is needed, promote the planner's existing type — never mint a fourth | Queued |
 | D-MCAL-6 | consumer-build gate: BUILD them, don't grep them | Queued |
 
