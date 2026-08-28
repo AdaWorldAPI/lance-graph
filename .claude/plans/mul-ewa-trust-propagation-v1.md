@@ -268,6 +268,17 @@ trust instead hold or veto under propagated uncertainty. That is the
 epistemic-pothole detector expressed in the vocabulary the routing primitives
 can actually speak. Reaching `Plan` would require the open question above to
 be answered first.
+
+**The denominator is PREDECLARED** (CodeRabbit, #1074 — without it the rate is
+not reproducible): it is **only those qualifying chains whose LOCAL arm
+reaches `Commit`**, never all qualifying chains. A chain that never gated
+`Commit` locally cannot flip *from* `Commit`, so including it would dilute
+the rate with cases the metric is not about — and would let the number move
+purely by cohort composition. Numerator and denominator therefore share one
+population. **If that denominator is zero, the rate is reported `N/A` with
+the count**, never `0.0` — zero flips out of zero opportunities is not a
+measurement of anything, and printing `0%` would read as "the propagation
+changed nothing" when the truth is "the arm never ran."
 - F-MEP-5 (two-sided): flips must CONCENTRATE on chains W1's error signal
   flagged (not uniform noise), AND a can-stay-silent half — short/clean
   chains must not flip (a gate that flips everything is the 150/150
