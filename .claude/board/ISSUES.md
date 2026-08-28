@@ -1,3 +1,25 @@
+## ISS-SUPERSESSION-GENERATOR-DID-RANGE-NARROW — the coverage generator reads `D-XXX-0..4` as one D-id (2026-08-28)
+
+`.claude/tools/supersession_index.py` extracts only the FIRST id from a
+plan's `D-XXX-0..N` range notation (so `D-MEP-0..4` counts as `D-MEP-0`
+alone), and its board input set excludes `.claude/board/STATUS_BOARD.md` —
+where the per-deliverable rows actually live. Net effect: a plan that writes
+its D-ids as a range gets a coverage number that cannot reflect its
+deliverables. Found by CodeRabbit on #1074.
+
+**Deliberately NOT fixed in #1074, and the reasoning is the tracked part:**
+the generator is shared by every plan in the repo and its output is CI-gated
+(`regenerate-and-diff`). Changing range expansion or the board-input set
+re-scopes EVERY other plan's coverage number in the same commit — a
+repo-wide governance change riding inside a plan-only PR, which is the
+drive-by this board's hygiene rule exists to prevent. CodeRabbit agreed with
+the scope call and recorded it as a review learning.
+
+**The fix, when it lands, needs its own PR carrying the complete before/after
+coverage diff across all plans**, so the re-scoping is visible and
+reviewable rather than a side effect. Affects every plan using range
+notation, not just `mul-ewa-trust-propagation-v1`.
+
 ## ISS-TOKEN-TENANT-16-COLLIDES-WITH-HOLEV3 — `token-value-tenant-v1` (merged #1072) assigns an ordinal already reserved (2026-08-28)
 
 **BLOCKS D-TVT-2.** `.claude/plans/token-value-tenant-v1.md` §2 assigns

@@ -170,8 +170,9 @@ run and requires a re-pin with the change stated:
 | ties | equal readout ⇒ equal rank (average-rank convention, standard for Spearman) |
 | missing hop data | chain EXCLUDED wholesale, never imputed; the excluded count is REPORTED |
 | minimum sample | **n ≥ 200** qualifying chains; below that the probe reports UNDERPOWERED and stops — that is a valid, honest exit |
-| split | metric fixed on a held-out half; the F-MEP-2 threshold is evaluated ONCE on the other half, no re-fitting |
+| split | **deterministic, chain-level, leakage-safe**: partition key = the chain's ROOT SUBJECT id (never the chain id — two chains sharing a root would otherwise straddle the split and leak); half = `blake3(root_subject_id ‖ "mep-w1-v1")[0] & 1`. Half **0** FITS (the AUC comparison is computed here); half **1** EVALUATES the F-MEP-2 threshold ONCE, no re-fitting. The literal salt is part of the pre-registration, so a re-run reproduces the identical partition. |
 | comparison metric | AUC of suspicion-rank vs the binary S4 error signal |
+| **degenerate AUC** | AUC is UNDEFINED when an evaluation half carries no positive or no negative S4 event, and `n ≥ 200` does **not** prevent that (CodeRabbit, #1074). Both halves' **class counts are REPORTED unconditionally**; if either half is single-class the probe stops as **UNDERPOWERED** — never NO-BUY, since a degenerate split is a statement about the cohort, not about the operator under test, and never a computed AUC on a one-class half. |
 | BUY threshold | ΔAUC **≥ 0.05** over arm (a) AND clearing the F-MEP-3 null by ≥ 2σ of the shuffle distribution |
 
 Anything short of BOTH thresholds is NO-BUY. "Better" has no meaning in this
@@ -239,9 +240,18 @@ boundary).
 
 **The Σ → `TrustTexture` mapping is PREDECLARED, deterministic, and single**
 (CodeRabbit, #1074 — "different mappings produce different flip rates"):
-using the same `trace(Σ)` readout W1 fixed, and the W1 held-out half to set
-its cut points, `TrustTexture` is `Calibrated` below the 50th percentile of
-the clean-chain trace distribution, `Uncertain` between the 50th and 90th,
+using the same `trace(Σ)` readout W1 fixed, and the W1 **fit half** (half 0,
+per the split row above) to set its cut points. **"Clean chain" is defined,
+not assumed**: a chain in the fit half carrying **zero** S4 error events —
+the same binary signal W1's AUC uses, so the two waves cannot drift apart on
+what "clean" means. Cut points are the **50th and 90th percentiles by the
+nearest-rank method** (`ceil(p/100 · N)`-th value of the ascending trace
+list — no interpolation, so the result is exact and reproducible across
+implementations). If the clean set is empty or `N < 50`, W3 stops as
+**UNDERPOWERED** and reports the count, rather than deriving cut points from
+a sample too small to place a 90th percentile. `TrustTexture` is then
+`Calibrated` below the 50th percentile, `Uncertain` between the 50th and
+90th,
 and `Overconfident` at or above the 90th. Ties resolve to the LOWER-suspicion
 texture (the conservative direction: a tie must not manufacture a flip).
 `Underconfident` is never produced — nothing in a propagated covariance
