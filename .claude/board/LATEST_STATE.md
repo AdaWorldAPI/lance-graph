@@ -1,3 +1,19 @@
+## 2026-08-28 — #1072 MERGED: token-value-tenant-v1 PROPOSED (plan/board only)
+
+### Current Contract Inventory — net delta
+
+**None.** No type, trait, or tenant minted; `ValueTenant::Token = 16` is a
+PROPOSAL inside `.claude/plans/token-value-tenant-v1.md`, gated on D-TVT-1's
+whole-KJV measurement. The `BoardAggregates` discriminant-16 reservation is
+untouched until that carve actually lands (it re-bases to 17 then).
+
+### Queued work this unlocks
+
+`STATUS_BOARD.md` § token-value-tenant-v1: D-TVT-0 (KJV into Tigris +
+`lance-graph-hydrate` hydration) → D-TVT-1 (the STOP-gate scale re-measure,
+`TokenId` vs `WordId` control) → D-TVT-2 (the carve, A-or-B decided by
+D-TVT-1) → D-TVT-3 (lens write onto SPO-stream rows) → D-TVT-4 (BUY / NO-BUY).
+
 ## 2026-08-27 — the D-MCAL arc, #1065–#1070 ALL MERGED (six of six deliverables)
 
 ### Current Contract Inventory — net delta of the arc
