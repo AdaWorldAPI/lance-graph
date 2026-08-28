@@ -1,3 +1,38 @@
+## 2026-08-28 — lance-graph #1072 (MERGED 3a3e15b6) — token-value-tenant-v1 PROPOSED: a byte-exact span address inside the 40,767-triple stream
+
+- **Added:** `.claude/plans/token-value-tenant-v1.md` (PLAN/BOARD ONLY, no
+  code) + INTEGRATION_PLANS prepend + STATUS_BOARD `D-TVT-0..4` (all Queued).
+  Supersession index regenerated in-commit — **no diff** (the plan names no
+  ruled symbols), and the `regenerate-and-diff` gate confirmed it green.
+- **Why:** the whole KJV evidence base (40,767 triples / 702 subjects / the
+  27,788-7,237-588 SelectionalFit split) was computed over `WordId` — measured
+  at **67.7% byte round-trip** — while `TokenId` is byte-exact
+  (`E-TOKEN-BPE-CAN-FIT-NOT-YET-BUY-1`) and the receipt now mints nothing
+  (`E-ONE-RECEIPT-MANY-BORROWED-CONSUMERS-1`). Operator: *"you might need a
+  token value tenant inside the 40k."*
+- **Shape:** `ValueTenant::Token = 16` (the `BoardAggregates` reservation
+  re-bases to 17 per the in-code rule), EXPERIMENTAL in the
+  `CausalWitness = 14` style, additive at `row_offset: 252`
+  (value-slab `[220, 220+N)`, 260 B free, no `ENVELOPE_LAYOUT_VERSION` bump),
+  **references-never-content** per the `EpisodicBasin = 15` template. Two
+  candidate carves (32 B receipt-reference rail vs 16 B facet+continuation);
+  **W1's at-scale overflow distribution picks, not taste.**
+- **Locked in the plan:** W1 is a hard STOP gate (re-measure
+  PROBE-TOKEN-BPE-GEOMETRY-1's four bounded claims at whole-KJV scale,
+  `TokenId` vs a RE-MEASURED `WordId` control) before any carve; corpus via
+  Tigris + `lance-graph-hydrate` only (never a new fetcher); population via a
+  lens into the `NodeRow` slab (the `loci.rs` deletion `68955ecb` cited as the
+  ruling); mints via `mint_for` only; exit gate an explicit **BUY / NO-BUY**
+  with NO-BUY a valid outcome.
+- **Deferred / fenced (§5):** LSTM recognizer untouched; COCA tokenizer
+  untouched; tarski register stays HELD (no fold/accumulation proposed); a BPE
+  merge tree is NOT HHTL ancestry; the parser↔`CausalWitnessFacet` machines
+  stay unconnected; paperless-web S3 archive out of scope; no V1 mints.
+- **Docs:** the plan; this entry.
+- **Confidence:** high that the plan is faithful to the substrate at HEAD
+  (every §2 fact verified file:line, not quoted from memory); the carve
+  itself is deliberately UNDECIDED until D-TVT-1 lands.
+
 ## 2026-08-27 — lance-graph #1070 (MERGED 32a130a9) — D-MCAL-6: the arc built against a real consumer, and F-MUL-6 left OPEN
 
 - **Added:** `.claude/plans/mul-consumer-build-gate-v1.md` + `ISS-F-MUL-6-HALF-BUILT`.
