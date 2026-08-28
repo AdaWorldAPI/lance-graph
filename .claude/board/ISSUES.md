@@ -1,3 +1,26 @@
+## ISS-KANBAN-PLAN-EXIT-HAS-NO-NAMED-ROUTE — `KanbanColumn::Plan` is legal in the DAG but no routing primitive emits it (2026-08-28)
+
+Surfaced by a codex P1 on #1074 and confirmed by reading
+`contract/src/kanban.rs` at HEAD. `advance()` is documented as "the first
+non-`Prune` successor"; `Evaluation::next_phases()` is `[Commit, Plan,
+Prune]`, so `advance()` returns **`Commit`, always**. `veto()` returns
+`Prune`. `Hold` returns `None`. Therefore `advance_on_gate`'s reachable set is
+exactly `{Commit, Prune, None}` and **`Plan = 4` — "re-enter Planning carrying
+the witness", the revision exit — is emitted by no named primitive**; only a
+caller hand-walking `next_phases()` can reach it.
+
+**Open question, for the operator, not for a plan to settle:** is this
+intentional Rubicon discipline (revision is a deliberate act, never a gate's
+automatic output) or an omission (`revise()` missing beside `advance()` /
+`veto()`)? Either answer is defensible; the current state is that the
+transition the kanban×Rubicon model names as its re-plan exit has no ergonomic
+route, while `Prune` — its sibling terminal — got one in D-MCAL-4.
+
+**Consequence already absorbed:** `mul-ewa-trust-propagation-v1` W3 was
+re-scoped from a "Commit→Plan flip rate" (unmeasurable) to a
+"Commit→{Hold,Prune} flip rate" before any work started. No code depends on
+this issue's resolution today.
+
 # Issues Log — Open + Resolved (double-entry, append-only)
 
 ## ISS-F-MUL-6-HALF-BUILT (2026-08-27) — OPEN
