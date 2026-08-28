@@ -1,4 +1,4 @@
-# mul-ewa-trust-propagation-v1 — trust is point-wise today; the sandwich is its lawful propagation operator
+# mul-ewa-trust-propagation-v1 — trust is point-wise today; the sandwich is a CANDIDATE propagation operator
 
 > **Status: PROPOSED — PLAN/BOARD ONLY. Measure-before-carve.** No contract
 > change, no wiring, until W1's numbers land (the STOP rule in §4). Same
@@ -14,10 +14,14 @@
 MUL answers "how much do I trust HERE": `MulAssessment` is scalar-only —
 `TrustQualia { value: f64, texture }`, `DkPosition`, `Homeostasis`,
 `free_will_modifier` (`contract/src/mul.rs:50-61`, verified at HEAD). Nothing
-in the workspace answers "what does that trust become N hops away." jc's
-certified EWA sandwich — `Σ_path = M_n·…·M_1·Σ_0·M_1ᵀ·…·M_nᵀ`, Pillar 6
-(2×2, tightness 1.467× ≤ 1.75) / Pillar 7 (3×3, PSD ≥ 0.999) — is exactly
-that operator: *filling indirect unknowns*, applied to trust itself. And the
+in the workspace answers "what does that trust become N hops away." jc's EWA
+sandwich — `Σ_path = M_n·…·M_1·Σ_0·M_1ᵀ·…·M_nᵀ`, Pillar 6 (2×2, tightness
+1.467× ≤ 1.75) / Pillar 7 (3×3, PSD ≥ 0.999) — is the **candidate** for that
+operator: *filling indirect unknowns*, applied to trust itself.
+**Wording discipline, held throughout** (CodeRabbit, #1074): "certified"
+applies ONLY to jc's *numerical* properties (PSD-preservation, tightness),
+never to the *semantic* claim that trust composes this way — that claim is
+exactly what EPIPHANIES:12867 defers to jc, and what W1 measures. And the
 kanban×Rubicon model already has the revision exit this would calibrate:
 `KanbanColumn::Plan = 4` — "re-enter Planning **carrying the witness**" — the
 epistemic-pothole handler. The question this plan measures before building
@@ -148,6 +152,26 @@ suspicion under two arms:
 - F-MEP-3 (null control, `shuffle_beliefs_null` precedent): arm (b)'s
   advantage must beat a stamp-shuffled null on the same chains.
 
+**The statistical protocol is PREDECLARED — every value below is fixed
+BEFORE the probe runs** (CodeRabbit, #1074: unspecified choices "can be made
+after results and can produce a spurious BUY"). This block is the
+pre-registration; changing any of it after seeing numbers invalidates the
+run and requires a re-pin with the change stated:
+
+| knob | predeclared value |
+|---|---|
+| cohort | every S4-guarded arena chain of hop-length **≥ 2** (single-hop chains cannot distinguish propagation from its seed) |
+| readout | **trace(Σ)** — ONE scalar, fixed. (Largest eigenvalue is NOT evaluated; picking between them post-hoc is the defect this row exists to prevent.) |
+| ties | equal readout ⇒ equal rank (average-rank convention, standard for Spearman) |
+| missing hop data | chain EXCLUDED wholesale, never imputed; the excluded count is REPORTED |
+| minimum sample | **n ≥ 200** qualifying chains; below that the probe reports UNDERPOWERED and stops — that is a valid, honest exit |
+| split | metric fixed on a held-out half; the F-MEP-2 threshold is evaluated ONCE on the other half, no re-fitting |
+| comparison metric | AUC of suspicion-rank vs the binary S4 error signal |
+| BUY threshold | ΔAUC **≥ 0.05** over arm (a) AND clearing the F-MEP-3 null by ≥ 2σ of the shuffle distribution |
+
+Anything short of BOTH thresholds is NO-BUY. "Better" has no meaning in this
+plan outside this table.
+
 **W2 — the carrier (GATED on W1 BUY; Opus review, Sonnet transcription).**
 Mint K1 ONLY if W1 showed derived-per-read Σ (K2) insufficient (e.g. a
 consumer needs Σ across a boundary where the hop quantities are gone).
@@ -202,10 +226,23 @@ boundary).
 > operator — not something this plan resolves or builds.** Logged as
 > `ISS-KANBAN-PLAN-EXIT-HAS-NO-NAMED-ROUTE`.
 
+**The Σ → `TrustTexture` mapping is PREDECLARED, deterministic, and single**
+(CodeRabbit, #1074 — "different mappings produce different flip rates"):
+using the same `trace(Σ)` readout W1 fixed, and the W1 held-out half to set
+its cut points, `TrustTexture` is `Calibrated` below the 50th percentile of
+the clean-chain trace distribution, `Uncertain` between the 50th and 90th,
+and `Overconfident` at or above the 90th. Ties resolve to the LOWER-suspicion
+texture (the conservative direction: a tie must not manufacture a flip).
+`Underconfident` is never produced — nothing in a propagated covariance
+distinguishes it from `Calibrated`, and inventing that distinction is exactly
+the coordinate-fabrication the census measured. `FlowState` is held FIXED at
+its locally-assessed value in both arms, so the only varying input is the one
+under test. No other mapping is evaluated.
+
 Re-scoped metric, measurable against the surface that actually exists:
 `advance_on_gate` arm comparison on the SAME chains — local axes vs
-propagated Σ folded into `TrustTexture` — measuring the **Commit→{Hold,
-Prune} flip rate**: how many multi-hop beliefs that gate `Commit` under local
+propagated Σ folded into `TrustTexture` per the mapping above — measuring the
+**Commit→{Hold,Prune} flip rate**: how many multi-hop beliefs that gate `Commit` under local
 trust instead hold or veto under propagated uncertainty. That is the
 epistemic-pothole detector expressed in the vocabulary the routing primitives
 can actually speak. Reaching `Plan` would require the open question above to

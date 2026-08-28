@@ -8,8 +8,9 @@ is the STOP gate; NO-BUY is a valid exit at every gate.
 | D-MEP-0 | jc Pillar-6/7 provers green in-checkout + inlined-sandwich parity gate (F-MEP-0 disable-verified) | Queued |
 | D-MEP-1 | information probe over real chains: scalar vs sandwich suspicion rankings, divergence + S4-guarded error prediction + shuffle null (F-MEP-1/2/3) | Queued |
 | D-MEP-2 | `Option<TrustSigma>` DTO (ONLY if W1 forces it; no tenant carve; F-MEP-4 consumer-build gate) | Queued |
-| D-MEP-3 | `advance_on_gate` Commit→Plan flip-rate probe, two-sided (F-MEP-5) | Queued |
+| D-MEP-3 | `advance_on_gate` Commit→{Hold,Prune} flip-rate probe, two-sided (F-MEP-5) | Queued |
 | D-MEP-4 | verdict: BUY / NO-BUY, numbers banked either way | Queued |
+
 ## token-value-tenant-v1 — PROPOSED 2026-08-28 (measure-before-carve)
 
 Plan: `.claude/plans/token-value-tenant-v1.md`. PLAN/BOARD ONLY. W1 is the
