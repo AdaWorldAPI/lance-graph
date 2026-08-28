@@ -1,3 +1,23 @@
+## 2026-08-28 — PROPOSED (unbuilt, measure-before-carve): a token value tenant inside the 40,767-triple stream, `.claude/plans/token-value-tenant-v1.md`
+
+Operator directive: *"you might need a token value tenant inside the 40k."*
+The whole KJV evidence base (40,767 triples / 702 subjects / the
+27,788-7,237-588 SelectionalFit split) was computed over `WordId` (67.7%
+byte round-trip, measured); `TokenId` is byte-exact
+(`E-TOKEN-BPE-CAN-FIT-NOT-YET-BUY-1`) and the receipt now mints nothing
+(`E-ONE-RECEIPT-MANY-BORROWED-CONSUMERS-1`). The plan carves a span-ADDRESS
+tenant — `ValueTenant::Token = 16` (BoardAggregates re-bases to 17),
+EXPERIMENTAL, additive at row 252, references-never-content — with a hard
+STOP gate: W1 re-measures PROBE-TOKEN-BPE-GEOMETRY-1's four bounded claims
+at whole-KJV scale (TokenId vs a re-measured WordId control) BEFORE any
+carve, and the overflow distribution picks between the two candidate carves
+(32 B receipt-reference rail vs 16 B facet+continuation). Corpus reaches the
+probe via Tigris + `lance-graph-hydrate` (never a new fetcher); population
+via a lens into the NodeRow slab (the loci.rs deletion is the ruling).
+Exit gate is an explicit BUY / NO-BUY. Fences: LSTM untouched, COCA
+untouched, tarski register stays HELD, merge-tree-is-not-ancestry, no V1
+mints. D-TVT-0..4 on STATUS_BOARD.
+
 ## 2026-08-27 — GATE RUN (D-MCAL-6): the arc built against its real consumers, `.claude/plans/mul-consumer-build-gate-v1.md`
 
 Discharges the second half of F-MUL-6, the half a grep cannot reach. ada-rs was

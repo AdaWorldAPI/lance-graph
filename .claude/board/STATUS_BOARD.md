@@ -1,3 +1,15 @@
+## token-value-tenant-v1 — PROPOSED 2026-08-28 (measure-before-carve)
+
+Plan: `.claude/plans/token-value-tenant-v1.md`. PLAN/BOARD ONLY. W1 is the
+STOP gate for W2-W4; the exit gate is an explicit BUY / NO-BUY.
+
+| D-id | Deliverable | Status |
+|---|---|---|
+| D-TVT-0 | KJV corpus into Tigris + hydration via `lance-graph-hydrate` (F-TVT-0 hash gate) | Queued |
+| D-TVT-1 | whole-KJV scale re-measure of the four PROBE-TOKEN-BPE-GEOMETRY-1 claims, TokenId vs WordId control (F-TVT-1/2) | Queued |
+| D-TVT-2 | `ValueTenant::Token = 16` carve (A or B per D-TVT-1), field-isolation + zero-fallback + refuse-never-fold (F-TVT-3/4/5) | Queued |
+| D-TVT-3 | lens write path onto SPO-stream rows via `bible_wave --tokens`, `mint_for` only (F-TVT-6/7) | Queued |
+| D-TVT-4 | consumer verdict: anaphora/selectional + basin numbers over byte-exact spans → BUY / NO-BUY | Queued |
 ## alpha-interventional-faithfulness-v1 — PROPOSED 2026-08-26
 
 Plan: `.claude/plans/alpha-interventional-faithfulness-v1.md`. PLAN/BOARD ONLY.
