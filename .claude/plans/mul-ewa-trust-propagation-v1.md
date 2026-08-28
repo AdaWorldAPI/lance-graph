@@ -103,12 +103,17 @@ and write down, a construction:
   off-diagonal `s12` means. A diagonal seed (`s12 = 0`) is the honest default
   — it asserts no measured correlation — and must be declared as such rather
   than smuggled in.
-- **`M_k` (the hop transform):** what a hop DOES to uncertainty. Candidates:
-  `M_k = √(per-hop trust)·I` (isotropic decay, the closest analogue of the
-  scalar baseline and therefore the fairest control), or a margin-scaled
-  anisotropic form. Whichever is chosen, the scalar baseline in W1(a) MUST be
-  the one that arm (b) collapses to when `M_k` is isotropic — otherwise the
-  comparison measures the construction, not the propagation.
+- **`M_k` (the hop transform) — PREDECLARED:** `M_k = √(per-hop trust)·I`
+  (isotropic) is the CONTROL form; the treatment is a margin-scaled
+  anisotropic form, declared in D-MEP-1 before any run.
+- **The scalar baseline is PREDECLARED as the PRODUCT of per-hop trust, and
+  `min` is explicitly rejected** (CodeRabbit, #1074). This is forced, not
+  chosen: under `M_k = √(t_k)·I` the sandwich gives
+  `Σ_n = (∏ t_k)·Σ₀`, so trace scales by **∏ t_k** — the product, never the
+  minimum. Baselining against `min` would make arm (b) differ from arm (a)
+  for a reason that has nothing to do with propagation, manufacturing a
+  spurious BUY. Readout normalization is fixed with it: both arms report
+  `trace(Σ_n)/trace(Σ₀)`, a unitless ratio, so the two are on one scale.
 - **F-MEP-1b (construction-honesty gate):** if arm (b) with an isotropic
   `M_k` and a diagonal Σ₀ is algebraically equivalent to arm (a), the probe
   MUST report that equivalence rather than a spurious difference — and any
@@ -137,8 +142,8 @@ forked.
 Opus adjudication).** Over real multi-hop chains (KJV derivation chains
 and/or anaphora chains with per-hop margins), rank derived beliefs by
 suspicion under two arms:
-- (a) **scalar baseline** — naive decay (product / min of per-hop trust),
-  the default every stack uses;
+- (a) **scalar baseline** — naive decay: the **product** of per-hop trust
+  (predeclared above; `min` rejected), the default every stack uses;
 - (b) **EWA arm** — per-hop 2×2 Σ (K2 derivation), sandwich-propagated,
   read out as a scalar (largest eigenvalue or trace).
 - F-MEP-1 (anti-vacuity): the two rankings must DIVERGE non-trivially
@@ -212,8 +217,14 @@ boundary).
 > `advance_on_gate`**, because `Plan` is structurally unreachable from it:
 > `advance()` is *"the first non-`Prune` successor"* and `Evaluation`'s
 > `next_phases()` is `[Commit, Plan, Prune]`, so `advance()` returns
-> **`Commit`, always**; `veto()` returns `Prune`; `Hold` returns `None`. The
-> reachable set is therefore exactly `{Commit, Prune, None}`.
+> **`Commit`, always**; `veto()` returns `Prune`; `Hold` returns `None`.
+> **Precondition, stated because it is load-bearing** (CodeRabbit, #1074):
+> the reachable set `{Commit, Prune, None}` holds **starting from
+> `Evaluation`** — which is where W3 measures, since that is the only phase
+> whose successors include `Plan` at all. From other phases `Flow` yields
+> that phase's own first non-`Prune` successor (`Planning → CognitiveWork`,
+> `CognitiveWork → Evaluation`, `Plan → Planning`); the claim is about
+> `Evaluation`'s 3-way terminal, not about the DAG as a whole.
 >
 > **The finding this surfaces is worth more than the metric it cost**, and it
 > is recorded here rather than papered over: **`Plan = 4` — the revision exit,
