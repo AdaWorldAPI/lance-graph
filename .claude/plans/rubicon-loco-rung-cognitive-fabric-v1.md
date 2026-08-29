@@ -146,6 +146,52 @@ unresolved**; `D-RLR-5` is the trace, and its default verdict is
 
 ---
 
+### §F.1 The working model — alpha as a Photoshop alpha channel, split-tunnelled
+
+**Operator framing (2026-08-29).** Alpha is the *alpha channel*, not another
+copy of the image: the canonical substrate is one set of pixels, and each rung
+composites its own non-destructive overlay over it. The transport analogy is a
+**split tunnel** — the shared substrate goes "direct" (one copy, read by every
+rung), while each rung's residual/delta rides its own tunnel. Ten rungs then
+cost ten thin deltas, never ten substrates. Call the budget question the
+**10× delta reserve**: is there room to carry ten rungs' worth of residual
+without a new carrier or a stride change?
+
+**Status: CONJECTURE — unmeasured.** `NODE_ROW_STRIDE` is 512 B
+(`key 16 | edges 16 | value 480`) and the value slab has documented free space,
+but *how much of it survives ten concurrent rung deltas* has not been measured.
+`D-RLR-5` owns the measurement; **no design may assume the reserve exists.**
+
+### §F.2 ⊘ HARD FENCE — `NodeGuid` is NOT an immutable pointer across rungs
+
+**Do not key alpha (or anything cross-rung) on `NodeGuid` as a stable
+address.** Operator caution, verified at `canonical_node.rs:349-367`:
+
+- **The tail reading is registry-resolved, not intrinsic.** Mints go through
+  `mint_for(classid_read_mode(c).tail_variant, …)` — *"NEVER by hardcoding
+  `new` vs `new_v2`"*. The same 16 bytes read differently per classid.
+- **The variant is DESIGNED to flip.** *"Migrating a class's identity to V3 is
+  then a one-line flip of its `tail_variant` in the registry, **with zero
+  consumer rewrite**."* An existing guid's tail interpretation can change
+  underneath a consumer, by design.
+- **It is feature-gated.** With `guid-v2-tail` off, `classid_read_mode` returns
+  `V1` for every classid — the same source, built differently, reads tails
+  differently.
+- **And the zero-fallback ladder means it is not uniformly a full address:**
+  `classid == 0` / `family == 0` are *not consulted*, so in the bootstrap case
+  `identity` alone discriminates.
+
+`NodeGuid` is a **content-blind carrier whose reading is late-bound**, not a
+pointer with one meaning everywhere. An alpha overlay that assumes otherwise
+breaks silently on a registry flip — the worst failure shape, because nothing
+errors.
+
+**`F-RLR-9` (STOP):** any alpha/cross-rung design that treats a `NodeGuid` as
+an immutable pointer, or that compares guids minted under different
+`tail_variant` registrations as though they addressed the same thing.
+Whatever identity the overlay keys on must be stated and shown stable under
+(a) a `tail_variant` flip and (b) the feature being off.
+
 ## §G Kanban / Rubicon verdict
 
 - **Internal string paths: NONE.** No `from_str`, no `as_str`, no column-name
@@ -211,6 +257,7 @@ Chosen from source, not invention: the atom is `recipe_vocab::op_of`
 | `F-RLR-6` | R2IL reuses lance-graph-java semantics | a lance-graph-specific thinking DSL appears |
 | `F-RLR-7` | kanban stays typed internally | any `typed → stringify → internal transport → parse → typed` path |
 | `F-RLR-8` | band promotion stays typed | a band transition reduces to a threshold on one untyped scalar |
+| `F-RLR-9` | alpha keys on a stated, flip-stable identity | a `NodeGuid` is treated as an immutable cross-rung pointer, or guids under different `tail_variant` registrations are compared as one address (§F.2) |
 
 **Constitutional, carried from the merged arc:** ambiguity/entropy/parallax
 **never** terminate cognition — only the Rubicon boundary owns stop/commit/veto.
