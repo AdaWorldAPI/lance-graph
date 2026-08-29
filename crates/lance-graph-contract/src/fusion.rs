@@ -56,6 +56,34 @@
 //! however intelligible the synthesis becomes. Coherence is allowed to rise;
 //! evidential weight is not.
 //!
+//! # ⚠ PRIOR ART — this is a contract-layer restatement, NOT a new idea
+//!
+//! Found AFTER this module was written (2026-08-29), and recorded here so the
+//! next session does not re-derive it a fourth time:
+//!
+//! - **`lance_graph_planner::nars::belief::BeliefArena::revise_at`** already
+//!   implements BOTH the synthesis primitive and the anti-alchemy law. Its
+//!   guard is `b.stamp.disjoint(stamp)` — `Stamp` carries evidential
+//!   ancestry, so disjointness IS the independence test, and
+//!   [`FusionReceipt::shared_roots`] is a re-derivation of it over a
+//!   different carrier (`EvidenceMask` instead of `Stamp`).
+//! - **`lance_graph_planner::nars::stance::stance_panel`** already reads a
+//!   contradiction set through four philosophical stances, and its own doc
+//!   states the Hegel mapping exactly: *"The three meanings of aufheben ARE
+//!   `revise_at`'s three fields: cancelled = pooled truth, preserved = the
+//!   `contradiction` field, lifted = the rung."* Nietzsche (genealogy by flip
+//!   direction), Kant (ablate modal grading; the delta is the reader's
+//!   a-priori contribution), and Wittgenstein (meaning as distinct
+//!   language-games) are the other three. Stances are **late-bound and
+//!   non-destructive** — nothing collapses.
+//!
+//! So Hegelian synthesis is already in the substrate, and the "new horizon
+//! from which the disagreement becomes intelligible" is already four horizons.
+//! What this module adds is only a **zero-dep contract-layer seam**: the same
+//! discipline expressed over `InterpretiveHorizon` without a `BeliefArena`,
+//! for consumers that cannot depend on the planner. Where the two disagree,
+//! **`revise_at` is canonical.**
+//!
 //! # No confidence scalar
 //!
 //! Deliberately absent from [`FusionReceipt`]: any `synthesis_confidence:
