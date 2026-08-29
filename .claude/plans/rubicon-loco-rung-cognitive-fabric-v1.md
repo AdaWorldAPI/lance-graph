@@ -2,8 +2,19 @@
 
 > **Status: PROPOSED — PLAN/BOARD ONLY. SOURCE-FIRST.** No production
 > implementation in this PR. Every §A–§J claim below carries `file:line`
-> evidence gathered at HEAD `de1d0c2f`; nothing is inferred from a filename or
-> quoted from a prior plan.
+> evidence gathered at HEAD `de1d0c2f`; nothing is inferred from a filename.
+>
+> **⊘ CORRECTED (2026-08-29):** this line originally read *"nothing is …
+> quoted from a prior plan"*, and that phrasing caused a real defect — §F was
+> written WITHOUT reading `alpha-channel-rung-overlay-v1.md` (76 KB) and
+> invented a storage model for something already designed in detail.
+> Source-first means **verify** a prior plan against source, never **skip** it:
+> a prior plan is mandatory reading and its claims are then re-checked, exactly
+> as `CLAUDE.md` § "Consult before you guess" requires. Mandatory reads for
+> this plan: `alpha-channel-rung-overlay-v1.md`,
+> `hhtl-thinking-tables-le-contract-v1.md` §2.3/§3,
+> `unified-soa-rubikon-integration-v1.md`, and the `D-ACR-*` rows of
+> `STATUS_BOARD.md`.
 > **Operator directive (2026-08-29):** *"The next step is not another bespoke
 > cognitive controller… test whether the existing lance-graph / OGAR substrate
 > can become one clockwork cognitive fabric."*
@@ -15,8 +26,10 @@
 Rungs 1..10 are **horizons/views**, not ownership locations for thinking
 styles. `ogar-loco` is the ABI-shaped call membrane. **Frozen** = a hardened
 callable atom, never "special Rust outside the substrate". V4/R2IL is the
-compositional program representation. Alpha is the non-destructive working
-plane at every rung. Kanban/Rubicon owns lifecycle. Revision is explicit per
+compositional program representation. **Alpha is the rung-level STORAGE** —
+separate thinking tables at the graph's own addresses, one row per rung,
+sparsely occupied, two owners (ontology / session) — not a delta inside a
+node row (§F). Kanban/Rubicon owns lifecycle. Revision is explicit per
 cycle and its receipt seeds the next. `temporal.rs` makes it replayable.
 
 **Success criterion:** *change, version, test, replay and roll back a reasoning
@@ -136,36 +149,103 @@ and never an R2IL→pseudo-IR transcode unless the operator contract demands it.
 
 ---
 
-## §F Alpha integration — NOT YET ESTABLISHED (honest gap)
+## §F Alpha channel = the rung-level STORAGE. It is not written today.
 
-`alpha` appears in `contract/src/{rubicon_witness, world_map, exploration,
-band_reading}.rs`. **Representation existing is not integration.** No
-producer→consumer trace has been run. **This section is deliberately
-unresolved**; `D-RLR-5` is the trace, and its default verdict is
-**REPRESENTATION-ONLY / HELD** until a real cognitive consumer is shown.
+> **⊘ CORRECTED (operator, 2026-08-29).** A first draft of this section read
+> Alpha as an abstract non-destructive overlay and asked a **stride-budget**
+> question ("ten thin deltas in the 480 B value slab — is there a 10× delta
+> reserve?"). That is wrong in KIND, not merely in wording, and it was written
+> without reading `.claude/plans/alpha-channel-rung-overlay-v1.md` (76 KB,
+> 2026-08-21) — the exact rediscovery tax `CLAUDE.md` § "Consult before you
+> guess" forbids. **The alpha channel IS storage: the rung levels live across
+> separate thinking TABLES at the same addresses, not as deltas inside one
+> row.** There is no stride budget question. The wrong framing is recorded
+> rather than deleted, per the append-only convention.
 
----
+### §F.1 What the design actually is (all quotes verified this session)
 
-### §F.1 The working model — alpha as a Photoshop alpha channel, split-tunnelled
+The operator's own frame, `alpha-channel-rung-overlay-v1.md` §0, items 3 + 4:
 
-**Operator framing (2026-08-29).** Alpha is the *alpha channel*, not another
-copy of the image: the canonical substrate is one set of pixels, and each rung
-composites its own non-destructive overlay over it. The transport analogy is a
-**split tunnel** — the shared substrate goes "direct" (one copy, read by every
-rung), while each rung's residual/delta rides its own tunnel. Ten rungs then
-cost ten thin deltas, never ten substrates. Call the budget question the
-**10× delta reserve**: is there room to carry ten rungs' worth of residual
-without a new carrier or a stride change?
+> *"Gedanken 2. Ordnung als thinking about thinking als graph overlay mit der
+> gleichen Adresse wie der Graph aber **separate thinking tables**."*
+> *"**Rung levels 2–10 als Alpha layer projizieren**."*
 
-**Status: CONJECTURE — unmeasured.** `NODE_ROW_STRIDE` is 512 B
-(`key 16 | edges 16 | value 480`) and the value slab has documented free space,
-but *how much of it survives ten concurrent rung deltas* has not been measured.
-`D-RLR-5` owns the measurement; **no design may assume the reserve exists.**
+Three properties fix the shape, and each rules out the delta reading:
 
-### §F.2 ⊘ HARD FENCE — `NodeGuid` is NOT an immutable pointer across rungs
+| property | source | consequence |
+|---|---|---|
+| **same address, different table** | plan §3 | a rung-*n* thought at node `g` is the **same `NodeGuid`**, a **different `(classid, rail)` thinking-table row** resolved by the ClassView |
+| **sparse occupancy** | plan §3, verbatim: *"'1:1' names the addressing, never the occupancy"* | only visited addresses materialise — ten rungs do not cost ten copies of anything |
+| **two owners, two tables** | plan §2 (⊘-corrected by the operator same day) | ontology thinking table (ontology mailbox, durable) **vs** session overlay (session mailbox, ephemeral) — the contamination boundary is *structural in the table split* |
+
+`contract::attention_facet` states the same rejection independently, and it is
+the closest thing to a ruling on the delta framing:
+
+> The tempting alternative was a **matrix**: six *vertical* rows of the same
+> 12-byte atom, one per rung/layer/timestep. It is rejected … the vertical
+> dimension is **already addressed** — it is the `facet_classid` selecting
+> which thinking-table row a focus belongs to. **One atom, one
+> `(classid, rail)`; the vertical stack is a set of atoms, not a field inside
+> one.**
+
+So: **ten rungs = ten rows, sparsely occupied, at one address.** Not ten
+residuals sharing a 480-byte slab. The `10× delta reserve` question is
+withdrawn — it measured a budget that nothing spends.
+
+### §F.2 How rung levels are written TODAY: they are not
+
+Measured this session, whole workspace. Every row verified by reading the file.
+
+| surface | what it holds | durable? |
+|---|---|---|
+| `RungElevator { base, level, block_streak, flow_streak }` — `cognitive_shader.rs:272`, behind `RwLock` in `cognitive-shader-driver/src/driver.rs:132,907` | ONE current level | **no** — process memory |
+| `RungLevel` as `u8` on the wire — `grpc.rs:411`, `wire.rs:921` (`RungLevel::from_u8`) | ONE level | **no** — transport |
+| `holograph::storage_transport::StorageFlags.rung: u8` (`:65-66`, *"Abstraction rung (0-255)"*); `holograph::width_32k::schema` packs it at word 8 bits 24–31 | ONE byte, ONE current rung, in a 32-byte node header | **yes, but** — a header byte, not a Lance table, and not ten channels |
+| every live planner construction — `orchestration_impl.rs:151`, `pipeline.rs:593`, `api.rs:180`, `codec_bridge.rs:109`, `cypher_bridge.rs:130` | hardcoded `RungLevel::Surface` | — |
+| `lance-graph-planner/src/persist_sink.rs` | **excludes rung, five times**, verbatim: *"Scope boundary — storage only, no semantic / rung types minted here"*; *"It does NOT mint (or carry) … rung …"*; *"Storage-only: it carries NO rung / projection / branch / semantic tags"* | — |
+| `soa_envelope.rs` | zero `rung` hits | — |
+| any arrow schema | no `Field::new("rung", …)` anywhere in the workspace | — |
+
+**The atoms shipped; the write path did not.** `D-ACR-1` (`RowFocusMask`,
+`contract::attention_facet`), `D-ACR-7` (`contract::band_reading`) and
+`D-ACR-8` (`contract::rubicon_witness`) are all **Shipped** on
+`STATUS_BOARD.md` — and their only consumers workspace-wide are **four probe
+examples** in `lance-graph-planner/examples/`. Nothing persists them.
+
+Two blockers, both already named on the board, and neither is a stride budget:
+
+1. **`D-ACR-2` — the Rung-ladder rail is UNMINTED.** `HTT §2.3` row
+   *Rung ladder* reads `*(unassigned)* · see §3 · **unminted, undesigned**`,
+   and the board row says *"Queued — gates on operator mint decision
+   (HTT §8 Q3)"*. Until a rail is minted there is no `(classid, rail)` for a
+   rung row to BE.
+2. **`D-ACR-3` — there is no ontology write path to guard.** Board, verbatim:
+   *"`SoaEnvelope` has ONE production implementor (`NodeRowPacket`) … and
+   `mailbox_owner()` has **zero callers outside its own module**. There is no
+   ontology-owned write to trace TO and no session-tagged read to trace FROM."*
+
+### §F.3 What `D-RLR-5` must therefore measure (re-scoped)
+
+The trace is unchanged in spirit and wrong in target. Re-scoped:
+
+- **NOT** "does the 480 B value slab have room for ten rung deltas" — withdrawn,
+  measures a budget nothing spends.
+- **IS**: (a) name the `(classid, rail)` pair each of rungs 1–10 would occupy,
+  and (b) show ONE end-to-end write→read of a single rung row through a real
+  owner. One rung proven end-to-end beats ten designed.
+
+`D-RLR-5`'s default verdict stays **HELD**, and the reason is now specific:
+*blocked behind `D-ACR-2`'s mint and `D-ACR-3`'s missing write path*, not
+"representation existing is not integration".
+
+### §F.4 ⊘ HARD FENCE — `NodeGuid` is NOT an immutable pointer across rungs
+
+*(Unchanged — verified at `canonical_node.rs:349-367`. This fence gets
+SHARPER under §F.1, not weaker: if ten rungs share one address by design, the
+stability of that address is the whole load-bearing assumption.)*
 
 **Do not key alpha (or anything cross-rung) on `NodeGuid` as a stable
-address.** Operator caution, verified at `canonical_node.rs:349-367`:
+address.**
 
 - **The tail reading is registry-resolved, not intrinsic.** Mints go through
   `mint_for(classid_read_mode(c).tail_variant, …)` — *"NEVER by hardcoding
@@ -177,7 +257,7 @@ address.** Operator caution, verified at `canonical_node.rs:349-367`:
 - **It is feature-gated.** With `guid-v2-tail` off, `classid_read_mode` returns
   `V1` for every classid — the same source, built differently, reads tails
   differently.
-- **And the zero-fallback ladder means it is not uniformly a full address:**
+- **The zero-fallback ladder means it is not uniformly a full address:**
   `classid == 0` / `family == 0` are *not consulted*, so in the bootstrap case
   `identity` alone discriminates.
 
@@ -191,6 +271,12 @@ an immutable pointer, or that compares guids minted under different
 `tail_variant` registrations as though they addressed the same thing.
 Whatever identity the overlay keys on must be stated and shown stable under
 (a) a `tail_variant` flip and (b) the feature being off.
+
+**`F-RLR-10` (STOP, new):** any statement about how rung levels are stored
+that was not read out of `alpha-channel-rung-overlay-v1.md` + `HTT §2.3/§3` +
+the `D-ACR-*` board rows. This section's own first draft is the instance: it
+invented a delta-budget model for a design that had already been written down
+in 76 KB, and would have sent `D-RLR-5` to measure the wrong quantity.
 
 ## §G Kanban / Rubicon verdict
 
@@ -251,13 +337,14 @@ Chosen from source, not invention: the atom is `recipe_vocab::op_of`
 |---|---|---|
 | `F-RLR-1` | a non-rung-4 horizon completes the §I chain | a **physical/layout/ABI** reason forces cognition to rung 4 — then STOP the generalization and name it precisely |
 | `F-RLR-2` | loco addresses a Frozen atom with no new carrier | a new carrier is proposed before `ogar_loco` is proven insufficient — **automatic STOP** |
-| `F-RLR-3` | alpha has a real producer→consumer path | produced but unread ⇒ **REPRESENTATION-ONLY / HELD**, not integrated |
+| `F-RLR-3` | ONE rung row written and read back through a real owner | no `(classid, rail)` is minted for it (`D-ACR-2`) or no owner write path exists (`D-ACR-3`) ⇒ **HELD** — and HELD for that named reason, never for "representation exists" (§F.2) |
 | `F-RLR-4` | no source text on the cognition hot path | Elixir/Blockly/Scratch/AST parsed during production cognition, **or** changing the human projection changes execution semantics |
 | `F-RLR-5` | Revision unavoidable per completed cycle | it requires a second Rubicon or moves epistemic judgement into MUL |
 | `F-RLR-6` | R2IL reuses lance-graph-java semantics | a lance-graph-specific thinking DSL appears |
 | `F-RLR-7` | kanban stays typed internally | any `typed → stringify → internal transport → parse → typed` path |
 | `F-RLR-8` | band promotion stays typed | a band transition reduces to a threshold on one untyped scalar |
-| `F-RLR-9` | alpha keys on a stated, flip-stable identity | a `NodeGuid` is treated as an immutable cross-rung pointer, or guids under different `tail_variant` registrations are compared as one address (§F.2) |
+| `F-RLR-9` | alpha keys on a stated, flip-stable identity | a `NodeGuid` is treated as an immutable cross-rung pointer, or guids under different `tail_variant` registrations are compared as one address (§F.4) |
+| `F-RLR-10` | every rung-storage claim is read out of `alpha-channel-rung-overlay-v1.md` + HTT §2.3/§3 + the `D-ACR-*` board rows | a storage model for rungs is asserted from the session's own reasoning — §F's own first draft is the instance (§F.1 ⊘) |
 
 **Constitutional, carried from the merged arc:** ambiguity/entropy/parallax
 **never** terminate cognition — only the Rubicon boundary owns stop/commit/veto.

@@ -1,3 +1,57 @@
+## 2026-08-29 — E-THE-RUNG-LADDER-HAS-A-STORAGE-DESIGN-AND-NO-WRITER-1 — ten rungs are ten rows, and zero of them are written
+
+**Status:** FINDING (measured, whole-workspace grep + file reads at HEAD `76d329e0`).
+**Confidence:** High — every row below verified by reading the named file this session.
+
+**The question:** *"How do you currently write 10 rung levels?"*
+
+**The answer: you don't.** Nothing in `lance-graph` persists a rung level.
+
+| surface | holds | durable? |
+|---|---|---|
+| `RungElevator { base, level, block_streak, flow_streak }` — `cognitive_shader.rs:272`, behind `RwLock` in `cognitive-shader-driver/src/driver.rs:132,907` | ONE current level | no — process memory |
+| `RungLevel` as `u8` on the wire — `grpc.rs:411`, `wire.rs:921` | ONE level | no — transport |
+| `holograph::storage_transport::StorageFlags.rung: u8` (`:65-66`); `width_32k::schema` word 8 bits 24–31 | ONE byte, ONE rung, node header | yes, but a header byte — not a Lance table, not ten channels |
+| `orchestration_impl.rs:151`, `pipeline.rs:593`, `api.rs:180`, `codec_bridge.rs:109`, `cypher_bridge.rs:130` | hardcoded `RungLevel::Surface` | — |
+| `planner/src/persist_sink.rs` | **excludes rung, five times**, verbatim | — |
+| `soa_envelope.rs`; any arrow schema | zero `rung` hits; no `Field::new("rung", …)` anywhere | — |
+
+**Two blockers, both already on the board — and neither is a byte budget:**
+`D-ACR-2` (the Rung-ladder rail is UNMINTED; HTT §2.3 reads
+*"(unassigned) · unminted, undesigned"*) and `D-ACR-3` (there is no
+ontology-owned write path to guard — `mailbox_owner()` has zero callers
+outside its own module). The ATOMS shipped (`D-ACR-1` `RowFocusMask`,
+`D-ACR-7` `band_reading`, `D-ACR-8` `rubicon_witness`) and their only
+consumers workspace-wide are **four probe examples**.
+
+**The correction that produced this entry.** A first draft of
+`rubicon-loco-rung-cognitive-fabric-v1` §F read Alpha as an abstract
+non-destructive overlay and posed a **stride-budget** question — *"ten thin
+deltas in the 480 B value slab; is there a 10× delta reserve?"* Wrong in
+KIND. Alpha **is** storage: `alpha-channel-rung-overlay-v1.md` §0 (operator,
+2026-08-21) — *"graph overlay mit der gleichen Adresse wie der Graph aber
+**separate thinking tables**"*, *"Rung levels 2–10 als Alpha layer
+projizieren"* — with sparse occupancy (*"'1:1' names the addressing, never
+the occupancy"*) and two owners (ontology table / session overlay).
+`contract::attention_facet` rules the same way independently, rejecting a
+vertical matrix inside one atom: *"the vertical dimension is already
+addressed — it is the `facet_classid` selecting which thinking-table row a
+focus belongs to. One atom, one `(classid, rail)`; the vertical stack is a
+set of atoms, not a field inside one."*
+
+**Ten rungs = ten rows, sparse, at one address. Not ten deltas in one row.**
+There is no stride budget question; `D-RLR-5` was re-scoped accordingly.
+
+**The process defect worth keeping.** The wrong model was invented while a
+76 KB plan describing the right one sat unread, because the plan's own header
+said *"nothing … quoted from a prior plan"* — a source-first rule mis-read as
+licence to SKIP prior art rather than to VERIFY it. Source-first means read
+the prior plan and re-check its claims against source; it never means
+re-deriving a design that already exists. Fence: `F-RLR-10`. Same failure
+family as the rediscovery tax `CLAUDE.md` § "Consult before you guess"
+already names — this is its first recorded instance in a plan header's own
+wording.
+
 ## 2026-08-27 — E-THE-FUSED-PAYLOAD-IS-INERT-AT-EVERY-EXECUTION-GATE-THAT-CONSUMES-IT-1 — a required field no consumer reads does not stay empty, it fills with fiction
 
 **Status:** FINDING (measured). Deliverable D-MCAL-1. Full entry:

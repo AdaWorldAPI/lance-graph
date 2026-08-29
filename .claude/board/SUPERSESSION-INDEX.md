@@ -132,7 +132,7 @@ a licence to act on it.
 | **RESCOPE** | `bindspace-columns-v1` | `BindSpace` | Active | 0/0 |
 | **RESCOPE** | `codec-sweep-via-lab-infra-v1` | `BindSpace` | — | 0/0 |
 | **RESCOPE** | `cycle-coherent-soa-snapshot-v1` | `CollapseGateEmission` | Queued | 0/6 |
-| **RESCOPE** | `dacr7-band-reading-contract-v1` | `ThinkingStyle` | — | 3/5 |
+| **RESCOPE** | `dacr7-band-reading-contract-v1` | `ThinkingStyle` | — | 4/5 |
 | **RESCOPE** | `entropy-closure-causal-ground-v1` | `ThinkingStyle` | PROPOSAL (measured, unbuilt) — 2026-08-26. P | 3/8 |
 | **RESCOPE** | `foundry-consumer-parity-v1` | `BindSpace` | Active | 0/0 |
 | **RESCOPE** | `foundry-roadmap-unified-smb-medcare-v1` | `BindSpace` | Active | 0/0 |

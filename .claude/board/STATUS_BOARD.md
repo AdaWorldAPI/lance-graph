@@ -20,7 +20,7 @@ is the STOP gate; NO-BUY is a valid exit at every gate.
 | D-RLR-2 | rung-4 census closure: confirm no PHYSICAL hit at scale (`F-RLR-1`) | Queued |
 | D-RLR-3 | atom census → which candidates earn loco addresses (Shannon has no exemption) | Queued |
 | D-RLR-4 | R2IL/r2sleigh membrane readiness vs lance-graph-java (`F-RLR-6`) | Queued |
-| D-RLR-5 | alpha producer→consumer trace (`F-RLR-3`; default HELD) | Queued |
+| D-RLR-5 | **RE-SCOPED 2026-08-29.** Was "alpha producer→consumer trace"; the underlying §F model was wrong (a 10× delta-reserve budget inside the 480 B value slab). Alpha is the rung-level STORAGE — separate thinking tables at the graph's own addresses (`alpha-channel-rung-overlay-v1.md` §0/§3, HTT §2.3) — so there is no stride budget to measure. Now: (a) name the `(classid, rail)` each of rungs 1–10 would occupy, (b) write→read ONE rung row through a real owner | **HELD** — for a named reason: blocked behind `D-ACR-2` (Rung-ladder rail UNMINTED, gates on operator mint, HTT §8 Q3) and `D-ACR-3` (no ontology-owned write path exists — `mailbox_owner()` has zero callers outside its module) |
 | D-RLR-6 | smallest invariant making Revision unavoidable per completed cycle (`F-RLR-5`) | Queued |
 
 
