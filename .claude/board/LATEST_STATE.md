@@ -14,6 +14,48 @@ untouched until that carve actually lands (it re-bases to 17 then).
 `TokenId` vs `WordId` control) → D-TVT-2 (the carve, A-or-B decided by
 D-TVT-1) → D-TVT-3 (lens write onto SPO-stream rows) → D-TVT-4 (BUY / NO-BUY).
 
+## 2026-08-29 — #1074 + #1075 BOTH MERGED (plan, then the code split out of it)
+
+| PR | merge | content |
+|---|---|---|
+| **#1074** | `b871d4ea` | `mul-ewa-trust-propagation-v1` — PLAN/BOARD ONLY as merged (recut before merge) |
+| **#1075** | `69016d99` | the epistemic triptych — `revision.rs`, `fusion.rs`, `KanbanColumn::{revise, advance_on_revision}` |
+
+**Contract inventory net delta (now on main):** `revision` and `fusion`
+modules + two `KanbanColumn` primitives. Full type list in the #1075 arc entry.
+
+**`ISS-KANBAN-PLAN-EXIT-HAS-NO-NAMED-ROUTE` — CLOSED** by
+`KanbanColumn::revise`. The `Plan` exit was declared with semantics and
+reachable by no named primitive.
+
+**Open on main, deliberately flagged rather than silently fixed:**
+
+1. `F-MEP-0b` still reads "covariance *or* precision". `jc::ewa_sandwich_3d` is
+   explicit — *"world-space covariance matrices Σ ∈ ℝ³ˣ³ … pushed forward to
+   image-space"*, `M_k = sqrt(Σ_k)`. Precision would be a NEW quantity
+   borrowing the algebra, not reuse of the EWA operator. The open question is
+   the **bounded monotone trust→step-transform mapping**, not the kind.
+2. The Σ→`TrustTexture`→`GateDecision` production path in §0b/§4 conflicts with
+   EWA scoped as attention/tension geometry.
+
+Both misdirect W1 before it runs; neither is a defect in the merged text's own
+terms. **Follow-up PR, not a session note.**
+
+**Standing corrections carried from #1075 (both against earlier claims of
+mine):** `Stamp::disjoint` is canonical for S4 pooling under KNOWN overlap, and
+the **PR #854 ruling** is canonical for evidential independence NOT being
+established (`event identity ≠ evidential-base membership ≠ source
+dependence`). And `stance_panel` supplies four non-destructive READINGS, not
+the H₃ synthesis — the Grail is unbuilt.
+
+**Next, per the operator's audit:** `perspective-parallax-v1` (bounded Shannon
+control → `PerspectiveResidual` sibling differential → Three-Mountains rotation
+→ Perspective/Meta band receipts; H₃ deferred — parallax earns the FIRST buyer,
+it does not define H₃) and `mul-proprioception-v1` (MUL as a proprioceptive
+revision loop mapping to existing `FieldModulation`; ambiguity widens cognition,
+never Blocks; the Rubicon gate stays separate).
+
+
 ## 2026-08-29 — the epistemic triptych lands in the contract (BRANCH, not yet merged)
 
 > **✅ SCOPE RESOLVED (operator-instructed, 2026-08-29).** These commits were

@@ -1,3 +1,96 @@
+## 2026-08-29 — lance-graph #1075 (MERGED 69016d99) — the epistemic triptych lands in the contract
+
+- **Added:** `contract/src/revision.rs` (`EvidenceMask`, `InterpretiveHorizon`,
+  `EncounterEvidence`, `BasisView`, `RevisionKind`×9, `EvidentialEffect`×3,
+  `RevisionDelta`, `RevisionPolicy`, `GadamerRevision`, `RevisionOutcome`,
+  `CounterfactualVerdict`×3, `RevisionVerdict`); `contract/src/fusion.rs`
+  (`FusionOutcome`×7, `SynthesizedClaim`, `FusionReceipt`, `fuse()`);
+  `KanbanColumn::{revise, advance_on_revision}`. Zero-dep throughout.
+- **Why:** PR #1057 (MERGED) names revision *"the only write-back"* and *"the
+  court of appeal"* at its ACCEPT step (D-ECG-3/6), while `counterfactual.rs`
+  had shipped **twice** and `revision.rs` never landed — a merged plan's ACCEPT
+  step governed by a module that did not exist. Operator: *"the holy Grail
+  would be Gadamer Horizontverschmelzung of Thesis and antithesis synthesis
+  inference."*
+- **The triptych, kept violently separate (operator):** `fusion` GENERATES a
+  candidate · `counterfactual` ATTACKS it · `revision` LICENSES it. `fuse()`
+  establishes synthesis **admissibility and provenance only** —
+  `SynthesizedClaim` carries no inferred relation `X`, deliberately, so the
+  module cannot both propose and license.
+- **Mechanisms:** *an assumption IS an inherited root* (revisable iff inherited
+  and not independently grounded) makes `IrreducibleTension` checkable rather
+  than stylistic — **a fake intelligence always synthesises**. The anti-alchemy
+  law reads DISJOINT roots, never the union, so shared ancestry cannot mint
+  weight: *understanding may increase without evidence increasing*.
+- **`ISS-KANBAN-PLAN-EXIT-HAS-NO-NAMED-ROUTE` CLOSED.** `Evaluation`'s
+  successors are `[Commit, Plan, Prune]`; `advance()` took the first non-`Prune`
+  (always `Commit`), `veto()` took `Prune`, and **nothing produced `Plan`** —
+  the documented revision exit had legal-edge status and no route. `revise()`
+  is the route; no edge added, no `next_phases` change.
+- **Typed docket (operator correction):** `IncreaseEligible` means only *a new
+  independent root was introduced* — not that the counterfactual passed. It was
+  emittable from an `EncounterEvidence` **alone**, so routing it to `Commit`
+  bypassed Fusion→Counterfactual→Revision. `RevisionVerdict` +
+  `CounterfactualVerdict` close it; `NoIncrease → Plan` makes the closed-path
+  guarantee **motion** rather than prose.
+- **Two prior-art corrections, both against my own earlier claims:**
+  `Stamp::disjoint` is **sound, not complete** — `Stamp` models source
+  MEMBERSHIP, is lossy (`1 << (id % 64)`), and `causal_audit.rs:346` leaves
+  `independent_strength` `None` for want of a dependence model (PR #854), so
+  `FusionReceipt::shared_roots` is CONJECTURE, not duplication. And
+  **`stance_panel` is NOT H₃** — four non-destructive READINGS of an existing
+  state, not the construction of a larger horizon. **The Grail survives.**
+- **Falsifiers:** five, every one disable-verified and surgical (each disable
+  fails exactly its own test). `revision_verdict_alone_cannot_reach_commit`
+  PROVES the shortcut rather than asserting it.
+- **Docs:** module docs; `LATEST_STATE` inventory + five-loci finding; this entry.
+- **Confidence:** high on the code (1247 contract tests, 8/8 CI, clippy
+  `-D warnings`); the `shared_roots` contract is explicitly CONJECTURE until an
+  evidence-event identity exists.
+
+## 2026-08-29 — lance-graph #1074 (MERGED b871d4ea) — mul-ewa-trust-propagation-v1, measure-before-carve
+
+- **Added:** `.claude/plans/mul-ewa-trust-propagation-v1.md` (PLAN/BOARD ONLY
+  as merged) + INTEGRATION_PLANS prepend + STATUS_BOARD `D-MEP-0..4` + five
+  `ISSUES` entries. Supersession index regenerated in-commit.
+- **Why:** MUL answers *"how much do I trust HERE"* (scalar `TrustQualia`);
+  nothing answers *"what does that trust become N hops away."* jc's EWA
+  sandwich is the CANDIDATE operator — never certified for the semantic claim.
+- **The two hinges (§0b, operator):** (1) the MUL revamp — Dunning-Kruger
+  overconfidence vs trusted epistemic knowledge vs counterfactual, as
+  thesis/antithesis/synthesis, asking how grounded the known and **indirect
+  intermediate** unknowns are; (2) the EWA sandwich borrowed from 3DGS —
+  filling a known unknown by *Oberflächenspannung* vs HHTL parent inheritance
+  vs thinking-style reasoning. **This plan measures only EWA against a scalar
+  baseline**, so a BUY licenses "EWA beats naive decay", NOT "EWA is the right
+  fill".
+- **The danger, named:** an epistemic frontier handed to math goes circular or
+  becomes accidental entropy-based intelligence. `F-MEP-0a` (§0a) is the
+  capability gate — redistribute/rank **yes**; eliminate worlds **no**; mint
+  evidence **never** — above the sharpened invariant: *no operation whose
+  inputs are entirely graph-internal may convert a hypothesis into epistemic
+  evidence merely by reducing its uncertainty.*
+- **Three on-paper defects caught before any run:** the suspicion score was
+  **inverted** (`M_k = √trust·I` SHRINKS covariance as trust falls, so a
+  distrusted 5-hop chain scored `Calibrated`); the readout is **hop-count
+  dominated** (`∏t_k ≈ t̄ⁿ`); circularity was unnamed. `F-MEP-0b`/`0c`/`0d`
+  gate all three, `0d` on synthetic closed graphs before W1's cohort.
+- **Statistical pre-registration:** cohort, one normalized readout
+  (`trace(Σₙ)/trace(Σ₀)`), per-half floors, leakage-safe `blake3` split, the
+  chain-level observation unit, a 1000-redeal one-sided null, and a three-part
+  BUY (`AUC(b) > 0.5` **and** ΔAUC ≥ 0.05 **and** 2σ). Five review rounds; the
+  `AUC > 0.5` condition exists because ΔAUC alone could buy a *bigger error*.
+- **Scope correction, in-arc:** contract code was landed on this branch against
+  its own "no contract change" status line; split to #1075 on operator
+  instruction and this PR recut to plan-only (0 `crates/` files) before merge.
+- **Open on main, flagged not fixed:** `F-MEP-0b` still reads "covariance *or*
+  precision" though jc owns the covariance semantic; and the
+  Σ→`TrustTexture`→`GateDecision` path in §0b/§4 is in tension with
+  EWA-as-attention-geometry. Both misdirect W1 and want a follow-up.
+- **Docs:** the plan; this entry.
+- **Confidence:** high that §1's facts are verified at HEAD file:line; the
+  transplant itself is deliberately UNBOUGHT until W1.
+
 ## 2026-08-28 — lance-graph #1072 (MERGED 3a3e15b6) — token-value-tenant-v1 PROPOSED: a byte-exact span address inside the 40,767-triple stream
 
 - **Added:** `.claude/plans/token-value-tenant-v1.md` (PLAN/BOARD ONLY, no
