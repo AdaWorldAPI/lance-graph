@@ -14,6 +14,70 @@ untouched until that carve actually lands (it re-bases to 17 then).
 `TokenId` vs `WordId` control) → D-TVT-2 (the carve, A-or-B decided by
 D-TVT-1) → D-TVT-3 (lens write onto SPO-stream rows) → D-TVT-4 (BUY / NO-BUY).
 
+## 2026-08-29 — the epistemic triptych lands in the contract (BRANCH, not yet merged)
+
+> **⚠ SCOPE NOTE, stated against myself.** These three modules were committed
+> onto `claude/happy-hamilton-0azlw4`, the branch of PR #1074 — whose own
+> status line reads *"PLAN/BOARD ONLY. Measure-before-carve. **No contract
+> change, no wiring**, until W1's numbers land."* 1138 lines of contract code
+> now sit on a plan-only PR. The plan's STOP rule targets the EWA/Σ carrier
+> (K1 `TrustSigma` on `TrustQualia`) specifically, and **none of this is that
+> carrier** — so the rule's intent is intact — but its letter is not, and a
+> reviewer of a plan now faces Rust. **Recommended: split these three commits
+> (`5eb74b1e`, `28cc1df2`, `cb923d5f`) onto their own PR** and restore #1074
+> to plan-only. Not done unilaterally: it needs a force-push to a pushed
+> branch, which is the operator's call.
+
+### Current Contract Inventory — net delta: THREE modules, one primitive
+
+| added | where | what it is |
+|---|---|---|
+| `revision` (module) | `contract/src/revision.rs` | `EvidenceMask`, `InterpretiveHorizon`, `EncounterEvidence`, `BasisView`, `RevisionKind` (9), `EvidentialEffect` (3), `RevisionDelta`, `RevisionPolicy`, `GadamerRevision`, `RevisionOutcome`, `HypothesisReport`, `GroundingRequest` |
+| `fusion` (module) | `contract/src/fusion.rs` | `FusionOutcome` (7), `SynthesizedClaim`, `FusionReceipt`, `fuse()` |
+| `KanbanColumn::revise` | `contract/src/kanban.rs` | third routing primitive beside `advance`/`veto`; reaches `Plan` |
+| `KanbanColumn::advance_on_revision` | `contract/src/kanban.rs` | `EvidentialEffect` → route, the `TEST→ACCEPT` step of #1057 |
+
+**Why revision.rs at all:** PR #1057 (MERGED) names revision *"the only
+write-back"* and *"the court of appeal"* at its ACCEPT step, while
+`counterfactual.rs` had shipped twice and `revision.rs` never landed. A merged
+plan's ACCEPT step was governed by a module that did not exist.
+
+**`ISS-KANBAN-PLAN-EXIT-HAS-NO-NAMED-ROUTE` is CLOSED.** `Evaluation`'s
+successors are `[Commit, Plan, Prune]`; `advance()` takes the first non-`Prune`
+(always `Commit`), `veto()` takes `Prune`, and nothing produced `Plan`. The
+documented revision exit had legal-edge status and no route. `revise()` is the
+route; no edge added, no `next_phases` change.
+
+### ⚠ PRIOR ART — three loci that already held this, uncited
+
+Recorded because this session re-derived thinner versions of all three before
+finding them, twice AFTER diagnosing the pattern:
+
+- **`planner::nars::belief::BeliefArena::revise_at`** — already implements the
+  synthesis primitive AND the anti-alchemy law. Its guard is
+  `b.stamp.disjoint(stamp)`; `Stamp` carries evidential ancestry, so
+  **disjointness IS the independence test**. `FusionReceipt::shared_roots` is a
+  re-derivation of it over a different carrier. **`revise_at` is canonical.**
+- **`planner::nars::stance::stance_panel`** — four philosophical late-bound,
+  non-destructive reads over one contradiction set. Its own doc: *"The three
+  meanings of aufheben ARE `revise_at`'s three fields: cancelled = pooled
+  truth, preserved = the `contradiction` field, lifted = the rung."* Plus
+  Nietzsche (genealogy by flip direction), Kant (ablate modal grading; the
+  delta is the reader's a-priori contribution, doubling as an inertness test),
+  Wittgenstein (distinct language-games). Hegelian synthesis was already in the
+  substrate.
+- **`.claude/plans/epistemic-quadrant-materialization-v1.md`** + its 1859-line
+  `probe_sudoku_teacher.rs` — G3 is the membrane: *"bifurcation clones the slab
+  as a counterfactual world, propagates to contradiction, and **ONLY the
+  elimination returns**"*. G4 measures the cost of refusing to fork.
+
+**The finding that outranks any single defect: this architecture lives in FIVE
+loci that do not cross-reference** — `revise_at`, `stance_panel`, PR #1057,
+`epistemic-quadrant-materialization-v1`, and now the contract layer. Nothing is
+missing; it is scattered, and each session re-derives a thinner version of a
+neighbour it never read. A cross-reference pass is worth more than more code.
+
+
 ## 2026-08-27 — the D-MCAL arc, #1065–#1070 ALL MERGED (six of six deliverables)
 
 ### Current Contract Inventory — net delta of the arc
