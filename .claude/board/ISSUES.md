@@ -1,3 +1,101 @@
+## ISS-SUPERSESSION-GENERATOR-DID-RANGE-NARROW — the coverage generator reads `D-XXX-0..4` as one D-id (2026-08-28)
+
+`.claude/tools/supersession_index.py` extracts only the FIRST id from a
+plan's `D-XXX-0..N` range notation (so `D-MEP-0..4` counts as `D-MEP-0`
+alone), and its board input set excludes `.claude/board/STATUS_BOARD.md` —
+where the per-deliverable rows actually live. Net effect: a plan that writes
+its D-ids as a range gets a coverage number that cannot reflect its
+deliverables. Found by CodeRabbit on #1074.
+
+**Deliberately NOT fixed in #1074, and the reasoning is the tracked part:**
+the generator is shared by every plan in the repo and its output is CI-gated
+(`regenerate-and-diff`). Changing range expansion or the board-input set
+re-scopes EVERY other plan's coverage number in the same commit — a
+repo-wide governance change riding inside a plan-only PR, which is the
+drive-by this board's hygiene rule exists to prevent. CodeRabbit agreed with
+the scope call and recorded it as a review learning.
+
+**The fix, when it lands, needs its own PR carrying the complete before/after
+coverage diff across all plans**, so the re-scoping is visible and
+reviewable rather than a side effect. Affects every plan using range
+notation, not just `mul-ewa-trust-propagation-v1`.
+
+## ISS-TOKEN-TENANT-16-COLLIDES-WITH-HOLEV3 — `token-value-tenant-v1` (merged #1072) assigns an ordinal already reserved (2026-08-28)
+
+**BLOCKS D-TVT-2.** `.claude/plans/token-value-tenant-v1.md` §2 assigns
+`ValueTenant::Token = 16` and re-bases only `BoardAggregates` to 17. But
+`INTEGRATION_PLANS.md:653` already records **`HoleV3 = ValueTenant 16` as a
+hard blocker**, and `:726` repeats it. Two tenants claim discriminant 16 on
+`main` today. Found by a CodeRabbit review that landed AFTER #1072 merged.
+
+**Do not implement D-TVT-2 until the reservation is adjudicated.** Either
+`HoleV3` rebases, or `Token` takes the next free ordinal and
+`BoardAggregates` rebases accordingly — an operator/board call, not a
+plan-local one. Whichever way it goes, the descriptor's offset stays DERIVED
+(`value_offset()`), never a literal.
+
+**Root cause, recorded because it generalizes:** the plan verified that
+`BoardAggregates` re-bases (the *documented* reservation adjacent to the
+tenant list) and stopped there — it never swept `INTEGRATION_PLANS.md` for
+OTHER pending ordinal claims. A discriminant assignment must grep the whole
+board for the target ordinal, not just read the enum's own neighbourhood.
+
+## ISS-TVT-3-DISABLE-RUN-IS-VACUOUS — `token-value-tenant-v1`'s F-TVT-3 gate cannot fail (2026-08-28)
+
+F-TVT-3's disable-run reads: "remove the `VALUE_TENANTS` descriptor →
+`verify_layout` goes red." Measured by a codex review (post-merge):
+`NodeRowPacket::verify_layout()` inspects only the three fixed
+`NODE_ROW_COLUMNS` entries (key, edges, the whole 480-byte value slab) — it
+never walks the nested tenant descriptors, so removing one cannot turn it
+red. **The prescribed falsifier is vacuous** — the exact defect class this
+repo's own falsifiability rule exists to catch, shipped inside a plan that
+invokes that rule.
+
+Replacement when D-TVT-2 runs: assert `VALUE_TENANTS` contiguity +
+discriminant ordering + the `Full` mask directly, and disable-verify THAT.
+
+## ISS-TVT-HYDRATION-REGION-CLAIM-WRONG — the plan contradicts the code it cites (2026-08-28)
+
+`token-value-tenant-v1` W0 states `HydrationSource::from_env()` returns a
+hard `None` on a missing var and lists `AWS_DEFAULT_REGION` among the five
+required. Actual (`lance-graph-hydrate/src/env.rs:56-59`):
+`env("AWS_DEFAULT_REGION").unwrap_or_else(|| "auto".into())` — the region is
+OPTIONAL with an `"auto"` default; only key/secret/endpoint/bucket are
+required. A W0 implementation written from the plan's text would reject a
+configuration the shared hydration API intentionally supports.
+
+Also open on that plan, same review batch, lower severity: candidate B's
+continuation contract is undefined (identity, link fields, ordering,
+termination, chain-length budget); W1/W4 name no numeric thresholds; and W3's
+`mint_for` step contradicts §5's "No V1 mints, anywhere."
+
+## ISS-KANBAN-PLAN-EXIT-HAS-NO-NAMED-ROUTE — `KanbanColumn::Plan` is legal in the DAG but no routing primitive emits it (2026-08-28)
+
+Surfaced by a codex P1 on #1074 and confirmed by reading
+`contract/src/kanban.rs` at HEAD. `advance()` is documented as "the first
+non-`Prune` successor"; `Evaluation::next_phases()` is `[Commit, Plan,
+Prune]`, so `advance()` returns **`Commit`, always**. `veto()` returns
+`Prune`. `Hold` returns `None`. Therefore, **starting from `Evaluation`**,
+`advance_on_gate`'s reachable set is exactly `{Commit, Prune, None}` (from
+other phases `Flow` yields that phase's own first non-`Prune` successor —
+`Planning → CognitiveWork`, `CognitiveWork → Evaluation`, `Plan → Planning`;
+`Evaluation` is the only phase whose successors include `Plan` at all). So
+**`Plan = 4` — "re-enter Planning carrying the witness", the revision exit —
+is emitted by no named primitive**; only a caller hand-walking
+`next_phases()` can reach it.
+
+**Open question, for the operator, not for a plan to settle:** is this
+intentional Rubicon discipline (revision is a deliberate act, never a gate's
+automatic output) or an omission (`revise()` missing beside `advance()` /
+`veto()`)? Either answer is defensible; the current state is that the
+transition the kanban×Rubicon model names as its re-plan exit has no ergonomic
+route, while `Prune` — its sibling terminal — got one in D-MCAL-4.
+
+**Consequence already absorbed:** `mul-ewa-trust-propagation-v1` W3 was
+re-scoped from a "Commit→Plan flip rate" (unmeasurable) to a
+"Commit→{Hold,Prune} flip rate" before any work started. No code depends on
+this issue's resolution today.
+
 # Issues Log — Open + Resolved (double-entry, append-only)
 
 ## ISS-F-MUL-6-HALF-BUILT (2026-08-27) — OPEN
