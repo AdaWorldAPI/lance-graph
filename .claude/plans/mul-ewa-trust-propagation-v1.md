@@ -29,6 +29,152 @@ anything: **does sandwich-propagated uncertainty rank multi-hop derived
 beliefs differently — and better — than the naive scalar decay every stack
 defaults to?** If not, NO-BUY, numbers banked.
 
+## §0a The permission gate — what epistemic operation is this operator ALLOWED to perform?
+
+**(Operator ruling, 2026-08-29. This gate comes BEFORE F-MEP-0b. Settling
+covariance-vs-precision fixes the OPERATOR; it does not fix what the operator
+is permitted to DO. Get the sign right, normalise hop count, bound the
+inflation, obtain a gorgeous AUC — and you can still have built a flawlessly
+calibrated machine for performing the wrong epistemic operation.)**
+
+### Three things currently collapsing into one word, "uncertainty"
+
+| # | layer | carrier | what it answers |
+|---|---|---|---|
+| 1 | **Epistemic state** | provenance: observed / inherited / absent | what is actually known, and *how* it came to be known |
+| 2 | **Geometric uncertainty** | Σ, EWA, *Oberflächenspannung* | where tension propagates and concentrates |
+| 3 | **Counterfactual ambiguity** | `{W₁ … Wₙ}` — mutually incompatible completions | which admissible worlds still explain the evidence |
+
+**Σ can represent #2 beautifully. It cannot manufacture #3. And #3 must never
+silently overwrite #1.** Everything below follows from those two sentences.
+
+### F-MEP-0a — the capability declaration (gates F-MEP-0b)
+
+D-MEP-1 must state, before the operator is specified at all, which of these
+the EWA sandwich is permitted to perform:
+
+| operation | permitted? |
+|---|---|
+| redistribute / locate epistemic tension | **yes** |
+| rank places where counterfactual exploration is worth compute | **yes** |
+| generate candidate completions | **maybe — marked HYPOTHETICAL, never merged into #1** |
+| eliminate worlds by itself | **no** |
+| mint evidence | **never** |
+| raise empirical trust from its own output alone | **never** |
+
+EWA may say *"given what we currently know, unresolved tension concentrates
+HERE."* It may **not** say *"therefore this region is now better known."*
+
+### The anti-circularity invariant, in its sharp form
+
+> **No operation whose inputs are entirely graph-internal may convert a
+> hypothesis into epistemic evidence merely by reducing its uncertainty.**
+
+This SUPERSEDES the softer §0b wording. Internal reasoning genuinely *can*
+create knowledge about the hypothesis SPACE — constraint elimination can prove
+only two worlds remain, and a contradiction can kill a world with no new
+observation. That is real and must not be forbidden. What is forbidden is
+laundering it into a claim about external reality. Three kinds, kept apart:
+
+| mechanism | may increase |
+|---|---|
+| hypothesis **elimination by logical contradiction** | logical certainty |
+| hypothesis **discrimination by observation** | empirical certainty |
+| hypothesis **preference by propagated geometry** | **neither** — it changes only where to look |
+
+### ⊘ Scope correction to F-MEP-0b's own wording
+
+§0b's gate phrase *"lower per-hop trust yields strictly HIGHER suspicion"* is
+**a sign check on the operator, NOT an ontology.** It is necessary and it is
+not a definition. Explicitly:
+
+- low trust **≠** uncertainty
+- high covariance **≠** epistemic ignorance
+- high entropy **≠** intelligent doubt
+
+Those are signals MUL may CONSUME. They are not what MUL IS. MUL's actual job
+is comparing epistemic **posture** against epistemic **support** — so
+`Overconfident` means *the graph collapsed onto one explanation while viable
+alternatives were never discriminated*, and a high-uncertainty reading can be
+perfectly **`Calibrated`** when several coherent worlds genuinely remain.
+
+### The ordering this implies — geometry decides WHERE, never WHAT
+
+```
+EWA              "there is epistemic tension here"      (attention geometry)
+HHTL             "these completions are admissible"     (constraint field)
+thinking style   "here are competing explanations"      (the intellectual act)
+counterfactual   "they disagree at S*"                  (differential probe)
+REALITY          "S* = x"                               ← the only evidence arrow
+MUL              "NOW you may update trust"
+```
+
+Thinking styles belong **after** EWA exposes tension, never inside the
+interpolation. A renderer is rewarded when an interpolation looks right; a
+reasoning system is in deep trouble when a plausible interpolation silently
+graduates into a fact.
+
+### ★ This is NOT new — the membrane is already implemented (seam, not invention)
+
+**`.claude/plans/epistemic-quadrant-materialization-v1.md` (709 lines) and
+`lance-graph-planner/examples/probe_sudoku_teacher.rs` (1859 lines) already
+build the counterfactual half of this**, and #1074 cited them **zero** times
+until now. That plan's **G3** is exactly the membrane above:
+
+> *"Bifurcation clones the slab as a counterfactual world, propagates to
+> contradiction, and **ONLY the elimination returns** — the main slab changes
+> at exactly the sanctioned cell, and the fork's positive (wrong) guess never
+> appears in it."*
+
+The fork's NEGATIVE result (an elimination) may cross back into reality; its
+POSITIVE guess may not. Its **G4** then measures the cost of refusing to fork
+(a fork-refusing policy on a bifurcation-required puzzle does not fully
+migrate toward `Wisdom`) — the can-it-fire twin. Related live surfaces:
+`contract::scenario::ScenarioBranch`, `contract::pearl_junction`.
+
+**The split is the actual defect.** That plan carries `MUL` (9 mentions) and
+**zero** `EWA` / `ewa_sandwich` / `TrustTexture` / *Oberflächenspannung*; this
+plan carried zero of the quadrant vocabulary. Two halves of ONE architecture,
+in two plans, with no seam — the rediscovery tax `CLAUDE.md` § "Consult before
+you guess" exists to prevent. **D-MEP-1 must read that plan before specifying
+Σ**, and any counterfactual construction here routes through its existing
+fork/elimination discipline rather than a second mechanism.
+
+### The pothole is a TYPED ABSENCE, never a filled cell
+
+An epistemic hole is not missing data awaiting interpolation. It is a
+first-class object carrying its own structure:
+
+```
+UNKNOWN {
+  alternatives  = {A, B, C}     // admissible completions
+  constraints   = {...}         // what narrows them
+  discriminators= {...}         // signals on which they disagree
+  evidence_needed = {...}       // what reality would have to supply
+}
+```
+
+*"Reality is known up to this equivalence class of worlds"* is **knowledge**,
+not a gap. Filling it with a smooth field destroys the very structure that
+makes it answerable.
+
+### F-MEP-0d — the closed-graph monotonicity falsifier (testable, and it bites)
+
+Take a graph with **no new observations, no oracle calls, no evidence
+receipts.** Run MUL → EWA → thinking-style → MUL for `1`, `10`, `1000` cycles.
+
+**Permitted:** reorganised attention, generated hypotheses, sharpened
+questions, contradictions discovered that were already latent.
+
+**FORBIDDEN:** aggregate epistemic authority rising monotonically with cycle
+count. If trust inflates merely because the system thought longer, the seam is
+a philosophical perpetual-motion machine and the answer is NO-BUY regardless
+of every other number in this plan.
+
+This is the testable form of the §0b circularity worry, and it is a **STOP
+gate, not a diagnostic**: it runs on synthetic closed graphs before W1's real
+cohort, because it needs no S4 events and can therefore fail early and cheap.
+
 ## §0b The two hinges, and the danger of handing the epistemic frontier to math
 
 **(Operator framing, 2026-08-29 — recorded because §0-§4 specified a
