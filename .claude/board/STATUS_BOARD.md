@@ -11,6 +11,19 @@ is the STOP gate; NO-BUY is a valid exit at every gate.
 | D-MEP-3 | `advance_on_gate` Commit→{Hold,Prune} flip-rate probe, two-sided (F-MEP-5) | Queued |
 | D-MEP-4 | verdict: BUY / NO-BUY, numbers banked either way | Queued |
 
+## rubicon-loco-rung-cognitive-fabric-v1
+
+| D-id | deliverable | status |
+|---|---|---|
+| D-RLR-0 | W0 current-flow diagram + `ExecTarget::Elixir` naming-debt record | Queued |
+| D-RLR-1 | **the one first Wave** — non-rung-4 horizon → loco Frozen atom → alpha → receipt → Evaluation/Revision → #879 → replay | Queued |
+| D-RLR-2 | rung-4 census closure: confirm no PHYSICAL hit at scale (`F-RLR-1`) | Queued |
+| D-RLR-3 | atom census → which candidates earn loco addresses (Shannon has no exemption) | Queued |
+| D-RLR-4 | R2IL/r2sleigh membrane readiness vs lance-graph-java (`F-RLR-6`) | Queued |
+| D-RLR-5 | alpha producer→consumer trace (`F-RLR-3`; default HELD) | Queued |
+| D-RLR-6 | smallest invariant making Revision unavoidable per completed cycle (`F-RLR-5`) | Queued |
+
+
 ## token-value-tenant-v1 — PROPOSED 2026-08-28 (measure-before-carve)
 
 Plan: `.claude/plans/token-value-tenant-v1.md`. PLAN/BOARD ONLY. W1 is the

@@ -20,6 +20,31 @@ flagged chains AND clean chains stay silent); W4 explicit BUY / NO-BUY.
 Feeds `mul-calibration-not-verdict-v1`'s thesis with calibration data;
 renames nothing (F-MUL-6 block respected). D-MEP-0..4 on STATUS_BOARD.
 
+## 2026-08-29 — `rubicon-loco-rung-cognitive-fabric-v1` (PROPOSED, plan-only)
+
+`.claude/plans/rubicon-loco-rung-cognitive-fabric-v1.md`. Source-first audit at
+HEAD `de1d0c2f` testing whether the existing substrate can become ONE clockwork
+cognitive fabric — rungs as horizons not ownership, `ogar-loco` as the call
+membrane, Frozen as hardened callable atoms, V4/R2IL as compositional programs,
+alpha as the working plane, Rubicon owning lifecycle, Revision explicit per
+cycle, `temporal.rs` making it replayable. Explicitly forbids a second thinking
+DSL, scheduler semantics, trust scalar or controller.
+
+Headline verdicts (all `file:line`-backed): **`ExecTarget::Elixir` names NO
+Elixir** — zero `.ex`/`.exs`, and `style_strategy.rs:499` says it labels the
+Rust `recipe_kernels` layer (naming debt, no rename before BUY). **The rung-4
+fossil is 5 hits, four DOC-ONLY and none physical**, while
+`EpistemicMode::for_rung`/`admits` already makes rung a TEMPORAL-HORIZON policy,
+not an execution gate — the thesis is already true in source. **The loco
+carrier exists**: `ogar_loco::FnIndex` + `recipe_vocab::{op_of, recipe_of,
+ladder_program, domain_stack_arity}`, so a program already IS a byte-addressed
+atom sequence and a new carrier is an automatic STOP. **Kanban has zero
+internal string paths.** **Symbiont is `exclude`d with no dependents** —
+unreachable, quarantine recommended (≠ removing SurrealDB). **Alpha integration
+is UNRESOLVED and defaults to REPRESENTATION-ONLY/HELD** until a
+producer→consumer trace lands. D-RLR-0..6; eight STOP gates.
+
+
 ## 2026-08-28 — PROPOSED (unbuilt, measure-before-carve): a token value tenant inside the 40,767-triple stream, `.claude/plans/token-value-tenant-v1.md`
 
 Operator directive: *"you might need a token value tenant inside the 40k."*
