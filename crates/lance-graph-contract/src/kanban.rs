@@ -24,6 +24,7 @@
 
 use crate::collapse_gate::MailboxId;
 use crate::mul::GateDecision;
+use crate::revision::{EvidentialEffect, RevisionVerdict};
 
 /// The four Rubicon phases (+ two terminal exits), Libet-anchored.
 ///
@@ -209,6 +210,67 @@ impl KanbanColumn {
             GateDecision::Hold { .. } => None,
         }
     }
+
+    /// The REVISION exit — the third routing primitive, symmetric with
+    /// [`advance`](KanbanColumn::advance) and [`veto`](KanbanColumn::veto):
+    /// the first legal successor equal to [`KanbanColumn::Plan`], or `None`.
+    ///
+    /// # Why this exists — `Plan` was declared and structurally unreachable
+    ///
+    /// `Evaluation`'s successors are `[Commit, Plan, Prune]`. `advance()`
+    /// takes the first non-`Prune` and therefore ALWAYS returns `Commit`;
+    /// `veto()` takes `Prune`. **No named primitive produced `Plan`**, so the
+    /// documented revision exit — "re-enter Planning carrying the witness" —
+    /// had legal-edge status (asserted by a `persist_sink` test) and no route
+    /// to it. Logged as `ISS-KANBAN-PLAN-EXIT-HAS-NO-NAMED-ROUTE`; this is
+    /// the route. It COMPLETES the Rubicon model rather than routing around
+    /// it: no edge is added, no `next_phases` entry changes, and the returned
+    /// column is always one `try_advance_phase` already accepts.
+    #[inline]
+    #[must_use]
+    pub fn revise(self) -> Option<KanbanColumn> {
+        self.next_phases()
+            .iter()
+            .copied()
+            .find(|c| *c == KanbanColumn::Plan)
+    }
+
+    /// Route a cycle on a REVISION verdict — the `TEST → ACCEPT` step of the
+    /// `entropy-closure-causal-ground-v1` loop (PR #1057), where revision is
+    /// "the only write-back" and "the court of appeal".
+    ///
+    /// The three [`EvidentialEffect`] variants map 1:1 onto three routes, and
+    /// the mapping is the anti-laundering invariant expressed as motion:
+    ///
+    /// | verdict | route | why |
+    /// |---|---|---|
+    /// | [`IncreaseEligible`](EvidentialEffect::IncreaseEligible) **+ counterfactual `Necessary`** | [`advance`](KanbanColumn::advance) → `Commit` | a new independent root was contacted AND the candidate survived attack — the docket completed |
+    /// | `IncreaseEligible` with the docket **incomplete** | [`revise`](KanbanColumn::revise) → `Plan` | eligible ≠ accepted; re-deliberate rather than calcify on an unattacked candidate |
+    /// | [`NoIncrease`](EvidentialEffect::NoIncrease) | [`revise`](KanbanColumn::revise) → `Plan` | **understanding rose, evidence did not** — re-enter Planning *carrying the witness*, which IS the semantic movement |
+    /// | [`Suspend`](EvidentialEffect::Suspend) | `None` | the tension stays open pending grounding; the cycle holds rather than resolving |
+    ///
+    /// `NoIncrease → Plan` is the load-bearing row. `Echo` and `ClosedCycle`
+    /// both reduce to it, so a cycle that merely re-read inherited material
+    /// goes back to deliberation with what it learned — it can never reach
+    /// `Commit`, which is precisely the closed-path guarantee.
+    ///
+    /// **Revision never prunes.** `Prune` is the MUL gate's `Block` (Libet
+    /// free-won't), a different act on a different arm; nothing here can
+    /// produce it. Stated because the absence is deliberate, not an omission.
+    #[inline]
+    #[must_use]
+    pub fn advance_on_revision(self, verdict: RevisionVerdict) -> Option<KanbanColumn> {
+        match verdict.effect {
+            // Eligibility is NOT acceptance. A new independent root makes a
+            // synthesis eligible; only surviving the counterfactual attack
+            // makes it acceptable. Without that, the docket is incomplete and
+            // the cycle re-deliberates rather than calcifying.
+            EvidentialEffect::IncreaseEligible if verdict.is_acceptable() => self.advance(),
+            EvidentialEffect::IncreaseEligible => self.revise(),
+            EvidentialEffect::NoIncrease => self.revise(),
+            EvidentialEffect::Suspend => None,
+        }
+    }
 }
 
 /// The Libet readiness window, in µs — the `-550 ms` anchor a thinking cycle
@@ -359,6 +421,178 @@ const _: () = assert!(core::mem::size_of::<KanbanMove>() <= 16);
 
 #[cfg(test)]
 mod tests {
+    use crate::revision::CounterfactualVerdict;
+    /// `Plan` was DECLARED with semantics and structurally unreachable: from
+    /// `Evaluation`, `advance()` takes the first non-`Prune` (always `Commit`)
+    /// and `veto()` takes `Prune`. This is the route that closes
+    /// `ISS-KANBAN-PLAN-EXIT-HAS-NO-NAMED-ROUTE`.
+    #[test]
+    fn revise_reaches_the_plan_exit_that_advance_and_veto_cannot() {
+        let e = KanbanColumn::Evaluation;
+        assert_eq!(e.revise(), Some(KanbanColumn::Plan));
+        // Anti-vacuity: the two pre-existing primitives really cannot get there.
+        assert_ne!(e.advance(), Some(KanbanColumn::Plan));
+        assert_ne!(e.veto(), Some(KanbanColumn::Plan));
+        assert_eq!(e.advance(), Some(KanbanColumn::Commit));
+    }
+
+    /// **Proof the shortcut existed, and is closed.** `GadamerRevision::revise`
+    /// can emit `IncreaseEligible` from an `EncounterEvidence` alone — no
+    /// `FusionReceipt`, no counterfactual attack. Routing that to `Commit`
+    /// bypassed Fusion → Counterfactual → Revision entirely.
+    #[test]
+    fn revision_verdict_alone_cannot_reach_commit() {
+        use crate::revision::{
+            BasisView, EncounterEvidence, GadamerRevision, HorizonId, InterpretiveHorizon,
+            RevisionPolicy,
+        };
+        use crate::revision::{CodebookId, GrammarId, LanguageId, LensId, QuestionId};
+
+        // The real shortcut path: raw encounter -> policy -> eligible.
+        let prior = InterpretiveHorizon::<u64, u64> {
+            id: HorizonId(1),
+            awareness: 0,
+            question: QuestionId(1),
+            language: LanguageId(1),
+            grammar: GrammarId(1),
+            codebook: CodebookId(1),
+            lens: LensId(1),
+            projected_claims: 0b001,
+            independent_roots: 0b001,
+            inherited_roots: 0,
+            unresolved_tension: 0,
+            revision_index: 0,
+        };
+        let delta = GadamerRevision.revise(
+            &prior,
+            &EncounterEvidence {
+                proposed_claims: 0b001,
+                independent_roots: 0b011,
+                inherited_roots: 0,
+                resistance: 0,
+                contradictions: 0,
+                affected_parts: 0,
+            },
+            &BasisView {
+                ancestry_independent_roots: 0b001,
+                ancestry_derived_roots: 0b001,
+                ancestor_claims: 0b001,
+                closes_cycle: false,
+            },
+        );
+        // Anti-vacuity: the shortcut's precondition really is met.
+        assert_eq!(delta.evidential_effect, EvidentialEffect::IncreaseEligible);
+
+        let e = KanbanColumn::Evaluation;
+        assert_eq!(
+            e.advance_on_revision(RevisionVerdict::unadjudicated(delta.evidential_effect)),
+            Some(KanbanColumn::Plan),
+            "eligible but unattacked must re-deliberate, never calcify"
+        );
+        assert_ne!(
+            e.advance_on_revision(RevisionVerdict::unadjudicated(delta.evidential_effect)),
+            Some(KanbanColumn::Commit),
+            "THE shortcut: eligibility alone reaching Commit bypasses the docket"
+        );
+        // ...and the docket, once walked, does open the gate.
+        assert_eq!(
+            e.advance_on_revision(RevisionVerdict {
+                effect: delta.evidential_effect,
+                counterfactual: CounterfactualVerdict::Necessary,
+            }),
+            Some(KanbanColumn::Commit),
+        );
+        // A candidate that survived nothing is not accepted either.
+        assert_eq!(
+            e.advance_on_revision(RevisionVerdict {
+                effect: EvidentialEffect::IncreaseEligible,
+                counterfactual: CounterfactualVerdict::Dispensable,
+            }),
+            Some(KanbanColumn::Plan),
+        );
+    }
+
+    /// The three `EvidentialEffect` verdicts must route to three DIFFERENT
+    /// places — if any two coincided the mapping would carry no information.
+    #[test]
+    fn the_three_revision_verdicts_route_three_different_ways() {
+        let e = KanbanColumn::Evaluation;
+        let inc = e.advance_on_revision(RevisionVerdict {
+            effect: EvidentialEffect::IncreaseEligible,
+            counterfactual: CounterfactualVerdict::Necessary,
+        });
+        let noi =
+            e.advance_on_revision(RevisionVerdict::unadjudicated(EvidentialEffect::NoIncrease));
+        let sus = e.advance_on_revision(RevisionVerdict::unadjudicated(EvidentialEffect::Suspend));
+
+        assert_eq!(inc, Some(KanbanColumn::Commit), "earned root ⇒ calcify");
+        assert_eq!(
+            noi,
+            Some(KanbanColumn::Plan),
+            "understanding rose, evidence did not ⇒ re-deliberate carrying the witness"
+        );
+        assert_eq!(sus, None, "tension stays open pending grounding");
+        assert_ne!(inc, noi);
+        assert_ne!(noi, sus);
+        assert_ne!(inc, sus);
+    }
+
+    /// The closed-path guarantee: no revision verdict that failed to contact a
+    /// new independent root may reach `Commit`.
+    #[test]
+    fn a_rootless_verdict_can_never_reach_commit() {
+        for phase in [
+            KanbanColumn::Planning,
+            KanbanColumn::CognitiveWork,
+            KanbanColumn::Evaluation,
+            KanbanColumn::Plan,
+        ] {
+            for effect in [EvidentialEffect::NoIncrease, EvidentialEffect::Suspend] {
+                assert_ne!(
+                    phase.advance_on_revision(RevisionVerdict::unadjudicated(effect)),
+                    Some(KanbanColumn::Commit),
+                    "{phase:?} + {effect:?} reached Commit without a new root"
+                );
+            }
+        }
+    }
+
+    /// Whatever `revise` proposes must be an edge `try_advance_phase` accepts —
+    /// it completes the Rubicon DAG, it does not route around it. And a column
+    /// with no `Plan` successor must stay silent.
+    #[test]
+    fn revise_only_ever_proposes_a_legal_edge_and_is_silent_elsewhere() {
+        for phase in [
+            KanbanColumn::Planning,
+            KanbanColumn::CognitiveWork,
+            KanbanColumn::Evaluation,
+            KanbanColumn::Plan,
+            KanbanColumn::Commit,
+            KanbanColumn::Prune,
+        ] {
+            match phase.revise() {
+                Some(to) => assert!(phase.can_transition_to(to), "{phase:?} -> {to:?} illegal"),
+                None => assert!(
+                    !phase.next_phases().contains(&KanbanColumn::Plan),
+                    "{phase:?} has a Plan successor but revise() was silent"
+                ),
+            }
+        }
+        // Non-vacuous silence: exactly ONE column can revise.
+        let n = [
+            KanbanColumn::Planning,
+            KanbanColumn::CognitiveWork,
+            KanbanColumn::Evaluation,
+            KanbanColumn::Plan,
+            KanbanColumn::Commit,
+            KanbanColumn::Prune,
+        ]
+        .iter()
+        .filter(|p| p.revise().is_some())
+        .count();
+        assert_eq!(n, 1, "only Evaluation carries the revision exit");
+    }
+
     use super::*;
 
     #[test]

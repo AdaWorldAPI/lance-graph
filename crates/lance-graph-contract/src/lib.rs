@@ -142,6 +142,7 @@ pub use qualia::{
     axis_index, axis_label, qualia_to_state, QualiaI4_16D, QualiaVector, AXIS_LABELS, MIDPOINT,
     QUALIA_DIMS, QUALIA_I4_DIMS, QUALIA_I4_LABELS, ZERO,
 };
+pub mod fusion;
 pub mod materialize;
 pub mod reasoning;
 pub mod recipe_dispatch;
@@ -156,6 +157,7 @@ pub mod recipes;
 /// class-agnostic.
 pub mod recoder_adapter;
 pub mod repository;
+pub mod revision;
 /// D-ACR-8 — reading the Heckhausen crossing from the focus of attention.
 pub mod rubicon_witness;
 pub mod savants;

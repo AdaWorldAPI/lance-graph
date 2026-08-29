@@ -14,6 +14,92 @@ untouched until that carve actually lands (it re-bases to 17 then).
 `TokenId` vs `WordId` control) → D-TVT-2 (the carve, A-or-B decided by
 D-TVT-1) → D-TVT-3 (lens write onto SPO-stream rows) → D-TVT-4 (BUY / NO-BUY).
 
+## 2026-08-29 — the epistemic triptych lands in the contract (BRANCH, not yet merged)
+
+> **✅ SCOPE RESOLVED (operator-instructed, 2026-08-29).** These commits were
+> first landed onto `claude/happy-hamilton-0azlw4` — the branch of PR #1074,
+> whose status line reads *"PLAN/BOARD ONLY. Measure-before-carve. **No
+> contract change, no wiring**, until W1's numbers land."* That was a scope
+> violation I flagged against myself: 1138 lines of contract code on a
+> plan-only PR. #1074's STOP rule targets the EWA/Σ carrier (K1 `TrustSigma`
+> on `TrustQualia`) specifically, and **none of this is that carrier**, so the
+> rule's intent was intact — but its letter was not, and a reviewer of a plan
+> faced Rust.
+>
+> **Split executed on operator instruction:** the five commits now live on
+> `claude/epistemic-triptych-contract`, cut from `main`, and #1074 is recut to
+> EWA measurement / attention geometry only. Each PR can now be reviewed on the
+> questions it actually raises.
+
+### Current Contract Inventory — net delta: THREE modules, one primitive
+
+| added | where | what it is |
+|---|---|---|
+| `revision` (module) | `contract/src/revision.rs` | `EvidenceMask`, `InterpretiveHorizon`, `EncounterEvidence`, `BasisView`, `RevisionKind` (9), `EvidentialEffect` (3), `RevisionDelta`, `RevisionPolicy`, `GadamerRevision`, `RevisionOutcome`, `HypothesisReport`, `GroundingRequest` |
+| `fusion` (module) | `contract/src/fusion.rs` | `FusionOutcome` (7), `SynthesizedClaim`, `FusionReceipt`, `fuse()` |
+| `KanbanColumn::revise` | `contract/src/kanban.rs` | third routing primitive beside `advance`/`veto`; reaches `Plan` |
+| `KanbanColumn::advance_on_revision` | `contract/src/kanban.rs` | `EvidentialEffect` → route, the `TEST→ACCEPT` step of #1057 |
+
+**Why revision.rs at all:** PR #1057 (MERGED) names revision *"the only
+write-back"* and *"the court of appeal"* at its ACCEPT step, while
+`counterfactual.rs` had shipped twice and `revision.rs` never landed. A merged
+plan's ACCEPT step was governed by a module that did not exist.
+
+**`ISS-KANBAN-PLAN-EXIT-HAS-NO-NAMED-ROUTE` is CLOSED.** `Evaluation`'s
+successors are `[Commit, Plan, Prune]`; `advance()` takes the first non-`Prune`
+(always `Commit`), `veto()` takes `Prune`, and nothing produced `Plan`. The
+documented revision exit had legal-edge status and no route. `revise()` is the
+route; no edge added, no `next_phases` change.
+
+### ⚠ PRIOR ART — three loci that already held this, uncited
+
+Recorded because this session re-derived thinner versions of all three before
+finding them, twice AFTER diagnosing the pattern:
+
+- **`planner::nars::belief::BeliefArena::revise_at`** — canonical for **S4
+  pooling / known-overlap rejection**, via `b.stamp.disjoint(stamp)`.
+  > **⊘ CORRECTED same-day (operator).** This entry first said disjointness
+  > "IS the independence test" and that `revise_at` is canonical for
+  > independence. **Wrong** — PR #854 already ruled it:
+  > `event identity ≠ evidential-base membership ≠ source dependence`
+  > (line 1567 of this file). `Stamp` models source MEMBERSHIP and is lossy
+  > (`1 << (id % 64)`; ids 0 and 64 alias); `causal_audit.rs:346` leaves
+  > `independent_strength` `None` because there is **no dependence model**.
+  > `disjoint` is SOUND but NOT COMPLETE — aliasing yields only false overlap,
+  > so revision under-pools rather than double-counts.
+  > **Canonical register, corrected:** `revise_at` for S4 pooling under
+  > known overlap; **the #854 ruling** for the fact that true evidential
+  > independence is NOT established, its remedy (`EvidenceEventId`,
+  > `EvidentialBase<K>`, tri-state `Independence`) designed and unbuilt.
+  > `FusionReceipt::shared_roots` is therefore CONJECTURE expressing a
+  > contract the substrate cannot yet attest — not duplication.
+- **`planner::nars::stance::stance_panel`** — four philosophical late-bound,
+  non-destructive reads over one contradiction set. Its own doc: *"The three
+  meanings of aufheben ARE `revise_at`'s three fields: cancelled = pooled
+  truth, preserved = the `contradiction` field, lifted = the rung."* Plus
+  Nietzsche (genealogy by flip direction), Kant (ablate modal grading; the
+  delta is the reader's a-priori contribution, doubling as an inertness test),
+  Wittgenstein (distinct language-games).
+  > **⊘ CORRECTED same-day (operator): `stance_panel` is NOT H₃.** This entry
+  > first concluded "Hegelian synthesis was already in the substrate" and that
+  > the new horizon "is already four horizons". **Overcorrected.** Those are
+  > four READINGS of an existing state — blend modes over the same pixels.
+  > The Grail question is what new explanatory structure makes H₁ and H₂
+  > intelligible as partial horizons of a larger whole; `revise_at` pools the
+  > truth of the SAME `CStmt`, which is an Aufhebung metaphor, not the
+  > inference of a latent mediator. **The Grail survives, and is unbuilt.**
+- **`.claude/plans/epistemic-quadrant-materialization-v1.md`** + its 1859-line
+  `probe_sudoku_teacher.rs` — G3 is the membrane: *"bifurcation clones the slab
+  as a counterfactual world, propagates to contradiction, and **ONLY the
+  elimination returns**"*. G4 measures the cost of refusing to fork.
+
+**The finding that outranks any single defect: this architecture lives in FIVE
+loci that do not cross-reference** — `revise_at`, `stance_panel`, PR #1057,
+`epistemic-quadrant-materialization-v1`, and now the contract layer. Nothing is
+missing; it is scattered, and each session re-derives a thinner version of a
+neighbour it never read. A cross-reference pass is worth more than more code.
+
+
 ## 2026-08-27 — the D-MCAL arc, #1065–#1070 ALL MERGED (six of six deliverables)
 
 ### Current Contract Inventory — net delta of the arc
