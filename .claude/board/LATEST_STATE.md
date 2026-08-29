@@ -16,17 +16,20 @@ D-TVT-1) → D-TVT-3 (lens write onto SPO-stream rows) → D-TVT-4 (BUY / NO-BUY
 
 ## 2026-08-29 — the epistemic triptych lands in the contract (BRANCH, not yet merged)
 
-> **⚠ SCOPE NOTE, stated against myself.** These three modules were committed
-> onto `claude/happy-hamilton-0azlw4`, the branch of PR #1074 — whose own
-> status line reads *"PLAN/BOARD ONLY. Measure-before-carve. **No contract
-> change, no wiring**, until W1's numbers land."* 1138 lines of contract code
-> now sit on a plan-only PR. The plan's STOP rule targets the EWA/Σ carrier
-> (K1 `TrustSigma` on `TrustQualia`) specifically, and **none of this is that
-> carrier** — so the rule's intent is intact — but its letter is not, and a
-> reviewer of a plan now faces Rust. **Recommended: split these three commits
-> (`5eb74b1e`, `28cc1df2`, `cb923d5f`) onto their own PR** and restore #1074
-> to plan-only. Not done unilaterally: it needs a force-push to a pushed
-> branch, which is the operator's call.
+> **✅ SCOPE RESOLVED (operator-instructed, 2026-08-29).** These commits were
+> first landed onto `claude/happy-hamilton-0azlw4` — the branch of PR #1074,
+> whose status line reads *"PLAN/BOARD ONLY. Measure-before-carve. **No
+> contract change, no wiring**, until W1's numbers land."* That was a scope
+> violation I flagged against myself: 1138 lines of contract code on a
+> plan-only PR. #1074's STOP rule targets the EWA/Σ carrier (K1 `TrustSigma`
+> on `TrustQualia`) specifically, and **none of this is that carrier**, so the
+> rule's intent was intact — but its letter was not, and a reviewer of a plan
+> faced Rust.
+>
+> **Split executed on operator instruction:** the five commits now live on
+> `claude/epistemic-triptych-contract`, cut from `main`, and #1074 is recut to
+> EWA measurement / attention geometry only. Each PR can now be reviewed on the
+> questions it actually raises.
 
 ### Current Contract Inventory — net delta: THREE modules, one primitive
 
