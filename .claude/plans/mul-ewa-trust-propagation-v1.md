@@ -407,11 +407,40 @@ earlier wording paired "at or above the 90th ⇒ `Overconfident`" with a
 ties-to-lower-suspicion rule, which assigned a value equal to `p90` two
 different textures):
 
-| condition | texture | resulting `GateDecision` | strength |
+| condition | texture | resulting `GateDecision` † | strength |
 |---|---|---|---|
 | `trace ≤ p50` | `Calibrated` | `Flow` | proceed |
 | `p50 < trace ≤ p90` | `Overconfident` | `Hold` | pause |
 | `p90 < trace` | `Uncertain` | `Block` | veto |
+
+† **The decision column holds for `FlowState ∈ {Flow, Transition}`, and that
+is GUARANTEED for every chain this metric measures — it is not an added
+restriction** (CodeRabbit, #1074, raising the unconditional reading; the
+variant set below is a correction to the finding as stated).
+
+`from_axes` is texture-AND-flow, so the column is genuinely conditional:
+`(Calibrated, Anxiety)` → `Hold` via the `(_, Anxiety)` arm, and
+`(Calibrated, Boredom)` → `Hold` via the `_` fallthrough. **`FlowState` has
+FOUR variants** (`Flow`, `Boredom`, `Transition`, `Anxiety`), so the
+condition is NOT "non-`Anxiety`" — `Boredom` masks identically. Under either
+of those two states `Calibrated` and `Overconfident` BOTH yield `Hold`, so
+the `p50` cut point would be structurally **inert** and only the `p90`
+boundary could still produce a flip.
+
+That case cannot arise in the measured population, by construction rather
+than by stipulation. The flip-rate denominator is chains whose LOCAL arm
+reaches `Commit`; `advance_on_gate` reaches `advance()` only on
+`GateDecision::Flow`; and `Flow` is emitted by exactly ONE arm of
+`from_axes` — `(Calibrated | Underconfident, Flow | Transition)`. So a chain
+in the denominator necessarily had `FlowState ∈ {Flow, Transition}`, and
+since this plan holds `FlowState` FIXED across both arms, the propagated arm
+reads the same state. Every chain the metric scores therefore sits in the
+regime where the column above is exact.
+
+Stated because a reader applying this table OUTSIDE the denominator — to the
+whole cohort, or to a chain that never gated `Commit` — would be misled, and
+because a future change to the denominator would silently break the
+guarantee rather than the table.
 
 **The bucket order is DERIVED from `GateDecision::from_axes`, not from the
 variant names' English connotations** — and getting this backwards was a real
