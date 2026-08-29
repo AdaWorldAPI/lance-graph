@@ -146,9 +146,47 @@ forked.
    tightness/PSD numbers.
 2. Inline-sandwich parity gate: the probe's 2×2 math must reproduce jc's
    certified propagation on identical seeded inputs.
+
+   **The executable mechanism is a CHECKED FIXTURE, because the probe cannot
+   call `jc` and must not re-type its math** (CodeRabbit, #1074 — this was
+   raised, the thread was resolved, and the mechanism never actually landed;
+   the requirement was stated without a way to run it). The dependency facts
+   that force this shape, verified in-tree rather than assumed:
+   - `crates/jc` is a workspace MEMBER, zero-dep by default; its production
+     constitution is standalone.
+   - `crates/deepnsm-v2` is workspace-EXCLUDED and carries its own
+     `[workspace]` table, with `lance-graph-contract` as its SOLE dependency
+     — so the probe cannot reach `jc` at all, and adding that edge would
+     break the very property the crate's own manifest comment defends.
+
+   So the comparison is staged, not linked:
+   - **Generator (jc side):** a `jc` example calls the REAL
+     `jc::ewa_sandwich` over a fixed seeded input set and emits a small
+     committed table of `(Σ₀, M_k…, Σ_n)` triples in f64 hex (bit-exact, no
+     decimal round-trip), stamped with the **jc source commit** it was
+     generated from.
+   - **Assertion (probe side):** the deepnsm-v2 probe's inlined 15 lines run
+     the same inputs and must reproduce the committed outputs bit-for-bit.
+
+   **F-MEP-0 stays genuinely falsifiable under this shape**, which is the
+   reason a jc-side harness that *re-types* the probe's math was rejected:
+   with two independent copies, perturbing the probe's copy would leave the
+   harness's copy — and therefore the comparison — untouched, so the gate
+   could not fail and would be vacuous by construction. Against a committed
+   fixture, perturbing one matrix entry in the inlined sandwich turns the
+   assertion red, because the fixture is not derived from the code under
+   test.
    - F-MEP-0 (disable-verified): perturb one matrix entry in the inlined
      sandwich → parity goes red. If this cannot be made to fail, the gate
      is vacuous and W0 is not done.
+
+   **Staleness guard — the one real cost of a fixture over a live call.** A
+   committed table can silently drift from a `jc` that has since changed.
+   The stamped commit is what makes drift detectable rather than invisible:
+   W0 is NOT done unless the stamp matches the `jc` source in the checkout,
+   and a mismatch REGENERATES the fixture rather than being waived. (Step 1
+   already runs jc's own Pillar-6/7 provers green in this checkout, so a jc
+   that has genuinely regressed is caught there, not here.)
 
 **W1 — the information probe (STOP GATE for everything below; Sonnet arms,
 Opus adjudication).** Over real multi-hop chains (KJV derivation chains
