@@ -182,11 +182,31 @@ forked.
 
    **Staleness guard — the one real cost of a fixture over a live call.** A
    committed table can silently drift from a `jc` that has since changed.
-   The stamped commit is what makes drift detectable rather than invisible:
-   W0 is NOT done unless the stamp matches the `jc` source in the checkout,
-   and a mismatch REGENERATES the fixture rather than being waived. (Step 1
-   already runs jc's own Pillar-6/7 provers green in this checkout, so a jc
-   that has genuinely regressed is caught there, not here.)
+   The stamp is what makes drift detectable rather than invisible: W0 is NOT
+   done unless it matches the `jc` source in the checkout, and a mismatch
+   REGENERATES the fixture rather than being waived. (Step 1 already runs
+   jc's own Pillar-6/7 provers green in this checkout, so a jc that has
+   genuinely regressed is caught there, not here.)
+
+   **A commit hash alone is NOT a sufficient stamp** (CodeRabbit, #1074). A
+   commit id describes what was *committed*, not what is on disk: a fixture
+   generated from a dirty working tree — uncommitted edits under
+   `crates/jc` — carries a stamp that matches perfectly while the bytes it
+   was produced from exist nowhere in history. The guard would report
+   "current" for a fixture nobody can reproduce, which is worse than no
+   stamp, because it manufactures confidence. Both halves are therefore
+   required:
+   - **Content hash:** the stamp includes a hash of the actual
+     `jc::ewa_sandwich` source text the generator ran against, and W0
+     verifies it against the checkout's current bytes — so ANY edit,
+     committed or not, invalidates the fixture.
+   - **Clean-tree requirement:** the generator REFUSES to emit a fixture
+     while `crates/jc` has uncommitted changes, so a stamped artifact always
+     corresponds to a reachable commit as well as to specific bytes.
+
+   The two are not redundant: the content hash catches a stale fixture at
+   *verification* time, the clean-tree check stops an irreproducible one from
+   being *created*.
 
 **W1 — the information probe (STOP GATE for everything below; Sonnet arms,
 Opus adjudication).** Over real multi-hop chains (KJV derivation chains
@@ -234,10 +254,32 @@ become multiple observations, and never enter the AUC.
   advantage must beat a stamp-shuffled null on the same chains.
   **Fully specified, because "beat a null by 2σ" names neither a
   distribution nor a side** (CodeRabbit, #1074):
-  - **Redeals: `N_null = 1000`**, each a `shuffle_beliefs_null` redeal of the
-    S4 stamps across the SAME chains (the existing SplitMix64 Fisher-Yates
-    shuffle unit and seed formula are unchanged); seeds are
-    `base_seed + i` for `i` in `0..1000`, so the null set is reproducible.
+  - **Redeals: `N_null = 1000`**, seeds `base_seed + i` for `i` in `0..1000`,
+    so the null set is reproducible. The SplitMix64 Fisher-Yates algorithm
+    and seed formula are `shuffle_beliefs_null`'s, unchanged.
+  - **The permuted unit is the CHAIN-LEVEL BINARY LABEL, not the individual
+    `(p, o, n)` record** (CodeRabbit, #1074). `shuffle_beliefs_null` permutes
+    records, but W1's observation unit is one label per chain (fixed in the
+    previous round), and permuting records does NOT preserve the chain-level
+    class counts — a redeal could concentrate several events onto one chain
+    and empty another, so the null distribution would be over a *different*
+    quantity than the observed statistic and could not bound it. Each redeal
+    therefore permutes the half-1 label vector, which preserves the positive
+    and negative CHAIN counts exactly in every draw. That is what makes it a
+    genuine permutation null: only the *pairing* between suspicion score and
+    label is destroyed, never the class balance.
+    (Noted as an interaction, not a defect in `shuffle_beliefs_null` — the
+    function is right for the corpus-scale belief-structure question it was
+    written for; it is the unit that had to follow W1's observation unit.)
+  - **Degenerate redeal behaviour.** Because the permutation preserves class
+    counts, a redeal can only be single-class if the observed half-1 data
+    already was — which the per-half floors (`≥ 10` of each class) and the
+    single-class guard both reject before the null is ever built. So no
+    redeal can produce an undefined AUC that the observed run did not
+    already fail on. If that invariant is ever violated at runtime, the probe
+    stops as **UNDERPOWERED** and reports the offending draw rather than
+    substituting a value for its ΔAUC — an imputed `0.0` would silently drag
+    the null mean toward zero and make the `+2σ` bar easier to clear.
   - **Statistic: `ΔAUC` itself** — recomputed on half 1 under each redeal,
     giving a null distribution of the SAME quantity the BUY rule reads. A
     null over some other statistic would not bound the decision being made.
@@ -365,11 +407,55 @@ earlier wording paired "at or above the 90th ⇒ `Overconfident`" with a
 ties-to-lower-suspicion rule, which assigned a value equal to `p90` two
 different textures):
 
-| condition | texture |
-|---|---|
-| `trace ≤ p50` | `Calibrated` |
-| `p50 < trace ≤ p90` | `Uncertain` |
-| `p90 < trace` | `Overconfident` |
+| condition | texture | resulting `GateDecision` | strength |
+|---|---|---|---|
+| `trace ≤ p50` | `Calibrated` | `Flow` | proceed |
+| `p50 < trace ≤ p90` | `Overconfident` | `Hold` | pause |
+| `p90 < trace` | `Uncertain` | `Block` | veto |
+
+**The bucket order is DERIVED from `GateDecision::from_axes`, not from the
+variant names' English connotations** — and getting this backwards was a real
+defect in an earlier draft of this table (found 2026-08-29 while verifying a
+CodeRabbit finding that was itself wrong about which enum applies; see the
+note below). The verified call chain is:
+
+`trace ratio` → `TrustTexture` (this table) → **`GateDecision::from_axes(texture, flow)`**
+→ `KanbanColumn::advance_on_gate(&GateDecision)`
+
+`advance_on_gate` takes a **`&GateDecision`** — it never sees a `TrustTexture`
+directly, so this table only matters through `from_axes`, which is documented
+in-source as "the ONE place this mapping lives". Reading `from_axes`
+(`contract/src/mul.rs`) with `FlowState` held at its locally-assessed value
+(this plan never varies it): `Uncertain` → **`Block`** under EVERY flow state;
+`Overconfident` → **`Hold`**; `Calibrated | Underconfident` in
+`Flow`/`Transition` → **`Flow`**.
+
+So gate strength runs `Flow < Hold < Block`, and the mapping must be MONOTONE
+in suspicion against THAT ordering. The earlier draft put `Uncertain` in the
+middle bucket and `Overconfident` at the top, which meant the **most**
+suspicious chains produced the **milder** intervention (`Hold`) while
+moderately suspicious ones produced the strongest (`Block`) — inverting the
+very quantity W3 measures, since the metric is a `Commit→{Hold,Prune}` flip
+rate. The corrected order above is monotone: more propagated uncertainty
+never yields a weaker gate outcome.
+
+The naming reads oddly for one bucket and is nonetheless correct:
+`Uncertain` is documented as "not enough data to assess", which is exactly a
+chain whose propagated covariance has blown up — and the contract routes that
+to the strongest intervention. `Overconfident` ("felt >> demonstrated") sits
+below it at `Hold`.
+
+> **⊘ On the enum this table names.** A review pass asked for these buckets to
+> be mapped onto `Crystalline / Solid / Fuzzy / Murky`. That is a DIFFERENT
+> `TrustTexture` — four distinct types share the name (`contract::mul`,
+> `causal-edge::layout`, `lance-graph-planner::mul::trust` with a fifth
+> `Dissonant` variant, and `arigraph::orchestrator`). The one on this path is
+> **`contract::mul::TrustTexture`**, because that is what `from_axes` takes.
+> `causal-edge/src/layout.rs` carries an explicit in-source ruling against
+> building the requested cast — *"Canonical: NONE — both are domain-correct
+> and should keep distinct names. Do not build a cast on the old claim."* —
+> so the remap is not merely unnecessary here, it is forbidden. Recorded so a
+> later session does not re-open it.
 
 Both boundaries close DOWNWARD, which is the ties-to-lower-suspicion rule
 stated as arithmetic rather than as a separate sentence that can contradict
@@ -430,6 +516,17 @@ changed nothing" when the truth is "the arm never ran."
     runs and the pins prove badly placed, they are RE-PINNED with the
     measurement and the reason stated, never quietly relaxed to convert a
     failing gate into a passing one.
+  - **A re-pin VOIDS the run it came from** (CodeRabbit, #1074). "Re-pin
+    honestly and state the reason" is not enough on its own: if the current
+    run's verdict survives a threshold changed *after* seeing that run's
+    numbers, the pins were effectively chosen to fit the data and the
+    pre-registration bought nothing — the disclosure makes it visible, not
+    valid. So the procedure is: the run that motivated the change is marked
+    **VOID** and its verdict discarded (its numbers are still banked, as
+    motivation for the new pins), the revised pins are declared, and only a
+    FRESH run under those pins may be evaluated pass/fail. There is no path
+    by which the same execution both justifies a threshold and is judged by
+    it.
 - **No wiring lands in W3.** It is a probe against the existing
   `advance_on_gate`; changing the gate's signature or default is explicitly
   out of scope for v1.
