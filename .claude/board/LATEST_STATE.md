@@ -53,19 +53,38 @@ route; no edge added, no `next_phases` change.
 Recorded because this session re-derived thinner versions of all three before
 finding them, twice AFTER diagnosing the pattern:
 
-- **`planner::nars::belief::BeliefArena::revise_at`** — already implements the
-  synthesis primitive AND the anti-alchemy law. Its guard is
-  `b.stamp.disjoint(stamp)`; `Stamp` carries evidential ancestry, so
-  **disjointness IS the independence test**. `FusionReceipt::shared_roots` is a
-  re-derivation of it over a different carrier. **`revise_at` is canonical.**
+- **`planner::nars::belief::BeliefArena::revise_at`** — canonical for **S4
+  pooling / known-overlap rejection**, via `b.stamp.disjoint(stamp)`.
+  > **⊘ CORRECTED same-day (operator).** This entry first said disjointness
+  > "IS the independence test" and that `revise_at` is canonical for
+  > independence. **Wrong** — PR #854 already ruled it:
+  > `event identity ≠ evidential-base membership ≠ source dependence`
+  > (line 1567 of this file). `Stamp` models source MEMBERSHIP and is lossy
+  > (`1 << (id % 64)`; ids 0 and 64 alias); `causal_audit.rs:346` leaves
+  > `independent_strength` `None` because there is **no dependence model**.
+  > `disjoint` is SOUND but NOT COMPLETE — aliasing yields only false overlap,
+  > so revision under-pools rather than double-counts.
+  > **Canonical register, corrected:** `revise_at` for S4 pooling under
+  > known overlap; **the #854 ruling** for the fact that true evidential
+  > independence is NOT established, its remedy (`EvidenceEventId`,
+  > `EvidentialBase<K>`, tri-state `Independence`) designed and unbuilt.
+  > `FusionReceipt::shared_roots` is therefore CONJECTURE expressing a
+  > contract the substrate cannot yet attest — not duplication.
 - **`planner::nars::stance::stance_panel`** — four philosophical late-bound,
   non-destructive reads over one contradiction set. Its own doc: *"The three
   meanings of aufheben ARE `revise_at`'s three fields: cancelled = pooled
   truth, preserved = the `contradiction` field, lifted = the rung."* Plus
   Nietzsche (genealogy by flip direction), Kant (ablate modal grading; the
   delta is the reader's a-priori contribution, doubling as an inertness test),
-  Wittgenstein (distinct language-games). Hegelian synthesis was already in the
-  substrate.
+  Wittgenstein (distinct language-games).
+  > **⊘ CORRECTED same-day (operator): `stance_panel` is NOT H₃.** This entry
+  > first concluded "Hegelian synthesis was already in the substrate" and that
+  > the new horizon "is already four horizons". **Overcorrected.** Those are
+  > four READINGS of an existing state — blend modes over the same pixels.
+  > The Grail question is what new explanatory structure makes H₁ and H₂
+  > intelligible as partial horizons of a larger whole; `revise_at` pools the
+  > truth of the SAME `CStmt`, which is an Aufhebung metaphor, not the
+  > inference of a latent mediator. **The Grail survives, and is unbuilt.**
 - **`.claude/plans/epistemic-quadrant-materialization-v1.md`** + its 1859-line
   `probe_sudoku_teacher.rs` — G3 is the membrane: *"bifurcation clones the slab
   as a counterfactual world, propagates to contradiction, and **ONLY the

@@ -61,12 +61,30 @@
 //! Found AFTER this module was written (2026-08-29), and recorded here so the
 //! next session does not re-derive it a fourth time:
 //!
-//! - **`lance_graph_planner::nars::belief::BeliefArena::revise_at`** already
-//!   implements BOTH the synthesis primitive and the anti-alchemy law. Its
-//!   guard is `b.stamp.disjoint(stamp)` — `Stamp` carries evidential
-//!   ancestry, so disjointness IS the independence test, and
-//!   [`FusionReceipt::shared_roots`] is a re-derivation of it over a
-//!   different carrier (`EvidenceMask` instead of `Stamp`).
+//! - **`lance_graph_planner::nars::belief::BeliefArena::revise_at`** carries
+//!   the S4 pooling guard: `b.stamp.disjoint(stamp)`.
+//!
+//!   > **⊘ CORRECTION (operator, 2026-08-29).** An earlier revision of this
+//!   > block said disjointness "IS the independence test" and that
+//!   > [`FusionReceipt::shared_roots`] merely re-derives it. **That was
+//!   > wrong**, and PR #854 already ruled why:
+//!   > `event identity ≠ evidential-base membership ≠ source dependence`
+//!   > (`LATEST_STATE.md:1567`). `Stamp` models **source MEMBERSHIP**, and it
+//!   > is lossy — `Stamp::source(id) = 1 << (id % 64)`, so ids `0` and `64`
+//!   > alias. `causal_audit.rs:346`: *"`independent_strength` is left `None`
+//!   > throughout: **no dependence model**."*
+//!   >
+//!   > So `disjoint` is **sound but not complete**: aliasing manufactures only
+//!   > false OVERLAP, never false disjointness, so revision under-pools rather
+//!   > than double-counts. It safely rejects KNOWN overlap; it does not
+//!   > establish independence. The named remedy — `EvidenceEventId` +
+//!   > `EvidentialBase<K>` + **tri-state** `OverlapKnowledge`/`Independence` —
+//!   > is designed and unbuilt, and tri-state is the tell: `disjoint` returns
+//!   > a bool and so collapses `Unknown` into one of the two answers.
+//!   >
+//!   > [`FusionReceipt::shared_roots`] therefore expresses a contract the
+//!   > substrate **cannot yet attest** — CONJECTURE, not duplication. Read it
+//!   > as aspirational until an evidence-event identity exists.
 //! - **`lance_graph_planner::nars::stance::stance_panel`** already reads a
 //!   contradiction set through four philosophical stances, and its own doc
 //!   states the Hegel mapping exactly: *"The three meanings of aufheben ARE
@@ -77,12 +95,29 @@
 //!   language-games) are the other three. Stances are **late-bound and
 //!   non-destructive** — nothing collapses.
 //!
-//! So Hegelian synthesis is already in the substrate, and the "new horizon
-//! from which the disagreement becomes intelligible" is already four horizons.
-//! What this module adds is only a **zero-dep contract-layer seam**: the same
-//! discipline expressed over `InterpretiveHorizon` without a `BeliefArena`,
-//! for consumers that cannot depend on the planner. Where the two disagree,
-//! **`revise_at` is canonical.**
+//!   > **⊘ SECOND CORRECTION — `stance_panel` is not H₃.** An earlier
+//!   > revision claimed the "new horizon from which the disagreement becomes
+//!   > intelligible" was "already four horizons". **Overcorrected.** Those are
+//!   > four *readings of an existing state* — how Hegel ranks this
+//!   > contradiction, how Nietzsche reads its genealogy, what Kant's a-priori
+//!   > reader contributed, which language-games Wittgenstein sees. They are
+//!   > blend modes over the same pixels, non-destructive by design.
+//!   >
+//!   > The Grail question is different: **what new explanatory structure makes
+//!   > H₁ and H₂ intelligible as partial horizons of a larger whole?** Neither
+//!   > `stance_panel` nor `revise_at` constructs that — `revise_at` pools the
+//!   > truth of the SAME `CStmt` under the S4 guard, which is a computational
+//!   > Aufhebung metaphor, not the inference of a latent mediator, a revised
+//!   > ontology, or a perspective transform. **The Grail survives.**
+//!
+//! # What this module does and does not do
+//!
+//! `fuse()` establishes **synthesis ADMISSIBILITY and provenance** — when a
+//! synthesis is allowed, and on whose evidence. It does NOT infer the new
+//! relation: [`SynthesizedClaim`] carries `preserved` / `revised_assumptions`
+//! / `surviving_tension` and no inferred structure `X`. That boundary is
+//! deliberate, not an omission: the generative act stays outside, so this
+//! module cannot become the thing that both proposes and licenses.
 //!
 //! # No confidence scalar
 //!

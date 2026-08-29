@@ -220,6 +220,71 @@ pub enum EvidentialEffect {
     Suspend,
 }
 
+/// Did the counterfactual attack actually run, and what did it find?
+///
+/// The middle leg of the Fusion → Counterfactual → Revision docket. Its
+/// question is **explanatory necessity**: remove the candidate — does
+/// structure collapse?
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum CounterfactualVerdict {
+    /// Removal collapsed explanatory structure: the candidate is load-bearing.
+    Necessary,
+    /// Structure survived removal: the candidate is decorative.
+    Dispensable,
+    /// **Not attacked.** The docket is incomplete — the default, and the
+    /// reason this type exists.
+    NotRun,
+}
+
+/// An ADJUDICATED revision — an [`EvidentialEffect`] plus proof the docket was
+/// actually walked.
+///
+/// # Why eligibility is not acceptance
+///
+/// [`EvidentialEffect::IncreaseEligible`] means exactly one thing: *a
+/// genuinely new independent root was introduced*. It does **not** mean the
+/// counterfactual passed, the reasoning band admitted the operation,
+/// provenance is authoritative, or the synthesis survived falsification.
+///
+/// [`GadamerRevision::revise`] can emit `IncreaseEligible` from an
+/// `EncounterEvidence` alone — no [`crate::fusion::FusionReceipt`], no
+/// counterfactual attack. Routing that straight to `Commit` was a legal
+/// shortcut PAST the architecture:
+///
+/// ```text
+/// EncounterEvidence → revise → IncreaseEligible → Commit     (the shortcut)
+/// Fusion → Counterfactual → Revision → ACCEPT                (the docket)
+/// ```
+///
+/// `revision_verdict_alone_cannot_reach_commit` proves the shortcut was
+/// reachable and is now closed: eligibility WITHOUT `Necessary` routes to
+/// `Plan` — understanding rose, the docket did not complete, so re-deliberate
+/// carrying the witness.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub struct RevisionVerdict {
+    pub effect: EvidentialEffect,
+    pub counterfactual: CounterfactualVerdict,
+}
+
+impl RevisionVerdict {
+    /// A verdict with the docket NOT walked — the honest default.
+    #[must_use]
+    pub fn unadjudicated(effect: EvidentialEffect) -> Self {
+        Self {
+            effect,
+            counterfactual: CounterfactualVerdict::NotRun,
+        }
+    }
+
+    /// Only an eligible effect whose candidate survived counterfactual attack
+    /// may be accepted into reality.
+    #[must_use]
+    pub fn is_acceptable(self) -> bool {
+        self.effect == EvidentialEffect::IncreaseEligible
+            && self.counterfactual == CounterfactualVerdict::Necessary
+    }
+}
+
 /// Explicit delta between the prior and resulting horizons.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct RevisionDelta<A, M> {
