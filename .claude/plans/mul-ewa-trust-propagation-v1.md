@@ -103,6 +103,18 @@ and write down, a construction:
   off-diagonal `s12` means. A diagonal seed (`s12 = 0`) is the honest default
   — it asserts no measured correlation — and must be declared as such rather
   than smuggled in.
+  **Positive-trace precondition (CodeRabbit, #1074):** `s12 = 0` alone does
+  NOT make the readout well-defined — a seed with `s11 = s22 = 0` has
+  `trace(Σ₀) = 0` and the normalized readout below divides by zero. The seed
+  construction MUST therefore also satisfy `trace(Σ₀) > 0` (equivalently, at
+  least one variance axis is strictly positive). A chain whose seed fails
+  this is **EXCLUDED wholesale and its count REPORTED**, exactly like a chain
+  with missing hop data — never silently mapped to 0, 1, or NaN, each of
+  which would masquerade as a measured propagation result. Note the exclusion
+  is not cosmetic: a zero-variance seed asserts perfect certainty about both
+  axes, so there is no uncertainty for the operator under test to propagate,
+  and including it would score arms (a) and (b) as tied for a reason that has
+  nothing to do with propagation.
 - **`M_k` (the hop transform) — PREDECLARED:** `M_k = √(per-hop trust)·I`
   (isotropic) is the CONTROL form; the treatment is a margin-scaled
   anisotropic form, declared in D-MEP-1 before any run.
@@ -169,14 +181,14 @@ run and requires a re-pin with the change stated:
 | readout | **trace(Σ)** — ONE scalar, fixed. (Largest eigenvalue is NOT evaluated; picking between them post-hoc is the defect this row exists to prevent.) |
 | ties | equal readout ⇒ equal rank (average-rank convention, standard for Spearman) |
 | missing hop data | chain EXCLUDED wholesale, never imputed; the excluded count is REPORTED |
-| minimum sample | **n ≥ 200** qualifying chains; below that the probe reports UNDERPOWERED and stops — that is a valid, honest exit |
-| split | **deterministic, chain-level, leakage-safe**: partition key = the chain's ROOT SUBJECT id (never the chain id — two chains sharing a root would otherwise straddle the split and leak); half = `blake3(root_subject_id ‖ "mep-w1-v1")[0] & 1`. Half **0** FITS (the AUC comparison is computed here); half **1** EVALUATES the F-MEP-2 threshold ONCE, no re-fitting. The literal salt is part of the pre-registration, so a re-run reproduces the identical partition. |
+| minimum sample | **n ≥ 200** qualifying chains **in total, AND per-half floors that the total does not imply** (CodeRabbit, #1074): each half independently needs **≥ 50 chains, ≥ 10 positive and ≥ 10 negative S4 events**. A cohort-level `n` says nothing about how it landed either side of a hash split, so the total is a necessary and NOT a sufficient condition. Below ANY of these the probe reports UNDERPOWERED with the failing count named, and stops — a valid, honest exit. The floors are declared here, before any run, precisely so they cannot be relaxed after seeing which one bites. |
+| split | **deterministic, chain-level, leakage-safe**: partition key = the chain's ROOT SUBJECT id (never the chain id — two chains sharing a root would otherwise straddle the split and leak); half = `blake3(root_subject_id ‖ "mep-w1-v1")[0] & 1`. Half **0** FITS — every free choice (which suspicion ranking, any construction detail left open by D-MEP-1) is fixed here, and its ΔAUC is DIAGNOSTIC ONLY, never the number the BUY rule reads. Half **1** EVALUATES: **the ΔAUC the BUY threshold is applied to is computed on half 1 ALONE, exactly once, with no re-fitting** — reporting a half-0 ΔAUC or a pooled ΔAUC as the decision number is the defect this row exists to prevent. The literal salt is part of the pre-registration, so a re-run reproduces the identical partition. |
 | comparison metric | AUC of suspicion-rank vs the binary S4 error signal |
-| **degenerate AUC** | AUC is UNDEFINED when an evaluation half carries no positive or no negative S4 event, and `n ≥ 200` does **not** prevent that (CodeRabbit, #1074). Both halves' **class counts are REPORTED unconditionally**; if either half is single-class the probe stops as **UNDERPOWERED** — never NO-BUY, since a degenerate split is a statement about the cohort, not about the operator under test, and never a computed AUC on a one-class half. |
-| BUY threshold | ΔAUC **≥ 0.05** over arm (a) AND clearing the F-MEP-3 null by ≥ 2σ of the shuffle distribution |
+| **degenerate AUC** | AUC is UNDEFINED when a half carries no positive or no negative S4 event, and `n ≥ 200` does **not** prevent that (CodeRabbit, #1074). Both halves' **class counts are REPORTED unconditionally**; if either half is single-class the probe stops as **UNDERPOWERED** — never NO-BUY, since a degenerate split is a statement about the cohort, not about the operator under test, and never a computed AUC on a one-class half. This is the ZERO-count guard only; the ≥ 10-per-class floors in the minimum-sample row are what stop a *technically* two-class half from producing an AUC too unstable to decide on. |
+| BUY threshold | **All three, on half 1:** (i) `AUC(b) > 0.5` — the EWA arm must be predictive AT ALL, not merely less anti-predictive than the baseline. Without this, `AUC(b) = 0.20` over `AUC(a) = 0.10` clears a ΔAUC bar while both arms rank *backwards*, and the "win" is a bigger error (CodeRabbit, #1074). (ii) ΔAUC **≥ 0.05** over arm (a). (iii) clearing the F-MEP-3 null by ≥ 2σ of the shuffle distribution. An arm that is anti-predictive (`AUC ≤ 0.5`) is a NO-BUY however large its ΔAUC — and if BOTH arms land below 0.5 the probe reports that inversion explicitly, since a systematically backwards ranking is a finding about the suspicion construction, not a quiet NO-BUY. |
 
-Anything short of BOTH thresholds is NO-BUY. "Better" has no meaning in this
-plan outside this table.
+Anything short of ALL THREE conditions is NO-BUY. "Better" has no meaning in
+this plan outside this table.
 
 **W2 — the carrier (GATED on W1 BUY; Opus review, Sonnet transcription).**
 Mint K1 ONLY if W1 showed derived-per-read Σ (K2) insufficient (e.g. a
@@ -249,11 +261,23 @@ nearest-rank method** (`ceil(p/100 · N)`-th value of the ascending trace
 list — no interpolation, so the result is exact and reproducible across
 implementations). If the clean set is empty or `N < 50`, W3 stops as
 **UNDERPOWERED** and reports the count, rather than deriving cut points from
-a sample too small to place a 90th percentile. `TrustTexture` is then
-`Calibrated` below the 50th percentile, `Uncertain` between the 50th and
-90th,
-and `Overconfident` at or above the 90th. Ties resolve to the LOWER-suspicion
-texture (the conservative direction: a tie must not manufacture a flip).
+a sample too small to place a 90th percentile. `TrustTexture` is then read
+off **explicit, non-overlapping, exhaustive intervals**, so a value landing
+exactly ON a cut point has exactly one outcome (CodeRabbit, #1074 — the
+earlier wording paired "at or above the 90th ⇒ `Overconfident`" with a
+ties-to-lower-suspicion rule, which assigned a value equal to `p90` two
+different textures):
+
+| condition | texture |
+|---|---|
+| `trace ≤ p50` | `Calibrated` |
+| `p50 < trace ≤ p90` | `Uncertain` |
+| `p90 < trace` | `Overconfident` |
+
+Both boundaries close DOWNWARD, which is the ties-to-lower-suspicion rule
+stated as arithmetic rather than as a separate sentence that can contradict
+the intervals: a chain sitting exactly on a cut point keeps the calmer
+texture, so a tie can never manufacture a flip.
 `Underconfident` is never produced — nothing in a propagated covariance
 distinguishes it from `Calibrated`, and inventing that distinction is exactly
 the coordinate-fabrication the census measured. `FlowState` is held FIXED at
