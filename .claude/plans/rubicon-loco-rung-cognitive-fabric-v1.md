@@ -278,6 +278,58 @@ the `D-ACR-*` board rows. This section's own first draft is the instance: it
 invented a delta-budget model for a design that had already been written down
 in 76 KB, and would have sent `D-RLR-5` to measure the wrong quantity.
 
+### §F.5 ⊘ CORRECTED (2026-08-29, same day) — the write path is not hypothetical, it already shipped, in a sibling repo
+
+§F.3 said `D-RLR-5` was HELD behind `D-ACR-2` (rail unminted) and `D-ACR-3`
+(no ontology-owned write path exists). **The second half of that was checked
+in `lance-graph` only** — and it does hold, narrowly, for the reason given
+below. But stated as "the write path is unbuilt," it was answered wrong to a
+direct question (*"how do you currently write 10 rung levels?"*) without
+checking a sibling repo already cloned on local disk. Full verified account:
+`.claude/board/EPIPHANIES.md` `E-A-RUNG-WRITE-PATH-ALREADY-SHIPPED-IN-A-SIBLING-REPO-1`.
+
+**What is real, read from merged source, not from a PR description:**
+`MedCare-rs`'s `medcare-nodesoa::alpha` (PR #565 merged 2026-08-22, extended
+by PR #590 merged 2026-08-26) depends **directly** on
+`lance_graph_contract::canonical_node::{NodeGuid, NodeRow}` and defines
+
+```rust
+pub struct AlphaStamp { cycle: u32, seq: u32, rung: u8, visits: u16 }
+```
+
+— a `rung: u8` at byte offset 8 of a 16-byte value slot, inside the SAME
+canonical 512-byte `NodeRow`, through the SAME `FixedSizeBinary(512)` Arrow
+column, with an optional `lance` feature that persists it to a real on-disk
+Lance dataset (PR #561: *"8 arrow-only Tests plus der On-Disk-Beweis gegen
+einen echten Lance-Datensatz"*). Ephemeral by operator ruling — *"ephemer
+daneben, verwerfbar"* — no bake-table row, discardable whole, exactly the
+`E-EPHEMERAL-DISCARDABLE` shape this plan's §F already argued for on other
+grounds.
+
+**Corrected reading of `D-ACR-3`.** `lance-graph` itself has no ontology-owned
+write path because `lance-graph` itself owns no live `NodeRow` spine to
+attach an overlay to — it is a contract-only crate. `MedCare-rs` has a live
+baked spine (the OBO/ontology bake), so it built and Lance-proved the pattern
+immediately, on the identical contract types. **The write path is proven,
+once, adjacent to real data — not unbuilt in the architecture.** Whatever
+`D-ACR-2`/mint work happens in `lance-graph` should read this implementation
+first, not design a second one from a blank page.
+
+**Explicit non-claim, so this does not become the next overcorrection.**
+`AlphaStamp.rung` is a plain `u8` with domain-local meaning ("which rung of
+*attention*"); it does **not** import `RungLevel` (0-9,
+Surface..Transcendent) from `contract::cognitive_shader`. Same name, same
+operator-brainstorm week, **not proven to be the same vocabulary.** `D-RLR-5`
+(re-scoped) should include: is `AlphaStamp.rung` the same ladder `RungLevel`
+names, a coarser projection of it, or an unrelated attention-depth scale?
+
+**`F-RLR-11` (STOP, new):** any claim that a mechanism is "unbuilt" or "no
+write path exists" that was reached by searching only the repo the session
+happens to be in. Before asserting an absence, check every repo in the
+session's own scope that plausibly contains the thing — a sibling repo
+already cloned to local disk, with its `CLAUDE.md` already loaded into this
+session's context, is not an exotic place to have to look.
+
 ## §G Kanban / Rubicon verdict
 
 - **Internal string paths: NONE.** No `from_str`, no `as_str`, no column-name
