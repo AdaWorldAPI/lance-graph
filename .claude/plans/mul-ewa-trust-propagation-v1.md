@@ -157,10 +157,36 @@ suspicion under two arms:
 - (a) **scalar baseline** — naive decay: the **product** of per-hop trust
   (predeclared above; `min` rejected), the default every stack uses;
 - (b) **EWA arm** — per-hop 2×2 Σ (K2 derivation), sandwich-propagated,
-  read out as a scalar (largest eigenvalue or trace).
+  read out as the ONE scalar the protocol table fixes:
+  `trace(Σ_n)/trace(Σ₀)`. (An earlier draft here read "largest eigenvalue
+  or trace" — that left the readout unfixed at the arm definition while the
+  table below fixed it, i.e. exactly the post-hoc choice the
+  pre-registration exists to close. Trace is the readout, normalized,
+  everywhere in this plan.)
+
+**The observation unit is ONE per chain** (CodeRabbit, #1074). Each
+qualifying chain contributes **exactly one** suspicion score per arm and
+**exactly one** binary S4 label; the label is `1` if the chain carries **≥ 1**
+S4 error event and `0` otherwise. Without this, a chain with many S4 events
+would enter the AUC repeatedly and silently weight the result by event
+count — and the per-half floors would be counting two different things in
+the two halves. Event COUNTS are still reported (they are the input to the
+F-MEP-5 concentration statistic below), but they never become weights, never
+become multiple observations, and never enter the AUC.
+
 - F-MEP-1 (anti-vacuity): the two rankings must DIVERGE non-trivially
   (Spearman ρ < 0.95 over the suspicion ordering). Identical rankings ⇒
   the seam buys nothing ⇒ **NO-BUY immediately**, numbers banked.
+  **Zero-variance guard (CodeRabbit, #1074):** Spearman ρ is UNDEFINED when
+  either arm's suspicion scores are all tied — the rank-variance denominator
+  is zero and the result is NaN, which must never reach a comparison against
+  `0.95` (in IEEE 754 every such comparison is false, so an unguarded NaN
+  would silently read as "diverged" and wave the run through the gate whose
+  entire job is to catch a non-divergent pair). Before computing ρ the probe
+  REPORTS each arm's **distinct-score count**; if either arm has `< 2`
+  distinct scores the run stops as **UNDERPOWERED** — not NO-BUY, since an
+  all-tied arm is a statement about the construction or the cohort, not a
+  measured verdict on the operator.
 - F-MEP-2 (the buy signal): on the divergent subset, arm (b) must predict
   an INDEPENDENT error signal better than (a). Error signal = S4-guarded
   arena events only (Choice-on-overlap hits, revision conflicts,
@@ -168,6 +194,23 @@ suspicion under two arms:
   (TD-NARS-REVISION-UNGUARDED's lesson as a methodological fence).
 - F-MEP-3 (null control, `shuffle_beliefs_null` precedent): arm (b)'s
   advantage must beat a stamp-shuffled null on the same chains.
+  **Fully specified, because "beat a null by 2σ" names neither a
+  distribution nor a side** (CodeRabbit, #1074):
+  - **Redeals: `N_null = 1000`**, each a `shuffle_beliefs_null` redeal of the
+    S4 stamps across the SAME chains (the existing SplitMix64 Fisher-Yates
+    shuffle unit and seed formula are unchanged); seeds are
+    `base_seed + i` for `i` in `0..1000`, so the null set is reproducible.
+  - **Statistic: `ΔAUC` itself** — recomputed on half 1 under each redeal,
+    giving a null distribution of the SAME quantity the BUY rule reads. A
+    null over some other statistic would not bound the decision being made.
+  - **One-sided.** The claim is directional (EWA predicts error BETTER),
+    so the criterion is `ΔAUC_observed ≥ mean(null) + 2·sd(null)`. A
+    two-sided reading would credit a significant result in the wrong
+    direction.
+  - **Zero null variance ⇒ UNDERPOWERED, never an automatic pass.** If
+    `sd(null) == 0` the `+2σ` bar collapses onto the mean and ANY positive
+    observed ΔAUC would clear it — a gate that cannot fail. The probe
+    reports the degenerate null and stops.
 
 **The statistical protocol is PREDECLARED — every value below is fixed
 BEFORE the probe runs** (CodeRabbit, #1074: unspecified choices "can be made
@@ -178,7 +221,7 @@ run and requires a re-pin with the change stated:
 | knob | predeclared value |
 |---|---|
 | cohort | every S4-guarded arena chain of hop-length **≥ 2** (single-hop chains cannot distinguish propagation from its seed) |
-| readout | **trace(Σ)** — ONE scalar, fixed. (Largest eigenvalue is NOT evaluated; picking between them post-hoc is the defect this row exists to prevent.) |
+| readout | **`trace(Σ_n)/trace(Σ₀)`** — ONE scalar, fixed, and **normalized**; the seed's `trace(Σ₀) > 0` precondition above is what makes it well-defined. Raw `trace(Σ_n)` is NOT the readout: it is not comparable across chains with different seed magnitudes, so ranking on it would sort partly by how uncertain a chain STARTED rather than by what propagation did to it (CodeRabbit, #1074 — caught where W3 had inherited the raw form). Largest eigenvalue is NOT evaluated; picking between readouts post-hoc is the defect this row exists to prevent. **Every wave uses this one scalar** — W1's ranking and W3's `p50`/`p90` cut points alike. |
 | ties | equal readout ⇒ equal rank (average-rank convention, standard for Spearman) |
 | missing hop data | chain EXCLUDED wholesale, never imputed; the excluded count is REPORTED |
 | minimum sample | **n ≥ 200** qualifying chains **in total, AND per-half floors that the total does not imply** (CodeRabbit, #1074): each half independently needs **≥ 50 chains, ≥ 10 positive and ≥ 10 negative S4 events**. A cohort-level `n` says nothing about how it landed either side of a hash split, so the total is a necessary and NOT a sufficient condition. Below ANY of these the probe reports UNDERPOWERED with the failing count named, and stops — a valid, honest exit. The floors are declared here, before any run, precisely so they cannot be relaxed after seeing which one bites. |
@@ -252,16 +295,32 @@ boundary).
 
 **The Σ → `TrustTexture` mapping is PREDECLARED, deterministic, and single**
 (CodeRabbit, #1074 — "different mappings produce different flip rates"):
-using the same `trace(Σ)` readout W1 fixed, and the W1 **fit half** (half 0,
-per the split row above) to set its cut points. **"Clean chain" is defined,
-not assumed**: a chain in the fit half carrying **zero** S4 error events —
-the same binary signal W1's AUC uses, so the two waves cannot drift apart on
-what "clean" means. Cut points are the **50th and 90th percentiles by the
-nearest-rank method** (`ceil(p/100 · N)`-th value of the ascending trace
-list — no interpolation, so the result is exact and reproducible across
-implementations). If the clean set is empty or `N < 50`, W3 stops as
-**UNDERPOWERED** and reports the count, rather than deriving cut points from
-a sample too small to place a 90th percentile. `TrustTexture` is then read
+using the **NORMALIZED** readout W1 fixed — `trace(Σ_n)/trace(Σ₀)`, not raw
+`trace(Σ)`. This correction matters and is not cosmetic (CodeRabbit, #1074):
+raw traces are not comparable across chains with different seed magnitudes,
+so percentile cut points over raw traces would sort chains largely by **how
+uncertain they started**, handing `Overconfident` to any chain with a big
+seed regardless of what propagation did to it. The normalized ratio is the
+quantity that actually measures propagated change, and it is the same scalar
+W1 ranks on — so the two waves cannot disagree about what was measured.
+
+**W3 is measured on half 1 ONLY** (CodeRabbit, #1074). The two halves keep
+exactly the roles the W1 split row gives them: **half 0 FITS** the cut points
+(it is the clean-chain sample the percentiles are computed from) and **half 1
+EVALUATES** the flip rate. Measuring the flip rate on half 0 would evaluate
+outcome-derived cut points on the very data they were derived from, which
+inflates the apparent effect by construction; W4 therefore consumes the
+half-1 number ONLY, and any half-0 flip rate is exploratory and explicitly
+not eligible for the verdict.
+
+**"Clean chain" is defined, not assumed**: a chain **in half 0** carrying
+**zero** S4 error events — the same binary signal W1's AUC uses, so the two
+waves cannot drift apart on what "clean" means. Cut points are the **50th and
+90th percentiles by the nearest-rank method** (`ceil(p/100 · N)`-th value of
+the ascending normalized-readout list — no interpolation, so the result is
+exact and reproducible across implementations). If the clean set is empty or
+`N < 50`, W3 stops as **UNDERPOWERED** and reports the count, rather than
+deriving cut points from a sample too small to place a 90th percentile. `TrustTexture` is then read
 off **explicit, non-overlapping, exhaustive intervals**, so a value landing
 exactly ON a cut point has exactly one outcome (CodeRabbit, #1074 — the
 earlier wording paired "at or above the 90th ⇒ `Overconfident`" with a
@@ -294,8 +353,9 @@ can actually speak. Reaching `Plan` would require the open question above to
 be answered first.
 
 **The denominator is PREDECLARED** (CodeRabbit, #1074 — without it the rate is
-not reproducible): it is **only those qualifying chains whose LOCAL arm
-reaches `Commit`**, never all qualifying chains. A chain that never gated
+not reproducible): it is **only those qualifying HALF-1 chains whose LOCAL
+arm reaches `Commit`** (half 1 per the evaluation-population rule above),
+never all qualifying chains. A chain that never gated
 `Commit` locally cannot flip *from* `Commit`, so including it would dilute
 the rate with cases the metric is not about — and would let the number move
 purely by cohort composition. Numerator and denominator therefore share one
@@ -303,10 +363,35 @@ population. **If that denominator is zero, the rate is reported `N/A` with
 the count**, never `0.0` — zero flips out of zero opportunities is not a
 measurement of anything, and printing `0%` would read as "the propagation
 changed nothing" when the truth is "the arm never ran."
-- F-MEP-5 (two-sided): flips must CONCENTRATE on chains W1's error signal
-  flagged (not uniform noise), AND a can-stay-silent half — short/clean
-  chains must not flip (a gate that flips everything is the 150/150
-  defect).
+- F-MEP-5 (two-sided) — **QUANTIFIED, because "concentrate" and "must not
+  flip" name no statistic and no threshold** (CodeRabbit, #1074). Both
+  populations are drawn from **half 1** and BOTH are restricted to chains
+  that reach local `Commit`, matching the flip-rate denominator above:
+  - **Flagged** `F` = half-1 chains reaching local `Commit` with **≥ 1** S4
+    error event. **Silent** `S` = half-1 chains reaching local `Commit` with
+    **zero** S4 error events.
+  - **Minimum opportunities: `|F| ≥ 20` and `|S| ≥ 20`, each reported.**
+    This is the load-bearing addition. Without it the can-stay-silent half
+    passes AUTOMATICALLY whenever no clean chain happens to reach local
+    `Commit` — `|S| = 0` gives zero flips out of zero opportunities, which
+    the gate would read as "correctly silent" while having observed nothing
+    at all. That is precisely the vacuous-guard defect the repo's own
+    falsifiability rule exists to catch, reproduced inside the test written
+    to catch it. Below either floor: **UNDERPOWERED**, not PASS.
+  - **Can-fire (concentration): `flip_rate(F) ≥ 2 × flip_rate(S)` AND
+    `flip_rate(F) − flip_rate(S) ≥ 0.10`.** Both, because a ratio alone is
+    satisfiable at trivial magnitudes (2 % vs 1 % is a 2× "concentration"
+    carrying no signal), and a difference alone would pass a gate that fires
+    on nearly everything.
+  - **Can-stay-silent: `flip_rate(S) ≤ 0.20`.** A gate that also flips a
+    fifth of the clean chains is the 150/150 defect regardless of how well
+    it concentrates.
+  - These four numbers are **POLICY PINS, not measurements** — nothing has
+    been measured on this cohort yet, and they are written down here only so
+    they are fixed before the run rather than chosen to fit it. If the probe
+    runs and the pins prove badly placed, they are RE-PINNED with the
+    measurement and the reason stated, never quietly relaxed to convert a
+    failing gate into a passing one.
 - **No wiring lands in W3.** It is a probe against the existing
   `advance_on_gate`; changing the gate's signature or default is explicitly
   out of scope for v1.
