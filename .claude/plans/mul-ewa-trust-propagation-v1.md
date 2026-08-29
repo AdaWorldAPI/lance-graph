@@ -29,6 +29,129 @@ anything: **does sandwich-propagated uncertainty rank multi-hop derived
 beliefs differently — and better — than the naive scalar decay every stack
 defaults to?** If not, NO-BUY, numbers banked.
 
+## §0b The two hinges, and the danger of handing the epistemic frontier to math
+
+**(Operator framing, 2026-08-29 — recorded because §0-§4 specified a
+measurement protocol in great detail while never stating what it is FOR,
+and never stating its main risk. Five review rounds hardened the decision
+procedure around a quantity nobody had checked the direction of.)**
+
+This plan has exactly **two hinges**.
+
+**HINGE 1 — the MUL revamp.** Dunning-Kruger overconfidence vs. trusted
+epistemic knowledge vs. counterfactual, run as hypothesis testing: thesis,
+antithesis, synthesis. The question is not "what is the trust value" but
+**what is the IMPACT of overconfidence**, and **how grounded are the known
+unknowns and the indirect intermediate unknowns, relative to the knowns**.
+A multi-hop chain is exactly where those three separate: the endpoints may
+be knowns, while every intermediate hop is an indirect unknown whose
+uncertainty is *asserted* rather than observed.
+
+**HINGE 2 — the EWA sandwich, borrowed from 3DGS.** `jc::ewa_sandwich` is
+a **rendering** operator: `Σ_image = J·W·Σ·Wᵀ·Jᵀ` pushes a world-space
+3DGS covariance to image space, and its production consumer is
+`ndarray::hpc::splat3d` (`gaussian.rs` / `project.rs` / `spd3.rs`). Using it
+epistemically is a **transplant**, not an application. It fills an
+indirect intermediate unknown the way surface tension spans a gap
+(*Oberflächenspannung*): the membrane's shape is set by boundary conditions
+plus a minimisation principle — by a PRINCIPLE, never by evidence.
+
+### The fill is a CHOICE between three, and EWA is only one of them
+
+A known unknown at an intermediate hop can be filled by:
+
+| # | strategy | what supplies the value | failure mode |
+|---|---|---|---|
+| 1 | **Oberflächenspannung** — EWA sandwich | a minimisation principle over boundary conditions | plausible everywhere, grounded nowhere |
+| 2 | **HHTL parent inheritance** | the parent node in the cascade (`inherits_from`) | inherits the parent's staleness and its errors |
+| 3 | **Thinking styles → reasoning** | NARS dispatch (`thinking/style.rs`, `nars/inference.rs`) | costs a real inference step |
+
+The plan below measures **(1) against a scalar baseline only**. It does NOT
+measure (1) against (2) or (3), so a BUY on W1 licenses "EWA beats naive
+decay" and **NOT** "EWA is the right way to fill this gap". Stated so a
+later session cannot read a BUY as the stronger claim.
+
+### The danger, named
+
+**An epistemic frontier handed to math becomes circular, or becomes
+accidental entropy-based intelligence.** Three concrete forms, all live in
+this plan as written:
+
+- **Circularity.** If a propagated Σ becomes a `TrustTexture`, which gates
+  a cycle, whose outcome updates the trust that seeds the next Σ, the loop
+  closes and the operator manufactures its own justification. W3 must be a
+  **one-way probe**: read the gate decision, never write back into the trust
+  that fed it. (This is why W3 is a probe against the existing
+  `advance_on_gate` and changes no default — the fence already exists for a
+  different reason; this is the epistemic reason for it.)
+- **Accidental entropy-based intelligence.** See F-MEP-0c: under the
+  declared control, the readout is dominated by hop count, so the probe can
+  score well while ranking nothing but path length.
+- **Direction never checked.** See F-MEP-0b: the plan pairs a
+  covariance-SHRINKING transform with a covariance-AS-SUSPICION readout.
+
+### F-MEP-0b (ON-PAPER, before any run) — declare Σ's kind, then check the sign
+
+**This is derivable without data and MUST be settled before W0 executes.**
+
+`jc`'s Σ is a **covariance** (`ewa_sandwich_3d.rs`: "world-space covariance
+matrices Σ ∈ ℝ³ˣ³ ... pushed forward to image-space"). Under a covariance
+reading, larger trace = MORE uncertainty = MORE suspicion, which is the
+direction §4's `TrustTexture` table already uses (`p90 < trace` →
+`Uncertain` → `Block`).
+
+But the declared control is `M_k = √(per-hop trust)·I` with trust drawn from
+`NarsTruth` (`frequency`/`confidence`, both in `[0,1]`), giving
+`Σ_n = (∏ t_k)·Σ₀` and `trace ratio = ∏ t_k`. That quantity **SHRINKS as
+trust falls and as hops accumulate**. So as written:
+
+> a distrusted 5-hop chain scores as `Calibrated` (proceed), and a trusted
+> 2-hop chain scores as `Uncertain` (veto). **The suspicion score is
+> inverted.**
+
+Note also that `jc` defines `M_k = sqrt(Σ_k)` — the step-Jacobian **of the
+k-th edge's covariance**. Substituting a scalar trust for a step covariance
+is the transplant itself, and it carried no unit or direction check.
+
+**One of the two must flip, and the plan must SAY which:**
+
+- **Σ as covariance (jc's own reading, the default):** keep the texture
+  table, and `M_k` must INFLATE with distrust — a bounded form such as
+  `M_k = (1/√t_k)·I` or a distrust-scaled `√(1 + λ(1−t_k))·I`. A bounded
+  form is required: unbounded `1/√t` diverges as `t → 0`, replacing an
+  inverted score with an explosive one.
+- **Σ as precision (inverse covariance):** `√(trust)` scaling is then
+  correct, and the **texture table inverts instead** — low trace becomes
+  high suspicion.
+
+**Gate:** D-MEP-1 must state the kind, and W0 must carry a **worked 2-hop
+numeric example** showing that a chain with strictly lower per-hop trust
+receives a strictly HIGHER suspicion score. If it does not, the run is not
+started. This costs minutes on paper and would otherwise burn an entire
+probe to rediscover a sign error — the BUY rule's `AUC(b) > 0.5` condition
+would catch it, but only after the fact, and only as an unexplained
+"both arms inverted".
+
+### F-MEP-0c (ON-PAPER) — the hop-count confound
+
+With per-hop trusts of similar magnitude `t̄`, `∏ t_k ≈ t̄ⁿ`: the readout is
+**dominated by `n`, the hop count**, not by the epistemics of any hop. Both
+arms would then largely rank by path length, and since longer chains
+plausibly do carry more S4 errors, the AUC could clear its bar while
+measuring nothing but "longer chains break more often" — a true fact that
+requires no covariance propagation to discover. That is the
+accidental-entropy failure in its concrete form.
+
+The cohort filter (`hop-length ≥ 2`) does not address this; it removes the
+degenerate case only.
+
+**Gate — added to the §4 protocol:** report the **Spearman ρ between the
+suspicion score and hop count** for both arms, and report **AUC stratified
+by hop count** (bucketed `2`, `3`, `4`, `5+`). A BUY additionally requires
+the EWA arm to clear its ΔAUC bar **within at least one stratum**, not only
+in aggregate. An arm that beats the baseline only across strata is ranking
+by length, and the plan says so rather than banking it.
+
 ## §1 What is established (verified at HEAD this session, file:line)
 
 - **Zero MUL↔EWA wiring exists.** No `jc`/`ewa`/`sandwich` reference in
@@ -307,6 +430,7 @@ run and requires a re-pin with the change stated:
 | minimum sample | **n ≥ 200** qualifying chains **in total, AND per-half floors that the total does not imply** (CodeRabbit, #1074): each half independently needs **≥ 50 chains, ≥ 10 positive and ≥ 10 negative S4 events**. A cohort-level `n` says nothing about how it landed either side of a hash split, so the total is a necessary and NOT a sufficient condition. Below ANY of these the probe reports UNDERPOWERED with the failing count named, and stops — a valid, honest exit. The floors are declared here, before any run, precisely so they cannot be relaxed after seeing which one bites. |
 | split | **deterministic, chain-level, leakage-safe**: partition key = the chain's ROOT SUBJECT id (never the chain id — two chains sharing a root would otherwise straddle the split and leak); half = `blake3(root_subject_id ‖ "mep-w1-v1")[0] & 1`. Half **0** FITS — every free choice (which suspicion ranking, any construction detail left open by D-MEP-1) is fixed here, and its ΔAUC is DIAGNOSTIC ONLY, never the number the BUY rule reads. Half **1** EVALUATES: **the ΔAUC the BUY threshold is applied to is computed on half 1 ALONE, exactly once, with no re-fitting** — reporting a half-0 ΔAUC or a pooled ΔAUC as the decision number is the defect this row exists to prevent. The literal salt is part of the pre-registration, so a re-run reproduces the identical partition. |
 | comparison metric | AUC of suspicion-rank vs the binary S4 error signal |
+| **hop-count control** | **Report Spearman ρ(suspicion, hop count) for BOTH arms, and AUC stratified by hop count** (buckets `2`, `3`, `4`, `5+`), with per-bucket counts. Required because `∏ t_k ≈ t̄ⁿ` makes the readout length-dominated (F-MEP-0c): an arm can clear its bar while ranking nothing but path length, which is a true fact about long chains that needs no covariance propagation to discover. **A BUY additionally requires the EWA arm to clear ΔAUC ≥ 0.05 within at least ONE stratum meeting the per-half floors** — aggregate-only separation is reported as length-ranking, not banked as a win. |
 | **degenerate AUC** | AUC is UNDEFINED when a half carries no positive or no negative S4 event, and `n ≥ 200` does **not** prevent that (CodeRabbit, #1074). Both halves' **class counts are REPORTED unconditionally**; if either half is single-class the probe stops as **UNDERPOWERED** — never NO-BUY, since a degenerate split is a statement about the cohort, not about the operator under test, and never a computed AUC on a one-class half. This is the ZERO-count guard only; the ≥ 10-per-class floors in the minimum-sample row are what stop a *technically* two-class half from producing an AUC too unstable to decide on. |
 | BUY threshold | **All three, on half 1:** (i) `AUC(b) > 0.5` — the EWA arm must be predictive AT ALL, not merely less anti-predictive than the baseline. Without this, `AUC(b) = 0.20` over `AUC(a) = 0.10` clears a ΔAUC bar while both arms rank *backwards*, and the "win" is a bigger error (CodeRabbit, #1074). (ii) ΔAUC **≥ 0.05** over arm (a). (iii) clearing the F-MEP-3 null by ≥ 2σ of the shuffle distribution. An arm that is anti-predictive (`AUC ≤ 0.5`) is a NO-BUY however large its ΔAUC — and if BOTH arms land below 0.5 the probe reports that inversion explicitly, since a systematically backwards ranking is a finding about the suspicion construction, not a quiet NO-BUY. |
 
