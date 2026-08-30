@@ -99,12 +99,21 @@ its "runbook" naming and the board label cross storylines.
   not content occupants. No rung references `sigma_rosetta`,
   `verb_table`, `recipes`, or `StyleFamily`. The content ladder exists
   only as this ruling.
-- **O2 — the rung-4→rung-3 edge (`StyleFamily` → recipe selection)
-  does not exist.** A macro choosing which of the 34 tactics fire is
-  the true "default_runbook" semantics; today's `default_runbook()`
-  points at the persona vocabulary instead. Eventual fix: retarget (or
-  twin) the mapping at `recipes::Recipe`, and rename the persona bridge
-  honestly (e.g. `default_persona()`).
+- **O2 — the orchestration→recipe edge (`StyleFamily` → recipe
+  selection) does not exist.** A macro choosing which of the 34 tactics
+  fire is the true "default_runbook" semantics; today's
+  `default_runbook()` points at the persona vocabulary instead.
+  Eventual fix: retarget (or twin) the mapping at `recipes::Recipe`,
+  and rename the persona bridge honestly (e.g. `default_persona()`).
+  ⊘ **Re-scoped 2026-08-30 to match the scope correction at the head of
+  this file** (review finding on #1079, valid): this was written as a
+  "rung-4→rung-3 edge" with a rung-4-specific fix, which contradicts the
+  correction that style APPLICATION is not confined to one rung. The
+  missing edge is **any-rung orchestration → `recipes::Recipe`** — a
+  stratum at any rung selects the tactics it runs. What does NOT change:
+  the edge is still absent, and `default_runbook()` still points at the
+  persona vocabulary rather than the recipe layer. Only the address of
+  the source end generalizes; the defect and the fix are the same.
 - **O3 — persona storyline unwired by design.** Future persona work
   picks up the adjective-36 + `thinking-engine/persona.rs`; until then
   no rung/dispatch code should consume it as if it were reasoning.
