@@ -55,6 +55,55 @@ Cross-ref: `hhtl-thinking-tables-le-contract-v1.md` ⊘D-HTT-6 / ⊘X2 (operator
 ruling C); `ISS-PERTURBATION-P64-ADDRESS-IDENTITY-UNPROVEN`; the ⊘ STORNO
 above `E-THE-ORACLE-WAS-CITED-AS-A-PHILOSOPHY-AND-NEVER-AS-A-METHOD-1` (same
 section, same day, the other half of its overclaim).
+## 2026-08-30 — E-AN-ARC-OFF-BOTH-DASHBOARDS-CANNOT-BE-FOUND-BY-THE-ENUMERATION-1 — four plans, three PRs, zero index rows
+
+**Status:** FINDING (counted today, fixed in the same PR). **Confidence:** High
+— both counts are mechanical and both were re-run after the fix.
+
+**Measured.** The `alpha-reason-witness-*` arc has **four plans on disk**
+(`…-cognitive-fabric-v1`, `…-shader-field-archaeology-pass-1`,
+`…-shader-field-d-arw-0-audit-v1`, `…-shader-field-lineage-addendum-v1`), nine
+deliverables `D-ARW-0..8`, and had already absorbed **three PRs** — #1085
+landing §11.3's method-transfer note, #1087 regrading *that* note to **partial**
+prior transfer, and #1089 striking a **separate** claim in the same section (that
+a shared `FacetTier::morton` is a *certified* one). Two regrades, two different
+claims; neither is the other's follow-up, and collapsing them into "regrading it"
+was itself a provenance smear, caught in review and split here. Before this
+commit:
+
+- `INTEGRATION_PLANS.md` — **0** of the four plans enumerated;
+- `STATUS_BOARD.md` — **0** rows matching `D-ARW` (literal grep count).
+
+Both are mandatory at plan-add time under this file's own board-hygiene table.
+
+**The cost was not bookkeeping, it was a wrong answer.** Asked *"which plans come
+before `cognitive-shader-driver`, so the dependencies are ready?"*, a session
+consulting the enumeration finds the shader-adjacent neighbours (ARC-B ownership
+reassessment, `hhtl-thinking-tables`, `mask-algebra-revision-read`,
+`alpha-channel-rung-overlay`, `cascade-seal-register-grid`) and **not the arc
+that currently owns the question** — whose §0 thesis and D-ARW-5 gate answer it
+directly. The failure is silent and symmetric: the index looks complete, because
+what is missing from an index is exactly what an index cannot show you.
+
+**The generalizable rule: an index answers dependency questions only for arcs
+that are in it, and an absent arc is indistinguishable from a nonexistent one.**
+A stale entry at least contradicts something; a missing entry contradicts
+nothing. That asymmetry is why the hygiene rule is written as *same commit* —
+"add it when the arc matures" degrades to "add it when someone notices", and
+noticing requires already knowing the arc exists.
+
+**The tell, and it is cheap:** an arc with merged PRs and no `STATUS_BOARD` row
+is enumerable in one grep. Before answering any "what comes first" question from
+the index, count the D-ids of the arc you are standing in — if the count is
+zero, the index is not yet a source for that question and the fix precedes the
+answer.
+
+Filed retroactively **with the omission recorded in the entry itself** rather
+than backdated silently, so the gap stays legible.
+
+Cross-ref: `CLAUDE.md` § Mandatory Board-Hygiene Rule (and its termination
+clause — this PR is mixed, not hygiene-only, so it earns its entry);
+`.claude/plans/alpha-reason-witness-cognitive-fabric-v1.md` §0/§2/D-ARW-5.
 
 ---
 

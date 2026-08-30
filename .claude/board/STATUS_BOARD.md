@@ -1,3 +1,26 @@
+## alpha-reason-witness-cognitive-fabric-v1 — PROPOSED 2026-08-30 (discovery-first)
+
+Owner plan: `.claude/plans/alpha-reason-witness-cognitive-fabric-v1.md`.
+Companions (same arc, no parallel D-id family):
+`…-shader-field-archaeology-pass-1.md` (D-ARW-0 source audit),
+`…-shader-field-d-arw-0-audit-v1.md` (D-ARW-0 audit + §11 method transfer),
+`…-shader-field-lineage-addendum-v1.md` (extends D-ARW-0/1/4/5/6/8).
+PLAN ONLY — no production implementation. **D-ARW-5 (the atom/loco/R2IL reuse
+census) gates adding any new primitive**, so a new-primitive proposal ahead of
+it is out of scope by the plan's own ordering.
+
+| D-id | Deliverable | Status |
+|---|---|---|
+| D-ARW-0 | cross-repo primary-source ownership map (`SOURCE FACT` / `PLAN FACT` / `MEASURED ABSENCE` / `HYPOTHESIS`), incl. shader-field/DTO ancestry trace | Queued. §11.3 provenance, kept separate because the two regrades correct DIFFERENT claims: the **method-transfer** note landed #1085 and was regraded to *partial* prior transfer in #1087; the **"certified Morton"** claim in the same section was separately struck in #1089 (shared implementation ≠ certified map). Neither is the other's follow-up |
+| D-ARW-1 | Alpha same-address/rung semantics audit across lance-graph + MedCare; field-plane continuity tested separately | Queued |
+| D-ARW-2 | MedCare reasoning-handroll census and ownership cut | Queued |
+| D-ARW-3 | W-slot / witness / source-semantics archaeology + documentation reconciliation | Queued |
+| D-ARW-4 | orthogonal-coordinate falsifier matrix (rung/Tarski/Band/H/NARS/Σ/Alpha/W/version + address/aperture/field geometry) | Queued |
+| D-ARW-5 | atom/loco/R2IL reuse census for the first real chain, incl. bounded-field/local-operator candidates | Queued — **gates new primitives** |
+| D-ARW-6 | one MedCare observation → Alpha → reusable reasoning → witness/premises → Revision → replay → projection proof | Queued |
+| D-ARW-7 | smallest reusable lance-graph cognitive pattern extracted from D-ARW-6 | Held on D-ARW-6 |
+| D-ARW-8 | optional second-domain falsifier of claimed reuse; imaging/chess math alone does not satisfy the cognitive-buyer criterion | Held on D-ARW-7 |
+
 ## rubicon-loco-rung-cognitive-fabric-v1
 
 | D-id | deliverable | status |
