@@ -1,3 +1,53 @@
+## 2026-08-30 — E-THE-ORACLE-WAS-CITED-AS-A-PHILOSOPHY-AND-NEVER-AS-A-METHOD-1 — a plan can demand an independent oracle while ignoring the one already built for its own question
+
+**Status:** FINDING (measured). Lands in
+`.claude/plans/alpha-reason-witness-shader-field-d-arw-0-audit-v1.md` §11.3.
+**Confidence:** High on the census and the access facts (both counted/executed
+today); the transfer itself is DESIGN PRECEDENT — `morton_ka.rs` has not been run.
+
+D-ARW-0 §16.A states the rule outright — *"the oracle must be an independently
+grounded relation/address source"* — and `ISS-PERTURBATION-P64-ADDRESS-IDENTITY-
+UNPROVEN` explains why nothing internal can serve: *"a row-major cast tests green
+under bijection even if the truth was Morton — and still spatially scrambles the
+field."* Bijection, count-equality and round-trip all pass under the wrong map.
+
+Meanwhile `stockfish-rs` had already **built and pre-registered that probe**
+(`examples/morton_ka.rs`: *"is the NNUE HalfKA square addressing a Morton-
+preserved gridlake?"* — recall@k vs chance `k/63`, candidate linearization scored
+beside a Chebyshev true-2D baseline, DROP pre-registered, against the same
+certified `FacetTier::morton`). Counted across all 203 plan files:
+`morton_ka` **0 hits**, `rung_hindsight` **0**, `temporal_replay` **0**,
+`hindsight_stream` **1**. The repo was cited for its ROLES (§11.1/§11.2,
+"systems/geometry oracle", "expert-iteration oracle") and as a "reference
+operational grammar" — never for a single probe.
+
+**The generalizable rule: naming a source as an authority is not the same as
+importing its method.** A citation that carries only a role can be read, agreed
+with, and still leave the team re-deriving an instrument that exists. The tell
+is asymmetric: the plan's prose about the oracle is rich, and its file-level
+references to the oracle are zero. Grep for the artifacts, not the noun.
+
+Second instance in the same source, already paid for: `hindsight_stream.rs`
+replaced `rung_hindsight.rs`'s self-referential oracle (`evaluate()` at ply N
+judging ply N — *"the same measurement instrument re-applied, wearing a
+hindsight costume"*) with an EXTERNAL label plus a STRUCTURAL gate. That is
+§16.A's rule, discovered independently in the other repo and never carried back.
+
+**Fence preserved:** a green chess run proves a property of the NNUE HalfKA
+square axis, NOT that the COCA codebook shares that map. What transfers is a
+validated method and a positive control, never the answer (consistent with
+A1.5 and D-ARW-8).
+
+**Access fact, banked so it is not re-derived:** `AdaWorldAPI/stockfish-rs` is
+private and outside this session's GitHub App installation — `add_repo`/
+`list_repos` report it absent, which is the App's view and **not an absence
+oracle**. The raw `GH_TOKEN` reads it over REST/zipball (HTTP 200) but is not a
+valid git credential (`git clone` → `could not read Username`, proxy and
+proxy-bypassed alike). Read-not-write, the signature MedCare-rs's `CLAUDE.md`
+already documents for that token.
+
+---
+
 ## 2026-08-30 — E-DESTRUCTIVE-PREPEND-TRUNCATES-BEFORE-READ-1 — the prepend one-liner `open(p, "w").write(entry + open(p).read())` destroyed 5876 lines of PR_ARC_INVENTORY; the pattern is now PROHIBITED
 
 **Status:** FINDING + PROHIBITION (operator-directed, 2026-08-30). Measured on

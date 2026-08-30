@@ -415,9 +415,21 @@ this rule exists so it does not recur.
 
 `.claude/board/SUPERSESSION-INDEX.md` is produced by
 `.claude/tools/supersession_index.py`, which reads `.claude/plans/`,
-`crates/`, and `.claude/v3/COMPONENT-MAP.md`. It lists every ruled symbol
-(RETIRE / REPURPOSE / …) and every plan that names one without citing the
-ruling.
+`crates/`, `.claude/v3/COMPONENT-MAP.md`, **and the board itself**
+(`.claude/board/entries/*.md` + `EPIPHANIES.md`, `supersession_index.py:48-49`
+— the "board coverage" column counts each plan's D-ids cited there,
+`:85`). It lists every ruled symbol (RETIRE / REPURPOSE / …) and every plan
+that names one without citing the ruling.
+
+**Regenerate LAST, after the board writes** — not after the plan edit.
+Because the board is an input, a run made before prepending an EPIPHANIES
+entry cannot see the D-ids that entry cites, produces a byte-identical file,
+and reads as "already current" while CI (which regenerates on the merge
+commit) goes red on the coverage column. Measured on #1085: regenerated
+early, output identical, `regenerate-and-diff` failed on exactly the two
+rows the new entry's `D-ARW-0` / `D-ARW-8` citations moved. The workflow's
+own error text names only the first three inputs and will mislead the same
+way; the file list here is the accurate one.
 
 - If your PR adds or edits a plan, or changes a symbol's verdict,
   regenerate and commit in the same PR:

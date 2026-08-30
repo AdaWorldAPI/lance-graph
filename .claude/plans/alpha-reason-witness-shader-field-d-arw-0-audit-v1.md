@@ -285,6 +285,93 @@ Its golden probe measured stable exact teacher labels, policy headroom and oracl
 
 Stockfish remains a systems/reference teacher and learning oracle. It is **not** evidence that Stockfish itself uses Morton hierarchy.
 
+### 11.3 Method transfer — the PROBES, not only the roles
+
+§11.1/§11.2 record stockfish-rs's two *roles*. What they do not record is that
+the repo already **built and pre-registered a probe for §16.A's own question**,
+in a domain where the answer is externally checkable. Measured 2026-08-30
+against `AdaWorldAPI/stockfish-rs@ce422ab` (private; reachable by REST/zipball
+only — see the access note below): **as of the commit before this section
+existed, no plan in this repo named any stockfish-rs probe file.**
+`morton_ka` / `rung_hindsight` / `temporal_replay` returned **0 hits** across
+all `.claude/plans/`; `hindsight_stream` returned 1. (§11.3 itself is what
+changes that count — the measurement is the *before* state, not a standing
+property of the tree.) The oracle was cited as a philosophy and never as a
+method.
+
+**`examples/morton_ka.rs` is the discriminator's SHAPE — not a finished
+A2/A3/A4 arm set.** Read what it actually ran before reusing it: the recorded
+result (`.claude/knowledge/stockfish-nnue-as-perturbation-cascade.md`,
+D-SF-V3-3) scores exactly **two** arms — nearest-in-Morton (recall@8 0.347,
+2.7× chance) against a Chebyshev-board baseline (0.440, 3.5× chance). There is
+**no row-major arm and no seeded-permutation arm.** So it establishes
+*locality preservation* — Morton retains ~79% of board's signal — and it does
+**not** establish exact codebook-to-cell identity, nor does it separate Morton
+from row-major, which is precisely what A2-vs-A3 asks. Treating it as an
+already-implemented discrimination would let the address experiment proceed
+having tested neither A2 nor A4. **What transfers is the METHOD plus a working
+positive control; the §16 probe must ADD the arms this one lacks** — an
+explicit row-major decoder, an inverse-Morton decoder, and permutation
+sabotage (§16.C.1) against the grounded identities. Its own header states the
+question in the other repo's vocabulary — *"is the
+NNUE HalfKA square addressing a Morton-preserved gridlake? Probe the 'NNUE 4096
+= gridlake 4096' identity."* Four transferable pieces:
+
+1. **The discriminator shape.** Feature distance `1 − cosine(FT weight columns)`,
+   scored as **recall@k against chance `k/63`**, run against the candidate
+   linearization **and** a true-2D baseline (Chebyshev board distance). The
+   baseline arm is what makes it an oracle rather than a self-consistency
+   check — and it is precisely what defeats
+   `ISS-PERTURBATION-P64-ADDRESS-IDENTITY-UNPROVEN`'s own stated trap: *"a
+   row-major cast tests green under bijection even if the truth was Morton —
+   and still spatially scrambles the field."* Bijection, count-equality and
+   round-trip all pass under the wrong map; a spatial-locality score does not.
+2. **The pre-registered DROP.** *"If board ≈ chance the premise is DROPPED
+   (feature space isn't spatial)."* The null is fixed before the run, so a
+   negative result is a finding rather than a failed wave.
+3. **The shared primitive.** It already calls
+   `lance_graph_contract::facet::FacetTier::morton` — *"Reused, not
+   hand-rolled"* — so both repos discriminate against the SAME certified
+   Morton, not two implementations that could differ.
+4. **The independence lesson, already paid for once**
+   (`examples/hindsight_stream.rs`, D-SF-HINDSIGHT-1). Its predecessor
+   (`rung_hindsight.rs`, D-SF-RUNG-1) went INCONCLUSIVE because it judged ply
+   N with `evaluate()` at ply N — its header names the fault exactly: *"the
+   same measurement instrument re-applied, wearing a hindsight costume."* The
+   repair was an **external** label (the PGN `Result` header) plus a
+   **structural** gate (ply index IS the Lance version; every read filtered
+   through `pov.admits(u)`, so the reader cannot physically reach `v+1..`).
+   That is the general form of §16.A's *"the oracle must be an independently
+   grounded relation/address source"* — and §16.C.1's permutation sabotage is
+   the same instinct one step further.
+
+**⊘ The fence stays, and it is load-bearing.** A green `morton_ka` run proves
+a property of the **NNUE HalfKA square axis**. It does **not** prove that
+`PerturbationDto.energy`'s COCA codebook shares that map — that is a second,
+independent claim, and §12's "same name, different carrier" warning applies to
+"Morton" exactly as it does to "Alpha". What transfers is a **validated method
+plus a worked positive control**, never the answer. This does not promote
+A3 over A2; it supplies the instrument that can tell them apart. Consistent
+with A1.5 of the lineage addendum (*"a reference operational grammar, not
+Morton evidence"*) and with **D-ARW-8** (stockfish-rs may serve as an
+algorithmic falsifier/reference arm, never as a second cognitive domain).
+
+**Status of this section: DESIGN PRECEDENT, not a measured result.**
+`morton_ka.rs` is net-gated (`STOCKFISH_NET=/path/nn.nnue`, exits 0 without a
+net) and has **not been run** in this repo's evidence base. It enters §16 as
+the template for the arms, not as a green arm.
+
+**Access note (measured, so the next session does not re-derive it).**
+`AdaWorldAPI/stockfish-rs` is **private and outside this session's GitHub App
+installation**: `add_repo` and `list_repos` report it absent — that is the
+App's view, **not an absence oracle**. The raw `GH_TOKEN` reads it over REST
+(HTTP 200; zipball works) but is **not a valid git credential** here — `git
+clone` fails `could not read Username`, via the proxy and proxy-bypassed
+alike, the same read-not-write signature MedCare-rs's `CLAUDE.md` already
+documents. Consequence for §16: the probe corpus is reachable for READING
+today; anything needing a branch in that repo needs the App installation
+extended first.
+
 ## 12. Alpha lineage remains unresolved because “Alpha” names different current mechanisms
 
 Current lance-graph shader code has a live `AlphaComposite` / front-to-back merge over shader hits and qualia.
@@ -372,6 +459,15 @@ A4 seeded random permutation sabotage
 ```
 
 Do not select a winner from internal self-consistency. The oracle must be an independently grounded relation/address source.
+
+**Template for A2/A3 + A4:** §11.3 — `stockfish-rs examples/morton_ka.rs`
+supplies the METHOD (recall@k vs chance `k/63`, candidate linearization scored
+beside a true-2D baseline, DROP pre-registered) against the same certified
+`FacetTier::morton`. Reuse that design; do not re-derive it. **It does not
+supply the arms:** its recorded run scores Morton and board only — no
+row-major, no permutation — so A2 and A4 must be written here, or this arm
+measures locality preservation and reports it as identity. The chess run is
+the positive control, never the answer for the COCA codebook.
 
 ### B. Sparse-work arm
 
