@@ -28,7 +28,14 @@
 > cheapness at the first level, `ogar-loco`/`ogar-r2il` composition for
 > depth — a style is a program over the atom/mask substrate, applicable at
 > any rung. O2 (style → recipe selection) survives, generalized to run from
-> any rung's orchestration into the recipe layer. Census anchor:
+> any rung's orchestration into the recipe layer. **The dating that explains
+> the staleness (operator, 2026-08-30):** the rung-4 styles shelf is a
+> design from roughly a year before this correction — *"alpha channel
+> storage was obviously not available back then."* The confinement was the
+> best available home for styles in a substrate WITHOUT same-address
+> overlay storage; once the thin-provisioned alpha channel exists, styles'
+> home is the substrate itself, at any rung. Not a wrong ruling overturned
+> — a right ruling for a machine that no longer exists. Census anchor:
 > `docs/architecture/COGNITIVE-FABRIC-CENSUS-2026-08-30.md` §5.5.
 
 ## Why this file exists
