@@ -4,6 +4,7 @@
 > **Date:** 2026-08-30.
 > **Base audited from:** `main` at `de1d0c2fe54f36bf0d4d3f1393c55d0cea0c3ae9` plus explicitly named sibling-repo evidence below.
 > **Relationship to #1077:** #1077 remains the source-audit / first-composition bridge. This plan owns the larger cross-repo question surfaced by that audit: **who owns reusable cognition once Alpha, graph-native derivation, witness identity, loco/R2IL, Revision, and domain observations are composed?**
+> **Lineage addendum:** `.claude/plans/alpha-reason-witness-shader-field-lineage-addendum-v1.md` extends D-ARW-0/1/4/5/6/8 with source-fenced archaeology of the historical `StreamDto → ResonanceDto/PerturbationDto → P64/cognitive-shader-driver → CE64 → BusDto` field path, variable Morton aperture, stockfish-rs 64×64 reference ergonomics, and the fingerprint/OCR × EWA 2×2 covariance research arm. It mints no parallel D-id family.
 
 ## 0. Thesis
 
@@ -423,7 +424,8 @@ Read the actual live files, not prior plan prose, for:
 - Revision / fusion / Rubicon / #879 sealed-cycle path;
 - ogar-loco / ogar-r2il / R2IL entry points;
 - MedCare `medcare-nodesoa::alpha` and its real producers/consumers;
-- MedCare `PatientSession`, patient observation, patient reasoning, NARS/policy, and orchestration path.
+- MedCare `PatientSession`, patient observation, patient reasoning, NARS/policy, and orchestration path;
+- the shader-field lineage addendum's `StreamDto → ResonanceDto/PerturbationDto → P64/cognitive-shader-driver → CE64 → BusDto` historical/current path, including whether CE64 truly occupied the operator-recalled “vertical mantissa” role and whether `top_k` ever selected the Morton cascade aperture.
 
 **Output:** one ownership table with `SOURCE FACT`, `PLAN FACT`, `MEASURED ABSENCE`, or `HYPOTHESIS` for every claim.
 
@@ -441,7 +443,8 @@ Measure:
 - multiple-rung coexistence semantics;
 - mask/view semantics;
 - actual producer → Alpha → consumer paths;
-- persistence/version semantics where present.
+- persistence/version semantics where present;
+- whether Alpha is historically continuous with Resonance/Perturbation field semantics or only a later, composable sibling mechanism.
 
 **NO-BUY:** if the shipped Alpha/view/session machinery already expresses the desired multi-rung state, no new rung carrier/rail/tenant is minted.
 
@@ -470,7 +473,10 @@ Construct paired cases proving the axes do not collapse:
 - same ReasoningBand, different source/provenance;
 - same cognitive rung, different Tarski depth;
 - high Tarski depth with a contradictory low-depth observation;
-- counterfactual elimination reducing H without minting empirical evidence.
+- counterfactual elimination reducing H without minting empirical evidence;
+- same semantic relation / CE64 reading under different field address permutations;
+- same field energy/covariance with different epistemic warrant;
+- same top-k cardinality under lawful versus randomized locality.
 
 The purpose is not a new struct. It is to pin **non-equivalence**.
 
@@ -483,6 +489,15 @@ For each generic reasoning operation needed by the first end-to-end chain, class
 - existing R2IL composition;
 - missing primitive;
 - constitutional rule, therefore not optional program logic.
+
+Include the shader-field addendum candidates before minting anything new:
+
+- mask-native gather/scatter over a bounded active field;
+- 2×2 / 4×4 local neighbourhood operations;
+- structure/covariance tensor primitive where useful;
+- EWA `Σ' = MΣMᵀ` propagation;
+- top-k / cascade-aperture selection if historical/current ownership is proven;
+- incremental local update versus full recomputation.
 
 **F-ARW-5:** inconvenience of composition is not evidence for a new controller.
 
@@ -503,6 +518,8 @@ one MedCare observation
     → temporal replay
     → MedCare projection
 ```
+
+If D-ARW-0 proves the historical shader-field identity, the path may additionally demonstrate the smallest lawful field pass. If not, W6 stays on the current Alpha path and the historical seam remains an independent restoration question.
 
 No scheduler. No bulk migration. No universal `ReasoningContext`. No new DTO family.
 
@@ -534,6 +551,8 @@ The domain adapter remains thin.
 
 A reusable cognitive pattern earns its name only if a second non-MedCare caller can exercise it without importing MedCare semantics. This may be a small in-repo fixture or another sibling consumer.
 
+The fingerprint/OCR and stockfish-rs arms in the lineage addendum may be used as **algorithmic reference/falsifier arms**, but they count as a second cognitive buyer only if they exercise the same cognitive contract rather than merely reusing the same local math.
+
 If no second buyer exists yet, mark the pattern **MedCare-proven / generality-unproven**, not universal.
 
 ---
@@ -553,7 +572,10 @@ The plan stops and asks for an operator decision if any implementation proposes:
 9. moving clinical vocabulary or patient policy into the generic graph layer;
 10. bypassing Revision/Rubicon constraints because a derivation is internally consistent;
 11. inferring a workspace-wide absence after checking only one repository;
-12. adding a new DTO/trait/tenant before a real producer and consumer are named.
+12. adding a new DTO/trait/tenant before a real producer and consumer are named;
+13. promoting “CE64 vertical mantissa,” “top-k = Morton aperture,” or “Alpha = Resonance/Perturbation continuation” from reconstruction to contract without a source/measurement trace;
+14. treating Stockfish as evidence that Morton/inverse-pyramid addressing exists there rather than as an operational reference;
+15. treating fingerprint/EWA field geometry as epistemic authority.
 
 ---
 
@@ -561,15 +583,15 @@ The plan stops and asks for an operator decision if any implementation proposes:
 
 | D-id | Deliverable | Initial status |
 |---|---|---|
-| **D-ARW-0** | cross-repo primary-source ownership map (`SOURCE FACT` / `PLAN FACT` / `MEASURED ABSENCE` / `HYPOTHESIS`) | Queued |
-| **D-ARW-1** | Alpha same-address/rung semantics audit across lance-graph + MedCare; no representation assumption | Queued |
+| **D-ARW-0** | cross-repo primary-source ownership map (`SOURCE FACT` / `PLAN FACT` / `MEASURED ABSENCE` / `HYPOTHESIS`), including shader-field/DTO ancestry trace | Queued |
+| **D-ARW-1** | Alpha same-address/rung semantics audit across lance-graph + MedCare; no representation assumption; test historical field-plane continuity separately | Queued |
 | **D-ARW-2** | MedCare reasoning-handroll census and ownership cut | Queued |
 | **D-ARW-3** | W-slot / witness / source-semantics archaeology + documentation reconciliation | Queued |
-| **D-ARW-4** | orthogonal-coordinate falsifier matrix (rung/Tarski/Band/H/NARS/Σ/Alpha/W/version) | Queued |
-| **D-ARW-5** | atom/loco/R2IL reuse census for the first real chain | Queued |
+| **D-ARW-4** | orthogonal-coordinate falsifier matrix (rung/Tarski/Band/H/NARS/Σ/Alpha/W/version + address/aperture/field geometry) | Queued |
+| **D-ARW-5** | atom/loco/R2IL reuse census for the first real chain, including bounded-field/local-operator candidates | Queued |
 | **D-ARW-6** | one MedCare observation → Alpha → reusable reasoning → witness/premises → Revision → replay → projection proof | Queued |
 | **D-ARW-7** | smallest reusable lance-graph cognitive pattern extracted from D-ARW-6 | Held on D-ARW-6 |
-| **D-ARW-8** | optional second-domain falsifier of claimed reuse | Held on D-ARW-7 |
+| **D-ARW-8** | optional second-domain falsifier of claimed reuse; imaging/chess math alone does not satisfy cognitive-buyer criterion | Held on D-ARW-7 |
 
 ---
 
@@ -580,5 +602,9 @@ This plan succeeds when a domain repository can change **what is observed** with
 The smallest winning sentence is:
 
 > **The domain supplies facts; Alpha holds reversible cognition; lance-graph owns reusable reasoning over those facts; witness/premise geometry explains the derivation; Revision decides what survives; replay proves it happened.**
+
+The lineage addendum adds a second, deliberately conditional sentence:
+
+> **If source archaeology confirms the old field seam, the cognitive field supplies bounded horizontal activity, CE64 supplies the vertical semantic carrier, and the shader/program transforms the selected field without acquiring authority to rewrite truth.**
 
 If the first real chain needs less machinery than this plan expects, delete the excess. The goal is not to complete the diagram. The goal is to discover the smallest substrate law that makes the diagram inevitable.
