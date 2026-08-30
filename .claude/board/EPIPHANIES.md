@@ -1,3 +1,29 @@
+## 2026-08-30 — E-BELIEF-ARENA-DEDUP-IS-PAYABLE-AND-W0-MUST-CITE-IT-1 — a ruled duplication the ownership census omits is a re-derivation waiting to happen
+
+**Status:** FINDING (measured). Full census:
+`docs/architecture/COGNITIVE-FABRIC-CENSUS-2026-08-30.md` (three-repo,
+`F-ARW-0`-clean; private-side rendition MedCare-rs PR #596).
+**Confidence:** High — counted at file:line across lance-graph + OGAR + the
+consumer repo, not argued.
+
+`TD-DEEPNSM-V2-BELIEF-DUP` (TECH_DEBT.md:752) ruled the V0 arena
+(`deepnsm-v2/src/belief.rs`) superseded by the canonical planner arena
+(`nars/belief.rs`), held open on two blockers. Measured today: **blocker (b)
+is clear** — external consumers of the V0 re-exports across all three repos =
+ZERO (sole reference: `deepnsm-v2/src/lib.rs:59`); and **the copies have
+diverged** — `admit_derived` exists only in the planner arena
+(`nars/belief.rs:226`), so the dup now compounds with every planner-side
+extension. Yet #1078's W0 ownership-census list names neither
+`nars/belief.rs` nor the TD id (verified against both open plan heads) —
+while its §7 lists NARS revision among loco atom candidates, and an atom
+needs exactly ONE backing arena. Consequence: W0 imports the TD as a
+`SOURCE FACT` row; the dedup (the TD's own payment path: deepnsm-v2 emits the
+stream, consumes the planner arena, deletes `belief.rs` + re-exports, citing
+the D-DIA-V0 tests) precedes any atom freeze. Companion lesson banked in the
+census §7.5: a name-based single-repo grep produced a false absence claim
+about the consumer's same-address overlay within the same session — census by
+semantics, not by type name.
+
 ## 2026-08-27 — E-THE-FUSED-PAYLOAD-IS-INERT-AT-EVERY-EXECUTION-GATE-THAT-CONSUMES-IT-1 — a required field no consumer reads does not stay empty, it fills with fiction
 
 **Status:** FINDING (measured). Deliverable D-MCAL-1. Full entry:
