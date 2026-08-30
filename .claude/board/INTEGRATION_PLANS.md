@@ -2054,9 +2054,22 @@ Plan: `crates/symbiont/BATTLE_TEST_PLAN.md`. Companion to `crates/symbiont/INTEG
 >    Morton cascade); a *separate*, perspectival `ResonanceDto` lives in
 >    `awareness_dto.rs`. The ladder reads `Φ StreamDto → Ψ PerturbationDto →
 >    B BusDto`.
+> 3. **ractor does NOT drive `try_advance_phase`.**
+>    `E-ACTOR-IS-NOT-THE-PHASE-PATH-1` (operator-ratified 2026-08-04) rules #879
+>    *"the complete and independent production phase-progression path"* —
+>    `plan evaluation → KanbanMove intent → BatchWriter → sparse seal → one
+>    WAL/version → **inline apply** of the sealed transitions`, with *"no actor
+>    bridge, actor fleet, actor-owned driver, actor custody model, or actor
+>    message path"* required. `KanbanActor` is legacy compatibility code with
+>    **no assigned architectural responsibility**. The live application is a
+>    direct call: `persist_sink.rs:716`, `owner.try_advance_phase(mv.to)`.
 >
-> Everything else in this entry — the cognition spine, the 6 seams, the
-> addressing scheme, the cycle, the probes — is untouched by this note.
+> **This note regrades exactly the three readings named above and makes NO claim
+> about the rest of the entry.** An earlier draft ended *"everything else … is
+> untouched by this note"* — which is not a scoping statement but a blanket
+> certification of currency, and it was **already false when written**: item 3
+> was on the next line. Caught in review (codex P2 on #1091). Scope a regrade by
+> naming what it covers, never by asserting what it does not.
 
 - 4-layer P0 architecture (FORGET LADYBUG): SurrealDB (orchestrates META AST/Elixir, never thinks/writes, projects read-view) → `lance-graph-planner::PlannerAwareness` (coordination; emits `KanbanMove(ExecTarget)`, Rubicon DAG) → **thinking-engine > P64 > cognitive-shader-driver** (the cognition: Φ StreamDto → Ψ ResonanceDto → B BusDto) → ractor (`lance-graph-supervisor`) drives `try_advance_phase` → `lance-graph-callcenter` WRITES (outer boundary). temporal-aware via Lance-version-as-of + temporal.rs deinterlace (HLC).
 - **§2 the 6 seams** (file:line FOLDs): (1) planner emits no `KanbanMove` [D-MBX-A6-P3]; (2) temporal.rs unconsumed + dep-wall; (3) loop only on jolly (unmerged `463d71bd`); (4) rung inert; (5) think-delegation inverted/lab-only (NOT Ladybug); (6) plan.rs:42 write mis-framing.

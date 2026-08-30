@@ -76,11 +76,32 @@ look for them. The index entry is what a session actually lands on when it asks
 August. Append-only protects the *record*; it does not protect the *reader*.
 
 **So the fix is the ⊘ regrade at the point of use, not another entry.** The
-entry stands verbatim; a bounded note above it names exactly the two readings
-that changed, cites the ruling for each, and states explicitly that the rest —
-the cognition spine, the six seams, the addressing scheme, the cycle, the
-probes — is untouched. Scoping the regrade is what stops it from turning into a
-second, competing description.
+entry stands verbatim; a bounded note above it names the changed readings and
+cites the ruling for each. Scoping the regrade is what stops it from turning
+into a second, competing description.
+
+> **⊘ AND THE FIRST DRAFT OF THAT NOTE COMMITTED THE SAME ERROR ONE LEVEL UP
+> (codex P2 on #1091, fixed before merge).** It named **two** readings and then
+> closed with *"everything else in this entry — the cognition spine, the six
+> seams, the addressing scheme, the cycle, the probes — is untouched by this
+> note."* That is **not a scoping statement; it is a blanket certification of
+> currency** — and it was **already false when written**. A **third** reading on
+> the very next line, *"ractor (`lance-graph-supervisor`) drives
+> `try_advance_phase`"*, is superseded by `E-ACTOR-IS-NOT-THE-PHASE-PATH-1`
+> (operator-ratified 2026-08-04): #879 is *"the complete and independent
+> production phase-progression path"* — `BatchWriter → sparse seal → one
+> WAL/version → **inline apply**`, with *"no actor bridge … or actor message
+> path"* required; the live call is direct at `persist_sink.rs:716`. That ruling
+> even lists the four code sites where it corrected the same framing
+> (`supervisor/lib.rs`, `contract::{kanban,soa_view,orchestration}`) — **the
+> index was not among them**, which is this entry's own thesis landing a third
+> time in one line.
+>
+> **The sharpened rule: scope a regrade by naming what it COVERS, never by
+> asserting what it does NOT.** "These three readings changed" is verifiable and
+> bounded. "Everything else is fine" is an unbounded claim about text you did not
+> re-audit, and it converts a correction into a fresh, confident source of
+> staleness — strictly worse than the silence it replaced.
 
 **Cheap check, worth making routine:** when you land a ruling that renames or
 demotes a component, grep the *index* for the old name before closing the PR.
