@@ -11,7 +11,7 @@ it is out of scope by the plan's own ordering.
 
 | D-id | Deliverable | Status |
 |---|---|---|
-| D-ARW-0 | cross-repo primary-source ownership map (`SOURCE FACT` / `PLAN FACT` / `MEASURED ABSENCE` / `HYPOTHESIS`), incl. shader-field/DTO ancestry trace | Queued (§11.3 method-transfer note landed #1085, regraded #1087/#1089) |
+| D-ARW-0 | cross-repo primary-source ownership map (`SOURCE FACT` / `PLAN FACT` / `MEASURED ABSENCE` / `HYPOTHESIS`), incl. shader-field/DTO ancestry trace | Queued. §11.3 provenance, kept separate because the two regrades correct DIFFERENT claims: the **method-transfer** note landed #1085 and was regraded to *partial* prior transfer in #1087; the **"certified Morton"** claim in the same section was separately struck in #1089 (shared implementation ≠ certified map). Neither is the other's follow-up |
 | D-ARW-1 | Alpha same-address/rung semantics audit across lance-graph + MedCare; field-plane continuity tested separately | Queued |
 | D-ARW-2 | MedCare reasoning-handroll census and ownership cut | Queued |
 | D-ARW-3 | W-slot / witness / source-semantics archaeology + documentation reconciliation | Queued |

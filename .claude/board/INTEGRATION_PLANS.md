@@ -11,7 +11,9 @@ reference-implementation grammar and the falsifier arms; A9 states outright that
 > **⚠ Enumerated late, and the gap had a cost.** All four plans landed 2026-08-30
 > and **none of them was prepended here**, nor did a single `D-ARW-*` row exist on
 > `STATUS_BOARD.md` (grep count: 0) — while PRs #1085/#1087/#1089 were already
-> editing the arc's §11.3. Mandatory board hygiene requires both at plan-add time.
+> editing the arc's §11.3 (#1085 landed the method-transfer note; #1087 regraded
+> it to *partial* prior transfer; #1089 struck a **separate** claim in the same
+> section, that a shared `FacetTier::morton` is a *certified* one). Mandatory board hygiene requires both at plan-add time.
 > The concrete damage: the arc could not be found *by the enumeration*, so a
 > session asked "which plans come before `cognitive-shader-driver`?" had to
 > re-derive an answer the owner plan states in its own §0 thesis. **An index is

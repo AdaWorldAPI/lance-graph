@@ -63,8 +63,13 @@ section, same day, the other half of its overclaim).
 **Measured.** The `alpha-reason-witness-*` arc has **four plans on disk**
 (`…-cognitive-fabric-v1`, `…-shader-field-archaeology-pass-1`,
 `…-shader-field-d-arw-0-audit-v1`, `…-shader-field-lineage-addendum-v1`), nine
-deliverables `D-ARW-0..8`, and had already absorbed **three PRs** (#1085 landing
-§11.3, #1087 and #1089 regrading it). Before this commit:
+deliverables `D-ARW-0..8`, and had already absorbed **three PRs** — #1085
+landing §11.3's method-transfer note, #1087 regrading *that* note to **partial**
+prior transfer, and #1089 striking a **separate** claim in the same section (that
+a shared `FacetTier::morton` is a *certified* one). Two regrades, two different
+claims; neither is the other's follow-up, and collapsing them into "regrading it"
+was itself a provenance smear, caught in review and split here. Before this
+commit:
 
 - `INTEGRATION_PLANS.md` — **0** of the four plans enumerated;
 - `STATUS_BOARD.md` — **0** rows matching `D-ARW` (literal grep count).
