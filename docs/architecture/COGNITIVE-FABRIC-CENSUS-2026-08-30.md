@@ -606,3 +606,59 @@ unskippable."**
    (`soa_view.rs:272`) — any W3 archaeology that greps for it finds comments,
    not code; the shipped names are `ReasoningWitness64` / `EpisodicEdges64` /
    `WitnessTable` / `CausalWitnessFacet`.
+
+---
+
+## §8 — CONTINUATION: the open-arc ledger, reading order, and traps
+
+> **Purpose: a cold session reads this section and continues every thread
+> without re-deriving.** Domain detail lives in the private consumer's
+> rendition (its §10); this is the public-safe mirror.
+
+### 8.1 Reading order for a fresh session (lance-graph side)
+
+1. `CLAUDE.md` → `.claude/BOOT.md` → `LATEST_STATE.md` + `PR_ARC_INVENTORY.md`
+2. THIS census (§1 stack → §2 dedup → §3 W2 seam → §4 scalpel + chains →
+   §5 membrane + §5.6 blockers → §6 fences → §7 W0 hand-offs → §8)
+3. `#1077` plan (`rubicon-loco-rung`) and `#1078` plan + its three banked
+   D-ARW-0 archaeology files (`chatgpt/alpha-reason-witness-cognitive-fabric`)
+4. `TECH_DEBT.md` ids named here; `witness-nibble-lane.md` for the register.
+
+### 8.2 The open arcs
+
+| # | arc | state | gate / next step |
+|---|---|---|---|
+| 1 | `TD-DEEPNSM-V2-BELIEF-DUP` payment | PAYABLE (consumers = 0, `admit_derived` divergence) | operator green-light; one PR per the TD's own path |
+| 2 | #1077 decision points | plan open | `D-RLR-1` first wave chain; `D-RLR-5` alpha trace (HELD until RUN); `D-RLR-6` Revision-forcing invariant; `ExecTarget::Elixir` naming debt |
+| 3 | #1078 waves | plan open; supersession index fixed (`d4bd78a8`) | W0 imports §7's SOURCE-FACT rows; W3 = W-slot reconciliation (the consumer holds a live encode/decode falsifier); W6 = the BUY. Its STOP list still carries the operator-regraded blanket "alpha presence never mints evidence" — axis-typed amendment surfaced for its authors |
+| 4 | **The first executable BUY** (broken-wire repair) | specified, NOT run | exact sparse mask (not `engine_bridge.rs:111-141`'s `min..max` window) → shipped P64 64×64×8 ALU → one EWA op → one CE64/SPO read → one expression-shaped R2IL program → receipt → replay. NO-BUYs: scrambled addresses must hurt; exact mask must beat the window |
+| 5 | OGAR execution semantics | operator ABI decision | `VAR_SET`/`VAR_CHANGE` declared pushing, executed void, no `DROP` — `statement_bounds` refuses multi-statement bodies (genuine, per `interpret_probe.rs:36-50`) |
+| 6 | recipe ladder → executable `Program` + a dispatcher for the 34 | after arc 5 | `ladder_program() -> Vec<FnIndex>`; every recipe pushes; `recipe_loci` gate shipped |
+| 7 | `CallMask` `Box<[u64]>` → inline `[u64; 3]` | mechanical | prerequisite for any banked "nanosecond" number |
+| 8 | parallel-rung dispatch loop | MISSING by design | compose `PhaseCensus` tick × `QueryReference::at(v, rung)` readers; never a rung type in the supervisor |
+| 9 | SPO 2³ L1-amortization contract | OPERATOR-RECOVERED INTENT | measure before pricing N parallel rungs free |
+| 10 | `witness-nibble-lane.md` §5 P1–P4 | operator rulings open | P2 oriented by the three-shapes/triptych ruling; the contract text awaits the operator's pen |
+| 11 | `EpisodicWitness64` | queued design, NOT a symbol | seeds: CE64 W-slot, `WitnessTable<64>`, `arigraph::{episodic,witness_corpus}`; follows W3 |
+| 12 | atom wiring (counterfactual v3 `todo!`s, proprioception consumers, `Spd2` consumers) | unwired | callable-atom status FOLLOWS real wiring |
+| 13 | `RevisionDelta` operator lineage | narrowed gap | the signed accounting exists; the mask-operation lineage for receipts does not |
+| 14 | lance-graph-java bulk `method()` / `.at(version)` | future | after arcs 5–7; never loop OGAR calls through Panama |
+| 15 | the consumer-side arcs (D1 merge, taxonomy convergence, alpha claim from the reasoning path, bridge measurement gating the open set) | tracked in the private rendition §9–§10 | per-arc owners there |
+
+### 8.3 The traps (measured today; do not rediscover)
+
+1. A German „quote" closing an ASCII string literal breaks BOTH build arms
+   (lexing precedes cfg-stripping) — and later hit a Python heredoc too.
+2. `F-ARW-0`: a name-grep is not a census — violated twice by this census's
+   own author within one day; grep for semantics.
+3. A throttle is not a discriminator: measure correspondence at boundary
+   values (`E-A-FLOOD-THROTTLE-IS-NOT-A-DISCRIMINATOR-1`).
+4. Numeric coincidence is not identity (`SYNERGY-MAP` §8.0); a downstream
+   repo's stale mirror note is not the canonical board.
+5. Parallel-session branch races: fetch, reset to tip, apply only the
+   missing pieces; keep the sharper parallel wording.
+6. Any `.claude/plans/` touch trips the supersession-index CI — regenerate
+   in the same commit.
+7. Hold contradictions; never resolve architecture unilaterally mid-
+   dissonance — record both poles verbatim and stop.
+8. Storage is cognition and its prerequisite; treating it as a passive
+   layer re-imports the abolished von Neumann split.
