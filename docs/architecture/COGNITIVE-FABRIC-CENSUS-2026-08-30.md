@@ -164,6 +164,42 @@ UPSTREAM type names concluded "zero wired" — the wrong test for a natively
 implemented overlay; recorded here so the next census greps for the semantics,
 not the names.
 
+**⊘ METAPHOR REGRADE (operator, 2026-08-30): the Photoshop-alpha name
+describes the STORAGE layer only — reserve-but-don't-claim, akin to the
+split-tunnel trick.** "Alpha channel" is not a cognitive-semantics claim; it
+is the storage geometry's name: allocate the whole same-address space at zero
+rows, claim (materialize) only where attention actually landed, discard
+whole. The same law already has ONE name across the workspace —
+**RESERVE-DON'T-RECLAIM** (the consumer overlay's `EdgeBlock` note; the A9
+register's reserved slots 16..24; OGAR's zero-fallback ladder: "a zero tier
+means *not consulted*, never *compacted away*"). Three metaphors, one
+mechanism, three layers:
+
+| layer | its name for the law |
+|---|---|
+| storage | Photoshop alpha / thin provisioning / split tunnel — reserve all, claim attended |
+| selection | photolithography — the mask exposes; unexposed surface costs nothing |
+| execution | the Java receipts — mask-native ops on the resident substrate; materialization is a terminal escape |
+
+This regrade DISSOLVES the held tension above: alpha being
+"REPRESENTATION-ONLY" is not a deficiency to fix — a storage layer is
+*supposed* to be representation-only. The live-cognition question moves one
+layer up, where it belongs: does anything READ the claimed residue to steer
+the next mask (the saccade loop) — which is W1's real question and W6's BUY,
+not a property alpha itself was ever meant to carry. Likewise "alpha presence
+never mints evidence" stops being a fence against temptation and becomes a
+type-level triviality: storage residue is not a premise.
+
+**The convergence this makes visible (the operator's prediction, checked):**
+#1077, #1078 and the Java arc are ONE architecture seen from three angles —
+#1077 the PROGRAM angle (byte-addressed atoms over the same reserved node
+geometry; a new carrier before loco is proven insufficient = STOP), #1078 the
+OWNERSHIP angle (who owns meaning vs mechanism over the same addresses), the
+Java arc the EXECUTION angle (masks as the currency; R7's 960 B for 10⁹
+projections is the measured price of "don't pay for the unattended"). Every
+axis of the scalpel table then reads as an annotation ON the one resident
+substrate, selected by masks, exercised by programs, recorded by receipts.
+
 **The gap this census adds:** the consumer's REASONING path (its differential
 surface and its step trace) contains zero references to that overlay — the
 thinking runs beside a live attention channel it never claims into. The
