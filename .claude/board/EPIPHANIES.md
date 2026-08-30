@@ -1,3 +1,46 @@
+## 2026-08-30 — E-A-FLOOD-THROTTLE-IS-NOT-A-DISCRIMINATOR-1 — the census equated `hub_indegree` with a specificity test; they are opposite where it matters
+
+**Status:** FINDING (measured, review-driven). Raised as codex P2 on #1079,
+re-measured against source before acceptance, and CONFIRMED.
+**Confidence:** High — read off `nars/tactics.rs:191-215` + `112-124` and the
+consumer's admission predicate, not argued from names.
+
+`COGNITIVE-FABRIC-CENSUS-2026-08-30.md` §"consumer taxonomy ↔ Frontier" carried
+a row asserting *"a marker shared by >1 rival discriminates nothing"* ≡
+`hub_indegree` middle-term exclusion, labelled **"the same computation"**. It is
+not, and the disagreement sits exactly in the region a differential turns on:
+
+| shared by | consumer specificity test | `rcr_abduce` |
+|---|---|---|
+| 1 rival | **specific** → ranked | `members.len() < 2` → `continue`: no candidate, **no gap** |
+| exactly 2 | **not specific** → disqualified | degree ≤ `hub_indegree` → **generates the frontier** |
+| > `hub_indegree` | not specific | `GapKind::HubExcluded` |
+
+`hub_indegree` lives in `Throttle` beside `c_min` and `budget` — a configurable
+**flood control on hubs**, sharing the *shape* of a sharing-count test and
+inverting its *verdict* below the threshold. Second half, also confirmed:
+`ReasoningGap` is `{kind, subject: Option<u16>, predicate: Option<u16>}`, so
+`NoSharedMiddle` names **no concrete missing term** — the row's parenthetical
+overstated what the gap arm carries.
+
+**The generalizable rule: a throttle and a discriminator can agree in the tail
+and disagree everywhere else.** Both reduce a candidate set; only one does it
+*because the evidence failed to separate*. Structural correspondence between
+two surfaces is a hypothesis to measure at the boundary values, never an
+equivalence to assume — and a census that records one as "the same computation"
+hands a later ownership wave a false BUY.
+
+**Companion finding, uncomfortable and recorded rather than quietly fixed:** the
+same census banks `F-ARW-0` ("census by semantics, not by type name") as its
+own §1 finding 5, then one section later claimed the consumer's reasoning path
+"never claims into" the alpha overlay — on the strength of a name-based grep
+over two files. Measured, the step trace claims indirectly through the resident
+ontology walk; only the differential beside it does not. **Writing the rule down
+is not the same as being immune to it**; the narrowed claim is the one that is
+actually true, and it is also the one that is actionable.
+
+---
+
 ## 2026-08-30 — E-BELIEF-ARENA-DEDUP-IS-PAYABLE-AND-W0-MUST-CITE-IT-1 — a ruled duplication the ownership census omits is a re-derivation waiting to happen
 
 **Status:** FINDING (measured). Full census:

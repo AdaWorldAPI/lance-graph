@@ -22,7 +22,7 @@
 
 **Pins:** lance-graph `origin/main` `de1d0c2f` · OGAR `ddd51f4` · MedCare-rs
 `origin/main` `e929179`. Prior arc treated as merged ground per #1077:
-#1074 (MUL↔EWA), #1075 (the epistemic triptych — `revision.rs`, `fusion.rs`,
+PRs `#1074` (MUL↔EWA), `#1075` (the epistemic triptych — `revision.rs`, `fusion.rs`,
 the Rubicon revision), #1076 (hygiene, chain terminated).
 
 ---
@@ -114,10 +114,39 @@ of a shape this repo already ships one level up:
 | consumer (domain layer) | planner (`nars/tactics.rs`) | shared idea |
 |---|---|---|
 | `Differential` | `Frontier::candidates` | ranked, because evidence separated it |
-| `UnderDetermined{shared, missing}` | `Frontier::gaps` (`ReasoningGap` naming the missing term) | blocked — and HERE is what is missing |
+| `UnderDetermined{shared, missing}` | `Frontier::gaps` | blocked — but see the correction below on what `ReasoningGap` actually carries |
 | `NotRaised` | throttle exclusion + `GapKind::HubExcluded` | never entered the frontier |
-| "a marker shared by >1 rival discriminates nothing" | `hub_indegree` middle-term exclusion | **the same computation** — sharing-count as disqualifier |
+| "a marker shared by >1 rival discriminates nothing" | `hub_indegree` middle-term exclusion | ⊘ **NOT the same computation** — see the correction below |
 | a domain prior gate: a candidate CLASS raised only on class-specific evidence | **no upstream equivalent** | the one genuinely novel consumer mechanism — the natural upstream candidate, moved as MECHANISM with its meaning left behind |
+
+⊘ **Correction — the specificity row claimed an equivalence the source
+refutes** (codex P2 on #1079; re-measured against `nars/tactics.rs:191-215` here and
+against the consumer's admission predicate in the private companion, and the
+objection is CONFIRMED). The two are opposite in the region that matters:
+
+| shared by | consumer `marker_is_specific` | planner `rcr_abduce` |
+|---|---|---|
+| 1 rival (unshared) | **specific** → `Differential` | `members.len() < 2` → `continue`: no candidate, **no gap** |
+| exactly 2 rivals | **not specific** → disqualified | degree `2 > hub_indegree`? normally no → **generates the frontier** |
+| many rivals (> `hub_indegree`) | not specific | `GapKind::HubExcluded` |
+
+`hub_indegree` is a **configurable flood throttle on hubs** (`Throttle`,
+`tactics.rs:112-124`: *"a predicate whose in-degree EXCEEDS this is a hub and
+is barred"*), not a sharing-count discriminator. Only in the far tail do the
+two agree; at the low sharing counts a differential actually turns on, they
+give opposite verdicts.
+
+Second half of the same objection, also confirmed: `ReasoningGap`
+(`tactics.rs:88-95`) is `{kind, subject: Option<u16>, predicate: Option<u16>}`
+— `NoSharedMiddle` carries **no concrete missing term**, so the row's original
+parenthetical ("naming the missing term") overstated it.
+
+**Consequence for W2:** the planner surface cannot stand in for the consumer's
+specificity test without an added adapter or changed semantics. That is a
+BUY to be decided, not an equivalence to be assumed — and it compounds with
+the consumer-side prerequisite measured in the private companion doc (the
+bundle filters to `Differential` and encodes only `CASE is-a DISEASE`, so the
+shared/missing terms never reach the frontier in the first place).
 
 Three measured facts:
 
@@ -224,8 +253,8 @@ away*"). Three metaphors, one mechanism, three ASPECTS of one substrate:
 >   others.
 
 **The convergence this makes visible (the operator's prediction, checked):**
-#1077, #1078 and the Java arc are ONE architecture seen from three angles —
-#1077 the PROGRAM angle (byte-addressed atoms over the same reserved node
+PRs `#1077`, `#1078` and the Java arc are ONE architecture seen from three angles —
+`#1077` the PROGRAM angle (byte-addressed atoms over the same reserved node
 geometry; a new carrier before loco is proven insufficient = STOP), #1078 the
 OWNERSHIP angle (who owns meaning vs mechanism over the same addresses), the
 Java arc the EXECUTION angle (masks as the currency; R7's 960 B for 10⁹
@@ -233,10 +262,21 @@ projections is the measured price of "don't pay for the unattended"). Every
 axis of the scalpel table then reads as an annotation ON the one resident
 substrate, selected by masks, exercised by programs, recorded by receipts.
 
-**The gap this census adds:** the consumer's REASONING path (its differential
-surface and its step trace) contains zero references to that overlay — the
-thinking runs beside a live attention channel it never claims into. The
-lawful wiring is #1078's W6 BUY chain, not a local patch.
+**The gap this census adds:** the consumer's DIFFERENTIAL surface neither
+consumes nor propagates the overlay's claims — the NARS judgement runs beside
+a live attention channel it never reads.
+
+⊘ **Narrowed, and the first wording was the very error §1 finding 5 banks**
+(codex P2 on the private companion; re-measured and CONFIRMED). The original
+read *"the REASONING path, differential surface AND step trace, contains zero
+references to that overlay"* — a **name-based grep over two files**, i.e.
+`F-ARW-0`, committed one section after the warning against it. Measured, the
+step trace DOES claim, indirectly: its production entry calls the resident
+ontology walk, which builds its watched-row set over an alpha allocation and
+claims each landed address, reading the rung FROM the address rather than
+assigning it. So the trace is an alpha consumer already; what does not
+consume it is the differential beside it. The lawful wiring for that is
+`#1078`'s W6 BUY chain, not a local patch.
 
 **The three coordinates, kept apart** (per #1078 §2.1 and its STOP list —
 "No Tarski↔cognitive-rung collapse"):
@@ -473,7 +513,7 @@ is cited here only as far as `ARC-A-SOURCE-ARCHAEOLOGY.md` already banked it.
 
 ## §6 — The fences, restated with sources
 
-**#1077** (`F-RLR-1..8` + constitutional): no second thinking DSL; no new
+**#1077** (`F-RLR-1..8` + constitutional): no second DSL for thinking; no new
 carrier before `ogar_loco` is proven insufficient; a scheduler may
 prefetch/queue/wake but never decide truth, causality, independence, band
 promotion or revision acceptance (*prefetch ≠ belief*); no new trust scalar;
@@ -501,8 +541,11 @@ unskippable."**
 2. The consumer-taxonomy ↔ `Frontier`/`GapKind` correspondence, incl. the
    exposed-but-unconsumed `abductive_frontier` and the domain prior gate as
    the one mechanism with no upstream equivalent (W2 raw material).
-3. The alpha gap: a live same-address overlay on the consumer side whose
-   REASONING path never claims into it (W6's motivation, W1's subject).
+3. The alpha gap, narrowed by review: the consumer's step trace already
+   claims into the overlay indirectly (via the resident ontology walk); the
+   DIFFERENTIAL beside it neither consumes nor propagates those claims
+   (W6's motivation, W1's subject). The wider first wording was itself an
+   `F-ARW-0` instance — see finding 5.
 4. The stale-line correction for #1077 §1 piece D (`RowFocusMask` shipped).
 5. A worked `F-ARW-0` warning: a name-based single-repo grep produced a false
    absence claim about the consumer overlay within THIS session — census by
