@@ -228,7 +228,16 @@ away*"). Three metaphors, one mechanism, three ASPECTS of one substrate:
 > storage"*, and the zero-copy law says the array itself is a ClassView
 > projection. The claimed alpha rows are LIVE cognitive state — reading and
 > writing them is the thinking, not a record of thinking that some higher
-> layer performs. Consequences, restored to their correct strength:
+> layer performs. **The directional half (operator, same day):** *"storage
+> is the prerequisite for replayability and counterfactual, higher order
+> thinking and revision."* Each capability, as shipped, IS a storage
+> operation — replay = `QueryReference::at(v, rung)` reads of versions;
+> counterfactual = a substituted reading of a stored world; meta = the rung
+> above reading residue; revision = `revise_at` on a persisted prior under
+> stamps. storage → replay → {counterfactual, meta, revision}; zero-copy is
+> what makes every arrow free. The one chartered exception: the alpha
+> overlay is discardable-whole because it carries attention ECONOMY;
+> versions/witnesses/beliefs/receipts carry correctness and never are. Consequences, restored to their correct strength:
 > **(a)** #1077's `REPRESENTATION-ONLY / HELD` grade STANDS for its stated
 > reason — the producer→consumer trace (`D-RLR-5`) has not been RUN — not
 > because the question was wrong; the metaphor regrade changes what the
