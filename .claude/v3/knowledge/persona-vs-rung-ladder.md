@@ -7,6 +7,30 @@
 > transcript); board anchor: `E-RUNG-CONTENT-LADDER-1` in
 > `.claude/board/EPIPHANIES.md`.
 
+> **⊘ SCOPE CORRECTION (operator, 2026-08-30 — styles are NOT confined to
+> rung 4).** Sessions inheriting this file began reading row 4 as "thinking
+> styles live at rung 4 ONLY." The operator: *"'Thinking styles: rung 4
+> only' is a stale inheritance … it was never a recent ruling."* What this
+> file rules is the CONTENT taxonomy — which kind of thinking OBJECT
+> occupies each rung of the ladder — and that stands unchanged. What it
+> does NOT rule, and never did, is a confinement of style APPLICATION to
+> one rung. The ruled direction (same date): **(a)** rung 0–9 awareness is
+> **to be** scheduled in parallel as meta-aware thinking orchestration
+> through `lance-graph-supervisor` — `kanban_actor.rs`'s `PhaseCensus` (the
+> read-only fleet visibility surface, one `&self` pass) is the built
+> primitive such a scheduler would compose OVER, for the rung above watching
+> the kanban of the layer below. ⚠ The rung-aware dispatch LOOP itself is
+> NOT shipped (`PhaseCensus` and kanban are deliberately rung-blind;
+> `probe_parallel_rung` establishes representation coexistence only, "does
+> NOT establish wall-clock or thread parallelism") — this is a direction,
+> never an available scheduler;
+> **(b)** thinking styles CONVERGE onto the execution membrane — mask-ALU
+> cheapness at the first level, `ogar-loco`/`ogar-r2il` composition for
+> depth — a style is a program over the atom/mask substrate, applicable at
+> any rung. O2 (style → recipe selection) survives, generalized to run from
+> any rung's orchestration into the recipe layer. Census anchor:
+> `docs/architecture/COGNITIVE-FABRIC-CENSUS-2026-08-30.md` §5.5.
+
 ## Why this file exists
 
 The workspace carried FOUR similar-looking spaces that sessions kept
@@ -64,7 +88,7 @@ its "runbook" naming and the board label cross storylines.
 
 ## The four spaces, one line each (anti-conflation card)
 
-1. `StyleFamily` (12) — rung-4 thinking macros, orchestration dispatch. Canonical, deduped, frozen ordinals (driver order, Deliberate=0).
+1. `StyleFamily` (12) — rung-4 thinking macros **by CONTENT taxonomy** (which object occupies the rung), orchestration dispatch. Canonical, deduped, frozen ordinals (driver order, Deliberate=0). ⊘ Not a confinement of style APPLICATION to rung 4 — see the scope correction at the head of this file, and O9 on the address vs the vocabulary.
 2. `recipes::RECIPES` (34) — rung-3 NARS reasoning tactics. THE runbooks. Catalogue in contract; primitives in ndarray `hpc/styles`.
 3. 144 verbs (12×12) — rung-2 thinking atoms, the unified predicate surface (`sigma_rosetta` + `verb_table`). Computing, test-pinned.
 4. persona-36 adjectives — persona-modeling storyline. Off-ladder, unwired, future work. Keep out of rung vocabulary.
@@ -75,12 +99,21 @@ its "runbook" naming and the board label cross storylines.
   not content occupants. No rung references `sigma_rosetta`,
   `verb_table`, `recipes`, or `StyleFamily`. The content ladder exists
   only as this ruling.
-- **O2 — the rung-4→rung-3 edge (`StyleFamily` → recipe selection)
-  does not exist.** A macro choosing which of the 34 tactics fire is
-  the true "default_runbook" semantics; today's `default_runbook()`
-  points at the persona vocabulary instead. Eventual fix: retarget (or
-  twin) the mapping at `recipes::Recipe`, and rename the persona bridge
-  honestly (e.g. `default_persona()`).
+- **O2 — the orchestration→recipe edge (`StyleFamily` → recipe
+  selection) does not exist.** A macro choosing which of the 34 tactics
+  fire is the true "default_runbook" semantics; today's
+  `default_runbook()` points at the persona vocabulary instead.
+  Eventual fix: retarget (or twin) the mapping at `recipes::Recipe`,
+  and rename the persona bridge honestly (e.g. `default_persona()`).
+  ⊘ **Re-scoped 2026-08-30 to match the scope correction at the head of
+  this file** (review finding on #1079, valid): this was written as a
+  "rung-4→rung-3 edge" with a rung-4-specific fix, which contradicts the
+  correction that style APPLICATION is not confined to one rung. The
+  missing edge is **any-rung orchestration → `recipes::Recipe`** — a
+  stratum at any rung selects the tactics it runs. What does NOT change:
+  the edge is still absent, and `default_runbook()` still points at the
+  persona vocabulary rather than the recipe layer. Only the address of
+  the source end generalizes; the defect and the fix are the same.
 - **O3 — persona storyline unwired by design.** Future persona work
   picks up the adjective-36 + `thinking-engine/persona.rs`; until then
   no rung/dispatch code should consume it as if it were reasoning.
