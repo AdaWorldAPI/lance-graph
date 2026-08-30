@@ -10,6 +10,71 @@
 > census §8.3 trap 10: read the body FIRST, then open for write — never
 > inline both in one expression.
 
+## 2026-08-30 — lance-graph #1085 (MERGED 4cc7d71c) — the oracle was cited as a philosophy and never as a method
+
+**Added.** D-ARW-0 §11.3 *"Method transfer — the PROBES, not only the roles"*,
+and the §16.A pointer that wires it. §11.1/§11.2 had recorded stockfish-rs's
+two ROLES ("systems/geometry oracle", "expert-iteration oracle") and called it
+a *"reference operational grammar"* — while a file-level census across all 203
+plan files returned `morton_ka` **0**, `rung_hindsight` **0**,
+`temporal_replay` **0**, `hindsight_stream` **1** (as of the commit before
+§11.3 existed; the section itself is what changes that count). Four
+transferable pieces are now named: the discriminator shape (feature distance
+`1 − cosine`, scored recall@k against chance `k/63`, run against the candidate
+linearization AND an external true-2D baseline); the pre-registered DROP; the
+shared certified `lance_graph_contract::facet::FacetTier::morton`; and the
+independence lesson `hindsight_stream.rs` (D-SF-HINDSIGHT-1) already paid for
+when its predecessor judged ply N with `evaluate()` at ply N.
+
+**Locked.** The domain fence, restated rather than assumed: a green chess run
+proves a property of the NNUE HalfKA square axis and NOT that the COCA
+codebook shares that map — §12's "same name, different carrier" applies to
+*Morton* exactly as to *Alpha*. Method plus positive control transfer; the
+answer does not. §16's gate is untouched: prove the address identity first,
+then the bridge.
+
+**Corrected in review (both verified against source before acting).**
+*codex P2* caught a real overclaim: the first draft said `morton_ka.rs` IS
+§16.A's A2-vs-A3 discriminator. The recorded run
+(`stockfish-nnue-as-perturbation-cascade.md`, D-SF-V3-3) scores exactly TWO
+arms — Morton recall@8 0.347 (2.7× chance) against Chebyshev board 0.440
+(3.5×) — with no row-major decoder and no seeded permutation. It establishes
+locality preservation, not codebook-to-cell identity, and cannot separate
+Morton from row-major, which is the whole question. Left standing, §16 could
+have reused it, tested neither A2 nor A4, and reported locality as identity —
+the failure the section exists to prevent, one level up. Both carrying sites
+corrected. *CodeRabbit* caught the census sentence falsifying itself once
+§11.3 named `morton_ka`; re-stated as an as-of measurement.
+
+**Deferred.** Running any arm. `morton_ka.rs` is net-gated (`STOCKFISH_NET`)
+and was NOT run. A2 (row-major), inverse-Morton and A4 (permutation sabotage,
+§16.C.1) do not exist yet and must be written in §16 — that is now stated in
+both §11.3 and §16.A rather than left to a reader's inference.
+
+**Docs.** `EPIPHANIES.md` prepend
+`E-THE-ORACLE-WAS-CITED-AS-A-PHILOSOPHY-AND-NEVER-AS-A-METHOD-1` — naming a
+source as an authority is not importing its method; the tell is asymmetric
+(rich prose about the oracle, zero file-level references), so grep for the
+artifacts, not the noun. `CLAUDE.md` supersession-index section corrected: its
+input list omitted the **board**, which the generator reads
+(`supersession_index.py:48-49`) and whose D-id citations drive the "board
+coverage" column (`:85`). Regenerating before the EPIPHANIES prepend therefore
+produced a byte-identical file that read as "already current" and turned
+`regenerate-and-diff` red on the merge commit. Ordering rule now stated:
+regenerate LAST, after board writes. The workflow's own error text repeats the
+same incomplete list.
+
+**Access, banked.** `AdaWorldAPI/stockfish-rs` is private and outside this
+session's GitHub App installation; `add_repo`/`list_repos` report it absent,
+which is the App's view and **not an absence oracle**. The session token reads
+it over REST/zipball (200) but is not a git credential — `git clone` fails
+`could not read Username` both through the proxy and bypassed, the
+read-not-write signature MedCare-rs's `CLAUDE.md` documents. The probe corpus
+is readable today; a branch there needs the installation extended.
+
+**Confidence.** High on the census and the access matrix (both measured). The
+method transfer is a DESIGN PRECEDENT, not a measured result — no arm ran here.
+
 ## 2026-08-30 — lance-graph #1077 (MERGED 6bad99c8) + #1078 (MERGED da3b5c76) — the two convergence plans land, batched arc entry
 
 - **#1078 — `alpha-reason-witness-cognitive-fabric-v1` (PLAN/BOARD ONLY).**
