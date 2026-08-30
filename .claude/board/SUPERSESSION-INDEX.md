@@ -86,7 +86,7 @@ a licence to act on it.
 | **READ** | `epistemic-quadrant-materialization-v1` | `MergeMode` | PROPOSED.** Operator direction 2026-07-29: * | 4/4 |
 | **READ** | `graphrag-doc-retrieval-soa-integration-v1` | `GateDecision` | DESIGN + FIRST CODE. **v1.2 (2026-07-17):**  | 7/10 |
 | **READ** | `integration-actionhandler-rbac-orchestration-v1` | `GateDecision` | HARDENING (5+3 in progress). | 0/0 |
-| **READ** | `mask-algebra-revision-read-v1` | `StepMask` | DRAFT, awaiting operator ruling on §5 | 1/3 |
+| **READ** | `mask-algebra-revision-read-v1` | `StepMask` | DRAFT, awaiting operator ruling on §5 | 2/3 |
 | **READ** | `mul-calibration-not-verdict-v1` | `GateDecision` | PROPOSAL (unbuilt) — 2026-08-26. PLAN/BOARD  | 6/12 |
 | **READ** | `mul-consumer-build-gate-v1` | `GateDecision` | GATE RUN — 2026-08-27. Discharges D-MCAL-6 a | 3/7 |
 | **READ** | `mul-consumer-census-v1` | `GateDecision` | MEASUREMENT COMPLETE — 2026-08-27. Measureme | 1/2 |

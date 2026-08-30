@@ -153,6 +153,27 @@ impl FieldMask {
         self.0 & other.0 == 0
     }
 
+    /// Set difference — the field positions present in `self` but NOT in
+    /// `other`. The provenance surface's primitive: *"what does this view
+    /// carry that the one it claims to extend does not"* is a difference, and
+    /// a bounded mask has no complement to build it from `intersect`/`union`
+    /// alone. Landed substrate-first: a consumer needing this hand-rolled an
+    /// entire `EvidenceMask` trait around its absence
+    /// (`mask-algebra-revision-read-v1` F4, D-MAR-1).
+    #[inline]
+    pub const fn difference(self, other: Self) -> Self {
+        Self(self.0 & !other.0)
+    }
+
+    /// Is every field position of `self` also present in `other`? Containment,
+    /// the other half of that surface — an inherited or extrapolated candidate
+    /// must be checkable against the set it claims to sit inside, so that it
+    /// can never silently read as asserted.
+    #[inline]
+    pub const fn is_subset_of(self, other: Self) -> bool {
+        self.0 & !other.0 == 0
+    }
+
     /// Inherit a parent class's presence into this mask — the **mask-inherits-as-
     /// delta** of the HHTL `subClassOf` walk (`wikidata-hhtl-load.md`). A child
     /// IS-A its parent, so its mask carries every field the parent declares
@@ -375,6 +396,31 @@ impl WideFieldMask {
             (WideRepr::Small(a), WideRepr::Small(b)) => Self(WideRepr::Small(a | b)),
             _ => self.zip_fold(other, |a, b| a | b),
         }
+    }
+
+    /// Set difference — positions present in `self` but NOT in `other`. Same
+    /// tier-agnostic fold as [`intersect`](Self::intersect), and the asymmetry
+    /// is why the missing-chunk read matters in BOTH directions: a missing
+    /// `other` chunk reads `0`, so `a & !0 = a` preserves `self`'s high bits;
+    /// a missing `self` chunk reads `0`, so `0 & !b = 0` never invents one.
+    #[must_use]
+    pub fn difference(&self, other: &Self) -> Self {
+        match (&self.0, &other.0) {
+            (WideRepr::Small(a), WideRepr::Small(b)) => Self(WideRepr::Small(a & !b)),
+            _ => self.zip_fold(other, |a, b| a & !b),
+        }
+    }
+
+    /// Is every populated position of `self` also populated in `other`?
+    /// Specified as `self.difference(other).is_empty()` — ONE code path, so
+    /// containment and difference can never disagree about the same pair.
+    /// This allocates on the `Wide` arm; the non-allocating `chunk_at` /
+    /// `canonical_len` loop is a recorded alternative if a measurement ever
+    /// justifies it, never a second shipped path
+    /// (`mask-algebra-revision-read-v1` §2.1: "Do not ship both").
+    #[must_use]
+    pub fn is_subset_of(&self, other: &Self) -> bool {
+        self.difference(other).is_empty()
     }
 
     /// Chunk-wise fold across tiers (only reached when at least one side is
@@ -2351,6 +2397,180 @@ mod tests {
         for i in 0..64u8 {
             assert_eq!(promoted.has(i), narrow.has(i), "bit {i} must round-trip");
         }
+    }
+
+    // ---- D-MAR-1 gates (mask-algebra-revision-read-v1 §3) -----------------
+    //
+    // Each identity below is paired with an anti-vacuity twin, because the
+    // identity ALONE is satisfied by a degenerate implementation: G1 passes
+    // for `difference == EMPTY`, G2 passes for `is_subset_of == true`. The
+    // pre-registered disable-runs are named per test.
+
+    /// **G1 + G1-anti** — `difference` removes exactly `other`'s positions,
+    /// and is not the constant-empty function.
+    ///
+    /// Disable-run: `FieldMask::difference` returns `Self::EMPTY` → G1 stays
+    /// GREEN and G1-anti goes RED, which is the whole reason the pair exists.
+    #[test]
+    fn field_mask_difference_removes_other_and_is_not_constant_empty() {
+        let a = FieldMask::from_positions(&[0, 3, 7, 40]);
+        let b = FieldMask::from_positions(&[3, 40]);
+
+        // G1: nothing of `b` survives in `a \ b`.
+        assert!(a.difference(b).intersect(b).is_empty());
+
+        // G1-anti: `a` is NOT a subset of `b`, so the difference must carry
+        // something — and exactly the positions `b` did not name.
+        let d = a.difference(b);
+        assert!(
+            !d.is_empty(),
+            "a has positions b lacks; difference cannot be empty"
+        );
+        assert_eq!(d, FieldMask::from_positions(&[0, 7]));
+    }
+
+    /// **G2 + G2-anti** — `is_subset_of` holds against a superset and FAILS on
+    /// a non-subset, so it is not the constant-true function.
+    ///
+    /// Disable-run: `is_subset_of` returns `true` unconditionally → G2 stays
+    /// GREEN and G2-anti goes RED.
+    #[test]
+    fn field_mask_is_subset_of_discriminates_both_ways() {
+        let a = FieldMask::from_positions(&[1, 9]);
+        let b = FieldMask::from_positions(&[9, 33]);
+
+        // G2: every mask sits inside its union with anything.
+        assert!(a.is_subset_of(a.union(b)));
+        // ...and the trivial edges, which must not be the only passing cases.
+        assert!(FieldMask::EMPTY.is_subset_of(a));
+        assert!(a.is_subset_of(a));
+
+        // G2-anti: `a` holds position 1, which `b` does not.
+        assert!(!a.is_subset_of(b), "position 1 is absent from b");
+        assert!(!b.is_subset_of(a), "position 33 is absent from a");
+    }
+
+    /// **G3** — the wide tier reproduces G1/G2, INCLUDING a `Small` x `Wide`
+    /// cross-width pair in BOTH argument orders. The two orders exercise
+    /// different halves of `zip_fold`'s missing-chunk read: `Small \ Wide`
+    /// needs `a` present and `b` absent past the first chunk, `Wide \ Small`
+    /// needs the reverse.
+    ///
+    /// Disable-run: drop the `unwrap_or(0)` on the missing-chunk read in
+    /// `zip_fold` → the cross-width cases go RED.
+    #[test]
+    fn wide_field_mask_difference_holds_across_tiers_in_both_orders() {
+        let small = WideFieldMask::from_positions(&[2, 5]);
+        let wide = WideFieldMask::from_positions(&[5, 70, 130]);
+        assert!(matches!(small.0, WideRepr::Small(_)));
+        assert!(
+            matches!(wide.0, WideRepr::Wide(_)),
+            "fixture must span >1 chunk"
+        );
+
+        // Small \ Wide: keeps position 2, drops the shared 5, and must not
+        // acquire the high bits that only exist on the other side.
+        let sw = small.difference(&wide);
+        assert_eq!(sw, WideFieldMask::from_positions(&[2]));
+        assert!(
+            !sw.has(70) && !sw.has(130),
+            "difference must never invent a high bit"
+        );
+
+        // Wide \ Small: keeps BOTH high positions, drops the shared 5.
+        let ws = wide.difference(&small);
+        assert_eq!(ws, WideFieldMask::from_positions(&[70, 130]));
+        assert!(
+            ws.has(70) && ws.has(130),
+            "high bits survive a Small subtrahend"
+        );
+
+        // G1 identity on the wide tier, plus its anti-vacuity twin.
+        assert!(wide.difference(&small).intersect(&small).is_empty());
+        assert!(!ws.is_empty());
+
+        // G2 across tiers, both directions.
+        assert!(small.is_subset_of(&small.union(&wide)));
+        assert!(
+            !wide.is_subset_of(&small),
+            "70 and 130 are absent from small"
+        );
+        assert!(!small.is_subset_of(&wide), "2 is absent from wide");
+    }
+
+    /// **G4** — a `Wide` operand whose difference collapses below bit 64 must
+    /// compare EQUAL to, and hash IDENTICALLY with, the `Small` mask denoting
+    /// the same set (the `PartialEq`/`Hash` canonical-trim contract, V-L P0).
+    /// `difference` reaches that contract only because it routes through
+    /// `zip_fold`, whose trim-and-demote runs on the result.
+    ///
+    /// Disable-run: bypass `zip_fold`'s trailing-zero trim / `Small` demote →
+    /// G4 goes RED on both the equality and the hash assertion.
+    #[test]
+    fn wide_field_mask_difference_normalizes_a_collapsed_result() {
+        use std::collections::hash_map::DefaultHasher;
+        use std::hash::{Hash, Hasher};
+
+        let wide = WideFieldMask::from_positions(&[4, 70]);
+        let high = WideFieldMask::from_positions(&[70]);
+        assert!(matches!(wide.0, WideRepr::Wide(_)));
+
+        // {4, 70} \ {70} = {4} — which fits in one chunk.
+        let collapsed = wide.difference(&high);
+        let canonical = WideFieldMask::from_positions(&[4]);
+
+        assert_eq!(
+            collapsed, canonical,
+            "a collapsed result must equal its Small form"
+        );
+        assert!(
+            matches!(collapsed.0, WideRepr::Small(_)),
+            "and must actually demote, not merely compare equal"
+        );
+
+        let h = |m: &WideFieldMask| {
+            let mut s = DefaultHasher::new();
+            m.hash(&mut s);
+            s.finish()
+        };
+        assert_eq!(
+            h(&collapsed),
+            h(&canonical),
+            "Hash must agree with PartialEq"
+        );
+    }
+
+    /// `is_subset_of` is specified AS `difference(..).is_empty()`, so the two
+    /// can never disagree. This pins that: across a matrix of pairs spanning
+    /// both tiers, containment and an empty difference report the same answer.
+    /// A future non-allocating rewrite of `is_subset_of` would have to keep
+    /// this green — which is what stops it becoming a second, drifting path.
+    #[test]
+    fn wide_field_mask_subset_agrees_with_difference_everywhere() {
+        let cases = [
+            (vec![], vec![]),
+            (vec![1], vec![]),
+            (vec![], vec![1]),
+            (vec![1, 2], vec![1, 2]),
+            (vec![1], vec![1, 90]),
+            (vec![1, 90], vec![1]),
+            (vec![90], vec![91]),
+            (vec![3, 70, 200], vec![3, 70, 200]),
+        ];
+        let mut saw_true = false;
+        let mut saw_false = false;
+        for (l, r) in &cases {
+            let a = WideFieldMask::from_positions(l);
+            let b = WideFieldMask::from_positions(r);
+            let by_subset = a.is_subset_of(&b);
+            let by_diff = a.difference(&b).is_empty();
+            assert_eq!(by_subset, by_diff, "{l:?} vs {r:?} must agree");
+            saw_true |= by_subset;
+            saw_false |= !by_subset;
+        }
+        // Anti-vacuity: the matrix must exercise BOTH answers, or "they agree"
+        // is satisfied by a pair of constant functions.
+        assert!(saw_true && saw_false, "matrix must produce both verdicts");
     }
 
     /// (V-L P0 regression) `intersect`/`union` results whose high chunks
