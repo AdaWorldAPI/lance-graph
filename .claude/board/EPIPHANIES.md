@@ -225,6 +225,49 @@ clause — this PR is mixed, not hygiene-only, so it earns its entry);
 ---
 
 ## 2026-08-30 — ⊘ STORNO of `E-THE-ORACLE-WAS-CITED-AS-A-PHILOSOPHY-AND-NEVER-AS-A-METHOD-1` (same day, operator-directed read) — the method WAS partly transferred; the census was right, the inference was not
+## 2026-08-30 — E-A-PRE-REGISTERED-GATE-CAN-BE-VACUOUS-UNDER-ITS-OWN-DISABLE-1 — G4 named an assertion its own disable-run cannot turn red
+
+**Status:** FINDING (measured, landing with D-MAR-1). **Confidence:** High —
+the disable was run, both ways, and the passing arm was isolated.
+
+`mask-algebra-revision-read-v1` §3 specifies gate **G4** as: *"a `Wide` operand
+whose difference falls entirely below bit 64 **compares equal to and hashes
+identically with** the `Small` equivalent"*, with the disable-run *"Bypass
+`zip_fold`'s trim/demote (`:399-405`) → G4 red"*.
+
+**Measured: that disable does NOT turn those assertions red.** `PartialEq` and
+`Hash` on `WideFieldMask` are each implemented over `canonical_len()`, which
+trims trailing zero chunks *independently of `zip_fold`*. So an un-normalized
+`Wide([x, 0])` still compares equal to, and hashes identically with, `Small(x)`.
+Bypassing the trim/demote and running ONLY the equality + hash assertions the
+gate names: **the test passes.** The gate would have shipped vacuous.
+
+What does catch it is a direct assertion on the REPRESENTATION —
+`matches!(collapsed.0, WideRepr::Small(_))`, "and must actually demote, not
+merely compare equal". Under the disable that is the assertion that fires.
+
+**The generalizable rule: a gate is vacuous unless its named disable-run is
+actually executed against it — including a gate written by a careful plan that
+pre-registered the disable.** This one was specified by a document whose own §3
+warns twice that an identity alone is vacuous (G1 passes for
+`difference ≡ EMPTY`, G2 for `is_subset_of ≡ true`) and supplies anti-vacuity
+twins for both. The author saw the trap for the identities and still wrote a
+third gate whose stated disable cannot reach its stated assertion — because
+`PartialEq`/`Hash` are defended by a SECOND mechanism, and a gate aimed at
+mechanism A cannot fail when mechanism B independently upholds the property.
+
+**Practical form:** when a gate asserts an observable property, ask which
+mechanism upholds it — if more than one does, the gate measures the disjunction,
+not the mechanism under test. Assert the mechanism (the representation), not
+only the property (the comparison).
+
+Cross-ref: `E-VACUOUS-ASSERTION-IS-THE-HOUSE-STYLE-1`; the P0 falsifiability
+rule in `CLAUDE.md`; `mask-algebra-revision-read-v1` §3 (whose G4 row is
+corrected in place by this PR).
+
+---
+
+## 2026-08-30 — ⊘ STORNO of `E-THE-ORACLE-WAS-CITED-AS-A-PHILOSOPHY-AND-NEVER-AS-A-METHOD-1` (same day, operator-directed read) — the census was right, the inference was not
 
 **Status:** CORRECTION. The entry below it stands as written (append-only); this
 supersedes its HEADLINE CLAIM only. **Confidence:** High — refuted by a plan that
