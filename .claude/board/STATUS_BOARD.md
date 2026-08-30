@@ -1,16 +1,3 @@
-## mul-ewa-trust-propagation-v1 — PROPOSED 2026-08-28 (measure-before-carve)
-
-Plan: `.claude/plans/mul-ewa-trust-propagation-v1.md`. PLAN/BOARD ONLY. W1
-is the STOP gate; NO-BUY is a valid exit at every gate.
-
-| D-id | Deliverable | Status |
-|---|---|---|
-| D-MEP-0 | jc Pillar-6/7 provers green in-checkout + inlined-sandwich parity gate (F-MEP-0 disable-verified) | Queued |
-| D-MEP-1 | information probe over real chains: scalar vs sandwich suspicion rankings, divergence + S4-guarded error prediction + shuffle null (F-MEP-1/2/3) | Queued |
-| D-MEP-2 | `Option<TrustSigma>` DTO (ONLY if W1 forces it; no tenant carve; F-MEP-4 consumer-build gate) | Queued |
-| D-MEP-3 | `advance_on_gate` Commit→{Hold,Prune} flip-rate probe, two-sided (F-MEP-5) | Queued |
-| D-MEP-4 | verdict: BUY / NO-BUY, numbers banked either way | Queued |
-
 ## rubicon-loco-rung-cognitive-fabric-v1
 
 | D-id | deliverable | status |
@@ -23,6 +10,19 @@ is the STOP gate; NO-BUY is a valid exit at every gate.
 | D-RLR-5 | **RE-SCOPED TWICE 2026-08-29.** Round 1 corrected the model (alpha is rung-level STORAGE, not a delta budget). Round 2 corrects the SCOPE: a real write path for a `rung: u8` field already shipped in a sibling repo (`MedCare-rs::medcare-nodesoa::alpha`, PR #565/#590, built directly on `lance_graph_contract::canonical_node::{NodeGuid,NodeRow}`, Lance-persisted). Now: (a) confirm whether `AlphaStamp.rung` is the same ladder `RungLevel` names or an unrelated attention-depth scale, (b) name the `(classid, rail)` each of rungs 1–10 would occupy IN `lance-graph`'s own contract, (c) decide whether `lance-graph` should consume the MedCare-rs pattern rather than re-derive it | **HELD, narrower reason than previously stated.** `D-ACR-2` (Rung-ladder rail UNMINTED, HTT §8 Q3) still blocks a `lance-graph`-native row. `D-ACR-3` ("no ontology-owned write path exists") is true only because `lance-graph` owns no live `NodeRow` spine to attach one to — the write path itself is proven, once, in `MedCare-rs`, against real data. See `EPIPHANIES.md` `E-A-RUNG-WRITE-PATH-ALREADY-SHIPPED-IN-A-SIBLING-REPO-1` |
 | D-RLR-6 | smallest invariant making Revision unavoidable per completed cycle (`F-RLR-5`) | Queued |
 
+
+## mul-ewa-trust-propagation-v1 — PROPOSED 2026-08-28 (measure-before-carve)
+
+Plan: `.claude/plans/mul-ewa-trust-propagation-v1.md`. PLAN/BOARD ONLY. W1
+is the STOP gate; NO-BUY is a valid exit at every gate.
+
+| D-id | Deliverable | Status |
+|---|---|---|
+| D-MEP-0 | jc Pillar-6/7 provers green in-checkout + inlined-sandwich parity gate (F-MEP-0 disable-verified) | Queued |
+| D-MEP-1 | information probe over real chains: scalar vs sandwich suspicion rankings, divergence + S4-guarded error prediction + shuffle null (F-MEP-1/2/3) | Queued |
+| D-MEP-2 | `Option<TrustSigma>` DTO (ONLY if W1 forces it; no tenant carve; F-MEP-4 consumer-build gate) | Queued |
+| D-MEP-3 | `advance_on_gate` Commit→{Hold,Prune} flip-rate probe, two-sided (F-MEP-5) | Queued |
+| D-MEP-4 | verdict: BUY / NO-BUY, numbers banked either way | Queued |
 
 ## token-value-tenant-v1 — PROPOSED 2026-08-28 (measure-before-carve)
 

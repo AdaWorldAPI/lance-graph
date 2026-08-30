@@ -1,25 +1,3 @@
-## 2026-08-28 — PROPOSED (unbuilt, measure-before-carve): MUL ↔ EWA trust propagation, `.claude/plans/mul-ewa-trust-propagation-v1.md`
-
-Operator: *"check epistemic potholes > revision in kanban y rubicon model"* +
-*"check for synergies MUL <> EWA."* Session-verified state: MUL is scalar and
-point-wise (`MulAssessment`, zero variance/propagation surface); jc's EWA
-sandwich (Pillars 6/7, certified) is the workspace's lawful uncertainty
-propagation operator; `KanbanColumn::Plan = 4` (re-enter Planning carrying
-the witness) is the revision exit the propagated number would calibrate; the
-composition-legality question is ALREADY owned by jirak/pearl/ewa_sandwich
-(EPIPHANIES:12867, deferred). The plan: W0 parity-anchor an inlined 2×2
-sandwich against jc's certified output (jc stays zero-dep; probe lives in
-deepnsm-v2); W1 STOP-gate — do sandwich-propagated and naive-scalar suspicion
-rankings of real multi-hop derived beliefs DIVERGE (ρ < 0.95) and does the
-sandwich predict S4-guarded error signals better (never the
-TD-NARS-REVISION-UNGUARDED confidences — fence, not target); W2 optional
-DTO-only `Option<TrustSigma>` (no tenant carve, no layout bump, only if W1
-forces it); W3 the Commit→Plan flip-rate probe on `advance_on_gate` (the
-epistemic-pothole detector quantified, two-sided: flips concentrate on
-flagged chains AND clean chains stay silent); W4 explicit BUY / NO-BUY.
-Feeds `mul-calibration-not-verdict-v1`'s thesis with calibration data;
-renames nothing (F-MUL-6 block respected). D-MEP-0..4 on STATUS_BOARD.
-
 ## 2026-08-29 — `rubicon-loco-rung-cognitive-fabric-v1` (PROPOSED, plan-only)
 
 `.claude/plans/rubicon-loco-rung-cognitive-fabric-v1.md`. Source-first audit at
@@ -42,8 +20,30 @@ atom sequence and a new carrier is an automatic STOP. **Kanban has zero
 internal string paths.** **Symbiont is `exclude`d with no dependents** —
 unreachable, quarantine recommended (≠ removing SurrealDB). **Alpha integration
 is UNRESOLVED and defaults to REPRESENTATION-ONLY/HELD** until a
-producer→consumer trace lands. D-RLR-0..6; eight STOP gates.
+producer→consumer trace lands. D-RLR-0..6; **eleven** STOP gates (`F-RLR-1..11` — count reconciled in review; §J carries all eleven).
 
+
+## 2026-08-28 — PROPOSED (unbuilt, measure-before-carve): MUL ↔ EWA trust propagation, `.claude/plans/mul-ewa-trust-propagation-v1.md`
+
+Operator: *"check epistemic potholes > revision in kanban y rubicon model"* +
+*"check for synergies MUL <> EWA."* Session-verified state: MUL is scalar and
+point-wise (`MulAssessment`, zero variance/propagation surface); jc's EWA
+sandwich (Pillars 6/7, certified) is the workspace's lawful uncertainty
+propagation operator; `KanbanColumn::Plan = 4` (re-enter Planning carrying
+the witness) is the revision exit the propagated number would calibrate; the
+composition-legality question is ALREADY owned by jirak/pearl/ewa_sandwich
+(EPIPHANIES:12867, deferred). The plan: W0 parity-anchor an inlined 2×2
+sandwich against jc's certified output (jc stays zero-dep; probe lives in
+deepnsm-v2); W1 STOP-gate — do sandwich-propagated and naive-scalar suspicion
+rankings of real multi-hop derived beliefs DIVERGE (ρ < 0.95) and does the
+sandwich predict S4-guarded error signals better (never the
+TD-NARS-REVISION-UNGUARDED confidences — fence, not target); W2 optional
+DTO-only `Option<TrustSigma>` (no tenant carve, no layout bump, only if W1
+forces it); W3 the Commit→Plan flip-rate probe on `advance_on_gate` (the
+epistemic-pothole detector quantified, two-sided: flips concentrate on
+flagged chains AND clean chains stay silent); W4 explicit BUY / NO-BUY.
+Feeds `mul-calibration-not-verdict-v1`'s thesis with calibration data;
+renames nothing (F-MUL-6 block respected). D-MEP-0..4 on STATUS_BOARD.
 
 ## 2026-08-28 — PROPOSED (unbuilt, measure-before-carve): a token value tenant inside the 40,767-triple stream, `.claude/plans/token-value-tenant-v1.md`
 

@@ -66,7 +66,16 @@ the variant is load-bearing in `lance-graph-ogar/src/actions.rs:94,103` and the
 
 ## §B Rung-4 fossil census — the fossil is THIN, and the thesis is already true
 
-Exhaustive `rung.?4|RungLevel::*4|rung_4` sweep over `crates/`: **5 hits.**
+`rung.?4|RungLevel::*4|rung_4` sweep over `crates/`: **5 hits** — ⊘ *census
+corrected in review (codex P2, re-verified at source): the regex was NOT
+exhaustive.* Two live sites use semantic/spaced forms it missed:
+`contract/src/proprioception.rs` `ANCHOR_REGISTRY` carries `rung: 4` (a data
+entry), and `planner/src/elevation/mod.rs:119-124` matches
+`RungLevel::Abstract` (mapping ALL ten rungs to elevation tiers, rung 4 not
+privileged). Re-verdict on the corrected evidence: **the fossil conclusion
+STANDS** — neither added site is a rung-4 privilege gate — but D-RLR-2's
+census MUST include semantic (`RungLevel::Abstract`) and spaced (`rung: 4`)
+forms, and must not cite the original five-hit count.
 
 | hit | class |
 |---|---|
@@ -244,8 +253,15 @@ The trace is unchanged in spirit and wrong in target. Re-scoped:
 SHARPER under §F.1, not weaker: if ten rungs share one address by design, the
 stability of that address is the whole load-bearing assumption.)*
 
-**Do not key alpha (or anything cross-rung) on `NodeGuid` as a stable
-address.**
+**Do not key alpha (or anything cross-rung) on an independently RE-MINTED
+`NodeGuid`.** ⊘ *Narrowed in review (codex P2): the first wording was a
+blanket fence that would have rejected the same-address overlay model itself
+(`alpha-channel-rung-overlay-v1.md` requires the overlay to use the same
+`NodeGuid`). The safe form, per source: `NodeGuid` derives `Eq`/`Hash` over
+its raw `[u8; 16]` and tail variants only REINTERPRET those bytes — so a key
+COPIED VERBATIM from the base row stays valid across a registry flip. What is
+unsafe is minting a semantically-equal address independently under a
+different `tail_variant` and expecting equality. Copy, never re-mint.*
 
 - **The tail reading is registry-resolved, not intrinsic.** Mints go through
   `mint_for(classid_read_mode(c).tail_variant, …)` — *"NEVER by hardcoding
@@ -353,7 +369,13 @@ session's context, is not an exotic place to have to look.
 **no crate path-deps it** — every other hit is a comment citing it as a
 sibling/precedent (`cognitive-stack`, `lance-graph-ogar` manifests).
 
-**Verdict: independently buildable, unreachable from production.** Recommend
+**Verdict — ⊘ narrowed in review (codex P2): workspace exclusion + zero
+reverse path-deps proves only "unreachable from ROOT-WORKSPACE builds", not
+unreachable: `crates/symbiont/Dockerfile` builds a runnable image with
+`symbiont` as entrypoint (own manifest + container path). The quarantine
+recommendation therefore rests on the OPERATOR ruling, which is stronger than
+the reachability inference anyway: symbiont is ⊘ DEPRECATED 2026-08-18,
+operator no-go — "dormant excluded crate, never live surface" (CLAUDE.md).** Recommend
 the smallest quarantine that preserves archaeology while stopping a future
 session reading it as current — a `DEPRECATED-ARCHITECTURE` header + a board
 pointer. **`remove Symbiont` ≠ `remove SurrealDB`**; storage/query use is a
@@ -365,7 +387,16 @@ separate question this plan does not touch.
 
 **Prove the central thesis end-to-end, once, at a NON-rung-4 horizon:**
 
-```
+**Rung-number mapping (pinned before W1, per review — Major):** every `r` in
+this plan is the **`RungLevel` discriminant, 0..=9** (`cognitive_shader.rs:157`;
+`from_u8` saturating is THE one u8→rung mapping). Prose that counts "rungs
+1..10" is the 1-indexed human ordinal of the SAME ten levels (ordinal n =
+discriminant n−1); the wire value is the discriminant. `for_rung(r)` takes the
+discriminant: 0..=4 → Strict, 5..=8 → Aware, 9 → Retro. "Rung 4" throughout =
+discriminant 4 = `RungLevel::Abstract`. No `(classid, rail)` row may be minted
+against an ordinal.
+
+```text
 EpistemicMode::for_rung(r ≥ 5)        a horizon that is NOT rung 4
    → invoke ONE existing Frozen atom via ogar_loco::FnIndex
      (recipe_vocab::op_of — already callable, no new atom)
@@ -397,6 +428,7 @@ Chosen from source, not invention: the atom is `recipe_vocab::op_of`
 | `F-RLR-8` | band promotion stays typed | a band transition reduces to a threshold on one untyped scalar |
 | `F-RLR-9` | alpha keys on a stated, flip-stable identity | a `NodeGuid` is treated as an immutable cross-rung pointer, or guids under different `tail_variant` registrations are compared as one address (§F.4) |
 | `F-RLR-10` | every rung-storage claim is read out of `alpha-channel-rung-overlay-v1.md` + HTT §2.3/§3 + the `D-ACR-*` board rows | a storage model for rungs is asserted from the session's own reasoning — §F's own first draft is the instance (§F.1 ⊘) |
+| `F-RLR-11` | every "unbuilt" / "no writer" / absence claim checks the SIBLING repos before landing | an absence claim rests on a single-repo (or grep-only) census — the E-A-RUNG-WRITE-PATH sibling-repo correction is the founding instance |
 
 **Constitutional, carried from the merged arc:** ambiguity/entropy/parallax
 **never** terminate cognition — only the Rubicon boundary owns stop/commit/veto.
