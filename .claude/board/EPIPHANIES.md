@@ -10,11 +10,16 @@ a row asserting *"a marker shared by >1 rival discriminates nothing"* ≡
 `hub_indegree` middle-term exclusion, labelled **"the same computation"**. It is
 not, and the disagreement sits exactly in the region a differential turns on:
 
-| shared by | consumer specificity test | `rcr_abduce` |
-|---|---|---|
-| 1 rival | **specific** → ranked | `members.len() < 2` → `continue`: no candidate, **no gap** |
-| exactly 2 | **not specific** → disqualified | degree ≤ `hub_indegree` → **generates the frontier** |
-| > `hub_indegree` | not specific | `GapKind::HubExcluded` |
+| shared by | consumer specificity test | `rcr_abduce` candidates | `rcr_abduce` gaps |
+|---|---|---|---|
+| 1 rival | **specific** → ranked | none (`members.len() < 2`) | none for that predicate; one frontier-level `NoSharedMiddle` iff NO predicate reaches 2 and no hub was seen (`:258-264`) |
+| exactly 2 | **not specific** → disqualified | **permitted**, not guaranteed — self-statement skip, `c_min`, `budget` still apply (`:224-239`) | `BudgetExhausted` if the budget is hit |
+| > `hub_indegree` | not specific | none | `HubExcluded` |
+
+(The candidate/gap split is the second review pass; the first version of this
+table wrote "no gap" and "generates the frontier", conflating a per-predicate
+skip with a frontier outcome and a permission with a result. The inversion the
+entry is about survives unchanged.)
 
 `hub_indegree` lives in `Throttle` beside `c_min` and `budget` — a configurable
 **flood control on hubs**, sharing the *shape* of a sharing-count test and

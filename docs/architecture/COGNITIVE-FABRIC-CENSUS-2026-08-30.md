@@ -115,7 +115,7 @@ of a shape this repo already ships one level up:
 |---|---|---|
 | `Differential` | `Frontier::candidates` | ranked, because evidence separated it |
 | `UnderDetermined{shared, missing}` | `Frontier::gaps` | blocked — but see the correction below on what `ReasoningGap` actually carries |
-| `NotRaised` | throttle exclusion + `GapKind::HubExcluded` | never entered the frontier |
+| `NotRaised` | throttle exclusion — **no candidate, but a `GapKind::HubExcluded` gap IS recorded** | absent from `candidates`, present in `gaps` |
 | "a marker shared by >1 rival discriminates nothing" | `hub_indegree` middle-term exclusion | ⊘ **NOT the same computation** — see the correction below |
 | a domain prior gate: a candidate CLASS raised only on class-specific evidence | **no upstream equivalent** | the one genuinely novel consumer mechanism — the natural upstream candidate, moved as MECHANISM with its meaning left behind |
 
@@ -124,11 +124,21 @@ refutes** (codex P2 on #1079; re-measured against `nars/tactics.rs:191-215` here
 against the consumer's admission predicate in the private companion, and the
 objection is CONFIRMED). The two are opposite in the region that matters:
 
-| shared by | consumer `marker_is_specific` | planner `rcr_abduce` |
-|---|---|---|
-| 1 rival (unshared) | **specific** → `Differential` | `members.len() < 2` → `continue`: no candidate, **no gap** |
-| exactly 2 rivals | **not specific** → disqualified | degree `2 > hub_indegree`? normally no → **generates the frontier** |
-| many rivals (> `hub_indegree`) | not specific | `GapKind::HubExcluded` |
+**Candidates and gaps are separate outputs, and the rows below state both**
+(second review pass — the first version of this table conflated them):
+
+| shared by | consumer `marker_is_specific` | `rcr_abduce` candidates | `rcr_abduce` gaps |
+|---|---|---|---|
+| 1 rival (unshared) | **specific** → `Differential` | none (`members.len() < 2` → `continue`) | none *for that predicate* — but if NO predicate reaches 2 and no hub was seen, one `NoSharedMiddle` is recorded for the whole frontier (`tactics.rs:258-264`) |
+| exactly 2 rivals | **not specific** → disqualified | **permitted** — passing the hub gate is necessary, not sufficient: the self-statement skip, `c_min` and `budget` still apply (`:224-239`) | `BudgetExhausted` if the budget is hit |
+| many rivals (> `hub_indegree`) | not specific | none | `HubExcluded` |
+
+The inversion survives the added precision, and that is the point: at 1 rival
+the consumer RANKS where the planner emits nothing, and at 2 the consumer
+DISQUALIFIES where the planner is permitted to derive. What the sharper reading
+kills is only the shorthand "no gap" / "generates" — a skipped predicate can
+still leave a frontier-level gap, and clearing the hub gate is a permission,
+not a result.
 
 `hub_indegree` is a **configurable flood throttle on hubs** (`Throttle`,
 `tactics.rs:112-124`: *"a predicate whose in-degree EXCEEDS this is a hub and
@@ -240,11 +250,19 @@ away*"). Three metaphors, one mechanism, three ASPECTS of one substrate:
 >   already consumes two `FocusTrace`s as the EVIDENCE of the Heckhausen
 >   crossing (`RubiconVerdict` is derived from attention residue, shipped).
 > - **Shannon axis** — claimed vs unclaimed is the searched/unsearched
->   partition: "examined N times, yielded nothing" is real information and
->   is exactly what a what-to-measure-next surface quantifies.
-> - **witness/temporal axes** — the stamp (`cycle`, `seq`, `rung`,
->   `visits`) is provenance evidence of who looked, when, in what order;
->   replaying it is evidence about the trajectory of the thought.
+>   partition, and that alone is real information for a what-to-measure-next
+>   surface. ⊘ *Narrowed in review:* the stamp records ATTENDANCE, never an
+>   OUTCOME — `visits` counts claims, so "examined N times" is supported and
+>   "**yielded nothing**" is NOT. An outcome axis needs its own field.
+> - **witness/temporal axes** — the stamp (`cycle`, `seq`, `rung`, `visits`)
+>   is evidence of WHEN, at what rung, and in what order a row was attended,
+>   and replaying it is evidence about the trajectory of the thought.
+>   ⊘ *Also narrowed:* it is not evidence of **who** looked — no field in
+>   `{cycle, seq, rung, visits}` carries actor or session identity, and
+>   `ReasoningWitness64` is an identity FINGERPRINT that points to witness
+>   content (`splat.rs:71-78`), with `replay_ref` a replay pointer; neither is
+>   documented as the actor. Attendance, outcome and identity are three
+>   separate claims and only the first is currently carried.
 > - **the transfer law** — evidence moves BETWEEN axes only through typed
 >   inference (revision under disjoint stamps, the tactics), never by
 >   leakage. The operator's own prior formulation was already exact:
@@ -449,13 +467,19 @@ one.
   a live ruling** (operator, 2026-08-30: *"a stale inheritance … it was never
   a recent ruling"*). This document's first filing repeated
   `persona-vs-rung-ladder.md`'s row-4 shelf as if current; regraded in place.
-  The ruled direction now: **(a)** rung 0–9 AWARENESS is scheduled **in
-  parallel** as meta-aware thinking orchestration through
-  `lance-graph-supervisor`'s kanban surface — `kanban_actor.rs`'s
-  `PhaseCensus` is exactly the built primitive ("the read-only fleet
-  visibility surface … one `&self` pass, not 64k RPCs"; `observe`/`record`/
-  `at_rest`, plus `mul_target` as the pure gate-lowering) — the rung above
-  watching the kanban of the layer below, informing it without rewriting it;
+  The ruled direction now: **(a)** rung 0–9 AWARENESS is **to be** scheduled in
+  parallel as meta-aware thinking orchestration through
+  `lance-graph-supervisor`'s kanban surface — the rung above watching the
+  kanban of the layer below, informing it without rewriting it. ⚠ **This is
+  the direction, not a shipped mechanism**, and the ladder above says so in
+  the same document: the rung-aware dispatch LOOP is `MISSING`, `PhaseCensus`
+  and kanban are deliberately rung-blind, and `probe_parallel_rung` is
+  representation coexistence only ("does NOT establish wall-clock or thread
+  parallelism"). What IS built is the primitive it would compose over —
+  `kanban_actor.rs`'s `PhaseCensus` ("the read-only fleet visibility surface …
+  one `&self` pass, not 64k RPCs"; `observe`/`record`/`at_rest`, plus
+  `mul_target` as the pure gate-lowering). W0 must not read this row as an
+  available scheduler;
   **(b)** styles CONVERGE onto the execution membrane of §5 — mask-ALU
   cheapness for the first level, `ogar-loco`/`ogar-r2il` composition for
   depth — i.e. a style is a program over the atom/mask substrate, applicable
