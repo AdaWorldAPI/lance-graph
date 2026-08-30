@@ -6,8 +6,10 @@
 
 ## Status: CONTRACT (locked by operator directive, 2026-08-30)
 
-Operator, verbatim: **"how about making that faulty one liner prohibited"** —
-after the pattern destroyed 5876 lines of `PR_ARC_INVENTORY.md`.
+Operator-directed prohibition of the faulty one-liner, issued after the
+pattern destroyed 5876 lines of `PR_ARC_INVENTORY.md`. Operator words are not
+reproduced in committed artifacts; the directive's authority is the lock
+above, not a quotation.
 
 ## The One-Line Rule
 
