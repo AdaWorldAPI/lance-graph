@@ -166,29 +166,39 @@ not the names.
 
 **⊘ METAPHOR REGRADE (operator, 2026-08-30): the Photoshop-alpha name
 describes the STORAGE layer only — reserve-but-don't-claim, akin to the
-split-tunnel trick.** "Alpha channel" is not a cognitive-semantics claim; it
-is the storage geometry's name: allocate the whole same-address space at zero
-rows, claim (materialize) only where attention actually landed, discard
-whole. The same law already has ONE name across the workspace —
-**RESERVE-DON'T-RECLAIM** (the consumer overlay's `EdgeBlock` note; the A9
-register's reserved slots 16..24; OGAR's zero-fallback ladder: "a zero tier
-means *not consulted*, never *compacted away*"). Three metaphors, one
-mechanism, three layers:
+split-tunnel trick.** The metaphor names the ALLOCATION GEOMETRY: allocate
+the whole same-address space at zero rows, claim (materialize) only where
+attention actually landed, discard whole. The same law already has ONE name
+across the workspace — **RESERVE-DON'T-RECLAIM** (the consumer overlay's
+`EdgeBlock` note; the A9 register's reserved slots 16..24; OGAR's
+zero-fallback ladder: "a zero tier means *not consulted*, never *compacted
+away*"). Three metaphors, one mechanism, three ASPECTS of one substrate:
 
-| layer | its name for the law |
+| aspect | its name for the law |
 |---|---|
-| storage | Photoshop alpha / thin provisioning / split tunnel — reserve all, claim attended |
-| selection | photolithography — the mask exposes; unexposed surface costs nothing |
-| execution | the Java receipts — mask-native ops on the resident substrate; materialization is a terminal escape |
+| allocation geometry | Photoshop alpha / thin provisioning / split tunnel — reserve all, claim attended |
+| exposure | photolithography — the mask exposes; unexposed surface costs nothing |
+| operation | the Java receipts — mask-native ops on the resident substrate; materialization is a terminal escape |
 
-This regrade DISSOLVES the held tension above: alpha being
-"REPRESENTATION-ONLY" is not a deficiency to fix — a storage layer is
-*supposed* to be representation-only. The live-cognition question moves one
-layer up, where it belongs: does anything READ the claimed residue to steer
-the next mask (the saccade loop) — which is W1's real question and W6's BUY,
-not a property alpha itself was ever meant to carry. Likewise "alpha presence
-never mints evidence" stops being a fence against temptation and becomes a
-type-level triviality: storage residue is not a premise.
+> **⊘ CORRECTED IN PLACE (operator, 2026-08-30, same day — the first filing
+> of this block over-read the regrade).** The first version concluded "a
+> storage layer is supposed to be representation-only; the live-cognition
+> question moves one layer up." **Absolutely wrong — in zero-copy, storage
+> IS cognition.** There is no storage/compute split to retreat behind: the
+> substrate's own canon says the memory organs are *"thinking tissue — not
+> storage"*, and the zero-copy law says the array itself is a ClassView
+> projection. The claimed alpha rows are LIVE cognitive state — reading and
+> writing them is the thinking, not a record of thinking that some higher
+> layer performs. Consequences, restored to their correct strength:
+> **(a)** #1077's `REPRESENTATION-ONLY / HELD` grade STANDS for its stated
+> reason — the producer→consumer trace (`D-RLR-5`) has not been RUN — not
+> because the question was wrong; the metaphor regrade changes what the
+> NAME claims, never what the trace must prove. **(b)** "Alpha presence
+> never mints evidence" is a REAL, load-bearing fence, not a type-level
+> triviality: precisely because the residue is live cognitive state, the
+> temptation to read it as evidence is real; the fence separates
+> ATTENTION-state from EVIDENCE-state *within* one living substrate — it
+> does not separate storage from cognition, because nothing here does.
 
 **The convergence this makes visible (the operator's prediction, checked):**
 #1077, #1078 and the Java arc are ONE architecture seen from three angles —
