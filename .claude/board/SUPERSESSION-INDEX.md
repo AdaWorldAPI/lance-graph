@@ -79,7 +79,7 @@ a licence to act on it.
 
 | route | plan | ruled symbols named | self-declared status | board coverage |
 |---|---|---|---|---|
-| **READ** | `alpha-reason-witness-cognitive-fabric-v1` | `ResonanceDto` | PROPOSED / PLAN ONLY. No production implemen | 3/9 |
+| **READ** | `alpha-reason-witness-cognitive-fabric-v1` | `ResonanceDto` | PROPOSED / PLAN ONLY. No production implemen | 2/9 |
 | **READ** | `archetype-scaffold-v1` | `GateDecision` | In progress (2026-04-24) | 0/0 |
 | **READ** | `capstone-cognitive-loop-wiring-nan-census-v1` | `GateDecision` | PROPOSED (2026-06-20). The measurement compa | 0/0 |
 | **READ** | `deepnsm-v3-convergence-v1` | `StepMask` | PROPOSED (doc-only). Extends `v3-convergence | 5/5 |
