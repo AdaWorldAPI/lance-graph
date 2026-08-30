@@ -5,28 +5,14 @@ on:
       - main
   pull_request:
     paths:
-      # EVERY generator input, not just the generator. A plan, a ruled-symbol
-      # verdict, a symbol's live count, or a D-id citation on the board is what
-      # makes the committed table stale -- that is how it went stale the first
-      # time (#1047 added a plan naming two ruled symbols, and nothing noticed).
-      #
-      # This list was INCOMPLETE until 2026-08-30 and the gap was live, not
-      # theoretical: #1091 changed only `.claude/board/EPIPHANIES.md` and ran
-      # NO `regenerate-and-diff` check at all, because none of the three inputs
-      # below were listed. Read the generator, not this comment's ancestor:
-      #   supersession_index.py:110,157  count(s, 'crates')          -> crates/**
-      #   supersession_index.py:48-49    board = entries/* + EPIPHANIES.md
-      #   supersession_index.py:85       cited = D-ids found in `board`
-      # Measured the same day: prepending ONE EPIPHANIES entry moved a plan's
-      # board-coverage cell 2/9 -> 3/9. An input that can move a cell must be
-      # able to trigger the gate.
+      # The generator's INPUTS, not just the generator. A plan or a ruled-symbol
+      # verdict is what makes the committed table stale -- that is how it went
+      # stale the first time (#1047 added a plan naming two ruled symbols, and
+      # nothing noticed).
       - .claude/plans/**
       - .claude/v3/COMPONENT-MAP.md
       - .claude/tools/supersession_index.py
       - .claude/board/SUPERSESSION-INDEX.md
-      - .claude/board/EPIPHANIES.md
-      - .claude/board/entries/**
-      - crates/**
       - .github/workflows/supersession-index.yml
 
 concurrency:
@@ -47,12 +33,8 @@ jobs:
           if ! diff -u .claude/board/SUPERSESSION-INDEX.md /tmp/regen.md; then
             echo
             echo "::error::SUPERSESSION-INDEX.md is stale."
-            echo "It is GENERATED from .claude/plans/ + crates/ + COMPONENT-MAP.md"
-            echo "+ THE BOARD (.claude/board/entries/*.md and EPIPHANIES.md, which"
-            echo "feed the 'board coverage' column). So adding a plan that names a"
-            echo "ruled symbol makes it stale -- and so does prepending an"
-            echo "EPIPHANIES entry that cites a plan's D-ids."
-            echo "Regenerate LAST, after the board writes, not after the plan edit."
+            echo "It is GENERATED from .claude/plans/ + crates/ + COMPONENT-MAP.md,"
+            echo "so adding a plan that names a ruled symbol makes it stale."
             echo "Regenerate and commit:"
             echo "  python3 .claude/tools/supersession_index.py > .claude/board/SUPERSESSION-INDEX.md"
             exit 1

@@ -1,26 +1,3 @@
-## alpha-reason-witness-cognitive-fabric-v1 — PROPOSED 2026-08-30 (discovery-first)
-
-Owner plan: `.claude/plans/alpha-reason-witness-cognitive-fabric-v1.md`.
-Companions (same arc, no parallel D-id family):
-`…-shader-field-archaeology-pass-1.md` (D-ARW-0 source audit),
-`…-shader-field-d-arw-0-audit-v1.md` (D-ARW-0 audit + §11 method transfer),
-`…-shader-field-lineage-addendum-v1.md` (extends D-ARW-0/1/4/5/6/8).
-PLAN ONLY — no production implementation. **D-ARW-5 (the atom/loco/R2IL reuse
-census) gates adding any new primitive**, so a new-primitive proposal ahead of
-it is out of scope by the plan's own ordering.
-
-| D-id | Deliverable | Status |
-|---|---|---|
-| D-ARW-0 | cross-repo primary-source ownership map (`SOURCE FACT` / `PLAN FACT` / `MEASURED ABSENCE` / `HYPOTHESIS`), incl. shader-field/DTO ancestry trace | Queued. §11.3 provenance, kept separate because the two regrades correct DIFFERENT claims: the **method-transfer** note landed #1085 and was regraded to *partial* prior transfer in #1087; the **"certified Morton"** claim in the same section was separately struck in #1089 (shared implementation ≠ certified map). Neither is the other's follow-up |
-| D-ARW-1 | Alpha same-address/rung semantics audit across lance-graph + MedCare; field-plane continuity tested separately | Queued |
-| D-ARW-2 | MedCare reasoning-handroll census and ownership cut | Queued |
-| D-ARW-3 | W-slot / witness / source-semantics archaeology + documentation reconciliation | Queued |
-| D-ARW-4 | orthogonal-coordinate falsifier matrix (rung/Tarski/Band/H/NARS/Σ/Alpha/W/version + address/aperture/field geometry) | Queued |
-| D-ARW-5 | atom/loco/R2IL reuse census for the first real chain, incl. bounded-field/local-operator candidates | Queued — **gates new primitives** |
-| D-ARW-6 | one MedCare observation → Alpha → reusable reasoning → witness/premises → Revision → replay → projection proof | Queued |
-| D-ARW-7 | smallest reusable lance-graph cognitive pattern extracted from D-ARW-6 | Held on D-ARW-6 |
-| D-ARW-8 | optional second-domain falsifier of claimed reuse; imaging/chess math alone does not satisfy the cognitive-buyer criterion | Held on D-ARW-7 |
-
 ## rubicon-loco-rung-cognitive-fabric-v1
 
 | D-id | deliverable | status |
@@ -232,8 +209,7 @@ Deferred-for-missing-integration ideas are a MANDATORY section in each plan.
 |---|---|---|---|
 | D-HTT-1..11 | `hhtl-thinking-tables-le-contract-v1.md` — ARC B LE addressing contract + thinking-table rows; ARC C seam gated | lance-graph | **Proposed** (awaits operator ratification) |
 | D-CFR-1..6 | `counterfactual-rung3-closure-v1.md` — contract InferenceType widening, stopgap retirement, L1-mask probe, Pearl-2³ disambiguation | lance-graph | **Proposed** |
-| D-MAR-1 | `mask-algebra-revision-read-v1.md` — FieldMask/WideFieldMask `difference`+`is_subset_of` (the substrate-first STOP-rule fix; critical path per ruling F) | lance-graph | **In PR** (2026-08-30, branch `claude/d-mar-1-mask-algebra`; G1-G4 + anti-vacuity twins; all four disable-runs executed and verified red — **G4 against its CORRECTED assertion only**: bypassing `zip_fold`'s trim/demote turns the representation check `matches!(result.0, WideRepr::Small(_))` red, while the equality/hash assertions the plan originally named stay GREEN under that same disable, which is the finding `E-A-PRE-REGISTERED-GATE-CAN-BE-VACUOUS-UNDER-ITS-OWN-DISABLE-1`) |
-| D-MAR-2 | `mask-algebra-revision-read-v1.md` — RevisionKind classification read | lance-graph | **Proposed** (blocked on §5 Q1 module-home ruling; F6 orders it after D-MAR-1) |
+| D-MAR-1..2 | `mask-algebra-revision-read-v1.md` — FieldMask/WideFieldMask `difference`+`is_subset_of`; RevisionKind classification read | lance-graph | **Proposed** |
 | D-EWU-1..9 | `ew64-witness-unification-v1.md` — ARC D/E: tenant-14 CausalWitness vs EpisodicWitness64 demarcation (READING L recommended, not banked), phase gates, OD-1..5 | lance-graph | **Proposed** |
 | D-DCG-* | `causal-graph-soa-integration-v1.md` — dismech CausalGraph → SoA landing (relations-as-rows vs overflow) | dismech-rs | **Proposed** (authoring) |
 

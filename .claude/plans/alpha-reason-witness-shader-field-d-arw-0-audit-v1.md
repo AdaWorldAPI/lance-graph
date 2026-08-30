@@ -299,38 +299,6 @@ changes that count — the measurement is the *before* state, not a standing
 property of the tree.) The oracle was cited as a philosophy and never as a
 method.
 
-> **⊘ CORRECTED 2026-08-30 (same day, operator-directed read).** The sentence
-> immediately above is WRONG and is regraded in place, not deleted. The
-> file-name census is a fact; the inference from it is not.
-> `alpha-reason-witness-shader-field-lineage-addendum-v1.md` — already in the
-> tree when this section landed (`00c4934` is an ancestor of `4cc7d71`) —
-> already transfers METHOD, not only role, without naming one probe file:
-> **A5** lists it as seven operational points (*"exact compact address space +
-> bounded active set + mask-native selection + incremental perturbation/update +
-> gather -> local compute -> scatter + cheap route / exact verify +
-> CPU-family-specific fast path with measured fallback"*), **A5.1** poses six
-> reference questions — question 6 being *"Does a random/permuted address
-> sabotage locality while preserving cardinality?"*, which IS the
-> permutation-sabotage arm this section presents as newly imported — **A6.2**
-> lists the comparison arms, and **A1.5** cites the PEXT
-> `gather -> lookup -> scatter` pattern as transferable.
->
-> **The transfer is PARTIAL, in a way that says what this section did add.**
-> A6.2's can-fire row reads *"improves **a named metric**"* (`:347`) and never
-> names one; nothing in A5/A5.1/A6.2 says how the sabotage arm is SCORED. That
-> half is what §11.3 imported from `examples/morton_ka.rs`: a cosine feature
-> distance, recall@k against chance `k/63`, an independent true-2D (Chebyshev)
-> baseline, a pre-registered DROP condition, and the external-label /
-> structural independence procedure. Implementation grammar + arm list = a
-> design; discriminator + null model + pre-registered failure = an instrument.
->
-> So the correct statement is narrower in BOTH directions: *no plan named a
-> stockfish-rs probe FILE* and *most of the method was already carried in
-> prose*, while the scoring arrived here. A file-name census cannot establish
-> method transfer — the lesson this section was written to teach, committed by
-> the section itself. Board: the ⊘ STORNO entry above
-> `E-THE-ORACLE-WAS-CITED-AS-A-PHILOSOPHY-AND-NEVER-AS-A-METHOD-1`.
-
 **`examples/morton_ka.rs` is the discriminator's SHAPE — not a finished
 A2/A3/A4 arm set.** Read what it actually ran before reusing it: the recorded
 result (`.claude/knowledge/stockfish-nnue-as-perturbation-cascade.md`,
@@ -363,40 +331,8 @@ NNUE HalfKA square addressing a Morton-preserved gridlake? Probe the 'NNUE 4096
    negative result is a finding rather than a failed wave.
 3. **The shared primitive.** It already calls
    `lance_graph_contract::facet::FacetTier::morton` — *"Reused, not
-   hand-rolled"* — so both repos discriminate against the SAME implementation,
-   not two that could silently differ.
-
-   > **⊘ CORRECTED 2026-08-30 — "certified" is struck; the no-drift argument
-   > (one function, two callers) is all that survives.** Stated precisely,
-   > because a first version of this note over-corrected in the other
-   > direction and a review caught it:
-   >
-   > - **Morton is NOT unmeasured.** `D-SF-V3-3` is **GREEN, MEASURED
-   >   2026-07-12** using this very primitive: over 24 (king × piece) FT-column
-   >   configs on `nn-1b6a82263149`, board recall@8 **0.440** (3.5× chance),
-   >   Morton recall@8 **0.347** (2.7× chance), verdict *"the NNUE HalfKA
-   >   square addressing IS a Morton-preserved gridlake"*, `[H]→[G]`. The
-   >   knowledge doc's *"the 'Morton' is aspirational until the re-projection
-   >   probe"* is **discharged by that doc's own next section** — quoting it
-   >   as still pending was an error of reading one screen and stopping.
-   > - **What the D-HTT-6 withdrawal establishes is narrower than "unmeasured":**
-   >   operator ruling C (2026-08-19, `hhtl-thinking-tables-le-contract-v1.md`
-   >   §D-HTT-6/X2) rules Morton **non-canonical for HHTL ancestry** — *"HHTL
-   >   ancestry is never derived from it"* — and X2 records the primitive as
-   >   shipped-and-unconsumed. Zero non-test consumers, re-verified today: the
-   >   only call sites in this workspace are `facet.rs:642-643`, both inside
-   >   `mod tests` (`:600`).
-   > - **So what remains is a DOMAIN and STRENGTH gap, not an evidence
-   >   vacuum.** `morton_ka` measured *locality preservation in a chess feature
-   >   space*. This section says so itself two paragraphs down: it *"does not
-   >   establish exact codebook-to-cell identity, nor does it separate Morton
-   >   from row-major, which is precisely what A2-vs-A3 asks."* A green run on
-   >   NNUE features is a **positive control**, never a certification of the
-   >   COCA codebook's address map.
-   >
-   > A shared primitive removes implementation drift as a confound; it
-   > certifies nothing about the map being the right one — which is the entire
-   > question A2-vs-A3 asks.
+   hand-rolled"* — so both repos discriminate against the SAME certified
+   Morton, not two implementations that could differ.
 4. **The independence lesson, already paid for once**
    (`examples/hindsight_stream.rs`, D-SF-HINDSIGHT-1). Its predecessor
    (`rung_hindsight.rs`, D-SF-RUNG-1) went INCONCLUSIVE because it judged ply
@@ -526,11 +462,8 @@ Do not select a winner from internal self-consistency. The oracle must be an ind
 
 **Template for A2/A3 + A4:** §11.3 — `stockfish-rs examples/morton_ka.rs`
 supplies the METHOD (recall@k vs chance `k/63`, candidate linearization scored
-beside a true-2D baseline, DROP pre-registered) against the same
-`FacetTier::morton` implementation (*shared*, not *certified* — see the ⊘ note
-at point 3: measured GREEN for **chess-feature locality** (D-SF-V3-3), ruled
-**non-canonical for HHTL ancestry**, and zero-consumer in this workspace).
-Reuse that design; do not re-derive it. **It does not
+beside a true-2D baseline, DROP pre-registered) against the same certified
+`FacetTier::morton`. Reuse that design; do not re-derive it. **It does not
 supply the arms:** its recorded run scores Morton and board only — no
 row-major, no permutation — so A2 and A4 must be written here, or this arm
 measures locality preservation and reports it as identity. The chess run is
