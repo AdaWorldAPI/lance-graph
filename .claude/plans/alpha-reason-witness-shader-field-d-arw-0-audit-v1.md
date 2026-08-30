@@ -299,6 +299,38 @@ changes that count — the measurement is the *before* state, not a standing
 property of the tree.) The oracle was cited as a philosophy and never as a
 method.
 
+> **⊘ CORRECTED 2026-08-30 (same day, operator-directed read).** The sentence
+> immediately above is WRONG and is regraded in place, not deleted. The
+> file-name census is a fact; the inference from it is not.
+> `alpha-reason-witness-shader-field-lineage-addendum-v1.md` — already in the
+> tree when this section landed (`00c4934` is an ancestor of `4cc7d71`) —
+> already transfers METHOD, not only role, without naming one probe file:
+> **A5** lists it as seven operational points (*"exact compact address space +
+> bounded active set + mask-native selection + incremental perturbation/update +
+> gather -> local compute -> scatter + cheap route / exact verify +
+> CPU-family-specific fast path with measured fallback"*), **A5.1** poses six
+> reference questions — question 6 being *"Does a random/permuted address
+> sabotage locality while preserving cardinality?"*, which IS the
+> permutation-sabotage arm this section presents as newly imported — **A6.2**
+> lists the comparison arms, and **A1.5** cites the PEXT
+> `gather -> lookup -> scatter` pattern as transferable.
+>
+> **The transfer is PARTIAL, in a way that says what this section did add.**
+> A6.2's can-fire row reads *"improves **a named metric**"* (`:347`) and never
+> names one; nothing in A5/A5.1/A6.2 says how the sabotage arm is SCORED. That
+> half is what §11.3 imported from `examples/morton_ka.rs`: a cosine feature
+> distance, recall@k against chance `k/63`, an independent true-2D (Chebyshev)
+> baseline, a pre-registered DROP condition, and the external-label /
+> structural independence procedure. Implementation grammar + arm list = a
+> design; discriminator + null model + pre-registered failure = an instrument.
+>
+> So the correct statement is narrower in BOTH directions: *no plan named a
+> stockfish-rs probe FILE* and *most of the method was already carried in
+> prose*, while the scoring arrived here. A file-name census cannot establish
+> method transfer — the lesson this section was written to teach, committed by
+> the section itself. Board: the ⊘ STORNO entry above
+> `E-THE-ORACLE-WAS-CITED-AS-A-PHILOSOPHY-AND-NEVER-AS-A-METHOD-1`.
+
 **`examples/morton_ka.rs` is the discriminator's SHAPE — not a finished
 A2/A3/A4 arm set.** Read what it actually ran before reusing it: the recorded
 result (`.claude/knowledge/stockfish-nnue-as-perturbation-cascade.md`,
