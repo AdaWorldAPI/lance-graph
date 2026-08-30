@@ -304,19 +304,31 @@ method.
 > file-name census is a fact; the inference from it is not.
 > `alpha-reason-witness-shader-field-lineage-addendum-v1.md` — already in the
 > tree when this section landed (`00c4934` is an ancestor of `4cc7d71`) —
-> transfers the METHOD in full without naming one probe file: **A5** lists it as
-> seven operational points (*"exact compact address space + bounded active set +
-> mask-native selection + incremental perturbation/update + gather -> local
-> compute -> scatter + cheap route / exact verify + CPU-family-specific fast
-> path with measured fallback"*), and **A5.1** poses six reference questions —
-> question 6 being *"Does a random/permuted address sabotage locality while
-> preserving cardinality?"*, which IS the permutation-sabotage arm this section
-> presents as newly imported. **A1.5** additionally cites the PEXT
+> already transfers METHOD, not only role, without naming one probe file:
+> **A5** lists it as seven operational points (*"exact compact address space +
+> bounded active set + mask-native selection + incremental perturbation/update +
+> gather -> local compute -> scatter + cheap route / exact verify +
+> CPU-family-specific fast path with measured fallback"*), **A5.1** poses six
+> reference questions — question 6 being *"Does a random/permuted address
+> sabotage locality while preserving cardinality?"*, which IS the
+> permutation-sabotage arm this section presents as newly imported — **A6.2**
+> lists the comparison arms, and **A1.5** cites the PEXT
 > `gather -> lookup -> scatter` pattern as transferable.
-> So the correct statement is narrower: *no plan named a stockfish-rs probe
-> FILE*, while the method itself was already carried in prose. A file-name
-> census cannot measure method transfer — the lesson this section was written to
-> teach, committed by the section itself. Board: the ⊘ STORNO entry above
+>
+> **The transfer is PARTIAL, in a way that says what this section did add.**
+> A6.2's can-fire row reads *"improves **a named metric**"* (`:347`) and never
+> names one; nothing in A5/A5.1/A6.2 says how the sabotage arm is SCORED. That
+> half is what §11.3 imported from `examples/morton_ka.rs`: a cosine feature
+> distance, recall@k against chance `k/63`, an independent true-2D (Chebyshev)
+> baseline, a pre-registered DROP condition, and the external-label /
+> structural independence procedure. Implementation grammar + arm list = a
+> design; discriminator + null model + pre-registered failure = an instrument.
+>
+> So the correct statement is narrower in BOTH directions: *no plan named a
+> stockfish-rs probe FILE* and *most of the method was already carried in
+> prose*, while the scoring arrived here. A file-name census cannot establish
+> method transfer — the lesson this section was written to teach, committed by
+> the section itself. Board: the ⊘ STORNO entry above
 > `E-THE-ORACLE-WAS-CITED-AS-A-PHILOSOPHY-AND-NEVER-AS-A-METHOD-1`.
 
 **`examples/morton_ka.rs` is the discriminator's SHAPE — not a finished

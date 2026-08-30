@@ -1,4 +1,4 @@
-## 2026-08-30 — ⊘ STORNO of `E-THE-ORACLE-WAS-CITED-AS-A-PHILOSOPHY-AND-NEVER-AS-A-METHOD-1` (same day, operator-directed read) — the census was right, the inference was not
+## 2026-08-30 — ⊘ STORNO of `E-THE-ORACLE-WAS-CITED-AS-A-PHILOSOPHY-AND-NEVER-AS-A-METHOD-1` (same day, operator-directed read) — the method WAS partly transferred; the census was right, the inference was not
 
 **Status:** CORRECTION. The entry below it stands as written (append-only); this
 supersedes its HEADLINE CLAIM only. **Confidence:** High — refuted by a plan that
@@ -8,9 +8,11 @@ was already in the tree when the original landed.
 never for a single probe", and therefore "cited as a philosophy and never as a
 method".
 
-**What is actually true.** `alpha-reason-witness-shader-field-lineage-addendum-v1.md`
+**What is actually true — PARTIAL prior transfer, which refutes the headline
+without vindicating §11.3's framing either.**
+`alpha-reason-witness-shader-field-lineage-addendum-v1.md`
 (`00c4934`) — an ANCESTOR of the PR that landed the original (`4cc7d71`), verified
-by `git merge-base --is-ancestor` — already cites the METHOD, twice over:
+by `git merge-base --is-ancestor` — already cites METHOD, not only role:
 
 - **A5** lists it as seven operational points: *"exact compact address space +
   bounded active set + mask-native selection + incremental perturbation/update +
@@ -26,17 +28,39 @@ by `git merge-base --is-ancestor` — already cites the METHOD, twice over:
   `gather (PEXT) -> small dense lookup -> scatter (PDEP)` as *"a transferable
   low-level pattern"*.
 
+**What the addendum does NOT carry — and this is why the correction is
+"partial", not "full".** A6.2's own can-fire row reads *"lawful locality/operator
+choice improves **a named metric**"* (`:347`) and never names one. Nothing in A5,
+A5.1 or A6.2 specifies HOW the sabotage arm is scored. §11.3's contribution is
+exactly that missing half, imported from `examples/morton_ka.rs`: a **cosine
+feature distance**, **recall@k scored against chance `k/63`**, an **independent
+true-2D (Chebyshev) baseline** to beat rather than a self-comparison, a
+**pre-registered DROP condition**, and the **external-label / structural
+independence procedure** that keeps the oracle from being the hypothesis in
+disguise. A grammar plus an arm list is a design; a discriminator with a null
+model and a pre-registered failure condition is an instrument.
+
+**So the ledger is:** the addendum transferred the implementation grammar (A5),
+the permutation-sabotage arm (A5.1 q6), the low-level gather/scatter pattern
+(A1.5) and the comparison arms (A6.2). §11.3 transferred the scoring. The
+original entry's headline — "cited as a philosophy and never as a method" — is
+false. §11.3's implicit framing, that the method arrived with it, is also false.
+
 **What survives:** the census itself (no plan named a stockfish-rs probe FILE),
 the access matrix, and the domain fence. What fails is the step from one to the
 other.
 
 **The generalizable rule — and it replaces the original's, which was a real rule
-carried on a false instance.** *A file-name census cannot measure whether a method
-was transferred.* A5 transfers the method completely without naming one file, so
-the grep that returned zero was answering a different question than the one the
+carried on a false instance.** *A file-name census cannot establish whether a
+method was transferred.* A5 transfers most of the method without naming one file,
+so the grep that returned zero was answering a different question than the one the
 entry drew its conclusion from. The original entry's own advice — "grep for the
 artifacts, not the noun" — is exactly the move that produced the error: artifacts
-were the wrong probe for a claim about substance.
+were the wrong probe for a claim about substance. The second-order lesson is the
+correction's own: **a storno inherits the binary shape of the claim it corrects.**
+Refuting "never" with "completely" swaps one absolute for another and erases the
+real contribution sitting between them; the honest verdict was a split ledger, and
+it took a reviewer to force it.
 
 **The recursion worth recording:** an epiphany asserting that matching is not
 reading was itself produced by matching, and shipped in a PR whose review had
