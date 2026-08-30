@@ -275,11 +275,25 @@ one.
   which is why re-reading a body under another shape (§5.2) and hopping the
   graph under a mask (§5.3) are the SAME cheap operation. `u8:u8` stays two
   bytes, never widened.
-- Thinking styles: **rung 4 only**, per the ruled ladder
-  (`.claude/v3/knowledge/persona-vs-rung-ladder.md` — 0-1 observation, 2 =
-  144 verb atoms, 3 = the 34 recipes, 4 = `StyleFamily`(12) under
-  *frozen × learned × exploration*). Open edge: O2 (rung-4 → rung-3
-  selection), not a re-homing.
+- Thinking styles — **⊘ the "rung 4 only" confinement is V1-HISTORICAL, not
+  a live ruling** (operator, 2026-08-30: *"a stale inheritance … it was never
+  a recent ruling"*). This document's first filing repeated
+  `persona-vs-rung-ladder.md`'s row-4 shelf as if current; regraded in place.
+  The ruled direction now: **(a)** rung 0–9 AWARENESS is scheduled **in
+  parallel** as meta-aware thinking orchestration through
+  `lance-graph-supervisor`'s kanban surface — `kanban_actor.rs`'s
+  `PhaseCensus` is exactly the built primitive ("the read-only fleet
+  visibility surface … one `&self` pass, not 64k RPCs"; `observe`/`record`/
+  `at_rest`, plus `mul_target` as the pure gate-lowering) — the rung above
+  watching the kanban of the layer below, informing it without rewriting it;
+  **(b)** styles CONVERGE onto the execution membrane of §5 — mask-ALU
+  cheapness for the first level, `ogar-loco`/`ogar-r2il` composition for
+  depth — i.e. a style is a program over the atom/mask substrate, applicable
+  at ANY rung, not a macro shelf at one. The ladder doc's content taxonomy
+  (144 verbs at 2, 34 recipes at 3, `StyleFamily`(12)) remains a valid
+  CONTENT census; what is retired is reading it as a *confinement* of styles
+  to rung 4. O2 (style → recipe selection) survives, generalized: the edge
+  runs from any rung's orchestration into the recipe layer.
 
 ### 5.6 Execution blockers, measured (W0/W5 SOURCE FACT rows)
 

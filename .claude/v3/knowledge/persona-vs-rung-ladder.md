@@ -7,6 +7,25 @@
 > transcript); board anchor: `E-RUNG-CONTENT-LADDER-1` in
 > `.claude/board/EPIPHANIES.md`.
 
+> **⊘ SCOPE CORRECTION (operator, 2026-08-30 — styles are NOT confined to
+> rung 4).** Sessions inheriting this file began reading row 4 as "thinking
+> styles live at rung 4 ONLY." The operator: *"'Thinking styles: rung 4
+> only' is a stale inheritance … it was never a recent ruling."* What this
+> file rules is the CONTENT taxonomy — which kind of thinking OBJECT
+> occupies each rung of the ladder — and that stands unchanged. What it
+> does NOT rule, and never did, is a confinement of style APPLICATION to
+> one rung. The ruled direction (same date): **(a)** rung 0–9 awareness is
+> scheduled **in parallel** as meta-aware thinking orchestration through
+> `lance-graph-supervisor` — `kanban_actor.rs`'s `PhaseCensus` (the
+> read-only fleet visibility surface, one `&self` pass) is the built
+> primitive for the rung above watching the kanban of the layer below;
+> **(b)** thinking styles CONVERGE onto the execution membrane — mask-ALU
+> cheapness at the first level, `ogar-loco`/`ogar-r2il` composition for
+> depth — a style is a program over the atom/mask substrate, applicable at
+> any rung. O2 (style → recipe selection) survives, generalized to run from
+> any rung's orchestration into the recipe layer. Census anchor:
+> `docs/architecture/COGNITIVE-FABRIC-CENSUS-2026-08-30.md` §5.5.
+
 ## Why this file exists
 
 The workspace carried FOUR similar-looking spaces that sessions kept
