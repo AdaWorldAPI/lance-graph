@@ -643,6 +643,7 @@ unskippable."**
 | 13 | `RevisionDelta` operator lineage | narrowed gap | the signed accounting exists; the mask-operation lineage for receipts does not |
 | 14 | lance-graph-java bulk `method()` / `.at(version)` | future | after arcs 5–7; never loop OGAR calls through Panama |
 | 15 | the consumer-side arcs (D1 merge, taxonomy convergence, alpha claim from the reasoning path, bridge measurement gating the open set) | tracked in the private rendition §9–§10 | per-arc owners there |
+| 16 | **top-level reachability of THIS census** | pre-merge, no mandatory session-start read points here (LATEST_STATE/PR_ARC know nothing of #1079) — the hub is reachable only via the PR list | closed BY THE MERGE: the post-merge board-hygiene row (`LATEST_STATE` table + `PR_ARC_INVENTORY` prepend, per CLAUDE.md's same-commit rule) is what wires the hub into the boot path; whoever merges owes that commit |
 
 ### 8.3 The traps (measured today; do not rediscover)
 
