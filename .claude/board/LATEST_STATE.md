@@ -1,3 +1,17 @@
+## 2026-08-30 — #1085 MERGED (4cc7d71c): §11.3 method transfer — DOC/BOARD ONLY
+
+| PR | merge | content |
+|---|---|---|
+| **#1085** | `4cc7d71c` | D-ARW-0 §11.3: the stockfish-rs oracle was cited for its ROLES and never for a probe (0 hits for `morton_ka`/`rung_hindsight`/`temporal_replay` across 203 plan files, as of the pre-§11.3 commit). Imports the method — recall@k vs chance with an EXTERNAL true-2D baseline, the pre-registered DROP, the shared `FacetTier::morton`, and `hindsight_stream`'s independence lesson. §16.A wired to the template. Plus a `CLAUDE.md` correction: the supersession-index input list now includes the board, with the ordering rule. |
+
+**Contract inventory net delta: none** (DOC/BOARD ONLY; no code, no probe
+run, no address arm promoted). The §16 gate is unchanged — §11.3 supplies
+the instrument that could separate A2 from A3, never a verdict between them.
+Review correction worth carrying: the recorded `morton_ka` run scores TWO
+arms (Morton vs Chebyshev board), so it shows locality preservation, not
+codebook-to-cell identity — A2 (row-major), inverse-Morton and A4
+(permutation) must still be written in §16.
+
 ## 2026-08-30 — #1077 + #1078 BOTH MERGED (plans only): the convergence pair is on main
 
 | PR | merge | content |
