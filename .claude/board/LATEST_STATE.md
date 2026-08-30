@@ -1,3 +1,22 @@
+## 2026-08-30 — #1079 MERGED (db85d6fa): the cognitive-fabric census — DOC/BOARD ONLY
+
+### Current Contract Inventory — net delta
+
+**None.** No type, trait, or tenant. The census
+(`docs/architecture/COGNITIVE-FABRIC-CENSUS-2026-08-30.md`) is the SOURCE-FACT
+feed for #1078 W0 and the open-arc CONTINUATION ledger (§8) — reading order,
+fifteen arcs with gates/owners, nine traps. Board deltas: two EPIPHANIES
+entries, the `persona-vs-rung-ladder.md` scope correction. The private
+consumer's mirror is MedCare-rs #596 (merged same day; its #595 debugger cut
+merged too).
+
+### Queued work this unlocks
+
+Census §8.2 rows — headline: the dedup payment (arc 1, operator-gated), the
+first executable BUY (arc 4, specified/unrun), the OGAR execution semantics
+decision (arc 5, operator), the rung-dispatch composition (arc 8). Arc 16
+(top-level reachability) is CLOSED by this very entry.
+
 ## 2026-08-28 — #1072 MERGED: token-value-tenant-v1 PROPOSED (plan/board only)
 
 ### Current Contract Inventory — net delta

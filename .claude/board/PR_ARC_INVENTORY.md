@@ -1,3 +1,38 @@
+## 2026-08-30 — lance-graph #1079 (MERGED db85d6fa) — the cognitive-fabric census: SOURCE FACT rows for #1078 W0
+
+- **Added:** `docs/architecture/COGNITIVE-FABRIC-CENSUS-2026-08-30.md` — a
+  three-repo, `F-ARW-0`-clean census (lance-graph + OGAR + the private
+  consumer) of everything #1077/#1078 will compose. DOC + BOARD ONLY; no
+  type, no atom, no D-ids — the atom census stays #1077's, the waves #1078's.
+- **Banked findings:** `TD-DEEPNSM-V2-BELIEF-DUP` is PAYABLE (external
+  consumers of the V0 re-exports = 0 across three repos; the copies diverged
+  — `admit_derived` planner-only) and W0's census list omits it; the
+  consumer-taxonomy ↔ `Frontier`/`GapKind` seam incl. the REFUTED
+  throttle-≡-discriminator equivalence (`E-A-FLOOD-THROTTLE-IS-NOT-A-
+  DISCRIMINATOR-1`); the alpha/rung/horizon orthogonality census with the
+  scalpel table (nine axes, each with carrier + collapse failure); the
+  execution-blocker ledger (§5.6: VAR_SET/statement_bounds, ladder-not-a-
+  Program, `CallMask` heap form, unwired atoms, `RevisionDelta` operator
+  lineage); the 24×i4 three shapes mapped 1:1 onto the merged #1075 triptych;
+  the parallel-rung dependency chain with the stockfish-rs role measured
+  (falsifier + teacher-stack oracle + NNUE-as-test-corpus — NOT an
+  accumulator template, per SYNERGY-MAP §8.0); §8 CONTINUATION (the open-arc
+  ledger, reading order, nine traps incl. the absolute internal-head-pin
+  prohibition with the four-coordinate whitelist).
+- **Corrections carried in place (⊘, dated):** six same-day operator
+  corrections incl. storage-IS-cognition (+ its directional half), the
+  bulldozer→scalpel regrade of "alpha presence never mints evidence", the
+  rung-4-only retirement, and the census's own two F-ARW-0 violations.
+- **EPIPHANIES:** `E-BELIEF-ARENA-DEDUP-IS-PAYABLE-AND-W0-MUST-CITE-IT-1`,
+  `E-A-FLOOD-THROTTLE-IS-NOT-A-DISCRIMINATOR-1` (both landed on the branch
+  pre-merge). Knowledge: `persona-vs-rung-ladder.md` scope correction + O2
+  re-scope.
+- **Does NOT prove:** any wave executed; any atom frozen; the D-RLR-5 trace
+  run; the SPO 2³ amortization measured. It is a census — current, dated,
+  falsifiable — not a plan and not a licence.
+- **Confidence:** High on the measured rows (file:line throughout); the §8
+  arc ledger is complete as of merge date and freezes there per its own rule.
+
 ## 2026-08-29 — lance-graph #1075 (MERGED 69016d99) — the epistemic triptych lands in the contract
 
 - **Added:** `contract/src/revision.rs` (`EvidenceMask`, `InterpretiveHorizon`,
