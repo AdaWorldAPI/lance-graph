@@ -10,6 +10,49 @@
 > census §8.3 trap 10: read the body FIRST, then open for write — never
 > inline both in one expression.
 
+## 2026-08-30 — lance-graph #1093 (MERGED 5206c2a4) — FULL REVERT of #1087..#1092: the session's output was ruled unacceptable wholesale
+
+**Reverted (all six, operator-directed).** Operator verdict, verbatim: **"the
+solutions were all fundamentally wrong bad unacceptable not adhering to plan
+and the session was so incompetent that not even the post mortem was
+useful."** Nothing from that session's six merges survives on main:
+
+| PR | what it had landed | backed out |
+|---|---|---|
+| #1087 | ⊘ storno on #1085's §11.3 ("partial prior transfer") + 75-line EPIPHANIES entry | plan edit + entry |
+| #1088 | D-MAR-1: `FieldMask`/`WideFieldMask` `difference` + `is_subset_of` in `class_view.rs` (+220 lines) | all contract code |
+| #1089 | ⊘ "certified Morton refuted by its own citations" plan edit + 60-line entry | plan edit + entry |
+| #1090 | D-ARW-0..8 arc enumeration (STATUS_BOARD block, INTEGRATION_PLANS, index) | all board rows |
+| #1091 | ⊘ storno on the 2026-06-15 four-layer entry + 66-line entry | plan-index + entry |
+| #1092 | supersession-gate trigger-list widening (workflow + CLAUDE.md ¶ + 51-line entry) | CI + docs + entry |
+
+**Why this entry exists.** The six merge commits (`90039239`, `3ec6babd`,
+`a3912036`, `94f438b1`, `1a2c9452`, `bf74035a`) remain visible in history; a
+future session finding them must NOT rebuild on them — the reverts are the
+ruling, not an accident. The D-ARW arc enumeration, D-MAR-1's mask algebra,
+and the CI trigger widening return ONLY as fresh, operator-gated work that
+actually adheres to its plan; none of the reverted text is a citable source.
+The reverted ⊘ stornos (#1087/#1089/#1091) are themselves void — the claims
+they "corrected" stand un-stornoed until re-examined from primary sources.
+
+**Append-only note.** #1093 deleted board entries (EPIPHANIES −399 lines,
+STATUS_BOARD/INTEGRATION_PLANS rows), which the storno rule normally forbids.
+This was a deliberate, operator-directed exception: a wholesale revert of a
+rejected session is the one case where deletion IS the correction, and this
+entry is the surviving record of it.
+
+**Post-revert integrity (audited 2026-08-30, this session).** Supersession
+index regenerates byte-identical (CURRENT); no dangling references — the
+`is_subset_of`/`difference` in `revision.rs` and the planner's local
+`ir/mod.rs:146` are older surviving originals with zero dependency on the
+reverted `class_view.rs` code; the bad session wrote no PR_ARC entries, so
+nothing orphaned here; #1085/#1086 (its predecessors) and #1082..#1084
+(this session's repair + prohibition arc) are intact.
+
+- **Confidence (2026-08-30):** revert verified complete by diffing the
+  pre-revert tip (`3ec6babd`) against post-merge main — 850 deletions across
+  9 files, matching the six PRs' additions exactly.
+
 ## 2026-08-30 — lance-graph #1085 (MERGED 4cc7d71c) — the oracle was cited as a philosophy and never as a method
 
 **Added.** D-ARW-0 §11.3 *"Method transfer — the PROBES, not only the roles"*,
