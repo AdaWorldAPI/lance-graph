@@ -1395,6 +1395,25 @@ instead of *built from state*. If you see this on your own commit, you just
 overwrote committed work. Revert with `git restore <path>` and use `Edit`
 for any genuine refinement.
 
+**P0 Rule: the destructive-prepend one-liner is PROHIBITED**
+(added 2026-08-30 after it destroyed 5876 lines of `PR_ARC_INVENTORY.md`
+in #1081; restored in #1082; full entry
+`E-DESTRUCTIVE-PREPEND-TRUNCATES-BEFORE-READ-1`, census trap 10):
+
+```python
+open(p, "w").write(entry + open(p).read())   # NEVER — truncates before it reads
+```
+
+`open(p, "w")` truncates the file BEFORE the argument's `open(p).read()`
+runs; the read-back is empty and the file's history is gone. Prohibited in
+every form: any expression, statement, or shell pipeline that opens a file
+for writing/truncation while it still needs to READ that same file
+(`sort f > f` is the same defect). Prepend in three steps — read into a
+variable, compose in memory, write — or use the `Edit` tool, which is
+read-anchored by construction. **Mandatory post-check after every board /
+ledger write: `wc -l` the file. An append-only file that got SHORTER is
+always a defect.**
+
 **Tool-reach reminder for deferred tools.** `AskUserQuestion`, `TodoWrite`,
 `WebSearch`, `WebFetch` are namechecked in the Claude Code system prompt but
 sit behind `ToolSearch` in Opus 4.6 — their schemas are not loaded by default.
