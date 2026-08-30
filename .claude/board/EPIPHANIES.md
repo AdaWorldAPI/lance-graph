@@ -155,6 +155,79 @@ re-deriving a design that already exists. Fence: `F-RLR-10`. Same failure
 family as the rediscovery tax `CLAUDE.md` § "Consult before you guess"
 already names — this is its first recorded instance in a plan header's own
 wording.
+## 2026-08-30 — E-A-FLOOD-THROTTLE-IS-NOT-A-DISCRIMINATOR-1 — the census equated `hub_indegree` with a specificity test; they are opposite where it matters
+
+**Status:** FINDING (measured, review-driven). Raised as codex P2 on #1079,
+re-measured against source before acceptance, and CONFIRMED.
+**Confidence:** High — read off `nars/tactics.rs:191-215` + `112-124` and the
+consumer's admission predicate, not argued from names.
+
+`COGNITIVE-FABRIC-CENSUS-2026-08-30.md` §"consumer taxonomy ↔ Frontier" carried
+a row asserting *"a marker shared by >1 rival discriminates nothing"* ≡
+`hub_indegree` middle-term exclusion, labelled **"the same computation"**. It is
+not, and the disagreement sits exactly in the region a differential turns on:
+
+| shared by | consumer specificity test | `rcr_abduce` candidates | `rcr_abduce` gaps |
+|---|---|---|---|
+| 1 rival | **specific** → ranked | none (`members.len() < 2`) | none for that predicate; one frontier-level `NoSharedMiddle` iff NO predicate reaches 2 and no hub was seen (`:258-264`) |
+| exactly 2 | **not specific** → disqualified | **permitted**, not guaranteed — self-statement skip, `c_min`, `budget` still apply (`:224-239`) | `BudgetExhausted` if the budget is hit |
+| > `hub_indegree` | not specific | none | `HubExcluded` |
+
+(The candidate/gap split is the second review pass; the first version of this
+table wrote "no gap" and "generates the frontier", conflating a per-predicate
+skip with a frontier outcome and a permission with a result. The inversion the
+entry is about survives unchanged.)
+
+`hub_indegree` lives in `Throttle` beside `c_min` and `budget` — a configurable
+**flood control on hubs**, sharing the *shape* of a sharing-count test and
+inverting its *verdict* below the threshold. Second half, also confirmed:
+`ReasoningGap` is `{kind, subject: Option<u16>, predicate: Option<u16>}`, so
+`NoSharedMiddle` names **no concrete missing term** — the row's parenthetical
+overstated what the gap arm carries.
+
+**The generalizable rule: a throttle and a discriminator can agree in the tail
+and disagree everywhere else.** Both reduce a candidate set; only one does it
+*because the evidence failed to separate*. Structural correspondence between
+two surfaces is a hypothesis to measure at the boundary values, never an
+equivalence to assume — and a census that records one as "the same computation"
+hands a later ownership wave a false BUY.
+
+**Companion finding, uncomfortable and recorded rather than quietly fixed:** the
+same census banks `F-ARW-0` ("census by semantics, not by type name") as its
+own §1 finding 5, then one section later claimed the consumer's reasoning path
+"never claims into" the alpha overlay — on the strength of a name-based grep
+over two files. Measured, the step trace claims indirectly through the resident
+ontology walk; only the differential beside it does not. **Writing the rule down
+is not the same as being immune to it**; the narrowed claim is the one that is
+actually true, and it is also the one that is actionable.
+
+---
+
+## 2026-08-30 — E-BELIEF-ARENA-DEDUP-IS-PAYABLE-AND-W0-MUST-CITE-IT-1 — a ruled duplication the ownership census omits is a re-derivation waiting to happen
+
+**Status:** FINDING (measured). Full census:
+`docs/architecture/COGNITIVE-FABRIC-CENSUS-2026-08-30.md` (three-repo,
+`F-ARW-0`-clean; private-side rendition MedCare-rs PR #596).
+**Confidence:** High — counted at file:line across lance-graph + OGAR + the
+consumer repo, not argued.
+
+`TD-DEEPNSM-V2-BELIEF-DUP` (TECH_DEBT.md:752) ruled the V0 arena
+(`deepnsm-v2/src/belief.rs`) superseded by the canonical planner arena
+(`nars/belief.rs`), held open on two blockers. Measured today: **blocker (b)
+is clear** — external consumers of the V0 re-exports across all three repos =
+ZERO (sole reference: `deepnsm-v2/src/lib.rs:59`); and **the copies have
+diverged** — `admit_derived` exists only in the planner arena
+(`nars/belief.rs:226`), so the dup now compounds with every planner-side
+extension. Yet #1078's W0 ownership-census list names neither
+`nars/belief.rs` nor the TD id (verified against both open plan heads) —
+while its §7 lists NARS revision among loco atom candidates, and an atom
+needs exactly ONE backing arena. Consequence: W0 imports the TD as a
+`SOURCE FACT` row; the dedup (the TD's own payment path: deepnsm-v2 emits the
+stream, consumes the planner arena, deletes `belief.rs` + re-exports, citing
+the D-DIA-V0 tests) precedes any atom freeze. Companion lesson banked in the
+census §7.5: a name-based single-repo grep produced a false absence claim
+about the consumer's same-address overlay within the same session — census by
+semantics, not by type name.
 
 ## 2026-08-27 — E-THE-FUSED-PAYLOAD-IS-INERT-AT-EVERY-EXECUTION-GATE-THAT-CONSUMES-IT-1 — a required field no consumer reads does not stay empty, it fills with fiction
 
