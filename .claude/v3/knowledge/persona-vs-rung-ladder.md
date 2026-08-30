@@ -15,10 +15,15 @@
 > occupies each rung of the ladder — and that stands unchanged. What it
 > does NOT rule, and never did, is a confinement of style APPLICATION to
 > one rung. The ruled direction (same date): **(a)** rung 0–9 awareness is
-> scheduled **in parallel** as meta-aware thinking orchestration through
-> `lance-graph-supervisor` — `kanban_actor.rs`'s `PhaseCensus` (the
+> **to be** scheduled in parallel as meta-aware thinking orchestration
+> through `lance-graph-supervisor` — `kanban_actor.rs`'s `PhaseCensus` (the
 > read-only fleet visibility surface, one `&self` pass) is the built
-> primitive for the rung above watching the kanban of the layer below;
+> primitive such a scheduler would compose OVER, for the rung above watching
+> the kanban of the layer below. ⚠ The rung-aware dispatch LOOP itself is
+> NOT shipped (`PhaseCensus` and kanban are deliberately rung-blind;
+> `probe_parallel_rung` establishes representation coexistence only, "does
+> NOT establish wall-clock or thread parallelism") — this is a direction,
+> never an available scheduler;
 > **(b)** thinking styles CONVERGE onto the execution membrane — mask-ALU
 > cheapness at the first level, `ogar-loco`/`ogar-r2il` composition for
 > depth — a style is a program over the atom/mask substrate, applicable at
@@ -83,7 +88,7 @@ its "runbook" naming and the board label cross storylines.
 
 ## The four spaces, one line each (anti-conflation card)
 
-1. `StyleFamily` (12) — rung-4 thinking macros, orchestration dispatch. Canonical, deduped, frozen ordinals (driver order, Deliberate=0).
+1. `StyleFamily` (12) — rung-4 thinking macros **by CONTENT taxonomy** (which object occupies the rung), orchestration dispatch. Canonical, deduped, frozen ordinals (driver order, Deliberate=0). ⊘ Not a confinement of style APPLICATION to rung 4 — see the scope correction at the head of this file, and O9 on the address vs the vocabulary.
 2. `recipes::RECIPES` (34) — rung-3 NARS reasoning tactics. THE runbooks. Catalogue in contract; primitives in ndarray `hpc/styles`.
 3. 144 verbs (12×12) — rung-2 thinking atoms, the unified predicate surface (`sigma_rosetta` + `verb_table`). Computing, test-pinned.
 4. persona-36 adjectives — persona-modeling storyline. Off-ladder, unwired, future work. Keep out of rung vocabulary.
