@@ -193,12 +193,35 @@ away*"). Three metaphors, one mechanism, three ASPECTS of one substrate:
 > **(a)** #1077's `REPRESENTATION-ONLY / HELD` grade STANDS for its stated
 > reason — the producer→consumer trace (`D-RLR-5`) has not been RUN — not
 > because the question was wrong; the metaphor regrade changes what the
-> NAME claims, never what the trace must prove. **(b)** "Alpha presence
-> never mints evidence" is a REAL, load-bearing fence, not a type-level
-> triviality: precisely because the residue is live cognitive state, the
-> temptation to read it as evidence is real; the fence separates
-> ATTENTION-state from EVIDENCE-state *within* one living substrate — it
-> does not separate storage from cognition, because nothing here does.
+> NAME claims, never what the trace must prove. **(b) ⊘ RE-CORRECTED
+> (operator, same day): "alpha presence never mints evidence" is itself a
+> BULLDOZER, not a fence** — *"a bullshit claim adding a bulldozing label
+> where I just gave you an order to use tarski etc as orthogonal
+> scalpels."* A blanket ban collapses "evidence" into one undifferentiated
+> category on the very page that orders nine orthogonal axes — the exact
+> one-blended-score failure. The scalpel-grade replacement, each row
+> grounded in shipped code:
+>
+> - **object-level truth axis** — a visit does NOT raise a domain claim's
+>   `(f,c)`; attention landing on X is not support for X. This is the one
+>   true kernel the bulldozer was gesturing at, and it is already TYPED
+>   (the Strict/Retro horizon machinery + the ddx hindsight lesson), so it
+>   needs no extra label.
+> - **meta/attention axis** — the residue IS the evidence: `read_crossing`
+>   already consumes two `FocusTrace`s as the EVIDENCE of the Heckhausen
+>   crossing (`RubiconVerdict` is derived from attention residue, shipped).
+> - **Shannon axis** — claimed vs unclaimed is the searched/unsearched
+>   partition: "examined N times, yielded nothing" is real information and
+>   is exactly what a what-to-measure-next surface quantifies.
+> - **witness/temporal axes** — the stamp (`cycle`, `seq`, `rung`,
+>   `visits`) is provenance evidence of who looked, when, in what order;
+>   replaying it is evidence about the trajectory of the thought.
+> - **the transfer law** — evidence moves BETWEEN axes only through typed
+>   inference (revision under disjoint stamps, the tactics), never by
+>   leakage. The operator's own prior formulation was already exact:
+>   *"Eye tracking ist kein Beweis, aber damit löst du das
+>   needle-in-a-haystack Problem"* — no on one axis, load-bearing on the
+>   others.
 
 **The convergence this makes visible (the operator's prediction, checked):**
 #1077, #1078 and the Java arc are ONE architecture seen from three angles —
@@ -238,7 +261,7 @@ plane; each has a shipped carrier; each has a named collapse failure:
 | Pearl 2³ | `exploration.rs` SEE/DO/IMAGINE; the SPO "2³ Projection Verbs" (`spo/store.rs:105`) | WHICH question — association vs intervention vs counterfactual | a rung-0 read answering with Retro material |
 | rung 0–9 / meta | `RungLevel`; overlay stamp; `PhaseCensus`; `read_crossing` | who is thinking about the thinking — parallel, informing, never rewriting | Tarski↔rung collapse (banned) |
 | temporal horizon | `EpistemicMode::for_rung`; `Spoiler` vs `Anachronistic` (`temporal.rs:845-856`: the SAME future row refuses for a `Strict` reader and admits as a deliberate, opted-in `Spoiler` for a rung-9+ `Retro` reader) | what the reasoner may SEE — hindsight opt-in, never leak | hindsight contamination |
-| witness identity | `ReasoningWitness64` + `replay_ref` | who saw it — provenance, replay | alpha presence minting evidence (banned) |
+| witness identity | `ReasoningWitness64` + `replay_ref` | who saw it — provenance, replay | cross-axis leakage: attention residue read as object-level support without typed inference |
 
 The precision is the ORTHOGONALITY: nine assertable coordinates instead of one
 blended score. The in-house proof of the failure mode is §8.0 of
@@ -460,8 +483,11 @@ terminate cognition — only the Rubicon boundary owns stop/commit/veto.
 **#1078** (STOPs + §7.2): no new rung tenant/rail/classid before
 alpha/view/session insufficiency is proven; no new provenance bits before
 W-slot/receipt semantics are exhausted; no Tarski↔cognitive-rung collapse; no
-Shannon/NARS/EWA/provenance/Band trust scalar; **alpha presence never mints
-evidence**; counterfactual elimination never becomes empirical observation;
+Shannon/NARS/EWA/provenance/Band trust scalar; "alpha presence never mints
+evidence" *(⊘ operator-regraded 2026-08-30 as a bulldozing simplification —
+see the axis-typed replacement in §4; the kernel that survives: a visit
+never raises object-level `(f,c)`, transfer between axes only through typed
+inference)*; counterfactual elimination never becomes empirical observation;
 domain vocabulary never leaks into this generic layer; Revision/Rubicon
 unskippable. Rule of thumb: **"make the mechanism callable; make the law
 unskippable."**
