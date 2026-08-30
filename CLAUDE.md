@@ -421,6 +421,15 @@ this rule exists so it does not recur.
 `:85`). It lists every ruled symbol (RETIRE / REPURPOSE / …) and every plan
 that names one without citing the ruling.
 
+**The gate triggers on all eight inputs** — `.claude/plans/**`,
+`COMPONENT-MAP.md`, `crates/**`, `.claude/board/EPIPHANIES.md`,
+`.claude/board/entries/**`, the generator, the output, and the workflow. Three
+of those (`crates/**` and the two board paths) were **missing from the trigger
+list until 2026-08-30**, so a PR touching only the board ran no check at all
+(`E-THE-GATE-DID-NOT-TRIGGER-ON-THREE-OF-ITS-OWN-INPUTS-1`). If you add a read
+to the generator, add the path in the same commit — the trigger list is a
+second copy of the inputs and nothing keeps it honest.
+
 **Regenerate LAST, after the board writes** — not after the plan edit.
 Because the board is an input, a run made before prepending an EPIPHANIES
 entry cannot see the D-ids that entry cites, produces a byte-identical file,

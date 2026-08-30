@@ -1,3 +1,54 @@
+## 2026-08-30 — E-THE-GATE-DID-NOT-TRIGGER-ON-THREE-OF-ITS-OWN-INPUTS-1 — the workflow's comment said "the generator's INPUTS" and then listed five of eight
+
+**Status:** FINDING + fix (same PR). **Confidence:** High — the generator was
+read at the line, and the gap has a LIVE instance open right now.
+
+`supersession-index.yml`'s `pull_request.paths` filter listed `.claude/plans/**`,
+`COMPONENT-MAP.md`, the generator, the output, and itself. The generator reads
+**three more**:
+
+| generator | input | column it moves |
+|---|---|---|
+| `:110`, `:157` — `count(s, 'crates')` | `crates/**` | "live in crates" |
+| `:48-49` — `board = entries/*.md + EPIPHANIES.md` | `.claude/board/entries/**`, `.claude/board/EPIPHANIES.md` | "board coverage" (`:85`) |
+
+**The falsifier is live, not constructed: #1091 changes only
+`.claude/board/EPIPHANIES.md` and ran NO `regenerate-and-diff` check at all** —
+its sole check is an unrelated bot. The gate simply is not on that PR. And the
+same day, prepending ONE EPIPHANIES entry moved a plan's board-coverage cell
+**2/9 → 3/9** — so an input that provably moves a cell could not provably
+trigger the check.
+
+**What made it survive:** the filter's own comment asserts *"The generator's
+INPUTS, not just the generator"*, and the failure message names *"plans/ +
+crates/ + COMPONENT-MAP.md"* — **naming `crates/` in the error while not
+triggering on it.** Both read as a complete enumeration to anyone auditing the
+file. Every subsequent reader (me included, when I documented the input list in
+`CLAUDE.md` earlier today) checked the GENERATOR and never re-checked the
+TRIGGER against it.
+
+**The generalizable rule: a gate's trigger list is a second, independent copy of
+its inputs, and nothing keeps the copy honest.** The generator can gain an input
+in one line; the workflow does not fail when it does — it silently stops
+covering that input, which is invisible precisely because the gate's absence
+looks like a green PR. `push: main` still fires, so the staleness surfaces
+*after* merge, on a commit no branch protection can block: exactly the #1085
+symptom, whose real cause is this, not ordering alone.
+
+**Practical form:** when a generated artifact has a CI gate, diff the trigger
+list against the generator's actual reads — by line — and treat the two as one
+change. Adding a read without adding a path is a silent coverage regression, and
+the fix is one line either way.
+
+Cross-ref: `CLAUDE.md` § `SUPERSESSION-INDEX.md` is generated and CI-gated (the
+"regenerate LAST" rule, whose *reason* this sharpens);
+`E-A-SUPERSEDED-INDEX-ENTRY-IS-STILL-THE-FIRST-HIT-1` and
+`E-AN-ARC-OFF-BOTH-DASHBOARDS-CANNOT-BE-FOUND-BY-THE-ENUMERATION-1` (the same
+shape in prose: a record that is correct and not reaching the thing that needs
+it).
+
+---
+
 ## 2026-08-30 — E-A-SHARED-PRIMITIVE-CERTIFIES-NOTHING-ABOUT-THE-MAP-1 — "the same certified Morton" was contradicted four paragraphs below itself
 
 **Status:** CORRECTION (measured today). Lands in
