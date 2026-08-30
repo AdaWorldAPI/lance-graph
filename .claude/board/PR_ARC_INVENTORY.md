@@ -12,11 +12,10 @@
 
 ## 2026-08-30 — lance-graph #1093 (MERGED 5206c2a4) — FULL REVERT of #1087..#1092: the session's output was ruled unacceptable wholesale
 
-**Reverted (all six, operator-directed).** The operator ruled the session's
-entire output unacceptable: the solutions were judged fundamentally wrong and
-in violation of the governing plan, and the session's own post-mortem was
-unusable as a record. Nothing from that session's six merges survives on
-main:
+**Reverted (all six, operator-directed).** The operator rejected the
+producing session's entire output: its work was judged defective and
+off-plan across the board, and its retrospective analysis was of no use as
+a record. Nothing from that session's six merges survives on main:
 
 | PR | what it had landed | backed out |
 |---|---|---|
