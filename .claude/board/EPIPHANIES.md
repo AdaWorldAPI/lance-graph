@@ -1,3 +1,46 @@
+## 2026-08-30 — E-DESTRUCTIVE-PREPEND-TRUNCATES-BEFORE-READ-1 — the prepend one-liner `open(p, "w").write(entry + open(p).read())` destroyed 5876 lines of PR_ARC_INVENTORY; the pattern is now PROHIBITED
+
+**Status:** FINDING + PROHIBITION (operator-directed, 2026-08-30). Measured on
+a real loss, restored same day (#1082, merge `82679c3a`), pattern banned in
+`CLAUDE.md` § In-Session Orchestration Discipline in the same PR.
+**Confidence:** Certain — the mechanism is Python evaluation order, reproduced
+and named, not inferred.
+
+The #1081 board-hygiene commit prepended its arc entry to
+`.claude/board/PR_ARC_INVENTORY.md` with
+
+```python
+open(p, "w").write(entry + "\n" + open(p).read())   # PROHIBITED
+```
+
+Python evaluates `open(p, "w")` — which **truncates the file to zero bytes** —
+before the argument expression's `open(p).read()` runs. The read-back returns
+the empty string, and the write emits only the new entry: the append-only
+ledger collapsed 5876 → 32 lines on main, leaving a dangling #1079
+self-reference as the visible wound. The same holds for every
+truncate-then-read-same-path shape in any language (`>` shell redirection into
+a pipeline that reads the same file, `fs.writeFileSync(p, x + fs.readFileSync(p))`
+is safe only because JS evaluates arguments first — do not rely on remembering
+which language does which).
+
+**The prohibition (P0, workspace-wide):** never open a file for
+writing/truncation in the same expression, pipeline, or statement that still
+needs to READ that file. Prepends are three steps: (1) read into a variable,
+(2) compose in memory, (3) write — or use the `Edit` tool, which is
+read-anchored by construction and the default for board files anyway.
+
+**The falsifier (mandatory after every ledger write):** `wc -l` the file.
+An append-only file that got SHORTER is always a defect — no exceptions, no
+"it probably deduplicated something".
+
+Cross-refs: census trap 10
+(`docs/architecture/COGNITIVE-FABRIC-CENSUS-2026-08-30.md` §8.3); restore PR
+#1082; the pre-existing "Read before Write, always" P0 in `CLAUDE.md` — this
+entry is its sharper edge: read-before-write applies WITHIN a single
+expression's evaluation order, not just across tool calls.
+
+---
+
 ## 2026-08-30 — E-A-FLOOD-THROTTLE-IS-NOT-A-DISCRIMINATOR-1 — the census equated `hub_indegree` with a specificity test; they are opposite where it matters
 
 **Status:** FINDING (measured, review-driven). Raised as codex P2 on #1079,
