@@ -1,3 +1,66 @@
+## 2026-08-30 — `alpha-reason-witness-cognitive-fabric-v1` + 3 companions (PROPOSED, plan-only) — **retroactive enumeration**
+
+**Owner plan:** `.claude/plans/alpha-reason-witness-cognitive-fabric-v1.md` (610 lines).
+**Companions, same arc, no parallel D-id family:**
+`…-shader-field-archaeology-pass-1.md` (the D-ARW-0 source audit),
+`…-shader-field-d-arw-0-audit-v1.md` (D-ARW-0 audit + §11 stockfish-rs role/method transfer),
+`…-shader-field-lineage-addendum-v1.md` (extends D-ARW-0/1/4/5/6/8; A5/A5.1/A6.2 carry the
+reference-implementation grammar and the falsifier arms; A9 states outright that it
+*"does not mint a parallel D-id family"*, and A10 lists eight STOP rules).
+
+> **⚠ Enumerated late, and the gap had a cost.** All four plans landed 2026-08-30
+> and **none of them was prepended here**, nor did a single `D-ARW-*` row exist on
+> `STATUS_BOARD.md` (grep count: 0) — while PRs #1085/#1087/#1089 were already
+> editing the arc's §11.3. Mandatory board hygiene requires both at plan-add time.
+> The concrete damage: the arc could not be found *by the enumeration*, so a
+> session asked "which plans come before `cognitive-shader-driver`?" had to
+> re-derive an answer the owner plan states in its own §0 thesis. **An index is
+> only a dependency answer if the arc is in it.** Filed retroactively rather than
+> silently, with the omission recorded as part of the entry.
+
+**Thesis (§0, verbatim shape):** domain repositories supply grounded observations
+and projections; **`lance-graph` owns reusable reasoning mechanics over canonical
+graph addresses**; ephemeral cognition rides the *existing* Alpha/attention
+substrate; derivation stays premise-addressable; witness identity is recovered
+through *existing* witness machinery; policy composes through the *existing*
+ogar-loco / R2IL membrane; persistent epistemic change passes Revision and replay.
+**Discovery-first, not a representation proposal** — "no single scalar is allowed
+to stand in for this coordinate set."
+
+**Constitutional separations (§2)** — ten axes held orthogonal until a
+source-defined relation proves otherwise: cognitive rung/horizon · Tarski
+derivation depth · ReasoningBand · CausalTopology · NARS `(f,c)` · Shannon `H` ·
+EWA `Σ` · Alpha/residual · witness/provenance · temporal/version. **§2.1 STOP:**
+`reason.rs::rung` (derivational depth, `1 + max(depth(premises))`) must never be
+equated with `cognitive_shader::RungLevel` merely because both use the word
+"rung". **§2.2 NO-BUY:** if Tarski + premise pointers + existing W-linked receipt
+identity answer the query, do not mint another "origin" field.
+
+**Ordering that a dependency question actually needs:** **D-ARW-5** (the
+atom/loco/R2IL **reuse census**) is what gates *adding* primitives, and
+**D-ARW-7/8** are explicitly *Held* on their predecessors. So a proposal to build
+a new carrier, accumulator, or DTO ahead of D-ARW-5 is out of scope **by the
+arc's own sequencing**, not by preference. The addendum's A9/A10 say the same
+from the other side: no parallel D-id family, and STOP #8 forbids inventing a new
+DTO to reconnect the historical field seam until the surviving surfaces are shown
+insufficient.
+
+**Historical field path the addendum audits** (A1.1/A1.2, source-fenced):
+`StreamDto → ResonanceDto/PerturbationDto → P64/cognitive-shader-driver → CE64 →
+BusDto`. Measured state — the current path is **transport/projection**
+(`PerturbationDto.energy: Vec<f32>` is dropped/unconsumed; `top_k → threshold →
+min..=max → ColumnWindow`, a *bounding window*, not a field mask), and there is
+**"no surviving `codebook_id ↔ (row,col)` mapping today"**; P64 is characterized
+as a **≤4096 active-relation working-set ALU, not the global lexicon**.
+
+**Deliverables:** D-ARW-0..8, now on `STATUS_BOARD.md`. See also
+`ISS-PERTURBATION-P64-ADDRESS-IDENTITY-UNPROVEN` (the bijection trap: a row-major
+cast tests green under bijection even if the truth was Morton) and, for the
+§11.3 method-transfer claims, the two ⊘ regrades in `EPIPHANIES.md`
+(`E-THE-ORACLE-…-METHOD-1`'s storno; `E-A-SHARED-PRIMITIVE-CERTIFIES-NOTHING-ABOUT-THE-MAP-1`).
+
+---
+
 ## 2026-08-29 — `rubicon-loco-rung-cognitive-fabric-v1` (PROPOSED, plan-only)
 
 `.claude/plans/rubicon-loco-rung-cognitive-fabric-v1.md`. Source-first audit at
