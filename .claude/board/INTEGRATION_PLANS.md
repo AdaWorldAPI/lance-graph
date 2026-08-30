@@ -2037,6 +2037,27 @@ Plan: `crates/symbiont/BATTLE_TEST_PLAN.md`. Companion to `crates/symbiont/INTEG
 
 **Status:** RESEARCH MAP + REFERENCE DOC (capture-before-dilution; pre-expansion). **Plan file:** `.claude/plans/integrated-cognitive-planner-v1.md`.
 **Owns:** the 6 integrated-planner seams + the `(hhtl-guid):path:documentid` / `ScopedReference` addressing model + the 8-step cognitive-cycle sequencer.
+> **⊘ TWO NAMES IN THE LINE BELOW ARE SUPERSEDED (marked 2026-08-30, after a
+> session quoted it as current). The entry stands as written; only these two
+> readings are regraded.**
+>
+> 1. **SurrealDB is NOT an orchestration layer.** `E-ORCHESTRATION-ORGANS-1`
+>    (2026-07-10) rules it *"storage + SurrealQL read glove over the ONE time
+>    series (Lance versions) + `ExecTarget::SurrealQl` lowering — **NEVER an
+>    orchestration arm** (odoo-rs deleted its SurrealQL fork; behavior-in-DDL is
+>    the rejected hijack)"*. `crates/symbiont` is additionally **⊘ DEPRECATED
+>    2026-08-18 (operator no-go)** — a dormant excluded crate, never a live
+>    surface. Read the top layer as **read-glove + lowering target**, not as the
+>    thing that orchestrates.
+> 2. **`Ψ ResonanceDto` is the pre-split name.** **D-PERT-1** split it:
+>    `PerturbationDto` is the perturbation carrier (L4 palette256 tenant over the
+>    Morton cascade); a *separate*, perspectival `ResonanceDto` lives in
+>    `awareness_dto.rs`. The ladder reads `Φ StreamDto → Ψ PerturbationDto →
+>    B BusDto`.
+>
+> Everything else in this entry — the cognition spine, the 6 seams, the
+> addressing scheme, the cycle, the probes — is untouched by this note.
+
 - 4-layer P0 architecture (FORGET LADYBUG): SurrealDB (orchestrates META AST/Elixir, never thinks/writes, projects read-view) → `lance-graph-planner::PlannerAwareness` (coordination; emits `KanbanMove(ExecTarget)`, Rubicon DAG) → **thinking-engine > P64 > cognitive-shader-driver** (the cognition: Φ StreamDto → Ψ ResonanceDto → B BusDto) → ractor (`lance-graph-supervisor`) drives `try_advance_phase` → `lance-graph-callcenter` WRITES (outer boundary). temporal-aware via Lance-version-as-of + temporal.rs deinterlace (HLC).
 - **§2 the 6 seams** (file:line FOLDs): (1) planner emits no `KanbanMove` [D-MBX-A6-P3]; (2) temporal.rs unconsumed + dep-wall; (3) loop only on jolly (unmerged `463d71bd`); (4) rung inert; (5) think-delegation inverted/lab-only (NOT Ladybug); (6) plan.rs:42 write mis-framing.
 - **§3 addressing:** `(hhtl-guid):path:documentid` = `NodeGuid`-prefix : value-tenant : `local_key`; `ScopedReference` = (NiblePath scope, QueryReference as-of) = TiKV-TSO snapshot-handle scoped to a key-range. ADOPT TiKV prefix-route + snapshot-handle + coprocessor-pushdown↔DependsClosure; Pinpoint entity-MID=identity + cross-doc entities=EdgeBlock + content-addressed documentid + as-of-T-first-class.
