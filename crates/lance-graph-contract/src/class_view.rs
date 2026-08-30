@@ -153,6 +153,28 @@ impl FieldMask {
         self.0 & other.0 == 0
     }
 
+    /// Set difference — the field positions present in `self` but NOT in
+    /// `other`. The missing half of the widen/narrow pair (`standing_mask`'s
+    /// `widen` is a union with no narrowing sibling) and the primitive a
+    /// provenance surface is built from (D-MAR-1,
+    /// `mask-algebra-revision-read-v1` §2.1 — the substrate-first STOP rule:
+    /// the rejected external draft hand-rolled a whole `EvidenceMask` trait
+    /// because this method was absent).
+    #[inline]
+    pub const fn difference(self, other: Self) -> Self {
+        Self(self.0 & !other.0)
+    }
+
+    /// Is every field position of `self` also present in `other`? The
+    /// containment assertion an RBAC kernel needs to check that a projection
+    /// stays inside the permitted surface (`authorize.rs` folds role masks
+    /// with `union`; this is the read on the folded result). Equivalent to
+    /// `self.difference(other).is_empty()` (D-MAR-1).
+    #[inline]
+    pub const fn is_subset_of(self, other: Self) -> bool {
+        self.0 & !other.0 == 0
+    }
+
     /// Inherit a parent class's presence into this mask — the **mask-inherits-as-
     /// delta** of the HHTL `subClassOf` walk (`wikidata-hhtl-load.md`). A child
     /// IS-A its parent, so its mask carries every field the parent declares
@@ -375,6 +397,34 @@ impl WideFieldMask {
             (WideRepr::Small(a), WideRepr::Small(b)) => Self(WideRepr::Small(a | b)),
             _ => self.zip_fold(other, |a, b| a | b),
         }
+    }
+
+    /// Set difference — field positions present in `self` but NOT in `other`
+    /// (the wide-tier sibling of [`FieldMask::difference`], D-MAR-1). The
+    /// tier-agnostic fold is already correct for this operator: a missing
+    /// `other` chunk reads `0` so `a & !0 = a` (nothing to subtract there); a
+    /// missing `self` chunk reads `0` so `0 & !b = 0`. [`zip_fold`]'s
+    /// normalization (trailing-zero trim + demote-to-`Small`) is load-bearing —
+    /// without it a difference that falls entirely below bit 64 would compare
+    /// unequal to its `Small` equivalent under the canonical `PartialEq`.
+    ///
+    /// [`zip_fold`]: Self::zip_fold
+    #[must_use]
+    pub fn difference(&self, other: &Self) -> Self {
+        match (&self.0, &other.0) {
+            (WideRepr::Small(a), WideRepr::Small(b)) => Self(WideRepr::Small(a & !b)),
+            _ => self.zip_fold(other, |a, b| a & !b),
+        }
+    }
+
+    /// Is every field position of `self` also present in `other`? Specified
+    /// as `self.difference(other).is_empty()` — one code path,
+    /// identity-honest (plan §2.1). This allocates on the `Wide` arm; the
+    /// non-allocating `chunk_at`/`canonical_len` loop is a recorded option if
+    /// a measurement ever justifies it — do not ship both.
+    #[must_use]
+    pub fn is_subset_of(&self, other: &Self) -> bool {
+        self.difference(other).is_empty()
     }
 
     /// Chunk-wise fold across tiers (only reached when at least one side is
@@ -2444,5 +2494,111 @@ mod tests {
         for i in 0..universe.len() as u8 {
             assert_eq!(minted.has(i), direct.has(i));
         }
+    }
+
+    // ── D-MAR-1 gates (mask-algebra-revision-read-v1 §3) ────────────────────
+    // Each identity gate carries its anti-half: G1 alone is satisfied by
+    // `difference ≡ EMPTY` and G2 alone by `is_subset_of ≡ true`, so the
+    // pairs are what make the gates falsifiable.
+
+    /// G1 + G1-anti: `a \ b` shares nothing with `b`, and for a chosen
+    /// `a ⊄ b` the difference is non-empty.
+    #[test]
+    fn g1_fieldmask_difference_disjoint_from_subtrahend() {
+        let pairs = [
+            (FieldMask(0b1011), FieldMask(0b0110)),
+            (FieldMask(0), FieldMask(u64::MAX)),
+            (FieldMask(u64::MAX), FieldMask(0b1)),
+            (FieldMask(0xAAAA_5555), FieldMask(0xAAAA_5555)),
+        ];
+        for (a, b) in pairs {
+            assert!(a.difference(b).intersect(b).is_empty());
+        }
+        // G1-anti: a ⊄ b ⇒ difference non-empty (kills difference ≡ EMPTY).
+        let a = FieldMask(0b1011);
+        let b = FieldMask(0b0110);
+        assert!(!a.difference(b).is_empty());
+        assert_eq!(a.difference(b), FieldMask(0b1001));
+    }
+
+    /// G2 + G2-anti: everything is a subset of its own union, and a chosen
+    /// pair is NOT in subset relation (kills is_subset_of ≡ true).
+    #[test]
+    fn g2_fieldmask_subset_of_own_union_and_not_vacuous() {
+        let pairs = [
+            (FieldMask(0b1011), FieldMask(0b0110)),
+            (FieldMask(0), FieldMask(0)),
+            (FieldMask(u64::MAX), FieldMask(0)),
+        ];
+        for (a, b) in pairs {
+            assert!(a.is_subset_of(a.union(b)));
+        }
+        assert!(FieldMask(0b1011).is_subset_of(FieldMask(0b1111)));
+        // G2-anti
+        assert!(!FieldMask(0b1011).is_subset_of(FieldMask(0b0110)));
+        assert!(!FieldMask(u64::MAX).is_subset_of(FieldMask(u64::MAX >> 1)));
+    }
+
+    /// G3: the G1/G2 identities on the wide tier, including Small×Wide
+    /// cross-width pairs in BOTH argument orders (the missing-chunk reads:
+    /// `a & !0 = a` on the high side of a Small subtrahend, `0 & !b = 0` on
+    /// the high side of a Small minuend).
+    #[test]
+    fn g3_widefieldmask_difference_subset_cross_width() {
+        let small = WideFieldMask::from_positions(&[1, 3, 40]);
+        let wide = WideFieldMask::from_positions(&[3, 70, 130]);
+
+        // Wide \ Small keeps the high bits Small cannot address…
+        let d_ws = wide.difference(&small);
+        assert!(d_ws.has(70) && d_ws.has(130) && !d_ws.has(3));
+        // …and Small \ Wide never grows past Small's width.
+        let d_sw = small.difference(&wide);
+        assert!(d_sw.has(1) && d_sw.has(40) && !d_sw.has(3) && !d_sw.has(70));
+
+        // G1 identity, both orders + wide×wide.
+        let wide2 = WideFieldMask::from_positions(&[70, 200]);
+        for (a, b) in [(&wide, &small), (&small, &wide), (&wide, &wide2)] {
+            assert!(a.difference(b).intersect(b).is_empty());
+        }
+        // G2 identity + anti, cross-width both orders.
+        assert!(small.is_subset_of(&small.union(&wide)));
+        assert!(wide.is_subset_of(&wide.union(&small)));
+        assert!(!wide.is_subset_of(&small)); // high bits cannot fit
+        assert!(!small.is_subset_of(&wide)); // 1 and 40 are missing
+                                             // Subset across tiers where it genuinely holds.
+        let low_only = WideFieldMask::from_positions(&[3]);
+        assert!(low_only.is_subset_of(&wide));
+        assert!(low_only.is_subset_of(&small));
+    }
+
+    /// G4: a Wide operand whose difference falls entirely below bit 64
+    /// compares equal to AND hashes identically with the Small equivalent
+    /// (the canonical-form `PartialEq`/`Hash` contract, V-L P0).
+    #[test]
+    fn g4_widefieldmask_difference_normalizes_to_small() {
+        use std::collections::hash_map::DefaultHasher;
+        use std::hash::{Hash, Hasher};
+
+        let wide = WideFieldMask::from_positions(&[2, 5, 100]);
+        let high = WideFieldMask::from_positions(&[100, 101]);
+        // (2,5,100) \ (100,101) = (2,5): everything above bit 64 vanishes.
+        let d = wide.difference(&high);
+        let small = WideFieldMask::from_positions(&[2, 5]);
+        assert_eq!(d, small);
+        // The representation itself must demote, not merely compare equal:
+        // canonical PartialEq/Hash are representation-independent (V-L P0),
+        // so equality alone CANNOT fail under a trim/demote bypass — measured
+        // 2026-08-30 (the plan's stated G4 disable-run was unfalsifiable as
+        // written). `max_fields()` is the observable that can.
+        assert_eq!(d.max_fields(), 64);
+        let hash = |m: &WideFieldMask| {
+            let mut h = DefaultHasher::new();
+            m.hash(&mut h);
+            h.finish()
+        };
+        assert_eq!(hash(&d), hash(&small));
+        // And the demoted result keeps behaving: subset + emptiness reads.
+        assert!(d.is_subset_of(&wide));
+        assert!(wide.difference(&wide).is_empty());
     }
 }
