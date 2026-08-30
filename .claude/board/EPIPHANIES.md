@@ -1,3 +1,54 @@
+## 2026-08-30 — ⊘ STORNO of `E-THE-ORACLE-WAS-CITED-AS-A-PHILOSOPHY-AND-NEVER-AS-A-METHOD-1` (same day, operator-directed read) — the census was right, the inference was not
+
+**Status:** CORRECTION. The entry below it stands as written (append-only); this
+supersedes its HEADLINE CLAIM only. **Confidence:** High — refuted by a plan that
+was already in the tree when the original landed.
+
+**What was claimed:** that `stockfish-rs` was cited in this repo "for its ROLES …
+never for a single probe", and therefore "cited as a philosophy and never as a
+method".
+
+**What is actually true.** `alpha-reason-witness-shader-field-lineage-addendum-v1.md`
+(`00c4934`) — an ANCESTOR of the PR that landed the original (`4cc7d71`), verified
+by `git merge-base --is-ancestor` — already cites the METHOD, twice over:
+
+- **A5** lists it as seven operational points: *"exact compact address space +
+  bounded active set + mask-native selection + incremental perturbation/update +
+  gather -> local compute -> scatter + cheap route / exact verify +
+  CPU-family-specific fast path with measured fallback"*, under the heading
+  "Use stockfish-rs as a **control/reference implementation philosophy**".
+- **A5.1** then poses six reference questions for a candidate cognitive field —
+  including question 6, *"Does a random/permuted address sabotage locality while
+  preserving cardinality? If the answer to (6) is 'no change,' the spatial/cascade
+  hypothesis is likely decorative"* — which IS the permutation-sabotage arm the
+  original entry presented as newly imported.
+- **A1.5** separately cites `stockfish-pext-morton-adjacency.md`'s
+  `gather (PEXT) -> small dense lookup -> scatter (PDEP)` as *"a transferable
+  low-level pattern"*.
+
+**What survives:** the census itself (no plan named a stockfish-rs probe FILE),
+the access matrix, and the domain fence. What fails is the step from one to the
+other.
+
+**The generalizable rule — and it replaces the original's, which was a real rule
+carried on a false instance.** *A file-name census cannot measure whether a method
+was transferred.* A5 transfers the method completely without naming one file, so
+the grep that returned zero was answering a different question than the one the
+entry drew its conclusion from. The original entry's own advice — "grep for the
+artifacts, not the noun" — is exactly the move that produced the error: artifacts
+were the wrong probe for a claim about substance.
+
+**The recursion worth recording:** an epiphany asserting that matching is not
+reading was itself produced by matching, and shipped in a PR whose review had
+already corrected a *different* overclaim in the same section. Two review passes
+and a merge did not catch it; reading the neighbouring plan did, in one screen.
+
+Cross-ref: the operator ruling the same day — *"matching (grep) is forbidden,
+reading is mandatory"* — and this file's own
+`E-VACUOUS-ASSERTION-IS-THE-HOUSE-STYLE-1`.
+
+---
+
 ## 2026-08-30 — E-THE-ORACLE-WAS-CITED-AS-A-PHILOSOPHY-AND-NEVER-AS-A-METHOD-1 — a plan can demand an independent oracle while ignoring the one already built for its own question
 
 **Status:** FINDING (measured). Lands in
