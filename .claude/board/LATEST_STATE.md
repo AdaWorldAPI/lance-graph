@@ -1,3 +1,15 @@
+## 2026-08-30 — #1077 + #1078 BOTH MERGED (plans only): the convergence pair is on main
+
+| PR | merge | content |
+|---|---|---|
+| **#1078** | `da3b5c76` | alpha-reason-witness W0–W8 + three D-ARW-0 archaeology passes (the BROKEN WIRE: top_k → min..max window before the P64 mask ALU) |
+| **#1077** | `6bad99c8` | rubicon-loco-rung audit: eleven STOP gates F-RLR-1..11, rung mapping pinned (discriminant 0..=9), NodeGuid copy-never-re-mint, rung-4 fossil verdict on review-corrected census |
+
+**Contract inventory net delta: none** (both PLAN/BOARD ONLY). Queued: the
+wave ladders in `STATUS_BOARD.md` (D-RLR-0..6, D-ARW-0..8); the execution
+loop is MedCare-rs #597 (six live waves, five HELD each behind one operator
+word). Full detail: the batched arc entry.
+
 ## 2026-08-30 — #1079 MERGED (db85d6fa): the cognitive-fabric census — DOC/BOARD ONLY
 
 ### Current Contract Inventory — net delta
