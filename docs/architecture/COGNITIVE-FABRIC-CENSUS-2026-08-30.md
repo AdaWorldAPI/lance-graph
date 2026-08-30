@@ -250,13 +250,24 @@ one.
 - `CausalEdge64` — the reasoning hot path. `CausalEdgeV3` — band carve at
   bytes 8/9 (`band_reading.rs:26`), and it **rehydrates INTO CE64 to
   reason**; `from_v1`'s drops are assertions, never inferences (`:164`).
-- `EpisodicWitness64` — column accessor deliberately deferred
-  (`soa_view.rs:258-259`); the documented `WitnessTable` wording drift
+- `EpisodicWitness64` — **⊘ NOT YET A CODE SYMBOL** (`soa_view.rs:272`
+  states it verbatim: "a queued design"); the deferred-accessor comment names
+  a type that does not exist. Shipped witness names today:
+  `ReasoningWitness64`, `EpisodicEdges64`, `WitnessTable`,
+  `CausalWitnessFacet`. The documented `WitnessTable` wording drift
   (`{mailbox_ref, spo_fact_ref}` vs "witness corpus root handle") is #1078's
   W3, and the private consumer holds a LIVE encode/decode falsifier for it.
-- The 24×`i4` register — `causal_witness.rs:182` (the A9 reading of a
-  12-byte register); `G24N4` is a **lane-shape name, never a second
-  addressing system** (`canonical_node.rs:893,1078`).
+  *(Naming correction credited to a parallel 2026-08-30 audit; this doc's
+  first filing carried the queued name in a carriers list unflagged.)*
+- The 24×`i4` register — the SAME 12 content-blind bytes carry **three
+  class-selected readings** (`causal_witness.rs`): frozen `12×u8` palette,
+  orchestration `6×(8:8)` (`style_rails_at`, V3-replayable), and the A9
+  `24×i4` Markov loci (`:182`; 16 operator-named — `temporal … antecedent,
+  basin_anchor … quorum, contradiction` — slots 16..24 reserved-empty).
+  **A reading, not a fourth `CascadeShape`** — the module's own correction:
+  `G24N4` is a lane-shape name; `CascadeShape` gains no 24-group variant
+  (`canonical_node.rs:893,1078`). Class id selects the interpretation; no
+  bytes move — the lawful unification pattern in miniature.
 - `CascadeShape::{G6D2, G4D3, G3D4}` over the ONE content-blind 12-byte V3
   payload (`facet.rs`): `6·2 = 4·3 = 3·4 = 12`; `ALIGNED = [G3D4, G6D2]`
   carve on tier boundaries so `group_of` is a **pure shift, never a branch**.
@@ -269,6 +280,50 @@ one.
   144 verb atoms, 3 = the 34 recipes, 4 = `StyleFamily`(12) under
   *frozen × learned × exploration*). Open edge: O2 (rung-4 → rung-3
   selection), not a re-homing.
+
+### 5.6 Execution blockers, measured (W0/W5 SOURCE FACT rows)
+
+Verified 2026-08-30, reconciling a parallel audit — these gate any
+"nanosecond method composition" claim and precede any atom freeze:
+
+1. **`VAR_SET`/`VAR_CHANGE` semantics mismatch (documented as genuine in the
+   source itself).** `ogar-loco`'s `pushes_result` declares both as
+   result-pushing (chainable assignment); no `DROP`/`POP` primitive exists;
+   `statement_bounds` therefore correctly REFUSES ordinary "set a; set b"
+   bodies (`DanglingOperands`) — while the shipped interpreter executes them
+   as void (`ogar-loco/examples/interpret_probe.rs:36-50`: "this is not a
+   probe bug; it is a genuine …"). Canonical choice (void, or explicit DROP)
+   is stored-byte-ABI-adjacent → operator decision.
+2. **The recipe ladder is not yet executable.** `ladder_program() ->
+   Vec<FnIndex>`, not an `ogar_loco::Program`
+   (`lance-graph-ogar/src/recipe_vocab.rs:126-128`); `domain_pushes_result`
+   returns `Some(true)` for EVERY recipe (`:157-159`), so an unconsumed
+   34-recipe ladder leaves 34 values and cannot statement-segment; no
+   canonical dispatcher executes the 34.
+3. **`ogar-r2il::CallMask` is `Box<[u64]>`** (`lib.rs:369-381`, heap per
+   mask); the 180-call maximum fits `[u64; 3]` inline — the allocation-free
+   form is the cheap prerequisite. Its shape guard (a mask carries its
+   `LaneShape`; `project` takes both) is the SEED of the typed-mask-domain
+   law: masks over different domains must never silently compose merely
+   because both are bitsets.
+4. **Atoms whose producers/consumers are not yet wired:** the contract
+   counterfactual carries 4× `todo!` on its v3 poll/cancel path
+   (`counterfactual.rs:256,268,275,353`); proprioception is an `[f32; 11]`
+   observation classifier (`proprioception.rs:14`); `Spd2` + the 256-entry
+   `SigmaCodebook` exist in-contract (`sigma_propagation.rs`) with consumers
+   still planned. Per §7.2 of the convergence plan: callable-atom status
+   FOLLOWS real wiring.
+5. **Receipt provenance gap:** `RevisionDelta` keeps RESULT-side masks
+   (preserved/introduced/withdrawn/revised/roots/resistance/contradictions/
+   affected — `revision.rs:290-303`) but not the input-mask stack + operator
+   lineage that produced them. A method receipt needs both: a collapsed
+   effective mask for speed, the full mask-operation lineage for commit —
+   Revision must not flatten provenance.
+
+Out of local scope, stated rather than asserted: the Java-side lens
+granularity and its measured columnar multiplier live in the separate Java
+repo (not in this census's three-repo read); its mask/hop/reduction surface
+is cited here only as far as `ARC-A-SOURCE-ARCHAEOLOGY.md` already banked it.
 
 ---
 
@@ -305,3 +360,13 @@ unskippable."**
 5. A worked `F-ARW-0` warning: a name-based single-repo grep produced a false
    absence claim about the consumer overlay within THIS session — census by
    semantics, not by type name.
+6. §5.6's five execution blockers as W5 rows — with the convergence direction
+   they imply: unify at the EXECUTION-AND-RECEIPT layer (typed mask domains,
+   one bulk native evaluation, one receipt carrying mask lineage +
+   premises + the Fusion/Counterfactual/Revision verdict), never by packing
+   orthogonal cognitive coordinates into one scalar — which is the same law
+   the STOP list already carries, applied to the method surface.
+7. A naming row: `EpisodicWitness64` is a queued design, not a symbol
+   (`soa_view.rs:272`) — any W3 archaeology that greps for it finds comments,
+   not code; the shipped names are `ReasoningWitness64` / `EpisodicEdges64` /
+   `WitnessTable` / `CausalWitnessFacet`.
