@@ -20,7 +20,7 @@
 > (`MedCare-rs docs/REASONING_FABRIC_CROSSMAP.md`, PR #596 there). Ids that
 > cross the seam are opaque `u16`s here, as the facade requires.
 
-**Pins:** lance-graph `origin/main` `de1d0c2f` · OGAR `ddd51f4` · MedCare-rs
+**Measured at (provenance receipts, NOT pins — see trap 9):** lance-graph `origin/main` `de1d0c2f` · OGAR `ddd51f4` · MedCare-rs
 `origin/main` `e929179`. Prior arc treated as merged ground per #1077:
 PRs `#1074` (MUL↔EWA), `#1075` (the epistemic triptych — `revision.rs`, `fusion.rs`,
 the Rubicon revision), #1076 (hygiene, chain terminated).
@@ -663,3 +663,17 @@ unskippable."**
    dissonance — record both poles verbatim and stop.
 8. Storage is cognition and its prerequisite; treating it as a passive
    layer re-imports the abolished von Neumann split.
+9. **Internal head pins are absolutely and permanently prohibited**
+   (operator, 2026-08-30, verbatim — ruling the Goldstandard-vs-Interne-
+   Pins tension LITERALLY, not harmonized). No digest, SHA, or HEAD pin on
+   any artifact this workspace produces may ever act as a gate: a pin
+   proves SAMENESS, never correctness, and is a second truth source over
+   our own output. External dependency pins (a crates.io `=X.Y.Z`, a
+   foreign corpus) remain correct. Identity for internal artifacts =
+   content-meaningful gates (counts, structural invariants, census) and
+   new-content-gets-a-new-ADDRESS (a tag), never a new digest under the
+   old. The SHAs cited in this document's header are retrieval receipts
+   ("where this was measured"), never gates — and no future session may
+   promote them into one. The reconciliation reflex that tried to soften
+   this ruling into "compatible once read precisely" is itself the
+   documented anti-pattern (trap 7).
