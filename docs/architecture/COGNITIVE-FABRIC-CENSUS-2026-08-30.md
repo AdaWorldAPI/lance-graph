@@ -683,3 +683,13 @@ unskippable."**
    promote them into one. The reconciliation reflex that tried to soften
    this ruling into "compatible once read precisely" is itself the
    documented anti-pattern (trap 7).
+10. **The destructive-prepend one-liner** (added 2026-08-30, after it
+    destroyed 5876 lines of `PR_ARC_INVENTORY.md` in the #1081 hygiene
+    commit — restored same day):
+    `open(p, "w").write(entry + open(p).read())` truncates the file the
+    moment `open(p, "w")` evaluates — BEFORE the argument expression's
+    `open(p).read()` runs, so the read-back returns empty and the ledger's
+    entire history is gone. Prepend safely by reading FIRST into a
+    variable, then writing. Falsifier for every ledger write: `wc -l` the
+    file after the write — **an append-only file that got SHORTER is
+    always a defect**, no exceptions.
