@@ -35,11 +35,12 @@
 //!
 //! Run:
 //! `cargo run --release --manifest-path crates/deepnsm/Cargo.toml \
-!    --example d_arw_0_address_locality -- /path/to/coca-ngram-samples`
+//!    --example d_arw_0_address_locality -- /path/to/coca-ngram-samples`
 
 use deepnsm::Vocabulary;
 use lance_graph_contract::facet::FacetTier;
 use std::error::Error;
+use std::io::{Error as IoError, ErrorKind};
 use std::path::{Path, PathBuf};
 
 const N: usize = 4096;
@@ -92,9 +93,12 @@ fn load_edges(vocab: &Vocabulary, dir: &Path) -> Result<Vec<Edge>, Box<dyn Error
      -> Result<(), Box<dyn Error>> {
         let path = dir.join(file);
         let text = std::fs::read_to_string(&path).map_err(|e| {
-            format!(
-                "required licensed n-gram input is missing/unreadable: {} ({e})",
-                path.display()
+            IoError::new(
+                ErrorKind::NotFound,
+                format!(
+                    "required licensed n-gram input is missing/unreadable: {} ({e})",
+                    path.display()
+                ),
             )
         })?;
 
@@ -134,7 +138,11 @@ fn load_edges(vocab: &Vocabulary, dir: &Path) -> Result<Vec<Edge>, Box<dyn Error
     ingest("n_n.txt", 2, 3, 4)?; // noun · noun
 
     if edges.is_empty() {
-        return Err("no in-vocabulary relation edges were loaded; probe cannot run".into());
+        return Err(IoError::new(
+            ErrorKind::InvalidData,
+            "no in-vocabulary relation edges were loaded; probe cannot run",
+        )
+        .into());
     }
 
     Ok(edges)
