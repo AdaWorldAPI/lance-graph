@@ -178,12 +178,73 @@ lawful wiring is #1078's W6 BUY chain, not a local patch.
 | cognitive rung | `RungLevel` / the overlay stamp's `rung: u8` | which attention layer landed |
 | epistemic horizon | `planner/src/temporal.rs:87-97` `EpistemicMode::for_rung(0..=4 → Strict, 5..=8 → Aware, _ → Retro)` + `admits(status)` | what a rung may SEE — "low rungs reason strictly in the present; mid rungs admit hindsight; top rungs may spoiler-read" |
 
+**The scalpel table (operator direction, 2026-08-30: the orthogonal axes are
+what make causality reasoning a scalpel).** Each axis cuts a DIFFERENT causal
+plane; each has a shipped carrier; each has a named collapse failure:
+
+| axis | carrier | the cut it makes | collapse failure |
+|---|---|---|---|
+| Tarski depth | `Candidate.rung`; `reason.rs` premise pointers | how far a conclusion is from ground; which premises to re-open | depth read as confidence |
+| Shannon `H` | `sensorium.rs:20` truth entropy; `nars/insight.rs:131,177` (normalized, 10-bin) | where uncertainty concentrates — which observation discriminates | "lower entropy = evidence gain" (constitutionally refused) |
+| EWA `Σ` | `jc` `Spd2` sandwich `Σ' = MΣMᵀ` + the 3D log-normal-corrected KS concentration bound (`ewa_sandwich_3d.rs:36,476`) | how doubt propagates through a transform — the ANISOTROPY of trust | `Σ` squeezed to a scalar (banned: no new trust scalar) |
+| NARS `(f,c)` | `TruthValue` | strength of the claim itself | conflated with band/authority |
+| `CausalTopology` | CE64 2-bit field; `DismechTopology` `Direct / IndirectKnown / IndirectUnknown / Unknown` — **source-authoritative, never inferred** (`dismech_evidence.rs:52`) | WHAT KIND of link — incl. the epistemic-restraint control: "a reasoner that 'recovers' [an unknown mediator] is hallucinating closure" | topology inferred instead of asserted |
+| Pearl 2³ | `exploration.rs` SEE/DO/IMAGINE; the SPO "2³ Projection Verbs" (`spo/store.rs:105`) | WHICH question — association vs intervention vs counterfactual | a rung-0 read answering with Retro material |
+| rung 0–9 / meta | `RungLevel`; overlay stamp; `PhaseCensus`; `read_crossing` | who is thinking about the thinking — parallel, informing, never rewriting | Tarski↔rung collapse (banned) |
+| temporal horizon | `EpistemicMode::for_rung`; `Spoiler` vs `Anachronistic` (`temporal.rs:845-856`: the SAME future row refuses for a `Strict` reader and admits as a deliberate, opted-in `Spoiler` for a rung-9+ `Retro` reader) | what the reasoner may SEE — hindsight opt-in, never leak | hindsight contamination |
+| witness identity | `ReasoningWitness64` + `replay_ref` | who saw it — provenance, replay | alpha presence minting evidence (banned) |
+
+The precision is the ORTHOGONALITY: nine assertable coordinates instead of one
+blended score. The in-house proof of the failure mode is §8.0 of
+`SYNERGY-MAP-S00-S07.md` — "numeric coincidence was treated as identity."
+
 An instance of the banned collapse was proposed and WITHDRAWN this session
 (deriving a trace's attention rung from its derivation depth) — recorded so it
 is not re-proposed. #1077's finding 2 stands alongside: the "rung-4 physical
 requirement" is a fossil (5 hits, 4 doc-only, 1 test); *"rung already differs
 by temporal horizon, not by the right to think — what is missing is
 demonstration, not permission."*
+
+**The chained dependency: parallel rung scheduling → SPO 2³ → stockfish-rs
+(measured 2026-08-30).**
+
+```text
+parallel rung scheduling  (ruled 2026-08-30)
+  ├─ rung-aware dispatch loop ………………… MISSING — PhaseCensus/kanban is
+  │     deliberately rung-blind (cycle_driver.rs:6: "no new semantic /
+  │     temporal / rung / witness type"); the ruled work item is composing
+  │     the census tick with per-rung readers, not adding a rung type there
+  ├─ per-rung horizon reads ………………………… SHIPPED — QueryReference::at(v, rung)
+  │     → EpistemicMode::for_rung; externally falsified by stockfish-rs
+  │     examples/hindsight_stream.rs (D-SF-HINDSIGHT-1) re-running ladder
+  │     reads under Strict discipline over real games (temporal.rs:856)
+  ├─ multi-rung coexistence …………………………… SHIPPED representation-only —
+  │     probe_parallel_rung (F-PARALLEL-RUNG-1): one arena holds rungs
+  │     0/1/2 simultaneously (4/3/3, none demoted); the probe's own doc:
+  │     "does NOT establish wall-clock or thread parallelism"
+  ├─ read-cost amortization ……………………………… SPO 2³ verbs SHIPPED as the
+  │     projection algebra (8 query directions over ONE resident store);
+  │     the 8-cycle L1 amortization CONTRACT stays OPERATOR-RECOVERED
+  │     INTENT (pass-1 archaeology) — MEASURE before pricing N rungs "free"
+  └─ first-level cheapness ………………………………… the §5 membrane — gated by the
+        BROKEN WIRE (top_k→window) and §5.6's CallMask/VAR_SET blockers
+```
+
+**stockfish-rs's role, measured — falsifier and oracle, NOT accumulator
+template.** Real contributions: the hindsight falsifier above; the ratified
+teacher stack (`DecisionEpisodeV1`, `TeacherTrace`, `TeacherLabel`,
+`CandidatePolicy`, `search_with_order`, `PositionKey`, `GameEpisodeKey`) as
+the expert-iteration oracle; and NNUE feature-transformer columns as a
+demanding TEST CORPUS that certified the palette256 cosine replacement
+(`nnue_palette_cosine.rs`: ρ_all ≥ 0.999 — "a dataset that validates a codec,
+not a mechanism the substrate imitates"). RETRACTED and not to be rebuilt:
+"NNUE-style accumulator over a 64×64 = 4096 tile" — `SYNERGY-MAP` §8.0's
+measured retraction (domino is a 4×4/16-lane tile; no NNUE concept in
+`domino.rs`; the 64×64 in `lane_j` is a cache-tier knob; attention is 256×256
+palette-archetype). This census's session repeated the retracted framing once
+before re-reading §8.0 — recorded as a second `F-ARW-0`-class lesson: a
+downstream repo's pre-correction note (tesseract-rs) is not the canonical
+board.
 
 ---
 
