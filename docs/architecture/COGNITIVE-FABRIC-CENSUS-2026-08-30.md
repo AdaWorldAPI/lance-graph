@@ -450,12 +450,22 @@ one.
 - The 24×`i4` register — the SAME 12 content-blind bytes carry **three
   class-selected readings** (`causal_witness.rs`): frozen `12×u8` palette,
   orchestration `6×(8:8)` (`style_rails_at`, V3-replayable), and the A9
-  `24×i4` Markov loci (`:182`; 16 operator-named — `temporal … antecedent,
-  basin_anchor … quorum, contradiction` — slots 16..24 reserved-empty).
-  **A reading, not a fourth `CascadeShape`** — the module's own correction:
-  `G24N4` is a lane-shape name; `CascadeShape` gains no 24-group variant
-  (`canonical_node.rs:893,1078`). Class id selects the interpretation; no
-  bytes move — the lawful unification pattern in miniature.
+  `24×i4` loci (`:182`; 16 operator-named, slots 16..24 reserved-empty).
+  **A reading, not a fourth `CascadeShape`** — `G24N4` is a lane-shape name
+  (`canonical_node.rs:893,1078`). And the register's own THREE SHAPES map
+  1:1 onto the merged #1075 **triptych** ("kept violently separate",
+  operator 2026-08-29, `fusion.rs` header): the **Markov temporal window**
+  (`Temporal`/`Kausal`/`Antecedent`) is `counterfactual.rs`'s ATTACK
+  surface — substitution within the ±8 window; **downstream inheritance +
+  accumulation** (`BasinAnchor`/`SupportedBy` over the `hi_chain`/`lo_chain`
+  rails) is `fusion.rs`'s GENERATE — "an assumption IS an inherited root";
+  **upstream signed-bits quorum** (`Quorum`/`Contradiction`/`Supports`) is
+  `revision.rs`'s LICENSE — the only write-back, with `RevisionDelta`'s
+  masks as the signed accounting (`inherited_roots` vs
+  `new_independent_roots` = the down/up split; `resistance`/`contradictions`
+  = the preserved negative residue). Class id elects one shape per row; no
+  bytes move — the lawful unification pattern in miniature, and the
+  Fusion→Counterfactual→Revision routing is the shape SEQUENCE.
 - `CascadeShape::{G6D2, G4D3, G3D4}` over the ONE content-blind 12-byte V3
   payload (`facet.rs`): `6·2 = 4·3 = 3·4 = 12`; `ALIGNED = [G3D4, G6D2]`
   carve on tier boundaries so `group_of` is a **pure shift, never a branch**.
@@ -521,12 +531,15 @@ Verified 2026-08-30, reconciling a parallel audit — these gate any
    `SigmaCodebook` exist in-contract (`sigma_propagation.rs`) with consumers
    still planned. Per §7.2 of the convergence plan: callable-atom status
    FOLLOWS real wiring.
-5. **Receipt provenance gap:** `RevisionDelta` keeps RESULT-side masks
-   (preserved/introduced/withdrawn/revised/roots/resistance/contradictions/
-   affected — `revision.rs:290-303`) but not the input-mask stack + operator
-   lineage that produced them. A method receipt needs both: a collapsed
-   effective mask for speed, the full mask-operation lineage for commit —
-   Revision must not flatten provenance.
+5. **Receipt provenance gap — NARROWED (2026-08-30 re-read through the
+   triptych):** `RevisionDelta`'s masks (`revision.rs:290-303`) are NOT mere
+   result bookkeeping — they are the upstream signed-quorum ACCOUNTING
+   itself (`inherited_roots`/`new_independent_roots` = the downstream/
+   upstream split; `resistance`/`contradictions` = preserved dissent). What
+   remains genuinely open is only the OPERATOR LINEAGE: which mask
+   operations produced the result. A method receipt needs the collapsed
+   effective mask for speed plus that lineage for commit — the signed
+   accounting is already there.
 
 Out of local scope, stated rather than asserted: the Java-side lens
 granularity and its measured columnar multiplier live in the separate Java
