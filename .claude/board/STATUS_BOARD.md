@@ -1,3 +1,16 @@
+## rubicon-loco-rung-cognitive-fabric-v1
+
+| D-id | deliverable | status |
+|---|---|---|
+| D-RLR-0 | W0 current-flow diagram + `ExecTarget::Elixir` naming-debt record | Queued |
+| D-RLR-1 | **the one first Wave** — non-rung-4 horizon → loco Frozen atom → alpha → receipt → Evaluation/Revision → #879 → replay | Queued |
+| D-RLR-2 | rung-4 census closure: confirm no PHYSICAL hit at scale (`F-RLR-1`) | Queued |
+| D-RLR-3 | atom census → which candidates earn loco addresses (Shannon has no exemption) | Queued |
+| D-RLR-4 | R2IL/r2sleigh membrane readiness vs lance-graph-java (`F-RLR-6`) | Queued |
+| D-RLR-5 | **RE-SCOPED TWICE 2026-08-29.** Round 1 corrected the model (alpha is rung-level STORAGE, not a delta budget). Round 2 corrects the SCOPE: a real write path for a `rung: u8` field already shipped in a sibling repo (`MedCare-rs::medcare-nodesoa::alpha`, PR #565/#590, built directly on `lance_graph_contract::canonical_node::{NodeGuid,NodeRow}`, Lance-persisted). Now: (a) confirm whether `AlphaStamp.rung` is the same ladder `RungLevel` names or an unrelated attention-depth scale, (b) name the `(classid, rail)` each of rungs 1–10 would occupy IN `lance-graph`'s own contract, (c) decide whether `lance-graph` should consume the MedCare-rs pattern rather than re-derive it | **HELD, narrower reason than previously stated.** `D-ACR-2` (Rung-ladder rail UNMINTED, HTT §8 Q3) still blocks a `lance-graph`-native row. `D-ACR-3` ("no ontology-owned write path exists") is true only because `lance-graph` owns no live `NodeRow` spine to attach one to — the write path itself is proven, once, in `MedCare-rs`, against real data. See `EPIPHANIES.md` `E-A-RUNG-WRITE-PATH-ALREADY-SHIPPED-IN-A-SIBLING-REPO-1` |
+| D-RLR-6 | smallest invariant making Revision unavoidable per completed cycle (`F-RLR-5`) | Queued |
+
+
 ## mul-ewa-trust-propagation-v1 — PROPOSED 2026-08-28 (measure-before-carve)
 
 Plan: `.claude/plans/mul-ewa-trust-propagation-v1.md`. PLAN/BOARD ONLY. W1

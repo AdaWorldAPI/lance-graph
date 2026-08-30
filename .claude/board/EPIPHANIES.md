@@ -72,6 +72,164 @@ census §7.5: a name-based single-repo grep produced a false absence claim
 about the consumer's same-address overlay within the same session — census by
 semantics, not by type name.
 
+## 2026-08-29 — E-A-RUNG-WRITE-PATH-ALREADY-SHIPPED-IN-A-SIBLING-REPO-1 — checked one repo, answered for the architecture
+
+**Status:** FINDING (verified against primary sources: two merged MedCare-rs
+PRs read in full via the GitHub API, plus `crates/medcare-nodesoa/src/alpha.rs`
+read directly, 1190 lines; re-verifiable at MedCare-rs main `cb3a96c` —
+a provenance receipt, never a gate).
+**Confidence:** High for what is quoted below; explicitly hedged where noted.
+**Corrects:** `E-THE-RUNG-LADDER-HAS-A-STORAGE-DESIGN-AND-NO-WRITER-1` (same
+day, below).
+
+**The failure.** Asked directly *"how do you currently write 10 rung
+levels?"*, the prior entry answered *"you don't"* — grep-verified for
+`lance-graph`'s own `RungLevel`/`RungElevator`/`persist_sink.rs`/`soa_envelope.rs`,
+then generalized to "measured, whole workspace" and prepended to the shared
+board as a FINDING. Nobody checked a sibling repo. `MedCare-rs` is cloned
+locally at `/home/user/MedCare-rs`, is in this session's own repo scope, and
+its `medcare-nodesoa` crate depends **directly** on `lance-graph-contract` —
+the exact crate the prior entry had just finished reading.
+
+**What actually shipped, verified by reading the merged source, not the PR
+prose alone:**
+
+```rust
+// crates/medcare-nodesoa/src/alpha.rs (MedCare-rs, main, PR #565 merged 2026-08-22)
+pub struct AlphaStamp {
+    pub cycle: u32,   // thinking cycle
+    pub seq: u32,     // claim order — the saccade's position
+    pub rung: u8,     // which rung of attention landed here     ← byte offset 8
+    pub visits: u16,  // revisit count, saturating
+}
+```
+
+Encoded into value-slot 0 (16 bytes) of a canonical `NodeRow`
+(`lance_graph_contract::canonical_node::{NodeGuid, NodeRow}` — the SAME type
+this repo's own `canonical_node.rs` defines), through the SAME
+`FixedSizeBinary(512)` Arrow column every other NodeRow consumer uses. An
+optional `lance` feature (`lance = { version = "=9.0.0", optional = true }`)
+writes/reads it as a real on-disk Lance dataset — PR #561's own body,
+verbatim: *"8 arrow-only Tests **plus der On-Disk-Beweis gegen einen echten
+Lance-Datensatz**"* (8 arrow-only tests plus the on-disk proof against a real
+Lance dataset). `claim(&mut self, addr: AlphaAddr, rung: u8)` is the write
+call; a real test asserts `rung: 3` and that a revisit does not overwrite the
+first visit's stamp. This is not a sketch — it is merged, tested, and
+Lance-persisted.
+
+**Two extending PRs, also read:**
+- **#565** (merged 2026-08-22) — the PoC itself, 812-line `alpha.rs`, operator
+  ruling quoted in the module doc: *"ephemer daneben, verwerfbar"* (ephemeral
+  alongside, discardable) — no `bakes.tsv` row, no digest, droppable whole
+  because it is a record of *where attention went*, not a cache of derived
+  truth.
+- **#590** (merged 2026-08-26) — `AlphaMask` (`Box<[u64]>` word-mask over base
+  ordinals, `and/or/xor/and_not/not`, one named materializer),
+  `AlphaAllocation::{ordinal,mask_of}`, `AlphaOverlay::attended_mask` — mask-
+  native set algebra, explicitly citing lance-graph-java's own mask-native
+  law (*"a `long[]` of selected row IDs is still a materialised
+  population"*).
+
+**What does NOT survive, and must not be overclaimed the other direction.**
+`AlphaStamp.rung` is a plain `u8` with domain-local meaning ("which rung of
+*attention*"), not an import of `lance_graph_contract::cognitive_shader::
+RungLevel` (0-9, Surface..Transcendent) — the file's `use` block never
+references it. Same name, same operator brainstorm week
+(`alpha-channel-rung-overlay-v1.md` is dated 2026-08-21; PR #561/#565 are
+2026-08-22), **not proven to be the same vocabulary.** Anyone wiring these
+together owes that proof, not an assumption in either direction.
+
+**Why `D-ACR-3` was true for `lance-graph` and not a sign the pattern is
+unbuildable.** `lance-graph` is a contract-only crate — `mailbox_owner()`
+genuinely has zero callers because `lance-graph` has no live baked `NodeRow`
+spine of its own to attach an overlay to. `MedCare-rs` has one (the OBO/
+ontology bake), so it could build and prove the write path immediately, on
+the identical contract types. The correct reading of D-ACR-3 is narrower than
+the prior entry stated: *lance-graph itself has no ontology-owned write path
+because lance-graph itself owns no ontology data* — not *"the write path is
+unbuilt in the architecture."* It is built, once, adjacent to real data.
+
+**Worth a real (separate, unverified-here) audit, flagged not asserted:**
+`contract::attention_facet::RowFocusMask` (`D-ACR-1`, lance-graph) and
+`medcare-nodesoa::{AlphaMask, AlphaOverlay::attended_mask}` (MedCare-rs) read
+as independently-built, structurally similar primitives — bitmask/antichain
+algebra over addressable rows, both explicit about "one named materializer,"
+both citing the same lance-graph-java mask-native law — solving adjacent
+problems in sibling repos with no cross-reference either direction. Whether
+they should converge, and which one is closer to the actual eye-tracking
+requirement, is an open question this entry does not answer.
+
+**The process lesson, stated once, not to be re-derived.** This was not the
+§F mistake (inventing a model without reading a design doc that already
+existed). This was worse in kind: a **direct negative claim** — "you don't [do
+X]" — asserted after checking exactly one repo, on a question whose most
+likely answer lived in a sibling repo already sitting on local disk, whose
+`CLAUDE.md` was ALREADY loaded into this session's own system context before
+either EPIPHANIES entry was written. `CLAUDE.md` § "Consult before you guess"
+says grep the existing ~100 files before proposing a type; the corollary this
+entry adds: **before asserting an absence, check every repo the session has
+access to that plausibly contains the thing, not only the repo the
+conversation happens to be in.**
+
+## 2026-08-29 — E-THE-RUNG-LADDER-HAS-A-STORAGE-DESIGN-AND-NO-WRITER-1 — ten rungs are ten rows, and zero of them are written
+
+**Status:** ⊘ CORRECTED same day — see
+`E-A-RUNG-WRITE-PATH-ALREADY-SHIPPED-IN-A-SIBLING-REPO-1` above. The
+"whole-workspace" framing was false: only `lance-graph`'s own repo was
+checked. A real, tested, Lance-persisted write path for a `rung: u8` field
+already existed, in a sibling repo, eight days before this entry was written.
+What survives: lance-graph's OWN `RungLevel`/`RungElevator` is still
+unpersisted (the file:line table below is accurate for THIS repo).
+**Confidence:** High — every row below verified by reading the named file this session.
+
+**The question:** *"How do you currently write 10 rung levels?"*
+
+**The answer: you don't — as a rung REPRESENTATION.** Nothing in `lance-graph` persists `RungLevel` as a Lance table or a ten-row form; what IS durable is one raw header byte (`StorageFlags.rung`, row 3 below) — a single stored ordinal, not the ladder.
+
+| surface | holds | durable? |
+|---|---|---|
+| `RungElevator { base, level, block_streak, flow_streak }` — `cognitive_shader.rs:272`, behind `RwLock` in `cognitive-shader-driver/src/driver.rs:132,907` | ONE current level | no — process memory |
+| `RungLevel` as `u8` on the wire — `grpc.rs:411`, `wire.rs:921` | ONE level | no — transport |
+| `holograph::storage_transport::StorageFlags.rung: u8` (`:65-66`); `width_32k::schema` word 8 bits 24–31 | ONE byte, ONE rung, node header | yes, but a header byte — not a Lance table, not ten channels |
+| `orchestration_impl.rs:151`, `pipeline.rs:593`, `api.rs:180`, `codec_bridge.rs:109`, `cypher_bridge.rs:130` | hardcoded `RungLevel::Surface` | — |
+| `planner/src/persist_sink.rs` | **excludes rung, five times**, verbatim | — |
+| `soa_envelope.rs`; any arrow schema | zero `rung` hits; no `Field::new("rung", …)` anywhere | — |
+
+**Two blockers, both already on the board — and neither is a byte budget:**
+`D-ACR-2` (the Rung-ladder rail is UNMINTED; HTT §2.3 reads
+*"(unassigned) · unminted, undesigned"*) and `D-ACR-3` (there is no
+ontology-owned write path to guard — `mailbox_owner()` has zero callers
+outside its own module). The ATOMS shipped (`D-ACR-1` `RowFocusMask`,
+`D-ACR-7` `band_reading`, `D-ACR-8` `rubicon_witness`) and their only
+consumers workspace-wide are **four probe examples**.
+
+**The correction that produced this entry.** A first draft of
+`rubicon-loco-rung-cognitive-fabric-v1` §F read Alpha as an abstract
+non-destructive overlay and posed a **stride-budget** question — *"ten thin
+deltas in the 480 B value slab; is there a 10× delta reserve?"* Wrong in
+KIND. Alpha **is** storage: `alpha-channel-rung-overlay-v1.md` §0 (operator,
+2026-08-21) — *"graph overlay mit der gleichen Adresse wie der Graph aber
+**separate thinking tables**"*, *"Rung levels 2–10 als Alpha layer
+projizieren"* — with sparse occupancy (*"'1:1' names the addressing, never
+the occupancy"*) and two owners (ontology table / session overlay).
+`contract::attention_facet` rules the same way independently, rejecting a
+vertical matrix inside one atom: *"the vertical dimension is already
+addressed — it is the `facet_classid` selecting which thinking-table row a
+focus belongs to. One atom, one `(classid, rail)`; the vertical stack is a
+set of atoms, not a field inside one."*
+
+**Ten rungs = ten rows, sparse, at one address. Not ten deltas in one row.**
+There is no stride budget question; `D-RLR-5` was re-scoped accordingly.
+
+**The process defect worth keeping.** The wrong model was invented while a
+76 KB plan describing the right one sat unread, because the plan's own header
+said *"nothing … quoted from a prior plan"* — a source-first rule mis-read as
+licence to SKIP prior art rather than to VERIFY it. Source-first means read
+the prior plan and re-check its claims against source; it never means
+re-deriving a design that already exists. Fence: `F-RLR-10`. Same failure
+family as the rediscovery tax `CLAUDE.md` § "Consult before you guess"
+already names — this is its first recorded instance in a plan header's own
+wording.
 ## 2026-08-27 — E-THE-FUSED-PAYLOAD-IS-INERT-AT-EVERY-EXECUTION-GATE-THAT-CONSUMES-IT-1 — a required field no consumer reads does not stay empty, it fills with fiction
 
 **Status:** FINDING (measured). Deliverable D-MCAL-1. Full entry:
