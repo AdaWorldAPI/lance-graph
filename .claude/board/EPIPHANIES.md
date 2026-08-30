@@ -1,3 +1,52 @@
+## 2026-08-30 — E-A-SHARED-PRIMITIVE-CERTIFIES-NOTHING-ABOUT-THE-MAP-1 — "the same certified Morton" was contradicted four paragraphs below itself
+
+**Status:** CORRECTION (measured today). Lands in
+`.claude/plans/alpha-reason-witness-shader-field-d-arw-0-audit-v1.md` §11.3
+(both sites, regraded in place). **Confidence:** High — the consumer census was
+re-run, and the two contradicting sources are the section's own citations.
+
+§11.3 argued that reusing `lance_graph_contract::facet::FacetTier::morton`
+means "both repos discriminate against the SAME **certified** Morton". The
+no-drift half is true and stands. **"Certified" is false**, and the section
+carried its own refutation:
+
+- **Zero non-test consumers**, re-verified today: `morton()` is defined at
+  `facet.rs:54-64`; its only call sites anywhere in the workspace are
+  `facet.rs:642-643`, both inside `mod tests` (`:600`).
+- **Operator ruling C (2026-08-19)** — *"Morton is not canonical and HHTL
+  ancestry is never derived from it"*. `D-HTT-6`, the one deliverable that
+  would have MEASURED its quad-tree property, is **WITHDRAWN**; X2 regrades
+  `morton()` as *"shipped, unconsumed, non-canonical research"*. So it is
+  unmeasured **by design**, not by backlog.
+- **The knowledge doc §11.3 itself cites**, four paragraphs later, says it
+  from the other side: *"the 'cascade' is real; the 'Morton' is aspirational
+  until the re-projection probe"*
+  (`stockfish-nnue-as-perturbation-cascade.md`), whose ledger also fences
+  *"Walsh-Hadamard / bipolar sign pyramid has NO analog in the NNUE
+  accumulator"*. The doc is already graded [G]/[H]/rhyme; the section reused
+  its RESULT while skipping its FENCES.
+
+**The generalizable rule: a shared primitive removes implementation drift as a
+confound; it certifies nothing about the map being the right one.** One
+function called from two repos guarantees the two answers differ for reasons
+other than two spellings of `spread8` — and that is genuinely worth having.
+It says nothing about whether Morton is the correct linearization, which is
+the entire question A2-vs-A3 exists to ask. Conflating the two turns a control
+for a nuisance variable into evidence for the hypothesis.
+
+**Why it survived review:** "certified" reads as provenance language, and the
+primitive really does have impeccable provenance — it is in the contract crate,
+const, documented, tested. Provenance of the CODE was silently upgraded into
+authority for the SEMANTICS. The tell was available for free: a symbol with
+zero non-test consumers cannot have been certified by use.
+
+Cross-ref: `hhtl-thinking-tables-le-contract-v1.md` ⊘D-HTT-6 / ⊘X2 (operator
+ruling C); `ISS-PERTURBATION-P64-ADDRESS-IDENTITY-UNPROVEN`; the ⊘ STORNO
+above `E-THE-ORACLE-WAS-CITED-AS-A-PHILOSOPHY-AND-NEVER-AS-A-METHOD-1` (same
+section, same day, the other half of its overclaim).
+
+---
+
 ## 2026-08-30 — ⊘ STORNO of `E-THE-ORACLE-WAS-CITED-AS-A-PHILOSOPHY-AND-NEVER-AS-A-METHOD-1` (same day, operator-directed read) — the method WAS partly transferred; the census was right, the inference was not
 
 **Status:** CORRECTION. The entry below it stands as written (append-only); this

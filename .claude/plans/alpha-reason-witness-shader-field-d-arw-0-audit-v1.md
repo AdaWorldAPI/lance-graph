@@ -363,8 +363,25 @@ NNUE HalfKA square addressing a Morton-preserved gridlake? Probe the 'NNUE 4096
    negative result is a finding rather than a failed wave.
 3. **The shared primitive.** It already calls
    `lance_graph_contract::facet::FacetTier::morton` — *"Reused, not
-   hand-rolled"* — so both repos discriminate against the SAME certified
-   Morton, not two implementations that could differ.
+   hand-rolled"* — so both repos discriminate against the SAME implementation,
+   not two that could silently differ.
+
+   > **⊘ CORRECTED 2026-08-30 — "certified" was wrong, and the contradiction
+   > was inside this very section.** The word is struck; what survives is only
+   > the no-drift argument (one function, two callers). `FacetTier::morton`
+   > (`facet.rs:54-64`) is **non-canonical research with zero non-test
+   > consumers** — re-verified today: its only call sites in the workspace are
+   > `facet.rs:642-643`, both inside `mod tests` (`:600`). Operator ruling C
+   > (2026-08-19, `hhtl-thinking-tables-le-contract-v1.md` §D-HTT-6/X2):
+   > *"Morton is not canonical and HHTL ancestry is never derived from it"*;
+   > the one deliverable that would have MEASURED its quad-tree property
+   > (D-HTT-6) is **WITHDRAWN**, so it stays unmeasured *by design*. And the
+   > knowledge doc this section cites four paragraphs later says the same
+   > thing from the other side: *"the 'cascade' is real; the 'Morton' is
+   > aspirational until the re-projection probe"*
+   > (`stockfish-nnue-as-perturbation-cascade.md`). A shared primitive removes
+   > implementation drift as a confound; it certifies nothing about the map
+   > being the right one — which is the entire question A2-vs-A3 asks.
 4. **The independence lesson, already paid for once**
    (`examples/hindsight_stream.rs`, D-SF-HINDSIGHT-1). Its predecessor
    (`rung_hindsight.rs`, D-SF-RUNG-1) went INCONCLUSIVE because it judged ply
@@ -494,8 +511,10 @@ Do not select a winner from internal self-consistency. The oracle must be an ind
 
 **Template for A2/A3 + A4:** §11.3 — `stockfish-rs examples/morton_ka.rs`
 supplies the METHOD (recall@k vs chance `k/63`, candidate linearization scored
-beside a true-2D baseline, DROP pre-registered) against the same certified
-`FacetTier::morton`. Reuse that design; do not re-derive it. **It does not
+beside a true-2D baseline, DROP pre-registered) against the same
+`FacetTier::morton` implementation (*shared*, not *certified* — see the ⊘ note
+at point 3: it is non-canonical, zero-consumer, and deliberately unmeasured
+since D-HTT-6 was withdrawn). Reuse that design; do not re-derive it. **It does not
 supply the arms:** its recorded run scores Morton and board only — no
 row-major, no permutation — so A2 and A4 must be written here, or this arm
 measures locality preservation and reports it as identity. The chess run is
