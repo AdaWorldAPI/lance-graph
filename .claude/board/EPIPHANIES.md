@@ -1,3 +1,59 @@
+## 2026-08-30 — E-A-REBASE-CAN-SPLICE-A-PREPEND-ONLY-FILE-WITH-NO-CONFLICT-1 — the heading survived, the body it belonged to did not
+
+**Status:** FINDING + repair (caught pre-merge on #1088, same commit).
+**Confidence:** High — reproduced by inspection of the produced file, and the
+repaired file was re-verified by heading census.
+
+**What happened.** #1088's branch carried a prepend to `EPIPHANIES.md`. While it
+was open, `main` gained a **regrade of the entry directly below that prepend
+point** — the ⊘ STORNO's heading was edited in place (*"the census was right"*
+→ *"the method WAS partly transferred; the census was right"*). Rebasing the
+branch produced, **with no conflict marker**:
+
+```
+## ⊘ STORNO … the method WAS partly transferred …   <- main's heading, now BODYLESS
+## E-A-PRE-REGISTERED-GATE …                        <- the branch's entry
+---
+## ⊘ STORNO … the census was right …                <- the OLD heading, RESURRECTED
+**Status:** CORRECTION. …                           <- main's body, under the old heading
+```
+
+So the file carried **two** storno headings: one orphaned from its body, and a
+retired one re-attached to the surviving body. The regrade was silently undone
+in exactly the place a reader looks.
+
+**Why nothing caught it.** Both sides legitimately "insert at the top", so the
+textual three-way merge sees compatible hunks — there is no overlap to conflict
+on. And it **grows** the file, so the post-write check this board already
+mandates (`wc -l`; an append-only file that got SHORTER is a defect,
+`E-DESTRUCTIVE-PREPEND-TRUNCATES-BEFORE-READ-1`) passes cleanly. Length
+guards catch truncation; they are blind to a splice.
+
+**The generalizable rule: on a prepend-only file, a rebase is safe against
+APPENDS and unsafe against IN-PLACE EDITS near the prepend point — and the
+failure is silent in both directions of the usual checks.** Line count rises,
+no conflict is raised, and the corruption is a heading/body mismatch rather than
+missing text.
+
+**The check that works, and it is cheap:** after any rebase touching a
+prepend-only ledger, run a **heading census** —
+`grep -c '^## ' file` and eyeball the day's headings — not a line count. Here
+`grep "^## 2026-08-30"` printed the duplicate immediately. Better still, diff
+the file against `origin/main` and confirm the diff is **insertions only**: a
+rebase that reproduces a heading from the base as a `+` line is the signature.
+
+**Repair, for the record:** reconstructed from `origin/main`'s file verbatim
+with the branch's own block re-inserted above the storno, then asserted exactly
+one occurrence of each heading and zero of the retired one before writing.
+Never hand-patch a spliced ledger in place — rebuild it from the authoritative
+side and re-insert.
+
+Cross-ref: `E-DESTRUCTIVE-PREPEND-TRUNCATES-BEFORE-READ-1` (the truncation
+sibling; the `wc -l` guard it installed is necessary and, as shown here, not
+sufficient); `CLAUDE.md` § In-Session Orchestration Discipline.
+
+---
+
 ## 2026-08-30 — E-THE-GATE-DID-NOT-TRIGGER-ON-THREE-OF-ITS-OWN-INPUTS-1 — the workflow's comment said "the generator's INPUTS" and then listed five of eight
 
 **Status:** FINDING + fix (same PR). **Confidence:** High — the generator was
@@ -224,7 +280,6 @@ clause — this PR is mixed, not hygiene-only, so it earns its entry);
 
 ---
 
-## 2026-08-30 — ⊘ STORNO of `E-THE-ORACLE-WAS-CITED-AS-A-PHILOSOPHY-AND-NEVER-AS-A-METHOD-1` (same day, operator-directed read) — the method WAS partly transferred; the census was right, the inference was not
 ## 2026-08-30 — E-A-PRE-REGISTERED-GATE-CAN-BE-VACUOUS-UNDER-ITS-OWN-DISABLE-1 — G4 named an assertion its own disable-run cannot turn red
 
 **Status:** FINDING (measured, landing with D-MAR-1). **Confidence:** High —
@@ -267,7 +322,7 @@ corrected in place by this PR).
 
 ---
 
-## 2026-08-30 — ⊘ STORNO of `E-THE-ORACLE-WAS-CITED-AS-A-PHILOSOPHY-AND-NEVER-AS-A-METHOD-1` (same day, operator-directed read) — the census was right, the inference was not
+## 2026-08-30 — ⊘ STORNO of `E-THE-ORACLE-WAS-CITED-AS-A-PHILOSOPHY-AND-NEVER-AS-A-METHOD-1` (same day, operator-directed read) — the method WAS partly transferred; the census was right, the inference was not
 
 **Status:** CORRECTION. The entry below it stands as written (append-only); this
 supersedes its HEADLINE CLAIM only. **Confidence:** High — refuted by a plan that
