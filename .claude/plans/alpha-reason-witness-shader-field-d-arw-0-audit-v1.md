@@ -366,22 +366,37 @@ NNUE HalfKA square addressing a Morton-preserved gridlake? Probe the 'NNUE 4096
    hand-rolled"* — so both repos discriminate against the SAME implementation,
    not two that could silently differ.
 
-   > **⊘ CORRECTED 2026-08-30 — "certified" was wrong, and the contradiction
-   > was inside this very section.** The word is struck; what survives is only
-   > the no-drift argument (one function, two callers). `FacetTier::morton`
-   > (`facet.rs:54-64`) is **non-canonical research with zero non-test
-   > consumers** — re-verified today: its only call sites in the workspace are
-   > `facet.rs:642-643`, both inside `mod tests` (`:600`). Operator ruling C
-   > (2026-08-19, `hhtl-thinking-tables-le-contract-v1.md` §D-HTT-6/X2):
-   > *"Morton is not canonical and HHTL ancestry is never derived from it"*;
-   > the one deliverable that would have MEASURED its quad-tree property
-   > (D-HTT-6) is **WITHDRAWN**, so it stays unmeasured *by design*. And the
-   > knowledge doc this section cites four paragraphs later says the same
-   > thing from the other side: *"the 'cascade' is real; the 'Morton' is
-   > aspirational until the re-projection probe"*
-   > (`stockfish-nnue-as-perturbation-cascade.md`). A shared primitive removes
-   > implementation drift as a confound; it certifies nothing about the map
-   > being the right one — which is the entire question A2-vs-A3 asks.
+   > **⊘ CORRECTED 2026-08-30 — "certified" is struck; the no-drift argument
+   > (one function, two callers) is all that survives.** Stated precisely,
+   > because a first version of this note over-corrected in the other
+   > direction and a review caught it:
+   >
+   > - **Morton is NOT unmeasured.** `D-SF-V3-3` is **GREEN, MEASURED
+   >   2026-07-12** using this very primitive: over 24 (king × piece) FT-column
+   >   configs on `nn-1b6a82263149`, board recall@8 **0.440** (3.5× chance),
+   >   Morton recall@8 **0.347** (2.7× chance), verdict *"the NNUE HalfKA
+   >   square addressing IS a Morton-preserved gridlake"*, `[H]→[G]`. The
+   >   knowledge doc's *"the 'Morton' is aspirational until the re-projection
+   >   probe"* is **discharged by that doc's own next section** — quoting it
+   >   as still pending was an error of reading one screen and stopping.
+   > - **What the D-HTT-6 withdrawal establishes is narrower than "unmeasured":**
+   >   operator ruling C (2026-08-19, `hhtl-thinking-tables-le-contract-v1.md`
+   >   §D-HTT-6/X2) rules Morton **non-canonical for HHTL ancestry** — *"HHTL
+   >   ancestry is never derived from it"* — and X2 records the primitive as
+   >   shipped-and-unconsumed. Zero non-test consumers, re-verified today: the
+   >   only call sites in this workspace are `facet.rs:642-643`, both inside
+   >   `mod tests` (`:600`).
+   > - **So what remains is a DOMAIN and STRENGTH gap, not an evidence
+   >   vacuum.** `morton_ka` measured *locality preservation in a chess feature
+   >   space*. This section says so itself two paragraphs down: it *"does not
+   >   establish exact codebook-to-cell identity, nor does it separate Morton
+   >   from row-major, which is precisely what A2-vs-A3 asks."* A green run on
+   >   NNUE features is a **positive control**, never a certification of the
+   >   COCA codebook's address map.
+   >
+   > A shared primitive removes implementation drift as a confound; it
+   > certifies nothing about the map being the right one — which is the entire
+   > question A2-vs-A3 asks.
 4. **The independence lesson, already paid for once**
    (`examples/hindsight_stream.rs`, D-SF-HINDSIGHT-1). Its predecessor
    (`rung_hindsight.rs`, D-SF-RUNG-1) went INCONCLUSIVE because it judged ply
@@ -513,8 +528,9 @@ Do not select a winner from internal self-consistency. The oracle must be an ind
 supplies the METHOD (recall@k vs chance `k/63`, candidate linearization scored
 beside a true-2D baseline, DROP pre-registered) against the same
 `FacetTier::morton` implementation (*shared*, not *certified* — see the ⊘ note
-at point 3: it is non-canonical, zero-consumer, and deliberately unmeasured
-since D-HTT-6 was withdrawn). Reuse that design; do not re-derive it. **It does not
+at point 3: measured GREEN for **chess-feature locality** (D-SF-V3-3), ruled
+**non-canonical for HHTL ancestry**, and zero-consumer in this workspace).
+Reuse that design; do not re-derive it. **It does not
 supply the arms:** its recorded run scores Morton and board only — no
 row-major, no permutation — so A2 and A4 must be written here, or this arm
 measures locality preservation and reports it as identity. The chess run is

@@ -14,17 +14,28 @@ carried its own refutation:
   `facet.rs:54-64`; its only call sites anywhere in the workspace are
   `facet.rs:642-643`, both inside `mod tests` (`:600`).
 - **Operator ruling C (2026-08-19)** — *"Morton is not canonical and HHTL
-  ancestry is never derived from it"*. `D-HTT-6`, the one deliverable that
-  would have MEASURED its quad-tree property, is **WITHDRAWN**; X2 regrades
-  `morton()` as *"shipped, unconsumed, non-canonical research"*. So it is
-  unmeasured **by design**, not by backlog.
-- **The knowledge doc §11.3 itself cites**, four paragraphs later, says it
-  from the other side: *"the 'cascade' is real; the 'Morton' is aspirational
-  until the re-projection probe"*
-  (`stockfish-nnue-as-perturbation-cascade.md`), whose ledger also fences
-  *"Walsh-Hadamard / bipolar sign pyramid has NO analog in the NNUE
-  accumulator"*. The doc is already graded [G]/[H]/rhyme; the section reused
-  its RESULT while skipping its FENCES.
+  ancestry is never derived from it"*; X2 regrades `morton()` as
+  *"shipped, unconsumed, non-canonical research"*.
+- **A DOMAIN and STRENGTH gap, not an evidence vacuum.** `morton_ka` measured
+  *locality preservation in a chess feature space*, and §11.3 itself says two
+  paragraphs down that this *"does not establish exact codebook-to-cell
+  identity, nor does it separate Morton from row-major, which is precisely
+  what A2-vs-A3 asks."* A green run on NNUE features is a **positive
+  control**, never a certification of the COCA codebook's address map.
+
+> **⊘ SELF-CORRECTION, same day, before merge (codex P2 on #1089).** The first
+> version of this entry said the primitive is *"unmeasured by design"* and
+> quoted the knowledge doc's *"the 'Morton' is aspirational until the
+> re-projection probe"* as if still pending. **Both are false.** `D-SF-V3-3`
+> is **GREEN, MEASURED 2026-07-12** against this very primitive — board
+> recall@8 **0.440** (3.5× chance), Morton recall@8 **0.347** (2.7× chance),
+> `[H]→[G]` — and the "aspirational" line is discharged by its own document's
+> **next section**. Withdrawing D-HTT-6 establishes non-canonicality *for HHTL
+> ancestry*; it establishes nothing about measurement. **The recursion is the
+> lesson: an entry whose whole point is "provenance was upgraded into
+> authority" was itself produced by reading one screen and stopping** — the
+> same move as the storno it cross-references. Corrected in place before
+> merge, and left visible rather than smoothed away.
 
 **The generalizable rule: a shared primitive removes implementation drift as a
 confound; it certifies nothing about the map being the right one.** One
