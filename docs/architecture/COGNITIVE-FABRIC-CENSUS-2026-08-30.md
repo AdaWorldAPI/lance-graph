@@ -668,8 +668,14 @@ unskippable."**
    Pins tension LITERALLY, not harmonized). No digest, SHA, or HEAD pin on
    any artifact this workspace produces may ever act as a gate: a pin
    proves SAMENESS, never correctness, and is a second truth source over
-   our own output. External dependency pins (a crates.io `=X.Y.Z`, a
-   foreign corpus) remain correct. Identity for internal artifacts =
+   our own output. **The pin whitelist is exactly four coordinates and nothing
+   else** (operator, same day: "only pins are lance 9 lancedb 0.33 arrow
+   58 datafusion 54 for obvious reasons"): the storage-engine lockstep
+   family already ruled in `E-PIN-LANCE9-LANCEDB033-DF541-ARROW58-NO-DF53-1`
+   — upstream-authoritative durability, moved as one deliberate PR, never a
+   drift. Everything else is not pinned either: AdaWorldAPI forks ride as
+   path/git per the fork-first P0, and ordinary deps carry ordinary version
+   requirements, not sacred pins. Identity for internal artifacts =
    content-meaningful gates (counts, structural invariants, census) and
    new-content-gets-a-new-ADDRESS (a tag), never a new digest under the
    old. The SHAs cited in this document's header are retrieval receipts
