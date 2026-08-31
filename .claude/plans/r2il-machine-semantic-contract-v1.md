@@ -1359,3 +1359,21 @@ Full reading, the weak-A caveat, and the convergence with
 is in the PAIR, not the neighbourhood's shape):
 `E-Q8-THE-SIX-DOES-NO-WORK-A-DEGREE-ABLATION-COLLAPSES-THE-HEX-OVERLAYS-ENTIRE-ADVANTAGE-1`.
 Instrument reverted; board-only outcome.
+
+### 11.7 Q8b — the same question on the ESTABLISHED def-use carrier (operator-directed)
+
+Q8 used per-function opcode order; the carrier this workspace built is the
+**def-use chain** (`extract_chains` via `prov_value`). Q8b reruns the
+identical arms/metrics/gates with that machinery lifted verbatim.
+
+**G0 failed structurally, and that is the result.** The BPE compresses a
+3-symbol def-use chain to ONE symbol (92% of held-out chains at cap 16,
+99.7% above), leaving **zero adjacent macro pairs** — so a completion task
+has no cued position. And the atom alphabet is **7**, making a degree-6
+neighbourhood the complete graph minus self.
+
+**§7.2's completion task is therefore not expressible on the established
+carrier.** Its metrics presuppose a sequence with a next element and an
+alphabet large enough for degree-6 to discriminate; def-use chains supply
+neither. This explains retroactively why Q6/Q7 framed hex around capacity and
+eviction instead. Full numbers in the Q8 entry's Q8b section.
