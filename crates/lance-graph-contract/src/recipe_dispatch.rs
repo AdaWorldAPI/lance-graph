@@ -60,7 +60,7 @@
 //!    fires on an input the tenants could not ground.
 
 use crate::nars::InferenceType;
-use crate::recipe_kernels::{kernel, ThoughtCtx, ThoughtField, ThoughtMask};
+use crate::recipe_kernels::{kernel, Outcome, ThoughtCtx, ThoughtField, ThoughtMask};
 use crate::recipes::{recipe, Tier};
 
 /// The inference a recipe embodies. Maps to [`InferenceType`] for the four NARS
@@ -270,6 +270,56 @@ pub fn ladder(ctx: &ThoughtCtx) -> Vec<RecipeStep> {
         .collect()
 }
 
+/// One EXECUTED dispatch decision — the recipe ran under
+/// [`Tactic::run`](crate::recipe_kernels::Tactic::run)'s own default policy,
+/// and this is what happened.
+///
+/// The companion to [`RecipeStep`]: that one answers *"may this recipe fire on
+/// this context?"* (the NaN checklist, nothing executed); this one answers
+/// *"it ran — what did it do?"*. A caller that renders both columns side by
+/// side gets the full picture: disqualified / gated-off / fired-with-effect.
+#[derive(Debug, Clone)]
+pub struct ExecutedStep {
+    /// Recipe id (1..=34).
+    pub id: u8,
+    /// Rung this recipe fires at.
+    pub rung: u8,
+    /// What running it did (or why it did not run).
+    pub outcome: Outcome,
+}
+
+/// Execute a chosen subset of recipes, in the given order, on one context.
+///
+/// **Sequential and mutating on purpose:** later recipes see earlier writes
+/// (Rte spends `free_energy` down to its residue before Amp ever reads it) —
+/// the Think-loop semantics, not a defect. Unknown ids are skipped silently
+/// (the catalogue is total over 1..=34; anything else was never a recipe).
+///
+/// This is the seam a per-rung dispatcher calls: hand it `wave.ids_at(rung)`
+/// and a lane-local context, and the lane's thinking happens HERE — in the
+/// contract, one call — never as a hand-rolled kernel loop in a consumer.
+/// The same call shape is what an ogar-loco `FunctionBody` will carry when
+/// the 34 recipes become loco atoms; keeping it a single entry point is what
+/// lets that migration replace the body without recutting any caller.
+pub fn run_recipes(ctx: &mut ThoughtCtx, ids: &[u8]) -> Vec<ExecutedStep> {
+    ids.iter()
+        .filter_map(|&id| {
+            kernel(id).map(|k| ExecutedStep {
+                id,
+                rung: rung(id),
+                outcome: k.run(ctx),
+            })
+        })
+        .collect()
+}
+
+/// Execute the FULL catalogue in [`dispatch_order`] — the systematic sweep,
+/// run rather than merely licensed. Equivalent to
+/// `run_recipes(ctx, &dispatch_order())`.
+pub fn run_ladder(ctx: &mut ThoughtCtx) -> Vec<ExecutedStep> {
+    run_recipes(ctx, &dispatch_order())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -357,5 +407,52 @@ mod tests {
             steps2.iter().any(|s| s.disqualified_by.is_some()),
             "ungrounded inputs disqualify some recipes"
         );
+    }
+
+    /// The executed sweep is the same 34, in dispatch order, and it MUTATES:
+    /// a high-surprise context climbs the rung ladder, a decided context
+    /// holds it. (Rte deepens while `free_energy > NOISE_FLOOR`; Amp raises
+    /// only while `free_energy > 0.5` — so fe=0.0 must leave rung untouched.)
+    #[test]
+    fn run_ladder_executes_the_sweep_and_surprise_climbs_where_decided_holds() {
+        let mut hot = ThoughtCtx::new(vec![0.5, 0.5, 0.5, 0.5]);
+        hot.free_energy = 1.0;
+        hot.beliefs = vec![(0, 0.5, 0.3)];
+        let steps = run_ladder(&mut hot);
+        assert_eq!(steps.len(), 34, "the sweep is the whole catalogue");
+        let ids: Vec<u8> = steps.iter().map(|s| s.id).collect();
+        assert_eq!(ids, dispatch_order().to_vec(), "executed in dispatch order");
+        assert_eq!(hot.rung, 9, "maximal surprise climbs to the top");
+
+        let mut cold = ThoughtCtx::new(vec![0.9]);
+        cold.free_energy = 0.0;
+        cold.beliefs = vec![(0, 0.9, 0.4)];
+        run_ladder(&mut cold);
+        assert_eq!(cold.rung, 1, "a decided context holds the rung");
+    }
+
+    /// `run_recipes` touches ONLY the ids it was handed — the per-lane seam.
+    /// Falsifier is two-sided: the subset runs (steps come back, the named
+    /// fe-consumer acts) and the rest provably did NOT run (rung untouched
+    /// when the climbers are excluded).
+    #[test]
+    fn run_recipes_executes_exactly_the_handed_subset() {
+        // Rte (1) and Amp (23) are the rung-climbers. Hand a subset WITHOUT
+        // them: rung must stay put even at maximal surprise.
+        let mut ctx = ThoughtCtx::new(vec![0.5, 0.5]);
+        ctx.free_energy = 1.0;
+        ctx.beliefs = vec![(0, 0.5, 0.3)];
+        let subset = [7u8, 10, 19];
+        let steps = run_recipes(&mut ctx, &subset);
+        assert_eq!(steps.len(), 3);
+        assert!(steps.iter().map(|s| s.id).eq(subset.iter().copied()));
+        assert_eq!(ctx.rung, 1, "no climber in the subset, no climb");
+
+        // …and WITH Rte alone, the same context climbs. Unknown ids skip.
+        let mut ctx2 = ThoughtCtx::new(vec![0.5, 0.5]);
+        ctx2.free_energy = 1.0;
+        let steps2 = run_recipes(&mut ctx2, &[1, 99]);
+        assert_eq!(steps2.len(), 1, "99 was never a recipe");
+        assert!(ctx2.rung > 1, "the climber climbed");
     }
 }
