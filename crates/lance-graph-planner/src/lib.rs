@@ -93,6 +93,11 @@ pub mod api;
 pub mod rung_horizon;
 pub mod temporal;
 
+/// D-DCR-1 (W1) — the causal replay core over recorded dismech chains.
+/// Composes the shipped step kernel + `temporal.rs` trace; adds no carrier.
+/// Plan: `.claude/plans/dismech-causal-replay-v1.md` §3 W1.
+pub mod dismech_replay;
+
 // === Canonical OrchestrationBridge impl (dedup per contract) ===
 // Implements `lance_graph_contract::orchestration::OrchestrationBridge`
 // for `PlannerAwareness`. Replaces per-consumer bridge modules. See
