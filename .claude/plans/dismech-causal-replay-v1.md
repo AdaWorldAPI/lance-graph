@@ -125,8 +125,43 @@ nothing. Disable-verified per the falsifiability rule.
 ### W2 — Mengenlehre candidate evaluation — `D-DCR-2`
 
 Candidate sets as masks; support evidence intersects, refuting evidence
-subtracts (the skip-word semantics — `biomarker/disputed/modifier/
-protective/refuted/unknown` — as refute-class ordinals, never strings).
+subtracts — as ordinals, never strings.
+
+> **⊘ CORRECTION (2026-08-31, preflight before the wave was spawned).** The
+> line above originally named the refute class as *"the skip-word semantics —
+> `biomarker/disputed/modifier/protective/refuted/unknown`"*. That set is
+> real, but it is **the wrong axis for this wave**, and building W2 on it
+> would have been a category error:
+>
+> | axis | what it decides | where it belongs |
+> |---|---|---|
+> | evidence **stance** — `dismech_evidence::Supports` (`Support` / `Partial` / `Refute` / `NoEvidence`), already shipped, measured ~89,800 occurrences | does this evidence item support or refute a candidate | **W2's ∩ / ∖** |
+> | the **graph-construction skip filter** — a predicate over the source's own `relationship_type` / free-text `association` fields | does a source item infer a mechanism edge AT ALL | upstream of any candidate set; it runs while the graph is built, not while candidates are evaluated |
+>
+> The skip filter is not a refutation. An item it skips never becomes an edge,
+> so there is nothing for `∖` to subtract — a candidate set built from the
+> graph has already had them excluded. Wiring it as the refute class would
+> subtract a second time, against a set that never contained them.
+>
+> Two further facts make the original line worse than merely mis-axised, and
+> both are reasons to leave that vocabulary where it is:
+>
+> 1. **It is two lists, not one, and the asymmetry is load-bearing.** The
+>    enum-valued arm and the free-text-token arm do not carry the same
+>    members — `refuted` appears in one and not the other. That asymmetry is
+>    upstream's, preserved deliberately by its transcode as *not a bug to
+>    fix*. A single 6-ordinal enum in this crate would flatten it, and the
+>    flattening would be invisible.
+> 2. **Its authority is consumer-side**, in the crate that transcodes the
+>    source graph builder. This crate would be holding a second copy of a
+>    filter it does not own and cannot check — the exact mirror-without-a-fuse
+>    shape `ogar_codebook` and (this PR) `DISMECH_PREDICATES` both avoid by
+>    pairing every mirror with a drift gate. There is no gate available here.
+>
+> **So W2 uses `Supports`**, which is already in the contract, already
+> measured, already exhaustively round-tripped, and is the axis the ∩/∖
+> algebra is actually about. If a wave ever genuinely needs the skip filter,
+> it belongs where the graph is built, with its two arms intact.
 
 **Gates:** anti-vacuity (`kept * 3 < total` on the synthetic corpus);
 two-sided discrimination (a discriminating evidence item must split the
