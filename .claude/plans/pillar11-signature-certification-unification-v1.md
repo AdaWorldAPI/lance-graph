@@ -101,8 +101,30 @@ sabotaged accumulator.
 `hambly-lyons` feature: same 100 pairs, PDE-kernel leg —
 |K(x,y)/√(K(x,x)K(y,y)) − 1| < tol for out-and-back vs base, ≫ tol for
 triangle loops. Falsifier pair inherited from the existing legs.
-Gate: discrimination ratio at depth-∞ within 10× of the depth-2 ratio
-(anchored, not assumed).
+
+> **⊘ AMENDED 2026-08-31 (post-merge codex P2 pair — both correct, both
+> accepted):**
+> 1. **The raw 3-point fixture is NOT tree-invariant under the
+>    first-order scheme.** For an out-and-back loop with increment `u`
+>    and `a = ‖u‖²`, the discrete recurrence gives `K(x,x) = 1 + a²`
+>    against 1 for the constant base — normalized `1/√(1+a²)`, a
+>    DISCRETIZATION artifact, not a uniqueness failure. The leg therefore
+>    RESAMPLES each segment to `N` points and gates against a
+>    resolution-dependent tolerance `ε(N)` derived from a pre-registered
+>    refinement sweep (measure the convergence slope first, then pin
+>    `ε(N)`; a fixed grid-blind tolerance would fail typical pairs for
+>    reasons that have nothing to do with the theorem).
+> 2. **The original anchor was void.** The depth-2 forward fixture
+>    cancels EXACTLY under Chen accumulation — `hambly_lyons.rs` maps the
+>    zero forward distance to `f64::INFINITY` — so "within 10× of the
+>    depth-2 discrimination ratio" compared against infinity. Replaced:
+>    the gate binds on FINITE absolute statistics — forward
+>    `< ε(N)`, converse `> δ` (δ = 0.05, the existing leg's threshold),
+>    and converse/forward `> 1e3` at the sweep's chosen `N`. Nothing is
+>    anchored to the truncated leg's ratio.
+
+Gate (amended): refinement sweep pre-registered; forward < ε(N);
+converse > δ; converse/forward > 1e3 at the pinned N.
 
 **W3 — solver-order + carrier-fidelity battery (M-1, M-4).** Promote the
 D-SK probe gates into a repeatable battery. Home: jc (a new pillar slot,
