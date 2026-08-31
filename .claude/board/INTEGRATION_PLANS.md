@@ -1,3 +1,22 @@
+## 2026-08-31 — `pillar11-signature-certification-unification-v1` (PROPOSED, plan-only)
+
+`.claude/plans/pillar11-signature-certification-unification-v1.md`. Two
+"Pillar 11"s certify DISJOINT properties of the signature machinery under one
+shared name: jc `hambly_lyons.rs` = uniqueness on the tree-quotient
+(depth-2 truncation, feature-gated), ndarray `hpc/pillar/signature.rs` =
+PSD + concentration of a truncated d=2/deg-3 kernel Gram. Census findings
+F-1..F-4 (name collision; `sigker_hl` misnomer; jc's stale pre-#350
+divergence note — measured stale at 6.25e-5 this session; duplicated
+signature computation with no parity bridge). Paper-suggested measurements
+neither battery does yet, M-1..M-5: solver convergence-order certification
+(rough higher-order solver bounds), depth-∞ uniqueness via the PDE kernel,
+depth-∞ PSD, the D-SK carrier-fidelity gates as an executable battery
+(incl. the kernel-scalar cancellation trap as a red test), PowerSig
+long-path scalability (deferred on a written workload trigger). Waves
+W0 (docs hygiene) → W1 (ndarray↔sigker parity bridge) → W2 (depth-∞
+uniqueness leg) → W3 (order + carrier battery) → W4 (depth-∞ PSD) →
+W5 (deferred). Q1–Q3 need operator rulings before anything past W0.
+
 ## 2026-08-29 — `rubicon-loco-rung-cognitive-fabric-v1` (PROPOSED, plan-only)
 
 `.claude/plans/rubicon-loco-rung-cognitive-fabric-v1.md`. Source-first audit at
