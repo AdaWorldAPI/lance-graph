@@ -49,8 +49,11 @@ jobs:
           if ! diff -u .claude/board/SUPERSESSION-INDEX.md /tmp/regen.md; then
             echo
             echo "::error::SUPERSESSION-INDEX.md is stale."
-            echo "It is GENERATED from .claude/plans/ + crates/ + COMPONENT-MAP.md,"
-            echo "so adding a plan that names a ruled symbol makes it stale."
+            echo "It is GENERATED from ALL of:"
+            echo "  .claude/plans/  +  crates/  +  .claude/v3/COMPONENT-MAP.md"
+            echo "  .claude/board/entries/  +  .claude/board/EPIPHANIES.md"
+            echo "so a plan naming a ruled symbol, a symbol added or deleted in"
+            echo "crates/, OR a board entry citing a D-id can make it stale."
             echo "Regenerate and commit:"
             echo "  python3 .claude/tools/supersession_index.py > .claude/board/SUPERSESSION-INDEX.md"
             exit 1

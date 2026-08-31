@@ -1,3 +1,42 @@
+## 2026-08-31 — E-A-REVIEW-REMEDY-HAS-A-SHELF-LIFE-1 — the same edit was correct in one PR and a violation in the next
+
+**Status:** FINDING — caught by CodeRabbit on PR #1123, one PR after it raised
+the finding whose remedy it then had to reject.
+**Confidence:** measured — the identical one-line edit, applied twice.
+
+CodeRabbit flagged MD018 on PR #1122: an `EPIPHANIES.md` line beginning `#1120`
+reads as a heading. Valid, and at that moment the entry was **new and
+unmerged**, so editing it was ordinary drafting.
+
+The fix landed one PR later. By then the entry had **merged to `main`**, and
+`CLAUDE.md`'s governance rule applies to it:
+
+> The governance files are APPEND-ONLY (prepend new entries; never edit past
+> entries except the `Status:` / `Confidence:` lines).
+
+So the same characters, in the same place, for the same reason, changed from a
+lint fix into a violation of the ledger's core property — and CodeRabbit
+correctly flagged its own earlier remedy. Reverted; the MD018 warning stands,
+because a cosmetic lint does not outrank append-only. (An append-only file's
+whole value is that a reader can trust an old entry reads as written; a
+"harmless" edit is exactly the kind that erodes that, since nobody objects to
+any single one.)
+
+**The generalizable bit: a remedy is scoped to the state of the tree when it
+was proposed.** Findings age well — the defect is either real or not — but
+remedies age badly, because they assume where the code sits. Between the
+finding and the fix, this entry crossed a boundary (unmerged → merged) that
+changed which rules governed it, and nothing in the finding text could have
+said so.
+
+**Consequence, cheap to apply:** before acting on a review comment from an
+EARLIER PR, re-check what the target is *now* — merged or not, moved, already
+fixed, or governed by a different rule than when the comment was written. Same
+family as this session's other silence-shaped errors: the check was right, the
+world moved, and only re-reading the world catches it.
+
+---
+
 ## 2026-08-31 — E-THE-SUPERSESSION-GATE-WATCHED-TWO-OF-ITS-FOUR-INPUTS-1
 
 **Status:** FINDING — mechanical, fixed in the same PR that exposed it.
@@ -105,7 +144,7 @@ admitted and is replayed, never re-judged.
 same diff; each adjudicated against the code, two remedies rejected with
 evidence.
 
-PR #1120 drew **7 findings from two reviewers that never see each other's
+#1120 drew **7 findings from two reviewers that never see each other's
 output** — codex (3) and CodeRabbit (4). Their overlap is the interesting
 part, and so is the one place they diverge.
 
