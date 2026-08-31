@@ -191,6 +191,7 @@ pub mod temporal_pov;
 /// Per-tenant SoA update counters — debug instrumentation (feature `tenant-counters`).
 pub mod tenant_counter;
 pub mod thinking;
+pub mod thought_atoms;
 pub mod unichar;
 pub mod unicharcompress;
 pub mod unicharset;
