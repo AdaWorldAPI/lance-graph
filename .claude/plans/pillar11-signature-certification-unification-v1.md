@@ -1,6 +1,11 @@
 # pillar11-signature-certification-unification-v1
 
-**Status:** PROPOSED (plan-only — no wave runs without operator green-light).
+**Status:** ACTIVE — W0 green-lit and executing (operator, 2026-08-31);
+Q1–Q3 ruled same day: **Q1 = a new jc pillar slot** (W3's home), **Q2 =
+cross-repo sigker call** (W4's kernel source; an f32 port waits for W5's
+trigger), **Q3 = docs only** (the ndarray rename touches no registry slot
+id). Original line preserved below.
+~~PROPOSED (plan-only — no wave runs without operator green-light).~~
 **Scope:** lance-graph `crates/jc/src/hambly_lyons.rs` × ndarray
 `src/hpc/pillar/signature.rs` × sigker × the two signature-kernel papers.
 **Born from:** the 2026-08-31 D-SK arc (E-LEVY-AREA-COEFFICIENT-BEATS-

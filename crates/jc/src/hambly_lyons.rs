@@ -59,14 +59,21 @@
 //! - Converse: min `‖S(triangle) − S_identity‖` > δ (0.05)
 //! - Discrimination ratio (min-converse / max-forward) > 1e6
 //!
-//! # Why this avoids the `signature_kernel_pde` math bug
+//! # Why this uses `signature_truncated`, not the PDE kernel — history
 //!
-//! `sigker::kernel::signature_kernel_pde` ships a Goursat-PDE form that
-//! diverges from the true signature kernel `I₀(2·√⟨u, v⟩)` at moderate
-//! inner products (PR #350 documents the corrected form). This probe uses
-//! `signature_truncated` (the tensor-algebra path, untouched by the PDE
-//! correction) for both the forward and converse legs — the Hambly-Lyons
-//! certification is independent of any PR-#350 outcome.
+//! An earlier `signature_kernel_pde` diverged from the closed form
+//! `I₀(2·√⟨u, v⟩)` at moderate inner products; PR #350 fixed it. The
+//! CURRENT solver is measured sound (2026-08-31, D-SK arc: rel err
+//! 6.25e-5 at d=3 / 4.53e-4 at d=24 on N=256 linear-path anchors), so the
+//! old warning that stood here — steering readers away from the PDE form
+//! outright — is retired as pre-#350 history, not deleted. This probe
+//! still uses `signature_truncated` for both legs: depth-2 truncation is
+//! the DELIBERATE scope of these gates, and the tensor-algebra path keeps
+//! the certification independent of solver discretization entirely. The
+//! depth-∞ PDE leg is its own wave (W2 of
+//! `pillar11-signature-certification-unification-v1`, with
+//! refinement-swept tolerances — a raw 3-point loop is NOT tree-invariant
+//! under the first-order scheme).
 
 use crate::PillarResult;
 
