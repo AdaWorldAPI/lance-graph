@@ -257,10 +257,23 @@ mod tests {
         let b = replay_chain(&ch, seed, &t, tabs, 7, 1_000);
         assert_eq!(a, b, "replay is not deterministic");
         assert_eq!(first_divergence(&a, &b), None);
-        // anti-vacuity: the trace is not trivially empty, and the chain
-        // actually MOVED the edge (a no-op kernel would also be "identical").
+        // Anti-vacuity, and it must cover BOTH halves of the kernel — a
+        // determinism gate is trivially satisfied by a kernel that does
+        // nothing. Measured while writing this: stubbing `forward` to a no-op
+        // still moved the edge, because the truth write-back alone changes it,
+        // so "the edge differs from the seed" was too weak a check. Assert the
+        // palette moved (forward ran) AND the truth moved (revise ran).
         assert_eq!(a.len(), 12);
         assert_ne!(a[11].edge, seed, "the chain must transform the seed");
+        let moved_palette = a[11].edge.s_idx() != seed.s_idx()
+            || a[11].edge.p_idx() != seed.p_idx()
+            || a[11].edge.o_idx() != seed.o_idx();
+        assert!(moved_palette, "the forward (palette) half did not run");
+        assert!(
+            a[11].edge.frequency_u8() != seed.frequency_u8()
+                || a[11].edge.confidence_u8() != seed.confidence_u8(),
+            "the revise (truth) half did not run"
+        );
     }
 
     /// GATE (b) — can-fire, AT THE RIGHT INDEX. Perturbing step k must change
