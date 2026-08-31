@@ -1,3 +1,26 @@
+## 2026-08-31 — `dismech-causal-replay-v1` (PROPOSED, plan-only)
+
+`.claude/plans/dismech-causal-replay-v1.md`. First domain instantiation of
+`rubicon-loco-rung-cognitive-fabric-v1`: causality replay over the
+`ogar-dismech` 19-predicate palette (FnIndex `0x90..=0xA2`, concept
+`0x0333`) + the 124-module mechanism registry. State audit (F-RLR-11
+compliant, siblings checked): the palette is minted and loco-addressable,
+the consumer transcode ships a replay-equivalence parity gate against
+1,870 recorded pathographs, NO baked slab exists anywhere, and
+`lance-graph-ontology`'s cache is unrelated (OGIT tenant naming). The gap
+is one composition: nothing replays a recorded causal chain against an
+evidence set. Waves: W0 (the two NNUE measurements — chain-step evals/ms
++ EvidenceMask branching shrink — with an ALU BUY threshold and a KILL
+check), W1 replay core (loco calls -> CausalEdge64/NarsTruth ->
+temporal.rs trace, byte-identical re-replay), W2 Mengenlehre evaluation
+(EvidenceMask, refute-class ordinals), W3 counterfactual replay
+(`contract::counterfactual`, edge cut, two-sided), W4 EWA-Σ transport +
+Shannon readout (entropy consolidation DECISION before any new call site;
+Pillar 9/9b as standing mint gates), W5 frontier scheduling HELD on the
+operator rung 5-9 table. p64 64×64 ALU + shader-driver dispatch deferred
+on W0's numbers. All `F-RLR-*` STOP gates inherited; no new carrier, no
+7th entropy, synthetic fixtures only in this repo.
+
 ## 2026-08-31 — `pillar11-signature-certification-unification-v1` (PROPOSED, plan-only)
 
 `.claude/plans/pillar11-signature-certification-unification-v1.md`. Two
