@@ -119,8 +119,17 @@ mod tests {
         let v = vec![4, 5];
         let mut s_uv = shuffle_product(&u, &v);
         let mut s_vu = shuffle_product(&v, &u);
-        s_uv.sort();
-        s_vu.sort();
+        // Canonicalize both multisets before comparing. `.sort()` does not
+        // compile here — the tuples carry an f64 coefficient and f64 is not
+        // Ord. The word alone is already a unique key (shuffle_product
+        // aggregates duplicate words), so ordering by word is canonical; the
+        // total_cmp leg only keeps the comparator total without an unwrap.
+        // Coefficients are exact small multiplicities — NaN is unreachable —
+        // so total_cmp and partial_cmp agree on every value this test visits.
+        let canon =
+            |a: &(Vec<usize>, f64), b: &(Vec<usize>, f64)| a.0.cmp(&b.0).then(a.1.total_cmp(&b.1));
+        s_uv.sort_by(canon);
+        s_vu.sort_by(canon);
         assert_eq!(s_uv, s_vu);
     }
 
