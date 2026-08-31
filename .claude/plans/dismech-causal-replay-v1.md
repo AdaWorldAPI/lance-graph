@@ -204,3 +204,148 @@ source in / one shape out. Haiku: only the guarded-executor card.
 | D-DCR-4 | Σ transport + Shannon readout | Queued (entropy decision first) |
 | D-DCR-5 | frontier scheduling | **HELD** (operator rung table + W0 KILL) |
 | D-DCR-6 | consumer-leg pointer honoured (no corpus data lands here) | standing gate |
+
+---
+
+## §3a — PRIOR-ART RECONCILIATION (added 2026-08-31, W0)
+
+⊘ **§0's audit was under-cited.** It swept the sibling repos (F-RLR-11) but
+not this repo's own contract module list or plans index. Two pieces of prior
+art belong in the state table, and both STRENGTHEN the plan:
+
+| prior art | what it gives this plan |
+|---|---|
+| `contract::dismech_evidence` (686 LOC, shipped) | the measured evidence vocabulary AND a ready-made two-sided falsifier population: `IndirectKnownIntermediates` = hidden-mediator oracle; `IndirectUnknownIntermediates` = epistemic-restraint control (recovering a mediator there IS the failure) |
+| `dismech-causality-v3-v1.md` §11 + `D-CV3-0..6` | the held-out benchmark, already specified with measured arms: **2,449** oracle edges / **534** diseases, **4,076** restraint rows, **361** unknown rows; splits A–E reported separately; "two-sided by construction" |
+
+**The join:** D-CV3's benchmark **is** this plan's W1–W3 falsifier; D-DCR is
+the engine it grades. W1–W3 therefore consume those arms (once D-CV3-0..2
+land the frozen TSVs consumer-side) and MUST NOT invent a parallel corpus.
+Nothing in §0 is contradicted — "no baked slab exists" still holds, and the
+corpus pin is D-CV3-0, Queued.
+
+## §3b — W0 RESULT (D-DCR-0, measured 2026-08-31)
+
+Harness: `crates/lance-graph-contract/examples/dcr_w0_replay_budget.rs`
+(release; deterministic LCG, no clock seeding — a probe for a replay plan is
+itself replayable). Corpus magnitudes are READ from §11, never re-derived.
+
+**1. Step throughput** — one step = `NarsTruth::revision` + `EvidenceMask::intersection`:
+
+| candidate set | chain len | steps/ms | ns/step |
+|---|---|---|---|
+| 64 | 16 | 29,184 | 34.3 |
+| 1,024 | 16 | 23,628 | 42.3 |
+| 4,096 | 16 | 14,285 | 70.0 |
+
+**2. Branching shrink** — 1.53×–1.66× per evidence item, flat from 10³ to 10⁵
+candidates. **Fixture-set densities** (2/3 support, 1/10 refute): this measures
+the MECHANISM's cost and scaling, never the corpus's real discriminative power.
+That number needs the frozen oracle/restraint TSVs (D-CV3-0..2).
+
+**3. KILL check — did NOT fire.** Full scan of the oracle arm (2,449 chains,
+len 4) = **0.906 ms**; one frontier decision over 64 observations = **0.008 ms**
+(~100× cheaper), crossover at **~25 chains**. The corpus sits ~98× above
+crossover ⇒ **W5 stays live on cost grounds** (it remains HELD on the operator
+rung 5–9 table, which is a different gate).
+
+**4. Kernel split — the ALU wave's actual question.** `NarsTruth::revision`
+alone 41,596 ops/ms (24.0 ns); 4096-bit intersect+count 11,038 ops/ms
+(90.6 ns) ⇒ **MASK dominates by 3.8×**. A 64×64 tile accelerates the half that
+costs — the "4096 bits = one node" shape argument survives measurement.
+
+**5. ALU BUY threshold (stated, as W0 owed).** The whole oracle arm replays in
+**2.74 ms** at chain length 16. **BUY only when a workload sustains
+>10× that in one budget** (≈143,000 steps/ms); below it the scalar path is not
+the bottleneck. The tile is correctly aimed and correctly deferred.
+
+**What W0 did NOT measure**, so nobody cites it as if it had: the real
+per-evidence discriminative power (needs D-CV3-0..2), `CausalEdge64`'s packed
+step (planner-side, one dependency layer out of this zero-dep crate), and any
+loco dispatch cost (OGAR-side palette; the round-trip is covered by
+`ogar-dismech`'s own tests, and duplicating them here would be a second
+truth).
+
+## §3c — W0 CORRECTED (codex review on #1118; three findings, all valid)
+
+⊘ **§3b's numbers are SUPERSEDED.** They are kept above (append-only) because
+the correction is the finding. Three defects, all pushing the same direction —
+they inflated the mask half and measured a kernel this plan never named:
+
+| # | defect | consequence |
+|---|---|---|
+| P1 | v1 timed `NarsTruth::revision` (f32, contract-side); §3 W0 defines the eval as **`NarsTables` lookup + `CausalEdge64` revision** | the headline throughput and the 2.74 ms corpus figure came from a substitute kernel. Disclosing the substitution did not make it the promised measurement |
+| P1 | v1's mask fixture was `Bits(Vec<u64>)` → a heap alloc inside every timed `intersection`, while `impl<const N: usize> EvidenceMask for [u64; N]` **already ships** (`revision.rs:70`) and is the real p64 shape (`[u64; 64]` = 4096 bits) | `malloc` was charged to the arithmetic a tile would accelerate — the exact claim it supported |
+| P2 | v1 ran the KILL gate on the 2,449-edge corpus; §3 names **10^5 chains** verbatim | a pre-registered gate was never evaluated as pre-registered |
+
+**Corrected measurements** (probe moved to `lance-graph-planner/examples/`,
+where `causal-edge` is reachable; `[u64; 64]` via the shipped impl; both KILL
+scales at one candidate width):
+
+| quantity | v1 (superseded) | corrected |
+|---|---|---|
+| chain step | 70.0 ns (f32 substitute + allocating mask) | **34.7 ns** (`NarsTables::revise` + `CausalEdge64::forward`) — 28,818 steps/ms |
+| 4096-bit mask | 90.6 ns (allocating) | **61.5 ns** alloc-free `[u64; 64]`; the Vec shape costs 73.4 ns, so allocation was ~16% of it |
+| kernel split | "MASK dominates 3.8×" | **MASK dominates 1.77×** |
+| KILL @ 10^5 (pre-registered) | never run | scan **13.88 ms** vs decision **0.007 ms** ⇒ does not fire |
+| KILL @ 2,449 (real corpus) | 0.906 ms vs 0.008 ms | scan **0.340 ms** vs 0.007 ms ⇒ does not fire |
+| crossover | ~25 chains | **~53 chains** |
+| oracle arm @ len 16 | 2.74 ms | **1.36 ms** |
+
+**What survives and what does not.** The *direction* survives — the mask half
+still dominates on the corrected, allocation-free numbers, so a 64×64 tile is
+aimed at the half that costs. The *margin* does not: 1.77× is under half of
+what v1 claimed, so the ALU case is materially weaker than the first pass
+said, and the BUY threshold stands at >10× this corpus in one budget
+(≈288,000 steps/ms). W5 stays live on cost at BOTH scales.
+
+**The lesson (recorded because it repeated inside one probe):** every one of
+the three defects was a *fixture* defect, not a code defect — a substitute
+kernel, an allocating container, a moved goalpost. A measurement's fixture is
+part of its claim. A fourth instance was caught in the same pass without
+review help: `dense_mask(rng, 1)` sets **no** bits (`x % 1 == 0` always), so
+the frontier decision was scored against an EMPTY live set; `all_ones()` is
+now its own constructor and `dense_mask` asserts `one_in >= 2`.
+
+## §3d — "Does the replay engine need to borrow masking from ndarray?" — MEASURED
+
+Operator question, 2026-08-31. Answered with the W0 harness rather than from
+architecture. Three different objects are called "masking" in this stack and
+**they are not the same kind of thing**:
+
+| object | width | shape | verdict |
+|---|---|---|---|
+| `ogar_r2il::CallMask` | `[u64; 3]` = 192 bits (≤180 calls/node) | lazy word-tests, no alloc, no `Vec<Call>` built | **needs nothing.** At three words, a slice-API call costs more than the work. It is already allocation-free and lazy — the properties SIMD would be bought for |
+| replay candidate set | `[u64; 64]` = 4096 bits | the shipped `impl EvidenceMask for [u64; N]` | the real candidate — W0 measures it dominating the promised step by ~1.8× |
+| `ndarray::hpc::jitson` | n/a | JSON config → Cranelift **native scan kernels** (`ScanParams`/`RecipeIR`/`ScanKernel`) | **not a masking library at all.** A kernel *compiler*. Its relevance is to W5's frontier decision (a scan-shaped workload), never to the mask half |
+
+**Measured, at 4096 bits (probe §2):**
+
+```
+[u64; 64] scalar (EvidenceMask)        65.2 ns
+ndarray simd_int_ops::mask_and (U64x8) 60.4 ns   => 1.08x — DEAD HEAT
+decomposition:  SIMD and 11.1 ns  +  scalar popcount 56.7 ns
+                => the POPCOUNT half is 5.1x the AND
+```
+
+**So the answer is neither yes nor no.** ndarray's SIMD mask kernel is fast —
+11.1 ns for 64 words is the `U64x8` path working exactly as advertised. It
+changes nothing end-to-end because **the AND was never the cost**: the
+reduction is, at 84% of the mask half. `mask_and` writes 512 bytes to `dst`
+and the popcount then re-reads them scalar.
+
+**The primitive that would pay does not exist yet:** a fused
+`mask_and_popcount(&[u64], &[u64]) -> u32` that keeps the AND result in
+registers and reduces with `VPOPCNTDQ`. ndarray HAS `popcnt` on its AVX-512
+typed wrapper (`simd_avx512.rs:2987`) but exposes no fused slice-level API, and
+the workspace's SIMD invariant ("all SIMD from `ndarray::simd`") means that
+primitive must be **added in ndarray**, never hand-rolled here.
+
+**Consequence for the deferred p64 64×64 wave:** its target moves. A tile that
+accelerates the *bitwise op* is aimed at 11.1 ns of a 65.2 ns half; a tile that
+fuses op+reduction is aimed at all of it. The BUY threshold is unchanged
+(>10× this corpus in one budget) — what changed is what to buy.
+
+**Not scheduled, deliberately.** This is a measured direction, not a wave.
+The cross-repo ask (an ndarray fused mask+popcount primitive) is the
+operator's call to make, per commitment on upstream asks.

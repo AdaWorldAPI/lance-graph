@@ -24,6 +24,168 @@ shape. One relation carried everything; five more neighbours added bytes.
 
 ---
 
+## 2026-08-31 — E-A-DETERMINISM-GATE-IS-TRIVIALLY-SATISFIED-BY-A-KERNEL-THAT-DOES-NOTHING-1
+
+**Status:** FINDING — measured by the disable run that was supposed to confirm
+a gate, not correct it.
+**Confidence:** measured — `lance-graph-planner/src/dismech_replay.rs`,
+D-DCR-1 (W1).
+
+W1's first gate is replay determinism: the same recorded chain must produce a
+byte-identical trace. Its anti-vacuity check was the obvious one —
+`assert_ne!(trace.last().edge, seed)`, "the chain must transform the seed",
+so a kernel that returned its input could not pass.
+
+**It could.** Stubbing `CausalEdge64::forward` to a no-op left the gate GREEN,
+because `replay_step` has TWO halves and the check only reached one: the truth
+write-back (`set_frequency_u8` / `set_confidence_u8`, driven by
+`NarsTables::revise`) moves the packed edge all by itself. So the composition
+half — the entire reason the step is a *step* — could be deleted and the
+determinism gate would still certify the module.
+
+The general shape, worth more than the instance: **a determinism gate is
+satisfied by ANY function, including the identity.** Its own claim ("same in,
+same out") is true of doing nothing. Whatever anti-vacuity check rides along
+is therefore carrying the gate's entire discriminating power — and if the
+kernel has *n* independent halves, a check that observes one of them leaves
+*n−1* deletable in silence.
+
+**Fix:** assert both halves moved, by the field each half owns —
+palette (`s_idx`/`p_idx`/`o_idx`, forward ran) AND truth
+(`frequency_u8`/`confidence_u8`, revise ran). Re-run of the same disable now
+fails with *"the forward (palette) half did not run"*.
+
+**Sibling instance in the same module, same run:** `first_divergence`'s gate
+claims "perturbing step *k* diverges AT step *k*", not "differs somewhere" —
+disabled by returning the LAST divergence instead of the first, it fails
+`left: Some(11), right: Some(0)`. That one was already two-sided; it is
+recorded because the pair shows the difference between a gate whose claim
+names a POSITION and one whose claim names an EVENT. The position gate needed
+no strengthening.
+
+**Consequence for the falsifiability rule** (`CLAUDE.md` P0, and the
+`E-VACUOUS-ASSERTION-IS-THE-HOUSE-STYLE-1` catalogue): the existing
+can-fire / can-stay-silent pair is not sufficient for a *composite* kernel.
+Add: **an anti-vacuity check must name every independent half of the thing it
+guards.** Counting the halves is the work; one `assert_ne!` on the aggregate
+output is not it.
+
+And the procedural half, which is why this was caught at all: the disable run
+is the ONLY thing that distinguished a real gate from a decorative one here.
+Writing the strengthened assertion was five minutes; believing the first one
+without running the disable would have shipped a module whose headline
+property was unguarded.
+
+---
+
+## 2026-08-31 — E-EVERY-DEFECT-IN-A-MEASUREMENT-WAS-IN-ITS-FIXTURE-NOT-ITS-CODE-1 — four in one probe, three found by review
+
+**Status:** FINDING — corrective, measured both ways.
+**Confidence:** measured — `lance-graph-planner/examples/dcr_w0_replay_budget`
+(corrected) vs the superseded contract-side v1. D-DCR-0, codex review on #1118.
+
+W0's first probe produced a headline ("MASK dominates by 3.8×") that set the
+direction of a deferred hardware wave. Codex filed three findings; **all three
+were valid**, and a fourth surfaced while fixing them. Not one was a bug in
+the code under test. Every one was a defect in the **fixture**:
+
+| # | fixture defect | what it faked |
+|---|---|---|
+| 1 | timed `NarsTruth::revision` (f32) where the plan defines the eval as `NarsTables` lookup + `CausalEdge64` revision | a substitute kernel, disclosed in a doc-comment but still the source of the headline number |
+| 2 | mask fixture was `Vec<u64>` → `collect()` allocation inside the timed loop, though `impl EvidenceMask for [u64; N]` already ships and is the real p64 shape | charged `malloc` to the arithmetic the proposed tile would accelerate |
+| 3 | ran the KILL gate at 2,449 chains where the plan pre-registered **10^5** | a pre-registered gate recorded as evaluated without being evaluated |
+| 4 | `dense_mask(rng, 1)` sets **no** bits (`x % 1 == 0` always) | scored a frontier decision against an EMPTY live set (caught in the fix pass, no review help) |
+
+**Corrected:** promised step **34.7 ns**, alloc-free 4096-bit mask **61.5 ns**
+⇒ **MASK dominates 1.77×**, not 3.8×. KILL fires at neither scale
+(10^5: 13.88 ms scan vs 0.007 ms decision; 2,449: 0.340 ms). Oracle arm
+**1.36 ms** at chain length 16.
+
+**The direction survived; the margin did not.** A 64×64 tile is still aimed at
+the half that costs — but at 1.77× the case is materially weaker than the
+first pass claimed, and a BUY argued on 3.8× would have been argued on a
+number that measured `malloc` and an f32 stand-in.
+
+**The rule.** *A measurement's fixture is part of its claim.* The existing
+falsifiability rule covers tests that cannot fail; this is its measurement
+twin — a probe whose fixture is wrong produces a number that CANNOT be
+falsified by re-running it, because the fixture reproduces faithfully every
+time. Concretely, before a probe's number enters a plan or board:
+1. **Does it time the kernel the plan NAMES?** A documented substitution is
+   still a substitution; move the probe to where the real kernel lives.
+2. **Does the timed loop allocate?** If the shipped type is fixed-width, time
+   the fixed-width type — and report both when correcting, so the delta is
+   visible rather than swapped in silently.
+3. **Is the pre-registered workload the one that ran?** Changing the scale
+   un-runs the gate.
+4. **Does the fixture construct what its name says?** (`all_ones()` is a
+   constructor, not `dense(1)`.)
+
+Cross-ref: `E-W0-MEASURED-THE-MASK-HALF-DOMINATES-AND-THE-PLAN-WAS-UNDER-CITED-1`
+(the entry this corrects — its §1 table is superseded, its §3 prior-art
+correction stands), plan `dismech-causal-replay-v1.md` §3c.
+
+## 2026-08-31 — E-W0-MEASURED-THE-MASK-HALF-DOMINATES-AND-THE-PLAN-WAS-UNDER-CITED-1 — two findings from one W0 run
+
+**Status:** FINDING (measurements) + CORRECTION (prior-art citation gap).
+**Confidence:** measured — `lance-graph-contract/examples/dcr_w0_replay_budget`,
+release, committed and re-runnable. D-DCR-0.
+
+### 1. The kernel split is the ALU wave's real answer — and it points the right way
+
+The deferred p64 64×64 wave was justified by shape ("4096 bits = one node's
+budget"). W0 asked which half of a replay step that tile would even touch:
+
+| kernel | rate | per op |
+|---|---|---|
+| `NarsTruth::revision` alone | 41,596 ops/ms | 24.0 ns |
+| 4096-bit `intersection` + count | 11,038 ops/ms | 90.6 ns |
+
+**MASK dominates by 3.8×.** The tile is aimed at the half that actually costs
+— the shape argument survives contact with a measurement, which is not the
+usual outcome. What does NOT survive is urgency: the whole 2,449-edge oracle
+arm replays in **2.74 ms** at chain length 16, so the BUY threshold is stated
+as *>10× this corpus in one budget*, and until a workload asks for that the
+scalar path is not the bottleneck.
+
+### 2. The pre-registered KILL check did NOT fire — W5 stays live
+
+Full scan of the oracle arm (2,449 chains, len 4): **0.906 ms**. One frontier
+decision over 64 candidate observations: **0.008 ms** — ~100× cheaper, with
+the crossover at **~25 chains**. The corpus is ~98× above crossover, so
+scheduling is not decoration even at DisMech's small scale. Recorded because
+the plan pre-registered the opposite outcome as a real possibility; it was
+checked, not assumed.
+
+### 3. ⊘ CORRECTION — `dismech-causal-replay-v1`'s §0 audit was UNDER-CITED
+
+The plan (#1117, merged) audited OGAR's `ogar-dismech`, the consumer
+transcode, and `lance-graph-ontology`. It did **not** cite two pieces of prior
+art in the repo it was written for:
+
+- **`contract::dismech_evidence`** (686 LOC, shipped) — the compact evidence
+  vocabulary measured on the real corpus, including the two populations that
+  are *already* a two-sided replay falsifier: `IndirectKnownIntermediates`
+  (the hidden-mediator oracle) and `IndirectUnknownIntermediates` (the
+  epistemic-restraint control, where "recovering" a mediator IS the failure).
+- **`dismech-causality-v3-v1.md`** (2026-08-21) + its `D-CV3-0..6` board rows
+  — whose §11 specifies the held-out benchmark with measured arms: **2,449**
+  oracle edges over **534** diseases, **4,076** restraint rows, **361**
+  unknown rows, split A/B/C/D/E, "two-sided by construction".
+
+**Nothing in the plan is contradicted** — "no baked slab exists" holds (the
+corpus pin is D-CV3-0, still Queued). The cost was scoping: W1–W3 would have
+invented a falsifier corpus that §11 already specifies with numbers measured
+three independent ways. W0 therefore consumes those magnitudes instead of
+inventing scales, and the reconciliation is now the plan's §3a.
+
+**The rule this instance re-proves** (rubicon §F's own ⊘ made the identical
+mistake five days earlier, and `CLAUDE.md` states it): *grep the existing ~100
+files before writing a new one* — and "prior art" includes the plans index and
+the contract's own module list, not only the sibling repos an audit happens to
+be thinking about. A sibling-repo sweep (F-RLR-11) does not discharge the
+same-repo sweep.
+
 ## 2026-08-31 — E-A-THRESHOLD-IS-BOUND-TO-ITS-STATISTIC-AND-ITS-SAMPLE-1 — a constant carried across either one silently becomes a different gate
 
 **Status:** FINDING — two independent instances in one wave, both caught by
