@@ -1,3 +1,50 @@
+## 2026-08-31 — E-EVERY-DEFECT-IN-A-MEASUREMENT-WAS-IN-ITS-FIXTURE-NOT-ITS-CODE-1 — four in one probe, three found by review
+
+**Status:** FINDING — corrective, measured both ways.
+**Confidence:** measured — `lance-graph-planner/examples/dcr_w0_replay_budget`
+(corrected) vs the superseded contract-side v1. D-DCR-0, codex review on #1118.
+
+W0's first probe produced a headline ("MASK dominates by 3.8×") that set the
+direction of a deferred hardware wave. Codex filed three findings; **all three
+were valid**, and a fourth surfaced while fixing them. Not one was a bug in
+the code under test. Every one was a defect in the **fixture**:
+
+| # | fixture defect | what it faked |
+|---|---|---|
+| 1 | timed `NarsTruth::revision` (f32) where the plan defines the eval as `NarsTables` lookup + `CausalEdge64` revision | a substitute kernel, disclosed in a doc-comment but still the source of the headline number |
+| 2 | mask fixture was `Vec<u64>` → `collect()` allocation inside the timed loop, though `impl EvidenceMask for [u64; N]` already ships and is the real p64 shape | charged `malloc` to the arithmetic the proposed tile would accelerate |
+| 3 | ran the KILL gate at 2,449 chains where the plan pre-registered **10^5** | a pre-registered gate recorded as evaluated without being evaluated |
+| 4 | `dense_mask(rng, 1)` sets **no** bits (`x % 1 == 0` always) | scored a frontier decision against an EMPTY live set (caught in the fix pass, no review help) |
+
+**Corrected:** promised step **34.7 ns**, alloc-free 4096-bit mask **61.5 ns**
+⇒ **MASK dominates 1.77×**, not 3.8×. KILL fires at neither scale
+(10^5: 13.88 ms scan vs 0.007 ms decision; 2,449: 0.340 ms). Oracle arm
+**1.36 ms** at chain length 16.
+
+**The direction survived; the margin did not.** A 64×64 tile is still aimed at
+the half that costs — but at 1.77× the case is materially weaker than the
+first pass claimed, and a BUY argued on 3.8× would have been argued on a
+number that measured `malloc` and an f32 stand-in.
+
+**The rule.** *A measurement's fixture is part of its claim.* The existing
+falsifiability rule covers tests that cannot fail; this is its measurement
+twin — a probe whose fixture is wrong produces a number that CANNOT be
+falsified by re-running it, because the fixture reproduces faithfully every
+time. Concretely, before a probe's number enters a plan or board:
+1. **Does it time the kernel the plan NAMES?** A documented substitution is
+   still a substitution; move the probe to where the real kernel lives.
+2. **Does the timed loop allocate?** If the shipped type is fixed-width, time
+   the fixed-width type — and report both when correcting, so the delta is
+   visible rather than swapped in silently.
+3. **Is the pre-registered workload the one that ran?** Changing the scale
+   un-runs the gate.
+4. **Does the fixture construct what its name says?** (`all_ones()` is a
+   constructor, not `dense(1)`.)
+
+Cross-ref: `E-W0-MEASURED-THE-MASK-HALF-DOMINATES-AND-THE-PLAN-WAS-UNDER-CITED-1`
+(the entry this corrects — its §1 table is superseded, its §3 prior-art
+correction stands), plan `dismech-causal-replay-v1.md` §3c.
+
 ## 2026-08-31 — E-W0-MEASURED-THE-MASK-HALF-DOMINATES-AND-THE-PLAN-WAS-UNDER-CITED-1 — two findings from one W0 run
 
 **Status:** FINDING (measurements) + CORRECTION (prior-art citation gap).

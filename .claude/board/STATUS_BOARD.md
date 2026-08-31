@@ -2,7 +2,7 @@
 
 | D-id | deliverable | status |
 |---|---|---|
-| D-DCR-0 | W0 measurements: chain-step evals/ms, EvidenceMask branching shrink, palette round-trip; ALU BUY threshold stated | **Shipped** — 14,285 steps/ms @4096-wide; shrink 1.66x (fixture-set); KILL did NOT fire (scan 0.906 ms vs decision 0.008 ms, crossover ~25 chains); MASK dominates revision 3.8x; BUY at >10x the 2.74 ms oracle arm. Probe `dcr_w0_replay_budget` |
+| D-DCR-0 | W0 measurements: chain-step evals/ms, EvidenceMask branching shrink, palette round-trip; ALU BUY threshold stated | **Shipped (CORRECTED #1118)** — promised kernel (NarsTables::revise + CausalEdge64::forward) **34.7 ns/step**; alloc-free `[u64;64]` mask 61.5 ns ⇒ **MASK dominates 1.77x** (v1's 3.8x superseded: substitute kernel + allocating fixture); KILL does not fire at EITHER the pre-registered 10^5 (13.88 ms) or the real 2,449 arm (0.340 ms), crossover ~53 chains; BUY at >10x the **1.36 ms** oracle arm. Probe `lance-graph-planner/examples/dcr_w0_replay_budget` |
 | D-DCR-0a | prior-art reconciliation: `contract::dismech_evidence` + `dismech-causality-v3-v1` §11 arms (2,449 / 4,076 / 361) are W1-W3's falsifier; plan §3a | **Shipped** (E-W0-MEASURED-THE-MASK-HALF-DOMINATES-...-1) |
 | D-DCR-1 | replay core: loco calls under the dismech vocabulary -> CausalEdge64/NarsTruth steps -> temporal.rs trace; determinism + perturbation falsifiers | Queued (after D-DCR-0) |
 | D-DCR-2 | Mengenlehre candidate evaluation via `contract::revision::EvidenceMask` (support ∩ / refute ∖, skip-words as ordinals) | Queued |

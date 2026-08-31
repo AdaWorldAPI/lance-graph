@@ -265,3 +265,44 @@ step (planner-side, one dependency layer out of this zero-dep crate), and any
 loco dispatch cost (OGAR-side palette; the round-trip is covered by
 `ogar-dismech`'s own tests, and duplicating them here would be a second
 truth).
+
+## §3c — W0 CORRECTED (codex review on #1118; three findings, all valid)
+
+⊘ **§3b's numbers are SUPERSEDED.** They are kept above (append-only) because
+the correction is the finding. Three defects, all pushing the same direction —
+they inflated the mask half and measured a kernel this plan never named:
+
+| # | defect | consequence |
+|---|---|---|
+| P1 | v1 timed `NarsTruth::revision` (f32, contract-side); §3 W0 defines the eval as **`NarsTables` lookup + `CausalEdge64` revision** | the headline throughput and the 2.74 ms corpus figure came from a substitute kernel. Disclosing the substitution did not make it the promised measurement |
+| P1 | v1's mask fixture was `Bits(Vec<u64>)` → a heap alloc inside every timed `intersection`, while `impl<const N: usize> EvidenceMask for [u64; N]` **already ships** (`revision.rs:70`) and is the real p64 shape (`[u64; 64]` = 4096 bits) | `malloc` was charged to the arithmetic a tile would accelerate — the exact claim it supported |
+| P2 | v1 ran the KILL gate on the 2,449-edge corpus; §3 names **10^5 chains** verbatim | a pre-registered gate was never evaluated as pre-registered |
+
+**Corrected measurements** (probe moved to `lance-graph-planner/examples/`,
+where `causal-edge` is reachable; `[u64; 64]` via the shipped impl; both KILL
+scales at one candidate width):
+
+| quantity | v1 (superseded) | corrected |
+|---|---|---|
+| chain step | 70.0 ns (f32 substitute + allocating mask) | **34.7 ns** (`NarsTables::revise` + `CausalEdge64::forward`) — 28,818 steps/ms |
+| 4096-bit mask | 90.6 ns (allocating) | **61.5 ns** alloc-free `[u64; 64]`; the Vec shape costs 73.4 ns, so allocation was ~16% of it |
+| kernel split | "MASK dominates 3.8×" | **MASK dominates 1.77×** |
+| KILL @ 10^5 (pre-registered) | never run | scan **13.88 ms** vs decision **0.007 ms** ⇒ does not fire |
+| KILL @ 2,449 (real corpus) | 0.906 ms vs 0.008 ms | scan **0.340 ms** vs 0.007 ms ⇒ does not fire |
+| crossover | ~25 chains | **~53 chains** |
+| oracle arm @ len 16 | 2.74 ms | **1.36 ms** |
+
+**What survives and what does not.** The *direction* survives — the mask half
+still dominates on the corrected, allocation-free numbers, so a 64×64 tile is
+aimed at the half that costs. The *margin* does not: 1.77× is under half of
+what v1 claimed, so the ALU case is materially weaker than the first pass
+said, and the BUY threshold stands at >10× this corpus in one budget
+(≈288,000 steps/ms). W5 stays live on cost at BOTH scales.
+
+**The lesson (recorded because it repeated inside one probe):** every one of
+the three defects was a *fixture* defect, not a code defect — a substitute
+kernel, an allocating container, a moved goalpost. A measurement's fixture is
+part of its claim. A fourth instance was caught in the same pass without
+review help: `dense_mask(rng, 1)` sets **no** bits (`x % 1 == 0` always), so
+the frontier decision was scored against an EMPTY live set; `all_ones()` is
+now its own constructor and `dense_mask` asserts `one_in >= 2`.
