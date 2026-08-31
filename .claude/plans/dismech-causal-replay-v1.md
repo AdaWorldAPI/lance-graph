@@ -204,3 +204,64 @@ source in / one shape out. Haiku: only the guarded-executor card.
 | D-DCR-4 | Σ transport + Shannon readout | Queued (entropy decision first) |
 | D-DCR-5 | frontier scheduling | **HELD** (operator rung table + W0 KILL) |
 | D-DCR-6 | consumer-leg pointer honoured (no corpus data lands here) | standing gate |
+
+---
+
+## §3a — PRIOR-ART RECONCILIATION (added 2026-08-31, W0)
+
+⊘ **§0's audit was under-cited.** It swept the sibling repos (F-RLR-11) but
+not this repo's own contract module list or plans index. Two pieces of prior
+art belong in the state table, and both STRENGTHEN the plan:
+
+| prior art | what it gives this plan |
+|---|---|
+| `contract::dismech_evidence` (686 LOC, shipped) | the measured evidence vocabulary AND a ready-made two-sided falsifier population: `IndirectKnownIntermediates` = hidden-mediator oracle; `IndirectUnknownIntermediates` = epistemic-restraint control (recovering a mediator there IS the failure) |
+| `dismech-causality-v3-v1.md` §11 + `D-CV3-0..6` | the held-out benchmark, already specified with measured arms: **2,449** oracle edges / **534** diseases, **4,076** restraint rows, **361** unknown rows; splits A–E reported separately; "two-sided by construction" |
+
+**The join:** D-CV3's benchmark **is** this plan's W1–W3 falsifier; D-DCR is
+the engine it grades. W1–W3 therefore consume those arms (once D-CV3-0..2
+land the frozen TSVs consumer-side) and MUST NOT invent a parallel corpus.
+Nothing in §0 is contradicted — "no baked slab exists" still holds, and the
+corpus pin is D-CV3-0, Queued.
+
+## §3b — W0 RESULT (D-DCR-0, measured 2026-08-31)
+
+Harness: `crates/lance-graph-contract/examples/dcr_w0_replay_budget.rs`
+(release; deterministic LCG, no clock seeding — a probe for a replay plan is
+itself replayable). Corpus magnitudes are READ from §11, never re-derived.
+
+**1. Step throughput** — one step = `NarsTruth::revision` + `EvidenceMask::intersection`:
+
+| candidate set | chain len | steps/ms | ns/step |
+|---|---|---|---|
+| 64 | 16 | 29,184 | 34.3 |
+| 1,024 | 16 | 23,628 | 42.3 |
+| 4,096 | 16 | 14,285 | 70.0 |
+
+**2. Branching shrink** — 1.53×–1.66× per evidence item, flat from 10³ to 10⁵
+candidates. **Fixture-set densities** (2/3 support, 1/10 refute): this measures
+the MECHANISM's cost and scaling, never the corpus's real discriminative power.
+That number needs the frozen oracle/restraint TSVs (D-CV3-0..2).
+
+**3. KILL check — did NOT fire.** Full scan of the oracle arm (2,449 chains,
+len 4) = **0.906 ms**; one frontier decision over 64 observations = **0.008 ms**
+(~100× cheaper), crossover at **~25 chains**. The corpus sits ~98× above
+crossover ⇒ **W5 stays live on cost grounds** (it remains HELD on the operator
+rung 5–9 table, which is a different gate).
+
+**4. Kernel split — the ALU wave's actual question.** `NarsTruth::revision`
+alone 41,596 ops/ms (24.0 ns); 4096-bit intersect+count 11,038 ops/ms
+(90.6 ns) ⇒ **MASK dominates by 3.8×**. A 64×64 tile accelerates the half that
+costs — the "4096 bits = one node" shape argument survives measurement.
+
+**5. ALU BUY threshold (stated, as W0 owed).** The whole oracle arm replays in
+**2.74 ms** at chain length 16. **BUY only when a workload sustains
+>10× that in one budget** (≈143,000 steps/ms); below it the scalar path is not
+the bottleneck. The tile is correctly aimed and correctly deferred.
+
+**What W0 did NOT measure**, so nobody cites it as if it had: the real
+per-evidence discriminative power (needs D-CV3-0..2), `CausalEdge64`'s packed
+step (planner-side, one dependency layer out of this zero-dep crate), and any
+loco dispatch cost (OGAR-side palette; the round-trip is covered by
+`ogar-dismech`'s own tests, and duplicating them here would be a second
+truth).

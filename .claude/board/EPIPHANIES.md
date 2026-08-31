@@ -1,3 +1,64 @@
+## 2026-08-31 — E-W0-MEASURED-THE-MASK-HALF-DOMINATES-AND-THE-PLAN-WAS-UNDER-CITED-1 — two findings from one W0 run
+
+**Status:** FINDING (measurements) + CORRECTION (prior-art citation gap).
+**Confidence:** measured — `lance-graph-contract/examples/dcr_w0_replay_budget`,
+release, committed and re-runnable. D-DCR-0.
+
+### 1. The kernel split is the ALU wave's real answer — and it points the right way
+
+The deferred p64 64×64 wave was justified by shape ("4096 bits = one node's
+budget"). W0 asked which half of a replay step that tile would even touch:
+
+| kernel | rate | per op |
+|---|---|---|
+| `NarsTruth::revision` alone | 41,596 ops/ms | 24.0 ns |
+| 4096-bit `intersection` + count | 11,038 ops/ms | 90.6 ns |
+
+**MASK dominates by 3.8×.** The tile is aimed at the half that actually costs
+— the shape argument survives contact with a measurement, which is not the
+usual outcome. What does NOT survive is urgency: the whole 2,449-edge oracle
+arm replays in **2.74 ms** at chain length 16, so the BUY threshold is stated
+as *>10× this corpus in one budget*, and until a workload asks for that the
+scalar path is not the bottleneck.
+
+### 2. The pre-registered KILL check did NOT fire — W5 stays live
+
+Full scan of the oracle arm (2,449 chains, len 4): **0.906 ms**. One frontier
+decision over 64 candidate observations: **0.008 ms** — ~100× cheaper, with
+the crossover at **~25 chains**. The corpus is ~98× above crossover, so
+scheduling is not decoration even at DisMech's small scale. Recorded because
+the plan pre-registered the opposite outcome as a real possibility; it was
+checked, not assumed.
+
+### 3. ⊘ CORRECTION — `dismech-causal-replay-v1`'s §0 audit was UNDER-CITED
+
+The plan (#1117, merged) audited OGAR's `ogar-dismech`, the consumer
+transcode, and `lance-graph-ontology`. It did **not** cite two pieces of prior
+art in the repo it was written for:
+
+- **`contract::dismech_evidence`** (686 LOC, shipped) — the compact evidence
+  vocabulary measured on the real corpus, including the two populations that
+  are *already* a two-sided replay falsifier: `IndirectKnownIntermediates`
+  (the hidden-mediator oracle) and `IndirectUnknownIntermediates` (the
+  epistemic-restraint control, where "recovering" a mediator IS the failure).
+- **`dismech-causality-v3-v1.md`** (2026-08-21) + its `D-CV3-0..6` board rows
+  — whose §11 specifies the held-out benchmark with measured arms: **2,449**
+  oracle edges over **534** diseases, **4,076** restraint rows, **361**
+  unknown rows, split A/B/C/D/E, "two-sided by construction".
+
+**Nothing in the plan is contradicted** — "no baked slab exists" holds (the
+corpus pin is D-CV3-0, still Queued). The cost was scoping: W1–W3 would have
+invented a falsifier corpus that §11 already specifies with numbers measured
+three independent ways. W0 therefore consumes those magnitudes instead of
+inventing scales, and the reconciliation is now the plan's §3a.
+
+**The rule this instance re-proves** (rubicon §F's own ⊘ made the identical
+mistake five days earlier, and `CLAUDE.md` states it): *grep the existing ~100
+files before writing a new one* — and "prior art" includes the plans index and
+the contract's own module list, not only the sibling repos an audit happens to
+be thinking about. A sibling-repo sweep (F-RLR-11) does not discharge the
+same-repo sweep.
+
 ## 2026-08-31 — E-A-THRESHOLD-IS-BOUND-TO-ITS-STATISTIC-AND-ITS-SAMPLE-1 — a constant carried across either one silently becomes a different gate
 
 **Status:** FINDING — two independent instances in one wave, both caught by
