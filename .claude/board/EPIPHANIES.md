@@ -1,3 +1,76 @@
+## 2026-08-31 — E-PRESENCE-2BIT-CHEAPER-SIBLING-1 — a derived 2-bit presence tier over the 24×i4 witness register prunes taxonomy sweeps before any nibble read
+
+**Status:** FINDING (probe run, GREEN). Probe:
+`crates/lance-graph-contract/examples/probe_witness_presence_2bit.rs`
+(fox/mammal/wombat taxonomy fixture, 64 witnesses, all numbers below from the run).
+**Confidence:** High on the mechanism and the measured numbers; the density figure
+is FIXTURE-SHAPED (synthetic spread population), not a workload measurement.
+
+The question probed: can the 24×i4 `CausalWitnessFacet` inheritance tenant get a
+cheaper sibling — a 2-bit-per-locus presence reading `(before, after)` derived by
+cast from the register (bit 1: nibble non-zero at locus; bit 2: its sign, i.e. the
+Markov-window ORIENTATION) — that carries subsumption sweeps without touching the
+signed magnitudes?
+
+Measured, all falsifiability pairs held (can-fire + can-stay-silent):
+
+1. **Density** 10.8% mean (2.59/24 loci bound; before-tier 2.17, after-tier 0.42)
+   — fixture-shaped, recorded for reproducibility only.
+2. **Ancestor-anchor sweep** (presence stencil `BasinAnchor ∧ before`): 19/64
+   survivors → **70.3% pruned before any nibble read**, and the nibble tier
+   confirms 19/19 — **0.0% false positives**. The presence tier prunes, the
+   nibble tier decides — the HHTL cascade shape restated at register scale.
+3. **What the 2nd bit buys:** of 210 witness pairs identical under 1-bit
+   presence, **13 are split by the orientation bit** — the 2nd bit is not
+   redundant, and the probe proves it non-vacuously (see the two generator
+   failures below).
+4. **Valence via stencil, not via a third mask:** locus-group stencils
+   (`Contradiction`-locus constant ∧ presence) discriminate preserved dissent —
+   fox true, wombat false. Valence lives in WHICH locus, never in the sign.
+5. **`fuse()` runs over the presence reading:** `Presence(WideFieldMask)`
+   implements `EvidenceMask` by delegating to the shipped D-MAR-1 operators
+   (`difference` / `is_subset_of` / …) → `ThesisSurvives` on fox-is-mammal vs
+   fox-is-bird. The revision triptych's shape-2 machinery is live on the sibling.
+6. **Corruption detector fires** (anchor stripped from fox → detected) while the
+   intact taxonomy stays silent.
+
+**Semantics correction banked (source-read, `causal_witness.rs`):** the nibble
+SIGN is Markov-window ORIENTATION (− before / + after), NEVER valence. An earlier
+draft of this probe read support/contra out of the sign — the register's own
+doc-comments and the loci table corrected it. Valence = locus identity
+(Quorum=14, Contradiction=15, SupportedBy=9, Supports=10, BasinAnchor=8), so the
+sibling's valence questions are constant locus-group stencils ANDed with
+presence — no third derived mask.
+
+**The falsifier earned its keep twice.** Two generator designs were rejected by
+the probe's own can-fire assert on §3 before the third ran green:
+(a) fixed sign per locus → the 2nd bit is a pure function of the 1st (0/210
+split); (b) sign derived from the same divisor family as membership
+(`(i/k)%2` vs `i%k`) → sign entangled with WHICH loci are bound (0/210 again —
+e.g. a positive Temporal nibble co-occurred exactly with a bound BasinAnchor).
+The green run decouples sign from membership via an independent mix hash. A
+falsifiability pair that never rejected anything would have banked either broken
+fixture as a finding.
+
+**Placement rulings honored, one unlock recorded-not-done:**
+- The presence reading is **cast-reproducible from the register ⟹ never a stored
+  second tenant** (SECOND-PROJECTION rule). Its only legitimate persistent home
+  is the stencil arena (separate arena, masks stay values — operator-locked
+  2026-08-31), where it is a derived, lazily built stencil like any other.
+- **Sibling limits:** it serves triptych shape 2 (reachability / revisable-set
+  computation) only. It can never carry shape 3 licensing (signed quorum needs
+  magnitudes) nor shape 1 attacks.
+- **Unlock:** `EvidenceMask` (revision.rs:31) requires exactly the surface
+  D-MAR-1 completed on `WideFieldMask`. `impl EvidenceMask for WideFieldMask`
+  is now one small additive change in the contract crate — recorded here, NOT
+  done (needs its own ruling; the probe used a local newtype under the orphan
+  rule to demonstrate it).
+
+Cross-refs: D-MAR-1 (shipped, #1099), `.claude/plans/mask-algebra-revision-read-v1.md`
+§5 Q1 (module home, still open), E-DESTRUCTIVE-PREPEND… (unrelated), the
+subset-logic reasoning-front framing (sigker `shuffle_product` = binary-mask
+subset enumeration, banked with #1103).
+
 ## 2026-08-30 — E-THE-ORACLE-WAS-CITED-AS-A-PHILOSOPHY-AND-NEVER-AS-A-METHOD-1 — a plan can demand an independent oracle while ignoring the one already built for its own question
 
 **Status:** FINDING (measured). Lands in
