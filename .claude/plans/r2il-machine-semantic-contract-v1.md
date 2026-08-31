@@ -1248,3 +1248,86 @@ until the probe went looking.
 
 Remaining in the §7.8 queue: PROBE-R2IL-LANES (the masked-population
 sweep) and PROBE-OWL-RL-FIXPOINT (the projected-rule lens).
+
+
+---
+
+## 11. Q8 — PROBE-GREY-TOPOLOGY-AB, the cheap form (PRE-REGISTERED 2026-08-31, before any harness existed)
+
+§7.2's probe is the one hex question Q6/Q7 did NOT answer. They measured
+plasticity and interference under capacity; this measures **pattern
+completion and false resonance** — different metrics, still unrun. §7.2's own
+honest gate names the cheapest real version: *the macro co-occurrence graph
+over the existing corpus IS a learned neighbourhood — run
+completion/false-resonance on it under both adjacency readings before
+building anything.* That is what this runs. No new tissue.
+
+**Grey against white, in parallel** (§7.1 vocabulary): the R2IL exact table is
+the white-matter authority; the learned overlay is the grey-matter proposer.
+Both arms propose; the table verifies. G4 below is that invariant as a gate.
+
+### 11.1 Corpus — and a stated limitation
+
+`r2il-pass1.ore.tsv` (AdaWorldAPI/ruff release `r2il-harvest-pass1`):
+**17,560 rows, 2 binaries** (`stress_test`, `stress_test_opt`), 143 distinct
+functions. This is NOT Q6/Q7's `ore_all.tsv` (4 binaries, 94,536 rows) —
+it is that corpus's A-side. Consequences, stated in advance:
+
+- the macro count will differ from §7.2's "33"; whatever it is, it is
+  reported, not matched to a remembered number;
+- no B-corpus and no held-out C, so **no learning/interference claim is
+  available here** — that is Q6/Q7's territory and this probe does not
+  re-enter it;
+- the opcode skew is present (`copy` 6753, `int_add` 4768, `load` 2394,
+  `store` 1968), so Q6's capacity mechanism can express itself if it applies.
+
+### 11.2 The three arms, same macros, same task, run in parallel
+
+1. **A — WHITE / Cartesian.** Adjacency = the substrate's native reading:
+   nearest neighbours in Morton order over the macro's own address.
+2. **B — GREY / hex overlay.** Adjacency = the 6 highest co-occurrence
+   neighbours of each macro, the learned neighbourhood.
+3. **RAND — the topology null.** 6 neighbours drawn uniformly, same degree,
+   same completion rule. Q6's lesson, carried forward without argument: an
+   arm that cannot beat a random partition with the identical rule has shown
+   nothing.
+
+### 11.3 Task and metrics
+
+Task: **cued completion.** Hold out one atom of a macro, present the rest,
+let each arm propose a completion by resonance over its own adjacency.
+
+- **completion** — fraction of held-out atoms correctly proposed (higher better)
+- **false resonance** — fraction of proposals that are confident and WRONG
+  (lower better); confident = the arm's top proposal, no abstention
+- **steps** — mean adjacency hops to reach the proposal (lower better)
+- **footprint** — bytes of adjacency actually stored per arm
+
+### 11.4 Pre-registered gates, read in this order
+
+- **G0 (validity/inertness).** The task must be non-trivial: no arm at 100%
+  completion, and RAND must score materially below the better of A/B. If G0
+  fails the run measures nothing and NO hypothesis verdict is reported.
+- **G1 completion:** B ≥ A.
+- **G2 false resonance:** B < A.
+- **G3 topology null:** B beats RAND on completion AND false resonance.
+- **G4 (authority invariant):** every proposal is verified against the exact
+  R2IL table; a wrong proposal is REFUSED, never executed. Byte-exactness of
+  the R2IL layer holds throughout. This is a validity gate, not a hypothesis.
+- **KILL (§7.2 verbatim):** B must beat A on **≥2** of {completion, false
+  resonance, steps} **without losing on footprint by more than it gains** —
+  otherwise the crystal stays square.
+
+### 11.5 Prediction, stated in advance and against the hypothesis
+
+Q6/Q7 found hexagonal locality bought nothing on plasticity, and the
+mechanism they named — content addressing under a heavy-tailed distribution
+starves the addressed cells — is a property of the CORPUS, not of the task.
+The same skew is present here. **I predict B fails the kill condition**, and
+that co-occurrence adjacency will nonetheless beat RAND on completion (the
+graph is real information) while NOT beating Cartesian on false resonance.
+If B does clear the kill condition, that is a genuine positive and the
+`E-Q6/E-Q7` line is narrower than it currently reads.
+
+Instrument is a throwaway example, reverted after the run; the outcome is
+board-only, whichever way it goes.
