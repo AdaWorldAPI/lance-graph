@@ -306,3 +306,46 @@ part of its claim. A fourth instance was caught in the same pass without
 review help: `dense_mask(rng, 1)` sets **no** bits (`x % 1 == 0` always), so
 the frontier decision was scored against an EMPTY live set; `all_ones()` is
 now its own constructor and `dense_mask` asserts `one_in >= 2`.
+
+## §3d — "Does the replay engine need to borrow masking from ndarray?" — MEASURED
+
+Operator question, 2026-08-31. Answered with the W0 harness rather than from
+architecture. Three different objects are called "masking" in this stack and
+**they are not the same kind of thing**:
+
+| object | width | shape | verdict |
+|---|---|---|---|
+| `ogar_r2il::CallMask` | `[u64; 3]` = 192 bits (≤180 calls/node) | lazy word-tests, no alloc, no `Vec<Call>` built | **needs nothing.** At three words, a slice-API call costs more than the work. It is already allocation-free and lazy — the properties SIMD would be bought for |
+| replay candidate set | `[u64; 64]` = 4096 bits | the shipped `impl EvidenceMask for [u64; N]` | the real candidate — W0 measures it dominating the promised step by ~1.8× |
+| `ndarray::hpc::jitson` | n/a | JSON config → Cranelift **native scan kernels** (`ScanParams`/`RecipeIR`/`ScanKernel`) | **not a masking library at all.** A kernel *compiler*. Its relevance is to W5's frontier decision (a scan-shaped workload), never to the mask half |
+
+**Measured, at 4096 bits (probe §2):**
+
+```
+[u64; 64] scalar (EvidenceMask)        65.2 ns
+ndarray simd_int_ops::mask_and (U64x8) 60.4 ns   => 1.08x — DEAD HEAT
+decomposition:  SIMD and 11.1 ns  +  scalar popcount 56.7 ns
+                => the POPCOUNT half is 5.1x the AND
+```
+
+**So the answer is neither yes nor no.** ndarray's SIMD mask kernel is fast —
+11.1 ns for 64 words is the `U64x8` path working exactly as advertised. It
+changes nothing end-to-end because **the AND was never the cost**: the
+reduction is, at 84% of the mask half. `mask_and` writes 512 bytes to `dst`
+and the popcount then re-reads them scalar.
+
+**The primitive that would pay does not exist yet:** a fused
+`mask_and_popcount(&[u64], &[u64]) -> u32` that keeps the AND result in
+registers and reduces with `VPOPCNTDQ`. ndarray HAS `popcnt` on its AVX-512
+typed wrapper (`simd_avx512.rs:2987`) but exposes no fused slice-level API, and
+the workspace's SIMD invariant ("all SIMD from `ndarray::simd`") means that
+primitive must be **added in ndarray**, never hand-rolled here.
+
+**Consequence for the deferred p64 64×64 wave:** its target moves. A tile that
+accelerates the *bitwise op* is aimed at 11.1 ns of a 65.2 ns half; a tile that
+fuses op+reduction is aimed at all of it. The BUY threshold is unchanged
+(>10× this corpus in one budget) — what changed is what to buy.
+
+**Not scheduled, deliberately.** This is a measured direction, not a wave.
+The cross-repo ask (an ndarray fused mask+popcount primitive) is the
+operator's call to make, per commitment on upstream asks.

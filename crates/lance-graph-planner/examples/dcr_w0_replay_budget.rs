@@ -210,6 +210,66 @@ fn measure_mask_both(iters: usize) -> (f64, f64, f64, f64) {
     (1e6 / fixed_ns, fixed_ns, 1e6 / vec_ns, vec_ns)
 }
 
+/// The SAME 4096-bit intersection through **ndarray's shipped SIMD mask
+/// kernel** (`simd_int_ops::mask_and`, `U64x8` lanes), which is the workspace's
+/// only sanctioned home for SIMD. This answers "does the replay engine need to
+/// borrow masking from ndarray?" with a number instead of an opinion — and it
+/// is the honest first increment of the deferred p64 64x64 wave, because
+/// 64 words x 64 bits IS the tile, already written and already dispatched.
+fn measure_mask_ndarray(iters: usize) -> f64 {
+    let mut rng = Lcg(0x0000_DDBA_11C0_FFEE); // same seed as the other two
+    let a = dense_mask(&mut rng, 3);
+    let b = dense_mask(&mut rng, 3);
+    let mut dst = [0u64; MASK_WORDS];
+
+    let t0 = Instant::now();
+    let mut sink = 0u32;
+    for _ in 0..iters {
+        ndarray::simd_int_ops::mask_and(
+            std::hint::black_box(&a),
+            std::hint::black_box(&b),
+            &mut dst,
+        );
+        sink += dst.iter().map(|w| w.count_ones()).sum::<u32>();
+    }
+    std::hint::black_box(sink);
+    t0.elapsed().as_secs_f64() * 1e9 / iters as f64
+}
+
+/// Decompose the mask half: AND alone vs popcount alone. If the SIMD and the
+/// scalar AND paths tie, the AND is not what costs — which changes what an
+/// accelerator would have to BE.
+fn measure_mask_decomposition(iters: usize) -> (f64, f64) {
+    let mut rng = Lcg(0x0000_DDBA_11C0_FFEE);
+    let a = dense_mask(&mut rng, 3);
+    let b = dense_mask(&mut rng, 3);
+    let mut dst = [0u64; MASK_WORDS];
+
+    let t0 = Instant::now();
+    for _ in 0..iters {
+        ndarray::simd_int_ops::mask_and(
+            std::hint::black_box(&a),
+            std::hint::black_box(&b),
+            &mut dst,
+        );
+        std::hint::black_box(&dst);
+    }
+    let and_ns = t0.elapsed().as_secs_f64() * 1e9 / iters as f64;
+
+    let t1 = Instant::now();
+    let mut sink = 0u32;
+    for _ in 0..iters {
+        sink += std::hint::black_box(&dst)
+            .iter()
+            .map(|w| w.count_ones())
+            .sum::<u32>();
+    }
+    std::hint::black_box(sink);
+    let pop_ns = t1.elapsed().as_secs_f64() * 1e9 / iters as f64;
+
+    (and_ns, pop_ns)
+}
+
 /// A full scan: replay every chain once, promised kernel, no frontier.
 fn measure_full_scan(chains: usize, chain_len: usize, step_ns: f64) -> f64 {
     (chains * chain_len) as f64 * step_ns / 1e6 // ms
@@ -257,6 +317,32 @@ fn main() {
     println!(
         "   => allocation was {:.1}x of the v1 mask cost — charged to arithmetic a tile would accelerate",
         vec_ns / fixed_ns
+    );
+
+    let nd_ns = measure_mask_ndarray(1_000_000);
+    println!(
+        "   ndarray simd_int_ops::mask_and (U64x8): {:>9.0} ops/ms  ({nd_ns:>6.1} ns)",
+        1e6 / nd_ns
+    );
+    let ratio = fixed_ns / nd_ns;
+    let verdict = if ratio > 1.15 {
+        "FASTER — borrowing pays"
+    } else if ratio < 0.87 {
+        "SLOWER — borrowing costs"
+    } else {
+        "DEAD HEAT — borrowing changes nothing at this width"
+    };
+    println!("   => vs scalar [u64; 64]: {ratio:.2}x — {verdict}");
+    let (and_ns, pop_ns) = measure_mask_decomposition(1_000_000);
+    println!("   decomposition: SIMD and {and_ns:.1} ns  +  scalar popcount {pop_ns:.1} ns");
+    println!(
+        "   => the {} half is {:.1}x the other; an accelerator must target THAT",
+        if pop_ns > and_ns { "POPCOUNT" } else { "AND" },
+        if pop_ns > and_ns {
+            pop_ns / and_ns
+        } else {
+            and_ns / pop_ns
+        }
     );
 
     // ── 3. kernel split, re-derived from the corrected numbers ───────────
