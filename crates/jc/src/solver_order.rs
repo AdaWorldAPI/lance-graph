@@ -49,6 +49,9 @@ mod active {
     type P2 = [f64; 2];
 
     const M: usize = 2048;
+    /// Points in the longest path this battery constructs (see the sibling
+    /// constant in `hambly_lyons` for why it is exported rather than retyped).
+    pub const LONGEST_PATH_POINTS: usize = M + 1;
     /// Super-period windows for these fixtures (period ~ 2π·M/ω micro-steps).
     const WINDOWS: [usize; 3] = [32, 48, 64];
     /// Area-register bit depths for the carrier-fidelity leg.
@@ -275,6 +278,11 @@ mod active {
         }
     }
 }
+
+/// Points in the longest path this module constructs — see the constant's
+/// own doc in the gated implementation.
+#[cfg(feature = "hambly-lyons")]
+pub use active::LONGEST_PATH_POINTS;
 
 #[cfg(feature = "hambly-lyons")]
 pub fn prove() -> PillarResult {
