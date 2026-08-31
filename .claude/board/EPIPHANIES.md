@@ -57,6 +57,157 @@ next lever if 81% is not enough where it lands).
 
 Cross-refs: E-LEVY-AREA-COEFFICIENT-BEATS-REFINEMENT-1 (D-SK-B′, the caveat
 this closes), E-PRESENCE-2BIT-CHEAPER-SIBLING-1, sigker Index-regime framing.
+## 2026-08-31 — E-LEVY-AREA-COEFFICIENT-BEATS-REFINEMENT-1 — per-window Lévy-area coefficients recover the signature kernel where increment-only coarsening plateaus; the orientation-sign carrier retains ~99% of the gain on homogeneous-magnitude fixtures
+
+**Status:** FINDING (probe run, GREEN, G0–G5). Probe:
+`crates/sigker/examples/probe_dsk_b_levy_window.rs` (D-SK-B′; oscillatory d=2
+fixtures, M=2048 micro-steps, shipped `signature_kernel_pde` as reference after
+a G0 sanity gate vs `I₀(2√⟨u,v⟩)` — rel err 6.25e-5, retiring the stale
+pre-#350 divergence note in jc's `hambly_lyons.rs` for the CURRENT solver).
+**Confidence:** High on the measured numbers; the quantized-carrier retention
+figure carries a MEASURED fixture-shape caveat (below). Synthetic fixtures —
+no witness-stream workload was measured.
+
+The question (from the rough-signature-kernel programme — PDE systems whose
+coefficients involve higher-order iterated integrals of the input): at a FIXED
+coarse resolution, does carrying each window's level-2 data (the Lévy area)
+recover kernel accuracy that increment-only coarsening loses? Mechanism used:
+Chen's identity fixes sym(S²)=a⊗a/2 for every path, so the whole level-2
+path-dependence is the antisymmetric area and the cell coefficient becomes
+`c_ij = ⟨a_i,b_j⟩ + 2·A_i·B_j` (d=2) — the SAME first-order Goursat recursion,
+same cell count, one extra multiply-add per cell.
+
+Measured, two independent oscillatory fixtures:
+
+1. **Super-period regime win:** best improvement **29.9× at W=32** (fixture 1:
+   err 1.073e-1 → 3.590e-3) and **41.7× at W=64** (fixture 2: 8.523e-2 →
+   2.043e-3). G2: the area coefficient at W beats increment-only at W/2 —
+   i.e. beats **4× grid refinement at ~1/4 its cost** — on both fixtures,
+   every W ≥ 32.
+2. **The regime is W relative to the oscillation period, never W absolutely.**
+   Sub-period windows (W=8/16) carry little accumulated area and the gain is
+   marginal; a fixed-W-range slope gate was falsified by fixture 2 (period ≈
+   70 micro-steps ⟹ W=32 still sub-period there). G3 was re-registered twice;
+   the amendment chain is documented in the probe header.
+3. **Increment-only refinement sits on an aliasing plateau** (slopes ≈ 0 over
+   {32,48,64}) until windows resolve the oscillation — refining does not help;
+   the area coefficient does.
+4. **Sign-only areas retain 99.3% of the A→B gain** (err 4.358e-3 vs exact
+   3.590e-3, W=32) — the orientation-bit analog. MEASURED CAVEAT: the
+   fixture's |window-area| spread is std/mean = 0.118 (near-constant
+   magnitudes), so sign × global mean magnitude is nearly exact BY FIXTURE
+   SHAPE; heterogeneous magnitudes are exactly D-SK-A's open question. i4
+   quantization is indistinguishable from sign-only here for the same reason.
+5. **G4 (can-stay-silent):** on an area-free fixture (all increments parallel,
+   max |window area| 1.18e-18) the augmented scheme is bit-for-bit the
+   increment-only scheme (gap 0.0).
+6. **Failed design, kept observable (G5):** the first Scheme B replaced each
+   window with a 2-segment chevron matching (increment, area) exactly — G1
+   rejected it (err 1.335 vs 1.073e-1 at W=32, still asserted in the probe).
+   A window that accumulates LOOP area forces a transverse apex h = 2A/|c|
+   whose level-3+ signature terms are enormous, and the kernel is depth-∞.
+   This reproduces, empirically, why the rough programme injects higher-order
+   data into PDE COEFFICIENTS rather than into reconstructed paths.
+
+**Why this matters for the 24×i4 witness register:** a witness stream at
+Markov-window resolution is a coarse oscillatory path whose grid CANNOT be
+refined — the stream's resolution is what the substrate stores. The register's
+orientation tier is a per-window sign-of-lead–lag, i.e. a quantized surrogate
+of exactly the level-2 coefficient this probe shows doing the work. Result 4
+is the first quantitative support for the register-as-coefficient-carrier
+framing — bounded by its caveat and by the synthetic fixtures.
+
+**Hambly-Lyons census (same session, both repos read):** lance-graph
+`crates/jc/src/hambly_lyons.rs` = Pillar 11, feature-gated (`hambly-lyons`,
+default off, deferred), certifies the UNIQUENESS theorem's tree-quotient
+semantics (out-and-back ≈ identity / triangle ≉ identity) against
+`sigker::signature_truncated`. ndarray `src/hpc/pillar/signature.rs` = ALSO
+named "Pillar-11" (B7), but certifies a different thing: PSD + concentration
+of a d=2 depth-3 truncated sig-kernel Gram over 1000 Brownian paths — kernel
+STABILITY, not uniqueness. Two footguns recorded: (a) the shared "Pillar 11"
+name across repos with different content; (b) ndarray's `sigker_hl` labels a
+plain truncated sig-kernel "Hambly–Lyons kernel" — HL is the uniqueness
+theorem, not a kernel construction. Also: jc's doc-comment about
+`signature_kernel_pde` diverging is stale for the current solver (G0 measured
+6.25e-5); the comment predates the #350 fix and should be softened when jc is
+next touched (recorded, not done — jc is append-only-adjacent and untouched
+by this PR).
+
+Cross-refs: E-PRESENCE-2BIT-CHEAPER-SIBLING-1 (the presence/orientation
+projection of the same register), D-SK-A (open: heterogeneous-magnitude
+quantization fidelity), sigker lib.rs Index-regime framing, jc Pillar 11.
+## 2026-08-31 — E-PRESENCE-2BIT-CHEAPER-SIBLING-1 — a derived 2-bit presence tier over the 24×i4 witness register prunes taxonomy sweeps before any nibble read
+
+**Status:** FINDING (probe run, GREEN). Probe:
+`crates/lance-graph-contract/examples/probe_witness_presence_2bit.rs`
+(fox/mammal/wombat taxonomy fixture, 64 witnesses, all numbers below from the run).
+**Confidence:** High on the mechanism and the measured numbers; the density figure
+is FIXTURE-SHAPED (synthetic spread population), not a workload measurement.
+
+The question probed: can the 24×i4 `CausalWitnessFacet` inheritance tenant get a
+cheaper sibling — a 2-bit-per-locus presence reading `(before, after)` derived by
+cast from the register (bit 1: nibble non-zero at locus; bit 2: its sign, i.e. the
+Markov-window ORIENTATION) — that carries subsumption sweeps without touching the
+signed magnitudes?
+
+Measured, all falsifiability pairs held (can-fire + can-stay-silent):
+
+1. **Density** 10.8% mean (2.59/24 loci bound; before-tier 2.17, after-tier 0.42)
+   — fixture-shaped, recorded for reproducibility only.
+2. **Ancestor-anchor sweep** (presence stencil `BasinAnchor ∧ before`): 19/64
+   survivors → **70.3% pruned before any nibble read**, and the nibble tier
+   confirms 19/19 — **0.0% false positives**. The presence tier prunes, the
+   nibble tier decides — the HHTL cascade shape restated at register scale.
+3. **What the 2nd bit buys:** of 210 witness pairs identical under 1-bit
+   presence, **13 are split by the orientation bit** — the 2nd bit is not
+   redundant, and the probe proves it non-vacuously (see the two generator
+   failures below).
+4. **Valence via stencil, not via a third mask:** locus-group stencils
+   (`Contradiction`-locus constant ∧ presence) discriminate preserved dissent —
+   fox true, wombat false. Valence lives in WHICH locus, never in the sign.
+5. **`fuse()` runs over the presence reading:** `Presence(WideFieldMask)`
+   implements `EvidenceMask` by delegating to the shipped D-MAR-1 operators
+   (`difference` / `is_subset_of` / …) → `ThesisSurvives` on fox-is-mammal vs
+   fox-is-bird. The revision triptych's shape-2 machinery is live on the sibling.
+6. **Corruption detector fires** (anchor stripped from fox → detected) while the
+   intact taxonomy stays silent.
+
+**Semantics correction banked (source-read, `causal_witness.rs`):** the nibble
+SIGN is Markov-window ORIENTATION (− before / + after), NEVER valence. An earlier
+draft of this probe read support/contra out of the sign — the register's own
+doc-comments and the loci table corrected it. Valence = locus identity
+(Quorum=14, Contradiction=15, SupportedBy=9, Supports=10, BasinAnchor=8), so the
+sibling's valence questions are constant locus-group stencils ANDed with
+presence — no third derived mask.
+
+**The falsifier earned its keep twice.** Two generator designs were rejected by
+the probe's own can-fire assert on §3 before the third ran green:
+(a) fixed sign per locus → the 2nd bit is a pure function of the 1st (0/210
+split); (b) sign derived from the same divisor family as membership
+(`(i/k)%2` vs `i%k`) → sign entangled with WHICH loci are bound (0/210 again —
+e.g. a positive Temporal nibble co-occurred exactly with a bound BasinAnchor).
+The green run decouples sign from membership via an independent mix hash. A
+falsifiability pair that never rejected anything would have banked either broken
+fixture as a finding.
+
+**Placement rulings honored, one unlock recorded-not-done:**
+- The presence reading is **cast-reproducible from the register ⟹ never a stored
+  second tenant** (SECOND-PROJECTION rule). Its only legitimate persistent home
+  is the stencil arena (separate arena, masks stay values — operator-locked
+  2026-08-31), where it is a derived, lazily built stencil like any other.
+- **Sibling limits:** it serves triptych shape 2 (reachability / revisable-set
+  computation) only. It can never carry shape 3 licensing (signed quorum needs
+  magnitudes) nor shape 1 attacks.
+- **Unlock:** `EvidenceMask` (revision.rs:31) requires exactly the surface
+  D-MAR-1 completed on `WideFieldMask`. `impl EvidenceMask for WideFieldMask`
+  is now one small additive change in the contract crate — recorded here, NOT
+  done (needs its own ruling; the probe used a local newtype under the orphan
+  rule to demonstrate it).
+
+Cross-refs: D-MAR-1 (shipped, #1099), `.claude/plans/mask-algebra-revision-read-v1.md`
+§5 Q1 (module home, still open), E-DESTRUCTIVE-PREPEND… (unrelated), the
+subset-logic reasoning-front framing (sigker `shuffle_product` = binary-mask
+subset enumeration, banked with #1103).
 
 ## 2026-08-30 — E-THE-ORACLE-WAS-CITED-AS-A-PHILOSOPHY-AND-NEVER-AS-A-METHOD-1 — a plan can demand an independent oracle while ignoring the one already built for its own question
 
