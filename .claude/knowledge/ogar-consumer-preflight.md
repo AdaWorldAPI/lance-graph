@@ -23,6 +23,49 @@
 > classid split), OGAR#97 `PortSpec::APP_PREFIX` + `render_classid_for`, OGAR#98
 > `canonical_concept_name`.
 
+## The dependency-wiring law (operator-ruled 2026-08-31, appended)
+
+> Version, `rev`, or `tag` pins on **lance-graph, ndarray, or OGAR crates are
+> strictly prohibited in every consumer** — the internal siblings are consumed
+> LIVE (path dep, or git dep on branch HEAD), never frozen at a coordinate.
+> The pin whitelist is **exactly four external coordinates and nothing else**:
+> `lance =9.0.0` · `lancedb =0.33.0` · `arrow 58` · `datafusion 54`
+> (the lockstep storage/query family, pinned because a drift there is a
+> durability hazard — see lance-graph `CLAUDE.md` § Key Dependencies and
+> `E-PIN-LANCE9-LANCEDB033-DF541-ARROW58-NO-DF53-1`). A `rev = "…"` on an
+> internal sibling is a stale-head time bomb: it silently detaches the
+> consumer from every fix the spine lands, and un-pinning later replays weeks
+> of drift in one jump. If a consumer build breaks against sibling HEAD, the
+> remedy is fixing the breakage (or a STOP-and-ask), never a pin.
+>
+> **The lockfile corollary (codex P1 on the first draft — accepted).** A git
+> dep on `branch = "main"` is STILL resolved to one precise commit in
+> `Cargo.lock`; a consumer that commits its lock (or deploys with
+> `--locked`) has re-created the prohibited pin one file over — cargo moves
+> a locked git dep only on an explicit `cargo update`. The branch
+> coordinate alone is therefore NOT sufficient. Default resolution
+> (operator-indicated 2026-08-31): **consumer repos gitignore `Cargo.lock`,
+> and their CI/deploy builds run WITHOUT `--locked`**, so every build
+> resolves sibling HEAD. The cost is stated, not hidden: consumer-binary
+> builds stop being bit-reproducible, and a deploy can surface a sibling
+> breakage spontaneously — which this law already answers (fix it, never
+> pin). **Sanity check — the four whitelisted pins are NOT loosened by
+> removing the lock:** `lance =9.0.0` and `lancedb =0.33.0` are EXACT (`=`)
+> requirements in the MANIFEST, so resolution cannot move off them with or
+> without a lockfile; `arrow "58"` and `datafusion "54"` pin the MAJOR in
+> the manifest and were always minor-floating by declaration — without a
+> lock each build may take the newest 58.x/54.x, never 59/55. If minor
+> drift there is unwanted, the whitelist tightens to exact minors as its
+> own operator ruling — not by keeping the lock. Fallback shape for a
+> consumer that MUST keep a committed lock (none is currently ruled to): a
+> scheduled, visible `cargo update` refresh of the sibling entries — a
+> refresh cadence is an explicit liveness contract; a silent stale lock is
+> not.
+> First enforcement sweep (2026-08-31) found live violations in woa-rs
+> (`rev`-pinned lance-graph-ontology / lance-graph-callcenter / ndarray);
+> remediation owned by the session working that repo — including its
+> lockfile posture per the corollary above.
+
 ## The trap, in one paragraph
 
 You're a consumer — woa-rs, medcare-rs, smb-office-rs — and you need the classid

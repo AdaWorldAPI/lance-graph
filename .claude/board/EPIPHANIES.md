@@ -1,3 +1,108 @@
+## 2026-08-31 — E-CONSUMER-PINS-ON-INTERNAL-SIBLINGS-PROHIBITED-1 — no consumer may pin lance-graph, ndarray, or OGAR; the pin whitelist stays exactly the four external storage/query coordinates
+
+**Status:** OPERATOR-RULED (2026-08-31), banked in
+`.claude/knowledge/ogar-consumer-preflight.md` § The dependency-wiring law.
+**Confidence:** rule — not a measurement.
+
+The ruling, restated: internal siblings (lance-graph, ndarray, OGAR — any
+crate of theirs) are consumed LIVE in every consumer repo: path dep or git
+dep on branch HEAD, never a `rev`/`tag`/registry-version pin. Pins exist for
+exactly four external coordinates — lance =9.0.0, lancedb =0.33.0, arrow 58,
+datafusion 54 — the lockstep family whose drift is a durability hazard
+(E-PIN-LANCE9-LANCEDB033-DF541-ARROW58-NO-DF53-1). Nothing else is ever
+pinned. Rationale: a rev-pin on a sibling detaches the consumer from every
+spine fix silently and converts eventual un-pinning into a one-jump replay
+of accumulated drift; the workspace's whole sibling architecture assumes the
+spine moves as one.
+
+**Lockfile corollary (same-day, codex P1 accepted pre-merge):** a branch
+dep is still locked to one commit in Cargo.lock, so a committed lock (or a
+`--locked` deploy) is the same pin one file over. Default resolution,
+operator-indicated: consumers gitignore Cargo.lock and build without
+`--locked` — sibling HEAD at every build, reproducibility deliberately
+traded for spine liveness. Sanity-checked: the four external pins are NOT
+loosened by lock removal — lance/lancedb are exact (`=`) manifest
+requirements; arrow/datafusion pin the major in the manifest and were
+always minor-floating by declaration. Fallback for a consumer ruled to
+keep a lock: a scheduled visible refresh, never a silent stale lock.
+
+Enforcement sweep across local consumers found one live violation set:
+woa-rs `Cargo.toml` rev-pins lance-graph-ontology, lance-graph-callcenter,
+and ndarray. Remediation is owned by the session already working that repo
+(separation of concerns); this entry is the law's canonical home on the
+spine board. This generalizes the medcare-rs-local rulings of 2026-08-30
+(internal head pins prohibited; whitelist exactly four) to ALL consumers.
+
+## 2026-08-31 — E-MONOTONE-STREAM-LEVEL2-IS-DISCRIMINATION-NOT-MAGNITUDE-1 — on witness-shaped monotone count streams, level-2 area content moves the kernel value only ~2.4%, but it is the ONLY carrier that can see a pure-reordering counterfactual; the 24×i4 register cast is a usable partial carrier (r=0.799) that overstates the intervention ~2×
+
+**Status:** FINDING (probe run, GREEN, G0–G4). Probe:
+`crates/sigker/examples/probe_dsk_stream_witness.rs` (D-SK-STREAM; d=24 locus
+event streams, 12 Markov windows × 40 events, positive count deltas — the
+first stream-SHAPED fixture in the D-SK arc; still synthetic, no substrate
+data was read). **Confidence:** High on the measured numbers; the ~2.4% and
+199% figures are fixture-scale, not workload constants.
+
+The arc's regime map completes: D-SK-B′ measured 30–42× kernel-value wins on
+d=2 LOOP-ACCUMULATING spirals. Witness-count paths cannot loop — every
+coordinate is monotone (counts accumulate) — and the probe shows the d=2
+intuition does NOT transfer to kernel values:
+
+1. **Kernel value is increment-dominated on monotone streams:** full exact
+   level-2 data (all 276 antisymmetric pairs per window, computed from the
+   micro stream) improves the coarse kernel error by only **2.4%**
+   (2.113e-2 → 2.062e-2). The original G1 gate (≥10%, carried over from the
+   d=2 arc) FAILED and the failure is the finding — re-registered to strict
+   direction, with the smallness itself banked as the headline.
+2. **Kernel-value retention is therefore not a valid register metric here**
+   (the D-SK-A cancellation finding reproduced: the register cast measured
+   BETTER than exact areas — impossible as information, possible as
+   signed-error luck). G2 re-registered to the AREA domain: the register
+   cast `Â_kl = ¼·v_k·v_l·(o_l − o_k)` (a pure function of the stored 24×i4
+   reading — nibble sign = orientation, magnitude = i4 net) correlates with
+   the exact areas at **Pearson r = 0.799**, rms(reg−exact)/rms(exact) =
+   0.675 → **usable partial carrier** on the pre-registered scale.
+3. **The counterfactual result (G4) is where level-2 earns its keep.** The
+   intervention is a pure intra-window reordering (same seed, same events,
+   same deltas; cause/effect timing roles swapped post-fork) ⟹ increments
+   are IDENTICAL by construction and the increment-only normalized-kernel
+   distance is exactly **0.000e0 — provable blindness**. The register
+   carrier sees the intervention at 6.630e-4; the exact-area carrier at
+   3.327e-4 — the register OVERSTATES the true reordering signal ~2×
+   (saturated ±1 orientations amplify partial lead–lag). Right reading:
+   the register is a DETECTOR (an amplifying one), not a calibrated
+   magnitude. Same-law noise replicate distance 3.571e-2 printed as
+   ungated context — a first G4 formulation gated intervention > 3×
+   replicate and was falsified by its own construction (shared increments
+   make any increment-mixing carrier see the intervention as small, while
+   the replicate differs in the increments themselves); the re-registered
+   claim is VISIBILITY, not dominance.
+4. G3 (can-stay-silent): uniform event times ⟹ neither exact nor register
+   carrier corrupts the kernel (all within 1.1×). G0: d=24 solver anchor
+   vs closed form, 4.53e-4.
+5. Craft note, kept in-file: a sign-convention bug in the d-dim area
+   accumulation was caught by derivation review BEFORE the first run (an
+   event moving locus l adds +½·rel_k·δ to A_{k<l}; moving k adds
+   −½·rel_l·δ).
+
+**Consequence for the arc:** the three probes now split the register's roles
+cleanly — presence/orientation bits PRUNE (E-PRESENCE-2BIT…, 70.3% at 0%
+FP); the nibble DECIDES coefficient magnitudes where areas are large
+(D-SK-A, ≥92% under heterogeneity — a regime witness streams reach only in
+loop-accumulating carriers, not in monotone counts); and on the streams the
+substrate actually stores, the register's level-2 cast is the only stored
+object that can DISCRIMINATE reordering counterfactuals the increments are
+provably blind to. Counterfactual-timeline comparison at register
+resolution is the load-bearing use case, not kernel-value accuracy.
+
+Open: real substrate data (all fixtures synthetic); calibrating the ~2×
+overstatement (per-pair damping from |o_l − o_k| saturation statistics);
+window sensitivity; whether the shared-prefix Goursat reuse (fork-point
+amortization, from the D-SK-B′ discussion) pays at realistic fork counts.
+
+Cross-refs: E-LEVY-AREA-COEFFICIENT-BEATS-REFINEMENT-1 (D-SK-B′),
+E-ORIENTATION-BIT-PARTIAL-NIBBLE-SUFFICES-1 (D-SK-A),
+E-PRESENCE-2BIT-CHEAPER-SIBLING-1, `causal_witness.rs` loci semantics.
+
 ## 2026-08-31 — E-ORIENTATION-BIT-PARTIAL-NIBBLE-SUFFICES-1 — under heterogeneous window-area magnitudes the orientation bit degrades to 81% retention while the i4 nibble holds ≥92%; kernel-scalar error near the discretization floor is cancellation-dominated and must never gate carrier fidelity
 
 **Status:** FINDING (probe run, GREEN, G0–G3 + pre-registered decision rule).
