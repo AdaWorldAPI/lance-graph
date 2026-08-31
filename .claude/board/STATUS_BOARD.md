@@ -1,3 +1,15 @@
+## pillar11-signature-certification-unification-v1
+
+| D-id | deliverable | status |
+|---|---|---|
+| W0 | hygiene: F-1 name collision, F-2 `sigker_hl` misnomer, F-3 stale pre-#350 note | Shipped (lance-graph #1111, ndarray #289) |
+| W1 | cross-repo signature parity bridge (F-4), ndarray `crates/sigker-parity` (excluded) | Shipped — level-normalized err 3.518e-6, margin 28.4x; sabotage caught at 337956x |
+| W2 | depth-infinity uniqueness leg in `jc::hambly_lyons` (M-2) | Shipped — converse law \|dev/area²−2\| = 0.0077; edge measured at area 2.5e-3, boundary at 2.5e-4 |
+| W3 | solver-order + carrier-fidelity battery, NEW slot `jc::solver_order` (M-1, M-4; ruling Q1) | Shipped — 29.90x/41.71x advantage, silence exactly 0, kernel-scalar trap demonstrated |
+| W4 | PSD at depth-infinity (M-3; ruling Q2 cross-repo) | Shipped — Cholesky over 64 paths + indefinite counterexample; concentration 0.0038 at N=1000 |
+| W5 | PowerSig scalability (M-5) | **DEFERRED, trigger measured not fired** — fires at path length ~11585 (memory half); longest in-tree 4609 |
+| — | follow-up: extend the truncated battery's PSD claim from necessary conditions to Cholesky | Queued (non-blocking) |
+
 ## rubicon-loco-rung-cognitive-fabric-v1
 
 | D-id | deliverable | status |
