@@ -1331,3 +1331,31 @@ If B does clear the kill condition, that is a genuine positive and the
 
 Instrument is a throwaway example, reverted after the run; the outcome is
 board-only, whichever way it goes.
+
+### 11.6 OUTCOME (run 2026-08-31)
+
+**G0 caught my first instrument.** Completion was 0.0000 for every arm at
+every cap — the task asked for a macro sharing the cue's left atom and scored
+it correct only if the right atom matched too, which would make it the same
+macro. Structurally unwinnable; per §11.4 no hypothesis verdict was reported.
+Rebuilt as held-out next-macro prediction (115 train chains / 28 held out).
+
+**The gates then passed, against my prediction — and a degree ablation
+withdrew the result.** B beat A and RAND on completion and false resonance at
+all three caps with a smaller footprint, so under §7.2's kill condition it
+survives. But the task uses only each arm's FIRST neighbour, and at
+`DEGREE = 1` B scores **identically to four decimals with 5.5× less memory**
+(0.2730 / 0.1790 / 0.1498; footprint 164→30, 336→60, 632→120). The
+six-neighbourness does nothing; B is a bigram successor table.
+
+**The methodological finding, which outlives this run:** Q6 taught the
+topology null and it was included — but RAND varies the WIRING at fixed
+degree, so it cannot see that degree itself is inert. **A locality claim
+needs a DEGREE ablation, not only a wiring null.** §7.2's probe as specced
+lacks one; any "B wins" it produced would have been unattributable.
+
+Full reading, the weak-A caveat, and the convergence with
+`E-PALETTE256-IS-A-NEEDLE-THE-COLON-IS-THE-DISTRIBUTION-1` (the information
+is in the PAIR, not the neighbourhood's shape):
+`E-Q8-THE-SIX-DOES-NO-WORK-A-DEGREE-ABLATION-COLLAPSES-THE-HEX-OVERLAYS-ENTIRE-ADVANTAGE-1`.
+Instrument reverted; board-only outcome.

@@ -1,3 +1,29 @@
+## 2026-08-31 — E-Q8-THE-SIX-DOES-NO-WORK-A-DEGREE-ABLATION-COLLAPSES-THE-HEX-OVERLAYS-ENTIRE-ADVANTAGE-1 — B passes every pre-registered gate and the pass is unattributable: at degree 1 it scores identically with 5.5x less memory
+
+**Status:** FINDING [MEASURED] — full entry in
+`.claude/board/entries/2026-08-31-e-q8-the-six-does-no-work-a-degree-ablation-collapses-the-hex-overlays-entire-advantage-1.md`.
+**Confidence:** High for the ablation (an equality, not a margin); low for
+any attribution of the advantage to topology — that IS the finding.
+
+Ran §7.2's probe (the one Q6/Q7 did not answer: completion and false
+resonance, not plasticity). B beat A and the RAND null on every metric at
+every cap with a smaller footprint — surviving §7.2's kill condition and
+contradicting my pre-registered prediction. Then the ablation: the task uses
+only each arm's FIRST neighbour, and at degree 1 B scores identically to four
+decimals (0.2730 / 0.1790 / 0.1498) with 5.5x less memory. The six does
+nothing; B is a bigram successor table.
+
+> **A pre-registered gate can pass for a reason the gate cannot see.** Q6
+> taught the topology null and it was included — but RAND varies the WIRING
+> at fixed degree, so it cannot detect that degree itself is inert. A
+> locality claim needs a DEGREE ablation, not only a wiring null.
+
+Converges with `E-PALETTE256-IS-A-NEEDLE-THE-COLON-IS-THE-DISTRIBUTION-1` by
+a different road: the information is in the PAIR, not the neighbourhood's
+shape. One relation carried everything; five more neighbours added bytes.
+
+---
+
 ## 2026-08-31 — E-A-THRESHOLD-IS-BOUND-TO-ITS-STATISTIC-AND-ITS-SAMPLE-1 — a constant carried across either one silently becomes a different gate
 
 **Status:** FINDING — two independent instances in one wave, both caught by
