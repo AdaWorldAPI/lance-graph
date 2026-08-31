@@ -160,6 +160,18 @@ appear anywhere).
 
 ### Challenge 5 — spatial BLASGraph + sparse active frontier
 
+> **⊘ ADDENDUM 2026-08-31 — this structural verdict was later confirmed
+> FUNCTIONALLY, by independent means.** This audit found no hex adjacency by
+> grep (structure). Two 2026-08-26 experiments then measured what a hex
+> topology would BUY, and it bought nothing:
+> `E-Q6-HEX-FAILS-CONTENT-ADDRESSING-IS-CAPACITY-DESTROYING-UNDER-A-SKEWED-DISTRIBUTION-1`
+> and `E-Q7-FREQUENCY-SIZING-RESCUES-THE-LEARNING-GATE-BUT-NOT-THE-INTERFERENCE-CLAIM-AND-THE-2-BYTE-RAILS-ARE-COMPLEMENTARY-NOT-COMPETING-1`
+> (the second removes the first's capacity confound, strengthening it). Two
+> independent lines — absent in the code, and useless when built — that had
+> not been connected. Neither touches the `6×(u8:u8)` RAIL reading, which is
+> canon and a different object; see the §7.2 addendum in
+> `.claude/plans/r2il-machine-semantic-contract-v1.md`.
+
 **Verdict: split finding — hexagonal/axial adjacency is FALSE/not-found everywhere audited;
 a real, working rectangular active-frontier structure exists, but in `ndarray`, unconnected
 to `lance-graph`'s cognitive substrate.**

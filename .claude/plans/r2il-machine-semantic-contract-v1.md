@@ -292,6 +292,54 @@ corpus IS a learned neighbourhood — run completion/false-resonance on it
 under both adjacency readings before building anything. If even that
 cheap form shows no B-advantage, the full probe is not worth its cost.
 
+> **⊘ ADDENDUM 2026-08-31 — the plasticity half of this question has since
+> RUN, and failed; and "six" here is not the "six" that is canon.**
+>
+> §7.2 above is preserved as written (2026-08-25). Read it with two later
+> entries, both measured 2026-08-26:
+>
+> - `E-Q6-HEX-FAILS-CONTENT-ADDRESSING-IS-CAPACITY-DESTROYING-UNDER-A-SKEWED-DISTRIBUTION-1`
+>   — the hex A/B experiment (§9) fails all three HYPOTHESIS gates at every
+>   cap while both VALIDITY gates pass; a random partition with the identical
+>   locality rule beats it outright.
+> - `E-Q7-FREQUENCY-SIZING-RESCUES-THE-LEARNING-GATE-BUT-NOT-THE-INTERFERENCE-CLAIM-AND-THE-2-BYTE-RAILS-ARE-COMPLEMENTARY-NOT-COMPETING-1`
+>   — §10 removes Q6's capacity confound, which STRENGTHENS the refutation:
+>   hexagonal locality does not reduce interference *even when given enough
+>   capacity to learn normally*. (That entry states its own resolution limit:
+>   n=1 per cell, so the claim is "does not meet the bar", not "is worse".)
+>
+> **What is NOT closed by them:** those experiments measured plasticity and
+> interference under capacity. §7.2's probe asks about pattern completion,
+> false resonance and steps-to-convergence — different metrics, still unrun.
+> What they hit is the shared premise, that six-neighbour locality buys
+> something.
+>
+> **The confusable part, stated so no session has to re-derive it.** The
+> six-neighbour OVERLAY tested here lost. The `6×(u8:u8)` RAIL reading of the
+> 12-byte content-blind register is a different object and is CANON — the L4
+> `6× palette256:palette256` tenant over the Morton 2bit×2bit 4×4 cascade
+> (see this repo's `CLAUDE.md`, and OGAR's LE contract §3, where the ClassView
+> holds every reading of the register at once). Both are "six"; only one was
+> falsified.
+>
+> `E-PALETTE256-IS-A-NEEDLE-THE-COLON-IS-THE-DISTRIBUTION-1` (same day) is
+> what makes the rail the stronger candidate rather than merely the surviving
+> one: a single `palette256` index answers *which one* — a needle, exact and
+> prefix-routable; only the PAIR answers *how related*, via the Fisher-z i8
+> k×k LUT. **The colon IS the pairwise-ness** — `6×(u8:u8)` is six RELATIONS,
+> not twelve indices, which is why the canon never writes `palette65536`. That
+> entry also carries a correction to Q7b: Q7b measured palette256 as a needle
+> and read the result as though it spoke to the pairwise rail.
+>
+> **Why the shape earns its quirkiness** (operator, 2026-08-31): 6×2×8 bit
+> looks odd until it is read as traversal and gather, paid for with "11n free
+> masking" — *operator-stated, and recorded as their formulation rather than
+> re-derived here*. The SIMD half IS verifiable and shipped: `ternlog` takes
+> THREE mask operands with an 8-bit truth-table immediate covering all 256
+> three-input boolean functions, on every backend (`ndarray::simd::ternlog`,
+> #285/#287) — so three masks fold in one instruction, and the rail's shape
+> stacks onto that directly.
+
 ### 7.3 Crystallization has a measurable admission criterion now — and needs a DEMOTION gate
 
 Admission (Explore→Learned→System) stays MUL's + the triangle's. What
@@ -629,7 +677,7 @@ run; the doctrine sentences themselves are operator rulings, not findings.
 
 | tier | engine | trigger | status |
 |---|---|---|---|
-| 0 — decode | hexagon recall + exact-table verify | every op | hexagon measured 99.6%; verify tables SHIPPED (ogar-r2il) |
+| 0 — decode | hexagon recall + exact-table verify | every op | hexagon 99.6% **[CONJECTURE — operator-reported, artifact NOT located; see the grading note in §7.8]**; verify tables SHIPPED (ogar-r2il) |
 | 1 — interpret | vectorized r2sym (r2sleigh × ndarray masks) | every (program, mask) | r2sym exists row-at-a-time; vectorization is the build |
 | 2 — native | `ndarray::hpc::jitson_cranelift` via `lance-graph-contract::jit::JitCompiler` | HOT programs | Cranelift engine SHIPPED behind `jit-native`; trait SHIPPED |
 
