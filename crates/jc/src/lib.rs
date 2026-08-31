@@ -40,6 +40,9 @@ pub mod koestenberger;
 pub mod pearl;
 pub mod pflug;
 pub mod precond;
+/// W3 of `pillar11-signature-certification-unification-v1` — a NEW slot, not
+/// a third "Pillar 11": solver-order advantage + carrier-fidelity law.
+pub mod solver_order;
 pub mod substrate;
 pub mod weyl;
 
