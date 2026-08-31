@@ -82,7 +82,7 @@
 //! Until then, this module ships as the *spine* of the architecture
 //! with the same DEFERRED discipline as jc Pillar 11 (Hambly-Lyons).
 
-use crate::signature::{Signature, signature_truncated};
+use crate::signature::{signature_truncated, Signature};
 
 // ════════════════════════════════════════════════════════════════════════════
 // Core types
@@ -236,7 +236,9 @@ mod tests {
     fn trivial_cubature_validates() {
         for dim in 1..=4 {
             let basis = trivial_constant_cubature(dim);
-            basis.validate_basics().expect("trivial cubature must validate");
+            basis
+                .validate_basics()
+                .expect("trivial cubature must validate");
             assert_eq!(basis.cardinality(), 1);
             assert_eq!(basis.degree, 0);
             assert_eq!(basis.dim, dim);
@@ -274,8 +276,13 @@ mod tests {
             paths: vec![vec![vec![0.0, 0.0], vec![1.0, 0.5]]],
             weights: vec![1.0],
         };
-        let err = basis.validate_basics().expect_err("nonzero level-1 must reject");
-        assert!(err.contains("level-1"), "error should mention level-1: {err}");
+        let err = basis
+            .validate_basics()
+            .expect_err("nonzero level-1 must reject");
+        assert!(
+            err.contains("level-1"),
+            "error should mention level-1: {err}"
+        );
     }
 
     #[test]

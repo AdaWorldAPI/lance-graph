@@ -41,4 +41,4 @@ pub mod features;
 
 // Re-export primary API
 pub use detector::{classify, classify_rung_only, classify_style_only};
-pub use features::{SpectralFeatures, extract};
+pub use features::{extract, SpectralFeatures};

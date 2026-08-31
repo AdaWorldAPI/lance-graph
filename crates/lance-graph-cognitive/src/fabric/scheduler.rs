@@ -51,11 +51,11 @@ impl ExecutionMode {
     /// Number of parallel lanes to use.
     pub fn lane_count(&self) -> usize {
         match self {
-            Self::Sprint => 8,  // full fan-out
-            Self::Stream => 1,  // single lane
-            Self::Burst => 4,   // moderate exploration
-            Self::Chunk => 2,   // small batches, verify after each
-            Self::Idle => 0,    // no execution
+            Self::Sprint => 8, // full fan-out
+            Self::Stream => 1, // single lane
+            Self::Burst => 4,  // moderate exploration
+            Self::Chunk => 2,  // small batches, verify after each
+            Self::Idle => 0,   // no execution
         }
     }
 
@@ -521,9 +521,7 @@ mod tests {
 
     fn make_nop_frames(n: usize) -> Vec<FireflyFrame> {
         use crate::fabric::firefly_frame::FrameBuilder;
-        (0..n)
-            .map(|_| FrameBuilder::new(0).lane(0).nop())
-            .collect()
+        (0..n).map(|_| FrameBuilder::new(0).lane(0).nop()).collect()
     }
 
     // --- Mode selection tests ---

@@ -92,10 +92,7 @@ impl ContextSignal {
             0.0
         };
 
-        let peak_activation = active_vals
-            .iter()
-            .copied()
-            .fold(0.0f32, f32::max);
+        let peak_activation = active_vals.iter().copied().fold(0.0f32, f32::max);
 
         Self {
             avg_activation,
@@ -382,8 +379,8 @@ fn compute_modulation(
 
     // Resonance threshold: lower when entropy is high (more uncertain data
     // needs a looser matching threshold).
-    let resonance_threshold = (base.resonance_threshold * (1.0 - feats.entropy * 0.3))
-        .clamp(0.1, 0.95);
+    let resonance_threshold =
+        (base.resonance_threshold * (1.0 - feats.entropy * 0.3)).clamp(0.1, 0.95);
 
     // Fan-out: increase when bridgeness is high (distributed encoding benefits
     // from wider search).
@@ -391,20 +388,19 @@ fn compute_modulation(
     let fan_out = (fan_out_f as usize).max(1).min(30);
 
     // Depth bias: increase with abstraction depth and clustering.
-    let depth_bias = (base.depth_bias + feats.abstraction_depth * 0.3 + feats.clustering * 0.1)
-        .clamp(0.0, 1.0);
+    let depth_bias =
+        (base.depth_bias + feats.abstraction_depth * 0.3 + feats.clustering * 0.1).clamp(0.0, 1.0);
 
     // Breadth bias: increase with entropy and bridgeness.
-    let breadth_bias = (base.breadth_bias + feats.entropy * 0.2 + feats.bridgeness * 0.1)
-        .clamp(0.0, 1.0);
+    let breadth_bias =
+        (base.breadth_bias + feats.entropy * 0.2 + feats.bridgeness * 0.1).clamp(0.0, 1.0);
 
     // Noise tolerance: scale with context confidence.
     let noise_tolerance =
         (base.noise_tolerance * (1.0 + (1.0 - ctx.avg_confidence) * 0.5)).clamp(0.01, 0.8);
 
     // Speed bias: faster when coherence is high (well-understood territory).
-    let speed_bias = (base.speed_bias + ctx.coherence * 0.2 - ctx.emergence * 0.1)
-        .clamp(0.0, 1.0);
+    let speed_bias = (base.speed_bias + ctx.coherence * 0.2 - ctx.emergence * 0.1).clamp(0.0, 1.0);
 
     // Exploration: higher when emergence is strong and clustering is low.
     let exploration =
@@ -428,7 +424,7 @@ fn compute_modulation(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::cognitive::layer_stack::{LayerNode, process_layers_wave, snapshot_consciousness};
+    use crate::cognitive::layer_stack::{process_layers_wave, snapshot_consciousness, LayerNode};
     use crate::core::Fingerprint;
 
     fn make_snapshot() -> ConsciousnessSnapshot {

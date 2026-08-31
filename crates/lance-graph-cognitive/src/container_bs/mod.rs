@@ -31,8 +31,6 @@ pub mod record;
 pub mod search;
 pub mod semiring;
 pub mod spine;
-#[cfg(test)]
-pub mod tests;
 pub mod traversal;
 
 // ============================================================================
@@ -40,15 +38,8 @@ pub mod traversal;
 // ============================================================================
 
 pub use ladybug_contract::container::{
-    Container,
-    CONTAINER_AVX512_ITERS,
-    CONTAINER_BITS,
-    CONTAINER_BYTES,
-    CONTAINER_WORDS,
-    EXPECTED_DISTANCE,
-    MAX_CONTAINERS,
-    SIGMA,
-    SIGMA_APPROX,
+    Container, CONTAINER_AVX512_ITERS, CONTAINER_BITS, CONTAINER_BYTES, CONTAINER_WORDS,
+    EXPECTED_DISTANCE, MAX_CONTAINERS, SIGMA, SIGMA_APPROX,
 };
 
 // Re-export primary types from local submodules

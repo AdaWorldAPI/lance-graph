@@ -3,7 +3,7 @@
 use std::fmt;
 use std::hash::{Hash, Hasher};
 
-use crate::{Error, FINGERPRINT_BITS, FINGERPRINT_U64, Result};
+use crate::{Error, Result, FINGERPRINT_BITS, FINGERPRINT_U64};
 
 /// 16,384-bit binary fingerprint for VSA operations.
 ///

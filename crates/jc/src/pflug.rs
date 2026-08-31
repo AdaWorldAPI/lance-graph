@@ -96,10 +96,10 @@ use crate::PillarResult;
 use std::time::Instant;
 
 // Probe parameters — small enough for exact nested-distance computation.
-const HORIZON: usize = 4;          // T stages → 2^T = 16 terminal scenarios
+const HORIZON: usize = 4; // T stages → 2^T = 16 terminal scenarios
 const N_PERTURBATIONS: usize = 32; // Δ values to sweep for empirical Lipschitz
-const DELTA_BASE: f64 = 1.0;       // Branching parameter for T1
-const DELTA_MAX_PERT: f64 = 0.5;   // Largest perturbation Δ to test
+const DELTA_BASE: f64 = 1.0; // Branching parameter for T1
+const DELTA_MAX_PERT: f64 = 0.5; // Largest perturbation Δ to test
 
 // ════════════════════════════════════════════════════════════════════════════
 // Binary scenario tree — minimal representation.

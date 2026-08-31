@@ -4,11 +4,11 @@
 //! database-layer operations (search_chunks, delta encoding, etc.)
 //! that operate on linked record slices for multi-container geometries.
 
-use super::Container;
 #[allow(unused_imports)]
 use super::geometry::ContainerGeometry;
 #[allow(unused_imports)]
 use super::meta::{MetaView, MetaViewMut, W_REPR_BASE};
+use super::Container;
 
 // Re-export the canonical CogRecord from contract
 pub use ladybug_contract::record::CogRecord;

@@ -58,6 +58,6 @@ pub mod qualia;
 pub mod triangle;
 
 pub use causality::{CausalityFlow, DependencyType};
-pub use nsm::{NSM_PRIMITIVES, NSMField};
-pub use qualia::{QUALIA_DIMENSIONS, QualiaField};
+pub use nsm::{NSMField, NSM_PRIMITIVES};
+pub use qualia::{QualiaField, QUALIA_DIMENSIONS};
 pub use triangle::{GrammarTriangle, TriangleSummary};

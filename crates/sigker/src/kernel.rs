@@ -122,8 +122,8 @@ pub fn signature_kernel_pde(x: &[Vec<f64>], y: &[Vec<f64>]) -> f64 {
             let c_ij: f64 = (0..dim).map(|a| dx_i[a] * (y[j + 1][a] - y[j][a])).sum();
             // First-order scheme: K[i+1,j+1] = K[i+1,j] + K[i,j+1] − K[i,j] + c_ij·K[i,j].
             // Converges to I_0(2√⟨u,v⟩) for linear paths as N → ∞.
-            k_grid[i + 1][j + 1] = k_grid[i + 1][j] + k_grid[i][j + 1] - k_grid[i][j]
-                + c_ij * k_grid[i][j];
+            k_grid[i + 1][j + 1] =
+                k_grid[i + 1][j] + k_grid[i][j + 1] - k_grid[i][j] + c_ij * k_grid[i][j];
         }
     }
 
@@ -286,8 +286,14 @@ mod tests {
         let e_32 = err(32);
         let e_128 = err(128);
         let e_512 = err(512);
-        assert!(e_128 < e_32, "N=128 ({e_128:.3e}) should beat N=32 ({e_32:.3e})");
-        assert!(e_512 < e_128, "N=512 ({e_512:.3e}) should beat N=128 ({e_128:.3e})");
+        assert!(
+            e_128 < e_32,
+            "N=128 ({e_128:.3e}) should beat N=32 ({e_32:.3e})"
+        );
+        assert!(
+            e_512 < e_128,
+            "N=512 ({e_512:.3e}) should beat N=128 ({e_128:.3e})"
+        );
     }
 
     #[test]
@@ -308,9 +314,18 @@ mod tests {
         let err_2 = (k_trunc_2 - k_closed).abs();
         let err_4 = (k_trunc_4 - k_closed).abs();
         let err_6 = (k_trunc_6 - k_closed).abs();
-        assert!(err_4 < err_2, "depth 4 ({err_4:.3e}) should beat depth 2 ({err_2:.3e})");
-        assert!(err_6 < err_4, "depth 6 ({err_6:.3e}) should beat depth 4 ({err_4:.3e})");
-        assert!(err_6 < 1e-4, "depth-6 error {err_6:.3e} above tolerance 1e-4");
+        assert!(
+            err_4 < err_2,
+            "depth 4 ({err_4:.3e}) should beat depth 2 ({err_2:.3e})"
+        );
+        assert!(
+            err_6 < err_4,
+            "depth 6 ({err_6:.3e}) should beat depth 4 ({err_4:.3e})"
+        );
+        assert!(
+            err_6 < 1e-4,
+            "depth-6 error {err_6:.3e} above tolerance 1e-4"
+        );
     }
 
     #[test]
@@ -352,6 +367,9 @@ mod tests {
             path.push(vec![f * 0.1, (f * 0.2).sin()]);
         }
         let k = signature_kernel_pde(&path, &path);
-        assert!(k > 0.0 && k.is_finite(), "k should be finite positive, got {k}");
+        assert!(
+            k > 0.0 && k.is_finite(),
+            "k should be finite positive, got {k}"
+        );
     }
 }

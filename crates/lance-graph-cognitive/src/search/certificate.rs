@@ -96,7 +96,7 @@ impl CausalCertificate {
             && self.granger_ci.0 > 0.0            // CI excludes zero
             && self.direction_p_value < 0.01      // significant direction
             && self.n_source >= self.required_n   // sufficient source data
-            && self.n_target >= self.required_n   // sufficient target data
+            && self.n_target >= self.required_n // sufficient target data
     }
 
     /// Create a certificate from temporal effect size measurement and NARS evidence.
@@ -168,11 +168,7 @@ impl CausalCertificate {
     ///
     /// Uses only NARS evidence. The certificate will NOT be certified
     /// (no Granger signal), but it records the available evidence.
-    pub fn from_nars_only(
-        nars_frequency: f32,
-        nars_confidence: f32,
-        weight: f32,
-    ) -> Self {
+    pub fn from_nars_only(nars_frequency: f32, nars_confidence: f32, weight: f32) -> Self {
         Self {
             effect_size: weight as f64,
             granger_signal: 0.0,
@@ -247,7 +243,11 @@ impl fmt::Display for CausalCertificate {
             f,
             "CausalCert[{}] d={:.3} g={:.3} CI=[{:.3},{:.3}] p={:.4} \
              NARS=<{:.2},{:.2}> n=({},{}) err={:.4}",
-            if self.certified { "CERTIFIED" } else { "UNCERTIFIED" },
+            if self.certified {
+                "CERTIFIED"
+            } else {
+                "UNCERTIFIED"
+            },
             self.effect_size,
             self.granger_signal,
             self.granger_ci.0,
@@ -281,8 +281,7 @@ fn p_from_z(z: f64) -> f64 {
 
     let poly = t
         * (0.319381530
-            + t * (-0.356563782
-                + t * (1.781477937 + t * (-1.821255978 + t * 1.330274429))));
+            + t * (-0.356563782 + t * (1.781477937 + t * (-1.821255978 + t * 1.330274429))));
 
     (p * poly).max(0.0).min(0.5)
 }

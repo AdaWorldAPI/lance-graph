@@ -214,6 +214,20 @@ jobs:
       # explicitly so it can't silently drift.
       - name: Check formatting (deepnsm-v2)
         run: cargo fmt --manifest-path crates/deepnsm-v2/Cargo.toml -- --check
+      # jc + sigker are workspace-excluded, so `cargo fmt --all` never reached
+      # them and nothing ever held them formatted. They had drifted to 214
+      # rustfmt diffs between them (plus thinking-engine); all three are
+      # brought to a clean baseline in this commit. The drift was NOT a
+      # toolchain artefact: rustfmt is 1.9.0 under both the pre-bump 1.95.0
+      # and the pinned 1.97.1 toolchain, and both report the identical 214,
+      # so there was no formatting-rule change to blame -- the code was simply
+      # never formatted. These steps are what keep it from recurring.
+      - name: Check formatting (jc)
+        run: cargo fmt --manifest-path crates/jc/Cargo.toml -- --check
+      - name: Check formatting (sigker)
+        run: cargo fmt --manifest-path crates/sigker/Cargo.toml -- --check
+      - name: Check formatting (thinking-engine)
+        run: cargo fmt --manifest-path crates/thinking-engine/Cargo.toml -- --check
 
   # typos / spell-check removed 2026-04-26: too many false positives on
   # technical jargon (NARS terms, codec acronyms, German loanwords used in

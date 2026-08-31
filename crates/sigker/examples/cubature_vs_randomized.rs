@@ -6,15 +6,15 @@
 //!   cargo run --manifest-path crates/sigker/Cargo.toml \
 //!             --example cubature_vs_randomized --release
 
-use sigker::cubature::{trivial_constant_cubature, hydrate_signature};
+use sigker::cubature::{hydrate_signature, trivial_constant_cubature};
 use sigker::kernel::signature_kernel_pde;
 use sigker::randomized::RandomizedSignatureBuilder;
 
 use std::time::Instant;
 
-const PATH_DIM: usize = 4;     // OSINT-typical edge feature dim
-const PATH_LEN: usize = 64;    // OSINT-typical sub-path length
-const N_PATHS: usize = 256;    // Bench batch size
+const PATH_DIM: usize = 4; // OSINT-typical edge feature dim
+const PATH_LEN: usize = 64; // OSINT-typical sub-path length
+const N_PATHS: usize = 256; // Bench batch size
 const SIG_RAND_DIM: usize = 256;
 
 fn splitmix(state: &mut u64) -> u64 {

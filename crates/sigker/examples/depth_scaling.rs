@@ -24,7 +24,9 @@ fn make_path(seed: u64) -> Vec<Vec<f64>> {
     path.push(pt.clone());
     for _ in 1..PATH_LEN {
         for x in pt.iter_mut() {
-            s = s.wrapping_mul(6364136223846793005).wrapping_add(1442695040888963407);
+            s = s
+                .wrapping_mul(6364136223846793005)
+                .wrapping_add(1442695040888963407);
             let r = ((s >> 33) as f64 / (1u64 << 31) as f64) - 1.0;
             *x += r * 0.3;
         }

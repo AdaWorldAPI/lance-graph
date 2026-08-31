@@ -63,7 +63,9 @@ fn main() {
             assert!(max <= 1.0, "P1 FAILED: max {max} > 1.0");
         }
     }
-    println!("P1  invariant held over 8 tables x 32 cycles: max<=1.0, |sum-1| <= {worst_sum_dev:.2e}");
+    println!(
+        "P1  invariant held over 8 tables x 32 cycles: max<=1.0, |sum-1| <= {worst_sum_dev:.2e}"
+    );
     println!("P3  diffuse tables: worst max = {worst_max:.6} (< 1.0, atanh finite everywhere)");
 
     // ── P2: the attractor — all similarity funnels into column 0 ──────
@@ -78,7 +80,10 @@ fn main() {
     eng.energy[100] = 0.5;
     eng.cycle();
     let (max, _sum, inf) = stats(&eng.energy);
-    println!("P2  attractor: max = {max:?} (bits {:#010X}), atanh-inf cells = {inf}", max.to_bits());
+    println!(
+        "P2  attractor: max = {max:?} (bits {:#010X}), atanh-inf cells = {inf}",
+        max.to_bits()
+    );
     assert_eq!(max, 1.0, "P2: attractor must reach exactly 1.0");
     assert_eq!(inf, 1, "P2: exactly the winner cell must be atanh-infinite");
 

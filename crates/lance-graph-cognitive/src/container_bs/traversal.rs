@@ -9,10 +9,10 @@
 //! container:    1 lookup per node  (record has fp + edges + metadata)
 //! ```
 
-use super::Container;
 use super::adjacency::{InlineEdgeView, PackedDn};
 use super::graph::ContainerGraph;
 use super::search::belichtungsmesser;
+use super::Container;
 use std::collections::HashMap;
 
 // ============================================================================
@@ -197,7 +197,11 @@ impl DnSemiring for ResonanceSearch {
                 // Edge semantic fingerprint ≈ src ⊕ dst (simplified)
                 let edge_fp = src_fp.xor(dst);
                 let dist = edge_fp.hamming(&self.query);
-                if dist < 10000 { 10000 - dist } else { 0 }
+                if dist < 10000 {
+                    10000 - dist
+                } else {
+                    0
+                }
             }
             None => 0,
         }

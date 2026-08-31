@@ -10,7 +10,7 @@ pub mod simd_accel;
 pub use buffer::BufferPool;
 pub use fingerprint::Fingerprint;
 pub use scent::*;
-pub use simd_accel::{HammingEngine, batch_hamming, hamming_distance, simd_level};
+pub use simd_accel::{batch_hamming, hamming_distance, simd_level, HammingEngine};
 pub use vsa::VsaOps;
 
 /// Dense embedding vector

@@ -247,7 +247,10 @@ impl BundlingProposal {
 
     /// Whether this proposal was rejected.
     pub fn is_rejected(&self) -> bool {
-        matches!(self.gate, ndarray::hpc::bnn_cross_plane::CollapseGate::Block)
+        matches!(
+            self.gate,
+            ndarray::hpc::bnn_cross_plane::CollapseGate::Block
+        )
     }
 
     /// Approve the bundling proposal (Flow).
@@ -440,7 +443,14 @@ impl PlaneCalibration {
     ///
     /// Each plane's gate is derived from its own mean distance (μ) and
     /// standard deviation (σ) rather than the global 16K-bit assumption.
-    pub fn from_plane_stats(s_mu: u32, s_sigma: u32, p_mu: u32, p_sigma: u32, o_mu: u32, o_sigma: u32) -> Self {
+    pub fn from_plane_stats(
+        s_mu: u32,
+        s_sigma: u32,
+        p_mu: u32,
+        p_sigma: u32,
+        o_mu: u32,
+        o_sigma: u32,
+    ) -> Self {
         Self {
             s_gate: ndarray::hpc::kernels::SigmaGate::custom(s_mu, s_sigma),
             p_gate: ndarray::hpc::kernels::SigmaGate::custom(p_mu, p_sigma),
@@ -761,8 +771,8 @@ impl AntialiasedSigma {
 // TACTIC #23 AMP: GestaltState → InferenceRuleKind bias
 // =============================================================================
 
-use crate::nars::{InferenceRuleKind, TruthValue};
 use super::spo_harvest::AccumulatedHarvest;
+use crate::nars::{InferenceRuleKind, TruthValue};
 
 /// Per-rule bias vector derived from GestaltState.
 ///
@@ -783,32 +793,32 @@ impl GestaltState {
     pub fn inference_biases(&self) -> [(InferenceRuleKind, f32); 5] {
         match self {
             GestaltState::Crystallizing => [
-                (InferenceRuleKind::Deduction, 0.8),   // commit forward chains
-                (InferenceRuleKind::Revision, 0.5),    // consolidate evidence
-                (InferenceRuleKind::Induction, 0.0),   // neutral
-                (InferenceRuleKind::Abduction, -0.3),  // suppress speculation
-                (InferenceRuleKind::Analogy, -0.2),    // suppress lateral moves
+                (InferenceRuleKind::Deduction, 0.8),  // commit forward chains
+                (InferenceRuleKind::Revision, 0.5),   // consolidate evidence
+                (InferenceRuleKind::Induction, 0.0),  // neutral
+                (InferenceRuleKind::Abduction, -0.3), // suppress speculation
+                (InferenceRuleKind::Analogy, -0.2),   // suppress lateral moves
             ],
             GestaltState::Contested => [
-                (InferenceRuleKind::Analogy, 0.7),     // seek parallel structures
-                (InferenceRuleKind::Abduction, 0.5),   // seek alternative causes
-                (InferenceRuleKind::Revision, 0.3),    // combine conflicting evidence
-                (InferenceRuleKind::Deduction, -0.4),  // don't commit yet
-                (InferenceRuleKind::Induction, 0.0),   // neutral
+                (InferenceRuleKind::Analogy, 0.7),    // seek parallel structures
+                (InferenceRuleKind::Abduction, 0.5),  // seek alternative causes
+                (InferenceRuleKind::Revision, 0.3),   // combine conflicting evidence
+                (InferenceRuleKind::Deduction, -0.4), // don't commit yet
+                (InferenceRuleKind::Induction, 0.0),  // neutral
             ],
             GestaltState::Dissolving => [
-                (InferenceRuleKind::Abduction, 0.8),   // find what went wrong
-                (InferenceRuleKind::Analogy, 0.4),     // find similar patterns
-                (InferenceRuleKind::Induction, 0.2),   // re-generalize
-                (InferenceRuleKind::Deduction, -0.6),  // don't chain from dissolving base
-                (InferenceRuleKind::Revision, -0.3),   // old evidence is suspect
+                (InferenceRuleKind::Abduction, 0.8),  // find what went wrong
+                (InferenceRuleKind::Analogy, 0.4),    // find similar patterns
+                (InferenceRuleKind::Induction, 0.2),  // re-generalize
+                (InferenceRuleKind::Deduction, -0.6), // don't chain from dissolving base
+                (InferenceRuleKind::Revision, -0.3),  // old evidence is suspect
             ],
             GestaltState::Epiphany => [
-                (InferenceRuleKind::Induction, 0.8),   // generalize from new evidence
-                (InferenceRuleKind::Revision, 0.6),    // integrate with existing
-                (InferenceRuleKind::Analogy, 0.4),     // find analogies
-                (InferenceRuleKind::Deduction, 0.0),   // neutral
-                (InferenceRuleKind::Abduction, -0.2),  // new evidence, not explaining failure
+                (InferenceRuleKind::Induction, 0.8), // generalize from new evidence
+                (InferenceRuleKind::Revision, 0.6),  // integrate with existing
+                (InferenceRuleKind::Analogy, 0.4),   // find analogies
+                (InferenceRuleKind::Deduction, 0.0), // neutral
+                (InferenceRuleKind::Abduction, -0.2), // new evidence, not explaining failure
             ],
         }
     }
@@ -1057,7 +1067,9 @@ impl GestaltEngine {
             branch_a.to_string(),
             branch_b.to_string(),
             bundling_type,
-            0, 0, 0, // distances filled by caller with per-plane data
+            0,
+            0,
+            0, // distances filled by caller with per-plane data
             harvest.accumulated_truth.frequency,
             confidence,
             significance,
@@ -1066,7 +1078,10 @@ impl GestaltEngine {
 
         // If Research mode auto-approved, mark it
         if matches!(gate, ndarray::hpc::bnn_cross_plane::CollapseGate::Flow) {
-            proposal.approve("auto".to_string(), "Research mode auto-approval".to_string());
+            proposal.approve(
+                "auto".to_string(),
+                "Research mode auto-approval".to_string(),
+            );
         }
 
         let trajectory = TruthTrajectory::new(proposal);
@@ -1298,7 +1313,10 @@ mod tests {
 
         // Deep discovery: should be firmly in Discovery band
         let aa = AntialiasedSigma::from_distance(100, &gate);
-        assert_eq!(aa.primary, ndarray::hpc::kernels::SignificanceLevel::Discovery);
+        assert_eq!(
+            aa.primary,
+            ndarray::hpc::kernels::SignificanceLevel::Discovery
+        );
         assert!(aa.primary_weight > 0.9);
         assert!(aa.continuous_sigma > 3.0);
 
@@ -1404,7 +1422,10 @@ mod tests {
 
         let idx = result.unwrap();
         let trajectory = &engine.trajectories[idx];
-        assert_eq!(trajectory.proposal.bundling_type, BundlingType::PredicateInversion);
+        assert_eq!(
+            trajectory.proposal.bundling_type,
+            BundlingType::PredicateInversion
+        );
         assert!(trajectory.proposal.is_tentative()); // Production mode: Hold
     }
 
@@ -1462,15 +1483,31 @@ mod tests {
     fn test_gestalt_inference_biases() {
         let biases = GestaltState::Crystallizing.inference_biases();
         // Crystallizing should prefer Deduction
-        let deduction_bias = biases.iter().find(|(r, _)| *r == InferenceRuleKind::Deduction).unwrap().1;
-        let abduction_bias = biases.iter().find(|(r, _)| *r == InferenceRuleKind::Abduction).unwrap().1;
+        let deduction_bias = biases
+            .iter()
+            .find(|(r, _)| *r == InferenceRuleKind::Deduction)
+            .unwrap()
+            .1;
+        let abduction_bias = biases
+            .iter()
+            .find(|(r, _)| *r == InferenceRuleKind::Abduction)
+            .unwrap()
+            .1;
         assert!(deduction_bias > 0.0);
         assert!(abduction_bias < 0.0);
 
         let biases = GestaltState::Dissolving.inference_biases();
         // Dissolving should prefer Abduction
-        let abduction_bias = biases.iter().find(|(r, _)| *r == InferenceRuleKind::Abduction).unwrap().1;
-        let deduction_bias = biases.iter().find(|(r, _)| *r == InferenceRuleKind::Deduction).unwrap().1;
+        let abduction_bias = biases
+            .iter()
+            .find(|(r, _)| *r == InferenceRuleKind::Abduction)
+            .unwrap()
+            .1;
+        let deduction_bias = biases
+            .iter()
+            .find(|(r, _)| *r == InferenceRuleKind::Deduction)
+            .unwrap()
+            .1;
         assert!(abduction_bias > 0.0);
         assert!(deduction_bias < 0.0);
     }
@@ -1479,7 +1516,10 @@ mod tests {
     fn test_gestalt_confidence_modifier() {
         assert!(GestaltState::Crystallizing.confidence_modifier() > 1.0);
         assert!(GestaltState::Contested.confidence_modifier() < 1.0);
-        assert!(GestaltState::Dissolving.confidence_modifier() < GestaltState::Contested.confidence_modifier());
+        assert!(
+            GestaltState::Dissolving.confidence_modifier()
+                < GestaltState::Contested.confidence_modifier()
+        );
     }
 
     // =========================================================================
@@ -1489,10 +1529,16 @@ mod tests {
     #[test]
     fn test_temporal_monotonicity() {
         let proposal = BundlingProposal::new_tentative(
-            "a".to_string(), "b".to_string(),
+            "a".to_string(),
+            "b".to_string(),
             BundlingType::PredicateInversion,
-            200, 7500, 300, 0.5, 0.5,
-            ndarray::hpc::kernels::SignificanceLevel::Evidence, 10,
+            200,
+            7500,
+            300,
+            0.5,
+            0.5,
+            ndarray::hpc::kernels::SignificanceLevel::Evidence,
+            10,
         );
         let mut trajectory = TruthTrajectory::new(proposal);
 
@@ -1522,10 +1568,16 @@ mod tests {
     #[test]
     fn test_skepticism_too_fast() {
         let proposal = BundlingProposal::new_tentative(
-            "a".to_string(), "b".to_string(),
+            "a".to_string(),
+            "b".to_string(),
             BundlingType::PredicateInversion,
-            200, 7500, 300, 0.95, 0.95,
-            ndarray::hpc::kernels::SignificanceLevel::Discovery, 3,
+            200,
+            7500,
+            300,
+            0.95,
+            0.95,
+            ndarray::hpc::kernels::SignificanceLevel::Discovery,
+            3,
         );
         let mut trajectory = TruthTrajectory::new(proposal);
 
@@ -1548,10 +1600,16 @@ mod tests {
     #[test]
     fn test_skepticism_steady_rise() {
         let proposal = BundlingProposal::new_tentative(
-            "a".to_string(), "b".to_string(),
+            "a".to_string(),
+            "b".to_string(),
             BundlingType::PredicateInversion,
-            200, 7500, 300, 0.4, 0.4,
-            ndarray::hpc::kernels::SignificanceLevel::Hint, 5,
+            200,
+            7500,
+            300,
+            0.4,
+            0.4,
+            ndarray::hpc::kernels::SignificanceLevel::Hint,
+            5,
         );
         let mut trajectory = TruthTrajectory::new(proposal);
 

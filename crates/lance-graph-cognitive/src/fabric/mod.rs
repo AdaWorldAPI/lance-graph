@@ -34,10 +34,10 @@ pub mod executor;
 pub mod firefly_frame;
 pub mod gel;
 pub mod mrna;
+pub mod scheduler;
 pub mod shadow;
 pub mod subsystem;
 pub mod udp_transport;
-pub mod scheduler;
 pub mod zero_copy;
 
 pub use butterfly::{Butterfly, ButterflyDetector, ButterflyPrediction};
@@ -46,13 +46,13 @@ pub use firefly_frame::{
     ConditionFlags, ExecutionContext, FireflyFrame, FrameBuilder, FrameHeader, Instruction,
     LanguagePrefix,
 };
-pub use gel::{GelCompiler, GelParser, GelProgram, compile as gel_compile, disassemble};
-pub use mrna::{CrossPollination, FieldSnapshot, MRNA, ResonanceField};
-pub use subsystem::Subsystem;
-pub use udp_transport::{
-    FramePacket, LaneRouter, MAX_UDP_PAYLOAD, ReceiverStats, SenderStats, UdpReceiver, UdpSender,
-};
+pub use gel::{compile as gel_compile, disassemble, GelCompiler, GelParser, GelProgram};
+pub use mrna::{CrossPollination, FieldSnapshot, ResonanceField, MRNA};
 pub use scheduler::{
     BundleCollector, DispatchPlan, ExecutionMode, FireflyScheduler, SchedulerResult, SchedulerStats,
+};
+pub use subsystem::Subsystem;
+pub use udp_transport::{
+    FramePacket, LaneRouter, ReceiverStats, SenderStats, UdpReceiver, UdpSender, MAX_UDP_PAYLOAD,
 };
 pub use zero_copy::{AddrRef, Deferred, ZeroCopyExecutor};

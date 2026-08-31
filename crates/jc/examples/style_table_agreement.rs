@@ -123,14 +123,14 @@ const TABLE_B_ENGINE: [StyleRow; 12] = [
 const TABLE_C_PLANNER: [StyleRow; 12] = [
     ("deliberate", 0.75, 6.0, 0.20),
     ("analytical", 0.85, 4.0, 0.10),
-    ("convergent", 0.70, 6.0, 0.30),   // default
-    ("systematic", 0.70, 6.0, 0.30),   // default
+    ("convergent", 0.70, 6.0, 0.30), // default
+    ("systematic", 0.70, 6.0, 0.30), // default
     ("creative", 0.50, 12.0, 0.80),
-    ("divergent", 0.70, 6.0, 0.30),    // default
+    ("divergent", 0.70, 6.0, 0.30), // default
     ("exploratory", 0.30, 20.0, 1.00),
     ("focused", 0.90, 2.0, 0.05),
-    ("diffuse", 0.70, 6.0, 0.30),      // default
-    ("peripheral", 0.70, 6.0, 0.30),   // default
+    ("diffuse", 0.70, 6.0, 0.30),    // default
+    ("peripheral", 0.70, 6.0, 0.30), // default
     ("intuitive", 0.60, 8.0, 0.40),
     ("metacognitive", 0.70, 8.0, 0.50),
 ];
@@ -179,9 +179,7 @@ fn report_dimension(dim_name: &str, indices: &[usize], which: usize) {
     let col_c = column(&TABLE_C_PLANNER, indices, which);
 
     let n = col_a.len();
-    let ratings: Vec<Vec<f64>> = (0..n)
-        .map(|i| vec![col_a[i], col_b[i], col_c[i]])
-        .collect();
+    let ratings: Vec<Vec<f64>> = (0..n).map(|i| vec![col_a[i], col_b[i], col_c[i]]).collect();
     let icc21 = icc(&ratings, IccForm::Icc2_1);
     let icc31 = icc(&ratings, IccForm::Icc3_1);
 
@@ -246,7 +244,9 @@ fn main() {
     let all_12: Vec<usize> = (0..12).collect();
     let seven_explicit: Vec<usize> = (0..12).filter(|&i| PLANNER_HAS_EXPLICIT[i]).collect();
 
-    println!("╔══ MODE A — all-12 (planner's 5 fallback families use FieldModulation::default) ══╗");
+    println!(
+        "╔══ MODE A — all-12 (planner's 5 fallback families use FieldModulation::default) ══╗"
+    );
     println!();
     report_dimension("resonance_threshold", &all_12, 0);
     report_dimension("fan_out", &all_12, 1);

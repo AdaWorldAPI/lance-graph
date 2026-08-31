@@ -56,9 +56,9 @@ pub struct FlowVector {
 #[derive(Clone, Debug, Default)]
 pub struct QualiaDelta {
     pub activation_change: f32, // Getting calmer or more excited?
-    pub valence_change: f32, // Getting happier or sadder?
-    pub tension_change: f32, // Relaxing or tensing?
-    pub depth_change: f32,   // Getting deeper or shallower?
+    pub valence_change: f32,    // Getting happier or sadder?
+    pub tension_change: f32,    // Relaxing or tensing?
+    pub depth_change: f32,      // Getting deeper or shallower?
 }
 
 impl FlowVector {
@@ -116,7 +116,10 @@ impl FlowVector {
         let divergence_sim = 1.0 - (div_diff / 4.0).min(1.0);
 
         // Qualia similarity: are emotional arcs similar?
-        let qualia_sim = self.qualia_delta.similarity(&other.qualia_delta).unwrap_or(0.0);
+        let qualia_sim = self
+            .qualia_delta
+            .similarity(&other.qualia_delta)
+            .unwrap_or(0.0);
 
         // Weighted combination
         0.4 * transition_sim + 0.2 * magnitude_sim + 0.2 * divergence_sim + 0.2 * qualia_sim

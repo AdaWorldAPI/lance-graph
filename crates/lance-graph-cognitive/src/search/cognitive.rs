@@ -47,7 +47,7 @@
 
 use crate::learning::cognitive_frameworks::{NarsInference, TruthValue};
 use crate::search::causal::CausalSearch;
-use crate::search::hdr_cascade::{HdrIndex, MexicanHat, RollingWindow, hamming_distance};
+use crate::search::hdr_cascade::{hamming_distance, HdrIndex, MexicanHat, RollingWindow};
 
 // =============================================================================
 // CONSTANTS

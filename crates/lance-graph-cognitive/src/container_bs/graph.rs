@@ -14,7 +14,6 @@
 //!
 //! One Redis GET returns both the vector AND its edges.
 
-use super::Container;
 use super::adjacency::{
     AdjacencyView, CsrOverflowView, CsrOverflowViewMut, EdgeDescriptor, InlineEdge, InlineEdgeView,
     InlineEdgeViewMut, PackedDn,
@@ -22,6 +21,7 @@ use super::adjacency::{
 use super::meta::MetaViewMut;
 use super::record::CogRecord;
 use super::search::belichtungsmesser;
+use super::Container;
 use std::collections::HashMap;
 
 // ============================================================================

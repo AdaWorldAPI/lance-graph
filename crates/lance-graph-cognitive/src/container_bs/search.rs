@@ -10,7 +10,7 @@
 //! Level 4: Voyager deep field (stack weak signals) → finds faint matches
 //! ```
 
-use super::{CONTAINER_BITS, CONTAINER_WORDS, Container};
+use super::{Container, CONTAINER_BITS, CONTAINER_WORDS};
 
 // ============================================================================
 // BELICHTUNGSMESSER (Exposure Meter)

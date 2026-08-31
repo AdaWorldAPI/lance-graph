@@ -56,6 +56,20 @@ pub mod scientific;
 pub mod temporal;
 
 pub use hdr_cascade::{
+    // Belichtungsmesser (adaptive threshold search)
+    belichtung_meter,
+    classify_signal,
+    // Core operations
+    hamming_distance,
+    sketch_1bit,
+    sketch_1bit_sum,
+    sketch_4bit,
+    sketch_4bit_sum,
+    sketch_8bit,
+    sketch_8bit_sum,
+
+    // Voyager deep field (orthogonal superposition cleaning)
+    superposition_clean,
     AlienSearch,
 
     // Bound retrieval (A⊗B⊗B=A)
@@ -80,20 +94,6 @@ pub use hdr_cascade::{
     SearchResult,
     SignalClass,
     VoyagerResult,
-    // Belichtungsmesser (adaptive threshold search)
-    belichtung_meter,
-    classify_signal,
-    // Core operations
-    hamming_distance,
-    sketch_1bit,
-    sketch_1bit_sum,
-    sketch_4bit,
-    sketch_4bit_sum,
-    sketch_8bit,
-    sketch_8bit_sum,
-
-    // Voyager deep field (orthogonal superposition cleaning)
-    superposition_clean,
 };
 
 pub use causal::{

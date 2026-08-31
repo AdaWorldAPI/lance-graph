@@ -3,10 +3,10 @@
 //! With CONTAINER_WORDS = 256 a single Container holds the full 16K fingerprint.
 //! The old "Extended" split into two 128-word halves is no longer needed.
 
-use super::CONTAINER_WORDS;
 use super::geometry::ContainerGeometry;
 use super::meta::MetaViewMut;
 use super::record::CogRecord;
+use super::CONTAINER_WORDS;
 
 /// Convert a 16K Fingerprint ([u64; 256]) to a CogRecord (Cam geometry).
 ///
@@ -17,7 +17,8 @@ pub fn migrate_16k(old: &[u64; 256]) -> CogRecord {
     let mut record = CogRecord::new(ContainerGeometry::Cam);
 
     // Content: first 128 words = primary fingerprint signal
-    record.content
+    record
+        .content
         .words
         .copy_from_slice(&old[..CONTAINER_WORDS]);
 

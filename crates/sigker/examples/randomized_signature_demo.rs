@@ -12,9 +12,24 @@ fn main() {
     let builder = RandomizedSignatureBuilder::new(2, 64, 0xADA_F00D);
 
     // Three reference paths.
-    let line = vec![vec![0.0, 0.0], vec![1.0, 0.0], vec![2.0, 0.0], vec![3.0, 0.0]];
-    let arc = vec![vec![0.0, 0.0], vec![1.0, 0.5], vec![2.0, 0.5], vec![3.0, 0.0]];
-    let zigzag = vec![vec![0.0, 0.0], vec![1.0, 1.0], vec![2.0, -1.0], vec![3.0, 1.0]];
+    let line = vec![
+        vec![0.0, 0.0],
+        vec![1.0, 0.0],
+        vec![2.0, 0.0],
+        vec![3.0, 0.0],
+    ];
+    let arc = vec![
+        vec![0.0, 0.0],
+        vec![1.0, 0.5],
+        vec![2.0, 0.5],
+        vec![3.0, 0.0],
+    ];
+    let zigzag = vec![
+        vec![0.0, 0.0],
+        vec![1.0, 1.0],
+        vec![2.0, -1.0],
+        vec![3.0, 1.0],
+    ];
 
     let s_line = builder.encode(&line);
     let s_arc = builder.encode(&arc);
@@ -47,7 +62,10 @@ fn main() {
     ];
     let s_line_sub = builder.encode(&line_subdivided);
     println!("Reparametrization (line vs subdivided line):");
-    println!("  cosine = {:.6}  (should be very close to 1.0)", s_line.cosine(&s_line_sub));
+    println!(
+        "  cosine = {:.6}  (should be very close to 1.0)",
+        s_line.cosine(&s_line_sub)
+    );
     println!();
 
     // Determinism across builder instantiations with the same seed.
@@ -60,5 +78,9 @@ fn main() {
         .map(|(a, b)| (a - b).abs())
         .fold(0.0f64, f64::max);
     println!("Determinism check (same seed, different builder instance):");
-    println!("  max |Δ| across all {} dims = {:.2e}", s_line.dim(), max_diff);
+    println!(
+        "  max |Δ| across all {} dims = {:.2e}",
+        s_line.dim(),
+        max_diff
+    );
 }

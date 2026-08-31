@@ -22,8 +22,8 @@
 
 use crate::core::Fingerprint;
 use crate::FINGERPRINT_U64;
-use ladybug_contract::Container;
 use ladybug_contract::container::CONTAINER_WORDS;
+use ladybug_contract::Container;
 
 // ndarray HPC imports (replacing rustynum-core::simd and rustynum-rs)
 use ndarray::hpc::bitwise::{hamming_distance_raw, popcount_raw};
@@ -63,10 +63,7 @@ pub fn fingerprint_popcount(fp: &Fingerprint) -> u32 {
 /// On AVX-512 VPOPCNTDQ hardware: 32 XOR + 32 VPOPCNTDQ = 64 instructions.
 #[inline]
 pub fn fingerprint_hamming(a: &Fingerprint, b: &Fingerprint) -> u32 {
-    hamming_distance_raw(
-        view_u64_as_bytes(a.as_raw()),
-        view_u64_as_bytes(b.as_raw()),
-    ) as u32
+    hamming_distance_raw(view_u64_as_bytes(a.as_raw()), view_u64_as_bytes(b.as_raw())) as u32
 }
 
 /// Similarity (0.0–1.0) between two Fingerprints.
@@ -81,10 +78,7 @@ pub fn fingerprint_similarity(a: &Fingerprint, b: &Fingerprint) -> f32 {
 /// Useful for embedding similarity in CogRecord Container 3.
 #[inline]
 pub fn fingerprint_dot_i8(a: &Fingerprint, b: &Fingerprint) -> i64 {
-    ndarray::simd_avx2::dot_i8(
-        view_u64_as_bytes(a.as_raw()),
-        view_u64_as_bytes(b.as_raw()),
-    )
+    ndarray::simd_avx2::dot_i8(view_u64_as_bytes(a.as_raw()), view_u64_as_bytes(b.as_raw()))
 }
 
 // ────────────────────────────────────────────────────────────────
@@ -102,10 +96,7 @@ pub fn container_popcount(c: &Container) -> u32 {
 /// Hamming distance between two Containers using runtime-dispatched VPOPCNTDQ.
 #[inline]
 pub fn container_hamming(a: &Container, b: &Container) -> u32 {
-    hamming_distance_raw(
-        view_u64_as_bytes(&a.words),
-        view_u64_as_bytes(&b.words),
-    ) as u32
+    hamming_distance_raw(view_u64_as_bytes(&a.words), view_u64_as_bytes(&b.words)) as u32
 }
 
 /// Container similarity (0.0–1.0).
@@ -120,10 +111,7 @@ pub fn container_similarity(a: &Container, b: &Container) -> f32 {
 /// For embedding containers (CogRecord Container 3).
 #[inline]
 pub fn container_dot_i8(a: &Container, b: &Container) -> i64 {
-    ndarray::simd_avx2::dot_i8(
-        view_u64_as_bytes(&a.words),
-        view_u64_as_bytes(&b.words),
-    )
+    ndarray::simd_avx2::dot_i8(view_u64_as_bytes(&a.words), view_u64_as_bytes(&b.words))
 }
 
 /// Bundle multiple Containers using ndarray's majority-vote algorithm.
@@ -139,10 +127,7 @@ pub fn container_bundle(items: &[&Container]) -> Container {
     }
 
     // Zero-copy: view each Container's words as &[u8] (no .to_vec())
-    let slices: Vec<&[u8]> = items
-        .iter()
-        .map(|c| view_u64_as_bytes(&c.words))
-        .collect();
+    let slices: Vec<&[u8]> = items.iter().map(|c| view_u64_as_bytes(&c.words)).collect();
 
     let result_bytes = ndarray::Array::<u8, ndarray::Ix1>::hdc_bundle_byte_slices(&slices);
 

@@ -88,8 +88,8 @@ pub mod storage {
 /// Compatibility module mirroring ladybug-rs `crate::core::*`.
 /// Modules reference `crate::core::Fingerprint`, `crate::core::simd_accel::*`, etc.
 pub mod core {
-    pub use super::Fingerprint;
     pub use super::Embedding;
+    pub use super::Fingerprint;
     pub const DIM: usize = super::FINGERPRINT_BITS;
     pub const DIM_U64: usize = super::FINGERPRINT_U64;
 
@@ -106,12 +106,16 @@ pub mod core {
         }
         pub fn batch_hamming(query: &[u8], database: &[u8], vec_len: usize) -> Vec<u64> {
             let n = database.len() / vec_len;
-            (0..n).map(|i| {
-                let start = i * vec_len;
-                ndarray::simd::hamming_distance_raw(query, &database[start..start + vec_len])
-            }).collect()
+            (0..n)
+                .map(|i| {
+                    let start = i * vec_len;
+                    ndarray::simd::hamming_distance_raw(query, &database[start..start + vec_len])
+                })
+                .collect()
         }
-        pub fn simd_level() -> &'static str { "ndarray" }
+        pub fn simd_level() -> &'static str {
+            "ndarray"
+        }
     }
 
     /// VSA operations trait (ladybug-rs compat).

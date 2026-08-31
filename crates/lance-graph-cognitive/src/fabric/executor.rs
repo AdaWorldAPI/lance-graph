@@ -22,7 +22,7 @@ use super::firefly_frame::{
     ConditionFlags, ExecutionContext, FireflyFrame, Instruction, LanguagePrefix,
 };
 use crate::nars::TruthValue;
-use crate::storage::{Addr, BindSpace, FINGERPRINT_WORDS, Substrate, SubstrateConfig};
+use crate::storage::{Addr, BindSpace, Substrate, SubstrateConfig, FINGERPRINT_WORDS};
 
 // =============================================================================
 // REGISTER FILE

@@ -98,7 +98,7 @@ fn rand_beta22(state: &mut u64) -> f64 {
 // ════════════════════════════════════════════════════════════════════════════
 
 const PHI_INV: f64 = 0.618_033_988_749_894_9; // 1/φ
-const STRIDE: f64 = PHI_INV / 4.0;             // 1/(4φ) ≈ 0.1545
+const STRIDE: f64 = PHI_INV / 4.0; // 1/(4φ) ≈ 0.1545
 
 fn apply_offset(value: f64, k: usize) -> f64 {
     let offset = k as f64 * STRIDE;
@@ -333,7 +333,11 @@ mod tests {
         // So order: 1 (d=0.1), 3 (d=0.1), 0 (d=0.3), 2 (d=0.5)
         let codebook = [0.1, 0.5, 0.9, 0.3];
         let ranking = rank_codebook(0.4, &codebook);
-        assert_eq!(ranking[0], 1, "closest should be index 1 (value 0.5), got {}", ranking[0]);
+        assert_eq!(
+            ranking[0], 1,
+            "closest should be index 1 (value 0.5), got {}",
+            ranking[0]
+        );
     }
 
     #[test]

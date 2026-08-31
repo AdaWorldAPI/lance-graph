@@ -16,10 +16,10 @@
 //! None of these paths touches uninvolved branches. The total write amplification
 //! is bounded by O(depth) = O(log n), with a constant of 1 KB XOR per level.
 
-use super::Container;
 use super::cache::CacheError;
 use super::search::belichtungsmesser;
 use super::spine::SpineCache;
+use super::Container;
 
 /// Default split threshold: if delta popcount between a leaf and its nearest
 /// sibling exceeds this, create a new sub-spine instead of inserting as sibling.
