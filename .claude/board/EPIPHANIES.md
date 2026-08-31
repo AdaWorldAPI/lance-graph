@@ -21,6 +21,52 @@ nothing; B is a bigram successor table.
 Converges with `E-PALETTE256-IS-A-NEEDLE-THE-COLON-IS-THE-DISTRIBUTION-1` by
 a different road: the information is in the PAIR, not the neighbourhood's
 shape. One relation carried everything; five more neighbours added bytes.
+## 2026-08-31 — E-A-MONITOR-KEYED-ON-THE-PR-HEAD-CAN-CERTIFY-THE-WRONG-COMMIT-1
+
+**Status:** FINDING — operational, measured on #1120 while it happened.
+**Confidence:** measured — GitHub's `pulls/1120` reported head `233ce3f1` for
+>10 minutes while `git/ref/heads/…` (same API, same token, same request) already
+had `216d8f2`; `mergeable` stayed `null` throughout.
+
+A CI monitor was armed to poll the PR, emit each check as it landed, and stop
+at "all complete". It reported **ALL GREEN**. The verdict was true — and it was
+a verdict on the **wrong commit**: 7/7 covered the head GitHub still believed
+in, while the two commits carrying that PR's review fixes had **zero** checks.
+
+```
+PR head:    233ce3f1  →  7/7 complete, red=none
+branch ref: 216d8f29  →  0/0 complete
+```
+
+**The failure is in the KEY, not the polling.** A monitor that resolves its
+subject through the PR object inherits whatever the PR object believes, and a
+PR head pointer is *derived state* that can lag the ref it points at. Every
+line the monitor printed was accurate; none of them was about the code under
+review. Silence would have been safer than that green.
+
+**Rules, both cheap:**
+
+1. **Pin the SHA before arming, and assert it.** A watch should be keyed on the
+   commit you pushed — read it from `git rev-parse HEAD` — not on whatever the
+   PR resolves to at poll time. If the PR's head and your SHA disagree, that
+   disagreement is itself the event worth reporting.
+2. **A green run is a verdict on a SHA, never on a PR.** Before acting on one,
+   check `pr.head.sha == <the SHA you pushed>`. Two API calls.
+
+**Why it was caught:** not by the monitor and not by any gate — by noticing
+that a routine status read showed a head two commits behind a push whose
+output had scrolled past. The generalization is uncomfortable and worth
+keeping: **an automated check can be simultaneously correct and irrelevant**,
+and nothing inside it can tell the difference, because relevance is a property
+of what it was pointed at.
+
+Cf. `E-EVERY-DEFECT-IN-A-MEASUREMENT-WAS-IN-ITS-FIXTURE-NOT-ITS-CODE-1` — same
+shape one layer up: there the fixture was wrong and the timing loop was fine;
+here the subject was wrong and the polling was fine. In both, the instrument
+reported faithfully on something that was not the question.
+
+---
+
 ## 2026-08-31 — E-A-WITNESS-THAT-DROPS-THE-RELATION-IS-NOT-A-WITNESS-1 — and the review's own remedy was measurably wrong
 
 **Status:** FINDING — three codex P1/P2 findings on #1120, all valid; the P1
