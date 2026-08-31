@@ -73,7 +73,8 @@ fn distinct_p64_targets_collapse_to_one_emitted_ce64_identity() {
         "probe is vacuous: P64 did not produce multiple target archetypes: {targets:?}"
     );
     assert!(
-        raw.windows(2).all(|pair| pair[0].distance == pair[1].distance),
+        raw.windows(2)
+            .all(|pair| pair[0].distance == pair[1].distance),
         "probe requires equal metric distance so only identity can distinguish targets: {raw:?}"
     );
 
