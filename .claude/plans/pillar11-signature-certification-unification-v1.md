@@ -1,10 +1,15 @@
 # pillar11-signature-certification-unification-v1
 
-**Status:** ACTIVE — W0 green-lit and executing (operator, 2026-08-31);
-Q1–Q3 ruled same day: **Q1 = a new jc pillar slot** (W3's home), **Q2 =
+**Status:** W0-W4 SHIPPED, W5 DEFERRED (trigger measured, not fired) —
+executed autoattended 2026-08-31 on operator green-light. Every wave's
+constants were re-derived from a committed sweep rather than inherited; three
+of the plan's own pre-registered gates were falsified BY those sweeps and
+replaced, each with its measurement (see § 7 Execution record).
+~~ACTIVE — W0 green-lit and executing (operator, 2026-08-31);
+Q1-Q3 ruled same day: **Q1 = a new jc pillar slot** (W3's home), **Q2 =
 cross-repo sigker call** (W4's kernel source; an f32 port waits for W5's
 trigger), **Q3 = docs only** (the ndarray rename touches no registry slot
-id). Original line preserved below.
+id). Original line preserved below.~~
 ~~PROPOSED (plan-only — no wave runs without operator green-light).~~
 **Scope:** lance-graph `crates/jc/src/hambly_lyons.rs` × ndarray
 `src/hpc/pillar/signature.rs` × sigker × the two signature-kernel papers.
@@ -178,3 +183,49 @@ area/feature domain); every filter/guard ships its can-fire AND
 can-stay-silent halves with non-trivial inputs; convergence-order gates
 bind in the regime the theory names (W relative to period), never on a
 fixed absolute range.
+
+
+## 7. Execution record (2026-08-31, autoattended)
+
+| Wave | Home | State | Gate, as SHIPPED (not as planned where they differ) |
+|---|---|---|---|
+| W0 | both | shipped | docs-only; F-1/F-2/F-3 closed (lance-graph #1111, ndarray #289) |
+| W1 | ndarray `crates/sigker-parity` (excluded) | shipped | level-normalized err 3.518e-6 < 1e-4 (margin 28.4x); sabotaged Chen accumulation caught at 337956x the bound |
+| W2 | lance-graph `jc::hambly_lyons` | shipped | forward 3.431e-6 < 5e-5; converse LAW \|dev/area²−2\| = 0.0077 < 0.05; edge area 2.5e-3 distinguished; area 2.5e-4 NOT (the boundary) |
+| W3 | lance-graph `jc::solver_order` (new slot, Q1) | shipped | 29.90x / 41.71x super-period advantage; area-free silence exactly 0; area-RMS monotone in bit depth AND the kernel-scalar trap demonstrated |
+| W4 | ndarray `crates/sigker-parity` (Q2 cross-repo) | shipped | Gram PSD by Cholesky over 64 paths + indefinite counterexample rejected; concentration 0.0038 at N=1000 (truncated: 0.0481) |
+| W5 | — | DEFERRED, trigger measured | memory half fires at path length ~11585, time half ~33388; longest in-tree path 4609 → **not fired**. `cargo run --release --manifest-path crates/jc/Cargo.toml --features hambly-lyons --example w5_trigger_check` |
+
+### Three pre-registered gates that the sweeps falsified
+
+Each was written into this plan in good faith and did not survive contact
+with a measurement. All three failures were in the GATE, not in the code
+under test — which is the outcome the probe-first discipline exists to
+produce.
+
+1. **W1's per-coefficient relative bound** was the cancellation trap one
+   level down: a level-3 coefficient passing through zero cannot be its own
+   denominator. Replaced by level-scaled normalization, which is flat at
+   2.4e-6..9.0e-6 across a 16x range of path length.
+   (`E-LEVEL-SCALED-NORMALIZATION-IS-THE-SIGNATURE-PARITY-GATE-1`.)
+2. **W2's amended converse gate** (δ = 0.05, min over random triangles) was
+   wrong twice over: δ was inherited from a different statistic, and a random
+   minimum gets EASIER with a smaller sample (1.53e-2 at 25 pairs → 1.03e-1
+   at 12). Replaced by the measured law `dev ≈ 2·area²` plus an explicit
+   distinguishability edge.
+   (`E-DEPTH-INF-CONVERSE-IS-QUADRATIC-IN-LEVY-AREA-1`.)
+3. **W4's concentration bound** (0.20) was inherited across sample sizes, not
+   statistics: at the Gram pool's N = 64 the TRUNCATED kernel fails it too
+   (0.3461). Re-run at matched N = 1000.
+   (`E-A-THRESHOLD-IS-BOUND-TO-ITS-STATISTIC-AND-ITS-SAMPLE-1`.)
+
+### Follow-ups opened, none blocking
+
+- The truncated battery's own PSD claim rests on diagonal positivity +
+  Cauchy-Schwarz, which cannot see an indefinite Gram (W4's falsifier is the
+  proof). Nothing shows its Gram IS indefinite — only that the test could not
+  tell. Extending it to Cholesky is a small, separate change.
+  (`E-NECESSARY-CONDITIONS-ARE-NOT-A-PSD-TEST-1`.)
+- `crates/jc` carries 38 pre-existing `clippy -D warnings` errors (hex-literal
+  grouping, one unused import) in modules untouched by this work. Count
+  verified identical before and after.

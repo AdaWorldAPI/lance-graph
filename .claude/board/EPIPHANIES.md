@@ -1,3 +1,142 @@
+## 2026-08-31 — E-A-THRESHOLD-IS-BOUND-TO-ITS-STATISTIC-AND-ITS-SAMPLE-1 — a constant carried across either one silently becomes a different gate
+
+**Status:** FINDING — two independent instances in one wave, both caught by
+the measurement, both would have shipped as "the kernel is broken".
+**Confidence:** measured (Pillar-11 W2 + W4, `pillar11-signature-certification-unification-v1`).
+
+Two gates failed in this arc. Neither failure was in the code under test.
+
+**Instance 1 — across STATISTICS (W2).** The plan's amended depth-infinity
+leg inherited `δ = 0.05` from the depth-2 leg. But 0.05 belongs to a
+Frobenius distance between depth-2 signature TENSORS; the depth-infinity leg
+measures a normalized KERNEL deviation, whose converse floor is 1.340e-2.
+The gate would have gone red on a units mismatch and read as "depth-infinity
+uniqueness fails".
+
+**Instance 2 — across SAMPLE SIZES (W4).** The depth-infinity concentration
+leg inherited the 0.20 half-mean bound from the truncated battery, which
+runs 1000 paths, and applied it to a 64-path Gram pool: 0.289, red. Measured,
+the TRUNCATED kernel scores 0.3461 on the same 64 paths and fails its own
+bound. Half-mean agreement is a sample-size statistic before it is a kernel
+property. At matched N = 1000 the depth-infinity kernel scores 0.0038 —
+BETTER than the truncated one's 0.0481.
+
+The shape is one rule: **a numeric threshold is meaningless without its
+statistic and its sample size attached.** Reusing a constant because the two
+quantities sound alike is how a battery keeps a green light while measuring
+something else — or, as here, produces a red one that indicts innocent code.
+Both instances cost a diagnostic cycle each; neither was visible from the
+constant's name.
+
+Consequence for any battery in this workspace: when a gate is extended to a
+new object, its constants are RE-DERIVED from a sweep on that object, and
+the sweep is committed next to the gate. Where a constant is deliberately
+shared, the doc says which statistic and which N make it comparable.
+
+Cross-ref: the same failure mode one layer down in
+`E-LEVEL-SCALED-NORMALIZATION-IS-THE-SIGNATURE-PARITY-GATE-1` (W1), where
+the inherited instinct was a per-coefficient relative error.
+
+---
+
+## 2026-08-31 — E-LEVEL-SCALED-NORMALIZATION-IS-THE-SIGNATURE-PARITY-GATE-1 — per-coefficient relative error is the cancellation trap, one level down from where D-SK met it
+
+**Status:** FINDING — the W1 parity bridge failed on its first gate and the
+diagnostic said why.
+**Confidence:** measured, 1000 paths at each of five path lengths.
+
+The cross-repo parity test (ndarray `signature_d2_deg3` vs sigker
+`signature_truncated`) was written with the obvious gate — per-coefficient
+relative error — and it FAILED. The formula is exact: on a single segment
+(closed form, no accumulation) the two implementations agree to the last f32
+bit. The gap appears only on level-3 coefficients that cancel toward zero,
+where relative error against a vanishing denominator is unbounded no matter
+how correct the code is.
+
+Measured over 1000 paths at each length:
+
+```
+     N  worst |abs|   worst /coeff  worst /levelmax
+    16     8.741e-7        2.010e2         6.452e-6
+    32     3.865e-6        1.827e3         2.439e-6
+    64     1.727e-5        7.911e2         4.154e-6
+   128     7.587e-5        7.779e2         4.070e-6
+   256     2.988e-4        7.926e3         9.032e-6
+```
+
+Per-coefficient swings 2e2..8e3 with no trend. Absolute grows ~N² with the
+signature's own scale. Normalized by the characteristic magnitude of the
+coefficient's own LEVEL it is flat at 2.4e-6..9.0e-6 across a 16x range of
+path length — and flat is what a property of the implementation looks like.
+
+This is `E-LEVY-AREA-COEFFICIENT-BEATS-REFINEMENT-1`'s companion law —
+"never gate carrier fidelity on kernel-scalar error near the discretization
+floor" — met one level down, on individual signature coefficients rather
+than on the kernel scalar. The general form: **a quantity that reaches zero
+by cancellation cannot be its own denominator.** Normalize by the scale its
+level actually carries.
+
+---
+
+## 2026-08-31 — E-DEPTH-INF-CONVERSE-IS-QUADRATIC-IN-LEVY-AREA-1 — the depth-infinity uniqueness leg has a measurable law and a measurable edge, and a random minimum was the wrong instrument for both
+
+**Status:** FINDING — replaced the plan's own amended gate, which was
+sample-shaped rather than law-shaped.
+**Confidence:** measured (`crates/jc/examples/w2_area_edge.rs`).
+
+W2 gates "a non-tree loop is distinguished from a tree-like one" at
+depth-infinity. The amended plan gated the MINIMUM deviation over random
+triangles. That instrument is backwards: the measured minimum moved from
+1.53e-2 at 25 pairs to 1.03e-1 at 12, because fewer draws find fewer
+near-degenerate triangles. **A gate that gets easier with a smaller sample
+is not a gate.**
+
+Measured on a controlled family instead (apex offset `h` off the base
+midpoint, enclosed area exactly `h/2`), the deviation obeys a law:
+
+```
+   dev  ~  2 · area²      dev/area² = 1.9923, 1.9985, 2.0012, 2.0051
+                          as the area shrinks
+```
+
+with an artifact floor of 2.119e-7 at exactly `h = 0` (tree-like). So the
+leg certifies the FUNCTIONAL FORM (deviation is quadratic in enclosed Lévy
+area) and states its own boundary: area 2.5e-3 IS distinguished (~60x the
+floor), area 2.5e-4 is NOT. The second half is what makes the first mean
+something — a converse gate with no measured edge is satisfied by every
+input.
+
+Companion measurement: the forward artifact is second order in refinement
+(ratio 4.00 per doubling, converged), which is why the raw 3-point
+out-and-back — `K(x,x) = 1 + a²`, the amendment's premise — is a
+discretization artifact and not a uniqueness failure.
+
+---
+
+## 2026-08-31 — E-NECESSARY-CONDITIONS-ARE-NOT-A-PSD-TEST-1 — diagonal positivity plus Cauchy-Schwarz cannot see an indefinite Gram, and the falsifier is one line
+
+**Status:** FINDING — W4, and a standing gap in the truncated battery it
+extends.
+**Confidence:** measured; the counterexample is constructed and asserted.
+
+ndarray's `prove_pillar_11` certifies "PSD" via two criteria: every diagonal
+positive, and Cauchy-Schwarz on every pair. Both are NECESSARY. Neither, nor
+both together, is SUFFICIENT — a matrix can satisfy them and still have a
+negative eigenvalue.
+
+The W4 depth-infinity leg adds Cholesky, which exists iff the matrix is
+positive definite, and the falsifier makes the distinction concrete rather
+than pedantic: a Gram with one off-diagonal pair sign-flipped keeps every
+diagonal positive AND satisfies Cauchy-Schwarz everywhere, and is rejected
+only by Cholesky, at leading minor 2.
+
+The depth-infinity Gram itself passes all three over 64 Brownian paths, so
+M-3 holds. But the truncated battery's own PSD claim rests on the weaker
+pair — a follow-up, not a defect found: nothing shows its Gram is
+indefinite, only that its test could not tell.
+
+---
+
 ## 2026-08-31 — E-CONSUMER-PINS-ON-INTERNAL-SIBLINGS-PROHIBITED-1 — no consumer may pin lance-graph, ndarray, or OGAR; the pin whitelist stays exactly the four external storage/query coordinates
 
 **Status:** OPERATOR-RULED (2026-08-31), banked in
