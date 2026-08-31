@@ -68,11 +68,20 @@ fn main() {
     );
 
     // The longest path this workspace's own certification legs construct.
-    let longest_in_tree = 4609usize; // W2 triangle at 1536 pts/segment, 3 segments
-    println!(
-        "\n  longest path constructed anywhere in-tree today: {longest_in_tree} \
-         (the W2 depth-infinity converse leg)"
-    );
+    // DERIVED, never retyped. Each battery exports the length of the longest
+    // path it builds, so raising a resolution anywhere re-arms this check
+    // automatically. The previous revision hardcoded 4609 with a comment
+    // explaining where it came from — which is exactly how a measurement
+    // that later moves keeps reporting its old value, and a trigger that
+    // reports a stale value is worse than no trigger.
+    let longest_in_tree =
+        jc::hambly_lyons::LONGEST_PATH_POINTS.max(jc::solver_order::LONGEST_PATH_POINTS);
+    let owner = if jc::hambly_lyons::LONGEST_PATH_POINTS >= jc::solver_order::LONGEST_PATH_POINTS {
+        "the W2 depth-infinity converse leg"
+    } else {
+        "the W3 solver-order battery"
+    };
+    println!("\n  longest path constructed anywhere in-tree today: {longest_in_tree} ({owner})");
     let fired = longest_in_tree as f64 >= mem_len.min(time_len);
     println!("  TRIGGER FIRED: {fired}");
     if !fired {

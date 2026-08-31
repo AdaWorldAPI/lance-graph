@@ -146,6 +146,12 @@ mod active {
     // sweeps: `examples/w2_refinement_sweep.rs` (convergence) and
     // `examples/w2_area_edge.rs` (the converse law and its edge).
     const PER_SEG: usize = 1536;
+    /// Points in the longest path this leg constructs: the converse triangle
+    /// is three resampled segments plus the closing point. Exported so the W5
+    /// trigger check DERIVES the in-tree maximum instead of restating it —
+    /// a measured value retyped into a second file is one that goes stale
+    /// silently, and the trigger's whole job is to notice when it has not.
+    pub const LONGEST_PATH_POINTS: usize = 3 * PER_SEG + 1;
     /// Forward pairs. The forward statistic is population-stable — the
     /// refinement sweep measured max deviation 5.005e-6 at both 12 and 25
     /// pairs — so a small sample is a faithful one here.
@@ -414,6 +420,11 @@ mod active {
         }
     }
 }
+
+/// Points in the longest path this module constructs — see the constant's
+/// own doc in the gated implementation.
+#[cfg(feature = "hambly-lyons")]
+pub use active::LONGEST_PATH_POINTS;
 
 #[cfg(feature = "hambly-lyons")]
 pub fn prove() -> PillarResult {
