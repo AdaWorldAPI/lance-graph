@@ -30,6 +30,32 @@ not just satisfy the type checker.
 crates/sigker/Cargo.toml --lib` builds and reports a test count > 0. Today
 it reports a build failure, which is distinguishable from "0 tests".
 
+> **⊘ CORRECTED + RESOLVED (2026-08-31).** Two corrections to the entry
+> above, both from reading the code instead of the error message:
+>
+> 1. **"The fix is not obvious" was wrong — overstated by its own author.**
+>    The failing sorts are in `#[cfg(test)] mod tests` only
+>    (`shuffle.rs:122-123`, test `shuffle_is_commutative_in_count`); the
+>    *library* always compiled. And no NaN policy decision was actually at
+>    stake: the `f64` is a shuffle-multiplicity coefficient — exact small
+>    counts accumulated by `+= 1.0` — so NaN is unreachable, and the sort
+>    exists only to canonicalize two multisets before `assert_eq!`. Since
+>    `shuffle_product` aggregates duplicate words, the word is already a
+>    unique key; ordering by word is canonical and the coefficient never
+>    breaks a tie. The fix was mechanical: `sort_by` on
+>    `word.cmp(...).then(coeff.total_cmp(...))` — `total_cmp` chosen not as
+>    a NaN policy but to keep the comparator total without an unwrap.
+> 2. **"tests have never run" resolved with a real first run:** the suite
+>    passes **40/40** on its first execution ever. Nothing was hiding
+>    behind the compile error. Falsifier satisfied (test count 40 > 0).
+>
+> One observation banked while in the file, relevant to the subset-logic
+> front: `shuffle_product` itself is implemented as **binary-mask
+> enumeration** — each interleaving is a mask with exactly p ones
+> (`mask.count_ones() as usize != p`, `shuffle.rs:51-53`), i.e. the
+> size-p subsets of positions. The carrier types share nothing with
+> `FieldMask`, but the combinatorial substrate is the same subset logic.
+
 ---
 
 ## ISS-SUPERSESSION-GENERATOR-DID-RANGE-NARROW — the coverage generator reads `D-XXX-0..4` as one D-id (2026-08-28)
