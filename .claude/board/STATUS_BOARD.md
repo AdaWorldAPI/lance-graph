@@ -1,3 +1,15 @@
+## dismech-causal-replay-v1
+
+| D-id | deliverable | status |
+|---|---|---|
+| D-DCR-0 | W0 measurements: chain-step evals/ms, EvidenceMask branching shrink, palette round-trip; ALU BUY threshold stated | Queued |
+| D-DCR-1 | replay core: loco calls under the dismech vocabulary -> CausalEdge64/NarsTruth steps -> temporal.rs trace; determinism + perturbation falsifiers | Queued (after D-DCR-0) |
+| D-DCR-2 | Mengenlehre candidate evaluation via `contract::revision::EvidenceMask` (support ∩ / refute ∖, skip-words as ordinals) | Queued |
+| D-DCR-3 | counterfactual replay (edge cut through `contract::counterfactual`, Pearl rung 3), two-sided load-bearing/redundant gates | Queued |
+| D-DCR-4 | Σ transport via `jc::ewa_sandwich` + candidate-entropy readout; entropy-surface CONSOLIDATION decision recorded first | Queued |
+| D-DCR-5 | frontier scheduling (info-gain / rung-cost via `EpistemicMode::for_rung`) | **HELD** — operator rung 5-9 table ruling + W0 KILL check |
+| D-DCR-6 | consumer-leg pointer honoured: corpus bake + live evidence stay consumer-side; only synthetic fixtures here | standing gate |
+
 ## pillar11-signature-certification-unification-v1
 
 | D-id | deliverable | status |
