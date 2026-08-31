@@ -79,6 +79,10 @@ name = "w2_refinement_sweep"
 required-features = ["hambly-lyons"]
 
 [[example]]
+name = "w5_trigger_check"
+required-features = ["hambly-lyons"]
+
+[[example]]
 name = "w3_battery_sweep"
 required-features = ["hambly-lyons"]
 
