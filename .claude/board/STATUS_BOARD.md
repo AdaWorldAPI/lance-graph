@@ -209,7 +209,8 @@ Deferred-for-missing-integration ideas are a MANDATORY section in each plan.
 |---|---|---|---|
 | D-HTT-1..11 | `hhtl-thinking-tables-le-contract-v1.md` — ARC B LE addressing contract + thinking-table rows; ARC C seam gated | lance-graph | **Proposed** (awaits operator ratification) |
 | D-CFR-1..6 | `counterfactual-rung3-closure-v1.md` — contract InferenceType widening, stopgap retirement, L1-mask probe, Pearl-2³ disambiguation | lance-graph | **Proposed** |
-| D-MAR-1..2 | `mask-algebra-revision-read-v1.md` — FieldMask/WideFieldMask `difference`+`is_subset_of`; RevisionKind classification read | lance-graph | **Proposed** |
+| D-MAR-1 | `mask-algebra-revision-read-v1.md` — FieldMask/WideFieldMask `difference`+`is_subset_of` (+ `chunks_view` removed) | lance-graph | **Shipped** (#1099, `ae24f6e5`) |
+| D-MAR-2 | `mask-algebra-revision-read-v1.md` — RevisionKind classification read | lance-graph | **Proposed** — blocked on plan §5 Q1 (module home), per ordering rule F6 |
 | D-EWU-1..9 | `ew64-witness-unification-v1.md` — ARC D/E: tenant-14 CausalWitness vs EpisodicWitness64 demarcation (READING L recommended, not banked), phase gates, OD-1..5 | lance-graph | **Proposed** |
 | D-DCG-* | `causal-graph-soa-integration-v1.md` — dismech CausalGraph → SoA landing (relations-as-rows vs overflow) | dismech-rs | **Proposed** (authoring) |
 

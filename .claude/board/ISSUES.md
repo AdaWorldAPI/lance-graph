@@ -1,3 +1,37 @@
+## ISS-SIGKER-TESTS-HAVE-NEVER-COMPILED — `f64` is not `Ord`, and workspace exclusion hid it (2026-08-31)
+
+`cargo test --manifest-path crates/sigker/Cargo.toml --lib` fails to build:
+**E0277, 3 errors** — it calls `slice::sort` on a `(Vec<usize>, f64)`, and
+`f64` is not `Ord`. This is not a regression: verified against *unmodified*
+`sigker` at `c6647fab^`, so it predates #1101 and has presumably been true
+since the code was written (`crates/sigker/src` last touched 2026-05-07).
+
+**Why nobody found out.** `sigker` is workspace-**excluded** in `Cargo.toml`,
+so `cargo test --workspace` never builds it and no CI job ever did either.
+The same exclusion is what let its formatting drift to a rustfmt baseline
+nothing was holding (#1101). Exclusion silences *every* gate, not just the
+one you were thinking about — the formatting drift was the visible symptom
+and this is the load-bearing one.
+
+**Scope of #1101 with respect to this:** formatting only. It added a
+`cargo fmt --manifest-path crates/sigker/...` step; it did **not** add a
+test or clippy gate, deliberately — arming a test gate on a crate that
+cannot compile its tests would fail every subsequent PR for a defect it
+did not introduce (the same reasoning `style.yml` already records for
+`causal-edge`'s clippy debt).
+
+**The fix is not obvious and is not scoped here.** Sorting by an `f64` key
+wants `sort_by` with `partial_cmp` plus an explicit NaN policy, or
+`total_cmp` — and which is right depends on whether NaN is reachable in
+that path, which nobody has checked. Someone has to read the algorithm,
+not just satisfy the type checker.
+
+**Falsifier when it is fixed:** `cargo test --manifest-path
+crates/sigker/Cargo.toml --lib` builds and reports a test count > 0. Today
+it reports a build failure, which is distinguishable from "0 tests".
+
+---
+
 ## ISS-SUPERSESSION-GENERATOR-DID-RANGE-NARROW — the coverage generator reads `D-XXX-0..4` as one D-id (2026-08-28)
 
 `.claude/tools/supersession_index.py` extracts only the FIRST id from a

@@ -1,3 +1,33 @@
+## 2026-08-31 — #1099 MERGED (ae24f6e5): D-MAR-1 mask algebra — CONTRACT INVENTORY DELTA
+
+**Contract inventory: +4 methods, no new type, no layout change.**
+
+- **`class_view::FieldMask::{difference, is_subset_of}`** — `#[inline] pub const fn`, mirroring the existing `intersect`/`union`/`is_disjoint` shape exactly; `Copy` preserved, no existing signature touched. `a.difference(b)` = `a & !b`; `a.is_subset_of(b)` = `a & !b == 0`.
+- **`class_view::WideFieldMask::{difference, is_subset_of}`** — same pair, `(Small, Small)` fast path plus the tier-agnostic fold. Argument order deliberately **differs from the raw Intel intrinsic**: `_mm*_andnot_si*(a, b)` is `!a & b`, ours is `self & !other` ("self minus other"), documented at every definition.
+- **`chunks_view` REMOVED** (private, 2 call sites, both in `zip_fold`). It cloned *both* operands into fresh `Vec`s per wide op; `zip_fold` now reads in place via `chunk_at` and allocates only the owned result. `intersect`/`union` inherit the fix. Its materialization role is superseded by the stencil arena (operator-ruled 2026-08-31: **arena separate, masks stay values** — so `WideFieldMask`'s public surface is unchanged and the 11 files across 4 crates that consume it, RBAC's `field_mask()` included, are untouched).
+
+Why these are substrate-tier and not consumer-side, per the plan's F4 STOP rule: the rejected external draft hand-rolled an entire `EvidenceMask` trait *because* difference and containment were absent. The fix is the two methods.
+
+**Not shipped:** D-MAR-2 (`RevisionKind`) — gated on the plan's §5 Q1 module-home ruling per its own ordering rule F6.
+
+Gate: contract lib **1251** green; clippy `--all-targets -D warnings` clean; fmt clean; four disable-runs red-then-green. Re-verified after rebase onto `c6647fab` — the introduced patch is byte-identical pre/post rebase.
+
+**Below the contract:** `AdaWorldAPI/ndarray` (branch `claude/medcare-rs-continue-ufsazd`, `fd5c66f` + `fbe2d36`, **not yet PR'd**) carries the masking primitives these compose with — `U64x8`/`U32x16` `andnot` + `ternlog`, lowering to a single `vpternlogq` on AVX-512 and aligned `ymm` work on v3. Nothing in the contract depends on that landing.
+
+---
+## 2026-08-31 — #1101 MERGED (c6647fab): fmt baseline + gate for three excluded crates
+
+`jc`, `sigker`, `thinking-engine` are workspace-**excluded**, so `cargo fmt --all` never reached them and nothing held them formatted — 214 rustfmt diffs accumulated. All three formatted and given explicit `--manifest-path` CI steps in `style.yml`, matching the pattern already used for `causal-edge`/`deepnsm`/`deepnsm-v2`. The `format` job passed on first run, so the new gates are proven, not assumed.
+
+**Measured, against the obvious hypothesis:** the drift was NOT a toolchain artefact. rustfmt is `1.9.0` under *both* the pre-bump 1.95.0 and the pinned 1.97.1 (only the build hash differs), and both report the identical 214 on identical code — no formatting-rule change across `b2b08b07` to blame. The code was simply never formatted.
+
+Also removed one dead declaration that blocked the sweep: `container_bs/mod.rs` declared `#[cfg(test)] pub mod tests;` for a `tests.rs` that **never existed in git** (declared in the ladybug-rs import `582a6e7b`). It compiles only because `container_bs` sits behind `#[cfg(feature = "wip")]`; rustfmt walks files ignoring `cfg`, so it aborted the whole run.
+
+**Open, found here and NOT fixed:** `sigker`'s test build has never compiled — it sorts a `(Vec<usize>, f64)` and `f64` is not `Ord` (E0277). Verified against unmodified `sigker`. Workspace exclusion meant CI never built it. The gate added is formatting-only; the tests remain dead. See `ISSUES.md`.
+
+(#1100 opened for the one-file subset of this and closed unmerged, superseded.)
+
+---
 ## 2026-08-30 — #1085 MERGED (4cc7d71c): §11.3 method transfer — DOC/BOARD ONLY
 
 | PR | merge | content |

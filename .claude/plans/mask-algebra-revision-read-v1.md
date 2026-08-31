@@ -284,10 +284,31 @@ constructing test or the variant is deleted.
 | **D-MAR-1** | `FieldMask::{difference, is_subset_of}` | **G1** `a.difference(b).intersect(b).is_empty()` **PLUS G1-anti**: for a chosen `a ⊄ b`, `a.difference(b)` is **non-empty**. G1 alone passes for `difference ≡ EMPTY` — it is vacuous unsupported. | Return `EMPTY` from `difference` → G1-anti red, G1 still green (proves the pair is needed) |
 | | | **G2** `a.is_subset_of(a.union(b))` **PLUS G2-anti**: a chosen pair with `!a.is_subset_of(b)`. G2 alone passes for `is_subset_of ≡ true`. | Return `true` always → G2-anti red |
 | **D-MAR-1** | `WideFieldMask::{difference, is_subset_of}` | **G3** G1/G2 identities re-run on the wide tier, **including a Small×Wide cross-width pair in both argument orders** (`Small.difference(Wide)` and `Wide.difference(Small)`) | Drop the `unwrap_or(0)` missing-chunk read → cross-width case red |
-| | | **G4** normalization: a `Wide` operand whose difference falls entirely below bit 64 **compares equal to and hashes identically with** the `Small` equivalent (the `PartialEq:449` / V-L P0 contract) | Bypass `zip_fold`'s trim/demote (`:399-405`) → G4 red |
+| | | **G4** ⊘ **CORRECTED 2026-08-31** — normalization: the demoted result **reports `max_fields() == 64`** (and still compares/hashes equal to the `Small` equivalent). | Bypass `zip_fold`'s trim/demote → G4 red **and two pre-existing canonical-form tests red** |
 | **D-MAR-2** | `RevisionKind` (9 variants) + `classify()` | **G5** reachability matrix: 9 can-fire + 9 can-stay-silent, non-trivial inputs (an empty-input silence case proves nothing) | Collapse any two variants to one arm → that variant's can-fire red |
 | | | **G6** `AssumptionExposed` fires **only** when the ledger reports withdrawal — a `Revised` outcome with no withdrawal must classify otherwise | Ignore the withdrawal input → G6 red (this is the one genuinely new variant; if it cannot discriminate, D-MAR-2 carries nothing new) |
 | | | **G7** no guarded arm implied by its own construction (§2.3a); **G8** no error variant without a constructing test (§2.3b) | n/a — review gates, checked by reading the arms |
+
+> **⊘ G4 STORNO (2026-08-31, PR #1099 — measured, not argued).** G4 as
+> originally written was **unfalsifiable**. It asserted that bypassing
+> `zip_fold`'s trim/demote would break the `Small`-equivalent *comparison* —
+> but since #651 gave `WideFieldMask` a representation-independent
+> `PartialEq`/`Hash` (equality folds over the canonical trimmed chunk view),
+> equality survives the bypass **by design**. The disable-run could not turn
+> that assertion red no matter what the fold did, so the gate proved nothing.
+>
+> The row above now asserts `max_fields() == 64` on the demoted result, which
+> IS representation-dependent and therefore can fail. Verified red under the
+> bypass, green without it. The bypass additionally reddens two pre-existing
+> canonical-form tests (`intersect_result_collapsing_to_small_equals_canonical_and_hashes_identically`,
+> `intersect_union_across_tiers`), so the fold is guarded by the existing
+> regression suite as well as by G4.
+>
+> The general lesson, worth carrying past this plan: **a gate written against
+> an invariant that a later change made representation-independent stops being
+> a gate without anyone editing it.** Nothing about G4's text became wrong when
+> #651 landed — it became inert. Falsifiability is a property of the gate *and
+> the code it runs against*, so it decays silently.
 
 Gates are run centrally by the orchestrator in the one shared `target/`
 (`cargo test -p lance-graph-contract` for D-MAR-1; `-p lance-graph-planner` for

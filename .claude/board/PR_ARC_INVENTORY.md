@@ -10,6 +10,40 @@
 > census §8.3 trap 10: read the body FIRST, then open for write — never
 > inline both in one expression.
 
+## 2026-08-31 — lance-graph #1099 (MERGED ae24f6e5) — D-MAR-1 re-derived from the plan, and a gate that had silently stopped being one
+
+**Added.** `FieldMask::{difference, is_subset_of}` and the `WideFieldMask` pair (plan §2.1). `chunks_view` removed — it cloned both operands per wide op; `zip_fold` now reads in place via `chunk_at`.
+
+**Locked.** Re-derived from `mask-algebra-revision-read-v1` and from source on main. The reverted #1088 diff was **not consulted**, per this ledger's own #1093 entry. Argument order for `andnot`-shaped difference is `self & !other`, deliberately unlike the raw intrinsic's `!a & b`, documented at each definition.
+
+**The finding worth keeping.** The plan's stated G4 disable-run was **unfalsifiable**, and had been since #651 — not wrong, *inert*. G4 asserted that bypassing `zip_fold`'s trim/demote would break the `Small`-equivalent comparison; but #651 gave `WideFieldMask` a representation-independent `PartialEq`/`Hash`, so equality survives the bypass by design and the assertion could not go red whatever the fold did. Replaced with `max_fields() == 64` on the demoted result, which is representation-dependent and does fail under the bypass (verified). Plan carries a dated ⊘ on the row.
+
+Generalized, because this will recur: **a gate written against an invariant that a later change made representation-independent stops being a gate without anyone editing it.** Nothing about G4's text became false when #651 landed. Falsifiability is a joint property of the gate and the code under it, so it decays silently and no review of the gate alone can catch it. The only detector is running the disable-run — which is why the workspace requires red-then-green rather than green.
+
+**Deferred.** D-MAR-2 (`RevisionKind`) — plan §5 Q1 module-home ruling, per ordering rule F6. The stencil arena — operator-ruled 2026-08-31 as **separate, masks stay values**, so `WideFieldMask`'s public surface and its 11 consuming files (RBAC included) are untouched; it is its own change.
+
+**Docs.** `LATEST_STATE` contract-inventory entry; `STATUS_BOARD` D-MAR-1 row; plan §3 G4 storno.
+
+- **Confidence (2026-08-31):** working — contract lib 1251 green, clippy `--all-targets -D warnings` clean, fmt clean under #1101's widened scope, four disable-runs red-then-green. Rebased onto `c6647fab`; introduced patch verified byte-identical pre/post rebase, so CodeRabbit's pre-rebase review (no actionable comments, 5/5 pre-merge checks) still applied.
+
+---
+
+## 2026-08-31 — lance-graph #1101 (MERGED c6647fab) — three excluded crates had never been formatted, and the hypothesis for why was wrong
+
+**Added.** rustfmt baseline for `jc` / `sigker` / `thinking-engine` (214 diffs), plus three explicit `--manifest-path` steps in `style.yml` — the pattern already used for `causal-edge`/`deepnsm`/`deepnsm-v2`. `format` job green on first run, so the gate is proven rather than asserted.
+
+**The measurement that changed the answer.** The plausible reading was toolchain drift from the `1.95.0 → 1.97.1` bump (`b2b08b07`), made more plausible by timing — `crates/jc/src` last touched 2026-08-04, bump landed 2026-08-05. Tested by running both toolchains over identical code: **214 under each**. rustfmt is `1.9.0` in both (`59807616e1` vs `8bab26f4f6` — build hash only). No formatting-rule change existed to blame; the code was never formatted, because exclusion from the workspace meant nothing ever formatted it. The near-coincidence in dates was a coincidence.
+
+**Locked.** Removed `container_bs/mod.rs`'s `#[cfg(test)] pub mod tests;` — a declaration for a file that has never existed in git (ladybug-rs import `582a6e7b`), live only because `container_bs` is behind `#[cfg(feature = "wip")]`. rustfmt resolves modules by walking files and ignores `cfg`, so it aborted the entire `--all` run on the missing file.
+
+**Open.** `sigker`'s test build has never compiled (E0277: sorts `(Vec<usize>, f64)`, `f64` is not `Ord`), verified against unmodified source. Workspace exclusion hid it. This PR gates its *formatting* only. → `ISSUES.md`.
+
+**Superseded.** #1100 (the one-file subset covering only #1095's diff) closed unmerged; its scoping rationale — leave the 214 alone as toolchain artefacts — was itself falsified by the measurement above.
+
+- **Confidence (2026-08-31):** working — `cargo fmt --all --check` clean, each gated crate clean individually, workspace lib suite green, `jc` 119 and `thinking-engine` 361 tests pass. Formatting-only apart from the one dead `mod` line.
+
+---
+
 ## 2026-08-30 — lance-graph #1093 (MERGED 5206c2a4) — FULL REVERT of #1087..#1092: the session's output was ruled unacceptable wholesale
 
 **Reverted (all six, operator-directed).** The operator rejected the

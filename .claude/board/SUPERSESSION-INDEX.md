@@ -14,7 +14,7 @@
 ## What this table says
 
 **`BindSpace` is the shape of the problem.** Marked RETIRE, and simultaneously the
-most-referenced symbol here: **67 crate files, 44 plans, 41 of them blind.**
+most-referenced symbol here: **68 crate files, 44 plans, 41 of them blind.**
 That is a programme, not a cleanup.
 
 **`CollapseGateEmission` is the sharpest case: 12 plans name it and *every one* is blind.**
@@ -60,7 +60,7 @@ coverage instead.
 | `GateState` | REPURPOSE | — | 14 | 1 | 1 |
 | `MergeMode` | REPURPOSE | — | 8 | 13 | 12 |
 | `ResonanceDto` | REPURPOSE | `PerturbationDto` | 2 | 10 | 7 |
-| `BindSpace` | RETIRE | — | 67 | 44 | 41 |
+| `BindSpace` | RETIRE | — | 68 | 44 | 41 |
 | `CollapseGateEmission` | RETIRE | — | 5 | 12 | 12 |
 | `ThinkingStyle` | RETIRE-toward-contract | — | 51 | 27 | 24 |
 
