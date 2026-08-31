@@ -21,6 +21,80 @@ nothing; B is a bigram successor table.
 Converges with `E-PALETTE256-IS-A-NEEDLE-THE-COLON-IS-THE-DISTRIBUTION-1` by
 a different road: the information is in the PAIR, not the neighbourhood's
 shape. One relation carried everything; five more neighbours added bytes.
+## 2026-08-31 — E-A-WITNESS-THAT-DROPS-THE-RELATION-IS-NOT-A-WITNESS-1 — and the review's own remedy was measurably wrong
+
+**Status:** FINDING — three codex P1/P2 findings on #1120, all valid; the P1
+falsified a claim in the module's own doc comment. The P2 remedy was tried
+literally, measured, and rejected in favour of a narrowing.
+**Confidence:** measured — `lance-graph-planner/src/dismech_replay.rs`,
+D-DCR-1 (W1), three disable-runs.
+
+### The P1: the trace dropped the predicate, and the doc said otherwise
+
+`replay_chain` destructured `&(_predicate, weight)` and never carried the
+ordinal into `ReplayTraceRow`. Two chains with identical weights and different
+relations — `causes` vs `protects_against`, near-opposite meanings — replay to
+**byte-identical traces**, and `first_divergence` reports no change.
+
+For a plan whose keystone is *causality replay*, that is not a gap in a
+convenience field: the witness cannot reconstruct the recorded program. And
+the module doc claimed the opposite — *"carried into the trace's step index so
+a consumer can join a diff back to the palette at the membrane"* — where the
+step index is `i` and the ordinal was carried nowhere. A doc claim with no
+behaviour behind it, in the same PR that added a mirror so the ordinal would
+have a checkable domain.
+
+**Why every W1 gate passed anyway, and this is the transferable part:** W1's
+arithmetic deliberately does not read the ordinal. A property that does not
+touch a field cannot notice that the field is gone. Determinism, perturbation
+position, sibling isolation, deinterlace — four gates, none of which could
+ever fail on this. **A value carried as WITNESS needs a gate that reads it as
+witness; the gates on the computation will not cover it, by construction.**
+
+### The P2 remedy was wrong, and running it is how that was established
+
+The review's `first_divergence` finding was right about the defect (the name
+promised a whole-row comparison the body did not perform) and its suggested
+fix — *"compare the full `ReplayTraceRow` values"* — was tried verbatim:
+
+```
+addressing_is_not_content_but_the_predicate_is ... FAILED
+  left: Some(0)   right: None
+```
+
+The same chain, same owner, replayed from durable base 100 vs 900, is declared
+**divergent at step 0**. That is the same causal witness at two addresses, and
+an instrument that calls it divergent is useless for every comparison the plan
+needs. So the fix is the review's *alternative* clause — "narrow the API
+contract explicitly": content is `(predicate, edge)`; `owner`/`cast_seq` are
+addressing and deliberately excluded; `step` is positional and is what the
+return value NAMES.
+
+**A correct finding does not make its proposed remedy correct.** Both halves
+were verifiable in about a minute each; taking the remedy on trust would have
+shipped a diff instrument that fires on every address change.
+
+### The third: a precondition stated as prose is not a precondition
+
+`base_seq` reserves `[base_seq, base_seq + chain.len())` — one coordinate per
+STEP. A caller advancing by 1 per CHAIN overlaps (bases 10 and 11 over 4 steps
+share 3 of 4 coordinates), which violates `LocalCausalRow::cast_seq`'s
+uniqueness requirement and silently degrades `local_trajectory_of` to scan
+order. The old doc said two chains "never collide" — true only for a caller
+already following a rule the doc did not state.
+
+The overlap is a property ACROSS calls and cannot be checked inside one, so it
+stays a precondition — but now it is stated, and shipped as code
+(`next_base_seq`) so the correct advance is the easy one. The gate measures
+the collision (`shared == 3`) rather than asserting the rule.
+
+### Disable table (all three red-then-green)
+
+| assertion | disable | observed |
+|---|---|---|
+| predicate is in the witness | `predicate: 0` in the row | RED ×2 |
+| addressing is not content | compare whole rows (the review's literal remedy) | RED — `Some(0)` vs `None` |
+| the reservation is per step | `next_base_seq` → `base + 1` | RED — `left: 11, right: 14` |
 
 ---
 

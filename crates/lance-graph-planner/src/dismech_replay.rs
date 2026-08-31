@@ -68,6 +68,20 @@ pub struct ReplayTraceRow {
     /// Index of the step within its chain — the address a perturbation is
     /// reported AT, so a diff names a position rather than a row.
     pub step: u32,
+    /// The DisMech predicate ordinal this step travelled under.
+    ///
+    /// **Carried as witness, not as an operand.** W1's arithmetic never reads
+    /// it — but a trace that dropped it would not be a witness of the recorded
+    /// program: two chains with identical weights and different relations
+    /// (`causes` vs `protects_against`) would replay to byte-identical traces,
+    /// and no consumer could reconstruct or validate what was actually
+    /// recorded. Resolve it through [`chain_step_predicate`] (or, at the
+    /// membrane, the real palette).
+    ///
+    /// Added after review on #1120: the module previously claimed the ordinal
+    /// was "carried into the trace's step index" — it was not carried at all,
+    /// and the step index is `i`. That was a doc claim no behaviour backed.
+    pub predicate: u8,
     /// The packed edge this step produced.
     pub edge: CausalEdge64,
 }
@@ -156,15 +170,28 @@ pub fn replay_step(
 
 /// Replay a recorded chain against `seed`, emitting one trace row per step.
 ///
-/// `base_seq` is the caller's DURABLE ordering position (see the module doc):
-/// row *i* is stamped `base_seq + i`, so a chain replayed from the same log
-/// position is byte-identical, and two chains from different positions never
-/// collide. Nothing here mints a counter.
+/// # `base_seq` RESERVES a half-open range, it is not a chain counter
 ///
-/// The predicate ordinal rides each step but does not alter the arithmetic in
-/// W1 — it is the ADDRESS the step travels under, carried into the trace's
-/// step index so a consumer can join a diff back to the palette at the
-/// membrane. W3's counterfactual arm is what makes it selective.
+/// This call stamps `[base_seq, base_seq + chain.len())` — one durable
+/// coordinate per STEP, not per chain. A caller that advances by 1 per chain
+/// therefore overlaps: bases 10 and 11 over 4-step chains produce
+/// `[10,11,12,13]` and `[11,12,13,14]`, and the shared coordinates violate
+/// [`LocalCausalRow::cast_seq`]'s uniqueness requirement — after which
+/// `local_trajectory_of` preserves SCAN order rather than durable causal
+/// order, so a crash replay varies with how rows happened to interleave.
+///
+/// Advance with [`next_base_seq`], which is the reservation stated as code.
+/// The overlap cannot be detected inside one call (it is a property ACROSS
+/// calls), so this is a precondition, not a check — said plainly rather than
+/// implied. `overlapping_bases_collide_which_is_why_next_base_seq_exists`
+/// pins both directions. (Raised in review on #1120; the prior doc said two
+/// chains "never collide", which was true only for a caller already
+/// following the rule it did not state.)
+///
+/// The predicate ordinal rides each step into [`ReplayTraceRow::predicate`].
+/// It does not alter W1's arithmetic — it is the ADDRESS the step travels
+/// under — but it IS part of the witness, so a consumer can join a diff back
+/// to the palette at the membrane. W3's counterfactual arm makes it selective.
 #[must_use]
 pub fn replay_chain(
     chain: &[ChainStep],
@@ -176,27 +203,59 @@ pub fn replay_chain(
 ) -> Vec<ReplayTraceRow> {
     let mut running = seed;
     let mut trace = Vec::with_capacity(chain.len());
-    for (i, &(_predicate, weight)) in chain.iter().enumerate() {
+    for (i, &(predicate, weight)) in chain.iter().enumerate() {
         running = replay_step(running, weight, tables, compose);
         trace.push(ReplayTraceRow {
             owner,
             cast_seq: base_seq + i as u64,
             step: u32::try_from(i).unwrap_or(u32::MAX),
+            predicate,
             edge: running,
         });
     }
     trace
 }
 
-/// The first step index at which two traces differ, or `None` when they are
-/// byte-identical. This is the determinism gate's instrument AND the
-/// perturbation gate's: a perturbation must be reported at the step it was
-/// applied to, never earlier.
+/// The next free durable coordinate after replaying a `chain_len`-step chain
+/// from `base_seq` — the half-open reservation `[base_seq, base_seq + len)`
+/// stated as code, so a caller replaying several chains in sequence cannot
+/// reach for a naive `+ 1`.
+///
+/// Saturating rather than wrapping: a wrapped coordinate would silently alias
+/// the beginning of the durable log, which is the one failure this whole
+/// precondition exists to prevent.
+#[must_use]
+pub const fn next_base_seq(base_seq: u64, chain_len: usize) -> u64 {
+    base_seq.saturating_add(chain_len as u64)
+}
+
+/// The first step whose replayed CONTENT differs, or `None` when the two
+/// traces carry the same content throughout.
+///
+/// # What "content" means here, and why it is not the whole row
+///
+/// Content is `(predicate, edge)` — the relation the step travelled under and
+/// the edge it produced. **Addressing (`owner`, `cast_seq`) is deliberately
+/// NOT compared**, and the narrowing is the point rather than a shortcut: the
+/// same chain replayed by the same owner from two different durable positions
+/// is the SAME causal witness at two addresses, and an instrument that called
+/// those "divergent" would report a difference at step 0 for every comparison
+/// the plan actually needs. `step` is excluded for the same reason — it is
+/// positional, and position is what the return value NAMES.
+///
+/// This is the determinism gate's instrument AND the perturbation gate's: a
+/// perturbation must be reported at the step it was applied to, never earlier.
+///
+/// (Contract narrowed explicitly after review on #1120, which correctly
+/// observed that the previous wording — "where the traces differ" — promised
+/// a whole-row comparison the body did not perform. Fixed by naming the
+/// contract, not by widening the comparison: see
+/// `addressing_is_not_content_but_the_predicate_is`.)
 #[must_use]
 pub fn first_divergence(a: &[ReplayTraceRow], b: &[ReplayTraceRow]) -> Option<u32> {
     a.iter()
         .zip(b.iter())
-        .find(|(x, y)| x.edge != y.edge)
+        .find(|(x, y)| (x.predicate, x.edge) != (y.predicate, y.edge))
         .map(|(x, _)| x.step)
         .or_else(|| {
             if a.len() == b.len() {
@@ -416,5 +475,138 @@ mod tests {
         // first search op. An empty-input silence case would prove nothing.
         assert!(chain_step_predicate((0xA3, w)).is_none());
         assert!(chain_step_predicate((0x8F, w)).is_none());
+    }
+    #[test]
+    fn two_chains_differing_only_in_predicate_do_not_replay_identically() {
+        // The P1 finding from #1120, pinned. Identical weights, one relation
+        // swapped: `causes` (0x90) vs `protects_against` (0x95) — two
+        // predicates whose real-world meanings are near opposites, so a trace
+        // that cannot tell them apart is not a witness of anything.
+        let tables = NarsTables::build(1);
+        let c_tabs = compose_tables();
+        let tabs = ComposeTables {
+            s: &c_tabs[0],
+            p: &c_tabs[1],
+            o: &c_tabs[2],
+        };
+        let mut rng = Lcg(0x0C0D_E4A1_7B39_5E62);
+        let seed = edge(&mut rng);
+        let steps: Vec<CausalEdge64> = (0..6).map(|_| edge(&mut rng)).collect();
+
+        let a: Vec<ChainStep> = steps.iter().map(|&w| (0x90u8, w)).collect();
+        let mut b = a.clone();
+        b[3].0 = 0x95;
+
+        // Anti-vacuity: the two chains must be identical in EVERY other
+        // respect, or this test would pass for the wrong reason.
+        assert_eq!(a.len(), b.len());
+        for (x, y) in a.iter().zip(b.iter()) {
+            assert_eq!(
+                x.1, y.1,
+                "weights must match — only the predicate may differ"
+            );
+        }
+        assert_ne!(a[3].0, b[3].0);
+
+        let ta = replay_chain(&a, seed, &tables, tabs, 7, 100);
+        let tb = replay_chain(&b, seed, &tables, tabs, 7, 100);
+
+        // The packed arithmetic is genuinely identical — W1 does not read the
+        // ordinal — so the ONLY thing that can distinguish these traces is the
+        // predicate being carried as witness.
+        for (x, y) in ta.iter().zip(tb.iter()) {
+            assert_eq!(
+                x.edge, y.edge,
+                "W1 arithmetic must not depend on the ordinal"
+            );
+        }
+        assert_eq!(
+            first_divergence(&ta, &tb),
+            Some(3),
+            "the swapped relation must be visible in the witness, at its own step",
+        );
+    }
+
+    #[test]
+    fn addressing_is_not_content_but_the_predicate_is() {
+        // The P2 `first_divergence` finding, pinned two-sided.
+        let tables = NarsTables::build(1);
+        let c_tabs = compose_tables();
+        let tabs = ComposeTables {
+            s: &c_tabs[0],
+            p: &c_tabs[1],
+            o: &c_tabs[2],
+        };
+        let mut rng = Lcg(0x51CE_2D07_A4B8_1193);
+        let seed = edge(&mut rng);
+        let c = chain(&mut rng, 5);
+
+        // (a) SILENT on pure addressing: same chain, same owner, different
+        //     durable base — the same causal witness at another address.
+        let at_100 = replay_chain(&c, seed, &tables, tabs, 1, 100);
+        let at_900 = replay_chain(&c, seed, &tables, tabs, 1, 900);
+        assert_ne!(
+            at_100[0].cast_seq, at_900[0].cast_seq,
+            "the addresses must actually differ, or this proves nothing",
+        );
+        assert_eq!(first_divergence(&at_100, &at_900), None);
+
+        // (b) ...and a different OWNER is addressing too.
+        let other = replay_chain(&c, seed, &tables, tabs, 2, 100);
+        assert_ne!(at_100[0].owner(), other[0].owner());
+        assert_eq!(first_divergence(&at_100, &other), None);
+
+        // (c) FIRES on content: one predicate swapped, addressing untouched.
+        let mut c2 = c.clone();
+        c2[2].0 = if c2[2].0 == 0x90 { 0x91 } else { 0x90 };
+        let swapped = replay_chain(&c2, seed, &tables, tabs, 1, 100);
+        assert_eq!(first_divergence(&at_100, &swapped), Some(2));
+    }
+
+    #[test]
+    fn overlapping_bases_collide_which_is_why_next_base_seq_exists() {
+        // The P2 durable-coordinate finding, pinned as the precondition it is.
+        let tables = NarsTables::build(1);
+        let c_tabs = compose_tables();
+        let tabs = ComposeTables {
+            s: &c_tabs[0],
+            p: &c_tabs[1],
+            o: &c_tabs[2],
+        };
+        let mut rng = Lcg(0xD0A7_31FC_5E28_44B9);
+        let seed = edge(&mut rng);
+        let c = chain(&mut rng, 4);
+        let owner = 3;
+
+        let coords =
+            |t: &[ReplayTraceRow]| -> Vec<u64> { t.iter().map(|r| r.cast_seq()).collect() };
+
+        // WRONG: advance by one per chain. The reservation is per STEP, so the
+        // ranges overlap on 3 of 4 coordinates.
+        let naive_a = replay_chain(&c, seed, &tables, tabs, owner, 10);
+        let naive_b = replay_chain(&c, seed, &tables, tabs, owner, 11);
+        let (ca, cb) = (coords(&naive_a), coords(&naive_b));
+        let shared = ca.iter().filter(|x| cb.contains(x)).count();
+        assert_eq!(
+            shared, 3,
+            "a naive +1 advance must demonstrably collide, or the precondition is decoration",
+        );
+
+        // RIGHT: advance by the reservation.
+        let ok_a = replay_chain(&c, seed, &tables, tabs, owner, 10);
+        let next = next_base_seq(10, c.len());
+        assert_eq!(next, 14);
+        let ok_b = replay_chain(&c, seed, &tables, tabs, owner, next);
+        let (oa, ob) = (coords(&ok_a), coords(&ok_b));
+        assert!(
+            oa.iter().all(|x| !ob.contains(x)),
+            "correctly advanced ranges must be disjoint",
+        );
+        // ...and contiguous, so the log has no unexplained holes.
+        assert_eq!(*oa.last().unwrap() + 1, ob[0]);
+
+        // The saturating guard: a wrapped coordinate would alias the start of
+        // the durable log, the one outcome this precondition exists to stop.
+        assert_eq!(next_base_seq(u64::MAX, 4), u64::MAX);
     }
 }
