@@ -1,3 +1,60 @@
+## 2026-08-31 — E-TWO-REVIEWERS-FOUND-THE-SAME-THREE-DEFECTS-AND-ONE-OF-THEM-WAS-MINE-ALONE-1
+
+**Status:** FINDING — #1120's full review surface, read after merge.
+**Confidence:** measured — 7 findings across two independent reviewers on the
+same diff; each adjudicated against the code, two remedies rejected with
+evidence.
+
+#1120 drew **7 findings from two reviewers that never see each other's
+output** — codex (3) and CodeRabbit (4). Their overlap is the interesting
+part, and so is the one place they diverge.
+
+| line | codex | CodeRabbit | verdict |
+|---|---|---|---|
+| 179 | predicate dropped from the trace | reject an out-of-band ordinal | **same defect, two different remedies** |
+| 183 | overlapping durable coordinates | `cast_seq` overflow at `u64::MAX` | **same field, two distinct bugs — both real** |
+| 199/200 | compare only edges vs the doc's promise | identical finding | **agreed, and both remedies wrong** |
+| board | — | `cast_seq` described as caller-supplied | **CodeRabbit alone; correct** |
+
+**Independent agreement is evidence; identical remedies are not.** Both
+reviewers proposed comparing whole `ReplayTraceRow` values in
+`first_divergence`. Running it: the same chain replayed from durable base 100
+vs 900 is declared divergent at step 0 — the same witness at two addresses.
+Two reviewers converging on a fix does not make the fix right, and the cost of
+checking was one test run.
+
+**The 179 pair is the sharper lesson.** Both saw that the ordinal was
+mishandled; they disagreed about *which* mishandling. Codex: it is dropped
+from the witness (so a recorded program cannot be reconstructed). CodeRabbit:
+it is not validated (so a chain carrying `0xA3`, the SEARCH band, replays as
+if causal). **Both are true and the fixes go in opposite directions** — carry
+it *more* faithfully, and judge it *before* it is carried. Taking either alone
+would have looked complete.
+
+The split that resolves it: **replay must not refuse history.** A recorded
+chain is a fact; the engine reproduces it, it does not judge it. If the palette
+later drops or renumbers an ordinal, a validating replay starts returning `Err`
+for chains that were valid when recorded — destroying the very property the
+wave exists to hold. So validation is an ADMISSION check (`validate_chain`,
+constant per chain, checked once) and replay stays total over admitted chains,
+while the witness carries the ordinal faithfully. Both findings satisfied,
+neither remedy taken literally.
+
+**The board finding is the one only a doc-reader caught.** The status row said
+*"`cast_seq` is caller-supplied and durable, never minted"* — reversing the
+contract, since the caller supplies `base_seq` and the planner DERIVES
+`cast_seq`. No code reviewer would flag it; no test could fail on it. It is
+exactly the class of error that survives forever because it lives where nothing
+executes.
+
+**Consequence for the review posture:** a second reviewer is not redundancy —
+measured here, it contributed one finding neither the first reviewer nor any
+gate could reach, and it disagreed usefully about a defect the first had
+already found. And a finding's *remedy* is a proposal, never a verdict: 3 of 7
+remedies here were wrong or too literal, while 7 of 7 findings were real.
+
+---
+
 ## 2026-08-31 — E-Q8-THE-SIX-DOES-NO-WORK-A-DEGREE-ABLATION-COLLAPSES-THE-HEX-OVERLAYS-ENTIRE-ADVANTAGE-1 — B passes every pre-registered gate and the pass is unattributable: at degree 1 it scores identically with 5.5x less memory
 
 **Status:** FINDING [MEASURED] — full entry in
@@ -21,6 +78,156 @@ nothing; B is a bigram successor table.
 Converges with `E-PALETTE256-IS-A-NEEDLE-THE-COLON-IS-THE-DISTRIBUTION-1` by
 a different road: the information is in the PAIR, not the neighbourhood's
 shape. One relation carried everything; five more neighbours added bytes.
+## 2026-08-31 — E-A-MONITOR-KEYED-ON-THE-PR-HEAD-CAN-CERTIFY-THE-WRONG-COMMIT-1
+
+**Status:** FINDING — the RULE stands; the CAUSE first recorded here was
+**wrong and is corrected below**, same day, before this entry ever merged.
+**Confidence:** measured — GitHub's `pulls/1120` reported head `233ce3f1` for
+>45 minutes while `git/ref/heads/…` (same API, same token, same request) already
+had `216d8f2` and then `81820cc`; `mergeable` stayed `null` throughout.
+
+> **⊘ CAUSE CORRECTED (same day, on discovering the merge).** This entry first
+> blamed *"GitHub delivered no push event"* — an exotic infrastructure story.
+> The real cause was mundane and one field away: **#1120 had already MERGED**,
+> at 19:45:46, with head `233ce3f1`. A merged PR stops tracking its branch and
+> stops running PR-triggered workflows, so the frozen head, the null
+> `mergeable`, and the silent Actions were all *correct behaviour* for a closed
+> PR — not a delivery stall.
+>
+> **How the wrong cause survived four checks:** an early query printed
+> `pr["state"]` (`open`); every later query printed head, mergeable and
+> check-runs and **dropped `state`**. Each subsequent read was consistent with
+> both hypotheses — "GitHub is stalling" and "the PR is closed" — and I never
+> re-read the one field that separates them. I then wrote an increasingly
+> specific infrastructure diagnosis (webhooks, proxy ref-updates) on top of a
+> premise I had stopped checking.
+>
+> **The transferable rule is the sharper one:** when a subject stops behaving,
+> **re-read its STATE before theorising about its plumbing.** A field you
+> printed once and dropped is not a field you know. The exotic explanation felt
+> earned because each new observation fit it — but they fit the boring one
+> equally, and only the dropped field discriminated.
+>
+> **What survives unchanged:** the rule this entry exists for. Keying a watch
+> on the PR head certified the wrong commit, and it would have done so for a
+> *merged* PR just as surely as for a stalled one — arguably more so, since a
+> merged PR's head is frozen permanently. Pin the SHA; compare it. If anything,
+> a merged-PR head is the commoner way to hit this.
+
+A CI monitor was armed to poll the PR, emit each check as it landed, and stop
+at "all complete". It reported **ALL GREEN**. The verdict was true — and it was
+a verdict on the **wrong commit**: 7/7 covered the head GitHub still believed
+in, while the two commits carrying that PR's review fixes had **zero** checks.
+
+```
+PR head:    233ce3f1  →  7/7 complete, red=none
+branch ref: 216d8f29  →  0/0 complete
+```
+
+**The failure is in the KEY, not the polling.** A monitor that resolves its
+subject through the PR object inherits whatever the PR object believes, and a
+PR head pointer is *derived state* that can lag the ref it points at. Every
+line the monitor printed was accurate; none of them was about the code under
+review. Silence would have been safer than that green.
+
+**Rules, both cheap:**
+
+1. **Pin the SHA before arming, and assert it.** A watch should be keyed on the
+   commit you pushed — read it from `git rev-parse HEAD` — not on whatever the
+   PR resolves to at poll time. If the PR's head and your SHA disagree, that
+   disagreement is itself the event worth reporting.
+2. **A green run is a verdict on a SHA, never on a PR.** Before acting on one,
+   check `pr.head.sha == <the SHA you pushed>`. Two API calls.
+
+**Why it was caught:** not by the monitor and not by any gate — by noticing
+that a routine status read showed a head two commits behind a push whose
+output had scrolled past. (The *cause* took longer and was got wrong first —
+see the correction at the top.) The generalization is uncomfortable and worth
+keeping: **an automated check can be simultaneously correct and irrelevant**,
+and nothing inside it can tell the difference, because relevance is a property
+of what it was pointed at.
+
+Cf. `E-EVERY-DEFECT-IN-A-MEASUREMENT-WAS-IN-ITS-FIXTURE-NOT-ITS-CODE-1` — same
+shape one layer up: there the fixture was wrong and the timing loop was fine;
+here the subject was wrong and the polling was fine. In both, the instrument
+reported faithfully on something that was not the question.
+
+---
+
+## 2026-08-31 — E-A-WITNESS-THAT-DROPS-THE-RELATION-IS-NOT-A-WITNESS-1 — and the review's own remedy was measurably wrong
+
+**Status:** FINDING — three codex P1/P2 findings on #1120, all valid; the P1
+falsified a claim in the module's own doc comment. The P2 remedy was tried
+literally, measured, and rejected in favour of a narrowing.
+**Confidence:** measured — `lance-graph-planner/src/dismech_replay.rs`,
+D-DCR-1 (W1), three disable-runs.
+
+### The P1: the trace dropped the predicate, and the doc said otherwise
+
+`replay_chain` destructured `&(_predicate, weight)` and never carried the
+ordinal into `ReplayTraceRow`. Two chains with identical weights and different
+relations — `causes` vs `protects_against`, near-opposite meanings — replay to
+**byte-identical traces**, and `first_divergence` reports no change.
+
+For a plan whose keystone is *causality replay*, that is not a gap in a
+convenience field: the witness cannot reconstruct the recorded program. And
+the module doc claimed the opposite — *"carried into the trace's step index so
+a consumer can join a diff back to the palette at the membrane"* — where the
+step index is `i` and the ordinal was carried nowhere. A doc claim with no
+behaviour behind it, in the same PR that added a mirror so the ordinal would
+have a checkable domain.
+
+**Why every W1 gate passed anyway, and this is the transferable part:** W1's
+arithmetic deliberately does not read the ordinal. A property that does not
+touch a field cannot notice that the field is gone. Determinism, perturbation
+position, sibling isolation, deinterlace — four gates, none of which could
+ever fail on this. **A value carried as WITNESS needs a gate that reads it as
+witness; the gates on the computation will not cover it, by construction.**
+
+### The P2 remedy was wrong, and running it is how that was established
+
+The review's `first_divergence` finding was right about the defect (the name
+promised a whole-row comparison the body did not perform) and its suggested
+fix — *"compare the full `ReplayTraceRow` values"* — was tried verbatim:
+
+```
+addressing_is_not_content_but_the_predicate_is ... FAILED
+  left: Some(0)   right: None
+```
+
+The same chain, same owner, replayed from durable base 100 vs 900, is declared
+**divergent at step 0**. That is the same causal witness at two addresses, and
+an instrument that calls it divergent is useless for every comparison the plan
+needs. So the fix is the review's *alternative* clause — "narrow the API
+contract explicitly": content is `(predicate, edge)`; `owner`/`cast_seq` are
+addressing and deliberately excluded; `step` is positional and is what the
+return value NAMES.
+
+**A correct finding does not make its proposed remedy correct.** Both halves
+were verifiable in about a minute each; taking the remedy on trust would have
+shipped a diff instrument that fires on every address change.
+
+### The third: a precondition stated as prose is not a precondition
+
+`base_seq` reserves `[base_seq, base_seq + chain.len())` — one coordinate per
+STEP. A caller advancing by 1 per CHAIN overlaps (bases 10 and 11 over 4 steps
+share 3 of 4 coordinates), which violates `LocalCausalRow::cast_seq`'s
+uniqueness requirement and silently degrades `local_trajectory_of` to scan
+order. The old doc said two chains "never collide" — true only for a caller
+already following a rule the doc did not state.
+
+The overlap is a property ACROSS calls and cannot be checked inside one, so it
+stays a precondition — but now it is stated, and shipped as code
+(`next_base_seq`) so the correct advance is the easy one. The gate measures
+the collision (`shared == 3`) rather than asserting the rule.
+
+### Disable table (all three red-then-green)
+
+| assertion | disable | observed |
+|---|---|---|
+| predicate is in the witness | `predicate: 0` in the row | RED ×2 |
+| addressing is not content | compare whole rows (the review's literal remedy) | RED — `Some(0)` vs `None` |
+| the reservation is per step | `next_base_seq` → `base + 1` | RED — `left: 11, right: 14` |
 
 ---
 
