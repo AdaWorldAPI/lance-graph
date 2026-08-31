@@ -175,6 +175,7 @@ pub mod soa_envelope;
 pub mod soa_graph;
 pub mod soa_view;
 pub mod splat;
+pub mod spog_tenants;
 /// Standing-mask subscriptions (`dirty ∩ interest`) — one bitwise AND per
 /// write, no query re-execution. See module docs for the composition rule.
 pub mod standing_mask;
@@ -190,12 +191,14 @@ pub mod temporal_pov;
 /// Per-tenant SoA update counters — debug instrumentation (feature `tenant-counters`).
 pub mod tenant_counter;
 pub mod thinking;
+pub mod thought_atoms;
 pub mod unichar;
 pub mod unicharcompress;
 pub mod unicharset;
 pub mod unicharset_adapter;
 pub mod view_angle;
 pub mod vsa;
+pub mod wave_dispatch;
 pub mod witness_fabric;
 pub mod witness_table;
 pub mod world_map;
