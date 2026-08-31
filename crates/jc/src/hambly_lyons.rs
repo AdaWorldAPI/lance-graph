@@ -59,6 +59,52 @@
 //! - Converse: min `‖S(triangle) − S_identity‖` > δ (0.05)
 //! - Discrimination ratio (min-converse / max-forward) > 1e6
 //!
+//! # Depth-infinity leg (W2)
+//!
+//! Hambly-Lyons is a depth-∞ theorem; the two legs above certify it at
+//! DEPTH-2 TRUNCATION. The depth-∞ leg reaches the full statement through the
+//! Goursat PDE kernel, which needs no signature materialization — but it is a
+//! DISCRETIZED object, and that changes what an honest gate can assert.
+//!
+//! Statistic: `dev(x) = |K(x,y)/√(K(x,x)K(y,y)) − 1|` against the constant
+//! base `y`. A constant path has zero increments, so `K(x,y) = K(y,y) = 1`
+//! and this reduces to `|1/√(K(x,x)) − 1|` — zero iff x's depth-∞ signature
+//! is the identity.
+//!
+//! **Two things had to be measured before any threshold was written.**
+//!
+//! 1. *Refinement* (`examples/w2_refinement_sweep.rs`). A raw 3-point
+//!    out-and-back is NOT tree-invariant under the first-order scheme:
+//!    `K(x,x) = 1 + a²` for increment norm² `a`. Resampling kills it at
+//!    SECOND order (measured ratio 4.00 per doubling), while the triangle's
+//!    deviation converges to a constant — the two legs separate exactly as
+//!    the theorem requires. At 1536 points/segment: forward 1.11e-5 over 100
+//!    pairs, converse floor 1.340e-2, stable to four digits from 64 upward.
+//!
+//! 2. *The converse's real edge* (`examples/w2_area_edge.rs`). Taking a
+//!    random minimum was the wrong instrument — it moved from 1.53e-2 at 25
+//!    pairs to 1.03e-1 at 12, because fewer draws find fewer near-degenerate
+//!    triangles: a gate that gets EASIER with a smaller sample. Measured on a
+//!    controlled family (apex offset `h` off the base midpoint, enclosed area
+//!    `h/2`), the deviation obeys
+//!
+//!    ```text
+//!      dev  ≈  2 · area²        (measured dev/area²: 1.9923, 1.9985,
+//!                                2.0012, 2.0051 as area shrinks)
+//!    ```
+//!
+//!    with an artifact floor of 2.119e-7 at exactly `h = 0`.
+//!
+//! So the leg certifies the FUNCTIONAL FORM and its boundary, not a sampled
+//! minimum:
+//!
+//! - forward: max deviation over out-and-backs < 5e-5
+//! - converse law: `|dev/area² − 2| < 0.05` over the shrinking family
+//! - edge: area 2.5e-3 IS distinguished (dev > 1e-5, ~60x the floor)
+//! - below edge: area 2.5e-4 is NOT (dev < 1e-6, at the floor) — the
+//!   can-stay-silent half. A converse gate with no boundary would be
+//!   satisfied by any input; this one has a measured edge and says where.
+//!
 //! # Why this uses `signature_truncated`, not the PDE kernel — history
 //!
 //! An earlier `signature_kernel_pde` diverged from the closed form
@@ -84,6 +130,7 @@ mod active {
     use std::time::Instant;
 
     use sigker::signature::Signature;
+    use sigker::signature_kernel_pde;
     use sigker::signature_truncated;
 
     const N_PAIRS: usize = 100;
@@ -93,6 +140,35 @@ mod active {
     const FORWARD_TOLERANCE: f64 = 1e-9;
     const CONVERSE_THRESHOLD: f64 = 0.05;
     const DISCRIMINATION_RATIO_MIN: f64 = 1.0e6;
+
+    // ── W2: the depth-infinity leg ──────────────────────────────────────────
+    // Resolution and every threshold are pre-registered from the two committed
+    // sweeps: `examples/w2_refinement_sweep.rs` (convergence) and
+    // `examples/w2_area_edge.rs` (the converse law and its edge).
+    const PER_SEG: usize = 1536;
+    /// Forward pairs. The forward statistic is population-stable — the
+    /// refinement sweep measured max deviation 5.005e-6 at both 12 and 25
+    /// pairs — so a small sample is a faithful one here.
+    const N_PAIRS_PDE: usize = 8;
+    /// eps(N) at PER_SEG. The forward artifact is O(h^2); the sweep measured
+    /// 1.108764e-5 over 100 pairs at this resolution, and the exactly
+    /// tree-like fixture bottoms out at 2.119e-7. Pinned with ~4x margin.
+    const PDE_FORWARD_EPS: f64 = 5.0e-5;
+    /// The converse law: deviation / area^2 for the controlled triangle
+    /// family. Measured 1.9923, 1.9985, 2.0012, 2.0051 as area shrinks —
+    /// the deviation is QUADRATIC IN THE ENCLOSED LEVY AREA, and that
+    /// functional form is what this leg certifies, not a random minimum.
+    const PDE_AREA_LAW: f64 = 2.0;
+    const PDE_AREA_LAW_TOL: f64 = 0.05;
+    /// The near-degenerate case that must still be distinguished: area
+    /// 2.5e-3, measured deviation 1.262e-5 — 60x the 2.1e-7 artifact floor.
+    const PDE_EDGE_H: f64 = 0.005;
+    const PDE_EDGE_MIN_DEV: f64 = 1.0e-5;
+    /// Far below the edge the deviation IS the floor and the loop is NOT
+    /// distinguishable. Stating that boundary is what keeps the gate above
+    /// from being vacuous — see `depth_infinity_edge_is_real`.
+    const PDE_BELOW_EDGE_H: f64 = 0.0005;
+    const PDE_FLOOR: f64 = 1.0e-6;
 
     fn splitmix64(state: &mut u64) -> u64 {
         *state = state.wrapping_add(0x9E37_79B9_7F4A_7C15);
@@ -136,6 +212,91 @@ mod active {
         vec![p0.to_vec(), p1.to_vec(), p2.to_vec(), p0.to_vec()]
     }
 
+    /// Resample a polyline so each segment carries `per_seg` sub-intervals.
+    ///
+    /// Mandatory for the depth-infinity leg: a raw 3-point out-and-back is NOT
+    /// tree-invariant under the first-order Goursat scheme (for increment `u`
+    /// with `a = ‖u‖²` the recurrence gives `K(x,x) = 1 + a²` against 1 for
+    /// the constant base). That is discretization, not a uniqueness failure,
+    /// and it vanishes at second order under refinement.
+    fn resample(corners: &[Vec<f64>], per_seg: usize) -> Vec<Vec<f64>> {
+        let dim = corners[0].len();
+        let mut out = vec![corners[0].clone()];
+        for w in corners.windows(2) {
+            for s in 1..=per_seg {
+                let t = s as f64 / per_seg as f64;
+                out.push(
+                    (0..dim)
+                        .map(|a| w[0][a] + t * (w[1][a] - w[0][a]))
+                        .collect(),
+                );
+            }
+        }
+        out
+    }
+
+    /// Deviation of the normalized depth-infinity kernel from the constant
+    /// base: `|K(x,y)/√(K(x,x)K(y,y)) − 1|` with `y` constant. A constant path
+    /// has zero increments, so every cell coefficient vanishes and
+    /// `K(x,y) = K(y,y) = 1`, leaving `|1/√(K(x,x)) − 1|`. Zero iff the path's
+    /// depth-infinity signature is the identity.
+    fn pde_deviation_from_constant(path: &[Vec<f64>]) -> f64 {
+        let kxx = signature_kernel_pde(path, path);
+        (1.0 / kxx.sqrt() - 1.0).abs()
+    }
+
+    /// A triangle `[p0, p1, p2(h), p0]` whose apex sits `h` off the base
+    /// midpoint along a unit normal, so the enclosed area is exactly
+    /// `‖p1−p0‖·h/2` and `h` tunes degeneracy directly. `h = 0` is tree-like.
+    fn controlled_triangle(h: f64) -> (Vec<Vec<f64>>, f64) {
+        let p0 = vec![0.0, 0.0, 0.0];
+        let p1 = vec![1.0, 0.0, 0.0];
+        let p2 = vec![0.5, h, 0.0];
+        let area = h / 2.0; // base length is 1
+        (resample(&[p0.clone(), p1, p2, p0], PER_SEG), area)
+    }
+
+    /// The depth-infinity leg's three measurements.
+    struct PdeLeg {
+        /// max |deviation| over tree-like (out-and-back) paths
+        forward_max: f64,
+        /// worst |deviation/area^2 − 2| over the controlled family
+        area_law_err: f64,
+        /// deviation at the near-degenerate edge that must be distinguished
+        edge_dev: f64,
+        /// deviation far below the edge — must sit at the artifact floor
+        below_edge_dev: f64,
+    }
+
+    fn depth_infinity_leg() -> PdeLeg {
+        let mut state: u64 = 0xCAFE_BABE_DEAD_BEEF;
+        let mut forward_max = 0.0f64;
+        for _ in 0..N_PAIRS_PDE {
+            let p0 = random_point(&mut state, DIM);
+            let p1 = random_point(&mut state, DIM);
+            let oab = resample(&[p0.clone(), p1, p0], PER_SEG);
+            forward_max = forward_max.max(pde_deviation_from_constant(&oab));
+        }
+
+        // The converse LAW, over the shrinking-area family.
+        let mut area_law_err = 0.0f64;
+        for &h in &[0.1f64, 0.05, 0.02, 0.01] {
+            let (tri, area) = controlled_triangle(h);
+            let q = pde_deviation_from_constant(&tri) / (area * area);
+            area_law_err = area_law_err.max((q - PDE_AREA_LAW).abs());
+        }
+
+        let (edge_tri, _) = controlled_triangle(PDE_EDGE_H);
+        let (below_tri, _) = controlled_triangle(PDE_BELOW_EDGE_H);
+
+        PdeLeg {
+            forward_max,
+            area_law_err,
+            edge_dev: pde_deviation_from_constant(&edge_tri),
+            below_edge_dev: pde_deviation_from_constant(&below_tri),
+        }
+    }
+
     pub fn prove() -> PillarResult {
         let t0 = Instant::now();
 
@@ -175,6 +336,13 @@ mod active {
             }
         }
 
+        // ── W2: depth-infinity leg (M-2) ────────────────────────────────
+        let pde = depth_infinity_leg();
+        let pde_pass = pde.forward_max < PDE_FORWARD_EPS
+            && pde.area_law_err < PDE_AREA_LAW_TOL
+            && pde.edge_dev > PDE_EDGE_MIN_DEV
+            && pde.below_edge_dev < PDE_FLOOR;
+
         let runtime_ms = t0.elapsed().as_millis() as u64;
 
         let discrimination_ratio = if max_forward_dist > 0.0 {
@@ -185,7 +353,8 @@ mod active {
 
         let pass = forward_pairs_pass == N_PAIRS as u64
             && converse_pairs_pass == N_PAIRS as u64
-            && discrimination_ratio >= DISCRIMINATION_RATIO_MIN;
+            && discrimination_ratio >= DISCRIMINATION_RATIO_MIN
+            && pde_pass;
 
         let detail = format!(
             "N={} pairs, dim={}, depth={}. \
@@ -195,8 +364,19 @@ mod active {
              (pass if > {:.2}); {}/{} pairs above threshold. \
              Discrimination ratio (min-converse / max-forward) = {:.3e} \
              (pass if ≥ {:.0e}). \
-             Pillar uses sigker::signature_truncated (tensor-algebra path), \
-             not signature_kernel_pde — independent of PR #350 PDE-form correction.",
+             DEPTH-INFINITY leg (W2, resampled to {} pts/segment, {} forward pairs): \
+             max forward deviation = {:.3e} (pass if < {:.0e}); \
+             converse law |dev/area² − 2| = {:.4} (pass if < {:.2}); \
+             edge (area {:.4}) deviation = {:.3e} (pass if > {:.0e}); \
+             below-edge (area {:.5}) deviation = {:.3e} (pass if < {:.0e}, \
+             i.e. NOT distinguishable — the gate's real boundary). \
+             The depth-2 legs use sigker::signature_truncated (tensor algebra, \
+             exact, so their forward distance is exactly 0). The depth-infinity \
+             leg uses signature_kernel_pde, where the forward deviation is an \
+             O(h²) discretization artifact rather than a uniqueness failure — \
+             so that leg certifies the converse FUNCTIONAL FORM (deviation is \
+             quadratic in enclosed Lévy area) and its own resolution boundary, \
+             not a sampled ratio.",
             N_PAIRS,
             DIM,
             DEPTH,
@@ -210,6 +390,18 @@ mod active {
             N_PAIRS,
             discrimination_ratio,
             DISCRIMINATION_RATIO_MIN,
+            PER_SEG,
+            N_PAIRS_PDE,
+            pde.forward_max,
+            PDE_FORWARD_EPS,
+            pde.area_law_err,
+            PDE_AREA_LAW_TOL,
+            PDE_EDGE_H / 2.0,
+            pde.edge_dev,
+            PDE_EDGE_MIN_DEV,
+            PDE_BELOW_EDGE_H / 2.0,
+            pde.below_edge_dev,
+            PDE_FLOOR,
         );
 
         PillarResult {

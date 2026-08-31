@@ -71,3 +71,14 @@ name = "style_table_agreement"
 
 [[example]]
 name = "substrate_compare"
+
+# W2 pre-registration sweep — requires the sigker sibling, same gate as the
+# pillar itself.
+[[example]]
+name = "w2_refinement_sweep"
+required-features = ["hambly-lyons"]
+
+[[example]]
+name = "w2_area_edge"
+required-features = ["hambly-lyons"]
+
