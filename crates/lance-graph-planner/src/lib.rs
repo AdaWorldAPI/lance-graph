@@ -90,6 +90,7 @@ pub mod api;
 // causally-coherent SoA via the HLC clock, and owns the epistemic-mode policy +
 // per-row classify. Both deferred axes (cross-server HLC, SPO depends-closure)
 // are type-visible with trivial single-server bodies. See module docs.
+pub mod rung_horizon;
 pub mod temporal;
 
 // === Canonical OrchestrationBridge impl (dedup per contract) ===
