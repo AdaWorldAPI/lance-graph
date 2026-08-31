@@ -1,3 +1,59 @@
+## 2026-08-31 — E-I-PINNED-THE-DEFECT-AS-THE-GUARD-WHILE-FIXING-A-REVIEW-COMMENT-1
+
+**Status:** FINDING — self-inflicted, caught by both reviewers on PR #1122,
+one PR after writing the rule it violates.
+**Confidence:** measured — `next_base_seq`, `lance-graph-planner`, disable-run
+red-then-green.
+
+PR #1120's review said `base_seq + i` could overflow. The fix added
+`next_base_seq`, saturating, with a doc comment stating that saturation
+prevents a wrapped coordinate from aliasing the durable log — and a test:
+
+```rust
+// The saturating guard: a wrapped coordinate would alias the start of
+// the durable log, the one outcome this precondition exists to stop.
+assert_eq!(next_base_seq(u64::MAX, 4), u64::MAX);
+```
+
+**That assertion pins the defect as the intended behaviour.** Saturation does
+not produce a free coordinate; it hands back one the reservation just minted.
+Replaying 4 steps from `u64::MAX - 3` mints through `u64::MAX`, the helper
+returns `u64::MAX`, and a caller following the documented sequential pattern
+replays a one-step chain there — legal, since the reservation only needs
+`steps - 1` addable — and emits a **duplicate `cast_seq`**. Exactly the
+duplicate the comment claimed to prevent. Measured, not argued: the new test
+replays both halves and asserts the two rows carry the same coordinate.
+
+**A guard that cannot say "no" is not a guard.** Same shape as
+`E-A-DETERMINISM-GATE-IS-TRIVIALLY-SATISFIED-BY-A-KERNEL-THAT-DOES-NOTHING-1`,
+written one PR earlier, in this same module. Saturation is the arithmetic form
+of a check that always passes: it makes the failure *unrepresentable in the
+return type*, so no caller can handle it and no test can catch it — the test I
+wrote asserted the collapsed value and went green. Fixed by making exhaustion
+representable (`Option<u64>`), after which `checked_add` IS the boundary and no
+separate exhaustion test is needed.
+
+**Two things worth keeping beyond the bug:**
+
+1. **A fix written for a review comment gets no discount.** This defect was
+   introduced *by* the remedy for a finding about the same field, and shipped
+   with a confident doc comment plus a test. The review context made it feel
+   already-scrutinised; nothing about it was.
+2. **Writing a rule does not install it.** The determinism-gate entry was three
+   commits old, in the same file, and I still reached for the arithmetic that
+   makes a guard vacuous. The disable-run is what catches this class — and I
+   did not run one on `next_base_seq`, because it was "just a helper".
+
+**Second finding, same PR, same shape at doc level:** the `validate_chain`
+doctrine says replay must not refuse history, then listed *"loading a
+recording"* as an admission site — which validates an old recording against
+today's palette and rejects exactly the history the argument protects. The
+argument was right and the instruction beneath it contradicted it. Corrected:
+admission = FIRST acceptance; a chain re-read from the durable log is already
+admitted and is replayed, never re-judged.
+
+---
+
 ## 2026-08-31 — E-TWO-REVIEWERS-FOUND-THE-SAME-THREE-DEFECTS-AND-ONE-OF-THEM-WAS-MINE-ALONE-1
 
 **Status:** FINDING — #1120's full review surface, read after merge.
@@ -5,7 +61,7 @@
 same diff; each adjudicated against the code, two remedies rejected with
 evidence.
 
-#1120 drew **7 findings from two reviewers that never see each other's
+PR #1120 drew **7 findings from two reviewers that never see each other's
 output** — codex (3) and CodeRabbit (4). Their overlap is the interesting
 part, and so is the one place they diverge.
 

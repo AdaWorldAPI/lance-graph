@@ -205,10 +205,29 @@ pub struct UnmintedOrdinal {
 /// and "yesterday's evaluation replays today byte-for-byte" is precisely the
 /// property the whole wave exists to hold.
 ///
-/// So the judgement happens where a chain ENTERS the system (loading a
-/// recording, accepting one over a boundary) and is a constant property of the
-/// chain, checked once; replay stays total over admitted chains. Call this at
-/// admission, and at the membrane where the real palette is reachable.
+/// So the judgement happens once, when a chain is FIRST accepted, and replay
+/// stays total over everything already admitted.
+///
+/// # "Admission" means first acceptance — NOT loading a recording
+///
+/// The previous wording listed *"loading a recording"* as an admission site,
+/// which **contradicted the paragraph above it** — reloading an older durable
+/// recording and validating it against today's palette rejects exactly the
+/// history the split exists to keep replayable. Codex caught this on #1122;
+/// the argument was right and the instruction beneath it was wrong.
+///
+/// The rule, stated so the two cannot drift apart again:
+///
+/// - **A chain arriving from outside** (a producer, a boundary, a new
+///   recording being made) is validated against the CURRENT palette, here.
+/// - **A chain being re-read from the durable log** is already admitted. It is
+///   not re-validated — the fact that it was recorded IS its admission, under
+///   whatever palette was current then. Replay it.
+/// - A caller that genuinely needs to check an old recording must check it
+///   against the palette version it was admitted under, which this function
+///   cannot do: it has one palette, today's. That is a versioned-palette
+///   capability nothing in this wave has, and inventing one here would be
+///   worse than declining.
 ///
 /// Fails closed and reports WHICH step, so a rejection is actionable rather
 /// than a boolean.
@@ -315,17 +334,45 @@ pub fn replay_chain(
     Ok(trace)
 }
 
-/// The next free durable coordinate after replaying a `chain_len`-step chain
+/// The next FREE durable coordinate after replaying a `chain_len`-step chain
 /// from `base_seq` — the half-open reservation `[base_seq, base_seq + len)`
 /// stated as code, so a caller replaying several chains in sequence cannot
 /// reach for a naive `+ 1`.
 ///
-/// Saturating rather than wrapping: a wrapped coordinate would silently alias
-/// the beginning of the durable log, which is the one failure this whole
-/// precondition exists to prevent.
+/// Returns `None` when the range is exhausted, i.e. when there IS no free
+/// coordinate after this chain.
+///
+/// # Why this is an `Option` and not a saturating `u64`
+///
+/// It was a saturating `u64`, and that was a real bug — found independently by
+/// both reviewers on #1122, in code written to fix their own earlier finding
+/// about this same field.
+///
+/// Saturation collapses "exhausted" into a *usable-looking* answer. Replaying
+/// 4 steps from `u64::MAX - 3` mints through `u64::MAX`; the saturating helper
+/// then returned `u64::MAX` — a coordinate it had just handed out — and a
+/// caller following the documented sequential pattern would replay a one-step
+/// chain there (legal, since the reservation only needs `steps - 1` to be
+/// addable) and emit a **duplicate `cast_seq`**. That is precisely the
+/// duplicate the old doc comment claimed saturation prevented.
+///
+/// Worse than the bug: the test asserted `next_base_seq(u64::MAX, 4) ==
+/// u64::MAX` and called it "the saturating guard", pinning the defect as
+/// intended behaviour. A guard that cannot say "no" is not a guard — the same
+/// lesson as `E-A-DETERMINISM-GATE-IS-TRIVIALLY-SATISFIED-BY-A-KERNEL-THAT-
+/// DOES-NOTHING-1`, met again one PR later while fixing a review comment.
+///
+/// Exhaustion is now representable, so a caller must handle it rather than
+/// receive a coordinate that is already spoken for.
 #[must_use]
-pub const fn next_base_seq(base_seq: u64, chain_len: usize) -> u64 {
-    base_seq.saturating_add(chain_len as u64)
+pub const fn next_base_seq(base_seq: u64, chain_len: usize) -> Option<u64> {
+    // `base + len` is the first coordinate PAST the half-open reservation, so
+    // it is exactly the next free base — and it overflows precisely when the
+    // reservation ran to the end of the range (4 steps from `u64::MAX - 3`
+    // mint through `u64::MAX`, leaving nothing). `checked_add` therefore IS
+    // the boundary; no separate exhaustion test is needed. A zero-length
+    // chain reserves nothing and returns its own base.
+    base_seq.checked_add(chain_len as u64)
 }
 
 /// The first step whose replayed CONTENT differs, or `None` when the two
@@ -694,7 +741,7 @@ mod tests {
 
         // RIGHT: advance by the reservation.
         let ok_a = replay_chain(&c, seed, &tables, tabs, owner, 10).expect("reservation fits");
-        let next = next_base_seq(10, c.len());
+        let next = next_base_seq(10, c.len()).expect("10 + 4 is addressable");
         assert_eq!(next, 14);
         let ok_b = replay_chain(&c, seed, &tables, tabs, owner, next).expect("reservation fits");
         let (oa, ob) = (coords(&ok_a), coords(&ok_b));
@@ -705,9 +752,38 @@ mod tests {
         // ...and contiguous, so the log has no unexplained holes.
         assert_eq!(*oa.last().unwrap() + 1, ob[0]);
 
-        // The saturating guard: a wrapped coordinate would alias the start of
-        // the durable log, the one outcome this precondition exists to stop.
-        assert_eq!(next_base_seq(u64::MAX, 4), u64::MAX);
+        // Exhaustion must be REPRESENTABLE, not collapsed into a usable base.
+        //
+        // This assertion previously read `next_base_seq(u64::MAX, 4) ==
+        // u64::MAX` and called it "the saturating guard" — pinning a defect as
+        // intended behaviour. Both reviewers on #1122 found it independently:
+        // saturation hands back a coordinate the reservation ALREADY minted,
+        // so a caller following the documented sequential pattern emits a
+        // duplicate `cast_seq` — exactly what the guard claimed to prevent.
+        assert_eq!(next_base_seq(u64::MAX, 4), None);
+
+        // The boundary that makes it concrete, and the reason `None` is not
+        // merely defensive: replay 4 steps from the last base that fits, and
+        // the range is genuinely used up.
+        let top = u64::MAX - 3;
+        let last =
+            replay_chain(&c, seed, &tables, tabs, owner, top).expect("the exact fit is allowed");
+        assert_eq!(last.last().unwrap().cast_seq(), u64::MAX);
+        assert_eq!(
+            next_base_seq(top, c.len()),
+            None,
+            "there is no free coordinate after a reservation that ends at u64::MAX",
+        );
+        // ...and the old saturating answer would have been u64::MAX, which
+        // `replay_chain` still ACCEPTS for a one-step chain — so the duplicate
+        // was reachable, not theoretical.
+        let dup = replay_chain(&c[..1], seed, &tables, tabs, owner, u64::MAX)
+            .expect("a one-step chain at the top is legal");
+        assert_eq!(
+            dup[0].cast_seq(),
+            last.last().unwrap().cast_seq(),
+            "this is the duplicate the old saturating helper would have handed out",
+        );
     }
     #[test]
     fn a_chain_carrying_a_search_op_is_refused_at_admission_and_still_replays() {
