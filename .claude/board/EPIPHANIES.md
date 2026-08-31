@@ -1,3 +1,60 @@
+## 2026-08-31 — E-TWO-REVIEWERS-FOUND-THE-SAME-THREE-DEFECTS-AND-ONE-OF-THEM-WAS-MINE-ALONE-1
+
+**Status:** FINDING — #1120's full review surface, read after merge.
+**Confidence:** measured — 7 findings across two independent reviewers on the
+same diff; each adjudicated against the code, two remedies rejected with
+evidence.
+
+#1120 drew **7 findings from two reviewers that never see each other's
+output** — codex (3) and CodeRabbit (4). Their overlap is the interesting
+part, and so is the one place they diverge.
+
+| line | codex | CodeRabbit | verdict |
+|---|---|---|---|
+| 179 | predicate dropped from the trace | reject an out-of-band ordinal | **same defect, two different remedies** |
+| 183 | overlapping durable coordinates | `cast_seq` overflow at `u64::MAX` | **same field, two distinct bugs — both real** |
+| 199/200 | compare only edges vs the doc's promise | identical finding | **agreed, and both remedies wrong** |
+| board | — | `cast_seq` described as caller-supplied | **CodeRabbit alone; correct** |
+
+**Independent agreement is evidence; identical remedies are not.** Both
+reviewers proposed comparing whole `ReplayTraceRow` values in
+`first_divergence`. Running it: the same chain replayed from durable base 100
+vs 900 is declared divergent at step 0 — the same witness at two addresses.
+Two reviewers converging on a fix does not make the fix right, and the cost of
+checking was one test run.
+
+**The 179 pair is the sharper lesson.** Both saw that the ordinal was
+mishandled; they disagreed about *which* mishandling. Codex: it is dropped
+from the witness (so a recorded program cannot be reconstructed). CodeRabbit:
+it is not validated (so a chain carrying `0xA3`, the SEARCH band, replays as
+if causal). **Both are true and the fixes go in opposite directions** — carry
+it *more* faithfully, and judge it *before* it is carried. Taking either alone
+would have looked complete.
+
+The split that resolves it: **replay must not refuse history.** A recorded
+chain is a fact; the engine reproduces it, it does not judge it. If the palette
+later drops or renumbers an ordinal, a validating replay starts returning `Err`
+for chains that were valid when recorded — destroying the very property the
+wave exists to hold. So validation is an ADMISSION check (`validate_chain`,
+constant per chain, checked once) and replay stays total over admitted chains,
+while the witness carries the ordinal faithfully. Both findings satisfied,
+neither remedy taken literally.
+
+**The board finding is the one only a doc-reader caught.** The status row said
+*"`cast_seq` is caller-supplied and durable, never minted"* — reversing the
+contract, since the caller supplies `base_seq` and the planner DERIVES
+`cast_seq`. No code reviewer would flag it; no test could fail on it. It is
+exactly the class of error that survives forever because it lives where nothing
+executes.
+
+**Consequence for the review posture:** a second reviewer is not redundancy —
+measured here, it contributed one finding neither the first reviewer nor any
+gate could reach, and it disagreed usefully about a defect the first had
+already found. And a finding's *remedy* is a proposal, never a verdict: 3 of 7
+remedies here were wrong or too literal, while 7 of 7 findings were real.
+
+---
+
 ## 2026-08-31 — E-Q8-THE-SIX-DOES-NO-WORK-A-DEGREE-ABLATION-COLLAPSES-THE-HEX-OVERLAYS-ENTIRE-ADVANTAGE-1 — B passes every pre-registered gate and the pass is unattributable: at degree 1 it scores identically with 5.5x less memory
 
 **Status:** FINDING [MEASURED] — full entry in
@@ -23,10 +80,39 @@ a different road: the information is in the PAIR, not the neighbourhood's
 shape. One relation carried everything; five more neighbours added bytes.
 ## 2026-08-31 — E-A-MONITOR-KEYED-ON-THE-PR-HEAD-CAN-CERTIFY-THE-WRONG-COMMIT-1
 
-**Status:** FINDING — operational, measured on #1120 while it happened.
+**Status:** FINDING — the RULE stands; the CAUSE first recorded here was
+**wrong and is corrected below**, same day, before this entry ever merged.
 **Confidence:** measured — GitHub's `pulls/1120` reported head `233ce3f1` for
->10 minutes while `git/ref/heads/…` (same API, same token, same request) already
-had `216d8f2`; `mergeable` stayed `null` throughout.
+>45 minutes while `git/ref/heads/…` (same API, same token, same request) already
+had `216d8f2` and then `81820cc`; `mergeable` stayed `null` throughout.
+
+> **⊘ CAUSE CORRECTED (same day, on discovering the merge).** This entry first
+> blamed *"GitHub delivered no push event"* — an exotic infrastructure story.
+> The real cause was mundane and one field away: **#1120 had already MERGED**,
+> at 19:45:46, with head `233ce3f1`. A merged PR stops tracking its branch and
+> stops running PR-triggered workflows, so the frozen head, the null
+> `mergeable`, and the silent Actions were all *correct behaviour* for a closed
+> PR — not a delivery stall.
+>
+> **How the wrong cause survived four checks:** an early query printed
+> `pr["state"]` (`open`); every later query printed head, mergeable and
+> check-runs and **dropped `state`**. Each subsequent read was consistent with
+> both hypotheses — "GitHub is stalling" and "the PR is closed" — and I never
+> re-read the one field that separates them. I then wrote an increasingly
+> specific infrastructure diagnosis (webhooks, proxy ref-updates) on top of a
+> premise I had stopped checking.
+>
+> **The transferable rule is the sharper one:** when a subject stops behaving,
+> **re-read its STATE before theorising about its plumbing.** A field you
+> printed once and dropped is not a field you know. The exotic explanation felt
+> earned because each new observation fit it — but they fit the boring one
+> equally, and only the dropped field discriminated.
+>
+> **What survives unchanged:** the rule this entry exists for. Keying a watch
+> on the PR head certified the wrong commit, and it would have done so for a
+> *merged* PR just as surely as for a stalled one — arguably more so, since a
+> merged PR's head is frozen permanently. Pin the SHA; compare it. If anything,
+> a merged-PR head is the commoner way to hit this.
 
 A CI monitor was armed to poll the PR, emit each check as it landed, and stop
 at "all complete". It reported **ALL GREEN**. The verdict was true — and it was
@@ -55,7 +141,8 @@ review. Silence would have been safer than that green.
 
 **Why it was caught:** not by the monitor and not by any gate — by noticing
 that a routine status read showed a head two commits behind a push whose
-output had scrolled past. The generalization is uncomfortable and worth
+output had scrolled past. (The *cause* took longer and was got wrong first —
+see the correction at the top.) The generalization is uncomfortable and worth
 keeping: **an automated check can be simultaneously correct and irrelevant**,
 and nothing inside it can tell the difference, because relevance is a property
 of what it was pointed at.

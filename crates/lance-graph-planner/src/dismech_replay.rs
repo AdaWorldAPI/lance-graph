@@ -39,6 +39,8 @@
 
 use causal_edge::tables::{unpack_c, unpack_f, NarsTables};
 use causal_edge::CausalEdge64;
+use core::fmt;
+
 use lance_graph_contract::collapse_gate::MailboxId;
 
 use crate::temporal::LocalCausalRow;
@@ -140,6 +142,88 @@ pub fn chain_step_predicate(step: ChainStep) -> Option<&'static (u8, &'static st
     lance_graph_contract::dismech_evidence::dismech_predicate(step.0)
 }
 
+/// A replay could not be performed as asked.
+///
+/// Deliberately small: replay has exactly one way to fail, and it is a
+/// property of the ADDRESS SPACE the caller offered, never of the recorded
+/// chain (see [`validate_chain`] for why a chain's content is not judged here).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[non_exhaustive]
+pub enum ReplayError {
+    /// `[base_seq, base_seq + chain.len())` does not fit in `u64`.
+    ///
+    /// Not a theoretical guard: the alternative is wrapping, and wrapped
+    /// coordinates alias the START of the durable log — duplicate `cast_seq`
+    /// values that violate [`LocalCausalRow`]'s uniqueness requirement and
+    /// silently degrade `local_trajectory_of` to scan order. Refused loudly
+    /// rather than emitted quietly. (Raised by review on #1120: the previous
+    /// `base_seq + i as u64` panicked in debug builds and wrapped in release.)
+    SequenceExhausted {
+        /// The base the caller offered.
+        base_seq: u64,
+        /// How many steps the chain needed.
+        steps: usize,
+    },
+}
+
+impl fmt::Display for ReplayError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::SequenceExhausted { base_seq, steps } => write!(
+                f,
+                "durable sequence exhausted: base {base_seq} cannot reserve {steps} steps"
+            ),
+        }
+    }
+}
+
+impl std::error::Error for ReplayError {}
+
+/// A step whose predicate ordinal names no minted DisMech predicate.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct UnmintedOrdinal {
+    /// Index of the offending step within the chain.
+    pub step: usize,
+    /// The ordinal that resolved to nothing.
+    pub ordinal: u8,
+}
+
+/// Check that every step of a chain travels under a minted DisMech predicate.
+///
+/// # Why this is an ADMISSION check and NOT part of [`replay_chain`]
+///
+/// Review on #1120 proposed validating inside the replay loop and returning an
+/// error before emitting a trace row. The defect it names is real — a chain
+/// carrying `0xA3` (the palette's SEARCH band) is not a causal chain, and
+/// replaying it produces a byte-identical, meaningless trace. But the remedy
+/// belongs one step earlier, for a reason that goes to the plan's keystone:
+///
+/// **Replay must not refuse history.** A recorded chain is a fact about what
+/// was evaluated; the engine's job is to reproduce it, not to judge it. If the
+/// palette ever drops or renumbers an ordinal, a replay that validated would
+/// start returning `Err` for chains that were perfectly valid when recorded —
+/// and "yesterday's evaluation replays today byte-for-byte" is precisely the
+/// property the whole wave exists to hold.
+///
+/// So the judgement happens where a chain ENTERS the system (loading a
+/// recording, accepting one over a boundary) and is a constant property of the
+/// chain, checked once; replay stays total over admitted chains. Call this at
+/// admission, and at the membrane where the real palette is reachable.
+///
+/// Fails closed and reports WHICH step, so a rejection is actionable rather
+/// than a boolean.
+pub fn validate_chain(chain: &[ChainStep]) -> Result<(), UnmintedOrdinal> {
+    for (step, &entry) in chain.iter().enumerate() {
+        if chain_step_predicate(entry).is_none() {
+            return Err(UnmintedOrdinal {
+                step,
+                ordinal: entry.0,
+            });
+        }
+    }
+    Ok(())
+}
+
 /// The single step, isolated so the replay and any future accelerator agree on
 /// what a step IS. Composes the two halves W0 measured, in that order:
 /// the table lookup (evidence fusion) then the packed forward (palette
@@ -192,7 +276,13 @@ pub fn replay_step(
 /// It does not alter W1's arithmetic — it is the ADDRESS the step travels
 /// under — but it IS part of the witness, so a consumer can join a diff back
 /// to the palette at the membrane. W3's counterfactual arm makes it selective.
-#[must_use]
+///
+/// # Errors
+///
+/// [`ReplayError::SequenceExhausted`] when `[base_seq, base_seq + chain.len())`
+/// does not fit in `u64`. The reservation is checked ONCE, up front, so the
+/// loop cannot emit a partial trace and then discover it has no coordinate
+/// left — a half-written trace is worse than a refusal.
 pub fn replay_chain(
     chain: &[ChainStep],
     seed: CausalEdge64,
@@ -200,9 +290,18 @@ pub fn replay_chain(
     compose: ComposeTables<'_>,
     owner: MailboxId,
     base_seq: u64,
-) -> Vec<ReplayTraceRow> {
+) -> Result<Vec<ReplayTraceRow>, ReplayError> {
+    // Check the whole reservation before writing anything.
+    let steps = chain.len();
+    if steps > 0 {
+        u64::try_from(steps - 1)
+            .ok()
+            .and_then(|last| base_seq.checked_add(last))
+            .ok_or(ReplayError::SequenceExhausted { base_seq, steps })?;
+    }
+
     let mut running = seed;
-    let mut trace = Vec::with_capacity(chain.len());
+    let mut trace = Vec::with_capacity(steps);
     for (i, &(predicate, weight)) in chain.iter().enumerate() {
         running = replay_step(running, weight, tables, compose);
         trace.push(ReplayTraceRow {
@@ -213,7 +312,7 @@ pub fn replay_chain(
             edge: running,
         });
     }
-    trace
+    Ok(trace)
 }
 
 /// The next free durable coordinate after replaying a `chain_len`-step chain
@@ -336,8 +435,8 @@ mod tests {
         let ch = chain(&mut rng, 12);
         let seed = edge(&mut rng);
 
-        let a = replay_chain(&ch, seed, &t, tabs, 7, 1_000);
-        let b = replay_chain(&ch, seed, &t, tabs, 7, 1_000);
+        let a = replay_chain(&ch, seed, &t, tabs, 7, 1_000).expect("reservation fits");
+        let b = replay_chain(&ch, seed, &t, tabs, 7, 1_000).expect("reservation fits");
         assert_eq!(a, b, "replay is not deterministic");
         assert_eq!(first_divergence(&a, &b), None);
         // Anti-vacuity, and it must cover BOTH halves of the kernel — a
@@ -373,7 +472,7 @@ mod tests {
         let mut rng = Lcg(0x0BAD_5EED_1234_5678);
         let ch = chain(&mut rng, 12);
         let seed = edge(&mut rng);
-        let base = replay_chain(&ch, seed, &t, tabs, 7, 1_000);
+        let base = replay_chain(&ch, seed, &t, tabs, 7, 1_000).expect("reservation fits");
 
         for k in [0usize, 5, 11] {
             let mut perturbed = ch.clone();
@@ -382,7 +481,8 @@ mod tests {
             w.set_s_idx(w.s_idx().wrapping_add(1));
             perturbed[k].1 = w;
 
-            let other = replay_chain(&perturbed, seed, &t, tabs, 7, 1_000);
+            let other =
+                replay_chain(&perturbed, seed, &t, tabs, 7, 1_000).expect("reservation fits");
             assert_eq!(
                 first_divergence(&base, &other),
                 Some(k as u32),
@@ -410,16 +510,16 @@ mod tests {
         let mut sibling = chain(&mut rng, 12);
         let seed = edge(&mut rng);
 
-        let base = replay_chain(&ch, seed, &t, tabs, 7, 1_000);
+        let base = replay_chain(&ch, seed, &t, tabs, 7, 1_000).expect("reservation fits");
         let mut w = sibling[3].1;
         w.set_s_idx(w.s_idx().wrapping_add(17));
         sibling[3].1 = w;
-        let after = replay_chain(&ch, seed, &t, tabs, 7, 1_000);
+        let after = replay_chain(&ch, seed, &t, tabs, 7, 1_000).expect("reservation fits");
 
         assert_eq!(base, after, "a sibling chain must not reach this replay");
         // anti-vacuity: the sibling really is a different chain, and replaying
         // IT really does differ — otherwise "unchanged" is trivially true.
-        let sib_trace = replay_chain(&sibling, seed, &t, tabs, 7, 1_000);
+        let sib_trace = replay_chain(&sibling, seed, &t, tabs, 7, 1_000).expect("reservation fits");
         assert_ne!(base, sib_trace);
     }
 
@@ -439,8 +539,8 @@ mod tests {
         let (ch_a, ch_b) = (chain(&mut rng, 4), chain(&mut rng, 4));
         let seed = edge(&mut rng);
 
-        let a = replay_chain(&ch_a, seed, &t, tabs, 1, 10);
-        let b = replay_chain(&ch_b, seed, &t, tabs, 2, 500);
+        let a = replay_chain(&ch_a, seed, &t, tabs, 1, 10).expect("reservation fits");
+        let b = replay_chain(&ch_b, seed, &t, tabs, 2, 500).expect("reservation fits");
         // interleave them the way a shared durable log would
         let mut global = Vec::new();
         for i in 0..4 {
@@ -508,8 +608,8 @@ mod tests {
         }
         assert_ne!(a[3].0, b[3].0);
 
-        let ta = replay_chain(&a, seed, &tables, tabs, 7, 100);
-        let tb = replay_chain(&b, seed, &tables, tabs, 7, 100);
+        let ta = replay_chain(&a, seed, &tables, tabs, 7, 100).expect("reservation fits");
+        let tb = replay_chain(&b, seed, &tables, tabs, 7, 100).expect("reservation fits");
 
         // The packed arithmetic is genuinely identical — W1 does not read the
         // ordinal — so the ONLY thing that can distinguish these traces is the
@@ -543,8 +643,8 @@ mod tests {
 
         // (a) SILENT on pure addressing: same chain, same owner, different
         //     durable base — the same causal witness at another address.
-        let at_100 = replay_chain(&c, seed, &tables, tabs, 1, 100);
-        let at_900 = replay_chain(&c, seed, &tables, tabs, 1, 900);
+        let at_100 = replay_chain(&c, seed, &tables, tabs, 1, 100).expect("reservation fits");
+        let at_900 = replay_chain(&c, seed, &tables, tabs, 1, 900).expect("reservation fits");
         assert_ne!(
             at_100[0].cast_seq, at_900[0].cast_seq,
             "the addresses must actually differ, or this proves nothing",
@@ -552,14 +652,14 @@ mod tests {
         assert_eq!(first_divergence(&at_100, &at_900), None);
 
         // (b) ...and a different OWNER is addressing too.
-        let other = replay_chain(&c, seed, &tables, tabs, 2, 100);
+        let other = replay_chain(&c, seed, &tables, tabs, 2, 100).expect("reservation fits");
         assert_ne!(at_100[0].owner(), other[0].owner());
         assert_eq!(first_divergence(&at_100, &other), None);
 
         // (c) FIRES on content: one predicate swapped, addressing untouched.
         let mut c2 = c.clone();
         c2[2].0 = if c2[2].0 == 0x90 { 0x91 } else { 0x90 };
-        let swapped = replay_chain(&c2, seed, &tables, tabs, 1, 100);
+        let swapped = replay_chain(&c2, seed, &tables, tabs, 1, 100).expect("reservation fits");
         assert_eq!(first_divergence(&at_100, &swapped), Some(2));
     }
 
@@ -583,8 +683,8 @@ mod tests {
 
         // WRONG: advance by one per chain. The reservation is per STEP, so the
         // ranges overlap on 3 of 4 coordinates.
-        let naive_a = replay_chain(&c, seed, &tables, tabs, owner, 10);
-        let naive_b = replay_chain(&c, seed, &tables, tabs, owner, 11);
+        let naive_a = replay_chain(&c, seed, &tables, tabs, owner, 10).expect("reservation fits");
+        let naive_b = replay_chain(&c, seed, &tables, tabs, owner, 11).expect("reservation fits");
         let (ca, cb) = (coords(&naive_a), coords(&naive_b));
         let shared = ca.iter().filter(|x| cb.contains(x)).count();
         assert_eq!(
@@ -593,10 +693,10 @@ mod tests {
         );
 
         // RIGHT: advance by the reservation.
-        let ok_a = replay_chain(&c, seed, &tables, tabs, owner, 10);
+        let ok_a = replay_chain(&c, seed, &tables, tabs, owner, 10).expect("reservation fits");
         let next = next_base_seq(10, c.len());
         assert_eq!(next, 14);
-        let ok_b = replay_chain(&c, seed, &tables, tabs, owner, next);
+        let ok_b = replay_chain(&c, seed, &tables, tabs, owner, next).expect("reservation fits");
         let (oa, ob) = (coords(&ok_a), coords(&ok_b));
         assert!(
             oa.iter().all(|x| !ob.contains(x)),
@@ -608,5 +708,90 @@ mod tests {
         // The saturating guard: a wrapped coordinate would alias the start of
         // the durable log, the one outcome this precondition exists to stop.
         assert_eq!(next_base_seq(u64::MAX, 4), u64::MAX);
+    }
+    #[test]
+    fn a_chain_carrying_a_search_op_is_refused_at_admission_and_still_replays() {
+        // CodeRabbit #1120 asked that `replay_chain` itself reject an ordinal
+        // outside the predicate band. Both halves are pinned here, because the
+        // SPLIT is the decision, not either half alone.
+        let mut rng = Lcg(0x5EA2_C401_9D3B_77E6);
+        let mut c = chain(&mut rng, 5);
+        c[2].0 = 0xA3; // CANDIDATES — a real slot, in the SEARCH band
+
+        // (a) admission REFUSES it, and names the step so the rejection is
+        //     actionable rather than a boolean.
+        assert_eq!(
+            validate_chain(&c),
+            Err(UnmintedOrdinal {
+                step: 2,
+                ordinal: 0xA3
+            }),
+        );
+        // Anti-vacuity: the same chain without that step must PASS, or the
+        // check could be rejecting everything.
+        let mut clean = c.clone();
+        clean[2].0 = 0x90;
+        assert_eq!(validate_chain(&clean), Ok(()));
+
+        // (b) replay stays TOTAL over it. Replay must not refuse history: a
+        //     recorded chain is a fact, and a replay that judged content would
+        //     start returning Err for chains that were valid when recorded —
+        //     against the keystone this whole wave exists to hold.
+        let tables = NarsTables::build(1);
+        let c_tabs = compose_tables();
+        let tabs = ComposeTables {
+            s: &c_tabs[0],
+            p: &c_tabs[1],
+            o: &c_tabs[2],
+        };
+        let seed = edge(&mut rng);
+        let t = replay_chain(&c, seed, &tables, tabs, 1, 10).expect("reservation fits");
+        assert_eq!(t.len(), 5);
+        assert_eq!(
+            t[2].predicate, 0xA3,
+            "the witness records what was replayed"
+        );
+    }
+
+    #[test]
+    fn a_reservation_that_cannot_fit_is_refused_before_a_partial_trace_exists() {
+        // CodeRabbit #1120: `base_seq + i` panicked in debug and wrapped in
+        // release. Wrapped coordinates alias the start of the durable log.
+        let tables = NarsTables::build(1);
+        let c_tabs = compose_tables();
+        let tabs = ComposeTables {
+            s: &c_tabs[0],
+            p: &c_tabs[1],
+            o: &c_tabs[2],
+        };
+        let mut rng = Lcg(0x77C1_0E5B_2A94_3D18);
+        let c = chain(&mut rng, 4);
+        let seed = edge(&mut rng);
+
+        assert_eq!(
+            replay_chain(&c, seed, &tables, tabs, 1, u64::MAX).unwrap_err(),
+            ReplayError::SequenceExhausted {
+                base_seq: u64::MAX,
+                steps: 4
+            },
+        );
+
+        // Can-stay-silent, and NOT on a trivially small base: the last base
+        // that exactly fits a 4-step chain must still succeed, so the check
+        // rejects only what genuinely overflows rather than anything large.
+        let exact = u64::MAX - 3;
+        let t =
+            replay_chain(&c, seed, &tables, tabs, 1, exact).expect("the exact fit must be allowed");
+        assert_eq!(t.last().unwrap().cast_seq(), u64::MAX);
+
+        // A one-step chain at the very top fits: the reservation is half-open,
+        // so `steps - 1` is what has to be addable, not `steps`.
+        let one = &c[..1];
+        assert!(replay_chain(one, seed, &tables, tabs, 1, u64::MAX).is_ok());
+
+        // An empty chain reserves nothing and cannot exhaust anything.
+        assert!(replay_chain(&[], seed, &tables, tabs, 1, u64::MAX)
+            .expect("empty reserves nothing")
+            .is_empty());
     }
 }
