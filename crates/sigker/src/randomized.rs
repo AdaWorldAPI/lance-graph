@@ -94,11 +94,7 @@ impl RandomizedSignatureBuilder {
     /// Encode a path and return its randomized signature.
     pub fn encode(&self, path: &[Vec<f64>]) -> RandomizedSignature {
         assert!(!path.is_empty(), "path must have ≥1 point");
-        assert_eq!(
-            path[0].len(),
-            self.path_dim,
-            "path point dim mismatch"
-        );
+        assert_eq!(path[0].len(), self.path_dim, "path point dim mismatch");
 
         let k = self.state_dim;
         let d = self.path_dim;

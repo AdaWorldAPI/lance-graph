@@ -92,7 +92,11 @@ fn bitpack_encode(path: &[Vec<f64>]) -> Vec<u8> {
 }
 
 fn hamming_similarity(a: &[u8], b: &[u8]) -> f64 {
-    let dist: u32 = a.iter().zip(b.iter()).map(|(x, y)| (x ^ y).count_ones()).sum();
+    let dist: u32 = a
+        .iter()
+        .zip(b.iter())
+        .map(|(x, y)| (x ^ y).count_ones())
+        .sum();
     1.0 - dist as f64 / HAMMING_BITS as f64
 }
 

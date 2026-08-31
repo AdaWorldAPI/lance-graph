@@ -4,7 +4,7 @@
 //! The DN-Sparse semirings from holograph operate on content containers.
 //! Adjacency comes from metadata containers.
 
-use super::{CONTAINER_BITS, Container};
+use super::{Container, CONTAINER_BITS};
 
 /// Semiring for graph traversal on CogRecords.
 pub trait ContainerSemiring: Send + Sync {

@@ -377,7 +377,11 @@ mod tests {
         let c = Container::random(99);
         let f = extract(&c);
         // Random containers should have density near 0.5.
-        assert!(f.density > 0.35 && f.density < 0.65, "density={}", f.density);
+        assert!(
+            f.density > 0.35 && f.density < 0.65,
+            "density={}",
+            f.density
+        );
     }
 
     #[test]

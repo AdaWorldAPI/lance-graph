@@ -62,7 +62,11 @@ pub enum CypherOp {
 #[derive(Debug, Clone)]
 pub enum NodeRef {
     /// Reference by label + property key (for MERGE lookups)
-    ByKey { label: String, key: String, value: CypherValue },
+    ByKey {
+        label: String,
+        key: String,
+        value: CypherValue,
+    },
     /// Reference by BindSpace address (resolved)
     ByAddr(Addr),
 }
@@ -147,22 +151,25 @@ pub fn parse_cypher(cypher: &str) -> Result<Vec<CypherOp>, String> {
     } else if upper.starts_with("MATCH") {
         parse_match(trimmed)
     } else {
-        Err(format!("Unsupported Cypher statement: {}", &trimmed[..trimmed.len().min(40)]))
+        Err(format!(
+            "Unsupported Cypher statement: {}",
+            &trimmed[..trimmed.len().min(40)]
+        ))
     }
 }
 
 fn parse_merge(cypher: &str) -> Result<Vec<CypherOp>, String> {
     // MERGE (n:Label {key: 'value', ...})
-    let (labels, properties) = parse_node_pattern(cypher)
-        .map_err(|e| format!("MERGE parse error: {}", e))?;
+    let (labels, properties) =
+        parse_node_pattern(cypher).map_err(|e| format!("MERGE parse error: {}", e))?;
 
     Ok(vec![CypherOp::MergeNode { labels, properties }])
 }
 
 fn parse_create(cypher: &str) -> Result<Vec<CypherOp>, String> {
     // CREATE (n:Label {key: 'value', ...})
-    let (labels, properties) = parse_node_pattern(cypher)
-        .map_err(|e| format!("CREATE parse error: {}", e))?;
+    let (labels, properties) =
+        parse_node_pattern(cypher).map_err(|e| format!("CREATE parse error: {}", e))?;
 
     Ok(vec![CypherOp::CreateNode { labels, properties }])
 }
@@ -186,7 +193,9 @@ fn parse_match(cypher: &str) -> Result<Vec<CypherOp>, String> {
     // Extract RETURN items
     let return_items = if let Some(ret_pos) = upper.find("RETURN") {
         let after_return = &cypher[ret_pos + 6..];
-        let end = after_return.to_uppercase().find("ORDER BY")
+        let end = after_return
+            .to_uppercase()
+            .find("ORDER BY")
             .or_else(|| after_return.to_uppercase().find("LIMIT"))
             .unwrap_or(after_return.len());
         after_return[..end]
@@ -227,10 +236,7 @@ fn parse_match(cypher: &str) -> Result<Vec<CypherOp>, String> {
 // =============================================================================
 
 /// Execute a sequence of Cypher operations against a BindSpace.
-pub fn execute_cypher(
-    bs: &mut BindSpace,
-    ops: &[CypherOp],
-) -> Result<CypherResult, String> {
+pub fn execute_cypher(bs: &mut BindSpace, ops: &[CypherOp]) -> Result<CypherResult, String> {
     let mut result = CypherResult::empty();
 
     for op in ops {
@@ -241,13 +247,28 @@ pub fn execute_cypher(
             CypherOp::CreateNode { labels, properties } => {
                 execute_create_node(bs, labels, properties, &mut result)?;
             }
-            CypherOp::CreateEdge { from_ref, to_ref, rel_type, properties: _ } => {
+            CypherOp::CreateEdge {
+                from_ref,
+                to_ref,
+                rel_type,
+                properties: _,
+            } => {
                 execute_create_edge(bs, from_ref, to_ref, rel_type, &mut result)?;
             }
-            CypherOp::SetProperty { node_ref, key, value } => {
+            CypherOp::SetProperty {
+                node_ref,
+                key,
+                value,
+            } => {
                 execute_set_property(bs, node_ref, key, value, &mut result)?;
             }
-            CypherOp::MatchReturn { label, where_clause, return_items, order_by: _, limit } => {
+            CypherOp::MatchReturn {
+                label,
+                where_clause,
+                return_items,
+                order_by: _,
+                limit,
+            } => {
                 execute_match_return(bs, label, where_clause, return_items, limit, &mut result)?;
             }
         }
@@ -264,7 +285,9 @@ fn execute_merge_node(
 ) -> Result<(), String> {
     // Check if node with same label + name already exists (upsert)
     let primary_label = labels.first().map(|s| s.as_str()).unwrap_or("Node");
-    let name_prop = properties.get("name").or_else(|| properties.get("noun_key"));
+    let name_prop = properties
+        .get("name")
+        .or_else(|| properties.get("noun_key"));
 
     if let Some(name) = name_prop {
         // Search existing nodes for match
@@ -352,7 +375,8 @@ fn execute_set_property(
 
     if let Some(node) = bs.read_mut(addr) {
         // Read existing payload, update property, write back
-        let mut props: HashMap<String, serde_json::Value> = node.payload
+        let mut props: HashMap<String, serde_json::Value> = node
+            .payload
             .as_ref()
             .and_then(|p| serde_json::from_slice(p).ok())
             .unwrap_or_default();
@@ -403,24 +427,32 @@ fn execute_match_return(
 
     // Build result columns from return items
     let columns: Vec<String> = if return_items.len() == 1 && return_items[0] == "*" {
-        vec!["addr".to_string(), "label".to_string(), "properties".to_string()]
+        vec![
+            "addr".to_string(),
+            "label".to_string(),
+            "properties".to_string(),
+        ]
     } else {
-        return_items.iter().map(|item| {
-            // Strip alias: "n.name AS name" -> "name", "n.name" -> "name"
-            if let Some(alias_pos) = item.to_uppercase().find(" AS ") {
-                item[alias_pos + 4..].trim().to_string()
-            } else if let Some(dot_pos) = item.find('.') {
-                item[dot_pos + 1..].trim().to_string()
-            } else {
-                item.trim().to_string()
-            }
-        }).collect()
+        return_items
+            .iter()
+            .map(|item| {
+                // Strip alias: "n.name AS name" -> "name", "n.name" -> "name"
+                if let Some(alias_pos) = item.to_uppercase().find(" AS ") {
+                    item[alias_pos + 4..].trim().to_string()
+                } else if let Some(dot_pos) = item.find('.') {
+                    item[dot_pos + 1..].trim().to_string()
+                } else {
+                    item.trim().to_string()
+                }
+            })
+            .collect()
     };
 
     result.columns = columns.clone();
 
     for (addr, node) in &matching_nodes {
-        let props: HashMap<String, serde_json::Value> = node.payload
+        let props: HashMap<String, serde_json::Value> = node
+            .payload
             .as_ref()
             .and_then(|p| serde_json::from_slice(p).ok())
             .unwrap_or_default();
@@ -433,11 +465,11 @@ fn execute_match_return(
 
             let val = match prop_key {
                 "addr" => CypherValue::String(format!("0x{:04X}", addr.0)),
-                "label" => CypherValue::String(
-                    node.label.clone().unwrap_or_else(|| "?".to_string())
-                ),
+                "label" => {
+                    CypherValue::String(node.label.clone().unwrap_or_else(|| "?".to_string()))
+                }
                 "properties" => CypherValue::String(
-                    serde_json::to_string(&props).unwrap_or_else(|_| "{}".to_string())
+                    serde_json::to_string(&props).unwrap_or_else(|_| "{}".to_string()),
                 ),
                 key => {
                     if let Some(v) = props.get(key) {
@@ -498,15 +530,18 @@ fn find_node_by_label_and_name(bs: &BindSpace, label: &str, name: &str) -> Optio
             continue;
         }
         if let Some(ref payload) = node.payload {
-            if let Ok(props) = serde_json::from_slice::<HashMap<String, serde_json::Value>>(payload) {
-                let matches = props.get("name")
+            if let Ok(props) = serde_json::from_slice::<HashMap<String, serde_json::Value>>(payload)
+            {
+                let matches = props
+                    .get("name")
                     .and_then(|v| v.as_str())
                     .map(|n| n == name)
                     .unwrap_or(false)
-                || props.get("noun_key")
-                    .and_then(|v| v.as_str())
-                    .map(|n| n == name)
-                    .unwrap_or(false);
+                    || props
+                        .get("noun_key")
+                        .and_then(|v| v.as_str())
+                        .map(|n| n == name)
+                        .unwrap_or(false);
                 if matches {
                     return Some(addr);
                 }
@@ -527,8 +562,11 @@ fn resolve_node_ref(bs: &BindSpace, node_ref: &NodeRef) -> Option<Addr> {
                     continue;
                 }
                 if let Some(ref payload) = node.payload {
-                    if let Ok(props) = serde_json::from_slice::<HashMap<String, serde_json::Value>>(payload) {
-                        if props.get(key.as_str())
+                    if let Ok(props) =
+                        serde_json::from_slice::<HashMap<String, serde_json::Value>>(payload)
+                    {
+                        if props
+                            .get(key.as_str())
                             .and_then(|v| v.as_str())
                             .map(|v| v == value_str)
                             .unwrap_or(false)
@@ -545,29 +583,24 @@ fn resolve_node_ref(bs: &BindSpace, node_ref: &NodeRef) -> Option<Addr> {
 
 /// Evaluate a WHERE clause against a BindNode.
 fn evaluate_where(node: &BindNode, clause: &WhereClause) -> bool {
-    let props: HashMap<String, serde_json::Value> = node.payload
+    let props: HashMap<String, serde_json::Value> = node
+        .payload
         .as_ref()
         .and_then(|p| serde_json::from_slice(p).ok())
         .unwrap_or_default();
 
     match clause {
-        WhereClause::IsNotNull { key } => {
-            props.get(key).map(|v| !v.is_null()).unwrap_or(false)
-        }
-        WhereClause::Equals { key, value } => {
-            props.get(key)
-                .map(|v| json_to_cypher_value(v) == *value)
-                .unwrap_or(false)
-        }
-        WhereClause::Contains { key, value } => {
-            props.get(key)
-                .and_then(|v| v.as_str())
-                .map(|s| s.contains(value.as_str()))
-                .unwrap_or(false)
-        }
-        WhereClause::And(left, right) => {
-            evaluate_where(node, left) && evaluate_where(node, right)
-        }
+        WhereClause::IsNotNull { key } => props.get(key).map(|v| !v.is_null()).unwrap_or(false),
+        WhereClause::Equals { key, value } => props
+            .get(key)
+            .map(|v| json_to_cypher_value(v) == *value)
+            .unwrap_or(false),
+        WhereClause::Contains { key, value } => props
+            .get(key)
+            .and_then(|v| v.as_str())
+            .map(|s| s.contains(value.as_str()))
+            .unwrap_or(false),
+        WhereClause::And(left, right) => evaluate_where(node, left) && evaluate_where(node, right),
     }
 }
 
@@ -586,13 +619,18 @@ fn parse_where_clause(s: &str) -> Result<WhereClause, String> {
     if trimmed.to_uppercase().ends_with("IS NOT NULL") {
         let key = trimmed[..trimmed.len() - 11].trim();
         let key = strip_variable_prefix(key);
-        return Ok(WhereClause::IsNotNull { key: key.to_string() });
+        return Ok(WhereClause::IsNotNull {
+            key: key.to_string(),
+        });
     }
 
     // CONTAINS
     if let Some(pos) = trimmed.to_uppercase().find(" CONTAINS ") {
         let key = strip_variable_prefix(trimmed[..pos].trim());
-        let value = trimmed[pos + 10..].trim().trim_matches('\'').trim_matches('"');
+        let value = trimmed[pos + 10..]
+            .trim()
+            .trim_matches('\'')
+            .trim_matches('"');
         return Ok(WhereClause::Contains {
             key: key.to_string(),
             value: value.to_string(),
@@ -601,9 +639,15 @@ fn parse_where_clause(s: &str) -> Result<WhereClause, String> {
 
     // Equals: n.key = value
     if let Some(pos) = trimmed.find('=') {
-        if !trimmed[..pos].ends_with('!') && !trimmed[..pos].ends_with('<') && !trimmed[..pos].ends_with('>') {
+        if !trimmed[..pos].ends_with('!')
+            && !trimmed[..pos].ends_with('<')
+            && !trimmed[..pos].ends_with('>')
+        {
             let key = strip_variable_prefix(trimmed[..pos].trim());
-            let val_str = trimmed[pos + 1..].trim().trim_matches('\'').trim_matches('"');
+            let val_str = trimmed[pos + 1..]
+                .trim()
+                .trim_matches('\'')
+                .trim_matches('"');
             let value = parse_cypher_literal(val_str);
             return Ok(WhereClause::Equals {
                 key: key.to_string(),
@@ -624,9 +668,13 @@ fn extract_label(cypher: &str) -> Option<String> {
         if chars[i] == '(' {
             i += 1;
             // Skip whitespace
-            while i < chars.len() && chars[i].is_whitespace() { i += 1; }
+            while i < chars.len() && chars[i].is_whitespace() {
+                i += 1;
+            }
             // Skip variable name
-            while i < chars.len() && (chars[i].is_alphanumeric() || chars[i] == '_') { i += 1; }
+            while i < chars.len() && (chars[i].is_alphanumeric() || chars[i] == '_') {
+                i += 1;
+            }
             // Check for colon (label indicator)
             if i < chars.len() && chars[i] == ':' {
                 i += 1;
@@ -815,8 +863,14 @@ mod tests {
         match &ops[0] {
             CypherOp::MergeNode { labels, properties } => {
                 assert_eq!(labels, &["System"]);
-                assert_eq!(properties.get("name"), Some(&CypherValue::String("Predator".to_string())));
-                assert_eq!(properties.get("type"), Some(&CypherValue::String("UAV".to_string())));
+                assert_eq!(
+                    properties.get("name"),
+                    Some(&CypherValue::String("Predator".to_string()))
+                );
+                assert_eq!(
+                    properties.get("type"),
+                    Some(&CypherValue::String("UAV".to_string()))
+                );
             }
             _ => panic!("Expected MergeNode"),
         }
@@ -829,7 +883,13 @@ mod tests {
         ).unwrap();
         assert_eq!(ops.len(), 1);
         match &ops[0] {
-            CypherOp::MatchReturn { label, where_clause, return_items, order_by, limit } => {
+            CypherOp::MatchReturn {
+                label,
+                where_clause,
+                return_items,
+                order_by,
+                limit,
+            } => {
                 assert_eq!(label, &Some("System".to_string()));
                 assert!(where_clause.is_some());
                 assert_eq!(return_items.len(), 2);
@@ -842,14 +902,23 @@ mod tests {
 
     #[test]
     fn test_extract_label() {
-        assert_eq!(extract_label("MATCH (n:Person)"), Some("Person".to_string()));
-        assert_eq!(extract_label("MERGE (s:System {name: 'X'})"), Some("System".to_string()));
+        assert_eq!(
+            extract_label("MATCH (n:Person)"),
+            Some("Person".to_string())
+        );
+        assert_eq!(
+            extract_label("MERGE (s:System {name: 'X'})"),
+            Some("System".to_string())
+        );
         assert_eq!(extract_label("MATCH ()"), None);
     }
 
     #[test]
     fn test_parse_cypher_literal() {
-        assert_eq!(parse_cypher_literal("'hello'"), CypherValue::String("hello".to_string()));
+        assert_eq!(
+            parse_cypher_literal("'hello'"),
+            CypherValue::String("hello".to_string())
+        );
         assert_eq!(parse_cypher_literal("42"), CypherValue::Int(42));
         assert_eq!(parse_cypher_literal("3.14"), CypherValue::Float(3.14));
         assert_eq!(parse_cypher_literal("true"), CypherValue::Bool(true));
@@ -861,7 +930,8 @@ mod tests {
         let mut bs = BindSpace::new();
 
         // MERGE a node
-        let merge_ops = parse_cypher("MERGE (s:System {name: 'Predator', military_use: 'Drone'})").unwrap();
+        let merge_ops =
+            parse_cypher("MERGE (s:System {name: 'Predator', military_use: 'Drone'})").unwrap();
         let merge_result = execute_cypher(&mut bs, &merge_ops).unwrap();
         assert_eq!(merge_result.nodes_created, 1);
 

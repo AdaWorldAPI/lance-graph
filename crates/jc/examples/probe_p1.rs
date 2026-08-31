@@ -6,8 +6,8 @@
 //! (status before this probe: NOT RUN). On exit, the queue entry should be
 //! updated to PASS or FAIL based on the result.
 
-use std::time::Instant;
 use jc::probe_p1_gamma_phase;
+use std::time::Instant;
 
 fn main() {
     println!("═══ Probe P1: γ-phase-offset ranking discrimination ═══");
@@ -19,9 +19,15 @@ fn main() {
     let mut r = probe_p1_gamma_phase::prove();
     r.runtime_ms = t.elapsed().as_millis() as u64;
 
-    let status = if r.pass { "✓ PASS — γ+φ pre-rank selector VALID" } else { "✗ FAIL — γ+φ pre-rank selector DEAD" };
-    println!("{status}  min ρ={:.6}  threshold<{:.2}  ({} ms)",
-        r.measured, r.predicted, r.runtime_ms);
+    let status = if r.pass {
+        "✓ PASS — γ+φ pre-rank selector VALID"
+    } else {
+        "✗ FAIL — γ+φ pre-rank selector DEAD"
+    };
+    println!(
+        "{status}  min ρ={:.6}  threshold<{:.2}  ({} ms)",
+        r.measured, r.predicted, r.runtime_ms
+    );
     println!();
     println!("{}", r.detail);
     println!();
@@ -32,7 +38,9 @@ fn main() {
         println!("→ Architectural axiom holds: γ+φ encoding strategy in bgz-tensor is grounded");
     } else {
         println!("→ Update bf16-hhtl-terrain.md Probe Queue entry P1: NOT RUN → FAIL");
-        println!("→ Constraint C3 \"VALID — pre-rank discrete selector\" regime FAILS in synthetic data");
+        println!(
+            "→ Constraint C3 \"VALID — pre-rank discrete selector\" regime FAILS in synthetic data"
+        );
         println!("→ Architectural consequence: γ-encoding strategy in bgz-tensor needs revision");
         println!("→ Consider: was the synthetic distribution representative? Re-test with");
         println!("  production codebook before declaring γ+φ universally dead.");

@@ -50,7 +50,7 @@
 
 use std::collections::HashMap;
 
-use super::hdr_cascade::{HdrIndex, MexicanHat, RollingWindow, hamming_distance};
+use super::hdr_cascade::{hamming_distance, HdrIndex, MexicanHat, RollingWindow};
 
 // =============================================================================
 // CONSTANTS - THE VERBS

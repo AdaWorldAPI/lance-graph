@@ -30,8 +30,8 @@
 //! # Algebra
 //! XOR self-inverse binding: `(a ⊗ b) ⊗ b = a`.
 
-use crate::FINGERPRINT_BITS as TOTAL_BITS;
 use crate::Fingerprint;
+use crate::FINGERPRINT_BITS as TOTAL_BITS;
 
 /// A world state in which one or more bound components have been substituted.
 #[derive(Debug, Clone)]

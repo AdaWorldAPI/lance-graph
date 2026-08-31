@@ -12,11 +12,11 @@
 //!   walk_to_root → MGET ada:dn:{ancestor1} ada:dn:{ancestor2} ...
 //! ```
 
-use super::Container;
 use super::adjacency::PackedDn;
 use super::geometry::ContainerGeometry;
 use super::meta::MetaViewMut;
 use super::record::CogRecord;
+use super::Container;
 
 // ============================================================================
 // KEY NAMESPACE
@@ -189,9 +189,7 @@ pub fn cog_record_from_bytes(data: &[u8]) -> Option<CogRecord> {
     let meta = parse_container(&data[..super::CONTAINER_BYTES])?;
 
     // Parse content
-    let content = parse_container(
-        &data[super::CONTAINER_BYTES..2 * super::CONTAINER_BYTES],
-    )?;
+    let content = parse_container(&data[super::CONTAINER_BYTES..2 * super::CONTAINER_BYTES])?;
 
     Some(CogRecord { meta, content })
 }

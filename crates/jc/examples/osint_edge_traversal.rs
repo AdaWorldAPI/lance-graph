@@ -42,7 +42,11 @@ struct Mat2 {
 }
 
 impl Mat2 {
-    const I: Self = Self { a: 1.0, b: 0.0, c: 1.0 };
+    const I: Self = Self {
+        a: 1.0,
+        b: 0.0,
+        c: 1.0,
+    };
 
     /// Eigendecomposition for symmetric 2×2: returns (λ1, λ2, cosθ, sinθ).
     fn eig(&self) -> (f64, f64, f64, f64) {
@@ -201,11 +205,36 @@ fn main() {
     println!();
 
     let edges = [
-        OsintEdge { from: "Lavender", to: "IDF",       confidence: 0.85, skew: 0.10 },
-        OsintEdge { from: "IDF",      to: "Israel",    confidence: 0.95, skew: 0.05 },
-        OsintEdge { from: "Israel",   to: "NSO",       confidence: 0.70, skew: 0.20 },
-        OsintEdge { from: "NSO",      to: "Pegasus",   confidence: 0.90, skew: 0.08 },
-        OsintEdge { from: "Pegasus",  to: "Khashoggi", confidence: 0.88, skew: 0.15 },
+        OsintEdge {
+            from: "Lavender",
+            to: "IDF",
+            confidence: 0.85,
+            skew: 0.10,
+        },
+        OsintEdge {
+            from: "IDF",
+            to: "Israel",
+            confidence: 0.95,
+            skew: 0.05,
+        },
+        OsintEdge {
+            from: "Israel",
+            to: "NSO",
+            confidence: 0.70,
+            skew: 0.20,
+        },
+        OsintEdge {
+            from: "NSO",
+            to: "Pegasus",
+            confidence: 0.90,
+            skew: 0.08,
+        },
+        OsintEdge {
+            from: "Pegasus",
+            to: "Khashoggi",
+            confidence: 0.88,
+            skew: 0.15,
+        },
     ];
 
     println!("Path  : Lavender → IDF → Israel → NSO → Pegasus → Khashoggi  (6 entities, 5 edges)");
@@ -239,10 +268,7 @@ fn main() {
             edge.to,
             edge.confidence,
         );
-        println!(
-            "       step_Σ = {}   M = sqrt(step_Σ)",
-            step.fmt_inline(),
-        );
+        println!("       step_Σ = {}   M = sqrt(step_Σ)", step.fmt_inline(),);
         println!(
             "       Σ      = {}   ‖log Σ‖_F = {:.4}   SPD={}",
             sigma_sandwich.fmt_inline(),
@@ -290,9 +316,15 @@ fn main() {
         let n = naive_log_norms[k];
         let ratio = if s.abs() < 1e-12 { f64::NAN } else { n / s };
         if ratio.is_nan() {
-            println!("    {}     |   {:>9.4}   |   {:>9.4}   |     —    (Σ_0 = I)", k, s, n);
+            println!(
+                "    {}     |   {:>9.4}   |   {:>9.4}   |     —    (Σ_0 = I)",
+                k, s, n
+            );
         } else {
-            println!("    {}     |   {:>9.4}   |   {:>9.4}   |   {:>6.2}×", k, s, n, ratio);
+            println!(
+                "    {}     |   {:>9.4}   |   {:>9.4}   |   {:>6.2}×",
+                k, s, n, ratio
+            );
         }
     }
 
@@ -317,7 +349,11 @@ fn main() {
     println!("══════════════════════════════════════════════════════════════════════");
     println!(
         "  Sandwich preserves SPD              : {}",
-        if all_spd { "YES (every hop ∈ SPD cone)" } else { "NO (numerical degeneracy)" }
+        if all_spd {
+            "YES (every hop ∈ SPD cone)"
+        } else {
+            "NO (numerical degeneracy)"
+        }
     );
     println!(
         "  Sandwich log-norm bounded           : ‖log Σ_5‖_F = {:.4}  (5-hop chain remains queryable)",
@@ -332,15 +368,9 @@ fn main() {
         final_naive_ln / final_sandwich_ln.max(1e-12),
     );
     println!();
-    println!(
-        "  → 5-hop OSINT chain: neo4j multi-hop edge hydration is replaced by"
-    );
-    println!(
-        "    Pillar-6-certified in-process Σ-push-forward, with bounded log-norm"
-    );
-    println!(
-        "    growth in the SPD cone. PR #289 wires this into SPLAT-1."
-    );
+    println!("  → 5-hop OSINT chain: neo4j multi-hop edge hydration is replaced by");
+    println!("    Pillar-6-certified in-process Σ-push-forward, with bounded log-norm");
+    println!("    growth in the SPD cone. PR #289 wires this into SPLAT-1.");
     println!();
     println!("  runtime: {:.3} ms", dt_ms);
     println!("══════════════════════════════════════════════════════════════════════");

@@ -11,9 +11,9 @@ use crate::Fingerprint;
 /// The 18 qualia dimensions
 pub const QUALIA_DIMENSIONS: [&str; 18] = [
     "valence",        // Positive/negative feeling
-    "activation",        // Activation level (calm to excited)
+    "activation",     // Activation level (calm to excited)
     "dominance",      // Control/agency (submissive to dominant)
-    "depth",       // Closeness (distant to intimate)
+    "depth",          // Closeness (distant to intimate)
     "certainty",      // Epistemic confidence (uncertain to certain)
     "urgency",        // Temporal pressure (relaxed to urgent)
     "depth",          // Abstraction level (surface to deep)
@@ -213,8 +213,8 @@ impl QualiaField {
 
     fn compute_closeness(text: &str) -> f32 {
         let relational = [
-            "heart", "soul", "dear", "soft", "gentle", "close", "together", "us", "we",
-            "care", "share", "connect",
+            "heart", "soul", "dear", "soft", "gentle", "close", "together", "us", "we", "care",
+            "share", "connect",
         ];
 
         let count: usize = relational.iter().map(|w| text.matches(w).count()).sum();

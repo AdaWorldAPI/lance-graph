@@ -5,8 +5,8 @@
 //! whatever state the children have. No lock needed — XOR is commutative
 //! and associative.
 
-use super::Container;
 use super::cache::{CacheError, ContainerCache};
+use super::Container;
 use std::collections::HashMap;
 
 /// Spine-aware container cache.

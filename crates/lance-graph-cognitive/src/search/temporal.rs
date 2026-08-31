@@ -7,7 +7,7 @@
 //! - Cohen (1988): Effect size d = (μ₁ - μ₂)/σ_pooled
 //! - Plate (2003): Permutation for temporal position binding
 
-use crate::search::hdr_cascade::{WORDS, hamming_distance};
+use crate::search::hdr_cascade::{hamming_distance, WORDS};
 
 /// Temporal effect size between two fingerprint series.
 #[derive(Debug, Clone)]

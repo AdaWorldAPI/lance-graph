@@ -94,7 +94,7 @@ pub enum NsmCategory {
 #[repr(u8)]
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum QualiaChannel {
-    Activation = 0x0,     // Activation/energy (high=alert, low=calm) - Russell 1980
+    Activation = 0x0,  // Activation/energy (high=alert, low=calm) - Russell 1980
     Valence = 0x1,     // Hedonic tone (positive/negative)
     Tension = 0x2,     // Stress/relaxation continuum
     Certainty = 0x3,   // Confidence/doubt (epistemic)

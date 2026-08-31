@@ -69,14 +69,14 @@ pub struct SentenceAtom {
 /// Compact qualia representation (4D → 8D for more nuance)
 #[derive(Clone, Debug, Default)]
 pub struct QualiaVector {
-    pub activation: f32,   // Calm ↔ Excited
-    pub valence: f32,   // Negative ↔ Positive
-    pub tension: f32,   // Relaxed ↔ Tense
-    pub depth: f32,     // Surface ↔ Profound
-    pub certainty: f32, // Doubtful ↔ Certain
+    pub activation: f32, // Calm ↔ Excited
+    pub valence: f32,    // Negative ↔ Positive
+    pub tension: f32,    // Relaxed ↔ Tense
+    pub depth: f32,      // Surface ↔ Profound
+    pub certainty: f32,  // Doubtful ↔ Certain
     pub closeness: f32,  // Distant ↔ Intimate
-    pub urgency: f32,   // Relaxed ↔ Urgent
-    pub novelty: f32,   // Familiar ↔ Novel
+    pub urgency: f32,    // Relaxed ↔ Urgent
+    pub novelty: f32,    // Familiar ↔ Novel
 }
 
 impl QualiaVector {

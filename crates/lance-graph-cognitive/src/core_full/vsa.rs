@@ -3,8 +3,8 @@
 //! VSA provides a mathematical framework for representing and manipulating
 //! symbolic information in high-dimensional binary vectors.
 
-use crate::FINGERPRINT_U64;
 use crate::core::Fingerprint;
+use crate::FINGERPRINT_U64;
 
 #[cfg(feature = "parallel")]
 use rayon::prelude::*;

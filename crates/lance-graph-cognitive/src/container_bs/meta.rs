@@ -25,8 +25,8 @@
 //! └──────────────────────────────────────────────────────────────┘
 //! ```
 
-use super::CONTAINER_WORDS;
 use super::geometry::ContainerGeometry;
+use super::CONTAINER_WORDS;
 
 // ============================================================================
 // WORD OFFSETS

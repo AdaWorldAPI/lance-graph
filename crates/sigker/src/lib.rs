@@ -47,16 +47,16 @@
 //! warranted, not asserted. Pillar 11 is currently DEFERRED in jc; it
 //! activates once sigker is benchmarked at production carrier widths.
 
-pub mod signature;
-pub mod shuffle;
-pub mod randomized;
-pub mod kernel;
 pub mod codec;
 pub mod cubature;
+pub mod kernel;
+pub mod randomized;
+pub mod shuffle;
+pub mod signature;
 
-pub use signature::{Signature, signature_truncated};
-pub use shuffle::shuffle_product;
-pub use randomized::{RandomizedSignature, RandomizedSignatureBuilder};
-pub use kernel::{signature_kernel, signature_kernel_pde, linear_path_kernel_closed_form};
 pub use codec::CodecRouteSigker;
-pub use cubature::{CubatureBasis, trivial_constant_cubature, hydrate_signature};
+pub use cubature::{hydrate_signature, trivial_constant_cubature, CubatureBasis};
+pub use kernel::{linear_path_kernel_closed_form, signature_kernel, signature_kernel_pde};
+pub use randomized::{RandomizedSignature, RandomizedSignatureBuilder};
+pub use shuffle::shuffle_product;
+pub use signature::{signature_truncated, Signature};

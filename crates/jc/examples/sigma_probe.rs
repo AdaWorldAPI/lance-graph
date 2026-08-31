@@ -6,8 +6,8 @@
 //! 256-entry codebook quantization preserves Σ-tensor information well
 //! enough for the white-matter Σ-edge encoding decision.
 
-use std::time::Instant;
 use jc::sigma_codebook_probe;
+use std::time::Instant;
 
 fn main() {
     println!("═══ Σ-Codebook Viability Probe ═══");
@@ -18,9 +18,15 @@ fn main() {
     let mut r = sigma_codebook_probe::prove();
     r.runtime_ms = t.elapsed().as_millis() as u64;
 
-    let status = if r.pass { "✓ CODEBOOK VIABLE" } else { "✗ INSUFFICIENT (read recommendation)" };
-    println!("{status}  R²={:.6}  threshold≥{:.2}  ({} ms)",
-        r.measured, r.predicted, r.runtime_ms);
+    let status = if r.pass {
+        "✓ CODEBOOK VIABLE"
+    } else {
+        "✗ INSUFFICIENT (read recommendation)"
+    };
+    println!(
+        "{status}  R²={:.6}  threshold≥{:.2}  ({} ms)",
+        r.measured, r.predicted, r.runtime_ms
+    );
     println!();
     println!("{}", r.detail);
     println!();

@@ -163,7 +163,11 @@ fn synthesize_edge(state: &mut u64) -> EdgeFields {
         1.0 - (1.0 - u).powi(2)
     };
     let direction = (splitmix64(state) & 0b111) as u8; // 8 directions
-    EdgeFields { frequency, confidence, direction }
+    EdgeFields {
+        frequency,
+        confidence,
+        direction,
+    }
 }
 
 /// Map an edge's bit-fields to an implicit 2×2 SPD Σ-tensor.
@@ -250,11 +254,7 @@ fn kmeans_3d(
         for j in 0..k {
             if counts[j] > 0 {
                 let cnt = counts[j] as f64;
-                centroids[j] = [
-                    sums[j][0] / cnt,
-                    sums[j][1] / cnt,
-                    sums[j][2] / cnt,
-                ];
+                centroids[j] = [sums[j][0] / cnt, sums[j][1] / cnt, sums[j][2] / cnt];
             }
             // else: keep old centroid (empty cluster)
         }
@@ -385,19 +385,32 @@ mod tests {
 
     #[test]
     fn sym2_log_exp_round_trip() {
-        let m = Sym2 { a: 2.0, b: 0.3, c: 1.5 };
+        let m = Sym2 {
+            a: 2.0,
+            b: 0.3,
+            c: 1.5,
+        };
         let logm = m.log_spd();
         let back = logm.exp_sym();
         // Round-trip should give back the original SPD.
-        assert!(m.frobenius_distance_sq(&back).sqrt() < 1e-9,
-            "log/exp round-trip failed: {m:?} → {logm:?} → {back:?}");
+        assert!(
+            m.frobenius_distance_sq(&back).sqrt() < 1e-9,
+            "log/exp round-trip failed: {m:?} → {logm:?} → {back:?}"
+        );
     }
 
     #[test]
     fn identity_log_is_zero() {
-        let i = Sym2 { a: 1.0, b: 0.0, c: 1.0 };
+        let i = Sym2 {
+            a: 1.0,
+            b: 0.0,
+            c: 1.0,
+        };
         let l = i.log_spd();
-        assert!(l.frobenius_sq().sqrt() < 1e-12, "log(I) should be 0, got {l:?}");
+        assert!(
+            l.frobenius_sq().sqrt() < 1e-12,
+            "log(I) should be 0, got {l:?}"
+        );
     }
 
     #[test]
@@ -433,12 +446,19 @@ mod tests {
         let mut data = Vec::new();
         let mut state = 1u64;
         for _ in 0..100 {
-            data.push([rand_uniform(&mut state) * 0.1, rand_uniform(&mut state) * 0.1, 0.0]);
+            data.push([
+                rand_uniform(&mut state) * 0.1,
+                rand_uniform(&mut state) * 0.1,
+                0.0,
+            ]);
             data.push([10.0 + rand_uniform(&mut state) * 0.1, 0.0, 0.0]);
             data.push([0.0, 10.0 + rand_uniform(&mut state) * 0.1, 0.0]);
         }
         let (centroids, assignments, iters) = kmeans_3d(&data, 3, 100, 42);
-        assert!(iters < 100, "should converge well before max_iter, got {iters}");
+        assert!(
+            iters < 100,
+            "should converge well before max_iter, got {iters}"
+        );
         assert_eq!(centroids.len(), 3);
         let used = {
             let mut seen = vec![false; 3];
@@ -456,7 +476,11 @@ mod tests {
         // r.pass might be true or false — we don't assert that. We only assert
         // that the measurement returned a non-trivial result.
         assert!(r.measured.is_finite(), "R² should be finite");
-        assert!(r.measured >= 0.0 && r.measured <= 1.0, "R² out of [0, 1]: {}", r.measured);
+        assert!(
+            r.measured >= 0.0 && r.measured <= 1.0,
+            "R² out of [0, 1]: {}",
+            r.measured
+        );
         assert!(!r.detail.is_empty());
     }
 }

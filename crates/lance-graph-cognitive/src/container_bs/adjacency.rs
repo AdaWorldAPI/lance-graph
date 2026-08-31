@@ -13,8 +13,8 @@
 //! Both regions are read/written through zero-copy views.
 //! The graph IS the metadata — no separate adjacency structure.
 
-use super::CONTAINER_WORDS;
 use super::meta::{MAX_INLINE_EDGES, W_ADJ_BASE, W_EDGE_BASE};
+use super::CONTAINER_WORDS;
 
 // ============================================================================
 // PACKED DN: Hierarchical address in a u64

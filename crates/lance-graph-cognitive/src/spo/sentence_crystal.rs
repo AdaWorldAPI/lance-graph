@@ -65,8 +65,8 @@
 
 use super::context_crystal::QualiaVector;
 use super::nsm_substrate::NsmCodebook;
+use crate::storage::bind_space::{dn_path_to_addr, Addr, BindSpace};
 use crate::Fingerprint;
-use crate::storage::bind_space::{Addr, BindSpace, dn_path_to_addr};
 use std::collections::HashMap;
 
 // =============================================================================
@@ -1168,7 +1168,10 @@ mod tests {
         // Should find the agent's entry, not Alice's
         for r in &results {
             let has_agent_context = r.dn_contexts.iter().any(|c| c.starts_with("Agent"));
-            assert!(has_agent_context, "Results should only be from Agent context");
+            assert!(
+                has_agent_context,
+                "Results should only be from Agent context"
+            );
         }
     }
 
@@ -1211,7 +1214,13 @@ mod tests {
         let mut crystal = SentenceCrystal::new(None);
 
         // Store semantically similar content in different trees
-        crystal.store_with_dn_context("exploring new ideas", "Agent:A:soul:exploration", None, 3, 4);
+        crystal.store_with_dn_context(
+            "exploring new ideas",
+            "Agent:A:soul:exploration",
+            None,
+            3,
+            4,
+        );
 
         crystal.store_with_dn_context(
             "exploring new territories",
