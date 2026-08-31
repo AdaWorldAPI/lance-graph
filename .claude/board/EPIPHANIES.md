@@ -1,3 +1,27 @@
+## 2026-08-31 — E-CONSUMER-PINS-ON-INTERNAL-SIBLINGS-PROHIBITED-1 — no consumer may pin lance-graph, ndarray, or OGAR; the pin whitelist stays exactly the four external storage/query coordinates
+
+**Status:** OPERATOR-RULED (2026-08-31), banked in
+`.claude/knowledge/ogar-consumer-preflight.md` § The dependency-wiring law.
+**Confidence:** rule — not a measurement.
+
+The ruling, restated: internal siblings (lance-graph, ndarray, OGAR — any
+crate of theirs) are consumed LIVE in every consumer repo: path dep or git
+dep on branch HEAD, never a `rev`/`tag`/registry-version pin. Pins exist for
+exactly four external coordinates — lance =9.0.0, lancedb =0.33.0, arrow 58,
+datafusion 54 — the lockstep family whose drift is a durability hazard
+(E-PIN-LANCE9-LANCEDB033-DF541-ARROW58-NO-DF53-1). Nothing else is ever
+pinned. Rationale: a rev-pin on a sibling detaches the consumer from every
+spine fix silently and converts eventual un-pinning into a one-jump replay
+of accumulated drift; the workspace's whole sibling architecture assumes the
+spine moves as one.
+
+Enforcement sweep across local consumers found one live violation set:
+woa-rs `Cargo.toml` rev-pins lance-graph-ontology, lance-graph-callcenter,
+and ndarray. Remediation is owned by the session already working that repo
+(separation of concerns); this entry is the law's canonical home on the
+spine board. This generalizes the medcare-rs-local rulings of 2026-08-30
+(internal head pins prohibited; whitelist exactly four) to ALL consumers.
+
 ## 2026-08-31 — E-MONOTONE-STREAM-LEVEL2-IS-DISCRIMINATION-NOT-MAGNITUDE-1 — on witness-shaped monotone count streams, level-2 area content moves the kernel value only ~2.4%, but it is the ONLY carrier that can see a pure-reordering counterfactual; the 24×i4 register cast is a usable partial carrier (r=0.799) that overstates the intervention ~2×
 
 **Status:** FINDING (probe run, GREEN, G0–G4). Probe:

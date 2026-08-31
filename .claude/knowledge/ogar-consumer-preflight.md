@@ -23,6 +23,24 @@
 > classid split), OGAR#97 `PortSpec::APP_PREFIX` + `render_classid_for`, OGAR#98
 > `canonical_concept_name`.
 
+## The dependency-wiring law (operator-ruled 2026-08-31, appended)
+
+> Version, `rev`, or `tag` pins on **lance-graph, ndarray, or OGAR crates are
+> strictly prohibited in every consumer** — the internal siblings are consumed
+> LIVE (path dep, or git dep on branch HEAD), never frozen at a coordinate.
+> The pin whitelist is **exactly four external coordinates and nothing else**:
+> `lance =9.0.0` · `lancedb =0.33.0` · `arrow 58` · `datafusion 54`
+> (the lockstep storage/query family, pinned because a drift there is a
+> durability hazard — see lance-graph `CLAUDE.md` § Key Dependencies and
+> `E-PIN-LANCE9-LANCEDB033-DF541-ARROW58-NO-DF53-1`). A `rev = "…"` on an
+> internal sibling is a stale-head time bomb: it silently detaches the
+> consumer from every fix the spine lands, and un-pinning later replays weeks
+> of drift in one jump. If a consumer build breaks against sibling HEAD, the
+> remedy is fixing the breakage (or a STOP-and-ask), never a pin.
+> First enforcement sweep (2026-08-31) found live violations in woa-rs
+> (`rev`-pinned lance-graph-ontology / lance-graph-callcenter / ndarray);
+> remediation owned by the session working that repo.
+
 ## The trap, in one paragraph
 
 You're a consumer — woa-rs, medcare-rs, smb-office-rs — and you need the classid
