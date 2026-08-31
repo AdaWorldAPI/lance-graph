@@ -1296,3 +1296,132 @@ until the probe went looking.
 
 Remaining in the §7.8 queue: PROBE-R2IL-LANES (the masked-population
 sweep) and PROBE-OWL-RL-FIXPOINT (the projected-rule lens).
+
+
+---
+
+## 11. Q8 — PROBE-GREY-TOPOLOGY-AB, the cheap form (PRE-REGISTERED 2026-08-31, before any harness existed)
+
+§7.2's probe is the one hex question Q6/Q7 did NOT answer. They measured
+plasticity and interference under capacity; this measures **pattern
+completion and false resonance** — different metrics, still unrun. §7.2's own
+honest gate names the cheapest real version: *the macro co-occurrence graph
+over the existing corpus IS a learned neighbourhood — run
+completion/false-resonance on it under both adjacency readings before
+building anything.* That is what this runs. No new tissue.
+
+**Grey against white, in parallel** (§7.1 vocabulary): the R2IL exact table is
+the white-matter authority; the learned overlay is the grey-matter proposer.
+Both arms propose; the table verifies. G4 below is that invariant as a gate.
+
+### 11.1 Corpus — and a stated limitation
+
+`r2il-pass1.ore.tsv` (AdaWorldAPI/ruff release `r2il-harvest-pass1`):
+**17,560 rows, 2 binaries** (`stress_test`, `stress_test_opt`), 143 distinct
+functions. This is NOT Q6/Q7's `ore_all.tsv` (4 binaries, 94,536 rows) —
+it is that corpus's A-side. Consequences, stated in advance:
+
+- the macro count will differ from §7.2's "33"; whatever it is, it is
+  reported, not matched to a remembered number;
+- no B-corpus and no held-out C, so **no learning/interference claim is
+  available here** — that is Q6/Q7's territory and this probe does not
+  re-enter it;
+- the opcode skew is present (`copy` 6753, `int_add` 4768, `load` 2394,
+  `store` 1968), so Q6's capacity mechanism can express itself if it applies.
+
+### 11.2 The three arms, same macros, same task, run in parallel
+
+1. **A — WHITE / Cartesian.** Adjacency = the substrate's native reading:
+   nearest neighbours in Morton order over the macro's own address.
+2. **B — GREY / hex overlay.** Adjacency = the 6 highest co-occurrence
+   neighbours of each macro, the learned neighbourhood.
+3. **RAND — the topology null.** 6 neighbours drawn uniformly, same degree,
+   same completion rule. Q6's lesson, carried forward without argument: an
+   arm that cannot beat a random partition with the identical rule has shown
+   nothing.
+
+### 11.3 Task and metrics
+
+Task: **cued completion.** Hold out one atom of a macro, present the rest,
+let each arm propose a completion by resonance over its own adjacency.
+
+- **completion** — fraction of held-out atoms correctly proposed (higher better)
+- **false resonance** — fraction of proposals that are confident and WRONG
+  (lower better); confident = the arm's top proposal, no abstention
+- **steps** — mean adjacency hops to reach the proposal (lower better)
+- **footprint** — bytes of adjacency actually stored per arm
+
+### 11.4 Pre-registered gates, read in this order
+
+- **G0 (validity/inertness).** The task must be non-trivial: no arm at 100%
+  completion, and RAND must score materially below the better of A/B. If G0
+  fails the run measures nothing and NO hypothesis verdict is reported.
+- **G1 completion:** B ≥ A.
+- **G2 false resonance:** B < A.
+- **G3 topology null:** B beats RAND on completion AND false resonance.
+- **G4 (authority invariant):** every proposal is verified against the exact
+  R2IL table; a wrong proposal is REFUSED, never executed. Byte-exactness of
+  the R2IL layer holds throughout. This is a validity gate, not a hypothesis.
+- **KILL (§7.2 verbatim):** B must beat A on **≥2** of {completion, false
+  resonance, steps} **without losing on footprint by more than it gains** —
+  otherwise the crystal stays square.
+
+### 11.5 Prediction, stated in advance and against the hypothesis
+
+Q6/Q7 found hexagonal locality bought nothing on plasticity, and the
+mechanism they named — content addressing under a heavy-tailed distribution
+starves the addressed cells — is a property of the CORPUS, not of the task.
+The same skew is present here. **I predict B fails the kill condition**, and
+that co-occurrence adjacency will nonetheless beat RAND on completion (the
+graph is real information) while NOT beating Cartesian on false resonance.
+If B does clear the kill condition, that is a genuine positive and the
+`E-Q6/E-Q7` line is narrower than it currently reads.
+
+Instrument is a throwaway example, reverted after the run; the outcome is
+board-only, whichever way it goes.
+
+### 11.6 OUTCOME (run 2026-08-31)
+
+**G0 caught my first instrument.** Completion was 0.0000 for every arm at
+every cap — the task asked for a macro sharing the cue's left atom and scored
+it correct only if the right atom matched too, which would make it the same
+macro. Structurally unwinnable; per §11.4 no hypothesis verdict was reported.
+Rebuilt as held-out next-macro prediction (115 train chains / 28 held out).
+
+**The gates then passed, against my prediction — and a degree ablation
+withdrew the result.** B beat A and RAND on completion and false resonance at
+all three caps with a smaller footprint, so under §7.2's kill condition it
+survives. But the task uses only each arm's FIRST neighbour, and at
+`DEGREE = 1` B scores **identically to four decimals with 5.5× less memory**
+(0.2730 / 0.1790 / 0.1498; footprint 164→30, 336→60, 632→120). The
+six-neighbourness does nothing; B is a bigram successor table.
+
+**The methodological finding, which outlives this run:** Q6 taught the
+topology null and it was included — but RAND varies the WIRING at fixed
+degree, so it cannot see that degree itself is inert. **A locality claim
+needs a DEGREE ablation, not only a wiring null.** §7.2's probe as specced
+lacks one; any "B wins" it produced would have been unattributable.
+
+Full reading, the weak-A caveat, and the convergence with
+`E-PALETTE256-IS-A-NEEDLE-THE-COLON-IS-THE-DISTRIBUTION-1` (the information
+is in the PAIR, not the neighbourhood's shape):
+`E-Q8-THE-SIX-DOES-NO-WORK-A-DEGREE-ABLATION-COLLAPSES-THE-HEX-OVERLAYS-ENTIRE-ADVANTAGE-1`.
+Instrument reverted; board-only outcome.
+
+### 11.7 Q8b — the same question on the ESTABLISHED def-use carrier (operator-directed)
+
+Q8 used per-function opcode order; the carrier this workspace built is the
+**def-use chain** (`extract_chains` via `prov_value`). Q8b reruns the
+identical arms/metrics/gates with that machinery lifted verbatim.
+
+**G0 failed structurally, and that is the result.** The BPE compresses a
+3-symbol def-use chain to ONE symbol (92% of held-out chains at cap 16,
+99.7% above), leaving **zero adjacent macro pairs** — so a completion task
+has no cued position. And the atom alphabet is **7**, making a degree-6
+neighbourhood the complete graph minus self.
+
+**§7.2's completion task is therefore not expressible on the established
+carrier.** Its metrics presuppose a sequence with a next element and an
+alphabet large enough for degree-6 to discriminate; def-use chains supply
+neither. This explains retroactively why Q6/Q7 framed hex around capacity and
+eviction instead. Full numbers in the Q8 entry's Q8b section.
