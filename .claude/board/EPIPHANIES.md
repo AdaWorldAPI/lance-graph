@@ -1,3 +1,47 @@
+## 2026-08-31 — E-THE-SUPERSESSION-GATE-WATCHED-TWO-OF-ITS-FOUR-INPUTS-1
+
+**Status:** FINDING — mechanical, fixed in the same PR that exposed it.
+**Confidence:** measured — `supersession_index.py` read against
+`.github/workflows/supersession-index.yml`, plus PR #1123's actual check list.
+
+`CLAUDE.md` says the generator reads *"`.claude/plans/`, `crates/`,
+`.claude/v3/COMPONENT-MAP.md`, **and the board itself**"*, and even warns that
+the workflow's error text names only the first three and "will mislead the same
+way". It does mislead — and so did the workflow's own `paths:` filter, which
+watched **two of the four inputs**:
+
+| generator input | source | watched by the gate |
+|---|---|---|
+| `.claude/v3/COMPONENT-MAP.md` | `:20` | yes |
+| `.claude/plans/*.md` | `:47` | yes |
+| `.claude/board/entries/*.md` + `EPIPHANIES.md` | `:48-49`, counted at `:85` | **no** |
+| `crates/**` | `:27`, per symbol | **no** |
+
+**Measured, not inferred:** PR #1123 prepends an `EPIPHANIES.md` entry citing
+D-ids — an input to the board-coverage column — and ran **no**
+`regenerate-and-diff` at all. The committed table could have gone stale with CI
+fully green, which is the single thing this workflow exists to prevent. It did
+not, only because the regeneration happened to be done by hand.
+
+**The shape worth keeping:** a gate whose trigger is narrower than its
+computation is silent exactly where it is needed. Nothing about it looks broken
+— it passes when it runs, and when it matters most it does not run. That is the
+same silence-reads-as-success failure as `E-A-MONITOR-KEYED-ON-THE-PR-HEAD-…-1`
+(a watch keyed on the wrong subject) and as a guard that cannot fire: three
+instances in one session, each in a different mechanism.
+
+**Rule:** when a gate regenerates an artifact, its `paths:` filter must list
+every input the generator actually READS — derived from the generator's source,
+never from its prose. Prose was accurate here and the filter still drifted,
+because nothing joins the two.
+
+Fixed by adding `.claude/board/entries/**`, `.claude/board/EPIPHANIES.md` and
+`crates/**`. The last is broad on purpose: the generator takes ~15 s (measured),
+which is cheap beside the Rust jobs it runs next to, and a symbol deleted from
+the tree genuinely moves the table.
+
+---
+
 ## 2026-08-31 — E-I-PINNED-THE-DEFECT-AS-THE-GUARD-WHILE-FIXING-A-REVIEW-COMMENT-1
 
 **Status:** FINDING — self-inflicted, caught by both reviewers on PR #1122,
