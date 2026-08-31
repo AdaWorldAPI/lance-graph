@@ -1,3 +1,57 @@
+## 2026-08-31 — E-A-DETERMINISM-GATE-IS-TRIVIALLY-SATISFIED-BY-A-KERNEL-THAT-DOES-NOTHING-1
+
+**Status:** FINDING — measured by the disable run that was supposed to confirm
+a gate, not correct it.
+**Confidence:** measured — `lance-graph-planner/src/dismech_replay.rs`,
+D-DCR-1 (W1).
+
+W1's first gate is replay determinism: the same recorded chain must produce a
+byte-identical trace. Its anti-vacuity check was the obvious one —
+`assert_ne!(trace.last().edge, seed)`, "the chain must transform the seed",
+so a kernel that returned its input could not pass.
+
+**It could.** Stubbing `CausalEdge64::forward` to a no-op left the gate GREEN,
+because `replay_step` has TWO halves and the check only reached one: the truth
+write-back (`set_frequency_u8` / `set_confidence_u8`, driven by
+`NarsTables::revise`) moves the packed edge all by itself. So the composition
+half — the entire reason the step is a *step* — could be deleted and the
+determinism gate would still certify the module.
+
+The general shape, worth more than the instance: **a determinism gate is
+satisfied by ANY function, including the identity.** Its own claim ("same in,
+same out") is true of doing nothing. Whatever anti-vacuity check rides along
+is therefore carrying the gate's entire discriminating power — and if the
+kernel has *n* independent halves, a check that observes one of them leaves
+*n−1* deletable in silence.
+
+**Fix:** assert both halves moved, by the field each half owns —
+palette (`s_idx`/`p_idx`/`o_idx`, forward ran) AND truth
+(`frequency_u8`/`confidence_u8`, revise ran). Re-run of the same disable now
+fails with *"the forward (palette) half did not run"*.
+
+**Sibling instance in the same module, same run:** `first_divergence`'s gate
+claims "perturbing step *k* diverges AT step *k*", not "differs somewhere" —
+disabled by returning the LAST divergence instead of the first, it fails
+`left: Some(11), right: Some(0)`. That one was already two-sided; it is
+recorded because the pair shows the difference between a gate whose claim
+names a POSITION and one whose claim names an EVENT. The position gate needed
+no strengthening.
+
+**Consequence for the falsifiability rule** (`CLAUDE.md` P0, and the
+`E-VACUOUS-ASSERTION-IS-THE-HOUSE-STYLE-1` catalogue): the existing
+can-fire / can-stay-silent pair is not sufficient for a *composite* kernel.
+Add: **an anti-vacuity check must name every independent half of the thing it
+guards.** Counting the halves is the work; one `assert_ne!` on the aggregate
+output is not it.
+
+And the procedural half, which is why this was caught at all: the disable run
+is the ONLY thing that distinguished a real gate from a decorative one here.
+Writing the strengthened assertion was five minutes; believing the first one
+without running the disable would have shipped a module whose headline
+property was unguarded.
+
+---
+
 ## 2026-08-31 — E-EVERY-DEFECT-IN-A-MEASUREMENT-WAS-IN-ITS-FIXTURE-NOT-ITS-CODE-1 — four in one probe, three found by review
 
 **Status:** FINDING — corrective, measured both ways.
