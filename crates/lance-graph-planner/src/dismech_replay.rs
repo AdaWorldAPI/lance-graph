@@ -100,7 +100,31 @@ impl LocalCausalRow for ReplayTraceRow {
 /// A pair, not a carrier: this is the loco `(function : value)` shape the
 /// substrate already reads every 12-byte payload as — `function` is the
 /// palette ordinal, `value` is the weight.
+///
+/// The ordinal's DOMAIN is checkable without leaving the workspace:
+/// [`chain_step_predicate`] resolves it through the contract's zero-dep
+/// palette mirror, and the armed tier fuses that mirror against the real
+/// `ogar_dismech::RELATIONS`.
 pub type ChainStep = (u8, CausalEdge64);
+
+/// Resolve a step's predicate ordinal to `(ordinal, name, curie)`, or `None`
+/// when the byte names no minted DisMech predicate.
+///
+/// **Why this exists rather than a bare `u8`.** The replay arithmetic does not
+/// read the ordinal in W1 — it is the ADDRESS the step travels under, not an
+/// operand — so nothing in the hot path would ever notice a corrupt one. That
+/// is exactly why the domain needs a name: a chain carrying `0xA3` is not a
+/// causal chain at all (`0xA3` is the palette's SEARCH band), and without this
+/// a replay would trace it to a byte-identical, entirely meaningless result.
+///
+/// The mirror is the contract's; the fuse that proves it IS the palette lives
+/// in `lance_graph_ogar::parity::assert_dismech_palette_parity`, because
+/// `ogar-dismech` is reachable only from that workspace-EXCLUDED armed tier.
+/// Mirror here, authority there — the same split `ogar_codebook` already uses.
+#[must_use]
+pub fn chain_step_predicate(step: ChainStep) -> Option<&'static (u8, &'static str, &'static str)> {
+    lance_graph_contract::dismech_evidence::dismech_predicate(step.0)
+}
 
 /// The single step, isolated so the replay and any future accelerator agree on
 /// what a step IS. Composes the two halves W0 measured, in that order:
@@ -371,5 +395,26 @@ mod tests {
         assert_eq!(only_b, b);
         // cast_seq is monotonic per owner — the precondition the trait names.
         assert!(only_a.windows(2).all(|w| w[0].cast_seq() < w[1].cast_seq()));
+    }
+    #[test]
+    fn a_chain_steps_ordinal_names_a_minted_predicate_and_a_search_op_does_not() {
+        // The core cannot reach `ogar_dismech` (workspace boundary), so what
+        // it CAN pin is that a step's ordinal resolves through the contract
+        // mirror to the predicate the plan names — and that the byte one past
+        // the band does not. The mirror-IS-the-palette half is fused in
+        // `lance_graph_ogar::parity::assert_dismech_palette_parity`; neither
+        // half alone is the claim.
+        let mut rng = Lcg(0x51D3_7C4A_9B2E_6F08);
+        let w = edge(&mut rng);
+        assert_eq!(chain_step_predicate((0x90, w)).map(|p| p.1), Some("causes"),);
+        assert_eq!(
+            chain_step_predicate((0xA2, w)).map(|p| p.1),
+            Some("variant_of"),
+        );
+        // Can-stay-silent, on a byte that is a REAL slot elsewhere in the
+        // palette rather than an arbitrary one: 0xA3 is `CANDIDATES`, the
+        // first search op. An empty-input silence case would prove nothing.
+        assert!(chain_step_predicate((0xA3, w)).is_none());
+        assert!(chain_step_predicate((0x8F, w)).is_none());
     }
 }

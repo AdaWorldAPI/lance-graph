@@ -481,6 +481,77 @@ impl BibliographyRecord {
     }
 }
 
+// ── The predicate palette mirror (D-DCR-1, W1 membrane) ────────────────────
+
+/// Floor of the DisMech predicate band — `ogar_dismech::CAUSES`.
+///
+/// The palette mints contiguously upward from here, so resolving an ordinal is
+/// `ordinal - FLOOR` into [`DISMECH_PREDICATES`], never a scan.
+pub const DISMECH_PREDICATE_FLOOR: u8 = 0x90;
+
+/// The 19 DisMech causal predicates, in slot order: `(ordinal, name, curie)`.
+///
+/// **This is a MIRROR, exactly like [`crate::ogar_codebook`]'s.** The authority
+/// is `ogar_dismech::RELATIONS` in the OGAR repo; this crate is zero-dep and
+/// cannot reach it, so the copy lives here and the drift fuse lives in the
+/// armed tier (`lance_graph_ogar::parity::assert_dismech_palette_parity`).
+/// Mirror here, fuse there — the same split, for the same reason.
+///
+/// # Why a replay core needs this
+///
+/// A recorded causal chain addresses each step by a `u8` predicate ordinal
+/// (`lance_graph_planner::dismech_replay::ChainStep`). Without a mirror the
+/// hot path carries a bare byte with no checkable domain, and the claim *"these
+/// ordinals ARE the dismech palette"* would be asserted only in prose. With it,
+/// a replay can refuse an ordinal outside the band, and the armed tier proves
+/// the band is the real palette.
+///
+/// The CURIE is `dismech:`, never `RO:` — see the OGAR module doc for why.
+pub const DISMECH_PREDICATES: &[(u8, &str, &str)] = &[
+    (0x90, "causes", "dismech:causes"),
+    (0x91, "leads_to", "dismech:leads_to"),
+    (0x92, "triggers", "dismech:triggers"),
+    (0x93, "exacerbates", "dismech:exacerbates"),
+    (0x94, "predisposes_to", "dismech:predisposes_to"),
+    (0x95, "protects_against", "dismech:protects_against"),
+    (0x96, "modulates", "dismech:modulates"),
+    (0x97, "influences", "dismech:influences"),
+    (0x98, "targets", "dismech:targets"),
+    (0x99, "treats", "dismech:treats"),
+    (0x9A, "models", "dismech:models"),
+    (0x9B, "partially_models", "dismech:partially_models"),
+    (0x9C, "fails_to_model", "dismech:fails_to_model"),
+    (0x9D, "perturbs", "dismech:perturbs"),
+    (0x9E, "measures", "dismech:measures"),
+    (0x9F, "rescues", "dismech:rescues"),
+    (0xA0, "readout", "dismech:readout"),
+    (0xA1, "contributes_to", "dismech:contributes_to"),
+    (0xA2, "variant_of", "dismech:variant_of"),
+];
+
+/// Resolve a predicate ordinal to `(ordinal, name, curie)`, or `None` when the
+/// byte is outside the minted band.
+///
+/// Position lookup, mirroring `ogar_dismech::by_index`: the band is contiguous,
+/// so the subtraction IS the lookup. A byte below the floor wraps to a large
+/// index and is refused by the bound — refused, never guessed, the same
+/// fail-closed rule the rest of this module follows.
+#[must_use]
+pub const fn dismech_predicate(ordinal: u8) -> Option<&'static (u8, &'static str, &'static str)> {
+    let i = ordinal.wrapping_sub(DISMECH_PREDICATE_FLOOR) as usize;
+    if i < DISMECH_PREDICATES.len() {
+        Some(&DISMECH_PREDICATES[i])
+    } else {
+        None
+    }
+}
+
+/// Whether `ordinal` names a minted DisMech predicate.
+#[must_use]
+pub const fn is_dismech_predicate(ordinal: u8) -> bool {
+    dismech_predicate(ordinal).is_some()
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -682,5 +753,65 @@ mod tests {
         // anti-vacuity: a real title is NOT the sentinel
         let t = BibliographyRecord::new("PMID:25252", "A real title").expect("real citation");
         assert!(!t.title.is_sentinel());
+    }
+    // ── the predicate palette mirror ──
+
+    #[test]
+    fn the_palette_band_is_contiguous_so_position_is_the_lookup() {
+        // Anti-vacuity FIRST: the band must be non-trivially long, or
+        // "contiguous" is a claim about a one-element list.
+        assert_eq!(DISMECH_PREDICATES.len(), 19, "the measured palette is 19");
+        for (i, &(ord, _, _)) in DISMECH_PREDICATES.iter().enumerate() {
+            assert_eq!(
+                ord,
+                DISMECH_PREDICATE_FLOOR + i as u8,
+                "slot {i} breaks contiguity — position lookup would be wrong",
+            );
+        }
+        assert_eq!(DISMECH_PREDICATES.last().unwrap().0, 0xA2);
+    }
+
+    #[test]
+    fn every_minted_ordinal_resolves_to_its_own_row() {
+        for &(ord, name, curie) in DISMECH_PREDICATES {
+            let got = dismech_predicate(ord).expect("minted ordinal must resolve");
+            assert_eq!(got.0, ord);
+            assert_eq!(got.1, name, "{ord:#04x} resolved to the wrong row");
+            assert_eq!(got.2, curie);
+        }
+    }
+
+    #[test]
+    fn an_ordinal_outside_the_band_is_refused_not_guessed() {
+        // Below the floor: the wrapping subtraction must NOT alias back in.
+        // 0x8F is the byte immediately below, the one a naive `as usize`
+        // would be most likely to mis-handle.
+        assert!(dismech_predicate(0x8F).is_none(), "below the floor");
+        assert!(dismech_predicate(0x00).is_none());
+        // Above the mint: 0xA3 is `ogar_dismech::CANDIDATES` — a real slot in
+        // the SEARCH band, deliberately NOT in this palette. If the bound ever
+        // slips by one it swallows a predicate that is not a predicate.
+        assert!(dismech_predicate(0xA3).is_none(), "0xA3 is the search band");
+        assert!(dismech_predicate(0xFF).is_none());
+        assert!(!is_dismech_predicate(0x8F));
+        assert!(is_dismech_predicate(0x90));
+    }
+
+    #[test]
+    fn names_and_curies_are_distinct_so_a_copy_paste_slip_is_visible() {
+        // A mirror maintained by hand fails by DUPLICATION (a row pasted and
+        // half-edited), which every check above would still pass.
+        let mut names: Vec<_> = DISMECH_PREDICATES.iter().map(|p| p.1).collect();
+        names.sort_unstable();
+        let n = names.len();
+        names.dedup();
+        assert_eq!(names.len(), n, "duplicate predicate name in the mirror");
+        let mut curies: Vec<_> = DISMECH_PREDICATES.iter().map(|p| p.2).collect();
+        curies.sort_unstable();
+        curies.dedup();
+        assert_eq!(curies.len(), n, "duplicate CURIE in the mirror");
+        for &(_, name, curie) in DISMECH_PREDICATES {
+            assert_eq!(curie, format!("dismech:{name}"), "CURIE/name disagree");
+        }
     }
 }

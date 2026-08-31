@@ -135,6 +135,14 @@ ogar-ontology = { git = "https://github.com/AdaWorldAPI/OGAR", branch = "main" }
 # ogar-loco is zero-dep and lance-graph-contract is zero-dep; neither may
 # import the other, so the vocabulary that needs both lives HERE.
 ogar-loco = { git = "https://github.com/AdaWorldAPI/OGAR", branch = "main" }
+# The 19-predicate DisMech causal palette (`ogar_dismech::RELATIONS`, FnIndex
+# 0x90..=0xA2) — the AUTHORITY the contract's zero-dep
+# `dismech_evidence::DISMECH_PREDICATES` mirror is fused against here
+# (`parity::assert_dismech_palette_parity`). Same split as the codebook: the
+# mirror lives in the zero-dep contract so a replay core can name an ordinal's
+# domain; the drift fuse lives in this armed tier, where the real palette is
+# reachable. D-DCR-1 (W1) membrane half.
+ogar-dismech = { git = "https://github.com/AdaWorldAPI/OGAR", branch = "main" }
 # ⊘ DEPRECATED IR-Arm (Operator, 2026-08-22): "SurrealQL wird gar nicht
 # verwendet, auch nicht ogar-*surreal*". OPTIONAL und aus dem unbedingten
 # Dependency-Satz heraus — ein Build, der das Feature nicht nennt, zieht die

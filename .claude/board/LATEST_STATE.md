@@ -1,3 +1,49 @@
+## 2026-08-31 — #1120 (open): D-DCR-1 replay core + the palette membrane — CONTRACT INVENTORY DELTA
+
+**Contract inventory: +2 consts, +2 `const fn`, no new type, no layout change.**
+All four in the existing `dismech_evidence` module — zero-dep, no new dependency.
+
+- **`dismech_evidence::DISMECH_PREDICATE_FLOOR: u8`** = `0x90`, the band floor
+  (`ogar_dismech::CAUSES`).
+- **`dismech_evidence::DISMECH_PREDICATES: &[(u8, &str, &str)]`** — the 19
+  DisMech causal predicates in slot order, `(ordinal, name, curie)`. A
+  **MIRROR** in exactly the `ogar_codebook` sense: the authority is
+  `ogar_dismech::RELATIONS`, this crate is zero-dep and cannot reach it, so the
+  copy lives here and the drift fuse lives in the armed tier.
+- **`dismech_evidence::{dismech_predicate, is_dismech_predicate}`** — position
+  lookup over the contiguous band (`ordinal - FLOOR`, mirroring
+  `ogar_dismech::by_index`), fail-closed outside it.
+
+**Why the contract and not the planner:** a recorded causal chain addresses each
+step by a `u8` predicate ordinal, and the replay arithmetic never reads it — it
+is the step's ADDRESS, not an operand. So nothing on the hot path would notice a
+corrupt one, and a chain carrying `0xA3` (the palette's SEARCH band, not a
+relation) would trace to a byte-identical, meaningless result. The mirror gives
+the byte a checkable domain without the planner depending on OGAR.
+
+**Armed tier (`lance-graph-ogar`, workspace-EXCLUDED):**
+`parity::assert_dismech_palette_parity()` — the drift fuse, both directions plus
+floor and length, against the real palette; `ogar-dismech` added as a git dep
+alongside the existing `ogar-loco`. Forward catches a stale mirror row; reverse
+catches a newly minted predicate the mirror never learned (the silent one — a
+replay would refuse a legitimate ordinal and nothing in the planner could tell
+that from a corrupt chain).
+
+**Planner:** `dismech_replay` (new module, D-DCR-1) + `chain_step_predicate`.
+
+Gates: contract lib **1282** green, clippy `--all-targets -D warnings` clean;
+planner lib **375** green, lib clippy `-D warnings` clean; armed tier **75**
+green; fmt clean on all three. Six disable-runs red-then-green (3 on the replay
+core, 3 on the mirror/fuse: a corrupted name, a swallowed search op, a dropped
+predicate).
+
+**Pre-existing, NOT introduced here:** `lance-graph-ogar` fails
+`clippy --all-targets -D warnings` on `main` too (7 errors — unused `NAMESPACE`
+consts in the bridge scope-lock tests, doc-list indentation in `bridges/mod.rs`
+and `rbac_impl.rs`). Confirmed by stashing this diff. Its CI line is
+`cargo test`, not clippy.
+
+---
 ## 2026-08-31 — #1099 MERGED (ae24f6e5): D-MAR-1 mask algebra — CONTRACT INVENTORY DELTA
 
 **Contract inventory: +4 methods, no new type, no layout change.**

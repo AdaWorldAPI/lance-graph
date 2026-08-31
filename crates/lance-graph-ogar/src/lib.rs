@@ -206,6 +206,61 @@ pub mod parity {
         ogar_vocab::class_ids::ALL.len()
     }
 
+    /// Assert the contract's zero-dep predicate-palette mirror
+    /// ([`lance_graph_contract::dismech_evidence::DISMECH_PREDICATES`]) is a
+    /// faithful, complete copy of the authority (`ogar_dismech::RELATIONS`) —
+    /// forward, reverse, and the position-lookup agreement. Returns the number
+    /// of predicates checked. Panics on any divergence.
+    ///
+    /// **This is the membrane half of D-DCR-1 (W1).** The replay core
+    /// (`lance_graph_planner::dismech_replay`) addresses each recorded step by
+    /// a plain `u8` ordinal — it is in-workspace and cannot reach OGAR, which
+    /// lives in this excluded armed tier. So the claim *"these ordinals ARE
+    /// the dismech palette"* is proved HERE, against the real palette, rather
+    /// than asserted in the core's prose.
+    ///
+    /// Both directions are load-bearing and catch different drift: forward
+    /// catches a mirror row the palette no longer mints (a stale copy);
+    /// reverse catches a newly minted predicate the mirror never learned about
+    /// (the silent one — a replay would refuse a legitimate ordinal, and
+    /// nothing in the planner could tell that from a corrupt chain).
+    pub fn assert_dismech_palette_parity() -> usize {
+        use lance_graph_contract::dismech_evidence as mirror;
+
+        for &(ord, name, curie) in mirror::DISMECH_PREDICATES {
+            let authority = ogar_dismech::by_index(ogar_loco::FnIndex(ord)).unwrap_or_else(|| {
+                panic!("mirror has {ord:#04x} but the palette does not mint it")
+            });
+            assert_eq!(
+                authority.name, name,
+                "{ord:#04x}: mirror says {name:?}, palette says {:?}",
+                authority.name
+            );
+            assert_eq!(authority.curie, curie, "{ord:#04x}: CURIE disagreement",);
+        }
+        for p in ogar_dismech::RELATIONS {
+            let row = mirror::dismech_predicate(p.index.0).unwrap_or_else(|| {
+                panic!(
+                    "palette mints {} ({:#04x}) but the contract mirror is missing it",
+                    p.name, p.index.0
+                )
+            });
+            assert_eq!(row.1, p.name, "{:#04x}: reverse name mismatch", p.index.0);
+            assert_eq!(row.2, p.curie, "{:#04x}: reverse CURIE mismatch", p.index.0);
+        }
+        assert_eq!(
+            mirror::DISMECH_PREDICATE_FLOOR,
+            ogar_dismech::CAUSES.0,
+            "the mirror's band floor is not the palette's",
+        );
+        assert_eq!(
+            mirror::DISMECH_PREDICATES.len(),
+            ogar_dismech::RELATIONS.len(),
+            "palette and mirror mint a different number of predicates",
+        );
+        ogar_dismech::RELATIONS.len()
+    }
+
     #[cfg(test)]
     mod tests {
         use super::*;
@@ -240,6 +295,63 @@ pub mod parity {
                 0x0C01, 0xC001, // Automation vs JavaRuntime, transposed
             ] {
                 assert!(domains_agree(id), "domain drift at {id:#06x}");
+            }
+        }
+
+        #[test]
+        fn the_contract_mirror_is_a_faithful_copy_of_the_dismech_palette() {
+            let n = assert_dismech_palette_parity();
+            // Anti-vacuity: a parity walk over an EMPTY mirror passes both
+            // directions trivially. The palette is the closed measured set of
+            // 19 upstream causal predicates; if that number ever moves, this
+            // is the line that forces someone to look at why.
+            assert_eq!(n, 19, "the DisMech palette mints 19 causal predicates");
+        }
+
+        #[test]
+        fn the_search_band_is_not_swallowed_by_the_predicate_mirror() {
+            // The palette mints a SECOND band immediately above the
+            // predicates (`CANDIDATES` = 0xA3 and up — the Sudoku search ops,
+            // deliberately kept out of the closed measured predicate set).
+            // Contiguity makes an off-by-one in the mirror's bound both easy
+            // and silent: it would resolve a search op AS a causal predicate,
+            // and a replay would then travel a step under a verb that is not
+            // a relation at all.
+            use lance_graph_contract::dismech_evidence as mirror;
+            assert!(
+                mirror::dismech_predicate(ogar_dismech::CANDIDATES.0).is_none(),
+                "the mirror resolved a SEARCH op as a causal predicate",
+            );
+            // ...and the authority agrees it is a real slot, so this test is
+            // pinning a boundary rather than a byte that means nothing.
+            assert!(
+                ogar_dismech::search_op_by_index(ogar_dismech::CANDIDATES).is_some(),
+                "0xA3 must be a real search op, or this test proves nothing",
+            );
+            assert!(ogar_dismech::by_index(ogar_dismech::CANDIDATES).is_none());
+        }
+
+        #[test]
+        fn a_replay_ordinal_resolves_to_the_palette_predicate_it_names() {
+            // The seam D-DCR-1 exists to pin. `lance_graph_planner`'s
+            // `ChainStep = (u8, CausalEdge64)` carries the predicate as a bare
+            // byte because the planner is in-workspace and cannot reach OGAR.
+            // Here — where the real palette IS reachable — walk the same
+            // ordinals a recorded chain would carry and prove each one names
+            // the predicate the plan says it does.
+            use lance_graph_contract::dismech_evidence as mirror;
+            for (ordinal, expected) in [
+                (0x90u8, "causes"),
+                (0x94, "predisposes_to"),
+                (0x9D, "perturbs"),
+                (0xA2, "variant_of"),
+            ] {
+                let via_mirror = mirror::dismech_predicate(ordinal)
+                    .unwrap_or_else(|| panic!("{ordinal:#04x} unresolved in the mirror"));
+                let via_palette = ogar_dismech::by_index(ogar_loco::FnIndex(ordinal))
+                    .unwrap_or_else(|| panic!("{ordinal:#04x} unresolved in the palette"));
+                assert_eq!(via_mirror.1, expected);
+                assert_eq!(via_palette.name, expected);
             }
         }
 
