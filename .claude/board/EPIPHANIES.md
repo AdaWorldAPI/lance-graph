@@ -1,3 +1,62 @@
+## 2026-08-31 — E-ORIENTATION-BIT-PARTIAL-NIBBLE-SUFFICES-1 — under heterogeneous window-area magnitudes the orientation bit degrades to 81% retention while the i4 nibble holds ≥92%; kernel-scalar error near the discretization floor is cancellation-dominated and must never gate carrier fidelity
+
+**Status:** FINDING (probe run, GREEN, G0–G3 + pre-registered decision rule).
+Probe: `crates/sigker/examples/probe_dsk_a_quantized_area.rs` (D-SK-A; closes
+the fixture-shape caveat E-LEVY-AREA-COEFFICIENT-BEATS-REFINEMENT-1 left open).
+**Confidence:** High on the measured numbers; synthetic d=2 fixtures, W=64,
+same Goursat coefficient scheme as D-SK-B′. The degradation is evidenced on
+the AM route only — the CHIRP knob proved weak (below).
+
+Question: D-SK-B′ measured sign-only area carriers (the 24×i4 register's
+orientation-bit analog) retaining 99.3% of the Lévy-area coefficient gain on
+a fixture whose |window areas| were near-constant (spread 0.118). What
+survives when magnitudes are heterogeneous?
+
+Measured (retention = fraction of the incr-only → exact-area error reduction
+kept by the quantized carrier; spread = std/mean of |window areas|):
+
+1. **AM family** (amplitude-modulated envelope, spread 0.100 → 0.958):
+   sign-only holds ~100% up to spread 0.834, then drops to **81.1% at
+   spread 0.958** (β=1.0, envelope through zero — windows with near-zero
+   true area get stamped ±full mean magnitude, overstating them). i4 dips
+   to 92.4% (β=0.25, cancellation jitter — see 3) and is ≥95.3% elsewhere.
+2. **Decision rule (pre-registered before the run):** sign-only min 81.1% ∈
+   (50%, 90%) → **partial; magnitude tier recommended**. i4 min 92.4% >
+   90% → **suffices across the spread range measured**. For the register:
+   the orientation bit alone is a pruning tier, not a coefficient carrier,
+   once |area| heterogeneity approaches spread ~1; the full nibble is.
+3. **Method finding (G2 falsified and re-registered):** near the
+   discretization floor the kernel-scalar error is CANCELLATION-DOMINATED —
+   a strictly coarser carrier can land closer to K_ref by signed-error luck
+   (measured: AM β=0.25 i4 kernel-err 2.654e-2 vs sign 2.014e-2; CHIRP
+   β=1.5 i4 1.282e-2 "beating" exact 2.359e-2). Carrier-fidelity ordering
+   is well-posed only in the AREA domain: the re-registered G2 gates
+   rms(i4) ≤ rms(sign) per β (holds everywhere, both families); kernel
+   errors stay printed, never gated. Retention percentages therefore carry
+   cancellation jitter of the same order as inter-carrier gaps near the
+   floor — read them at the ±few-% level.
+4. **Weak-knob honesty (CHIRP):** frequency sweep at constant amplitude
+   only reaches spread 0.279 (loop density moves |area| far less than loop
+   size does) — retentions ~100% throughout, so CHIRP corroborates the
+   homogeneous regime but contributes no evidence about degradation. G1
+   gates the AM knob only (strictly increasing, max 0.958).
+5. G0: shipped solver vs closed form 6.25e-5 (same anchor as D-SK-B′);
+   G3: β=0 reproduces the D-SK-B′ retention figure (100% on this fixture).
+
+**Consequence for the presence sibling** (E-PRESENCE-2BIT-CHEAPER-SIBLING-1):
+consistent division of labor, now measured from both sides — the 2-bit
+presence/orientation tier PRUNES (70.3% at 0% false positives there; ~100%
+retention here while magnitudes are homogeneous) and the nibble tier DECIDES
+(≥92% retention under heterogeneity here). Neither result licenses the
+orientation bit as a stand-alone coefficient carrier on heterogeneous
+workloads.
+
+Open: real witness-stream workloads (all fixtures synthetic); spread > 1
+regimes; per-basin codebook scales instead of one global mean (the natural
+next lever if 81% is not enough where it lands).
+
+Cross-refs: E-LEVY-AREA-COEFFICIENT-BEATS-REFINEMENT-1 (D-SK-B′, the caveat
+this closes), E-PRESENCE-2BIT-CHEAPER-SIBLING-1, sigker Index-regime framing.
 ## 2026-08-31 — E-LEVY-AREA-COEFFICIENT-BEATS-REFINEMENT-1 — per-window Lévy-area coefficients recover the signature kernel where increment-only coarsening plateaus; the orientation-sign carrier retains ~99% of the gain on homogeneous-magnitude fixtures
 
 **Status:** FINDING (probe run, GREEN, G0–G5). Probe:
