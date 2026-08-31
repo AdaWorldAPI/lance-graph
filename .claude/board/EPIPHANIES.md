@@ -15,6 +15,17 @@ spine fix silently and converts eventual un-pinning into a one-jump replay
 of accumulated drift; the workspace's whole sibling architecture assumes the
 spine moves as one.
 
+**Lockfile corollary (same-day, codex P1 accepted pre-merge):** a branch
+dep is still locked to one commit in Cargo.lock, so a committed lock (or a
+`--locked` deploy) is the same pin one file over. Default resolution,
+operator-indicated: consumers gitignore Cargo.lock and build without
+`--locked` — sibling HEAD at every build, reproducibility deliberately
+traded for spine liveness. Sanity-checked: the four external pins are NOT
+loosened by lock removal — lance/lancedb are exact (`=`) manifest
+requirements; arrow/datafusion pin the major in the manifest and were
+always minor-floating by declaration. Fallback for a consumer ruled to
+keep a lock: a scheduled visible refresh, never a silent stale lock.
+
 Enforcement sweep across local consumers found one live violation set:
 woa-rs `Cargo.toml` rev-pins lance-graph-ontology, lance-graph-callcenter,
 and ndarray. Remediation is owned by the session already working that repo
