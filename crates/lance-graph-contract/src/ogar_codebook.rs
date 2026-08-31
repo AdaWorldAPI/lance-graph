@@ -126,6 +126,42 @@ pub enum ConceptDomain {
     /// Any high-byte slot not yet assigned a domain (`0x05XX`–`0x06XX`,
     /// `0x10XX`–`0x16XX`, `0x18XX`–`0xBFXX`, `0xC2XX`–`0xC3XX` — a
     /// DELIBERATE gap, pinned like OGAR's own `0x10`–`0x16` — and
+    /// `0x90XX` — reference (domain reference tree). HIGH byte = compartment, LOW
+    /// byte = vocabulary, carried 1:1 from the retired `0x03XX` block. Zero
+    /// shared rows: the concepts stay plug-and-play in their producers.
+    Reference,
+    /// `0x91XX` — disease (domain reference tree). HIGH byte = compartment, LOW
+    /// byte = vocabulary, carried 1:1 from the retired `0x03XX` block. Zero
+    /// shared rows: the concepts stay plug-and-play in their producers.
+    Disease,
+    /// `0x92XX` — phenomenology (domain reference tree). HIGH byte = compartment, LOW
+    /// byte = vocabulary, carried 1:1 from the retired `0x03XX` block. Zero
+    /// shared rows: the concepts stay plug-and-play in their producers.
+    Phenomenology,
+    /// `0x94XX` — lab (domain reference tree). HIGH byte = compartment, LOW
+    /// byte = vocabulary, carried 1:1 from the retired `0x03XX` block. Zero
+    /// shared rows: the concepts stay plug-and-play in their producers.
+    Lab,
+    /// `0x95XX` — imaging (domain reference tree). HIGH byte = compartment, LOW
+    /// byte = vocabulary, carried 1:1 from the retired `0x03XX` block. Zero
+    /// shared rows: the concepts stay plug-and-play in their producers.
+    Imaging,
+    /// `0x96XX` — biological_process (domain reference tree). HIGH byte = compartment, LOW
+    /// byte = vocabulary, carried 1:1 from the retired `0x03XX` block. Zero
+    /// shared rows: the concepts stay plug-and-play in their producers.
+    BiologicalProcess,
+    /// `0x97XX` — substance (domain reference tree). HIGH byte = compartment, LOW
+    /// byte = vocabulary, carried 1:1 from the retired `0x03XX` block. Zero
+    /// shared rows: the concepts stay plug-and-play in their producers.
+    Substance,
+    /// `0x98XX` — procedure (domain reference tree). HIGH byte = compartment, LOW
+    /// byte = vocabulary, carried 1:1 from the retired `0x03XX` block. Zero
+    /// shared rows: the concepts stay plug-and-play in their producers.
+    Procedure,
+    /// `0x9AXX` — form (domain reference tree). HIGH byte = compartment, LOW
+    /// byte = vocabulary, carried 1:1 from the retired `0x03XX` block. Zero
+    /// shared rows: the concepts stay plug-and-play in their producers.
+    Form,
     /// `0xC5XX`, `0xC7XX`+).
     Unassigned,
 }
@@ -141,6 +177,15 @@ pub fn canonical_concept_domain(id: u16) -> ConceptDomain {
         0x01 => ConceptDomain::ProjectMgmt,
         0x02 => ConceptDomain::Commerce,
         0x03 => ConceptDomain::Ontology,
+        0x90 => ConceptDomain::Reference,
+        0x91 => ConceptDomain::Disease,
+        0x92 => ConceptDomain::Phenomenology,
+        0x94 => ConceptDomain::Lab,
+        0x95 => ConceptDomain::Imaging,
+        0x96 => ConceptDomain::BiologicalProcess,
+        0x97 => ConceptDomain::Substance,
+        0x98 => ConceptDomain::Procedure,
+        0x9A => ConceptDomain::Form,
         0x04 => ConceptDomain::Weather,
         0x07 => ConceptDomain::Osint,
         0x08 => ConceptDomain::Ocr,
