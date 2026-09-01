@@ -377,6 +377,26 @@ pub mod sweep_ternlog {
     pub const ASKED_ANSWERED: u8 = 0xA8;
 }
 
+/// **Loco band mirror** — the ogar-loco shared-core `FnIndex` assignments
+/// for these primitives (minted 2026-09-01 into loco's reserved core slots;
+/// the operator's essence-directive: primitives like Belnap become reusable
+/// bytecode macros in loco, for literally everything). Zero-dep mirror,
+/// same discipline as `dismech_evidence`'s palette mirror: the contract
+/// cannot depend on ogar-loco, so the armed parity check in
+/// `lance-graph-ogar` asserts both sides byte-for-byte. Hambly-Lyons has
+/// NO index while jc Pillar 11 is red.
+pub mod loco_band {
+    /// `(FnIndex, name, stack arity)` for each epistemic call, `0x86..=0x8B`.
+    pub const EPISTEMIC_CALLS: &[(u8, &str, u8)] = &[
+        (0x86, "TERNLOG", 3),
+        (0x87, "BELNAP_JOIN", 2),
+        (0x88, "INFO_GAIN", 2),
+        (0x89, "SIGMA_TENSION", 2),
+        (0x8A, "ACCUMULATE", 1),
+        (0x8B, "STANCE_ENTROPY", 2),
+    ];
+}
+
 /// Scalar reference evaluation of a ternlog truth table over three masks —
 /// the semantics oracle for the SIMD path (which lives in `ndarray::simd`,
 /// never here). Bit `k` of the result is `(imm >> ((a_k << 2) | (b_k << 1)
