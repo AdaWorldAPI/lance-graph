@@ -261,6 +261,53 @@ pub mod parity {
         ogar_dismech::RELATIONS.len()
     }
 
+    /// Assert the contract's zero-dep loco-band mirror
+    /// ([`lance_graph_contract::epistemic_bassin::loco_band::EPISTEMIC_CALLS`])
+    /// matches the authority — ogar-loco's shared-core table — name and
+    /// stack arity per index, `0x86..=0x8B`. Returns the number of calls
+    /// checked; panics on any divergence.
+    ///
+    /// Written against the TABLE (`shared_core::{name, stack_arity}` by raw
+    /// index), never against named constants, so this crate compiles against
+    /// any ogar-loco revision — the assertions, not the build, carry the
+    /// parity. Until the loco mint is on OGAR main this check FAILS, which
+    /// is the honest state of an unmerged band.
+    pub fn assert_epistemic_band_parity() -> usize {
+        use lance_graph_contract::epistemic_bassin::loco_band as mirror;
+        use ogar_loco::vocabulary::shared_core;
+
+        for &(ord, name, arity) in mirror::EPISTEMIC_CALLS {
+            let f = ogar_loco::FnIndex(ord);
+            assert!(
+                f.is_shared_core(),
+                "{ord:#04x} must sit below DOMAIN_FLOOR — the band is CORE, not domain"
+            );
+            assert_eq!(
+                shared_core::name(f),
+                Some(name),
+                "{ord:#04x}: loco name disagrees with the mirror"
+            );
+            assert_eq!(
+                shared_core::stack_arity(f),
+                Some(arity),
+                "{ord:#04x}: loco arity disagrees with the mirror"
+            );
+            assert_eq!(
+                shared_core::pushes_result(f),
+                Some(true),
+                "{ord:#04x}: every epistemic call pushes its result"
+            );
+        }
+        // Reverse: nothing minted in the band that the mirror never learned.
+        for ord in 0x86u8..=0x8B {
+            assert!(
+                mirror::EPISTEMIC_CALLS.iter().any(|&(o, _, _)| o == ord),
+                "loco band slot {ord:#04x} is not mirrored in the contract"
+            );
+        }
+        mirror::EPISTEMIC_CALLS.len()
+    }
+
     #[cfg(test)]
     mod tests {
         use super::*;
@@ -296,6 +343,14 @@ pub mod parity {
             ] {
                 assert!(domains_agree(id), "domain drift at {id:#06x}");
             }
+        }
+
+        #[test]
+        fn the_contract_mirror_is_a_faithful_copy_of_the_epistemic_band() {
+            let n = assert_epistemic_band_parity();
+            // Anti-vacuity: six green-certified atoms, no more (Hambly-Lyons
+            // stays bandless while jc Pillar 11 is red) and no fewer.
+            assert_eq!(n, 6, "the epistemic band mints 6 calls");
         }
 
         #[test]

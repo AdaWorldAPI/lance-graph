@@ -506,11 +506,34 @@ one that moves the child moves the grandparent.
   composition of clamped registers is monotone, not associative —
   conflict-preserving either way, which is the property that matters.
 
+#### ⊘ RULED (operator, 2026-09-01, fifth round) — 256:256 by classid; bytes as microcode
+
+Palette space is NOT scarce and the epistemic vocabulary must not be
+designed as if it were: **the classid swaps the whole 256-entry palette**
+(256:256), exactly as blockly-rs runs the Scratch vocabulary and ogar-r2il
+runs 82 machine ops over the SAME `0x90..` indices ogar-dismech uses — no
+collision, different classids. And ogar-r2il's addressing is the macro
+mechanism: **one byte can address an entire 360-byte script** — microcode.
+Consequences, recorded before the catalogue is designed:
+
+- The six universal calls stay CORE (`0x86..0x8B`) — core bytes are read
+  from the core in EVERY vocabulary (`VocabularyTable::compose` cannot be
+  forged), so TERNLOG/BELNAP_JOIN work inside every palette: "for literally
+  everything" is a property of core placement.
+- Everything domain-shaped — the 24 named axes (as a `ValueCodebook`),
+  per-axis macros, revision verbs — belongs in an **epistemic vocabulary**
+  with its own classid and a full 256 space, never crammed into reserved
+  core slots.
+- Compound reasoning macros follow r2il's shape: a byte in the epistemic
+  palette addresses a whole loco body (360 bytes = 180/120/90 calls under
+  the lane shape) — scripts all the way down, each still replayable.
+
 #### Still open — probes, not rulings
 
 - **The named 24-axis catalogue** — WHICH axes, minted as a classid-named
   basis (episodic references / basis / premise trace / revision are the
-  ruled projection sketch).
+  ruled projection sketch) — now explicitly as the epistemic vocabulary's
+  `ValueCodebook` under its own classid, per the fifth-round ruling.
 - **The child-mask index** — a u16 per node vs derive-by-scan; an index
   decision, not a semantics one.
 - ~~The contested-collapse~~ — CLOSED by the pair; the reversed falsifier
