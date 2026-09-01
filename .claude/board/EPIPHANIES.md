@@ -1,3 +1,51 @@
+## 2026-09-01 — E-PILLAR-11-GREEN-FOR-LATTICE-WALKS-LENGTH-PARAMETERIZED-1
+
+**Status:** SHIPPED (jc W6 leg, `hambly_lyons.rs`; sigker Index regime
+re-worded; harvest ledger D1–D8). **Confidence:** [G] — the constant was
+re-read from the primary source (math/0507536v2 p.11/p.14) on the main
+thread, the leg is exhaustive over its word classes, and its disable arm
+fails.
+
+Pillar 11 was red because Theorem 1 is depth-∞. The finite-depth statement
+is Theorem 2/3 of the SAME paper: a lattice word of length L is separated
+from the identity by depth ⌊e·ln(1+√2)·L⌋ = ⌊2.3958·L⌋ (d = 2; ×
+(2⌈log₃(d/2)⌉+3) in general). Homomorphism into the free nilpotent group
+gives the pair form `S^(N)(X) = S^(N)(Y) ⟺ X ∼ Y` at `N ≥ ⌊c·(|X|+|Y|)⌋`.
+Measured (W6, release, 2.0 s): 484/484 reduced words of length ≤ 5
+separated at ⌊c·L⌋ (min ‖S−1‖ = 1.118); 64 tree-like words at the
+identity (max 2e-15); **64 reduced length-8 words share `S^(2) = 1` with
+the constant path** (the paper's own §1.6 figure-of-8 class) and every one
+separates by depth 3 ≤ ⌊c·8⌋ = 19; d = 1 collapses the 64 length-6 words
+to exactly 7 signature classes (net increment only — the `d ≥ 2`
+precondition). Consequences: the sigker Index regime is **length-
+parameterized** (a walk-length budget, escalate or refuse beyond it),
+depth 2 is a necessary condition only, a single `u8:u8` rail read as one
+axis is out of regime, and arbitrary quantized step vectors stay outside
+Theorem 2 (Theorem 9 gives non-triviality without an explicit depth).
+Default jc build stays zero-dep/DEFERRED.
+
+**Companion source audit (pre-#1129 signed register), same session:** the
+old `BasinLanes` lane was true two's-complement i4 over the FULL `[−8, 7]`
+(`atoms::I4x32::sext4`; 16 states, no quantizer); "−3..+3" is prose only —
+one illustrative pair, absent from every implementation, test and commit
+(`git log -S` negative). The #1129 failure is DIMENSIONAL, not range: the
+transcribed old encoder maps `+x + (−x)` to bytes identical to `SILENT` for
+every `x ∈ 1..=7`; only `x = 8` escapes, by the `+8 → +7` clamp artifact.
+Bit accounting: old 24×4 = 96 bit = 12 B (one facet payload, pinned
+against `CASCADE_UNITS`); new 24×(4+4) = 192 bit = 24 B — now pinned by
+`const` asserts and a universal-magnitude test in `epistemic_bassin.rs`.
+No jc pillar certifies a compact projection it did not test: the A→B
+adapters (`sigma_tension_u4`, D-SK casts, causal-witness loci) are all
+labelled unproven and gated. Two wording risks for the operator:
+`epistemic_bassin.rs` line 18 ("one extra 12-byte register") vs line 61
+("a reading of the SAME physical lane") cannot both size one row; and
+`PR_ARC_INVENTORY.md` ~1688 summarises `probe_tarski_signed_witness` as a
+"24×i4 signed derivational field" although its polarities live in two
+separate slots (`ConstructiveDepth`/`FalsifyingDepth`) and never net.
+Also corrected: the ACCUMULATE caveat ("NOT associative") — sum-then-clamp
+on L₁₆ is an MV-monoid, associative across hops; the clamp costs
+cancellativity only (0/4096 violations, 1360 non-cancel pairs, pinned).
+
 ## 2026-09-01 — E-LITERATURE-HARVEST-POST-1132-TWO-PILLAR-CORRECTIONS-1
 
 **Status:** HARVEST (5-auditor literature sweep, adjudicated against shipped

@@ -24,6 +24,53 @@
 //! visits node X and returns conveys no information beyond visiting the
 //! start point; the signature respects that.
 //!
+//! # Status — GREEN for lattice walks, length-parameterized (2026-09-01, W6)
+//!
+//! The pillar was red because Theorem 1 is a depth-∞ statement and the
+//! substrate truncates. The finite-depth certificate is in the SAME paper,
+//! two sections later (math/0507536v2 §2.4, constant re-read on the main
+//! thread against the primary source):
+//!
+//!   **Theorem 2.** A path of length L on the 2-d integer lattice whose
+//!   first ⌊e·log(1+√2)·L⌋ GL(2,C)-iterated integrals vanish is tree-like
+//!   and its reduced word is trivial. (e·ln(1+√2) = 2.3958…)
+//!
+//!   **Theorem 3.** In the d-dimensional lattice the depth is
+//!   ⌊(2⌈log₃(d/2)⌉ + 3)·e·log(1+√2)·L⌋.
+//!
+//! The GL(2,C) integrals are a projection of the tensor-algebra ones
+//! (fn. 2: "a priori contain less information"), so vanishing of the FULL
+//! truncated signature to that depth implies the hypothesis a fortiori.
+//! Because the truncated signature is a homomorphism into the free
+//! nilpotent group, the pair form is
+//!
+//!   S^(N)(X) = S^(N)(Y)  ⟺  X ∼ Y     for N ≥ ⌊c(d)·(|X|+|Y|)⌋,
+//!
+//! i.e. the Index regime is LENGTH-PARAMETERIZED: a consumer must carry a
+//! walk-length budget and escalate depth (or refuse) beyond it. Depth 2 is
+//! a NECESSARY condition only — the paper's own §1.6 figure-of-8 has
+//! S¹ = S² = 0 and is not tree-like; the W6 leg below finds 64 such reduced
+//! words at length 8 and separates every one by depth 3.
+//!
+//! Preconditions, both pinned executably in the W6 leg:
+//!   * `d ≥ 2` — in d = 1 the reduced-path group is Z (Diehl-Ebrahimi-Fard-
+//!     Tapia Rem. 1.4: every closed 1-d path is tree-like), so a single
+//!     `u8:u8` rail read as ONE scalar axis carries only its net increment;
+//!   * unit basis-aligned steps on the integer lattice (p.8:
+//!     ‖x_k − x_{k+1}‖ = 1, x_k ∈ Z^{|A|}). Arbitrary quantized step vectors
+//!     are OUTSIDE Theorem 2; for those the applicable statement is
+//!     Theorem 9 (piecewise-linear, bound in the smallest angle and the
+//!     shortest edge) which gives non-triviality but no explicit depth.
+//!
+//! What stays honest: the depth-2 legs certify a necessary condition and
+//! the Lévy-area functional form; the depth-∞ PDE leg reads, to leading
+//! order, the same Lévy area (dev ≈ ½‖S²‖²) — so it is a second resolution
+//! of the same measurement, not independent evidence. Unnormalized
+//! truncated features are not characteristic (Chevyrev-Oberhauser 2022
+//! Thm 21 / Rem. 4); the discrimination RATIO below is scale-dependent and
+//! is kept as a regression guard, not a discrimination bound. Ledger:
+//! `.claude/knowledge/literature-harvest-2026-09-01-post-1132.md` (D1–D8).
+//!
 //! # Activation gate
 //!
 //! Active under `--features hambly-lyons` (default: off, JC stays zero-dep).
@@ -303,6 +350,207 @@ mod active {
         }
     }
 
+    // ── W6: the Theorem 2 lattice leg (the finite-depth certificate) ────────
+    //
+    // Hambly-Lyons math/0507536v2 §2.4, Theorem 2 (re-read on the main
+    // thread 2026-09-01): a lattice path of length L on Z² whose first
+    // ⌊e·log(1+√2)·L⌋ GL(2,C)-iterated integrals vanish is tree-like and its
+    // reduced word is trivial. The GL(2,C) integrals are a projection of the
+    // tensor-algebra ones ("a priori contain less information", fn. 2), so
+    // vanishing of the FULL truncated signature to that depth implies it a
+    // fortiori. The truncated signature is a homomorphism into the free
+    // nilpotent group, so for two words w, v the pair statement is
+    // S^(N)(w) = S^(N)(v) ⟺ S^(N)(w·v⁻¹) = 1 with N = ⌊c·(|w|+|v|)⌋ — this
+    // leg therefore tests single words z = w·v⁻¹ of the combined length.
+    //
+    // Hypotheses that make the certificate apply, both pinned below:
+    //   * unit basis-aligned steps on the integer lattice (Def. of lattice
+    //     path, p.8: ‖x_k − x_{k+1}‖ = 1, x_k ∈ Z^{|A|});
+    //   * d ≥ 2 — in d = 1 the reduced-path group is Z (net increment only,
+    //     every closed path is tree-like), so the quotient carries nothing.
+    /// `e · ln(1 + √2)` — Theorem 2's constant, computed rather than retyped.
+    fn hl_theorem2_constant() -> f64 {
+        std::f64::consts::E * (1.0 + 2f64.sqrt()).ln()
+    }
+    /// The depth Theorem 2 needs for a word of length `l` (floor, as stated).
+    fn hl_theorem2_depth(l: usize) -> usize {
+        (hl_theorem2_constant() * l as f64).floor() as usize
+    }
+    /// Longest word the exhaustive theorem arm enumerates. Depth ⌊c·5⌋ = 11
+    /// in d = 2 is 4096 coefficients — cheap enough for a debug test.
+    const LATTICE_L_MAX: usize = 5;
+    /// Length at which the depth-2 false-merge search runs. The paper's own
+    /// §1.6 figure-of-8 (two equal, opposite lobes) lives here: ⌊c·8⌋ = 19.
+    const LATTICE_FALSE_MERGE_L: usize = 8;
+    const LATTICE_N_TREELIKE: usize = 64;
+    /// Exactness tolerance: signatures of lattice words are rationals with
+    /// k! denominators; f64 products of a handful of exponentials round at
+    /// ~1e-15, and a genuinely nonzero coefficient is ≥ 1/k! ≥ 1/19!.
+    const LATTICE_EPS: f64 = 1e-12;
+
+    /// Letters a, b, a⁻¹, b⁻¹ as 0..4; inverse is `(l + 2) % 4`.
+    fn letter_step(l: u8) -> [f64; 2] {
+        match l {
+            0 => [1.0, 0.0],
+            1 => [0.0, 1.0],
+            2 => [-1.0, 0.0],
+            _ => [0.0, -1.0],
+        }
+    }
+    fn lattice_path(word: &[u8]) -> Vec<Vec<f64>> {
+        let mut p = vec![vec![0.0, 0.0]];
+        for &l in word {
+            let s = letter_step(l);
+            let last = p.last().unwrap();
+            p.push(vec![last[0] + s[0], last[1] + s[1]]);
+        }
+        p
+    }
+    fn is_reduced(word: &[u8]) -> bool {
+        word.windows(2).all(|w| (w[0] + 2) % 4 != w[1])
+    }
+    fn distance_from_identity(word: &[u8], depth: usize) -> f64 {
+        let s = signature_truncated(&lattice_path(word), depth);
+        signature_distance(&s, &Signature::identity(2, depth))
+    }
+    /// Every word of exactly `len` letters over the 4-letter alphabet.
+    fn for_each_word(len: usize, mut f: impl FnMut(&[u8])) {
+        let total = 4usize.pow(len as u32);
+        let mut w = vec![0u8; len];
+        for code in 0..total {
+            let mut c = code;
+            for slot in w.iter_mut() {
+                *slot = (c % 4) as u8;
+                c /= 4;
+            }
+            f(&w);
+        }
+    }
+    /// A tree-like word: grow from empty by inserting `c c⁻¹` at random
+    /// positions — the generator of tree-like equivalence (Def. 2.1).
+    fn treelike_word(state: &mut u64, len: usize) -> Vec<u8> {
+        let mut w: Vec<u8> = Vec::with_capacity(len);
+        while w.len() + 2 <= len {
+            let c = (splitmix64(state) % 4) as u8;
+            let pos = (splitmix64(state) as usize) % (w.len() + 1);
+            w.insert(pos, c);
+            w.insert(pos + 1, (c + 2) % 4);
+        }
+        w
+    }
+
+    struct LatticeLeg {
+        /// reduced non-empty words of length ≤ L_MAX checked at ⌊c·L⌋
+        reduced_checked: usize,
+        /// how many of them the theorem depth FAILED to separate (must be 0)
+        reduced_merged: usize,
+        /// min ‖S − 1‖ over those words at the theorem depth
+        reduced_min_dist: f64,
+        /// tree-like words checked; max ‖S − 1‖ (must sit at f64 rounding)
+        treelike_checked: usize,
+        treelike_max_dist: f64,
+        /// reduced words of length FALSE_MERGE_L that depth 2 cannot separate
+        depth2_false_merges: usize,
+        /// the largest depth any of those needed to separate (≤ ⌊c·L⌋)
+        false_merge_max_sep_depth: usize,
+        /// how many of them stayed merged even at the theorem depth (must be 0)
+        false_merge_unresolved: usize,
+        /// d = 1 fence: distinct signature classes among all 2^6 words on
+        /// {a, a⁻¹} of length 6 — must be exactly 7 (net increment −6..6)
+        d1_classes: usize,
+    }
+
+    fn lattice_leg() -> LatticeLeg {
+        // Arm 1 — the theorem: reduced ⟹ separated at ⌊c·L⌋.
+        let mut reduced_checked = 0usize;
+        let mut reduced_merged = 0usize;
+        let mut reduced_min_dist = f64::INFINITY;
+        for len in 1..=LATTICE_L_MAX {
+            let depth = hl_theorem2_depth(len);
+            for_each_word(len, |w| {
+                if !is_reduced(w) {
+                    return;
+                }
+                let d = distance_from_identity(w, depth);
+                reduced_checked += 1;
+                if d < LATTICE_EPS {
+                    reduced_merged += 1;
+                }
+                reduced_min_dist = reduced_min_dist.min(d);
+            });
+        }
+
+        // Arm 2 — tree-like words collapse to the identity at the same depth.
+        let mut state: u64 = 0x5EED_1A77_1CE0_0001;
+        let mut treelike_max_dist = 0.0f64;
+        let mut treelike_checked = 0usize;
+        for i in 0..LATTICE_N_TREELIKE {
+            let len = 2 + 2 * (i % 3); // 2, 4, 6
+            let w = treelike_word(&mut state, len);
+            let depth = hl_theorem2_depth(len.max(1));
+            treelike_max_dist = treelike_max_dist.max(distance_from_identity(&w, depth));
+            treelike_checked += 1;
+        }
+
+        // Arm 3 — depth 2 is NOT the Index regime: find reduced words of
+        // length FALSE_MERGE_L with S^(2) = 1, then show each separates by
+        // the theorem depth (and record how deep it had to go).
+        let theorem_depth = hl_theorem2_depth(LATTICE_FALSE_MERGE_L);
+        let mut depth2_false_merges = 0usize;
+        let mut false_merge_max_sep_depth = 0usize;
+        let mut false_merge_unresolved = 0usize;
+        for_each_word(LATTICE_FALSE_MERGE_L, |w| {
+            if !is_reduced(w) || distance_from_identity(w, 2) >= LATTICE_EPS {
+                return;
+            }
+            depth2_false_merges += 1;
+            let mut separated_at = None;
+            for depth in 3..=theorem_depth {
+                if distance_from_identity(w, depth) >= LATTICE_EPS {
+                    separated_at = Some(depth);
+                    break;
+                }
+            }
+            match separated_at {
+                Some(d) => false_merge_max_sep_depth = false_merge_max_sep_depth.max(d),
+                None => false_merge_unresolved += 1,
+            }
+        });
+
+        // Arm 4 — the d = 1 fence: 2^6 words on {a, a⁻¹}, signatures keyed
+        // by their level-1..3 coefficients rounded to 1e-9.
+        let mut classes: Vec<[i64; 3]> = Vec::new();
+        for code in 0..64u32 {
+            let mut p = vec![vec![0.0f64]];
+            for bit in 0..6 {
+                let step = if (code >> bit) & 1 == 0 { 1.0 } else { -1.0 };
+                let last = p.last().unwrap()[0];
+                p.push(vec![last + step]);
+            }
+            let s = signature_truncated(&p, 3);
+            let key = [
+                (s.levels[1][0] * 1e9).round() as i64,
+                (s.levels[2][0] * 1e9).round() as i64,
+                (s.levels[3][0] * 1e9).round() as i64,
+            ];
+            if !classes.contains(&key) {
+                classes.push(key);
+            }
+        }
+
+        LatticeLeg {
+            reduced_checked,
+            reduced_merged,
+            reduced_min_dist,
+            treelike_checked,
+            treelike_max_dist,
+            depth2_false_merges,
+            false_merge_max_sep_depth,
+            false_merge_unresolved,
+            d1_classes: classes.len(),
+        }
+    }
+
     pub fn prove() -> PillarResult {
         let t0 = Instant::now();
 
@@ -349,6 +597,15 @@ mod active {
             && pde.edge_dev > PDE_EDGE_MIN_DEV
             && pde.below_edge_dev < PDE_FLOOR;
 
+        // ── W6: Theorem 2 lattice leg ───────────────────────────────────
+        let lat = lattice_leg();
+        let lattice_pass = lat.reduced_merged == 0
+            && lat.treelike_max_dist < LATTICE_EPS
+            && lat.depth2_false_merges >= 1
+            && lat.false_merge_unresolved == 0
+            && lat.false_merge_max_sep_depth <= hl_theorem2_depth(LATTICE_FALSE_MERGE_L)
+            && lat.d1_classes == 7;
+
         let runtime_ms = t0.elapsed().as_millis() as u64;
 
         let discrimination_ratio = if max_forward_dist > 0.0 {
@@ -360,7 +617,8 @@ mod active {
         let pass = forward_pairs_pass == N_PAIRS as u64
             && converse_pairs_pass == N_PAIRS as u64
             && discrimination_ratio >= DISCRIMINATION_RATIO_MIN
-            && pde_pass;
+            && pde_pass
+            && lattice_pass;
 
         let detail = format!(
             "N={} pairs, dim={}, depth={}. \
@@ -382,7 +640,16 @@ mod active {
              O(h²) discretization artifact rather than a uniqueness failure — \
              so that leg certifies the converse FUNCTIONAL FORM (deviation is \
              quadratic in enclosed Lévy area) and its own resolution boundary, \
-             not a sampled ratio.",
+             not a sampled ratio. \
+             THEOREM 2 LATTICE leg (W6, c = e·ln(1+√2) = {:.4}): {} reduced \
+             words of length ≤ {} at depth ⌊c·L⌋, {} merged with the identity \
+             (pass if 0), min ‖S − 1‖ = {:.3e}; {} tree-like words, max \
+             ‖S − 1‖ = {:.1e} (pass if < {:.0e}); depth-2 false merges among \
+             reduced words of length {} = {} (pass if ≥ 1 — depth 2 is NOT \
+             the Index regime), all separated by depth {} ≤ ⌊c·{}⌋ = {}, {} \
+             unresolved (pass if 0); d = 1 signature classes over the 64 \
+             length-6 words = {} (pass if exactly 7: net increment only — \
+             the d ≥ 2 precondition).",
             N_PAIRS,
             DIM,
             DEPTH,
@@ -408,6 +675,21 @@ mod active {
             PDE_BELOW_EDGE_H / 2.0,
             pde.below_edge_dev,
             PDE_FLOOR,
+            hl_theorem2_constant(),
+            lat.reduced_checked,
+            LATTICE_L_MAX,
+            lat.reduced_merged,
+            lat.reduced_min_dist,
+            lat.treelike_checked,
+            lat.treelike_max_dist,
+            LATTICE_EPS,
+            LATTICE_FALSE_MERGE_L,
+            lat.depth2_false_merges,
+            lat.false_merge_max_sep_depth,
+            LATTICE_FALSE_MERGE_L,
+            hl_theorem2_depth(LATTICE_FALSE_MERGE_L),
+            lat.false_merge_unresolved,
+            lat.d1_classes,
         );
 
         PillarResult {

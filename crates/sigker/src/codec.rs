@@ -39,12 +39,21 @@
 //!   }
 //! ```
 //!
-//! # Certification dependency
+//! # Certification dependency — LENGTH-PARAMETERIZED (jc Pillar 11, W6)
 //!
-//! This classification is *asserted* until jc Pillar 11 (Hambly-Lyons
-//! signature uniqueness on lance-graph paths) lands and verifies it
-//! empirically on the actual SPO traversal lengths and carrier widths
-//! used in production. See `crates/jc/src/hambly_lyons.rs` (stub).
+//! Certified 2026-09-01 by jc Pillar 11's Theorem 2 lattice leg
+//! (`crates/jc/src/hambly_lyons.rs`), NOT at a fixed depth: for unit-step
+//! lattice walks X, Y in d ≥ 2, `S^(N)(X) = S^(N)(Y) ⟺ X ∼ Y` holds for
+//! truncation depth `N ≥ ⌊e·log(1+√2)·(|X|+|Y|)⌋` (d = 2; times
+//! `2⌈log₃(d/2)⌉+3` in general — Hambly-Lyons math/0507536v2 Thm 2/3).
+//! So "lossless on the tree-quotient" is TRUE ONLY UNDER A WALK-LENGTH
+//! BUDGET: a consumer routing paths through `Sigker` must pick its depth
+//! from the longest walk it will compare, and escalate or refuse beyond
+//! it. Depth 2 is a necessary condition only (64 distinct length-8 reduced
+//! words share `S^(2) = 1` with the constant path). A one-dimensional
+//! carrier (a single `u8:u8` rail read as one axis) is out of regime:
+//! its reduced-path group is Z. Non-lattice piecewise-linear paths are
+//! covered by Thm 9 (non-trivial signature) without an explicit depth.
 
 /// Sigker's view of the `CodecRoute` enum from lance-graph-contract.
 ///
