@@ -1,3 +1,8 @@
+## 2026-09-01 — branch (PR pending): D-DCR-2b EpistemicBassin24 — CONTRACT INVENTORY DELTA
+
+- `lance_graph_contract::epistemic_bassin::{EpistemicBassin24, AxisState, BASIS_AXES(24), BASIS_PAIR_BYTES(24), AXIS_COUNT_MAX(15), info_gain_u4, sigma_tension_u4}` — the field map's value carrier as an `agree_u4[24] + disagree_u4[24]` PAIR (operator co-architect ruling: the signed net was FALSIFIED — `+3 + −3 = 0` collapsed balanced conflict into silence). Net/polarity/contest/entropy DERIVED; `Contested` is a first-class state that survives one-hop accumulation. Readout adapters grounded in shipped certificates: `info_gain_u4` (Shannon ΔH over candidate counts), `sigma_tension_u4` (quarters of `sigma_propagation::pillar_5plus_bound`; 7 = the 1.75× PASS slack); Hambly-Lyons has NO lane (sigker classification gated on jc Pillar 11, DEFERRED). **No storage minted**: the loci-never-magnitude law is scoped to the A9 READING, not tenant 14's bytes — the bassin is a classid-selected reading of the same physical lane; a separate tenant waits for one real row needing both readings simultaneously (an `EpistemicWitness = 16` mint was built and discarded uncommitted on this ruling).
+- `lance_graph_contract::basin_lanes::BasinLanes` — ⊘ SUPERSEDED in place (reserve-don't-reclaim); its balanced-conflict pin stays green on the old type as the record of why it died.
+
 ## 2026-08-31 — #1120 (open): D-DCR-1 replay core + the palette membrane — CONTRACT INVENTORY DELTA
 
 **Contract inventory: +2 consts, +2 `const fn`, no new type, no layout change.**

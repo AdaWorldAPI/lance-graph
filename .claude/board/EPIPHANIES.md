@@ -1,3 +1,76 @@
+## 2026-09-01 — E-THE-SIGNED-NET-WAS-FALSIFIED-NOT-LIMITED-AND-THE-LOCI-LAW-WAS-SCOPED-TOO-WIDE-1
+
+**Status:** OPERATOR CO-ARCHITECT RULING — a five-part supersession, built
+against in the same PR; the premature tenant mint was discarded UNCOMMITTED.
+**Confidence:** ruled; every "ships" claim below re-verified in the tree.
+
+**1. #1127's law was scoped one level too wide.** `loci-never-magnitude` is a
+law of the EXPERIMENTAL A9 ContextLoci *reading* (`CausalWitnessFacet`), not
+of tenant 14's physical bytes: the 12-byte register is content-blind, its
+interpretation is selected per row by the 4-byte facet classid, and multiple
+readings of the same bytes are explicitly allowed — `causal_witness.rs` itself
+ships as "the THIRD ClassView reading of the same register". The census
+accidentally promoted a reading-specific invariant into a storage invariant.
+Superseded: a magnitude/bassin reading of the SAME physical lane is legal
+under its own classid; **a separate tenant is minted only when one real row
+demonstrably needs ContextLoci AND the bassin simultaneously.** Accordingly,
+the `EpistemicWitness = 16` tenant this session had ALREADY BUILT (descriptor,
+field-mask, four forced literals, all tests green) was discarded from the
+working tree without ever being committed — the cheapest possible price for a
+premature mint, paid because the ruling arrived before the push.
+
+**2. The signed net was FALSIFIED, not "pinned-limited".** `+3 + −3 = 0`
+makes maximal balanced conflict indistinguishable from silence; when
+agreement/disagreement IS the interesting information, a representation that
+destroys their coincidence is wrong. `basin_lanes::BasinLanes` is superseded
+in place (⊘ doc, reserve-don't-reclaim) by
+**`epistemic_bassin::EpistemicBassin24`** (operator-named: das Bassin, the
+accumulation pool over a named axis BASIS): `agree_u4[24] + disagree_u4[24]`,
+24 bytes, with net / polarity / contest / masks / entropy all DERIVED. The
+old pin stays green on the old type as the record of why it died; the
+successor's REVERSED falsifier asserts the exact opposite — equal support and
+refutation is a first-class `Contested` state, distinct from silence, and it
+SURVIVES accumulation (the children the signed net cancelled land as (3,3)).
+
+**3. Nibbles are values on named axes, never addresses.** The facet classid
+names the 24-axis basis (and its version — "epistemic witness v3" is a
+classid). Topology is the KEY's job: parent path + depth identifies the
+family, and an indexed 16-bit child mask reconstructs every direct child by
+appending each set nibble — child pointers in the register would duplicate
+the key. Durable episodic identity stays in `EpisodicBasin` references; exact
+proof/authority in premises/W/CE64/NARS/revision; exact Σ in the SPD carrier.
+Also recorded: of the A9 loci, `basin_anchor`/`supported_by`/`supports` are
+suspect axes — durable graph relations generally do not live within ±8 stream
+rows — while `antecedent` (the Relativpronomen locus) and local
+temporal/quorum context are the defensible core. A claim about the A9
+reading, left for its own probe, nothing ripped out.
+
+**4. The math check — each lane family grounded in a SHIPPED certificate:**
+
+| lane family | shipped surface | lane adapter |
+|---|---|---|
+| support/falsifier pressure (Tarski) | premise ancestry stays exact | the pair's own counts |
+| ΔH / expected info gain (Shannon) | `dismech_candidates::Evaluation` counts | `info_gain_u4` (whole bits of narrowing; elimination = max pressure) |
+| tension/residual (EWA) | `sigma_propagation::{Spd2, ewa_sandwich, log_norm_growth, pillar_5plus_bound}` — Pillar 6, jc-verified 10000/10000 PSD | `sigma_tension_u4` (quarters of the certificate; 7 = the 1.75× PASS slack) |
+| path-signature identity (Hambly-Lyons) | sigker's classification is ASSERTED, gated on jc Pillar 11 (DEFERRED) | **NO LANE** — same rule as the red-pillar mint gate |
+
+Proprioception, never evidence: every adapter's exact quantity stays
+derivable from its exact carrier; the lane only lets a node FEEL it.
+
+**5. My own overclaim corrected.** "Associative and commutative EXACTLY" held
+only within one unsplit call; recursively composing already-clamped child
+registers is not associative. The successor documents this honestly: u4
+saturation is monotone and conflict-preserving (a clamped 15 means "at least
+15") — it can understate mass, never convert conflict into silence, which is
+exactly the guarantee the signed net could not give.
+
+**Generalizable, two ways:** (a) an invariant written on a READING must not
+be re-stated on the STORAGE — the classid-selects-the-reading doctrine is
+precisely what makes those different statements; (b) when a pinned
+"limitation" sits on the quantity the whole design exists to carry, it is a
+falsification wearing a pin — the tell is that the workaround (a second
+register) costs less than the information the pin writes off.
+
 ## 2026-09-01 — E-THREE-BRANCHES-ONE-REGISTER-THE-AUDIT-AFTER-THE-COLLISION-1
 
 **Status:** RECONCILIATION AUDIT — #1125/#1126/#1127 merged while this
