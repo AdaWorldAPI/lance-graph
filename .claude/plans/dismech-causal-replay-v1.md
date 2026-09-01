@@ -211,7 +211,136 @@ its own can-fire + stay-silent pair.
 > bytes (33 atoms allocated over it), while the V3 content-blind facet's
 > 12-byte payload is exactly **24** nibbles. The second matches the count; the
 > first matches the name. Recorded as a question, not resolved by inference.
+>
+> **⊘ ANSWERED (operator, 2026-09-01) — the facet reading, not `I4x32`.** The
+> width is chosen so a position can collect enough dimensions from its children
+> to speak for itself. It is the 12-byte payload read at NIBBLE granularity: 24 signed
+> lanes summarising an HHTL position's children, in the width the node already
+> owns. `I4x32` matched the name and nothing else. Full reasoning — including
+> why the SIGN collapses agreement / disagreement / silence into one quantity —
+> in §W2b below. Left in place rather than deleted: the wrong candidate is
+> worth carrying so it is not re-proposed.
 
+### W2b — the field map — `D-DCR-2b` — **PROPOSAL, awaiting operator scope**
+
+Kind 1 of the ruling above: *propagate precision about a knowledge stage over
+the WHOLE field*. **Not built.** What follows is a survey; every "exists" line
+was read in the tree.
+
+#### ⊘ CORRECTION (operator, 2026-09-01) — the first survey had the node backwards
+
+The first version of this section carried the row *"where an HHTL position
+lives → `episodic_basin` → in the node's own KEY, **never** a second copy in
+the value slab"*. Read as a statement about the NODE that is exactly wrong, and
+it forbids the thing this wave exists to build. The operator's correction: the
+plan is for HHTL nodes to BE SoA, so a key-only reading of the node is exactly
+backwards.
+
+The reconciliation, and it is clean rather than a reversal:
+
+- **The ADDRESS stays in the key.** `episodic_basin`'s ruling is about the
+  cascade POSITION (`HEEL`/`HIP`/`TWIG`, key bytes `4..10`) — no second copy of
+  an address the key already carries. That much survives untouched.
+- **The node has a VALUE, and the value is the whole point.** An HHTL node is
+  a node: `key(16) | edges(16) | value(480)`. Making HHTL nodes SoA means the
+  value slab carries a **self-organizing summary of the position's children** —
+  upstream/downstream inheritance, basin agreement, disagreement, missing
+  links. That is what "hydration" has been naming all along.
+
+The constraint that DECIDES the placement, rather than leaving it open: a
+summary changes when its children change, and a key is an identity. A mutable
+summary in the key would re-address the node on every sweep — so it is a value
+lane, necessarily. The two halves do not compete.
+
+#### Three readiness states, not two
+
+`episodic_basin`'s doc names two corpora (ontologies hydrated; books must be
+spawned). The operator names **three**, and the third is the one neither that
+doc nor the first survey had:
+
+| state | corpus | what exists |
+|---|---|---|
+| (a) **not yet created** | books, DeepNSM-v2 | nothing — the tree must be spawned first (the TOC minted as the skeleton, an SoA node per entry) |
+| (b) **already present** | ontologies | the `part_of:is_a` rails are hydrated nodes; the anchor exists before the basin does |
+| (c) **implicit in the rails, not hydrated** | — | a rail edge exists, so the position is *implied*; no node was ever hydrated at it |
+
+**(c) has no carrier and no primitive.** It is distinct from both neighbours —
+not absent (the rail names it) and not present (nothing holds a value there) —
+and it is the state a `hydrate` step would consume. `lance-graph-hydrate` is
+NOT that step: it is artifact-level (`Absent → Hydrated → Dirty|Flushed` over
+an object store), and the shared vocabulary is a rhyme, not a reusable
+mechanism. Node-level hydration does not exist in the tree.
+
+#### Why 24×i4 — and it answers two of the three gaps below
+
+The 12-byte content-blind payload is 24 nibbles. Every shipped `CascadeShape`
+carves it at BYTE granularity — `G6D2` (6×2), `G4D3` (4×3), `G3D4` (3×4), all
+12 units (`facet.rs`, `CASCADE_UNITS == 12`). A **nibble**-granular reading —
+24 units — is not in the shipped set. Signed i4 in `[−8, 7]` IS shipped carrier
+semantics (`atoms::I4x32::sext4`), just at other widths (`I4x32` = 16 B,
+`I4x64` = 32 B); neither is 12 B.
+
+On why 24, per the ruling: enough dimensions to summarise a position's children
+so the node speaks for itself. Twenty-four signed dimensions summarise a position's
+children in the width the node already owns — no new field, no widening.
+
+And the SIGN is what makes it one quantity instead of three: **`+` agreement,
+`−` disagreement, `0` silence.** That is directly the whale case — a whale
+records as a negative lane against the mammal neighbourhood and stays a mammal,
+because a lane is a value and not a removal.
+
+This also resolves the standing "24×i4 flavours" question against the wrong
+candidate: it is NOT `atoms::I4x32` (name matches, width does not); it is the
+facet register read at nibble granularity.
+
+#### It is NOT greenfield — what already ships
+
+| piece | where | what it already does |
+|---|---|---|
+| one-hop propagation | `lance-graph-planner/src/adjacency/propagate.rs` | `adjacent_truth_propagate`: `truth_out[t] = semiring.multiply(truth_in[s], edge_truth)`, merging at fan-in with `semiring.add`. The propagation KERNEL exists |
+| the position's address | `contract::episodic_basin` + `contract::hhtl` | key bytes `4..10`; `NiblePath` (16ⁿ nibble router, O(1) shift) |
+| inheritance down the path | `class_view::FieldMask::inherit` | mask-inherits-as-delta: a child's presence mask is the parent's OR its own delta |
+| the rails as nodes | `contract::episodic_basin` | state (b) above |
+| the relation's flavour | `CausalEdge64` bits 59-60 / 61-63 | `CausalTopology` / `ReasoningBand`, already read by W3's `EdgeRole` |
+
+#### The gaps that remain
+
+1. ~~A disagreement quantity that is not an elimination~~ — **carrier named**:
+   the sign of an i4 lane. What is still open is the *arithmetic* that fills it.
+2. ~~A missing-link representation~~ — **carrier named**: lane `0` is silence,
+   distinct from a negative. Still open: whether "the rail says these should
+   relate" is derivable at the node or needs the rail's own reference.
+3. **Convergence semantics for a GLOBAL sweep.** One hop is a function; a field
+   map is a fixpoint. Bounded-iteration vs to-convergence vs
+   single-sweep-per-version is a substrate decision with real cost. **Still
+   fully open.**
+4. **A node-level hydrate primitive for state (c).** Absent, and it gates (a)
+   and (c) both.
+
+#### The decisions this wave still cannot make for itself
+
+- **Which value lane** the 24×i4 summary occupies, and whether it is a new
+  `ValueTenant` or a carve inside an existing one.
+- **Versioned or live.** `temporal.rs`'s sorted stream and Lance versions make
+  "the map at version v" expressible; a live mutable map does not fit the
+  zero-copy envelope story.
+- **Sweep granularity** — whole field, one classid, one HHTL subtree.
+- **Whether kind 2 reads the map or the sweep applies it.** The ruling puts the
+  threshold in kind 2, which argues the sweep never eliminates and elimination
+  is always a separate read.
+
+#### Falsifiers this wave would owe
+
+- The whale case, two-sided: a whale that disagrees with the mammal
+  neighbourhood must be RECORDED as disagreeing (a negative lane) and must
+  still be a mammal afterwards. A sweep that removes it fails.
+- A missing link must be distinguishable from a refuted one — `0` and a
+  negative are different cells, and collapsing them is the same class of error
+  as `NoEvidence` narrowing a set.
+- Propagation must be idempotent at the fixpoint, or "the map" is not a value.
+- A node hydrated from state (c) must be distinguishable from one that was
+  always present — otherwise (c) silently becomes (b) and the readiness
+  question stops being askable.
 ### W3 — counterfactual replay (Pearl rung 3) — `D-DCR-3`
 
 The SAME W1 replay with one edge cut, through `contract::counterfactual`

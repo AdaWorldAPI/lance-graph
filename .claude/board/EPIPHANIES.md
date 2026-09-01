@@ -1,3 +1,76 @@
+## 2026-09-01 — E-AN-HHTL-POSITION-IS-A-NODE-AND-A-NODE-HAS-A-VALUE-1
+
+**Status:** OPERATOR CORRECTION — caught in a survey, before any code was
+written against it. **Confidence:** ruled; the survey and the source doc both
+corrected in the same PR.
+
+A scoping survey for `D-DCR-2b` (the field map) carried this row:
+
+> where an HHTL position lives → `contract::episodic_basin` → in the node's own
+> KEY, **never** a second copy in the value slab
+
+The operator's correction: the plan is for HHTL nodes to BE SoA, so a
+key-only reading of the node is exactly backwards.
+
+**The error is a scope slip, and it is the dangerous kind:** the cited ruling
+is true and I quoted it accurately — it is about the cascade ADDRESS
+(`HEEL`/`HIP`/`TWIG`, key bytes `4..10`), which must not be copied into the
+value slab. Restated one level up as a fact about the NODE, it becomes "an HHTL
+position has no value" — which forbids precisely the thing the wave exists to
+build. A correct quotation, generalized past its subject, reads as a veto on
+the work it was cited to inform.
+
+**The reconciliation is mechanical, not a compromise.** An HHTL node is a node:
+`key(16) | edges(16) | value(480)`. The address is identity, so it lives in the
+key. The basin summary changes whenever its children change, so it CANNOT live
+in the key — a mutable summary there would re-address the node on every sweep.
+Address in the key, summary in a value lane, necessarily. Both halves hold.
+
+**Why 24×i4 — the standing open question, answered.** Ruled: enough
+dimensions to summarise a position's children so the node speaks for itself
+without a second read. The V3 content-blind
+payload is 12 bytes = **24 nibbles**. Every shipped `CascadeShape` carves it at
+BYTE granularity (`G6D2` 6×2, `G4D3` 4×3, `G3D4` 3×4 — all `CASCADE_UNITS ==
+12`); a nibble-granular reading is not in the shipped set. Signed i4 in
+`[−8, 7]` is shipped carrier semantics (`atoms::I4x32::sext4`) at other widths
+only. So 24×i4 is a fourth reading of the same register, and the plan's
+recorded candidate `atoms::I4x32` was wrong — it matched the name (32 lanes,
+16 B) and nothing else.
+
+**The SIGN is why 24×i4 answers two gaps at once.** The survey listed "a
+disagreement quantity that is not an elimination" and "a missing-link carrier"
+as absent. In one signed lane: `+` agreement, `−` disagreement, `0` silence.
+The whale records as a negative lane against the mammal neighbourhood **and
+stays a mammal**, because a lane is a value and not a removal — which is
+`E-THREE-KINDS-OF-MENGENLEHRE-AND-W2-SHIPPED-THE-NARROWEST-1`'s kind 1 made
+storable. And silence stays distinct from denial, which is the same
+distinction `Supports::NoEvidence` already refuses to collapse.
+
+**A third readiness state, also missing from the source doc.** `episodic_basin`
+names two corpora — ontologies (rails already hydrated) and books (tree must be
+spawned). There is a third: **implicit in the rails but not hydrated** — an
+edge names the position, so it is not absent; no node holds a value there, so
+it is not present. That is the state a node-level hydrate step consumes, and no
+such step exists in this tree. `lance-graph-hydrate` is artifact-level
+(`Absent → Hydrated → Dirty|Flushed` over an object store); the shared
+vocabulary is a rhyme, not a reusable mechanism.
+
+**Generalizable, and it is not "read more carefully":** a ruling states a
+constraint on ONE subject. When a survey lifts it to a neighbouring subject
+(field → node, address → row), the citation stays checkable while the claim
+stops being the one that was ruled. The tell is a survey row whose verdict
+FORBIDS the wave it is scoping — a scoping document should be finding the
+constraints the design must satisfy, and a flat prohibition on the design's
+premise means the constraint was carried up a level it does not hold at.
+
+Corrections landed: `.claude/plans/dismech-causal-replay-v1.md` §W2b rewritten
+(the row replaced, the three states tabled, the 24×i4 reasoning added, gaps 1
+and 2 downgraded from "absent" to "carrier named, arithmetic open"); the
+answered question annotated in place rather than deleted, so the wrong
+candidate is not re-proposed; `episodic_basin`'s own module doc gained a "what
+this section does NOT say" note and the third state, since its framing is what
+invited the slip.
+
 ## 2026-09-01 — E-THREE-KINDS-OF-MENGENLEHRE-AND-W2-SHIPPED-THE-NARROWEST-1
 
 **Status:** OPERATOR RULING — model correction, landed before the wave built on
