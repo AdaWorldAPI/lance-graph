@@ -528,6 +528,20 @@ Consequences, recorded before the catalogue is designed:
   palette addresses a whole loco body (360 bytes = 180/120/90 calls under
   the lane shape) — scripts all the way down, each still replayable.
 
+**⊘ Extension (operator, same day): one classid per RUNG level — the brutal
+form.** Each rung of the reasoning ladder gets its own 256-entry palette, so
+a program's vocabulary IS its epistemic altitude: rung-2 bytes resolve
+against the 144 verb atoms, rung-3 against the 34 NARS tactic recipes (THE
+runbooks), rung-4 against StyleFamily macros — and with the microcode shape,
+**one byte at rung N addresses a whole script at rung N−1**. Escalation and
+de-escalation become ADDRESSING operations (a classid change), not control
+flow; every level stays replayable because every level is still loco bodies.
+This also mirrors, at the palette level, the tier-graded register ruling at
+the node level (granularity down, aggregation up). Consequence for W5
+(D-DCR-5, HELD): the operator's rung 5–9 table, when it lands, is now also
+the CLASSID MINT LIST for the upper palettes — the hold therefore stays
+exactly where it is; no rung classid is minted before the table.
+
 #### Still open — probes, not rulings
 
 - **The named 24-axis catalogue** — WHICH axes, minted as a classid-named

@@ -10,6 +10,43 @@
 > census §8.3 trap 10: read the body FIRST, then open for write — never
 > inline both in one expression.
 
+## 2026-09-01 — lance-graph #1130 (MERGED c630ab9) — loco band mirror + armed parity; two palette rulings recorded
+
+**Added.** `epistemic_bassin::loco_band::EPISTEMIC_CALLS` (zero-dep mirror of ogar-loco's epistemic core band `0x86..0x8B`) + `lance-graph-ogar::parity::assert_epistemic_band_parity()` in the excluded armed tier — written against loco's shared-core TABLE by raw index so it compiles against any revision; the assertions carry the parity. Verified GREEN against OGAR main after OGAR #296 merged (both directions + count pin 6).
+
+**Locked.** The 256:256 ruling: the classid swaps the whole 256-entry palette (r2il and dismech already share `0x90..` indices under different classids); the domain-shaped rest (24-axis catalogue as a `ValueCodebook`, per-axis macros) belongs in an epistemic vocabulary under its own classid; compound macros take r2il's byte-addresses-a-360-byte-script microcode shape. Core placement of the six universal calls is what makes them readable in EVERY vocabulary (`compose` cannot be forged).
+
+**Deferred.** The rung-per-classid extension commit (`b175502`) STRANDED at merge — cherry-picked forward in the next PR. Hambly-Lyons stays bandless (jc Pillar 11 red).
+
+**Docs.** Plan fifth-round block; companion OGAR #296 (mint, census re-pin 95→101).
+
+- **Confidence (2026-09-01):** working — contract 1390/0, clippy/fmt clean; armed parity red-then-green across the OGAR merge boundary exactly as designed.
+
+## 2026-09-01 — lance-graph #1129 (MERGED a16e89d) — EpistemicBassin24: the pair supersedes the falsified signed net
+
+**Added.** `epistemic_bassin::{EpistemicBassin24, AxisState, info_gain_u4, sigma_tension_u4, sweep_ternlog, eval_ternlog}` — `agree_u4[24] + disagree_u4[24]`; net/contest/entropy DERIVED; the REVERSED falsifier (contested ≠ silence, survives accumulation); Belnap-mask projections with the knowledge-join theorem pinned (join = OR-OR = accumulate's state layer, incl. a Both cell that exists only at the join); the sweep queries as ternlog truth tables pinned exhaustively against the scalar oracle (`ASKED_SILENT 0x02` = the missing link in one instruction).
+
+**Locked.** The co-architect ruling: #1127's loci-never-magnitude law re-scoped to the A9 READING (readings are classid-selected per row); the `EpistemicWitness = 16` tenant mint discarded UNCOMMITTED (no mint until one real row needs both readings); lanes carry proprioception never evidence, each grounded in a shipped certificate (Shannon → `dismech_candidates` counts; EWA → `sigma_propagation::pillar_5plus_bound`; Hambly-Lyons laneless while jc Pillar 11 is red). `basin_lanes` superseded in place, its collapse pin kept green as the record.
+
+**The finding worth keeping.** Two disable-run PASSES were findings: stepwise saturation masked by pack's clamp AND order-dependent for mixed signs (fixed: exact-sum-then-clamp); the sigma-tension calibration vacuous because every arm used `bound = 1.0` (fifth constant-that-does-not-bind of the arc).
+
+**Docs.** EPIPHANIES ×3; STATUS_BOARD superseded-in-place; plan fourth-round block.
+
+- **Confidence (2026-09-01):** working — 1385/0 → 1390/0, clippy/fmt clean, seven disable-runs red-then-green.
+
+## 2026-09-01 — lance-graph #1128 (MERGED 9742e1a) — one-hop field-map slices, rebased + reconciled with the #1127 census
+
+**Added.** `basin_lanes::BasinLanes` (since superseded by #1129 — kept per reserve-don't-reclaim) + `accumulate_children`; `hhtl::{missing_ancestors, direct_children}` (mechanical-hydration address list + the one-hop selector, addresses only — the type-level half of the mechanical/epistemic split).
+
+**Locked.** DN dissolution (every path truncation is an entry; tree-siting questions dissolve); mechanical hydration writes structure only, epistemic output = silence; the one-hop law (a parent expresses its DIRECT children; second hop continues or cancels).
+
+**The finding worth keeping.** Three parallel branches worked one register; the reconciliation audit ran BEFORE re-pushing, so my falsified "not in the shipped set" claim and the conflated siting axes were corrected in the same landing — and the per-lane arithmetic arrived at the identical shape in two independent sessions (convergence kept as evidence, cross-referenced with `w2b_one_node_field.rs`).
+
+**Docs.** EPIPHANIES audit entry; plan §W2b second/third-round blocks; `episodic_basin` module-doc clarification.
+
+- **Confidence (2026-09-01):** working — 1378/0 at merge; the whale falsifier holds at carrier and register level.
+
+
 ## 2026-08-31 — lance-graph #1099 (MERGED ae24f6e5) — D-MAR-1 re-derived from the plan, and a gate that had silently stopped being one
 
 **Added.** `FieldMask::{difference, is_subset_of}` and the `WideFieldMask` pair (plan §2.1). `chunks_view` removed — it cloned both operands per wide op; `zip_fold` now reads in place via `chunk_at`.
