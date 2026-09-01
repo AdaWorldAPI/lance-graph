@@ -317,7 +317,8 @@ facet register read at nibble granularity.
    single-sweep-per-version is a substrate decision with real cost. **Still
    fully open.**
 4. **A node-level hydrate primitive for state (c).** Absent, and it gates (a)
-   and (c) both.
+   and (c) both. **⊘ RULED buildable (see below): it is MECHANICAL — structure
+   from the hierarchy only, epistemic lanes zero.**
 
 #### The value-lane census — measured, 2026-09-01 (`D-DCR-2b`)
 
@@ -403,15 +404,58 @@ carrier to stay byte-identical while the disagreement stays legible.
 
 #### The decisions this wave still cannot make for itself
 
-- **Which value lane** the 24×i4 summary occupies, and whether it is a new
-  `ValueTenant` or a carve inside an existing one.
-- **Versioned or live.** `temporal.rs`'s sorted stream and Lance versions make
-  "the map at version v" expressible; a live mutable map does not fit the
-  zero-copy envelope story.
-- **Sweep granularity** — whole field, one classid, one HHTL subtree.
-- **Whether kind 2 reads the map or the sweep applies it.** The ruling puts the
-  threshold in kind 2, which argues the sweep never eliminates and elimination
-  is always a separate read.
+#### ⊘ RULED (operator, 2026-09-01, second round) — the DN dissolution + the two-layer hydration split
+
+**The siting questions were a category error**, caught with the sharpest
+possible analogy: asking where the map is written is asking where the OUs are
+in a distinguished name. An HHTL position is addressed by its path, and every
+truncation of the path is itself an entry — `hhtl::NiblePath` already ships
+`parent()`, `prefix(depth)`, `is_ancestor_of`. The basin-level node is the row
+whose deeper tiers are zero, in the same store, same stride, same key layout.
+Three of the four "decisions" dissolve:
+
+| former decision | verdict |
+|---|---|
+| which value lane / tenant / column | **dissolved** — the node at each prefix IS the row; the 24×i4 is that row's value |
+| versioned or live | **dissolved** — rows are Lance-versioned because every row is |
+| sweep granularity | **dissolved** — a sweep is scoped by a prefix; field / classid / subtree is one mechanism at three depths |
+| does the sweep eliminate | settled by the three-kinds ruling itself: the sweep RECORDS; elimination is kind 2's threshold READING, always a separate act |
+
+**Every node is an SoA row**, and the three corpora differ only in how much of
+the tree already has rows:
+
+| corpus | what exists before the wave |
+|---|---|
+| books | nothing — the SoA rows are not yet minted by **DeepNSM-v2** (v2, not v1); the ontology is built from scratch |
+| rails without nodes | at least the HIERARCHY — parent/child is nameable even where no row sits |
+| OWL / any ontology | parent/child almost always preserved; rows largely present |
+
+In most of the three, hydration is incomplete — and the ruling's load-bearing
+split is what keeps that safe to fix:
+
+**Mechanical hydration ≠ original causality predicates.**
+
+- **Mechanical hydration** mints the SoA row at a nameable DN from the
+  hierarchy alone. It is structural, runs in all three corpora (TOC skeleton,
+  rail parent/child, OWL parent/child), and writes STRUCTURE ONLY: address,
+  `is_a`/`part_of` edges, presence. Its epistemic output is exactly **silence**
+  — every agreement lane `0` — which is the zero-fallback ladder holding one
+  level up: an unwritten lane reads as absent, never as an assertion.
+- **Original causality predicates** — the dismech palette (`causes`,
+  `explains`, `relates_to`, …), Tarski-precise assertions, the signed
+  agreement lanes — are epistemic knowledge. They arrive only from evidence
+  and propagation, carry provenance, and are NEVER fabricated by the minting
+  step. A mint that writes a nonzero lane is the wave's hardest defect class:
+  structure impersonating knowledge.
+
+#### Still open — probes, not rulings
+
+- **The lane arithmetic**: how a child's stance becomes a signed value and how
+  siblings merge at the parent. `adjacent_truth_propagate` merges with
+  `semiring.add`; whether that is right for SIGNED agreement is unmeasured.
+- **The provenance marker**: where a row records mechanically-hydrated vs
+  original, so state (c) stays distinguishable from state (b) after the mint.
+  Not invented unilaterally; surfaced as the next placement question.
 
 #### Falsifiers this wave would owe
 

@@ -40,6 +40,73 @@ Census + the disable table: `.claude/plans/dismech-causal-replay-v1.md` §W2b.
 Falsifier: `crates/lance-graph-contract/tests/w2b_one_node_field.rs`.
 
 ---
+## 2026-09-01 — E-ASKING-WHERE-THE-MAP-LIVES-IS-ASKING-WHERE-THE-OUS-ARE-IN-A-DN-1
+
+**Status:** OPERATOR CORRECTION + RULING, second round on `D-DCR-2b` — three of
+four "open decisions" dissolved as category errors; the hydrate question
+answered with a load-bearing split. **Confidence:** ruled; first carrier +
+skeleton primitive shipped in the same PR.
+
+The survey's remaining "decisions" asked where the field map is WRITTEN (which
+lane / tenant / Lance column), whether it is versioned, and at what granularity
+a sweep runs. The operator's correction, by analogy: that is asking where the
+OUs are in a distinguished name. **An HHTL position is addressed by its path,
+and every truncation of the path is itself an entry** — `hhtl::NiblePath`
+already ships `parent()`, `prefix(depth)`, `is_ancestor_of`. The basin-level
+node is the row whose deeper tiers are zero, same store, same stride, same key
+layout. There is nothing to site:
+
+| former decision | verdict |
+|---|---|
+| which lane / tenant / column | dissolved — the node at each prefix IS the row |
+| versioned or live | dissolved — rows are Lance-versioned because every row is |
+| sweep granularity | dissolved — a sweep is scoped by a prefix; one mechanism, caller-chosen depth |
+| does the sweep eliminate | already settled by the three-kinds ruling: the sweep records; elimination is kind 2's separate reading |
+
+**Every node is an SoA row**, and the three corpora differ only in how much of
+the tree already has rows: books — not yet minted by **DeepNSM-v2** (v2, not
+v1), the ontology is built from scratch; rails without nodes — at least the
+HIERARCHY exists; OWL — parent/child almost always preserved.
+
+**The ruling that makes incomplete hydration safe to fix: mechanical hydration
+is NOT original causality.** Minting a row at a nameable DN from the hierarchy
+alone is MECHANICAL — structure only (address, `is_a`/`part_of`, presence),
+runnable in all three corpora. Original causality predicates — the dismech
+palette, Tarski-precise assertions, the signed agreement lanes — are epistemic
+knowledge: evidence-borne, provenance-carrying, never fabricated by a mint. A
+mint that writes a nonzero lane is structure impersonating knowledge. The
+mechanical mint's epistemic output is exactly SILENCE — all lanes zero — which
+is the zero-fallback ladder holding one level up.
+
+**Shipped against the ruling, both zero-dep, both in contract:**
+
+- `basin_lanes::BasinLanes` — the 24 × i4 reading of the node's own 12-byte
+  register (the fourth carving beside `G6D2`/`G4D3`/`G3D4`, the only signed
+  one; reuses `I4x32::sext4`, now `pub(crate)`, rather than a third copy of
+  the nibble codec). `SILENT` is the default and the zero register;
+  `is_silent()` is the checkable half of the mint rule. The whale case holds
+  at the carrier level: a negative lane is RECORDED disagreement, countable,
+  round-tripping, distinct from both silence and agreement — and nothing else
+  in the register moves, so nothing was removed.
+- `hhtl::missing_ancestors` — the mechanical-hydration address list: every
+  strict ancestor DN implied by the occupied paths that is not itself
+  occupied, shallow→deep so parents mint before children, `EMPTY` ignored and
+  never yielded. **Returns addresses only** — the signature cannot carry a
+  lane value, which is the type-level half of the mechanical-vs-epistemic
+  split. State (c) exactly: the partial-hydration test occupies the basin and
+  the leaf and gets back only the gap.
+
+**Generalizable:** when a scoping question keeps resisting an answer, check
+whether the addressing scheme already answers it. A DN-shaped substrate has no
+"where" questions — every nameable position is its own site — and a survey
+still asking "where" is evidence the surveyor is holding a table-shaped model
+of a trie-shaped store.
+
+**Still open, probes not rulings:** the lane-filling arithmetic (child stance →
+signed value; sibling merge at the parent — whether `semiring.add` is right for
+SIGNED agreement is unmeasured) and the provenance marker (where a row records
+mechanically-hydrated vs original, so state (c) stays distinguishable from
+state (b) after the mint — surfaced, not invented unilaterally).
 
 ## 2026-09-01 — E-AN-HHTL-POSITION-IS-A-NODE-AND-A-NODE-HAS-A-VALUE-1
 
