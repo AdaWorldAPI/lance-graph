@@ -377,6 +377,61 @@ pub mod sweep_ternlog {
     pub const ASKED_ANSWERED: u8 = 0xA8;
 }
 
+/// **Axis-catalogue mirror** — the named 24-axis basis, v3 (authority:
+/// `ogar-epistemic`, concept id `0x0334` in the reserved Ontology domain;
+/// the facet classid names AND versions the basis, so a superseded
+/// catalogue is a v4 mint, never a re-label). Zero-dep mirror, armed
+/// parity on the lance-graph-ogar side once the authority is on OGAR main.
+///
+/// Six groups of four, `group = axis >> 2`; every axis is a PRESSURE
+/// grounded in a shipped surface (the authority crate lists the grounding
+/// per row). `QUORUM`/`CONTRADICTION` are magnitude twins of the A9 loci
+/// of the same names — the locus points at WHO, the axis carries HOW MUCH.
+pub mod axes {
+    use super::BASIS_AXES;
+
+    /// Group names, positional: `GROUPS[axis >> 2]`.
+    pub const GROUPS: [&str; 6] = [
+        "set",
+        "evidence",
+        "derivation",
+        "field",
+        "circumstance",
+        "witness",
+    ];
+
+    /// The 24 axis names, index-aligned with the register's lanes.
+    pub const AXIS_LABELS: [&str; BASIS_AXES] = [
+        "IS_A",
+        "PART_OF",
+        "TYPICALITY",
+        "MISSING_LINK",
+        "SUPPORT",
+        "REFUTE",
+        "PARTIAL",
+        "REPLICATION",
+        "PREMISE",
+        "DEDUCTION",
+        "FALSIFIER",
+        "COUNTERFACTUAL",
+        "INFO_GAIN",
+        "TENSION",
+        "COHERENCE",
+        "AMBIGUITY",
+        "TEMPORAL",
+        "KAUSAL",
+        "MODAL",
+        "LOKAL",
+        "PROVENANCE",
+        "REVISION",
+        "QUORUM",
+        "CONTRADICTION",
+    ];
+
+    /// The v3 basis concept id (mirror of the authority's reservation).
+    pub const BASIS_V3_CONCEPT_ID: u16 = 0x0334;
+}
+
 /// **Loco band mirror** — the ogar-loco shared-core `FnIndex` assignments
 /// for these primitives (minted 2026-09-01 into loco's reserved core slots;
 /// the operator's essence-directive: primitives like Belnap become reusable
@@ -801,5 +856,27 @@ mod tests {
             eval_ternlog(sweep_ternlog::ASKED_REFUTED_ONLY, s, r, q),
             1 << 2
         );
+    }
+    #[test]
+    fn the_axis_catalogue_covers_the_register_exactly_once() {
+        use super::axes::{AXIS_LABELS, GROUPS};
+        assert_eq!(AXIS_LABELS.len(), BASIS_AXES);
+        assert_eq!(
+            GROUPS.len() * 4,
+            BASIS_AXES,
+            "six groups of four, group = axis >> 2"
+        );
+        for (i, a) in AXIS_LABELS.iter().enumerate() {
+            for b in AXIS_LABELS.iter().skip(i + 1) {
+                assert_ne!(a, b, "axis names are unique");
+            }
+        }
+        // The whale axis is where the whole arc says it is.
+        assert_eq!(AXIS_LABELS[0], "IS_A");
+        // The missing link pairs with its one-instruction sweep query.
+        assert_eq!(AXIS_LABELS[3], "MISSING_LINK");
+        // The magnitude twins of the A9 pointer loci.
+        assert_eq!(AXIS_LABELS[22], "QUORUM");
+        assert_eq!(AXIS_LABELS[23], "CONTRADICTION");
     }
 }
