@@ -26,17 +26,27 @@
 //!
 //! # Status — GREEN for lattice walks, length-parameterized (2026-09-01, W6)
 //!
-//! The pillar was red because Theorem 1 is a depth-∞ statement and the
-//! substrate truncates. The finite-depth certificate is in the SAME paper,
-//! two sections later (math/0507536v2 §2.4, constant re-read on the main
-//! thread against the primary source):
+//! The pillar was red because the uniqueness theorem is a depth-∞ statement
+//! and the substrate truncates. The finite-depth certificate is in the SAME
+//! paper, §2.4 — cited from the PUBLISHED text, Annals of Mathematics 171(1)
+//! 2010, pp. 109–167 (the constant below was verified against that PDF):
 //!
-//!   **Theorem 2.** A path of length L on the 2-d integer lattice whose
-//!   first ⌊e·log(1+√2)·L⌋ GL(2,C)-iterated integrals vanish is tree-like
-//!   and its reduced word is trivial. (e·ln(1+√2) = 2.3958…)
+//!   **Theorem 5** (Annals numbering; Theorem 1 in the introduction restates
+//!   it). A path of length L on the 2-d integer lattice whose first
+//!   ⌊2e·log(1+√2)·L⌋ GL(2,C)-iterated integrals vanish is tree-like and
+//!   its reduced word is trivial. (2e·ln(1+√2) = 4.7916…)
 //!
-//!   **Theorem 3.** In the d-dimensional lattice the depth is
-//!   ⌊(2⌈log₃(d/2)⌉ + 3)·e·log(1+√2)·L⌋.
+//!   **Theorem 6.** In the d-dimensional lattice the depth is
+//!   ⌊(2⌈log₃(d/2)⌉ + 3)·2e·log(1+√2)·L⌋.
+//!
+//! ⚠ Version trap, recorded so it is not re-walked: arXiv math/0507536v2
+//! (Dec 2006) states the same results as Theorems 2/3 with coefficient `e`,
+//! and its proof applies Lemma 2.4(2) with `x = log(1+√2)·L` while the sum
+//! it bounds runs over ODD degrees `2k−1` — the index `k` counts pairs of
+//! degrees, so "first N terms" there means degree up to ~2N. The published
+//! version takes `x = 2·log(1+√2)·L` and states `2e`; that is the corrected
+//! form and the one this pillar implements. A review bot caught the
+//! discrepancy against the arXiv-only reading (lance-graph #1133).
 //!
 //! The GL(2,C) integrals are a projection of the tensor-algebra ones
 //! (fn. 2: "a priori contain less information"), so vanishing of the FULL
@@ -44,7 +54,7 @@
 //! Because the truncated signature is a homomorphism into the free
 //! nilpotent group, the pair form is
 //!
-//!   S^(N)(X) = S^(N)(Y)  ⟺  X ∼ Y     for N ≥ ⌊c(d)·(|X|+|Y|)⌋,
+//!   S^(N)(X) = S^(N)(Y)  ⟺  X ∼ Y     for N ≥ ⌊c(d)·(|X|+|Y|)⌋, c(2) = 2e·ln(1+√2),
 //!
 //! i.e. the Index regime is LENGTH-PARAMETERIZED: a consumer must carry a
 //! walk-length budget and escalate depth (or refuse) beyond it. Depth 2 is
@@ -350,11 +360,12 @@ mod active {
         }
     }
 
-    // ── W6: the Theorem 2 lattice leg (the finite-depth certificate) ────────
+    // ── W6: the Theorem 5 lattice leg (the finite-depth certificate) ────────
     //
-    // Hambly-Lyons math/0507536v2 §2.4, Theorem 2 (re-read on the main
-    // thread 2026-09-01): a lattice path of length L on Z² whose first
-    // ⌊e·log(1+√2)·L⌋ GL(2,C)-iterated integrals vanish is tree-like and its
+    // Hambly-Lyons, Annals 171 (2010) §2.4, Theorem 5 (= arXiv v2 Theorem 2
+    // with the published `2e` coefficient; verified against the Annals PDF
+    // 2026-09-01): a lattice path of length L on Z² whose first
+    // ⌊2e·log(1+√2)·L⌋ GL(2,C)-iterated integrals vanish is tree-like and its
     // reduced word is trivial. The GL(2,C) integrals are a projection of the
     // tensor-algebra ones ("a priori contain less information", fn. 2), so
     // vanishing of the FULL truncated signature to that depth implies it a
@@ -368,21 +379,25 @@ mod active {
     //     path, p.8: ‖x_k − x_{k+1}‖ = 1, x_k ∈ Z^{|A|});
     //   * d ≥ 2 — in d = 1 the reduced-path group is Z (net increment only,
     //     every closed path is tree-like), so the quotient carries nothing.
-    /// `e · ln(1 + √2)` — Theorem 2's constant, computed rather than retyped.
+    /// `2e · ln(1 + √2)` — Theorem 5's constant (Annals), computed rather
+    /// than retyped.
     pub(super) fn hl_theorem2_constant() -> f64 {
-        std::f64::consts::E * (1.0 + 2f64.sqrt()).ln()
+        2.0 * std::f64::consts::E * (1.0 + 2f64.sqrt()).ln()
     }
-    /// The depth Theorem 2 needs for a word of length `l` (floor, as stated).
+    /// The depth Theorem 5 needs for a word of length `l` (floor, as stated).
     pub(super) fn hl_theorem2_depth(l: usize) -> usize {
         (hl_theorem2_constant() * l as f64).floor() as usize
     }
-    /// Longest word the exhaustive theorem arm enumerates. Depth ⌊c·5⌋ = 11
-    /// in d = 2 is 4096 coefficients — cheap enough for a debug test.
-    const LATTICE_L_MAX: usize = 5;
+    /// Longest word the exhaustive theorem arm enumerates. Depth ⌊c·3⌋ = 14
+    /// in d = 2 is 32768 coefficients — cheap enough for a debug test.
+    const LATTICE_L_MAX: usize = 3;
     /// Length at which the depth-2 false-merge search runs. The paper's own
-    /// §1.6 figure-of-8 (two equal, opposite lobes) lives here: ⌊c·8⌋ = 19.
+    /// §1.6 figure-of-8 (two equal, opposite lobes) lives here: ⌊c·8⌋ = 38
+    /// (never materialized — the search escalates depth and stops at 3).
     const LATTICE_FALSE_MERGE_L: usize = 8;
     const LATTICE_N_TREELIKE: usize = 64;
+    /// Depth for the tree-like arm (identity holds at every depth; fixed, cheap).
+    const LATTICE_TREELIKE_DEPTH: usize = 12;
     /// Exactness tolerance: signatures of lattice words are rationals with
     /// k! denominators; f64 products of a handful of exponentials round at
     /// ~1e-15, and a genuinely nonzero coefficient is ≥ 1/k! ≥ 1/19!.
@@ -487,11 +502,14 @@ mod active {
         let mut state: u64 = 0x5EED_1A77_1CE0_0001;
         let mut treelike_max_dist = 0.0f64;
         let mut treelike_checked = 0usize;
+        // Tree-like words are the identity at EVERY depth (Cor. 6.4), so this
+        // arm needs no theorem depth — a fixed one keeps the length-6 words
+        // off the 2^29-coefficient tensors the doubled constant would demand.
         for i in 0..LATTICE_N_TREELIKE {
             let len = 2 + 2 * (i % 3); // 2, 4, 6
             let w = treelike_word(&mut state, len);
-            let depth = hl_theorem2_depth(len.max(1));
-            treelike_max_dist = treelike_max_dist.max(distance_from_identity(&w, depth));
+            treelike_max_dist =
+                treelike_max_dist.max(distance_from_identity(&w, LATTICE_TREELIKE_DEPTH));
             treelike_checked += 1;
         }
 
@@ -644,7 +662,7 @@ mod active {
              so that leg certifies the converse FUNCTIONAL FORM (deviation is \
              quadratic in enclosed Lévy area) and its own resolution boundary, \
              not a sampled ratio. \
-             THEOREM 2 LATTICE leg (W6, c = e·ln(1+√2) = {:.4}): {} reduced \
+             THEOREM 5 LATTICE leg (W6, Annals numbering, c = 2e·ln(1+√2) = {:.4}): {} reduced \
              words of length ≤ {} at depth ⌊c·L⌋, {} merged with the identity \
              (pass if 0), min ‖S − 1‖ = {:.3e}; {} tree-like words, max \
              ‖S − 1‖ = {:.1e} (pass if < {:.0e}); depth-2 false merges among \
@@ -734,14 +752,14 @@ mod tests {
 
     #[test]
     fn theorem2_depth_is_the_paper_floor() {
-        // ⌊e·ln(1+√2)·L⌋, math/0507536v2 Theorem 2, L = 1..16
+        // ⌊2e·ln(1+√2)·L⌋, Annals 171 Theorem 5, L = 1..16
         let expect = [
-            2usize, 4, 7, 9, 11, 14, 16, 19, 21, 23, 26, 28, 31, 33, 35, 38,
+            4usize, 9, 14, 19, 23, 28, 33, 38, 43, 47, 52, 57, 62, 67, 71, 76,
         ];
         for (i, &e) in expect.iter().enumerate() {
             assert_eq!(active::hl_theorem2_depth(i + 1), e, "L={}", i + 1);
         }
-        assert!((active::hl_theorem2_constant() - 2.3958).abs() < 1e-3);
+        assert!((active::hl_theorem2_constant() - 4.7916).abs() < 1e-3);
     }
 
     #[test]

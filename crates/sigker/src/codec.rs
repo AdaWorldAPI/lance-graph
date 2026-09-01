@@ -41,11 +41,12 @@
 //!
 //! # Certification dependency — LENGTH-PARAMETERIZED (jc Pillar 11, W6)
 //!
-//! Certified 2026-09-01 by jc Pillar 11's Theorem 2 lattice leg
+//! Certified 2026-09-01 by jc Pillar 11's Theorem 5 lattice leg
 //! (`crates/jc/src/hambly_lyons.rs`), NOT at a fixed depth: for unit-step
 //! lattice walks X, Y in d ≥ 2, `S^(N)(X) = S^(N)(Y) ⟺ X ∼ Y` holds for
-//! truncation depth `N ≥ ⌊e·log(1+√2)·(|X|+|Y|)⌋` (d = 2; times
-//! `2⌈log₃(d/2)⌉+3` in general — Hambly-Lyons math/0507536v2 Thm 2/3).
+//! truncation depth `N ≥ ⌊2e·log(1+√2)·(|X|+|Y|)⌋` (d = 2; times
+//! `2⌈log₃(d/2)⌉+3` in general — Hambly-Lyons, Annals 171 (2010) Thm 5/6;
+//! the arXiv v2 statement carries a pre-publication `e`, see the pillar).
 //! So "lossless on the tree-quotient" is TRUE ONLY UNDER A WALK-LENGTH
 //! BUDGET: a consumer routing paths through `Sigker` must pick its depth
 //! from the longest walk it will compare, and escalate or refuse beyond

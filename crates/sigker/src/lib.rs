@@ -28,7 +28,7 @@
 //!    `CodecRoute` variant alongside Passthrough and CamPq. Sigker is
 //!    **Index regime** — by Hambly-Lyons uniqueness, it is lossless on
 //!    tree-quotient classes of paths — at a truncation depth that grows
-//!    LINEARLY with walk length (Thm 2/3; see `codec.rs`), never at a
+//!    LINEARLY with walk length (Annals Thm 5/6; see `codec.rs`), never at a
 //!    fixed small depth.
 //!
 //! ## Why sigker is Index regime, not Argmax

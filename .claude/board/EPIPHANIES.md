@@ -24,6 +24,17 @@ axis is out of regime, and arbitrary quantized step vectors stay outside
 Theorem 2 (Theorem 9 gives non-triviality without an explicit depth).
 Default jc build stays zero-dep/DEFERRED.
 
+> **⊘ Correction (same day, review round on #1133):** the constant is
+> **`2e·ln(1+√2) = 4.7916`**, and the theorems are **5/6** in the published
+> Annals 171 text. The arXiv v2 statement (Theorems 2/3, coefficient `e`)
+> that this entry first cited is pre-publication: its proof sums over odd
+> degrees `2k−1` with `k > N`, so "first N terms" there is degree ~2N; the
+> journal version takes `x = 2·log(1+√2)·L` and states `2e`. Caught by a
+> review bot against the arXiv-only reading, verified on the Annals PDF.
+> Measured after the fix: 52/52 reduced words of length ≤ 3 separated at
+> the doubled depth; every other count above is unchanged (the false-merge
+> search escalates depth and still stops at level 3).
+
 **Companion source audit (pre-#1129 signed register), same session:** the
 old `BasinLanes` lane was true two's-complement i4 over the FULL `[−8, 7]`
 (`atoms::I4x32::sext4`; 16 states, no quantizer); "−3..+3" is prose only —
