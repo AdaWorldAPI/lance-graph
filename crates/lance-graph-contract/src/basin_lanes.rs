@@ -118,6 +118,43 @@ impl BasinLanes {
     pub fn agreement_count(&self) -> usize {
         self.unpack().iter().filter(|&&v| v > 0).count()
     }
+
+    /// **One-hop accumulation** (operator-ruled, 2026-09-01): a parent's
+    /// register expresses its DIRECT children accumulated — agreement AND
+    /// disagreement — never the grandchildren. Grandchild information reaches
+    /// a grandparent only through the child's own accumulated register, one
+    /// hop at a time; the global field map is the composition of one-hop
+    /// summaries, never a node reaching past its children (the same locality
+    /// that makes `FieldMask::inherit` a parent∪delta and the substrate
+    /// Markov, `I-SUBSTRATE-MARKOV`).
+    ///
+    /// Per-lane merge: **saturating signed sum** in `[−8, 7]` — agreement
+    /// stacks, disagreement pulls down, the bound is the carrier's own range
+    /// (associative/commutative in expectation, the sanctioned bundle shape).
+    ///
+    /// **Measured limitation, pinned rather than hidden:** in ONE register a
+    /// balanced conflict (`+3` child and `−3` child on the same lane) sums to
+    /// `0` — indistinguishable from silence. That is the concrete case for
+    /// the ruled escape hatch "the nibbles can be expanded if necessary /
+    /// multiple 24×i4 further up": a contested-mass register beside the net
+    /// register. NOT built here — the multi-register semantics are the
+    /// operator's to shape; the collapse is pinned by
+    /// `a_balanced_conflict_collapses_to_silence_in_one_register` so the gap
+    /// stays loud.
+    ///
+    /// `accumulate_children(&[])` is [`SILENT`](Self::SILENT) — a childless
+    /// position asserts nothing.
+    #[must_use]
+    pub fn accumulate_children(children: &[Self]) -> Self {
+        let mut acc = [0i8; BASIN_LANES];
+        for c in children {
+            let lanes = c.unpack();
+            for (a, v) in acc.iter_mut().zip(lanes.iter()) {
+                *a = a.saturating_add(*v).clamp(-8, 7);
+            }
+        }
+        Self::pack(&acc)
+    }
 }
 
 #[cfg(test)]
@@ -229,5 +266,97 @@ mod tests {
                 "every byte-granular shape covers the same register these lanes re-read"
             );
         }
+    }
+    // ---- one-hop accumulation ----
+
+    #[test]
+    fn accumulation_stacks_agreement_and_records_disagreement_as_pull_down() {
+        let mut a = [0i8; BASIN_LANES];
+        let mut b = [0i8; BASIN_LANES];
+        a[0] = 2;
+        b[0] = 3; // both agree on lane 0
+        a[1] = 4;
+        b[1] = -1; // contested lane 1: net stays positive but is PULLED DOWN
+        let acc = BasinLanes::accumulate_children(&[BasinLanes::pack(&a), BasinLanes::pack(&b)]);
+        let lanes = acc.unpack();
+        assert_eq!(lanes[0], 5, "agreement stacks");
+        assert_eq!(
+            lanes[1], 3,
+            "disagreement is IN the accumulation, not dropped"
+        );
+        assert!(
+            lanes[2..].iter().all(|&v| v == 0),
+            "untouched lanes stay silent"
+        );
+    }
+
+    #[test]
+    fn accumulation_saturates_at_the_carrier_bound_in_both_directions() {
+        let up = BasinLanes::pack(&[5; BASIN_LANES]);
+        let down = BasinLanes::pack(&[-5; BASIN_LANES]);
+        assert_eq!(
+            BasinLanes::accumulate_children(&[up, up, up]).unpack(),
+            [7; BASIN_LANES]
+        );
+        assert_eq!(
+            BasinLanes::accumulate_children(&[down, down, down]).unpack(),
+            [-8; BASIN_LANES]
+        );
+    }
+
+    #[test]
+    fn a_childless_position_accumulates_to_silence() {
+        assert!(BasinLanes::accumulate_children(&[]).is_silent());
+    }
+
+    /// Pinned MEASURED LIMITATION, not desired behaviour: in ONE register a
+    /// balanced conflict is indistinguishable from silence. This is the
+    /// concrete case for the ruled multi-register expansion; when that lands
+    /// this pin must fail and force the deliberate re-shape.
+    #[test]
+    fn a_balanced_conflict_collapses_to_silence_in_one_register() {
+        let mut a = [0i8; BASIN_LANES];
+        let mut b = [0i8; BASIN_LANES];
+        a[5] = 3;
+        b[5] = -3;
+        let acc = BasinLanes::accumulate_children(&[BasinLanes::pack(&a), BasinLanes::pack(&b)]);
+        assert!(
+            acc.is_silent(),
+            "one net register cannot carry contested-ness; the day it can, re-pin"
+        );
+    }
+
+    /// One-hop locality made OBSERVABLE across two levels: the grandparent
+    /// reads the grandchild only through the child's accumulated register.
+    /// Can-fire: a grandchild move that moves the child moves the
+    /// grandparent. Silence: a grandchild move ABSORBED by the child's own
+    /// saturation leaves the grandparent byte-identical.
+    #[test]
+    fn a_grandchild_reaches_the_grandparent_only_through_the_child() {
+        use crate::hhtl::{direct_children, NiblePath};
+        let gp = NiblePath::root(1);
+        let child = gp.child(2);
+        let gc1 = child.child(0);
+        let gc2 = child.child(1);
+        let occupied = [gp, child, gc1, gc2];
+        assert_eq!(direct_children(gp, &occupied), vec![child]);
+        assert_eq!(direct_children(child, &occupied), vec![gc1, gc2]);
+
+        let lanes_of = |v: i8| {
+            let mut l = [0i8; BASIN_LANES];
+            l[0] = v;
+            BasinLanes::pack(&l)
+        };
+        let two_level = |gc1_v: i8, gc2_v: i8| {
+            let child_reg = BasinLanes::accumulate_children(&[lanes_of(gc1_v), lanes_of(gc2_v)]);
+            BasinLanes::accumulate_children(&[child_reg])
+        };
+        // Can-fire: the grandchild flips sign hard -> the child moves -> the
+        // grandparent moves.
+        assert_ne!(two_level(3, 3), two_level(-6, 3));
+        // Silence: both grandchild states saturate the child at +7, so the
+        // grandparent cannot tell them apart -- the grandchild's detail is
+        // the CHILD's knowledge, one hop only.
+        assert_eq!(two_level(7, 5), two_level(6, 7));
     }
 }

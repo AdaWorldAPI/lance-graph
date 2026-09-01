@@ -40,6 +40,54 @@ Census + the disable table: `.claude/plans/dismech-causal-replay-v1.md` §W2b.
 Falsifier: `crates/lance-graph-contract/tests/w2b_one_node_field.rs`.
 
 ---
+## 2026-09-01 — E-ONE-HOP-UP-ONE-HOP-DOWN-A-PARENT-SPEAKS-ONLY-ITS-CHILDREN-1
+
+**Status:** OPERATOR RULING, third round on `D-DCR-2b` — the field map's
+locality law, built against in the same PR. **Confidence:** ruled; one-hop
+selector + accumulator shipped with the locality made observable.
+
+**The law: a parent's register expresses its DIRECT children accumulated —
+agreement AND disagreement — never the grandchildren. One hop up and down.**
+Grandchild information reaches a grandparent only through the child's own
+accumulated register, so the global field map is a COMPOSITION of one-hop
+summaries, never a node reaching past its children. Layered concretely:
+mammal carries accumulated agree/disagree; whale-family carries
+generic-vs-mammal-specific; whale carries specific. The lanes are
+upstream/downstream inheritance on the mathematical scale (Shannon
+proprioception / EWA sandwich / Mengenlehre readouts over them).
+
+This is the tree-shaped Chapman-Kolmogorov discipline — the same locality the
+substrate already holds twice: `I-SUBSTRATE-MARKOV` (transition composition,
+never transitive flattening) and `FieldMask::inherit` (parent ∪ own delta).
+And it settles the sweep-convergence question STRUCTURALLY rather than by
+policy: a sweep is bottom-up one-hop passes, each node a pure function of its
+direct children, idempotent at the fixpoint by construction.
+
+**Width is a floor, not a cap:** the nibbles can be expanded if necessary,
+and a node further up may carry multiple 24×i4 registers where valuable. The
+corpora ladder also widened — book / redmine / odoo / **AD** (literally the
+DN case) / OWL / RDF — every entry landing in one of the three readiness
+states already tabled.
+
+**Shipped:** `hhtl::direct_children` — the one-hop selector, exactly depth+1
+and never grandchildren, so any accumulator it feeds is *structurally unable*
+to violate the law (locality enforced at selection, not policed in
+arithmetic); `BasinLanes::accumulate_children` — per-lane saturating signed
+sum (agreement stacks, disagreement pulls down, bound = the carrier's own
+range; empty → SILENT). The locality is OBSERVABLE across two levels: a
+grandchild move absorbed by the child's own saturation leaves the grandparent
+byte-identical, while one that moves the child moves the grandparent — the
+can-fire/can-stay-silent pair on the law itself.
+
+**A measured limitation pinned loud rather than hidden:** in ONE register a
+balanced conflict (`+3` child, `−3` child, same lane) sums to `0` —
+indistinguishable from silence, the whale-erasure failure mode one level up.
+`a_balanced_conflict_collapses_to_silence_in_one_register` pins it as CURRENT
+behaviour with a comment that the multi-register expansion must fail this pin
+and force a deliberate re-shape. The expansion's semantics (net +
+contested-mass?) are the operator's to shape — the pin is the case FOR it,
+not a design of it.
+
 ## 2026-09-01 — E-ASKING-WHERE-THE-MAP-LIVES-IS-ASKING-WHERE-THE-OUS-ARE-IN-A-DN-1
 
 **Status:** OPERATOR CORRECTION + RULING, second round on `D-DCR-2b` — three of

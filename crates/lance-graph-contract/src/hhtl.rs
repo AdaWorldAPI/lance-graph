@@ -523,6 +523,35 @@ impl NiblePath {
 /// [`NiblePath::EMPTY`] entries in `occupied` are ignored (no route ⇒ no
 /// implied ancestors), and `EMPTY` is never yielded — depth-0 is "not yet
 /// routed", not a mintable position.
+/// The DIRECT children of `parent` among `occupied` — exactly depth+1
+/// descendants, **never grandchildren** (operator-ruled 2026-09-01: a
+/// parent's register expresses its children accumulated, one hop only;
+/// deeper positions reach it only through their own parents' registers).
+///
+/// The one-hop rule made selectable: any accumulator fed by this function is
+/// structurally unable to reach past the children, so locality is enforced
+/// at the selection, not policed in the arithmetic.
+///
+/// `parent == EMPTY` selects nothing — "no route" has no children (basins
+/// are entered via [`NiblePath::root`], not as children of EMPTY).
+#[must_use]
+pub fn direct_children(parent: NiblePath, occupied: &[NiblePath]) -> Vec<NiblePath> {
+    if parent.depth() == 0 {
+        return Vec::new();
+    }
+    let mut out: Vec<NiblePath> = occupied
+        .iter()
+        .copied()
+        .filter(|c| c.depth() == parent.depth() + 1 && parent.is_ancestor_of(*c))
+        .collect();
+    out.sort_by_key(|p| {
+        let (path, depth) = p.packed();
+        (depth, path)
+    });
+    out.dedup();
+    out
+}
+
 #[must_use]
 pub fn missing_ancestors(occupied: &[NiblePath]) -> Vec<NiblePath> {
     let mut out: Vec<NiblePath> = Vec::new();
@@ -1145,6 +1174,45 @@ mod tests {
                 NiblePath::root(2).child(3).child(1)
             ],
             "occupied ancestors are not re-minted; only the gap is"
+        );
+    }
+    // ---- direct_children: the one-hop selector ----
+
+    #[test]
+    fn direct_children_selects_exactly_one_hop_never_grandchildren() {
+        let p = NiblePath::root(3);
+        let c1 = p.child(0);
+        let c2 = p.child(9);
+        let gc = c1.child(4);
+        let sibling_basin = NiblePath::root(4).child(1); // depth matches, ancestry does not
+        let occupied = [p, c1, c2, gc, sibling_basin];
+        assert_eq!(direct_children(p, &occupied), vec![c1, c2]);
+        assert!(
+            !direct_children(p, &occupied).contains(&gc),
+            "a grandchild reaches the parent only through its own parent"
+        );
+        assert_eq!(direct_children(c1, &occupied), vec![gc]);
+    }
+
+    #[test]
+    fn direct_children_of_empty_is_nothing() {
+        let occupied = [NiblePath::root(0), NiblePath::root(7)];
+        assert!(
+            direct_children(NiblePath::EMPTY, &occupied).is_empty(),
+            "no route has no children; basins are entered via root()"
+        );
+    }
+
+    #[test]
+    fn direct_children_dedups_and_orders_deterministically() {
+        let p = NiblePath::root(2);
+        let a = p.child(8);
+        let b = p.child(1);
+        let occupied = [p, a, b, a]; // duplicate occupancy entry
+        assert_eq!(
+            direct_children(p, &occupied),
+            vec![b, a],
+            "sorted by path, deduped"
         );
     }
 }
