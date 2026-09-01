@@ -43,6 +43,34 @@
 //!
 //! So: same rail, same bytes, different readiness. A promoter must check that
 //! the anchor node exists; for books that check is "has the TOC been spawned".
+//!
+//! ## What this section does NOT say (operator, 2026-09-01)
+//!
+//! The ruling above is about the ADDRESS and nothing else. Read as a statement
+//! about the NODE it is wrong, and it was in fact misread that way once — a
+//! planning survey turned "the position lives in the key" into "the node is
+//! key-only", which would forbid giving an HHTL position a value at all.
+//!
+//! An HHTL node is a node: `key(16) | edges(16) | value(480)`. The plan is for
+//! HHTL positions to BE SoA rows whose value slab carries a self-organizing
+//! summary of the position's children (upstream/downstream inheritance, basin
+//! agreement, disagreement, missing links). Nothing here forbids that; what is
+//! forbidden is a second copy of the cascade POSITION, which the key holds.
+//!
+//! The two halves do not compete, and the reason is mechanical: a summary
+//! changes when its children change, and a key is an identity — a mutable
+//! summary in the key would re-address the node on every sweep. Address in the
+//! key, summary in a value lane, necessarily.
+//!
+//! ## A third readiness state
+//!
+//! The two corpora above are not the whole ladder. A position can also be
+//! **implicit in the rails but not hydrated**: a `part_of`/`is_a` edge names
+//! the position, so it is not absent, yet no node was ever hydrated there, so
+//! it is not present either. That is the state a node-level hydrate step would
+//! consume, and no such step exists in this tree (`lance-graph-hydrate` is
+//! artifact-level — an object store to a local volume — and shares only the
+//! vocabulary).
 
 /// Bytes one basin occupies on the rail.
 pub const BASIN_ROW_BYTES: usize = 32;
