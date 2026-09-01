@@ -71,48 +71,6 @@ candidate is not re-proposed; `episodic_basin`'s own module doc gained a "what
 this section does NOT say" note and the third state, since its framing is what
 invited the slip.
 
-## 2026-09-01 — E-I4X32-IS-A-WHOLE-FACET-CARRIER-NOT-A-PAYLOAD-CARRIER-1
-
-**Status:** FINDING — answers the question `E-THREE-KINDS-OF-MENGENLEHRE-AND-W2-SHIPPED-THE-NARROWEST-1` left open ("24×i4 flavours", `I4x32` vs 24 nibbles). **Confidence:** measured, `examples/i4x32_width_probe.rs`, per-lane byte attribution.
-
-The open item read as a naming coincidence to be adjudicated. It is a **width
-mismatch**, and the probe locates it exactly:
-
-```
-I4x32 size_of     = 16      FacetCascade size_of = 16
-lane 0,1 -> byte 0    lane 2,3 -> byte 1    lane 4,5 -> byte 2    lane 6,7 -> byte 3
-facet classid-only change moves bytes [0, 3]  =>  i4 lanes [0, 1, 6, 7]
-```
-
-`I4x32` spans the WHOLE 16-byte facet; the V3 content-blind payload is 12 B =
-24 nibbles (`causal_witness.rs:71`). There is no 4-byte offset separating them,
-so **lanes 0–7 alias the `facet_classid`**. An `I4x32` laid over a facet would
-write the address it is stored under. The two candidate readings in the earlier
-entry are therefore not competing interpretations of one carrier — they are two
-different widths, and only one of them is the payload.
-
-**Not a live defect.** Every `I4x32` reference outside `atoms.rs` is a doc
-mention or an explicit `BLOCKED on D-ATOM-1` forward reference (`recipe.rs`
-still carries `pub type I4x32Stub = [i8; 32];`, plus `quorum.rs`,
-`counterfactual.rs`, `witness_tombstone.rs`). Nothing packs an `I4x32` into a
-facet, which is why the mismatch survived unnoticed: there is no call site for
-it to break. The finding is a **gate on D-ATOM-1**, not a repair.
-
-**And the module's own resolved notes already answer it** — the atom vector was
-never meant to be a facet payload. `atoms.rs` §"RESOLVED — 32-vs-33" puts the 33
-atoms in `I4x64` (32 B); `perturbation-sim/src/columns.rs:35` reasons in
-"32 × 4-bit turbovec lanes" — both are VALUE-TENANT lanes, not facet readings.
-A 24-lane payload carrier is the one shape that is excluded on its own terms:
-33 locked atoms do not fit 24 lanes. The doc note now says so at the `I4x32`
-definition, so this is not re-derived a third time.
-
-**The generalizable shape:** two types of the same `size_of` are not
-interchangeable when one of them is an ADDRESS plus a payload. `I4x32` and
-`FacetCascade` are both 16 B and both `align(16)`; the compiler will transmute
-between them silently. The distinguishing fact is not the size — it is that
-four of those bytes are the key.
-
----
 ## 2026-09-01 — E-THE-PALETTE-MARGIN-IS-SPENT-AND-GROWTH-MOVES-TO-LOCO-1
 
 **Status:** FINDING (measured) + operator ruling
@@ -156,6 +114,18 @@ NOT dropped before push -- I asserted the latter and was wrong; `4a3eaa22` had
 already been pushed, which the revert makes visible instead of erasing. The V3
 content-blind register is 12 bytes everywhere; the three 16-byte facet lanes
 are `classid(4) + 12`.
+
+**Third-order lesson, from rebasing this same branch onto the merged #1125:**
+the rebase reported success and silently DROPPED one hunk of the revert. The
+revert originally deleted from three files (probe, `atoms.rs`, and the board
+entry); after the rebase it deleted from two, and the hallucinated board entry
+was live again on the branch. Main had prepended a new entry, so the board
+hunk's context moved and the patch application dropped it without a conflict.
+**A clean `git rebase` is not evidence that every hunk survived** — a revert
+in particular should be re-checked by asserting the reverted content is ABSENT
+after the rebase (`git show HEAD:<file> | grep -c <marker>` == 0), not by
+trusting the exit code. Completed forward rather than by rewriting the revert,
+so the gap is visible.
 
 **Second-order lesson from the same repair:** `git revert -q` is not a flag.
 The invalid option made revert a no-op that printed usage, and the follow-up
