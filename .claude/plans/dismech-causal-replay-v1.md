@@ -276,7 +276,9 @@ mechanism. Node-level hydration does not exist in the tree.
 The 12-byte content-blind payload is 24 nibbles. Every shipped `CascadeShape`
 carves it at BYTE granularity — `G6D2` (6×2), `G4D3` (4×3), `G3D4` (3×4), all
 12 units (`facet.rs`, `CASCADE_UNITS == 12`). A **nibble**-granular reading —
-24 units — is not in the shipped set. Signed i4 in `[−8, 7]` IS shipped carrier
+24 units — is not in the shipped set. **⊘ Stale: measured 2026-09-01, it IS —
+`ValueTenant::CausalWitness` ships `G24N4`. See the census below; the sharper
+statement is that `G24N4` is a lane shape name, never a `CascadeShape` variant.** Signed i4 in `[−8, 7]` IS shipped carrier
 semantics (`atoms::I4x32::sext4`), just at other widths (`I4x32` = 16 B,
 `I4x64` = 32 B); neither is 12 B.
 
@@ -316,6 +318,88 @@ facet register read at nibble granularity.
    fully open.**
 4. **A node-level hydrate primitive for state (c).** Absent, and it gates (a)
    and (c) both.
+
+#### The value-lane census — measured, 2026-09-01 (`D-DCR-2b`)
+
+Read off `canonical_node.rs`'s `VALUE_TENANTS` descriptors, not off prose.
+Offsets are slab-relative (row offset − 32).
+
+| # | tenant | kind×elems | bytes | slab `[from,to)` |
+|---|---|---|---|---|
+| 0 | `Meta` | U64×1 | 8 | `0..8` |
+| 1 | `Qualia` | U64×1 | 8 | `8..16` |
+| 2 | `MaterializedEdges` | U64×4 | 32 | `16..48` |
+| 3 | `Fingerprint` | U8×32 | 32 | `48..80` |
+| 4 | `HelixResidue` | U8×6 | 6 | `80..86` |
+| 5 | `TurbovecResidue` | U8×16 | 16 | `86..102` |
+| 6 | `Energy` | F32×1 | 4 | `102..106` |
+| 7 | `Plasticity` | U32×1 | 4 | `106..110` |
+| 8 | `EntityType` | U16×1 | 2 | `110..112` |
+| 9 | `Kanban` | U64×1 | 8 | `112..120` |
+| 10 | `FrozenStyle` | U8×12 | 12 | `120..132` |
+| 11 | `LearnedStyle` | U8×12 | 12 | `132..144` |
+| 12 | `ExploreStyle` | U8×12 | 12 | `144..156` |
+| 13 | `Tekamolo` | U8×16 | 16 | `156..172` |
+| 14 | `CausalWitness` | U8×16 | 16 | `172..188` |
+| 15 | `EpisodicBasin` | U8×32 | 32 | `188..220` |
+| | **occupied** | | **220** | of 480 |
+| | **free** | | **260** | next offset `220` (row `252`) |
+
+**Three findings, and the first corrects this very section.**
+
+1. **`G24N4` DOES ship — the paragraph above is stale.** It says a
+   nibble-granular 24-unit reading "is not in the shipped set". Measured, it is:
+   `ValueTenant::CausalWitness` (14) is documented as *"read in the **`G24N4`**
+   shape as 24 signed `i4` loci"*, with the codec (`CausalWitnessFacet::get` /
+   `set`, sign-extension and `[−8,7]` clamp) shipped and tested. What remains
+   true — and is the sharper statement — is that `G24N4` is a **lane shape
+   name, never a `CascadeShape` variant**: sub-byte granularity's sanctioned
+   home is a lane, and `CascadeShape` stays byte-axis-only. So W2b's carrier is
+   **not greenfield**; only its semantics are.
+
+2. **…and precisely because it ships, W2b cannot live in that lane.** Two
+   independent blockers, both operator-locked in `CausalWitness`'s own doc:
+   its value law is *"a **context pointer**, never a strength/magnitude (loci,
+   not values)"* — and a W2b child-summary is exactly the magnitude case; and
+   its slots `16..24` are RESERVE-DON'T-RECLAIM. Reusing it would break its
+   value law and its reserve rule at once. That answers half of the first open
+   decision below: **a carve inside `CausalWitness` is ruled out**; a new
+   tenant vs a carve elsewhere is still the operator's call.
+
+3. **Space is not the constraint.** 260 of 480 slab bytes are free and the next
+   tenant appends cleanly at slab offset `220`. A 12-byte `G24N4` register costs
+   ~4.6 % of the remaining slab. The doctrine that applies is *"clean / SoC over
+   packed"* — with this much headroom, packing a second concern into an existing
+   lane is the rare last resort, not the default.
+
+**What the census does NOT settle:** versioned-vs-live, sweep granularity, and
+whether kind 2 reads the map or the sweep applies it — all still open below.
+The census is about bytes, not about semantics.
+
+#### The one-node falsifier — shipped, `tests/w2b_one_node_field.rs`
+
+Five falsifiers, each disable-verified red-then-green, at the scale that is
+decidable **today**:
+
+| falsifier | disable that makes it red |
+|---|---|
+| F1 three states distinguishable through the register | `summarise` returns `acc.abs()` |
+| F2 **the whale case** — no value the lane can hold revokes membership | `record_summary` takes `&mut` rail and clears it when `summary < 0` |
+| F3 saturation, never wrap (a sign flip is the silent catastrophe) | drop the clamp; mask instead |
+| F4 all 24 lanes independently addressable | drop the neighbour mask in the nibble codec |
+| F5 re-summarising the same children is stable | `summarise` ignores its input (fires the all-zero guard) |
+
+It deliberately answers **none** of the open decisions: no lane is minted, no
+byte reserved, and the summarising arithmetic is the test's own minimal choice,
+labelled as such — the ruling fixes what the SIGN means, not the sum. Gap 3
+(convergence for a global sweep) is untouched by construction: one hop is a
+function, a field map is a fixpoint, and one node cannot speak to a fixpoint.
+
+Worth recording that F2's first version was **vacuous** — it asserted a local
+`bool` that nothing between the two lines could change, so its "disable" meant
+editing the test rather than the code. It is now structural: sweep every value
+the lane can hold, including the whole negative half, and require the membership
+carrier to stay byte-identical while the disagreement stays legible.
 
 #### The decisions this wave still cannot make for itself
 
