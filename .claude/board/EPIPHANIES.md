@@ -1,3 +1,142 @@
+## 2026-08-31 — E-A-REVIEW-REMEDY-HAS-A-SHELF-LIFE-1 — the same edit was correct in one PR and a violation in the next
+
+**Status:** FINDING — caught by CodeRabbit on PR #1123, one PR after it raised
+the finding whose remedy it then had to reject.
+**Confidence:** measured — the identical one-line edit, applied twice.
+
+CodeRabbit flagged MD018 on PR #1122: an `EPIPHANIES.md` line beginning `#1120`
+reads as a heading. Valid, and at that moment the entry was **new and
+unmerged**, so editing it was ordinary drafting.
+
+The fix landed one PR later. By then the entry had **merged to `main`**, and
+`CLAUDE.md`'s governance rule applies to it:
+
+> The governance files are APPEND-ONLY (prepend new entries; never edit past
+> entries except the `Status:` / `Confidence:` lines).
+
+So the same characters, in the same place, for the same reason, changed from a
+lint fix into a violation of the ledger's core property — and CodeRabbit
+correctly flagged its own earlier remedy. Reverted; the MD018 warning stands,
+because a cosmetic lint does not outrank append-only. (An append-only file's
+whole value is that a reader can trust an old entry reads as written; a
+"harmless" edit is exactly the kind that erodes that, since nobody objects to
+any single one.)
+
+**The generalizable bit: a remedy is scoped to the state of the tree when it
+was proposed.** Findings age well — the defect is either real or not — but
+remedies age badly, because they assume where the code sits. Between the
+finding and the fix, this entry crossed a boundary (unmerged → merged) that
+changed which rules governed it, and nothing in the finding text could have
+said so.
+
+**Consequence, cheap to apply:** before acting on a review comment from an
+EARLIER PR, re-check what the target is *now* — merged or not, moved, already
+fixed, or governed by a different rule than when the comment was written. Same
+family as this session's other silence-shaped errors: the check was right, the
+world moved, and only re-reading the world catches it.
+
+---
+
+## 2026-08-31 — E-THE-SUPERSESSION-GATE-WATCHED-TWO-OF-ITS-FOUR-INPUTS-1
+
+**Status:** FINDING — mechanical, fixed in the same PR that exposed it.
+**Confidence:** measured — `supersession_index.py` read against
+`.github/workflows/supersession-index.yml`, plus PR #1123's actual check list.
+
+`CLAUDE.md` says the generator reads *"`.claude/plans/`, `crates/`,
+`.claude/v3/COMPONENT-MAP.md`, **and the board itself**"*, and even warns that
+the workflow's error text names only the first three and "will mislead the same
+way". It does mislead — and so did the workflow's own `paths:` filter, which
+watched **two of the four inputs**:
+
+| generator input | source | watched by the gate |
+|---|---|---|
+| `.claude/v3/COMPONENT-MAP.md` | `:20` | yes |
+| `.claude/plans/*.md` | `:47` | yes |
+| `.claude/board/entries/*.md` + `EPIPHANIES.md` | `:48-49`, counted at `:85` | **no** |
+| `crates/**` | `:27`, per symbol | **no** |
+
+**Measured, not inferred:** PR #1123 prepends an `EPIPHANIES.md` entry citing
+D-ids — an input to the board-coverage column — and ran **no**
+`regenerate-and-diff` at all. The committed table could have gone stale with CI
+fully green, which is the single thing this workflow exists to prevent. It did
+not, only because the regeneration happened to be done by hand.
+
+**The shape worth keeping:** a gate whose trigger is narrower than its
+computation is silent exactly where it is needed. Nothing about it looks broken
+— it passes when it runs, and when it matters most it does not run. That is the
+same silence-reads-as-success failure as `E-A-MONITOR-KEYED-ON-THE-PR-HEAD-…-1`
+(a watch keyed on the wrong subject) and as a guard that cannot fire: three
+instances in one session, each in a different mechanism.
+
+**Rule:** when a gate regenerates an artifact, its `paths:` filter must list
+every input the generator actually READS — derived from the generator's source,
+never from its prose. Prose was accurate here and the filter still drifted,
+because nothing joins the two.
+
+Fixed by adding `.claude/board/entries/**`, `.claude/board/EPIPHANIES.md` and
+`crates/**`. The last is broad on purpose: the generator takes ~15 s (measured),
+which is cheap beside the Rust jobs it runs next to, and a symbol deleted from
+the tree genuinely moves the table.
+
+---
+
+## 2026-08-31 — E-I-PINNED-THE-DEFECT-AS-THE-GUARD-WHILE-FIXING-A-REVIEW-COMMENT-1
+
+**Status:** FINDING — self-inflicted, caught by both reviewers on PR #1122,
+one PR after writing the rule it violates.
+**Confidence:** measured — `next_base_seq`, `lance-graph-planner`, disable-run
+red-then-green.
+
+PR #1120's review said `base_seq + i` could overflow. The fix added
+`next_base_seq`, saturating, with a doc comment stating that saturation
+prevents a wrapped coordinate from aliasing the durable log — and a test:
+
+```rust
+// The saturating guard: a wrapped coordinate would alias the start of
+// the durable log, the one outcome this precondition exists to stop.
+assert_eq!(next_base_seq(u64::MAX, 4), u64::MAX);
+```
+
+**That assertion pins the defect as the intended behaviour.** Saturation does
+not produce a free coordinate; it hands back one the reservation just minted.
+Replaying 4 steps from `u64::MAX - 3` mints through `u64::MAX`, the helper
+returns `u64::MAX`, and a caller following the documented sequential pattern
+replays a one-step chain there — legal, since the reservation only needs
+`steps - 1` addable — and emits a **duplicate `cast_seq`**. Exactly the
+duplicate the comment claimed to prevent. Measured, not argued: the new test
+replays both halves and asserts the two rows carry the same coordinate.
+
+**A guard that cannot say "no" is not a guard.** Same shape as
+`E-A-DETERMINISM-GATE-IS-TRIVIALLY-SATISFIED-BY-A-KERNEL-THAT-DOES-NOTHING-1`,
+written one PR earlier, in this same module. Saturation is the arithmetic form
+of a check that always passes: it makes the failure *unrepresentable in the
+return type*, so no caller can handle it and no test can catch it — the test I
+wrote asserted the collapsed value and went green. Fixed by making exhaustion
+representable (`Option<u64>`), after which `checked_add` IS the boundary and no
+separate exhaustion test is needed.
+
+**Two things worth keeping beyond the bug:**
+
+1. **A fix written for a review comment gets no discount.** This defect was
+   introduced *by* the remedy for a finding about the same field, and shipped
+   with a confident doc comment plus a test. The review context made it feel
+   already-scrutinised; nothing about it was.
+2. **Writing a rule does not install it.** The determinism-gate entry was three
+   commits old, in the same file, and I still reached for the arithmetic that
+   makes a guard vacuous. The disable-run is what catches this class — and I
+   did not run one on `next_base_seq`, because it was "just a helper".
+
+**Second finding, same PR, same shape at doc level:** the `validate_chain`
+doctrine says replay must not refuse history, then listed *"loading a
+recording"* as an admission site — which validates an old recording against
+today's palette and rejects exactly the history the argument protects. The
+argument was right and the instruction beneath it contradicted it. Corrected:
+admission = FIRST acceptance; a chain re-read from the durable log is already
+admitted and is replayed, never re-judged.
+
+---
+
 ## 2026-08-31 — E-TWO-REVIEWERS-FOUND-THE-SAME-THREE-DEFECTS-AND-ONE-OF-THEM-WAS-MINE-ALONE-1
 
 **Status:** FINDING — #1120's full review surface, read after merge.
