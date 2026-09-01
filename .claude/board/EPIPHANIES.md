@@ -1,3 +1,42 @@
+## 2026-09-01 — E-LITERATURE-HARVEST-POST-1132-TWO-PILLAR-CORRECTIONS-1
+
+**Status:** HARVEST (5-auditor literature sweep, adjudicated against shipped
+code; zero code changed). **Confidence:** the two corrections below are
+[G] by code read + local probe; the Pillar 11 green path is [G] as read by
+the auditor and awaits a main-thread re-read of the constant before the
+pillar flips.
+
+Full ledger: `.claude/knowledge/literature-harvest-2026-09-01-post-1132.md`
+(census of 45 results, nine detailed rows, MINT NOW = **empty**).
+
+1. **Pillar 5+ is correct; `pillar_5plus_bound` is not Pillar 5+.**
+   `jc/koestenberger.rs` builds a genuine inductive mean and is a lawful use
+   of Köstenberger-Stark Thm 1. `sigma_propagation::pillar_5plus_bound`
+   (`√(2/n)·√(1+2σ²n)`, σ=0.2, → 0.4) is the jc generator's empirical CV
+   curve — its own comment says "K-S-*style*" — applied to a congruence
+   orbit `MΣMᵀ`, which is an isometry, not a mean. `sigma_tension_u4` then
+   divides a squared affine-invariant distance by that dimensionless CV.
+   Eigen-aligned `M = diag(e^0.2, e^-0.2)` gives growth `0.32n²` and
+   saturates the u4 on every regular walk. Replacement, expressible today:
+   `|‖log Σ_n‖_F − ‖log Σ_0‖_F| ≤ 2·Σ‖log M_k‖_F` (probed, max ratio 0.567
+   on 2000 random paths; tight on the aligned arm).
+2. **Pillar 11's cited theorem is right and insufficient; the green path
+   is two sections later in the same paper.** Hambly-Lyons Thm 2/3 (§2.4)
+   give an explicit finite depth `⌈2.3959·L⌉` (d=2 lattice; `c(d)·L` in
+   general) at which the truncated signature separates non-tree-equivalent
+   unit-step walks. The Index regime therefore becomes *length-
+   parameterized*; the depth-2 forward leg is a necessary condition only —
+   the paper's own §1.6 figure-eight has `S¹=S²=0` and `S¹¹²=1` (probed).
+   Preconditions: `d ≥ 2` (a `u8:u8` rail read as one axis is d=1 and
+   collapses to the endpoint) and unit basis-aligned steps.
+
+Also strengthened in the safe direction: ACCUMULATE on L₁₆ is an MV-monoid
+(associative; 0/4096 violations; the caveat in `epistemic_bassin.rs` is too
+weak — the real defect is non-cancellative ratio distortion, which needs a
+saturation flag on Contested reads). Greedy INFO_GAIN admission carries a
+published Ω(n/log n) lower bound (Golovin-Krause-Ray Thm 9); EC² is the
+adaptive-submodular repair as a rung-local script.
+
 ## 2026-09-01 — E-THE-24-AXIS-BASIS-V3-EVERY-AXIS-IS-A-GROUNDED-PRESSURE-1
 
 **Status:** BUILT on the operator's "mach weiter" — the catalogue derived
