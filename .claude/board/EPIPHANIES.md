@@ -1,3 +1,58 @@
+## 2026-09-01 — E-THREE-BRANCHES-ONE-REGISTER-THE-AUDIT-AFTER-THE-COLLISION-1
+
+**Status:** RECONCILIATION AUDIT — #1125/#1126/#1127 merged while this
+branch's slices 1+2 were stranded; overlaps measured and corrected on rebase,
+convergences kept deliberately. **Confidence:** each line verified against
+main, not remembered.
+
+Three sessions worked the same register in parallel. What each landed:
+
+| PR | landed |
+|---|---|
+| #1125 (this branch, pre-strand) | the survey + its correction (node has a value; three readiness states; the 24×i4 answer) |
+| #1126 | the I4x32-vs-facet measurement — made and **REVERTED** (operator: disregard, the type is not substrate; durable residue: the V3 register is 12 bytes everywhere, facet lanes are classid(4)+12); plus the palette TSV lanes |
+| #1127 | the value-lane census (**G24N4 already ships** as `CausalWitnessFacet`'s loci reading of `ValueTenant::CausalWitness`; that lane is ruled OUT for W2b by its own loci-never-magnitude law + reserved slots `16..24`; 260/480 slab bytes free, append at 220) + `tests/w2b_one_node_field.rs` (5 disable-verified register-level falsifiers incl. the whale, codec borrowed, no lane minted) |
+| this branch, stranded → rebased | the DN dissolution + mechanical/epistemic split + one-hop law, with `basin_lanes::BasinLanes`, `accumulate_children`, `hhtl::{missing_ancestors, direct_children}` |
+
+**Collisions found and corrected (this commit):**
+
+1. **My "fourth carving / not in the shipped set / only signed one" claim was
+   FALSE**, and the census had already proven it false while my slices sat
+   stranded — `G24N4` ships, signed, as loci. `basin_lanes`' module doc, my
+   two unpushed board entries, and the plan's RULED table are corrected; the
+   type is re-positioned as what it actually is: **the MAGNITUDE register in
+   the shipped shape** — precisely the sibling the census concluded must
+   exist, because the shipped lane's law forbids magnitude on it.
+2. **The "which lane — dissolved" row conflated two axes.** The DN ruling
+   dissolves TREE-siting (no separate map store; the node at each prefix is
+   the row). The census constrains SLAB-siting (which tenant inside the
+   480-byte value), which is real, half-answered (not `CausalWitness`), and
+   the operator's mint. The plan row now says both.
+3. **The whale was pinned twice under two names** — register-level in
+   `w2b_one_node_field.rs` (borrowed codec) and carrier-level in
+   `basin_lanes`' tests. Kept BOTH, now cross-referenced in both directions,
+   so the prior-art trail is one thread instead of two.
+
+**Convergences, kept as evidence rather than deduped away:** the per-lane
+arithmetic (exact signed sum, one clamp) was arrived at INDEPENDENTLY by
+`w2b_one_node_field.rs`'s `summarise` and by `accumulate_children` — two
+sessions, no shared context, same shape. That is the strongest signal yet
+that the shape is right, and it is exactly what the one-hop ruling's
+"accumulated including disagreement" needs.
+
+**Residue flagged, not fixed here:** the i4 sign-extension now has THREE
+homes — `atoms::I4x32::sext4` (`pub(crate)`, reused by `basin_lanes`),
+`causal_witness`'s inline `((nibble << 4) as i8) >> 4`, and `I4x64`-via-
+`I4x32`. A dedup (point `causal_witness` at `sext4`) is a one-line
+tech-debt item, deliberately not bundled into a reconciliation commit.
+
+**Process fact worth keeping:** the stranding happened because a PR merged
+while its branch kept receiving pushes — same-branch continuation past a
+merge point. The commits were rebased onto main per the merged-PR rule
+(kept, not discarded), and this audit ran BEFORE re-pushing, so the
+corrections and the stranded work land together rather than the stale
+claims landing twice.
+
 ## 2026-09-01 — E-G24N4-ALREADY-SHIPS-AND-THAT-IS-WHY-W2B-CANNOT-USE-IT-1
 
 **Status:** FINDING — measured off `VALUE_TENANTS`, not read off prose.
@@ -128,10 +183,12 @@ is the zero-fallback ladder holding one level up.
 
 **Shipped against the ruling, both zero-dep, both in contract:**
 
-- `basin_lanes::BasinLanes` — the 24 × i4 reading of the node's own 12-byte
-  register (the fourth carving beside `G6D2`/`G4D3`/`G3D4`, the only signed
-  one; reuses `I4x32::sext4`, now `pub(crate)`, rather than a third copy of
-  the nibble codec). `SILENT` is the default and the zero register;
+- `basin_lanes::BasinLanes` — the 24 × i4 (`G24N4`-shape) MAGNITUDE register
+  over the node's own 12-byte register (reuses `I4x32::sext4`, now
+  `pub(crate)`, rather than another copy of the nibble codec). [Corrected
+  post-rebase against the #1127 census: G24N4 was NOT greenfield — it ships
+  as `CausalWitnessFacet`'s loci reading; what is new here is the magnitude
+  semantics that lane's law forbids. See the audit entry above.] `SILENT` is the default and the zero register;
   `is_silent()` is the checkable half of the mint rule. The whale case holds
   at the carrier level: a negative lane is RECORDED disagreement, countable,
   round-tripping, distinct from both silence and agreement — and nothing else
@@ -191,7 +248,10 @@ payload is 12 bytes = **24 nibbles**. Every shipped `CascadeShape` carves it at
 BYTE granularity (`G6D2` 6×2, `G4D3` 4×3, `G3D4` 3×4 — all `CASCADE_UNITS ==
 12`); a nibble-granular reading is not in the shipped set. Signed i4 in
 `[−8, 7]` is shipped carrier semantics (`atoms::I4x32::sext4`) at other widths
-only. So 24×i4 is a fourth reading of the same register, and the plan's
+only. So 24×i4 is a nibble-granular reading of the same register [post-rebase
+correction: not the FIRST such reading — the #1127 census measured that
+`G24N4` already ships as `CausalWitnessFacet`'s loci reading; the new thing
+is magnitude semantics, see the audit entry above], and the plan's
 recorded candidate `atoms::I4x32` was wrong — it matched the name (32 lanes,
 16 B) and nothing else.
 

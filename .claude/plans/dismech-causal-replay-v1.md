@@ -416,7 +416,7 @@ Three of the four "decisions" dissolve:
 
 | former decision | verdict |
 |---|---|
-| which value lane / tenant / column | **dissolved** — the node at each prefix IS the row; the 24×i4 is that row's value |
+| which value lane / tenant / column | **split, on reconciliation with the #1127 census**: the TREE-siting half is dissolved — the node at each prefix IS the row, no separate map store. The SLAB half (which `ValueTenant` inside the 480-byte value carries the magnitude register) is real and census-constrained: NOT `CausalWitness` (loci-never-magnitude law + reserved slots); append margin at slab 220, 260 B free; the mint is the operator's |
 | versioned or live | **dissolved** — rows are Lance-versioned because every row is |
 | sweep granularity | **dissolved** — a sweep is scoped by a prefix; field / classid / subtree is one mechanism at three depths |
 | does the sweep eliminate | settled by the three-kinds ruling itself: the sweep RECORDS; elimination is kind 2's threshold READING, always a separate act |

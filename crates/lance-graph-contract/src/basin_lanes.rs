@@ -7,10 +7,19 @@
 //! An HHTL position is a node, and the node's VALUE summarises the position's
 //! children so the node speaks for itself without a second read. The carrier
 //! is the register the node already owns — 12 bytes — read at NIBBLE
-//! granularity: 24 signed i4 lanes in `[−8, 7]`. Every shipped
-//! [`CascadeShape`](crate::facet::CascadeShape) carves the same register at
-//! BYTE granularity (6×2 / 4×3 / 3×4, all 12 units); this is the fourth,
-//! nibble-granular reading, and the only signed one.
+//! granularity: 24 signed i4 lanes in `[−8, 7]`, the **`G24N4`** shape.
+//!
+//! `G24N4` is NOT new here (the #1127 census corrected an earlier claim that
+//! it was): it already ships as
+//! [`causal_witness::CausalWitnessFacet`](crate::causal_witness::CausalWitnessFacet)'s
+//! reading of `ValueTenant::CausalWitness` — but THAT lane's value law is
+//! operator-locked to **loci, never strength/magnitude** (context pointers
+//! into the ±8 Markov window), and its slots `16..24` are reserved. A W2b
+//! child-summary is exactly the magnitude case that law forbids there. This
+//! type is therefore the MAGNITUDE register in the same shape — the sibling
+//! the census concluded must exist ("W2b needs its own lane") — and which
+//! `ValueTenant` it occupies is the operator's mint (census: append margin at
+//! slab offset 220, 260 bytes free), not decided here.
 //!
 //! # The sign IS the semantics
 //!
