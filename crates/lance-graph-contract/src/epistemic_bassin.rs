@@ -509,9 +509,24 @@ mod tests {
             "degenerate bound fails loud"
         );
         assert_eq!(sigma_tension_u4(0.0, 0.0), 0);
+        // The bound must actually DIVIDE — proven at bounds where skipping
+        // the division changes the answer (a first disable-run passed
+        // because every arm above uses bound = 1.0, where g/bound == g, and
+        // the real-bound arm at n=4 coincidentally rounded to the same
+        // quarter).
+        assert_eq!(sigma_tension_u4(2.0, 2.0), 4, "at a 2.0 certificate, not 8");
+        assert_eq!(
+            sigma_tension_u4(0.5, 2.0),
+            1,
+            "a quarter of a 2.0 bound, not 2"
+        );
         // grounded against the REAL shipped certificate, not a made-up bound
-        let b = crate::sigma_propagation::pillar_5plus_bound(4);
-        assert!(b > 0.0);
-        assert_eq!(sigma_tension_u4(b, b), 4);
+        let b = crate::sigma_propagation::pillar_5plus_bound(100);
+        assert!(b > 0.0 && b < 0.5, "n=100 gives a decisively sub-1.0 bound");
+        assert_eq!(
+            sigma_tension_u4(b, b),
+            4,
+            "at the certificate regardless of its size"
+        );
     }
 }
