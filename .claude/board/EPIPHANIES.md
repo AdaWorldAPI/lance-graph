@@ -1,3 +1,139 @@
+## 2026-09-01 — E-THREE-KINDS-OF-MENGENLEHRE-AND-W2-SHIPPED-THE-NARROWEST-1
+
+**Status:** OPERATOR RULING — model correction, landed before the wave built on
+it. **Confidence:** ruled, with the code re-scoped in the same PR.
+
+*"Fox mammal wombat whale should not simply eliminate."*
+
+A whale disagreeing with the typical mammal features is **information about the
+field**, not grounds to remove the whale from the mammals. Set difference
+applied to that disagreement destroys the very structure that makes the map
+worth having. Three kinds, logically distinct, in this order:
+
+| # | kind | status |
+|---|---|---|
+| 1 | **propagation / the field map** — propagate precision about a knowledge stage over the WHOLE field. Agreement, disagreement, support chains and MISSING LINKS filled into the HHTL nodes; the boring rails (`is_a`/`part_of`) lifted into a causality graph with propagated node edges. **This is what explains Mengenlehre.** | UNBUILT, `D-DCR-2b` |
+| 2 | **threshold elimination** — a READING of that map at a measured threshold (Shannon proprioception, EWA sandwich, Hambly, Lyons) | belongs with W4's Σ machinery |
+| 3 | **question masking** — ONE case, patient, question; logically distinct from any generalization | SHIPPED as W2 |
+
+**W2 was not wrong; its CLAIM was too wide.** `∩`/`∖` over a candidate set is a
+correct kind-3 mask. It was documented as "Mengenlehre candidate evaluation",
+which annexes kinds 1 and 2 by implication — and the next wave building on that
+label would have taken elimination for the substrate's primary operation. The
+module is re-scoped in place; the algebra is untouched.
+
+**The generalizable failure the label would have caused:** a narrow correct
+thing named for the wide thing it is part of. Nothing fails, no test goes red,
+and every later reader inherits the wider claim — the same shape as a doc
+comment asserting behaviour no test exercises, one level up at the level of
+what a module is FOR.
+
+**And the question must be part of the reasoning.** *"Our logical reasoning
+should be aware of the question it is asking and the substrate should be
+precise about the answers."* Hence W3's verdict carries the cut edge's own
+`CausalTopology` (bits 59-60) and `ReasoningBand` (61-63) rather than
+collapsing to a bool: **"explains" and "relates to" are different answers**, and
+a boolean has reported the polarity while discarding the answer. Tarski, in the
+substrate's own vocabulary — what a relation ASSERTS, not merely that it holds.
+
+**Left OPEN, not guessed:** the operator's *"24×i4 flavours"*. Two in-tree
+readings fit and neither is confirmed — `contract::atoms::I4x32` is **32**
+signed-i4 lanes (name matches), while the V3 content-blind facet's 12-byte
+payload is exactly **24** nibbles (count matches). Recorded as a question.
+
+---
+
+## 2026-09-01 — E-THE-THRESHOLD-AXIS-WAS-SATURATED-AND-THE-GATE-WOULD-HAVE-BEEN-VACUOUS-1
+
+**Status:** FINDING — measured while building W3, before the gate was written.
+**Confidence:** measured — `dismech_counterfactual`, probe over three chain
+shapes, disable-verified.
+
+W3's verdict was drafted as a **confidence** threshold: replay a chain, read
+its terminal `confidence_u8()` against a bar. It reads naturally — "how
+confident are we that this chain holds".
+
+Measured across a weak 3-chain, a strong 4-chain and a mixed one, the terminal
+confidence was **170 in every single case**. Frequency separated them cleanly
+(78 / 247 / 93). `NarsTables::revise` drives confidence to a fixed point,
+because confidence is the EVIDENCE-ACCUMULATION term — more steps means more
+evidence regardless of what the evidence says.
+
+So a confidence-based verdict is a **vacuous threshold**: every chain on the
+same side of every bar. Not a gate that is merely weak — one that *cannot fire
+and cannot stay silent*, discriminating nothing while looking rigorous. It
+would have passed the two-sided load-bearing/redundant gates only by accident
+of fixture choice, and the module would have shipped measuring nothing.
+
+Frequency is also the semantically right axis: "is this chain consistent?" asks
+how strongly the composed relation holds, not how much evidence has piled up.
+**Confidence saturating is the substrate working as designed; reading a verdict
+off it was the error.**
+
+Caught by measuring the fixture rather than assuming it — the load-bearing gate
+failed on first run, and the instinct to adjust the fixture until it passed is
+exactly what would have buried this. The probe that found the straddle
+(frequency 133 factual / 120 cut, bar 128) swept weak/strong pairs and chain
+lengths; **most combinations do not straddle at all**, which is why the fixture
+is pinned to measured numbers.
+
+`the_bar_is_not_inert` now pins both directions (raising silences, lowering
+admits) AND pins `confidence == 170` on the same trace, so nobody moves the
+verdict back onto the saturated axis. This is the inertness test the repo's
+falsifiability rule already demands of a threshold parameter — met here by a
+constant that had no business being trusted.
+
+---
+
+## 2026-09-01 — E-ONLY-TWO-OF-FOUR-STANCES-MAY-CUT-A-CANDIDATE-SET-1 — W2's real decision
+
+**Status:** FINDING — design ruling made while building D-DCR-2, with the
+alternative measured rather than argued away.
+**Confidence:** measured — `dismech_candidates`, four disable-runs.
+
+W2's spec says "support intersects, refuting evidence subtracts". `Supports`
+has **four** values, and the spec names two. What the other two do is the
+whole design, and the attractive answer is wrong:
+
+| stance | set effect | why |
+|---|---|---|
+| `Support` | `∩` | the source asserts the relation holds |
+| `Refute` | `∖` | the source asserts it does not |
+| `Partial` | **none** | weaker than support in the source's OWN vocabulary. Intersecting on it eliminates every candidate outside a partially-supported item — full-strength elimination bought with partial evidence |
+| `NoEvidence` | **none** | the source asserts it HAS no evidence. An absence of evidence is not a licence to cut |
+
+**Elimination is irreversible within a run.** A candidate removed is never
+reconsidered, so the bar for removing one is that the source actually asserted
+something. Treating `Partial` as `∩` would look like progress — the set shrinks
+faster, the evaluation "converges" — and would be exactly the overconfidence
+the corpus's own restraint class exists to mark. Measured: on a 256-candidate
+universe, one `Partial` item naming 64 chains cuts the set to 64 if you let it,
+against a source that never claimed that much.
+
+Same instinct as `dismech_evidence`'s fail-closed parsing one layer down —
+`UNKNOWN` is a value the corpus ASSERTS, so it may never be minted from a parse
+failure. Here: `NoEvidence` is an assertion of absence, and an assertion of
+absence must not narrow anything.
+
+**The inert stances are REPORTED, not dropped.** `Evaluation::decisive` counts
+what could move the set at all, so "the set did not move" and "nothing decisive
+arrived" stay distinguishable. A pipeline that silently discarded them would
+show an unchanged set and no reason for it.
+
+**And `narrowing` is a third number, not a synonym for `decisive`.** A decisive
+item can still be redundant — it names a superset of what already survives — so
+`narrowing <= decisive` strictly. That gap IS the frontier signal W5 needs (an
+item that changes nothing taught nothing), which is why it is measured here
+rather than re-derived by a later scheduler. It is deliberately NOT
+order-independent while the surviving set is; both halves are pinned, because
+the second is the one a reader would assume away.
+
+Disable table, all red-then-green: `Support` → identity (4 gates fall);
+`Refute` → `∩` (3); `Partial`/`NoEvidence` → decisive (1, the pairing gate);
+`narrowing` counts stance instead of movement (3).
+
+---
+
 ## 2026-08-31 — E-A-REVIEW-REMEDY-HAS-A-SHELF-LIFE-1 — the same edit was correct in one PR and a violation in the next
 
 **Status:** FINDING — caught by CodeRabbit on PR #1123, one PR after it raised
