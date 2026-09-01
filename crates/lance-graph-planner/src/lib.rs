@@ -97,6 +97,7 @@ pub mod temporal;
 /// Composes the shipped step kernel + `temporal.rs` trace; adds no carrier.
 /// Plan: `.claude/plans/dismech-causal-replay-v1.md` §3 W1.
 pub mod dismech_candidates;
+pub mod dismech_counterfactual;
 pub mod dismech_replay;
 
 // === Canonical OrchestrationBridge impl (dedup per contract) ===

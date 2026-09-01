@@ -168,6 +168,50 @@ two-sided discrimination (a discriminating evidence item must split the
 set; a redundant one must NOT shrink it further); the refute path has
 its own can-fire + stay-silent pair.
 
+> **⊘ OPERATOR RULING (2026-09-01) — there are THREE kinds of Mengenlehre,
+> and W2 shipped only the third.** Verbatim shape of the correction: *"fox
+> mammal wombat whale should not simply eliminate."*
+>
+> A whale disagreeing with the typical mammal features is **information about
+> the field**, not grounds to remove the whale from the mammals. Set
+> difference applied to that disagreement destroys exactly the structure that
+> makes the map worth having.
+>
+> | # | kind | what it does | status |
+> |---|---|---|---|
+> | 1 | **propagation / the field map** | propagate precision about a knowledge stage over the WHOLE field. Global. Produces the map of mammal-agreement vs whale and wombat: agreement, disagreement, support chains, and MISSING LINKS, filled into the HHTL nodes. Maps evidence out of the boring rails (`is_a` / `part_of` taxonomy) into a non-boring causality graph with propagated node edges. **This is what explains Mengenlehre.** | **UNBUILT** — `D-DCR-2b` |
+> | 2 | **threshold elimination** | elimination as a READING of that map at a measured threshold, on a mathematical scale — Shannon proprioception, EWA sandwich, Hambly, Lyons | belongs with W4's Σ / entropy machinery, not with the set algebra |
+> | 3 | **question masking** | scope to ONE case / patient / question. **Logically distinct from any generalization** | **SHIPPED as W2 / `dismech_candidates`** |
+>
+> **W2 is not wrong; its CLAIM was too wide.** `∩`/`∖` over a candidate set is
+> a correct kind-3 mask and nothing else. It was documented as "Mengenlehre
+> candidate evaluation", which annexes kinds 1 and 2 by implication — and a
+> later wave building on that label would have taken elimination for the
+> substrate's primary operation. The module is re-scoped in place; the algebra
+> is unchanged.
+>
+> **Kind 1 is the substrate's real product and is the bigger wave.** It does
+> not narrow a set at all: it writes agreement/disagreement/support/missing-link
+> structure onto the field, and only THEN can kind 2 read a threshold off it
+> or kind 3 mask it to one question. Ordering the three that way is the ruling.
+>
+> **The question must be part of the reasoning.** *"Our logical reasoning
+> should be aware of the question it is asking and the substrate should be
+> precise about the answers"* — which is why the relation's flavour is carried
+> rather than flattened: Tarski (what a relation ASSERTS, not merely that it
+> holds), `CausalEdge64` bits **59-60** (the same two bits read as
+> `TrustTexture` or as `CausalTopology`) and **61-63** (`ReasoningBand`), and
+> the precision between **"explains"** and **"relates to"**. A verdict that
+> collapses those into a boolean has thrown away the answer's precision to
+> report its polarity.
+>
+> **One term left OPEN rather than guessed:** the operator's *"24×i4
+> flavours"*. Two readings exist in-tree and this plan does not pick one
+> without a ruling — `contract::atoms::I4x32` is **32** signed-i4 lanes in 16
+> bytes (33 atoms allocated over it), while the V3 content-blind facet's
+> 12-byte payload is exactly **24** nibbles. The second matches the count; the
+> first matches the name. Recorded as a question, not resolved by inference.
+
 ### W3 — counterfactual replay (Pearl rung 3) — `D-DCR-3`
 
 The SAME W1 replay with one edge cut, through `contract::counterfactual`

@@ -1,7 +1,32 @@
-//! **D-DCR-2 (W2) — Mengenlehre candidate evaluation.** `dismech-causal-replay-v1` §3 W2.
+//! **D-DCR-2 (W2) — question-scoped candidate masking.** `dismech-causal-replay-v1` §3 W2.
+//!
+//! # This is ONE of three kinds of Mengenlehre — the third (operator, 2026-09-01)
+//!
+//! *"Fox mammal wombat whale should not simply eliminate."* A whale disagreeing
+//! with the typical mammal features is **information about the field**, not
+//! grounds to remove the whale from the mammals. So set difference is NOT the
+//! substrate's primary operation, and this module deliberately claims only the
+//! narrowest of the three roles:
+//!
+//! | # | kind | this module |
+//! |---|---|---|
+//! | 1 | **propagation / the field map** — propagate precision about a knowledge stage over the WHOLE field; agreement, disagreement, support chains and MISSING LINKS written into the HHTL nodes; the boring rails (`is_a`/`part_of`) lifted into a causality graph with propagated node edges. **This is what explains Mengenlehre.** | **NO** — unbuilt, `D-DCR-2b` |
+//! | 2 | **threshold elimination** — a READING of that map at a measured threshold (Shannon proprioception, EWA sandwich, Hambly, Lyons) | **NO** — belongs with W4's Σ / entropy machinery |
+//! | 3 | **question masking** — scope to ONE case, patient, question; logically distinct from any generalization | **YES — this module, and only this** |
+//!
+//! The ordering is the ruling: kind 1 writes the field, kind 2 reads a
+//! threshold off it, kind 3 masks it to one question. A mask is the LAST step,
+//! never the substrate.
+//!
+//! **What that forbids here, concretely.** Nothing in this module may be used
+//! to conclude anything general. A candidate absent from the surviving set is
+//! absent *for this question*; it has not been refuted, demoted, or learned
+//! about. The masking is scoped, reversible by asking a different question,
+//! and writes nothing back.
 //!
 //! Differential evaluation as SET ARITHMETIC over the recorded chains: which
-//! recorded trajectories are still consistent with the evidence seen so far.
+//! recorded trajectories are still consistent with the evidence seen so far,
+//! **for the question being asked**.
 //! Supporting evidence intersects, refuting evidence subtracts. The carrier is
 //! the shipped [`EvidenceMask`], so a candidate set is a bitmask over chain
 //! ids and every operation is a word-wise AND / AND-NOT — no allocation, no
