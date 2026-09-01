@@ -1,3 +1,52 @@
+## 2026-09-01 — E-ONLY-TWO-OF-FOUR-STANCES-MAY-CUT-A-CANDIDATE-SET-1 — W2's real decision
+
+**Status:** FINDING — design ruling made while building D-DCR-2, with the
+alternative measured rather than argued away.
+**Confidence:** measured — `dismech_candidates`, four disable-runs.
+
+W2's spec says "support intersects, refuting evidence subtracts". `Supports`
+has **four** values, and the spec names two. What the other two do is the
+whole design, and the attractive answer is wrong:
+
+| stance | set effect | why |
+|---|---|---|
+| `Support` | `∩` | the source asserts the relation holds |
+| `Refute` | `∖` | the source asserts it does not |
+| `Partial` | **none** | weaker than support in the source's OWN vocabulary. Intersecting on it eliminates every candidate outside a partially-supported item — full-strength elimination bought with partial evidence |
+| `NoEvidence` | **none** | the source asserts it HAS no evidence. An absence of evidence is not a licence to cut |
+
+**Elimination is irreversible within a run.** A candidate removed is never
+reconsidered, so the bar for removing one is that the source actually asserted
+something. Treating `Partial` as `∩` would look like progress — the set shrinks
+faster, the evaluation "converges" — and would be exactly the overconfidence
+the corpus's own restraint class exists to mark. Measured: on a 256-candidate
+universe, one `Partial` item naming 64 chains cuts the set to 64 if you let it,
+against a source that never claimed that much.
+
+Same instinct as `dismech_evidence`'s fail-closed parsing one layer down —
+`UNKNOWN` is a value the corpus ASSERTS, so it may never be minted from a parse
+failure. Here: `NoEvidence` is an assertion of absence, and an assertion of
+absence must not narrow anything.
+
+**The inert stances are REPORTED, not dropped.** `Evaluation::decisive` counts
+what could move the set at all, so "the set did not move" and "nothing decisive
+arrived" stay distinguishable. A pipeline that silently discarded them would
+show an unchanged set and no reason for it.
+
+**And `narrowing` is a third number, not a synonym for `decisive`.** A decisive
+item can still be redundant — it names a superset of what already survives — so
+`narrowing <= decisive` strictly. That gap IS the frontier signal W5 needs (an
+item that changes nothing taught nothing), which is why it is measured here
+rather than re-derived by a later scheduler. It is deliberately NOT
+order-independent while the surviving set is; both halves are pinned, because
+the second is the one a reader would assume away.
+
+Disable table, all red-then-green: `Support` → identity (4 gates fall);
+`Refute` → `∩` (3); `Partial`/`NoEvidence` → decisive (1, the pairing gate);
+`narrowing` counts stance instead of movement (3).
+
+---
+
 ## 2026-08-31 — E-A-REVIEW-REMEDY-HAS-A-SHELF-LIFE-1 — the same edit was correct in one PR and a violation in the next
 
 **Status:** FINDING — caught by CodeRabbit on PR #1123, one PR after it raised
