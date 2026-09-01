@@ -212,6 +212,65 @@ its own can-fire + stay-silent pair.
 > 12-byte payload is exactly **24** nibbles. The second matches the count; the
 > first matches the name. Recorded as a question, not resolved by inference.
 
+### W2b — the field map — `D-DCR-2b` — **PROPOSAL, awaiting operator scope**
+
+Kind 1 of the ruling above: *propagate precision about a knowledge stage over
+the WHOLE field*. **Not built, and not started without a scope ruling** — it is
+larger than W1-W3 and it touches HHTL. What follows is a grounded survey, not
+a design: every "exists" line was read in the tree.
+
+#### It is NOT greenfield — three of the four pieces already ship
+
+| piece | where | what it already does |
+|---|---|---|
+| one-hop propagation | `lance-graph-planner/src/adjacency/propagate.rs` | `adjacent_truth_propagate`: `truth_out[t] = semiring.multiply(truth_in[s], edge_truth)`, merging at fan-in with `semiring.add`. The propagation KERNEL exists |
+| where an HHTL position lives | `contract::episodic_basin` | ruled: the cascade position is in the node's own KEY (`HEEL`/`HIP`/`TWIG`, bytes 4..10), **never** a second copy in the value slab |
+| the rails as nodes | `contract::episodic_basin` | for ONTOLOGIES the `part_of:is_a` rails are *already hydrated nodes*, so the anchor a basin attaches to exists before the basin does. (For books the tree must be spawned first — a stated precondition, not a field) |
+| the relation's flavour | `CausalEdge64` bits 59-60 / 61-63 | `CausalTopology` and `ReasoningBand`, already read by W3's `EdgeRole` |
+
+So the lift from the boring rails into a causality graph has its source
+hydrated, its kernel written, and its address ruled.
+
+#### What kind 1 needs BEYOND that — the actual gap
+
+`adjacent_truth_propagate` pushes **one truth, one hop**. The ruling asks for a
+**field-level product**: per node, the *agreement / disagreement / support
+chains / missing links* against its neighbourhood — the mammal-agreement vs
+whale-and-wombat map. Three things are genuinely absent:
+
+1. **A disagreement quantity that is not an elimination.** Today a
+   disagreeing neighbour has nowhere to be recorded except by being removed.
+   Kind 1 needs disagreement stored *as a value on the node*.
+2. **A missing-link representation.** "The rail says these should relate and no
+   evidence does" is the highest-value cell in the map and currently has no
+   carrier at all.
+3. **Convergence semantics for a GLOBAL sweep.** One hop is a function; a field
+   map is a fixpoint. Whether it is bounded-iteration, to-convergence, or
+   single-sweep-per-version is a substrate decision with real cost.
+
+#### The decisions this wave cannot make for itself
+
+- **Where the map is WRITTEN.** A node's value slab? A tenant lane? A Lance
+  column? `episodic_basin`'s ruling forbids the obvious wrong answer (a second
+  address copy) but does not name the right one.
+- **Is the map versioned or live?** `temporal.rs`'s sorted stream and Lance
+  versions make "the map at version v" expressible; a live mutable map does not
+  fit the zero-copy envelope story.
+- **Sweep granularity** — whole field, one classid, one HHTL subtree.
+- **Whether kind 2 reads it or the sweep applies it.** The ruling puts the
+  threshold in kind 2, which argues the sweep never eliminates and elimination
+  is always a separate read.
+
+#### Falsifiers this wave would owe
+
+- The whale case, two-sided: a whale that disagrees with the mammal
+  neighbourhood must be RECORDED as disagreeing and must still be a mammal
+  afterwards. A sweep that removes it fails.
+- A missing link must be distinguishable from a refuted one — silence and
+  denial are different cells, and collapsing them is the same class of error
+  as `NoEvidence` narrowing a set.
+- Propagation must be idempotent at the fixpoint, or "the map" is not a value.
+
 ### W3 — counterfactual replay (Pearl rung 3) — `D-DCR-3`
 
 The SAME W1 replay with one edge cut, through `contract::counterfactual`
