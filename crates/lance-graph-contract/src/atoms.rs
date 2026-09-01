@@ -69,6 +69,22 @@
 /// Composition, affinity, and any vectorized sweep are **not** implemented here — they
 /// dispatch through `cognitive-shader-driver` (which owns the ndarray i4-32 SIMD). This
 /// type only packs/unpacks the lanes.
+///
+/// # Width: this is a WHOLE-FACET carrier, not a facet PAYLOAD carrier
+///
+/// `I4x32` is 16 B and so is [`crate::facet::FacetCascade`] — but a facet is
+/// `facet_classid(4) | 12 B payload`, and the V3 content-blind payload is
+/// **24 nibbles**, not 32. Measured per-lane (`examples/i4x32_width_probe.rs`):
+/// lanes 0–7 occupy bytes 0–3, which are exactly the `facet_classid` bytes.
+/// There is no offset separating them, so **an `I4x32` written over a facet
+/// overwrites the address it is stored under**.
+///
+/// The atom vector was never meant to be a facet payload. Its home is a
+/// **value-tenant lane** (cf. the `32 × 4-bit turbovec lanes` reading in
+/// `perturbation-sim`), and the 33 locked atoms live in [`I4x64`] per the
+/// "RESOLVED — 32-vs-33" note above. A 24-lane payload carrier is excluded on
+/// its own terms: 33 atoms do not fit 24 lanes. Board:
+/// `E-I4X32-IS-A-WHOLE-FACET-CARRIER-NOT-A-PAYLOAD-CARRIER-1`.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 #[repr(C, align(16))]
 pub struct I4x32 {
