@@ -369,11 +369,11 @@ mod active {
     //   * d ≥ 2 — in d = 1 the reduced-path group is Z (net increment only,
     //     every closed path is tree-like), so the quotient carries nothing.
     /// `e · ln(1 + √2)` — Theorem 2's constant, computed rather than retyped.
-    fn hl_theorem2_constant() -> f64 {
+    pub(super) fn hl_theorem2_constant() -> f64 {
         std::f64::consts::E * (1.0 + 2f64.sqrt()).ln()
     }
     /// The depth Theorem 2 needs for a word of length `l` (floor, as stated).
-    fn hl_theorem2_depth(l: usize) -> usize {
+    pub(super) fn hl_theorem2_depth(l: usize) -> usize {
         (hl_theorem2_constant() * l as f64).floor() as usize
     }
     /// Longest word the exhaustive theorem arm enumerates. Depth ⌊c·5⌋ = 11
@@ -386,9 +386,9 @@ mod active {
     /// Exactness tolerance: signatures of lattice words are rationals with
     /// k! denominators; f64 products of a handful of exponentials round at
     /// ~1e-15, and a genuinely nonzero coefficient is ≥ 1/k! ≥ 1/19!.
-    const LATTICE_EPS: f64 = 1e-12;
+    pub(super) const LATTICE_EPS: f64 = 1e-12;
 
-    /// Letters a, b, a⁻¹, b⁻¹ as 0..4; inverse is `(l + 2) % 4`.
+    /// Letters a, b, a⁻¹, b⁻¹ as 0..4; inverse is `(l + 2) % 4`. Unit step of a letter.
     fn letter_step(l: u8) -> [f64; 2] {
         match l {
             0 => [1.0, 0.0],
@@ -397,6 +397,7 @@ mod active {
             _ => [0.0, -1.0],
         }
     }
+    /// The lattice path of a word: unit steps from the origin, one per letter.
     fn lattice_path(word: &[u8]) -> Vec<Vec<f64>> {
         let mut p = vec![vec![0.0, 0.0]];
         for &l in word {
@@ -406,10 +407,12 @@ mod active {
         }
         p
     }
-    fn is_reduced(word: &[u8]) -> bool {
+    /// Freely reduced: no adjacent `x x⁻¹`.
+    pub(super) fn is_reduced(word: &[u8]) -> bool {
         word.windows(2).all(|w| (w[0] + 2) % 4 != w[1])
     }
-    fn distance_from_identity(word: &[u8], depth: usize) -> f64 {
+    /// `‖S^(depth)(word) − 1‖_F` via `sigker::signature_truncated`.
+    pub(super) fn distance_from_identity(word: &[u8], depth: usize) -> f64 {
         let s = signature_truncated(&lattice_path(word), depth);
         signature_distance(&s, &Signature::identity(2, depth))
     }
@@ -726,6 +729,42 @@ pub fn prove() -> PillarResult {
 #[cfg(all(test, feature = "hambly-lyons"))]
 mod tests {
     use super::*;
+
+    // ── W6 lattice helpers, tested directly (not only through prove()) ──────
+
+    #[test]
+    fn theorem2_depth_is_the_paper_floor() {
+        // ⌊e·ln(1+√2)·L⌋, math/0507536v2 Theorem 2, L = 1..16
+        let expect = [
+            2usize, 4, 7, 9, 11, 14, 16, 19, 21, 23, 26, 28, 31, 33, 35, 38,
+        ];
+        for (i, &e) in expect.iter().enumerate() {
+            assert_eq!(active::hl_theorem2_depth(i + 1), e, "L={}", i + 1);
+        }
+        assert!((active::hl_theorem2_constant() - 2.3958).abs() < 1e-3);
+    }
+
+    #[test]
+    fn is_reduced_rejects_exactly_adjacent_inverse_pairs() {
+        assert!(active::is_reduced(&[0, 1, 2, 3]));
+        assert!(!active::is_reduced(&[0, 2]));
+        assert!(!active::is_reduced(&[1, 0, 2, 3]));
+        assert!(active::is_reduced(&[0, 0, 0]));
+        assert!(active::is_reduced(&[]));
+    }
+
+    #[test]
+    fn the_figure_of_eight_is_a_depth_2_false_merge_separated_at_depth_3() {
+        // a b a⁻¹ b⁻¹ · b⁻¹ a⁻¹ b a — the paper's §1.6 counterexample
+        let w = [0u8, 1, 2, 3, 3, 2, 1, 0];
+        assert!(active::is_reduced(&w));
+        assert!(active::distance_from_identity(&w, 2) < active::LATTICE_EPS);
+        assert!(active::distance_from_identity(&w, 3) > 0.1);
+        // and the genuine out-and-back is the identity at every depth
+        for depth in 1..=6 {
+            assert!(active::distance_from_identity(&[0, 2], depth) < active::LATTICE_EPS);
+        }
+    }
 
     #[test]
     fn pillar_passes() {
