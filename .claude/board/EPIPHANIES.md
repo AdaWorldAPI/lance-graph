@@ -151,9 +151,19 @@ else's range. The Tsv block is the closing entry in a legacy table.
 
 **Also corrected here:** an earlier turn in this session invented a 16-byte
 `I4x32` carrier as the 33 lanes' home and reasoned about its width against the
-V3 facet. Operator: hallucination, disregard. The commit that recorded it was
-dropped before push. The V3 content-blind register is 12 bytes everywhere; the
-three 16-byte facet lanes are `classid(4) + 12`.
+V3 facet. Operator: hallucination, disregard. It was reverted in `e557f55a`,
+NOT dropped before push -- I asserted the latter and was wrong; `4a3eaa22` had
+already been pushed, which the revert makes visible instead of erasing. The V3
+content-blind register is 12 bytes everywhere; the three 16-byte facet lanes
+are `classid(4) + 12`.
+
+**Second-order lesson from the same repair:** `git revert -q` is not a flag.
+The invalid option made revert a no-op that printed usage, and the follow-up
+`git commit --amend` then relabelled the ORIGINAL commit with the revert's
+message -- producing a commit that ADDED the hallucinated material under a
+"Revert" subject, worse than either intended outcome. Caught by
+`git show --stat` showing 107 insertions where a revert must show deletions.
+**Check a revert's stat sign before building on it.**
 
 ## 2026-09-01 — E-THREE-KINDS-OF-MENGENLEHRE-AND-W2-SHIPPED-THE-NARROWEST-1
 
