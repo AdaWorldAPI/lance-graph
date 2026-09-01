@@ -503,6 +503,77 @@ impl NiblePath {
     }
 }
 
+/// The **mechanical-hydration address list** (`D-DCR-2b`, operator-ruled
+/// 2026-09-01): every strict ancestor DN implied by `occupied` that is not
+/// itself occupied — the positions that are *implicit in the hierarchy but
+/// not hydrated* (readiness state c; for a book, `occupied` is the TOC's
+/// leaf paths and this is the skeleton to spawn).
+///
+/// Deliberately returns **addresses only**. Mechanical hydration mints
+/// structure from the hierarchy; the epistemic value of every minted row is
+/// [`BasinLanes::SILENT`](crate::basin_lanes::BasinLanes::SILENT) — this
+/// function's signature cannot carry a lane value, which is the type-level
+/// half of the mechanical-vs-epistemic split (a mint that writes knowledge
+/// is structure impersonating knowledge).
+///
+/// Order is deterministic: shallow → deep, then by packed path — parents
+/// always precede children, so minting in returned order never creates a
+/// child before its parent exists.
+///
+/// [`NiblePath::EMPTY`] entries in `occupied` are ignored (no route ⇒ no
+/// implied ancestors), and `EMPTY` is never yielded — depth-0 is "not yet
+/// routed", not a mintable position.
+/// The DIRECT children of `parent` among `occupied` — exactly depth+1
+/// descendants, **never grandchildren** (operator-ruled 2026-09-01: a
+/// parent's register expresses its children accumulated, one hop only;
+/// deeper positions reach it only through their own parents' registers).
+///
+/// The one-hop rule made selectable: any accumulator fed by this function is
+/// structurally unable to reach past the children, so locality is enforced
+/// at the selection, not policed in the arithmetic.
+///
+/// `parent == EMPTY` selects nothing — "no route" has no children (basins
+/// are entered via [`NiblePath::root`], not as children of EMPTY). No
+/// explicit guard: [`NiblePath::is_ancestor_of`] already makes EMPTY an
+/// ancestor of nothing, and a guard on top of it proved undisableable — the
+/// test below pins the SEMANTICS through this API, wherever they live.
+#[must_use]
+pub fn direct_children(parent: NiblePath, occupied: &[NiblePath]) -> Vec<NiblePath> {
+    let mut out: Vec<NiblePath> = occupied
+        .iter()
+        .copied()
+        .filter(|c| c.depth() == parent.depth() + 1 && parent.is_ancestor_of(*c))
+        .collect();
+    out.sort_by_key(|p| {
+        let (path, depth) = p.packed();
+        (depth, path)
+    });
+    out.dedup();
+    out
+}
+
+#[must_use]
+pub fn missing_ancestors(occupied: &[NiblePath]) -> Vec<NiblePath> {
+    let mut out: Vec<NiblePath> = Vec::new();
+    for &p in occupied {
+        let mut cur = p;
+        while let Some(parent) = cur.parent() {
+            if parent.depth() == 0 {
+                break; // EMPTY — not a position
+            }
+            if !occupied.contains(&parent) && !out.contains(&parent) {
+                out.push(parent);
+            }
+            cur = parent;
+        }
+    }
+    out.sort_by_key(|p| {
+        let (path, depth) = p.packed();
+        (depth, path)
+    });
+    out
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -1036,5 +1107,112 @@ mod tests {
         let routing4 = full.prefix(4).unwrap();
         assert_eq!(routing4.packed(), (0xABCDu64, 4));
         assert_eq!(routing4.basin(), Some(0xA));
+    }
+
+    // ---- missing_ancestors: the mechanical-hydration address list ----
+
+    #[test]
+    fn missing_ancestors_yields_the_full_skeleton_for_a_lone_deep_leaf() {
+        // A book: one TOC leaf routed 4 deep, nothing else hydrated.
+        let leaf = NiblePath::root(2).child(3).child(1).child(7);
+        let got = missing_ancestors(&[leaf]);
+        assert_eq!(
+            got,
+            vec![
+                NiblePath::root(2),
+                NiblePath::root(2).child(3),
+                NiblePath::root(2).child(3).child(1),
+            ],
+            "all three strict ancestors, shallow→deep so parents mint first"
+        );
+    }
+
+    #[test]
+    fn missing_ancestors_is_silent_on_a_fully_hydrated_chain() {
+        // An ontology: parent/child preserved, every prefix occupied.
+        let occupied = [
+            NiblePath::root(2),
+            NiblePath::root(2).child(3),
+            NiblePath::root(2).child(3).child(1),
+        ];
+        assert!(
+            missing_ancestors(&occupied).is_empty(),
+            "state (b): nothing implicit, nothing to mint"
+        );
+    }
+
+    #[test]
+    fn missing_ancestors_dedups_shared_ancestry_across_siblings() {
+        // Two siblings imply the SAME two ancestors — each minted once.
+        let a = NiblePath::root(1).child(4).child(0);
+        let b = NiblePath::root(1).child(4).child(9);
+        let got = missing_ancestors(&[a, b]);
+        assert_eq!(got, vec![NiblePath::root(1), NiblePath::root(1).child(4)]);
+    }
+
+    #[test]
+    fn missing_ancestors_ignores_empty_and_never_yields_it() {
+        // EMPTY is "no route", not a position: contributes nothing, appears
+        // never — depth-0 is not mintable.
+        let leaf = NiblePath::root(5).child(5);
+        let got = missing_ancestors(&[NiblePath::EMPTY, leaf]);
+        assert_eq!(got, vec![NiblePath::root(5)]);
+        assert!(!got.contains(&NiblePath::EMPTY));
+        assert!(missing_ancestors(&[NiblePath::EMPTY]).is_empty());
+    }
+
+    #[test]
+    fn missing_ancestors_partial_hydration_yields_only_the_gap() {
+        // State (c) exactly: the rail names root(2)/…/child paths, the basin
+        // row exists, the middle does not.
+        let leaf = NiblePath::root(2).child(3).child(1).child(7);
+        let got = missing_ancestors(&[NiblePath::root(2), leaf]);
+        assert_eq!(
+            got,
+            vec![
+                NiblePath::root(2).child(3),
+                NiblePath::root(2).child(3).child(1)
+            ],
+            "occupied ancestors are not re-minted; only the gap is"
+        );
+    }
+    // ---- direct_children: the one-hop selector ----
+
+    #[test]
+    fn direct_children_selects_exactly_one_hop_never_grandchildren() {
+        let p = NiblePath::root(3);
+        let c1 = p.child(0);
+        let c2 = p.child(9);
+        let gc = c1.child(4);
+        let sibling_basin = NiblePath::root(4).child(1); // depth matches, ancestry does not
+        let occupied = [p, c1, c2, gc, sibling_basin];
+        assert_eq!(direct_children(p, &occupied), vec![c1, c2]);
+        assert!(
+            !direct_children(p, &occupied).contains(&gc),
+            "a grandchild reaches the parent only through its own parent"
+        );
+        assert_eq!(direct_children(c1, &occupied), vec![gc]);
+    }
+
+    #[test]
+    fn direct_children_of_empty_is_nothing() {
+        let occupied = [NiblePath::root(0), NiblePath::root(7)];
+        assert!(
+            direct_children(NiblePath::EMPTY, &occupied).is_empty(),
+            "no route has no children; basins are entered via root()"
+        );
+    }
+
+    #[test]
+    fn direct_children_dedups_and_orders_deterministically() {
+        let p = NiblePath::root(2);
+        let a = p.child(8);
+        let b = p.child(1);
+        let occupied = [p, a, b, a]; // duplicate occupancy entry
+        assert_eq!(
+            direct_children(p, &occupied),
+            vec![b, a],
+            "sorted by path, deduped"
+        );
     }
 }

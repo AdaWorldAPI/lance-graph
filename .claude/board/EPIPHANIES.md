@@ -1,3 +1,58 @@
+## 2026-09-01 — E-THREE-BRANCHES-ONE-REGISTER-THE-AUDIT-AFTER-THE-COLLISION-1
+
+**Status:** RECONCILIATION AUDIT — #1125/#1126/#1127 merged while this
+branch's slices 1+2 were stranded; overlaps measured and corrected on rebase,
+convergences kept deliberately. **Confidence:** each line verified against
+main, not remembered.
+
+Three sessions worked the same register in parallel. What each landed:
+
+| PR | landed |
+|---|---|
+| #1125 (this branch, pre-strand) | the survey + its correction (node has a value; three readiness states; the 24×i4 answer) |
+| #1126 | the I4x32-vs-facet measurement — made and **REVERTED** (operator: disregard, the type is not substrate; durable residue: the V3 register is 12 bytes everywhere, facet lanes are classid(4)+12); plus the palette TSV lanes |
+| #1127 | the value-lane census (**G24N4 already ships** as `CausalWitnessFacet`'s loci reading of `ValueTenant::CausalWitness`; that lane is ruled OUT for W2b by its own loci-never-magnitude law + reserved slots `16..24`; 260/480 slab bytes free, append at 220) + `tests/w2b_one_node_field.rs` (5 disable-verified register-level falsifiers incl. the whale, codec borrowed, no lane minted) |
+| this branch, stranded → rebased | the DN dissolution + mechanical/epistemic split + one-hop law, with `basin_lanes::BasinLanes`, `accumulate_children`, `hhtl::{missing_ancestors, direct_children}` |
+
+**Collisions found and corrected (this commit):**
+
+1. **My "fourth carving / not in the shipped set / only signed one" claim was
+   FALSE**, and the census had already proven it false while my slices sat
+   stranded — `G24N4` ships, signed, as loci. `basin_lanes`' module doc, my
+   two unpushed board entries, and the plan's RULED table are corrected; the
+   type is re-positioned as what it actually is: **the MAGNITUDE register in
+   the shipped shape** — precisely the sibling the census concluded must
+   exist, because the shipped lane's law forbids magnitude on it.
+2. **The "which lane — dissolved" row conflated two axes.** The DN ruling
+   dissolves TREE-siting (no separate map store; the node at each prefix is
+   the row). The census constrains SLAB-siting (which tenant inside the
+   480-byte value), which is real, half-answered (not `CausalWitness`), and
+   the operator's mint. The plan row now says both.
+3. **The whale was pinned twice under two names** — register-level in
+   `w2b_one_node_field.rs` (borrowed codec) and carrier-level in
+   `basin_lanes`' tests. Kept BOTH, now cross-referenced in both directions,
+   so the prior-art trail is one thread instead of two.
+
+**Convergences, kept as evidence rather than deduped away:** the per-lane
+arithmetic (exact signed sum, one clamp) was arrived at INDEPENDENTLY by
+`w2b_one_node_field.rs`'s `summarise` and by `accumulate_children` — two
+sessions, no shared context, same shape. That is the strongest signal yet
+that the shape is right, and it is exactly what the one-hop ruling's
+"accumulated including disagreement" needs.
+
+**Residue flagged, not fixed here:** the i4 sign-extension now has THREE
+homes — `atoms::I4x32::sext4` (`pub(crate)`, reused by `basin_lanes`),
+`causal_witness`'s inline `((nibble << 4) as i8) >> 4`, and `I4x64`-via-
+`I4x32`. A dedup (point `causal_witness` at `sext4`) is a one-line
+tech-debt item, deliberately not bundled into a reconciliation commit.
+
+**Process fact worth keeping:** the stranding happened because a PR merged
+while its branch kept receiving pushes — same-branch continuation past a
+merge point. The commits were rebased onto main per the merged-PR rule
+(kept, not discarded), and this audit ran BEFORE re-pushing, so the
+corrections and the stranded work land together rather than the stale
+claims landing twice.
+
 ## 2026-09-01 — E-G24N4-ALREADY-SHIPS-AND-THAT-IS-WHY-W2B-CANNOT-USE-IT-1
 
 **Status:** FINDING — measured off `VALUE_TENANTS`, not read off prose.
@@ -40,6 +95,123 @@ Census + the disable table: `.claude/plans/dismech-causal-replay-v1.md` §W2b.
 Falsifier: `crates/lance-graph-contract/tests/w2b_one_node_field.rs`.
 
 ---
+## 2026-09-01 — E-ONE-HOP-UP-ONE-HOP-DOWN-A-PARENT-SPEAKS-ONLY-ITS-CHILDREN-1
+
+**Status:** OPERATOR RULING, third round on `D-DCR-2b` — the field map's
+locality law, built against in the same PR. **Confidence:** ruled; one-hop
+selector + accumulator shipped with the locality made observable.
+
+**The law: a parent's register expresses its DIRECT children accumulated —
+agreement AND disagreement — never the grandchildren. One hop up and down.**
+Grandchild information reaches a grandparent only through the child's own
+accumulated register, so the global field map is a COMPOSITION of one-hop
+summaries, never a node reaching past its children. Layered concretely:
+mammal carries accumulated agree/disagree; whale-family carries
+generic-vs-mammal-specific; whale carries specific. The lanes are
+upstream/downstream inheritance on the mathematical scale (Shannon
+proprioception / EWA sandwich / Mengenlehre readouts over them).
+
+This is the tree-shaped Chapman-Kolmogorov discipline — the same locality the
+substrate already holds twice: `I-SUBSTRATE-MARKOV` (transition composition,
+never transitive flattening) and `FieldMask::inherit` (parent ∪ own delta).
+And it settles the sweep-convergence question STRUCTURALLY rather than by
+policy: a sweep is bottom-up one-hop passes, each node a pure function of its
+direct children, idempotent at the fixpoint by construction.
+
+**Width is a floor, not a cap:** the nibbles can be expanded if necessary,
+and a node further up may carry multiple 24×i4 registers where valuable. The
+corpora ladder also widened — book / redmine / odoo / **AD** (literally the
+DN case) / OWL / RDF — every entry landing in one of the three readiness
+states already tabled.
+
+**Shipped:** `hhtl::direct_children` — the one-hop selector, exactly depth+1
+and never grandchildren, so any accumulator it feeds is *structurally unable*
+to violate the law (locality enforced at selection, not policed in
+arithmetic); `BasinLanes::accumulate_children` — per-lane saturating signed
+sum (agreement stacks, disagreement pulls down, bound = the carrier's own
+range; empty → SILENT). The locality is OBSERVABLE across two levels: a
+grandchild move absorbed by the child's own saturation leaves the grandparent
+byte-identical, while one that moves the child moves the grandparent — the
+can-fire/can-stay-silent pair on the law itself.
+
+**A measured limitation pinned loud rather than hidden:** in ONE register a
+balanced conflict (`+3` child, `−3` child, same lane) sums to `0` —
+indistinguishable from silence, the whale-erasure failure mode one level up.
+`a_balanced_conflict_collapses_to_silence_in_one_register` pins it as CURRENT
+behaviour with a comment that the multi-register expansion must fail this pin
+and force a deliberate re-shape. The expansion's semantics (net +
+contested-mass?) are the operator's to shape — the pin is the case FOR it,
+not a design of it.
+
+## 2026-09-01 — E-ASKING-WHERE-THE-MAP-LIVES-IS-ASKING-WHERE-THE-OUS-ARE-IN-A-DN-1
+
+**Status:** OPERATOR CORRECTION + RULING, second round on `D-DCR-2b` — three of
+four "open decisions" dissolved as category errors; the hydrate question
+answered with a load-bearing split. **Confidence:** ruled; first carrier +
+skeleton primitive shipped in the same PR.
+
+The survey's remaining "decisions" asked where the field map is WRITTEN (which
+lane / tenant / Lance column), whether it is versioned, and at what granularity
+a sweep runs. The operator's correction, by analogy: that is asking where the
+OUs are in a distinguished name. **An HHTL position is addressed by its path,
+and every truncation of the path is itself an entry** — `hhtl::NiblePath`
+already ships `parent()`, `prefix(depth)`, `is_ancestor_of`. The basin-level
+node is the row whose deeper tiers are zero, same store, same stride, same key
+layout. There is nothing to site:
+
+| former decision | verdict |
+|---|---|
+| which lane / tenant / column | dissolved — the node at each prefix IS the row |
+| versioned or live | dissolved — rows are Lance-versioned because every row is |
+| sweep granularity | dissolved — a sweep is scoped by a prefix; one mechanism, caller-chosen depth |
+| does the sweep eliminate | already settled by the three-kinds ruling: the sweep records; elimination is kind 2's separate reading |
+
+**Every node is an SoA row**, and the three corpora differ only in how much of
+the tree already has rows: books — not yet minted by **DeepNSM-v2** (v2, not
+v1), the ontology is built from scratch; rails without nodes — at least the
+HIERARCHY exists; OWL — parent/child almost always preserved.
+
+**The ruling that makes incomplete hydration safe to fix: mechanical hydration
+is NOT original causality.** Minting a row at a nameable DN from the hierarchy
+alone is MECHANICAL — structure only (address, `is_a`/`part_of`, presence),
+runnable in all three corpora. Original causality predicates — the dismech
+palette, Tarski-precise assertions, the signed agreement lanes — are epistemic
+knowledge: evidence-borne, provenance-carrying, never fabricated by a mint. A
+mint that writes a nonzero lane is structure impersonating knowledge. The
+mechanical mint's epistemic output is exactly SILENCE — all lanes zero — which
+is the zero-fallback ladder holding one level up.
+
+**Shipped against the ruling, both zero-dep, both in contract:**
+
+- `basin_lanes::BasinLanes` — the 24 × i4 (`G24N4`-shape) MAGNITUDE register
+  over the node's own 12-byte register (reuses `I4x32::sext4`, now
+  `pub(crate)`, rather than another copy of the nibble codec). [Corrected
+  post-rebase against the #1127 census: G24N4 was NOT greenfield — it ships
+  as `CausalWitnessFacet`'s loci reading; what is new here is the magnitude
+  semantics that lane's law forbids. See the audit entry above.] `SILENT` is the default and the zero register;
+  `is_silent()` is the checkable half of the mint rule. The whale case holds
+  at the carrier level: a negative lane is RECORDED disagreement, countable,
+  round-tripping, distinct from both silence and agreement — and nothing else
+  in the register moves, so nothing was removed.
+- `hhtl::missing_ancestors` — the mechanical-hydration address list: every
+  strict ancestor DN implied by the occupied paths that is not itself
+  occupied, shallow→deep so parents mint before children, `EMPTY` ignored and
+  never yielded. **Returns addresses only** — the signature cannot carry a
+  lane value, which is the type-level half of the mechanical-vs-epistemic
+  split. State (c) exactly: the partial-hydration test occupies the basin and
+  the leaf and gets back only the gap.
+
+**Generalizable:** when a scoping question keeps resisting an answer, check
+whether the addressing scheme already answers it. A DN-shaped substrate has no
+"where" questions — every nameable position is its own site — and a survey
+still asking "where" is evidence the surveyor is holding a table-shaped model
+of a trie-shaped store.
+
+**Still open, probes not rulings:** the lane-filling arithmetic (child stance →
+signed value; sibling merge at the parent — whether `semiring.add` is right for
+SIGNED agreement is unmeasured) and the provenance marker (where a row records
+mechanically-hydrated vs original, so state (c) stays distinguishable from
+state (b) after the mint — surfaced, not invented unilaterally).
 
 ## 2026-09-01 — E-AN-HHTL-POSITION-IS-A-NODE-AND-A-NODE-HAS-A-VALUE-1
 
@@ -76,7 +248,10 @@ payload is 12 bytes = **24 nibbles**. Every shipped `CascadeShape` carves it at
 BYTE granularity (`G6D2` 6×2, `G4D3` 4×3, `G3D4` 3×4 — all `CASCADE_UNITS ==
 12`); a nibble-granular reading is not in the shipped set. Signed i4 in
 `[−8, 7]` is shipped carrier semantics (`atoms::I4x32::sext4`) at other widths
-only. So 24×i4 is a fourth reading of the same register, and the plan's
+only. So 24×i4 is a nibble-granular reading of the same register [post-rebase
+correction: not the FIRST such reading — the #1127 census measured that
+`G24N4` already ships as `CausalWitnessFacet`'s loci reading; the new thing
+is magnitude semantics, see the audit entry above], and the plan's
 recorded candidate `atoms::I4x32` was wrong — it matched the name (32 lanes,
 16 B) and nothing else.
 

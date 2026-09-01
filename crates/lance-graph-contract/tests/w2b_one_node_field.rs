@@ -29,6 +29,16 @@
 //!
 //! Both are reasons W2b needs its own lane, recorded in the census beside this
 //! file. Here the facet is used purely as "the shipped 24-nibble codec".
+//!
+//! **Post-census landing (parallel branch, reconciled on rebase):** the
+//! magnitude sibling this file calls for now exists —
+//! `lance_graph_contract::basin_lanes::BasinLanes` — together with the
+//! one-hop accumulator `accumulate_children` (operator-ruled: a parent
+//! expresses its DIRECT children only). [`summarise`] below and
+//! `accumulate_children` arrived at the SAME per-lane shape (exact signed
+//! sum, one clamp) independently — convergent evidence, kept in both places
+//! deliberately: this file pins the register-level carrier through the
+//! borrowed codec, `basin_lanes`' tests pin the production carrier.
 
 use lance_graph_contract::causal_witness::{CausalWitnessFacet, WITNESS_LOCI};
 

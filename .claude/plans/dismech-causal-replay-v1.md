@@ -317,7 +317,8 @@ facet register read at nibble granularity.
    single-sweep-per-version is a substrate decision with real cost. **Still
    fully open.**
 4. **A node-level hydrate primitive for state (c).** Absent, and it gates (a)
-   and (c) both.
+   and (c) both. **⊘ RULED buildable (see below): it is MECHANICAL — structure
+   from the hierarchy only, epistemic lanes zero.**
 
 #### The value-lane census — measured, 2026-09-01 (`D-DCR-2b`)
 
@@ -403,15 +404,93 @@ carrier to stay byte-identical while the disagreement stays legible.
 
 #### The decisions this wave still cannot make for itself
 
-- **Which value lane** the 24×i4 summary occupies, and whether it is a new
-  `ValueTenant` or a carve inside an existing one.
-- **Versioned or live.** `temporal.rs`'s sorted stream and Lance versions make
-  "the map at version v" expressible; a live mutable map does not fit the
-  zero-copy envelope story.
-- **Sweep granularity** — whole field, one classid, one HHTL subtree.
-- **Whether kind 2 reads the map or the sweep applies it.** The ruling puts the
-  threshold in kind 2, which argues the sweep never eliminates and elimination
-  is always a separate read.
+#### ⊘ RULED (operator, 2026-09-01, second round) — the DN dissolution + the two-layer hydration split
+
+**The siting questions were a category error**, caught with the sharpest
+possible analogy: asking where the map is written is asking where the OUs are
+in a distinguished name. An HHTL position is addressed by its path, and every
+truncation of the path is itself an entry — `hhtl::NiblePath` already ships
+`parent()`, `prefix(depth)`, `is_ancestor_of`. The basin-level node is the row
+whose deeper tiers are zero, in the same store, same stride, same key layout.
+Three of the four "decisions" dissolve:
+
+| former decision | verdict |
+|---|---|
+| which value lane / tenant / column | **split, on reconciliation with the #1127 census**: the TREE-siting half is dissolved — the node at each prefix IS the row, no separate map store. The SLAB half (which `ValueTenant` inside the 480-byte value carries the magnitude register) is real and census-constrained: NOT `CausalWitness` (loci-never-magnitude law + reserved slots); append margin at slab 220, 260 B free; the mint is the operator's |
+| versioned or live | **dissolved** — rows are Lance-versioned because every row is |
+| sweep granularity | **dissolved** — a sweep is scoped by a prefix; field / classid / subtree is one mechanism at three depths |
+| does the sweep eliminate | settled by the three-kinds ruling itself: the sweep RECORDS; elimination is kind 2's threshold READING, always a separate act |
+
+**Every node is an SoA row**, and the three corpora differ only in how much of
+the tree already has rows:
+
+| corpus | what exists before the wave |
+|---|---|
+| books | nothing — the SoA rows are not yet minted by **DeepNSM-v2** (v2, not v1); the ontology is built from scratch |
+| rails without nodes | at least the HIERARCHY — parent/child is nameable even where no row sits |
+| OWL / any ontology | parent/child almost always preserved; rows largely present |
+
+In most of the three, hydration is incomplete — and the ruling's load-bearing
+split is what keeps that safe to fix:
+
+**Mechanical hydration ≠ original causality predicates.**
+
+- **Mechanical hydration** mints the SoA row at a nameable DN from the
+  hierarchy alone. It is structural, runs in all three corpora (TOC skeleton,
+  rail parent/child, OWL parent/child), and writes STRUCTURE ONLY: address,
+  `is_a`/`part_of` edges, presence. Its epistemic output is exactly **silence**
+  — every agreement lane `0` — which is the zero-fallback ladder holding one
+  level up: an unwritten lane reads as absent, never as an assertion.
+- **Original causality predicates** — the dismech palette (`causes`,
+  `explains`, `relates_to`, …), Tarski-precise assertions, the signed
+  agreement lanes — are epistemic knowledge. They arrive only from evidence
+  and propagation, carry provenance, and are NEVER fabricated by the minting
+  step. A mint that writes a nonzero lane is the wave's hardest defect class:
+  structure impersonating knowledge.
+
+#### ⊘ RULED (operator, 2026-09-01, third round) — one hop up, one hop down
+
+The corpora list is wider than the three-state table suggested, and every
+entry lands in one of the same states: **book** (skeleton to mint), **redmine
+/ odoo / AD** (hierarchy present — AD literally IS the DN case), **OWL / RDF**
+(parent/child almost always preserved). Same ladder, more members.
+
+The register is a floor, not a cap: **the nibbles can be expanded if
+necessary**, and a node further up may carry **multiple 24×i4 registers**
+where that proves valuable (mammal: accumulated agree/disagree; whale family:
+generic vs mammal-specific; whale: specific). The lanes are upstream/
+downstream inheritance on the mathematical scale — Shannon proprioception /
+EWA sandwich / Mengenlehre readouts over them.
+
+**The hard constraint, load-bearing:** a parent's register expresses its
+DIRECT children accumulated — agreement AND disagreement — never the
+grandchildren. **One hop up and down.** Grandchild information reaches a
+grandparent only through the child's own accumulated register; the global
+field map is a composition of one-hop summaries. This is the tree-shaped
+Chapman-Kolmogorov discipline (`I-SUBSTRATE-MARKOV`) and the same locality
+`FieldMask::inherit` already has (parent ∪ own delta), and it settles the
+sweep's convergence question structurally: bottom-up one-hop passes, each
+node a pure function of its direct children.
+
+Shipped against it (slice 2): `hhtl::direct_children` (the one-hop selector —
+exactly depth+1, never grandchildren, so any accumulator it feeds is
+structurally unable to reach past the children) and
+`BasinLanes::accumulate_children` (per-lane saturating signed sum; empty →
+SILENT). Locality is made observable across two levels: a grandchild move
+absorbed by the child's own saturation leaves the grandparent byte-identical;
+one that moves the child moves the grandparent.
+
+#### Still open — probes, not rulings
+
+- **The contested-collapse.** In ONE register a balanced conflict (`+3` vs
+  `−3` on a lane) sums to `0` — indistinguishable from silence. Pinned as a
+  test (`a_balanced_conflict_collapses_to_silence_in_one_register`) so it
+  stays loud; it is the concrete case for the ruled multi-register expansion,
+  whose semantics (net + contested-mass? per-band?) are the operator's to
+  shape, not inferred here.
+- **The provenance marker**: where a row records mechanically-hydrated vs
+  original, so state (c) stays distinguishable from state (b) after the mint.
+  Not invented unilaterally; surfaced as the next placement question.
 
 #### Falsifiers this wave would owe
 
