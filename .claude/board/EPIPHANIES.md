@@ -1,3 +1,37 @@
+## 2026-09-01 — E-THE-STATE-LAYER-IS-A-BELNAP-BILATTICE-AND-THE-JOIN-IS-THE-ACCUMULATOR-1
+
+**Status:** OPERATOR OBSERVATION, formalized and pinned in the same PR
+(#1129). **Confidence:** the join identity is proven by the counts-only-add
+argument and pinned by test, including a Both cell that exists only at the
+join.
+
+The operator's note — ternary combines as booleans over
+(Wide)FieldMask-shaped carriers — lands as an exact identification:
+`EpistemicBassin24`'s four axis states ARE Belnap/FDE's four truth values
+under the two-bit-per-axis encoding (`support_mask`, `refute_mask`): `(0,0)`
+Neither/Silent, `(1,0)` True/Agree, `(0,1)` False/Disagree, `(1,1)`
+Both/Contested. Dropping the Both cell restricts to Kleene's ternary K3 —
+the Tarski-adjacent three-valued reading.
+
+**The theorem that makes it load-bearing:** the knowledge-order join
+(bitwise OR of the two masks) IS the state layer of
+`accumulate_children` — counts only add, so a parent side is nonzero iff
+some child's is. Evidence accumulation and Belnap's knowledge ordering are
+the same operation at the mask level; the netting disable breaks exactly
+this (a contested axis drops out of the join), re-verified red.
+
+**Why u64:** the masks compose directly with the shipped algebra
+(`revision::EvidenceMask for u64`, FieldMask-shaped ops), so kind-3
+question masking runs bit-parallel across all 24 axes — the composition
+test reads contested-and-asked, supported-and-asked, and asked-but-SILENT
+(a missing link, visible as such) in three mask ops. The field map's
+"missing links" cell now has a one-op query.
+
+One disable-run also caught a would-be quiet bug pre-push: a mask
+threshold of `> 1` (dropping count-1 axes) fails the partition/state
+agreement and the mask-algebra tests — the masks are pinned to the same
+zero-boundary the states use.
+
 ## 2026-09-01 — E-THE-SIGNED-NET-WAS-FALSIFIED-NOT-LIMITED-AND-THE-LOCI-LAW-WAS-SCOPED-TOO-WIDE-1
 
 **Status:** OPERATOR CO-ARCHITECT RULING — a five-part supersession, built
