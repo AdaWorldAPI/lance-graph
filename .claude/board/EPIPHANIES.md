@@ -1,3 +1,44 @@
+## 2026-09-01 — E-THE-24-AXIS-BASIS-V3-EVERY-AXIS-IS-A-GROUNDED-PRESSURE-1
+
+**Status:** BUILT on the operator's "mach weiter" — the catalogue derived
+from the standing rulings, not invented; supersedable by a v4 classid mint,
+which is deliberately cheap. **Confidence:** the derivation discipline is
+the entry's point; the axis SET is v3 and expected to be re-cut.
+
+The named 24-axis epistemic basis ships as `ogar-epistemic` (authority:
+concept id `0x0334`, reserved Ontology domain, collision-guarded; canon-high
+render compose) with the zero-dep mirror in `epistemic_bassin::axes`. The
+facet classid names AND versions the basis — v4 = the next id, never a
+re-label of old rows.
+
+Six groups of four, `group = axis >> 2` (a shift, matching the workspace's
+tier-of-level discipline):
+
+| group | axes | grounded in |
+|---|---|---|
+| set | IS_A · PART_OF · TYPICALITY · MISSING_LINK | the rails, the Cam96 basin neighbourhood, the asked-but-silent sweep query — **the whale is axis 0** |
+| evidence | SUPPORT · REFUTE · PARTIAL · REPLICATION | `dismech_evidence::Supports` stances |
+| derivation | PREMISE · DEDUCTION · FALSIFIER · COUNTERFACTUAL | premise ancestry, NARS deduction, Tarski's falsifier side, CE64 mantissa −6 |
+| field | INFO_GAIN · TENSION · COHERENCE · AMBIGUITY | `info_gain_u4`, `sigma_tension_u4`/`pillar_5plus_bound`, EWA residual, candidate width |
+| circumstance | TEMPORAL · KAUSAL · MODAL · LOKAL | TEKAMOLO frame agreement (twins of the A9 loci four) |
+| witness | PROVENANCE · REVISION · QUORUM · CONTRADICTION | EpisodicBasin references, NARS revision, and the magnitude TWINS of `Locus::{Quorum, Contradiction}` |
+
+**The twin structure is the design's proof of non-overlap:** the locus
+points at WHO (the agreeing peer, the disagreeing peer, the antecedent);
+the basis axis carries HOW MUCH. Two classid-selected readings, zero
+storage overlap, one register family.
+
+**Held absences, both assertable:** no Hambly-Lyons axis while jc Pillar 11
+is red (a test scans the catalogue for the banned quantities — an
+assertable absence, not a comment); no domain FnIndex mints (the six calls
+are loco core, readable in every vocabulary already; per-axis macros and
+per-rung palettes mint later as content earns them).
+
+**Sequencing note:** the armed parity for the catalogue (mirror ↔
+`ogar-epistemic`) needs the authority on OGAR main — added as the follow-up
+commit after that merge, same red-then-green pattern the loco-band parity
+just demonstrated across the #296 boundary.
+
 ## 2026-09-01 — E-THE-STATE-LAYER-IS-A-BELNAP-BILATTICE-AND-THE-JOIN-IS-THE-ACCUMULATOR-1
 
 **Status:** OPERATOR OBSERVATION, formalized and pinned in the same PR

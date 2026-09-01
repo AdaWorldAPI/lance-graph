@@ -544,10 +544,11 @@ exactly where it is; no rung classid is minted before the table.
 
 #### Still open — probes, not rulings
 
-- **The named 24-axis catalogue** — WHICH axes, minted as a classid-named
-  basis (episodic references / basis / premise trace / revision are the
-  ruled projection sketch) — now explicitly as the epistemic vocabulary's
-  `ValueCodebook` under its own classid, per the fifth-round ruling.
+- ~~The named 24-axis catalogue~~ — **SHIPPED as v3** (2026-09-01,
+  operator: mach weiter): `ogar-epistemic` (0x0334) + the
+  `epistemic_bassin::axes` mirror; derived from the ruled projection, every
+  axis a grounded pressure, supersedable by a v4 classid mint. Armed
+  catalogue parity follows the OGAR merge.
 - **The child-mask index** — a u16 per node vs derive-by-scan; an index
   decision, not a semantics one.
 - ~~The contested-collapse~~ — CLOSED by the pair; the reversed falsifier
