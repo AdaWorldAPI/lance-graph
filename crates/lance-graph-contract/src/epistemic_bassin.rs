@@ -346,6 +346,51 @@ impl EpistemicBassin24 {
     }
 }
 
+/// The canonical field-map queries as **8-bit ternlog truth tables**
+/// (operator, 2026-09-01: ternary-mask SIMD ops execute any combination of
+/// stacked masks). Convention matches ndarray's shipped W1a-#9 primitive
+/// (`ndarray::simd::{U64x8::ternlog, U32x16::ternlog, ternlog::*}` —
+/// native `VPTERNLOGQ` on AVX-512, portable elsewhere): IMM bit index =
+/// `(a << 2) | (b << 1) | c`, here with `a` = support mask, `b` = refute
+/// mask, `c` = the question mask.
+///
+/// A field SWEEP over N nodes is three parallel u64-mask columns
+/// (support, refute, question) — SoA — so every query below is ONE ternlog
+/// per 8 nodes. The contract stays zero-dep: an IMM is a number, and
+/// [`eval_ternlog`] is the scalar semantics ORACLE the SIMD path is
+/// equivalence-tested against, mirroring the W1a parity discipline.
+///
+/// Two of these are ndarray's own named tables (`ASKED_CONTESTED` =
+/// `ternlog::AND3` = 0x80; `ASKED_ANSWERED` = `ternlog::OR2_AND` = 0xA8) —
+/// pinned numerically here since the contract cannot depend on ndarray.
+pub mod sweep_ternlog {
+    /// `support & refute & question` — contested AND asked (Belnap Both ∩ Q).
+    pub const ASKED_CONTESTED: u8 = 0x80;
+    /// `support & !refute & question` — cleanly supported AND asked.
+    pub const ASKED_SUPPORTED_ONLY: u8 = 0x20;
+    /// `!support & refute & question` — cleanly refuted AND asked.
+    pub const ASKED_REFUTED_ONLY: u8 = 0x08;
+    /// `!support & !refute & question` — **asked but SILENT: the missing
+    /// link**, the field map's highest-value cell, as one instruction.
+    pub const ASKED_SILENT: u8 = 0x02;
+    /// `(support | refute) & question` — asked and answered either way.
+    pub const ASKED_ANSWERED: u8 = 0xA8;
+}
+
+/// Scalar reference evaluation of a ternlog truth table over three masks —
+/// the semantics oracle for the SIMD path (which lives in `ndarray::simd`,
+/// never here). Bit `k` of the result is `(imm >> ((a_k << 2) | (b_k << 1)
+/// | c_k)) & 1`.
+#[must_use]
+pub fn eval_ternlog(imm: u8, a: u64, b: u64, c: u64) -> u64 {
+    let mut out = 0u64;
+    for k in 0..64 {
+        let idx = (((a >> k) & 1) << 2) | (((b >> k) & 1) << 1) | ((c >> k) & 1);
+        out |= ((u64::from(imm) >> idx) & 1) << k;
+    }
+    out
+}
+
 /// Shannon entropy in bits over a count distribution; `0.0` on an empty one.
 fn shannon(counts: &[usize]) -> f32 {
     let n: usize = counts.iter().sum();
@@ -681,6 +726,60 @@ mod tests {
         assert!(
             p.silent_mask().intersects(&(1u64 << 7)),
             "asked but silent — a missing link, visible as such"
+        );
+    }
+    /// Every sweep truth table is pinned EXHAUSTIVELY (all 8 input combos)
+    /// against its scalar formula — a wrong IMM cannot survive one row.
+    #[test]
+    fn sweep_ternlog_tables_match_their_formulas_on_all_eight_rows() {
+        for a in [0u64, 1] {
+            for b in [0u64, 1] {
+                for c in [0u64, 1] {
+                    let row = |imm: u8| eval_ternlog(imm, a, b, c) & 1;
+                    assert_eq!(row(sweep_ternlog::ASKED_CONTESTED), a & b & c);
+                    assert_eq!(row(sweep_ternlog::ASKED_SUPPORTED_ONLY), a & !b & c & 1);
+                    assert_eq!(row(sweep_ternlog::ASKED_REFUTED_ONLY), !a & b & c & 1);
+                    assert_eq!(row(sweep_ternlog::ASKED_SILENT), !a & !b & c & 1);
+                    assert_eq!(row(sweep_ternlog::ASKED_ANSWERED), (a | b) & c);
+                }
+            }
+        }
+    }
+
+    /// …and the tables compute the SAME masks the direct expressions do on a
+    /// real register — the ternlog path and the mask-projection path can
+    /// never drift apart.
+    #[test]
+    fn sweep_ternlog_agrees_with_the_direct_mask_expressions() {
+        let mut ag = [0u8; BASIS_AXES];
+        let mut di = [0u8; BASIS_AXES];
+        ag[0] = 1; // supported
+        di[2] = 3; // refuted
+        ag[5] = 2;
+        di[5] = 2; // contested
+        let p = EpistemicBassin24::pack(&ag, &di);
+        let (s, r) = (p.support_mask(), p.refute_mask());
+        let q: u64 = (1 << 0) | (1 << 2) | (1 << 5) | (1 << 9); // 9 = asked, silent
+        assert_eq!(
+            eval_ternlog(sweep_ternlog::ASKED_CONTESTED, s, r, q),
+            p.contested_mask() & q
+        );
+        assert_eq!(
+            eval_ternlog(sweep_ternlog::ASKED_SILENT, s, r, q),
+            p.silent_mask() & q
+        );
+        assert_eq!(eval_ternlog(sweep_ternlog::ASKED_SILENT, s, r, q), 1 << 9);
+        assert_eq!(
+            eval_ternlog(sweep_ternlog::ASKED_ANSWERED, s, r, q),
+            (s | r) & q
+        );
+        assert_eq!(
+            eval_ternlog(sweep_ternlog::ASKED_SUPPORTED_ONLY, s, r, q),
+            1 << 0
+        );
+        assert_eq!(
+            eval_ternlog(sweep_ternlog::ASKED_REFUTED_ONLY, s, r, q),
+            1 << 2
         );
     }
 }
