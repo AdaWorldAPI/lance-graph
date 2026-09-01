@@ -113,6 +113,48 @@ between them silently. The distinguishing fact is not the size — it is that
 four of those bytes are the key.
 
 ---
+## 2026-09-01 — E-THE-PALETTE-MARGIN-IS-SPENT-AND-GROWTH-MOVES-TO-LOCO-1
+
+**Status:** FINDING (measured) + operator ruling
+**Confidence:** the diff and the block are measured; the 29-fits-29 fit is a
+contingent adjudication, pinned in `TSV_OVERLAPS` rather than asserted.
+
+The 33-lane locked TSV basis (`contract::atoms::CANONICAL_ATOMS`) and the
+226-atom `cognitive_palette` were never joined. Diffed by name: **0 exact
+matches, 4 accepted overlaps, 29 with no palette home** — and the 29 are not
+stragglers but four COMPLETE groups (all 9 Rung lanes, all 5 Sigma, all 4
+Presence, all 4 Meta knobs, plus 2/3 Pearl and 4/8 Ops).
+
+The former append margin was exactly 29 slots (`256 - (1+144+34+36+12)`).
+Operator ruling: spend it. The Tsv block now occupies `227..=255`,
+`ATOM_COUNT` is 255, and **the palette is full — no margin remains.**
+
+**The fit is arithmetic coincidence, not design.** 29 = 256 minus four block
+sizes on one side; 29 = 33 minus four overlaps on the other, and the second
+number moves with the adjudication: 28 if `imagine_counterfactual` is read as
+the ICR recipe (rejected — a Pearl rung is not a named tactic), 30 if
+`transcend`/`transcendent` is read as distinct (which would overflow 256), 33
+on exact string match alone. `TSV_OVERLAPS` records all four calls with their
+target bytes so the contingency is visible; the partition test fails if a lane
+is ever covered twice or not at all.
+
+**Growth from here is `ogar-loco`, not this table.** The measurement that
+reframes it: `LaneShape::Pairs` is `6 × (u8:u8)` = `function : value` — the
+12-byte register is SIX `Call`s, not six data pairs. A `12xu8` palette pick is
+therefore a call of arity zero, the same ABI with every operand discarded.
+That is the palette's real limit and the Tsv block inherits it: `rung_r1..r9`
+are nine needles for one op with a depth operand; the Sigma chain and the Meta
+knobs are magnitudes stored categorically. A vocabulary in loco's domain range
+(`0x90..=0xFF`, classid-selected, 112 slots PER vocabulary rather than 29
+shared globally) carries them as `Call { function, values }` and costs no one
+else's range. The Tsv block is the closing entry in a legacy table.
+
+**Also corrected here:** an earlier turn in this session invented a 16-byte
+`I4x32` carrier as the 33 lanes' home and reasoned about its width against the
+V3 facet. Operator: hallucination, disregard. The commit that recorded it was
+dropped before push. The V3 content-blind register is 12 bytes everywhere; the
+three 16-byte facet lanes are `classid(4) + 12`.
+
 ## 2026-09-01 — E-THREE-KINDS-OF-MENGENLEHRE-AND-W2-SHIPPED-THE-NARROWEST-1
 
 **Status:** OPERATOR RULING — model correction, landed before the wave built on
