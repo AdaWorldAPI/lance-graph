@@ -1,8 +1,21 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: Copyright The Lance Authors
 
-//! `basin_lanes` — the **24 × i4** agreement-lane reading of the 12-byte
-//! content-blind register (`D-DCR-2b`, the field map's value-side carrier).
+//! `basin_lanes` — the **24 × i4** SIGNED-NET agreement reading
+//! (`D-DCR-2b`) — **⊘ SUPERSEDED 2026-09-01 (operator co-architect ruling)
+//! by [`epistemic_bassin::EpistemicBassin24`](crate::epistemic_bassin::EpistemicBassin24)**.
+//!
+//! The signed net was FALSIFIED as a representation, not merely limited:
+//! `+3` support and `−3` refutation sum to `0`, making maximal balanced
+//! conflict indistinguishable from silence — and agreement/disagreement is
+//! precisely the interesting information. The successor stores the pair
+//! (`agree_u4[24] + disagree_u4[24]`); net, polarity, conflict and entropy
+//! are DERIVED there and forget nothing. This module stays per
+//! reserve-don't-reclaim (it is on main, with consumers in its own tests
+//! and `tests/w2b_one_node_field.rs`'s cross-reference); new writers use
+//! the successor. Also corrected there: this module's "associative and
+//! commutative EXACTLY" claim holds only within one unsplit call —
+//! recursive composition of already-clamped registers is not associative.
 //!
 //! An HHTL position is a node, and the node's VALUE summarises the position's
 //! children so the node speaks for itself without a second read. The carrier
@@ -329,10 +342,13 @@ mod tests {
         assert!(BasinLanes::accumulate_children(&[]).is_silent());
     }
 
-    /// Pinned MEASURED LIMITATION, not desired behaviour: in ONE register a
-    /// balanced conflict is indistinguishable from silence. This is the
-    /// concrete case for the ruled multi-register expansion; when that lands
-    /// this pin must fail and force the deliberate re-shape.
+    /// ⊘ This pin did its job (2026-09-01): the collapse it records was
+    /// ruled a FALSIFICATION of the signed-net representation, and the
+    /// re-shape landed as `epistemic_bassin::EpistemicBassin24`, whose
+    /// reversed falsifier (`equal_support_and_refutation_is_distinguishable_
+    /// from_silence`) asserts the exact opposite over the pair. The pin
+    /// stays green HERE because it is a true fact about THIS superseded
+    /// type — the record of why it was superseded.
     #[test]
     fn a_balanced_conflict_collapses_to_silence_in_one_register() {
         let mut a = [0i8; BASIN_LANES];

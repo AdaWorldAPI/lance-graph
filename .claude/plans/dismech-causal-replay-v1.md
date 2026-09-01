@@ -480,9 +480,42 @@ SILENT). Locality is made observable across two levels: a grandchild move
 absorbed by the child's own saturation leaves the grandparent byte-identical;
 one that moves the child moves the grandparent.
 
+#### ⊘ RULED (operator co-architect, 2026-09-01, fourth round) — the pair, the scope fix, the grounded lanes
+
+- **The signed net is FALSIFIED, not limited**: balanced conflict must be
+  distinguishable from silence. Carrier superseded by
+  `epistemic_bassin::EpistemicBassin24` (`agree_u4[24] + disagree_u4[24]`;
+  net/contest/entropy derived; `Contested` survives accumulation). The old
+  pin stays green on the old type as the record.
+- **#1127's law re-scoped**: loci-never-magnitude binds the A9 READING, not
+  tenant 14's bytes — readings are classid-selected per row, so the bassin
+  can read the same physical lane. **No tenant mint** until one real row
+  needs ContextLoci and the bassin simultaneously (the built
+  `EpistemicWitness = 16` mint was discarded uncommitted).
+- **Nibbles are values on named axes, never addresses** — topology is the
+  key + an indexed 16-bit child mask; episodic identity is `EpisodicBasin`
+  references; exact proof/Σ stay in their exact carriers. The facet classid
+  names the axis basis and its version.
+- **Lanes grounded in shipped math, checked not invented**: Shannon ΔH via
+  `info_gain_u4` over `dismech_candidates` counts; EWA tension via
+  `sigma_tension_u4` in quarters of `sigma_propagation::pillar_5plus_bound`
+  (7 = the 1.75× slack); Tarski pressure = the pair's own counts, exact
+  depth stays in premise ancestry; **Hambly-Lyons gets NO lane** while
+  sigker's classification is gated on jc Pillar 11 (the red-pillar rule).
+- Associativity claim corrected: exact within one call; recursive
+  composition of clamped registers is monotone, not associative —
+  conflict-preserving either way, which is the property that matters.
+
 #### Still open — probes, not rulings
 
-- **The contested-collapse.** In ONE register a balanced conflict (`+3` vs
+- **The named 24-axis catalogue** — WHICH axes, minted as a classid-named
+  basis (episodic references / basis / premise trace / revision are the
+  ruled projection sketch).
+- **The child-mask index** — a u16 per node vs derive-by-scan; an index
+  decision, not a semantics one.
+- ~~The contested-collapse~~ — CLOSED by the pair; the reversed falsifier
+  asserts the distinction.
+- **The contested-collapse (historical).** In ONE register a balanced conflict (`+3` vs
   `−3` on a lane) sums to `0` — indistinguishable from silence. Pinned as a
   test (`a_balanced_conflict_collapses_to_silence_in_one_register`) so it
   stays loud; it is the concrete case for the ruled multi-register expansion,
