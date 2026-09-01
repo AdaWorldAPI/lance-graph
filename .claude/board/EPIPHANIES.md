@@ -1,3 +1,46 @@
+## 2026-09-01 — E-G24N4-ALREADY-SHIPS-AND-THAT-IS-WHY-W2B-CANNOT-USE-IT-1
+
+**Status:** FINDING — measured off `VALUE_TENANTS`, not read off prose.
+**Confidence:** high; every number reproduces from one script over the
+descriptors, and the falsifier that exercises the carrier is disable-verified.
+
+The `D-DCR-2b` survey said a nibble-granular 24-unit reading of the 12-byte
+content-blind register "is not in the shipped set". **It is.**
+`ValueTenant::CausalWitness` (14) is documented as read in the **`G24N4`**
+shape — 24 signed `i4` — and its codec ships and is tested
+(`CausalWitnessFacet::{get,set}`, sign-extension plus a `[−8,7]` clamp). So
+W2b's *carrier* was never greenfield; only its *semantics* are.
+
+**And the same fact rules that lane out.** Two independent, operator-locked
+blockers in `CausalWitness`'s own doc:
+
+- its value law is *"a **context pointer**, never a strength/magnitude (loci,
+  not values)"* — a W2b child-summary is exactly the magnitude case;
+- slots `16..24` are RESERVE-DON'T-RECLAIM.
+
+Reusing it would break the value law and the reserve rule at once. That
+answers half of W2b's first open decision — **a carve inside `CausalWitness`
+is ruled out** — while leaving "new tenant vs a carve elsewhere" to the
+operator.
+
+**The shape of the mistake is worth more than the fact.** "Not in the shipped
+set" was a claim about the tree that had never been run against the tree. It is
+the same class as the stale falsifier counts corrected in the consumer repo the
+same day: a *measurement* written into prose, cited later as evidence, wrong by
+the time it was cited. The census now carries the command that produced every
+number, so the next reader re-measures instead of quoting.
+
+**Also measured, and it changes the default:** 220 of 480 slab bytes are
+occupied, **260 free**, next tenant appends at slab offset `220`. A 12-byte
+register costs ~4.6 % of what is left. With that headroom the "clean / SoC over
+packed" doctrine applies with full force — packing a second concern into an
+existing lane is the rare last resort here, not a space-driven necessity.
+
+Census + the disable table: `.claude/plans/dismech-causal-replay-v1.md` §W2b.
+Falsifier: `crates/lance-graph-contract/tests/w2b_one_node_field.rs`.
+
+---
+
 ## 2026-09-01 — E-AN-HHTL-POSITION-IS-A-NODE-AND-A-NODE-HAS-A-VALUE-1
 
 **Status:** OPERATOR CORRECTION — caught in a survey, before any code was
