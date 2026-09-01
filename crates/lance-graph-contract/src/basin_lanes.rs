@@ -128,9 +128,10 @@ impl BasinLanes {
     /// that makes `FieldMask::inherit` a parent∪delta and the substrate
     /// Markov, `I-SUBSTRATE-MARKOV`).
     ///
-    /// Per-lane merge: **saturating signed sum** in `[−8, 7]` — agreement
-    /// stacks, disagreement pulls down, the bound is the carrier's own range
-    /// (associative/commutative in expectation, the sanctioned bundle shape).
+    /// Per-lane merge: **exact signed sum, clamped once to `[−8, 7]`** —
+    /// agreement stacks, disagreement pulls down, the bound is the carrier's
+    /// own range. Exact-then-clamp (not stepwise saturation) makes the merge
+    /// associative and commutative EXACTLY, not merely in expectation.
     ///
     /// **Measured limitation, pinned rather than hidden:** in ONE register a
     /// balanced conflict (`+3` child and `−3` child on the same lane) sums to
@@ -146,14 +147,24 @@ impl BasinLanes {
     /// position asserts nothing.
     #[must_use]
     pub fn accumulate_children(children: &[Self]) -> Self {
-        let mut acc = [0i8; BASIN_LANES];
+        // Exact i32 sums, ONE clamp at pack: per-step saturation would make
+        // the result depend on child ORDER for mixed signs ([+7,+7,−7] is 0
+        // stepwise but 7 summed) — caught by this module's own disable-run
+        // when the stepwise version survived a wrapping_add disable (pack's
+        // clamp masked it). Order-independence is pinned by
+        // `accumulation_is_independent_of_child_order`.
+        let mut acc = [0i32; BASIN_LANES];
         for c in children {
             let lanes = c.unpack();
             for (a, v) in acc.iter_mut().zip(lanes.iter()) {
-                *a = a.saturating_add(*v).clamp(-8, 7);
+                *a += i32::from(*v);
             }
         }
-        Self::pack(&acc)
+        let mut out = [0i8; BASIN_LANES];
+        for (o, a) in out.iter_mut().zip(acc.iter()) {
+            *o = (*a).clamp(-8, 7) as i8;
+        }
+        Self::pack(&out)
     }
 }
 
@@ -358,5 +369,26 @@ mod tests {
         // grandparent cannot tell them apart -- the grandchild's detail is
         // the CHILD's knowledge, one hop only.
         assert_eq!(two_level(7, 5), two_level(6, 7));
+    }
+    /// Falsifier that DISTINGUISHES designs: under stepwise saturation
+    /// ([+7,+7,−7] clamps mid-stream) child order changes the parent; under
+    /// exact-sum-then-clamp it cannot. Verified failing against the stepwise
+    /// implementation before it was replaced.
+    #[test]
+    fn accumulation_is_independent_of_child_order() {
+        let lanes_of = |v: i8| {
+            let mut l = [0i8; BASIN_LANES];
+            l[0] = v;
+            BasinLanes::pack(&l)
+        };
+        let a = lanes_of(7);
+        let b = lanes_of(7);
+        let c = lanes_of(-7);
+        assert_eq!(
+            BasinLanes::accumulate_children(&[a, b, c]),
+            BasinLanes::accumulate_children(&[c, a, b]),
+            "one hop is a SET of children, not a sequence"
+        );
+        assert_eq!(BasinLanes::accumulate_children(&[a, b, c]).unpack()[0], 7);
     }
 }

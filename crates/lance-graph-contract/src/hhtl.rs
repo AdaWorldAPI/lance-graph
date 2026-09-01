@@ -533,12 +533,12 @@ impl NiblePath {
 /// at the selection, not policed in the arithmetic.
 ///
 /// `parent == EMPTY` selects nothing — "no route" has no children (basins
-/// are entered via [`NiblePath::root`], not as children of EMPTY).
+/// are entered via [`NiblePath::root`], not as children of EMPTY). No
+/// explicit guard: [`NiblePath::is_ancestor_of`] already makes EMPTY an
+/// ancestor of nothing, and a guard on top of it proved undisableable — the
+/// test below pins the SEMANTICS through this API, wherever they live.
 #[must_use]
 pub fn direct_children(parent: NiblePath, occupied: &[NiblePath]) -> Vec<NiblePath> {
-    if parent.depth() == 0 {
-        return Vec::new();
-    }
     let mut out: Vec<NiblePath> = occupied
         .iter()
         .copied()
