@@ -86,6 +86,9 @@ pub const BASIS_PAIR_BYTES: usize = 2 * BASIS_REGISTER_BYTES;
 /// Per-axis count ceiling (u4).
 pub const AXIS_COUNT_MAX: u8 = 15;
 
+/// All 24 axis bits set — the universe for the Belnap mask projections.
+pub const AXIS_MASK_ALL: u64 = (1 << BASIS_AXES) - 1;
+
 /// What one axis reads as, derived from the pair.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum AxisState {
@@ -260,6 +263,67 @@ impl EpistemicBassin24 {
             dp[i] = disagree[i].min(u32::from(AXIS_COUNT_MAX)) as u8;
         }
         Self::pack(&ap, &dp)
+    }
+
+    /// Axes with recorded SUPPORT (`agree > 0`, regardless of refutation),
+    /// one bit per axis in bits `0..24` of a `u64` — the first half of the
+    /// **ternary/Belnap mask encoding** (operator observation, 2026-09-01:
+    /// the state layer combines as booleans over (Wide)FieldMask-shaped
+    /// carriers).
+    ///
+    /// Together with [`refute_mask`](Self::refute_mask) this is exactly the
+    /// two-bit-per-axis Belnap/FDE encoding: `(0,0)` Neither = Silent,
+    /// `(1,0)` True = Agree, `(0,1)` False = Disagree, `(1,1)` Both =
+    /// Contested — the four [`AxisState`]s ARE Belnap's four values, and
+    /// dropping the Both cell restricts to Kleene's ternary K3. The
+    /// **knowledge-order join is bitwise OR of the two masks**, and that is
+    /// provably the state layer of
+    /// [`accumulate_children`](Self::accumulate_children) (counts only add,
+    /// so a parent side is nonzero iff some child's is —
+    /// `accumulations_state_layer_is_the_belnap_knowledge_join` pins it).
+    ///
+    /// Returned as `u64` so it composes directly with the shipped mask
+    /// algebra — `revision::EvidenceMask for u64`
+    /// (union/intersection/difference/subset) and `FieldMask`-style ops —
+    /// giving bit-parallel kind-3 question masking across all 24 axes.
+    #[must_use]
+    pub fn support_mask(&self) -> u64 {
+        let a = self.agree_counts();
+        let mut m = 0u64;
+        for (i, &v) in a.iter().enumerate() {
+            if v > 0 {
+                m |= 1 << i;
+            }
+        }
+        m
+    }
+
+    /// Axes with recorded REFUTATION (`disagree > 0`) — the second Belnap
+    /// bit. See [`support_mask`](Self::support_mask).
+    #[must_use]
+    pub fn refute_mask(&self) -> u64 {
+        let d = self.disagree_counts();
+        let mut m = 0u64;
+        for (i, &v) in d.iter().enumerate() {
+            if v > 0 {
+                m |= 1 << i;
+            }
+        }
+        m
+    }
+
+    /// Axes in the Belnap **Both** cell — support AND refutation recorded.
+    /// Derived: `support ∩ refute`.
+    #[must_use]
+    pub fn contested_mask(&self) -> u64 {
+        self.support_mask() & self.refute_mask()
+    }
+
+    /// Axes in the Belnap **Neither** cell. Derived:
+    /// `¬(support ∪ refute)` over the 24 axis bits.
+    #[must_use]
+    pub fn silent_mask(&self) -> u64 {
+        !(self.support_mask() | self.refute_mask()) & AXIS_MASK_ALL
     }
 
     /// Wire bytes: agree register, then disagree register.
@@ -527,6 +591,96 @@ mod tests {
             sigma_tension_u4(b, b),
             4,
             "at the certificate regardless of its size"
+        );
+    }
+    /// **The Belnap-join theorem, pinned.** The state layer of one-hop
+    /// accumulation IS the knowledge-order join of the children's states:
+    /// bitwise OR of the support masks, bitwise OR of the refute masks.
+    /// Holds because counts only ADD — a parent side is nonzero iff some
+    /// child's is. The netting disable (subtracting the overlap inside
+    /// accumulate) breaks exactly this: a contested axis would drop out of
+    /// the join.
+    #[test]
+    fn accumulations_state_layer_is_the_belnap_knowledge_join() {
+        let mut a1 = [0u8; BASIS_AXES];
+        let mut d1 = [0u8; BASIS_AXES];
+        let mut a2 = [0u8; BASIS_AXES];
+        let mut d2 = [0u8; BASIS_AXES];
+        a1[0] = 2; // pure agree in child 1
+        d1[3] = 1; // pure disagree in child 1
+        a2[3] = 4; // …axis 3 becomes Contested only at the JOIN
+        d2[9] = 15; // saturated refute
+        a1[9] = 1;
+        let kids = [
+            EpistemicBassin24::pack(&a1, &d1),
+            EpistemicBassin24::pack(&a2, &d2),
+        ];
+        let parent = EpistemicBassin24::accumulate_children(&kids);
+        assert_eq!(
+            parent.support_mask(),
+            kids[0].support_mask() | kids[1].support_mask()
+        );
+        assert_eq!(
+            parent.refute_mask(),
+            kids[0].refute_mask() | kids[1].refute_mask()
+        );
+        // and the join genuinely CREATED a Both cell neither child had:
+        assert_eq!(kids[0].contested_mask() | kids[1].contested_mask(), 0);
+        assert_eq!(parent.contested_mask(), (1 << 3) | (1 << 9));
+    }
+
+    #[test]
+    fn the_four_masks_partition_the_24_axes() {
+        let mut a = [0u8; BASIS_AXES];
+        let mut d = [0u8; BASIS_AXES];
+        a[1] = 3; // Agree
+        d[2] = 3; // Disagree
+        a[3] = 1;
+        d[3] = 1; // Contested
+        let p = EpistemicBassin24::pack(&a, &d);
+        let pure_agree = p.support_mask() & !p.refute_mask();
+        let pure_disagree = p.refute_mask() & !p.support_mask();
+        // pairwise disjoint, jointly exhaustive over the 24 bits
+        assert_eq!(
+            pure_agree | pure_disagree | p.contested_mask() | p.silent_mask(),
+            AXIS_MASK_ALL
+        );
+        assert_eq!(pure_agree & p.contested_mask(), 0);
+        assert_eq!(pure_disagree & p.contested_mask(), 0);
+        assert_eq!(p.silent_mask() & (p.support_mask() | p.refute_mask()), 0);
+        // and the masks agree with axis_state, axis by axis
+        for axis in 0..BASIS_AXES {
+            let bit = 1u64 << axis;
+            let expect = match p.axis_state(axis) {
+                AxisState::Silent => p.silent_mask(),
+                AxisState::Agree => pure_agree,
+                AxisState::Disagree => pure_disagree,
+                AxisState::Contested => p.contested_mask(),
+            };
+            assert_ne!(expect & bit, 0, "axis {axis} mask/state disagree");
+        }
+    }
+
+    /// The masks plug into the SHIPPED mask algebra — kind-3 question
+    /// masking bit-parallel over the axes, via `EvidenceMask for u64`.
+    #[test]
+    fn belnap_masks_compose_with_the_shipped_evidence_mask_algebra() {
+        use crate::revision::EvidenceMask;
+        let mut a = [0u8; BASIS_AXES];
+        let mut d = [0u8; BASIS_AXES];
+        a[0] = 1;
+        a[5] = 2;
+        d[5] = 2;
+        let p = EpistemicBassin24::pack(&a, &d);
+        let question: u64 = (1 << 5) | (1 << 7); // the axes this case asks about
+        assert!(
+            p.contested_mask().intersects(&question),
+            "axis 5 is contested AND asked"
+        );
+        assert_eq!(p.support_mask().intersection(&question), 1 << 5);
+        assert!(
+            p.silent_mask().intersects(&(1u64 << 7)),
+            "asked but silent — a missing link, visible as such"
         );
     }
 }
