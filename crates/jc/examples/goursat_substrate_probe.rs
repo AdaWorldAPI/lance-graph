@@ -40,9 +40,7 @@ fn increments(x: &[Vec<f64>]) -> (Vec<f64>, usize) {
     let dim = x[0].len();
     let mut out = Vec::with_capacity((x.len() - 1) * dim);
     for w in x.windows(2) {
-        for a in 0..dim {
-            out.push(w[1][a] - w[0][a]);
-        }
+        out.extend(w[1].iter().zip(&w[0]).map(|(next, prev)| next - prev));
     }
     (out, dim)
 }
