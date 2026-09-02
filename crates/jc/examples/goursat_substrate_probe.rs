@@ -27,7 +27,10 @@ fn path(n: usize) -> Vec<Vec<f64>> {
     (0..=n)
         .map(|i| {
             let t = i as f64 / n as f64;
-            vec![t + 0.05 * (260.0 * t).cos(), 0.5 * t + 0.05 * (260.0 * t).sin()]
+            vec![
+                t + 0.05 * (260.0 * t).cos(),
+                0.5 * t + 0.05 * (260.0 * t).sin(),
+            ]
         })
         .collect()
 }
@@ -97,12 +100,20 @@ fn goursat_wavefront(x: &[Vec<f64>], y: &[Vec<f64>]) -> f64 {
 
     for d in 2..(n + m - 1) {
         // Boundaries on this diagonal: k[0][d] and k[d][0] are 1.
-        if d < m { cur[0] = 1.0; }
-        if d < n { cur[d] = 1.0; }
+        if d < m {
+            cur[0] = 1.0;
+        }
+        if d < n {
+            cur[d] = 1.0;
+        }
         // Interior rows: i >= 1, j = d - i >= 1, i <= n-1, j <= m-1.
         let lo = 1usize.max(d.saturating_sub(m - 1));
         let hi = (d - 1).min(n - 1);
-        if lo > hi { std::mem::swap(&mut prev2, &mut prev1); std::mem::swap(&mut prev1, &mut cur); continue; }
+        if lo > hi {
+            std::mem::swap(&mut prev2, &mut prev1);
+            std::mem::swap(&mut prev1, &mut cur);
+            continue;
+        }
         // dyr index for row i is (m-1-d)+i; the difference may be negative but the sum is not.
         let base = (m - 1).wrapping_sub(d);
         let mut i = lo;
@@ -145,17 +156,31 @@ fn main() {
     );
     for &n in &[256usize, 1024, 2048, 4096] {
         let (x, y) = (path(n), path(n));
-        let t = Instant::now(); let a0 = signature_kernel_pde(&x, &y); let s0 = t.elapsed().as_secs_f64();
-        let t = Instant::now(); let a1 = goursat_flat(&x, &y);         let s1 = t.elapsed().as_secs_f64();
-        let t = Instant::now(); let a2 = goursat_wavefront(&x, &y);    let s2 = t.elapsed().as_secs_f64();
+        let t = Instant::now();
+        let a0 = signature_kernel_pde(&x, &y);
+        let s0 = t.elapsed().as_secs_f64();
+        let t = Instant::now();
+        let a1 = goursat_flat(&x, &y);
+        let s1 = t.elapsed().as_secs_f64();
+        let t = Instant::now();
+        let a2 = goursat_wavefront(&x, &y);
+        let s2 = t.elapsed().as_secs_f64();
         let exact = a0.to_bits() == a1.to_bits();
         let rel = ((a1 - a2) / a1).abs();
         println!(
             "{:>6} {s0:>10.4} {s1:>10.4} {s2:>10.4} {:>8.2}x {:>8.2}x {:>12} {rel:>12.3e}",
-            n + 1, s0 / s1, s1 / s2, if exact { "bit-exact" } else { "DIFFERS" }
+            n + 1,
+            s0 / s1,
+            s1 / s2,
+            if exact { "bit-exact" } else { "DIFFERS" }
         );
-        assert!(exact, "A0 != A1 at n={n}: {a0:e} vs {a1:e} — storage change altered the result");
+        assert!(
+            exact,
+            "A0 != A1 at n={n}: {a0:e} vs {a1:e} — storage change altered the result"
+        );
     }
     println!("\nA0 = A1 bit-exact at every size (only storage changed).");
-    println!("A1 <-> A2 differ by fused vs. separate rounding of c·diag — the predeclared tolerance.");
+    println!(
+        "A1 <-> A2 differ by fused vs. separate rounding of c·diag — the predeclared tolerance."
+    );
 }
