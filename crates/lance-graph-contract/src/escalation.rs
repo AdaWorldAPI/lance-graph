@@ -281,10 +281,11 @@ impl EpiphanyDetector {
 /// residue that biases future perception. ≤ 32 named identities, content lives
 /// in the store (I-VSA-IDENTITIES).
 ///
-/// Canonical zero-dep home. Mirrors `thinking_engine::ghosts::GhostType`
-/// (an excluded crate that cannot be a contract dependency); the two are to be
-/// reconciled when thinking-engine joins the workspace — see
-/// `TECH_DEBT.md` TD-GHOST-ECHO-DUP-1.
+/// Canonical zero-dep home — and since D-TEH-2 (2026-09-02) the ONLY home:
+/// the duplicate `thinking_engine::ghosts::GhostType` was retired with that
+/// crate's `ghosts.rs`; the lab crate now imports this enum (closes
+/// `TECH_DEBT.md` TD-GHOST-ECHO-DUP-1). The decaying per-thought field over
+/// these echoes lives in the planner, `nars::ghost_prior::GhostPrior`.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum GhostEcho {
     /// Lingering pull toward a concept / person / thing.

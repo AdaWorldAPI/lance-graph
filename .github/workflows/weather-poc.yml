@@ -27,9 +27,26 @@ jobs:
   test:
     runs-on: ubuntu-24.04
     timeout-minutes: 10
+    defaults:
+      run:
+        working-directory: lance-graph
     steps:
       - uses: actions/checkout@v4
         with:
+          path: lance-graph
+          persist-credentials: false
+      # weather-poc path-deps `jc`, and since #1140 `jc` path-deps the
+      # `ndarray` sibling at `../../../ndarray` unconditionally (operator
+      # ruling: ndarray is mandatory everywhere in lance-graph). Without this
+      # checkout `cargo test` fails at dependency resolution before a single
+      # test runs — first seen on #1142, whose only contract change was a doc
+      # comment. Same layout as rust-test.yml: repo in `lance-graph/`, sibling
+      # in `ndarray/`, so the relative path resolves.
+      - name: Checkout AdaWorldAPI/ndarray (sibling dependency of jc)
+        uses: actions/checkout@v4
+        with:
+          repository: AdaWorldAPI/ndarray
+          path: ndarray
           persist-credentials: false
       - name: Setup Rust
         run: |

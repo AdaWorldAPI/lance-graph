@@ -11,6 +11,7 @@ pub mod dissolution;
 pub mod elevation;
 pub mod epiphany;
 pub mod facet_fold;
+pub mod ghost_prior;
 pub mod inference;
 pub mod insight;
 pub mod insights;
@@ -28,6 +29,7 @@ pub use dissolution::{detect_dissolution, should_elevate, staunen, wisdom, Disso
 pub use elevation::{elevate_field, Elevation};
 pub use epiphany::{rank_epiphany_attractors, EpiphanyAttractor};
 pub use facet_fold::{cstmt_from_spo_facet, to_spo_facet};
+pub use ghost_prior::{GhostPrior, PriorFloor};
 pub use inference::NarsInference;
 pub use insight::{arena_graph_signals, detect, flow_state, InsightMush, Snapshot};
 pub use insights::{extract_main_insights, InsightConfig, InsightKind, InsightReason, MainInsight};

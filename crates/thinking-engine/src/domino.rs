@@ -294,7 +294,7 @@ impl<'a> DominoCascade<'a> {
         }
     }
 
-    /// Set ghost bias from a GhostField prediction.
+    /// Set ghost bias from a ghost-prior prediction (`lance_graph_planner::nars::ghost_prior::GhostPrior::prediction`).
     /// Atoms with ghost presence get pre-weighted in the cascade.
     pub fn with_ghost_bias(mut self, bias: Vec<f32>) -> Self {
         self.ghost_bias = Some(bias);

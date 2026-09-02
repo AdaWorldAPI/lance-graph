@@ -9,7 +9,7 @@
 | D-HOUSE-1d | aperture hypothesis (the "humor" label): incongruity → `k` across passes; a hypothesis until its operator is defined and measured (plan §4b) | Not scheduled — re-scoped 2026-09-02: the knob is the strata budgets, not `k` over an excluded set |
 | D-HOUSE-2 | discriminating-evidence readout (clone arena, observe hypothetical premise, report largest rank displacement) | Unblocked by the D-HOUSE-1 base-path PASS (2026-09-02); not started |
 | D-HOUSE-3 | elimination predicate over `truth`/`contradiction`/`stamp` + never-re-enter falsifier | Unblocked by the D-HOUSE-1 base-path PASS (2026-09-02); not started |
-| D-HOUSE-4 | anchoring alarm (free energy between wisdom-marker prior and evidence) | Gated on `thinking-engine-harvest-closure-v1` D-TEH-2 |
+| D-HOUSE-4 | anchoring alarm (free energy between wisdom-marker prior and evidence) | Unblocked 2026-09-02 (D-TEH-2 shipped: planner `GhostPrior::free_energy` is the alarm's input); not started |
 | D-HOUSE-5 | the style→recipe edge (O2) with House as its first program | D-HOUSE-1 half unblocked (2026-09-02, base-path PASS; the edge selects STRATA, CAS-down as the board's feeder); still gated on the D-TSC-2/3 mint |
 | D-HOUSE-6 | consumer pointer: `DiffRow` READ fields `eliminated` / `discriminator` (MedCare-rs) | pointer only, out of scope here |
 
@@ -19,7 +19,7 @@
 |---|---|---|
 | D-TEH-0 | census: live footprint measured (one required consumer via `bridge_gate`; one optional via `with-engine`), 51-file fate table, open-row reconciliation, four-wave closure, idea harvest, four rulings asked | **Shipped (plan-only, this PR)** |
 | D-TEH-1 | W1: `bridge_gate` (seven items) → `lance_graph_contract::bridge_gate`; callcenter re-imports and drops the path dep; thinking-engine keeps a re-export shim | **Shipped 2026-09-02** (before: required dep, 6 crossing sites, dep-drop alone fails 6 × E0433; after: zero thinking-engine deps in callcenter metadata, contract 1303/1303, callcenter 156/156, driver default + `with-engine` green, ALU artery files byte-identical). `with-engine` re-point deferred by stop condition: D-TTV-1 not landed |
-| D-TEH-2 | W2: ghost prior → planner `nars/ghost_prior.rs` over `WisdomMarker`, per-thought, two-sided falsifiers; crate `ghosts.rs` deleted | Queued — consumer D-HOUSE-4 |
+| D-TEH-2 | W2: ghost prior → planner `nars/ghost_prior.rs` over `WisdomMarker`, per-thought, two-sided falsifiers; crate `ghosts.rs` deleted | **Shipped 2026-09-02** — `GhostPrior`/`PriorFloor` in planner `nars/ghost_prior.rs`, 14 tests incl. the calibration gate (default floor = `Marker`, the gate reversed the first declaration); `ghosts.rs` + `think.rs` deleted; TD-GHOST-ECHO-DUP-1 resolved; consumer D-HOUSE-4 unblocked |
 | D-TEH-3 | W2: calibration MATH → `jc` (ruling 4, 2026-09-02: lift if correct, perfect in jc if not; crate copies die); glue stays in the lab crate; `semantic_chunker` / `spiral_segment` decided by their falsifiers | Queued |
 | D-TEH-4 | W3: ENTROPY M8 engine collapse with dtype parity suite; 5 cascade shapes + 3 lens modules collapse | Queued |
 | D-TEH-5 | W4: residue deleted, crate renamed `thinking-lab` with a `--manifest-path` CI line; §2 rows closed; `TD-THINKING-ENGINE-EXCLUDED-DEBT-1` paid | Queued — closes the chapter |

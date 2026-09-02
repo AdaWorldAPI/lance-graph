@@ -10,6 +10,16 @@
 > census §8.3 trap 10: read the body FIRST, then open for write — never
 > inline both in one expression.
 
+## 2026-09-02 — lance-graph branch `claude/medcare-rs-continue-6nhbxn` (D-TEH-2 PR, after #1141) — ghost prior harvested into the planner; `ghosts.rs` deleted
+
+- **Added:** `crates/lance-graph-planner/src/nars/ghost_prior.rs` — `GhostPrior`, `PriorFloor`, `Trace`, `calibration::{recurrence_fixture, discrimination}` (both `Option` below `FIXTURE_MIN_ATOMS` and above `FIXTURE_MAX_STALE_PATTERNS`), 15 tests (monotone decay to each floor with the inert cycle derived from the constant, decay-constant load-bearing both ways, two-sided free energy under both floors, the calibration gate on the declared default, anti-vacuity that the floors differ, prediction shape, imprint cap, echo rule, independence of two priors); `pub mod ghost_prior` + re-export in `nars/mod.rs`. EPIPHANIES `E-THE-CALIBRATION-GATE-REVERSED-THE-DECLARED-FLOOR-1`.
+- **Removed:** `crates/thinking-engine/src/ghosts.rs`, `crates/thinking-engine/examples/think.rs`; `pub mod ghosts` from the lab `lib.rs`.
+- **Changed (lab crate):** `persona.rs` (`Agent` without a trace field; `to_dto` / `self_model` take the prior summary; `A2AMessage` constructors take the sender's `AgentDto`; `SelfModelDto` over `GhostEcho`), `world_model.rs` (`build` takes `trace_count` + `dominant_trace`; `GhostEcho`), `awareness_dto.rs` (`GhostEcho`), `domino.rs` (doc). Contract `escalation.rs`: `GhostEcho` doc comment (retired-mirror note). TECH_DEBT `TD-GHOST-ECHO-DUP-1` → RESOLVED. Plan §5 D-TEH-2 → Shipped, §3 W2 result; STATUS_BOARD D-TEH-2 Shipped, D-HOUSE-4 unblocked.
+- **Measured:** calibration gate rejected the first-declared `Trace` floor — discrimination 0.0000 vs `Marker` 0.0188 at 30 stale patterns / age 20 and 60 (equal at 0.0188 with no stale memory); absolute baseline 0.35 vs 0.07. Default = `Marker`. Planner clippy `-D warnings` + fmt clean; lab `cargo check --lib --examples` clean; lab tests 14/14.
+- **Locked:** per-thought ownership (no singleton field); the lingering-trace / counterfactual-lane fence; the floor as a measured parameter, not an inherited constant.
+- **Deferred:** D-HOUSE-4 (unblocked, not started — should re-run `calibration::discrimination` on its own fixture); D-TEH-3 (math → jc), D-TEH-4/5; `TD-GHOST-TIER-NAME-COLLISION-1` waits for the next touch of `counterfactual.rs`.
+- **Confidence:** High.
+
 ## 2026-09-02 — lance-graph branch `claude/medcare-rs-continue-6nhbxn` (D-HOUSE-1 PR, after #1139) — PROBE-HOUSE-DIFFERENTIAL-1 run and reported
 
 - **Added:** `crates/lance-graph-planner/examples/house_differential.rs` (the probe; no library surface): fixture, arms A0 / A1 / A1c / A2-S0 / A2-S3 / A2 (variant 1) / A2' (variant 2), size-preserving null with far-parent re-owning, guards G1–G4, per-variant verdict. Plan §4 RESULT; EPIPHANIES `E-THE-PERIPHERY-OF-A-STRATUM-IS-THE-OTHER-STRATA-1`.

@@ -180,6 +180,8 @@ inter-mailbox handoff type never revive; the `E-MORTON-CASCADE-V3-1`
 legacy arm is not deleted while that probe is open; no port of a fixed
 axis vocabulary by assertion (AXES_48 goes falsifier-first or stays LAB).
 
+**W2 result (2026-09-02, D-TEH-2).** The ghost prior landed as planner `nars/ghost_prior.rs` — per-thought, over `WisdomMarker` / `GhostEcho`, no singleton. The floor question the §1c row left open was decided by the pre-registered calibration gate, and it decided AGAINST the first declaration: `Trace` (source 0.001 + prune) loses all discrimination between a recurrence and a shift once the remembered pattern is older than ~42 cycles, `Marker` (contract 0.1, never pruned) keeps it (0.0188) at the cost of a higher absolute free-energy baseline (0.35 vs 0.07 with 30 stale patterns). Default = `Marker`. The remaining W2 items (math → jc, `semantic_chunker`, `spiral_segment`) are D-TEH-3/-5 and untouched here.
+
 ## 4. The good ideas — what the chapter leaves behind even where the code dies
 
 Kept as doctrine with a named present or future home, so the closure is a
@@ -206,7 +208,7 @@ harvest and not an amputation.
 |---|---|---|---|
 | D-TEH-0 | census + fate table + open-row reconciliation + idea harvest (this plan) | plan + board rows | Shipped (this PR) |
 | D-TEH-1 | W1: `bridge_gate` (seven items) → `lance_graph_contract::bridge_gate`; callcenter re-imports and drops the path dep; thinking-engine keeps a re-export shim | contract + callcenter | **Shipped 2026-09-02** — edge measured before (required dep, 6 crossing sites, dep-drop fails 6 × E0433) and after (zero thinking-engine deps in callcenter metadata; 1303 + 156 tests, driver default + `with-engine` green). The `with-engine` re-point is NOT part of this wave: D-TTV-1 is Queued and the engine hook still lives in thinking-engine, so there is nothing to re-point it at (stop condition honoured). thinking-engine is now a leaf for every REQUIRED edge; the one remaining edge is the ALU's optional engine hook |
-| D-TEH-2 | W2: ghost prior harvested as planner `nars/ghost_prior.rs` over `WisdomMarker`, per-thought, with two-sided falsifiers; crate `ghosts.rs` deleted | planner | Queued — consumer = D-HOUSE-4 |
+| D-TEH-2 | W2: ghost prior harvested as planner `nars/ghost_prior.rs` over `WisdomMarker`, per-thought, with two-sided falsifiers; crate `ghosts.rs` deleted | planner | **Shipped 2026-09-02** — planner `nars/ghost_prior.rs` (`GhostPrior`, `PriorFloor`, `Trace`, `calibration::{recurrence_fixture, discrimination}`; 14 tests); `ghosts.rs` + `examples/think.rs` deleted; lab `persona`/`world_model`/`awareness_dto` re-pointed to `contract::escalation::GhostEcho` (TD-GHOST-ECHO-DUP-1 resolved). Calibration gate REVERSED the first-declared floor: `Marker` (0.1, never pruned) discriminates ≥ `Trace` (0.001) on every fixture row and strictly once the remembered pattern ages past its prune point (disc 0.0188 vs 0.0000 at 30 stale / age 20 and 60); default = `Marker`. Consumer D-HOUSE-4 unblocked |
 | D-TEH-3 | W2: calibration MATH → jc (ruling 4: compare, then lift or perfect in jc; crate copies deleted); `semantic_chunker` / `spiral_segment` decided by their falsifiers | jc / deepnsm-v2 / codec home | Queued |
 | D-TEH-4 | W3: M8 engine collapse with parity suite; cascade shapes and lens modules collapse | thinking-engine → the one engine | Queued (owns ENTROPY M8) |
 | D-TEH-5 | W4: residue deleted, crate renamed `thinking-lab` with a CI line; §2 rows closed; TD paid | workspace | Queued — closes the chapter |

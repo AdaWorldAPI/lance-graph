@@ -12,7 +12,7 @@
 //! ```
 
 use crate::cognitive_stack::{GateState, StyleFamily};
-use crate::ghosts::GhostType;
+use lance_graph_contract::escalation::GhostEcho;
 use crate::meaning_axes::{Archetype, HdrResonance, Viscosity};
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -124,7 +124,7 @@ pub struct ContextState {
     /// Focus level (0.0–1.0).
     pub clarity: f32,
     /// Dominant persistent trace type (if any).
-    pub dominant_trace: Option<GhostType>,
+    pub dominant_trace: Option<GhostEcho>,
     /// SPO triples extracted this cycle.
     pub spo_count: u16,
     /// Unresolved conflict detected.
@@ -160,9 +160,11 @@ impl WorldModelDto {
         lens_agreement: f32,
         spo_count: u16,
         calibration_error: f32,
+        // The thought's ghost-prior summary (planner `GhostPrior`): active count
+        // and the dominant echo. The agent no longer owns the field (D-TEH-2).
+        trace_count: u16,
+        dominant_trace: Option<GhostEcho>,
     ) -> Self {
-        let ghost_summary = agent.ghosts.summary();
-        let dominant_trace = ghost_summary.first().map(|g| g.1);
 
         let hdr = HdrResonance::new(
             lens_agreement,
@@ -204,7 +206,7 @@ impl WorldModelDto {
                 confidence: lens_agreement,
                 calibration_error,
                 should_acknowledge_limits: calibration_error > 0.2 && lens_agreement < 0.4,
-                trace_count: agent.ghosts.active_count() as u16,
+                trace_count,
                 free_energy,
                 thought_count: agent.thought_count,
             },

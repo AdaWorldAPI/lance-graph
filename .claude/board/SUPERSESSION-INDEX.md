@@ -55,7 +55,7 @@ coverage instead.
 | `dispatch_busdto` | BLOCKED | — | 3 | 6 | 5 |
 | `persist_cycle` | BLOCKED | — | 10 | 6 | 5 |
 | `CognitiveMarkers` | REPURPOSE | `Commit` | 2 | 0 | 0 |
-| `DominoCascade` | REPURPOSE | `Commit` | 8 | 0 | 0 |
+| `DominoCascade` | REPURPOSE | `Commit` | 7 | 0 | 0 |
 | `GateDecision` | REPURPOSE | — | 25 | 27 | 24 |
 | `GateState` | REPURPOSE | — | 14 | 1 | 1 |
 | `MergeMode` | REPURPOSE | — | 8 | 13 | 12 |
