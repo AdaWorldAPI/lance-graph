@@ -1192,9 +1192,10 @@ fn main() {
     println!("G5 elimination_predicate_two_sided        : {}", pf(g5));
     if !(g1 && g2 && g3 && g4 && g5) {
         println!(
-            "NOTE: one or more anti-vacuity guards failed — treat every metric below as UNTRUSTED \
-             until the failing guard is fixed."
+            "NOTE: one or more anti-vacuity guards failed — no metric can be trusted until the \
+             failing guard is fixed; exiting non-zero so a red guard is never read as a verdict."
         );
+        std::process::exit(1);
     }
     println!();
 
@@ -1517,4 +1518,56 @@ fn verdict(
     }
     println!();
     failed.is_empty()
+}
+
+#[cfg(test)]
+mod tests {
+    //! The five guards as `cargo test --example house_differential` tests, so a
+    //! regression in `rcr_abduce`, `cas_abstract`, `asc_challenge` or the
+    //! elimination predicate fails the suite instead of only printing FAIL.
+    use super::*;
+
+    fn throttle() -> Throttle {
+        Throttle::new(0.0, 4096, HUB_INDEGREE)
+    }
+
+    #[test]
+    fn g1_strata_off_equals_a1c() {
+        assert!(guard_g1(&throttle()));
+    }
+
+    #[test]
+    fn g2_fixture_direction_yields_case_to_cause() {
+        assert!(guard_g2(&throttle()));
+    }
+
+    #[test]
+    fn g3_admission_is_load_bearing() {
+        assert!(guard_g3(&throttle()));
+    }
+
+    #[test]
+    fn g4_far_fact_is_cas_down_only() {
+        assert!(guard_g4(&throttle()));
+    }
+
+    #[test]
+    fn g5_elimination_predicate_two_sided() {
+        assert!(guard_g5());
+    }
+
+    #[test]
+    fn null_shuffle_never_yields_a_duplicate_pair() {
+        for idx in 0..8 {
+            let fixture = build_fixture(idx);
+            for perm_idx in 0..N_PERMS {
+                let (edges, _) = permuted_rule_edges(&fixture, perm_idx);
+                let mut seen = edges.clone();
+                seen.sort_unstable();
+                seen.dedup();
+                assert_eq!(seen.len(), edges.len(), "arena {idx} perm {perm_idx}");
+                assert_eq!(edges.len(), fixture.rule_edges.len(), "size preserved");
+            }
+        }
+    }
 }
