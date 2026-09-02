@@ -1,3 +1,29 @@
+## TD-RELIABILITY-COPIES-OUTSIDE-JC-1 (2026-09-02) — OPEN
+
+**Two further copies of the Pearson / Spearman / Cronbach α / ICC battery live
+outside `jc`.** Found while running the D-TEH-3 lift gate
+(`E-THE-LIFT-GATE-FOUND-A-TIE-BLIND-SPEARMAN-1`):
+
+- `ndarray::hpc::reliability` (`pearson`, `spearman`, `cronbach_alpha`,
+  `icc_a1`, `FidelityReport`) — tie-aware, `f64`, returns `0.0` on degenerate
+  input where jc returns `None`. The PRODUCTION copy; consumed by the
+  edge-codec fidelity work.
+- `perturbation-sim::stats` — a self-described zero-dep mirror of the ndarray
+  copy so that crate's validation harness stays standalone.
+
+Neither is wrong the way the retired thinking-engine Spearman was (both average
+ranks over ties). They are still two more sources of truth for math the ruling
+says has ONE home. The ruling itself names the direction for the first — *once
+ndarray is proven bit-exact the same math is re-importable from jc* — so the
+pay-down is a deliberate PR with a bit-exactness gate (same fixtures as jc's
+lift-gate tests, plus the `0.0`-vs-`None` degeneracy contract decided
+explicitly), never a drive-by delete. The perturbation-sim mirror follows
+whatever the ndarray decision is.
+
+Owner: whoever next touches `ndarray::hpc::reliability` or `perturbation-sim`.
+Refs: `E-JC-IS-THE-HOME-OF-ALL-CALIBRATED-MATH-1`, `crates/jc/src/reliability.rs`
+(lift-gate tests), `thinking-engine-harvest-closure-v1` §1d.
+
 ## TD-PILLAR11-SCIENTIFIC-LOOPS-BYPASS-NDARRAY-SIMD-1 (2026-09-02) — OPEN
 
 **The debt is not missing SIMD support. It is scientific code bypassing the
