@@ -542,6 +542,18 @@ the node level (granularity down, aggregation up). Consequence for W5
 the CLASSID MINT LIST for the upper palettes — the hold therefore stays
 exactly where it is; no rung classid is minted before the table.
 
+#### ⊘ RECOVERY (operator, 2026-09-02) — semantic-family ruling; the four rounds above are regraded, not rewritten
+
+The fourth-round "pair" and the fifth-round loco band were built on a
+register that aliased three families (episodic loci, qualia magnitude,
+population basin). Removed: `basin_lanes`, `epistemic_bassin`, the 24-axis
+basis (`ogar-epistemic`), loco 0x87..0x8B. Kept: the DN dissolution, the
+one-hop law, `hhtl::{missing_ancestors, direct_children}`, tenants 14/15.
+Population-basin geometry is an accepted vacancy; W2b's kind-1 field map
+reopens as a falsifier-first design step whose inputs are listed in
+`E-SIX-SEMANTIC-FAMILIES-MUST-NOT-IMPERSONATE-EACH-OTHER-1` (not an axis set,
+not a tenant, not a dimensionality).
+
 #### Still open — probes, not rulings
 
 - ~~The named 24-axis catalogue~~ — **SHIPPED as v3** (2026-09-01,

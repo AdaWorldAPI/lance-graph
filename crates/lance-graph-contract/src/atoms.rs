@@ -118,11 +118,9 @@ impl I4x32 {
     /// Sign-extend a 4-bit two's-complement nibble to `i8` in `[−8, 7]`.
     ///
     /// Carrier-owned (the nibble codec belongs to the carrier, not a free fn);
-    /// `I4x64` reuses it via `I4x32::sext4`, and so does
-    /// `basin_lanes::BasinLanes` (the same codec at the node's 24-lane
-    /// width) — crate-visible for exactly those carriers, never a free fn.
+    /// `I4x64` reuses it via `I4x32::sext4`.
     #[inline]
-    pub(crate) const fn sext4(nibble: u8) -> i8 {
+    const fn sext4(nibble: u8) -> i8 {
         (((nibble & 0x0F) << 4) as i8) >> 4
     }
 }

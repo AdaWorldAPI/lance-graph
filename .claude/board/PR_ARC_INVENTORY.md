@@ -10,6 +10,25 @@
 > census §8.3 trap 10: read the body FIRST, then open for write — never
 > inline both in one expression.
 
+## 2026-09-02 — lance-graph branch `claude/medcare-rs-continue-6nhbxn` (cleanup, PR not yet opened) — semantic-family recovery
+
+- **Removed:** `basin_lanes.rs`, `epistemic_bassin.rs`, `tests/w2b_one_node_field.rs`,
+  `lance-graph-ogar::assert_epistemic_band_parity` + its test. Paired OGAR
+  change: `ogar-epistemic` crate removed, loco calls 0x87..0x8B retracted,
+  census re-pinned 101 → 96, `TERNLOG` 0x86 kept as generic.
+- **Locked:** the six semantic families and their non-impersonation
+  invariants (`E-SIX-SEMANTIC-FAMILIES-MUST-NOT-IMPERSONATE-EACH-OTHER-1`).
+- **Deferred:** every population-basin design decision (tenant, ClassView,
+  dimensionality, axes, plateau selection, projection into qualia, the
+  EMPTY-nibble experiment) — next step is falsifier-first design on a clean
+  tree.
+- **Docs:** EPIPHANIES entry above; LATEST_STATE delta; STATUS_BOARD
+  D-DCR-2b regraded; plan `dismech-causal-replay-v1.md` §W2b recovery note.
+- **Confidence:** High that the removal is complete for live/persisted ABI
+  (byte-identical `canonical_node.rs`/`soa_envelope.rs`/`facet.rs` vs the
+  pre-#1125 tree); #1128–#1132 and OGAR #296/#297 entries below stand as
+  history, regraded rather than rewritten.
+
 ## 2026-09-01 — lance-graph #1130 (MERGED c630ab9) — loco band mirror + armed parity; two palette rulings recorded
 
 **Added.** `epistemic_bassin::loco_band::EPISTEMIC_CALLS` (zero-dep mirror of ogar-loco's epistemic core band `0x86..0x8B`) + `lance-graph-ogar::parity::assert_epistemic_band_parity()` in the excluded armed tier — written against loco's shared-core TABLE by raw index so it compiles against any revision; the assertions carry the parity. Verified GREEN against OGAR main after OGAR #296 merged (both directions + count pin 6).

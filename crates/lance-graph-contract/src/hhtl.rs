@@ -510,9 +510,9 @@ impl NiblePath {
 /// leaf paths and this is the skeleton to spawn).
 ///
 /// Deliberately returns **addresses only**. Mechanical hydration mints
-/// structure from the hierarchy; the epistemic value of every minted row is
-/// [`BasinLanes::SILENT`](crate::basin_lanes::BasinLanes::SILENT) — this
-/// function's signature cannot carry a lane value, which is the type-level
+/// structure from the hierarchy; a minted row carries NO epistemic value
+/// (its value register is zero until a producer writes one) — this
+/// function's signature cannot carry a value at all, which is the type-level
 /// half of the mechanical-vs-epistemic split (a mint that writes knowledge
 /// is structure impersonating knowledge).
 ///

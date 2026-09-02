@@ -53,7 +53,6 @@ pub mod attention_facet;
 pub mod auth;
 pub mod awareness_facet;
 pub mod band_reading;
-pub mod basin_lanes;
 pub mod callcenter;
 pub mod cam;
 pub mod canonical_node;
@@ -96,7 +95,6 @@ pub mod emission_scan;
 /// D-ACR-6 — the LE codec for the `EpisodicBasin` rail (references, never content).
 pub mod episodic_basin;
 pub mod episodic_edges;
-pub mod epistemic_bassin;
 pub mod escalation;
 pub mod exploration;
 pub mod external_membrane;

@@ -1,3 +1,78 @@
+## 2026-09-02 — E-SIX-SEMANTIC-FAMILIES-MUST-NOT-IMPERSONATE-EACH-OTHER-1
+
+**Status:** OPERATOR RULING (semantic-family recovery), landed as the
+September cleanup on this branch. **Confidence:** ruled; the code removals in
+the same change are the enforcement, the forensic report the evidence.
+
+**Six semantic families, ratified as distinct:** (1) episodic / Markov loci —
+`CausalWitnessFacet`, tenant 14, sign = orientation, pointer semantics closed
+to the `Locus`/ClassView API; (2) epistemic qualia — cheap signed
+proprioceptive magnitude of the CURRENT reasoning state, shipped precedent
+`QualiaI4_16D`, stakes not logic, additive where its contract permits;
+(3) epistemic population basins — population-relative semantic geometry
+(the mammal / whale / wombat / horse / elephant examples), which has NO
+shipped signed-i4 ABI, tenant, ClassView or axis vocabulary and is an accepted
+VACANCY; (4) epistemic causality trajectory — `TrajectorySignature` /
+`RevisionTrajectory`, an ordered evolution, not a magnitude register and not
+the causal graph; (5) the causal graph; (6) the epistemic / knowledge graph.
+Invariants: same physical shape ≠ same semantics; same codec ≠ same
+ClassView; the word "basin" ≠ one mathematical object; locus ≠ magnitude ≠
+population basin ≠ causal graph; trajectory ≠ causal graph.
+
+**What the forensic pass found (four independent mistakes, four sources):**
+population coordinates treated as additive child evidence
+(`w2b_one_node_field.rs` summarise + `BasinLanes::accumulate_children`,
+#1128); that artificial cancellation "repaired" by an agree/disagree pair
+(#1129, a 24-byte wire object V3 does not have); shape equivalence read as
+semantic equivalence — a test borrowed the A9 locus codec to hold a
+magnitude, the type was then defined as the loci register's "sibling", the
+axes as their "twins" (#1128 → #1132); and a fixed 24-axis vocabulary derived
+from the loci table declared the meaning of population basins (#1129/#1132,
+OGAR #297). None of it reached persisted or live ABI: `canonical_node.rs`,
+`soa_envelope.rs`, `facet.rs` are byte-identical to the pre-#1125 tree,
+`ENVELOPE_LAYOUT_VERSION` is unchanged, no tenant was minted, no producer
+wrote either register.
+
+**deepnsm-v2 ruling:** `Cam96Space` / `PairPalette` / centroid + dispersion
+are reusable mathematical primitives; `basin_self_code` is an episodic-rail
+application of them (subject's outgoing SPO neighbourhood, version-ranged,
+`BasinRow` in tenant 15) and is NOT the population-basin representation. The
+July falsifier stands: Cam96 spread alone is not a self-uncertainty signal
+(`E-BASIN-WIDTH-IS-N-ARTIFACT-1`). Taxonomic ancestry in the key rails is
+membership/lineage, not a coordinate system; the A9 `BasinAnchor` fixture was
+a pointer stand-in, not a population representation.
+
+**Removed in this cleanup:** `basin_lanes.rs`, `epistemic_bassin.rs`,
+`tests/w2b_one_node_field.rs`, `lance-graph-ogar::assert_epistemic_band_parity`;
+OGAR: `ogar-epistemic` (0x0334), the loco calls 0x87..0x8B (`BELNAP_JOIN`,
+`INFO_GAIN`, `SIGMA_TENSION`, `ACCUMULATE`, `STANCE_ENTROPY`; census 101 → 96).
+**Preserved:** `hhtl::{missing_ancestors, direct_children}`, tenants 14/15,
+Qualia, Cam96/PairPalette, `atoms::I4x32::sext4` (visibility reverted to
+private), the generic `TERNLOG` 0x86 (independently justified by ndarray's
+`ternlog`), all `sigma_propagation` surfaces, OGAR #295 `BasinCodebook`.
+
+**Deferred, explicitly NOT done here (next falsifier-first step):** any
+population-basin tenant or ClassView; 16 vs 24 dimensions; fixed axes for the
+mammal examples; Shannon/Tarski entropy-plateau selection; the hypothesis
+that population geometry PROJECTS INTO qualia/proprioception (population →
+basins → projection → qualia → style/frontier/recipe) rather than becoming a
+competing carrier; an `EMPTY, −7..+7` nibble (EMPTY = no valid observation,
+0 = observed neutral; deterministic, total, replayable) to be falsified
+against plain i4 on sparse sign-symmetric projections; and the design survey
+that must inventory Fisher-z/Helix orientation, bgz17 / highheelbgz /
+bgz-hhtl-d phase structures, palette256 distribution and sparse-salience
+readings, Qualia, Markov loci, Cam96/PairPalette, trajectory/revision and the
+graph surfaces before any new persistent shape is proposed — asking what
+reasoning needs that is NOT already a cheap reading of an existing shape.
+Kant/Wittgenstein/Nietzsche/Hegel behaviours are to be tried as Style/Recipe
+operations over those shapes first; no new "Hegel helix" (Helix/Fisher
+geometry exists).
+
+**Process residue:** #1133 conflicts with this cleanup on
+`epistemic_bassin.rs` (deleted); its jc Hambly-Lyons + sigker + harvest work
+is independent and should land without that hunk. The pre-ban stash of a
+two-register re-cut is contaminated and is not reapplied.
+
 ## 2026-09-01 — E-PILLAR-11-GREEN-FOR-LATTICE-WALKS-LENGTH-PARAMETERIZED-1
 
 **Status:** SHIPPED (jc W6 leg, `hambly_lyons.rs`; sigker Index regime
@@ -95,7 +170,6 @@ weak — the real defect is non-cancellative ratio distortion, which needs a
 saturation flag on Contested reads). Greedy INFO_GAIN admission carries a
 published Ω(n/log n) lower bound (Golovin-Krause-Ray Thm 9); EC² is the
 adaptive-submodular repair as a rung-local script.
-
 ## 2026-09-01 — E-THE-24-AXIS-BASIS-V3-EVERY-AXIS-IS-A-GROUNDED-PRESSURE-1
 
 **Status:** BUILT on the operator's "mach weiter" — the catalogue derived
