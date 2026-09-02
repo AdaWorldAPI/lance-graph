@@ -1,3 +1,17 @@
+## 2026-09-02 — E-JC-IS-THE-HOME-OF-ALL-CALIBRATED-MATH-1 — operator ruling: scientifically calibrated math lives in `jc`, lifted when correct and perfected there when not; glue is not math
+
+**Status:** RULING (operator, 2026-09-02, closing ruling 4 of `thinking-engine-harvest-closure-v1` §6; rulings 1 and 2 of the same section — D-PERSONA-5 RETIRED, D-REUNIFY-5/6 CLOSED-superseded — landed in the same commit; ruling 3 stays OPEN, re-stated in plain terms in the plan). **Confidence:** High (verbatim intent; wording here is mine).
+
+**The rule.** `jc` (Jirak-Cartan, the pillar crate) is the single home for every piece of math that has been or must be scientifically calibrated. When a calibration routine exists elsewhere in the workspace it has exactly two fates: **lifted** into jc as-is if it is correct, or — if it sails under a wrong name or is numerically wrong — the **jc version is perfected** and the stray copy dies. A duplicate is never tolerated as "the same thing twice"; it is either the same (lift) or a defect (perfect). jc's pillars are meant to be the reusable, liftable calibration source, and once ndarray is proven bit-exact the same math is re-importable into production from jc rather than re-derived.
+
+**Why `sigker` stayed out.** This is the same rule applied earlier: sigker was held outside jc while Pillar 11 (Hambly-Lyons signature uniqueness) was red for non-lattice quantized step vectors. Only math whose certification is green enters the pillar crate.
+
+**What it changes right now.** The thinking-engine calibration battery is split by NATURE, not by weight: `cronbach.rs` (compared against `jc::reliability::cronbach_alpha` on a shared fixture, then lifted or reconciled), `spearman_rank_correlation`, the re-encode drift statistics and the SiLU-correction statistics go to jc under D-TEH-3; candle loaders, tokenizer registry, centroid labels, model auto-detect and file plumbing are glue and stay in the lab crate, calling jc for their math.
+
+**Guard.** A lift is only a lift if the two implementations agree on a fixture that can distinguish them; a fixture on which every implementation returns the same value proves nothing (the falsifiability rule). Where they disagree, the discrepancy is understood before jc is declared right.
+
+Refs: `crates/jc/src/lib.rs` (pillar list; Pillar 11 status), `I-NOISE-FLOOR-JIRAK`, `TD-THINKING-ENGINE-EXCLUDED-DEBT-1`, `thinking-engine-harvest-closure-v1` §1d / §6 / W2.
+
 ## 2026-09-02 — E-A-GHOST-TRACE-IS-NOT-THE-COUNTERFACTUAL-LANE-1 — the word "ghost" names two semantic families in the tree; the same-word-≠-same-family lesson of the September teardown, caught BEFORE a port this time
 
 **Status:** FINDING + FENCE (verified against source). **Confidence:** High. Raised by an external review of #1137 (GPT-class; held CLAIMED-BY-EXTERNAL per `E-EXTERNAL-REVIEW-ADJUDICATED-1` until checked, then confirmed on both sides in code).
