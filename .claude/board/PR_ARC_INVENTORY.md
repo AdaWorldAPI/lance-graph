@@ -10,6 +10,20 @@
 > census §8.3 trap 10: read the body FIRST, then open for write — never
 > inline both in one expression.
 
+## 2026-09-02 — lance-graph branch `claude/medcare-rs-continue-6nhbxn` (survey PR, opened after #1134) — post-teardown buildup survey v1
+
+- **Added:** `.claude/plans/post-teardown-buildup-survey-v1.md` (survey,
+  plan-only); `INTEGRATION_PLANS` entry; `STATUS_BOARD` section with
+  D-POP-0/1/2; this entry.
+- **Locked:** nothing new — the six-family ruling stands; the survey records
+  which compositions are lawful, unsupported or aliasing under it.
+- **Deferred:** every carrier decision for population geometry until
+  PROBE-POP-READOUT-1 (D-POP-1) reports; the EMPTY nibble; philosophical
+  names as storage.
+- **Confidence:** High for the inventories (file-cited, four independent
+  traces); Medium for the legality matrix (a reading of the ruling, not a
+  test); the experiment is pre-registered, unrun.
+
 ## 2026-09-02 — lance-graph branch `claude/medcare-rs-continue-6nhbxn` (cleanup, PR not yet opened) — semantic-family recovery
 
 - **Removed:** `basin_lanes.rs`, `epistemic_bassin.rs`, `tests/w2b_one_node_field.rs`,

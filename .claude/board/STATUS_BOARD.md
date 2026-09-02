@@ -1,3 +1,11 @@
+## post-teardown-buildup-survey-v1
+
+| D-id | deliverable | status |
+|---|---|---|
+| D-POP-0 | the survey itself: six-family inventory, atom/operator inventory, family×operator legality matrix, molecule candidates, gap list (plan §§1–5) | **Shipped (plan-only, this PR)** |
+| D-POP-1 | PROBE-POP-READOUT-1: composed population readout (Cam96 centroid distance → Fisher-z → occupancy bucket) vs `curiosity` / `curiosity_gestalt` at predicting later-confirmed frontier edges on the KJV stream; size-preserving shuffle null; PASS/KILL pre-registered in plan §6 | **Queued** — needs the `v0.1.0-cam96-data` + Gutenberg #10 fetch; one example binary, no new types |
+| D-POP-2 | contradiction write-back producer (`elect_peers` → `WitnessLens::write_register`) — the one cheap gap that unblocks the contradiction-driven-revision molecule (plan §4) | **Queued** — not before D-POP-1 reports |
+
 ## dismech-causal-replay-v1
 
 | D-id | deliverable | status |

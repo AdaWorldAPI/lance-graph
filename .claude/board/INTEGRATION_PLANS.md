@@ -1,3 +1,23 @@
+## 2026-09-02 — `post-teardown-buildup-survey-v1` (SURVEY, plan-only)
+
+`.claude/plans/post-teardown-buildup-survey-v1.md`. First step after the
+semantic-family recovery (`E-SIX-SEMANTIC-FAMILIES-MUST-NOT-IMPERSONATE-EACH-OTHER-1`,
+#1134 / OGAR #298): the six families treated as ingredients, not competing
+owners of one lane. Four read-only traces over merged main produced a
+six-family inventory, a 35-row atom/operator inventory (files cited), an
+11×6 family×operator legality matrix (lawful / unsupported / aliasing), nine
+candidate molecules classified expressible / needs-operator / needs-missing-
+information, and seven missing-information gaps. Headline: family 3
+(population geometry) can be tried as a MOLECULE — every ingredient for a
+population-relative readout exists (Cam96 centroid distance, Fisher-z,
+`RollingFloor::occupancy`, `shuffle_beliefs_null`) and nothing is wired into
+any selection path; `select_tactic` reads four scalars with zero population or
+qualia input. Gates one experiment, PROBE-POP-READOUT-1 (D-POP-1): does the
+composed readout beat `curiosity` and `curiosity_gestalt` at predicting
+later-confirmed frontier edges on the KJV stream, above a size-preserving
+shuffle null. No code, no tenant, no ClassView, no opcode, no axis
+vocabulary; a PASS licenses a readout molecule only.
+
 ## 2026-08-31 — `dismech-causal-replay-v1` (PROPOSED, plan-only)
 
 `.claude/plans/dismech-causal-replay-v1.md`. First domain instantiation of
