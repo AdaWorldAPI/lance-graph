@@ -119,7 +119,8 @@ out(f"**`{top}` is the shape of the problem.** Marked {syms[top][0]}, and simult
     f"That is a programme, not a cleanup.\n\n")
 if allblind:
     s0 = max(allblind, key=lambda s: stat[s][1])
-    out(f"**`{s0}` is the sharpest case: {stat[s0][1]} plans name it and *every one* is blind.**\n"
+    n0 = stat[s0][1]
+    out(f"**`{s0}` is the sharpest case: {n0} plan{'' if n0 == 1 else 's'} name{'s' if n0 == 1 else ''} it and *every one* is blind.**\n"
         f"Its COMPONENT-MAP note reads: {syms[s0][2][:120]}\n\n")
 used = {s0} if allblind else set()
 if [s for s in inverted if s not in used]:

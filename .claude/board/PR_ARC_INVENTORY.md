@@ -10,6 +10,52 @@
 > census §8.3 trap 10: read the body FIRST, then open for write — never
 > inline both in one expression.
 
+## 2026-09-02 — lance-graph branch `claude/medcare-rs-continue-6nhbxn` (plans PR, after #1136) — House differential style v1 + thinking-engine harvest & closure v1
+
+- **Added:** `.claude/plans/house-differential-style-v1.md` (223 lines: parts
+  list of shipped surfaces file-cited, the composition as a recipe-level
+  program, ladder placement per `persona-vs-rung-ladder.md`, PROBE-HOUSE-
+  DIFFERENTIAL-1 pre-registered, D-HOUSE-0..6);
+  `.claude/plans/thinking-engine-harvest-closure-v1.md` (206 lines: measured
+  live footprint, 51-file fate table, open-row reconciliation, four-wave
+  closure with stop rules, idea harvest, D-TEH-0..5, four rulings asked);
+  INTEGRATION_PLANS entry; STATUS_BOARD sections for both plans; EPIPHANIES
+  entry `E-THINKING-ENGINE-LIVE-FOOTPRINT-IS-ONE-TRAIT-AND-HOUSE-IS-SHIPPED-IN-PIECES-1`;
+  SUPERSESSION-INDEX regenerated last.
+- **Regraded (status cells only, evidence cited):** D-PERSONA-1 In progress →
+  Shipped (`contract::escalation` + planner `mul/escalation.rs` on main);
+  D-PERSONA-5 annotated "proposed RETIRE, ruling needed"; D-REUNIFY-2
+  annotated "shipped as D-CSV-9 (#387)".
+- **Locked:** nothing — plan-only; no code, no Cargo change, no type.
+- **Deferred:** every code wave (D-HOUSE-1, D-TEH-1..5) behind its gate; four
+  rulings listed in the closure plan §6.
+- **Confidence:** High for the footprint measurement (two `Cargo.toml`
+  consumers, symbols grepped) and the parts list (each row file:line);
+  Medium for the fate verdicts that name a landing without a consumer yet
+  (they are marked "park" rather than "port").
+- **Correction 2026-09-02 (same PR, third commit):** `575c6d3` had folded three
+  extra arms into D-HOUSE-1; an external review objected (attribution — one
+  causal question per harness) and the objection was adopted: arms moved out
+  to gated D-HOUSE-1b/1c/1d (plan §4b) with three processing-order defects
+  fixed; ghost-trace vs counterfactual-lane fence banked
+  (`E-A-GHOST-TRACE-IS-NOT-THE-COUNTERFACTUAL-LANE-1`,
+  `TD-GHOST-TIER-NAME-COLLISION-1`).
+- **Review pass 2026-09-02 (fourth commit):** 6 Codex + 8 CodeRabbit findings
+  on `84f2885`, all verified in source, all fixed. The three Codex P1s were
+  real probe-design errors: the fixture direction meant `rcr_abduce`
+  (`{P→M, S→M} ⊢ S→P`) could never emit the cause as a candidate (fixed:
+  `cause→feature` rules + `case→feature` observations); candidates were
+  never admitted before ASC (`admit_derived` step added, else
+  `AscOutcome::NoTarget`); `quorum_project` is an unconditional `todo!`
+  (removed from the path; council verdict → `deposit_counterfactual`
+  directly). Also: A1c control arm for the `k = 0` guard; swap-only,
+  `None`-defined discriminating-evidence readout; role_tables/jina_lens
+  one fate each; bridge_gate migration symbol-complete (7 items) with a
+  W1 compatibility contract incl. callcenter's lens-touching test; ghost
+  floor mismatch (0.001-prune vs 0.1-clamp) declared an intentional change
+  with a calibration gate; M8 gate = tolerances + invariants, not
+  bit-parity; stop rule scoped to §1b+§1c; generator singular agreement.
+
 ## 2026-09-02 — lance-graph branch `claude/medcare-rs-continue-6nhbxn` (D-POP-1 result PR, after #1135) — PROBE-POP-READOUT-1
 
 - **Added:** `crates/deepnsm-v2/examples/pop_readout.rs` (probe only, no library

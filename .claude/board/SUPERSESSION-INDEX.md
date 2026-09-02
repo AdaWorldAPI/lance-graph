@@ -17,11 +17,11 @@
 most-referenced symbol here: **68 crate files, 44 plans, 41 of them blind.**
 That is a programme, not a cleanup.
 
-**`CollapseGateEmission` is the sharpest case: 12 plans name it and *every one* is blind.**
-Its COMPONENT-MAP note reads: already tombstoned (PR #477); comment-only remains
+**`GateState` is the sharpest case: 1 plan names it and *every one* is blind.**
+Its COMPONENT-MAP note reads: intra-cascade SD gate — fine IF intra-mailbox; warden sign-off queued, not assumed
 
 **`ResonanceDto` → `PerturbationDto` gives the rule that needs no map at all:**
-2 crate files against 10 plans. The code moved; the plans did not.
+2 crate files against 12 plans. The code moved; the plans did not.
 **Plan-mentions exceeding crate-mentions is a staleness signal on its own.**
 
 ### The limit of the mechanical route
@@ -49,9 +49,9 @@ coverage instead.
 
 | symbol | verdict | successor | live in crates | named in plans | blind plans |
 |---|---|---|---|---|---|
-| `A2AMessage` | BLOCKED | — | 2 | 0 | 0 |
-| `StepMask` | BLOCKED | — | 3 | 8 | 4 |
-| `commit_to_l4` | BLOCKED | — | 2 | 1 | 0 |
+| `A2AMessage` | BLOCKED | — | 2 | 1 | 0 |
+| `StepMask` | BLOCKED | — | 3 | 9 | 4 |
+| `commit_to_l4` | BLOCKED | — | 2 | 2 | 0 |
 | `dispatch_busdto` | BLOCKED | — | 3 | 6 | 5 |
 | `persist_cycle` | BLOCKED | — | 10 | 6 | 5 |
 | `CognitiveMarkers` | REPURPOSE | `Commit` | 2 | 0 | 0 |
@@ -59,10 +59,10 @@ coverage instead.
 | `GateDecision` | REPURPOSE | — | 25 | 27 | 24 |
 | `GateState` | REPURPOSE | — | 14 | 1 | 1 |
 | `MergeMode` | REPURPOSE | — | 8 | 13 | 12 |
-| `ResonanceDto` | REPURPOSE | `PerturbationDto` | 2 | 10 | 7 |
+| `ResonanceDto` | REPURPOSE | `PerturbationDto` | 2 | 12 | 7 |
 | `BindSpace` | RETIRE | — | 68 | 44 | 41 |
-| `CollapseGateEmission` | RETIRE | — | 5 | 12 | 12 |
-| `ThinkingStyle` | RETIRE-toward-contract | — | 51 | 27 | 24 |
+| `CollapseGateEmission` | RETIRE | — | 5 | 13 | 12 |
+| `ThinkingStyle` | RETIRE-toward-contract | — | 51 | 28 | 24 |
 
 ## Table 2 — plans naming a ruled symbol without citing the ruling (73)
 
@@ -98,8 +98,8 @@ a licence to act on it.
 | **READ** | `self-reasoning-substrate-v1` | `GateDecision` | PROPOSED — doc-only. No code, no contract ch | 5/5 |
 | **READ** | `v3-convergence-wiring-v1` | `GateDecision` | ACTIVE (2026-07-01). Operator: "I'm all in f | 0/0 |
 | **RESCOPE** | `soa-migration-diff-resolution-2026-06-13` | `BindSpace`, `CollapseGateEmission`, `GateDecision`, `MergeMode` … | — | 3/5 |
-| **RESCOPE** | `cognitive-substrate-convergence-v1` | `BindSpace`, `CollapseGateEmission`, `GateDecision`, `MergeMode` … | PROPOSAL (sprint-10 architectural decisions  | 6/13 |
-| **RESCOPE** | `cognitive-substrate-convergence-v2` | `BindSpace`, `CollapseGateEmission`, `GateDecision`, `MergeMode` … | ACTIVE — sprint-11 Phase A/B COMPLETE (pendi | 7/15 |
+| **RESCOPE** | `cognitive-substrate-convergence-v1` | `BindSpace`, `CollapseGateEmission`, `GateDecision`, `MergeMode` … | PROPOSAL (sprint-10 architectural decisions  | 7/13 |
+| **RESCOPE** | `cognitive-substrate-convergence-v2` | `BindSpace`, `CollapseGateEmission`, `GateDecision`, `MergeMode` … | ACTIVE — sprint-11 Phase A/B COMPLETE (pendi | 8/15 |
 | **RESCOPE** | `bindspace-singleton-to-mailbox-soa-v1` | `BindSpace`, `CollapseGateEmission`, `ResonanceDto`, `ThinkingStyle` | CONJECTURE / design (migration spec). NOT ye | 18/19 |
 | **RESCOPE** | `callcenter-membrane-v1` | `BindSpace`, `GateDecision`, `MergeMode`, `ThinkingStyle` | Active | 0/0 |
 | **RESCOPE** | `causaledge64-mailbox-rename-soa-v1` | `BindSpace`, `GateDecision`, `MergeMode`, `ThinkingStyle` | Active (draft, 2026-05-14) | 1/10 |
@@ -110,7 +110,7 @@ a licence to act on it.
 | **RESCOPE** | `alpha-reason-witness-shader-field-archaeology-pass-1` | `BindSpace`, `MergeMode`, `ResonanceDto` | SOURCE AUDIT / PLAN ONLY. No production wiri | 1/1 |
 | **RESCOPE** | `bindspace-mailbox-soa-dependency-map-v1` | `BindSpace`, `dispatch_busdto`, `persist_cycle` | MAP / preflight. No source wired yet. Read-b | 2/2 |
 | **RESCOPE** | `bindspace-mailbox-soa-w3-w4a-impl-v1` | `BindSpace`, `dispatch_busdto`, `persist_cycle` | v2 — 5-consolidation + 3-brutal-critic pass  | 1/1 |
-| **RESCOPE** | `cognitive-substrate-convergence-v3` | `BindSpace`, `CollapseGateEmission`, `MergeMode` | ACTIVE — sprint-12 Wave F + Wave G complete  | 7/16 |
+| **RESCOPE** | `cognitive-substrate-convergence-v3` | `BindSpace`, `CollapseGateEmission`, `MergeMode` | ACTIVE — sprint-12 Wave F + Wave G complete  | 8/16 |
 | **RESCOPE** | `mailbox-cycle-aware-write-contract-v1` | `BindSpace`, `dispatch_busdto`, `persist_cycle` | CONJECTURE / design. 5+3-gated before code. | 1/1 |
 | **RESCOPE** | `unified-integration-v1` | `BindSpace`, `MergeMode`, `ThinkingStyle` | Active — brainstorm phase complete; delivera | 0/0 |
 | **RESCOPE** | `2026-05-06-splat-osint-ingestion-v1` | `BindSpace`, `MergeMode` | Active — PR 1+2 of 6 in flight on `claude/sp | 1/7 |

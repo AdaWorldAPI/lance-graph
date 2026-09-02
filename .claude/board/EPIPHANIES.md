@@ -1,3 +1,35 @@
+## 2026-09-02 — E-A-GHOST-TRACE-IS-NOT-THE-COUNTERFACTUAL-LANE-1 — the word "ghost" names two semantic families in the tree; the same-word-≠-same-family lesson of the September teardown, caught BEFORE a port this time
+
+**Status:** FINDING + FENCE (verified against source). **Confidence:** High. Raised by an external review of #1137 (GPT-class; held CLAIMED-BY-EXTERNAL per `E-EXTERNAL-REVIEW-ADJUDICATED-1` until checked, then confirmed on both sides in code).
+
+**The two families.**
+1. **Lingering trace.** `thinking_engine::ghosts::{GhostType, Ghost, GhostField}` — a `Ghost` carries `atom`, `ghost_type`, `intensity`, `created_at`, `source_text`; the field decays asymptotically and biases the NEXT cascade (Friston prior). Contract twin `escalation::{GhostEcho, WisdomMarker}` (floor 0.1, decay 0.85). Its eight names are memory residues: Staunen = persistent wonder, Wisdom = deep / harvested knowing, Grief = loss that reshapes topology, Boundary = a limit still felt.
+2. **Non-authoritative counterfactual rung.** `contract::counterfactual::{deposit_counterfactual, CounterfactualMailbox, revise_if_minority_wins}` — the minority pole of a split quorum, kept under `InferenceType::Counterfactual` (−6), never written as observed SPO truth. Its own docs call it a "ghost-tier mailbox" seven times (`counterfactual.rs:16, 111, 229, 243, 247, 340, 402`).
+
+**Why it matters now.** `thinking-engine-harvest-closure-v1` D-TEH-2 ports the trace family into the planner, and `house-differential-style-v1` D-HOUSE-4 consumes it as an anchoring alarm. A reader who meets `GhostType::Wisdom` beside a "ghost-tier mailbox" will plausibly conclude the existing `GhostField` already IS the counterfactual-rung carrier. It is not: one is what a past thought left behind, the other is a road not taken that may still win. The September teardown removed a register precisely because evocative shape-sharing (G24N4) had been read as semantic identity; this is the same failure one word earlier.
+
+**The fence.** The rung MAY consume a trace (a Staunen or Wisdom marker) as a starting prior. The rung is NEVER a trace, a trace is NEVER a rung, and no port under D-TEH-2 or readout under D-HOUSE-1..4 reads `WisdomMarker` as counterfactual state or writes the −6 lane from a ghost field. The wording collision in `counterfactual.rs` is recorded as `TD-GHOST-TIER-NAME-COLLISION-1` (doc-only; rename "ghost-tier" → "counterfactual-tier" when that file is next touched, never as a drive-by).
+
+**Archaeology kept.** The older architecture already carried the epistemic cycle as a DUALITY: Staunen keeps a question alive, Wisdom is what was harvested from it. The shipped `curiosity() = (1/(q+1))·(1−c)` (`exploration.rs`) is a later operational slice of the Staunen end, not the pair. Recorded in the closure plan's idea harvest so the duality survives the crate.
+
+**Also adopted from the same review:** D-HOUSE-1 stays surgical (one causal question, four arms); the resonance, qualia-dye and aperture arms folded in by `575c6d3` are moved OUT to gated follow-on probes D-HOUSE-1b/1c/1d (plan §4b), with three processing-order defects fixed in the move (the aperture knob was reading a quantity that does not exist until two steps later; the dye coloured one candidate; the resonance arm was one shape where the pyramid names two).
+
+Refs: `E-SIX-SEMANTIC-FAMILIES-MUST-NOT-IMPERSONATE-EACH-OTHER-1`, `E-EXTERNAL-REVIEW-ADJUDICATED-1`, `TD-GHOST-ECHO-DUP-1`, `E-QUALIA-IS-RANK-INERT-AT-THE-FRONTIER-AND-POPULATION-LOSES-TO-COUNTING-1` (the attribution lesson), plans `house-differential-style-v1` §4b, `thinking-engine-harvest-closure-v1` §1c/§4.
+
+## 2026-09-02 — E-THINKING-ENGINE-LIVE-FOOTPRINT-IS-ONE-TRAIT-AND-HOUSE-IS-SHIPPED-IN-PIECES-1 — the 51-file excluded crate binds the spine through ONE trait module; the differential-diagnosis style the operator asked for already exists as seven scattered shipped mechanisms and zero names
+
+**Status:** FINDING (measured on `94543a5`, read-only). **Confidence:** High for both measurements. Plans: `house-differential-style-v1`, `thinking-engine-harvest-closure-v1`.
+
+**Measurement 1 — the crate's live footprint.** `grep thinking-engine crates/*/Cargo.toml` names two consumers. `lance-graph-callcenter` requires it and uses exactly `bridge_gate::{CognitiveBridgeGate, CognitiveAuthResult, …}` — a trait-only module whose own doc says it lives low so callcenter can implement it. `cognitive-shader-driver` takes it OPTIONALLY behind `with-engine` (default off) and reaches `dto::BusDto`, two `cognitive_stack` thresholds, and lens lookups in doc/test paths. Everything else in the 51 files is internal or example-only. Consequence: the chapter closes by moving one trait to the zero-dep contract and ruling the DTO ladder's home under D-TTV-1 — not by a rewrite. The MODULE-TABLE census's gem-status column, COMPONENT-MAP §3 and three TD rows already agreed on the file-level verdicts; nobody had measured the dependency edge, so the closure kept looking larger than it is.
+
+**Measurement 2 — the House question.** A grep for the pattern's name (and for "differential diagnosis") over `.claude/`, thinking-engine, contract and planner returns nothing. The mechanics are shipped in seven places: `rcr_abduce` (the ranked board), `asc_challenge` with the disjoint-stamp guard (attack the leader), `cr_synthesize` (thesis/antithesis, depth preserved), `InnerCouncil` + `quorum_project` + `deposit_counterfactual` (minority kept as −6), `peripheral_sample_where` + `peripheral_dissent` (the test nobody ordered; never decides), `Recipe::min_rung` (cheap passes first), `WisdomMarker`/`GhostEcho` (memory, without the field). MedCare-rs already carries the consumer shape (`differential() -> Vec<DiffRow>`, private repo). What is missing is not a mechanism but two READOUTS (discriminating evidence; elimination as a predicate over `truth`/`contradiction`/`stamp`) and the O2 style→recipe edge. Consequence: the right first artifact is a falsifier, not a struct — PROBE-HOUSE-DIFFERENTIAL-1 (planted-cause recovery, shuffle null, periphery can-fire AND can-stay-silent).
+
+**Two stale rows found on the way.** D-PERSONA-1 still read "In progress" on a branch name; its content (`contract::escalation`, planner `mul/escalation.rs`) is on main. D-REUNIFY-2 still read "Backlog"; it shipped as D-CSV-9 in #387. Both regraded in the same commit, status cells only.
+
+**Rule extracted.** Before sizing a retirement, measure the DEPENDENCY EDGE (which symbols cross the crate boundary), not the file count. A 51-file crate with a one-trait edge is a one-trait retirement plus a harvest list; the harvest list is then governed by consumers and falsifiers, one port at a time.
+
+Refs: `TD-THINKING-ENGINE-EXCLUDED-DEBT-1`, `TD-GHOST-ECHO-DUP-1`, `E-RUNG-ASCENT-WIRED-1` (the crate named orphaned), `E-PERIPHERAL-DISSENT-GUARDS-THE-STRATIFICATION-1`, `E-DIALECTIC-V1-TACTICS-IN-PLANNER-1`, `persona-vs-rung-ladder.md` O2/O3.
+
 ## 2026-09-02 — E-QUALIA-IS-RANK-INERT-AT-THE-FRONTIER-AND-POPULATION-LOSES-TO-COUNTING-1
 
 **Status:** MEASURED (PROBE-POP-READOUT-1 / D-POP-1, `pop_readout.rs`, whole

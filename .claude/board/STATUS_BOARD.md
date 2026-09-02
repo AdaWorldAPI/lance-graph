@@ -1,3 +1,29 @@
+## house-differential-style-v1
+
+| D-id | deliverable | status |
+|---|---|---|
+| D-HOUSE-0 | the plan: parts list of shipped surfaces (file-cited), the composition as a recipe-level style program, ladder placement, pre-registered falsifier | **Shipped (plan-only, this PR)** |
+| D-HOUSE-1 | PROBE-HOUSE-DIFFERENTIAL-1: planted-cause recovery on synthetic arenas with shared-predicate distractors; arms RCR-alone / +admit+ASC / +council control / full cycle / shuffle null (fixture direction `cause→feature` + `case→feature` so RCR yields `case→cause`; `quorum_project` NOT on the path — it is a `todo!`); PASS iff Δp@1 ≥ 0.05 above null p95, planted cause never eliminated, periphery fires on 10–90 % | **Queued — next step** |
+| D-HOUSE-1b | resonance prior probe (`res-seed` + `res-gate`): anchoring vs recognition, same arenas, ρ < 1 guard against the D-HOUSE-1 A2 ordering (plan §4b) | Gated on D-HOUSE-1 reported |
+| D-HOUSE-1c | signed-qualia contrast probe: one i4 per top-3 candidate from the ASC outcome into existing `QualiaI4_16D` lanes, post-challenge re-rank only, all-zero-signs must equal A2 (plan §4b) | Gated on D-HOUSE-1 reported |
+| D-HOUSE-1d | aperture hypothesis (the "humor" label): incongruity → `k` across passes; a hypothesis until its operator is defined and measured (plan §4b) | Not scheduled |
+| D-HOUSE-2 | discriminating-evidence readout (clone arena, observe hypothetical premise, report largest rank displacement) | Gated on D-HOUSE-1 PASS |
+| D-HOUSE-3 | elimination predicate over `truth`/`contradiction`/`stamp` + never-re-enter falsifier | Gated on D-HOUSE-1 PASS |
+| D-HOUSE-4 | anchoring alarm (free energy between wisdom-marker prior and evidence) | Gated on `thinking-engine-harvest-closure-v1` D-TEH-2 |
+| D-HOUSE-5 | the style→recipe edge (O2) with House as its first program | Gated on D-HOUSE-1 PASS and the D-TSC-2/3 mint |
+| D-HOUSE-6 | consumer pointer: `DiffRow` READ fields `eliminated` / `discriminator` (MedCare-rs) | pointer only, out of scope here |
+
+## thinking-engine-harvest-closure-v1
+
+| D-id | deliverable | status |
+|---|---|---|
+| D-TEH-0 | census: live footprint measured (one required consumer via `bridge_gate`; one optional via `with-engine`), 51-file fate table, open-row reconciliation, four-wave closure, idea harvest, four rulings asked | **Shipped (plan-only, this PR)** |
+| D-TEH-1 | W1: `bridge_gate` trait → `lance-graph-contract`; callcenter drops the path dep; DTO-ladder home ruling recorded (D-TTV-1); thinking-engine becomes a leaf | Queued — first code wave |
+| D-TEH-2 | W2: ghost prior → planner `nars/ghost_prior.rs` over `WisdomMarker`, per-thought, two-sided falsifiers; crate `ghosts.rs` deleted | Queued — consumer D-HOUSE-4 |
+| D-TEH-3 | W2: `cronbach` → `jc::reliability`; `semantic_chunker` / `spiral_segment` decided by their falsifiers | Queued |
+| D-TEH-4 | W3: ENTROPY M8 engine collapse with dtype parity suite; 5 cascade shapes + 3 lens modules collapse | Queued |
+| D-TEH-5 | W4: residue deleted, crate renamed `thinking-lab` with a `--manifest-path` CI line; §2 rows closed; `TD-THINKING-ENGINE-EXCLUDED-DEBT-1` paid | Queued — closes the chapter |
+
 ## post-teardown-buildup-survey-v1
 
 | D-id | deliverable | status |
@@ -1343,7 +1369,7 @@ Plan path: `.claude/plans/causaledge64-mailbox-rename-soa-v1.md`.
 | D-id | Title | Status | PR / Evidence |
 |---|---|---|---|
 | D-REUNIFY-1 | Acknowledge dual `CausalEdge64` types in TYPE_DUPLICATION_MAP + LATEST_STATE + EPIPHANIES | **Shipped** | this commit (post-merge #372 board-hygiene tail) |
-| D-REUNIFY-2 | 8-channel → SPO transcoder spec at thinking-engine L3 commit boundary | **Backlog** | per Option R-3; sprint-12+ |
+| D-REUNIFY-2 | 8-channel → SPO transcoder spec at thinking-engine L3 commit boundary | **Backlog → shipped as D-CSV-9** (#387 `e042c70`; annotated 2026-09-02, `thinking-engine-harvest-closure-v1` §2) | per Option R-3; sprint-12+ |
 | D-REUNIFY-3 | `Think` carrier struct prototype unifying thinking-engine cascade + cognitive-shader-driver SoA | **Backlog** | per `.claude/knowledge/splat-shader-rayon-struct-method-vision.md` sprint-12 |
 | D-REUNIFY-4 | Splat op fleet (`splat_gaussian`, `score_hole_closure`, `replay_coherence`, `emit_if_epiphany`) as methods on `Think` | **Backlog** | sprint-13+ |
 | D-REUNIFY-5 | rayon work-stealing par_* method variants | **Backlog** | sprint-14+ |
@@ -1440,11 +1466,11 @@ hot/cold/feedback loop onto our contract types + SoA floor
 
 | D-id | Title | Crate(s) | ~LOC | Risk | Status | PR / Evidence |
 |---|---|---|---|---|---|---|
-| D-PERSONA-1 | escalation+epiphany loop = the checklist (`felt_parse` collapse-hint + `InnerCouncil`/`HdrResonance` split + `EpiphanyDetector`; green-flip = Epiphany/Wisdom ghost) — NOT a bespoke verifier | contract + planner | 160 | LOW | **In progress** | branch `claude/splat3d-cpu-simd-renderer-MAOO0` |
+| D-PERSONA-1 | escalation+epiphany loop = the checklist (`felt_parse` collapse-hint + `InnerCouncil`/`HdrResonance` split + `EpiphanyDetector`; green-flip = Epiphany/Wisdom ghost) — NOT a bespoke verifier | contract + planner | 160 | LOW | **Shipped** (regraded 2026-09-02 by `thinking-engine-harvest-closure-v1` §2: `contract::escalation` {CollapseHint, InnerCouncil, EpiphanyDetector, GhostEcho, WisdomMarker, Checklist} + planner `mul/escalation.rs` {`verdict_from`, `boot_checklist`} are on main; the old branch pointer was stale) | — |
 | D-PERSONA-2 | meta-recipe manifest (declarative child-spec, recipe-as-data, macro-evaluable) | contract | 150 | MED | **Queued** | — |
 | D-PERSONA-3 | hot/cold/feedback wiring — anneal + `CrystalCodebook`→wisdom-marker cold path + Preload hydrate | planner + Lance | 240 | MED | **Queued** | — |
 | D-PERSONA-4 | macro-eval harness (scenario→trace→discover→diagnose; suspect-bridge = blasgraph betweenness; 5 rubrics from D-RUNG-MUL) | planner + Lance | 280 | HIGH | **Queued** | — |
-| D-PERSONA-5 | ractor outer-swarm runtime under `OrchestrationBridge` (batons as messages, async only at boundary) | planner | 200 | MED | **Queued** | — |
+| D-PERSONA-5 | ractor outer-swarm runtime under `OrchestrationBridge` (batons as messages, async only at boundary) | planner | 200 | MED | **Queued — proposed RETIRE** (`thinking-engine-harvest-closure-v1` §2/§6: batons-as-messages contradicts E-NOBODY-WAITS-1 and E-ACK-ELIMINATED-1; ruling needed, not assumed) | — |
 | D-PERSONA-6 | `odoo_scanner` + `OdooBridge` — harvest Odoo `l10n_de` → Finance-ns `MappingProposal`s; bind existing `TaxEngine`; GoBD by construction | ontology + contract + planner | 280 | MED | **Queued** | — |
 
 ---
