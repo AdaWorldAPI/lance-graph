@@ -241,3 +241,97 @@ name as storage.
   held-out figures are 0.766 / 0.624.
 - The tracers reported the working-tree HEADs as `f3eb2f6` (lance-graph) and
   `1eb2ddb` (OGAR); both are the trees the merges `20eaf7f` / `954fc52` carry.
+
+---
+
+## 6a. PROBE-POP-READOUT-1 — RESULT: **KILL** (measured 2026-09-02)
+
+Shipped as `crates/deepnsm-v2/examples/pop_readout.rs`. Deterministic; 89 s on
+the whole book. Inputs: `bible_wave --export` (70,393 triples over 31,102
+verses) plus the trained `v0.1.0-cam96-data` codebook (12,543 words, 12 axes).
+9 split points × 25 shuffles; 227,261 candidates pooled.
+
+```
+cargo run --manifest-path crates/deepnsm-v2/Cargo.toml --example bible_wave  -- pg10.txt --export spo.tsv
+cargo run --manifest-path crates/deepnsm-v2/Cargo.toml --example pop_readout -- spo.tsv
+```
+
+| arm | mean p@10 | mean p@25 | mean p@100 | ρ vs label |
+|---|---|---|---|---|
+| A0 `curiosity` (shipped ranker) | 0.289 | 0.173 | 0.249 | ≈ −0.27 |
+| A1 `curiosity_gestalt` (assessment A) | 0.289 | 0.173 | 0.249 | ≈ −0.27 |
+| A1B `curiosity_gestalt` (assessment B) | 0.289 | 0.173 | 0.249 | ≈ −0.27 |
+| **AF frequency (control)** | **0.756** | **0.751** | **0.674** | **+0.27** |
+| AP population readout alone | 0.011 | 0.036 | 0.076 | +0.09 |
+| A2 = A0 + AP (rank mean) | 0.011 | 0.022 | 0.069 | −0.06 |
+| A3 = A1 + AP (rank mean) | 0.011 | 0.022 | 0.069 | −0.06 |
+
+Decisive statistics:
+
+| quantity | value |
+|---|---|
+| real partial ρ(AP, label \| freq) | **0.090** |
+| null partial ρ — mean / 95th pct | −0.018 / 0.020 |
+| mean(A2 p@10) − mean(A0 p@10) | **−0.278** |
+| mean(A2 p@10) vs its null mean / 95th pct | 0.011 vs 0.031 / 0.133 |
+| mean(AP p@10) vs its null mean / 95th pct | 0.011 vs 0.034 / 0.144 |
+
+Pre-registered rule: PASS iff (a) real partial ρ > null p95 + 0.02 **AND**
+(b) Δp@10 ≥ 0.05 and A2 p@10 above its null p95. **(a) passes, (b) fails
+decisively → VERDICT KILL.**
+
+### The four findings
+
+1. **KILL on the pre-registered claim.** The population readout does not
+   improve frontier ranking; it degrades it, 0.289 → 0.011 at p@10, and lands
+   *below its own shuffle null* (0.011 vs a null p95 of 0.133). Combining it
+   into the ranking is worse than not having it.
+2. **The signal is nevertheless real and null-surviving.** Controlling for
+   frequency, "typical for its subject" carries partial ρ = 0.090 against a
+   null p95 of 0.020. A weak global monotone trend and a useless top-k coexist:
+   the extreme of `−pop` is degenerate (objects sitting essentially *on* their
+   centroid) while the overall ordering still leans the right way. Precision@k
+   probes the tail; Spearman probes the trend; they disagree here, and the
+   disagreement is the finding, not an error.
+3. **Qualia is rank-inert at the frontier — measured, not argued.**
+   `spearman(A0, A1) = 1.000000` and `spearman(A0, A1B) = 1.000000` pooled over
+   227,261 candidates under two deliberately contrasting `MulAssessment`s.
+   Reading `exploration.rs:180-215` says why: `magnitude = base · fw · dk ·
+   flow · trust · staunen_boost · ground_gate`, and every factor except `base`
+   is per-GRAPH, identical for every candidate. `curiosity_gestalt` can
+   rescale a frontier; it can never reorder one. So "does population beat
+   qualia/context alone" had an a-priori answer for any ranking task: qualia
+   contributes exactly zero ranking information at the frontier today.
+4. **Plain counting dominates every cognitive arm.** Prefix frequency reaches
+   p@10 = 0.756 against the shipped ranker's 0.289 — 2.6× — and the shipped
+   ranker is *anti*-correlated with recurrence (ρ ≈ −0.27). That is consistent
+   with `curiosity` working as designed (it prefers the rare and unqueried, and
+   rare things do not recur) rather than being broken; but it means the
+   frontier ranker is not selecting for what the corpus goes on to confirm, and
+   any future ranking claim must clear the frequency control first.
+
+### Honest limits
+
+- One corpus (KJV), one label (exact-triple recurrence), one basin definition
+  (a subject's outgoing objects). This KILLs "a population readout improves
+  frontier ranking on the recurrence label"; it does not show population
+  geometry is useless, and recurrence is not what `curiosity` is built to
+  maximise.
+- The codebook is Bible-vocabulary and held-out ρ 0.766
+  (`E-CAM96-REVIEW-CORRECTIONS-1`; never cite the crate doc's in-sample 0.828).
+- The Fisher-z and `RollingFloor`-occupancy legs the plan named were **NOT
+  RUN**, for a reason the survey missed: `helix` is not a dependency of
+  `deepnsm-v2`, and adding one pulls the ndarray git fork into this crate's
+  build. Under a rank-based combination Fisher-z is analytically inert anyway
+  (a strictly monotone transform cannot change a rank), so the plan's
+  Fisher-z disable arm is answered for a rank readout and remains open only
+  for a magnitude-valued one.
+
+### Consequence
+
+Family 3 as a **molecule feeding frontier selection** is NOT licensed by this
+measurement — and a carrier is licensed even less than before. The vacancy
+stands. What the result does license is a narrower next question, stated as a
+question and not a direction: the readout's honest home may be the global
+trend (a basin-level prior) rather than a top-k selector, and any such probe
+must carry the frequency control and the shuffle null from the start.

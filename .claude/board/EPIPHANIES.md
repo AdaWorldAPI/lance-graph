@@ -1,3 +1,64 @@
+## 2026-09-02 — E-QUALIA-IS-RANK-INERT-AT-THE-FRONTIER-AND-POPULATION-LOSES-TO-COUNTING-1
+
+**Status:** MEASURED (PROBE-POP-READOUT-1 / D-POP-1, `pop_readout.rs`, whole
+KJV, 227,261 candidates, 9 splits x 25 shuffles, deterministic).
+**Confidence:** High on findings 1/3/4 (each is a direct measurement with a
+size-preserving null or an exact identity); Medium on 2 (a weak effect, real
+against its null, on one corpus and one label).
+
+**The pre-registered claim was KILLED.** A population-typicality readout (an
+object's Cam96 distance to its subject's own basin centroid) does not improve
+the exploration frontier's ranking: mean precision@10 falls 0.289 -> 0.011
+against the shipped `FrontierEdge::curiosity`, and lands BELOW its own
+label-shuffle null (null p95 0.133). Combining it in is worse than omitting it.
+
+**It is not noise, though.** Controlling for prefix frequency, the readout's
+partial Spearman against later recurrence is 0.090 against a null 95th
+percentile of 0.020. A weak global trend and a useless top-k coexist, because
+the extreme of the readout is degenerate (objects sitting on their own
+centroid). Precision@k probes the tail, Spearman the trend; when they
+disagree, that disagreement is the result.
+
+**The sharpest finding is about shipped code, not about the hypothesis:
+`curiosity_gestalt` cannot reorder a frontier.** Measured
+`spearman(curiosity, gestalt_magnitude) = 1.000000` under two deliberately
+contrasting `MulAssessment`s. `exploration.rs:180-215` shows why -- the
+magnitude is `base * fw * dk * flow * trust * staunen_boost * ground_gate`
+and every factor but `base` is per-GRAPH, so all per-edge variation flows
+through `curiosity` alone. MUL and qualia rescale the frontier; they never
+reorder it. Consequently the operator's framing question, "does population
+beat qualia/context alone", had an a-priori answer for any RANKING task:
+qualia carries zero ranking information at the frontier as shipped. Whether
+that is a defect or an intended global gain is a design question this entry
+does not settle -- but a weighting that cannot change an order cannot be
+evidence for or against a competing readout either.
+
+**And the control beat everything cognitive.** Plain prefix frequency reaches
+precision@10 = 0.756 against curiosity's 0.289, while curiosity is
+ANTI-correlated with recurrence (rho ~ -0.27) -- consistent with it working as
+designed (prefer the rare and unqueried) rather than failing. The rule this
+banks: any future frontier-ranking claim clears the frequency control first,
+or it has measured nothing. This is the same lesson
+`E-BASIN-WIDTH-IS-N-ARTIFACT-1` banked for held-out reliability, applied to
+ranking: a quantity that co-varies with sample count needs a partial, not a
+raw correlation. The frequency arm and the partial were a deliberate
+STRENGTHENING of the pre-registered design, added before the run and recorded
+as such in the plan.
+
+**A survey error, corrected by trying to run it:** the plan named Fisher-z and
+`RollingFloor::occupancy` as available ingredients. They are not reachable --
+`helix` is not a dependency of `deepnsm-v2`, and adding one pulls the ndarray
+git fork into that crate's build. The inventory listed primitives without
+checking the dependency edge. Under rank combination Fisher-z is inert anyway
+(a monotone transform cannot change a rank), so its disable arm is answered
+for a rank readout and open only for a magnitude one.
+
+**Consequence for the six families:** family 3 as a molecule feeding frontier
+selection is NOT licensed; a carrier is licensed even less. The vacancy
+stands. The readout's plausible home is a basin-level prior on the global
+trend rather than a top-k selector -- stated as a question, per the
+falsifier-first rule, not as a direction.
+
 ## 2026-09-02 — E-SIX-SEMANTIC-FAMILIES-MUST-NOT-IMPERSONATE-EACH-OTHER-1
 
 **Status:** OPERATOR RULING (semantic-family recovery), landed as the
