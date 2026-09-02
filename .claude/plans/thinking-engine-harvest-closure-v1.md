@@ -73,7 +73,10 @@ and a consumer), **LAB** (calibration battery; keep in a lab crate),
 `jina_lens` — callcenter's test and the driver's doc/test lookups — are
 rewritten in W1, not carried.)
 
-Two decisions own this group and both already have rows:
+This group is the ALU's bus, not a crate-placement question (see §6.3): the
+driver IS the ALU and the four DTOs are what crosses it; the contract's
+`cognitive_shader::{ShaderDispatch, ShaderResonance, ShaderBus, ShaderCrystal}`
+are their zero-dep twins. Two decisions own this group and both already have rows:
 - **M8** (ENTROPY-MILESTONES, QUEUED): four near-duplicate engines
   (u8/BF16/i8/f32, same 7-method API) → one enum-dispatched engine with a
   parity suite across dtypes. `signed_domino`/`domino`/`composite_engine`/
@@ -81,9 +84,9 @@ Two decisions own this group and both already have rows:
 - **D-TTV-1** (Queued): thinking-related tenants → V3 substrate. This is
   the vehicle for the DTO ladder's home: `BusDto.{converged, cycle_count}`
   is the D-MBX-A6 Outcome signal (COMPONENT-MAP §3), so the ladder lands
-  where the outcome is consumed — the driver side — never in the zero-dep
-  contract. Ruling needed on WHICH crate (driver vs a small `thinking-dto`
-  crate); this plan does not decide it.
+  where the outcome is consumed — the ALU (driver) side, per
+  `E-DTO-LADDER-OWNERSHIP-SPLIT` and W4. No crate ruling is needed
+  (corrected 2026-09-02; §6.3).
 
 ### 1c. GEM → landing — unwired, with a named home AND a consumer
 
@@ -105,15 +108,24 @@ Two decisions own this group and both already have rows:
 | `inference_backend.rs` | 7-backend runtime registry ("nothing is killed, deprecation is data-driven") | LAB | R&D bench only | keep in the lab crate |
 | `bridge_gate::{CognitiveOpKind, CognitiveAuthResult, CognitiveBridgeError, auth_to_result, CognitiveBridgeGate, PassthroughGate, DenyAllGate}` — the WHOLE public surface of the module, seven items | cross-tenant authorization injection point (trait + result/error enums + two reference gates) | `lance-graph-contract` (zero-dep, trait-only — it already says it lives low so callcenter can implement it), as one module, all seven items together; owner = contract | `lance-graph-callcenter` (live: `CognitiveBridgeGate`, `CognitiveAuthResult`, `CognitiveOpKind` at `cognitive_bridge_gate.rs:45`) | W1 compatibility contract: (a) all seven items move in one PR, identical shapes; (b) thinking-engine keeps `pub use lance_graph_contract::<module>::*` re-exports for that PR so callcenter's imports flip in the same change without a window where either path is missing; (c) callcenter's `pure_ops_emit_zero_audit_events` test is rewritten to exercise the gate without the three lens lookups (or moved to the driver's `with-engine` tests) BEFORE the dep line is deleted; (d) callcenter builds and its tests pass with no thinking-engine path dep — only then is the claim made |
 
-### 1d. LAB — the calibration battery (keep, rename, gate)
+### 1d. LAB — the calibration battery, split MATH → jc / GLUE → lab (ruling 4)
 
-`auto_detect.rs`, `ground_truth.rs` (candle-gated), `reencode_safety.rs`
-(x256 re-encode proof), `silu_correction.rs`, `tokenizer_registry.rs`,
-`centroid_labels.rs`, `bridge.rs` (spiral → table index), `role_tables.rs`
-(BF16 per-role tables). These feed D-MTS-2's certification gate and are
-calibration-only by design. Fate: they survive as a lab crate
-(`thinking-lab`, excluded, `calibration` feature) with a `--manifest-path`
-CI line so the formatting/clippy debt cannot re-accumulate unseen.
+**Math → `jc`** (lifted if correct, perfected in jc if not; the crate copy
+dies either way): `cronbach.rs` (`cronbach_alpha`, `QuorumLevel` — jc already
+has `reliability::{cronbach_alpha, icc}`; the two are compared numerically on
+one shared fixture before the crate copy is deleted, and any disagreement is
+resolved in jc's favour only after the discrepancy is understood),
+`ground_truth.rs::spearman_rank_correlation`, the drift statistics inside
+`reencode_safety.rs` (x256 re-encode proof), the correction statistics inside
+`silu_correction.rs`.
+
+**Glue → lab crate** (`thinking-lab`, excluded, `calibration` feature, with a
+`--manifest-path` CI line so the formatting/clippy debt cannot re-accumulate
+unseen): `auto_detect.rs`, the candle forward-pass loaders in
+`ground_truth.rs`, `tokenizer_registry.rs`, `centroid_labels.rs`, `bridge.rs`
+(spiral → table index), `role_tables.rs` (BF16 per-role tables), and the
+model-file plumbing of `silu_correction.rs`. Glue calls jc for its math; it
+never carries a private copy.
 
 ### 1e. RESIDUE — delete
 
@@ -130,7 +142,7 @@ ground truth), the second `GestaltState`, the two `ThinkingStyle` aliases,
 | D-PERSONA-2 meta-recipe manifest | Queued | absorbed by `house-differential-style-v1` §2 (a style program IS a declarative recipe composition) — first program = House; the manifest FORM waits for D-TSC-3 |
 | D-PERSONA-3 hot/cold/feedback, `CrystalCodebook` → wisdom markers | Queued | absorbed by D-TEH-2 (ghost prior harvest) + D-HOUSE-4; the cold path is a WisdomMarker store keyed by fingerprint (I-VSA-IDENTITIES), not a history dump (rung-persona §8 already says so) |
 | D-PERSONA-4 macro-eval harness | Queued | its first instance is PROBE-HOUSE-DIFFERENTIAL-1 (scenario → trace → diagnose); no separate harness before a second consumer |
-| D-PERSONA-5 ractor outer-swarm, batons as messages | Queued | **proposed RETIRE** — contradicts `E-NOBODY-WAITS-1` (ractor = compile-time ownership only; no messages, no actors) and `E-ACK-ELIMINATED-1`; ruling needed, noted on the row |
+| D-PERSONA-5 ractor outer-swarm, batons as messages | Queued | **RETIRED (operator ruling 2026-09-02)** — contradicts `E-NOBODY-WAITS-1` and `E-ACK-ELIMINATED-1`; its `MailboxId` dependant in `counterfactual.rs:243` re-homed on the W2a board tenant |
 | D-PERSONA-6 Odoo `l10n_de` harvest | Queued | not thinking-engine work; belongs to the odoo blueprint plans, unchanged |
 | D-TRI-1..6 (triangle tenants) | value-tenant half merged (#717); D-TRI-6 ascent wired | unchanged; the LEARNED lane is the landing for `l4*` (1c) |
 | D-TSC-1b → TD (5 missing planner `default_modulation` arms) | In PR / TD open | small pay, independent of this plan; listed so it is not forgotten |
@@ -138,7 +150,7 @@ ground truth), the second `GestaltState`, the two `ThinkingStyle` aliases,
 | D-REUNIFY-2 (8ch → SPO transcoder) | Backlog | **already shipped as D-CSV-9** (#387); row to regrade |
 | D-REUNIFY-3 (`Think` carrier unification) | Backlog | `think.rs` exists at minimum scope; moves with 1b under D-TTV-1 |
 | D-REUNIFY-4 (splat ops as `Think` methods) | Backlog | done in `think.rs`; `splat_ops.rs` is the residue (1e) |
-| D-REUNIFY-5 (rayon par_*), D-REUNIFY-6 (DOLCE filter wiring) | Backlog | superseded by V3 (SoA sweep, ontology at the membrane); propose CLOSE-superseded, ruling needed |
+| D-REUNIFY-5 (rayon par_*), D-REUNIFY-6 (DOLCE filter wiring) | Backlog | **CLOSED-superseded (operator ruling 2026-09-02)** by V3 (SoA sweep, ontology at the membrane) |
 | ENTROPY M8 four-engine collapse | QUEUED | W3 of this plan |
 | `TD-THINKING-ENGINE-EXCLUDED-DEBT-1` | open | paid by W1+W4 (the crate shrinks to a lab crate with a CI line) |
 | `TD-GHOST-ECHO-DUP-1` | open | paid by W2 (field ported over `GhostEcho`; crate enum deleted) |
@@ -153,11 +165,15 @@ Each wave lands only with its gate green; no wave ports without a consumer.
 |---|---|---|
 | **W0 (this PR)** | census, fate table, row regrades, idea harvest (§4) | boards consistent; SUPERSESSION-INDEX regenerated |
 | **W1 — cut the hard dependency** | move `bridge_gate` trait + gates to `lance-graph-contract` (trait-only, zero-dep); callcenter re-imports; decide the DTO-ladder home (D-TTV-1 ruling) so the driver's `with-engine` feature can point at it | `lance-graph-callcenter` builds with no thinking-engine path dep; driver `with-engine` still green; thinking-engine becomes a LEAF |
-| **W2 — harvest gems with consumers** | ghost prior → planner `nars/ghost_prior.rs` (D-TEH-2, consumer D-HOUSE-4); `cronbach` → retire onto `jc::reliability`; `semantic_chunker` → deepnsm-v2 only if its falsifier passes; `spiral_segment` → codec home via certification battery | each port has a two-sided falsifier + a disable run; each source file deleted in the same PR |
+| **W2 — harvest gems with consumers** | ghost prior → planner `nars/ghost_prior.rs` (D-TEH-2, consumer D-HOUSE-4); the MATH of the calibration battery → `jc` per ruling 4 (`cronbach` compared then lifted-or-perfected; Spearman, re-encode drift, SiLU-correction statistics likewise); `semantic_chunker` → deepnsm-v2 only if its falsifier passes; `spiral_segment` → codec home via certification battery | each port has a two-sided falsifier + a disable run; each source file deleted in the same PR |
 | **W3 — M8** | one enum-dispatched engine; the 5 cascade shapes and 3 lens modules collapse; parity suite across u8/BF16/i8/f32 | NOT bit-parity across dtypes — u8 / BF16 / i8 / f32 differ in encoding by design, and `dual_engine.rs` exists to MEASURE that disagreement (Codex on #1137). Gate: per-dtype output tolerances plus dtype-invariant ranking/convergence invariants (top-k order, `converged`, `cycle_count` bounds) on real engine fixtures that instantiate all four engines (the driver's fixtures do not — they round-trip `BusDto` only); the pre-collapse `DualResult` disagreement is the baseline the collapsed engine must not exceed; the `branching` spawn shape kept as a mode, not lost |
-| **W4 — retire and rename** | delete RESIDUE (1e) + retired persona A2A; rename what is left `thinking-lab` (calibration feature, `--manifest-path` CI line); regrade every row in §2; pay `TD-THINKING-ENGINE-EXCLUDED-DEBT-1` | the name `thinking-engine` no longer appears in any `Cargo.toml` dependency; board rows closed or re-owned |
+| **W4 — retire and rename** | delete RESIDUE (1e) + retired persona A2A; rename what is left (GLUE only, all math already in jc) `thinking-lab` (calibration feature, `--manifest-path` CI line); regrade every row in §2; pay `TD-THINKING-ENGINE-EXCLUDED-DEBT-1` | the name `thinking-engine` no longer appears in any `Cargo.toml` dependency; board rows closed or re-owned |
 
-Stop rules (non-negotiable inside this plan): nothing ports without a
+Stop rules (non-negotiable inside this plan): **the closure cuts AROUND the
+hot artery, never through it** — the live chain engine semantics → DTO bus
+(`StreamDto` / `PerturbationDto` / `BusDto` / `ThoughtStruct`) →
+cognitive-shader-driver ALU → SoA field is architecture, not residue, and no
+wave here moves, re-homes, or re-shapes it (§6.3); nothing ports without a
 consumer named in §1b (the DTO ladder, D-TTV-1) or §1c (the gems); nothing ports as a singleton field or a new lane
 (ClassView reading or per-mailbox module only); `A2AMessage` and any
 inter-mailbox handoff type never revive; the `E-MORTON-CASCADE-V3-1`
@@ -191,17 +207,75 @@ harvest and not an amputation.
 | D-TEH-0 | census + fate table + open-row reconciliation + idea harvest (this plan) | plan + board rows | Shipped (this PR) |
 | D-TEH-1 | W1: `bridge_gate` trait → contract; DTO-ladder home ruling recorded; thinking-engine becomes a leaf | contract + callcenter (+ driver feature pointer) | Queued — first code wave |
 | D-TEH-2 | W2: ghost prior harvested as planner `nars/ghost_prior.rs` over `WisdomMarker`, per-thought, with two-sided falsifiers; crate `ghosts.rs` deleted | planner | Queued — consumer = D-HOUSE-4 |
-| D-TEH-3 | W2: `cronbach` → jc, `semantic_chunker` / `spiral_segment` decided by their falsifiers | jc / deepnsm-v2 / codec home | Queued |
+| D-TEH-3 | W2: calibration MATH → jc (ruling 4: compare, then lift or perfect in jc; crate copies deleted); `semantic_chunker` / `spiral_segment` decided by their falsifiers | jc / deepnsm-v2 / codec home | Queued |
 | D-TEH-4 | W3: M8 engine collapse with parity suite; cascade shapes and lens modules collapse | thinking-engine → the one engine | Queued (owns ENTROPY M8) |
 | D-TEH-5 | W4: residue deleted, crate renamed `thinking-lab` with a CI line; §2 rows closed; TD paid | workspace | Queued — closes the chapter |
 
-## 6. Rulings this plan asks for (not assumed)
+## 6. Rulings — asked 2026-09-02, ruled the same day (operator)
 
-1. D-PERSONA-5 RETIRE (contradicts E-NOBODY-WAITS-1 / E-ACK-ELIMINATED-1).
-2. D-REUNIFY-5/6 CLOSE-superseded by V3.
-3. The DTO ladder's crate home under D-TTV-1 (driver vs a small DTO crate).
-4. Whether `thinking-lab` survives as a named excluded crate or the
-   calibration battery moves into `jc` outright.
+1. **D-PERSONA-5 RETIRED** (contradicts E-NOBODY-WAITS-1 /
+   E-ACK-ELIMINATED-1). Its one real dependant — `MailboxId` assignment for
+   the counterfactual v3 mailbox (`counterfactual.rs:243` "D-PERSONA-5 dep")
+   — is re-homed on the W2a board tenant, where mailbox ownership already
+   lives. Row updated.
+2. **D-REUNIFY-5 and D-REUNIFY-6 CLOSED-superseded** by V3: R-5's
+   parallelism target was the singleton BindSpace (retired; any sweep is a
+   new row against `MailboxSoA`); R-6's in-engine ontology filter is
+   superseded by ontology at the membrane (`lance-graph-ontology` /
+   callcenter). Rows updated.
+3. **The four wire structs' home — CLOSED: it was already ruled, and I
+   re-asked it (corrected 2026-09-02, after reading `.claude/v3/` in
+   full).** `StreamDto` / `PerturbationDto` / `BusDto` / `ThoughtStruct`
+   (`thinking-engine/src/dto.rs`) are the bus of the ALU chain
+   `ladybug-rs → thinking-engine → P64 → cognitive-shader-driver → SoA`
+   (`v3-substrate-primer.md` §3, `VISION.md` §6,
+   `E-DTO-LADDER-OWNERSHIP-SPLIT`, INTEGRATION-PLAN W4 / D-V3-W4a). In
+   plain terms: **cognitive-shader-driver is the ALU** — it holds the
+   SoA columns, dispatches a cycle through the engine hook, and emits the
+   cycle fingerprint through sinks; the four structs are what enters and
+   leaves that ALU. The contract already carries the zero-dep shader-side
+   twins of the same four rungs (`cognitive_shader::{ShaderDispatch,
+   ShaderResonance, ShaderBus, ShaderCrystal}`, `engine_bridge.rs:6-8`
+   maps engine ↔ shader rung by rung). So the home question has no third
+   option and needs no crate decision: the shape belongs to the ALU side of
+   the bridge and lands under D-TTV-1 / W4 exactly as INTEGRATION-PLAN
+   already says. **The earlier text here (a small DTO crate, or an
+   `ogar-r2il` round-trip probe to decide the home) is RETRACTED** — it
+   re-derived a ruled question and proposed a probe on the wrong axis.
+   What IS open on this chain is recorded elsewhere and is not this plan's
+   to re-open: PR #1051 measured the seam as transport, not a field ALU
+   (`PerturbationDto.energy` dropped, `top_k` collapsed to a
+   `ColumnWindow`), and `alpha-reason-witness-shader-field-lineage-addendum-v1`
+   (D-ARW) owns recovering the field path, with **stockfish-rs as the
+   reference design** for the 64×64 field: NNUE teaches the incremental
+   make/unmake accumulator, and masking + SIMD are what make the ALU a
+   reusable thinking-compiler driver that any consumer can dispatch into as
+   a cognitive shader. Consequence for THIS plan: 1b's engines and DTOs
+   are HOT-VIA-FEATURE on the ALU chain; the closure never moves them into
+   a lab crate, a DTO crate, or r2il — W1 only re-points the driver's
+   `with-engine` feature at wherever D-TTV-1 lands the engine hook, and
+   the shapes stay with the ALU.
+   The next falsifier on that chain is NOT opened from this plan; it
+   already exists conceptually in the lineage addendum and has a natural
+   canary: does a semantically meaningful field quantity —
+   `PerturbationDto.energy`, the one #1051 found dropped — survive
+   engine → DTO → shader → SoA → consumer without collapsing into
+   transport metadata, under make/unmake-style incremental updates and
+   masking. That is D-ARW work; this plan only guarantees it finds the
+   artery intact.
+4. **jc is the home of ALL scientifically calibrated math** (operator,
+   2026-09-02). The rule, as ruled: anything in the calibration battery that
+   is MATH (Cronbach α, Spearman / ICC, re-encode drift statistics, the
+   SiLU-correction statistics) is either LIFTED into `jc` as-is when it is
+   correct, or — if it sails under a wrong name or is incorrect — the jc
+   version is perfected and the crate copy dies; jc's pillars are the
+   reusable, liftable calibration source, and once ndarray is proven
+   bit-exact the same math can be re-imported into production from jc.
+   This is also why `sigker` stayed OUT of jc for now (Pillar 11 red for
+   non-lattice step vectors). Glue that is not math — candle loaders,
+   `tokenizer_registry`, `centroid_labels`, `auto_detect`, model-file
+   plumbing — is not jc material and stays in the lab crate. §1d, W2 and
+   W4 are amended accordingly below.
 
 ## 7. What this PR does NOT do
 

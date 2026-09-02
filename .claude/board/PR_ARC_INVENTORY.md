@@ -10,6 +10,26 @@
 > census §8.3 trap 10: read the body FIRST, then open for write — never
 > inline both in one expression.
 
+## 2026-09-02 — lance-graph branch `claude/medcare-rs-continue-6nhbxn` (rulings PR, after #1137) — closure-plan rulings 1, 2, 4 recorded; ruling 3 re-stated
+
+- **Added:** EPIPHANIES `E-JC-IS-THE-HOME-OF-ALL-CALIBRATED-MATH-1`; closure
+  plan §6 rewritten from "asked" to "ruled" (1 RETIRE, 2 CLOSED-superseded,
+  4 math→jc / glue→lab, 3 OPEN with the four structs named in plain terms
+  and a proposed r2il round-trip probe); §1d split by nature; W2/W4 and
+  D-TEH-3 amended.
+- **Regraded (status cells, evidence cited):** D-PERSONA-5 → RETIRED;
+  D-REUNIFY-5 and D-REUNIFY-6 → Closed-superseded; D-TEH-3 wording.
+- **Locked:** the jc rule (all calibrated math in jc; lift or perfect, never
+  duplicate).
+- **Correction (same day, third commit):** ruling 3 was NEVER open — the
+  four structs are the bus of the ALU chain (`primer` §3,
+  `E-DTO-LADDER-OWNERSHIP-SPLIT`, W4); the "small DTO crate" option and the
+  r2il round-trip probe are RETRACTED (`E-THE-DTO-LADDER-IS-THE-ALU-BUS-AND-WAS-ALREADY-RULED-1`).
+- **Deferred:** (superseded by the correction above — nothing on ruling 3);
+  the `counterfactual.rs:243` doc pointer to D-PERSONA-5 is rewritten when
+  that file is next touched (same rule as `TD-GHOST-TIER-NAME-COLLISION-1`).
+- **Confidence:** High.
+
 ## 2026-09-02 — lance-graph branch `claude/medcare-rs-continue-6nhbxn` (plans PR, after #1136) — House differential style v1 + thinking-engine harvest & closure v1
 
 - **Added:** `.claude/plans/house-differential-style-v1.md` (223 lines: parts
