@@ -21,7 +21,11 @@
   D-REUNIFY-5 and D-REUNIFY-6 → Closed-superseded; D-TEH-3 wording.
 - **Locked:** the jc rule (all calibrated math in jc; lift or perfect, never
   duplicate).
-- **Deferred:** ruling 3 (the four wire structs' home) pending one probe;
+- **Correction (same day, third commit):** ruling 3 was NEVER open — the
+  four structs are the bus of the ALU chain (`primer` §3,
+  `E-DTO-LADDER-OWNERSHIP-SPLIT`, W4); the "small DTO crate" option and the
+  r2il round-trip probe are RETRACTED (`E-THE-DTO-LADDER-IS-THE-ALU-BUS-AND-WAS-ALREADY-RULED-1`).
+- **Deferred:** (superseded by the correction above — nothing on ruling 3);
   the `counterfactual.rs:243` doc pointer to D-PERSONA-5 is rewritten when
   that file is next touched (same rule as `TD-GHOST-TIER-NAME-COLLISION-1`).
 - **Confidence:** High.

@@ -73,7 +73,10 @@ and a consumer), **LAB** (calibration battery; keep in a lab crate),
 `jina_lens` — callcenter's test and the driver's doc/test lookups — are
 rewritten in W1, not carried.)
 
-Two decisions own this group and both already have rows:
+This group is the ALU's bus, not a crate-placement question (see §6.3): the
+driver IS the ALU and the four DTOs are what crosses it; the contract's
+`cognitive_shader::{ShaderDispatch, ShaderResonance, ShaderBus, ShaderCrystal}`
+are their zero-dep twins. Two decisions own this group and both already have rows:
 - **M8** (ENTROPY-MILESTONES, QUEUED): four near-duplicate engines
   (u8/BF16/i8/f32, same 7-method API) → one enum-dispatched engine with a
   parity suite across dtypes. `signed_domino`/`domino`/`composite_engine`/
@@ -81,9 +84,9 @@ Two decisions own this group and both already have rows:
 - **D-TTV-1** (Queued): thinking-related tenants → V3 substrate. This is
   the vehicle for the DTO ladder's home: `BusDto.{converged, cycle_count}`
   is the D-MBX-A6 Outcome signal (COMPONENT-MAP §3), so the ladder lands
-  where the outcome is consumed — the driver side — never in the zero-dep
-  contract. Ruling needed on WHICH crate (driver vs a small `thinking-dto`
-  crate); this plan does not decide it.
+  where the outcome is consumed — the ALU (driver) side, per
+  `E-DTO-LADDER-OWNERSHIP-SPLIT` and W4. No crate ruling is needed
+  (corrected 2026-09-02; §6.3).
 
 ### 1c. GEM → landing — unwired, with a named home AND a consumer
 
@@ -216,26 +219,38 @@ harvest and not an amputation.
    new row against `MailboxSoA`); R-6's in-engine ontology filter is
    superseded by ontology at the membrane (`lance-graph-ontology` /
    callcenter). Rows updated.
-3. **The four wire structs' home — OPEN, re-stated in plain terms.** "DTO
-   ladder" meant exactly these four structs in
-   `crates/thinking-engine/src/dto.rs`, nothing else: `StreamDto` (:40, the
-   input perturbation), `PerturbationDto` (:66, the energy field after a
-   cycle), `BusDto` (:135, the outcome: `converged`, `cycle_count`, top-k)
-   and `ThoughtStruct` (:149, the persisted result). NOT the 0–9 rung
-   ladder, NOT the rung-content ladder, NOT the entropy ladder. The
-   operator's intuition — express them as `ogar-r2il` patterns and use
-   that as the experimental playground — is consistent with the ruled
-   direction that programs converge onto the loco/r2il membrane; `ogar-r2il`
-   is a proxy vocabulary over `ogar-loco` that mints nothing. What is NOT
-   yet known is whether a data SHAPE (these structs) is expressible as a
-   program PATTERN there or whether only the cycle that produces them is.
-   Proposed next step, not a decision: one probe that expresses a single
-   `StreamDto → cycle → BusDto` round trip as an r2il pattern over the
-   existing loco vocabulary and compares its output with the driver's
-   `with-engine` path on one fixture. If it round-trips, the home question
-   answers itself (the pattern IS the home and the structs become
-   projections); if not, the choice is driver vs a small DTO crate, as
-   before. D-TEH-1 does not wait on this.
+3. **The four wire structs' home — CLOSED: it was already ruled, and I
+   re-asked it (corrected 2026-09-02, after reading `.claude/v3/` in
+   full).** `StreamDto` / `PerturbationDto` / `BusDto` / `ThoughtStruct`
+   (`thinking-engine/src/dto.rs`) are the bus of the ALU chain
+   `ladybug-rs → thinking-engine → P64 → cognitive-shader-driver → SoA`
+   (`v3-substrate-primer.md` §3, `VISION.md` §6,
+   `E-DTO-LADDER-OWNERSHIP-SPLIT`, INTEGRATION-PLAN W4 / D-V3-W4a). In
+   plain terms: **cognitive-shader-driver is the ALU** — it holds the
+   SoA columns, dispatches a cycle through the engine hook, and emits the
+   cycle fingerprint through sinks; the four structs are what enters and
+   leaves that ALU. The contract already carries the zero-dep shader-side
+   twins of the same four rungs (`cognitive_shader::{ShaderDispatch,
+   ShaderResonance, ShaderBus, ShaderCrystal}`, `engine_bridge.rs:6-8`
+   maps engine ↔ shader rung by rung). So the home question has no third
+   option and needs no crate decision: the shape belongs to the ALU side of
+   the bridge and lands under D-TTV-1 / W4 exactly as INTEGRATION-PLAN
+   already says. **The earlier text here (a small DTO crate, or an
+   `ogar-r2il` round-trip probe to decide the home) is RETRACTED** — it
+   re-derived a ruled question and proposed a probe on the wrong axis.
+   What IS open on this chain is recorded elsewhere and is not this plan's
+   to re-open: PR #1051 measured the seam as transport, not a field ALU
+   (`PerturbationDto.energy` dropped, `top_k` collapsed to a
+   `ColumnWindow`), and `alpha-reason-witness-shader-field-lineage-addendum-v1`
+   (D-ARW) owns recovering the field path, with **stockfish-rs as the
+   reference design** for the 64×64 field: NNUE teaches the incremental
+   make/unmake accumulator, and masking + SIMD are what make the ALU a
+   reusable thinking-compiler driver that any consumer can dispatch into as
+   a cognitive shader. Consequence for THIS plan: 1b's engines and DTOs
+   are HOT-VIA-FEATURE on the ALU chain; the closure never moves them into
+   a lab crate, a DTO crate, or r2il — W1 only re-points the driver's
+   `with-engine` feature at wherever D-TTV-1 lands the engine hook, and
+   the shapes stay with the ALU.
 4. **jc is the home of ALL scientifically calibrated math** (operator,
    2026-09-02). The rule, as ruled: anything in the calibration battery that
    is MATH (Cronbach α, Spearman / ICC, re-encode drift statistics, the
