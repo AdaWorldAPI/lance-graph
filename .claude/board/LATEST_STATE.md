@@ -1,3 +1,9 @@
+## 2026-09-02 — branch (D-POP-1 result): PROBE-POP-READOUT-1 — INVENTORY DELTA
+
+- ADDED `crates/deepnsm-v2/examples/pop_readout.rs` — the D-POP-1 probe (no library surface, no new type, no tenant). Consumes `Cam96Space::distance`, `basin_self_code`, `partial_spearman` and `lance_graph_contract::exploration::{FrontierEdge, NarsTruth}`; produces a KILL verdict plus three side-findings (plan §6a).
+- MEASURED, not added: `FrontierEdge::curiosity_gestalt` is RANK-INERT — its magnitude is a per-graph scalar multiple of `curiosity` (`exploration.rs:180-215`), so MUL/qualia cannot reorder a frontier. Any consumer treating the gestalt magnitude as a distinct ranking key is using a rescale.
+- UNCHANGED: no contract type added, removed or re-read. Family 3 remains a vacancy.
+
 ## 2026-09-02 — branch (cleanup, no PR yet): semantic-family recovery — CONTRACT INVENTORY DELTA
 
 - ⊘ REMOVED `lance_graph_contract::epistemic_bassin` (all of it: `EpistemicBassin24`, `AxisState`, the Belnap masks, `sweep_ternlog`/`eval_ternlog`, `info_gain_u4`, `sigma_tension_u4`, `loco_band`, `axes`) and `lance_graph_contract::basin_lanes` — operator semantic-family ruling 2026-09-02 (`E-SIX-SEMANTIC-FAMILIES-MUST-NOT-IMPERSONATE-EACH-OTHER-1`). The 2026-09-01 inventory rows below are regraded ⊘ in place; nothing they named reached a tenant, a layout version or a producer.

@@ -10,6 +10,21 @@
 > census §8.3 trap 10: read the body FIRST, then open for write — never
 > inline both in one expression.
 
+## 2026-09-02 — lance-graph branch `claude/medcare-rs-continue-6nhbxn` (D-POP-1 result PR, after #1135) — PROBE-POP-READOUT-1
+
+- **Added:** `crates/deepnsm-v2/examples/pop_readout.rs` (probe only, no library
+  surface); plan §6a RESULT; EPIPHANIES entry; LATEST_STATE delta; STATUS_BOARD
+  D-POP-1 -> Shipped (KILL).
+- **Measured:** VERDICT KILL on the pre-registered claim; `curiosity_gestalt`
+  rank-inertness at rho = 1.000000 over 227,261 candidates; frequency control
+  p@10 = 0.756 vs the shipped ranker's 0.289; population partial rho 0.090 vs
+  null p95 0.020.
+- **Deferred:** the Fisher-z and RollingFloor legs (helix unreachable from
+  deepnsm-v2); any population carrier, tenant, ClassView or axis set -- the
+  vacancy stands and this result narrows rather than widens it.
+- **Confidence:** High for the KILL and the two identity/control findings;
+  Medium for the weak non-null trend (one corpus, one label).
+
 ## 2026-09-02 — lance-graph branch `claude/medcare-rs-continue-6nhbxn` (survey PR, opened after #1134) — post-teardown buildup survey v1
 
 - **Added:** `.claude/plans/post-teardown-buildup-survey-v1.md` (survey,
