@@ -1,3 +1,84 @@
+## TD-PILLAR11-SCIENTIFIC-LOOPS-BYPASS-NDARRAY-SIMD-1 (2026-09-02) — OPEN
+
+**The debt is not missing SIMD support. It is scientific code bypassing the
+already-complete `ndarray` execution substrate.** (Operator ruling, 2026-09-02.)
+
+No violation was committed — the Pillar-11 legs contain zero raw intrinsics
+(`core::arch` / `_mm*` / `target_feature`: 0 hits in `crates/sigker/src` and
+`crates/jc/src`). They are scalar `f64`, hand-written beside a substrate that
+already owns the machine vocabulary.
+
+**The law, corrected from an earlier weaker reading.** There is no
+"SIMD op exists -> polyfill, else -> scalar fallback" decision at consumer
+level. `ndarray::simd` hides the architecture choice behind ONE bit-exact typed
+surface, and **scalar is one BACKEND of that surface**, not a consumer-authored
+alternative: `F64x8` resolves to AVX-512 (`__m512d`), AVX2 (`f64x4` x2), NEON
+(`[float64x2_t; 4]`), wasm32+simd128 (`[v128; 4]`), and `scalar::F64x8` for
+"other non-x86 targets ... full scalar fallback" (`simd.rs` dispatch arms,
+verified 2026-09-02). So:
+
+```
+named high-level algorithm exists  -> call it
+it does not exist                  -> COMPOSE it from ndarray polyfill methods
+never                              -> a consumer-local scalar arithmetic path
+never                              -> consumer-local intrinsics
+```
+
+    JC tells us what is mathematically true.
+    ndarray tells the machine how to execute it.
+    Everything else is composition, never a second arithmetic implementation.
+
+**For the Goursat kernel the arithmetic is entirely available; the only
+unsolved part is algorithmic SCHEDULING.** `signature_kernel_pde`
+(`sigker/src/kernel.rs:106-131`) computes
+
+```
+k[i+1][j+1] = k[i+1][j] + k[i][j+1] - k[i][j] + c_ij·k[i][j]
+            = mul_add(c_ij, diag, left + up - diag)
+```
+
+`mul_add`, `from_slice`, `copy_to_slice`, `reduce_sum`, `select` all ship on
+`F64x8` today. What blocks it is that `k[i+1][j+1]` reads `k[i+1][j]` — a
+strict serial recurrence along `j` in row-major order. Independence lives on
+the **anti-diagonal**; the transformation needed is
+`row-major serial recurrence -> anti-diagonal / rolling-wavefront formulation`.
+
+**A1 determines A2's shape — the architectural reason not to jump from
+`Vec<Vec>` straight to SIMD.** In a flat row-major buffer the anti-diagonal is
+STRIDED (stride `m-1`), so a naive wavefront needs gather. **Three rolling
+anti-diagonal buffers make every wavefront load contiguous and can eliminate
+the gather entirely.** The storage decision therefore fixes which lane ops A2
+needs at all; it is not a warm-up measurement.
+
+**W1.5 falsifier (do not run from a banking session):**
+
+| arm | shape | relation |
+|---|---|---|
+| A0 | current `Vec<Vec<f64>>`, row-major | reference |
+| A1 | flat / rolling storage, SAME recurrence and order | **A0 = A1 exactly** — only storage changes |
+| A2 | rolling anti-diagonal traversal via `ndarray::simd::method()` | A1 <-> A2 gets a PREDECLARED solver tolerance: traversal changes evaluation order |
+
+The A1<->A2 tolerance is stated in advance, never discovered after the fact.
+
+**Inventory — the scalar surfaces in the same two crates.** Straightforwardly
+canonical (`reduce_sum` over `mul_add`): `LogSignature::{dot, cosine}`,
+`RandomizedSignature::{dot, cosine}`, `linear_path_kernel_closed_form`.
+Accumulation-shaped: `signature_truncated`, `log_signature_truncated`,
+`RandomizedSignature::encode`, `hydrate_signature`, `signature_kernel`,
+`signature_kernel_normalized`. Combinatorial rather than arithmetic, and
+plausibly staying scalar: `shuffle_product`, `enumerate_lyndon_words`,
+`witt_component` / `witt_dimension`.
+
+**Not shipped:** `signature_pde_sweep` and `shuffle_product_lift` return zero
+hits in `ndarray/src/` — they remain the W1.5 catalogue's shopping list. The
+missing thing is traversal/composition, NOT arithmetic; whether a composition
+is later promoted to a named `signature_pde_sweep()` is purely an API/reuse
+question, not a blocker.
+
+**Pay by:** W1.5, gated on `jc Pillar 11` (green for the lattice leg,
+`7751581f`). **Not W5** — W5 is workload-pressure machinery and stays HOLD
+(4609 vs the 11 585-point 1 GiB threshold) regardless of any speedup here.
+
 ## TD-GHOST-TIER-NAME-COLLISION-1 (2026-09-02) — OPEN, doc-only
 
 `crates/lance-graph-contract/src/counterfactual.rs` calls the −6 minority-pole

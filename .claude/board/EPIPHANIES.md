@@ -1,3 +1,57 @@
+## 2026-09-02 — E-PILLAR-11-PUBLISHED-BOUND-NEEDS-ITS-OWN-NUMERIC-GUARD-1
+
+**Status:** FINDING (measured) — closes the Hambly-Lyons edition-constant arc.
+**Confidence:** every number below was run, not inferred; the disable arm was
+executed and restored.
+
+The published constant correction (#1133/`1a3c7294`, arXiv `e` →
+Annals `2e`) doubles the certificate depth. Measured consequences:
+
+| | old arXiv `e` | corrected Annals `2e` |
+|---|---|---|
+| `c` | `e·ln(1+√2)` = 2.3958 | `2e·ln(1+√2)` = 4.79155 |
+| depth at `L=3` | 7 | **14** |
+| coefficients (`d=2`) | 255 | **32 767** |
+| `pillar_passes`, debug | 25.98 s | **26.17 s** |
+
+**A 128x coefficient increase costs ~0.2 s inside a 26 s run — inside noise.**
+The exhaustive arm's cost is the enumeration of reduced words of length <= 3
+(484 of them), not the signature depth, so raising the cutoff moves nothing.
+The other three tests are 0.07-0.10 s each, the `L=8` figure-of-eight arm
+included: the correction only LOOSENED its bound (`<= 19` -> `<= 38`), making
+it cheaper to satisfy. The 26 s is the PDE depth-infinity leg (8 Goursat solves
+on 4609-point paths in debug) — established by elimination, since the constant
+flip did not move it and the other tests are ~0.1 s, and corroborated by the
+release figure of 0.18 s for a 4097-point solve. Not directly instrumented.
+
+**The load-bearing half: the behavioural tests do NOT guard the constant.**
+Run with the wrong (arXiv `e`) constant, `pillar_passes` **still passes**. What
+fails is `theorem2_depth_is_the_paper_floor`:
+
+```
+assertion `left == right` failed: L=1
+  left: 2      floor(e·ln(1+√2))
+  right: 4     floor(2e·ln(1+√2))
+```
+
+That is the correct division of labour, not a gap. The theorem gives a
+SUFFICIENT depth; the fixtures separate at depth 3, far inside either bound, so
+a looser constant cannot fail a behaviour test that clears it comfortably.
+
+**Consequence, and the reason this is banked:** `theorem2_depth_is_the_paper_floor`
+is an independent PROVENANCE guard — it is the only thing standing between the
+tree and a silent regression to the arXiv edition. Beside a green
+`pillar_passes` it reads like a tautology restating a constant, which is exactly
+how a future tidy-up would justify deleting it. **It must not be removed as
+redundant.** Numbering provenance is pinned at the definition site
+(`hambly_lyons.rs:365`): Annals Theorem 5 = arXiv v2 Theorem 2; Annals
+Theorem 2 is NOT the lattice cutoff.
+
+**Generalisation:** when a constant enters a SUFFICIENT bound, behavioural tests
+downstream of it are structurally incapable of pinning it — any bound at least
+as large passes. Such a constant needs its own numeric guard, and that guard's
+apparent triviality is a property of correct design, not a smell.
+
 ## 2026-09-02 — E-A-GHOST-TRACE-IS-NOT-THE-COUNTERFACTUAL-LANE-1 — the word "ghost" names two semantic families in the tree; the same-word-≠-same-family lesson of the September teardown, caught BEFORE a port this time
 
 **Status:** FINDING + FENCE (verified against source). **Confidence:** High. Raised by an external review of #1137 (GPT-class; held CLAIMED-BY-EXTERNAL per `E-EXTERNAL-REVIEW-ADJUDICATED-1` until checked, then confirmed on both sides in code).
