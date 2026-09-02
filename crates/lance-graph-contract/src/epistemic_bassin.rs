@@ -9,7 +9,16 @@
 //! # Why the signed net was FALSIFIED, not merely limited
 //!
 //! In one signed register, `+3` support and `−3` refutation sum to `0` —
-//! maximal balanced conflict indistinguishable from silence. If agreement
+//! maximal balanced conflict indistinguishable from silence. The `3` is
+//! only the illustrative pair: the old lane was true two's-complement i4
+//! over the full `[−8, 7]` (`atoms::I4x32::sext4`, no narrower quantizer
+//! ever existed), and the collapse holds for EVERY magnitude `1..=7`
+//! (`+x + (−x) = 0`, byte-identical to `SILENT`); only `x = 8` escapes,
+//! and only because `+8` is unrepresentable and clamps to `+7`. Widening
+//! the lane would not have fixed it — the loss is DIMENSIONAL (two
+//! independent counts projected onto one signed coordinate), not RANGE
+//! (source audit 2026-09-01, `literature-harvest-2026-09-01-post-1132.md`
+//! companion). If agreement
 //! and disagreement are the interesting information, a representation that
 //! destroys their coincidence is wrong, not constrained; `basin_lanes`'
 //! own pinned collapse test is the evidence. The pair keeps both sides:
@@ -67,12 +76,17 @@
 //! A node's pair expresses its DIRECT children accumulated; whether the
 //! next hop continues or cancels what it reads is the second hop's
 //! decision. [`accumulate_children`](EpistemicBassin24::accumulate_children)
-//! is exact-sum-then-clamp and therefore order-independent **within one
-//! call** — but recursively composing already-clamped child registers is
-//! NOT associative (a clamped 15 means "at least 15"). Saturation is
-//! monotone and conflict-preserving — a saturated count can understate
-//! mass, never convert conflict into silence — which is precisely what the
-//! superseded signed net could not guarantee.
+//! is exact-sum-then-clamp. Per side that is the MV-monoid `(L₁₆, ⊕, 0)`
+//! with `a ⊕ b = min(15, a + b)` (Chang 1958): **associative and
+//! commutative even across recursive hops** — any fold order of a hop tree
+//! yields a bit-identical register (pinned exhaustively over all 16³
+//! triples, `accumulation_is_associative_and_non_cancellative_per_side`).
+//! What the clamp costs is CANCELLATIVITY: `15 ⊕ 1 == 15 ⊕ 2`, so a
+//! clamped 15 means "at least 15" and understates mass; it never converts
+//! conflict into silence — which is precisely what the superseded signed
+//! net could not guarantee. (An earlier wording here said "NOT
+//! associative"; that was too weak in the safe direction — corrected
+//! 2026-09-01 after the harvest probe.)
 
 /// Named axes in one basis register pair.
 pub const BASIS_AXES: usize = 24;
@@ -82,6 +96,12 @@ pub const BASIS_REGISTER_BYTES: usize = 12;
 
 /// Wire width of the pair: agree register then disagree register.
 pub const BASIS_PAIR_BYTES: usize = 2 * BASIS_REGISTER_BYTES;
+
+// The two-register cost is ENFORCED, not narrated: the pair is exactly two
+// V3 facet payloads wide and cannot fit one (the superseded `BasinLanes`
+// pinned `BASIN_LANE_BYTES == CASCADE_UNITS`; this is the successor's pin).
+const _: () = assert!(core::mem::size_of::<EpistemicBassin24>() == BASIS_PAIR_BYTES);
+const _: () = assert!(BASIS_PAIR_BYTES == 2 * crate::facet::CASCADE_UNITS);
 
 /// Per-axis count ceiling (u4).
 pub const AXIS_COUNT_MAX: u8 = 15;
@@ -541,6 +561,66 @@ pub fn sigma_tension_u4(growth: f64, bound: f64) -> u8 {
 
 #[cfg(test)]
 mod tests {
+    /// The universal form of `basin_lanes`' `+3 / −3` collapse pin: at EVERY
+    /// representable magnitude the pair keeps balanced conflict distinct from
+    /// silence, with the old carrier's whole output (`net == 0`) reproduced
+    /// and the added coordinate (`contest == x`) carrying the difference.
+    /// Disable arm: derive `axis_state` from `net` instead of the pair and
+    /// every iteration goes red — exactly the sweep the transcribed old
+    /// encoder produced (`x = 1..=7` all `SILENT`).
+    #[test]
+    fn the_pair_distinguishes_balanced_conflict_from_silence_at_every_magnitude() {
+        for x in 1u8..=AXIS_COUNT_MAX {
+            let mut sup = [0u8; BASIS_AXES];
+            sup[5] = x;
+            let mut refu = [0u8; BASIS_AXES];
+            refu[5] = x;
+            let p = EpistemicBassin24::accumulate_children(&[
+                EpistemicBassin24::pack(&sup, &[0; BASIS_AXES]),
+                EpistemicBassin24::pack(&[0; BASIS_AXES], &refu),
+            ]);
+            assert_ne!(p, EpistemicBassin24::SILENT, "x={x}");
+            assert_eq!(p.axis_state(5), AxisState::Contested, "x={x}");
+            assert_eq!(p.net(5), 0, "x={x}");
+            assert_eq!(p.contest(5), x, "x={x}");
+        }
+    }
+
+    /// `accumulate_children` is an MV-monoid on L₁₆ per side: exact
+    /// sum-then-clamp is associative and commutative (Chang 1958), so any
+    /// hop-tree fold order gives a bit-identical register. What the clamp
+    /// costs is CANCELLATIVITY (`15 ⊕ 1 == 15 ⊕ 2`), i.e. understated mass —
+    /// never order-dependence and never conflict turned into silence.
+    #[test]
+    fn accumulation_is_associative_and_non_cancellative_per_side() {
+        let lane = |a: u8, d: u8| {
+            let mut s = [0u8; BASIS_AXES];
+            s[0] = a;
+            let mut r = [0u8; BASIS_AXES];
+            r[0] = d;
+            EpistemicBassin24::pack(&s, &r)
+        };
+        let acc = EpistemicBassin24::accumulate_children;
+        let mut non_cancel = 0usize;
+        for a in 0..=AXIS_COUNT_MAX {
+            for b in 0..=AXIS_COUNT_MAX {
+                for c in 0..=AXIS_COUNT_MAX {
+                    let l = acc(&[acc(&[lane(a, c), lane(b, a)]), lane(c, b)]);
+                    let r = acc(&[lane(a, c), acc(&[lane(b, a), lane(c, b)])]);
+                    assert_eq!(l, r, "assoc a={a} b={b} c={c}");
+                    if b != c && acc(&[lane(a, 0), lane(b, 0)]) == acc(&[lane(a, 0), lane(c, 0)]) {
+                        non_cancel += 1;
+                    }
+                }
+            }
+        }
+        assert!(
+            non_cancel > 0,
+            "saturation must cost cancellativity somewhere"
+        );
+        assert_eq!(non_cancel, 1360, "the L16 non-cancellation census");
+    }
+
     use super::*;
 
     #[test]

@@ -1,3 +1,101 @@
+## 2026-09-01 — E-PILLAR-11-GREEN-FOR-LATTICE-WALKS-LENGTH-PARAMETERIZED-1
+
+**Status:** SHIPPED (jc W6 leg, `hambly_lyons.rs`; sigker Index regime
+re-worded; harvest ledger D1–D8). **Confidence:** [G] — the constant was
+re-read from the primary source (math/0507536v2 p.11/p.14) on the main
+thread, the leg is exhaustive over its word classes, and its disable arm
+fails.
+
+Pillar 11 was red because Theorem 1 is depth-∞. The finite-depth statement
+is Theorem 2/3 of the SAME paper: a lattice word of length L is separated
+from the identity by depth ⌊e·ln(1+√2)·L⌋ = ⌊2.3958·L⌋ (d = 2; ×
+(2⌈log₃(d/2)⌉+3) in general). Homomorphism into the free nilpotent group
+gives the pair form `S^(N)(X) = S^(N)(Y) ⟺ X ∼ Y` at `N ≥ ⌊c·(|X|+|Y|)⌋`.
+Measured (W6, release, 2.0 s): 484/484 reduced words of length ≤ 5
+separated at ⌊c·L⌋ (min ‖S−1‖ = 1.118); 64 tree-like words at the
+identity (max 2e-15); **64 reduced length-8 words share `S^(2) = 1` with
+the constant path** (the paper's own §1.6 figure-of-8 class) and every one
+separates by depth 3 ≤ ⌊c·8⌋ = 19; d = 1 collapses the 64 length-6 words
+to exactly 7 signature classes (net increment only — the `d ≥ 2`
+precondition). Consequences: the sigker Index regime is **length-
+parameterized** (a walk-length budget, escalate or refuse beyond it),
+depth 2 is a necessary condition only, a single `u8:u8` rail read as one
+axis is out of regime, and arbitrary quantized step vectors stay outside
+Theorem 2 (Theorem 9 gives non-triviality without an explicit depth).
+Default jc build stays zero-dep/DEFERRED.
+
+> **⊘ Correction (same day, review round on #1133):** the constant is
+> **`2e·ln(1+√2) = 4.7916`**, and the theorems are **5/6** in the published
+> Annals 171 text. The arXiv v2 statement (Theorems 2/3, coefficient `e`)
+> that this entry first cited is pre-publication: its proof sums over odd
+> degrees `2k−1` with `k > N`, so "first N terms" there is degree ~2N; the
+> journal version takes `x = 2·log(1+√2)·L` and states `2e`. Caught by a
+> review bot against the arXiv-only reading, verified on the Annals PDF.
+> Measured after the fix: 52/52 reduced words of length ≤ 3 separated at
+> the doubled depth; every other count above is unchanged (the false-merge
+> search escalates depth and still stops at level 3).
+
+**Companion source audit (pre-#1129 signed register), same session:** the
+old `BasinLanes` lane was true two's-complement i4 over the FULL `[−8, 7]`
+(`atoms::I4x32::sext4`; 16 states, no quantizer); "−3..+3" is prose only —
+one illustrative pair, absent from every implementation, test and commit
+(`git log -S` negative). The #1129 failure is DIMENSIONAL, not range: the
+transcribed old encoder maps `+x + (−x)` to bytes identical to `SILENT` for
+every `x ∈ 1..=7`; only `x = 8` escapes, by the `+8 → +7` clamp artifact.
+Bit accounting: old 24×4 = 96 bit = 12 B (one facet payload, pinned
+against `CASCADE_UNITS`); new 24×(4+4) = 192 bit = 24 B — now pinned by
+`const` asserts and a universal-magnitude test in `epistemic_bassin.rs`.
+No jc pillar certifies a compact projection it did not test: the A→B
+adapters (`sigma_tension_u4`, D-SK casts, causal-witness loci) are all
+labelled unproven and gated. Two wording risks for the operator:
+`epistemic_bassin.rs` line 18 ("one extra 12-byte register") vs line 61
+("a reading of the SAME physical lane") cannot both size one row; and
+`PR_ARC_INVENTORY.md` ~1688 summarises `probe_tarski_signed_witness` as a
+"24×i4 signed derivational field" although its polarities live in two
+separate slots (`ConstructiveDepth`/`FalsifyingDepth`) and never net.
+Also corrected: the ACCUMULATE caveat ("NOT associative") — sum-then-clamp
+on L₁₆ is an MV-monoid, associative across hops; the clamp costs
+cancellativity only (0/4096 violations, 1360 non-cancel pairs, pinned).
+
+## 2026-09-01 — E-LITERATURE-HARVEST-POST-1132-TWO-PILLAR-CORRECTIONS-1
+
+**Status:** HARVEST (5-auditor literature sweep, adjudicated against shipped
+code; zero code changed). **Confidence:** the two corrections below are
+[G] by code read + local probe; the Pillar 11 green path is [G] as read by
+the auditor and awaits a main-thread re-read of the constant before the
+pillar flips.
+
+Full ledger: `.claude/knowledge/literature-harvest-2026-09-01-post-1132.md`
+(census of 45 results, nine detailed rows, MINT NOW = **empty**).
+
+1. **Pillar 5+ is correct; `pillar_5plus_bound` is not Pillar 5+.**
+   `jc/koestenberger.rs` builds a genuine inductive mean and is a lawful use
+   of Köstenberger-Stark Thm 1. `sigma_propagation::pillar_5plus_bound`
+   (`√(2/n)·√(1+2σ²n)`, σ=0.2, → 0.4) is the jc generator's empirical CV
+   curve — its own comment says "K-S-*style*" — applied to a congruence
+   orbit `MΣMᵀ`, which is an isometry, not a mean. `sigma_tension_u4` then
+   divides a squared affine-invariant distance by that dimensionless CV.
+   Eigen-aligned `M = diag(e^0.2, e^-0.2)` gives growth `0.32n²` and
+   saturates the u4 on every regular walk. Replacement, expressible today:
+   `|‖log Σ_n‖_F − ‖log Σ_0‖_F| ≤ 2·Σ‖log M_k‖_F` (probed, max ratio 0.567
+   on 2000 random paths; tight on the aligned arm).
+2. **Pillar 11's cited theorem is right and insufficient; the green path
+   is two sections later in the same paper.** Hambly-Lyons Thm 2/3 (§2.4)
+   give an explicit finite depth `⌈2.3959·L⌉` (d=2 lattice; `c(d)·L` in
+   general) at which the truncated signature separates non-tree-equivalent
+   unit-step walks. The Index regime therefore becomes *length-
+   parameterized*; the depth-2 forward leg is a necessary condition only —
+   the paper's own §1.6 figure-eight has `S¹=S²=0` and `S¹¹²=1` (probed).
+   Preconditions: `d ≥ 2` (a `u8:u8` rail read as one axis is d=1 and
+   collapses to the endpoint) and unit basis-aligned steps.
+
+Also strengthened in the safe direction: ACCUMULATE on L₁₆ is an MV-monoid
+(associative; 0/4096 violations; the caveat in `epistemic_bassin.rs` is too
+weak — the real defect is non-cancellative ratio distortion, which needs a
+saturation flag on Contested reads). Greedy INFO_GAIN admission carries a
+published Ω(n/log n) lower bound (Golovin-Krause-Ray Thm 9); EC² is the
+adaptive-submodular repair as a rung-local script.
+
 ## 2026-09-01 — E-THE-24-AXIS-BASIS-V3-EVERY-AXIS-IS-A-GROUNDED-PRESSURE-1
 
 **Status:** BUILT on the operator's "mach weiter" — the catalogue derived
