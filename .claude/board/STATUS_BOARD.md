@@ -3,7 +3,7 @@
 | D-id | deliverable | status |
 |---|---|---|
 | D-HOUSE-0 | the plan: parts list of shipped surfaces (file-cited), the composition as a recipe-level style program, ladder placement, pre-registered falsifier | **Shipped (plan-only, this PR)** |
-| D-HOUSE-1 | PROBE-HOUSE-DIFFERENTIAL-1: planted-cause recovery on synthetic arenas with shared-predicate distractors; arms RCR-alone / +ASC / full cycle / shuffle null; PASS iff Δp@1 ≥ 0.05 above null p95, planted cause never eliminated, periphery fires on 10–90 % | **Queued — next step** |
+| D-HOUSE-1 | PROBE-HOUSE-DIFFERENTIAL-1: planted-cause recovery on synthetic arenas with shared-predicate distractors; arms RCR-alone / +admit+ASC / +council control / full cycle / shuffle null (fixture direction `cause→feature` + `case→feature` so RCR yields `case→cause`; `quorum_project` NOT on the path — it is a `todo!`); PASS iff Δp@1 ≥ 0.05 above null p95, planted cause never eliminated, periphery fires on 10–90 % | **Queued — next step** |
 | D-HOUSE-1b | resonance prior probe (`res-seed` + `res-gate`): anchoring vs recognition, same arenas, ρ < 1 guard against the D-HOUSE-1 A2 ordering (plan §4b) | Gated on D-HOUSE-1 reported |
 | D-HOUSE-1c | signed-qualia contrast probe: one i4 per top-3 candidate from the ASC outcome into existing `QualiaI4_16D` lanes, post-challenge re-rank only, all-zero-signs must equal A2 (plan §4b) | Gated on D-HOUSE-1 reported |
 | D-HOUSE-1d | aperture hypothesis (the "humor" label): incongruity → `k` across passes; a hypothesis until its operator is defined and measured (plan §4b) | Not scheduled |

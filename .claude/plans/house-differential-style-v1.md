@@ -25,7 +25,7 @@ nothing. The mechanics are nevertheless shipped, in pieces, across four
 surfaces. Naming the composition is therefore the whole deliverable; the
 first code this plan licenses is a falsifier, not a feature.
 
-```
+```text
 families = state / evidence carriers        (unchanged; six, see survey §1)
 atoms    = readouts over the BeliefArena     (expectation, contradiction, gaps)
 recipes  = the rung-3 tactics RCR / ASC / CR (+ TR, CAS as needed)
@@ -39,7 +39,7 @@ style    = the House program: WHICH recipes fire, in WHAT order, with WHICH
 |---|---|---|
 | The whiteboard: ranked hypotheses from an observation | RCR abduction over a shared predicate → `Frontier { candidates, gaps }`, `Candidate { stmt, truth, premises, rung, tactic }`, `ReasoningGap` | planner `nars/tactics.rs:177 rcr_abduce`, `:71 Candidate`, `:88 ReasoningGap` |
 | Attack the leading hypothesis | ASC: `challenge_target = ⟨1−f, c⟩`; counter-evidence admitted ONLY with a disjoint stamp; self-refutation `BlockedSelfReference` | `tactics.rs:457 challenge_target`, `:479 asc_challenge`, `:463 AscOutcome` |
-| Thesis vs antithesis on one claim | CR: NARS revision, `|f₁−f₂|` contradiction depth preserved, never averaged | `tactics.rs:503 cr_synthesize` |
+| Thesis vs antithesis on one claim | CR: NARS revision, the absolute frequency difference kept as contradiction depth, never averaged | `tactics.rs:503 cr_synthesize` |
 | The team argues; the minority view stays on the board | `InnerCouncil::deliberate`, `is_split(0.7, 0.5)` amplified ×1.2; a split quorum is a Contradiction, never averaged; the minority pole is forked as a −6 counterfactual nibble | contract `escalation.rs:137 InnerCouncil`, `:116 is_split`; `quorum.rs:215 quorum_project`; `counterfactual.rs:140 deposit_counterfactual` |
 | The test nobody ordered (the contrarian) | excluded tactics run as watchers; a watcher that moves the score may force rung elevation; it never decides | contract `recipes.rs:557 peripheral_recipes`, `:573 peripheral_sample`, `:601 peripheral_sample_rotating`, `:641 peripheral_sample_where`; planner `strategy/style_strategy.rs:121 peripheral_dissent`, `:184 cross_family_dissent` |
 | Cheap passes first, the counterfactual leap last | `Recipe::min_rung` / `admissible_at`, `RungLevel::for_pass`; admissible set 4 → 11 → 24 → 34; `ExtremelyHard` gated to `Counterfactual` | `recipes.rs:505–545` |
@@ -57,11 +57,25 @@ One House cycle over a `BeliefArena`, written as the order in which shipped
 tactics fire. Each step names its output atom so the falsifier in §4 can
 measure it.
 
-1. **Board.** `rcr_abduce(arena, throttle)` from the observation's
-   predicate. Output: `Frontier.candidates` ranked by `truth.expectation()`
-   (the ranking key MedCare's `DiffRow` already uses). `Frontier.gaps`
-   records why candidates were NOT formed (`NoSharedMiddle`, `HubExcluded`,
-   `BudgetExhausted`, …) — this is the raw material for step 5.
+1. **Board.** `rcr_abduce(arena, throttle)`. Abduction direction matters
+   (Codex P1 on #1137, verified in `tactics.rs:177`): RCR pairs two `Inh`
+   beliefs sharing a PREDICATE, `{P→M (rule), S→M (obs)} ⊢ S→P`. So the
+   arena must carry cause knowledge as `cause→feature` rules and the case as
+   `case→feature` observations; the shared predicate is the FEATURE, and the
+   candidates come out as `case→cause`. Beliefs written the other way round
+   (`feature→cause`) make RCR relate features to each other and the cause
+   never appears as a candidate. The board = the candidates with
+   `stmt.s == case`, ranked by `truth.expectation()` (the ranking key
+   MedCare's `DiffRow` already uses); the throttle's `hub_indegree` must
+   exceed the number of causes sharing a feature, or shared features are
+   barred as hubs. `Frontier.gaps` records why candidates were NOT formed
+   (`NoSharedMiddle`, `HubExcluded`, `BudgetExhausted`, …) — the raw
+   material for step 5.
+1b. **Admit.** `rcr_abduce` does not mutate the arena; a `Candidate` is a
+   proposal. Before any tactic can act on the leader it must be admitted:
+   `BeliefArena::admit_derived` (`belief.rs:226`) for the top-k. Without
+   this step `asc_challenge` returns `AscOutcome::NoTarget` for every
+   leader and the challenge arm is vacuous (Codex P1, verified).
 2. **Periphery.** `RungLevel::peripheral_sample_where(k, eligible)` picks the
    watchers the current rung excludes; `StyleStrategy::peripheral_dissent`
    runs them as observers. If one moves the score beyond `tol`, the rung
@@ -74,15 +88,28 @@ measure it.
    `cr_synthesize` keeps both frequencies' distance as contradiction depth.
 4. **Council.** `InnerCouncil::from_signals(trust, humility, flow, load)`
    (planner `mul/escalation.rs::verdict_from` already derives these from a
-   `MulAssessment`). A split verdict routes through `quorum_project` →
-   contested → `deposit_counterfactual(minority pole)`. The minority
-   diagnosis stays addressable under the −6 lane and can win later via
-   `revise_if_minority_wins` when the mailbox arm exists.
+   `MulAssessment`) → `CouncilVerdict`; on `verdict.split`,
+   `deposit_counterfactual(&verdict, &mut edge)` tags the minority
+   diagnosis's edge with the −6 mantissa (the planner already has
+   `impl EpisodicEdge for CausalEdge64`, D-DCR-3). **Not on the path:**
+   `quorum.rs::quorum_project` and `quorum_project_blackboard` are
+   unconditional `todo!` scaffolds blocked on D-ATOM-1/3 (Codex P1,
+   verified at `quorum.rs:216, 253`), and `CounterfactualMailbox` /
+   `revise_if_minority_wins` are the v3 `todo!` arm. The probe uses the
+   council verdict and the deposit only; the minority stays addressable
+   under the −6 lane and may win later when the mailbox arm exists.
 5. **Discriminating evidence (OPEN — the first readout this plan asks for).**
    For the top two candidates, name the single observation whose presence
    would swap their order. Definition (a READOUT, no state): clone the
-   arena, `observe` a hypothetical premise with the candidate's own truth,
-   re-rank, report the premise with the largest rank displacement.
+   arena; for each candidate premise `observe` it with the candidate's own
+   truth and re-rank; keep ONLY premises that actually swap the top two;
+   among those report the one that leaves the largest post-swap margin,
+   ties broken by ascending premise id. If no single premise swaps the
+   order the readout returns an explicit `None` carrying the current
+   top-two margin ("no single observation discriminates") — never the
+   largest non-swapping displacement (CodeRabbit on #1137: a largest
+   displacement can preserve the order, and the no-swap case must be
+   defined).
    `Frontier.gaps` gives the candidate premises; the clone-and-observe is
    what `dismech_counterfactual` already does for a cut edge, run here for
    an added one. Not built; D-HOUSE-2.
@@ -157,11 +184,15 @@ domain vocabulary.
 
 **Fixture (pre-registered).**
 - N = 200 arenas, SplitMix64 seed `0x9E3779B97F4A7C15 ^ i`.
-- One planted cause `C*` with 4–6 observations `O_j`, each an
-  `O_j → C*` belief (`Copula::Inh`, frequency 0.9, confidence 0.6,
-  disjoint stamps).
-- 5 distractor causes sharing 1–3 observations each with `C*` (the
-  shared-predicate trap RCR abduces over).
+- One planted cause `C*` with 4–6 features `O_j`, written as RULES
+  `C* → O_j` (`Copula::Inh`, frequency 0.9, confidence 0.6, disjoint
+  stamps), and one `case` with observations `case → O_j` for every planted
+  feature (the direction RCR needs; see §2 step 1).
+- 5 distractor causes `D_i`, each with rules `D_i → O_j` sharing 1–3
+  features with `C*` (the shared-predicate trap RCR abduces over) plus 2–3
+  private features the case does not show. `Throttle::hub_indegree` is set
+  above 7 so a feature shared by all six causes and the case is not barred
+  as a hub.
 - One disjoint counter-evidence stamp per distractor (frequency ≤ 0.3) that
   is ONLY visible to step 3.
 - Half the arenas additionally carry a "far" fact reachable only by a tactic
@@ -169,8 +200,10 @@ domain vocabulary.
 
 **Arms.**
 - A0: RCR alone (`rcr_abduce`, rank by expectation).
-- A1: RCR + ASC on the leader (steps 1, 3).
-- A2: full cycle (steps 1–4; `k = 4` periphery, `tol = 0.02`).
+- A1: RCR + admit + ASC on the leader (steps 1, 1b, 3).
+- A1c: A1 + council (steps 1, 1b, 3, 4; no periphery) — the control that
+  isolates the periphery's contribution.
+- A2: full cycle (steps 1, 1b, 2, 3, 4; `k = 4` periphery, `tol = 0.02`).
 - AN: A2 on 25 permutations of the observation→cause links per arena
   (size-preserving null).
 
@@ -186,9 +219,11 @@ stops at §1 as a parts list.
 - Removing the disjoint-stamp gate in the fixture must make A1 worse than
   A0 (otherwise the guard was never binding).
 - Zeroing the far facts must drop the periphery fire rate to ~0.
-- A2 with `k = 0` must equal A1 to the bit.
+- A2 with `k = 0` must equal A1c to the bit (A1 lacks the council, so
+  equality with A1 was the wrong control — CodeRabbit on #1137).
 **Deliverable shape.** One example in `lance-graph-planner/examples/`
-(no library surface), plan §4a RESULT, one board entry, STATUS row.
+(no library surface), plan §4 RESULT (added as a dated subsection when the
+run reports), one board entry, STATUS row.
 Nothing else lands from a PASS except a licence to design the O2 edge.
 
 ## 4b. Three follow-on probes — kept OUT of D-HOUSE-1 (external review, 2026-09-02, adopted)

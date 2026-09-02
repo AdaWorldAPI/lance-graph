@@ -40,6 +40,21 @@
   fixed; ghost-trace vs counterfactual-lane fence banked
   (`E-A-GHOST-TRACE-IS-NOT-THE-COUNTERFACTUAL-LANE-1`,
   `TD-GHOST-TIER-NAME-COLLISION-1`).
+- **Review pass 2026-09-02 (fourth commit):** 6 Codex + 8 CodeRabbit findings
+  on `84f2885`, all verified in source, all fixed. The three Codex P1s were
+  real probe-design errors: the fixture direction meant `rcr_abduce`
+  (`{P→M, S→M} ⊢ S→P`) could never emit the cause as a candidate (fixed:
+  `cause→feature` rules + `case→feature` observations); candidates were
+  never admitted before ASC (`admit_derived` step added, else
+  `AscOutcome::NoTarget`); `quorum_project` is an unconditional `todo!`
+  (removed from the path; council verdict → `deposit_counterfactual`
+  directly). Also: A1c control arm for the `k = 0` guard; swap-only,
+  `None`-defined discriminating-evidence readout; role_tables/jina_lens
+  one fate each; bridge_gate migration symbol-complete (7 items) with a
+  W1 compatibility contract incl. callcenter's lens-touching test; ghost
+  floor mismatch (0.001-prune vs 0.1-clamp) declared an intentional change
+  with a calibration gate; M8 gate = tolerances + invariants, not
+  bit-parity; stop rule scoped to §1b+§1c; generator singular agreement.
 
 ## 2026-09-02 — lance-graph branch `claude/medcare-rs-continue-6nhbxn` (D-POP-1 result PR, after #1135) — PROBE-POP-READOUT-1
 

@@ -17,7 +17,7 @@
 most-referenced symbol here: **68 crate files, 44 plans, 41 of them blind.**
 That is a programme, not a cleanup.
 
-**`GateState` is the sharpest case: 1 plans name it and *every one* is blind.**
+**`GateState` is the sharpest case: 1 plan names it and *every one* is blind.**
 Its COMPONENT-MAP note reads: intra-cascade SD gate — fine IF intra-mailbox; warden sign-off queued, not assumed
 
 **`ResonanceDto` → `PerturbationDto` gives the rule that needs no map at all:**

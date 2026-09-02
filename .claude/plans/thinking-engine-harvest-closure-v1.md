@@ -30,11 +30,11 @@ Two crates depend on `thinking-engine` (`grep thinking-engine crates/*/Cargo.tom
 | consumer | dependency | symbols actually used |
 |---|---|---|
 | `cognitive-shader-driver` | OPTIONAL, feature `with-engine`, default off | `dto::BusDto`; `cognitive_stack::{SD_FLOW_THRESHOLD, …}`; lens lookups (`jina_lookup`, `bge_m3_lookup`, `reranker_lookup`) in doc/test paths |
-| `lance-graph-callcenter` | required, `default-features = false` | `bridge_gate::{CognitiveBridgeGate, CognitiveAuthResult, …}` (callcenter IMPLEMENTS the trait; direction callcenter → thinking-engine is the only allowed one) |
+| `lance-graph-callcenter` | required, `default-features = false` | production: `bridge_gate::{CognitiveBridgeGate, CognitiveAuthResult, CognitiveOpKind}` (`cognitive_bridge_gate.rs:45`; callcenter IMPLEMENTS the trait; direction callcenter → thinking-engine is the only allowed one). **Tests also** call `jina_lens::{jina_lookup, jina_distance}`, `bge_m3_lens::bge_m3_lookup`, `reranker_lens::reranker_lookup` (`cognitive_bridge_gate.rs:474–477`, test `pure_ops_emit_zero_audit_events`) — a Codex finding on #1137; the first draft of this row said "only `bridge_gate`", which was true of production code and false of the crate |
 
-So the spine's hard dependency on a 51-file crate is ONE trait module
-(`bridge_gate.rs`), and the optional dependency is the DTO ladder plus two
-thresholds. Everything else is internal to the crate or reached only by its
+So the spine's hard PRODUCTION dependency on a 51-file crate is ONE trait
+module (`bridge_gate.rs`), plus one unit test that touches three lens
+modules; the optional dependency is the DTO ladder plus two thresholds. Everything else is internal to the crate or reached only by its
 own examples. That is the finding this plan is built on: closing the chapter
 costs one trait move and one DTO-home decision, not a rewrite.
 
@@ -67,8 +67,11 @@ and a consumer), **LAB** (calibration battery; keep in a lab crate),
 (`TextToThought`), `codebook_index.rs`, `pooling.rs`, `sensor.rs`,
 `dto.rs` (Φ/Ψ/B/Γ ladder), `awareness_dto.rs`, `qualia.rs` (`Qualia17D`),
 `think.rs` (the "Thinking is a struct" carrier, minimum scope),
-`superposition.rs`, `layered.rs`, `role_tables.rs`, the three lens
-modules (`jina_lens` self-declared legacy, `bge_m3_lens`, `reranker_lens`).
+`superposition.rs`, `layered.rs`, and two lens modules (`bge_m3_lens`,
+`reranker_lens`). (`role_tables.rs` is LAB, 1d; `jina_lens.rs` is RESIDUE,
+1e — each file has exactly one fate; the two callers that still touch
+`jina_lens` — callcenter's test and the driver's doc/test lookups — are
+rewritten in W1, not carried.)
 
 Two decisions own this group and both already have rows:
 - **M8** (ENTROPY-MILESTONES, QUEUED): four near-duplicate engines
@@ -86,7 +89,7 @@ Two decisions own this group and both already have rows:
 
 | file / symbol | what it is | landing | consumer that justifies the port | gate |
 |---|---|---|---|---|
-| `ghosts::GhostField::{imprint,bias,prediction,free_energy,prune}` | Friston prior as a per-atom decaying field; the anchoring alarm. **Family fence:** this is the LINGERING-TRACE family (Staunen = persistent wonder, Wisdom = harvested knowing) — NOT the non-authoritative counterfactual rung (the −6 lane, `deposit_counterfactual` / `CounterfactualMailbox`), whose docs call themselves "ghost-tier" (`TD-GHOST-TIER-NAME-COLLISION-1`). The rung may consume a trace as a starting prior; it is never one. `E-A-GHOST-TRACE-IS-NOT-THE-COUNTERFACTUAL-LANE-1` | planner `nars/ghost_prior.rs` over `contract::escalation::WisdomMarker` (floor 0.1, decay 0.85 — the constants already agree); per-thought/per-mailbox, NEVER a singleton field | `house-differential-style-v1` D-HOUSE-4 (anchoring alarm) | falsifiers: bias decays but never below floor; `free_energy` RISES on a context shift and FALLS on a recurrence (two-sided); disable-run on the decay constant |
+| `ghosts::GhostField::{imprint,bias,prediction,free_energy,prune}` | Friston prior as a per-atom decaying field; the anchoring alarm. **Family fence:** this is the LINGERING-TRACE family (Staunen = persistent wonder, Wisdom = harvested knowing) — NOT the non-authoritative counterfactual rung (the −6 lane, `deposit_counterfactual` / `CounterfactualMailbox`), whose docs call themselves "ghost-tier" (`TD-GHOST-TIER-NAME-COLLISION-1`). The rung may consume a trace as a starting prior; it is never one. `E-A-GHOST-TRACE-IS-NOT-THE-COUNTERFACTUAL-LANE-1` | planner `nars/ghost_prior.rs` over `contract::escalation::WisdomMarker`; per-thought/per-mailbox, NEVER a singleton field. **Intentional semantic change, not source parity** (Codex on #1137, verified): the decay rate agrees (0.85) but the FLOORS do not — `GhostField` drops contributions below 0.001 and `prune` deletes them, `WisdomMarker` clamps at 0.1 forever. Porting the field over the marker raises long-lived bias by up to two orders of magnitude; the port declares the floor it adopts and a calibration gate (free-energy response on a recurrence fixture under both floors) decides it | `house-differential-style-v1` D-HOUSE-4 (anchoring alarm) | falsifiers: bias decays monotonically to the DECLARED floor (whichever the calibration gate picks); `free_energy` RISES on a context shift and FALLS on a recurrence (two-sided); disable-run on the decay constant; the two-floor calibration comparison is reported, not assumed |
 | `meaning_axes::CouncilWeights::{modulate, shift_toward}` | free-energy-weighted three-archetype modulation with renormalisation | `contract::escalation` beside `InnerCouncil` — only if a caller needs weighted (not majority) council output | none today | do NOT port until a caller exists; record the formula in the plan (done here) |
 | `meaning_axes::AXES_48` + `AxisActivation` | 48 bipolar semantic axes (r = 0.9913 vs Jina cosine, per census) | `quorum.rs` names an `AxisId` BLOCKED on D-ATOM-1; AXES_48 is the natural candidate vocabulary | `quorum_project` per-axis projection | falsifier-first (the September ruling forbids a fixed axis basis minted by assertion): a size-preserving shuffle of axis assignments must NOT reproduce the 0.9913; until measured, the table stays where it is |
 | `persona::{PersonaProfile, CognitiveBaseline}` | 12 personality constants + mode/temperature/rung bounds | a Layer-2 role catalogue DATA card (≤32 identities, I-VSA-IDENTITIES) in the persona storyline | none (O3: persona unwired by design) | park; no port |
@@ -100,7 +103,7 @@ Two decisions own this group and both already have rows:
 | `semantic_chunker.rs` | chunk boundaries = convergence jumps, no forward pass | `deepnsm-v2` (text side) or the paperless sentence assembler | tesseract-paperless `assemble_sentences` is the only live sentence producer | falsifier: boundaries vs a gold sentence split; else stays LAB |
 | `contrastive_learner.rs`, `osint_bridge.rs` | online EMA table update; crawl → engine pipeline | `lance-graph-osint` owns the arc | osint arc | move with the osint arc or delete when it does |
 | `inference_backend.rs` | 7-backend runtime registry ("nothing is killed, deprecation is data-driven") | LAB | R&D bench only | keep in the lab crate |
-| `bridge_gate::{CognitiveBridgeGate, PassthroughGate, DenyAllGate, CognitiveOpKind}` | cross-tenant authorization injection point (trait-only) | `lance-graph-contract` (zero-dep, trait-only — it already says it lives low so callcenter can implement it) | `lance-graph-callcenter` (live) | W1: move trait, callcenter drops the thinking-engine dep; behaviour-preserving, tests move with it |
+| `bridge_gate::{CognitiveOpKind, CognitiveAuthResult, CognitiveBridgeError, auth_to_result, CognitiveBridgeGate, PassthroughGate, DenyAllGate}` — the WHOLE public surface of the module, seven items | cross-tenant authorization injection point (trait + result/error enums + two reference gates) | `lance-graph-contract` (zero-dep, trait-only — it already says it lives low so callcenter can implement it), as one module, all seven items together; owner = contract | `lance-graph-callcenter` (live: `CognitiveBridgeGate`, `CognitiveAuthResult`, `CognitiveOpKind` at `cognitive_bridge_gate.rs:45`) | W1 compatibility contract: (a) all seven items move in one PR, identical shapes; (b) thinking-engine keeps `pub use lance_graph_contract::<module>::*` re-exports for that PR so callcenter's imports flip in the same change without a window where either path is missing; (c) callcenter's `pure_ops_emit_zero_audit_events` test is rewritten to exercise the gate without the three lens lookups (or moved to the driver's `with-engine` tests) BEFORE the dep line is deleted; (d) callcenter builds and its tests pass with no thinking-engine path dep — only then is the claim made |
 
 ### 1d. LAB — the calibration battery (keep, rename, gate)
 
@@ -151,11 +154,11 @@ Each wave lands only with its gate green; no wave ports without a consumer.
 | **W0 (this PR)** | census, fate table, row regrades, idea harvest (§4) | boards consistent; SUPERSESSION-INDEX regenerated |
 | **W1 — cut the hard dependency** | move `bridge_gate` trait + gates to `lance-graph-contract` (trait-only, zero-dep); callcenter re-imports; decide the DTO-ladder home (D-TTV-1 ruling) so the driver's `with-engine` feature can point at it | `lance-graph-callcenter` builds with no thinking-engine path dep; driver `with-engine` still green; thinking-engine becomes a LEAF |
 | **W2 — harvest gems with consumers** | ghost prior → planner `nars/ghost_prior.rs` (D-TEH-2, consumer D-HOUSE-4); `cronbach` → retire onto `jc::reliability`; `semantic_chunker` → deepnsm-v2 only if its falsifier passes; `spiral_segment` → codec home via certification battery | each port has a two-sided falsifier + a disable run; each source file deleted in the same PR |
-| **W3 — M8** | one enum-dispatched engine; the 5 cascade shapes and 3 lens modules collapse; parity suite across u8/BF16/i8/f32 | bit-parity on the driver's existing fixtures; the `branching` spawn shape kept as a mode, not lost |
+| **W3 — M8** | one enum-dispatched engine; the 5 cascade shapes and 3 lens modules collapse; parity suite across u8/BF16/i8/f32 | NOT bit-parity across dtypes — u8 / BF16 / i8 / f32 differ in encoding by design, and `dual_engine.rs` exists to MEASURE that disagreement (Codex on #1137). Gate: per-dtype output tolerances plus dtype-invariant ranking/convergence invariants (top-k order, `converged`, `cycle_count` bounds) on real engine fixtures that instantiate all four engines (the driver's fixtures do not — they round-trip `BusDto` only); the pre-collapse `DualResult` disagreement is the baseline the collapsed engine must not exceed; the `branching` spawn shape kept as a mode, not lost |
 | **W4 — retire and rename** | delete RESIDUE (1e) + retired persona A2A; rename what is left `thinking-lab` (calibration feature, `--manifest-path` CI line); regrade every row in §2; pay `TD-THINKING-ENGINE-EXCLUDED-DEBT-1` | the name `thinking-engine` no longer appears in any `Cargo.toml` dependency; board rows closed or re-owned |
 
 Stop rules (non-negotiable inside this plan): nothing ports without a
-consumer named in §1c; nothing ports as a singleton field or a new lane
+consumer named in §1b (the DTO ladder, D-TTV-1) or §1c (the gems); nothing ports as a singleton field or a new lane
 (ClassView reading or per-mailbox module only); `A2AMessage` and any
 inter-mailbox handoff type never revive; the `E-MORTON-CASCADE-V3-1`
 legacy arm is not deleted while that probe is open; no port of a fixed
