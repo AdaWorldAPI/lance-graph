@@ -20,8 +20,8 @@
 use crate::cognitive_stack::EngineStyleExt;
 use crate::cognitive_stack::{GateState, RungLevel, StyleFamily};
 use crate::contract_bridge::{CascadeConfig, FastBusDto};
-use lance_graph_contract::escalation::GhostEcho;
 use crate::meaning_axes::{Archetype, CouncilWeights, Viscosity};
+use lance_graph_contract::escalation::GhostEcho;
 
 // ═══════════════════════════════════════════════════════════════════════════
 // PERSONA MODE
@@ -452,7 +452,6 @@ impl Agent {
         ghost_count: u16,
         dominant_ghost: Option<GhostEcho>,
     ) -> SelfModelDto {
-
         let gate = GateState::from_sd(dissonance + self.persona.collapse_bias);
         let viscosity = match gate {
             GateState::Flow => Viscosity::Ice,
@@ -538,7 +537,10 @@ mod tests {
             5,
         );
         let msg = A2AMessage::thought(sender.to_dto(3), "receiver", bus, 0.9);
-        assert_eq!(msg.from.ghost_count, 3, "the caller-owned count reaches the receiver");
+        assert_eq!(
+            msg.from.ghost_count, 3,
+            "the caller-owned count reaches the receiver"
+        );
         assert_eq!(msg.to, "receiver");
         assert_eq!(msg.resonance_weight, 0.9);
         assert_eq!(msg.from.mode, PersonaMode::Work);

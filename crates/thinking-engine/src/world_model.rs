@@ -12,8 +12,8 @@
 //! ```
 
 use crate::cognitive_stack::{GateState, StyleFamily};
-use lance_graph_contract::escalation::GhostEcho;
 use crate::meaning_axes::{Archetype, HdrResonance, Viscosity};
+use lance_graph_contract::escalation::GhostEcho;
 
 // ═══════════════════════════════════════════════════════════════════════════
 // SELF STATE — the agent's internal awareness
@@ -165,7 +165,6 @@ impl WorldModelDto {
         trace_count: u16,
         dominant_trace: Option<GhostEcho>,
     ) -> Self {
-
         let hdr = HdrResonance::new(
             lens_agreement,
             1.0 - dissonance,
