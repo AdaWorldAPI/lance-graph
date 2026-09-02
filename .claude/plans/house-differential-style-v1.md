@@ -1,7 +1,9 @@
 # House differential style v1 — a differential-diagnosis style program over shipped rung-3 tactics
 
-> **Status:** PROPOSAL, plan-only (no code, no opcode, no tenant, no ClassView,
-> no axis vocabulary, no new struct). **Baseline:** lance-graph `94543a5`
+> **Status:** D-HOUSE-1 REPORTED 2026-09-02 (§4 RESULT) — variant 1 KILL;
+> variant 2: base path (S0 + board) PASS, council-gated S3 arm INCONCLUSIVE; plan otherwise plan-only (no opcode, no
+> tenant, no ClassView, no axis vocabulary, no new struct; one example in
+> `lance-graph-planner/examples/`). **Baseline:** lance-graph `94543a5`
 > (the #1136 merge). **Date:** 2026-09-02. **Working label:** "House" is a
 > working name for the differential-diagnosis style pattern (rank hypotheses,
 > attack the leader, keep the minority alive, order the test nobody ordered,
@@ -76,11 +78,19 @@ measure it.
    `BeliefArena::admit_derived` (`belief.rs:226`) for the top-k. Without
    this step `asc_challenge` returns `AscOutcome::NoTarget` for every
    leader and the challenge arm is vacuous (Codex P1, verified).
-2. **Periphery.** `RungLevel::peripheral_sample_where(k, eligible)` picks the
-   watchers the current rung excludes; `StyleStrategy::peripheral_dissent`
-   runs them as observers. If one moves the score beyond `tol`, the rung
-   elevates and step 1 re-runs with the wider admissible set. The periphery
-   never votes (E-PERIPHERAL-DISSENT-GUARDS-THE-STRATIFICATION-1).
+2. **Periphery = the other strata.** Rungs are strata scheduled in
+   parallel in dependency order (`persona-vs-rung-ladder.md`, 2026-08-30
+   scope correction; operator re-ruled 2026-09-02 against this plan's first
+   reading). The board stratum (RCR #4 / ASC #7, floor `Counterfactual` — both
+   `ExtremelyHard`) runs alongside the strata whose floors are lower: an
+   abstraction stratum S0 (`cas_abstract`, CAS #8, floor `Surface`) whose
+   CAS-down admits feed the board, and a synthesis stratum S3
+   (`cr_synthesize`, CR #11, floor `Analogical`) that consumes the board's
+   ranking. `RungLevel::peripheral_sample_where(k, …)` is the SCALAR reading
+   ("recipes excluded at the board's own rung") and is empty at
+   `Counterfactual`; it is not what fires. The periphery never votes
+   (E-PERIPHERAL-DISSENT-GUARDS-THE-STRATIFICATION-1) — its products enter
+   the arena and the board re-reads them.
 3. **Challenge the leader.** For the top candidate, `asc_challenge` with the
    best available counter-evidence. Only a DISJOINT stamp is admitted; a
    `BlockedSelfReference` outcome is recorded, not retried with the same
@@ -131,11 +141,13 @@ measure it.
    `thinking-engine-harvest-closure-v1` D-TEH-2 (ghost prior harvested with
    a falsifier) and is NOT built by porting `GhostField` as a singleton.
 
-The list above reads linearly; the execution is a LOOP. On a shallow pass
-steps 3–4 do not exist yet (Control-bucket tactics open at `Analogical`), so
-the real shape is: board → periphery → (elevate) → board again → challenge →
-council, and only after the loop settles do the two readouts (5–6) and the
-memory step (7) run. §4b's aperture is definable only because of this loop.
+The list above reads linearly; the execution is strata in dependency order:
+S0 (abstraction) → board (1, 1b, 3, 4) → S3 (synthesis), and only after the
+strata settle do the two readouts (5–6) and the memory step (7) run. (An
+earlier revision described a rung-elevation loop with "Control-bucket
+tactics open at `Analogical`"; ASC's floor is `Counterfactual`, not
+`Analogical`, and there is no single active rung to elevate — corrected
+2026-09-02.) §4b's aperture is definable over the strata's budgets.
 
 What the style ADDS beyond the parts: the order (1→7), the periphery budget
 `k`, the elimination floor, and the rule that step 3 runs before any
@@ -145,10 +157,13 @@ commit. It adds no arithmetic of its own.
 
 - **Rung content:** House is a rung-3 composition (the 34 recipes ARE the
   runbooks: RCR #4, TR #6, ASC #7, CAS #8, CR #11). Its ADMISSION follows
-  `Recipe::min_rung`: on a shallow pass only the gate/datapath tactics fire,
-  and the House cycle degenerates to "board + periphery"; ASC/CR (Control
-  bucket) open at `Analogical`. That degeneration is the pyramid working as
-  designed, not a defect.
+  `Recipe::min_rung` per stratum: CAS opens at `Surface` (0), CR at
+  `Analogical` (3), RCR / TR / ASC at `Counterfactual` (6 — `ExtremelyHard`
+  raises the floor). The strata run in parallel in dependency order; the
+  board stratum is the deepest one, and below rung 6 there is no board at
+  all. (Corrected 2026-09-02: the earlier "ASC/CR open at `Analogical`" was
+  wrong for ASC, and "shallow pass → board + periphery" was the scalar-rung
+  reading.)
 - **Style application is not confined to rung 4** (scope correction of
   2026-08-30 in `persona-vs-rung-ladder.md`). House is a program over the
   atom/mask substrate; the landing zone named for such programs is
@@ -195,17 +210,27 @@ domain vocabulary.
   as a hub.
 - One disjoint counter-evidence stamp per distractor (frequency ≤ 0.3) that
   is ONLY visible to step 3.
-- Half the arenas additionally carry a "far" fact reachable only by a tactic
-  the starting rung excludes (the periphery's job).
+- Half the arenas additionally carry a "far" fact reachable only through
+  the abstraction stratum: `C*→G`, `G→O_far`, `case→O_far` with `G` a
+  parent no distractor shares — CAS-down `{G→O_far, C*→G} ⊢ C*→O_far` is
+  the only path that gives RCR a `case→C*` candidate through it.
 
 **Arms.**
 - A0: RCR alone (`rcr_abduce`, rank by expectation).
 - A1: RCR + admit + ASC on the leader (steps 1, 1b, 3).
 - A1c: A1 + council (steps 1, 1b, 3, 4; no periphery) — the control that
   isolates the periphery's contribution.
-- A2: full cycle (steps 1, 1b, 2, 3, 4; `k = 4` periphery, `tol = 0.02`).
-- AN: A2 on 25 permutations of the observation→cause links per arena
-  (size-preserving null).
+- A2: full cycle = the strata in dependency order: S0 (`cas_abstract` on
+  `C*`, CAS-down admits) → steps 1, 1b, 3, 4 → S3 (`cr_synthesize` of the
+  runner-up's held-aside report). Two pre-registered variants: **variant 1**
+  S3 unconditional; **variant 2** S3 only when the council verdict is
+  `split` (S3 depends on S6's council, not only its ranking). Decomposition
+  arms `A2-S0` / `A2-S3` isolate each stratum.
+- AN: the identical A2 procedure on 25 permutations per arena of the
+  `cause→feature` rule list's FEATURE half (size-preserving), with the far
+  parent re-owned by a uniformly drawn cause (otherwise the far fact leaks
+  the planted identity through the shuffle). Comparator = p95 of the 25
+  per-permutation AGGREGATE p@1 values.
 
 **Metrics.** p@1 and p@3 for `C*`; elimination false-positive rate (the
 planted cause must never be eliminated); periphery fire rate.
@@ -216,15 +241,79 @@ arenas (can-fire AND can-stay-silent). **KILL** otherwise, and the plan
 stops at §1 as a parts list.
 
 **Anti-vacuity guards (each disable-verified before the run is trusted).**
-- Removing the disjoint-stamp gate in the fixture must make A1 worse than
-  A0 (otherwise the guard was never binding).
-- Zeroing the far facts must drop the periphery fire rate to ~0.
-- A2 with `k = 0` must equal A1c to the bit (A1 lacks the council, so
-  equality with A1 was the wrong control — CodeRabbit on #1137).
+- G1: A2 with both strata OFF equals A1c to the bit (A1 lacks the council,
+  so equality with A1 was the wrong control — CodeRabbit on #1137).
+- G2: the fixture direction yields a `case→C*` RCR candidate.
+- G3: `asc_challenge` on an un-admitted leader is `NoTarget`; admitted, it
+  is not.
+- G4: the far fact is reachable through CAS-down ONLY (≥ 1 `CasDown`
+  candidate, exactly `C*→O_far`, on far-fact arenas; 0 on the others).
+- G5: the elimination predicate is two-sided — fires on a belief driven
+  below the floor by disjoint challenges (contradiction recorded), silent on
+  a belief merely observed low with no challenge on record.
+- Fixture check (not a guard): with the truth jitter zeroed A0's p@1 must collapse to 1.000 by
+  the tie-break (the degenerate fixture the jitter exists to avoid).
 **Deliverable shape.** One example in `lance-graph-planner/examples/`
 (no library surface), plan §4 RESULT (added as a dated subsection when the
 run reports), one board entry, STATUS row.
 Nothing else lands from a PASS except a licence to design the O2 edge.
+
+### §4 RESULT — 2026-09-02 (`examples/house_differential.rs`, release, N = 200, 25 perms)
+
+| arm | p@1 | p@3 | elim_fp |
+|---|---|---|---|
+| A0 RCR alone | 0.320 | 0.785 | 0 |
+| A1 +admit +ASC(leader) | 0.610 | 0.785 | 0 |
+| A1c +council | 0.610 | 0.785 | 0 |
+| A2-S0 (abstraction stratum only) | 0.820 | 0.910 | 0 |
+| A2-S3 (synthesis stratum only) | 0.610 | 0.785 | 0 |
+| A2 variant 1 (S3 unconditional) | 0.820 | 0.910 | 0 |
+| A2' variant 2 (S3 on council split) | 0.820 | 0.910 | 0 |
+| AN null (identical procedure, label-blind S0, distinct-pair shuffle) | mean 0.343 · **p95 0.395** · max 0.395 | | |
+
+- Guards G1–G5 PASS; G1, G4, G5 disable-verified red; jitter-off ⇒ A0 = 1.000.
+- Two Codex findings folded in before merge: S0's focus set is derived from
+  observable `is_a` subjects, never from the label (the first cut focused
+  `cas_abstract` on `C*`; real arm unchanged, null p95 0.475 → 0.425 — the
+  label focus had starved the null); condition (b) reads the arena belief
+  (below floor AND recorded contradiction), G5 two-sided. A third finding
+  (CodeRabbit): the null shuffle admitted duplicate `(cause, feature)` pairs,
+  which `observe` pools into stronger beliefs — enforced distinct via a
+  repaired shuffle (11 784 swaps + 1 re-draw over 5 000 shuffles); null p95
+  0.425 → 0.395, mean 0.370 → 0.343. (b) still cannot
+  fire on `C*` here — no counter-evidence for the true cause exists in the
+  fixture — so its 0 is by construction; G5 proves the predicate, not the
+  cycle's safety.
+- **Variant 1: KILL** — (a) PASS (Δ 0.500 over A0; 0.425 over AN p95),
+  (b) PASS, (c) FAIL: fire rate 0.910 (182/200). S3 synthesizes on every
+  arena whose runner-up is a distractor and never moves p@1 (`A2-S3` ≡
+  `A1c`); it reorders the tail on 177/200. An always-on stratum that never
+  changes the answer is the "fires on everything" defect — in S3's design.
+- **Variant 2: base path PASS, council-gated S3 arm INCONCLUSIVE** — the
+  pre-registered rule returns PASS ((a) PASS, (b) PASS, (c) PASS at 0.500,
+  exactly the 100 far-fact arenas), but the council split on 0/200 arenas,
+  so S3 never ran: what passed is `S0 + board`; the S3 gate was not
+  exercised and is recorded as inconclusive, not passed. An S3 result needs
+  a fixture on which the council split is reachable.
+  Cause: the probe's `humility = 1 − margin` sits at ≈ 1, where
+  `from_signals`' Catalyst weight is 0 — a signal-derivation property of the
+  probe, not a council defect.
+- **What is established:** the cycle's gain over RCR comes in two steps —
+  ASC on the leader (0.320 → 0.610) and the abstraction stratum
+  (0.610 → 0.820) — and S0 is a real, silence-capable peripheral stratum.
+  **Not established:** any contribution from CR as a runner-up synthesis
+  stratum. The scalar-reading periphery (`peripheral_sample_where` at
+  `Counterfactual`) is 0, as the structural table predicts.
+- **Robustness (not part of the verdict):** far fact weakened to the
+  rule-edge band ⇒ S0 inert (A2 = A1c; the stratum contributes only when
+  the abstraction chain out-scores the direct band); null WITHOUT
+  far-parent re-owning ⇒ AN p95 0.735 (pre-review cut), A2 still cleared it
+  by 0.085.
+- **Consequence for the gates:** D-HOUSE-2/3/5 are unblocked by the
+  variant-2 PASS on the terms above; the O2 edge, when designed, selects
+  strata (CAS-down as the board's feeder), not a `k` over an excluded set.
+  D-HOUSE-1d's knob (`k` in `peripheral_sample_where`) is therefore
+  re-scoped to the strata budgets before it can be scheduled.
 
 ## 4b. Three follow-on probes — kept OUT of D-HOUSE-1 (external review, 2026-09-02, adopted)
 
@@ -286,14 +375,14 @@ state.
 | D-id | title | scope | status |
 |---|---|---|---|
 | D-HOUSE-0 | this plan: parts list, composition, ladder placement, falsifier | plan-only | Shipped (this PR) |
-| D-HOUSE-1 | PROBE-HOUSE-DIFFERENTIAL-1 (§4) | planner example | Queued — next step |
+| D-HOUSE-1 | PROBE-HOUSE-DIFFERENTIAL-1 (§4) | planner example | Reported 2026-09-02 (§4 RESULT): variant 1 KILL; variant 2 base path (S0 + board) PASS, council-gated S3 arm inconclusive |
 | D-HOUSE-1b | resonance prior probe, `res-seed` + `res-gate`, anchoring vs recognition (§4b) | planner example, same arenas | Gated on D-HOUSE-1 reported |
 | D-HOUSE-1c | signed-qualia contrast probe over top-k ASC, post-challenge re-rank only (§4b) | planner example, same arenas | Gated on D-HOUSE-1 reported |
-| D-HOUSE-1d | aperture hypothesis: incongruity → `k` across passes; held until the operator is defined (§4b) | hypothesis | Not scheduled |
-| D-HOUSE-2 | discriminating-evidence readout (§2 step 5) | planner `nars` readout, no state | Gated on D-HOUSE-1 PASS |
-| D-HOUSE-3 | elimination predicate (§2 step 6) + never-re-enter falsifier | planner `nars` readout | Gated on D-HOUSE-1 PASS |
+| D-HOUSE-1d | aperture hypothesis: incongruity → the strata budgets across passes (re-scoped from `k` over an excluded set, §4 RESULT); held until the operator is defined (§4b) | hypothesis | Not scheduled |
+| D-HOUSE-2 | discriminating-evidence readout (§2 step 5) | planner `nars` readout, no state | Unblocked by the D-HOUSE-1 base-path PASS (2026-09-02); not started |
+| D-HOUSE-3 | elimination predicate (§2 step 6) + never-re-enter falsifier | planner `nars` readout | Unblocked by the D-HOUSE-1 base-path PASS (2026-09-02); not started |
 | D-HOUSE-4 | anchoring alarm over a harvested ghost prior (§2 step 7) | planner, after D-TEH-2 | Gated on `thinking-engine-harvest-closure-v1` D-TEH-2 |
-| D-HOUSE-5 | the style→recipe edge (O2) with House as its first program — two faces after PASS: (a) persona modelling as a LENS (a readout policy over the same arena: admitted recipes, periphery budget, elimination floor, council weights; philosophical labels are further lenses, and two lenses with identical rankings are one lens), (b) the program materialised over the loco palette (`ogar-loco` / `ogar-r2il`, the ruled convergence for style application; no new atom — the 226-atom palette's 30 reserved slots stay untouched; any opcode rides the batched OGAR mint, never solo) | contract + planner (+ OGAR mint) | Gated on D-HOUSE-1 PASS and the D-TSC-2/3 mint |
+| D-HOUSE-5 | the style→recipe edge (O2) with House as its first program — two faces after PASS: (a) persona modelling as a LENS (a readout policy over the same arena: admitted recipes, periphery budget, elimination floor, council weights; philosophical labels are further lenses, and two lenses with identical rankings are one lens), (b) the program materialised over the loco palette (`ogar-loco` / `ogar-r2il`, the ruled convergence for style application; no new atom — the 226-atom palette's 30 reserved slots stay untouched; any opcode rides the batched OGAR mint, never solo) | contract + planner (+ OGAR mint) | D-HOUSE-1 half unblocked (base-path PASS; the edge selects STRATA); still gated on the D-TSC-2/3 mint |
 | D-HOUSE-6 | consumer pointer: `DiffRow` gains READ fields `eliminated` / `discriminator` | MedCare-rs (out of scope here) | pointer only |
 
 ## 6. What this plan does NOT do

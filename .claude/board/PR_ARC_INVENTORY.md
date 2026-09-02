@@ -10,6 +10,16 @@
 > census §8.3 trap 10: read the body FIRST, then open for write — never
 > inline both in one expression.
 
+## 2026-09-02 — lance-graph branch `claude/medcare-rs-continue-6nhbxn` (D-HOUSE-1 PR, after #1139) — PROBE-HOUSE-DIFFERENTIAL-1 run and reported
+
+- **Added:** `crates/lance-graph-planner/examples/house_differential.rs` (the probe; no library surface): fixture, arms A0 / A1 / A1c / A2-S0 / A2-S3 / A2 (variant 1) / A2' (variant 2), size-preserving null with far-parent re-owning, guards G1–G4, per-variant verdict. Plan §4 RESULT; EPIPHANIES `E-THE-PERIPHERY-OF-A-STRATUM-IS-THE-OTHER-STRATA-1`.
+- **Changed:** plan §2 step 2 (periphery = the other strata), §2 closing paragraph (strata in dependency order, no elevation loop), §3 bullet 1 (per-stratum floors; ASC opens at `Counterfactual`, not `Analogical`), §4 arms / fixture / guards (as run).
+- **Measured:** A0 0.320 · A1c 0.610 · A2 0.820 · null p95 0.395 (aggregate; label-blind S0 and distinct-pair shuffle — 0.475 on the first cut that focused S0 on the label, 0.425 before duplicates were removed) · elim 0 (arena predicate; by construction for `C*`, G5 two-sided) · S0 fires 100/200 · S3 fires 182/200 with zero p@1 effect · council split 0/200. Variant 1 KILL on (c); variant 2: base path (S0 + board) PASS, council-gated S3 arm INCONCLUSIVE (never exercised). Guards G1/G4/G5 disable-verified red; fixture guard (jitter off ⇒ A0 = 1.000) verified. Robustness: weak far fact ⇒ S0 inert; leaky null ⇒ p95 0.735.
+- **Review folded in (pre-merge):** Codex P1 — S0 focus set derived from observable `is_a` subjects; Codex P2 — elimination predicate reads the belief's contradiction + floor; CodeRabbit — null shuffle enforces distinct `(cause, feature)` pairs (repaired shuffle, counts reported), variant 2 recorded as base-path PASS + S3 inconclusive, board/plan rows aligned.
+- **Locked:** the strata reading of the periphery for this plan; the aggregate-p95 comparator; far-parent re-owning in the null.
+- **Deferred:** D-HOUSE-2/3 unblocked by the base-path PASS, not started; D-HOUSE-5 half unblocked, still gated on the D-TSC-2/3 mint; D-HOUSE-1b/1c gated on this report as before; D-HOUSE-1d re-scoped to strata budgets before scheduling; a CR stratum with a reachable council gate is a new probe, not a re-run.
+- **Confidence:** High.
+
 ## 2026-09-02 — lance-graph branch `claude/medcare-rs-continue-6nhbxn` (D-TEH-1 PR, after #1138) — `bridge_gate` → contract; callcenter drops its thinking-engine dependency
 
 - **Added:** `crates/lance-graph-contract/src/bridge_gate.rs` (seven items + 9 tests, moved not re-derived); `pub mod bridge_gate` in the contract lib; `thinking_engine::bridge_gate` as a re-export shim keeping `pure_ops_dont_touch_gate` engine-side.
