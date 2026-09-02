@@ -1,3 +1,162 @@
+## TD-PILLAR11-SCIENTIFIC-LOOPS-BYPASS-NDARRAY-SIMD-1 (2026-09-02) — OPEN
+
+**The debt is not missing SIMD support. It is scientific code bypassing the
+already-complete `ndarray` execution substrate.** (Operator ruling, 2026-09-02.)
+
+No violation was committed — the Pillar-11 legs contain zero raw intrinsics
+(`core::arch` / `_mm*` / `target_feature`: 0 hits in `crates/sigker/src` and
+`crates/jc/src`). They are scalar `f64`, hand-written beside a substrate that
+already owns the machine vocabulary.
+
+**The law, corrected from an earlier weaker reading.** There is no
+"SIMD op exists -> polyfill, else -> scalar fallback" decision at consumer
+level. `ndarray::simd` hides the architecture choice behind ONE bit-exact typed
+surface, and **scalar is one BACKEND of that surface**, not a consumer-authored
+alternative: `F64x8` resolves to AVX-512 (`__m512d`), AVX2 (`f64x4` x2), NEON
+(`[float64x2_t; 4]`), wasm32+simd128 (`[v128; 4]`), and `scalar::F64x8` for
+"other non-x86 targets ... full scalar fallback" (`simd.rs` dispatch arms,
+verified 2026-09-02). So:
+
+**Method-level parity CONFIRMED (operator, 2026-09-02):** *"every backend
+implements every method with parity coverage."* The dispatch check above only
+established that each backend EXPORTS the type; this closes the stronger
+question a composing consumer actually depends on — that a method reached
+through the typed surface is implemented, and bit-exact, on every arm. It is
+what makes "compose from polyfill methods" a safe instruction rather than a
+per-method gamble, and it removes the last conditional from the law below.
+
+```
+named high-level algorithm exists  -> call it
+it does not exist                  -> COMPOSE it from ndarray polyfill methods
+never                              -> a consumer-local scalar arithmetic path
+never                              -> consumer-local intrinsics
+```
+
+    JC tells us what is mathematically true.
+    ndarray tells the machine how to execute it.
+    Everything else is composition, never a second arithmetic implementation.
+
+**For the Goursat kernel the arithmetic is entirely available; the only
+unsolved part is algorithmic SCHEDULING.** `signature_kernel_pde`
+(`sigker/src/kernel.rs:106-131`) computes
+
+```
+k[i+1][j+1] = k[i+1][j] + k[i][j+1] - k[i][j] + c_ij·k[i][j]
+            = mul_add(c_ij, diag, left + up - diag)
+```
+
+`mul_add`, `from_slice`, `copy_to_slice`, `reduce_sum`, `select` all ship on
+`F64x8` today. What blocks it is that `k[i+1][j+1]` reads `k[i+1][j]` — a
+strict serial recurrence along `j` in row-major order. Independence lives on
+the **anti-diagonal**; the transformation needed is
+`row-major serial recurrence -> anti-diagonal / rolling-wavefront formulation`.
+
+**A1 determines A2's shape — the architectural reason not to jump from
+`Vec<Vec>` straight to SIMD.** In a flat row-major buffer the anti-diagonal is
+STRIDED (stride `m-1`), so a naive wavefront needs gather. **Three rolling
+anti-diagonal buffers make every wavefront load contiguous and can eliminate
+the gather entirely.** The storage decision therefore fixes which lane ops A2
+needs at all; it is not a warm-up measurement.
+
+**W1.5 falsifier (do not run from a banking session):**
+
+| arm | shape | relation |
+|---|---|---|
+| A0 | current `Vec<Vec<f64>>`, row-major | reference |
+| A1 | flat / rolling storage, SAME recurrence and order | **A0 = A1 exactly** — only storage changes |
+| A2 | rolling anti-diagonal traversal via `ndarray::simd::method()` | A1 <-> A2 gets a PREDECLARED solver tolerance: traversal changes evaluation order |
+
+The A1<->A2 tolerance is stated in advance, never discovered after the fact.
+
+**Inventory — the scalar surfaces in the same two crates.** Straightforwardly
+canonical (`reduce_sum` over `mul_add`): `LogSignature::{dot, cosine}`,
+`RandomizedSignature::{dot, cosine}`, `linear_path_kernel_closed_form`.
+Accumulation-shaped: `signature_truncated`, `log_signature_truncated`,
+`RandomizedSignature::encode`, `hydrate_signature`, `signature_kernel`,
+`signature_kernel_normalized`. Combinatorial rather than arithmetic, and
+plausibly staying scalar: `shuffle_product`, `enumerate_lyndon_words`,
+`witt_component` / `witt_dimension`.
+
+**Not shipped:** `signature_pde_sweep` and `shuffle_product_lift` return zero
+hits in `ndarray/src/` — they remain the W1.5 catalogue's shopping list. The
+missing thing is traversal/composition, NOT arithmetic; whether a composition
+is later promoted to a named `signature_pde_sweep()` is purely an API/reuse
+question, not a blocker.
+
+**Pay by:** W1.5, gated on `jc Pillar 11` (green for the lattice leg,
+`7751581f`). **Not W5** — W5 is workload-pressure machinery and stays HOLD
+(4609 vs the 11 585-point 1 GiB threshold) regardless of any speedup here.
+
+**A0/A1/A2 RUN (2026-09-02, same day — operator: "you didn't try the 25-26
+seconds with ndarray yet").** `crates/jc/examples/goursat_substrate_probe.rs`,
+release, 4097-point paths (16.8M cells). Every A2 lane op is
+`ndarray::simd::F64x8::mul_add` — the body is three FMAs
+(`t = mul_add(1,left,up)`, `u = mul_add(-1,diag,t)`, `new = mul_add(c,diag,u)`);
+no `Add`/`Sub` operator was needed, and none was minted.
+
+| target-cpu | backend | A0 | A1 | A2 | A1/A2 | A0=A1 | \|A1-A2\|/A1 |
+|---|---|---|---|---|---|---|---|
+| generic x86-64 (no target-cpu) | scalar arm | 0.182 s | 0.169 s | **0.773 s** | **0.22x** | bit-exact | 2.431e-13 |
+| x86-64-v3 (AVX2) | `f64x4` x2 | 0.163 s | 0.150 s | 0.0165 s | **9.12x** | bit-exact | 2.431e-13 |
+| x86-64-v4 (AVX-512) | `__m512d` | 0.171 s | 0.157 s | 0.0182 s | **8.62x** | bit-exact | 2.431e-13 |
+
+Four findings, each falsifiable and each measured:
+
+1. **Storage was NOT the wall; the recurrence was.** A1/A0 = 1.09x. The
+   hypothesis banked above — that a flat buffer alone would close most of the
+   gap — is **FALSIFIED**. The probe was built to answer that and it did.
+2. **A build with no `target-cpu` is a REGRESSION, not a no-op.** At generic x86-64 the
+   polyfill's scalar arm runs the wavefront 4.5x SLOWER than the flat scalar
+   loop: eight lanes emulated through arrays plus the wavefront bookkeeping.
+   Until this commit lance-graph had NO `.cargo/config.toml`, so every local
+   build landed there. `.cargo/config.toml` now pins v3 (CI already did via
+   `RUSTFLAGS` in `.github/workflows/*.yml`), with `config-avx512.toml` /
+   `config-native.toml` mirroring ndarray's.
+3. **Bit-exact across backends, as confirmed.** `|A1-A2|/A1` is identical to the
+   last digit on scalar, AVX2 and AVX-512 at every size. The delta itself
+   (~1e-13 at 4097) is the fused-vs-separate rounding of `c·diag`
+   accumulated over 16.8M cells — A2 is the MORE accurate arm.
+4. **AVX2 ~ AVX-512 here** (9.1x vs 8.6x): the wavefront is latency-bound on
+   the diagonal recurrence, not width-bound. Widening lanes buys nothing until
+   the dependency chain is restructured; that is a scheduling question, not a
+   substrate one.
+
+**Correction (2026-09-02, same session):** an earlier revision of this entry
+labelled the no-`target-cpu` row `"386"` and attributed the phrase to the
+operator. That was a misreading of `x86-64-v4` in a terse message. The
+measurement is unchanged; only the label was wrong and is removed above. The
+commit message on `5df2d785` still carries it and is not rewritten (pushed).
+Also recorded: `.cargo/config-avx512.toml`'s `sapphirerapids` is a SUPERSET of
+Cascade Lake / Ice Lake silicon — this session's host is Cascade Lake (family 6
+model 0x55; `amx_report()`: `cpu_model()=OtherX86`, `expects_amx=false`). On
+such hosts `x86-64-v4` or `native` is the correct pick; the probe was run with
+`x86-64-v4`, so its numbers stand.
+
+**SPR vs EMR — resolved (2026-09-02, operator refinement + ndarray git history):**
+not the enablement, the DETECTION. Pre-PR-#217 (`src/simd_caps.rs` @ `bdf243cc`,
+2026-06-13) detected AMX by CPUID feature bits alone (`amx_tile`/`amx_int8`/
+`amx_bf16`/`amx_fp16`, EDX bits 24/25/22) — no XCR0 gate, no model table, and
+the `arch_prctl` issued on syscall 157, so it always failed. PR #217
+(`e563fdcd`, 2026-06-14) replaced it with the four-gate detector (CPUID +
+OSXSAVE + XCR0 + `arch_prctl` 158) PLUS the CPUID model table (`CpuModel`:
+SPR 0x8F / EMR 0xCF / GNR 0xAD,0xAE / SRF 0xAF), added to tell "no silicon"
+from "not OS-enabled". On SPR the old detector said *present* while nothing
+ever executed (every tile test early-returned — Gotcha 9); on EMR the new
+detector said *present AND enabled* and tiles ran. The `arch_prctl` grant is
+the same on both; what differed was the detection code, and the change landed
+on EMR silicon. `amx-enablement-and-kernel.md` §2 says this ("EMR was simply
+the host where gate 4 got fixed first"); the operator's "detected differently"
+is the same fact from the outside. Minor inconsistency noticed, not chased:
+`cpu_ops.rs:186` says "Linux 5.19+", the doc says "5.16+".
+
+Storage detail that held: with `dy` stored REVERSED, the anti-diagonal walk
+is forward in `i`, so k-buffers, `dx` and `dy` are all contiguous slices —
+**no gather**, exactly as predicted by "A1 determines A2's shape".
+
+`jc` now depends on `ndarray` as a plain, non-optional `[dependencies]`
+entry; its "zero external deps in production" header is retired (operator:
+ndarray is mandatory everywhere). What stays standalone is the PROOF.
+
 ## TD-GHOST-TIER-NAME-COLLISION-1 (2026-09-02) — OPEN, doc-only
 
 `crates/lance-graph-contract/src/counterfactual.rs` calls the −6 minority-pole

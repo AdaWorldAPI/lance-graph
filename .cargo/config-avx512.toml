@@ -1,0 +1,18 @@
+# AVX-512 build. Mirrors ndarray/.cargo/config-avx512.toml (`sapphirerapids`).
+#   cargo build --config .cargo/config-avx512.toml ...
+# The `simd.rs` dispatch picks the `simd_avx512` backend (native __m512d).
+#
+# `sapphirerapids` is a SUPERSET of most AVX-512 silicon in the fleet. It
+# implies x86-64-v4 PLUS avx512_bf16 / avx512_fp16 / AMX. On Sapphire /
+# Emerald / Granite Rapids that is the right pick. On Cascade Lake (family 6
+# model 0x55 — what this session's host is) or Ice Lake, it is NOT: AMX is
+# inline-asm and runtime-gated by `amx_available()`, so it stays inert, but
+# anything compiled under `cfg(target_feature = "avx512bf16")` will SIGILL on
+# silicon that lacks it. There, use one of:
+#   CARGO_BUILD_RUSTFLAGS='-Ctarget-cpu=x86-64-v4'     # what the probe was run with
+#   cargo build --config .cargo/config-native.toml     # host CPUID, non-portable
+# Rule of thumb: `sapphirerapids` for a KNOWN SPR/EMR/GNR deployment target;
+# `x86-64-v4` for portable AVX-512; `native` for this-machine-only.
+[build]
+[target.'cfg(target_arch = "x86_64")']
+rustflags = ["-Ctarget-cpu=sapphirerapids"]
