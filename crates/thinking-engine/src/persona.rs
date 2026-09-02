@@ -20,7 +20,7 @@
 use crate::cognitive_stack::EngineStyleExt;
 use crate::cognitive_stack::{GateState, RungLevel, StyleFamily};
 use crate::contract_bridge::{CascadeConfig, FastBusDto};
-use crate::ghosts::GhostField;
+use lance_graph_contract::escalation::GhostEcho;
 use crate::meaning_axes::{Archetype, CouncilWeights, Viscosity};
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -198,11 +198,15 @@ impl PersonaProfile {
 // AGENT (the thinking entity)
 // ═══════════════════════════════════════════════════════════════════════════
 
-/// A thinking agent. Owns its persona, ghost field, council, and current state.
+/// A thinking agent. Owns its persona, council, and current state.
+///
+/// The lingering-trace prior is NOT owned here any more: it is per-thought /
+/// per-mailbox and lives in the planner (`lance_graph_planner::nars::ghost_prior::GhostPrior`,
+/// harvested from this crate's former `ghosts.rs` — D-TEH-2). The owner of the
+/// thought passes its summary in where a DTO needs it.
 pub struct Agent {
     pub id: String,
     pub persona: PersonaProfile,
-    pub ghosts: GhostField,
     pub council: CouncilWeights,
     pub current_style: StyleFamily,
     pub thought_count: u64,
@@ -211,8 +215,6 @@ pub struct Agent {
 impl Agent {
     pub fn new(id: impl Into<String>, persona: PersonaProfile) -> Self {
         let style = persona.default_style;
-        let mut ghosts = GhostField::new();
-        ghosts.decay_rate = persona.ghost_decay_rate();
         let mut council = CouncilWeights::default();
         match persona.mode {
             PersonaMode::Work => council.shift_toward(Archetype::Guardian, 0.2),
@@ -222,15 +224,15 @@ impl Agent {
         Self {
             id: id.into(),
             persona,
-            ghosts,
             council,
             current_style: style,
             thought_count: 0,
         }
     }
 
-    /// Snapshot the agent's identity for A2A messages.
-    pub fn to_dto(&self) -> AgentDto {
+    /// Snapshot the agent's identity for A2A messages. `ghost_count` is the
+    /// active-trace count of the thought's `GhostPrior` (the caller owns it).
+    pub fn to_dto(&self, ghost_count: u16) -> AgentDto {
         AgentDto {
             id: self.id.clone(),
             mode: self.persona.mode,
@@ -239,7 +241,7 @@ impl Agent {
             warmth: self.persona.priors.warmth,
             depth: self.persona.priors.depth,
             presence: self.persona.priors.presence,
-            ghost_count: self.ghosts.active_count() as u16,
+            ghost_count,
             thought_count: self.thought_count,
             collapse_bias: self.persona.collapse_bias,
         }
@@ -342,7 +344,7 @@ pub struct A2AMessage {
 impl A2AMessage {
     pub fn thought(from: &Agent, to: &str, bus: FastBusDto, weight: f32) -> Self {
         Self {
-            from: from.to_dto(),
+            from: from.to_dto(0),
             to: to.into(),
             payload: A2APayload::Thought(bus),
             resonance_weight: weight,
@@ -357,7 +359,7 @@ impl A2AMessage {
         triples: Vec<crate::cognitive_trace::SpoTriple>,
     ) -> Self {
         Self {
-            from: from.to_dto(),
+            from: from.to_dto(0),
             to: to.into(),
             payload: A2APayload::Knowledge(triples),
             resonance_weight: 1.0,
@@ -368,9 +370,9 @@ impl A2AMessage {
 
     pub fn persona_exchange(from: &Agent, to: &str) -> Self {
         Self {
-            from: from.to_dto(),
+            from: from.to_dto(0),
             to: to.into(),
-            payload: A2APayload::PersonaExchange(from.to_dto()),
+            payload: A2APayload::PersonaExchange(from.to_dto(0)),
             resonance_weight: 1.0,
             style_hint: None,
             timestamp: 0,
@@ -405,7 +407,7 @@ pub struct SelfModelDto {
 
     /// Ghost field summary.
     pub ghost_count: u16,
-    pub dominant_ghost_type: Option<crate::ghosts::GhostType>,
+    pub dominant_ghost_type: Option<GhostEcho>,
     /// How surprised was the agent by the last thought?
     pub last_free_energy: f32,
 
@@ -431,6 +433,9 @@ pub struct SelfModelDto {
 
 impl Agent {
     /// Build the self-model DTO — the agent's meta-cognitive snapshot.
+    /// `ghost_count` / `dominant_ghost` come from the thought's `GhostPrior`
+    /// (`active_count()` and the first entry of `summary()`).
+    #[allow(clippy::too_many_arguments)]
     pub fn self_model(
         &self,
         calibration_error: f32,
@@ -438,9 +443,9 @@ impl Agent {
         qualia_family: &str,
         dissonance: f32,
         spo_count: u64,
+        ghost_count: u16,
+        dominant_ghost: Option<GhostEcho>,
     ) -> SelfModelDto {
-        let ghost_summary = self.ghosts.summary();
-        let dominant_ghost = ghost_summary.first().map(|g| g.1);
 
         let gate = GateState::from_sd(dissonance + self.persona.collapse_bias);
         let viscosity = match gate {
@@ -457,7 +462,7 @@ impl Agent {
             gate,
             calibration_error,
             should_admit_ignorance: calibration_error > 0.2 && dissonance > 0.3,
-            ghost_count: self.ghosts.active_count() as u16,
+            ghost_count,
             dominant_ghost_type: dominant_ghost,
             last_free_energy,
             guardian_weight: self.council.guardian,
@@ -506,7 +511,7 @@ mod tests {
     #[test]
     fn agent_dto_snapshot() {
         let agent = Agent::new("a1", PersonaProfile::personal());
-        let dto = agent.to_dto();
+        let dto = agent.to_dto(0);
         assert_eq!(dto.id, "a1");
         assert_eq!(dto.mode, PersonaMode::Personal);
         assert!(dto.warmth > 0.5); // personal mode has elevated warmth

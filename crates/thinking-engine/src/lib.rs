@@ -33,7 +33,6 @@ pub mod dto;
 pub mod dual_engine;
 pub mod engine;
 pub mod f32_engine;
-pub mod ghosts;
 pub mod ground_truth;
 pub mod jina_lens;
 pub mod l4;
