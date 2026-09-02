@@ -1,3 +1,34 @@
+## 2026-09-02 — `house-differential-style-v1` (PROPOSAL, plan-only) + `thinking-engine-harvest-closure-v1` (PROPOSAL, plan-only)
+
+`.claude/plans/house-differential-style-v1.md`. A differential-diagnosis
+style program named as a COMPOSITION of shipped rung-3 tactics — RCR
+frontier, periphery watchers (`peripheral_sample_where` +
+`peripheral_dissent`), ASC challenge with the disjoint-stamp guard, CR
+synthesis, council split → −6 counterfactual fork — plus two readouts it
+asks for (discriminating evidence; elimination as a predicate over arena
+entries, never a new state) and an anchoring alarm gated on the ghost-prior
+harvest. Nothing in the parts list is modified. Gate: PROBE-HOUSE-
+DIFFERENTIAL-1 (D-HOUSE-1), planted-cause recovery on synthetic arenas with
+shared-predicate distractors, size-preserving shuffle null, can-fire AND
+can-stay-silent bounds on the periphery. No opcode, tenant, ClassView, axis,
+struct, persona wiring, or clinical content. The working name never enters
+code.
+
+`.claude/plans/thinking-engine-harvest-closure-v1.md`. Fate of every one of
+the 51 files in the workspace-excluded crate (HARVESTED / HOT-VIA-FEATURE /
+GEM→landing / LAB / RESIDUE), built on the MODULE-TABLE census and
+COMPONENT-MAP §3. Measured live footprint: one required consumer
+(`lance-graph-callcenter`, ONE trait module `bridge_gate`) and one optional
+(`cognitive-shader-driver` `with-engine`: the DTO ladder + two thresholds).
+Reconciles every open row still pointing at the crate (D-PERSONA-1 stale →
+Shipped; D-PERSONA-5 proposed RETIRE under E-NOBODY-WAITS-1; D-REUNIFY-2
+already shipped as D-CSV-9; D-REUNIFY-4 done in `think.rs`; three TDs
+paid by named waves). Closure in four waves — cut the hard dependency,
+harvest gems WITH consumers and falsifiers, M8 engine collapse, retire and
+rename to a lab crate — with stop rules (no port without a consumer, no
+singleton field, no handoff-type revival, no asserted axis basis). §4 keeps
+the chapter's ideas as doctrine with named homes.
+
 ## 2026-09-02 — `post-teardown-buildup-survey-v1` (SURVEY, plan-only)
 
 `.claude/plans/post-teardown-buildup-survey-v1.md`. First step after the

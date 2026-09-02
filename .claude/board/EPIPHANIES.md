@@ -1,3 +1,17 @@
+## 2026-09-02 — E-THINKING-ENGINE-LIVE-FOOTPRINT-IS-ONE-TRAIT-AND-HOUSE-IS-SHIPPED-IN-PIECES-1 — the 51-file excluded crate binds the spine through ONE trait module; the differential-diagnosis style the operator asked for already exists as seven scattered shipped mechanisms and zero names
+
+**Status:** FINDING (measured on `94543a5`, read-only). **Confidence:** High for both measurements. Plans: `house-differential-style-v1`, `thinking-engine-harvest-closure-v1`.
+
+**Measurement 1 — the crate's live footprint.** `grep thinking-engine crates/*/Cargo.toml` names two consumers. `lance-graph-callcenter` requires it and uses exactly `bridge_gate::{CognitiveBridgeGate, CognitiveAuthResult, …}` — a trait-only module whose own doc says it lives low so callcenter can implement it. `cognitive-shader-driver` takes it OPTIONALLY behind `with-engine` (default off) and reaches `dto::BusDto`, two `cognitive_stack` thresholds, and lens lookups in doc/test paths. Everything else in the 51 files is internal or example-only. Consequence: the chapter closes by moving one trait to the zero-dep contract and ruling the DTO ladder's home under D-TTV-1 — not by a rewrite. The MODULE-TABLE census's gem-status column, COMPONENT-MAP §3 and three TD rows already agreed on the file-level verdicts; nobody had measured the dependency edge, so the closure kept looking larger than it is.
+
+**Measurement 2 — the House question.** A grep for the pattern's name (and for "differential diagnosis") over `.claude/`, thinking-engine, contract and planner returns nothing. The mechanics are shipped in seven places: `rcr_abduce` (the ranked board), `asc_challenge` with the disjoint-stamp guard (attack the leader), `cr_synthesize` (thesis/antithesis, depth preserved), `InnerCouncil` + `quorum_project` + `deposit_counterfactual` (minority kept as −6), `peripheral_sample_where` + `peripheral_dissent` (the test nobody ordered; never decides), `Recipe::min_rung` (cheap passes first), `WisdomMarker`/`GhostEcho` (memory, without the field). MedCare-rs already carries the consumer shape (`differential() -> Vec<DiffRow>`, private repo). What is missing is not a mechanism but two READOUTS (discriminating evidence; elimination as a predicate over `truth`/`contradiction`/`stamp`) and the O2 style→recipe edge. Consequence: the right first artifact is a falsifier, not a struct — PROBE-HOUSE-DIFFERENTIAL-1 (planted-cause recovery, shuffle null, periphery can-fire AND can-stay-silent).
+
+**Two stale rows found on the way.** D-PERSONA-1 still read "In progress" on a branch name; its content (`contract::escalation`, planner `mul/escalation.rs`) is on main. D-REUNIFY-2 still read "Backlog"; it shipped as D-CSV-9 in #387. Both regraded in the same commit, status cells only.
+
+**Rule extracted.** Before sizing a retirement, measure the DEPENDENCY EDGE (which symbols cross the crate boundary), not the file count. A 51-file crate with a one-trait edge is a one-trait retirement plus a harvest list; the harvest list is then governed by consumers and falsifiers, one port at a time.
+
+Refs: `TD-THINKING-ENGINE-EXCLUDED-DEBT-1`, `TD-GHOST-ECHO-DUP-1`, `E-RUNG-ASCENT-WIRED-1` (the crate named orphaned), `E-PERIPHERAL-DISSENT-GUARDS-THE-STRATIFICATION-1`, `E-DIALECTIC-V1-TACTICS-IN-PLANNER-1`, `persona-vs-rung-ladder.md` O2/O3.
+
 ## 2026-09-02 — E-QUALIA-IS-RANK-INERT-AT-THE-FRONTIER-AND-POPULATION-LOSES-TO-COUNTING-1
 
 **Status:** MEASURED (PROBE-POP-READOUT-1 / D-POP-1, `pop_readout.rs`, whole
