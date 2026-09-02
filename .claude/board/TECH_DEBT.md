@@ -17,6 +17,14 @@ alternative: `F64x8` resolves to AVX-512 (`__m512d`), AVX2 (`f64x4` x2), NEON
 "other non-x86 targets ... full scalar fallback" (`simd.rs` dispatch arms,
 verified 2026-09-02). So:
 
+**Method-level parity CONFIRMED (operator, 2026-09-02):** *"every backend
+implements every method with parity coverage."* The dispatch check above only
+established that each backend EXPORTS the type; this closes the stronger
+question a composing consumer actually depends on — that a method reached
+through the typed surface is implemented, and bit-exact, on every arm. It is
+what makes "compose from polyfill methods" a safe instruction rather than a
+per-method gamble, and it removes the last conditional from the law below.
+
 ```
 named high-level algorithm exists  -> call it
 it does not exist                  -> COMPOSE it from ndarray polyfill methods
