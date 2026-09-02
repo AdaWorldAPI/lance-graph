@@ -132,6 +132,23 @@ model 0x55; `amx_report()`: `cpu_model()=OtherX86`, `expects_amx=false`). On
 such hosts `x86-64-v4` or `native` is the correct pick; the probe was run with
 `x86-64-v4`, so its numbers stand.
 
+**SPR vs EMR — resolved (2026-09-02, operator refinement + ndarray git history):**
+not the enablement, the DETECTION. Pre-PR-#217 (`src/simd_caps.rs` @ `bdf243cc`,
+2026-06-13) detected AMX by CPUID feature bits alone (`amx_tile`/`amx_int8`/
+`amx_bf16`/`amx_fp16`, EDX bits 24/25/22) — no XCR0 gate, no model table, and
+the `arch_prctl` issued on syscall 157, so it always failed. PR #217
+(`e563fdcd`, 2026-06-14) replaced it with the four-gate detector (CPUID +
+OSXSAVE + XCR0 + `arch_prctl` 158) PLUS the CPUID model table (`CpuModel`:
+SPR 0x8F / EMR 0xCF / GNR 0xAD,0xAE / SRF 0xAF), added to tell "no silicon"
+from "not OS-enabled". On SPR the old detector said *present* while nothing
+ever executed (every tile test early-returned — Gotcha 9); on EMR the new
+detector said *present AND enabled* and tiles ran. The `arch_prctl` grant is
+the same on both; what differed was the detection code, and the change landed
+on EMR silicon. `amx-enablement-and-kernel.md` §2 says this ("EMR was simply
+the host where gate 4 got fixed first"); the operator's "detected differently"
+is the same fact from the outside. Minor inconsistency noticed, not chased:
+`cpu_ops.rs:186` says "Linux 5.19+", the doc says "5.16+".
+
 Storage detail that held: with `dy` stored REVERSED, the anti-diagonal walk
 is forward in `i`, so k-buffers, `dx` and `dy` are all contiguous slices —
 **no gather**, exactly as predicted by "A1 determines A2's shape".
