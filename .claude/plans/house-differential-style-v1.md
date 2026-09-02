@@ -266,10 +266,18 @@ Nothing else lands from a PASS except a licence to design the O2 edge.
 | A2-S3 (synthesis stratum only) | 0.610 | 0.785 | 0 |
 | A2 variant 1 (S3 unconditional) | 0.820 | 0.910 | 0 |
 | A2' variant 2 (S3 on council split) | 0.820 | 0.910 | 0 |
-| AN null (identical procedure) | mean 0.428 · **p95 0.475** · max 0.490 | | |
+| AN null (identical procedure, label-blind S0) | mean 0.370 · **p95 0.425** · max 0.430 | | |
 
-- Guards G1–G4 PASS; G1 and G4 disable-verified red; jitter-off ⇒ A0 = 1.000.
-- **Variant 1: KILL** — (a) PASS (Δ 0.500 over A0; 0.345 over AN p95),
+- Guards G1–G5 PASS; G1, G4, G5 disable-verified red; jitter-off ⇒ A0 = 1.000.
+- Two Codex findings folded in before merge: S0's focus set is derived from
+  observable `is_a` subjects, never from the label (the first cut focused
+  `cas_abstract` on `C*`; real arm unchanged, null p95 0.475 → 0.425 — the
+  label focus had starved the null); condition (b) reads the arena belief
+  (below floor AND recorded contradiction), G5 two-sided. (b) still cannot
+  fire on `C*` here — no counter-evidence for the true cause exists in the
+  fixture — so its 0 is by construction; G5 proves the predicate, not the
+  cycle's safety.
+- **Variant 1: KILL** — (a) PASS (Δ 0.500 over A0; 0.395 over AN p95),
   (b) PASS, (c) FAIL: fire rate 0.910 (182/200). S3 synthesizes on every
   arena whose runner-up is a distractor and never moves p@1 (`A2-S3` ≡
   `A1c`); it reorders the tail on 177/200. An always-on stratum that never
@@ -289,7 +297,8 @@ Nothing else lands from a PASS except a licence to design the O2 edge.
 - **Robustness (not part of the verdict):** far fact weakened to the
   rule-edge band ⇒ S0 inert (A2 = A1c; the stratum contributes only when
   the abstraction chain out-scores the direct band); null WITHOUT
-  far-parent re-owning ⇒ AN p95 0.735, A2 still clears it by 0.085.
+  far-parent re-owning ⇒ AN p95 0.735 (pre-review cut), A2 still cleared it
+  by 0.085.
 - **Consequence for the gates:** D-HOUSE-2/3/5 are unblocked by the
   variant-2 PASS on the terms above; the O2 edge, when designed, selects
   strata (CAS-down as the board's feeder), not a `k` over an excluded set.

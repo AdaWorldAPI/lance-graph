@@ -76,7 +76,7 @@
 //! # Two variants, both pre-registered, both reported (2026-09-02 run)
 //!
 //! **Variant 1** (S3 unconditional) — (a) PASS: A2 p@1 0.820 vs A0 0.320
-//! (Δ 0.500) and vs AN p95 0.475; (b) PASS: 0 eliminations; (c) **FAIL**:
+//! (Δ 0.500) and vs AN p95 0.425; (b) PASS: 0 eliminations; (c) **FAIL**:
 //! the periphery changed the ranking VECTOR on 182/200 arenas (0.910),
 //! because S3 synthesizes a report on every arena whose runner-up is a
 //! distractor. **KILL** under the pre-registered rule — and the defect is
@@ -111,12 +111,33 @@
 //! (fire 0/200, A2 = A1c): the stratum contributes when the abstraction
 //! chain carries evidence stronger than the direct band, not otherwise.
 //! With the far parent left owned by `C*` under the null (the leak this
-//! file's `permuted_far_owner` removes) AN p95 rises 0.475 → 0.735 and A2
-//! still clears it, by 0.085 instead of 0.345.
+//! file's `permuted_far_owner` removes) AN p95 rose 0.475 → 0.735 (measured
+//! on the pre-review cut) and A2 still cleared it, by 0.085.
 //!
 //! **Disable-runs (verified red).** G1 red when S0 is forced on under
-//! `STRATA_OFF`; G4 red when it filters `CasUp` instead of `CasDown`;
-//! jitter zeroed ⇒ A0 p@1 = 1.000 (the documented tie-break defect).
+//! `STRATA_OFF`; G4 red when it filters `CasUp` instead of `CasDown`; G5 red
+//! when the predicate drops its contradiction half; jitter zeroed ⇒ A0 p@1 =
+//! 1.000 (the documented tie-break defect).
+//!
+//! # Two review findings folded in before merge (Codex on #1141)
+//!
+//! - **S0 was focused on the label.** The first pushed cut called
+//!   `cas_abstract(arena, C_STAR, …)` — the hidden answer — in both arms. Now
+//!   the focus set is every observable `is_a` subject except the case
+//!   ([`s0_focus_subjects`]), the same procedure in the real and null arms.
+//!   The real arm is unchanged (only `C*` has a parent with rows of its own,
+//!   so the sweep finds the same single deduction); the NULL moved: with the
+//!   re-owned far parent now also abstracted, AN p95 fell 0.475 → 0.425
+//!   (mean 0.428 → 0.370). The label focus had been starving the null, i.e.
+//!   making it lenient, not inflating the real arm — but the procedure was
+//!   not applicable without the answer, which is disqualifying on its own.
+//! - **Elimination was read off the ranking.** Condition (b) now reads the
+//!   arena belief through [`eliminated_in_arena`] (below floor AND a
+//!   contradiction recorded by a disjoint revision), with G5 proving the
+//!   predicate two-sided. What (b) still cannot do on THIS fixture: fire on
+//!   `C*` — no counter-evidence for the true cause is ever prepared, so 0 is
+//!   by construction; G5 is the evidence the predicate would count a real
+//!   elimination if one occurred, not evidence that the cycle avoids one.
 
 use std::cmp::Ordering;
 use std::collections::BTreeMap;
@@ -524,13 +545,6 @@ fn hits_at_1(ranked: &[(u16, f32)]) -> bool {
 fn hits_at_3(ranked: &[(u16, f32)]) -> bool {
     ranked.iter().take(3).any(|&(c, _)| c == C_STAR)
 }
-fn c_star_eliminated(ranked: &[(u16, f32)]) -> bool {
-    ranked
-        .iter()
-        .find(|&&(c, _)| c == C_STAR)
-        .map(|&(_, e)| e < ELIMINATION_FLOOR)
-        .unwrap_or(false)
-}
 
 // ─────────────────────────────────────────────────────────────────────────
 // Arms
@@ -683,10 +697,46 @@ struct A2Outcome {
     s3_reordered: bool,
 }
 
+/// The abstraction stratum's focus set: every subject that carries an `is_a`
+/// row in the arena, except the case itself. Derived from what is OBSERVABLE
+/// in the arena — never from the planted label (Codex P1 on #1141: focusing
+/// `cas_abstract` on `C_STAR` seeded S0 with the answer in the real arm and
+/// starved it under the null). The same procedure runs in both arms.
+fn s0_focus_subjects(arena: &BeliefArena) -> Vec<u16> {
+    let mut v: Vec<u16> = arena
+        .entries()
+        .iter()
+        .filter(|b| b.stmt.cop == Copula::Inh && b.stmt.s != CASE)
+        .map(|b| b.stmt.s)
+        .collect();
+    v.sort_unstable();
+    v.dedup();
+    v
+}
+
+/// The plan's elimination predicate (§2 step 6), read off the ARENA belief,
+/// never off a `(cause, expectation)` pair: `case→cause` is present, its
+/// expectation is below [`ELIMINATION_FLOOR`], AND a contradiction depth is
+/// recorded on it — which the arena only ever records through a revision
+/// with DISJOINT stamps (`BeliefArena::observe` → `Revised`), i.e. an
+/// independently-sourced challenge. A low belief with no recorded
+/// contradiction is "ranked low", not eliminated (Codex P2 on #1141).
+fn eliminated_in_arena(arena: &BeliefArena, cause: u16) -> bool {
+    arena
+        .get(CStmt {
+            s: CASE,
+            cop: Copula::Inh,
+            p: cause,
+        })
+        .map(|b| b.truth.expectation() < ELIMINATION_FLOOR && b.contradiction > 0.0)
+        .unwrap_or(false)
+}
+
 /// **A2** — the parallel strata, in dependency order:
 ///
-/// 1. **S0 (CAS #8, rung floor 0)** — `cas_abstract` over `C*`'s `is_a`
-///    parents; every `CasDown` candidate (`{G→P, C*→G} ⊢ C*→P`) is admitted.
+/// 1. **S0 (CAS #8, rung floor 0)** — `cas_abstract` over EVERY observable
+///    `is_a` subject ([`s0_focus_subjects`]); every `CasDown` candidate
+///    (`{G→P, S→G} ⊢ S→P`) is admitted.
 ///    Only the DOWN half is admitted: the UP half (`{C*→P, C*→G} ⊢ G→P`)
 ///    mints `feature→feature` inductions that are noise for a `case→cause`
 ///    board. On arenas without the far fact every parent `G` is a shared
@@ -707,10 +757,12 @@ fn run_a2(
 ) -> A2Outcome {
     let mut s0_admitted = 0usize;
     if strata.cas {
-        let fr = cas_abstract(arena, C_STAR, throttle);
-        for c in fr.candidates.iter().filter(|c| c.tactic == Tactic::CasDown) {
-            arena.admit_derived(c.stmt, c.truth, &c.premises, c.rung);
-            s0_admitted += 1;
+        for focus in s0_focus_subjects(arena) {
+            let fr = cas_abstract(arena, focus, throttle);
+            for c in fr.candidates.iter().filter(|c| c.tactic == Tactic::CasDown) {
+                arena.admit_derived(c.stmt, c.truth, &c.premises, c.rung);
+                s0_admitted += 1;
+            }
         }
     }
 
@@ -887,11 +939,13 @@ fn guard_g3(throttle: &Throttle) -> bool {
     before_no_target && !after_no_target
 }
 
-/// **G4** — the far fact is reachable through CAS-down ONLY: on an
-/// even-indexed (far-fact) arena `cas_abstract(C*)` yields ≥ 1 `CasDown`
-/// candidate and it is exactly `C*→O_far`; on an odd-indexed arena it
-/// yields 0 `CasDown` candidates (the UP half may fire on both — that is
-/// why the guard filters on the tactic, not on emptiness).
+/// **G4** — the far fact is reachable through CAS-down ONLY, under the SAME
+/// label-blind focus procedure A2 uses: on an even-indexed (far-fact) arena
+/// the whole focus sweep yields ≥ 1 `CasDown` candidate and every one is
+/// exactly `C*→O_far` (no other subject has a parent with rows of its own);
+/// on an odd-indexed arena it yields 0 `CasDown` candidates (the UP half may
+/// fire on both — that is why the guard filters on the tactic, not on
+/// emptiness).
 fn guard_g4(throttle: &Throttle) -> bool {
     let even = build_fixture(0);
     let odd = build_fixture(1);
@@ -903,17 +957,21 @@ fn guard_g4(throttle: &Throttle) -> bool {
     let arena_even = instantiate(&even, &even.rule_edges, C_STAR);
     let arena_odd = instantiate(&odd, &odd.rule_edges, C_STAR);
 
-    let down_even: Vec<CStmt> = cas_abstract(&arena_even, C_STAR, throttle)
-        .candidates
-        .iter()
-        .filter(|c| c.tactic == Tactic::CasDown)
-        .map(|c| c.stmt)
-        .collect();
-    let down_odd = cas_abstract(&arena_odd, C_STAR, throttle)
-        .candidates
-        .iter()
-        .filter(|c| c.tactic == Tactic::CasDown)
-        .count();
+    let down_of = |arena: &BeliefArena| -> Vec<CStmt> {
+        s0_focus_subjects(arena)
+            .into_iter()
+            .flat_map(|focus| {
+                cas_abstract(arena, focus, throttle)
+                    .candidates
+                    .into_iter()
+                    .filter(|c| c.tactic == Tactic::CasDown)
+                    .map(|c| c.stmt)
+                    .collect::<Vec<_>>()
+            })
+            .collect()
+    };
+    let down_even = down_of(&arena_even);
+    let down_odd = down_of(&arena_odd).len();
 
     let expected = CStmt {
         s: C_STAR,
@@ -921,6 +979,42 @@ fn guard_g4(throttle: &Throttle) -> bool {
         p: FAR_FEATURE,
     };
     !down_even.is_empty() && down_even.iter().all(|&s| s == expected) && down_odd == 0
+}
+
+/// **G5** — the elimination predicate is two-sided: it FIRES on a belief
+/// driven below the floor by repeated DISJOINT challenges (contradiction
+/// recorded), and STAYS SILENT on a belief that is merely observed low with
+/// no challenge on record (same expectation band, no contradiction).
+fn guard_g5() -> bool {
+    let d = DISTRACTOR_IDS[0];
+    let stmt = CStmt {
+        s: CASE,
+        cop: Copula::Inh,
+        p: d,
+    };
+
+    let mut challenged = BeliefArena::new();
+    challenged.observe(stmt, TruthValue::new(0.9, 0.6), Stamp::source(0));
+    for k in 1..=3u32 {
+        challenged.observe(stmt, TruthValue::new(0.0, 0.95), Stamp::source(k));
+    }
+    let fires = eliminated_in_arena(&challenged, d);
+    let challenged_low = challenged
+        .get(stmt)
+        .map(|b| b.truth.expectation() < ELIMINATION_FLOOR)
+        .unwrap_or(false);
+
+    let mut unchallenged = BeliefArena::new();
+    unchallenged.observe(stmt, TruthValue::new(0.0, 0.95), Stamp::source(0));
+    let silent = !eliminated_in_arena(&unchallenged, d);
+    let unchallenged_low = unchallenged
+        .get(stmt)
+        .map(|b| b.truth.expectation() < ELIMINATION_FLOOR)
+        .unwrap_or(false);
+
+    // Anti-vacuity: BOTH beliefs must sit below the floor, so the predicate
+    // is discriminating on the contradiction half alone.
+    challenged_low && unchallenged_low && fires && silent
 }
 
 fn pf(ok: bool) -> &'static str {
@@ -938,22 +1032,28 @@ fn pf(ok: bool) -> &'static str {
 struct ArmMetrics {
     p_at_1: f64,
     p_at_3: f64,
+    /// Arenas on which [`eliminated_in_arena`] held for `C*` after the arm
+    /// ran — read from the arena belief, not from the ranking.
     elimination_fp: usize,
 }
 
-fn arm_metrics(rankings: &[Vec<(u16, f32)>]) -> ArmMetrics {
-    let n = rankings.len().max(1);
+/// One arm's per-arena record: the final ranking and whether `C*` met the
+/// elimination predicate in that arm's arena.
+type ArmRun = (Vec<(u16, f32)>, bool);
+
+fn arm_metrics(runs: &[ArmRun]) -> ArmMetrics {
+    let n = runs.len().max(1);
     let mut hits1 = 0usize;
     let mut hits3 = 0usize;
     let mut elim = 0usize;
-    for r in rankings {
+    for (r, eliminated) in runs {
         if hits_at_1(r) {
             hits1 += 1;
         }
         if hits_at_3(r) {
             hits3 += 1;
         }
-        if c_star_eliminated(r) {
+        if *eliminated {
             elim += 1;
         }
     }
@@ -992,7 +1092,9 @@ fn main() {
     println!("G3 admission_is_load_bearing              : {}", pf(g3));
     let g4 = guard_g4(&throttle);
     println!("G4 far_fact_is_cas_down_only              : {}", pf(g4));
-    if !(g1 && g2 && g3 && g4) {
+    let g5 = guard_g5();
+    println!("G5 elimination_predicate_two_sided        : {}", pf(g5));
+    if !(g1 && g2 && g3 && g4 && g5) {
         println!(
             "NOTE: one or more anti-vacuity guards failed — treat every metric below as UNTRUSTED \
              until the failing guard is fixed."
@@ -1003,13 +1105,13 @@ fn main() {
     // ── run every arm across the N_ARENAS arenas ───────────────────────
     let fixtures: Vec<ArenaFixture> = (0..N_ARENAS).map(build_fixture).collect();
 
-    let mut a0_r: Vec<Vec<(u16, f32)>> = Vec::with_capacity(N_ARENAS);
-    let mut a1_r: Vec<Vec<(u16, f32)>> = Vec::with_capacity(N_ARENAS);
-    let mut a1c_r: Vec<Vec<(u16, f32)>> = Vec::with_capacity(N_ARENAS);
-    let mut a2s0_r: Vec<Vec<(u16, f32)>> = Vec::with_capacity(N_ARENAS);
-    let mut a2s3_r: Vec<Vec<(u16, f32)>> = Vec::with_capacity(N_ARENAS);
-    let mut a2_r: Vec<Vec<(u16, f32)>> = Vec::with_capacity(N_ARENAS);
-    let mut a2v_r: Vec<Vec<(u16, f32)>> = Vec::with_capacity(N_ARENAS);
+    let mut a0_r: Vec<ArmRun> = Vec::with_capacity(N_ARENAS);
+    let mut a1_r: Vec<ArmRun> = Vec::with_capacity(N_ARENAS);
+    let mut a1c_r: Vec<ArmRun> = Vec::with_capacity(N_ARENAS);
+    let mut a2s0_r: Vec<ArmRun> = Vec::with_capacity(N_ARENAS);
+    let mut a2s3_r: Vec<ArmRun> = Vec::with_capacity(N_ARENAS);
+    let mut a2_r: Vec<ArmRun> = Vec::with_capacity(N_ARENAS);
+    let mut a2v_r: Vec<ArmRun> = Vec::with_capacity(N_ARENAS);
     let mut candidate_counts: Vec<usize> = Vec::with_capacity(N_ARENAS);
     let mut periphery_fires = 0usize;
     let mut periphery_reorders = 0usize;
@@ -1033,7 +1135,9 @@ fn main() {
 
         let a0 = run_a0(fixture, &throttle);
         candidate_counts.push(a0.board_candidate_count);
-        a0_r.push(a0.ranked);
+        // A0 never admits or challenges anything: no arena belief `case→C*`
+        // exists, so the predicate is false by construction.
+        a0_r.push((a0.ranked, false));
 
         let mut arena1 = instantiate(fixture, &fixture.rule_edges, C_STAR);
         let a1 = run_board_admit_challenge(&mut arena1, fixture, &throttle);
@@ -1043,10 +1147,11 @@ fn main() {
             Some(AscOutcome::BlockedSelfReference) => asc_blocked += 1,
             Some(AscOutcome::NoTarget) => asc_no_target += 1,
         }
-        a1_r.push(a1.ranked);
+        a1_r.push((a1.ranked, eliminated_in_arena(&arena1, C_STAR)));
 
         let mut arena1c = instantiate(fixture, &fixture.rule_edges, C_STAR);
         let (a1c_ranked, _) = run_a1c(&mut arena1c, fixture, &throttle);
+        let a1c_elim = eliminated_in_arena(&arena1c, C_STAR);
 
         let mut arena_s0 = instantiate(fixture, &fixture.rule_edges, C_STAR);
         let a2s0 = run_a2(
@@ -1059,7 +1164,7 @@ fn main() {
                 cr_on_split: false,
             },
         );
-        a2s0_r.push(a2s0.ranked);
+        a2s0_r.push((a2s0.ranked, eliminated_in_arena(&arena_s0, C_STAR)));
 
         let mut arena_s3 = instantiate(fixture, &fixture.rule_edges, C_STAR);
         let a2s3 = run_a2(
@@ -1072,7 +1177,7 @@ fn main() {
                 cr_on_split: false,
             },
         );
-        a2s3_r.push(a2s3.ranked);
+        a2s3_r.push((a2s3.ranked, eliminated_in_arena(&arena_s3, C_STAR)));
 
         let mut arena2 = instantiate(fixture, &fixture.rule_edges, C_STAR);
         let a2 = run_a2(&mut arena2, fixture, &throttle, STRATA_ON);
@@ -1097,7 +1202,7 @@ fn main() {
         if order_of(&a2.ranked) != order_of(&a1c_ranked) {
             periphery_reorders += 1;
         }
-        a2_r.push(a2.ranked);
+        a2_r.push((a2.ranked, eliminated_in_arena(&arena2, C_STAR)));
 
         let mut arena2v = instantiate(fixture, &fixture.rule_edges, C_STAR);
         let a2v = run_a2(&mut arena2v, fixture, &throttle, STRATA_ON_SPLIT);
@@ -1110,8 +1215,8 @@ fn main() {
         if order_of(&a2v.ranked) != order_of(&a1c_ranked) {
             v_periphery_reorders += 1;
         }
-        a2v_r.push(a2v.ranked);
-        a1c_r.push(a1c_ranked);
+        a2v_r.push((a2v.ranked, eliminated_in_arena(&arena2v, C_STAR)));
+        a1c_r.push((a1c_ranked, a1c_elim));
     }
 
     // ── AN — the size-preserving null, identical A2 procedure, per variant
