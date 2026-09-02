@@ -1,7 +1,7 @@
 # House differential style v1 — a differential-diagnosis style program over shipped rung-3 tactics
 
-> **Status:** D-HOUSE-1 REPORTED 2026-09-02 (§4 RESULT) — variant 1 KILL,
-> variant 2 PASS with a stated caveat; plan otherwise plan-only (no opcode, no
+> **Status:** D-HOUSE-1 REPORTED 2026-09-02 (§4 RESULT) — variant 1 KILL;
+> variant 2: base path (S0 + board) PASS, council-gated S3 arm INCONCLUSIVE; plan otherwise plan-only (no opcode, no
 > tenant, no ClassView, no axis vocabulary, no new struct; one example in
 > `lance-graph-planner/examples/`). **Baseline:** lance-graph `94543a5`
 > (the #1136 merge). **Date:** 2026-09-02. **Working label:** "House" is a
@@ -248,7 +248,10 @@ stops at §1 as a parts list.
   is not.
 - G4: the far fact is reachable through CAS-down ONLY (≥ 1 `CasDown`
   candidate, exactly `C*→O_far`, on far-fact arenas; 0 on the others).
-- Fixture: with the truth jitter zeroed A0's p@1 must collapse to 1.000 by
+- G5: the elimination predicate is two-sided — fires on a belief driven
+  below the floor by disjoint challenges (contradiction recorded), silent on
+  a belief merely observed low with no challenge on record.
+- Fixture check (not a guard): with the truth jitter zeroed A0's p@1 must collapse to 1.000 by
   the tie-break (the degenerate fixture the jitter exists to avoid).
 **Deliverable shape.** One example in `lance-graph-planner/examples/`
 (no library surface), plan §4 RESULT (added as a dated subsection when the
@@ -266,25 +269,32 @@ Nothing else lands from a PASS except a licence to design the O2 edge.
 | A2-S3 (synthesis stratum only) | 0.610 | 0.785 | 0 |
 | A2 variant 1 (S3 unconditional) | 0.820 | 0.910 | 0 |
 | A2' variant 2 (S3 on council split) | 0.820 | 0.910 | 0 |
-| AN null (identical procedure, label-blind S0) | mean 0.370 · **p95 0.425** · max 0.430 | | |
+| AN null (identical procedure, label-blind S0, distinct-pair shuffle) | mean 0.343 · **p95 0.395** · max 0.395 | | |
 
 - Guards G1–G5 PASS; G1, G4, G5 disable-verified red; jitter-off ⇒ A0 = 1.000.
 - Two Codex findings folded in before merge: S0's focus set is derived from
   observable `is_a` subjects, never from the label (the first cut focused
   `cas_abstract` on `C*`; real arm unchanged, null p95 0.475 → 0.425 — the
   label focus had starved the null); condition (b) reads the arena belief
-  (below floor AND recorded contradiction), G5 two-sided. (b) still cannot
+  (below floor AND recorded contradiction), G5 two-sided. A third finding
+  (CodeRabbit): the null shuffle admitted duplicate `(cause, feature)` pairs,
+  which `observe` pools into stronger beliefs — enforced distinct via a
+  repaired shuffle (11 784 swaps + 1 re-draw over 5 000 shuffles); null p95
+  0.425 → 0.395, mean 0.370 → 0.343. (b) still cannot
   fire on `C*` here — no counter-evidence for the true cause exists in the
   fixture — so its 0 is by construction; G5 proves the predicate, not the
   cycle's safety.
-- **Variant 1: KILL** — (a) PASS (Δ 0.500 over A0; 0.395 over AN p95),
+- **Variant 1: KILL** — (a) PASS (Δ 0.500 over A0; 0.425 over AN p95),
   (b) PASS, (c) FAIL: fire rate 0.910 (182/200). S3 synthesizes on every
   arena whose runner-up is a distractor and never moves p@1 (`A2-S3` ≡
   `A1c`); it reorders the tail on 177/200. An always-on stratum that never
   changes the answer is the "fires on everything" defect — in S3's design.
-- **Variant 2: PASS** — (a) PASS, (b) PASS, (c) PASS at 0.500 (exactly the
-  100 far-fact arenas). **Caveat that travels with the PASS:** the council
-  split on 0/200 arenas, so S3 never ran; variant 2 is in effect S0 + board.
+- **Variant 2: base path PASS, council-gated S3 arm INCONCLUSIVE** — the
+  pre-registered rule returns PASS ((a) PASS, (b) PASS, (c) PASS at 0.500,
+  exactly the 100 far-fact arenas), but the council split on 0/200 arenas,
+  so S3 never ran: what passed is `S0 + board`; the S3 gate was not
+  exercised and is recorded as inconclusive, not passed. An S3 result needs
+  a fixture on which the council split is reachable.
   Cause: the probe's `humility = 1 − margin` sits at ≈ 1, where
   `from_signals`' Catalyst weight is 0 — a signal-derivation property of the
   probe, not a council defect.
@@ -365,14 +375,14 @@ state.
 | D-id | title | scope | status |
 |---|---|---|---|
 | D-HOUSE-0 | this plan: parts list, composition, ladder placement, falsifier | plan-only | Shipped (this PR) |
-| D-HOUSE-1 | PROBE-HOUSE-DIFFERENTIAL-1 (§4) | planner example | Queued — next step |
+| D-HOUSE-1 | PROBE-HOUSE-DIFFERENTIAL-1 (§4) | planner example | Reported 2026-09-02 (§4 RESULT): variant 1 KILL; variant 2 base path (S0 + board) PASS, council-gated S3 arm inconclusive |
 | D-HOUSE-1b | resonance prior probe, `res-seed` + `res-gate`, anchoring vs recognition (§4b) | planner example, same arenas | Gated on D-HOUSE-1 reported |
 | D-HOUSE-1c | signed-qualia contrast probe over top-k ASC, post-challenge re-rank only (§4b) | planner example, same arenas | Gated on D-HOUSE-1 reported |
-| D-HOUSE-1d | aperture hypothesis: incongruity → `k` across passes; held until the operator is defined (§4b) | hypothesis | Not scheduled |
-| D-HOUSE-2 | discriminating-evidence readout (§2 step 5) | planner `nars` readout, no state | Gated on D-HOUSE-1 PASS |
-| D-HOUSE-3 | elimination predicate (§2 step 6) + never-re-enter falsifier | planner `nars` readout | Gated on D-HOUSE-1 PASS |
+| D-HOUSE-1d | aperture hypothesis: incongruity → the strata budgets across passes (re-scoped from `k` over an excluded set, §4 RESULT); held until the operator is defined (§4b) | hypothesis | Not scheduled |
+| D-HOUSE-2 | discriminating-evidence readout (§2 step 5) | planner `nars` readout, no state | Unblocked by the D-HOUSE-1 base-path PASS (2026-09-02); not started |
+| D-HOUSE-3 | elimination predicate (§2 step 6) + never-re-enter falsifier | planner `nars` readout | Unblocked by the D-HOUSE-1 base-path PASS (2026-09-02); not started |
 | D-HOUSE-4 | anchoring alarm over a harvested ghost prior (§2 step 7) | planner, after D-TEH-2 | Gated on `thinking-engine-harvest-closure-v1` D-TEH-2 |
-| D-HOUSE-5 | the style→recipe edge (O2) with House as its first program — two faces after PASS: (a) persona modelling as a LENS (a readout policy over the same arena: admitted recipes, periphery budget, elimination floor, council weights; philosophical labels are further lenses, and two lenses with identical rankings are one lens), (b) the program materialised over the loco palette (`ogar-loco` / `ogar-r2il`, the ruled convergence for style application; no new atom — the 226-atom palette's 30 reserved slots stay untouched; any opcode rides the batched OGAR mint, never solo) | contract + planner (+ OGAR mint) | Gated on D-HOUSE-1 PASS and the D-TSC-2/3 mint |
+| D-HOUSE-5 | the style→recipe edge (O2) with House as its first program — two faces after PASS: (a) persona modelling as a LENS (a readout policy over the same arena: admitted recipes, periphery budget, elimination floor, council weights; philosophical labels are further lenses, and two lenses with identical rankings are one lens), (b) the program materialised over the loco palette (`ogar-loco` / `ogar-r2il`, the ruled convergence for style application; no new atom — the 226-atom palette's 30 reserved slots stay untouched; any opcode rides the batched OGAR mint, never solo) | contract + planner (+ OGAR mint) | D-HOUSE-1 half unblocked (base-path PASS; the edge selects STRATA); still gated on the D-TSC-2/3 mint |
 | D-HOUSE-6 | consumer pointer: `DiffRow` gains READ fields `eliminated` / `discriminator` | MedCare-rs (out of scope here) | pointer only |
 
 ## 6. What this plan does NOT do

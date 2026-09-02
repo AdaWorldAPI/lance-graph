@@ -76,7 +76,7 @@
 //! # Two variants, both pre-registered, both reported (2026-09-02 run)
 //!
 //! **Variant 1** (S3 unconditional) — (a) PASS: A2 p@1 0.820 vs A0 0.320
-//! (Δ 0.500) and vs AN p95 0.425; (b) PASS: 0 eliminations; (c) **FAIL**:
+//! (Δ 0.500) and vs AN p95 0.395; (b) PASS: 0 eliminations; (c) **FAIL**:
 //! the periphery changed the ranking VECTOR on 182/200 arenas (0.910),
 //! because S3 synthesizes a report on every arena whose runner-up is a
 //! distractor. **KILL** under the pre-registered rule — and the defect is
@@ -89,9 +89,12 @@
 //! pre-registered after variant 1 was written, before it was re-run. (a)
 //! PASS (same numbers — the null is identical because the gate never
 //! opened under the null either), (b) PASS, (c) PASS at 0.500 (100/200,
-//! exactly the far-fact arenas). **PASS** — with the caveat that MUST
-//! travel with it: the council split on **0/200** arenas, so S3 never ran
-//! and variant 2 is, in effect, `S0 + S6`. The council does not split here
+//! exactly the far-fact arenas). The pre-registered rule returns **PASS**;
+//! the RECORDED result is split in two, because the council split on
+//! **0/200** arenas, so S3 never ran: the **base path `S0 + S6` PASSES**,
+//! and the **council-gated S3 arm is INCONCLUSIVE** — not exercised, not
+//! passed. An S3 PASS needs a fixture on which the council split is
+//! reachable. The council does not split here
 //! because this probe derives `humility = 1 − margin(top1, top2)`, which
 //! sits at ≈ 1 on every board (margins are small), and
 //! `InnerCouncil::from_signals` gives Catalyst weight `1 − |humility − 0.5|·2`
@@ -131,6 +134,14 @@
 //!   (mean 0.428 → 0.370). The label focus had been starving the null, i.e.
 //!   making it lenient, not inflating the real arm — but the procedure was
 //!   not applicable without the answer, which is disqualifying on its own.
+//! - **The null shuffle admitted duplicate pairs** (CodeRabbit). A plain
+//!   feature permutation can give one cause the same feature twice;
+//!   `instantiate` then revises that belief with pooled disjoint evidence
+//!   the real fixture never has. Distinctness is now enforced by a repaired
+//!   shuffle ([`permuted_rule_edges`]; 11 784 repair swaps and 1 base
+//!   re-draw over the 5 000 null shuffles — so the defect was frequent, not
+//!   theoretical). The null moved again: p95 0.425 → **0.395**, mean 0.370 →
+//!   0.343; the per-arena secondary p95 0.640 → 0.800.
 //! - **Elimination was read off the ranking.** Condition (b) now reads the
 //!   arena belief through [`eliminated_in_arena`] (below floor AND a
 //!   contradiction recorded by a disjoint revision), with G5 proving the
@@ -319,6 +330,7 @@ struct ArenaFixture {
     far_case_truth: TruthValue,
 }
 
+/// Build arena `idx`'s fixture from its own SplitMix64 stream.
 fn build_fixture(idx: usize) -> ArenaFixture {
     let seed = BASE_SEED ^ (idx as u64);
     let mut rng = SplitMix64::new(seed);
@@ -376,33 +388,99 @@ fn build_fixture(idx: usize) -> ArenaFixture {
     }
 }
 
+/// The permutation stream for `(arena, perm_idx)`: `arena_seed ^ (BASE_SEED * perm_idx)`.
 fn perm_rng(fixture: &ArenaFixture, perm_idx: u32) -> SplitMix64 {
     SplitMix64::new(fixture.seed ^ BASE_SEED.wrapping_mul(perm_idx as u64))
+}
+
+/// Upper bound on repair swaps within one draw, and on full re-draws of the
+/// base permutation when a repair dead-ends. Exceeding either is a fixture
+/// defect and panics loudly rather than admitting a duplicate.
+const MAX_SHUFFLE_REPAIRS: u32 = 10_000;
+const MAX_SHUFFLE_RESTARTS: u32 = 1_000;
+
+/// One null shuffle's bookkeeping: repair swaps applied and base
+/// permutations discarded because a repair dead-ended.
+#[derive(Clone, Copy, Debug, Default)]
+struct ShuffleStats {
+    repairs: u32,
+    restarts: u32,
 }
 
 /// A size-preserving permutation of `fixture.rule_edges`' FEATURE half only
 /// (plan §4 "AN"): the cause sequence and per-slot truth stay fixed, the
 /// features are Fisher-Yates shuffled among slots.
-fn permuted_rule_edges(fixture: &ArenaFixture, perm_idx: u32) -> Vec<(u16, u16)> {
+///
+/// **Distinctness is enforced.** A raw shuffle can hand the same feature to
+/// two slots of one cause; `instantiate` would then `observe` the identical
+/// `CStmt` twice with disjoint stamps and REVISE it — pooling evidence the
+/// real fixture never pools, so the null would no longer be size-preserving
+/// (CodeRabbit on #1141). Shared features occur up to six times in the pool,
+/// so a duplicate-free plain permutation is too rare to reach by rejection
+/// (measured: none in 1000 draws on arena 0). Instead the shuffle is
+/// REPAIRED: for each duplicate slot, a partner slot of a DIFFERENT cause is
+/// drawn from the same stream and the two features are swapped if neither
+/// side gains a duplicate. A repair can dead-end (every legal partner is
+/// exhausted — measured on arena 6, perm 6); then the base permutation is
+/// re-drawn and repaired afresh. The feature multiset and every cause's
+/// slot count are unchanged by construction; both counters are returned so
+/// the run can report them.
+fn permuted_rule_edges(fixture: &ArenaFixture, perm_idx: u32) -> (Vec<(u16, u16)>, ShuffleStats) {
     let mut rng = perm_rng(fixture, perm_idx);
     let causes: Vec<u16> = fixture.rule_edges.iter().map(|&(c, _)| c).collect();
-    let mut features: Vec<u16> = fixture.rule_edges.iter().map(|&(_, f)| f).collect();
-    let n = features.len();
-    for i in 0..n {
-        let j = i + rng.below(n - i);
-        features.swap(i, j);
+    let base: Vec<u16> = fixture.rule_edges.iter().map(|&(_, f)| f).collect();
+    let n = base.len();
+    let has = |features: &[u16], cause: u16, f: u16, except: usize| -> bool {
+        (0..n).any(|k| k != except && causes[k] == cause && features[k] == f)
+    };
+    let mut stats = ShuffleStats::default();
+    'restart: loop {
+        let mut features = base.clone();
+        for i in 0..n {
+            let j = i + rng.below(n - i);
+            features.swap(i, j);
+        }
+        let mut repairs_this_draw = 0u32;
+        loop {
+            let Some(i) = (0..n).find(|&i| has(&features, causes[i], features[i], i)) else {
+                return (causes.into_iter().zip(features).collect(), stats);
+            };
+            let mut order: Vec<usize> = (0..n).filter(|&j| causes[j] != causes[i]).collect();
+            for k in 0..order.len() {
+                let r = k + rng.below(order.len() - k);
+                order.swap(k, r);
+            }
+            let partner = order.into_iter().find(|&j| {
+                !has(&features, causes[i], features[j], i)
+                    && !has(&features, causes[j], features[i], j)
+            });
+            let Some(j) = partner else {
+                stats.restarts += 1;
+                assert!(
+                    stats.restarts <= MAX_SHUFFLE_RESTARTS,
+                    "arena seed {:#x} perm {perm_idx}: no repairable shuffle in {MAX_SHUFFLE_RESTARTS} draws",
+                    fixture.seed
+                );
+                continue 'restart;
+            };
+            features.swap(i, j);
+            stats.repairs += 1;
+            repairs_this_draw += 1;
+            assert!(
+                repairs_this_draw <= MAX_SHUFFLE_REPAIRS,
+                "arena seed {:#x} perm {perm_idx}: repair did not converge in {MAX_SHUFFLE_REPAIRS} swaps",
+                fixture.seed
+            );
+        }
     }
-    causes.into_iter().zip(features).collect()
 }
 
-/// Under the null the far parent is owned by a uniformly drawn cause (one
-/// draw from the permutation stream, AFTER the feature shuffle has consumed
-/// its share, so the two are decorrelated but both reproducible).
+/// Under the null the far parent is owned by a uniformly drawn cause. Drawn
+/// from its OWN stream (`perm_rng` xor a constant) so the choice does not
+/// depend on how many repair swaps [`permuted_rule_edges`] needed.
 fn permuted_far_owner(fixture: &ArenaFixture, perm_idx: u32) -> u16 {
     let mut rng = perm_rng(fixture, perm_idx);
-    for _ in 0..fixture.rule_edges.len() {
-        rng.next_u64();
-    }
+    rng.0 ^= 0x5851_F42D_4C95_7F2D;
     CAUSE_IDS[rng.below(CAUSE_IDS.len())]
 }
 
@@ -484,6 +562,7 @@ fn instantiate(fixture: &ArenaFixture, rule_edges: &[(u16, u16)], far_owner: u16
     arena
 }
 
+/// The held-aside counter-evidence for a DISTRACTOR; `None` for `C*`.
 fn counter_for(fixture: &ArenaFixture, cause: u16) -> Option<(TruthValue, Stamp)> {
     DISTRACTOR_IDS
         .iter()
@@ -496,6 +575,7 @@ fn counter_for(fixture: &ArenaFixture, cause: u16) -> Option<(TruthValue, Stamp)
 // truth.expectation()" (plan §2 step 1), ties broken ascending cause id.
 // ─────────────────────────────────────────────────────────────────────────
 
+/// The board read off the ARENA: `case→cause` beliefs by expectation desc, cause id asc.
 fn rank_arena(arena: &BeliefArena, case: u16) -> Vec<(u16, f32)> {
     let mut v: Vec<(u16, f32)> = arena
         .entries()
@@ -539,9 +619,11 @@ fn best_candidates(frontier: &Frontier, case: u16) -> Vec<Candidate> {
     v
 }
 
+/// `C*` is ranked first.
 fn hits_at_1(ranked: &[(u16, f32)]) -> bool {
     ranked.first().map(|&(c, _)| c == C_STAR).unwrap_or(false)
 }
+/// `C*` is within the top three.
 fn hits_at_3(ranked: &[(u16, f32)]) -> bool {
     ranked.iter().take(3).any(|&(c, _)| c == C_STAR)
 }
@@ -804,16 +886,19 @@ fn run_a2(
 /// AN — ONE permutation's aggregate p@1 over all arenas, running the
 /// identical A2 procedure (the given strata) on the shuffled fixture with the far
 /// parent re-owned. Also returns the per-arena hit vector for the secondary
-/// (per-arena) statistic.
+/// (per-arena) statistic and the number of duplicate-pair repair swaps.
 fn run_an_for_perm(
     fixtures: &[ArenaFixture],
     throttle: &Throttle,
     perm_idx: u32,
     strata: Strata,
-) -> (f64, Vec<bool>) {
+) -> (f64, Vec<bool>, ShuffleStats) {
     let mut hits: Vec<bool> = Vec::with_capacity(fixtures.len());
+    let mut shuffle = ShuffleStats::default();
     for fixture in fixtures {
-        let edges = permuted_rule_edges(fixture, perm_idx);
+        let (edges, st) = permuted_rule_edges(fixture, perm_idx);
+        shuffle.repairs += st.repairs;
+        shuffle.restarts += st.restarts;
         let owner = permuted_far_owner(fixture, perm_idx);
         let mut arena = instantiate(fixture, &edges, owner);
         let out = run_a2(&mut arena, fixture, throttle, strata);
@@ -821,9 +906,10 @@ fn run_an_for_perm(
     }
     let n = hits.len().max(1) as f64;
     let p = hits.iter().filter(|&&h| h).count() as f64 / n;
-    (p, hits)
+    (p, hits, shuffle)
 }
 
+/// The cause ORDER of a ranking, expectations dropped.
 fn order_of(ranked: &[(u16, f32)]) -> Vec<u16> {
     ranked.iter().map(|&(c, _)| c).collect()
 }
@@ -836,13 +922,19 @@ struct NullSummary {
     max: f64,
     /// Secondary: p95 of the per-arena hit rates (the earlier cut's number).
     per_arena_p95: f64,
+    /// Repair swaps / base re-draws used to keep every `(cause, feature)` pair distinct.
+    shuffle: ShuffleStats,
 }
 
+/// The full null: `N_PERMS` permutations of the given strata over every arena.
 fn run_null(fixtures: &[ArenaFixture], throttle: &Throttle, strata: Strata) -> NullSummary {
     let mut aggregates: Vec<f64> = Vec::with_capacity(N_PERMS as usize);
     let mut per_arena_hits: Vec<u32> = vec![0; fixtures.len()];
+    let mut shuffle = ShuffleStats::default();
     for perm_idx in 0..N_PERMS {
-        let (p, hits) = run_an_for_perm(fixtures, throttle, perm_idx, strata);
+        let (p, hits, st) = run_an_for_perm(fixtures, throttle, perm_idx, strata);
+        shuffle.repairs += st.repairs;
+        shuffle.restarts += st.restarts;
         aggregates.push(p);
         for (i, h) in hits.iter().enumerate() {
             if *h {
@@ -867,6 +959,7 @@ fn run_null(fixtures: &[ArenaFixture], throttle: &Throttle, strata: Strata) -> N
         p95,
         max,
         per_arena_p95,
+        shuffle,
     }
 }
 
@@ -1017,6 +1110,7 @@ fn guard_g5() -> bool {
     challenged_low && unchallenged_low && fires && silent
 }
 
+/// `PASS` / `FAIL` for a guard boolean.
 fn pf(ok: bool) -> &'static str {
     if ok {
         "PASS"
@@ -1041,6 +1135,7 @@ struct ArmMetrics {
 /// elimination predicate in that arm's arena.
 type ArmRun = (Vec<(u16, f32)>, bool);
 
+/// p@1 / p@3 / elimination count over one arm's runs.
 fn arm_metrics(runs: &[ArmRun]) -> ArmMetrics {
     let n = runs.len().max(1);
     let mut hits1 = 0usize;
@@ -1068,6 +1163,7 @@ fn arm_metrics(runs: &[ArmRun]) -> ArmMetrics {
 // main
 // ─────────────────────────────────────────────────────────────────────────
 
+/// Runs guards, every arm, both nulls, the structural table and both verdicts.
 fn main() {
     let throttle = Throttle::new(0.0, 4096, HUB_INDEGREE);
 
@@ -1305,6 +1401,12 @@ fn main() {
         println!(
             "{label} p95 of the {N_ARENAS} per-arena hit rates (secondary)   = {:.3}",
             n.per_arena_p95
+        );
+        println!(
+            "{label} distinct-pair enforcement: {} repair swaps, {} base re-draws (over {} shuffles)",
+            n.shuffle.repairs,
+            n.shuffle.restarts,
+            u64::from(N_PERMS) * N_ARENAS as u64
         );
     }
     println!();
