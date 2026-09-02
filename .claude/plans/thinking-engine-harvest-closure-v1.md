@@ -169,7 +169,11 @@ Each wave lands only with its gate green; no wave ports without a consumer.
 | **W3 — M8** | one enum-dispatched engine; the 5 cascade shapes and 3 lens modules collapse; parity suite across u8/BF16/i8/f32 | NOT bit-parity across dtypes — u8 / BF16 / i8 / f32 differ in encoding by design, and `dual_engine.rs` exists to MEASURE that disagreement (Codex on #1137). Gate: per-dtype output tolerances plus dtype-invariant ranking/convergence invariants (top-k order, `converged`, `cycle_count` bounds) on real engine fixtures that instantiate all four engines (the driver's fixtures do not — they round-trip `BusDto` only); the pre-collapse `DualResult` disagreement is the baseline the collapsed engine must not exceed; the `branching` spawn shape kept as a mode, not lost |
 | **W4 — retire and rename** | delete RESIDUE (1e) + retired persona A2A; rename what is left (GLUE only, all math already in jc) `thinking-lab` (calibration feature, `--manifest-path` CI line); regrade every row in §2; pay `TD-THINKING-ENGINE-EXCLUDED-DEBT-1` | the name `thinking-engine` no longer appears in any `Cargo.toml` dependency; board rows closed or re-owned |
 
-Stop rules (non-negotiable inside this plan): nothing ports without a
+Stop rules (non-negotiable inside this plan): **the closure cuts AROUND the
+hot artery, never through it** — the live chain engine semantics → DTO bus
+(`StreamDto` / `PerturbationDto` / `BusDto` / `ThoughtStruct`) →
+cognitive-shader-driver ALU → SoA field is architecture, not residue, and no
+wave here moves, re-homes, or re-shapes it (§6.3); nothing ports without a
 consumer named in §1b (the DTO ladder, D-TTV-1) or §1c (the gems); nothing ports as a singleton field or a new lane
 (ClassView reading or per-mailbox module only); `A2AMessage` and any
 inter-mailbox handoff type never revive; the `E-MORTON-CASCADE-V3-1`
@@ -251,6 +255,14 @@ harvest and not an amputation.
    a lab crate, a DTO crate, or r2il — W1 only re-points the driver's
    `with-engine` feature at wherever D-TTV-1 lands the engine hook, and
    the shapes stay with the ALU.
+   The next falsifier on that chain is NOT opened from this plan; it
+   already exists conceptually in the lineage addendum and has a natural
+   canary: does a semantically meaningful field quantity —
+   `PerturbationDto.energy`, the one #1051 found dropped — survive
+   engine → DTO → shader → SoA → consumer without collapsing into
+   transport metadata, under make/unmake-style incremental updates and
+   masking. That is D-ARW work; this plan only guarantees it finds the
+   artery intact.
 4. **jc is the home of ALL scientifically calibrated math** (operator,
    2026-09-02). The rule, as ruled: anything in the calibration battery that
    is MATH (Cronbach α, Spearman / ICC, re-encode drift statistics, the
