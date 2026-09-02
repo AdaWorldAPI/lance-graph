@@ -18,7 +18,7 @@
 | D-id | deliverable | status |
 |---|---|---|
 | D-TEH-0 | census: live footprint measured (one required consumer via `bridge_gate`; one optional via `with-engine`), 51-file fate table, open-row reconciliation, four-wave closure, idea harvest, four rulings asked | **Shipped (plan-only, this PR)** |
-| D-TEH-1 | W1: `bridge_gate` trait → `lance-graph-contract`; callcenter drops the path dep; DTO-ladder home ruling recorded (D-TTV-1); thinking-engine becomes a leaf | Queued — first code wave |
+| D-TEH-1 | W1: `bridge_gate` (seven items) → `lance_graph_contract::bridge_gate`; callcenter re-imports and drops the path dep; thinking-engine keeps a re-export shim | **Shipped 2026-09-02** (before: required dep, 6 crossing sites, dep-drop alone fails 6 × E0433; after: zero thinking-engine deps in callcenter metadata, contract 1303/1303, callcenter 156/156, driver default + `with-engine` green, ALU artery files byte-identical). `with-engine` re-point deferred by stop condition: D-TTV-1 not landed |
 | D-TEH-2 | W2: ghost prior → planner `nars/ghost_prior.rs` over `WisdomMarker`, per-thought, two-sided falsifiers; crate `ghosts.rs` deleted | Queued — consumer D-HOUSE-4 |
 | D-TEH-3 | W2: calibration MATH → `jc` (ruling 4, 2026-09-02: lift if correct, perfect in jc if not; crate copies die); glue stays in the lab crate; `semantic_chunker` / `spiral_segment` decided by their falsifiers | Queued |
 | D-TEH-4 | W3: ENTROPY M8 engine collapse with dtype parity suite; 5 cascade shapes + 3 lens modules collapse | Queued |

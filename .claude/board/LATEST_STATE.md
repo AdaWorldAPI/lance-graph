@@ -1,3 +1,11 @@
+## 2026-09-02 — branch (D-TEH-1, first code wave after #1138): `bridge_gate` moved to the contract — CONTRACT INVENTORY DELTA
+
+- ADDED `lance_graph_contract::bridge_gate` — the cross-tenant authorization injection point, moved from `thinking_engine::bridge_gate` with all seven public items together and identical shapes: `CognitiveOpKind` (4 variants, `repr(u8)`), `CognitiveAuthResult { Allow, Deny, Escalate }` + `is_allowed/is_denied`, `CognitiveBridgeError { Denied, Escalation }`, `auth_to_result`, the `CognitiveBridgeGate: Send + Sync` trait (3 sync methods), `PassthroughGate`, `DenyAllGate`. Zero-dep (std only). Its 9 unit tests moved with it; the engine-side `pure_ops_dont_touch_gate` stays in thinking-engine next to the lens modules it calls.
+- `thinking_engine::bridge_gate` is now a `pub use lance_graph_contract::bridge_gate::{…}` re-export (migration-wave compatibility; every old path still resolves).
+- MEASURED dependency edge, before → after: `lance-graph-callcenter` → `thinking-engine` was a REQUIRED path dep used at 6 sites (2 production imports of 3 symbols, 4 test-only lens lookups); dropping the line alone failed with 6 × E0433. After the move the dep line is gone, `cargo metadata` lists no thinking-engine dependency for callcenter, and the crate builds + 156 tests pass. The remaining production consumer of `thinking-engine` in the workspace is `cognitive-shader-driver`'s OPTIONAL `with-engine` feature (the ALU's engine hook) — untouched, builds green with and without the feature.
+- UNCHANGED (verified by empty diff): `thinking-engine/src/dto.rs`, `cognitive-shader-driver/src/engine_bridge.rs`, `contract/src/cognitive_shader.rs`, `mailbox_soa.rs`, driver `Cargo.toml` — the ALU artery and its DTO bus are byte-identical.
+- NOT DONE, by stop condition: re-pointing the driver's `with-engine` edge waits on D-TTV-1 (Queued) — today the engine hook still lives in thinking-engine, so there is nothing to re-point it at.
+
 ## 2026-09-02 — branch (D-POP-1 result): PROBE-POP-READOUT-1 — INVENTORY DELTA
 
 - ADDED `crates/deepnsm-v2/examples/pop_readout.rs` — the D-POP-1 probe (no library surface, no new type, no tenant). Consumes `Cam96Space::distance`, `basin_self_code`, `partial_spearman` and `lance_graph_contract::exploration::{FrontierEdge, NarsTruth}`; produces a KILL verdict plus three side-findings (plan §6a).
