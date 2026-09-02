@@ -276,22 +276,35 @@ impl GhostPrior {
     }
 
     /// Strongest live trace per atom at or above [`Self::SUMMARY_FLOOR`],
-    /// strongest first, one entry per atom.
+    /// strongest first, one entry per atom. The per-atom maximum is taken
+    /// BEFORE the strength sort (a sort-then-adjacent-dedup, as the source
+    /// did it, lets one atom appear twice whenever another atom's trace sorts
+    /// between its two — Codex on #1142).
     pub fn summary(&self) -> Vec<(u16, GhostEcho, f32)> {
-        let mut v: Vec<(u16, GhostEcho, f32)> = self
-            .traces
-            .iter()
-            .filter_map(|t| {
-                let i = self.live_intensity(t)?;
-                (i >= Self::SUMMARY_FLOOR).then_some((t.atom, t.marker.ghost, i))
-            })
-            .collect();
+        let mut best: std::collections::BTreeMap<u16, (GhostEcho, f32)> =
+            std::collections::BTreeMap::new();
+        for t in &self.traces {
+            let Some(i) = self.live_intensity(t) else {
+                continue;
+            };
+            if i < Self::SUMMARY_FLOOR {
+                continue;
+            }
+            best.entry(t.atom)
+                .and_modify(|cur| {
+                    if i > cur.1 {
+                        *cur = (t.marker.ghost, i);
+                    }
+                })
+                .or_insert((t.marker.ghost, i));
+        }
+        let mut v: Vec<(u16, GhostEcho, f32)> =
+            best.into_iter().map(|(a, (g, i))| (a, g, i)).collect();
         v.sort_by(|a, b| {
             b.2.partial_cmp(&a.2)
                 .unwrap_or(std::cmp::Ordering::Equal)
                 .then(a.0.cmp(&b.0))
         });
-        v.dedup_by_key(|e| e.0);
         v
     }
 }
@@ -302,17 +315,28 @@ pub mod calibration {
     use super::{GhostPrior, PriorFloor};
     use lance_graph_contract::escalation::GhostEcho;
 
+    /// The smallest atom space the fixture can address: pattern A sits on
+    /// atoms 10/20/30 and the shift pattern B on 60/61/62. Stale patterns
+    /// beyond the space are simply not predicted over (they still consume a
+    /// cycle each), so they impose no bound.
+    pub const FIXTURE_MIN_ATOMS: usize = 63;
+
     /// The recurrence fixture: pattern A is imprinted once, then
     /// `stale_patterns` OTHER disjoint patterns are imprinted (one per cycle,
     /// the memory of a life lived since), then the prior is aged `age` more
     /// cycles. Returns `(fe_recurrence, fe_shift)`: free energy when A recurs
-    /// vs when an unseen pattern B appears. `n_atoms` is the atom space.
+    /// vs when an unseen pattern B appears. `n_atoms` is the atom space;
+    /// `None` when it is smaller than [`FIXTURE_MIN_ATOMS`] (the fixture's
+    /// atoms would fall outside it — Codex on #1142).
     pub fn recurrence_fixture(
         floor: PriorFloor,
         stale_patterns: usize,
         age: u32,
         n_atoms: usize,
-    ) -> (f32, f32) {
+    ) -> Option<(f32, f32)> {
+        if n_atoms < FIXTURE_MIN_ATOMS {
+            return None;
+        }
         let a: [(u16, f32); 3] = [(10, 1.0), (20, 0.8), (30, 0.6)];
         let mut prior = GhostPrior::new(floor);
         prior.imprint(&a, GhostEcho::Thought);
@@ -335,26 +359,27 @@ pub mod calibration {
         shift[60] = 1.0;
         shift[61] = 0.8;
         shift[62] = 0.6;
-        (prior.free_energy(&recur), prior.free_energy(&shift))
+        Some((prior.free_energy(&recur), prior.free_energy(&shift)))
     }
 
     /// Discrimination = `fe_shift − fe_recurrence` on the fixture: how far
     /// apart the prior holds "this is familiar" from "this is new" after it
     /// has aged. Higher is better; ≤ 0 means the prior can no longer tell.
+    /// `None` under the same condition as [`recurrence_fixture`].
     pub fn discrimination(
         floor: PriorFloor,
         stale_patterns: usize,
         age: u32,
         n_atoms: usize,
-    ) -> f32 {
-        let (recur, shift) = recurrence_fixture(floor, stale_patterns, age, n_atoms);
-        shift - recur
+    ) -> Option<f32> {
+        let (recur, shift) = recurrence_fixture(floor, stale_patterns, age, n_atoms)?;
+        Some(shift - recur)
     }
 }
 
 #[cfg(test)]
 mod tests {
-    use super::calibration::{discrimination, recurrence_fixture};
+    use super::calibration::{discrimination, recurrence_fixture, FIXTURE_MIN_ATOMS};
     use super::*;
 
     const N: usize = 256;
@@ -508,10 +533,14 @@ mod tests {
         let mut table = String::new();
         let mut default_wins_everywhere = true;
         for &(stale, age) in &[(0usize, 0u32), (0, 20), (30, 0), (30, 20), (30, 60)] {
-            let d_trace = discrimination(PriorFloor::Trace, stale, age, N);
-            let d_marker = discrimination(PriorFloor::Marker, stale, age, N);
-            let (rt, st) = recurrence_fixture(PriorFloor::Trace, stale, age, N);
-            let (rm, sm) = recurrence_fixture(PriorFloor::Marker, stale, age, N);
+            let d_trace =
+                discrimination(PriorFloor::Trace, stale, age, N).expect("N ≥ FIXTURE_MIN_ATOMS");
+            let d_marker =
+                discrimination(PriorFloor::Marker, stale, age, N).expect("N ≥ FIXTURE_MIN_ATOMS");
+            let (rt, st) = recurrence_fixture(PriorFloor::Trace, stale, age, N)
+                .expect("N ≥ FIXTURE_MIN_ATOMS");
+            let (rm, sm) = recurrence_fixture(PriorFloor::Marker, stale, age, N)
+                .expect("N ≥ FIXTURE_MIN_ATOMS");
             table.push_str(&format!(
                 "stale={stale:>2} age={age:>2} | Trace: recur={rt:.4} shift={st:.4} disc={d_trace:.4} | Marker: recur={rm:.4} shift={sm:.4} disc={d_marker:.4}\n"
             ));
@@ -537,8 +566,10 @@ mod tests {
         // Anti-vacuity for the gate: if both floors gave the same numbers the
         // gate would pass trivially. After 60 cycles a Trace-floor trace is
         // inert and a Marker-floor trace sits at 0.1 — the predictions differ.
-        let (rt, _) = recurrence_fixture(PriorFloor::Trace, 30, 60, N);
-        let (rm, _) = recurrence_fixture(PriorFloor::Marker, 30, 60, N);
+        let (rt, _) =
+            recurrence_fixture(PriorFloor::Trace, 30, 60, N).expect("N ≥ FIXTURE_MIN_ATOMS");
+        let (rm, _) =
+            recurrence_fixture(PriorFloor::Marker, 30, 60, N).expect("N ≥ FIXTURE_MIN_ATOMS");
         assert!(
             (rt - rm).abs() > 1e-3,
             "floors must be distinguishable on the fixture: {rt} vs {rm}"
@@ -598,6 +629,25 @@ mod tests {
         assert_eq!(s.len(), 2, "one entry per atom");
         assert_eq!(s[0].0, 42, "strongest first");
         assert_eq!(s[0].1, GhostEcho::Staunen);
+    }
+
+    #[test]
+    fn summary_is_one_entry_per_atom_even_when_another_atom_sorts_between() {
+        // Codex's repro on #1142: atom 1 at 0.9 and 0.1 with atom 2 at 0.5
+        // between them — a sort-then-adjacent-dedup returns atom 1 twice.
+        let mut p = GhostPrior::new(PriorFloor::DEFAULT);
+        p.imprint(&[(1, 0.9), (2, 0.5), (1, 0.1)], GhostEcho::Thought);
+        let s = p.summary();
+        assert_eq!(s.len(), 2, "one entry per atom: {s:?}");
+        assert_eq!(s[0], (1, GhostEcho::Thought, 0.9));
+        assert_eq!(s[1].0, 2);
+    }
+
+    #[test]
+    fn calibration_fixture_refuses_an_atom_space_it_cannot_address() {
+        assert!(recurrence_fixture(PriorFloor::DEFAULT, 0, 0, FIXTURE_MIN_ATOMS - 1).is_none());
+        assert!(discrimination(PriorFloor::DEFAULT, 0, 0, 0).is_none());
+        assert!(recurrence_fixture(PriorFloor::DEFAULT, 30, 60, FIXTURE_MIN_ATOMS).is_some());
     }
 
     #[test]

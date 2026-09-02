@@ -342,9 +342,12 @@ pub struct A2AMessage {
 }
 
 impl A2AMessage {
-    pub fn thought(from: &Agent, to: &str, bus: FastBusDto, weight: f32) -> Self {
+    /// `from` is the sender's snapshot — `Agent::to_dto(ghost_count)` built
+    /// by the caller that owns the thought's `GhostPrior`, so the receiver
+    /// sees the real active-trace count rather than a hardcoded zero.
+    pub fn thought(from: AgentDto, to: &str, bus: FastBusDto, weight: f32) -> Self {
         Self {
-            from: from.to_dto(0),
+            from,
             to: to.into(),
             payload: A2APayload::Thought(bus),
             resonance_weight: weight,
@@ -353,13 +356,14 @@ impl A2AMessage {
         }
     }
 
+    /// `from`: the sender's snapshot, see [`Self::thought`].
     pub fn knowledge(
-        from: &Agent,
+        from: AgentDto,
         to: &str,
         triples: Vec<crate::cognitive_trace::SpoTriple>,
     ) -> Self {
         Self {
-            from: from.to_dto(0),
+            from,
             to: to.into(),
             payload: A2APayload::Knowledge(triples),
             resonance_weight: 1.0,
@@ -368,11 +372,13 @@ impl A2AMessage {
         }
     }
 
-    pub fn persona_exchange(from: &Agent, to: &str) -> Self {
+    /// `from`: the sender's snapshot, see [`Self::thought`]; it is carried
+    /// both as the envelope sender and as the exchanged payload.
+    pub fn persona_exchange(from: AgentDto, to: &str) -> Self {
         Self {
-            from: from.to_dto(0),
+            from: from.clone(),
             to: to.into(),
-            payload: A2APayload::PersonaExchange(from.to_dto(0)),
+            payload: A2APayload::PersonaExchange(from),
             resonance_weight: 1.0,
             style_hint: None,
             timestamp: 0,
@@ -531,7 +537,8 @@ mod tests {
             0.7,
             5,
         );
-        let msg = A2AMessage::thought(&sender, "receiver", bus, 0.9);
+        let msg = A2AMessage::thought(sender.to_dto(3), "receiver", bus, 0.9);
+        assert_eq!(msg.from.ghost_count, 3, "the caller-owned count reaches the receiver");
         assert_eq!(msg.to, "receiver");
         assert_eq!(msg.resonance_weight, 0.9);
         assert_eq!(msg.from.mode, PersonaMode::Work);
@@ -540,7 +547,7 @@ mod tests {
     #[test]
     fn a2a_persona_exchange() {
         let agent = Agent::new("a1", PersonaProfile::personal());
-        let msg = A2AMessage::persona_exchange(&agent, "a2");
+        let msg = A2AMessage::persona_exchange(agent.to_dto(0), "a2");
         match msg.payload {
             A2APayload::PersonaExchange(dto) => assert_eq!(dto.mode, PersonaMode::Personal),
             _ => panic!("wrong payload"),
