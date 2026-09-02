@@ -1,0 +1,7 @@
+# AVX-512 build. Mirrors ndarray/.cargo/config-avx512.toml (`sapphirerapids`,
+# which implies x86-64-v4 plus AMX/BF16/VNNI). Use when the deployment silicon
+# is known: cargo build --config .cargo/config-avx512.toml ...
+# The `simd.rs` dispatch picks the `simd_avx512` backend (native __m512d).
+[build]
+[target.'cfg(target_arch = "x86_64")']
+rustflags = ["-Ctarget-cpu=sapphirerapids"]

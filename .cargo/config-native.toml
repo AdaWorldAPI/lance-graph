@@ -1,0 +1,6 @@
+# Build-machine-tuned. rustc resolves the host CPUID at compile time; the
+# binary is NOT portable off this machine. Mirrors ndarray/.cargo/config-native.toml.
+#   cargo build --config .cargo/config-native.toml ...
+[build]
+[target.'cfg(target_arch = "x86_64")']
+rustflags = ["-Ctarget-cpu=native"]

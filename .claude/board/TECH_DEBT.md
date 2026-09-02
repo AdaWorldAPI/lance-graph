@@ -87,6 +87,48 @@ question, not a blocker.
 `7751581f`). **Not W5** — W5 is workload-pressure machinery and stays HOLD
 (4609 vs the 11 585-point 1 GiB threshold) regardless of any speedup here.
 
+**A0/A1/A2 RUN (2026-09-02, same day — operator: "you didn't try the 25-26
+seconds with ndarray yet").** `crates/jc/examples/goursat_substrate_probe.rs`,
+release, 4097-point paths (16.8M cells). Every A2 lane op is
+`ndarray::simd::F64x8::mul_add` — the body is three FMAs
+(`t = mul_add(1,left,up)`, `u = mul_add(-1,diag,t)`, `new = mul_add(c,diag,u)`);
+no `Add`/`Sub` operator was needed, and none was minted.
+
+| target-cpu | backend | A0 | A1 | A2 | A1/A2 | A0=A1 | \|A1-A2\|/A1 |
+|---|---|---|---|---|---|---|---|
+| generic x86-64 ("386") | scalar arm | 0.182 s | 0.169 s | **0.773 s** | **0.22x** | bit-exact | 2.431e-13 |
+| x86-64-v3 (AVX2) | `f64x4` x2 | 0.163 s | 0.150 s | 0.0165 s | **9.12x** | bit-exact | 2.431e-13 |
+| x86-64-v4 (AVX-512) | `__m512d` | 0.171 s | 0.157 s | 0.0182 s | **8.62x** | bit-exact | 2.431e-13 |
+
+Four findings, each falsifiable and each measured:
+
+1. **Storage was NOT the wall; the recurrence was.** A1/A0 = 1.09x. The
+   hypothesis banked above — that a flat buffer alone would close most of the
+   gap — is **FALSIFIED**. The probe was built to answer that and it did.
+2. **The "386" build is a REGRESSION, not a no-op.** At generic x86-64 the
+   polyfill's scalar arm runs the wavefront 4.5x SLOWER than the flat scalar
+   loop: eight lanes emulated through arrays plus the wavefront bookkeeping.
+   Until this commit lance-graph had NO `.cargo/config.toml`, so every local
+   build landed there. `.cargo/config.toml` now pins v3 (CI already did via
+   `RUSTFLAGS` in `.github/workflows/*.yml`), with `config-avx512.toml` /
+   `config-native.toml` mirroring ndarray's.
+3. **Bit-exact across backends, as confirmed.** `|A1-A2|/A1` is identical to the
+   last digit on scalar, AVX2 and AVX-512 at every size. The delta itself
+   (~1e-13 at 4097) is the fused-vs-separate rounding of `c·diag`
+   accumulated over 16.8M cells — A2 is the MORE accurate arm.
+4. **AVX2 ~ AVX-512 here** (9.1x vs 8.6x): the wavefront is latency-bound on
+   the diagonal recurrence, not width-bound. Widening lanes buys nothing until
+   the dependency chain is restructured; that is a scheduling question, not a
+   substrate one.
+
+Storage detail that held: with `dy` stored REVERSED, the anti-diagonal walk
+is forward in `i`, so k-buffers, `dx` and `dy` are all contiguous slices —
+**no gather**, exactly as predicted by "A1 determines A2's shape".
+
+`jc` now depends on `ndarray` as a plain, non-optional `[dependencies]`
+entry; its "zero external deps in production" header is retired (operator:
+ndarray is mandatory everywhere). What stays standalone is the PROOF.
+
 ## TD-GHOST-TIER-NAME-COLLISION-1 (2026-09-02) — OPEN, doc-only
 
 `crates/lance-graph-contract/src/counterfactual.rs` calls the −6 minority-pole
