@@ -4,6 +4,9 @@
 |---|---|---|
 | D-HOUSE-0 | the plan: parts list of shipped surfaces (file-cited), the composition as a recipe-level style program, ladder placement, pre-registered falsifier | **Shipped (plan-only, this PR)** |
 | D-HOUSE-1 | PROBE-HOUSE-DIFFERENTIAL-1: planted-cause recovery on synthetic arenas with shared-predicate distractors; arms RCR-alone / +ASC / full cycle / shuffle null; PASS iff Δp@1 ≥ 0.05 above null p95, planted cause never eliminated, periphery fires on 10–90 % | **Queued — next step** |
+| D-HOUSE-1b | resonance prior probe (`res-seed` + `res-gate`): anchoring vs recognition, same arenas, ρ < 1 guard against the D-HOUSE-1 A2 ordering (plan §4b) | Gated on D-HOUSE-1 reported |
+| D-HOUSE-1c | signed-qualia contrast probe: one i4 per top-3 candidate from the ASC outcome into existing `QualiaI4_16D` lanes, post-challenge re-rank only, all-zero-signs must equal A2 (plan §4b) | Gated on D-HOUSE-1 reported |
+| D-HOUSE-1d | aperture hypothesis (the "humor" label): incongruity → `k` across passes; a hypothesis until its operator is defined and measured (plan §4b) | Not scheduled |
 | D-HOUSE-2 | discriminating-evidence readout (clone arena, observe hypothetical premise, report largest rank displacement) | Gated on D-HOUSE-1 PASS |
 | D-HOUSE-3 | elimination predicate over `truth`/`contradiction`/`stamp` + never-re-enter falsifier | Gated on D-HOUSE-1 PASS |
 | D-HOUSE-4 | anchoring alarm (free energy between wisdom-marker prior and evidence) | Gated on `thinking-engine-harvest-closure-v1` D-TEH-2 |

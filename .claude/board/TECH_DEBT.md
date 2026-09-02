@@ -1,3 +1,19 @@
+## TD-GHOST-TIER-NAME-COLLISION-1 (2026-09-02) — OPEN, doc-only
+
+`crates/lance-graph-contract/src/counterfactual.rs` calls the −6 minority-pole
+lane a "ghost-tier mailbox" in seven places (lines 16, 111, 229, 243, 247, 340,
+402). The tree already has a "ghost" family with a different meaning: the
+lingering cognitive trace (`thinking_engine::ghosts::GhostType` / `GhostField`,
+contract `escalation::GhostEcho` / `WisdomMarker`). A reader meeting
+`GhostType::Wisdom` beside a "ghost-tier mailbox" can conclude the trace field
+is the counterfactual carrier; it is not (board:
+`E-A-GHOST-TRACE-IS-NOT-THE-COUNTERFACTUAL-LANE-1`). **Pay by:** rename the
+wording to "counterfactual-tier" in the same PR that next touches
+`counterfactual.rs` (D-ATOM-4 v3 / the mailbox arm) — doc comments only, no
+identifier is named "ghost" in that file, so no API changes. Never as a
+drive-by on an unrelated PR. Surfaced by an external review of #1137,
+verified in source.
+
 ## TD-DEEPNSM-V2-SESSION-RESIDUE (2026-08-22) — OPEN
 
 Three leftovers from the corpus-addressing session, surfaced by its own review

@@ -33,6 +33,13 @@
   consumers, symbols grepped) and the parts list (each row file:line);
   Medium for the fate verdicts that name a landing without a consumer yet
   (they are marked "park" rather than "port").
+- **Correction 2026-09-02 (same PR, third commit):** `575c6d3` had folded three
+  extra arms into D-HOUSE-1; an external review objected (attribution — one
+  causal question per harness) and the objection was adopted: arms moved out
+  to gated D-HOUSE-1b/1c/1d (plan §4b) with three processing-order defects
+  fixed; ghost-trace vs counterfactual-lane fence banked
+  (`E-A-GHOST-TRACE-IS-NOT-THE-COUNTERFACTUAL-LANE-1`,
+  `TD-GHOST-TIER-NAME-COLLISION-1`).
 
 ## 2026-09-02 — lance-graph branch `claude/medcare-rs-continue-6nhbxn` (D-POP-1 result PR, after #1135) — PROBE-POP-READOUT-1
 
