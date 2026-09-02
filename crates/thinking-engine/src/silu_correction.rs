@@ -201,18 +201,30 @@ pub fn apply_corrections(table: &mut [u8], corrections: &[f32], n: usize) {
 pub use jc::drift::DeltaSummary as CorrectionStats;
 
 /// A correction that changes a cosine by more than this is material.
-pub const MATERIAL_CORRECTION: f64 = 0.01;
-/// A correction that changes a cosine by more than this is large.
-pub const LARGE_CORRECTION: f64 = 0.1;
+///
+/// Kept in the samples' own precision (`f32`) and promoted alongside them:
+/// `f64::from(0.1f32)` is `0.10000000149…`, so a threshold written as
+/// `0.1_f64` would count a correction of exactly `0.1f32` as "more than"
+/// the cut-off. Promoting the same `f32` literal keeps equality excluded.
+pub const MATERIAL_CORRECTION: f32 = 0.01;
+/// A correction that changes a cosine by more than this is large. See
+/// [`MATERIAL_CORRECTION`] for why this is an `f32`.
+pub const LARGE_CORRECTION: f32 = 0.1;
 
 /// Summarise the corrections of a training sample set.
 ///
-/// Empty input yields [`CorrectionStats::empty`] (count 0), preserving the
-/// historical shape for callers that print a report unconditionally.
-pub fn correction_stats(samples: &[CorrectionSample]) -> CorrectionStats {
+/// Empty input yields `Some(`[`CorrectionStats::empty`]`)` (count 0) so a
+/// report can still be printed. `None` means the data is INVALID — at least
+/// one correction is `NaN` / `±∞` (a malformed or overflowed calibration
+/// input) — and is deliberately not folded into the empty case: an invalid
+/// run must not read as a clean empty one.
+pub fn correction_stats(samples: &[CorrectionSample]) -> Option<CorrectionStats> {
+    let (material, large) = (f64::from(MATERIAL_CORRECTION), f64::from(LARGE_CORRECTION));
+    if samples.is_empty() {
+        return Some(CorrectionStats::empty(material, large));
+    }
     let deltas: Vec<f64> = samples.iter().map(|s| f64::from(s.correction)).collect();
-    jc::drift::delta_summary(&deltas, MATERIAL_CORRECTION, LARGE_CORRECTION)
-        .unwrap_or_else(|| CorrectionStats::empty(MATERIAL_CORRECTION, LARGE_CORRECTION))
+    jc::drift::delta_summary(&deltas, material, large)
 }
 
 #[cfg(test)]
@@ -311,7 +323,7 @@ mod tests {
             .sum::<f32>();
         // Self-pairs should have near-zero correction (cos with itself = 1.0 both ways)
 
-        let stats = correction_stats(&samples);
+        let stats = correction_stats(&samples).expect("finite corrections");
         eprintln!(
             "Correction stats: mean_abs={:.4}, max_abs={:.4}, material={:.1}%",
             stats.mean_abs,
@@ -346,7 +358,7 @@ mod tests {
         }
 
         let samples = generate_training_data(&gates, &ups, &centroids, &centroids);
-        let stats = correction_stats(&samples);
+        let stats = correction_stats(&samples).expect("finite corrections");
 
         eprintln!("\nNarrow gate (reader-lm range):");
         eprintln!("  Samples:    {}", stats.count);
@@ -364,6 +376,28 @@ mod tests {
 
         // With narrow gate, corrections should be material
         assert!(stats.count > 0);
+    }
+
+    /// The two Codex findings on the lift PR, pinned. (1) A correction of
+    /// exactly `0.1f32` is NOT "more than" the large cut-off — the threshold
+    /// is promoted from the same `f32`, so equality stays excluded (disable:
+    /// write the constant as `0.1_f64` → `large_fraction` reads 0.5).
+    /// (2) A non-finite correction is an INVALID run (`None`), never an
+    /// empty one; the genuinely empty sample set is `Some` with count 0.
+    #[test]
+    fn correction_stats_boundary_and_invalid_data() {
+        let sample = |c: f32| CorrectionSample {
+            centroid_i: vec![1.0],
+            centroid_j: vec![1.0],
+            correction: c,
+        };
+        let s = correction_stats(&[sample(0.1), sample(0.2)]).unwrap();
+        assert_eq!(s.large_fraction, 0.5, "exactly 0.1 is not > 0.1");
+        assert_eq!(s.material_fraction, 1.0);
+
+        assert!(correction_stats(&[sample(0.05), sample(f32::NAN)]).is_none());
+        let empty = correction_stats(&[]).expect("empty is a valid, empty run");
+        assert_eq!(empty.count, 0);
     }
 
     #[test]

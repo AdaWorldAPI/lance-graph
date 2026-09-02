@@ -11,10 +11,15 @@
 //! Cronbach α asks about the WHOLE corpus: "do these `k` lenses behave as one
 //! scale over all `n` pairs?" The quorum score asks about ONE cell: "how far
 //! apart are the `k` lenses on THIS pair?" It is a normalised dispersion,
-//! `1 − σ/σ_max`, where `σ_max = 255/2` is the largest population standard
-//! deviation a set of `u8` values can have (half at 0, half at 255). It is
-//! NOT an α per pair — α is undefined on a single subject — and the lifted
-//! source said so; the name here says so too.
+//! `1 − σ/σ_max(k)`, where `σ_max(k)` is the largest population standard
+//! deviation `k` `u8` values can have — `⌊k/2⌋` of them at 0 and `⌈k/2⌉` at
+//! 255 (or the reverse), i.e. `σ²_max(k) = 255² · ⌊k/2⌋·⌈k/2⌉ / k²`. For even
+//! `k` that is `(255/2)²`; for odd `k` it is strictly smaller, and using the
+//! even-`k` ceiling would leave a maximally split three-lens cell scoring 15
+//! instead of 0 (a Codex finding on the lift PR — the lifted source had that
+//! defect, perfected here per the ruling). It is NOT an α per pair — α is
+//! undefined on a single subject — and the lifted source said so; the name
+//! here says so too.
 //!
 //! # Quorum bands
 //!
@@ -25,9 +30,25 @@
 
 use crate::reliability::cronbach_alpha;
 
-/// Largest population variance of a set of `u8` values: half at 0, half at
-/// 255 gives `σ² = (255/2)²`.
-pub const U8_MAX_VARIANCE: f64 = 255.0 * 255.0 / 4.0;
+/// Largest population variance `k` `u8` values can have: `⌊k/2⌋` at one
+/// extreme and `⌈k/2⌉` at the other, `σ² = 255² · ⌊k/2⌋·⌈k/2⌉ / k²`. Equals
+/// `(255/2)²` for even `k` and is strictly smaller for odd `k`; `0.0` for
+/// `k < 2` (one value has no dispersion).
+///
+/// ```
+/// use jc::quorum::max_u8_variance;
+/// assert_eq!(max_u8_variance(2), 255.0 * 255.0 / 4.0);
+/// assert_eq!(max_u8_variance(3), 255.0 * 255.0 * 2.0 / 9.0);
+/// assert_eq!(max_u8_variance(1), 0.0);
+/// ```
+pub fn max_u8_variance(k: usize) -> f64 {
+    if k < 2 {
+        return 0.0;
+    }
+    let lo = (k / 2) as f64;
+    let hi = k as f64 - lo;
+    255.0 * 255.0 * lo * hi / (k as f64 * k as f64)
+}
 
 /// Per-pair agreement across `k` square `u8` tables of side `n`.
 ///
@@ -52,6 +73,7 @@ pub fn pairwise_agreement_u8(tables: &[&[u8]], n: usize) -> Option<Vec<u8>> {
         return None;
     }
     let kf = k as f64;
+    let max_var = max_u8_variance(k);
     let mut scores = vec![0u8; n * n];
     for i in 0..n {
         scores[i * n + i] = 255;
@@ -66,8 +88,8 @@ pub fn pairwise_agreement_u8(tables: &[&[u8]], n: usize) -> Option<Vec<u8>> {
                 })
                 .sum::<f64>()
                 / kf;
-            let agreement = 1.0 - (var / U8_MAX_VARIANCE).sqrt();
-            // `agreement` is in [0, 1] by construction (var ≤ U8_MAX_VARIANCE),
+            let agreement = 1.0 - (var / max_var).sqrt();
+            // `agreement` is in [0, 1] by construction (var ≤ max_var for k),
             // so the rounded product is in 0..=255 and the cast cannot
             // truncate; the clamp is belt-and-braces against a rounding tick.
             let score = (agreement * 255.0).round().clamp(0.0, 255.0) as u8;
@@ -225,6 +247,28 @@ mod tests {
         assert_eq!(pairwise_agreement_u8(&[&t, &t], 1), None); // n < 2
         let short = [255u8, 1, 1];
         assert_eq!(pairwise_agreement_u8(&[&t, &short], 2), None); // ragged
+    }
+
+    /// Odd `k`: a maximally split three-lens cell must score 0, which the
+    /// even-`k` ceiling cannot deliver (it gives 15 — the Codex finding).
+    /// Two-sided: a two-lens `[0, 255]` still scores 0 under the same rule,
+    /// and a three-lens `[0, 0, 128]` lands strictly between. Disable: put
+    /// `255²/4` back as the ceiling → the first assertion reads 15.
+    #[test]
+    fn an_odd_quorum_is_normalised_by_its_own_attainable_variance() {
+        let a = [255u8, 0, 0, 255];
+        let b = [255u8, 0, 0, 255];
+        let c = [255u8, 255, 255, 255];
+        let s3 = pairwise_agreement_u8(&[&a, &b, &c], 2).unwrap();
+        assert_eq!(s3[1], 0, "[0, 0, 255] is maximal for k = 3: {s3:?}");
+        let s2 = pairwise_agreement_u8(&[&a, &c], 2).unwrap();
+        assert_eq!(s2[1], 0, "[0, 255] is maximal for k = 2");
+        let mid = [255u8, 128, 128, 255];
+        let s3m = pairwise_agreement_u8(&[&a, &b, &mid], 2).unwrap();
+        assert!(s3m[1] > 0 && s3m[1] < 255, "{s3m:?}");
+        // The ceiling itself, at the two widths the API is used with.
+        assert_eq!(max_u8_variance(3), 255.0 * 255.0 * 2.0 / 9.0);
+        assert_eq!(max_u8_variance(5), 255.0 * 255.0 * 6.0 / 25.0);
     }
 
     /// Both sides of every band floor.
