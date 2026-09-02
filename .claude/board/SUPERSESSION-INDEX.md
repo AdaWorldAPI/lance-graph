@@ -50,7 +50,7 @@ coverage instead.
 | symbol | verdict | successor | live in crates | named in plans | blind plans |
 |---|---|---|---|---|---|
 | `A2AMessage` | BLOCKED | — | 2 | 0 | 0 |
-| `StepMask` | BLOCKED | — | 3 | 7 | 3 |
+| `StepMask` | BLOCKED | — | 3 | 8 | 4 |
 | `commit_to_l4` | BLOCKED | — | 2 | 1 | 0 |
 | `dispatch_busdto` | BLOCKED | — | 3 | 6 | 5 |
 | `persist_cycle` | BLOCKED | — | 10 | 6 | 5 |
@@ -64,7 +64,7 @@ coverage instead.
 | `CollapseGateEmission` | RETIRE | — | 5 | 12 | 12 |
 | `ThinkingStyle` | RETIRE-toward-contract | — | 51 | 27 | 24 |
 
-## Table 2 — plans naming a ruled symbol without citing the ruling (72)
+## Table 2 — plans naming a ruled symbol without citing the ruling (73)
 
 Route is **mechanical triage, not a verdict**: `ARCHIVE?` = the plan's own status says
 it shipped; `RESCOPE` = it targets a symbol marked RETIRE; `READ` = neither signal fires
@@ -92,6 +92,7 @@ a licence to act on it.
 | **READ** | `mul-consumer-census-v1` | `GateDecision` | MEASUREMENT COMPLETE — 2026-08-27. Measureme | 1/2 |
 | **READ** | `mul-ewa-trust-propagation-v1` | `GateDecision` | PROPOSED — PLAN/BOARD ONLY. Measure-before-c | 1/3 |
 | **READ** | `persistence-artifact-backed-commit-v1` | `persist_cycle` | RATIFIED (operator ruling 2026-08-09). Phase | 0/0 |
+| **READ** | `post-teardown-buildup-survey-v1` | `StepMask` | SURVEY, read-only, plan-only (no code, no te | 3/4 |
 | **READ** | `r2il-bpe-typed-genetic-recombination-v1` | `GateDecision` | PROPOSAL, §7's three falsifiers now RUN (see | 1/1 |
 | **READ** | `scientific-kg-substrate-v1` | `GateDecision` | PROPOSED — **scoping doc**, no code. Records | 8/9 |
 | **READ** | `self-reasoning-substrate-v1` | `GateDecision` | PROPOSED — doc-only. No code, no contract ch | 5/5 |
@@ -154,5 +155,5 @@ a licence to act on it.
 
 - **ARCHIVE?**: 0
 - **RESCOPE**: 55
-- **READ**: 17
+- **READ**: 18
 - ruled symbols tracked: 14
