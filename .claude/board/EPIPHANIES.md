@@ -51,6 +51,25 @@ Theorem 2 is NOT the lattice cutoff.
 downstream of it are structurally incapable of pinning it — any bound at least
 as large passes. Such a constant needs its own numeric guard, and that guard's
 apparent triviality is a property of correct design, not a smell.
+## 2026-09-02 — E-THE-PERIPHERY-OF-A-STRATUM-IS-THE-OTHER-STRATA-1 — PROBE-HOUSE-DIFFERENTIAL-1 reported: the abstraction stratum carries the House cycle; the runner-up synthesis stratum fires on everything and moves nothing
+
+**Status:** FINDING (measured, `crates/lance-graph-planner/examples/house_differential.rs`, release, N = 200 arenas × 25 permutations) + CORRECTION of the plan's rung reading. **Confidence:** High on the measurement; the effect size is fixture-dependent (see robustness).
+
+**The correction first.** The probe's first cut sampled the periphery from `RungLevel::Counterfactual.peripheral_sample_where(k)` — empty, because no recipe has `min_rung` above `Counterfactual` — and reported condition (c) "structurally unrunnable". That was the scalar-era reading of `RungLevel` as one active position. The operator's ruling is the strata model (`persona-vs-rung-ladder.md`, 2026-08-30 scope correction): rungs are strata scheduled in parallel in dependency order. The periphery of the board stratum (RCR #4 / ASC #7, floor 6) is therefore **the other strata** — CAS #8 (floor 0) feeding it, CR #11 (floor 3) consuming it — not the set of recipes the board's own rung excludes. The plan's "ASC/CR open at `Analogical`" and its rung-elevation loop were the same misreading; both corrected in `house-differential-style-v1` §2/§3.
+
+**The measurement.** A0 (RCR alone) p@1 0.320; A1 / A1c (+admit, +ASC on the leader, +council) 0.610; A2 with the abstraction stratum S0 (`cas_abstract` on `C*`, CAS-down admits `{G→O_far, C*→G} ⊢ C*→O_far`) 0.820; null (identical procedure, feature half shuffled, far parent re-owned) mean 0.428, **p95 of the per-permutation aggregates 0.475**. Planted cause eliminated 0/200. S0 fires on exactly the 100 far-fact arenas (0.500 — can-fire and can-stay-silent). **Variant 2 PASS; variant 1 KILL** on (c): the synthesis stratum S3 (`cr_synthesize` of the runner-up's held-aside report) ran on 182/200 arenas, reordered the tail on 177, and moved p@1 on none (`A2-S3` ≡ `A1c`) — the "fires on everything" defect, in S3's design.
+
+**The caveat that travels with the PASS.** Variant 2 gates S3 on the council's `split`; the council split on 0/200 arenas, so variant 2 is in effect S0 + board. The cause is the probe's own signal derivation (`humility = 1 − margin(top1, top2)` ≈ 1, where `InnerCouncil::from_signals` gives Catalyst weight `1 − |humility − 0.5|·2 = 0`), not a council defect. Nothing about CR as a synthesis stratum is established either way.
+
+**Three things worth keeping.**
+1. The null's comparator is the p95 of the AGGREGATE statistic across permutations (25 values), not the p95 of 200 per-arena hit rates (0.720 here — a tail statistic of a different distribution). The first cut used the latter and would have compared 0.820 against the wrong number.
+2. A size-preserving shuffle must also shuffle what it does not touch: leaving the far parent owned by `C*` under the null leaks the planted identity (AN p95 0.475 → 0.735). A2 still clears the leaky null, by 0.085 instead of 0.345.
+3. A stratum contributes when its chain carries evidence stronger than the direct band: far fact weakened to the rule-edge band (0.9/0.6) ⇒ S0 inert, A2 = A1c. The fixture strengths were pre-registered in the file before the official run; the dependence is a property of the mechanism, stated here so it is not read as a universal gain.
+
+**Disable-runs, verified red:** G1 (S0 forced on under `STRATA_OFF`), G4 (`CasUp` in place of `CasDown`), jitter zeroed ⇒ A0 p@1 = 1.000 by tie-break.
+
+Refs: `house-differential-style-v1` §2 step 2, §3, §4 RESULT; `E-PERIPHERAL-DISSENT-GUARDS-THE-STRATIFICATION-1`; `E-A-GHOST-TRACE-IS-NOT-THE-COUNTERFACTUAL-LANE-1`; `nars/tactics.rs` `cas_abstract` (:359) / `cr_synthesize` (:503); `recipes.rs` `min_rung` (:505); D-HOUSE-1 → Shipped, D-HOUSE-2/3/5 unblocked on the stated terms, D-HOUSE-1d re-scoped to strata budgets.
+
 ## 2026-09-02 — E-THE-DTO-LADDER-IS-THE-ALU-BUS-AND-WAS-ALREADY-RULED-1 — a session re-asked a question `.claude/v3/` had answered on 2026-07-02, and proposed a probe on the wrong axis before reading it
 
 **Status:** CORRECTION + FENCE (same day, same branch, before merge). **Confidence:** High.

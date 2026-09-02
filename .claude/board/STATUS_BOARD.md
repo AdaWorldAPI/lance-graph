@@ -3,14 +3,14 @@
 | D-id | deliverable | status |
 |---|---|---|
 | D-HOUSE-0 | the plan: parts list of shipped surfaces (file-cited), the composition as a recipe-level style program, ladder placement, pre-registered falsifier | **Shipped (plan-only, this PR)** |
-| D-HOUSE-1 | PROBE-HOUSE-DIFFERENTIAL-1: planted-cause recovery on synthetic arenas with shared-predicate distractors; arms RCR-alone / +admit+ASC / +council control / full cycle / shuffle null (fixture direction `cause→feature` + `case→feature` so RCR yields `case→cause`; `quorum_project` NOT on the path — it is a `todo!`); PASS iff Δp@1 ≥ 0.05 above null p95, planted cause never eliminated, periphery fires on 10–90 % | **Queued — next step** |
+| D-HOUSE-1 | PROBE-HOUSE-DIFFERENTIAL-1: planted-cause recovery on synthetic arenas with shared-predicate distractors; arms RCR-alone / +admit+ASC / +council control / full cycle / shuffle null (fixture direction `cause→feature` + `case→feature` so RCR yields `case→cause`; `quorum_project` NOT on the path — it is a `todo!`); PASS iff Δp@1 ≥ 0.05 above null p95, planted cause never eliminated, periphery fires on 10–90 % | **Reported 2026-09-02** — variant 1 (S3 unconditional) KILL on (c) fire rate 0.910; variant 2 (S3 on council split) PASS: A2 0.820 vs A0 0.320 vs null p95 0.475, elim 0, fire 0.500 — caveat: council split 0/200 so S3 never ran (effective S0 + board); periphery re-read as the other strata (plan §2/§3 corrected) |
 | D-HOUSE-1b | resonance prior probe (`res-seed` + `res-gate`): anchoring vs recognition, same arenas, ρ < 1 guard against the D-HOUSE-1 A2 ordering (plan §4b) | Gated on D-HOUSE-1 reported |
 | D-HOUSE-1c | signed-qualia contrast probe: one i4 per top-3 candidate from the ASC outcome into existing `QualiaI4_16D` lanes, post-challenge re-rank only, all-zero-signs must equal A2 (plan §4b) | Gated on D-HOUSE-1 reported |
-| D-HOUSE-1d | aperture hypothesis (the "humor" label): incongruity → `k` across passes; a hypothesis until its operator is defined and measured (plan §4b) | Not scheduled |
-| D-HOUSE-2 | discriminating-evidence readout (clone arena, observe hypothetical premise, report largest rank displacement) | Gated on D-HOUSE-1 PASS |
-| D-HOUSE-3 | elimination predicate over `truth`/`contradiction`/`stamp` + never-re-enter falsifier | Gated on D-HOUSE-1 PASS |
+| D-HOUSE-1d | aperture hypothesis (the "humor" label): incongruity → `k` across passes; a hypothesis until its operator is defined and measured (plan §4b) | Not scheduled — re-scoped 2026-09-02: the knob is the strata budgets, not `k` over an excluded set |
+| D-HOUSE-2 | discriminating-evidence readout (clone arena, observe hypothetical premise, report largest rank displacement) | Unblocked by D-HOUSE-1 variant 2 (2026-09-02); not started |
+| D-HOUSE-3 | elimination predicate over `truth`/`contradiction`/`stamp` + never-re-enter falsifier | Unblocked by D-HOUSE-1 variant 2 (2026-09-02); not started |
 | D-HOUSE-4 | anchoring alarm (free energy between wisdom-marker prior and evidence) | Gated on `thinking-engine-harvest-closure-v1` D-TEH-2 |
-| D-HOUSE-5 | the style→recipe edge (O2) with House as its first program | Gated on D-HOUSE-1 PASS and the D-TSC-2/3 mint |
+| D-HOUSE-5 | the style→recipe edge (O2) with House as its first program | D-HOUSE-1 half unblocked (2026-09-02; the edge selects STRATA, CAS-down as the board's feeder); still gated on the D-TSC-2/3 mint |
 | D-HOUSE-6 | consumer pointer: `DiffRow` READ fields `eliminated` / `discriminator` (MedCare-rs) | pointer only, out of scope here |
 
 ## thinking-engine-harvest-closure-v1
