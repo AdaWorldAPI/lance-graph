@@ -321,28 +321,36 @@ pub mod calibration {
     /// cycle each), so they impose no bound.
     pub const FIXTURE_MIN_ATOMS: usize = 63;
 
+    /// The most stale patterns the fixture can lay: pattern `k` sits on atoms
+    /// `100 + 3k .. 100 + 3k + 2`, and the last of those must fit a `u16`
+    /// (`100 + 3·21811 + 2 = 65535`). One more would wrap the atom id back
+    /// onto a live pattern (CodeRabbit on #1142).
+    pub const FIXTURE_MAX_STALE_PATTERNS: usize = 21_812;
+
     /// The recurrence fixture: pattern A is imprinted once, then
     /// `stale_patterns` OTHER disjoint patterns are imprinted (one per cycle,
     /// the memory of a life lived since), then the prior is aged `age` more
     /// cycles. Returns `(fe_recurrence, fe_shift)`: free energy when A recurs
     /// vs when an unseen pattern B appears. `n_atoms` is the atom space;
     /// `None` when it is smaller than [`FIXTURE_MIN_ATOMS`] (the fixture's
-    /// atoms would fall outside it — Codex on #1142).
+    /// atoms would fall outside it — Codex on #1142) or when `stale_patterns`
+    /// exceeds [`FIXTURE_MAX_STALE_PATTERNS`] (a stale atom id would wrap).
     pub fn recurrence_fixture(
         floor: PriorFloor,
         stale_patterns: usize,
         age: u32,
         n_atoms: usize,
     ) -> Option<(f32, f32)> {
-        if n_atoms < FIXTURE_MIN_ATOMS {
+        if n_atoms < FIXTURE_MIN_ATOMS || stale_patterns > FIXTURE_MAX_STALE_PATTERNS {
             return None;
         }
         let a: [(u16, f32); 3] = [(10, 1.0), (20, 0.8), (30, 0.6)];
         let mut prior = GhostPrior::new(floor);
         prior.imprint(&a, GhostEcho::Thought);
         for k in 0..stale_patterns {
-            // Disjoint from A and from B: atoms 100.. in steps of 3.
-            let base = 100 + (k as u16) * 3;
+            // Disjoint from A and from B: atoms 100.. in steps of 3. Checked:
+            // the bound above guarantees it, and a wrap would alias a live atom.
+            let base = u16::try_from(100 + 3 * k).ok()?;
             prior.imprint(
                 &[(base, 0.9), (base + 1, 0.7), (base + 2, 0.5)],
                 GhostEcho::Affinity,
@@ -365,7 +373,7 @@ pub mod calibration {
     /// Discrimination = `fe_shift − fe_recurrence` on the fixture: how far
     /// apart the prior holds "this is familiar" from "this is new" after it
     /// has aged. Higher is better; ≤ 0 means the prior can no longer tell.
-    /// `None` under the same condition as [`recurrence_fixture`].
+    /// `None` under the same conditions as [`recurrence_fixture`].
     pub fn discrimination(
         floor: PriorFloor,
         stale_patterns: usize,
@@ -379,7 +387,9 @@ pub mod calibration {
 
 #[cfg(test)]
 mod tests {
-    use super::calibration::{discrimination, recurrence_fixture, FIXTURE_MIN_ATOMS};
+    use super::calibration::{
+        discrimination, recurrence_fixture, FIXTURE_MAX_STALE_PATTERNS, FIXTURE_MIN_ATOMS,
+    };
     use super::*;
 
     const N: usize = 256;
@@ -648,6 +658,25 @@ mod tests {
         assert!(recurrence_fixture(PriorFloor::DEFAULT, 0, 0, FIXTURE_MIN_ATOMS - 1).is_none());
         assert!(discrimination(PriorFloor::DEFAULT, 0, 0, 0).is_none());
         assert!(recurrence_fixture(PriorFloor::DEFAULT, 30, 60, FIXTURE_MIN_ATOMS).is_some());
+    }
+
+    #[test]
+    fn calibration_fixture_refuses_a_stale_count_whose_atom_id_would_wrap() {
+        // 100 + 3·21811 + 2 = 65535 = u16::MAX exactly: the last admissible
+        // pattern; one more (index 21812) starts at 65536 and wraps.
+        assert_eq!(
+            100 + 3 * (FIXTURE_MAX_STALE_PATTERNS - 1) + 2,
+            usize::from(u16::MAX)
+        );
+        assert!(
+            recurrence_fixture(PriorFloor::DEFAULT, FIXTURE_MAX_STALE_PATTERNS + 1, 0, N).is_none()
+        );
+        assert!(
+            discrimination(PriorFloor::DEFAULT, FIXTURE_MAX_STALE_PATTERNS + 1, 0, N).is_none()
+        );
+        assert!(
+            recurrence_fixture(PriorFloor::DEFAULT, FIXTURE_MAX_STALE_PATTERNS, 0, N).is_some()
+        );
     }
 
     #[test]
