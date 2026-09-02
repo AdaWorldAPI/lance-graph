@@ -14,7 +14,7 @@
 # 4097-point paths, release): under v4 `F64x8::mul_add` is 8.6x faster than
 # the flat scalar loop; at generic x86-64 the SAME code is 4.5x SLOWER than
 # scalar, because the polyfill's scalar arm is emulating eight lanes through
-# arrays. The "386" build is a regression, not a no-op.
+# arrays. A build with no target-cpu is a regression, not a no-op.
 #
 # Default here is v3 (AVX2) for the same reason ndarray chose it: portable
 # across all x86_64 since Haswell, and what CI runs (`.github/workflows/*.yml`

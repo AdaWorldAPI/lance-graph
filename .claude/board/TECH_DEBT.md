@@ -96,7 +96,7 @@ no `Add`/`Sub` operator was needed, and none was minted.
 
 | target-cpu | backend | A0 | A1 | A2 | A1/A2 | A0=A1 | \|A1-A2\|/A1 |
 |---|---|---|---|---|---|---|---|
-| generic x86-64 ("386") | scalar arm | 0.182 s | 0.169 s | **0.773 s** | **0.22x** | bit-exact | 2.431e-13 |
+| generic x86-64 (no target-cpu) | scalar arm | 0.182 s | 0.169 s | **0.773 s** | **0.22x** | bit-exact | 2.431e-13 |
 | x86-64-v3 (AVX2) | `f64x4` x2 | 0.163 s | 0.150 s | 0.0165 s | **9.12x** | bit-exact | 2.431e-13 |
 | x86-64-v4 (AVX-512) | `__m512d` | 0.171 s | 0.157 s | 0.0182 s | **8.62x** | bit-exact | 2.431e-13 |
 
@@ -105,7 +105,7 @@ Four findings, each falsifiable and each measured:
 1. **Storage was NOT the wall; the recurrence was.** A1/A0 = 1.09x. The
    hypothesis banked above — that a flat buffer alone would close most of the
    gap — is **FALSIFIED**. The probe was built to answer that and it did.
-2. **The "386" build is a REGRESSION, not a no-op.** At generic x86-64 the
+2. **A build with no `target-cpu` is a REGRESSION, not a no-op.** At generic x86-64 the
    polyfill's scalar arm runs the wavefront 4.5x SLOWER than the flat scalar
    loop: eight lanes emulated through arrays plus the wavefront bookkeeping.
    Until this commit lance-graph had NO `.cargo/config.toml`, so every local
@@ -120,6 +120,17 @@ Four findings, each falsifiable and each measured:
    the diagonal recurrence, not width-bound. Widening lanes buys nothing until
    the dependency chain is restructured; that is a scheduling question, not a
    substrate one.
+
+**Correction (2026-09-02, same session):** an earlier revision of this entry
+labelled the no-`target-cpu` row `"386"` and attributed the phrase to the
+operator. That was a misreading of `x86-64-v4` in a terse message. The
+measurement is unchanged; only the label was wrong and is removed above. The
+commit message on `5df2d785` still carries it and is not rewritten (pushed).
+Also recorded: `.cargo/config-avx512.toml`'s `sapphirerapids` is a SUPERSET of
+Cascade Lake / Ice Lake silicon — this session's host is Cascade Lake (family 6
+model 0x55; `amx_report()`: `cpu_model()=OtherX86`, `expects_amx=false`). On
+such hosts `x86-64-v4` or `native` is the correct pick; the probe was run with
+`x86-64-v4`, so its numbers stand.
 
 Storage detail that held: with `dy` stored REVERSED, the anti-diagonal walk
 is forward in `i`, so k-buffers, `dx` and `dy` are all contiguous slices —
