@@ -18,9 +18,9 @@
 | D-id | deliverable | status |
 |---|---|---|
 | D-TEH-0 | census: live footprint measured (one required consumer via `bridge_gate`; one optional via `with-engine`), 51-file fate table, open-row reconciliation, four-wave closure, idea harvest, four rulings asked | **Shipped (plan-only, this PR)** |
-| D-TEH-1 | W1: `bridge_gate` trait → `lance-graph-contract`; callcenter drops the path dep; DTO-ladder home ruling recorded (D-TTV-1); thinking-engine becomes a leaf | Queued — first code wave |
+| D-TEH-1 | W1: `bridge_gate` (seven items) → `lance_graph_contract::bridge_gate`; callcenter re-imports and drops the path dep; thinking-engine keeps a re-export shim | **Shipped 2026-09-02** (before: required dep, 6 crossing sites, dep-drop alone fails 6 × E0433; after: zero thinking-engine deps in callcenter metadata, contract 1303/1303, callcenter 156/156, driver default + `with-engine` green, ALU artery files byte-identical). `with-engine` re-point deferred by stop condition: D-TTV-1 not landed |
 | D-TEH-2 | W2: ghost prior → planner `nars/ghost_prior.rs` over `WisdomMarker`, per-thought, two-sided falsifiers; crate `ghosts.rs` deleted | Queued — consumer D-HOUSE-4 |
-| D-TEH-3 | W2: `cronbach` → `jc::reliability`; `semantic_chunker` / `spiral_segment` decided by their falsifiers | Queued |
+| D-TEH-3 | W2: calibration MATH → `jc` (ruling 4, 2026-09-02: lift if correct, perfect in jc if not; crate copies die); glue stays in the lab crate; `semantic_chunker` / `spiral_segment` decided by their falsifiers | Queued |
 | D-TEH-4 | W3: ENTROPY M8 engine collapse with dtype parity suite; 5 cascade shapes + 3 lens modules collapse | Queued |
 | D-TEH-5 | W4: residue deleted, crate renamed `thinking-lab` with a `--manifest-path` CI line; §2 rows closed; `TD-THINKING-ENGINE-EXCLUDED-DEBT-1` paid | Queued — closes the chapter |
 
@@ -1372,8 +1372,8 @@ Plan path: `.claude/plans/causaledge64-mailbox-rename-soa-v1.md`.
 | D-REUNIFY-2 | 8-channel → SPO transcoder spec at thinking-engine L3 commit boundary | **Backlog → shipped as D-CSV-9** (#387 `e042c70`; annotated 2026-09-02, `thinking-engine-harvest-closure-v1` §2) | per Option R-3; sprint-12+ |
 | D-REUNIFY-3 | `Think` carrier struct prototype unifying thinking-engine cascade + cognitive-shader-driver SoA | **Backlog** | per `.claude/knowledge/splat-shader-rayon-struct-method-vision.md` sprint-12 |
 | D-REUNIFY-4 | Splat op fleet (`splat_gaussian`, `score_hole_closure`, `replay_coherence`, `emit_if_epiphany`) as methods on `Think` | **Backlog** | sprint-13+ |
-| D-REUNIFY-5 | rayon work-stealing par_* method variants | **Backlog** | sprint-14+ |
-| D-REUNIFY-6 | OWL DOLCE / OntologyFilter wiring into `emit_causal_edges_filtered` | **Backlog** | sprint-15+ |
+| D-REUNIFY-5 | rayon work-stealing par_* method variants | **Closed — superseded** (operator ruling 2026-09-02, closure plan §6.2: the target was the singleton BindSpace; any sweep is a new row against `MailboxSoA`) | sprint-14+ |
+| D-REUNIFY-6 | OWL DOLCE / OntologyFilter wiring into `emit_causal_edges_filtered` | **Closed — superseded** (operator ruling 2026-09-02, closure plan §6.2: ontology lives at the membrane, not in the engine) | sprint-15+ |
 
 ---
 
@@ -1470,7 +1470,7 @@ hot/cold/feedback loop onto our contract types + SoA floor
 | D-PERSONA-2 | meta-recipe manifest (declarative child-spec, recipe-as-data, macro-evaluable) | contract | 150 | MED | **Queued** | — |
 | D-PERSONA-3 | hot/cold/feedback wiring — anneal + `CrystalCodebook`→wisdom-marker cold path + Preload hydrate | planner + Lance | 240 | MED | **Queued** | — |
 | D-PERSONA-4 | macro-eval harness (scenario→trace→discover→diagnose; suspect-bridge = blasgraph betweenness; 5 rubrics from D-RUNG-MUL) | planner + Lance | 280 | HIGH | **Queued** | — |
-| D-PERSONA-5 | ractor outer-swarm runtime under `OrchestrationBridge` (batons as messages, async only at boundary) | planner | 200 | MED | **Queued — proposed RETIRE** (`thinking-engine-harvest-closure-v1` §2/§6: batons-as-messages contradicts E-NOBODY-WAITS-1 and E-ACK-ELIMINATED-1; ruling needed, not assumed) | — |
+| D-PERSONA-5 | ractor outer-swarm runtime under `OrchestrationBridge` (batons as messages, async only at boundary) | planner | 200 | MED | **RETIRED** (operator ruling 2026-09-02, `thinking-engine-harvest-closure-v1` §6.1: batons-as-messages contradicts E-NOBODY-WAITS-1 and E-ACK-ELIMINATED-1; the `MailboxId` dependant at `counterfactual.rs:243` is re-homed on the W2a board tenant) | — |
 | D-PERSONA-6 | `odoo_scanner` + `OdooBridge` — harvest Odoo `l10n_de` → Finance-ns `MappingProposal`s; bind existing `TaxEngine`; GoBD by construction | ontology + contract + planner | 280 | MED | **Queued** | — |
 
 ---

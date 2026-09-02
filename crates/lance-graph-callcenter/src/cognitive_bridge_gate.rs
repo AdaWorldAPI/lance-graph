@@ -1,7 +1,8 @@
 //! `UnifiedBridgeGate<B>` — production `CognitiveBridgeGate` impl.
 //!
 //! Wraps a `UnifiedBridge<B>` and implements `CognitiveBridgeGate` from
-//! `thinking-engine::bridge_gate`. Cross-tenant ops are authorized through
+//! `lance_graph_contract::bridge_gate` (moved there from `thinking-engine`
+//! by D-TEH-1; the engine re-exports the same items). Cross-tenant ops are authorized through
 //! the existing `UnifiedBridge::authorize_read` / `authorize_act` paths,
 //! which already emit `UnifiedAuditEvent` via the `AuditChain` (D-SDR-5).
 //!
@@ -42,10 +43,12 @@ use lance_graph_contract::property::PrefetchDepth;
 use lance_graph_ontology::bridge::NamespaceBridge;
 
 use crate::unified_bridge::UnifiedBridge;
-use thinking_engine::bridge_gate::{CognitiveAuthResult, CognitiveBridgeGate, CognitiveOpKind};
+use lance_graph_contract::bridge_gate::{
+    CognitiveAuthResult, CognitiveBridgeGate, CognitiveOpKind,
+};
 
 // ═══════════════════════════════════════════════════════════════════════════
-// PrefetchDepth helper — avoids exposing lance-graph-contract in thinking-engine
+// PrefetchDepth helper — keeps the gate trait's `depth: u8` free of the PrefetchDepth type
 // ═══════════════════════════════════════════════════════════════════════════
 
 /// Map the `depth: u8` passed through `CognitiveBridgeGate::authorize_retrieval`
@@ -194,7 +197,9 @@ mod tests {
     use crate::super_domain::SuperDomain as SD;
     use crate::unified_audit::UnifiedAuditEvent;
     use crate::unified_bridge::{TenantId, UnifiedBridge};
-    use thinking_engine::bridge_gate::{CognitiveAuthResult, CognitiveBridgeGate, CognitiveOpKind};
+    use lance_graph_contract::bridge_gate::{
+        CognitiveAuthResult, CognitiveBridgeGate, CognitiveOpKind,
+    };
 
     // ── StubBridge (mirrors unified_bridge tests) ────────────────────────────
 
@@ -454,9 +459,17 @@ mod tests {
         assert_eq!(gate.chinese_wall_deny_count(), 1);
     }
 
-    /// Pure cognitive ops (encode, qualia compute, distance lookup) do NOT call
-    /// the gate. Verified by the absence of any chinese_wall increment and the
-    /// zero-overhead passthrough in thinking-engine standalone mode.
+    /// Pure ops do NOT call the gate, so they emit no audit event and no
+    /// Chinese-wall increment. The pure ops exercised here are this crate's
+    /// own gate-free helpers (`prefetch_from_u8` over every depth,
+    /// `auth_to_result` over every verdict, the verdict predicates) — none of
+    /// them touches `UnifiedBridgeGate`. The engine-side half of the same
+    /// claim (codebook / distance lookups never reach the gate) lives in
+    /// `thinking-engine::bridge_gate::tests::pure_ops_dont_touch_gate`, next
+    /// to the lens modules it calls; D-TEH-1 removed this crate's path
+    /// dependency on that engine, so its lens functions are not called here.
+    /// The gate object is constructed so the assertion measures a REAL sink
+    /// and a REAL counter, not the absence of a gate.
     #[test]
     fn pure_ops_emit_zero_audit_events() {
         let sink = Arc::new(RecordingSink::default());
@@ -470,11 +483,16 @@ mod tests {
             );
         let gate = UnifiedBridgeGate::new(unified);
 
-        // Pure codebook lookups — gate never called.
-        let _ = thinking_engine::jina_lens::jina_lookup(42);
-        let _ = thinking_engine::jina_lens::jina_distance(0, 1);
-        let _ = thinking_engine::bge_m3_lens::bge_m3_lookup(100);
-        let _ = thinking_engine::reranker_lens::reranker_lookup(500);
+        // Pure helpers — the gate object exists but is never consulted.
+        use lance_graph_contract::bridge_gate::auth_to_result;
+        for depth in 0u8..=4 {
+            let _ = prefetch_from_u8(depth);
+        }
+        assert!(auth_to_result(CognitiveAuthResult::Allow).is_ok());
+        assert!(auth_to_result(CognitiveAuthResult::Deny).is_err());
+        assert!(auth_to_result(CognitiveAuthResult::Escalate).is_err());
+        assert!(CognitiveAuthResult::Allow.is_allowed());
+        assert!(CognitiveAuthResult::Escalate.is_denied());
 
         assert_eq!(sink.count(), 0, "pure ops must emit zero audit events");
         assert_eq!(gate.chinese_wall_deny_count(), 0);

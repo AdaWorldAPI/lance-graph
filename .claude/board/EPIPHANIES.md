@@ -51,6 +51,31 @@ Theorem 2 is NOT the lattice cutoff.
 downstream of it are structurally incapable of pinning it — any bound at least
 as large passes. Such a constant needs its own numeric guard, and that guard's
 apparent triviality is a property of correct design, not a smell.
+## 2026-09-02 — E-THE-DTO-LADDER-IS-THE-ALU-BUS-AND-WAS-ALREADY-RULED-1 — a session re-asked a question `.claude/v3/` had answered on 2026-07-02, and proposed a probe on the wrong axis before reading it
+
+**Status:** CORRECTION + FENCE (same day, same branch, before merge). **Confidence:** High.
+
+**What happened.** The closure plan asked, as "ruling 3", which crate should own `StreamDto` / `PerturbationDto` / `BusDto` / `ThoughtStruct`, offered "driver vs a small DTO crate", and — after the operator said the word "ladder" was unclear — proposed an `ogar-r2il` round-trip probe to decide it. The operator's correction was to read the V3 documentation. Read in full (`README`, `VISION`, `v3-substrate-primer`, `INTEGRATION-PLAN`, `ENTROPY-MILESTONES`), the answer was there since 2026-07-02: the four structs are the bus of the ALU chain `ladybug-rs → thinking-engine → P64 → cognitive-shader-driver → SoA` (`primer` §3, `VISION` §6, `E-DTO-LADDER-OWNERSHIP-SPLIT`, W4 / D-V3-W4a), and the contract already carries their zero-dep shader-side twins (`cognitive_shader::{ShaderDispatch, ShaderResonance, ShaderBus, ShaderCrystal}`; `engine_bridge.rs:6-8` maps the two ladders rung by rung).
+
+**The plain statement, so it is not re-derived again.** `cognitive-shader-driver` is the ALU: it owns the SoA columns, dispatches a cycle through the engine hook, and emits the cycle fingerprint through sinks. The four DTOs are what enters and leaves the ALU. stockfish-rs is the reference design for the 64×64 field (NNUE = the incremental make/unmake accumulator, `stockfish-harvest-64x64-v1`); masking + SIMD are what turn that ALU into a reusable thinking-compiler driver any consumer can dispatch into as a cognitive shader. What is genuinely open on this chain is NOT placement: PR #1051 measured the seam as transport rather than a field ALU, and `alpha-reason-witness-shader-field-lineage-addendum-v1` owns recovering the field path. A closure of thinking-engine never moves the ALU's bus into a lab crate, a DTO crate, or r2il.
+
+**Fence.** Before asking any question that contains "DTO", "ladder", "BusDto", "shader" or "driver": `v3-substrate-primer.md` §3 and `E-DTO-LADDER-OWNERSHIP-SPLIT` first. The primer is one page; the re-derivation cost two turns and one wrong proposal in a PR body. This is the "consult before you guess" rule (CLAUDE.md § The Stance) failing on its own author.
+
+Refs: `E-DTO-LADDER-OWNERSHIP-SPLIT`, `E-TWO-RESONANCES-SPLIT`, `.claude/v3/INTEGRATION-PLAN.md` W4, PR #1051 (seam audit), `alpha-reason-witness-shader-field-lineage-addendum-v1` §A0–A5, `thinking-engine-harvest-closure-v1` §6.3 (corrected).
+
+## 2026-09-02 — E-JC-IS-THE-HOME-OF-ALL-CALIBRATED-MATH-1 — operator ruling: scientifically calibrated math lives in `jc`, lifted when correct and perfected there when not; glue is not math
+
+**Status:** RULING (operator, 2026-09-02, closing ruling 4 of `thinking-engine-harvest-closure-v1` §6; rulings 1 and 2 of the same section — D-PERSONA-5 RETIRED, D-REUNIFY-5/6 CLOSED-superseded — landed in the same commit; ruling 3 stays OPEN, re-stated in plain terms in the plan). **Confidence:** High (verbatim intent; wording here is mine).
+
+**The rule.** `jc` (Jirak-Cartan, the pillar crate) is the single home for every piece of math that has been or must be scientifically calibrated. When a calibration routine exists elsewhere in the workspace it has exactly two fates: **lifted** into jc as-is if it is correct, or — if it sails under a wrong name or is numerically wrong — the **jc version is perfected** and the stray copy dies. A duplicate is never tolerated as "the same thing twice"; it is either the same (lift) or a defect (perfect). jc's pillars are meant to be the reusable, liftable calibration source, and once ndarray is proven bit-exact the same math is re-importable into production from jc rather than re-derived.
+
+**Why `sigker` stayed out.** This is the same rule applied earlier: sigker was held outside jc while Pillar 11 (Hambly-Lyons signature uniqueness) was red for non-lattice quantized step vectors. Only math whose certification is green enters the pillar crate.
+
+**What it changes right now.** The thinking-engine calibration battery is split by NATURE, not by weight: `cronbach.rs` (compared against `jc::reliability::cronbach_alpha` on a shared fixture, then lifted or reconciled), `spearman_rank_correlation`, the re-encode drift statistics and the SiLU-correction statistics go to jc under D-TEH-3; candle loaders, tokenizer registry, centroid labels, model auto-detect and file plumbing are glue and stay in the lab crate, calling jc for their math.
+
+**Guard.** A lift is only a lift if the two implementations agree on a fixture that can distinguish them; a fixture on which every implementation returns the same value proves nothing (the falsifiability rule). Where they disagree, the discrepancy is understood before jc is declared right.
+
+Refs: `crates/jc/src/lib.rs` (pillar list; Pillar 11 status), `I-NOISE-FLOOR-JIRAK`, `TD-THINKING-ENGINE-EXCLUDED-DEBT-1`, `thinking-engine-harvest-closure-v1` §1d / §6 / W2.
 
 ## 2026-09-02 — E-A-GHOST-TRACE-IS-NOT-THE-COUNTERFACTUAL-LANE-1 — the word "ghost" names two semantic families in the tree; the same-word-≠-same-family lesson of the September teardown, caught BEFORE a port this time
 
