@@ -21,7 +21,7 @@ That is a programme, not a cleanup.
 Its COMPONENT-MAP note reads: intra-cascade SD gate — fine IF intra-mailbox; warden sign-off queued, not assumed
 
 **`ResonanceDto` → `PerturbationDto` gives the rule that needs no map at all:**
-2 crate files against 11 plans. The code moved; the plans did not.
+2 crate files against 12 plans. The code moved; the plans did not.
 **Plan-mentions exceeding crate-mentions is a staleness signal on its own.**
 
 ### The limit of the mechanical route
@@ -59,7 +59,7 @@ coverage instead.
 | `GateDecision` | REPURPOSE | — | 25 | 27 | 24 |
 | `GateState` | REPURPOSE | — | 14 | 1 | 1 |
 | `MergeMode` | REPURPOSE | — | 8 | 13 | 12 |
-| `ResonanceDto` | REPURPOSE | `PerturbationDto` | 2 | 11 | 7 |
+| `ResonanceDto` | REPURPOSE | `PerturbationDto` | 2 | 12 | 7 |
 | `BindSpace` | RETIRE | — | 68 | 44 | 41 |
 | `CollapseGateEmission` | RETIRE | — | 5 | 13 | 12 |
 | `ThinkingStyle` | RETIRE-toward-contract | — | 51 | 28 | 24 |
