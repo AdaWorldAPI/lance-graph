@@ -10,6 +10,15 @@
 > census §8.3 trap 10: read the body FIRST, then open for write — never
 > inline both in one expression.
 
+## 2026-09-02 — lance-graph branch `claude/medcare-rs-continue-6nhbxn` (D-TEH-1 PR, after #1138) — `bridge_gate` → contract; callcenter drops its thinking-engine dependency
+
+- **Added:** `crates/lance-graph-contract/src/bridge_gate.rs` (seven items + 9 tests, moved not re-derived); `pub mod bridge_gate` in the contract lib; `thinking_engine::bridge_gate` as a re-export shim keeping `pure_ops_dont_touch_gate` engine-side.
+- **Changed:** callcenter imports (2 sites) → `lance_graph_contract::bridge_gate`; `pure_ops_emit_zero_audit_events` rewritten over the crate's own gate-free helpers (`prefetch_from_u8` all depths, `auth_to_result` all verdicts, predicates) with the real sink + counter still asserted at zero; callcenter `Cargo.toml` dep line removed; three doc comments.
+- **Measured:** before = required path dep, 6 crossing sites, dep-drop alone fails 6 × E0433; after = zero thinking-engine deps in callcenter metadata, contract 1303/1303, callcenter 156/156, driver default + `with-engine` green, thinking-engine lib green + shim test 1/1, clippy `-D warnings` clean on both touched crates, fmt clean.
+- **Locked:** the ALU artery untouched (empty diff on `dto.rs`, `engine_bridge.rs`, `cognitive_shader.rs`, `mailbox_soa.rs`, driver manifest).
+- **Deferred:** step 6 (re-point `with-engine`) — stop condition: D-TTV-1 has not landed, the engine hook is still in thinking-engine. D-TEH-2..5, D-HOUSE-1, D-ARW not started.
+- **Confidence:** High.
+
 ## 2026-09-02 — lance-graph branch `claude/medcare-rs-continue-6nhbxn` (rulings PR, after #1137) — closure-plan rulings 1, 2, 4 recorded; ruling 3 re-stated
 
 - **Added:** EPIPHANIES `E-JC-IS-THE-HOME-OF-ALL-CALIBRATED-MATH-1`; closure
