@@ -39,6 +39,14 @@ p64 = { path = "../../../ndarray/crates/p64" }
 neural-debug = { path = "../neural-debug" }
 
 [[example]]
+# A0/A1/A2 Goursat probe (TD-PILLAR11-SCIENTIFIC-LOOPS-BYPASS-NDARRAY-SIMD-1).
+# Imports `sigker::signature_kernel_pde` as the A0 reference, so it only
+# exists when Pillar 11 is on — CI builds examples with default features and
+# an unconditional `use sigker` there is a hard E0432, not a warning.
+name = "goursat_substrate_probe"
+required-features = ["hambly-lyons"]
+
+[[example]]
 name = "prove_it"
 
 [[example]]
