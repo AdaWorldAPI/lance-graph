@@ -191,53 +191,28 @@ pub fn apply_corrections(table: &mut [u8], corrections: &[f32], n: usize) {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
-// STATISTICS
+// STATISTICS — the MATH lives in jc (D-TEH-3); this is the adapter
 // ═══════════════════════════════════════════════════════════════════════════
 
-/// Analyze correction magnitude distribution.
-#[derive(Debug, Clone)]
-pub struct CorrectionStats {
-    pub count: usize,
-    pub mean_abs: f32,
-    pub max_abs: f32,
-    pub mean: f32,
-    pub std_dev: f32,
-    /// Fraction of corrections > 0.01 (material difference).
-    pub material_fraction: f32,
-    /// Fraction of corrections > 0.1 (large difference).
-    pub large_fraction: f32,
-}
+/// Correction-delta summary. The type is `jc::drift::DeltaSummary` — the
+/// descriptive battery (mean, mean |δ|, max |δ|, population σ, fraction above
+/// two cut-offs) is calibrated math and lives in jc; this crate only decides
+/// which deltas to feed it and which cut-offs mean "material" / "large" here.
+pub use jc::drift::DeltaSummary as CorrectionStats;
 
+/// A correction that changes a cosine by more than this is material.
+pub const MATERIAL_CORRECTION: f64 = 0.01;
+/// A correction that changes a cosine by more than this is large.
+pub const LARGE_CORRECTION: f64 = 0.1;
+
+/// Summarise the corrections of a training sample set.
+///
+/// Empty input yields [`CorrectionStats::empty`] (count 0), preserving the
+/// historical shape for callers that print a report unconditionally.
 pub fn correction_stats(samples: &[CorrectionSample]) -> CorrectionStats {
-    let n = samples.len();
-    if n == 0 {
-        return CorrectionStats {
-            count: 0,
-            mean_abs: 0.0,
-            max_abs: 0.0,
-            mean: 0.0,
-            std_dev: 0.0,
-            material_fraction: 0.0,
-            large_fraction: 0.0,
-        };
-    }
-    let corrections: Vec<f32> = samples.iter().map(|s| s.correction).collect();
-    let mean = corrections.iter().sum::<f32>() / n as f32;
-    let mean_abs = corrections.iter().map(|c| c.abs()).sum::<f32>() / n as f32;
-    let max_abs = corrections.iter().map(|c| c.abs()).fold(0.0f32, f32::max);
-    let variance = corrections.iter().map(|c| (c - mean).powi(2)).sum::<f32>() / n as f32;
-    let material = corrections.iter().filter(|c| c.abs() > 0.01).count();
-    let large = corrections.iter().filter(|c| c.abs() > 0.1).count();
-
-    CorrectionStats {
-        count: n,
-        mean_abs,
-        max_abs,
-        mean,
-        std_dev: variance.sqrt(),
-        material_fraction: material as f32 / n as f32,
-        large_fraction: large as f32 / n as f32,
-    }
+    let deltas: Vec<f64> = samples.iter().map(|s| f64::from(s.correction)).collect();
+    jc::drift::delta_summary(&deltas, MATERIAL_CORRECTION, LARGE_CORRECTION)
+        .unwrap_or_else(|| CorrectionStats::empty(MATERIAL_CORRECTION, LARGE_CORRECTION))
 }
 
 #[cfg(test)]

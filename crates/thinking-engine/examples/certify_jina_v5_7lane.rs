@@ -274,11 +274,16 @@ fn main() {
     let spearman = quality::spearman(&ref_upper, &lane6_upper);
     let ref_z = z_score_normalize(&ref_upper);
     let lane6_z = z_score_normalize(&lane6_upper);
-    let cronbach_a =
-        thinking_engine::cronbach::cronbach_alpha(&[ref_z.as_slice(), lane6_z.as_slice()]);
+    // jc returns `None` where α is undefined; NaN fails every `>=` below,
+    // which is the honest verdict for an undefined estimate.
+    let cronbach_a = jc::reliability::cronbach_alpha(&[
+        ref_z.iter().map(|&v| f64::from(v)).collect(),
+        lane6_z.iter().map(|&v| f64::from(v)).collect(),
+    ])
+    .unwrap_or(f64::NAN);
     let lane6_verdict = if pearson >= TARGET_LAB_BF16
         && spearman >= TARGET_LAB_BF16
-        && (cronbach_a as f64) >= TARGET_LAB_BF16
+        && cronbach_a >= TARGET_LAB_BF16
     {
         "PASS"
     } else {
@@ -308,7 +313,7 @@ fn main() {
         "  Cronbach α      = {:.4}  target {:.4}  [{}]",
         cronbach_a,
         TARGET_LAB_BF16,
-        if (cronbach_a as f64) >= TARGET_LAB_BF16 {
+        if cronbach_a >= TARGET_LAB_BF16 {
             "pass"
         } else {
             "FAIL"
@@ -321,7 +326,7 @@ fn main() {
         target: TARGET_LAB_BF16,
         pearson,
         spearman,
-        cronbach_alpha: cronbach_a as f64,
+        cronbach_alpha: cronbach_a,
         verdict: lane6_verdict.to_string(),
     });
 
@@ -2024,8 +2029,11 @@ fn measure_lane(
     // practice when items are on different measurement scales.
     let ref_z: Vec<f32> = z_score_normalize(reference);
     let lane_z: Vec<f32> = z_score_normalize(lane);
-    let cronbach_a =
-        thinking_engine::cronbach::cronbach_alpha(&[ref_z.as_slice(), lane_z.as_slice()]) as f64;
+    let cronbach_a = jc::reliability::cronbach_alpha(&[
+        ref_z.iter().map(|&v| f64::from(v)).collect(),
+        lane_z.iter().map(|&v| f64::from(v)).collect(),
+    ])
+    .unwrap_or(f64::NAN);
 
     let metric_value = match primary {
         "pearson" => pearson,
