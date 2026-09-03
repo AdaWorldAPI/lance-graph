@@ -1,3 +1,91 @@
+## 2026-09-03 — E-A-CORRECTION-IS-ONLY-AS-GOOD-AS-ITS-MERGE-1 — an unlanded Storno leaves the falsehood standing
+
+**Status:** FINDING (measured on this repo's own `main`, this hour). The
+actionable rule below was falsified once by its own repo-scale sweep and
+corrected in place before merge — see the ⊘ block.
+**Confidence:** High — the false claim, the correct fix, and the source that
+settles them were all read directly.
+
+**The measurement.** `main` asserted, in two board files, that two ancestor
+mechanisms disagreed by **58.2%**:
+
+| site | reading on `main` |
+|---|---|
+| `.claude/board/AGENT_LOG.md:481` | 58.2% **disagreement** |
+| `.claude/board/INTEGRATION_PLANS.md:910` | 58.2% **disagreement** |
+
+The source says the opposite. `MedCare-rs/crates/medcare-server/src/views/atlas.rs:465`
+reads `// the DAG longest path. Measured agreement: 58.2 %.` — agreement 58.2%,
+disagreement 41.8%. `EPIPHANIES.md`, `LATEST_STATE.md` and `PR_ARC_INVENTORY.md`
+carried it correctly, which is exactly why the inversion survived: the majority
+of sites agreed with each other and with the truth, so nothing looked odd.
+
+**The part worth keeping.** A sibling session had *already found and fixed this*
+— a well-formed Storno, source-cited, regraded in place with `⊘` blocks and
+strikethrough rather than deletion, fully compliant with the append-only rule.
+It sat on an unmerged branch **with no pull request**, 170 commits behind `main`,
+while `main` went on asserting the claim it corrects. Measured: the branch
+merges into current `main` with **zero conflicts**.
+
+**So the append-only discipline protects nothing on its own.** Regrading in
+place, never deleting, citing the source — every rule was followed, and the
+falsehood still stood on `main`, because the corrected file never landed. The
+board's guarantee is about how a correction is *written*; it says nothing about
+whether it is *reachable*. **A correction is only as good as its merge.**
+
+**And the absence of a signal read as the absence of work.** `list_pull_requests
+--state open` returned `[]`. Zero open PRs is the state a workspace looks like
+when it is idle *and* the state it looks like when finished work is stranded on
+branches — the two are indistinguishable from the PR list alone. The cheap check
+that separates them is `git ls-remote --heads` plus a per-branch
+`rev-list --left-right --count` against `main`; it costs one command and it is
+the only thing that would have surfaced this.
+
+**⊘ The first version of this entry got the actionable rule WRONG, and the
+correction is the better half.** It said: *"a branch ahead of `main` with no PR
+is either abandoned or stranded."* Then I ran that sweep at repo scale instead
+of on the one branch I already knew about:
+
+| check | hits |
+|---|---|
+| remote branches on `origin` | **526** |
+| ahead of `main` (any age) | **~200**, nearly all also 282 behind |
+| ahead of `main`, ordered by last-commit recency | **4** |
+
+Ahead-of-`main` alone is not a signal — it is the resting state of hundreds of
+long-dead branches, and it drowns exactly what it was supposed to surface. This
+is the same defect the entry above describes, committed in the entry describing
+it: a rule that *reads* as measured, written from one instance, wrong in the
+flattering direction. Ordering by **recency** is what makes it a discriminator,
+because a stranded branch is by definition recent — the valhalla branch was 170
+behind `main` where the dead ones are 282.
+
+**Consequence, actionable (corrected, and re-run).** Before concluding a repo
+has nothing in flight: `git for-each-ref --sort=-committerdate refs/remotes/origin`,
+then `git rev-list --count origin/main..<branch>` over the recent head of that
+list. On this repo it returned four, and the three that were not mine split
+cleanly:
+
+- `claude/lance-graph-java-panama-valhalla-sus9w8` — the verified 58.2%
+  correction above. **Stranded.** → #1162.
+- `claude/stale-4layer-index-entry` — four board entries from the 2026-08-30
+  supersession-gate arc. **Stranded, and the harder kind**: the workflow *fix*
+  reached `main` by another route, so a reader who checks whether the problem is
+  fixed finds *yes* and concludes the branch is redundant — while all four
+  entries explaining it are absent from `main` (verified by grep). → #1164.
+- `claude/redo-d-mar-1` — commit subject reads `HOLD: … NOT for merge`.
+  **Deliberately parked, correctly excluded.** The method's silence case, and it
+  self-labels: a branch that is meant to sit says so in its own subject line.
+
+Two fires and one silence on non-trivial input, which is the least this repo
+accepts of a new rule.
+
+**Cross-refs.** The stranded-slice entries near `:1324` are a *different*
+mechanism — work lost inside a rebase, not work finished and never proposed.
+This is the second failure mode, and the recovery is a PR, not a re-derivation.
+
+---
+
 ## 2026-09-03 — E-A-CENSUS-IS-A-FUNCTION-OF-ITS-REGEX-SO-GATE-THE-PROPERTY-1 — three numbers, one tree
 
 **Status:** FINDING (all three counts measured on the same tree, same hour).
