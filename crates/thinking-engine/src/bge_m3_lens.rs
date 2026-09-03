@@ -24,27 +24,16 @@ pub const BGE_M3_VOCAB_SIZE: usize = 250_002;
 
 #[inline]
 pub fn bge_m3_lookup(token_id: u32) -> u16 {
-    let idx = (token_id as usize).min(BGE_M3_VOCAB_SIZE - 1);
-    let offset = idx * 2;
-    if offset + 1 < BGE_M3_CODEBOOK_INDEX.len() {
-        u16::from_le_bytes([
-            BGE_M3_CODEBOOK_INDEX[offset],
-            BGE_M3_CODEBOOK_INDEX[offset + 1],
-        ])
-    } else {
-        0
-    }
+    crate::lens_shared::codebook_lookup(BGE_M3_CODEBOOK_INDEX, BGE_M3_VOCAB_SIZE, token_id)
 }
 
 pub fn bge_m3_lookup_many(token_ids: &[u32]) -> Vec<u16> {
-    token_ids.iter().map(|&id| bge_m3_lookup(id)).collect()
+    crate::lens_shared::codebook_lookup_many(BGE_M3_CODEBOOK_INDEX, BGE_M3_VOCAB_SIZE, token_ids)
 }
 
 #[inline]
 pub fn bge_m3_distance(a: u16, b: u16) -> u8 {
-    let ai = (a as usize).min(BGE_M3_N_CENTROIDS - 1);
-    let bi = (b as usize).min(BGE_M3_N_CENTROIDS - 1);
-    BGE_M3_HDR_TABLE[ai * BGE_M3_N_CENTROIDS + bi]
+    crate::lens_shared::hdr_distance(BGE_M3_HDR_TABLE.as_slice(), BGE_M3_N_CENTROIDS, a, b)
 }
 
 pub fn bge_m3_engine() -> crate::engine::ThinkingEngine {

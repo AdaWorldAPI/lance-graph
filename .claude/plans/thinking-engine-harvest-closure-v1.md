@@ -372,7 +372,7 @@ joining the earlier D-TEH-2/D-TEH-3 PASS rows already landed
 | D-TEH-1 | W1: `bridge_gate` (seven items) → `lance_graph_contract::bridge_gate`; callcenter re-imports and drops the path dep; thinking-engine keeps a re-export shim | contract + callcenter | **Shipped 2026-09-02** — edge measured before (required dep, 6 crossing sites, dep-drop fails 6 × E0433) and after (zero thinking-engine deps in callcenter metadata; 1303 + 156 tests, driver default + `with-engine` green). The `with-engine` re-point is NOT part of this wave: D-TTV-1 is Queued and the engine hook still lives in thinking-engine, so there is nothing to re-point it at (stop condition honoured). thinking-engine is now a leaf for every REQUIRED edge; the one remaining edge is the ALU's optional engine hook |
 | D-TEH-2 | W2: ghost prior harvested as planner `nars/ghost_prior.rs` over `WisdomMarker`, per-thought, with two-sided falsifiers; crate `ghosts.rs` deleted | planner | **Shipped 2026-09-02** — planner `nars/ghost_prior.rs` (`GhostPrior`, `PriorFloor`, `Trace`, `calibration::{recurrence_fixture, discrimination}`; 14 tests); `ghosts.rs` + `examples/think.rs` deleted; lab `persona`/`world_model`/`awareness_dto` re-pointed to `contract::escalation::GhostEcho` (TD-GHOST-ECHO-DUP-1 resolved). Calibration gate REVERSED the first-declared floor: `Marker` (0.1, never pruned) discriminates ≥ `Trace` (0.001) on every fixture row and strictly once the remembered pattern ages past its prune point (disc 0.0188 vs 0.0000 at 30 stale / age 20 and 60); default = `Marker`. Consumer D-HOUSE-4 unblocked |
 | D-TEH-3 | W2: calibration MATH → jc (ruling 4: compare, then lift or perfect in jc; crate copies deleted); `semantic_chunker` / `spiral_segment` decided by their falsifiers | jc / deepnsm-v2 / codec home | **Shipped 2026-09-02/03 — all three halves closed.** Math: new `jc::drift` (`reencode_drift` / `reencode_batch` / `delta_summary`) and `jc::quorum` (`pairwise_agreement_u8` / `QuorumLevel` / `cronbach_report`); lift gate ran on distinguishing fixtures: cronbach = same estimator (LIFT; the `f32` copy loses a `1e7`-shifted fixture the `f64` form holds to `1e-9`), spearman = the retired copy ranked ties by position (PERFECT-IN-JC: 1.000 vs 0.948683 on `[1,2,2,3]`). `cronbach.rs` deleted; `reencode_safety` / `silu_correction` / `ground_truth::calibration` are glue over jc, x256 proof green (14 tests). **`semantic_chunker`: KILL** (§4c) — recall 0.000 at every threshold, confirmed a genuine mechanism null (not a harness artifact) via a non-committed positive-control diagnostic on the module's own adversarial fixture shape; stays LAB. **`spiral_segment`: KILL** (§4c) — fidelity clears r/rho >= 0.9980 on every u8 table but NOT on i8 (rho tops out at 0.9975, corrected 2026-09-03 per Codex review on #1144); compression fails on every table regardless, topping out at ~0.28x a u8 table (i.e. ~3.6x LARGER, not the claimed 51x), because real HDR/CDF table rows need ~114-143 segments to hit even a loose max_error; stays LAB, certification battery not scheduled |
-| D-TEH-4 | W3: M8 engine collapse with parity suite; cascade shapes and lens modules collapse | thinking-engine → the one engine | Queued (owns ENTROPY M8) |
+| D-TEH-4 | W3: M8 engine collapse with parity suite; cascade shapes and lens modules collapse | thinking-engine → the one engine | **Shipped 2026-09-03** — see §7 for the full scope decision. `builder.rs`'s `BuiltEngine`/`ConfiguredEngine` were found ALREADY dispatching all four dtypes uniformly (pre-existing, not built this wave) — that half of "one enum-dispatched engine" was proving-and-using, not building. What genuinely collapsed: `domino.rs`/`signed_domino.rs`'s ~150 lines of duplicate stage-finalization logic → shared `finalize_stage`/`is_focus_stable`; the 3 lens modules' identical `_lookup`/`_distance` bodies → `lens_shared.rs`. New `dtype_parity.rs`: the mandatory parity suite (3 tests, all real fixtures instantiating all 4 `BuiltEngine` variants from one baked lens, `DualEngine`'s pre-existing agreement as the measured floor, anti-vacuity guards on the floor itself and on the four dtypes NOT being bit-identical). `branching.rs`/`layered.rs` deliberately NOT folded into `BuiltEngine` (documented in both module docs: they compose multiple differently-sized engines, not per-dtype variants of one) — kept as directly-usable modes alongside the collapsed engine, per the plan's own wording. 345/345 lib tests green (was 337; +8 new), zero regressions, clippy clean on every touched/new file (pre-existing crate-wide clippy debt, unrelated to this wave, deferred to D-TEH-5) |
 | D-TEH-5 | W4: residue deleted, crate renamed `thinking-lab` with a CI line; §2 rows closed; TD paid | workspace | Queued — closes the chapter |
 
 ## 6. Rulings — asked 2026-09-02, ruled the same day (operator)
@@ -446,3 +446,77 @@ joining the earlier D-TEH-2/D-TEH-3 PASS rows already landed
 No file moves, no deletions, no Cargo changes, no feature flips, no new
 types. Row regrades touch only status cells and cite their evidence. The
 crate builds exactly as before.
+
+## 8. D-TEH-4 (W3 — M8) scope decision, recorded 2026-09-03
+
+Before writing any code, every file the closure surface names for M8 was
+read in full: all four dtype engines (`engine.rs`, `bf16_engine.rs`,
+`signed_engine.rs`, `f32_engine.rs`), `dual_engine.rs`, `composite_engine.rs`,
+`builder.rs`, `branching.rs`, `layered.rs`, `domino.rs`, `signed_domino.rs`,
+and the 3 lens modules. Findings, and the collapse decision each produced:
+
+1. **"One enum-dispatched engine" already existed.** `builder.rs`'s
+   `BuiltEngine` enum (`Unsigned`/`Signed`/`BF16`/`F32`) already dispatches
+   `perturb`/`reset`/`energy`/`cycles`/`size`/`think`/`think_with_temperature`
+   uniformly across all four dtypes, and `ConfiguredEngine::process()` is
+   already a full reset→perturb→think→pool→commit→sink pipeline over any
+   `BuiltEngine`. `composite_engine.rs` and `dual_engine.rs` already consume
+   `BuiltEngine` generically. This is pre-existing infrastructure, not built
+   this wave — D-TEH-4's job here was to PROVE it (the parity suite) and USE
+   it (the fixtures), not construct it.
+2. **F32 is a real algorithmic divergence, not a precision difference.**
+   `F32ThinkingEngine::cycle()` uses softmax-with-temperature normalization
+   (`T=0.01` default) after a signed MatVec; the other three engines use
+   clamp-negative-to-zero + normalize-to-1 after a linear MatVec. This is
+   exactly why the plan's own gate insists on dtype-invariant ranking, not
+   bit-parity — confirmed by reading the code, not assumed from the plan text.
+3. **`domino.rs`/`signed_domino.rs` had ~150 lines of genuine duplicate
+   logic** (dedup+sort, focus/promoted split, staunen/wisdom/epiphany/truth
+   marker computation, stage-stability termination) sitting downstream of a
+   real algorithmic difference (unsigned similarity-above-floor scoring vs
+   signed sign-as-gate scoring). Collapsed into shared `finalize_stage` +
+   `is_focus_stable` in `domino.rs`, called by both cascades; both public
+   APIs (`DominoCascade`, `SignedDominoCascade`) are unchanged. The one place
+   left un-shared on purpose: `contradictions` selection, because the two
+   cascades genuinely select it differently (unsigned: filtered from the
+   energy-sorted neighbor list; signed: the raw inhibitory list) — collapsing
+   that too would have hidden a real behavioral difference behind one
+   function, not removed duplication.
+4. **The 3 lens modules (`jina_lens.rs`, `bge_m3_lens.rs`,
+   `reranker_lens.rs`) had byte-identical `_lookup`/`_lookup_many`/`_distance`
+   bodies**, differing only in which baked table/codebook and vocab size they
+   closed over. Extracted to `lens_shared.rs` (`codebook_lookup`,
+   `codebook_lookup_many`, `hdr_distance`); each lens module keeps its public
+   function names as one-line delegations — zero call-site changes.
+5. **`branching.rs` (`BranchingEngine`) and `layered.rs` (`LayeredEngine`)
+   are NOT per-dtype variants of one engine — they are fixed-shape
+   COMPOSITIONS of multiple differently-sized engines** (3-tier
+   L1:64/L2:256/L3:4096 spawn cascade; 3-tier cross-edge cascade). Folding
+   either into the single-table `BuiltEngine` enum would be an artificial
+   merge with no behavioral benefit and real risk to the "spawn, don't
+   filter" semantics the plan explicitly names as "the idea worth keeping".
+   Decision: leave both as separate, directly-usable structs — documented in
+   both modules' own doc comments as "kept as a mode, not folded into
+   `BuiltEngine`" — satisfying the plan's "kept as a mode, not lost"
+   instruction without a risky structural merge.
+6. **New `dtype_parity.rs`** is the mandatory parity suite the plan's gate
+   calls for: real fixtures instantiating all four `BuiltEngine` variants
+   from the SAME baked Jina lens table (via the SAME
+   `ThinkingEngineBuilder` path production code uses, not a hand-rolled
+   duplicate conversion), run on an identical perturbation. Three tests:
+   every dtype converges within `max_cycles` and commits a non-degenerate
+   peak; the collapsed builder path's u8-vs-BF16 top-k agreement is at least
+   the pre-existing `DualEngine::u8_vs_bf16()` disagreement baseline (with an
+   anti-vacuity guard that the baseline itself is non-zero); the four dtypes
+   are NOT bit-identical (anti-vacuity guard that the suite is testing
+   dtype-INVARIANT behavior, not accidentally-identical arithmetic).
+
+**Verification:** 345/345 `cargo test --lib` (was 337 pre-change; +8 new
+tests, 0 regressions, 0 removed). `cargo clippy --lib --tests -- -D
+warnings` produces zero NEW findings in any touched or new file — every
+flagged line was confirmed pre-existing via `git diff` before this wave
+touched the crate. The crate carries real pre-existing clippy debt (~57
+findings across files this wave did not touch, e.g. `qualia.rs`,
+`prime_fingerprint.rs`, `sensor.rs`) — that debt is explicitly D-TEH-5 scope
+("§2 rows closed; TD paid") and is deliberately not touched here to keep
+this PR's diff reviewable and its behavior change surface minimal.
