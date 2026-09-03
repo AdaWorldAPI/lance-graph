@@ -102,8 +102,18 @@ grep answers *"is this symbol in the tree I have"*, never *"does this symbol
 exist"*. The two coincide only when the sibling checkout is current, and in
 this workspace a sibling can be ten commits stale within a day. So:
 
-> **Fetch the sibling tree, then grep. A zero-hit result on an unfetched
-> checkout is a statement about your clone.**
+> **Fetch AND fast-forward the sibling tree — or grep the fetched ref
+> directly (`git grep <symbol> origin/main`) — then search. A zero-hit result
+> on a stale working tree is a statement about your clone.**
+>
+> **⊘ CORRECTED pre-merge (Codex, #1157).** This rule first read *"fetch, then
+> grep"*, which does not work and would not have reproduced the audit that
+> produced it: `git fetch` updates remote-tracking refs and `FETCH_HEAD`, it
+> does **not** touch the working tree, so a subsequent `grep` still reads the
+> stale files. What actually recovered the result here was `git fetch` **plus
+> `git rebase origin/main`**. A rule stated one step short of what was actually
+> done is a rule that fails for its next reader — and this one was published in
+> the same entry that warns against asserting from an incomplete view.
 
 This is the same shape as `E-A-RUNG-WRITE-PATH-ALREADY-SHIPPED-IN-A-SIBLING-REPO-1`
 (below): an absence asserted from an incomplete view. That entry's failure was
