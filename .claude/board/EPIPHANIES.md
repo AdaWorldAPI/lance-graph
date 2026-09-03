@@ -1,3 +1,47 @@
+## 2026-09-03 — E-THE-FIX-FOR-A-REVIEW-FINDING-SHIPS-UNREVIEWED-BY-DEFAULT-1 — the cap was the visible half
+
+**Status:** FINDING (measured on this PR's own review metadata).
+**Confidence:** High for the mechanism — the trigger list is quoted from the
+reviewer's own notice; the coverage table is read from `get_reviews`.
+**Prompted by:** the lance-graph-java session's flag that five consecutive PRs
+merged with zero external review.
+
+**The visible half is a spending cap.** CodeRabbit reports 84 review attempts
+in 7 days against an org cap, throttling to one review per hour, and it is why
+recent PRs merged unreviewed.
+
+**The half nobody had named is worse, because it is not a billing setting.**
+The second reviewer, Codex, is NOT capped — and it still did not see three of
+the four commits on #1154. Its own notice states its triggers: opening a PR,
+marking a draft ready, or an explicit `@codex review` comment. **A push is not
+a trigger.** So the sequence every reviewed PR follows —
+
+> review lands → author fixes the finding → author pushes → merge
+
+— ends with **the fix for the finding as the single least-reviewed commit on
+the PR.** On #1154 the reviewed commit was the one with the defect, and the
+three unreviewed ones included the correction to that exact defect. Raising the
+spend cap does not touch this; it is a trigger-semantics gap, and it applies to
+every PR in the workspace that has ever received a finding and fixed it.
+
+**Why it is easy to miss.** The PR *looks* reviewed — there is a review, it
+found something real, the thread is resolved, the badge is green. Review
+coverage is silently attributed to the PR when it was only ever attached to one
+commit. This is the same shape as the two probe findings from this same session
+(`E-A-PROBE-CAN-STATE-A-MEASUREMENT-THAT-WAS-FALSE-WHEN-IT-WAS-WRITTEN-1`): a
+claim measured once at one point in time, then read as a standing property of a
+thing that has since changed.
+
+**The cheap mitigation, available today and unrelated to spend:** after pushing
+a fix for a review finding, post `@codex review`. It costs one comment, is not
+rate-limited, and re-points the reviewer at the head that actually contains the
+fix. Done on #1154. The expensive mitigation (raise the cap) is the operator's
+call and buys a different thing — breadth across PRs, not depth after a fix.
+
+**What this does NOT claim.** No assertion that the unreviewed commits are
+wrong; two are board-only and one is a doc header. The finding is about the
+apparatus reporting more coverage than it has, not about a defect that slipped.
+
 ## 2026-09-03 — E-THE-VACANCY-RULE-IS-NOT-ABOUT-ENTROPY-1 — a second instance on its first day, from a session that does not share the arc
 
 **Status:** FINDING (cross-session; the second instance was found and acted on
