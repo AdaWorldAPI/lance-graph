@@ -38,9 +38,16 @@ execution then got quoted as *"verified in the tree, not inferred"*, which was t
 of the grep that was run and false of the claim it was offered for.
 
 **Not corrected by deletion:** every line above stays where it is. Under
-append-only a superseded assertion is regraded, never removed; the knowledge doc's
-`Scope:` line needs its own dated correction in its own file, which is a separate
-PR against a doc this session does not own.
+append-only a superseded assertion is regraded, never removed.
+
+**⊘ The knowledge doc is corrected HERE, not deferred (Codex P1 on #1159).** The
+first version of this entry deferred it to a separate PR "against a doc this
+session does not own" — incoherent, because this same entry calls it *the costlier
+of the two*. Its `READ BY:` header directs truth-architect, integration-lead,
+theorem-checker and contradiction-cartographer to load it, and a supersession
+recorded only here does not reach a session that opens that file directly, which
+is the normal path for exactly those agents. A dated supersession notice is now
+prepended at the top of the knowledge doc, above its `Scope:` line.
 
 ## 2026-09-03 — branch (PROBE-ENTROPY-SURFACE-CENSUS-1, after #1149): the D-DCR-4 gate measured — INVENTORY DELTA
 
