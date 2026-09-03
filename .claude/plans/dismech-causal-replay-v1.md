@@ -826,3 +826,31 @@ in excluded crates); the two thinking-engine forms, which are not entropies
 of a distribution at all and whose correction is a lab behaviour change with
 its own gate. The Σ-transport half of D-DCR-4 is untouched.
 Full result: `E-THE-ENTROPY-HOME-WAS-RULED-AND-LEFT-EMPTY-1`.
+
+### W4 gate — the consolidation half, shipped 2026-09-03 (append-only)
+
+The gate's measurement (PROBE-ENTROPY-SURFACE-CENSUS-1) licensed exactly one
+routing, and it is now in: `lance_graph_planner::nars::insight::confidence_entropy`
+delegates to `lance_graph_contract::thought_atoms::normalized_entropy`, taking
+that operator-ruled module's **consumer count from 0 to 1**.
+
+Two things the census decided that this commit simply obeyed:
+
+- **C1 made it a substitution rather than a hypothesis.** The log base is inert
+  under normalization, so `log2/log2(10)` and `ln/ln(n)` are the same function
+  and no tolerance argument was needed.
+- **C2 named the one hazard, and it is silent.** The caller's empty-arena
+  convention (`0.0`) and the atom's zero-mass convention (`Some(1.0)`) are
+  OPPOSITE. An empty arena builds an all-zero histogram, so the caller's early
+  return is load-bearing: without it an arena holding no uncertainty reports
+  maximal uncertainty, in range and unremarked. Pinned by
+  `an_empty_arena_has_zero_truth_entropy_not_one`, disable-verified.
+
+Still Queued on D-DCR-4: the Σ-transport half (`jc::ewa_sandwich`). Still
+deliberately out of scope: forms C/D/E (two live in workspace-excluded crates,
+so no in-workspace caller can reach them) and forms F/G (C3 measured them
+moving `92.103409` under a 10× mass scaling and going negative above 1 — they
+are not entropies of a distribution, and correcting them is a lab behaviour
+change that needs its own gate).
+
+Epiphany: `E-A-RULED-HOME-NEEDS-A-FIRST-CONSUMER-OR-IT-IS-A-VACANCY-1`.
