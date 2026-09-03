@@ -346,6 +346,108 @@ session's own scope that plausibly contains the thing — a sibling repo
 already cloned to local disk, with its `CLAUDE.md` already loaded into this
 session's context, is not an exotic place to have to look.
 
+
+### §F.6 ⊘ CORRECTED (2026-08-31) — the substrate landed, and "ten rows" was still the wrong noun
+
+The mechanism this section has now been wrong about twice **exists in this
+repo as of #1112** (merged 2026-08-31). It is no longer a design to infer from
+plan prose; it is source, and the source names itself precisely. Every claim
+below is `file:line` against the tree at `cc0046f8`.
+
+**What landed.** `alpha`, `alpha_tunnel` and `rung_schedule` migrated into
+`lance-graph-contract`; `rung_horizon` is new in `lance-graph-planner`.
+
+| module | lines | what it is |
+|---|---:|---|
+| `contract/src/alpha.rs` | 938 | the overlay algebra — `AlphaStamp{cycle,seq,rung,visits}` (`:109`), `AlphaAllocation` (`:339`), `AlphaOverlay` (`:443`), `AlphaMask` (`:224`) |
+| `contract/src/alpha_tunnel.rs` | 402 | `AlphaTunnel` (`:73`) — the split tunnel |
+| `contract/src/rung_schedule.rs` | 372 | dependency-wave scheduler; `LEVELS = 10` (`:59`) |
+| `planner/src/rung_horizon.rs` | 213 | per-rung readers + `claim_admitted` (`:59`) |
+
+#### The correction: ten LANES over ONE reservation, not ten rows
+
+§F.1 closes with *"ten rungs = ten rows, sparsely occupied, at one address."*
+**The noun is wrong.** `AlphaTunnel` holds `lanes: Vec<AlphaOverlay<'a>>`
+(`alpha_tunnel.rs:73-76`), and its constructor maps `(0..LEVELS)` over
+**one** borrowed allocation:
+
+```rust
+// alpha_tunnel.rs:82-89
+pub fn over(alloc: &'a AlphaAllocation<'a>, cycle: u32) -> Self {
+    Self {
+        lanes: (0..LEVELS)
+            .map(|_| AlphaOverlay::over_shared(alloc, cycle))
+            .collect(),
+        cycle,
+    }
+}
+```
+
+`LEVELS = 10` (`rung_schedule.rs:59`). One `AlphaAllocation`, ten borrows.
+The module states the per-lane cost as one empty `Vec` (`:25-27`), and states
+the prohibition directly: ten lanes must **not** mean ten address sets,
+because reserving is defined as costing zero rows, and ten copies of the
+address set would make "reserve" cost ten times nothing (`:22-24`; the same
+argument from the allocation's side at `alpha.rs:454-456`).
+
+So all three readings this plan has carried are now settled against source:
+
+| reading | verdict |
+|---|---|
+| ten deltas sharing a 480 B value slab (§F original) | wrong — withdrawn in §F.1 |
+| ten rows / ten tables (§F.1) | **wrong — the noun is `lane`, and the reservation is ONE** |
+| ten lanes over one `AlphaAllocation` | correct (`alpha_tunnel.rs:73-89`) |
+
+#### "Split tunnel" names the read/write path split — not a budget, not a table count
+
+Neither prior reading had this at all. The module's own heading (`:12-18`)
+states that reading and writing take different paths: reads go to the baked
+spine, shared by all ten lanes without a lock because `&[NodeRow]` may be
+shared; writes go to the overlay at the same addresses, and `alpha` makes that
+direction a compile-time property rather than a runtime check. **That
+asymmetry is what the words "split tunnel" denote.**
+
+#### §F.2 needs refinement, NOT reversal — the persistence half did not migrate
+
+§F.2's heading (*"How rung levels are written TODAY: they are not"*) reads as
+superseded, and is not. `alpha.rs:1-5` records that the Arrow/Lance storage
+glue (`to_batch`, `key_bytes_at`, the `lance` feature module) **deliberately
+stayed with the storage crate**; what migrated is the pure overlay algebra
+over contract types. So:
+
+> `lance-graph` can now **express** a rung stamp. It still does not
+> **persist** one. The Arrow/Lance write path remains in the consumer.
+
+§F.2's table is therefore still accurate as a statement about *persistence in
+this repo*, and its heading should be read as scoped to that.
+
+#### `D-ACR-3`'s blocker SURVIVES #1112 — checked, not assumed
+
+The tempting inference is that a landed write path unblocks `D-ACR-3`. It does
+not. `mailbox_owner()` still has **zero callers outside its own module**; the
+only occurrence anywhere else in `crates/` is a doc-comment mention at
+`alpha_tunnel.rs:33`. The tunnel enforces one-writer **structurally** — each
+lane owns its own `&mut`, so parallelism needs no lock (`:29-38`) — rather
+than through the mailbox-ownership machinery `D-ACR-3` exists to test. The
+`D-RLR-5` board row's HELD reason stands unchanged.
+
+#### The temporal-isolation mechanism, for the record
+
+`rung_horizon::claim_admitted` (`:59`) classifies **before** claiming, and the
+ordering is load-bearing: `classify` → `reader.mode.admits(status)` → only
+then `lane.claim` (`:66-73`). A refused row therefore leaves no trace in the
+lane — *not even a `visits` bump* (`:56-58`), pinned by an assertion that the
+refused row reads back as `None` (`:168-173`). Note this is the same `visits`
+counter §F.5 identified in the consumer-side original; it now carries a
+second duty.
+
+**`F-RLR-12` (STOP, new):** correcting a claim about a mechanism by
+substituting a different English noun for it, when the mechanism exists in
+source and names its own type. This section replaced "deltas" with "rows" and
+was still wrong, because neither word was read off `AlphaTunnel`. A correction
+must cite the type's definition, not re-describe its shape.
+
+
 ## §G Kanban / Rubicon verdict
 
 - **Internal string paths: NONE.** No `from_str`, no `as_str`, no column-name

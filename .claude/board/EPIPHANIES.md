@@ -1,3 +1,68 @@
+## 2026-08-31 — E-A-CORRECTION-CAN-SUBSTITUTE-ONE-WRONG-NOUN-FOR-ANOTHER-1 — three readings of one mechanism, and the source named itself the whole time
+
+**Status:** FINDING (verified against source at `cc0046f8`; every claim carries
+`file:line`).
+**Confidence:** High — the mechanism is in-tree and self-describing.
+**Corrects:** `.claude/plans/rubicon-loco-rung-cognitive-fabric-v1.md` §F.1
+(see §F.6 there for the full account).
+
+**The shape of the failure.** One mechanism, three readings by this session,
+two of them wrong — and the second wrong one was produced *by the correction
+of the first*:
+
+| reading | verdict |
+|---|---|
+| ten residual deltas sharing a 480-byte value slab | wrong — withdrawn |
+| ten rows / ten tables at one address | **wrong — corrected here** |
+| ten lanes over ONE `AlphaAllocation` | correct (`contract/src/alpha_tunnel.rs:73-89`) |
+
+`AlphaTunnel` holds `lanes: Vec<AlphaOverlay<'a>>` and constructs them by
+mapping `(0..LEVELS)` over a single borrowed allocation; `LEVELS = 10`
+(`contract/src/rung_schedule.rs:59`). One lane costs one empty `Vec`
+(`alpha_tunnel.rs:25-27`). The module states the prohibition outright: ten
+lanes must not mean ten address sets, because reserving is defined as costing
+zero rows and ten copies of the address set would make "reserve" cost ten
+times nothing (`:22-24`, restated from the allocation's side at
+`alpha.rs:454-456`).
+
+**"Split tunnel" was never a budget or a table count.** It names a *read/write
+path split*: reads go to the baked spine, shared across all ten lanes without
+a lock because `&[NodeRow]` may be shared; writes go to the overlay at the
+same addresses, and that direction is a compile-time property rather than a
+runtime check (`alpha_tunnel.rs:12-18`). Neither earlier reading contained
+this at all, though it is what the two words literally say.
+
+**Two things checked rather than assumed, both of which cut against the
+convenient conclusion:**
+
+1. **The persistence half did not migrate.** `alpha.rs:1-5` records that the
+   Arrow/Lance storage glue deliberately stayed with the storage crate; what
+   moved is the pure overlay algebra over contract types. So `lance-graph` can
+   now *express* a rung stamp and still cannot *persist* one — the prior
+   entry's persistence table remains accurate as a statement about this repo.
+2. **`D-ACR-3`'s blocker survives.** A landed write path looks like it should
+   unblock it. `mailbox_owner()` still has zero callers outside its own
+   module; the only occurrence elsewhere in `crates/` is a doc-comment mention
+   at `alpha_tunnel.rs:33`. The tunnel enforces one-writer *structurally* via
+   per-lane `&mut` (`:29-38`), not through the mailbox-ownership machinery
+   `D-ACR-3` exists to test.
+
+**The rule, which is what outlives the specific mistake.** A correction that
+swaps one English noun for another has not necessarily moved closer to the
+truth — it has produced a second guess with the authority of a correction.
+Both wrong readings here described a *shape* ("deltas", "rows") without ever
+naming the *type*. The mechanism had a name, a definition, and a module doc
+arguing its own design, and none of the three was cited until the third pass.
+**When correcting a claim about a mechanism, cite the type's definition; do
+not re-describe its shape.** Fence: `F-RLR-12` in the plan.
+
+**Timeline worth keeping**, because it shows the audit was load-bearing rather
+than academic: the sibling-repo implementation was found 2026-08-29
+(`E-A-RUNG-WRITE-PATH-ALREADY-SHIPPED-IN-A-SIBLING-REPO-1`, below); #1112
+migrated it into the contract on 2026-08-31 as the substrate default. The
+audit's own second correction was published one day before the thing it
+described moved.
+
 ## 2026-08-31 — E-A-DETERMINISM-GATE-IS-TRIVIALLY-SATISFIED-BY-A-KERNEL-THAT-DOES-NOTHING-1
 
 **Status:** FINDING — measured by the disable run that was supposed to confirm

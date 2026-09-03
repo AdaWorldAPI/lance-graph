@@ -1,3 +1,23 @@
+## alpha-reason-witness-cognitive-fabric-v1 — D-ARW tracking (RESTORED 2026-08-31)
+
+Plan: `.claude/plans/alpha-reason-witness-cognitive-fabric-v1.md` (merged #1078).
+
+**Scope here is deliberately narrow, and the narrowness is the point.** This
+section tracks ONLY D-ARW work with a merged artifact on `main`. An earlier
+board enumeration of the full `D-ARW-0..8` set (#1090) was reverted with its
+whole arc by #1093, and #1096 rules those commits non-citable and that D-ARW
+returns "only as fresh operator-gated work". The remaining ids defined in plan
+#1078 are therefore **intentionally absent** pending that gate — their absence
+is a scope decision, not a second hygiene gap. Every row below was derived
+from the merge commits and the files they added, never from the reverted
+enumeration. `F-ARW-TARGET-1` is a falsifier rather than a deliverable; it
+earns a row because it has a merged artifact of its own.
+
+| D-id | deliverable | status |
+|---|---|---|
+| D-ARW-0 | Shader-field lineage archaeology — separate current executable source, historical source, operator-recovered intent and hypotheses; authorize no new DTO, address space, rung tenant, provenance bit, scheduler or controller | **Shipped** 2026-08-31 — #1094 (`e61d25a1`), one file added: `.claude/knowledge/shader-field-lineage-audit-2026-08-30.md` (443 lines), carrying a six-label evidence scheme (`[S]` source fact / `[HS]` historical / `[OR]` operator-recovered / `[BW]` broken wire / `[MD]` modern descendant / `[H]` hypothesis). Verdict §12: **BUY the archaeology, not the restoration** |
+| F-ARW-TARGET-1 | D-ARW-0's first falsifier — one source BindSpace row whose P64 cascade returns ≥2 distinct `target` archetypes under one predicate layer at equal distance; observe the emitted CE64s. Emitted edges that remain distinguishable ⇒ finding false ⇒ **NO BUY** | **Run, shipped** 2026-08-31 — #1095 (`e4db066c`), one file added: `crates/cognitive-shader-driver/tests/p64_target_identity_probe.rs`. Declares itself a characterisation probe, not a behaviour contract, and carries an upstream anti-vacuity guard (`CognitiveShader::cascade` must expose >1 distinct `CascadeHit.target`, else the probe proves nothing). Reformatted post-merge by `8143387b` (rustfmt only; that commit's own message records the assertion's logic and inputs as unchanged) |
+
 ## dismech-causal-replay-v1
 
 | D-id | deliverable | status |
