@@ -1,3 +1,11 @@
+## 2026-09-03 — branch (PROBE-ENTROPY-SURFACE-CENSUS-1, after #1149): the D-DCR-4 gate measured — INVENTORY DELTA
+
+- ADDED `crates/lance-graph-planner/examples/entropy_surface_census.rs` — probe only, no library surface, no consolidation. Six of the seven forms are TRANSCRIBED with `file:line` citations (lance-graph-cognitive and thinking-engine are workspace-excluded and unimportable from the planner); form A is the live `contract::thought_atoms::normalized_entropy`.
+- MEASURED: C1 PASS (log base inert under normalization, agreement `0.00000000`); C2 **falsified as pre-registered** — B ≡ A to `0.0` on six non-degenerate fixtures but OPPOSITE on zero mass (A `1.0` vs B `0.0`, gap = the full range), so routing B through A is NOT a drop-in; C3 PASS — F and G move by `92.103409` between the same distribution at 1× and 10× mass while A..E are exactly invariant, and go negative on elements > 1. Cutoff disagreement (`p>0.0` / `p>1e-9` / `e>1e-10`) measures `3e-9`, negligible in f32.
+- MEASURED, stronger than the survey's S1 row: the ENTIRE `thought_atoms` module (the operator-ruled universal thinking atoms) has zero consumers — `grep -rn 'thought_atoms::' --include=*.rs crates | grep -v /target/` returns nothing.
+- RECORDED (the D-DCR-4 gate's answer): the entropy consolidation target is `contract::thought_atoms`, ruled by the operator 2026-08-31 — NOT `jc`, whose calibrated-math ruling would otherwise capture it by analogy. `jc` carries no entropy surface.
+- NOT IN THIS DELTA: any consolidation; any change to C/D/E (two are in excluded crates) or to F/G (a behaviour change in the lab engines, needing its own gate).
+
 ## 2026-09-03 — branch (D-TEH-4, W3/M8 engine collapse) — INVENTORY DELTA
 
 - `crates/thinking-engine/src/builder.rs`'s `BuiltEngine`/`ConfiguredEngine` CONFIRMED pre-existing (not built this wave) as the "one enum-dispatched engine" the plan asked for — dispatches `perturb`/`reset`/`energy`/`cycles`/`size`/`think`/`think_with_temperature` across all four dtypes; `ConfiguredEngine::process()` is the full reset→perturb→think→pool→commit→sink pipeline.
