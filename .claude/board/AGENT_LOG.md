@@ -1,3 +1,10 @@
+## 2026-09-03 — D-POP-2: one Sonnet grindwork worker against a verbatim spec, orchestrator-gated
+
+- **Why:** the post-teardown survey (D-POP-0) named the contradiction write-back as its cheapest gap (§5.4) and D-POP-1 had reported (KILL), unblocking it. Tiering: the orchestrator (main thread) read the tree, wrote the spec (`elect_and_bind` / `ElectionReport` / `WitnessLens::bind_election` + six named falsifiers) and ran every gate and disable centrally; one Sonnet worker transcribed the spec into `witness_fabric.rs` + the `lib.rs` re-export block, edit-only, no cargo.
+- **Worker outcome:** both files edited as briefed; zero production-code deviations; one spec error caught and reported (the silence test's `visited: 2` literal — `rows_from` spans `0..=max_pos`, so it asserted `visited == rows.len()` instead); three `#[must_use]` results in tests needed `let _ =` (orchestrator fix).
+- **Gates (orchestrator):** fmt; clippy `-p lance-graph-contract --all-targets --no-deps -D warnings` clean; `cargo test -p lance-graph-contract` 1309 lib + all integration suites green; disables A/B/C red-then-green (commit `b8642405`).
+- **Board:** EPIPHANIES `E-A-PRODUCER-IS-A-PURE-FUNCTION-OF-THE-CONTENT-LOCI-1`, LATEST_STATE delta, STATUS_BOARD D-POP-2 → In PR, plan §5 gap-4 note; supersession index regenerated last.
+
 ## 2026-08-23 — the token-seam arc: four read-only research lanes, one probe, one vacuity audit
 
 - **Why:** an operator brief asked whether ONE versioned BPE tokenization can

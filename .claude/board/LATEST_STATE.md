@@ -1,3 +1,12 @@
+## 2026-09-03 — branch (D-POP-2, after #1143): the contradiction write-back producer — CONTRACT INVENTORY DELTA
+
+- ADDED `lance_graph_contract::witness_fabric::elect_and_bind(rows: &mut [NodeRow], visible: impl Fn(usize) -> bool) -> ElectionReport` — the D-POP-2 producer: for every visible position, `elect_peers_lens` through a lens over the same slice, then `WitnessLens::bind_election` into the focal row. Order-independent + idempotent (elections read `CONTENT_LOCI` only). Re-exported at the crate root.
+- ADDED `witness_fabric::ElectionReport { visited, quorum_bound, contradiction_bound }` (counts only — positions are readable back through the lens; a list would be a second projection). Re-exported.
+- ADDED `WitnessLens::bind_election(row: &mut NodeRow, election: PeerElection)` — read-modify-write of ONLY slots 14/15 (Quorum / Contradiction) through the tenant-derived offsets `at` reads from; offset 0 unbinds.
+- 6 tests, 3 disable-verified (see EPIPHANIES `E-A-PRODUCER-IS-A-PURE-FUNCTION-OF-THE-CONTENT-LOCI-1`). Contract lib 1309/1309 + integration green; clippy `--all-targets --no-deps -D warnings` + fmt clean.
+- UNCHANGED: every existing `witness_fabric` fn and its semantics; `causal_witness.rs`; `canonical_node.rs`; `soa_envelope.rs`; `ENVELOPE_LAYOUT_VERSION`; tenants 14/15. No new dependency.
+- NOT IN THIS DELTA: any caller of the producer (planner / callcenter still build windows by hand or use `quorum_mantissa` only); the molecule's `BeliefArena::revise_at` → `RevisionTrajectory` → `suggest_reopening` wiring; anything population-basin (vacancy stands).
+
 ## 2026-09-03 — MERGED #1144 (`30b0a66`): D-TEH-3 fate probes closed — two corrections to the delta below
 
 PR #1144 (the delta immediately below) merged after CodeRabbit + Codex review.

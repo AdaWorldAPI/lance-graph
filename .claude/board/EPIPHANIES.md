@@ -15,6 +15,21 @@
 **Both stay LAB, not deleted, not re-probed on friendlier data** — per the pre-registration's own commitment (§4b: "Not deleted... Not re-probed on a different corpus to get a better answer"). §1c is now fully closed: every row in the harvest census table has a verdict.
 
 Refs: `thinking-engine-harvest-closure-v1` §4b (pre-registration) / §4c (results) / §5 D-TEH-3; `crates/thinking-engine/src/{semantic_chunker,spiral_segment}.rs`; `.claude/agents/falsifier-auditor.md` (the can-it-fire discipline applied to the chunker's all-zero result); the falsifiability rule (CLAUDE.md § The falsifiability rule).
+## 2026-09-03 — E-A-PRODUCER-IS-A-PURE-FUNCTION-OF-THE-CONTENT-LOCI-1 — D-POP-2 closed the survey's cheapest gap: `elect_peers` now writes its own election back into the row, and the fabric's no-self-reference rule is what makes that write order-independent
+
+**Status:** SHIPPED (code + 6 falsifiers, this branch; `witness_fabric::{elect_and_bind, ElectionReport, WitnessLens::bind_election}`). **Confidence:** High for the mechanism; the molecule it unblocks is still unwired downstream.
+
+**What was missing.** `post-teardown-buildup-survey-v1` §5 gap 4: `elect_peers` computed the social loci (Quorum / Contradiction), `WitnessLens::write_register` could store a register, and nothing connected them — so `is_opinion` / `revision_trajectory` / `suggest_reopening` (the "contradiction-driven revision" molecule, §4) never had a row that carried an ELECTED contradiction, only hand-set fixtures.
+
+**The finding, stated as a property.** The producer is a pure function of the content loci. `CONTENT_LOCI` excludes Quorum and Contradiction ("the fabric never reads what it computes" — no self-reference), which was written as an anti-circularity rule for the READ side; it turns out to be exactly what makes the WRITE side sound: a binding written into row *i* cannot change any row *j*'s election, so the whole-wave producer is order-independent, a second run is bit-identical, and stale or garbage social loci are overwritten, never consulted. That is the difference between a producer and an accumulator, and it is pinned two-sided: seeding every row with garbage Quorum=+7 / Contradiction=−8 before the run yields the same bytes as the clean run, and the test goes red the moment `CONTENT_LOCI` includes a social locus (disable-verified).
+
+**Why it stays inside family 1.** A locus is a signed OFFSET (sign = orientation); the producer writes two pointers and nothing else — no magnitude, no valence, no count. No tenant, no ClassView, no layout change, no dependency. Zero-copy: one lens per focal position over the same slice, dropped before the write; the only owned value is the `Copy` 12-byte register microcopy that `bind_election` read-modify-writes into the SAME row (slots 14 and 15 only; a full 14-locus content register plus an out-of-register canary survive byte-identical, disable-verified against a `ZERO.with(..)` rewrite).
+
+**Three disables, all red-then-green:** `bind_election` without read-modify-write (4 of 6 fail); `CONTENT_LOCI` + `Locus::Quorum` (the garbage-seed test fails); the producer passing `|_| true` to the peer scan instead of the caller's `visible` (the visible-domain test fails — +2 must beat the invisible +1, and the same fixture picks +1 when everything is visible).
+
+**What it does NOT do.** The molecule's next links — `BeliefArena::revise_at` on the elected contradiction, `RevisionTrajectory.flips`, `suggest_reopening` over real revisions — are still unwired; this PR gives them a real producer to read, not a caller. No population-basin work: family 3 stays the accepted vacancy (`E-SIX-SEMANTIC-FAMILIES-MUST-NOT-IMPERSONATE-EACH-OTHER-1`).
+
+**Spec correction caught by the worker.** The brief's silence test asserted `visited: 2`; `rows_from` builds the whole `0..=max_pos` span, so a `|_| true` predicate visits 7. The worker asserted `visited == rows.len()` and reported the deviation instead of forcing the literal — the right call, recorded here so the spec's error is not mistaken for the code's.
 
 ## 2026-09-02 — E-THE-LIFT-GATE-FOUND-A-TIE-BLIND-SPEARMAN-1 — the D-TEH-3 comparison on a distinguishing fixture separated a same-formula copy from a wrong-estimator copy, and the tie-free fixtures the lab had used could not have
 

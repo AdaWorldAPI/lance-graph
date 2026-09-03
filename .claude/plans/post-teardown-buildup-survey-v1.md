@@ -335,3 +335,17 @@ stands. What the result does license is a narrower next question, stated as a
 question and not a direction: the readout's honest home may be the global
 trend (a basin-level prior) rather than a top-k selector, and any such probe
 must carry the frequency control and the shuffle null from the start.
+
+## 8. D-POP-2 — gap §5.4 CLOSED (2026-09-03)
+
+`witness_fabric::elect_and_bind(rows, visible) -> ElectionReport` +
+`WitnessLens::bind_election(row, election)`: the producer §5 item 4 named as
+"cheap" is shipped — elected social loci written back into the focal row's own
+register (slots 14/15 only), order-independent and idempotent because elections
+read `CONTENT_LOCI` only. Six falsifiers, three disable-verified. Family 1 only;
+no tenant, ClassView, opcode or layout change; the family-3 vacancy is untouched.
+Still open on the §4 "contradiction-driven revision" molecule: a caller that
+feeds the elected contradiction into `BeliefArena::revise_at` and reads
+`RevisionTrajectory` / `suggest_reopening` over real revisions (gap §5.3, the
+real `WitnessStream` producer, is the same missing caller seen from the other
+side). Board: `E-A-PRODUCER-IS-A-PURE-FUNCTION-OF-THE-CONTENT-LOCI-1`.
