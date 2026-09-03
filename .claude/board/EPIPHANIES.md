@@ -1,8 +1,12 @@
 ## 2026-09-03 — E-THE-FIX-FOR-A-REVIEW-FINDING-SHIPS-UNREVIEWED-BY-DEFAULT-1 — the cap was the visible half
 
 **Status:** FINDING (measured on this PR's own review metadata).
-**Confidence:** High for the mechanism — the trigger list is quoted from the
-reviewer's own notice; the coverage table is read from `get_reviews`.
+**Confidence:** High for the MECHANISM (the trigger list is quoted verbatim
+from the reviewer's own notice). **Medium for the coverage table**, which is an
+inference from an ABSENCE: the same reviewer's stated rule is "comment when I
+have suggestions, otherwise react 👍", so a missing review object proves absence
+of a review *comment*, not absence of *coverage*. The two are graded apart
+deliberately — conflating them is the error this entry is otherwise about.
 **Prompted by:** the lance-graph-java session's flag that five consecutive PRs
 merged with zero external review.
 
@@ -38,17 +42,44 @@ rate-limited, and re-points the reviewer at the head that actually contains the
 fix. Done on #1154. The expensive mitigation (raise the cap) is the operator's
 call and buys a different thing — breadth across PRs, not depth after a fix.
 
-**What this does NOT claim.** No assertion that the unreviewed commits are
-wrong; two are board-only and one is a doc header. The finding is about the
-apparatus reporting more coverage than it has, not about a defect that slipped.
+**The mitigation is MEASURED; the gap is still INFERRED.** After that comment
+the reviewer returned two P2 findings on a head it had not commented on when
+that head was pushed. That is n=1 and it establishes the mitigation FIRES — it
+does not establish that the push failed to trigger a review, which remains an
+inference from the quoted trigger list plus absent comments. Stated apart
+because the entry's own subject is a claim that outran its evidence.
+
+**What this does NOT claim — two independent disclaimers, both load-bearing.**
+(i) No assertion that the unreviewed commits are *defective*; two are
+board-only and one is a doc header. This one became MORE necessary, not less,
+once the paragraph above reported that a re-triggered review found two real
+defects — that result makes the "the gap caused those defects" reading
+available for the first time, and it is not claimed. (ii) No assertion that an
+absent review object means *not looked at*; see the Confidence line. The finding
+is that the apparatus reports more coverage than it has evidence for.
+
+**See also** `E-A-PROBE-CAN-STATE-A-MEASUREMENT-THAT-WAS-FALSE-WHEN-IT-WAS-WRITTEN-1`
+(below), which shares the abstraction *a property measured once is later read as
+standing* but NOT the mechanism: that entry is about a claim decaying as the
+tree changes; this one is about coverage never having attached to the commits it
+is read as covering. Adjacent, not the same — do not merge them.
 
 ## 2026-09-03 — E-THE-VACANCY-RULE-IS-NOT-ABOUT-ENTROPY-1 — a second instance on its first day, from a session that does not share the arc
 
 **Status:** FINDING (cross-session; the second instance was found and acted on
 by another session, not by this one).
-**Confidence:** High for the rule's generality — an independent session applied
-it to an unrelated symbol in a different repo and it changed their design.
-**Extends:** `E-A-RULED-HOME-NEEDS-A-FIRST-CONSUMER-OR-IT-IS-A-VACANCY-1`
+**Confidence:** **Medium-High for the rule**, **Medium for the second
+instance.** The instance is a CONFIRMATION DRAW, not an independent
+replication: the other session had READ this rule before applying it, same day,
+same fleet, same discipline — n=2 from one primed process, not n=2 from minting
+in general. And it is unverifiable here: `ogar_loco` is an external dependency,
+`grep -rn TERNLOG crates/` returns **0**, so the symbol, its mint site and its
+caller count are all *reported*, not measured, from this tree. (The string does
+appear elsewhere in this repo — in board and knowledge prose, including this
+entry — so a repo-wide grep is NOT the check; the crate-scoped one is. Prior
+art for exactly this hazard: `.claude/knowledge/preflight-drift-patterns.md`
+Axis 4, cross-repo PR-merge claims.)
+**Generalizes:** `E-A-RULED-HOME-NEEDS-A-FIRST-CONSUMER-OR-IT-IS-A-VACANCY-1`
 (entropy, same day).
 
 **The rule travelled.** It was written about one entropy atom with zero
@@ -74,25 +105,48 @@ epistemic population basins, which
 accepted vacancy. They got it right — and then observed that the module's own
 header never says which family it is in.
 
-**They were right, and the reason is the useful part.** The distinction WAS
-recorded — in #1145's PR body, which states verbatim *"No population-basin
-work: family 3 stays the accepted vacancy."* So the knowledge existed and was
-correct and was still unavailable, because **a boundary recorded only in a PR
-body is not self-defending.** The next reader greps the tree, not the PR
-archive; a reviewer reads the diff, not the merged description. Prose that
+**They were right, and the reason is the useful part — but the first version of
+this paragraph overstated it and is corrected here.** It said the distinction
+was recorded *"only in a PR body."* That is FALSE: it is also on this very
+board, at `EPIPHANIES.md:355` (the D-POP-2 entry), verbatim — *"No
+population-basin work: family 3 stays the accepted vacancy."* The knowledge was
+in TWO durable places and was still unavailable at the site of the misreading,
+which makes the finding **stronger**, not weaker: the defect is not that the
+boundary lived somewhere fragile, it is that **it was absent from the SOURCE**.
+The next reader greps the tree, not the board's 25,000 lines and not the PR
+archive. Prose that
 exists to stop a future misreading has to live where the misreading will
 happen — in this case, the module header, which now names family (1), quotes
 the ruling, and names the specific confusion (family 3) it forecloses.
 
 The generalisation for this workspace: the board is where a decision is
-JUSTIFIED; the source is where it must be ENFORCED. A PR body is neither — it
-is the least durable surface we write on, and it is exactly where "why this is
-not that other thing" keeps getting put.
+JUSTIFIED; the source is where it must be ENFORCED. Neither a PR body nor a
+board entry enforces anything at the call site.
+
+**Two claims, one id — and the reason is an AUDIT, not a cause.** This entry
+carries the vacancy-rule generalisation and the placement finding above. They
+have no common cause; they were found in one cross-session audit, and F1
+(append-only) makes a new prepended id the only lawful vehicle for either, so
+splitting after the fact is not available. Signposted so a future search for
+"PR body" reaches this entry rather than only the vacancy half. Prior art for
+the placement claim: `.claude/board/entries/2026-08-13-e-a-figure-you-tallied-yourself-is-a-derived-figure-1.md:49-54`.
 
 ## 2026-09-03 — E-A-PROBE-CAN-STATE-A-MEASUREMENT-THAT-WAS-FALSE-WHEN-IT-WAS-WRITTEN-1 — the census's own caller count, wrong twice
 
-**Status:** FINDING (both errors reproduced against source; the fix ran).
-**Confidence:** High — the falsifying lines are in the probe file itself.
+**Status:** FINDING — a **new INSTANCE of an already-ruled pattern**, not a new
+rule. `.claude/knowledge/preflight-drift-patterns.md` Axis 1 ("Stale-Claim
+Verification") already names this failure mode *including its worse half*:
+"…OR was never true and was an error in the planner's self-report", with the
+remedy "run the actual git command… never trust the assertion". Two further
+predecessors: `EPIPHANIES.md:8660` (a figure cited twice is not confirmed once)
+and `:10275` (prose duplicating a machine-readable value has a half-life);
+`:252` (`E-A-CORRECTION-CAN-SUBSTITUTE-ONE-WRONG-NOUN-FOR-ANOTHER-1`) is the
+same shape one level up — a correction that carries a correction's authority
+while being itself incomplete, which is precisely what the review finding that
+prompted this entry turned out to be.
+**Confidence:** High — the falsifying lines are in the probe file itself. What
+is genuinely NOVEL here is narrower than the entry first implied, and it is the
+credibility mechanism below, not the decay.
 **Corrects:** `crates/lance-graph-planner/examples/entropy_surface_census.rs`
 (the caller-census block), shipped in `e5e2520` and fixed in `abcdb0d5`.
 
@@ -102,7 +156,11 @@ today", citing a grep "returning nothing" as verification. A review bot caught
 that the consolidation in the very next commit gave form A a production caller,
 making the printed claim false.
 
-**Re-running the cited command found the worse half.** The claim was **already
+**Re-running the cited command found the worse half** (measured at `e5e2520`,
+the census commit: the probe imported form A at line 38 and called it at line
+325, and the cited grep returned **6 hits**, not nothing — pinned to that
+commit because the count is exactly the kind of number this entry is about).
+The claim was **already
 false at the commit that introduced it**: the probe file itself imports form A
 (line 38) and calls it (line 325), so the grep it cites had a non-empty result
 the moment the file existed. The measurement was taken *before* the file was
@@ -113,10 +171,23 @@ found the second staleness; the first shipped unnoticed.
 as a claim. The same sentence inside a running probe reads as *output* — as
 something the program checked — and this workspace's whole probe discipline
 trains readers to believe measured numbers over asserted ones. A stale line in
-a probe therefore borrows credibility that nothing earned. That is the
-falsifiability rule's *"a doc-comment claim is not a behaviour"* with the
-consequence sharpened: an unasserted `println!` is not a measurement, it is a
-comment with better formatting.
+a probe therefore borrows credibility that nothing earned. **That borrowing is
+this entry's one novel contribution** — the decay itself was already ruled (see
+Status).
+
+**The line is PROVENANCE, not subject matter.** A first version of this
+paragraph ended "an unasserted `println!` is not a measurement, it is a comment
+with better formatting", and that proves too much: two lines above the offending
+block, the same file legitimately prints `max-min spread … reported, not
+dramatized`, a value THIS RUN computed, and the file's own design comment
+("assertions moved to the END because a probe that aborts early hides
+evidence") presupposes that printed output IS evidence. The discriminator that
+exonerates that line and still condemns the census block is **who produced the
+number**: a value computed by the running probe carries the run's authority; a
+value TRANSCRIBED BY THE AUTHOR into a `println!` carries none, and is a
+comment wearing the run's clothes. Narrowing it to "claims about the state of
+the tree" would have been the wrong axis and would have duplicated the rule
+below.
 
 **The rule this leaves.** A claim about the STATE OF THE TREE decays the moment
 the tree changes, and the commit most likely to change it is the one the claim

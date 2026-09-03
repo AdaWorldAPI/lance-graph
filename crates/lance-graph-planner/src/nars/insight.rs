@@ -200,14 +200,21 @@ fn confidence_entropy(arena: &BeliefArena) -> f32 {
     if arena.entries().is_empty() {
         return 0.0;
     }
-    let mut hist = [0.0f32; BINS];
+    // Counts stay INTEGRAL and are widened once, at the boundary. Accumulating
+    // into `f32` instead loses counts above 2^24: `f32(2^24) + 1.0 == f32(2^24)`
+    // (measured), so two bins holding 20M and 40M beliefs would both read
+    // 16_777_216.0 and the atom would see them as equally populated. Nothing in
+    // `BeliefArena` bounds its entry count, so this is unbounded in principle
+    // and merely unobserved today — which is not a reason to accumulate in f32.
+    let mut hist = [0usize; BINS];
     for b in arena.entries() {
         let idx = ((b.truth.confidence.clamp(0.0, 1.0) * BINS as f32) as usize).min(BINS - 1);
-        hist[idx] += 1.0;
+        hist[idx] += 1;
     }
+    let weights: [f32; BINS] = core::array::from_fn(|i| hist[i] as f32);
     // BINS is a non-zero constant > 1, so the atom's empty/single arms are
     // unreachable here; the default is defensive, never taken.
-    normalized_entropy(&hist).unwrap_or(0.0)
+    normalized_entropy(&weights).unwrap_or(0.0)
 }
 
 #[must_use]
