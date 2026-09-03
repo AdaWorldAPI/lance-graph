@@ -1,3 +1,44 @@
+## ISS-PLAN-TRACKING-IS-UNENFORCED (2026-09-03) — OPEN
+
+**53 of 208 plans in `.claude/plans/` appear in NEITHER `STATUS_BOARD.md` nor
+`INTEGRATION_PLANS.md`.** Measured, not estimated:
+
+```
+for f in .claude/plans/*.md; do b=$(basename "$f" .md); \
+  grep -qF "$b" .claude/board/STATUS_BOARD.md .claude/board/INTEGRATION_PLANS.md \
+  || echo "UNTRACKED: $b"; done
+```
+
+**Provenance.** The `rubicon-loco-rung-cognitive-fabric-v1` session reported
+`r2il-machine-semantic-contract-v1` as *"the ONLY genuinely untracked standalone
+plan in the tree"*, having reviewed candidates by hand. That plan was real and is
+now tracked (#1155). The "only" is not: the count is 53, including whole families
+(19 `3DGS-*`, 5 `tesseract-rs-*`) and single plans (`archetype-scaffold-v1`,
+`belief-abi-restoration-v1`, `lance9-datafusion54-upgrade-probe-v1`,
+`probe-r2il-live-regfile-v1`). Spot-checked four by D-id as well as by filename —
+none is tracked by either route; the D-ish tokens in them
+(`D-AND-SCAFFOLDED`, `D-THE-NEW`) are prose, not ids.
+
+**The finding is not the number, it is that a manual sweep reported 1/208 where a
+one-line grep reports 53/208.** Candidate review by reading cannot cover 208
+files, so the census must be mechanical or it will keep under-reporting — and it
+under-reports in the direction that feels like completion.
+
+**Root cause is upstream of the board.** Several of these carry no D-ids at all
+(`probe-r2il-live-regfile-v1` is one), so `STATUS_BOARD` has nothing to hold and
+`SUPERSESSION-INDEX`'s coverage column has nothing to count. A plan without a
+D-id is unaddressable by every discovery path this workspace has, and the board
+rule (`CLAUDE.md` § Mandatory Board-Hygiene) fires on *adding a plan*, so a plan
+that lands without one is never caught afterwards.
+
+**Deliberately NOT fixed here.** Backfilling 53 plans is a scope decision, not a
+hygiene commit: some are superseded, some are sub-documents of an owner plan
+(the three `alpha-reason-witness-shader-field-*` files declare owners and owe
+nothing), and several belong to other sessions. What is proposed and unbuilt: a
+CI check mirroring the grep above, on the `SUPERSESSION-INDEX` model — the
+existing precedent for "a generated artifact with no staleness gate is a
+hand-maintained artifact with extra steps."
+
 ## ISS-F32-ENGINE-NEVER-CONVERGES-BY-ITS-OWN-DELTA-THRESHOLD (2026-09-03)
 
 `crates/thinking-engine/src/f32_engine.rs`'s `F32ThinkingEngine::cycle()`
