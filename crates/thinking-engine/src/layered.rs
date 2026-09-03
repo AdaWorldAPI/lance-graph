@@ -9,6 +9,16 @@
 //! CascadeChannels8 packs 8 channels (7 constructive + 1 destructive) into a u64.
 //! Each channel is one byte (0-255). Constructive channels add energy;
 //! the CONTRADICTS channel subtracts energy.
+//!
+//! ## D-TEH-4 collapse scope: kept as a MODE, not folded into `BuiltEngine`
+//!
+//! Same reasoning as `crate::branching::BranchingEngine`'s module doc:
+//! `LayeredEngine`/`TierEngine` compose THREE differently-sized
+//! `ThinkingEngine` instances via cross-tier `CascadeChannels8` edges — a
+//! composition of engines, not a per-dtype variant of one. It is not one of
+//! the four `BuiltEngine` (`crate::builder`) variants and is not folded into
+//! that enum; it remains a directly-usable cascade shape alongside the
+//! collapsed engine.
 
 use crate::dto::BusDto;
 use crate::engine::ThinkingEngine;

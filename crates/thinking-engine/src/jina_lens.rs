@@ -50,26 +50,18 @@ pub const JINA_VOCAB_SIZE: usize = 250_002;
 /// Look up the centroid for a token ID.
 #[inline]
 pub fn jina_lookup(token_id: u32) -> u16 {
-    let idx = (token_id as usize).min(JINA_VOCAB_SIZE - 1);
-    let offset = idx * 2;
-    if offset + 1 < JINA_CODEBOOK_INDEX.len() {
-        u16::from_le_bytes([JINA_CODEBOOK_INDEX[offset], JINA_CODEBOOK_INDEX[offset + 1]])
-    } else {
-        0
-    }
+    crate::lens_shared::codebook_lookup(JINA_CODEBOOK_INDEX, JINA_VOCAB_SIZE, token_id)
 }
 
 /// Look up centroids for a batch of token IDs.
 pub fn jina_lookup_many(token_ids: &[u32]) -> Vec<u16> {
-    token_ids.iter().map(|&id| jina_lookup(id)).collect()
+    crate::lens_shared::codebook_lookup_many(JINA_CODEBOOK_INDEX, JINA_VOCAB_SIZE, token_ids)
 }
 
 /// Get the HDR distance between two centroids. O(1).
 #[inline]
 pub fn jina_distance(a: u16, b: u16) -> u8 {
-    let ai = (a as usize).min(JINA_N_CENTROIDS - 1);
-    let bi = (b as usize).min(JINA_N_CENTROIDS - 1);
-    JINA_HDR_TABLE[ai * JINA_N_CENTROIDS + bi]
+    crate::lens_shared::hdr_distance(JINA_HDR_TABLE.as_slice(), JINA_N_CENTROIDS, a, b)
 }
 
 /// Create a ThinkingEngine from the baked Jina HDR table.

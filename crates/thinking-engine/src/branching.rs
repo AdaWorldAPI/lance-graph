@@ -13,6 +13,22 @@
 //!
 //! The hierarchy structures parallelism, not filters candidates.
 //! RISC: fixed-width ops, deterministic branching, no data-dependent control.
+//!
+//! ## D-TEH-4 collapse scope: kept as a MODE, not folded into `BuiltEngine`
+//!
+//! `BranchingEngine` is deliberately NOT one of the four `BuiltEngine`
+//! (`crate::builder`) variants. `BuiltEngine` dispatches per-dtype variants
+//! of ONE N×N table; `BranchingEngine` is a fixed-shape composition of
+//! THREE differently-sized tables (`L1: 64`, `L2: 256`, `L3: 4096`) wired by
+//! cross-tier spawn edges — the same category as `CompositeEngine` and
+//! `LayeredEngine` (composers of engines), not the same category as the
+//! per-dtype engines they compose. Folding a 3-tier fixed-const-generic
+//! spawn cascade into a single-table enum would be an artificial merge with
+//! no behavioural benefit and real risk to the "spawn, don't filter"
+//! semantics the plan (`thinking-engine-harvest-closure-v1.md` §"5 cascade
+//! shapes") explicitly calls "the idea worth keeping". It stays a separate,
+//! directly-usable struct — reachable alongside the collapsed engine, per
+//! the plan's own wording.
 
 /// Branch factor: each parent spawns this many children.
 pub const BRANCH: usize = 4;

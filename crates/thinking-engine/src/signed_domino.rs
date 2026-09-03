@@ -8,7 +8,7 @@
 //! Unlike the unsigned cascade where `floor` is an artificial construct,
 //! the signed cascade has a NATURAL zero point: the sign IS the gate.
 
-use crate::domino::{CascadeAtom, CognitiveMarkers, StageResult};
+use crate::domino::{finalize_stage, is_focus_stable, CascadeAtom, StageResult};
 use crate::signed_engine::SignedThinkingEngine;
 
 /// Signed domino cascade engine.
@@ -133,20 +133,14 @@ impl<'a> SignedDominoCascade<'a> {
                 }
             }
 
-            let mut neighbors: Vec<CascadeAtom> =
+            let neighbors: Vec<CascadeAtom> =
                 deduped.into_values().filter(|a| a.energy > 0.0).collect();
-            neighbors.sort_by(|a, b| b.energy.partial_cmp(&a.energy).unwrap());
 
-            let focus: Vec<CascadeAtom> = neighbors.iter().take(self.top_k).cloned().collect();
-            let promoted: Vec<CascadeAtom> = neighbors
-                .iter()
-                .skip(self.top_k)
-                .filter(|a| a.confidence > self.conf_threshold && a.frequency > 0.5)
-                .take(self.top_k * 2)
-                .cloned()
-                .collect();
-
-            // Contradictions = inhibitory atoms with strong confidence
+            // Contradictions = inhibitory atoms with strong confidence.
+            // Unlike the unsigned cascade's `contradictions` (drawn from the
+            // energy-sorted excitatory neighbor list), this is the raw
+            // inhibitory list — the "sign IS the gate" design this module's
+            // header describes, not a re-spelling of the unsigned selection.
             let contradictions: Vec<CascadeAtom> = inhibitory
                 .iter()
                 .filter(|a| a.confidence > self.conf_threshold)
@@ -154,70 +148,28 @@ impl<'a> SignedDominoCascade<'a> {
                 .cloned()
                 .collect();
 
-            // Cognitive markers
-            let staunen = focus
-                .iter()
-                .filter(|a| visit_count.get(&a.index).copied().unwrap_or(0) == 0)
-                .map(|a| a.frequency * a.confidence)
-                .sum::<f32>()
-                / self.top_k as f32;
-
-            let wisdom = if stage > 0 {
-                let prev: std::collections::HashSet<u16> =
-                    stages[stage - 1].focus.iter().map(|a| a.index).collect();
-                let curr: std::collections::HashSet<u16> = focus.iter().map(|a| a.index).collect();
-                prev.intersection(&curr).count() as f32 / self.top_k.max(1) as f32
-            } else {
-                0.0
-            };
-
-            let epiphany = if stage > 0 && !stages[stage - 1].contradictions.is_empty() {
-                let prev_c = stages[stage - 1].contradictions.len() as f32;
-                let curr_c = contradictions.len() as f32;
-                if curr_c < prev_c * 0.5 {
-                    (prev_c - curr_c) / prev_c.max(1.0)
-                } else {
-                    0.0
-                }
-            } else {
-                0.0
-            };
-
-            let truth_freq =
-                focus.iter().map(|a| a.frequency).sum::<f32>() / focus.len().max(1) as f32;
-            let truth_conf =
-                focus.iter().map(|a| a.confidence).sum::<f32>() / focus.len().max(1) as f32;
-
-            let result = StageResult {
-                focus: focus.clone(),
-                promoted: promoted.clone(),
+            let result = finalize_stage(
+                stage as u8,
+                self.top_k,
+                self.conf_threshold,
+                neighbors,
                 contradictions,
-                stage: stage as u8,
-                markers: CognitiveMarkers {
-                    staunen,
-                    wisdom,
-                    epiphany,
-                    truth_freq,
-                    truth_conf,
-                },
-            };
-            stages.push(result);
+                &visit_count,
+                stages.last(),
+            );
 
-            query = focus
+            query = result
+                .focus
                 .iter()
-                .chain(promoted.iter())
+                .chain(result.promoted.iter())
                 .map(|a| (a.index, a.energy))
                 .collect();
 
+            stages.push(result);
+
             // Stop if stable
-            if stage > 0 {
-                let prev: std::collections::HashSet<u16> =
-                    stages[stage - 1].focus.iter().map(|a| a.index).collect();
-                let curr: std::collections::HashSet<u16> =
-                    stages[stage].focus.iter().map(|a| a.index).collect();
-                if prev == curr {
-                    break;
-                }
+            if is_focus_stable(&stages) {
+                break;
             }
             if query.is_empty() {
                 break;

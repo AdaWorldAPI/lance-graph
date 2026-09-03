@@ -1,3 +1,29 @@
+## ISS-F32-ENGINE-NEVER-CONVERGES-BY-ITS-OWN-DELTA-THRESHOLD (2026-09-03)
+
+`crates/thinking-engine/src/f32_engine.rs`'s `F32ThinkingEngine::cycle()`
+(softmax-with-temperature, `T=0.01` default) was measured, on the real baked
+Jina lens with a `[10, 20, 30]` perturbation, to NEVER trip its own
+`convergence_threshold` delta-based early-exit — it runs the FULL
+`max_cycles` budget at every value tried (30, 60, 100, 200), and the energy
+vector is bit-identical at `max_cycles=30` and `max_cycles=200`: it settles
+into a fixed point the delta check doesn't recognize as converged, it isn't
+merely slow. u8/i8/BF16 all converge normally on the identical input (7/15/15
+cycles). Not root-caused or fixed — out of scope for D-TEH-4 (the dtype
+collapse wave; engine internals are explicitly not this wave's concern) —
+recorded so it isn't silently lost. `crates/thinking-engine/src/dtype_parity.rs`'s
+`every_dtype_engine_converges_and_commits_a_real_peak` test asserts this
+behavior explicitly (F32: `cycle_count == MAX_CYCLES`) rather than hiding it
+under a uniform "converges" claim, per Codex review on PR #1151.
+
+Candidate next step: a dedicated probe in `f32_engine.rs` sweeping
+`convergence_threshold` and the softmax temperature to find whether ANY
+combination lets the delta check fire, or whether the softmax dynamics at
+this sharpness structurally oscillate at the margin between near-tied peaks.
+Not scheduled; filed as a follow-up, possibly D-TEH-5 or its own D-id.
+
+Refs: `EPIPHANIES.md` `E-M8-COLLAPSE-TARGET-ALREADY-EXISTED-1` addendum;
+`thinking-engine-harvest-closure-v1.md` §5 D-TEH-4.
+
 ## ISS-SIGKER-TESTS-HAVE-NEVER-COMPILED — `f64` is not `Ord`, and workspace exclusion hid it (2026-08-31)
 
 `cargo test --manifest-path crates/sigker/Cargo.toml --lib` fails to build:
