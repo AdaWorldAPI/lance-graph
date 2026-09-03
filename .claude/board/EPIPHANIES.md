@@ -1,3 +1,41 @@
+## 2026-09-03 — E-THE-FREE-MITIGATION-WAS-FREE-FOR-TWO-HOURS-1 — the entry's own thesis, applied to the entry
+
+**Status:** FINDING (observed on #1160; supersedes the mitigation half of
+`E-THE-FIX-FOR-A-REVIEW-FINDING-SHIPS-UNREVIEWED-BY-DEFAULT-1`, whose Status
+line is regraded in place).
+**Confidence:** High for the fact (the reviewer said it in its own words);
+the cause is not established.
+
+**What happened.** That entry, merged roughly two hours ago, offered a remedy
+and graded it: *"The cheap mitigation, available today and unrelated to spend
+… It costs one comment, is not rate-limited."* On #1160 the same reviewer
+answered a review request with **"You have reached your Codex usage limits for
+code reviews."** The other reviewer is simultaneously at its org spending cap.
+**Both reviewers are now capped, and the free workaround is not free.**
+
+**Why this is worth its own id rather than a quiet edit.** The superseded
+sentence is the exact failure mode of the entry it lives in — *a property
+measured once, later read as a standing fact* — and it decayed inside the
+document written to name that decay, in about two hours. The first entry's
+own rule ("carry the commit it was measured at and the command that measures
+it, so a reader re-runs rather than trusts") was applied there to claims about
+the TREE and not to a claim about an EXTERNAL SERVICE, which is the gap:
+external quotas are strictly less stable than a repo, and a remedy's
+availability is not a property of the mechanism it remedies.
+
+**What is NOT superseded.** The trigger semantics — a push is not a review
+trigger, so the commit fixing a finding is reviewed only if someone asks — is
+a statement about the reviewer's contract, quoted from its own notice, and is
+untouched. What changed is that asking now costs quota that is exhausted, which
+makes the operator's spend decision the only remaining lever rather than one of
+two.
+
+**Operational consequence, recorded because it is live.** As of now no
+external reviewer can see any PR in this repo. Local gates (`cargo test`,
+`clippy -D warnings`, `fmt`, disable-runs) are the whole verification surface
+until the caps lift or are raised — which is a statement about coverage, not a
+licence to merge faster.
+
 ## 2026-09-03 — E-A-CITATION-IS-NOT-A-DEPENDENCY-AND-A-FORCED-COPY-NEEDS-A-GATE-1 — the Σ-transport kernel, verified by a crate it cannot call
 
 **Status:** FINDING (both implementations read; the gate is written, passing,
@@ -55,7 +93,14 @@ the crate, which is the difference between a claim and a check.
 
 ## 2026-09-03 — E-THE-FIX-FOR-A-REVIEW-FINDING-SHIPS-UNREVIEWED-BY-DEFAULT-1 — the cap was the visible half
 
-**Status:** FINDING (measured on this PR's own review metadata).
+**Status:** FINDING (measured on this PR's own review metadata). **⊘ ITS
+MITIGATION IS SUPERSEDED 2026-09-03, ~2h after this entry merged** — the
+paragraph below calls `@codex review` "unrelated to spend" and "not
+rate-limited"; that was measured and is now FALSE. Codex returned "You have
+reached your Codex usage limits for code reviews" on #1160. Both reviewers are
+now capped. See `E-THE-FREE-MITIGATION-WAS-FREE-FOR-TWO-HOURS-1` (above). The
+trigger-semantics MECHANISM is untouched; only the remedy's availability
+changed.
 **Confidence:** High for the MECHANISM (the trigger list is quoted verbatim
 from the reviewer's own notice). **Medium for the coverage table**, which is an
 inference from an ABSENCE: the same reviewer's stated rule is "comment when I
