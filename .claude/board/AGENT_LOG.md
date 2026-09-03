@@ -1,3 +1,11 @@
+## 2026-09-03 — PROBE-ENTROPY-SURFACE-CENSUS-1: one Sonnet transcription worker, orchestrator-measured
+
+- **Why:** D-DCR-4's gate ("entropy-surface CONSOLIDATION decision recorded first"). Tiering: Opus on the main thread for the census, the fixture design, the three pre-registered claims, the C2 restatement after falsification and both disable-runs; one Sonnet worker for the transcription grindwork (six forms copied verbatim out of unimportable crates, with `file:line` citations), edit-only, no cargo.
+- **Worker outcome:** file created as specced; it re-verified the spec's approximate line ranges against the real function boundaries and cited the ranges it actually read rather than the ones the spec guessed; it flagged the length-1 `log2(1)=0` NaN as a generalization artifact instead of silently guarding it — which became the pinned C2d.
+- **Orchestrator:** first run panicked at C2 and C3 never ran, so the assertions were moved to the end (a probe that asserts inline hides evidence). C2 was RESTATED to the measured claim, never relaxed. Disable-runs both red-then-green (exit 101 / exit 0): normalizing F and G collapses the C3 delta to `0.0`; giving B form A's zero-mass convention closes the C2b gap.
+- **Gates:** `cargo clippy -p lance-graph-planner --example entropy_surface_census --no-deps -- -D warnings` clean; fmt clean; probe exits 0 (commit `e5e2520`).
+- **Board:** EPIPHANIES `E-THE-ENTROPY-HOME-WAS-RULED-AND-LEFT-EMPTY-1`, LATEST_STATE delta, STATUS_BOARD D-DCR-4 gate row, plan §W4-gate; supersession index regenerated last.
+
 ## 2026-09-03 — D-POP-2: one Sonnet grindwork worker against a verbatim spec, orchestrator-gated
 
 - **Why:** the post-teardown survey (D-POP-0) named the contradiction write-back as its cheapest gap (§5.4) and D-POP-1 had reported (KILL), unblocking it. Tiering: the orchestrator (main thread) read the tree, wrote the spec (`elect_and_bind` / `ElectionReport` / `WitnessLens::bind_election` + six named falsifiers) and ran every gate and disable centrally; one Sonnet worker transcribed the spec into `witness_fabric.rs` + the `lib.rs` re-export block, edit-only, no cargo.
