@@ -1,3 +1,56 @@
+## 2026-09-03 — E-A-CENSUS-IS-A-FUNCTION-OF-ITS-REGEX-SO-GATE-THE-PROPERTY-1 — three numbers, one tree
+
+**Status:** FINDING (all three counts measured on the same tree, same hour).
+**Confidence:** High — the divergence is reproducible by swapping one pattern.
+
+**The measurement.** A sibling session's census reported **53 of 208** plans
+carrying no D-id and proposed a CI gate so the number could not regrow. Before
+building it I re-measured, and got a different answer — twice:
+
+| pattern | untracked / 208 |
+|---|---|
+| the sibling session's sweep | **53** |
+| `supersession_index.py`'s own `DID` | **75** |
+| a stricter form requiring a trailing number | **102** |
+
+Same tree, same hour, same population — the `3DGS` family counts 19 under every
+pattern, so nobody was measuring a different thing. **The census is a function
+of the regex**, and none of the three numbers is wrong; they answer three
+slightly different questions and only one of them (the generator's) is the one
+the supersession index actually uses.
+
+**The design consequence, which is the point.** A gate asserting *"no more than
+N untracked plans"* would have been wrong on the day it landed and would have
+frozen whichever regex its author happened to hold. So the gate asserts what
+regex choice cannot move: **a plan ADDED in this PR cites at least one D-id.**
+That stops the backlog regrowing — the stated goal — without requiring the
+backlog to be agreed on, counted, or backfilled, which is a cross-session scope
+call nobody has made.
+
+Added-only is deliberate too: gating MODIFIED plans would block whoever next
+edits a pre-existing untracked plan, punishing them for a debt they did not
+create. A gate that fires on innocent work gets routed around, and a
+routed-around gate is worse than none.
+
+**A second finding, from building it.** The obvious way to share the pattern —
+`from supersession_index import DID` — is wrong here: that module has **no
+`if __name__ == "__main__"` guard**, so importing it runs the entire generator
+and prints the index to stdout. Measured; the first version of the checker did
+exactly that. Adding a guard would refactor a CI-gated tool for one caller's
+convenience, so the pattern is lifted from its source text instead, with a hard
+error if that definition is ever renamed or reshaped. A silent fallback to a
+local copy would be the drift
+`E-A-CITATION-IS-NOT-A-DEPENDENCY-AND-A-FORCED-COPY-NEEDS-A-GATE-1` was written
+about — and note the contrast: there the copy was FORCED by a zero-dep boundary
+and the remedy was an equivalence test; here nothing forces it, so the remedy is
+to not copy at all.
+
+**Verified two-sided on real history, not fixtures.** The three plans actually
+added in the last 30 commits all carry D-ids, so the gate passes on recent
+legitimate work; the `3DGS` family — the largest untracked group — fails it.
+A gate that cannot fire and a gate that fires on everything are the same
+non-signal, so both halves were run.
+
 ## 2026-09-03 — E-THE-FREE-MITIGATION-WAS-FREE-FOR-TWO-HOURS-1 — the entry's own thesis, applied to the entry
 
 **Status:** FINDING (observed on #1160; supersedes the mitigation half of

@@ -1,0 +1,43 @@
+name: New plans carry D-ids
+on:
+  pull_request:
+    paths:
+      - .claude/plans/**
+      - .claude/tools/plan_dids.py
+      - .claude/tools/supersession_index.py
+      - .github/workflows/plan-dids.yml
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  added-plans-have-dids:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # The check compares against the PR's merge base, so it needs history.
+          fetch-depth: 0
+
+      - name: Every plan ADDED by this PR must cite a D-id
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          # ADDED only, deliberately. Gating MODIFIED plans would block whoever
+          # next edits one of the pre-existing untracked plans, punishing them
+          # for a debt they did not create. Added-only is the minimal form that
+          # stops the backlog regrowing, which is the whole goal; the existing
+          # backlog is a separate, cross-session scope call.
+          mapfile -t added < <(
+            git diff --diff-filter=A --name-only "$BASE_SHA" "$HEAD_SHA" -- '.claude/plans/*.md'
+          )
+          if [ ${#added[@]} -eq 0 ]; then
+            echo "no plans added by this PR; nothing to check"
+            exit 0
+          fi
+          python3 .claude/tools/plan_dids.py "${added[@]}"
