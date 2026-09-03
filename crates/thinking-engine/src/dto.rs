@@ -184,6 +184,7 @@ impl ThoughtStruct {
 
 /// Structure-of-Arrays for cognitive search across many thoughts.
 /// Same principle as NeuronIndex: AoS for API, SoA for search.
+#[derive(Default)]
 pub struct ThoughtIndex {
     pub codebook_index: Vec<u16>,
     pub energy: Vec<f32>,

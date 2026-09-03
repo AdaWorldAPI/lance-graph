@@ -204,6 +204,166 @@ harvest and not an amputation.
 | The 8-channel cascade edge (BECOMES / CAUSES / SUPPORTS / REFINES / GROUNDS / ABSTRACTS / RELATES / CONTRADICTS) | transcoded to the SPO palette, kept as the comma-level mantissa carrier | D-CSV-9, FUTURE-DESIGN "first wiring target" |
 | Persona as 12 constants + a mode with rung bounds and a collapse bias | a Layer-2 data card for the persona storyline, when it opens | O3 (parked) |
 
+## 4b. D-TEH-3 fate probes — PRE-REGISTERED before the first run
+
+The two remaining §1c rows (`semantic_chunker`, `spiral_segment`) each carry a
+falsifier as their gate, and a gate written after the numbers is not a gate.
+Both probes, their arms and their thresholds are fixed HERE, before either was
+executed; the run only fills in the measurements.
+
+### `semantic_chunker` — `examples/chunker_falsifier.rs`
+
+The §1c claim is "chunk boundaries are convergence jumps, no forward pass",
+and the row's gate is "boundaries vs a gold sentence split; else stays LAB".
+The probe uses the tier-1..4 calibration corpus of `jina_v5_ground_truth.rs`
+(Rule 23 — real text, not synthetic), the Jina v5 tokenizer, the baked
+`jina-v5-codebook` index + 256x256 table. Sentence pairs from DIFFERENT corpus
+pairs are concatenated, so the gold boundary is the token seam by construction.
+
+| arm | what it measures | why it is there |
+|---|---|---|
+| can-fire | recall@+-4 tokens of the seam over 168 cross-topic passages | a chunker that never fires is not a chunker |
+| null | the same passages with centroid order shuffled (20 SplitMix64 permutations), p95 of recall | "a boundary landed near the seam" must beat chance, and a boundary detector on shuffled input still finds boundaries |
+| silence | the 8 same-topic (tier-1/2) passages, both orders | a chunker that splits everything carries as much information as one that never splits |
+
+**PASS** (at one threshold, the same threshold for all three arms):
+recall >= 0.75 AND recall >= null_p95 + 0.15 AND false splits <= 2 of 8.
+**KILL** otherwise.
+
+- PASS commits: the port to `deepnsm-v2`'s text side is on, as its own PR with
+  the probe carried across as the port's regression gate. It does NOT commit
+  the tesseract-paperless sentence assembler to using it — that consumer is a
+  separate decision with its own falsifier.
+- KILL commits: the module stays LAB and its §1c row is closed as
+  measured-negative, with the numbers on the board. It is NOT deleted (a LAB
+  verdict is a home, not a death sentence) and it is NOT re-probed on a
+  different corpus to get a better answer.
+
+### `spiral_segment` — `examples/spiral_gate_probe.rs`
+
+The §1c row routes this to a codec home "via the certification battery"
+(`certification-officer`). That battery needs the F32 cosine matrix re-derived
+from the model source, which is not on disk here. This probe is the CHEAP GATE
+in front of that expensive step: fit the codec to the four real baked 256x256
+tables in the tree (jina-v3, bge-m3, reranker, jina-v5 u8 + jina-v5 i8) and ask
+whether it can clear the ecosystem floor at all.
+
+Thresholds are the ecosystem's own, not invented here:
+`encoding-ecosystem.md` — "any encoding below the naive u8 floor is worse than
+doing nothing"; the bgz-hhtl-d gate is Pearson >= 0.9980. Plus the claim the
+module's own doc makes ("51x compression"): the codec must at least halve what
+it replaces, or it is a lossy re-encoding of a u8 table for no space.
+
+**PASS** if for SOME `max_error`, on EVERY table: r >= 0.9980 AND rho >= 0.9980
+AND spiral bytes <= u8 bytes / 2. **KILL** otherwise.
+
+- PASS commits: the certification battery is unblocked and scheduled — this
+  probe is explicitly NOT a certification (a baked u8 table is not the atomic
+  clock; only the source-derived F32 matrix is).
+- KILL commits: the module stays LAB, the 51x claim is recorded as
+  measured-false at the fidelity the workspace requires, and no battery is run.
+  A codec that cannot preserve a baked table will not preserve its F32 parent.
+
+Both probes report a per-configuration table so a KILL says WHERE it failed,
+not merely that it failed.
+
+## 4c. D-TEH-3 fate probes — RESULTS (both KILL, both stay LAB)
+
+Both probes run on real data (`crates/thinking-engine/data/jina-v5-codebook/`
++ `jina-v3-hdr/` + `bge-m3-hdr/` + `jina-reranker-v3-BF16-hdr/`, no synthetic
+input), against the arms and thresholds pre-registered in §4b. **Neither
+threshold was retuned after seeing a result** — the pre-registration's own
+rule.
+
+### `semantic_chunker` — KILL, and the null result is a genuine mechanism
+### null, not a harness artifact
+
+```
+threshold |    recall | null p95 | false splits |  bnd/pass | verdict
+     0.30 |     0.000 |    0.000 |       0 of  8 |      0.00 | kill
+     0.45 |     0.000 |    0.000 |       0 of  8 |      0.00 | kill
+     0.60 |     0.000 |    0.000 |       0 of  8 |      0.00 | kill
+```
+
+recall = 0.000 at every threshold means `find_boundaries` never fired ONCE
+across all 168 cross-topic passages, at any of the three thresholds swept.
+Before trusting an all-zero result, a diagnostic ran the module's OWN
+adversarial positive-control shape from its `detects_boundary_between_topics`
+test (synthetic centroid corners 0-4 vs 250-254, maximally distant in the
+256-centroid table) against the same `jina-v5-codebook` table the falsifier
+used. **The positive control ALSO produced zero boundaries.** This was first
+run as a throwaway, non-committed script — a real gap Codex review caught on
+this PR (#1144): a deleted diagnostic means a later reader can reproduce the
+KILL, but not the reasoning for calling it a mechanism null rather than a
+harness bug. Fixed by committing the control as a 4th arm inside
+`chunker_falsifier.rs` itself (reproduces the same zero, confirmed by
+re-running it after landing). So this is a genuine mechanism/table-level null:
+the perturb-think-top-k-Jaccard convergence pattern at `max_cycles: 10` does
+not discriminate on this HDR-encoded table at all, even on inputs designed to
+be maximally separable. The module's own pre-existing test
+(`detects_boundary_between_topics`) already carried a comment hedging exactly
+this ("On uniform HDR tables the convergence patterns may not diverge
+strongly") — the falsifier turns that hedge into a measured, pre-registered
+KILL rather than an unverified doubt.
+
+**Verdict: KILL.** `semantic_chunker` stays LAB. Not ported to deepnsm-v2. Not
+deleted. Not re-probed on a friendlier corpus to chase a different answer.
+
+### `spiral_segment` — KILL, and the failure is compression ratio on u8
+### (fidelity holds), compression AND fidelity on i8 (correction below)
+
+```
+       table | max_error |       r |     rho |    x u8 |  seg/row |
+  jina-v3 u8 |     0.005 |  1.0000 |  1.0000 |    0.22 |   142.27 |
+  jina-v3 u8 |     0.050 |  0.9991 |  0.9991 |    0.28 |   114.11 |
+   bge-m3 u8 |     0.005 |  1.0000 |  1.0000 |    0.22 |   142.61 |
+ reranker u8 |     0.005 |  1.0000 |  1.0000 |    ~0.2 |     ~140 |
+  jina-v5 u8 |     0.050 |  0.9991 |  0.9991 |    0.28 |   113.72 |
+  jina-v5 i8 |     0.005 |  0.9993 |  0.9975 |    0.28 |   115.10 |
+  jina-v5 i8 |     0.050 |  0.7709 |  0.7137 |    0.80 |    39.91 |
+```
+(full table: 5 tables x 4 max_errors = 20 rows, see the example's own output)
+
+Fidelity (Pearson r, Spearman rho) clears the 0.9980 gate comfortably on every
+u8 table at every max_error tried. **The codec is accurate on u8 tables.**
+The i8 table is the one real exception, caught by Codex on this PR
+(`chatgpt-codex-connector[bot]`, P2): at its best configuration
+(max_error 0.005) r = 0.9993 clears the floor but rho = 0.9975 does not
+(the table above already shows this row) — i8 fidelity never clears BOTH
+gates at any max_error tested, and gets strictly worse as max_error loosens
+(rho 0.9975 -> 0.9906 -> 0.9590 -> 0.7137). Compression ALSO fails on i8 at
+every max_error (x u8 tops out at 0.80x, still short of `MIN_RATIO_VS_U8 = 2.0`),
+so the KILL verdict for `spiral_segment` is unaffected by this correction —
+the codec fails BOTH gates on i8, not just the compression gate the u8
+tables already fail. What the original write-up got wrong was calling this
+a "compression-only" failure; it is compression-only on u8, and a
+double failure on i8. What kills it, in either case, is compression:
+`x u8` (spiral bytes vs u8-table bytes) never exceeds ~0.28x on a u8 table —
+i.e. the spiral encoding is **~3.6x LARGER** than the u8 table it would
+replace, not smaller, let alone the "51x compression" the module's own doc
+comment claims. Root cause visible in `seg/row`: a real HDR/CDF-encoded
+distance row needs ~114-143 spiral segments (8 bytes each) to hit even a
+0.05 max_error, because the fitting premise (few segments per row) only holds
+on smooth, low-curvature synthetic data — a real codebook's per-row CDF is not
+smooth. Even at the loosest max_error swept (0.05, well past the fidelity
+gate's own comfort margin), no table's compression ratio approaches the
+`MIN_RATIO_VS_U8 = 2.0` floor, let alone the ecosystem's u8-beats-nothing
+floor doubled.
+
+**Verdict: KILL.** `spiral_segment` stays LAB. The certification battery
+(F32-source re-derivation, `certification-officer`) is NOT scheduled — a
+codec that cannot beat a baked u8 table by 2x will not beat its F32 parent
+either. The "51x compression" doc-comment claim is recorded here as
+measured-false at the fidelity this workspace requires; it was never false at
+the fidelity the module tested itself against (smooth synthetic curves), only
+against the real distributional shape of a trained model's own table.
+
+### §1c is now CLOSED — every row in the table has a verdict
+
+Both remaining open rows (`semantic_chunker`, `spiral_segment`) are now KILL,
+joining the earlier D-TEH-2/D-TEH-3 PASS rows already landed
+(#1142/#1143). No §1c row remains unprobed.
+
 ## 5. Deliverables
 
 | D-id | title | scope | status |
@@ -211,7 +371,7 @@ harvest and not an amputation.
 | D-TEH-0 | census + fate table + open-row reconciliation + idea harvest (this plan) | plan + board rows | Shipped (this PR) |
 | D-TEH-1 | W1: `bridge_gate` (seven items) → `lance_graph_contract::bridge_gate`; callcenter re-imports and drops the path dep; thinking-engine keeps a re-export shim | contract + callcenter | **Shipped 2026-09-02** — edge measured before (required dep, 6 crossing sites, dep-drop fails 6 × E0433) and after (zero thinking-engine deps in callcenter metadata; 1303 + 156 tests, driver default + `with-engine` green). The `with-engine` re-point is NOT part of this wave: D-TTV-1 is Queued and the engine hook still lives in thinking-engine, so there is nothing to re-point it at (stop condition honoured). thinking-engine is now a leaf for every REQUIRED edge; the one remaining edge is the ALU's optional engine hook |
 | D-TEH-2 | W2: ghost prior harvested as planner `nars/ghost_prior.rs` over `WisdomMarker`, per-thought, with two-sided falsifiers; crate `ghosts.rs` deleted | planner | **Shipped 2026-09-02** — planner `nars/ghost_prior.rs` (`GhostPrior`, `PriorFloor`, `Trace`, `calibration::{recurrence_fixture, discrimination}`; 14 tests); `ghosts.rs` + `examples/think.rs` deleted; lab `persona`/`world_model`/`awareness_dto` re-pointed to `contract::escalation::GhostEcho` (TD-GHOST-ECHO-DUP-1 resolved). Calibration gate REVERSED the first-declared floor: `Marker` (0.1, never pruned) discriminates ≥ `Trace` (0.001) on every fixture row and strictly once the remembered pattern ages past its prune point (disc 0.0188 vs 0.0000 at 30 stale / age 20 and 60); default = `Marker`. Consumer D-HOUSE-4 unblocked |
-| D-TEH-3 | W2: calibration MATH → jc (ruling 4: compare, then lift or perfect in jc; crate copies deleted); `semantic_chunker` / `spiral_segment` decided by their falsifiers | jc / deepnsm-v2 / codec home | **Math half Shipped 2026-09-02** — new `jc::drift` (`reencode_drift` / `reencode_batch` / `delta_summary`) and `jc::quorum` (`pairwise_agreement_u8` / `QuorumLevel` / `cronbach_report`); the lift gate ran on distinguishing fixtures: cronbach = same estimator (LIFT; the `f32` copy loses a `1e7`-shifted fixture the `f64` form holds to `1e-9`), spearman = the retired copy ranked ties by position (PERFECT-IN-JC: 1.000 vs 0.948683 on `[1,2,2,3]`, indistinguishable on the tie-free fixtures its own tests used). Lab: `cronbach.rs` deleted; `reencode_safety` / `silu_correction` / `ground_truth::calibration` are glue over jc, x256 proof green through jc (14 tests). `semantic_chunker` / `spiral_segment` halves still Queued on their falsifiers |
+| D-TEH-3 | W2: calibration MATH → jc (ruling 4: compare, then lift or perfect in jc; crate copies deleted); `semantic_chunker` / `spiral_segment` decided by their falsifiers | jc / deepnsm-v2 / codec home | **Shipped 2026-09-02/03 — all three halves closed.** Math: new `jc::drift` (`reencode_drift` / `reencode_batch` / `delta_summary`) and `jc::quorum` (`pairwise_agreement_u8` / `QuorumLevel` / `cronbach_report`); lift gate ran on distinguishing fixtures: cronbach = same estimator (LIFT; the `f32` copy loses a `1e7`-shifted fixture the `f64` form holds to `1e-9`), spearman = the retired copy ranked ties by position (PERFECT-IN-JC: 1.000 vs 0.948683 on `[1,2,2,3]`). `cronbach.rs` deleted; `reencode_safety` / `silu_correction` / `ground_truth::calibration` are glue over jc, x256 proof green (14 tests). **`semantic_chunker`: KILL** (§4c) — recall 0.000 at every threshold, confirmed a genuine mechanism null (not a harness artifact) via a non-committed positive-control diagnostic on the module's own adversarial fixture shape; stays LAB. **`spiral_segment`: KILL** (§4c) — fidelity clears r/rho >= 0.9980 on every u8 table but NOT on i8 (rho tops out at 0.9975, corrected 2026-09-03 per Codex review on #1144); compression fails on every table regardless, topping out at ~0.28x a u8 table (i.e. ~3.6x LARGER, not the claimed 51x), because real HDR/CDF table rows need ~114-143 segments to hit even a loose max_error; stays LAB, certification battery not scheduled |
 | D-TEH-4 | W3: M8 engine collapse with parity suite; cascade shapes and lens modules collapse | thinking-engine → the one engine | Queued (owns ENTROPY M8) |
 | D-TEH-5 | W4: residue deleted, crate renamed `thinking-lab` with a CI line; §2 rows closed; TD paid | workspace | Queued — closes the chapter |
 

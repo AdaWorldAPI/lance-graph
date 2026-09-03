@@ -452,9 +452,9 @@ impl Qualia17D {
     /// Each f32 [0,1] dim maps to i8 [-127, 127] via: (dim - 0.5) * 254.
     pub fn to_voice_channels(&self) -> [i8; 16] {
         let mut channels = [0i8; 16];
-        for i in 0..16 {
-            let v = self.dims[i]; // skip dim 16 (integration) for 16-channel fit
-            channels[i] = ((v - 0.5) * 254.0).clamp(-127.0, 127.0) as i8;
+        // skip dim 16 (integration) for 16-channel fit
+        for (c, &v) in channels.iter_mut().zip(self.dims.iter()) {
+            *c = ((v - 0.5) * 254.0).clamp(-127.0, 127.0) as i8;
         }
         channels
     }
@@ -545,91 +545,53 @@ impl Qualia17D {
         match family {
             "emberglow" => {
                 // Warm: boost 800-2500 Hz (formant region)
-                for i in 4..=10 {
-                    w[i] = 1.3;
-                }
+                w[4..=10].fill(1.3);
             }
             "woodwarm" => {
                 // Grounded: boost bass + low-mid
-                for i in 0..=6 {
-                    w[i] = 1.2;
-                }
-                for i in 15..=20 {
-                    w[i] = 0.85;
-                }
+                w[0..=6].fill(1.2);
+                w[15..=20].fill(0.85);
             }
             "steelwind" => {
                 // Sharp: boost presence (2-5 kHz)
-                for i in 10..=14 {
-                    w[i] = 1.4;
-                }
-                for i in 0..=3 {
-                    w[i] = 0.8;
-                }
+                w[10..=14].fill(1.4);
+                w[0..=3].fill(0.8);
             }
             "oceandrift" => {
                 // Flowing: gentle mid, soft treble
-                for i in 6..=12 {
-                    w[i] = 1.1;
-                }
-                for i in 16..=20 {
-                    w[i] = 0.9;
-                }
+                w[6..=12].fill(1.1);
+                w[16..=20].fill(0.9);
             }
             "frostbite" => {
                 // Cold: boost treble, cut warmth
-                for i in 14..=20 {
-                    w[i] = 1.3;
-                }
-                for i in 4..=8 {
-                    w[i] = 0.7;
-                }
+                w[14..=20].fill(1.3);
+                w[4..=8].fill(0.7);
             }
             "sunburst" => {
                 // Bright: broadband boost, emphasis on harmonics
-                for i in 0..=20 {
-                    w[i] = 1.1;
-                }
-                for i in 8..=14 {
-                    w[i] = 1.3;
-                }
+                w[0..=20].fill(1.1);
+                w[8..=14].fill(1.3);
             }
             "nightshade" => {
                 // Dark: deep bass, soft everything else
-                for i in 0..=4 {
-                    w[i] = 1.4;
-                }
-                for i in 10..=20 {
-                    w[i] = 0.7;
-                }
+                w[0..=4].fill(1.4);
+                w[10..=20].fill(0.7);
             }
             "thornrose" => {
                 // Tense: mid emphasis + presence peak
-                for i in 6..=8 {
-                    w[i] = 1.3;
-                }
+                w[6..=8].fill(1.3);
                 w[13] = 1.4; // sibilance spike
             }
             "velvetdusk" => {
                 // Soft: gentle roll-off, warm low-mid
-                for i in 2..=8 {
-                    w[i] = 1.15;
-                }
-                for i in 14..=20 {
-                    w[i] = 0.8;
-                }
+                w[2..=8].fill(1.15);
+                w[14..=20].fill(0.8);
             }
             "stormbreak" => {
                 // Aggressive: mid-scoop + treble + bass
-                for i in 0..=3 {
-                    w[i] = 1.3;
-                }
-                for i in 6..=10 {
-                    w[i] = 0.8;
-                } // mid scoop
-                for i in 14..=20 {
-                    w[i] = 1.3;
-                }
+                w[0..=3].fill(1.3);
+                w[6..=10].fill(0.8); // mid scoop
+                w[14..=20].fill(1.3);
             }
             _ => {} // neutral
         }

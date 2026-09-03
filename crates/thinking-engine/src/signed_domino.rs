@@ -72,11 +72,10 @@ impl<'a> SignedDominoCascade<'a> {
                 }
                 let row = &table[q_idx as usize * n..(q_idx as usize + 1) * n];
 
-                for j in 0..n {
+                for (j, &val) in row.iter().enumerate() {
                     if j == q_idx as usize {
                         continue;
                     }
-                    let val = row[j];
 
                     // Sign IS the gate decision
                     if val > 0 {
