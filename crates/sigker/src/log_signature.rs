@@ -162,7 +162,15 @@ pub fn witt_dimension(d: usize, depth: usize) -> usize {
 /// Enumerate all Lyndon words of length 1..=max_len over alphabet {0..alpha-1},
 /// in length-then-lex order.
 pub fn enumerate_lyndon_words(alpha: usize, max_len: usize) -> Vec<Vec<usize>> {
-    assert!(alpha >= 1 && max_len >= 1);
+    assert!(alpha >= 1);
+    // max_len == 0 falls straight through to the empty vec: the generation
+    // loop below starts at w = [0] (length 1 > 0), so the length filter
+    // never pushes it, and the successor step's `(0..max_len)` range is
+    // itself empty, immediately driving `w` to empty and ending the loop.
+    // No word of length >= 1 fits inside a max length of 0, and depth 0 is
+    // a real, supported case: `signature_truncated` returns the identity
+    // element there, whose logarithm has no Lie components at all — an
+    // empty Lyndon basis, not an error.
     let mut out: Vec<Vec<usize>> = Vec::new();
     let mut w: Vec<usize> = vec![0];
     while !w.is_empty() {
@@ -747,5 +755,21 @@ mod tests {
         );
         let deep = log_signature_truncated(&path, 6).compression_vs_signature();
         assert!(deep > shallow, "compression must grow with depth");
+    }
+
+    /// `signature_truncated` explicitly supports `depth == 0` (it returns the
+    /// identity element — see its own early return). `log_signature_truncated`
+    /// must stay consistent with that: the identity's logarithm has no Lie
+    /// components, so this is a valid, empty log-signature, not an error.
+    /// `enumerate_lyndon_words` used to assert `max_len >= 1` and panic here.
+    #[test]
+    fn depth_zero_is_the_empty_log_signature_not_a_panic() {
+        let path = vec![vec![1.0, 2.0], vec![3.0, -1.0]];
+        let log_sig = log_signature_truncated(&path, 0);
+        assert_eq!(log_sig.depth, 0);
+        assert!(log_sig.basis.is_empty());
+        assert!(log_sig.coeffs.is_empty());
+        assert_eq!(witt_dimension(log_sig.path_dim, 0), 0);
+        assert_eq!(enumerate_lyndon_words(log_sig.path_dim, 0).len(), 0);
     }
 }
