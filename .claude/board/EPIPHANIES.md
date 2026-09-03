@@ -1,3 +1,57 @@
+## 2026-09-03 — E-A-CORRECTION-IS-ONLY-AS-GOOD-AS-ITS-MERGE-1 — an unlanded Storno leaves the falsehood standing
+
+**Status:** FINDING (measured on this repo's own `main`, this hour).
+**Confidence:** High — the false claim, the correct fix, and the source that
+settles them were all read directly.
+
+**The measurement.** `main` asserted, in two board files, that two ancestor
+mechanisms disagreed by **58.2%**:
+
+| site | reading on `main` |
+|---|---|
+| `.claude/board/AGENT_LOG.md:481` | 58.2% **disagreement** |
+| `.claude/board/INTEGRATION_PLANS.md:910` | 58.2% **disagreement** |
+
+The source says the opposite. `MedCare-rs/crates/medcare-server/src/views/atlas.rs:465`
+reads `// the DAG longest path. Measured agreement: 58.2 %.` — agreement 58.2%,
+disagreement 41.8%. `EPIPHANIES.md`, `LATEST_STATE.md` and `PR_ARC_INVENTORY.md`
+carried it correctly, which is exactly why the inversion survived: the majority
+of sites agreed with each other and with the truth, so nothing looked odd.
+
+**The part worth keeping.** A sibling session had *already found and fixed this*
+— a well-formed Storno, source-cited, regraded in place with `⊘` blocks and
+strikethrough rather than deletion, fully compliant with the append-only rule.
+It sat on an unmerged branch **with no pull request**, 170 commits behind `main`,
+while `main` went on asserting the claim it corrects. Measured: the branch
+merges into current `main` with **zero conflicts**.
+
+**So the append-only discipline protects nothing on its own.** Regrading in
+place, never deleting, citing the source — every rule was followed, and the
+falsehood still stood on `main`, because the corrected file never landed. The
+board's guarantee is about how a correction is *written*; it says nothing about
+whether it is *reachable*. **A correction is only as good as its merge.**
+
+**And the absence of a signal read as the absence of work.** `list_pull_requests
+--state open` returned `[]`. Zero open PRs is the state a workspace looks like
+when it is idle *and* the state it looks like when finished work is stranded on
+branches — the two are indistinguishable from the PR list alone. The cheap check
+that separates them is `git ls-remote --heads` plus a per-branch
+`rev-list --left-right --count` against `main`; it costs one command and it is
+the only thing that would have surfaced this.
+
+**Consequence, actionable.** Before concluding a repo has nothing in flight,
+enumerate the remote branches and count each one's distance from `main`. A
+branch ahead of `main` with no PR is either abandoned or stranded, and the
+difference matters — this one held a verified correction of a live falsehood.
+Opened as #1162 (draft, authorship left with the writing session; not rebased,
+not amended, not extended).
+
+**Cross-refs.** The stranded-slice entries near `:1324` are a *different*
+mechanism — work lost inside a rebase, not work finished and never proposed.
+This is the second failure mode, and the recovery is a PR, not a re-derivation.
+
+---
+
 ## 2026-09-03 — E-A-CENSUS-IS-A-FUNCTION-OF-ITS-REGEX-SO-GATE-THE-PROPERTY-1 — three numbers, one tree
 
 **Status:** FINDING (all three counts measured on the same tree, same hour).
