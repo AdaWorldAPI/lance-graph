@@ -803,3 +803,26 @@ fuses op+reduction is aimed at all of it. The BUY threshold is unchanged
 **Not scheduled, deliberately.** This is a measured direction, not a wave.
 The cross-repo ask (an ndarray fused mask+popcount primitive) is the
 operator's call to make, per commitment on upstream asks.
+
+## W4 gate — entropy-surface consolidation decision, RECORDED (2026-09-03)
+
+D-DCR-4's first clause is discharged. `examples/entropy_surface_census.rs`
+(`e5e2520`) measured seven Shannon-entropy surfaces across four conventions.
+
+**The decision:** the consolidation target is `contract::thought_atoms`
+(operator ruling 2026-08-31, "universale denk atome"), **not `jc`** — `jc`
+carries no entropy surface, and `E-JC-IS-THE-HOME-OF-ALL-CALIBRATED-MATH-1`
+would otherwise capture entropy by analogy with cronbach/spearman. That
+module currently has ZERO consumers anywhere in the tree.
+
+**The constraint the measurement added:** routing the nearest caller
+(`insight::confidence_entropy`) through the atom is NOT a drop-in. The two
+agree to `0.0` exactly on non-degenerate input and carry OPPOSITE zero-mass
+conventions (atom `1.0`, caller `0.0`), so the caller's empty-arena early
+return must be preserved and pinned, or an empty arena's entropy inverts.
+
+**Out of scope, named:** the shader-driver and the two cognitive forms (two
+in excluded crates); the two thinking-engine forms, which are not entropies
+of a distribution at all and whose correction is a lab behaviour change with
+its own gate. The Σ-transport half of D-DCR-4 is untouched.
+Full result: `E-THE-ENTROPY-HOME-WAS-RULED-AND-LEFT-EMPTY-1`.
