@@ -1,3 +1,96 @@
+## 2026-09-03 — E-THE-FREE-MITIGATION-WAS-FREE-FOR-TWO-HOURS-1 — the entry's own thesis, applied to the entry
+
+**Status:** FINDING (observed on #1160; supersedes the mitigation half of
+`E-THE-FIX-FOR-A-REVIEW-FINDING-SHIPS-UNREVIEWED-BY-DEFAULT-1`, whose Status
+line is regraded in place).
+**Confidence:** High for the fact (the reviewer said it in its own words);
+the cause is not established.
+
+**What happened.** That entry, merged roughly two hours ago, offered a remedy
+and graded it: *"The cheap mitigation, available today and unrelated to spend
+… It costs one comment, is not rate-limited."* On #1160 the same reviewer
+answered a review request with **"You have reached your Codex usage limits for
+code reviews."** The other reviewer is simultaneously at its org spending cap.
+**Both reviewers are now capped, and the free workaround is not free.**
+
+**Why this is worth its own id rather than a quiet edit.** The superseded
+sentence is the exact failure mode of the entry it lives in — *a property
+measured once, later read as a standing fact* — and it decayed inside the
+document written to name that decay, in about two hours. The first entry's
+own rule ("carry the commit it was measured at and the command that measures
+it, so a reader re-runs rather than trusts") was applied there to claims about
+the TREE and not to a claim about an EXTERNAL SERVICE, which is the gap:
+external quotas are strictly less stable than a repo, and a remedy's
+availability is not a property of the mechanism it remedies.
+
+**What is NOT superseded.** The trigger semantics — a push is not a review
+trigger, so the commit fixing a finding is reviewed only if someone asks — is
+a statement about the reviewer's contract, quoted from its own notice, and is
+untouched. What changed is that asking now costs quota that is exhausted, which
+makes the operator's spend decision the only remaining lever rather than one of
+two.
+
+**Operational consequence, recorded because it is live.** As of now no
+external reviewer can see any PR in this repo. Local gates (`cargo test`,
+`clippy -D warnings`, `fmt`, disable-runs) are the whole verification surface
+until the caps lift or are raised — which is a statement about coverage, not a
+licence to merge faster.
+
+## 2026-09-03 — E-A-CITATION-IS-NOT-A-DEPENDENCY-AND-A-FORCED-COPY-NEEDS-A-GATE-1 — the Σ-transport kernel, verified by a crate it cannot call
+
+**Status:** FINDING (both implementations read; the gate is written, passing,
+and disable-verified).
+**Confidence:** High — the two bodies are byte-identical on inspection, and the
+new test fails when either is perturbed.
+
+**What was found.** `lance_graph_contract::sigma_propagation::ewa_sandwich`
+carried a module header claiming the math was *"verified empirically by
+`crates/jc::ewa_sandwich`"*, quoting that pillar's numbers (PSD-preservation
+1.000000, 10000/10000 hops). The kernel is a **byte-identical copy** of
+`jc::ewa_sandwich`'s private `sandwich` — same arithmetic, same variable names,
+same `0.5 * (r01 + r10)` symmetrization.
+
+**The duplication is FORCED, and that is the interesting part.**
+`lance-graph-contract` is zero-dependency by design; its manifest forbids even
+optional path deps, after one killed the whole PR pipeline on 2026-07-07. So it
+structurally cannot call `jc` or share its `Spd2`. This is not a dedup target:
+the copy has to exist.
+
+**What could not exist by citation is the certification.** A crate cannot
+inherit a proof from a crate it is forbidden to depend on; naming the pillar in
+a doc comment transfers no evidence. And the failure mode is quiet by
+construction — **two identical copies agree until the moment one is edited**,
+which is exactly when nobody is comparing them. Nothing in the tree executed
+both; `grep` for a test naming them together returned nothing.
+
+**The fix is directional, and the direction is the whole design.** The gate
+cannot live in the contract (it may never depend on `jc`). It lives in `jc`,
+which already dev-depends on the contract, so it needed **zero new dependency
+edges** — `jc::ewa_sandwich::tests::the_contract_copy_matches_the_certified_kernel_bit_for_bit`
+runs both kernels over 1000 sampled SPD pairs and asserts **bit** equality
+(`to_bits()`, not a tolerance: the two are the same arithmetic in the same order
+on the same f64s, so any tolerance would hide precisely the drift the test
+exists to catch). It carries an anti-vacuity guard requiring that most sampled
+pairs have a non-zero off-diagonal, because diagonal inputs make the
+symmetrization vanish and would agree under a wrong implementation too.
+Disable-verified: dropping the symmetrization from the ABI copy fails it.
+
+**A structural check that nearly went unmade.** `jc` is workspace-EXCLUDED, so
+`cargo test -p jc` does not work and a test there could plausibly never run.
+It does: `.github/workflows/jc-proof.yml` runs
+`cargo test --manifest-path crates/jc/Cargo.toml` on `crates/jc/**`. Worth
+checking rather than assuming — an excluded crate's test that CI never runs is
+a gate in name only. (I initially misread `"crates/jc"` in the root manifest as
+membership; it is in the `exclude` list. Reading a grep hit without checking
+which list it landed in is the same error shape this session hit four times
+already.)
+
+**The generalisation.** *A citation is not a dependency.* Where an
+architectural rule forces a copy, the certification does not travel with it,
+and the copy needs its own executed gate — placed on the side of the boundary
+that is ALLOWED to see both. The header now points at the test rather than at
+the crate, which is the difference between a claim and a check.
+
 ## 2026-09-03 — E-A-HAND-SWEEP-UNDERCOUNTS-TOWARD-DONE-AND-THE-CRITERION-IS-THE-WHOLE-DESIGN-1 — I reported 1 of 208; five defensible definitions give 32 to 125
 
 **Status:** FINDING (measured, five variants, each reproducible from the
@@ -137,7 +230,14 @@ because a clean audit result is evidence too, and because the next session
 should not have to re-run it blind.
 ## 2026-09-03 — E-THE-FIX-FOR-A-REVIEW-FINDING-SHIPS-UNREVIEWED-BY-DEFAULT-1 — the cap was the visible half
 
-**Status:** FINDING (measured on this PR's own review metadata).
+**Status:** FINDING (measured on this PR's own review metadata). **⊘ ITS
+MITIGATION IS SUPERSEDED 2026-09-03, ~2h after this entry merged** — the
+paragraph below calls `@codex review` "unrelated to spend" and "not
+rate-limited"; that was measured and is now FALSE. Codex returned "You have
+reached your Codex usage limits for code reviews" on #1160. Both reviewers are
+now capped. See `E-THE-FREE-MITIGATION-WAS-FREE-FOR-TWO-HOURS-1` (above). The
+trigger-semantics MECHANISM is untouched; only the remedy's availability
+changed.
 **Confidence:** High for the MECHANISM (the trigger list is quoted verbatim
 from the reviewer's own notice). **Medium for the coverage table**, which is an
 inference from an ABSENCE: the same reviewer's stated rule is "comment when I

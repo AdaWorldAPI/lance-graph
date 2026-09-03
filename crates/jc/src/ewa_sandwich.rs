@@ -387,6 +387,86 @@ mod tests {
         assert!(approx(r.c, 1.0, 1e-12));
     }
 
+    /// **The ABI copy must not drift from the certified kernel.**
+    ///
+    /// `lance_graph_contract::sigma_propagation::ewa_sandwich` is a
+    /// BYTE-IDENTICAL copy of this module's private `sandwich` — same
+    /// arithmetic, same variable names, same `0.5 * (r01 + r10)`
+    /// symmetrization. That is not an accident and not a defect: the contract
+    /// crate is zero-dependency BY DESIGN (its manifest forbids even optional
+    /// path deps, after one killed the whole PR pipeline on 2026-07-07), so it
+    /// structurally CANNOT call this function or share this type. The
+    /// duplication is forced by the architecture.
+    ///
+    /// What was missing is the consequence: the copy's own module doc claims
+    /// it is "verified empirically by `crates/jc::ewa_sandwich`" and quotes
+    /// this pillar's numbers, while nothing anywhere executed both. A
+    /// verification claim that cites a crate the citing crate cannot depend on
+    /// is prose, not a test — and two identical copies agree until the moment
+    /// one is edited, which is exactly when no one is looking.
+    ///
+    /// This test is the missing execution. It lives HERE rather than in the
+    /// contract crate for the same reason the duplication exists: `jc` may
+    /// depend on the contract (it already dev-depends on it), and the contract
+    /// may never depend on `jc`. Direction is the whole design.
+    #[test]
+    fn the_contract_copy_matches_the_certified_kernel_bit_for_bit() {
+        use lance_graph_contract::sigma_propagation::Spd2 as AbiSpd2;
+
+        let to_abi = |x: &Spd2| AbiSpd2 {
+            a: x.a,
+            b: x.b,
+            c: x.c,
+        };
+
+        // Anti-vacuity: identity-shaped or diagonal inputs would agree under
+        // almost any implementation, including a wrong one, because the
+        // symmetrization term vanishes. Count how many sampled pairs actually
+        // exercise a non-zero off-diagonal AND a non-symmetric intermediate,
+        // and require that most of them do.
+        let mut state = 0xCAFEu64;
+        let mut exercised = 0usize;
+        let total = 1000usize;
+
+        for _ in 0..total {
+            let m = sample_step_sigma(&mut state, 0.3);
+            let n = sample_step_sigma(&mut state, 0.3);
+            let m_sqrt = m.sqrt();
+
+            let certified = sandwich(&m_sqrt, &n);
+            let abi = lance_graph_contract::sigma_propagation::ewa_sandwich(
+                &to_abi(&m_sqrt),
+                &to_abi(&n),
+            );
+
+            // BIT equality, not approximate: the two are the same arithmetic in
+            // the same order on the same f64s. Any tolerance here would hide
+            // precisely the drift this test exists to catch.
+            assert_eq!(
+                certified.a.to_bits(),
+                abi.a.to_bits(),
+                "ABI copy drifted from the certified kernel (a): \
+                 certified={certified:?} abi=({}, {}, {})",
+                abi.a,
+                abi.b,
+                abi.c
+            );
+            assert_eq!(certified.b.to_bits(), abi.b.to_bits(), "…(b)");
+            assert_eq!(certified.c.to_bits(), abi.c.to_bits(), "…(c)");
+
+            if m_sqrt.b.abs() > 1e-9 && n.b.abs() > 1e-9 {
+                exercised += 1;
+            }
+        }
+
+        assert!(
+            exercised * 2 > total,
+            "fixture is vacuous: only {exercised}/{total} sampled pairs had a \
+             non-zero off-diagonal, so the comparison never exercised the \
+             symmetrization the two copies share"
+        );
+    }
+
     #[test]
     fn sandwich_preserves_spd() {
         let mut state = 0xCAFEu64;

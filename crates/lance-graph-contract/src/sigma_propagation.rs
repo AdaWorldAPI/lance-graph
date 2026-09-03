@@ -1,6 +1,22 @@
 //! Σ-Propagation — EWA-Sandwich kernel for multi-hop edge propagation.
 //!
-//! # The math (Pillar 6, verified empirically by `crates/jc::ewa_sandwich`)
+//! # The math (Pillar 6, certified in `crates/jc::ewa_sandwich`)
+//!
+//! **This module's [`ewa_sandwich`] is a byte-identical COPY of that pillar's
+//! private `sandwich` kernel, and the duplication is forced, not sloppy:** this
+//! crate is zero-dependency by design (see its manifest), so it can neither
+//! call `jc` nor share its `Spd2`. What the copy therefore cannot do is inherit
+//! the certification by citing it — for a while this header said "verified
+//! empirically by `crates/jc::ewa_sandwich`" and quoted that pillar's numbers,
+//! while nothing anywhere ran both. Two identical copies agree right up until
+//! one is edited, which is when nobody is looking.
+//!
+//! The agreement is now EXECUTED, in the only direction the dependency rule
+//! permits: `jc` dev-depends on this crate and
+//! `jc::ewa_sandwich::tests::the_contract_copy_matches_the_certified_kernel_bit_for_bit`
+//! runs both kernels over 1000 sampled SPD pairs and asserts bit equality. It
+//! is covered by CI (`.github/workflows/jc-proof.yml`). Edit either kernel and
+//! that test fails — verified by doing it.
 //!
 //! Multi-hop signal propagation through a graph of SPD covariance matrices
 //! follows the **EWA-Sandwich** rule:
