@@ -29,7 +29,7 @@ pub mod contract_bridge;
 pub mod contrastive_learner;
 pub mod domino;
 pub mod dto;
-pub mod dtype_parity;
+mod dtype_parity;
 pub mod dual_engine;
 pub mod engine;
 pub mod f32_engine;
@@ -38,7 +38,7 @@ pub mod jina_lens;
 pub mod l4;
 pub mod l4_bridge;
 pub mod layered;
-pub mod lens_shared;
+pub(crate) mod lens_shared;
 #[cfg(feature = "tokenizer")]
 pub mod lookup;
 pub mod meaning_axes;

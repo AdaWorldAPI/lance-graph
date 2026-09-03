@@ -75,15 +75,32 @@ mod tests {
         TableType::F32,
     ];
 
+    /// The same u8→f32 dequantization the builder itself applies internally
+    /// for `TableType::BF16`/`F32` (`(v - 128.0) / 127.0`, see `builder.rs`'s
+    /// `build()`), computed once here and threaded through
+    /// `.raw_cosines()` for `SignedI8` so that arm exercises the CANONICAL
+    /// `SignedThinkingEngine::from_f32_cosines` construction path instead of
+    /// the deprecated CDF-rank-shift `from_unsigned` fallback `build()`
+    /// otherwise takes when `raw_cosines` is unset (Codex review on #1151:
+    /// the suite must not pass while only the deprecated path is tested).
+    fn jina_cosines() -> Vec<f32> {
+        crate::jina_lens::JINA_HDR_TABLE
+            .iter()
+            .map(|&v| (v as f32 - 128.0) / 127.0)
+            .collect()
+    }
+
     fn built(table_type: TableType) -> ConfiguredEngine {
-        ThinkingEngineBuilder::new()
+        let mut builder = ThinkingEngineBuilder::new()
             .lens(Lens::Jina)
             .table_type(table_type)
-            .max_cycles(MAX_CYCLES)
-            .build()
-            .expect(
-                "builder must construct an engine from the baked Jina lens for every table type",
-            )
+            .max_cycles(MAX_CYCLES);
+        if table_type == TableType::SignedI8 {
+            builder = builder.raw_cosines(jina_cosines());
+        }
+        builder.build().expect(
+            "builder must construct an engine from the baked Jina lens for every table type",
+        )
     }
 
     fn top_indices_above_noise(energy: &[f32], cycles: u16) -> Vec<u16> {

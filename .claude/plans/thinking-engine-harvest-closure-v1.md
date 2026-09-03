@@ -372,7 +372,7 @@ joining the earlier D-TEH-2/D-TEH-3 PASS rows already landed
 | D-TEH-1 | W1: `bridge_gate` (seven items) → `lance_graph_contract::bridge_gate`; callcenter re-imports and drops the path dep; thinking-engine keeps a re-export shim | contract + callcenter | **Shipped 2026-09-02** — edge measured before (required dep, 6 crossing sites, dep-drop fails 6 × E0433) and after (zero thinking-engine deps in callcenter metadata; 1303 + 156 tests, driver default + `with-engine` green). The `with-engine` re-point is NOT part of this wave: D-TTV-1 is Queued and the engine hook still lives in thinking-engine, so there is nothing to re-point it at (stop condition honoured). thinking-engine is now a leaf for every REQUIRED edge; the one remaining edge is the ALU's optional engine hook |
 | D-TEH-2 | W2: ghost prior harvested as planner `nars/ghost_prior.rs` over `WisdomMarker`, per-thought, with two-sided falsifiers; crate `ghosts.rs` deleted | planner | **Shipped 2026-09-02** — planner `nars/ghost_prior.rs` (`GhostPrior`, `PriorFloor`, `Trace`, `calibration::{recurrence_fixture, discrimination}`; 14 tests); `ghosts.rs` + `examples/think.rs` deleted; lab `persona`/`world_model`/`awareness_dto` re-pointed to `contract::escalation::GhostEcho` (TD-GHOST-ECHO-DUP-1 resolved). Calibration gate REVERSED the first-declared floor: `Marker` (0.1, never pruned) discriminates ≥ `Trace` (0.001) on every fixture row and strictly once the remembered pattern ages past its prune point (disc 0.0188 vs 0.0000 at 30 stale / age 20 and 60); default = `Marker`. Consumer D-HOUSE-4 unblocked |
 | D-TEH-3 | W2: calibration MATH → jc (ruling 4: compare, then lift or perfect in jc; crate copies deleted); `semantic_chunker` / `spiral_segment` decided by their falsifiers | jc / deepnsm-v2 / codec home | **Shipped 2026-09-02/03 — all three halves closed.** Math: new `jc::drift` (`reencode_drift` / `reencode_batch` / `delta_summary`) and `jc::quorum` (`pairwise_agreement_u8` / `QuorumLevel` / `cronbach_report`); lift gate ran on distinguishing fixtures: cronbach = same estimator (LIFT; the `f32` copy loses a `1e7`-shifted fixture the `f64` form holds to `1e-9`), spearman = the retired copy ranked ties by position (PERFECT-IN-JC: 1.000 vs 0.948683 on `[1,2,2,3]`). `cronbach.rs` deleted; `reencode_safety` / `silu_correction` / `ground_truth::calibration` are glue over jc, x256 proof green (14 tests). **`semantic_chunker`: KILL** (§4c) — recall 0.000 at every threshold, confirmed a genuine mechanism null (not a harness artifact) via a non-committed positive-control diagnostic on the module's own adversarial fixture shape; stays LAB. **`spiral_segment`: KILL** (§4c) — fidelity clears r/rho >= 0.9980 on every u8 table but NOT on i8 (rho tops out at 0.9975, corrected 2026-09-03 per Codex review on #1144); compression fails on every table regardless, topping out at ~0.28x a u8 table (i.e. ~3.6x LARGER, not the claimed 51x), because real HDR/CDF table rows need ~114-143 segments to hit even a loose max_error; stays LAB, certification battery not scheduled |
-| D-TEH-4 | W3: M8 engine collapse with parity suite; cascade shapes and lens modules collapse | thinking-engine → the one engine | **Shipped 2026-09-03** — see §7 for the full scope decision. `builder.rs`'s `BuiltEngine`/`ConfiguredEngine` were found ALREADY dispatching all four dtypes uniformly (pre-existing, not built this wave) — that half of "one enum-dispatched engine" was proving-and-using, not building. What genuinely collapsed: `domino.rs`/`signed_domino.rs`'s ~150 lines of duplicate stage-finalization logic → shared `finalize_stage`/`is_focus_stable`; the 3 lens modules' identical `_lookup`/`_distance` bodies → `lens_shared.rs`. New `dtype_parity.rs`: the mandatory parity suite (3 tests, all real fixtures instantiating all 4 `BuiltEngine` variants from one baked lens, `DualEngine`'s pre-existing agreement as the measured floor, anti-vacuity guards on the floor itself and on the four dtypes NOT being bit-identical). `branching.rs`/`layered.rs` deliberately NOT folded into `BuiltEngine` (documented in both module docs: they compose multiple differently-sized engines, not per-dtype variants of one) — kept as directly-usable modes alongside the collapsed engine, per the plan's own wording. 345/345 lib tests green (was 337; +8 new), zero regressions, clippy clean on every touched/new file (pre-existing crate-wide clippy debt, unrelated to this wave, deferred to D-TEH-5) |
+| D-TEH-4 | W3: M8 engine collapse with parity suite; cascade shapes and lens modules collapse | thinking-engine → the one engine | **Shipped 2026-09-03** — see §7 for the full scope decision. `builder.rs`'s `BuiltEngine`/`ConfiguredEngine` were found ALREADY dispatching all four dtypes uniformly (pre-existing, not built this wave) — that half of "one enum-dispatched engine" was proving-and-using, not building. What genuinely collapsed: `domino.rs`/`signed_domino.rs`'s ~150 lines of duplicate stage-finalization logic → shared `finalize_stage`/`is_focus_stable`; the 3 lens modules' identical `_lookup`/`_distance` bodies → `lens_shared.rs`. New `dtype_parity.rs`: the mandatory parity suite (4 tests, all real fixtures instantiating all 4 `BuiltEngine` variants from one baked lens, `SignedI8` routed through the canonical `from_f32_cosines` construction rather than the deprecated `from_unsigned` fallback, `DualEngine`'s pre-existing agreement frozen as the measured floor, anti-vacuity guards on the floor itself and on the four dtypes NOT being bit-identical). `branching.rs`/`layered.rs` deliberately NOT folded into `BuiltEngine` (documented in both module docs: they compose multiple differently-sized engines, not per-dtype variants of one) — kept as directly-usable modes alongside the collapsed engine, per the plan's own wording. 346/346 lib tests green (was 337; +9 new, default features — 2 more `ground_truth.rs` tests are `calibration`-feature-gated), zero regressions, clippy clean on every touched/new file under the full `--all-targets --all-features` matrix (62 pre-existing crate-wide findings, unrelated to this wave, deferred to D-TEH-5) |
 | D-TEH-5 | W4: residue deleted, crate renamed `thinking-lab` with a CI line; §2 rows closed; TD paid | workspace | Queued — closes the chapter |
 
 ## 6. Rulings — asked 2026-09-02, ruled the same day (operator)
@@ -511,12 +511,51 @@ and the 3 lens modules. Findings, and the collapse decision each produced:
    are NOT bit-identical (anti-vacuity guard that the suite is testing
    dtype-INVARIANT behavior, not accidentally-identical arithmetic).
 
-**Verification:** 345/345 `cargo test --lib` (was 337 pre-change; +8 new
-tests, 0 regressions, 0 removed). `cargo clippy --lib --tests -- -D
-warnings` produces zero NEW findings in any touched or new file — every
-flagged line was confirmed pre-existing via `git diff` before this wave
-touched the crate. The crate carries real pre-existing clippy debt (~57
-findings across files this wave did not touch, e.g. `qualia.rs`,
-`prime_fingerprint.rs`, `sensor.rs`) — that debt is explicitly D-TEH-5 scope
+**Verification:** 346/346 `cargo test --lib` (was 337 pre-change; +9 new
+tests, 0 regressions, 0 removed — 2 additional `ground_truth.rs` tests are
+gated behind the `calibration` feature and outside this default-feature
+count). `cargo clippy --all-targets --all-features -- -D warnings` (the
+full matrix, per Codex review on #1151 — `--lib --tests` alone does not
+cover the `calibration` feature or non-test targets) produces zero NEW
+findings in any touched or new file — every flagged line was confirmed
+pre-existing via `git diff` before this wave touched the crate. The crate
+carries real pre-existing clippy debt (62 findings across files this wave
+did not touch, e.g. `qualia.rs`, `prime_fingerprint.rs`, `sensor.rs`) —
+that debt is explicitly D-TEH-5 scope
 ("§2 rows closed; TD paid") and is deliberately not touched here to keep
 this PR's diff reviewable and its behavior change surface minimal.
+
+**Addendum 2026-09-03 (CodeRabbit review, PR #1151, real review after two
+earlier rate-limited attempts — 4 actionable findings, all fixed):**
+
+1. **Major, fixed** — `dtype_parity.rs`'s `built(TableType::SignedI8)` left
+   `raw_cosines` unset, so `ThinkingEngineBuilder::build` took the
+   DEPRECATED `SignedThinkingEngine::from_unsigned` (CDF rank-shift) path
+   instead of the canonical `from_f32_cosines` — the suite could pass while
+   the real signed-cosine construction path regressed. Fixed: `built()` now
+   threads the same u8→f32 dequantization the builder itself already
+   applies for BF16/F32 (`(v - 128.0) / 127.0` over `JINA_HDR_TABLE`)
+   through `.raw_cosines()`, routing `SignedI8` through the canonical path.
+2. **Minor, fixed** — `dtype_parity` (test-only) demoted from `pub mod` to
+   private `mod`; `lens_shared` (crate-internal helper, called only by the
+   3 sibling lens modules) demoted from `pub mod` to `pub(crate) mod`.
+   Neither has an external consumer.
+3. **Minor, fixed** — the board records' `cargo clippy --lib --tests`
+   scope did not cover the `calibration` feature or non-test targets.
+   Re-ran the full `cargo clippy --all-targets --all-features -- -D
+   warnings` matrix (62 pre-existing findings, zero new in touched/new
+   files) and corrected every board mention to cite it. Also corrected a
+   stale test count: `345/345`/`+8 new` was written before a later commit
+   (fixing an earlier Codex review round) added a 4th `dtype_parity` test;
+   the real, default-feature count is `346/346`/`+9 new` (2 more
+   `ground_truth.rs` tests are `calibration`-gated and outside that count).
+4. **Nitpick, not taken** — add focused unit tests directly for
+   `finalize_stage`/`is_focus_stable` (beyond the existing `domino`/
+   `signed_domino` cascade tests that already exercise them transitively).
+   Left for a future pass; not blocking, and the transitive coverage
+   already caught the extraction's correctness (346/346 green, both
+   cascades' pre-existing tests unchanged).
+
+Verification re-run after all four fixes: 346/346 `cargo test --lib`
+(default features), `cargo clippy --all-targets --all-features -- -D
+warnings` zero new findings, `cargo fmt -- --check` clean.
