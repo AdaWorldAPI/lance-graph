@@ -1,3 +1,20 @@
+## probe-r2il-live-regfile-v1 (D-ids minted 2026-09-03; the plan shipped 2026-08-26)
+
+`.claude/plans/probe-r2il-live-regfile-v1.md`. The executable falsifier for
+`r2il-machine-semantic-contract-v1` §7.8's V4 space binding. Untracked since it
+landed and carrying no D-ids — one of the 53 counted in
+`ISS-PLAN-TRACKING-IS-UNENFORCED` (#1156), and the second instance of the same
+defect as its parent plan (#1155). Ids are minted against sections that already
+exist; no scope is added.
+
+| D-id | deliverable | status |
+|---|---|---|
+| D-PRLR-1 | §2 the three-leg validity answer: side A's semantics are Ghidra's own SLEIGH spec (not ours), side B written in enforced isolation, side C arithmetic ground truth external to both | **Shipped 2026-08-26** — the design that makes the differential meaningful rather than self-confirming |
+| D-PRLR-2 | §3/§7 the probe itself: a real 6502 routine lifted to R2IL and executed through `r2conc::SlabState` against an independent reference | **GREEN 2026-08-26** — 18/18, **seven disable runs red-then-green**. Code: r2sleigh `crates/r2conc/tests/{live_regfile,mos6502_oracle}.rs`, feature `probe-6502` |
+| D-PRLR-3 | §6 the measured facts (each row naming what produced it, none predicted) | **Measured** — 6502 memory is `SpaceId::Ram` not `Custom(n)`; SLEIGH's register space spans **55 bytes** because each status flag is its own byte register, while the semantic register file is **7 bytes** |
+| D-PRLR-4 | §6's consequence for §7.8: the facet binding is a **PROJECTION** of the register file, never a byte-identity with SLEIGH's layout | **Ruled + pinned two-sided** — `the_sleigh_register_space_is_sparse_so_the_facet_binding_is_a_projection` fails if SLEIGH ever packs the 6502 into 12 bytes, forcing a re-measure instead of letting a stale note stand |
+| D-PRLR-5 | §9 the gate finding: **r2sleigh's CI has never run** — `--all-features` would execute this probe, but the repo reports `total_count: 0` workflow runs, ever (the workflow targets an unregistered self-hosted runner) | **OPEN, not fixed** — every green in §6/§7 is a LOCAL run, and the same holds for the `r2conc` crate merged in r2sleigh PR #5. Switching to a hosted runner is an operator infra call (the job compiles SLEIGH specs for every architecture), deliberately not a drive-by |
+
 ## r2il-machine-semantic-contract-v1 (BACKFILLED 2026-09-03 — the plan shipped 2026-08-25 with NO board tracking)
 
 `.claude/plans/r2il-machine-semantic-contract-v1.md` (1427 lines). Untracked
