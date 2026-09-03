@@ -609,11 +609,23 @@ fn main() {
         tm_max - tm_min
     );
 
+    // The caller census is a MEASUREMENT and therefore carries its commit and
+    // its command, never a bare adjective. An earlier revision of this block
+    // asserted "ZERO callers ... verified by a grep returning nothing", and
+    // that claim was wrong twice over: the consolidation it was written to
+    // motivate gave form A a production caller, and the grep had never
+    // returned nothing in the first place — THIS FILE imports form A and
+    // calls it, so the census commit itself was already a hit. The claim was
+    // measured before the file existed and never re-run. Re-run the command
+    // rather than trusting the number below.
     println!(
-        "\n  caller census: `normalized_entropy` (form A) has ZERO callers in the tree today \
-         (verified by the orchestrator with \
-         `grep -rn 'normalized_entropy' --include=*.rs crates | grep -v /target/ | grep -v thought_atoms.rs` \
-         returning nothing)."
+        "\n  caller census (measured at a1c9488e, `grep -rn 'normalized_entropy' \
+         --include=*.rs crates | grep -v /target/ | grep -v thought_atoms.rs`): form A has \
+         exactly ONE production caller — `nars::insight::confidence_entropy` \
+         (insight.rs:210), landed by the consolidation this census gated. \
+         The remaining hits are that caller's import and doc comments plus this \
+         probe's own use. Before that consolidation the production count was \
+         zero, which is the vacancy the census was run to establish."
     );
 
     // ── every claim has now RUN; assert at the very end so no later claim
