@@ -22,8 +22,13 @@
 //!    materialization). The PDE solver is the production path for any
 //!    workload that exceeds depth-6 truncation.
 //! 5. **Log-signatures** (`log_signature.rs`): compact storage of the
-//!    truncated signature in the Lyndon-basis of the free Lie algebra.
-//!    Compression 7–13× depending on (d, N), with NO information loss.
+//!    truncated signature in the Lyndon-basis of the free Lie algebra, with
+//!    NO information loss — the coordinates reconstruct the tensor logarithm
+//!    entrywise (`log_signature_round_trips_to_the_tensor_log`).
+//!    Compression is `d^(N+1) / ((d−1)·dim L_N(d))` and **grows with depth**:
+//!    ~2.1× at (d=4, N=2), 7.6× at (d=4, N=8), 11.6× at (d=4, N=12). The
+//!    "7–13×" this line used to quote unconditionally is the N ≥ 8 regime,
+//!    not the typical one — see the table in `log_signature.rs`.
 //! 6. **Codec route integration** (`codec.rs`): exposes sigker as a third
 //!    `CodecRoute` variant alongside Passthrough and CamPq. Sigker is
 //!    **Index regime** — by Hambly-Lyons uniqueness, it is lossless on
@@ -58,6 +63,7 @@
 pub mod codec;
 pub mod cubature;
 pub mod kernel;
+pub mod log_signature;
 pub mod randomized;
 pub mod shuffle;
 pub mod signature;
@@ -65,6 +71,9 @@ pub mod signature;
 pub use codec::CodecRouteSigker;
 pub use cubature::{hydrate_signature, trivial_constant_cubature, CubatureBasis};
 pub use kernel::{linear_path_kernel_closed_form, signature_kernel, signature_kernel_pde};
+pub use log_signature::{
+    enumerate_lyndon_words, log_signature_truncated, witt_component, witt_dimension, LogSignature,
+};
 pub use randomized::{RandomizedSignature, RandomizedSignatureBuilder};
 pub use shuffle::shuffle_product;
 pub use signature::{signature_truncated, Signature};
