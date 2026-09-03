@@ -1,3 +1,70 @@
+## 2026-09-03 — E-A-HAND-SWEEP-UNDERCOUNTS-TOWARD-DONE-AND-THE-CRITERION-IS-THE-WHOLE-DESIGN-1 — I reported 1 of 208; five defensible definitions give 32 to 125
+
+**Status:** FINDING (measured, five variants, each reproducible from the
+command in this entry).
+**Confidence:** High on the measurements; **explicitly unresolved** on which
+number is canonical — that is the point of the entry.
+**Corrects:** my own claim, relayed cross-session, that
+`r2il-machine-semantic-contract-v1.md` was *"the ONLY genuinely untracked
+standalone plan in the tree."*
+
+**The error, and its direction.** I noticed five candidate plans from a
+four-day `mtime` window, checked them by hand, found four declared an owner
+plan and one did not, and reported **1 of 208**. The r2il session's own sweep
+found **53 of 208**. Their framing is the part worth keeping: a hand sweep
+*"undercounted in the direction that feels like completion."* The sample was
+selected by recency, not by coverage, and the conclusion was stated about the
+tree.
+
+**Then reconciliation failed, and that is the larger finding.** Attempting to
+verify 53, five defensible readings of "untracked" were measured at
+`79d82376`:
+
+| criterion | count |
+|---|---:|
+| no `D-<FAMILY>-<n>` anywhere in the plan file | **91** |
+| no `INTEGRATION_PLANS.md` entry naming the file | **61** |
+| both of the above | **32** |
+| no D-ids, **or** none of its D-ids on `STATUS_BOARD` | **125** |
+| has D-ids but none of them on `STATUS_BOARD` | **34** |
+
+**None reproduces 53.** A sub-check diverges too: `3DGS-*` is **20** files
+under both case-foldings, where their census reports 19. So this entry does
+not claim their number is wrong — it claims the number is **not determined
+until the criterion is**, and that two careful sessions produced six different
+figures for one question on one tree.
+
+**Consequence for the CI check that was proposed** (a gate on the
+`SUPERSESSION-INDEX` precedent, so the count cannot regrow): the proposal is
+right, and its first deliverable is **not the workflow**. Five reasonable
+definitions span **32 to 125 — a 4× range** — so the grep IS the design, and a
+gate shipped before the criterion is pinned would encode an arbitrary choice
+and then report a stable-looking number forever. Pin the criterion first,
+state it in the workflow file, and only then write the check.
+
+Two constraints such a gate must satisfy, both learned here rather than
+assumed:
+
+- **Diff-scoped, not tree-scoped.** Whatever the criterion, dozens of existing
+  plans fail it today. A gate that fails them turns `main` red for every
+  session and gets disabled within the hour. It must judge only plans a PR
+  ADDS or MODIFIES — stop the bleeding, do not bill the past.
+- **The criterion should track DISCOVERABILITY, not tidiness.** What actually
+  went wrong in the r2il case is that a 1,427-line plan was invisible to a
+  session doing the mandatory reads, which is why its question got re-derived.
+  The index entry is the discovery path a session consults;
+  `STATUS_BOARD` rows are per-deliverable and secondary. That argues for the
+  `INTEGRATION_PLANS`-entry criterion (61) as the causal one — proposed, not
+  ruled.
+
+**The generalizable rule.** A census answers a question only as precisely as
+its predicate is pinned. "How many plans are untracked" has no answer; "how
+many plans lack an `INTEGRATION_PLANS` entry" has exactly one. When a count is
+about to become a decision — a backfill, a gate, a scope call — write the
+predicate down first, because otherwise every later re-run silently measures
+something else and the disagreement looks like drift in the tree rather than
+drift in the question.
+
 ## 2026-09-03 — E-A-CROSS-REPO-SYMBOL-GREP-IS-ONLY-AS-FRESH-AS-THE-SIBLING-CHECKOUT-1 — the null was my clone, not their claim
 
 **Status:** FINDING (measured; the near-miss was real and is reproduced below).
