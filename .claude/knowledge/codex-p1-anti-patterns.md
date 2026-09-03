@@ -21,8 +21,17 @@
 
 ## 1. The codex bot's review shape (observed)
 
-The `chatgpt-codex-connector` bot reviews every PR diff and posts inline
-comments with one of three severity badges:
+> **⊘ CORRECTED 2026-09-03** — "reviews every PR diff" is FALSE and was
+> falsified on lance-graph #1154. The bot reviews on three triggers only:
+> opening a PR, marking a draft ready, and an explicit `@codex review` comment.
+> **A push is not a trigger**, so on a PR that receives a finding, the commit
+> fixing that finding is reviewed only if someone asks. Measured: it reviewed
+> one of four commits, then reviewed a later head and returned two P2 findings
+> after an explicit request. See `E-THE-FIX-FOR-A-REVIEW-FINDING-SHIPS-UNREVIEWED-BY-DEFAULT-1`.
+
+The `chatgpt-codex-connector` bot reviews a PR diff (on the triggers named in
+the correction above, NOT on every push) and posts inline comments with one of
+three severity badges:
 
 | Badge | Meaning | Sprint-11/12 frequency |
 |---|---|---|
