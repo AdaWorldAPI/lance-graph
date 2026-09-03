@@ -1,3 +1,12 @@
+## 2026-09-03 — branch: new plans must carry D-ids (the gate, not the backfill) — INVENTORY DELTA
+
+- ADDED `.claude/tools/plan_dids.py` — fails when a plan file carries no D-id. Reads the pattern out of `supersession_index.py`'s SOURCE rather than importing it: that module has no `__main__` guard, so `import` runs the whole generator and prints the index (measured — the first version did this). Hard-errors if the definition is renamed, rather than falling back to a local copy.
+- ADDED `.github/workflows/plan-dids.yml` — runs it on plans ADDED by a PR, modelled on `supersession-index.yml` (same trigger shape, same actionable error text). Added-only by design: gating MODIFIED plans would block whoever next edits a pre-existing untracked plan for a debt they did not create.
+- MEASURED, and it is why the gate asserts a PROPERTY and not a COUNT: the same tree gives **53** untracked plans (a sibling session's sweep), **75** (the generator's own `DID` pattern) and **102** (a stricter pattern) out of 208. The `3DGS` family is 19 under all three, so the population is identical — the number is a function of the regex. A "no more than N untracked" gate would have been wrong on arrival.
+- VERIFIED two-sided on real history: the 3 plans actually added in the last 30 commits all pass; the `3DGS` family fails. The workflow's own `git diff --diff-filter=A` selector was run against a real range and returns exactly those 3.
+- NOT DONE, deliberately: the backfill of the existing untracked plans. The sibling session declined it as a cross-session scope call and said the fix is the gate; this is that gate. Their `probe-r2il-live-regfile-v1` remains theirs to id.
+- Epiphany: `E-A-CENSUS-IS-A-FUNCTION-OF-ITS-REGEX-SO-GATE-THE-PROPERTY-1`.
+
 ## 2026-09-03 — branch (#1160): both external reviewers are now capped — INVENTORY DELTA
 
 - OBSERVED on #1160: Codex answered a review request with "You have reached your Codex usage limits for code reviews"; CodeRabbit is simultaneously at its org spending cap (85 attempts/7d → 1/hour). **No external reviewer can currently see any PR in this repo.**
