@@ -1,3 +1,14 @@
+## 2026-09-03 — branch (D-DCR-4 Σ-transport: the forced copy gets its gate) — INVENTORY DELTA
+
+- ADDED `crates/jc/src/ewa_sandwich.rs::tests::the_contract_copy_matches_the_certified_kernel_bit_for_bit` — runs the certified private `sandwich` and `lance_graph_contract::sigma_propagation::ewa_sandwich` over 1000 sampled SPD pairs and asserts BIT equality (`to_bits()`, no tolerance — the two are the same arithmetic in the same order, so a tolerance would hide the drift the test exists to catch). Anti-vacuity guard: most sampled pairs must carry a non-zero off-diagonal, since diagonal inputs make the shared symmetrization vanish. **Disable-verified**: dropping `0.5 * (r01 + r10)` from the ABI copy fails it; restored, green.
+- ZERO new dependency edges: `jc` already dev-depends on `lance-graph-contract`.
+- CHANGED `crates/lance-graph-contract/src/sigma_propagation.rs` module header — it claimed the kernel was "verified empirically by `crates/jc::ewa_sandwich`" and quoted that pillar's numbers, while nothing executed both. It now states that the copy is FORCED (this crate is zero-dep and may never call `jc`), that a citation transfers no evidence across a boundary the citing crate cannot cross, and it names the test instead of the crate.
+- MEASURED: the two kernels are byte-identical on inspection (`jc/src/ewa_sandwich.rs:185` vs `contract/src/sigma_propagation.rs:194`) — same arithmetic, same variable names. So this was never a dedup target and never a divergence risk; it was a DRIFT risk, and drift between identical copies is silent by construction.
+- VERIFIED before relying on it: `jc` is workspace-EXCLUDED (`cargo test -p jc` fails), but CI does run it — `.github/workflows/jc-proof.yml` runs `cargo test --manifest-path crates/jc/Cargo.toml` on `crates/jc/**`. An excluded crate's test that CI never runs would have been a gate in name only.
+- CORRECTION to my own reading: I first took `"crates/jc"` in the root manifest as membership; it is in the `exclude` list. Same error shape as four earlier today — reading a grep hit without checking which list it landed in.
+- Gates: `jc` 137/0 (was 136), contract 1309/0, fmt clean on both.
+- Epiphany: `E-A-CITATION-IS-NOT-A-DEPENDENCY-AND-A-FORCED-COPY-NEEDS-A-GATE-1`.
+
 ## 2026-09-03 — branch (5+3 council on the unreviewed canon entries, #1154) — INVENTORY DELTA
 
 - CHANGED `crates/lance-graph-planner/src/nars/insight.rs` — histogram counts kept `usize` and widened once at the boundary (`core::array::from_fn`). Accumulating into `f32` loses counts above 2^24 (`f32(2^24) + 1.0 == f32(2^24)`, measured), so two bins at 20M and 40M would read equal. Unbounded in principle, unobserved today — which is not a reason to accumulate in f32. External P2, verified.
