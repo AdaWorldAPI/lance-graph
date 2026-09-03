@@ -204,6 +204,69 @@ harvest and not an amputation.
 | The 8-channel cascade edge (BECOMES / CAUSES / SUPPORTS / REFINES / GROUNDS / ABSTRACTS / RELATES / CONTRADICTS) | transcoded to the SPO palette, kept as the comma-level mantissa carrier | D-CSV-9, FUTURE-DESIGN "first wiring target" |
 | Persona as 12 constants + a mode with rung bounds and a collapse bias | a Layer-2 data card for the persona storyline, when it opens | O3 (parked) |
 
+## 4b. D-TEH-3 fate probes — PRE-REGISTERED before the first run
+
+The two remaining §1c rows (`semantic_chunker`, `spiral_segment`) each carry a
+falsifier as their gate, and a gate written after the numbers is not a gate.
+Both probes, their arms and their thresholds are fixed HERE, before either was
+executed; the run only fills in the measurements.
+
+### `semantic_chunker` — `examples/chunker_falsifier.rs`
+
+The §1c claim is "chunk boundaries are convergence jumps, no forward pass",
+and the row's gate is "boundaries vs a gold sentence split; else stays LAB".
+The probe uses the tier-1..4 calibration corpus of `jina_v5_ground_truth.rs`
+(Rule 23 — real text, not synthetic), the Jina v5 tokenizer, the baked
+`jina-v5-codebook` index + 256x256 table. Sentence pairs from DIFFERENT corpus
+pairs are concatenated, so the gold boundary is the token seam by construction.
+
+| arm | what it measures | why it is there |
+|---|---|---|
+| can-fire | recall@+-4 tokens of the seam over 168 cross-topic passages | a chunker that never fires is not a chunker |
+| null | the same passages with centroid order shuffled (20 SplitMix64 permutations), p95 of recall | "a boundary landed near the seam" must beat chance, and a boundary detector on shuffled input still finds boundaries |
+| silence | the 8 same-topic (tier-1/2) passages, both orders | a chunker that splits everything carries as much information as one that never splits |
+
+**PASS** (at one threshold, the same threshold for all three arms):
+recall >= 0.75 AND recall >= null_p95 + 0.15 AND false splits <= 2 of 8.
+**KILL** otherwise.
+
+- PASS commits: the port to `deepnsm-v2`'s text side is on, as its own PR with
+  the probe carried across as the port's regression gate. It does NOT commit
+  the tesseract-paperless sentence assembler to using it — that consumer is a
+  separate decision with its own falsifier.
+- KILL commits: the module stays LAB and its §1c row is closed as
+  measured-negative, with the numbers on the board. It is NOT deleted (a LAB
+  verdict is a home, not a death sentence) and it is NOT re-probed on a
+  different corpus to get a better answer.
+
+### `spiral_segment` — `examples/spiral_gate_probe.rs`
+
+The §1c row routes this to a codec home "via the certification battery"
+(`certification-officer`). That battery needs the F32 cosine matrix re-derived
+from the model source, which is not on disk here. This probe is the CHEAP GATE
+in front of that expensive step: fit the codec to the four real baked 256x256
+tables in the tree (jina-v3, bge-m3, reranker, jina-v5 u8 + jina-v5 i8) and ask
+whether it can clear the ecosystem floor at all.
+
+Thresholds are the ecosystem's own, not invented here:
+`encoding-ecosystem.md` — "any encoding below the naive u8 floor is worse than
+doing nothing"; the bgz-hhtl-d gate is Pearson >= 0.9980. Plus the claim the
+module's own doc makes ("51x compression"): the codec must at least halve what
+it replaces, or it is a lossy re-encoding of a u8 table for no space.
+
+**PASS** if for SOME `max_error`, on EVERY table: r >= 0.9980 AND rho >= 0.9980
+AND spiral bytes <= u8 bytes / 2. **KILL** otherwise.
+
+- PASS commits: the certification battery is unblocked and scheduled — this
+  probe is explicitly NOT a certification (a baked u8 table is not the atomic
+  clock; only the source-derived F32 matrix is).
+- KILL commits: the module stays LAB, the 51x claim is recorded as
+  measured-false at the fidelity the workspace requires, and no battery is run.
+  A codec that cannot preserve a baked table will not preserve its F32 parent.
+
+Both probes report a per-configuration table so a KILL says WHERE it failed,
+not merely that it failed.
+
 ## 5. Deliverables
 
 | D-id | title | scope | status |
