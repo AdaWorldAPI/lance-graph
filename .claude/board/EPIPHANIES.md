@@ -1774,8 +1774,9 @@ discretization artifact and not a uniqueness failure.
 
 ## 2026-08-31 — E-NECESSARY-CONDITIONS-ARE-NOT-A-PSD-TEST-1 — diagonal positivity plus Cauchy-Schwarz cannot see an indefinite Gram, and the falsifier is one line
 
-**Status:** FINDING — W4, and a standing gap in the truncated battery it
-extends.
+**Status:** FINDING — W4; the truncated-battery gap it named is CLOSED
+(ndarray `03ed373b` / #291, 2026-08-31: `signature::gram_is_psd` Cholesky
+gate in `prove_pillar_11`; status line updated 2026-09-03).
 **Confidence:** measured; the counterexample is constructed and asserted.
 
 ndarray's `prove_pillar_11` certifies "PSD" via two criteria: every diagonal

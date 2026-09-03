@@ -229,3 +229,15 @@ produce.
 - `crates/jc` carries 38 pre-existing `clippy -D warnings` errors (hex-literal
   grouping, one unused import) in modules untouched by this work. Count
   verified identical before and after.
+
+### Follow-up closure (2026-09-03)
+
+The Cholesky extension above SHIPPED in ndarray on 2026-08-31 (`03ed373b`,
+ndarray #291): `signature::gram_is_psd` runs a jittered Cholesky
+(`PSD_JITTER = 1e-4`, pinned from `examples/psd_jitter_sweep.rs`) and
+`prove_pillar_11` now requires it alongside the two necessary conditions;
+`psd_gate_rejects_an_indefinite_gram_that_passes_both_weak_criteria` is the
+falsifier, `psd_gate_admits_a_rank_deficient_but_valid_gram` the silence
+twin, `pillar_11_pipeline_is_bit_exact` the pin. This plan's follow-up row
+stayed Queued for three days after that — a stale queued row is a licence
+for duplicate work; closed here.

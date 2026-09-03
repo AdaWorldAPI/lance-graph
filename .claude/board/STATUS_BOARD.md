@@ -57,7 +57,7 @@
 | W3 | solver-order + carrier-fidelity battery, NEW slot `jc::solver_order` (M-1, M-4; ruling Q1) | Shipped — 29.90x/41.71x advantage, silence exactly 0, kernel-scalar trap demonstrated |
 | W4 | PSD at depth-infinity (M-3; ruling Q2 cross-repo) | Shipped — Cholesky over 64 paths + indefinite counterexample; concentration 0.0038 at N=1000 |
 | W5 | PowerSig scalability (M-5) | **DEFERRED, trigger measured not fired** — fires at path length ~11585 (memory half); longest in-tree 4609 |
-| — | follow-up: extend the truncated battery's PSD claim from necessary conditions to Cholesky | Queued (non-blocking) |
+| — | follow-up: extend the truncated battery's PSD claim from necessary conditions to Cholesky | **Shipped in ndarray** (`03ed373b`, 2026-08-31, ndarray #291): `signature::gram_is_psd` (jittered Cholesky, `PSD_JITTER = 1e-4`) gates `prove_pillar_11`; sign-flip indefinite Gram rejected, rank-deficient valid Gram admitted; pipeline pinned bit-exact. Row closed 2026-09-03 — it was still Queued here and nearly caused a duplicate |
 
 ## rubicon-loco-rung-cognitive-fabric-v1
 
