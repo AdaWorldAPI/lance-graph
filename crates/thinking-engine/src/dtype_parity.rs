@@ -15,15 +15,41 @@
 //! path production code uses — from one real baked lens table (Jina), runs
 //! them on identical perturbation, and asserts:
 //!
-//! 1. Every dtype converges (respects `max_cycles`, runs at least one
-//!    cycle, commits a non-degenerate peak) — `every_dtype_engine_converges_and_commits_a_real_peak`.
+//! 1. Every dtype ACTUALLY converges per its own `think()`'s delta-threshold
+//!    termination, not merely "does not exceed `max_cycles`" (a bound every
+//!    engine satisfies by construction and therefore proves nothing) —
+//!    `every_dtype_engine_converges_and_commits_a_real_peak`. This is where
+//!    F32 broke the naive version of this suite; see below.
 //! 2. The u8-vs-BF16 top-k agreement through the collapsed builder path is
-//!    at least the pre-existing [`crate::dual_engine::DualEngine`]
-//!    disagreement baseline — `u8_vs_bf16_agreement_is_at_least_the_preexisting_dual_engine_baseline`.
+//!    at least a FROZEN pre-collapse baseline, not one recomputed at test
+//!    time from the same current engine implementations the builder path
+//!    also uses — `u8_vs_bf16_agreement_is_at_least_the_frozen_preexisting_baseline`.
 //! 3. The four dtypes are NOT bit-identical — an anti-vacuity check that
 //!    this suite is actually testing dtype-INVARIANT behaviour, not
 //!    accidentally passing because every path happens to reduce to the
 //!    same arithmetic — `dtypes_are_not_secretly_bit_identical`.
+//!
+//! ## A real finding, not merely a test-design correction (PR #1151 review)
+//!
+//! Measured on this fixture (`PROBE = [10, 20, 30]`, the baked Jina lens):
+//! u8 converges in 7 cycles, i8 and BF16 in 15 — all well under `max_cycles`.
+//! **F32 runs to the FULL cycle budget every time, at every `max_cycles`
+//! tried from 30 to 200** — its softmax-with-temperature `cycle()`
+//! ([`crate::f32_engine::F32ThinkingEngine`], `T=0.01` default) never drops
+//! its energy delta below `convergence_threshold` on this input; the energy
+//! vector is bit-identical at `max_cycles=30` and `max_cycles=200`, so it
+//! isn't slow to converge, it settles into a fixed point the delta check
+//! doesn't recognize as converged. An earlier version of this suite only
+//! asserted `cycle_count <= max_cycles` — true of ANY engine by
+//! construction, so it could not have caught this (flagged by Codex review
+//! on #1151). This suite asserts u8/i8/BF16 exit EARLY (a real signal) and
+//! documents F32's always-exhausts-the-budget behavior as the honest,
+//! per-dtype-different assertion it measured to be — not silently papered
+//! over with a uniform "converges" claim that would have been false for F32.
+//! Investigating WHY F32 never trips its own delta threshold is out of
+//! scope for this collapse wave (it is pre-existing engine-internal
+//! behavior, not something this PR's dispatch/lens/cascade collapse
+//! touches) and is left for a follow-up.
 //!
 //! What this suite deliberately does NOT assert: identical top-1 index,
 //! identical energy values, or identical cycle counts across dtypes. F32
@@ -84,6 +110,31 @@ mod tests {
                 bus.cycle_count > 0,
                 "{table_type:?} must run at least one cycle on a real perturbation"
             );
+
+            // The REAL convergence check (not merely the hard loop bound
+            // above, which any engine satisfies by construction — Codex
+            // review on #1151). Measured on this fixture: u8/i8/BF16 all
+            // exit early via their own delta-threshold termination; F32
+            // does not (see the module doc's "A real finding" section) —
+            // so F32 gets the opposite, equally real assertion: it runs the
+            // full budget, every time, on this input.
+            if table_type == TableType::F32 {
+                assert_eq!(
+                    bus.cycle_count as usize, MAX_CYCLES,
+                    "F32 was measured to always exhaust max_cycles on this fixture; if it now \
+                     exits early, that is a genuine behavior change in F32ThinkingEngine's \
+                     convergence and this module doc's finding needs re-measuring, not silently \
+                     re-pinning"
+                );
+            } else {
+                assert!(
+                    (bus.cycle_count as usize) < MAX_CYCLES,
+                    "{table_type:?} ran the full max_cycles={MAX_CYCLES} budget instead of \
+                     exiting early via its own delta-threshold convergence — this dtype was \
+                     measured to converge in well under the budget on this fixture"
+                );
+            }
+
             assert!(
                 bus.energy > 0.0,
                 "{table_type:?} committed a degenerate zero-energy peak"
@@ -95,21 +146,29 @@ mod tests {
         }
     }
 
+    /// The pre-collapse `DualEngine::u8_vs_bf16()` agreement on this exact
+    /// fixture (`PROBE`, `MAX_CYCLES`, the baked Jina lens), measured once
+    /// and frozen as a literal — NOT recomputed at test time.
+    ///
+    /// Recomputing it at test time (the first version of this test did)
+    /// calls the SAME current `ThinkingEngine`/`BF16ThinkingEngine`
+    /// implementations, table conversions, and `think()` that the builder
+    /// arm below also calls — so a regression shared by both engines moves
+    /// both numbers together and the `>=` comparison stays green regardless
+    /// (flagged by Codex review on #1151). Freezing the value means a
+    /// future shared regression shows up as the LIVE `builder_agreement`
+    /// falling below this fixed historical number, which is the actual
+    /// guarantee this test claims to provide.
+    const FROZEN_U8_VS_BF16_BASELINE: f32 = 0.875;
+
     #[test]
-    fn u8_vs_bf16_agreement_is_at_least_the_preexisting_dual_engine_baseline() {
-        let table = crate::jina_lens::JINA_HDR_TABLE.to_vec();
-        let mut dual = DualEngine::u8_vs_bf16(table);
-        dual.perturb_both(PROBE);
-        let baseline = dual.think_both(MAX_CYCLES);
-
-        // Anti-vacuity: a baseline of 0.0 would make the ">=" assertion
-        // below trivially true regardless of what the collapsed path does.
-        assert!(
-            baseline.agreement > 0.0,
-            "the DualEngine baseline itself shows zero agreement — this test \
-             would be vacuous against a floor of 0.0"
-        );
-
+    fn u8_vs_bf16_agreement_is_at_least_the_frozen_preexisting_baseline() {
+        // Anti-vacuity on the frozen constant itself (not a runtime assert
+        // on a literal — clippy's `assertions_on_constants` correctly
+        // rejects that shape): the sibling test
+        // `dual_engine_still_reproduces_the_frozen_baseline_on_this_fixture`
+        // is what proves FROZEN_U8_VS_BF16_BASELINE is a real, non-degenerate
+        // measurement rather than a made-up floor.
         let mut u8_via_builder = built(TableType::UnsignedU8);
         let mut bf16_via_builder = built(TableType::BF16);
         u8_via_builder.engine.perturb(PROBE);
@@ -130,11 +189,32 @@ mod tests {
         let builder_agreement = overlap as f32 / max_len as f32;
 
         assert!(
-            builder_agreement >= baseline.agreement - 1e-6,
-            "collapsed builder-path u8-vs-BF16 agreement ({builder_agreement}) fell \
-             below the pre-collapse DualEngine baseline ({}) — the collapse must not \
-             regress the disagreement DualEngine already measured",
-            baseline.agreement
+            builder_agreement >= FROZEN_U8_VS_BF16_BASELINE - 1e-6,
+            "collapsed builder-path u8-vs-BF16 agreement ({builder_agreement}) fell below the \
+             frozen pre-collapse baseline ({FROZEN_U8_VS_BF16_BASELINE}) — the collapse must not \
+             regress the disagreement DualEngine already measured"
+        );
+    }
+
+    /// Sanity check that [`DualEngine::u8_vs_bf16`] itself still reproduces
+    /// the frozen baseline above on the identical fixture — this is
+    /// provenance for the frozen constant, NOT the regression gate (that is
+    /// `u8_vs_bf16_agreement_is_at_least_the_frozen_preexisting_baseline`,
+    /// which does not call `DualEngine` at all, per the fix above).
+    #[test]
+    fn dual_engine_still_reproduces_the_frozen_baseline_on_this_fixture() {
+        let table = crate::jina_lens::JINA_HDR_TABLE.to_vec();
+        let mut dual = DualEngine::u8_vs_bf16(table);
+        dual.perturb_both(PROBE);
+        let result = dual.think_both(MAX_CYCLES);
+
+        assert!(
+            (result.agreement - FROZEN_U8_VS_BF16_BASELINE).abs() < 1e-6,
+            "DualEngine::u8_vs_bf16 now reports {} on this fixture, not the frozen {} — \
+             re-measure and re-freeze FROZEN_U8_VS_BF16_BASELINE deliberately, don't silently \
+             widen the tolerance",
+            result.agreement,
+            FROZEN_U8_VS_BF16_BASELINE
         );
     }
 
