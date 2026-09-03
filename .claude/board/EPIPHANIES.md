@@ -1,3 +1,70 @@
+## 2026-09-03 — E-A-RULED-HOME-NEEDS-A-FIRST-CONSUMER-OR-IT-IS-A-VACANCY-1 — the entropy atom's first caller, and the one convention that had to be defended
+
+**Status:** FINDING (shipped; disable-verified).
+**Confidence:** High — the substitution's safety was measured before it was
+made, and its one unsafe edge is pinned by a test that fails when the guard
+is removed.
+**Follows:** `E-THE-ENTROPY-HOME-WAS-RULED-AND-LEFT-EMPTY-1` (the census that
+licensed exactly this consolidation and nothing wider).
+
+**What shipped.** `lance_graph_planner::nars::insight::confidence_entropy` no
+longer carries its own Shannon loop; it extracts a 10-bin histogram and hands
+it to `lance_graph_contract::thought_atoms::normalized_entropy`. That atom —
+operator-ruled 2026-08-31 as a *universal thinking atom* — had **zero
+consumers** until this commit. A ruled home with no caller is not a home; it
+is a vacancy that the next session re-implements beside.
+
+**The measurement is what made this a two-line change rather than a
+hypothesis.** PROBE-ENTROPY-SURFACE-CENSUS-1 (`e5e2520`) had already
+established C1: the log base is inert under normalization
+(`log2/log2(10)` vs `ln/ln(10)` agreed to `0.00000000` on every fixture). So
+the caller's `log2`-and-divide-by-`log2(10)` and the atom's
+`ln`-and-divide-by-`ln(n)` are the same function, and the routing needed no
+tolerance argument at all.
+
+**The one place the two disagree is the whole risk, and it is silent.** The
+census's C2 falsification recorded that the caller's convention and the
+atom's are OPPOSITE on zero mass: the caller returns `0.0` for an empty
+arena, the atom returns `Some(1.0)` ("nothing prefers anything —
+indistinguishable from uniform"). An empty arena builds an all-zero
+histogram, so dropping the caller's `is_empty` early return would report
+**maximal uncertainty for an arena that holds none** — and `1.0` is in range,
+so nothing downstream would object. The guard is therefore load-bearing and
+now says so in its own doc comment, pinned by
+`an_empty_arena_has_zero_truth_entropy_not_one` (disable-verified: deleting
+the early return fails that test and only that test, 13 passed / 1 failed).
+
+**The paired can-fire half exists because the guard test is satisfiable by a
+stub.** `an_empty_arena_has_zero_truth_entropy_not_one` would also pass for a
+`confidence_entropy` hardcoded to `0.0`, so
+`the_routed_atom_still_spans_the_confidence_range` asserts the routed atom
+covers the full range on non-trivial inputs — one occupied bin ⇒ `0.0`, ten
+evenly occupied ⇒ `1.0` — and, third, that the normalization is by the **bin
+count** and not the occupied count (five bins of two ⇒ `ln 5 / ln 10`). That
+third assertion is the one that would catch a plausible-looking rewrite which
+normalized by however many bins happened to be non-empty.
+
+**What is still NOT licensed, restated so the scope does not drift.** Forms
+C/D/E were left alone (two live in workspace-excluded crates, so no
+in-workspace caller can route to them), and forms F/G were left alone
+deliberately: C3 measured them moving `92.103409` between the same
+distribution at 1× and 10× mass and going negative on elements above 1, which
+means they are not entropies of a distribution at all. "Fixing" them is a lab
+behaviour change and needs its own gate, not this one's.
+
+**A convergence worth naming, because it was found twice independently.**
+`rubicon-loco-rung-cognitive-fabric-v1.md` §130 (another session, merged the
+same day as #1152) reached the same fragmentation finding from the opposite
+direction and recorded it as *"Shannon entropy — EXISTS BUT NOT
+LOCO-ADDRESSABLE — ≥6 uncoordinated `entropy()` surfaces"*; the census
+measured seven. The two arcs are complementary rather than competing, and the
+distinction is worth keeping sharp: that plan wants entropy to have an
+**address** (a loco-addressable Frozen atom), this arc gives it a **home**
+(one canonical implementation with a real caller). An address for a function
+that still exists in seven copies would just name one of them. Its
+accompanying rule — *"Do not rewrite good SIMD in R2IL to claim purity"* — is
+the same restraint the census's F/G verdict already imposed here.
+
 ## 2026-08-31 — E-A-CORRECTION-CAN-SUBSTITUTE-ONE-WRONG-NOUN-FOR-ANOTHER-1 — three readings of one mechanism, and the source named itself the whole time
 
 **Status:** FINDING (verified against source at `cc0046f8`; every claim carries

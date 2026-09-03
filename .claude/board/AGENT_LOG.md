@@ -1,3 +1,11 @@
+## 2026-09-03 — D-DCR-4 consolidation: orchestrator-only, no worker spawned
+
+- **Why:** the census (PROBE-ENTROPY-SURFACE-CENSUS-1) licensed exactly one routing and named its one hazard, so the remaining work was a ~15-line edit plus two falsifiers. Tiering judgment: briefing a Sonnet worker on a spec this precise costs more than executing it — the grindwork/accumulation split says delegate when the brief is cheaper than the work, and here it was not.
+- **Orchestrator:** routed `confidence_entropy` to `thought_atoms::normalized_entropy` preserving the empty-arena guard; wrote the two-sided test pair; ran the disable (delete the early return ⇒ 13 passed / 1 failed on exactly the named test, restored ⇒ 14/14).
+- **Mid-turn:** fast-forwarded onto #1152 (another session's `rubicon-loco-rung-fabric`) and audited the overlap — board-ledger contention only, zero code overlap on `thought_atoms`/`witness_fabric`/`insight.rs`; the one real synergy (their §130 entropy-fragmentation row) is recorded in the epiphany rather than merged into either arc.
+- **Gates:** `cargo test -p lance-graph-planner --lib` 411 passed / 0 failed; clippy `--all-targets` clean; fmt clean (the initial edit needed a reformat, caught by `--check`).
+- **Board:** EPIPHANIES `E-A-RULED-HOME-NEEDS-A-FIRST-CONSUMER-OR-IT-IS-A-VACANCY-1`, LATEST_STATE delta, STATUS_BOARD D-DCR-4, plan W4 gate; supersession index regenerated last.
+
 ## 2026-09-03 — PROBE-ENTROPY-SURFACE-CENSUS-1: one Sonnet transcription worker, orchestrator-measured
 
 - **Why:** D-DCR-4's gate ("entropy-surface CONSOLIDATION decision recorded first"). Tiering: Opus on the main thread for the census, the fixture design, the three pre-registered claims, the C2 restatement after falsification and both disable-runs; one Sonnet worker for the transcription grindwork (six forms copied verbatim out of unimportable crates, with `file:line` citations), edit-only, no cargo.
