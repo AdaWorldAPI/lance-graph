@@ -1,3 +1,9 @@
+## 2026-09-03 — branch (D-POP-2, second commit): the producer is READ by its consumers — INVENTORY DELTA
+
+- ADDED `crates/lance-graph-contract/tests/d_pop_2_producer_reaches_consumers.rs` (2 tests, disable-verified against a no-op `bind_election`: both red). No library surface.
+- MEASURED, not added: on a row whose content loci are SMeaning + Kausal, `recipe_loci::reachable` is **0/34** before the producer — every recipe touching either locus also needs a further one — and exactly **7/34** after (`3, 7, 11, 17, 20, 27, 30`, derived from `required_loci` in the test, not hand-listed only); `21` (needs MeaningLevel) and `31` (needs P/OMeaning) stay unreachable, so the unlock is the loci gate, not blanket. `SubstrateView::project`: `confidence` NaN → finite with no SPO tenant present, `dissonance` 0 → 2/15, `free_energy` 0.45 → 0.8, `is_opinion` false → true.
+- UNCHANGED: everything in the first D-POP-2 delta below.
+
 ## 2026-09-03 — branch (D-POP-2, after #1143): the contradiction write-back producer — CONTRACT INVENTORY DELTA
 
 - ADDED `lance_graph_contract::witness_fabric::elect_and_bind(rows: &mut [NodeRow], visible: impl Fn(usize) -> bool) -> ElectionReport` — the D-POP-2 producer: for every visible position, `elect_peers_lens` through a lens over the same slice, then `WitnessLens::bind_election` into the focal row. Order-independent + idempotent (elections read `CONTENT_LOCI` only). Re-exported at the crate root.

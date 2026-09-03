@@ -349,3 +349,8 @@ feeds the elected contradiction into `BeliefArena::revise_at` and reads
 `RevisionTrajectory` / `suggest_reopening` over real revisions (gap §5.3, the
 real `WitnessStream` producer, is the same missing caller seen from the other
 side). Board: `E-A-PRODUCER-IS-A-PURE-FUNCTION-OF-THE-CONTENT-LOCI-1`.
+
+Consumer reach measured (2026-09-03, same PR): `reachable` 0/34 → 7/34 on a
+SMeaning+Kausal row (`tests/d_pop_2_producer_reaches_consumers.rs`); the
+§4 molecule's ladder half is now reachable from a real election, its
+`BeliefArena::revise_at` half is not (planner-side caller still missing).
