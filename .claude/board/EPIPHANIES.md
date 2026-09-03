@@ -62,6 +62,1539 @@ than academic: the sibling-repo implementation was found 2026-08-29
 migrated it into the contract on 2026-08-31 as the substrate default. The
 audit's own second correction was published one day before the thing it
 described moved.
+## 2026-09-03 — E-A-DOCUMENTED-MODULE-THAT-WAS-NEVER-`pub mod`-D-IS-DEAD-CODE-WITH-A-PARITY-CLAIM-1 — `sigker::log_signature` shipped 388 lines, a citation, and a compression table without ever being compiled; wiring it in falsified the projection AND two numbers in its own doc-comment
+
+**Status:** SHIPPED (code + 12 falsifiers, branch `claude/sigker-log-signature`; `witt_dimension` / `enumerate_lyndon_words` / `bracket_expansion` / `project_onto_lyndon_basis` / `log_signature_truncated`). **Confidence:** High for the algebra (the residual test is a real two-sided falsifier and it failed on the wrong convention before passing on the right one); High for the corrected ratios (recomputed independently before trusting the file).
+
+**The failure mode, precisely.** `crates/sigker/src/log_signature.rs` existed on `main`, tracked, 388 lines, with a Reizenstein-Graham citation and a compression table — and `crates/sigker/src/lib.rs` had **no `pub mod log_signature;`**. `lib.rs`'s module doc advertised it as item 5 ("Compression 7–13× … with NO information loss"), so every reader of the crate header believed it shipped. It had never been compiled once: `cargo build --examples` failed with `E0432: unresolved import sigker::log_signature` from `examples/depth_scaling.rs`, which imported the module the crate never declared. **A file being present, tracked, and cited is not evidence that it compiles**; the only evidence is a build, and the one build that would have caught it was the example that had been red the whole time.
+
+**What the compile-once exposed, in ascending order of severity.**
+
+1. **Four clippy findings inside the file** (`manual_implementation of is_multiple_of`, in `mobius`/`witt_component`) — invisible to every prior `cargo clippy` run, because a module that is not `pub mod`-d is not part of the crate graph and is never linted. The other 4 sigker findings (`randomized.rs`, `signature.rs`) are genuinely pre-existing and were left alone.
+2. **Two wrong numbers in its own doc table**, recomputed from the Witt formula before being trusted: `d=4, N=8` was documented as `11164` (真 **11464** — transposed digits; ratio 7.6× not the claimed 7.8×), and `d=2, N=12` as `632 / 13×` (真 **747 / 11.0×**). Both are now asserted by `witt_table_matches_measured_ratios`, so a re-typo goes red instead of shipping.
+3. **The projection was not the projection.** The module read `log_tensor[flat(w)]` at each Lyndon word's flat index and called the result "the Lyndon-basis coefficients" — its own doc comment conceded it "omit[ted]" the transformation matrix. But the change of basis is **unitriangular**, not identity: `P_w = w + Σ_{x>w} a_{w,x}·x` (Lothaire Thm 5.3.1), so a flat read returns `c_w + Σ_{u<w} c_u·a_{u,w}` — the coordinate plus contamination from every lexicographically earlier basis element. It is still an injective linear coordinate system (so "lossless" was accidentally defensible), but it is a *different* one, and the name was wrong.
+
+**The fix, and why its test can fail.** Standard factorization (`w = u·v`, `v` the **longest** proper Lyndon suffix) → `P_w = [P_u, P_v]` expanded in the tensor algebra → a triangular peel: walk each degree's Lyndon words in increasing lex order, read `c_w` off the running **residual**, subtract `c_w·P_w`. Because the logarithm of a group-like element is a Lie element, the residual must end at zero **across all `d^k` words of every degree, not merely the Lyndon-indexed ones** — so `log_of_signature_is_a_lie_element` is a genuine falsifier with a large space of failing inputs, and it discriminated: the shortest-Lyndon-suffix convention leaves a nonzero residual, the longest-suffix one does not. Losslessness is then shown, not asserted, by `log_signature_round_trips_to_the_tensor_log` (reconstruct `Σ c_w·P_w`, compare entrywise to `tensor_log`) — paired with `round_trip_would_catch_a_corrupted_coefficient`, which perturbs one coordinate and demands the comparison break, so the round-trip is not vacuously green.
+
+**The compression claim is depth-dependent and the headline was the ceiling.** Measured at the regime `depth_scaling.rs` actually sweeps (d=4, N=2..8): **2.10× / 2.83× / 3.79× / 4.64× / 5.66× / 6.61× / 7.62×**. The advertised "7–13×" is the N ≥ 8 asymptote, not the typical case — a depth-3 caller gets 2.8×. `lib.rs`'s summary, the module header, and the example's own footer (which printed "stores 7-13× less" directly beneath a table showing 21/10) were each corrected to state the ladder; `compression_at_shallow_depth_is_far_below_the_headline` fails if anyone flattens it back. **`TD-NDARRAY-SIMD-LYNDON-PACK`'s description repeats the same 7–13× phrasing** — deliberately not edited here (its status line is not this PR's to move), but a future session activating it should read the ratio as depth-dependent.
+
+**What this unblocks and what it does not.** The scalar module is the stated prerequisite for `TD-NDARRAY-SIMD-LYNDON-PACK` (W1.5 #8, `lyndon_pack` / `lyndon_unpack_batch` on `I16x16`). That item's gate is **left open and unbuilt** — this PR is the prerequisite only; no SIMD primitive was written and `/home/user/ndarray` was not touched. Note for whoever does build it: the hot loop worth vectorizing is `bracket_expansion` × the peel, not the Witt arithmetic.
+
+**The generalizable rule.** A module is wired or it is fiction. `pub mod` is the cheapest possible integration test, and a crate-header bullet describing an unreachable file is worse than no bullet — it converts an absence into a false positive for every subsequent reader. Grep for modules present in `src/` but absent from `lib.rs` before trusting any crate's advertised surface.
+
+Refs: `crates/sigker/src/log_signature.rs`; `crates/sigker/src/lib.rs` (item 5, corrected); `crates/sigker/examples/depth_scaling.rs` (was the only consumer, red on `main`); `.claude/board/TECH_DEBT.md` `TD-NDARRAY-SIMD-LYNDON-PACK` (unchanged, cross-referenced); `.claude/knowledge/ndarray-vertical-simd-alien-magic.md` §W1.5 #8; Lothaire, *Combinatorics on Words* Thm 5.3.1; Reizenstein & Graham arXiv:1802.08252; the falsifiability rule (CLAUDE.md § The falsifiability rule).
+## 2026-09-03 — E-M8-COLLAPSE-TARGET-ALREADY-EXISTED-1 — D-TEH-4's "one enum-dispatched engine" was already built; the collapse work was proving it and removing duplication one layer down
+
+**Status:** FINDING (measured, `crates/thinking-engine/src/{builder,dtype_parity,lens_shared,domino,signed_domino,branching,layered}.rs`). **Confidence:** High — every claim below is a direct read of the code, not an inference from the plan text.
+
+**What the plan's W3/M8 row asked for.** "One enum-dispatched engine; the 5 cascade shapes and 3 lens modules collapse; parity suite across u8/BF16/i8/f32" — read literally, this sounds like new architecture to build. Reading all four dtype engines plus `builder.rs`, `dual_engine.rs`, and `composite_engine.rs` in full, before writing any code, found otherwise.
+
+**The enum dispatch already existed.** `builder.rs`'s `BuiltEngine` enum (`Unsigned`/`Signed`/`BF16`/`F32`) already match-dispatches `perturb`/`reset`/`energy`/`cycles`/`size`/`think`/`think_with_temperature` across all four dtype structs, and `ConfiguredEngine::process()` is already a complete reset→perturb→think→pool→commit→sink pipeline generic over `BuiltEngine`. `composite_engine.rs` and `dual_engine.rs` already consume it generically — `dual_engine.rs` in particular is exactly the "measure the disagreement" mechanism the plan's own gate cites. None of this was built this wave; it predates D-TEH-4 entirely. So the deliverable's real content was two things a code-read-only plan couldn't have priced correctly: (a) the parity suite the gate demands but that did not yet exist as real fixtures (the plan itself flags this: "the driver's fixtures do not [instantiate all four engines] — they round-trip `BusDto` only"), and (b) removing GENUINE duplication one layer below the dispatch enum, in `domino.rs`/`signed_domino.rs` (~150 lines of near-identical stage-finalization logic downstream of a real scoring-algorithm difference) and the 3 lens modules (byte-identical `_lookup`/`_distance` bodies).
+
+**What did NOT collapse, on purpose.** `branching.rs`'s `BranchingEngine` and `layered.rs`'s `LayeredEngine` are fixed-shape compositions of THREE differently-sized engines (L1:64/L2:256/L3:4096 spawn cascade; 3-tier cross-edge cascade) — the same category as `CompositeEngine` (an engine COMPOSER), not the same category as a per-dtype VARIANT of one engine. Folding either into the single-N×N-table `BuiltEngine` enum would have been an artificial merge bought at real risk to the "spawn, don't filter" semantics the plan explicitly protects ("`branching`'s spawn shape kept as a mode, not lost"). Both module docs now record this decision inline, so a future session reading either file doesn't re-litigate "why isn't this in `BuiltEngine`".
+
+**The generalizable point.** A closure-plan row written from a census (file names + line counts + a one-sentence description) can correctly identify WHERE duplication and missing infrastructure live without correctly pricing HOW MUCH of the target already exists. Reading every named file in full before scoping the implementation turned "build one enum-dispatched engine" into "prove the existing one, collapse ~200 lines of real duplication two layers down, and document two deliberate non-collapses" — a materially smaller and safer PR than the row's own wording implied, with the same closure-plan gate satisfied.
+
+Refs: `thinking-engine-harvest-closure-v1` §3 W3/M8 row, §5 D-TEH-4, §8 (full scope decision); `crates/thinking-engine/src/dtype_parity.rs` (the parity suite); the falsifiability rule (CLAUDE.md § The falsifiability rule) — `dtype_parity.rs`'s own anti-vacuity guards (the `DualEngine` baseline must be non-zero; the four dtypes must NOT be bit-identical) are instances of it.
+
+**Addendum 2026-09-03 (Codex review, PR #1151, two P2 findings, both real, both fixed with new measurement rather than a loosened assertion):** (1) the u8-vs-BF16 agreement gate originally recomputed its "baseline" at test time via `DualEngine::u8_vs_bf16`, using the SAME current `ThinkingEngine`/`BF16ThinkingEngine` code the builder-path arm also calls — a shared regression would move both sides together and the gate could never fire. Fixed by freezing the measured value (`FROZEN_U8_VS_BF16_BASELINE = 0.875` on this fixture) as a literal the live builder path is compared against. (2) the convergence check only asserted `cycle_count <= max_cycles` — true of any engine by construction. Measuring the actual per-dtype behavior surfaced a genuine finding: u8/i8/BF16 converge in 7/15/15 cycles (well under the 30-cycle budget), but **F32 exhausts the FULL cycle budget every time, at every `max_cycles` tried from 30 to 200** — its softmax `cycle()` never trips its own delta-threshold termination on this input (the energy vector is bit-identical at max_cycles=30 and 200, so it isn't slow to converge, it's stuck at a fixed point the delta check doesn't recognize as converged). The fixed test is honestly per-dtype: u8/i8/BF16 must exit early (disable-verified), F32 is asserted to exhaust the cap. Root-causing WHY F32 never converges by its own criterion is explicitly out of scope for this collapse wave and is left as a follow-up (candidate: D-TEH-5 or a dedicated `f32_engine.rs` probe) — recorded here so it isn't lost. Same generalizable point as the entry above, one layer deeper: a review finding that looks like "make the test stricter" can uncover a real property of the system under test, not just a test-design flaw.
+
+## 2026-09-03 — E-TWO-FATE-PROBES-KILL-DIFFERENT-WAYS-1 — `semantic_chunker` fails at the mechanism, `spiral_segment` fails at the ratio; a pre-registered gate that only checked "pass/fail" would have hidden which
+
+**Status:** FINDING (measured, `crates/thinking-engine/examples/{chunker_falsifier,spiral_gate_probe}.rs`, both run on real baked data, no synthetic corpus). **Confidence:** High — both arms were pre-registered before either probe ran (plan `thinking-engine-harvest-closure-v1.md` §4b), and neither threshold was retuned after seeing a result.
+
+**What the closure plan asked.** The two remaining §1c rows each had a promotion path gated on a falsifier: `semantic_chunker` → deepnsm-v2's text side, `spiral_segment` → the codec certification battery. Both probes ran on real data (the tier-1..4 calibration corpus + the Jina v5 tokenizer + `jina-v5-codebook` for the chunker; five real baked 256x256 tables — jina-v3, bge-m3, reranker, jina-v5 u8 and i8 — for the spiral codec). Both came back KILL, and the two KILLs are structurally different failures worth telling apart.
+
+**`semantic_chunker` fails at the MECHANISM — recall = 0.000 at every threshold swept (0.30 / 0.45 / 0.60), across 168 cross-topic passages.** An all-zero result is exactly the shape a broken harness produces, so before trusting it a diagnostic re-ran the module's OWN pre-existing adversarial positive control — the synthetic maximally-separated centroid corners from its `detects_boundary_between_topics` test — against the SAME `jina-v5-codebook` table. **It also produced zero boundaries.** So the null is not a probe-design artifact: the perturb→think→top-k-Jaccard convergence pattern this module is built on simply does not diverge on an HDR-encoded table, even on inputs engineered to be as separable as the 256-centroid space allows. The module's own existing test already carried a hedge to this effect ("On uniform HDR tables the convergence patterns may not diverge strongly") — this is that hedge turned into a measured, falsifiable KILL. (The control was first run as a throwaway script and only its result recorded here; CodeRabbit's review on PR #1144 correctly flagged that a deleted diagnostic leaves the mechanism-null conclusion unreproducible, so it is now a 4th committed arm in `chunker_falsifier.rs` — same corners, same zero.)
+
+**`spiral_segment` fails at the RATIO on u8 tables (fidelity is fine there); on i8 it fails BOTH gates — corrected post-merge by a Codex review comment on this PR (`chatgpt-codex-connector[bot]`, P2), see the addendum below.** Pearson r and Spearman rho clear the 0.9980 gate on every u8 table at every max_error tried — the codec reconstructs distance rows accurately there. The i8 table does NOT clear it at any max_error tested: at its best configuration (0.005) r = 0.9993 passes but rho = 0.9975 falls short of the 0.9980 floor, and rho only gets worse as max_error loosens (0.9906 / 0.9590 / 0.7137). What kills every table, u8 or i8, is `bytes(spiral) <= bytes(u8)/2`: the best compression measured is ~0.28x on u8 (i.e. the spiral encoding is **~3.6x LARGER** than the u8 table it would replace) and ~0.80x on i8 at its loosest setting, nowhere near the module's own "51x compression" doc-comment claim or even the ecosystem's 2x floor. Root cause is visible in the segment count: a real per-row CDF from a trained codebook needs ~114-143 spiral segments (8 bytes each) to hit even a loose 0.05 max_error, because the codec's fitting premise — few segments suffice per row — only holds on smooth synthetic curves, and a trained model's distance rows are not smooth. The 51x claim was never false against the data it was tested on; it was false against the distributional shape of data it was never tested on.
+
+**Addendum 2026-09-03 (Codex review, PR #1144, verified against the probe's own re-run):** the FIRST version of this entry and the plan's §4c write-up both claimed "even the i8 table clears [fidelity] at max_error <= 0.01" — this was wrong, and the contradicting number (rho = 0.9975 < 0.9980 at max_error 0.005) was sitting in the same write-up's own results table. i8 never clears BOTH fidelity gates at any tested max_error; the KILL verdict for `spiral_segment` is unaffected (i8 also fails the compression gate at every max_error, so the module stays LAB either way), but the characterization "fidelity passes, only compression fails" is accurate for u8 only, not for i8. Corrected in the plan and here rather than silently editing the original claim away — see this repo's own falsifiability rule on not treating a code-adjacent number as verified until it's actually checked against the row that contradicts it.
+
+**The generalizable point.** "The gate failed" is not one finding — WHERE it failed changes what happens next. A chunker whose mechanism cannot discriminate needs a different algorithm entirely (or a different substrate) before it is worth re-probing; a codec whose fidelity is fine but whose ratio is wrong needs either a different fitting strategy or an honest downgrade of its claimed compression, and re-running the SAME probe on a friendlier table would not fix either — which is why neither module is being re-probed. Both fate-probe reports therefore carry a per-configuration table (not just a verdict), so a future session reading the KILL knows which failure it inherited.
+
+**Both stay LAB, not deleted, not re-probed on friendlier data** — per the pre-registration's own commitment (§4b: "Not deleted... Not re-probed on a different corpus to get a better answer"). §1c is now fully closed: every row in the harvest census table has a verdict.
+
+Refs: `thinking-engine-harvest-closure-v1` §4b (pre-registration) / §4c (results) / §5 D-TEH-3; `crates/thinking-engine/src/{semantic_chunker,spiral_segment}.rs`; `.claude/agents/falsifier-auditor.md` (the can-it-fire discipline applied to the chunker's all-zero result); the falsifiability rule (CLAUDE.md § The falsifiability rule).
+## 2026-09-03 — E-A-PRODUCER-IS-A-PURE-FUNCTION-OF-THE-CONTENT-LOCI-1 — D-POP-2 closed the survey's cheapest gap: `elect_peers` now writes its own election back into the row, and the fabric's no-self-reference rule is what makes that write order-independent
+
+**Status:** SHIPPED (code + 6 falsifiers, this branch; `witness_fabric::{elect_and_bind, ElectionReport, WitnessLens::bind_election}`). **Confidence:** High for the mechanism; the molecule it unblocks is still unwired downstream.
+
+**What was missing.** `post-teardown-buildup-survey-v1` §5 gap 4: `elect_peers` computed the social loci (Quorum / Contradiction), `WitnessLens::write_register` could store a register, and nothing connected them — so `is_opinion` / `revision_trajectory` / `suggest_reopening` (the "contradiction-driven revision" molecule, §4) never had a row that carried an ELECTED contradiction, only hand-set fixtures.
+
+**The finding, stated as a property.** The producer is a pure function of the content loci. `CONTENT_LOCI` excludes Quorum and Contradiction ("the fabric never reads what it computes" — no self-reference), which was written as an anti-circularity rule for the READ side; it turns out to be exactly what makes the WRITE side sound: a binding written into row *i* cannot change any row *j*'s election, so the whole-wave producer is order-independent, a second run is bit-identical, and stale or garbage social loci are overwritten, never consulted. That is the difference between a producer and an accumulator, and it is pinned two-sided: seeding every row with garbage Quorum=+7 / Contradiction=−8 before the run yields the same bytes as the clean run, and the test goes red the moment `CONTENT_LOCI` includes a social locus (disable-verified).
+
+**Why it stays inside family 1.** A locus is a signed OFFSET (sign = orientation); the producer writes two pointers and nothing else — no magnitude, no valence, no count. No tenant, no ClassView, no layout change, no dependency. Zero-copy: one lens per focal position over the same slice, dropped before the write; the only owned value is the `Copy` 12-byte register microcopy that `bind_election` read-modify-writes into the SAME row (slots 14 and 15 only; a full 14-locus content register plus an out-of-register canary survive byte-identical, disable-verified against a `ZERO.with(..)` rewrite).
+
+**Three disables, all red-then-green:** `bind_election` without read-modify-write (4 of 6 fail); `CONTENT_LOCI` + `Locus::Quorum` (the garbage-seed test fails); the producer passing `|_| true` to the peer scan instead of the caller's `visible` (the visible-domain test fails — +2 must beat the invisible +1, and the same fixture picks +1 when everything is visible).
+
+**What it does NOT do.** The molecule's next links — `BeliefArena::revise_at` on the elected contradiction, `RevisionTrajectory.flips`, `suggest_reopening` over real revisions — are still unwired; this PR gives them a real producer to read, not a caller. No population-basin work: family 3 stays the accepted vacancy (`E-SIX-SEMANTIC-FAMILIES-MUST-NOT-IMPERSONATE-EACH-OTHER-1`).
+
+**Spec correction caught by the worker.** The brief's silence test asserted `visited: 2`; `rows_from` builds the whole `0..=max_pos` span, so a `|_| true` predicate visits 7. The worker asserted `visited == rows.len()` and reported the deviation instead of forcing the literal — the right call, recorded here so the spec's error is not mistaken for the code's.
+
+## 2026-09-02 — E-THE-LIFT-GATE-FOUND-A-TIE-BLIND-SPEARMAN-1 — the D-TEH-3 comparison on a distinguishing fixture separated a same-formula copy from a wrong-estimator copy, and the tie-free fixtures the lab had used could not have
+
+**Status:** FINDING (measured, tests committed in `crates/jc/src/reliability.rs`). **Confidence:** High.
+
+**What the ruling asked.** `E-JC-IS-THE-HOME-OF-ALL-CALIBRATED-MATH-1`: a calibration routine outside jc is LIFTED if correct, or the jc version is PERFECTED and the copy dies — decided on a fixture that can distinguish the two implementations. D-TEH-3 ran that gate on the thinking-engine battery. Four verdicts, two of them not the one a code read would have given.
+
+**Cronbach α — LIFT, with a precision caveat the fixture had to expose.** `thinking_engine::cronbach::cronbach_alpha` and `jc::reliability::cronbach_alpha` are the same estimator (population variances, `k/(k−1)·(1 − Σσ²/σ²_total)`); on the known-value fixture they agree to `1e-5` (0.984615). That agreement proves nothing by itself, so the same fixture was shifted by `1e7`: α is affine-invariant in exact arithmetic and the `f64` estimate does not move (`< 1e-9`), while the retired `f32` form loses the fixture outright (its mean rounds to the nearest unit at that magnitude and the deviations carry no information). The copy dies; jc's `f64`/`Option` form is the survivor, not because it is "newer" but because the fixture showed which one survives the data.
+
+**Spearman ρ — PERFECT-IN-JC, and the lab's own tests were structurally blind to it.** `ground_truth::spearman_rank_correlation` ranked ties by sort POSITION (index order), not by average rank. On tie-free data it agrees with jc to `1e-6` — and every one of its three retired unit tests was tie-free. On `x=[1,2,3,4]`, `y=[1,2,2,3]` it returns ρ = 1.000 (a "perfect monotone match"); the average-rank form returns the textbook 0.948683. A calibration battery that compares baked `u8` lens distances against ground-truth cosines will hit ties constantly (256 levels over thousands of pairs), so the retired form was systematically optimistic exactly where it was used. jc already carried the tie correction; nothing was added to it except the comparison test that keeps the retired form on record.
+
+**Re-encode drift and the correction-delta summary — LIFTED as-is into `jc::drift`.** The convergence statistic (`|e_i − e_{i−1}| < 1e-15` against the ORIGINAL value, tail-filled history, `safe = converged_at < max_iterations`) and the delta battery (mean / mean|δ| / max|δ| / population σ / two threshold fractions) were correct; what changed is their shape — the codec choice (BF16, γ+φ, the full chain) is now a round-trip closure the lab passes in, and the two cut-offs (0.01 / 0.1) are parameters the lab names (`MATERIAL_CORRECTION` / `LARGE_CORRECTION`) instead of constants buried in the statistic. The x256 re-encode proof (14 lab tests) runs unchanged through jc. **The lens quorum** (per-pair `1 − σ/σ_max` over `u8` tables, the 230/179/128 bands, the per-subject Cronbach report) went to `jc::quorum` the same way; it never was an α per pair and its docs now say so in the type name.
+
+**The generalizable point.** "Agrees on the existing tests" was true for both copies and meant nothing: the tests were the fixtures on which the implementations coincide. The gate had to be run on the input class each estimator would actually see (large offsets for `f32`, ties for ranks). A lift decision made from a code read would have kept the tie-blind Spearman — it looks like the textbook formula.
+
+**Still outside jc, recorded rather than swept.** `ndarray::hpc::reliability` (tie-aware, `f64`, returns `0.0` on degeneracy) and `perturbation-sim::stats` (a deliberate zero-dep mirror of it) carry the same four estimators. Both are correct in the sense above; neither is jc. Filed as `TD-RELIABILITY-COPIES-OUTSIDE-JC-1` — the ruling's own text names the ndarray direction ("once ndarray is proven bit-exact the same math is re-importable from jc"), which is a deliberate PR with a bit-exactness gate, not a drive-by.
+
+Refs: `E-JC-IS-THE-HOME-OF-ALL-CALIBRATED-MATH-1`; `thinking-engine-harvest-closure-v1` §1d / §3 W2 / §5 D-TEH-3; `crates/jc/src/{reliability,drift,quorum}.rs`; the falsifiability rule (CLAUDE.md § The falsifiability rule).
+
+## 2026-09-02 — E-THE-CALIBRATION-GATE-REVERSED-THE-DECLARED-FLOOR-1 — D-TEH-2: the ghost prior landed in the planner, and the pre-registered gate overruled the floor its author had declared
+
+**Status:** FINDING (measured, `crates/lance-graph-planner/src/nars/ghost_prior.rs`, test `calibration_gate_picks_the_default_floor`). **Confidence:** High on the fixture; the fixture is one recurrence shape (256 atoms, a 3-atom pattern, 0–30 stale patterns, ages 0–60).
+
+**What landed.** `thinking_engine::ghosts::GhostField` is harvested as planner `nars::ghost_prior::GhostPrior` — per-thought / per-mailbox, never a singleton — over the contract's `WisdomMarker` / `GhostEcho`. `ghosts.rs` and its only consumer, `examples/think.rs`, are deleted; the lab crate's `persona` / `world_model` / `awareness_dto` now import `GhostEcho` from the contract, which closes `TD-GHOST-ECHO-DUP-1` (one declaration of the eight echoes remains). The lab `Agent` no longer OWNS a trace field; DTO builders take the thought's prior summary as an argument — the V3 ownership rule applied to a process-wide field.
+
+**The finding.** The closure plan's §1c row said the port must declare which floor it adopts — the source's (drop below 0.001, prune) or the contract's (clamp at 0.1 forever) — and let a calibration gate decide: free-energy discrimination between a RECURRENCE and a SHIFT after the prior has aged. The first declaration was the source's `Trace` floor. The gate rejected it. Discrimination (`fe_shift − fe_recurrence`), Trace vs Marker: with no stale memory the two are identical (0.0188); with 30 stale patterns and age 0, 0.0002 vs 0.0026; with 30 stale patterns and age 20 or 60, **0.0000 vs 0.0188**. Under the Trace floor the remembered pattern is pruned once older than ~42 cycles (`0.8·0.85ᵏ < 0.001`) and the prior can no longer tell familiar from new at all. Under the Marker floor it survives at 0.1 and the discrimination holds — at the price of a noisier baseline (absolute free energy 0.35 vs 0.07 with 30 stale patterns). The anchoring alarm (D-HOUSE-4) reads the difference, not the level, so the default is `Marker`: the contract's `felt_parse:70` semantics ("never fully vanishes"), now measured rather than inherited.
+
+**Why it is worth an entry.** The author of the port had a preference (the bias-semantics floor) and wrote the gate before running it; the gate's assertion is on the DECLARED default, so the preference could not survive the fixture without the test going red. That is the falsifiability rule doing what it exists for — a knob that is set by a measurement it can lose, not by the name of whoever set it. The shape generalises: when two shipped sources disagree on a constant, encode the disagreement as a parameter and let a pre-registered fixture pick, with the assertion on the pick.
+
+**Fences carried forward.** Lingering trace ≠ counterfactual rung (`E-A-GHOST-TRACE-IS-NOT-THE-COUNTERFACTUAL-LANE-1`): nothing in `ghost_prior` reads or writes the −6 lane. The floor decision is scoped to this fixture; D-HOUSE-4 should re-run `calibration::discrimination` on its own recurrence shape before trusting the default there.
+
+Refs: `thinking-engine-harvest-closure-v1` §1c (ghost row), §3 W2 result, §5 D-TEH-2; `house-differential-style-v1` D-HOUSE-4; `contract::escalation::{GhostEcho, WisdomMarker}`; `TD-GHOST-ECHO-DUP-1` (resolved); `TD-GHOST-TIER-NAME-COLLISION-1` (still open, pays when `counterfactual.rs` is next touched).
+## 2026-09-02 — E-SIGNATURE-PDE-SWEEP-SHIPPED-W1.5-GATE-WAS-QUIETLY-OPEN-1
+
+**Status:** FINDING (measured + shipped). Closes W1.5 item #6; opens #7/#8.
+**Confidence:** every number below was run this session, not inferred.
+
+The W1.5 gate ("do not spawn until sigker is benchmarked at production
+carrier widths AND `jc Pillar 11` activates" —
+`.claude/knowledge/ndarray-vertical-simd-alien-magic.md`) was **already
+open** before this session touched anything — both clauses were
+independently true, just never checked together. `jc`'s own `src/lib.rs`
+records Pillar 11 activated since PR #348; `sigker/examples/
+cubature_vs_randomized.rs` already exercises production-carrier widths
+(PATH_DIM=4, PATH_LEN=64, N_PATHS=256, "OSINT-typical") — it had simply
+never been *run*. Both doc sites that said otherwise
+(`crates/sigker/src/lib.rs:50`, the ndarray-vertical-simd-alien-magic.md
+W1.5 section) were stale relative to jc's own status and are corrected in
+this same pass.
+
+**What shipped:** `jc`'s `goursat_substrate_probe` example — a throwaway
+falsifier that hardcoded path dimension = 2 to prove the SIMD wavefront
+(A2) matches the shipped scalar recurrence (A0/A1) within a predeclared
+tolerance — is promoted into a real, general-dimension primitive:
+`ndarray::hpc::signature_pde::signature_pde_sweep` (ndarray PR #293),
+matching `sigker::signature_kernel_pde`'s exact `(x: &[Vec<f64>], y: &
+[Vec<f64>]) -> f64` signature. Built entirely on `crate::simd::F64x8`'s
+already-parity-confirmed public methods, so it gets AVX-512/AVX2/NEON/
+wasm/scalar dispatch for free — zero new arch-specific code, satisfying
+the W1a acceptance criterion "all three backends" without writing any of
+them by hand. `sigker::signature_kernel_pde` now delegates to it directly
+(`crates/sigker/Cargo.toml` gains a plain, mandatory `ndarray` path dep,
+matching the operator ruling from earlier this session that ndarray is
+mandatory everywhere numeric/computational code runs — sigker's "zero
+deps" self-description is now scoped to its non-PDE modules only).
+
+**Measured** (release, this host): ~9x speedup over row-major scalar at
+the probe's shapes (256/1024/2048/4096, dim=2) and at dim=5; the exact jc
+Pillar-11 leg shape (8 pairs, len=4609, dim=2) completes in 0.24s total —
+against the ~25-26s this same leg shape cost the scalar path (measured
+earlier this session, see the entry below). All 40 `sigker` lib tests
+pass unchanged with the new backing implementation, including every
+`kernel::tests::pde_kernel_*` numerical-convergence test.
+
+**Distinguish from W5:** W5 (the PowerSig scalability wave) stays firmly
+HOLD — its trigger is real-workload memory/time pressure (1 GiB / 10s),
+unaffected by how fast the Goursat kernel runs. W1.5 is a *scientific
+certification + benchmark-exists* gate, architecturally independent of
+W5's *measured-workload-pressure* gate; opening one says nothing about
+the other. Both gates were checked LITERALLY against their recorded
+conditions this session, not against restated prose — the discipline
+this workspace's `Reading-Depth-Ladder` demands.
+
+**Remaining W1.5 items #7 (`TD-NDARRAY-SIMD-RANDOMIZED-PROJECTION`) and
+#8 (`TD-NDARRAY-SIMD-LYNDON-PACK`)** are now unblocked by the same open
+gate but not yet built — next in the shopping list, not scoped this
+session.
+
+---
+
+## 2026-09-02 — E-PILLAR-11-PUBLISHED-BOUND-NEEDS-ITS-OWN-NUMERIC-GUARD-1
+
+**Status:** FINDING (measured) — closes the Hambly-Lyons edition-constant arc.
+**Confidence:** every number below was run, not inferred; the disable arm was
+executed and restored.
+
+The published constant correction (#1133/`1a3c7294`, arXiv `e` →
+Annals `2e`) doubles the certificate depth. Measured consequences:
+
+| | old arXiv `e` | corrected Annals `2e` |
+|---|---|---|
+| `c` | `e·ln(1+√2)` = 2.3958 | `2e·ln(1+√2)` = 4.79155 |
+| depth at `L=3` | 7 | **14** |
+| coefficients (`d=2`) | 255 | **32 767** |
+| `pillar_passes`, debug | 25.98 s | **26.17 s** |
+
+**A 128x coefficient increase costs ~0.2 s inside a 26 s run — inside noise.**
+The exhaustive arm's cost is the enumeration of reduced words of length <= 3
+(484 of them), not the signature depth, so raising the cutoff moves nothing.
+The other three tests are 0.07-0.10 s each, the `L=8` figure-of-eight arm
+included: the correction only LOOSENED its bound (`<= 19` -> `<= 38`), making
+it cheaper to satisfy. The 26 s is the PDE depth-infinity leg (8 Goursat solves
+on 4609-point paths in debug) — established by elimination, since the constant
+flip did not move it and the other tests are ~0.1 s, and corroborated by the
+release figure of 0.18 s for a 4097-point solve. Not directly instrumented.
+
+**The load-bearing half: the behavioural tests do NOT guard the constant.**
+Run with the wrong (arXiv `e`) constant, `pillar_passes` **still passes**. What
+fails is `theorem2_depth_is_the_paper_floor`:
+
+```
+assertion `left == right` failed: L=1
+  left: 2      floor(e·ln(1+√2))
+  right: 4     floor(2e·ln(1+√2))
+```
+
+That is the correct division of labour, not a gap. The theorem gives a
+SUFFICIENT depth; the fixtures separate at depth 3, far inside either bound, so
+a looser constant cannot fail a behaviour test that clears it comfortably.
+
+**Consequence, and the reason this is banked:** `theorem2_depth_is_the_paper_floor`
+is an independent PROVENANCE guard — it is the only thing standing between the
+tree and a silent regression to the arXiv edition. Beside a green
+`pillar_passes` it reads like a tautology restating a constant, which is exactly
+how a future tidy-up would justify deleting it. **It must not be removed as
+redundant.** Numbering provenance is pinned at the definition site
+(`hambly_lyons.rs:365`): Annals Theorem 5 = arXiv v2 Theorem 2; Annals
+Theorem 2 is NOT the lattice cutoff.
+
+**Generalisation:** when a constant enters a SUFFICIENT bound, behavioural tests
+downstream of it are structurally incapable of pinning it — any bound at least
+as large passes. Such a constant needs its own numeric guard, and that guard's
+apparent triviality is a property of correct design, not a smell.
+## 2026-09-02 — E-THE-PERIPHERY-OF-A-STRATUM-IS-THE-OTHER-STRATA-1 — PROBE-HOUSE-DIFFERENTIAL-1 reported: the abstraction stratum carries the House cycle; the runner-up synthesis stratum fires on everything and moves nothing
+
+**Status:** FINDING (measured, `crates/lance-graph-planner/examples/house_differential.rs`, release, N = 200 arenas × 25 permutations) + CORRECTION of the plan's rung reading. **Confidence:** High on the measurement; the effect size is fixture-dependent (see robustness).
+
+**The correction first.** The probe's first cut sampled the periphery from `RungLevel::Counterfactual.peripheral_sample_where(k)` — empty, because no recipe has `min_rung` above `Counterfactual` — and reported condition (c) "structurally unrunnable". That was the scalar-era reading of `RungLevel` as one active position. The operator's ruling is the strata model (`persona-vs-rung-ladder.md`, 2026-08-30 scope correction): rungs are strata scheduled in parallel in dependency order. The periphery of the board stratum (RCR #4 / ASC #7, floor 6) is therefore **the other strata** — CAS #8 (floor 0) feeding it, CR #11 (floor 3) consuming it — not the set of recipes the board's own rung excludes. The plan's "ASC/CR open at `Analogical`" and its rung-elevation loop were the same misreading; both corrected in `house-differential-style-v1` §2/§3.
+
+**The measurement.** A0 (RCR alone) p@1 0.320; A1 / A1c (+admit, +ASC on the leader, +council) 0.610; A2 with the abstraction stratum S0 (`cas_abstract` on `C*`, CAS-down admits `{G→O_far, C*→G} ⊢ C*→O_far`, focus set = every observable `is_a` subject, never the label) 0.820; null (identical procedure, feature half shuffled, far parent re-owned, distinct `(cause, feature)` pairs enforced) mean 0.343, **p95 of the per-permutation aggregates 0.395**. (Numbers revised before merge after two review findings on #1141: the first cut focused `cas_abstract` on `C*` (Codex) — making it label-blind left the real arm unchanged and lowered the null from 0.475 to 0.425, the label focus had been starving the null; and the null shuffle admitted duplicate pairs that `observe` pools into stronger beliefs (CodeRabbit) — enforcing distinctness moved it to 0.395.) Planted cause eliminated 0/200. S0 fires on exactly the 100 far-fact arenas (0.500 — can-fire and can-stay-silent). **Variant 2: base path `S0 + board` PASS, council-gated S3 arm INCONCLUSIVE; variant 1 KILL** on (c): the synthesis stratum S3 (`cr_synthesize` of the runner-up's held-aside report) ran on 182/200 arenas, reordered the tail on 177, and moved p@1 on none (`A2-S3` ≡ `A1c`) — the "fires on everything" defect, in S3's design.
+
+**Why variant 2 is recorded as two results.** It gates S3 on the council's `split`; the council split on 0/200 arenas, so S3 never ran — the pre-registered rule returns PASS for the procedure, but what was exercised is S0 + board; the S3 arm is inconclusive until a fixture makes the split reachable. The cause is the probe's own signal derivation (`humility = 1 − margin(top1, top2)` ≈ 1, where `InnerCouncil::from_signals` gives Catalyst weight `1 − |humility − 0.5|·2 = 0`), not a council defect. Nothing about CR as a synthesis stratum is established either way.
+
+**Four things worth keeping.**
+1. The null's comparator is the p95 of the AGGREGATE statistic across permutations (25 values), not the p95 of 200 per-arena hit rates (0.720 here — a tail statistic of a different distribution). The first cut used the latter and would have compared 0.820 against the wrong number.
+2. A size-preserving shuffle must also shuffle what it does not touch: leaving the far parent owned by `C*` under the null leaks the planted identity (AN p95 0.475 → 0.735 on the pre-review cut). A2 still cleared the leaky null, by 0.085.
+3. A procedure that names the hidden label anywhere — even in a stratum that "only" abstracts — is not a procedure that can be applied; derive every focus set from what the arena shows (Codex P1 on #1141). An elimination read off a `(cause, expectation)` pair is "ranked low"; the predicate reads the belief's recorded contradiction (Codex P2), proven two-sided by G5. And a permutation null must preserve DISTINCTNESS, not just counts: a duplicate `(cause, feature)` pair is revised into a stronger belief by `observe`, which the real fixture never does (CodeRabbit) — 11 784 repair swaps over 5 000 shuffles says it was the common case.
+4. A stratum contributes when its chain carries evidence stronger than the direct band: far fact weakened to the rule-edge band (0.9/0.6) ⇒ S0 inert, A2 = A1c. The fixture strengths were pre-registered in the file before the official run; the dependence is a property of the mechanism, stated here so it is not read as a universal gain.
+
+**Disable-runs, verified red:** G1 (S0 forced on under `STRATA_OFF`), G4 (`CasUp` in place of `CasDown`), G5 (contradiction half dropped), jitter zeroed ⇒ A0 p@1 = 1.000 by tie-break.
+
+Refs: `house-differential-style-v1` §2 step 2, §3, §4 RESULT; `E-PERIPHERAL-DISSENT-GUARDS-THE-STRATIFICATION-1`; `E-A-GHOST-TRACE-IS-NOT-THE-COUNTERFACTUAL-LANE-1`; `nars/tactics.rs` `cas_abstract` (:359) / `cr_synthesize` (:503); `recipes.rs` `min_rung` (:505); D-HOUSE-1 → Shipped, D-HOUSE-2/3/5 unblocked on the stated terms, D-HOUSE-1d re-scoped to strata budgets.
+
+## 2026-09-02 — E-THE-DTO-LADDER-IS-THE-ALU-BUS-AND-WAS-ALREADY-RULED-1 — a session re-asked a question `.claude/v3/` had answered on 2026-07-02, and proposed a probe on the wrong axis before reading it
+
+**Status:** CORRECTION + FENCE (same day, same branch, before merge). **Confidence:** High.
+
+**What happened.** The closure plan asked, as "ruling 3", which crate should own `StreamDto` / `PerturbationDto` / `BusDto` / `ThoughtStruct`, offered "driver vs a small DTO crate", and — after the operator said the word "ladder" was unclear — proposed an `ogar-r2il` round-trip probe to decide it. The operator's correction was to read the V3 documentation. Read in full (`README`, `VISION`, `v3-substrate-primer`, `INTEGRATION-PLAN`, `ENTROPY-MILESTONES`), the answer was there since 2026-07-02: the four structs are the bus of the ALU chain `ladybug-rs → thinking-engine → P64 → cognitive-shader-driver → SoA` (`primer` §3, `VISION` §6, `E-DTO-LADDER-OWNERSHIP-SPLIT`, W4 / D-V3-W4a), and the contract already carries their zero-dep shader-side twins (`cognitive_shader::{ShaderDispatch, ShaderResonance, ShaderBus, ShaderCrystal}`; `engine_bridge.rs:6-8` maps the two ladders rung by rung).
+
+**The plain statement, so it is not re-derived again.** `cognitive-shader-driver` is the ALU: it owns the SoA columns, dispatches a cycle through the engine hook, and emits the cycle fingerprint through sinks. The four DTOs are what enters and leaves the ALU. stockfish-rs is the reference design for the 64×64 field (NNUE = the incremental make/unmake accumulator, `stockfish-harvest-64x64-v1`); masking + SIMD are what turn that ALU into a reusable thinking-compiler driver any consumer can dispatch into as a cognitive shader. What is genuinely open on this chain is NOT placement: PR #1051 measured the seam as transport rather than a field ALU, and `alpha-reason-witness-shader-field-lineage-addendum-v1` owns recovering the field path. A closure of thinking-engine never moves the ALU's bus into a lab crate, a DTO crate, or r2il.
+
+**Fence.** Before asking any question that contains "DTO", "ladder", "BusDto", "shader" or "driver": `v3-substrate-primer.md` §3 and `E-DTO-LADDER-OWNERSHIP-SPLIT` first. The primer is one page; the re-derivation cost two turns and one wrong proposal in a PR body. This is the "consult before you guess" rule (CLAUDE.md § The Stance) failing on its own author.
+
+Refs: `E-DTO-LADDER-OWNERSHIP-SPLIT`, `E-TWO-RESONANCES-SPLIT`, `.claude/v3/INTEGRATION-PLAN.md` W4, PR #1051 (seam audit), `alpha-reason-witness-shader-field-lineage-addendum-v1` §A0–A5, `thinking-engine-harvest-closure-v1` §6.3 (corrected).
+
+## 2026-09-02 — E-JC-IS-THE-HOME-OF-ALL-CALIBRATED-MATH-1 — operator ruling: scientifically calibrated math lives in `jc`, lifted when correct and perfected there when not; glue is not math
+
+**Status:** RULING (operator, 2026-09-02, closing ruling 4 of `thinking-engine-harvest-closure-v1` §6; rulings 1 and 2 of the same section — D-PERSONA-5 RETIRED, D-REUNIFY-5/6 CLOSED-superseded — landed in the same commit; ruling 3 stays OPEN, re-stated in plain terms in the plan). **Confidence:** High (verbatim intent; wording here is mine).
+
+**The rule.** `jc` (Jirak-Cartan, the pillar crate) is the single home for every piece of math that has been or must be scientifically calibrated. When a calibration routine exists elsewhere in the workspace it has exactly two fates: **lifted** into jc as-is if it is correct, or — if it sails under a wrong name or is numerically wrong — the **jc version is perfected** and the stray copy dies. A duplicate is never tolerated as "the same thing twice"; it is either the same (lift) or a defect (perfect). jc's pillars are meant to be the reusable, liftable calibration source, and once ndarray is proven bit-exact the same math is re-importable into production from jc rather than re-derived.
+
+**Why `sigker` stayed out.** This is the same rule applied earlier: sigker was held outside jc while Pillar 11 (Hambly-Lyons signature uniqueness) was red for non-lattice quantized step vectors. Only math whose certification is green enters the pillar crate.
+
+**What it changes right now.** The thinking-engine calibration battery is split by NATURE, not by weight: `cronbach.rs` (compared against `jc::reliability::cronbach_alpha` on a shared fixture, then lifted or reconciled), `spearman_rank_correlation`, the re-encode drift statistics and the SiLU-correction statistics go to jc under D-TEH-3; candle loaders, tokenizer registry, centroid labels, model auto-detect and file plumbing are glue and stay in the lab crate, calling jc for their math.
+
+**Guard.** A lift is only a lift if the two implementations agree on a fixture that can distinguish them; a fixture on which every implementation returns the same value proves nothing (the falsifiability rule). Where they disagree, the discrepancy is understood before jc is declared right.
+
+Refs: `crates/jc/src/lib.rs` (pillar list; Pillar 11 status), `I-NOISE-FLOOR-JIRAK`, `TD-THINKING-ENGINE-EXCLUDED-DEBT-1`, `thinking-engine-harvest-closure-v1` §1d / §6 / W2.
+
+## 2026-09-02 — E-A-GHOST-TRACE-IS-NOT-THE-COUNTERFACTUAL-LANE-1 — the word "ghost" names two semantic families in the tree; the same-word-≠-same-family lesson of the September teardown, caught BEFORE a port this time
+
+**Status:** FINDING + FENCE (verified against source). **Confidence:** High. Raised by an external review of #1137 (GPT-class; held CLAIMED-BY-EXTERNAL per `E-EXTERNAL-REVIEW-ADJUDICATED-1` until checked, then confirmed on both sides in code).
+
+**The two families.**
+1. **Lingering trace.** `thinking_engine::ghosts::{GhostType, Ghost, GhostField}` — a `Ghost` carries `atom`, `ghost_type`, `intensity`, `created_at`, `source_text`; the field decays asymptotically and biases the NEXT cascade (Friston prior). Contract twin `escalation::{GhostEcho, WisdomMarker}` (floor 0.1, decay 0.85). Its eight names are memory residues: Staunen = persistent wonder, Wisdom = deep / harvested knowing, Grief = loss that reshapes topology, Boundary = a limit still felt.
+2. **Non-authoritative counterfactual rung.** `contract::counterfactual::{deposit_counterfactual, CounterfactualMailbox, revise_if_minority_wins}` — the minority pole of a split quorum, kept under `InferenceType::Counterfactual` (−6), never written as observed SPO truth. Its own docs call it a "ghost-tier mailbox" seven times (`counterfactual.rs:16, 111, 229, 243, 247, 340, 402`).
+
+**Why it matters now.** `thinking-engine-harvest-closure-v1` D-TEH-2 ports the trace family into the planner, and `house-differential-style-v1` D-HOUSE-4 consumes it as an anchoring alarm. A reader who meets `GhostType::Wisdom` beside a "ghost-tier mailbox" will plausibly conclude the existing `GhostField` already IS the counterfactual-rung carrier. It is not: one is what a past thought left behind, the other is a road not taken that may still win. The September teardown removed a register precisely because evocative shape-sharing (G24N4) had been read as semantic identity; this is the same failure one word earlier.
+
+**The fence.** The rung MAY consume a trace (a Staunen or Wisdom marker) as a starting prior. The rung is NEVER a trace, a trace is NEVER a rung, and no port under D-TEH-2 or readout under D-HOUSE-1..4 reads `WisdomMarker` as counterfactual state or writes the −6 lane from a ghost field. The wording collision in `counterfactual.rs` is recorded as `TD-GHOST-TIER-NAME-COLLISION-1` (doc-only; rename "ghost-tier" → "counterfactual-tier" when that file is next touched, never as a drive-by).
+
+**Archaeology kept.** The older architecture already carried the epistemic cycle as a DUALITY: Staunen keeps a question alive, Wisdom is what was harvested from it. The shipped `curiosity() = (1/(q+1))·(1−c)` (`exploration.rs`) is a later operational slice of the Staunen end, not the pair. Recorded in the closure plan's idea harvest so the duality survives the crate.
+
+**Also adopted from the same review:** D-HOUSE-1 stays surgical (one causal question, four arms); the resonance, qualia-dye and aperture arms folded in by `575c6d3` are moved OUT to gated follow-on probes D-HOUSE-1b/1c/1d (plan §4b), with three processing-order defects fixed in the move (the aperture knob was reading a quantity that does not exist until two steps later; the dye coloured one candidate; the resonance arm was one shape where the pyramid names two).
+
+Refs: `E-SIX-SEMANTIC-FAMILIES-MUST-NOT-IMPERSONATE-EACH-OTHER-1`, `E-EXTERNAL-REVIEW-ADJUDICATED-1`, `TD-GHOST-ECHO-DUP-1`, `E-QUALIA-IS-RANK-INERT-AT-THE-FRONTIER-AND-POPULATION-LOSES-TO-COUNTING-1` (the attribution lesson), plans `house-differential-style-v1` §4b, `thinking-engine-harvest-closure-v1` §1c/§4.
+
+## 2026-09-02 — E-THINKING-ENGINE-LIVE-FOOTPRINT-IS-ONE-TRAIT-AND-HOUSE-IS-SHIPPED-IN-PIECES-1 — the 51-file excluded crate binds the spine through ONE trait module; the differential-diagnosis style the operator asked for already exists as seven scattered shipped mechanisms and zero names
+
+**Status:** FINDING (measured on `94543a5`, read-only). **Confidence:** High for both measurements. Plans: `house-differential-style-v1`, `thinking-engine-harvest-closure-v1`.
+
+**Measurement 1 — the crate's live footprint.** `grep thinking-engine crates/*/Cargo.toml` names two consumers. `lance-graph-callcenter` requires it and uses exactly `bridge_gate::{CognitiveBridgeGate, CognitiveAuthResult, …}` — a trait-only module whose own doc says it lives low so callcenter can implement it. `cognitive-shader-driver` takes it OPTIONALLY behind `with-engine` (default off) and reaches `dto::BusDto`, two `cognitive_stack` thresholds, and lens lookups in doc/test paths. Everything else in the 51 files is internal or example-only. Consequence: the chapter closes by moving one trait to the zero-dep contract and ruling the DTO ladder's home under D-TTV-1 — not by a rewrite. The MODULE-TABLE census's gem-status column, COMPONENT-MAP §3 and three TD rows already agreed on the file-level verdicts; nobody had measured the dependency edge, so the closure kept looking larger than it is.
+
+**Measurement 2 — the House question.** A grep for the pattern's name (and for "differential diagnosis") over `.claude/`, thinking-engine, contract and planner returns nothing. The mechanics are shipped in seven places: `rcr_abduce` (the ranked board), `asc_challenge` with the disjoint-stamp guard (attack the leader), `cr_synthesize` (thesis/antithesis, depth preserved), `InnerCouncil` + `quorum_project` + `deposit_counterfactual` (minority kept as −6), `peripheral_sample_where` + `peripheral_dissent` (the test nobody ordered; never decides), `Recipe::min_rung` (cheap passes first), `WisdomMarker`/`GhostEcho` (memory, without the field). MedCare-rs already carries the consumer shape (`differential() -> Vec<DiffRow>`, private repo). What is missing is not a mechanism but two READOUTS (discriminating evidence; elimination as a predicate over `truth`/`contradiction`/`stamp`) and the O2 style→recipe edge. Consequence: the right first artifact is a falsifier, not a struct — PROBE-HOUSE-DIFFERENTIAL-1 (planted-cause recovery, shuffle null, periphery can-fire AND can-stay-silent).
+
+**Two stale rows found on the way.** D-PERSONA-1 still read "In progress" on a branch name; its content (`contract::escalation`, planner `mul/escalation.rs`) is on main. D-REUNIFY-2 still read "Backlog"; it shipped as D-CSV-9 in #387. Both regraded in the same commit, status cells only.
+
+**Rule extracted.** Before sizing a retirement, measure the DEPENDENCY EDGE (which symbols cross the crate boundary), not the file count. A 51-file crate with a one-trait edge is a one-trait retirement plus a harvest list; the harvest list is then governed by consumers and falsifiers, one port at a time.
+
+Refs: `TD-THINKING-ENGINE-EXCLUDED-DEBT-1`, `TD-GHOST-ECHO-DUP-1`, `E-RUNG-ASCENT-WIRED-1` (the crate named orphaned), `E-PERIPHERAL-DISSENT-GUARDS-THE-STRATIFICATION-1`, `E-DIALECTIC-V1-TACTICS-IN-PLANNER-1`, `persona-vs-rung-ladder.md` O2/O3.
+
+## 2026-09-02 — E-QUALIA-IS-RANK-INERT-AT-THE-FRONTIER-AND-POPULATION-LOSES-TO-COUNTING-1
+
+**Status:** MEASURED (PROBE-POP-READOUT-1 / D-POP-1, `pop_readout.rs`, whole
+KJV, 227,261 candidates, 9 splits x 25 shuffles, deterministic).
+**Confidence:** High on findings 1/3/4 (each is a direct measurement with a
+size-preserving null or an exact identity); Medium on 2 (a weak effect, real
+against its null, on one corpus and one label).
+
+**The pre-registered claim was KILLED.** A population-typicality readout (an
+object's Cam96 distance to its subject's own basin centroid) does not improve
+the exploration frontier's ranking: mean precision@10 falls 0.289 -> 0.011
+against the shipped `FrontierEdge::curiosity`, and lands BELOW its own
+label-shuffle null (null p95 0.133). Combining it in is worse than omitting it.
+
+**It is not noise, though.** Controlling for prefix frequency, the readout's
+partial Spearman against later recurrence is 0.090 against a null 95th
+percentile of 0.020. A weak global trend and a useless top-k coexist, because
+the extreme of the readout is degenerate (objects sitting on their own
+centroid). Precision@k probes the tail, Spearman the trend; when they
+disagree, that disagreement is the result.
+
+**The sharpest finding is about shipped code, not about the hypothesis:
+`curiosity_gestalt` cannot reorder a frontier.** Measured
+`spearman(curiosity, gestalt_magnitude) = 1.000000` under two deliberately
+contrasting `MulAssessment`s. `exploration.rs:180-215` shows why -- the
+magnitude is `base * fw * dk * flow * trust * staunen_boost * ground_gate`
+and every factor but `base` is per-GRAPH, so all per-edge variation flows
+through `curiosity` alone. MUL and qualia rescale the frontier; they never
+reorder it. Consequently the operator's framing question, "does population
+beat qualia/context alone", had an a-priori answer for any RANKING task:
+qualia carries zero ranking information at the frontier as shipped. Whether
+that is a defect or an intended global gain is a design question this entry
+does not settle -- but a weighting that cannot change an order cannot be
+evidence for or against a competing readout either.
+
+**And the control beat everything cognitive.** Plain prefix frequency reaches
+precision@10 = 0.756 against curiosity's 0.289, while curiosity is
+ANTI-correlated with recurrence (rho ~ -0.27) -- consistent with it working as
+designed (prefer the rare and unqueried) rather than failing. The rule this
+banks: any future frontier-ranking claim clears the frequency control first,
+or it has measured nothing. This is the same lesson
+`E-BASIN-WIDTH-IS-N-ARTIFACT-1` banked for held-out reliability, applied to
+ranking: a quantity that co-varies with sample count needs a partial, not a
+raw correlation. The frequency arm and the partial were a deliberate
+STRENGTHENING of the pre-registered design, added before the run and recorded
+as such in the plan.
+
+**A survey error, corrected by trying to run it:** the plan named Fisher-z and
+`RollingFloor::occupancy` as available ingredients. They are not reachable --
+`helix` is not a dependency of `deepnsm-v2`, and adding one pulls the ndarray
+git fork into that crate's build. The inventory listed primitives without
+checking the dependency edge. Under rank combination Fisher-z is inert anyway
+(a monotone transform cannot change a rank), so its disable arm is answered
+for a rank readout and open only for a magnitude one.
+
+**Consequence for the six families:** family 3 as a molecule feeding frontier
+selection is NOT licensed; a carrier is licensed even less. The vacancy
+stands. The readout's plausible home is a basin-level prior on the global
+trend rather than a top-k selector -- stated as a question, per the
+falsifier-first rule, not as a direction.
+
+## 2026-09-02 — E-SIX-SEMANTIC-FAMILIES-MUST-NOT-IMPERSONATE-EACH-OTHER-1
+
+**Status:** OPERATOR RULING (semantic-family recovery), landed as the
+September cleanup on this branch. **Confidence:** ruled; the code removals in
+the same change are the enforcement, the forensic report the evidence.
+
+**Six semantic families, ratified as distinct:** (1) episodic / Markov loci —
+`CausalWitnessFacet`, tenant 14, sign = orientation, pointer semantics closed
+to the `Locus`/ClassView API; (2) epistemic qualia — cheap signed
+proprioceptive magnitude of the CURRENT reasoning state, shipped precedent
+`QualiaI4_16D`, stakes not logic, additive where its contract permits;
+(3) epistemic population basins — population-relative semantic geometry
+(the mammal / whale / wombat / horse / elephant examples), which has NO
+shipped signed-i4 ABI, tenant, ClassView or axis vocabulary and is an accepted
+VACANCY; (4) epistemic causality trajectory — `TrajectorySignature` /
+`RevisionTrajectory`, an ordered evolution, not a magnitude register and not
+the causal graph; (5) the causal graph; (6) the epistemic / knowledge graph.
+Invariants: same physical shape ≠ same semantics; same codec ≠ same
+ClassView; the word "basin" ≠ one mathematical object; locus ≠ magnitude ≠
+population basin ≠ causal graph; trajectory ≠ causal graph.
+
+**What the forensic pass found (four independent mistakes, four sources):**
+population coordinates treated as additive child evidence
+(`w2b_one_node_field.rs` summarise + `BasinLanes::accumulate_children`,
+#1128); that artificial cancellation "repaired" by an agree/disagree pair
+(#1129, a 24-byte wire object V3 does not have); shape equivalence read as
+semantic equivalence — a test borrowed the A9 locus codec to hold a
+magnitude, the type was then defined as the loci register's "sibling", the
+axes as their "twins" (#1128 → #1132); and a fixed 24-axis vocabulary derived
+from the loci table declared the meaning of population basins (#1129/#1132,
+OGAR #297). None of it reached persisted or live ABI: `canonical_node.rs`,
+`soa_envelope.rs`, `facet.rs` are byte-identical to the pre-#1125 tree,
+`ENVELOPE_LAYOUT_VERSION` is unchanged, no tenant was minted, no producer
+wrote either register.
+
+**deepnsm-v2 ruling:** `Cam96Space` / `PairPalette` / centroid + dispersion
+are reusable mathematical primitives; `basin_self_code` is an episodic-rail
+application of them (subject's outgoing SPO neighbourhood, version-ranged,
+`BasinRow` in tenant 15) and is NOT the population-basin representation. The
+July falsifier stands: Cam96 spread alone is not a self-uncertainty signal
+(`E-BASIN-WIDTH-IS-N-ARTIFACT-1`). Taxonomic ancestry in the key rails is
+membership/lineage, not a coordinate system; the A9 `BasinAnchor` fixture was
+a pointer stand-in, not a population representation.
+
+**Removed in this cleanup:** `basin_lanes.rs`, `epistemic_bassin.rs`,
+`tests/w2b_one_node_field.rs`, `lance-graph-ogar::assert_epistemic_band_parity`;
+OGAR: `ogar-epistemic` (0x0334), the loco calls 0x87..0x8B (`BELNAP_JOIN`,
+`INFO_GAIN`, `SIGMA_TENSION`, `ACCUMULATE`, `STANCE_ENTROPY`; census 101 → 96).
+**Preserved:** `hhtl::{missing_ancestors, direct_children}`, tenants 14/15,
+Qualia, Cam96/PairPalette, `atoms::I4x32::sext4` (visibility reverted to
+private), the generic `TERNLOG` 0x86 (independently justified by ndarray's
+`ternlog`), all `sigma_propagation` surfaces, OGAR #295 `BasinCodebook`.
+
+**Deferred, explicitly NOT done here (next falsifier-first step):** any
+population-basin tenant or ClassView; 16 vs 24 dimensions; fixed axes for the
+mammal examples; Shannon/Tarski entropy-plateau selection; the hypothesis
+that population geometry PROJECTS INTO qualia/proprioception (population →
+basins → projection → qualia → style/frontier/recipe) rather than becoming a
+competing carrier; an `EMPTY, −7..+7` nibble (EMPTY = no valid observation,
+0 = observed neutral; deterministic, total, replayable) to be falsified
+against plain i4 on sparse sign-symmetric projections; and the design survey
+that must inventory Fisher-z/Helix orientation, bgz17 / highheelbgz /
+bgz-hhtl-d phase structures, palette256 distribution and sparse-salience
+readings, Qualia, Markov loci, Cam96/PairPalette, trajectory/revision and the
+graph surfaces before any new persistent shape is proposed — asking what
+reasoning needs that is NOT already a cheap reading of an existing shape.
+Kant/Wittgenstein/Nietzsche/Hegel behaviours are to be tried as Style/Recipe
+operations over those shapes first; no new "Hegel helix" (Helix/Fisher
+geometry exists).
+
+**Process residue:** #1133 conflicts with this cleanup on
+`epistemic_bassin.rs` (deleted); its jc Hambly-Lyons + sigker + harvest work
+is independent and should land without that hunk. The pre-ban stash of a
+two-register re-cut is contaminated and is not reapplied.
+
+## 2026-09-01 — E-PILLAR-11-GREEN-FOR-LATTICE-WALKS-LENGTH-PARAMETERIZED-1
+
+**Status:** SHIPPED (jc W6 leg, `hambly_lyons.rs`; sigker Index regime
+re-worded; harvest ledger D1–D8). **Confidence:** [G] — the constant was
+re-read from the primary source (math/0507536v2 p.11/p.14) on the main
+thread, the leg is exhaustive over its word classes, and its disable arm
+fails.
+
+Pillar 11 was red because Theorem 1 is depth-∞. The finite-depth statement
+is Theorem 2/3 of the SAME paper: a lattice word of length L is separated
+from the identity by depth ⌊e·ln(1+√2)·L⌋ = ⌊2.3958·L⌋ (d = 2; ×
+(2⌈log₃(d/2)⌉+3) in general). Homomorphism into the free nilpotent group
+gives the pair form `S^(N)(X) = S^(N)(Y) ⟺ X ∼ Y` at `N ≥ ⌊c·(|X|+|Y|)⌋`.
+Measured (W6, release, 2.0 s): 484/484 reduced words of length ≤ 5
+separated at ⌊c·L⌋ (min ‖S−1‖ = 1.118); 64 tree-like words at the
+identity (max 2e-15); **64 reduced length-8 words share `S^(2) = 1` with
+the constant path** (the paper's own §1.6 figure-of-8 class) and every one
+separates by depth 3 ≤ ⌊c·8⌋ = 19; d = 1 collapses the 64 length-6 words
+to exactly 7 signature classes (net increment only — the `d ≥ 2`
+precondition). Consequences: the sigker Index regime is **length-
+parameterized** (a walk-length budget, escalate or refuse beyond it),
+depth 2 is a necessary condition only, a single `u8:u8` rail read as one
+axis is out of regime, and arbitrary quantized step vectors stay outside
+Theorem 2 (Theorem 9 gives non-triviality without an explicit depth).
+Default jc build stays zero-dep/DEFERRED.
+
+> **⊘ Correction (same day, review round on #1133):** the constant is
+> **`2e·ln(1+√2) = 4.7916`**, and the theorems are **5/6** in the published
+> Annals 171 text. The arXiv v2 statement (Theorems 2/3, coefficient `e`)
+> that this entry first cited is pre-publication: its proof sums over odd
+> degrees `2k−1` with `k > N`, so "first N terms" there is degree ~2N; the
+> journal version takes `x = 2·log(1+√2)·L` and states `2e`. Caught by a
+> review bot against the arXiv-only reading, verified on the Annals PDF.
+> Measured after the fix: 52/52 reduced words of length ≤ 3 separated at
+> the doubled depth; every other count above is unchanged (the false-merge
+> search escalates depth and still stops at level 3).
+
+**Companion source audit (pre-#1129 signed register), same session:** the
+old `BasinLanes` lane was true two's-complement i4 over the FULL `[−8, 7]`
+(`atoms::I4x32::sext4`; 16 states, no quantizer); "−3..+3" is prose only —
+one illustrative pair, absent from every implementation, test and commit
+(`git log -S` negative). The #1129 failure is DIMENSIONAL, not range: the
+transcribed old encoder maps `+x + (−x)` to bytes identical to `SILENT` for
+every `x ∈ 1..=7`; only `x = 8` escapes, by the `+8 → +7` clamp artifact.
+Bit accounting: old 24×4 = 96 bit = 12 B (one facet payload, pinned
+against `CASCADE_UNITS`); new 24×(4+4) = 192 bit = 24 B — now pinned by
+`const` asserts and a universal-magnitude test in `epistemic_bassin.rs`.
+No jc pillar certifies a compact projection it did not test: the A→B
+adapters (`sigma_tension_u4`, D-SK casts, causal-witness loci) are all
+labelled unproven and gated. Two wording risks for the operator:
+`epistemic_bassin.rs` line 18 ("one extra 12-byte register") vs line 61
+("a reading of the SAME physical lane") cannot both size one row; and
+`PR_ARC_INVENTORY.md` ~1688 summarises `probe_tarski_signed_witness` as a
+"24×i4 signed derivational field" although its polarities live in two
+separate slots (`ConstructiveDepth`/`FalsifyingDepth`) and never net.
+Also corrected: the ACCUMULATE caveat ("NOT associative") — sum-then-clamp
+on L₁₆ is an MV-monoid, associative across hops; the clamp costs
+cancellativity only (0/4096 violations, 1360 non-cancel pairs, pinned).
+
+## 2026-09-01 — E-LITERATURE-HARVEST-POST-1132-TWO-PILLAR-CORRECTIONS-1
+
+**Status:** HARVEST (5-auditor literature sweep, adjudicated against shipped
+code; zero code changed). **Confidence:** the two corrections below are
+[G] by code read + local probe; the Pillar 11 green path is [G] as read by
+the auditor and awaits a main-thread re-read of the constant before the
+pillar flips.
+
+Full ledger: `.claude/knowledge/literature-harvest-2026-09-01-post-1132.md`
+(census of 45 results, nine detailed rows, MINT NOW = **empty**).
+
+1. **Pillar 5+ is correct; `pillar_5plus_bound` is not Pillar 5+.**
+   `jc/koestenberger.rs` builds a genuine inductive mean and is a lawful use
+   of Köstenberger-Stark Thm 1. `sigma_propagation::pillar_5plus_bound`
+   (`√(2/n)·√(1+2σ²n)`, σ=0.2, → 0.4) is the jc generator's empirical CV
+   curve — its own comment says "K-S-*style*" — applied to a congruence
+   orbit `MΣMᵀ`, which is an isometry, not a mean. `sigma_tension_u4` then
+   divides a squared affine-invariant distance by that dimensionless CV.
+   Eigen-aligned `M = diag(e^0.2, e^-0.2)` gives growth `0.32n²` and
+   saturates the u4 on every regular walk. Replacement, expressible today:
+   `|‖log Σ_n‖_F − ‖log Σ_0‖_F| ≤ 2·Σ‖log M_k‖_F` (probed, max ratio 0.567
+   on 2000 random paths; tight on the aligned arm).
+2. **Pillar 11's cited theorem is right and insufficient; the green path
+   is two sections later in the same paper.** Hambly-Lyons Thm 2/3 (§2.4)
+   give an explicit finite depth `⌈2.3959·L⌉` (d=2 lattice; `c(d)·L` in
+   general) at which the truncated signature separates non-tree-equivalent
+   unit-step walks. The Index regime therefore becomes *length-
+   parameterized*; the depth-2 forward leg is a necessary condition only —
+   the paper's own §1.6 figure-eight has `S¹=S²=0` and `S¹¹²=1` (probed).
+   Preconditions: `d ≥ 2` (a `u8:u8` rail read as one axis is d=1 and
+   collapses to the endpoint) and unit basis-aligned steps.
+
+Also strengthened in the safe direction: ACCUMULATE on L₁₆ is an MV-monoid
+(associative; 0/4096 violations; the caveat in `epistemic_bassin.rs` is too
+weak — the real defect is non-cancellative ratio distortion, which needs a
+saturation flag on Contested reads). Greedy INFO_GAIN admission carries a
+published Ω(n/log n) lower bound (Golovin-Krause-Ray Thm 9); EC² is the
+adaptive-submodular repair as a rung-local script.
+## 2026-09-01 — E-THE-24-AXIS-BASIS-V3-EVERY-AXIS-IS-A-GROUNDED-PRESSURE-1
+
+**Status:** BUILT on the operator's "mach weiter" — the catalogue derived
+from the standing rulings, not invented; supersedable by a v4 classid mint,
+which is deliberately cheap. **Confidence:** the derivation discipline is
+the entry's point; the axis SET is v3 and expected to be re-cut.
+
+The named 24-axis epistemic basis ships as `ogar-epistemic` (authority:
+concept id `0x0334`, reserved Ontology domain, collision-guarded; canon-high
+render compose) with the zero-dep mirror in `epistemic_bassin::axes`. The
+facet classid names AND versions the basis — v4 = the next id, never a
+re-label of old rows.
+
+Six groups of four, `group = axis >> 2` (a shift, matching the workspace's
+tier-of-level discipline):
+
+| group | axes | grounded in |
+|---|---|---|
+| set | IS_A · PART_OF · TYPICALITY · MISSING_LINK | the rails, the Cam96 basin neighbourhood, the asked-but-silent sweep query — **the whale is axis 0** |
+| evidence | SUPPORT · REFUTE · PARTIAL · REPLICATION | `dismech_evidence::Supports` stances |
+| derivation | PREMISE · DEDUCTION · FALSIFIER · COUNTERFACTUAL | premise ancestry, NARS deduction, Tarski's falsifier side, CE64 mantissa −6 |
+| field | INFO_GAIN · TENSION · COHERENCE · AMBIGUITY | `info_gain_u4`, `sigma_tension_u4`/`pillar_5plus_bound`, EWA residual, candidate width |
+| circumstance | TEMPORAL · KAUSAL · MODAL · LOKAL | TEKAMOLO frame agreement (twins of the A9 loci four) |
+| witness | PROVENANCE · REVISION · QUORUM · CONTRADICTION | EpisodicBasin references, NARS revision, and the magnitude TWINS of `Locus::{Quorum, Contradiction}` |
+
+**The twin structure is the design's proof of non-overlap:** the locus
+points at WHO (the agreeing peer, the disagreeing peer, the antecedent);
+the basis axis carries HOW MUCH. Two classid-selected readings, zero
+storage overlap, one register family.
+
+**Held absences, both assertable:** no Hambly-Lyons axis while jc Pillar 11
+is red (a test scans the catalogue for the banned quantities — an
+assertable absence, not a comment); no domain FnIndex mints (the six calls
+are loco core, readable in every vocabulary already; per-axis macros and
+per-rung palettes mint later as content earns them).
+
+**Sequencing note:** the armed parity for the catalogue (mirror ↔
+`ogar-epistemic`) needs the authority on OGAR main — added as the follow-up
+commit after that merge, same red-then-green pattern the loco-band parity
+just demonstrated across the #296 boundary.
+
+## 2026-09-01 — E-THE-STATE-LAYER-IS-A-BELNAP-BILATTICE-AND-THE-JOIN-IS-THE-ACCUMULATOR-1
+
+**Status:** OPERATOR OBSERVATION, formalized and pinned in the same PR
+(#1129). **Confidence:** the join identity is proven by the counts-only-add
+argument and pinned by test, including a Both cell that exists only at the
+join.
+
+The operator's note — ternary combines as booleans over
+(Wide)FieldMask-shaped carriers — lands as an exact identification:
+`EpistemicBassin24`'s four axis states ARE Belnap/FDE's four truth values
+under the two-bit-per-axis encoding (`support_mask`, `refute_mask`): `(0,0)`
+Neither/Silent, `(1,0)` True/Agree, `(0,1)` False/Disagree, `(1,1)`
+Both/Contested. Dropping the Both cell restricts to Kleene's ternary K3 —
+the Tarski-adjacent three-valued reading.
+
+**The theorem that makes it load-bearing:** the knowledge-order join
+(bitwise OR of the two masks) IS the state layer of
+`accumulate_children` — counts only add, so a parent side is nonzero iff
+some child's is. Evidence accumulation and Belnap's knowledge ordering are
+the same operation at the mask level; the netting disable breaks exactly
+this (a contested axis drops out of the join), re-verified red.
+
+**Why u64:** the masks compose directly with the shipped algebra
+(`revision::EvidenceMask for u64`, FieldMask-shaped ops), so kind-3
+question masking runs bit-parallel across all 24 axes — the composition
+test reads contested-and-asked, supported-and-asked, and asked-but-SILENT
+(a missing link, visible as such) in three mask ops. The field map's
+"missing links" cell now has a one-op query.
+
+One disable-run also caught a would-be quiet bug pre-push: a mask
+threshold of `> 1` (dropping count-1 axes) fails the partition/state
+agreement and the mask-algebra tests — the masks are pinned to the same
+zero-boundary the states use.
+
+## 2026-09-01 — E-THE-SIGNED-NET-WAS-FALSIFIED-NOT-LIMITED-AND-THE-LOCI-LAW-WAS-SCOPED-TOO-WIDE-1
+
+**Status:** OPERATOR CO-ARCHITECT RULING — a five-part supersession, built
+against in the same PR; the premature tenant mint was discarded UNCOMMITTED.
+**Confidence:** ruled; every "ships" claim below re-verified in the tree.
+
+**1. #1127's law was scoped one level too wide.** `loci-never-magnitude` is a
+law of the EXPERIMENTAL A9 ContextLoci *reading* (`CausalWitnessFacet`), not
+of tenant 14's physical bytes: the 12-byte register is content-blind, its
+interpretation is selected per row by the 4-byte facet classid, and multiple
+readings of the same bytes are explicitly allowed — `causal_witness.rs` itself
+ships as "the THIRD ClassView reading of the same register". The census
+accidentally promoted a reading-specific invariant into a storage invariant.
+Superseded: a magnitude/bassin reading of the SAME physical lane is legal
+under its own classid; **a separate tenant is minted only when one real row
+demonstrably needs ContextLoci AND the bassin simultaneously.** Accordingly,
+the `EpistemicWitness = 16` tenant this session had ALREADY BUILT (descriptor,
+field-mask, four forced literals, all tests green) was discarded from the
+working tree without ever being committed — the cheapest possible price for a
+premature mint, paid because the ruling arrived before the push.
+
+**2. The signed net was FALSIFIED, not "pinned-limited".** `+3 + −3 = 0`
+makes maximal balanced conflict indistinguishable from silence; when
+agreement/disagreement IS the interesting information, a representation that
+destroys their coincidence is wrong. `basin_lanes::BasinLanes` is superseded
+in place (⊘ doc, reserve-don't-reclaim) by
+**`epistemic_bassin::EpistemicBassin24`** (operator-named: das Bassin, the
+accumulation pool over a named axis BASIS): `agree_u4[24] + disagree_u4[24]`,
+24 bytes, with net / polarity / contest / masks / entropy all DERIVED. The
+old pin stays green on the old type as the record of why it died; the
+successor's REVERSED falsifier asserts the exact opposite — equal support and
+refutation is a first-class `Contested` state, distinct from silence, and it
+SURVIVES accumulation (the children the signed net cancelled land as (3,3)).
+
+**3. Nibbles are values on named axes, never addresses.** The facet classid
+names the 24-axis basis (and its version — "epistemic witness v3" is a
+classid). Topology is the KEY's job: parent path + depth identifies the
+family, and an indexed 16-bit child mask reconstructs every direct child by
+appending each set nibble — child pointers in the register would duplicate
+the key. Durable episodic identity stays in `EpisodicBasin` references; exact
+proof/authority in premises/W/CE64/NARS/revision; exact Σ in the SPD carrier.
+Also recorded: of the A9 loci, `basin_anchor`/`supported_by`/`supports` are
+suspect axes — durable graph relations generally do not live within ±8 stream
+rows — while `antecedent` (the Relativpronomen locus) and local
+temporal/quorum context are the defensible core. A claim about the A9
+reading, left for its own probe, nothing ripped out.
+
+**4. The math check — each lane family grounded in a SHIPPED certificate:**
+
+| lane family | shipped surface | lane adapter |
+|---|---|---|
+| support/falsifier pressure (Tarski) | premise ancestry stays exact | the pair's own counts |
+| ΔH / expected info gain (Shannon) | `dismech_candidates::Evaluation` counts | `info_gain_u4` (whole bits of narrowing; elimination = max pressure) |
+| tension/residual (EWA) | `sigma_propagation::{Spd2, ewa_sandwich, log_norm_growth, pillar_5plus_bound}` — Pillar 6, jc-verified 10000/10000 PSD | `sigma_tension_u4` (quarters of the certificate; 7 = the 1.75× PASS slack) |
+| path-signature identity (Hambly-Lyons) | sigker's classification is ASSERTED, gated on jc Pillar 11 (DEFERRED) | **NO LANE** — same rule as the red-pillar mint gate |
+
+Proprioception, never evidence: every adapter's exact quantity stays
+derivable from its exact carrier; the lane only lets a node FEEL it.
+
+**5. My own overclaim corrected.** "Associative and commutative EXACTLY" held
+only within one unsplit call; recursively composing already-clamped child
+registers is not associative. The successor documents this honestly: u4
+saturation is monotone and conflict-preserving (a clamped 15 means "at least
+15") — it can understate mass, never convert conflict into silence, which is
+exactly the guarantee the signed net could not give.
+
+**Generalizable, two ways:** (a) an invariant written on a READING must not
+be re-stated on the STORAGE — the classid-selects-the-reading doctrine is
+precisely what makes those different statements; (b) when a pinned
+"limitation" sits on the quantity the whole design exists to carry, it is a
+falsification wearing a pin — the tell is that the workaround (a second
+register) costs less than the information the pin writes off.
+
+## 2026-09-01 — E-THREE-BRANCHES-ONE-REGISTER-THE-AUDIT-AFTER-THE-COLLISION-1
+
+**Status:** RECONCILIATION AUDIT — #1125/#1126/#1127 merged while this
+branch's slices 1+2 were stranded; overlaps measured and corrected on rebase,
+convergences kept deliberately. **Confidence:** each line verified against
+main, not remembered.
+
+Three sessions worked the same register in parallel. What each landed:
+
+| PR | landed |
+|---|---|
+| #1125 (this branch, pre-strand) | the survey + its correction (node has a value; three readiness states; the 24×i4 answer) |
+| #1126 | the I4x32-vs-facet measurement — made and **REVERTED** (operator: disregard, the type is not substrate; durable residue: the V3 register is 12 bytes everywhere, facet lanes are classid(4)+12); plus the palette TSV lanes |
+| #1127 | the value-lane census (**G24N4 already ships** as `CausalWitnessFacet`'s loci reading of `ValueTenant::CausalWitness`; that lane is ruled OUT for W2b by its own loci-never-magnitude law + reserved slots `16..24`; 260/480 slab bytes free, append at 220) + `tests/w2b_one_node_field.rs` (5 disable-verified register-level falsifiers incl. the whale, codec borrowed, no lane minted) |
+| this branch, stranded → rebased | the DN dissolution + mechanical/epistemic split + one-hop law, with `basin_lanes::BasinLanes`, `accumulate_children`, `hhtl::{missing_ancestors, direct_children}` |
+
+**Collisions found and corrected (this commit):**
+
+1. **My "fourth carving / not in the shipped set / only signed one" claim was
+   FALSE**, and the census had already proven it false while my slices sat
+   stranded — `G24N4` ships, signed, as loci. `basin_lanes`' module doc, my
+   two unpushed board entries, and the plan's RULED table are corrected; the
+   type is re-positioned as what it actually is: **the MAGNITUDE register in
+   the shipped shape** — precisely the sibling the census concluded must
+   exist, because the shipped lane's law forbids magnitude on it.
+2. **The "which lane — dissolved" row conflated two axes.** The DN ruling
+   dissolves TREE-siting (no separate map store; the node at each prefix is
+   the row). The census constrains SLAB-siting (which tenant inside the
+   480-byte value), which is real, half-answered (not `CausalWitness`), and
+   the operator's mint. The plan row now says both.
+3. **The whale was pinned twice under two names** — register-level in
+   `w2b_one_node_field.rs` (borrowed codec) and carrier-level in
+   `basin_lanes`' tests. Kept BOTH, now cross-referenced in both directions,
+   so the prior-art trail is one thread instead of two.
+
+**Convergences, kept as evidence rather than deduped away:** the per-lane
+arithmetic (exact signed sum, one clamp) was arrived at INDEPENDENTLY by
+`w2b_one_node_field.rs`'s `summarise` and by `accumulate_children` — two
+sessions, no shared context, same shape. That is the strongest signal yet
+that the shape is right, and it is exactly what the one-hop ruling's
+"accumulated including disagreement" needs.
+
+**Residue flagged, not fixed here:** the i4 sign-extension now has THREE
+homes — `atoms::I4x32::sext4` (`pub(crate)`, reused by `basin_lanes`),
+`causal_witness`'s inline `((nibble << 4) as i8) >> 4`, and `I4x64`-via-
+`I4x32`. A dedup (point `causal_witness` at `sext4`) is a one-line
+tech-debt item, deliberately not bundled into a reconciliation commit.
+
+**Process fact worth keeping:** the stranding happened because a PR merged
+while its branch kept receiving pushes — same-branch continuation past a
+merge point. The commits were rebased onto main per the merged-PR rule
+(kept, not discarded), and this audit ran BEFORE re-pushing, so the
+corrections and the stranded work land together rather than the stale
+claims landing twice.
+
+## 2026-09-01 — E-G24N4-ALREADY-SHIPS-AND-THAT-IS-WHY-W2B-CANNOT-USE-IT-1
+
+**Status:** FINDING — measured off `VALUE_TENANTS`, not read off prose.
+**Confidence:** high; every number reproduces from one script over the
+descriptors, and the falsifier that exercises the carrier is disable-verified.
+
+The `D-DCR-2b` survey said a nibble-granular 24-unit reading of the 12-byte
+content-blind register "is not in the shipped set". **It is.**
+`ValueTenant::CausalWitness` (14) is documented as read in the **`G24N4`**
+shape — 24 signed `i4` — and its codec ships and is tested
+(`CausalWitnessFacet::{get,set}`, sign-extension plus a `[−8,7]` clamp). So
+W2b's *carrier* was never greenfield; only its *semantics* are.
+
+**And the same fact rules that lane out.** Two independent, operator-locked
+blockers in `CausalWitness`'s own doc:
+
+- its value law is *"a **context pointer**, never a strength/magnitude (loci,
+  not values)"* — a W2b child-summary is exactly the magnitude case;
+- slots `16..24` are RESERVE-DON'T-RECLAIM.
+
+Reusing it would break the value law and the reserve rule at once. That
+answers half of W2b's first open decision — **a carve inside `CausalWitness`
+is ruled out** — while leaving "new tenant vs a carve elsewhere" to the
+operator.
+
+**The shape of the mistake is worth more than the fact.** "Not in the shipped
+set" was a claim about the tree that had never been run against the tree. It is
+the same class as the stale falsifier counts corrected in the consumer repo the
+same day: a *measurement* written into prose, cited later as evidence, wrong by
+the time it was cited. The census now carries the command that produced every
+number, so the next reader re-measures instead of quoting.
+
+**Also measured, and it changes the default:** 220 of 480 slab bytes are
+occupied, **260 free**, next tenant appends at slab offset `220`. A 12-byte
+register costs ~4.6 % of what is left. With that headroom the "clean / SoC over
+packed" doctrine applies with full force — packing a second concern into an
+existing lane is the rare last resort here, not a space-driven necessity.
+
+Census + the disable table: `.claude/plans/dismech-causal-replay-v1.md` §W2b.
+Falsifier: `crates/lance-graph-contract/tests/w2b_one_node_field.rs`.
+
+---
+## 2026-09-01 — E-ONE-HOP-UP-ONE-HOP-DOWN-A-PARENT-SPEAKS-ONLY-ITS-CHILDREN-1
+
+**Status:** OPERATOR RULING, third round on `D-DCR-2b` — the field map's
+locality law, built against in the same PR. **Confidence:** ruled; one-hop
+selector + accumulator shipped with the locality made observable.
+
+**The law: a parent's register expresses its DIRECT children accumulated —
+agreement AND disagreement — never the grandchildren. One hop up and down.**
+Grandchild information reaches a grandparent only through the child's own
+accumulated register, so the global field map is a COMPOSITION of one-hop
+summaries, never a node reaching past its children. Layered concretely:
+mammal carries accumulated agree/disagree; whale-family carries
+generic-vs-mammal-specific; whale carries specific. The lanes are
+upstream/downstream inheritance on the mathematical scale (Shannon
+proprioception / EWA sandwich / Mengenlehre readouts over them).
+
+This is the tree-shaped Chapman-Kolmogorov discipline — the same locality the
+substrate already holds twice: `I-SUBSTRATE-MARKOV` (transition composition,
+never transitive flattening) and `FieldMask::inherit` (parent ∪ own delta).
+And it settles the sweep-convergence question STRUCTURALLY rather than by
+policy: a sweep is bottom-up one-hop passes, each node a pure function of its
+direct children, idempotent at the fixpoint by construction.
+
+**Width is a floor, not a cap:** the nibbles can be expanded if necessary,
+and a node further up may carry multiple 24×i4 registers where valuable. The
+corpora ladder also widened — book / redmine / odoo / **AD** (literally the
+DN case) / OWL / RDF — every entry landing in one of the three readiness
+states already tabled.
+
+**Shipped:** `hhtl::direct_children` — the one-hop selector, exactly depth+1
+and never grandchildren, so any accumulator it feeds is *structurally unable*
+to violate the law (locality enforced at selection, not policed in
+arithmetic); `BasinLanes::accumulate_children` — per-lane saturating signed
+sum (agreement stacks, disagreement pulls down, bound = the carrier's own
+range; empty → SILENT). The locality is OBSERVABLE across two levels: a
+grandchild move absorbed by the child's own saturation leaves the grandparent
+byte-identical, while one that moves the child moves the grandparent — the
+can-fire/can-stay-silent pair on the law itself.
+
+**A measured limitation pinned loud rather than hidden:** in ONE register a
+balanced conflict (`+3` child, `−3` child, same lane) sums to `0` —
+indistinguishable from silence, the whale-erasure failure mode one level up.
+`a_balanced_conflict_collapses_to_silence_in_one_register` pins it as CURRENT
+behaviour with a comment that the multi-register expansion must fail this pin
+and force a deliberate re-shape. The expansion's semantics (net +
+contested-mass?) are the operator's to shape — the pin is the case FOR it,
+not a design of it.
+
+## 2026-09-01 — E-ASKING-WHERE-THE-MAP-LIVES-IS-ASKING-WHERE-THE-OUS-ARE-IN-A-DN-1
+
+**Status:** OPERATOR CORRECTION + RULING, second round on `D-DCR-2b` — three of
+four "open decisions" dissolved as category errors; the hydrate question
+answered with a load-bearing split. **Confidence:** ruled; first carrier +
+skeleton primitive shipped in the same PR.
+
+The survey's remaining "decisions" asked where the field map is WRITTEN (which
+lane / tenant / Lance column), whether it is versioned, and at what granularity
+a sweep runs. The operator's correction, by analogy: that is asking where the
+OUs are in a distinguished name. **An HHTL position is addressed by its path,
+and every truncation of the path is itself an entry** — `hhtl::NiblePath`
+already ships `parent()`, `prefix(depth)`, `is_ancestor_of`. The basin-level
+node is the row whose deeper tiers are zero, same store, same stride, same key
+layout. There is nothing to site:
+
+| former decision | verdict |
+|---|---|
+| which lane / tenant / column | dissolved — the node at each prefix IS the row |
+| versioned or live | dissolved — rows are Lance-versioned because every row is |
+| sweep granularity | dissolved — a sweep is scoped by a prefix; one mechanism, caller-chosen depth |
+| does the sweep eliminate | already settled by the three-kinds ruling: the sweep records; elimination is kind 2's separate reading |
+
+**Every node is an SoA row**, and the three corpora differ only in how much of
+the tree already has rows: books — not yet minted by **DeepNSM-v2** (v2, not
+v1), the ontology is built from scratch; rails without nodes — at least the
+HIERARCHY exists; OWL — parent/child almost always preserved.
+
+**The ruling that makes incomplete hydration safe to fix: mechanical hydration
+is NOT original causality.** Minting a row at a nameable DN from the hierarchy
+alone is MECHANICAL — structure only (address, `is_a`/`part_of`, presence),
+runnable in all three corpora. Original causality predicates — the dismech
+palette, Tarski-precise assertions, the signed agreement lanes — are epistemic
+knowledge: evidence-borne, provenance-carrying, never fabricated by a mint. A
+mint that writes a nonzero lane is structure impersonating knowledge. The
+mechanical mint's epistemic output is exactly SILENCE — all lanes zero — which
+is the zero-fallback ladder holding one level up.
+
+**Shipped against the ruling, both zero-dep, both in contract:**
+
+- `basin_lanes::BasinLanes` — the 24 × i4 (`G24N4`-shape) MAGNITUDE register
+  over the node's own 12-byte register (reuses `I4x32::sext4`, now
+  `pub(crate)`, rather than another copy of the nibble codec). [Corrected
+  post-rebase against the #1127 census: G24N4 was NOT greenfield — it ships
+  as `CausalWitnessFacet`'s loci reading; what is new here is the magnitude
+  semantics that lane's law forbids. See the audit entry above.] `SILENT` is the default and the zero register;
+  `is_silent()` is the checkable half of the mint rule. The whale case holds
+  at the carrier level: a negative lane is RECORDED disagreement, countable,
+  round-tripping, distinct from both silence and agreement — and nothing else
+  in the register moves, so nothing was removed.
+- `hhtl::missing_ancestors` — the mechanical-hydration address list: every
+  strict ancestor DN implied by the occupied paths that is not itself
+  occupied, shallow→deep so parents mint before children, `EMPTY` ignored and
+  never yielded. **Returns addresses only** — the signature cannot carry a
+  lane value, which is the type-level half of the mechanical-vs-epistemic
+  split. State (c) exactly: the partial-hydration test occupies the basin and
+  the leaf and gets back only the gap.
+
+**Generalizable:** when a scoping question keeps resisting an answer, check
+whether the addressing scheme already answers it. A DN-shaped substrate has no
+"where" questions — every nameable position is its own site — and a survey
+still asking "where" is evidence the surveyor is holding a table-shaped model
+of a trie-shaped store.
+
+**Still open, probes not rulings:** the lane-filling arithmetic (child stance →
+signed value; sibling merge at the parent — whether `semiring.add` is right for
+SIGNED agreement is unmeasured) and the provenance marker (where a row records
+mechanically-hydrated vs original, so state (c) stays distinguishable from
+state (b) after the mint — surfaced, not invented unilaterally).
+
+## 2026-09-01 — E-AN-HHTL-POSITION-IS-A-NODE-AND-A-NODE-HAS-A-VALUE-1
+
+**Status:** OPERATOR CORRECTION — caught in a survey, before any code was
+written against it. **Confidence:** ruled; the survey and the source doc both
+corrected in the same PR.
+
+A scoping survey for `D-DCR-2b` (the field map) carried this row:
+
+> where an HHTL position lives → `contract::episodic_basin` → in the node's own
+> KEY, **never** a second copy in the value slab
+
+The operator's correction: the plan is for HHTL nodes to BE SoA, so a
+key-only reading of the node is exactly backwards.
+
+**The error is a scope slip, and it is the dangerous kind:** the cited ruling
+is true and I quoted it accurately — it is about the cascade ADDRESS
+(`HEEL`/`HIP`/`TWIG`, key bytes `4..10`), which must not be copied into the
+value slab. Restated one level up as a fact about the NODE, it becomes "an HHTL
+position has no value" — which forbids precisely the thing the wave exists to
+build. A correct quotation, generalized past its subject, reads as a veto on
+the work it was cited to inform.
+
+**The reconciliation is mechanical, not a compromise.** An HHTL node is a node:
+`key(16) | edges(16) | value(480)`. The address is identity, so it lives in the
+key. The basin summary changes whenever its children change, so it CANNOT live
+in the key — a mutable summary there would re-address the node on every sweep.
+Address in the key, summary in a value lane, necessarily. Both halves hold.
+
+**Why 24×i4 — the standing open question, answered.** Ruled: enough
+dimensions to summarise a position's children so the node speaks for itself
+without a second read. The V3 content-blind
+payload is 12 bytes = **24 nibbles**. Every shipped `CascadeShape` carves it at
+BYTE granularity (`G6D2` 6×2, `G4D3` 4×3, `G3D4` 3×4 — all `CASCADE_UNITS ==
+12`); a nibble-granular reading is not in the shipped set. Signed i4 in
+`[−8, 7]` is shipped carrier semantics (`atoms::I4x32::sext4`) at other widths
+only. So 24×i4 is a nibble-granular reading of the same register [post-rebase
+correction: not the FIRST such reading — the #1127 census measured that
+`G24N4` already ships as `CausalWitnessFacet`'s loci reading; the new thing
+is magnitude semantics, see the audit entry above], and the plan's
+recorded candidate `atoms::I4x32` was wrong — it matched the name (32 lanes,
+16 B) and nothing else.
+
+**The SIGN is why 24×i4 answers two gaps at once.** The survey listed "a
+disagreement quantity that is not an elimination" and "a missing-link carrier"
+as absent. In one signed lane: `+` agreement, `−` disagreement, `0` silence.
+The whale records as a negative lane against the mammal neighbourhood **and
+stays a mammal**, because a lane is a value and not a removal — which is
+`E-THREE-KINDS-OF-MENGENLEHRE-AND-W2-SHIPPED-THE-NARROWEST-1`'s kind 1 made
+storable. And silence stays distinct from denial, which is the same
+distinction `Supports::NoEvidence` already refuses to collapse.
+
+**A third readiness state, also missing from the source doc.** `episodic_basin`
+names two corpora — ontologies (rails already hydrated) and books (tree must be
+spawned). There is a third: **implicit in the rails but not hydrated** — an
+edge names the position, so it is not absent; no node holds a value there, so
+it is not present. That is the state a node-level hydrate step consumes, and no
+such step exists in this tree. `lance-graph-hydrate` is artifact-level
+(`Absent → Hydrated → Dirty|Flushed` over an object store); the shared
+vocabulary is a rhyme, not a reusable mechanism.
+
+**Generalizable, and it is not "read more carefully":** a ruling states a
+constraint on ONE subject. When a survey lifts it to a neighbouring subject
+(field → node, address → row), the citation stays checkable while the claim
+stops being the one that was ruled. The tell is a survey row whose verdict
+FORBIDS the wave it is scoping — a scoping document should be finding the
+constraints the design must satisfy, and a flat prohibition on the design's
+premise means the constraint was carried up a level it does not hold at.
+
+Corrections landed: `.claude/plans/dismech-causal-replay-v1.md` §W2b rewritten
+(the row replaced, the three states tabled, the 24×i4 reasoning added, gaps 1
+and 2 downgraded from "absent" to "carrier named, arithmetic open"); the
+answered question annotated in place rather than deleted, so the wrong
+candidate is not re-proposed; `episodic_basin`'s own module doc gained a "what
+this section does NOT say" note and the third state, since its framing is what
+invited the slip.
+
+## 2026-09-01 — E-THE-PALETTE-MARGIN-IS-SPENT-AND-GROWTH-MOVES-TO-LOCO-1
+
+**Status:** FINDING (measured) + operator ruling
+**Confidence:** the diff and the block are measured; the 29-fits-29 fit is a
+contingent adjudication, pinned in `TSV_OVERLAPS` rather than asserted.
+
+The 33-lane locked TSV basis (`contract::atoms::CANONICAL_ATOMS`) and the
+226-atom `cognitive_palette` were never joined. Diffed by name: **0 exact
+matches, 4 accepted overlaps, 29 with no palette home** — and the 29 are not
+stragglers but four COMPLETE groups (all 9 Rung lanes, all 5 Sigma, all 4
+Presence, all 4 Meta knobs, plus 2/3 Pearl and 4/8 Ops).
+
+The former append margin was exactly 29 slots (`256 - (1+144+34+36+12)`).
+Operator ruling: spend it. The Tsv block now occupies `227..=255`,
+`ATOM_COUNT` is 255, and **the palette is full — no margin remains.**
+
+**The fit is arithmetic coincidence, not design.** 29 = 256 minus four block
+sizes on one side; 29 = 33 minus four overlaps on the other, and the second
+number moves with the adjudication: 28 if `imagine_counterfactual` is read as
+the ICR recipe (rejected — a Pearl rung is not a named tactic), 30 if
+`transcend`/`transcendent` is read as distinct (which would overflow 256), 33
+on exact string match alone. `TSV_OVERLAPS` records all four calls with their
+target bytes so the contingency is visible; the partition test fails if a lane
+is ever covered twice or not at all.
+
+**Growth from here is `ogar-loco`, not this table.** The measurement that
+reframes it: `LaneShape::Pairs` is `6 × (u8:u8)` = `function : value` — the
+12-byte register is SIX `Call`s, not six data pairs. A `12xu8` palette pick is
+therefore a call of arity zero, the same ABI with every operand discarded.
+That is the palette's real limit and the Tsv block inherits it: `rung_r1..r9`
+are nine needles for one op with a depth operand; the Sigma chain and the Meta
+knobs are magnitudes stored categorically. A vocabulary in loco's domain range
+(`0x90..=0xFF`, classid-selected, 112 slots PER vocabulary rather than 29
+shared globally) carries them as `Call { function, values }` and costs no one
+else's range. The Tsv block is the closing entry in a legacy table.
+
+**Also corrected here:** an earlier turn in this session invented a 16-byte
+`I4x32` carrier as the 33 lanes' home and reasoned about its width against the
+V3 facet. Operator: hallucination, disregard. It was reverted in `e557f55a`,
+NOT dropped before push -- I asserted the latter and was wrong; `4a3eaa22` had
+already been pushed, which the revert makes visible instead of erasing. The V3
+content-blind register is 12 bytes everywhere; the three 16-byte facet lanes
+are `classid(4) + 12`.
+
+**Third-order lesson, from rebasing this same branch onto the merged #1125:**
+the rebase reported success and silently DROPPED one hunk of the revert. The
+revert originally deleted from three files (probe, `atoms.rs`, and the board
+entry); after the rebase it deleted from two, and the hallucinated board entry
+was live again on the branch. Main had prepended a new entry, so the board
+hunk's context moved and the patch application dropped it without a conflict.
+**A clean `git rebase` is not evidence that every hunk survived** — a revert
+in particular should be re-checked by asserting the reverted content is ABSENT
+after the rebase (`git show HEAD:<file> | grep -c <marker>` == 0), not by
+trusting the exit code. Completed forward rather than by rewriting the revert,
+so the gap is visible.
+
+**Second-order lesson from the same repair:** `git revert -q` is not a flag.
+The invalid option made revert a no-op that printed usage, and the follow-up
+`git commit --amend` then relabelled the ORIGINAL commit with the revert's
+message -- producing a commit that ADDED the hallucinated material under a
+"Revert" subject, worse than either intended outcome. Caught by
+`git show --stat` showing 107 insertions where a revert must show deletions.
+**Check a revert's stat sign before building on it.**
+
+## 2026-09-01 — E-THREE-KINDS-OF-MENGENLEHRE-AND-W2-SHIPPED-THE-NARROWEST-1
+
+**Status:** OPERATOR RULING — model correction, landed before the wave built on
+it. **Confidence:** ruled, with the code re-scoped in the same PR.
+
+*"Fox mammal wombat whale should not simply eliminate."*
+
+A whale disagreeing with the typical mammal features is **information about the
+field**, not grounds to remove the whale from the mammals. Set difference
+applied to that disagreement destroys the very structure that makes the map
+worth having. Three kinds, logically distinct, in this order:
+
+| # | kind | status |
+|---|---|---|
+| 1 | **propagation / the field map** — propagate precision about a knowledge stage over the WHOLE field. Agreement, disagreement, support chains and MISSING LINKS filled into the HHTL nodes; the boring rails (`is_a`/`part_of`) lifted into a causality graph with propagated node edges. **This is what explains Mengenlehre.** | UNBUILT, `D-DCR-2b` |
+| 2 | **threshold elimination** — a READING of that map at a measured threshold (Shannon proprioception, EWA sandwich, Hambly, Lyons) | belongs with W4's Σ machinery |
+| 3 | **question masking** — ONE case, patient, question; logically distinct from any generalization | SHIPPED as W2 |
+
+**W2 was not wrong; its CLAIM was too wide.** `∩`/`∖` over a candidate set is a
+correct kind-3 mask. It was documented as "Mengenlehre candidate evaluation",
+which annexes kinds 1 and 2 by implication — and the next wave building on that
+label would have taken elimination for the substrate's primary operation. The
+module is re-scoped in place; the algebra is untouched.
+
+**The generalizable failure the label would have caused:** a narrow correct
+thing named for the wide thing it is part of. Nothing fails, no test goes red,
+and every later reader inherits the wider claim — the same shape as a doc
+comment asserting behaviour no test exercises, one level up at the level of
+what a module is FOR.
+
+**And the question must be part of the reasoning.** *"Our logical reasoning
+should be aware of the question it is asking and the substrate should be
+precise about the answers."* Hence W3's verdict carries the cut edge's own
+`CausalTopology` (bits 59-60) and `ReasoningBand` (61-63) rather than
+collapsing to a bool: **"explains" and "relates to" are different answers**, and
+a boolean has reported the polarity while discarding the answer. Tarski, in the
+substrate's own vocabulary — what a relation ASSERTS, not merely that it holds.
+
+**Left OPEN, not guessed:** the operator's *"24×i4 flavours"*. Two in-tree
+readings fit and neither is confirmed — `contract::atoms::I4x32` is **32**
+signed-i4 lanes (name matches), while the V3 content-blind facet's 12-byte
+payload is exactly **24** nibbles (count matches). Recorded as a question.
+
+---
+
+## 2026-09-01 — E-THE-THRESHOLD-AXIS-WAS-SATURATED-AND-THE-GATE-WOULD-HAVE-BEEN-VACUOUS-1
+
+**Status:** FINDING — measured while building W3, before the gate was written.
+**Confidence:** measured — `dismech_counterfactual`, probe over three chain
+shapes, disable-verified.
+
+W3's verdict was drafted as a **confidence** threshold: replay a chain, read
+its terminal `confidence_u8()` against a bar. It reads naturally — "how
+confident are we that this chain holds".
+
+Measured across a weak 3-chain, a strong 4-chain and a mixed one, the terminal
+confidence was **170 in every single case**. Frequency separated them cleanly
+(78 / 247 / 93). `NarsTables::revise` drives confidence to a fixed point,
+because confidence is the EVIDENCE-ACCUMULATION term — more steps means more
+evidence regardless of what the evidence says.
+
+So a confidence-based verdict is a **vacuous threshold**: every chain on the
+same side of every bar. Not a gate that is merely weak — one that *cannot fire
+and cannot stay silent*, discriminating nothing while looking rigorous. It
+would have passed the two-sided load-bearing/redundant gates only by accident
+of fixture choice, and the module would have shipped measuring nothing.
+
+Frequency is also the semantically right axis: "is this chain consistent?" asks
+how strongly the composed relation holds, not how much evidence has piled up.
+**Confidence saturating is the substrate working as designed; reading a verdict
+off it was the error.**
+
+Caught by measuring the fixture rather than assuming it — the load-bearing gate
+failed on first run, and the instinct to adjust the fixture until it passed is
+exactly what would have buried this. The probe that found the straddle
+(frequency 133 factual / 120 cut, bar 128) swept weak/strong pairs and chain
+lengths; **most combinations do not straddle at all**, which is why the fixture
+is pinned to measured numbers.
+
+`the_bar_is_not_inert` now pins both directions (raising silences, lowering
+admits) AND pins `confidence == 170` on the same trace, so nobody moves the
+verdict back onto the saturated axis. This is the inertness test the repo's
+falsifiability rule already demands of a threshold parameter — met here by a
+constant that had no business being trusted.
+
+---
+
+## 2026-09-01 — E-ONLY-TWO-OF-FOUR-STANCES-MAY-CUT-A-CANDIDATE-SET-1 — W2's real decision
+
+**Status:** FINDING — design ruling made while building D-DCR-2, with the
+alternative measured rather than argued away.
+**Confidence:** measured — `dismech_candidates`, four disable-runs.
+
+W2's spec says "support intersects, refuting evidence subtracts". `Supports`
+has **four** values, and the spec names two. What the other two do is the
+whole design, and the attractive answer is wrong:
+
+| stance | set effect | why |
+|---|---|---|
+| `Support` | `∩` | the source asserts the relation holds |
+| `Refute` | `∖` | the source asserts it does not |
+| `Partial` | **none** | weaker than support in the source's OWN vocabulary. Intersecting on it eliminates every candidate outside a partially-supported item — full-strength elimination bought with partial evidence |
+| `NoEvidence` | **none** | the source asserts it HAS no evidence. An absence of evidence is not a licence to cut |
+
+**Elimination is irreversible within a run.** A candidate removed is never
+reconsidered, so the bar for removing one is that the source actually asserted
+something. Treating `Partial` as `∩` would look like progress — the set shrinks
+faster, the evaluation "converges" — and would be exactly the overconfidence
+the corpus's own restraint class exists to mark. Measured: on a 256-candidate
+universe, one `Partial` item naming 64 chains cuts the set to 64 if you let it,
+against a source that never claimed that much.
+
+Same instinct as `dismech_evidence`'s fail-closed parsing one layer down —
+`UNKNOWN` is a value the corpus ASSERTS, so it may never be minted from a parse
+failure. Here: `NoEvidence` is an assertion of absence, and an assertion of
+absence must not narrow anything.
+
+**The inert stances are REPORTED, not dropped.** `Evaluation::decisive` counts
+what could move the set at all, so "the set did not move" and "nothing decisive
+arrived" stay distinguishable. A pipeline that silently discarded them would
+show an unchanged set and no reason for it.
+
+**And `narrowing` is a third number, not a synonym for `decisive`.** A decisive
+item can still be redundant — it names a superset of what already survives — so
+`narrowing <= decisive` strictly. That gap IS the frontier signal W5 needs (an
+item that changes nothing taught nothing), which is why it is measured here
+rather than re-derived by a later scheduler. It is deliberately NOT
+order-independent while the surviving set is; both halves are pinned, because
+the second is the one a reader would assume away.
+
+Disable table, all red-then-green: `Support` → identity (4 gates fall);
+`Refute` → `∩` (3); `Partial`/`NoEvidence` → decisive (1, the pairing gate);
+`narrowing` counts stance instead of movement (3).
+
+---
+
+## 2026-08-31 — E-A-REVIEW-REMEDY-HAS-A-SHELF-LIFE-1 — the same edit was correct in one PR and a violation in the next
+
+**Status:** FINDING — caught by CodeRabbit on PR #1123, one PR after it raised
+the finding whose remedy it then had to reject.
+**Confidence:** measured — the identical one-line edit, applied twice.
+
+CodeRabbit flagged MD018 on PR #1122: an `EPIPHANIES.md` line beginning `#1120`
+reads as a heading. Valid, and at that moment the entry was **new and
+unmerged**, so editing it was ordinary drafting.
+
+The fix landed one PR later. By then the entry had **merged to `main`**, and
+`CLAUDE.md`'s governance rule applies to it:
+
+> The governance files are APPEND-ONLY (prepend new entries; never edit past
+> entries except the `Status:` / `Confidence:` lines).
+
+So the same characters, in the same place, for the same reason, changed from a
+lint fix into a violation of the ledger's core property — and CodeRabbit
+correctly flagged its own earlier remedy. Reverted; the MD018 warning stands,
+because a cosmetic lint does not outrank append-only. (An append-only file's
+whole value is that a reader can trust an old entry reads as written; a
+"harmless" edit is exactly the kind that erodes that, since nobody objects to
+any single one.)
+
+**The generalizable bit: a remedy is scoped to the state of the tree when it
+was proposed.** Findings age well — the defect is either real or not — but
+remedies age badly, because they assume where the code sits. Between the
+finding and the fix, this entry crossed a boundary (unmerged → merged) that
+changed which rules governed it, and nothing in the finding text could have
+said so.
+
+**Consequence, cheap to apply:** before acting on a review comment from an
+EARLIER PR, re-check what the target is *now* — merged or not, moved, already
+fixed, or governed by a different rule than when the comment was written. Same
+family as this session's other silence-shaped errors: the check was right, the
+world moved, and only re-reading the world catches it.
+
+---
+
+## 2026-08-31 — E-THE-SUPERSESSION-GATE-WATCHED-TWO-OF-ITS-FOUR-INPUTS-1
+
+**Status:** FINDING — mechanical, fixed in the same PR that exposed it.
+**Confidence:** measured — `supersession_index.py` read against
+`.github/workflows/supersession-index.yml`, plus PR #1123's actual check list.
+
+`CLAUDE.md` says the generator reads *"`.claude/plans/`, `crates/`,
+`.claude/v3/COMPONENT-MAP.md`, **and the board itself**"*, and even warns that
+the workflow's error text names only the first three and "will mislead the same
+way". It does mislead — and so did the workflow's own `paths:` filter, which
+watched **two of the four inputs**:
+
+| generator input | source | watched by the gate |
+|---|---|---|
+| `.claude/v3/COMPONENT-MAP.md` | `:20` | yes |
+| `.claude/plans/*.md` | `:47` | yes |
+| `.claude/board/entries/*.md` + `EPIPHANIES.md` | `:48-49`, counted at `:85` | **no** |
+| `crates/**` | `:27`, per symbol | **no** |
+
+**Measured, not inferred:** PR #1123 prepends an `EPIPHANIES.md` entry citing
+D-ids — an input to the board-coverage column — and ran **no**
+`regenerate-and-diff` at all. The committed table could have gone stale with CI
+fully green, which is the single thing this workflow exists to prevent. It did
+not, only because the regeneration happened to be done by hand.
+
+**The shape worth keeping:** a gate whose trigger is narrower than its
+computation is silent exactly where it is needed. Nothing about it looks broken
+— it passes when it runs, and when it matters most it does not run. That is the
+same silence-reads-as-success failure as `E-A-MONITOR-KEYED-ON-THE-PR-HEAD-…-1`
+(a watch keyed on the wrong subject) and as a guard that cannot fire: three
+instances in one session, each in a different mechanism.
+
+**Rule:** when a gate regenerates an artifact, its `paths:` filter must list
+every input the generator actually READS — derived from the generator's source,
+never from its prose. Prose was accurate here and the filter still drifted,
+because nothing joins the two.
+
+Fixed by adding `.claude/board/entries/**`, `.claude/board/EPIPHANIES.md` and
+`crates/**`. The last is broad on purpose: the generator takes ~15 s (measured),
+which is cheap beside the Rust jobs it runs next to, and a symbol deleted from
+the tree genuinely moves the table.
+
+---
+
+## 2026-08-31 — E-I-PINNED-THE-DEFECT-AS-THE-GUARD-WHILE-FIXING-A-REVIEW-COMMENT-1
+
+**Status:** FINDING — self-inflicted, caught by both reviewers on PR #1122,
+one PR after writing the rule it violates.
+**Confidence:** measured — `next_base_seq`, `lance-graph-planner`, disable-run
+red-then-green.
+
+PR #1120's review said `base_seq + i` could overflow. The fix added
+`next_base_seq`, saturating, with a doc comment stating that saturation
+prevents a wrapped coordinate from aliasing the durable log — and a test:
+
+```rust
+// The saturating guard: a wrapped coordinate would alias the start of
+// the durable log, the one outcome this precondition exists to stop.
+assert_eq!(next_base_seq(u64::MAX, 4), u64::MAX);
+```
+
+**That assertion pins the defect as the intended behaviour.** Saturation does
+not produce a free coordinate; it hands back one the reservation just minted.
+Replaying 4 steps from `u64::MAX - 3` mints through `u64::MAX`, the helper
+returns `u64::MAX`, and a caller following the documented sequential pattern
+replays a one-step chain there — legal, since the reservation only needs
+`steps - 1` addable — and emits a **duplicate `cast_seq`**. Exactly the
+duplicate the comment claimed to prevent. Measured, not argued: the new test
+replays both halves and asserts the two rows carry the same coordinate.
+
+**A guard that cannot say "no" is not a guard.** Same shape as
+`E-A-DETERMINISM-GATE-IS-TRIVIALLY-SATISFIED-BY-A-KERNEL-THAT-DOES-NOTHING-1`,
+written one PR earlier, in this same module. Saturation is the arithmetic form
+of a check that always passes: it makes the failure *unrepresentable in the
+return type*, so no caller can handle it and no test can catch it — the test I
+wrote asserted the collapsed value and went green. Fixed by making exhaustion
+representable (`Option<u64>`), after which `checked_add` IS the boundary and no
+separate exhaustion test is needed.
+
+**Two things worth keeping beyond the bug:**
+
+1. **A fix written for a review comment gets no discount.** This defect was
+   introduced *by* the remedy for a finding about the same field, and shipped
+   with a confident doc comment plus a test. The review context made it feel
+   already-scrutinised; nothing about it was.
+2. **Writing a rule does not install it.** The determinism-gate entry was three
+   commits old, in the same file, and I still reached for the arithmetic that
+   makes a guard vacuous. The disable-run is what catches this class — and I
+   did not run one on `next_base_seq`, because it was "just a helper".
+
+**Second finding, same PR, same shape at doc level:** the `validate_chain`
+doctrine says replay must not refuse history, then listed *"loading a
+recording"* as an admission site — which validates an old recording against
+today's palette and rejects exactly the history the argument protects. The
+argument was right and the instruction beneath it contradicted it. Corrected:
+admission = FIRST acceptance; a chain re-read from the durable log is already
+admitted and is replayed, never re-judged.
+
+---
+
+## 2026-08-31 — E-TWO-REVIEWERS-FOUND-THE-SAME-THREE-DEFECTS-AND-ONE-OF-THEM-WAS-MINE-ALONE-1
+
+**Status:** FINDING — #1120's full review surface, read after merge.
+**Confidence:** measured — 7 findings across two independent reviewers on the
+same diff; each adjudicated against the code, two remedies rejected with
+evidence.
+
+#1120 drew **7 findings from two reviewers that never see each other's
+output** — codex (3) and CodeRabbit (4). Their overlap is the interesting
+part, and so is the one place they diverge.
+
+| line | codex | CodeRabbit | verdict |
+|---|---|---|---|
+| 179 | predicate dropped from the trace | reject an out-of-band ordinal | **same defect, two different remedies** |
+| 183 | overlapping durable coordinates | `cast_seq` overflow at `u64::MAX` | **same field, two distinct bugs — both real** |
+| 199/200 | compare only edges vs the doc's promise | identical finding | **agreed, and both remedies wrong** |
+| board | — | `cast_seq` described as caller-supplied | **CodeRabbit alone; correct** |
+
+**Independent agreement is evidence; identical remedies are not.** Both
+reviewers proposed comparing whole `ReplayTraceRow` values in
+`first_divergence`. Running it: the same chain replayed from durable base 100
+vs 900 is declared divergent at step 0 — the same witness at two addresses.
+Two reviewers converging on a fix does not make the fix right, and the cost of
+checking was one test run.
+
+**The 179 pair is the sharper lesson.** Both saw that the ordinal was
+mishandled; they disagreed about *which* mishandling. Codex: it is dropped
+from the witness (so a recorded program cannot be reconstructed). CodeRabbit:
+it is not validated (so a chain carrying `0xA3`, the SEARCH band, replays as
+if causal). **Both are true and the fixes go in opposite directions** — carry
+it *more* faithfully, and judge it *before* it is carried. Taking either alone
+would have looked complete.
+
+The split that resolves it: **replay must not refuse history.** A recorded
+chain is a fact; the engine reproduces it, it does not judge it. If the palette
+later drops or renumbers an ordinal, a validating replay starts returning `Err`
+for chains that were valid when recorded — destroying the very property the
+wave exists to hold. So validation is an ADMISSION check (`validate_chain`,
+constant per chain, checked once) and replay stays total over admitted chains,
+while the witness carries the ordinal faithfully. Both findings satisfied,
+neither remedy taken literally.
+
+**The board finding is the one only a doc-reader caught.** The status row said
+*"`cast_seq` is caller-supplied and durable, never minted"* — reversing the
+contract, since the caller supplies `base_seq` and the planner DERIVES
+`cast_seq`. No code reviewer would flag it; no test could fail on it. It is
+exactly the class of error that survives forever because it lives where nothing
+executes.
+
+**Consequence for the review posture:** a second reviewer is not redundancy —
+measured here, it contributed one finding neither the first reviewer nor any
+gate could reach, and it disagreed usefully about a defect the first had
+already found. And a finding's *remedy* is a proposal, never a verdict: 3 of 7
+remedies here were wrong or too literal, while 7 of 7 findings were real.
+
+---
+
+## 2026-08-31 — E-Q8-THE-SIX-DOES-NO-WORK-A-DEGREE-ABLATION-COLLAPSES-THE-HEX-OVERLAYS-ENTIRE-ADVANTAGE-1 — B passes every pre-registered gate and the pass is unattributable: at degree 1 it scores identically with 5.5x less memory
+
+**Status:** FINDING [MEASURED] — full entry in
+`.claude/board/entries/2026-08-31-e-q8-the-six-does-no-work-a-degree-ablation-collapses-the-hex-overlays-entire-advantage-1.md`.
+**Confidence:** High for the ablation (an equality, not a margin); low for
+any attribution of the advantage to topology — that IS the finding.
+
+Ran §7.2's probe (the one Q6/Q7 did not answer: completion and false
+resonance, not plasticity). B beat A and the RAND null on every metric at
+every cap with a smaller footprint — surviving §7.2's kill condition and
+contradicting my pre-registered prediction. Then the ablation: the task uses
+only each arm's FIRST neighbour, and at degree 1 B scores identically to four
+decimals (0.2730 / 0.1790 / 0.1498) with 5.5x less memory. The six does
+nothing; B is a bigram successor table.
+
+> **A pre-registered gate can pass for a reason the gate cannot see.** Q6
+> taught the topology null and it was included — but RAND varies the WIRING
+> at fixed degree, so it cannot detect that degree itself is inert. A
+> locality claim needs a DEGREE ablation, not only a wiring null.
+
+Converges with `E-PALETTE256-IS-A-NEEDLE-THE-COLON-IS-THE-DISTRIBUTION-1` by
+a different road: the information is in the PAIR, not the neighbourhood's
+shape. One relation carried everything; five more neighbours added bytes.
+## 2026-08-31 — E-A-MONITOR-KEYED-ON-THE-PR-HEAD-CAN-CERTIFY-THE-WRONG-COMMIT-1
+
+**Status:** FINDING — the RULE stands; the CAUSE first recorded here was
+**wrong and is corrected below**, same day, before this entry ever merged.
+**Confidence:** measured — GitHub's `pulls/1120` reported head `233ce3f1` for
+>45 minutes while `git/ref/heads/…` (same API, same token, same request) already
+had `216d8f2` and then `81820cc`; `mergeable` stayed `null` throughout.
+
+> **⊘ CAUSE CORRECTED (same day, on discovering the merge).** This entry first
+> blamed *"GitHub delivered no push event"* — an exotic infrastructure story.
+> The real cause was mundane and one field away: **#1120 had already MERGED**,
+> at 19:45:46, with head `233ce3f1`. A merged PR stops tracking its branch and
+> stops running PR-triggered workflows, so the frozen head, the null
+> `mergeable`, and the silent Actions were all *correct behaviour* for a closed
+> PR — not a delivery stall.
+>
+> **How the wrong cause survived four checks:** an early query printed
+> `pr["state"]` (`open`); every later query printed head, mergeable and
+> check-runs and **dropped `state`**. Each subsequent read was consistent with
+> both hypotheses — "GitHub is stalling" and "the PR is closed" — and I never
+> re-read the one field that separates them. I then wrote an increasingly
+> specific infrastructure diagnosis (webhooks, proxy ref-updates) on top of a
+> premise I had stopped checking.
+>
+> **The transferable rule is the sharper one:** when a subject stops behaving,
+> **re-read its STATE before theorising about its plumbing.** A field you
+> printed once and dropped is not a field you know. The exotic explanation felt
+> earned because each new observation fit it — but they fit the boring one
+> equally, and only the dropped field discriminated.
+>
+> **What survives unchanged:** the rule this entry exists for. Keying a watch
+> on the PR head certified the wrong commit, and it would have done so for a
+> *merged* PR just as surely as for a stalled one — arguably more so, since a
+> merged PR's head is frozen permanently. Pin the SHA; compare it. If anything,
+> a merged-PR head is the commoner way to hit this.
+
+A CI monitor was armed to poll the PR, emit each check as it landed, and stop
+at "all complete". It reported **ALL GREEN**. The verdict was true — and it was
+a verdict on the **wrong commit**: 7/7 covered the head GitHub still believed
+in, while the two commits carrying that PR's review fixes had **zero** checks.
+
+```
+PR head:    233ce3f1  →  7/7 complete, red=none
+branch ref: 216d8f29  →  0/0 complete
+```
+
+**The failure is in the KEY, not the polling.** A monitor that resolves its
+subject through the PR object inherits whatever the PR object believes, and a
+PR head pointer is *derived state* that can lag the ref it points at. Every
+line the monitor printed was accurate; none of them was about the code under
+review. Silence would have been safer than that green.
+
+**Rules, both cheap:**
+
+1. **Pin the SHA before arming, and assert it.** A watch should be keyed on the
+   commit you pushed — read it from `git rev-parse HEAD` — not on whatever the
+   PR resolves to at poll time. If the PR's head and your SHA disagree, that
+   disagreement is itself the event worth reporting.
+2. **A green run is a verdict on a SHA, never on a PR.** Before acting on one,
+   check `pr.head.sha == <the SHA you pushed>`. Two API calls.
+
+**Why it was caught:** not by the monitor and not by any gate — by noticing
+that a routine status read showed a head two commits behind a push whose
+output had scrolled past. (The *cause* took longer and was got wrong first —
+see the correction at the top.) The generalization is uncomfortable and worth
+keeping: **an automated check can be simultaneously correct and irrelevant**,
+and nothing inside it can tell the difference, because relevance is a property
+of what it was pointed at.
+
+Cf. `E-EVERY-DEFECT-IN-A-MEASUREMENT-WAS-IN-ITS-FIXTURE-NOT-ITS-CODE-1` — same
+shape one layer up: there the fixture was wrong and the timing loop was fine;
+here the subject was wrong and the polling was fine. In both, the instrument
+reported faithfully on something that was not the question.
+
+---
+
+## 2026-08-31 — E-A-WITNESS-THAT-DROPS-THE-RELATION-IS-NOT-A-WITNESS-1 — and the review's own remedy was measurably wrong
+
+**Status:** FINDING — three codex P1/P2 findings on #1120, all valid; the P1
+falsified a claim in the module's own doc comment. The P2 remedy was tried
+literally, measured, and rejected in favour of a narrowing.
+**Confidence:** measured — `lance-graph-planner/src/dismech_replay.rs`,
+D-DCR-1 (W1), three disable-runs.
+
+### The P1: the trace dropped the predicate, and the doc said otherwise
+
+`replay_chain` destructured `&(_predicate, weight)` and never carried the
+ordinal into `ReplayTraceRow`. Two chains with identical weights and different
+relations — `causes` vs `protects_against`, near-opposite meanings — replay to
+**byte-identical traces**, and `first_divergence` reports no change.
+
+For a plan whose keystone is *causality replay*, that is not a gap in a
+convenience field: the witness cannot reconstruct the recorded program. And
+the module doc claimed the opposite — *"carried into the trace's step index so
+a consumer can join a diff back to the palette at the membrane"* — where the
+step index is `i` and the ordinal was carried nowhere. A doc claim with no
+behaviour behind it, in the same PR that added a mirror so the ordinal would
+have a checkable domain.
+
+**Why every W1 gate passed anyway, and this is the transferable part:** W1's
+arithmetic deliberately does not read the ordinal. A property that does not
+touch a field cannot notice that the field is gone. Determinism, perturbation
+position, sibling isolation, deinterlace — four gates, none of which could
+ever fail on this. **A value carried as WITNESS needs a gate that reads it as
+witness; the gates on the computation will not cover it, by construction.**
+
+### The P2 remedy was wrong, and running it is how that was established
+
+The review's `first_divergence` finding was right about the defect (the name
+promised a whole-row comparison the body did not perform) and its suggested
+fix — *"compare the full `ReplayTraceRow` values"* — was tried verbatim:
+
+```
+addressing_is_not_content_but_the_predicate_is ... FAILED
+  left: Some(0)   right: None
+```
+
+The same chain, same owner, replayed from durable base 100 vs 900, is declared
+**divergent at step 0**. That is the same causal witness at two addresses, and
+an instrument that calls it divergent is useless for every comparison the plan
+needs. So the fix is the review's *alternative* clause — "narrow the API
+contract explicitly": content is `(predicate, edge)`; `owner`/`cast_seq` are
+addressing and deliberately excluded; `step` is positional and is what the
+return value NAMES.
+
+**A correct finding does not make its proposed remedy correct.** Both halves
+were verifiable in about a minute each; taking the remedy on trust would have
+shipped a diff instrument that fires on every address change.
+
+### The third: a precondition stated as prose is not a precondition
+
+`base_seq` reserves `[base_seq, base_seq + chain.len())` — one coordinate per
+STEP. A caller advancing by 1 per CHAIN overlaps (bases 10 and 11 over 4 steps
+share 3 of 4 coordinates), which violates `LocalCausalRow::cast_seq`'s
+uniqueness requirement and silently degrades `local_trajectory_of` to scan
+order. The old doc said two chains "never collide" — true only for a caller
+already following a rule the doc did not state.
+
+The overlap is a property ACROSS calls and cannot be checked inside one, so it
+stays a precondition — but now it is stated, and shipped as code
+(`next_base_seq`) so the correct advance is the easy one. The gate measures
+the collision (`shared == 3`) rather than asserting the rule.
+
+### Disable table (all three red-then-green)
+
+| assertion | disable | observed |
+|---|---|---|
+| predicate is in the witness | `predicate: 0` in the row | RED ×2 |
+| addressing is not content | compare whole rows (the review's literal remedy) | RED — `Some(0)` vs `None` |
+| the reservation is per step | `next_base_seq` → `base + 1` | RED — `left: 11, right: 14` |
+
+---
 
 ## 2026-08-31 — E-A-DETERMINISM-GATE-IS-TRIVIALLY-SATISFIED-BY-A-KERNEL-THAT-DOES-NOTHING-1
 
@@ -342,8 +1875,9 @@ discretization artifact and not a uniqueness failure.
 
 ## 2026-08-31 — E-NECESSARY-CONDITIONS-ARE-NOT-A-PSD-TEST-1 — diagonal positivity plus Cauchy-Schwarz cannot see an indefinite Gram, and the falsifier is one line
 
-**Status:** FINDING — W4, and a standing gap in the truncated battery it
-extends.
+**Status:** FINDING — W4; the truncated-battery gap it named is CLOSED
+(ndarray `03ed373b` / #291, 2026-08-31: `signature::gram_is_psd` Cholesky
+gate in `prove_pillar_11`; status line updated 2026-09-03).
 **Confidence:** measured; the counterexample is constructed and asserted.
 
 ndarray's `prove_pillar_11` certifies "PSD" via two criteria: every diagonal

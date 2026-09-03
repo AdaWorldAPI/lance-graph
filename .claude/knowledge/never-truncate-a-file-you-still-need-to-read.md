@@ -57,6 +57,34 @@ correctness or ordering — a same-length corruption passes this check.
 A non-blocking PreToolUse guard (`.claude/hooks/anti-pattern-matching.sh`)
 injects this rule when a Bash command matches the write-while-reading shape.
 
+## Recurrence — 2026-09-02, EPIPHANIES.md, 25,172 -> 61 lines
+
+The rule fired again, in a session that had this file's own prohibition in its
+context. A board-hygiene pass prepended a new entry with
+`open(p,'w').write(E + open(p).read())` -- the exact prohibited shape --
+inside a Python heredoc that ALSO carried two CORRECT prepends
+(`b = open(p).read()` first, then `open(p,'w')`) for LATEST_STATE and
+PR_ARC_INVENTORY. Writing the safe form twice in the same script did not
+prevent writing the unsafe form once.
+
+What caught it: the mandatory post-write `wc -l` comparison against
+`origin/main`, printed for every touched board file in the same command. The
+line `EPIPHANIES.md main=25172 now=61` was unmissable, and restoration was a
+`git checkout` plus a re-prepend, because the destruction happened in the
+working tree and was never committed.
+
+Two lessons this recurrence adds:
+
+1. **The guard has to be in the same breath as the write.** The rule as
+   stated is a prohibition an author must remember; the `wc -l` check is a
+   detector that runs whether or not they remembered. Print the before/after
+   line counts in the SAME command that writes, every time, and never commit a
+   board pass without reading that output.
+2. **Mixed-safety scripts are the dangerous shape.** A heredoc containing
+   several prepends is where this hides: the correct ones make the script
+   look reviewed. Prefer one helper used for every prepend in a pass over
+   three hand-written ones.
+
 ## Cross-reference / retrieval footer
 
 - Restore PR: lance-graph **#1082** (merge `82679c3a`); prohibition PR **#1083**

@@ -53,6 +53,9 @@ pub mod attention_facet;
 pub mod auth;
 pub mod awareness_facet;
 pub mod band_reading;
+// D-TEH-1: cross-tenant authorization injection point (moved from thinking-engine,
+// seven items, zero-dep). Consumed by lance-graph-callcenter's UnifiedBridgeGate.
+pub mod bridge_gate;
 pub mod callcenter;
 pub mod cam;
 pub mod canonical_node;
@@ -236,12 +239,13 @@ pub use step_mask::StepMask;
 pub use style_family::StyleFamily;
 pub use view_angle::ViewAngle;
 pub use witness_fabric::{
-    absolute_agreement, belief_runs, elect_peers, elect_peers_lens, foresight_calibration,
-    foresight_sample, is_opinion, opinion_strength, quorum_mantissa, quorum_mantissa_lens,
-    resolve_chain, resolve_chain_lens, revision_trajectory, standing_wave_diagnosed,
-    standing_wave_diagnosed_lens, standing_wave_grounded, standing_wave_grounded_lens,
-    standing_wave_stratified, standing_wave_stratified_lens, suggest_reopening, superseded_runs,
-    superseded_spread_sample, trajectory_of, trajectory_of_lens, BeliefRun, ChainResolution,
-    EscalateReason, ForesightSample, PeerElection, ReopeningEvidence, ReopeningReason,
-    ReopeningSuggestion, RevisionTrajectory, TrajectorySignature, WaveGrounding, WitnessLens,
+    absolute_agreement, belief_runs, elect_and_bind, elect_peers, elect_peers_lens,
+    foresight_calibration, foresight_sample, is_opinion, opinion_strength, quorum_mantissa,
+    quorum_mantissa_lens, resolve_chain, resolve_chain_lens, revision_trajectory,
+    standing_wave_diagnosed, standing_wave_diagnosed_lens, standing_wave_grounded,
+    standing_wave_grounded_lens, standing_wave_stratified, standing_wave_stratified_lens,
+    suggest_reopening, superseded_runs, superseded_spread_sample, trajectory_of,
+    trajectory_of_lens, BeliefRun, ChainResolution, ElectionReport, EscalateReason,
+    ForesightSample, PeerElection, ReopeningEvidence, ReopeningReason, ReopeningSuggestion,
+    RevisionTrajectory, TrajectorySignature, WaveGrounding, WitnessLens,
 };

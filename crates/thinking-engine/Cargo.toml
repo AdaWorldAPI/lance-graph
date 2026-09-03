@@ -18,6 +18,9 @@ lance-graph-contract = { path = "../lance-graph-contract" }
 ndarray = { path = "../../../ndarray", default-features = false, features = ["std"] }
 bgz-tensor = { path = "../bgz-tensor" }
 highheelbgz = { path = "../highheelbgz" }
+# D-TEH-3: the calibration MATH (Cronbach α, Spearman ρ, re-encode drift,
+# correction-delta summaries) lives in jc; this crate keeps the glue.
+jc = { path = "../jc" }
 tokenizers = { version = "0.22", optional = true, features = ["http"] }
 serde_json = "1.0"
 serde = { version = "1.0", features = ["derive"] }

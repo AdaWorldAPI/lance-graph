@@ -12,10 +12,8 @@ build = "build.rs"
 lance-graph-contract = { path = "../lance-graph-contract" }
 # D-SDR-4b audit sinks — always available for the trait + CompositeSink
 log = "0.4"
-# PR-F1 — CognitiveBridgeGate: UnifiedBridgeGate wraps UnifiedBridge and
-# implements the trait from thinking-engine. Direction: callcenter → thinking-engine.
-# The reverse dep (thinking-engine → callcenter) is forbidden to avoid circular deps.
-thinking-engine = { path = "../thinking-engine", default-features = false }
+# PR-F1 — CognitiveBridgeGate: UnifiedBridgeGate implements the gate trait from
+# lance-graph-contract::bridge_gate (D-TEH-1 moved it there; no thinking-engine dep).
 # D-CASCADE-V1-3 — bridge collapse: factories project from the canonical SoA.
 lance-graph-ontology = { path = "../lance-graph-ontology" }
 # D-SDR-1 (super-domain-rbac-tenancy-v1 §3.9 + §13.1) — UnifiedBridge composes

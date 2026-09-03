@@ -238,6 +238,12 @@ pub struct MetaAssessment {
     pub calibration_error: f32,
 }
 
+impl Default for MetaCognition {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl MetaCognition {
     pub fn new() -> Self {
         Self {

@@ -5,33 +5,46 @@ edition = "2021"
 description = "Jirak-Cartan: five-pillar proof-in-code for binary-Hamming causal field computation"
 license = "Apache-2.0"
 
-# Zero EXTERNAL deps in production — standalone, like deepnsm and bgz17.
-# The proof is the proof regardless of SIMD path.
-# Workspace-sibling path-deps are opt-in via features (see [features] below).
-
-# Optional workspace-sibling deps — gated by feature flags to preserve
-# the default zero-dep build. `cargo build` (default) gives a fully
-# standalone JC; `cargo build --features hambly-lyons` activates Pillar 11
-# by pulling in the sigker workspace sibling.
+# ndarray is MANDATORY — here and everywhere in lance-graph (operator ruling,
+# 2026-09-02). It is the execution substrate: every numeric path is written
+# against `ndarray::simd::{F64x8, F32x16, I16x32}::*`, whose scalar / AVX2 /
+# AVX-512 / NEON / WASM backends are bit-exact behind one typed surface. JC
+# certifies what is mathematically true; ndarray tells the machine how to
+# execute it. A consumer-local scalar arithmetic path is not a fallback, it
+# is a second arithmetic implementation, and is forbidden.
+#
+# The former "zero external deps in production" constitution is retired by
+# that ruling. What remains standalone is the PROOF: no other crate's
+# behaviour is a premise of any pillar. Workspace siblings that carry
+# domain content (sigker) stay feature-gated so a pillar can be run alone.
 [dependencies]
+ndarray = { path = "../../../ndarray" }
 sigker = { path = "../sigker", optional = true }
 
 [features]
-# Default build is zero-dep — honors the standalone constitution.
+# Default build: ndarray only (mandatory). Pillar 11 opts in below.
 default = []
 # Activates Pillar 11 (Hambly-Lyons signature uniqueness) by pulling in the
 # sigker workspace sibling. See `src/hambly_lyons.rs` for the probe + the
 # DEFERRED fallback used when the feature is off.
 hambly-lyons = ["dep:sigker"]
 
-# Dev-only deps for cross-crate bridge examples (production stays zero-dep).
+# Dev-only deps for cross-crate bridge examples.
 [dev-dependencies]
 lance-graph-contract = { path = "../lance-graph-contract" }
 # `substrate_compare` example only — the on-demand P64-vs-V3 comparison drives
 # the REAL Palette64 (compute) + NodeGuid (address) and records into the
-# neural-debug runtime registry. Dev-deps, so production JC stays zero-dep.
+# neural-debug runtime registry. Dev-deps: examples only, not the library.
 p64 = { path = "../../../ndarray/crates/p64" }
 neural-debug = { path = "../neural-debug" }
+
+[[example]]
+# A0/A1/A2 Goursat probe (TD-PILLAR11-SCIENTIFIC-LOOPS-BYPASS-NDARRAY-SIMD-1).
+# Imports `sigker::signature_kernel_pde` as the A0 reference, so it only
+# exists when Pillar 11 is on — CI builds examples with default features and
+# an unconditional `use sigker` there is a hard E0432, not a warning.
+name = "goursat_substrate_probe"
+required-features = ["hambly-lyons"]
 
 [[example]]
 name = "prove_it"

@@ -31,29 +31,22 @@ pub const RERANKER_VOCAB_SIZE: usize = 151_936;
 /// Look up the centroid for a token ID.
 #[inline]
 pub fn reranker_lookup(token_id: u32) -> u16 {
-    let idx = (token_id as usize).min(RERANKER_VOCAB_SIZE - 1);
-    let offset = idx * 2;
-    if offset + 1 < RERANKER_CODEBOOK_INDEX.len() {
-        u16::from_le_bytes([
-            RERANKER_CODEBOOK_INDEX[offset],
-            RERANKER_CODEBOOK_INDEX[offset + 1],
-        ])
-    } else {
-        0
-    }
+    crate::lens_shared::codebook_lookup(RERANKER_CODEBOOK_INDEX, RERANKER_VOCAB_SIZE, token_id)
 }
 
 /// Look up centroids for a batch of token IDs.
 pub fn reranker_lookup_many(token_ids: &[u32]) -> Vec<u16> {
-    token_ids.iter().map(|&id| reranker_lookup(id)).collect()
+    crate::lens_shared::codebook_lookup_many(
+        RERANKER_CODEBOOK_INDEX,
+        RERANKER_VOCAB_SIZE,
+        token_ids,
+    )
 }
 
 /// Get the HDR distance between two centroids. O(1).
 #[inline]
 pub fn reranker_distance(a: u16, b: u16) -> u8 {
-    let ai = (a as usize).min(RERANKER_N_CENTROIDS - 1);
-    let bi = (b as usize).min(RERANKER_N_CENTROIDS - 1);
-    RERANKER_HDR_TABLE[ai * RERANKER_N_CENTROIDS + bi]
+    crate::lens_shared::hdr_distance(RERANKER_HDR_TABLE.as_slice(), RERANKER_N_CENTROIDS, a, b)
 }
 
 /// Create a ThinkingEngine from the baked reranker HDR table.

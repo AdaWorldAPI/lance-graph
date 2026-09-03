@@ -10,6 +10,214 @@
 > census §8.3 trap 10: read the body FIRST, then open for write — never
 > inline both in one expression.
 
+## 2026-09-03 — lance-graph PR #1145 (merged `2bf8b290`, branch `claude/adaworld-substrate-harvest-pvfbs9`) — D-POP-2: the contradiction write-back producer
+
+- **Added:** `lance_graph_contract::witness_fabric::{elect_and_bind, ElectionReport}` + `WitnessLens::bind_election` — the producer the post-teardown survey named as its cheapest gap (§5.4): elect the social peers through the lens, read-modify-write ONLY Quorum/Contradiction (slots 14/15) into the focal row's own register; order-independent + idempotent because elections read `CONTENT_LOCI` only. 6 unit falsifiers (3 disable-verified) + `tests/d_pop_2_producer_reaches_consumers.rs` (2, disable-verified against a no-op `bind_election`).
+- **Measured:** `recipe_loci::reachable` 0/34 → 7/34 (`{3,7,11,17,20,27,30}`, derived from `required_loci`; 21 and 31 stay unreachable) on a SMeaning+Kausal row; `SubstrateView::project` confidence NaN → finite, dissonance 0 → 2/15, free_energy 0.45 → 0.8; `is_opinion` false → true.
+- **Locked:** family 1 only (loci are signed offsets, sign = orientation); no tenant, no ClassView, no layout change, no dependency; the family-3 population vacancy untouched. Sonnet workers against verbatim specs, orchestrator-gated; one spec error caught by a worker (the silence test's `visited` literal), one empty-`before` finding asserted instead of guessed.
+- **Deferred:** a caller feeding the elected contradiction into `BeliefArena::revise_at` / `RevisionTrajectory` / `suggest_reopening` over real revisions; the real `WitnessStream` producer (§5.3).
+- **Docs:** EPIPHANIES `E-A-PRODUCER-IS-A-PURE-FUNCTION-OF-THE-CONTENT-LOCI-1`; plan §8 of `post-teardown-buildup-survey-v1.md`. **Confidence:** High (mechanism, disable-verified); Medium (consumer molecule still unwired).
+
+## 2026-09-03 — MERGED #1144 (`30b0a66`) — D-TEH-3 fate probes: both KILL, semantic_chunker + spiral_segment stay LAB
+
+- **Added:** `crates/thinking-engine/examples/chunker_falsifier.rs` (real-data falsifier for `semantic_chunker`: 168 cross-topic + 8 same-topic passages, 20 SplitMix64 null permutations, plus a 4th committed positive-control arm — the module's own adversarial synthetic-corners shape — added mid-review so the mechanism-null conclusion is reproducible, not just asserted); `crates/thinking-engine/examples/spiral_gate_probe.rs` (real-data gate probe for `spiral_segment` against five real baked 256x256 tables). Plan `thinking-engine-harvest-closure-v1.md` §4b (pre-registration) + §4c (results); EPIPHANIES `E-TWO-FATE-PROBES-KILL-DIFFERENT-WAYS-1`.
+- **Results:** `semantic_chunker` — recall 0.000 at every pre-registered threshold; the committed positive control also returns zero, confirming a genuine mechanism null rather than a harness artifact. **KILL, stays LAB, not ported to deepnsm-v2.** `spiral_segment` — fidelity clears r/rho >= 0.9980 on every u8 table but NOT on the i8 table (rho tops out at 0.9975 — caught by a Codex review comment on this PR, corrected same-day); compression fails on every table regardless, `ratio_vs_u8 = bytes(u8)/bytes(spiral)` topping out at ~0.28x (i.e. ~3.6x LARGER than the u8 table it would replace), not the module's claimed 51x smaller. **KILL, stays LAB, no certification battery scheduled.** §1c of the closure plan is now fully closed.
+- **Also in this PR:** paid down 25 of the ~40 pre-existing `thinking-engine` clippy lints `TD-THINKING-ENGINE-EXCLUDED-DEBT-1` already named — `world_model.rs::from_engine_state` (10 positional args → a `ThoughtSignals` bundle, verified zero in-tree callers), `cognitive_stack.rs::MetaCognition` / `dto.rs::ThoughtIndex` (added `Default`), `qualia.rs` (19 range-fill loops → `.fill()`), `tensor_bridge.rs` (documented `#[allow]`), `signed_domino.rs` (`enumerate()` rewrite). `cargo test --lib` on every touched module: 337/337 green throughout.
+- **Review folded in (post-push, CodeRabbit + Codex, all via reply-and-resolve rather than silent edits):** the i8 fidelity correction above; the compression-ratio direction stated explicitly (`ratio_vs_u8 = bytes(u8)/bytes(spiral)`) in EPIPHANIES, LATEST_STATE, and STATUS_BOARD after two follow-up passes (the first fix missed STATUS_BOARD entirely); the positive-control diagnostic committed into the falsifier instead of left as an unreproducible throwaway; declined two nitpick asks to add `#[cfg(test)]` modules to the probe examples (they're one-shot fate probes, not shipped API — reasoning posted as a PR comment) and a suggested compat shim for `from_engine_state` (verified zero real callers, crate is workspace-excluded, no consumer to protect — reasoning posted and thread resolved).
+- **Board hygiene:** EPIPHANIES + LATEST_STATE + STATUS_BOARD + TECH_DEBT (dated update, append-only) all updated across four commits as review findings landed; `SUPERSESSION-INDEX.md` regenerated last after every board write, byte-identical each time.
+- **Confidence:** High — every measured number in the results was re-run and read back before being written down, including the two corrections review caught.
+
+## 2026-09-02 — lance-graph branch `claude/medcare-rs-continue-6nhbxn` (D-TEH-3 PR, after #1142) — calibration MATH → jc; lab copies deleted
+
+- **Added:** `crates/jc/src/drift.rs` (`ReencodeDrift`, `reencode_drift`, `DriftBatch`, `reencode_batch`, `DeltaSummary`, `delta_summary`, `CONVERGENCE_EPS`; 8 tests), `crates/jc/src/quorum.rs` (`pairwise_agreement_u8`, `max_u8_variance`, `QuorumLevel` + floors, `CronbachReport`, `cronbach_report`; 7 tests), two lift-gate tests in `crates/jc/src/reliability.rs`; `pub mod drift; pub mod quorum;` in jc `lib.rs`. EPIPHANIES `E-THE-LIFT-GATE-FOUND-A-TIE-BLIND-SPEARMAN-1`; TECH_DEBT `TD-RELIABILITY-COPIES-OUTSIDE-JC-1`.
+- **Removed:** `crates/thinking-engine/src/cronbach.rs`; `spearman_rank_correlation` + `ranks` (+3 tests) from `ground_truth.rs`; the private statistic bodies in `reencode_safety.rs` and `silu_correction.rs`.
+- **Changed (lab crate):** `Cargo.toml` (+`jc` path dep) and `Cargo.lock`; `lib.rs` (no `cronbach`); `reencode_safety.rs` (glue over `jc::drift`, tests verbatim); `silu_correction.rs` (`CorrectionStats` = `jc::drift::DeltaSummary`, named cut-offs); `ground_truth.rs` (calibration glue calls jc); `examples/certify_jina_v5_7lane.rs` (jc α, `Option` → `NaN`). Plan §5 D-TEH-3 → math half Shipped, §3 W2 result addendum; STATUS_BOARD D-TEH-3.
+- **Measured:** cronbach — same formula, agree to `1e-5` on the 0.984615 fixture, `f32` copy loses the `1e7`-shifted fixture while `f64` moves `< 1e-9` → LIFT; spearman — retired form ranked ties by position, agrees `1e-6` tie-free, returns 1.000 vs jc 0.948683 on `[1,2,2,3]` → PERFECT-IN-JC (already there); drift + delta summary + quorum → lifted as-is with the codec / cut-offs turned into parameters. jc lib 135/135, new modules clippy `-D warnings` clean, fmt clean; lab 23/23 on the three modules, `check --lib --examples` clean but for the pre-existing `tts_stream_hhtld` break.
+- **Review folded in (pre-merge, Codex P2 ×3):** odd-`k` quorum normalised by its own attainable variance (`max_u8_variance(k)`; `[0,0,255]` at `k = 3` scored 15 under the lifted even-`k` ceiling, now 0 — a defect the lift PERFECTED rather than carried); the lab cut-offs kept as `f32` and promoted with the samples (exactly `0.1f32` is not `> 0.1`); `correction_stats` returns `Option` — `None` for non-finite corrections, `Some(empty)` only for an empty set.
+- **Locked:** jc is the only home of the four estimators inside lance-graph; the lab carries codec/cut-off choices, never a statistic; the retired forms stay in jc's tests as the comparison record.
+- **Deferred:** D-TEH-3's `semantic_chunker` / `spiral_segment` halves (falsifier-gated); the ndarray / perturbation-sim copies (TD, deliberate PR with a bit-exactness gate); the pre-existing lab example break (D-TEH-5 / TD-THINKING-ENGINE-EXCLUDED-DEBT-1).
+- **Confidence:** High.
+
+## 2026-09-02 — lance-graph branch `claude/medcare-rs-continue-6nhbxn` (D-TEH-2 PR, after #1141) — ghost prior harvested into the planner; `ghosts.rs` deleted
+
+- **Added:** `crates/lance-graph-planner/src/nars/ghost_prior.rs` — `GhostPrior`, `PriorFloor`, `Trace`, `calibration::{recurrence_fixture, discrimination}` (both `Option` below `FIXTURE_MIN_ATOMS` and above `FIXTURE_MAX_STALE_PATTERNS`), 15 tests (monotone decay to each floor with the inert cycle derived from the constant, decay-constant load-bearing both ways, two-sided free energy under both floors, the calibration gate on the declared default, anti-vacuity that the floors differ, prediction shape, imprint cap, echo rule, independence of two priors); `pub mod ghost_prior` + re-export in `nars/mod.rs`. EPIPHANIES `E-THE-CALIBRATION-GATE-REVERSED-THE-DECLARED-FLOOR-1`.
+- **Removed:** `crates/thinking-engine/src/ghosts.rs`, `crates/thinking-engine/examples/think.rs`; `pub mod ghosts` from the lab `lib.rs`.
+- **Changed (lab crate):** `persona.rs` (`Agent` without a trace field; `to_dto` / `self_model` take the prior summary; `A2AMessage` constructors take the sender's `AgentDto`; `SelfModelDto` over `GhostEcho`), `world_model.rs` (`build` takes `trace_count` + `dominant_trace`; `GhostEcho`), `awareness_dto.rs` (`GhostEcho`), `domino.rs` (doc). Contract `escalation.rs`: `GhostEcho` doc comment (retired-mirror note). TECH_DEBT `TD-GHOST-ECHO-DUP-1` → RESOLVED. Plan §5 D-TEH-2 → Shipped, §3 W2 result; STATUS_BOARD D-TEH-2 Shipped, D-HOUSE-4 unblocked.
+- **Measured:** calibration gate rejected the first-declared `Trace` floor — discrimination 0.0000 vs `Marker` 0.0188 at 30 stale patterns / age 20 and 60 (equal at 0.0188 with no stale memory); absolute baseline 0.35 vs 0.07. Default = `Marker`. Planner clippy `-D warnings` + fmt clean; lab `cargo check --lib --examples` clean; lab tests 14/14.
+- **Locked:** per-thought ownership (no singleton field); the lingering-trace / counterfactual-lane fence; the floor as a measured parameter, not an inherited constant.
+- **Deferred:** D-HOUSE-4 (unblocked, not started — should re-run `calibration::discrimination` on its own fixture); D-TEH-3 (math → jc), D-TEH-4/5; `TD-GHOST-TIER-NAME-COLLISION-1` waits for the next touch of `counterfactual.rs`.
+- **Confidence:** High.
+
+## 2026-09-02 — lance-graph branch `claude/medcare-rs-continue-6nhbxn` (D-HOUSE-1 PR, after #1139) — PROBE-HOUSE-DIFFERENTIAL-1 run and reported
+
+- **Added:** `crates/lance-graph-planner/examples/house_differential.rs` (the probe; no library surface): fixture, arms A0 / A1 / A1c / A2-S0 / A2-S3 / A2 (variant 1) / A2' (variant 2), size-preserving null with far-parent re-owning, guards G1–G4, per-variant verdict. Plan §4 RESULT; EPIPHANIES `E-THE-PERIPHERY-OF-A-STRATUM-IS-THE-OTHER-STRATA-1`.
+- **Changed:** plan §2 step 2 (periphery = the other strata), §2 closing paragraph (strata in dependency order, no elevation loop), §3 bullet 1 (per-stratum floors; ASC opens at `Counterfactual`, not `Analogical`), §4 arms / fixture / guards (as run).
+- **Measured:** A0 0.320 · A1c 0.610 · A2 0.820 · null p95 0.395 (aggregate; label-blind S0 and distinct-pair shuffle — 0.475 on the first cut that focused S0 on the label, 0.425 before duplicates were removed) · elim 0 (arena predicate; by construction for `C*`, G5 two-sided) · S0 fires 100/200 · S3 fires 182/200 with zero p@1 effect · council split 0/200. Variant 1 KILL on (c); variant 2: base path (S0 + board) PASS, council-gated S3 arm INCONCLUSIVE (never exercised). Guards G1/G4/G5 disable-verified red; fixture guard (jitter off ⇒ A0 = 1.000) verified. Robustness: weak far fact ⇒ S0 inert; leaky null ⇒ p95 0.735.
+- **Review folded in (pre-merge):** Codex P1 — S0 focus set derived from observable `is_a` subjects; Codex P2 — elimination predicate reads the belief's contradiction + floor; CodeRabbit — null shuffle enforces distinct `(cause, feature)` pairs (repaired shuffle, counts reported), variant 2 recorded as base-path PASS + S3 inconclusive, board/plan rows aligned.
+- **Locked:** the strata reading of the periphery for this plan; the aggregate-p95 comparator; far-parent re-owning in the null.
+- **Deferred:** D-HOUSE-2/3 unblocked by the base-path PASS, not started; D-HOUSE-5 half unblocked, still gated on the D-TSC-2/3 mint; D-HOUSE-1b/1c gated on this report as before; D-HOUSE-1d re-scoped to strata budgets before scheduling; a CR stratum with a reachable council gate is a new probe, not a re-run.
+- **Confidence:** High.
+
+## 2026-09-02 — lance-graph branch `claude/medcare-rs-continue-6nhbxn` (D-TEH-1 PR, after #1138) — `bridge_gate` → contract; callcenter drops its thinking-engine dependency
+
+- **Added:** `crates/lance-graph-contract/src/bridge_gate.rs` (seven items + 9 tests, moved not re-derived); `pub mod bridge_gate` in the contract lib; `thinking_engine::bridge_gate` as a re-export shim keeping `pure_ops_dont_touch_gate` engine-side.
+- **Changed:** callcenter imports (2 sites) → `lance_graph_contract::bridge_gate`; `pure_ops_emit_zero_audit_events` rewritten over the crate's own gate-free helpers (`prefetch_from_u8` all depths, `auth_to_result` all verdicts, predicates) with the real sink + counter still asserted at zero; callcenter `Cargo.toml` dep line removed; three doc comments.
+- **Measured:** before = required path dep, 6 crossing sites, dep-drop alone fails 6 × E0433; after = zero thinking-engine deps in callcenter metadata, contract 1303/1303, callcenter 156/156, driver default + `with-engine` green, thinking-engine lib green + shim test 1/1, clippy `-D warnings` clean on both touched crates, fmt clean.
+- **Locked:** the ALU artery untouched (empty diff on `dto.rs`, `engine_bridge.rs`, `cognitive_shader.rs`, `mailbox_soa.rs`, driver manifest).
+- **Deferred:** step 6 (re-point `with-engine`) — stop condition: D-TTV-1 has not landed, the engine hook is still in thinking-engine. D-TEH-2..5, D-HOUSE-1, D-ARW not started.
+- **Confidence:** High.
+
+## 2026-09-02 — lance-graph branch `claude/medcare-rs-continue-6nhbxn` (rulings PR, after #1137) — closure-plan rulings 1, 2, 4 recorded; ruling 3 re-stated
+
+- **Added:** EPIPHANIES `E-JC-IS-THE-HOME-OF-ALL-CALIBRATED-MATH-1`; closure
+  plan §6 rewritten from "asked" to "ruled" (1 RETIRE, 2 CLOSED-superseded,
+  4 math→jc / glue→lab, 3 OPEN with the four structs named in plain terms
+  and a proposed r2il round-trip probe); §1d split by nature; W2/W4 and
+  D-TEH-3 amended.
+- **Regraded (status cells, evidence cited):** D-PERSONA-5 → RETIRED;
+  D-REUNIFY-5 and D-REUNIFY-6 → Closed-superseded; D-TEH-3 wording.
+- **Locked:** the jc rule (all calibrated math in jc; lift or perfect, never
+  duplicate).
+- **Correction (same day, third commit):** ruling 3 was NEVER open — the
+  four structs are the bus of the ALU chain (`primer` §3,
+  `E-DTO-LADDER-OWNERSHIP-SPLIT`, W4); the "small DTO crate" option and the
+  r2il round-trip probe are RETRACTED (`E-THE-DTO-LADDER-IS-THE-ALU-BUS-AND-WAS-ALREADY-RULED-1`).
+- **Deferred:** (superseded by the correction above — nothing on ruling 3);
+  the `counterfactual.rs:243` doc pointer to D-PERSONA-5 is rewritten when
+  that file is next touched (same rule as `TD-GHOST-TIER-NAME-COLLISION-1`).
+- **Confidence:** High.
+
+## 2026-09-02 — lance-graph branch `claude/medcare-rs-continue-6nhbxn` (plans PR, after #1136) — House differential style v1 + thinking-engine harvest & closure v1
+
+- **Added:** `.claude/plans/house-differential-style-v1.md` (223 lines: parts
+  list of shipped surfaces file-cited, the composition as a recipe-level
+  program, ladder placement per `persona-vs-rung-ladder.md`, PROBE-HOUSE-
+  DIFFERENTIAL-1 pre-registered, D-HOUSE-0..6);
+  `.claude/plans/thinking-engine-harvest-closure-v1.md` (206 lines: measured
+  live footprint, 51-file fate table, open-row reconciliation, four-wave
+  closure with stop rules, idea harvest, D-TEH-0..5, four rulings asked);
+  INTEGRATION_PLANS entry; STATUS_BOARD sections for both plans; EPIPHANIES
+  entry `E-THINKING-ENGINE-LIVE-FOOTPRINT-IS-ONE-TRAIT-AND-HOUSE-IS-SHIPPED-IN-PIECES-1`;
+  SUPERSESSION-INDEX regenerated last.
+- **Regraded (status cells only, evidence cited):** D-PERSONA-1 In progress →
+  Shipped (`contract::escalation` + planner `mul/escalation.rs` on main);
+  D-PERSONA-5 annotated "proposed RETIRE, ruling needed"; D-REUNIFY-2
+  annotated "shipped as D-CSV-9 (#387)".
+- **Locked:** nothing — plan-only; no code, no Cargo change, no type.
+- **Deferred:** every code wave (D-HOUSE-1, D-TEH-1..5) behind its gate; four
+  rulings listed in the closure plan §6.
+- **Confidence:** High for the footprint measurement (two `Cargo.toml`
+  consumers, symbols grepped) and the parts list (each row file:line);
+  Medium for the fate verdicts that name a landing without a consumer yet
+  (they are marked "park" rather than "port").
+- **Correction 2026-09-02 (same PR, third commit):** `575c6d3` had folded three
+  extra arms into D-HOUSE-1; an external review objected (attribution — one
+  causal question per harness) and the objection was adopted: arms moved out
+  to gated D-HOUSE-1b/1c/1d (plan §4b) with three processing-order defects
+  fixed; ghost-trace vs counterfactual-lane fence banked
+  (`E-A-GHOST-TRACE-IS-NOT-THE-COUNTERFACTUAL-LANE-1`,
+  `TD-GHOST-TIER-NAME-COLLISION-1`).
+- **Review pass 2026-09-02 (fourth commit):** 6 Codex + 8 CodeRabbit findings
+  on `84f2885`, all verified in source, all fixed. The three Codex P1s were
+  real probe-design errors: the fixture direction meant `rcr_abduce`
+  (`{P→M, S→M} ⊢ S→P`) could never emit the cause as a candidate (fixed:
+  `cause→feature` rules + `case→feature` observations); candidates were
+  never admitted before ASC (`admit_derived` step added, else
+  `AscOutcome::NoTarget`); `quorum_project` is an unconditional `todo!`
+  (removed from the path; council verdict → `deposit_counterfactual`
+  directly). Also: A1c control arm for the `k = 0` guard; swap-only,
+  `None`-defined discriminating-evidence readout; role_tables/jina_lens
+  one fate each; bridge_gate migration symbol-complete (7 items) with a
+  W1 compatibility contract incl. callcenter's lens-touching test; ghost
+  floor mismatch (0.001-prune vs 0.1-clamp) declared an intentional change
+  with a calibration gate; M8 gate = tolerances + invariants, not
+  bit-parity; stop rule scoped to §1b+§1c; generator singular agreement.
+
+## 2026-09-02 — lance-graph branch `claude/medcare-rs-continue-6nhbxn` (D-POP-1 result PR, after #1135) — PROBE-POP-READOUT-1
+
+- **Added:** `crates/deepnsm-v2/examples/pop_readout.rs` (probe only, no library
+  surface); plan §6a RESULT; EPIPHANIES entry; LATEST_STATE delta; STATUS_BOARD
+  D-POP-1 -> Shipped (KILL).
+- **Measured:** VERDICT KILL on the pre-registered claim; `curiosity_gestalt`
+  rank-inertness at rho = 1.000000 over 227,261 candidates; frequency control
+  p@10 = 0.756 vs the shipped ranker's 0.289; population partial rho 0.090 vs
+  null p95 0.020.
+- **Deferred:** the Fisher-z and RollingFloor legs (helix unreachable from
+  deepnsm-v2); any population carrier, tenant, ClassView or axis set -- the
+  vacancy stands and this result narrows rather than widens it.
+- **Confidence:** High for the KILL and the two identity/control findings;
+  Medium for the weak non-null trend (one corpus, one label).
+
+## 2026-09-02 — lance-graph branch `claude/medcare-rs-continue-6nhbxn` (survey PR, opened after #1134) — post-teardown buildup survey v1
+
+- **Added:** `.claude/plans/post-teardown-buildup-survey-v1.md` (survey,
+  plan-only); `INTEGRATION_PLANS` entry; `STATUS_BOARD` section with
+  D-POP-0/1/2; this entry.
+- **Locked:** nothing new — the six-family ruling stands; the survey records
+  which compositions are lawful, unsupported or aliasing under it.
+- **Deferred:** every carrier decision for population geometry until
+  PROBE-POP-READOUT-1 (D-POP-1) reports; the EMPTY nibble; philosophical
+  names as storage.
+- **Confidence:** High for the inventories (file-cited, four independent
+  traces); Medium for the legality matrix (a reading of the ruling, not a
+  test); the experiment is pre-registered, unrun.
+
+## 2026-09-02 — lance-graph branch `claude/medcare-rs-continue-6nhbxn` (cleanup, PR not yet opened) — semantic-family recovery
+
+- **Removed:** `basin_lanes.rs`, `epistemic_bassin.rs`, `tests/w2b_one_node_field.rs`,
+  `lance-graph-ogar::assert_epistemic_band_parity` + its test. Paired OGAR
+  change: `ogar-epistemic` crate removed, loco calls 0x87..0x8B retracted,
+  census re-pinned 101 → 96, `TERNLOG` 0x86 kept as generic.
+- **Locked:** the six semantic families and their non-impersonation
+  invariants (`E-SIX-SEMANTIC-FAMILIES-MUST-NOT-IMPERSONATE-EACH-OTHER-1`).
+- **Deferred:** every population-basin design decision (tenant, ClassView,
+  dimensionality, axes, plateau selection, projection into qualia, the
+  EMPTY-nibble experiment) — next step is falsifier-first design on a clean
+  tree.
+- **Docs:** EPIPHANIES entry above; LATEST_STATE delta; STATUS_BOARD
+  D-DCR-2b regraded; plan `dismech-causal-replay-v1.md` §W2b recovery note.
+- **Confidence:** High that the removal is complete for live/persisted ABI
+  (byte-identical `canonical_node.rs`/`soa_envelope.rs`/`facet.rs` vs the
+  pre-#1125 tree); #1128–#1132 and OGAR #296/#297 entries below stand as
+  history, regraded rather than rewritten.
+
+## 2026-09-01 — lance-graph #1130 (MERGED c630ab9) — loco band mirror + armed parity; two palette rulings recorded
+
+**Added.** `epistemic_bassin::loco_band::EPISTEMIC_CALLS` (zero-dep mirror of ogar-loco's epistemic core band `0x86..0x8B`) + `lance-graph-ogar::parity::assert_epistemic_band_parity()` in the excluded armed tier — written against loco's shared-core TABLE by raw index so it compiles against any revision; the assertions carry the parity. Verified GREEN against OGAR main after OGAR #296 merged (both directions + count pin 6).
+
+**Locked.** The 256:256 ruling: the classid swaps the whole 256-entry palette (r2il and dismech already share `0x90..` indices under different classids); the domain-shaped rest (24-axis catalogue as a `ValueCodebook`, per-axis macros) belongs in an epistemic vocabulary under its own classid; compound macros take r2il's byte-addresses-a-360-byte-script microcode shape. Core placement of the six universal calls is what makes them readable in EVERY vocabulary (`compose` cannot be forged).
+
+**Deferred.** The rung-per-classid extension commit (`b175502`) STRANDED at merge — cherry-picked forward in the next PR. Hambly-Lyons stays bandless (jc Pillar 11 red).
+
+**Docs.** Plan fifth-round block; companion OGAR #296 (mint, census re-pin 95→101).
+
+- **Confidence (2026-09-01):** working — contract 1390/0, clippy/fmt clean; armed parity red-then-green across the OGAR merge boundary exactly as designed.
+
+## 2026-09-01 — lance-graph #1129 (MERGED a16e89d) — EpistemicBassin24: the pair supersedes the falsified signed net
+
+**Added.** `epistemic_bassin::{EpistemicBassin24, AxisState, info_gain_u4, sigma_tension_u4, sweep_ternlog, eval_ternlog}` — `agree_u4[24] + disagree_u4[24]`; net/contest/entropy DERIVED; the REVERSED falsifier (contested ≠ silence, survives accumulation); Belnap-mask projections with the knowledge-join theorem pinned (join = OR-OR = accumulate's state layer, incl. a Both cell that exists only at the join); the sweep queries as ternlog truth tables pinned exhaustively against the scalar oracle (`ASKED_SILENT 0x02` = the missing link in one instruction).
+
+**Locked.** The co-architect ruling: #1127's loci-never-magnitude law re-scoped to the A9 READING (readings are classid-selected per row); the `EpistemicWitness = 16` tenant mint discarded UNCOMMITTED (no mint until one real row needs both readings); lanes carry proprioception never evidence, each grounded in a shipped certificate (Shannon → `dismech_candidates` counts; EWA → `sigma_propagation::pillar_5plus_bound`; Hambly-Lyons laneless while jc Pillar 11 is red). `basin_lanes` superseded in place, its collapse pin kept green as the record.
+
+**The finding worth keeping.** Two disable-run PASSES were findings: stepwise saturation masked by pack's clamp AND order-dependent for mixed signs (fixed: exact-sum-then-clamp); the sigma-tension calibration vacuous because every arm used `bound = 1.0` (fifth constant-that-does-not-bind of the arc).
+
+**Docs.** EPIPHANIES ×3; STATUS_BOARD superseded-in-place; plan fourth-round block.
+
+- **Confidence (2026-09-01):** working — 1385/0 → 1390/0, clippy/fmt clean, seven disable-runs red-then-green.
+
+## 2026-09-01 — lance-graph #1128 (MERGED 9742e1a) — one-hop field-map slices, rebased + reconciled with the #1127 census
+
+**Added.** `basin_lanes::BasinLanes` (since superseded by #1129 — kept per reserve-don't-reclaim) + `accumulate_children`; `hhtl::{missing_ancestors, direct_children}` (mechanical-hydration address list + the one-hop selector, addresses only — the type-level half of the mechanical/epistemic split).
+
+**Locked.** DN dissolution (every path truncation is an entry; tree-siting questions dissolve); mechanical hydration writes structure only, epistemic output = silence; the one-hop law (a parent expresses its DIRECT children; second hop continues or cancels).
+
+**The finding worth keeping.** Three parallel branches worked one register; the reconciliation audit ran BEFORE re-pushing, so my falsified "not in the shipped set" claim and the conflated siting axes were corrected in the same landing — and the per-lane arithmetic arrived at the identical shape in two independent sessions (convergence kept as evidence, cross-referenced with `w2b_one_node_field.rs`).
+
+**Docs.** EPIPHANIES audit entry; plan §W2b second/third-round blocks; `episodic_basin` module-doc clarification.
+
+- **Confidence (2026-09-01):** working — 1378/0 at merge; the whale falsifier holds at carrier and register level.
+
+
 ## 2026-08-31 — lance-graph #1099 (MERGED ae24f6e5) — D-MAR-1 re-derived from the plan, and a gate that had silently stopped being one
 
 **Added.** `FieldMask::{difference, is_subset_of}` and the `WideFieldMask` pair (plan §2.1). `chunks_view` removed — it cloned both operands per wide op; `zip_fold` now reads in place via `chunk_at`.

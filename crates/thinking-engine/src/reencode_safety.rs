@@ -8,76 +8,26 @@
 //!   encode(decode(encode(x))) ≠ encode(x) → drift → unsafe
 //!
 //! Goal: prove "x256 re-encode safety" — 256 round-trips with bounded error.
+//!
+//! **Where the math lives (D-TEH-3).** The drift statistic itself —
+//! iterate a round trip, track the error history against the original value,
+//! detect convergence, aggregate a sweep — is `jc::drift::{reencode_drift,
+//! reencode_batch}`. This module is the GLUE: it knows which codecs to test
+//! (BF16, γ+φ, the full chain) and hands each to jc as a round-trip closure.
+//! It carries no private copy of the statistic.
 
 use bgz_tensor::gamma_phi::{gamma_phi_decode, gamma_phi_encode};
 use bgz_tensor::stacked_n::{bf16_to_f32, f32_to_bf16};
+use jc::drift::{reencode_batch, reencode_drift};
 
-/// Result of a re-encode safety test.
-#[derive(Clone, Debug)]
-pub struct ReencodeSafety {
-    /// How many iterations until error stabilized (delta < threshold).
-    pub converged_at: usize,
-    /// Maximum error seen across all iterations.
-    pub max_error: f64,
-    /// Error at final iteration.
-    pub final_error: f64,
-    /// Error history per iteration.
-    pub error_history: Vec<f64>,
-    /// Is it re-encode safe? (converged within max_iterations)
-    pub safe: bool,
-    /// Codec name.
-    pub codec: String,
-}
-
-impl std::fmt::Display for ReencodeSafety {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(
-            f,
-            "{}: {} after {} iterations (max_err={:.2e}, final_err={:.2e})",
-            self.codec,
-            if self.safe { "SAFE" } else { "UNSAFE" },
-            self.converged_at,
-            self.max_error,
-            self.final_error
-        )
-    }
-}
+/// Result of a re-encode safety test — `jc::drift::ReencodeDrift`.
+pub type ReencodeSafety = jc::drift::ReencodeDrift;
 
 /// Test BF16 round-trip: f64 → f32 → bf16 → f32 → bf16 → ... → f64
 pub fn test_bf16_reencode(value: f64, max_iterations: usize) -> ReencodeSafety {
-    let mut current = value as f32;
-    let mut errors = Vec::new();
-    let mut converged_at = max_iterations;
-
-    for i in 0..max_iterations {
-        let encoded = f32_to_bf16(current);
-        let decoded = bf16_to_f32(encoded);
-        let error = (decoded as f64 - value).abs();
-        errors.push(error);
-
-        // Check convergence: error stopped changing
-        if i > 0 && (errors[i] - errors[i - 1]).abs() < 1e-15 {
-            converged_at = i;
-            // Fill remaining with same error
-            for _ in (i + 1)..max_iterations {
-                errors.push(error);
-            }
-            break;
-        }
-        current = decoded;
-    }
-
-    let max_error = errors.iter().cloned().fold(0.0f64, f64::max);
-    let final_error = *errors.last().unwrap_or(&0.0);
-
-    ReencodeSafety {
-        converged_at,
-        max_error,
-        final_error,
-        error_history: errors,
-        safe: converged_at < max_iterations,
-        codec: "BF16".into(),
-    }
+    reencode_drift(value, max_iterations, "BF16", |x| {
+        bf16_to_f32(f32_to_bf16(x))
+    })
 }
 
 /// Test γ+φ round-trip: f64 → gamma_phi_encode → gamma_phi_decode → re-encode → ...
@@ -87,37 +37,18 @@ pub fn test_gamma_phi_reencode(
     phi_scale: f32,
     max_iterations: usize,
 ) -> ReencodeSafety {
-    let mut current = value as f32;
-    let mut errors = Vec::new();
-    let mut converged_at = max_iterations;
-
-    for i in 0..max_iterations {
-        let encoded = gamma_phi_encode(current, role_gamma, phi_scale);
-        let decoded = gamma_phi_decode(encoded, role_gamma, phi_scale);
-        let error = (decoded as f64 - value).abs();
-        errors.push(error);
-
-        if i > 0 && (errors[i] - errors[i - 1]).abs() < 1e-15 {
-            converged_at = i;
-            for _ in (i + 1)..max_iterations {
-                errors.push(error);
-            }
-            break;
-        }
-        current = decoded;
-    }
-
-    let max_error = errors.iter().cloned().fold(0.0f64, f64::max);
-    let final_error = *errors.last().unwrap_or(&0.0);
-
-    ReencodeSafety {
-        converged_at,
-        max_error,
-        final_error,
-        error_history: errors,
-        safe: converged_at < max_iterations,
-        codec: format!("γ+φ(γ={},φ={})", role_gamma, phi_scale),
-    }
+    reencode_drift(
+        value,
+        max_iterations,
+        format!("γ+φ(γ={},φ={})", role_gamma, phi_scale),
+        |x| {
+            gamma_phi_decode(
+                gamma_phi_encode(x, role_gamma, phi_scale),
+                role_gamma,
+                phi_scale,
+            )
+        },
+    )
 }
 
 /// Test full chain: f64 → f32 → bf16 → f32 → gamma_phi_encode → gamma_phi_decode → bf16 → ...
@@ -127,92 +58,45 @@ pub fn test_full_chain_reencode(
     phi_scale: f32,
     max_iterations: usize,
 ) -> ReencodeSafety {
-    let mut current = value as f32;
-    let mut errors = Vec::new();
-    let mut converged_at = max_iterations;
-
-    for i in 0..max_iterations {
-        // Stage 1: BF16 quantize
-        let bf16 = f32_to_bf16(current);
-        let from_bf16 = bf16_to_f32(bf16);
-
-        // Stage 2: γ+φ encode/decode
-        let gp_encoded = gamma_phi_encode(from_bf16, role_gamma, phi_scale);
-        let gp_decoded = gamma_phi_decode(gp_encoded, role_gamma, phi_scale);
-
-        // Stage 3: back to BF16
-        let re_bf16 = f32_to_bf16(gp_decoded);
-        let final_val = bf16_to_f32(re_bf16);
-
-        let error = (final_val as f64 - value).abs();
-        errors.push(error);
-
-        if i > 0 && (errors[i] - errors[i - 1]).abs() < 1e-15 {
-            converged_at = i;
-            for _ in (i + 1)..max_iterations {
-                errors.push(error);
-            }
-            break;
-        }
-        current = final_val;
-    }
-
-    let max_error = errors.iter().cloned().fold(0.0f64, f64::max);
-    let final_error = *errors.last().unwrap_or(&0.0);
-
-    ReencodeSafety {
-        converged_at,
-        max_error,
-        final_error,
-        error_history: errors,
-        safe: converged_at < max_iterations,
-        codec: format!("BF16+γ+φ(γ={},φ={})", role_gamma, phi_scale),
-    }
+    reencode_drift(
+        value,
+        max_iterations,
+        format!("BF16+γ+φ(γ={},φ={})", role_gamma, phi_scale),
+        |x| {
+            // Stage 1: BF16 quantize
+            let from_bf16 = bf16_to_f32(f32_to_bf16(x));
+            // Stage 2: γ+φ encode/decode
+            let gp_decoded = gamma_phi_decode(
+                gamma_phi_encode(from_bf16, role_gamma, phi_scale),
+                role_gamma,
+                phi_scale,
+            );
+            // Stage 3: back to BF16
+            bf16_to_f32(f32_to_bf16(gp_decoded))
+        },
+    )
 }
 
 /// Test a BATCH of values across the range. Returns (all_safe, worst_case, convergence_stats).
+///
+/// Thin adapter over `jc::drift::reencode_batch` that keeps this module's
+/// historical tuple shape; an empty sweep reports a placeholder "empty" worst
+/// case, as before.
 pub fn test_reencode_batch(
     codec_fn: impl Fn(f64) -> ReencodeSafety,
     test_values: &[f64],
 ) -> (bool, ReencodeSafety, usize, usize) {
-    let mut all_safe = true;
-    let mut worst = None::<ReencodeSafety>;
-    let mut max_converge = 0;
-    let mut safe_count = 0;
-
-    for &v in test_values {
-        let result = codec_fn(v);
-        if result.safe {
-            safe_count += 1;
-        } else {
-            all_safe = false;
-        }
-        if result.converged_at > max_converge {
-            max_converge = result.converged_at;
-        }
-        if worst
-            .as_ref()
-            .map_or(true, |w| result.max_error > w.max_error)
-        {
-            worst = Some(result);
-        }
-    }
-
-    (
-        all_safe,
-        worst.unwrap_or_else(|| ReencodeSafety {
-            converged_at: 0,
-            max_error: 0.0,
-            final_error: 0.0,
-            error_history: vec![],
-            safe: true,
-            codec: "empty".into(),
-        }),
-        safe_count,
-        test_values.len(),
-    )
+    let b = reencode_batch(test_values, codec_fn);
+    let worst = b.worst.unwrap_or_else(|| ReencodeSafety {
+        converged_at: 0,
+        max_error: 0.0,
+        final_error: 0.0,
+        error_history: vec![],
+        safe: true,
+        codec: "empty".into(),
+    });
+    (b.all_safe, worst, b.safe_count, b.total)
 }
-
 /// Test re-encode safety across multiple zipper offsets.
 ///
 /// The golden step (11 mod 17) creates a permutation.

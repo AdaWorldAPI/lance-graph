@@ -254,6 +254,105 @@ pub fn measure_dissonance(
     }
 }
 
+/// Shared stage-finalization: sort scored neighbors, split into focus /
+/// promoted, compute the cognitive markers (staunen/wisdom/epiphany/truth),
+/// and build the `StageResult`.
+///
+/// Factored out of [`DominoCascade::cascade`] and
+/// [`crate::signed_domino::SignedDominoCascade::cascade`] (D-TEH-4, ENTROPY
+/// M8 engine collapse) — both cascades differ only in HOW a table row scores
+/// neighbors (unsigned similarity-above-floor vs signed sign-as-gate); once
+/// scored into `CascadeAtom`s, everything from "split into focus/promoted"
+/// onward was byte-identical duplicate logic. `contradictions` is passed in
+/// pre-computed because the two callers select it differently (unsigned:
+/// filtered from the same energy-sorted `neighbors`; signed: the raw
+/// inhibitory list, unsorted) — that selection is the one place the
+/// algorithms are genuinely different, not merely differently spelled.
+pub(crate) fn finalize_stage(
+    stage: u8,
+    top_k: usize,
+    conf_threshold: f32,
+    mut neighbors: Vec<CascadeAtom>,
+    contradictions: Vec<CascadeAtom>,
+    visit_count: &std::collections::HashMap<u16, u32>,
+    prev_stage: Option<&StageResult>,
+) -> StageResult {
+    neighbors.sort_by(|a, b| b.energy.partial_cmp(&a.energy).unwrap());
+
+    let focus: Vec<CascadeAtom> = neighbors.iter().take(top_k).cloned().collect();
+    let promoted: Vec<CascadeAtom> = neighbors
+        .iter()
+        .skip(top_k)
+        .filter(|a| a.confidence > conf_threshold && a.frequency > 0.5)
+        .take(top_k * 2)
+        .cloned()
+        .collect();
+
+    // Staunen (wonder): focus atoms never visited before + strong connection.
+    let staunen = focus
+        .iter()
+        .filter(|a| visit_count.get(&a.index).copied().unwrap_or(0) == 0)
+        .map(|a| a.frequency * a.confidence)
+        .sum::<f32>()
+        / top_k.max(1) as f32;
+
+    // Wisdom: atoms confirmed across the previous stage's focus too.
+    let wisdom = prev_stage
+        .map(|prev| {
+            let prev_focus: std::collections::HashSet<u16> =
+                prev.focus.iter().map(|a| a.index).collect();
+            let curr_focus: std::collections::HashSet<u16> =
+                focus.iter().map(|a| a.index).collect();
+            prev_focus.intersection(&curr_focus).count() as f32 / top_k.max(1) as f32
+        })
+        .unwrap_or(0.0);
+
+    // Epiphany: previous stage had contradiction, this stage resolves it.
+    let epiphany = prev_stage
+        .filter(|prev| !prev.contradictions.is_empty())
+        .map(|prev| {
+            let prev_c = prev.contradictions.len() as f32;
+            let curr_c = contradictions.len() as f32;
+            if curr_c < prev_c * 0.5 {
+                (prev_c - curr_c) / prev_c.max(1.0)
+            } else {
+                0.0
+            }
+        })
+        .unwrap_or(0.0);
+
+    let truth_freq = focus.iter().map(|a| a.frequency).sum::<f32>() / focus.len().max(1) as f32;
+    let truth_conf = focus.iter().map(|a| a.confidence).sum::<f32>() / focus.len().max(1) as f32;
+
+    StageResult {
+        focus,
+        promoted,
+        contradictions,
+        stage,
+        markers: CognitiveMarkers {
+            staunen,
+            wisdom,
+            epiphany,
+            truth_freq,
+            truth_conf,
+        },
+    }
+}
+
+/// True when the newest stage's focus set equals the previous stage's —
+/// the stability-termination rule shared by both cascades.
+pub(crate) fn is_focus_stable(stages: &[StageResult]) -> bool {
+    let n = stages.len();
+    if n < 2 {
+        return false;
+    }
+    let prev_focus: std::collections::HashSet<u16> =
+        stages[n - 2].focus.iter().map(|a| a.index).collect();
+    let curr_focus: std::collections::HashSet<u16> =
+        stages[n - 1].focus.iter().map(|a| a.index).collect();
+    prev_focus == curr_focus
+}
+
 /// The domino cascade engine.
 pub struct DominoCascade<'a> {
     engine: &'a ThinkingEngine,
@@ -294,7 +393,7 @@ impl<'a> DominoCascade<'a> {
         }
     }
 
-    /// Set ghost bias from a GhostField prediction.
+    /// Set ghost bias from a ghost-prior prediction (`lance_graph_planner::nars::ghost_prior::GhostPrior::prediction`).
     /// Atoms with ghost presence get pre-weighted in the cascade.
     pub fn with_ghost_bias(mut self, bias: Vec<f32>) -> Self {
         self.ghost_bias = Some(bias);
@@ -424,17 +523,8 @@ impl<'a> DominoCascade<'a> {
             let mut neighbors: Vec<CascadeAtom> = deduped.into_values().collect();
             neighbors.sort_by(|a, b| b.energy.partial_cmp(&a.energy).unwrap());
 
-            // Split into focus (top-K), promoted (NARS pass), contradictions
-            let focus: Vec<CascadeAtom> = neighbors.iter().take(self.top_k).cloned().collect();
-
-            let promoted: Vec<CascadeAtom> = neighbors
-                .iter()
-                .skip(self.top_k)
-                .filter(|a| a.confidence > self.conf_threshold && a.frequency > 0.5)
-                .take(self.top_k * 2) // limit promoted count
-                .cloned()
-                .collect();
-
+            // Contradictions selected from the same energy-sorted neighbor
+            // list (unsigned-specific: low frequency + high confidence).
             let contradictions: Vec<CascadeAtom> = neighbors
                 .iter()
                 .filter(|a| a.confidence > self.conf_threshold && a.frequency < self.contra_freq)
@@ -442,81 +532,29 @@ impl<'a> DominoCascade<'a> {
                 .cloned()
                 .collect();
 
-            // ── Compute cognitive markers ──
-
-            // Staunen (wonder): focus atoms never visited before + strong connection
-            let staunen = focus
-                .iter()
-                .filter(|a| visit_count.get(&a.index).copied().unwrap_or(0) == 0)
-                .map(|a| a.frequency * a.confidence)
-                .sum::<f32>()
-                / self.top_k as f32;
-
-            // Wisdom: atoms that appear via multiple independent query paths
-            // (appeared in focus of previous stage AND current stage from different queries)
-            let wisdom = if stage > 0 {
-                let prev_focus: std::collections::HashSet<u16> =
-                    stages[stage - 1].focus.iter().map(|a| a.index).collect();
-                let curr_focus: std::collections::HashSet<u16> =
-                    focus.iter().map(|a| a.index).collect();
-                let convergent = prev_focus.intersection(&curr_focus).count();
-                convergent as f32 / self.top_k.max(1) as f32
-            } else {
-                0.0
-            };
-
-            // Epiphany: previous stage had contradiction, this stage resolves
-            let epiphany = if stage > 0 && !stages[stage - 1].contradictions.is_empty() {
-                let prev_contra = stages[stage - 1].contradictions.len() as f32;
-                let curr_contra = contradictions.len() as f32;
-                if curr_contra < prev_contra * 0.5 {
-                    (prev_contra - curr_contra) / prev_contra.max(1.0)
-                } else {
-                    0.0
-                }
-            } else {
-                0.0
-            };
-
-            // Truth: accumulated NARS across focus atoms
-            let truth_freq =
-                focus.iter().map(|a| a.frequency).sum::<f32>() / focus.len().max(1) as f32;
-            let truth_conf =
-                focus.iter().map(|a| a.confidence).sum::<f32>() / focus.len().max(1) as f32;
-
-            let markers = CognitiveMarkers {
-                staunen,
-                wisdom,
-                epiphany,
-                truth_freq,
-                truth_conf,
-            };
-
-            let result = StageResult {
-                focus: focus.clone(),
-                promoted: promoted.clone(),
+            let result = finalize_stage(
+                stage as u8,
+                self.top_k,
+                self.conf_threshold,
+                neighbors,
                 contradictions,
-                stage: stage as u8,
-                markers,
-            };
-            stages.push(result);
+                &visit_count,
+                stages.last(),
+            );
 
             // Build Q for next stage: focus + promoted
-            query = focus
+            query = result
+                .focus
                 .iter()
-                .chain(promoted.iter())
+                .chain(result.promoted.iter())
                 .map(|a| (a.index, a.energy))
                 .collect();
 
+            stages.push(result);
+
             // Stop if focus is stable (same atoms as previous stage)
-            if stage > 0 {
-                let prev_focus: std::collections::HashSet<u16> =
-                    stages[stage - 1].focus.iter().map(|a| a.index).collect();
-                let curr_focus: std::collections::HashSet<u16> =
-                    stages[stage].focus.iter().map(|a| a.index).collect();
-                if prev_focus == curr_focus {
-                    break;
-                }
+            if is_focus_stable(&stages) {
+                break;
             }
 
             if query.is_empty() {

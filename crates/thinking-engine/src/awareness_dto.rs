@@ -7,8 +7,8 @@
 //! ```
 
 use crate::cognitive_stack::{GateState, RungLevel, StyleFamily};
-use crate::ghosts::GhostType;
 use crate::meaning_axes::{Archetype, AxisActivation, HdrResonance, Viscosity};
+use lance_graph_contract::escalation::GhostEcho;
 
 // ═══════════════════════════════════════════════════════════════════════════
 // RESONANCE DTO — the gestalt + user model
@@ -165,7 +165,7 @@ pub struct QualiaDto {
 
     // ── Persistent traces ──
     /// Active persistent trace types and their intensities.
-    pub traces: Vec<(GhostType, f32)>,
+    pub traces: Vec<(GhostEcho, f32)>,
     /// Unresolved conflict detected.
     pub is_dissonant: bool,
 }
@@ -174,7 +174,7 @@ impl QualiaDto {
     /// Build from qualia 17D + superposition.
     pub fn from_qualia(
         qualia: &crate::qualia::Qualia17D,
-        ghost_summary: &[(u16, GhostType, f32)],
+        ghost_summary: &[(u16, GhostEcho, f32)],
     ) -> Self {
         let (primary, p_dist) = qualia.nearest_family();
         let p_intensity = (1.0 - p_dist / 2.0).clamp(0.0, 1.0);
@@ -199,7 +199,7 @@ impl QualiaDto {
             .and_then(|s| s.split(" = ").next())
             .unwrap_or("neutral");
 
-        let traces: Vec<(GhostType, f32)> = ghost_summary
+        let traces: Vec<(GhostEcho, f32)> = ghost_summary
             .iter()
             .map(|(_, gt, intensity)| (*gt, *intensity))
             .collect();

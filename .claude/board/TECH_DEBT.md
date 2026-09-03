@@ -1,3 +1,204 @@
+## TD-RELIABILITY-COPIES-OUTSIDE-JC-1 (2026-09-02) — OPEN
+
+**Two further copies of the Pearson / Spearman / Cronbach α / ICC battery live
+outside `jc`.** Found while running the D-TEH-3 lift gate
+(`E-THE-LIFT-GATE-FOUND-A-TIE-BLIND-SPEARMAN-1`):
+
+- `ndarray::hpc::reliability` (`pearson`, `spearman`, `cronbach_alpha`,
+  `icc_a1`, `FidelityReport`) — tie-aware, `f64`, returns `0.0` on degenerate
+  input where jc returns `None`. The PRODUCTION copy; consumed by the
+  edge-codec fidelity work.
+- `perturbation-sim::stats` — a self-described zero-dep mirror of the ndarray
+  copy so that crate's validation harness stays standalone.
+
+Neither is wrong the way the retired thinking-engine Spearman was (both average
+ranks over ties). They are still two more sources of truth for math the ruling
+says has ONE home. The ruling itself names the direction for the first — *once
+ndarray is proven bit-exact the same math is re-importable from jc* — so the
+pay-down is a deliberate PR with a bit-exactness gate (same fixtures as jc's
+lift-gate tests, plus the `0.0`-vs-`None` degeneracy contract decided
+explicitly), never a drive-by delete. The perturbation-sim mirror follows
+whatever the ndarray decision is.
+
+Owner: whoever next touches `ndarray::hpc::reliability` or `perturbation-sim`.
+Refs: `E-JC-IS-THE-HOME-OF-ALL-CALIBRATED-MATH-1`, `crates/jc/src/reliability.rs`
+(lift-gate tests), `thinking-engine-harvest-closure-v1` §1d.
+
+## TD-PILLAR11-SCIENTIFIC-LOOPS-BYPASS-NDARRAY-SIMD-1 (2026-09-02) — OPEN
+
+**The debt is not missing SIMD support. It is scientific code bypassing the
+already-complete `ndarray` execution substrate.** (Operator ruling, 2026-09-02.)
+
+No violation was committed — the Pillar-11 legs contain zero raw intrinsics
+(`core::arch` / `_mm*` / `target_feature`: 0 hits in `crates/sigker/src` and
+`crates/jc/src`). They are scalar `f64`, hand-written beside a substrate that
+already owns the machine vocabulary.
+
+**The law, corrected from an earlier weaker reading.** There is no
+"SIMD op exists -> polyfill, else -> scalar fallback" decision at consumer
+level. `ndarray::simd` hides the architecture choice behind ONE bit-exact typed
+surface, and **scalar is one BACKEND of that surface**, not a consumer-authored
+alternative: `F64x8` resolves to AVX-512 (`__m512d`), AVX2 (`f64x4` x2), NEON
+(`[float64x2_t; 4]`), wasm32+simd128 (`[v128; 4]`), and `scalar::F64x8` for
+"other non-x86 targets ... full scalar fallback" (`simd.rs` dispatch arms,
+verified 2026-09-02). So:
+
+**Method-level parity CONFIRMED (operator, 2026-09-02):** *"every backend
+implements every method with parity coverage."* The dispatch check above only
+established that each backend EXPORTS the type; this closes the stronger
+question a composing consumer actually depends on — that a method reached
+through the typed surface is implemented, and bit-exact, on every arm. It is
+what makes "compose from polyfill methods" a safe instruction rather than a
+per-method gamble, and it removes the last conditional from the law below.
+
+```
+named high-level algorithm exists  -> call it
+it does not exist                  -> COMPOSE it from ndarray polyfill methods
+never                              -> a consumer-local scalar arithmetic path
+never                              -> consumer-local intrinsics
+```
+
+    JC tells us what is mathematically true.
+    ndarray tells the machine how to execute it.
+    Everything else is composition, never a second arithmetic implementation.
+
+**For the Goursat kernel the arithmetic is entirely available; the only
+unsolved part is algorithmic SCHEDULING.** `signature_kernel_pde`
+(`sigker/src/kernel.rs:106-131`) computes
+
+```
+k[i+1][j+1] = k[i+1][j] + k[i][j+1] - k[i][j] + c_ij·k[i][j]
+            = mul_add(c_ij, diag, left + up - diag)
+```
+
+`mul_add`, `from_slice`, `copy_to_slice`, `reduce_sum`, `select` all ship on
+`F64x8` today. What blocks it is that `k[i+1][j+1]` reads `k[i+1][j]` — a
+strict serial recurrence along `j` in row-major order. Independence lives on
+the **anti-diagonal**; the transformation needed is
+`row-major serial recurrence -> anti-diagonal / rolling-wavefront formulation`.
+
+**A1 determines A2's shape — the architectural reason not to jump from
+`Vec<Vec>` straight to SIMD.** In a flat row-major buffer the anti-diagonal is
+STRIDED (stride `m-1`), so a naive wavefront needs gather. **Three rolling
+anti-diagonal buffers make every wavefront load contiguous and can eliminate
+the gather entirely.** The storage decision therefore fixes which lane ops A2
+needs at all; it is not a warm-up measurement.
+
+**W1.5 falsifier (do not run from a banking session):**
+
+| arm | shape | relation |
+|---|---|---|
+| A0 | current `Vec<Vec<f64>>`, row-major | reference |
+| A1 | flat / rolling storage, SAME recurrence and order | **A0 = A1 exactly** — only storage changes |
+| A2 | rolling anti-diagonal traversal via `ndarray::simd::method()` | A1 <-> A2 gets a PREDECLARED solver tolerance: traversal changes evaluation order |
+
+The A1<->A2 tolerance is stated in advance, never discovered after the fact.
+
+**Inventory — the scalar surfaces in the same two crates.** Straightforwardly
+canonical (`reduce_sum` over `mul_add`): `LogSignature::{dot, cosine}`,
+`RandomizedSignature::{dot, cosine}`, `linear_path_kernel_closed_form`.
+Accumulation-shaped: `signature_truncated`, `log_signature_truncated`,
+`RandomizedSignature::encode`, `hydrate_signature`, `signature_kernel`,
+`signature_kernel_normalized`. Combinatorial rather than arithmetic, and
+plausibly staying scalar: `shuffle_product`, `enumerate_lyndon_words`,
+`witt_component` / `witt_dimension`.
+
+**Not shipped:** `signature_pde_sweep` and `shuffle_product_lift` return zero
+hits in `ndarray/src/` — they remain the W1.5 catalogue's shopping list. The
+missing thing is traversal/composition, NOT arithmetic; whether a composition
+is later promoted to a named `signature_pde_sweep()` is purely an API/reuse
+question, not a blocker.
+
+**Pay by:** W1.5, gated on `jc Pillar 11` (green for the lattice leg,
+`7751581f`). **Not W5** — W5 is workload-pressure machinery and stays HOLD
+(4609 vs the 11 585-point 1 GiB threshold) regardless of any speedup here.
+
+**A0/A1/A2 RUN (2026-09-02, same day — operator: "you didn't try the 25-26
+seconds with ndarray yet").** `crates/jc/examples/goursat_substrate_probe.rs`,
+release, 4097-point paths (16.8M cells). Every A2 lane op is
+`ndarray::simd::F64x8::mul_add` — the body is three FMAs
+(`t = mul_add(1,left,up)`, `u = mul_add(-1,diag,t)`, `new = mul_add(c,diag,u)`);
+no `Add`/`Sub` operator was needed, and none was minted.
+
+| target-cpu | backend | A0 | A1 | A2 | A1/A2 | A0=A1 | \|A1-A2\|/A1 |
+|---|---|---|---|---|---|---|---|
+| generic x86-64 (no target-cpu) | scalar arm | 0.182 s | 0.169 s | **0.773 s** | **0.22x** | bit-exact | 2.431e-13 |
+| x86-64-v3 (AVX2) | `f64x4` x2 | 0.163 s | 0.150 s | 0.0165 s | **9.12x** | bit-exact | 2.431e-13 |
+| x86-64-v4 (AVX-512) | `__m512d` | 0.171 s | 0.157 s | 0.0182 s | **8.62x** | bit-exact | 2.431e-13 |
+
+Four findings, each falsifiable and each measured:
+
+1. **Storage was NOT the wall; the recurrence was.** A1/A0 = 1.09x. The
+   hypothesis banked above — that a flat buffer alone would close most of the
+   gap — is **FALSIFIED**. The probe was built to answer that and it did.
+2. **A build with no `target-cpu` is a REGRESSION, not a no-op.** At generic x86-64 the
+   polyfill's scalar arm runs the wavefront 4.5x SLOWER than the flat scalar
+   loop: eight lanes emulated through arrays plus the wavefront bookkeeping.
+   Until this commit lance-graph had NO `.cargo/config.toml`, so every local
+   build landed there. `.cargo/config.toml` now pins v3 (CI already did via
+   `RUSTFLAGS` in `.github/workflows/*.yml`), with `config-avx512.toml` /
+   `config-native.toml` mirroring ndarray's.
+3. **Bit-exact across backends, as confirmed.** `|A1-A2|/A1` is identical to the
+   last digit on scalar, AVX2 and AVX-512 at every size. The delta itself
+   (~1e-13 at 4097) is the fused-vs-separate rounding of `c·diag`
+   accumulated over 16.8M cells — A2 is the MORE accurate arm.
+4. **AVX2 ~ AVX-512 here** (9.1x vs 8.6x): the wavefront is latency-bound on
+   the diagonal recurrence, not width-bound. Widening lanes buys nothing until
+   the dependency chain is restructured; that is a scheduling question, not a
+   substrate one.
+
+**Correction (2026-09-02, same session):** an earlier revision of this entry
+labelled the no-`target-cpu` row `"386"` and attributed the phrase to the
+operator. That was a misreading of `x86-64-v4` in a terse message. The
+measurement is unchanged; only the label was wrong and is removed above. The
+commit message on `5df2d785` still carries it and is not rewritten (pushed).
+Also recorded: `.cargo/config-avx512.toml`'s `sapphirerapids` is a SUPERSET of
+Cascade Lake / Ice Lake silicon — this session's host is Cascade Lake (family 6
+model 0x55; `amx_report()`: `cpu_model()=OtherX86`, `expects_amx=false`). On
+such hosts `x86-64-v4` or `native` is the correct pick; the probe was run with
+`x86-64-v4`, so its numbers stand.
+
+**SPR vs EMR — resolved (2026-09-02, operator refinement + ndarray git history):**
+not the enablement, the DETECTION. Pre-PR-#217 (`src/simd_caps.rs` @ `bdf243cc`,
+2026-06-13) detected AMX by CPUID feature bits alone (`amx_tile`/`amx_int8`/
+`amx_bf16`/`amx_fp16`, EDX bits 24/25/22) — no XCR0 gate, no model table, and
+the `arch_prctl` issued on syscall 157, so it always failed. PR #217
+(`e563fdcd`, 2026-06-14) replaced it with the four-gate detector (CPUID +
+OSXSAVE + XCR0 + `arch_prctl` 158) PLUS the CPUID model table (`CpuModel`:
+SPR 0x8F / EMR 0xCF / GNR 0xAD,0xAE / SRF 0xAF), added to tell "no silicon"
+from "not OS-enabled". On SPR the old detector said *present* while nothing
+ever executed (every tile test early-returned — Gotcha 9); on EMR the new
+detector said *present AND enabled* and tiles ran. The `arch_prctl` grant is
+the same on both; what differed was the detection code, and the change landed
+on EMR silicon. `amx-enablement-and-kernel.md` §2 says this ("EMR was simply
+the host where gate 4 got fixed first"); the operator's "detected differently"
+is the same fact from the outside. Minor inconsistency noticed, not chased:
+`cpu_ops.rs:186` says "Linux 5.19+", the doc says "5.16+".
+
+Storage detail that held: with `dy` stored REVERSED, the anti-diagonal walk
+is forward in `i`, so k-buffers, `dx` and `dy` are all contiguous slices —
+**no gather**, exactly as predicted by "A1 determines A2's shape".
+
+`jc` now depends on `ndarray` as a plain, non-optional `[dependencies]`
+entry; its "zero external deps in production" header is retired (operator:
+ndarray is mandatory everywhere). What stays standalone is the PROOF.
+
+## TD-GHOST-TIER-NAME-COLLISION-1 (2026-09-02) — OPEN, doc-only
+
+`crates/lance-graph-contract/src/counterfactual.rs` calls the −6 minority-pole
+lane a "ghost-tier mailbox" in seven places (lines 16, 111, 229, 243, 247, 340,
+402). The tree already has a "ghost" family with a different meaning: the
+lingering cognitive trace (`thinking_engine::ghosts::GhostType` / `GhostField`,
+contract `escalation::GhostEcho` / `WisdomMarker`). A reader meeting
+`GhostType::Wisdom` beside a "ghost-tier mailbox" can conclude the trace field
+is the counterfactual carrier; it is not (board:
+`E-A-GHOST-TRACE-IS-NOT-THE-COUNTERFACTUAL-LANE-1`). **Pay by:** rename the
+wording to "counterfactual-tier" in the same PR that next touches
+`counterfactual.rs` (D-ATOM-4 v3 / the mailbox arm) — doc comments only, no
+identifier is named "ghost" in that file, so no API changes. Never as a
+drive-by on an unrelated PR. Surfaced by an external review of #1137,
+verified in source.
+
 ## TD-DEEPNSM-V2-SESSION-RESIDUE (2026-08-22) — OPEN
 
 Three leftovers from the corpus-addressing session, surfaced by its own review
@@ -790,6 +991,8 @@ Both recorded so P4 (D-TRI-2/3 ancestry-pipeline consolidation) inherits them. R
 
 **Surfaced during P3** (rung dedup). thinking-engine is a workspace-EXCLUDED crate (root Cargo.toml `exclude`), so no CI/clippy gate runs on it — it has accumulated ~40 `clippy -D warnings` lints (loop-index, `map_or` simplify, too-many-args, missing-Default; all in modules P3 never touched — e.g. `cognitive_stack.rs:242` MetaCognition::new, `world_model.rs:154` from_engine_state) and at least one test-compile break (`DualResult` missing `convergence_signed`/`convergence_unsigned` fields, a stale test). The **lib builds clean**; only `--tests` and `clippy -D warnings` fail. Correlates with E-RUNG-ASCENT-WIRED-1's finding that the whole crate is orphaned from the production spine (only bridge_gate→callcenter + dto→driver[feature] are external wires). PAYOFF: gated on the P4 ancestry-consolidation decision (wire the gems into the spine → then it earns a CI slot and the debt gets paid; or retire the orphaned cluster). Not paid in P3 (out of scope; excluded crate).
 
+**Update 2026-09-03 (D-TEH-3 fate-probe PR, partial paydown, both named items resolved).** Both examples the original entry NAMED explicitly are fixed: `world_model.rs:154` (`from_engine_state`, 10 args → grouped into a new `ThoughtSignals` bundle, 4 args; zero in-tree callers so behaviour is unchanged by construction, verified by grep across the whole repo) and `cognitive_stack.rs:242` (`MetaCognition::new` → added `impl Default for MetaCognition` calling `new()`, standard `new_without_default` fix). Also paid down while touching adjacent files surfaced by the same `clippy -D warnings` run: `tensor_bridge.rs::pairwise_cosines` (scoped `#[allow(clippy::needless_range_loop)]` with a comment — the symmetric double-write to `matrix[i][j]`/`matrix[j][i]` alongside `self.embeddings[i]`/`[j]` has no single-iterator expression, clippy's own suggested rewrite only reaches row `i`), `qualia.rs` (19 `for i in A..=B { w[i] = C; }` range-fill loops in `family_band_weights` → `w[A..=B].fill(C)`, plus `to_voice_channels`'s zip-instead-of-index rewrite — 20 lints, all mechanical constant-fills, zero behaviour risk), `signed_domino.rs` (one `for j in 0..n` → `for (j, &val) in row.iter().enumerate()`), `dto.rs::ThoughtIndex` (`#[derive(Default)]` — every field is a `Vec`, whose default is empty, matching `new()`'s body exactly). **25 of the ~40 lints paid; `cargo test --lib` on every touched module green (43/43) before and after.** Remaining ~13 (excluding 3 unrelated `jc`-crate dead_code warnings that are a separate crate's own debt) span `cognitive_trace.rs`, `contract_bridge.rs`, `f32_engine.rs`, `l4.rs` (x3), `l4_bridge.rs` (x2), `layered.rs`, `pooling.rs`, `branching.rs`, `composite_engine.rs` — not read this pass, left as this entry's continuing debt rather than risking a behaviour change on unfamiliar code under a Sonnet-tier grindwork budget. The P4 ancestry-consolidation gate this entry's PAYOFF names is still the real close.
+
 ## TD-ONTOLOGY-CLIPPY-DEBT-1 — lance-graph-ontology (member) has pre-existing clippy -D warnings errors that block dependent `-p` clippy (2026-07-17)
 
 **Surfaced during P3.** `cargo clippy -p cognitive-shader-driver -- -D warnings` fails (exit 101) entirely inside `lance-graph-ontology` (a transitive dep): `doc-lazy-continuation` ×N, `iter-cloned-collect` (`.iter().copied().collect()` → `to_vec()`), and deprecated `oxrdf::Subject` type-alias uses (ttl_parse.rs, owl.rs, op_emitter.rs, lib.rs). P3 touches none of ontology; the driver's OWN code is clippy-clean (0 findings in driver.rs). Pre-existing by construction (not in P3's diff). PAYOFF: mechanical (doc reflow + `to_vec()` + `NamedOrBlankNode` migration), its own small PR — not P3 scope. Flags that repo CI likely does not run full-workspace `clippy -D warnings`, or main is already red there.
@@ -1394,7 +1597,7 @@ multi-antecedent path for real.
 
 - **Severity:** P3 (cosmetic type-dup; no runtime correctness risk — the two enums are not exchanged across a crate boundary today)
 - **Surfaced in:** D-PERSONA-1 (`rung-persona-orchestration-v1` §2), 2026-05-26, branch `claude/splat3d-cpu-simd-renderer-MAOO0`
-- **Status:** Open
+- **Status:** RESOLVED 2026-09-02 (D-TEH-2): `thinking_engine::ghosts::GhostType` deleted with `ghosts.rs`; the lab crate's `persona` / `world_model` / `awareness_dto` import `contract::escalation::GhostEcho` directly. One declaration remains.
 - **Description:** `lance_graph_contract::escalation::GhostEcho` (8 variants: Affinity / Epiphany / Somatic / Staunen / Wisdom / Thought / Grief / Boundary) is a second declaration of the same 8 named ghost echoes already in `thinking_engine::ghosts::GhostType` (`crates/thinking-engine/src/ghosts.rs`). The duplication is *intentional and currently unavoidable*: `lance-graph-contract` is ZERO-DEP and cannot import the excluded `thinking-engine` crate, and the contract is the canonical "single source of truth for types" home for the wisdom-marker substrate (≤32 named identities per I-VSA-IDENTITIES). The two are NOT interchanged across a boundary today, so there is no silent-corruption risk (cf. I-LEGACY-API-FEATURE-GATED), only a naming/maintenance dup.
 - **Resolution (when thinking-engine joins the workspace):** make `thinking_engine::ghosts::GhostType` a re-export of (or `From`/`Into` with) `contract::escalation::GhostEcho`, retiring the thinking-engine copy. Until then, keep the variant sets identical (same 8, same order) so a future `transmute`/`From` bridge is trivial.
 - **Cross-ref:** `crates/lance-graph-contract/src/escalation.rs` (`GhostEcho`, `WisdomMarker`); `crates/thinking-engine/src/ghosts.rs` (`GhostType`, `GhostField`); `docs/TYPE_DUPLICATION_MAP.md`; `.claude/plans/rung-persona-orchestration-v1.md` §2 + §8.
@@ -1471,15 +1674,17 @@ multi-antecedent path for real.
 
 ---
 
-### TD-NDARRAY-SIMD-SIGNATURE-PDE-SWEEP (W1.5-#6, DEFERRED)
+### TD-NDARRAY-SIMD-SIGNATURE-PDE-SWEEP (W1.5-#6, SHIPPED)
 
 - **Severity:** P3 (deferred; activates when sigker is benchmarked at production carrier widths)
 - **Surfaced in:** sigker architectural review 2026-05-16; `.claude/knowledge/ndarray-vertical-simd-alien-magic.md` §W1.5
-- **Status:** Deferred (gated on `jc Pillar 11` activation per `crates/sigker/src/lib.rs:42-47`)
-- **Description:** sigker computes signature kernel `〈S(X), S(Y)〉` via Goursat PDE (depth-∞ in O(T₁·T₂) flops, no signature materialization). This is a 2D banded grid sweep over `F32x16` state with a kernel-eval closure per step — the dominant primitive for any path-signature workload. Currently scalar Rust in `sigker::kernel`. Activation requires `jc Pillar 11` (Hambly-Lyons signature uniqueness) certification.
-- **Required API surface (when activated):**
+- **Status:** ~~Deferred~~ **SHIPPED 2026-09-02.** Both activation clauses measured true: sigker's `cubature_vs_randomized` example already exercises production carrier widths (PATH_DIM=4/PATH_LEN=64/N_PATHS=256), and `jc`'s own `src/lib.rs` records Pillar 11 activated since PR #348 (`crates/jc/src/lib.rs`'s header, not the stale prose that used to sit at `crates/sigker/src/lib.rs:42-47` — that doc comment is now corrected too, same commit). Shipped as `ndarray::hpc::signature_pde::signature_pde_sweep` (ndarray PR #293), generalized to arbitrary path dimension rather than the `F32x16`-fixed sketch originally specified below (that sketch predates the discovery that `sigker`'s carrier is `f64`/`Vec<Vec<f64>>`, not `f32`/`F32x16` — the shipped API is a deliberate, better-fitted deviation from the sketch, not a shortfall against it). `sigker::signature_kernel_pde` now delegates to it directly.
+- **Description (as originally scoped, kept for the historical shape):** sigker computes signature kernel `〈S(X), S(Y)〉` via Goursat PDE (depth-∞ in O(T₁·T₂) flops, no signature materialization). This is a 2D banded grid sweep over `F32x16` state with a kernel-eval closure per step — the dominant primitive for any path-signature workload. Currently scalar Rust in `sigker::kernel`. Activation requires `jc Pillar 11` (Hambly-Lyons signature uniqueness) certification.
+- **Required API surface (as originally scoped):**
   - `pub fn signature_pde_sweep<F>(x: &[F32x16], y: &[F32x16], kernel_fn: F) -> f32 where F: Fn(F32x16, F32x16) -> F32x16;` — Goursat 2D sweep, closure-parameterized kernel, banded update.
-- **Cross-ref:** `crates/sigker/src/lib.rs:42-47`; `crates/sigker/src/kernel.rs`; CLAUDE.md `I-NOISE-FLOOR-JIRAK` (sigker bypasses).
+- **Shipped API surface (what actually landed):**
+  - `pub fn signature_pde_sweep(x: &[Vec<f64>], y: &[Vec<f64>]) -> f64` in `ndarray::hpc::signature_pde` — matches `sigker::signature_kernel_pde`'s exact signature for drop-in use, arbitrary dimension via per-axis SoA arrays, `F64x8::mul_add`-based anti-diagonal wavefront (not closure-parameterized — the kernel here is fixed as the Euclidean inner product, not user-supplied).
+- **Cross-ref:** `crates/sigker/src/lib.rs`; `crates/sigker/src/kernel.rs`; `crates/jc/examples/w5_trigger_check.rs`; `crates/jc/examples/goursat_substrate_probe.rs` (the dim=2 probe this generalizes); `ndarray/src/hpc/signature_pde.rs`; `ndarray/examples/signature_pde_bench.rs`; CLAUDE.md `I-NOISE-FLOOR-JIRAK` (sigker bypasses).
 
 ---
 

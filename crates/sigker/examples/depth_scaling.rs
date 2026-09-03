@@ -39,10 +39,10 @@ fn main() {
     println!("Depth scaling bench — d={PATH_DIM}, T={PATH_LEN}");
     println!();
     println!(
-        "{:>5} | {:>10} | {:>10} | {:>14} | {:>14} | {:>14}",
-        "depth", "full_dim", "log_dim", "trunc_kernel", "pde_kernel", "log_sig_compute"
+        "{:>5} | {:>10} | {:>10} | {:>7} | {:>14} | {:>14} | {:>14}",
+        "depth", "full_dim", "log_dim", "ratio", "trunc_kernel", "pde_kernel", "log_sig_compute"
     );
-    println!("{}", "-".repeat(80));
+    println!("{}", "-".repeat(92));
 
     let paths: Vec<Vec<Vec<f64>>> = (0..N_PAIRS_PER_DEPTH * 2)
         .map(|i| make_path(0xC0FFEE + i as u64))
@@ -75,8 +75,14 @@ fn main() {
         let log_us = t0.elapsed().as_micros() as f64 / N_PAIRS_PER_DEPTH as f64;
 
         println!(
-            "{:>5} | {:>10} | {:>10} | {:>11.1} µs | {:>11.1} µs | {:>11.1} µs",
-            depth, full_dim, log_dim, trunc_us, pde_us, log_us
+            "{:>5} | {:>10} | {:>10} | {:>6.2}× | {:>11.1} µs | {:>11.1} µs | {:>11.1} µs",
+            depth,
+            full_dim,
+            log_dim,
+            full_dim as f64 / log_dim as f64,
+            trunc_us,
+            pde_us,
+            log_us
         );
     }
 
@@ -84,7 +90,9 @@ fn main() {
     println!("Reading:");
     println!("  - trunc_kernel grows ~d^(2N) — the wall.");
     println!("  - pde_kernel stays flat in depth (depth-∞ in O(T·T) flops).");
-    println!("  - log_sig_compute pays the same Magnus cost but stores 7-13× less.");
+    println!("  - log_sig_compute pays the same Magnus cost but stores `ratio`× less.");
+    println!("    That ratio GROWS with depth (2.1× at N=2, 7.6× at N=8 for d=4);");
+    println!("    the often-quoted 7-13× is the N>=8 regime, not a flat constant.");
     println!();
     println!("Production guidance:");
     println!("  - Need a kernel matrix? → signature_kernel_pde");

@@ -213,7 +213,8 @@ pub use savant_reasoners::{
 
 // PR-F1 — UnifiedBridgeGate<B>: production CognitiveBridgeGate impl.
 // Wraps UnifiedBridge<B>; Chinese-wall check fires before policy evaluation
-// on cross-tenant ops (§3.8). No dep on thinking-engine from thinking-engine.
+// on cross-tenant ops (§3.8). The gate trait lives in lance-graph-contract
+// (D-TEH-1); this crate has no dependency on thinking-engine.
 pub mod cognitive_bridge_gate;
 pub use cognitive_bridge_gate::UnifiedBridgeGate;
 

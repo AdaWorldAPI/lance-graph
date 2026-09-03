@@ -114,6 +114,15 @@ classid can resolve to an R2IL body in the content tier.
 The profiler already exists: **`AlphaStamp.visits` is the hotness counter.**
 Meta-awareness and profile-guided optimization are one mechanism at two rungs.
 
+> **⊘ 2026-08-31:** the hex *plasticity overlay* was measured and failed
+> twice — `E-Q6-HEX-FAILS-CONTENT-ADDRESSING-IS-CAPACITY-DESTROYING-UNDER-A-SKEWED-DISTRIBUTION-1`
+> and `E-Q7-FREQUENCY-SIZING-RESCUES-THE-LEARNING-GATE-BUT-NOT-THE-INTERFERENCE-CLAIM-AND-THE-2-BYTE-RAILS-ARE-COMPLEMENTARY-NOT-COMPETING-1`.
+> The doctrine below is UNAFFECTED, and that is the point of it: the exact
+> tables are the authority whatever the proposer's recall turns out to be, so
+> a failed or unlocated proposer costs correctness nothing. Do not confuse
+> this overlay with the `6×(u8:u8)` RAIL, which is canon —
+> `E-PALETTE256-IS-A-NEEDLE-THE-COLON-IS-THE-DISTRIBUTION-1`.
+
 **Index-never-authority:** a learned encoding (hexagon) *proposes*; the exact
 table *verifies*; the disagreement tail fails loud and becomes training
 signal, never a silent mis-execute. The 99.6% hexagon figure is

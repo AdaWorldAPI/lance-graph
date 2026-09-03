@@ -12,8 +12,8 @@
 //! ```
 
 use crate::cognitive_stack::{GateState, StyleFamily};
-use crate::ghosts::GhostType;
 use crate::meaning_axes::{Archetype, HdrResonance, Viscosity};
+use lance_graph_contract::escalation::GhostEcho;
 
 // ═══════════════════════════════════════════════════════════════════════════
 // SELF STATE — the agent's internal awareness
@@ -124,7 +124,7 @@ pub struct ContextState {
     /// Focus level (0.0–1.0).
     pub clarity: f32,
     /// Dominant persistent trace type (if any).
-    pub dominant_trace: Option<GhostType>,
+    pub dominant_trace: Option<GhostEcho>,
     /// SPO triples extracted this cycle.
     pub spo_count: u16,
     /// Unresolved conflict detected.
@@ -149,21 +149,39 @@ pub struct WorldModelDto {
     pub context_state: ContextState,
 }
 
+/// Per-cycle scalar signals fed into [`WorldModelDto::from_engine_state`],
+/// grouped so the constructor takes the three stateful objects (`agent` /
+/// `field` / `qualia`) plus one bundle instead of ten positional args.
+#[derive(Clone, Debug)]
+pub struct ThoughtSignals {
+    pub dissonance: f32,
+    pub free_energy: f32,
+    pub lens_agreement: f32,
+    pub spo_count: u16,
+    pub calibration_error: f32,
+    /// The thought's ghost-prior summary (planner `GhostPrior`): active count
+    /// and the dominant echo. The agent no longer owns the field (D-TEH-2).
+    pub trace_count: u16,
+    pub dominant_trace: Option<GhostEcho>,
+}
+
 impl WorldModelDto {
     /// Build from the thinking engine's current state.
     pub fn from_engine_state(
         agent: &crate::persona::Agent,
         field: &crate::superposition::SuperpositionField,
         qualia: &crate::qualia::Qualia17D,
-        dissonance: f32,
-        free_energy: f32,
-        lens_agreement: f32,
-        spo_count: u16,
-        calibration_error: f32,
+        signals: ThoughtSignals,
     ) -> Self {
-        let ghost_summary = agent.ghosts.summary();
-        let dominant_trace = ghost_summary.first().map(|g| g.1);
-
+        let ThoughtSignals {
+            dissonance,
+            free_energy,
+            lens_agreement,
+            spo_count,
+            calibration_error,
+            trace_count,
+            dominant_trace,
+        } = signals;
         let hdr = HdrResonance::new(
             lens_agreement,
             1.0 - dissonance,
@@ -204,7 +222,7 @@ impl WorldModelDto {
                 confidence: lens_agreement,
                 calibration_error,
                 should_acknowledge_limits: calibration_error > 0.2 && lens_agreement < 0.4,
-                trace_count: agent.ghosts.active_count() as u16,
+                trace_count,
                 free_energy,
                 thought_count: agent.thought_count,
             },

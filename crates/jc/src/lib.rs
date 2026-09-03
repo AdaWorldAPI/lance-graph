@@ -62,6 +62,17 @@ pub mod reliability;
 // Cohen's d is deliberately out of scope — the effect-size family here is r.
 pub mod stats;
 
+// Drift statistics (D-TEH-3) — re-encode convergence (`reencode_drift` /
+// `reencode_batch`) and correction-delta summaries (`delta_summary`), lifted
+// from the thinking-engine lab crate per E-JC-IS-THE-HOME-OF-ALL-CALIBRATED-
+// MATH-1. NOT a pillar. The lab keeps the codec glue and calls in here.
+pub mod drift;
+
+// Lens quorum (D-TEH-3) — per-pair `u8` agreement across k lens tables and
+// the quorum bands it maps to, plus `cronbach_report` (per-subject variances
+// over `reliability::cronbach_alpha`). Lifted with `drift`; NOT a pillar.
+pub mod quorum;
+
 // PROBE-SIG-CHECKSUM — depth-2 truncated signature as a replayable
 // trajectory digest (H.268 probe wave, grades E-WH-TWO-SIDES-SIG-CHECKSUM-1
 // leg 2). A probe, not a 12th pillar: intentionally NOT added to the

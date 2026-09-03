@@ -542,4 +542,170 @@ mod tests {
             "icc: expected finite or None, got {v:?}"
         );
     }
+    // ── D-TEH-3 lift gate ───────────────────────────────────────────────
+    //
+    // E-JC-IS-THE-HOME-OF-ALL-CALIBRATED-MATH-1: a copy elsewhere is lifted
+    // only if the two implementations agree on a fixture that can DISTINGUISH
+    // them. Both retired thinking-engine forms are transcribed here verbatim
+    // (in their own precision / rank convention) so the comparison outlives
+    // the deleted source and re-runs on every CI pass.
+
+    /// The retired `thinking_engine::cronbach::cronbach_alpha`: same
+    /// population-variance formula, computed in `f32`, `0.0` on degeneracy.
+    fn retired_cronbach_f32(items: &[&[f32]]) -> f32 {
+        fn variance(data: &[f32]) -> f32 {
+            let n = data.len() as f32;
+            if n < 2.0 {
+                return 0.0;
+            }
+            let mean = data.iter().sum::<f32>() / n;
+            data.iter().map(|x| (x - mean).powi(2)).sum::<f32>() / n
+        }
+        let k = items.len();
+        if k < 2 {
+            return 0.0;
+        }
+        let n = items[0].len();
+        if n < 2 || items.iter().any(|it| it.len() != n) {
+            return 0.0;
+        }
+        let totals: Vec<f32> = (0..n)
+            .map(|s| items.iter().map(|it| it[s]).sum::<f32>())
+            .collect();
+        let var_total = variance(&totals);
+        if var_total < 1e-10 {
+            return 0.0;
+        }
+        let var_sum: f32 = items.iter().map(|it| variance(it)).sum();
+        let kf = k as f32;
+        (kf / (kf - 1.0)) * (1.0 - var_sum / var_total)
+    }
+
+    /// The retired `thinking_engine::ground_truth::spearman_rank_correlation`:
+    /// Pearson on ORDINAL ranks (sort position, ties broken by index), `f32`.
+    fn retired_spearman_ordinal(a: &[f32], b: &[f32]) -> f32 {
+        fn ranks(values: &[f32]) -> Vec<f32> {
+            let mut idx: Vec<(usize, f32)> =
+                values.iter().enumerate().map(|(i, &v)| (i, v)).collect();
+            idx.sort_by(|x, y| x.1.partial_cmp(&y.1).unwrap());
+            let mut out = vec![0.0f32; values.len()];
+            for (rank, &(orig, _)) in idx.iter().enumerate() {
+                out[orig] = rank as f32;
+            }
+            out
+        }
+        let n = a.len().min(b.len());
+        if n < 2 {
+            return 0.0;
+        }
+        let (ra, rb) = (ranks(a), ranks(b));
+        let ma = ra.iter().sum::<f32>() / n as f32;
+        let mb = rb.iter().sum::<f32>() / n as f32;
+        let (mut num, mut da2, mut db2) = (0.0f32, 0.0f32, 0.0f32);
+        for i in 0..n {
+            let (da, db) = (ra[i] - ma, rb[i] - mb);
+            num += da * db;
+            da2 += da * da;
+            db2 += db * db;
+        }
+        let den = (da2 * db2).sqrt();
+        if den > 1e-10 {
+            num / den
+        } else {
+            0.0
+        }
+    }
+
+    /// Cronbach: the two forms are the SAME formula, so they agree wherever
+    /// `f32` can carry the arithmetic (the known-value fixture, to f32
+    /// tolerance) — and the same fixture shifted by 1e7 shows why the copy
+    /// dies rather than lifts: the `f32` mean rounds to the nearest unit at
+    /// that magnitude, the deviations lose their information, and the retired
+    /// form returns garbage while the `f64` estimate is unchanged. Verdict:
+    /// LIFT (jc's is the same estimator, in a precision that survives the
+    /// data). Disable: compute this module's α in `f32` too → the shifted
+    /// half goes red.
+    #[test]
+    fn lift_gate_cronbach_agrees_with_the_retired_f32_form_only_where_f32_survives() {
+        let base = [
+            vec![2.0, 4.0, 3.0, 5.0],
+            vec![3.0, 5.0, 3.0, 6.0],
+            vec![1.0, 3.0, 2.0, 4.0],
+        ];
+        let base32: Vec<Vec<f32>> = base
+            .iter()
+            .map(|it| it.iter().map(|&v| v as f32).collect())
+            .collect();
+        let refs: Vec<&[f32]> = base32.iter().map(Vec::as_slice).collect();
+        let ours = cronbach_alpha(&base).unwrap();
+        let theirs = f64::from(retired_cronbach_f32(&refs));
+        assert!(approx(ours, 0.984_615, 1e-5));
+        assert!(
+            approx(ours, theirs, 1e-5),
+            "agree on the plain fixture: {ours} vs {theirs}"
+        );
+
+        // The distinguishing half: an affine shift leaves α invariant in exact
+        // arithmetic (variances are shift-free), so the f64 answer must not
+        // move, and the f32 answer must — that is what proves the fixture
+        // can tell the two apart.
+        let shift = 1.0e7;
+        let shifted: Vec<Vec<f64>> = base
+            .iter()
+            .map(|it| it.iter().map(|v| v + shift).collect())
+            .collect();
+        let shifted32: Vec<Vec<f32>> = shifted
+            .iter()
+            .map(|it| it.iter().map(|&v| v as f32).collect())
+            .collect();
+        let refs32: Vec<&[f32]> = shifted32.iter().map(Vec::as_slice).collect();
+        let ours_shifted = cronbach_alpha(&shifted).unwrap();
+        let theirs_shifted = f64::from(retired_cronbach_f32(&refs32));
+        assert!(
+            approx(ours_shifted, ours, 1e-9),
+            "f64 α is shift-invariant: {ours_shifted}"
+        );
+        assert!(
+            !approx(theirs_shifted, ours, 1e-3),
+            "the retired f32 form must lose the fixture at 1e7: got {theirs_shifted}"
+        );
+    }
+
+    /// Spearman: the retired form is NOT the same estimator — it ranks ties
+    /// by position instead of averaging them. Tie-free data cannot tell the
+    /// two apart (both give the same ρ, to f32 tolerance); a single tie does:
+    /// the ordinal form calls `[1,2,2,3]` a perfect monotone match of
+    /// `[1,2,3,4]` (ρ = 1), the average-rank form gives the textbook
+    /// 0.948683. Verdict: PERFECT-IN-JC (the tie correction already here is
+    /// the fix; the copy dies). Disable: rank ties by position in
+    /// `average_ranks` → the tie half goes red.
+    #[test]
+    fn lift_gate_spearman_tie_fixture_separates_the_retired_ordinal_rank_form() {
+        // Tie-free: agreement (to f32 tolerance).
+        let x = [1.0, 2.0, 3.0, 4.0, 5.0];
+        let y = [3.0, 1.0, 4.0, 5.0, 2.0];
+        let x32: Vec<f32> = x.iter().map(|&v| v as f32).collect();
+        let y32: Vec<f32> = y.iter().map(|&v| v as f32).collect();
+        let ours = spearman(&x, &y).unwrap();
+        let theirs = f64::from(retired_spearman_ordinal(&x32, &y32));
+        assert!(approx(ours, theirs, 1e-6), "tie-free: {ours} vs {theirs}");
+        assert!(
+            ours.abs() < 0.99,
+            "the tie-free fixture must not be degenerate"
+        );
+
+        // One tie: divergence, and jc holds the hand-computed value.
+        let xt = [1.0, 2.0, 3.0, 4.0];
+        let yt = [1.0, 2.0, 2.0, 3.0];
+        let xt32: Vec<f32> = xt.iter().map(|&v| v as f32).collect();
+        let yt32: Vec<f32> = yt.iter().map(|&v| v as f32).collect();
+        let ours_t = spearman(&xt, &yt).unwrap();
+        let theirs_t = f64::from(retired_spearman_ordinal(&xt32, &yt32));
+        assert!(approx(ours_t, 0.948_683, 1e-5), "jc: {ours_t}");
+        assert!(
+            approx(theirs_t, 1.0, 1e-6),
+            "ordinal ranks call the tie a perfect match: {theirs_t}"
+        );
+        assert!(!approx(ours_t, theirs_t, 1e-2));
+    }
 }

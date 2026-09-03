@@ -14,6 +14,22 @@ on:
       - .claude/tools/supersession_index.py
       - .claude/board/SUPERSESSION-INDEX.md
       - .github/workflows/supersession-index.yml
+      # The BOARD is an input too, and was missing from this list. The
+      # generator's "board coverage" column counts each plan's D-ids cited in
+      # `board/entries/*.md` + `EPIPHANIES.md` (supersession_index.py:48-49,
+      # read at :85), so a PR that only PREPENDS an epiphany citing a D-id
+      # moves the table while the gate stayed silent -- CI green over a stale
+      # index, which is the one thing this workflow exists to prevent.
+      # Measured on #1123: an EPIPHANIES-only PR ran no `regenerate-and-diff`
+      # at all. `CLAUDE.md` already named the board among the inputs; the
+      # filter had not caught up.
+      - .claude/board/entries/**
+      - .claude/board/EPIPHANIES.md
+      # `crates/` decides the "live" column (:27 globs it per symbol). Broad,
+      # and deliberately so: a symbol deleted from the tree changes the table,
+      # and the generator takes ~15 s, so the gate is cheap next to the Rust
+      # jobs it runs beside.
+      - crates/**
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
@@ -33,8 +49,11 @@ jobs:
           if ! diff -u .claude/board/SUPERSESSION-INDEX.md /tmp/regen.md; then
             echo
             echo "::error::SUPERSESSION-INDEX.md is stale."
-            echo "It is GENERATED from .claude/plans/ + crates/ + COMPONENT-MAP.md,"
-            echo "so adding a plan that names a ruled symbol makes it stale."
+            echo "It is GENERATED from ALL of:"
+            echo "  .claude/plans/  +  crates/  +  .claude/v3/COMPONENT-MAP.md"
+            echo "  .claude/board/entries/  +  .claude/board/EPIPHANIES.md"
+            echo "so a plan naming a ruled symbol, a symbol added or deleted in"
+            echo "crates/, OR a board entry citing a D-id can make it stale."
             echo "Regenerate and commit:"
             echo "  python3 .claude/tools/supersession_index.py > .claude/board/SUPERSESSION-INDEX.md"
             exit 1

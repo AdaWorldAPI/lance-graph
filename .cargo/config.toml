@@ -1,0 +1,34 @@
+# lance-graph cargo config — mirrors ndarray's `.cargo/config.toml` policy
+# (operator ruling, 2026-09-02): GitHub needs v3; everything else v4 or native.
+#
+# ndarray is the MANDATORY execution substrate for every crate here, and its
+# `simd.rs` dispatch is COMPILE-TIME (`cfg(target_feature = "avx512f")` /
+# `"avx2"`). Whatever `target-cpu` this build runs at decides which backend
+# `ndarray::simd::{F64x8, F32x16, I16x32}` resolves to. `.cargo/config.toml`
+# is read from the INVOKING directory, not the dependency's — so ndarray's
+# own config does NOT apply when a lance-graph crate is built from here.
+# Without this file a local build compiles the substrate at generic x86-64
+# (SSE2), i.e. the scalar arm.
+#
+# Measured on the Goursat wavefront (crates/jc/examples/goursat_substrate_probe,
+# 4097-point paths, release): under v4 `F64x8::mul_add` is 8.6x faster than
+# the flat scalar loop; at generic x86-64 the SAME code is 4.5x SLOWER than
+# scalar, because the polyfill's scalar arm is emulating eight lanes through
+# arrays. A build with no target-cpu is a regression, not a no-op.
+#
+# Default here is v3 (AVX2) for the same reason ndarray chose it: portable
+# across all x86_64 since Haswell, and what CI runs (`.github/workflows/*.yml`
+# set `-C target-cpu=x86-64-v3` explicitly). Anything below v3 SIGILLs on the
+# `simd_avx2` intrinsics.
+#
+# AVX-512 (v4):  cargo build --config .cargo/config-avx512.toml ...
+#                or CARGO_BUILD_RUSTFLAGS='-Ctarget-cpu=x86-64-v4'
+# Build machine: cargo build --config .cargo/config-native.toml ...
+#
+# The two crypto cfgs ndarray's config also carries (`curve25519_dalek_backend`,
+# `poly1305_force_soft`) are deliberately NOT repeated: neither crate is in
+# this workspace's Cargo.lock (verified 2026-09-02, 0 hits), so there is no
+# AVX2 crypto surface here to compile out. Re-check if `encryption` or
+# `ed25519-dalek` ever enters the tree.
+[target.'cfg(target_arch = "x86_64")']
+rustflags = ["-Ctarget-cpu=x86-64-v3"]

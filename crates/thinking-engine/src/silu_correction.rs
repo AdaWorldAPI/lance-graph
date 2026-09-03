@@ -191,53 +191,40 @@ pub fn apply_corrections(table: &mut [u8], corrections: &[f32], n: usize) {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
-// STATISTICS
+// STATISTICS — the MATH lives in jc (D-TEH-3); this is the adapter
 // ═══════════════════════════════════════════════════════════════════════════
 
-/// Analyze correction magnitude distribution.
-#[derive(Debug, Clone)]
-pub struct CorrectionStats {
-    pub count: usize,
-    pub mean_abs: f32,
-    pub max_abs: f32,
-    pub mean: f32,
-    pub std_dev: f32,
-    /// Fraction of corrections > 0.01 (material difference).
-    pub material_fraction: f32,
-    /// Fraction of corrections > 0.1 (large difference).
-    pub large_fraction: f32,
-}
+/// Correction-delta summary. The type is `jc::drift::DeltaSummary` — the
+/// descriptive battery (mean, mean |δ|, max |δ|, population σ, fraction above
+/// two cut-offs) is calibrated math and lives in jc; this crate only decides
+/// which deltas to feed it and which cut-offs mean "material" / "large" here.
+pub use jc::drift::DeltaSummary as CorrectionStats;
 
-pub fn correction_stats(samples: &[CorrectionSample]) -> CorrectionStats {
-    let n = samples.len();
-    if n == 0 {
-        return CorrectionStats {
-            count: 0,
-            mean_abs: 0.0,
-            max_abs: 0.0,
-            mean: 0.0,
-            std_dev: 0.0,
-            material_fraction: 0.0,
-            large_fraction: 0.0,
-        };
-    }
-    let corrections: Vec<f32> = samples.iter().map(|s| s.correction).collect();
-    let mean = corrections.iter().sum::<f32>() / n as f32;
-    let mean_abs = corrections.iter().map(|c| c.abs()).sum::<f32>() / n as f32;
-    let max_abs = corrections.iter().map(|c| c.abs()).fold(0.0f32, f32::max);
-    let variance = corrections.iter().map(|c| (c - mean).powi(2)).sum::<f32>() / n as f32;
-    let material = corrections.iter().filter(|c| c.abs() > 0.01).count();
-    let large = corrections.iter().filter(|c| c.abs() > 0.1).count();
+/// A correction that changes a cosine by more than this is material.
+///
+/// Kept in the samples' own precision (`f32`) and promoted alongside them:
+/// `f64::from(0.1f32)` is `0.10000000149…`, so a threshold written as
+/// `0.1_f64` would count a correction of exactly `0.1f32` as "more than"
+/// the cut-off. Promoting the same `f32` literal keeps equality excluded.
+pub const MATERIAL_CORRECTION: f32 = 0.01;
+/// A correction that changes a cosine by more than this is large. See
+/// [`MATERIAL_CORRECTION`] for why this is an `f32`.
+pub const LARGE_CORRECTION: f32 = 0.1;
 
-    CorrectionStats {
-        count: n,
-        mean_abs,
-        max_abs,
-        mean,
-        std_dev: variance.sqrt(),
-        material_fraction: material as f32 / n as f32,
-        large_fraction: large as f32 / n as f32,
+/// Summarise the corrections of a training sample set.
+///
+/// Empty input yields `Some(`[`CorrectionStats::empty`]`)` (count 0) so a
+/// report can still be printed. `None` means the data is INVALID — at least
+/// one correction is `NaN` / `±∞` (a malformed or overflowed calibration
+/// input) — and is deliberately not folded into the empty case: an invalid
+/// run must not read as a clean empty one.
+pub fn correction_stats(samples: &[CorrectionSample]) -> Option<CorrectionStats> {
+    let (material, large) = (f64::from(MATERIAL_CORRECTION), f64::from(LARGE_CORRECTION));
+    if samples.is_empty() {
+        return Some(CorrectionStats::empty(material, large));
     }
+    let deltas: Vec<f64> = samples.iter().map(|s| f64::from(s.correction)).collect();
+    jc::drift::delta_summary(&deltas, material, large)
 }
 
 #[cfg(test)]
@@ -336,7 +323,7 @@ mod tests {
             .sum::<f32>();
         // Self-pairs should have near-zero correction (cos with itself = 1.0 both ways)
 
-        let stats = correction_stats(&samples);
+        let stats = correction_stats(&samples).expect("finite corrections");
         eprintln!(
             "Correction stats: mean_abs={:.4}, max_abs={:.4}, material={:.1}%",
             stats.mean_abs,
@@ -371,7 +358,7 @@ mod tests {
         }
 
         let samples = generate_training_data(&gates, &ups, &centroids, &centroids);
-        let stats = correction_stats(&samples);
+        let stats = correction_stats(&samples).expect("finite corrections");
 
         eprintln!("\nNarrow gate (reader-lm range):");
         eprintln!("  Samples:    {}", stats.count);
@@ -389,6 +376,28 @@ mod tests {
 
         // With narrow gate, corrections should be material
         assert!(stats.count > 0);
+    }
+
+    /// The two Codex findings on the lift PR, pinned. (1) A correction of
+    /// exactly `0.1f32` is NOT "more than" the large cut-off — the threshold
+    /// is promoted from the same `f32`, so equality stays excluded (disable:
+    /// write the constant as `0.1_f64` → `large_fraction` reads 0.5).
+    /// (2) A non-finite correction is an INVALID run (`None`), never an
+    /// empty one; the genuinely empty sample set is `Some` with count 0.
+    #[test]
+    fn correction_stats_boundary_and_invalid_data() {
+        let sample = |c: f32| CorrectionSample {
+            centroid_i: vec![1.0],
+            centroid_j: vec![1.0],
+            correction: c,
+        };
+        let s = correction_stats(&[sample(0.1), sample(0.2)]).unwrap();
+        assert_eq!(s.large_fraction, 0.5, "exactly 0.1 is not > 0.1");
+        assert_eq!(s.material_fraction, 1.0);
+
+        assert!(correction_stats(&[sample(0.05), sample(f32::NAN)]).is_none());
+        let empty = correction_stats(&[]).expect("empty is a valid, empty run");
+        assert_eq!(empty.count, 0);
     }
 
     #[test]

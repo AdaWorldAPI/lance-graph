@@ -147,7 +147,10 @@ fn segment_signature(delta: &[f64], depth: usize) -> Signature {
 
 /// Tensor multiplication on the truncated tensor algebra:
 ///   (S * T)[k] = Σ_{i+j=k} S[i] ⊗ T[j]
-fn tensor_multiply(a: &Signature, b: &Signature) -> Signature {
+///
+/// Crate-visible so `log_signature.rs` can reuse it for the Magnus series
+/// rather than keeping a byte-identical private copy.
+pub(crate) fn tensor_multiply(a: &Signature, b: &Signature) -> Signature {
     debug_assert_eq!(a.dim, b.dim);
     debug_assert_eq!(a.depth, b.depth);
     let dim = a.dim;
@@ -193,7 +196,7 @@ fn tensor_multiply(a: &Signature, b: &Signature) -> Signature {
 // Helpers
 // ════════════════════════════════════════════════════════════════════════════
 
-fn pow_usize(base: usize, exp: usize) -> usize {
+pub(crate) fn pow_usize(base: usize, exp: usize) -> usize {
     let mut acc = 1usize;
     for _ in 0..exp {
         acc *= base;
