@@ -1,3 +1,24 @@
+## 2026-09-03 — `r2il-machine-semantic-contract-v1` (PLAN, 2026-08-25) — BACKFILLED INDEX ENTRY
+
+`.claude/plans/r2il-machine-semantic-contract-v1.md`. Answers *"wie soll die
+Session R2IL speichern?"* once, from shipped code and measurement, so it is not
+re-derived per session — which is exactly what happened anyway, because the plan
+was never indexed here. §4 gives five rules (R1–R5) with operator rulings and ADR
+citations; §5 carries the one measured finding
+(`E-R2IL-MACRO-VOCABULARY-TRANSFERS-ACROSS-COMPILER-AND-LANGUAGE-1`: the macro
+vocabulary survives a compiler AND a language boundary at −4.7%); §7 demotes the
+hex reading to a testable overlay and then records its own demotion (the Q8
+degree ablation); §8 is the plasticity falsifier ladder. Everything outside §5 is
+PROPOSED and labelled line by line; nothing has been built, no mint performed, no
+layout bump, no crate created.
+
+**Why this entry is late.** The plan carried no D-ids, so `STATUS_BOARD` had
+nothing to hold and `SUPERSESSION-INDEX` had nothing to count — a 1427-line plan
+that is invisible to every discovery path this workspace has. D-ids `D-R2IL-1..5`
+are minted retroactively in the same commit. Cross-ref: the
+`rubicon-loco-rung-cognitive-fabric-v1` session's `D-RLR-4`, which re-derived §E
+of the same question independently.
+
 ## 2026-09-02 — `house-differential-style-v1` (PROPOSAL, plan-only) + `thinking-engine-harvest-closure-v1` (PROPOSAL, plan-only)
 
 `.claude/plans/house-differential-style-v1.md`. A differential-diagnosis

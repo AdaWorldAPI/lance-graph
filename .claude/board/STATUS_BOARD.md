@@ -1,3 +1,20 @@
+## r2il-machine-semantic-contract-v1 (BACKFILLED 2026-09-03 — the plan shipped 2026-08-25 with NO board tracking)
+
+`.claude/plans/r2il-machine-semantic-contract-v1.md` (1427 lines). Untracked
+since it landed: zero rows here, zero `INTEGRATION_PLANS` entry, and — the root
+cause — **zero D-ids in the plan itself**, so nothing was addressable even in
+principle. Surfaced by the `rubicon-loco-rung-cognitive-fabric-v1` session,
+which re-derived part of §4 as its own `D-RLR-4` because it could not find this
+plan. D-ids are minted here retroactively against sections that already exist.
+
+| D-id | deliverable | status |
+|---|---|---|
+| D-R2IL-1 | §4 — the storage answer, R1–R5 (registers separate; 12 bytes a dumb ClassView-projected register; macro vocabulary is a PALETTE not a `FnIndex` per macro; behaviour by ADDRESS never inline) | **Shipped 2026-08-25 (plan-only)** — the question `D-RLR-4` re-derives |
+| D-R2IL-2 | §5 — `E-R2IL-MACRO-VOCABULARY-TRANSFERS-ACROSS-COMPILER-AND-LANGUAGE-1`: held-out density 2.515 (−0.6%, same gcc) and 2.409 (−4.7%, unseen Rust/rustc) vs train 2.529; two pre-registered nulls × 20 seeds; the split-per-toolchain kill did NOT fire | **Measured 2026-08-25** — the one FINDING under the plan; fences (x86-64, pass-1 seven-opcode, chain-length 3, Rust capped 200/548) carried, not waived |
+| D-R2IL-3 | §7 — the white/grey reading, hex demoted to a testable overlay, and the demotion gate (§7.2) | **Shipped; outcome recorded** — the Q8 degree ablation collapsed the hex overlay's advantage (`ab0e0aa3`), and Q8b found the completion task not expressible on the established def-use carrier (`d8d3604d`). PRs #1119/#1121 read as orphaned from outside precisely because this section was untracked |
+| D-R2IL-4 | §8 — the plasticity falsifier ladder: one queue, pre-registered first experiment | Queued |
+| D-R2IL-5 | §6 — the wave order, each wave with its falsifier | Not started — nothing in §6 has been built; the plan's own header says so |
+
 ## house-differential-style-v1
 
 | D-id | deliverable | status |
