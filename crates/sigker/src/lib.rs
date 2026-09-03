@@ -46,8 +46,14 @@
 //! Sigker provides operations; jc certifies them. The natural certification
 //! is jc Pillar 11 (Hambly-Lyons signature uniqueness on lance-graph paths)
 //! which proves that sigker's "Index regime" classification is mathematically
-//! warranted, not asserted. Pillar 11 is currently DEFERRED in jc; it
-//! activates once sigker is benchmarked at production carrier widths.
+//! warranted, not asserted. **Pillar 11 is ACTIVATED** — sigker's
+//! `cubature_vs_randomized` benchmark exercises production-carrier widths
+//! (PATH_DIM=4, PATH_LEN=64, N_PATHS=256, "OSINT-typical"), satisfying both
+//! halves of the activation gate in `jc`'s own `src/lib.rs` (see also
+//! `.claude/knowledge/ndarray-vertical-simd-alien-magic.md`'s W1.5 gate).
+//! `signature_kernel_pde` itself now runs on
+//! `ndarray::hpc::signature_pde::signature_pde_sweep`, the SIMD wavefront
+//! (`TD-PILLAR11-SCIENTIFIC-LOOPS-BYPASS-NDARRAY-SIMD-1`).
 
 pub mod codec;
 pub mod cubature;

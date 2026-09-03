@@ -93,11 +93,11 @@ Each consumer crate migrates separately, one PR per crate. The `simd-savant` run
 
 ### W1.5 — sigker primitives (gated on `jc Pillar 11` activation)
 
-Three deferred ndarray PRs for path-signature workloads. **Do not spawn until sigker is benchmarked at production carrier widths and `jc Pillar 11 (Hambly-Lyons signature uniqueness)` activates.** When that gate trips:
+Three ndarray PRs for path-signature workloads, gated on **sigker benchmarked at production carrier widths AND `jc Pillar 11 (Hambly-Lyons signature uniqueness)` activates.** Both clauses are now measured TRUE (2026-09-02): `sigker`'s `cubature_vs_randomized` example exercises PATH_DIM=4/PATH_LEN=64/N_PATHS=256 ("OSINT-typical" widths), and `jc`'s own `src/lib.rs` records Pillar 11 as activated since PR #348. The gate is open:
 
-6. **`TD-NDARRAY-SIMD-SIGNATURE-PDE-SWEEP`** — banded 2D PDE solver kernel for signature inner-product `〈S(X), S(Y)〉` via Goursat (O(T₁·T₂) flops, no signature materialization).
-7. **`TD-NDARRAY-SIMD-RANDOMIZED-PROJECTION`** — fixed-width random-matrix-vector for Cuchiero-Schmocker-Teichmann randomized signatures.
-8. **`TD-NDARRAY-SIMD-LYNDON-PACK`** — Lyndon-basis packing/unpacking for log-signatures (7-13× compression, lossless).
+6. **`TD-NDARRAY-SIMD-SIGNATURE-PDE-SWEEP` — SHIPPED.** `ndarray::hpc::signature_pde::signature_pde_sweep` (ndarray PR #293): the anti-diagonal SIMD wavefront for the Goursat-PDE signature inner-product `〈S(X), S(Y)〉` (O(T₁·T₂·dim) flops, no signature materialization), generalized to arbitrary path dimension. `sigker::signature_kernel_pde` now delegates to it directly — sigker is no longer zero-dep (see the sigker positioning section below, corrected in the same pass).
+7. **`TD-NDARRAY-SIMD-RANDOMIZED-PROJECTION`** — gate open, not yet built: fixed-width random-matrix-vector for Cuchiero-Schmocker-Teichmann randomized signatures.
+8. **`TD-NDARRAY-SIMD-LYNDON-PACK`** — gate open, not yet built: Lyndon-basis packing/unpacking for log-signatures (7-13× compression, lossless).
 
 ---
 
@@ -105,12 +105,12 @@ Three deferred ndarray PRs for path-signature workloads. **Do not spawn until si
 
 `crates/sigker` is the workspace's path-signature codec. Read its `lib.rs` once; key properties:
 
-- **Pure scalar Rust, zero raw intrinsics, zero `ndarray` dep today.** Cleanest exemplar of the "domain crate composes via closures" pattern.
+- **Now a plain, mandatory `ndarray` dependency** (corrected 2026-09-02 — this section previously said "zero `ndarray` dep today", true only until `signature_kernel_pde` was wired to `ndarray::hpc::signature_pde::signature_pde_sweep`, per the operator ruling that ndarray is mandatory everywhere numeric/computational code runs). The rest of sigker (`shuffle`, `signature`, `randomized`, `cubature`) is still pure scalar Rust — the "domain crate composes via closures" pattern applies to those, just not to the PDE kernel path anymore.
 - **Algebraic peer to bgz17 (palette-distance) and deepnsm (NSM tiling).** Third encoding lane in the codec routing table.
 - **Index regime**, not Argmax — by Hambly-Lyons 2010 uniqueness, path signatures are EXACT on tree-quotient classes of paths. **Bypasses the Jirak 2016 noise floor** (`I-NOISE-FLOOR-JIRAK` iron rule in CLAUDE.md) that hits VSA bundling.
-- **Certification gate:** `jc Pillar 11` (Hambly-Lyons signature uniqueness on lance-graph paths) — currently DEFERRED. Activates once sigker is benchmarked at production carrier widths.
+- **Certification gate:** `jc Pillar 11` (Hambly-Lyons signature uniqueness on lance-graph paths) — **ACTIVATED**. Both gate clauses measured true 2026-09-02: sigker's `cubature_vs_randomized` benchmark already exercises production carrier widths, and `jc`'s own source records Pillar 11 active since PR #348.
 
-When `jc Pillar 11` activates, sigker becomes a first-class consumer of ndarray vertical SIMD. The W1.5 wave catalogue above is its primitive shopping list.
+Since `jc Pillar 11` is activated, sigker is now a first-class consumer of ndarray vertical SIMD. Item #6 above shipped; the W1.5 wave catalogue's remaining two items (#7, #8) are its next primitive shopping list.
 
 **Architectural implication:** the W1a primitives must be designed broad enough that the W1.5 primitives compose naturally with them. Specifically, `F32x16` + `BF16x16` operations (already in ndarray) plus the closure-batch primitive shape (introduced in W1a-#1) are the foundation that signature kernels build on. The randomized projection in W1.5-#7 is a `batch_packed<E, F>` over an `F32x16` state with a Gaussian-random closure — same shape as W1a-#1, different lane type.
 

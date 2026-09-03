@@ -32,6 +32,7 @@
 //! pair regardless of "depth", which sidesteps the d^(2N) wall entirely.
 
 use crate::signature::signature_truncated;
+use ndarray::hpc::signature_pde::signature_pde_sweep;
 
 /// Truncated signature kernel of depth N (tensor-algebra dual pairing).
 pub fn signature_kernel(x: &[Vec<f64>], y: &[Vec<f64>], depth: usize) -> f64 {
@@ -103,6 +104,18 @@ pub fn signature_kernel_normalized(x: &[Vec<f64>], y: &[Vec<f64>], depth: usize)
 /// `I_0(2·√⟨u, v⟩)` as N → ∞. See `linear_path_kernel_closed_form` for
 /// the reference value. At N=128, expect ~1% relative error for
 /// moderate `⟨u, v⟩`; tighten by sampling more.
+/// # Implementation
+///
+/// The scheme above is solved by
+/// [`ndarray::hpc::signature_pde::signature_pde_sweep`] — the anti-diagonal
+/// SIMD wavefront that replaced this function's original hand-rolled
+/// row-major scalar loop
+/// (`TD-PILLAR11-SCIENTIFIC-LOOPS-BYPASS-NDARRAY-SIMD-1`: numeric/
+/// computational code in the Ada stack is written against
+/// `ndarray::simd::method()`, never a bespoke scalar loop). The two
+/// evaluation orders agree to within the ULP-level tolerance of fused vs.
+/// separate rounding of `c_ij · K[i,j]` — negligible against the O(1/N)
+/// discretization error this scheme already carries.
 pub fn signature_kernel_pde(x: &[Vec<f64>], y: &[Vec<f64>]) -> f64 {
     assert!(!x.is_empty() && !y.is_empty(), "paths must be non-empty");
     let dim = x[0].len();
@@ -110,24 +123,7 @@ pub fn signature_kernel_pde(x: &[Vec<f64>], y: &[Vec<f64>]) -> f64 {
         x.iter().all(|p| p.len() == dim) && y.iter().all(|p| p.len() == dim),
         "all path points must share dimension {dim}"
     );
-
-    let n = x.len();
-    let m = y.len();
-
-    let mut k_grid = vec![vec![1.0f64; m]; n];
-
-    for i in 0..n - 1 {
-        let dx_i: Vec<f64> = (0..dim).map(|a| x[i + 1][a] - x[i][a]).collect();
-        for j in 0..m - 1 {
-            let c_ij: f64 = (0..dim).map(|a| dx_i[a] * (y[j + 1][a] - y[j][a])).sum();
-            // First-order scheme: K[i+1,j+1] = K[i+1,j] + K[i,j+1] − K[i,j] + c_ij·K[i,j].
-            // Converges to I_0(2√⟨u,v⟩) for linear paths as N → ∞.
-            k_grid[i + 1][j + 1] =
-                k_grid[i + 1][j] + k_grid[i][j + 1] - k_grid[i][j] + c_ij * k_grid[i][j];
-        }
-    }
-
-    k_grid[n - 1][m - 1]
+    signature_pde_sweep(x, y)
 }
 
 /// Closed-form signature kernel for two linear paths X(t) = t·u, Y(t) = t·v

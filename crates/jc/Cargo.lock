@@ -308,6 +308,9 @@ dependencies = [
 [[package]]
 name = "sigker"
 version = "0.1.0"
+dependencies = [
+ "ndarray",
+]
 
 [[package]]
 name = "syn"

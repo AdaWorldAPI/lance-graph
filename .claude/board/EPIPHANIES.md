@@ -47,6 +47,63 @@ Refs: `E-JC-IS-THE-HOME-OF-ALL-CALIBRATED-MATH-1`; `thinking-engine-harvest-clos
 **Fences carried forward.** Lingering trace ≠ counterfactual rung (`E-A-GHOST-TRACE-IS-NOT-THE-COUNTERFACTUAL-LANE-1`): nothing in `ghost_prior` reads or writes the −6 lane. The floor decision is scoped to this fixture; D-HOUSE-4 should re-run `calibration::discrimination` on its own recurrence shape before trusting the default there.
 
 Refs: `thinking-engine-harvest-closure-v1` §1c (ghost row), §3 W2 result, §5 D-TEH-2; `house-differential-style-v1` D-HOUSE-4; `contract::escalation::{GhostEcho, WisdomMarker}`; `TD-GHOST-ECHO-DUP-1` (resolved); `TD-GHOST-TIER-NAME-COLLISION-1` (still open, pays when `counterfactual.rs` is next touched).
+## 2026-09-02 — E-SIGNATURE-PDE-SWEEP-SHIPPED-W1.5-GATE-WAS-QUIETLY-OPEN-1
+
+**Status:** FINDING (measured + shipped). Closes W1.5 item #6; opens #7/#8.
+**Confidence:** every number below was run this session, not inferred.
+
+The W1.5 gate ("do not spawn until sigker is benchmarked at production
+carrier widths AND `jc Pillar 11` activates" —
+`.claude/knowledge/ndarray-vertical-simd-alien-magic.md`) was **already
+open** before this session touched anything — both clauses were
+independently true, just never checked together. `jc`'s own `src/lib.rs`
+records Pillar 11 activated since PR #348; `sigker/examples/
+cubature_vs_randomized.rs` already exercises production-carrier widths
+(PATH_DIM=4, PATH_LEN=64, N_PATHS=256, "OSINT-typical") — it had simply
+never been *run*. Both doc sites that said otherwise
+(`crates/sigker/src/lib.rs:50`, the ndarray-vertical-simd-alien-magic.md
+W1.5 section) were stale relative to jc's own status and are corrected in
+this same pass.
+
+**What shipped:** `jc`'s `goursat_substrate_probe` example — a throwaway
+falsifier that hardcoded path dimension = 2 to prove the SIMD wavefront
+(A2) matches the shipped scalar recurrence (A0/A1) within a predeclared
+tolerance — is promoted into a real, general-dimension primitive:
+`ndarray::hpc::signature_pde::signature_pde_sweep` (ndarray PR #293),
+matching `sigker::signature_kernel_pde`'s exact `(x: &[Vec<f64>], y: &
+[Vec<f64>]) -> f64` signature. Built entirely on `crate::simd::F64x8`'s
+already-parity-confirmed public methods, so it gets AVX-512/AVX2/NEON/
+wasm/scalar dispatch for free — zero new arch-specific code, satisfying
+the W1a acceptance criterion "all three backends" without writing any of
+them by hand. `sigker::signature_kernel_pde` now delegates to it directly
+(`crates/sigker/Cargo.toml` gains a plain, mandatory `ndarray` path dep,
+matching the operator ruling from earlier this session that ndarray is
+mandatory everywhere numeric/computational code runs — sigker's "zero
+deps" self-description is now scoped to its non-PDE modules only).
+
+**Measured** (release, this host): ~9x speedup over row-major scalar at
+the probe's shapes (256/1024/2048/4096, dim=2) and at dim=5; the exact jc
+Pillar-11 leg shape (8 pairs, len=4609, dim=2) completes in 0.24s total —
+against the ~25-26s this same leg shape cost the scalar path (measured
+earlier this session, see the entry below). All 40 `sigker` lib tests
+pass unchanged with the new backing implementation, including every
+`kernel::tests::pde_kernel_*` numerical-convergence test.
+
+**Distinguish from W5:** W5 (the PowerSig scalability wave) stays firmly
+HOLD — its trigger is real-workload memory/time pressure (1 GiB / 10s),
+unaffected by how fast the Goursat kernel runs. W1.5 is a *scientific
+certification + benchmark-exists* gate, architecturally independent of
+W5's *measured-workload-pressure* gate; opening one says nothing about
+the other. Both gates were checked LITERALLY against their recorded
+conditions this session, not against restated prose — the discipline
+this workspace's `Reading-Depth-Ladder` demands.
+
+**Remaining W1.5 items #7 (`TD-NDARRAY-SIMD-RANDOMIZED-PROJECTION`) and
+#8 (`TD-NDARRAY-SIMD-LYNDON-PACK`)** are now unblocked by the same open
+gate but not yet built — next in the shopping list, not scoped this
+session.
+
+---
 
 ## 2026-09-02 — E-PILLAR-11-PUBLISHED-BOUND-NEEDS-ITS-OWN-NUMERIC-GUARD-1
 
