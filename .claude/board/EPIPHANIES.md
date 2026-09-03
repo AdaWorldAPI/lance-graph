@@ -91,6 +91,143 @@ and the copy needs its own executed gate — placed on the side of the boundary
 that is ALLOWED to see both. The header now points at the test rather than at
 the crate, which is the difference between a claim and a check.
 
+## 2026-09-03 — E-A-HAND-SWEEP-UNDERCOUNTS-TOWARD-DONE-AND-THE-CRITERION-IS-THE-WHOLE-DESIGN-1 — I reported 1 of 208; five defensible definitions give 32 to 125
+
+**Status:** FINDING (measured, five variants, each reproducible from the
+command in this entry).
+**Confidence:** High on the measurements; **explicitly unresolved** on which
+number is canonical — that is the point of the entry.
+**Corrects:** my own claim, relayed cross-session, that
+`r2il-machine-semantic-contract-v1.md` was *"the ONLY genuinely untracked
+standalone plan in the tree."*
+
+**The error, and its direction.** I noticed five candidate plans from a
+four-day `mtime` window, checked them by hand, found four declared an owner
+plan and one did not, and reported **1 of 208**. The r2il session's own sweep
+found **53 of 208**. Their framing is the part worth keeping: a hand sweep
+*"undercounted in the direction that feels like completion."* The sample was
+selected by recency, not by coverage, and the conclusion was stated about the
+tree.
+
+**Then reconciliation failed, and that is the larger finding.** Attempting to
+verify 53, five defensible readings of "untracked" were measured at
+`79d82376`:
+
+| criterion | count |
+|---|---:|
+| no `D-<FAMILY>-<n>` anywhere in the plan file | **91** |
+| no `INTEGRATION_PLANS.md` entry naming the file | **61** |
+| both of the above | **32** |
+| no D-ids, **or** none of its D-ids on `STATUS_BOARD` | **125** |
+| has D-ids but none of them on `STATUS_BOARD` | **34** |
+
+**None reproduces 53.** A sub-check diverges too: `3DGS-*` is **20** files
+under both case-foldings, where their census reports 19. So this entry does
+not claim their number is wrong — it claims the number is **not determined
+until the criterion is**, and that two careful sessions produced six different
+figures for one question on one tree.
+
+**Consequence for the CI check that was proposed** (a gate on the
+`SUPERSESSION-INDEX` precedent, so the count cannot regrow): the proposal is
+right, and its first deliverable is **not the workflow**. Five reasonable
+definitions span **32 to 125 — a 4× range** — so the grep IS the design, and a
+gate shipped before the criterion is pinned would encode an arbitrary choice
+and then report a stable-looking number forever. Pin the criterion first,
+state it in the workflow file, and only then write the check.
+
+Two constraints such a gate must satisfy, both learned here rather than
+assumed:
+
+- **Diff-scoped, not tree-scoped.** Whatever the criterion, dozens of existing
+  plans fail it today. A gate that fails them turns `main` red for every
+  session and gets disabled within the hour. It must judge only plans a PR
+  ADDS or MODIFIES — stop the bleeding, do not bill the past.
+- **The criterion should track DISCOVERABILITY, not tidiness.** What actually
+  went wrong in the r2il case is that a 1,427-line plan was invisible to a
+  session doing the mandatory reads, which is why its question got re-derived.
+  The index entry is the discovery path a session consults;
+  `STATUS_BOARD` rows are per-deliverable and secondary. That argues for the
+  `INTEGRATION_PLANS`-entry criterion (61) as the causal one — proposed, not
+  ruled.
+
+**The generalizable rule.** A census answers a question only as precisely as
+its predicate is pinned. "How many plans are untracked" has no answer; "how
+many plans lack an `INTEGRATION_PLANS` entry" has exactly one. When a count is
+about to become a decision — a backfill, a gate, a scope call — write the
+predicate down first, because otherwise every later re-run silently measures
+something else and the disagreement looks like drift in the tree rather than
+drift in the question.
+
+## 2026-09-03 — E-A-CROSS-REPO-SYMBOL-GREP-IS-ONLY-AS-FRESH-AS-THE-SIBLING-CHECKOUT-1 — the null was my clone, not their claim
+
+**Status:** FINDING (measured; the near-miss was real and is reproduced below).
+**Confidence:** High — every step verified against a current tree, and the
+stale-tree result is exactly reproducible by rewinding the sibling clone.
+**Extends:** the cross-repo citation rule proposed the same day by the
+`r2il-machine-semantic-contract-v1` owner session — *a citation to a removal
+reads identically to a citation to the thing removed, so grep the sibling tree
+for the SYMBOL, not the epiphany id.* That rule is right. This entry adds the
+precondition it needs to be sound.
+
+**What happened.** Acting on that advice, I audited this plan's cross-repo
+citations by symbol. Two greps returned zero hits for `ogar_loco::TERNLOG` —
+first across `lance-graph/crates/`, then across the local OGAR checkout. Zero
+hits in both trees, for a symbol a peer session had just asserted was minted
+and live. The tempting write-up was ready: *a peer's central claim does not
+survive verification.*
+
+It was my clone. `/home/user/OGAR` was **10 commits behind** `origin/main`.
+`ogar-loco` exists exactly where the dependency says it does, and after a fetch
+every claim verified precisely:
+
+| claim | verified at |
+|---|---|
+| `TERNLOG = FnIndex(0x86)` | `ogar-loco/src/lib.rs:607` |
+| `0x87..0x8B` retracted, reserved-not-reclaimable | `lib.rs:596` |
+| zero consumers | only `vocabulary.rs` arity/name registration — declared and addressable, never called |
+| `BELNAP_JOIN` / `INFO_GAIN` / `STANCE_ENTROPY` / `EpistemicBassin24` | 0 hits each |
+
+`vocabulary.rs:1431` corroborates the retraction independently, recording a
+re-pin *"to 96 (−5): only the generic TERNLOG"* — the −5 being the band.
+
+**The rule, stated so it does not have to be re-earned.** A cross-repo symbol
+grep answers *"is this symbol in the tree I have"*, never *"does this symbol
+exist"*. The two coincide only when the sibling checkout is current, and in
+this workspace a sibling can be ten commits stale within a day. So:
+
+> **Fetch AND fast-forward the sibling tree — or grep the fetched ref
+> directly (`git grep <symbol> origin/main`) — then search. A zero-hit result
+> on a stale working tree is a statement about your clone.**
+>
+> **⊘ CORRECTED pre-merge (Codex, #1157).** This rule first read *"fetch, then
+> grep"*, which does not work and would not have reproduced the audit that
+> produced it: `git fetch` updates remote-tracking refs and `FETCH_HEAD`, it
+> does **not** touch the working tree, so a subsequent `grep` still reads the
+> stale files. What actually recovered the result here was `git fetch` **plus
+> `git rebase origin/main`**. A rule stated one step short of what was actually
+> done is a rule that fails for its next reader — and this one was published in
+> the same entry that warns against asserting from an incomplete view.
+
+This is the same shape as `E-A-RUNG-WRITE-PATH-ALREADY-SHIPPED-IN-A-SIBLING-REPO-1`
+(below): an absence asserted from an incomplete view. That entry's failure was
+not looking in the sibling repo at all; this one's would have been looking at a
+stale copy of it. The correction is one line of `git fetch` in both cases, and
+the cost of skipping it is asserting that a colleague's verified work does not
+exist.
+
+**Sharpened, the cross-repo citation check is three steps, not one:**
+1. `git fetch` the sibling — otherwise steps 2-3 measure your clone.
+2. Grep for the **symbol**, not the epiphany id or the doc anchor.
+3. Read the hit's surroundings — a symbol can survive inside a *retraction*
+   heading, which is the failure the original rule was written against.
+
+**Also verified in the same pass, and clean:** all eleven cross-repo symbols
+this plan's §C cites (`ogar_loco`, `DOMAIN_FLOOR`, `ladder_program`,
+`domain_stack_arity`, `ewa_sandwich`, `EvidenceMask`, `ReasoningBand`,
+`CausalTopology`, `counterfactual`, `EpistemicMode`, `for_rung`) are PRESENT at
+`5e2cb31d`. The September retraction did not strand any of them. Recorded
+because a clean audit result is evidence too, and because the next session
+should not have to re-run it blind.
 ## 2026-09-03 — E-THE-FIX-FOR-A-REVIEW-FINDING-SHIPS-UNREVIEWED-BY-DEFAULT-1 — the cap was the visible half
 
 **Status:** FINDING (measured on this PR's own review metadata). **⊘ ITS
