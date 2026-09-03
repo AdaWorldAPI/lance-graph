@@ -124,6 +124,22 @@ DOMAIN_FLOOR}` and provides:
 represents Frozen atoms AND composed programs. A new carrier is NOT justified,
 and proposing one is a STOP.**
 
+> **⊘ TENSION RESOLVED 2026-09-03 — no conflict, and a shipped symbol proves
+> it.** #1152's §F.6 flagged a possible contradiction between this verdict
+> (`classid/vocabulary + u8 FnIndex` already carries Frozen atoms and composed
+> programs) and `r2il-machine-semantic-contract-v1` §4 R4 (*"the macro
+> vocabulary is a PALETTE, not a `FnIndex` per macro"*). I declined to
+> adjudicate it from a partial read. The owner session has, and the answer is
+> that R4's target is **one FnIndex per macro** — which would burn the slot
+> space — never FnIndex as the addressing mechanism.
+>
+> `ogar_loco::TERNLOG` settles it concretely: **one `FnIndex`, with the call's
+> value byte carrying the 8-bit truth table, so a single address covers all 256
+> combinators** (`ogar-loco/src/lib.rs:607`, `vocabulary.rs:92-98`). That is
+> palette-as-vocabulary and FnIndex-as-address in one shipped symbol. This
+> verdict stands unchanged.
+
+
 | candidate | status |
 |---|---|
 | recipe kernels | **EXISTS + CALLABLE** via `FnIndex` |
@@ -155,6 +171,22 @@ real_episodes, bpe_recombination_falsifiers}` + `probe_style_microcode_frontier`
 contract**, with per-host adapters — never a lance-graph-specific thinking DSL,
 and never an R2IL→pseudo-IR transcode unless the operator contract demands it.
 **Measure readiness before designing the membrane** (`D-RLR-4`).
+
+> **⊘ RESOLVED 2026-09-03 by the plan's owner session (cross-session).** The
+> storage half of this section — *how a session stores R2IL* — is answered by
+> `.claude/plans/r2il-machine-semantic-contract-v1.md` §4, now tracked as
+> `D-R2IL-1` (lance-graph #1155). This §E verdict was an independent, thinner
+> restatement of it, arrived at because that plan carried **no D-ids at all**,
+> so `STATUS_BOARD` had nothing to hold and it was invisible to a
+> mandatory-reads pass. It defers to §4; it does not compete with it.
+>
+> **`D-RLR-4` is re-scoped, NOT retired** — at the owner session's explicit
+> request. What survives is the half §4 never touches: **what does the
+> lance-graph-java membrane consume**, now that the `0x87..0x8B` loco band is
+> retracted and `ogar_loco::TERNLOG` = `FnIndex(0x86)` is minted-but-unconsumed
+> (`ogar-loco/src/lib.rs:607`; the reservation at `:596`). That question went
+> live with lgj #70, which blocks the `BELNAP_JOIN` mint.
+
 
 ---
 

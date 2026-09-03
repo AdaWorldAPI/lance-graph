@@ -1,3 +1,64 @@
+## 2026-09-03 — E-A-CROSS-REPO-SYMBOL-GREP-IS-ONLY-AS-FRESH-AS-THE-SIBLING-CHECKOUT-1 — the null was my clone, not their claim
+
+**Status:** FINDING (measured; the near-miss was real and is reproduced below).
+**Confidence:** High — every step verified against a current tree, and the
+stale-tree result is exactly reproducible by rewinding the sibling clone.
+**Extends:** the cross-repo citation rule proposed the same day by the
+`r2il-machine-semantic-contract-v1` owner session — *a citation to a removal
+reads identically to a citation to the thing removed, so grep the sibling tree
+for the SYMBOL, not the epiphany id.* That rule is right. This entry adds the
+precondition it needs to be sound.
+
+**What happened.** Acting on that advice, I audited this plan's cross-repo
+citations by symbol. Two greps returned zero hits for `ogar_loco::TERNLOG` —
+first across `lance-graph/crates/`, then across the local OGAR checkout. Zero
+hits in both trees, for a symbol a peer session had just asserted was minted
+and live. The tempting write-up was ready: *a peer's central claim does not
+survive verification.*
+
+It was my clone. `/home/user/OGAR` was **10 commits behind** `origin/main`.
+`ogar-loco` exists exactly where the dependency says it does, and after a fetch
+every claim verified precisely:
+
+| claim | verified at |
+|---|---|
+| `TERNLOG = FnIndex(0x86)` | `ogar-loco/src/lib.rs:607` |
+| `0x87..0x8B` retracted, reserved-not-reclaimable | `lib.rs:596` |
+| zero consumers | only `vocabulary.rs` arity/name registration — declared and addressable, never called |
+| `BELNAP_JOIN` / `INFO_GAIN` / `STANCE_ENTROPY` / `EpistemicBassin24` | 0 hits each |
+
+`vocabulary.rs:1431` corroborates the retraction independently, recording a
+re-pin *"to 96 (−5): only the generic TERNLOG"* — the −5 being the band.
+
+**The rule, stated so it does not have to be re-earned.** A cross-repo symbol
+grep answers *"is this symbol in the tree I have"*, never *"does this symbol
+exist"*. The two coincide only when the sibling checkout is current, and in
+this workspace a sibling can be ten commits stale within a day. So:
+
+> **Fetch the sibling tree, then grep. A zero-hit result on an unfetched
+> checkout is a statement about your clone.**
+
+This is the same shape as `E-A-RUNG-WRITE-PATH-ALREADY-SHIPPED-IN-A-SIBLING-REPO-1`
+(below): an absence asserted from an incomplete view. That entry's failure was
+not looking in the sibling repo at all; this one's would have been looking at a
+stale copy of it. The correction is one line of `git fetch` in both cases, and
+the cost of skipping it is asserting that a colleague's verified work does not
+exist.
+
+**Sharpened, the cross-repo citation check is three steps, not one:**
+1. `git fetch` the sibling — otherwise steps 2-3 measure your clone.
+2. Grep for the **symbol**, not the epiphany id or the doc anchor.
+3. Read the hit's surroundings — a symbol can survive inside a *retraction*
+   heading, which is the failure the original rule was written against.
+
+**Also verified in the same pass, and clean:** all eleven cross-repo symbols
+this plan's §C cites (`ogar_loco`, `DOMAIN_FLOOR`, `ladder_program`,
+`domain_stack_arity`, `ewa_sandwich`, `EvidenceMask`, `ReasoningBand`,
+`CausalTopology`, `counterfactual`, `EpistemicMode`, `for_rung`) are PRESENT at
+`5e2cb31d`. The September retraction did not strand any of them. Recorded
+because a clean audit result is evidence too, and because the next session
+should not have to re-run it blind.
+
 ## 2026-08-31 — E-A-CORRECTION-CAN-SUBSTITUTE-ONE-WRONG-NOUN-FOR-ANOTHER-1 — three readings of one mechanism, and the source named itself the whole time
 
 **Status:** FINDING (verified against source at `cc0046f8`; every claim carries
