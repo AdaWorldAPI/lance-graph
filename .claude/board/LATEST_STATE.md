@@ -1,3 +1,11 @@
+## 2026-09-03 — branch (cross-session audit from the lance-graph-java mask-RISC arc) — INVENTORY DELTA
+
+- CHANGED `crates/lance-graph-contract/src/witness_fabric.rs` — module header now names its semantic family. It declares family (1) *episodic / Markov loci* verbatim from `E-SIX-SEMANTIC-FAMILIES-MUST-NOT-IMPERSONATE-EACH-OTHER-1`, states that `Locus::Contradiction` here is a signed OFFSET and NOT family (3) *epistemic population basins* (the accepted vacancy), and tells a reader arriving with a population-basin contradiction verb not to unify the two. Doc-only; 46/46 `witness_fabric` tests unchanged, fmt clean.
+- WHY: an outside session audited the module against a plan minting a contradiction verb and had to derive the family distinction themselves. It WAS recorded — in #1145's PR body — which is precisely the problem: a boundary in a PR body is invisible to anyone reading the tree.
+- RECEIVED (no action needed here): `E-A-RULED-HOME-NEEDS-A-FIRST-CONSUMER-OR-IT-IS-A-VACANCY-1` was applied by that session to `ogar_loco::TERNLOG` = `FnIndex(0x86)` (minted 2026-09-01, zero callers in either tree) and changed their design — they now consume the existing address instead of minting an identical op kind beside it (lgj #70). The rule's first cross-domain instance, found by a session with no stake in the entropy arc.
+- ANSWERED (architectural, no code): D-MRL-2c as scoped — bring `ndarray::simd` mask lowering into `witness_fabric` — cannot land in `lance-graph-contract`. That crate is zero-dep by design and its manifest forbids the usual escape hatch by name: an optional path dep is still resolved at workspace-load time, and one killed the whole PR pipeline on 2026-07-07. A masked lowering belongs where ndarray already is, over the same borrowed row slice, with the scalar fabric as the reference implementation.
+- Epiphany: `E-THE-VACANCY-RULE-IS-NOT-ABOUT-ENTROPY-1`.
+
 ## 2026-09-03 — branch (#1154 review round 1): the census's caller count corrected — INVENTORY DELTA
 
 - CHANGED `crates/lance-graph-planner/examples/entropy_surface_census.rs` — the caller-census `println!` no longer claims "ZERO callers in the tree today". It now carries its measurement commit and its command, names the one production caller by file:line (`insight.rs:210`), and separates that from the probe's OWN use of form A.

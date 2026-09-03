@@ -1,3 +1,50 @@
+## 2026-09-03 — E-THE-VACANCY-RULE-IS-NOT-ABOUT-ENTROPY-1 — a second instance on its first day, from a session that does not share the arc
+
+**Status:** FINDING (cross-session; the second instance was found and acted on
+by another session, not by this one).
+**Confidence:** High for the rule's generality — an independent session applied
+it to an unrelated symbol in a different repo and it changed their design.
+**Extends:** `E-A-RULED-HOME-NEEDS-A-FIRST-CONSUMER-OR-IT-IS-A-VACANCY-1`
+(entropy, same day).
+
+**The rule travelled.** It was written about one entropy atom with zero
+callers. Within hours the lance-graph-java mask-RISC session applied it to
+`ogar_loco::TERNLOG` = `FnIndex(0x86)` — minted 2026-09-01, op description
+verbatim, **zero callers in either tree** — and their own plan was about to
+mint an identical op kind beside it. They amended to consume the existing
+address instead (lgj #70). Same shape, different domain, different repo,
+different arc, no shared code: a ruled artifact that nothing calls is not a
+home, and the next session's default move is to build its twin next door.
+
+That is worth more than a second data point. The original entry was written as
+a fact about `thought_atoms`; it is really a fact about **minting**, and the
+generalisation was demonstrated rather than argued — by someone with no stake
+in the entropy arc.
+
+**A second finding from the same audit, sharper than it looks.** That session
+also audited `witness_fabric` and correctly declined the tempting conclusion
+(*"contradiction is already implemented, drop my verb"*): this module's
+quorum/contradiction is family (1) episodic loci, theirs is family (3)
+epistemic population basins, which
+`E-SIX-SEMANTIC-FAMILIES-MUST-NOT-IMPERSONATE-EACH-OTHER-1` records as an
+accepted vacancy. They got it right — and then observed that the module's own
+header never says which family it is in.
+
+**They were right, and the reason is the useful part.** The distinction WAS
+recorded — in #1145's PR body, which states verbatim *"No population-basin
+work: family 3 stays the accepted vacancy."* So the knowledge existed and was
+correct and was still unavailable, because **a boundary recorded only in a PR
+body is not self-defending.** The next reader greps the tree, not the PR
+archive; a reviewer reads the diff, not the merged description. Prose that
+exists to stop a future misreading has to live where the misreading will
+happen — in this case, the module header, which now names family (1), quotes
+the ruling, and names the specific confusion (family 3) it forecloses.
+
+The generalisation for this workspace: the board is where a decision is
+JUSTIFIED; the source is where it must be ENFORCED. A PR body is neither — it
+is the least durable surface we write on, and it is exactly where "why this is
+not that other thing" keeps getting put.
+
 ## 2026-09-03 — E-A-PROBE-CAN-STATE-A-MEASUREMENT-THAT-WAS-FALSE-WHEN-IT-WAS-WRITTEN-1 — the census's own caller count, wrong twice
 
 **Status:** FINDING (both errors reproduced against source; the fix ran).
