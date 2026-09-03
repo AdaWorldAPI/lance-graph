@@ -11,6 +11,29 @@
 //! never a materialized `W×W` fabric struct (AGI-as-SoA: methods over the
 //! existing carrier, not a new stored layer).
 //!
+//! # This module is semantic family (1), and only family (1)
+//!
+//! `E-SIX-SEMANTIC-FAMILIES-MUST-NOT-IMPERSONATE-EACH-OTHER-1` (operator,
+//! 2026-09-02) ratifies six distinct families and this module is the first:
+//! *"episodic / Markov loci — `CausalWitnessFacet`, tenant 14, sign =
+//! orientation, pointer semantics closed to the `Locus`/ClassView API."*
+//!
+//! Stated here because from OUTSIDE the module the word "contradiction" reads
+//! as one concept, and it is not. `Locus::Contradiction` here is an episodic
+//! locus — a signed OFFSET to a peer row that disagrees. It is NOT family (3),
+//! *epistemic population basins*, which the same ruling records as having "NO
+//! shipped **signed-i4** ABI, tenant, ClassView or axis vocabulary" and being
+//! an **accepted vacancy**. The `signed-i4` qualifier is the ruling's own and
+//! is load-bearing: dropping it widens a scoped vacancy at the site that
+//! enforces it, which is the direction that later reads as canon. A reader arriving with a population-basin contradiction verb
+//! will find the shapes here familiar and the semantics wrong; the ruling's
+//! own invariant is the guard — *same physical shape ≠ same semantics*.
+//!
+//! So: do not "unify" a population-basin contradiction with this one, and do
+//! not read a quorum here as a population statistic. Nothing in this module
+//! reads or writes family (3), and closing that vacancy is a mint, not a
+//! refactor of this file.
+//!
 //! # Loci converge on the SAME EVENT, not the same offset
 //!
 //! A locus offset is relative to its OWN row's stream position. Two rows agree

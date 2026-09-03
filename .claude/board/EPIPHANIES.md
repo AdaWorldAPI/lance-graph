@@ -1,3 +1,276 @@
+## 2026-09-03 — E-THE-FIX-FOR-A-REVIEW-FINDING-SHIPS-UNREVIEWED-BY-DEFAULT-1 — the cap was the visible half
+
+**Status:** FINDING (measured on this PR's own review metadata).
+**Confidence:** High for the MECHANISM (the trigger list is quoted verbatim
+from the reviewer's own notice). **Medium for the coverage table**, which is an
+inference from an ABSENCE: the same reviewer's stated rule is "comment when I
+have suggestions, otherwise react 👍", so a missing review object proves absence
+of a review *comment*, not absence of *coverage*. The two are graded apart
+deliberately — conflating them is the error this entry is otherwise about.
+**Prompted by:** the lance-graph-java session's flag that five consecutive PRs
+merged with zero external review.
+
+**The visible half is a spending cap.** CodeRabbit reports 84 review attempts
+in 7 days against an org cap, throttling to one review per hour, and it is why
+recent PRs merged unreviewed.
+
+**The half nobody had named is worse, because it is not a billing setting.**
+The second reviewer, Codex, is NOT capped — and it still did not see three of
+the four commits on #1154. Its own notice states its triggers: opening a PR,
+marking a draft ready, or an explicit `@codex review` comment. **A push is not
+a trigger.** So the sequence every reviewed PR follows —
+
+> review lands → author fixes the finding → author pushes → merge
+
+— ends with **the fix for the finding as the single least-reviewed commit on
+the PR.** On #1154 the reviewed commit was the one with the defect, and the
+three unreviewed ones included the correction to that exact defect. Raising the
+spend cap does not touch this; it is a trigger-semantics gap, and it applies to
+every PR in the workspace that has ever received a finding and fixed it.
+
+**Why it is easy to miss.** The PR *looks* reviewed — there is a review, it
+found something real, the thread is resolved, the badge is green. Review
+coverage is silently attributed to the PR when it was only ever attached to one
+commit. This is the same shape as the two probe findings from this same session
+(`E-A-PROBE-CAN-STATE-A-MEASUREMENT-THAT-WAS-FALSE-WHEN-IT-WAS-WRITTEN-1`): a
+claim measured once at one point in time, then read as a standing property of a
+thing that has since changed.
+
+**The cheap mitigation, available today and unrelated to spend:** after pushing
+a fix for a review finding, post `@codex review`. It costs one comment, is not
+rate-limited, and re-points the reviewer at the head that actually contains the
+fix. Done on #1154. The expensive mitigation (raise the cap) is the operator's
+call and buys a different thing — breadth across PRs, not depth after a fix.
+
+**The mitigation is MEASURED; the gap is still INFERRED.** After that comment
+the reviewer returned two P2 findings on a head it had not commented on when
+that head was pushed. That is n=1 and it establishes the mitigation FIRES — it
+does not establish that the push failed to trigger a review, which remains an
+inference from the quoted trigger list plus absent comments. Stated apart
+because the entry's own subject is a claim that outran its evidence.
+
+**What this does NOT claim — two independent disclaimers, both load-bearing.**
+(i) No assertion that the unreviewed commits are *defective*; two are
+board-only and one is a doc header. This one became MORE necessary, not less,
+once the paragraph above reported that a re-triggered review found two real
+defects — that result makes the "the gap caused those defects" reading
+available for the first time, and it is not claimed. (ii) No assertion that an
+absent review object means *not looked at*; see the Confidence line. The finding
+is that the apparatus reports more coverage than it has evidence for.
+
+**See also** `E-A-PROBE-CAN-STATE-A-MEASUREMENT-THAT-WAS-FALSE-WHEN-IT-WAS-WRITTEN-1`
+(below), which shares the abstraction *a property measured once is later read as
+standing* but NOT the mechanism: that entry is about a claim decaying as the
+tree changes; this one is about coverage never having attached to the commits it
+is read as covering. Adjacent, not the same — do not merge them.
+
+## 2026-09-03 — E-THE-VACANCY-RULE-IS-NOT-ABOUT-ENTROPY-1 — a second instance on its first day, from a session that does not share the arc
+
+**Status:** FINDING (cross-session; the second instance was found and acted on
+by another session, not by this one).
+**Confidence:** **Medium-High for the rule**, **Medium for the second
+instance.** The instance is a CONFIRMATION DRAW, not an independent
+replication: the other session had READ this rule before applying it, same day,
+same fleet, same discipline — n=2 from one primed process, not n=2 from minting
+in general. And it is unverifiable here: `ogar_loco` is an external dependency,
+`grep -rn TERNLOG crates/` returns **0**, so the symbol, its mint site and its
+caller count are all *reported*, not measured, from this tree. (The string does
+appear elsewhere in this repo — in board and knowledge prose, including this
+entry — so a repo-wide grep is NOT the check; the crate-scoped one is. Prior
+art for exactly this hazard: `.claude/knowledge/preflight-drift-patterns.md`
+Axis 4, cross-repo PR-merge claims.)
+**Generalizes:** `E-A-RULED-HOME-NEEDS-A-FIRST-CONSUMER-OR-IT-IS-A-VACANCY-1`
+(entropy, same day).
+
+**The rule travelled.** It was written about one entropy atom with zero
+callers. Within hours the lance-graph-java mask-RISC session applied it to
+`ogar_loco::TERNLOG` = `FnIndex(0x86)` — minted 2026-09-01, op description
+verbatim, **zero callers in either tree** — and their own plan was about to
+mint an identical op kind beside it. They amended to consume the existing
+address instead (lgj #70). Same shape, different domain, different repo,
+different arc, no shared code: a ruled artifact that nothing calls is not a
+home, and the next session's default move is to build its twin next door.
+
+That is worth more than a second data point. The original entry was written as
+a fact about `thought_atoms`; it is really a fact about **minting**, and the
+generalisation was demonstrated rather than argued — by someone with no stake
+in the entropy arc.
+
+**A second finding from the same audit, sharper than it looks.** That session
+also audited `witness_fabric` and correctly declined the tempting conclusion
+(*"contradiction is already implemented, drop my verb"*): this module's
+quorum/contradiction is family (1) episodic loci, theirs is family (3)
+epistemic population basins, which
+`E-SIX-SEMANTIC-FAMILIES-MUST-NOT-IMPERSONATE-EACH-OTHER-1` records as an
+accepted vacancy. They got it right — and then observed that the module's own
+header never says which family it is in.
+
+**They were right, and the reason is the useful part — but the first version of
+this paragraph overstated it and is corrected here.** It said the distinction
+was recorded *"only in a PR body."* That is FALSE: it is also on this very
+board, at `EPIPHANIES.md:355` (the D-POP-2 entry), verbatim — *"No
+population-basin work: family 3 stays the accepted vacancy."* The knowledge was
+in TWO durable places and was still unavailable at the site of the misreading,
+which makes the finding **stronger**, not weaker: the defect is not that the
+boundary lived somewhere fragile, it is that **it was absent from the SOURCE**.
+The next reader greps the tree, not the board's 25,000 lines and not the PR
+archive. Prose that
+exists to stop a future misreading has to live where the misreading will
+happen — in this case, the module header, which now names family (1), quotes
+the ruling, and names the specific confusion (family 3) it forecloses.
+
+The generalisation for this workspace: the board is where a decision is
+JUSTIFIED; the source is where it must be ENFORCED. Neither a PR body nor a
+board entry enforces anything at the call site.
+
+**Two claims, one id — and the reason is an AUDIT, not a cause.** This entry
+carries the vacancy-rule generalisation and the placement finding above. They
+have no common cause; they were found in one cross-session audit, and F1
+(append-only) makes a new prepended id the only lawful vehicle for either, so
+splitting after the fact is not available. Signposted so a future search for
+"PR body" reaches this entry rather than only the vacancy half. Prior art for
+the placement claim: `.claude/board/entries/2026-08-13-e-a-figure-you-tallied-yourself-is-a-derived-figure-1.md:49-54`.
+
+## 2026-09-03 — E-A-PROBE-CAN-STATE-A-MEASUREMENT-THAT-WAS-FALSE-WHEN-IT-WAS-WRITTEN-1 — the census's own caller count, wrong twice
+
+**Status:** FINDING — a **new INSTANCE of an already-ruled pattern**, not a new
+rule. `.claude/knowledge/preflight-drift-patterns.md` Axis 1 ("Stale-Claim
+Verification") already names this failure mode *including its worse half*:
+"…OR was never true and was an error in the planner's self-report", with the
+remedy "run the actual git command… never trust the assertion". Two further
+predecessors: `EPIPHANIES.md:8660` (a figure cited twice is not confirmed once)
+and `:10275` (prose duplicating a machine-readable value has a half-life);
+`:252` (`E-A-CORRECTION-CAN-SUBSTITUTE-ONE-WRONG-NOUN-FOR-ANOTHER-1`) is the
+same shape one level up — a correction that carries a correction's authority
+while being itself incomplete, which is precisely what the review finding that
+prompted this entry turned out to be.
+**Confidence:** High — the falsifying lines are in the probe file itself. What
+is genuinely NOVEL here is narrower than the entry first implied, and it is the
+credibility mechanism below, not the decay.
+**Corrects:** `crates/lance-graph-planner/examples/entropy_surface_census.rs`
+(the caller-census block), shipped in `e5e2520` and fixed in `abcdb0d5`.
+
+**What happened.** The entropy census printed, as part of its output, that
+form A (`thought_atoms::normalized_entropy`) "has ZERO callers in the tree
+today", citing a grep "returning nothing" as verification. A review bot caught
+that the consolidation in the very next commit gave form A a production caller,
+making the printed claim false.
+
+**Re-running the cited command found the worse half** (measured at `e5e2520`,
+the census commit: the probe imported form A at line 38 and called it at line
+325, and the cited grep returned **6 hits**, not nothing — pinned to that
+commit because the count is exactly the kind of number this entry is about).
+The claim was **already
+false at the commit that introduced it**: the probe file itself imports form A
+(line 38) and calls it (line 325), so the grep it cites had a non-empty result
+the moment the file existed. The measurement was taken *before* the file was
+written and was never re-run against the tree it then described. The reviewer
+found the second staleness; the first shipped unnoticed.
+
+**Why an executable probe is the worst host for this.** Prose in a plan reads
+as a claim. The same sentence inside a running probe reads as *output* — as
+something the program checked — and this workspace's whole probe discipline
+trains readers to believe measured numbers over asserted ones. A stale line in
+a probe therefore borrows credibility that nothing earned. **That borrowing is
+this entry's one novel contribution** — the decay itself was already ruled (see
+Status).
+
+**The line is PROVENANCE, not subject matter.** A first version of this
+paragraph ended "an unasserted `println!` is not a measurement, it is a comment
+with better formatting", and that proves too much: two lines above the offending
+block, the same file legitimately prints `max-min spread … reported, not
+dramatized`, a value THIS RUN computed, and the file's own design comment
+("assertions moved to the END because a probe that aborts early hides
+evidence") presupposes that printed output IS evidence. The discriminator that
+exonerates that line and still condemns the census block is **who produced the
+number**: a value computed by the running probe carries the run's authority; a
+value TRANSCRIBED BY THE AUTHOR into a `println!` carries none, and is a
+comment wearing the run's clothes. Narrowing it to "claims about the state of
+the tree" would have been the wrong axis and would have duplicated the rule
+below.
+
+**The rule this leaves.** A claim about the STATE OF THE TREE decays the moment
+the tree changes, and the commit most likely to change it is the one the claim
+was written to motivate. So such a claim must carry (a) the commit it was
+measured at and (b) the command that measures it, so a reader re-runs rather
+than trusts — the same "measurements go in the ledger with a date, methods go
+in the doc" split `CLAUDE.md` already applies to the clippy-count trap in
+medcare-rs. The corrected block does exactly that, and separates the probe's
+own use of a symbol from its production callers, which is the distinction the
+original grep silently elided.
+
+**What it does NOT change.** C1/C2/C3 and their fixtures are untouched — they
+assert, they run, and they still pass. Only the unasserted census line was
+wrong, which is itself the point: every claim in that file that was gated by an
+`assert!` survived, and the one claim printed without one did not.
+
+## 2026-09-03 — E-A-RULED-HOME-NEEDS-A-FIRST-CONSUMER-OR-IT-IS-A-VACANCY-1 — the entropy atom's first caller, and the one convention that had to be defended
+
+**Status:** FINDING (shipped; disable-verified).
+**Confidence:** High — the substitution's safety was measured before it was
+made, and its one unsafe edge is pinned by a test that fails when the guard
+is removed.
+**Follows:** `E-THE-ENTROPY-HOME-WAS-RULED-AND-LEFT-EMPTY-1` (the census that
+licensed exactly this consolidation and nothing wider).
+
+**What shipped.** `lance_graph_planner::nars::insight::confidence_entropy` no
+longer carries its own Shannon loop; it extracts a 10-bin histogram and hands
+it to `lance_graph_contract::thought_atoms::normalized_entropy`. That atom —
+operator-ruled 2026-08-31 as a *universal thinking atom* — had **zero
+consumers** until this commit. A ruled home with no caller is not a home; it
+is a vacancy that the next session re-implements beside.
+
+**The measurement is what made this a two-line change rather than a
+hypothesis.** PROBE-ENTROPY-SURFACE-CENSUS-1 (`e5e2520`) had already
+established C1: the log base is inert under normalization
+(`log2/log2(10)` vs `ln/ln(10)` agreed to `0.00000000` on every fixture). So
+the caller's `log2`-and-divide-by-`log2(10)` and the atom's
+`ln`-and-divide-by-`ln(n)` are the same function, and the routing needed no
+tolerance argument at all.
+
+**The one place the two disagree is the whole risk, and it is silent.** The
+census's C2 falsification recorded that the caller's convention and the
+atom's are OPPOSITE on zero mass: the caller returns `0.0` for an empty
+arena, the atom returns `Some(1.0)` ("nothing prefers anything —
+indistinguishable from uniform"). An empty arena builds an all-zero
+histogram, so dropping the caller's `is_empty` early return would report
+**maximal uncertainty for an arena that holds none** — and `1.0` is in range,
+so nothing downstream would object. The guard is therefore load-bearing and
+now says so in its own doc comment, pinned by
+`an_empty_arena_has_zero_truth_entropy_not_one` (disable-verified: deleting
+the early return fails that test and only that test, 13 passed / 1 failed).
+
+**The paired can-fire half exists because the guard test is satisfiable by a
+stub.** `an_empty_arena_has_zero_truth_entropy_not_one` would also pass for a
+`confidence_entropy` hardcoded to `0.0`, so
+`the_routed_atom_still_spans_the_confidence_range` asserts the routed atom
+covers the full range on non-trivial inputs — one occupied bin ⇒ `0.0`, ten
+evenly occupied ⇒ `1.0` — and, third, that the normalization is by the **bin
+count** and not the occupied count (five bins of two ⇒ `ln 5 / ln 10`). That
+third assertion is the one that would catch a plausible-looking rewrite which
+normalized by however many bins happened to be non-empty.
+
+**What is still NOT licensed, restated so the scope does not drift.** Forms
+C/D/E were left alone (two live in workspace-excluded crates, so no
+in-workspace caller can route to them), and forms F/G were left alone
+deliberately: C3 measured them moving `92.103409` between the same
+distribution at 1× and 10× mass and going negative on elements above 1, which
+means they are not entropies of a distribution at all. "Fixing" them is a lab
+behaviour change and needs its own gate, not this one's.
+
+**A convergence worth naming, because it was found twice independently.**
+`rubicon-loco-rung-cognitive-fabric-v1.md` §130 (another session, merged the
+same day as #1152) reached the same fragmentation finding from the opposite
+direction and recorded it as *"Shannon entropy — EXISTS BUT NOT
+LOCO-ADDRESSABLE — ≥6 uncoordinated `entropy()` surfaces"*; the census
+measured seven. The two arcs are complementary rather than competing, and the
+distinction is worth keeping sharp: that plan wants entropy to have an
+**address** (a loco-addressable Frozen atom), this arc gives it a **home**
+(one canonical implementation with a real caller). An address for a function
+that still exists in seven copies would just name one of them. Its
+accompanying rule — *"Do not rewrite good SIMD in R2IL to claim purity"* — is
+the same restraint the census's F/G verdict already imposed here.
+
 ## 2026-08-31 — E-A-CORRECTION-CAN-SUBSTITUTE-ONE-WRONG-NOUN-FOR-ANOTHER-1 — three readings of one mechanism, and the source named itself the whole time
 
 **Status:** FINDING (verified against source at `cc0046f8`; every claim carries

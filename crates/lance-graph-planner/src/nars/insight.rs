@@ -20,6 +20,7 @@ use super::belief::BeliefArena;
 use crate::temporal::QueryReference;
 use lance_graph_contract::mul::FlowState;
 use lance_graph_contract::sensorium::GraphSignals;
+use lance_graph_contract::thought_atoms::normalized_entropy;
 
 /// A snapshot of the arena's cognitive signals at one instant — the contract
 /// [`GraphSignals`] (reused) plus the two scalars S10 needs that it does not
@@ -176,26 +177,44 @@ fn wonder(arena: &BeliefArena) -> f32 {
 
 /// Normalized Shannon entropy of the confidence distribution over 10 bins
 /// (`[0, 1]`; 0 = a single peaked confidence, 1 = uniform spread).
+///
+/// Routed through the operator-ruled atom
+/// [`lance_graph_contract::thought_atoms::normalized_entropy`] rather than
+/// carrying its own Shannon loop. The census
+/// (`examples/entropy_surface_census.rs`, PROBE-ENTROPY-SURFACE-CENSUS-1)
+/// measured this substitution safe: the log base is inert under
+/// normalization (`log2/log2(10)` and `ln/ln(10)` agreed to `0.00000000` on
+/// every fixture), and the histogram counts are unnormalized weights, which
+/// the atom divides by their own sum.
+///
+/// **The `n == 0` early return is load-bearing and must not be removed.**
+/// An empty arena builds an all-zero histogram, and the atom's zero-mass
+/// convention is `Some(1.0)` ("nothing prefers anything — indistinguishable
+/// from uniform"). Dropping the guard therefore inverts an empty arena's
+/// entropy from 0.0 to 1.0 — silently, since both are in range. That is the
+/// one fixture where the census measured the two conventions OPPOSITE, and
+/// it is pinned by `an_empty_arena_has_zero_truth_entropy_not_one`.
 #[must_use]
 fn confidence_entropy(arena: &BeliefArena) -> f32 {
     const BINS: usize = 10;
-    let n = arena.entries().len();
-    if n == 0 {
+    if arena.entries().is_empty() {
         return 0.0;
     }
+    // Counts stay INTEGRAL and are widened once, at the boundary. Accumulating
+    // into `f32` instead loses counts above 2^24: `f32(2^24) + 1.0 == f32(2^24)`
+    // (measured), so two bins holding 20M and 40M beliefs would both read
+    // 16_777_216.0 and the atom would see them as equally populated. Nothing in
+    // `BeliefArena` bounds its entry count, so this is unbounded in principle
+    // and merely unobserved today — which is not a reason to accumulate in f32.
     let mut hist = [0usize; BINS];
     for b in arena.entries() {
         let idx = ((b.truth.confidence.clamp(0.0, 1.0) * BINS as f32) as usize).min(BINS - 1);
         hist[idx] += 1;
     }
-    let mut h = 0.0f32;
-    for &c in &hist {
-        if c > 0 {
-            let p = c as f32 / n as f32;
-            h -= p * p.log2();
-        }
-    }
-    h / (BINS as f32).log2() // normalize to [0, 1]
+    let weights: [f32; BINS] = core::array::from_fn(|i| hist[i] as f32);
+    // BINS is a non-zero constant > 1, so the atom's empty/single arms are
+    // unreachable here; the default is defensive, never taken.
+    normalized_entropy(&weights).unwrap_or(0.0)
 }
 
 #[must_use]
@@ -315,6 +334,82 @@ mod tests {
             cop: Copula::Inh,
             p,
         }
+    }
+
+    /// Build an arena whose beliefs carry exactly the given confidences.
+    fn arena_with_confidences(cs: &[f32]) -> BeliefArena {
+        let mut arena = BeliefArena::new();
+        for (i, &c) in cs.iter().enumerate() {
+            arena.observe(
+                inh(i as u16, 900),
+                TruthValue::new(0.9, c),
+                Stamp::source(i as u32),
+            );
+        }
+        arena
+    }
+
+    /// **The load-bearing guard of the atom routing.** `confidence_entropy`
+    /// now delegates to `thought_atoms::normalized_entropy`, whose zero-mass
+    /// convention is `Some(1.0)` — the OPPOSITE of this caller's, and the one
+    /// fixture where PROBE-ENTROPY-SURFACE-CENSUS-1 measured the two
+    /// conventions maximally apart. An empty arena builds an all-zero
+    /// histogram, so without the caller's own early return the atom would
+    /// report maximal uncertainty for an arena that holds no uncertainty at
+    /// all — silently, since 1.0 is in range.
+    ///
+    /// Can-stay-silent. Disable by deleting the `is_empty` early return in
+    /// `confidence_entropy`: this fails with 1.0.
+    #[test]
+    fn an_empty_arena_has_zero_truth_entropy_not_one() {
+        let entropy = Snapshot::of(&BeliefArena::new(), 0.0).signals.truth_entropy;
+        assert_eq!(
+            entropy, 0.0,
+            "an empty arena has no confidence distribution to be uncertain \
+             about; the atom's zero-mass convention (1.0) must not reach here"
+        );
+        assert!(
+            (entropy - 1.0).abs() > 0.5,
+            "guard removed: the all-zero histogram reached the atom and came \
+             back as uniform ({entropy})"
+        );
+    }
+
+    /// Can-fire, on NON-TRIVIAL inputs — otherwise the assertion above would
+    /// also hold for a `confidence_entropy` stubbed to always return 0.0.
+    /// The routed atom must still span the full range: one occupied bin is
+    /// zero uncertainty, ten evenly occupied bins is maximal, and the
+    /// normalization is by the BIN COUNT (10), not by the occupied count.
+    #[test]
+    fn the_routed_atom_still_spans_the_confidence_range() {
+        let peaked = Snapshot::of(&arena_with_confidences(&[0.42; 8]), 0.0)
+            .signals
+            .truth_entropy;
+        assert!(
+            peaked.abs() < 1e-6,
+            "eight beliefs in one bin is a degenerate distribution: {peaked}"
+        );
+
+        let spread: Vec<f32> = (0..10).map(|k| 0.05 + 0.1 * k as f32).collect();
+        let uniform = Snapshot::of(&arena_with_confidences(&spread), 0.0)
+            .signals
+            .truth_entropy;
+        assert!(
+            (uniform - 1.0).abs() < 1e-5,
+            "ten beliefs, one per bin, is maximal spread: {uniform}"
+        );
+
+        // Half-occupied: five bins of two. H = log(5), normalized by log(10).
+        let half: Vec<f32> = (0..10).map(|k| 0.05 + 0.2 * (k / 2) as f32).collect();
+        let mid = Snapshot::of(&arena_with_confidences(&half), 0.0)
+            .signals
+            .truth_entropy;
+        let expected = 5f32.ln() / 10f32.ln();
+        assert!(
+            (mid - expected).abs() < 1e-5,
+            "normalization is by the bin count, not the occupied count: \
+             {mid} vs {expected}"
+        );
     }
 
     /// A deterministic SplitMix64 — the size-preserving null needs reproducible
