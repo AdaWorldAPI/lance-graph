@@ -27,7 +27,6 @@ pub mod cognitive_trace;
 pub mod composite_engine;
 pub mod contract_bridge;
 pub mod contrastive_learner;
-pub mod cronbach;
 pub mod domino;
 pub mod dto;
 pub mod dual_engine;

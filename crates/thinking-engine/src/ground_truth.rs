@@ -194,85 +194,21 @@ pub mod calibration {
         if gt.len() != baked_distances.len() || gt.len() < 2 {
             return 0.0;
         }
-        super::spearman_rank_correlation(&gt, baked_distances)
+        // MATH lives in jc (D-TEH-3); tie-corrected average ranks. `None`
+        // (undefined ρ) keeps the glue's historical `0.0` fallback.
+        let gt64: Vec<f64> = gt.iter().map(|&v| f64::from(v)).collect();
+        let bd64: Vec<f64> = baked_distances.iter().map(|&v| f64::from(v)).collect();
+        jc::reliability::spearman(&gt64, &bd64).map_or(0.0, |r| r as f32)
     }
 }
 
-//
-/// Spearman rank correlation between two f32 slices.
-pub fn spearman_rank_correlation(a: &[f32], b: &[f32]) -> f32 {
-    let n = a.len().min(b.len());
-    if n < 2 {
-        return 0.0;
-    }
-    let rank_a = ranks(a);
-    let rank_b = ranks(b);
-    let mean_a = rank_a.iter().sum::<f32>() / n as f32;
-    let mean_b = rank_b.iter().sum::<f32>() / n as f32;
-    let mut num = 0.0f32;
-    let mut den_a = 0.0f32;
-    let mut den_b = 0.0f32;
-    for i in 0..n {
-        let da = rank_a[i] - mean_a;
-        let db = rank_b[i] - mean_b;
-        num += da * db;
-        den_a += da * da;
-        den_b += db * db;
-    }
-    let den = (den_a * den_b).sqrt();
-    if den > 1e-10 {
-        num / den
-    } else {
-        0.0
-    }
-}
-
-fn ranks(values: &[f32]) -> Vec<f32> {
-    let mut indexed: Vec<(usize, f32)> = values.iter().enumerate().map(|(i, &v)| (i, v)).collect();
-    indexed.sort_by(|a, b| a.1.partial_cmp(&b.1).unwrap());
-    let mut result = vec![0.0f32; values.len()];
-    for (rank, &(orig_idx, _)) in indexed.iter().enumerate() {
-        result[orig_idx] = rank as f32;
-    }
-    result
-}
+// The Spearman estimator that used to live here moved to
+// `jc::reliability::spearman` under D-TEH-3 (tie-corrected; the private
+// ordinal-rank copy was numerically wrong under ties — see jc's lift-gate
+// test). `calibration::spearman_vs_ground_truth` calls jc.
 
 #[cfg(test)]
 mod tests {
-    use super::*;
-
-    #[test]
-    fn spearman_perfect_correlation() {
-        let a = vec![1.0, 2.0, 3.0, 4.0, 5.0];
-        let b = vec![10.0, 20.0, 30.0, 40.0, 50.0];
-        let rho = spearman_rank_correlation(&a, &b);
-        assert!(
-            (rho - 1.0).abs() < 1e-4,
-            "perfect correlation should be ~1.0, got {}",
-            rho
-        );
-    }
-
-    #[test]
-    fn spearman_inverse_correlation() {
-        let a = vec![1.0, 2.0, 3.0, 4.0, 5.0];
-        let b = vec![50.0, 40.0, 30.0, 20.0, 10.0];
-        let rho = spearman_rank_correlation(&a, &b);
-        assert!(
-            (rho - (-1.0)).abs() < 1e-4,
-            "inverse should be ~-1.0, got {}",
-            rho
-        );
-    }
-
-    #[test]
-    fn spearman_no_correlation() {
-        let a = vec![1.0, 2.0, 3.0, 4.0];
-        let b = vec![3.0, 1.0, 4.0, 2.0];
-        let rho = spearman_rank_correlation(&a, &b);
-        assert!(rho.abs() < 0.5, "shuffled should be near zero, got {}", rho);
-    }
-
     #[cfg(feature = "calibration")]
     mod calibration_tests {
         use super::super::calibration::*;

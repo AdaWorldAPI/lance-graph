@@ -7,8 +7,8 @@
 //! ```
 
 use crate::cognitive_stack::{GateState, RungLevel, StyleFamily};
-use lance_graph_contract::escalation::GhostEcho;
 use crate::meaning_axes::{Archetype, AxisActivation, HdrResonance, Viscosity};
+use lance_graph_contract::escalation::GhostEcho;
 
 // ═══════════════════════════════════════════════════════════════════════════
 // RESONANCE DTO — the gestalt + user model

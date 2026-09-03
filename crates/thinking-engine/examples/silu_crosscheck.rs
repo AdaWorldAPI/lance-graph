@@ -24,7 +24,8 @@ fn main() {
         .collect();
 
     let samples = generate_training_data(&gate_centroids, &up_centroids, &centroids, &probes);
-    let stats = correction_stats(&samples);
+    let stats = correction_stats(&samples)
+        .expect("synthetic corrections are finite; None would mean an invalid run");
     eprintln!("Correction stats ({} samples):", stats.count);
     eprintln!(
         "  Mean |Δ|:  {:.4}  Material: {:.1}%  Large: {:.1}%\n",
@@ -36,7 +37,7 @@ fn main() {
     // 2. Build corrected table
     let raw_table: Vec<u8> = JINA_HDR_TABLE.to_vec();
     let mut corrected_table = raw_table.clone();
-    let correction_scale = stats.mean_abs.min(0.3);
+    let correction_scale = stats.mean_abs.min(0.3) as f32;
     for i in 0..n {
         for j in 0..n {
             let idx = i * n + j;
