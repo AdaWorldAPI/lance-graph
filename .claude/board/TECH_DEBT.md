@@ -1672,15 +1672,17 @@ multi-antecedent path for real.
 
 ---
 
-### TD-NDARRAY-SIMD-SIGNATURE-PDE-SWEEP (W1.5-#6, DEFERRED)
+### TD-NDARRAY-SIMD-SIGNATURE-PDE-SWEEP (W1.5-#6, SHIPPED)
 
 - **Severity:** P3 (deferred; activates when sigker is benchmarked at production carrier widths)
 - **Surfaced in:** sigker architectural review 2026-05-16; `.claude/knowledge/ndarray-vertical-simd-alien-magic.md` §W1.5
-- **Status:** Deferred (gated on `jc Pillar 11` activation per `crates/sigker/src/lib.rs:42-47`)
-- **Description:** sigker computes signature kernel `〈S(X), S(Y)〉` via Goursat PDE (depth-∞ in O(T₁·T₂) flops, no signature materialization). This is a 2D banded grid sweep over `F32x16` state with a kernel-eval closure per step — the dominant primitive for any path-signature workload. Currently scalar Rust in `sigker::kernel`. Activation requires `jc Pillar 11` (Hambly-Lyons signature uniqueness) certification.
-- **Required API surface (when activated):**
+- **Status:** ~~Deferred~~ **SHIPPED 2026-09-02.** Both activation clauses measured true: sigker's `cubature_vs_randomized` example already exercises production carrier widths (PATH_DIM=4/PATH_LEN=64/N_PATHS=256), and `jc`'s own `src/lib.rs` records Pillar 11 activated since PR #348 (`crates/jc/src/lib.rs`'s header, not the stale prose that used to sit at `crates/sigker/src/lib.rs:42-47` — that doc comment is now corrected too, same commit). Shipped as `ndarray::hpc::signature_pde::signature_pde_sweep` (ndarray PR #293), generalized to arbitrary path dimension rather than the `F32x16`-fixed sketch originally specified below (that sketch predates the discovery that `sigker`'s carrier is `f64`/`Vec<Vec<f64>>`, not `f32`/`F32x16` — the shipped API is a deliberate, better-fitted deviation from the sketch, not a shortfall against it). `sigker::signature_kernel_pde` now delegates to it directly.
+- **Description (as originally scoped, kept for the historical shape):** sigker computes signature kernel `〈S(X), S(Y)〉` via Goursat PDE (depth-∞ in O(T₁·T₂) flops, no signature materialization). This is a 2D banded grid sweep over `F32x16` state with a kernel-eval closure per step — the dominant primitive for any path-signature workload. Currently scalar Rust in `sigker::kernel`. Activation requires `jc Pillar 11` (Hambly-Lyons signature uniqueness) certification.
+- **Required API surface (as originally scoped):**
   - `pub fn signature_pde_sweep<F>(x: &[F32x16], y: &[F32x16], kernel_fn: F) -> f32 where F: Fn(F32x16, F32x16) -> F32x16;` — Goursat 2D sweep, closure-parameterized kernel, banded update.
-- **Cross-ref:** `crates/sigker/src/lib.rs:42-47`; `crates/sigker/src/kernel.rs`; CLAUDE.md `I-NOISE-FLOOR-JIRAK` (sigker bypasses).
+- **Shipped API surface (what actually landed):**
+  - `pub fn signature_pde_sweep(x: &[Vec<f64>], y: &[Vec<f64>]) -> f64` in `ndarray::hpc::signature_pde` — matches `sigker::signature_kernel_pde`'s exact signature for drop-in use, arbitrary dimension via per-axis SoA arrays, `F64x8::mul_add`-based anti-diagonal wavefront (not closure-parameterized — the kernel here is fixed as the Euclidean inner product, not user-supplied).
+- **Cross-ref:** `crates/sigker/src/lib.rs`; `crates/sigker/src/kernel.rs`; `crates/jc/examples/w5_trigger_check.rs`; `crates/jc/examples/goursat_substrate_probe.rs` (the dim=2 probe this generalizes); `ndarray/src/hpc/signature_pde.rs`; `ndarray/examples/signature_pde_bench.rs`; CLAUDE.md `I-NOISE-FLOOR-JIRAK` (sigker bypasses).
 
 ---
 

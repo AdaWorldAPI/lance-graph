@@ -1,18 +1,32 @@
 //! A0/A1/A2 — the Goursat solve on the canonical ndarray substrate.
 //!
-//! The falsifier recorded in `TD-PILLAR11-SCIENTIFIC-LOOPS-BYPASS-NDARRAY-SIMD-1`:
+//! The falsifier recorded in `TD-PILLAR11-SCIENTIFIC-LOOPS-BYPASS-NDARRAY-SIMD-1`,
+//! **as originally run** (2026-09-02, before `signature_kernel_pde` was wired
+//! to the SIMD substrate):
 //!
 //! | arm | storage | traversal | arithmetic |
 //! |---|---|---|---|
-//! | A0 | `Vec<Vec<f64>>` | row-major | scalar (the shipped `signature_kernel_pde`) |
+//! | A0 | `Vec<Vec<f64>>` | row-major | scalar (`signature_kernel_pde` AT THE TIME) |
 //! | A1 | flat `Vec<f64>` | row-major, SAME order | scalar |
 //! | A2 | three rolling anti-diagonals | wavefront | `ndarray::simd::F64x8::mul_add` |
 //!
-//! Contract: A0 = A1 **bit-exact** (only storage changes). A1 <-> A2 under a
-//! predeclared tolerance: the wavefront's `mul_add(c, diag, u)` fuses the
-//! `c·diag + u` rounding the scalar path performs as two roundings, so the two
-//! arms legitimately differ in the last bits. No consumer intrinsics; every
-//! lane op is `ndarray::simd::method()`.
+//! At that time: A0 = A1 bit-exact (only storage changed); A1 <-> A2 differed
+//! under a predeclared tolerance (fused vs. separate rounding of `c·diag`).
+//! That result is what justified promoting A2 into
+//! `ndarray::hpc::signature_pde::signature_pde_sweep` (ndarray PR #293) and
+//! wiring `signature_kernel_pde` to call it directly
+//! (`E-SIGNATURE-PDE-SWEEP-SHIPPED-W1.5-GATE-WAS-QUIETLY-OPEN-1`).
+//!
+//! **Consequence for this probe:** A0 (`signature_kernel_pde`) is now itself
+//! SIMD-backed, so A0 and A1 no longer agree bit-exact — A0 has effectively
+//! become a second, independent implementation of the wavefront (A2 here is
+//! the probe's own from-scratch dim=2 copy; ndarray's shipped primitive is a
+//! separate, general-dimension implementation of the identical algorithm).
+//! The contract below is therefore restated in terms of what is actually
+//! true post-promotion: **A1 is the untouched scalar oracle; A0 and A2 each
+//! agree with A1 within the predeclared tolerance, and with each other** —
+//! three independent codings of the same recurrence, cross-checked.
+//! No consumer intrinsics; every lane op is `ndarray::simd::method()`.
 //!
 //! Run: `cargo run --release --manifest-path crates/jc/Cargo.toml \
 //!       --features hambly-lyons --example goursat_substrate_probe`
@@ -147,14 +161,21 @@ fn goursat_wavefront(x: &[Vec<f64>], y: &[Vec<f64>]) -> f64 {
     prev1[n - 1]
 }
 
+/// Predeclared tolerance for a SIMD-wavefront arm vs. the untouched scalar
+/// oracle (A1): fused vs. separate rounding of `c·diag`, not a post-hoc fit.
+/// Matches `ndarray::hpc::signature_pde`'s own parity-test tolerance.
+const TOLERANCE: f64 = 1e-9;
+
 fn main() {
     println!(
         "{:>6} {:>10} {:>10} {:>10} {:>9} {:>9} {:>12} {:>12}",
-        "len", "A0 secs", "A1 secs", "A2 secs", "A0/A1", "A1/A2", "A0==A1", "|A1-A2|/A1"
+        "len", "A0 secs", "A1 secs", "A2 secs", "A0/A1", "A1/A2", "|A0-A1|/A1", "|A2-A1|/A1"
     );
     for &n in &[256usize, 1024, 2048, 4096] {
         let (x, y) = (path(n), path(n));
         let t = Instant::now();
+        // A0 is now itself SIMD-backed (ndarray::hpc::signature_pde::signature_pde_sweep,
+        // general-dimension) — see the module doc for why this arm's identity changed.
         let a0 = signature_kernel_pde(&x, &y);
         let s0 = t.elapsed().as_secs_f64();
         let t = Instant::now();
@@ -163,22 +184,27 @@ fn main() {
         let t = Instant::now();
         let a2 = goursat_wavefront(&x, &y);
         let s2 = t.elapsed().as_secs_f64();
-        let exact = a0.to_bits() == a1.to_bits();
-        let rel = ((a1 - a2) / a1).abs();
+        let rel_a0 = ((a0 - a1) / a1).abs();
+        let rel_a2 = ((a2 - a1) / a1).abs();
         println!(
-            "{:>6} {s0:>10.4} {s1:>10.4} {s2:>10.4} {:>8.2}x {:>8.2}x {:>12} {rel:>12.3e}",
+            "{:>6} {s0:>10.4} {s1:>10.4} {s2:>10.4} {:>8.2}x {:>8.2}x {rel_a0:>12.3e} {rel_a2:>12.3e}",
             n + 1,
             s0 / s1,
             s1 / s2,
-            if exact { "bit-exact" } else { "DIFFERS" }
         );
         assert!(
-            exact,
-            "A0 != A1 at n={n}: {a0:e} vs {a1:e} — storage change altered the result"
+            rel_a0 <= TOLERANCE,
+            "A0 vs A1 at n={n}: {a0:e} vs {a1:e} — exceeds predeclared tolerance {TOLERANCE:e}"
+        );
+        assert!(
+            rel_a2 <= TOLERANCE,
+            "A2 vs A1 at n={n}: {a2:e} vs {a1:e} — exceeds predeclared tolerance {TOLERANCE:e}"
         );
     }
-    println!("\nA0 = A1 bit-exact at every size (only storage changed).");
     println!(
-        "A1 <-> A2 differ by fused vs. separate rounding of c·diag — the predeclared tolerance."
+        "\nA1 is the untouched scalar oracle. A0 (shipped, general-dimension SIMD) and A2 \
+         (this probe's own dim=2 SIMD copy) each agree with A1 within the predeclared \
+         tolerance ({TOLERANCE:e}) — two independent codings of the same recurrence, \
+         cross-checked against one reference."
     );
 }

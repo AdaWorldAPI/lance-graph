@@ -6,9 +6,15 @@ license = "Apache-2.0"
 publish = false
 description = "Path-signature representations: Chen-Lyons signatures, randomized signatures, signature kernels — algebraic peer to bgz17/deepnsm for sequential/path-structured data."
 
-# Zero deps in production — same constitution as bgz17, deepnsm, jc.
-# Standalone, opt-in build via --manifest-path.
+# ndarray is a plain, mandatory dependency (operator ruling: ndarray is
+# mandatory everywhere numeric/computational code runs in the Ada stack —
+# see lance-graph CLAUDE.md and crates/jc/Cargo.toml). signature_kernel_pde
+# is backed by ndarray::hpc::signature_pde::signature_pde_sweep, the SIMD
+# wavefront that replaced the hand-rolled row-major scalar loop
+# (TD-PILLAR11-SCIENTIFIC-LOOPS-BYPASS-NDARRAY-SIMD-1). Otherwise standalone,
+# opt-in build via --manifest-path — same constitution as bgz17, deepnsm, jc.
 [dependencies]
+ndarray = { path = "../../../ndarray" }
 
 [dev-dependencies]
 
