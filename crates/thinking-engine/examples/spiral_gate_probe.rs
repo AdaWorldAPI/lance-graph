@@ -147,7 +147,7 @@ fn main() {
         "gate: r ≥ {R_FLOOR}, ρ ≥ {RHO_FLOOR}, spiral bytes ≤ u8 bytes / {MIN_RATIO_VS_U8} — on EVERY table at ONE max_error\n"
     );
     println!(
-        "{:>12} | {:>9} | {:>7} | {:>7} | {:>7} | {:>7} | {:>7} | {:>7} | {:>6} | {:>8} | {:>7}",
+        "{:>12} | {:>9} | {:>7} | {:>7} | {:>7} | {:>7} | {:>7} | {:>7} | {:>6} | {:>8} | {:>7} | {:>9}",
         "table",
         "max_error",
         "r",
@@ -158,7 +158,8 @@ fn main() {
         "x u8",
         "x bf16",
         "seg/row",
-        "max|e|"
+        "max|e|",
+        "bytes"
     );
     // pass_at[k] = every table clears the gate at MAX_ERRORS[k].
     let mut pass_at = vec![true; MAX_ERRORS.len()];
@@ -170,7 +171,7 @@ fn main() {
             let ok = row.r >= R_FLOOR && row.rho >= RHO_FLOOR && row.ratio_vs_u8 >= MIN_RATIO_VS_U8;
             pass_at[k] &= ok;
             println!(
-                "{:>12} | {:>9.3} | {:>7.4} | {:>7.4} | {:>7.4} | {:>7.4} | {:>7.4} | {:>7.2} | {:>6.2} | {:>8.2} | {:>7.4}  {} ({:.1}s)",
+                "{:>12} | {:>9.3} | {:>7.4} | {:>7.4} | {:>7.4} | {:>7.4} | {:>7.4} | {:>7.2} | {:>6.2} | {:>8.2} | {:>7.4} | {:>9}  {} ({:.1}s)",
                 name,
                 me,
                 row.r,
@@ -182,6 +183,7 @@ fn main() {
                 row.ratio_vs_bf16,
                 row.avg_segments,
                 row.max_abs_err,
+                row.bytes,
                 if ok { "ok" } else { "--" },
                 t0.elapsed().as_secs_f64()
             );

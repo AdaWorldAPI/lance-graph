@@ -33,7 +33,6 @@
 //!   cargo run --release --manifest-path crates/thinking-engine/Cargo.toml \
 //!     --example chunker_falsifier
 
-use std::collections::HashSet;
 use std::path::Path;
 
 use thinking_engine::codebook_index::CodebookIndex;

@@ -149,22 +149,39 @@ pub struct WorldModelDto {
     pub context_state: ContextState,
 }
 
+/// Per-cycle scalar signals fed into [`WorldModelDto::from_engine_state`],
+/// grouped so the constructor takes the three stateful objects (`agent` /
+/// `field` / `qualia`) plus one bundle instead of ten positional args.
+#[derive(Clone, Debug)]
+pub struct ThoughtSignals {
+    pub dissonance: f32,
+    pub free_energy: f32,
+    pub lens_agreement: f32,
+    pub spo_count: u16,
+    pub calibration_error: f32,
+    /// The thought's ghost-prior summary (planner `GhostPrior`): active count
+    /// and the dominant echo. The agent no longer owns the field (D-TEH-2).
+    pub trace_count: u16,
+    pub dominant_trace: Option<GhostEcho>,
+}
+
 impl WorldModelDto {
     /// Build from the thinking engine's current state.
     pub fn from_engine_state(
         agent: &crate::persona::Agent,
         field: &crate::superposition::SuperpositionField,
         qualia: &crate::qualia::Qualia17D,
-        dissonance: f32,
-        free_energy: f32,
-        lens_agreement: f32,
-        spo_count: u16,
-        calibration_error: f32,
-        // The thought's ghost-prior summary (planner `GhostPrior`): active count
-        // and the dominant echo. The agent no longer owns the field (D-TEH-2).
-        trace_count: u16,
-        dominant_trace: Option<GhostEcho>,
+        signals: ThoughtSignals,
     ) -> Self {
+        let ThoughtSignals {
+            dissonance,
+            free_energy,
+            lens_agreement,
+            spo_count,
+            calibration_error,
+            trace_count,
+            dominant_trace,
+        } = signals;
         let hdr = HdrResonance::new(
             lens_agreement,
             1.0 - dissonance,

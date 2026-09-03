@@ -121,6 +121,12 @@ impl EmbeddingBatch {
     }
 
     /// Pairwise cosine similarity matrix.
+    // Symmetric fill: each iteration writes matrix[i][j] AND matrix[j][i] —
+    // two different rows of `matrix` alongside two different, unrelated
+    // elements of `self.embeddings` — so there's no single iterator over one
+    // collection that expresses this without an equivalent index dance
+    // (clippy's own suggested rewrite only reaches row `i`, not row `j`).
+    #[allow(clippy::needless_range_loop)]
     pub fn pairwise_cosines(&self) -> Vec<Vec<f32>> {
         let n = self.embeddings.len();
         let mut matrix = vec![vec![0.0f32; n]; n];
