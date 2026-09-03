@@ -1,6 +1,8 @@
 ## 2026-09-03 — E-A-CORRECTION-IS-ONLY-AS-GOOD-AS-ITS-MERGE-1 — an unlanded Storno leaves the falsehood standing
 
-**Status:** FINDING (measured on this repo's own `main`, this hour).
+**Status:** FINDING (measured on this repo's own `main`, this hour). The
+actionable rule below was falsified once by its own repo-scale sweep and
+corrected in place before merge — see the ⊘ block.
 **Confidence:** High — the false claim, the correct fix, and the source that
 settles them were all read directly.
 
@@ -39,12 +41,44 @@ that separates them is `git ls-remote --heads` plus a per-branch
 `rev-list --left-right --count` against `main`; it costs one command and it is
 the only thing that would have surfaced this.
 
-**Consequence, actionable.** Before concluding a repo has nothing in flight,
-enumerate the remote branches and count each one's distance from `main`. A
-branch ahead of `main` with no PR is either abandoned or stranded, and the
-difference matters — this one held a verified correction of a live falsehood.
-Opened as #1162 (draft, authorship left with the writing session; not rebased,
-not amended, not extended).
+**⊘ The first version of this entry got the actionable rule WRONG, and the
+correction is the better half.** It said: *"a branch ahead of `main` with no PR
+is either abandoned or stranded."* Then I ran that sweep at repo scale instead
+of on the one branch I already knew about:
+
+| check | hits |
+|---|---|
+| remote branches on `origin` | **526** |
+| ahead of `main` (any age) | **~200**, nearly all also 282 behind |
+| ahead of `main`, ordered by last-commit recency | **4** |
+
+Ahead-of-`main` alone is not a signal — it is the resting state of hundreds of
+long-dead branches, and it drowns exactly what it was supposed to surface. This
+is the same defect the entry above describes, committed in the entry describing
+it: a rule that *reads* as measured, written from one instance, wrong in the
+flattering direction. Ordering by **recency** is what makes it a discriminator,
+because a stranded branch is by definition recent — the valhalla branch was 170
+behind `main` where the dead ones are 282.
+
+**Consequence, actionable (corrected, and re-run).** Before concluding a repo
+has nothing in flight: `git for-each-ref --sort=-committerdate refs/remotes/origin`,
+then `git rev-list --count origin/main..<branch>` over the recent head of that
+list. On this repo it returned four, and the three that were not mine split
+cleanly:
+
+- `claude/lance-graph-java-panama-valhalla-sus9w8` — the verified 58.2%
+  correction above. **Stranded.** → #1162.
+- `claude/stale-4layer-index-entry` — four board entries from the 2026-08-30
+  supersession-gate arc. **Stranded, and the harder kind**: the workflow *fix*
+  reached `main` by another route, so a reader who checks whether the problem is
+  fixed finds *yes* and concludes the branch is redundant — while all four
+  entries explaining it are absent from `main` (verified by grep). → #1164.
+- `claude/redo-d-mar-1` — commit subject reads `HOLD: … NOT for merge`.
+  **Deliberately parked, correctly excluded.** The method's silence case, and it
+  self-labels: a branch that is meant to sit says so in its own subject line.
+
+Two fires and one silence on non-trivial input, which is the least this repo
+accepts of a new rule.
 
 **Cross-refs.** The stranded-slice entries near `:1324` are a *different*
 mechanism — work lost inside a rebase, not work finished and never proposed.
