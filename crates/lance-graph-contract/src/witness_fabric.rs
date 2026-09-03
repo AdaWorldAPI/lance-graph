@@ -361,6 +361,115 @@ pub fn elect_peers_lens(
     }
 }
 
+// ── D-POP-2 — the contradiction write-back producer ───────────────────────
+//
+// `elect_peers` / `elect_peers_lens` compute the social loci (Quorum,
+// Contradiction) from a window of real peer rows; nothing before this point
+// writes that election back into the row's own register. [`elect_and_bind`]
+// is that PRODUCER — the molecule "contradiction-driven revision" (plan
+// `.claude/plans/post-teardown-buildup-survey-v1.md` §4) needs a row whose
+// Contradiction locus is actually BOUND before [`is_opinion`] /
+// [`revision_trajectory`] / [`suggest_reopening`] have anything to read.
+//
+// Family 1 (episodic/Markov loci) only: a locus is a signed OFFSET (a
+// pointer, sign = orientation) — never a magnitude, a valence, or a count.
+// The producer therefore writes exactly two POINTERS (Quorum = slot 14,
+// Contradiction = slot 15) and nothing else. No new tenant, no new
+// ClassView, no new type beyond [`ElectionReport`] below, no layout change,
+// no new dependency; `ENVELOPE_LAYOUT_VERSION` is untouched.
+//
+// Zero-copy law: the row array IS the projection. The producer lenses the
+// rows in place per focal position; the only owned value is the `Copy`
+// 12-byte [`CausalWitnessFacet`] microcopy read-modify-written back into the
+// SAME row. It never gathers a `Vec` of registers.
+
+impl<'a> WitnessLens<'a> {
+    /// The producer's WRITE half: bind `election` into `row`'s own
+    /// CausalWitness register as a read-modify-write of ONLY the two social
+    /// loci — [`Locus::Quorum`] (slot 14) and [`Locus::Contradiction`]
+    /// (slot 15). Every other nibble of the register, and every byte of the
+    /// row outside it, is left byte-identical. An election of `0` UNBINDS the
+    /// locus (offset 0 is "unbound" everywhere in this facet), so a re-run
+    /// that finds no peer clears a stale one — the producer is a pure function
+    /// of the content loci, never an accumulator.
+    #[inline]
+    pub fn bind_election(row: &mut NodeRow, election: PeerElection) {
+        // owned 12-byte microcopy (CausalWitnessFacet is Copy) — read through the
+        // same offsets `at` uses, then written back through `write_register`.
+        let current = *WitnessLens::new(core::slice::from_ref(row))
+            .at(0)
+            .expect("a one-row lens always has position 0");
+        let next = current
+            .with(Locus::Quorum, election.quorum_offset)
+            .with(Locus::Contradiction, election.contradiction_offset);
+        WitnessLens::write_register(row, &next);
+    }
+}
+
+/// What [`elect_and_bind`] did to a standing wave — counts only, no positions
+/// (positions are readable back through the lens; a list here would be a
+/// second projection of the rows).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub struct ElectionReport {
+    /// Focal rows visited (= visible positions).
+    pub visited: usize,
+    /// Visited rows whose Quorum locus ended bound (non-zero).
+    pub quorum_bound: usize,
+    /// Visited rows whose Contradiction locus ended bound (non-zero).
+    pub contradiction_bound: usize,
+}
+
+/// **D-POP-2 — the contradiction write-back producer.** For every position
+/// `pos` in `0..rows.len()` with `visible(pos)`, elect the row's social peers
+/// through the lens ([`elect_peers_lens`], peers = the visible positions within
+/// the ±8 horizon) and bind the election into the row's own register
+/// ([`WitnessLens::bind_election`]). Rows outside `visible` are neither
+/// resolved nor written and stay byte-identical.
+///
+/// `rows` must be the WHOLE standing wave (see [`WitnessLens::new`]); the
+/// `visible` predicate is the address set, exactly as for every `*_lens`
+/// resolver in this module — one predicate, one meaning, used for the focal
+/// domain and the peer domain alike.
+///
+/// # Order-independent, idempotent
+///
+/// Elections read only the CONTENT loci ([`CONTENT_LOCI`] excludes Quorum and
+/// Contradiction precisely so the fabric never reads what it computes), so a
+/// binding written into row *i* cannot change the election of any row *j*.
+/// Visiting in ascending order is therefore just an order, not a dependency:
+/// the result is the same bytes for any visit order, a second run reproduces
+/// the first bit-for-bit, and stale or garbage social loci present before the
+/// run are overwritten rather than consulted. That is what makes this a
+/// producer of the molecule "contradiction-driven revision" (plan §4) and not
+/// an accumulator: [`is_opinion`] / [`revision_trajectory`] /
+/// [`suggest_reopening`] read the bound Contradiction locus back from the row.
+///
+/// Zero-copy: one lens per focal position over the same row slice, dropped
+/// before the write; the only owned value is the `Copy` register microcopy
+/// inside [`WitnessLens::bind_election`]. No gather, no `Vec` of registers.
+#[must_use]
+pub fn elect_and_bind(rows: &mut [NodeRow], visible: impl Fn(usize) -> bool) -> ElectionReport {
+    let mut report = ElectionReport::default();
+    for pos in 0..rows.len() {
+        if !visible(pos) {
+            continue;
+        }
+        let election = {
+            let lens = WitnessLens::new(&*rows);
+            elect_peers_lens(pos, &lens, &visible)
+        };
+        WitnessLens::bind_election(&mut rows[pos], election);
+        report.visited += 1;
+        if election.quorum_offset != 0 {
+            report.quorum_bound += 1;
+        }
+        if election.contradiction_offset != 0 {
+            report.contradiction_bound += 1;
+        }
+    }
+    report
+}
+
 /// The result of following a locus chain across the window.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct ChainResolution {
@@ -2998,6 +3107,276 @@ mod tests {
             .iter()
             .all(|&b| b == 0xEE));
         assert!(row.value[WITNESS_REGISTER_END..].iter().all(|&b| b == 0xEE));
+    }
+
+    // ── D-POP-2 — the contradiction write-back producer ────────────────────
+
+    /// **The producer end to end.** The same fixture
+    /// `elect_peers_finds_kausal_dissenter_as_contradiction` uses, but run
+    /// through `elect_and_bind` and read back through a fresh lens: the
+    /// election is bound into BOTH rows (symmetric), the molecule's consumer
+    /// (`is_opinion`) reads the bound Contradiction back, and the content loci
+    /// the election was computed FROM survive untouched.
+    #[test]
+    fn elect_and_bind_binds_the_kausal_dissenter_as_contradiction() {
+        let focal = w(&[(Locus::SMeaning, 2), (Locus::Kausal, -3)]); // pos 5 → S@7, K@2
+        let dissenter = w(&[(Locus::SMeaning, 1), (Locus::Kausal, 2)]); // pos 6 → S@7 agree, K@8 ≠ K@2
+
+        let mut rows = rows_from(&[(5, focal), (6, dissenter)]);
+        let visible = |p: usize| p == 5 || p == 6;
+        let report = elect_and_bind(&mut rows, visible);
+        assert_eq!(
+            report,
+            ElectionReport {
+                visited: 2,
+                quorum_bound: 2,
+                contradiction_bound: 2,
+            }
+        );
+
+        let lens = WitnessLens::new(&rows);
+        assert_eq!(lens.at(5).unwrap().quorum(), 1);
+        assert_eq!(lens.at(5).unwrap().contradiction(), 1);
+        assert_eq!(lens.at(6).unwrap().quorum(), -1);
+        assert_eq!(
+            lens.at(6).unwrap().contradiction(),
+            -1,
+            "the election is symmetric"
+        );
+
+        // The molecule's consumer reads it back.
+        assert!(
+            is_opinion(&[*lens.at(5).unwrap()]),
+            "a bound Contradiction locus makes the row an opinion"
+        );
+        assert!(
+            !is_opinion(&[focal]),
+            "the PRE-run facet has no bound Contradiction — the producer is \
+             what made the row an opinion"
+        );
+
+        // Content loci untouched.
+        assert_eq!(lens.at(5).unwrap().at(Locus::SMeaning), 2);
+        assert_eq!(lens.at(5).unwrap().at(Locus::Kausal), -3);
+    }
+
+    /// **Silence when nothing converges.** Two bound-but-disjoint rows must
+    /// elect NOTHING — no quorum, no contradiction — and the producer must not
+    /// touch a single byte it did not need to (writing `0` into an
+    /// already-`0` nibble is a byte-identical no-op).
+    ///
+    /// Note: `rows_from` builds the WHOLE `0..=max_pos` standing wave (per its
+    /// own doc comment), so with `visible = |_| true` every position in that
+    /// span — including the unbound filler rows at 0..5 — is visited, not
+    /// only the two named positions. `report.visited` is therefore asserted
+    /// as `rows.len()` rather than the literal `2`; the content of the
+    /// assertion (nothing was bound, nothing was written) is unchanged.
+    #[test]
+    fn elect_and_bind_stays_silent_without_shared_events() {
+        let a = w(&[(Locus::SMeaning, 2)]); // pos 5 → S@7
+        let b = w(&[(Locus::SMeaning, 4)]); // pos 6 → S@10
+
+        // Fixture guard (anti-vacuity): both rows ARE bound but do not converge.
+        assert_eq!(absolute_agreement(5, a, 6, b), 0);
+        assert_eq!(a.bound_count(), 1);
+        assert_eq!(b.bound_count(), 1);
+
+        let mut rows = rows_from(&[(5, a), (6, b)]);
+        let snapshot: Vec<[u8; 480]> = rows.iter().map(|r| r.value).collect();
+
+        let report = elect_and_bind(&mut rows, |_| true);
+        assert_eq!(
+            report,
+            ElectionReport {
+                visited: rows.len(),
+                quorum_bound: 0,
+                contradiction_bound: 0,
+            }
+        );
+        for (row, before) in rows.iter().zip(snapshot.iter()) {
+            assert_eq!(&row.value, before, "no shared events → no write");
+        }
+    }
+
+    /// **Only the two social nibbles move.** A register with all 14 content
+    /// loci bound to distinct offsets, PLUS pre-existing Quorum/Contradiction
+    /// values, survives `bind_election` except at those two slots — and the
+    /// canary bytes outside the register are untouched.
+    ///
+    /// This test MUST fail if `bind_election` were rewritten as
+    /// `CausalWitnessFacet::ZERO.with(..)` — that would wipe the content loci
+    /// this test asserts survive.
+    #[test]
+    fn bind_election_touches_only_the_two_social_nibbles() {
+        let mut facet = CausalWitnessFacet::ZERO;
+        for (i, &l) in Locus::ALL.iter().enumerate() {
+            if l == Locus::Quorum || l == Locus::Contradiction {
+                continue;
+            }
+            let offset = ((i as i8) % 7) + 1; // ∈ 1..=7
+            facet = facet.with(l, offset);
+        }
+        facet = facet.with(Locus::Quorum, -8).with(Locus::Contradiction, 7);
+
+        let mut row = NodeRow {
+            key: crate::canonical_node::NodeGuid::local(1),
+            edges: crate::canonical_node::EdgeBlock::default(),
+            value: [0xEE_u8; 480],
+        };
+        WitnessLens::write_register(&mut row, &facet);
+
+        WitnessLens::bind_election(
+            &mut row,
+            PeerElection {
+                quorum_offset: 3,
+                contradiction_offset: -2,
+                quorum_agreement: 9,
+            },
+        );
+
+        let lens = WitnessLens::new(std::slice::from_ref(&row));
+        let read = *lens.at(0).expect("row present");
+
+        for (i, &l) in Locus::ALL.iter().enumerate() {
+            if l == Locus::Quorum || l == Locus::Contradiction {
+                continue;
+            }
+            let expected = ((i as i8) % 7) + 1;
+            assert_eq!(
+                read.at(l),
+                expected,
+                "content locus {} must survive bind_election unchanged",
+                l.label()
+            );
+        }
+        assert_eq!(read.quorum(), 3);
+        assert_eq!(read.contradiction(), -2);
+
+        assert!(row.value[..WITNESS_REGISTER_START]
+            .iter()
+            .all(|&b| b == 0xEE));
+        assert!(row.value[WITNESS_REGISTER_END..].iter().all(|&b| b == 0xEE));
+    }
+
+    /// **Garbage-in is overwritten, never consulted — and the producer is
+    /// idempotent.** A 5-row wave with mixed agreement, run clean, must
+    /// produce the SAME bytes whether or not stale Quorum/Contradiction
+    /// values were sitting in the rows before the run — and running the
+    /// producer a second time over its own output must not move a byte.
+    ///
+    /// This test fails if [`CONTENT_LOCI`] ever included Quorum or
+    /// Contradiction: the garbage seeded below would then leak into the
+    /// election and the clean/garbage runs would diverge.
+    #[test]
+    fn elect_and_bind_ignores_pre_existing_social_loci_and_is_idempotent() {
+        let fixture = [
+            (3usize, w(&[(Locus::SMeaning, 4), (Locus::Kausal, 2)])), // S@7, K@5
+            (4, w(&[(Locus::SMeaning, 3), (Locus::Kausal, 1)])),      // S@7, K@5 — agrees with 3
+            (5, w(&[(Locus::SMeaning, 2), (Locus::Kausal, -3)])), // S@7, K@2 — S agrees, K conflicts
+            (6, w(&[(Locus::Temporal, 1)])),                      // T@7 — shares nothing
+            (7, w(&[])),                                          // unbound
+        ];
+
+        // Clean run.
+        let mut rows_a = rows_from(&fixture);
+        let report_a = elect_and_bind(&mut rows_a, |_| true);
+        let snapshot_a: Vec<[u8; 480]> = rows_a.iter().map(|r| r.value).collect();
+
+        // Anti-vacuity: the clean run actually bound something on both loci.
+        assert!(
+            report_a.quorum_bound >= 1,
+            "the fixture must produce at least one bound Quorum"
+        );
+        assert!(
+            report_a.contradiction_bound >= 1,
+            "the fixture must produce at least one bound Contradiction"
+        );
+
+        // Garbage run: seed every row's Quorum/Contradiction BEFORE running.
+        let mut rows_b = rows_from(&fixture);
+        let clean_before: Vec<[u8; 480]> = rows_b.iter().map(|r| r.value).collect();
+        for row in rows_b.iter_mut() {
+            let current = *WitnessLens::new(std::slice::from_ref(&*row))
+                .at(0)
+                .expect("row present");
+            let garbaged = current
+                .with(Locus::Quorum, 7)
+                .with(Locus::Contradiction, -8);
+            WitnessLens::write_register(row, &garbaged);
+        }
+        let garbage_before: Vec<[u8; 480]> = rows_b.iter().map(|r| r.value).collect();
+        // Anti-vacuity: the garbage-seeded facets DID differ from the clean
+        // ones before the run.
+        assert_ne!(
+            clean_before, garbage_before,
+            "garbage-seeding must actually change the pre-run bytes"
+        );
+
+        let _ = elect_and_bind(&mut rows_b, |_| true);
+        let snapshot_b: Vec<[u8; 480]> = rows_b.iter().map(|r| r.value).collect();
+        assert_eq!(
+            snapshot_a, snapshot_b,
+            "garbage social loci were overwritten, never consulted"
+        );
+
+        // Idempotence: running elect_and_bind again on its own output
+        // reproduces the same bytes.
+        let _ = elect_and_bind(&mut rows_a, |_| true);
+        let snapshot_a2: Vec<[u8; 480]> = rows_a.iter().map(|r| r.value).collect();
+        assert_eq!(snapshot_a, snapshot_a2, "elect_and_bind must be idempotent");
+    }
+
+    /// **The `visible` domain is load-bearing, not decoration.** Hiding the
+    /// nearer of two equally-agreeing peers must change the election exactly
+    /// the way `elect_peers_lens`'s own visibility tests change theirs — both
+    /// arms run against a fresh copy of the SAME fixture so the predicate is
+    /// proven to change the outcome, not merely accepted.
+    #[test]
+    fn elect_and_bind_respects_the_visible_domain() {
+        let fixture = [
+            (5usize, w(&[(Locus::SMeaning, 3)])), // S@8
+            (6, w(&[(Locus::SMeaning, 2)])),      // S@8
+            (7, w(&[(Locus::SMeaning, 1)])),      // S@8
+        ];
+
+        // Arm A: hide position 6.
+        let mut rows_a = rows_from(&fixture);
+        assert_eq!(rows_a.len(), 8, "rows_from spans 0..=7");
+        let snapshot_row6 = rows_a[6].value;
+        let report_a = elect_and_bind(&mut rows_a, |p| p != 6);
+        let lens_a = WitnessLens::new(&rows_a);
+        assert_eq!(
+            lens_a.at(5).unwrap().quorum(),
+            2,
+            "the VISIBLE peer at +2 must be elected over the nearer invisible peer at +1"
+        );
+        assert_eq!(
+            rows_a[6].value, snapshot_row6,
+            "a hidden row must never be written"
+        );
+        assert_eq!(report_a.visited, rows_a.len() - 1);
+
+        // Arm B (anti-vacuity, fresh copy of the same fixture): with everyone
+        // visible the nearer peer wins the first-maximum tie-break — proving
+        // arm A's predicate actually changed the outcome.
+        let mut rows_b = rows_from(&fixture);
+        let _ = elect_and_bind(&mut rows_b, |_| true);
+        let lens_b = WitnessLens::new(&rows_b);
+        assert_eq!(
+            lens_b.at(5).unwrap().quorum(),
+            1,
+            "with the closer peer visible it wins the first-maximum tie-break"
+        );
+    }
+
+    /// An empty standing wave is a no-op: nothing visited, nothing bound.
+    #[test]
+    fn elect_and_bind_on_an_empty_wave_is_a_no_op() {
+        let mut rows: Vec<NodeRow> = Vec::new();
+        assert_eq!(
+            elect_and_bind(&mut rows, |_| true),
+            ElectionReport::default()
+        );
     }
 
     /// **Bounds.** An out-of-range position — including on an empty lens —
