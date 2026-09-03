@@ -305,7 +305,8 @@ KILL rather than an unverified doubt.
 **Verdict: KILL.** `semantic_chunker` stays LAB. Not ported to deepnsm-v2. Not
 deleted. Not re-probed on a friendlier corpus to chase a different answer.
 
-### `spiral_segment` — KILL, and the failure is compression ratio, not fidelity
+### `spiral_segment` — KILL, and the failure is compression ratio on u8
+### (fidelity holds), compression AND fidelity on i8 (correction below)
 
 ```
        table | max_error |       r |     rho |    x u8 |  seg/row |
@@ -320,8 +321,19 @@ deleted. Not re-probed on a friendlier corpus to chase a different answer.
 (full table: 5 tables x 4 max_errors = 20 rows, see the example's own output)
 
 Fidelity (Pearson r, Spearman rho) clears the 0.9980 gate comfortably on every
-u8 table at every max_error tried, and even the i8 table clears it at
-max_error <= 0.01. **The codec is accurate.** What kills it is compression:
+u8 table at every max_error tried. **The codec is accurate on u8 tables.**
+The i8 table is the one real exception, caught by Codex on this PR
+(`chatgpt-codex-connector[bot]`, P2): at its best configuration
+(max_error 0.005) r = 0.9993 clears the floor but rho = 0.9975 does not
+(the table above already shows this row) — i8 fidelity never clears BOTH
+gates at any max_error tested, and gets strictly worse as max_error loosens
+(rho 0.9975 -> 0.9906 -> 0.9590 -> 0.7137). Compression ALSO fails on i8 at
+every max_error (x u8 tops out at 0.80x, still short of `MIN_RATIO_VS_U8 = 2.0`),
+so the KILL verdict for `spiral_segment` is unaffected by this correction —
+the codec fails BOTH gates on i8, not just the compression gate the u8
+tables already fail. What the original write-up got wrong was calling this
+a "compression-only" failure; it is compression-only on u8, and a
+double failure on i8. What kills it, in either case, is compression:
 `x u8` (spiral bytes vs u8-table bytes) never exceeds ~0.28x on a u8 table —
 i.e. the spiral encoding is **~3.6x LARGER** than the u8 table it would
 replace, not smaller, let alone the "51x compression" the module's own doc
@@ -355,7 +367,7 @@ joining the earlier D-TEH-2/D-TEH-3 PASS rows already landed
 | D-TEH-0 | census + fate table + open-row reconciliation + idea harvest (this plan) | plan + board rows | Shipped (this PR) |
 | D-TEH-1 | W1: `bridge_gate` (seven items) → `lance_graph_contract::bridge_gate`; callcenter re-imports and drops the path dep; thinking-engine keeps a re-export shim | contract + callcenter | **Shipped 2026-09-02** — edge measured before (required dep, 6 crossing sites, dep-drop fails 6 × E0433) and after (zero thinking-engine deps in callcenter metadata; 1303 + 156 tests, driver default + `with-engine` green). The `with-engine` re-point is NOT part of this wave: D-TTV-1 is Queued and the engine hook still lives in thinking-engine, so there is nothing to re-point it at (stop condition honoured). thinking-engine is now a leaf for every REQUIRED edge; the one remaining edge is the ALU's optional engine hook |
 | D-TEH-2 | W2: ghost prior harvested as planner `nars/ghost_prior.rs` over `WisdomMarker`, per-thought, with two-sided falsifiers; crate `ghosts.rs` deleted | planner | **Shipped 2026-09-02** — planner `nars/ghost_prior.rs` (`GhostPrior`, `PriorFloor`, `Trace`, `calibration::{recurrence_fixture, discrimination}`; 14 tests); `ghosts.rs` + `examples/think.rs` deleted; lab `persona`/`world_model`/`awareness_dto` re-pointed to `contract::escalation::GhostEcho` (TD-GHOST-ECHO-DUP-1 resolved). Calibration gate REVERSED the first-declared floor: `Marker` (0.1, never pruned) discriminates ≥ `Trace` (0.001) on every fixture row and strictly once the remembered pattern ages past its prune point (disc 0.0188 vs 0.0000 at 30 stale / age 20 and 60); default = `Marker`. Consumer D-HOUSE-4 unblocked |
-| D-TEH-3 | W2: calibration MATH → jc (ruling 4: compare, then lift or perfect in jc; crate copies deleted); `semantic_chunker` / `spiral_segment` decided by their falsifiers | jc / deepnsm-v2 / codec home | **Shipped 2026-09-02/03 — all three halves closed.** Math: new `jc::drift` (`reencode_drift` / `reencode_batch` / `delta_summary`) and `jc::quorum` (`pairwise_agreement_u8` / `QuorumLevel` / `cronbach_report`); lift gate ran on distinguishing fixtures: cronbach = same estimator (LIFT; the `f32` copy loses a `1e7`-shifted fixture the `f64` form holds to `1e-9`), spearman = the retired copy ranked ties by position (PERFECT-IN-JC: 1.000 vs 0.948683 on `[1,2,2,3]`). `cronbach.rs` deleted; `reencode_safety` / `silu_correction` / `ground_truth::calibration` are glue over jc, x256 proof green (14 tests). **`semantic_chunker`: KILL** (§4c) — recall 0.000 at every threshold, confirmed a genuine mechanism null (not a harness artifact) via a non-committed positive-control diagnostic on the module's own adversarial fixture shape; stays LAB. **`spiral_segment`: KILL** (§4c) — fidelity clears r/rho >= 0.9980 on every real table, but compression tops out at ~0.28x a u8 table (i.e. ~3.6x LARGER, not the claimed 51x), because real HDR/CDF table rows need ~114-143 segments to hit even a loose max_error; stays LAB, certification battery not scheduled |
+| D-TEH-3 | W2: calibration MATH → jc (ruling 4: compare, then lift or perfect in jc; crate copies deleted); `semantic_chunker` / `spiral_segment` decided by their falsifiers | jc / deepnsm-v2 / codec home | **Shipped 2026-09-02/03 — all three halves closed.** Math: new `jc::drift` (`reencode_drift` / `reencode_batch` / `delta_summary`) and `jc::quorum` (`pairwise_agreement_u8` / `QuorumLevel` / `cronbach_report`); lift gate ran on distinguishing fixtures: cronbach = same estimator (LIFT; the `f32` copy loses a `1e7`-shifted fixture the `f64` form holds to `1e-9`), spearman = the retired copy ranked ties by position (PERFECT-IN-JC: 1.000 vs 0.948683 on `[1,2,2,3]`). `cronbach.rs` deleted; `reencode_safety` / `silu_correction` / `ground_truth::calibration` are glue over jc, x256 proof green (14 tests). **`semantic_chunker`: KILL** (§4c) — recall 0.000 at every threshold, confirmed a genuine mechanism null (not a harness artifact) via a non-committed positive-control diagnostic on the module's own adversarial fixture shape; stays LAB. **`spiral_segment`: KILL** (§4c) — fidelity clears r/rho >= 0.9980 on every u8 table but NOT on i8 (rho tops out at 0.9975, corrected 2026-09-03 per Codex review on #1144); compression fails on every table regardless, topping out at ~0.28x a u8 table (i.e. ~3.6x LARGER, not the claimed 51x), because real HDR/CDF table rows need ~114-143 segments to hit even a loose max_error; stays LAB, certification battery not scheduled |
 | D-TEH-4 | W3: M8 engine collapse with parity suite; cascade shapes and lens modules collapse | thinking-engine → the one engine | Queued (owns ENTROPY M8) |
 | D-TEH-5 | W4: residue deleted, crate renamed `thinking-lab` with a CI line; §2 rows closed; TD paid | workspace | Queued — closes the chapter |
 
