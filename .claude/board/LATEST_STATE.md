@@ -1,3 +1,7 @@
+## 2026-09-03 — post-merge hygiene for #1145 (D-POP-2) — INVENTORY DELTA
+
+- MERGED #1145 (`2bf8b290`): `witness_fabric::{elect_and_bind, ElectionReport}`, `WitnessLens::bind_election`, `tests/d_pop_2_producer_reaches_consumers.rs` are on main (see PR_ARC). No further contract change in this delta.
+
 ## 2026-09-03 — branch (D-POP-2, second commit): the producer is READ by its consumers — INVENTORY DELTA
 
 - ADDED `crates/lance-graph-contract/tests/d_pop_2_producer_reaches_consumers.rs` (2 tests, disable-verified against a no-op `bind_election`: both red). No library surface.

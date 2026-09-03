@@ -10,6 +10,14 @@
 > census §8.3 trap 10: read the body FIRST, then open for write — never
 > inline both in one expression.
 
+## 2026-09-03 — lance-graph PR #1145 (merged `2bf8b290`, branch `claude/adaworld-substrate-harvest-pvfbs9`) — D-POP-2: the contradiction write-back producer
+
+- **Added:** `lance_graph_contract::witness_fabric::{elect_and_bind, ElectionReport}` + `WitnessLens::bind_election` — the producer the post-teardown survey named as its cheapest gap (§5.4): elect the social peers through the lens, read-modify-write ONLY Quorum/Contradiction (slots 14/15) into the focal row's own register; order-independent + idempotent because elections read `CONTENT_LOCI` only. 6 unit falsifiers (3 disable-verified) + `tests/d_pop_2_producer_reaches_consumers.rs` (2, disable-verified against a no-op `bind_election`).
+- **Measured:** `recipe_loci::reachable` 0/34 → 7/34 (`{3,7,11,17,20,27,30}`, derived from `required_loci`; 21 and 31 stay unreachable) on a SMeaning+Kausal row; `SubstrateView::project` confidence NaN → finite, dissonance 0 → 2/15, free_energy 0.45 → 0.8; `is_opinion` false → true.
+- **Locked:** family 1 only (loci are signed offsets, sign = orientation); no tenant, no ClassView, no layout change, no dependency; the family-3 population vacancy untouched. Sonnet workers against verbatim specs, orchestrator-gated; one spec error caught by a worker (the silence test's `visited` literal), one empty-`before` finding asserted instead of guessed.
+- **Deferred:** a caller feeding the elected contradiction into `BeliefArena::revise_at` / `RevisionTrajectory` / `suggest_reopening` over real revisions; the real `WitnessStream` producer (§5.3).
+- **Docs:** EPIPHANIES `E-A-PRODUCER-IS-A-PURE-FUNCTION-OF-THE-CONTENT-LOCI-1`; plan §8 of `post-teardown-buildup-survey-v1.md`. **Confidence:** High (mechanism, disable-verified); Medium (consumer molecule still unwired).
+
 ## 2026-09-03 — MERGED #1144 (`30b0a66`) — D-TEH-3 fate probes: both KILL, semantic_chunker + spiral_segment stay LAB
 
 - **Added:** `crates/thinking-engine/examples/chunker_falsifier.rs` (real-data falsifier for `semantic_chunker`: 168 cross-topic + 8 same-topic passages, 20 SplitMix64 null permutations, plus a 4th committed positive-control arm — the module's own adversarial synthetic-corners shape — added mid-review so the mechanism-null conclusion is reproducible, not just asserted); `crates/thinking-engine/examples/spiral_gate_probe.rs` (real-data gate probe for `spiral_segment` against five real baked 256x256 tables). Plan `thinking-engine-harvest-closure-v1.md` §4b (pre-registration) + §4c (results); EPIPHANIES `E-TWO-FATE-PROBES-KILL-DIFFERENT-WAYS-1`.
