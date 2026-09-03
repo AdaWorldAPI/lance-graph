@@ -18,6 +18,57 @@
 - Gates: `jc` 137/0 (was 136), contract 1309/0, fmt clean on both.
 - Epiphany: `E-A-CITATION-IS-NOT-A-DEPENDENCY-AND-A-FORCED-COPY-NEEDS-A-GATE-1`.
 
+## 2026-09-03 — the retracted mint's DANGLING REFERENCES: three board/knowledge lines still advertise a deleted module
+
+**D-MRL-2a's own mandatory co-change, owed since 2026-09-02 and unpaid.** It
+required *"grep every repo for dangling references to the retracted mint FIRST"*.
+That grep was run only with `--include=*.rs`, where the answer is a clean zero —
+so the code claim (`EpistemicBassin24` / `support_mask` / `refute_mask`: no code
+hits in lance-graph, OGAR or ndarray) stands, and **only the code claim**.
+Across all files it is not zero, and two of the survivors are not append-only
+history — they are **present-tense assertions that the module ships**:
+
+- **§ Contract Inventory (this file, the 2026-09-01 entry)** — three bullets
+  describe `epistemic_bassin`'s Belnap layer, its `axes::{AXIS_LABELS, GROUPS,
+  BASIS_V3_CONCEPT_ID}` mirror, and `{sweep_ternlog, eval_ternlog}` with their full
+  truth-table constants (`ASKED_CONTESTED 0x80` … `ASKED_SILENT 0x02`) as **current
+  contract surface**. The module was removed the next day
+  (`E-SIX-SEMANTIC-FAMILIES-MUST-NOT-IMPERSONATE-EACH-OTHER-1`, *"Removed in this
+  cleanup: … `epistemic_bassin.rs`"*). Those bullets are **⊘ SUPERSEDED as of
+  2026-09-02**; they are retained per append-only, and this entry is the regrade.
+- **`.claude/knowledge/literature-harvest-2026-09-01-post-1132.md:5`** — still
+  treats *"the six loco-core calls (TERNLOG · BELNAP_JOIN · INFO_GAIN ·
+  SIGMA_TENSION · ACCUMULATE · STANCE_ENTROPY) are universal"* as
+  **constitutional**, and `:26` tables them at `0x86..0x8B`. **Five of the six were
+  retracted with the model they encoded.** Only `TERNLOG` (`0x86`) survives —
+  explicitly preserved, *"independently justified by ndarray's `ternlog`"*. A
+  knowledge doc's `Scope:` line is read as ground truth by every agent that loads
+  it, which is what makes this the costlier of the two.
+
+**What still holds, unchanged:** the retraction itself, the reserve-don't-reclaim
+rule at `ogar-loco/src/lib.rs:594-599`, and `TERNLOG = FnIndex(0x86)` with its
+doc — all re-verified today.
+
+**The generalizable finding: a deletion's blast radius is not `*.rs`.** A grep
+scoped to code answers "is it still callable", never "does anything still claim it
+exists". Board and knowledge files are the ones a future session reads *first*, so
+a stale assertion there outlives the code by exactly as long as nobody looks. The
+co-change was specified correctly and executed too narrowly — and the narrow
+execution then got quoted as *"verified in the tree, not inferred"*, which was true
+of the grep that was run and false of the claim it was offered for.
+
+**Not corrected by deletion:** every line above stays where it is. Under
+append-only a superseded assertion is regraded, never removed.
+
+**⊘ The knowledge doc is corrected HERE, not deferred (Codex P1 on #1159).** The
+first version of this entry deferred it to a separate PR "against a doc this
+session does not own" — incoherent, because this same entry calls it *the costlier
+of the two*. Its `READ BY:` header directs truth-architect, integration-lead,
+theorem-checker and contradiction-cartographer to load it, and a supersession
+recorded only here does not reach a session that opens that file directly, which
+is the normal path for exactly those agents. A dated supersession notice is now
+prepended at the top of the knowledge doc, above its `Scope:` line.
+
 ## 2026-09-03 — branch (5+3 council on the unreviewed canon entries, #1154) — INVENTORY DELTA
 
 - CHANGED `crates/lance-graph-planner/src/nars/insight.rs` — histogram counts kept `usize` and widened once at the boundary (`core::array::from_fn`). Accumulating into `f32` loses counts above 2^24 (`f32(2^24) + 1.0 == f32(2^24)`, measured), so two bins at 20M and 40M would read equal. Unbounded in principle, unobserved today — which is not a reason to accumulate in f32. External P2, verified.
