@@ -124,6 +124,33 @@ DOMAIN_FLOOR}` and provides:
 represents Frozen atoms AND composed programs. A new carrier is NOT justified,
 and proposing one is a STOP.**
 
+> **⊘ TENSION RESOLVED 2026-09-03 — no conflict, and a shipped symbol proves
+> it.** #1152's §F.6 flagged a possible contradiction between this verdict
+> (`classid/vocabulary + u8 FnIndex` already carries Frozen atoms and composed
+> programs) and `r2il-machine-semantic-contract-v1` §4 R4 (*"the macro
+> vocabulary is a PALETTE, not a `FnIndex` per macro"*). I declined to
+> adjudicate it from a partial read. The owner session has, and the answer is
+> that R4's target is **one FnIndex per macro** — which would burn the slot
+> space — never FnIndex as the addressing mechanism.
+>
+> `ogar_loco::TERNLOG` settles it concretely: **one `FnIndex`, with the call's
+> value byte carrying the 8-bit truth table, so a single address covers all 256
+> combinators** (`ogar-loco/src/lib.rs:607`, `vocabulary.rs:92-98`). That is
+> palette-as-vocabulary and FnIndex-as-address in one shipped symbol. This
+> verdict stands unchanged.
+>
+> **⊘ NARROWED pre-merge (Codex, #1157) — `TERNLOG` does NOT settle the macro
+> question, and the owner session's "settles it" is an overclaim I repeated
+> without checking it against their own plan.** `TERNLOG` is a shared-core op
+> whose operand is an *immediate* truth table; R4 concerns a **macro-id ordinal
+> into the `System`/`Learned`/`Explore` palettes**, and that plan's §6 **W3**
+> routes `{Learned,Explore}Palette[id]` → R2IL×BPE microcode. Different
+> mechanisms. What survives is the narrow claim this section actually needs —
+> R4 is not an argument against FnIndex-as-addressing, and a parameterized
+> primitive shows one address can carry many behaviours. **How COMPOSED macros
+> are addressed is W3's question and stays open.**
+
+
 | candidate | status |
 |---|---|
 | recipe kernels | **EXISTS + CALLABLE** via `FnIndex` |
@@ -155,6 +182,39 @@ real_episodes, bpe_recombination_falsifiers}` + `probe_style_microcode_frontier`
 contract**, with per-host adapters — never a lance-graph-specific thinking DSL,
 and never an R2IL→pseudo-IR transcode unless the operator contract demands it.
 **Measure readiness before designing the membrane** (`D-RLR-4`).
+
+> **⊘ RESOLVED 2026-09-03 by the plan's owner session (cross-session).** The
+> storage half of this section — *how a session stores R2IL* — is answered by
+> `.claude/plans/r2il-machine-semantic-contract-v1.md` §4, now tracked as
+> `D-R2IL-1` (lance-graph #1155). This §E verdict was an independent, thinner
+> restatement of it, arrived at because that plan carried **no D-ids at all**,
+> so `STATUS_BOARD` had nothing to hold and it was invisible to a
+> mandatory-reads pass. It defers to §4; it does not compete with it.
+>
+> **`D-RLR-4` is re-scoped, NOT retired** — at the owner session's explicit
+> request. What survives is the half §4 never touches: **what does the
+> lance-graph-java membrane consume**, now that the `0x87..0x8B` loco band is
+> retracted and `ogar_loco::TERNLOG` = `FnIndex(0x86)` is minted-but-unconsumed
+> (`ogar-loco/src/lib.rs:607`; the reservation at `:596`). That question went
+> live with lgj #70, which blocks the `BELNAP_JOIN` mint.
+>
+> **⊘ PREMISE FALSIFIED pre-merge (Codex, #1157) — and the source is the owner
+> session's own plan.** The re-scope above rests on their statement that their
+> plan "never touches" the lgj membrane. It does: §6 **W5** is literally
+> *"`lance-graph-java` facade: `PcodeOp`/`Instruction`/`Varnode` as lazy views
+> over handles + masks"*, §6 **W3** owns the palette→microcode route, and the
+> Java/Valhalla section pins the call as `(program_ref, mask_handle) →
+> mask_handle` (`r2il-machine-semantic-contract-v1.md:222`, `:221`, `:743`).
+> `D-R2IL-5` already tracks that wave order.
+>
+> **Consequence:** as written this re-scope creates a SECOND queued owner for
+> one membrane. `D-RLR-4` is therefore **HELD pending cross-session
+> resolution**, not re-scoped-and-queued. If the post-retraction question — what
+> lgj consumes now that `0x87..0x8B` is gone and `TERNLOG` sits unconsumed — is
+> genuinely new (it postdates the plan, which is 2026-08-25), it attaches to
+> `D-R2IL-5`, not here. I am not closing a row its requester asked me to keep;
+> I am declining to queue it against territory their own §6 already owns.
+
 
 ---
 
