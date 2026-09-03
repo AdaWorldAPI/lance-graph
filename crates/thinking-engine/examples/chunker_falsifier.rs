@@ -28,6 +28,20 @@
 //!   AND  false splits ≤ 2 of the 8 coherent passages.
 //! KILL otherwise → the chunker stays LAB (not ported).
 //!
+//! A 4th, committed arm — POSITIVE CONTROL: an all-zero recall on the three
+//! arms above is exactly the shape a broken harness (wrong table, wrong
+//! tokenizer, a wiring bug) would also produce, so a null result is not
+//! trustworthy on its own (CLAUDE.md's falsifiability rule: "a null result is
+//! a claim about the measurement apparatus until proven otherwise"). This arm
+//! reproduces the module's OWN adversarial positive-control shape from
+//! `semantic_chunker::tests::detects_boundary_between_topics` — two
+//! maximally-separated synthetic centroid clusters (corners 0-4 vs 250-254 of
+//! the 256-centroid space) — against the SAME real table the falsifier uses,
+//! and reports its boundary count at every threshold. If this control ALSO
+//! returns zero, the all-zero falsifier result is a genuine mechanism null,
+//! not a harness artifact; if it returns boundaries where the falsifier did
+//! not, the harness (not the mechanism) is the thing to investigate.
+//!
 //! Usage:
 //!   JINA_V5_TOKENIZER=/path/to/tokenizer.json \
 //!   cargo run --release --manifest-path crates/thinking-engine/Cargo.toml \
@@ -243,5 +257,33 @@ fn main() {
     println!(
         "\nVERDICT: {} — pre-registered: recall ≥ 0.75 AND recall ≥ null p95 + 0.15 AND false splits ≤ 2, at one threshold",
         if any_pass { "PASS (port-eligible)" } else { "KILL (stays LAB)" }
+    );
+
+    // POSITIVE CONTROL — the module's own adversarial shape (two maximally
+    // separated synthetic centroid clusters), against the same real table.
+    // See the module doc comment above for why this arm exists.
+    let mut corners: Vec<u16> = Vec::with_capacity(48);
+    for i in 0..24u16 {
+        corners.push(i % 5);
+    }
+    for i in 0..24u16 {
+        corners.push(250 + i % 5);
+    }
+    println!("\n{:>9} | {:>18} | note", "threshold", "control boundaries");
+    let mut control_ever_fires = false;
+    for &t in THRESHOLDS {
+        let cfg = config(t);
+        let n = find_boundaries(&mut engine, &corners, &cfg).len();
+        control_ever_fires |= n > 0;
+        println!("{:>9.2} | {:>18} |", t, n);
+    }
+    println!(
+        "\nPOSITIVE CONTROL: {} — synthetic corners (centroids 0-4 vs 250-254, the module's own `detects_boundary_between_topics` shape) {} boundaries on this table",
+        if control_ever_fires {
+            "FIRES (the falsifier's all-zero result is NOT a mechanism null — investigate the harness)"
+        } else {
+            "STAYS AT ZERO TOO — the falsifier's all-zero result is a genuine mechanism null, not a harness artifact"
+        },
+        if control_ever_fires { "produces" } else { "produces zero" }
     );
 }

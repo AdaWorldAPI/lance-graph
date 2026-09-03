@@ -287,13 +287,17 @@ threshold |    recall | null p95 | false splits |  bnd/pass | verdict
 
 recall = 0.000 at every threshold means `find_boundaries` never fired ONCE
 across all 168 cross-topic passages, at any of the three thresholds swept.
-Before trusting an all-zero result, a non-committed diagnostic (built,
-run, then deleted — never entered git) ran the module's OWN adversarial
-positive-control shape from its `detects_boundary_between_topics` test
-(synthetic centroid corners 0-4 vs 250-254, maximally distant in the
-256-centroid table) plus a real mixed-topic sentence, both against the same
-`jina-v5-codebook` table the falsifier used. **The positive control ALSO
-produced zero boundaries.** So this is a genuine mechanism/table-level null:
+Before trusting an all-zero result, a diagnostic ran the module's OWN
+adversarial positive-control shape from its `detects_boundary_between_topics`
+test (synthetic centroid corners 0-4 vs 250-254, maximally distant in the
+256-centroid table) against the same `jina-v5-codebook` table the falsifier
+used. **The positive control ALSO produced zero boundaries.** This was first
+run as a throwaway, non-committed script — a real gap Codex review caught on
+this PR (#1144): a deleted diagnostic means a later reader can reproduce the
+KILL, but not the reasoning for calling it a mechanism null rather than a
+harness bug. Fixed by committing the control as a 4th arm inside
+`chunker_falsifier.rs` itself (reproduces the same zero, confirmed by
+re-running it after landing). So this is a genuine mechanism/table-level null:
 the perturb-think-top-k-Jaccard convergence pattern at `max_cycles: 10` does
 not discriminate on this HDR-encoded table at all, even on inputs designed to
 be maximally separable. The module's own pre-existing test
