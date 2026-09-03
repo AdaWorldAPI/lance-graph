@@ -1,3 +1,47 @@
+## 2026-09-03 — E-A-PROBE-CAN-STATE-A-MEASUREMENT-THAT-WAS-FALSE-WHEN-IT-WAS-WRITTEN-1 — the census's own caller count, wrong twice
+
+**Status:** FINDING (both errors reproduced against source; the fix ran).
+**Confidence:** High — the falsifying lines are in the probe file itself.
+**Corrects:** `crates/lance-graph-planner/examples/entropy_surface_census.rs`
+(the caller-census block), shipped in `e5e2520` and fixed in `abcdb0d5`.
+
+**What happened.** The entropy census printed, as part of its output, that
+form A (`thought_atoms::normalized_entropy`) "has ZERO callers in the tree
+today", citing a grep "returning nothing" as verification. A review bot caught
+that the consolidation in the very next commit gave form A a production caller,
+making the printed claim false.
+
+**Re-running the cited command found the worse half.** The claim was **already
+false at the commit that introduced it**: the probe file itself imports form A
+(line 38) and calls it (line 325), so the grep it cites had a non-empty result
+the moment the file existed. The measurement was taken *before* the file was
+written and was never re-run against the tree it then described. The reviewer
+found the second staleness; the first shipped unnoticed.
+
+**Why an executable probe is the worst host for this.** Prose in a plan reads
+as a claim. The same sentence inside a running probe reads as *output* — as
+something the program checked — and this workspace's whole probe discipline
+trains readers to believe measured numbers over asserted ones. A stale line in
+a probe therefore borrows credibility that nothing earned. That is the
+falsifiability rule's *"a doc-comment claim is not a behaviour"* with the
+consequence sharpened: an unasserted `println!` is not a measurement, it is a
+comment with better formatting.
+
+**The rule this leaves.** A claim about the STATE OF THE TREE decays the moment
+the tree changes, and the commit most likely to change it is the one the claim
+was written to motivate. So such a claim must carry (a) the commit it was
+measured at and (b) the command that measures it, so a reader re-runs rather
+than trusts — the same "measurements go in the ledger with a date, methods go
+in the doc" split `CLAUDE.md` already applies to the clippy-count trap in
+medcare-rs. The corrected block does exactly that, and separates the probe's
+own use of a symbol from its production callers, which is the distinction the
+original grep silently elided.
+
+**What it does NOT change.** C1/C2/C3 and their fixtures are untouched — they
+assert, they run, and they still pass. Only the unasserted census line was
+wrong, which is itself the point: every claim in that file that was gated by an
+`assert!` survived, and the one claim printed without one did not.
+
 ## 2026-09-03 — E-A-RULED-HOME-NEEDS-A-FIRST-CONSUMER-OR-IT-IS-A-VACANCY-1 — the entropy atom's first caller, and the one convention that had to be defended
 
 **Status:** FINDING (shipped; disable-verified).

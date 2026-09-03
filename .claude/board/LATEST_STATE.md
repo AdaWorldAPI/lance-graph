@@ -1,3 +1,11 @@
+## 2026-09-03 — branch (#1154 review round 1): the census's caller count corrected — INVENTORY DELTA
+
+- CHANGED `crates/lance-graph-planner/examples/entropy_surface_census.rs` — the caller-census `println!` no longer claims "ZERO callers in the tree today". It now carries its measurement commit and its command, names the one production caller by file:line (`insight.rs:210`), and separates that from the probe's OWN use of form A.
+- FOUND, by re-running the cited grep rather than trusting the sentence: the claim was **false when written**, not merely stale. The probe file imports form A (line 38) and calls it (line 325), so the grep it cites as "returning nothing" never returned nothing at the census commit either. The review bot caught the second staleness; the first shipped unnoticed in `e5e2520`.
+- UNCHANGED: C1/C2/C3, their fixtures, and every `assert!`. Probe still exits 0 with C1 PASS / C2 RESTATED / C3 PASS. Every claim in that file gated by an assertion survived; the one printed without one did not.
+- Review: Codex P2 on #1154 (thread replied and resolved). CodeRabbit: no actionable comments, 5/5 pre-merge checks, merge risk minimal.
+- Epiphany: `E-A-PROBE-CAN-STATE-A-MEASUREMENT-THAT-WAS-FALSE-WHEN-IT-WAS-WRITTEN-1`.
+
 ## 2026-09-03 — branch (D-DCR-4 consolidation, after the census): the entropy atom gets its first consumer — INVENTORY DELTA
 
 - CHANGED `crates/lance-graph-planner/src/nars/insight.rs` — `confidence_entropy` no longer carries its own Shannon loop; it extracts a 10-bin `[f32; 10]` histogram and routes to `lance_graph_contract::thought_atoms::normalized_entropy`. Public surface unchanged (private fn, same signature, same `[0, 1]` range); one new `use`.
