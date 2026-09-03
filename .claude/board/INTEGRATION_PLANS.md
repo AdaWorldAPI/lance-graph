@@ -3,9 +3,18 @@
 `.claude/plans/probe-r2il-live-regfile-v1.md`. The executable falsifier for
 `r2il-machine-semantic-contract-v1` §7.8: a real 6502 routine, lifted to R2IL by
 Ghidra's own SLEIGH spec and executed through `r2conc::SlabState` with machine
-state bound to borrowed slabs, must produce byte-identical architectural state to
-an independently-written reference. GREEN, 18/18, seven disable runs
-red-then-green. `D-PRLR-1..5` minted in the same commit.
+state bound to borrowed slabs, must produce architectural state identical to an
+independently-written reference **on every field except `V`**. GREEN, 18/18,
+seven disable runs red-then-green. `D-PRLR-1..5` minted in the same commit.
+
+The `V` exclusion is the probe's own FINDING, not a weakening (§6a): Ghidra's
+6502 `ADC` assigns the unsigned carry to the signed-overflow flag, so on
+`255 × 255` both sides compute `0xFE01` and agree on every other field while
+Ghidra leaves `V=1` and a real 6502 leaves `V=0`. The exclusion is itself tested
+two-sided (falsifier D7 — it must diverge on some pairs and agree on others), and
+the product is compared in full on every pair. Calling the result plain
+"byte-identical" — as the first version of this entry did — overstates what the
+18 checks establish.
 
 Two results worth finding from the index rather than by reading 286 lines. **The
 facet binding is a projection, not a byte-identity** — SLEIGH lays the 6502 out
