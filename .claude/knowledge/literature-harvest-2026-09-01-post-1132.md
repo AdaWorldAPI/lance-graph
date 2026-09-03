@@ -1,5 +1,39 @@
 # Literature harvest — post-#1132 reasoning substrate audit (2026-09-01)
 
+> ## ⊘ SUPERSEDED IN PART — 2026-09-02, one day after this harvest
+>
+> **Five of the six "loco-core calls" this document treats as CONSTITUTIONAL were
+> RETRACTED, together with the model they encoded.** `E-SIX-SEMANTIC-FAMILIES-MUST-NOT-IMPERSONATE-EACH-OTHER-1`
+> removed `epistemic_bassin.rs`, `basin_lanes.rs` and OGAR's `ogar-epistemic`
+> (`0x0334`), and with them the loco calls **`0x87..0x8B` — `BELNAP_JOIN`,
+> `INFO_GAIN`, `SIGMA_TENSION`, `ACCUMULATE`, `STANCE_ENTROPY`** (census 101 → 96).
+>
+> **Only `TERNLOG` (`0x86`) survives**, explicitly preserved as *"independently
+> justified by ndarray's `ternlog`"*. The slots stay **reserved, not reclaimed**: a
+> future mint takes the next free slot deliberately (`ogar-loco/src/lib.rs:594-599`).
+>
+> **Read the `Scope:` line below as of 2026-09-01, not as current ground truth.**
+> Specifically affected: the six-call framing in `Scope:`; the `ogar-loco` row
+> tabling `0x86..0x8B`; and any row whose MACRO_CANDIDATE reasoning is stated
+> relative to `BELNAP_JOIN`'s expressiveness. The `24-axis basis v3 = 0x0334`
+> reference is affected for the same reason (`ogar-epistemic` was removed).
+>
+> **Why this notice is here and not only on the board.** This file's own `READ BY:`
+> header directs truth-architect, integration-lead, theorem-checker and
+> contradiction-cartographer to load it — and a `Scope:` line reads as ground truth
+> to every one of them. A supersession recorded only in `LATEST_STATE.md` does not
+> reach a session that opens this file directly, which is the normal path for
+> exactly the agents named above. (Codex P1 on #1159 made this argument; the first
+> version of that PR deferred this correction while its own text called this file
+> the costlier of the two dangling references — deferring the costlier one was
+> incoherent.)
+>
+> Nothing below is deleted: append-only, regraded in place. What is unaffected —
+> the certificates, the `pillar_5plus_bound` miscitation, ACCUMULATE's associativity
+> proof, the Ω(n/log n) greedy-admission bound — stands on its own literature and
+> does not depend on the retracted mint.
+
+
 **READ BY:** truth-architect, integration-lead, theorem-checker, contradiction-cartographer; anyone proposing a new atom, axis, loco opcode, or pillar certificate.
 **Status:** HARVEST (5 Opus auditors, areas A–E with F folded into A; every cited theorem read in the source, not the abstract). Adjudicated on the main thread against **shipped code**, not prose: `epistemic_bassin.rs`, `sigma_propagation.rs`, `jc/{koestenberger,ewa_sandwich,hambly_lyons}.rs`, `planner/nars/{truth,tactics}.rs`, `ogar-loco/vocabulary.rs`, `ogar-epistemic/lib.rs`. Three claims were re-verified by local probes before entering this file (marked ✔ PROBED).
 **Scope:** ratified facts of lance-graph #1126..#1132 and OGAR #295..#297 are treated as constitutional — the 256-entry palette is FULL, the six loco-core calls (TERNLOG · BELNAP_JOIN · INFO_GAIN · SIGMA_TENSION · ACCUMULATE · STANCE_ENTROPY) are universal, the 24-axis basis v3 is `0x0334`, one classid per rung, BasinCodebook for value families, red-pillar + mechanism≠rhyme rules. MC #610 is a consumer shadow and was not used as evidence.
