@@ -1,3 +1,20 @@
+## 2026-09-03 — MERGED #1144 (`30b0a66`): D-TEH-3 fate probes closed — two corrections to the delta below
+
+PR #1144 (the delta immediately below) merged after CodeRabbit + Codex review.
+Two things in that delta's original text were corrected DURING review and are
+now stale on this entry (per the append-only rule, not rewritten in place —
+see `PR_ARC_INVENTORY.md`'s 2026-09-03 entry for the full, corrected account):
+
+- The `spiral_segment` i8 table does **NOT** clear the fidelity gate at any
+  tested max_error (Codex caught: rho = 0.9975 < 0.9980 even at its best
+  setting, 0.005) — the delta's u8-only fidelity claim stands, but do not
+  infer it extends to i8.
+- The `semantic_chunker` positive-control diagnostic that confirms the
+  mechanism-null verdict is now a **committed, reproducible 4th arm** inside
+  `chunker_falsifier.rs` itself (CodeRabbit caught it was a throwaway,
+  non-committed script at first) — not the "non-committed positive-control
+  diagnostic" the delta below describes.
+
 ## 2026-09-03 — branch (D-TEH-3 closed, after #1143 merged): both fate probes KILL — INVENTORY DELTA
 
 - MERGED #1143 (D-TEH-3 math half, `f05a358`'s ancestor): `jc::drift` / `jc::quorum` land, `cronbach.rs` deleted (see the 2026-09-02 delta below).
