@@ -3,7 +3,8 @@
 //!   - Truncated kernel:    O(d^(2N)) per pair, materializes the signature
 //!   - Goursat-PDE kernel:  O(T₁·T₂) per pair, NEVER materializes the signature
 //!   - Log-signature:       O(d^(2N)) compute (still has Magnus expansion),
-//!                          but storage is dim L_N(d) — 7-13× smaller
+//!     but storage is dim L_N(d) — 7-13× smaller (asymptotic, N≥8; ~2× at
+//!     shallow depth, per `compression_at_shallow_depth_is_far_below_the_headline`)
 //!
 //! Run:
 //!   cargo run --manifest-path crates/sigker/Cargo.toml \
