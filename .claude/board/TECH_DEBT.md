@@ -4,8 +4,12 @@
 did not before this session's changes.** Measured by stashing the working tree
 and re-running against the base commit: the failure reproduces identically.
 
-Single site: `crates/sigker/src/signature.rs:133` — `needs_range_loop`, the loop
-variable `flat` is used only to index `level`:
+Single site: `crates/sigker/src/signature.rs:133` — `for flat in 0..len` trips
+clippy's needs_range_loop lint: the loop variable is used only to index `level`.
+
+(Anchored on the loop header, not on the lint name. The lint name is not text
+that appears at the cited line, so citing it as the anchor is exactly the decay
+`citation_decay.py` exists to catch — it flagged this entry's first draft.)
 
 ```rust
 for flat in 0..len {          // clippy: needs_range_loop
