@@ -1,0 +1,57 @@
+name: Citations have not decayed
+on:
+  pull_request:
+    paths:
+      # The gate's inputs are BOTH the citing files and the cited ones -- a
+      # prepend to `.claude/board/EPIPHANIES.md` moves targets under citations
+      # that live in other, unchanged files on unchanged lines. That is the
+      # motivating case, and it is why this runs on the whole board/plan tree
+      # rather than on the diff.
+      - .claude/plans/**
+      - .claude/board/**
+      # ...and the gate itself.
+      - .claude/tools/citation_decay.py
+      - .github/workflows/citation-decay.yml
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  citation-decay:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # The gate builds a worktree at the merge base and compares verdicts
+          # against it, so it needs both sides of the history, not a depth-1 tip.
+          fetch-depth: 0
+
+      - name: Self-test the gate
+        # A gate whose own falsifiers are broken cannot be trusted to report on
+        # anything else. Both halves are asserted, in both the single-revision
+        # and the two-revision arm: it FIRES on a decay this PR introduced or
+        # exposed, and STAYS SILENT on the pre-existing backlog.
+        run: python3 .claude/tools/citation_decay.py --self-test
+
+      - name: Check for citation decay introduced by this PR
+        # A REGRESSION comparison, not a diff filter. `--since` scans the whole
+        # corpus at the merge base and at HEAD and fails ONLY where a citation
+        # is decayed now and was not decayed at the base.
+        #
+        # The first version of this step filtered to the lines a PR ADDED, and
+        # was structurally blind to its own motivating case: prepending to
+        # EPIPHANIES.md decays citations in files the PR never touched. It also
+        # computed a file list with `|| true`, so an unresolvable merge base
+        # became an empty list and a GREEN run -- bypassing the script's own
+        # fail-closed handling. Both are gone: there is no file list to compute,
+        # and the script fails closed on any git failure.
+        #
+        # The pre-existing backlog (measured 148 decays on 2026-09-04, up from
+        # 124 as the corpus grew) is reported and never fails the job. A gate
+        # that fires on everything carries exactly as much information as one
+        # that never fires.
+        run: python3 .claude/tools/citation_decay.py --since "${{ github.event.pull_request.base.sha }}"

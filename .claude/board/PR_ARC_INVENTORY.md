@@ -1,3 +1,12 @@
+## 2026-09-04 — lance-graph PR #1167 (merged `fdc6d8a9`) + #1168 (merged `c5e84447`) — the two mechanical board gates
+
+- **Added:** `.claude/tools/append_only_gate.py` + `append-only-gate.yml` (#1167 — 8 protected files never shrink, merge-base comparison, fail-closed); `.claude/tools/citation_decay.py` + `citation-decay.yml` (#1168 — `path:LINE` citations, scoped to added lines only).
+- **Measured:** append-only gate verified at four levels incl. a real end-to-end fire (`ISSUES.md` 2591 → 2541 → exit 1) and the fail-closed arm. Citation backlog 2314 / 37 OK / 124 DECAYED / 2153 UNVERIFIABLE — the 93% unverifiable is the bare-basename house style, not a scanner defect.
+- **Locked:** line-scoping, not file-scoping — measured: `EPIPHANIES.md` alone has 10 pre-existing decays and nearly every PR touches it, so a file-scoped gate fires on everything and therefore says nothing.
+- **Deferred:** the 124-decay backlog (a separate, deliberate cleanup); a convention change that would make bare-basename citations resolvable.
+- **Violation:** both PRs shipped without board hygiene in-commit and are discharged retroactively here — noted because the subject of both PRs is making this class of lapse mechanical.
+- **Confidence:** High on both gates (each disable-verified red-then-green); Medium on the citation gate's long-run signal, since 93% of the corpus is invisible to it.
+
 > **⊘ TRUNCATION RESTORED (2026-08-30).** The #1081 hygiene commit
 > (`25b9e4c9`) destroyed this append-only file — 5876 → 32 lines — via the
 > destructive-prepend one-liner: `open(p, "w").write(entry + open(p).read())`
