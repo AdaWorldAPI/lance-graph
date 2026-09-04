@@ -1,0 +1,54 @@
+name: Append-only board files never shrink
+on:
+  pull_request:
+    paths:
+      # The protected files themselves. A PR that does not touch the board
+      # cannot shrink it, so there is nothing to check.
+      - .claude/board/LATEST_STATE.md
+      - .claude/board/EPIPHANIES.md
+      - .claude/board/PR_ARC_INVENTORY.md
+      - .claude/board/STATUS_BOARD.md
+      - .claude/board/ISSUES.md
+      - .claude/board/TECH_DEBT.md
+      - .claude/board/AGENT_LOG.md
+      - .claude/board/INTEGRATION_PLANS.md
+      # Broader than the eight above ON PURPOSE: the protected list lives in
+      # the script, and a future entry added there must be gated from the
+      # commit that adds it -- not from the next commit that happens to touch
+      # a file already on the list.
+      - .claude/board/**
+      # The gate's own two files, so a change to either is checked by itself.
+      - .claude/tools/append_only_gate.py
+      - .github/workflows/append-only-gate.yml
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  no-shrink:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # REQUIRED, not a tuning knob. The gate compares each protected file
+          # against the MERGE-BASE of this branch and the target -- the version
+          # the branch actually inherited, not wherever the target has moved
+          # since. A shallow checkout has no merge-base to compute, and the
+          # gate fails closed rather than passing on a comparison it could not
+          # make.
+          fetch-depth: 0
+
+      - name: Self-test the gate
+        # Runs first, and deliberately. If the gate cannot prove it both FIRES
+        # on a shortened file and STAYS SILENT on a grown one, its verdict on
+        # the real diff is worthless -- so the self-test gates the gate.
+        run: python3 .claude/tools/append_only_gate.py --self-test
+
+      - name: Check protected board files did not shrink
+        run: |
+          python3 .claude/tools/append_only_gate.py \
+            "origin/${{ github.event.pull_request.base.ref }}"
