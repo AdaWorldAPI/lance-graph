@@ -181,44 +181,40 @@ that separates them is `git ls-remote --heads` plus a per-branch
 `rev-list --left-right --count` against `main`; it costs one command and it is
 the only thing that would have surfaced this.
 
-**⊘ The first version of this entry got the actionable rule WRONG, and the
-correction is the better half.** It said: *"a branch ahead of `main` with no PR
-is either abandoned or stranded."* Then I ran that sweep at repo scale instead
-of on the one branch I already knew about:
+**⊘ Both "stranded" branches were ZOMBIES, and the method that found them
+was wrong twice — corrected in place before merge (operator-caught,
+2026-09-03).** The first version of this entry said *"a branch ahead of `main`
+with no PR is stranded."* At repo scale that returns ~200 of 526 branches; ordered
+by recency it returns four. That narrowed the candidates — and then I resurrected
+two of them without the check that actually decides:
 
-| check | hits |
-|---|---|
-| remote branches on `origin` | **526** |
-| ahead of `main` (any age) | **~200**, nearly all also 282 behind |
-| ahead of `main`, ordered by last-commit recency | **4** |
+| branch | what I claimed | what the ±8 window shows |
+|---|---|---|
+| `…valhalla-sus9w8` (#1162, closed) | a verified correction | its numbers (352/2,048; "24-byte path"; 314/314) were measured 2026-08-19 on a bake that `MedCare-rs` **replaced** on 08-31 (`a0f81443`: veterinary-free cut, 8,319 rows out; HHTL offset corrected — MONDO strips `disease`+`human disease`, max depth 15, second register 30 nodes, >16 zero) after Posten 3 split the register on 08-21 (`00967f37`). And the 58.2 % it "corrected" (`atlas.rs:465`, written 08-18) was read off an atlas that showed **no edges at all** until that 08-31 change — meaningless in either polarity, not merely stale. |
+| `…stale-4layer-index-entry` (#1164, closed) | fix landed, entries didn't | the branch IS the reverted draft: `2df6e2a6` 08-30 reverted "#1092 …three of its own inputs"; `758b9500` 08-31 landed the correct count (**two of four**) with its own entry, `E-THE-SUPERSESSION-GATE-WATCHED-TWO-OF-ITS-FOUR-INPUTS-1`. |
+| `…redo-d-mar-1` | parked (`HOLD: … NOT for merge`) | correctly excluded — the one true negative |
 
-Ahead-of-`main` alone is not a signal — it is the resting state of hundreds of
-long-dead branches, and it drowns exactly what it was supposed to surface. This
-is the same defect the entry above describes, committed in the entry describing
-it: a rule that *reads* as measured, written from one instance, wrong in the
-flattering direction. Ordering by **recency** is what makes it a discriminator,
-because a stranded branch is by definition recent — the valhalla branch was 170
-behind `main` where the dead ones are 282.
+**The operator's word for it is exact: a zombie. Merging either would have
+re-asserted a retracted count or a retired layout on `main` beside its own
+correction.** The failure was not the sweep; it was treating a candidate as a
+finding. A branch that stops abruptly with its fix un-PR'd is at least as likely
+to be *the session the operator interrupted while catching a mistake* as it is
+to be stranded work — and the corrected version then lands days later under a
+different name, which is exactly what "no PR for this branch" looks like from
+outside.
 
-**Consequence, actionable (corrected, and re-run).** Before concluding a repo
-has nothing in flight: `git for-each-ref --sort=-committerdate refs/remotes/origin`,
-then `git rev-list --count origin/main..<branch>` over the recent head of that
-list. On this repo it returned four, and the three that were not mine split
-cleanly:
-
-- `claude/lance-graph-java-panama-valhalla-sus9w8` — the verified 58.2%
-  correction above. **Stranded.** → #1162.
-- `claude/stale-4layer-index-entry` — four board entries from the 2026-08-30
-  supersession-gate arc. **Stranded, and the harder kind**: the workflow *fix*
-  reached `main` by another route, so a reader who checks whether the problem is
-  fixed finds *yes* and concludes the branch is redundant — while all four
-  entries explaining it are absent from `main` (verified by grep). → #1164.
-- `claude/redo-d-mar-1` — commit subject reads `HOLD: … NOT for merge`.
-  **Deliberately parked, correctly excluded.** The method's silence case, and it
-  self-labels: a branch that is meant to sit says so in its own subject line.
-
-Two fires and one silence on non-trivial input, which is the least this repo
-accepts of a new rule.
+**The gate, stated so it is mechanical.** After the recency sweep, for each
+candidate: (1) `git log --first-parent <merge-base>..origin/main` — read the
+±8 merged PRs for a revert of, or a successor to, the candidate's subject;
+(2) grep `main`'s board for the candidate's *claims* under any name, not its
+entry ids; (3) when the candidate cites an artifact, read the log of the repo
+that **owns** the artifact for the same window — the bake lived in
+`MedCare-rs`, and every disqualifying commit was there, not here. Two
+disqualified, one held: the sweep is a candidate generator; the window is the
+finding. Also worth recording: my #1162 comment recommended "an identity gate
+on the artifact" — shipped 08-21 (`dd9e7265`, `bakes.tsv` row-count gates
+replacing digests). Recommending something thirteen days shipped is the same
+defect in advice form.
 
 **Cross-refs.** The stranded-slice entries near `:1324` are a *different*
 mechanism — work lost inside a rebase, not work finished and never proposed.
