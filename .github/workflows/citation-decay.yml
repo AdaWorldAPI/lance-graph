@@ -1,0 +1,64 @@
+name: Citations have not decayed
+on:
+  pull_request:
+    paths:
+      # The gate's inputs are the CITING files -- a plan or board file is what
+      # carries a `path:LINE` reference. `.claude/board/EPIPHANIES.md` is the
+      # motivating case: it is APPEND-ONLY and PREPENDED to, so every line
+      # number into it shifts on every new entry, with no edit on either side.
+      - .claude/plans/**
+      - .claude/board/**
+      # ...and the gate itself.
+      - .claude/tools/citation_decay.py
+      - .github/workflows/citation-decay.yml
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  citation-decay:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # The gate compares this PR's citing files against the merge base, so
+          # it needs both sides of the history, not a depth-1 tip.
+          fetch-depth: 0
+
+      - name: Self-test the gate
+        # A gate whose own falsifiers are broken cannot be trusted to report on
+        # anything else. Both halves are asserted: it FIRES on a moved anchor
+        # and STAYS SILENT on a correct one and on an unverifiable one.
+        run: python3 .claude/tools/citation_decay.py --self-test
+
+      - name: Check citations in this PR's plan/board files
+        run: |
+          set -euo pipefail
+          BASE="${{ github.event.pull_request.base.sha }}"
+          # SCOPED TO CHANGED *LINES*, not changed files. A repo-wide run reports
+          # pre-existing backlog (measured 2026-09-04: 124 confirmed decays
+          # across .claude/plans + .claude/board), so a repo-wide gate would
+          # fail every PR regardless of what it changed -- and a gate that
+          # fires on everything carries exactly as much information as one that
+          # never fires.
+          #
+          # File-level scoping is NOT enough and was measured so: EPIPHANIES.md
+          # alone carries 10 pre-existing decays, and this workspace's
+          # board-hygiene rule means nearly every PR touches it. `--added-lines-only`
+          # restricts the verdict to lines this PR actually added or modified,
+          # which is what makes it a NO-NEW-DECAY gate. The backlog is a
+          # separate, deliberate cleanup.
+          FILES=$(git diff --name-only --diff-filter=d "$BASE"...HEAD \
+                  -- '.claude/plans/*.md' '.claude/board/*.md' || true)
+          if [ -z "$FILES" ]; then
+            echo "no plan/board files changed in this PR; nothing to check"
+            exit 0
+          fi
+          echo "checking:"
+          echo "$FILES" | sed 's/^/  /'
+          # shellcheck disable=SC2086
+          python3 .claude/tools/citation_decay.py --added-lines-only "$BASE" $FILES
