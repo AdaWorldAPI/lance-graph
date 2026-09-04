@@ -130,7 +130,7 @@ fn segment_signature(delta: &[f64], depth: usize) -> Signature {
         let mut level = vec![0.0; len];
         // Outer-product expansion of Δ ⊗ ⋯ ⊗ Δ (k times) divided by k!
         // Index mapping: flat_idx = i₁ · d^(k-1) + i₂ · d^(k-2) + … + iₖ.
-        for flat in 0..len {
+        for (flat, slot) in level.iter_mut().enumerate() {
             let mut idx = flat;
             let mut prod = 1.0;
             for _ in 0..k {
@@ -138,7 +138,7 @@ fn segment_signature(delta: &[f64], depth: usize) -> Signature {
                 idx /= dim;
                 prod *= delta[ax];
             }
-            level[flat] = prod / factorial;
+            *slot = prod / factorial;
         }
         levels.push(level);
     }

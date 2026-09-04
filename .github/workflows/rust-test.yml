@@ -210,15 +210,20 @@ jobs:
       #
       # Verified locally before landing: 62 passed, 0 failed.
       #
-      # Deliberately TESTS ONLY, on the causal-edge precedent above. A
-      # `clippy -D warnings` step would be red on arrival: the crate carries one
-      # pre-existing finding at signature.rs:133 (needs_range_loop), which
-      # reproduces identically on the base commit and is NOT in the
-      # randomized.rs this PR touches. Gating it here would fail this PR for a
-      # defect it did not introduce; it is recorded in TECH_DEBT
-      # TD-SIGKER-CLIPPY-RED-ON-BASE-1 instead, with its patch.
+      # TESTS + CLIPPY. This step was tests-only when first added, because the
+      # crate was clippy-red on arrival (TD-SIGKER-CLIPPY-RED-ON-BASE-1) and
+      # gating it would have failed that PR for a defect it did not introduce.
+      # Both findings are now fixed, so the clippy half is armed here: a lint
+      # fix with no gate decays back, and this crate's whole reason for being
+      # unlinted was that no step reached it.
+      #
+      # Verified locally before landing: 62 tests passed, clippy clean.
       - name: Run sigker tests (workspace-excluded, ndarray sibling)
         run: cargo test --manifest-path crates/sigker/Cargo.toml
+      - name: Lint sigker (workspace-excluded, so root clippy never reaches it)
+        run: |
+          cargo clippy --manifest-path crates/sigker/Cargo.toml \
+            --all-targets -- -D warnings
       # lance-graph-callcenter UNDER `--features query` — the same blind gate as
       # supervisor above, but one level subtler: the crate was not merely
       # untested, it has `default = []`, so even a bare `cargo test` on it would

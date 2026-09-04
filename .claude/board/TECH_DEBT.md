@@ -1,15 +1,31 @@
-## TD-SIGKER-CLIPPY-RED-ON-BASE-1 (2026-09-04) — OPEN
+## TD-SIGKER-CLIPPY-RED-ON-BASE-1 (2026-09-04) — RESOLVED 2026-09-04
 
 **`crates/sigker` does not pass `cargo clippy --all-targets -- -D warnings`, and
 did not before this session's changes.** Measured by stashing the working tree
 and re-running against the base commit: the failure reproduces identically.
 
-Single site: `crates/sigker/src/signature.rs:133` — `for flat in 0..len` trips
-clippy's needs_range_loop lint: the loop variable is used only to index `level`.
+> **⊘ RESOLVED 2026-09-04.** Both findings fixed; sigker now passes
+> `cargo clippy --manifest-path crates/sigker/Cargo.toml --all-targets -- -D warnings`
+> clean, and the CI step below was promoted from tests-only to tests+clippy so
+> it cannot silently return. Two things this entry got WRONG, recorded rather
+> than edited away:
+>
+> 1. **"Single site" was wrong — there were TWO.** `-D warnings` makes clippy
+>    stop at the first error, so `doc list item overindented` in
+>    `examples/depth_scaling.rs` was invisible behind the loop finding and only
+>    appeared once that one was fixed. A findings count taken from a run that
+>    aborted on the first error is a lower bound, never a total.
+> 2. **The citation decayed the moment the fix landed** — deleting the cited
+>    line IS the fix, so the anchor `for flat in 0..len` went absent and
+>    `citation_decay.py` fired on this very entry. Re-anchored below on the
+>    enclosing function, which survives the change. An entry that cites the
+>    code it wants deleted is self-invalidating by construction.
 
-(Anchored on the loop header, not on the lint name. The lint name is not text
-that appears at the cited line, so citing it as the anchor is exactly the decay
-`citation_decay.py` exists to catch — it flagged this entry's first draft.)
+Site: `segment_signature` in `crates/sigker/src/signature.rs:122` — the
+level-fill loop used its loop variable only to index `level`, tripping
+needs_range_loop. Anchored on the function name, not the loop body: a function
+name survives its own body being rewritten, which is exactly the property a
+citation into mutable source needs.
 
 ```rust
 for flat in 0..len {          // clippy: needs_range_loop
@@ -19,8 +35,7 @@ for flat in 0..len {          // clippy: needs_range_loop
 }
 ```
 
-Proposed fix (3 lines, mechanical, deliberately NOT applied here to avoid
-widening a wiring PR):
+Fix, as applied:
 
 ```rust
 for (flat, slot) in level.iter_mut().enumerate() {
