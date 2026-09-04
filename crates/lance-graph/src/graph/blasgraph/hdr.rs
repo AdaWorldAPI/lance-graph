@@ -112,15 +112,31 @@ pub struct ShiftAlert {
 
 /// Hamming distance between two word arrays (XOR + popcount).
 ///
+/// Routes through [`super::ndarray_bridge::dispatch_hamming`], the single
+/// SIMD-dispatched Hamming kernel for this module tree (VPOPCNTDQ →
+/// AVX-512BW → AVX2 → scalar, via `ndarray::hpc::bitwise` under
+/// `ndarray-hpc`). The previous body was a scalar `count_ones()` loop that
+/// bypassed that dispatch — a second implementation of a kernel the crate
+/// already owned.
+///
+/// XOR-then-popcount is invariant under byte order, so viewing the `u64`
+/// words as their little-/big-endian byte image changes nothing: the same
+/// bits are compared, only their traversal order differs.
+///
 /// Both slices must have the same length.
 #[inline]
 fn words_hamming(a: &[u64], b: &[u64]) -> u32 {
     debug_assert_eq!(a.len(), b.len());
-    let mut dist = 0u32;
-    for i in 0..a.len() {
-        dist += (a[i] ^ b[i]).count_ones();
-    }
-    dist
+    // SAFETY: `u8` has alignment 1 and no invalid bit patterns, so any
+    // `[u64]` is a valid `[u8]` of 8× the length; the borrow keeps `a`/`b`
+    // alive for the call and neither view is written through.
+    let (a_bytes, b_bytes) = unsafe {
+        (
+            core::slice::from_raw_parts(a.as_ptr().cast::<u8>(), core::mem::size_of_val(a)),
+            core::slice::from_raw_parts(b.as_ptr().cast::<u8>(), core::mem::size_of_val(b)),
+        )
+    };
+    super::ndarray_bridge::dispatch_hamming(a_bytes, b_bytes) as u32
 }
 
 /// Sampled Hamming distance: compare every `step`-th word and extrapolate.
