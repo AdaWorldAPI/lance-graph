@@ -4,10 +4,10 @@
 # authority is a second, silently-stale reading of the codebook.
 #
 # Blanket, not per-path: the rule is "no locks ever", and a path list would
-# have to grow on every new crate. NOTE this does NOT untrack the 27 locks
-# still committed under crates/ — .gitignore never applies to tracked files;
-# untracking those is its own PR (`git rm --cached`), gated on the same
-# exact-pin sweep the root workspace just took.
+# have to grow on every new crate. The 27 crate-level locks this note once
+# recorded as "still committed" were untracked on 2026-09-04 (`git rm --cached`)
+# after the deferred pin sweep ran — see ISS-STALE-AUTHORITY-LOCKS-RESIDUE.
+# Nothing under crates/ tracks a lock now, so the rule and the tree agree.
 #
 # Load-bearing, not cosmetic: release.yml regenerates the root lock
 # (`cargo check`) and then runs `git add -A`, which would otherwise silently

@@ -1,3 +1,44 @@
+## ISS-STALE-AUTHORITY-LOCKS-RESIDUE (2026-09-04) — RESOLVED
+
+Corrects `ISS-STALE-AUTHORITY-LOCKS` (2026-08-25), whose *"Left open,
+deliberately"* item kept 27 tracked locks pending a pin sweep. That entry is
+unmodified; this is the sweep and its result.
+
+The "Left open, deliberately" item above kept 27 tracked locks pending "a pin
+sweep across those crates". The sweep was run and the premise it rested on is
+falsified: the locks were not holding the arrow/datafusion/lance line, and two
+were holding a line the pin ruling forbids.
+
+Measured across all 27 locks (`^name = "..."` in each lock, not the manifests —
+none of the five declares arrow directly, so a manifest grep sees nothing):
+
+| crate | locked `arrow-schema` | vs `arrow 58` |
+|---|---|---|
+| `crates/bgz-tensor` | 57.3.0 | below the ruling |
+| `crates/cognitive-shader-driver` | 57.3.0 | below the ruling |
+| `crates/deepnsm` | 58.3.0 | stale minor |
+| `crates/lance-graph-cognitive` | 58.4.0 | current |
+| `crates/thinking-engine` | 58.4.0 | current |
+
+The other 22 have no arrow / datafusion / lance / lancedb entry at all. Every
+`lance-*` name appearing in these locks is a local path crate
+(`lance-graph-contract` ×12, `-planner`, `-cognitive`, `-arm-discovery`,
+`-turbovec`, `-osint`, `-ontology`, `-codec-research`), not the storage engine.
+
+So removing them does not release a pin — for two crates it releases a *stale*
+one, moving arrow 57.3.0 toward the ruled 58 rather than away. The exposure is
+transitive via the `ndarray` / `holograph` path deps
+(`lance-graph-contract` is zero-dep), so a fresh resolve follows those crates'
+own requirements, which is the authority the rule at the top of this entry
+names.
+
+Method note, since it nearly went the other way: the first pass grepped
+`^name = "arrow"$` and reported 0/27 exposed. That regex misses the *sub*-crates
+(`arrow-schema` / `-data` / `-buffer` / `-array`), which is how arrow actually
+appears here — there is no umbrella `arrow` entry. A control probe
+(`^name = "serde"$`, expected to match) is what exposed the near-miss. **A
+family pin has to be searched by its members, not by the family name.**
+
 ## ISS-PLAN-TRACKING-IS-UNENFORCED (2026-09-03) — OPEN
 
 **53 of 208 plans in `.claude/plans/` appear in NEITHER `STATUS_BOARD.md` nor
