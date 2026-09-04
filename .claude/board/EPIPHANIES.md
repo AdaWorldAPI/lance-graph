@@ -1,3 +1,60 @@
+## 2026-09-04 — E-A-SKETCH-THAT-MISSED-TWICE-WILL-MISS-A-THIRD-TIME-1 — the W1.5 lane-type sketches are 3-for-3 wrong
+
+**Status:** FINDING (read directly off `crates/sigker` source this session).
+**Confidence:** High — every claim below is a file:line read, not an inference.
+
+**The measurement.** ndarray's consumer contract
+(`.claude/knowledge/vertical-simd-consumer-contract.md`, W1.5) sketches three
+SIMD primitives against `crates/sigker`. Each sketch names a lane type. All
+three are wrong, the same way:
+
+| item | doc sketch | real consumer | shipped as |
+|---|---|---|---|
+| W1.5-#6 signature_pde | `&[F32x16]` | `f64` (`signature.rs`) | `F64x8` (PR #293) |
+| W1.5-#7 randomized | "`F32x16` state" | `f64`/`Vec<f64>` | `F64x8` (PR #294) |
+| W1.5-#8 lyndon-pack | "`I16x16` state" | `Vec<f64>` (`log_signature.rs:272`) | — not built |
+
+#8 is the worst of the three: `I16x16` is not merely imprecise, it is the wrong
+element WIDTH and the wrong SIGNEDNESS FAMILY — there is no `i16` anywhere in
+`log_signature.rs`. The crate is `f64` throughout.
+
+**The deeper finding — #8 is not a SIMD primitive at all.** The sketch names
+"pack/unpack primitives", but no such operation exists in the consumer. The real
+cost centres are `bracket_expansion` (`log_signature.rs:227-256`) — recursive
+Lyndon-word splitting with a sparse outer-product merge plus `sort` and coalesce
+over `(usize, f64)` pairs — and the scatter-add peel in
+`project_onto_lyndon_basis` (`:368-386`), whose indices are data-dependent and
+non-contiguous. Branchy recursion over variable-length sparse vectors is the
+OPPOSITE of the dense, fixed-lane shape that made #6 (a 2D grid sweep) and #7
+(a `k×k` GEMV) good SIMD targets. The Lyndon basis is also generated on the fly
+by Duval's algorithm at call time (`:164`, `:346`) with no memoization — so there
+is no caller-owned table to consume the way #7 consumes projection buffers.
+
+**Where the real opportunity is, if any.** `log_signature.rs:100` names the
+actual bottleneck itself: the depth-N Magnus expansion in `tensor_log`, i.e.
+`tensor_multiply` in `signature.rs`, O(d^(2N)). That is a different primitive
+from the one W1.5-#8 describes.
+
+**Bonus correction — the compression headline is misquoted.** The contract doc
+says "7-13× compression, lossless". `log_signature.rs`'s own test
+`compression_at_shallow_depth_is_far_below_the_headline` (`:744`) is a NAMED
+FALSIFIER proving that figure is asymptotic (N≥8), not typical — at d=4,N=2 it
+is ~2.1×. The crate's own header (`:41` area, and `lib.rs:29-31`) already flags
+this conflation as an error it corrected. Any #8 spec citing "7-13×"
+uncritically propagates a claim the source crate disowns.
+
+**Rule.** A doc sketch that has missed twice on the same axis is not a spec, it
+is a hypothesis with a measured failure rate. Read the consumer source FIRST for
+every remaining W1.5 item; treat the sketch as the thing to be checked, never as
+the thing to implement.
+
+**Recommendation:** do NOT build W1.5-#8 as sketched. Before any ndarray
+primitive signature is written, either (a) profile `log_signature_truncated` at
+production depths to show `bracket_expansion`/peel is a measurable fraction of
+wall time versus the Magnus series, or (b) rescope onto `tensor_multiply`.
+
+---
+
 ## 2026-09-03 — E-A-CORRECTION-IS-ONLY-AS-GOOD-AS-ITS-MERGE-1 — an unlanded Storno leaves the falsehood standing
 
 **Status:** FINDING (measured on this repo's own `main`, this hour). The

@@ -1,3 +1,39 @@
+## TD-SIGKER-CLIPPY-RED-ON-BASE-1 (2026-09-04) — OPEN
+
+**`crates/sigker` does not pass `cargo clippy --all-targets -- -D warnings`, and
+did not before this session's changes.** Measured by stashing the working tree
+and re-running against the base commit: the failure reproduces identically.
+
+Single site: `crates/sigker/src/signature.rs:133` — `needs_range_loop`, the loop
+variable `flat` is used only to index `level`:
+
+```rust
+for flat in 0..len {          // clippy: needs_range_loop
+    let mut idx = flat;
+    ...
+    level[flat] = prod / factorial;
+}
+```
+
+Proposed fix (3 lines, mechanical, deliberately NOT applied here to avoid
+widening a wiring PR):
+
+```rust
+for (flat, slot) in level.iter_mut().enumerate() {
+    let mut idx = flat;
+    ...
+    *slot = prod / factorial;
+}
+```
+
+**Why it went unnoticed:** sigker is workspace-EXCLUDED, so `cargo clippy` at
+the workspace root never reaches it — it needs
+`--manifest-path crates/sigker/Cargo.toml`. Any excluded crate is outside the
+default lint sweep; worth checking the other excluded crates (bgz17, deepnsm,
+bgz-tensor, lance-graph-codec-research) for the same blind spot.
+
+---
+
 ## TD-RELIABILITY-COPIES-OUTSIDE-JC-1 (2026-09-02) — OPEN
 
 **Two further copies of the Pearson / Spearman / Cronbach α / ICC battery live

@@ -46,6 +46,7 @@
 //! signature is the trade: ~10000× more compute for guaranteed information
 //! preservation.
 
+use ndarray::hpc::randomized_signature::randomized_signature_sweep;
 use std::f64::consts::PI;
 
 // ════════════════════════════════════════════════════════════════════════════
@@ -92,46 +93,35 @@ impl RandomizedSignatureBuilder {
     }
 
     /// Encode a path and return its randomized signature.
+    ///
+    /// # Implementation
+    ///
+    /// The recurrence `z ← z + Σ_i tanh(A_i · z + b_i) · Δx^(i)` is solved by
+    /// [`ndarray::hpc::randomized_signature::randomized_signature_sweep`] —
+    /// the SIMD GEMV sweep that replaced this function's original hand-rolled
+    /// row-major scalar loop (`TD-PILLAR11-SCIENTIFIC-LOOPS-BYPASS-NDARRAY-SIMD-1`:
+    /// numeric/computational code in the Ada stack is written against
+    /// `ndarray::simd::method()`, never a bespoke scalar loop). The buffer
+    /// layout is identical (`matrices[i*k*k + row*k + col]`, `biases`
+    /// concatenated per-axis) and the same `|Δx_i| < 1e-15` skip applies, so
+    /// the delegation carries sigker's numerics unchanged.
+    ///
+    /// # Panics
+    ///
+    /// Panics if `path` is empty or `path[0].len() != self.path_dim` — this
+    /// crate's original, stricter contract, unchanged by the delegation.
+    /// The delegated primitive additionally asserts (via `assert_eq!`, so it
+    /// fires in release builds too) that *every* point in `path` shares
+    /// `path[0]`'s dimension — a ragged-path guard this crate did not
+    /// previously enforce, so a ragged path that used to silently produce a
+    /// wrong (partially-truncated) signature now panics with "ragged path"
+    /// instead. This is a strict improvement, not a behavior-preserving
+    /// no-op — see the `ragged_path_now_panics` test below.
     pub fn encode(&self, path: &[Vec<f64>]) -> RandomizedSignature {
         assert!(!path.is_empty(), "path must have ≥1 point");
         assert_eq!(path[0].len(), self.path_dim, "path point dim mismatch");
 
-        let k = self.state_dim;
-        let d = self.path_dim;
-        let mut z = vec![0.0f64; k];
-
-        for window in path.windows(2) {
-            let delta_x: Vec<f64> = window[1]
-                .iter()
-                .zip(window[0].iter())
-                .map(|(a, b)| a - b)
-                .collect();
-
-            // z ← z + Σ_i tanh(A_i · z + b_i) · Δx^(i)
-            let mut z_next = z.clone();
-            let mut activated = vec![0.0f64; k];
-            for i in 0..d {
-                let dx_i = delta_x[i];
-                if dx_i.abs() < 1e-15 {
-                    continue;
-                }
-                // activated = tanh(A_i · z + b_i)
-                let a_offset = i * k * k;
-                let b_offset = i * k;
-                for row in 0..k {
-                    let mut sum = self.biases[b_offset + row];
-                    let row_off = a_offset + row * k;
-                    for col in 0..k {
-                        sum += self.matrices[row_off + col] * z[col];
-                    }
-                    activated[row] = sum.tanh();
-                }
-                for row in 0..k {
-                    z_next[row] += activated[row] * dx_i;
-                }
-            }
-            z = z_next;
-        }
+        let z = randomized_signature_sweep(path, &self.matrices, &self.biases, self.state_dim);
 
         RandomizedSignature {
             path_dim: self.path_dim,
@@ -262,5 +252,93 @@ mod tests {
         let path = vec![vec![0.0; 3], vec![1.0, 2.0, 3.0]];
         let s = b.encode(&path);
         assert_eq!(s.dim(), 128);
+    }
+
+    /// A small scalar oracle mirroring the ORIGINAL hand-rolled recurrence
+    /// this module used before delegating to
+    /// `ndarray::hpc::randomized_signature::randomized_signature_sweep`.
+    /// This test pins that `encode`'s delegated output still matches that
+    /// recurrence within a relative tolerance — it would fail if the
+    /// delegation silently changed the recurrence, the skip epsilon, the
+    /// activation, or the buffer-layout convention (row/col vs i/j swap).
+    /// The tolerance is NOT bit-equality: the SIMD GEMV reduces partial
+    /// sums and fuses products in a different order than this scalar loop,
+    /// so exact bit-equality is not guaranteed by construction.
+    fn scalar_reference(
+        path: &[Vec<f64>],
+        matrices: &[f64],
+        biases: &[f64],
+        state_dim: usize,
+        path_dim: usize,
+    ) -> Vec<f64> {
+        let k = state_dim;
+        let d = path_dim;
+        let mut z = vec![0.0f64; k];
+        for window in path.windows(2) {
+            let delta_x: Vec<f64> = window[1]
+                .iter()
+                .zip(window[0].iter())
+                .map(|(a, b)| a - b)
+                .collect();
+            let mut z_next = z.clone();
+            let mut activated = vec![0.0f64; k];
+            for (i, &dx_i) in delta_x.iter().enumerate().take(d) {
+                if dx_i.abs() < 1e-15 {
+                    continue;
+                }
+                let a_offset = i * k * k;
+                let b_offset = i * k;
+                for row in 0..k {
+                    let mut sum = biases[b_offset + row];
+                    let row_off = a_offset + row * k;
+                    for col in 0..k {
+                        sum += matrices[row_off + col] * z[col];
+                    }
+                    activated[row] = sum.tanh();
+                }
+                for row in 0..k {
+                    z_next[row] += activated[row] * dx_i;
+                }
+            }
+            z = z_next;
+        }
+        z
+    }
+
+    #[test]
+    fn encode_matches_scalar_reference_within_tolerance() {
+        let b = RandomizedSignatureBuilder::new(3, 24, 0x5EED);
+        let path = vec![
+            vec![0.0, 0.0, 0.0],
+            vec![1.0, -0.5, 0.25],
+            vec![0.7, 0.3, -1.1],
+            vec![2.0, 2.0, 2.0],
+        ];
+        let s = b.encode(&path);
+        let expected = scalar_reference(&path, &b.matrices, &b.biases, b.state_dim, b.path_dim);
+        assert_eq!(s.state.len(), expected.len());
+        for (got, want) in s.state.iter().zip(expected.iter()) {
+            let scale = want.abs().max(1.0);
+            assert!(
+                (got - want).abs() / scale < 1e-9,
+                "delegated encode diverged from scalar reference: got {got}, want {want}"
+            );
+        }
+    }
+
+    /// Establishes that `encode` now enforces the ragged-path guard the
+    /// delegated ndarray primitive carries (`assert_eq!`, so it fires in
+    /// release builds too) — a guard this crate's own asserts (which only
+    /// check `path[0]`) did not previously provide. Before the delegation
+    /// this exact input would NOT have panicked; it would have silently
+    /// read out-of-bounds-safe but semantically wrong deltas for the
+    /// shorter/longer point instead. This test discriminates the new
+    /// behavior from the old one, not merely restating the delegation.
+    #[test]
+    #[should_panic(expected = "ragged path")]
+    fn ragged_path_now_panics() {
+        let b = RandomizedSignatureBuilder::new(2, 8, 1);
+        let ragged = vec![vec![0.0, 0.0], vec![1.0, 1.0, 1.0]];
+        let _ = b.encode(&ragged);
     }
 }
