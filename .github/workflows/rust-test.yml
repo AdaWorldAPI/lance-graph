@@ -198,6 +198,27 @@ jobs:
       # (deepnsm / supervisor / ogar above). One scoped step arms it. Gating.
       - name: Run bgz-tensor tests (workspace-excluded, ndarray sibling)
         run: cargo test --manifest-path crates/bgz-tensor/Cargo.toml --lib
+      # sigker: workspace-EXCLUDED path-signature codec (mandatory path dep on
+      # the ndarray sibling checked out above). None of the steps above reach
+      # it, so its 62 tests only ever ran on a developer machine — including
+      # the two W1.5 consumer wirings that are the whole point of the crate
+      # today: kernel.rs's signature_pde_sweep delegation (ndarray PR #293) and
+      # randomized.rs's randomized_signature_sweep delegation (ndarray PR #294).
+      # A parity test against a scalar oracle that CI never runs is not a gate.
+      # Same "blind gate" closed above for deepnsm / supervisor / causal-edge /
+      # bgz-tensor, one crate at a time.
+      #
+      # Verified locally before landing: 62 passed, 0 failed.
+      #
+      # Deliberately TESTS ONLY, on the causal-edge precedent above. A
+      # `clippy -D warnings` step would be red on arrival: the crate carries one
+      # pre-existing finding at signature.rs:133 (needs_range_loop), which
+      # reproduces identically on the base commit and is NOT in the
+      # randomized.rs this PR touches. Gating it here would fail this PR for a
+      # defect it did not introduce; it is recorded in TECH_DEBT
+      # TD-SIGKER-CLIPPY-RED-ON-BASE-1 instead, with its patch.
+      - name: Run sigker tests (workspace-excluded, ndarray sibling)
+        run: cargo test --manifest-path crates/sigker/Cargo.toml
       # lance-graph-callcenter UNDER `--features query` — the same blind gate as
       # supervisor above, but one level subtler: the crate was not merely
       # untested, it has `default = []`, so even a bare `cargo test` on it would

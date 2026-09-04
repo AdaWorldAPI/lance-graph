@@ -1,3 +1,54 @@
+## TD-SIGKER-CLIPPY-RED-ON-BASE-1 (2026-09-04) — OPEN
+
+**`crates/sigker` does not pass `cargo clippy --all-targets -- -D warnings`, and
+did not before this session's changes.** Measured by stashing the working tree
+and re-running against the base commit: the failure reproduces identically.
+
+Single site: `crates/sigker/src/signature.rs:133` — `for flat in 0..len` trips
+clippy's needs_range_loop lint: the loop variable is used only to index `level`.
+
+(Anchored on the loop header, not on the lint name. The lint name is not text
+that appears at the cited line, so citing it as the anchor is exactly the decay
+`citation_decay.py` exists to catch — it flagged this entry's first draft.)
+
+```rust
+for flat in 0..len {          // clippy: needs_range_loop
+    let mut idx = flat;
+    ...
+    level[flat] = prod / factorial;
+}
+```
+
+Proposed fix (3 lines, mechanical, deliberately NOT applied here to avoid
+widening a wiring PR):
+
+```rust
+for (flat, slot) in level.iter_mut().enumerate() {
+    let mut idx = flat;
+    ...
+    *slot = prod / factorial;
+}
+```
+
+**Why it went unnoticed:** sigker is workspace-EXCLUDED, so `cargo clippy` at
+the workspace root never reaches it — it needs
+`--manifest-path crates/sigker/Cargo.toml`. Any excluded crate is outside the
+default lint sweep; worth checking the other excluded crates (bgz17,
+lance-graph-codec-research) for the same blind spot.
+
+**The same exclusion hid the TESTS too — closed in this PR.** `rust-test.yml`
+enumerates workspace-excluded crates one scoped step at a time (deepnsm,
+deepnsm-v2, supervisor, causal-edge, bgz-tensor, ogar, weather-poc, jc) and
+sigker was simply never added. Its 62 tests — including BOTH W1.5 consumer
+wirings, which are the crate's whole current purpose — had never run in CI.
+A parity test against a scalar oracle that CI never executes is not a gate;
+this is the same "blind gate" the file's own comments say the repo has closed
+"one crate at a time". A tests-only step now arms it, on the causal-edge
+precedent (that crate is also tests-only in CI precisely because its clippy is
+red on arrival). The clippy half stays open, tracked by this entry.
+
+---
+
 ## TD-RELIABILITY-COPIES-OUTSIDE-JC-1 (2026-09-02) — OPEN
 
 **Two further copies of the Pearson / Spearman / Cronbach α / ICC battery live
