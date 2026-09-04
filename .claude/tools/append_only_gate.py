@@ -51,12 +51,21 @@ DEFAULT_BASE = "origin/main"
 # scratch/roadmap files), and protecting them would make the gate fire on
 # correct work -- a gate that objects to everything carries exactly as much
 # information as one that never fires.
+# The canonical eight are the ones `.claude/BOOT.md`'s immutability table names
+# and `.claude/settings.json` denies `Edit`/`Write`/`MultiEdit` on. The first
+# version of this tuple SUBSTITUTED `AGENT_LOG.md` for `IDEAS.md` and kept the
+# count at eight, which is exactly why the substitution looked right -- leaving
+# a real 1204-line append-only ledger unguarded while `.claude/board/**`
+# happily started this workflow on every PR that truncated it. Found by review,
+# not by the gate. `AGENT_LOG.md` stays: CLAUDE.md's one-writer rule calls it
+# append-only too, so the set is the canonical eight PLUS that one -- nine.
 PROTECTED = (
     ".claude/board/LATEST_STATE.md",
     ".claude/board/EPIPHANIES.md",
     ".claude/board/PR_ARC_INVENTORY.md",
     ".claude/board/STATUS_BOARD.md",
     ".claude/board/ISSUES.md",
+    ".claude/board/IDEAS.md",
     ".claude/board/TECH_DEBT.md",
     ".claude/board/AGENT_LOG.md",
     ".claude/board/INTEGRATION_PLANS.md",

@@ -57,7 +57,17 @@ or the D-id / E-id -- e.g. `EPIPHANIES.md` under `E-FOO-BAR-1` instead of
 
 Pure stdlib. Usage:
     python3 .claude/tools/citation_decay.py [paths-or-globs ...]
+    python3 .claude/tools/citation_decay.py --since BASE
     python3 .claude/tools/citation_decay.py --self-test
+
+`--since BASE` is the CI-gating mode: it compares citation verdicts at
+`merge-base(BASE, HEAD)` against verdicts at HEAD (the corpus is discovered
+by globbing DEFAULT_GLOBS at each revision -- no file list is taken), and
+fails ONLY on a citation that is DECAYED at HEAD and was not DECAYED at base.
+This replaces an earlier `--added-lines-only BASE <files...>` mode that
+filtered by which LINES a PR added -- wrong for this gate's own motivating
+case, `EPIPHANIES.md`: a prepend decays citations sitting on UNCHANGED lines
+in UNCHANGED files, which an added-lines filter cannot see by construction.
 """
 
 from __future__ import annotations
@@ -239,53 +249,158 @@ A number is a coordinate in a moving frame; a heading or a D-id is an address.
 """
 
 
-def added_lines(base: str, root: str) -> dict[str, set[int]] | None:
-    """Line numbers ADDED or MODIFIED by `base...HEAD`, per file.
-
-    Why this exists, and why the gate is useless without it: `EPIPHANIES.md`
-    alone carries 10 pre-existing decayed citations, and this workspace's
-    board-hygiene rule means nearly EVERY pull request touches it. A gate
-    scoped to changed FILES would therefore fail almost every PR for decay it
-    did not introduce -- and a guard that fires on everything carries exactly
-    as much information as one that never fires (the `closed_class_guess`
-    150/150 defect, root CLAUDE.md). Scoping to changed LINES makes it a
-    no-new-decay gate: the 124-item backlog on main is a separate deliberate
-    pass, not every contributor's problem.
-
-    Returns None when the diff cannot be computed, and the caller then FAILS
-    CLOSED rather than silently checking everything.
-    """
+def git_merge_base(base: str, root: str) -> str | None:
     try:
         out = subprocess.run(
-            ["git", "diff", "--unified=0", "--diff-filter=d", f"{base}...HEAD"],
+            ["git", "merge-base", base, "HEAD"],
             cwd=root, capture_output=True, text=True, check=True,
-        ).stdout
+        ).stdout.strip()
+        return out or None
     except Exception:
         return None
-    per: dict[str, set[int]] = {}
-    cur: str | None = None
-    for ln in out.splitlines():
-        if ln.startswith("+++ b/"):
-            cur = ln[6:]
-            per.setdefault(cur, set())
-        elif ln.startswith("@@") and cur is not None:
-            m = re.search(r"\+(\d+)(?:,(\d+))?", ln)
-            if m:
-                start = int(m.group(1))
-                count = int(m.group(2) or 1)
-                per[cur].update(range(start, start + count))
-    return per
 
 
-def run(paths: list[str], root: str, only: dict[str, set[int]] | None = None) -> int:
+class _MergeBaseWorktree:
+    """A detached worktree at `merge_base_sha`, cleaned up on exit.
+
+    Deliberately the ONLY git command this module runs beyond read-only
+    `merge-base`/`diff` -- `git worktree add --detach <tmpdir> <sha>` never
+    touches the caller's checked-out tree, unlike `checkout`/`reset`/`clean`.
+    """
+
+    def __init__(self, sha: str, root: str):
+        self.sha = sha
+        self.root = root
+        self.dir: str | None = None
+
+    def __enter__(self) -> str | None:
+        self.dir = tempfile.mkdtemp(prefix="citation-decay-base-")
+        try:
+            subprocess.run(
+                ["git", "worktree", "add", "--detach", self.dir, self.sha],
+                cwd=self.root, capture_output=True, text=True, check=True,
+            )
+        except Exception:
+            return None
+        return self.dir
+
+    def __exit__(self, *exc):
+        if self.dir is not None:
+            subprocess.run(
+                ["git", "worktree", "remove", "--force", self.dir],
+                cwd=self.root, capture_output=True, text=True, check=False,
+            )
+        return False
+
+
+def collect_citations(root: str) -> dict[tuple, Finding]:
+    """Every citation under DEFAULT_GLOBS at `root`, keyed by CONTENT.
+
+    Keyed by `(citing relpath, cited path as written, cited start, cited end,
+    occurrence index)` -- never by line number, since the citing line shifts
+    on a prepend exactly like the cited one does. The occurrence index
+    disambiguates two identical citations in one file (same cited span,
+    same order of appearance), so repeated citations still pair 1:1 between
+    two revisions instead of colliding into one key.
+    """
+    paths: list[str] = []
+    for pat in DEFAULT_GLOBS:
+        paths.extend(glob.glob(os.path.join(root, pat), recursive=True))
+    out: dict[tuple, Finding] = {}
+    for path in sorted(set(paths)):
+        if not os.path.isfile(path):
+            continue
+        rel = os.path.relpath(path, root).replace(os.sep, "/")
+        occ: dict[tuple, int] = {}
+        for f in scan_file(path, root):
+            base_key = (rel, f.cited, f.start, f.end)
+            occ[base_key] = occ.get(base_key, -1) + 1
+            out[base_key + (occ[base_key],)] = f
+    return out
+
+
+def since_regression(base: str, root: str):
+    """Compare citation verdicts at `merge-base(base, HEAD)` vs HEAD.
+
+    Returns (new_decays, preexisting_decays, fixed, None) on success, or
+    (None, None, None, error_message) when the comparison cannot be made --
+    the caller then FAILS CLOSED rather than silently checking everything or
+    silently passing.
+
+    Why a regression comparison instead of a changed-lines filter: the
+    citations that decay from an EPIPHANIES.md prepend sit on UNCHANGED lines
+    in UNCHANGED files (only the file's LATER content moved under them) --
+    an --added-lines-only filter structurally cannot see them, which is
+    exactly the gap this replaces. Scoping to changed FILES instead is
+    equally wrong the other way: EPIPHANIES.md alone carries pre-existing
+    decays and nearly every PR touches it, so that would fail almost every
+    PR for backlog it did not introduce (the `closed_class_guess` 150/150
+    defect, root CLAUDE.md: a guard that fires on everything carries exactly
+    as much information as one that never fires).
+    """
+    merge_base = git_merge_base(base, root)
+    if merge_base is None:
+        return None, None, None, (
+            f"cannot resolve merge-base('{base}', HEAD) -- refusing to check "
+            "every citation instead (in CI this usually means a shallow "
+            "checkout; the workflow needs `fetch-depth: 0`)."
+        )
+    with _MergeBaseWorktree(merge_base, root) as base_dir:
+        if base_dir is None:
+            return None, None, None, (
+                f"cannot create a worktree at merge-base {merge_base} -- "
+                "refusing to check every citation instead."
+            )
+        base_map = collect_citations(base_dir)
+    head_map = collect_citations(root)
+
+    new_decays, preexisting, fixed = [], [], []
+    for key, f in head_map.items():
+        base_f = base_map.get(key)
+        base_verdict = base_f.verdict if base_f is not None else None
+        if f.verdict == DECAYED:
+            (preexisting if base_verdict == DECAYED else new_decays).append(f)
+        elif base_verdict == DECAYED:
+            fixed.append(f)
+    return new_decays, preexisting, fixed, None
+
+
+def run_since(base: str, root: str) -> int:
+    new_decays, preexisting, fixed, err = since_regression(base, root)
+    if err is not None:
+        print(f"citation-decay: ERROR: {err}", file=sys.stderr)
+        return 1
+    print(
+        f"citation-decay --since {base}: "
+        f"{len(new_decays)} new decay(s), {len(preexisting)} pre-existing "
+        f"(backlog, not failing), {len(fixed)} fixed since base"
+    )
+    if new_decays:
+        print("\nNEW DECAY (introduced or exposed since base):")
+        for f in new_decays[:MAX_EXAMPLES]:
+            print("  " + str(f))
+        if len(new_decays) > MAX_EXAMPLES:
+            print(f"  ... and {len(new_decays) - MAX_EXAMPLES} more")
+    if preexisting:
+        print(f"\npre-existing backlog (first {min(MAX_EXAMPLES, len(preexisting))}, not failing):")
+        for f in preexisting[:MAX_EXAMPLES]:
+            print("  " + str(f))
+    if fixed:
+        print(f"\nfixed since base ({len(fixed)}):")
+        for f in fixed[:MAX_EXAMPLES]:
+            print("  " + str(f))
+    if new_decays:
+        print(FIX_MESSAGE)
+        return 1
+    print("\nno new citation decay since base")
+    return 0
+
+
+def run(paths: list[str], root: str) -> int:
     findings: list[Finding] = []
     for p in sorted(set(paths)):
         if os.path.isfile(p):
-            got = scan_file(p, root)
-            if only is not None:
-                keep = only.get(os.path.relpath(p, root).replace(os.sep, "/"), set())
-                got = [f for f in got if f.cite_line in keep]
-            findings.extend(got)
+            findings.extend(scan_file(p, root))
     counts = {OK: 0, DECAYED: 0, UNVERIFIABLE: 0}
     for f in findings:
         counts[f.verdict] += 1
@@ -380,27 +495,123 @@ def self_test() -> int:
         if mark == "FAIL":
             failures.append(key)
     print("--- self-test " + ("FAILED ---" if failures else "PASSED ---"))
-    return 1 if failures else 0
+
+    regression_failures = self_test_since_regression()
+    return 1 if (failures or regression_failures) else 0
+
+
+def _git(args: list[str], cwd: str) -> None:
+    subprocess.run(
+        ["git"] + args, cwd=cwd, capture_output=True, text=True, check=True,
+        env={**os.environ, "GIT_AUTHOR_NAME": "t", "GIT_AUTHOR_EMAIL": "t@t",
+             "GIT_COMMITTER_NAME": "t", "GIT_COMMITTER_EMAIL": "t@t"},
+    )
+
+
+def self_test_since_regression() -> int:
+    """Prove `--since` fires on a NEW decay and stays silent on backlog.
+
+    This is the falsifier for the defect that motivated `--since` in the
+    first place: `--added-lines-only` filters by which lines a PR ADDS, but
+    a citation decays when its TARGET file changes on lines the PR never
+    touches (`EPIPHANIES.md` prepend) -- so the old mode reported success on
+    precisely the change it exists to catch. Both halves below are real git
+    history across two commits, not a synthetic verdict comparison.
+
+    CAN-FIRE: file A cites `B.md:8` correctly at base. Head PREPENDS lines to
+    B.md (A is untouched). A NEW decay must be reported and exit 1.
+
+    MUST-STAY-SILENT: in the same repo, a citation already DECAYED at base
+    and unchanged at head must NOT be reported as new, and must not by
+    itself cause a nonzero exit.
+    """
+    d = tempfile.mkdtemp(prefix="citation-decay-selftest-since-")
+    sub = os.path.join(d, ".claude", "board")
+    os.makedirs(sub)
+    b_path = os.path.join(sub, "B.md")
+    a_path = os.path.join(sub, "A.md")
+
+    def write_b(lines: list[str]) -> None:
+        with open(b_path, "w") as fh:
+            fh.write("\n".join(lines) + "\n")
+
+    # base B.md: the CAN-FIRE anchor's real home sits exactly at its cited
+    # line 8 (OK at base). The MUST-STAY-SILENT anchor is cited at line 3
+    # but its real home is line 20 -- already outside the +-WINDOW_LINES(3)
+    # window at base, i.e. ALREADY DECAYED at base -- pre-existing backlog.
+    base_lines = [f"line {i} filler" for i in range(1, 22)]
+    base_lines[7] = "## E-CANFIRE-ANCHOR-1 heading"     # line 8 (0-indexed 7)
+    base_lines[2] = "line 3 filler (backlog cite target)"  # line 3
+    base_lines[19] = "## E-BACKLOG-ANCHOR-1 heading"    # line 20
+    write_b(base_lines)
+    with open(a_path, "w") as fh:
+        fh.write(
+            "The ruling E-CANFIRE-ANCHOR-1 is recorded at .claude/board/B.md:8.\n"
+            + "prose padding, no anchor here at all whatsoever indeed. " * 8 + "\n"
+            "The ruling E-BACKLOG-ANCHOR-1 is recorded at .claude/board/B.md:3.\n"
+            + "more prose padding, still nothing citable in it at all. " * 8 + "\n"
+        )
+    _git(["init", "-q"], d)
+    _git(["add", "-A"], d)
+    _git(["commit", "-q", "-m", "base"], d)
+
+    # head: PREPEND 5 lines to B.md (> WINDOW_LINES so the shift cannot hide
+    # inside the anchor-search window). A.md is untouched -- the citing
+    # lines themselves never move. This pushes the CAN-FIRE anchor's real
+    # home from line 8 to line 13, outside cited-line-8's +-3 window: a real
+    # NEW decay on an unchanged citing line. The backlog anchor shifts from
+    # 20 to 25, still outside cited-line-3's +-3 window either side of the
+    # prepend, so it stays exactly as decayed as it was at base.
+    head_lines = ["PREPENDED filler"] * 5 + base_lines
+    write_b(head_lines)
+    _git(["add", "-A"], d)
+    _git(["commit", "-q", "-m", "prepend to B.md, A.md untouched"], d)
+
+    new_decays, preexisting, fixed, err = since_regression("HEAD~1", d)
+    print("\n--- self-test --since findings ---")
+    if err is not None:
+        print(f"  ERROR: {err}")
+        print("--- self-test --since FAILED ---")
+        return 1
+    for label, group in (("new", new_decays), ("preexisting", preexisting), ("fixed", fixed)):
+        for f in group:
+            print(f"  [{label}] " + str(f))
+
+    fail_msgs = []
+    canfire_new = any(f.cited == ".claude/board/B.md" and f.start == 8 for f in new_decays)
+    if not canfire_new:
+        fail_msgs.append("CAN-FIRE: .claude/board/B.md:8 must be reported as a NEW decay")
+    backlog_new = any(f.cited == ".claude/board/B.md" and f.start == 3 for f in new_decays)
+    if backlog_new:
+        fail_msgs.append("MUST-STAY-SILENT: .claude/board/B.md:3 (pre-existing decay) must NOT be reported as new")
+    backlog_preexisting = any(f.cited == ".claude/board/B.md" and f.start == 3 for f in preexisting)
+    if not backlog_preexisting:
+        fail_msgs.append("MUST-STAY-SILENT: .claude/board/B.md:3 must be counted as pre-existing backlog")
+
+    # The verdict the GATE would return on this corpus -- NOT the self-test's
+    # own pass/fail. The first version printed `0 if ok else 1` under a label
+    # reading "expect 1", so a PASSING run printed `0` next to the word
+    # "expect 1" and asserted nothing whatsoever about the real exit path.
+    gate_rc = 1 if new_decays else 0
+    if gate_rc != 1:
+        fail_msgs.append("CAN-FIRE: the gate must exit 1 while a new decay is present")
+
+    for m in fail_msgs:
+        print(f"  [FAIL] {m}")
+    ok = not fail_msgs
+    print(f"  gate exit code on this corpus: {gate_rc} (expect 1 -- new decay present)")
+    print("--- self-test --since " + ("PASSED ---" if ok else "FAILED ---"))
+    return 0 if ok else 1
 
 
 def main(argv: list[str]) -> int:
     root = os.getcwd()
     if "--self-test" in argv:
         return self_test()
-    only = None
-    if "--added-lines-only" in argv:
-        i = argv.index("--added-lines-only")
+    if "--since" in argv:
+        i = argv.index("--since")
         base = argv[i + 1]
-        only = added_lines(base, root)
-        if only is None:
-            print(
-                f"citation-decay: ERROR: cannot diff '{base}...HEAD' -- refusing to "
-                "check every line instead (in CI this usually means a shallow "
-                "checkout; the workflow needs `fetch-depth: 0`).",
-                file=sys.stderr,
-            )
-            return 1
-        argv = argv[:i] + argv[i + 2:]
+        return run_since(base, root)
     pats = [a for a in argv if not a.startswith("-")] or DEFAULT_GLOBS
     paths: list[str] = []
     for p in pats:
@@ -409,7 +620,7 @@ def main(argv: list[str]) -> int:
     if not paths:
         print("citation-decay: no input files matched", file=sys.stderr)
         return 0
-    return run(paths, root, only)
+    return run(paths, root)
 
 
 if __name__ == "__main__":
