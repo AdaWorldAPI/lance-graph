@@ -1,3 +1,87 @@
+## 2026-09-04 — E-A-GATE-INHERITS-THE-BLIND-SPOT-OF-WHOEVER-WROTE-IT-1 — both board gates shipped with the exact defect they gate against
+
+**Status:** FINDING (measured — three review findings, each verified against
+the tree before acting, on `#1167` / `#1168`, fixed in `#1170`).
+**Confidence:** High — every claim below is a diff or a run, not an
+impression.
+
+Two mechanical board gates landed on 2026-09-04. External review found a
+real defect in each within minutes of merge, and **the two defects are the
+same shape as the failure each gate exists to prevent.**
+
+| gate | defect | the shape |
+|---|---|---|
+| `append_only_gate.py` | `PROTECTED` **substituted** `AGENT_LOG.md` for `IDEAS.md` and kept the count at eight | a substitution that preserves the count — exactly how a lost prepend hides |
+| `citation_decay.py` | `--added-lines-only` could not see a decay caused by prepending to `EPIPHANIES.md`, its own motivating case | a scope that excludes the case it was built for |
+
+The first is the sharper one. The canonical eight are the files
+`.claude/BOOT.md`'s immutability table names and `.claude/settings.json`
+denies `Edit`/`Write`/`MultiEdit` on. `IDEAS.md` is among them — a real
+1204-line append-only ledger — and `AGENT_LOG.md` is not. Because the count
+stayed at eight, the tuple read as correct on every pass, while
+`.claude/board/**` cheerfully started the workflow on any PR that truncated
+`IDEAS.md` and `check()` never looked at it. **Adding `AGENT_LOG.md` was
+never the error; substituting it was.** Fixed to nine.
+
+The second is the more instructive. The gate's own workflow comment named
+`EPIPHANIES.md` prepending as the motivating case — and the scoping made it
+structurally unreachable, because the citations that decay under a prepend
+sit in **other, unchanged files on unchanged lines**. Two obvious repairs
+were measured and rejected: scanning unscoped fails every PR on a
+148-citation backlog, and scanning changed *files* fails nearly every PR
+because `EPIPHANIES.md` alone carries pre-existing decays and the
+board-hygiene rule means almost every PR touches it — the
+`closed_class_guess` 150/150 defect again. The correct shape is a
+**regression comparison**: verdicts at `merge-base` vs HEAD, keyed by each
+citation's own content plus an occurrence index (never by line number — the
+citing line shifts too), failing only where a citation is decayed now and
+was not at the base.
+
+### The three sub-findings worth keeping
+
+1. **A count is not a set.** Eight-of-the-right-eight and eight-with-one-
+   swapped are indistinguishable by the check a human actually performs.
+   Where a canonical list exists in the repo (here: two of them, agreeing),
+   the tuple should be diffed against it, not eyeballed for length.
+2. **A self-test can assert nothing while printing a number.** The new
+   regression test printed the harness's own pass/fail under a label reading
+   `expect 1`, so a PASSING run printed `0` beside the word "expect 1". It
+   now asserts the verdict the GATE would return, and that assertion is what
+   goes red under the second disable — load-bearing rather than decoration.
+   Found by reading the worker's output, not by the test.
+3. **A green CI tick is not evidence the gate ran.** The whole finding was
+   *a gate reporting success on the case it exists to catch*, so the job log
+   was pulled rather than the tick trusted: `0 new decay(s), 148
+   pre-existing, 0 fixed` against a real merge base. Not a silent no-op.
+
+### And the process half, which is the uncomfortable one
+
+**`#1167`, `#1168` and `#1170` each shipped without their board hygiene
+in-commit** — the retroactive-hygiene anti-pattern this file names by that
+name, committed three times running by the session whose entire subject was
+making board discipline mechanical rather than remembered. `#1169` recorded
+the first two; this entry records the third and its own lateness.
+
+That is the generalizable point, and it is not about these two tools: **a
+gate inherits the blind spot of whoever wrote it, and a rule the author is
+actively thinking about is the rule the author still breaks.** The argument
+for mechanical checks does not rest on the author being careless. It rests
+on this: over one session, the same author, holding the rule in mind,
+writing the tooling for the rule, broke it three times and caught it zero
+times.
+
+### Backlog number, with its date
+
+148 confirmed decays across `.claude/plans` + `.claude/board` (2026-09-04),
+up from 124 measured the previous day as the corpus grew. Not a correction —
+a measurement with a timestamp. The 93% unverifiable rate is a finding about
+the citation convention (bare basenames, which no scanner can resolve), not
+about the scanner.
+
+Cross-ref: `E-VACUOUS-ASSERTION-IS-THE-HOUSE-STYLE-1`;
+`E-ANTI-EIGENVALUE-MACHINERY-CAN-ITSELF-BECOME-THE-EIGENVALUE-1` (a guard
+that fires on everything); `CLAUDE.md` § Mandatory Board-Hygiene Rule.
+
 ## 2026-09-03 — E-A-CORRECTION-IS-ONLY-AS-GOOD-AS-ITS-MERGE-1 — an unlanded Storno leaves the falsehood standing
 
 **Status:** FINDING (measured on this repo's own `main`, this hour). The
