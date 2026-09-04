@@ -29,8 +29,19 @@ for (flat, slot) in level.iter_mut().enumerate() {
 **Why it went unnoticed:** sigker is workspace-EXCLUDED, so `cargo clippy` at
 the workspace root never reaches it — it needs
 `--manifest-path crates/sigker/Cargo.toml`. Any excluded crate is outside the
-default lint sweep; worth checking the other excluded crates (bgz17, deepnsm,
-bgz-tensor, lance-graph-codec-research) for the same blind spot.
+default lint sweep; worth checking the other excluded crates (bgz17,
+lance-graph-codec-research) for the same blind spot.
+
+**The same exclusion hid the TESTS too — closed in this PR.** `rust-test.yml`
+enumerates workspace-excluded crates one scoped step at a time (deepnsm,
+deepnsm-v2, supervisor, causal-edge, bgz-tensor, ogar, weather-poc, jc) and
+sigker was simply never added. Its 62 tests — including BOTH W1.5 consumer
+wirings, which are the crate's whole current purpose — had never run in CI.
+A parity test against a scalar oracle that CI never executes is not a gate;
+this is the same "blind gate" the file's own comments say the repo has closed
+"one crate at a time". A tests-only step now arms it, on the causal-edge
+precedent (that crate is also tests-only in CI precisely because its clippy is
+red on arrival). The clippy half stays open, tracked by this entry.
 
 ---
 
