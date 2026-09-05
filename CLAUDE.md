@@ -1273,7 +1273,7 @@ lancedb = "=0.38.0"       # the lance-11 pairing (`default-features = false` in
                           # the workspace table). NOTE: the Rust crate line is
                           # 0.33.0 -> 0.37.1 -> 0.38.0; 0.34/0.35/0.36 exist only
                           # as the independently-versioned PyPI package.
-rust = "1.97.1"           # rust-toolchain.toml is authoritative; see its bump log
+rust = "1.98.1"           # rust-toolchain.toml is authoritative; see its bump log
 ndarray = { path = "../../../ndarray" }  # AdaWorldAPI fork, default, optional fallback
 nom = "7.1"
 snafu = "0.8"
