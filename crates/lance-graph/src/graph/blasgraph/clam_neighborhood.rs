@@ -39,12 +39,12 @@ pub fn scent_l1_distance(a: &[u8], b: &[u8]) -> u32 {
 ///
 /// Alternative metric: count differing band bits across all edges.
 /// More aligned with the boolean lattice structure of scent bytes.
+///
+/// Routes through [`super::ndarray_bridge::dispatch_hamming`] rather than
+/// re-deriving a scalar `count_ones()` fold — same result, one kernel.
 pub fn scent_hamming_distance(a: &[u8], b: &[u8]) -> u32 {
     assert_eq!(a.len(), b.len());
-    a.iter()
-        .zip(b.iter())
-        .map(|(&x, &y)| (x ^ y).count_ones())
-        .sum()
+    super::ndarray_bridge::dispatch_hamming(a, b) as u32
 }
 
 /// A cluster radius observation for conjecture testing.

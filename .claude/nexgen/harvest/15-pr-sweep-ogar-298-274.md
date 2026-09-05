@@ -1,0 +1,22 @@
+# PR sweep — OGAR #298–#274 (verbatim, 2026-09-05)
+
+- #298 — retract epistemic band; drop ogar-epistemic. STRONG. Ruling: "the pair-specific epistemic band... aliased three distinct semantic families — episodic/Markov loci, qualia magnitude, and population-derived semantic geometry — into one type". Do NOT resurrect 0x87–0x8B.
+- #297 — ogar-epistemic 24-axis (0x0334). NONE (retracted).
+- #296 — mint 0x86..0x8B. STRONG but retracted except TERNLOG(0x86): "a generic 3-input mask combinator whose value byte is the truth table... no named table set is canonical"; batch SIMD = ndarray `ternlog`.
+- #295 — `BasinCodebook`/`BasinCodebookBuilder` (`seal()` consumes builder, no `&mut` after mint), `ConceptDomain::resolve_operand`. STRONG: build-once/freeze precedent for a version-keyed immutable slab.
+- #294 — `row_schema_of` dual-address fix. WEAK.
+- #293 — OBO producer flip + `examples/rekey_domain.rs` in-place classid rewrite of 512-byte rows. WEAK.
+- #292 — mint 0x90..0x9A. NONE. #291 — revert 0x03XX rows. NONE. #290 — take back 0x03XX double-mint. NONE.
+- #289 — R2IL PUSHES→segmentation; D-CFW-LADDER byte⊇exact-area⊇register⊇increment; `statement_bounds` (R5 maskable unit); blind spots at coarser granularity. STRONG.
+- #288 — `CallMask` `Box<[u64]>`→inline `[u64;3]`, `Copy`, lazy `set_indices()` (word scan + `trailing_zeros` + `w &= w-1`), tail-mask fix in `not()`. STRONG.
+- #287 — docs breadcrumb. NONE.
+- #286 — 0xC6 classids + execute-never-convert ruling. WEAK.
+- #285 — R2IL as loco Vocabulary + `project(&slab, shape, &mask)` lazy masked iteration; "Reshuffling is a re-READ, never a re-WRITE". STRONG.
+- #284 — 0xC6 Mmio. NONE. #283 — DocIr harvest (draft). NONE.
+- #282 — typed_field + W4 ActionDefs; `capability_registry::domain_tables()`. WEAK.
+- #281 — PROBE-LOCO-INTERPRETER-1: `VAR_SET`/`VAR_CHANGE` push with no DROP/POP → `statement_bounds` refuses imperative sequences (`DanglingOperands`). WEAK caveat.
+- #280 — debug info off. NONE.
+- #279 — dismech search band 0xA3..0xA9; `residue_band` (cardinality → 3-bit band), pothole→rung degradation (Surface/Association/Relation/Counterfactual), `Throttle::hub_indegree`, `diffuse_floor` unset ("no measured value exists"); "it is not evidence... search-economic". STRONG.
+- #278 — askama_axum. NONE. #277 — 0xC0 Panama alone. NONE. #276 — C-band reserve. NONE.
+- #275 — 19 DisMech predicates. WEAK. #274 — 0x0333 reservation. NONE.
+- Top hooks named by the reader: #288+#285 (CallMask + project), #295 (BasinCodebook seal), #289 (visibility ladder), #279 (residue_band/diffuse_floor), #296/#298 (TERNLOG 0x86 only).
