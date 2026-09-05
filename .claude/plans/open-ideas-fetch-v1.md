@@ -24,7 +24,7 @@
 
 | card (IDEAS.md) | what the card says | what the tree says |
 |---|---|---|
-| `IDEA-POLICY-HASH-UDF` (`:1162`) | "policy_hash_v1 UDF **registration**" | Registration is not the blocker. The UDF is bound as an `Arc<ScalarUDF>` **object inside the `Expr`** (`policy.rs:137`), and DataFusion executes the embedded object without any by-name lookup — proof: `register_vsa_udfs` (`vsa_udfs.rs:574`) has **zero callers** in the tree and its UDFs still execute in tests. The blocker is the **body**: `invoke_with_args` returns `NotImplemented` (`policy.rs:~330`). |
+| `IDEA-POLICY-HASH-UDF` (`:1162`) | "policy_hash_v1 UDF **registration**" | Registration is not the blocker. The UDF is bound as an `Arc<ScalarUDF>` **object inside the `Expr`** (`policy.rs:137`), and DataFusion executes the embedded object without any by-name lookup — proof: `register_vsa_udfs` (`vsa_udfs.rs:574`) has **zero callers** in the tree and its UDFs still execute in tests. The blocker is the **body**: `invoke_with_args` returns `NotImplemented` (`policy.rs:~330`). **Superseded the same day (§2, W0 census): the body was never the blocker either — the DataFusion masking path has no deployed consumer, and the operator ruled DataFusion out of planning. Ruling A: retire.** |
 | `IDEA-B1-HARDWARE-BACKENDS` (`:1062`) | "AMX/MKL backends for sigma_propagation, waits on ndarray #119/#121" | The kernel is a **2×2 f64** sandwich — three scalars, 12 mul + 6 add (`sigma_propagation.rs:210-227`). An AMX tile is 16×16 bf16/int8; an MKL `dgemm` call costs more than the 18 flops it would do. The idea is **mis-shaped for its own kernel**. The real lever is vertical batching — `F64x8` (8 edges/instruction), whose `Mul`/`Add` already exist on every backend. AND: `ewa_sandwich(` has **zero production call expressions** outside `jc` + the contract (grep, §3.2) — every "caller" is a doc-comment mention. |
 | `IDEA-CAUSAL-EDGE-TENSOR-SIDECAR` (`:1126`) | "design a 9-byte sidecar (`CausalEdge64` + 1 byte Σ index) OR Block 14/15" | **The 1-byte index already shipped, as a SoA column** — `BindSpace.fingerprints.sigma: Box<[u8]>` (`bindspace.rs:54-58`), `MailboxSoA.sigma: [u8; N]` (`mailbox_soa.rs:125-133`), `set_sigma` (`:670`), `BackingStoreWrite::set_sigma` both arms (`backing.rs:253-257`). Neither the sidecar nor Block 14/15 is live. **What does NOT exist is the codebook the index points at** — §4. |
 
@@ -38,51 +38,74 @@
 - **The falsifiability rule** (`CLAUDE.md`): every guard needs a can-fire AND a can-stay-silent test on non-trivial inputs; a threshold needs an inertness test; a doc claim is not a behaviour.
 - **Sonnet workers: edit-only, no `cargo`, no `git`, disjoint files; the orchestrator compiles once** (`agent-cargo-hygiene.md`; `sonnet-worker-guardrails.md` §1 pasted verbatim into every brief).
 
-## 2. D-OIF-1 — `policy_hash_v1`: give the UDF a body
+## 2. D-OIF-1 — `policy_hash_v1`: RULING A, SUPERSEDED — a retirement plan, not a crypto task
 
-### 2.1 Evidence
+> **Re-derived 2026-09-05 (W0 architecture census, four read-only Opus tracers + orchestrator verification).**
+> The previous §2 asked "which hash?". That question was one abstraction generation behind: it assumed the DataFusion policy-rewriter execution model still owned field-level authorization. The census below shows it never reached a binary, and the operator ruled the same day: **"every planning is in migration to ogar-loco and ogar-r2il; DataFusion is out of the picture; what exists gets a grace period; nothing new will migrate to it."** A hash body for `policy_hash_v1` is *new* work on the DataFusion path and is barred by that ruling regardless of the census. No hash family is chosen; `D-OIF-1-DEC` is **withdrawn**.
 
-- `crates/lance-graph-callcenter/src/policy.rs:120-140` — `mask_expr` binds `NotYetWiredHashUdf::new()` as an `Arc<ScalarUDF>` inside a `ScalarFunction` expr.
-- `:262-335` — the impl: `Signature::any(1, Volatility::Immutable)`, `return_type = UInt64` (already fixed so downstream schemas are stable), `invoke_with_args → Err(NotImplemented("policy_hash_v1 UDF not yet registered — see PR-F1b"))`. The header comment names **FNV-64 as the v1 target**.
-- Feature gate: `auth-rls-lite = ["auth-jwt", "query-lite"]`, `query-lite = ["dep:datafusion", "dep:arrow"]` (`Cargo.toml` `[features]`). `datafusion` WITHOUT default features.
-- Existing test `redaction_mode_hash_binds_not_yet_wired_udf` (`:598-620`) asserts **plan text only** (`contains("policy_hash_v1")`, `!contains("***REDACTED***")`). It stays green after the fix and is therefore **not** a falsifier of the body. New tests must EXECUTE the plan.
-- Execution pattern in this crate: `graph_table.rs:196-229` — `#[tokio::test]`, `MemTable::try_new`, `ctx.register_table`, `df.collect().await`, under `#[cfg(feature = "query")]`. Policy tests today build plans against an **empty** `MemTable` (`policy.rs:530`). `tokio` is already a dev-dep with `rt-multi-thread` + `macros`.
-- Array-vs-Scalar handling to copy: `vsa_udfs.rs:88-89` (unwrap) and `:201-204` (length resolution).
-- Live docs naming the type: `.claude/patterns.md:89` (`NotYetWiredHashUdf`) — a live inventory, **update in the same commit**. `PR_ARC_INVENTORY.md:5734` and `LATEST_STATE.md:2753` are append-only history — leave.
+### 2.1 Tree verdict (production census; "production" = a real call chain from a binary / server handler, never `pub mod`, a feature flag, a registration helper, a test, or a doc comment)
 
-### 2.2 DECISION D-OIF-1-DEC — hash family and key (operator's; recommendation stated)
+1. `ColumnMaskRewriter` has exactly one non-test constructor in all seven repos: `MedCare-rs/crates/medcare-server/src/routes/patient.rs:150`, inside `get_one_via_lance` (`:85`, `#[cfg(feature = "lance-phase2-rbac")]`), reached only for `?source=lance` (`:52-53`).
+2. `lance-phase2-rbac` is default-off (`medcare-server/Cargo.toml:215` `default = []`) and **no Dockerfile enables it** (`docker/Dockerfile.railway:175`, `Dockerfile.railway.OCR:49`, `Dockerfile.reasoning` all build `lance-phase2,reasoning`).
+3. Even when compiled, the path's row decoder `record_batch_to_patient` (`patient.rs:200-211`) is a stub that logs and returns `None`; the handler 500s. No user has ever received a masked row from this path.
+4. The rewriter redacts **above the scan**: `rewrite_plan` (`policy.rs:210`) maps expressions and `recompute_schema`s; `TableScan.projection` is never written (`extract_table_name` `:226-241` only reads it). The forbidden column is scanned from Lance, materialized, then overwritten — post-hoc redaction, the exact anti-pattern the invariant forbids.
+5. `RedactionMode::Hash` (`policy.rs:130-140`) binds `NotYetWiredHashUdf`; any plan containing it fails at execute with `NotImplemented` (`:339`). `policy_hash_v1` has no implementation and no `register_udf` anywhere. `register_vsa_udfs` (`vsa_udfs.rs:574`) has zero callers in all repos.
+6. `PolicyRewriter` (`policy.rs:56`) has one impl and `dyn PolicyRewriter` appears nowhere — a one-impl indirection, not a policy VM.
+7. The replacement path is **also not enforced**: `lance-graph-rbac::authorize()`/`authorize_scoped()` (`authorize.rs:66,182`), `contract::ClassRbac` (`rbac.rs:143`), `ActionInvocation::commit_via` (`action.rs:327`) and `lance-graph-ogar::OgarRbac` (`rbac_impl.rs:38`) have **zero non-test callers**. `effective_mask` is not an identifier in any `.rs` file. There is no `ogar-rbac` crate; `ogar-auth` is authentication only (password/TOTP).
+8. MedCare's live authorization is entity-string keyed: `patient.rs:280 bridge.authorize_read("Patient", …)` → `lance-graph-rbac::policy::Policy` → `AccessDecision`. No mask reaches it. Field projection in production is `views/project.rs:229` (`WideFieldMask::from_positions` from a **view** spec, no role operand) — a view mask, not RBAC.
+9. The only genuine `surface ∩ role` fail-closed projection is `a2ui-server/src/project.rs:70-83` (`WideFieldMask::intersect`, `NoRoleGrant` on empty role) — and `a2ui-server` has no `[[bin]]`, no `main`, and no dependent crate.
+10. Rubicon/Kanban: no actor/controller survives (`kanban_actor.rs:1-27` tombstone: "All of it is DELETED"); the crossing `Planning → CognitiveWork` is a checked one-way edge (`kanban.rs:98-106`, `can_transition_to` consulted by `try_advance_phase` `soa_view.rs:314`, no mutation on refusal `:329-346`). `try_advance_phase` has one non-test caller (`cycle_driver.rs:560`) that is itself reached only from tests/examples. RBAC code holds no Kanban state; lifecycle code makes no authorization decision; loco/r2il make no authorization decision.
 
-| option | what | verdict |
-|---|---|---|
-| A — FNV-1a-64, unkeyed | what PR #301 named as "v1 target" | **Do not ship as the default.** A masked column is by definition an identifier; unkeyed 64-bit hashing of a low-entropy identifier is reversible by enumeration. It would *look* redacted in every plan and be a lookup table in practice. |
-| B — **keyed SipHash-1-3, 128-bit key, in-crate** | ~60 LOC, zero new dependency, deterministic across Rust versions (std's `DefaultHasher` is SipHash-1-3 but **explicitly not stable across releases** and unkeyed — unusable for a persisted pseudonym) | **Recommended.** Same input + same key → same hash (joins still work); different key → different pseudonym space (a deployment's masked values are useless elsewhere). |
-| C — SHA-256 truncated to 64 | needs `sha2` (crates.io, no fork) | Acceptable, one more dep for no property B lacks at this width. |
+**So:** the invariant «forbidden fields absent from the authorized projection, not materialized and masked by a UDF» is *violated by the only field-level mechanism that was ever written* (item 4) and *satisfied by nothing that is deployed* (items 7–9). The invariant «a Rubicon transition is an SoA-owned mutation, not an actor command» **holds** in code (item 10) and is contradicted only by stale prose (§2.5).
 
-**Key source (part of the decision):** the key must be **bound at rewriter construction**, never read from the environment inside the UDF (the UDF is `Immutable` and must be a pure function of its inputs). Proposed shape: `ColumnMaskRewriter { registry, actor_role, hash_key: [u8; 16] }`; `mask_expr` becomes a method and builds `PolicyHashUdf::new(self.hash_key)`. The **membrane** (the caller that already holds `actor_role`) supplies the key from its own config. Two rewriters, two keys, is the falsifier that proves the key is load-bearing.
+### 2.2 Obligation table
 
-### 2.3 Deliverable
-
-- `PolicyHashUdf` (rename; `NotYetWiredHashUdf` is now a false name) in `policy.rs`, same `Signature`/`return_type`, `invoke_with_args` implemented over `ColumnarValue::{Array, Scalar}`:
-  - NULL → NULL (Arrow null propagation), never the hash of an empty string.
-  - Hashed byte view per type: `Utf8`/`LargeUtf8`/`Utf8View` (UTF-8 bytes), `Binary`/`LargeBinary`/`BinaryView` (bytes), `Boolean` (one byte), `Int8..Int64`/`UInt8..UInt64` (little-endian bytes of the widened `i64`/`u64` — so `Int32(5)` and `Int64(5)` hash equal; document it), `Float32`/`Float64` (IEEE bits of the `f64` widening; `-0.0 ≠ 0.0` — document it), `Date32/64`, `Timestamp(*)` (the underlying integer's bytes).
-  - Any other type → `DataFusionError::NotImplemented` naming the type — **loud, and enumerated in the doc comment**, never a silent constant.
-- `policy_hash_udf(key) -> Arc<ScalarUDF>` + `register_policy_udfs(ctx, key)` for SQL-text callers, mirroring `register_vsa_udfs` — a convenience, **not** the deliverable (see §0).
-- `.claude/patterns.md:89` (`NotYetWiredHashUdf`) updated to the new name.
-
-### 2.4 Pre-registered gates (each red-then-green; the disable is named)
-
-| # | assertion | non-trivial input | disable that must turn it red |
+| old obligation | current owner | production evidence | action |
 |---|---|---|---|
-| G1 | executing a Hash-masked scan over a `MemTable` with ≥3 real rows returns `UInt64`, non-null for non-null inputs | 3 distinct strings | restore `Err(NotImplemented)` |
-| G2 | determinism: two separate `SessionContext`s + two rewriters with the SAME key give identical column values | same 3 strings | perturb the key in one rewriter |
-| G3 | discrimination: 3 distinct inputs → 3 distinct hashes; and the two equal inputs among 4 → equal hashes | `["a","b","a","c"]` | return a constant |
-| G4 | key is load-bearing: two rewriters with DIFFERENT keys give different values for the same input | same string | ignore the key in `invoke` |
-| G5 | NULL → NULL; the null count of the output equals the null count of the input | a column with 2 nulls of 5 | hash `""` for nulls |
-| G6 | an unsupported type fails LOUD at execute with the type in the message (can-fire); a supported type does NOT (stay-silent) | `List<Int32>` vs `Utf8` | make the fallback return `0` |
-| G7 | the old `:598` test still passes unchanged (plan text) — proves the rewrite site did not move | as-is | n/a (regression) |
-| G8 | `cargo clippy -p lance-graph-callcenter --features auth-rls-lite -- -D warnings` clean; `cargo test -p lance-graph-callcenter --features auth-rls-lite` green | — | — |
+| `policy_hash_v1` UDF body (`IDEA-POLICY-HASH-UDF`, PR #301) | none — the DataFusion policy path | items 1–5: no deployed consumer; execute → `NotImplemented` | **RETIRE.** No body, no hash choice. `D-OIF-1-DEC` withdrawn |
+| `RedactionMode::Hash` | same | binds a UDF that cannot execute | **REMOVE with the cone** (§2.3) — a landmine, not a mode |
+| `NotYetWiredHashUdf` / `policy_hash_v1` | same | `policy.rs:279-339`, zero registrations | **REMOVE with the cone** |
+| `ColumnMaskRewriter` / `ColumnMaskRegistry` / `RedactionMode::{Null,Constant,Truncate}` / `PolicyRewriter` / `PolicyKind` | same (`policy.rs`) | one gated, undeployed, stub-terminated MedCare caller | **GRACE PERIOD** (operator ruling): retained as-is, regraded SUPERSEDED, frozen — no new work, no new callers. Removal is its own PR once MedCare's `lance-phase2-rbac` feature is retired (`patient.rs:85-211`, `state.rs` `column_mask_registry`/`rls_registry`/`session_context`, `medcare-analytics::column_mask_bridge`) |
+| `RlsRewriter` (`rls.rs`) | same | same single caller (`patient.rs:146`) | **GRACE PERIOD**, same cone, same condition. Not a policy VM: a tenant predicate — but on the retired path |
+| `register_vsa_udfs` (`vsa_udfs.rs:574`) | none | zero callers, any repo | **REMOVE** candidate; separate from the policy cone (it is `query`-gated, not `auth-rls-lite`). Not touched in this PR |
+| DataFusion RLS / optimizer-rule registration | `patient.rs:146-150` only | the only `with_optimizer_rule` in any repo | **GRACE PERIOD** with the MedCare feature |
+| `unified_bridge.rs` `authorize_{read,write,act}` | `lance-graph-callcenter` | live: `patient.rs:280` | **RETAIN.** Entity-level allow/deny before SQL; never touches a plan |
+| Field-level authorization (the obligation `policy_hash_v1` was one arm of) | **VACANCY** on the canonical path: `ClassRbac × ClassView × WideFieldMask` | items 7–9 | **RECORD as the missing implementation** on the canonical OGAR/ClassView path (OGAR already says so: `DISCOVERY-MAP.md:1581-1584`, `DOCIR-COMPOSITION-GROUNDING.md:75`, `PROBE-OGAR-RBAC-AUTHORIZE`). Not resurrected on DataFusion. Not built in this plan |
+| `authorize_scoped` mask fold | `lance-graph-rbac/authorize.rs:199-216` | zero callers; folds a **union** over roles and returns `FieldMask::FULL` on non-Allow (`:190-196`) — fails OPEN in the mask | **REGRADE** to "TRANSPORT ONLY, fail-open in the mask value" — a design defect to fix on the canonical path, not evidence for the old one |
+| Rubicon lifecycle | `MailboxSoaOwner::try_advance_phase` + `KanbanColumn` DAG | item 10 | **RETAIN**, no change. Prose corrections only (§2.5) |
+| Thinking/planning | `ogar-loco` (one live consumer: `medcare-cohorts/ddx_loco.rs` ← `views/zugfolge.rs:534`); `ogar-r2il` (probe/test only); planner `thinking/`,`mul/`,`strategy/` linked into medcare-server but uncalled | no DataFusion UDF or rule performs reasoning on any production path (`datafusion_planner/udf.rs:130-663` is vector/hamming distance only) | hypothesis **confirmed for DataFusion** (it never owned reasoning in production); **partially confirmed for loco/r2il** (loco live, r2il probe-only). Nothing to move |
 
-**§8 caveat feeding G1:** `DataFrame::collect()` under `query-lite` (datafusion without default features) is **assumed** to compile — the physical planner is core, `sql` is not needed. If it does not, the execution tests move under `#[cfg(feature = "auth-rls")]` (`= query`) and the plan says so; that is a scope note, not a failure.
+### 2.3 Remove / retain / regrade (exact)
+
+- **REMOVE now (this arc, own PR, after grace-period sign-off):** nothing is deleted in #1185. The *first* removal PR is scoped to the dead-by-construction pieces only — `RedactionMode::Hash` + `NotYetWiredHashUdf` + the `policy_hash_v1` name (`policy.rs:130-140, 262-339`) and the test `redaction_mode_hash_binds_not_yet_wired_udf` (`:598-620`) — because they cannot execute today and no grace-period consumer can depend on them. Disable-run: removing the variant must break exactly that test and nothing else.
+- **GRACE PERIOD (frozen, regraded SUPERSEDED, no new callers):** `policy.rs` remainder (`PolicyRewriter`, `PolicyKind`, `ColumnMaskRegistry`, `ColumnMaskPolicy`, `ColumnMaskRewriter`, `RedactionMode::{Null,Constant,Truncate}`), `rls.rs`, the `lib.rs:114-125` / `:93-99` gates, feature `auth-rls-lite`; MedCare `patient.rs:52-54, 85-211`, `state.rs` `column_mask_registry` / `rls_registry` / `session_context` / `build_session_context`, `medcare-analytics/src/column_mask_bridge.rs`. Removal condition: MedCare retires `lance-phase2-rbac` (its own private-repo PR) — then the callcenter cone falls in one PR.
+- **RETAIN, untouched:** `lance-graph-python/src/graph.rs` (`SessionContext` `:1208,:1518`), `lance-graph-catalog/src/{connector,table_reader}.rs`, `holograph/src/storage.rs`, `callcenter/src/{graph_table,filter_expr,lance_membrane,unified_bridge}.rs`, `callcenter/src/bin/audit_verify.rs` + `audit.rs` (Lance dataset open), `lance-graph-planner/src/optimize/` (an in-house `OptimizerRule` trait of the same name, unrelated), MedCare `views/project.rs` + `medcare-rbac`, `tesseract-paperless/src/store.rs`. These are storage/query translation over Lance — the grace-period storage layer, not the policy VM.
+- **REGRADE (board):** `IDEA-POLICY-HASH-UDF` → Superseded; `D-OIF-1` → Superseded (retirement plan); `D-OIF-1-DEC` → Withdrawn; `LATEST_STATE.md:2389,2393` claims (see §2.5) get a dated correction line, not an edit.
+
+### 2.4 Layer audit (Rubicon / Heckhausen vocabulary)
+
+| layer | owner in code | impersonation found? |
+|---|---|---|
+| 1 Lifecycle control | `KanbanColumn` DAG (`kanban.rs:98-106`) + `MailboxSoaOwner::try_advance_phase` (`soa_view.rs:311`); Planning = pre-decisional, `Planning→CognitiveWork` = the Rubicon crossing, `CognitiveWork` = actional, `Evaluation` = post-actional, `Commit`/`Plan`/`Prune` = outcomes; `Planning→Prune` = pre-Rubicon veto | none. `Commit`'s calcify step is DECLARED only (`kanban.rs:48-56`) |
+| 2 Action semantics | `ActionState` (OGAR `ogar-vocab/lib.rs:676` canonical wire type; contract `action.rs:44` the Rust mirror, unconsumed), `ActionDef`, `KausalSpec`, `ActionInvocation::commit` | `commit` inlines its own RBAC check (`action.rs:283`) — documented design, not drift. `CommitHook` **does not exist** (prose only) |
+| 3 Authorization | contract `rbac.rs` + `lance-graph-rbac` (types + un-called kernel); live gate = string-keyed `Policy` | none on lifecycle. The ClassView∧role fold is unbuilt |
+| 4 Execution/reasoning | `ogar-loco` (live), `ogar-r2il` (probe), planner thinking (linked, uncalled) | none: zero authorization words in loco/r2il |
+| 5 Storage/query | Lance / DataFusion (B1–B9 in the census) | the one policy hook (`patient.rs:146-150`) is on the undeployed path; DataFusion owns no lifecycle state |
+
+**The one category error worth naming:** the prior plan treated *authorization* (layer 3) as a *storage/query* concern (layer 5) because the only code that existed lived there. The census shows layers 3 and 5 are currently **disjoint**, not layered — where ClassView×mask genuinely governs columns (MedCare `views/`, atlas/graph reads of the resident bake), DataFusion and Lance are not in the path at all.
+
+### 2.5 Stale prose contradicted by the tree (corrected in this PR where the file is ours and non-append-only; dated correction lines elsewhere)
+
+- `a2ui-rs/CLAUDE.md` § "RBAC is real": "`ClassRbac::field_mask` is being retyped to `WideFieldMask` … `WideFieldMask::ALL`" — `rbac.rs:176` still returns `FieldMask` (u64); `WideFieldMask::ALL` does not exist (`class_view.rs:275` has only `EMPTY`; `full_for` `:360`). *(a2ui-rs repo; not touched here — filed for that repo.)*
+- `OGAR/crates/ogar-a2ui-frame/src/lib.rs:32`: states the C1.4 retype as done. *(OGAR repo; not touched here.)*
+- `LATEST_STATE.md:2389` lists `commit_via` / `OgarRbac` / `graph-flow-action::dispatch_via` as shipped enforcement — the types exist, the callers do not; `rs-graph-llm` is not on disk. `:2393` "`impl ClassRbac for OgarClassView`" — no such impl (`ogar-class-view/lib.rs:399` impls `ClassView` only). *(Append-only: dated correction line added in this PR.)*
+- `.claude/v3/knowledge/mailbox-kanban-model.md:30`, `.claude/v3/COMPONENT-MAP.md:79` ("EXTEND"), `.claude/v3/knowledge/write-on-behalf.md:8` (`ACTOR-OWNED`) and `:68`: present `kanban_actor.rs`/`KanbanActor` as the structural owner / pending W1 work — deleted 2026-08-05 (`kanban_actor.rs:1-27`; `LATEST_STATE.md:1824,1860`). *(Corrected in this PR: dated supersession notes, in place.)*
+- This plan's own §0 row 1 and `INTEGRATION_PLANS.md` entry: "the blocker is the UDF body" — true as far as it went and still one generation behind; superseded by this §2.
+- `.claude/patterns.md:89` names `NotYetWiredHashUdf` as a live pattern — left as-is until the removal PR lands, then updated in that commit.
+
+### 2.6 What this plan does NOT do (hard constraints honoured)
+
+No hash body, no hash choice, no new actor/controller, no new lifecycle carrier, no new policy VM, no SoA widening, no RBAC moved into loco/r2il, no Rubicon state moved into RBAC, no deletion in this PR, and DataFusion registration was never counted as ownership evidence.
 
 ## 3. D-OIF-4 / D-OIF-5 — Σ-propagation: the batched kernel and the hop probe
 
@@ -181,7 +204,7 @@ Whichever provenance the decision picks, the first writer is the ingest/write pa
 
 ```text
 D-OIF-0  probe re-run (jc, seconds)            ── unconditional, first
-D-OIF-1  policy_hash_v1 body                   ── independent; needs D-OIF-1-DEC (hash + key)
+D-OIF-1  policy_hash_v1 RETIRED (ruling A)   ── withdrawn 2026-09-05; no worker, no decision
 D-OIF-4  ewa_sandwich_x8 (jc)  ┐
 D-OIF-5  hop re-quant probe   ┘ paired         ── D-OIF-5 arm 1 needs no artifact
 D-OIF-2  SigmaCodebook type + builder + home   ── needs D-OIF-2-DEC (fitted vs declared)
@@ -190,13 +213,13 @@ D-OIF-7  loaded instance + loader (cognitive-shader-driver) ── needs D-OIF-2
 D-OIF-6  IDEAS ledger: 4 entries + 3 flips     ── THIS PR
 ```
 
-Three decisions stand between the plan and the workers: **D-OIF-1-DEC**, **D-OIF-2-DEC**, **D-OIF-5-DEC**. D-OIF-0, D-OIF-4, D-OIF-5 (arm 1) and D-OIF-6 need none.
+Two decisions stand between the plan and the workers: **D-OIF-2-DEC**, **D-OIF-5-DEC** (D-OIF-1-DEC withdrawn under ruling A, §2). D-OIF-0, D-OIF-4, D-OIF-5 (arm 1) and D-OIF-6 need none.
 
 ## 7. Worker briefs (Sonnet, edit-only; the orchestrator compiles once)
 
 Every brief starts with `sonnet-worker-guardrails.md` §1 **verbatim**, then: *Read `.claude/board/AGENT_LOG.md` first; do NOT write it — leave your record in your own tag-file. Do NOT run `cargo` or `git`. Do not claim it compiles or that tests pass — you did not run them. Your file scope is exactly the files named; another worker owns everything else.*
 
-- **W-1 (D-OIF-1)** — files: `.claude/patterns.md:89` (`NotYetWiredHashUdf`), `crates/lance-graph-callcenter/src/policy.rs`. Spec: §2.3 + the decided hash/key from D-OIF-1-DEC. Tests: §2.4 G1-G7 as `#[tokio::test]` under `auth-rls-lite`, each with its disable named in a comment. STOP if `DataFrame::collect` does not resolve under `query-lite` — report, do not change features.
+- **W-1 (D-OIF-1)** — **WITHDRAWN 2026-09-05 (ruling A, §2).** No worker. The first removal PR (§2.3 bullet 1) is orchestrator work after grace-period sign-off, not a Sonnet brief.
 - **W-4 (D-OIF-4)** — files: `crates/jc/src/ewa_sandwich.rs` (append only below the existing kernel), `crates/jc/examples/ewa_sandwich_bench.rs` (new). Spec: §3.2; **no `mul_add`, ever**; same op order per lane as `:185-199`. Tests: §3.5 G1-G2 with the disable named. STOP if any test needs a tolerance — that is a bug, not a tolerance.
 - **W-5 (D-OIF-5)** — files: `crates/jc/src/sigma_hop_requant_probe.rs` (new), `crates/jc/src/lib.rs` (one `pub mod` line + one pillar-table entry, `lib.rs:150-185` shape). Spec: §3.4. Output: the table `n → (exact growth, requantized growth, bound, PASS/FAIL)` printed by `prove`.
 - **W-2 (D-OIF-2, after D-OIF-2-DEC)** — files: `crates/lance-graph-contract/src/sigma_propagation.rs` (type + loader + boundary check, zero deps), `crates/jc/src/sigma_codebook_probe.rs` (emitter arm). Spec: §4.4, gates G1-G4.

@@ -1193,7 +1193,7 @@ bgz17 crate as the substrate.
 
 ### IDEA-POLICY-HASH-UDF — policy_hash_v1 UDF registration (PR #301)
 
-**Status:** In plan 2026-09-05 — blocker is the UDF body, not registration (`policy.rs:137` binds the object); plan `open-ideas-fetch-v1.md` §2 (`D-OIF-1`, decision `D-OIF-1-DEC`)
+**Status:** Superseded 2026-09-05 (ruling A) — the DataFusion masking path has no deployed consumer and the operator ruled DataFusion out of planning; retirement plan in `open-ideas-fetch-v1.md` §2 (`D-OIF-1`); `D-OIF-1-DEC` withdrawn
 **Priority:** P2
 **Source:** PR #301
 **Author's words:** "`NotYetWiredHashUdf` binds at plan time, returns `NotImplemented('policy_hash_v1 UDF not yet registered')` at execute. Plans build; execution fails loud."

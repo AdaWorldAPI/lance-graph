@@ -4,11 +4,13 @@
 82-day-stale `IDEAS.md` and re-derived from the current tree; **each card
 was wrong about its own blocker** (`E-A-COLUMN-OF-INDICES-INTO-A-CODEBOOK-THAT-DOES-NOT-EXIST-1`).
 
-- **`policy_hash_v1`** — the blocker is the UDF body, not registration
-  (`policy.rs:137` binds the object into the `Expr`; `register_vsa_udfs` has
-  zero callers and its UDFs still execute). `D-OIF-1`; the hash family + key
-  source is `D-OIF-1-DEC` (recommendation: keyed SipHash-1-3 in-crate, key
-  bound at rewriter construction; unkeyed FNV-64 recommended against).
+- **`policy_hash_v1`** — first re-derived as "the blocker is the body, not
+  registration"; **superseded the same day by ruling A (plan §2, W0 census):**
+  the DataFusion masking path has no deployed consumer and redacts above the
+  scan, and the operator ruled DataFusion out of planning (grace period for
+  what exists, nothing new). `D-OIF-1` is a retirement plan; `D-OIF-1-DEC`
+  withdrawn. The field-level obligation's canonical owner (`ClassRbac ×
+  ClassView × WideFieldMask`) is itself unenforced — recorded, not rebuilt.
 - **Σ-propagation "hardware backends"** — mis-shaped for a 2×2 f64 kernel;
   the lever is `F64x8` batching with bit identity to the scalar kernel, as
   consumer code in `jc` (no ndarray change). Zero production call sites
@@ -28,7 +30,7 @@ gate (fires on legitimate quiet). §8 lists the four structural claims that
 execution must confirm before they are believed. §7 carries the per-D Sonnet
 briefs; nothing is dispatched until the three decisions land.
 
-**Status:** PLANNED — halted for operator decisions D-OIF-1-DEC / 2-DEC / 5-DEC.
+**Status:** PLANNED — halted for operator decisions D-OIF-2-DEC / 5-DEC (D-OIF-1-DEC withdrawn, ruling A).
 ## lance-convergence-staged-migration-v1 (2026-09-05) — MEASURED, stages 0–1 ready, stage 3 PROBE-GATED
 
 `.claude/plans/lance-convergence-staged-migration-v1.md`. The staged lance

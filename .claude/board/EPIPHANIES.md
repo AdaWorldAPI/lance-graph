@@ -1,3 +1,25 @@
+## 2026-09-05 — E-THE-UNFINISHED-FUNCTION-WAS-NOT-THE-DEBT-1 — the execution model that needed `policy_hash_v1` never reached a binary, and neither has its replacement
+
+**Status:** FINDING (W0 production census, four read-only tracers + orchestrator verification of the contested fact; nothing compiled). Plan: `.claude/plans/open-ideas-fetch-v1.md` §2 (ruling A). Operator ruling the same day: planning migrates to `ogar-loco` / `ogar-r2il`; DataFusion is out; what exists gets a grace period; nothing new migrates to it.
+**Confidence:** High for every existence/absence/caller claim (each carries `file:line`; "production" was traced to a binary or axum handler, never inferred from `pub mod`, a feature flag, a registration helper, a test or a comment). The Dockerfile claim was verified by the orchestrator directly, not taken from a tracer.
+**Deliverables:** `D-OIF-1` (regraded Superseded) `D-OIF-1-DEC` (withdrawn).
+
+**The card said "registration". The first re-derivation said "the body". Both were one abstraction generation behind.** The question was never *which hash* — it was *whether anything still executes the plan that would call it*. Measured:
+
+- `ColumnMaskRewriter` has one non-test constructor in seven repos, `MedCare-rs/crates/medcare-server/src/routes/patient.rs:150`, behind `#[cfg(feature = "lance-phase2-rbac")]` (`:85`) and `?source=lance` (`:52-53`). The feature is default-off (`Cargo.toml:215`) and **no Dockerfile enables it** (`docker/Dockerfile.railway:175` etc. build `lance-phase2,reasoning`). Its decoder `record_batch_to_patient` (`:200-211`) returns `None` unconditionally. No user has ever received a masked row.
+- The rewriter is post-hoc by construction: `rewrite_plan` (`callcenter/src/policy.rs:210`) substitutes expressions above the scan and never writes `TableScan.projection` (`:226-241` only reads it). The forbidden column is materialized from Lance, then overwritten — the exact shape the projection invariant forbids.
+- `RedactionMode::Hash` (`policy.rs:130-140`) binds a UDF whose `invoke` is `Err(NotImplemented)` (`:339`); `register_vsa_udfs` (`vsa_udfs.rs:574`) has zero callers anywhere.
+
+**The half that keeps this from being a tidy retirement story:** the canonical replacement is also unenforced. `lance-graph-rbac::authorize()` / `authorize_scoped()` (`authorize.rs:66,182`), `contract::ClassRbac` (`rbac.rs:143`), `ActionInvocation::commit_via` (`action.rs:327`) and `lance-graph-ogar::OgarRbac` (`rbac_impl.rs:38`) have **zero non-test callers**; `effective_mask` is not an identifier in any `.rs`; there is no `ogar-rbac` crate (`ogar-auth` is password/TOTP only). The one real `surface ∩ role` fail-closed projection (`a2ui-server/src/project.rs:70-83`) lives in a crate with no binary and no dependent. MedCare's live gate is the entity-string `Policy` returning an `AccessDecision` with no mask (`patient.rs:280`); its column projection (`views/project.rs:229`) is a **view** mask with no role operand. And the one mask fold that exists, `authorize_scoped` (`authorize.rs:190-216`), returns `FieldMask::FULL` on non-Allow — fail-open in the mask value.
+
+**So the sentence that is earned is narrower than the one proposed.** Not "the model that needed the function had disappeared" — it never arrived. **The unfinished function was not the debt. The debt is that field-level authorization has no enforced owner on any production path, and the DataFusion rewriter was a second, wrong-layer answer to that vacancy — a storage/query-layer patch for an authorization-layer hole.** Finishing the function would have made the wrong layer *look* finished.
+
+**What holds, so it is not dragged into the retirement:** the Rubicon lifecycle is SoA-owned and checked — `Planning → CognitiveWork` is a one-way edge in `KanbanColumn`'s DAG (`kanban.rs:98-106`), consulted by `try_advance_phase` (`soa_view.rs:314`) with no mutation on refusal (`:329-346`); `KanbanActor` is a tombstone (`kanban_actor.rs:1-27`); no `Baton` type, no `CollapseGateEmission`, no `CommitHook` exists. RBAC holds no Kanban state; lifecycle code makes no authorization decision; `ogar-loco`/`ogar-r2il` contain no authorization vocabulary. Three v3 docs still name the deleted actor as owner — regraded in place this PR.
+
+**Rule extracted:** before giving an unfinished function a body, trace the *plan* that would execute it to a binary. A `cfg(feature)` that no Dockerfile sets, a decoder that returns `None`, and a registration helper with no caller are three independent proofs of the same thing, and any one of them ends the "which algorithm" discussion before it starts. "Superseded" is not a verdict about the code; it is a verdict about whether anything reaches it.
+
+---
+
 ## 2026-09-05 — E-A-COLUMN-OF-INDICES-INTO-A-CODEBOOK-THAT-DOES-NOT-EXIST-1 — three stale idea cards, each wrong about its own blocker
 
 **Status:** FINDING (structural — grep + read of the current tree; nothing compiled). Plan: `.claude/plans/open-ideas-fetch-v1.md`.
