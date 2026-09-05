@@ -1,3 +1,48 @@
+## 2026-09-05 — `bindspace-mailbox-soa-wiring-v1` (MEASURED, ready-to-execute)
+
+`.claude/plans/bindspace-mailbox-soa-wiring-v1.md`. The BindSpace → MailboxSoA
+migration re-derived from the CURRENT tree (`9f8aa779`, #1174) rather than from
+the three design-stage plans that precede it. Headline: **the migration is far
+more built than the board records, and is blocked on nothing.**
+
+`BackingStoreWrite` (`backing.rs:164-314`) already carries 9 write methods with
+BOTH arms real — no `todo!()`, no no-op — and has **zero callers outside its own
+test module**; `driver.rs` never names it. The read shim beside it
+(`BackingStore`, 6 methods) IS wired. `tests/w2_differential.rs` holds 4 real
+bit-identity equivalence tests. All of it sits behind `mailbox-thoughtspace`,
+which **no workflow builds** — so the equivalence harness and every `Mailbox`
+write arm have zero CI coverage and can rot silently.
+
+The blocker that looked real is settled: the `Vsa16kF32` cycle plane is *"NEVER
+migrated"* by design (`mailbox_soa.rs:140`), its dispatch value is computed
+transiently (`driver.rs:367/372`, never read from storage), and its ONE
+production reader (`engine_bridge.rs:412`) is already gated out under the
+feature with the trade recorded in-source as a documented loss.
+
+Corrects three board facts: `COMPONENT-MAP.md:108` rules retirement *"(W7)"* —
+**no W7 exists** (`INTEGRATION-PLAN.md` runs W0–W6) and the retirement has no
+D-id; the parity gate is at `:1361` not `:1145`; and there are **two** parity
+tests, the second (`:1480`) covering `content`, the heaviest plane.
+
+Sequencing only supersedes FOUR prior plans, the closest a **stranded
+council-hardened namesake**: `origin/claude/bindspace-mailbox-soa-wiring-plan`
+carries a `bindspace-mailbox-soa-wiring-v1.md` dated 2026-06-17 (3-brutal-critic
+pass applied) that is **not on main** and sits 2770 commits divergent — found only
+by a push collision on the branch name; nothing on the board points at it. Its
+P0/P1 findings are all CLOSED in today's tree (content_row `:680`; the W1c
+populated-count `:217` + prefilter clamp `backing.rs:79`), and its binding
+operator constraints — *two paths step by step; never delete the old before the
+new is tested; CausalEdge64 dedup precise; delete BindSpace LAST* — are carried
+forward in §7. Also supersedes `bindspace-mailbox-soa-dependency-map-v1`,
+`bindspace-singleton-to-mailbox-soa-v1`, `bindspace-mailbox-soa-w3-w4a-impl-v1`
+— all three predate `backing.rs` (#844, 2026-07-24); none is superseded in
+content. Their cited in-flight branch is 0-ahead/1204-behind and carries no
+relevant files.
+
+M0 is one CI line, with exact precedent at `rust-test.yml:158-173`. Retirement
+(M4) stays proof-gated and explicitly NOT NOW, per guardrails §1 rule 8 and the
+§2 footgun row naming both *"add new writers to it"* and *"remove it"*.
+
 ## 2026-09-03 — `probe-r2il-live-regfile-v1` (PROBE, GREEN 2026-08-26) — BACKFILLED INDEX ENTRY
 
 `.claude/plans/probe-r2il-live-regfile-v1.md`. The executable falsifier for

@@ -14,7 +14,7 @@
 ## What this table says
 
 **`BindSpace` is the shape of the problem.** Marked RETIRE, and simultaneously the
-most-referenced symbol here: **68 crate files, 45 plans, 41 of them blind.**
+most-referenced symbol here: **68 crate files, 46 plans, 41 of them blind.**
 That is a programme, not a cleanup.
 
 **`GateState` is the sharpest case: 1 plan names it and *every one* is blind.**
@@ -52,15 +52,15 @@ coverage instead.
 | `A2AMessage` | BLOCKED | — | 2 | 1 | 0 |
 | `StepMask` | BLOCKED | — | 3 | 9 | 4 |
 | `commit_to_l4` | BLOCKED | — | 2 | 2 | 0 |
-| `dispatch_busdto` | BLOCKED | — | 3 | 6 | 5 |
-| `persist_cycle` | BLOCKED | — | 10 | 6 | 5 |
+| `dispatch_busdto` | BLOCKED | — | 3 | 7 | 5 |
+| `persist_cycle` | BLOCKED | — | 10 | 7 | 5 |
 | `CognitiveMarkers` | REPURPOSE | `Commit` | 1 | 0 | 0 |
 | `DominoCascade` | REPURPOSE | `Commit` | 7 | 1 | 0 |
 | `GateDecision` | REPURPOSE | — | 25 | 27 | 24 |
 | `GateState` | REPURPOSE | — | 14 | 1 | 1 |
 | `MergeMode` | REPURPOSE | — | 8 | 13 | 12 |
 | `ResonanceDto` | REPURPOSE | `PerturbationDto` | 2 | 12 | 7 |
-| `BindSpace` | RETIRE | — | 68 | 45 | 41 |
+| `BindSpace` | RETIRE | — | 68 | 46 | 41 |
 | `CollapseGateEmission` | RETIRE | — | 5 | 13 | 12 |
 | `ThinkingStyle` | RETIRE-toward-contract | — | 51 | 28 | 24 |
 
