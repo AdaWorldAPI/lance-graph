@@ -172,6 +172,9 @@ pub mod scheduler;
 pub mod selection;
 pub mod sensorium;
 pub mod settlement;
+/// D-BLW-5 payload-law DTO (`ShapeRankPayload`, `RemeasureKey`, `RemeasureLedger`) —
+/// distribution shape × Prozentrang, never the raw statistic. See module docs.
+pub mod shape_rank;
 pub mod sigma_propagation;
 pub mod sla;
 pub mod soa_envelope;
