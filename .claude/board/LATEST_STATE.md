@@ -2406,6 +2406,8 @@ Paired mirror of OGAR `2c8836f` (two-sided COUNT_FUSE: `lance-graph-ogar` compil
 
 ---
 
+> **Correction 2026-09-05 (W0 census, PR #1185 plan §2.5):** the entry below lists `commit_via` / `OgarRbac` / `graph-flow-action::dispatch_via` and "`impl ClassRbac for OgarClassView`" as shipped enforcement. The types exist; **no non-test caller of `commit_via`, `OgarRbac`, `authorize()` or `authorize_scoped()` exists in any repo on disk**, `rs-graph-llm` is not on disk, and `ogar-class-view/src/lib.rs:399` implements `ClassView` only (the RBAC bridge is the separate newtype `OgarRbac<S>`, `rbac_impl.rs:38`, axes 2-4 unimplemented per its own comment `:74-76`). Field-level authorization (`classview_mask ∧ role_mask`) is UNENFORCED on every production path; recorded as the missing implementation on the canonical `ClassRbac × ClassView × WideFieldMask` path (OGAR `DISCOVERY-MAP.md:1581-1584`). The retired DataFusion masking path is not its replacement.
+
 ## 2026-06-23 — IN PR (`claude/medcare-bridge-lance-graph-wmx76z`) — ActionHandler⟷RBAC⟷orchestration spine
 
 `contract::rbac`: `ScopeSpec` (axis-3 Copy token) + `ClassRbac` §4 default methods (`roles_reaching`/`row_scope`/`field_mask`; backward-compat, probe green). `contract::class_view::FieldMask::union`. `contract::action::ActionInvocation::commit_via<R: ClassRbac>` (no-admin-bypass convergence of the inline gate). `lance-graph-rbac::{authorize_scoped, ScopedDecision}` (§5 two-stage). `lance-graph-ogar::{OgarRbac<S: GrantSource>, GrantSource}` (Q5 local newtype, §6 evaporation seam). rs-graph-llm: `graph-flow-kanban::{run_cycle, CycleOutcome}` + `graph-flow-action::dispatch_via`. Plan: integration-actionhandler-rbac-orchestration-v1.

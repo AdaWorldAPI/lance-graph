@@ -1,3 +1,36 @@
+## 2026-09-05 — `open-ideas-fetch-v1` (MEASURED, planning-only — three decisions gate the workers)
+
+`.claude/plans/open-ideas-fetch-v1.md`. Three Open cards fetched from an
+82-day-stale `IDEAS.md` and re-derived from the current tree; **each card
+was wrong about its own blocker** (`E-A-COLUMN-OF-INDICES-INTO-A-CODEBOOK-THAT-DOES-NOT-EXIST-1`).
+
+- **`policy_hash_v1`** — first re-derived as "the blocker is the body, not
+  registration"; **superseded the same day by ruling A (plan §2, W0 census):**
+  the DataFusion masking path has no deployed consumer and redacts above the
+  scan, and the operator ruled DataFusion out of planning (grace period for
+  what exists, nothing new). `D-OIF-1` is a retirement plan; `D-OIF-1-DEC`
+  withdrawn. The field-level obligation's canonical owner (`ClassRbac ×
+  ClassView × WideFieldMask`) is itself unenforced — recorded, not rebuilt.
+- **Σ-propagation "hardware backends"** — mis-shaped for a 2×2 f64 kernel;
+  the lever is `F64x8` batching with bit identity to the scalar kernel, as
+  consumer code in `jc` (no ndarray change). Zero production call sites
+  exist, so the kernel ships only paired with the hop re-quantization probe.
+  `D-OIF-4` + `D-OIF-5`; the edge-`M` source is `D-OIF-5-DEC`.
+- **Σ sidecar** — already shipped as a SoA column; the **codebook** the
+  column indexes exists in three doc comments and zero crates. `D-OIF-0`
+  (re-run the viability probe, reconcile 0.9949 vs 0.9973), `D-OIF-2` (type
+  in the contract, builder in `jc`, instance in `cognitive-shader-driver`, no
+  digest pin), `D-OIF-3` (first real writer), `D-OIF-7` (the loaded instance + loader in `cognitive-shader-driver`, worker W-7); provenance is `D-OIF-2-DEC`.
+- **`D-OIF-6`** — the ledger itself: four new entries + three status flips,
+  shipped in this PR.
+
+Rejected on record (§5): AMX/MKL for 2×2; the 9-byte sidecar and Block
+14/15 (superseded); the in-`u64` index (3 spare bits); an IDEAS-staleness CI
+gate (fires on legitimate quiet). §8 lists the four structural claims that
+execution must confirm before they are believed. §7 carries the per-D Sonnet
+briefs; nothing is dispatched until the three decisions land.
+
+**Status:** PLANNED — halted for operator decisions D-OIF-2-DEC / 5-DEC (D-OIF-1-DEC withdrawn, ruling A).
 ## lance-convergence-staged-migration-v1 (2026-09-05) — MEASURED, stages 0–1 ready, stage 3 PROBE-GATED
 
 `.claude/plans/lance-convergence-staged-migration-v1.md`. The staged lance
