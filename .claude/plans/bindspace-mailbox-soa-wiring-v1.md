@@ -89,9 +89,12 @@ reader is a `#[cfg(test)]` assertion.
 
 ## 4. The plan
 
+Deliverables are `D-BSW-0..4` (BindSpace→SoA Wiring); rows in
+`.claude/board/STATUS_BOARD.md`.
+
 Ordered by dependency. Each step names its falsifier. No step deletes anything.
 
-### M0 — put the feature under CI (do this first; it is the cheap one)
+### D-BSW-0 (M0) — put the feature under CI (do this first; it is the cheap one)
 
 Add one workflow line building/testing `cognitive-shader-driver` with
 `--features mailbox-thoughtspace`.
@@ -109,7 +112,7 @@ what this step ran before, so it cannot lose coverage."* This is that, for
 - **Risk:** the 4 tests may be red — nobody has run them in CI, ever. That is
   the point of running them. A red result is a finding, not a failure of M0.
 
-### M1 — wire `BackingStoreWrite` into the driver
+### D-BSW-1 (M1) — wire `BackingStoreWrite` into the driver
 
 Give the driver a write entry point that returns `BackingStoreWrite` the way
 `backing()` returns `BackingStore`, and route `driver.rs`'s write path through
@@ -122,7 +125,7 @@ it. The shim already handles both arms; this adds a caller, not a capability.
   *"add new writers to it"* is the named footgun) — it moves an existing write
   behind the existing shim.
 
-### M2 — route the engine_bridge writers through the shim
+### D-BSW-2 (M2) — route the engine_bridge writers through the shim
 
 Take them in the order the census gives, easiest first:
 
@@ -136,7 +139,7 @@ Take them in the order the census gives, easiest first:
 - **Falsifier per writer:** the existing parity tests must stay green, and the
   writer's own test must pass under **both** feature states.
 
-### M3 — populate `mailboxes` in a production path
+### D-BSW-3 (M3) — populate `mailboxes` in a production path
 
 Until a non-test caller calls `with_mailbox`, the feature-on build still takes
 the singleton fallback (`driver.rs:217`). This is the step that makes the
@@ -145,7 +148,7 @@ migration observable in production rather than only in tests.
 - **Gate:** `driver.rs:209`'s `debug_assert!(self.mailboxes.len() <= 1)` — W5
   multi-mailbox routing is out of scope; exactly one designated mailbox.
 
-### M4 — retirement — NOT NOW
+### D-BSW-4 (M4) — retirement — NOT NOW
 
 Deleting `BindSpace` is **explicitly forbidden at this stage**. Guardrails §2
 names both directions as footguns: *"add new writers to it; remove it."* §1
