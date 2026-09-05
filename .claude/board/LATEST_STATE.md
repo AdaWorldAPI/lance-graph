@@ -333,6 +333,18 @@ Also removed one dead declaration that blocked the sweep: `container_bs/mod.rs` 
 (#1100 opened for the one-file subset of this and closed unmerged, superseded.)
 
 ---
+## 2026-09-05 — #1184 MERGED (ad7c1b28): lance-convergence staged migration plan + ruling R2 — DOC/BOARD ONLY
+
+| PR | merge | content |
+|---|---|---|
+| **#1184** | `ad7c1b28` | `lance-convergence-staged-migration-v1` (D-LNC-0..7): the staged 9→10→11 bump, probe-gated on row identity, plus the five seams (mask convergence, time travel, WAL, ACID, zero-copy) each with a one-truth verdict. Records R2 (everything wires to SoA V3; CE64-adjacent as ALU legacy) and regrades D-BSW-2 accordingly. Folds in #1182's hygiene. |
+
+**Contract inventory net delta: none** (DOC/BOARD ONLY). What changed is
+the record: the arrow ceiling is lance-wide, the lance surface is narrow, and
+the seams are named with probes. D-LNC-1 (9→10) is unblocked; D-LNC-3 waits
+on D-LNC-2.
+
+---
 ## 2026-09-05 — #1182 MERGED (a738e4ae): the pin rule — arrow/datafusion to the major
 
 | PR | merge | content |
