@@ -229,3 +229,25 @@ the V0 reader rates are what the generator makes them.
 3. Tag-file `.claude/board/exec-runs/d-blw-5-build-sonnet.md`: files touched, every signature
    read (file:line), what could not be verified ("not compiled, not run — orchestrator gates").
 No cargo. No other file. No board file.
+
+## 10. Addendum after the dry runs (2026-09-05, main thread) — instrument fixes, NOT threshold changes
+
+Every floor, C_MIN, band and shift above is unchanged. Three instrument defects were found by
+dry runs 1–2 and fixed BEFORE the recorded run; the numbers of the dry runs are in the board
+entry, not hidden:
+
+- **`reason()` is now a bounded RCR+closure fixed point.** One round is not idempotent (the
+  derived layer feeds RCR new premises); CTRL moved by Δκ = −0.0028 in dry run 1 with no
+  injection. A pass that runs at V0 and V1 must be a fixed point or V1−V0 measures the pass.
+- **The corpus counts are a splitmix64 fold of the window index**, not `w % {2,3,4}` (period
+  12 → the 40 owner φ values were 12 atoms and the prior had empty buckets between them; T's
+  pooled statistic landed in one, typicality 0).
+- **C2 amended: typicality rides in the CONFIDENCE of `subject Inh prior`, frequency 1.** With
+  f = typicality (< 0.5) the arena reads a confident NEGATION and `admit_derived`'s
+  expectation-CHOICE replaced it with a vacuous closure path (c = 3.5e-11, expectation ≈ 0.5
+  beats 0.462). Measured in dry run 2. This is an arena property worth its own board entry.
+- **O7 restated to what can fire.** Under RCR-only reasoning no reserved-SUBJECT belief ever
+  acquires a corpus predicate, so `B_shadow ≡ B` and the pinned twin could not fire. Restated:
+  can-fire = the T arena at V1 holds derived beliefs carrying a reserved term (the payload DID
+  propagate); can-stay-silent = none of the beliefs reader B accepted at V1 carries a reserved
+  term (the firewall holds by the reader's shape).

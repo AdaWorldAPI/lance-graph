@@ -1,3 +1,12 @@
+## 2026-09-05 — D-BLW-5 build + measurement (Sonnet builder from main-thread spec; orchestrator gates) — the observer-effect loop resumed with the belief-arena reader
+
+- **Operator ruling:** "resume the D-BLW-5 loop with the belief arena reader" (2026-09-05).
+- **Spec:** `exec-runs/d-blw-5-build-spec-main-thread.md` (main thread; §0 two corrections to the 08-05 design note; §10 dry-run addendum). **Builder:** Sonnet, edit-only, tag-file `exec-runs/d-blw-5-build-sonnet.md` (three deviations documented in the file's module doc).
+- **Files:** `crates/lance-graph-supervisor/tests/d_blw_5_observer.rs` (new, ~1650 lines, `cycle-driver`-gated, one `#[tokio::test]`), `crates/lance-graph-supervisor/Cargo.toml` (`jc` dev-dep, pre-ratified).
+- **Gates run centrally:** compile (2 borrow errors fixed by the orchestrator), `cargo test --features supervisor,cycle-driver --test d_blw_5_observer` GREEN on run 4, clippy `-D warnings` on the test target.
+- **Dry runs 1–3 → instrument fixes** (no threshold moved): O6 self-scan doc lines; `reason()` to fixed point; aperiodic corpus; typicality in confidence not frequency; O7 restated. Recorded in E-BLW5-FIRST-MEASUREMENT-1.
+- **Outcome:** all seven gates pass with twins; O4/O5 SILENT at the pinned κ floor; the marginals show typicality-tracking saturation (T, F−) with P/N/CTRL bit-identical. D-BLW-5b queued (reader-rate/φ floor, pre-registered). Second E-entry: E-NARS-EXPECTATION-CHOICE-PREFERS-IGNORANCE-TO-A-CONFIDENT-NEGATIVE-1.
+
 ## 2026-09-05 — D-NXG-4 → D-BLW-5 payload: two Sonnet workers on disjoint files, orchestrator-gated
 
 - **Why:** operator: "go ahead with D-NXG-4 into D-BLW-5". A Sonnet census first (`exec-runs/d-blw-5-design-main-thread.md`, doctrine §2, STATUS_BOARD): D-BLW-5 has NO shipped code and is PAUSED (operator 2026-08-05); its designed home is a `cycle-driver`-gated supervisor test where the planner is reachable and `ndarray` is not. That fixed the membrane split: DTO in the zero-dep contract, producer in the planner, transform in jc.
