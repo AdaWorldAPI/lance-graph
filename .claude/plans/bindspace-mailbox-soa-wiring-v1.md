@@ -96,8 +96,15 @@ Ordered by dependency. Each step names its falsifier. No step deletes anything.
 
 ### D-BSW-0 (M0) — put the feature under CI (do this first; it is the cheap one)
 
-Add one workflow line building/testing `cognitive-shader-driver` with
-`--features mailbox-thoughtspace`.
+Add workflow lines building/testing `cognitive-shader-driver` with
+`--features mailbox-thoughtspace` **and with `--features with-engine,mailbox-thoughtspace`**.
+
+> **⊕ codex P2 (verified).** The single feature is not enough. `dispatch_busdto`
+> — D-BSW-2's main writer — is `#[cfg(feature = "with-engine")]`
+> (`engine_bridge.rs:280`), as is `busdto_bridge_test.rs`. A
+> `mailbox-thoughtspace`-only job compiles neither, so it could stay green while
+> the supported `with-engine,mailbox-thoughtspace` configuration breaks. Both
+> configurations are the deliverable; one is not.
 
 **Exact precedent, same repo, same shape:** `rust-test.yml:158-173` records a
 feature gate hiding tests from CI, diagnosed by counting
@@ -133,13 +140,22 @@ Take them in the order the census gives, easiest first:
 |---|---|
 | `write_qualia_observed:490`, `write_qualia_17d:548` | direct — `BackingStoreWrite::set_qualia` / `MailboxSoA::set_qualia:606` |
 | `persist_cycle:784` | its `edge` + `meta` writes map to `set_edge:594` / `set_meta:618`; the cycle write is the §3 documented loss under the feature |
-| `dispatch_busdto:281` | same shape; already `#[cfg(with-engine)]` |
+| `dispatch_busdto:281` | **NOT the same shape as `persist_cycle` — do not route it with the others.** Beyond the cycle plane it unconditionally writes `set_qualia_f32` (`engine_bridge.rs:321`), and `unbind_busdto` unconditionally reads `qualia_f32_row` (`:397`) as the *bit-exact ground-truth* for energy and the headline index. Neither `BackingStoreWrite` nor `MailboxSoA` carries an f32 tenant. Routing only the i4/meta/expert fields either leaves split state in BindSpace or makes round-trips return zero/stale. **Decide first:** a mailbox-aware replacement for this read/write tenant, or explicitly leave this writer out of the cutover. (codex P2, verified) |
 | `ingest_codebook_indices:58` | no bundled equivalent — compose from `set_content:686` + `set_meta:618` + `set_temporal:646`, or leave last |
+| `serve.rs:607` `encode_handler` | **direct** `bs.fingerprints.set_content(cursor, …)` — not an `engine_bridge` fn, so it is easy to miss and my first draft did. Route via `BackingStoreWrite::set_content` / `MailboxSoA::set_content:686`. (codex P2, verified) |
+| `serve.rs:139` / `:639` ingest + runbook arms | reach `ingest_codebook_indices` through `Arc::get_mut`; they follow that row |
 
 - **Falsifier per writer:** the existing parity tests must stay green, and the
   writer's own test must pass under **both** feature states.
 
 ### D-BSW-3 (M3) — populate `mailboxes` in a production path
+
+> **⊕ HARD ORDERING (codex P2, verified).** Every direct singleton writer
+> above — `serve.rs:607` especially — MUST be routed before this step. The
+> moment a mailbox is attached, dispatch reads from it while `/v1/shader/encode`
+> keeps reporting successful writes into the singleton, so newly encoded rows go
+> silently invisible. The equivalence tests would not catch it: they never call
+> the HTTP surface.
 
 Until a non-test caller calls `with_mailbox`, the feature-on build still takes
 the singleton fallback (`driver.rs:217`). This is the step that makes the

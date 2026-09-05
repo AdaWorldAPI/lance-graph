@@ -1,3 +1,28 @@
+## bindspace-mailbox-soa-wiring-v1 (D-ids minted 2026-09-05 with the plan)
+
+`.claude/plans/bindspace-mailbox-soa-wiring-v1.md`. The BindSpace→MailboxSoA
+cutover, re-derived from the tree rather than from the four prior plans. The
+shim is built and unwired: `BackingStoreWrite` (`backing.rs:164-314`) carries 9
+write methods with both arms real and **zero callers outside its own test
+module**, and everything mailbox-side sits behind `mailbox-thoughtspace`, which
+no workflow builds — so 4 bit-identity equivalence tests and every Mailbox write
+arm have zero CI coverage.
+
+Ids are minted in the plan body AND here, deliberately: a board-only mint is
+invisible to `supersession_index.py`'s coverage column, which is the root cause
+`ISS-PLAN-TRACKING-IS-UNENFORCED` (#1156) names and the D-PRLR section below
+records against itself.
+
+| D-id | deliverable | status |
+|---|---|---|
+| D-BSW-0 | Put `mailbox-thoughtspace` under CI — the 4 `w2_differential` bit-identity tests and every `BackingStoreWrite` Mailbox arm currently have ZERO coverage (no workflow builds the feature). One line; precedent `rust-test.yml:158-173`. Falsifier: test count strictly increases and the 4 tests appear by name | Queued (plan `bindspace-mailbox-soa-wiring-v1` §4) |
+| D-BSW-1 | Wire `BackingStoreWrite` (`backing.rs:164-314`, 9 methods, both arms real) into the driver write path — it has zero callers outside its own test module. Adds a caller, not a capability | Queued (blocked on D-BSW-0) |
+| D-BSW-2 | Route the five `engine_bridge` writers through the shim: `write_qualia_observed:490` / `write_qualia_17d:548` direct; `persist_cycle:784` + `dispatch_busdto:281` modulo the documented cycle-plane loss; `ingest_codebook_indices:58` composed last | Queued (blocked on D-BSW-1) |
+| D-BSW-3 | Populate `mailboxes` from a production path — today the only `with_mailbox` caller is `tests/w2_differential.rs:277`, so a feature-on build still takes the singleton fallback (`driver.rs:217`) | Queued (blocked on D-BSW-2) |
+| D-BSW-4 | BindSpace retirement — **NOT NOW, proof-gated**. Guardrails §2 names both directions as footguns ("add new writers to it; remove it"); §1 rule 8: retirement is never a worker task. Needs a wave and a D-id parent first — no W7 exists | BLOCKED (deliberate) |
+
+---
+
 ## probe-r2il-live-regfile-v1 (D-ids minted 2026-09-03; the plan shipped 2026-08-26)
 
 `.claude/plans/probe-r2il-live-regfile-v1.md`. The falsifier for the EXECUTABLE
@@ -24,11 +49,6 @@ exist; no scope is added.
 > is deliberately not done here: it edits plan bodies, which both of those PRs
 > declared out of scope.
 
-| D-BSW-0 | Put `mailbox-thoughtspace` under CI — the 4 `w2_differential` bit-identity tests and every `BackingStoreWrite` Mailbox arm currently have ZERO coverage (no workflow builds the feature). One line; precedent `rust-test.yml:158-173`. Falsifier: test count strictly increases and the 4 tests appear by name | Queued (plan `bindspace-mailbox-soa-wiring-v1` §4) |
-| D-BSW-1 | Wire `BackingStoreWrite` (`backing.rs:164-314`, 9 methods, both arms real) into the driver write path — it has zero callers outside its own test module. Adds a caller, not a capability | Queued (blocked on D-BSW-0) |
-| D-BSW-2 | Route the five `engine_bridge` writers through the shim: `write_qualia_observed:490` / `write_qualia_17d:548` direct; `persist_cycle:784` + `dispatch_busdto:281` modulo the documented cycle-plane loss; `ingest_codebook_indices:58` composed last | Queued (blocked on D-BSW-1) |
-| D-BSW-3 | Populate `mailboxes` from a production path — today the only `with_mailbox` caller is `tests/w2_differential.rs:277`, so a feature-on build still takes the singleton fallback (`driver.rs:217`) | Queued (blocked on D-BSW-2) |
-| D-BSW-4 | BindSpace retirement — **NOT NOW, proof-gated**. Guardrails §2 names both directions as footguns ("add new writers to it; remove it"); §1 rule 8: retirement is never a worker task. Needs a wave and a D-id parent first — no W7 exists | BLOCKED (deliberate) |
 | D-PRLR-1 | §2 the three-leg validity answer: side A's semantics are Ghidra's own SLEIGH spec (not ours), side B written in enforced isolation, side C arithmetic ground truth external to both | **Shipped 2026-08-26** — the design that makes the differential meaningful rather than self-confirming |
 | D-PRLR-2 | §3/§7 the probe itself: a real 6502 routine lifted to R2IL and executed through `r2conc::SlabState` against an independent reference, all fields except `V` (see §6a — the `V` divergence is the probe's own finding, and the exclusion is falsifier-D7 two-sided) | **GREEN 2026-08-26** — 18/18, **seven disable runs red-then-green**. Code: r2sleigh `crates/r2conc/tests/{live_regfile,mos6502_oracle}.rs`, feature `probe-6502` |
 | D-PRLR-3 | §6 the measured facts (each row naming what produced it, none predicted) | **Measured** — 6502 memory is `SpaceId::Ram` not `Custom(n)`; SLEIGH's register space spans **55 bytes** because each status flag is its own byte register, while the semantic register file is **7 bytes** |
