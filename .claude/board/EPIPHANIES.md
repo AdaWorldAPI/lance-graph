@@ -49,6 +49,7 @@ stays; only DataFusion is in grace).
 
 **Status:** FINDING (production census 2026-09-05, four symbol groups traced from real entry points; full table in `.claude/board/exec-runs/d-oif-1-census-main-thread.md`). Ruling for #1185: **A — SUPERSEDED / REMOVE**.
 **Confidence:** High — every classification is a grep-backed call-path fact, not a reading of a `pub mod`.
+**Correction (2026-09-05, after #1185's reconcile pass):** two points of this census compressed "not live" into "does not exist". (1) `ColumnMaskRewriter` HAS one non-test constructor — MedCare `routes/patient.rs:150`, behind the default-off `lance-phase2-rbac` feature (no Dockerfile enables it), ending in a decoder stub that returns `None`; "no production caller" stands, "no caller" does not. (2) The remove cone is therefore the NARROWER one #1185 §2 carries: first removal = `RedactionMode::Hash` + `NotYetWiredHashUdf` only; the rest of `policy.rs`/`rls.rs` is frozen grace-period until MedCare retires its feature — not whole-module removal. Ruling A itself is unchanged. Canonical adjudication: E-THE-UNFINISHED-FUNCTION-WAS-NOT-THE-DEBT-1 (#1185); this entry is the earlier, independent census and is read through that one.
 
 `policy_hash_v1` sat for months as "not yet registered," and every plan (including
 #1185 §2) read the missing body as the debt. The census shows the debt was upstream:
