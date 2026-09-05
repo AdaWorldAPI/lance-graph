@@ -430,7 +430,9 @@ fn read_tensor_f32<R: Read + Seek>(
             let mut buf = vec![0u8; n * 4];
             r.read_exact(&mut buf).map_err(|e| e.to_string())?;
             Ok(buf
-                .chunks_exact(4)
+                .as_chunks::<4>()
+                .0
+                .iter()
                 .map(|c| f32::from_le_bytes([c[0], c[1], c[2], c[3]]))
                 .collect())
         }

@@ -51,8 +51,8 @@ const ROLE_SLICE_WORDS: usize = FP_WORDS / N_ROLES;
 
 fn bytes_to_words(bytes: &[u8]) -> [u64; FP_WORDS] {
     let mut words = [0u64; FP_WORDS];
-    for (i, chunk) in bytes.chunks_exact(8).enumerate().take(FP_WORDS) {
-        words[i] = u64::from_le_bytes(chunk.try_into().unwrap());
+    for (i, chunk) in bytes.as_chunks::<8>().0.iter().enumerate().take(FP_WORDS) {
+        words[i] = u64::from_le_bytes(*chunk);
     }
     words
 }

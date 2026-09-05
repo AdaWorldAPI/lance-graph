@@ -87,8 +87,14 @@ impl CamPqDecoder for PassthroughDecoder {
                 got: encoded.len(),
             });
         }
-        for (i, chunk) in encoded.chunks_exact(4).take(out.len()).enumerate() {
-            out[i] = f32::from_le_bytes([chunk[0], chunk[1], chunk[2], chunk[3]]);
+        for (i, chunk) in encoded
+            .as_chunks::<4>()
+            .0
+            .iter()
+            .take(out.len())
+            .enumerate()
+        {
+            out[i] = f32::from_le_bytes(*chunk);
         }
         Ok(out.len())
     }

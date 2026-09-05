@@ -416,7 +416,9 @@ fn read_tensor_f32<R: Read + Seek>(
             let mut buf = vec![0u8; n * 4];
             r.read_exact(&mut buf).map_err(|e| e.to_string())?;
             Ok(buf
-                .chunks_exact(4)
+                .as_chunks::<4>()
+                .0
+                .iter()
                 .map(|c| f32::from_le_bytes([c[0], c[1], c[2], c[3]]))
                 .collect())
         }
@@ -425,7 +427,9 @@ fn read_tensor_f32<R: Read + Seek>(
             let mut buf = vec![0u8; n * 2];
             r.read_exact(&mut buf).map_err(|e| e.to_string())?;
             Ok(buf
-                .chunks_exact(2)
+                .as_chunks::<2>()
+                .0
+                .iter()
                 .map(|c| {
                     let bits = u16::from_le_bytes([c[0], c[1]]);
                     f16_to_f32(bits)
@@ -460,7 +464,9 @@ fn read_tensor_f32<R: Read + Seek>(
             let mut buf = vec![0u8; n * 2];
             r.read_exact(&mut buf).map_err(|e| e.to_string())?;
             Ok(buf
-                .chunks_exact(2)
+                .as_chunks::<2>()
+                .0
+                .iter()
                 .map(|c| {
                     let bits = u16::from_le_bytes([c[0], c[1]]);
                     bf16_to_f32(bits)

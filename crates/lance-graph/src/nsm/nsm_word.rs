@@ -178,7 +178,9 @@ fn build_distance_matrix_from_cam(
     // chunks is alignment-free and endian-correct (matches the workspace LE
     // contract). The codebook is only read below, so owning a Vec is fine.
     let codebook_floats: Vec<f32> = codebook_bytes
-        .chunks_exact(4)
+        .as_chunks::<4>()
+        .0
+        .iter()
         .map(|c| f32::from_le_bytes([c[0], c[1], c[2], c[3]]))
         .collect();
 
