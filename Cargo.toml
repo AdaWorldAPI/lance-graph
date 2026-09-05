@@ -219,9 +219,9 @@ resolver = "2"
 # Crate-level pins (canonical source of truth — workspace.dependencies is not
 # used; each consumer crate declares its own pin with exact-equals so the
 # whole graph resolves to the same semver):
-#   lance           = "=9.0.0"   (lance-arrow / lance-index / lance-linalg /
+#   lance           = "=10.0.0"   (lance-arrow / lance-index / lance-linalg /
 #                                 lance-namespace bump in lock-step)
-#   lancedb         = "=0.33.0"
+#   lancedb         = "=0.37.1"
 #   datafusion      = "54"       (+ datafusion-common / -expr / -sql /
 #                                 -functions-aggregate)
 #   arrow-array     = "58"       (+ arrow-schema / -buffer / -ipc / arrow)
@@ -258,22 +258,22 @@ resolver = "2"
 # deltalake was the only thing that pulled 53, and it is gone (0 hits in the
 # lock).
 [workspace.dependencies]
-lance = "=9.0.0"
-lance-linalg = "=9.0.0"
-lance-index = "=9.0.0"
-lancedb = { version = "=0.33.0", default-features = false }
+lance = "=10.0.0"
+lance-linalg = "=10.0.0"
+lance-index = "=10.0.0"
+lancedb = { version = "=0.37.1", default-features = false }
 # Exact, not caret: the lance family moves in EXACT lockstep
 # (E-PIN-LANCE9-LANCEDB033-DF541-ARROW58-NO-DF53-1), and with no tracked
 # lock the caret ranges these replaced would have taken the newest 58.x /
 # 54.x silently. A bump is one deliberate PR — this is where it happens now.
-arrow = "=58.4.0"
-arrow-array = "=58.4.0"
-arrow-schema = "=58.4.0"
-datafusion = { version = "=54.1.0", default-features = false }
-datafusion-common = "=54.1.0"
-datafusion-expr = "=54.1.0"
-datafusion-sql = "=54.1.0"
-datafusion-functions-aggregate = "=54.1.0"
+arrow = "58"
+arrow-array = "58"
+arrow-schema = "58"
+datafusion = { version = "54", default-features = false }
+datafusion-common = "54"
+datafusion-expr = "54"
+datafusion-sql = "54"
+datafusion-functions-aggregate = "54"
 object_store = { version = "0.13", features = ["aws"] }
 
 [patch.crates-io]

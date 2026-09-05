@@ -24,6 +24,116 @@ Two further inconsistencies ride on the same claim: the σ provenance is written
 Also recorded, because it changes what is owed: an unkeyed 64-bit hash of an identifier column is a lookup table wearing a redaction's name — the v1 target named in `policy.rs:275` ("FNV-64") is the option the plan recommends against (`D-OIF-1-DEC`).
 
 Cross-ref: `E-A-RULED-HOME-NEEDS-A-FIRST-CONSUMER-OR-IT-IS-A-VACANCY-1` (the batched kernel's sequencing); `I-VSA-IDENTITIES` (indices, not content — why the column is right and the sidecar was wrong); `E-A-GATE-INHERITS-THE-BLIND-SPOT-OF-WHOEVER-WROTE-IT-1` (the same day's other instance of a written mechanism outliving its truth).
+## 2026-09-05 — E-EVERYTHING-WIRES-TO-SOA-V3-CE64-IS-ALU-LEGACY-1 — operator ruling: no exceptions to the V3 substrate, and the one carve-out is named
+
+**Status:** RULING (operator, 2026-09-05, verbatim: "anything must be wired
+into SoA V3 substrate no exceptions except the causaledge64 adjacent as ALU
+legacy substrat").
+**Confidence:** High on the ruling; High that it is already the ruled state
+for CausalEdge64 (M20, RESIDUAL RESOLVED 2026-07-18 — demoted, not deleted:
+survives as the `MailboxSoA` baton edge `mailbox_soa.rs:92`, the perturbation
+baseline, and the p64 address; only the awareness mantissa retired; the
+`edges[16B]` CANON block untouched). "ALU legacy substrate" is the name for
+exactly that state.
+
+**What it changes.** `bindspace-mailbox-soa-wiring-v1` D-BSW-2 recorded
+`dispatch_busdto:281` as "EXCLUDED from the cutover pending a decision"
+because it writes `set_qualia_f32` (`engine_bridge.rs:321`) and
+`unbind_busdto` reads `qualia_f32_row` (`:397`) as bit-exact ground truth. Under
+this ruling there is no exclusion: it WIRES, and the only open question is the
+tenant. `MailboxSoA` carries an f32 scalar tenant (`energy: [f32; N]`,
+`mailbox_soa.rs:66`) but no 16-dim f32 vector tenant; the candidates are the
+i4 register — `atoms.rs` `I4x32/I4x64` ("byte-compatible with QualiaI4_16D and
+CausalEdge64 mantissa", the ALU-adjacent carrier the ruling names) or
+`QualiaI4_16D` via `set_qualia` (`:606`). Quantizing a bit-exact ground truth is
+a MEASURED decision: the falsifier is the D-MTS-6 proxy triple (`|ΔE|`,
+surprise agreement, descent ρ) against the f32 baseline, pre-registered before
+the first run. A new f32 vector tenant fights the content-blind 4+12 byte
+register and is not a candidate.
+
+**What it does NOT change.** The bundle algebra, the mailbox-as-owner
+compile-time safety argument (E-CE64-MB-4), and the three surviving
+CausalEdge64 roles are untouched. The ruling closes a loophole; it does not
+open a design.
+
+Cross-ref: `lance-convergence-staged-migration-v1` §6 (where the consequence
+is carried); D-BSW-2 (whose row now needs the "excluded" wording regraded to
+"wires, tenant TBD by probe" — a plan/board diff item, the class of drift
+this session caught twice).
+## 2026-09-05 — E-NXG-22 — `shape × rank` is bounded by the prior's support: an out-of-support statistic saturates at the edge bucket
+
+**Status:** FINDING (pinned by `nested_bands::tests::shape_rank_from_real_lag1_autocorrelations`); D-NXG-4 SHIPPED into the D-BLW-5 payload.
+**Confidence:** High on the mechanism; the consequence for the D-BLW-5 loop is a design question left open on purpose.
+
+D-NXG-4 now has its first consumer: `NestedBands::shape_rank(observed, V₀)`
+produces `lance_graph_contract::shape_rank::ShapeRankPayload` — the doctrine's
+`shape₀ × rank₀`, frozen at V₀, with no `f64` field by construction. The
+transform lives in `jc::stats::fisher_2z` (ruled home of calibrated math), the
+ladder is `calibrate_equal_width` (the D-BLW-5 design's "equal-width in 2z"),
+and the remeasure guard is `RemeasureLedger::seal` (second write ERRORS).
+
+**The finding.** The pooled prior in the test is real: the lag-1 Pearson
+autocorrelation of 92 frames of speech, `r ∈ [0.9205, 0.9917]`, i.e.
+`2z ∈ [3.18, 5.48]`. The two other recordings' whole-file statistics are
+`2z ≈ 1.46` (saturated) and `1.67` (quiet) — far BELOW the prior's support.
+Both rank 0, and both are therefore indistinguishable from the prior's own
+minimum, which also ranks 0. The first version of the test asked the two
+out-of-support values to land in DIFFERENT buckets; they cannot, and the
+test was restated to what is true: inside the support the ladder
+discriminates (prior min → rank 0, prior max → rank 15), and outside it
+saturates. **`rank` carries no "how far out".** That is partly by design —
+the payload law forbids the raw scalar precisely so awareness cannot parrot
+a number — but the D-BLW-5 loop's "T-silence is a reportable null" and bloom
+criterion may need to know that an observation left the prior's support
+entirely. The candidate fix is one bit (`out_of_support`), not a scalar; it is
+a decision for the loop, which stays PAUSED, and is not made here.
+
+**Also measured, not claimed:** first frames of both recordings are silence
+(that is why the spec's "first frame" observed statistic was wrong — it
+measured leading silence, not the recording); `quantize_2z` at ×1024 keeps
+three decimals of 2z and the 16 equal-width boundaries over the speech prior
+differ in width by at most one unit. Gates: planner 428/428, contract
+1315/1315, jc 141/141, planner + contract clippy clean; jc clippy red on
+base and untouched by this arc (TD-JC-CLIPPY-RED-ON-BASE-1).
+
+## 2026-09-05 — E-NXG-21 — `NestedBands` sealed: the three probes became one type and twelve tests, and two of the probes' numbers were off by one row and by one sign
+
+**Status:** SHIPPED (`crates/lance-graph-planner/src/nested_bands.rs`, D-NXG-1; merge arm of D-NXG-5; room 3 closed by moments).
+**Confidence:** High — 12/12 tests on the same three real recordings the probes used, planner lib suite green.
+
+`NestedBandsBuilder::{new, budget_factor, calibrate, with_boundaries}` seals a
+`NestedBands` (version, boundaries, band masks, bucket masks, popcounts).
+Every method is `&self`; `split` and `merge` return NEW values under a new
+version and the original is asserted unchanged (data-flow rule, one writer at
+build). The top band is the universe by construction (E-NXG-18 is now a type
+invariant, not a probe caveat). `overflow()` is the budget test (E-NXG-19),
+`collapsed()` is the merge-on-collapse arm — it fires when speech boundaries
+meet the quiet recording and stays silent on the calibration epoch; `merge`
+removes one boundary and the merged popcount equals the pair's sum.
+`best_achievable_floor` is E-NXG-20's floor by bisection over
+`gt_i32_to_mask` + popcount, no sort.
+
+**Two corrections the type forced on the probes' numbers.** (1) The strict
+floor — the SMALLEST value whose exceedance is ≤ the rate — lands at 15 077 on
+speech, not the probe's 15 072: the probe's rank floor sat one row OVER the
+target (473/94 572 = 0.0050015) inside its ±1/n tolerance. A floor with a row of
+slack is not "never exceeds"; the type has no slack and the test pins both the
+literal and a sorted-copy reference. (2) The midpoint-σ estimator is not even
+sign-stable: with the stale top boundary it over-read by 12 % (E-NXG-17); with
+the last boundary as the top bucket's midpoint it under-reads by 7 %
+(3 525.8 vs 3 785.8). An open-ended top bucket has no midpoint, so the
+estimator has no principled value at all. The regression guard is now
+direction-agnostic (|Δ|/σ > 5 %), and room 3 closes the other way: σ is exact
+from the seal iff the seal stores two accumulators per bucket (`BucketMoment
+{count, sum, sumsq}`, 16 B/bucket) — `sigma_exact` matches the direct σ to
+1e-9. "Recoverable for free" was wrong; "recoverable for 256 bytes" is right.
+
+**Not done, on purpose.** D-NXG-3 (`bisect_column_by_mask`) lives inside
+`NestedBands::split`, not as a named `ndarray::simd` primitive: it is a
+memory-bound gather-and-popcount loop, not a lane op, and the W1a contract's
+all-backends parity requirement would be ceremony for a scalar. Promotion, if
+ever, is its own deliberate PR. No consumer is wired yet — the type exists, the
+first caller (D-NXG-4's `shape × rank` payload) is the next unit.
 
 ## 2026-09-05 — E-NXG-18 — the ladder's top band must BE the universe, or the histogram loses rows silently
 

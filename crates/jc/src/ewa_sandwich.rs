@@ -52,11 +52,11 @@
 //!   the σ-codebook probe — heteroscedastic SPD around I, controlled spread)
 //! - Σ_0 = I (initial state); apply sandwich iteratively
 //! - Measure:
-//!     (a) PSD-preservation rate: fraction of (path, hop) pairs where
-//!         resulting Σ_n is numerically SPD (det > eps, both eigenvalues > 0)
-//!     (b) log-norm growth: ‖log(Σ_n)‖_F vs n; rate-of-growth indicator
-//!     (c) variance concentration: how does sample variance of ‖log(Σ_n)‖_F²
-//!         across paths scale with n?
+//!   (a) PSD-preservation rate: fraction of (path, hop) pairs where
+//!   resulting Σ_n is numerically SPD (det > eps, both eigenvalues > 0)
+//!   (b) log-norm growth: ‖log(Σ_n)‖_F vs n; rate-of-growth indicator
+//!   (c) variance concentration: how does sample variance of ‖log(Σ_n)‖_F²
+//!   across paths scale with n?
 //!
 //! # PASS criteria
 //!
@@ -71,7 +71,7 @@ use crate::PillarResult;
 
 const N_PATHS: usize = 1_000;
 const PATH_LENGTH: usize = 10;
-const SEED: u64 = 0xEDA_5A_DC_5A_DC;
+const SEED: u64 = 0xEDA_5ADC_5ADC;
 
 // ════════════════════════════════════════════════════════════════════════════
 // Deterministic RNG (consistent with other pillars)
@@ -237,6 +237,7 @@ fn sample_step_sigma(state: &mut u64, sigma_step: f64) -> Spd2 {
 
 #[derive(Clone, Copy, Debug)]
 struct PathResult {
+    #[cfg_attr(not(test), allow(dead_code))]
     final_sigma: Spd2,
     log_norm_sq: f64, // ‖log(Σ_n)‖_F^2
     psd_hops: usize,  // how many of the `length` hops kept Σ in SPD

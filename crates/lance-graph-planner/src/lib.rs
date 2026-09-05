@@ -54,6 +54,9 @@ pub mod physical;
 pub mod plan;
 pub mod thinking;
 
+// === NestedBands (D-NXG-1: the exposure meter as a sealed nested mask set) ===
+pub mod nested_bands;
+
 // === Dynamic Elevation (cost model that smells resistance) ===
 pub mod elevation;
 

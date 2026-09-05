@@ -1,3 +1,22 @@
+## 2026-09-05 — PR #1181 MERGED (`80dbcc35`) + jc clippy sweep — INVENTORY DELTA
+
+- **Merged:** #1181 — `contract::shape_rank` (`ShapeRankPayload`, `RemeasureKey`, `RemeasureLedger`, `RemeasureError::{AlreadySealed, VersionMismatch}`) and `planner::nested_bands` are on `main`. Consumers today: none outside the two crates' own tests — the D-BLW-5 loop that would inject the payload is PAUSED. See `PR_ARC_INVENTORY.md` 2026-09-05 #1181 entry.
+- **jc:** `cargo clippy --manifest-path crates/jc/Cargo.toml --all-targets -- -D warnings` is green on `main` for the first time (TD-JC-CLIPPY-RED-ON-BASE-1 RESOLVED); `jc-proof.yml` now runs that command, same arming as sigker.
+
+## 2026-09-05 — branch (D-NXG-4 → D-BLW-5, producer half): the payload has a producer and a transform — INVENTORY DELTA
+
+- ADDED `lance_graph_planner::nested_bands::{Z2_SCALE, quantize_2z}`, `NestedBandsBuilder::calibrate_equal_width` (the D-BLW-5 design's equal-width-in-2z ladder, beside the equal-mass `calibrate`), `NestedBands::shape_rank(observed, V₀) -> ShapeRankPayload` (asserts 16 bands). Five tests, one on a REAL pooled prior (92 speech frames' lag-1 autocorrelation).
+- ADDED `jc::stats::{FISHER_CLAMP_EPS, fisher_2z, fisher_2z_inv}` — the "2z" of plan §Stage A, forced copy of `helix::Similarity::hyperbolic_depth` with a transcribed-formula parity test (live cross-crate parity blocked by helix's git-pinned `ndarray`; recorded in the doc comment).
+- FINDING E-NXG-22: `rank` saturates at the edge bucket for out-of-support statistics; the loop-level fix (one bit) is left to D-BLW-5, which stays PAUSED.
+- TD-JC-CLIPPY-RED-ON-BASE-1 opened (pre-existing, untouched files, no CI clippy on jc).
+
+## 2026-09-05 — branch (D-NXG-4 → D-BLW-5, contract half): the payload-law DTO exists — INVENTORY DELTA
+
+- ADDED `lance_graph_contract::shape_rank` (zero-dep, std only): `SHAPE_BUCKETS = 16`; `ShapeRankPayload { shape: [u64; 16], rank: u8, version: u64 }` with `new` (asserts `rank < 16`), `mass`, `mass_below`, `prozentrang`, `rank_fraction`, `is_frozen_at`, and a `const _` guard `size_of <= 144`; `RemeasureKey { stat_id, arm, cohort, metric, dataset_version }` (`Ord`); `RemeasureError::AlreadySealed { key, sealed_version }`; `RemeasureLedger { seal (write-once, second write ERRORS, never overwrites), get, len, is_empty }`.
+- WHY here and not in the planner: the doctrine's `shape₀ × rank₀` is what crosses into awareness; the type has NO `f64` field by construction, which is the Goodhart guard the payload law asks for, enforced by shape rather than discipline. `ndarray` stays unreachable supervisor-side (D-BLW-5 design §c), so the DTO is plain numbers and the producer (`NestedBands::shape_rank`, planner, next commit) does the mask work.
+- STATUS: D-BLW-5 remains **PAUSED** as a loop (operator 2026-08-05); the operator relaunched ONLY the payload half on 2026-09-05 ("go ahead with D-NXG-4 into D-BLW-5"). The four arms, bloom criterion and supervisor test file are untouched.
+- Gates: contract `shape_rank` 6/6, clippy `--lib --tests -D warnings` clean, fmt clean. Written by one Sonnet worker from a 62-line spec, edit-only; orchestrator-gated.
+
 ## 2026-09-04 — two mechanical board gates land, and they were shipped WITHOUT their own hygiene — INVENTORY DELTA
 
 - ADDED `.claude/tools/append_only_gate.py` + `.github/workflows/append-only-gate.yml` (#1167) — 8 protected board files, compared against `git merge-base` (not the raw base ref, which reports a shrink whenever the base moved ahead). Absent-at-base = new, silent; deleted = FAIL; unresolvable ref = fail closed with a `fetch-depth: 0` hint. Verified at four levels: 7 self-test cases (3 fire / 4 silent), the real git path against `b67f1958`, an END-TO-END fire test (`ISSUES.md` shortened 2591 → 2541 lines → exit 1), and the fail-closed arm (`origin/main~200` → exit 1).
@@ -312,6 +331,29 @@ Also removed one dead declaration that blocked the sweep: `container_bs/mod.rs` 
 **Open, found here and NOT fixed:** `sigker`'s test build has never compiled — it sorts a `(Vec<usize>, f64)` and `f64` is not `Ord` (E0277). Verified against unmodified `sigker`. Workspace exclusion meant CI never built it. The gate added is formatting-only; the tests remain dead. See `ISSUES.md`.
 
 (#1100 opened for the one-file subset of this and closed unmerged, superseded.)
+
+---
+## 2026-09-05 — #1184 MERGED (ad7c1b28): lance-convergence staged migration plan + ruling R2 — DOC/BOARD ONLY
+
+| PR | merge | content |
+|---|---|---|
+| **#1184** | `ad7c1b28` | `lance-convergence-staged-migration-v1` (D-LNC-0..7): the staged 9→10→11 bump, probe-gated on row identity, plus the five seams (mask convergence, time travel, WAL, ACID, zero-copy) each with a one-truth verdict. Records R2 (everything wires to SoA V3; CE64-adjacent as ALU legacy) and regrades D-BSW-2 accordingly. Folds in #1182's hygiene. |
+
+**Contract inventory net delta: none** (DOC/BOARD ONLY). What changed is
+the record: the arrow ceiling is lance-wide, the lance surface is narrow, and
+the seams are named with probes. D-LNC-1 (9→10) is unblocked; D-LNC-3 waits
+on D-LNC-2.
+
+---
+## 2026-09-05 — #1182 MERGED (a738e4ae): the pin rule — arrow/datafusion to the major
+
+| PR | merge | content |
+|---|---|---|
+| **#1182** | `a738e4ae` | Exact-pin only where an upstream crate demands `=`; everywhere else the major. `arrow`/`datafusion` `=58.4.0`/`=54.1.0` → `58`/`54` (lancedb asks `^58`/`^54`; only `lance*` is forced `=9.0.0`). Resolution verified identical; probe lock deleted; full CI green. Ceiling measured: lance 9/10/11 all require arrow ^58 / datafusion ^54 — 58/54 is the LATEST compatible pair. Two `Cargo.lock` canon citations corrected. |
+
+**Contract inventory net delta: none.** Manifest + canon only; no version
+moved today. The rule is now mechanically checkable: a `=` pin is legitimate
+iff some upstream requirement is `=`.
 
 ---
 ## 2026-09-05 — #1177 MERGED (eb84b275): BindSpace→MailboxSoA wiring plan — DOC/BOARD ONLY

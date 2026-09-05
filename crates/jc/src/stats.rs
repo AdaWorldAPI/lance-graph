@@ -1166,6 +1166,43 @@ pub fn anova_one_way(groups: &[Vec<f64>]) -> Option<Anova> {
     })
 }
 
+// ── Fisher 2z (D-BLW-5 payload space) ──
+//
+// This is the "2z" of plan `cycle-loop-closure-driver-v1.md` §Stage A and the
+// D-BLW-5 histogram axis — NOT `reliability`'s or any other module's
+// variance-stabilising `z = ½·ln(...)`. It is a FORCED COPY of
+// `helix::fisher_z::Similarity::hyperbolic_depth`: `helix` pins a git
+// `ndarray` and `jc` a path one, so a live cross-crate dependency between the
+// two would double-build `ndarray`. The parity gate is the test
+// `fisher_2z_matches_the_helix_formula_on_a_fixed_vector` below, which
+// transcribes helix's formula locally and asserts equality — that test IS the
+// contract keeping this copy honest.
+
+/// Rim clamp for the Fisher transform, identical to
+/// `helix::fisher_z::Similarity::CLAMP_EPS` (1e-9).
+pub const FISHER_CLAMP_EPS: f64 = 1e-9;
+
+/// Fisher **2z**: `ln((1+r)/(1−r)) = 2·atanh(r)`, `r` clamped to
+/// `[-1+FISHER_CLAMP_EPS, 1-FISHER_CLAMP_EPS]` so the result is always finite
+/// for a finite input. NaN input produces NaN output (propagated, not
+/// clamped away) — every other `f64` input produces a finite result.
+///
+/// This is `2 ×` `helix::fisher_z::Similarity::fisher_z`'s value (equivalently
+/// `helix`'s `hyperbolic_depth`), NOT the variance-stabilising `z` on its own
+/// — see the module-level note above.
+pub fn fisher_2z(r: f64) -> f64 {
+    if r.is_nan() {
+        return f64::NAN;
+    }
+    let s = r.clamp(-1.0 + FISHER_CLAMP_EPS, 1.0 - FISHER_CLAMP_EPS);
+    (1.0 + s).ln() - (1.0 - s).ln()
+}
+
+/// Inverse of [`fisher_2z`]: `tanh(z / 2)`.
+pub fn fisher_2z_inv(z: f64) -> f64 {
+    (z / 2.0).tanh()
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -2152,5 +2189,61 @@ mod tests {
                 .map(|v| v.is_finite())
                 .unwrap_or(true)
         );
+    }
+
+    // ─────────────────────────── Fisher 2z ───────────────────────────
+
+    #[test]
+    fn fisher_2z_is_zero_at_zero_and_odd() {
+        assert_eq!(fisher_2z(0.0), 0.0);
+        for r in [0.1, 0.3, 0.7, 0.9] {
+            assert!(
+                approx(fisher_2z(-r), -fisher_2z(r), 1e-12),
+                "fisher_2z is not odd at r={r}"
+            );
+        }
+    }
+
+    #[test]
+    fn fisher_2z_is_finite_at_the_rim() {
+        for r in [-1.0, 1.0, -2.0, 2.0] {
+            assert!(fisher_2z(r).is_finite(), "fisher_2z({r}) was not finite");
+        }
+    }
+
+    #[test]
+    fn fisher_2z_round_trips_through_inv() {
+        for r in [-0.9, -0.5, 0.0, 0.3, 0.7, 0.99] {
+            let z = fisher_2z(r);
+            let back = fisher_2z_inv(z);
+            assert!(
+                (back - r).abs() < 1e-12,
+                "round trip failed for r={r}: got back {back}"
+            );
+        }
+    }
+
+    #[test]
+    fn fisher_2z_matches_the_helix_formula_on_a_fixed_vector() {
+        // FORCED-COPY GATE (see the module-level note above `fisher_2z`):
+        // `helix` pins a git `ndarray`, `jc` a path one, so a live
+        // cross-crate dependency here would double-build `ndarray`. This
+        // test transcribes `helix::fisher_z::Similarity::fisher_z`'s formula
+        // locally — `0.5*((1+s).ln()-(1-s).ln())` with the same
+        // `CLAMP_EPS = 1e-9` — and asserts `fisher_2z(r) == 2 * that` to
+        // 1e-15 for a fixed vector. If `helix`'s formula ever changes, this
+        // is the test that must be updated to keep the two in parity.
+        fn helix_fisher_z(s: f64) -> f64 {
+            let s = s.clamp(-1.0 + 1e-9, 1.0 - 1e-9);
+            0.5 * ((1.0 + s).ln() - (1.0 - s).ln())
+        }
+        for r in [-0.99, -0.7, -0.3, -0.01, 0.01, 0.3, 0.7, 0.99] {
+            let expect = 2.0 * helix_fisher_z(r);
+            let got = fisher_2z(r);
+            assert!(
+                (got - expect).abs() < 1e-15,
+                "fisher_2z({r})={got} vs 2*helix_fisher_z={expect}"
+            );
+        }
     }
 }

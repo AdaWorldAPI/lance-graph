@@ -1,3 +1,19 @@
+## 2026-09-05 — D-NXG-4 → D-BLW-5 payload: two Sonnet workers on disjoint files, orchestrator-gated
+
+- **Why:** operator: "go ahead with D-NXG-4 into D-BLW-5". A Sonnet census first (`exec-runs/d-blw-5-design-main-thread.md`, doctrine §2, STATUS_BOARD): D-BLW-5 has NO shipped code and is PAUSED (operator 2026-08-05); its designed home is a `cycle-driver`-gated supervisor test where the planner is reachable and `ndarray` is not. That fixed the membrane split: DTO in the zero-dep contract, producer in the planner, transform in jc.
+- **W1 (Sonnet, contract):** `shape_rank.rs` + one `lib.rs` line from a 62-line spec; verified the 144-byte layout by field arithmetic. 6/6, clippy clean — committed first as `75f87646` with its LATEST_STATE delta in-commit.
+- **W2 (Sonnet, jc + planner):** `fisher_2z`/`fisher_2z_inv`/`FISHER_CLAMP_EPS` in `jc::stats` with a transcribed-formula parity test against helix (live cross-crate parity blocked: helix pins a git `ndarray`, jc a path one); `Z2_SCALE`, `quantize_2z`, `calibrate_equal_width`, `shape_rank` + 5 tests in the planner. W2 flagged its one guess (`RemeasureKey::new`) — correct call, it did not exist; fixed to a struct literal at the gate.
+- **Falsification kept:** the can-it-fire arm ("saturated vs quiet first frame land in different buckets") could not fire — both recordings open with silence and both whole-file statistics sit below the prior's support. Restated inside the support (prior min → 0, prior max → 15) and the out-of-support saturation pinned as E-NXG-22.
+- **Gates:** planner 428/428 + clippy clean, contract 1315/1315 + clippy clean, jc 141/141 (via `--manifest-path`, workspace-excluded), fmt clean on all three; jc clippy is red on `origin/main` in eight files none of which this arc touched, CI runs no jc clippy — TD row, not a fix here. Append-only + citation-decay gates local; supersession index last.
+- **Board:** E-NXG-22, STATUS_BOARD D-NXG-4 + D-BLW-5 rows, TECH_DEBT TD-JC-CLIPPY-RED-ON-BASE-1, LATEST_STATE delta (planner + jc half), plan §6.
+
+## 2026-09-05 — D-NXG-1 `NestedBands`: one Sonnet worker from spec, orchestrator-gated
+
+- **Why:** operator "Go ahead autoattended" + "Sonnet agents for grindwork" after the three probes merged. D-NXG-1 is a write-this-file-from-spec unit: bounded input (a 134-line spec naming every type, method and test), known output shape.
+- **Split:** orchestrator wrote the spec (types, signatures verified against `ndarray/src/simd_int_ops.rs` + `bitwise.rs` + `contract/src/thought_atoms.rs`, twelve named tests on the three real recordings); one Sonnet `general-purpose` worker wrote the 711-line file, edit-only, no cargo, and corrected the spec's `include_bytes!` path (three levels up, not four — verified with `ls`, reported). Orchestrator registered the module in `lib.rs` and ran every gate in the shared `target/`.
+- **Gates:** first run 10/12 — both failures were SPEC errors the worker faithfully reproduced (a pinned floor value one row over the target; a sign-assumed σ assertion). Both fixed in the tests to the strict definitions, recorded in E-NXG-21. One clippy `-D warnings` (test-only import) moved into the tests module. Final: `nested_bands` 12/12, planner lib suite green, clippy clean, fmt clean, append-only + citation-decay + plan-dids gates local, supersession index regenerated last.
+- **Board:** E-NXG-21; STATUS_BOARD D-NXG-1/3/5 rows; plan §6 rows.
+
 ## 2026-09-05 — PROBE-NXG-ROLL-1 + PROBE-NXG-FLOOR-1: orchestrator-only, three falsifications kept
 
 - **Why:** operator "fast forward" after #1178 merged. Plan §5 steps 3 and 4, the last two gates before rooms 4–8 may leave PROPOSAL.

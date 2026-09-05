@@ -141,6 +141,7 @@ impl BinaryTree {
     }
 
     /// Stage of node k (0-indexed; root is stage 0).
+    #[cfg(test)]
     fn stage(k: usize) -> usize {
         // Stage = floor(log2(k+1)).
         let mut s = 0;

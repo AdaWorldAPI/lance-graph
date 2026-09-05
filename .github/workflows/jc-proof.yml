@@ -38,6 +38,14 @@ jobs:
       - name: Run JC tests (6 unit tests)
         run: cargo test --manifest-path crates/jc/Cargo.toml
 
+      # jc is workspace-excluded, so the root clippy job never reaches it; it
+      # went red unnoticed until TD-JC-CLIPPY-RED-ON-BASE-1 (2026-09-05). Same
+      # arming as sigker in rust-test.yml: fix once, then gate it here.
+      - name: Lint JC (workspace-excluded, so root clippy never reaches it)
+        run: |
+          cargo clippy --manifest-path crates/jc/Cargo.toml \
+            --all-targets -- -D warnings
+
       - name: Run prove_it (substrate proof binary)
         run: |
           cargo run --manifest-path crates/jc/Cargo.toml --release --example prove_it

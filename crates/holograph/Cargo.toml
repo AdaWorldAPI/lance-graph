@@ -27,16 +27,16 @@ full = ["simd", "parallel", "datafusion-storage", "lancedb", "ffi"]
 #   16K = 2048 bytes (256 words)
 #   32K = 4096 bytes (512 words, 3D holographic)
 # Exact pins, lockstep with the workspace (see root Cargo.toml).
-arrow = { version = "=58.4.0", features = ["ffi"], optional = true }
-arrow-array = "=58.4.0"
-arrow-schema = "=58.4.0"
-arrow-buffer = "=58.4.0"
+arrow = { version = "58", features = ["ffi"], optional = true }
+arrow-array = "58"
+arrow-schema = "58"
+arrow-buffer = "58"
 
 # Query engine — DataFusion 52
-datafusion = { version = "=54.1.0", optional = true }
+datafusion = { version = "54", optional = true }
 
 # Lance columnar format — 100x faster random access than Parquet
-lance = { version = "=9.0.0", optional = true, default-features = false }
+lance = { version = "=10.0.0", optional = true, default-features = false }
 
 # Async runtime
 tokio = { version = "1.49", features = ["rt-multi-thread", "macros"], optional = true }

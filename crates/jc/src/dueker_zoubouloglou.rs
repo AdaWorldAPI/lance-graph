@@ -179,7 +179,7 @@ fn measure_trace(d: usize, n: usize, m: usize, phi: f64, seed: u64) -> (f64, f64
 // ════════════════════════════════════════════════════════════════════════════
 
 pub fn prove() -> PillarResult {
-    let (measured, predicted) = measure_trace(D, N, M, PHI, 0x0D_15_EA_5E_DEAD_BEEF);
+    let (measured, predicted) = measure_trace(D, N, M, PHI, 0x0D15_EA5E_DEAD_BEEF);
 
     let relative_error = (measured - predicted).abs() / predicted;
     let pass = relative_error < TOLERANCE;
