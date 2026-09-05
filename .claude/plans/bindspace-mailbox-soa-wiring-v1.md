@@ -2,8 +2,9 @@
 
 > **Status:** MEASURED / ready-to-execute. Every claim below carries file:line
 > from a read of the CURRENT tree (origin/main `9f8aa779`, #1174), not from a
-> prior plan. Three prior plans exist and all three are design-stage; this one
-> supersedes their *sequencing* only — see §6.
+> prior plan. **Four** prior plans exist — three on `main`, all design-stage,
+> plus a stranded council-hardened predecessor found late (§7). This one
+> supersedes their *sequencing* only — see §6 and §7.
 >
 > **READ BY:** anyone touching `cognitive-shader-driver`, the mailbox cutover,
 > or proposing BindSpace retirement.
@@ -181,7 +182,7 @@ after M0–M3 are green and a corpus/adoption proof exists — and it needs a
 3. The supersession index's successor column for `BindSpace` is `—` while
    `COMPONENT-MAP:109` names `MailboxSoA`. Generator gap, not a data gap.
 
-## 6. Relationship to the three prior plans
+## 6. Relationship to the three prior plans on `main` (a fourth is in §7)
 
 `bindspace-mailbox-soa-dependency-map-v1` (*"MAP / preflight. No source wired
 yet"*), `bindspace-singleton-to-mailbox-soa-v1` (*"CONJECTURE / design … NOT yet
