@@ -33,7 +33,8 @@ workspace is local — prefer the local/fork source over the registry, always.
 - `"warning: Patch <crate> ... was not used in the crate graph"` is a policy
   alert. It can indicate missing fork wiring OR a transitive semver mismatch
   that prevents the patch from applying. Do not ignore it: verify direct
-  `Cargo.toml` patch entries and `Cargo.lock` wiring, then track/resolve any
+  `Cargo.toml` patch entries and a THROWAWAY `cargo generate-lockfile` resolve
+  (deleted after reading — this repo tracks no lock), then track/resolve any
   transitive blocker explicitly before closing the issue.
 - crates.io is permitted ONLY for crates that have no AdaWorldAPI fork / no local
   source.
@@ -1197,7 +1198,32 @@ cd crates/lance-graph-python && maturin develop
 ## Key Dependencies
 
 ```toml
-# Verified against Cargo.lock + every crate manifest 2026-08-10. The lance family
+# THE PIN RULE (operator-ruled 2026-09-05). Exact-pin (`=X.Y.Z`) ONLY where an
+# upstream crate itself demands exact-equals. Everywhere else the MAJOR, so the
+# family can converge on the newest compatible patch. Nothing outside the
+# lance / lancedb / arrow / datafusion family is pinned at all, and NO repo
+# tracks a Cargo.lock (.gitignore; ISS-STALE-AUTHORITY-LOCKS, RESOLVED).
+#
+# Measured against crates.io 2026-09-05 -- lancedb 0.33.0 requires:
+#   lance* = "=9.0.0"   (EXACT -- imposed on us, not our choice; it is also why
+#                        the published lance 9.0.1 is unreachable)
+#   arrow* = "^58.0.0"  datafusion* = "^54.0.0"   (CARET -- so ours must be too)
+# An exact `=58.4.0` on our side is strictly NARROWER than anything the family
+# asks for, and that is what makes a graph unsatisfiable: see Cargo.toml:141-144,
+# where cargo could not satisfy our `lance = "=6.0.1"` against lancedb's
+# transitive `lance = "=6.0.0"`. Relaxing resolves to the identical versions
+# today (arrow 58.4.0 / datafusion 54.1.0) and takes 58.5.0 automatically.
+#
+# The arrow ceiling is NOT ours and does NOT move with lance: lance 9, 10 AND 11
+# all require arrow ^58 / datafusion ^54, as do lancedb 0.33 / 0.37.1 / 0.38.0.
+# arrow 59.x and datafusion 55 exist but are unreachable from ANY published
+# lance or lancedb -- so 58/54 is the LATEST compatible, not a conservative one.
+# A lancedb bump therefore buys a newer lance major and nothing else.
+# (Rust crate line is 0.33.0 -> 0.37.1 -> 0.38.0; 0.34/0.35/0.36 do not exist as
+# Rust crates -- those numbers are the independently-versioned PyPI package.)
+#
+# The lance family moves in EXACT lockstep -- currently =9.0.0 (lance 7 was the
+# 2026-06-14 state, superseded by the lance-9 sweep, b2b08b07 / PR #896 arc).
 # moves in EXACT lockstep — currently =9.0.0 (lance 7 was the 2026-06-14 state,
 # superseded by the lance-9 sweep, b2b08b07 / PR #896 arc).
 arrow = "58"          # 58.3.0 resolved; unmoved by the lance-9 sweep

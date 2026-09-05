@@ -266,14 +266,14 @@ lancedb = { version = "=0.33.0", default-features = false }
 # (E-PIN-LANCE9-LANCEDB033-DF541-ARROW58-NO-DF53-1), and with no tracked
 # lock the caret ranges these replaced would have taken the newest 58.x /
 # 54.x silently. A bump is one deliberate PR — this is where it happens now.
-arrow = "=58.4.0"
-arrow-array = "=58.4.0"
-arrow-schema = "=58.4.0"
-datafusion = { version = "=54.1.0", default-features = false }
-datafusion-common = "=54.1.0"
-datafusion-expr = "=54.1.0"
-datafusion-sql = "=54.1.0"
-datafusion-functions-aggregate = "=54.1.0"
+arrow = "58"
+arrow-array = "58"
+arrow-schema = "58"
+datafusion = { version = "54", default-features = false }
+datafusion-common = "54"
+datafusion-expr = "54"
+datafusion-sql = "54"
+datafusion-functions-aggregate = "54"
 object_store = { version = "0.13", features = ["aws"] }
 
 [patch.crates-io]
