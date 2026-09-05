@@ -25,7 +25,7 @@
 //!
 //! - `ante`     — pronoun → antecedent (pronoun events only; gold-labeled)
 //! - `kausal`   — effect-clause event → the cause clause across a causal
-//!                connective (because/so; gold from the text's connectives)
+//!   connective (because/so; gold from the text's connectives)
 //! - `noun-gnd` — nearest nominal grounding (S/O-meaning on this substrate)
 //! - `verb-gnd` — nearest verbal grounding (P-meaning)
 //! - `temporal` — nearest temporal marker (closed class: then/when/day/…)
@@ -60,6 +60,7 @@
 //! 1. WELL-POSED: every jc measure returns `Some`.
 //! 2. `ante` accuracy ≥ 0.60 AND ≥ the agreement-blind baseline.
 //! 3. `kausal` hit rate ≥ 0.50.
+//!
 //! KILL: any gate fails (recorded loudly). Agreement magnitudes are not
 //! gated — their direction is measured, not assumed.
 //!
@@ -575,7 +576,8 @@ fn main() {
 
     // ── RELIABILITY: Method A vs Method B on the always-computable loci ────
     let content_idx: Vec<usize> = (0..toks.len()).filter(|&i| is_content(&toks[i])).collect();
-    let dims: [(&str, Box<dyn Fn(usize, bool) -> Option<i8>>); 5] = [
+    type LocusFn<'a> = Box<dyn Fn(usize, bool) -> Option<i8> + 'a>;
+    let dims: [(&str, LocusFn); 5] = [
         (
             "noun-gnd",
             Box::new(|i, sem| {

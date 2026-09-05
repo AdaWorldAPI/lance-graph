@@ -11,7 +11,7 @@
 use crate::PillarResult;
 
 const PHI_INV: f64 = 0.618_033_988_749_894_9; // 1/φ = (√5 - 1) / 2
-const QUINTENZIRKEL: f64 = 0.584_962_500_721_156_0; // log₂(3/2) ≈ 0.585
+const QUINTENZIRKEL: f64 = 0.584_962_500_721_156; // log₂(3/2) ≈ 0.585
 
 fn frac(x: f64) -> f64 {
     x - x.floor()

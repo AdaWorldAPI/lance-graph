@@ -291,7 +291,7 @@ mod tests {
     fn apply_offset_wraps_modulo_one() {
         // value 0.9 + offset k=4 (4 * 1/(4φ) = 1/φ ≈ 0.618) → 1.518 mod 1 = 0.518
         let r = apply_offset(0.9, 4);
-        assert!(r >= 0.0 && r < 1.0, "result out of [0,1): {r}");
+        assert!((0.0..1.0).contains(&r), "result out of [0,1): {r}");
     }
 
     #[test]
