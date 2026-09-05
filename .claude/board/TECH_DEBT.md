@@ -1,3 +1,27 @@
+## TD-VERSIONED-GRAPH-DIFF-LOCKSTEP-AND-NO-REMOVALS-1 (2026-09-05) — OPEN
+
+**`VersionedGraph::diff` (`crates/lance-graph/src/graph/versioned.rs`) has two
+defects the D-LNC-2 probe pinned as measured behaviour, neither fixed here.**
+
+1. **No removals.** `GraphDiff` carries `new_nodes` / `modified_nodes` /
+   `new_edges` only. A node dropped by an overwrite (the graph's own write
+   mode) or by `Dataset::delete` yields an EMPTY diff. `graph_seal_check`
+   does report it (`Staunen`). Fix shape: a `removed_nodes: Vec<u32>` field
+   computed from `from_ids − to_ids` (the sets are already built), then
+   re-pin `lance_row_identity_probe.rs` blind-spot 1 deliberately.
+2. **Version-number lockstep.** `diff(from, to)` checks out `edges.lance` at
+   the NODES version numbers. Any write that advances one dataset alone
+   (a direct delete, a failed second write inside `commit_encounter_round`)
+   turns `diff` into `Err(DatasetNotFound …/_versions/N.manifest)`. Fix
+   shape: `commit_encounter_round` records the per-dataset version triple
+   (or a tag on all three), and `diff` resolves edges/fingerprints through
+   that map rather than by number. Same lockstep assumption sits in
+   `at_version` (nodes only) — benign there because it opens one dataset.
+
+Both are pinned two-sided in `crates/lance-graph/tests/lance_row_identity_probe.rs`
+so a fix cannot land silently. Source: `E-VERSIONED-GRAPH-OVERWRITES-SO-ROW-ADDRESSES-ALIAS-ACROSS-VERSIONS-1`,
+plan `lance-convergence-staged-migration-v1` §7.7–7.8.
+
 ## TD-SUPERVISOR-CLIPPY-RED-ON-BASE-1 (2026-09-05) — OPEN
 
 **`cargo clippy -p lance-graph-supervisor --features supervisor,cycle-driver --tests -- -D warnings` is red on `main` in files the D-BLW-5 arc did not touch:** `src/cycle_driver.rs` (8× `needless_pass_by_ref_mut` on `recover_fleet` call sites: 1505, 1539, 1704, 2053, 2067, 2097, 2105, 2116) and `tests/probe_ignition_64k.rs:435` (`for_kv_map`). The new `tests/d_blw_5_observer.rs` is clippy-clean on its own (`--test d_blw_5_observer -D warnings`). Same shape as TD-JC-CLIPPY-RED-ON-BASE-1 (resolved #1183) and TD-SIGKER-CLIPPY-RED-ON-BASE-1: fix once, then arm the lint in `rust-test.yml` beside the existing `--features supervisor,cycle-driver` test step. Not done in the D-BLW-5 PR: it is not this arc's code.

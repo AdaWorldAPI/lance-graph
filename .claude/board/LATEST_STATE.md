@@ -345,6 +345,39 @@ Also removed one dead declaration that blocked the sweep: `container_bs/mod.rs` 
 (#1100 opened for the one-file subset of this and closed unmerged, superseded.)
 
 ---
+## 2026-09-05 — #1187 MERGED (a9d3da0a): D-LNC-1 — lance 9 → 10, lancedb 0.33 → 0.37.1
+
+| PR | merge | content |
+|---|---|---|
+| **#1187** | `a9d3da0a` | `lance*`/`lance-namespace`/`lance-arrow` `=10.0.0`, `lancedb =0.37.1`; arrow 58 / datafusion 54 unchanged. Zero source changes; CI 8/8 + local workspace test exit 0. The stale-`ndarray`-sibling false-fallout shape recorded (plan §7.5). |
+
+**Contract inventory net delta: none.** Pins only. D-LNC-1 SHIPPED; D-LNC-2's
+probe is the next PR; D-LNC-3 (10→11) waits on it.
+
+---
+## 2026-09-05 — #1184 MERGED (ad7c1b28): lance-convergence staged migration plan + ruling R2 — DOC/BOARD ONLY
+
+| PR | merge | content |
+|---|---|---|
+| **#1184** | `ad7c1b28` | `lance-convergence-staged-migration-v1` (D-LNC-0..7): the staged 9→10→11 bump, probe-gated on row identity, plus the five seams (mask convergence, time travel, WAL, ACID, zero-copy) each with a one-truth verdict. Records R2 (everything wires to SoA V3; CE64-adjacent as ALU legacy) and regrades D-BSW-2 accordingly. Folds in #1182's hygiene. |
+
+**Contract inventory net delta: none** (DOC/BOARD ONLY). What changed is
+the record: the arrow ceiling is lance-wide, the lance surface is narrow, and
+the seams are named with probes. D-LNC-1 (9→10) is unblocked; D-LNC-3 waits
+on D-LNC-2.
+
+---
+## 2026-09-05 — #1182 MERGED (a738e4ae): the pin rule — arrow/datafusion to the major
+
+| PR | merge | content |
+|---|---|---|
+| **#1182** | `a738e4ae` | Exact-pin only where an upstream crate demands `=`; everywhere else the major. `arrow`/`datafusion` `=58.4.0`/`=54.1.0` → `58`/`54` (lancedb asks `^58`/`^54`; only `lance*` is forced `=9.0.0`). Resolution verified identical; probe lock deleted; full CI green. Ceiling measured: lance 9/10/11 all require arrow ^58 / datafusion ^54 — 58/54 is the LATEST compatible pair. Two `Cargo.lock` canon citations corrected. |
+
+**Contract inventory net delta: none.** Manifest + canon only; no version
+moved today. The rule is now mechanically checkable: a `=` pin is legitimate
+iff some upstream requirement is `=`.
+
+---
 ## 2026-09-05 — #1177 MERGED (eb84b275): BindSpace→MailboxSoA wiring plan — DOC/BOARD ONLY
 
 | PR | merge | content |

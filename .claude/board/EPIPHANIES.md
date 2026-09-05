@@ -156,6 +156,106 @@ Cross-refs: `belief.rs` S2 ("closure-internal duplicates resolve by CHOICE on
 `expectation()`"); E-BLW5-FIRST-MEASUREMENT-1 (the probe that hit it);
 `.claude/plans/dialectic-engine-v1.md` §1 S2.
 
+## 2026-09-05 — E-VERSIONED-GRAPH-OVERWRITES-SO-ROW-ADDRESSES-ALIAS-ACROSS-VERSIONS-1 — the D-LNC-2 probe found four wrong claims in the plan it was written to execute
+
+**Status:** FINDING (measured, `crates/lance-graph/tests/lance_row_identity_probe.rs`, lance 10.0.0, both disable arms verified red-then-green).
+**Confidence:** High on every measured line; Medium on the lance-11 half (`LNC2_FRAGMENT_REUSE=forbidden`) until the D-LNC-3 branch runs it.
+
+**What was believed.** `lance-convergence-staged-migration-v1` §2 said, twice,
+that this codebase uses `WriteMode::{Create,Append}` only — "never
+`Overwrite`" — and therefore that lance#8206 ("stop reusing fragment ids
+across an overwrite", the first lance-11 breaking change) had zero API
+exposure. §5 pre-registered the D-LNC-2 delete arm as "a delete between two
+versions is reported by lance's delta AND by `VersionedGraph::diff`,
+identically".
+
+**What the tree says.** `VersionedGraph::write_batch` (`graph/versioned.rs`)
+matches `Dataset::open(path)` and picks `WriteMode::Overwrite` whenever the
+dataset exists. Every `commit_encounter_round` after the first REPLACES all
+three tables; the function's own doc comment says "appended". The
+`Append`-only claim was true of `LanceCycleWriter` and was generalised to the
+graph without reading it.
+
+**What the probe measured (lance 10).** Three overwrite rounds A→B→C plus one
+real `Dataset::delete` (D):
+
+| overwrite | fragment ids before → after | shared |
+|---|---|---|
+| v1→v2 | `{0}` → `{0}` | `{0}` |
+| v2→v3 | `{0}` → `{0}` | `{0}` |
+
+`_rowaddr` aliased to a DIFFERENT `node_id` across consecutive versions: **2**
+(`0<<32|1` and `0<<32|2` name nodes 2/3 at v2 and 3/4 at v3). Cleanup with
+`TimeDelta::zero()` removed 2 old versions; the tagged one survives
+byte-identical, the untagged one is gone (`at_version` → Err).
+
+**Four corrections that fall out, each pinned in the probe:**
+
+1. **A row-address-keyed reader is sound only WITHIN one Lance version.**
+   This is the §4A rows-vs-region-mask one-truth verdict, now measured
+   rather than argued. lance 11's fresh fragment ids stop the COLLISION;
+   they do not make addresses comparable across versions. The convergence
+   lens is `SoaRow → RowAddress` per `DatasetVersion`, never a global map.
+2. **`GraphDiff` cannot see a removal** — no `removed_nodes` field; B→C
+   (node 2 dropped) is an EMPTY diff. `graph_seal_check` is the one truth
+   for removals (`Staunen`).
+3. **`diff()` couples nodes/edges/fingerprints by version NUMBER** — it
+   checks out edges at the nodes version. A nodes-only write (D) makes
+   `diff(C, D)` an `Err(DatasetNotFound …/edges.lance/_versions/4.manifest)`.
+   Lockstep is an invariant of `commit_encounter_round`, not of the store.
+   → `TD-VERSIONED-GRAPH-DIFF-LOCKSTEP-AND-NO-REMOVALS-1`.
+4. **The pre-registered delta arm could never run.** lance 11's
+   `get_deleted_row_ids` (lance#8589) "requires stable row ids at both
+   endpoints"; our datasets are written with `enable_stable_row_ids: false`.
+   Stable row ids are decided at D-LNC-5, and cheaply first on an EPHEMERAL
+   dataset — the alpha overlay can turn them on at creation with no
+   migration, which is why the delta API fits the alpha layer before the
+   graph spine.
+
+**The rule that survives.** A plan's exposure table is a claim about the
+tree, and "we never do X" must be grep'd for X's *implementation site*
+(`WriteMode::`), not for the callers the author remembers. Building the
+probe found four wrong claims in the plan it was written to execute; none of
+the four would have surfaced from reading the plan again.
+
+Cross-ref: plan §7.6–7.9; `E-A-CORRECTION-CAN-SUBSTITUTE-ONE-WRONG-NOUN-FOR-ANOTHER-1` (same failure shape: a correct-sounding noun substituted for the one the source used).
+
+## 2026-09-05 — E-EVERYTHING-WIRES-TO-SOA-V3-CE64-IS-ALU-LEGACY-1 — operator ruling: no exceptions to the V3 substrate, and the one carve-out is named
+
+**Status:** RULING (operator, 2026-09-05, verbatim: "anything must be wired
+into SoA V3 substrate no exceptions except the causaledge64 adjacent as ALU
+legacy substrat").
+**Confidence:** High on the ruling; High that it is already the ruled state
+for CausalEdge64 (M20, RESIDUAL RESOLVED 2026-07-18 — demoted, not deleted:
+survives as the `MailboxSoA` baton edge `mailbox_soa.rs:92`, the perturbation
+baseline, and the p64 address; only the awareness mantissa retired; the
+`edges[16B]` CANON block untouched). "ALU legacy substrate" is the name for
+exactly that state.
+
+**What it changes.** `bindspace-mailbox-soa-wiring-v1` D-BSW-2 recorded
+`dispatch_busdto:281` as "EXCLUDED from the cutover pending a decision"
+because it writes `set_qualia_f32` (`engine_bridge.rs:321`) and
+`unbind_busdto` reads `qualia_f32_row` (`:397`) as bit-exact ground truth. Under
+this ruling there is no exclusion: it WIRES, and the only open question is the
+tenant. `MailboxSoA` carries an f32 scalar tenant (`energy: [f32; N]`,
+`mailbox_soa.rs:66`) but no 16-dim f32 vector tenant; the candidates are the
+i4 register — `atoms.rs` `I4x32/I4x64` ("byte-compatible with QualiaI4_16D and
+CausalEdge64 mantissa", the ALU-adjacent carrier the ruling names) or
+`QualiaI4_16D` via `set_qualia` (`:606`). Quantizing a bit-exact ground truth is
+a MEASURED decision: the falsifier is the D-MTS-6 proxy triple (`|ΔE|`,
+surprise agreement, descent ρ) against the f32 baseline, pre-registered before
+the first run. A new f32 vector tenant fights the content-blind 4+12 byte
+register and is not a candidate.
+
+**What it does NOT change.** The bundle algebra, the mailbox-as-owner
+compile-time safety argument (E-CE64-MB-4), and the three surviving
+CausalEdge64 roles are untouched. The ruling closes a loophole; it does not
+open a design.
+
+Cross-ref: `lance-convergence-staged-migration-v1` §6 (where the consequence
+is carried); D-BSW-2 (whose row now needs the "excluded" wording regraded to
+"wires, tenant TBD by probe" — a plan/board diff item, the class of drift
+this session caught twice).
 ## 2026-09-05 — E-NXG-22 — `shape × rank` is bounded by the prior's support: an out-of-support statistic saturates at the edge bucket
 
 **Status:** FINDING (pinned by `nested_bands::tests::shape_rank_from_real_lag1_autocorrelations`); D-NXG-4 SHIPPED into the D-BLW-5 payload.
