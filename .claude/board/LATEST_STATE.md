@@ -1,3 +1,18 @@
+## 2026-09-05 — #1194 + #1195 MERGED (3c84ce16, 8c7aa961): Rust 1.98.1, and the sweep it opens
+
+| PR | merge | content |
+|---|---|---|
+| **#1194** | `3c84ce16` | `chunks_exact` → `as_chunks` at ten sites. The WHOLE 1.98 clippy delta for this repo, landed against the OLD pin and verified on both toolchains. |
+| **#1195** | `8c7aa961` | `rust-toolchain.toml` → `1.98.1` + bump log. One line, because #1194 went first. |
+
+**Contract inventory net delta: none.** This repo is now lance 11 / lancedb
+0.38 / arrow 58 / datafusion 54 / **Rust 1.98.1** — repo 1 of 9 in the
+workspace-wide toolchain sweep. The remaining eight are being swept in
+parallel; two of them (MedCare-rs, tesseract-rs) are still at lance 9 /
+lancedb 0.33 and get the toolchain and lance legs in ONE arc, which is safe
+only because the toolchain leg was measured alone here first.
+
+---
 ## 2026-09-05 — #1188 MERGED (431371b3): D-BLW-5 measured — the observer-effect instrument reads SILENT at the κ floor
 
 | PR | merge | content |
