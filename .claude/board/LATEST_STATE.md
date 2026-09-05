@@ -345,6 +345,47 @@ Also removed one dead declaration that blocked the sweep: `container_bs/mod.rs` 
 (#1100 opened for the one-file subset of this and closed unmerged, superseded.)
 
 ---
+## 2026-09-05 — #1185 MERGED (f8b629a3): D-OIF-1 ruled SUPERSEDED + the cross-repo reachability law — DOC/BOARD ONLY
+
+| PR | merge | content |
+|---|---|---|
+| **#1185** | `f8b629a3` | `open-ideas-fetch-v1` (D-OIF-0..7): three stale `IDEAS.md` cards re-derived. **D-OIF-1 ruled A — SUPERSEDED**, `D-OIF-1-DEC` withdrawn: no hash is built because no deployed consumer reaches the DataFusion masking path. Records the cross-repo reachability law, the `kanban_actor.rs` read-only-meta-awareness correction, and (post-#1190) the CLAUDE.md pin ruling caught up to lance 11 / lancedb 0.38. |
+
+**Contract inventory net delta: none** (DOC/BOARD ONLY). No code, no hash, no
+deletion; `policy.rs` and `rls.rs` are frozen grace-period, not removed.
+
+**The ruling.** `ColumnMaskRewriter`'s only non-test constructor in nine scanned
+repos is MedCare `routes/patient.rs:150`, behind default-off `lance-phase2-rbac`
+that no Dockerfile enables, behind `?source=lance`, ending in a decoder stub
+returning `None`; and it redacts ABOVE the scan (`policy.rs:210` never writes
+`TableScan.projection`). Operator ruling the same day: planning migrates to
+`ogar-loco` / `ogar-r2il`, DataFusion is grace-period, nothing new migrates to
+it — so a hash body was barred independently of the census.
+
+**Three verdicts struck mid-PR, and why that matters more than the ruling.** The
+first census asked "who calls this inside lance-graph?" and read zero local call
+sites as production absence — the same category error lance-graph-java #76 had
+just corrected for `WideFieldMask` one layer down. Operator-corrected: **for a
+cross-repo substrate, production reachability terminates at deployed consumers,
+not at the repository boundary.** Struck: `try_advance_phase` "has no production
+entry point" (bardioc `substrate-b`); `ogar-loco` "one live consumer"
+(blockly-rs); `ogar-r2il` "probe-only" (the R2IL→loco bridge over r2sleigh's live
+IR). The RBAC zero-caller finding is now *scoped* to the nine repos, never
+stated globally.
+
+**Also corrected:** `kanban_actor.rs` is not a tombstone — the actor was deleted,
+the FILE is live read-only meta-awareness (`PhaseCensus` / `mul_target` /
+`parse_kanban_step`, re-exported at `lib.rs:82`, consumed by `cycle_driver.rs:805`
+and named as precedent by `rubicon_witness.rs:32` and `rung_horizon.rs:5`).
+
+**Open, NOT closed by this PR:** field-level authorization has no enforced owner
+on any scanned production path (`authorize`/`authorize_scoped`/`commit_via`/
+`OgarRbac` all zero non-test callers; `effective_mask` is not an identifier; no
+`ogar-rbac` crate). Recorded as the missing implementation on the canonical
+`ClassRbac × ClassView × WideFieldMask` path. `D-OIF-2-DEC` and `D-OIF-5-DEC`
+remain operator decisions; no D-OIF worker has run.
+
+---
 ## 2026-09-05 — #1187 MERGED (a9d3da0a): D-LNC-1 — lance 9 → 10, lancedb 0.33 → 0.37.1
 
 | PR | merge | content |
