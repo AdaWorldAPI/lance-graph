@@ -507,3 +507,14 @@ this agent is the moment of verification.**
 *Primary source: `.claude/board/sprint-log-13/preflight-meta-review-opus.md`*
 *(W-Meta-Opus, 2026-05-16) — CSI-9/19/20/21/22/23 are the direct precedents.*
 *Mirrors structure of PP-13 brutally-honest-tester (PP-13, sprint-13 preflight).*
+
+## Membrane drift (added 2026-09-04)
+
+Beyond spec-vs-main, check **spec-vs-membrane** (`.claude/knowledge/membrane-tiers.md`):
+does a worker brief hand a Sonnet worker vocabulary from the wrong tier for the
+file it will edit? A brief that mentions a stride, offset, or `[u8;12]` register
+for a T3 (Java facade / R2IL / consumer) file is drift — the worker will write
+the byte position into the surface because the brief named one. This is the
+same failure as the 2026-05-17 woa-rs snippet-brief incident (paraphrase from
+the wrong altitude), one tier down. Flag it BYTE-POSITION-IN-BRIEF and rewrite
+the brief to name the field/handle, not its geometry, before the fleet spawns.
