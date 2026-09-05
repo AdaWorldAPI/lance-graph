@@ -1204,9 +1204,8 @@ cd crates/lance-graph-python && maturin develop
 # lance / lancedb / arrow / datafusion family is pinned at all, and NO repo
 # tracks a Cargo.lock (.gitignore; ISS-STALE-AUTHORITY-LOCKS, RESOLVED).
 #
-# Measured against crates.io 2026-09-05 -- lancedb 0.33.0 requires:
-#   lance* = "=9.0.0"   (EXACT -- imposed on us, not our choice; it is also why
-#                        the published lance 9.0.1 is unreachable)
+# Measured against crates.io 2026-09-05 -- lancedb 0.38.0 requires:
+#   lance* = "=11.0.0"  (EXACT -- imposed on us, not our choice)
 #   arrow* = "^58.0.0"  datafusion* = "^54.0.0"   (CARET -- so ours must be too)
 # An exact `=58.4.0` on our side is strictly NARROWER than anything the family
 # asks for, and that is what makes a graph unsatisfiable: see Cargo.toml:141-144,
@@ -1222,11 +1221,17 @@ cd crates/lance-graph-python && maturin develop
 # (Rust crate line is 0.33.0 -> 0.37.1 -> 0.38.0; 0.34/0.35/0.36 do not exist as
 # Rust crates -- those numbers are the independently-versioned PyPI package.)
 #
-# The lance family moves in EXACT lockstep -- currently =9.0.0 (lance 7 was the
-# 2026-06-14 state, superseded by the lance-9 sweep, b2b08b07 / PR #896 arc).
-# moves in EXACT lockstep — currently =9.0.0 (lance 7 was the 2026-06-14 state,
-# superseded by the lance-9 sweep, b2b08b07 / PR #896 arc).
-arrow = "58"          # 58.3.0 resolved; unmoved by the lance-9 sweep
+# The lance family moves in EXACT lockstep -- currently =11.0.0. Line of state:
+# lance 7 (2026-06-14) -> 9 (the lance-9 sweep, b2b08b07 / PR #896 arc) -> 10
+# (#1187, D-LNC-1) -> 11 (#1190, D-LNC-3, probe-gated on the D-LNC-2 fragment-id
+# probe #1189). arrow/datafusion did NOT move with any of them.
+# ⊘ The "=9.0.0 / lancedb =0.33.0" ruling recorded below as
+# E-PIN-LANCE9-LANCEDB033-DF541-ARROW58-NO-DF53-1 is SUPERSEDED on its lance
+# and lancedb coordinates ONLY (now 11 / 0.38.0); its datafusion half stands
+# verbatim -- DF 54.1, never DF 53, and the `delta` feature stays removed.
+# (A duplicated copy of this sentence stood here since the lance-9 sweep; both
+# copies carried the stale number, so both are replaced by this one.)
+arrow = "58"          # unmoved by the lance-9, -10 and -11 sweeps alike
 datafusion = "54"     # OUR direct pin, in every crate that DEPENDS on it
                       # (lance-graph, -catalog, -callcenter, -python, holograph),
                       # and the sub-crates move with it: datafusion-common / -expr
@@ -1251,12 +1256,13 @@ datafusion = "54"     # OUR direct pin, in every crate that DEPENDS on it
                       # 2026-08-18; crates.io releases still DF 53) — as its
                       # own deliberate PR if a consumer needs Delta.
                       # Probe: .claude/plans/lance9-datafusion54-upgrade-probe-v1.md
-lance = "=9.0.0"          # exact-pinned: lancedb 0.33.0 requires lance =9.0.0
-lance-linalg = "=9.0.0"
-lance-index = "=9.0.0"
-lancedb = "=0.33.0"       # the lance-9 pairing. NOTE: lancedb 0.36 is the PyPI
-                          # package, versioned independently — the Rust crate
-                          # tops out at 0.33.0 (probe §1).
+lance = "=11.0.0"         # exact-pinned: lancedb 0.38.0 requires lance =11.0.0
+lance-linalg = "=11.0.0"
+lance-index = "=11.0.0"
+lancedb = "=0.38.0"       # the lance-11 pairing (`default-features = false` in
+                          # the workspace table). NOTE: the Rust crate line is
+                          # 0.33.0 -> 0.37.1 -> 0.38.0; 0.34/0.35/0.36 exist only
+                          # as the independently-versioned PyPI package.
 rust = "1.97.1"           # rust-toolchain.toml is authoritative; see its bump log
 ndarray = { path = "../../../ndarray" }  # AdaWorldAPI fork, default, optional fallback
 nom = "7.1"
