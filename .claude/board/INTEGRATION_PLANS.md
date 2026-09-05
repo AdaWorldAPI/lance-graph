@@ -18,7 +18,7 @@ was wrong about its own blocker** (`E-A-COLUMN-OF-INDICES-INTO-A-CODEBOOK-THAT-D
   column indexes exists in three doc comments and zero crates. `D-OIF-0`
   (re-run the viability probe, reconcile 0.9949 vs 0.9973), `D-OIF-2` (type
   in the contract, builder in `jc`, instance in `cognitive-shader-driver`, no
-  digest pin), `D-OIF-3` (first real writer); provenance is `D-OIF-2-DEC`.
+  digest pin), `D-OIF-3` (first real writer), `D-OIF-7` (the loaded instance + loader in `cognitive-shader-driver`, worker W-7); provenance is `D-OIF-2-DEC`.
 - **`D-OIF-6`** — the ledger itself: four new entries + three status flips,
   shipped in this PR.
 

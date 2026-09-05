@@ -142,7 +142,7 @@ a licence to act on it.
 | **RESCOPE** | `lf-integration-mapping-v1` | `BindSpace` | Active (2026-04-25) | 0/0 |
 | **RESCOPE** | `lite-unified-surrealql-lance-v1` | `BindSpace` | CONJECTURE / design. **Test via feature gate | 0/0 |
 | **RESCOPE** | `ogit-cascade-supabase-callcenter-v1` | `BindSpace` | plan, not implementation. | 0/16 |
-| **RESCOPE** | `open-ideas-fetch-v1` | `BindSpace` | MEASURED / ready-to-execute — PLANNING ONLY  | 2/10 |
+| **RESCOPE** | `open-ideas-fetch-v1` | `BindSpace` | MEASURED / ready-to-execute — PLANNING ONLY  | 11/11 |
 | **RESCOPE** | `q2-foundry-integration-v1` | `BindSpace` | Proposed (2026-04-24) | 0/0 |
 | **RESCOPE** | `reliability-checklist-arc-v1` | `ThinkingStyle` | PROPOSAL / possibility menu (2026-05-30). NO | 3/3 |
 | **RESCOPE** | `singleton-to-snapshot-nudge-v1` | `BindSpace` | PROPOSAL | 1/12 |

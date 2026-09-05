@@ -108,7 +108,14 @@
 
 ### 3.4 D-OIF-5 — the hop re-quantization probe (jc)
 
-Pre-registered: for hop depth `n ∈ {1, 2, 4, 8, 16}`, over ≥1000 seeded paths, compare `log_norm_growth(seed, Σ_n)` (`sigma_propagation.rs:254`) for (i) exact propagation and (ii) propagation with nearest-codebook re-quantization after each hop, against `pillar_5plus_bound(n)` (`:274-285`) with the existing **1.75×** PASS slack (`:268-272`). **PASS** = re-quantized growth stays inside the slack at every `n` tested. **FAIL** at any `n` = σ-advance in `apply_edges` is unsound at that depth and the consumer is shelved with the number. First arm runs on the probe's own k-means codebook (`sigma_codebook_probe.rs`, `N_EDGES=10_000, K=256, 100 iters, SEED` fixed at `:49-52`) so it does not wait on D-OIF-2's artifact; second arm re-runs on the real codebook when it exists.
+Pre-registered, and **mirrored on the certified comparison** (`crates/jc/src/ewa_sandwich.rs:294-343`, `cv_measured` / `cv_tightness`) — not a new gate shape:
+
+- **Hop-matrix source:** the SAME seeded generator the certified pillar uses (`ewa_sandwich.rs:95` Box-Muller, `:215` random rotation θ; SplitMix64 state, seed fixed) — one `M` per hop per path.
+- **Paths:** `N_PATHS ≥ 1000` per depth, `n ∈ {1, 2, 4, 8, 16}`, seed Σ as in the pillar.
+- **Two arms per path:** (i) exact — `Σ_k = ewa_sandwich(M_k, Σ_{k-1})`; (ii) re-quantized — after every hop, `Σ_k ← codebook[nearest(codebook, Σ_k)]` with `nearest` in the affine-invariant metric `d(A,B) = ‖log(B^-½·A·B^-½)‖_F` (the probe's own metric, `sigma_codebook_probe.rs:24`).
+- **Reduction (the part the first draft got wrong):** `log_norm_growth` returns an ABSOLUTE change in `‖log Σ‖²_F` (`sigma_propagation.rs:254`) while `pillar_5plus_bound(n)` returns a **coefficient of variation** (`:274-285`); they are not comparable directly. So, exactly as `ewa_sandwich::prove` does: per depth and per arm, take `‖log(Σ_n)‖²_F` over all paths, compute `mean` and `std`, `cv_measured = std / mean`, `tightness = cv_measured / pillar_5plus_bound(n)`, **PASS if `tightness ≤ 1.75`** (`ewa_sandwich.rs:325-343`). Report both arms' tightness and their ratio (does re-quantization widen concentration, and by how much).
+- **Verdict semantics:** PASS on arm (ii) at every `n` is **evidence that re-quantization preserves concentration in THIS synthetic model** — it is not proof that `MailboxSoA::apply_edges` is sound. Wiring σ-advance into `apply_edges` stays its own deliverable with its own implementation and consumer tests, outside this plan, and still needs `D-OIF-5-DEC`. Any FAIL at depth `n` shelves that consumer with the number.
+- **Arms by artifact:** arm 1 runs on the probe's own k-means codebook (`sigma_codebook_probe.rs`, `N_EDGES=10_000, K=256, 100 iters, SEED` fixed at `:49-52`), so it does not wait on D-OIF-2; arm 2 re-runs on the real codebook once D-OIF-2/D-OIF-7 exist.
 
 ### 3.5 D-OIF-4 gates
 
@@ -151,7 +158,7 @@ They are not compatible as the *same* v1. Recommendation: **fitted** for the ent
 
 - **Type, in the contract (zero-dep, LE law):** `SigmaCodebook([Spd2; 256])`, `from_le_bytes(&[u8; 256·24])` / `to_le_bytes`, `entry(u8) -> &Spd2`, `nearest(&Spd2) -> u8` (affine-invariant metric via the existing `Spd2::{log_spd, sqrt, pow, eig}` `:130-176`), and a **boundary check** on load — every entry `is_spd(eps)` (`:187`), per the module's own contract that SPD is checked "at boundaries (codebook load, runtime gate)" (`:108-109`). 6 KiB.
 - **Builder, in jc:** the k-means the probe already runs, refactored so the emitter writes the frozen table (float to build). Emits **LE bytes + a tag**. **No digest pin, no digest gate** — identity = `K == 256` ∧ all-SPD ∧ `det > 0` ∧ the tag. The operator law on internal pins is absolute.
-- **Instance home:** the contract carries the TYPE; the loaded INSTANCE must live where files can be read and where `set_sigma` is called — `cognitive-shader-driver` (owner of `MailboxSoA.sigma`), **not** `lance-graph-cognitive` (which the splat proxy names but which holds nothing). Recommendation only; the crate that owns the column should own the loader.
+- **Instance home:** the contract carries the TYPE; the loaded INSTANCE must live where files can be read and where `set_sigma` is called — `cognitive-shader-driver` (owner of `MailboxSoA.sigma`), **not** `lance-graph-cognitive` (which the splat proxy names but which holds nothing). Recommendation only; the crate that owns the column should own the loader. **Owner: W-7 / `D-OIF-7` (§7) — not W-2**, whose scope is the contract type and the `jc` builder only.
 - Gates: G1 `from_le_bytes(to_le_bytes(cb)) == cb` bit-exact; G2 a non-SPD entry is **refused** at load (can-fire) and a valid table is not (stay-silent); G3 `nearest` returns the entry's own index for each of the 256 entries (identity), and a perturbed entry returns its unperturbed neighbour (discrimination); G4 the emitted table from the probe's fixed SEED is byte-stable across two runs (determinism).
 
 ### 4.5 D-OIF-3 — the first writer of a non-zero σ (gated on D-OIF-2-DEC)
@@ -172,13 +179,14 @@ Whichever provenance the decision picks, the first writer is the ingest/write pa
 
 ## 6. Sequencing
 
-```
+```text
 D-OIF-0  probe re-run (jc, seconds)            ── unconditional, first
 D-OIF-1  policy_hash_v1 body                   ── independent; needs D-OIF-1-DEC (hash + key)
 D-OIF-4  ewa_sandwich_x8 (jc)  ┐
 D-OIF-5  hop re-quant probe   ┘ paired         ── D-OIF-5 arm 1 needs no artifact
 D-OIF-2  SigmaCodebook type + builder + home   ── needs D-OIF-2-DEC (fitted vs declared)
 D-OIF-3  first σ writer                        ── needs D-OIF-2 + D-OIF-2-DEC
+D-OIF-7  loaded instance + loader (cognitive-shader-driver) ── needs D-OIF-2; W-7
 D-OIF-6  IDEAS ledger: 4 entries + 3 flips     ── THIS PR
 ```
 
@@ -192,6 +200,7 @@ Every brief starts with `sonnet-worker-guardrails.md` §1 **verbatim**, then: *R
 - **W-4 (D-OIF-4)** — files: `crates/jc/src/ewa_sandwich.rs` (append only below the existing kernel), `crates/jc/examples/ewa_sandwich_bench.rs` (new). Spec: §3.2; **no `mul_add`, ever**; same op order per lane as `:185-199`. Tests: §3.5 G1-G2 with the disable named. STOP if any test needs a tolerance — that is a bug, not a tolerance.
 - **W-5 (D-OIF-5)** — files: `crates/jc/src/sigma_hop_requant_probe.rs` (new), `crates/jc/src/lib.rs` (one `pub mod` line + one pillar-table entry, `lib.rs:150-185` shape). Spec: §3.4. Output: the table `n → (exact growth, requantized growth, bound, PASS/FAIL)` printed by `prove`.
 - **W-2 (D-OIF-2, after D-OIF-2-DEC)** — files: `crates/lance-graph-contract/src/sigma_propagation.rs` (type + loader + boundary check, zero deps), `crates/jc/src/sigma_codebook_probe.rs` (emitter arm). Spec: §4.4, gates G1-G4.
+- **W-7 (D-OIF-7, after D-OIF-2)** — files: `crates/cognitive-shader-driver/src/sigma_codebook.rs` (new — the loaded INSTANCE: read LE bytes + tag, construct the contract `SigmaCodebook` through its boundary SPD check, expose `&'static`/`Arc` access to the driver), `crates/cognitive-shader-driver/src/lib.rs` (one `pub mod` line). Spec: §4.4 "Instance home". Gates: G2 (a non-SPD table is REFUSED at load; a valid one is not) and G4 (byte-stable across two loads) re-run THROUGH the loader, plus a can-fire/stay-silent pair on tag mismatch. Does NOT touch `mailbox_soa.rs` or `backing.rs` — the first writer is D-OIF-3's.
 - **W-0 (D-OIF-0)** — no edits: the orchestrator runs `cargo run -p jc --example sigma_probe` itself and records the result (§4.3). Not a worker task.
 
 Orchestrator gates after the fleet lands: `cargo fmt -p <crate>`, `cargo clippy -p <crate> --all-targets -- -D warnings` per touched crate (`-p`, never `--all` — `tesseract-rs`'s lesson), `cargo test -p <crate>` with the feature sets named above, plus the two board gates and `supersession_index.py` regenerated LAST.

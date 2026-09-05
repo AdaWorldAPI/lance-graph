@@ -1,7 +1,8 @@
 ## 2026-09-05 — E-A-COLUMN-OF-INDICES-INTO-A-CODEBOOK-THAT-DOES-NOT-EXIST-1 — three stale idea cards, each wrong about its own blocker
 
 **Status:** FINDING (structural — grep + read of the current tree; nothing compiled). Plan: `.claude/plans/open-ideas-fetch-v1.md`.
-**Confidence:** High on every "exists / does not exist / has N callers" claim below; each carries file:line.
+**Confidence:** High. Existence and absence claims carry file:line. Caller/reader counts are **grep censuses**, stated as such with their scope: `crates/lance-graph-callcenter/src/vsa_udfs.rs:574` (`register_vsa_udfs`) has zero call sites outside its definition across `crates/**/*.rs`; `ewa_sandwich(` has zero call expressions outside `crates/jc/` and `sigma_propagation.rs`; the only σ writers are `crates/cognitive-shader-driver/src/backing.rs:310` (`set_sigma`, the shim loop) and `crates/cognitive-shader-driver/src/backing.rs:347` (`set_sigma`, a test); the only σ readers are `crates/lance-graph-planner/examples/blw_tenant.rs:190` (`o.sigma[row]`) and `crates/lance-graph-planner/examples/blw_rows.rs:289` (`o.sigma[row]`). Nothing compiled.
+**Deliverables (plan `open-ideas-fetch-v1`):** `D-OIF-0` `D-OIF-1` `D-OIF-1-DEC` `D-OIF-2` `D-OIF-2-DEC` `D-OIF-3` `D-OIF-4` `D-OIF-5` `D-OIF-5-DEC` `D-OIF-6` `D-OIF-7`.
 
 Fetching the three highest-value Open cards from an 82-day-stale `IDEAS.md` produced the same shape three times: **the card names a blocker that is not the blocker.**
 
