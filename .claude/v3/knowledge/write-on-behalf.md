@@ -5,7 +5,7 @@
 > ladybug-rs), and any session adding a write path to SoA rows / Lance
 > datasets / tenant lanes.
 
-## Status: FINDING (operator-ruled 2026-07-02; batch writer + `owner_adapter` write-on-behalf cast SHIPPED 2026-08-01; `cycle_driver.rs` `cognitive_pass` is the existing production caller of `emit_bootstrap_intent` — HashMap-probe-fleet-driven; the first ACTOR-OWNED `KanbanActor` caller is the open W1 work, plan `kanban-64k-inverted-awareness-v1` D-KIA-A1) ⊘ **STALE (2026-09-05):** `KanbanActor` was deleted 2026-08-05; there is no actor-owned caller to await — see `LATEST_STATE.md:1860`.
+## Status: FINDING (operator-ruled 2026-07-02; batch writer + `owner_adapter` write-on-behalf cast SHIPPED 2026-08-01; `cycle_driver.rs` `cognitive_pass` is the existing production caller of `emit_bootstrap_intent` — HashMap-probe-fleet-driven; the first ACTOR-OWNED `KanbanActor` caller is the open W1 work, plan `kanban-64k-inverted-awareness-v1` D-KIA-A1) ⊘ **STALE (2026-09-05):** the `KanbanActor` actor was deleted 2026-08-05; there is no actor-owned caller to await — see `LATEST_STATE.md:1860`. (`kanban_actor.rs` itself is live as the read-only `PhaseCensus`/`mul_target` surface.)
 
 ---
 
