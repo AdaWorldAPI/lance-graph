@@ -1,6 +1,6 @@
 # nexgen-mask-histogram-thresholds-v1 — the exposure meter is a nested mask set
 
-**Status:** PROPOSAL (2026-09-05). Nothing below is built or measured.
+**Status:** IN PROGRESS (2026-09-05). §5 steps 1–4 GREEN; D-NXG-1/4/5 shipped in #1181 (`planner::nested_bands`, `contract::shape_rank`, `jc::stats::fisher_2z`); D-NXG-3 lives inside `NestedBands::split` (not promoted to T1); rooms 9–27 of §3 remain PROPOSAL and unmeasured.
 **D-ids:** D-NXG-1 … D-NXG-12 (rows on `.claude/board/STATUS_BOARD.md`).
 **Evidence:** `.claude/nexgen/harvest/` (11 verbatim agent reports, 2026-09-05).
 **Board block:** `.claude/board/EPIPHANIES.md` 2026-09-05 `E-NXG-*` (16 entries).
@@ -64,6 +64,9 @@ at every membrane without losing a reading.
 - Adds (D-NXG-3): a `bisect_column_by_mask(col: &[u16], within: &[u64], target_popcount) -> boundary`
   partial-popcount bisection. This is the one primitive that reads a value
   column, and it must stay a T1 NAME so T2 never spells it out of a sort.
+  *(2026-09-05: shipped as the private bisection inside `NestedBands::split`,
+  NOT as a T1 name — it is a gather-and-popcount loop, not a lane op; see §6
+  and E-NXG-21. The T1 claim above is the original proposal, kept for the record.)*
 - Entropy: +1 or +2 names. Every T2 concept below is expressible in the existing
   eight immediates plus these.
 
@@ -178,11 +181,11 @@ falsifier that would kill it. Ordered by how many rooms ahead it sits.
 
 | D-id | deliverable | status |
 |---|---|---|
-| D-NXG-1 | `NestedBands` sealed shape (T2), version-keyed, one owner | In progress (structure measured, E-NXG-17) |
+| D-NXG-1 | `NestedBands` sealed shape (T2), version-keyed, one owner | Shipped 2026-09-05 (`planner/src/nested_bands.rs`, E-NXG-21) |
 | D-NXG-2 | T1 name audit: `popcount_words` present or minted; bucket = `mask_ternlog::<0x10>` by name | Queued |
-| D-NXG-3 | T1 `bisect_column_by_mask` partial-popcount bisection | Queued |
-| D-NXG-4 | Prozentrang = bucket index; `shape × rank` computed from the slab | Queued |
-| D-NXG-5 | rollover: split on budget or entropy, merge on collapse, never rewrite | Queued |
+| D-NXG-3 | T1 `bisect_column_by_mask` partial-popcount bisection | Lives in `NestedBands::split`; not promoted to T1 (not a lane op, E-NXG-21) |
+| D-NXG-4 | Prozentrang = bucket index; `shape × rank` computed from the slab | Shipped 2026-09-05 into the D-BLW-5 payload (E-NXG-22) |
+| D-NXG-5 | rollover: split on budget or entropy, merge on collapse, never rewrite | Shipped 2026-09-05 — both arms, budget leads (E-NXG-19/21) |
 | D-NXG-6 | rank-derived reject floor; σ demoted to diagnostic | Queued |
 | D-NXG-7 | preheat by mask inheritance | Queued |
 | D-NXG-8 | one early-exit rule for search and alarm | Queued |
