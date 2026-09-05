@@ -1,3 +1,80 @@
+## 2026-09-05 — E-PLANNING-MIGRATES-TO-LOCO-R2IL-DATAFUSION-IS-GRACE-PERIOD-1 (OPERATOR-RULED)
+
+**Status:** operator-ruled, BINDING (2026-09-05, verbatim intent: *"Every planning is in migration to ogar-loco and ogar-r2il, especially datafusion is out of the picture, what exists gets a grace period, nothing new will migrate to it."*)
+**Confidence:** High on the ruling; the census it lands on is E-THE-UNFINISHED-UDF-WAS-NOT-THE-DEBT-1 (same day).
+
+**The ruling.** Planning / orchestration / execution is migrating to `ogar-loco` (the
+vocabulary-agnostic call ABI: every 12-byte payload read as `(function : value)` calls
+into 256×256 tables) and `ogar-r2il` (the always-on R2IL vocabulary, EXECUTED by
+r2sleigh's interpreter, never pre-converted). **DataFusion is out of the picture as a
+target.** What exists on DataFusion today — `datafusion_planner`, `sql_query`, the
+Python bindings' `SessionContext`, `graph_table`, `rls.rs`, the `query`/`query-lite`
+features — gets a **grace period**: maintained, tested, not extended. **Nothing new
+migrates to it.** A plan, card, or PR that names DataFusion as the home of NEW
+behaviour (a rewrite rule, a UDF, a dispatcher, a policy VM, a projection seam) is
+stale on arrival.
+
+**Consequences, stated so they cannot blur:**
+- **D-OIF-1 is ruling A (SUPERSEDED / REMOVE) with no replacement seam in DataFusion.**
+  The census (same day) had left one door open — "the planner's scan taking the
+  authorized column list" — as the legitimate place DataFusion would receive a
+  `ClassView × WideFieldMask` projection. That door is closed by this ruling: the
+  authorized projection is consumed by Lance reads and by loco programs, never by a new
+  DataFusion operator. `policy.rs` (`PolicyRewriter`, `ColumnMaskRewriter`,
+  `NotYetWiredHashUdf`, `policy_hash_v1`, the encryption/DP stubs) is a retirement
+  cone, and the hash-family question is moot.
+- **Forward-stubs pointing at DataFusion are vacancies under grace, not backlog:**
+  `datafusion-dispatch` (`postgrest.rs` `parsed_query_to_plan`), `datafusion-plan`
+  (`audit_from_plan`), `register_policy_udfs`/`register_vsa_udfs`-style registration
+  helpers, `MembraneRegistry::with_rls`. They are not to be completed; they are to be
+  regraded and, when their grace period ends, removed with their cone.
+- **`rls.rs` (`RlsRewriter`) is grace-period duplicate of `ClassRbac::row_scope`.**
+  Row scope is enforced on the canonical path (`authorize → {scope, mask}`) or not at
+  all — never by adding a second optimizer rule.
+- **The Python bindings' raw `SessionContext` path is grace-period.** It is the only
+  shipped live-query surface today and carries no policy step; it is not the reason
+  to build one.
+- **The layer map the D-OIF-1 census verified stands:** lifecycle = SoA-owned
+  Kanban/Rubicon (`try_advance_phase`); action semantics = OGAR `ActionDef`/`ActionState`;
+  authorization = `ClassRbac` × `ClassView` × `WideFieldMask` (transport-only today,
+  enforcement is the missing implementation); execution/reasoning = loco/r2il;
+  storage/query = Lance, with DataFusion in grace. No layer impersonates another.
+
+Cross-refs: `.claude/board/exec-runs/d-oif-1-census-main-thread.md` (the census that
+this ruling landed on); `open-ideas-fetch-v1` (#1185, D-OIF-1 to be re-graded there);
+`ogar-loco` / `ogar-r2il` crate docs (OGAR); E-LANCE-IS-UPSTREAM-AUTHORITATIVE-1 (Lance
+stays; only DataFusion is in grace).
+
+## 2026-09-05 — E-THE-UNFINISHED-UDF-WAS-NOT-THE-DEBT-1 — D-OIF-1 re-derived: the execution model that needed `policy_hash_v1` never reached production
+
+**Status:** FINDING (production census 2026-09-05, four symbol groups traced from real entry points; full table in `.claude/board/exec-runs/d-oif-1-census-main-thread.md`). Ruling for #1185: **A — SUPERSEDED / REMOVE**.
+**Confidence:** High — every classification is a grep-backed call-path fact, not a reading of a `pub mod`.
+
+`policy_hash_v1` sat for months as "not yet registered," and every plan (including
+#1185 §2) read the missing body as the debt. The census shows the debt was upstream:
+the model that made a masking UDF necessary — materialize the forbidden column, then
+transform it inside DataFusion's optimizer — never acquired a production caller. The
+whole `policy.rs` framework is constructed only inside `#[cfg(test)]`; no file in the
+repo calls `add_optimizer_rule` / `add_analyzer_rule`; no binary or handler imports
+`callcenter::policy`; the only shipped live-query surface (the Python bindings'
+`SessionContext`, `graph.rs:1208,1518`) has no policy step and never asked for one; the
+server binaries that could carry the chain are off by default and absent from CI. The
+canonical model makes a forbidden field ABSENT from the projection (`ClassView ×
+WideFieldMask`, real in `ogar-doc-ir::project::field_mask`) instead of present-then-
+hashed. A stub that fails loud is honest about its wiring and silent about the wiring's
+reason; "loud > silent" protected a hole nobody was going to fall into.
+
+**Also measured:** RBAC enforcement on the canonical path is TRANSPORT ONLY —
+`authorize()`, `ClassRbac`, `OgarRbac` have zero non-test callers, `field_mask` still
+returns `FieldMask::FULL` (charter C1.4 retype not done), `medcare_actor.rs:100` is a
+`// TODO`; there is no `ogar-rbac` crate (the machinery lives in `lance-graph-contract::rbac`
++ `lance-graph-rbac` + `lance-graph-ogar::rbac_impl`). Lifecycle is SoA-owned exactly as
+ruled: the single phase write is `MailboxSoA::advance_phase` via the checked
+`try_advance_phase`, applied at seal by `cycle_driver.rs`; `KanbanActor` is a tombstone;
+baton/emission survive only in prose. `ogar-loco` / `ogar-r2il` touch neither RBAC nor
+kanban. **Test for the next card:** before completing a stub, find the caller that would
+have been harmed by its absence. No caller, no debt.
+
 ## 2026-09-05 — E-BLW5-FIRST-MEASUREMENT-1 — the observer-effect instrument is alive, and every pre-registered gate reads SILENT
 
 **Status:** MEASURED (`crates/lance-graph-supervisor/tests/d_blw_5_observer.rs`, one run, 40 owners 1:1, synthetic corpus, recorded run 4 after three dry runs — all numbers below are from the recorded run; the dry runs are listed, not hidden).

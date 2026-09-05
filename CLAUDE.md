@@ -1014,6 +1014,16 @@ Architecture:
   (crewai-rust / n8n-rs = EVICTED 2026-06-21 — agent + workflow-DAG roles folded
    into ladybug-rs + the in-tree thinking-engine; no longer consumers)
 
+> **⊘ OPERATOR RULING 2026-09-05 — planning migrates to `ogar-loco` / `ogar-r2il`;
+> DataFusion is in GRACE PERIOD.** *"Every planning is in migration to ogar-loco and
+> ogar-r2il, especially datafusion is out of the picture, what exists gets a grace
+> period, nothing new will migrate to it."* Every DataFusion-hosted surface below
+> (`datafusion_planner`, `sql_query`, Python `SessionContext`, `rls.rs`, `query`/
+> `query-lite`, the `datafusion-*` forward-stubs) is maintained, not extended; new
+> behaviour lands in loco/r2il programs or on Lance directly. Board:
+> E-PLANNING-MIGRATES-TO-LOCO-R2IL-DATAFUSION-IS-GRACE-PERIOD-1. Lance itself is
+> unaffected (E-LANCE-IS-UPSTREAM-AUTHORITATIVE-1).
+
 Dependency chain:
   ladybug-rs ──► lance-graph-contract (traits)
   in-tree    ──► lance-graph-contract (planner / callcenter / smb-bridge; symbiont ⊘ DEPRECATED 2026-08-18, operator no-go)
