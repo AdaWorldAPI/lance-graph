@@ -1,3 +1,11 @@
+## 2026-09-05 — lance-graph PR #1181 (merged `80dbcc35`, branch `claude/pr-294-ragged-path-validation-170zcy`) — NestedBands sealed + the D-BLW-5 `shape × rank` payload
+
+- **Added:** `lance_graph_planner::nested_bands` (D-NXG-1/5: `NestedBandsBuilder` quantile / equal-width / explicit ladders, `NestedBands` with `rank`, `entropy`, `budget`, `split`/`merge` returning a NEW version, `best_achievable_floor`, `moments`, `sigma_exact`, `shape_rank`); `lance_graph_contract::shape_rank` (D-NXG-4: `ShapeRankPayload{shape:[u64;16], rank:u8, version}`, `RemeasureKey`, `RemeasureLedger` with `AlreadySealed` + `VersionMismatch`); `jc::stats::{fisher_2z, fisher_2z_inv}`.
+- **Locked:** the D-BLW-5 payload law in code — the DTO carries `shape₀ × rank₀`, never the raw statistic; sealed once per `(stat_id, arm, cohort, metric, dataset_version)`; a payload whose frozen version differs from the key is refused. Top band is the universe (E-NXG-18); bucket-0 split bound is the column minimum, not 0 (signed columns).
+- **Review arc:** CodeRabbit round 1 — six findings, all verified real, fixed in `7d9e03a3` (version guard, negative split, three length asserts, doc/title/plan wording); the seventh (builder panics → `Result`) declined with reason and accepted by the bot. The three tests the guard broke were fixture bugs, aligned not weakened.
+- **Deferred:** the D-BLW-5 LOOP (four arms, bloom criterion, supervisor test file) stays PAUSED — only the payload half was relaunched. `out_of_support` bit on the DTO (E-NXG-22) awaits operator ruling. TD-JC-CLIPPY-RED-ON-BASE-1 filed, resolved in the follow-up PR.
+- **Confidence:** High on the contract semantics (tests + bot-verified); Medium on `shape_rank` being the right producer shape for the F± arms, which nothing has exercised.
+
 ## 2026-09-05 — lance-graph PR #1177 (merged `eb84b275`, branch `claude/bindspace-soa-wiring-plan-2026-09`) — the BindSpace→MailboxSoA migration, re-derived from the tree
 
 - **Added:** `.claude/plans/bindspace-mailbox-soa-wiring-v1.md` (D-BSW-0..4) + its `STATUS_BOARD` section + an `INTEGRATION_PLANS` index entry. DOC/BOARD ONLY — no code, nothing compiled, no `cargo` at any point (V3 worker rule 7).

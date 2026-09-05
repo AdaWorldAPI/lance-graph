@@ -54,7 +54,7 @@
 //! - μ = I (identity) is both the population mean and each μ_k by construction
 //! - Heteroscedastic: σ_k = 0.3 / √(k+1) — variance shrinks per sample index
 //! - X_k = R(θ_k) · diag(exp(σ_k·n1), exp(σ_k·n2)) · R(θ_k)ᵀ
-//!     with θ_k uniform on [0,π) and n1, n2 ~ N(0,1) iid
+//!   with θ_k uniform on [0,π) and n1, n2 ~ N(0,1) iid
 //! - Var(X_k) = E[d²(X_k, μ_k)] = 2 σ_k²  (rotational symmetry argument)
 //! - Σ d(μ_k, μ) = 0  (we set μ_k = μ = I, so the 6·D_n term vanishes)
 //! - Predicted bound therefore reduces to (1/n²) · Σ Var(X_k) = (2/n²) · Σ σ_k²
@@ -256,7 +256,7 @@ pub fn prove() -> PillarResult {
 
     // Monte Carlo estimate of E[d²(S_n, I)].
     let mu = Spd2::I;
-    let mut state: u64 = 0xC0FFEE_BEEF_5EED;
+    let mut state: u64 = 0xC0_FFEE_BEEF_5EED;
     let mut sum_sq_dist = 0.0f64;
     let mut samples_buf = Vec::with_capacity(N_SAMPLES);
 

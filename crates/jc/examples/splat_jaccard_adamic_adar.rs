@@ -21,11 +21,11 @@
 //! ## What this probe proves
 //!
 //! 1. **Jaccard reduces to L2 popcount-AND / popcount-OR:**
-//!      J(u, v) = |N(u) ∩ N(v)| / |N(u) ∪ N(v)|
-//!              = popcount(plane[u] AND plane[v]) / popcount(plane[u] OR plane[v])
+//!    `J(u, v) = |N(u) ∩ N(v)| / |N(u) ∪ N(v)|
+//!    = popcount(plane[u] AND plane[v]) / popcount(plane[u] OR plane[v])`
 //! 2. **Adamic-Adar reduces to L2 AND-iter + L1 popcount:**
-//!      AA(u, v) = Σ_{w ∈ N(u) ∩ N(v)} 1 / log(|N(w)|)
-//!              = sum over set bits of (plane[u] AND plane[v]) of 1/log(degree[w])
+//!    `AA(u, v) = Σ_{w ∈ N(u) ∩ N(v)} 1 / log(|N(w)|)
+//!    = sum over set bits of (plane[u] AND plane[v]) of 1/log(degree[w])`
 //! 3. **Same-community pairs score measurably higher** on both metrics
 //!    than cross-community pairs (the "found edges" signal).
 //! 4. **Mutate-back is one-pass:** for top-K most-similar pairs, deposit
@@ -70,6 +70,7 @@ fn or_popcount(a: &AwarenessPlane16K, b: &AwarenessPlane16K) -> u32 {
     acc
 }
 
+#[allow(dead_code)] // documented L2 AND-iter shape; kept beside the popcount path it explains
 fn iter_set_bits(p: &AwarenessPlane16K, mut f: impl FnMut(u32)) {
     for (word_idx, &word) in p.0.iter().enumerate() {
         let mut w = word;
@@ -92,7 +93,9 @@ fn splitmix64(state: &mut u64) -> u64 {
 // ── planted graph (same template as LPA + Louvain probes) ──────────────────
 
 struct PlantedGraph {
+    #[allow(dead_code)] // planted-graph descriptor; read by the sibling probes
     n: u32,
+    #[allow(dead_code)]
     k_communities: u32,
     ground_truth: Vec<u16>,
     planes: Vec<AwarenessPlane16K>,

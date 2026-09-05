@@ -1,3 +1,8 @@
+## 2026-09-05 — PR #1181 MERGED (`80dbcc35`) + jc clippy sweep — INVENTORY DELTA
+
+- **Merged:** #1181 — `contract::shape_rank` (`ShapeRankPayload`, `RemeasureKey`, `RemeasureLedger`, `RemeasureError::{AlreadySealed, VersionMismatch}`) and `planner::nested_bands` are on `main`. Consumers today: none outside the two crates' own tests — the D-BLW-5 loop that would inject the payload is PAUSED. See `PR_ARC_INVENTORY.md` 2026-09-05 #1181 entry.
+- **jc:** `cargo clippy --manifest-path crates/jc/Cargo.toml --all-targets -- -D warnings` is green on `main` for the first time (TD-JC-CLIPPY-RED-ON-BASE-1 RESOLVED); `jc-proof.yml` now runs that command, same arming as sigker.
+
 ## 2026-09-05 — branch (D-NXG-4 → D-BLW-5, producer half): the payload has a producer and a transform — INVENTORY DELTA
 
 - ADDED `lance_graph_planner::nested_bands::{Z2_SCALE, quantize_2z}`, `NestedBandsBuilder::calibrate_equal_width` (the D-BLW-5 design's equal-width-in-2z ladder, beside the equal-mass `calibrate`), `NestedBands::shape_rank(observed, V₀) -> ShapeRankPayload` (asserts 16 bands). Five tests, one on a REAL pooled prior (92 speech frames' lag-1 autocorrelation).

@@ -59,7 +59,7 @@
 //!
 //! - 1000 paths × 10 hops, σ_step = 0.2, PSD eps = 1e-12
 //! - Same splitmix64/rand_uniform/rand_normal RNG declared locally
-//! - SEED = 0xEDA_5A_DC_5A_DD (one byte higher than Pillar 6's 0xEDA_5A_DC_5A_DC)
+//! - SEED = 0xEDA_5ADC_5ADD (one byte higher than Pillar 6's 0xEDA_5A_DC_5A_DC)
 //! - Σ_0 = I; each hop: step ~ from_scale_quat(exp-normal scales, uniform quat)
 //! - M = sqrt(step); Σ_{n+1} = M · Σ_n · Mᵀ
 
@@ -67,7 +67,7 @@ use crate::PillarResult;
 
 const N_PATHS: usize = 1_000;
 const PATH_LENGTH: usize = 10;
-const SEED: u64 = 0xEDA_5A_DC_5A_DD;
+const SEED: u64 = 0xEDA_5ADC_5ADD;
 
 // ════════════════════════════════════════════════════════════════════════════
 // Deterministic RNG (consistent with other pillars)
@@ -438,6 +438,7 @@ fn sample_step_sigma(state: &mut u64, sigma_step: f64) -> Spd3 {
 
 #[derive(Clone, Copy, Debug)]
 struct PathResult {
+    #[cfg_attr(not(test), allow(dead_code))]
     final_sigma: Spd3,
     log_norm_sq: f64,
     psd_hops: usize,
