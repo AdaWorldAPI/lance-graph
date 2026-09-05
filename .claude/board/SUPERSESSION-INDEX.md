@@ -61,7 +61,7 @@ coverage instead.
 | `MergeMode` | REPURPOSE | — | 8 | 13 | 12 |
 | `ResonanceDto` | REPURPOSE | `PerturbationDto` | 2 | 12 | 7 |
 | `BindSpace` | RETIRE | — | 68 | 47 | 41 |
-| `CollapseGateEmission` | RETIRE | — | 5 | 13 | 12 |
+| `CollapseGateEmission` | RETIRE | — | 5 | 14 | 12 |
 | `ThinkingStyle` | RETIRE-toward-contract | — | 51 | 28 | 24 |
 
 ## Table 2 — plans naming a ruled symbol without citing the ruling (73)
