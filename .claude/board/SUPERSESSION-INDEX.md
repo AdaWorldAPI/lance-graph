@@ -52,8 +52,8 @@ coverage instead.
 | `A2AMessage` | BLOCKED | — | 2 | 1 | 0 |
 | `StepMask` | BLOCKED | — | 3 | 9 | 4 |
 | `commit_to_l4` | BLOCKED | — | 2 | 2 | 0 |
-| `dispatch_busdto` | BLOCKED | — | 3 | 7 | 5 |
-| `persist_cycle` | BLOCKED | — | 10 | 7 | 5 |
+| `dispatch_busdto` | BLOCKED | — | 3 | 8 | 5 |
+| `persist_cycle` | BLOCKED | — | 10 | 8 | 5 |
 | `CognitiveMarkers` | REPURPOSE | `Commit` | 1 | 0 | 0 |
 | `DominoCascade` | REPURPOSE | `Commit` | 7 | 1 | 0 |
 | `GateDecision` | REPURPOSE | — | 25 | 27 | 24 |

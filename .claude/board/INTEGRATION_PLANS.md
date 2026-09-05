@@ -1,3 +1,29 @@
+## lance-convergence-staged-migration-v1 (2026-09-05) — MEASURED, stages 0–1 ready, stage 3 PROBE-GATED
+
+`.claude/plans/lance-convergence-staged-migration-v1.md`. The staged lance
+9→10→11 migration plus the five convergence seams (rows-vs-region mask, time
+travel, WAL, ACID/commit, zero-copy), each read against the CURRENT tree and
+against crates.io / lance-format release bodies dated 2026-09-05. D-LNC-0..7.
+
+Headline: **the arrow/datafusion ceiling is not ours and does not move with
+lance** — lance 9/10/11 and lancedb 0.33/0.37.1/0.38.0 ALL require
+`arrow ^58` / `datafusion ^54`, so 58/54 is the LATEST compatible pair and a
+lancedb bump buys only a newer lance major. This repo's nine-call lance
+surface is untouched by all nine breaking changes; the real exposure is
+SEMANTIC (lance 11 clusters on row identity, the axis this substrate
+addresses rows by) — hence D-LNC-2, a pre-registered row-identity probe,
+gates D-LNC-3. Rests on operator rulings R2 (everything wires to SoA V3;
+CE64-adjacent as ALU legacy) and R3 (no locks; pins only for the four, at
+the major — landed as #1182, D-LNC-0).
+
+The sharpest finding: the in-house WAL (`LanceCycleWriter implements WalSink`,
+watermark-idempotent replay) and lance 11's MemWAL carry the SAME concept
+(`applied_through` ≡ index catch-up position); enabling MemWAL underneath
+would be two WALs under one commit — **D-LNC-7 is an operator ruling, not an
+engineering call.** Two zero-copy violations found on OUR side
+(`VersionedGraph::diff` materializes two versions; `read_all_batches`).
+§7 keeps four mid-pass corrections rather than overwriting them.
+
 ## 2026-09-05 — `bindspace-mailbox-soa-wiring-v1` (MEASURED, ready-to-execute)
 
 `.claude/plans/bindspace-mailbox-soa-wiring-v1.md`. The BindSpace → MailboxSoA
