@@ -1,3 +1,10 @@
+## 2026-09-05 — D-NXG-1 `NestedBands`: one Sonnet worker from spec, orchestrator-gated
+
+- **Why:** operator "Go ahead autoattended" + "Sonnet agents for grindwork" after the three probes merged. D-NXG-1 is a write-this-file-from-spec unit: bounded input (a 134-line spec naming every type, method and test), known output shape.
+- **Split:** orchestrator wrote the spec (types, signatures verified against `ndarray/src/simd_int_ops.rs` + `bitwise.rs` + `contract/src/thought_atoms.rs`, twelve named tests on the three real recordings); one Sonnet `general-purpose` worker wrote the 711-line file, edit-only, no cargo, and corrected the spec's `include_bytes!` path (three levels up, not four — verified with `ls`, reported). Orchestrator registered the module in `lib.rs` and ran every gate in the shared `target/`.
+- **Gates:** first run 10/12 — both failures were SPEC errors the worker faithfully reproduced (a pinned floor value one row over the target; a sign-assumed σ assertion). Both fixed in the tests to the strict definitions, recorded in E-NXG-21. One clippy `-D warnings` (test-only import) moved into the tests module. Final: `nested_bands` 12/12, planner lib suite green, clippy clean, fmt clean, append-only + citation-decay + plan-dids gates local, supersession index regenerated last.
+- **Board:** E-NXG-21; STATUS_BOARD D-NXG-1/3/5 rows; plan §6 rows.
+
 ## 2026-09-05 — PROBE-NXG-ROLL-1 + PROBE-NXG-FLOOR-1: orchestrator-only, three falsifications kept
 
 - **Why:** operator "fast forward" after #1178 merged. Plan §5 steps 3 and 4, the last two gates before rooms 4–8 may leave PROPOSAL.

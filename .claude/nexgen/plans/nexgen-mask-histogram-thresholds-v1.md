@@ -178,11 +178,11 @@ falsifier that would kill it. Ordered by how many rooms ahead it sits.
 
 | D-id | deliverable | status |
 |---|---|---|
-| D-NXG-1 | `NestedBands` sealed shape (T2), version-keyed, one owner | In progress (structure measured, E-NXG-17) |
+| D-NXG-1 | `NestedBands` sealed shape (T2), version-keyed, one owner | Shipped 2026-09-05 (`planner/src/nested_bands.rs`, E-NXG-21) |
 | D-NXG-2 | T1 name audit: `popcount_words` present or minted; bucket = `mask_ternlog::<0x10>` by name | Queued |
-| D-NXG-3 | T1 `bisect_column_by_mask` partial-popcount bisection | Queued |
+| D-NXG-3 | T1 `bisect_column_by_mask` partial-popcount bisection | Lives in `NestedBands::split`; not promoted to T1 (not a lane op, E-NXG-21) |
 | D-NXG-4 | Prozentrang = bucket index; `shape × rank` computed from the slab | Queued |
-| D-NXG-5 | rollover: split on budget or entropy, merge on collapse, never rewrite | Queued |
+| D-NXG-5 | rollover: split on budget or entropy, merge on collapse, never rewrite | Shipped 2026-09-05 — both arms, budget leads (E-NXG-19/21) |
 | D-NXG-6 | rank-derived reject floor; σ demoted to diagnostic | Queued |
 | D-NXG-7 | preheat by mask inheritance | Queued |
 | D-NXG-8 | one early-exit rule for search and alarm | Queued |

@@ -1,3 +1,42 @@
+## 2026-09-05 — E-NXG-21 — `NestedBands` sealed: the three probes became one type and twelve tests, and two of the probes' numbers were one row and one sign off
+
+**Status:** SHIPPED (`crates/lance-graph-planner/src/nested_bands.rs`, D-NXG-1; merge arm of D-NXG-5; room 3 closed by moments).
+**Confidence:** High — 12/12 tests on the same three real recordings the probes used, planner lib suite green.
+
+`NestedBandsBuilder::{new, budget_factor, calibrate, with_boundaries}` seals a
+`NestedBands` (version, boundaries, band masks, bucket masks, popcounts).
+Every method is `&self`; `split` and `merge` return NEW values under a new
+version and the original is asserted unchanged (data-flow rule, one writer at
+build). The top band is the universe by construction (E-NXG-18 is now a type
+invariant, not a probe caveat). `overflow()` is the budget test (E-NXG-19),
+`collapsed()` is the merge-on-collapse arm — it fires when speech boundaries
+meet the quiet recording and stays silent on the calibration epoch; `merge`
+removes one boundary and the merged popcount equals the pair's sum.
+`best_achievable_floor` is E-NXG-20's floor by bisection over
+`gt_i32_to_mask` + popcount, no sort.
+
+**Two corrections the type forced on the probes' numbers.** (1) The strict
+floor — the SMALLEST value whose exceedance is ≤ the rate — lands at 15 077 on
+speech, not the probe's 15 072: the probe's rank floor sat one row OVER the
+target (473/94 572 = 0.0050015) inside its ±1/n tolerance. A floor with a row of
+slack is not "never exceeds"; the type has no slack and the test pins both the
+literal and a sorted-copy reference. (2) The midpoint-σ estimator is not even
+sign-stable: with the stale top boundary it over-read by 12 % (E-NXG-17); with
+the last boundary as the top bucket's midpoint it under-reads by 7 %
+(3 525.8 vs 3 785.8). An open-ended top bucket has no midpoint, so the
+estimator has no principled value at all. The regression guard is now
+direction-agnostic (|Δ|/σ > 5 %), and room 3 closes the other way: σ is exact
+from the seal iff the seal stores two accumulators per bucket (`BucketMoment
+{count, sum, sumsq}`, 16 B/bucket) — `sigma_exact` matches the direct σ to
+1e-9. "Recoverable for free" was wrong; "recoverable for 256 bytes" is right.
+
+**Not done, on purpose.** D-NXG-3 (`bisect_column_by_mask`) lives inside
+`NestedBands::split`, not as a named `ndarray::simd` primitive: it is a
+memory-bound gather-and-popcount loop, not a lane op, and the W1a contract's
+all-backends parity requirement would be ceremony for a scalar. Promotion, if
+ever, is its own deliberate PR. No consumer is wired yet — the type exists, the
+first caller (D-NXG-4's `shape × rank` payload) is the next unit.
+
 ## 2026-09-05 — E-NXG-18 — the ladder's top band must BE the universe, or the histogram loses rows silently
 
 **Status:** FINDING (PROBE-NXG-ROLL-1 falsified its own first run).
