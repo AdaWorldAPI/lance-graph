@@ -114,8 +114,8 @@ falsifier that would kill it. Ordered by how many rooms ahead it sits.
 | rooms | folds from | what falls out | falsifier |
 |---|---|---|---|
 | 1 | E-NXG-1 + E-NXG-3 | **The 16-bucket histogram is a 16-bit rank code per row.** Store `bucket_index` as a u8 column when the masks are cold; the masks regenerate from it by `eq_u8_to_mask` in one sweep. Cold storage = 64 KB for 65 536 rows, not 128 KB. | regenerate masks from the u8 column and assert bit-equality with the sealed masks |
-| 2 | E-NXG-9 | **Histogram entropy is a self-timer for rollover.** `H(popcounts) → 0` triggers bisection before any bucket "overflows" numerically. Rollover becomes entropy-driven, not budget-driven. | on a bimodal distance column, entropy-triggered rollover must split earlier than budget-triggered |
-| 3 | E-NXG-4 + E-NXG-11 | **σ is recoverable from the histogram for free** (variance of bucket centres weighted by popcounts). The EWA sandwich then propagates a Σ that was never stored, only read. `RollingFloor` loses its `mu/sigma` fields. | recovered σ vs Welford σ within Jirak-rate tolerance on real facet columns |
+| 2 | E-NXG-9 | ⊘ **REGRADED 2026-09-05 (E-NXG-19): entropy LAGS the budget test by 5 steps on a real shift.** The row claimed entropy triggers rollover earlier; measured, the max-bucket extremum leads the global average. Entropy is the did-the-split-help read (0.834 → 0.912 across one split), not the is-a-split-due timer. | measured: budget step 16, entropy step 21 of 24 — PROBE-NXG-ROLL-1 |
+| 3 | E-NXG-4 + E-NXG-11 | ⊘ **REGRADED 2026-09-05: midpoint σ over-reads 12 % on quantile buckets** (E-NXG-17, heavy top bucket) — needs per-bucket means. The stronger result came from the other side: `k` does not name a rate at all and at k=3 a real column's floor is unreachable (E-NXG-20), so σ is demoted regardless of how well it is recovered. | per-bucket-mean variant, unmeasured |
 | 4 | E-NXG-7 + E-NXG-8 | **The eight named immediates are a complete cognitive ISA over masks.** AND3 narrow, AND_ANDNOT2 bucket/known-false, MAJ3 quorum, XOR3 disagreement, OR2_AND gated union. A "thinking style" at the mask level is a sequence of immediates, i.e. a byte string, i.e. a `Vocabulary` entry. This is `TERNLOG(0x86)` with its value byte read as a program. | any style in `contract::thinking` that cannot be expressed as ≤ 8 immediates over ≤ 3 masks |
 | 5 | E-NXG-12 | **Proprioception is a histogram of histograms.** Seven anchors × 16 buckets = a 7×16 popcount matrix per window. State = the row with maximum mass; drive_ratio thresholds = two boundaries in that row's `NestedBands`. The 11-dim vector and nearest-anchor distance disappear. | a window where the vector classifier and the histogram classifier disagree, resolved by which one the operator-ruled anchor set calls correct |
 | 6 | E-NXG-6 + E-NXG-2 | **Top-k and alarm are the same query.** Search asks "survivors ≤ k"; monitoring asks "survivors ≤ floor". The rolling floor IS a top-k with k = floor. `perturbation-sim`'s early-warning and `holograph`'s search share one T2 function. | one `NestedBands` driving both `stack_early_exit` and `width_16k::search` with identical exits on a shared fixture |
@@ -162,8 +162,16 @@ falsifier that would kill it. Ordered by how many rooms ahead it sits.
    buckets).
 3. PROBE-NXG-ROLL-1: rollover on a bimodal column; entropy-triggered vs
    budget-triggered split order (room 2, D-NXG-5).
+   **GREEN 2026-09-05 with C3 RESTATED** — `probe_nxg_roll_1.rs`. Budget
+   LEADS entropy by 5 steps, the reverse of room 2 (E-NXG-19). The first run
+   also falsified the ladder itself: the top band must be the universe or rows
+   above it are lost silently (E-NXG-18) — corrected and asserted against.
 4. PROBE-NXG-FLOOR-1: rank-derived floor vs `mu + 3σ` on the HHTL tiers
    fixture; measure false-alarm rate under Jirak-rate tolerance (D-NXG-6).
+   **GREEN 2026-09-05 with C1+C2 RESTATED** — `probe_nxg_floor_1.rs`, on three
+   real columns rather than an HHTL fixture (none is on disk). `k` does not name
+   a rate; at k=3 one column's floor is unreachable; the rank floor is the best
+   ACHIEVABLE boundary, exact only where the column has no ties (E-NXG-20).
 5. Only after 2–4 are green: rooms 4–8. Rooms 9–27 stay PROPOSAL until then.
 
 ## 6. D-id table

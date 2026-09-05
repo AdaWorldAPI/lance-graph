@@ -1,3 +1,13 @@
+## 2026-09-05 — PROBE-NXG-ROLL-1 + PROBE-NXG-FLOOR-1: orchestrator-only, three falsifications kept
+
+- **Why:** operator "fast forward" after #1178 merged. Plan §5 steps 3 and 4, the last two gates before rooms 4–8 may leave PROPOSAL.
+- **Columns:** three real recordings in `data/tts-cascade/` (speech 94 572 rows, saturated 61 995, quiet 24 240). The bimodal column §5 asks for is the real concatenation speech ++ saturated, two recordings whose means differ six-fold — not two Gaussians.
+- **ROLL-1:** C1 PASS (budget fires on the shift at step 16/24, silent on its own calibration epoch), C2 PASS (bisection splits inside the bucket, bands stay nested, every pre-existing mask bit-identical, max bucket 61 665 → 30 833, partition preserved), **C3 RESTATED** — the pre-registered "entropy fires first" was falsified, budget leads by five steps (E-NXG-19). Three disable runs red-then-green: revert the universe top band (C2 partition fails, both triggers go silent — E-NXG-18), no-op split (max does not shrink), budget factor 0.9 (the can-it-stay-silent twin fires).
+- **FLOOR-1:** **C1 RESTATED** (a real column's `mu+3σ` floor is unreachable — E-NXG-20), **C2 RESTATED** (ties bound the achievable rate; the ladder picks the best achievable boundary), C3 PASS (re-tuned k still 3.80× off). Two disable runs red-then-green: rank floor off by 1 % of n, and all three columns pointed at the same file.
+- **The first run of ROLL-1 found a defect in my own design** and it is now asserted against: the ladder's top band must be the universe or rows above it are lost silently (E-NXG-18).
+- **Gates:** clippy `-D warnings` on both examples clean, fmt clean, append-only + citation-decay + plan-dids run locally, supersession index regenerated last.
+- **Board:** E-NXG-18/19/20; STATUS_BOARD D-NXG-3/5/6/9 updated; plan §5 steps 3–4 marked with their verdicts and rooms 2 + 3 regraded.
+
 ## 2026-09-05 — PROBE-NXG-HIST-1: orchestrator-only, no worker spawned
 
 - **Why:** operator: "merge 1176 and start PROBE-NXG-HIST-1". #1176 merged (`a7520a15`). Plan §5 step 2 is a ~200-line probe with three pre-registered claims; briefing a worker costs more than writing it.

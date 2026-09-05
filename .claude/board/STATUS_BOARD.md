@@ -32,13 +32,13 @@ every row is Queued until PROBE-NXG-HIST-1 / ROLL-1 / FLOOR-1 (plan §5) run.
 |---|---|---|
 | D-NXG-1 | `NestedBands` sealed shape (T2), version-keyed, one owner | **In progress** — structure measured by PROBE-NXG-HIST-1 (E-NXG-17, 2026-09-05); seal/ownership shape not yet built |
 | D-NXG-2 | T1 name audit: `popcount_words` present or minted; bucket = `mask_ternlog::<0x10>` by name | **Half-closed 2026-09-05** — `ndarray::simd::popcount_batch_u64` exists (scalar); bucket-by-name proven bit-identical to `mask_andnot` (C3) |
-| D-NXG-3 | T1 `bisect_column_by_mask` partial-popcount bisection | Queued |
+| D-NXG-3 | T1 `bisect_column_by_mask` partial-popcount bisection | **Measured 2026-09-05** — implemented probe-locally in PROBE-NXG-ROLL-1 and shown to split inside the bucket's range; not yet a named T1 primitive in `ndarray::simd` |
 | D-NXG-4 | Prozentrang = bucket index; `shape × rank` computed from the slab | **Measured 2026-09-05** — rank == partition point on 94 572/94 572 real rows (C2); not yet wired to any consumer |
-| D-NXG-5 | rollover: split on budget or entropy, merge on collapse, never rewrite | Queued |
-| D-NXG-6 | rank-derived reject floor; σ demoted to diagnostic | Queued |
+| D-NXG-5 | rollover: split on budget or entropy, merge on collapse, never rewrite | **Split arm GREEN 2026-09-05** (PROBE-NXG-ROLL-1: never-rewrite asserted, max bucket halved). Merge-on-collapse arm still Queued. Trigger order corrected — budget leads, E-NXG-19 |
+| D-NXG-6 | rank-derived reject floor; σ demoted to diagnostic | **Measured 2026-09-05** (PROBE-NXG-FLOOR-1, E-NXG-20): `k` does not name a rate and at k=3 one real column's floor is unreachable; the rank floor is the best achievable boundary, exact only absent ties |
 | D-NXG-7 | preheat by mask inheritance | Queued |
 | D-NXG-8 | one early-exit rule for search and alarm | Queued |
-| D-NXG-9 | histogram entropy via `thought_atoms::normalized_entropy` as rollover timer | Queued |
+| D-NXG-9 | histogram entropy via `thought_atoms::normalized_entropy` as rollover timer | **Regraded 2026-09-05** — entropy LAGS the budget test by 5 steps (E-NXG-19); it is the did-the-split-help read, not the is-a-split-due timer |
 | D-NXG-10 | Mexican hat as two boundaries; Pillar-15 on the histogram | Queued |
 | D-NXG-11 | EWA sandwich on histogram-recovered Σ | **Blocked** on Pillar-6 σ_step calibration (`ewa_sandwich_2d.rs:53-58`) |
 | D-NXG-12 | overlap matrix + corrected prefetch order + mask-native quorum input | Queued |
