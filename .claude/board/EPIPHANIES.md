@@ -27,8 +27,11 @@ band mask containing the row — a partition point over nested masks, no sort
 **Status:** FINDING on the absence; PROPOSAL on the mechanism.
 **Confidence:** High / unmeasured.
 
-The only mentions are warnings that fixed-width buckets "saturate silently"
-(`crates/lance-graph-contract/src/legacy_outliers.rs:27`, `identity_quad.rs:46`).
+The only mentions are the two "lacking proper bucket rollover" module-doc
+bullets in `crates/lance-graph-contract/src/legacy_outliers.rs` ("it saturates
+silently. Give it rollover, or narrow it") and
+`crates/lance-graph-contract/src/identity_quad.rs` (the codebook refuses to
+exceed capacity "rather than saturating silently").
 Mechanism: when `popcount(M_i ∧ ¬M_{i−1})` exceeds budget, bisect that bucket on
 the distance column (the one non-mask read) and mint the new boundary as a new
 version-keyed mask; old masks are never rewritten (D-NXG-5). Merge on collapse is
