@@ -28,6 +28,13 @@ substrate beneath them is T0.
 NAME `where`, T2 owns the descriptor, T1 owns the mask op, T0 owns the bytes.
 The same word lives at every tier and means one thing at each.
 
+**A type's tier is decided by who consumes it, not by its shape.** The
+contract's `WideFieldMask`/`FieldMask` (positional, public) are T2 objects
+when T2 code — planner, ontology, routers — builds them; a Java mirror that
+re-exposes the same positional construction to an end consumer has moved it
+to T3, and THAT is the leak. Fencing the mirror never implies fencing the
+contract type.
+
 ## The polyfill is the worked instance
 
 ndarray's `simd.rs` (T1 membrane) → `simd_ops.rs` (staging) → `simd_{arch}.rs`
@@ -87,12 +94,34 @@ ruling stopped.
 
 ## ENTROPY LEDGER — T2→T3 leaks (append-only; close downward)
 
+**Scope (made explicit 2026-09-05, operator question on #1175).** This
+ledger is **lance-graph-java's** — its T3 is the Java facade
+(`com.adaworldapi.lancegraph.*`), and every row below names a *Java mirror*
+type on that facade. Each consumer keeps its own T2→T3 ledger; this one is
+NOT a prescription for any other consumer's surface.
+
+**Carve-out — the contract's Rust field masks are T2, not a leak.**
+`lance_graph_contract::class_view::{FieldMask, WideFieldMask}` — with
+`with(u8)`, `from_positions(&[u8])`, `EMPTY`/`FULL` — are **public,
+positional, and stay that way**. They are the selection tier's own
+vocabulary and are used by T2 code throughout the tree (planner
+`style_strategy`/`meta_basin`, ontology `class_resolver`/`wikidata_hhtl`,
+`sigma-tier-router`, the probes). **T2 owns geometry; constructing a field
+mask by position at T2 is the design.** A positional constructor is a leak
+ONLY when it sits on a **T3** surface — a consumer-facing facade or
+low-code layer — so that a slot index crosses *into* T3 from an end
+consumer. L1 below is that case (the Java mirror re-exposed slot
+construction to Java consumers); it says nothing about the Rust type it
+mirrors, which was not changed and must not be "demoted" on the strength
+of this row. Which tier a type belongs to is decided by WHO CONSUMES IT,
+not by its shape.
+
 Each row: the leak, the T2 name that replaces it, and the gate that will
 reject the old spelling once closed. `[OPEN]` until the gate rejects it.
 
 | # | Leak (T1/T0 vocab in a T3 surface) | Replace with (T2 name) | Gate | Status |
 |---|---|---|---|---|
-| L1 | `WideFieldMask.ofFacets(int... positions)` — slot indices cross | `classid` + `ClassView`-resolved field NAME; or a named `Reading` (RAILS/SPO) the ClassView selects | bbb-warden (semantic; reflection can't) + ApiSurfaceTest name-pin | **CLOSED 2026-09-05** — `WideFieldMask` is a `final class` with a private ctor; `ofFacets` AND `ofMatchBits` package-private (lance-graph-java#75). Demoting one factory was not a fence — a public record's canonical ctor took the raw bits (codex + coderabbit P2, fixed same PR). Zero production callers. Pin is on the SHAPE: no public ctor, not a record, every public factory zero-arg. Name-side replacement needed no ABI: `hop(classid, src)` + native `edge_participation` narrowing already was it. Pinned by name in `ApiSurfaceTest` (added in lance-graph-java#75, the paired code PR). |
+| L1 | lance-graph-java **Java mirror** `WideFieldMask.ofFacets(int... positions)` — slot indices cross into the Java facade (NOT the contract's Rust `WideFieldMask`, which is T2 and unchanged) | `classid` + `ClassView`-resolved field NAME; or a named `Reading` (RAILS/SPO) the ClassView selects | bbb-warden (semantic; reflection can't) + ApiSurfaceTest name-pin | **CLOSED 2026-09-05** — `WideFieldMask` is a `final class` with a private ctor; `ofFacets` AND `ofMatchBits` package-private (lance-graph-java#75). Demoting one factory was not a fence — a public record's canonical ctor took the raw bits (codex + coderabbit P2, fixed same PR). Zero production callers. Pin is on the SHAPE: no public ctor, not a record, every public factory zero-arg. Name-side replacement needed no ABI: `hop(classid, src)` + native `edge_participation` narrowing already was it. Pinned by name in `ApiSurfaceTest` (added in lance-graph-java#75, the paired code PR). |
 | L2 | 97 served `LgjLaneDesc` lanes — offset+stride cross to Java | field NAME; T2/`ClassView` owns geometry, Java never receives it to be "blind" about | ApiSurfaceTest `internal.*` prefix (already) | **CLOSED-BY-EXISTING-GATE 2026-09-05 — regraded; the row overstated it.** `abi.md:312`: "Java's *public* API never sees an address." The carrier (`Engine.LaneWindow`) is `internal.ffm`, fenced from every public signature by the prefix; used only inside `RowStore`/`Mask` (which READ the stride from the served descriptor, `abi.md:367` — NAMED, not GEOMETRY-LEAK) and the sanctioned lab consumers. Structural pin added in lance-graph-java#75, the paired code PR (class exists AND is under a FORBIDDEN prefix) — this ledger row records it, it does not add it. Residual is a design ceiling, not a leak: layout-aware Valhalla views should be OGAR-emitted per ClassView (Tier 3), not hand-carved in the lab — a future wave. |
 | L3 | `RowStore.classidAt / payloadLow64At / payloadHi32At` — per-row byte reads | fenced as inspection-only (javadoc line present); execution must not use them | ApiSurfaceTest note + bbb-warden | PARTIAL (fenced, not removed) |
 | L4 | `FacetMatchView.matchesOf(row) -> int` — raw facet bitset | `WideFieldMask.ofMatchBits` bridges it; callers take the typed value | bbb-warden | PARTIAL |
