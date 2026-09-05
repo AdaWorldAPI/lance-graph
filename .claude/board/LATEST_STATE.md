@@ -314,6 +314,20 @@ Also removed one dead declaration that blocked the sweep: `container_bs/mod.rs` 
 (#1100 opened for the one-file subset of this and closed unmerged, superseded.)
 
 ---
+## 2026-09-05 — #1177 MERGED (eb84b275): BindSpace→MailboxSoA wiring plan — DOC/BOARD ONLY
+
+| PR | merge | content |
+|---|---|---|
+| **#1177** | `eb84b275` | `bindspace-mailbox-soa-wiring-v1` (D-BSW-0..4), re-derived from the tree rather than from the three design-stage plans on `main`, all of which predate `backing.rs` (#844). Records that `BackingStoreWrite` (`backing.rs:164-314`) is BUILT — 9 methods, both arms real — and UNWIRED (zero callers outside its own test module), behind a feature no workflow builds. Excludes `dispatch_busdto:281` from the cutover: it needs an f32 tenant `MailboxSoA` does not have. Corrects three board facts — `COMPONENT-MAP.md:108`'s retirement wave *"(W7)"* does not exist, the parity gate is `:1361` not `:1145`, and there are two parity tests not one. Names a stranded council-hardened predecessor (2770 commits divergent, never on main) whose fate is undecided. |
+
+**Contract inventory net delta: none** (DOC/BOARD ONLY; no code, no
+behaviour change, nothing compiled). What changed is the *record*: the
+migration was reported as design-stage and is in fact one caller away from
+its write path, with its equivalence harness uncovered by CI. D-BSW-4
+(retirement) is BLOCKED deliberately — no wave, no D-id parent, and the
+guardrails name both adding writers and removing it as footguns.
+
+---
 ## 2026-08-30 — #1085 MERGED (4cc7d71c): §11.3 method transfer — DOC/BOARD ONLY
 
 | PR | merge | content |
