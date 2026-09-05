@@ -1,3 +1,12 @@
+## 2026-09-05 — PROBE-NXG-HIST-1: orchestrator-only, no worker spawned
+
+- **Why:** operator: "merge 1176 and start PROBE-NXG-HIST-1". #1176 merged (`a7520a15`). Plan §5 step 2 is a ~200-line probe with three pre-registered claims; briefing a worker costs more than writing it.
+- **Column:** `data/tts-cascade/tts_real_output.wav` `|sample|` — real, in-tree, 94 572 rows. No facet fixture exists in-tree; noted in the probe header and E-NXG-17.
+- **Result:** C1 PASS · C2 PASS · C3 PASS first run. Disable runs red-then-green: `AND3` for the bucket immediate (C1/C2/C3 all fail, exit 101); `partition_point(b <= v)` (C2 192 mismatches, exit 101); restored → green.
+- **Correction found:** histogram-midpoint σ over-reads by 12 % on quantile buckets (heavy top bucket). Plan §3 room 3 regraded in E-NXG-17; entropy-on-requantiled-buckets is flat by construction (D-NXG-9 caveat).
+- **Gates:** clippy `-D warnings` on the example clean (one `is_multiple_of` fix), fmt clean, append-only + citation-decay + plan-dids gates run locally, supersession index regenerated last.
+- **Board:** E-NXG-17; STATUS_BOARD D-NXG-1/2/4 rows updated; plan §5 step 2 marked GREEN.
+
 ## 2026-09-05 — Sonnet harvest fleet (4 readers + 7 PR sweepers), orchestrator-consolidated → `.claude/nexgen/`
 
 - **Why:** operator asked how HDR popcount-stacking, rolling floor, Prozentrang buckets, Mexican hat, Shannon, proprioception, EWA sandwich and sigker could combine with ternlog mask algebra for better thresholds; then asked for the last 50 lance-graph PRs + 25 OGAR + 25 ndarray swept for synergies, epiphanies written to the board, the raw agent output kept, and an expansion plan in the T0..T3 shape "27 rooms ahead".

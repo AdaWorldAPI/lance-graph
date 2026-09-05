@@ -5,10 +5,10 @@ every row is Queued until PROBE-NXG-HIST-1 / ROLL-1 / FLOOR-1 (plan §5) run.
 
 | D-id | deliverable | status |
 |---|---|---|
-| D-NXG-1 | `NestedBands` sealed shape (T2), version-keyed, one owner | Queued |
-| D-NXG-2 | T1 name audit: `popcount_words` present or minted; bucket = `mask_ternlog::<0x10>` by name | Queued |
+| D-NXG-1 | `NestedBands` sealed shape (T2), version-keyed, one owner | **In progress** — structure measured by PROBE-NXG-HIST-1 (E-NXG-17, 2026-09-05); seal/ownership shape not yet built |
+| D-NXG-2 | T1 name audit: `popcount_words` present or minted; bucket = `mask_ternlog::<0x10>` by name | **Half-closed 2026-09-05** — `ndarray::simd::popcount_batch_u64` exists (scalar); bucket-by-name proven bit-identical to `mask_andnot` (C3) |
 | D-NXG-3 | T1 `bisect_column_by_mask` partial-popcount bisection | Queued |
-| D-NXG-4 | Prozentrang = bucket index; `shape × rank` computed from the slab | Queued |
+| D-NXG-4 | Prozentrang = bucket index; `shape × rank` computed from the slab | **Measured 2026-09-05** — rank == partition point on 94 572/94 572 real rows (C2); not yet wired to any consumer |
 | D-NXG-5 | rollover: split on budget or entropy, merge on collapse, never rewrite | Queued |
 | D-NXG-6 | rank-derived reject floor; σ demoted to diagnostic | Queued |
 | D-NXG-7 | preheat by mask inheritance | Queued |

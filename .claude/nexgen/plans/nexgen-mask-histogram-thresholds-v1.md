@@ -156,6 +156,10 @@ falsifier that would kill it. Ordered by how many rooms ahead it sits.
 2. PROBE-NXG-HIST-1: build one `NestedBands` from a real facet column; assert
    bucket masks are disjoint, nested, and sum to N; assert rank = partition
    point (rooms 0, 16).
+   **GREEN 2026-09-05** on a real audio column (94 572 rows), not a facet
+   column — `crates/lance-graph-planner/examples/probe_nxg_hist_1.rs`,
+   E-NXG-17. Room 3 regraded there (midpoint σ over-reads 12 % on quantile
+   buckets).
 3. PROBE-NXG-ROLL-1: rollover on a bimodal column; entropy-triggered vs
    budget-triggered split order (room 2, D-NXG-5).
 4. PROBE-NXG-FLOOR-1: rank-derived floor vs `mu + 3σ` on the HHTL tiers
@@ -166,7 +170,7 @@ falsifier that would kill it. Ordered by how many rooms ahead it sits.
 
 | D-id | deliverable | status |
 |---|---|---|
-| D-NXG-1 | `NestedBands` sealed shape (T2), version-keyed, one owner | Queued |
+| D-NXG-1 | `NestedBands` sealed shape (T2), version-keyed, one owner | In progress (structure measured, E-NXG-17) |
 | D-NXG-2 | T1 name audit: `popcount_words` present or minted; bucket = `mask_ternlog::<0x10>` by name | Queued |
 | D-NXG-3 | T1 `bisect_column_by_mask` partial-popcount bisection | Queued |
 | D-NXG-4 | Prozentrang = bucket index; `shape × rank` computed from the slab | Queued |
