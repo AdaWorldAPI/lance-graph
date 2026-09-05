@@ -87,6 +87,38 @@ Agents filter by `@`-mention or domain to see what's theirs.
 
 (Prepend new ideas here with today's date. Format:)
 
+## 2026-09-05 — Σ-propagation: the batched `F64x8` kernel is the real lever; AMX/MKL was the wrong shape for a 2×2
+
+`[P2 @savant-architect @sentinel-qa domain:codec D-OIF-4 D-OIF-5]`
+
+Re-derived from the tree while fetching `IDEA-B1-HARDWARE-BACKENDS`. The kernel is 2×2 f64 (`sigma_propagation.rs:210-227`, 12 mul + 6 add); an AMX tile is 16×16 bf16/int8 and an MKL `dgemm` call costs more than the 18 flops. `F64x8` carries non-FMA `Mul`/`Add` on all four backends (`simd_avx512.rs:446-448`), so eight edges per instruction with **bit identity** to the scalar kernel is reachable as plain consumer code in `jc` — no ndarray change. The catch that decides sequencing: `ewa_sandwich(` has **zero production call expressions** outside `jc` + the contract; every "caller" is a doc comment. So the kernel ships only paired with the hop re-quantization probe that decides whether `MailboxSoA::apply_edges` may advance `sigma[row]`. Plan: `open-ideas-fetch-v1.md` §3.
+
+**Status:** Open — In plan (`D-OIF-4`, `D-OIF-5`); `D-OIF-5-DEC` (where an edge's `M` comes from — the `CausalEdge64` v2 spare is 3 bits) is the operator's.
+
+## 2026-09-05 — The σ column indexes a codebook that exists in three doc comments and zero crates
+
+`[P1 @truth-architect @integration-lead domain:codec D-OIF-0 D-OIF-2 D-OIF-3]`
+
+`BindSpace.fingerprints.sigma` (`bindspace.rs:54-58`) and `MailboxSoA.sigma` (`mailbox_soa.rs:125-133`) shipped the 1-byte index the `IDEA-CAUSAL-EDGE-TENSOR-SIDECAR` card was still designing. The `SigmaCodebook` it references is claimed to live in the contract (`sigma_propagation.rs:73`), in `lance-graph-cognitive` (`contract/src/splat.rs:308`), and to be built offline by `jc` (`arm-discovery/aerial/codebook.rs:16`) — `grep -rn SigmaCodebook crates/` finds only the two doc lines. Every production row carries `sigma = 0`, "first centroid" of a codebook with no centroids. Two provenance stories coexist — fitted (k-means, `sigma_codebook_probe.rs`) vs declared (typed-value tuple, `sigma_propagation.rs:74-77`) — and two viability numbers are cited for one claim (`R²=0.9949` vs `ρ=0.9973`). Plan: `open-ideas-fetch-v1.md` §4.
+
+**Status:** Open — In plan (`D-OIF-0` re-runs the probe; `D-OIF-2` the type + builder; `D-OIF-3` the first real writer). `D-OIF-2-DEC` (fitted vs declared) is the operator's.
+
+## 2026-09-05 — `ndarray::simd::ternlog` ⋂ the §14 voxel cube: the "other 18 cells" are one named immediate each
+
+`[P2 @simd-savant @kernel-membrane-warden domain:mask]`
+
+lance-graph-java's `mask-risc-lowering-v1.md` §14 prices a 3-state × 3-tier voxel cube as 9 built primitives with "the other 18 cells ANDs of three". `ndarray::simd::ternlog::{AND3, AND2_ANDNOT, AND_ANDNOT2, …}` (ndarray #299 arc, parity-tested over all 256 immediates on six backends) makes each of those cells ONE instruction with a NAME. Partly realized already: `lance-graph-planner/examples/probe_nxg_hist_1.rs:51-136` calls `mask_ternlog::<AND_ANDNOT2>` / `<AND3>` by name (E-NXG-2/3). What is still open: (a) §14's arithmetic assumes cell = 3 ANDs — restate it as 1 ternlog and re-price; (b) `ogar_loco::TERNLOG = FnIndex(0x86)` still has no consumer, and the immediate byte IS the call value — the lowering from a §14 cell to a loco call is a table, not code. Interacts with `D-MRL-G2` (mask spans the class's rows or all rows), which is the operator's.
+
+**Status:** Open (research; blocked on `D-MRL-G2`).
+
+## 2026-09-05 — Citations should carry the path the decay gate can resolve, or the gate sees 7 % of them
+
+`[P2 @doctrine-keeper domain:board]`
+
+The `citation-decay` gate (#1168/#1170) measured **2314 citations / 37 OK / 124 DECAYED / 2153 UNVERIFIABLE** — 93 % unverifiable because the house style cites bare basenames (`policy.rs:137`) that no scanner can resolve to a file. The gate is honest about it (unverifiable never fails). Two possible remedies, neither taken yet: (1) a convention — cite `crate/path.rs:LINE` for anything under `crates/`, basename-only allowed inside a plan that names its crate once in a header; (2) a resolver in the gate that tries `**/<basename>` and treats a UNIQUE hit as resolvable, a non-unique one as unverifiable. (2) needs no behaviour change from writers and is measurable (how many of the 2153 become OK vs DECAYED). Recommend (2) first, then decide (1) on the numbers.
+
+**Status:** Open.
+
 ## 2026-06-15 — Research synergy: CLAM residue ladder ⋂ knee/hip attractor basins (HHTL cascade in REVERSE, fine→coarse ascent)
 
 `[P3 @cascade-architect @savant-research domain:codec]`
@@ -1061,7 +1093,7 @@ bgz17 crate as the substrate.
 
 ### IDEA-B1-HARDWARE-BACKENDS — AMX/MKL hardware backends for sigma_propagation (PR #322)
 
-**Status:** Open 2026-05-05
+**Status:** Reshaped 2026-09-05 — AMX/MKL rejected for the 2×2 kernel (shape mismatch); superseded by the `F64x8` batched kernel, plan `open-ideas-fetch-v1.md` §3 (`D-OIF-4`/`D-OIF-5`)
 **Priority:** P3
 **Source:** PR #322 explicit "What this PR does NOT do"
 **Author's words:** "No hardware backends (AMX/MKL via ndarray #119/#121). That's B1.5 follow-up."
@@ -1125,7 +1157,7 @@ bgz17 crate as the substrate.
 
 ### IDEA-CAUSAL-EDGE-TENSOR-SIDECAR — CausalEdgeTensor as 9-byte sidecar (CausalEdge64 + 1 byte Σ index) (PR #288)
 
-**Status:** Open 2026-05-05
+**Status:** Implemented-in-part 2026-09-05 — the 1-byte index shipped as a SoA column (`mailbox_soa.rs:133`, `bindspace.rs:58`), NOT as a sidecar; the codebook it indexes is OPEN, plan `open-ideas-fetch-v1.md` §4 (`D-OIF-2`/`D-OIF-3`)
 **Priority:** P2
 **Source:** PR #288 (sigma codebook probe conclusion)
 **Author's words:** "Mit diesem Probe-Resultat kann jetzt `CausalEdgeTensor`-Variante als 9-Byte-Sidecar (`CausalEdge64` + 1 Byte Σ-Codebook-Index) entworfen werden, ODER äquivalent über Schemasidecar Block 14/15. Caller-Wahl, beide architektonisch tragbar."
@@ -1161,7 +1193,7 @@ bgz17 crate as the substrate.
 
 ### IDEA-POLICY-HASH-UDF — policy_hash_v1 UDF registration (PR #301)
 
-**Status:** Open 2026-05-05
+**Status:** Superseded 2026-09-05 (ruling A) — the DataFusion masking path has no deployed consumer and the operator ruled DataFusion out of planning; retirement plan in `open-ideas-fetch-v1.md` §2 (`D-OIF-1`); `D-OIF-1-DEC` withdrawn
 **Priority:** P2
 **Source:** PR #301
 **Author's words:** "`NotYetWiredHashUdf` binds at plan time, returns `NotImplemented('policy_hash_v1 UDF not yet registered')` at execute. Plans build; execution fails loud."

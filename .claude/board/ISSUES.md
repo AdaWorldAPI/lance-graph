@@ -1,3 +1,35 @@
+## ISS-PIN-RULING-PROSE-DRIFTS-BEHIND-THE-MANIFEST (2026-09-05) — OPEN
+
+**The pin ruling lives in two places and only one of them is checked.**
+`Cargo.toml`'s workspace table is what cargo resolves; root `CLAUDE.md`
+§ "Key Dependencies" is what a session READS to learn the ruling. Nothing
+compares them, so a bump PR that edits the manifest and not the prose leaves
+the authoritative-looking text asserting a retired pin.
+
+**Measured (this session, after #1190 merged):** `Cargo.toml:261-264` said
+`lance = "=11.0.0"` / `lancedb = "=0.38.0"` while `CLAUDE.md:1255-1262` still
+said `=9.0.0` / `=0.33.0` and named lancedb 0.33 as the crate that *imposes*
+the exact-equals. Two consecutive bumps left it that way — #1187 (lance 10)
+updated only the arrow-ceiling paragraph, #1190 (lance 11) updated neither —
+so the ruling lines had been wrong across a full major. Corrected in the
+`open-ideas-fetch-v1` PR (#1185); the stale ⊘ ruling is regraded in place on
+its lance/lancedb coordinates only, its datafusion half untouched.
+
+**Why it matters more than a typo:** every consumer repo's own `CLAUDE.md`
+quotes this block as the cross-repo pin whitelist (MedCare-rs carries it
+verbatim as an operator ruling). A session reading the stale text would pin a
+consumer to lance 9 against a lance-11 spine and get an unsatisfiable graph —
+the exact failure the block itself documents at `Cargo.toml:141-144`.
+
+**Proposed gate (not built — needs a decision):** a `pins-match-the-manifest`
+CI check, same shape as `regenerate-and-diff`: parse the four family lines out
+of `Cargo.toml` and out of the `CLAUDE.md` toml fence, fail on any mismatch.
+Cheap (≈30 LOC), mechanical, and it fires exactly when a bump PR forgets the
+prose. Open question for the operator: run it repo-local, or extend it to the
+consumer repos that mirror the block.
+
+---
+
 ## ISS-STALE-AUTHORITY-LOCKS-RESIDUE (2026-09-04) — RESOLVED
 
 Corrects `ISS-STALE-AUTHORITY-LOCKS` (2026-08-25), whose *"Left open,
