@@ -50,7 +50,7 @@ lance-graph-catalog = { path = "../lance-graph-catalog", version = "0.5.4" }
 lance-graph-contract = { path = "../lance-graph-contract" }
 lance = { workspace = true }
 lance-linalg = { workspace = true }
-lance-namespace = "=9.0.0"
+lance-namespace = "=10.0.0"
 lancedb = { workspace = true, optional = true }
 nom = "7.1"
 serde = { version = "1", features = ["derive"] }
@@ -129,7 +129,7 @@ lite-unified = []
 deepnsm = { path = "../deepnsm" }
 lance-graph-contract = { path = "../lance-graph-contract" }
 futures = "0.3"
-lance-arrow = "=9.0.0"
+lance-arrow = "=10.0.0"
 lance-index = { workspace = true }
 tempfile = "3"
 tokio = { version = "1.37", features = ["macros", "rt-multi-thread"] }
