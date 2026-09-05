@@ -1,3 +1,162 @@
+## 2026-09-05 — E-PLANNING-MIGRATES-TO-LOCO-R2IL-DATAFUSION-IS-GRACE-PERIOD-1 (OPERATOR-RULED)
+
+**Status:** operator-ruled, BINDING (2026-09-05, verbatim intent: *"Every planning is in migration to ogar-loco and ogar-r2il, especially datafusion is out of the picture, what exists gets a grace period, nothing new will migrate to it."*)
+**Confidence:** High on the ruling; the census it lands on is E-THE-UNFINISHED-UDF-WAS-NOT-THE-DEBT-1 (same day).
+
+**The ruling.** Planning / orchestration / execution is migrating to `ogar-loco` (the
+vocabulary-agnostic call ABI: every 12-byte payload read as `(function : value)` calls
+into 256×256 tables) and `ogar-r2il` (the always-on R2IL vocabulary, EXECUTED by
+r2sleigh's interpreter, never pre-converted). **DataFusion is out of the picture as a
+target.** What exists on DataFusion today — `datafusion_planner`, `sql_query`, the
+Python bindings' `SessionContext`, `graph_table`, `rls.rs`, the `query`/`query-lite`
+features — gets a **grace period**: maintained, tested, not extended. **Nothing new
+migrates to it.** A plan, card, or PR that names DataFusion as the home of NEW
+behaviour (a rewrite rule, a UDF, a dispatcher, a policy VM, a projection seam) is
+stale on arrival.
+
+**Consequences, stated so they cannot blur:**
+- **D-OIF-1 is ruling A (SUPERSEDED / REMOVE) with no replacement seam in DataFusion.**
+  The census (same day) had left one door open — "the planner's scan taking the
+  authorized column list" — as the legitimate place DataFusion would receive a
+  `ClassView × WideFieldMask` projection. That door is closed by this ruling: the
+  authorized projection is consumed by Lance reads and by loco programs, never by a new
+  DataFusion operator. `policy.rs` (`PolicyRewriter`, `ColumnMaskRewriter`,
+  `NotYetWiredHashUdf`, `policy_hash_v1`, the encryption/DP stubs) is a retirement
+  cone, and the hash-family question is moot.
+- **Forward-stubs pointing at DataFusion are vacancies under grace, not backlog:**
+  `datafusion-dispatch` (`postgrest.rs` `parsed_query_to_plan`), `datafusion-plan`
+  (`audit_from_plan`), `register_policy_udfs`/`register_vsa_udfs`-style registration
+  helpers, `MembraneRegistry::with_rls`. They are not to be completed; they are to be
+  regraded and, when their grace period ends, removed with their cone.
+- **`rls.rs` (`RlsRewriter`) is grace-period duplicate of `ClassRbac::row_scope`.**
+  Row scope is enforced on the canonical path (`authorize → {scope, mask}`) or not at
+  all — never by adding a second optimizer rule.
+- **The Python bindings' raw `SessionContext` path is grace-period.** It is the only
+  shipped live-query surface today and carries no policy step; it is not the reason
+  to build one.
+- **The layer map the D-OIF-1 census verified stands:** lifecycle = SoA-owned
+  Kanban/Rubicon (`try_advance_phase`); action semantics = OGAR `ActionDef`/`ActionState`;
+  authorization = `ClassRbac` × `ClassView` × `WideFieldMask` (transport-only today,
+  enforcement is the missing implementation); execution/reasoning = loco/r2il;
+  storage/query = Lance, with DataFusion in grace. No layer impersonates another.
+
+Cross-refs: `.claude/board/exec-runs/d-oif-1-census-main-thread.md` (the census that
+this ruling landed on); `open-ideas-fetch-v1` (#1185, D-OIF-1 to be re-graded there);
+`ogar-loco` / `ogar-r2il` crate docs (OGAR); E-LANCE-IS-UPSTREAM-AUTHORITATIVE-1 (Lance
+stays; only DataFusion is in grace).
+
+## 2026-09-05 — E-THE-UNFINISHED-UDF-WAS-NOT-THE-DEBT-1 — D-OIF-1 re-derived: the execution model that needed `policy_hash_v1` never reached production
+
+**Status:** FINDING (production census 2026-09-05, four symbol groups traced from real entry points; full table in `.claude/board/exec-runs/d-oif-1-census-main-thread.md`). Ruling for #1185: **A — SUPERSEDED / REMOVE**.
+**Confidence:** High — every classification is a grep-backed call-path fact, not a reading of a `pub mod`.
+**Correction (2026-09-05, after #1185's reconcile pass):** two points of this census compressed "not live" into "does not exist". (1) `ColumnMaskRewriter` HAS one non-test constructor — MedCare `routes/patient.rs:150`, behind the default-off `lance-phase2-rbac` feature (no Dockerfile enables it), ending in a decoder stub that returns `None`; "no production caller" stands, "no caller" does not. (2) The remove cone is therefore the NARROWER one #1185 §2 carries: first removal = `RedactionMode::Hash` + `NotYetWiredHashUdf` only; the rest of `policy.rs`/`rls.rs` is frozen grace-period until MedCare retires its feature — not whole-module removal. Ruling A itself is unchanged. Canonical adjudication: E-THE-UNFINISHED-FUNCTION-WAS-NOT-THE-DEBT-1 (#1185); this entry is the earlier, independent census and is read through that one.
+
+`policy_hash_v1` sat for months as "not yet registered," and every plan (including
+#1185 §2) read the missing body as the debt. The census shows the debt was upstream:
+the model that made a masking UDF necessary — materialize the forbidden column, then
+transform it inside DataFusion's optimizer — never acquired a production caller. The
+whole `policy.rs` framework is constructed only inside `#[cfg(test)]`; no file in the
+repo calls `add_optimizer_rule` / `add_analyzer_rule`; no binary or handler imports
+`callcenter::policy`; the only shipped live-query surface (the Python bindings'
+`SessionContext`, `graph.rs:1208,1518`) has no policy step and never asked for one; the
+server binaries that could carry the chain are off by default and absent from CI. The
+canonical model makes a forbidden field ABSENT from the projection (`ClassView ×
+WideFieldMask`, real in `ogar-doc-ir::project::field_mask`) instead of present-then-
+hashed. A stub that fails loud is honest about its wiring and silent about the wiring's
+reason; "loud > silent" protected a hole nobody was going to fall into.
+
+**Also measured:** RBAC enforcement on the canonical path is TRANSPORT ONLY —
+`authorize()`, `ClassRbac`, `OgarRbac` have zero non-test callers, `field_mask` still
+returns `FieldMask::FULL` (charter C1.4 retype not done), `medcare_actor.rs:100` is a
+`// TODO`; there is no `ogar-rbac` crate (the machinery lives in `lance-graph-contract::rbac`
++ `lance-graph-rbac` + `lance-graph-ogar::rbac_impl`). Lifecycle is SoA-owned exactly as
+ruled: the single phase write is `MailboxSoA::advance_phase` via the checked
+`try_advance_phase`, applied at seal by `cycle_driver.rs`; `KanbanActor` is a tombstone;
+baton/emission survive only in prose. `ogar-loco` / `ogar-r2il` touch neither RBAC nor
+kanban. **Test for the next card:** before completing a stub, find the caller that would
+have been harmed by its absence. No caller, no debt.
+
+## 2026-09-05 — E-BLW5-FIRST-MEASUREMENT-1 — the observer-effect instrument is alive, and every pre-registered gate reads SILENT
+
+**Status:** MEASURED (`crates/lance-graph-supervisor/tests/d_blw_5_observer.rs`, one run, 40 owners 1:1, synthetic corpus, recorded run 4 after three dry runs — all numbers below are from the recorded run; the dry runs are listed, not hidden).
+**Confidence:** High on every number; High that the κ floor is the wrong observable for THIS reader (see the last paragraph); Low on anything beyond this corpus and instrument.
+
+The D-BLW-5 loop resumed by operator ruling ("with the belief arena reader"). The payload
+is the shipped `shape₀ × rank₀` (`NestedBands::shape_rank` → `ShapeRankPayload`, sealed in
+`RemeasureLedger` at V0 = `DatasetVersion(1)`), injected into each owner's `BeliefArena` as
+16 shape beliefs `prior Inh band_k` (f = mass_k) plus one `subject Inh prior` per corpus
+subject at **frequency 1, confidence = the prior's mass at the observed rank** (typicality —
+the C2 encoding, amended once, below). The only propagation channel is `rcr_abduce` +
+`close_transitive` iterated to a fixed point. Reader A = the verse's statement was revised
+(contradiction > 0.05); reader B = another cohort subject has been INFERRED to carry the
+verse's predicate at c ≥ 0.01 (derived, empty stamp, rung ≥ 1, no reserved term).
+
+| arm | typicality injected | rate_b V0→V1 | κ V0→V1 | φ V0→V1 | gate |
+|---|---|---|---|---|---|
+| T (rank 6, mass 6/40) | 0.150 | 0.471 → **0.885** | −0.180 → −0.254 (Δ −0.074) | −0.252 → **−0.909** | O4 SILENT at floor 0.10 |
+| F+ (rank 7→12, mass 0) | 0.000 | 0.430 → 0.430 | −0.134 → −0.134 (Δ 0) | unchanged | DROP fires |
+| F− (rank 8→3, mass 8/40) | 0.200 | 0.521 → **0.922** | −0.080 → −0.168 (Δ −0.087) | −0.128 → **−0.789** | O5 d = +0.087 SILENT |
+| P (uniform, rank 8) | 0.0625 | 0.474 → 0.474 | −0.267 → −0.267 (Δ 0) | unchanged | O2 holds (|Δκ| = 0 < 0.10) |
+| N (T payload, bloom read) | 0.150 | — | −0.110 → −0.110 | — | O3 frozen, Hamming 0 |
+| CTRL (no injection) | — | 0.583 → 0.583 | −0.006 → −0.006 (Δ 0 exactly) | unchanged | idempotence holds |
+
+**What the pinned gates say:** O2 (placebo does not move), O3 (null instrument frozen), O1
+(remeasure guard barks and stays silent as specified), O6 (no reader identifier before the
+measurement marker), O7 (1266 derived beliefs on T carry a reserved term — the payload DID
+propagate; 0 of the 340 beliefs reader B accepted carry one — the firewall holds) all pass
+with both twins. O4 and O5 are **SILENT at the pre-registered κ floor of 0.10** — the honest
+null as written: "awareness does not reflect this statistic (at floor 0.10)". Reported, not
+re-tuned.
+
+**What the tables show that the κ floor does not:** the reader moved by the largest amount
+the instrument can express — every non-contradicted verse became B-true in T and F− (n00
+went 159 → 0 and 154 → 0), φ went from −0.25 to −0.91 — and it moved in exact proportion to
+the injected TYPICALITY: 0 (F+, empty bucket) → nothing, 0.0625 (P) → nothing (c ≈ 0.003 <
+C_MIN), 0.15 (T) → saturation, 0.20 (F−) → saturation. Awareness tracks the injected rank's
+MASS, not its truth (F− moved more than T). That is the anchoring/Goodhart pattern the
+doctrine names — but it is NOT the O5 verdict, because O5 was pinned on κ and κ barely moved:
+κ is invariant to a reader that saturates, since a constant reader has no covariance. The
+finding therefore reads: **this instrument's observable (Δκ) is insensitive to the effect it
+was built to detect on this reader; the effect is visible in the marginals.** The next probe
+pre-registers a reader-rate/φ floor BEFORE running (D-BLW-5b, queued), never by reclassifying
+this run.
+
+**Dry runs, on the record (instrument fixes, no threshold changed):** (1) O6 self-scan
+tripped on its own doc lines; `reason()` was not a fixed point (CTRL Δκ = −0.0028 with no
+injection) — now bounded RCR+close to fixed point; corpus counts had period 12 (`w % {2,3,4}`)
+so the 40-owner prior was 12 atoms with empty buckets (T's pooled φ landed in one: typicality
+0) — now a splitmix64 fold of the window index. (2) Everything bit-identical: the typicality
+was injected as a FREQUENCY below 0.5 and the arena discarded it — see the sibling entry
+E-NARS-EXPECTATION-CHOICE-PREFERS-IGNORANCE-TO-A-CONFIDENT-NEGATIVE-1. (3) O7's shadow reader
+could not differ from B under RCR-only reasoning — restated to what can fire (spec §10).
+
+Cross-refs: doctrine `.claude/knowledge/observer-effect-tfpn-doctrine.md`; spec
+`.claude/board/exec-runs/d-blw-5-build-spec-main-thread.md` (§0 corrections C1/C2, §10
+addendum); E-MEASUREMENT-BURNS-THE-STATE-1; E-NXG-22 (F+'s shifted rank fell into an empty
+bucket — the out-of-support saturation, now seen from the loop side).
+
+## 2026-09-05 — E-NARS-EXPECTATION-CHOICE-PREFERS-IGNORANCE-TO-A-CONFIDENT-NEGATIVE-1 — a derived belief with f < 0.5 loses CHOICE to a vacuous one
+
+**Status:** FINDING (measured in D-BLW-5 dry run 2: injected cross-subject links came back at c = 3.53e-11 instead of the computed 0.108).
+**Confidence:** High — it follows from `TruthValue::expectation() = c·(f − 0.5) + 0.5` and `admit_derived`'s "replace only when expectation strictly exceeds" rule, and it reproduced on every subject pair.
+
+`BeliefArena::admit_derived` and `close_transitive` resolve every derivation of the same
+statement by CHOICE on `expectation()`. For f < 0.5 expectation DECREASES with confidence: a
+confident negative (f = 0.15, c = 0.108 → 0.462) is out-ranked by any near-vacuous path to
+the same statement (c ≈ 0 → ≈ 0.5). So a low-frequency belief cannot survive in the derived
+layer once closure finds any alternative route; the arena prefers "unknown" to "confidently
+not". This is NARS-correct as a decision rule (higher expectation = better bet on the
+statement being true) but it means **the derived layer cannot carry negative evidence with
+confidence** — anything a probe wants to propagate as "weakly true" must be encoded with
+f ≥ 0.5 and the strength in c (which is what D-BLW-5 now does: `subject Inh prior` at f = 1,
+c = typicality). Consequence for readers: a derived-layer reader that thresholds on
+confidence is blind to negations by construction; a reader that wants them must read the
+grounded (observed) layer, where `revise_at` keeps `|f₁ − f₂|` as `contradiction`.
+
+Cross-refs: `belief.rs` S2 ("closure-internal duplicates resolve by CHOICE on
+`expectation()`"); E-BLW5-FIRST-MEASUREMENT-1 (the probe that hit it);
+`.claude/plans/dialectic-engine-v1.md` §1 S2.
+
 ## 2026-09-05 — E-THE-UNFINISHED-FUNCTION-WAS-NOT-THE-DEBT-1 — the execution model that needed `policy_hash_v1` never reached a binary, and neither has its replacement
 
 **Status:** FINDING (W0 production census, four read-only tracers + orchestrator verification of the contested fact; nothing compiled). Plan: `.claude/plans/open-ideas-fetch-v1.md` §2 (ruling A). Operator ruling the same day: planning migrates to `ogar-loco` / `ogar-r2il`; DataFusion is out; what exists gets a grace period; nothing new migrates to it.

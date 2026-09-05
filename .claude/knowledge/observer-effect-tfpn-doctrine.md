@@ -164,3 +164,20 @@ Pre-registration and guards, all binding BEFORE any run:
   (version-gated hindsight-blind reads, the G-gate discipline);
   `crates/lance-graph-planner/src/temporal.rs` (`QueryReference::at`,
   rung admission, `deinterlace`).
+
+---
+
+## 7. Status note (2026-09-05) — first measurement landed
+
+D-BLW-5 was resumed by operator ruling with the belief-arena reader and measured
+(`crates/lance-graph-supervisor/tests/d_blw_5_observer.rs`; plan §12.9b;
+E-BLW5-FIRST-MEASUREMENT-1). Every gate in §5 held. O4/O5 read SILENT at the κ floor while
+the reader marginals saturated in proportion to the injected typicality — the effect the
+doctrine names (§4 "S₁ tracking the injected rank") is visible in the marginals and
+invisible to κ. Two amendments to the machinery this doctrine only sketched: (a) the rank
+enters awareness as TYPICALITY (mass at rank) carried in the confidence of
+`subject Inh prior` at frequency 1 — a frequency below 0.5 is discarded by the arena's
+expectation-CHOICE (E-NARS-EXPECTATION-CHOICE-PREFERS-IGNORANCE-TO-A-CONFIDENT-NEGATIVE-1);
+(b) the awareness-coupled reader must read the DERIVED layer — observed truth never moves
+from testimony, by the arena's own ground-protection rule. The observer EFFECT stays
+CONJECTURE beyond this corpus/instrument; the next instrument (D-BLW-5b) pins marginal floors.

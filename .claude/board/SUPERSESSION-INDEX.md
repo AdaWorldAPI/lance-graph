@@ -62,7 +62,7 @@ coverage instead.
 | `ResonanceDto` | REPURPOSE | `PerturbationDto` | 2 | 12 | 7 |
 | `BindSpace` | RETIRE | — | 68 | 47 | 41 |
 | `CollapseGateEmission` | RETIRE | — | 5 | 14 | 12 |
-| `ThinkingStyle` | RETIRE-toward-contract | — | 51 | 28 | 24 |
+| `ThinkingStyle` | RETIRE-toward-contract | — | 52 | 28 | 24 |
 
 ## Table 2 — plans naming a ruled symbol without citing the ruling (73)
 

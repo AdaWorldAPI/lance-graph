@@ -1509,6 +1509,39 @@ tracking injected values ⇒ the anchoring finding stands even if T is silent
    independent arms/cohorts/metrics at the same version never collide);
    recompute at a sealed key ERRORS, with can-fire + can-stay-silent tests.
 
+### 12.9b D-BLW-5 FIRST MEASUREMENT (2026-09-05) — resumed by operator ruling, belief-arena reader
+
+**BUILT + RUN GREEN** as `crates/lance-graph-supervisor/tests/d_blw_5_observer.rs`
+(`cycle-driver`; spec `.claude/board/exec-runs/d-blw-5-build-spec-main-thread.md`).
+Payload = the shipped `shape₀ × rank₀` (`NestedBands::shape_rank` → `ShapeRankPayload`,
+sealed in `RemeasureLedger` at V0), injected into each owner's `BeliefArena` as 16 shape
+beliefs + one `subject Inh prior` per corpus subject at f = 1, c = typicality (the prior's
+mass at the observed rank). Propagation = `rcr_abduce` + closure to a fixed point. Readers:
+A = statement revised (contradiction > 0.05); B = another cohort subject inferred to carry
+the verse's predicate at c ≥ 0.01, derived layer only, reserved terms excluded.
+
+| pre-registered rule | measured |
+|---|---|
+| O1 remeasure guard | barks on the sealed key; silent on V1 and on a sibling arm |
+| O2 placebo (|Δκ(P)| < 0.10) | **0** — P (typicality 1/16) bit-identical V0→V1 |
+| O3 null instrument | N bloom verdicts byte-identical, Hamming 0 (frozen by construction) |
+| O4 observable (|Δκ(T)| ≥ 0.10) | Δκ(T) = −0.074 → **SILENT**, the honest null at this floor |
+| O5 direction (d = Δκ(F+) − Δκ(F−), floor 0.10) | Δκ(F+) = 0 (shifted rank fell in an EMPTY bucket, typicality 0), Δκ(F−) = −0.087, d = +0.087 → **SILENT** |
+| O6 firewall self-scan | no reader identifier before the marker; marker + `binary_association(` after |
+| O7 exclusion (restated, spec §10) | 1266 derived beliefs on T carry a reserved term; 0 of B's 340 accepted beliefs do |
+| CTRL idempotence | Δκ(CTRL) = 0 exactly; reader Hamming 0 |
+| DROP | fires for F+ and N (both bit-identical) |
+
+**What the marginals show (reported, not gated):** rate_b 0.47 → 0.89 on T and 0.52 →
+0.92 on F− (every non-contradicted verse became B-true; n00 → 0), φ −0.25 → −0.91 and
+−0.13 → −0.79, in proportion to the injected typicality (0 → nothing, 0.0625 → nothing,
+0.15 and 0.20 → saturation). κ barely moves because a saturating reader has no
+covariance — **the pinned observable is insensitive to the effect on this reader**. Per the
+pre-registration rule this run is NOT reclassified; D-BLW-5b pre-registers marginal floors
+before its run. Dry runs 1–3 and their instrument fixes are on the record in
+E-BLW5-FIRST-MEASUREMENT-1; the arena property they surfaced is
+E-NARS-EXPECTATION-CHOICE-PREFERS-IGNORANCE-TO-A-CONFIDENT-NEGATIVE-1.
+
 ### 12.10 PROBE-ARC-TORQUE family PROPOSED (2026-08-04, operator) — torque of an arc, translator stray, author bias
 
 **Status: PROPOSED / CONJECTURE throughout. Queued behind PROBE-IGNITION and
