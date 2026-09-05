@@ -1,3 +1,44 @@
+## 2026-09-05 — E-NXG-17 — PROBE-NXG-HIST-1 GREEN: the nested-mask histogram reproduces the partition-point rank on 94 572 real rows
+
+**Status:** FINDING (measured; `crates/lance-graph-planner/examples/probe_nxg_hist_1.rs`).
+**Confidence:** High on C1–C3; the σ observation is a real correction to plan §3 room 3.
+
+The first gate of `nexgen-mask-histogram-thresholds-v1` §5 ran on a REAL
+column — `|sample|` of `data/tts-cascade/tts_real_output.wav`, 94 572 rows of
+16-bit speech, 1 478 mask words, B = 16 quantile bands. Three pre-registered
+claims, all PASS on the first run: **C1** the 16 band masks are nested, the 16
+bucket masks are pairwise disjoint, and their popcounts sum to exactly N;
+**C2** for every one of the 94 572 rows the bucket index read off the masks
+equals `boundaries.partition_point(|b| b < v)` (0 mismatches; anti-vacuity
+16/16 buckets non-empty, largest 5 925 ≈ N/16); **C3**
+`mask_ternlog::<AND_ANDNOT2>(M_i, M_{i-1}, M_{i-1})` is bit-identical to
+`mask_andnot(M_i, M_{i-1})` and `AND3` on the same operands differs at every i
+with a non-empty lower band. Two disable runs, red-then-green: bucket via
+`AND3` → C1 disjoint=false, sum=715 262, C2 88 659 mismatches, C3 false;
+partition point `b <= v` → C2 192 mismatches (the rows sitting exactly on a
+boundary — the off-by-one is real, not vacuous). E-NXG-1/2/3 are promoted from
+PROPOSAL to FINDING for the structure; the cost claims stay unmeasured.
+
+**What the probe corrected.** Plan §3 room 3 said σ is "recoverable from the
+histogram for free" via popcount-weighted bucket midpoints. Measured: σ_hist =
+4 244.9 vs σ_direct = 3 785.8, ratio 1.121. Quantile buckets are equal-mass,
+not equal-width, so the top bucket (9 299..20 634) is a heavy tail whose
+midpoint over-weights it. Room 3 is regraded: σ from the histogram needs
+per-bucket means (one more accumulator per bucket), not midpoints, and stays an
+observation until that variant is measured. The entropy preview
+(`thought_atoms::normalized_entropy` over the 16 popcounts) reads 0.99999964 —
+the expected ceiling for equal-mass buckets, which is why D-NXG-9's rollover
+timer must be read on FIXED boundaries after the distribution moves, never on
+freshly re-quantiled ones (a re-quantiled histogram is flat by construction and
+carries no signal).
+
+**Honest scope.** The column is audio, not a facet column — no facet fixture
+exists in-tree (harvest 2026-09-05). The mechanism is value-type-agnostic; the
+facet rerun is the next arm. `popcount_batch_u64` exists as a named T1 primitive
+(D-NXG-2's audit half-closed: present, scalar `count_ones` sum, not yet the
+POPCNT lane its comment promises). Mask bytes hot at this N: 189 184 B for 16
+bands — the plan's "16 × 8 KB" was at 65 536 rows; this column is 1.44× that.
+
 ## 2026-09-05 — E-NXG-1 — the exposure meter is a nested mask set
 
 **Status:** PROPOSAL (design reading of measured code; no code changed).
@@ -327,7 +368,7 @@ mechanisms disagreed by **58.2%**:
 
 | site | reading on `main` |
 |---|---|
-| `.claude/board/AGENT_LOG.md:481` | 58.2% **disagreement** |
+| `.claude/board/AGENT_LOG.md` under "2026-08-19 — oracle-boundary reassessment sweep" (the **58.2%** findings paragraph) | 58.2% **disagreement** |
 | `.claude/board/INTEGRATION_PLANS.md:910` | 58.2% **disagreement** |
 
 The source says the opposite. `MedCare-rs/crates/medcare-server/src/views/atlas.rs:465`
