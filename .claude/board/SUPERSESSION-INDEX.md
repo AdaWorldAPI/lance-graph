@@ -14,7 +14,7 @@
 ## What this table says
 
 **`BindSpace` is the shape of the problem.** Marked RETIRE, and simultaneously the
-most-referenced symbol here: **68 crate files, 46 plans, 41 of them blind.**
+most-referenced symbol here: **68 crate files, 47 plans, 42 of them blind.**
 That is a programme, not a cleanup.
 
 **`GateState` is the sharpest case: 1 plan names it and *every one* is blind.**
@@ -60,11 +60,11 @@ coverage instead.
 | `GateState` | REPURPOSE | — | 14 | 1 | 1 |
 | `MergeMode` | REPURPOSE | — | 8 | 13 | 12 |
 | `ResonanceDto` | REPURPOSE | `PerturbationDto` | 2 | 12 | 7 |
-| `BindSpace` | RETIRE | — | 68 | 46 | 41 |
+| `BindSpace` | RETIRE | — | 68 | 47 | 42 |
 | `CollapseGateEmission` | RETIRE | — | 5 | 13 | 12 |
 | `ThinkingStyle` | RETIRE-toward-contract | — | 51 | 28 | 24 |
 
-## Table 2 — plans naming a ruled symbol without citing the ruling (73)
+## Table 2 — plans naming a ruled symbol without citing the ruling (74)
 
 Route is **mechanical triage, not a verdict**: `ARCHIVE?` = the plan's own status says
 it shipped; `RESCOPE` = it targets a symbol marked RETIRE; `READ` = neither signal fires
@@ -142,6 +142,7 @@ a licence to act on it.
 | **RESCOPE** | `lf-integration-mapping-v1` | `BindSpace` | Active (2026-04-25) | 0/0 |
 | **RESCOPE** | `lite-unified-surrealql-lance-v1` | `BindSpace` | CONJECTURE / design. **Test via feature gate | 0/0 |
 | **RESCOPE** | `ogit-cascade-supabase-callcenter-v1` | `BindSpace` | plan, not implementation. | 0/16 |
+| **RESCOPE** | `open-ideas-fetch-v1` | `BindSpace` | MEASURED / ready-to-execute — PLANNING ONLY  | 2/10 |
 | **RESCOPE** | `q2-foundry-integration-v1` | `BindSpace` | Proposed (2026-04-24) | 0/0 |
 | **RESCOPE** | `reliability-checklist-arc-v1` | `ThinkingStyle` | PROPOSAL / possibility menu (2026-05-30). NO | 3/3 |
 | **RESCOPE** | `singleton-to-snapshot-nudge-v1` | `BindSpace` | PROPOSAL | 1/12 |
@@ -154,6 +155,6 @@ a licence to act on it.
 | **RESCOPE** | `unified-soa-rubikon-integration-v1` | `BindSpace` | — | 8/8 |
 
 - **ARCHIVE?**: 0
-- **RESCOPE**: 55
+- **RESCOPE**: 56
 - **READ**: 18
 - ruled symbols tracked: 14

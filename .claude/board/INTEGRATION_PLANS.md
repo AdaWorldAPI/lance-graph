@@ -1,3 +1,35 @@
+## 2026-09-05 — `open-ideas-fetch-v1` (MEASURED, planning-only — three decisions gate the workers)
+
+`.claude/plans/open-ideas-fetch-v1.md`. Three Open cards fetched from an
+82-day-stale `IDEAS.md` and re-derived from the current tree; **each card
+was wrong about its own blocker** (`E-A-COLUMN-OF-INDICES-INTO-A-CODEBOOK-THAT-DOES-NOT-EXIST-1`).
+
+- **`policy_hash_v1`** — the blocker is the UDF body, not registration
+  (`policy.rs:137` binds the object into the `Expr`; `register_vsa_udfs` has
+  zero callers and its UDFs still execute). `D-OIF-1`; the hash family + key
+  source is `D-OIF-1-DEC` (recommendation: keyed SipHash-1-3 in-crate, key
+  bound at rewriter construction; unkeyed FNV-64 recommended against).
+- **Σ-propagation "hardware backends"** — mis-shaped for a 2×2 f64 kernel;
+  the lever is `F64x8` batching with bit identity to the scalar kernel, as
+  consumer code in `jc` (no ndarray change). Zero production call sites
+  exist, so the kernel ships only paired with the hop re-quantization probe.
+  `D-OIF-4` + `D-OIF-5`; the edge-`M` source is `D-OIF-5-DEC`.
+- **Σ sidecar** — already shipped as a SoA column; the **codebook** the
+  column indexes exists in three doc comments and zero crates. `D-OIF-0`
+  (re-run the viability probe, reconcile 0.9949 vs 0.9973), `D-OIF-2` (type
+  in the contract, builder in `jc`, instance in `cognitive-shader-driver`, no
+  digest pin), `D-OIF-3` (first real writer); provenance is `D-OIF-2-DEC`.
+- **`D-OIF-6`** — the ledger itself: four new entries + three status flips,
+  shipped in this PR.
+
+Rejected on record (§5): AMX/MKL for 2×2; the 9-byte sidecar and Block
+14/15 (superseded); the in-`u64` index (3 spare bits); an IDEAS-staleness CI
+gate (fires on legitimate quiet). §8 lists the four structural claims that
+execution must confirm before they are believed. §7 carries the per-D Sonnet
+briefs; nothing is dispatched until the three decisions land.
+
+**Status:** PLANNED — halted for operator decisions D-OIF-1-DEC / 2-DEC / 5-DEC.
+
 ## 2026-09-05 — `bindspace-mailbox-soa-wiring-v1` (MEASURED, ready-to-execute)
 
 `.claude/plans/bindspace-mailbox-soa-wiring-v1.md`. The BindSpace → MailboxSoA

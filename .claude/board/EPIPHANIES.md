@@ -1,3 +1,30 @@
+## 2026-09-05 — E-A-COLUMN-OF-INDICES-INTO-A-CODEBOOK-THAT-DOES-NOT-EXIST-1 — three stale idea cards, each wrong about its own blocker
+
+**Status:** FINDING (structural — grep + read of the current tree; nothing compiled). Plan: `.claude/plans/open-ideas-fetch-v1.md`.
+**Confidence:** High on every "exists / does not exist / has N callers" claim below; each carries file:line.
+
+Fetching the three highest-value Open cards from an 82-day-stale `IDEAS.md` produced the same shape three times: **the card names a blocker that is not the blocker.**
+
+| card | named blocker | measured blocker |
+|---|---|---|
+| `IDEA-POLICY-HASH-UDF` | "UDF registration" | the **body** — the UDF is bound as an object in the `Expr` (`policy.rs:137`) and executes without by-name registration (`register_vsa_udfs` has zero callers and its UDFs still run); `invoke_with_args` simply returns `NotImplemented` |
+| `IDEA-B1-HARDWARE-BACKENDS` | "waits on ndarray AMX/MKL" | the **shape** — a 2×2 f64 sandwich has no 16×16 tile mapping; and `ewa_sandwich(` has **zero production call expressions** (all four "callers" are doc comments), so any faster kernel is a home without a consumer |
+| `IDEA-CAUSAL-EDGE-TENSOR-SIDECAR` | "design the 9-byte sidecar" | it **shipped**, as a SoA column (`mailbox_soa.rs:125-133`, `bindspace.rs:54-58`) — the card never learned; what is missing is the **codebook** the column indexes |
+
+### The sharp one
+
+Every production row carries `sigma = 0`, documented as "untrained / first centroid" (`bindspace.rs:54`). The `SigmaCodebook` those bytes index is claimed to live in the contract (`sigma_propagation.rs:73`), in `lance-graph-cognitive` (`contract/src/splat.rs:308`), and to be built offline by `jc` (`arm-discovery/aerial/codebook.rs:16`). `grep -rn SigmaCodebook crates/` returns the two doc lines and nothing else; `lance-graph-cognitive/src` has zero hits; `jc` holds the *viability probe* and no builder. **Three claimed homes, zero implementations, one live column of references into them.** Its writers are the write-shim loop (`backing.rs:310`) and one test that writes `9`; its readers are two examples that dump the byte.
+
+Two further inconsistencies ride on the same claim: the σ provenance is written two incompatible ways — *fitted* by k-means (`sigma_codebook_probe.rs`) vs *declared* from the typed value's `(PropertyKind, Marking, SemanticType)` tuple (`sigma_propagation.rs:74-77`) — and two viability numbers are cited for one probe: `R²=0.9949` (`bindspace.rs:39,57`) vs `ρ=0.9973` (`arm-discovery/src/lib.rs:13`), where the probe computes R² (`:317`) and `0.9973` is elsewhere the 3σ constant and an unrelated Spearman band.
+
+### The generalizable rule
+
+**A ledger entry's stated blocker decays faster than its stated goal.** The goal ("hash the column", "propagate Σ faster", "index Σ per edge") survived 4 months; every *mechanism* claim attached to it was stale. So: before acting on an idea card, re-derive its blocker from the tree — the cost is a grep, the alternative is building registration that was never missing, hardware backends for a 3-scalar kernel, or a second projection of a byte that already has a column. The `IDEAS.md` "Status" field should carry the *measured* blocker with a date, and the plan re-derivation is the entry, not a preamble to it.
+
+Also recorded, because it changes what is owed: an unkeyed 64-bit hash of an identifier column is a lookup table wearing a redaction's name — the v1 target named in `policy.rs:275` ("FNV-64") is the option the plan recommends against (`D-OIF-1-DEC`).
+
+Cross-ref: `E-A-RULED-HOME-NEEDS-A-FIRST-CONSUMER-OR-IT-IS-A-VACANCY-1` (the batched kernel's sequencing); `I-VSA-IDENTITIES` (indices, not content — why the column is right and the sidecar was wrong); `E-A-GATE-INHERITS-THE-BLIND-SPOT-OF-WHOEVER-WROTE-IT-1` (the same day's other instance of a written mechanism outliving its truth).
+
 ## 2026-09-05 — E-NXG-18 — the ladder's top band must BE the universe, or the histogram loses rows silently
 
 **Status:** FINDING (PROBE-NXG-ROLL-1 falsified its own first run).
