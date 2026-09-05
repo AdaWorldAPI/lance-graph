@@ -171,6 +171,29 @@ jobs:
       # what this step ran before, so it cannot lose coverage.
       - name: Run supervisor tests (W2b real-owner probes + #879 cycle driver)
         run: cargo test --manifest-path crates/lance-graph-supervisor/Cargo.toml --features supervisor,cycle-driver
+      #
+      # CLIPPY ARMED 2026-09-05 (TD-SUPERVISOR-CLIPPY-RED-ON-BASE-1, closed).
+      # Same shape as sigker below: the crate was clippy-red on arrival, so the
+      # PR that found it (#1188) recorded the debt rather than widening itself
+      # into a lint sweep. The nine findings are now fixed, so the gate is armed
+      # in the same commit — an unarmed lint fix decays back, and this crate's
+      # whole reason for being unlinted was that no step reached it under
+      # `--features supervisor,cycle-driver`.
+      #
+      # What the debt row got wrong, corrected here from the measured output:
+      # the eight `cycle_driver.rs` findings are `unnecessary_mut_passed` at the
+      # CALL SITES, not `needless_pass_by_ref_mut` on the signature —
+      # `recover_fleet` already takes `sink: &S`, and eight `#[cfg(test)]`
+      # callers passed `&mut sink` into it. The ninth is `for_kv_map` in
+      # `tests/probe_ignition_64k.rs`. All nine are in test code; none touches
+      # the loop-closure contract.
+      #
+      # Verified locally before landing on the pinned 1.98.1: clippy clean,
+      # 50 tests passed across 13 binaries, 0 failed, `fmt --check` clean.
+      - name: Lint supervisor (gated features, so root clippy never reaches them)
+        run: |
+          cargo clippy --manifest-path crates/lance-graph-supervisor/Cargo.toml \
+            --features supervisor,cycle-driver --all-targets -- -D warnings
       # causal-edge: workspace-EXCLUDED, but a path-dep of lance-graph,
       # lance-graph-planner, cognitive-shader-driver and sigma-tier-router — so
       # its LIB already compiles inside gated builds while its TESTS ran

@@ -432,7 +432,7 @@ mod probe_ignition_64k {
         }
         // Applied on every owner: phase advanced via the seal, nothing else.
         let mut advanced = 0usize;
-        for (_, owner) in fleet.iter() {
+        for owner in fleet.values() {
             if owner.phase() == KanbanColumn::CognitiveWork {
                 advanced += 1;
             }
