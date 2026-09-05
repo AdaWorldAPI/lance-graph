@@ -1,3 +1,59 @@
+## 2026-09-05 — E-A-MACHINE-APPLICABLE-FIX-IS-A-SUGGESTION-NOT-A-PROOF-1 — clippy's own autofix did not compile, and the lint it fixes is a substrate argument
+
+**Status:** FINDING (measured across two repos while sweeping to Rust 1.98.1).
+**Confidence:** High — reproduced in both `lance-graph` and `ndarray`, with the failing compiler error captured.
+
+**Three things, in ascending order of how long they will stay useful.**
+
+**1. `rustfix` output is not rustfmt-clean.** `cargo clippy --fix` emitted
+`.as_chunks::<4>().0.iter()` on one line where rustfmt wants three. Harmless,
+but a `--fix` sweep followed straight by a push turns the FORMAT job red while
+the clippy job is green. Always `cargo fmt` after `--fix`.
+
+**2. A "machine-applicable" suggestion is a suggestion, not a proof.** Two of
+ten sites failed to compile after the autofix:
+
+```
+error[E0277]: the trait bound `[u8; 8]: TryFrom<&[u8; 8]>` is not satisfied
+```
+
+because `as_chunks` yields `&[T; N]` where `chunks_exact` yielded `&[T]`.
+`cargo fix` reverts the whole crate on error, so the run LOOKS like "8 fixed"
+and silently leaves two crates untouched — the count is the tell, not an error
+message you would notice. The hand fixes are strictly better than the original
+either way: `from_le_bytes(*chunk)` takes the array directly, so each site
+loses an `unwrap` that could never fail. **Rule: after any `--fix` sweep,
+re-run the lint to enumerate what was reverted; do not read the Fixed lines as
+a completion report.**
+
+**3. The lint is an argument about the substrate, and the operator supplied
+it.** `chunks_exact(N)` was the right call when these buffers were 4096 and
+16384 wide: at those widths the remainder is always empty, so the runtime
+width check is dead weight and the `&[T]` return type loses nothing. At the
+**32+96 shape** — the `classid(4B)` plus the twelve-byte content-blind facet
+payload — the width is a COMPILE-TIME fact, and `as_chunks::<N>` returns
+`&[T; N]`, a type that CARRIES the width instead of re-checking it. That is
+the honest representation for a fixed-width register, and it is why this
+migration is not lint appeasement.
+
+Two `ndarray` AVX-512 kernels showed the sharper form: `asum_f32` and
+`asum_f64` called `chunks_exact(N)` AND `chunks_exact(N).remainder()`
+separately, where `as_chunks` returns both halves at once. Each kernel now
+makes one call where it made two.
+
+**A measurement lesson attached to the same arc.** Before running anything I
+grepped 139 `.chunks_exact(` call sites and called that the exposure. The real
+count was ten, because the lint requires a const chunk size where `as_chunks`
+applies. **A grep is a denominator; only the lint is the numerator.** Same
+shape as the workspace's standing rule that grep locates and reading
+comprehends.
+
+Cross-ref: PR #1194 (the ten sites), #1195 (the one-line channel bump the
+sequencing bought), `ndarray` PR #302 (six sites plus a REMOVED lint,
+`clippy::from_iter_instead_of_collect`, still sitting in a crate-level allow
+list — a second delta this repo did not have, which is why the sweep measures
+each repo instead of generalising from the first).
+
 ## 2026-09-05 — E-PLANNING-MIGRATES-TO-LOCO-R2IL-DATAFUSION-IS-GRACE-PERIOD-1 (OPERATOR-RULED)
 
 **Status:** operator-ruled, BINDING (2026-09-05, verbatim intent: *"Every planning is in migration to ogar-loco and ogar-r2il, especially datafusion is out of the picture, what exists gets a grace period, nothing new will migrate to it."*)
