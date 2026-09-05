@@ -1,3 +1,18 @@
+## 2026-09-05 — `nexgen-mask-histogram-thresholds-v1` (PROPOSAL) — lives under `.claude/nexgen/plans/`
+
+`.claude/nexgen/plans/nexgen-mask-histogram-thresholds-v1.md`. D-NXG-1..12. The
+Belichtungsmesser reading as a nested mask set: bands, buckets, Prozentrang,
+rollover, reject floor, preheat, early exit, Mexican hat, entropy timer, EWA
+covariance and the prefetch overlap matrix as reads of one sealed,
+version-keyed `NestedBands` per (classid, version). §2 gives the T0..T3
+entropy shape (what each membrane stops having to name); §3 is a 27-row
+"rooms ahead" table, each row a folded consequence with its own falsifier; §5
+sequences three probes before any of rooms 4–27 may leave PROPOSAL. Evidence:
+`.claude/nexgen/harvest/` (11 verbatim Sonnet reports, 2026-09-05). Board:
+`E-NXG-1..16`. Not in `.claude/plans/`, so invisible to the supersession
+index's coverage column — stated in the plan header, not a gap to "fix" by
+moving it until the folder earns a second plan.
+
 ## 2026-09-03 — `probe-r2il-live-regfile-v1` (PROBE, GREEN 2026-08-26) — BACKFILLED INDEX ENTRY
 
 `.claude/plans/probe-r2il-live-regfile-v1.md`. The executable falsifier for

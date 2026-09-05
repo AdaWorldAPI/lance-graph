@@ -1,3 +1,176 @@
+## 2026-09-05 — E-NXG-1 — the exposure meter is a nested mask set
+
+**Status:** PROPOSAL (design reading of measured code; no code changed).
+**Confidence:** High on the identity, unmeasured on the cost.
+
+Foveal ⊆ Near ⊆ Good ⊆ Weak (`ndarray/src/hpc/cascade.rs:162-176`) are four
+row masks of 8 KB each at 65 536 rows; the histogram is four popcounts; bucket
+i is `M_i ∧ ¬M_{i−1}` = `vpternlogq` immediate `AND_ANDNOT2 = 0x10`
+(`ndarray/src/simd.rs`), one instruction per 512 rows. Belichtungsmesser,
+Prozentrang, Mexican hat, basin and the mask slab cache are one sealed object.
+Plan: `.claude/nexgen/plans/nexgen-mask-histogram-thresholds-v1.md` (D-NXG-1).
+Harvest: `.claude/nexgen/harvest/01-*.md`.
+
+## 2026-09-05 — E-NXG-2 — Prozentrang exists only in doctrine; in code nothing ranks against a live distribution
+
+**Status:** FINDING (grep + read, `.claude/nexgen/harvest/02-*.md`).
+**Confidence:** High.
+
+`observer-effect-tfpn-doctrine.md` §2 mandates `shape × rank`; D-BLW-5 designs a
+16-bucket Fisher-2z histogram; `ndarray::hpc::statistics::percentile` is a batch
+sort. No live rank mechanism exists. Under E-NXG-1 rank = index of the innermost
+band mask containing the row — a partition point over nested masks, no sort
+(D-NXG-4).
+
+## 2026-09-05 — E-NXG-3 — bucket rollover exists nowhere; it is a popcount test plus a mask split
+
+**Status:** FINDING on the absence; PROPOSAL on the mechanism.
+**Confidence:** High / unmeasured.
+
+The only mentions are warnings that fixed-width buckets "saturate silently"
+(`crates/lance-graph-contract/src/legacy_outliers.rs:27`, `identity_quad.rs:46`).
+Mechanism: when `popcount(M_i ∧ ¬M_{i−1})` exceeds budget, bisect that bucket on
+the distance column (the one non-mask read) and mint the new boundary as a new
+version-keyed mask; old masks are never rewritten (D-NXG-5). Merge on collapse is
+the dual: drop a boundary, the merged mask is already `M_{i+1}`.
+
+## 2026-09-05 — E-NXG-4 — `mu + kσ` is the wrong operating threshold and the code already says so
+
+**Status:** FINDING (code cites the objection to itself).
+**Confidence:** High.
+
+`cascade.rs:137` fixes `k=3`; `perturbation-sim/src/rolling_floor.rs:25-27`
+states the σ is from a weakly-dependent sample and "significance is the Jirak
+`n^(p/2−1)` rate, not a clean Gaussian tail". Under E-NXG-1 the reject floor is
+the boundary at a chosen empirical rank read off cumulative popcounts; σ becomes
+`RollingFloor::z()` diagnostic output (D-NXG-6). Cross-ref I-NOISE-FLOOR-JIRAK.
+
+## 2026-09-05 — E-NXG-5 — preheat by mask inheritance beats copying mu/σ
+
+**Status:** PROPOSAL.
+**Confidence:** Medium (strictly more information for one AND; cost unmeasured).
+
+`stack_early_exit()` (`rolling_floor.rs:230-235`) preheats a cold fine tier by
+copying two scalars from the coarse tier. `M_fine_domain = M_coarse[weak]`
+carries the whole survivor set and the coarse histogram restricted to it, for one
+`AND3` (D-NXG-7).
+
+## 2026-09-05 — E-NXG-6 — early exit is a popcount budget; search and alarm are one rule
+
+**Status:** PROPOSAL.
+**Confidence:** Medium.
+
+First-Alarm exit (`rolling_floor.rs:239-247`) and kth-best tightening
+(`holograph/src/width_16k/search.rs:483`) are one rule:
+`popcount(survivors) ≤ k`. Top-k with k = floor is the rolling floor (D-NXG-8).
+
+## 2026-09-05 — E-NXG-7 — only `TERNLOG = FnIndex(0x86)` survives, and only because its value byte is the truth table
+
+**Status:** FINDING (OGAR #296/#298, lance-graph #1134/#1159).
+**Confidence:** High.
+
+OGAR #298 retracted 0x87–0x8B because one band aliased three semantic families
+(`E-SIX-SEMANTIC-FAMILIES-MUST-NOT-IMPERSONATE-EACH-OTHER-1`). INFO_GAIN /
+SIGMA_TENSION / STANCE_ENTROPY return only as DERIVED reads over single-family
+masks, never as minted calls. Any derived read that must AND masks from two
+families is a violation at the seal.
+
+## 2026-09-05 — E-NXG-8 — the eight named immediates already have cognitive homes
+
+**Status:** FINDING (mapping of shipped code).
+**Confidence:** High on the mapping.
+
+`AND3` = conjunctive narrowing (`lgj_hop`, shipped); `AND_ANDNOT2` = bucket /
+annulus / known-false (`domain ∧ ¬result`); `MAJ3` = quorum
+(`jc::quorum::pairwise_agreement_u8`, `superposition_clean` n/2 vote at
+`hdr_cascade.rs:564`); `XOR3` = disagreement (`EpistemicBassin24` agree/disagree
+pair, #1129), sign side only per the TWO-ALGEBRA rule; `OR2_AND` = gated
+hypothesis union for the prefetch frontier.
+
+## 2026-09-05 — E-NXG-9 — histogram entropy is a free threshold-health signal
+
+**Status:** PROPOSAL over ruled primitives.
+**Confidence:** Medium.
+
+`H(popcounts)` via `thought_atoms::normalized_entropy` (ruled home, #1153/#1154;
+popcount-histogram form already at `spectroscopy/features.rs:89`). Near zero
+means one band holds everything: the threshold is mis-set or rollover is
+overdue. Rollover becomes entropy-timed, not budget-timed (D-NXG-9).
+
+## 2026-09-05 — E-NXG-10 — the Mexican hat has no certified shape
+
+**Status:** FINDING.
+**Confidence:** High.
+
+`hdr_cascade.rs:128-141` is a piecewise-linear ramp; Pillar-15
+(`ndarray/src/hpc/pillar/mexican_hat.rs:111`) is DEFERRED and returns a
+placeholder `passed=true`. Under E-NXG-1 excite/inhibit are two band boundaries,
+κ ∈ [1.5, 3.0] is a ratio of ranks that rollover keeps in band, and unimodality
+is a finite check on the discrete histogram at seal time (D-NXG-10).
+
+## 2026-09-05 — E-NXG-11 — the EWA sandwich is the floor's covariance, but uncalibrated
+
+**Status:** FINDING on the blocker; PROPOSAL on the use.
+**Confidence:** High / Medium.
+
+Adjacent tiers are correlated (Jirak note). A 2×2 `Σ' = MΣM` per tier pair
+(`contract::sigma_propagation::ewa_sandwich` ≡ `jc::ewa_sandwich`, byte-identical
+per #1160) replaces "copy σ down" with PSD-safe propagation. Blocker:
+`PILLAR_6_PSD_THRESHOLD` was lowered to 0.10 because `SIGMA_STEP = 0.2` reaches
+denormal in <30 hops (`ewa_sandwich_2d.rs:53-58`). D-NXG-11 is Blocked on that
+calibration.
+
+## 2026-09-05 — E-NXG-12 — proprioception violates the payload law as written
+
+**Status:** FINDING.
+**Confidence:** High.
+
+`contract/src/proprioception.rs` classifies by nearest-anchor distance over an
+11-dim vector — a raw scalar, the shape the payload law forbids. Under
+E-NXG-1 each anchor is a band over the window; state = popcounts × rank;
+`drive_ratio` cutoffs 1.0 / 1.8 become boundaries with rollover.
+
+## 2026-09-05 — E-NXG-13 — the ownership and iteration shapes already exist in OGAR
+
+**Status:** FINDING.
+**Confidence:** High.
+
+`BasinCodebookBuilder::seal()` (OGAR #295: build, freeze, no `&mut` after) is the
+slab's ownership shape; inline `[u64;3]` `CallMask` + `set_indices()` (OGAR #288)
+is its iteration shape; `resolve(0) → None` (`ogar-loco/src/basin.rs`) becomes
+"an absent band mask misses". A basin is a band.
+
+## 2026-09-05 — E-NXG-14 — sigker has no row-level mask link and should not; the link is one level up
+
+**Status:** FINDING on the absence; CONJECTURE on the use.
+**Confidence:** High / Low.
+
+No mask/popcount/HDR reference exists in `crates/sigker` or the W1.5 plan
+(`.claude/nexgen/harvest/04-*.md`). A signature is over a path, not a row set.
+The per-tier survivor-popcount sequence is a length-4 path in ℝ⁴;
+`signature_kernel_pde` on two such paths is an order-sensitive query-narrowing
+similarity for the prefetch planner. Untested.
+
+## 2026-09-05 — E-NXG-15 — "power kernel" does not exist in either workspace
+
+**Status:** FINDING (grep).
+**Confidence:** High.
+
+Only unrelated power iteration (PCA in `ndarray/bf16_test_src/main.rs:1029`,
+PageRank in `arigraph/ppr.rs:30`, SVD in `bgz-tensor/src/matryoshka.rs:304`).
+Recorded so the term is not re-searched.
+
+## 2026-09-05 — E-NXG-16 — what is not free
+
+**Status:** FINDING (cost ledger for E-NXG-1..15).
+**Confidence:** High.
+
+Popcount-derived selectivity assumes operand independence (the overlap matrix
+`popcount(M_a ∧ M_b)` is the fix, D-NXG-12). 16 bands × 8 KB per histogram per
+version hot; a u8 rank column is the cold form. Rollover bisection reads the
+distance column. Nothing is measured; `columnar_hop_bench` is the only bench in
+scope. Evidence trail for all sixteen entries: `.claude/nexgen/harvest/`.
+
 ## 2026-09-04 — E-A-SKETCH-THAT-MISSED-TWICE-WILL-MISS-A-THIRD-TIME-1 — the W1.5 lane-type sketches are 3-for-3 wrong
 
 **Status:** FINDING (read directly off `crates/sigker` source this session).

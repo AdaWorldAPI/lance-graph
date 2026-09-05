@@ -1,0 +1,23 @@
+# PR sweep — ndarray #301–#277 (verbatim, 2026-09-05)
+
+- Rulings quoted: "VPABSB does NOT saturate `i8::MIN`"; W1a struct-method litmus (`vertical-simd-consumer-contract.md:325-326`), with #280/#301 deviating to free-fn family shape by recorded justification; "No `&mut self` during computation. Ever." (data-flow.md)
+- #301 — `mask_ternlog`/`mask_ternlog_assign` + stride-4 fast path in `eq_u32_strided_to_mask`. STRONG.
+- #300 — stop committing Cargo.lock. NONE.
+- #299 — `array_chunks` into `heel_f64x8::cosine_f32_to_f64_simd`. WEAK.
+- #298 — docs. NONE. #297 — `BlasLevel3` re-export. NONE. #296 — W1.5 docs backfill. WEAK. #295 — docstrings. NONE.
+- #294 — `randomized_signature_sweep` (Cuchiero, F64x8 GEMV+axpy). NONE for masks.
+- #293 — `signature_pde_sweep` Goursat wavefront F64x8. NONE for masks.
+- #292 — `pillar::lattice_signature` bit-exact i128 + Hambly-Lyons Thm 5/6; "scalar integer reference lane on purpose… `ndarray::simd` has no i128 lane". NONE.
+- #291 — Pillar 11 PSD gate → jittered Cholesky (`gram_is_psd`, `PSD_JITTER = 1e-4`, `hpc::lapack::LapackOps::cholesky`), bit-exact CI pins. STRONG.
+- #290 — signer-parity crate, PSD at depth-∞, hand-rolled Cholesky. WEAK. #289 — docs. NONE. #288 — drop burn submodule. NONE.
+- #287 — scalar `U64x8::ternlog` IMM const-guard fixed; AVX-512 verification claimed→measured. STRONG.
+- #286 — blackboard record for #285; deviation: "the pair follows the free-fn family shape rather than the struct-method litmus… council-surfaced (5+3, S2-7)". STRONG by reference.
+- #285 — `U64x8`/`U32x16` `andnot` + `ternlog::<IMM>` on all six backends + `simd::ternlog::{AND3,OR3,MAJ3,…}`; consumer wired to lance-graph `FieldMask`/`WideFieldMask`. STRONG.
+- #284 — wasm32 docs. NONE.
+- #283 — `masked_strided_group_sum` (scalar by design, memory-bound stride; i128 accumulate, overflow-checked into i64). STRONG.
+- #282 — debug off. NONE. #281 — chacha20 spec. NONE.
+- #280 — `mask_andnot`/`mask_andnot_assign`; "a lone struct-method member sitting beside four free-fn siblings would fragment… the polyfill surface." STRONG.
+- #279 — `eq_u32_strided_to_mask`, `mask_and`/`mask_or`(+assign), `masked_sum_i32`, `MultiLaneColumn::iter_u32x16`. STRONG.
+- #278 — wasm32 SIMD128 guide. NONE.
+- #277 — `ClamTree::build_with_distance`, `TreeDistance::{Ptr,Dyn}`, `is_metric()` carried not assumed, `rho_nn` hook. STRONG.
+- Not touched in this range: Prozentrang/percentile, Mexican hat, Shannon, EWA/temporal pillars, `hpc::cascade`.

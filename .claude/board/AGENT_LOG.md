@@ -1,3 +1,12 @@
+## 2026-09-05 — Sonnet harvest fleet (4 readers + 7 PR sweepers), orchestrator-consolidated → `.claude/nexgen/`
+
+- **Why:** operator asked how HDR popcount-stacking, rolling floor, Prozentrang buckets, Mexican hat, Shannon, proprioception, EWA sandwich and sigker could combine with ternlog mask algebra for better thresholds; then asked for the last 50 lance-graph PRs + 25 OGAR + 25 ndarray swept for synergies, epiphanies written to the board, the raw agent output kept, and an expansion plan in the T0..T3 shape "27 rooms ahead".
+- **Fleet (all Sonnet, all read-only, no cargo, no GitHub writes):** 4 `Explore` readers (cascade/rolling-floor/hdr; Prozentrang+Shannon doctrine; proprioception/EWA/Mexican/16k-search/mask surface; sigker+"power kernels"), 7 `general-purpose` sweepers over fixed PR partitions (lance-graph #1126–#1175 in five tens, OGAR #274–#298, ndarray #277–#301) using `pull_request_read` get + get_files. Each agent wrote only its own return; the orchestrator is the sole writer of every board file here.
+- **Outputs:** `.claude/nexgen/harvest/00-INDEX.md` + 11 verbatim reports; `.claude/nexgen/plans/nexgen-mask-histogram-thresholds-v1.md` (D-NXG-1..12, 27-room expansion table with a falsifier per row); EPIPHANIES `E-NXG-1..16`; INTEGRATION_PLANS + STATUS_BOARD rows.
+- **Headline:** the exposure meter is a nested mask set (E-NXG-1); Prozentrang and bucket rollover are unbuilt (E-NXG-2/3); only `TERNLOG 0x86` survives the OGAR #298 retraction (E-NXG-7); "power kernel" does not exist (E-NXG-15).
+- **Not done, on purpose:** no code, no bench, no removal or demotion of any public surface (operator ruling 2026-09-04 stands). The plan sits under `.claude/nexgen/plans/`, outside `supersession_index.py`'s scan path — recorded in the plan header.
+- **Gates:** board append-only check (line counts grew), supersession index regenerated last.
+
 ## 2026-09-03 — 5+3 COUNCIL on the canon entries that shipped unreviewed (#1154)
 
 - **Why convened:** three EPIPHANIES entries + two source-doc blocks sat on an OPEN PR that neither review bot had seen (Codex reviewed only `a1c9488e`; CodeRabbit at its org spend cap). EPIPHANIES is append-only, so this was the last moment the text was amendable rather than permanent-with-regrade — the card's "a spec whose wrong resolution silently corrupts downstream sessions (canon entries)". CI status, merge mechanics and the spend decision were explicitly EXCLUDED from the object.

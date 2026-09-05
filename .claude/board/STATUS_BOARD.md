@@ -1,3 +1,23 @@
+## nexgen-mask-histogram-thresholds-v1 (PROPOSAL, 2026-09-05)
+
+`.claude/nexgen/plans/nexgen-mask-histogram-thresholds-v1.md`. Nothing built;
+every row is Queued until PROBE-NXG-HIST-1 / ROLL-1 / FLOOR-1 (plan §5) run.
+
+| D-id | deliverable | status |
+|---|---|---|
+| D-NXG-1 | `NestedBands` sealed shape (T2), version-keyed, one owner | Queued |
+| D-NXG-2 | T1 name audit: `popcount_words` present or minted; bucket = `mask_ternlog::<0x10>` by name | Queued |
+| D-NXG-3 | T1 `bisect_column_by_mask` partial-popcount bisection | Queued |
+| D-NXG-4 | Prozentrang = bucket index; `shape × rank` computed from the slab | Queued |
+| D-NXG-5 | rollover: split on budget or entropy, merge on collapse, never rewrite | Queued |
+| D-NXG-6 | rank-derived reject floor; σ demoted to diagnostic | Queued |
+| D-NXG-7 | preheat by mask inheritance | Queued |
+| D-NXG-8 | one early-exit rule for search and alarm | Queued |
+| D-NXG-9 | histogram entropy via `thought_atoms::normalized_entropy` as rollover timer | Queued |
+| D-NXG-10 | Mexican hat as two boundaries; Pillar-15 on the histogram | Queued |
+| D-NXG-11 | EWA sandwich on histogram-recovered Σ | **Blocked** on Pillar-6 σ_step calibration (`ewa_sandwich_2d.rs:53-58`) |
+| D-NXG-12 | overlap matrix + corrected prefetch order + mask-native quorum input | Queued |
+
 ## probe-r2il-live-regfile-v1 (D-ids minted 2026-09-03; the plan shipped 2026-08-26)
 
 `.claude/plans/probe-r2il-live-regfile-v1.md`. The falsifier for the EXECUTABLE
