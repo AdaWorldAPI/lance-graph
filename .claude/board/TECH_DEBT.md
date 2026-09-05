@@ -1,3 +1,34 @@
+## TD-SIGMA-PROBE-MASK-ALIGNMENT-AND-WORK-METRIC-1 (2026-09-05) — OPEN
+
+**`crates/lance-graph/examples/sigma_probe_masked_traverse.rs` (shipped in
+#1176 as an inherited commit, `a11fd64b`, "measurement only") carries two
+Codex P2 findings posted after the merge; neither is fixed here.** The example
+was not authored in the #1176 session; it rode the designated branch. The
+findings are recorded so the probe's numbers are not cited as evidence until
+they are addressed.
+
+1. **Block mask is not aligned to the generated communities.** With the
+   defaults `n=96`, `blocks=8` each community spans 12 ids, but `mask_blocks`
+   is called with counts 1, 9 and 38, so `(0..count)` cuts through a community
+   in every row. The random-vs-block delta therefore does not isolate block
+   alignment, which is the one thing the row claims to measure. Fix shape:
+   pass the community size in and select whole communities, or choose
+   densities whose counts are multiples of 12.
+2. **`sigma_result` measures output cardinality, not multiplication work.**
+   `GrBMatrix::mxm` visits every `(i, j)` and probes every entry of `a.row(i)`;
+   all successful products for one `(i, j)` collapse into at most one stored
+   nonzero. Two workloads with the same `nnz_masked / nnz_full` can have very
+   different masked-multiply costs, so the probe's stop/speedup conclusions
+   about mask pushdown are not supported by the ratio it prints. Fix shape:
+   count column probes / successful semiring ops, or time an inward-mask
+   implementation.
+
+**Why not fixed in #1178:** the example is not this session's work and #1176
+is merged; the honest move is a ledger row plus a pointer, not a drive-by
+rewrite of someone else's measurement. Owner: the sigma-probe author.
+Cross-ref: E-NXG-16 (independence assumption in popcount selectivity) — the
+same "cardinality is not work" caveat, one probe over.
+
 ## TD-SIGKER-CLIPPY-RED-ON-BASE-1 (2026-09-04) — RESOLVED 2026-09-04
 
 **`crates/sigker` does not pass `cargo clippy --all-targets -- -D warnings`, and
