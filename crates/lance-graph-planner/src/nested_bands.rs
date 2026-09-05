@@ -26,9 +26,30 @@
 //! `examples/probe_nxg_hist_1.rs`, `examples/probe_nxg_roll_1.rs`,
 //! `examples/probe_nxg_floor_1.rs`.
 
+use lance_graph_contract::shape_rank::{ShapeRankPayload, SHAPE_BUCKETS};
 use lance_graph_contract::thought_atoms::normalized_entropy;
 use ndarray::simd::ternlog::{AND2, AND_ANDNOT2};
 use ndarray::simd::{gt_i32_to_mask, mask_ternlog, popcount_batch_u64};
+
+/// Fixed-point scale for Fisher-2z values on the i32 mask column: 2z ∈
+/// roughly [−21, 21] at EPS=1e-9, so ×1024 keeps 3 decimals and stays far
+/// inside i32.
+pub const Z2_SCALE: f64 = 1024.0;
+
+/// `round(z * Z2_SCALE)` saturated to i32; NaN → 0 (documented).
+pub fn quantize_2z(z: f64) -> i32 {
+    if z.is_nan() {
+        return 0;
+    }
+    let scaled = (z * Z2_SCALE).round();
+    if scaled >= i32::MAX as f64 {
+        i32::MAX
+    } else if scaled <= i32::MIN as f64 {
+        i32::MIN
+    } else {
+        scaled as i32
+    }
+}
 
 /// A sealed `NestedBands` value's version. Every `split`/`merge` returns a
 /// new `NestedBands` under a caller-supplied new version; the version is
@@ -189,6 +210,34 @@ impl NestedBandsBuilder {
         self.with_boundaries(boundaries, column, version)
     }
 
+    /// Equal-WIDTH boundaries over `[min, max]` of `column` (the D-BLW-5
+    /// design's "equal-width in 2z ≈ equal-information"), as opposed to
+    /// [`calibrate`](Self::calibrate)'s equal-mass quantiles. `bands-1`
+    /// boundaries at `min + k*(max-min)/bands`, `k = 1..bands-1`, deduped
+    /// strictly ascending; panics if fewer than one boundary survives (a
+    /// degenerate column). Then [`with_boundaries`](Self::with_boundaries).
+    pub fn calibrate_equal_width(self, column: &[i32], version: Version) -> NestedBands {
+        let min = *column
+            .iter()
+            .min()
+            .expect("NestedBandsBuilder::calibrate_equal_width: empty column");
+        let max = *column
+            .iter()
+            .max()
+            .expect("NestedBandsBuilder::calibrate_equal_width: empty column");
+        let span = (max - min) as f64;
+        let bands = self.bands as f64;
+        let mut boundaries: Vec<i32> = (1..self.bands)
+            .map(|k| min + ((k as f64) * span / bands).round() as i32)
+            .collect();
+        boundaries.dedup();
+        assert!(
+            !boundaries.is_empty(),
+            "NestedBandsBuilder::calibrate_equal_width: column is degenerate (all equal-width boundaries collapsed to one value): {column:?}"
+        );
+        self.with_boundaries(boundaries, column, version)
+    }
+
     /// Seal a [`NestedBands`] from an explicit, strictly ascending
     /// boundary ladder. `boundaries` must be non-empty; the builder's own
     /// `bands` field is only consulted by [`calibrate`](Self::calibrate) —
@@ -285,6 +334,23 @@ impl NestedBands {
     /// - 1)` slice returns at most that length).
     pub fn rank_of_value(&self, v: i32) -> usize {
         self.boundaries.partition_point(|&b| b < v)
+    }
+
+    /// D-NXG-4 → D-BLW-5: the payload-law object. `shape` = this ladder's
+    /// popcounts (the pooled prior's census), `rank` = `rank_of_value(observed)`
+    /// (the observed statistic's Prozentrang bucket), `version` = the V₀ the
+    /// caller freezes. Panics unless `band_count() == SHAPE_BUCKETS`.
+    pub fn shape_rank(&self, observed: i32, version: Version) -> ShapeRankPayload {
+        assert_eq!(
+            self.band_count(),
+            SHAPE_BUCKETS,
+            "NestedBands::shape_rank: band_count() must equal SHAPE_BUCKETS ({SHAPE_BUCKETS}), got {}",
+            self.band_count()
+        );
+        let mut shape = [0u64; SHAPE_BUCKETS];
+        shape.copy_from_slice(&self.popcounts);
+        let rank = self.rank_of_value(observed) as u8;
+        ShapeRankPayload::new(shape, rank, version)
     }
 
     /// Normalized Shannon entropy of the bucket-popcount histogram (1.0 =
@@ -830,5 +896,139 @@ mod tests {
                 );
             }
         }
+    }
+
+    // ─────────────────────── D-BLW-5 / shape_rank ───────────────────────
+
+    #[test]
+    fn equal_width_boundaries_are_equal_width() {
+        let speech = abs_samples(SPEECH);
+        let nb = NestedBandsBuilder::new(16).calibrate_equal_width(&speech, 1);
+        let boundaries = nb.boundaries();
+        let diffs: Vec<i32> = boundaries.windows(2).map(|w| w[1] - w[0]).collect();
+        let min_d = *diffs.iter().min().expect("at least one diff");
+        let max_d = *diffs.iter().max().expect("at least one diff");
+        assert!(
+            max_d - min_d <= 1,
+            "equal-width boundary diffs vary by more than 1: min={min_d} max={max_d} ({diffs:?})"
+        );
+    }
+
+    #[test]
+    fn quantize_2z_saturates_and_maps_nan_to_zero() {
+        assert_eq!(quantize_2z(f64::NAN), 0);
+        assert_eq!(quantize_2z(0.0), 0);
+        assert_eq!(quantize_2z(1.0), 1024);
+        assert_eq!(quantize_2z(1e30), i32::MAX);
+        assert_eq!(quantize_2z(-1e30), i32::MIN);
+        assert_eq!(quantize_2z(f64::INFINITY), i32::MAX);
+        assert_eq!(quantize_2z(f64::NEG_INFINITY), i32::MIN);
+    }
+
+    /// Lag-1 Pearson autocorrelation of `frame`, `0.0` if either half has
+    /// zero variance. Test-local: no generator, real data only.
+    fn lag1_r(frame: &[i32]) -> f64 {
+        let n = frame.len();
+        if n < 2 {
+            return 0.0;
+        }
+        let xs: Vec<f64> = frame[..n - 1].iter().map(|&v| v as f64).collect();
+        let ys: Vec<f64> = frame[1..].iter().map(|&v| v as f64).collect();
+        let mx = xs.iter().sum::<f64>() / xs.len() as f64;
+        let my = ys.iter().sum::<f64>() / ys.len() as f64;
+        let mut cov = 0.0;
+        let mut vx = 0.0;
+        let mut vy = 0.0;
+        for (a, b) in xs.iter().zip(ys.iter()) {
+            cov += (a - mx) * (b - my);
+            vx += (a - mx) * (a - mx);
+            vy += (b - my) * (b - my);
+        }
+        if vx == 0.0 || vy == 0.0 {
+            return 0.0;
+        }
+        cov / (vx.sqrt() * vy.sqrt())
+    }
+
+    #[test]
+    fn shape_rank_from_real_lag1_autocorrelations() {
+        const FRAME: usize = 1024;
+        let speech = abs_samples(SPEECH);
+        let saturated = abs_samples(SATURATED);
+        let quiet = abs_samples(QUIET);
+
+        // Cut speech into 1024-sample frames (drop the tail), lag-1 r per
+        // frame, through jc::stats::fisher_2z, quantized — the pooled prior.
+        let frames: Vec<i32> = speech
+            .chunks_exact(FRAME)
+            .map(|f| quantize_2z(jc::stats::fisher_2z(lag1_r(f))))
+            .collect();
+        let frame_count = frames.len();
+
+        let nb = NestedBandsBuilder::new(16).calibrate_equal_width(&frames, 7);
+
+        // Can-it-fire, INSIDE the prior's support: the speech frame with the
+        // lowest lag-1 r and the one with the highest are real statistics
+        // from the same population the ladder was calibrated on, so they
+        // must land in different buckets — the ladder discriminates.
+        let (lo_q, hi_q) = (*frames.iter().min().unwrap(), *frames.iter().max().unwrap());
+        let lo_payload = nb.shape_rank(lo_q, 7);
+        let hi_payload = nb.shape_rank(hi_q, 7);
+        assert_eq!(
+            lo_payload.shape.iter().sum::<u64>(),
+            frame_count as u64,
+            "shape must sum to the frame count"
+        );
+        assert_eq!(lo_payload.version, 7);
+        assert_eq!(lo_payload.rank, 0, "the minimum of the prior is bucket 0");
+        assert_eq!(
+            hi_payload.rank, 15,
+            "the maximum of the prior is the open-ended top bucket"
+        );
+        assert!(hi_payload.prozentrang() > lo_payload.prozentrang());
+
+        // FINDING (pinned, not weakened): the two OTHER recordings' whole-file
+        // lag-1 r sit far BELOW the speech prior's support (2z ≈ 1.46 and 1.67
+        // against a prior spanning ≈ 3.18..5.48). Both therefore rank 0 — and
+        // are indistinguishable from the prior's own minimum. shape × rank
+        // saturates at the edge bucket: an out-of-support statistic carries
+        // no "how far out" beyond rank 0. Recorded as E-NXG-22; the fix, if
+        // wanted, is a design decision for the D-BLW-5 loop, not a test edit.
+        let whole = |samples: &[i32]| quantize_2z(jc::stats::fisher_2z(lag1_r(samples)));
+        let (sat_q, quiet_q) = (whole(&saturated), whole(&quiet));
+        assert!(
+            sat_q < nb.boundaries()[0] && quiet_q < nb.boundaries()[0],
+            "both must be below the ladder"
+        );
+        assert_eq!(nb.shape_rank(sat_q, 7).rank, 0);
+        assert_eq!(nb.shape_rank(quiet_q, 7).rank, 0);
+    }
+
+    #[test]
+    #[should_panic]
+    fn shape_rank_panics_off_16_bands() {
+        let column: Vec<i32> = (0..8).collect();
+        let nb = NestedBandsBuilder::new(8).with_boundaries(vec![1, 2, 3, 4, 5, 6, 7], &column, 1);
+        let _ = nb.shape_rank(0, 1);
+    }
+
+    #[test]
+    fn shape_rank_round_trips_through_the_remeasure_ledger() {
+        use lance_graph_contract::shape_rank::{RemeasureKey, RemeasureLedger};
+        let speech = abs_samples(SPEECH);
+        let nb = NestedBandsBuilder::new(16).calibrate_equal_width(&speech, 1);
+        let payload = nb.shape_rank(speech[0], 1);
+
+        let mut ledger = RemeasureLedger::new();
+        let key = RemeasureKey {
+            stat_id: 1,
+            arm: 0,
+            cohort: 1,
+            metric: 1,
+            dataset_version: 7,
+        };
+        assert!(ledger.seal(key, payload).is_ok());
+        assert_eq!(ledger.get(&key), Some(&payload));
+        assert!(ledger.seal(key, payload).is_err());
     }
 }

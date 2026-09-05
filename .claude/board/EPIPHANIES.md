@@ -1,3 +1,39 @@
+## 2026-09-05 — E-NXG-22 — `shape × rank` is bounded by the prior's support: an out-of-support statistic saturates at the edge bucket
+
+**Status:** FINDING (pinned by `nested_bands::tests::shape_rank_from_real_lag1_autocorrelations`); D-NXG-4 SHIPPED into the D-BLW-5 payload.
+**Confidence:** High on the mechanism; the consequence for the D-BLW-5 loop is a design question left open on purpose.
+
+D-NXG-4 now has its first consumer: `NestedBands::shape_rank(observed, V₀)`
+produces `lance_graph_contract::shape_rank::ShapeRankPayload` — the doctrine's
+`shape₀ × rank₀`, frozen at V₀, with no `f64` field by construction. The
+transform lives in `jc::stats::fisher_2z` (ruled home of calibrated math), the
+ladder is `calibrate_equal_width` (the D-BLW-5 design's "equal-width in 2z"),
+and the remeasure guard is `RemeasureLedger::seal` (second write ERRORS).
+
+**The finding.** The pooled prior in the test is real: the lag-1 Pearson
+autocorrelation of 92 frames of speech, `r ∈ [0.9205, 0.9917]`, i.e.
+`2z ∈ [3.18, 5.48]`. The two other recordings' whole-file statistics are
+`2z ≈ 1.46` (saturated) and `1.67` (quiet) — far BELOW the prior's support.
+Both rank 0, and both are therefore indistinguishable from the prior's own
+minimum, which also ranks 0. The first version of the test asked the two
+out-of-support values to land in DIFFERENT buckets; they cannot, and the
+test was restated to what is true: inside the support the ladder
+discriminates (prior min → rank 0, prior max → rank 15), and outside it
+saturates. **`rank` carries no "how far out".** That is partly by design —
+the payload law forbids the raw scalar precisely so awareness cannot parrot
+a number — but the D-BLW-5 loop's "T-silence is a reportable null" and bloom
+criterion may need to know that an observation left the prior's support
+entirely. The candidate fix is one bit (`out_of_support`), not a scalar; it is
+a decision for the loop, which stays PAUSED, and is not made here.
+
+**Also measured, not claimed:** first frames of both recordings are silence
+(that is why the spec's "first frame" observed statistic was wrong — it
+measured leading silence, not the recording); `quantize_2z` at ×1024 keeps
+three decimals of 2z and the 16 equal-width boundaries over the speech prior
+differ in width by at most one unit. Gates: planner 428/428, contract
+1315/1315, jc 141/141, planner + contract clippy clean; jc clippy red on
+base and untouched by this arc (TD-JC-CLIPPY-RED-ON-BASE-1).
+
 ## 2026-09-05 — E-NXG-21 — `NestedBands` sealed: the three probes became one type and twelve tests, and two of the probes' numbers were one row and one sign off
 
 **Status:** SHIPPED (`crates/lance-graph-planner/src/nested_bands.rs`, D-NXG-1; merge arm of D-NXG-5; room 3 closed by moments).

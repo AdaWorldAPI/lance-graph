@@ -1,3 +1,10 @@
+## 2026-09-05 — branch (D-NXG-4 → D-BLW-5, producer half): the payload has a producer and a transform — INVENTORY DELTA
+
+- ADDED `lance_graph_planner::nested_bands::{Z2_SCALE, quantize_2z}`, `NestedBandsBuilder::calibrate_equal_width` (the D-BLW-5 design's equal-width-in-2z ladder, beside the equal-mass `calibrate`), `NestedBands::shape_rank(observed, V₀) -> ShapeRankPayload` (asserts 16 bands). Five tests, one on a REAL pooled prior (92 speech frames' lag-1 autocorrelation).
+- ADDED `jc::stats::{FISHER_CLAMP_EPS, fisher_2z, fisher_2z_inv}` — the "2z" of plan §Stage A, forced copy of `helix::Similarity::hyperbolic_depth` with a transcribed-formula parity test (live cross-crate parity blocked by helix's git-pinned `ndarray`; recorded in the doc comment).
+- FINDING E-NXG-22: `rank` saturates at the edge bucket for out-of-support statistics; the loop-level fix (one bit) is left to D-BLW-5, which stays PAUSED.
+- TD-JC-CLIPPY-RED-ON-BASE-1 opened (pre-existing, untouched files, no CI clippy on jc).
+
 ## 2026-09-05 — branch (D-NXG-4 → D-BLW-5, contract half): the payload-law DTO exists — INVENTORY DELTA
 
 - ADDED `lance_graph_contract::shape_rank` (zero-dep, std only): `SHAPE_BUCKETS = 16`; `ShapeRankPayload { shape: [u64; 16], rank: u8, version: u64 }` with `new` (asserts `rank < 16`), `mass`, `mass_below`, `prozentrang`, `rank_fraction`, `is_frozen_at`, and a `const _` guard `size_of <= 144`; `RemeasureKey { stat_id, arm, cohort, metric, dataset_version }` (`Ord`); `RemeasureError::AlreadySealed { key, sealed_version }`; `RemeasureLedger { seal (write-once, second write ERRORS, never overwrites), get, len, is_empty }`.
