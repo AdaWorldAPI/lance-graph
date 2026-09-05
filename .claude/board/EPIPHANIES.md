@@ -1,3 +1,17 @@
+## 2026-09-05 — E-A-SWEEP-IS-COMPLETE-ONLY-WITHIN-THE-TARGET-KINDS-ITS-GATE-COMPILES-1 — #1194 swept the whole 1.98 delta and still left two sites, because "whole" was measured through six clippy steps
+
+**Status:** FINDING (measured on the pinned 1.98.1: `--tests` = 9 findings, `--all-targets` = 11; the two extra are in an example no CI step compiles). **Confidence:** High — both numbers come from running the two commands back to back on the same tree; the two extra sites are the same lint, in the same release, as the ten #1194 fixed.
+
+**What happened.** #1194 fixed `clippy::chunks_exact_to_as_chunks` at ten sites across four crates and recorded, accurately, that this single lint "is the ENTIRE 1.98 delta across all six crates CI clippies. Nothing else fires." Landing the `TD-SUPERVISOR-CLIPPY-RED-ON-BASE-1` fix a few hours later turned up **two more sites of that same lint**, in `lance-graph-supervisor/examples/measure_wal_curve.rs`. Nothing about #1194 was careless: the supervisor is not one of the six crates CI clippies, and its examples sit behind `--features supervisor,cycle-driver`. The sweep was complete **with respect to its instrument**, and the instrument was six clippy steps.
+
+**The third axis of the blind-gate class.** `E-A-PER-FEATURE-CI-STEP-NAMED-LIKE-PER-CRATE-COVERAGE-1` established that one step per *crate* is not coverage when a crate has independent *features*. This adds the axis below that: one step per *feature* is not coverage either, because a clippy invocation compiles the **target kinds you name** — `--tests` reaches lib+tests and stops, `--all-targets` also reaches examples, benches and binaries. The debt row itself was written with `--tests`, so the row's own command could not have found the two sites it was opened to catalogue. Crate → feature → **target kind**: three nested ways to hold a green that was never asked the question.
+
+**Why examples are the reliable hiding place.** An example is compiled by nobody's default: not `cargo test`, not `cargo build`, not `cargo clippy` without `--all-targets`. It is the one target kind that can carry a lint error across a toolchain bump and several sweeps without a single gate going red — and in this repo examples are not scratch, they are the probe harnesses (`measure_wal_curve` is the WAL-curve measurement).
+
+**The rule.** When a lint sweep claims a delta is complete, state the *instrument* alongside the claim — which crates, which features, which target kinds — because that sentence is what a later session checks the claim against. And when arming a lint gate, arm it at `--all-targets`; anything narrower gates the parts of the crate you happened to think of. Both are done here: the supervisor step is armed at `--features supervisor,cycle-driver --all-targets -- -D warnings`, and the debt entry now carries the corrected command alongside the corrected lint name.
+
+**Falsifier for the "complete sweep" claim, generally:** re-run the sweep's own lint at `--all-targets` over every crate NOT in the sweep's instrument list. If that is empty, the claim is complete; here it was two sites deep.
+
 ## 2026-09-05 — E-A-MACHINE-APPLICABLE-FIX-IS-A-SUGGESTION-NOT-A-PROOF-1 — clippy's own autofix did not compile, and the lint it fixes is a substrate argument
 
 **Status:** FINDING (measured across two repos while sweeping to Rust 1.98.1).

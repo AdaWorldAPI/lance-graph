@@ -22,9 +22,30 @@ Both are pinned two-sided in `crates/lance-graph/tests/lance_row_identity_probe.
 so a fix cannot land silently. Source: `E-VERSIONED-GRAPH-OVERWRITES-SO-ROW-ADDRESSES-ALIAS-ACROSS-VERSIONS-1`,
 plan `lance-convergence-staged-migration-v1` §7.7–7.8.
 
-## TD-SUPERVISOR-CLIPPY-RED-ON-BASE-1 (2026-09-05) — OPEN
+## TD-SUPERVISOR-CLIPPY-RED-ON-BASE-1 (2026-09-05) — RESOLVED 2026-09-05 (all eleven findings fixed + the `--all-targets` clippy step armed in `rust-test.yml`, after the 1.98.1 bump left it red)
 
 **`cargo clippy -p lance-graph-supervisor --features supervisor,cycle-driver --tests -- -D warnings` is red on `main` in files the D-BLW-5 arc did not touch:** `src/cycle_driver.rs` (8× `needless_pass_by_ref_mut` on `recover_fleet` call sites: 1505, 1539, 1704, 2053, 2067, 2097, 2105, 2116) and `tests/probe_ignition_64k.rs:435` (`for_kv_map`). The new `tests/d_blw_5_observer.rs` is clippy-clean on its own (`--test d_blw_5_observer -D warnings`). Same shape as TD-JC-CLIPPY-RED-ON-BASE-1 (resolved #1183) and TD-SIGKER-CLIPPY-RED-ON-BASE-1: fix once, then arm the lint in `rust-test.yml` beside the existing `--features supervisor,cycle-driver` test step. Not done in the D-BLW-5 PR: it is not this arc's code.
+
+**Resolution 2026-09-05, and two corrections this entry earned by being worked
+rather than re-read.** (1) **The lint name above is wrong.** The eight
+`cycle_driver.rs` findings are `clippy::unnecessary_mut_passed` at the CALL
+SITES, not `needless_pass_by_ref_mut` on the signature: `recover_fleet` already
+takes `sink: &S` (`cycle_driver.rs`, `pub async fn recover_fleet`), and eight
+`#[cfg(test)]` callers handed it `&mut sink`. The distinction matters because the
+recorded name pointed at a signature change — an API edit — where the actual fix
+is eight characters of caller noise. (2) **The command above is narrower than the
+gate.** `--tests` finds nine findings; `--all-targets` finds **eleven** — two
+more `clippy::chunks_exact_to_as_chunks` in `examples/measure_wal_curve.rs`
+(`chunks_exact_mut(8)`, `chunks_exact(12)`), the same 1.98 lint #1194 swept at ten
+sites across four crates. #1194's own commit message called those ten "the ENTIRE
+1.98 delta across all six crates CI clippies", which was TRUE and is exactly why
+these two survived: this crate is not one of the six, and its examples are behind
+`--features supervisor,cycle-driver`. Fixed with #1194's idiom
+(`as_chunks::<N>().0`), and the 12-byte site loses a `try_into().unwrap()` that
+could never fail. Measured on the pinned 1.98.1: clippy `--all-targets` clean,
+`fmt --check` clean, 50 tests passed across 13 binaries, 0 failed, the example
+builds. Gate armed in the same commit — an unarmed lint fix decays back.
+See `E-A-SWEEP-IS-COMPLETE-ONLY-WITHIN-THE-TARGET-KINDS-ITS-GATE-COMPILES-1`.
 
 ## TD-JC-CLIPPY-RED-ON-BASE-1 (2026-09-05) — RESOLVED 2026-09-05 (lint sweep + `jc-proof.yml` clippy step, operator-directed after #1181)
 

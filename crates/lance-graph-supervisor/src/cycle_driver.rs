@@ -1502,7 +1502,7 @@ mod tests {
         // Crash AFTER cycle 2 sealed but BEFORE it applied: recovery from the
         // cycle-1 watermark must NOT skip the cycle-2 landing. (With the raw
         // CastId scheme its position would be 0 ≤ watermark 0 → silently lost.)
-        let rec = recover_fleet(&mut sink, &mut fleet, &[5], &mut wm, None)
+        let rec = recover_fleet(&sink, &mut fleet, &[5], &mut wm, None)
             .await
             .unwrap();
         assert_eq!(rec.total_applied, 1, "the later landing was replayed");
@@ -1536,7 +1536,7 @@ mod tests {
 
         // Crash + recovery with the SAME persisted watermarks: nothing replays,
         // no StalePhase — the normal path and recovery share one rule.
-        let rec = recover_fleet(&mut sink, &mut fleet, &[5], &mut wm, None)
+        let rec = recover_fleet(&sink, &mut fleet, &[5], &mut wm, None)
             .await
             .expect("recovery after a normal apply must not StalePhase-stall");
         assert_eq!(rec.total_applied, 0, "already-applied move NOT replayed");
@@ -1701,7 +1701,7 @@ mod tests {
         // Recovery from scratch applies EXACTLY the same set as normal op did.
         let mut fresh = HashMap::from([(42, FakeOwner::at(42, KanbanColumn::Planning))]);
         let mut wm2: HashMap<MailboxId, Option<u64>> = HashMap::new();
-        let rec = recover_fleet(&mut sink, &mut fresh, &[42], &mut wm2, None)
+        let rec = recover_fleet(&sink, &mut fresh, &[42], &mut wm2, None)
             .await
             .unwrap();
         assert_eq!(rec.total_applied, 1, "recovery applies the same ONE move");
@@ -2050,7 +2050,7 @@ mod tests {
         let mut fleet: HashMap<MailboxId, FakeOwner> =
             HashMap::from([(5, FakeOwner::at(5, KanbanColumn::Planning))]);
         let mut wm: HashMap<MailboxId, Option<u64>> = HashMap::new();
-        let excluded = recover_fleet(&mut sink, &mut fleet, &[5], &mut wm, Some(CycleId(2)))
+        let excluded = recover_fleet(&sink, &mut fleet, &[5], &mut wm, Some(CycleId(2)))
             .await
             .unwrap();
         assert_eq!(
@@ -2064,7 +2064,7 @@ mod tests {
         );
 
         // Bounded BELOW it (strictly-after semantics) → the same tail replays.
-        let admitted = recover_fleet(&mut sink, &mut fleet, &[5], &mut wm, Some(CycleId(1)))
+        let admitted = recover_fleet(&sink, &mut fleet, &[5], &mut wm, Some(CycleId(1)))
             .await
             .unwrap();
         assert_eq!(
@@ -2094,7 +2094,7 @@ mod tests {
             HashMap::from([(5, FakeOwner::at(5, KanbanColumn::Planning))]);
         let mut wm: HashMap<MailboxId, Option<u64>> = HashMap::new();
 
-        let rec = recover_fleet(&mut sink, &mut fleet, &[5], &mut wm, None)
+        let rec = recover_fleet(&sink, &mut fleet, &[5], &mut wm, None)
             .await
             .unwrap();
         assert_eq!(rec.total_applied, 1, "the pending move was replayed");
@@ -2102,7 +2102,7 @@ mod tests {
         assert_eq!(fleet[&5].phase(), KanbanColumn::CognitiveWork);
 
         // Re-drive with the returned watermark → idempotent (nothing re-applied).
-        let again = recover_fleet(&mut sink, &mut fleet, &[5], &mut wm, None)
+        let again = recover_fleet(&sink, &mut fleet, &[5], &mut wm, None)
             .await
             .unwrap();
         assert_eq!(
@@ -2113,7 +2113,7 @@ mod tests {
         // Negative control: watermark LOST → re-driving the already-advanced owner
         // stalls (from=Planning ≠ phase=CognitiveWork) → the watermark is load-bearing.
         let mut wm_lost: HashMap<MailboxId, Option<u64>> = HashMap::new();
-        let stalled = recover_fleet(&mut sink, &mut fleet, &[5], &mut wm_lost, None).await;
+        let stalled = recover_fleet(&sink, &mut fleet, &[5], &mut wm_lost, None).await;
         assert!(
             matches!(stalled, Err(PersistError::StalePhase { .. })),
             "without the watermark an acyclic re-drive stalls — watermark is load-bearing"

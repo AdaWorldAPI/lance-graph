@@ -137,7 +137,7 @@ mod measure {
         fn for_id(id: u64) -> Self {
             let mut bytes = [0u8; CANONICAL_ROW_BYTES];
             let mut x = id ^ 0x9E37_79B9_7F4A_7C15;
-            for chunk in bytes.chunks_exact_mut(8) {
+            for chunk in bytes.as_chunks_mut::<8>().0 {
                 x ^= x >> 30;
                 x = x.wrapping_mul(0xBF58_476D_1CE4_E5B9);
                 x ^= x >> 27;
@@ -2289,10 +2289,7 @@ mod measure {
             // sort at the BYTE level is wrong (variable width already fixed
             // at 12 bytes/entry, so chunk-sort is correct and cheap):
             {
-                let mut entries: Vec<[u8; 12]> = identity_bytes
-                    .chunks_exact(12)
-                    .map(|c| c.try_into().unwrap())
-                    .collect();
+                let mut entries: Vec<[u8; 12]> = identity_bytes.as_chunks::<12>().0.to_vec();
                 entries.sort_unstable();
                 identity_bytes = entries.into_iter().flatten().collect();
             }
