@@ -145,7 +145,7 @@ axis, and the least proven** — 6 days old, 3 853 downloads (lancedb 0.38.0:
 | D-id | stage | gate | status |
 |---|---|---|---|
 | **D-LNC-0** | pin rule: `arrow`/`datafusion` to the major; canon `Cargo.lock` citations fixed | `cargo generate-lockfile` resolves to identical versions; probe lock deleted; CI green | **SHIPPED** — #1182 merged `a738e4ae` |
-| **D-LNC-1** | lance 9 → 10 / lancedb 0.33 → 0.37.1 | (a) §2 exposure table re-verified against the 10.0.0 release body on the day of the bump; (b) workspace `cargo test` green; (c) `LanceCycleWriter` commit-cycle tests + `VersionedGraph` tests green; (d) lance9-probe §7's two "looks like Lance fallout and is not" failures re-checked first | Queued — no blocker, no probe needed |
+| **D-LNC-1** | lance 9 → 10 / lancedb 0.33 → 0.37.1 | (a) §2 exposure table re-verified against the 10.0.0 release body on the day of the bump; (b) workspace `cargo test` green; (c) `LanceCycleWriter` commit-cycle tests + `VersionedGraph` tests green; (d) lance9-probe §7's two "looks like Lance fallout and is not" failures re-checked first — **plus the third shape (§7.5): a stale path-dep sibling** | In PR — #1187 (`claude/lance-10-bump`, d1fc58c1); gate (d) fired for real on the sibling shape |
 | **D-LNC-2** | **row-identity probe** on lance 11 (pre-registered, §5) | a real dataset written under 10, opened under 11: `checkout_version(v)` for every `v` in `versions()` returns byte-identical `(node_id, seal)` sets; the physical row address of every row is unchanged; a delete between two versions is reported by lance's new delta exactly as `VersionedGraph::diff` reports it | Queued — blocked on D-LNC-1 |
 | **D-LNC-3** | lance 10 → 11 / lancedb 0.37.1 → 0.38.0 | D-LNC-2 GREEN **and** an adoption floor: lancedb 0.38.x ≥ 30 days old with a patch release or ≥ 5 000 downloads, whichever first. Not a technical gate — a "22 betas" signal | **BLOCKED (deliberate)** |
 | **D-LNC-4** | mask convergence probe: SoA row index ≡ Lance row address (§4A) | measured on a real mailbox dataset; the bitmap identity holds for a single-fragment append-only dataset AND is shown to break on the first compaction/delete — both halves, or the probe is vacuous | Queued — independent of the bump |
@@ -372,7 +372,8 @@ count, per the falsifiability rule ("prefer `== N` over `>= N`").
 ## 7. Corrections made during this pass (kept, not overwritten)
 
 The falsifiability rule applies to the author too. Four claims were wrong
-when first written and were corrected against the tree before landing:
+when first written and were corrected against the tree before landing; a
+fifth false-fallout shape was found while executing D-LNC-1:
 
 1. **"Time travel is claimed, not wired."** WRONG. My grep was for
    `lance::checkout`; the real call is `checkout_version`
@@ -393,4 +394,18 @@ when first written and were corrected against the tree before landing:
    `compact_byte_size`; and an earlier `^name = "(lance` without a closing
    quote matched a path crate in a lock. The rule that survives all three:
    **grep locates; read comprehends.** A count is not a finding.
+5. **A THIRD "looks like Lance fallout and is not" shape (2026-09-05,
+   D-LNC-1 execution).** The first local `cargo test --workspace` after the
+   10.0.0 bump failed with `error[E0432]: unresolved import
+   ndarray::simd::ternlog / mask_ternlog` in `lance-graph-planner`
+   (`nested_bands.rs:31-32`). Not the bump: the local `ndarray` path-dep
+   sibling sat 49 commits behind `origin/master` (the branch is `master`,
+   not `main`) and predated ndarray commit `1493a10`, which added both
+   symbols. Fast-forwarding the sibling cleared it. lance9-probe §7 named
+   two shapes (missing `protoc`; `--all-targets` example gating); this is
+   the third, and it is the one CI cannot produce — CI checks out the
+   sibling's default branch fresh. **Rule: before attributing a compile
+   error to a lance bump, `git -C ../ndarray status -sb` and count
+   `behind`.** Every sibling path-dep is a hidden version pin that the
+   no-lock policy does not cover.
 
