@@ -34,7 +34,7 @@ differ in width by at most one unit. Gates: planner 428/428, contract
 1315/1315, jc 141/141, planner + contract clippy clean; jc clippy red on
 base and untouched by this arc (TD-JC-CLIPPY-RED-ON-BASE-1).
 
-## 2026-09-05 — E-NXG-21 — `NestedBands` sealed: the three probes became one type and twelve tests, and two of the probes' numbers were one row and one sign off
+## 2026-09-05 — E-NXG-21 — `NestedBands` sealed: the three probes became one type and twelve tests, and two of the probes' numbers were off by one row and by one sign
 
 **Status:** SHIPPED (`crates/lance-graph-planner/src/nested_bands.rs`, D-NXG-1; merge arm of D-NXG-5; room 3 closed by moments).
 **Confidence:** High — 12/12 tests on the same three real recordings the probes used, planner lib suite green.

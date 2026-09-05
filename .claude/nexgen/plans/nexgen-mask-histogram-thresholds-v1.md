@@ -1,6 +1,6 @@
 # nexgen-mask-histogram-thresholds-v1 — the exposure meter is a nested mask set
 
-**Status:** PROPOSAL (2026-09-05). Nothing below is built or measured.
+**Status:** IN PROGRESS (2026-09-05). §5 steps 1–4 GREEN; D-NXG-1/4/5 shipped in #1181 (`planner::nested_bands`, `contract::shape_rank`, `jc::stats::fisher_2z`); D-NXG-3 lives inside `NestedBands::split` (not promoted to T1); rooms 9–27 of §3 remain PROPOSAL and unmeasured.
 **D-ids:** D-NXG-1 … D-NXG-12 (rows on `.claude/board/STATUS_BOARD.md`).
 **Evidence:** `.claude/nexgen/harvest/` (11 verbatim agent reports, 2026-09-05).
 **Board block:** `.claude/board/EPIPHANIES.md` 2026-09-05 `E-NXG-*` (16 entries).
@@ -64,6 +64,9 @@ at every membrane without losing a reading.
 - Adds (D-NXG-3): a `bisect_column_by_mask(col: &[u16], within: &[u64], target_popcount) -> boundary`
   partial-popcount bisection. This is the one primitive that reads a value
   column, and it must stay a T1 NAME so T2 never spells it out of a sort.
+  *(2026-09-05: shipped as the private bisection inside `NestedBands::split`,
+  NOT as a T1 name — it is a gather-and-popcount loop, not a lane op; see §6
+  and E-NXG-21. The T1 claim above is the original proposal, kept for the record.)*
 - Entropy: +1 or +2 names. Every T2 concept below is expressible in the existing
   eight immediates plus these.
 

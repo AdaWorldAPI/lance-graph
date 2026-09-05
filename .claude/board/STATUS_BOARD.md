@@ -28,6 +28,8 @@ records against itself.
 `.claude/nexgen/plans/nexgen-mask-histogram-thresholds-v1.md`. Nothing built;
 every row is Queued until PROBE-NXG-HIST-1 / ROLL-1 / FLOOR-1 (plan §5) run.
 
+> **Update 2026-09-05 (#1181):** the sentence above is superseded — HIST-1, ROLL-1 and FLOOR-1 all ran GREEN (E-NXG-17/18/19/20) and D-NXG-1/4/5 are shipped; rows below carry the live status.
+
 | D-id | deliverable | status |
 |---|---|---|
 | D-NXG-1 | `NestedBands` sealed shape (T2), version-keyed, one owner | **Shipped 2026-09-05** — `crates/lance-graph-planner/src/nested_bands.rs`, 12 tests on real recordings (E-NXG-21); no consumer wired yet |

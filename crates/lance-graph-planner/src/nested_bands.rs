@@ -409,8 +409,14 @@ impl NestedBands {
             "NestedBands::split: column length mismatch"
         );
         let band_count = self.band_count();
+        // Bucket 0 covers everything <= boundaries[0], which on an i32 column
+        // includes negative values (Fisher-2z of a negative r is negative), so
+        // the search starts at the column's minimum, never at 0.
         let lo = if bucket == 0 {
-            0
+            *column
+                .iter()
+                .min()
+                .expect("NestedBands::split: empty column")
         } else {
             self.boundaries[bucket - 1] + 1
         };
@@ -492,6 +498,11 @@ impl NestedBands {
     /// worse (higher), and no strictly smaller value in range beats it.
     /// Returns `(v, exceedance(v))`.
     pub fn best_achievable_floor(&self, column: &[i32], rate: f64) -> (i32, f64) {
+        assert_eq!(
+            column.len(),
+            self.rows,
+            "NestedBands::best_achievable_floor: column length mismatch"
+        );
         let n = column.len();
         let exceedance = |v: i32| -> f64 {
             let mut m = vec![0u64; words_for(n)];
@@ -519,6 +530,11 @@ impl NestedBands {
     /// by bit off each bucket mask (word scan + `trailing_zeros` +
     /// `w &= w - 1`).
     pub fn moments(&self, column: &[i32]) -> Vec<BucketMoment> {
+        assert_eq!(
+            column.len(),
+            self.rows,
+            "NestedBands::moments: column length mismatch"
+        );
         self.buckets
             .iter()
             .map(|bucket| {
@@ -548,6 +564,11 @@ impl NestedBands {
     /// midpoints, which misread the true value in a direction that depends
     /// on the arbitrary top-bucket midpoint (E-NXG-17).
     pub fn sigma_exact(&self, column: &[i32]) -> f64 {
+        assert_eq!(
+            column.len(),
+            self.rows,
+            "NestedBands::sigma_exact: column length mismatch"
+        );
         let moments = self.moments(column);
         let n: u64 = moments.iter().map(|m| m.count).sum();
         let total: f64 = moments.iter().map(|m| m.sum).sum();
@@ -1004,6 +1025,45 @@ mod tests {
         assert_eq!(nb.shape_rank(quiet_q, 7).rank, 0);
     }
 
+    /// Signed decode of the same recordings: a REAL column with negative values.
+    fn signed_samples(bytes: &[u8]) -> Vec<i32> {
+        bytes[WAV_HEADER..]
+            .chunks_exact(2)
+            .map(|c| i16::from_le_bytes([c[0], c[1]]) as i32)
+            .collect()
+    }
+
+    #[test]
+    fn split_handles_a_negative_bucket_zero() {
+        // CodeRabbit finding on #1181: bucket 0's bisection started at 0, so a
+        // column whose bucket 0 lies below zero could never be split.
+        let speech = signed_samples(SPEECH);
+        assert!(
+            *speech.iter().min().unwrap() < 0,
+            "the signed column must go negative"
+        );
+        let nb = NestedBandsBuilder::new(16).calibrate(&speech, 1);
+        assert!(
+            nb.boundaries()[0] < 0,
+            "bucket 0 must lie entirely below zero for this test to bite"
+        );
+        let before = nb.popcounts()[0];
+        let s = nb
+            .split(0, &speech, 2)
+            .expect("a negative bucket 0 must be splittable");
+        assert_eq!(s.band_count(), nb.band_count() + 1);
+        assert!(
+            s.boundaries()[0] < nb.boundaries()[0],
+            "the new boundary sits inside bucket 0"
+        );
+        assert!(s.popcounts()[0] < before && s.popcounts()[1] < before);
+        assert_eq!(
+            s.popcounts()[0] + s.popcounts()[1],
+            before,
+            "the split partitions bucket 0 exactly"
+        );
+    }
+
     #[test]
     #[should_panic]
     fn shape_rank_panics_off_16_bands() {
@@ -1025,7 +1085,7 @@ mod tests {
             arm: 0,
             cohort: 1,
             metric: 1,
-            dataset_version: 7,
+            dataset_version: 1,
         };
         assert!(ledger.seal(key, payload).is_ok());
         assert_eq!(ledger.get(&key), Some(&payload));

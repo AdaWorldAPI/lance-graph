@@ -7,7 +7,8 @@
 //! [`ShapeRankPayload`] cannot carry a raw scalar: it has no `f64` field by
 //! construction — that is the Goodhart guard enforced by shape, not by
 //! discipline. The producer is `lance_graph_planner::nested_bands::NestedBands::shape_rank`
-//! (D-NXG-4); this crate only holds the data that crosses into awareness.
+//! (D-NXG-4, shipped in the same arc as this module); this crate only holds the
+//! data that crosses into awareness.
 //! Cite E-NXG-21 (NestedBands shipped) and E-NXG-2 (Prozentrang existed only
 //! in doctrine before D-NXG-4).
 
@@ -113,6 +114,15 @@ pub enum RemeasureError {
         /// The dataset version the existing payload was sealed at.
         sealed_version: u64,
     },
+    /// The payload's frozen `version` does not equal the key's
+    /// `dataset_version`: a lookup by the key would return a payload frozen
+    /// at a different V₀ than the key names. Rejected before insertion.
+    VersionMismatch {
+        /// The key the caller tried to seal under.
+        key: RemeasureKey,
+        /// The version the payload is actually frozen at.
+        payload_version: u64,
+    },
 }
 
 impl fmt::Display for RemeasureError {
@@ -125,6 +135,14 @@ impl fmt::Display for RemeasureError {
                 f,
                 "remeasure rejected: stat_id={} already sealed at version {sealed_version}",
                 key.stat_id
+            ),
+            RemeasureError::VersionMismatch {
+                key,
+                payload_version,
+            } => write!(
+                f,
+                "remeasure rejected: stat_id={} payload frozen at version {payload_version} does not match key dataset_version {}",
+                key.stat_id, key.dataset_version
             ),
         }
     }
@@ -155,6 +173,12 @@ impl RemeasureLedger {
         key: RemeasureKey,
         payload: ShapeRankPayload,
     ) -> Result<(), RemeasureError> {
+        if payload.version != key.dataset_version {
+            return Err(RemeasureError::VersionMismatch {
+                key,
+                payload_version: payload.version,
+            });
+        }
         if let Some(existing) = self.sealed.get(&key) {
             return Err(RemeasureError::AlreadySealed {
                 key,
@@ -222,7 +246,7 @@ mod tests {
             dataset_version: 1,
         };
         let v1 = ShapeRankPayload::new([1; SHAPE_BUCKETS], 4, 1);
-        let v2 = ShapeRankPayload::new([2; SHAPE_BUCKETS], 4, 2);
+        let v2 = ShapeRankPayload::new([2; SHAPE_BUCKETS], 4, 1);
 
         assert!(ledger.seal(key, v1).is_ok());
         let err = ledger.seal(key, v2).unwrap_err();
@@ -261,6 +285,7 @@ mod tests {
             },
         ];
         for variant in variants {
+            let payload = ShapeRankPayload::new([1; SHAPE_BUCKETS], 4, variant.dataset_version);
             assert!(ledger.seal(variant, payload).is_ok());
         }
         assert_eq!(ledger.len(), 6);
@@ -282,5 +307,30 @@ mod tests {
         let msg = format!("{err}");
         assert!(msg.contains("stat_id"));
         assert!(msg.contains('7'));
+    }
+
+    #[test]
+    fn ledger_rejects_payload_version_mismatch() {
+        let mut ledger = RemeasureLedger::new();
+        let key = RemeasureKey {
+            stat_id: 1,
+            arm: 0,
+            cohort: 1,
+            metric: 1,
+            dataset_version: 1,
+        };
+        let payload = ShapeRankPayload::new([1; SHAPE_BUCKETS], 3, 2);
+        let err = ledger.seal(key, payload).unwrap_err();
+        assert_eq!(
+            err,
+            RemeasureError::VersionMismatch {
+                key,
+                payload_version: 2
+            }
+        );
+        assert!(ledger.is_empty(), "a rejected payload must not be inserted");
+        assert!(format!("{err}").contains("dataset_version 1"));
+        let ok = ShapeRankPayload::new([1; SHAPE_BUCKETS], 3, 1);
+        assert!(ledger.seal(key, ok).is_ok());
     }
 }
