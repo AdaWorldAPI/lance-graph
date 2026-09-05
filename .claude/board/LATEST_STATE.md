@@ -333,6 +333,16 @@ Also removed one dead declaration that blocked the sweep: `container_bs/mod.rs` 
 (#1100 opened for the one-file subset of this and closed unmerged, superseded.)
 
 ---
+## 2026-09-05 — #1187 MERGED (a9d3da0a): D-LNC-1 — lance 9 → 10, lancedb 0.33 → 0.37.1
+
+| PR | merge | content |
+|---|---|---|
+| **#1187** | `a9d3da0a` | `lance*`/`lance-namespace`/`lance-arrow` `=10.0.0`, `lancedb =0.37.1`; arrow 58 / datafusion 54 unchanged. Zero source changes; CI 8/8 + local workspace test exit 0. The stale-`ndarray`-sibling false-fallout shape recorded (plan §7.5). |
+
+**Contract inventory net delta: none.** Pins only. D-LNC-1 SHIPPED; D-LNC-2's
+probe is the next PR; D-LNC-3 (10→11) waits on it.
+
+---
 ## 2026-09-05 — #1184 MERGED (ad7c1b28): lance-convergence staged migration plan + ruling R2 — DOC/BOARD ONLY
 
 | PR | merge | content |
