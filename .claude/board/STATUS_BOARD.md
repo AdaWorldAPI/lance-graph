@@ -9,7 +9,7 @@ identity) is real and probe-gated.
 
 | D-id | deliverable | status |
 |---|---|---|
-| D-LNC-0 | Pin rule: `arrow`/`datafusion` to the major (exact-pin ONLY where upstream demands `=`); `CLAUDE.md:36/:1200` `Cargo.lock` citations corrected. Verified by `cargo generate-lockfile` → identical versions; probe lock deleted | **In PR #1182** — 7/8 checks green, `member-tests` pending at time of writing |
+| D-LNC-0 | Pin rule: `arrow`/`datafusion` to the major (exact-pin ONLY where upstream demands `=`); `CLAUDE.md:36/:1200` `Cargo.lock` citations corrected. Verified by `cargo generate-lockfile` → identical versions; probe lock deleted | **SHIPPED** #1182 merged `a738e4ae` (⊘ regraded 2026-09-05 from "In PR") |
 | D-LNC-1 | lance 9→10 / lancedb 0.33→0.37.1. Gates: exposure table re-verified against the 10.0.0 release body on bump day; workspace tests + `LanceCycleWriter` + `VersionedGraph` suites green; lance9-probe §7 false-fallout pair checked FIRST | Queued (no blocker) |
 | D-LNC-2 | **Row-identity probe** on lance 11, pre-registered (plan §5): every `checkout_version(v)` byte-identical on `(node_id, seal)`; physical row addresses unchanged; a delete between versions reported identically by lance's delta and `VersionedGraph::diff`; tagged-version retention survives cleanup | Queued (blocked on D-LNC-1) |
 | D-LNC-3 | lance 10→11 / lancedb 0.37.1→0.38.0. Gate: D-LNC-2 GREEN **and** adoption floor (0.38.x ≥30 days with a patch, or ≥5 000 downloads). Wires typed `CommitConflictError` into `CommitError`; the base-version fence stays OURS (disable-run in plan §4D) | **BLOCKED (deliberate)** |

@@ -144,7 +144,7 @@ axis, and the least proven** — 6 days old, 3 853 downloads (lancedb 0.38.0:
 
 | D-id | stage | gate | status |
 |---|---|---|---|
-| **D-LNC-0** | pin rule: `arrow`/`datafusion` to the major; canon `Cargo.lock` citations fixed | `cargo generate-lockfile` resolves to identical versions; probe lock deleted; CI green | **In PR #1182** — `regenerate-and-diff`, `format`, `clippy`, `test-with-coverage`, `linux-build` green at time of writing |
+| **D-LNC-0** | pin rule: `arrow`/`datafusion` to the major; canon `Cargo.lock` citations fixed | `cargo generate-lockfile` resolves to identical versions; probe lock deleted; CI green | **SHIPPED** — #1182 merged `a738e4ae` |
 | **D-LNC-1** | lance 9 → 10 / lancedb 0.33 → 0.37.1 | (a) §2 exposure table re-verified against the 10.0.0 release body on the day of the bump; (b) workspace `cargo test` green; (c) `LanceCycleWriter` commit-cycle tests + `VersionedGraph` tests green; (d) lance9-probe §7's two "looks like Lance fallout and is not" failures re-checked first | Queued — no blocker, no probe needed |
 | **D-LNC-2** | **row-identity probe** on lance 11 (pre-registered, §5) | a real dataset written under 10, opened under 11: `checkout_version(v)` for every `v` in `versions()` returns byte-identical `(node_id, seal)` sets; the physical row address of every row is unchanged; a delete between two versions is reported by lance's new delta exactly as `VersionedGraph::diff` reports it | Queued — blocked on D-LNC-1 |
 | **D-LNC-3** | lance 10 → 11 / lancedb 0.37.1 → 0.38.0 | D-LNC-2 GREEN **and** an adoption floor: lancedb 0.38.x ≥ 30 days old with a patch release or ≥ 5 000 downloads, whichever first. Not a technical gate — a "22 betas" signal | **BLOCKED (deliberate)** |

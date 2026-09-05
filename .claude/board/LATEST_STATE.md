@@ -333,6 +333,17 @@ Also removed one dead declaration that blocked the sweep: `container_bs/mod.rs` 
 (#1100 opened for the one-file subset of this and closed unmerged, superseded.)
 
 ---
+## 2026-09-05 — #1182 MERGED (a738e4ae): the pin rule — arrow/datafusion to the major
+
+| PR | merge | content |
+|---|---|---|
+| **#1182** | `a738e4ae` | Exact-pin only where an upstream crate demands `=`; everywhere else the major. `arrow`/`datafusion` `=58.4.0`/`=54.1.0` → `58`/`54` (lancedb asks `^58`/`^54`; only `lance*` is forced `=9.0.0`). Resolution verified identical; probe lock deleted; full CI green. Ceiling measured: lance 9/10/11 all require arrow ^58 / datafusion ^54 — 58/54 is the LATEST compatible pair. Two `Cargo.lock` canon citations corrected. |
+
+**Contract inventory net delta: none.** Manifest + canon only; no version
+moved today. The rule is now mechanically checkable: a `=` pin is legitimate
+iff some upstream requirement is `=`.
+
+---
 ## 2026-09-05 — #1177 MERGED (eb84b275): BindSpace→MailboxSoA wiring plan — DOC/BOARD ONLY
 
 | PR | merge | content |
