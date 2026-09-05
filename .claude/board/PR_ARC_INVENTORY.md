@@ -1,3 +1,12 @@
+## 2026-09-05 — lance-graph PR #1187 (merged `a9d3da0a`, branch `claude/lance-10-bump`) — D-LNC-1: lance 9 → 10, lancedb 0.33 → 0.37.1
+
+- **Added:** `lance*` / `lance-namespace` / `lance-arrow` `=9.0.0` → `=10.0.0` (root table + `lance-graph-catalog`, `lance-graph`, `holograph`); `lancedb` `=0.33.0` → `=0.37.1` (`default-features = false`). Exact pins stay exact because lancedb 0.37.1 itself demands `lance =10.0.0`; arrow 58 / datafusion 54 unchanged (the ceiling is lance-wide, #1182).
+- **Measured:** CI 8/8 green on `d1fc58c1` (clippy, format, linux-build, test, member-tests, test-with-coverage, regenerate-and-diff; Bugbot neutral). Local `cargo test --workspace --no-fail-fast` at `CARGO_PROFILE_DEV_DEBUG=0`: exit 0, 0 failures. Zero source changes — the 10.0.0 breaking set (compaction row-address maps, fixed-size cache keys, blob null selections) has no caller here, as the plan's §2 exposure table predicted.
+- **Locked:** the stage order held — D-LNC-1 landed before any D-LNC-2 assertion ran.
+- **Found, not fallout (plan §7.5):** the first local gate failed on `unresolved import ndarray::simd::ternlog` — the `ndarray` path-dep sibling was 49 commits behind `origin/master`, missing ndarray `1493a10`. The THIRD "looks like lance fallout and is not" shape, and the one CI cannot reproduce (it checks the sibling out fresh). Rule: `git -C ../ndarray status -sb` before attributing a compile error to a bump.
+- **Deferred:** D-LNC-2 (row-identity probe — landed in the follow-up PR with its own entry), D-LNC-3 (10→11) gated on it.
+- **Docs:** merged by the operator at 16:09 before the §7.5 plan note landed on the branch; that note rides the D-LNC-2 PR instead of stacking on a merged branch. **Confidence:** High (two independent green gates on unchanged code).
+
 ## 2026-09-05 — lance-graph PR #1184 (merged `ad7c1b28`, branch `claude/lance-convergence-staged-migration`) — the lance-convergence staged migration plan + ruling R2
 
 - **Added:** `.claude/plans/lance-convergence-staged-migration-v1.md` (D-LNC-0..7); EPIPHANIES `E-EVERYTHING-WIRES-TO-SOA-V3-CE64-IS-ALU-LEGACY-1` (operator ruling R2); D-BSW-2 regraded from "excluded" to "wires, tenant TBD by probe"; #1182's own post-merge hygiene folded in.

@@ -89,7 +89,9 @@ hit read; local modules that merely *sound* like lance — `lance_cache`,
 excluded):
 
 `Dataset::open` · `Dataset::write` · `InsertBuilder` (`WriteMode::{Create,Append}`
-only — **never `Overwrite`**) · `checkout_version` · `version()` · `versions()`
+on the cycle sink — **⊘ 2026-09-05: `VersionedGraph::write_batch` uses
+`WriteMode::Overwrite` for every commit after the first; the "never `Overwrite`"
+claim that stood here was wrong, see §7.6**) · `checkout_version` · `version()` · `versions()`
 · `tags().create` · `scan()` · `LanceTableProvider` · `lance_linalg::distance`
 · `LanceNamespace` / `DescribeTableRequest` · `Error`
 
@@ -117,7 +119,7 @@ downloads.
 
 | breaking | our exposure |
 |---|---|
-| `fix(core)!` stop reusing fragment ids across an **overwrite** | API: none (we never `Overwrite`). Semantic: we sit on **physical** row addresses (`fragment_id<<32 \| offset`) since stable row ids are off — any future overwrite path inherits the new semantics |
+| `fix(core)!` stop reusing fragment ids across an **overwrite** | API: none. **⊘ 2026-09-05: exposure is REAL** — `VersionedGraph::write_batch` overwrites on every commit after the first (§7.6). Measured under lance 10 by `tests/lance_row_identity_probe.rs`: fragment id `0` is reused on BOTH overwrites and two `_rowaddr`s alias to a DIFFERENT `node_id` across consecutive versions. Semantic: we sit on **physical** row addresses (`fragment_id<<32 \| offset`) since stable row ids are off — any future overwrite path inherits the new semantics |
 | `feat` `Dataset::migrate_to_stable_row_ids` | none until enabled; **this is the migration lance is steering everyone toward** |
 | `fix(table)!` restore `migration_next_row_id` on `ManifestBuildConfig` | none |
 | `refactor!` compose exact current-format readers | `Dataset::open` + `scan()` only — low, but it is the reader we use |
@@ -146,7 +148,7 @@ axis, and the least proven** — 6 days old, 3 853 downloads (lancedb 0.38.0:
 |---|---|---|---|
 | **D-LNC-0** | pin rule: `arrow`/`datafusion` to the major; canon `Cargo.lock` citations fixed | `cargo generate-lockfile` resolves to identical versions; probe lock deleted; CI green | **SHIPPED** — #1182 merged `a738e4ae` |
 | **D-LNC-1** | lance 9 → 10 / lancedb 0.33 → 0.37.1 | (a) §2 exposure table re-verified against the 10.0.0 release body on the day of the bump; (b) workspace `cargo test` green; (c) `LanceCycleWriter` commit-cycle tests + `VersionedGraph` tests green; (d) lance9-probe §7's two "looks like Lance fallout and is not" failures re-checked first — **plus the third shape (§7.5): a stale path-dep sibling** | In PR — #1187 (`claude/lance-10-bump`, d1fc58c1); gate (d) fired for real on the sibling shape |
-| **D-LNC-2** | **row-identity probe** on lance 11 (pre-registered, §5) | a real dataset written under 10, opened under 11: `checkout_version(v)` for every `v` in `versions()` returns byte-identical `(node_id, seal)` sets; the physical row address of every row is unchanged; a delete between two versions is reported by lance's new delta exactly as `VersionedGraph::diff` reports it | Queued — blocked on D-LNC-1 |
+| **D-LNC-2** | **row-identity probe** on lance 11 (pre-registered, §5) | a real dataset written under 10, opened under 11: `checkout_version(v)` for every `v` in `versions()` returns byte-identical `(node_id, seal)` sets; the physical row address of every row is unchanged; a delete between two versions is reported by lance's new delta exactly as `VersionedGraph::diff` reports it | In PR — `crates/lance-graph/tests/lance_row_identity_probe.rs`, green under lance 10 with both disable arms verified (`LNC2_FRAGMENT_REUSE=forbidden` → RED, `=expected` → green); the cross-major verify arm (`LNC2_FIXTURE_DIR`: write under 10, verify under 11) runs on the D-LNC-3 branch. ⊘ the delete-delta arm is RE-SCOPED (§7.9) |
 | **D-LNC-3** | lance 10 → 11 / lancedb 0.37.1 → 0.38.0 | D-LNC-2 GREEN **and** an adoption floor: lancedb 0.38.x ≥ 30 days old with a patch release or ≥ 5 000 downloads, whichever first. Not a technical gate — a "22 betas" signal | **BLOCKED (deliberate)** |
 | **D-LNC-4** | mask convergence probe: SoA row index ≡ Lance row address (§4A) | measured on a real mailbox dataset; the bitmap identity holds for a single-fragment append-only dataset AND is shown to break on the first compaction/delete — both halves, or the probe is vacuous | Queued — independent of the bump |
 | **D-LNC-5** | replace `VersionedGraph::diff`'s two-version full materialization with lance's native `row ids deleted between two versions` (§4E) | zero-copy-warden verdict LENS-CLEAN; output byte-identical to the materializing path on the same versions | blocked on D-LNC-3 (the API is lance 11) |
@@ -328,7 +330,7 @@ plan when D-LNC-3 lands; it is named here so it is not forgotten.
 
 | probe | can-it-fire | can-it-stay-silent | disable run |
 |---|---|---|---|
-| D-LNC-2 row identity | a delete between v_k and v_k+1 is reported by lance's delta AND by `diff()`, identically | an append-only span reports an empty delta from both | swap the lance-11 delta for a constant empty set → the fire half must go RED |
+| D-LNC-2 row identity (⊘ re-pinned 2026-09-05 against the probe as built) | (a) every `versions()` entry is byte-identical on `(node_id, seal)` and `_rowaddr` across a re-open; (b) a real `Dataset::delete` is `Staunen` in `graph_seal_check`; (c) fragment-id reuse across an overwrite is MEASURED — `LNC2_FRAGMENT_REUSE=expected` green under lance 10, `=forbidden` green under lance 11 | the same version is `Wisdom`; after `cleanup_old_versions` the tagged version survives byte-identical while an untagged old version is GONE (`at_version` → Err) | under lance 10 `=forbidden` → RED (verified 2026-09-05, `probe.rs:355`); under lance 11 `=expected` must go RED. The original "delta == `diff()`" arm is UNREACHABLE: lance 11's `get_deleted_row_ids` requires stable row ids at both endpoints (we are on physical addresses) and `GraphDiff` has no removed-nodes field (§7.7–7.9) |
 | D-LNC-4 mask identity | append-only single-fragment fixture: `MaskWords` bitmap == row-address bitmap, word for word | — | delete one row, re-scan → the identity MUST break; if it does not, the fixture never left the coincidence regime and the probe is vacuous |
 | D-LNC-5 native delta | output byte-identical to `read_all_batches` diff on ≥ 3 version pairs incl. one with deletes | — | feed the lens the wrong `to_version` → must differ |
 | D-LNC-6 session reuse | open-count (instrumented) strictly decreases on the `VersionedGraph` test suite | results byte-identical | remove the shared session → count returns to baseline |
@@ -373,7 +375,8 @@ count, per the falsifiability rule ("prefer `== N` over `>= N`").
 
 The falsifiability rule applies to the author too. Four claims were wrong
 when first written and were corrected against the tree before landing; a
-fifth false-fallout shape was found while executing D-LNC-1:
+fifth false-fallout shape was found while executing D-LNC-1, and four more
+were found by BUILDING the D-LNC-2 probe against the tree (6–9):
 
 1. **"Time travel is claimed, not wired."** WRONG. My grep was for
    `lance::checkout`; the real call is `checkout_version`
@@ -408,4 +411,39 @@ fifth false-fallout shape was found while executing D-LNC-1:
    error to a lance bump, `git -C ../ndarray status -sb` and count
    `behind`.** Every sibling path-dep is a hidden version pin that the
    no-lock policy does not cover.
-
+6. **"We never `Overwrite`" (§2, twice).** WRONG. `VersionedGraph::write_batch`
+   (`crates/lance-graph/src/graph/versioned.rs`, the `WriteMode` match right
+   after `Dataset::open`) picks `Overwrite` whenever the dataset already
+   exists — every `commit_encounter_round` after the first REPLACES the whole
+   node/edge/fingerprint tables, while its own doc comment says "appended".
+   The `Append`-only claim was true of `LanceCycleWriter`, not of the graph.
+   Consequence: lance#8206 (fragment ids across an overwrite) is a change we
+   are exposed to, and the probe measured what it protects against: under
+   lance 10, fragment id `0` is reused on every overwrite, so two
+   `_rowaddr`s (`0<<32|1`, `0<<32|2`) name node 2/3 at one version and node
+   3/4 at the next. **A row-address-keyed cache is only sound WITHIN one
+   version** — this is the §4A one-truth verdict, now measured, and it holds
+   under 11 too (fresh ids do not make old addresses comparable, they only
+   stop them colliding).
+7. **`GraphDiff` cannot see a removal.** It has `new_nodes` / `modified_nodes`
+   / `new_edges` and nothing else; B→C (node 2 dropped by the overwrite) is an
+   EMPTY diff. Only `graph_seal_check` reports it (`Staunen`). Pinned in the
+   probe so that a `removed_nodes` field forces a deliberate re-pin.
+8. **`diff()` assumes nodes/edges/fingerprints share version numbers.** It
+   checks out the EDGES dataset at the NODES version number. A direct
+   `Dataset::delete` on nodes (the probe's D) advances nodes to a version
+   edges never had, and `diff(C, D)` is an `Err(DatasetNotFound
+   …/edges.lance/_versions/4.manifest)`, not a diff. The lockstep holds only
+   while every write goes through `commit_encounter_round`. Pinned as
+   measured; `TECH_DEBT` `TD-VERSIONED-GRAPH-DIFF-LOCKSTEP-AND-NO-REMOVALS-1`.
+9. **The pre-registered delete-delta arm was unreachable as written.**
+   lance 11's `DatasetDelta::get_deleted_row_ids` (lance#8589) documents
+   *"Requires stable row ids at both endpoints"*; our datasets are written
+   with `enable_stable_row_ids: false` (the default), on physical row
+   addresses. So "lance's delta and `diff()` report the delete identically"
+   could never have run — and per 7, `diff()` reports NO delete anyway. The
+   probe replaces it with `graph_seal_check` as the one truth for removals,
+   and D-LNC-5 (native delta) is where stable row ids are decided, not here.
+   Note the corollary for the alpha overlay: an EPHEMERAL dataset can turn
+   stable row ids on at creation for free (no migration), which is why the
+   delta API fits the alpha layer before it fits the graph spine.
