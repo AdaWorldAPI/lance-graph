@@ -1,3 +1,40 @@
+## 2026-09-05 — E-EVERYTHING-WIRES-TO-SOA-V3-CE64-IS-ALU-LEGACY-1 — operator ruling: no exceptions to the V3 substrate, and the one carve-out is named
+
+**Status:** RULING (operator, 2026-09-05, verbatim: "anything must be wired
+into SoA V3 substrate no exceptions except the causaledge64 adjacent as ALU
+legacy substrat").
+**Confidence:** High on the ruling; High that it is already the ruled state
+for CausalEdge64 (M20, RESIDUAL RESOLVED 2026-07-18 — demoted, not deleted:
+survives as the `MailboxSoA` baton edge `mailbox_soa.rs:92`, the perturbation
+baseline, and the p64 address; only the awareness mantissa retired; the
+`edges[16B]` CANON block untouched). "ALU legacy substrate" is the name for
+exactly that state.
+
+**What it changes.** `bindspace-mailbox-soa-wiring-v1` D-BSW-2 recorded
+`dispatch_busdto:281` as "EXCLUDED from the cutover pending a decision"
+because it writes `set_qualia_f32` (`engine_bridge.rs:321`) and
+`unbind_busdto` reads `qualia_f32_row` (`:397`) as bit-exact ground truth. Under
+this ruling there is no exclusion: it WIRES, and the only open question is the
+tenant. `MailboxSoA` carries an f32 scalar tenant (`energy: [f32; N]`,
+`mailbox_soa.rs:66`) but no 16-dim f32 vector tenant; the candidates are the
+i4 register — `atoms.rs` `I4x32/I4x64` ("byte-compatible with QualiaI4_16D and
+CausalEdge64 mantissa", the ALU-adjacent carrier the ruling names) or
+`QualiaI4_16D` via `set_qualia` (`:606`). Quantizing a bit-exact ground truth is
+a MEASURED decision: the falsifier is the D-MTS-6 proxy triple (`|ΔE|`,
+surprise agreement, descent ρ) against the f32 baseline, pre-registered before
+the first run. A new f32 vector tenant fights the content-blind 4+12 byte
+register and is not a candidate.
+
+**What it does NOT change.** The bundle algebra, the mailbox-as-owner
+compile-time safety argument (E-CE64-MB-4), and the three surviving
+CausalEdge64 roles are untouched. The ruling closes a loophole; it does not
+open a design.
+
+Cross-ref: `lance-convergence-staged-migration-v1` §6 (where the consequence
+is carried); D-BSW-2 (whose row now needs the "excluded" wording regraded to
+"wires, tenant TBD by probe" — a plan/board diff item, the class of drift
+this session caught twice).
+
 ## 2026-09-05 — E-NXG-18 — the ladder's top band must BE the universe, or the histogram loses rows silently
 
 **Status:** FINDING (PROBE-NXG-ROLL-1 falsified its own first run).

@@ -1,3 +1,23 @@
+## lance-convergence-staged-migration-v1 (D-ids minted 2026-09-05 with the plan)
+
+`.claude/plans/lance-convergence-staged-migration-v1.md`. The staged lance
+9→10→11 migration + five convergence seams, measured against the tree and
+crates.io / lance-format release bodies on 2026-09-05. The arrow/datafusion
+ceiling does NOT move with lance (9, 10, 11 all require ^58 / ^54), so a bump
+is a pure lance-major decision; API exposure is zero, SEMANTIC exposure (row
+identity) is real and probe-gated.
+
+| D-id | deliverable | status |
+|---|---|---|
+| D-LNC-0 | Pin rule: `arrow`/`datafusion` to the major (exact-pin ONLY where upstream demands `=`); `CLAUDE.md:36/:1200` `Cargo.lock` citations corrected. Verified by `cargo generate-lockfile` → identical versions; probe lock deleted | **In PR #1182** — 7/8 checks green, `member-tests` pending at time of writing |
+| D-LNC-1 | lance 9→10 / lancedb 0.33→0.37.1. Gates: exposure table re-verified against the 10.0.0 release body on bump day; workspace tests + `LanceCycleWriter` + `VersionedGraph` suites green; lance9-probe §7 false-fallout pair checked FIRST | Queued (no blocker) |
+| D-LNC-2 | **Row-identity probe** on lance 11, pre-registered (plan §5): every `checkout_version(v)` byte-identical on `(node_id, seal)`; physical row addresses unchanged; a delete between versions reported identically by lance's delta and `VersionedGraph::diff`; tagged-version retention survives cleanup | Queued (blocked on D-LNC-1) |
+| D-LNC-3 | lance 10→11 / lancedb 0.37.1→0.38.0. Gate: D-LNC-2 GREEN **and** adoption floor (0.38.x ≥30 days with a patch, or ≥5 000 downloads). Wires typed `CommitConflictError` into `CommitError`; the base-version fence stays OURS (disable-run in plan §4D) | **BLOCKED (deliberate)** |
+| D-LNC-4 | Mask convergence probe: lgj `MaskWords` (envelope rows 0..N) ≡ lance row-address prefilter bitmap. MUST show the identity holds on an append-only single-fragment fixture AND breaks on the first delete — one half is vacuous | Queued (independent of the bump) |
+| D-LNC-5 | Replace `VersionedGraph::diff`'s two-version full materialization (`read_all_batches` = `scan().try_into_stream()`, `versioned.rs:645`) with lance 11's native "row ids deleted between two versions". zero-copy-warden LENS-CLEAN; byte-identical output | Queued (blocked on D-LNC-3 — the API is lance 11) |
+| D-LNC-6 | Session reuse: end `Dataset::open`-per-call (17 sites in `lance-graph`); instrumented open-count strictly decreases, results identical | Queued (independent; lance 10 ships shared session) |
+| D-LNC-7 | **One-WAL ruling**: `LanceCycleWriter`'s watermark WAL vs lance MemWAL — `applied_through` ≡ index catch-up position; two under one commit = two truths. Plan recommends keep-ours until D-LNC-3, then re-decide | **Operator decision** |
+
 ## bindspace-mailbox-soa-wiring-v1 (D-ids minted 2026-09-05 with the plan)
 
 `.claude/plans/bindspace-mailbox-soa-wiring-v1.md`. The BindSpace→MailboxSoA
@@ -17,7 +37,7 @@ records against itself.
 |---|---|---|
 | D-BSW-0 | Put the feature under CI in **BOTH** configurations — `--features mailbox-thoughtspace` AND `--features with-engine,mailbox-thoughtspace` (plan §4 M0). One job is NOT the deliverable: `dispatch_busdto` and `busdto_bridge_test.rs` are `with-engine`-gated (`engine_bridge.rs:280`), so a mailbox-only job compiles neither and stays green while the paired configuration breaks. Today the 4 `w2_differential` bit-identity tests and every `BackingStoreWrite` Mailbox arm have ZERO coverage. Precedent `rust-test.yml:158-173`. Falsifier: test count strictly increases in each configuration and the 4 tests appear by name | Queued (plan `bindspace-mailbox-soa-wiring-v1` §4) |
 | D-BSW-1 | Wire `BackingStoreWrite` (`backing.rs:164-314`, 9 methods, both arms real) into the driver write path — it has zero callers outside its own test module. Adds a caller, not a capability | Queued (blocked on D-BSW-0) |
-| D-BSW-2 | Route the production BindSpace writers through the shim — **eight sites, not five**: `engine_bridge` `write_qualia_observed:490` / `write_qualia_17d:548` (direct), `persist_cycle:784` (edge+meta; cycle write is the documented loss), `ingest_codebook_indices:58` (composed last); plus the three `serve.rs` handlers `encode_handler:607` (direct `set_content`), `:139` and `:639` (via `Arc::get_mut`). `dispatch_busdto:281` is **excluded pending a decision** — its `qualia_f32` tenant has no MailboxSoA equivalent (plan §4). All eight must land BEFORE D-BSW-3 or dispatch reads the mailbox while `/v1/shader/encode` writes the singleton | Queued (blocked on D-BSW-1) |
+| D-BSW-2 | Route the production BindSpace writers through the shim — **eight sites, not five**: `engine_bridge` `write_qualia_observed:490` / `write_qualia_17d:548` (direct), `persist_cycle:784` (edge+meta; cycle write is the documented loss), `ingest_codebook_indices:58` (composed last); plus the three `serve.rs` handlers `encode_handler:607` (direct `set_content`), `:139` and `:639` (via `Arc::get_mut`). `dispatch_busdto:281` **wires — tenant TBD by probe** (⊘ regraded 2026-09-05 from "excluded pending a decision" by operator ruling R2, `E-EVERYTHING-WIRES-TO-SOA-V3-CE64-IS-ALU-LEGACY-1`): its 16-dim `qualia_f32` has no f32 VECTOR tenant on MailboxSoA (only the scalar `energy: [f32;N]`, `mailbox_soa.rs:66`); candidates are `QualiaI4_16D` via `set_qualia` or `atoms.rs` `I4x32/I4x64`, chosen by a D-MTS-6-proxy quantization probe pre-registered before its first run (plan §4). All eight must land BEFORE D-BSW-3 or dispatch reads the mailbox while `/v1/shader/encode` writes the singleton | Queued (blocked on D-BSW-1) |
 | D-BSW-3 | Populate `mailboxes` from a production path — today the only `with_mailbox` caller is `tests/w2_differential.rs:277`, so a feature-on build still takes the singleton fallback (`driver.rs:217`) | Queued (blocked on D-BSW-2) |
 | D-BSW-4 | BindSpace retirement — **NOT NOW, proof-gated**. Guardrails §2 names both directions as footguns ("add new writers to it; remove it"); §1 rule 8: retirement is never a worker task. Needs a wave and a D-id parent first — no W7 exists | BLOCKED (deliberate) |
 
