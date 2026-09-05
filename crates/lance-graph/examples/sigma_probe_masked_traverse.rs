@@ -75,7 +75,13 @@ fn dist_random(n: usize, d: f64, seed: u64) -> Vec<(usize, usize)> {
 /// Block-clustered: `blocks` communities, dense inside, sparse across. This is
 /// the graph-like case — the one where tile/mask structure is expected to pay,
 /// and the one uniform random sparsity cannot stand in for.
-fn dist_clustered(n: usize, blocks: usize, d_in: f64, d_out: f64, seed: u64) -> Vec<(usize, usize)> {
+fn dist_clustered(
+    n: usize,
+    blocks: usize,
+    d_in: f64,
+    d_out: f64,
+    seed: u64,
+) -> Vec<(usize, usize)> {
     let mut rng = Rng(seed);
     let bsz = n / blocks;
     let mut e = Vec::new();
