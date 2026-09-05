@@ -51,6 +51,70 @@ Two further inconsistencies ride on the same claim: the σ provenance is written
 Also recorded, because it changes what is owed: an unkeyed 64-bit hash of an identifier column is a lookup table wearing a redaction's name — the v1 target named in `policy.rs:275` ("FNV-64") is the option the plan recommends against (`D-OIF-1-DEC`).
 
 Cross-ref: `E-A-RULED-HOME-NEEDS-A-FIRST-CONSUMER-OR-IT-IS-A-VACANCY-1` (the batched kernel's sequencing); `I-VSA-IDENTITIES` (indices, not content — why the column is right and the sidecar was wrong); `E-A-GATE-INHERITS-THE-BLIND-SPOT-OF-WHOEVER-WROTE-IT-1` (the same day's other instance of a written mechanism outliving its truth).
+## 2026-09-05 — E-VERSIONED-GRAPH-OVERWRITES-SO-ROW-ADDRESSES-ALIAS-ACROSS-VERSIONS-1 — the D-LNC-2 probe found four wrong claims in the plan it was written to execute
+
+**Status:** FINDING (measured, `crates/lance-graph/tests/lance_row_identity_probe.rs`, lance 10.0.0, both disable arms verified red-then-green).
+**Confidence:** High on every measured line; Medium on the lance-11 half (`LNC2_FRAGMENT_REUSE=forbidden`) until the D-LNC-3 branch runs it.
+
+**What was believed.** `lance-convergence-staged-migration-v1` §2 said, twice,
+that this codebase uses `WriteMode::{Create,Append}` only — "never
+`Overwrite`" — and therefore that lance#8206 ("stop reusing fragment ids
+across an overwrite", the first lance-11 breaking change) had zero API
+exposure. §5 pre-registered the D-LNC-2 delete arm as "a delete between two
+versions is reported by lance's delta AND by `VersionedGraph::diff`,
+identically".
+
+**What the tree says.** `VersionedGraph::write_batch` (`graph/versioned.rs`)
+matches `Dataset::open(path)` and picks `WriteMode::Overwrite` whenever the
+dataset exists. Every `commit_encounter_round` after the first REPLACES all
+three tables; the function's own doc comment says "appended". The
+`Append`-only claim was true of `LanceCycleWriter` and was generalised to the
+graph without reading it.
+
+**What the probe measured (lance 10).** Three overwrite rounds A→B→C plus one
+real `Dataset::delete` (D):
+
+| overwrite | fragment ids before → after | shared |
+|---|---|---|
+| v1→v2 | `{0}` → `{0}` | `{0}` |
+| v2→v3 | `{0}` → `{0}` | `{0}` |
+
+`_rowaddr` aliased to a DIFFERENT `node_id` across consecutive versions: **2**
+(`0<<32|1` and `0<<32|2` name nodes 2/3 at v2 and 3/4 at v3). Cleanup with
+`TimeDelta::zero()` removed 2 old versions; the tagged one survives
+byte-identical, the untagged one is gone (`at_version` → Err).
+
+**Four corrections that fall out, each pinned in the probe:**
+
+1. **A row-address-keyed reader is sound only WITHIN one Lance version.**
+   This is the §4A rows-vs-region-mask one-truth verdict, now measured
+   rather than argued. lance 11's fresh fragment ids stop the COLLISION;
+   they do not make addresses comparable across versions. The convergence
+   lens is `SoaRow → RowAddress` per `DatasetVersion`, never a global map.
+2. **`GraphDiff` cannot see a removal** — no `removed_nodes` field; B→C
+   (node 2 dropped) is an EMPTY diff. `graph_seal_check` is the one truth
+   for removals (`Staunen`).
+3. **`diff()` couples nodes/edges/fingerprints by version NUMBER** — it
+   checks out edges at the nodes version. A nodes-only write (D) makes
+   `diff(C, D)` an `Err(DatasetNotFound …/edges.lance/_versions/4.manifest)`.
+   Lockstep is an invariant of `commit_encounter_round`, not of the store.
+   → `TD-VERSIONED-GRAPH-DIFF-LOCKSTEP-AND-NO-REMOVALS-1`.
+4. **The pre-registered delta arm could never run.** lance 11's
+   `get_deleted_row_ids` (lance#8589) "requires stable row ids at both
+   endpoints"; our datasets are written with `enable_stable_row_ids: false`.
+   Stable row ids are decided at D-LNC-5, and cheaply first on an EPHEMERAL
+   dataset — the alpha overlay can turn them on at creation with no
+   migration, which is why the delta API fits the alpha layer before the
+   graph spine.
+
+**The rule that survives.** A plan's exposure table is a claim about the
+tree, and "we never do X" must be grep'd for X's *implementation site*
+(`WriteMode::`), not for the callers the author remembers. Building the
+probe found four wrong claims in the plan it was written to execute; none of
+the four would have surfaced from reading the plan again.
+
+Cross-ref: plan §7.6–7.9; `E-A-CORRECTION-CAN-SUBSTITUTE-ONE-WRONG-NOUN-FOR-ANOTHER-1` (same failure shape: a correct-sounding noun substituted for the one the source used).
+
 ## 2026-09-05 — E-EVERYTHING-WIRES-TO-SOA-V3-CE64-IS-ALU-LEGACY-1 — operator ruling: no exceptions to the V3 substrate, and the one carve-out is named
 
 **Status:** RULING (operator, 2026-09-05, verbatim: "anything must be wired

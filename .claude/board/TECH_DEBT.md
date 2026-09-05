@@ -1,3 +1,27 @@
+## TD-VERSIONED-GRAPH-DIFF-LOCKSTEP-AND-NO-REMOVALS-1 (2026-09-05) — OPEN
+
+**`VersionedGraph::diff` (`crates/lance-graph/src/graph/versioned.rs`) has two
+defects the D-LNC-2 probe pinned as measured behaviour, neither fixed here.**
+
+1. **No removals.** `GraphDiff` carries `new_nodes` / `modified_nodes` /
+   `new_edges` only. A node dropped by an overwrite (the graph's own write
+   mode) or by `Dataset::delete` yields an EMPTY diff. `graph_seal_check`
+   does report it (`Staunen`). Fix shape: a `removed_nodes: Vec<u32>` field
+   computed from `from_ids − to_ids` (the sets are already built), then
+   re-pin `lance_row_identity_probe.rs` blind-spot 1 deliberately.
+2. **Version-number lockstep.** `diff(from, to)` checks out `edges.lance` at
+   the NODES version numbers. Any write that advances one dataset alone
+   (a direct delete, a failed second write inside `commit_encounter_round`)
+   turns `diff` into `Err(DatasetNotFound …/_versions/N.manifest)`. Fix
+   shape: `commit_encounter_round` records the per-dataset version triple
+   (or a tag on all three), and `diff` resolves edges/fingerprints through
+   that map rather than by number. Same lockstep assumption sits in
+   `at_version` (nodes only) — benign there because it opens one dataset.
+
+Both are pinned two-sided in `crates/lance-graph/tests/lance_row_identity_probe.rs`
+so a fix cannot land silently. Source: `E-VERSIONED-GRAPH-OVERWRITES-SO-ROW-ADDRESSES-ALIAS-ACROSS-VERSIONS-1`,
+plan `lance-convergence-staged-migration-v1` §7.7–7.8.
+
 ## TD-JC-CLIPPY-RED-ON-BASE-1 (2026-09-05) — RESOLVED 2026-09-05 (lint sweep + `jc-proof.yml` clippy step, operator-directed after #1181)
 
 **`crates/jc` does not pass `cargo clippy --manifest-path crates/jc/Cargo.toml --all-targets -- -D warnings`, and did not before this arc.** Measured by stashing the working tree: the same `unusual_byte_groupings` errors reproduce on `origin/main` in `dueker_zoubouloglou.rs`, `ewa_sandwich.rs`, `ewa_sandwich_3d.rs`, `koestenberger.rs`, `lib.rs`, `pearl.rs`, `pflug.rs`, `probe_p1_gamma_phase.rs`, `sigma_codebook_probe.rs`, `weyl.rs` — none touched by the D-NXG-4 arc; `stats.rs` (the file this arc edits) has zero findings. CI runs tests and `fmt --check` on jc (`jc-proof.yml`, `style.yml:226`) but no clippy step, which is how it went unseen. Same shape as `TD-SIGKER-CLIPPY-RED-ON-BASE-1` (resolved 2026-09-04 by fixing + arming the lint in CI); the same two-step fix applies. Not done here: it is not this arc's code and would widen a payload PR into a lint sweep.
