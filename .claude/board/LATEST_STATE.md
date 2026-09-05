@@ -1,3 +1,36 @@
+## 2026-09-05 — #1188 MERGED (431371b3): D-BLW-5 measured — the observer-effect instrument reads SILENT at the κ floor
+
+| PR | merge | content |
+|---|---|---|
+| **#1188** | `431371b3` | `tests/d_blw_5_observer.rs` (1689 lines, `cycle-driver`) — the observer-effect probe with the belief-arena reader, resumed on operator direction and MEASURED; supervisor → `jc` dev-dep; four epiphanies (incl. the operator ruling on loco/r2il); `TD-SUPERVISOR-CLIPPY-RED-ON-BASE-1`; D-BLW-5b queued. |
+
+**Contract inventory net delta: none** — one test binary and one dev-dep. No new
+contract type, no SoA column, no widening: the probe CONSUMES `contract::shape_rank`
+(`ShapeRankPayload` / `RemeasureLedger` / `RemeasureKey`, shipped #1181) and the
+existing `BeliefArena`; the inventory delta recorded on the branch section below
+stands unchanged by the merge.
+
+**What the merge fixes in the board's picture.** D-BLW-5's `**PAUSED by operator
+2026-08-05**` wording — in `STATUS_BOARD.md` under the `D-BLW-5` row — is
+superseded by the `> **Update 2026-09-05 (D-BLW-5, first measurement):**` line
+directly beneath it: the loop is RESUMED and RUN, not paused. Read the row through
+that line; the PAUSED text is kept per append-only, not because it is current.
+
+**The one-line result, and the reason it is not a null.** All seven pre-registered
+gates pass with their disable twins; O4/O5 are SILENT at the pinned κ floor 0.10
+while reader B saturates in proportion to injected typicality on T and F−, with
+P / N / CTRL bit-identical. κ is invariant to a saturating reader — so the silence
+is a property of the OBSERVABLE, not evidence that the loop does nothing. That is
+what D-BLW-5b exists to separate, by moving the observable onto the reader
+marginals (`rate_b`, φ) with floors pinned in a spec BEFORE the run.
+
+**Also merged here:** the operator ruling
+`E-PLANNING-MIGRATES-TO-LOCO-R2IL-DATAFUSION-IS-GRACE-PERIOD-1` (recorded in the
+INVENTORY DELTA section at the head of this file) and the independent D-OIF-1
+census that reached #1185's ruling A by a separate route; its epiphany carries a
+dated correction line ceding the narrower remove cone to #1185.
+
+---
 ## 2026-09-05 — OPERATOR RULING: planning → ogar-loco / ogar-r2il, DataFusion in grace period — INVENTORY DELTA
 
 - **Ruling:** E-PLANNING-MIGRATES-TO-LOCO-R2IL-DATAFUSION-IS-GRACE-PERIOD-1. Every DataFusion-hosted surface in this inventory (`datafusion_planner`, `sql_query`, Python `SessionContext`, `graph_table`, `rls.rs`, `query`/`query-lite`, the `datafusion-dispatch`/`datafusion-plan` forward-stubs) is now **grace-period: maintained, not extended**. New behaviour lands in loco/r2il programs or on Lance directly.
