@@ -1,3 +1,28 @@
+## bindspace-mailbox-soa-wiring-v1 (D-ids minted 2026-09-05 with the plan)
+
+`.claude/plans/bindspace-mailbox-soa-wiring-v1.md`. The BindSpace→MailboxSoA
+cutover, re-derived from the tree rather than from the four prior plans. The
+shim is built and unwired: `BackingStoreWrite` (`backing.rs:164-314`) carries 9
+write methods with both arms real and **zero callers outside its own test
+module**, and everything mailbox-side sits behind `mailbox-thoughtspace`, which
+no workflow builds — so 4 bit-identity equivalence tests and every Mailbox write
+arm have zero CI coverage.
+
+Ids are minted in the plan body AND here, deliberately: a board-only mint is
+invisible to `supersession_index.py`'s coverage column, which is the root cause
+`ISS-PLAN-TRACKING-IS-UNENFORCED` (#1156) names and the D-PRLR section below
+records against itself.
+
+| D-id | deliverable | status |
+|---|---|---|
+| D-BSW-0 | Put the feature under CI in **BOTH** configurations — `--features mailbox-thoughtspace` AND `--features with-engine,mailbox-thoughtspace` (plan §4 M0). One job is NOT the deliverable: `dispatch_busdto` and `busdto_bridge_test.rs` are `with-engine`-gated (`engine_bridge.rs:280`), so a mailbox-only job compiles neither and stays green while the paired configuration breaks. Today the 4 `w2_differential` bit-identity tests and every `BackingStoreWrite` Mailbox arm have ZERO coverage. Precedent `rust-test.yml:158-173`. Falsifier: test count strictly increases in each configuration and the 4 tests appear by name | Queued (plan `bindspace-mailbox-soa-wiring-v1` §4) |
+| D-BSW-1 | Wire `BackingStoreWrite` (`backing.rs:164-314`, 9 methods, both arms real) into the driver write path — it has zero callers outside its own test module. Adds a caller, not a capability | Queued (blocked on D-BSW-0) |
+| D-BSW-2 | Route the production BindSpace writers through the shim — **eight sites, not five**: `engine_bridge` `write_qualia_observed:490` / `write_qualia_17d:548` (direct), `persist_cycle:784` (edge+meta; cycle write is the documented loss), `ingest_codebook_indices:58` (composed last); plus the three `serve.rs` handlers `encode_handler:607` (direct `set_content`), `:139` and `:639` (via `Arc::get_mut`). `dispatch_busdto:281` is **excluded pending a decision** — its `qualia_f32` tenant has no MailboxSoA equivalent (plan §4). All eight must land BEFORE D-BSW-3 or dispatch reads the mailbox while `/v1/shader/encode` writes the singleton | Queued (blocked on D-BSW-1) |
+| D-BSW-3 | Populate `mailboxes` from a production path — today the only `with_mailbox` caller is `tests/w2_differential.rs:277`, so a feature-on build still takes the singleton fallback (`driver.rs:217`) | Queued (blocked on D-BSW-2) |
+| D-BSW-4 | BindSpace retirement — **NOT NOW, proof-gated**. Guardrails §2 names both directions as footguns ("add new writers to it; remove it"); §1 rule 8: retirement is never a worker task. Needs a wave and a D-id parent first — no W7 exists | BLOCKED (deliberate) |
+
+---
+
 ## nexgen-mask-histogram-thresholds-v1 (PROPOSAL, 2026-09-05)
 
 `.claude/nexgen/plans/nexgen-mask-histogram-thresholds-v1.md`. Nothing built;
