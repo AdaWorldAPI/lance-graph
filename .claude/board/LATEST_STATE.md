@@ -1,3 +1,15 @@
+## 2026-09-05 — OPERATOR RULING: planning → ogar-loco / ogar-r2il, DataFusion in grace period — INVENTORY DELTA
+
+- **Ruling:** E-PLANNING-MIGRATES-TO-LOCO-R2IL-DATAFUSION-IS-GRACE-PERIOD-1. Every DataFusion-hosted surface in this inventory (`datafusion_planner`, `sql_query`, Python `SessionContext`, `graph_table`, `rls.rs`, `query`/`query-lite`, the `datafusion-dispatch`/`datafusion-plan` forward-stubs) is now **grace-period: maintained, not extended**. New behaviour lands in loco/r2il programs or on Lance directly.
+- **D-OIF-1 (#1185):** census verdict A — `policy.rs` is a retirement cone (E-THE-UNFINISHED-UDF-WAS-NOT-THE-DEBT-1); no hash implementation; no DataFusion projection seam.
+- **RBAC enforcement:** `ClassRbac` / `authorize()` / `OgarRbac` are TRANSPORT ONLY (zero non-test callers) — the missing implementation on the canonical path, recorded, not resurrected via DataFusion.
+
+## 2026-09-05 — D-BLW-5 measured (branch, first run) — INVENTORY DELTA
+
+- **New test binary:** `lance-graph-supervisor/tests/d_blw_5_observer.rs` (cycle-driver). **New dev-dep:** supervisor → `jc` (dev only; the ORCHESTRATOR-RATIFIED exception from the 08-05 design note).
+- **First consumer of the D-BLW-5 payload outside its own tests:** the probe seals `ShapeRankPayload` per arm in `RemeasureLedger` at V0 and injects it into `BeliefArena`. The DTO's `rank` reaches awareness as typicality (mass at rank), see E-BLW5-FIRST-MEASUREMENT-1 C2.
+- **Result in one line:** gates all pass; O4/O5 SILENT at κ-floor 0.10; reader B saturates in proportion to injected typicality (T, F−) while P/N/CTRL are bit-identical. D-BLW-5b queued.
+
 ## 2026-09-05 — PR #1181 MERGED (`80dbcc35`) + jc clippy sweep — INVENTORY DELTA
 
 - **Merged:** #1181 — `contract::shape_rank` (`ShapeRankPayload`, `RemeasureKey`, `RemeasureLedger`, `RemeasureError::{AlreadySealed, VersionMismatch}`) and `planner::nested_bands` are on `main`. Consumers today: none outside the two crates' own tests — the D-BLW-5 loop that would inject the payload is PAUSED. See `PR_ARC_INVENTORY.md` 2026-09-05 #1181 entry.
