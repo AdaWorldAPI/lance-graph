@@ -8,6 +8,30 @@
 - **Docs:** `.claude/v3/{COMPONENT-MAP, knowledge/mailbox-kanban-model, knowledge/write-on-behalf}` regraded on the deleted-actor claim; `LATEST_STATE` dated correction on the `commit_via` / `OgarRbac` shipped-enforcement claim.
 - **Confidence:** High on every existence/absence claim (each carries `file:line`; the census scope — nine repos — is stated in the plan, and the RBAC absence is scoped to it, never global). Medium on the grace-period cone's removal ORDER, which depends on a MedCare-side feature retirement this repo does not control.
 
+## 2026-09-05 — lance-graph PR #1190 (merged `8761eea1`, branch `claude/lance-11-bump`) — D-LNC-3: lance 10 → 11, lancedb 0.37.1 → 0.38.0
+
+- **Added:** every lance-family pin to `=11.0.0` (root table, `lance-graph-catalog` + `lance-graph` `lance-namespace`, `lance-graph` `lance-arrow`, `holograph`'s optional `lance`); `lancedb =0.38.0`. arrow 58 / datafusion 54 untouched. Pins only, zero source changes.
+- **Measured, AFTER the merge (the operator merged both stage PRs before their gates finished; the gates ran anyway and all four are green):**
+
+| gate | result under lance 11 |
+|---|---|
+| `cargo test --workspace --no-fail-fast` (`CARGO_PROFILE_DEV_DEBUG=0`) | **exit 0**, 2317 passed, 0 failed, 68 suites |
+| probe, `LNC2_FRAGMENT_REUSE=forbidden` | **PASS** — fragments `{0}→{1}→{2}`, 0 shared, 0 `_rowaddr` aliased |
+| disable arm, `LNC2_FRAGMENT_REUSE=expected` | **RED** at `lance_row_identity_probe.rs:372`, exactly as pre-registered |
+| cross-major: lance-10 fixture opened under 11 | **byte-identical** against `reference.tsv` (16 lines), then tagged-retention arm green |
+
+- **Locked, and it is the finding worth keeping:** lance#8206 works as documented for NEW writes and is **not retroactive**. The same probe reading the lance-10-written fixture under lance 11 still reports **2 fragment ids reused and 2 `_rowaddr`s aliased** for those versions, because fragment ids live in the manifest that was written under 10. So the bump stops new overwrites from creating the cross-version address hazard; it does not repair it in data that already has it. **Consequence for D-LNC-4:** "a row-address-keyed reader is sound only WITHIN one Lance version" holds under both majors, and any address-keyed structure over pre-existing datasets must keep its per-version scoping regardless of the bump.
+- **Deferred:** D-LNC-4 (mask convergence probe), D-LNC-5 (native version delta — where stable row ids get decided), D-LNC-7 (one-WAL, operator ruling).
+- **Docs:** `CLAUDE.md`'s pin ruling was caught up separately in `58b8816d` (rode #1185). **Confidence:** High — four independent gates, two of them two-sided.
+
+## 2026-09-05 — lance-graph PR #1189 (merged `afce6815`, branch `claude/lnc2-row-identity-probe`) — D-LNC-2: the row-identity probe, and the four plan claims it falsified
+
+- **Added:** `crates/lance-graph/tests/lance_row_identity_probe.rs` — the pre-registered §5 probe: time travel byte-identical on `(node_id, seal)` for every `versions()` entry; `_rowaddr` stable across a re-open and across a delete; fragment-id reuse across an overwrite measured under an env-selected policy (`LNC2_FRAGMENT_REUSE`); a real `Dataset::delete` is `Staunen` while the same version is `Wisdom`; tagged retention survives `cleanup_old_versions` while an untagged version is gone. Cross-major mode via `LNC2_FIXTURE_DIR`.
+- **Measured under lance 10:** fragment `0` reused on both overwrites, 2 `_rowaddr`s aliased to a DIFFERENT `node_id`, cleanup removed 2 old versions. Both disable arms verified red-then-green.
+- **Corrected — four plan claims, each falsified by BUILDING the probe rather than by re-reading the plan** (plan §7.6–7.9): "we never `Overwrite`" is wrong (`VersionedGraph::write_batch` overwrites on every commit after the first, so lance#8206 is a real exposure); `GraphDiff` has no removals field, so a dropped node is an EMPTY diff; `diff()` checks out edges at the NODES version number, so a nodes-only write makes it `Err(DatasetNotFound)`; and the pre-registered delete-delta arm was unreachable because lance 11's `get_deleted_row_ids` requires stable row ids, which are off here.
+- **Locked:** `EPIPHANIES` `E-VERSIONED-GRAPH-OVERWRITES-SO-ROW-ADDRESSES-ALIAS-ACROSS-VERSIONS-1`; `TECH_DEBT` `TD-VERSIONED-GRAPH-DIFF-LOCKSTEP-AND-NO-REMOVALS-1` (both `diff()` defects pinned two-sided so a fix cannot land silently).
+- **Docs:** carried #1187's arc entry and the §7.5 stale-sibling note, which could not land on #1187's own branch because it merged first. **Confidence:** High on every measured line.
+
 ## 2026-09-05 — lance-graph PR #1187 (merged `a9d3da0a`, branch `claude/lance-10-bump`) — D-LNC-1: lance 9 → 10, lancedb 0.33 → 0.37.1
 
 - **Added:** `lance*` / `lance-namespace` / `lance-arrow` `=9.0.0` → `=10.0.0` (root table + `lance-graph-catalog`, `lance-graph`, `holograph`); `lancedb` `=0.33.0` → `=0.37.1` (`default-features = false`). Exact pins stay exact because lancedb 0.37.1 itself demands `lance =10.0.0`; arrow 58 / datafusion 54 unchanged (the ceiling is lance-wide, #1182).

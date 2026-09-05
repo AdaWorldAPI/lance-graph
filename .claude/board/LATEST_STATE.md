@@ -385,6 +385,21 @@ on any scanned production path (`authorize`/`authorize_scoped`/`commit_via`/
 `ClassRbac × ClassView × WideFieldMask` path. `D-OIF-2-DEC` and `D-OIF-5-DEC`
 remain operator decisions; no D-OIF worker has run.
 
+## 2026-09-05 — #1189 + #1190 MERGED (afce6815, 8761eea1): D-LNC-2 probe + D-LNC-3 lance 11 — the staged migration is COMPLETE
+
+| PR | merge | content |
+|---|---|---|
+| **#1189** | `afce6815` | `tests/lance_row_identity_probe.rs` (D-LNC-2) + the four plan corrections it forced (§7.6–7.9) + epiphany + tech-debt row. |
+| **#1190** | `8761eea1` | lance `=11.0.0` / lancedb `=0.38.0` (D-LNC-3). arrow 58 / datafusion 54 unchanged. |
+
+**Contract inventory net delta: none** (one test file, pins only). What changed
+is the evidence: lance 9 → 10 → 11 is done, each stage gated, and the row-identity
+question the whole staging existed for is answered. Under lance 11 an overwrite
+mints FRESH fragment ids (`{0}→{1}→{2}`, 0 aliased) where lance 10 reused `{0}`
+throughout (2 aliased); the lance-10 fixture still reads back byte-identical under
+11, and still carries its own aliasing, because fragment ids are a property of the
+write. D-LNC-4/5/7 remain open.
+
 ---
 ## 2026-09-05 — #1187 MERGED (a9d3da0a): D-LNC-1 — lance 9 → 10, lancedb 0.33 → 0.37.1
 
