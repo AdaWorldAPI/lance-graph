@@ -368,7 +368,7 @@ mechanisms disagreed by **58.2%**:
 
 | site | reading on `main` |
 |---|---|
-| `.claude/board/AGENT_LOG.md:481` | 58.2% **disagreement** |
+| `.claude/board/AGENT_LOG.md` under "2026-08-19 — oracle-boundary reassessment sweep" (the **58.2%** findings paragraph) | 58.2% **disagreement** |
 | `.claude/board/INTEGRATION_PLANS.md:910` | 58.2% **disagreement** |
 
 The source says the opposite. `MedCare-rs/crates/medcare-server/src/views/atlas.rs:465`
