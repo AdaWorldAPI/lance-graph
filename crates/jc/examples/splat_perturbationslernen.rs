@@ -152,6 +152,7 @@ fn sandwich(m: &Mat2, n: &Mat2) -> Mat2 {
 
 struct PlantedGraph {
     n: u32,
+    #[allow(dead_code)] // planted-graph descriptor; read by the sibling probes
     k_communities: u32,
     ground_truth: Vec<u16>,
     planes: Vec<AwarenessPlane16K>,
@@ -347,7 +348,11 @@ fn main() {
 
     // Print only key checkpoints + saturation event (avoids 200 lines of output).
     fn should_print(i: usize, max: usize) -> bool {
-        i == 1 || i == max || (i <= 20 && i % 5 == 0) || (i <= 50 && i % 10 == 0) || i % 25 == 0
+        i == 1
+            || i == max
+            || (i <= 20 && i.is_multiple_of(5))
+            || (i <= 50 && i.is_multiple_of(10))
+            || i.is_multiple_of(25)
     }
 
     let t0 = std::time::Instant::now();
@@ -367,7 +372,7 @@ fn main() {
         } else {
             1.0
         };
-        let alpha_iter = (1.0 - relative_change).max(0.0).min(1.0);
+        let alpha_iter = (1.0 - relative_change).clamp(0.0, 1.0);
         let saturated = alpha_iter >= ALPHA_SATURATION_THRESHOLD;
         if saturated {
             consecutive += 1;

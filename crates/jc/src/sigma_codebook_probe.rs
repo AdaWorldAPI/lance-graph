@@ -461,7 +461,7 @@ mod tests {
         );
         assert_eq!(centroids.len(), 3);
         let used = {
-            let mut seen = vec![false; 3];
+            let mut seen = [false; 3];
             for &a in &assignments {
                 seen[a] = true;
             }

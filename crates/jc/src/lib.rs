@@ -8,14 +8,14 @@
 //! 3. Optimal collocation without aliasing (φ-Weyl)
 //! 4. Fast prolongation convergence (γ+φ preconditioner)
 //! 5. Bounded noise floor under correct dependence model (Jirak 2016)
-//! 5b. Pearl 2³ mask-classification accuracy (three-plane Index regime
-//!     vs CAM-PQ-shaped bundled regime) — the task-level downstream
-//!     consequence of pillar 5's sup-error inflation.
+//!    - 5b. Pearl 2³ mask-classification accuracy (three-plane Index regime
+//!      vs CAM-PQ-shaped bundled regime) — the task-level downstream
+//!      consequence of pillar 5's sup-error inflation.
 //! 7. Concentration on Hadamard space (Köstenberger-Stark 2024)
 //! 8. Hilbert-space CLT for AR(1) (Düker-Zoubouloglou 2024)
 //! 9. EWA-sandwich Σ-push-forward along multi-hop edge paths
-//! 9b. EWA-Sandwich 3D: Σ-push-forward on symmetric 3×3 SPD covariances
-//!     (3D analogue of pillar 9; certifies J·W·Σ·Wᵀ·Jᵀ for ndarray::hpc::splat3d)
+//!    - 9b. EWA-Sandwich 3D: Σ-push-forward on symmetric 3×3 SPD covariances
+//!      (3D analogue of pillar 9; certifies J·W·Σ·Wᵀ·Jᵀ for ndarray::hpc::splat3d)
 //! 10. Nested-distance Lipschitz on Sigma DN-trees (Pflug-Pichler 2012)
 //!     — certifies CAM-PQ tree quantization preserves FreeEnergy within Lε.
 //! 11. Signature uniqueness on tree-quotient (Hambly-Lyons 2010)
@@ -130,8 +130,11 @@ impl PillarResult {
     }
 }
 
+/// A named pillar probe: label plus the function that runs it.
+type Pillar = (&'static str, fn() -> PillarResult);
+
 pub fn run_all_pillars() -> Vec<PillarResult> {
-    let pillars: Vec<(&str, fn() -> PillarResult)> = vec![
+    let pillars: Vec<Pillar> = vec![
         (
             "E-SUBSTRATE-1: bundle associativity @ d=10000",
             substrate::prove,

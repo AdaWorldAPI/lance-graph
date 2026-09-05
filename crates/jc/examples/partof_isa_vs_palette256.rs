@@ -56,6 +56,7 @@
 //!    under is_a (separation ≥ 0.20 on the [0,1] closeness scale).
 //! 3. The two readings are NOT redundant: cross-reading Spearman |ρ| < 0.70
 //!    (if they agreed strongly, one would be redundant — they do not).
+//!
 //! KILL: any gate fails (recorded). Agreement magnitude is reported, its
 //! direction measured not assumed.
 //!

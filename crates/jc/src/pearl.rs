@@ -79,6 +79,7 @@ fn hamming(a: &[u8], b: &[u8]) -> u32 {
 
 /// Classify Pearl mask from three independent lossless planes.
 /// Each plane carries exactly one role's binding — no interference.
+#[allow(clippy::too_many_arguments)] // probe harness: three planes + three role keys + content + threshold
 fn classify_three_planes(
     plane_s: &[u8],
     plane_p: &[u8],

@@ -97,6 +97,7 @@ fn splitmix64(state: &mut u64) -> u64 {
 
 struct PlantedGraph {
     n: u32,
+    #[allow(dead_code)] // planted-graph descriptor; read by the sibling probes
     k_communities: u32,
     ground_truth: Vec<u16>,
     planes: Vec<AwarenessPlane16K>,

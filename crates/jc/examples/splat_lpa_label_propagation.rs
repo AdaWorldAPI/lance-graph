@@ -76,6 +76,7 @@ fn splitmix64(state: &mut u64) -> u64 {
 
 struct PlantedGraph {
     n: u32,
+    #[allow(dead_code)] // planted-graph descriptor; read by the sibling probes
     k_communities: u32,
     /// `ground_truth[u]` = community id of node `u` (0..k_communities).
     ground_truth: Vec<u16>,
@@ -152,10 +153,11 @@ fn lpa_superstep(graph: &PlantedGraph, labels: &[u16], next_labels: &mut [u16]) 
         // Pick majority label; tie-break by sticking with `cur` if `cur` is
         // among the tied set (stability heuristic — converges faster).
         let max_count = tally.iter().map(|(_, c)| *c).max().unwrap_or(0);
-        let new_label = if max_count == 0 {
-            cur // isolated node — keep label
-        } else if tally.iter().any(|(l, c)| *l == cur && *c == max_count) {
-            cur // current label is among the tied max — stay
+        // isolated node (max_count == 0) keeps its label; so does a node whose
+        // current label is among the tied max — stay.
+        let new_label = if max_count == 0 || tally.iter().any(|(l, c)| *l == cur && *c == max_count)
+        {
+            cur
         } else {
             // pick lowest label id among tied for max
             tally

@@ -1,3 +1,7 @@
+## TD-JC-CLIPPY-RED-ON-BASE-1 (2026-09-05) — RESOLVED 2026-09-05 (lint sweep + `jc-proof.yml` clippy step, operator-directed after #1181)
+
+**`crates/jc` does not pass `cargo clippy --manifest-path crates/jc/Cargo.toml --all-targets -- -D warnings`, and did not before this arc.** Measured by stashing the working tree: the same `unusual_byte_groupings` errors reproduce on `origin/main` in `dueker_zoubouloglou.rs`, `ewa_sandwich.rs`, `ewa_sandwich_3d.rs`, `koestenberger.rs`, `lib.rs`, `pearl.rs`, `pflug.rs`, `probe_p1_gamma_phase.rs`, `sigma_codebook_probe.rs`, `weyl.rs` — none touched by the D-NXG-4 arc; `stats.rs` (the file this arc edits) has zero findings. CI runs tests and `fmt --check` on jc (`jc-proof.yml`, `style.yml:226`) but no clippy step, which is how it went unseen. Same shape as `TD-SIGKER-CLIPPY-RED-ON-BASE-1` (resolved 2026-09-04 by fixing + arming the lint in CI); the same two-step fix applies. Not done here: it is not this arc's code and would widen a payload PR into a lint sweep.
+
 ## TD-SIGMA-PROBE-MASK-ALIGNMENT-AND-WORK-METRIC-1 (2026-09-05) — OPEN
 
 **`crates/lance-graph/examples/sigma_probe_masked_traverse.rs` (shipped in
