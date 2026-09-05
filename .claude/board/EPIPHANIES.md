@@ -54,7 +54,7 @@ Cross-ref: `E-A-RULED-HOME-NEEDS-A-FIRST-CONSUMER-OR-IT-IS-A-VACANCY-1` (the bat
 ## 2026-09-05 — E-VERSIONED-GRAPH-OVERWRITES-SO-ROW-ADDRESSES-ALIAS-ACROSS-VERSIONS-1 — the D-LNC-2 probe found four wrong claims in the plan it was written to execute
 
 **Status:** FINDING (measured, `crates/lance-graph/tests/lance_row_identity_probe.rs`, lance 10.0.0, both disable arms verified red-then-green).
-**Confidence:** High on every measured line; Medium on the lance-11 half (`LNC2_FRAGMENT_REUSE=forbidden`) until the D-LNC-3 branch runs it.
+**Confidence:** High on every measured line. ⊘ **Confidence raised 2026-09-05** (this line is the one an entry may update): the lance-11 half is no longer pending — measured on #1190, `forbidden` PASS with fragments `{0}→{1}→{2}` and 0 aliased, `expected` RED at `probe.rs:372`, so both policy arms are two-sided ACROSS the bump. One addition the entry did not predict: **the fix is not retroactive.** The lance-10-written fixture reads back byte-identical under lance 11 and still carries its 2 reused ids and 2 aliased addresses, because fragment ids are written by the writer into the manifest. Correction 1 below ("sound only WITHIN one version") therefore survives the bump rather than being closed by it. Plan §5a.
 
 **What was believed.** `lance-convergence-staged-migration-v1` §2 said, twice,
 that this codebase uses `WriteMode::{Create,Append}` only — "never

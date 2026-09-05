@@ -148,8 +148,8 @@ axis, and the least proven** — 6 days old, 3 853 downloads (lancedb 0.38.0:
 |---|---|---|---|
 | **D-LNC-0** | pin rule: `arrow`/`datafusion` to the major; canon `Cargo.lock` citations fixed | `cargo generate-lockfile` resolves to identical versions; probe lock deleted; CI green | **SHIPPED** — #1182 merged `a738e4ae` |
 | **D-LNC-1** | lance 9 → 10 / lancedb 0.33 → 0.37.1 | (a) §2 exposure table re-verified against the 10.0.0 release body on the day of the bump; (b) workspace `cargo test` green; (c) `LanceCycleWriter` commit-cycle tests + `VersionedGraph` tests green; (d) lance9-probe §7's two "looks like Lance fallout and is not" failures re-checked first — **plus the third shape (§7.5): a stale path-dep sibling** | In PR — #1187 (`claude/lance-10-bump`, d1fc58c1); gate (d) fired for real on the sibling shape |
-| **D-LNC-2** | **row-identity probe** on lance 11 (pre-registered, §5) | a real dataset written under 10, opened under 11: `checkout_version(v)` for every `v` in `versions()` returns byte-identical `(node_id, seal)` sets; the physical row address of every row is unchanged; a delete between two versions is reported by lance's new delta exactly as `VersionedGraph::diff` reports it | In PR — `crates/lance-graph/tests/lance_row_identity_probe.rs`, green under lance 10 with both disable arms verified (`LNC2_FRAGMENT_REUSE=forbidden` → RED, `=expected` → green); the cross-major verify arm (`LNC2_FIXTURE_DIR`: write under 10, verify under 11) runs on the D-LNC-3 branch. ⊘ the delete-delta arm is RE-SCOPED (§7.9) |
-| **D-LNC-3** | lance 10 → 11 / lancedb 0.37.1 → 0.38.0 | D-LNC-2 GREEN **and** an adoption floor: lancedb 0.38.x ≥ 30 days old with a patch release or ≥ 5 000 downloads, whichever first. Not a technical gate — a "22 betas" signal | **BLOCKED (deliberate)** |
+| **D-LNC-2** | **row-identity probe** on lance 11 (pre-registered, §5) | a real dataset written under 10, opened under 11: `checkout_version(v)` for every `v` in `versions()` returns byte-identical `(node_id, seal)` sets; the physical row address of every row is unchanged; a delete between two versions is reported by lance's new delta exactly as `VersionedGraph::diff` reports it | **SHIPPED** #1189 `afce6815` (⊘ 2026-09-05). Green under BOTH majors, all disable arms two-sided across the bump; cross-major fixture byte-identical (§5a). Delete-delta arm RE-SCOPED (§7.9) |
+| **D-LNC-3** | lance 10 → 11 / lancedb 0.37.1 → 0.38.0 | D-LNC-2 GREEN **and** an adoption floor: lancedb 0.38.x ≥ 30 days old with a patch release or ≥ 5 000 downloads, whichever first. Not a technical gate — a "22 betas" signal | **SHIPPED** #1190 `8761eea1` (⊘ 2026-09-05). The operator waived the adoption floor and merged both stage PRs before their gates finished; the gates ran anyway and all four are green (§5a). |
 | **D-LNC-4** | mask convergence probe: SoA row index ≡ Lance row address (§4A) | measured on a real mailbox dataset; the bitmap identity holds for a single-fragment append-only dataset AND is shown to break on the first compaction/delete — both halves, or the probe is vacuous | Queued — independent of the bump |
 | **D-LNC-5** | replace `VersionedGraph::diff`'s two-version full materialization with lance's native `row ids deleted between two versions` (§4E) | zero-copy-warden verdict LENS-CLEAN; output byte-identical to the materializing path on the same versions | blocked on D-LNC-3 (the API is lance 11) |
 | **D-LNC-6** | session reuse: stop `Dataset::open` per call (17 sites in `lance-graph` alone) (§4E) | same results; measured open-count strictly decreases | Queued — lance 10 already ships `shared session`; independent of D-LNC-3 |
@@ -341,6 +341,43 @@ Every threshold above is a `==` or a strict inequality, never `>=` on a
 count, per the falsifiability rule ("prefer `== N` over `>= N`").
 
 ---
+
+## 5a. Measured — the probe's results under both majors (2026-09-05)
+
+Run at `CARGO_PROFILE_DEV_DEBUG=0 CARGO_INCREMENTAL=0`, lance 10.0.0 then
+lance 11.0.0, same probe binary, same fixture.
+
+| observation | lance 10.0.0 | lance 11.0.0 |
+|---|---|---|
+| fragment ids across the two overwrites | `{0} → {0} → {0}` | `{0} → {1} → {2}` |
+| ids shared between consecutive versions | 2 | **0** |
+| `_rowaddr` aliased to a DIFFERENT `node_id` | 2 | **0** |
+| `LNC2_FRAGMENT_REUSE=expected` | green | **RED** (`probe.rs:372`) |
+| `LNC2_FRAGMENT_REUSE=forbidden` | RED (`probe.rs:355`) | **green** |
+| `cleanup_old_versions(TimeDelta::zero())` | 2 old versions removed, tagged survives byte-identical, untagged gone | identical |
+| workspace `cargo test --no-fail-fast` | exit 0 | **exit 0**, 2317 passed, 0 failed, 68 suites |
+
+Both policy arms are two-sided ACROSS the bump, which is the strongest form
+this falsifier can take: the arm that must fail on one major is the arm that
+must pass on the other, so neither result can be a vacuous pass.
+
+**The finding that is not in the release notes: lance#8206 is not
+retroactive.** The cross-major arm opened the lance-10-written fixture under
+lance 11 and verified it byte-identical against `reference.tsv` (16 lines,
+four versions) — and that same read still reports **2 ids reused and 2
+`_rowaddr`s aliased**, because fragment ids are written into the manifest by
+the writer and are simply read back. So:
+
+- the bump stops NEW overwrites from minting a colliding address space;
+- it repairs nothing in data that already has one;
+- **§4A's verdict is unchanged by the bump.** "A row-address-keyed reader is
+  sound only WITHIN one Lance version" holds under both majors, and the
+  `SoaRow → RowAddress` lens must stay scoped per `DatasetVersion` for
+  pre-existing datasets no matter which major reads them.
+
+Migrating an existing dataset out of that state is `migrate_to_stable_row_ids`
+(lance 11, one `Merge` commit, quiesced writers), which is D-LNC-5's decision,
+not this stage's.
 
 ## 6. Relationship to prior plans
 
