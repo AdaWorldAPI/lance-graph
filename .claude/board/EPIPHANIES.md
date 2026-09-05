@@ -1,3 +1,81 @@
+## 2026-09-05 — E-NXG-18 — the ladder's top band must BE the universe, or the histogram loses rows silently
+
+**Status:** FINDING (PROBE-NXG-ROLL-1 falsified its own first run).
+**Confidence:** High — measured, and the defect is now asserted against.
+
+E-NXG-1 specifies `M_0 ⊆ M_1 ⊆ … ⊆ M_{B-1}` with `M_i = rows whose value <=
+boundary_i`. It never says the LAST mask must cover everything, and
+PROBE-NXG-HIST-1 could not notice: its top boundary was the maximum of its own
+column, so `M_{B-1}` happened to be the universe. Under a distribution shift it
+is not. With boundaries frozen on one recording (top boundary 20 634) and a
+louder recording streamed against them, **55 058 of 61 995 rows — 89 % — sat
+above the top boundary and were therefore in no band at all.** Both rollover
+triggers stayed silent on a distribution that had moved almost entirely out of
+range. That is precisely the failure the two `lacking proper bucket rollover`
+comments in `lance-graph-contract` warn about, reproduced inside the design
+written to fix it.
+
+**The correction, now part of the design:** the top band IS the universe
+(all-ones), never `le(top_boundary)`. The top bucket is open-ended, every row is
+always in exactly one bucket, and `sum(popcounts) == n` is asserted on the
+SHIFTED epoch so the defect cannot return. Cross-ref D-NXG-1/5; the probe's
+disable run A (reverting the universe band) reproduces the silence.
+
+## 2026-09-05 — E-NXG-19 — entropy LAGS the budget test; plan room 2 had the timer backwards
+
+**Status:** FINDING (PROBE-NXG-ROLL-1 C3, pre-registered form falsified).
+**Confidence:** High on the measurement, High on the mechanism.
+
+Plan §3 room 2 claimed histogram entropy is the earlier rollover timer —
+"entropy-triggered rollover fires before budget-triggered". Measured on a real
+epoch shift (94 572 rows of speech followed by 61 995 rows of a six-times-louder
+recording, streamed in 24 steps against frozen boundaries): **the budget test
+fires at step 16, entropy only at step 21.** Budget is five steps earlier, not
+later.
+
+**Mechanism, which is why this generalizes:** the budget test reads a LOCAL
+EXTREMUM — the largest bucket, which crosses twice its equal share as soon as
+one bucket swells. Normalized entropy is a GLOBAL AVERAGE over all 16 buckets
+and moved only 0.166 across the entire shift (1.000000 → 0.833597). An average
+lags an extremum by construction. The two are not interchangeable: budget
+answers "is a bucket full", entropy answers "has the whole shape collapsed".
+**D-NXG-9's rollover timer is the budget test**; entropy is a confirming shape
+signal, and the plan row is regraded accordingly. One split moved entropy
+0.833597 → 0.912117, so entropy remains the right read for "did the split
+help", just not for "is a split due".
+
+## 2026-09-05 — E-NXG-20 — `k` does not name a rate: at k=3 a real column's floor is unreachable
+
+**Status:** FINDING (PROBE-NXG-FLOOR-1, two pre-registered forms restated).
+**Confidence:** High.
+
+E-NXG-4 says `mu + kσ` is the wrong operating threshold. Measured on three real
+columns (`|sample|` of three recordings in `data/tts-cascade/`), what an
+operator actually budgets is a RATE, and `k` does not name one:
+
+| column | n | mu | σ | mu+3σ | its exceedance rate |
+|---|---|---|---|---|---|
+| speech | 94 572 | 4 034.6 | 3 785.8 | 15 392 | 0.00379 |
+| saturated | 61 995 | 26 231.4 | 8 731.3 | 52 425 | **0.00000 — unreachable** |
+| quiet | 24 240 | 319.4 | 903.0 | 3 028 | 0.01762 |
+
+The saturated column's floor sits at 52 425 while the column's physical maximum
+is 32 767: **at the shipped `k = 3` that alarm can never fire.** Among the
+reachable columns the rates differ 4.65×. Re-tuning `k` globally does not save
+it — the `k` that puts speech exactly on target (2.9155) leaves quiet 3.80× off
+and saturated still unreachable. A Gaussian would predict 0.00135 for all three;
+the real columns read 0.00379 / 0.00000 / 0.01762, which is the concrete form of
+the Jirak warning `rolling_floor.rs` already carries about its own σ.
+
+**Second restatement, against my own replacement.** The pre-registered claim was
+that the rank floor hits the requested rate exactly. It does not, on a column
+with atoms: the saturated recording is clipped, 32 767 is a huge tie, and no
+boundary cuts inside it (achieved 0.00411 against a target of 0.00500). What is
+true and is what an operator needs: **the ladder picks the BEST ACHIEVABLE
+boundary** — the achieved rate never exceeds the target, and the next distinct
+value below it overshoots, so no better boundary exists. Verified on all three
+columns. `mu + kσ` cannot promise even that.
+
 ## 2026-09-05 — E-NXG-17 — PROBE-NXG-HIST-1 GREEN: the nested-mask histogram reproduces the partition-point rank on 94 572 real rows
 
 **Status:** FINDING (measured; `crates/lance-graph-planner/examples/probe_nxg_hist_1.rs`).
