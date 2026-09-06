@@ -13,7 +13,6 @@ use crate::bridges::unified::UnifiedBridge;
 // `RedminePort::NAMESPACE` / `::aliases()` are `PortSpec` associated
 // items — the trait must be in scope for the resolution to work
 // (codex P1 on PR #570).
-use ogar_vocab::ports::PortSpec;
 pub use ogar_vocab::ports::RedminePort;
 
 /// Redmine `NamespaceBridge` — alias over the generic harness.
@@ -26,10 +25,6 @@ pub use ogar_vocab::ports::RedminePort;
 )]
 pub type RedmineBridge = UnifiedBridge<RedminePort>;
 
-/// Canonical namespace name for Redmine. Mirrors `RedminePort::NAMESPACE`
-/// so existing consumers that imported the constant from this module
-/// keep building.
-pub const NAMESPACE: &str = RedminePort::NAMESPACE;
 
 /// Compatibility shim — re-exports `ogar_vocab::ports::REDMINE_ALIASES`
 /// under the pre-migration name (codex P2 on PR #570). New code should
@@ -108,7 +103,7 @@ ogit.Redmine:Issue
     #[test]
     fn g_lock_matches_registry_namespace_id() {
         let registry = registry_with_redmine();
-        let expected = registry.namespace_id(NAMESPACE).unwrap();
+        let expected = registry.namespace_id(RedminePort::NAMESPACE).unwrap();
         let bridge = RedmineBridge::new(registry).unwrap();
         assert_eq!(bridge.g_lock(), expected);
     }

@@ -21,7 +21,6 @@
 
 use crate::bridges::unified::UnifiedBridge;
 pub use ogar_vocab::ports::OdooPort;
-use ogar_vocab::ports::PortSpec;
 
 /// Odoo `NamespaceBridge` — alias over the generic harness, locked to
 /// the `Odoo` namespace via [`OdooPort`].
@@ -34,8 +33,6 @@ use ogar_vocab::ports::PortSpec;
 )]
 pub type OdooBridge = UnifiedBridge<OdooPort>;
 
-/// Canonical namespace name for Odoo. Mirrors `OdooPort::NAMESPACE`.
-pub const NAMESPACE: &str = OdooPort::NAMESPACE;
 
 #[cfg(test)]
 #[allow(deprecated)] // exercises the deprecated bridge alias on purpose

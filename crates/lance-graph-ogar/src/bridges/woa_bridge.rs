@@ -26,7 +26,6 @@ use crate::bridges::unified::UnifiedBridge;
 // `WoaPort::NAMESPACE` / `::aliases()` are `PortSpec` associated items —
 // the trait must be in scope for the resolution to work (same codex P1
 // fix as MedcareBridge).
-use ogar_vocab::ports::PortSpec;
 pub use ogar_vocab::ports::WoaPort;
 
 /// WoA `NamespaceBridge` — alias over the generic harness, locked to
@@ -40,8 +39,6 @@ pub use ogar_vocab::ports::WoaPort;
 )]
 pub type WoaBridge = UnifiedBridge<WoaPort>;
 
-/// Canonical namespace name for WoA. Mirrors `WoaPort::NAMESPACE`.
-pub const NAMESPACE: &str = WoaPort::NAMESPACE;
 
 #[cfg(test)]
 #[allow(deprecated)] // exercises the deprecated bridge alias on purpose
