@@ -28,7 +28,7 @@
 //!   admit/deny an external commit; `ClassRbac` is the *grant resolution* a gate
 //!   consults. They compose: a gate calls `authorize(rbac, actor, class, op)`.
 
-use crate::class_view::FieldMask;
+use crate::class_view::{FieldMask, WideFieldMask};
 use crate::property::PrefetchDepth;
 
 /// §3/§4 compiled scope-and-projection token — the `(tenant, predicate_key)` pair
@@ -170,11 +170,20 @@ pub trait ClassRbac {
     }
 
     /// Axis-4 field projection — the column mask permitted for `role` on `class`.
-    /// [`FieldMask::FULL`] (all fields) by default; a narrower mask gives
-    /// column-level RBAC. The kernel intersects this with the query's own
-    /// projection before emitting rows.
-    fn field_mask(&self, _role: RoleId, _class: ClassId) -> FieldMask {
-        FieldMask::FULL
+    ///
+    /// Returns [`WideFieldMask`], not [`FieldMask`]: a `u64` silently DROPS every
+    /// position `>= 64` (`FieldMask::from_positions` ignores them by documented
+    /// contract), so a class with more than 64 fields could not express a grant on
+    /// its high columns at all — the projection would narrow without saying so.
+    /// Measured: a grant of `{1, 7, 92}` lost position 92 entirely.
+    ///
+    /// The default is the lossless promotion of [`FieldMask::FULL`] — the SAME
+    /// 64 low bits, in the zero-allocation `Small` tier. Widening the type is
+    /// deliberately NOT a change of the default's *policy*; an impl that wants
+    /// column-level RBAC still overrides it, and one that wants "all fields" on a
+    /// wide class returns [`WideFieldMask::full_for`]`(field_count)`.
+    fn field_mask(&self, _role: RoleId, _class: ClassId) -> WideFieldMask {
+        WideFieldMask::from(FieldMask::FULL)
     }
 }
 
@@ -427,7 +436,10 @@ mod tests {
         let rbac = OneRole;
         assert_eq!(rbac.roles_reaching(0x0901), &[] as &[RoleId]); // axis-2 empty
         assert!(rbac.row_scope("reader", 0x0901).is_none()); // axis-3 global
-        assert_eq!(rbac.field_mask("reader", 0x0901), FieldMask::FULL); // axis-4 all fields
+        assert_eq!(
+            rbac.field_mask("reader", 0x0901),
+            WideFieldMask::from(FieldMask::FULL)
+        ); // axis-4 all fields
     }
 
     /// A 5-method impl overriding all three new axis methods — proves the hooks
@@ -452,8 +464,8 @@ mod tests {
                 deny: false,
             })
         }
-        fn field_mask(&self, _role: RoleId, _class: ClassId) -> FieldMask {
-            FieldMask::EMPTY
+        fn field_mask(&self, _role: RoleId, _class: ClassId) -> WideFieldMask {
+            WideFieldMask::EMPTY
         }
     }
 
@@ -464,7 +476,7 @@ mod tests {
         let scope = rbac.row_scope("admin", 0x0901).expect("should be Some");
         assert_eq!(scope.tenant, Some(42));
         assert_eq!(scope.predicate_key, 0);
-        assert_eq!(rbac.field_mask("admin", 0x0901), FieldMask::EMPTY);
+        assert_eq!(rbac.field_mask("admin", 0x0901), WideFieldMask::EMPTY);
     }
 
     #[test]
