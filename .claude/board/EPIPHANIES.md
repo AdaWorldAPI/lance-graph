@@ -25,10 +25,16 @@ first time, and the crate did not compile:
 
 ```
 error: cannot find macro `is_aarch64_feature_detected` in this scope
-  --> crates/lance-graph-contract/src/mul.rs:983
+  --> crates/lance-graph-contract/src/mul.rs   (the aarch64 arm of the SIMD-caps probe)
 error[E0435]: attempt to use a non-constant value in a constant
-  --> crates/lance-graph-contract/src/mul.rs:1467  (and :1468)
+  --> crates/lance-graph-contract/src/mul.rs   (twice, in `extract_dim_pair`)
 ```
+
+The compiler's own line numbers are deliberately replaced above with the two
+function names. They were `:983` and `:1467`/`:1468` at the time, and the fix
+moved both — a coordinate into a file that the fix itself edits is decayed by
+construction. `citation_decay` caught exactly that on the first push of this
+entry, which is the rule working rather than an inconvenience.
 
 Two independent defects, both in `#[cfg(target_arch = "aarch64")]` blocks:
 
