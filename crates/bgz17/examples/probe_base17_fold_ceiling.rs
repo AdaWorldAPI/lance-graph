@@ -283,8 +283,10 @@ fn main() {
         buf.len()
     );
     let all: Vec<f32> = buf[8..]
-        .chunks_exact(4)
-        .map(|c| f32::from_le_bytes(c.try_into().unwrap()))
+        .as_chunks::<4>()
+        .0
+        .iter()
+        .map(|c| f32::from_le_bytes(*c))
         .collect();
     println!("source: {path}\n  {n} rows x {dim} dims (real embedding weights)");
 

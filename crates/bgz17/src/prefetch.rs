@@ -95,17 +95,16 @@ fn prefetch_matrix_row(matrix: &DistanceMatrix, row: u8) {
             // _MM_HINT_T0 = prefetch into all cache levels
             std::arch::x86_64::_mm_prefetch(ptr as *const i8, std::arch::x86_64::_MM_HINT_T0);
         }
-        #[cfg(target_arch = "aarch64")]
-        unsafe {
-            std::arch::aarch64::_prefetch(
-                ptr as *const i8,
-                std::arch::aarch64::_PREFETCH_READ,
-                std::arch::aarch64::_PREFETCH_LOCALITY3,
-            );
-        }
-        // On other architectures: no-op. The matrix is small enough that
+        // aarch64 has NO stable prefetch intrinsic. `std::arch::aarch64::_prefetch`
+        // and its `_PREFETCH_*` constants are gated behind the unstable
+        // `stdarch_aarch64_prefetch` feature (rust-lang/rust#117217), so calling
+        // them is a hard `error[E0658]` on the pinned stable toolchain — not a
+        // missed optimization. This crate therefore takes the no-op path on
+        // aarch64, and MUST keep doing so until that feature stabilizes.
+        //
+        // On every non-x86_64 target: no-op. The matrix is small enough that
         // hardware prefetch usually handles it anyway.
-        #[cfg(not(any(target_arch = "x86_64", target_arch = "aarch64")))]
+        #[cfg(not(target_arch = "x86_64"))]
         let _ = ptr;
     }
 }
