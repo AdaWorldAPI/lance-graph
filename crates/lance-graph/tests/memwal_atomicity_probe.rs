@@ -78,6 +78,9 @@ fn schema() -> Arc<ArrowSchema> {
     ]))
 }
 
+/// `n` rows of `(id, val)` — the put whose atomicity is under test. Ids are
+/// dense from zero so a partial recovery is recognisable as a prefix rather
+/// than merely as a smaller number.
 fn batch(n: i32) -> RecordBatch {
     let ids: Vec<i32> = (0..n).collect();
     let vals: Vec<String> = (0..n).map(|i| format!("v{i}")).collect();
@@ -107,12 +110,17 @@ fn config() -> ShardWriterConfig {
     }
 }
 
+/// A local-filesystem `ObjectStore` rooted at `dir`, with the uri kept
+/// alongside because `ShardWriter::open` wants both the store and the uri.
 async fn store_at(dir: &str) -> (Arc<ObjectStore>, Path, String) {
     let uri = format!("file://{dir}");
     let (store, path) = ObjectStore::from_uri(&uri).await.expect("from_uri");
     (store, path, uri)
 }
 
+/// Open the shard for writing. Parent and child both call this against the
+/// same `dir` and the same [`shard_id`], which is what lets the child crash
+/// mid-put and the parent then replay what survived.
 async fn open_writer(dir: &str) -> ShardWriter {
     let (store, path, uri) = store_at(dir).await;
     ShardWriter::open(store, path, uri, config(), schema(), vec![])

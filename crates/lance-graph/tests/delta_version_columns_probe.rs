@@ -117,6 +117,11 @@ async fn inserted_between_v1_and_v2(dir: &tempfile::TempDir, stable: bool) -> us
     count(delta.get_inserted_rows().await.expect("get_inserted_rows")).await
 }
 
+/// The insert arm. Runs [`inserted_between_v1_and_v2`] twice over two
+/// independent datasets — stable row ids on, then off — and prints both. The
+/// stable arm is the pre-registered CONTROL: it must report a non-zero count,
+/// or the physical arm's zero says nothing about lance and only that this
+/// probe failed to write anything worth counting.
 #[tokio::test(flavor = "multi_thread")]
 async fn the_insert_delta_arm_on_physical_addresses_vs_stable_row_ids() {
     let dir = tempfile::tempdir().expect("tempdir");
