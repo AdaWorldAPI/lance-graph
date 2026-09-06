@@ -30,8 +30,11 @@
   own comment establishes sibling-adjacency rather than temporal order.
 - **Two spec falsifications, both from S3 (code truth):** (a) `NodeGuid::new` IS
   reachable from a production path the inventory never named —
-  `crates/weather-poc/src/canonical.rs:108` → `assemble_row:137`, minting V1
-  unconditionally, never through `mint_for`; (b) **F5's "Nobody walks anything"
+  `crates/weather-poc/src/canonical.rs`, where `key_as_node_guid` calls
+  `NodeGuid::new` and is reached from the public `assemble_row` — minting V1
+  unconditionally, never through `mint_for`. (Cited by SYMBOL, not by line: the
+  savant reported `assemble_row` at 137, it is at 127, and the citation-decay
+  gate caught the inherited number. A number is a coordinate in a moving frame.); (b) **F5's "Nobody walks anything"
   does NOT hold in code** — `GET /views/graph/wave.abi` (`views/mod.rs:661`) →
   `wave_abi` → `ontology_graph_with_mereology_from` → `mereology_targets` →
   `inherited_part_of`/`ZIPPER_ISA_DEPTH`. A VIOLATES against a FROZEN decision
