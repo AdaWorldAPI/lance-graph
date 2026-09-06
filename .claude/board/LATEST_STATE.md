@@ -24,66 +24,41 @@ adjacency yet, block reserved and zeroed.
 **Layout-preserving on all three axes** — no `ENVELOPE_LAYOUT_VERSION` bump,
 no stride change, no tenant added.
 
-**Why it was needed (the consumer-side defect it fixes).** blockly-rs built
-its storage layer on `NodeRow` and minted keys through
-`NodeGuid::mint_for(classid_read_mode(c).tail_variant, …)` — the prescribed
-mechanism — but over a locally composed classid (`0x1717_FF00`, an invented
-app-prefix placeholder) that was in no registry. So `classid_read_mode` fell
-through to `ReadMode::DEFAULT` and every key minted a **V1** `family:identity`
-u24 tail: the shape the canon closed to new units. The mechanism was right and
-the ADDRESS was wrong, which is the failure mode that reads as success — keys
-appeared, were distinct, round-tripped, and were legacy. The contract's own
-doc is what makes registration the only fix: *"There is NO public `new_v3`
-dispatch — the `tail_variant` registry field IS the mechanism."* Consumer code
-did not change; registering the class is what made its answer V3.
+**What it is FOR — the consumer.** `blockly-rs` stores cast block programs as
+V3 rows, and the driving corpus is **Paper Minecraft**: 515 sb3 scripts,
+97.7% of its blocks covered by the palette, the whole scene running over the
+stored bytes. Those programs need a real address, and this class is it.
 
-A worked instance of the invented-placeholder cost, worth keeping: the
-consumer's `0xFF00` was chosen to be obviously unreal, and the canon already
-had a convention for exactly that state — `0x1000`, which `ogar-vocab`
-reserves for the V3-adoption monitor with a test asserting it *"must never be
-allocatable as a port's `APP_PREFIX`"*. Using the reserved marker is strictly
-less invention than a made-up value, and it cannot later collide with a real
-prefix mint.
+The convergence that makes the storage layer a *binding* rather than a port:
+`ogar_loco::node::NODE_BYTES` is 512 — key `0..16`, a zeroed reserved slot
+`16..32`, value `32..512` — byte-for-byte `NodeRow`'s `key(16) | edges(16) |
+value(480)`. A stored `ogar-loco` function ALREADY IS a V3 row. `ogar-loco`
+states what it withholds (*"this crate does not mint GUIDs: the canonical
+layout is the substrate's"*), and the two missing pieces are exactly a minted
+key and an envelope over the array — `NodeGuid::mint_for` against this
+classid, and `NodeRowPacket` so Lance's columnar I/O reads the rows in place.
 
-**Still unminted:** a real app prefix for the blockly frontend (the operator
-decision that workspace calls M1). The V3 marker occupies the custom half
-until it lands; when it does the class gets a sibling classid and the stored
-rows do not move, because the tail is a reading of the same 16 key bytes.
+The seat is `ogar-loco`'s, not this crate's to choose: it owns the whole
+`0x17XX` block (operator, 2026-08-07) and allocates `0x1701`/`0x1702` to its
+own node shapes, `0x1703`–`0x1716` as substrate headroom, and `0x1717`+ to
+consumers — *"one slot per frontend palette (`blockly-rs` = `0x1717`)"*.
+Concept ids are authoritative in the vocabulary crate; `ogar-loco` says so
+directly (*"whether these are additionally promoted into `ogar_vocab`'s
+shared codebook is a separate, operator-ruled canon decision — nothing here
+breaks if they are not"*), with `0x1701`/`0x1702` as the standing precedent.
+So `concepts_in_domain(Blocks).count() == 0` is a **codebook-rows** fact, not
+a slot-allocation one, and is not evidence against this address.
 
-**VALIDATED — by CI, not by this session.** Worth recording as two separate
-facts, because they were true at different times.
-
-The authoring session had no toolchain (cargo was withdrawn mid-arc after a
-build-residue incident), so the edits went up unbuilt, resting on three
-inspection-checked assertions: `FieldMask` derives `PartialEq`,
-`use crate::class_view::FieldMask` is module-level so the test module's
-`use super::*` reaches it, and no existing assertion counts
-`BUILTIN_READ_MODES` entries. Inspection is not a gate, and the entry said so.
-
-CI then answered it on the exact commit (`197ef083d`, PR #1207):
-
-```
-test canonical_node::tests::read_mode_blocks_v3_routes_v3_tail_and_the_blocks_domain ... ok
-test result: ok. 1319 passed; 0 failed; 0 ignored
-```
-
-The new test ran and passed in both the `--lib` and `--tests` passes, and
-every Rust gate on that head is green: `test`, `member-tests`, `clippy`,
-`format`, `linux-build`, `test-with-coverage`. Two of those carry meaning
-beyond "it compiles": **`no-shrink`** passing confirms this very prepend is
-genuinely append-only, and **`regenerate-and-diff`** passing confirms the
-supersession index needed no regeneration (the PR adds no plan and rules no
-symbol). The three inspection assertions are therefore superseded by a
-measurement — nothing here is unverified.
-
-The one red check, `citation-decay`, is the BASE branch's: 12 findings,
-byte-identical to `origin/main`, measured on a clean worktree of each. It
-neither adds nor removes a decay, and none of the decayed citations points
-into `LATEST_STATE.md`, so this prepend shifted nothing under anyone's
-anchor. Its prescribed fix (swap the line number for a stable anchor)
-collides with the append-only rule for `EPIPHANIES.md` /
-`AGENT_ORCHESTRATION_LOG.md` — a real tension, recorded for whoever owns the
-board sweep, and deliberately not resolved inside a contract-crate PR.
+**Validated on `197ef083d`:** `read_mode_blocks_v3_routes_v3_tail_and_the_blocks_domain`
+passes inside 1319 contract lib tests; `test`, `member-tests`, `clippy`,
+`format`, `linux-build`, `test-with-coverage`, `no-shrink` and
+`regenerate-and-diff` all green. `citation-decay` is red on `origin/main`
+too — 12 findings, byte-identical, measured on a clean worktree of each; none
+of them cites into `LATEST_STATE.md`, so this prepend moved nothing under an
+anchor. Its prescribed fix (line number → stable anchor) means editing past
+entries in `EPIPHANIES.md` / `AGENT_ORCHESTRATION_LOG.md`, which the
+append-only rule forbids — a standing tension for the board sweep, not for a
+contract-crate PR.
 
 ## 2026-09-06 — #1201 MERGED (54285a42): #1199's records + the council SPEC v1
 
