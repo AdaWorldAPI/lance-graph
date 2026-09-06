@@ -1,72 +1,76 @@
-## 2026-09-06 — E-DATE-YOUR-SOURCE-BEFORE-YOU-CALL-IT-CANONICAL-1 — I proposed a migration that shipped two months ago, from doc comments older than that
+## 2026-09-06 — E-I-CITED-THE-RIGHTMOST-REGISTER-AND-CALLED-IT-THE-ADDRESS-1 — three corrections to one entry, each because I reasoned instead of measuring
 
-**Status:** OPERATOR CORRECTION of my own entry, plus the ruling that prompted
-it. The first version of this entry (same id, same day, superseded before merge)
-is the artefact being corrected.
-**Confidence:** High — every date below is read off the source itself.
+**Status:** OPERATOR CORRECTION ×3 of my own same-day entry, superseded before
+merge. Recorded as one entry because the three are the same mistake at
+increasing depth.
+**Confidence:** High — every claim below is a `git log` date or a line read out
+of `ogar-vocab`.
 
-**The ruling, in the operator's words:** *"It should always be classid, which is
-the namespace"*, *"the old lockstep is deprecated, namespace might be even
-older"*, and the process rule that makes the rest of it checkable: **"First
-determine the age of your source. July or older is automatically deprecated."**
+**The rulings, in the operator's words:** *"It should always be classid, which
+is the namespace"* · *"the old lockstep is deprecated, namespace might be even
+older"* · *"First determine the age of your source. July or older is
+automatically deprecated."* · *"0005 is old shit. New is Domain on the left
+side — if that's not implemented it's not the new."*
 
-**What I did wrong.** I read source-file doc comments and a design doc, built a
-"three layers, oldest first" taxonomy out of them, declared `hotplug` the
-current layer, and then proposed migrating `UnifiedBridge<P: PortSpec>` onto it
-as future work "wanting its own plan". Dating the sources shows every step of
-that was drift:
+**Correction 1 — I dated nothing.** I built a "three layers" taxonomy out of
+source-file doc comments, called `hotplug` current, and proposed migrating
+`UnifiedBridge<P: PortSpec>` onto it as future work. That migration was
+operator-ruled and **shipped 2026-07-07** (OGAR #174/#175, lance-graph #658,
+tesseract-rs #13/#14 as the template consumer; C# and Python mirrors already
+generated). Every source I used was pre-August; a doc comment carries no date
+at all.
 
-| source I treated as canonical | its own date | status |
-|---|---|---|
-| `bridges/mod.rs` doc comments | PR #844, pre-July | deprecated |
-| `docs/CONSUMER-BRIDGE-DEPRECATION.md` | OGAR#95 era, pre-July | deprecated |
-| `hotplug.rs` module doc | 2026-07-07 | **July — deprecated** |
-| `.claude/knowledge/hotplug-consumer-migration.md` | "Shipped 2026-07-07" | **July — deprecated** |
-| `E-HOTPLUG-MIGRATION-1` | 2026-07-07 | **July — deprecated** |
+**Correction 2 — the top rung was stale too.** Under the dating rule `hotplug`
+is itself July. The current canon is
+`E-EVERYTHING-WIRES-TO-SOA-V3-CE64-IS-ALU-LEGACY-1` (2026-09-05, operator).
 
-So the "migration" I proposed was **operator-ruled and shipped on 2026-07-07** —
-reference PRs OGAR #174/#175, lance-graph #658, tesseract-rs #13/#14 as the
-template consumer — with C# and Python mirrors already generated in
-`ogar-adapter-{csharp,python}`. It has a MANDATORY knowledge doc carrying a
-five-step recipe. I proposed planning a thing that had a plan, was ruled, and
-was in production, because I never asked how old my sources were.
+**Correction 3 — the substantive one. I named the wrong register.** I published
+this table and called it "the address the classid already carries":
 
-**And the correction does not stop at hotplug.** Under the dating rule hotplug
-is itself a July source. The current, non-deprecated canon is
-`E-EVERYTHING-WIRES-TO-SOA-V3-CE64-IS-ALU-LEGACY-1` (2026-09-05, operator,
-verbatim: *"anything must be wired into SoA V3 substrate no exceptions except
-the causaledge64 adjacent as ALU legacy substrat"*) — alongside
-`E-PLANNING-MIGRATES-TO-LOCO-R2IL-DATAFUSION-IS-GRACE-PERIOD-1` (same day). A
-taxonomy that terminates at hotplug is two months stale on its own top rung.
+| port | `APP_PREFIX` |
+|---|---|
+| OpenProject | `0x0001` |
+| Odoo | `0x0002` |
+| Healthcare | `0x0005` |
+| Redmine | `0x0007` |
 
-**The rule, stated so it is mechanical rather than remembered.** Before citing
-anything as current: **date it.** A doc comment carries no date, so it is
-evidence of what someone believed when they wrote it, never of what is true now
-— its date is its commit's date, and `git log -S` is how you get it. The board
-is ordered newest-first for exactly this reason; the top of `EPIPHANIES.md` is
-the cheapest date check in the workspace, and I read the middle of a source file
-instead.
+Those are **classview** values — the lo u16, the per-vendor render skin, the
+RIGHTMOST register. The composed classid is `0xDDCCVVVV` =
+`domain : appid : classview`, so the leading register is the **domain byte**,
+and it is fully implemented: `ogar_vocab::ConceptDomain` with 29 arms and
+`canonical_concept_domain(id) = id >> 8` — `0x01` ProjectMgmt, `0x02` Commerce,
+`0x09` Health, `0x0F` Geo, `0x17` Blocks, and the C-band `0xC0` JavaRuntime /
+`0xC1` Analytics / `0xC4` BinaryLifting (reserved 2026-08-18 — **August, the
+newest source in this whole thread**).
 
-**Second-order:** this is the same failure as
-`E-A-CORRECTION-IS-ONLY-AS-GOOD-AS-ITS-MERGE-1` one turn later — I nearly merged
-a board entry asserting a stale architecture, which would have made the drift
-citable by the next session. It is caught here only because the operator read it.
+The collision proves the error on its own terms: **`0x0005` is Healthcare's
+vendor skin; Health's domain is `0x09`.** Two registers, two numbers, one word
+— and I quoted the one that carries the least.
 
-**What this entry does NOT do.** It proposes no migration, no plan, and no
-taxonomy. The `UnifiedBridge`/`PortSpec` surface's disposition is already ruled
-elsewhere and is not mine to re-open from a consumer's CI failure.
+Worse, the "NAMESPACE ↔ APP_PREFIX 1:1" pairing I drew as evidence for the
+ruling **is the deprecated lockstep** — a string paired with a vendor ordinal.
+I used the old thing as proof of the new one.
 
-**The code change this entry accompanies is unaffected and stands on the
-2026-09-06 ruling alone:** six `pub const NAMESPACE: &str` mirrors in
-`lance-graph-ogar`'s bridge modules are removed. They were unreachable (private
-modules, never `pub mod` in any commit) and they are a *string* spelling of an
-address the classid already carries — `ogar_vocab::ports` pairs each
-`NAMESPACE` 1:1 with an `APP_PREFIX` (OpenProject/`0x0001`, Odoo/`0x0002`,
-WorkOrder/`0x0003`, SMB/`0x0004`, Healthcare/`0x0005`, Redmine/`0x0007`,
-OpenStreetMap/`0x0008`, WeatherNext/`0x0009`), the lo-u16 classview slot of
-`render_classid = (concept << 16) | APP_PREFIX`. The namespace is a register OF
-the address, not a label beside it. Three tests now read the trait const
-instead of a module-local copy.
+**The rule this leaves.** The domain byte's magnitude encodes ALTITUDE
+(`0x00`–`0x0F` business ontology, `0x17` the substrate's own tier, `0xC0`+ the
+foreign-host C-band), so the first nibble is a 16-way altitude selector — one
+mask, no lookup, no value decode. A register that far left is not
+interchangeable with one on the right, and "the classid is the address" is only
+true read left-first.
+
+**Method, stated so it is mechanical.** Date the source (`git log -S`); read the
+board top-down, not a source file middle-out; and when citing a bit layout,
+name the register position, never just the value — a bare hex number cannot say
+which of `DD`, `CC` or `VVVV` it came from, which is exactly how `0x0005` got
+published as an address.
+
+**The code change this accompanies is unaffected.** Six `pub const NAMESPACE:
+&str` mirrors in `lance-graph-ogar`'s bridge modules are removed: unreachable
+since birth (private modules, never `pub mod` in any commit), zero consumers
+anywhere in lance-graph / OGAR / q2, on a surface last touched 2026-07-24 for
+five of the six files — by the same PR #844 that created them. A string
+namespace belongs to the old lockstep; that is the whole reason, and it needs no
+appeal to a prefix table.
 
 ---
 
