@@ -50,11 +50,29 @@ ordinals — the module's own no-unnamed-materializer law, applied consistently.
 **Kill condition:** if the parallel≡sequential falsifier cannot be kept green,
 stop and report; that guarantee outranks the byte saving.
 
-## Stage 1b — fix the release-mode mask guard (independent, do it anyway)
+## Stage 1b — fix the release-mode mask guard — **DONE 2026-09-06**
 
-`AlphaMask::zip`'s only length guard is a `debug_assert_eq!` (`alpha.rs:273`),
-compiled out in release. Make mismatched lengths fail closed. Small, safe, and
-a precondition for any mask stacking.
+`AlphaMask::zip`'s only length guard WAS a `debug_assert_eq!`, compiled out in
+release. Now `assert_eq!`, so it holds in the build where the damage is silent.
+
+**The defect was measured before it was fixed, in release**, and it is worse
+than a truncation: iterator `zip` truncates to the shorter operand while `len`
+is copied from `self`, so `wide.and(&narrow)` returned a mask claiming
+`self.len` addresses over `other.words.len()` words. That is an INVALID mask,
+not a smaller one, and it fails two ways at a distance — `count`/`is_empty`
+under-report **silently**, while `contains`/`materialize_ordinals` index past
+the slice and panic far from the call that caused it.
+
+Two-sided falsifiers, both disable-verified: the mismatch case panicked only
+after the fix (`should_panic`, and pre-fix the runner reported *"test did not
+panic as expected"* — the defect, reproduced); the equal-length case proves
+the guard stays silent on ordinary input, including `len % 64 != 0`, so a
+guard that rejected everything could not pass both.
+
+A length mismatch is a caller mixing two allocations — a programming error,
+not a data condition — so it fails closed at the operation that made it. Cost
+is one `u32` compare against a loop over every word. No API change; the ops
+have no external callers yet, so this had no ripple.
 
 ## Stage 2 — the rung × tenant mask cross (the meta-awareness layer)
 

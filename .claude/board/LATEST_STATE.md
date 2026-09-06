@@ -1,3 +1,19 @@
+## 2026-09-06 — #1198 MERGED (3797237b): the temporal audit, three probes, one falsified hypothesis
+
+| PR | merge | content |
+|---|---|---|
+| **#1198** | `3797237b` | `.claude/temporal/` (10 docs) + two probes (D-LNC-5a delta version columns, D-MW-P2 MemWAL crash-atomicity) + `uuid` as a dev-dep. No runtime code. |
+
+**Contract inventory net delta: none.** Nothing was minted — this arc is an
+audit, a staged plan, and three measurements. What it changes is what a later
+session is allowed to assume: the migration hypothesis is FALSIFIED (the alpha
+/ rung / SPOG wiring was never present to be lost — near every mechanism is
+built and connected to nothing, `TemporalPov` excepted), delta version columns
+are RED without `enable_stable_row_ids` (P1), MemWAL is crash-atomic across a
+5–500 ms SIGKILL sweep (P2), and ternlog chaining pays ~2× only while
+L2-resident (P3). Full per-probe numbers and the four self-corrections are in
+`PR_ARC_INVENTORY.md`; the durable reference is `.claude/temporal/`.
+
 ## 2026-09-05 — #1194 + #1195 MERGED (3c84ce16, 8c7aa961): Rust 1.98.1, and the sweep it opens
 
 | PR | merge | content |
