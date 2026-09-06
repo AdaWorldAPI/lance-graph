@@ -354,7 +354,11 @@ mod scoped_tests {
             "position 92 must survive the fold — this is the u64 truncation the \
              WideFieldMask widening fixes"
         );
-        assert_eq!(d.field_mask.count(), 3, "exactly {{1,7,92}}, nothing invented");
+        assert_eq!(
+            d.field_mask.count(),
+            3,
+            "exactly {{1,7,92}}, nothing invented"
+        );
         // Anti-vacuity: prove the narrow type really would have lost it, so this
         // test cannot pass for the wrong reason if the seam is ever re-narrowed.
         assert!(
