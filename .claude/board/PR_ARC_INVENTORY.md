@@ -1,3 +1,64 @@
+## 2026-09-06 — lance-graph PR #1201 (merged `54285a42`, branch `claude/great-curie-d2ufyl`) — #1199's records, and the SPEC v1 that made it mixed
+
+- **Added:** #1199's post-merge records (`PR_ARC_INVENTORY` entry + the
+  `LATEST_STATE` merged-PR table), then — in a second commit pushed to the same
+  open PR — `.claude/plans/nodeguid-new-repurpose-audit-v1.md` (SPEC v1 of the
+  5+3 council convened to AUDIT a `NodeGuid::new` repurpose), with its
+  `INTEGRATION_PLANS` prepend and `STATUS_BOARD` `D-NGN-AUDIT` row.
+- **Corrected, about this PR's own body:** it was opened as hygiene-only and its
+  description says *"This PR is hygiene-only … the chain stops here."* That was
+  true when written and **FALSE at merge** — the SPEC v1 commit landed in it
+  afterwards, making it MIXED. Under the hygiene rule's own terms a mixed PR
+  gets an entry (*"the non-hygiene half is what the entry is for"*), which is
+  why this entry exists. The lesson is narrow and mechanical: **a claim about a
+  PR's scope expires the moment another commit is pushed to it**, and the body
+  was never updated. Do not read #1201's description as describing what merged.
+- **The council, cast READ-ONLY** (operator: *"It's already in production, if you
+  touch it it would change something you half understand"* / *"Run /5plus3 ask 8
+  agents without changing anything yet"*). Phase 1's five savants returned, and
+  three INDEPENDENTLY rejected the audit's own premise: `NodeGuid::new` is the
+  wrong unit of change. `ISS-V1-TAIL-RESIDUE` resolved the analogous case by
+  ROUTING THROUGH `mint_for` rather than rewriting `new` (S1); the real
+  same-name-different-semantics exposure is the ACCESSORS
+  (`family()`/`identity()`/`local_key()` read fixed byte ranges unconditionally,
+  `canonical_node.rs:245,250,305`) plus `mint_for`'s undifferentiated V2/V3 arm
+  (S2, `canonical_node.rs:381`); the unit is that dispatch table (S5).
+- **Measured, gate G4 — the blocking set is ONE site:**
+  `medcare-first-thought/src/witness_row.rs:200` (`sequence: k.identity()`).
+  S4 classified all 66 MedCare `identity()` readers and found no other true
+  SEQUENCE use, and specifically did NOT mis-bucket `gotham_view.rs:560`, whose
+  own comment establishes sibling-adjacency rather than temporal order.
+- **Two spec falsifications, both from S3 (code truth):** (a) `NodeGuid::new` IS
+  reachable from a production path the inventory never named —
+  `crates/weather-poc/src/canonical.rs`, where `key_as_node_guid` calls
+  `NodeGuid::new` and is reached from the public `assemble_row` — minting V1
+  unconditionally, never through `mint_for`. (Cited by SYMBOL, not by line: the
+  savant reported `assemble_row` at 137, it is at 127, and the citation-decay
+  gate caught the inherited number. A number is a coordinate in a moving frame.); (b) **F5's "Nobody walks anything"
+  does NOT hold in code** — `GET /views/graph/wave.abi` (`views/mod.rs:661`) →
+  `wave_abi` → `ontology_graph_with_mereology_from` → `mereology_targets` →
+  `inherited_part_of`/`ZIPPER_ISA_DEPTH`. A VIOLATES against a FROZEN decision
+  is escalated to the operator, never resolved by the orchestrator; the council
+  is HELD at Phase 2 pending that ruling.
+- **Also found by the savants, and it is the entry's most useful half:** V3 has
+  NO mint arm of its own — `TailVariant::V2 | V3` share one arm with a
+  `<= 0xFFFF` assert, so at the mint layer "everything is V3" is currently
+  everything is V2 wearing V3's name. And F5 was already canon before the
+  operator restated it: `E-IDENTITY-QUAD-4X24-RATIFIED-PERMANENT-1`
+  (2026-08-17, `lance_graph_contract::identity_quad`) plus the DN/OU epiphany
+  (2026-09-01). `CascadeShape::G4D3` already has real consumers
+  (`tekamolo_facet.rs:114,280`).
+- **Amendment owed to draft v2, discovered post-merge from #1202
+  (`aba36726`):** the operator's dating rule — *"First determine the age of your
+  source. July or older is automatically deprecated"* — was NOT in SPEC v1's
+  frozen set. It demotes S1's central prior-art finding, since
+  `ISS-V1-TAIL-RESIDUE` and `E-V1-TAIL-FORBIDDEN-V3-IS-CONTENT-BLIND-1` are both
+  2026-07-04. `E-IDENTITY-QUAD-4X24-…` (August) and the DN entry (September)
+  survive it. v2 must carry this as F9.
+- **Confidence:** High on every file:line (S3 verified the entire §2 inventory
+  CODED, no row wrong). The audit itself reaches NO verdict yet — Phase 2 is
+  held, and nothing was implemented.
+
 ## 2026-09-06 — lance-graph PR #1199 (merged `ef724878`, branch `claude/great-curie-d2ufyl`) — the `AlphaMask::zip` guard that was compiled out of release
 
 - **Added:** `assert_eq!` (was `debug_assert_eq!`) on `AlphaMask::zip`'s operand lengths, plus two `#[cfg(test)]` falsifiers in `crates/lance-graph-contract/src/alpha.rs`. Also #1198's post-merge board records (that PR's own arc entry + `LATEST_STATE` table), `STATUS_BOARD` `D-ALPHA-1b`, and Stage 1b marked DONE in `.claude/temporal/09-plan.md`. No API change, no layout change, no new type.

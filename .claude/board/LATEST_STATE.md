@@ -1,3 +1,17 @@
+## 2026-09-06 — #1201 MERGED (54285a42): #1199's records + the council SPEC v1
+
+| PR | merge | content |
+|---|---|---|
+| **#1201** | `54285a42` | #1199 post-merge records; `.claude/plans/nodeguid-new-repurpose-audit-v1.md` (5+3 council SPEC v1, READ-ONLY audit); `INTEGRATION_PLANS` + `STATUS_BOARD` D-NGN-AUDIT. |
+
+**Contract inventory net delta: none.** No type, no API, no layout. The PR
+merged MIXED despite its body saying hygiene-only — the spec commit was pushed
+after that sentence was written; see the arc entry. The council is HELD at
+Phase 2 on a VIOLATES against a frozen decision (`GET /views/graph/wave.abi`
+reaches `inherited_part_of`, contradicting *"Nobody walks anything"*), which is
+the operator's to rule on. Draft v2 additionally owes F9, the dating rule from
+#1202: July-or-older sources are automatically deprecated.
+
 ## 2026-09-06 — #1199 MERGED (ef724878): the mask guard that was compiled out of release
 
 | PR | merge | content |
