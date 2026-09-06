@@ -99,3 +99,64 @@ discuss ONLY the delete side as "lance's native delta", and D-LNC-5's row is
 phrased as *"row ids DELETED between two versions"*. That verdict stands for
 deletes. **It was never a verdict about the insert side, which nothing here
 had looked at until 2026-09-06.**
+
+---
+
+# MEASURED 2026-09-06 — D-LNC-5a, the probe has run
+
+`crates/lance-graph/tests/delta_version_columns_probe.rs`, real lance 11,
+`cargo test -p lance-graph`, exit 0, 2 passed.
+
+```
+A2 stable_row_ids=true   inserted rows v1->v2 = 2      <- CONTROL, HELD
+A1 stable_row_ids=false  inserted rows v1->v2 = 0
+update arm stable_row_ids=true   updated rows v1->v2 = 0
+update arm stable_row_ids=false  updated rows v1->v2 = 0
+```
+
+## The insert arm: RED. A real finding, because the control held.
+
+**`get_inserted_rows` returns NOTHING without stable row ids.** The control arm
+(stable row ids ON) correctly reports the two appended rows, so the probe is
+measuring the feature and not its own wiring — which is the only thing that
+makes the zero interpretable.
+
+⊘ **This settles the open question from the source read, AGAINST the reading.**
+The source observation stands: `get_inserted_rows` / `get_updated_rows` have no
+`uses_stable_row_ids()` gate in their own bodies, and they filter ordinary
+schema columns. But **the columns are not POPULATED in physical-address mode**,
+so the behaviour is gated even though the code is not. Absence of an explicit
+gate was not evidence of absence of a requirement.
+
+**Consequence:** all three delta arms — delete, insert, update — are gated
+behind the stable-row-id decision. That decision is D-LNC-5's, per
+`lance-convergence-staged-migration-v1.md` §7.9. Stage 3 of `09-plan.md` moves
+behind it rather than beside it.
+
+## The update arm: INCONCLUSIVE, and must not be reported as a finding
+
+`get_updated_rows` returned 0 under **both** modes, including stable row ids
+ON. **The control did not hold**, so by this probe's own pre-registered
+discipline the result says nothing about lance and everything about the
+apparatus.
+
+The likely cause, unverified: the upsert was driven through
+`MergeInsertBuilder::when_not_matched(WhenNotMatched::InsertAll)` on an
+existing key, which may have committed as an insert rather than an update, or
+may not have advanced the versions the delta range was built over. Fixing the
+update arm needs its own pass; it is NOT a claim that lance's update delta is
+broken.
+
+## Method notes worth keeping
+
+- The stable-row-id arm as CONTROL is what makes a zero meaningful. Without it
+  this run would have looked like a finding about lance and been a finding
+  about the test.
+- `lance-encoding` compiles `.proto` at build time: **both**
+  `protobuf-compiler` AND `libprotobuf-dev` are required (the binary alone
+  lacks the well-known includes). Absent, the build dies in a build script.
+- `cargo … | tail` reports TAIL's exit status. A first run of this probe
+  reported exit 0 while cargo had failed. Capture `$?` from cargo directly, or
+  use `PIPESTATUS`.
+- `Dataset::update` does NOT exist in lance 11. The upsert path is
+  `MergeInsertBuilder::try_new(Arc<Dataset>, keys)` + `execute_reader`.

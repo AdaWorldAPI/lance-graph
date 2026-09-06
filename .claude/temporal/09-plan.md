@@ -22,7 +22,7 @@ non-polluting.
 
 | id | question | pass condition | status |
 |---|---|---|---|
-| **P1** | Are `_row_created_at_version` / `_row_last_updated_at_version` populated WITHOUT stable row ids? | A2 control (stable=true) reports the 2 appended rows; A1 (physical) is then interpretable either way | **RUNNING** — `crates/lance-graph/tests/delta_version_columns_probe.rs` |
+| **P1** | Are `_row_created_at_version` / `_row_last_updated_at_version` populated WITHOUT stable row ids? | A2 control (stable=true) reports the 2 appended rows; A1 (physical) is then interpretable either way | **RUN, RED.** Control held (2); physical returned **0**. Insert delta needs stable row ids. Update arm INCONCLUSIVE — its own control also read 0. See `01-delta-api-lance11.md` |
 | **P2** | Can `ShardWriter::put` seal N landing rows + the frame row ATOMICALLY? | kill mid-flush on a 5,000-row cycle: 0 or 5,000 ⇒ FOLD stands; anything between ⇒ KEEP | not started |
 | **P3** | Does ternlog chaining pay on THIS workload? | `ndarray/examples/ternlog_amortization_probe.rs` per-constraint cost flat in K, with the bandwidth column as the residency evidence | instrument exists, not re-run |
 
@@ -75,7 +75,14 @@ the rung ladder are unrelated enums sharing four variant names.
 **Kill condition:** if P3 shows no amortization on this shape, build it scalar
 and say so. The shape win stands without the speed win.
 
-## Stage 3 — delta-backed `VersionedGraph::diff`. GATED ON P1
+## Stage 3 — delta-backed `VersionedGraph::diff`. ⊘ P1 IS RED — GATED ON D-LNC-5
+
+**Measured 2026-09-06: the insert arm returns nothing on physical row addresses**
+(the control held, so the zero is real). All three delta arms therefore sit
+behind the stable-row-id decision. This stage does NOT proceed as an
+independent change; it becomes part of D-LNC-5. The one-to-one field mapping
+below stays correct and is what D-LNC-5 should implement once row ids are
+decided.
 
 One-to-one, no new field, no new type:
 

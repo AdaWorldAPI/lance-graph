@@ -52,7 +52,7 @@ use std::sync::Arc;
 use arrow_array::{Int32Array, RecordBatch, StringArray};
 use arrow_schema::{DataType, Field, Schema};
 use futures::TryStreamExt;
-use lance::dataset::{Dataset, WriteMode, WriteParams};
+use lance::dataset::{Dataset, MergeInsertBuilder, WhenNotMatched, WriteMode, WriteParams};
 
 fn schema() -> Arc<Schema> {
     Arc::new(Schema::new(vec![
@@ -161,18 +161,23 @@ async fn the_update_arm_reports_a_changed_row_under_both_modes() {
         let ds = write(&path, batch(&[1, 2], &["a", "b"]), stable, true).await;
         let v1 = ds.version().version;
 
-        // An UPDATE, not an append: same key, new value.
-        let mut ds = Dataset::open(&path).await.expect("open");
-        ds.update("val", "'z'")
-            .expect("update builder")
-            .only_if("id = 1")
-            .expect("predicate")
-            .build()
+        // An UPDATE, not an append: same key, new value, through the same
+        // `merge_insert` path `LanceCycleWriter` itself uses. `Dataset::update`
+        // does not exist in lance 11 — the upsert IS merge-on-primary-key.
+        let ds_arc = Arc::new(Dataset::open(&path).await.expect("open"));
+        let reader = arrow_array::RecordBatchIterator::new(
+            vec![Ok(batch(&[1], &["z"]))].into_iter(),
+            schema(),
+        );
+        MergeInsertBuilder::try_new(ds_arc, vec!["id".to_string()])
+            .expect("merge builder")
+            .when_not_matched(WhenNotMatched::InsertAll)
+            .try_build()
+            .expect("build")
+            .execute_reader(reader)
             .await
-            .expect("update build")
-            .execute()
-            .await
-            .expect("update execute");
+            .expect("upsert");
+
         let ds = Dataset::open(&path).await.expect("reopen");
         let v2 = ds.version().version;
 
