@@ -1,88 +1,72 @@
-## 2026-09-06 — E-THE-CLASSID-IS-THE-NAMESPACE-1 — a string namespace is the oldest layer, and the lockstep above it is already deprecated
+## 2026-09-06 — E-DATE-YOUR-SOURCE-BEFORE-YOU-CALL-IT-CANONICAL-1 — I proposed a migration that shipped two months ago, from doc comments older than that
 
-**Status:** OPERATOR RULING, with the measured evidence that prompted it.
-**Confidence:** High — the 1:1 table below is read straight out of
-`ogar_vocab::ports`, and the dead-code finding was surfaced by a consumer's CI.
+**Status:** OPERATOR CORRECTION of my own entry, plus the ruling that prompted
+it. The first version of this entry (same id, same day, superseded before merge)
+is the artefact being corrected.
+**Confidence:** High — every date below is read off the source itself.
 
 **The ruling, in the operator's words:** *"It should always be classid, which is
-the namespace."* And, on the surface that still carries a string one: *"the old
-lockstep is deprecated, namespace might be even older."*
+the namespace"*, *"the old lockstep is deprecated, namespace might be even
+older"*, and the process rule that makes the rest of it checkable: **"First
+determine the age of your source. July or older is automatically deprecated."**
 
-**What surfaced it.** q2's test suite was un-gated (`AdaWorldAPI/q2#146`) and
-its clippy gate failed on six `error: constant NAMESPACE is never used` in
-`lance-graph-ogar`'s bridge modules. Each was a `pub const NAMESPACE: &str =
-XPort::NAMESPACE;` — a *string* copy of a per-port trait const.
+**What I did wrong.** I read source-file doc comments and a design doc, built a
+"three layers, oldest first" taxonomy out of them, declared `hotplug` the
+current layer, and then proposed migrating `UnifiedBridge<P: PortSpec>` onto it
+as future work "wanting its own plan". Dating the sources shows every step of
+that was drift:
 
-**Why they were dead, which is the interesting half.** The identical idiom is
-ALIVE one crate over: `lance-graph-ontology`'s bridges hold the same
-`pub const NAMESPACE` and clippy is silent, because each of those is a
-hand-written bridge whose own `new()` calls `registry.namespace_id(NAMESPACE)`.
-On the OGAR side the per-port bridges were collapsed into the generic
-`UnifiedBridge<P: PortSpec>` harness, which reads `P::NAMESPACE` off the trait —
-so the module-level copy lost its only caller and nothing replaced it. The
-doc-comments said the copies existed "so existing consumers that imported the
-constant from this module keep building", but the modules are private (`mod
-redmine_bridge;`, never `pub mod` — `git log -S` finds no such line in the
-history) and `bridges/mod.rs` re-exports the `*Port` and `*Bridge` names without
-them. **The compatibility shim was born unreachable, in the same PR that wrote
-it.**
-
-**The ruling makes the deeper point.** Even if it had been reachable, a string
-is the wrong currency. `ogar_vocab::ports` already carries the address, and the
-mapping is exactly 1:1:
-
-| port | `NAMESPACE` (string) | `APP_PREFIX` = classview, lo u16 |
+| source I treated as canonical | its own date | status |
 |---|---|---|
-| OpenProject | "OpenProject" | `0x0001` |
-| Odoo | "Odoo" | `0x0002` |
-| WoA | "WorkOrder" | `0x0003` |
-| SMB | "SMB" | `0x0004` |
-| Healthcare | "Healthcare" | `0x0005` |
-| Redmine | "Redmine" | `0x0007` |
-| OpenStreetMap | "OpenStreetMap" | `0x0008` |
-| WeatherNext | "WeatherNext" | `0x0009` |
+| `bridges/mod.rs` doc comments | PR #844, pre-July | deprecated |
+| `docs/CONSUMER-BRIDGE-DEPRECATION.md` | OGAR#95 era, pre-July | deprecated |
+| `hotplug.rs` module doc | 2026-07-07 | **July — deprecated** |
+| `.claude/knowledge/hotplug-consumer-migration.md` | "Shipped 2026-07-07" | **July — deprecated** |
+| `E-HOTPLUG-MIGRATION-1` | 2026-07-07 | **July — deprecated** |
 
-`render_classid = (concept as u32) << 16 | APP_PREFIX`. The namespace is not a
-label that sits *beside* the address — it IS a register of the address. A
-string namespace is a second spelling of something the classid already says,
-and a second spelling is a drift surface.
+So the "migration" I proposed was **operator-ruled and shipped on 2026-07-07** —
+reference PRs OGAR #174/#175, lance-graph #658, tesseract-rs #13/#14 as the
+template consumer — with C# and Python mirrors already generated in
+`ogar-adapter-{csharp,python}`. It has a MANDATORY knowledge doc carrying a
+five-step recipe. I proposed planning a thing that had a plan, was ruled, and
+was in production, because I never asked how old my sources were.
 
-**Three layers, oldest first, so a future session can date what it is looking
-at:**
+**And the correction does not stop at hotplug.** Under the dating rule hotplug
+is itself a July source. The current, non-deprecated canon is
+`E-EVERYTHING-WIRES-TO-SOA-V3-CE64-IS-ALU-LEGACY-1` (2026-09-05, operator,
+verbatim: *"anything must be wired into SoA V3 substrate no exceptions except
+the causaledge64 adjacent as ALU legacy substrat"*) — alongside
+`E-PLANNING-MIGRATES-TO-LOCO-R2IL-DATAFUSION-IS-GRACE-PERIOD-1` (same day). A
+taxonomy that terminates at hotplug is two months stale on its own top rung.
 
-1. **String namespace + `NamespaceRegistry::namespace_id(&str)`** — the oldest.
-   A name, resolved at runtime through a registry lookup.
-2. **`PortSpec` lockstep** (`NAMESPACE` + `BRIDGE_ID` + alias table per port,
-   `UnifiedBridge<P>` parameterised over it) — deprecated. It removed the
-   per-port bridge boilerplate but kept the string as the join key.
-3. **`hotplug`** (`lance_graph_contract::hotplug`) — current. Its own module doc
-   states the invariant: *"The classid is the join key on BOTH sides."* A
-   consumer declares one `HotPlug` const listing `classids: &[u16]`; the
-   authority resolves them to vocab rows and capabilities and bangs on drift.
-   No strings, no registry lookup, no per-consumer plug crate.
+**The rule, stated so it is mechanical rather than remembered.** Before citing
+anything as current: **date it.** A doc comment carries no date, so it is
+evidence of what someone believed when they wrote it, never of what is true now
+— its date is its commit's date, and `git log -S` is how you get it. The board
+is ordered newest-first for exactly this reason; the top of `EPIPHANIES.md` is
+the cheapest date check in the workspace, and I read the middle of a source file
+instead.
 
-**This is not aspirational.** `lance-graph-ogar` ALREADY implements the
-authority half — `impl CapabilityAuthority for OgarAuthority` sits in the same
-crate's `lib.rs`, next to the `UnifiedBridge` surface that still resolves by
-string. The successor and the legacy are neighbours in one crate.
+**Second-order:** this is the same failure as
+`E-A-CORRECTION-IS-ONLY-AS-GOOD-AS-ITS-MERGE-1` one turn later — I nearly merged
+a board entry asserting a stale architecture, which would have made the drift
+citable by the next session. It is caught here only because the operator read it.
 
-**Done here:** the six dead string mirrors are removed, and the three tests that
-referenced one now use the trait const (`RedminePort::NAMESPACE`) rather than a
-module-local copy — the mirror goes, the value stays reachable by the public
-path consumers are already directed to.
+**What this entry does NOT do.** It proposes no migration, no plan, and no
+taxonomy. The `UnifiedBridge`/`PortSpec` surface's disposition is already ruled
+elsewhere and is not mine to re-open from a consumer's CI failure.
 
-**Named, NOT done here:** migrating `UnifiedBridge<P: PortSpec>` itself onto
-`hotplug`. That is the operator's stated direction and it retires layers 1 and 2
-together. It is an API change on a surface that already carries `#[deprecated]`
-(`docs/CONSUMER-BRIDGE-DEPRECATION.md`), so it wants its own plan, not a
-drive-by from a consumer's CI.
-
-**Second instance of the same meta-finding this week.** Like
-`E-THE-AARCH64-PATH-HAD-NEVER-BEEN-COMPILED-1`, this was found because a
-consumer compiled code the owning repo's CI does not: `lance-graph-ogar` is in
-this workspace's `exclude` list, so `cargo clippy --workspace` never builds it.
-Un-gating one downstream suite has now produced two defects in code that was
-never compiled by the repo that owns it.
+**The code change this entry accompanies is unaffected and stands on the
+2026-09-06 ruling alone:** six `pub const NAMESPACE: &str` mirrors in
+`lance-graph-ogar`'s bridge modules are removed. They were unreachable (private
+modules, never `pub mod` in any commit) and they are a *string* spelling of an
+address the classid already carries — `ogar_vocab::ports` pairs each
+`NAMESPACE` 1:1 with an `APP_PREFIX` (OpenProject/`0x0001`, Odoo/`0x0002`,
+WorkOrder/`0x0003`, SMB/`0x0004`, Healthcare/`0x0005`, Redmine/`0x0007`,
+OpenStreetMap/`0x0008`, WeatherNext/`0x0009`), the lo-u16 classview slot of
+`render_classid = (concept << 16) | APP_PREFIX`. The namespace is a register OF
+the address, not a label beside it. Three tests now read the trait const
+instead of a module-local copy.
 
 ---
 
