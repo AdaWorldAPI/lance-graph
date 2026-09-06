@@ -1534,7 +1534,9 @@ not commensurable and neither number may be quoted against the other.
 **The observation, arithmetic only.** The canonical node row is
 `NODE_ROW_STRIDE = 512` bytes — `key(16) | edges(16) | value(480)` — and it is
 const-asserted: `const _: () = assert!(core::mem::size_of::<NodeRow>() == 512);`
-(`crates/lance-graph-contract/src/canonical_node.rs:735`, `:787`).
+(`crates/lance-graph-contract/src/canonical_node.rs`, in the `const _: () =`
+size-assert block next to the `NodeGuid`/`EdgeBlock` 16-byte asserts, and again
+in the `NODE_ROW_STRIDE` assert below it).
 
 `MailboxSoA<N>` (`crates/cognitive-shader-driver/src/mailbox_soa.rs:58`)
 allocates `content` + `topic` + `angle` as `3 × N × WORDS_PER_FP(256) × 8 B`
