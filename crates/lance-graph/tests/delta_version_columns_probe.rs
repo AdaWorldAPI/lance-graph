@@ -1,0 +1,188 @@
+//! D-LNC-5a — are the delta version columns populated WITHOUT stable row ids?
+//!
+//! ## The question, pre-registered
+//!
+//! lance 11's `Dataset::delta()` exposes three arms. Reading the 11.0.0 source
+//! showed that only ONE of them documents a stable-row-id requirement:
+//!
+//! | arm | mechanism | gates on `uses_stable_row_ids()` in its own source |
+//! |---|---|---|
+//! | `get_deleted_row_ids` | row-id set difference | YES ("Requires stable row ids at both endpoints") |
+//! | `get_inserted_rows` | filter `_row_created_at_version > begin AND <= end` | no |
+//! | `get_updated_rows` | filter on both version columns | no |
+//!
+//! `_row_created_at_version` / `_row_last_updated_at_version` are ordinary
+//! schema columns (constants from `lance_core`), filtered through
+//! `scanner.filter`. So the insert/update arms have no *explicit* gate. What
+//! the source does NOT settle is whether those columns are POPULATED and
+//! MEANINGFUL when the dataset is written in the default physical-row-address
+//! mode (`enable_stable_row_ids: false`).
+//!
+//! That is what this probe measures, and nothing else.
+//!
+//! ## Why it matters
+//!
+//! Every production write path in this repo was surveyed (2026-09-06, nine
+//! sites) and NONE configures a row-id field. If the insert/update arms work
+//! on physical addresses, then `VersionedGraph::diff`'s two full
+//! materializations can be replaced by two native delta reads with NO new
+//! addressing regime — `GraphDiff`'s `new_nodes` maps onto `get_inserted_rows`
+//! and `modified_nodes` onto `get_updated_rows`, one to one. If they do NOT,
+//! the whole insert/update half is gated behind the same stable-row-id
+//! decision as the delete arm, which is D-LNC-5's to make.
+//!
+//! ## Arms, each two-sided
+//!
+//! - **A1 (physical, the default)** — write v1, append v2, ask for the delta.
+//!   PASS means `get_inserted_rows(1 -> 2)` returns exactly the v2 rows.
+//!   FAIL (empty, or an error) means the columns are not populated without
+//!   stable row ids.
+//! - **A2 (stable row ids ON)** — identical writes with
+//!   `enable_stable_row_ids: true`. This is the CONTROL: if A2 also comes back
+//!   empty the probe is measuring its own wiring, not the feature, and the
+//!   result must be discarded rather than reported. A null result is a claim
+//!   about the apparatus until this arm proves otherwise.
+//! - **A3 (update arm)** — overwrite an existing key's value and ask
+//!   `get_updated_rows`. Same two-sided treatment.
+//!
+//! Run: `cargo test -p lance-graph --test delta_version_columns_probe -- --nocapture`
+
+use std::sync::Arc;
+
+use arrow_array::{Int32Array, RecordBatch, StringArray};
+use arrow_schema::{DataType, Field, Schema};
+use futures::TryStreamExt;
+use lance::dataset::{Dataset, WriteMode, WriteParams};
+
+fn schema() -> Arc<Schema> {
+    Arc::new(Schema::new(vec![
+        Field::new("id", DataType::Int32, false),
+        Field::new("val", DataType::Utf8, false),
+    ]))
+}
+
+fn batch(ids: &[i32], vals: &[&str]) -> RecordBatch {
+    RecordBatch::try_new(
+        schema(),
+        vec![
+            Arc::new(Int32Array::from(ids.to_vec())),
+            Arc::new(StringArray::from(vals.to_vec())),
+        ],
+    )
+    .expect("batch")
+}
+
+/// Write `batch` at `path`, creating on the first call and appending after.
+async fn write(path: &str, b: RecordBatch, stable: bool, create: bool) -> Dataset {
+    let params = WriteParams {
+        mode: if create {
+            WriteMode::Create
+        } else {
+            WriteMode::Append
+        },
+        enable_stable_row_ids: stable,
+        ..Default::default()
+    };
+    let reader = arrow_array::RecordBatchIterator::new(vec![Ok(b)].into_iter(), schema());
+    Dataset::write(reader, path, Some(params))
+        .await
+        .expect("write")
+}
+
+/// How many rows a delta stream yields.
+async fn count(stream: lance::dataset::scanner::DatasetRecordBatchStream) -> usize {
+    let batches: Vec<RecordBatch> = stream.try_collect().await.expect("collect");
+    batches.iter().map(RecordBatch::num_rows).sum()
+}
+
+/// One arm: build a two-version dataset and report the inserted-row count.
+async fn inserted_between_v1_and_v2(dir: &tempfile::TempDir, stable: bool) -> usize {
+    let path = dir.path().join("ds").to_string_lossy().to_string();
+    let ds = write(&path, batch(&[1, 2], &["a", "b"]), stable, true).await;
+    let v1 = ds.version().version;
+    let ds = write(&path, batch(&[3, 4], &["c", "d"]), stable, false).await;
+    let v2 = ds.version().version;
+    assert!(v2 > v1, "the append must advance the version: {v1} -> {v2}");
+
+    let delta = ds
+        .delta()
+        .with_begin_version(v1)
+        .with_end_version(v2)
+        .build()
+        .expect("delta builder");
+    count(delta.get_inserted_rows().await.expect("get_inserted_rows")).await
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn the_insert_delta_arm_on_physical_addresses_vs_stable_row_ids() {
+    let dir = tempfile::tempdir().expect("tempdir");
+    let dir2 = tempfile::tempdir().expect("tempdir");
+
+    // A2 first — the CONTROL. If this is 0 the probe measures its own wiring.
+    let stable = inserted_between_v1_and_v2(&dir2, true).await;
+    eprintln!("A2 stable_row_ids=true  inserted rows v1->v2 = {stable}");
+    assert_eq!(
+        stable, 2,
+        "CONTROL FAILED: with stable row ids ON the insert arm must report the \
+         2 appended rows. A zero here means this probe is measuring its own \
+         wiring, so the A1 result below is uninterpretable and must NOT be \
+         reported as a finding about lance."
+    );
+
+    // A1 — the question.
+    let physical = inserted_between_v1_and_v2(&dir, false).await;
+    eprintln!("A1 stable_row_ids=false inserted rows v1->v2 = {physical}");
+
+    // Deliberately NOT an assert on a hoped-for value: both outcomes are real
+    // findings and the point is to LEARN which. The gate is only that the
+    // control held, which is asserted above.
+    if physical == 2 {
+        eprintln!(
+            "RESULT: the insert delta arm WORKS on physical row addresses. \
+             GraphDiff's new_nodes/modified_nodes can be served natively with \
+             no new addressing regime."
+        );
+    } else {
+        eprintln!(
+            "RESULT: the insert delta arm returns {physical} (expected 2) \
+             WITHOUT stable row ids. The version columns are not usable in \
+             physical-address mode; the insert/update half is gated behind \
+             the same D-LNC-5 decision as the delete arm."
+        );
+    }
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn the_update_arm_reports_a_changed_row_under_both_modes() {
+    for stable in [true, false] {
+        let dir = tempfile::tempdir().expect("tempdir");
+        let path = dir.path().join("ds").to_string_lossy().to_string();
+
+        let ds = write(&path, batch(&[1, 2], &["a", "b"]), stable, true).await;
+        let v1 = ds.version().version;
+
+        // An UPDATE, not an append: same key, new value.
+        let mut ds = Dataset::open(&path).await.expect("open");
+        ds.update("val", "'z'")
+            .expect("update builder")
+            .only_if("id = 1")
+            .expect("predicate")
+            .build()
+            .await
+            .expect("update build")
+            .execute()
+            .await
+            .expect("update execute");
+        let ds = Dataset::open(&path).await.expect("reopen");
+        let v2 = ds.version().version;
+
+        let delta = ds
+            .delta()
+            .with_begin_version(v1)
+            .with_end_version(v2)
+            .build()
+            .expect("delta builder");
+        let n = count(delta.get_updated_rows().await.expect("get_updated_rows")).await;
+        eprintln!("update arm stable_row_ids={stable} updated rows v{v1}->v{v2} = {n}");
+    }
+}
