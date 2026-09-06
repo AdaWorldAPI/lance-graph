@@ -50,13 +50,40 @@ decision that workspace calls M1). The V3 marker occupies the custom half
 until it lands; when it does the class gets a sibling classid and the stored
 rows do not move, because the tail is a reading of the same 16 key bytes.
 
-**NOT verified in-session:** the toolchain was unavailable to this session
-(cargo was withdrawn after a build-residue incident), so these edits are
-unbuilt and untested here. The three assertions they rest on were checked by
-inspection — `FieldMask` derives `PartialEq`, `use crate::class_view::FieldMask`
-is module-level so `use super::*` reaches it, and no registry-size assertion
-counts `BUILTIN_READ_MODES` entries — but inspection is not a gate. Run
-`cargo test -p lance-graph-contract` before merging.
+**VALIDATED — by CI, not by this session.** Worth recording as two separate
+facts, because they were true at different times.
+
+The authoring session had no toolchain (cargo was withdrawn mid-arc after a
+build-residue incident), so the edits went up unbuilt, resting on three
+inspection-checked assertions: `FieldMask` derives `PartialEq`,
+`use crate::class_view::FieldMask` is module-level so the test module's
+`use super::*` reaches it, and no existing assertion counts
+`BUILTIN_READ_MODES` entries. Inspection is not a gate, and the entry said so.
+
+CI then answered it on the exact commit (`197ef083d`, PR #1207):
+
+```
+test canonical_node::tests::read_mode_blocks_v3_routes_v3_tail_and_the_blocks_domain ... ok
+test result: ok. 1319 passed; 0 failed; 0 ignored
+```
+
+The new test ran and passed in both the `--lib` and `--tests` passes, and
+every Rust gate on that head is green: `test`, `member-tests`, `clippy`,
+`format`, `linux-build`, `test-with-coverage`. Two of those carry meaning
+beyond "it compiles": **`no-shrink`** passing confirms this very prepend is
+genuinely append-only, and **`regenerate-and-diff`** passing confirms the
+supersession index needed no regeneration (the PR adds no plan and rules no
+symbol). The three inspection assertions are therefore superseded by a
+measurement — nothing here is unverified.
+
+The one red check, `citation-decay`, is the BASE branch's: 12 findings,
+byte-identical to `origin/main`, measured on a clean worktree of each. It
+neither adds nor removes a decay, and none of the decayed citations points
+into `LATEST_STATE.md`, so this prepend shifted nothing under anyone's
+anchor. Its prescribed fix (swap the line number for a stable anchor)
+collides with the append-only rule for `EPIPHANIES.md` /
+`AGENT_ORCHESTRATION_LOG.md` — a real tension, recorded for whoever owns the
+board sweep, and deliberately not resolved inside a contract-crate PR.
 
 ## 2026-09-06 — #1201 MERGED (54285a42): #1199's records + the council SPEC v1
 
