@@ -1,3 +1,63 @@
+## 2026-09-06 — branch (blockly-rs storage): the Blocks class enters the V3 substrate — CONTRACT INVENTORY DELTA
+
+**Added** (`canonical_node.rs`, all `#[cfg(feature = "guid-v3-tail")]`):
+`NodeGuid::CLASSID_BLOCKS_V3 = 0x1717_1000`, `ReadMode::BLOCKS_V3`, and its
+`BUILTIN_READ_MODES` registration. Canon `0x1717` HIGH — the `0x17XX` Blocks
+domain's per-frontend palette seat, already reserved and already routed by
+`classid_concept_domain`; the V3 marker `0x1000` in the custom LOW half.
+Follows the OSINT/FMA/CPIC/PROJECT/ERP pattern exactly. **No `_LEGACY`
+alias, deliberately**: the five above carry one because they have pre-flip
+persisted rows; this class is registered new, after the flip, so a pre-flip
+stored form never existed and reserving against it would reserve against a
+past that did not happen.
+
+`value_schema = ValueSchema::Bootstrap` is the CORRECT schema, not a
+placeholder — a stored `ogar-loco` function's 480-byte slab is the
+interleaved call lanes (`classid(4) + payload(12)` per 16-byte lane), so
+ZERO tenants are materialised and the slab is wholly the class-resolved
+carve the canon defers to the ClassView. A test asserts
+`field_mask() == FieldMask::EMPTY` so an "upgrade" to `Cognitive`/`Full`
+cannot land quietly and start decoding call bytes as qualia.
+`edge_codec = CoarseOnly` is the zero-fallback: a function node has no
+adjacency yet, block reserved and zeroed.
+
+**Layout-preserving on all three axes** — no `ENVELOPE_LAYOUT_VERSION` bump,
+no stride change, no tenant added.
+
+**Why it was needed (the consumer-side defect it fixes).** blockly-rs built
+its storage layer on `NodeRow` and minted keys through
+`NodeGuid::mint_for(classid_read_mode(c).tail_variant, …)` — the prescribed
+mechanism — but over a locally composed classid (`0x1717_FF00`, an invented
+app-prefix placeholder) that was in no registry. So `classid_read_mode` fell
+through to `ReadMode::DEFAULT` and every key minted a **V1** `family:identity`
+u24 tail: the shape the canon closed to new units. The mechanism was right and
+the ADDRESS was wrong, which is the failure mode that reads as success — keys
+appeared, were distinct, round-tripped, and were legacy. The contract's own
+doc is what makes registration the only fix: *"There is NO public `new_v3`
+dispatch — the `tail_variant` registry field IS the mechanism."* Consumer code
+did not change; registering the class is what made its answer V3.
+
+A worked instance of the invented-placeholder cost, worth keeping: the
+consumer's `0xFF00` was chosen to be obviously unreal, and the canon already
+had a convention for exactly that state — `0x1000`, which `ogar-vocab`
+reserves for the V3-adoption monitor with a test asserting it *"must never be
+allocatable as a port's `APP_PREFIX`"*. Using the reserved marker is strictly
+less invention than a made-up value, and it cannot later collide with a real
+prefix mint.
+
+**Still unminted:** a real app prefix for the blockly frontend (the operator
+decision that workspace calls M1). The V3 marker occupies the custom half
+until it lands; when it does the class gets a sibling classid and the stored
+rows do not move, because the tail is a reading of the same 16 key bytes.
+
+**NOT verified in-session:** the toolchain was unavailable to this session
+(cargo was withdrawn after a build-residue incident), so these edits are
+unbuilt and untested here. The three assertions they rest on were checked by
+inspection — `FieldMask` derives `PartialEq`, `use crate::class_view::FieldMask`
+is module-level so `use super::*` reaches it, and no registry-size assertion
+counts `BUILTIN_READ_MODES` entries — but inspection is not a gate. Run
+`cargo test -p lance-graph-contract` before merging.
+
 ## 2026-09-06 — #1201 MERGED (54285a42): #1199's records + the council SPEC v1
 
 | PR | merge | content |
