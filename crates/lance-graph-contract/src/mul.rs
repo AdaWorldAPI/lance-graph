@@ -977,6 +977,11 @@ pub mod i4_eval {
             }
             #[cfg(target_arch = "aarch64")]
             {
+                // Unlike `is_x86_feature_detected!`, this one is NOT re-exported
+                // at the root of `std` — it lives under `std::arch`, so it has to
+                // be imported before use.
+                use std::arch::is_aarch64_feature_detected;
+
                 avx512f = false;
                 avx512bw = false;
                 // NEON is mandatory on aarch64.
@@ -1457,15 +1462,19 @@ pub mod i4_eval {
             ///
             /// # SAFETY
             /// NEON is mandatory on aarch64; caller verifies via `is_aarch64_feature_detected!`.
+            ///
+            /// `SHIFT` is a const parameter rather than an argument because
+            /// `vshrq_n_u64` is an `_n_` intrinsic: the shift is encoded into the
+            /// instruction and must be a constant. Every call site already
+            /// passed a literal.
             #[inline]
-            unsafe fn extract_dim_pair(
+            unsafe fn extract_dim_pair<const SHIFT: i32>(
                 q0: uint64x2_t,
                 q1: uint64x2_t,
-                shift: i32,
             ) -> (int8x16_t, int8x16_t) {
                 let mask = vdupq_n_u64(0xF);
-                let n0 = vandq_u64(vshrq_n_u64(q0, shift), mask);
-                let n1 = vandq_u64(vshrq_n_u64(q1, shift), mask);
+                let n0 = vandq_u64(vshrq_n_u64::<SHIFT>(q0), mask);
+                let n1 = vandq_u64(vshrq_n_u64::<SHIFT>(q1), mask);
                 let i0 = vreinterpretq_s8_u64(n0);
                 let i1 = vreinterpretq_s8_u64(n1);
                 (
@@ -1489,7 +1498,7 @@ pub mod i4_eval {
                     // SAFETY: QualiaI4_16D is repr(C, align(8)); &.0 is a valid *const u64.
                     let q0 = vld1q_u64(&qualia[i].0 as *const u64);
                     let q1 = vld1q_u64(&qualia[i + 1].0 as *const u64);
-                    let (c0, c1) = extract_dim_pair(q0, q1, 36);
+                    let (c0, c1) = extract_dim_pair::<36>(q0, q1);
                     let coh = [vgetq_lane_s8(c0, 0), vgetq_lane_s8(c1, 0)];
                     let abs_man = [
                         mantissas[i].unsigned_abs() as i8,
@@ -1525,9 +1534,9 @@ pub mod i4_eval {
                     // SAFETY: QualiaI4_16D is repr(C, align(8)); &.0 is a valid *const u64.
                     let q0 = vld1q_u64(&qualia[i].0 as *const u64);
                     let q1 = vld1q_u64(&qualia[i + 1].0 as *const u64);
-                    let (c0, c1) = extract_dim_pair(q0, q1, 36);
-                    let (v0, v1) = extract_dim_pair(q0, q1, 4);
-                    let (t0, t1) = extract_dim_pair(q0, q1, 8);
+                    let (c0, c1) = extract_dim_pair::<36>(q0, q1);
+                    let (v0, v1) = extract_dim_pair::<4>(q0, q1);
+                    let (t0, t1) = extract_dim_pair::<8>(q0, q1);
                     let coh = [vgetq_lane_s8(c0, 0), vgetq_lane_s8(c1, 0)];
                     let val = [vgetq_lane_s8(v0, 0), vgetq_lane_s8(v1, 0)];
                     let ten = [vgetq_lane_s8(t0, 0), vgetq_lane_s8(t1, 0)];
@@ -1565,10 +1574,10 @@ pub mod i4_eval {
                     // SAFETY: QualiaI4_16D is repr(C, align(8)); &.0 is a valid *const u64.
                     let q0 = vld1q_u64(&qualia[i].0 as *const u64);
                     let q1 = vld1q_u64(&qualia[i + 1].0 as *const u64);
-                    let (w0, w1) = extract_dim_pair(q0, q1, 12);
-                    let (g0, g1) = extract_dim_pair(q0, q1, 56);
-                    let (t0, t1) = extract_dim_pair(q0, q1, 8);
-                    let (c0, c1) = extract_dim_pair(q0, q1, 36);
+                    let (w0, w1) = extract_dim_pair::<12>(q0, q1);
+                    let (g0, g1) = extract_dim_pair::<56>(q0, q1);
+                    let (t0, t1) = extract_dim_pair::<8>(q0, q1);
+                    let (c0, c1) = extract_dim_pair::<36>(q0, q1);
                     let war = [vgetq_lane_s8(w0, 0), vgetq_lane_s8(w1, 0)];
                     let grd = [vgetq_lane_s8(g0, 0), vgetq_lane_s8(g1, 0)];
                     let ten = [vgetq_lane_s8(t0, 0), vgetq_lane_s8(t1, 0)];

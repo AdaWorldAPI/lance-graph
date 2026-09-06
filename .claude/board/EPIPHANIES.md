@@ -11,6 +11,59 @@
 **The rule.** When a lint sweep claims a delta is complete, state the *instrument* alongside the claim — which crates, which features, which target kinds — because that sentence is what a later session checks the claim against. And when arming a lint gate, arm it at `--all-targets`; anything narrower gates the parts of the crate you happened to think of. Both are done here: the supervisor step is armed at `--features supervisor,cycle-driver --all-targets -- -D warnings`, and the debt entry now carries the corrected command alongside the corrected lint name.
 
 **Falsifier for the "complete sweep" claim, generally:** re-run the sweep's own lint at `--all-targets` over every crate NOT in the sweep's instrument list. If that is empty, the claim is complete; here it was two sites deep.
+## 2026-09-06 — E-THE-AARCH64-PATH-HAD-NEVER-BEEN-COMPILED-1 — a cfg-gated arch path is dead code until some CI targets it
+
+**Status:** FINDING (measured — reproduced locally on `aarch64-unknown-linux-gnu`
+after a macOS runner surfaced it, then fixed and re-verified).
+**Confidence:** High — three compiler errors captured before, zero after, on
+both `aarch64-unknown-linux-gnu` and native `x86_64`.
+
+**What happened.** `AdaWorldAPI/q2`'s test suite had been gated to
+`if: github.repository == 'quarto-dev/q2'` and so had never run on that fork.
+Un-gating it put `lance-graph-contract` on a **macOS aarch64** runner for the
+first time, and the crate did not compile:
+
+```
+error: cannot find macro `is_aarch64_feature_detected` in this scope
+  --> crates/lance-graph-contract/src/mul.rs:983
+error[E0435]: attempt to use a non-constant value in a constant
+  --> crates/lance-graph-contract/src/mul.rs:1467  (and :1468)
+```
+
+Two independent defects, both in `#[cfg(target_arch = "aarch64")]` blocks:
+
+1. **`is_aarch64_feature_detected!` is not at the root of `std`.** Its x86
+   sibling is, which is exactly why the mistake is easy: the x86 arm two lines
+   above compiles bare. The aarch64 macro lives under `std::arch` and must be
+   imported.
+2. **`vshrq_n_u64` is an `_n_` intrinsic.** Its shift operand is encoded into
+   the instruction, so it must be a constant; `extract_dim_pair` took
+   `shift: i32` as a runtime argument. All eight call sites already passed
+   literals (36, 4, 8, 12, 56), so a `const SHIFT: i32` parameter is an exact,
+   mechanical fix, not a redesign.
+
+**The generalizable point is not either bug.** It is that `#[cfg(target_arch =
+"aarch64")]` code is unparsed, untypechecked, uncompiled text on every machine
+that is not aarch64 — indistinguishable from a comment. Both defects would have
+been caught by the compiler the first time anything built the crate for that
+architecture, and nothing ever had. The NEON path has presumably been broken
+since it was written.
+
+**Consequence.** An arch-gated path needs a build for that arch or it is not
+code, it is a plan. `cargo check --target <arch>` costs a `rustup target add`
+and, for a zero-dep crate like this one, a few seconds — cheap enough that
+there is no excuse for the gap. Whether this repo's own CI should carry an
+aarch64 check job is the open question this leaves; it currently does not, and
+the defect reached `main` and stayed there.
+
+**Corroborating detail worth keeping:** the discovery came from a *consumer's*
+CI, on a platform this repo does not test, on a run whose purpose was
+unrelated. Un-gating a suite that has never run is a measurement, and it
+returns findings that are not about the change being made.
+
+Cross-ref: `AdaWorldAPI/q2#146` (the un-gate, and the run that surfaced this).
+
+---
 
 ## 2026-09-05 — E-A-MACHINE-APPLICABLE-FIX-IS-A-SUGGESTION-NOT-A-PROOF-1 — clippy's own autofix did not compile, and the lint it fixes is a substrate argument
 
