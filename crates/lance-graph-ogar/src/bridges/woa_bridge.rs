@@ -39,7 +39,6 @@ pub use ogar_vocab::ports::WoaPort;
 )]
 pub type WoaBridge = UnifiedBridge<WoaPort>;
 
-
 #[cfg(test)]
 #[allow(deprecated)] // exercises the deprecated bridge alias on purpose
 mod tests {

@@ -32,7 +32,6 @@ pub use ogar_vocab::ports::SmbPort;
 )]
 pub type SmbBridge = UnifiedBridge<SmbPort>;
 
-
 #[cfg(test)]
 #[allow(deprecated)] // exercises the deprecated bridge alias on purpose
 mod tests {

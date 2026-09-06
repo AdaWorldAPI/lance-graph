@@ -25,7 +25,6 @@ pub use ogar_vocab::ports::RedminePort;
 )]
 pub type RedmineBridge = UnifiedBridge<RedminePort>;
 
-
 /// Compatibility shim — re-exports `ogar_vocab::ports::REDMINE_ALIASES`
 /// under the pre-migration name (codex P2 on PR #570). New code should
 /// reach for the OGAR constant directly.

@@ -33,7 +33,6 @@ pub use ogar_vocab::ports::OdooPort;
 )]
 pub type OdooBridge = UnifiedBridge<OdooPort>;
 
-
 #[cfg(test)]
 #[allow(deprecated)] // exercises the deprecated bridge alias on purpose
 mod tests {
