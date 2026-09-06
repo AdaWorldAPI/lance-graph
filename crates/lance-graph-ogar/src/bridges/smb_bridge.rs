@@ -19,7 +19,6 @@
 //! `ogar_vocab::ports::tests::time_entry_converges_across_planner_and_erp_ports`.
 
 use crate::bridges::unified::UnifiedBridge;
-use ogar_vocab::ports::PortSpec;
 pub use ogar_vocab::ports::SmbPort;
 
 /// SMB `NamespaceBridge` — alias over the generic harness, locked to
@@ -33,8 +32,6 @@ pub use ogar_vocab::ports::SmbPort;
 )]
 pub type SmbBridge = UnifiedBridge<SmbPort>;
 
-/// Canonical namespace name for SMB. Mirrors `SmbPort::NAMESPACE`.
-pub const NAMESPACE: &str = SmbPort::NAMESPACE;
 
 #[cfg(test)]
 #[allow(deprecated)] // exercises the deprecated bridge alias on purpose

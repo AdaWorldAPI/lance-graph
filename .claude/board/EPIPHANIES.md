@@ -1,3 +1,79 @@
+## 2026-09-06 — E-I-CITED-THE-RIGHTMOST-REGISTER-AND-CALLED-IT-THE-ADDRESS-1 — three corrections to one entry, each because I reasoned instead of measuring
+
+**Status:** OPERATOR CORRECTION ×3 of my own same-day entry, superseded before
+merge. Recorded as one entry because the three are the same mistake at
+increasing depth.
+**Confidence:** High — every claim below is a `git log` date or a line read out
+of `ogar-vocab`.
+
+**The rulings, in the operator's words:** *"It should always be classid, which
+is the namespace"* · *"the old lockstep is deprecated, namespace might be even
+older"* · *"First determine the age of your source. July or older is
+automatically deprecated."* · *"0005 is old shit. New is Domain on the left
+side — if that's not implemented it's not the new."*
+
+**Correction 1 — I dated nothing.** I built a "three layers" taxonomy out of
+source-file doc comments, called `hotplug` current, and proposed migrating
+`UnifiedBridge<P: PortSpec>` onto it as future work. That migration was
+operator-ruled and **shipped 2026-07-07** (OGAR #174/#175, lance-graph #658,
+tesseract-rs #13/#14 as the template consumer; C# and Python mirrors already
+generated). Every source I used was pre-August; a doc comment carries no date
+at all.
+
+**Correction 2 — the top rung was stale too.** Under the dating rule `hotplug`
+is itself July. The current canon is
+`E-EVERYTHING-WIRES-TO-SOA-V3-CE64-IS-ALU-LEGACY-1` (2026-09-05, operator).
+
+**Correction 3 — the substantive one. I named the wrong register.** I published
+this table and called it "the address the classid already carries":
+
+| port | `APP_PREFIX` |
+|---|---|
+| OpenProject | `0x0001` |
+| Odoo | `0x0002` |
+| Healthcare | `0x0005` |
+| Redmine | `0x0007` |
+
+Those are **classview** values — the lo u16, the per-vendor render skin, the
+RIGHTMOST register. The composed classid is `0xDDCCVVVV` =
+`domain : appid : classview`, so the leading register is the **domain byte**,
+and it is fully implemented: `ogar_vocab::ConceptDomain` with 29 arms and
+`canonical_concept_domain(id) = id >> 8` — `0x01` ProjectMgmt, `0x02` Commerce,
+`0x09` Health, `0x0F` Geo, `0x17` Blocks, and the C-band `0xC0` JavaRuntime /
+`0xC1` Analytics / `0xC4` BinaryLifting (reserved 2026-08-18 — **August, the
+newest source in this whole thread**).
+
+The collision proves the error on its own terms: **`0x0005` is Healthcare's
+vendor skin; Health's domain is `0x09`.** Two registers, two numbers, one word
+— and I quoted the one that carries the least.
+
+Worse, the "NAMESPACE ↔ APP_PREFIX 1:1" pairing I drew as evidence for the
+ruling **is the deprecated lockstep** — a string paired with a vendor ordinal.
+I used the old thing as proof of the new one.
+
+**The rule this leaves.** The domain byte's magnitude encodes ALTITUDE
+(`0x00`–`0x0F` business ontology, `0x17` the substrate's own tier, `0xC0`+ the
+foreign-host C-band), so the first nibble is a 16-way altitude selector — one
+mask, no lookup, no value decode. A register that far left is not
+interchangeable with one on the right, and "the classid is the address" is only
+true read left-first.
+
+**Method, stated so it is mechanical.** Date the source (`git log -S`); read the
+board top-down, not a source file middle-out; and when citing a bit layout,
+name the register position, never just the value — a bare hex number cannot say
+which of `DD`, `CC` or `VVVV` it came from, which is exactly how `0x0005` got
+published as an address.
+
+**The code change this accompanies is unaffected.** Six `pub const NAMESPACE:
+&str` mirrors in `lance-graph-ogar`'s bridge modules are removed: unreachable
+since birth (private modules, never `pub mod` in any commit), zero consumers
+anywhere in lance-graph / OGAR / q2, on a surface last touched 2026-07-24 for
+five of the six files — by the same PR #844 that created them. A string
+namespace belongs to the old lockstep; that is the whole reason, and it needs no
+appeal to a prefix table.
+
+---
+
 ## 2026-09-05 — E-A-SWEEP-IS-COMPLETE-ONLY-WITHIN-THE-TARGET-KINDS-ITS-GATE-COMPILES-1 — #1194 swept the whole 1.98 delta and still left two sites, because "whole" was measured through six clippy steps
 
 **Status:** FINDING (measured on the pinned 1.98.1: `--tests` = 9 findings, `--all-targets` = 11; the two extra are in an example no CI step compiles). **Confidence:** High — both numbers come from running the two commands back to back on the same tree; the two extra sites are the same lint, in the same release, as the ten #1194 fixed.

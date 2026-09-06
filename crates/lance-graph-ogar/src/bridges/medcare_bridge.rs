@@ -32,7 +32,6 @@ use crate::bridges::unified::UnifiedBridge;
 // items — the trait must be in scope for the resolution to work (codex
 // P1 on PR #570). Same import in the test module below.
 pub use ogar_vocab::ports::HealthcarePort;
-use ogar_vocab::ports::PortSpec;
 
 /// MedCare `NamespaceBridge` — alias over the generic harness, locked to
 /// the `Healthcare` namespace via [`HealthcarePort`].
@@ -45,10 +44,6 @@ use ogar_vocab::ports::PortSpec;
 )]
 pub type MedcareBridge = UnifiedBridge<HealthcarePort>;
 
-/// Canonical namespace name for MedCare / Healthcare. Mirrors
-/// `HealthcarePort::NAMESPACE` so existing consumers that imported the
-/// constant from this module keep building.
-pub const NAMESPACE: &str = HealthcarePort::NAMESPACE;
 
 #[cfg(test)]
 #[allow(deprecated)] // exercises the deprecated bridge alias on purpose
@@ -129,7 +124,7 @@ ogit.Healthcare:Patient
     #[test]
     fn g_lock_matches_registry_namespace_id() {
         let registry = registry_with_healthcare();
-        let expected = registry.namespace_id(NAMESPACE).unwrap();
+        let expected = registry.namespace_id(HealthcarePort::NAMESPACE).unwrap();
         let bridge = MedcareBridge::new(registry).unwrap();
         assert_eq!(bridge.g_lock(), expected);
     }

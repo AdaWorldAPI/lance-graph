@@ -19,7 +19,6 @@ use crate::bridges::unified::UnifiedBridge;
 // associated items — the trait must be in scope for the resolution to
 // work (codex P1 on PR #570). Same import in the test module below.
 pub use ogar_vocab::ports::OpenProjectPort;
-use ogar_vocab::ports::PortSpec;
 
 /// OpenProject `NamespaceBridge` — alias over the generic harness.
 ///
@@ -32,10 +31,6 @@ use ogar_vocab::ports::PortSpec;
 )]
 pub type OpenProjectBridge = UnifiedBridge<OpenProjectPort>;
 
-/// Canonical namespace name for OpenProject. Mirrors
-/// `OpenProjectPort::NAMESPACE` so existing consumers that imported
-/// the constant from this module keep building.
-pub const NAMESPACE: &str = OpenProjectPort::NAMESPACE;
 
 /// Compatibility shim — re-exports `ogar_vocab::ports::OPENPROJECT_ALIASES`
 /// under the pre-migration name so consumers that imported the constant
@@ -125,7 +120,7 @@ ogit.OpenProject:WorkPackage
     #[test]
     fn g_lock_matches_registry_namespace_id() {
         let registry = registry_with_openproject();
-        let expected = registry.namespace_id(NAMESPACE).unwrap();
+        let expected = registry.namespace_id(OpenProjectPort::NAMESPACE).unwrap();
         let bridge = OpenProjectBridge::new(registry).unwrap();
         assert_eq!(bridge.g_lock(), expected);
     }
