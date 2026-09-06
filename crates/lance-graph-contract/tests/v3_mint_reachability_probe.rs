@@ -19,6 +19,8 @@
 
 use lance_graph_contract::canonical_node::{classid_read_mode, NodeGuid, TailVariant};
 
+/// The PREMISE half of `mint_for`'s dead-code claim: does a classid actually
+/// register a V2/V3 tail variant in this build?
 #[test]
 fn a_v3_registered_classid_resolves_to_the_v3_tail_variant() {
     let m = classid_read_mode(NodeGuid::CLASSID_OSINT_V3);
@@ -32,6 +34,12 @@ fn a_v3_registered_classid_resolves_to_the_v3_tail_variant() {
     assert_eq!(m.tail_variant, TailVariant::V1);
 }
 
+/// The CONCLUSION half: given a classid that registers V3, does `mint_for`
+/// reach the V3 arm — or silently fall back to the deprecated V1 layout?
+///
+/// `leaf` is the discriminator, because the V3 arm forwards it to `new_v2`
+/// while the V1 fallback discards it. That keeps this probe meaningful even if
+/// the feature graph is later flattened.
 #[test]
 fn minting_through_the_registered_tail_variant_honours_leaf() {
     let c = NodeGuid::CLASSID_OSINT_V3;

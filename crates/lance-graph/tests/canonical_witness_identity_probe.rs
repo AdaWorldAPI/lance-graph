@@ -50,6 +50,10 @@ fn mint(classid: u32, leaf: u16, family: u32, identity: u32) -> NodeGuid {
     NodeGuid::mint_for(tv, classid, 0x1111, 0x2222, 0x3333, leaf, family, identity)
 }
 
+/// A canonical row at `guid` whose value slab is filled with `fill`.
+///
+/// The fill matters: without it two rows sharing a key are all-zero past byte
+/// 32, and a byte-equality assertion would pass on a slab that never travelled.
 fn row_of(guid: NodeGuid, fill: u8) -> NodeRow {
     NodeRow {
         key: guid,
@@ -58,11 +62,17 @@ fn row_of(guid: NodeGuid, fill: u8) -> NodeRow {
     }
 }
 
+/// The rows' 512-byte LE image, produced by the contract's own packer rather
+/// than assembled here — so a change to the 16/16/480 carving falsifies this
+/// probe instead of silently agreeing with it.
 fn packet_bytes(rows: &[NodeRow], cycle: u32) -> Vec<u8> {
     use lance_graph_contract::soa_envelope::SoaEnvelope;
     NodeRowPacket::new(rows, cycle).as_le_bytes().to_vec()
 }
 
+/// A paired kanban move. Its content is irrelevant to identity; only its
+/// PRESENCE makes the cast artifact-backed rather than intent-only, and only
+/// artifact-backed casts reach the store at all.
 fn mv(owner: MailboxId) -> KanbanMove {
     KanbanMove {
         mailbox: owner,
@@ -73,6 +83,10 @@ fn mv(owner: MailboxId) -> KanbanMove {
     }
 }
 
+/// An artifact-backed cast placing `payload` at `row` in `cycle`.
+///
+/// `payload` must be exactly [`EPISODIC_WITNESS_BYTES`]; the writer refuses any
+/// other width permanently rather than as retryable IO.
 fn cast(cycle: u64, sp: u64, owner: MailboxId, row: u64, payload: Vec<u8>) -> SweepSlot {
     SweepSlot {
         cycle: CycleId(cycle),

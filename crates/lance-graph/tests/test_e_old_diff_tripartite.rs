@@ -42,6 +42,13 @@ const D: u32 = 4;
 
 const V1: &[(u32, u8)] = &[(A, 0x10), (B, 0x10), (D, 0x10)];
 const V2: &[(u32, u8)] = &[(A, 0x10), (B, 0x20), (C, 0x10)];
+/// V2 minus `C`, nothing else touched — a transition whose ONLY change is a
+/// removal. Needed because `graph_seal_check` returns on its FIRST divergence
+/// while walking `to_seals`, so on `V1 → V2` the update to `B` or the insert of
+/// `C` trips it long before the removal branch (`versioned.rs:632-637`) is
+/// reached: a `Staunen` there would pass identically with removal detection
+/// deleted outright.
+const V3: &[(u32, u8)] = &[(A, 0x10), (B, 0x20)];
 
 fn fsb_width(schema: &SchemaRef, name: &str) -> i32 {
     match schema.field_with_name(name).expect(name).data_type() {
@@ -50,12 +57,22 @@ fn fsb_width(schema: &SchemaRef, name: &str) -> i32 {
     }
 }
 
+/// A deterministic seal for `(node_id, tag)`, zero-padded to the schema width.
+///
+/// The `tag` is the whole mechanism of the fixture: the same `node_id` carrying
+/// a different tag across two versions is what makes a node UPDATED rather than
+/// inserted, and it is the only thing `diff()` compares.
 fn seal_bytes(node_id: u32, tag: u8, width: usize) -> Vec<u8> {
     let mut v = vec![tag; width];
     v[..4].copy_from_slice(&node_id.to_le_bytes());
     v
 }
 
+/// One `NodeSchema` batch for a round.
+///
+/// `node_id` is supplied here because the schema has no producer in-repo —
+/// `commit_encounter_round` takes a caller-built batch, so a fixture must mint
+/// the ids the store will key on.
 fn node_batch(round: &Round) -> RecordBatch {
     let schema = NodeSchema::arrow_schema_ref();
     let plane_w = fsb_width(&schema, "plane_s");
@@ -90,6 +107,11 @@ fn node_batch(round: &Round) -> RecordBatch {
     RecordBatch::try_new(schema, cols).unwrap()
 }
 
+/// A zero-row batch for the edge and fingerprint datasets.
+///
+/// `commit_encounter_round` writes all three tables per round, but this probe
+/// is about NODE change sets, so the other two are committed empty rather than
+/// left out.
 fn empty_batch(schema: SchemaRef) -> RecordBatch {
     let cols = schema
         .fields()
@@ -136,13 +158,15 @@ async fn seals_at(ds: &Dataset) -> BTreeMap<u32, Vec<u8>> {
     out
 }
 
+/// `V1 = {A, B, D}` then `V2 = {A, B', C}`: the two sets the API exposes, plus
+/// the third derived from the same material, plus both halves of the seal gate.
 #[tokio::test(flavor = "multi_thread")]
 async fn old_diff_gives_inserted_and_updated_and_removed_is_derivable() {
     let tmp = tempfile::tempdir().expect("tempdir");
     let graph = VersionedGraph::local(tmp.path().to_str().unwrap());
 
     let mut versions = Vec::new();
-    for round in [V1.to_vec(), V2.to_vec()] {
+    for round in [V1.to_vec(), V2.to_vec(), V3.to_vec()] {
         let v = graph
             .commit_encounter_round(
                 node_batch(&round),
@@ -153,7 +177,7 @@ async fn old_diff_gives_inserted_and_updated_and_removed_is_derivable() {
             .expect("commit");
         versions.push(v);
     }
-    let (v1, v2) = (versions[0], versions[1]);
+    let (v1, v2, v3) = (versions[0], versions[1], versions[2]);
 
     // ---- what the API DOES report ----------------------------------------
     let diff = graph.diff(v1, v2).await.expect("diff V1->V2");
@@ -188,18 +212,36 @@ async fn old_diff_gives_inserted_and_updated_and_removed_is_derivable() {
     );
 
     // ---- removals ARE detected, just not reported -------------------------
-    // graph_seal_check walks `from_seals.keys()` and returns Staunen on a
-    // removal (versioned.rs:632-637) — so the store distinguishes the states.
+    // ISOLATED on V2 -> V3, whose only change is dropping C. On V1 -> V2 this
+    // assertion would be confounded: graph_seal_check returns on the FIRST
+    // divergence while walking `to_seals`, so B's update or C's insert trips it
+    // before the removal branch (versioned.rs:632-637) runs at all, and the
+    // assertion would hold with that branch deleted.
     assert_eq!(
-        graph.graph_seal_check(v1, v2).await.expect("seal check"),
+        graph.graph_seal_check(v2, v3).await.expect("seal check"),
         GraphSealStatus::Staunen,
-        "a removal is Staunen"
+        "a removal ALONE is Staunen — this is the removal branch or nothing"
     );
     // The silence half: same version against itself is Wisdom.
     assert_eq!(
         graph.graph_seal_check(v2, v2).await.expect("seal check"),
         GraphSealStatus::Wisdom,
         "no change is Wisdom"
+    );
+
+    // And the sharp shape of the blind spot: for a pure removal `GraphDiff`
+    // reports NOTHING AT ALL, while the seal gate above says Staunen. The two
+    // surfaces disagree about the same pair of versions.
+    let pure_removal = graph.diff(v2, v3).await.expect("diff V2->V3");
+    assert!(
+        pure_removal.new_nodes.is_empty() && pure_removal.modified_nodes.is_empty(),
+        "a pure removal produces an empty GraphDiff: {pure_removal:?}"
+    );
+    assert_eq!(
+        pure_removal.seal_status,
+        GraphSealStatus::Wisdom,
+        "GraphDiff's own seal_status is derived from its two (empty) sets, so it \
+         reads Wisdom for a transition graph_seal_check calls Staunen"
     );
 
     // ---- DERIVATION: removed = from - to, from the same material ----------
@@ -217,6 +259,21 @@ async fn old_diff_gives_inserted_and_updated_and_removed_is_derivable() {
         removed,
         BTreeSet::from([D]),
         "removed = from - to = {{D}} — derivable from the SAME read diff() does"
+    );
+
+    // Same derivation on the ISOLATED pair recovers the only thing that changed.
+    let v3_ids: BTreeSet<u32> = seals_at(&graph.at_version(v3).await.expect("checkout V3"))
+        .await
+        .keys()
+        .copied()
+        .collect();
+    assert_eq!(
+        to_ids
+            .difference(&v3_ids)
+            .copied()
+            .collect::<BTreeSet<u32>>(),
+        BTreeSet::from([C]),
+        "the pure-removal pair yields exactly {{C}}"
     );
 
     // And the derivation reproduces the two sets the API does expose, so the
