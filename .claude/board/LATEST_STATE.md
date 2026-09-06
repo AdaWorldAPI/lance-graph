@@ -1,3 +1,18 @@
+## 2026-09-06 — #1199 MERGED (ef724878): the mask guard that was compiled out of release
+
+| PR | merge | content |
+|---|---|---|
+| **#1199** | `ef724878` | `AlphaMask::zip` length guard `debug_assert_eq!` → `assert_eq!` + two disable-verified falsifiers; #1198's post-merge board records; Stage 1b DONE. |
+
+**Contract inventory net delta: none** — no type minted, no API change, no layout
+change. What changed is a guarantee: mask combination now fails closed in
+RELEASE. Before this, mismatched-length operands produced a mask claiming
+`self.len` addresses over the shorter operand's words — silently wrong from
+`count`/`is_empty`, and an out-of-bounds index from `contains` at a distance
+from the cause. Reproduced in release before the fix; both falsifiers
+disable-verified. Stage 1b of `.claude/temporal/09-plan.md` is closed; Stages
+1, 2 and 4 remain unbuilt and Stage 3 is still gated on P1's RED.
+
 ## 2026-09-06 — #1198 MERGED (3797237b): the temporal audit, three probes, one falsified hypothesis
 
 | PR | merge | content |
