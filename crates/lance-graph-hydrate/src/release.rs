@@ -22,7 +22,7 @@ use std::path::{Path, PathBuf};
 /// in the page cache. A no-op hint — `POSIX_FADV_DONTNEED` can only be
 /// declined, never fail unsafely, so the return value is intentionally not
 /// surfaced.
-#[cfg(unix)]
+#[cfg(any(target_os = "linux", target_os = "android"))]
 fn advise_dontneed_file(f: &fs::File) {
     use std::os::unix::io::AsRawFd;
     let fd = f.as_raw_fd();
@@ -36,9 +36,9 @@ fn advise_dontneed_file(f: &fs::File) {
     }
 }
 
-/// unix: open the file and advise DONTNEED; only counts on successful open
-/// (matches the prior behavior this council hardened).
-#[cfg(unix)]
+/// linux/android: open the file and advise DONTNEED; only counts on successful
+/// open (matches the prior behavior this council hardened).
+#[cfg(any(target_os = "linux", target_os = "android"))]
 fn release_one_file(path: &Path) -> bool {
     if let Ok(f) = fs::File::open(path) {
         advise_dontneed_file(&f);
@@ -48,10 +48,19 @@ fn release_one_file(path: &Path) -> bool {
     }
 }
 
-/// non-unix: there is no portable fadvise equivalent, so opening the file
+/// Everywhere else: there is no `posix_fadvise` equivalent, so opening the file
 /// would be pure syscall cost for zero benefit — a council-found waste
 /// (2026-08-17). Count the entry without opening it.
-#[cfg(not(unix))]
+///
+/// **This arm covers macOS and the other BSDs, not just non-unix.** The gate
+/// was `cfg(unix)` until 2026-09-06, which reads as "has fadvise" but is not:
+/// `posix_fadvise` is a Linux (and Android) interface that Apple's libc does
+/// not provide, so `libc` does not declare it for `*-apple-*` and the crate
+/// failed to compile there with `E0425: cannot find function posix_fadvise`.
+/// Nothing caught it because every lance-graph CI runner is `ubuntu-*`; it
+/// surfaced only through a downstream consumer's macOS job. Widen this gate
+/// only to targets whose libc actually declares the call.
+#[cfg(not(any(target_os = "linux", target_os = "android")))]
 fn release_one_file(_path: &Path) -> bool {
     true
 }
