@@ -43,7 +43,7 @@
 use crate::access::AccessDecision;
 use crate::permission::PermissionSpec;
 use crate::policy::Operation;
-use lance_graph_contract::class_view::FieldMask;
+use lance_graph_contract::class_view::{FieldMask, WideFieldMask};
 use lance_graph_contract::rbac::ScopeSpec;
 
 // `ClassId` / `ActorId` / `RoleId` / `ClassRbac` were promoted to
@@ -167,8 +167,11 @@ pub struct ScopedDecision {
     /// [`ScopeSpec`]. `None` ⇒ global (no row restriction).
     pub scope: Option<ScopeSpec>,
     /// Axis-4 field projection — the union of every granting role's
-    /// [`FieldMask`]. `FieldMask::FULL` on a refused decision.
-    pub field_mask: FieldMask,
+    /// [`ClassRbac::field_mask`]. `WideFieldMask`, so a grant on a position
+    /// `>= 64` survives the fold instead of being silently dropped by a `u64`.
+    /// The lossless promotion of `FieldMask::FULL` on a refused decision
+    /// (unchanged policy — only the width changed).
+    pub field_mask: WideFieldMask,
 }
 
 /// §5 two-stage authorize: stage-1 is the unchanged positive∧op-gate
@@ -191,12 +194,12 @@ pub fn authorize_scoped(
         return ScopedDecision {
             decision,
             scope: None,
-            field_mask: FieldMask::FULL,
+            field_mask: WideFieldMask::from(FieldMask::FULL),
         };
     }
     // Stage 2 — fold over the granting subset (actor_roles ∧ grant_permits).
     let mut scope: Option<ScopeSpec> = None;
-    let mut mask = FieldMask::EMPTY;
+    let mut mask = WideFieldMask::EMPTY;
     for &r in rbac.actor_roles(actor) {
         if rbac.grant_permits(r, class, &op) {
             // restrictive-AND of row-scopes. A role with NO scope is global —
@@ -212,7 +215,7 @@ pub fn authorize_scoped(
                 });
             }
             // union of field projections (a user sees any column any role permits).
-            mask = mask.union(rbac.field_mask(r, class));
+            mask = mask.union(&rbac.field_mask(r, class));
         }
     }
     ScopedDecision {
@@ -225,6 +228,7 @@ pub fn authorize_scoped(
 #[cfg(test)]
 mod scoped_tests {
     use super::*;
+    use lance_graph_contract::property::PrefetchDepth;
     use lance_graph_contract::rbac::{ClassGrant, OpMask};
 
     // Two roles, BOTH granting Act on the class, with DIFFERENT row_scope +
@@ -257,11 +261,11 @@ mod scoped_tests {
                 _ => None,
             }
         }
-        fn field_mask(&self, role: RoleId, _class: ClassId) -> FieldMask {
+        fn field_mask(&self, role: RoleId, _class: ClassId) -> WideFieldMask {
             match role {
-                "role_a" => FieldMask::from_positions(&[0, 1]),
-                "role_b" => FieldMask::from_positions(&[1, 2]),
-                _ => FieldMask::EMPTY,
+                "role_a" => WideFieldMask::from_positions(&[0, 1]),
+                "role_b" => WideFieldMask::from_positions(&[1, 2]),
+                _ => WideFieldMask::EMPTY,
             }
         }
     }
@@ -288,7 +292,7 @@ mod scoped_tests {
         // union of {0,1} ∪ {1,2} = {0,1,2}
         assert_eq!(
             d.field_mask,
-            FieldMask::from_positions(&[0, 1]).union(FieldMask::from_positions(&[1, 2]))
+            WideFieldMask::from_positions(&[0, 1]).union(&WideFieldMask::from_positions(&[1, 2]))
         );
         assert!(d.field_mask.has(0) && d.field_mask.has(1) && d.field_mask.has(2));
     }
@@ -308,7 +312,59 @@ mod scoped_tests {
         let d = authorize_scoped(&NoRoles, "ghost", CLS, Operation::Act { action: "x" });
         assert!(matches!(d.decision, AccessDecision::Deny { .. }));
         assert_eq!(d.scope, None);
-        assert_eq!(d.field_mask, FieldMask::FULL);
+        assert_eq!(d.field_mask, WideFieldMask::from(FieldMask::FULL));
+    }
+    // ── T5 (F5) wide-projection regression ────────────────────────────────
+    //
+    // MEASURED DEFECT this widening fixes: with `ClassRbac::field_mask`
+    // returning a `u64` `FieldMask`, a grant of `{1, 7, 92}` resolved to
+    // `{1, 7}` — position 92 was dropped silently, because
+    // `FieldMask::from_positions` ignores every position `>= 64` by
+    // documented contract. Run before the change, this test fails on the
+    // `has(92)` assertion.
+    struct WideGrantRbac;
+    impl ClassRbac for WideGrantRbac {
+        fn actor_roles(&self, _actor: ActorId<'_>) -> &[RoleId] {
+            const R: &[RoleId] = &["wide_reader"];
+            R
+        }
+        fn grant_permits(&self, _role: RoleId, _class: ClassId, _op: &Operation<'_>) -> bool {
+            true
+        }
+        fn field_mask(&self, _role: RoleId, _class: ClassId) -> WideFieldMask {
+            WideFieldMask::from_positions(&[1, 7, 92])
+        }
+    }
+
+    #[test]
+    fn wide_grant_survives_the_axis_4_fold() {
+        let d = authorize_scoped(
+            &WideGrantRbac,
+            "u",
+            CLS,
+            Operation::Read {
+                depth: PrefetchDepth::Identity,
+            },
+        );
+        assert_eq!(d.decision, AccessDecision::Allow);
+        assert!(d.field_mask.has(1), "position 1 must survive");
+        assert!(d.field_mask.has(7), "position 7 must survive");
+        assert!(
+            d.field_mask.has(92),
+            "position 92 must survive the fold — this is the u64 truncation the \
+             WideFieldMask widening fixes"
+        );
+        assert_eq!(
+            d.field_mask.count(),
+            3,
+            "exactly {{1,7,92}}, nothing invented"
+        );
+        // Anti-vacuity: prove the narrow type really would have lost it, so this
+        // test cannot pass for the wrong reason if the seam is ever re-narrowed.
+        assert!(
+            !FieldMask::from_positions(&[1, 7, 92]).has(92),
+            "FieldMask (u64) must still drop 92 — otherwise this regression is moot"
+        );
     }
 }
 

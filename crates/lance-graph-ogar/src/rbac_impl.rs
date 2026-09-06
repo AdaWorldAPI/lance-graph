@@ -8,6 +8,21 @@
 //! `impl ForeignTrait for ForeignType` (E0117). So the realization is a local
 //! newtype [`OgarRbac`] that carries an **injected** [`GrantSource`].
 //!
+//! # ⊘ REHOMED — the canonical authority now lives in OGAR
+//!
+//! `OGAR::ogar_rbac::OgarRbac` is the canonical home of this authority object
+//! as of the ownership seam: it carries the same `GrantSource` + `ClassRbac`
+//! shape, and additionally takes its identity from `ogar_auth::user::
+//! AuthenticatedUser`, so the crate graph states that authorization operates on
+//! OGAR's canonical user. The orphan-rule reasoning below is unchanged and
+//! applies there identically — an authority OBJECT is the legal form in either
+//! crate; `impl ClassRbac for OgarClassView` is E0117 from any third crate,
+//! same-repository or not.
+//!
+//! This copy is retained only so this workspace-excluded adapter keeps building;
+//! it has no consumers (`grep OgarRbac` across all repos returns this file
+//! alone). Removing it is a follow-up, not this patch.
+//!
 //! # The §6 evaporation seam
 //!
 //! [`OgarRbac`] owns **no grant data** — every answer is read from its
