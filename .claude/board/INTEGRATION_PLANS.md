@@ -1,3 +1,29 @@
+## 2026-09-06 — `NodeGuid::new` repurpose AUDIT (5+3 council, READ-ONLY) → `.claude/plans/nodeguid-new-repurpose-audit-v1.md`
+
+SPEC v1 of a council convened to AUDIT — not implement — whether
+`NodeGuid::new` can be repurposed from the V1 mint into a V3 cascade
+constructor. **Operator constraint, verbatim: *"It's already in production, if
+you touch it it would change something you half understand."*** Nothing is
+built from this pass; the deliverable is a verdict.
+
+The spec carries a §0 **RETRACTED READINGS** table — four FALSE readings the
+orchestrator produced before writing it (each from an accessor NAME or a byte
+HISTOGRAM instead of the class's declared schema), banked so the council does
+not re-derive them and no finding cites them as context. `ogar-obo/src/layout.rs`
+exists to prevent exactly that failure and says so: *"the classid picks the
+reading … a reader never assumes a carve."*
+
+Frozen (F1-F8) includes the operator's architecture: **first two tenants = the
+distinguished name; the 4x24-bit Quad Identitaet is a VALUE tenant; the O(1)
+lookup is the quad; the depth-16 path (12+4) serves parent-child inheritance
+and HHTL; "Nobody walks anything."** Gates G1-G5 include G4, the
+ordering/uniqueness/display/**sequence** classification of the identity()
+readers — only the sequence bucket is a semantic blocker, because a DN sorts
+hierarchically and that failure still compiles.
+
+Status: Phase 1 cast (5 savants). Consolidation to v2 and the 3 reviewers
+follow. Superseded by v2/v3 when they land.
+
 ## 2026-09-06 — temporal / delta / alpha staged plan → `.claude/temporal/09-plan.md`
 
 Staged and probe-gated: Stage 1 compact alpha resident form (no addressing, no
