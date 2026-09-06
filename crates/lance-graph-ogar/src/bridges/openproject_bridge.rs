@@ -31,7 +31,6 @@ pub use ogar_vocab::ports::OpenProjectPort;
 )]
 pub type OpenProjectBridge = UnifiedBridge<OpenProjectPort>;
 
-
 /// Compatibility shim — re-exports `ogar_vocab::ports::OPENPROJECT_ALIASES`
 /// under the pre-migration name so consumers that imported the constant
 /// from this module still build (codex P2 on PR #570). New code should

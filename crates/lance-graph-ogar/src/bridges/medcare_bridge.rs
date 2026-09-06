@@ -44,7 +44,6 @@ pub use ogar_vocab::ports::HealthcarePort;
 )]
 pub type MedcareBridge = UnifiedBridge<HealthcarePort>;
 
-
 #[cfg(test)]
 #[allow(deprecated)] // exercises the deprecated bridge alias on purpose
 mod tests {
