@@ -291,6 +291,16 @@ mask passes and cannot account for 5×"* — the bulk was `eq_u32_strided_to_mas
 at `stride_bytes == 4`. So **ternlog chaining is a correctness/shape win first,
 a speed win only where a measurement says so.**
 
+**A measurement now says so, narrowly (P3, 2026-09-06 — full table in
+`09-plan.md`).** Chained ternlog is up to **2x** pairwise `and` (`T3/T1` bottoms
+at 0.50 by K=8) and per-constraint cost is **flat in K** — 57.6 ns at K=4 vs
+54.1 ns at K=32. Two bounds ride with that number and neither may be dropped
+when it is cited: the K=1 control reads **1.03** (no chaining, no win, exactly as
+it should), and the win is **residency-contingent** — it survives L1 and L2, then
+bandwidth falls `138 -> 15 GB/s` and the ratio returns to 1.03 once the mask
+leaves L2. The caveat above is therefore *refined, not retired*: 2x on one of
+three passes, while L2-resident, still cannot account for 5x.
+
 **Consumer census:** `lance-graph-java`'s lgj-abi consumes it correctly by tier
 (`kernels.rs:100` re-exports `ndarray::simd::ternlog`; `exports.rs` names
 `kernels::ternlog::AND3`, never `ndarray::simd`). **lance-graph and OGAR have

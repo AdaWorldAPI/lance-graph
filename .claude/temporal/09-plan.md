@@ -25,7 +25,7 @@ non-polluting.
 | **P1a** insert | Is `_row_created_at_version` populated WITHOUT stable row ids? | control (stable=true) reports the 2 appended rows | **RUN, RED.** Control held (2); physical **0** |
 | **P1b** update | Is `_row_last_updated_at_version` populated WITHOUT stable row ids? | control: version advanced AND the row's value changed | **RUN, RED.** ⊘ first run was INCONCLUSIVE (its control did not hold — `when_matched` defaults to `DoNothing`, so no update committed). With the control: stable=true → **1**, physical → **0** |
 | **P2** | Can `ShardWriter::put` seal N landing rows + the frame row ATOMICALLY? | kill mid-flush on a 5,000-row cycle: 0 or 5,000 ⇒ FOLD stands; anything between ⇒ KEEP | **RUN, GREEN.** SIGKILL sweep 5–500 ms: `0,0,0,5000,5000,5000,5000`. Boundary bracketed, no partial batch. FOLD stands. Scope: one put, local store, and NOT the landing-rows-plus-frame-row composite. See `08-…` |
-| **P3** | Does ternlog chaining pay on THIS workload? | `ndarray/examples/ternlog_amortization_probe.rs` per-constraint cost flat in K, with the bandwidth column as the residency evidence | instrument exists, not re-run |
+| **P3** | Does ternlog chaining pay on THIS workload? | `ndarray/examples/ternlog_amortization_probe.rs` per-constraint cost flat in K, with the bandwidth column as the residency evidence | **RUN 2026-09-06 — GREEN, bounded** (see below) |
 
 **P1 is the gate on Stage 3.** P2 is the gate on Stage 4. P3 gates any SPEED
 claim about masks; the SHAPE claim does not need it.
@@ -72,6 +72,49 @@ exactly `AlphaMask`'s backing store.
 
 **Trap:** never carry a rung ordinal in the residue band — the 3-bit band and
 the rung ladder are unrelated enums sharing four variant names.
+
+### P3 result — 2026-09-06, `--release`, host L1d 48 KiB/core, L2 2 MiB/core
+
+Amortization **holds**, and the sweep also fixes the two boundaries that bound it.
+
+```
+A. DEPTH SWEEP — mask 4 KiB, working set = (K+1)x4 KiB
+  K  | T1 and | T3 ternlog | T3/T1 | T3 GB/s
+   1 |  147.8 |      152.6 |  1.03 |    53.7
+   2 |  149.2 |      103.1 |  0.69 |    79.5
+   4 |   85.5 |       57.6 |  0.67 |   142.3
+   8 |  106.3 |       58.3 |  0.55 |   140.6
+  32 |  107.8 |       54.1 |  0.50 |   151.3
+  64 |  117.1 |       64.8 |  0.55 |   126.4
+```
+
+**Pass criterion (pre-registered): per-constraint cost flat in K.** Held — T3
+*total* is 57.6 ns at K=4 and 54.1 ns at K=32, no growth across a 16x increase
+in constraint count, so per-constraint cost falls with depth. `T3/T1` bottoms at
+**0.50**.
+
+**The K=1 row is the control and it reads 1.03** — with one constraint there is
+nothing to chain and the win is exactly zero. A probe that showed a win at K=1
+would have been measuring something other than chaining.
+
+**Boundary 1 — residency (sweep B).** The ratio holds 0.61-0.86 through L1 and
+L2, then bandwidth collapses `138 -> 15 GB/s` from L2 to the largest L3 case and
+the ratio drifts back to `1.03` at a 512 KiB mask. Past L2 the operation is
+bandwidth-bound and the instruction-count win is masked. **The win is a
+residency result, not a throughput constant** — it is contingent on the mask set
+fitting L2, which is a design constraint on rung population size, not a free
+speedup.
+
+**Boundary 2 — density (sweep D).** Mask beats sparse down to 0.8% active; at
+0.1% and below sparse wins (`4055` vs `1161` ns). The crossover is real and sits
+far sparser than any rung population this workload has, so mask is the right
+default here — but the crossover exists and a future sparse rung would cross it.
+
+**What this does NOT change:** the standing caveat in `04-reusable-patterns.md`
+- *"the ternlog wire is one of three mask passes and cannot account for 5x"*.
+The 2x is real and applies to one pass of three, only while L2-resident.
+Ternlog chaining stays a correctness/shape win first; the speed claim is
+narrowly scoped by both boundaries above.
 
 **Kill condition:** if P3 shows no amortization on this shape, build it scalar
 and say so. The shape win stands without the speed win.
