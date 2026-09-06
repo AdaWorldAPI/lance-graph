@@ -1,3 +1,46 @@
+## 2026-09-06 — #1209 MERGED (f1336b66): the temporal architecture was measured against the wrong store
+
+| PR | merge | what landed |
+|---|---|---|
+| **#1209** | `f1336b66` | Three probes (`canonical_witness_identity_probe`, `v3_mint_reachability_probe`, `test_e_old_diff_tripartite`) + four `STATUS_BOARD` rows (D-TEMPORAL-1 / -1a / D-V3-MINT-1 / D-TEMPORAL-2) + the `SUPERSESSION-INDEX` regeneration the gate required. No source changes. |
+
+**Ruling: R4 with an R1 core.** Two representations coexist by construction —
+store **A** (canonical temporal/cognitive persistence, `graph/cycle_sink.rs`,
+PR #911) and store **B** (`VersionedGraph`/`NodeSchema`, `node_id:u32` + planes
++ seals). A's architecture survived the lance 9→11 migration byte- and
+semantic-intact; its concrete writer `LanceCycleWriter` remains DORMANT (zero
+non-test callers, per D-MW-P2). Do not read "architecture survived" as
+"production wired".
+
+**The correction this PR exists for:** an earlier pass in the same session
+measured store B and reported it as THE addressed architecture, concluding the
+spine "terminates at `u32 node_id`". That was the wrong store — `cycle_sink.rs`
+had never been opened. Its birth commit states the invariant outright ("one
+detached cycle batch → ONE official Lance commit → exactly one real
+DatasetVersion base+1") with `payload: FixedSizeBinary(512)` documented as
+`key(16) | edges(16) | value(480)`.
+
+**No A↔B membrane was ever designed**, and the chronology forecloses one: B was
+born 2026-03-16 (`270b703c` / `229db767`), ~5 months before A and before
+`NodeGuid` itself. The deleted `contract/src/identity.rs` (`e8060589`) says it
+plainly — *"the cold path keys nodes by `node_id:u32` today … neither is a
+stable, globally-referenceable id. `NodeGuid` fills that gap."* The workspace
+answered B's identity gap by minting a SEPARATE identity, not by extending B.
+Zero commits in 5 387 ever touch `NodeGuid` and `versioned.rs`/`columnar.rs`
+together; `node_id` has no in-repo producer; B is `WriteMode::Overwrite`n
+wholesale each round. **Consequence: do NOT add a `NodeGuid` column to B, and do
+NOT invent a mapping.** B's `node_id:u32` is a projection-local coordinate of a
+GraphBLAS/fingerprint snapshot, not an architectural deficiency.
+
+**Measured, not inferred:** V3 rail (`CLASSID_OSINT_V3`) byte-exact through two
+cycles and a reopen, `payload[0..16] == G.as_bytes()`, each cycle minting exactly
+`base+1`; V1 legacy control likewise; 23/23 `cycle_sink` invariant tests green on
+lance 11 (lost-ACK reconciles, hash conflict fails closed, stale horizon fenced
+writing nothing, reconcile-unavailable ⇒ `Ambiguous`). `#911 → #912 →
+1d416704` are three SEPARATE events and all coherent: #912 is an admission
+valve (no artifact-backed change ⇒ no sink call ⇒ no version), `1d416704` is
+fence hardening, neither a migration regression.
+
 ## 2026-09-06 — #1201 MERGED (54285a42): #1199's records + the council SPEC v1
 
 | PR | merge | content |
