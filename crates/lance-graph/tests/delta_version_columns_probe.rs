@@ -52,8 +52,11 @@ use std::sync::Arc;
 use arrow_array::{Int32Array, RecordBatch, StringArray};
 use arrow_schema::{DataType, Field, Schema};
 use futures::TryStreamExt;
-use lance::dataset::{Dataset, MergeInsertBuilder, WhenNotMatched, WriteMode, WriteParams};
+use lance::dataset::{
+    Dataset, MergeInsertBuilder, WhenMatched, WhenNotMatched, WriteMode, WriteParams,
+};
 
+/// The two-column probe schema: an `id` key and a `val` payload.
 fn schema() -> Arc<Schema> {
     Arc::new(Schema::new(vec![
         Field::new("id", DataType::Int32, false),
@@ -61,6 +64,7 @@ fn schema() -> Arc<Schema> {
     ]))
 }
 
+/// One `RecordBatch` over [`schema`] from parallel id/val slices.
 fn batch(ids: &[i32], vals: &[&str]) -> RecordBatch {
     RecordBatch::try_new(
         schema(),
@@ -152,6 +156,39 @@ async fn the_insert_delta_arm_on_physical_addresses_vs_stable_row_ids() {
     }
 }
 
+/// The `val` stored for `id`, by scanning — the update arm's evidence that an
+/// update actually committed, rather than that a delta arm read zero.
+async fn val_of(ds: &Dataset, id: i32) -> Option<String> {
+    use arrow_array::Array;
+    let stream = ds.scan().try_into_stream().await.expect("scan");
+    let batches: Vec<RecordBatch> = stream.try_collect().await.expect("collect");
+    for b in batches {
+        let ids = b
+            .column_by_name("id")?
+            .as_any()
+            .downcast_ref::<Int32Array>()?;
+        let vals = b
+            .column_by_name("val")?
+            .as_any()
+            .downcast_ref::<StringArray>()?;
+        for i in 0..b.num_rows() {
+            if ids.value(i) == id {
+                return Some(vals.value(i).to_string());
+            }
+        }
+    }
+    None
+}
+
+/// A3 — the update arm, with its own pre-registered control.
+///
+/// ⊘ The first version of this test asserted nothing about whether an update
+/// had HAPPENED, so its zero was uninterpretable in exactly the way a null
+/// result always is until the apparatus is ruled out: "the delta arm does not
+/// report updates" and "no update was committed" produce the same zero. It now
+/// establishes both preconditions before reading the delta at all — the
+/// version advanced, AND the row's value actually changed — so a zero
+/// afterwards is a statement about lance rather than about this file.
 #[tokio::test(flavor = "multi_thread")]
 async fn the_update_arm_reports_a_changed_row_under_both_modes() {
     for stable in [true, false] {
@@ -160,6 +197,11 @@ async fn the_update_arm_reports_a_changed_row_under_both_modes() {
 
         let ds = write(&path, batch(&[1, 2], &["a", "b"]), stable, true).await;
         let v1 = ds.version().version;
+        assert_eq!(
+            val_of(&ds, 1).await.as_deref(),
+            Some("a"),
+            "precondition: row 1 starts at 'a' (stable_row_ids={stable})"
+        );
 
         // An UPDATE, not an append: same key, new value, through the same
         // `merge_insert` path `LanceCycleWriter` itself uses. `Dataset::update`
@@ -171,6 +213,10 @@ async fn the_update_arm_reports_a_changed_row_under_both_modes() {
         );
         MergeInsertBuilder::try_new(ds_arc, vec!["id".to_string()])
             .expect("merge builder")
+            // `when_matched` DEFAULTS to `DoNothing` — find-or-create. Without
+            // this line the merge is a no-op on an existing key, which is
+            // exactly what the control below caught on the first run.
+            .when_matched(WhenMatched::UpdateAll)
             .when_not_matched(WhenNotMatched::InsertAll)
             .try_build()
             .expect("build")
@@ -181,6 +227,21 @@ async fn the_update_arm_reports_a_changed_row_under_both_modes() {
         let ds = Dataset::open(&path).await.expect("reopen");
         let v2 = ds.version().version;
 
+        // ── the control, both halves ────────────────────────────────────────
+        assert!(
+            v2 > v1,
+            "CONTROL: the upsert must advance the version ({v1} -> {v2}, \
+             stable_row_ids={stable}); without that there is no version range \
+             for a delta to be read over and any count below is vacuous"
+        );
+        assert_eq!(
+            val_of(&ds, 1).await.as_deref(),
+            Some("z"),
+            "CONTROL: the upsert must have CHANGED row 1 to 'z' \
+             (stable_row_ids={stable}); a delta reading zero over an update \
+             that never happened says nothing about lance"
+        );
+
         let delta = ds
             .delta()
             .with_begin_version(v1)
@@ -188,6 +249,9 @@ async fn the_update_arm_reports_a_changed_row_under_both_modes() {
             .build()
             .expect("delta builder");
         let n = count(delta.get_updated_rows().await.expect("get_updated_rows")).await;
-        eprintln!("update arm stable_row_ids={stable} updated rows v{v1}->v{v2} = {n}");
+        eprintln!(
+            "A3 update arm stable_row_ids={stable} v{v1}->v{v2}: control HELD \
+             (version advanced, value changed); updated rows = {n}"
+        );
     }
 }

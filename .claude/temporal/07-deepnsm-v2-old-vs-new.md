@@ -13,8 +13,12 @@ a printed number, not a gate.
 
 **2. deepnsm-v2 does NOT enforce the no-hindsight property.** Hindsight
 blocking IS a `TemporalPov::at` property (range `[0, ref+1)`,
-`temporal_pov.rs:177-182`), but **`window_range` bypasses it entirely**, and
-`bible_wave.rs:249` uses that unconstrained path. So the structural
+`temporal_pov.rs:177-182`), but **`window_range` bypasses that automatic bound**: it is constrained ONLY by
+the caller's explicit `VersionRange`, never by the reader's own position. So the
+path is range-constrained rather than unconstrained — and `bible_wave.rs:249`
+passes `VersionRange::new(0, verses.len())`, a range that can admit versions
+after an earlier reference version. The no-hindsight property is therefore not
+ENFORCED for this consumer; it is enforced only by the other one. So the structural
 no-hindsight gate is a **stockfish discipline**, not a shared property of both
 consumers. My earlier framing implied both enforced it. Only one does.
 

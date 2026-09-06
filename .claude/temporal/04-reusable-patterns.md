@@ -200,12 +200,23 @@ That is a hand-rolled append-only MVCC delta log on a flat table.
 | hand-rolled on lance 7 | lance 11 native |
 |---|---|
 | `version` column | `_row_created_at_version` / `_row_last_updated_at_version` |
-| `tombstone` column | `DatasetDelta::get_deleted_row_ids` |
+| `tombstone` column | `DatasetDelta::get_deleted_row_ids` — **PARTIAL ONLY** (see below) |
 | scan-and-compare per version | `get_inserted_rows` / `get_updated_rows` |
 | `seq` column | **nothing** |
 
-**The hand-rolled columns are the exact shape of what became native. The design
-was not wrong, it was early.**
+**The hand-rolled columns are the shape of what became native. The design was
+not wrong, it was early.**
+
+⊘ **The tombstone row is NOT a direct replacement, and the table above must be
+read with this.** `get_deleted_row_ids` performs a stable-row-id set difference
+and requires stable row ids at BOTH endpoints, which this repo disables by
+default (measured: zero production write sites configure it). What it returns
+is a set of deleted row IDS — not `version`, not `tombstone`, not `seq` — so it
+carries no delete-time metadata and no ordering. surrealdb's tombstone column
+is a positive ROW that distinguishes "never existed" from "deleted at V₃"; the
+delta arm cannot make that distinction. Treating it as native support requires
+separate storage for delete-time metadata and ordering first. `seq` stays
+unmapped in every reading.
 
 ### The same pattern at three layers, one missing feature
 
@@ -232,7 +243,21 @@ seq     order within a version    (no native equivalent, anywhere)
 visits  attention regressions     (alpha only)
 ```
 
-**Six bytes.** Everything else alpha materializes is recoverable from versions.
+**Six bytes** — but only once two mappings exist that today do NOT:
+
+1. **rung → its per-rung table.** The rung ladder is "its own table over the
+   same address space" per `ogar-dismech`, so recovering `rung` means knowing
+   which table a row came from. That binding is not built.
+2. **Lance version → `AlphaStamp::cycle`.** `cycle` is CALLER-SUPPLIED and every
+   current caller passes a constant; `06-callers-and-dormancy.md` measures that
+   nothing anywhere advances it (`git grep -E 'cycle \+ 1|cycle\+\+|for cycle in|next_cycle'`
+   returns zero hits). There is no cycle identity, no assignment rule, and no
+   advance, so there is nothing for a version to map ONTO.
+
+Until both are defined, the defensible claim is narrower: **`seq` and `visits`
+are irreducible, and the rest is recoverable only under a cycle↔version
+mapping that has to be designed first.** The 512-byte materialization is
+wasteful either way; that part does not depend on the mapping.
 
 ### Two decisions worth taking
 

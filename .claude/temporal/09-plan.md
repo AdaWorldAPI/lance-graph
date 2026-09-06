@@ -22,7 +22,8 @@ non-polluting.
 
 | id | question | pass condition | status |
 |---|---|---|---|
-| **P1** | Are `_row_created_at_version` / `_row_last_updated_at_version` populated WITHOUT stable row ids? | A2 control (stable=true) reports the 2 appended rows; A1 (physical) is then interpretable either way | **RUN, RED.** Control held (2); physical returned **0**. Insert delta needs stable row ids. Update arm INCONCLUSIVE — its own control also read 0. See `01-delta-api-lance11.md` |
+| **P1a** insert | Is `_row_created_at_version` populated WITHOUT stable row ids? | control (stable=true) reports the 2 appended rows | **RUN, RED.** Control held (2); physical **0** |
+| **P1b** update | Is `_row_last_updated_at_version` populated WITHOUT stable row ids? | control: version advanced AND the row's value changed | **RUN, RED.** ⊘ first run was INCONCLUSIVE (its control did not hold — `when_matched` defaults to `DoNothing`, so no update committed). With the control: stable=true → **1**, physical → **0** |
 | **P2** | Can `ShardWriter::put` seal N landing rows + the frame row ATOMICALLY? | kill mid-flush on a 5,000-row cycle: 0 or 5,000 ⇒ FOLD stands; anything between ⇒ KEEP | **RUN, GREEN.** SIGKILL sweep 5–500 ms: `0,0,0,5000,5000,5000,5000`. Boundary bracketed, no partial batch. FOLD stands. Scope: one put, local store, and NOT the landing-rows-plus-frame-row composite. See `08-…` |
 | **P3** | Does ternlog chaining pay on THIS workload? | `ndarray/examples/ternlog_amortization_probe.rs` per-constraint cost flat in K, with the bandwidth column as the residency evidence | instrument exists, not re-run |
 

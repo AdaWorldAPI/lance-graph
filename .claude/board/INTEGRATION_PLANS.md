@@ -1,3 +1,15 @@
+## 2026-09-06 — temporal / delta / alpha staged plan → `.claude/temporal/09-plan.md`
+
+Staged and probe-gated: Stage 1 compact alpha resident form (no addressing, no
+lance) · 1b the release-mode mask length guard · 2 the rung×tenant mask cross ·
+3 delta-backed `VersionedGraph::diff` (**gated behind D-LNC-5**: P1a/P1b both
+measured RED) · 4 FOLD onto MemWAL (**P2 GREEN**). Carries explicit NON-GOALS
+(do not build a second delta mechanism; do not wire `revision` into kanban
+`try_advance`; do not enable `cleanup_old_versions`; do not touch `temporal.rs`)
+and kill conditions per stage. Lives under `.claude/temporal/` rather than
+`.claude/plans/` at the operator's instruction, with the audit it depends on.
+
+
 ## 2026-09-05 — `open-ideas-fetch-v1` (MEASURED, planning-only — three decisions gate the workers)
 
 `.claude/plans/open-ideas-fetch-v1.md`. Three Open cards fetched from an

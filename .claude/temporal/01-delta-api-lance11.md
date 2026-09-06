@@ -133,19 +133,41 @@ behind the stable-row-id decision. That decision is D-LNC-5's, per
 `lance-convergence-staged-migration-v1.md` §7.9. Stage 3 of `09-plan.md` moves
 behind it rather than beside it.
 
-## The update arm: INCONCLUSIVE, and must not be reported as a finding
+## The update arm: RED TOO — ⊘ upgraded from INCONCLUSIVE, 2026-09-06
 
-`get_updated_rows` returned 0 under **both** modes, including stable row ids
-ON. **The control did not hold**, so by this probe's own pre-registered
-discipline the result says nothing about lance and everything about the
-apparatus.
+The first run of this arm read 0 under BOTH modes and was recorded here as
+INCONCLUSIVE because its control did not hold. A CodeRabbit review finding on
+PR #1198 said the arm asserted nothing about whether an update had HAPPENED,
+which was correct. Adding the control immediately failed:
 
-The likely cause, unverified: the upsert was driven through
-`MergeInsertBuilder::when_not_matched(WhenNotMatched::InsertAll)` on an
-existing key, which may have committed as an insert rather than an update, or
-may not have advanced the versions the delta range was built over. Fixing the
-update arm needs its own pass; it is NOT a claim that lance's update delta is
-broken.
+```
+CONTROL: the upsert must have CHANGED row 1 to 'z' ... assertion failed
+```
+
+**Root cause: `MergeInsertBuilder::when_matched` defaults to
+`WhenMatched::DoNothing`** — find-or-create. The probe set only
+`when_not_matched(InsertAll)`, so on an existing key the merge was a no-op and
+no update ever committed. The zero was the apparatus, exactly as the
+INCONCLUSIVE label suspected but could not localise.
+
+With `when_matched(WhenMatched::UpdateAll)` and both control halves asserted
+(the version advanced AND row 1's value actually changed):
+
+```
+A3 update arm stable_row_ids=true   control HELD; updated rows = 1
+A3 update arm stable_row_ids=false  control HELD; updated rows = 0
+```
+
+**So the update arm now says the SAME thing as the insert arm, conclusively.**
+`get_updated_rows` reports the changed row under stable row ids and nothing
+without them. Both measured arms agree: the delta version columns are unusable
+in physical-address mode.
+
+Incidental semantics worth keeping: lance implements `WhenMatched::UpdateAll`
+as *"the row is deleted from the target table and a new row is inserted"*, so
+an update is a delete plus an insert — and `_row_last_updated_at_version` is
+still maintained across that, since the arm reports 1 rather than counting it
+as an insert.
 
 ## Method notes worth keeping
 
