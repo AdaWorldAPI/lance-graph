@@ -269,8 +269,24 @@ impl AlphaMask {
         self.len
     }
 
+    /// Word-wise combine. **`assert_eq!`, never `debug_assert_eq!`** — the
+    /// guard has to hold in release, because that is the build where the
+    /// damage is silent.
+    ///
+    /// Iterator `zip` truncates to the shorter operand while `len` is copied
+    /// from `self`, so a mismatch that gets past this line produces a mask
+    /// claiming `self.len` addresses over `other.words.len()` words. That is
+    /// not a smaller mask, it is an INVALID one, and it fails two ways at a
+    /// distance: `count`/`is_empty` under-report silently, and
+    /// `contains`/`materialize_ordinals` index past the slice and panic
+    /// somewhere far from the call that caused it.
+    ///
+    /// A length mismatch is a caller mixing two allocations — a programming
+    /// error, not a data condition — so it fails closed and immediately,
+    /// at the operation that made it, rather than becoming a wrong answer.
+    /// The cost is one `u32` comparison against a loop over every word.
     fn zip(&self, other: &Self, f: impl Fn(u64, u64) -> u64) -> Self {
-        debug_assert_eq!(self.len, other.len, "masks from different allocations");
+        assert_eq!(self.len, other.len, "masks from different allocations");
         Self {
             words: self
                 .words
@@ -746,6 +762,50 @@ mod tests {
     /// The complement stays INSIDE the allocation. A `not()` that forgets to
     /// clear the tail word raises up to 63 phantom bits past `len` — here 59
     /// of them — and every downstream count/diff silently inflates.
+    /// The release-mode length guard. `zip` once guarded its operands with
+    /// `debug_assert_eq!`, which is COMPILED OUT of a release build — so a
+    /// mismatch reached the iterator `zip`, which truncates to the shorter
+    /// operand while `len` was copied from `self`. The product claimed
+    /// `self.len` addresses over `other.words.len()` words, which is not a
+    /// smaller mask but an INVALID one, and it fails in two different ways
+    /// depending on which reading runs first: `count`/`is_empty` silently
+    /// under-report, and `contains`/`materialize_ordinals` index past the
+    /// slice and panic somewhere far from the call that caused it.
+    ///
+    /// Two-sided on purpose. The panic half proves the guard fires in
+    /// release; [`equal_length_masks_combine_without_panicking`] proves it
+    /// stays silent on the ordinary case, so a guard that simply rejected
+    /// everything could not pass both.
+    #[test]
+    #[should_panic(expected = "masks from different allocations")]
+    fn combining_masks_of_different_lengths_is_refused_in_every_build() {
+        // 200 vs 64: different word counts (4 vs 1), so the truncation is
+        // reachable rather than hidden by both operands rounding to one word.
+        let wide = AlphaMask::empty(200);
+        let narrow = AlphaMask::empty(64);
+        let _ = wide.and(&narrow);
+    }
+
+    /// The silence half of the guard above — equal lengths must still work,
+    /// including the `len % 64 != 0` case where the tail word is partial.
+    #[test]
+    fn equal_length_masks_combine_without_panicking() {
+        let mut a = AlphaMask::empty(200);
+        let mut b = AlphaMask::empty(200);
+        a.set(7);
+        a.set(130);
+        b.set(130);
+        b.set(199);
+
+        assert_eq!(a.and(&b).materialize_ordinals(), vec![130], "and");
+        assert_eq!(a.or(&b).materialize_ordinals(), vec![7, 130, 199], "or");
+        assert_eq!(a.xor(&b).materialize_ordinals(), vec![7, 199], "xor");
+        assert_eq!(a.and_not(&b).materialize_ordinals(), vec![7], "and_not");
+        // Every product must carry a full-width word slice, not a truncated
+        // one — the invariant the guard exists to keep.
+        assert_eq!(a.and(&b).count() + a.and(&b).not().count(), 200);
+    }
+
     #[test]
     fn a_complement_never_invents_phantom_addresses() {
         let rows = tiny_base();
