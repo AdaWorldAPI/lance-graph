@@ -1,3 +1,68 @@
+## ISS-NO-AARCH64-RUNNER (2026-09-06) — OPEN
+
+**Every `#[cfg(target_arch = "aarch64")]` block in this repo is unverified, because
+no CI job has ever compiled one.** Measured: `grep -n runs-on .github/workflows/*.yml`
+→ 14 jobs, all `ubuntu-latest` / `ubuntu-24.04`. On x86 an aarch64 `cfg` block is not
+compiled, not type-checked, and not linted — it is text the parser skips, functionally
+a comment.
+
+**Two defects found this way in one week, both by an EXTERNAL fleet, not by ours:**
+
+- #1200 — `lance-graph-contract/src/mul.rs`: NEON `_n_` intrinsics called with
+  non-const shift operands (they require const generics), and
+  `is_aarch64_feature_detected!` imported from the wrong module (it lives under
+  `std::arch`, unlike its x86 counterpart).
+- #1204-adjacent (this issue's PR) — `bgz17/src/prefetch.rs`: three `E0658`s on the
+  unstable `stdarch_aarch64_prefetch` feature; **unbuildable on stable, ever**.
+
+Both were surfaced only because q2 #146 un-gated a suite that runs on `macos-latest`
+(Apple Silicon). That is a downstream consumer's CI doing this repo's job.
+
+**What would close it:** cross-compiling on the existing x86 runners is the cheap
+option — `rustup target add aarch64-unknown-linux-gnu` plus
+`cargo check --workspace --target aarch64-unknown-linux-gnu`. A dedicated
+`runs-on: ubuntu-24.04-arm` job is the alternative and needs no target plumbing.
+
+**⚠ But `--workspace` alone would NOT have caught the defect that opened this
+issue.** `bgz17` is in `exclude`, so no root-manifest invocation selects it — the
+cross-check has to be run per excluded crate, `cargo check --manifest-path
+crates/<c>/Cargo.toml --target aarch64-unknown-linux-gnu`, which is exactly how it
+was reproduced locally this session (all three `E0658`s, exactly). A first draft of
+this entry proposed the root-only form and claimed it covered excluded crates
+"too"; that was wrong, and wrong in the specific way that would have shipped a gate
+blind to its own founding example. Caught by a CodeRabbit review on #1205. So this
+issue and `ISS-EXCLUDED-CRATES-UNBUILT` are **not independent**: an aarch64 gate is
+only as wide as the crate list it is pointed at, and the member list is not that
+list.
+
+**Not done here** — adding a CI job is a policy change and an operator call, not a
+drive-by on a compile-fix PR. The point repairs shipped; the hole did not close.
+Cf. `EPIPHANIES.md` `E-AN-EXCLUDED-CRATE-ON-AN-X86-ONLY-FLEET-IS-CODE-NO-CI-HAS-EVER-COMPILED-1`.
+
+## ISS-EXCLUDED-CRATES-UNBUILT (2026-09-06) — OPEN
+
+**`Cargo.toml`'s `exclude` list is also an exclude-from-CI list, and nothing says so.**
+22 crates sit in `exclude` (`bgz17`, `deepnsm`, `deepnsm-v2`, `causal-edge`,
+`thinking-engine`, `p64-bridge`, `highheelbgz`, …). Workspace-level `cargo check` /
+`clippy` / `test` never touch them, so a lint sweep scoped `--workspace` silently
+skips them while reporting success.
+
+**Measured instance:** the `rust-toolchain.toml` bump log records
+`clippy::chunks_exact_to_as_chunks` as swept in #1194 at "ten sites across four
+crates". `bgz17` carried an eleventh site and was not one of the four — not because
+it was missed by hand, but because `--workspace` cannot see it. It surfaced only when
+this session ran clippy with an explicit `--manifest-path`.
+
+**Consequence:** any claim of the form "the workspace passes `clippy -D warnings`"
+(a `CLAUDE.md` Hard Rule) is scoped to members only. The Hard Rule reads as if it
+covers the repo; it covers roughly half of it.
+
+**What would close it:** a CI matrix step over the `exclude` list running
+`cargo clippy --manifest-path crates/<c>/Cargo.toml --all-targets -- -D warnings`.
+Cheap — these are the zero/low-dependency crates. Requires first measuring how many
+of the 22 are currently red, which is itself the useful number and is NOT yet known:
+this session measured `bgz17` only.
+
 ## ISS-PIN-RULING-PROSE-DRIFTS-BEHIND-THE-MANIFEST (2026-09-05) — OPEN
 
 **The pin ruling lives in two places and only one of them is checked.**

@@ -1,3 +1,86 @@
+## 2026-09-06 — E-AN-EXCLUDED-CRATE-ON-AN-X86-ONLY-FLEET-IS-CODE-NO-CI-HAS-EVER-COMPILED-1 — un-gating one downstream suite found a second aarch64 defect that could never have built
+
+**Status:** FINDING, measured red-then-green locally. Fixed in this PR.
+**Confidence:** High — every claim is a command output, not an inference.
+
+**What happened.** Un-gating q2's test suite (q2 #146, removing the
+`github.repository == 'quarto-dev/q2'` guard) put `macos-latest` — Apple
+Silicon, i.e. **aarch64** — in front of this workspace's code for the first
+time. `crates/bgz17/src/prefetch.rs` failed with three `error[E0658]`:
+`std::arch::aarch64::{_prefetch, _PREFETCH_READ, _PREFETCH_LOCALITY3}` are
+gated behind the unstable `stdarch_aarch64_prefetch` feature
+(rust-lang/rust#117217). On the pinned stable 1.98.1 toolchain that is a hard
+compile error, not a missed optimization: **Rust 1.98.1 exposes no stable
+prefetch *intrinsic* on aarch64.** The no-op is therefore this crate's stable
+fallback — not the only conceivable form. Stable `asm!` IS available on
+aarch64 (since 1.59), so a hand-written `prfm` is possible; it is not
+warranted here for an advisory hint on a small matrix, and would need its own
+measurement to justify. (Narrowed after a CodeRabbit review on #1205 flagged
+the original "only correct form" as an overclaim; the flag was right.)
+
+**Why nothing caught it, and the reason is two independent holes:**
+
+1. **`bgz17` is workspace-`exclude`d** (`Cargo.toml:31`) — lance-graph's own CI
+   never builds it as a member.
+2. **Every lance-graph runner is `ubuntu-*`** (measured: `grep -h runs-on
+   .github/workflows/*.yml` → 14 jobs, 0 non-ubuntu), and no job passes
+   `--target`. So no CI job in this repo has ever built the
+   `aarch64-unknown-linux-gnu` target, and on an x86 host a
+   `#[cfg(target_arch = "aarch64")]` block is not compiled or type-checked —
+   it is skipped like a comment.
+
+Either hole alone hides it. Both together mean **no CI job in this repository
+has ever compiled this block** since it landed (#844).
+
+**Scoped precisely, because the looser version is false.** The claim is about
+*this repo's CI*, NOT about the world: this session compiled the old code
+locally for aarch64 on purpose — that is exactly how the table below was
+produced — and q2's macOS runner compiled it too, which is what surfaced it.
+The first draft of this entry said "never compiled by anything, ever", which
+its own evidence table contradicts two lines down. Corrected after a
+CodeRabbit review on #1205 caught the self-contradiction.
+
+**Measured, red-then-green, locally:**
+
+| target | old code | new code |
+|---|---|---|
+| `aarch64-unknown-linux-gnu` | 3× `E0658`, build fails | clean |
+| `x86_64-unknown-linux-gnu` | clean | clean |
+
+The x86 row is the finding: the old code passes on the only architecture
+anything ever built it on.
+
+**This is the SECOND instance in one week.** #1200 fixed `contract/src/mul.rs`
+— NEON `_n_` intrinsics passed non-const shift operands and
+`is_aarch64_feature_detected!` was imported from the wrong module — found the
+same way, by the same un-gate. Two defects, one cause: **an architecture no
+CI job builds is an architecture whose code is unverified** — the compiler
+exists and cross-compiling is one flag away; nothing was pointing it there.
+
+**Second, independent finding in the same sweep.** `bgz17`'s example carried a
+`clippy::chunks_exact_to_as_chunks` warning — the exact lint the
+`rust-toolchain.toml` bump log records as swept in #1194 "at ten sites across
+four crates". bgz17 was not one of the four **because it is excluded**, so the
+sweep could not see it. Fixed here; the crate now passes `clippy -D warnings`
+(a `CLAUDE.md` Hard Rule) on both targets for the first time.
+
+**Consequence — what this does NOT fix.** Both fixes are point repairs. The
+holes remain: excluded crates are still unbuilt and unlinted by this repo's CI,
+and there is still no aarch64 runner. Every other `#[cfg(target_arch =
+"aarch64")]` block in this workspace and in `ndarray` is in exactly the state
+these two were in ten minutes before they were measured — presumed fine,
+never built by this repo's CI. Filed as `ISS-NO-AARCH64-RUNNER` / `ISS-EXCLUDED-CRATES-UNBUILT`
+rather than fixed here, because adding a runner is a CI-policy change and an
+operator call, not a drive-by.
+
+**The transferable rule:** a `cfg` your CI never builds is a claim, not
+verified code. When a gate is removed and a new platform appears, expect the
+backlog of every unbuilt branch to arrive at once — and do not read "it
+compiles here" as evidence about anywhere else. The corollary this entry
+learned the hard way: that rule applies to the entry's OWN prose. "Never
+compiled by anything" was a stronger claim than "no CI job compiled it", and
+only the weaker one was measured.
+
 ## 2026-09-06 — E-I-CITED-THE-RIGHTMOST-REGISTER-AND-CALLED-IT-THE-ADDRESS-1 — three corrections to one entry, each because I reasoned instead of measuring
 
 **Status:** OPERATOR CORRECTION ×3 of my own same-day entry, superseded before
