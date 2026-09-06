@@ -1,4 +1,4 @@
-# 08 — MemWAL vs BatchWriter: **VERDICT FOLD**
+# 08 — MemWAL vs BatchWriter: **VERDICT FOLD — and P2 CONFIRMS IT**
 
 Keep the descriptor/cast layer; put durability on MemWAL. The seam is
 `WalSink` itself (`persist_sink.rs:534-578`).
@@ -88,3 +88,75 @@ it.
 `pending_payloads` drains (`batch_writer.rs:179-181`). Unbounded growth. Not
 load-bearing today because nothing production-side drives `run_cycle`, which is
 exactly why it has gone unnoticed.
+
+
+---
+
+# MEASURED 2026-09-06 — D-MW-P2, the overturning measurement did not overturn
+
+`crates/lance-graph/tests/memwal_atomicity_probe.rs`, real lance 11,
+`cargo test -p lance-graph`, exit 0, 3 passed.
+
+```
+A1 clean-drop recovered rows = 5000 (expected 5000)   <- WIRING CONTROL, HELD
+A2 kill@5ms   recovered rows = 0
+A2 kill@15ms  recovered rows = 0
+A2 kill@30ms  recovered rows = 0
+A2 kill@60ms  recovered rows = 5000
+A2 kill@120ms recovered rows = 5000
+A2 kill@250ms recovered rows = 5000
+A2 kill@500ms recovered rows = 5000
+```
+
+## The verdict stands, and the sweep is why
+
+Every recovered count is **0 or 5000**. No partial batch survived a SIGKILL on
+any arm.
+
+The result is only meaningful because the sweep **brackets the durability
+boundary**: three arms landed nothing and four landed everything, so the kill
+demonstrably fell on both sides of the flush between 30 ms and 60 ms. A sweep
+that had landed only zeros would have measured process spawn latency, and a
+sweep that had landed only 5000s would have measured a kill that always arrived
+too late. Neither would have said anything about atomicity. The probe carries
+an explicit anti-vacuity guard for the all-zero case for exactly that reason.
+
+## What it was actually testing
+
+This was a **falsification attempt against lance's own documentation**, not an
+exploration. `ShardWriterConfig` already claims it:
+
+- `max_wal_buffer_size` — *"This is a soft threshold - write batches are atomic
+  and won't be split."*
+- `durable_write: true` — *"Each write waits for WAL persistence before
+  returning. Guarantees no data loss on crash."*
+
+A partial count would have falsified that documentation and forced FOLD → KEEP.
+It did not. So the finding is narrow and honest: **the batch-atomicity
+guarantee the FOLD verdict leans on is real on this version and this
+platform**, rather than merely claimed.
+
+`SIGKILL` was chosen deliberately over a panic or a `Drop`: it gives no
+unwinding, no destructor, and no flush-on-exit, which is the only way to ask
+about crash atomicity rather than about cleanup paths. A1 (clean drop, no
+`close()`) is explicitly NOT a crash and exists only as the wiring control.
+
+## What this does NOT settle
+
+- It measures ONE put of 5,000 rows on a local filesystem store. It says
+  nothing about object storage, about concurrent writers, or about the fencing
+  path (`writer_epoch`).
+- It does not test the composite the audit actually cares about — **N landing
+  rows PLUS the frame row** sealed together. That composite is
+  `LanceCycleWriter`'s, and `LanceCycleWriter::open` has zero callers repo-wide,
+  so there is nothing to drive it with yet.
+- The sealed read horizon — the property a naive fold would silently lose —
+  is untouched by this probe. It remains the real risk in Stage 4.
+
+## Scope note on the diff
+
+`ShardWriterConfig::shard_id` is a `Uuid`, and a parent/child pair must address
+the same shard, so the probe has to name that type. `uuid = "1"` was added as a
+**dev-dependency** of `lance-graph`; 1.26 is already in the graph via lance, so
+this makes the type nameable rather than adding a crate, and `Cargo.lock` is
+gitignored here so no lock churn follows.

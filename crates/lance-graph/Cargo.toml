@@ -132,6 +132,11 @@ futures = "0.3"
 lance-arrow = "=11.0.0"
 lance-index = { workspace = true }
 tempfile = "3"
+# D-MW-P2 probe only: `ShardWriterConfig::shard_id` is a `Uuid`, so the probe
+# must be able to NAME the type to pin one shard id across a parent/child pair.
+# uuid 1.26 is already in the graph via lance; this makes it nameable, it does
+# not add a crate.
+uuid = "1"
 tokio = { version = "1.37", features = ["macros", "rt-multi-thread"] }
 causal-edge = { path = "../causal-edge" }
 lance-graph-planner = { path = "../lance-graph-planner" }

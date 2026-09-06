@@ -23,7 +23,7 @@ non-polluting.
 | id | question | pass condition | status |
 |---|---|---|---|
 | **P1** | Are `_row_created_at_version` / `_row_last_updated_at_version` populated WITHOUT stable row ids? | A2 control (stable=true) reports the 2 appended rows; A1 (physical) is then interpretable either way | **RUN, RED.** Control held (2); physical returned **0**. Insert delta needs stable row ids. Update arm INCONCLUSIVE — its own control also read 0. See `01-delta-api-lance11.md` |
-| **P2** | Can `ShardWriter::put` seal N landing rows + the frame row ATOMICALLY? | kill mid-flush on a 5,000-row cycle: 0 or 5,000 ⇒ FOLD stands; anything between ⇒ KEEP | not started |
+| **P2** | Can `ShardWriter::put` seal N landing rows + the frame row ATOMICALLY? | kill mid-flush on a 5,000-row cycle: 0 or 5,000 ⇒ FOLD stands; anything between ⇒ KEEP | **RUN, GREEN.** SIGKILL sweep 5–500 ms: `0,0,0,5000,5000,5000,5000`. Boundary bracketed, no partial batch. FOLD stands. Scope: one put, local store, and NOT the landing-rows-plus-frame-row composite. See `08-…` |
 | **P3** | Does ternlog chaining pay on THIS workload? | `ndarray/examples/ternlog_amortization_probe.rs` per-constraint cost flat in K, with the bandwidth column as the residency evidence | instrument exists, not re-run |
 
 **P1 is the gate on Stage 3.** P2 is the gate on Stage 4. P3 gates any SPEED
@@ -102,7 +102,7 @@ found it unreachable.
 **Kill condition:** P1 red ⇒ the whole stage is gated behind the stable-row-id
 decision, which is D-LNC-5's to make, not this work's.
 
-## Stage 4 — FOLD onto MemWAL. GATED ON P2
+## Stage 4 — FOLD onto MemWAL. ✅ P2 GREEN — the gate is passed, the risk moves
 
 Keep the cast/descriptor layer; put durability on MemWAL through `WalSink`.
 
