@@ -18,11 +18,22 @@ a comment.
 Both were surfaced only because q2 #146 un-gated a suite that runs on `macos-latest`
 (Apple Silicon). That is a downstream consumer's CI doing this repo's job.
 
-**What would close it:** one `runs-on: ubuntu-24.04-arm` (GitHub's free ARM runner) job
-running `cargo check --workspace` — or, cheaper and covering excluded crates too,
-`cargo check --target aarch64-unknown-linux-gnu` on the existing x86 runners, which
-needs only `rustup target add` and catches every error above (verified locally this
-session: the aarch64 cross-check reproduces all three `E0658`s exactly).
+**What would close it:** cross-compiling on the existing x86 runners is the cheap
+option — `rustup target add aarch64-unknown-linux-gnu` plus
+`cargo check --workspace --target aarch64-unknown-linux-gnu`. A dedicated
+`runs-on: ubuntu-24.04-arm` job is the alternative and needs no target plumbing.
+
+**⚠ But `--workspace` alone would NOT have caught the defect that opened this
+issue.** `bgz17` is in `exclude`, so no root-manifest invocation selects it — the
+cross-check has to be run per excluded crate, `cargo check --manifest-path
+crates/<c>/Cargo.toml --target aarch64-unknown-linux-gnu`, which is exactly how it
+was reproduced locally this session (all three `E0658`s, exactly). A first draft of
+this entry proposed the root-only form and claimed it covered excluded crates
+"too"; that was wrong, and wrong in the specific way that would have shipped a gate
+blind to its own founding example. Caught by a CodeRabbit review on #1205. So this
+issue and `ISS-EXCLUDED-CRATES-UNBUILT` are **not independent**: an aarch64 gate is
+only as wide as the crate list it is pointed at, and the member list is not that
+list.
 
 **Not done here** — adding a CI job is a policy change and an operator call, not a
 drive-by on a compile-fix PR. The point repairs shipped; the hole did not close.

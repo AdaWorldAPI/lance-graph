@@ -10,20 +10,35 @@ time. `crates/bgz17/src/prefetch.rs` failed with three `error[E0658]`:
 `std::arch::aarch64::{_prefetch, _PREFETCH_READ, _PREFETCH_LOCALITY3}` are
 gated behind the unstable `stdarch_aarch64_prefetch` feature
 (rust-lang/rust#117217). On the pinned stable 1.98.1 toolchain that is a hard
-compile error, not a missed optimization — **aarch64 has no stable prefetch
-intrinsic at all**, so the only correct form is the no-op path.
+compile error, not a missed optimization: **Rust 1.98.1 exposes no stable
+prefetch *intrinsic* on aarch64.** The no-op is therefore this crate's stable
+fallback — not the only conceivable form. Stable `asm!` IS available on
+aarch64 (since 1.59), so a hand-written `prfm` is possible; it is not
+warranted here for an advisory hint on a small matrix, and would need its own
+measurement to justify. (Narrowed after a CodeRabbit review on #1205 flagged
+the original "only correct form" as an overclaim; the flag was right.)
 
 **Why nothing caught it, and the reason is two independent holes:**
 
 1. **`bgz17` is workspace-`exclude`d** (`Cargo.toml:31`) — lance-graph's own CI
    never builds it as a member.
-2. **Every lance-graph runner is `ubuntu-*`** (measured: `grep runs-on
-   .github/workflows/*.yml` → 14 jobs, all ubuntu). There is no aarch64 runner
-   anywhere in this repo, so `#[cfg(target_arch = "aarch64")]` code is never
-   parsed as code — on x86 it is indistinguishable from a comment.
+2. **Every lance-graph runner is `ubuntu-*`** (measured: `grep -h runs-on
+   .github/workflows/*.yml` → 14 jobs, 0 non-ubuntu), and no job passes
+   `--target`. So no CI job in this repo has ever built the
+   `aarch64-unknown-linux-gnu` target, and on an x86 host a
+   `#[cfg(target_arch = "aarch64")]` block is not compiled or type-checked —
+   it is skipped like a comment.
 
-Either hole alone hides it. Both together mean the code had **never been
-compiled by anything, ever**, since it landed (#844).
+Either hole alone hides it. Both together mean **no CI job in this repository
+has ever compiled this block** since it landed (#844).
+
+**Scoped precisely, because the looser version is false.** The claim is about
+*this repo's CI*, NOT about the world: this session compiled the old code
+locally for aarch64 on purpose — that is exactly how the table below was
+produced — and q2's macOS runner compiled it too, which is what surfaced it.
+The first draft of this entry said "never compiled by anything, ever", which
+its own evidence table contradicts two lines down. Corrected after a
+CodeRabbit review on #1205 caught the self-contradiction.
 
 **Measured, red-then-green, locally:**
 
@@ -38,8 +53,9 @@ anything ever built it on.
 **This is the SECOND instance in one week.** #1200 fixed `contract/src/mul.rs`
 — NEON `_n_` intrinsics passed non-const shift operands and
 `is_aarch64_feature_detected!` was imported from the wrong module — found the
-same way, by the same un-gate. Two defects, one cause: **an architecture with
-no runner is an architecture with no compiler.**
+same way, by the same un-gate. Two defects, one cause: **an architecture no
+CI job builds is an architecture whose code is unverified** — the compiler
+exists and cross-compiling is one flag away; nothing was pointing it there.
 
 **Second, independent finding in the same sweep.** `bgz17`'s example carried a
 `clippy::chunks_exact_to_as_chunks` warning — the exact lint the
@@ -53,14 +69,17 @@ holes remain: excluded crates are still unbuilt and unlinted by this repo's CI,
 and there is still no aarch64 runner. Every other `#[cfg(target_arch =
 "aarch64")]` block in this workspace and in `ndarray` is in exactly the state
 these two were in ten minutes before they were measured — presumed fine,
-never compiled. Filed as `ISS-NO-AARCH64-RUNNER` / `ISS-EXCLUDED-CRATES-UNBUILT`
+never built by this repo's CI. Filed as `ISS-NO-AARCH64-RUNNER` / `ISS-EXCLUDED-CRATES-UNBUILT`
 rather than fixed here, because adding a runner is a CI-policy change and an
 operator call, not a drive-by.
 
-**The transferable rule:** a `cfg` you cannot build is a claim, not code. When
-a gate is removed and a new platform appears, expect the backlog of every
-never-compiled branch to arrive at once — and do not read "it compiles here" as
-evidence about anywhere else.
+**The transferable rule:** a `cfg` your CI never builds is a claim, not
+verified code. When a gate is removed and a new platform appears, expect the
+backlog of every unbuilt branch to arrive at once — and do not read "it
+compiles here" as evidence about anywhere else. The corollary this entry
+learned the hard way: that rule applies to the entry's OWN prose. "Never
+compiled by anything" was a stronger claim than "no CI job compiled it", and
+only the weaker one was measured.
 
 ## 2026-09-06 — E-I-CITED-THE-RIGHTMOST-REGISTER-AND-CALLED-IT-THE-ADDRESS-1 — three corrections to one entry, each because I reasoned instead of measuring
 
