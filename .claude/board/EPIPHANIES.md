@@ -7820,7 +7820,7 @@ verified against `MedCare-rs/data/config/bakes.tsv`). **Confidence:** High —
 every number is a count over 512-byte rows, tiers read at bytes 4..10.
 
 The board headline (`INTEGRATION_PLANS.md` ARC-B entry) and
-`EPIPHANIES.md:899` both state HHTL is **"zero on every baked row in both
+`EPIPHANIES.md` §`E-THE-OU-COLUMN-EXISTS-AND-NOTHING-WRITES-IT-1` (was cited as `:899`; re-anchored to the heading, line numbers shift under prepend) both state HHTL is **"zero on every baked row in both
 production bakes"**, citing `ogar-obo` (68,797 rows) and MedCare's
 `join-map.md` (68,797 rows). Both citations are correct. **Both describe the
 same artifact set of two.** A third pinned artifact exists:
