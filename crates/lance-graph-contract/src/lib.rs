@@ -146,6 +146,7 @@ pub use qualia::{
     QUALIA_DIMS, QUALIA_I4_DIMS, QUALIA_I4_LABELS, ZERO,
 };
 pub mod alpha;
+pub mod alpha_focus;
 pub mod alpha_tunnel;
 pub mod fusion;
 pub mod materialize;

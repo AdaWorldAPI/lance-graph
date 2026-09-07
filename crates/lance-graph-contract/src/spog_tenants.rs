@@ -30,13 +30,54 @@
 //! as config via ogar ogar-vocab"* — tenant bindings are DATA resolved
 //! through the codebook, never hardcoded literals in any crate.
 
-use crate::alpha::{AlphaAddr, AlphaAllocation, AlphaClaim, AlphaError, AlphaOverlay, AlphaStamp};
+use crate::alpha::{
+    AlphaAddr, AlphaAllocation, AlphaClaim, AlphaError, AlphaMask, AlphaOverlay, AlphaStamp,
+};
+use crate::canonical_node::NodeRow;
 
 /// The graph coordinate of an address — the canon-high concept half of its
 /// classid. No fourth column: G is read from the key.
 #[must_use]
 pub const fn graph_of(addr: AlphaAddr) -> u16 {
     (addr.classid() >> 16) as u16
+}
+
+/// The **block** a tenant belongs to — the high byte of its concept id.
+///
+/// A concept is `block:vocabulary` (`0x9101` = block `0x91`, vocabulary
+/// `0x01`), so several tenants routinely share one block: measured on a real
+/// consumer artifact, five distinct graphs resolved to one block. Grouping is
+/// therefore a SHIFT on the key, never a second stored coordinate — the same
+/// economy `graph_of` itself is.
+///
+/// What a block MEANS stays with the consumer that loaded the domain. This
+/// crate groups by it and never interprets it.
+#[must_use]
+pub const fn block_of(concept: u16) -> u8 {
+    (concept >> 8) as u8
+}
+
+/// **The tenant list as a census of the artifact, never as a table.**
+///
+/// Every row carries its graph in its own key, so the set of tenants a spine
+/// needs is a *reading* of that spine — not a configuration beside it that
+/// could disagree with it. This is what the module's "tenant bindings are
+/// DATA" line buys structurally: here the data IS the bake.
+///
+/// Ascending, so the declaration order — which [`SpogTenants::merge`] makes
+/// load-bearing — follows from the keys and never from a hash iteration.
+///
+/// This exists because the shape it answers to was measured rather than
+/// assumed: a consumer's baked artifacts carry **5, 8 and 16 distinct graphs
+/// in ONE file** (2026-09-07, over 60 478 / 7 641 / 762 041 rows). Bakes are
+/// not one-per-graph, which is precisely the case [`SpogTenants`] exists for —
+/// N tenants over ONE allocation, never N bakes and never N copies.
+#[must_use]
+pub fn census(rows: &[NodeRow]) -> Vec<u16> {
+    let mut seen: Vec<u16> = rows.iter().map(|r| graph_of(r.key)).collect();
+    seen.sort_unstable();
+    seen.dedup();
+    seen
 }
 
 /// What became of one tenant-routed claim.
@@ -64,6 +105,30 @@ pub struct SpogTenants<'a> {
     /// `(concept, shadow)` in the caller's declaration order — which is the
     /// merge order, so the caller's order is load-bearing and deterministic.
     tenants: Vec<(u16, AlphaOverlay<'a>)>,
+    /// The ONE allocation every shadow borrows. Held so the mask surface has
+    /// a base length even when no tenant was declared — an empty aufstellung
+    /// must still answer "nothing attended, out of N addresses" rather than
+    /// have no answer at all.
+    alloc: &'a AlphaAllocation<'a>,
+    /// **Which tenant took the n-th FRESH claim** — the one fact the shadows
+    /// cannot hold.
+    ///
+    /// Each shadow numbers its own claims from 0, so per-shadow `seq` is
+    /// exact WITHIN a graph and meaningless BETWEEN graphs: the interleaving
+    /// of a saccade that crosses tenants is destroyed by the split, and no
+    /// reading of the shadows can recover it. So it is recorded here, and
+    /// only here.
+    ///
+    /// This is not a second projection of something already stored. It is the
+    /// sole home of a fact that would otherwise be lost — the distinction the
+    /// zero-copy law turns on. It costs `u16` per fresh claim and NO address:
+    /// a tenant's own scanpath already carries which address, in order, so
+    /// the tenant id plus a per-tenant cursor reconstructs the global saccade
+    /// exactly ([`Self::merge_in_claim_order`]).
+    ///
+    /// Revisits are absent by construction — a revisit adds no position to any
+    /// scanpath, so recording one here would desynchronise the cursors.
+    route: Vec<u16>,
 }
 
 impl<'a> SpogTenants<'a> {
@@ -78,7 +143,24 @@ impl<'a> SpogTenants<'a> {
                 tenants.push((c, AlphaOverlay::over_shared(alloc, cycle)));
             }
         }
-        Self { tenants }
+        Self {
+            tenants,
+            alloc,
+            route: Vec::new(),
+        }
+    }
+
+    /// **The no-configuration constructor**: one shadow per graph the
+    /// allocation's own spine carries ([`census`]).
+    ///
+    /// With this there is no list to keep in step with the bake, so
+    /// [`TenantClaim::NoTenant`] becomes structurally unreachable for any
+    /// address of THIS spine — a claim can only miss a tenant if the caller
+    /// declared a narrower set on purpose.
+    #[must_use]
+    pub fn over_census(alloc: &'a AlphaAllocation<'a>, cycle: u32) -> Self {
+        let concepts = census(alloc.base());
+        Self::over(alloc, cycle, &concepts)
     }
 
     /// Route a claim to the tenant owning `graph_of(addr)`.
@@ -88,7 +170,12 @@ impl<'a> SpogTenants<'a> {
             return TenantClaim::NoTenant(g);
         };
         match shadow.claim(addr, rung) {
-            Ok(c) => TenantClaim::Routed(g, c),
+            Ok(c) => {
+                if c.fresh {
+                    self.route.push(g);
+                }
+                TenantClaim::Routed(g, c)
+            }
             Err(e) => TenantClaim::Substrate(e),
         }
     }
@@ -102,16 +189,138 @@ impl<'a> SpogTenants<'a> {
             .map(|(_, s)| s)
     }
 
+    /// The row at `addr`, found through the SAME routing a claim used.
+    ///
+    /// A reader should not have to know which shadow holds an address —
+    /// `graph_of` already answers that, and making the caller re-derive it
+    /// would be a second routing rule that can drift from the first.
+    /// [`None`] when the graph has no tenant or the address was never claimed;
+    /// the two are deliberately not distinguished here, because a reader
+    /// asking "was this attended" wants one answer. Use
+    /// [`tenant`](Self::tenant) when the difference matters.
+    #[must_use]
+    pub fn get(&self, addr: AlphaAddr) -> Option<&NodeRow> {
+        self.tenant(graph_of(addr))?.get(addr)
+    }
+
+    /// The stamp at `addr`, routed as [`get`](Self::get) routes.
+    #[must_use]
+    pub fn stamp(&self, addr: AlphaAddr) -> Option<AlphaStamp> {
+        self.get(addr).map(crate::alpha::stamp_of)
+    }
+
     /// The declared tenant concepts, in declaration order.
     #[must_use]
     pub fn concepts(&self) -> Vec<u16> {
         self.tenants.iter().map(|(k, _)| *k).collect()
     }
 
+    /// The tenants of one block, in declaration order — grouping by
+    /// [`block_of`], a shift on the key.
+    #[must_use]
+    pub fn tenants_in_block(&self, block: u8) -> Vec<u16> {
+        self.tenants
+            .iter()
+            .map(|(k, _)| *k)
+            .filter(|&c| block_of(c) == block)
+            .collect()
+    }
+
+    /// The allocation every shadow borrows — the ONE address space.
+    #[must_use]
+    pub fn allocation(&self) -> &'a AlphaAllocation<'a> {
+        self.alloc
+    }
+
+    /// **One tenant's population, as a mask.** [`None`] for an undeclared
+    /// graph — an absent tenant is not an empty one, and answering an empty
+    /// mask would make "this graph has no shadow" indistinguishable from
+    /// "this graph was never looked at".
+    #[must_use]
+    pub fn tenant_mask(&self, concept: u16) -> Option<AlphaMask> {
+        self.tenant(concept).map(AlphaOverlay::attended_mask)
+    }
+
+    /// Everything any tenant attended, as one mask — the SPOG half of the
+    /// rung × tenant cross ([`crate::alpha_focus`]).
+    ///
+    /// Recomputed, never stored: the shadows are the truth and a cached union
+    /// would be a second reading of them.
+    #[must_use]
+    pub fn attended_mask(&self) -> AlphaMask {
+        let mut m = AlphaMask::empty(self.alloc.base().len());
+        for (_, s) in &self.tenants {
+            m = m.or(&s.attended_mask());
+        }
+        m
+    }
+
+    /// How many addresses exist — the allocation's size. Never how many rows
+    /// any shadow holds.
+    #[must_use]
+    pub fn allocated_len(&self) -> usize {
+        self.alloc.len()
+    }
+
+    /// **The absence within the aufstellung**: allocated addresses no tenant
+    /// ever claimed.
+    ///
+    /// The SPOG sibling of [`AlphaOverlay::unattended`], and it must be asked
+    /// of the aufstellung rather than of any single shadow: a shadow's own
+    /// `unattended` reports every address of every OTHER graph as unattended
+    /// too, which is true of that shadow and useless as a reading of the
+    /// thought.
+    #[must_use]
+    pub fn unattended(&self) -> Vec<AlphaAddr> {
+        self.alloc
+            .base()
+            .iter()
+            .map(|r| r.key)
+            .filter(|a| self.get(*a).is_none())
+            .collect()
+    }
+
     /// Total claims across all shadows.
     #[must_use]
     pub fn claimed_len(&self) -> usize {
         self.tenants.iter().map(|(_, s)| s.claimed_len()).sum()
+    }
+
+    /// **The saccade as it happened**, across tenants — visit order, not
+    /// declaration order.
+    ///
+    /// The sibling of [`merge`](Self::merge), and the two answer different
+    /// questions: `merge` groups a thought BY GRAPH (every claim of one
+    /// tenant together, which is what a per-graph reading wants); this
+    /// replays it IN TIME (what attention did, in the order it did it), which
+    /// is what a scanpath consumer and any order-sensitive replay wants.
+    ///
+    /// Reconstructed from [`Self::route`] plus each tenant's own scanpath —
+    /// one cursor per tenant, advanced as its id comes up. `seq` is re-issued
+    /// as the global position, so it means the same thing it means in a
+    /// single overlay.
+    #[must_use]
+    pub fn merge_in_claim_order(&self) -> Vec<(AlphaAddr, AlphaStamp)> {
+        let mut cursor: Vec<(u16, usize)> = self.tenants.iter().map(|(k, _)| (*k, 0)).collect();
+        let mut out = Vec::with_capacity(self.route.len());
+        for &g in &self.route {
+            let Some((_, shadow)) = self.tenants.iter().find(|(k, _)| *k == g) else {
+                continue;
+            };
+            let Some(slot) = cursor.iter_mut().find(|(k, _)| *k == g) else {
+                continue;
+            };
+            let Some(addr) = shadow.scanpath().nth(slot.1) else {
+                continue;
+            };
+            slot.1 += 1;
+            if let Some(row) = shadow.get(addr) {
+                let mut st = crate::alpha::stamp_of(row);
+                st.seq = u32::try_from(out.len()).unwrap_or(u32::MAX);
+                out.push((addr, st));
+            }
+        }
+        out
     }
 
     /// Merge the shadows into one deterministic scanpath: declaration order,
@@ -206,6 +415,54 @@ mod tests {
         assert_eq!(t.claimed_len(), 3, "the stray claim landed nowhere");
     }
 
+    /// `get` routes by the SAME rule a claim routes by — a reader never has
+    /// to know which shadow holds an address.
+    ///
+    /// Two-sided: an address claimed in a LATER-declared tenant must still be
+    /// found (so the reading cannot be a scan of the first shadow), and an
+    /// allocated-but-unclaimed address must be `None` (so it cannot be
+    /// answering from the allocation instead of the shadows).
+    #[test]
+    fn get_routes_by_graph_the_way_claim_does() {
+        let b = base();
+        let alloc = AlphaAllocation::over(&b);
+        let mut t = SpogTenants::over(&alloc, 1, &[0x0900, 0x0302, 0x0301]);
+        assert!(t.claim(b[0].key, 6).routed()); // 0x0301 — declared LAST
+        assert_eq!(t.stamp(b[0].key).expect("found via routing").rung, 6);
+        assert!(t.get(b[1].key).is_none(), "allocated, never claimed");
+        assert!(t.get(b[9].key).is_none(), "0x0777 has no tenant at all");
+    }
+
+    /// The absence is asked of the AUFSTELLUNG, never of one shadow — a
+    /// single shadow calls every other graph's addresses unattended, which is
+    /// true of it and useless as a reading of the thought.
+    ///
+    /// Two-sided: the unattended set shrinks by exactly the claim, and the
+    /// claimed address is NOT in it.
+    #[test]
+    fn unattended_is_a_reading_of_the_aufstellung_not_of_one_shadow() {
+        let b = base();
+        let alloc = AlphaAllocation::over(&b);
+        let mut t = SpogTenants::over(&alloc, 1, &[0x0301, 0x0302, 0x0900]);
+        assert_eq!(t.allocated_len(), b.len());
+        assert_eq!(t.unattended().len(), b.len(), "nothing attended yet");
+
+        assert!(t.claim(b[4].key, 1).routed()); // 0x0302
+        let un = t.unattended();
+        assert_eq!(un.len(), b.len() - 1, "exactly the one claim");
+        assert!(!un.contains(&b[4].key), "the claimed address is not absent");
+        assert!(un.contains(&b[0].key), "another graph's address still is");
+
+        // The single-shadow reading would say something else entirely.
+        let lone = t.tenant(0x0302).unwrap().unattended().count();
+        assert_eq!(
+            lone,
+            b.len() - 1,
+            "one shadow counts every foreign address as unattended — the reason \
+             this method exists on the aufstellung"
+        );
+    }
+
     /// One substrate, never two shadows for one graph: duplicate concepts
     /// collapse; a revisit is counted in the ONE shadow's `visits`.
     #[test]
@@ -220,6 +477,95 @@ mod tests {
         let st = crate::alpha::stamp_of(t.tenant(0x0301).unwrap().get(b[0].key).unwrap());
         assert_eq!(st.visits, 2, "the return is counted");
         assert_eq!(st.rung, 1, "the first stamp is kept");
+    }
+
+    /// **The order falsifier.** `merge` groups a thought BY GRAPH; the
+    /// interleaved saccade — what attention did, in time — is a different
+    /// sequence, and only [`SpogTenants::merge_in_claim_order`] has it.
+    ///
+    /// Two-sided on purpose: the two readings must hold the SAME addresses
+    /// (nothing invented, nothing dropped) and must NOT be in the same order
+    /// (otherwise this method is decoration and the fixture is one that
+    /// cannot tell them apart). A revisit must add no position to either.
+    ///
+    /// Disable-verified: dropping the `c.fresh` guard on `route.push` — so a
+    /// revisit records a position — desynchronises the cursors and replays the
+    /// saccade in the WRONG ORDER.
+    ///
+    /// The first version of this fixture revisited at the END and the disable
+    /// stayed GREEN: the extra route entry simply ran the revisited tenant's
+    /// cursor off its own scanpath, and the surplus was dropped. A revisit
+    /// only produces an observable defect when another tenant claims after it
+    /// and the revisited tenant claims again — so the fixture's SHAPE is part
+    /// of what this test covers, not just its values.
+    #[test]
+    fn claim_order_replays_the_interleaved_saccade_that_declaration_order_loses() {
+        let b = base();
+        let alloc = AlphaAllocation::over(&b);
+        // Declaration order is deliberately NOT the visit order below.
+        let mut t = SpogTenants::over(&alloc, 4, &[0x0900, 0x0302, 0x0301]);
+
+        // Attention crosses tenants, RETURNS mid-way, and then goes on — and
+        // that exact shape is what makes the revisit rule falsifiable. A
+        // revisit followed by nothing, or followed only by more of the same
+        // tenant, is absorbed by the cursor running off its own scanpath and
+        // proves nothing; the wrong position only surfaces when a DIFFERENT
+        // tenant claims after the revisit and the revisited one claims again.
+        assert!(t.claim(b[0].key, 2).routed()); // 0x0301
+        assert!(t.claim(b[4].key, 2).routed()); // 0x0302
+        assert!(t.claim(b[0].key, 9).routed()); // 0x0301 AGAIN — not a position
+        assert!(t.claim(b[7].key, 2).routed()); // 0x0900
+        assert!(t.claim(b[1].key, 2).routed()); // 0x0301, after the crossing
+
+        let timed: Vec<AlphaAddr> = t.merge_in_claim_order().iter().map(|(a, _)| *a).collect();
+        assert_eq!(
+            timed,
+            vec![b[0].key, b[4].key, b[7].key, b[1].key],
+            "the saccade replays in the order it happened, revisit adding nothing"
+        );
+
+        let grouped: Vec<AlphaAddr> = t.merge().iter().map(|(a, _)| *a).collect();
+        assert_eq!(
+            grouped,
+            vec![b[7].key, b[4].key, b[0].key, b[1].key],
+            "declaration order groups by graph"
+        );
+
+        // Same population, different sequence — the whole point.
+        let mut a = timed.clone();
+        let mut c = grouped.clone();
+        a.sort_unstable_by_key(|k| (k.classid(), k.identity()));
+        c.sort_unstable_by_key(|k| (k.classid(), k.identity()));
+        assert_eq!(a, c, "nothing invented, nothing dropped");
+        assert_ne!(
+            timed, grouped,
+            "anti-vacuity: a fixture where both readings agree proves nothing"
+        );
+
+        // seq is the global position in each reading.
+        let seqs: Vec<u32> = t
+            .merge_in_claim_order()
+            .iter()
+            .map(|(_, s)| s.seq)
+            .collect();
+        assert_eq!(seqs, vec![0, 1, 2, 3]);
+        assert_eq!(
+            t.merge_in_claim_order().len(),
+            4,
+            "one position per FRESH claim"
+        );
+        // ...and the RUNG is still the first visit's, never the revisit's.
+        assert_eq!(t.merge_in_claim_order()[0].1.rung, 2, "first stamp kept");
+        assert_eq!(
+            t.merge_in_claim_order()[0].1.visits,
+            2,
+            "the return is counted"
+        );
+        assert_eq!(
+            t.merge_in_claim_order(),
+            t.merge_in_claim_order(),
+            "deterministic"
+        );
     }
 
     /// Merge is deterministic and ordered by tenant DECLARATION order, then
