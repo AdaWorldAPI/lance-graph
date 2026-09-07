@@ -401,6 +401,45 @@ prior PR added it.
 **Status:** FINDING, measured (grep `ternlog|AND3` over `lance-graph-java/native/lgj-abi/src/*.rs` at lgj `dbac826`: **0 hits**; `lgj_hop` read in full, `exports.rs:1712-1860`). Corrects `E-NXG-8` (2026-09-05, below) and `.claude/knowledge/membrane-tiers.md` §"The polyfill is the worked instance" (⊘ in place, same commit). Spec that carries the correction forward: `.claude/plans/spog-alpha-channel-v1.md` §1a/§4/§8.
 **Confidence:** High. The absence is a full-file read plus an exhaustive grep, not an inference.
 
+> **⊘ 2026-09-07 — FALSIFIED BY CURRENT LGJ HEAD `8720d1d`. The finding held only for the stale pin.**
+>
+> The measurement above is correct *for `dbac826`* and wrong as a statement about
+> lgj. At `8720d1d` (2026-09-05, the branch tip this repo can reach), `lgj_hop`
+> dispatches ONE call —
+> `kernels::simd_mask_ternlog_assign::<{ kernels::ternlog::AND3 }>` (`exports.rs:1816`)
+> — `kernels.rs:100` is `pub use ndarray::simd::ternlog;`, `kernels.rs:111` is the
+> `simd_mask_ternlog_assign<const IMM: i32>` wrapper, and **`simd_mask_and_assign`
+> does not appear in `exports.rs` at all**. The two-AND → ternlog collapse shipped
+> **2026-09-04** (lgj `LATEST_STATE.md`, measured 3.5–5× on the columnar-hop bench).
+>
+> So the correct historical statement is not *"fused `AND3` never shipped"* but
+> **"fused `AND3` was absent at the stale pin `dbac826`, and shipped before this
+> audit was written."** Three consequences:
+>
+> 1. **`E-NXG-8`'s `AND3` row is VINDICATED, not regraded.** *"`AND3` = conjunctive
+>    narrowing (`lgj_hop`, shipped)"* is true at HEAD. The ⊘ this entry put on its
+>    Confidence line is itself withdrawn (second dated note there).
+> 2. **`membrane-tiers.md`'s original sentence is RESTORED.** *"`exports.rs` names
+>    `kernels::ternlog::AND3`"* was true; the "correction" replaced a true sentence
+>    with a false one — and did so four lines above that file's own Provenance
+>    paragraph, which names *"the two-AND→ternlog conjunction (T2 hand-composing a
+>    T1 op; fixed by naming the op at T1)"* as **one of the two fixes the tier
+>    doctrine was derived from**, dated 2026-09-04. The entry denied the doctrine's
+>    own founding receipt.
+> 3. **"the FIRST production-shaped ternlog consumer" is wrong.** `lgj_hop` is, and
+>    has been since 2026-09-04. The SPOG cross would be the second.
+>
+> The regrade to OPPORTUNITY is withdrawn; the P3 amortization caveat survives on
+> its own terms (it is about the SPOG cross's shape, not about lgj).
+>
+> **What survives, and it is the more useful half:** a board claim pinned to a
+> foreign repo's sha decays silently, and the decay is invisible from inside this
+> repo — no gate here reads lgj. Evidence is now repinned to `8720d1d`; the
+> `dbac826` measurement stands as historical evidence of that commit only. This is
+> the mechanism `ISS-LGJ-CROSS-REPO-CITATION-GOES-STALE-SILENTLY` (lgj's own
+> ISSUES.md) names from the other side — the same defect, found independently in
+> both directions within four days.
+
 **The claim.** `E-NXG-8` mapped the eight named ternlog immediates to cognitive homes and wrote *"`AND3` = conjunctive narrowing (`lgj_hop`, shipped)"*; `membrane-tiers.md` illustrated the T1/T2 stacking with *"`exports.rs` names `kernels::ternlog::AND3`, never `ndarray::simd` directly."* Both read as shipped code.
 
 **The tree.** `lgj_hop` composes `selected_f = src ∧ class_f ∧ struct_f` as TWO sequential `kernels::simd_mask_and_assign` calls (`exports.rs:1818` then `:1822`), after `simd_rowstore_u32_eq_mask` for each of `class_f` and `struct_f`. `kernels.rs` (1,409 lines, read in full) exports `simd_eq_u32_to_mask`, `simd_gt_i32_to_mask`, `simd_mask_{and,or,andnot}(_assign)`, `simd_masked_sum_i32`, `simd_popcount`, `simd_rowstore_u32_eq_mask`, `simd_rowstore_classid_mask`, `simd_rowstore_facet_match`, `masked_facet_sum` — no ternlog wrapper of any name. The named immediates ARE consumed by name in this repo, at exactly one place: `crates/lance-graph-planner/examples/probe_nxg_hist_1.rs:51-136` (`AND_ANDNOT2` as the bucket, `AND3` as its can-it-fire twin). That is a probe, not a hop.
@@ -1596,7 +1635,7 @@ families is a violation at the seal.
 ## 2026-09-05 — E-NXG-8 — the eight named immediates already have cognitive homes
 
 **Status:** FINDING (mapping of shipped code).
-**Confidence:** High on the mapping. **⊘ 2026-09-07:** the `AND3` row's parenthetical *"(`lgj_hop`, shipped)"* is FALSE — lgj-abi has no ternlog call site; see `E-THE-FUSED-AND3-HOP-WAS-NEVER-SHIPPED-LGJ-HOP-IS-TWO-ANDS-1` (2026-09-07). The other seven rows stand.
+**Confidence:** High on the mapping. **⊘ 2026-09-07:** the `AND3` row's parenthetical *"(`lgj_hop`, shipped)"* is FALSE — lgj-abi has no ternlog call site; see `E-THE-FUSED-AND3-HOP-WAS-NEVER-SHIPPED-LGJ-HOP-IS-TWO-ANDS-1` (2026-09-07). The other seven rows stand. **⊘⊘ WITHDRAWN, same day:** that ⊘ was measured at the stale pin `dbac826`. At lgj HEAD `8720d1d` the row is TRUE — `lgj_hop` is one `simd_mask_ternlog_assign::<AND3>` (`exports.rs:1816`), shipped 2026-09-04. **All eight rows stand.**
 
 `AND3` = conjunctive narrowing (`lgj_hop`, shipped); `AND_ANDNOT2` = bucket /
 annulus / known-false (`domain ∧ ¬result`); `MAJ3` = quorum

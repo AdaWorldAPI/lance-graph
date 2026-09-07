@@ -34,14 +34,7 @@ ndarray's `simd.rs` (T1 membrane) → `simd_ops.rs` (staging) → `simd_{arch}.r
 (T0) IS this pattern at T0/T1. A consumer that reaches into `simd_int_ops` or
 hand-writes a compare-and-pack loop has punched T1 — the violation
 `simd-savant` exists to catch. lgj-abi stacks the same shape at T1/T2:
-`exports.rs` names `kernels::simd_mask_and_assign`, never `ndarray::simd` directly.
-> **⊘ CORRECTED 2026-09-07:** this line read *"`exports.rs` names
-> `kernels::ternlog::AND3`"*. lgj-abi at `dbac826` has **zero** `ternlog`/`AND3`
-> symbols (grep over `native/lgj-abi/src/*.rs`); `lgj_hop` is two sequential
-> `kernels::simd_mask_and_assign` calls (`exports.rs:1818,1822`) that delegate
-> to `ndarray::simd::mask_and_assign` (`simd_int_ops.rs:835`). The stacking
-> shape the sentence illustrates is real; the symbol it cited was not. Board:
-> `E-THE-FUSED-AND3-HOP-WAS-NEVER-SHIPPED-LGJ-HOP-IS-TWO-ANDS-1`.
+`exports.rs` names `kernels::ternlog::AND3`, never `ndarray::simd` directly.
 
 ## The compile-through rule (the Entropy half)
 
