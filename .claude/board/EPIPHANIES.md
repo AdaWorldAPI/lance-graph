@@ -1,3 +1,76 @@
+## 2026-09-07 — E-A-CONSUMER-THAT-OPENS-A-DATASET-HAS-ALREADY-LOST-1 — re-deriving a proven identity from outside the thing that proves it is the tell
+
+**Status:** FINDING, operator-caught (2026-09-07: *"that's not a convenience you're
+violating lance-graph 879 batchwriter SOA owned"*, then *"879 909..912 1049 1198"*).
+Verified against the merged code and the #879/#911/#912 arc entries.
+**Confidence:** High — every property below is quoted from the shipped module docs.
+
+**What I did.** Writing D-SPG-6 ("sealed batch per cycle"), I wrote a free
+`async fn seal_alpha_cycle` in a CONSUMER that did `Dataset::open` to read the
+version, computed `cycle = version + 1`, and `Dataset::write`-appended. I
+justified it as convenience — reaching for the `lance` umbrella crate because a
+neighbouring function already did. That framing was wrong twice over: it was not
+convenience, it was an ownership violation; and the DataFusion weight I was
+worrying about was a symptom, not the disease.
+
+**What already existed.** `LanceCycleWriter` (`lance-graph::graph::cycle_sink`,
+#911 → #912 Phase A) is the **SOLE application writer**, and the topology is
+enforced by the TYPE: non-`Clone` (a second handle cannot be minted),
+`commit_cycle(&mut self, …)` (two commits cannot interleave), one long-lived
+owned `Dataset` handle (no per-operation reopen). The 64k SoA owners are
+*"parallel PRODUCERS (fire-and-forget: they cast on behalf of their mailbox and
+receive no acknowledgement), never Lance writers"*.
+
+**The four properties my version lacked**, each hard-won in a review round:
+
+| shipped | mine |
+|---|---|
+| sole writer, non-`Clone`, owned handle | a second unowned writer, reopening per call |
+| producers cast, never write | consumer written as a Lance writer |
+| **no semantic change → no write → no version** (#911's empty-cycle versioning REMOVED) | wrote unconditionally — an empty saccade mints a version |
+| no rollback; durable `(cycle, batch_hash)`, reconcile FIRST, `HashConflict` fails closed | read-version-then-append: a TOCTOU |
+
+**The sharpest of them.** `Append` in Lance **rebases even on a single attempt**
+(strict no-rebase exists only for `Overwrite` — measured in
+`lance-9.0.0/src/io/commit.rs`). So my "refuse, not renumber" guard — read the
+version, compare, then append — *cannot do what its own error message claims*.
+#911 first fixed this with a compensating `Dataset::delete`; #912 then REMOVED
+that too, because a published manifest is HISTORY and a delete is another
+version, not a rollback. I had reinvented a mechanism that was already tried and
+already superseded.
+
+**The transferable tell, and it is cheap to check.**
+`sealed_version = base_version + 1` is recorded on the #911 entry as *"a verified
+identity, not an assumption"* — verified INSIDE the sink, which is what lets
+readers derive the cycle↔version mapping from the co-committed frame row with
+zero sidecar state. **I re-derived that identity from outside the component that
+proves it.** Whenever code computes `next = current + 1` for state another
+component owns, the question is not "is the arithmetic right" (it was) but "who
+is entitled to say this" — and if the answer is a type you did not call, the
+write is already an orphan. A consumer that reaches for `Dataset::open` has
+answered that question wrongly before writing a line.
+
+**Why the DataFusion weight was the symptom.** Bypassing the owned writer meant
+reaching for the `lance` umbrella crate, which drags the query engine in
+transitively. Operator, same session: *"datafusion does joins, we do masking Ops,
+no joins ever"* — a join materialises the rejected world (two relations in, a
+third out), which is the exact complement of `resident ⊗ A ⊗ B ⊗ C`. The
+crosswalk is the thing that LOOKS like a join (MONDO ↔ CUI ↔ LOINC ↔ SNOMED) and
+is a chain of masked equality sweeps (§3.2), so there is no join formulation to
+carry. Read against
+`E-TOPOLOGY-MASKS-MAGNITUDE-COMPOSE-NEVER-COLLAPSE-1` (same day): a query engine
+on this path is a fourth thing that collapses topology, masks and magnitude back
+into relational algebra.
+
+**Falsifier.** Any consumer-side `Dataset::open` / `Dataset::write` in the
+alpha/mask chain; any caller computing a version successor for state it does not
+own; any cast payload carrying owned rows rather than a `(mailbox, row-range,
+cycle)` descriptor. The withdrawn implementation is banked in the session
+scratchpad as the worked example rather than deleted, because the four-row table
+above is only legible next to the code that got each row wrong.
+
+---
+
 ## 2026-09-07 — E-TOPOLOGY-MASKS-MAGNITUDE-COMPOSE-NEVER-COLLAPSE-1 — Mississippi Queen, TERNLOG chaining and BLASGraph pay for ONE operation, from three sides
 
 **Status:** OPERATOR RULING (2026-09-07, verbatim in substance), recorded on

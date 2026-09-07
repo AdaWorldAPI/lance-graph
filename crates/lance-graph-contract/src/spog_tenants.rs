@@ -348,9 +348,32 @@ impl<'a> SpogTenants<'a> {
     /// The merged saccade as canonical rows — the SAME shape [`AlphaOverlay`]
     /// writes and [`crate::alpha_tunnel::AlphaTunnel::merged_rows`] returns,
     /// so a tenant aufstellung, a tunnel and a single overlay are ONE table to
-    /// any writer. This is the row form the sealed batch per cycle is built
-    /// from: the stamp is [`merge`](Self::merge)'s (globally re-sequenced),
-    /// the edge block stays reserved-and-zeroed, nothing else is materialized.
+    /// any READER: the stamp is [`merge`](Self::merge)'s (globally
+    /// re-sequenced), the edge block stays reserved-and-zeroed, nothing else
+    /// is materialized.
+    ///
+    /// # NOT a write payload — do not hand this to a Lance writer
+    ///
+    /// An earlier version of this comment called it *"the row form the sealed
+    /// batch per cycle is built from"*. That sentence was wrong and it pointed
+    /// at a structural violation, so it is corrected here rather than deleted.
+    ///
+    /// The sealed batch per cycle belongs to `LanceCycleWriter`
+    /// (`lance-graph::graph::cycle_sink`, #911 → #912 Phase A), the **SOLE
+    /// application writer**: non-`Clone`, `commit_cycle(&mut self, …)`, one
+    /// long-lived owned `Dataset` handle. SoA owners are fire-and-forget
+    /// PRODUCERS that `cast` on behalf of a mailbox; they are never Lance
+    /// writers. And the cast payload is a DESCRIPTOR — `(mailbox, dirty
+    /// row-range, cycle)` — never owned delta bytes: deltas stay in the SoA
+    /// backing store and the sink reads them through `NodeRowPacket::
+    /// as_le_bytes` at flush (zero-copy sink ruling,
+    /// `lance-graph-planner::batch_writer` module doc).
+    ///
+    /// So this method is a READING — a debugger/replay surface and an
+    /// arrow-encode source — and materializing it in order to write it is the
+    /// error. `sealed_version = base_version + 1` is likewise a verified
+    /// identity INSIDE that sink, never arithmetic a caller performs from
+    /// outside it.
     #[must_use]
     pub fn merged_rows(&self) -> Vec<NodeRow> {
         self.merge()
