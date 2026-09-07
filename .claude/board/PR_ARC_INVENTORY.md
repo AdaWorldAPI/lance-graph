@@ -1,3 +1,64 @@
+## 2026-09-07 — lance-graph PR #1217 (merged `b518dbf1`, branch `claude/great-curie-d2ufyl`) — a commit orphaned by a reset, and a board that recorded the opposite
+
+- **Added:** `.claude/plans/nodeguid-new-repurpose-audit-v1.md` (5+3 council SPEC v1
+  for the `NodeGuid::new` repurpose audit, READ-ONLY, `D-NGN-AUDIT`), recovered
+  from `git fsck --lost-found` and cherry-picked — content identical to what was
+  written, nothing re-derived. Plus `EPIPHANIES`
+  `E-AN-EMPTY-RANGE-AFTER-A-RESET-IS-NOT-EVIDENCE-1`, the `INTEGRATION_PLANS`
+  prepend, the `STATUS_BOARD` `D-NGN-AUDIT` row, and a dated correction to the
+  #1201 record in both `LATEST_STATE` and this file.
+- **The finding.** SPEC v1 was committed (`3dd98b2b`) and then orphaned by a
+  `git checkout -B <branch> origin/main` run while it was still unmerged. It
+  never reached `main`. **The check that was supposed to prevent this certified
+  the loss instead:** `git log origin/main..<branch>` returned EMPTY, which was
+  read as "nothing unmerged" — but it was empty *by construction*, because an
+  earlier reset had already re-pointed the branch AT `origin/main`. The symptom
+  of the failure is indistinguishable from the all-clear. Correct check:
+  `git merge-base --is-ancestor <branch> origin/main`, or the reflog — a ref the
+  operation you are about to perform cannot move. (Applied to this PR's own
+  branch restart, which is how it should be read.)
+- **Corrected, about #1201.** That entry carried a self-correction saying the PR
+  "merged MIXED" because the spec commit was pushed to it. **False** — the
+  commit was never an ancestor of `main`, and #1201 merged hygiene-only exactly
+  as its own body said. The body was right; the correction was wrong. Both
+  records now carry dated corrections and the historical entries are left
+  verbatim.
+- **Locked (append-only mechanics, adjudicated against the rule text when two
+  review bots asked for opposite changes on the same line).** `LATEST_STATE`'s
+  dated per-PR sections are historical ⇒ restore verbatim and PREPEND the
+  correction; `PR_ARC_INVENTORY` has its own narrower rule (*"corrections append
+  as new dated lines"*) ⇒ append in place; `STATUS_BOARD` is a live dashboard
+  with an in-place lifecycle (`Queued → In progress → In PR → Shipped`) ⇒ one row
+  per D-id, never a prepended duplicate. CodeRabbit withdrew both findings it had
+  raised against the latter two and banked all three as repo learnings.
+- **The miss worth keeping.** `D-NGN-AUDIT` is recorded in THREE files and the
+  first pass updated two — the plan index still read "Phase 1 cast" while the
+  dashboard said HELD at Phase 2, which would have invited re-casting a council
+  that had already reported. **A review finding names a symptom in one file; the
+  fix is the fact, and the fact has to be chased to every record that states it.**
+- **What the citation gate could NOT catch:** the board cited a PATH, not a
+  symbol, so a plan file that existed nowhere read as a valid reference for a
+  day. An absent symbol fails citation-decay; an absent path does not. Same shape
+  as #1203's failure, one level up.
+- **Deferred / NOT in scope:** the council stays HELD at Phase 2 on the F5
+  VIOLATES (`wave.abi` → `inherited_part_of` vs *"Nobody walks anything"*),
+  which is the operator's to rule. Measured en route and recorded for whoever
+  rules it: that path reads gz-TSV sidecar HashMaps (`obo_full_edges`,
+  `obo_ro_edges`), **not** the declared `edge_lanes` slab and **not** DataFusion
+  — pre-flip residue and a second projection of edges the row already carries.
+  Note `E-EVERY-DOMAIN-IS-A-TABLE-AND-A-CROSSWALK-IS-A-CHAIN-OF-MASKS-1`
+  (operator-ruled, landed in #1218 and merged into this branch) names the same
+  class from the other end: *something decided once upstream, re-derived at read
+  time, per row* — and `obo_store.rs` is one of its six cited sites.
+- **Also flagged, not acted on:** 42 commits of drift moved `canonical_node.rs`
+  by +142 lines on `mint_for`'s V2/V3 arm — the exact unit three savants named.
+  SPEC §2's line numbers there are stale; Phase 3 should not be cast against v1
+  as written, and re-anchoring §2 to symbols is cheaper than re-running S3.
+- **Confidence:** High on every git fact (each executed, not inferred) and on the
+  three append-only readings (each quoted from `CLAUDE.md` and accepted by the
+  reviewer that had argued the opposite). The audit itself still reaches NO
+  verdict — nothing was implemented.
+
 ## 2026-09-07 — lance-graph PR #1211 (merged `c3bb095b`, branch `claude/ndarray-simd-tract-o3jfrn`) — the V1 guard was tested; the V3 guard that replaced it was not
 
 - **Added:** three tests in `crates/lance-graph-contract/src/canonical_node.rs`
