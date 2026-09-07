@@ -135,6 +135,15 @@ above. They may be ruled on independently of §§1–4, which stand on their own
   compares **bare** offsets (valid only for co-located rows); fabric-level
   `absolute_agreement` compares **absolute** events (`pos_a + o_a == pos_b +
   o_b`). One must become canonical and the other route through it.
+- **P5** (added 2026-09-07, plan inventory — a cross-reference, not a new
+  proposal) — `.claude/knowledge/literature-harvest-2026-09-01-post-1132.md`
+  census row **D3** rules from the Hambly–Lyons side what §§3–4 rule from the
+  slot-purity side: *"a single `u8:u8` rail read as ONE scalar axis is d=1 and
+  carries only the endpoint"* (Diehl–Ebrahimi-Fard–Tapia Rem. 1.4), so the
+  canon "`u8:u8` is two bytes, never widened" is load-bearing for any
+  signature over a rail (`d ≥ 2` static precondition). Neither document
+  cited the other before this line. Whether D3 constrains **P1**'s choice of
+  primary axis is open.
 
 ## §6 Falsifier for this page
 

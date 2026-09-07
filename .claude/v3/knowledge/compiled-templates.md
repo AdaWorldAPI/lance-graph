@@ -80,7 +80,7 @@ over the same canon concept, exactly like app render skins
 
 ## Gap list (see INTEGRATION-PLAN W3)
 
-- `StepMask` type does not exist yet (mint in contract, sibling of FieldMask).
+- ~~`StepMask` type does not exist yet (mint in contract, sibling of FieldMask).~~ ⊘ SHIPPED — `contract::step_mask::StepMask` (D-V3-W3a, STATUS_BOARD, 2026-07-10). This line lagged the board by eight weeks; corrected 2026-09-07 (plan inventory). The three gaps below stand (W3b/c/d Queued).
 - ElixirTemplate → graph-flow `GraphBuilder` adapter (rs-graph-llm side).
 - Rig oracle node + equivalence-gated compile-down loop (D-VCW-7 lineage).
 - Catalogue dispatch keyed by classid custom half (P4-gated).

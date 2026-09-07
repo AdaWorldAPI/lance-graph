@@ -91,7 +91,7 @@ Meta/Plasticity widths differ persisted-vs-hot with no parity test;
 | template-equivalence (Exact/RankOrder live; Semantic fail-closed) | REUSE | the W3 merge gate; honest deferred grading |
 | cognitive-compiler ScaffoldCompiler | REUSE | "no trace → no template" enforced in types; synthesis = first probe |
 | `FieldMask` (class_view.rs:69) | REUSE | the sibling StepMask mints next to (u64 position bitmask) |
-| `StepMask` | BLOCKED/NEW | zero .rs matches — docs-only; D-V3-W3a |
+| `StepMask` | ~~BLOCKED/NEW~~ **SHIPPED** (regraded 2026-09-07, plan inventory) | ~~zero .rs matches — docs-only~~ `pub struct StepMask` at `crates/lance-graph-contract/src/step_mask.rs:40`, exported `lib.rs:241`; D-V3-W3a shipped 2026-07-10; W3b/c/d (the adapter that consumes it) still queued |
 | graph-flow NextAction | REUSE | **6 variants incl. no-op GoBack** (docs said 5 — corrected) |
 | **NextAction ↔ OgarAction "1:1"** | CORRECTED | the honest 1:1 is `Step ↔ Task` and `ogar_name() ↔ Task::id()`; Continue/WaitForInput/GoTo/End have NO template-side counterparts — closing this IS the StepMask/adapter work, see compiled-templates.md correction |
 | rs-graph-llm `template-task` crate | EXTEND | the adapter's natural home — Task shims exist with literal placeholders; ZERO Cargo dep on lance-graph yet (episodic-arc-task proves the git-dep pattern) |
@@ -110,6 +110,7 @@ Meta/Plasticity widths differ persisted-vs-hot with no parity test;
 | p64-bridge | REUSE | pure stateless mapping, zero BindSpace/ownership deps — clean by design. **Note (2026-07-18):** `workspace.exclude` + zero `p64` dep — the convergence is a call-site wiring pattern (consumer imports both `p64` + `p64-bridge`, `p64-bridge/src/lib.rs:4`), NOT a buildable local crate dependency |
 | ndarray `MultiLaneColumn` | REUSE (HW) | the LE lane carrier; repurpose opportunity: back MailboxSoA's `Box<[u64]>` identity planes (64 B-aligned) |
 | ndarray hpc (fingerprint/cascade/blackboard/read_bgz7) | REUSE (HW) | hardware-tier; causal_diff.rs "self-reinforcement LoRA" flagged for a leak-check read |
+| `planner::nested_bands::NestedBands` (D-NXG-1, shipped 2026-09-05, `E-NXG-21`) | EXTEND | the sealed, version-keyed row-mask histogram — version-keyed over ONE column today (`pub struct NestedBands`, `crates/lance-graph-planner/src/nested_bands.rs:91-105`: `version` + masks, no classid); the `(classid, version)` keying is the plan's PROPOSED room-26 shape, so V3 routing / class isolation is not yet enforced by it — bucket i = `mask_ternlog::<AND_ANDNOT2>` by name, rank = bucket index. `.claude/nexgen/plans/nexgen-mask-histogram-thresholds-v1.md` room 27 proposes it as the carrier for `Think.trajectory` in place of the retired `Vsa16kF32` (primer §6 row 3); the five threshold vocabularies it collapses are ENTROPY M27. NOT a tenant yet (no `ValueTenant` row — `tenants.md` deliberately untouched); a REPURPOSE of the `Vsa16kF32` rows above becomes due only if room 27 lands. Row added 2026-09-07 (plan inventory: this map carried no reference to the nexgen work) |
 | ladybug-rs bind_space + CogRedis | RETIRE (their repo) | pre-V3; zero SoaEnvelope adoption confirmed; contract pulls only (W5e) |
 
 ## 7. Consumers (q2 / MedCare-rs / woa-rs / openproject-nexgen-rs / OGAR / smb-office-rs)

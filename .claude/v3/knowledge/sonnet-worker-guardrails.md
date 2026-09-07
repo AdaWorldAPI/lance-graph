@@ -73,10 +73,10 @@ exactly the row below, never a neighbor.
 | **BindSpace** | the legacy global store, MIGRATION IN PROGRESS → MailboxSoA | something to extend or to delete now | add new writers to it; remove it |
 | **baton / emission / CollapseGateEmission / emit()** | tombstoned concepts (removed from source) | anything to restore | reintroduce, even "for compatibility" |
 | **owner / on_behalf** | `SoaEnvelope::mailbox_owner()` stamp + batch-writer cast pairing | a DTO field | add ownership fields to DTOs (§1 rule 9) |
-| **0x1000 (custom half)** | the V3-adoption MONITOR marker (temporary by declaration) | a domain id or a semantic flag | branch business logic on it; mint new meanings for it |
+| **0x1000 (custom half)** | the V3-adoption MONITOR marker — permanent (`D-CCF-4` RESCINDED, operator 2026-07-03, `E-V3-DUAL-SCHEMA-0x1000-IS-PERMANENT-1`; ~~temporary by declaration~~ regraded 2026-09-07) | a domain id or a semantic flag; something that retires at 100 % adoption | branch business logic on it; mint new meanings for it; plan its retirement |
 | **canon / custom** | classid halves: hi u16 = canon concept, lo u16 = custom marker/render | "old/new" | read halves with bit math (§1 rule 4) |
 | **template** | a compiled, replayable orchestration artifact (elixir-template DSL) | a prompt or a string | degrade a template into a prompt |
-| **StepMask** | a QUEUED contract type (W3a) — does not exist yet | something to invent ad hoc | mint it without the W3a spec |
+| **StepMask** | `contract::step_mask::StepMask` — SHIPPED 2026-07-10 (D-V3-W3a); ~~a QUEUED contract type (W3a) — does not exist yet~~ (regraded 2026-09-07, plan inventory) | something to invent ad hoc, or to re-mint | re-mint it; W3b/c/d consume the shipped type |
 | **facet** | the V3 16-byte atom: 4B prefix (domain\|appid\|classview) + 96-bit payload (soa_layout/le-contract.md §3 catalogue L1–L8) | a free-form struct | add a layout outside the L1–L8 catalogue; put a label/position in a slot |
 | **classview (lo u16)** | the ClassView selector in the classid custom half — labels + positions resolve THROUGH it | a place to store data bits | branch on raw classview values other than via read-mode helpers |
 | **rail** | a 6×(8:8) payload plane of one-byte refs (part_of:is_a etc.) | an edge list to grow | change rail arity/stride |
