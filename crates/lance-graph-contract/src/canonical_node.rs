@@ -1375,6 +1375,12 @@ impl ReadMode {
     /// reading. When the POC ends, flip `value_schema` back to
     /// [`ValueSchema::Bootstrap`] HERE and in `ClassView` together (one revert,
     /// two sites — the test `read_mode_default_is_full_poc` guards the pairing).
+    pub const DEFAULT: ReadMode = ReadMode {
+        tail_variant: TailVariant::V1,
+        value_schema: ValueSchema::Full,
+        edge_codec: EdgeCodecFlavor::CoarseOnly,
+    };
+
     /// The **plug-and-play** reading: what any hot-plugged appid reads as,
     /// unless its authority declares an override.
     ///
@@ -1399,12 +1405,6 @@ impl ReadMode {
     /// yields `NoReadingFor`, never a defaulted reading).
     pub const PLUG_AND_PLAY_V3: ReadMode = ReadMode {
         tail_variant: TailVariant::V3,
-        value_schema: ValueSchema::Full,
-        edge_codec: EdgeCodecFlavor::CoarseOnly,
-    };
-
-    pub const DEFAULT: ReadMode = ReadMode {
-        tail_variant: TailVariant::V1,
         value_schema: ValueSchema::Full,
         edge_codec: EdgeCodecFlavor::CoarseOnly,
     };
