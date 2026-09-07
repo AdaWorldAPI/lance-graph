@@ -1,3 +1,32 @@
+## 2026-09-07 — #1217 MERGED (b518dbf1): the orphaned SPEC v1, recovered — and the check that certified its loss
+
+| PR | merge | content |
+|---|---|---|
+| **#1217** | `b518dbf1` | `.claude/plans/nodeguid-new-repurpose-audit-v1.md` (SPEC v1, `D-NGN-AUDIT`, recovered from `git fsck`); `EPIPHANIES` `E-AN-EMPTY-RANGE-AFTER-A-RESET-IS-NOT-EVIDENCE-1`; `INTEGRATION_PLANS` prepend; dated corrections to the #1201 record in `LATEST_STATE` + `PR_ARC_INVENTORY`. |
+
+**Contract inventory net delta: none.** No type, no API, no layout, no code.
+
+The spec was orphaned by a `git checkout -B <branch> origin/main` while unmerged,
+and `git log origin/main..<branch>` read EMPTY — not as evidence of safety but
+*by construction*, because an earlier reset had already re-pointed the branch.
+Use `git merge-base --is-ancestor` or the reflog: a ref the operation cannot
+move. The #1201 entry's "merged MIXED" self-correction is retracted; it merged
+hygiene-only, as its body said.
+
+Append-only mechanics adjudicated (two review bots asked for opposite changes on
+one line): `LATEST_STATE` dated sections are historical ⇒ restore + PREPEND;
+`PR_ARC_INVENTORY` ⇒ *"corrections append as new dated lines"*, in place;
+`STATUS_BOARD` ⇒ live dashboard, one row per D-id, in-place lifecycle.
+
+`D-NGN-AUDIT` remains **HELD at Phase 2** on the F5 VIOLATES — the operator's to
+rule. Measured for whoever rules it: the `wave.abi` path reads gz-TSV sidecar
+HashMaps (`obo_full_edges`, `obo_ro_edges`), NOT the declared `edge_lanes` slab
+and NOT DataFusion — the same class
+`E-EVERY-DOMAIN-IS-A-TABLE-AND-A-CROSSWALK-IS-A-CHAIN-OF-MASKS-1` names, with
+`obo_store.rs` among its six cited sites. SPEC §2's `canonical_node.rs` line
+numbers are stale after the `mint_for` V2/V3 drift; re-anchor to symbols before
+Phase 3.
+
 ## 2026-09-07 — plan inventory landed: `PLAN-INVENTORY-2026-09-07.md` + the V3 folder now sees the harvest
 
 - **New board document:** `.claude/board/PLAN-INVENTORY-2026-09-07.md` — 211 plans (149 OPEN / 13 CLOSED / 9 SUPERSEDED / 40 AMBIGUOUS), V3 waves W0–W6, ENTROPY M1–M27, W1a/W1b/W1.5 + jc pillars vs code, top-level `.claude/*.md` (71; 9 orphans), board dashboards. Mints no D-ids (a snapshot, not a plan). Evidence: five verbatim tag-files under `exec-runs/plan-inventory-2026-09-07-*.md`.
