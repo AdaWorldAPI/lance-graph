@@ -21,8 +21,15 @@ ordering/uniqueness/display/**sequence** classification of the identity()
 readers — only the sequence bucket is a semantic blocker, because a DN sorts
 hierarchically and that failure still compiles.
 
-Status: Phase 1 cast (5 savants). Consolidation to v2 and the 3 reviewers
-follow. Superseded by v2/v3 when they land.
+Status: **HELD at Phase 2.** Phase 1 has RETURNED (all five savants);
+consolidation into draft v2 is held on a VIOLATES against frozen decision F5
+(*"Nobody walks anything"*) — `GET /views/graph/wave.abi` reaches
+`inherited_part_of` — which is the operator's to rule, not the orchestrator's to
+resolve. Do NOT re-cast Phase 1, and do not cast the three reviewers (Phase 3)
+until that ruling lands; the strict order is the harness's anti-mush protocol.
+Draft v2 also owes F9, the #1202 dating rule. Phase numbering is the 5+3
+harness's single 0-5 ladder (`.claude/agents/5plus3-council.md`), stated in the
+plan's own header. Superseded by v2/v3 when they land.
 
 ## 2026-09-06 — temporal / delta / alpha staged plan → `.claude/temporal/09-plan.md`
 
