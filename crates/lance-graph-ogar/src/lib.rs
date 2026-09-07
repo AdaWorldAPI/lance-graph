@@ -440,16 +440,64 @@ const LOCO_READ_MODES: &[(u16, lance_graph_contract::canonical_node::ReadMode)] 
     },
 )];
 
+/// The consumer each declared loco seat belongs to. A seat is one frontend's,
+/// so activating it as somebody else is drift, not a permissive default —
+/// without this the loco arm would bypass the expected-executor check that
+/// `resolve_hotplug` applies on the capability path.
+const fn loco_seat_consumer(classid: u16) -> Option<&'static str> {
+    match classid {
+        0x1717 => Some("blockly-abi"),
+        _ => None,
+    }
+}
+
 /// The reading for `plug`, or `&[]` when this authority declares none.
 ///
-/// Scoped: only the `ogar-loco` domain (`id >> 8 == 0x17`) resolves today, and
-/// only when EVERY plugged id is in it. A mixed plug gets `&[]` rather than a
-/// partial answer — a consumer must not receive a reading for some of its ids
-/// and silence for the rest, because silence is indistinguishable from "the
-/// default applies" at the call site.
-fn loco_read_modes_for(classids: &[u16]) -> &'static [(u16, lance_graph_contract::canonical_node::ReadMode)] {
-    let all_loco = !classids.is_empty() && classids.iter().all(|&id| id >> 8 == 0x17);
-    if all_loco { LOCO_READ_MODES } else { &[] }
+/// Answers only when BOTH hold:
+///
+/// 1. every plugged id is **DECLARED in [`LOCO_READ_MODES`]** — not merely in
+///    the `0x17` domain; and
+/// 2. the plug's `consumer` owns every one of those seats.
+///
+/// **Domain membership was the original guard and it was wrong** (caught in
+/// review on #1207). `id >> 8 == 0x17` admits `0x1701`/`0x1702` — `ogar-loco`'s
+/// OWN node shapes, which are not consumer seats — and admits an undeclared
+/// seat like `0x1718`. Either way the whole table came back, so a plug asking
+/// about `0x1701` was handed `0x1717`'s reading: not a partial answer but an
+/// UNRELATED one, and the mixed-plug rule this function documents was violated
+/// by its own code for the within-domain case (it only caught loco/non-loco
+/// mixes).
+///
+/// A refused plug returns `&[]` and falls through to the capability join,
+/// which fails closed for `0x17XX` — `resolve_hotplug` is pinned to answer
+/// `UnknownClassid` for a palette id.
+///
+/// **All-or-nothing, and that is a real constraint rather than laziness.**
+/// [`Activation::read_modes`] is `&'static`, so a per-plug SUBSET cannot be
+/// built at runtime without leaking; the honest options are the whole table or
+/// none. Hence condition 1 is "the plugged set covers exactly the declared
+/// seats". With one seat declared that means `[0x1717]` alone. Adding a second
+/// seat therefore needs a per-id design (a static table per consumer, or
+/// `read_modes` becoming owned) — the widening step, not a table row.
+fn loco_read_modes_for(
+    consumer: &str,
+    classids: &[u16],
+) -> &'static [(u16, lance_graph_contract::canonical_node::ReadMode)] {
+    let all_declared_and_owned = !classids.is_empty()
+        && classids
+            .iter()
+            .all(|&id| loco_seat_consumer(id) == Some(consumer));
+    // …and the plug must cover every declared seat, since the answer is the
+    // whole table or nothing (see the doc comment).
+    let covers_every_seat = LOCO_READ_MODES
+        .iter()
+        .all(|(declared, _)| classids.contains(declared));
+
+    if all_declared_and_owned && covers_every_seat {
+        LOCO_READ_MODES
+    } else {
+        &[]
+    }
 }
 
 /// The generic hot-plug bridge (operator, 2026-07-07): "lance-graph-contract
@@ -489,7 +537,7 @@ impl lance_graph_contract::hotplug::CapabilityAuthority for OgarAuthority {
         // This authority can therefore answer "no concepts, no capabilities,
         // and here is how your rows are read" without contradicting either
         // test — both are on `resolve_hotplug`, which is left untouched.
-        let loco = loco_read_modes_for(plug.classids);
+        let loco = loco_read_modes_for(plug.consumer, plug.classids);
         if !loco.is_empty() {
             // Fails closed on a lie: a palette plug has no capabilities to
             // cover, so claiming one is drift, not an empty-set no-op.
@@ -521,7 +569,7 @@ impl lance_graph_contract::hotplug::CapabilityAuthority for OgarAuthority {
                     // so this is `&[]` by construction today — written as the
                     // call, not a literal, so widening the scope reaches here
                     // without a second edit.
-                    read_modes: loco_read_modes_for(plug.classids),
+                    read_modes: loco_read_modes_for(plug.consumer, plug.classids),
                 })
             }
             Err(HotplugDrift::UnknownClassid(id)) => Err(ActivationDrift::UnknownClassid(id)),
@@ -662,14 +710,65 @@ mod loco_read_mode_arm {
     /// could return `LOCO_READ_MODES` for everything and still look correct.
     #[test]
     fn a_non_loco_plug_gets_no_reading() {
-        assert!(super::loco_read_modes_for(&[0x0805]).is_empty());
-        assert!(super::loco_read_modes_for(&[]).is_empty());
+        assert!(super::loco_read_modes_for("blockly-abi", &[0x0805]).is_empty());
+        assert!(super::loco_read_modes_for("blockly-abi", &[]).is_empty());
         // Mixed is silent too — a partial answer is worse than none, because
         // silence at a call site is indistinguishable from "use the default".
-        assert!(super::loco_read_modes_for(&[0x1717, 0x0805]).is_empty());
+        assert!(super::loco_read_modes_for("blockly-abi", &[0x1717, 0x0805]).is_empty());
         // …and the loco id alone DOES resolve, so the mixed case fails on the
         // mix, not because 0x1717 stopped working.
-        assert!(!super::loco_read_modes_for(&[0x1717]).is_empty());
+        assert!(!super::loco_read_modes_for("blockly-abi", &[0x1717]).is_empty());
+    }
+
+    /// The three cases the ORIGINAL guard got wrong — it tested domain
+    /// membership (`id >> 8 == 0x17`) instead of declaration, so each of these
+    /// returned the whole table. Caught in review on #1207.
+    ///
+    /// Each is paired with the `[0x1717]` positive above, so a version that
+    /// simply refused everything could not pass both.
+    #[test]
+    fn an_undeclared_loco_id_is_refused_even_though_it_is_in_the_domain() {
+        // 0x1701 / 0x1702 are ogar-loco's OWN node shapes: in-domain, but not
+        // consumer seats. Handing back 0x1717's reading for them is not a
+        // partial answer, it is an unrelated one.
+        assert!(super::loco_read_modes_for("blockly-abi", &[0x1701]).is_empty());
+        assert!(super::loco_read_modes_for("blockly-abi", &[0x1702]).is_empty());
+        // An undeclared seat is refused for the same reason.
+        assert!(super::loco_read_modes_for("blockly-abi", &[0x1718]).is_empty());
+        // Anti-vacuity: all three ARE in the loco domain, so the old guard
+        // admitted every one of them.
+        for id in [0x1701u16, 0x1702, 0x1718] {
+            assert_eq!(id >> 8, 0x17, "fixture must exercise the old guard");
+        }
+    }
+
+    /// A within-domain MIXED plug — declared seat plus undeclared id — is
+    /// refused. The old guard called this "all loco" and answered, violating
+    /// this module's own no-partial-answers rule for the within-domain case.
+    #[test]
+    fn a_declared_seat_mixed_with_an_undeclared_loco_id_is_refused() {
+        assert!(super::loco_read_modes_for("blockly-abi", &[0x1717, 0x1718]).is_empty());
+        assert!(super::loco_read_modes_for("blockly-abi", &[0x1701, 0x1717]).is_empty());
+    }
+
+    /// A seat belongs to ONE consumer. Activating it as somebody else is drift,
+    /// not a permissive default — otherwise the loco arm would bypass the
+    /// expected-executor check `resolve_hotplug` applies on the capability path.
+    #[test]
+    fn another_consumer_cannot_activate_blocklys_seat() {
+        assert!(super::loco_read_modes_for("scratch-abi", &[0x1717]).is_empty());
+        assert!(super::loco_read_modes_for("", &[0x1717]).is_empty());
+        // …and through the public surface, not just the helper: a wrong
+        // consumer falls through to the capability join, which fails closed
+        // for a palette id.
+        let impostor = HotPlug {
+            consumer: "scratch-abi",
+            ..BLOCKLY
+        };
+        assert!(matches!(
+            super::OgarAuthority.activate(&impostor),
+            Err(ActivationDrift::UnknownClassid(0x1717))
+        ));
     }
 
     /// Fails closed on a lie: a palette plug claiming a capability is drift.
