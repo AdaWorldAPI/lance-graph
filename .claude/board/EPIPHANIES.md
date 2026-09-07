@@ -1,3 +1,47 @@
+## 2026-09-07 — E-AN-EMPTY-RANGE-AFTER-A-RESET-IS-NOT-EVIDENCE-1 — the check that certified the loss it was run to prevent
+
+**Status:** FINDING, measured. The orphaned commit was recovered; the board it
+mis-recorded is corrected in the same PR (#1217).
+**Confidence:** High — `git merge-base --is-ancestor` and `git fsck` both
+executed, and the recovered commit is byte-identical to what was written.
+
+**What happened.** `.claude/plans/nodeguid-new-repurpose-audit-v1.md` — SPEC v1
+of the 5+3 council auditing a `NodeGuid::new` repurpose — was committed
+(`3dd98b2b`), then orphaned by a `git checkout -B <branch> origin/main` run
+while it was still unmerged. It never reached `main`.
+
+**The check I ran was real, and it certified the loss.** Before the *second*
+reset I ran `git log --oneline origin/main..claude/great-curie-d2ufyl`, read the
+empty output as "nothing unmerged to preserve", and proceeded. The output was
+empty **by construction**: an earlier reset had already re-pointed the branch AT
+`origin/main`, so the range was empty precisely BECAUSE work had just been
+orphaned. **The symptom of the failure is indistinguishable from the all-clear.**
+
+**The rule.** `origin/main..<branch>` answers "what does this branch carry that
+main does not" — a question about the branch's CURRENT tip, which a reset has
+already destroyed. The check has to run BEFORE the reset, or against
+`git reflog <branch>`, which is the only local record that survives one. State
+the same thing positively: **verify unmerged work against a ref the operation
+you are about to perform cannot move.**
+
+**The second half — a stale record that no gate could catch.** The board then
+recorded the opposite of the truth: #1201's arc entry carried a self-correction
+saying that PR "merged MIXED" because the spec commit was pushed to it
+afterwards. It was not; #1201 merged hygiene-only, exactly as its own body said,
+and for a day `LATEST_STATE` and `PR_ARC_INVENTORY` cited a plan file that
+existed nowhere. **The citation-decay gate could not see it, because the board
+cited a PATH, not a SYMBOL** — an absent file reads as a valid reference where
+an absent symbol does not. Same shape as the citation-decay failure on #1203,
+one level up: a coordinate in a moving frame, trusted as an anchor.
+
+**Consequence, narrow and mechanical:** a board citation to a plan or artifact is
+only as strong as something that fails when the target is gone. Until a
+path-existence check exists, a PR that adds a board reference to a file should
+be the same PR that adds the file — never a later one, and never a claim that a
+prior PR added it.
+
+---
+
 ## 2026-09-07 — E-PLUG-AND-PLAY-IS-THE-DECLARATION-NOT-A-TABLE-1 — my fix rebuilt the lockstep it was closing
 
 **Status:** FINDING, measured. Fixed in this PR (7 tests, both guards disable-verified).

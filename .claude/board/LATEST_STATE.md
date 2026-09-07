@@ -196,7 +196,7 @@ writing nothing, reconcile-unavailable ⇒ `Ambiguous`). `#911 → #912 →
 valve (no artifact-backed change ⇒ no sink call ⇒ no version), `1d416704` is
 fence hardening, neither a migration regression.
 
-## 2026-09-06 — #1201 MERGED (54285a42): #1199's records + the council SPEC v1
+## 2026-09-06 — #1201 MERGED (54285a42): #1199's records (hygiene-only; the SPEC v1 did NOT land here — corrected 2026-09-07)
 
 | PR | merge | content |
 |---|---|---|
