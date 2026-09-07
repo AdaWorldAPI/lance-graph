@@ -403,101 +403,112 @@ mod tests {
     }
 }
 
-/// The storage READING for `ogar-loco`'s domain, handed back by
-/// [`OgarAuthority`] on activation — **scoped to `0x17XX` only, deliberately**
-/// (operator, 2026-09-07: *"additive scoped for loco blockly-rs for now, then
-/// expand slowly"*).
-///
-/// A `const`, because hot-plug is plug-and-play at COMPILE time: which readings
-/// exist is decided by which crates are in the build graph, not by anything
-/// resolved at runtime.
-///
-/// **Why the reading lives here and not in `BUILTIN_READ_MODES`**
-/// (D-BLOCKS-HOTPLUG-1). That registry *"holds only the canon builtins"* and
-/// every entry in it is a canon DOMAIN. `0x17` is `ogar-loco`'s domain and
-/// `0x1717` is `blockly-rs`'s per-frontend palette SEAT — one slot per
-/// frontend. Registering each seat in the contract would make adding a
-/// frontend an edit to `lance-graph-contract` plus a substrate recompile: the
-/// central lockstep the retired `COUNT_FUSE` belonged to. The authority is
-/// where a non-canon class's reading belongs, and this crate is where the
-/// contract and OGAR already meet.
-///
-/// Keyed by the CONCEPT half (`u16`). A consumer composes its own full `u32`
-/// (`concept << 16 | its app prefix`) and reads with the mode it was handed —
-/// it never asks the canon registry about a class the canon does not own.
-const LOCO_READ_MODES: &[(u16, lance_graph_contract::canonical_node::ReadMode)] = &[(
-    // blockly-rs. `ValueSchema::Bootstrap` is CORRECT, not a placeholder: a
-    // stored `ogar-loco` function's 480-byte slab is the interleaved call
-    // lanes (`classid(4) + payload(12)` per 16-byte lane), so ZERO tenants
-    // materialise and the slab is wholly the class-resolved carve-out.
-    // `CoarseOnly` is the zero-fallback — a function node has no adjacency
-    // yet, block reserved and zeroed.
-    0x1717,
-    lance_graph_contract::canonical_node::ReadMode {
-        tail_variant: lance_graph_contract::canonical_node::TailVariant::V3,
-        value_schema: lance_graph_contract::canonical_node::ValueSchema::Bootstrap,
-        edge_codec: lance_graph_contract::canonical_node::EdgeCodecFlavor::CoarseOnly,
-    },
-)];
+use lance_graph_contract::canonical_node::{EdgeCodecFlavor, ReadMode, TailVariant, ValueSchema};
+use lance_graph_contract::hotplug::HotPlug;
 
-/// The consumer each declared loco seat belongs to. A seat is one frontend's,
-/// so activating it as somebody else is drift, not a permissive default —
-/// without this the loco arm would bypass the expected-executor check that
-/// `resolve_hotplug` applies on the capability path.
-const fn loco_seat_consumer(classid: u16) -> Option<&'static str> {
+/// The reading for every classid a plug declares — **derived, not tabulated**.
+///
+/// Operator, 2026-09-07: *"plug and play already has all the domains, you
+/// could simply make the global schema for all appids already in plug-and-play
+/// pattern activate V3 and be silent about all others"*, and *"local quad
+/// usage must mint any V3 settings in plug and play, regardless of the
+/// settings here."*
+///
+/// **What this replaced, and why it was wrong.** The first cut held a
+/// `const LOCO_READ_MODES` with ONE ROW per consumer seat (`0x1717` alone),
+/// answered only when the plug covered every declared seat, and returned
+/// `&[]` otherwise. Three faults, in increasing order of seriousness:
+///
+/// 1. Adding a frontend meant adding a row to a shared table — the central
+///    lockstep `D-BLOCKS-HOTPLUG-1` retired, rebuilt one level up.
+/// 2. Every consumer outside `0x17XX` — `medcare-rs`'s six Health classids
+///    among them — got NO reading at all, so a session asking for one hit
+///    `NoReadingFor` and had to go hunting for a setting.
+/// 3. Both failures are silent and REMOTE. A missing row does not break a
+///    build; it surfaces much later as a V1 tail where V3 was expected —
+///    *"otherwise I will spend weeks until I remember that we changed it
+///    here wondering why quad 4x24 stopped working."*
+///
+/// **Now: being plugged in IS the declaration.** Every classid in the plug
+/// gets [`ReadMode::PLUG_AND_PLAY_V3`], except where this authority
+/// deliberately overrides one concept. Anything NOT plugged gets no entry —
+/// silent, and `Activation::read_mode_for` bangs rather than defaulting.
+///
+/// The quad (`LegacyOutlier::WideTriple`, G2 `4 × u24`) rides on this: it is a
+/// carving of the 12-byte content-blind payload, which exists as such only
+/// under a V3 tail. A plugged consumer therefore keeps its quad without
+/// knowing this function exists.
+fn plug_readings(plug: &HotPlug) -> Vec<(u16, ReadMode)> {
+    plug.classids
+        .iter()
+        .map(|&id| {
+            (
+                id,
+                concept_override(id).unwrap_or(ReadMode::PLUG_AND_PLAY_V3),
+            )
+        })
+        .collect()
+}
+
+/// Per-concept deviations from [`ReadMode::PLUG_AND_PLAY_V3`].
+///
+/// An override changes ONLY what a class genuinely reads differently; the
+/// tail stays V3 for everything plugged, which is the ruling. `blockly-rs`'s
+/// palette seat materialises no value tenants (it stores an `ogar-loco`
+/// function body in the slab, not cognitive columns), so it reads
+/// `Bootstrap` rather than `Full`.
+///
+/// This is a short list of exceptions, not a registry of participants: a
+/// consumer absent from it is not absent from plug-and-play, it simply has
+/// nothing unusual to say. That asymmetry is the point — the failure mode of
+/// a forgotten entry is "no override", never "no reading".
+const fn concept_override(classid: u16) -> Option<ReadMode> {
+    match classid {
+        0x1717 => Some(ReadMode {
+            tail_variant: TailVariant::V3,
+            value_schema: ValueSchema::Bootstrap,
+            edge_codec: EdgeCodecFlavor::CoarseOnly,
+        }),
+        _ => None,
+    }
+}
+
+/// `true` when a classid is a consumer palette seat in the `ogar-loco`
+/// `0x17` domain (`0x1717` and up; `0x1701`/`0x1702` are the substrate's own
+/// node shapes and `0x1703`-`0x1716` its reserved headroom).
+///
+/// A palette plug carries no capabilities, so it must not reach the
+/// capability join — `resolve_hotplug` is pinned to answer `UnknownClassid`
+/// for these ids by design.
+const fn is_palette_seat(classid: u16) -> bool {
+    classid >= 0x1717 && (classid >> 8) == 0x17
+}
+
+/// The consumer a palette seat is KNOWN to belong to, when one is known.
+///
+/// Deliberately a short list of CLAIMED seats, not a roster of participants.
+/// `None` means "no consumer has claimed this seat", and an unclaimed seat is
+/// plug-and-play for whoever plugs it — a new frontend at `0x1718` activates
+/// and reads V3 with no edit here, which is the ruling.
+///
+/// What the list still buys is the ownership guard codex flagged on #1207: a
+/// seat somebody HAS claimed cannot be activated by a different consumer, so
+/// the reading cannot be obtained by impersonating one. Without it "who owns
+/// `0x1717`" would be answerable by simply asking.
+const fn palette_seat_owner(classid: u16) -> Option<&'static str> {
     match classid {
         0x1717 => Some("blockly-abi"),
         _ => None,
     }
 }
 
-/// The reading for `plug`, or `&[]` when this authority declares none.
-///
-/// Answers only when BOTH hold:
-///
-/// 1. every plugged id is **DECLARED in [`LOCO_READ_MODES`]** — not merely in
-///    the `0x17` domain; and
-/// 2. the plug's `consumer` owns every one of those seats.
-///
-/// **Domain membership was the original guard and it was wrong** (caught in
-/// review on #1207). `id >> 8 == 0x17` admits `0x1701`/`0x1702` — `ogar-loco`'s
-/// OWN node shapes, which are not consumer seats — and admits an undeclared
-/// seat like `0x1718`. Either way the whole table came back, so a plug asking
-/// about `0x1701` was handed `0x1717`'s reading: not a partial answer but an
-/// UNRELATED one, and the mixed-plug rule this function documents was violated
-/// by its own code for the within-domain case (it only caught loco/non-loco
-/// mixes).
-///
-/// A refused plug returns `&[]` and falls through to the capability join,
-/// which fails closed for `0x17XX` — `resolve_hotplug` is pinned to answer
-/// `UnknownClassid` for a palette id.
-///
-/// **All-or-nothing, and that is a real constraint rather than laziness.**
-/// [`Activation::read_modes`] is `&'static`, so a per-plug SUBSET cannot be
-/// built at runtime without leaking; the honest options are the whole table or
-/// none. Hence condition 1 is "the plugged set covers exactly the declared
-/// seats". With one seat declared that means `[0x1717]` alone. Adding a second
-/// seat therefore needs a per-id design (a static table per consumer, or
-/// `read_modes` becoming owned) — the widening step, not a table row.
-fn loco_read_modes_for(
-    consumer: &str,
-    classids: &[u16],
-) -> &'static [(u16, lance_graph_contract::canonical_node::ReadMode)] {
-    let all_declared_and_owned = !classids.is_empty()
-        && classids
-            .iter()
-            .all(|&id| loco_seat_consumer(id) == Some(consumer));
-    // …and the plug must cover every declared seat, since the answer is the
-    // whole table or nothing (see the doc comment).
-    let covers_every_seat = LOCO_READ_MODES
+/// The first plugged seat whose declared owner is somebody other than
+/// `consumer`, if any.
+fn impersonated_seat(consumer: &str, classids: &[u16]) -> Option<u16> {
+    classids
         .iter()
-        .all(|(declared, _)| classids.contains(declared));
-
-    if all_declared_and_owned && covers_every_seat {
-        LOCO_READ_MODES
-    } else {
-        &[]
-    }
+        .copied()
+        .find(|&id| matches!(palette_seat_owner(id), Some(owner) if owner != consumer))
 }
 
 /// The generic hot-plug bridge (operator, 2026-07-07): "lance-graph-contract
@@ -537,17 +548,41 @@ impl lance_graph_contract::hotplug::CapabilityAuthority for OgarAuthority {
         // This authority can therefore answer "no concepts, no capabilities,
         // and here is how your rows are read" without contradicting either
         // test — both are on `resolve_hotplug`, which is left untouched.
-        let loco = loco_read_modes_for(plug.consumer, plug.classids);
-        if !loco.is_empty() {
+        //
+        // PARTITION, do not choose (codex P2 on #1216). An earlier cut took
+        // the palette arm only when EVERY id was `0x17XX`, so a mixed plug —
+        // an unclaimed palette seat alongside ordinary capability ids, e.g.
+        // `[0x1718, 0x0901]` — went whole to `resolve_hotplug` and came back
+        // `UnknownClassid(0x1718)`. A consumer that legitimately has both
+        // could not activate at all, which contradicts the ruling this arm
+        // exists to implement: EVERY plugged appid reads V3.
+        //
+        // The two id kinds answer to different authorities, so they are
+        // routed separately and the results merged; the reading covers the
+        // whole plug either way, because it is derived from the plug.
+        let (palette, capability): (Vec<u16>, Vec<u16>) =
+            plug.classids.iter().partition(|&&id| is_palette_seat(id));
+
+        // A CLAIMED seat is its owner's, whichever arm it arrives on. An
+        // unclaimed one is plug-and-play for whoever plugs it.
+        if impersonated_seat(plug.consumer, &palette).is_some() {
+            return Err(ActivationDrift::UnexpectedConsumer(plug.consumer.into()));
+        }
+
+        // Pure-palette plug: no capability ids at all, so the join is not
+        // consulted (it is pinned to refuse `0x17XX`).
+        if !palette.is_empty() && capability.is_empty() {
             // Fails closed on a lie: a palette plug has no capabilities to
             // cover, so claiming one is drift, not an empty-set no-op.
             if let Some(cap) = plug.covered.first() {
                 return Err(ActivationDrift::Undeclared((*cap).into()));
             }
-            return Ok(Activation::new(Vec::new(), Vec::new(), loco));
+            return Ok(Activation::new(Vec::new(), Vec::new(), plug_readings(plug)));
         }
 
-        match resolve_hotplug(plug.consumer, plug.classids, plug.covered) {
+        // Capability ids go to the join; palette seats were removed above so
+        // they cannot make it refuse the whole plug.
+        match resolve_hotplug(plug.consumer, &capability, plug.covered) {
             Ok((concepts, capabilities)) => {
                 let concepts: Vec<(String, u16)> = concepts
                     .into_iter()
@@ -557,21 +592,13 @@ impl lance_graph_contract::hotplug::CapabilityAuthority for OgarAuthority {
                 {
                     return Err(drift);
                 }
-                // Non-loco plugs get no reading yet (scoped, expanding
-                // slowly). Reached only when the loco arm above declined, so
-                // this is `&[]` by construction today — written as the call,
-                // not a literal, so widening the scope reaches here without a
-                // second edit.
-                //
-                // An empty table here is NOT a V1 fallback: a capability-only
-                // consumer mints no keys, and one that does ask for a reading
-                // gets `NoReadingFor` from `Activation::read_mode_for` rather
-                // than a defaulted V1 tail.
-                Ok(Activation::new(
-                    concepts,
-                    capabilities,
-                    loco_read_modes_for(plug.consumer, plug.classids),
-                ))
+                // EVERY plugged classid gets its reading here, not just the
+                // `0x17XX` ones. A capability consumer (medcare-rs's six
+                // Health ids, tesseract-rs's OCR seats) is as plugged in as a
+                // palette, so it reads V3 too — that is the ruling, and it is
+                // what keeps a quad working without its author having to find
+                // this file.
+                Ok(Activation::new(concepts, capabilities, plug_readings(plug)))
             }
             Err(HotplugDrift::UnknownClassid(id)) => Err(ActivationDrift::UnknownClassid(id)),
             Err(HotplugDrift::NoCapabilitiesFor(id)) => Err(ActivationDrift::NoCapabilitiesFor(id)),
@@ -652,9 +679,9 @@ mod hotplug_bridge_tests {
 /// D-BLOCKS-HOTPLUG-1: the storage READING rides the activation, scoped to
 /// `ogar-loco` (`0x17XX`) for now.
 #[cfg(test)]
-mod loco_read_mode_arm {
+mod plug_and_play_reading {
     use lance_graph_contract::canonical_node::{
-        classid_read_mode, EdgeCodecFlavor, ReadMode, TailVariant, ValueSchema,
+        classid_read_mode, ReadMode, TailVariant, ValueSchema,
     };
     use lance_graph_contract::hotplug::{ActivationDrift, CapabilityAuthority, HotPlug};
 
@@ -670,18 +697,13 @@ mod loco_read_mode_arm {
     fn a_palette_plug_activates_with_a_reading_and_no_capabilities() {
         let act = super::OgarAuthority
             .activate(&BLOCKLY)
-            .expect("loco plug activates");
-        assert_eq!(
-            act.declared_readings(),
-            &[(
-                0x1717u16,
-                ReadMode {
-                    tail_variant: TailVariant::V3,
-                    value_schema: ValueSchema::Bootstrap,
-                    edge_codec: EdgeCodecFlavor::CoarseOnly,
-                }
-            )][..]
-        );
+            .expect("palette plug activates");
+        let mode = act.read_mode_for(0x1717).expect("its seat has a reading");
+        assert_eq!(mode.tail_variant, TailVariant::V3);
+        // blockly is the one declared override: it stores an ogar-loco body in
+        // the slab, not cognitive tenants.
+        assert_eq!(mode.value_schema, ValueSchema::Bootstrap);
+
         // A palette is not a capability concept; both arms are empty and that
         // is the correct answer, not a partial resolution.
         assert!(act.concepts.is_empty());
@@ -700,75 +722,179 @@ mod loco_read_mode_arm {
     #[test]
     fn the_canon_registry_still_does_not_know_the_palette_class() {
         assert_eq!(classid_read_mode(0x1717_1000), ReadMode::DEFAULT);
-        // …and DEFAULT genuinely differs from what the authority handed back,
-        // so the assertion above discriminates rather than being trivially
-        // true of every mode.
         assert_ne!(ReadMode::DEFAULT.tail_variant, TailVariant::V3);
     }
 
-    /// CAN STAY SILENT: a non-loco plug gets no reading. Without this the arm
-    /// could return `LOCO_READ_MODES` for everything and still look correct.
-    #[test]
-    fn a_non_loco_plug_gets_no_reading() {
-        assert!(super::loco_read_modes_for("blockly-abi", &[0x0805]).is_empty());
-        assert!(super::loco_read_modes_for("blockly-abi", &[]).is_empty());
-        // Mixed is silent too — a partial answer is worse than none, because
-        // silence at a call site is indistinguishable from "use the default".
-        assert!(super::loco_read_modes_for("blockly-abi", &[0x1717, 0x0805]).is_empty());
-        // …and the loco id alone DOES resolve, so the mixed case fails on the
-        // mix, not because 0x1717 stopped working.
-        assert!(!super::loco_read_modes_for("blockly-abi", &[0x1717]).is_empty());
-    }
-
-    /// The three cases the ORIGINAL guard got wrong — it tested domain
-    /// membership (`id >> 8 == 0x17`) instead of declaration, so each of these
-    /// returned the whole table. Caught in review on #1207.
+    /// THE RULING: a seat nobody has claimed is plug-and-play. A new frontend
+    /// activates and reads V3 with NO edit to this file.
     ///
-    /// Each is paired with the `[0x1717]` positive above, so a version that
-    /// simply refused everything could not pass both.
+    /// This is the case the previous design got wrong: it held one hard-coded
+    /// row per seat and refused everything else, so a second frontend silently
+    /// lost its V3 tail until somebody remembered to add a row.
     #[test]
-    fn an_undeclared_loco_id_is_refused_even_though_it_is_in_the_domain() {
-        // 0x1701 / 0x1702 are ogar-loco's OWN node shapes: in-domain, but not
-        // consumer seats. Handing back 0x1717's reading for them is not a
-        // partial answer, it is an unrelated one.
-        assert!(super::loco_read_modes_for("blockly-abi", &[0x1701]).is_empty());
-        assert!(super::loco_read_modes_for("blockly-abi", &[0x1702]).is_empty());
-        // An undeclared seat is refused for the same reason.
-        assert!(super::loco_read_modes_for("blockly-abi", &[0x1718]).is_empty());
-        // Anti-vacuity: all three ARE in the loco domain, so the old guard
-        // admitted every one of them.
-        for id in [0x1701u16, 0x1702, 0x1718] {
-            assert_eq!(id >> 8, 0x17, "fixture must exercise the old guard");
-        }
+    fn an_unclaimed_seat_is_plug_and_play_for_whoever_plugs_it() {
+        let newcomer = HotPlug {
+            consumer: "some-future-frontend",
+            classids: &[0x1718],
+            covered: &[],
+        };
+        let act = super::OgarAuthority
+            .activate(&newcomer)
+            .expect("an unclaimed seat activates");
+        assert_eq!(
+            act.read_mode_for(0x1718).expect("reads V3"),
+            ReadMode::PLUG_AND_PLAY_V3
+        );
+        assert_eq!(ReadMode::PLUG_AND_PLAY_V3.tail_variant, TailVariant::V3);
+
+        // Anti-vacuity: 0x1718 appears in NO table in this crate. If the
+        // reading came from a lookup rather than from being plugged, this
+        // could not resolve.
+        assert!(super::palette_seat_owner(0x1718).is_none());
+        assert!(super::concept_override(0x1718).is_none());
     }
 
-    /// A within-domain MIXED plug — declared seat plus undeclared id — is
-    /// refused. The old guard called this "all loco" and answered, violating
-    /// this module's own no-partial-answers rule for the within-domain case.
+    /// …and a CLAIMED seat still belongs to its owner. Restores the ownership
+    /// guard codex flagged on #1207, which the derive-don't-tabulate rewrite
+    /// would otherwise have dropped.
     #[test]
-    fn a_declared_seat_mixed_with_an_undeclared_loco_id_is_refused() {
-        assert!(super::loco_read_modes_for("blockly-abi", &[0x1717, 0x1718]).is_empty());
-        assert!(super::loco_read_modes_for("blockly-abi", &[0x1701, 0x1717]).is_empty());
-    }
-
-    /// A seat belongs to ONE consumer. Activating it as somebody else is drift,
-    /// not a permissive default — otherwise the loco arm would bypass the
-    /// expected-executor check `resolve_hotplug` applies on the capability path.
-    #[test]
-    fn another_consumer_cannot_activate_blocklys_seat() {
-        assert!(super::loco_read_modes_for("scratch-abi", &[0x1717]).is_empty());
-        assert!(super::loco_read_modes_for("", &[0x1717]).is_empty());
-        // …and through the public surface, not just the helper: a wrong
-        // consumer falls through to the capability join, which fails closed
-        // for a palette id.
+    fn another_consumer_cannot_activate_a_claimed_seat() {
         let impostor = HotPlug {
             consumer: "scratch-abi",
             ..BLOCKLY
         };
         assert!(matches!(
             super::OgarAuthority.activate(&impostor),
-            Err(ActivationDrift::UnknownClassid(0x1717))
+            Err(ActivationDrift::UnexpectedConsumer(c)) if c == "scratch-abi"
         ));
+        // Two-sided on the same seat: its real owner still activates, so the
+        // guard discriminates rather than refusing 0x1717 outright.
+        assert!(super::OgarAuthority.activate(&BLOCKLY).is_ok());
+    }
+
+    /// THE MEDCARE CASE — the one this rewrite exists for.
+    ///
+    /// A capability consumer outside `0x17XX` is as plugged in as a palette,
+    /// so it reads V3 too. Under the previous design its activation carried NO
+    /// reading and a session asking for one hit `NoReadingFor` — the footgun
+    /// that surfaces weeks later as "why did quad 4x24 stop working", because
+    /// the G2 `4 × u24` carving is a reading of the 12-byte payload that only
+    /// exists under a V3 tail.
+    #[test]
+    fn a_capability_consumer_outside_the_loco_domain_also_reads_v3() {
+        let medcare = HotPlug {
+            consumer: "medcare-rs",
+            classids: &[0x0901, 0x0902],
+            covered: &[
+                "register_patient",
+                "get_patient_record",
+                "list_patients",
+                "update_patient_access",
+                "add_diagnosis",
+                "get_diagnosis",
+                "list_diagnoses",
+                "delete_diagnosis",
+            ],
+        };
+        let act = super::OgarAuthority
+            .activate(&medcare)
+            .expect("the health plug activates");
+
+        for id in [0x0901u16, 0x0902] {
+            assert_eq!(
+                act.read_mode_for(id).expect("every plugged id reads"),
+                ReadMode::PLUG_AND_PLAY_V3,
+                "0x{id:04X} must read V3 by being plugged in"
+            );
+        }
+        // It really did go through the capability join, so this is the
+        // ordinary path and not a palette short-circuit.
+        assert!(!act.capabilities.is_empty());
+        assert!(!act.concepts.is_empty());
+    }
+
+    /// A MIXED plug — an unclaimed palette seat alongside capability ids —
+    /// activates, and every id gets its reading.
+    ///
+    /// Codex P2 on #1216. The arm used to take the palette path only when
+    /// EVERY id was `0x17XX`, so a mixed plug went whole to
+    /// `resolve_hotplug`, which is pinned to refuse a palette id — the
+    /// consumer got `UnknownClassid` and could not activate at all. That
+    /// contradicts the ruling this arm implements: every plugged appid reads
+    /// V3.
+    ///
+    /// Anti-vacuity: the palette id is asserted to be one, and the capability
+    /// ids are asserted NOT to be, so the fixture provably straddles the
+    /// partition rather than being a capability-only plug in disguise.
+    #[test]
+    fn a_mixed_palette_and_capability_plug_activates_and_reads_v3_for_both() {
+        let mixed = HotPlug {
+            consumer: "medcare-rs",
+            classids: &[0x1718, 0x0901, 0x0902],
+            covered: &[
+                "register_patient",
+                "get_patient_record",
+                "list_patients",
+                "update_patient_access",
+                "add_diagnosis",
+                "get_diagnosis",
+                "list_diagnoses",
+                "delete_diagnosis",
+            ],
+        };
+        assert!(
+            super::is_palette_seat(0x1718),
+            "fixture straddles the split"
+        );
+        assert!(!super::is_palette_seat(0x0901));
+        assert!(!super::is_palette_seat(0x0902));
+
+        let act = super::OgarAuthority
+            .activate(&mixed)
+            .expect("a mixed plug must activate, not bang on its palette half");
+
+        for id in [0x1718u16, 0x0901, 0x0902] {
+            assert_eq!(
+                act.read_mode_for(id).expect("every plugged id reads"),
+                ReadMode::PLUG_AND_PLAY_V3,
+                "0x{id:04X} must read V3 by being plugged in"
+            );
+        }
+        // The capability half really went through the join, so the palette id
+        // was removed from it rather than the join being skipped wholesale.
+        assert!(!act.capabilities.is_empty());
+        assert!(act.concepts.iter().all(|(_, id)| *id != 0x1718));
+    }
+
+    /// …and a CLAIMED seat is still refused on the mixed path, so the
+    /// partition did not open a hole around the ownership guard.
+    #[test]
+    fn a_mixed_plug_carrying_someone_elses_seat_is_still_refused() {
+        let impostor = HotPlug {
+            consumer: "medcare-rs",
+            classids: &[0x1717, 0x0901],
+            covered: &["register_patient"],
+        };
+        assert!(matches!(
+            super::OgarAuthority.activate(&impostor),
+            Err(ActivationDrift::UnexpectedConsumer(c)) if c == "medcare-rs"
+        ));
+    }
+
+    /// CAN STAY SILENT: an UNPLUGGED concept still bangs.
+    ///
+    /// "V3 for all appids in plug-and-play" must not become "V3 for
+    /// everything". Without this half the lookup would answer for any id, and
+    /// a guard that fires on everything carries no information.
+    #[test]
+    fn an_unplugged_concept_is_silent_not_v3() {
+        let act = super::OgarAuthority.activate(&BLOCKLY).expect("activates");
+        assert_eq!(
+            act.read_mode_for(0x0901),
+            Err(ActivationDrift::NoReadingFor(0x0901)),
+            "a concept this plug never declared has no reading"
+        );
+        assert_eq!(act.declared_readings().len(), 1);
     }
 
     /// Fails closed on a lie: a palette plug claiming a capability is drift.

@@ -71,16 +71,22 @@ pub struct Activation {
     /// authority handed it — never by asking the canon registry about a class
     /// the canon does not own.
     ///
-    /// **`&'static` on purpose — this is plug-and-play at COMPILE time.** The
-    /// socket half is already const ([`HotPlug`] is one `const` per consumer,
-    /// `&'static [u16]` + `&'static [&'static str]`), and activation is by
-    /// Cargo presence: a build graph that pulls the authority crate gets the
-    /// real tables, one that does not cannot call [`CapabilityAuthority`] at
-    /// all. So the reading is a STATIC DESCRIPTOR the authority hands back —
-    /// a `const` table, no allocation, nothing resolved at runtime that was
-    /// not already decided by which crates are in the graph. `concepts` /
-    /// `capabilities` stay owned because they are derived (joined, sorted,
-    /// deduped); a reading is looked up, not computed.
+    /// **Owned, and per-plug — corrected 2026-09-07.** This was `&'static`,
+    /// argued as "plug-and-play at COMPILE time: a reading is looked up, not
+    /// computed". That argument had a consequence I did not weigh: a
+    /// `&'static` table cannot be built per plug, so the authority could only
+    /// hand back a table it already held ALL of, which forced an
+    /// all-or-nothing guard and, behind it, one hard-coded row per consumer
+    /// seat. That is the central lockstep `D-BLOCKS-HOTPLUG-1` retired,
+    /// rebuilt one level up — and its failure mode is the worst kind: a
+    /// consumer missing from the table keeps compiling and silently loses its
+    /// V3 tail, discoverable only weeks later and nowhere near the edit.
+    ///
+    /// Owned lets the authority answer for exactly the ids a plug declared,
+    /// derived from the plug rather than looked up in a shared list. Being
+    /// plugged in IS the declaration
+    /// ([`ReadMode::PLUG_AND_PLAY_V3`](crate::canonical_node::ReadMode::PLUG_AND_PLAY_V3)),
+    /// and an authority may still override any single concept.
     ///
     /// **Fails closed by MECHANISM, not by prose** (operator, 2026-09-07:
     /// *"don't silently enforce V1 fallback in hotplug, that's
@@ -95,7 +101,7 @@ pub struct Activation {
     /// executor that mints no keys) has no reading to declare. What the type
     /// now guarantees is that *asking* for an absent one bangs instead of
     /// quietly yielding a V1 tail.
-    read_modes: &'static [(u16, crate::canonical_node::ReadMode)],
+    read_modes: Vec<(u16, crate::canonical_node::ReadMode)>,
 }
 
 impl Activation {
@@ -106,7 +112,7 @@ impl Activation {
     pub fn new(
         concepts: Vec<(String, u16)>,
         capabilities: Vec<String>,
-        read_modes: &'static [(u16, crate::canonical_node::ReadMode)],
+        read_modes: Vec<(u16, crate::canonical_node::ReadMode)>,
     ) -> Self {
         Self {
             concepts,
@@ -148,8 +154,8 @@ impl Activation {
     /// slice, so scanning it and defaulting is once again expressible, and
     /// that is exactly what the lookup exists to avoid.
     #[must_use]
-    pub fn declared_readings(&self) -> &'static [(u16, crate::canonical_node::ReadMode)] {
-        self.read_modes
+    pub fn declared_readings(&self) -> &[(u16, crate::canonical_node::ReadMode)] {
+        &self.read_modes
     }
 }
 
@@ -290,7 +296,7 @@ mod tests {
                 plug.covered.iter().map(|s| (*s).to_string()).collect(),
                 // This toy authority declares no reading — an authority that
                 // has none says so, and asking it for one bangs.
-                &[],
+                Vec::new(),
             ))
         }
     }
@@ -337,9 +343,7 @@ mod tests {
             value_schema: ValueSchema::Bootstrap,
             edge_codec: EdgeCodecFlavor::CoarseOnly,
         };
-        const TABLE: &[(u16, ReadMode)] = &[(0x1717, V3_SEAT)];
-
-        let act = Activation::new(Vec::new(), Vec::new(), TABLE);
+        let act = Activation::new(Vec::new(), Vec::new(), vec![(0x1717, V3_SEAT)]);
 
         // Can-fire on the happy half: a declared seat resolves to its own
         // reading, not to some other row of the table.

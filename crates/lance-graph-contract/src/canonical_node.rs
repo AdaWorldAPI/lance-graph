@@ -1381,6 +1381,34 @@ impl ReadMode {
         edge_codec: EdgeCodecFlavor::CoarseOnly,
     };
 
+    /// The **plug-and-play** reading: what any hot-plugged appid reads as,
+    /// unless its authority declares an override.
+    ///
+    /// Operator, 2026-09-07: *"plug and play already has all the domains, you
+    /// could simply make the global schema for all appids already in
+    /// plug-and-play pattern activate V3 and be silent about all others"* —
+    /// and *"local quad usage must mint any V3 settings in plug and play,
+    /// regardless of the settings here."*
+    ///
+    /// **V3 is the answer for being plugged in at all, not for being listed
+    /// somewhere.** The alternative — a per-seat table in the authority with
+    /// one row per consumer — is the central lockstep `D-BLOCKS-HOTPLUG-1`
+    /// retired, rebuilt one level up: adding a frontend would again mean
+    /// editing a shared table, and a consumer whose row was missing would
+    /// silently lose its V3 tail *at a distance*, weeks from the edit that
+    /// caused it. That is the footgun this constant exists to remove.
+    ///
+    /// Differs from [`DEFAULT`](ReadMode::DEFAULT) in exactly one field —
+    /// the tail — because that is the field the ruling is about. `DEFAULT`
+    /// stays V1: it is the canon zero-fallback for a class nobody plugged,
+    /// and it is NOT reachable from a hot-plug lookup (an unplugged concept
+    /// yields `NoReadingFor`, never a defaulted reading).
+    pub const PLUG_AND_PLAY_V3: ReadMode = ReadMode {
+        tail_variant: TailVariant::V3,
+        value_schema: ValueSchema::Full,
+        edge_codec: EdgeCodecFlavor::CoarseOnly,
+    };
+
     /// The **OSINT / Palantir-Gotham** read-mode ([`NodeGuid::CLASSID_OSINT`]):
     /// a *hot* entity graph — [`ValueSchema::Cognitive`] (Meta + Qualia +
     /// Fingerprint + Energy + Plasticity + EntityType, for live NARS reasoning)
