@@ -549,23 +549,40 @@ impl lance_graph_contract::hotplug::CapabilityAuthority for OgarAuthority {
         // and here is how your rows are read" without contradicting either
         // test — both are on `resolve_hotplug`, which is left untouched.
         //
-        // A palette plug takes this arm: it is entirely `0x17XX` consumer
-        // seats, which carry no capabilities at all.
-        if !plug.classids.is_empty() && plug.classids.iter().all(|&id| is_palette_seat(id)) {
+        // PARTITION, do not choose (codex P2 on #1216). An earlier cut took
+        // the palette arm only when EVERY id was `0x17XX`, so a mixed plug —
+        // an unclaimed palette seat alongside ordinary capability ids, e.g.
+        // `[0x1718, 0x0901]` — went whole to `resolve_hotplug` and came back
+        // `UnknownClassid(0x1718)`. A consumer that legitimately has both
+        // could not activate at all, which contradicts the ruling this arm
+        // exists to implement: EVERY plugged appid reads V3.
+        //
+        // The two id kinds answer to different authorities, so they are
+        // routed separately and the results merged; the reading covers the
+        // whole plug either way, because it is derived from the plug.
+        let (palette, capability): (Vec<u16>, Vec<u16>) =
+            plug.classids.iter().partition(|&&id| is_palette_seat(id));
+
+        // A CLAIMED seat is its owner's, whichever arm it arrives on. An
+        // unclaimed one is plug-and-play for whoever plugs it.
+        if impersonated_seat(plug.consumer, &palette).is_some() {
+            return Err(ActivationDrift::UnexpectedConsumer(plug.consumer.into()));
+        }
+
+        // Pure-palette plug: no capability ids at all, so the join is not
+        // consulted (it is pinned to refuse `0x17XX`).
+        if !palette.is_empty() && capability.is_empty() {
             // Fails closed on a lie: a palette plug has no capabilities to
             // cover, so claiming one is drift, not an empty-set no-op.
             if let Some(cap) = plug.covered.first() {
                 return Err(ActivationDrift::Undeclared((*cap).into()));
             }
-            // …and on impersonation: a CLAIMED seat is its owner's. An
-            // unclaimed one is plug-and-play for whoever plugs it.
-            if impersonated_seat(plug.consumer, plug.classids).is_some() {
-                return Err(ActivationDrift::UnexpectedConsumer(plug.consumer.into()));
-            }
             return Ok(Activation::new(Vec::new(), Vec::new(), plug_readings(plug)));
         }
 
-        match resolve_hotplug(plug.consumer, plug.classids, plug.covered) {
+        // Capability ids go to the join; palette seats were removed above so
+        // they cannot make it refuse the whole plug.
+        match resolve_hotplug(plug.consumer, &capability, plug.covered) {
             Ok((concepts, capabilities)) => {
                 let concepts: Vec<(String, u16)> = concepts
                     .into_iter()
@@ -794,6 +811,74 @@ mod plug_and_play_reading {
         // ordinary path and not a palette short-circuit.
         assert!(!act.capabilities.is_empty());
         assert!(!act.concepts.is_empty());
+    }
+
+    /// A MIXED plug — an unclaimed palette seat alongside capability ids —
+    /// activates, and every id gets its reading.
+    ///
+    /// Codex P2 on #1216. The arm used to take the palette path only when
+    /// EVERY id was `0x17XX`, so a mixed plug went whole to
+    /// `resolve_hotplug`, which is pinned to refuse a palette id — the
+    /// consumer got `UnknownClassid` and could not activate at all. That
+    /// contradicts the ruling this arm implements: every plugged appid reads
+    /// V3.
+    ///
+    /// Anti-vacuity: the palette id is asserted to be one, and the capability
+    /// ids are asserted NOT to be, so the fixture provably straddles the
+    /// partition rather than being a capability-only plug in disguise.
+    #[test]
+    fn a_mixed_palette_and_capability_plug_activates_and_reads_v3_for_both() {
+        let mixed = HotPlug {
+            consumer: "medcare-rs",
+            classids: &[0x1718, 0x0901, 0x0902],
+            covered: &[
+                "register_patient",
+                "get_patient_record",
+                "list_patients",
+                "update_patient_access",
+                "add_diagnosis",
+                "get_diagnosis",
+                "list_diagnoses",
+                "delete_diagnosis",
+            ],
+        };
+        assert!(
+            super::is_palette_seat(0x1718),
+            "fixture straddles the split"
+        );
+        assert!(!super::is_palette_seat(0x0901));
+        assert!(!super::is_palette_seat(0x0902));
+
+        let act = super::OgarAuthority
+            .activate(&mixed)
+            .expect("a mixed plug must activate, not bang on its palette half");
+
+        for id in [0x1718u16, 0x0901, 0x0902] {
+            assert_eq!(
+                act.read_mode_for(id).expect("every plugged id reads"),
+                ReadMode::PLUG_AND_PLAY_V3,
+                "0x{id:04X} must read V3 by being plugged in"
+            );
+        }
+        // The capability half really went through the join, so the palette id
+        // was removed from it rather than the join being skipped wholesale.
+        assert!(!act.capabilities.is_empty());
+        assert!(act.concepts.iter().all(|(_, id)| *id != 0x1718));
+    }
+
+    /// …and a CLAIMED seat is still refused on the mixed path, so the
+    /// partition did not open a hole around the ownership guard.
+    #[test]
+    fn a_mixed_plug_carrying_someone_elses_seat_is_still_refused() {
+        let impostor = HotPlug {
+            consumer: "medcare-rs",
+            classids: &[0x1717, 0x0901],
+            covered: &["register_patient"],
+        };
+        assert!(matches!(
+            super::OgarAuthority.activate(&impostor),
+            Err(ActivationDrift::UnexpectedConsumer(c)) if c == "medcare-rs"
+        ));
     }
 
     /// CAN STAY SILENT: an UNPLUGGED concept still bangs.
