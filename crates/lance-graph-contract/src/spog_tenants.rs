@@ -344,6 +344,30 @@ impl<'a> SpogTenants<'a> {
         }
         out
     }
+
+    /// The merged saccade as canonical rows — the SAME shape [`AlphaOverlay`]
+    /// writes and [`crate::alpha_tunnel::AlphaTunnel::merged_rows`] returns,
+    /// so a tenant aufstellung, a tunnel and a single overlay are ONE table to
+    /// any writer. This is the row form the sealed batch per cycle is built
+    /// from: the stamp is [`merge`](Self::merge)'s (globally re-sequenced),
+    /// the edge block stays reserved-and-zeroed, nothing else is materialized.
+    #[must_use]
+    pub fn merged_rows(&self) -> Vec<NodeRow> {
+        self.merge()
+            .into_iter()
+            .map(|(addr, st)| {
+                let mut row = NodeRow {
+                    key: addr,
+                    edges: crate::canonical_node::EdgeBlock::default(),
+                    value: [0u8; 480],
+                };
+                row.value[crate::alpha::ALPHA_STAMP_OFFSET
+                    ..crate::alpha::ALPHA_STAMP_OFFSET + crate::alpha::ALPHA_STAMP_BYTES]
+                    .copy_from_slice(&st.to_le_slot());
+                row
+            })
+            .collect()
+    }
 }
 
 #[cfg(test)]
@@ -588,5 +612,29 @@ mod tests {
         let seqs: Vec<u32> = m.iter().map(|(_, s)| s.seq).collect();
         assert_eq!(seqs, vec![0, 1, 2], "seq re-issued globally");
         assert_eq!(t.merge(), m, "deterministic");
+    }
+
+    /// `merged_rows` is `merge` in row form and nothing more: same addresses
+    /// in the same order, the stamp readable back from value slot 0 with the
+    /// GLOBAL seq (not the per-shadow one), the edge block zero. Two-sided:
+    /// a per-shadow seq leaking through would show as a repeated `0` here.
+    #[test]
+    fn merged_rows_is_merge_in_row_form() {
+        let b = base();
+        let alloc = AlphaAllocation::over(&b);
+        let mut t = SpogTenants::over(&alloc, 5, &[0x0301, 0x0302]);
+        assert!(t.claim(b[4].key, 2).routed()); // 0x0302 — seq 0 in ITS shadow
+        assert!(t.claim(b[0].key, 3).routed()); // 0x0301 — seq 0 in ITS shadow
+        let merged = t.merge();
+        let rows = t.merged_rows();
+        assert_eq!(rows.len(), merged.len(), "one row per merged claim");
+        assert_eq!(rows.len(), 2, "anti-vacuity: two shadows, two rows");
+        for ((addr, st), row) in merged.iter().zip(&rows) {
+            assert_eq!(row.key, *addr, "the address is carried verbatim");
+            assert_eq!(crate::alpha::stamp_of(row), *st, "the stamp reads back");
+            assert_eq!(row.edges, EdgeBlock::default(), "edges stay reserved");
+        }
+        let seqs: Vec<u32> = rows.iter().map(|r| crate::alpha::stamp_of(r).seq).collect();
+        assert_eq!(seqs, vec![0, 1], "the GLOBAL seq, not two per-shadow zeros");
     }
 }

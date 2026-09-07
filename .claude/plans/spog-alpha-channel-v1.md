@@ -252,6 +252,53 @@ shipped code — `lgj_hop` does two ANDs (`exports.rs:1818,1822`). Whether the
 fusion pays on the hop's shape is gate (c) below; nothing in this spec assumes
 it does.
 
+**⊘ 2026-09-07, operator (later the same day) — the three-way decomposition,
+recorded as the reading this section is to be held against.** What converges is
+not "hexagons are good": Mississippi Queen, TERNLOG mask chaining and BLASGraph
+are three ways of paying for ONE operation — *deciding what remains eligible
+without materializing the rejected world.* Operator's table, verbatim in
+substance:
+
+| mechanism | pays for | says |
+|---|---|---|
+| Mississippi Queen | reveal geometry / exploration budget | where activity **MAY** go (topology) |
+| TERNLOG masks | Boolean eligibility / inhibition | where activity **IS ALLOWED** to go |
+| BLASGraph | numeric propagation over the survivors | **HOW MUCH** activity goes there |
+
+The hexagon was never magical (degree-6 falsified repeatedly, ndarray
+`gemm-ternlog-mask-consolidation-v1.md`); what survived is the economics of
+revealing only what can matter next — which is exactly why the corrected #620
+result reads as it does: fan-out loses because reconvergence makes you inspect
+redundant edges, not because hex degree is special. TERNLOG's prize is
+**amortized eligibility** (resident state ⊗ mask A ⊗ mask B ⊗ mask C, the
+rejected volume never becoming a second representation), and gate (h)'s 0.0019
+already shows the limit: it wins while the working masks stay resident and
+collapses toward bandwidth parity when depth blows the cache budget. Alpha is
+then not plumbing but **the sparse, readable record of which part of the
+potential field actually fired.** One cycle: topology reveals a candidate
+region → resident masks narrow (TERNLOG) → active survivors → BLASGraph numeric
+rail → strength/score → **alpha delta** → next-cycle focus.
+
+**The boundary rule (operator, binding):** the three COMPOSE, they do not
+collapse. The MQ hexagon does not become a TERNLOG immediate; the immediate does
+not become a neural weight; BLASGraph is not used for Boolean elimination just
+because a matmul can encode it. *Topology chooses neighborhood, masks choose
+admissibility, BLAS chooses magnitude.* This sharpens §4's own claim above: the
+"same bit" of the interjection is the mask bit = the projection bit (true by
+index construction), NOT the mask bit = a weight — gate (f) measures the former
+and must never be read as licensing the latter.
+
+**Consequence for the cross (#1220 / D-SPG-3):** with the rung × G cross the
+numeric leg can run INDEPENDENTLY per rung — `R_r × G → mask → numeric
+propagation` for r in 0..=9 — and alpha is the common readout plane where those
+independently computed fields overlap. Meta-awareness then need not "run the
+ten rungs"; it observes the field intersections. That is the reading D-SPG-4's
+gate (c)/(h) and the F5 open question (scalar `AlphaFocus` vs SIMD
+`spog_masks`) should be decided under: the cell is the READOUT surface, the
+propagation is a separate rail, and neither owns the other. Motto, as given:
+*"Don't compute the world. Narrow what can matter, then spend arithmetic only
+there."*
+
 ## §5 — Deliverables
 
 | D-id | scope | repo | gate / falsifier |
@@ -261,7 +308,7 @@ it does.
 | **D-SPG-2** | **SHIPPED 2026-09-07** (MedCare-rs `c6a9095`: `medcare-cohorts::spog_masks::{tenant_masks, domain_mask, horseshoe_mask}` + `bake_data::soa_image`, feature `spog`; census probe `examples/spog_tenant_census.rs`). Tenant masks over the combined image: `eq_u32_strided_to_mask` per distinct classid over `soa_image()` bytes, folded per `graph_of`; domain = `OR`; horseshoe = per-row `Domain::of_row` fence (scalar; a SIMD `eq_u16` sweep is a T1 addition, not a reading change). Measured: 762,041 rows, 16 tenants, partition holds both ways, gate (h) ratio 0.0019. `SpogTenants::over` from the Gs moves to D-SPG-5 **⊘ 2026-09-07:** sha unverifiable — see `STATUS_BOARD.md` D-SPG-2 (regraded Shipped-unpushed). **⊘ later the same day:** pushed as MedCare-rs `29d4792` (rebased onto `9f9b7be`, after #621); see STATUS_BOARD D-SPG-2 — Shipped. | MedCare-rs| every `tenant_mask[G].count()` equals `node_rows_for_classid(G).len()` (the partition_point answer is the independent reference); `Σ_G count == n_rows` over the declared set (anti-vacuity: the union is the whole image, no row in two tenants) |
 | **D-SPG-3** | **SHIPPED 2026-09-07** (MedCare-rs `6bf7764`: `spog_masks::{rung_tenant_cell, unlooked}`, 4 tests + the Codex sibling-classid falsifier, mutation-fired). The rung × tenant cross via `mask_ternlog` on `words()` (§3.3), with the `unlooked[D]` read **⊘ 2026-09-07:** sha unverifiable — see `STATUS_BOARD.md` D-SPG-3 (regraded Shipped-unpushed). **⊘ later the same day:** pushed as MedCare-rs `e5febf9` (rebased onto `9f9b7be`, after #621); see STATUS_BOARD D-SPG-3 — Shipped. | MedCare-rs| `cell[r][G].count() == lane_r.scanpath().filter(graph_of == G).count()` for every (r, G) (materialized reference); `AND_ANDNOT2` differs from `AND3` on the same operands wherever `any_rung` is non-empty (the immediate is not decoration) |
 | **D-SPG-4** | **PROBE-CROSSWALK-MASK-1**, gates (a)–(h) below, on the real image. **Pre-registration rule:** the probe's W0 READ pins the exact FK columns (byte offsets, widths, needle encoding) in its own header BEFORE any timing runs; a column that is not u32-aligned is either read through a documented masked compare or excluded and said so | MedCare-rs (probe) + lance-graph (record) | §6 |
-| **D-SPG-5** | **PARTIAL 2026-09-07** — leg (i) shipped by MedCare-rs #621 (merged `9f9b7be`); legs (ii)–(iv) measured still open on `origin/main`. See `STATUS_BOARD.md` D-SPG-5 for the per-leg measurement. Original scope: **The migration (F9):** every hand-rolled MedCare alpha driver moves ONTO the #1198 contract path — (i) `attention::WatchedRows`' `RefCell<AlphaOverlay>` + `domain_rung` writer → claims routed through `SpogTenants` inside an `AlphaTunnel` lane whose rung is the attention rung; `reflection(domain)` = `OR` over the domain's tenants' `attended_mask()`; (ii) `backreference::combined_base` → one `AlphaAllocation` over the image, patient rows as a declared tenant, never a second base; (iii) `medcare-nodesoa::alpha::{overlay_to_batch, write_alpha_overlay}` take the tunnel/tenants' `merge()` rows, not a bare overlay; (iv) `frontier_dispatch` routes through tenants over `all-lanes.soa`. `domain_rung` retired as a rung writer (F4) | MedCare-rs | on a fixed frontier, tenant-read reflection == `domain_rung` reflection as address SETS for all 8 domains (the migration is behaviour-preserving) AND the stamps' `rung` bytes now carry ladder values 1..=9 (can-fire: a fixture where the two would differ if the byte were still Domain+1) |
+| **D-SPG-5** | **PARTIAL 2026-09-07** — leg (i) shipped by MedCare-rs #621 (merged `9f9b7be`); legs (ii)–(iv) measured still open on `origin/main`. See `STATUS_BOARD.md` D-SPG-5 for the per-leg measurement. **⊘ later the same day:** legs (ii)–(iv) shipped in MedCare-rs `e722dd1` (PR #622); residue = the two unnamed sites (`graph_feed`, `medcare-soa::patient`) + F5. See STATUS_BOARD. Original scope: **The migration (F9):** every hand-rolled MedCare alpha driver moves ONTO the #1198 contract path — (i) `attention::WatchedRows`' `RefCell<AlphaOverlay>` + `domain_rung` writer → claims routed through `SpogTenants` inside an `AlphaTunnel` lane whose rung is the attention rung; `reflection(domain)` = `OR` over the domain's tenants' `attended_mask()`; (ii) `backreference::combined_base` → one `AlphaAllocation` over the image, patient rows as a declared tenant, never a second base; (iii) `medcare-nodesoa::alpha::{overlay_to_batch, write_alpha_overlay}` take the tunnel/tenants' `merge()` rows, not a bare overlay; (iv) `frontier_dispatch` routes through tenants over `all-lanes.soa`. `domain_rung` retired as a rung writer (F4) | MedCare-rs | on a fixed frontier, tenant-read reflection == `domain_rung` reflection as address SETS for all 8 domains (the migration is behaviour-preserving) AND the stamps' `rung` bytes now carry ladder values 1..=9 (can-fire: a fixture where the two would differ if the byte were still Domain+1) |
 | **D-SPG-6** | Sealed batch per cycle: `merge()` → `node_rows_to_batch(rows, cycle)` → one append; `cycle = version + 1` | MedCare-rs | two cycles = two versions, rows readable at each; a read at version v never sees cycle v+1's stamps; `enable_stable_row_ids` absent from the writer (grep fence) |
 | **D-SPG-7** | ogar-r2il consumer (`RANK` + `TERNLOG 0x86`) through `lance-graph-ogar` | lance-graph | lifted program's survivor mask == hand chain, bit-for-bit — **Queued, gates on D-SPG-4** |
 | **D-SPG-8** | **SHIPPED 2026-09-07** (MedCare-rs #621, merged `9f9b7be`). DataFusion containment (F8) | MedCare-rs | schema of the scan carries neither `_rowid` nor `_rowaddr`; a test that flips red if either flag returns — **met**, and the test observes the PRODUCTION call site (`state.rs:945` / `:1264`). See `STATUS_BOARD.md` D-SPG-8 |
@@ -338,6 +385,9 @@ lesson); the K = 1 control and the counting allocator are mandatory arms.
      `AlphaOverlay` references in `backreference`, 15 in `medcare-nodesoa::alpha`
      (whose two writers still have zero callers outside their own module), plus
      two sites this spec never named (`graph_feed`, `medcare-soa::patient`).
+     **⊘ later the same day:** (ii)–(iv) landed (`e722dd1`, PR #622); the two
+     unnamed sites are the remaining count, to be read before being counted as
+     F9 scope.
    - **D-SPG-8 is SHIPPED, ahead of its position in the order.** Its gate is met
      at the production call site, not at a test-local one, and the test's own
      doc records the disable run that caught the first draft asserting against

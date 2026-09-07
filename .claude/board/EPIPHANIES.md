@@ -1,3 +1,53 @@
+## 2026-09-07 — E-TOPOLOGY-MASKS-MAGNITUDE-COMPOSE-NEVER-COLLAPSE-1 — Mississippi Queen, TERNLOG chaining and BLASGraph pay for ONE operation, from three sides
+
+**Status:** OPERATOR RULING (2026-09-07, verbatim in substance), recorded on
+`spog-alpha-channel-v1.md` §4 and here; the boundary rule is binding for
+D-SPG-4/5/6 and for the F5 open question.
+**Confidence:** High on the decomposition and the boundary (operator's word;
+consistent with the measured 0.0019 amortization ratio of D-SPG-2 and the
+corrected #620 fan-out result). [H] on the per-rung independent propagation —
+argued, not yet measured.
+
+**The operation.** *Deciding what remains eligible without materializing the
+rejected world.* Three mechanisms pay for it: **Mississippi Queen** = reveal
+geometry / exploration budget (topology says where activity MAY go);
+**TERNLOG masks** = Boolean eligibility / inhibition (where activity IS ALLOWED
+to go); **BLASGraph** = numeric propagation over the survivors (HOW MUCH goes
+there). The hexagon was never the point — degree-6 was falsified repeatedly;
+what survived is the economics of revealing only what can matter next, which is
+why fan-out loses in #620 (reconvergence forces inspection of redundant edges),
+not because hex degree is special. TERNLOG's prize is **amortized
+eligibility** — `resident ⊗ A ⊗ B ⊗ C`, the rejected volume never becoming a
+second representation — and it wins only while the working masks stay resident
+(gate (h): 0.0019 of a rebuild), collapsing toward bandwidth parity as depth
+blows the cache. **Alpha is the sparse, readable record of which part of the
+potential field actually fired** — the readout plane, not plumbing.
+
+**The boundary rule (binding).** The three COMPOSE and never collapse: the MQ
+hexagon does not become a TERNLOG immediate; the immediate does not become a
+neural weight; BLASGraph is never used for Boolean elimination because a matmul
+can encode it. *Topology chooses neighborhood, masks choose admissibility, BLAS
+chooses magnitude.* Reads back onto §4's "same bit" interjection: mask bit =
+projection bit (true by the immediate's index construction) — NEVER mask bit =
+weight.
+
+**The consequence for the rung × G cross (#1220, D-SPG-3).** The numeric leg
+can run independently per rung, `R_r × G → mask → propagation`, r ∈ 0..=9, with
+alpha as the common readout plane where the ten fields overlap — so
+meta-awareness observes field INTERSECTIONS instead of "running the ten rungs".
+This is the frame for F5's open question (scalar `AlphaFocus` vs SIMD
+`spog_masks`): the cell is a readout surface, the propagation a separate rail;
+neither owns the other.
+
+**Falsifier.** A design in which one of the three does another's job — a
+ternlog immediate carrying magnitude, a BLAS kernel doing set elimination, a
+topology hop encoded as a mask constant — is the collapse this entry forbids;
+the reviewer's question on every D-SPG PR is "which of the three is this, and
+does it do only that". Motto as given: *"Don't compute the world. Narrow what
+can matter, then spend arithmetic only there."*
+
+---
+
 ## 2026-09-07 — E-AN-EMPTY-RANGE-AFTER-A-RESET-IS-NOT-EVIDENCE-1 — the check that certified the loss it was run to prevent
 
 **Status:** FINDING, measured. The orphaned commit was recovered; the board it
