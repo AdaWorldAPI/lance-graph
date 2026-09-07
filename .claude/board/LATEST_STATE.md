@@ -204,6 +204,28 @@ writing nothing, reconcile-unavailable ⇒ `Ambiguous`). `#911 → #912 →
 valve (no artifact-backed change ⇒ no sink call ⇒ no version), `1d416704` is
 fence hardening, neither a migration regression.
 
+## 2026-09-07 — CORRECTION to the #1201 entry below: it merged HYGIENE-ONLY
+
+| PR | merge | content |
+|---|---|---|
+| **#1201** | `54285a42` | #1199 post-merge records **only**. The council SPEC v1 did NOT land here. |
+
+The #1201 section below says the PR "merged MIXED" because the SPEC v1 commit
+was pushed to it. **That is false**, measured 2026-09-07:
+`git merge-base --is-ancestor 3dd98b2b origin/main` → NO, and neither the plan
+file, nor its `INTEGRATION_PLANS` prepend, nor its `STATUS_BOARD` `D-NGN-AUDIT`
+row was present on `main`. #1201 merged hygiene-only, exactly as its own body
+said — the body was right and the entry's self-correction was wrong.
+
+The commit was orphaned by a `git checkout -B <branch> origin/main` run while it
+was still unmerged; recovered from `git fsck --lost-found` and cherry-picked
+forward in #1217. Finding + the generalizable rule:
+`EPIPHANIES.md` `E-AN-EMPTY-RANGE-AFTER-A-RESET-IS-NOT-EVIDENCE-1`.
+
+The section below is left **verbatim**, wrong sentence included — it is the
+receipt, and this file is append-only (`CLAUDE.md`: *"never edit past entries
+except the Status / Confidence lines"*). Read it through this correction.
+
 ## 2026-09-06 — #1201 MERGED (54285a42): #1199's records + the council SPEC v1
 
 | PR | merge | content |

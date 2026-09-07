@@ -1,3 +1,36 @@
+## 2026-09-06 — `NodeGuid::new` repurpose AUDIT (5+3 council, READ-ONLY) → `.claude/plans/nodeguid-new-repurpose-audit-v1.md`
+
+SPEC v1 of a council convened to AUDIT — not implement — whether
+`NodeGuid::new` can be repurposed from the V1 mint into a V3 cascade
+constructor. **Operator constraint, verbatim: *"It's already in production, if
+you touch it it would change something you half understand."*** Nothing is
+built from this pass; the deliverable is a verdict.
+
+The spec carries a §0 **RETRACTED READINGS** table — four FALSE readings the
+orchestrator produced before writing it (each from an accessor NAME or a byte
+HISTOGRAM instead of the class's declared schema), banked so the council does
+not re-derive them and no finding cites them as context. `ogar-obo/src/layout.rs`
+exists to prevent exactly that failure and says so: *"the classid picks the
+reading … a reader never assumes a carve."*
+
+Frozen (F1-F8) includes the operator's architecture: **first two tenants = the
+distinguished name; the 4x24-bit Quad Identitaet is a VALUE tenant; the O(1)
+lookup is the quad; the depth-16 path (12+4) serves parent-child inheritance
+and HHTL; "Nobody walks anything."** Gates G1-G5 include G4, the
+ordering/uniqueness/display/**sequence** classification of the identity()
+readers — only the sequence bucket is a semantic blocker, because a DN sorts
+hierarchically and that failure still compiles.
+
+Status: **HELD at Phase 2.** Phase 1 has RETURNED (all five savants);
+consolidation into draft v2 is held on a VIOLATES against frozen decision F5
+(*"Nobody walks anything"*) — `GET /views/graph/wave.abi` reaches
+`inherited_part_of` — which is the operator's to rule, not the orchestrator's to
+resolve. Do NOT re-cast Phase 1, and do not cast the three reviewers (Phase 3)
+until that ruling lands; the strict order is the harness's anti-mush protocol.
+Draft v2 also owes F9, the #1202 dating rule. Phase numbering is the 5+3
+harness's single 0-5 ladder (`.claude/agents/5plus3-council.md`), stated in the
+plan's own header. Superseded by v2/v3 when they land.
+
 ## 2026-09-06 — temporal / delta / alpha staged plan → `.claude/temporal/09-plan.md`
 
 Staged and probe-gated: Stage 1 compact alpha resident form (no addressing, no
