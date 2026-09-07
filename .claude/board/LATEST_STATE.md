@@ -26,6 +26,9 @@ and NOT DataFusion — the same class
 `obo_store.rs` among its six cited sites. SPEC §2's `canonical_node.rs` line
 numbers are stale after the `mint_for` V2/V3 drift; re-anchor to symbols before
 Phase 3.
+## 2026-09-07 — PR #1218 merged (`7bb393ef`): plan inventory + V3 harvest mirrors are on `main`
+
+- The 2026-09-07 "plan inventory landed" delta below is now merged history. Post-review deltas since that delta was written: `TD-NDARRAY-SIMD-GATHER` is **PARTIAL** (not SHIPPED); W1b reads 0 of 5 TD entries closed / 1 of 7 files migrated; ENTROPY M1–M27 reconciles to 9 + 7 + 10 + 1; COMPONENT-MAP `StepMask` row and the Sonnet guardrails `StepMask` / `0x1000` rows regraded; the nexgen `(classid, version)` key is marked PROPOSED (shipped `NestedBands` is version-only). Arc entry: `PR_ARC_INVENTORY.md` under PR #1218.
 
 ## 2026-09-07 — plan inventory landed: `PLAN-INVENTORY-2026-09-07.md` + the V3 folder now sees the harvest
 
