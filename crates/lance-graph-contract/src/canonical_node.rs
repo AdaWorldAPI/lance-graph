@@ -357,10 +357,16 @@ impl NodeGuid {
     /// available so production mints (`ocr.rs`, `aiwar.rs`) route through it in
     /// every build. The [`V1`](TailVariant::V1) arm is unconditional
     /// ([`new`](NodeGuid::new)); the [`V2`](TailVariant::V2)/[`V3`](TailVariant::V3)
-    /// arms lower to `new_v2` only under `guid-v2-tail`. With the feature off no
-    /// classid registers a V2/V3 `tail_variant` ([`classid_read_mode`] returns
-    /// V1), so the fallback arm is dead — it exists purely so the crate compiles
-    /// `--no-default-features`.
+    /// arms lower to `new_v2` only under `guid-v2-tail`. With the feature off the
+    /// V2/V3 arm **panics** rather than falling back to V1.
+    ///
+    /// That arm was previously a silent fallback, justified as dead code
+    /// because "no classid registers a V2/V3 `tail_variant`". Since
+    /// D-BLOCKS-HOTPLUG-1 a hot-plugged consumer's reading rides the
+    /// authority's `Activation::read_modes` instead of [`classid_read_mode`],
+    /// so a caller can pass V3 with no registry entry involved — the arm is
+    /// reachable, and a fallback would silently mint a V1 tail for a caller
+    /// that asked for V3.
     ///
     /// **No silent truncation:** the V2/V3 arm asserts `family`/`identity` fit
     /// `u16`, mirroring [`new`](NodeGuid::new)'s own 24-bit guard.
@@ -399,10 +405,35 @@ impl NodeGuid {
             }
             #[cfg(not(feature = "guid-v2-tail"))]
             TailVariant::V2 | TailVariant::V3 => {
-                // feature off ⇒ V2/V3 unreachable (no classid registers them);
-                // fall back to the V1 layout so the crate compiles.
-                let _ = leaf;
-                Self::new(classid, heel, hip, twig, family, identity)
+                // A V3 MINT NEVER DEGRADES TO V1 (operator, 2026-09-07).
+                //
+                // This arm used to fall back to `new`, justified as dead code:
+                // "no classid registers a V2/V3 tail_variant, so the fallback
+                // arm is unreachable". D-BLOCKS-HOTPLUG-1 falsified that
+                // premise. A hot-plugged consumer's reading no longer comes
+                // from `classid_read_mode` at all — it rides the authority's
+                // `Activation::read_modes`, and the consumer passes the
+                // `TailVariant` straight in. `blockly-store` does exactly
+                // that, and `medcare-cohorts` calls `mint_for(V3, …)`
+                // directly. The arm is live.
+                //
+                // Falling back would hand a caller that ASKED for V3 a V1
+                // `family:identity` u24 key, and the tail is not recorded in
+                // the key — `decode` versus `decode_v2` is chosen by classid
+                // alone — so the corruption is unobservable at the mint and
+                // surfaces as garbage identities much later.
+                //
+                // `mint_for` is `const fn`, so this fails a const-context mint
+                // at COMPILE time and panics loudly otherwise. Scoped
+                // deliberately: no default is flipped, no feature set changes,
+                // no dependency is added, and the V1 arm above still mints V1
+                // for classes that legitimately read V1.
+                let _ = (classid, heel, hip, twig, leaf, family, identity);
+                panic!(
+                    "mint_for was asked for a V2/V3 tail without `guid-v2-tail`; \
+                     enable the feature (it is implied by the default-on \
+                     `guid-v3-tail`) — a V3 mint must never silently become V1"
+                )
             }
         }
     }
@@ -3311,5 +3342,48 @@ mod tests {
         // v1 accessors remain UNTOUCHED under the feature (additive, non-breaking).
         assert_eq!(v1.family(), 0x00_00AB);
         assert_eq!(v1.identity(), 0x00_00CD);
+    }
+}
+
+/// A V3 mint must never silently degrade to a V1 tail (operator, 2026-09-07).
+///
+/// Only compiled when `guid-v2-tail` is OFF — the one configuration in which
+/// [`NodeGuid::mint_for`]'s V2/V3 arm can be reached without `new_v2` behind
+/// it. In every default build the feature is on (implied by the default-on
+/// `guid-v3-tail`) and this arm does not exist at all.
+#[cfg(all(test, not(feature = "guid-v2-tail")))]
+mod v3_never_degrades_to_v1 {
+    use super::*;
+
+    /// Can-fire: asking for V3 without the feature bangs.
+    ///
+    /// The behaviour this replaced was a silent `new(…)` fallback, which
+    /// handed back a V1 `family:identity` u24 key. Nothing downstream could
+    /// notice — the tail is not recorded in the key, so the wrong reading
+    /// surfaces only as garbage identities much later.
+    #[test]
+    #[should_panic(expected = "must never silently become V1")]
+    fn a_v3_mint_without_the_feature_bangs_instead_of_minting_v1() {
+        let _ = NodeGuid::mint_for(TailVariant::V3, 0x1717_1000, 0, 0, 0, 0, 0, 1);
+    }
+
+    /// …and V2 takes the same arm, so the guard is not V3-only.
+    #[test]
+    #[should_panic(expected = "must never silently become V1")]
+    fn a_v2_mint_without_the_feature_bangs_too() {
+        let _ = NodeGuid::mint_for(TailVariant::V2, 0x1717_1000, 0, 0, 0, 0, 0, 1);
+    }
+
+    /// Can-stay-silent: a class that legitimately reads V1 still mints, in the
+    /// same configuration. Without this half the guard could be "refuse every
+    /// mint", which carries exactly as much information as refusing none.
+    #[test]
+    fn a_v1_mint_is_untouched_and_still_carries_the_u24_tail() {
+        let g = NodeGuid::mint_for(TailVariant::V1, 0x0000_0000, 0, 0, 0, 0xFFFF, 0, 1);
+        assert_eq!(g.identity(), 1, "the V1 u24 tail still mints");
+        assert!(g.is_unbasined());
+        // `leaf` is not a V1 tier: the sentinel above must be dropped, not
+        // written into bytes 10..12 where the V2/V3 tail keeps it.
+        assert_eq!(&g.as_bytes()[10..12], &[0, 0]);
     }
 }
