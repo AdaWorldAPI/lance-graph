@@ -2163,9 +2163,11 @@ mod tests {
 
     /// The V1 24-bit guards above have had `should_panic` cover since they
     /// landed; the V2/V3 16-bit guards in `mint_for` had none, so nothing
-    /// proved they could fire. Feature-gated because the V2/V3 arm only exists
-    /// under `guid-v2-tail` — without it `mint_for` falls back to the V1 arm and
-    /// panics with the 24-bit message instead.
+    /// proved they could fire. The gate is load-bearing: ungated, `mint_for`
+    /// falls back to the V1 arm, whose 24-bit guard ACCEPTS `0x0001_0000`, so
+    /// the two `should_panic` tests fail with "test did not panic as expected"
+    /// — measured, not assumed. The third fails earlier still, at compile time
+    /// (`E0599`), because `family_v2`/`identity_v2` are themselves gated.
     #[test]
     #[cfg(feature = "guid-v2-tail")]
     #[should_panic(expected = "v2/v3 identity must fit in 16 bits")]
