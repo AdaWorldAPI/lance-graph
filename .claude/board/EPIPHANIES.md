@@ -53,32 +53,44 @@ value-witness). Disjoint row sets, identical cardinality. I recorded this in the
 consumer ledger as *Koinzidenz* and warned readers not to derive a bridge from
 it. That was the wrong direction: two disjoint sets of equal size, produced by a
 bake that constructs the multi-facet lane FROM the single-facet ones, is what a
-1:1 crosswalk looks like from the outside. The other domains do NOT align
+1:1 crosswalk looks like from the outside — looks like, not is: equal
+cardinality on disjoint sets is CONSISTENT WITH a bijection and proves none
+(two different 103,291-row sets satisfy it equally). The other domains do NOT align
 (substance 131,582 vs 122,903; anatomy 119,684 vs 48; procedure 38,956 vs
 1,384) — and that is not error but COVERAGE: the multi-facet lane carries only
-part of those domains. Alignment is sufficient for bijection; misalignment
-measures reach. Lab is the one domain where the bake happens to be bijective —
-"accidentally so perfect".
+part of those domains. Alignment is consistent with bijection; misalignment
+measures reach. The bijection itself is proven only at row level — set equality
+of the crosswalk's survivors against the scalar reference, or a unique
+bidirectional mapping — which is exactly what gate (a) runs. Lab is the one
+domain where the cardinalities PERMIT the bake to be bijective — "accidentally
+so perfect" is the hypothesis the probe tests, not its result.
 
-**Why that is calibration, in the strict sense.** A known-answer test derived
-from the data's own structure, with no external oracle:
+**Why that is calibration, in the strict sense.** A known-answer CARDINALITY
+target derived from the data's own structure — a necessary condition every
+correct chain must meet, never the sufficient one; the set-level oracle stays the
+scalar reference in gate (a):
 
 - **D-SPG-4 gate (a)** gains a target it lacked. The crosswalk is a chain of
   masked equality sweeps (`spog-alpha-channel-v1.md` §3.2). A sweep from the
   lab tenant across the bridge must land on exactly 103,291 rows. Any other
-  count is a defect in the chain — not "a number to report".
+  count is a defect in the chain — not "a number to report". The right count is
+  not a pass: the survivor SET must still equal the scalar reference's.
 - **Gate (f) — the K0..K7 "angle"** — gains a discriminator. Until now the
   immediate could only be checked for self-consistency (the eight minterms
   partition the population). A bijective domain makes the CORRECT immediate the
-  one that reproduces the known cardinality and every other immediate fail it.
+  one whose survivor set equals the reference's; every wrong immediate can now
+  be caught EARLY, by count alone, before the set comparison runs — a count
+  match admits an immediate to the set test, it does not pass it.
 - **Bake drift becomes detectable for free**: `popcount(static_lab) !=
   popcount(dynamic_lab)` after a re-bake means the artifact or a witness moved.
-  One popcount equality, 20 ns, no join.
+  One popcount, 20 ns, no join — one-directional: inequality proves drift,
+  equality proves nothing.
 
 **Falsifier.** After the LazyLock partition lands: the two lab masks must be
 disjoint AND equal in count (can-fire: a bake that breaks either); a crosswalk
-sweep from the lab tenant must reproduce 103,291 exactly (can-fire: swap the
-immediate); and for a non-aligned domain the dynamic mask must be a proper subset
+sweep from the lab tenant must reproduce 103,291 exactly AND its survivor set
+must equal the scalar reference's (can-fire: swap the immediate; can-fire on the
+set half: a wrong-but-equinumerous chain); and for a non-aligned domain the dynamic mask must be a proper subset
 in count of the static one (coverage, not error — a dynamic count EXCEEDING the
 static one would be the real anomaly).
 
