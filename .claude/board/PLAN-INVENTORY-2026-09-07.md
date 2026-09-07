@@ -228,8 +228,8 @@ modules 9 / 9b (`9. EWA-sandwich Σ-push-forward` at `crates/jc/src/lib.rs:16`).
 The board's "Pillar-6/7" rows (D-NXG-11, D-MEP-0) and
 `mul-ewa-trust-propagation-v1` follow the module-doc numbering — they DO mean
 jc's EWA sandwich, and the collision is internal to jc. (The W-waves tag-file
-and this document's first draft said "no Pillar 6 in jc"; Codex review on
-#1218 caught it.) `jc::solver_order` is a 13th battery outside
+and this document's first draft said "no Pillar 6 in jc"; Codex review on #1218
+caught it.) `jc::solver_order` is a 13th battery outside
 `run_all_pillars()`. Four example files are present with no `[[example]]`
 entry (`l9_loci_real_text`, `partof_isa_vs_palette256`,
 `rung_divergence_reliability`, `weather_substrate_reliability`). W5's
