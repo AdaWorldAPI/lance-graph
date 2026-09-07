@@ -11,6 +11,16 @@
 
 ---
 
+## 2026-09-07 — plan inventory pass: the harvest folders were invisible from here; four mirrors landed, one contradiction recorded
+
+| Ruling / design | One line | Wiring queue |
+|---|---|---|
+| `.claude/nexgen/` (2026-09-05 harvest + `plans/nexgen-mask-histogram-thresholds-v1.md`) and `.claude/knowledge/literature-harvest-2026-09-01-post-1132.md` | Neither cited `.claude/v3/`, and this folder cited neither — although `NestedBands` is keyed `(classid, version, idx)` (this keyspace) and room 27 proposes `Think.trajectory` as `&NestedBands` in place of the `Vsa16kF32` primer §6 row 3 demotes. Mirrors: README doc-map row + collision note, ENTROPY M27, this row; `tenants.md` gets a row only when a D-NXG consumer lands in a real `ValueTenant` (none yet — a row now would be a wish) | D-NXG-6/7/8 (the five-vocabulary collapse, M27); D-NXG-11 blocked on the "Pillar-6" σ_step placeholder — a jc-EXTERNAL numbering: jc's own registry has no Pillar 6 (1,2,3,4,5,5b,7…11), so the board's "Pillar-6/7" rows (D-NXG-11, D-MEP-0) name another document's pillars |
+| `E-EVERYTHING-WIRES-TO-SOA-V3-CE64-IS-ALU-LEGACY-1` (operator 2026-09-05) | "anything must be wired into SoA V3 substrate no exceptions except the causaledge64 adjacent as ALU legacy substrat" — landed the day COMPONENT-MAP was last edited and was cited nowhere in this folder; now primer §6 last row + README ruling list | every BLOCKED/NEW row in COMPONENT-MAP is read through it |
+| `D-CCF-4` RESCINDED (operator 2026-07-03, `E-V3-DUAL-SCHEMA-0x1000-IS-PERMANENT-1`) | STATUS_BOARD row carried the rescission for nine weeks while INTEGRATION-PLAN W6, `routing.md` §5 and primer §5 still described `0x1000` as temporary with a 100 %-adoption retirement trigger; ⊘ notes now at all three | W6b/W6c "post-P4" = post operator-checkpoint on the corpus proof, never post-retirement |
+| W2a is stated two ways in one file — RECORDED, not adjudicated | INTEGRATION-PLAN Addendum-12a (2026-07-02): a NEW gated `BoardAggregates` tenant behind T1–T6 + a batched mint. Addendum-15 (2026-08-04): "SHIPPED as `ValueTenant::Kanban`" — the pre-existing per-ROW tenant #9 that `mailbox-kanban-model.md` calls a sibling, never a substitute; `tenants.md` (refreshed 2026-08-23) lists no `BoardAggregates`. Which is current needs `canonical_node.rs:1622+` and the owner wiring read, not a doc-only pass | owner-session / operator call; until then W2a reads PARTIAL, and M24's residue stays gated on it |
+| `compiled-templates.md` gap list said `StepMask` "does not exist yet" | It shipped 2026-07-10 (`contract::step_mask::StepMask`, D-V3-W3a); the doc lagged eight weeks. Struck 2026-09-07 | W3b/c/d still Queued |
+
 ## 2026-07-17 (sixth wave) — ACK ELIMINATED everywhere (operator directive)
 
 | Ruling | One line | Wiring queue |

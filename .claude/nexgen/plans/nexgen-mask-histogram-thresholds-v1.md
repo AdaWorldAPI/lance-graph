@@ -11,6 +11,17 @@ invisible to the index's coverage column. That is a known gap, recorded on
 purpose: moving the file is a one-line change once the folder earns a second
 plan. Do not read the coverage column's silence as "untracked".
 
+**V3 cross-link (added 2026-09-07, plan inventory).** `NestedBands` is keyed
+`(classid, version, idx)` — the `.claude/v3/` keyspace (`soa_layout/routing.md`,
+`le-contract.md`, `tenants.md`) — and room 27 below proposes it as the carrier
+that `.claude/v3/knowledge/v3-substrate-primer.md` §6 row 3 demotes `Vsa16kF32`
+from. Until 2026-09-07 neither folder cited the other; `.claude/v3/README.md`
+(doc-map row), `.claude/v3/ENTROPY-MILESTONES.md` M27 and
+`.claude/v3/FUTURE-DESIGN.md` (2026-09-07 block) now point here, and this
+paragraph points back. Read past the name collision: "v3" in
+`harvest/14-*` and the literature harvest means the retracted
+`epistemic_bassin` 24-axis basis, not the V3 substrate.
+
 ---
 
 ## 0. The one sentence

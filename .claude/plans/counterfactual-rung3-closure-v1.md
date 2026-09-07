@@ -379,7 +379,10 @@ otherwise a green probe creates pressure to re-interpret the result rather than
 accept it. This is the anti-HARKing gate for D-CFR-3.
 
 **OD-3 — CascadeChannels8 tension (flagged, not resolved).**
-`.claude/v3/FUTURE-DESIGN.md:101-105` names `layered.rs::CascadeChannels8` the
+`.claude/v3/FUTURE-DESIGN.md` (§ *"thinking-engine carries unwired gems"*, the
+`layered.rs::CascadeChannels8` bullet — the line-range citation that stood here
+was replaced by this anchor 2026-09-07 after a FUTURE-DESIGN prepend moved it;
+citation-decay gate) names `layered.rs::CascadeChannels8` the
 *"First wiring target — the confirmed NEXT edge"*, gate = M8 parity, and says it
 *"collapses into `causal_edge::CausalEdge64`'s signed mantissa slot"*. **That is
 the same mantissa slot M20 retires** (`ENTROPY-MILESTONES.md:45`). Wiring a new

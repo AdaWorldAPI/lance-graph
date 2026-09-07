@@ -105,6 +105,12 @@ key-range counts over the same index — ONE two-metric scanner (W6a):
   (operator checkpoint) ⇒ marker deprecates ⇒ custom half opens for the
   render/template catalogue.
 
+  > ⊘ **"marker deprecates" is RESCINDED** (operator 2026-07-03,
+  > `E-V3-DUAL-SCHEMA-0x1000-IS-PERMANENT-1`; mirrored here 2026-09-07, plan
+  > inventory). Both range counts stay exactly as defined — the scanner is
+  > unaffected — but adoption 100 % is a checkpoint, not a retirement: v2/v3
+  > coexist permanently by schema and `0x1000` remains a monitor.
+
 Cross-ref: `le-contract.md` (bytes), `tenants.md` (what the value lanes
 mean), `consumer-map.md` (who writes what), primer §5,
-board E-V3-MARKER-IS-A-MONITOR.
+board E-V3-MARKER-IS-A-MONITOR (+ E-V3-DUAL-SCHEMA-0x1000-IS-PERMANENT-1).
