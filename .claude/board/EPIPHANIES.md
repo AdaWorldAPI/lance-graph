@@ -5,7 +5,17 @@ category error … the only way your horseshoe mask is perfectly correct if you
 created a lazylock mask from TUI over CUI to separate"*, then *"basically Dynamic
 domain mask with accidentally so perfect snomedid alignment that … you could even
 use it for calibration"*). Verified against the shipped consumer code and the
-consumer's own census numbers.
+consumer's own census numbers. **⊘ 2026-09-07, later the same day — the
+dissolution SHIPPED in the consumer on the operator's go.** `domain(D) =
+static(D) ∪ dynamic(D)`; `horseshoe_mask` retired; the value half is ONE
+`LazyLock` pass over the immutable bake resolving all eight domains at once.
+The falsifier below RAN: the two lab masks are disjoint and equal in count
+(103,291), the non-aligned domains are proper subsets in count, and the
+refusal — 38,953 lane rows whose witness names no domain — is counted rather
+than lost between the halves. Address half → union: lab 103,291 → 206,582 ·
+substance 131,582 → 254,485 · anatomy 119,684 → 119,732 · procedure 38,956 →
+40,340. Three disable runs fire. The crosswalk-sweep half of the falsifier is
+D-SPG-4 and has NOT run — it needs the CURIE→address resolver.
 **Confidence:** High on the category error (three concrete defects, below). High
 on the calibration READING. The bijection itself is CONSISTENT WITH the
 cardinalities, not proven by them — proving it is what the probe is for.
