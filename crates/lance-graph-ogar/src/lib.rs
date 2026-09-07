@@ -544,11 +544,7 @@ impl lance_graph_contract::hotplug::CapabilityAuthority for OgarAuthority {
             if let Some(cap) = plug.covered.first() {
                 return Err(ActivationDrift::Undeclared((*cap).into()));
             }
-            return Ok(Activation {
-                concepts: Vec::new(),
-                capabilities: Vec::new(),
-                read_modes: loco,
-            });
+            return Ok(Activation::new(Vec::new(), Vec::new(), loco));
         }
 
         match resolve_hotplug(plug.consumer, plug.classids, plug.covered) {
@@ -561,16 +557,21 @@ impl lance_graph_contract::hotplug::CapabilityAuthority for OgarAuthority {
                 {
                     return Err(drift);
                 }
-                Ok(Activation {
+                // Non-loco plugs get no reading yet (scoped, expanding
+                // slowly). Reached only when the loco arm above declined, so
+                // this is `&[]` by construction today — written as the call,
+                // not a literal, so widening the scope reaches here without a
+                // second edit.
+                //
+                // An empty table here is NOT a V1 fallback: a capability-only
+                // consumer mints no keys, and one that does ask for a reading
+                // gets `NoReadingFor` from `Activation::read_mode_for` rather
+                // than a defaulted V1 tail.
+                Ok(Activation::new(
                     concepts,
                     capabilities,
-                    // Non-loco plugs get no reading yet (scoped, expanding
-                    // slowly). Reached only when the loco arm above declined,
-                    // so this is `&[]` by construction today — written as the
-                    // call, not a literal, so widening the scope reaches here
-                    // without a second edit.
-                    read_modes: loco_read_modes_for(plug.consumer, plug.classids),
-                })
+                    loco_read_modes_for(plug.consumer, plug.classids),
+                ))
             }
             Err(HotplugDrift::UnknownClassid(id)) => Err(ActivationDrift::UnknownClassid(id)),
             Err(HotplugDrift::NoCapabilitiesFor(id)) => Err(ActivationDrift::NoCapabilitiesFor(id)),
@@ -671,7 +672,7 @@ mod loco_read_mode_arm {
             .activate(&BLOCKLY)
             .expect("loco plug activates");
         assert_eq!(
-            act.read_modes,
+            act.declared_readings(),
             &[(
                 0x1717u16,
                 ReadMode {
