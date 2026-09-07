@@ -22,10 +22,24 @@ defect one level up.* The third test is the rule's can-it-STAY-SILENT twin, so
 the guard is shown to discriminate rather than to fire on everything.
 
 **Load-bearing detail for anyone touching these tests:** the
-`#[cfg(feature = "guid-v2-tail")]` gate is not decoration. Ungated, all three
-compile against `mint_for`'s V1 fallback arm and assert the wrong panic message.
+`#[cfg(feature = "guid-v2-tail")]` gate is not decoration, but the reason is not
+the one first recorded here. An earlier draft of this entry said all three
+"compile against `mint_for`'s V1 fallback arm and assert the wrong panic
+message". Both halves are wrong, and the corrected failure modes were MEASURED by
+stripping the gate and running `--no-default-features`:
+
+- The two `should_panic` tests DO reach the V1 arm, but its guard is 24-bit
+  (`identity <= 0x00FF_FFFF`) and the overflow input is only `0x0001_0000`
+  (65 536) — comfortably legal. Nothing panics, so they fail with
+  **"test did not panic as expected"**, not a message mismatch.
+- `mint_for_v3_admits_the_widest_legal_tail` never gets that far: it fails to
+  **compile** (`E0599: no method named family_v2`), because `family_v2` and
+  `identity_v2` live in a `#[cfg(feature = "guid-v2-tail")] impl` block.
+
 The `--no-default-features` count (1304, vs 1321 default) is the evidence the
-gate excludes them exactly where the V2/V3 arm does not exist.
+gate excludes them exactly where the V2/V3 arm does not exist. Found by the codex
+P2 review on #1212 — an unverified claim about a failure mode, in an entry whose
+own subject is a guard that was never proven able to fire.
 
 ## 2026-09-06 — #1209 MERGED (f1336b66): the temporal architecture was measured against the wrong store
 

@@ -25,10 +25,21 @@
   can-it-STAY-SILENT half, proving the guard **discriminates** (`0xFFFF`/`0xFFFF`
   mints and reads back intact) rather than firing on everything.
 - **Locked:** the `#[cfg(feature = "guid-v2-tail")]` gate is load-bearing, not
-  decoration — ungated, the three tests compile against `mint_for`'s V1 fallback
-  arm and assert the wrong panic message. The `--no-default-features` delta
-  (1304 vs 1321) is what proves the gate excludes them exactly where the V2/V3
-  arm does not exist.
+  decoration. The failure modes below were MEASURED (gate stripped,
+  `--no-default-features` run), correcting this entry's first draft, which
+  claimed all three "compile against the V1 fallback arm and assert the wrong
+  panic message" — wrong twice over:
+  - the two `should_panic` tests reach the V1 arm, whose guard is 24-bit and so
+    ACCEPTS the `0x0001_0000` input: they fail with **"test did not panic as
+    expected"**, not a message mismatch;
+  - the widest-legal-tail test fails to **compile** (`E0599`), since
+    `family_v2`/`identity_v2` are themselves behind the same feature.
+
+  The `--no-default-features` delta (1304 vs 1321) still proves the gate excludes
+  them exactly where the V2/V3 arm does not exist. Raised as codex P2 on #1212;
+  the identical claim in the `canonical_node.rs` doc-comment (merged in #1211,
+  not flagged) is corrected in the same commit — the board and the code cannot
+  disagree about why a gate exists.
 - **Docs:** `EPIPHANIES.md` prepended; `SUPERSESSION-INDEX.md` regenerated AFTER
   that write per the ordering rule (output byte-identical — the entry cites no
   D-ids, which is the one case where an early regeneration would have been
