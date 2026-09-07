@@ -30,13 +30,54 @@
 //! as config via ogar ogar-vocab"* — tenant bindings are DATA resolved
 //! through the codebook, never hardcoded literals in any crate.
 
-use crate::alpha::{AlphaAddr, AlphaAllocation, AlphaClaim, AlphaError, AlphaOverlay, AlphaStamp};
+use crate::alpha::{
+    AlphaAddr, AlphaAllocation, AlphaClaim, AlphaError, AlphaMask, AlphaOverlay, AlphaStamp,
+};
+use crate::canonical_node::NodeRow;
 
 /// The graph coordinate of an address — the canon-high concept half of its
 /// classid. No fourth column: G is read from the key.
 #[must_use]
 pub const fn graph_of(addr: AlphaAddr) -> u16 {
     (addr.classid() >> 16) as u16
+}
+
+/// The **block** a tenant belongs to — the high byte of its concept id.
+///
+/// A concept is `block:vocabulary` (`0x9101` = block `0x91`, vocabulary
+/// `0x01`), so several tenants routinely share one block: measured on a real
+/// consumer artifact, five distinct graphs resolved to one block. Grouping is
+/// therefore a SHIFT on the key, never a second stored coordinate — the same
+/// economy `graph_of` itself is.
+///
+/// What a block MEANS stays with the consumer that loaded the domain. This
+/// crate groups by it and never interprets it.
+#[must_use]
+pub const fn block_of(concept: u16) -> u8 {
+    (concept >> 8) as u8
+}
+
+/// **The tenant list as a census of the artifact, never as a table.**
+///
+/// Every row carries its graph in its own key, so the set of tenants a spine
+/// needs is a *reading* of that spine — not a configuration beside it that
+/// could disagree with it. This is what the module's "tenant bindings are
+/// DATA" line buys structurally: here the data IS the bake.
+///
+/// Ascending, so the declaration order — which [`SpogTenants::merge`] makes
+/// load-bearing — follows from the keys and never from a hash iteration.
+///
+/// This exists because the shape it answers to was measured rather than
+/// assumed: a consumer's baked artifacts carry **5, 8 and 16 distinct graphs
+/// in ONE file** (2026-09-07, over 60 478 / 7 641 / 762 041 rows). Bakes are
+/// not one-per-graph, which is precisely the case [`SpogTenants`] exists for —
+/// N tenants over ONE allocation, never N bakes and never N copies.
+#[must_use]
+pub fn census(rows: &[NodeRow]) -> Vec<u16> {
+    let mut seen: Vec<u16> = rows.iter().map(|r| graph_of(r.key)).collect();
+    seen.sort_unstable();
+    seen.dedup();
+    seen
 }
 
 /// What became of one tenant-routed claim.
@@ -64,6 +105,11 @@ pub struct SpogTenants<'a> {
     /// `(concept, shadow)` in the caller's declaration order — which is the
     /// merge order, so the caller's order is load-bearing and deterministic.
     tenants: Vec<(u16, AlphaOverlay<'a>)>,
+    /// The ONE allocation every shadow borrows. Held so the mask surface has
+    /// a base length even when no tenant was declared — an empty aufstellung
+    /// must still answer "nothing attended, out of N addresses" rather than
+    /// have no answer at all.
+    alloc: &'a AlphaAllocation<'a>,
 }
 
 impl<'a> SpogTenants<'a> {
@@ -78,7 +124,20 @@ impl<'a> SpogTenants<'a> {
                 tenants.push((c, AlphaOverlay::over_shared(alloc, cycle)));
             }
         }
-        Self { tenants }
+        Self { tenants, alloc }
+    }
+
+    /// **The no-configuration constructor**: one shadow per graph the
+    /// allocation's own spine carries ([`census`]).
+    ///
+    /// With this there is no list to keep in step with the bake, so
+    /// [`TenantClaim::NoTenant`] becomes structurally unreachable for any
+    /// address of THIS spine — a claim can only miss a tenant if the caller
+    /// declared a narrower set on purpose.
+    #[must_use]
+    pub fn over_census(alloc: &'a AlphaAllocation<'a>, cycle: u32) -> Self {
+        let concepts = census(alloc.base());
+        Self::over(alloc, cycle, &concepts)
     }
 
     /// Route a claim to the tenant owning `graph_of(addr)`.
@@ -106,6 +165,46 @@ impl<'a> SpogTenants<'a> {
     #[must_use]
     pub fn concepts(&self) -> Vec<u16> {
         self.tenants.iter().map(|(k, _)| *k).collect()
+    }
+
+    /// The tenants of one block, in declaration order — grouping by
+    /// [`block_of`], a shift on the key.
+    #[must_use]
+    pub fn tenants_in_block(&self, block: u8) -> Vec<u16> {
+        self.tenants
+            .iter()
+            .map(|(k, _)| *k)
+            .filter(|&c| block_of(c) == block)
+            .collect()
+    }
+
+    /// The allocation every shadow borrows — the ONE address space.
+    #[must_use]
+    pub fn allocation(&self) -> &'a AlphaAllocation<'a> {
+        self.alloc
+    }
+
+    /// **One tenant's population, as a mask.** [`None`] for an undeclared
+    /// graph — an absent tenant is not an empty one, and answering an empty
+    /// mask would make "this graph has no shadow" indistinguishable from
+    /// "this graph was never looked at".
+    #[must_use]
+    pub fn tenant_mask(&self, concept: u16) -> Option<AlphaMask> {
+        self.tenant(concept).map(AlphaOverlay::attended_mask)
+    }
+
+    /// Everything any tenant attended, as one mask — the SPOG half of the
+    /// rung × tenant cross ([`crate::alpha_focus`]).
+    ///
+    /// Recomputed, never stored: the shadows are the truth and a cached union
+    /// would be a second reading of them.
+    #[must_use]
+    pub fn attended_mask(&self) -> AlphaMask {
+        let mut m = AlphaMask::empty(self.alloc.base().len());
+        for (_, s) in &self.tenants {
+            m = m.or(&s.attended_mask());
+        }
+        m
     }
 
     /// Total claims across all shadows.
