@@ -37,7 +37,12 @@ pub struct HotPlug {
 /// What the authority returns for a green activation: the vocab rows, the
 /// capability names, and the STORAGE READING resolved for the hot-plugged
 /// classids. Plain owned `std` types — zero-dep, no serialization.
-#[derive(Debug, Clone, PartialEq, Eq, Default)]
+///
+/// **No `Default`, deliberately.** `Activation::default()` would be a
+/// green-looking activation carrying no reading at all — precisely the shape
+/// a consumer then turns into [`ReadMode::DEFAULT`] (V1). An activation is
+/// something an authority RESOLVED; there is no meaningful empty one.
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Activation {
     /// `(concept, classid)` vocab rows for every hot-plugged id.
     pub concepts: Vec<(String, u16)>,
@@ -77,12 +82,75 @@ pub struct Activation {
     /// `capabilities` stay owned because they are derived (joined, sorted,
     /// deduped); a reading is looked up, not computed.
     ///
-    /// **Fails closed by construction:** an activation that drifts returns
-    /// [`ActivationDrift`] and yields no `Activation` at all, so there is no
-    /// path on which a consumer proceeds with an unresolved reading. An empty
-    /// slice is not "assume the default" — it is "the authority declared no
-    /// reading", and a consumer that needs one must treat that as a bang.
-    pub read_modes: &'static [(u16, crate::canonical_node::ReadMode)],
+    /// **Fails closed by MECHANISM, not by prose** (operator, 2026-09-07:
+    /// *"don't silently enforce V1 fallback in hotplug, that's
+    /// unacceptable"*). This field is PRIVATE and the only lookup is
+    /// [`Activation::read_mode_for`], which returns a `Result` — there is no
+    /// `Option` to `.unwrap_or(ReadMode::DEFAULT)` and no public slice to
+    /// scan. An earlier cut left it public with a doc comment saying an empty
+    /// slice "is not assume-the-default"; a rule a caller can violate with a
+    /// one-liner is not a rule.
+    ///
+    /// An empty table is still legitimate — a capability-only consumer (an
+    /// executor that mints no keys) has no reading to declare. What the type
+    /// now guarantees is that *asking* for an absent one bangs instead of
+    /// quietly yielding a V1 tail.
+    read_modes: &'static [(u16, crate::canonical_node::ReadMode)],
+}
+
+impl Activation {
+    /// Build an activation. Authority-side constructor — the fields are not
+    /// public, so this is how [`CapabilityAuthority`] implementations return
+    /// one.
+    #[must_use]
+    pub fn new(
+        concepts: Vec<(String, u16)>,
+        capabilities: Vec<String>,
+        read_modes: &'static [(u16, crate::canonical_node::ReadMode)],
+    ) -> Self {
+        Self {
+            concepts,
+            capabilities,
+            read_modes,
+        }
+    }
+
+    /// The reading for one hot-plugged concept — the ONLY lookup, and it
+    /// fails closed.
+    ///
+    /// Returns [`ActivationDrift::NoReadingFor`] when the authority declared
+    /// no reading for `concept`. It deliberately does NOT return an `Option`:
+    /// an `Option` invites `.unwrap_or(ReadMode::DEFAULT)`, and
+    /// [`ReadMode::DEFAULT`] is a **V1** tail. A consumer that mints keys
+    /// under a hot-plugged seat must get its reading from here or bang; there
+    /// is no third outcome.
+    ///
+    /// [`ReadMode::DEFAULT`]: crate::canonical_node::ReadMode::DEFAULT
+    ///
+    /// # Errors
+    ///
+    /// [`ActivationDrift::NoReadingFor`] if `concept` has no declared reading.
+    pub fn read_mode_for(
+        &self,
+        concept: u16,
+    ) -> Result<crate::canonical_node::ReadMode, ActivationDrift> {
+        self.read_modes
+            .iter()
+            .find_map(|(c, m)| (*c == concept).then_some(*m))
+            .ok_or(ActivationDrift::NoReadingFor(concept))
+    }
+
+    /// Every declared `(concept, reading)` pair — the AUDIT surface.
+    ///
+    /// For tests and authority conformance checks that assert the whole
+    /// table. Consumers resolving a single seat use
+    /// [`read_mode_for`](Activation::read_mode_for): this returns a plain
+    /// slice, so scanning it and defaulting is once again expressible, and
+    /// that is exactly what the lookup exists to avoid.
+    #[must_use]
+    pub fn declared_readings(&self) -> &'static [(u16, crate::canonical_node::ReadMode)] {
+        self.read_modes
+    }
 }
 
 /// Why an activation failed — each arm is one named bang.
@@ -101,6 +169,15 @@ pub enum ActivationDrift {
     /// A hot-plugged classid resolves to no declared capability at all —
     /// plugging it is either premature or the table was forgotten.
     NoCapabilitiesFor(u16),
+    /// [`Activation::read_mode_for`] was asked for a concept the authority
+    /// declared no reading for.
+    ///
+    /// The named bang that replaces a silent [`ReadMode::DEFAULT`] (V1)
+    /// fallback. A consumer minting keys under a hot-plugged seat reaches
+    /// this instead of quietly producing legacy-tailed rows.
+    ///
+    /// [`ReadMode::DEFAULT`]: crate::canonical_node::ReadMode::DEFAULT
+    NoReadingFor(u16),
     /// The authority resolved a concept that this crate's zero-dep wire
     /// mirror ([`crate::ogar_codebook`]) does not carry at the same id.
     ///
@@ -162,6 +239,11 @@ impl core::fmt::Display for ActivationDrift {
             Self::NoCapabilitiesFor(id) => {
                 write!(f, "classid 0x{id:04X} resolves to no declared capability")
             }
+            Self::NoReadingFor(id) => write!(
+                f,
+                "no storage reading declared for concept 0x{id:04X} \
+                 (a V1 default is never substituted)"
+            ),
             Self::MirrorDrift {
                 concept,
                 authority_id,
@@ -200,17 +282,16 @@ mod tests {
             if plug.classids.contains(&0xDEAD) {
                 return Err(ActivationDrift::UnknownClassid(0xDEAD));
             }
-            Ok(Activation {
-                concepts: plug
-                    .classids
+            Ok(Activation::new(
+                plug.classids
                     .iter()
                     .map(|&id| (format!("c{id:04x}"), id))
                     .collect(),
-                capabilities: plug.covered.iter().map(|s| (*s).to_string()).collect(),
-                // This toy authority declares no reading — the field is
-                // additive and an authority that has none says so.
-                read_modes: &[],
-            })
+                plug.covered.iter().map(|s| (*s).to_string()).collect(),
+                // This toy authority declares no reading — an authority that
+                // has none says so, and asking it for one bangs.
+                &[],
+            ))
         }
     }
 
@@ -232,6 +313,78 @@ mod tests {
             }),
             Err(ActivationDrift::UnknownClassid(0xDEAD))
         ));
+    }
+
+    /// Asking for an absent reading BANGS — it never yields V1.
+    ///
+    /// Operator, 2026-09-07: *"don't silently enforce V1 fallback in hotplug,
+    /// that's unacceptable."* The shape being removed is
+    /// `act.read_modes.iter().find(…).map(…).unwrap_or(ReadMode::DEFAULT)` —
+    /// a one-liner that compiles, reads as careful, and mints legacy-tailed
+    /// keys forever. It is no longer expressible: the field is private and
+    /// the lookup returns a `Result`.
+    ///
+    /// Two-sided on the same activation, which is what makes it a test rather
+    /// than a restatement of the code: the DECLARED concept resolves, and an
+    /// undeclared one bangs. A lookup that answered for everything, or for
+    /// nothing, would fail one half.
+    #[test]
+    fn an_undeclared_reading_bangs_instead_of_defaulting_to_v1() {
+        use crate::canonical_node::{EdgeCodecFlavor, ReadMode, TailVariant, ValueSchema};
+
+        const V3_SEAT: ReadMode = ReadMode {
+            tail_variant: TailVariant::V3,
+            value_schema: ValueSchema::Bootstrap,
+            edge_codec: EdgeCodecFlavor::CoarseOnly,
+        };
+        const TABLE: &[(u16, ReadMode)] = &[(0x1717, V3_SEAT)];
+
+        let act = Activation::new(Vec::new(), Vec::new(), TABLE);
+
+        // Can-fire on the happy half: a declared seat resolves to its own
+        // reading, not to some other row of the table.
+        assert_eq!(act.read_mode_for(0x1717), Ok(V3_SEAT));
+        assert_eq!(
+            act.read_mode_for(0x1717).unwrap().tail_variant,
+            TailVariant::V3
+        );
+
+        // …and an undeclared one is a NAMED bang. The anti-vacuity assertion
+        // is the second one: the error must not be some value that happens to
+        // compare unequal — there must be no ReadMode on this path at all.
+        assert_eq!(
+            act.read_mode_for(0x1718),
+            Err(ActivationDrift::NoReadingFor(0x1718))
+        );
+        assert!(act.read_mode_for(0x1718).is_err());
+
+        // The V1 fallback this replaces would have returned DEFAULT here.
+        // Pinned so the difference is measured, not asserted in prose.
+        assert_eq!(ReadMode::DEFAULT.tail_variant, TailVariant::V1);
+        assert_ne!(Ok(ReadMode::DEFAULT), act.read_mode_for(0x1718));
+    }
+
+    /// An authority with NO readings still activates — and still bangs.
+    ///
+    /// The silence twin at the other end: a capability-only consumer (an
+    /// executor that mints no keys) legitimately declares an empty table, so
+    /// an empty table must not be an activation failure. What must never
+    /// happen is that consumer's lookup quietly succeeding with V1.
+    #[test]
+    fn an_empty_table_activates_but_still_refuses_to_invent_a_reading() {
+        let plug = HotPlug {
+            consumer: "demo",
+            classids: &[0x0805],
+            covered: &["recognize_line"],
+        };
+        let act = TinyAuthority.activate(&plug).expect("activation is green");
+
+        assert!(act.declared_readings().is_empty(), "no reading declared");
+        assert_eq!(
+            act.read_mode_for(0x0805),
+            Err(ActivationDrift::NoReadingFor(0x0805)),
+            "an empty table is not 'assume the default'"
+        );
     }
 
     /// The drift class the retired `COUNT_FUSE` guarded: a concept the

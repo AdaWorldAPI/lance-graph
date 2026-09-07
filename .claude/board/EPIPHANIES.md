@@ -1,3 +1,67 @@
+## 2026-09-07 — E-A-DOC-COMMENT-IS-NOT-A-FAIL-CLOSED-MECHANISM-1 — hotplug could still land on V1 with a one-liner
+
+**Status:** FINDING, measured. Fixed in this PR (2 tests, disable-verified).
+**Confidence:** High — the silent path was expressible in one line of safe, plausible-looking consumer code.
+
+**Operator ruling (2026-09-07), clarifying the earlier "don't pollute a
+global setting":** *"I meant don't silently enforce V1 fallback in hotplug,
+that's unacceptable."*
+
+**I had read that caution as "be conservative, leave `ReadMode::DEFAULT`
+alone"** and used it to justify stopping at `mint_for`. It meant the opposite
+direction: the hot-plug PATH must never silently land on V1. Recorded because
+the misreading is instructive — a constraint phrased as a prohibition was
+taken as a licence to stop, and the thing it actually named was still open.
+
+**What was still open.** `E-A-V3-MINT-MUST-NEVER-DEGRADE-TO-V1-1` closed the
+`mint_for` fallback. It did NOT close the socket, where three affordances
+made a silent V1 landing available and only a doc comment forbade it:
+
+1. `Activation::read_modes` was a **public `&'static` slice**. The whole rule
+   lived in prose on that field — *"an empty slice is not 'assume the
+   default' … a consumer that needs one must treat that as a bang"* — while
+   the code permitted
+   `act.read_modes.iter().find(…).map(…).unwrap_or(ReadMode::DEFAULT)`: one
+   line, compiles, reads as careful, mints legacy-tailed rows forever.
+2. `Activation` derived **`Default`**, so `Activation::default()` was a
+   green-looking activation carrying no reading at all.
+3. `lance-graph-ogar` returned `Ok(Activation { …, read_modes: <possibly
+   empty> })` on the non-loco path — a **successful** activation with no
+   reading, whose consumer then defaults.
+
+**The fix is mechanical, not prose.** `read_modes` is private; `Default` is
+gone; the only lookup is `Activation::read_mode_for(concept) -> Result<ReadMode,
+ActivationDrift>` with a new `NoReadingFor(u16)` arm. Deliberately a `Result`
+and not an `Option`: an `Option` invites `.unwrap_or(ReadMode::DEFAULT)`, and
+`DEFAULT` is a V1 tail. `declared_readings()` remains as the audit surface for
+authority-conformance tests, named so it reads as such.
+
+An empty table stays legitimate — a capability-only consumer (an executor that
+mints no keys) has none to declare. What the type now guarantees is that
+ASKING for an absent reading bangs.
+
+**Falsifiers.** Both disable-verified by replacing the `ok_or` with
+`ReadMode::DEFAULT`, which turns both red:
+`an_undeclared_reading_bangs_instead_of_defaulting_to_v1` (two-sided on ONE
+activation — the declared seat resolves, an undeclared one errors, and
+`ReadMode::DEFAULT.tail_variant == V1` is pinned so the difference is measured)
+and `an_empty_table_activates_but_still_refuses_to_invent_a_reading` (the
+silence twin: an empty table must not fail activation, only the lookup).
+
+**The transferable lesson.** *A rule a caller can violate with a one-liner is
+not a rule.* I wrote that doc comment as the guarantee, and it was load-bearing
+in exactly the way documentation never is. When the invariant is "never
+substitute a default", the test is not whether the docs say so — it is whether
+the type makes the substitution inexpressible.
+
+**Adjacent, NOT fixed here (scope):** `lance-graph-ogar` is workspace-EXCLUDED,
+so `cargo clippy --workspace` and `cargo fmt --all` never reach it and CI runs
+only `cargo test --manifest-path` on it. It carries **4 pre-existing clippy doc
+errors** (`bridges/mod.rs`, `rbac_impl.rs`) and had drifted out of `cargo fmt`
+— measured on the unmodified tree. The fmt drift is repaired in the one file
+this PR edits; the 4 lints are left, and the missing clippy/fmt CI coverage for
+excluded crates is the real item.
+
 ## 2026-09-07 — E-A-V3-MINT-MUST-NEVER-DEGRADE-TO-V1-1 — the fallback arm's own justification was falsified by D-BLOCKS-HOTPLUG-1
 
 **Status:** FINDING, measured. Fixed in this PR (3 tests + a consumer-side const guard, all red-then-green).
