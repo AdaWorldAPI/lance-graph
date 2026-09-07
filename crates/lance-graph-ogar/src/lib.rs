@@ -648,7 +648,6 @@ mod hotplug_bridge_tests {
     }
 }
 
-
 /// D-BLOCKS-HOTPLUG-1: the storage READING rides the activation, scoped to
 /// `ogar-loco` (`0x17XX`) for now.
 #[cfg(test)]
