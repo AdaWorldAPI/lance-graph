@@ -167,9 +167,13 @@ integrates sense 1 first-class (`knowledge/multi-anchor-ast-resolution.md`,
 README row) and cited **neither** `.claude/nexgen/` (2026-09-05, four reader
 reports + seven PR sweeps + the mask-histogram plan) **nor**
 `.claude/knowledge/literature-harvest-2026-09-01-post-1132.md` — although
-`NestedBands` is keyed `(classid, version, idx)` (the V3 keyspace) and the
-nexgen plan's room 27 proposes it as the carrier primer §6 demotes
-`Vsa16kF32` from. Every "nexgen" string inside `.claude/v3/` meant the
+the nexgen plan keys its sealed object `(classid, version)` — the V3
+keyspace — as its PROPOSED T2 shape (room 26), and its room 27 proposes it as
+the carrier primer §6 demotes `Vsa16kF32` from. The shipped D-NXG-1 struct is
+narrower: `pub struct NestedBands` (`crates/lance-graph-planner/src/nested_bands.rs:91-105`)
+holds `version` + masks over ONE column and no classid, so V3 routing and class
+isolation are not yet enforced by it (Codex review on #1218 caught this
+document's first draft stating the proposed key as shipped; corrected). Every "nexgen" string inside `.claude/v3/` meant the
 `openproject-nexgen-rs` consumer.
 
 Landed in this PR: README doc-map row + collision note + two rulings added to
@@ -210,9 +214,16 @@ jc: the 12-entry registry is literally "11/12 implemented, Pillar 2 deferred"
 (`lib.rs:24-29`) — with the unstated caveat that Pillar 11 (`hambly_lyons`)
 returns `PillarResult::deferred` under the crate's own `default = []`
 (`hambly_lyons.rs:737-745`; `Cargo.toml:26,30`), so a plain `prove_it` shows
-**10 executing + 2 deferred**. There is **no Pillar 6** in jc (1,2,3,4,5,5b,
-7,8,9,9b,10,11); the board's "Pillar-6/7" rows (D-NXG-11, D-MEP-0) name a
-different document's pillars. `jc::solver_order` is a 13th battery outside
+**10 executing + 2 deferred**. jc carries **two numberings for its EWA pair**:
+the module docs label them Pillar 6 / Pillar 7 (`//! Pillar 6: Σ-Push-Forward as EWA-Sandwich`
+at `crates/jc/src/ewa_sandwich.rs:1`; the 3D module asserts "Pillar 7" at
+`ewa_sandwich_3d.rs:687`), while the `lib.rs` header numbers the same two
+modules 9 / 9b (`9. EWA-sandwich Σ-push-forward` at `crates/jc/src/lib.rs:16`).
+The board's "Pillar-6/7" rows (D-NXG-11, D-MEP-0) and
+`mul-ewa-trust-propagation-v1` follow the module-doc numbering — they DO mean
+jc's EWA sandwich, and the collision is internal to jc. (The W-waves tag-file
+and this document's first draft said "no Pillar 6 in jc"; Codex review on
+#1218 caught it.) `jc::solver_order` is a 13th battery outside
 `run_all_pillars()`. Four example files are present with no `[[example]]`
 entry (`l9_loci_real_text`, `partof_isa_vs_palette256`,
 `rung_divergence_reliability`, `weather_substrate_reliability`). W5's
@@ -253,7 +264,7 @@ run, not re-run here).
 |---|---|---|
 | **v3** | `.claude/v3/` mailbox-kanban-facet substrate | version 3 of the *retracted* `epistemic_bassin` 24-axis basis (`0x0334`) in `nexgen/harvest/14-*` and the literature harvest |
 | **nexgen** | `.claude/nexgen/` (2026-09-05 harvest + plan) | `openproject-nexgen-rs` (consumer repo) — the only sense inside `.claude/v3/` until this PR |
-| **Pillar 6 / Pillar 11** | jc registry: no Pillar 6; Pillar 11 = Hambly–Lyons uniqueness | board rows "Pillar-6/7" = another document's numbering; ndarray `hpc::pillar::signature` = a second "Pillar 11" (kernel stability) |
+| **Pillar 6/7 / Pillar 11** | jc module docs: EWA-sandwich = Pillar 6, its 3D analogue = Pillar 7 (`ewa_sandwich.rs:1`, `ewa_sandwich_3d.rs:687`) — the numbering the board and `mul-ewa-trust-propagation-v1` use | jc `lib.rs` header: the same two modules are 9 / 9b — an INTERNAL jc conflict, not an external document; and ndarray `hpc::pillar::signature` is a second "Pillar 11" (kernel stability) beside jc's Hambly–Lyons uniqueness |
 | **W1 … W5** | SIMD waves W1a/W1b/W1.5 (`ndarray-vertical-simd-alien-magic.md`) | `pillar11-signature-certification-unification-v1` W0–W6 (W1/W4 live in `ndarray/crates/sigker-parity`) |
 | **harvest** | five senses (§4) | — |
 | **EWA** | three different operations share the word (lit-harvest #27; jc sandwich = rendering push-forward) | — |
@@ -280,8 +291,10 @@ ride with it: masks win on Boolean relations at every density (D-GTM-0j — a
 TYPE boundary), 0 bytes/step (0k), chaining pays only while masks stay in L2
 and survivors stay above 0.1 % (0n), and packed prefixes do NOT carry
 cross-domain relations (0l) — the FK columns do. The seven harvest sources
-collapse onto one object: the version-keyed `NestedBands` (+ overlap matrix)
-per `(classid, version)` — reveal-ahead / cache-key = Lance version; Shannon =
+collapse onto one object: the version-keyed `NestedBands` (+ overlap matrix),
+per `(classid, version)` in the plan's proposed shape (the shipped struct is
+version-keyed over one column, no classid) — reveal-ahead / cache-key = Lance
+version; Shannon =
 WHERE only and it lags the popcount budget; EWA ranks WHERE to look, never
 WHAT is true; a known unknown = a hop whose survivor mask has popcount > 1;
 Boolean → masks, valued → blasgraph semirings over CSR. And the fence: rung
