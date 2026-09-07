@@ -403,14 +403,6 @@ mod tests {
     }
 }
 
-/// The generic hot-plug bridge (operator, 2026-07-07): "lance-graph-contract
-/// pulling into OGAR with a generic activation." The contract defines the
-/// zero-dep SOCKET ([`lance_graph_contract::hotplug`]); OGAR owns the data
-/// resolution (`ogar_vocab::capability_registry::resolve_hotplug`); THIS
-/// workspace-excluded crate is where the two meet in one binary. A consumer
-/// declares a [`lance_graph_contract::hotplug::HotPlug`] const and activates
-/// it through this authority (or calls `resolve_hotplug` directly — same
-/// data path, same drift arms).
 /// The storage READING for `ogar-loco`'s domain, handed back by
 /// [`OgarAuthority`] on activation — **scoped to `0x17XX` only, deliberately**
 /// (operator, 2026-09-07: *"additive scoped for loco blockly-rs for now, then
@@ -460,6 +452,14 @@ fn loco_read_modes_for(classids: &[u16]) -> &'static [(u16, lance_graph_contract
     if all_loco { LOCO_READ_MODES } else { &[] }
 }
 
+/// The generic hot-plug bridge (operator, 2026-07-07): "lance-graph-contract
+/// pulling into OGAR with a generic activation." The contract defines the
+/// zero-dep SOCKET ([`lance_graph_contract::hotplug`]); OGAR owns the data
+/// resolution (`ogar_vocab::capability_registry::resolve_hotplug`); THIS
+/// workspace-excluded crate is where the two meet in one binary. A consumer
+/// declares a [`lance_graph_contract::hotplug::HotPlug`] const and activates
+/// it through this authority (or calls `resolve_hotplug` directly — same
+/// data path, same drift arms).
 pub struct OgarAuthority;
 
 impl lance_graph_contract::hotplug::CapabilityAuthority for OgarAuthority {
