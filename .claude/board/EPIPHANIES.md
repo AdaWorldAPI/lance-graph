@@ -1,3 +1,67 @@
+## 2026-09-07 — E-SPOG-IS-FOUNDRY-WITH-AN-ABI-SHAPED-SUBSTRATE-1 — the ontology is the ADDRESS, so cross-domain is an ordinal problem and never an integration one
+
+**Status:** OPERATOR RULING (2026-09-07, verbatim: *"SPOG is similar to Palantir
+foundry across the Domains, with the difference that our Substrat is ABI
+shaped"*). Completes `E-LANCE-GRAPH-OWNS-THE-AGNOSTIC-THINKING-CONSUMERS-BIND-DOMAIN-1`
+(same day), which named WHO owns the thinking; this names WHAT SHAPE it has.
+**Confidence:** High. The partition below is measured on the real artifact; the
+consequences are entailments of the shape, not projections.
+
+**The comparison, and the one difference that changes everything.**
+
+| | Palantir Foundry | SPOG |
+|---|---|---|
+| how domains are unified | mapped onto a shared **object** layer | mapped onto a shared **address** space |
+| what a domain is | an object type in an ontology | a tenant `G = classid >> 16`, a contiguous ordinal window |
+| relating two domains | traverse links / **join** object sets | **AND two masks** over the same base ordinals |
+| what the engine must do | plan and execute the join | index a ternlog immediate |
+
+Foundry's ontology is a semantic layer ABOVE heterogeneous stores, so
+cross-domain reasoning is an integration act and a join is the mechanism. SPOG's
+ontology IS the address, so cross-domain reasoning is an ordinal-range act and
+there is nothing to integrate.
+
+**This is why "no joins ever" is substrate, not preference** (operator, same
+session: *"datafusion does joins, we do masking Ops, no joins ever"*). A join
+materialises the rejected world — two relations in, a third out. Under an
+ABI-shaped substrate the operand is already one image, so the complement holds:
+`resident ⊗ A ⊗ B ⊗ C`, and the rejected volume never becomes a representation.
+A query planner here is not an expensive way to do the job; it is a way to do a
+DIFFERENT job that this substrate does not have.
+
+**Measured, and it is the ontology layer.** `all-lanes.soa`: 762,041 rows, 16
+distinct `graph_of` tenants that **PARTITION** the image — Σ of tenant counts and
+the union of tenant masks are both 762,041, no row in two tenants, every tenant
+count equal to the sum of its constituent classids' windows (D-SPG-2). A Foundry
+deployment would call that an object-type registry; here it is a fact about where
+bytes sit, and the tenant mask is 95,256 B — L2-resident, so the whole "ontology"
+is a cache-resident bitmask.
+
+**Consequence — the SPO triple is ABI-shaped too.** A triple is not three columns
+to be joined. `mask_ternlog::<IMM>(S, P, O)` computes `IMM[(s<<2)|(p<<1)|o]`, so
+the immediate's eight bits ARE the eight presence-projections K0..K7 of one quad
+row, and the six wirings of S/P/O onto A/B/C are the six angles (§4 of
+`spog-alpha-channel-v1.md`). Subject, predicate and object are three bits
+indexing a constant, not three relations.
+
+**Consequence — it renames the open problem, which changes what gets built.**
+MedCare-rs #620 measured **0.00 % cross-tenant `is_a` edges**: a disease's
+subsumption spine never leaves the disease ontology, and only the RO cross-axis
+crosses. Read as Foundry, that is a missing link type and the fix is a
+crosswalk join table. Read as SPOG, it is an **address** result: the CURIE→address
+resolver has not minted so that a cross-domain relation is address adjacency.
+Same measurement, opposite deliverable — and the second one is the one that keeps
+the 20 ns regime.
+
+**Falsifier.** Any design that reaches for a join, a lookup table, or a
+mapping service to relate two domains, instead of asking what address layout
+makes them adjacent in one image. Also: any claim that a tenant boundary needs
+enforcement machinery — the partition is a property of the keys, and
+`AlphaFocus::cross`'s `ptr::eq` on the base slice is the only "provenance" the
+shape admits (gate (d), re-scoped this session).
+
+---
+
 ## 2026-09-07 — E-LANCE-GRAPH-OWNS-THE-AGNOSTIC-THINKING-CONSUMERS-BIND-DOMAIN-1 — the Foundry split, and why four separate violations in one session were one violation
 
 **Status:** OPERATOR RULING (2026-09-07, verbatim: *"lance-graph owns the
