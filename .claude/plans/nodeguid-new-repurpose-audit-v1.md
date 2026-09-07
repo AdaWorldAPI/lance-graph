@@ -5,6 +5,15 @@ D-id, because the council produces one indivisible answer: a repurpose is
 sound, or it is not, and the reasons are that answer's body rather than
 separable sub-deliverables. Tracked in `.claude/board/STATUS_BOARD.md`.
 
+**Phase numbering — ONE ladder, not two.** Every "Phase N" in this spec and in
+both board entries is the 5+3 harness's own stage
+(`.claude/skills/5plus3` / `.claude/agents/5plus3-council.md`): **0** write the
+spec · **1** cast the five savants · **2** consolidate into draft v2 · **3**
+cast the three reviewers on v2 ONLY · **4** fix · **5** ratify to v3 and land.
+There is no separate implementation-status numbering to confuse it with, and the
+strict order is the anti-mush protocol — Phase 3 never runs before Phase 2
+closes.
+
 **Status:** SPEC v1, Phase 0. **Nothing is implemented. Nothing may be changed.**
 The deliverable of this council is an AUDIT — a verdict on whether
 `NodeGuid::new` can be repurposed, at what cost, and what would break. No

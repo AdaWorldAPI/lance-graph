@@ -196,17 +196,37 @@ writing nothing, reconcile-unavailable ⇒ `Ambiguous`). `#911 → #912 →
 valve (no artifact-backed change ⇒ no sink call ⇒ no version), `1d416704` is
 fence hardening, neither a migration regression.
 
-## 2026-09-06 — #1201 MERGED (54285a42): #1199's records (hygiene-only; the SPEC v1 did NOT land here — corrected 2026-09-07)
+## 2026-09-07 — CORRECTION to the #1201 entry below: it merged HYGIENE-ONLY
 
 | PR | merge | content |
 |---|---|---|
-| **#1201** | `54285a42` | #1199 post-merge records. **Hygiene-only** — the SPEC v1 commit did NOT land here (corrected 2026-09-07; see the arc entry). |
+| **#1201** | `54285a42` | #1199 post-merge records **only**. The council SPEC v1 did NOT land here. |
+
+The #1201 section below says the PR "merged MIXED" because the SPEC v1 commit
+was pushed to it. **That is false**, measured 2026-09-07:
+`git merge-base --is-ancestor 3dd98b2b origin/main` → NO, and neither the plan
+file, nor its `INTEGRATION_PLANS` prepend, nor its `STATUS_BOARD` `D-NGN-AUDIT`
+row was present on `main`. #1201 merged hygiene-only, exactly as its own body
+said — the body was right and the entry's self-correction was wrong.
+
+The commit was orphaned by a `git checkout -B <branch> origin/main` run while it
+was still unmerged; recovered from `git fsck --lost-found` and cherry-picked
+forward in #1217. Finding + the generalizable rule:
+`EPIPHANIES.md` `E-AN-EMPTY-RANGE-AFTER-A-RESET-IS-NOT-EVIDENCE-1`.
+
+The section below is left **verbatim**, wrong sentence included — it is the
+receipt, and this file is append-only (`CLAUDE.md`: *"never edit past entries
+except the Status / Confidence lines"*). Read it through this correction.
+
+## 2026-09-06 — #1201 MERGED (54285a42): #1199's records + the council SPEC v1
+
+| PR | merge | content |
+|---|---|---|
+| **#1201** | `54285a42` | #1199 post-merge records; `.claude/plans/nodeguid-new-repurpose-audit-v1.md` (5+3 council SPEC v1, READ-ONLY audit); `INTEGRATION_PLANS` + `STATUS_BOARD` D-NGN-AUDIT. |
 
 **Contract inventory net delta: none.** No type, no API, no layout. The PR
-merged hygiene-only, as its body said. An earlier record here claimed it merged
-MIXED with the council SPEC v1; measured 2026-09-07, that commit was never an
-ancestor of `main` — it was orphaned by a branch reset and has since been
-recovered and cherry-picked forward. The council is HELD at
+merged MIXED despite its body saying hygiene-only — the spec commit was pushed
+after that sentence was written; see the arc entry. The council is HELD at
 Phase 2 on a VIOLATES against a frozen decision (`GET /views/graph/wave.abi`
 reaches `inherited_part_of`, contradicting *"Nobody walks anything"*), which is
 the operator's to rule on. Draft v2 additionally owes F9, the dating rule from
