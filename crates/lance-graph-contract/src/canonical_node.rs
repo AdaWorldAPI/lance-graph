@@ -192,24 +192,6 @@ impl NodeGuid {
     #[cfg(feature = "guid-v3-tail")]
     pub const CLASSID_ERP_V3_LEGACY: u32 = 0x1000_0200;
 
-    /// **Blocks-V3** — the `ogar-loco` low-code substrate on a
-    /// [`TailVariant::V3`] cascade tail, minted for the block-editor frontends
-    /// (`blockly-rs` first). Canon `0x1717` HIGH (Blocks domain `0x17`, the
-    /// per-frontend palette seat `0x17` — `ogar-loco` keeps `0x1701`/`0x1702`
-    /// for its own node shapes and consumers are seated from `0x1717` up); the
-    /// V3 marker `0x1000` in the LOW/custom u16 — `0x17:17::1000`.
-    /// [`classid_concept_domain`](crate::ogar_codebook::classid_concept_domain)
-    /// routes [`Blocks`](crate::ogar_codebook::ConceptDomain::Blocks) off the
-    /// canon half. Resolves to [`ReadMode::BLOCKS_V3`].
-    ///
-    /// **No `_LEGACY` alias, deliberately.** The five domains above each carry
-    /// one because they have pre-flip persisted rows to keep reading. This
-    /// class has none: it is registered new, after the flip, so a pre-flip
-    /// stored form never existed. Minting an alias for rows that cannot exist
-    /// would be reserving against a past that did not happen.
-    #[cfg(feature = "guid-v3-tail")]
-    pub const CLASSID_BLOCKS_V3: u32 = 0x1717_1000;
-
     /// Construct from the six canonical groups. `family`/`identity` use their low 3 bytes.
     ///
     /// Panics (incl. const-eval) when `family` or `identity` exceed 24 bits — the
@@ -1421,29 +1403,6 @@ impl ReadMode {
         edge_codec: EdgeCodecFlavor::CoarseOnly,
     };
 
-    /// The **Blocks-V3** read-mode ([`NodeGuid::CLASSID_BLOCKS_V3`]): the
-    /// `ogar-loco` low-code node on the new-generation [`TailVariant::V3`]
-    /// cascade tail.
-    ///
-    /// [`ValueSchema::Bootstrap`] is the *correct* schema here, not a
-    /// placeholder. The other V3 classes name a tenant preset because their
-    /// slab IS tenants; a stored function's 480-byte slab is the interleaved
-    /// CALL LANES — `classid(4) + payload(12)` per 16-byte lane, an
-    /// arithmetic `ogar-loco` owns — so ZERO tenants are materialised and the
-    /// slab is entirely the class-resolved carve-out the canon defers to the
-    /// `ClassView`. Naming `Cognitive` or `Full` would claim tenants that are
-    /// not there and invite a reader to decode call bytes as qualia.
-    ///
-    /// [`EdgeCodecFlavor::CoarseOnly`] is the canon zero-fallback: a function
-    /// node carries no adjacency yet, so the 16-byte block is reserved and
-    /// zeroed rather than carved.
-    #[cfg(feature = "guid-v3-tail")]
-    pub const BLOCKS_V3: ReadMode = ReadMode {
-        tail_variant: TailVariant::V3,
-        value_schema: ValueSchema::Bootstrap,
-        edge_codec: EdgeCodecFlavor::CoarseOnly,
-    };
-
     /// The **FMA-V3** read-mode ([`NodeGuid::CLASSID_FMA_V3`]): the same cold
     /// [`ValueSchema::Compressed`] value model as legacy [`FMA`](ReadMode::FMA),
     /// read through the new-generation [`TailVariant::V3`] cascade tail.
@@ -1556,9 +1515,6 @@ static BUILTIN_READ_MODES: LazyLock<HashMap<u32, ReadMode>> = LazyLock::new(|| {
         m.insert(NodeGuid::CLASSID_CPIC_V3_LEGACY, ReadMode::CPIC_V3);
         m.insert(NodeGuid::CLASSID_PROJECT_V3_LEGACY, ReadMode::PROJECT_V3);
         m.insert(NodeGuid::CLASSID_ERP_V3_LEGACY, ReadMode::ERP_V3);
-        // Blocks — registered new after the flip, so it has no `_LEGACY` alias
-        // (see the classid's own doc comment).
-        m.insert(NodeGuid::CLASSID_BLOCKS_V3, ReadMode::BLOCKS_V3);
     }
     m
 });
@@ -2820,61 +2776,6 @@ mod tests {
         // all wired (see read_mode_fma_v3_and_cpic_v3_route_their_domains).
         assert!(TailVariant::V3.is_layout_preserving());
         assert!(TailVariant::V2.is_layout_preserving());
-    }
-
-    #[cfg(feature = "guid-v3-tail")]
-    #[test]
-    fn read_mode_blocks_v3_routes_v3_tail_and_the_blocks_domain() {
-        // Same two facts the OSINT exemplar proves, for the low-code substrate:
-        //   (1) the registry field IS the mechanism — a consumer cannot reach a
-        //       V3 tail by asking for one, only by its classid being registered
-        //       here, which is why this entry exists at all;
-        //   (2) the domain router reads the CANON half (0x1717 = Blocks:palette),
-        //       so the gen-marker never perturbs routing.
-        assert_eq!(
-            classid_read_mode(NodeGuid::CLASSID_BLOCKS_V3).tail_variant,
-            TailVariant::V3
-        );
-        assert_eq!(
-            crate::ogar_codebook::classid_concept_domain(NodeGuid::CLASSID_BLOCKS_V3),
-            crate::ogar_codebook::ConceptDomain::Blocks
-        );
-        assert_eq!(
-            classid_read_mode(NodeGuid::CLASSID_BLOCKS_V3),
-            ReadMode::BLOCKS_V3
-        );
-        assert!(ReadMode::BLOCKS_V3.is_layout_preserving());
-
-        // The value schema is Bootstrap ON PURPOSE, and this is the assertion
-        // that keeps it honest: a stored function's slab is the interleaved
-        // call lanes, so NO tenant is materialised. If someone "upgrades" this
-        // to Cognitive or Full, a reader starts decoding call bytes as qualia.
-        assert_eq!(ReadMode::BLOCKS_V3.value_schema, ValueSchema::Bootstrap);
-        assert_eq!(
-            ReadMode::BLOCKS_V3.value_schema.field_mask(),
-            FieldMask::EMPTY,
-            "Bootstrap must materialise zero tenants, or the slab is contested"
-        );
-
-        // Concretely: canon HIGH, marker LOW — stored `0x1717_1000`.
-        use crate::ogar_codebook::{classid_canon, classid_custom};
-        assert_eq!(NodeGuid::CLASSID_BLOCKS_V3, 0x1717_1000);
-        assert_eq!(classid_canon(NodeGuid::CLASSID_BLOCKS_V3), 0x1717);
-        assert_eq!(
-            classid_custom(NodeGuid::CLASSID_BLOCKS_V3),
-            0x1000,
-            "gen-marker in the custom (low) half"
-        );
-        // Anti-vacuity: canon and custom differ, so a canon/custom swap — the
-        // exact drift the P1 flip caused elsewhere — cannot pass this test.
-        assert_ne!(
-            classid_canon(NodeGuid::CLASSID_BLOCKS_V3),
-            classid_custom(NodeGuid::CLASSID_BLOCKS_V3)
-        );
-        // ...and it does NOT collide with `ogar-loco`'s own node-shape seats
-        // (0x1701/0x1702), which is why consumers seat from 0x1717 up.
-        assert_ne!(classid_canon(NodeGuid::CLASSID_BLOCKS_V3), 0x1701);
-        assert_ne!(classid_canon(NodeGuid::CLASSID_BLOCKS_V3), 0x1702);
     }
 
     #[cfg(feature = "guid-v3-tail")]

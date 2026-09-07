@@ -1,81 +1,92 @@
-## 2026-09-06 — branch (blockly-rs storage): the Blocks class enters the V3 substrate — CONTRACT INVENTORY DELTA
+## 2026-09-07 — D-BLOCKS-HOTPLUG-1 (operator ruling): a consumer is NOT a canon builtin — and OGAR had already ruled it in code
 
-**Added** (`canonical_node.rs`, all `#[cfg(feature = "guid-v3-tail")]`):
-`NodeGuid::CLASSID_BLOCKS_V3 = 0x1717_1000`, `ReadMode::BLOCKS_V3`, and its
-`BUILTIN_READ_MODES` registration. Canon `0x1717` HIGH — the `0x17XX` Blocks
-domain's per-frontend palette seat, already reserved and already routed by
-`classid_concept_domain`; the V3 marker `0x1000` in the custom LOW half.
-Follows the OSINT/FMA/CPIC/PROJECT/ERP pattern exactly. **No `_LEGACY`
-alias, deliberately**: the five above carry one because they have pre-flip
-persisted rows; this class is registered new, after the flip, so a pre-flip
-stored form never existed and reserving against it would reserve against a
-past that did not happen.
+**Ruling, operator, 2026-09-07.** *"Blockly is a hot-plugged consumer, not a
+canon builtin. `0x1717` is authority-owned/minted. `BUILTIN_READ_MODES` must
+remain unchanged by Blockly. Unresolved or mismatched authority fails closed."*
 
-`value_schema = ValueSchema::Bootstrap` is the CORRECT schema, not a
-placeholder — a stored `ogar-loco` function's 480-byte slab is the
-interleaved call lanes (`classid(4) + payload(12)` per 16-byte lane), so
-ZERO tenants are materialised and the slab is wholly the class-resolved
-carve the canon defers to the ClassView. A test asserts
-`field_mask() == FieldMask::EMPTY` so an "upgrade" to `Cognitive`/`Full`
-cannot land quietly and start decoding call bytes as qualia.
-`edge_codec = CoarseOnly` is the zero-fallback: a function node has no
-adjacency yet, block reserved and zeroed.
+PR #1207 proposed `CLASSID_BLOCKS_V3` + `ReadMode::BLOCKS_V3` +
+`BUILTIN_READ_MODES.insert(...)`, all three in `canonical_node.rs`. **Withdrawn**
+— that file on this branch is now byte-identical to `main`. This entry lands
+instead.
 
-**Layout-preserving on all three axes** — no `ENVELOPE_LAYOUT_VERSION` bump,
-no stride change, no tenant added.
+**Why it was wrong.** Not literally the retired `COUNT_FUSE` (no count-equality
+assert), but it resurrects what `COUNT_FUSE` belonged to: **central lockstep**.
+Under it, adding a frontend means editing `lance-graph-contract`, recompiling
+the substrate, and extending a global registry. `hotplug.rs` exists so the
+substrate exposes a SOCKET while OGAR stays the AUTHORITY; its `MirrorDrift`
+doc says the compile-time fuse is retired for drift *"reported per plug, for
+the ids a consumer actually uses, instead of as a global equality assert."*
 
-**What it is FOR — the consumer.** `blockly-rs` stores cast block programs as
-V3 rows, and the driving corpus is **Paper Minecraft**: 515 sb3 scripts,
-97.7% of its blocks covered by the palette, the whole scene running over the
-stored bytes. Those programs need a real address, and this class is it.
+`canonical_node.rs:1516` states the boundary outright — *"Holds only the canon
+builtins; a minted class's read-mode is layered in by OGAR one level up."*
+Every entry there is a canon DOMAIN (default / OSINT / FMA / CPIC / PROJECT /
+ERP). `0x17` is the loco domain; `0x1717` is blockly-rs, a **per-frontend
+palette seat** (`ogar-loco`: `0x1701`/`0x1702` node shapes, `0x1703`–`0x1716`
+headroom, `0x1717`+ consumers). A seat is not a domain.
 
-The convergence that makes the storage layer a *binding* rather than a port:
-`ogar_loco::node::NODE_BYTES` is 512 — key `0..16`, a zeroed reserved slot
-`16..32`, value `32..512` — byte-for-byte `NodeRow`'s `key(16) | edges(16) |
-value(480)`. A stored `ogar-loco` function ALREADY IS a V3 row. `ogar-loco`
-states what it withholds (*"this crate does not mint GUIDs: the canonical
-layout is the substrate's"*), and the two missing pieces are exactly a minted
-key and an envelope over the array — `NodeGuid::mint_for` against this
-classid, and `NodeRowPacket` so Lance's columnar I/O reads the rows in place.
+### OGAR already guards the mirror image of this, with tests
 
-The seat is `ogar-loco`'s, not this crate's to choose: it owns the whole
-`0x17XX` block (operator, 2026-08-07) and allocates `0x1701`/`0x1702` to its
-own node shapes, `0x1703`–`0x1716` as substrate headroom, and `0x1717`+ to
-consumers — *"one slot per frontend palette (`blockly-rs` = `0x1717`)"*.
-Concept ids are authoritative in the vocabulary crate; `ogar-loco` says so
-directly (*"whether these are additionally promoted into `ogar_vocab`'s
-shared codebook is a separate, operator-ruled canon decision — nothing here
-breaks if they are not"*), with `0x1701`/`0x1702` as the standing precedent.
-So `concepts_in_domain(Blocks).count() == 0` is a **codebook-rows** fact, not
-a slot-allocation one, and is not evidence against this address.
+`ogar-vocab/src/capability_registry.rs` (§ *the canon carries no palette rows*):
 
-**Validated on `197ef083d`:** `read_mode_blocks_v3_routes_v3_tail_and_the_blocks_domain`
-passes inside 1319 contract lib tests; `test`, `member-tests`, `clippy`,
-`format`, `linux-build`, `test-with-coverage`, `no-shrink` and
-`regenerate-and-diff` all green.
+- `no_0x17xx_row_reached_the_globally_mirrored_codebook` — asserts no `0x17XX`
+  id is in `class_ids::ALL` (98 rows). Its reason names this exact PR's shape:
+  *"A palette row reaching `class_ids::ALL` would put a frontend's private
+  reading into the globally-mirrored codebook and move the count the lance-graph
+  fuse pins — so catch it on THIS side first."*
+- `a_palette_classid_does_not_resolve_as_a_hot_plug` —
+  `resolve_hotplug("blockly-abi", &[0x1717], &[])` returns
+  `Err(UnknownClassid(0x1717))` **by design**: *"The honest answer for a
+  palette: this is not a capability-authority concept at all, in any build.
+  Vocabulary routing is a different seam (`VocabularyRegistry`), keyed by the
+  consumer's own slot."* — while `canonical_concept_domain(0x1717)` still
+  routes `Blocks` off the reserved byte, *"which is what lets a consumer branch
+  on 0x17XX with no concept minted."*
 
-**`citation-decay` — the first diagnosis here was WRONG, corrected in place
-because it was never true of this branch.** It read: *red on `origin/main`
-too, 12 findings byte-identical, none citing into `LATEST_STATE.md`.* That
-described one run and was then carried forward instead of re-read. On
-`dcfc820d` the gate reported **1 NEW decay** and it was this branch's:
-registering the class inserted 18 lines above the const-assert block in
-`canonical_node.rs`, moving `size_of::<NodeRow>() == 512` from `:735` to
-`:753`, and `ISSUES.md:1537` (ISS-MAILBOXSOA-ROW-COST-VS-512B-CANON) cited
-that coordinate. Nothing in `ISSUES.md` changed; the branch moved the thing it
-pointed at.
+**So #1207 was not merely against a preference — it is the lance-graph-side
+twin of a violation OGAR tests for.** And it corrects the ruling's own item 3:
+**blockly must NOT declare a `HotPlug`.** A palette classid deliberately does
+not resolve as one; a plug for `0x1717` is pinned to fail. Hot-plug is for
+capability concepts. The palette seam is `ogar_loco::registry::VocabularyRegistry`
+— a runtime hub keyed by concept id that refuses a second claimant loudly
+(`RegistryError::ConceptTaken`, *"never last-write-wins"*), living in the
+CONSUMER.
 
-Fixed in `91fb4234` the way the gate's own error text prescribes — *"THE FIX
-IS NOT TO CORRECT THE LINE NUMBER"* — by naming the assert block through the
-symbols around it, so the next insertion above it does not re-break the
-citation. Green since: `0 new decay(s), 147 pre-existing`. The "append-only
-forbids the fix" tension recorded above was therefore a false dilemma: an
-anchor repair changes a citation's ADDRESS, not a past entry's claim, and is
-what the gate asks for.
+### FINDING — the classid→ReadMode layer has never been built
 
-**The transferable rule:** *"red on the base too"* is a claim about ONE run,
-not a standing property. It expires the moment the branch adds a line above a
-cited symbol — precisely what a `--since`-diffing gate exists to catch.
+Measured 2026-09-07: `ReadMode` / `read_mode` / `tail_variant` / `TailVariant`
+return **ZERO hits across the whole OGAR repo**. `classid_read_mode` reading
+`BUILTIN_READ_MODES` is the only such resolution anywhere. `:1516`'s "layered
+in by OGAR one level up" is an INTENTION with no implementation — and #1207 is
+what happens when a consumer meets an unbuilt seam: it falls into the only
+registry that exists.
+
+### The repair, and it needs no canon change at all
+
+A consumer owns its palette slot, so it does not ASK the global registry what
+its own tail is — it states it. `blockly-store` should mint with
+`NodeGuid::mint_for(TailVariant::V3, …)` directly instead of
+`classid_read_mode(CLASSID).tail_variant`, and pin the fail-closed direction:
+**`0x1717_1000` must NOT resolve V3 out of `BUILTIN_READ_MODES`** — the canon
+must keep returning `ReadMode::DEFAULT` for it, proving no lockstep dependency
+exists. That is the "wonderfully nasty regression" the ruling asks for, in the
+only form the architecture permits.
+
+A `ReadModeAuthority` socket trait mirroring `hotplug.rs` was considered and is
+NOT proposed: the palette case needs no authority round-trip, and minting a new
+canon trait to serve one consumer is the same instinct as #1207 one level up.
+
+### Stale prose a future reader will trip on
+
+`lance-graph-ogar/Cargo.toml`'s header still describes the *"COMPILE-TIME length
+fuse (`const _` assert that the mirror and `ogar_vocab::class_ids::ALL` have
+equal count — fires in ANY build)"* — i.e. `COUNT_FUSE`, retired 2026-08-14.
+
+### Why 1319 green tests did not catch any of this
+
+They proved the newly-added static path worked perfectly. They tested the wrong
+architectural premise very thoroughly. A green suite bounds implementation
+error, never premise error.
+
 
 ## 2026-09-06 — #1209 MERGED (f1336b66): the temporal architecture was measured against the wrong store
 
