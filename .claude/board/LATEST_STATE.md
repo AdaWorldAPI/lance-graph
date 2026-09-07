@@ -60,20 +60,42 @@ in by OGAR one level up" is an INTENTION with no implementation — and #1207 is
 what happens when a consumer meets an unbuilt seam: it falls into the only
 registry that exists.
 
-### The repair, and it needs no canon change at all
+### The consumer-local repair was ATTEMPTED and is UNSOUND — the seam is mandatory
 
-A consumer owns its palette slot, so it does not ASK the global registry what
-its own tail is — it states it. `blockly-store` should mint with
-`NodeGuid::mint_for(TailVariant::V3, …)` directly instead of
-`classid_read_mode(CLASSID).tail_variant`, and pin the fail-closed direction:
-**`0x1717_1000` must NOT resolve V3 out of `BUILTIN_READ_MODES`** — the canon
-must keep returning `ReadMode::DEFAULT` for it, proving no lockstep dependency
-exists. That is the "wonderfully nasty regression" the ruling asks for, in the
-only form the architecture permits.
+The obvious repair — a consumer owns its seat, so let `blockly-store` mint with
+`NodeGuid::mint_for(TailVariant::V3, …)` instead of asking the registry — was
+written, then disproved before it shipped. **The tail is not recorded in the
+key.** `canonical_node.rs:290-299`:
 
-A `ReadModeAuthority` socket trait mirroring `hotplug.rs` was considered and is
-NOT proposed: the palette case needs no authority round-trip, and minting a new
-canon trait to serve one consumer is the same instinct as #1207 one level up.
+> *"a consumer reads `guid.read_mode()`, OGAR reads
+> `classid_read_mode(guid.classid())`; both inherit the SAME answer from the one
+> registry, so the LE interpretation of the node's bytes is single-sourced."*
+
+There is no `NodeGuid::tail_variant()` accessor at all — the key carries no
+discriminator, and `decode()` (V1, `family:u24 ++ identity:u24`) versus
+`decode_v2()` (leaf + `u16`/`u16`) is chosen by **classid → registry**, nothing
+else. So a writer that "states V3" over a classid the registry answers
+`ReadMode::DEFAULT` for emits V3 bytes that every reader decodes as V1: the same
+16 bytes, two readings, no version gate — precisely the corruption
+`I-LEGACY-API-FEATURE-GATED` exists to prevent, and strictly worse than the
+original V1-tail defect because the bytes would now genuinely differ.
+
+**Therefore the `classid → ReadMode` layer is not optional and has no
+consumer-local shortcut.** Something must map `0x1717_1000 → V3`, and the only
+open question is where it lives. `:1516` says OGAR, one level up. OGAR has not
+built it. That is the whole blocker, and it is architectural work, not a
+binding.
+
+Constraint for whoever builds it: `lance-graph-contract` is zero-dep and cannot
+depend on OGAR, so the shape has to be a SOCKET here + an AUTHORITY there —
+structurally what `hotplug.rs` already does for capabilities, with
+`lance-graph-ogar` (workspace-EXCLUDED, already OGAR-dependent, already
+implementing `ClassView`) the natural host. Not proposed as code here: minting a
+canon trait is not a subtraction, and it is the operator's call.
+
+Second constraint, easy to miss: `mint_for`'s V2/V3 arm is behind
+`#[cfg(feature = "guid-v2-tail")]`; with the feature off the arm is dead and
+V3 is unreachable by construction.
 
 ### Stale prose a future reader will trip on
 
