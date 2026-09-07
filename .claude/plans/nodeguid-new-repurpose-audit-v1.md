@@ -1,5 +1,10 @@
 # SPEC v1 — `NodeGuid::new` repurpose audit (5+3 council, READ-ONLY)
 
+**Deliverable:** `D-NGN-AUDIT` — the audit verdict itself, not a change. One
+D-id, because the council produces one indivisible answer: a repurpose is
+sound, or it is not, and the reasons are that answer's body rather than
+separable sub-deliverables. Tracked in `.claude/board/STATUS_BOARD.md`.
+
 **Status:** SPEC v1, Phase 0. **Nothing is implemented. Nothing may be changed.**
 The deliverable of this council is an AUDIT — a verdict on whether
 `NodeGuid::new` can be repurposed, at what cost, and what would break. No
