@@ -19,7 +19,7 @@ substrate beneath them is T0.
 | Tier | What it is | May know | Crosses UP as | The membrane (gate) |
 |---|---|---|---|---|
 | **T0 substrate** | bytes, lanes, Lance columns, SoA v3 rows; `simd_{avx512,avx2,neon,scalar}.rs` | strides, offsets, carvings, intrinsics, alignment | — | none; T0 is where truth lives |
-| **T1 primitive** | TWO SIBLING ALGEBRAS (2026-09-07, below): **population** — `ndarray::simd` facade, `lgj-abi/kernels.rs`, `mask_*`, `eq_*_to_mask`, `ternlog`, `popcount`; **epistemic** — `TruthU8`, revision, deduction, abduction, … | `&[u64]`, `&[u8]`+`(offset,stride)`, `IMM`, `TruthU8` | a mask, a count, a lane descriptor, **a truth lane** | **polyfill rule** (simd-savant): no intrinsic, no `#[cfg(target_arch)]` above this line |
+| **T1 primitive** | TWO SIBLING ALGEBRAS (2026-09-07, below): **population** — `ndarray::simd` facade, `lgj-abi/kernels.rs`, `mask_*`, `eq_*_to_mask`, `ternlog`, `popcount`; **epistemic** — `TruthU8`, revision, deduction, abduction, … | `&[u64]`, `&[u8]`+`(offset,stride)`, `IMM`, `TruthU8` | a mask, a count, a lane descriptor, **a truth lane DESCRIPTOR (`TruthLaneId`) — never the population** | **polyfill rule** (simd-savant): no intrinsic, no `#[cfg(target_arch)]` above this line |
 | **T2 behavior** (was "selection") | ABI exports; `where`/`hop`/`plan_eval`; `Mask × WideFieldMask → Mask`; **and the epistemic siblings, named through the same `plan_eval`** | handles, `classid`, `FieldMask` (fields by NAME), version | a handle, a count, a status | **no hand-composed T1 op, no computed geometry** (kernel-membrane-warden) |
 | **T3 intent** | Java facade; R2IL / OGAR `ActionDef`; low-code | names: class, edge, field, version | an outcome | **no byte position** (bbb-warden + ApiSurfaceTest) |
 | **R2IL** | emits T3 artifacts | T3's vocabulary (names, outcomes) | an outcome | its ceiling IS T3's; door-knocker test (layer-boundary-warden) |
@@ -62,6 +62,21 @@ either. T3 may express intent in either.** Every rule already written applies
 unchanged to the second column — `kernel-membrane-warden`'s HAND-COMPOSED
 verdict covers a T2 that spells `revision` out of smaller truth ops exactly as
 it covers a T2 that spells `AND3` as two `mask_and`s.
+
+**That claim was FALSE when first written, and is true only because the same
+commit made it true.** `kernel-membrane-warden`'s trigger and its method named
+masks only; a T2 hand-composing `revision` would have walked straight through
+the gate this paragraph invoked. Codex caught it on #1222 (P2), and the card
+now carries the epistemic algebra in its trigger and **method step 2b**. Two
+sibling gaps of the same shape were closed with it: the T1 row above said a
+truth LANE crosses up while the shape table below says a population never does
+(now: the DESCRIPTOR, never the population), and `bbb-warden`'s method
+classified only signature shapes, so a public helper with a legal
+`TruthLiteral` signature computing revision in its BODY passed every step while
+doing exactly what `F-BBB-NARS-1` forbids (now: method step 4, an explicit
+body-and-import audit). **A doctrine sentence that names a gate must cite the
+step that makes it true** — the same defect as the G11 fence being prose until
+2026-09-03, found three times in one commit and fixed in the same one.
 
 ### The lowering, end to end
 

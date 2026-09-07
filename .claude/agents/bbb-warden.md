@@ -93,7 +93,26 @@ second. **The axis is syntax vs execution, never selection vs scoring.** So:
    slot/offset (position)? Read the javadoc and the call site. Ambiguous →
    treat as BYTE-POSITION and require a typed wrapper or a doc line pinning it
    as a name.
-4. Append every leak to the entropy ledger in `membrane-tiers.md`'s T2→T3
+4. **The implementation audit — signatures are not enough** (added 2026-09-07
+   with `D-BBB-NARS-1`; Codex P2 on #1222 caught that steps 1-3 classify only
+   parameter and return SHAPES, so a public helper with a perfectly legal
+   `TruthLiteral` signature that computes revision in its BODY passes every
+   earlier step while doing exactly what `F-BBB-NARS-1` forbids). Two reads
+   that steps 1-3 do not perform:
+   - **Bodies.** For every T3 method touching a T1 algebra's vocabulary, read
+     the body. Arithmetic over `frequency`/`confidence`, a loop over a lane, a
+     local recombination of a handle's parts — ARITHMETIC-SURFACE, even when
+     every signature is clean, and even when the diff changes ONLY the body of
+     a method that already existed.
+   - **Imports.** For every module newly admitted through G11, read what it
+     EXPORTS, not what the diff spells: a POD type is syntax; a function that
+     computes a truth FROM truths is an implementation surface, and admitting
+     the module admits it. One scalpel cut, never the cupboard.
+   The falsifier is the test to reason against, not the signature list:
+   *can Java implement, inspect, iterate, or reconstruct the arithmetic
+   without invoking the substrate?* If yes, ARITHMETIC-SURFACE regardless of
+   which step surfaced it.
+5. Append every leak to the entropy ledger in `membrane-tiers.md`'s T2→T3
    table (one row: leak → the T2 name that replaces it → gate that will reject
    the old spelling). Write your OWN tag-file; the orchestrator consolidates
    into the doc. Never write a shared board file directly.
