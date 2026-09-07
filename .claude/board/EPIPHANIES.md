@@ -1,3 +1,74 @@
+## 2026-09-07 — E-PLUG-AND-PLAY-IS-THE-DECLARATION-NOT-A-TABLE-1 — my fix rebuilt the lockstep it was closing
+
+**Status:** FINDING, measured. Fixed in this PR (7 tests, both guards disable-verified).
+**Confidence:** High — the failure mode is demonstrated by a test that goes red when the scoping is restored.
+
+**Operator ruling (2026-09-07):** *"plug and play already has all the domains,
+you could simply make the global schema for all appids already in plug-and-play
+pattern activate V3 and be silent about all others… local quad usage must mint
+any V3 settings in plug and play, regardless of the settings here… otherwise I
+will spend weeks until I remember that we changed it here wondering why quad
+4x24 stopped working."*
+
+**The finding, and it is about my own two prior fixes.**
+`D-BLOCKS-HOTPLUG-1` retired a central `BUILTIN_READ_MODES` row per consumer
+because adding a frontend must not mean editing the substrate. The seam I built
+to replace it held **`const LOCO_READ_MODES` — one hard-coded row per consumer
+seat** (`0x1717` alone), answered only when the plug covered every declared
+seat, and returned `&[]` otherwise. **That is the same central table, relocated
+one level up.** Adding a frontend meant adding a row; every consumer outside
+`0x17XX` got no reading at all.
+
+**Why that is worse than it sounds.** Both failures are silent AND remote. A
+missing row does not break a build — it surfaces much later as a V1 tail where
+V3 was expected. The quad (`LegacyOutlier::WideTriple`, G2 `4 × u24`) is a
+carving of the 12-byte content-blind payload, which exists as such only under a
+V3 tail; so "somebody scoped the reading in lance-graph" and "quad 4×24 stopped
+working in medcare-rs" are the same event, weeks and one repo apart, with no
+mechanical link between them.
+
+**The `&'static` decision was the root cause, and it was mine.** I typed
+`Activation::read_modes` as `&'static` and argued it as "plug-and-play at
+COMPILE time: a reading is looked up, not computed". The consequence I did not
+weigh: a `&'static` table cannot be built per plug, so the authority can only
+return a table it holds ALL of — which forces all-or-nothing, which forces a
+per-seat table. **An aesthetic constraint on a type silently dictated the
+architecture underneath it.** Now owned (`Vec`), so the authority answers for
+exactly the ids a plug declared.
+
+**The rule now: being plugged in IS the declaration.** Every classid in a plug
+gets [`ReadMode::PLUG_AND_PLAY_V3`] (V3 tail; `DEFAULT` stays V1 as the canon
+zero-fallback for classes nobody plugged, and is unreachable from a hot-plug
+lookup). `concept_override` remains for genuine per-class deviations — blockly's
+seat reads `Bootstrap` because it stores an `ogar-loco` body, not cognitive
+tenants — and it is *a short list of exceptions, not a roster of participants*:
+a consumer absent from it is not absent from plug-and-play. The asymmetry is
+the point — a forgotten entry means "no override", never "no reading".
+
+**The ownership guard survived the rewrite, but only because it was checked.**
+Deriving readings from the plug initially dropped the consumer check codex
+flagged on #1207, so an impostor could have activated blockly's seat. Restored
+as `palette_seat_owner`: a CLAIMED seat is its owner's; an UNCLAIMED one is
+plug-and-play for whoever plugs it. A new frontend at `0x1718` activates and
+reads V3 with no edit here — which is the ruling — while `0x1717` stays
+blockly's.
+
+**Falsifiers, both disable-verified.** Restoring the palette-only scoping turns
+`a_capability_consumer_outside_the_loco_domain_also_reads_v3` (a MedCare-shaped
+plug of `0x0901`/`0x0902`) red; dropping the impersonation guard turns
+`another_consumer_cannot_activate_a_claimed_seat` red. The silence twin,
+`an_unplugged_concept_is_silent_not_v3`, holds the other end: "V3 for all
+plugged appids" must not become "V3 for everything".
+
+**Process note worth more than the fix.** The first run of disable 1 PASSED and
+I nearly recorded the guard as non-load-bearing. `cargo fmt` had reflowed the
+closure I was patching, so my `replace()` matched nothing and the disable was a
+no-op — the code under test never changed. The re-run asserts the anchor exists
+before writing. **A disable that does not apply is indistinguishable from a
+guard that does not matter**, and this is the second time this session that a
+disable silently failed to disable (the first: zeroing a constant whose guarded
+quantity could go negative).
+
 ## 2026-09-07 — E-A-DOC-COMMENT-IS-NOT-A-FAIL-CLOSED-MECHANISM-1 — hotplug could still land on V1 with a one-liner
 
 **Status:** FINDING, measured. Fixed in this PR (2 tests, disable-verified).
