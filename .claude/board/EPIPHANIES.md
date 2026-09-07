@@ -1,3 +1,69 @@
+## 2026-09-07 — E-A-V3-MINT-MUST-NEVER-DEGRADE-TO-V1-1 — the fallback arm's own justification was falsified by D-BLOCKS-HOTPLUG-1
+
+**Status:** FINDING, measured. Fixed in this PR (3 tests + a consumer-side const guard, all red-then-green).
+**Confidence:** High — the reachability is a call site in two consumer repos, not an inference.
+
+**Operator ruling (2026-09-07):** *"A V3 needs to be assumed by default, it's
+not acceptable that if you mint a V3 detection that you even remotely accept
+V1 debt."*
+
+**The hole.** `NodeGuid::mint_for`'s `#[cfg(not(feature = "guid-v2-tail"))]`
+arm silently fell back to `new` — a V1 `family:identity` u24 key — for a
+caller that asked for V2/V3. Its own doc justified this as dead code:
+
+> *"With the feature off no classid registers a V2/V3 `tail_variant`
+> (`classid_read_mode` returns V1), so the fallback arm is dead."*
+
+**That premise was true when written and is now false.** It assumed the
+registry is the ONLY source of a tail variant. `D-BLOCKS-HOTPLUG-1` (#1207,
+merged 2026-09-07) is precisely the ruling that a hot-plugged consumer's
+reading rides the authority's `Activation::read_modes` instead of
+`classid_read_mode`. Two live call sites pass `TailVariant::V3` with no
+registry entry involved:
+
+- `blockly-store` — `mint_key` passes its own `READ_MODE.tail_variant`
+- `medcare-cohorts/src/differential.rs:893` — `mint_for(TailVariant::V3, …)`
+
+So the arm is reachable, and the corruption is **unobservable at the mint**:
+the tail is not recorded in the key (`decode` vs `decode_v2` is chosen by
+classid alone), so a degraded key surfaces only as garbage identities later.
+
+**The fix, and what it deliberately does NOT do.** The arm panics instead of
+falling back. `mint_for` is a `const fn`, so a const-context mint fails at
+COMPILE time and a runtime mint bangs loudly. Three constraints held
+(operator, same session):
+
+1. **No global setting polluted.** `ReadMode::DEFAULT` stays V1, `TailVariant`
+   keeps `#[default] V1 = 0` (the canon zero-fallback ladder), and the default
+   feature set is unchanged. In every default build the changed arm does not
+   compile at all — verified: 1321 contract lib tests pass untouched.
+2. **MedCare's `4 × u24` quad identity tenant is not blocked.** That is **G2**
+   (`LegacyOutlier::WideTriple`, named for the 3-byte group width, not the
+   count) — a reading of the 12-byte content-blind VALUE payload, whose own
+   module says *"this is not a revival of the V1 tail model; there is no
+   path/tail split"*. Orthogonal to `TailVariant`; `legacy_outliers.rs` is
+   untouched. MedCare takes the contract's defaults, so the changed arm is not
+   in its build, and it is a V3 minter — the change protects it.
+3. **No new dependency.** `lance-graph-contract` stays zero-dep, so a consumer
+   on contract + OGAR alone is unaffected.
+
+**Falsifiers.** `v3_never_degrades_to_v1` (compiled only when the feature is
+off): V3 bangs, V2 bangs too (the guard is not V3-only), and a legitimate V1
+mint still mints with its u24 tail and drops the non-V1 `leaf` — the
+can-stay-silent half, without which "refuse every mint" would pass. Consumer
+side, `blockly-store` gained a `const _` block that mints in const context and
+asserts identity 1 lands at bytes 14..16 and NOT at byte 13; flipping
+`READ_MODE` to V1 fails the build with `E0080`. It asserts the OUTCOME (the
+byte layout) rather than the feature, so a configuration that is on but
+dispatching wrong is still caught.
+
+**The transferable lesson.** A dead-code justification is a claim about
+reachability, and reachability is a property of the whole graph, not of the
+file the arm lives in. The PR that made this arm live was mine, and the
+justification sat three lines above the code I was editing. When a ruling
+moves where a value comes from, every "unreachable because the old source
+never produces it" comment in the blast radius is stale by construction.
+
 ## 2026-09-07 — E-THE-V1-GUARD-WAS-TESTED-THE-V3-GUARD-THAT-REPLACED-IT-WAS-NOT-1 — a guard nothing proves can fire is the defect one level up
 
 **Status:** FINDING, measured. Fixed in this PR (3 tests, red-then-green).
