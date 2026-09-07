@@ -1,3 +1,65 @@
+## 2026-09-07 — E-LANCE-GRAPH-OWNS-THE-AGNOSTIC-THINKING-CONSUMERS-BIND-DOMAIN-1 — the Foundry split, and why four separate violations in one session were one violation
+
+**Status:** OPERATOR RULING (2026-09-07, verbatim: *"lance-graph owns the
+agnostic thinking / Akin to Palantir foundry"*), given after catching a
+consumer-side reimplementation of the owned writer.
+**Confidence:** High on the rule. The `spog_masks` consequence below is measured
+against the shipped code; the BBB placement question it raises is OPEN.
+
+**The rule.** lance-graph is the platform: it owns the ontology (contract types)
+and the OPERATIONS — the mask algebra, the cognitive cycle, the writer, the
+temporal read. A consumer (MedCare-rs, woa-rs, smb-office-rs, …) is a tenant: it
+supplies DOMAIN SHAPE and consumes thinking. It never implements thinking, and it
+never implements substrate. This restates MedCare's own commitment #4 (*"Thinking
+lives only in lance-graph. No `medcare-thinking` duplicate crate"*) as a
+POSITIVE architecture rather than a prohibition, which is what makes it
+checkable.
+
+**Why it is worth an entry: it collapses four findings into one.** In a single
+session the same agent wrote, in a consumer, a sealed-cycle writer
+(`LanceCycleWriter`'s job), a version successor (`sealed_version = base_version
++ 1`, a verified identity inside that sink), a version-pinned read
+(`temporal::QueryReference::at`), and a second copy of the rung × tenant cross
+(`AlphaFocus::{cell, unlooked}`, shipped upstream in #1220). Each was caught
+separately and each looked like its own mistake. Under the Foundry split they
+are one mistake with four faces: **platform-side work performed tenant-side.**
+
+**The demarcation is not "is it generic code", it is "is it domain
+knowledge".** Measured on `medcare-cohorts::spog_masks`:
+
+| function | what it does | owner |
+|---|---|---|
+| `tenant_masks` | sweep distinct classids, OR-fold per `graph_of` | **agnostic** — nothing medical |
+| `rung_tenant_cell` | AND of a rung mask and a tenant mask | **agnostic** |
+| `unlooked` | tenant AND-NOT any-rung | **agnostic** |
+| `domain_mask` | which Gs constitute a `Domain` | **tenant** — domain knowledge |
+| `horseshoe_mask` | the per-row TUI fence for the U-shaped lane | **tenant** — domain knowledge |
+
+Three of five are thinking that a tenant is carrying. The tell is that the first
+three can be written without knowing the word "medical", and the last two cannot.
+
+**Consequence — F5 in `spog-alpha-channel-v1.md` was mis-framed by its own
+author.** It recorded "scalar `AlphaFocus` (#1220) vs SIMD `spog_masks`
+(D-SPG-3)" as an open OPERATOR PREFERENCE. It is not a preference: the cell
+belongs upstream by this rule, and the tenant should call it. What remains open
+is narrower and genuinely architectural — **where an ndarray-backed mask algebra
+can live**, given that `lance-graph-planner` is BBB-forbidden in a customer
+binary (Iron Rule 1) and `lance-graph-contract` is zero-dep by construction. A
+contract feature-gate, or a new BBB-allowed crate between them, are the two
+shapes; neither is this entry's to choose.
+
+**Falsifier.** For any function in a consumer crate, ask whether it can be
+written without naming the domain. If yes and it is not a thin call into
+lance-graph, it is thinking in the wrong repo — regardless of how mechanical it
+looks. Masks feel like data and slipped through this test for a whole
+deliverable.
+
+Read with `E-A-CONSUMER-THAT-OPENS-A-DATASET-HAS-ALREADY-LOST-1` (same day, the
+writer half) and `E-TOPOLOGY-MASKS-MAGNITUDE-COMPOSE-NEVER-COLLAPSE-1` (same
+day, what the operations ARE).
+
+---
+
 ## 2026-09-07 — E-A-CONSUMER-THAT-OPENS-A-DATASET-HAS-ALREADY-LOST-1 — re-deriving a proven identity from outside the thing that proves it is the tell
 
 **Status:** FINDING, operator-caught (2026-09-07: *"that's not a convenience you're
