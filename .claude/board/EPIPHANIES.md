@@ -3,7 +3,7 @@
 **Status:** FINDING, measured (five read-only Sonnet agents; every claim below re-verified by the orchestrator at a tree line, not a tag-file line). Full census: `.claude/board/PLAN-INVENTORY-2026-09-07.md`; evidence: `exec-runs/plan-inventory-2026-09-07-*.md`.
 **Confidence:** High for every `file:line` row; the D-id coverage percentage is measured on the A–K half of `.claude/plans/` only.
 
-**The numbers.** 211 plans: 149 OPEN, 13 CLOSED, 9 SUPERSEDED, 40 AMBIGUOUS (35 with no status line at all — 22 of them the batch-landed `3DGS-*` design genre). V3 waves: W0 closed; W1 mechanism closed, adoption partial; W2 partial and self-contradictory; W3/W4 partial; W5/W6 open, W6's premise rescinded. W1a SIMD: 5/5 shipped. W1b: 0/6 closed (179 raw-intrinsic lines across five crates). W1.5: #6, #7 shipped and consumed, #8 unbuilt but ungated.
+**The numbers.** 211 plans: 149 OPEN, 13 CLOSED, 9 SUPERSEDED, 40 AMBIGUOUS (35 with no status line at all — 22 of them the batch-landed `3DGS-*` design genre). V3 waves: W0 closed; W1 mechanism closed, adoption partial; W2 partial and self-contradictory; W3/W4 partial; W5/W6 open, W6's premise rescinded. W1a SIMD: 4/5 shipped, GATHER partial (API on every backend, x86 body a scalar polyfill). W1b: 0/5 TD entries closed, 1/7 files migrated (179 raw-intrinsic lines across five crates). W1.5: #6, #7 shipped and consumed, #8 unbuilt but ungated.
 
 **Direction one — docs still say Open for work on `main`.** Five `TECH_DEBT` rows said `Open` for primitives that have been on ndarray `master` for months (`simd_scalar.rs:1684,1709,1799,1887,1916`); W1.5 #7 said `Deferred` while `ndarray/src/hpc/randomized_signature.rs:292` ships it and `sigker/src/randomized.rs:124` consumes it — a THREE-way inconsistency, two knowledge docs having said SHIPPED since 2026-09-02; `STATUS_BOARD` D-LNC-5a/D-MW-P2 read `In PR #1198` with #1198 merged (`3797237b`); ENTROPY M2 said `QUEUED` nine weeks after D-PERT-1 shipped; `compiled-templates.md` said `StepMask` does not exist eight weeks after it did; `self-reasoning-substrate-v1.md:15` says "doc-only, no code" over four D-SRS rows that read Shipped with 147 tests between them. All but the last two are regraded in this PR (append-only strike-through with the tree line).
 
@@ -60,7 +60,7 @@
 
 ## 2026-09-07 — E-PLUG-AND-PLAY-IS-THE-DECLARATION-NOT-A-TABLE-1 — my fix rebuilt the lockstep it was closing
 
-**Status:** FINDING, measured. Fixed in this PR (7 tests, both guards disable-verified).
+**Status:** FINDING, measured. Fixed in the PR that landed this entry, #1216 (7 tests, both guards disable-verified).
 **Confidence:** High — the failure mode is demonstrated by a test that goes red when the scoping is restored.
 
 **Operator ruling (2026-09-07):** *"plug and play already has all the domains,

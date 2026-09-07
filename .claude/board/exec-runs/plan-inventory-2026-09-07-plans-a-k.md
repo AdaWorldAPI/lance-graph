@@ -334,3 +334,8 @@ No file was left completely unclassified — every row in the table above has
 a verdict. The AMBIGUOUS verdicts (36 total) are 35 "no status line found"
 cases plus the 1 `cascade-seal-register-grid-v1.md` case above; none are
 unexplained gaps.
+
+## Orchestrator errata (appended 2026-09-07 after review of #1218 — the agent text above is unedited)
+
+- L44 (`belief-abi-step2-addendum-copula-v1.md`): the `status_token` cell stops at an opening backtick. The plan's status (its lines 3–5) reads in full: "ADDENDUM to" the path `.claude/plans/belief-abi-step2-ruling-request-v1.md`, "operator-directed 2026-08-23. **Proposes NO mint.** Supersedes the ruling request's Item 1 recommendation, which is retracted below." Verdict OPEN unchanged.
+- L119, L196, L294: `## Mismatches`, `## Candidate epiphanies`, `## Unread / uncertain` were written without a preceding newline (a write artifact). The text is intact; the file is deliberately not re-flowed so the line numbers cited in the review threads and here stay valid.

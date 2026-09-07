@@ -38,13 +38,13 @@
 | `.claude/plans/*.md` L–Z (entries 104–211) | 108 | 85 | 12 | 7 | 4 |
 | **`.claude/plans/` total** | **211** | **149** | **13** | **9** | **40** |
 | `.claude/v3/` waves W0–W6 | 7 | 4 (W3/W4 partial, W5, W6) | 1 (W0) | — | 2 (W1 mechanism-closed/adoption-partial; W2 contradictory) |
-| `.claude/v3/ENTROPY-MILESTONES.md` M1–M27 | 27 | 9 queued + 6 in-flight + 1 ruling-needed | ~8 | — | — |
+| `.claude/v3/ENTROPY-MILESTONES.md` M1–M27 | 27 | 10 queued + 7 in-flight + 1 ruling-needed | 9 (M1 shipped with its gate tool queued; M2 regraded here) | — | — |
 | `.claude/*.md` top-level | 71 | — | — | 1 (`SESSION_FALKORDB_CROSSCHECK`) | 9 orphans, 61 pre-June-2026 |
-| `STATUS_BOARD.md` D-id rows | 592 (89 sections) | 77 Queued, 23 Blocked, 5 In PR | 33 Shipped | 1 | 427 narrative-status cells |
+| `STATUS_BOARD.md` D-id rows | 592 (89 sections) | 77 Queued, 23 Blocked, 5 In PR | 33 Shipped | 1 | 427 narrative-status cells (the nine leading-token buckets classify 575 rows; 17 rows carry a token outside them and were not classified — not a partition) |
 | `ISSUES.md` | 47 | 37 | 8 (+1 resolving) | 1 | — |
 | `TECH_DEBT.md` | 167 | 95 | 7 (4 Paid + 3 Resolved) | — | 65 unlabeled (pre-Kanban-format era) |
-| W1a SIMD primitives (ndarray) | 5 | 0 | 5 | — | — |
-| W1b consumer migrations | 6 | 6 (one half-done) | 0 | — | — |
+| W1a SIMD primitives (ndarray) | 5 | 1 partial (#3 GATHER — API on all backends, x86 body a scalar polyfill) | 4 | — | — |
+| W1b consumer migrations | 5 TD entries over 7 files | 5 TD entries (W2 half-done); 6 files | 0 TD entries; 1 file (`types.rs`, own path) | — | — |
 | W1.5 sigker primitives | 3 | 1 (#8, ungated) | 2 (#6, #7) | — | — |
 | jc pillar registry | 12 | 1 deferred (Pillar 2) + 1 feature-gated (Pillar 11) | 10 execute by default | — | — |
 
@@ -66,13 +66,13 @@ recorded where it needs a reader.
 
 | Where | Said | Tree | Fixed here |
 |---|---|---|---|
-| `TECH_DEBT.md` TD-NDARRAY-SIMD-{UNPACK-I4-16D, SATURATING-ABS-I8, GATHER, PREFETCH, POPCOUNT-U64} (W1a #1–#5) | `Status: Open` ×5 | every symbol on ndarray `master` `b9afcb9b` — `simd_scalar.rs:1684,1709,1799,1887,1916` / `simd_avx512.rs:2673,2716,2846,3091,2987` / `simd_neon.rs:2269,2301,2356,2445` | yes — regraded SHIPPED (primitive side); consumer halves stay Open |
+| `TECH_DEBT.md` TD-NDARRAY-SIMD-{UNPACK-I4-16D, SATURATING-ABS-I8, GATHER, PREFETCH, POPCOUNT-U64} (W1a #1–#5) | `Status: Open` ×5 | every symbol on ndarray `master` `b9afcb9b` — `simd_scalar.rs:1684,1709,1799,1887,1916` / `simd_avx512.rs:2673,2716,2846,3091,2987` / `simd_neon.rs:2269,2301,2356,2445` | yes — four regraded SHIPPED (primitive side), GATHER regraded PARTIAL (API shipped, the AVX2 body the row requires is still open); consumer halves stay Open |
 | `TECH_DEBT.md` TD-NDARRAY-SIMD-RANDOMIZED-PROJECTION (W1.5 #7) | `DEFERRED` (heading + body) | `ndarray/src/hpc/randomized_signature.rs:96,205,244,292` (PR #294) **and consumed** — the import `use ndarray::hpc::randomized_signature::randomized_signature_sweep` at `crates/sigker/src/randomized.rs:49`; call site `RandomizedSignatureBuilder::encode` (`randomized.rs:124`) | yes — a three-way inconsistency (two knowledge docs said SHIPPED since 2026-09-02) |
 | `TECH_DEBT.md` TD-SIMD-SWEEP-W2 | "`types.rs` (22 raw ops)" | `types.rs` has **0** raw-intrinsic lines (`hamming_distance_dispatch` → `ndarray::hpc::bitwise::hamming_distance_raw`, `types.rs:462`); `ndarray_bridge.rs` still 66, incl. `_mm512_popcnt_epi64` at `:465,:493` | yes — HALF DONE |
 | `STATUS_BOARD.md` D-LNC-5a, D-MW-P2 | `**In PR** #1198` | #1198 merged `3797237b` | yes — Shipped |
 | `.claude/v3/ENTROPY-MILESTONES.md` M2 | `QUEUED (small, mechanical)` | STATUS_BOARD D-PERT-1 Shipped #630, verified in-code 2026-07-10 — nine weeks before the file was last edited | yes |
 | `.claude/v3/ENTROPY-MILESTONES.md` M24 | `PARTIAL 2026-07-17` | STATUS_BOARD D-MBX-A6-P3d/P4 (2026-08-01/02) ship the durable witness + recovery + cycle/WAL closure with the 64k/17 falsifier | yes — regrade appended |
-| `.claude/v3/knowledge/compiled-templates.md` gap list | "`StepMask` type does not exist yet" | `contract::step_mask::StepMask`, D-V3-W3a, 2026-07-10 | yes |
+| `.claude/v3/knowledge/compiled-templates.md` gap list; `COMPONENT-MAP.md` `StepMask` row ("BLOCKED/NEW — zero .rs matches"); `knowledge/sonnet-worker-guardrails.md` vocabulary row ("does not exist yet") | "`StepMask` type does not exist yet" | `pub struct StepMask` at `crates/lance-graph-contract/src/step_mask.rs:40`, exported `lib.rs:241`; D-V3-W3a, 2026-07-10 | yes — all three (the latter two after CodeRabbit on #1218) |
 | `.claude/plans/self-reasoning-substrate-v1.md:15` | "PROPOSED — doc-only. No code" | D-SRS-1..4 all **Shipped** on STATUS_BOARD (`reason.rs` + 7 tests; `shape,ancestry.rs` + 63; falsifier fired; `introspect.rs` + 77) | no — plan header, left for the owner; recorded |
 | `LATEST_STATE.md` static sections `## Current Contract Inventory (lance-graph-contract)` (`:2915`), `## Immediate Next Work` (`:3073`), `## Deferred (…)` (`:3102`) | frozen at 2026-05-16 / 2026-06-26; cite D-CSV-13b "IN PR" (shipped long since) and keep `TD-COLLAPSE-GATE-SMALLVEC-1` in "Deferred" while self-annotating it "CLOSED 2026-06-11" (`:3106`) | ~100 dated deltas prepended above them since | no — the file is append-only; a reader must treat the top-of-file deltas as current, the static sections as a 2026-06 snapshot |
 | `CLAUDE.md:762,765` | "`.claude/*.md` (61 top-level docs) … `SESSION_CAPSTONE.md`" | 71 files; no `SESSION_CAPSTONE.md` exists | no — CLAUDE.md is operator-owned; recorded |
@@ -81,7 +81,7 @@ recorded where it needs a reader.
 
 | Where | Said | Truth | Fixed here |
 |---|---|---|---|
-| `.claude/v3/INTEGRATION-PLAN.md:110` (D-CCF-4 row), `soa_layout/routing.md:104-106`, `knowledge/v3-substrate-primer.md:103-105` | `0x1000` is temporary; adoption 100 % ⇒ P4 ⇒ marker retires | **D-CCF-4 RESCINDED** (operator 2026-07-03, `E-V3-DUAL-SCHEMA-0x1000-IS-PERMANENT-1`) — STATUS_BOARD row 950 carried it for nine weeks; none of the three V3 files did | yes — ⊘ notes at all three |
+| `.claude/v3/INTEGRATION-PLAN.md:110` (D-CCF-4 row), `soa_layout/routing.md:104-106`, `knowledge/v3-substrate-primer.md:103-105` | `0x1000` is temporary; adoption 100 % ⇒ P4 ⇒ marker retires | **D-CCF-4 RESCINDED** (operator 2026-07-03, `E-V3-DUAL-SCHEMA-0x1000-IS-PERMANENT-1`) — STATUS_BOARD row 950 carried it for nine weeks; none of the three V3 files did | yes — ⊘ notes at all three; the README five-sentence summary and the `sonnet-worker-guardrails.md` `0x1000` vocabulary row still said "temporary" and were corrected after CodeRabbit on #1218 |
 | `.claude/v3/INTEGRATION-PLAN.md` Addendum-12a (`:486-510`) vs Addendum-15 (`:744`) | W2a = a NEW gated `BoardAggregates` tenant **vs** W2a "SHIPPED as `ValueTenant::Kanban`" | `ValueTenant::Kanban` is the pre-existing per-ROW tenant #9 that `mailbox-kanban-model.md` calls a *sibling, not a substitute*; `tenants.md` (2026-08-23) lists no `BoardAggregates` | no — recorded on FUTURE-DESIGN 2026-09-07; needs `canonical_node.rs:1622+` + owner wiring read, not a doc pass |
 | `.claude/v3/COMPONENT-MAP.md` §4 W2b row | supervisor `KanbanActor<O>` EXTEND | actor half DELETED 2026-08-05 (⊘ note already in the row since 2026-09-05); the wave table's W2b row still reads as an open work item | no — ⊘ exists; the wave table row is append-only history |
 | `persistent-nars-kg-v1.md`, `self-reasoning-substrate-v1.md` | cite `D-GRAPH-1`, `D-TRUTH-1`, `D-INFER-DEDUCTIONS-RELATION-BLIND` | **0** hits on STATUS_BOARD — never minted or renamed without a pointer | no — recorded |
@@ -145,11 +145,13 @@ the two tag-files carry every row.
 | W5 consumer adoption | **OPEN** | nine sub-items, none Shipped; smb-office-rs `LanceConnector::upsert` still the orphan write (W5f) |
 | W6 monitor + retirement | **OPEN, premise RESCINDED** | D-CCF-4 rescinded 2026-07-03; W6a counting logic shipped, Lance-dataset sweep residue; "post-P4" now means post-checkpoint (⊘ notes landed) |
 
-`ENTROPY-MILESTONES.md` (M1–M27 after this PR): shipped/resolved M2 (regraded
+`ENTROPY-MILESTONES.md` (M1–M27 after this PR, all 27 accounted for):
+shipped/resolved 9 — M1 (#628 fleet; its gate tool queued), M2 (regraded
 here), M5, M6, M7, M9 (partially reopened 2026-07-18), M15, M25, M26; in-flight
-M3, M4, M12, M13, M17, M20, M24 (regraded here); queued M8, M10, M11, M14, M16,
-M19, M21, M22, M23, M27 (mechanism shipped, callers queued); **M18 RULING-NEEDED**
-(sigma chain Ω→Δ→Φ→Θ→Λ vs `KanbanColumn` six phases — no ruling found).
+7 — M3, M4, M12, M13, M17, M20, M24 (regraded here); queued 10 — M8, M10, M11,
+M14, M16, M19, M21, M22, M23, M27 (mechanism shipped, callers queued); **M18
+RULING-NEEDED** (sigma chain Ω→Δ→Φ→Θ→Λ vs `KanbanColumn` six phases — no
+ruling found). 9 + 7 + 10 + 1 = 27.
 
 `knowledge/persona-vs-rung-ladder.md` O1–O9: **all open** except O5 (a probe
 run; its two hardenings unconfirmed). O2 re-scoped 2026-08-30 to "any-rung
@@ -180,7 +182,9 @@ Landed in this PR: README doc-map row + collision note + two rulings added to
 the canonical list; primer §5 ⊘ (D-CCF-4) + §6 row
 (`E-EVERYTHING-WIRES-TO-SOA-V3-CE64-IS-ALU-LEGACY-1`, which postdated every
 mirror in the folder); INTEGRATION-PLAN W6 ⊘; routing.md §5 ⊘;
-compiled-templates `StepMask` struck; ENTROPY M2/M24 regrades + M27;
+compiled-templates `StepMask` struck (and, after CodeRabbit on #1218, the
+COMPONENT-MAP `StepMask` row + the guardrails vocabulary row regraded
+SHIPPED); ENTROPY M2/M24 regrades + M27;
 COMPONENT-MAP §6 `NestedBands` row; FUTURE-DESIGN 2026-09-07 block;
 witness-nibble-lane P5 (lit-harvest D3: "a single `u8:u8` rail read as ONE
 scalar axis is d=1", `:104`); the nexgen plan links back. **Deliberately not
@@ -193,7 +197,7 @@ and a row without a lane is a wish (ENTROPY's own meta-rule).
 |---|---|---|
 | W1a #1 `from_i4_packed_u64` / `lane_i8` / `batch_packed_i4_16` | SHIPPED ×4 backends (scalar/avx512/neon + wasm partial) | TD said Open — fixed |
 | W1a #2 `saturating_abs` (I8x16/I8x32) | SHIPPED ×4 | TD said Open — fixed |
-| W1a #3 `gather_u16` / `palette_lookup_u8x8` | SHIPPED — **API only**; x86 body is a scalar-loop polyfill by its own doc (`simd_avx512.rs:2833-2836`) | performance intent unmet |
+| W1a #3 `gather_u16` / `palette_lookup_u8x8` | **PARTIAL** — API on scalar/avx512/neon; the x86 body is a scalar-loop polyfill by its own doc (`simd_avx512.rs:2833-2836`) | the AVX2 `_mm256_i32gather_epi32` body the TD row requires is still open; TD regraded PARTIAL, not SHIPPED |
 | W1a #4 `prefetch_read_t0/t1/t2` | SHIPPED ×3 | TD said Open — fixed |
 | W1a #5 `U64x8::popcnt` / `xor_popcount` / `U64x4::popcnt` | SHIPPED (scalar/avx512/avx2) | TD said Open — fixed |
 | W1b holograph `hamming.rs` | Open, 25 raw lines | — |
@@ -208,7 +212,9 @@ and a row without a lane is a wish (ENTROPY's own meta-rule).
 Raw-intrinsic census across the five named crates: **179 lines** (the
 knowledge doc's "158-violation finding" of 2026-05-16 is stale as a live
 number — drift from growth, not remediation; `types.rs` is the one real
-reduction). **W1b verdict: 0 of 6 closed** with all five primitives shipped.
+reduction). **W1b verdict: 0 of 5 TD entries (W1–W5) closed — W2 half-done —
+and 1 of 7 files (`types.rs`) migrated, 6 still raw**, with four primitives
+shipped and GATHER partial.
 
 jc: the 12-entry registry is literally "11/12 implemented, Pillar 2 deferred"
 (`lib.rs:24-29`) — with the unstated caveat that Pillar 11 (`hambly_lyons`)
@@ -243,8 +249,10 @@ run, not re-run here).
   `pattern.md` (17 refs) and `patterns.md` (30 refs) are two live entry points
   to one SoA/DTO doctrine.
 - **STATUS_BOARD.md**: 1854 lines, 89 sections, 592 rows in 3/4/6-column
-  shapes; 427 cells carry narrative rather than a lifecycle token — a per-row
-  mechanical census is not possible without normalizing the table shape.
+  shapes; 427 cells carry narrative rather than a lifecycle token, and the nine
+  leading-token buckets classify 575 rows — 17 rows carry a token outside them
+  and were not classified — so a per-row mechanical census is not possible
+  without normalizing the table shape.
 - **TECH_DEBT.md**: 167 entries under three header conventions; 65 unlabeled
   (all pre-Kanban-format, `TD-F10-ACTOR-ID`..`TD-INT-14`); open P0s after
   this PR: `TD-SIMD-SWEEP-W4`, `TD-API-DRIFT-MIDFLIGHT-1`,

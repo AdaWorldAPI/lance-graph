@@ -21,9 +21,12 @@ orchestration what askama × FieldMask is to rendering; a successful LLM
 (Rig oracle) run compiles DOWN to a deterministic replayable template
 executed by graph-flow under inherited ownership. Thinking cycles follow
 **standing async plans** within a 550 ms net budget; updates reprioritize,
-never gate. The `0x1000` custom half is a temporary **adoption monitor**;
-at 100% adoption (P4) it retires and the classview half opens for the 64k
-render/template catalogue.
+never gate. The `0x1000` custom half is a **permanent adoption monitor** —
+~~temporary; at 100% adoption (P4) it retires~~ (`D-CCF-4` RESCINDED,
+operator 2026-07-03, `E-V3-DUAL-SCHEMA-0x1000-IS-PERMANENT-1`; corrected here
+2026-09-07): P4 at 100% adoption is an operator **checkpoint** on the corpus
+proof, never a retirement, and the classview half's 64k render/template
+catalogue (W6b/c) is gated on that checkpoint.
 
 ## Doc map (read order per task)
 
@@ -43,7 +46,7 @@ render/template catalogue.
 | waking an agent | `agents/BOOT.md` (the four `v3-*` cards + trigger routing) |
 | landing future design / post-V3 rulings | `FUTURE-DESIGN.md` (the meta board: ruling index, migration arc, thinking-engine gem wiring queue) |
 | keeping the vision (the WHY, graded) | `VISION.md` — the AGI-aspiring canon re-grounded 2026-07-10; every claim [G]/[RULING]/[ASPIRATION]; filigree-reviewed |
-| row masks / histograms / Prozentrang / rank over classid-addressed, version-keyed slabs | `.claude/nexgen/harvest/00-INDEX.md` → `.claude/nexgen/plans/nexgen-mask-histogram-thresholds-v1.md` (D-NXG-1..12; the plan's sealed object is keyed `(classid, version)` — THIS folder's keyspace — as its PROPOSED room-26 shape, while the shipped D-NXG-1 `NestedBands` is version-keyed over one column with no classid; its room 27 proposes it as the carrier primer §6 row 3 demotes `Vsa16kF32` from) + board `E-NXG-*` (2026-09-05) + `.claude/knowledge/literature-harvest-2026-09-01-post-1132.md` (partially superseded 2026-09-02: of the loco calls it treated as constitutional only `TERNLOG 0x86` survives). Cross-linked 2026-09-07 (plan inventory) — before that neither doc family cited the other |
+| row masks / histograms / Prozentrang / rank over classid-addressed, version-keyed slabs | `.claude/nexgen/harvest/00-INDEX.md` → `.claude/nexgen/plans/nexgen-mask-histogram-thresholds-v1.md` (D-NXG-1..12). Two facts to hold apart: (a) the plan's PROPOSED room-26 shape keys its sealed object `(classid, version)` — THIS folder's keyspace — while the shipped D-NXG-1 `NestedBands` is version-keyed over one column with no classid; (b) its room 27 proposes `NestedBands` as the carrier that primer §6 row 3 demotes `Vsa16kF32` from. Companions: board `E-NXG-*` (2026-09-05) and `.claude/knowledge/literature-harvest-2026-09-01-post-1132.md` (partially superseded 2026-09-02 — of the loco calls it treated as constitutional, only `TERNLOG 0x86` survives). Cross-linked 2026-09-07 (plan inventory); before that neither doc family cited the other |
 
 Shortcuts: `/v3` (bootload), `/v3-audit` (pre-commit conformance greps).
 Canonical ruling texts live on the board (`.claude/board/EPIPHANIES.md`,

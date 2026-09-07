@@ -646,3 +646,7 @@ file:line anchor, offered as raw material — not claimed as ratified epiphanies
   had no single unambiguous "OPEN"/"RESOLVED" sentence — the OPEN classification there
   is inferred from prose ("Not root-caused or fixed... Not scheduled") rather than a
   literal status field.
+
+## Orchestrator errata (appended 2026-09-07 after review of #1218 — the agent text above is unedited)
+
+- L150–160: the nine leading-token buckets sum to 575 of the 592 data rows; the remaining 17 rows carry a leading token outside those nine classes and were not classified in this pass. Read the table as "575 classified + 17 unclassified = 592", not as a partition. Mirrored in the inventory §0 / §6.

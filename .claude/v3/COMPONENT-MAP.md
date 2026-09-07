@@ -91,7 +91,7 @@ Meta/Plasticity widths differ persisted-vs-hot with no parity test;
 | template-equivalence (Exact/RankOrder live; Semantic fail-closed) | REUSE | the W3 merge gate; honest deferred grading |
 | cognitive-compiler ScaffoldCompiler | REUSE | "no trace → no template" enforced in types; synthesis = first probe |
 | `FieldMask` (class_view.rs:69) | REUSE | the sibling StepMask mints next to (u64 position bitmask) |
-| `StepMask` | BLOCKED/NEW | zero .rs matches — docs-only; D-V3-W3a |
+| `StepMask` | ~~BLOCKED/NEW~~ **SHIPPED** (regraded 2026-09-07, plan inventory) | ~~zero .rs matches — docs-only~~ `pub struct StepMask` at `crates/lance-graph-contract/src/step_mask.rs:40`, exported `lib.rs:241`; D-V3-W3a shipped 2026-07-10; W3b/c/d (the adapter that consumes it) still queued |
 | graph-flow NextAction | REUSE | **6 variants incl. no-op GoBack** (docs said 5 — corrected) |
 | **NextAction ↔ OgarAction "1:1"** | CORRECTED | the honest 1:1 is `Step ↔ Task` and `ogar_name() ↔ Task::id()`; Continue/WaitForInput/GoTo/End have NO template-side counterparts — closing this IS the StepMask/adapter work, see compiled-templates.md correction |
 | rs-graph-llm `template-task` crate | EXTEND | the adapter's natural home — Task shims exist with literal placeholders; ZERO Cargo dep on lance-graph yet (episodic-arc-task proves the git-dep pattern) |
