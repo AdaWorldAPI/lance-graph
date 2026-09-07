@@ -1,3 +1,9 @@
+## 2026-09-07 — D-SPG-1: one Sonnet worker from a 60-line spec, orchestrator-gated (contract `AlphaMask::{words, from_words}`)
+
+- **Worker (Sonnet, `general-purpose`, edit-only, guardrails §1 verbatim, one file `crates/lance-graph-contract/src/alpha.rs`):** two methods after `materialize_ordinals`, three tests in the existing module; reported its own unverified items honestly ("not compiled, not run — orchestrator gates"; `PartialEq` presence checked by reading the derive).
+- **Gates run centrally:** `cargo fmt -p lance-graph-contract -- --check` 0; `cargo clippy -p lance-graph-contract --all-targets -- -D warnings` 0; `cargo test -p lance-graph-contract` 1326/1326 (+7 +12 doc/integration). **Mutation:** `if tail != 0` disabled → `from_words_clears_phantom_tail_bits` fails on `count == 200` (restored; diff back to +78/−0).
+- **Board (same commit):** STATUS_BOARD D-SPG-1 → Shipped; plan §5 row; LATEST_STATE contract delta. PR opened for the merge because MedCare-rs pins the contract to git `main`.
+
 ## 2026-09-07 — SPOG alpha channel, Phase 0: four read-only Sonnet inventories, orchestrator-verified, spec written on the main thread
 
 - **Why:** operator: *"probe autoattended autonomous decision making until you get MedCare-rs SPOG alpha channel to work / … rows are experimental in lance 11 and only required for tombstones which we avoid by having sealed batch per cycle / … the relevant bakes in S3 might not be per domain separate …"*, plus *"check Mississippi queen hexagon board game effect vs masking algebra ternlogq chaining amortization / same bit that masks mq might 'mask' SPO 'angle'"*, plus *"use Sonnet agents for grindwork"*, plus (mid-turn) *"make sure to migrate the handrolled MedCare-rs alpha to LG 1198 alpha"* — folded into the spec as F9 and the broadened D-SPG-5 before the commit.

@@ -1,3 +1,8 @@
+## 2026-09-07 — D-SPG-1 shipped: `AlphaMask::{words, from_words}` — the one contract seam the SPOG cross needs
+
+- **Contract inventory — delta:** `contract::alpha::AlphaMask` gains `words(&self) -> &[u64]` (a borrow, not a materializer) and `from_words(Box<[u64]>, u32) -> Self` (release-mode `assert_eq!` on `words.len() == len.div_ceil(64)`, tail bits past `len` CLEARED — the `not()` law applied at the boundary). No new type, module, field or lane; `materialize_ordinals` stays the one named materializer. 3 tests (can-fire `should_panic`, round-trip at `len % 64 != 0`, phantom-tail clear); mutation-fired (clearing disabled → the count assertion fails).
+- **Why now:** MedCare-rs consumes `lance-graph-contract` from git `main` (`Cargo.toml:145`; the `vendor/lance-graph` symlink is gone), so D-SPG-2/3 on the private side cannot compile until this is on `main`. Plan: `.claude/plans/spog-alpha-channel-v1.md` §5.
+
 ## 2026-09-07 — `spog-alpha-channel-v1` spec landed (Phase 0, no code); one correction to shipped-code claims
 
 - **New plan:** `.claude/plans/spog-alpha-channel-v1.md` (D-SPG-0..8 on STATUS_BOARD). Frozen: no row ids / sealed batch per cycle; domain = mask over the combined `all-lanes.soa`; G = `graph_of` (contract), Domain = `OR` of Gs; rung byte = attention rung only; the ternlog cross lives one crate out of the contract (MedCare-side, `medcare-cohorts` has `ndarray`; `lance-graph-planner` stays out of the customer binary).
