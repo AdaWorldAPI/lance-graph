@@ -33,6 +33,28 @@ enough: a `long[]` of row ids is a materialised population; an `int[]` of slot
 positions is a materialised carving. Both are the substrate crossing the wall
 wearing a collection.
 
+**⊕ 2026-09-07 (operator ruling `D-BBB-NARS-1`) — the rule has a second column.**
+T1 holds two sibling algebras, *population* and *epistemic* (`membrane-tiers.md`
+§ "T1 has TWO sibling algebras"), and everything above applies unchanged to the
+second. **The axis is syntax vs execution, never selection vs scoring.** So:
+
+- a truth **LITERAL** — `TruthLiteral(192, 217)` — MAY cross. It is meaning the
+  caller supplies; it is syntax, and syntax is T3's to state.
+- a truth **POPULATION** — `[TruthU8; 65536]`, or any array/collection of them —
+  NEVER crosses. It becomes `TruthLaneId(u64)`, an opaque descriptor. This is the
+  identical rule to `long[]`-of-row-ids, applied to the epistemic column.
+- an **operation NAME** — `Truth.Revision(lhs_handle, rhs_handle)` — MAY cross.
+  How revision works may not. T2 resolves the name, T1 executes, T0 owns the
+  result.
+- **`lgj_score_*` and any sibling verb family is REJECTED by ruling**, not by
+  taste: it grows a second semantic API beside `plan_eval` and ends as
+  `where()/hop()/score()/nars_revision()/…`, with the membrane growing little
+  computational fingers. NARS is a named `plan_eval` operation or it is nothing.
+- **The G11 fence widens by one scalpel cut, never the cupboard.** Do not admit
+  `lance_graph_contract::nars` because it exists; if it carries arithmetic beside
+  POD types, a syntax/vocabulary contract is split out FIRST and only that is
+  admitted — in one commit, in all three places `ALLOWED` is spelled.
+
 ## The verdicts
 
 - **HANDLE-CLEAN** — every public signature carries only names/handles/counts/
@@ -50,6 +72,15 @@ wearing a collection.
   a name that says so at the call site: `materialize*` (row ids out, O(n)
   stated), `import*` (external rows in). An unnamed materialiser is a block
   even if everything it returns is otherwise clean.
+- **ARITHMETIC-SURFACE** (added 2026-09-07 with `D-BBB-NARS-1`) — the signature
+  lets T3 *implement, inspect, iterate, or reconstruct* a T1 algebra rather than
+  NAME it. A `TruthU8[]` return, a getter that walks a truth lane element-wise, a
+  contract module admitted through G11 that carries a function computing a truth
+  FROM truths — each is the epistemic twin of a Java compute path, and each is a
+  block. Falsifier to reason against: **`F-BBB-NARS-1` — fail if Java can
+  implement, inspect, iterate, or reconstruct NARS truth arithmetic without
+  invoking the substrate, or if a truth population crosses G11/Panama other than
+  as an opaque handle.**
 
 ## Method
 

@@ -1,3 +1,16 @@
+## bbb-nars-lowering (D-id minted 2026-09-07 with the operator ruling)
+
+`.claude/knowledge/membrane-tiers.md` § "T1 has TWO sibling algebras"; board
+`E-T1-HAS-TWO-SIBLING-ALGEBRAS-THE-AXIS-IS-SYNTAX-VS-EXECUTION-1`. The axis is
+syntax vs execution, not selection vs scoring; T1 holds two sibling algebras and
+NARS lowers through the `plan_eval` membrane that already exists.
+
+| D-id | scope | status | gate / falsifier |
+|---|---|---|---|
+| D-BBB-NARS-1 | NARS truth arithmetic remains substrate-owned. G11/T3 may carry only typed NARS **syntax** and **opaque substrate handles**. NARS execution lowers through the existing bulk plan-evaluation membrane; no Java-side arithmetic and no materialized truth population crosses Panama. `TruthU8` is the canonical SUBSTRATE representation; cross-membrane results are handles (`TruthLaneId(u64)`). Any required G11 expansion SHALL expose syntax/vocabulary only, never an arithmetic implementation surface — one scalpel cut, never the cupboard | **Ruled 2026-09-07** (operator). Doctrine landed; no code. `lgj_score_*` explicitly REJECTED — extend the plan language, not the ABI surface | **F-BBB-NARS-1:** fail if Java can implement, inspect, iterate, or reconstruct NARS truth arithmetic without invoking the substrate, OR if a truth population crosses G11/Panama other than as an opaque handle |
+| D-BBB-NARS-2 | The syntax/vocabulary contract the G11 fence would admit: split the POD/vocabulary half of `lance_graph_contract::nars` from its arithmetic half, so the fence can widen by one module without admitting an implementation surface | Queued — gates on a consumer actually needing it; **do not pre-build** | the admitted module contains no arithmetic (a function that computes a truth from truths); `ALLOWED` grows in all three spellings in ONE commit |
+| D-BBB-NARS-3 | `Truth(…)` as a named `plan_eval` operation (Revision / Deduction / Abduction / …), returning `TruthLaneId`, never an array | Queued — gates on D-BBB-NARS-2 | one crossing per behavioral expression regardless of operand count (the §6 bulk-or-lifecycle law); a `[TruthU8]` return is an automatic fail |
+
 ## lance-convergence-staged-migration-v1 (D-ids minted 2026-09-05 with the plan)
 
 `.claude/plans/lance-convergence-staged-migration-v1.md`. The staged lance

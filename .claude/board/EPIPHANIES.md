@@ -1,3 +1,67 @@
+## 2026-09-07 — E-T1-HAS-TWO-SIBLING-ALGEBRAS-THE-AXIS-IS-SYNTAX-VS-EXECUTION-1 — the membrane is a behavior membrane, not a selection pipeline
+
+**Status:** OPERATOR RULING, BINDING (2026-09-07). Ruled after a three-agent audit of the
+T2/T3 barrier (`membrane-tiers.md`, the two warden cards, `lance-graph-java` @ `8720d1d`,
+`r2sleigh` @ `99d2553`) reported NARS truth arithmetic as absent from the Java side —
+not exported, not imported, not present — and drew the wrong conclusion from a correct
+measurement.
+**Confidence:** High. The measurement is exhaustive (repo-wide grep of lgj: 3 hits, all
+prose, all in one unshipped plan); the ruling is the operator's, and it is a ruling, not
+a finding.
+
+**The audit's conclusion, verbatim, and why it is wrong.** *"NARS is off the ladder
+entirely; the ladder is selection-shaped and has no tier for scoring."* Descriptively
+true at today's HEAD. Architecturally wrong twice over:
+
+1. **The axis is wrong.** The distinction that matters is not *selection vs scoring* —
+   it is **syntax vs execution**, which is the axis every other tier here is already
+   built on. `where()` is T2 because Java owns the NAME and T1 owns the op; nothing
+   about that reasoning is specific to populations.
+2. **The remedy was wrong.** The audit proposed a new bulk verb family (`lgj_score_*`)
+   returning a lane instead of a mask. **Rejected.** It grows a second semantic API
+   beside `plan_eval`, and the end state is predictable — `where()`, `hop()`,
+   `score()`, `nars_revision()`, `nars_deduction()`, … with Java knowing progressively
+   more about the behavior graph. *The membrane starts growing little computational
+   fingers.*
+
+**The ruling.** The ladder does not need a sixth tier; **T1 was described too narrowly.**
+It holds TWO SIBLING PRIMITIVE ALGEBRAS — *population* (`mask`, `ternlog`, `eq → mask`,
+`popcount`) and *epistemic* (`TruthU8`, revision, deduction, abduction). Both are
+primitive behavior. **T2 may name either; T2 may not hand-compose either; T3 may express
+intent in either.** Every existing rule applies unchanged to the second column —
+`kernel-membrane-warden`'s HAND-COMPOSED verdict covers a T2 spelling `revision` out of
+smaller truth ops exactly as it covers the two-AND spelling of `AND3`.
+
+NARS lowers through the membrane that already exists: T3 names
+`Truth.Revision(lhs_handle, rhs_handle)` and may not know how revision works; T2's
+`plan_eval` resolves the name; T1 executes; T0 owns every resulting `TruthU8`. **Extend
+the plan language, not the ABI surface** — `lgj_plan_eval` exists precisely so a whole
+behavioral expression crosses once.
+
+**A wording correction the ruling forces.** `TruthU8` had been called "the canonical wire
+form." Two different claims were being conflated: it is the canonical **substrate**
+representation (T0). What crosses is decided separately and by SHAPE — a truth LITERAL
+(`TruthLiteral(192, 217)`) is syntax the caller supplies and may cross; a truth
+POPULATION (`[TruthU8; 65536]`) never crosses, it becomes `TruthLaneId(u64)`. Same rule
+`bbb-warden` already applies to masks, second column. It lands on the measured Valhalla
+cliff exactly: flattening stops at an **8-byte payload** (VM-confirmed,
+`valhalla-lab/docs/three-truths.md`), so the handle flattens and the array could never.
+**Valhalla carries the noun; Panama carries the verb; lance-graph owns the reality.**
+
+**Consequences, each with its site.** `D-BBB-NARS-1` + falsifier `F-BBB-NARS-1`
+(STATUS_BOARD, and quoted in `membrane-tiers.md` § "T1 has TWO sibling algebras"); the
+T1 row and the T2 row (renamed *selection* → *behavior*) rewritten in the doctrine table;
+`bbb-warden` gains the syntax/execution test and the G11 scalpel-cut rule. **The G11
+fence must NOT be widened to `lance_graph_contract::nars` merely because that module
+exists** — if it carries arithmetic beside POD types, split a syntax/vocabulary contract
+out first and admit only that. One scalpel cut, never the cupboard.
+
+**What does NOT change: the BBB does not move.** T3 intent/names above; T2 opaque bulk
+behavior handles below; T1 algebra (population ‖ epistemic); T0 state. No VSA internals,
+no RoleKey, no NARS arithmetic, no byte positions, no truth arrays, no Java compute path.
+Only names and capabilities. The widening makes the doctrine MORE general, not more
+permissive.
+
 ## 2026-09-07 — E-AN-EMPTY-RANGE-AFTER-A-RESET-IS-NOT-EVIDENCE-1 — the check that certified the loss it was run to prevent
 
 **Status:** FINDING, measured. The orphaned commit was recovered; the board it

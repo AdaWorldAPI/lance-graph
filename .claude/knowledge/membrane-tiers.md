@@ -19,8 +19,8 @@ substrate beneath them is T0.
 | Tier | What it is | May know | Crosses UP as | The membrane (gate) |
 |---|---|---|---|---|
 | **T0 substrate** | bytes, lanes, Lance columns, SoA v3 rows; `simd_{avx512,avx2,neon,scalar}.rs` | strides, offsets, carvings, intrinsics, alignment | — | none; T0 is where truth lives |
-| **T1 primitive** | `ndarray::simd` facade; `lgj-abi/kernels.rs`; `mask_*`, `eq_*_to_mask`, `ternlog` | `&[u64]`, `&[u8]`+`(offset,stride)`, `IMM` | a mask, a count, a lane descriptor | **polyfill rule** (simd-savant): no intrinsic, no `#[cfg(target_arch)]` above this line |
-| **T2 selection** | ABI exports; `where`/`hop`/`plan_eval`; `Mask × WideFieldMask → Mask` | handles, `classid`, `FieldMask` (fields by NAME), version | a handle, a count, a status | **no hand-composed T1 op, no computed geometry** (kernel-membrane-warden) |
+| **T1 primitive** | TWO SIBLING ALGEBRAS (2026-09-07, below): **population** — `ndarray::simd` facade, `lgj-abi/kernels.rs`, `mask_*`, `eq_*_to_mask`, `ternlog`, `popcount`; **epistemic** — `TruthU8`, revision, deduction, abduction, … | `&[u64]`, `&[u8]`+`(offset,stride)`, `IMM`, `TruthU8` | a mask, a count, a lane descriptor, **a truth lane** | **polyfill rule** (simd-savant): no intrinsic, no `#[cfg(target_arch)]` above this line |
+| **T2 behavior** (was "selection") | ABI exports; `where`/`hop`/`plan_eval`; `Mask × WideFieldMask → Mask`; **and the epistemic siblings, named through the same `plan_eval`** | handles, `classid`, `FieldMask` (fields by NAME), version | a handle, a count, a status | **no hand-composed T1 op, no computed geometry** (kernel-membrane-warden) |
 | **T3 intent** | Java facade; R2IL / OGAR `ActionDef`; low-code | names: class, edge, field, version | an outcome | **no byte position** (bbb-warden + ApiSurfaceTest) |
 | **R2IL** | emits T3 artifacts | T3's vocabulary (names, outcomes) | an outcome | its ceiling IS T3's; door-knocker test (layer-boundary-warden) |
 
@@ -35,6 +35,134 @@ ndarray's `simd.rs` (T1 membrane) → `simd_ops.rs` (staging) → `simd_{arch}.r
 hand-writes a compare-and-pack loop has punched T1 — the violation
 `simd-savant` exists to catch. lgj-abi stacks the same shape at T1/T2:
 `exports.rs` names `kernels::ternlog::AND3`, never `ndarray::simd` directly.
+
+## T1 has TWO sibling algebras — the doctrine is a behavior membrane, not a selection pipeline
+
+**Operator ruling, 2026-09-07.** An audit found NARS truth arithmetic nowhere on
+the Java side of the membrane — not exported, not imported, not present — and
+concluded from that: *"NARS is off the ladder entirely; the ladder has no tier
+for scoring."* **The conclusion was wrong and the diagnosis was the wrong axis.**
+The distinction that matters is not *selection vs scoring*. It is **syntax vs
+execution** — which is the distinction every other tier here is already built on.
+
+The ladder does not need a sixth tier. **T1 was described too narrowly.** It
+contains two sibling primitive algebras:
+
+```
+T1
+├── population algebra          └── epistemic algebra
+│     mask                            TruthU8
+│     ternlog                         revision
+│     eq → mask                       deduction
+│     popcount                        abduction
+```
+
+Both are primitive behavior. **T2 may name either. T2 may not hand-compose
+either. T3 may express intent in either.** Every rule already written applies
+unchanged to the second column — `kernel-membrane-warden`'s HAND-COMPOSED
+verdict covers a T2 that spells `revision` out of smaller truth ops exactly as
+it covers a T2 that spells `AND3` as two `mask_and`s.
+
+### The lowering, end to end
+
+```
+T3  Java / R2IL / low-code
+      │  NARS operation NAME + opaque handles
+      ▼
+T2  plan_eval — the behavior membrane
+      │  resolved bulk operation
+      ▼
+T1  epistemic primitives (beside the population primitives)
+      │  substrate-native execution
+      ▼
+T0  TruthU8 lanes / rows / history / state
+```
+
+T3 may say `Truth.Revision(lhs_handle, rhs_handle)`. **It may not know how
+revision works.** T2 resolves the name; T1 executes the arithmetic; T0 owns
+every resulting `TruthU8`.
+
+### Extend the plan language, NOT the ABI surface
+
+The tempting fork — mint `lgj_score_*` beside `lgj_hop` — is rejected. It grows
+a second semantic API next to `plan_eval`, and the end state is predictable:
+`where()`, `hop()`, `score()`, `nars_revision()`, `nars_deduction()`, … with
+Java knowing progressively more about the behavior graph. **The membrane starts
+growing little computational fingers.**
+
+`lgj_plan_eval` exists precisely so a whole behavioral expression crosses ONCE.
+NARS becomes another named plan operation, not another export:
+
+```
+Plan
+ ├── Select(…)
+ ├── Hop(…)
+ ├── Ternlog(…)
+ └── Truth(…)
+      ├── Revision
+      ├── Deduction
+      ├── Abduction
+      └── …
+```
+
+### `TruthU8` is the canonical SUBSTRATE representation — not automatically the wire form
+
+These are two different claims and the workspace had been conflating them.
+`TruthU8 { frequency: u8, confidence: u8 }`
+(`lance-graph-arm-discovery/src/translator.rs:25-33`) is canonical **at T0**.
+What crosses is decided separately, and by shape:
+
+| shape | crosses? | as |
+|---|---|---|
+| a truth LITERAL, `TruthLiteral(192, 217)` | **yes** — it is meaning supplied by the caller, syntax, T3's to state | itself |
+| a truth POPULATION, `[TruthU8; 65536]` | **never** | `TruthLaneId(u64)` — an opaque 8-byte descriptor |
+
+This is the same rule `bbb-warden` already enforces for masks (*"a `long[]` of
+selected ids is still a materialised population"*), applied to the epistemic
+column — and it lands exactly on the measured Valhalla cliff: **flattening stops
+at an 8-byte payload** (VM-confirmed, `valhalla-lab/docs/three-truths.md`), so a
+`TruthLaneId(u64)` flattens and a truth array could never. The JVM agrees with
+the membrane about where the wall is. **Valhalla carries the noun; Panama
+carries the verb; lance-graph owns the reality.**
+
+### The G11 widening rule: one scalpel cut, never the cupboard
+
+Do **not** import `lance_graph_contract::nars` through the G11 fence merely
+because it exists. If that module carries arithmetic semantics together with POD
+types, **split out a tiny syntax/vocabulary contract first** and admit only that.
+The fence widens by one deliberate module, in one commit, in all three places
+its allowlist is spelled (`tests/g11_contract_import_fence.rs`'s `ALLOWED`,
+lgj `CLAUDE.md § Enforcement`, `Cargo.toml`'s comment) — the shape lgj already
+requires, and the reason its own history records the fence being prose until
+2026-09-03 (`ISS-LGJ-G11-FENCE-WAS-PROSE`).
+
+### The ruling and its falsifier
+
+> **D-BBB-NARS-1.** NARS truth arithmetic remains substrate-owned. G11/T3 may
+> carry only typed NARS **syntax** and **opaque substrate handles**. NARS
+> execution is lowered through the existing bulk plan-evaluation membrane; no
+> Java-side arithmetic and no materialized truth population crosses Panama.
+> `TruthU8` is the canonical substrate representation, while cross-membrane
+> results are handles. Any required G11 expansion SHALL expose
+> syntax/vocabulary only, never an arithmetic implementation surface.
+
+> **F-BBB-NARS-1.** Fail if Java can implement, inspect, iterate, or reconstruct
+> NARS truth arithmetic without invoking the substrate, or if a truth population
+> crosses G11/Panama other than as an opaque handle.
+
+The BBB does not move. It stays exactly where it is:
+
+```
+                BBB
+T3  intent / names        ─────────────
+T2  opaque bulk behavior handles
+                              ↓
+T1  algebra  (population ‖ epistemic)
+T0  state
+```
+
+No VSA internals. No RoleKey. No NARS arithmetic. No byte positions. No truth
+arrays. No Java compute path. **Only names and capabilities.**
 
 ## The compile-through rule (the Entropy half)
 
