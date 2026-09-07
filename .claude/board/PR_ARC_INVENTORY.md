@@ -1,3 +1,80 @@
+## 2026-09-06 — lance-graph PR #1209 (merged `f1336b66`, branch `claude/ndarray-simd-tract-o3jfrn`) — the temporal architecture, measured against the wrong store first
+
+- **Added:** `crates/lance-graph/tests/canonical_witness_identity_probe.rs` (3
+  tests), `crates/lance-graph-contract/tests/v3_mint_reachability_probe.rs` (2),
+  `crates/lance-graph/tests/test_e_old_diff_tripartite.rs` (1), four
+  `STATUS_BOARD` rows, and the `SUPERSESSION-INDEX` regeneration. No source
+  changes — this PR measures, it does not migrate.
+- **Corrected, about this session's own earlier reporting:** a first pass traced
+  `VersionedGraph`/`NodeSchema` and reported it as the addressed architecture,
+  concluding the spine "terminates at `u32 node_id`" and that the last link "was
+  never built". Wrong store: `graph/cycle_sink.rs` (#911) had not been opened.
+  The operator named the failure mode before the evidence did — *"we may be
+  debugging the migration while accidentally treating a secondary
+  VersionedGraph/BLASGraph representation as the architecture."*
+- **The V1/V3 two-rail control was operator-mandated and earned its keep
+  immediately.** The first fixture used `NodeGuid::new` — the V1 (deprecated)
+  constructor — so it would have proven the live rail nothing. Rewritten to mint
+  through `mint_for(classid_read_mode(c).tail_variant, …)`. It then failed twice,
+  both times on MY assertions, not the store: `local_key_v2` was expected to
+  separate keys differing only in `leaf`, and must not — `leaf` is the 4th HHTL
+  routing tier (bytes 10..12), part of the addressing PREFIX, deliberately
+  outside the basin-local key (bytes 12..16). **Both facts are now pinned**, so
+  "use the V3 accessor" is recorded as TWO choices and picking the wrong V3 one
+  fails like picking the V1 one.
+- **Pinned false-green (D-TEMPORAL-1a):** 256 V3 addresses differing only in
+  `leaf` → 256 distinct raw keys, 256 distinct `to_hex_v2()`, **1** distinct
+  `identity()`. The miniature of the measured OBO incident (60 478 rows → 658
+  apparent identities on a byte-exact round trip). Byte fidelity does not imply
+  address fidelity.
+- **Checked rather than assumed (D-V3-MINT-1):** `mint_for`'s V2/V3 arm is gated
+  on `guid-v2-tail`, absent from `default`; the registry's V3 entries are gated
+  on `guid-v3-tail`, present. A contradiction was one step from being reported —
+  and does not exist: `guid-v3-tail = ["guid-v2-tail"]` (`Cargo.toml:69`).
+  Measured `tail_variant=V3 / guid-v2-tail=true / leaf_is_live=true`.
+- **CodeRabbit finding, CONFIRMED and fixed (`91cfe1c1`):** the removal probe
+  could pass without validating removal handling. `graph_seal_check` returns on
+  its FIRST divergence while walking `to_seals`, so on `V1={A,B,D} → V2={A,B',C}`
+  the update to `B` or the insert of `C` tripped it before the removal branch
+  (`versioned.rs:632-637`) ran — the assertion held with that branch deleted.
+  Added `V3={A,B'}` (a removal-ONLY transition). The isolation also SHARPENED the
+  blind spot: for a pure removal `GraphDiff` is entirely empty AND its own
+  `seal_status` reads `Wisdom`, while `graph_seal_check` calls the same pair
+  `Staunen` — the two surfaces disagree.
+- **CodeRabbit finding, DECLINED with evidence** (reply on
+  `#discussion_r3944816260`): "prepend new board rows above the existing
+  `D-LNC-*` entries". The `CLAUDE.md` prepend rule names its scope —
+  `EPIPHANIES` / `PR_ARC_INVENTORY` / `INTEGRATION_PLANS` / `AGENT_LOG`, the
+  chronological logs. `STATUS_BOARD` is a dashboard grouped by plan and is not in
+  that list; the last three commits to the section (`8078b69e`, `01569280`,
+  `5fe1ffae`) all APPEND. The finding did catch a real defect, just not the one
+  it named: the rows were originally inserted mid-table because the patch
+  anchored on a convenient unique string. Moved to the append point.
+- **Own prediction falsified by CI:** the PR body claimed
+  `SUPERSESSION-INDEX.md` needed no regeneration, reasoning a STATUS_BOARD-only
+  change could not move it. `regenerate-and-diff` went red within a minute —
+  `crates/` is also an index input, and the new probe calls `persist_cycle`, a
+  ruled symbol, moving its reference count 10 → 11. Fixed in `01829f6a`; body
+  corrected.
+- **Locked:** R4 with an R1 core (see `LATEST_STATE`). Historical snapshot
+  comparison is the correctness ORACLE for the changed set — `inserted`/`updated`
+  from `GraphDiff`, `removed` derivable from the same two seal maps `diff()`
+  already materialises before discarding their difference. Native lance delta is
+  an optional accelerator measured against that, never the architecture; D-LNC-5a's
+  RED is a statement about `DatasetDelta`'s configuration needs, not about store A.
+- **Deferred:** `test_c_cycle_payload_roundtrip.rs`, written by the probe fleet
+  and deliberately NOT landed — D-TEMPORAL-1 already proves the stronger V1/V3
+  result, and a second green test of the same claim adds review cost without
+  adding a falsifier.
+- **NOT proven, and the caveat must ride with any citation:** production
+  reachability. `LanceCycleWriter` has zero non-test callers. The architecture
+  survived; the writer is dormant.
+- **Confidence:** High on the byte/address/semantic results (all locally
+  executed, each failing at least once first). Medium on "no membrane was ever
+  intended" — grounded in chronology, a deleted design doc and exhaustive
+  negative greps, but no doc ever states the relationship positively, because A
+  did not yet exist when B was built.
+
 ## 2026-09-06 — lance-graph PR #1201 (merged `54285a42`, branch `claude/great-curie-d2ufyl`) — #1199's records, and the SPEC v1 that made it mixed
 
 - **Added:** #1199's post-merge records (`PR_ARC_INVENTORY` entry + the
