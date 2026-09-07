@@ -1,3 +1,52 @@
+## 2026-09-07 — E-THE-V1-GUARD-WAS-TESTED-THE-V3-GUARD-THAT-REPLACED-IT-WAS-NOT-1 — a guard nothing proves can fire is the defect one level up
+
+**Status:** FINDING, measured. Fixed in this PR (3 tests, red-then-green).
+**Confidence:** High — every claim is a grep or a test result, not an inference.
+
+**What happened.** A q2-side audit asserted that `osint-bake`'s FMA bake
+silently truncates identity: `body.rs:129` passes a `u32` row into a slot the
+V3 tail stores as `u16`, "no assertion guards it". **That claim is false**, and
+reading the contract settles it in both directions:
+
+- `NodeGuid::new` (V1) — `assert!(identity <= 0x00FF_FFFF, "identity must fit
+  in 24 bits")` (`canonical_node.rs:209`)
+- `NodeGuid::mint_for`'s V2/V3 arm — `assert!(identity <= 0xFFFF, "v2/v3
+  identity must fit in 16 bits (no silent truncation)")` (`:386-389`)
+
+Both are plain `assert!`, live in release. There is no silent wrap on any mint
+path; an over-wide identity is a loud panic naming its own width.
+
+**The real defect is the asymmetry.** The V1 guards have had `should_panic`
+cover since they landed (`new_panics_on_family_overflow` /
+`new_panics_on_identity_overflow`, `:2152-2162`). The V2/V3 guards that
+supersede them had **none** — grepping their panic strings returned exactly one
+hit each, the definition site. Nothing proved the newer guards could fire.
+
+That is this repo's own falsifiability rule turned on the guard itself: *"A
+guard/channel needs a can-it-fire test — a watchdog that cannot bark is the
+defect one level up."* The V1 rung was covered; the V3 rung that replaced it
+inherited the assertion but not the proof.
+
+**What landed.** Three tests, feature-gated on `guid-v2-tail` because the V2/V3
+arm only exists under it — ungated they would compile against the V1 fallback
+and assert the wrong message:
+
+- `mint_for_v3_panics_on_identity_overflow` (identity `0x0001_0000`)
+- `mint_for_v3_panics_on_family_overflow` (family `0x0001_0000`)
+- `mint_for_v3_admits_the_widest_legal_tail` — the twin the rule also demands:
+  `0xFFFF`/`0xFFFF` mints and reads back intact, so the guard is shown to
+  *discriminate* rather than to fire on everything.
+
+**Measured:** `cargo test -p lance-graph-contract --lib` 1318 → **1321 passed**;
+`--no-default-features` **1304 passed**, the delta confirming the cfg gate
+excludes them exactly where the V2/V3 arm does not exist. fmt and clippy clean.
+
+**The transferable part.** A guard inherited across a layout migration carries
+its assertion but not its coverage. When a V-next path supersedes a V-prev one,
+grep the new path's panic strings: if they appear only at the definition site
+while the old path's appear in tests too, the migration dropped the proof and
+kept the appearance of one.
+
 ## 2026-09-06 — E-AN-EXCLUDED-CRATE-ON-AN-X86-ONLY-FLEET-IS-CODE-NO-CI-HAS-EVER-COMPILED-1 — un-gating one downstream suite found a second aarch64 defect that could never have built
 
 **Status:** FINDING, measured red-then-green locally. Fixed in this PR.

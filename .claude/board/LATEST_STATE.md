@@ -110,6 +110,49 @@ architectural premise very thoroughly. A green suite bounds implementation
 error, never premise error.
 
 
+## 2026-09-07 — #1211 MERGED (c3bb095b): the V1 guard was tested, the V3 guard that replaced it was not
+
+| PR | merge | what landed |
+|---|---|---|
+| **#1211** | `c3bb095b` | Three tests on `NodeGuid::mint_for`'s V2/V3 width guards (`mint_for_v3_panics_on_identity_overflow`, `mint_for_v3_panics_on_family_overflow`, `mint_for_v3_admits_the_widest_legal_tail`) + the `EPIPHANIES` entry `E-THE-V1-GUARD-WAS-TESTED-THE-V3-GUARD-THAT-REPLACED-IT-WAS-NOT-1`. Test-only; no behaviour change. |
+
+**The claim that started it does not survive.** A q2-side FMA-bake audit asserted
+that `osint-bake/src/bin/body.rs:129` silently truncates identity — a `u32` row
+into a `u16` slot, "guarded by nothing". Both mint paths assert in release:
+`NodeGuid::new` on `identity <= 0x00FF_FFFF` (`canonical_node.rs:209`), and
+`mint_for`'s V2/V3 arm on `identity <= 0xFFFF`, whose message already says
+*"no silent truncation"* (`:386-389`). An over-wide identity panics naming its
+own width. **There is no silent wrap on any mint path** — treat the
+"body.rs truncates" claim as refuted, not open.
+
+**What was genuinely missing, and is now closed.** The V1 guards have carried
+`should_panic` cover since they landed (`:2152-2162`); the V2/V3 guards that
+supersede them had **none** — one grep hit each, the definition site. The
+assertion crossed the V1→V3 rung; the proof did not. That is this repo's
+falsifiability rule pointed at a guard: *a watchdog that cannot bark is the
+defect one level up.* The third test is the rule's can-it-STAY-SILENT twin, so
+the guard is shown to discriminate rather than to fire on everything.
+
+**Load-bearing detail for anyone touching these tests:** the
+`#[cfg(feature = "guid-v2-tail")]` gate is not decoration, but the reason is not
+the one first recorded here. An earlier draft of this entry said all three
+"compile against `mint_for`'s V1 fallback arm and assert the wrong panic
+message". Both halves are wrong, and the corrected failure modes were MEASURED by
+stripping the gate and running `--no-default-features`:
+
+- The two `should_panic` tests DO reach the V1 arm, but its guard is 24-bit
+  (`identity <= 0x00FF_FFFF`) and the overflow input is only `0x0001_0000`
+  (65 536) — comfortably legal. Nothing panics, so they fail with
+  **"test did not panic as expected"**, not a message mismatch.
+- `mint_for_v3_admits_the_widest_legal_tail` never gets that far: it fails to
+  **compile** (`E0599: no method named family_v2`), because `family_v2` and
+  `identity_v2` live in a `#[cfg(feature = "guid-v2-tail")] impl` block.
+
+The `--no-default-features` count (1304, vs 1321 default) is the evidence the
+gate excludes them exactly where the V2/V3 arm does not exist. Found by the codex
+P2 review on #1212 — an unverified claim about a failure mode, in an entry whose
+own subject is a guard that was never proven able to fire.
+
 ## 2026-09-06 — #1209 MERGED (f1336b66): the temporal architecture was measured against the wrong store
 
 | PR | merge | what landed |

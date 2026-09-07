@@ -1,3 +1,54 @@
+## 2026-09-07 — lance-graph PR #1211 (merged `c3bb095b`, branch `claude/ndarray-simd-tract-o3jfrn`) — the V1 guard was tested; the V3 guard that replaced it was not
+
+- **Added:** three tests in `crates/lance-graph-contract/src/canonical_node.rs`
+  (`mint_for_v3_panics_on_identity_overflow`,
+  `mint_for_v3_panics_on_family_overflow`,
+  `mint_for_v3_admits_the_widest_legal_tail`) + the `EPIPHANIES` entry
+  `E-THE-V1-GUARD-WAS-TESTED-THE-V3-GUARD-THAT-REPLACED-IT-WAS-NOT-1`.
+  Test-only; no behaviour change.
+- **Refutes the claim it started from.** A q2-side audit of the FMA bake
+  asserted that `osint-bake/src/bin/body.rs:129` **silently truncates** identity
+  — a `u32` row into a slot the V3 tail stores as `u16`, "guarded by nothing".
+  Reading this crate settles it against the claim: `NodeGuid::new` asserts
+  `identity <= 0x00FF_FFFF` (`canonical_node.rs:209`) and `mint_for`'s V2/V3 arm
+  asserts `identity <= 0xFFFF` with the message *"no silent truncation"*
+  (`:386-389`). Both are plain `assert!`, live in release. There is no silent
+  wrap on any mint path.
+- **The real defect it surfaced indirectly.** The **V1** guards have had
+  `should_panic` cover since they landed (`:2152-2162`). The **V2/V3** guards
+  that SUPERSEDE them had none — grepping their panic strings returned exactly
+  one hit each, the definition site. The assertion was inherited across the
+  V1→V3 rung; the proof was not.
+- **This is the repo's own falsifiability rule turned on the guard itself** —
+  *"a guard/channel needs a can-it-fire test; a watchdog that cannot bark is the
+  defect one level up."* Hence the third test: the rule's twin
+  can-it-STAY-SILENT half, proving the guard **discriminates** (`0xFFFF`/`0xFFFF`
+  mints and reads back intact) rather than firing on everything.
+- **Locked:** the `#[cfg(feature = "guid-v2-tail")]` gate is load-bearing, not
+  decoration. The failure modes below were MEASURED (gate stripped,
+  `--no-default-features` run), correcting this entry's first draft, which
+  claimed all three "compile against the V1 fallback arm and assert the wrong
+  panic message" — wrong twice over:
+  - the two `should_panic` tests reach the V1 arm, whose guard is 24-bit and so
+    ACCEPTS the `0x0001_0000` input: they fail with **"test did not panic as
+    expected"**, not a message mismatch;
+  - the widest-legal-tail test fails to **compile** (`E0599`), since
+    `family_v2`/`identity_v2` are themselves behind the same feature.
+
+  The `--no-default-features` delta (1304 vs 1321) still proves the gate excludes
+  them exactly where the V2/V3 arm does not exist. Raised as codex P2 on #1212;
+  the identical claim in the `canonical_node.rs` doc-comment (merged in #1211,
+  not flagged) is corrected in the same commit — the board and the code cannot
+  disagree about why a gate exists.
+- **Docs:** `EPIPHANIES.md` prepended; `SUPERSESSION-INDEX.md` regenerated AFTER
+  that write per the ordering rule (output byte-identical — the entry cites no
+  D-ids, which is the one case where an early regeneration would have been
+  indistinguishable from a correct one).
+- **Confidence:** HIGH on the refutation and the coverage gap (both read
+  directly off the source, and the tests fail without the guards). The
+  provenance note — that this began as a q2 bake audit — is recorded so a future
+  session does not re-derive the same wrong claim from the same call site.
+
 ## 2026-09-06 — lance-graph PR #1209 (merged `f1336b66`, branch `claude/ndarray-simd-tract-o3jfrn`) — the temporal architecture, measured against the wrong store first
 
 - **Added:** `crates/lance-graph/tests/canonical_witness_identity_probe.rs` (3
