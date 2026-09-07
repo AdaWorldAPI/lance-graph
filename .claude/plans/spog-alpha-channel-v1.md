@@ -83,14 +83,14 @@ tests). The consumer that exists calls the lower entry point instead:
 | `dispatch_thought(base, seed, keys, cycle) -> WaveDispatchOutcome{scanpath, waves}` | `wave_dispatch.rs:62-67` | constructs allocation + tunnel internally; `seed.clone()` per lane is RULED intentional (temporal 06) |
 | `RowFocusMask` (D-ACR-1) | `attention_facet.rs:370-455` | a **facet-prefix** set (`AttentionFocusFacet`, `covers`/`common_prefix`), NOT a row bitmask — a different object from `AlphaMask`; both stay |
 
-**Absent, by search:** no `AlphaMask::words()` accessor (grep `fn words|as_words|from_words` in `alpha.rs`: 0 hits) — the words are unreachable from any crate, so nothing outside the contract can run a SIMD op on them. No `mask_ternlog`/`AND3` call anywhere in `lance-graph-java/native/lgj-abi/src/*.rs` (grep `ternlog|AND3`: 0 hits at lgj `dbac826`); `lgj_hop` is two sequential `simd_mask_and_assign` (`exports.rs:1818,1822`). **This falsifies two standing claims** — `EPIPHANIES.md` E-NXG-8 *"`AND3` = conjunctive narrowing (`lgj_hop`, shipped)"* and `.claude/knowledge/membrane-tiers.md` §"The polyfill is the worked instance" *"`exports.rs` names `kernels::ternlog::AND3`"* — corrected on the board with this spec.
+**Absent, by search (state BEFORE D-SPG-1, kept as the record of why D-SPG-1 exists):** no `AlphaMask::words()` accessor (grep `fn words\|as_words\|from_words` in `alpha.rs` at `2d111623`: 0 hits) — the words were unreachable from any crate, so nothing outside the contract could run a SIMD op on them. **Closed by D-SPG-1 (`1d90183c`): `words()` + `from_words()` exist now.** No `mask_ternlog`/`AND3` call anywhere in `lance-graph-java/native/lgj-abi/src/*.rs` (grep `ternlog|AND3`: 0 hits at lgj `dbac826`); `lgj_hop` is two sequential `simd_mask_and_assign` (`exports.rs:1818,1822`). **This falsifies two standing claims** — `EPIPHANIES.md` E-NXG-8 *"`AND3` = conjunctive narrowing (`lgj_hop`, shipped)"* and `.claude/knowledge/membrane-tiers.md` §"The polyfill is the worked instance" *"`exports.rs` names `kernels::ternlog::AND3`"* — corrected on the board with this spec.
 
 ### 1b. The consumer surface (MedCare-rs, private — quoted minimally)
 
 | fact | where |
 |---|---|
 | ONE production caller of the alpha channel: `dispatch_thought(base, &seed, &keys, cycle)` | `medcare-nodesoa/src/frontier_dispatch.rs:81`; `base = obo_store::store().node_rows()` (60,478 rows) |
-| `cycle` is the constant `SHADOW_CYCLE = 1` — *"Fest, damit zwei Requests … byte-gleich sind"*; there is no cycle loop anywhere (temporal 06: `git grep` for `cycle + 1|cycle++|for cycle in` → 0 hits) | `medcare-nodesoa/src/patient_shadow.rs` |
+| `cycle` is the constant `SHADOW_CYCLE = 1` — *"Fest, damit zwei Requests … byte-gleich sind"*; there is no cycle loop anywhere (temporal 06: `git grep` for `cycle + 1\|cycle++\|for cycle in` → 0 hits) | `medcare-nodesoa/src/patient_shadow.rs` |
 | The second `AlphaStamp.rung` writer: `domain_rung(classid) = Domain::of_classid(..) as u8 + 1` (1..=8) at the claim site `self.overlay.borrow_mut().claim(*addr, rung)`; `reflection(ov, domain)` filters the scanpath on `stamp_of(r).rung == domain as u8 + 1` | `medcare-first-thought/src/attention.rs:127,153,221` |
 | Persist path: `overlay_to_batch` / `write_alpha_overlay` → `node_rows_to_batch(rows, cycle)` → one column `node: FixedSizeBinary(512)` NOT NULL, append | `medcare-nodesoa/src/alpha.rs:26,77`, `lib.rs:46-56` — both functions have **zero callers outside their own tests** |
 | Domain grouping: `Domain::of_classid` → `FacetRegime::{Single(d), PerRowTui, Unassigned}`; `Domain::of_row` resolves `PerRowTui` via `cui::tui_of_row(row)` (`value[0..2]`) | `medcare-cohorts/src/quad_tenant.rs`; `cui.rs:123` |
@@ -145,10 +145,21 @@ loses to a sparse arm below 0.1 % active. A 762,041-bit mask is 11,907 words =
 Over `all-lanes.soa` mmapped (`bake_data::soa_map()`), for every declared G:
 
 ```text
-tenant_mask[G] = eq_u32_strided_to_mask(bytes, 0, 512, n_rows, classid_of(G), out)
-domain_mask[D] = OR_{G ∈ D} tenant_mask[G]                   // disease = MONDO ∪ ICD-10-GM ∪ Orphanet ∪ OMIM…
-horseshoe[D]   = tenant_mask[CUI] ∧ OR_{tui ∈ tui_domains(D)} eq_u16(value[0..2] == tui)
+// pseudocode — the shipped form is medcare-cohorts::spog_masks::tenant_masks
+sweep[c]       = eq_u32_strided_to_mask(bytes, 0, 512, n_rows, c, out_c)       // one per DISTINCT full classid c in the image
+tenant_mask[G] = OR_{c : graph_of(c) == G} sweep[c]                              // fold per canon-high half — never a single full-u32 equality standing in for G
+domain_mask[D] = OR_{G ∈ D} tenant_mask[G]                                       // disease = MONDO ∪ ICD-10-GM ∪ Orphanet ∪ OMIM…
+horseshoe[D]   = { rows r : regime(classid(r)) == PerRowTui ∧ Domain::of_row(r) == D }   // per row; scalar today
 ```
+
+Codex (P1 on #1221) named the trap the fold avoids: a full-`u32` equality per G
+would MISS every classid whose custom low half is non-zero or whose legacy
+encoding shares a canon-high half (`CLASSID_OSINT_V3 = 0x0701_1000` vs
+`graph_of == 0x0701`), so a claim could route to a G tenant via
+`SpogTenants::claim` while its row is absent from that tenant's mask. The
+shipped code sweeps every DISTINCT classid and ORs per G; the falsifier is a
+synthetic image with two classids sharing one canon-high half (landed with
+D-SPG-3).
 
 Computed ONCE per Lance version (the mask generation), served to every rung —
 the Mississippi-Queen M1b amortization stated as a cache key
@@ -161,10 +172,13 @@ positions and every mask in this spec shares one `len`.
 ### 3.2 The crosswalk is a chain of masked equality sweeps (step 1's subject)
 
 Row-resident FKs only — a sidecar `HashMap` join (`cui::mondo_to_cui`) is the
-scalar REFERENCE, never the mechanism. Hop n: `eq_u32_strided_to_mask` on the
-FK column of tenant n's rows for each needle of the incoming survivor key set,
-`OR`-accumulated, then `mask_ternlog::<AND3>(sweep, tenant_mask[n], rung_gate)`
-— the survivors' key set is the needle set of hop n+1. The forbidden move is a
+scalar REFERENCE, never the mechanism. Hop n (pseudocode; the real T1 call is
+the four-argument `mask_ternlog::<IMM>(a, b, c, dst)` or the in-place
+`mask_ternlog_assign::<IMM>(a, b, c)`, `ndarray/src/simd_int_ops.rs:983,1015`):
+`eq_u32_strided_to_mask` on the FK column of tenant n's rows for each needle of
+the incoming survivor key set, `OR`-accumulated into `sweep`, then
+`mask_ternlog::<AND3>(&sweep, &tenant_mask[n], &rung_gate, &mut survivors)` —
+the survivors' key set is the needle set of hop n+1. The forbidden move is a
 mask-`AND` across two tables (nexgen room 18; `E-…-CHAIN-OF-MASKS` on the
 board). Which FK columns are u32-aligned in the real image (key tail at byte
 12; quad slots are u24 at value 32..44 and are NOT eq_u32-addressable without
@@ -174,8 +188,10 @@ see D-SPG-4's pre-registration rule.
 ### 3.3 The rung × tenant cross (step 2's meta-awareness layer, temporal Stage 2)
 
 ```text
-cell[rung r][G] = mask_ternlog::<AND2>(lane_r.attended_mask().words(), tenant_mask[G], _)
-unlooked[D]     = mask_ternlog::<AND_ANDNOT2>(domain_mask[D], any_rung, any_rung)
+// pseudocode over the four-argument T1 call mask_ternlog::<IMM>(a, b, c, dst)
+cell[rung r][G] : mask_ternlog::<AND2>(lane_r.attended_mask().words(), tenant_mask[G].words(), tenant_mask[G].words(), &mut dst)   // AND2 ignores c
+unlooked[D]     : mask_ternlog::<AND_ANDNOT2>(domain_mask[D].words(), any_rung.words(), any_rung.words(), &mut dst)              // = domain & !any_rung
+// dst is rebuilt as AlphaMask::from_words(dst, len) so the contract's tail law re-applies
 ```
 
 No new stored state: both operands are recomputed projections; the cross is
