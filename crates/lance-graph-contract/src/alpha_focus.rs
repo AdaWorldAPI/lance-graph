@@ -104,9 +104,9 @@ impl<'a, 'b> AlphaFocus<'a, 'b> {
         tunnel: &'b AlphaTunnel<'a>,
         tenants: &'b SpogTenants<'a>,
     ) -> Result<Self, FocusError> {
-        let same = tunnel.lane(0).is_some_and(|l| {
-            std::ptr::eq(l.allocation().base(), tenants.allocation().base())
-        });
+        let same = tunnel
+            .lane(0)
+            .is_some_and(|l| std::ptr::eq(l.allocation().base(), tenants.allocation().base()));
         if !same {
             return Err(FocusError::DifferentAllocations);
         }
@@ -219,7 +219,10 @@ mod tests {
         assert!(census(&b).len() >= 2, "anti-vacuity: more than one graph");
         // Grouping is a shift: two of the three share a block.
         let block = block_of(0x9101);
-        let same: Vec<u16> = census(&b).into_iter().filter(|&c| block_of(c) == block).collect();
+        let same: Vec<u16> = census(&b)
+            .into_iter()
+            .filter(|&c| block_of(c) == block)
+            .collect();
         assert_eq!(same, vec![0x9101, 0x9102]);
         assert_ne!(block_of(0x9202), block, "and the third does not");
     }
@@ -241,7 +244,11 @@ mod tests {
 
         // rung 3 looks at two rows of 0x9101; rung 5 at one row of 0x9202.
         for (rung, row) in [(3u8, 0usize), (3, 1), (5, 5)] {
-            tunnel.lane_mut(rung).unwrap().claim(b[row].key, rung).unwrap();
+            tunnel
+                .lane_mut(rung)
+                .unwrap()
+                .claim(b[row].key, rung)
+                .unwrap();
             assert!(tenants.claim(b[row].key, rung).routed());
         }
 
@@ -250,8 +257,16 @@ mod tests {
         assert_eq!(f.cell(3, 0x9101).unwrap().count(), 2, "rung 3 in 0x9101");
         assert_eq!(f.cell(5, 0x9202).unwrap().count(), 1, "rung 5 in 0x9202");
         // The cells whose axes never met — the half a collapsed encoding loses.
-        assert_eq!(f.cell(5, 0x9101).unwrap().count(), 0, "rung 5 never entered 0x9101");
-        assert_eq!(f.cell(3, 0x9202).unwrap().count(), 0, "rung 3 never entered 0x9202");
+        assert_eq!(
+            f.cell(5, 0x9101).unwrap().count(),
+            0,
+            "rung 5 never entered 0x9101"
+        );
+        assert_eq!(
+            f.cell(3, 0x9202).unwrap().count(),
+            0,
+            "rung 3 never entered 0x9202"
+        );
 
         let m = f.matrix();
         assert_eq!(m.len(), 2, "exactly the two populated cells: {m:?}");
@@ -286,7 +301,10 @@ mod tests {
             0,
             "0x9101 was reached — silence here, or the reading fires on everything"
         );
-        assert!(f.unlooked(0x0999).is_none(), "an undeclared graph is absent, not empty");
+        assert!(
+            f.unlooked(0x0999).is_none(),
+            "an undeclared graph is absent, not empty"
+        );
     }
 
     /// The rung stays the rung: a claim's stamp carries the PROCESSING rung
