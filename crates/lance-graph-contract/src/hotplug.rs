@@ -8,9 +8,10 @@
 //!    trait the authority implements. No OGAR dep — the contract is a
 //!    workspace member and MUST stay dependency-free (a path dep here breaks
 //!    every CI cargo invocation at workspace-load time; learned 2026-07-07).
-//! 2. **OGAR (the AUTHORITY):** resolves the hot-plugged classids to BOTH the
-//!    vocab rows and the action definitions, and verifies the registration
-//!    (expected consumer, coverage both directions, ids minted exactly once).
+//! 2. **OGAR (the AUTHORITY):** resolves the hot-plugged classids to the vocab
+//!    rows, the action definitions, AND the storage reading
+//!    ([`Activation::read_modes`]), and verifies the registration (expected
+//!    consumer, coverage both directions, ids minted exactly once).
 //! 3. **The consumer:** declares one [`HotPlug`] const naming its classids +
 //!    covered capabilities, calls `activate` in its own binary/tests — drift
 //!    bangs once, no pins, no serialization, no per-consumer plug crate.
@@ -33,15 +34,55 @@ pub struct HotPlug {
     pub covered: &'static [&'static str],
 }
 
-/// What the authority returns for a green activation: the vocab rows and
-/// capability names resolved for the hot-plugged classids. Plain owned
-/// `std` types — zero-dep, no serialization.
+/// What the authority returns for a green activation: the vocab rows, the
+/// capability names, and the STORAGE READING resolved for the hot-plugged
+/// classids. Plain owned `std` types — zero-dep, no serialization.
 #[derive(Debug, Clone, PartialEq, Eq, Default)]
 pub struct Activation {
     /// `(concept, classid)` vocab rows for every hot-plugged id.
     pub concepts: Vec<(String, u16)>,
     /// Capability names whose subject is one of the hot-plugged ids.
     pub capabilities: Vec<String>,
+    /// `(concept id, ReadMode)` — how a row addressed under each hot-plugged
+    /// concept is READ: which tail the key carries, which value tenants
+    /// materialise, how the edge block is carved.
+    ///
+    /// **Why this rides the activation rather than a registry entry**
+    /// (D-BLOCKS-HOTPLUG-1, operator, 2026-09-07). The reading is not
+    /// recorded in the key — [`crate::canonical_node::NodeGuid`] has no
+    /// tail-variant accessor, and `decode()` (V1 `family:u24 ++ identity:u24`)
+    /// versus `decode_v2()` (leaf + `u16`/`u16`) is chosen by classid alone.
+    /// So SOMETHING must map a classid to its reading, and
+    /// [`BUILTIN_READ_MODES`](crate::canonical_node::classid_read_mode)
+    /// *"holds only the canon builtins"* — every entry there is a canon
+    /// DOMAIN. Registering each consumer's seat there would make adding a
+    /// frontend an edit to this crate plus a substrate recompile: the central
+    /// lockstep the retired `COUNT_FUSE` belonged to, rebuilt one layer up.
+    ///
+    /// The authority already resolves the other two infos for exactly the
+    /// hot-plugged ids; the reading is the third, from the same call, keyed
+    /// the same way. A consumer composes its own full `u32`
+    /// (`concept << 16 | its app prefix`) and reads rows with the mode the
+    /// authority handed it — never by asking the canon registry about a class
+    /// the canon does not own.
+    ///
+    /// **`&'static` on purpose — this is plug-and-play at COMPILE time.** The
+    /// socket half is already const ([`HotPlug`] is one `const` per consumer,
+    /// `&'static [u16]` + `&'static [&'static str]`), and activation is by
+    /// Cargo presence: a build graph that pulls the authority crate gets the
+    /// real tables, one that does not cannot call [`CapabilityAuthority`] at
+    /// all. So the reading is a STATIC DESCRIPTOR the authority hands back —
+    /// a `const` table, no allocation, nothing resolved at runtime that was
+    /// not already decided by which crates are in the graph. `concepts` /
+    /// `capabilities` stay owned because they are derived (joined, sorted,
+    /// deduped); a reading is looked up, not computed.
+    ///
+    /// **Fails closed by construction:** an activation that drifts returns
+    /// [`ActivationDrift`] and yields no `Activation` at all, so there is no
+    /// path on which a consumer proceeds with an unresolved reading. An empty
+    /// slice is not "assume the default" — it is "the authority declared no
+    /// reading", and a consumer that needs one must treat that as a bang.
+    pub read_modes: &'static [(u16, crate::canonical_node::ReadMode)],
 }
 
 /// Why an activation failed — each arm is one named bang.
@@ -166,6 +207,9 @@ mod tests {
                     .map(|&id| (format!("c{id:04x}"), id))
                     .collect(),
                 capabilities: plug.covered.iter().map(|s| (*s).to_string()).collect(),
+                // This toy authority declares no reading — the field is
+                // additive and an authority that has none says so.
+                read_modes: &[],
             })
         }
     }

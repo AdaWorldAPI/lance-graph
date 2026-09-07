@@ -1,3 +1,115 @@
+## 2026-09-07 — D-BLOCKS-HOTPLUG-1 (operator ruling): a consumer is NOT a canon builtin — and OGAR had already ruled it in code
+
+**Ruling, operator, 2026-09-07.** *"Blockly is a hot-plugged consumer, not a
+canon builtin. `0x1717` is authority-owned/minted. `BUILTIN_READ_MODES` must
+remain unchanged by Blockly. Unresolved or mismatched authority fails closed."*
+
+PR #1207 proposed `CLASSID_BLOCKS_V3` + `ReadMode::BLOCKS_V3` +
+`BUILTIN_READ_MODES.insert(...)`, all three in `canonical_node.rs`. **Withdrawn**
+— that file on this branch is now byte-identical to `main`. This entry lands
+instead.
+
+**Why it was wrong.** Not literally the retired `COUNT_FUSE` (no count-equality
+assert), but it resurrects what `COUNT_FUSE` belonged to: **central lockstep**.
+Under it, adding a frontend means editing `lance-graph-contract`, recompiling
+the substrate, and extending a global registry. `hotplug.rs` exists so the
+substrate exposes a SOCKET while OGAR stays the AUTHORITY; its `MirrorDrift`
+doc says the compile-time fuse is retired for drift *"reported per plug, for
+the ids a consumer actually uses, instead of as a global equality assert."*
+
+`canonical_node.rs:1516` states the boundary outright — *"Holds only the canon
+builtins; a minted class's read-mode is layered in by OGAR one level up."*
+Every entry there is a canon DOMAIN (default / OSINT / FMA / CPIC / PROJECT /
+ERP). `0x17` is the loco domain; `0x1717` is blockly-rs, a **per-frontend
+palette seat** (`ogar-loco`: `0x1701`/`0x1702` node shapes, `0x1703`–`0x1716`
+headroom, `0x1717`+ consumers). A seat is not a domain.
+
+### OGAR already guards the mirror image of this, with tests
+
+`ogar-vocab/src/capability_registry.rs` (§ *the canon carries no palette rows*):
+
+- `no_0x17xx_row_reached_the_globally_mirrored_codebook` — asserts no `0x17XX`
+  id is in `class_ids::ALL` (98 rows). Its reason names this exact PR's shape:
+  *"A palette row reaching `class_ids::ALL` would put a frontend's private
+  reading into the globally-mirrored codebook and move the count the lance-graph
+  fuse pins — so catch it on THIS side first."*
+- `a_palette_classid_does_not_resolve_as_a_hot_plug` —
+  `resolve_hotplug("blockly-abi", &[0x1717], &[])` returns
+  `Err(UnknownClassid(0x1717))` **by design**: *"The honest answer for a
+  palette: this is not a capability-authority concept at all, in any build.
+  Vocabulary routing is a different seam (`VocabularyRegistry`), keyed by the
+  consumer's own slot."* — while `canonical_concept_domain(0x1717)` still
+  routes `Blocks` off the reserved byte, *"which is what lets a consumer branch
+  on 0x17XX with no concept minted."*
+
+**So #1207 was not merely against a preference — it is the lance-graph-side
+twin of a violation OGAR tests for.** And it corrects the ruling's own item 3:
+**blockly must NOT declare a `HotPlug`.** A palette classid deliberately does
+not resolve as one; a plug for `0x1717` is pinned to fail. Hot-plug is for
+capability concepts. The palette seam is `ogar_loco::registry::VocabularyRegistry`
+— a runtime hub keyed by concept id that refuses a second claimant loudly
+(`RegistryError::ConceptTaken`, *"never last-write-wins"*), living in the
+CONSUMER.
+
+### FINDING — the classid→ReadMode layer has never been built
+
+Measured 2026-09-07: `ReadMode` / `read_mode` / `tail_variant` / `TailVariant`
+return **ZERO hits across the whole OGAR repo**. `classid_read_mode` reading
+`BUILTIN_READ_MODES` is the only such resolution anywhere. `:1516`'s "layered
+in by OGAR one level up" is an INTENTION with no implementation — and #1207 is
+what happens when a consumer meets an unbuilt seam: it falls into the only
+registry that exists.
+
+### The consumer-local repair was ATTEMPTED and is UNSOUND — the seam is mandatory
+
+The obvious repair — a consumer owns its seat, so let `blockly-store` mint with
+`NodeGuid::mint_for(TailVariant::V3, …)` instead of asking the registry — was
+written, then disproved before it shipped. **The tail is not recorded in the
+key.** `canonical_node.rs:290-299`:
+
+> *"a consumer reads `guid.read_mode()`, OGAR reads
+> `classid_read_mode(guid.classid())`; both inherit the SAME answer from the one
+> registry, so the LE interpretation of the node's bytes is single-sourced."*
+
+There is no `NodeGuid::tail_variant()` accessor at all — the key carries no
+discriminator, and `decode()` (V1, `family:u24 ++ identity:u24`) versus
+`decode_v2()` (leaf + `u16`/`u16`) is chosen by **classid → registry**, nothing
+else. So a writer that "states V3" over a classid the registry answers
+`ReadMode::DEFAULT` for emits V3 bytes that every reader decodes as V1: the same
+16 bytes, two readings, no version gate — precisely the corruption
+`I-LEGACY-API-FEATURE-GATED` exists to prevent, and strictly worse than the
+original V1-tail defect because the bytes would now genuinely differ.
+
+**Therefore the `classid → ReadMode` layer is not optional and has no
+consumer-local shortcut.** Something must map `0x1717_1000 → V3`, and the only
+open question is where it lives. `:1516` says OGAR, one level up. OGAR has not
+built it. That is the whole blocker, and it is architectural work, not a
+binding.
+
+Constraint for whoever builds it: `lance-graph-contract` is zero-dep and cannot
+depend on OGAR, so the shape has to be a SOCKET here + an AUTHORITY there —
+structurally what `hotplug.rs` already does for capabilities, with
+`lance-graph-ogar` (workspace-EXCLUDED, already OGAR-dependent, already
+implementing `ClassView`) the natural host. Not proposed as code here: minting a
+canon trait is not a subtraction, and it is the operator's call.
+
+Second constraint, easy to miss: `mint_for`'s V2/V3 arm is behind
+`#[cfg(feature = "guid-v2-tail")]`; with the feature off the arm is dead and
+V3 is unreachable by construction.
+
+### Stale prose a future reader will trip on
+
+`lance-graph-ogar/Cargo.toml`'s header still describes the *"COMPILE-TIME length
+fuse (`const _` assert that the mirror and `ogar_vocab::class_ids::ALL` have
+equal count — fires in ANY build)"* — i.e. `COUNT_FUSE`, retired 2026-08-14.
+
+### Why 1319 green tests did not catch any of this
+
+They proved the newly-added static path worked perfectly. They tested the wrong
+architectural premise very thoroughly. A green suite bounds implementation
+error, never premise error.
+
+
 ## 2026-09-07 — #1211 MERGED (c3bb095b): the V1 guard was tested, the V3 guard that replaced it was not
 
 | PR | merge | what landed |
