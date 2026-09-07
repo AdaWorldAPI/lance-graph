@@ -200,11 +200,13 @@ fence hardening, neither a migration regression.
 
 | PR | merge | content |
 |---|---|---|
-| **#1201** | `54285a42` | #1199 post-merge records; `.claude/plans/nodeguid-new-repurpose-audit-v1.md` (5+3 council SPEC v1, READ-ONLY audit); `INTEGRATION_PLANS` + `STATUS_BOARD` D-NGN-AUDIT. |
+| **#1201** | `54285a42` | #1199 post-merge records. **Hygiene-only** — the SPEC v1 commit did NOT land here (corrected 2026-09-07; see the arc entry). |
 
 **Contract inventory net delta: none.** No type, no API, no layout. The PR
-merged MIXED despite its body saying hygiene-only — the spec commit was pushed
-after that sentence was written; see the arc entry. The council is HELD at
+merged hygiene-only, as its body said. An earlier record here claimed it merged
+MIXED with the council SPEC v1; measured 2026-09-07, that commit was never an
+ancestor of `main` — it was orphaned by a branch reset and has since been
+recovered and cherry-picked forward. The council is HELD at
 Phase 2 on a VIOLATES against a frozen decision (`GET /views/graph/wave.abi`
 reaches `inherited_part_of`, contradicting *"Nobody walks anything"*), which is
 the operator's to rule on. Draft v2 additionally owes F9, the dating rule from

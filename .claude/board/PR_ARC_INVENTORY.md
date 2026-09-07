@@ -186,6 +186,20 @@
 - **Confidence:** High on every file:line (S3 verified the entire §2 inventory
   CODED, no row wrong). The audit itself reaches NO verdict yet — Phase 2 is
   held, and nothing was implemented.
+- **CORRECTION 2026-09-07 — the SPEC v1 commit did NOT land in #1201.** The
+  "Added" line above says it "landed in it afterwards, making it MIXED". Measured
+  after a branch reset: `git merge-base --is-ancestor 3dd98b2b origin/main` says
+  NO, and neither the plan file, the `INTEGRATION_PLANS` prepend nor the
+  `STATUS_BOARD` `D-NGN-AUDIT` row is present on `main`. **#1201 merged
+  hygiene-only after all** — its own body was right and this entry's correction
+  was wrong. The commit was orphaned by a `git checkout -B <branch> origin/main`
+  run while it was unmerged; recovered from `git fsck --lost-found` and
+  cherry-picked forward, so the content is not lost — but for one day the board
+  cited a plan file that existed nowhere.
+  **The generalizable half:** `git log origin/main..<branch>` returning EMPTY is
+  not evidence that nothing is unmerged — it is empty *by construction* after a
+  reset, which is exactly when work has just been orphaned. The check has to run
+  BEFORE the reset, or against the reflog. This entry stays; it is the receipt.
 
 ## 2026-09-06 — lance-graph PR #1199 (merged `ef724878`, branch `claude/great-curie-d2ufyl`) — the `AlphaMask::zip` guard that was compiled out of release
 
