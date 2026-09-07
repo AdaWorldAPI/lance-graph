@@ -2161,6 +2161,36 @@ mod tests {
         let _ = NodeGuid::new(0, 0, 0, 0, 0, 0x0100_0000);
     }
 
+    /// The V1 24-bit guards above have had `should_panic` cover since they
+    /// landed; the V2/V3 16-bit guards in `mint_for` had none, so nothing
+    /// proved they could fire. Feature-gated because the V2/V3 arm only exists
+    /// under `guid-v2-tail` — without it `mint_for` falls back to the V1 arm and
+    /// panics with the 24-bit message instead.
+    #[test]
+    #[cfg(feature = "guid-v2-tail")]
+    #[should_panic(expected = "v2/v3 identity must fit in 16 bits")]
+    fn mint_for_v3_panics_on_identity_overflow() {
+        let _ = NodeGuid::mint_for(TailVariant::V3, 0, 0, 0, 0, 0, 0, 0x0001_0000);
+    }
+
+    #[test]
+    #[cfg(feature = "guid-v2-tail")]
+    #[should_panic(expected = "v2/v3 family must fit in 16 bits")]
+    fn mint_for_v3_panics_on_family_overflow() {
+        let _ = NodeGuid::mint_for(TailVariant::V3, 0, 0, 0, 0, 0, 0x0001_0000, 0);
+    }
+
+    /// The guards' twin: a guard that fires on everything carries as much
+    /// information as one that never fires. The widest legal tail must mint and
+    /// read back intact.
+    #[test]
+    #[cfg(feature = "guid-v2-tail")]
+    fn mint_for_v3_admits_the_widest_legal_tail() {
+        let g = NodeGuid::mint_for(TailVariant::V3, 0, 0, 0, 0, 0, 0xFFFF, 0xFFFF);
+        assert_eq!(g.family_v2(), 0xFFFF);
+        assert_eq!(g.identity_v2(), 0xFFFF);
+    }
+
     #[test]
     fn display_is_canonical_self_describing() {
         // Canon (OGAR P0): xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx (8-4-4-4-12 hex);
