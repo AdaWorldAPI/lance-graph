@@ -87,6 +87,46 @@ Agents filter by `@`-mention or domain to see what's theirs.
 
 (Prepend new ideas here with today's date. Format:)
 
+## 2026-09-07 — SPOG-aware bakes: one artifact per G, and the crosswalk as a chain of masked equality sweeps (PROBE-CROSSWALK-MASK-1)
+
+`[P1 @simd-savant @kernel-membrane-warden @layer-boundary-warden domain:medcare/mask D-NXG-2 D-NXG-12]`
+
+Operator (2026-09-07): *"every domain is just another table keyed by CUI STDID (snomed) loinc etc — its a chain effect with masking, no datafusion joins ever."* Mechanically: bake one artifact per G (`graph_of(addr)`, `spog_tenants.rs:38`) instead of stamping the category into `value[96]` and re-reading it per row (medcare `obo_store.rs:16-18,77,681`); read the quad's 4×24 slots as four pre-resolved foreign keys (slot 0 = own key; CUI present in 8/8 domains = the hub; FMA = the anatomy↔imaging bridge; ICD↔MONDO inside disease). A crosswalk is then `eq_u32_to_mask` (`ndarray/src/simd_int_ops.rs:562`) on the FK column of table n, `mask_ternlog` (`:983`) with the incoming survivor mask, and the survivors' key set becomes the needle set for table n+1 — never a mask-AND across two tables (nexgen room 18). **Probe, pre-registered:** on medcare's baked OBO tables, run CUI→SNOMED→LOINC as a mask chain and as the existing DataFusion path; assert (a) survivor SETS identical, (b) 0 bytes/step under the counting allocator (D-GTM-0k's instrument), (c) per-hop ns flat in chain length while every mask fits L2 (the D-GTM-0n bound rides with the claim), (d) a deliberately cross-family AND is REJECTED at the seal (can-it-fire), (e) a hop with < 0.1 % survivors is routed to the sparse arm (0n's other bound). Falsifier: (a) fails ⇒ the FK reading of the slots is wrong, not the mask algebra.
+
+**Status:** Open — needs the medcare-side bake shape first (step 1 of `PLAN-INVENTORY-2026-09-07.md` §9).
+
+## 2026-09-07 — DataFusion containment: pin `with_row_id`/`with_row_addr` OFF with a test that fails when either flips; no new surface
+
+`[P1 @layer-boundary-warden domain:infra]`
+
+`E-PLANNING-MIGRATES-TO-LOCO-R2IL-DATAFUSION-IS-GRACE-PERIOD-1` freezes DataFusion; it does not yet fence the one seam that re-derives row identity at read time: medcare `state.rs:900,936` passes `with_row_id = true` / `with_row_addr = true`, i.e. the scanner re-materialises what the 16-byte key already is. Containment = both flags off, one test that asserts the scan's schema carries neither `_rowid` nor `_rowaddr` (goes red if a future edit re-enables them), and a grep fence in `/v3-audit` for new `SessionContext`/`datafusion::` imports outside the grace-period files. Order matters: this is step 4, AFTER the per-G bakes exist, or the flags are the only identity the consumer has.
+
+**Status:** Open.
+
+## 2026-09-07 — `ogar-r2il` gets its first consumer through `lance-graph-ogar`: `RANK` + `TERNLOG 0x86` are the two calls a crosswalk program needs
+
+`[P2 @codegen-flow-cartographer @layer-boundary-warden domain:r2il D-R2IL-5 D-RLR-4]`
+
+`ogar-r2il` has zero consumers in lance-graph (only `OGAR/Cargo.toml` and its own manifest name it, 2026-09-07); `ogar_loco::TERNLOG = FnIndex(0x86)` is minted and unconsumed; the nexgen plan's room 20 wants a `RANK` macro (`where rank(col) <= n` → one AND against a cached band mask). A crosswalk program is exactly those two calls in sequence: `RANK` to admit, `TERNLOG` (immediate = the hop conjunction) per hop. Wire it via `lance-graph-ogar` (the armed tier, workspace-excluded, so the OGAR path dep cannot break workspace load). Falsifier: a lifted R2IL crosswalk program yields the same survivor mask bit-for-bit as the hand-written chain in PROBE-CROSSWALK-MASK-1. Attaches to D-R2IL-5 (the lgj membrane) — not a new owner, per the D-RLR-4 HELD ruling.
+
+**Status:** Open (blocked on PROBE-CROSSWALK-MASK-1's chain existing).
+
+## 2026-09-07 — Hop order by popcount: the greedy INFO_GAIN bound turns the crosswalk planner into a sort
+
+`[P2 @truth-architect domain:mask D-NXG-12]`
+
+The literature harvest banks a greedy INFO_GAIN Ω(n/log n) bound; the nexgen plan's room 23 stores a B×B overlap matrix beside each histogram. Together: the order in which a crosswalk's FK sweeps run is the descending-selectivity order of their popcounts, corrected by the overlap matrix for correlated predicates — a sort over ≤ a dozen numbers, not a join planner. Measure against the DataFusion optimizer's join order on the same fixture (it should tie or beat it on hop count; if it loses, the overlap correction is the missing term, not a planner).
+
+**Status:** Open (after PROBE-CROSSWALK-MASK-1).
+
+## 2026-09-07 — A known unknown is a survivor mask with popcount > 1: `SettlementCell` from (popcount, discriminator column, grounded FK) — no new type
+
+`[P2 @truth-architect @dto-soa-savant domain:epistemics D-ECG-2 D-KUH-1]`
+
+`entropy-closure-causal-ground-v1`'s four `SettlementCell`s and its ADMIT/BUDGET/PERMIT/TEST walker have a mask-native reading on a crosswalk hop: popcount == 1 with the FK grounded = Crystal; popcount == 1 by inference = Glass; popcount > 1 with a discriminator column present but unmeasured = GroundedUnresolved (the *typed absence* of `mul-ewa-trust-propagation-v1` §0a); popcount > 1 with no discriminator = Fog. ADMIT = the FK column exists in the quad; BUDGET = the popcount budget (E-NXG-19: it leads entropy); PERMIT = `ReasoningBand` (bits 61..63); TEST = the equality sweep. Nothing new is minted — the classification is a read of `(popcount, has_discriminator, grounded_fk)`. Falsifier: on a fixture with one hop of each kind, the classifier must land each in its cell and stay silent on Crystal (the can-it-stay-silent twin).
+
+**Status:** Open.
+
 ## 2026-09-05 — Σ-propagation: the batched `F64x8` kernel is the real lever; AMX/MKL was the wrong shape for a 2×2
 
 `[P2 @savant-architect @sentinel-qa domain:codec D-OIF-4 D-OIF-5]`

@@ -103,6 +103,12 @@ Orchestration compiles like `askama ↔ ClassView × FieldMask`:
 - `0x1000` in the custom half = the **V3-adoption MONITOR**, temporary by
   declaration. P4's trigger is defined: adoption reads 100%; then the marker
   retires and the custom half opens for the 64k render/template catalogue.
+  > ⊘ **RESCINDED (operator 2026-07-03, `E-V3-DUAL-SCHEMA-0x1000-IS-PERMANENT-1`;
+  > STATUS_BOARD `D-CCF-4` row has carried it since; mirrored here 2026-09-07,
+  > plan inventory).** v2/v3 coexist permanently by schema. The marker stays a
+  > MONITOR; nothing retires at 100 %; "P4" is an operator checkpoint on the
+  > corpus proof (W6a), not a retirement event. The bullet above is read
+  > through this note — append-only, not rewritten.
 - Canon-high is a **clustered index**: domain scans = key-range predicates;
   the adoption monitor + corpus-proof scanner are ONE two-metric
   range-count tool.
@@ -116,6 +122,7 @@ Orchestration compiles like `askama ↔ ClassView × FieldMask`:
 | `Vsa16kF32` as cross-mailbox carrier | intra-compartment bundle math only (The Click, local) |
 | Ownership fields on `BusDto` | `SoaEnvelope::mailbox_owner()` + cast pairing |
 | Local classid bit math in consumers | contract/ogar-vocab composers |
+| Anything wired OUTSIDE the SoA V3 substrate — a parallel store, a side map, a bespoke carrier, a second projection | the V3 substrate, **no exceptions**; the ONE carve-out is CausalEdge64-adjacent code as ALU legacy (`E-EVERYTHING-WIRES-TO-SOA-V3-CE64-IS-ALU-LEGACY-1`, operator 2026-09-05; row added 2026-09-07) |
 
 Cross-ref: `.claude/board/EPIPHANIES.md` (entries named above),
 `.claude/handovers/2026-07-02-classid-canon-high-flip-to-v3-thinking-sessions.md`,

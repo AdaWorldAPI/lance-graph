@@ -111,6 +111,15 @@ Gate: replay equivalence green on every template change (template-smith rule).
 | D-V3-W6b | Legacy alias retirement (`CLASSID_*_LEGACY`, compat reader narrowing) | corpus proof = zero old-form rows; never before |
 | D-V3-W6c | Custom half opens: 64k ClassView render catalogue + template catalogue dispatch (completes W3d/F2) | post-P4 only |
 
+> ⊘ **`D-CCF-4` RESCINDED (operator 2026-07-03, `E-V3-DUAL-SCHEMA-0x1000-IS-PERMANENT-1`).**
+> STATUS_BOARD's `D-CCF-4` row carried the rescission for nine weeks while this
+> table, `soa_layout/routing.md` §5 and the primer §5 still described `0x1000`
+> as temporary with a 100 %-adoption retirement trigger. Mirrored 2026-09-07
+> (plan inventory). The row stays as written (append-only); its trigger is
+> void — v2/v3 coexist permanently by schema, `0x1000` remains a monitor, and
+> "post-P4" on W6b/W6c means *post operator-checkpoint on the corpus proof*,
+> never *post-retirement*.
+
 ---
 
 ## Standing gates (every wave)
