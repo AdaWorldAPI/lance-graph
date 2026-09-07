@@ -1,3 +1,97 @@
+## 2026-09-07 — E-A-DYNAMIC-DOMAIN-MASK-IS-A-SECOND-WITNESS-AND-ITS-ALIGNMENT-IS-CALIBRATION-1 — the "horseshoe" was a category error; the equality I called a coincidence is a known-answer target
+
+**Status:** OPERATOR RULING (2026-09-07, two messages: *"horseshoe mask is a
+category error … the only way your horseshoe mask is perfectly correct if you
+created a lazylock mask from TUI over CUI to separate"*, then *"basically Dynamic
+domain mask with accidentally so perfect snomedid alignment that … you could even
+use it for calibration"*). Verified against the shipped consumer code and the
+consumer's own census numbers.
+**Confidence:** High on the category error (three concrete defects, below). High
+on the calibration READING. The bijection itself is CONSISTENT WITH the
+cardinalities, not proven by them — proving it is what the probe is for.
+
+**The category error, concretely.** The consumer shipped two functions:
+`domain_mask(tenants, D)` — OR over tenants whose every classid resolves to `D`
+by address — and `horseshoe_mask(rows, D)` — a per-row scan of the one lane
+whose address is deliberately under-determined (`FacetRegime::PerRowTui`),
+assigning rows to `D` by a value-side witness at `value[0..2]`. Three defects:
+
+1. **`domain_mask(D)` is not the domain.** Its all-single-facet filter SKIPS the
+   under-determined lane, so the function named "domain" silently returns the
+   domain minus its multi-facet part. Substance: 131,582 returned, 122,903 more
+   unreported.
+2. **No caller unions them.** The sole consumer prints them as two adjacent
+   columns. The API makes the union the caller's job and never says so.
+3. **The error was written into a test as an invariant** — *"CUI is a horseshoe
+   lane, never folded into a domain_mask"* — which is why it survived review.
+
+The U-turn is a property of the VOCABULARY, not of the rows. A row in that lane
+witnessing anatomy IS anatomy. "Horseshoe" names a category with no referent in
+the ontology: there are domains, and one lane needs a second witness to be
+assigned to them.
+
+**The dissolution: a LazyLock partition.** Compute once, over the immutable bake,
+the value-witness → domain partition of the under-determined lane: N masks, one
+per domain. Then `domain(D) = static(D) ∪ dynamic(D)`, one uniform mask, and a
+row that arrived by value-witness is indistinguishable at the point of use from
+one that arrived by address. `horseshoe_mask` has nothing left to return. This
+also repairs a performance path: the shipped version rescans 762,041 rows per
+call against tenant masks that are computed once — contradicting the same
+deliverable's own gate (h) result (0.0019 amortization ratio).
+
+**Static vs dynamic is the two-witness rule at mask level.** `Domain::of_row`
+already carries the operator's 2026-08-10 contract — *"classid AND the TUI
+witness must agree"* — per row. Lifted to masks, the address-derived partition
+and the value-derived partition are two INDEPENDENT readings of the same
+question. Where they agree the substrate is sound; where they disagree the
+disagreement LOCALISES.
+
+**The alignment, and what I got backwards.** Measured on the real image (consumer
+census, D-SPG-2): static lab = 103,291 rows (the address-determined lab tenant);
+dynamic lab = 103,291 rows (the under-determined lane's rows with a lab
+value-witness). Disjoint row sets, identical cardinality. I recorded this in the
+consumer ledger as *Koinzidenz* and warned readers not to derive a bridge from
+it. That was the wrong direction: two disjoint sets of equal size, produced by a
+bake that constructs the multi-facet lane FROM the single-facet ones, is what a
+1:1 crosswalk looks like from the outside. The other domains do NOT align
+(substance 131,582 vs 122,903; anatomy 119,684 vs 48; procedure 38,956 vs
+1,384) — and that is not error but COVERAGE: the multi-facet lane carries only
+part of those domains. Alignment is sufficient for bijection; misalignment
+measures reach. Lab is the one domain where the bake happens to be bijective —
+"accidentally so perfect".
+
+**Why that is calibration, in the strict sense.** A known-answer test derived
+from the data's own structure, with no external oracle:
+
+- **D-SPG-4 gate (a)** gains a target it lacked. The crosswalk is a chain of
+  masked equality sweeps (`spog-alpha-channel-v1.md` §3.2). A sweep from the
+  lab tenant across the bridge must land on exactly 103,291 rows. Any other
+  count is a defect in the chain — not "a number to report".
+- **Gate (f) — the K0..K7 "angle"** — gains a discriminator. Until now the
+  immediate could only be checked for self-consistency (the eight minterms
+  partition the population). A bijective domain makes the CORRECT immediate the
+  one that reproduces the known cardinality and every other immediate fail it.
+- **Bake drift becomes detectable for free**: `popcount(static_lab) !=
+  popcount(dynamic_lab)` after a re-bake means the artifact or a witness moved.
+  One popcount equality, 20 ns, no join.
+
+**Falsifier.** After the LazyLock partition lands: the two lab masks must be
+disjoint AND equal in count (can-fire: a bake that breaks either); a crosswalk
+sweep from the lab tenant must reproduce 103,291 exactly (can-fire: swap the
+immediate); and for a non-aligned domain the dynamic mask must be a proper subset
+in count of the static one (coverage, not error — a dynamic count EXCEEDING the
+static one would be the real anomaly).
+
+**Scoping (Foundry rule).** The value-witness → domain table is domain knowledge
+and stays in the consumer. The PATTERN — an address-under-determined lane
+completed by a value-side witness, resolved once into address-shaped masks, with
+cross-witness cardinality as a built-in calibration — is agnostic and belongs
+upstream. Read with `E-SPOG-IS-FOUNDRY-WITH-AN-ABI-SHAPED-SUBSTRATE-1` (same
+day): this is the one place the address is NOT the whole ontology, and the fix
+is to make it so at bake-read time rather than at every query.
+
+---
+
 ## 2026-09-07 — E-SPOG-IS-FOUNDRY-WITH-AN-ABI-SHAPED-SUBSTRATE-1 — the ontology is the ADDRESS, so cross-domain is an ordinal problem and never an integration one
 
 **Status:** OPERATOR RULING (2026-09-07, verbatim: *"SPOG is similar to Palantir
