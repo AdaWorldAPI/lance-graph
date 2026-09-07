@@ -1,3 +1,19 @@
+## spog-alpha-channel-v1 (D-ids minted 2026-09-07 with the spec)
+
+`.claude/plans/spog-alpha-channel-v1.md`. The SPOG alpha channel in MedCare-rs: domain = a mask over the combined `all-lanes.soa` image (never a per-domain file), cycle = one sealed `FixedSizeBinary(512)` append per Lance version (no row ids, no delete), rung byte = the attention rung only (`domain_rung` retired as a writer), the rung × tenant cross via `mask_ternlog` one crate out of the zero-dep contract. Operator mandate 2026-09-07 ("probe autoattended … until you get MedCare-rs SPOG alpha channel to work"). Order: 0 → 1 → 2 → 4 → 3 → 5 → 6 → 7/8.
+
+| D-id | deliverable | status | falsifier |
+|---|---|---|---|
+| D-SPG-0 | The spec; the lgj `AND3` correction (E-NXG-8 regraded, `.claude/knowledge/membrane-tiers.md` §"The polyfill is the worked instance" ⊘); IDEAS PROBE-CROSSWALK-MASK-1 → In progress | **Shipped 2026-09-07** (this commit) | citation-decay + append-only gates green |
+| D-SPG-1 | `AlphaMask::words(&self) -> &[u64]` + `from_words(Box<[u64]>, u32)` with the release-mode length law | Queued — next | can-fire: wrong word count refused; can-stay-silent: round-trip on `len % 64 != 0`; the 10 existing alpha tests untouched |
+| D-SPG-2 | Tenant masks over the combined image (`eq_u32_strided_to_mask` per declared G over `soa_map()`), domain = `OR`, horseshoe = TUI fence; `SpogTenants::over` declared from non-empty Gs | Queued (MedCare-rs) | `count == node_rows_for_classid(G).len()` per G; `Σ count == n_rows` (no row in two tenants) |
+| D-SPG-3 | Rung × tenant cross via `mask_ternlog` on `words()`; `unlooked[D]` read (temporal 09 Stage 2) | Queued (MedCare-rs) | cell count == materialized scanpath filter; `AND_ANDNOT2 ≠ AND3` wherever `any_rung` non-empty |
+| D-SPG-4 | PROBE-CROSSWALK-MASK-1, gates (a)–(h), real image; W0 pins FK columns before timing | Queued (MedCare-rs probe; record here) | plan §6 |
+| D-SPG-5 | **Migrate the hand-rolled MedCare alpha onto the #1198 contract alpha** (operator 2026-09-07, spec F9): `attention::WatchedRows`' `RefCell<AlphaOverlay>` + `domain_rung` writer, `backreference::combined_base`, and the bare-overlay `nodesoa::alpha` writer all become consumers of `AlphaTunnel` lanes + `SpogTenants` G routing + `merge()`; frontier dispatch routes through tenants over `all-lanes.soa`; `reflection` = tenant `attended_mask` OR; `domain_rung` retired as rung writer | Queued (MedCare-rs) | tenant reflection == `domain_rung` reflection as sets ×8 domains; stamps carry ladder rungs 1..=9 |
+| D-SPG-6 | Sealed batch per cycle: `merge()` → `node_rows_to_batch` → one append; `cycle = version + 1` | Queued (MedCare-rs) | two cycles = two versions; a read at v never sees v+1; `enable_stable_row_ids` grep-fenced |
+| D-SPG-7 | ogar-r2il consumer (`RANK` + `TERNLOG 0x86`) via `lance-graph-ogar` | Queued — gates on D-SPG-4 | lifted program survivor mask == hand chain bit-for-bit |
+| D-SPG-8 | DataFusion containment (`with_row_id`/`with_row_addr` OFF + red-if-flipped test) | Queued — gates on D-SPG-2 | scan schema carries neither `_rowid` nor `_rowaddr` |
+
 ## lance-convergence-staged-migration-v1 (D-ids minted 2026-09-05 with the plan)
 
 `.claude/plans/lance-convergence-staged-migration-v1.md`. The staged lance

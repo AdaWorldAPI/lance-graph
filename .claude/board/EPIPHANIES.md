@@ -41,6 +41,19 @@ be the same PR that adds the file — never a later one, and never a claim that 
 prior PR added it.
 
 ---
+## 2026-09-07 — E-THE-FUSED-AND3-HOP-WAS-NEVER-SHIPPED-LGJ-HOP-IS-TWO-ANDS-1 — a mapping entry cited a call site that does not exist
+
+**Status:** FINDING, measured (grep `ternlog|AND3` over `lance-graph-java/native/lgj-abi/src/*.rs` at lgj `dbac826`: **0 hits**; `lgj_hop` read in full, `exports.rs:1712-1860`). Corrects `E-NXG-8` (2026-09-05, below) and `.claude/knowledge/membrane-tiers.md` §"The polyfill is the worked instance" (⊘ in place, same commit). Spec that carries the correction forward: `.claude/plans/spog-alpha-channel-v1.md` §1a/§4/§8.
+**Confidence:** High. The absence is a full-file read plus an exhaustive grep, not an inference.
+
+**The claim.** `E-NXG-8` mapped the eight named ternlog immediates to cognitive homes and wrote *"`AND3` = conjunctive narrowing (`lgj_hop`, shipped)"*; `membrane-tiers.md` illustrated the T1/T2 stacking with *"`exports.rs` names `kernels::ternlog::AND3`, never `ndarray::simd` directly."* Both read as shipped code.
+
+**The tree.** `lgj_hop` composes `selected_f = src ∧ class_f ∧ struct_f` as TWO sequential `kernels::simd_mask_and_assign` calls (`exports.rs:1818` then `:1822`), after `simd_rowstore_u32_eq_mask` for each of `class_f` and `struct_f`. `kernels.rs` (1,409 lines, read in full) exports `simd_eq_u32_to_mask`, `simd_gt_i32_to_mask`, `simd_mask_{and,or,andnot}(_assign)`, `simd_masked_sum_i32`, `simd_popcount`, `simd_rowstore_u32_eq_mask`, `simd_rowstore_classid_mask`, `simd_rowstore_facet_match`, `masked_facet_sum` — no ternlog wrapper of any name. The named immediates ARE consumed by name in this repo, at exactly one place: `crates/lance-graph-planner/examples/probe_nxg_hist_1.rs:51-136` (`AND_ANDNOT2` as the bucket, `AND3` as its can-it-fire twin). That is a probe, not a hop.
+
+**Regrade.** The fused `AND3` hop is an **OPPORTUNITY** (and a measurable one — the P3 amortization reads 0.50 at K ≥ 8 only while the masks fit L2, temporal 09), not a shipped site. `E-NXG-8`'s other seven rows are untouched by this finding; only the `AND3` row's parenthetical is wrong. Consequence for the doctrine doc: a T1/T2 illustration must cite a line that exists — the corrected line in `membrane-tiers.md` now names the real stacking (`exports.rs` → `kernels::simd_mask_and_assign` → `ndarray::simd::mask_and_assign`), which is the same shape and true.
+
+**Why it matters beyond one sentence.** The SPOG alpha spec (`spog-alpha-channel-v1.md`) builds a rung × tenant cross on `mask_ternlog` and had inherited "the hop already does this" as a premise. It does not; the cross is the FIRST production-shaped ternlog consumer if it lands, and its gate (c) measures whether fusion pays on that shape rather than assuming it from a citation.
+
 ## 2026-09-07 — E-A-PLAN-INVENTORY-FINDS-THE-BOARD-LAGS-THE-TREE-IN-BOTH-DIRECTIONS-1 — status cells decay at the rate of the tree, not of the file
 
 **Status:** FINDING, measured (five read-only Sonnet agents; every claim below re-verified by the orchestrator at a tree line, not a tag-file line). Full census: `.claude/board/PLAN-INVENTORY-2026-09-07.md`; evidence: `exec-runs/plan-inventory-2026-09-07-*.md`.
@@ -1228,7 +1241,7 @@ families is a violation at the seal.
 ## 2026-09-05 — E-NXG-8 — the eight named immediates already have cognitive homes
 
 **Status:** FINDING (mapping of shipped code).
-**Confidence:** High on the mapping.
+**Confidence:** High on the mapping. **⊘ 2026-09-07:** the `AND3` row's parenthetical *"(`lgj_hop`, shipped)"* is FALSE — lgj-abi has no ternlog call site; see `E-THE-FUSED-AND3-HOP-WAS-NEVER-SHIPPED-LGJ-HOP-IS-TWO-ANDS-1` (2026-09-07). The other seven rows stand.
 
 `AND3` = conjunctive narrowing (`lgj_hop`, shipped); `AND_ANDNOT2` = bucket /
 annulus / known-false (`domain ∧ ¬result`); `MAJ3` = quorum
@@ -2309,7 +2322,7 @@ records Pillar 11 activated since PR #348; `sigker/examples/
 cubature_vs_randomized.rs` already exercises production-carrier widths
 (PATH_DIM=4, PATH_LEN=64, N_PATHS=256, "OSINT-typical") — it had simply
 never been *run*. Both doc sites that said otherwise
-(`crates/sigker/src/lib.rs:50`, the ndarray-vertical-simd-alien-magic.md
+(`crates/sigker/src/lib.rs` module doc, the `"OSINT-typical"` line; the ndarray-vertical-simd-alien-magic.md
 W1.5 section) were stale relative to jc's own status and are corrected in
 this same pass.
 
@@ -7806,7 +7819,7 @@ a field must also name which READING of it was counted, when the accessor
 picks between two registers. Full table: plan §8a ⊘ correction.
 
 Cross-ref: `.claude/plans/dismech-causality-v3-v1.md` §8a; ARC-B
-`docs/architecture/ARC-B-OWNERSHIP-AND-ADDRESSING-REASSESSMENT.md:23` (regraded
+`docs/architecture/ARC-B-OWNERSHIP-AND-ADDRESSING-REASSESSMENT.md` §0 "THE ONE-PARAGRAPH FINDING" (regraded
 in place: its conclusion holds for `obo-core`/`spine`, needs the `all-lanes`
 qualifier); `EPIPHANIES.md:899`.
 

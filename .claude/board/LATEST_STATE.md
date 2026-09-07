@@ -1,3 +1,12 @@
+## 2026-09-07 — `spog-alpha-channel-v1` spec landed (Phase 0, no code); one correction to shipped-code claims
+
+- **New plan:** `.claude/plans/spog-alpha-channel-v1.md` (D-SPG-0..8 on STATUS_BOARD). Frozen: no row ids / sealed batch per cycle; domain = mask over the combined `all-lanes.soa`; G = `graph_of` (contract), Domain = `OR` of Gs; rung byte = attention rung only; the ternlog cross lives one crate out of the contract (MedCare-side, `medcare-cohorts` has `ndarray`; `lance-graph-planner` stays out of the customer binary).
+- **Contract inventory — net delta:** none yet. D-SPG-1 (queued, next) adds exactly two methods on the existing `contract::alpha::AlphaMask` (`words`, `from_words`) — no type, no module, no lane.
+- **Correction:** `E-THE-FUSED-AND3-HOP-WAS-NEVER-SHIPPED-LGJ-HOP-IS-TWO-ANDS-1` — lgj-abi has zero `ternlog`/`AND3` symbols; `lgj_hop` = two `simd_mask_and_assign` (`exports.rs:1818,1822`). E-NXG-8's `AND3` row and `.claude/knowledge/membrane-tiers.md` §"The polyfill is the worked instance" regraded; the only in-repo consumer of the named immediates is `planner/examples/probe_nxg_hist_1.rs`.
+- **Consumer census recorded (private repo, numbers only):** `SpogTenants` / `TenantClaim` / `claim_admitted` / `AlphaMask` — 0 consumers in MedCare-rs; `dispatch_thought` — 1 (`frontier_dispatch.rs:81`, `cycle` = constant 1); `overlay_to_batch` / `write_alpha_overlay` — 0 callers outside their tests.
+- **Operator instruction folded in (F9 / D-SPG-5):** the hand-rolled MedCare alpha (`attention::WatchedRows` + `domain_rung`, `backreference::combined_base`, the bare-overlay `nodesoa::alpha` writer) migrates ONTO the #1198 contract alpha (`AlphaTunnel` lanes + `SpogTenants` + `merge()`), not beside it.
+- **IDEAS:** PROBE-CROSSWALK-MASK-1 card → In progress (the "existing DataFusion path" it named as reference does not exist for that chain; reference regraded to the scalar quad/sidecar path — spec §8.2).
+
 ## 2026-09-07 — #1217 MERGED (b518dbf1): the orphaned SPEC v1, recovered — and the check that certified its loss
 
 | PR | merge | content |
@@ -26,6 +35,7 @@ and NOT DataFusion — the same class
 `obo_store.rs` among its six cited sites. SPEC §2's `canonical_node.rs` line
 numbers are stale after the `mint_for` V2/V3 drift; re-anchor to symbols before
 Phase 3.
+
 ## 2026-09-07 — PR #1218 merged (`7bb393ef`): plan inventory + V3 harvest mirrors are on `main`
 
 - The 2026-09-07 "plan inventory landed" delta below is now merged history. Post-review deltas since that delta was written: `TD-NDARRAY-SIMD-GATHER` is **PARTIAL** (not SHIPPED); W1b reads 0 of 5 TD entries closed / 1 of 7 files migrated; ENTROPY M1–M27 reconciles to 9 + 7 + 10 + 1; COMPONENT-MAP `StepMask` row and the Sonnet guardrails `StepMask` / `0x1000` rows regraded; the nexgen `(classid, version)` key is marked PROPOSED (shipped `NestedBands` is version-only). Arc entry: `PR_ARC_INVENTORY.md` under PR #1218.
