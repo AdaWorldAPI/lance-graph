@@ -411,6 +411,55 @@ mod tests {
 /// declares a [`lance_graph_contract::hotplug::HotPlug`] const and activates
 /// it through this authority (or calls `resolve_hotplug` directly — same
 /// data path, same drift arms).
+/// The storage READING for `ogar-loco`'s domain, handed back by
+/// [`OgarAuthority`] on activation — **scoped to `0x17XX` only, deliberately**
+/// (operator, 2026-09-07: *"additive scoped for loco blockly-rs for now, then
+/// expand slowly"*).
+///
+/// A `const`, because hot-plug is plug-and-play at COMPILE time: which readings
+/// exist is decided by which crates are in the build graph, not by anything
+/// resolved at runtime.
+///
+/// **Why the reading lives here and not in `BUILTIN_READ_MODES`**
+/// (D-BLOCKS-HOTPLUG-1). That registry *"holds only the canon builtins"* and
+/// every entry in it is a canon DOMAIN. `0x17` is `ogar-loco`'s domain and
+/// `0x1717` is `blockly-rs`'s per-frontend palette SEAT — one slot per
+/// frontend. Registering each seat in the contract would make adding a
+/// frontend an edit to `lance-graph-contract` plus a substrate recompile: the
+/// central lockstep the retired `COUNT_FUSE` belonged to. The authority is
+/// where a non-canon class's reading belongs, and this crate is where the
+/// contract and OGAR already meet.
+///
+/// Keyed by the CONCEPT half (`u16`). A consumer composes its own full `u32`
+/// (`concept << 16 | its app prefix`) and reads with the mode it was handed —
+/// it never asks the canon registry about a class the canon does not own.
+const LOCO_READ_MODES: &[(u16, lance_graph_contract::canonical_node::ReadMode)] = &[(
+    // blockly-rs. `ValueSchema::Bootstrap` is CORRECT, not a placeholder: a
+    // stored `ogar-loco` function's 480-byte slab is the interleaved call
+    // lanes (`classid(4) + payload(12)` per 16-byte lane), so ZERO tenants
+    // materialise and the slab is wholly the class-resolved carve-out.
+    // `CoarseOnly` is the zero-fallback — a function node has no adjacency
+    // yet, block reserved and zeroed.
+    0x1717,
+    lance_graph_contract::canonical_node::ReadMode {
+        tail_variant: lance_graph_contract::canonical_node::TailVariant::V3,
+        value_schema: lance_graph_contract::canonical_node::ValueSchema::Bootstrap,
+        edge_codec: lance_graph_contract::canonical_node::EdgeCodecFlavor::CoarseOnly,
+    },
+)];
+
+/// The reading for `plug`, or `&[]` when this authority declares none.
+///
+/// Scoped: only the `ogar-loco` domain (`id >> 8 == 0x17`) resolves today, and
+/// only when EVERY plugged id is in it. A mixed plug gets `&[]` rather than a
+/// partial answer — a consumer must not receive a reading for some of its ids
+/// and silence for the rest, because silence is indistinguishable from "the
+/// default applies" at the call site.
+fn loco_read_modes_for(classids: &[u16]) -> &'static [(u16, lance_graph_contract::canonical_node::ReadMode)] {
+    let all_loco = !classids.is_empty() && classids.iter().all(|&id| id >> 8 == 0x17);
+    if all_loco { LOCO_READ_MODES } else { &[] }
+}
+
 pub struct OgarAuthority;
 
 impl lance_graph_contract::hotplug::CapabilityAuthority for OgarAuthority {
@@ -423,6 +472,36 @@ impl lance_graph_contract::hotplug::CapabilityAuthority for OgarAuthority {
     > {
         use lance_graph_contract::hotplug::{Activation, ActivationDrift};
         use ogar_vocab::capability_registry::{resolve_hotplug, HotplugDrift};
+
+        // The loco arm runs BEFORE the capability join, and must: a palette
+        // classid deliberately does NOT resolve as a capability concept.
+        // `ogar-vocab`'s own `a_palette_classid_does_not_resolve_as_a_hot_plug`
+        // pins `resolve_hotplug("blockly-abi", &[0x1717], &[])` to
+        // `UnknownClassid` — *"this is not a capability-authority concept at
+        // all, in any build"* — and `no_0x17xx_row_reached_the_globally_
+        // mirrored_codebook` keeps every `0x17XX` row out of `class_ids::ALL`
+        // on purpose. So the join can never succeed here, and a reading placed
+        // only in the `Ok` arm below would be unreachable for the one domain
+        // it was written for.
+        //
+        // A STORAGE READING is a different seam from a CAPABILITY, exactly as
+        // vocabulary routing is (the palette test says so in as many words).
+        // This authority can therefore answer "no concepts, no capabilities,
+        // and here is how your rows are read" without contradicting either
+        // test — both are on `resolve_hotplug`, which is left untouched.
+        let loco = loco_read_modes_for(plug.classids);
+        if !loco.is_empty() {
+            // Fails closed on a lie: a palette plug has no capabilities to
+            // cover, so claiming one is drift, not an empty-set no-op.
+            if let Some(cap) = plug.covered.first() {
+                return Err(ActivationDrift::Undeclared((*cap).into()));
+            }
+            return Ok(Activation {
+                concepts: Vec::new(),
+                capabilities: Vec::new(),
+                read_modes: loco,
+            });
+        }
 
         match resolve_hotplug(plug.consumer, plug.classids, plug.covered) {
             Ok((concepts, capabilities)) => {
@@ -437,6 +516,12 @@ impl lance_graph_contract::hotplug::CapabilityAuthority for OgarAuthority {
                 Ok(Activation {
                     concepts,
                     capabilities,
+                    // Non-loco plugs get no reading yet (scoped, expanding
+                    // slowly). Reached only when the loco arm above declined,
+                    // so this is `&[]` by construction today — written as the
+                    // call, not a literal, so widening the scope reaches here
+                    // without a second edit.
+                    read_modes: loco_read_modes_for(plug.classids),
                 })
             }
             Err(HotplugDrift::UnknownClassid(id)) => Err(ActivationDrift::UnknownClassid(id)),
@@ -512,5 +597,91 @@ mod hotplug_bridge_tests {
             .activate(&ocr_only)
             .expect("plugging one id must not be affected by concepts elsewhere in the codebook");
         assert_eq!(act.concepts, vec![("textline".to_string(), 0x0805)]);
+    }
+}
+
+
+/// D-BLOCKS-HOTPLUG-1: the storage READING rides the activation, scoped to
+/// `ogar-loco` (`0x17XX`) for now.
+#[cfg(test)]
+mod loco_read_mode_arm {
+    use lance_graph_contract::canonical_node::{
+        classid_read_mode, EdgeCodecFlavor, ReadMode, TailVariant, ValueSchema,
+    };
+    use lance_graph_contract::hotplug::{ActivationDrift, CapabilityAuthority, HotPlug};
+
+    const BLOCKLY: HotPlug = HotPlug {
+        consumer: "blockly-abi",
+        classids: &[0x1717],
+        covered: &[],
+    };
+
+    /// CAN FIRE: blockly plugs in and is handed its reading — through the very
+    /// call that `resolve_hotplug` refuses, which is the whole point.
+    #[test]
+    fn a_palette_plug_activates_with_a_reading_and_no_capabilities() {
+        let act = super::OgarAuthority
+            .activate(&BLOCKLY)
+            .expect("loco plug activates");
+        assert_eq!(
+            act.read_modes,
+            &[(
+                0x1717u16,
+                ReadMode {
+                    tail_variant: TailVariant::V3,
+                    value_schema: ValueSchema::Bootstrap,
+                    edge_codec: EdgeCodecFlavor::CoarseOnly,
+                }
+            )][..]
+        );
+        // A palette is not a capability concept; both arms are empty and that
+        // is the correct answer, not a partial resolution.
+        assert!(act.concepts.is_empty());
+        assert!(act.capabilities.is_empty());
+
+        // Anti-vacuity: the SAME ids through the capability join still fail,
+        // so this cannot be passing because the join started succeeding.
+        assert!(matches!(
+            ogar_vocab::capability_registry::resolve_hotplug("blockly-abi", &[0x1717], &[]),
+            Err(ogar_vocab::capability_registry::HotplugDrift::UnknownClassid(0x1717))
+        ));
+    }
+
+    /// The reading did NOT come from the canon registry — the class stays
+    /// unknown to `BUILTIN_READ_MODES`, which is what keeps the lockstep gone.
+    #[test]
+    fn the_canon_registry_still_does_not_know_the_palette_class() {
+        assert_eq!(classid_read_mode(0x1717_1000), ReadMode::DEFAULT);
+        // …and DEFAULT genuinely differs from what the authority handed back,
+        // so the assertion above discriminates rather than being trivially
+        // true of every mode.
+        assert_ne!(ReadMode::DEFAULT.tail_variant, TailVariant::V3);
+    }
+
+    /// CAN STAY SILENT: a non-loco plug gets no reading. Without this the arm
+    /// could return `LOCO_READ_MODES` for everything and still look correct.
+    #[test]
+    fn a_non_loco_plug_gets_no_reading() {
+        assert!(super::loco_read_modes_for(&[0x0805]).is_empty());
+        assert!(super::loco_read_modes_for(&[]).is_empty());
+        // Mixed is silent too — a partial answer is worse than none, because
+        // silence at a call site is indistinguishable from "use the default".
+        assert!(super::loco_read_modes_for(&[0x1717, 0x0805]).is_empty());
+        // …and the loco id alone DOES resolve, so the mixed case fails on the
+        // mix, not because 0x1717 stopped working.
+        assert!(!super::loco_read_modes_for(&[0x1717]).is_empty());
+    }
+
+    /// Fails closed on a lie: a palette plug claiming a capability is drift.
+    #[test]
+    fn a_palette_plug_claiming_a_capability_bangs() {
+        let lying = HotPlug {
+            covered: &["lower_script"],
+            ..BLOCKLY
+        };
+        assert!(matches!(
+            super::OgarAuthority.activate(&lying),
+            Err(ActivationDrift::Undeclared(c)) if c == "lower_script"
+        ));
     }
 }
