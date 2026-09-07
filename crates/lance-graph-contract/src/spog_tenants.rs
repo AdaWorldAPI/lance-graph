@@ -189,6 +189,26 @@ impl<'a> SpogTenants<'a> {
             .map(|(_, s)| s)
     }
 
+    /// The row at `addr`, found through the SAME routing a claim used.
+    ///
+    /// A reader should not have to know which shadow holds an address —
+    /// `graph_of` already answers that, and making the caller re-derive it
+    /// would be a second routing rule that can drift from the first.
+    /// [`None`] when the graph has no tenant or the address was never claimed;
+    /// the two are deliberately not distinguished here, because a reader
+    /// asking "was this attended" wants one answer. Use
+    /// [`tenant`](Self::tenant) when the difference matters.
+    #[must_use]
+    pub fn get(&self, addr: AlphaAddr) -> Option<&NodeRow> {
+        self.tenant(graph_of(addr))?.get(addr)
+    }
+
+    /// The stamp at `addr`, routed as [`get`](Self::get) routes.
+    #[must_use]
+    pub fn stamp(&self, addr: AlphaAddr) -> Option<AlphaStamp> {
+        self.get(addr).map(crate::alpha::stamp_of)
+    }
+
     /// The declared tenant concepts, in declaration order.
     #[must_use]
     pub fn concepts(&self) -> Vec<u16> {
@@ -233,6 +253,31 @@ impl<'a> SpogTenants<'a> {
             m = m.or(&s.attended_mask());
         }
         m
+    }
+
+    /// How many addresses exist — the allocation's size. Never how many rows
+    /// any shadow holds.
+    #[must_use]
+    pub fn allocated_len(&self) -> usize {
+        self.alloc.len()
+    }
+
+    /// **The absence within the aufstellung**: allocated addresses no tenant
+    /// ever claimed.
+    ///
+    /// The SPOG sibling of [`AlphaOverlay::unattended`], and it must be asked
+    /// of the aufstellung rather than of any single shadow: a shadow's own
+    /// `unattended` reports every address of every OTHER graph as unattended
+    /// too, which is true of that shadow and useless as a reading of the
+    /// thought.
+    #[must_use]
+    pub fn unattended(&self) -> Vec<AlphaAddr> {
+        self.alloc
+            .base()
+            .iter()
+            .map(|r| r.key)
+            .filter(|a| self.get(*a).is_none())
+            .collect()
     }
 
     /// Total claims across all shadows.
@@ -368,6 +413,54 @@ mod tests {
             other => panic!("expected NoTenant, got {other:?}"),
         }
         assert_eq!(t.claimed_len(), 3, "the stray claim landed nowhere");
+    }
+
+    /// `get` routes by the SAME rule a claim routes by — a reader never has
+    /// to know which shadow holds an address.
+    ///
+    /// Two-sided: an address claimed in a LATER-declared tenant must still be
+    /// found (so the reading cannot be a scan of the first shadow), and an
+    /// allocated-but-unclaimed address must be `None` (so it cannot be
+    /// answering from the allocation instead of the shadows).
+    #[test]
+    fn get_routes_by_graph_the_way_claim_does() {
+        let b = base();
+        let alloc = AlphaAllocation::over(&b);
+        let mut t = SpogTenants::over(&alloc, 1, &[0x0900, 0x0302, 0x0301]);
+        assert!(t.claim(b[0].key, 6).routed()); // 0x0301 — declared LAST
+        assert_eq!(t.stamp(b[0].key).expect("found via routing").rung, 6);
+        assert!(t.get(b[1].key).is_none(), "allocated, never claimed");
+        assert!(t.get(b[9].key).is_none(), "0x0777 has no tenant at all");
+    }
+
+    /// The absence is asked of the AUFSTELLUNG, never of one shadow — a
+    /// single shadow calls every other graph's addresses unattended, which is
+    /// true of it and useless as a reading of the thought.
+    ///
+    /// Two-sided: the unattended set shrinks by exactly the claim, and the
+    /// claimed address is NOT in it.
+    #[test]
+    fn unattended_is_a_reading_of_the_aufstellung_not_of_one_shadow() {
+        let b = base();
+        let alloc = AlphaAllocation::over(&b);
+        let mut t = SpogTenants::over(&alloc, 1, &[0x0301, 0x0302, 0x0900]);
+        assert_eq!(t.allocated_len(), b.len());
+        assert_eq!(t.unattended().len(), b.len(), "nothing attended yet");
+
+        assert!(t.claim(b[4].key, 1).routed()); // 0x0302
+        let un = t.unattended();
+        assert_eq!(un.len(), b.len() - 1, "exactly the one claim");
+        assert!(!un.contains(&b[4].key), "the claimed address is not absent");
+        assert!(un.contains(&b[0].key), "another graph's address still is");
+
+        // The single-shadow reading would say something else entirely.
+        let lone = t.tenant(0x0302).unwrap().unattended().count();
+        assert_eq!(
+            lone,
+            b.len() - 1,
+            "one shadow counts every foreign address as unattended — the reason \
+             this method exists on the aufstellung"
+        );
     }
 
     /// One substrate, never two shadows for one graph: duplicate concepts
