@@ -1578,7 +1578,11 @@ not commensurable and neither number may be quoted against the other.
 **The observation, arithmetic only.** The canonical node row is
 `NODE_ROW_STRIDE = 512` bytes — `key(16) | edges(16) | value(480)` — and it is
 const-asserted: `const _: () = assert!(core::mem::size_of::<NodeRow>() == 512);`
-(`crates/lance-graph-contract/src/canonical_node.rs:735`, `:787`).
+(`crates/lance-graph-contract/src/canonical_node.rs`, at that assert and again
+at the `NODE_ROW_STRIDE` one beside it — cited by symbol, not by line: the
+line coordinate decayed once the file grew above it, and the citation-decay
+gate's own remedy is *"do NOT correct the number… replace the line number
+with a stable anchor"*).
 
 `MailboxSoA<N>` (`crates/cognitive-shader-driver/src/mailbox_soa.rs:58`)
 allocates `content` + `topic` + `angle` as `3 × N × WORDS_PER_FP(256) × 8 B`
