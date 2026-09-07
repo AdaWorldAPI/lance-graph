@@ -1,3 +1,47 @@
+## ISS-NO-NON-LINUX-TARGET (2026-09-06) — OPEN
+
+**Neither filed issue covers the defect that opened this one, and the difference
+is the generalization.** `crates/lance-graph-hydrate/src/release.rs` gated three
+sites `#[cfg(unix)]` and called `libc::posix_fadvise` / `libc::POSIX_FADV_DONTNEED`
+inside them. `posix_fadvise` is **Linux/Android, not POSIX-universal** — Apple's
+libc does not declare it — so the crate fails to compile on macOS with
+`error[E0425]: cannot find function 'posix_fadvise' in crate 'libc'`. `cfg(unix)`
+reads as "has fadvise" and is not.
+
+Why the two existing issues miss it:
+
+- `ISS-NO-AARCH64-RUNNER` is about target **arch**. This is target **OS**: the cfg
+  selection was proved two-sidedly on the pinned 1.98.1 toolchain with a `#![no_std]`
+  rustc probe — `x86_64-apple-darwin` excludes the Linux arm, `x86_64-unknown-linux-gnu`
+  selects it. An x86 macOS runner would have caught this; an aarch64 *Linux* one
+  would not.
+- `ISS-EXCLUDED-CRATES-UNBUILT` is about the **member list**. `lance-graph-hydrate`
+  is a workspace member, compiled and linted by CI on every PR. The crate list was
+  never the gap here.
+
+**The accurate statement is the union, not either half:** CI compiles exactly ONE
+`(target_os, target_arch, crate-list)` tuple — `(linux, x86_64, members)`. Every
+`cfg` block outside it is text the parser skips. The three defects found this week
+each fall in a different one of those three axes, which is why fixing one axis would
+not have caught the other two.
+
+**Found the same way as the other two:** by q2's newly-ungated `macos-latest` job —
+a downstream consumer's CI doing this repo's job, for the third time in one week.
+Nothing in this repo's own CI was capable of seeing it.
+
+**Fixed here** (the point repair): the three sites are gated
+`#[cfg(any(target_os = "linux", target_os = "android"))]` with a fallback arm for
+macOS/BSD, and the doc comment records the rule — *widen this gate only to targets
+whose libc actually declares the call*. 39/39 crate tests green on Linux.
+
+**Not fixed here:** the axis. A `runs-on: macos-latest` job, or a cheap
+`cargo check --target x86_64-apple-darwin` on the existing x86 runners, is a CI
+policy change and an operator call. Note the cheap form needs
+`rustup target add --toolchain 1.98.1 <target>` — installing a target for the
+DEFAULT toolchain while the repo pins 1.98.1 produces a `can't find crate for 'core'`
+that reads like a broken probe rather than a missing std; that cost a turn this
+session.
+
 ## ISS-NO-AARCH64-RUNNER (2026-09-06) — OPEN
 
 **Every `#[cfg(target_arch = "aarch64")]` block in this repo is unverified, because
