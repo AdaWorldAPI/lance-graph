@@ -30,6 +30,21 @@ until that ruling lands; the strict order is the harness's anti-mush protocol.
 Draft v2 also owes F9, the #1202 dating rule. Phase numbering is the 5+3
 harness's single 0-5 ladder (`.claude/agents/5plus3-council.md`), stated in the
 plan's own header. Superseded by v2/v3 when they land.
+## 2026-09-07 — `spog-alpha-channel-v1` (SPEC, Phase 0 — the MedCare-rs SPOG alpha channel)
+
+`.claude/plans/spog-alpha-channel-v1.md`. Operator mandate: *"probe autoattended
+autonomous decision making until you get MedCare-rs SPOG alpha channel to
+work"*, with two constraints honoured as frozen decisions — no Lance row ids
+(sealed batch per cycle, `cycle = version + 1`) and the S3 bakes are NOT
+per-domain files (`all-lanes.soa` = 12 lanes / 762,041 rows; `obo-core.soa` =
+5 classids), so **domain = a mask over the combined image** (`eq_u32_strided_
+to_mask` per G, `OR` per domain, TUI fence for the horseshoe lanes). G is the
+contract's `graph_of` (canon-high u16), MedCare's `Domain` is a grouping of Gs
+by mask `OR`; the rung byte carries the attention rung only. D-SPG-0..8; order
+0 → 1 (one contract method: `AlphaMask::words`/`from_words`) → 2 → 4 (PROBE-
+CROSSWALK-MASK-1, gates a–h incl. the ternlog-immediate-as-K0..K7 "angle" gate)
+→ 3 → 5 → 6 → 7/8. Corrects two standing claims while landing: `lgj_hop` never
+used `AND3` (E-NXG-8 row, `.claude/knowledge/membrane-tiers.md` §"The polyfill is the worked instance").
 
 ## 2026-09-06 — temporal / delta / alpha staged plan → `.claude/temporal/09-plan.md`
 

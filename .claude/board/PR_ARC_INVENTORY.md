@@ -58,6 +58,75 @@
   three append-only readings (each quoted from `CLAUDE.md` and accepted by the
   reviewer that had argued the opposite). The audit itself still reaches NO
   verdict — nothing was implemented.
+## 2026-09-07 — lance-graph PR #1218 (merged `7bb393ef`, branch `claude/medcare-rs-continue-ufsazd`) — the plan inventory: the board lagged the tree in both directions, and the review found the inventory lagging too
+
+- **Added:** `.claude/board/PLAN-INVENTORY-2026-09-07.md` (211 plans: 149 OPEN /
+  13 CLOSED / 9 SUPERSEDED / 40 AMBIGUOUS; V3 waves W0–W6; ENTROPY M1–M27 =
+  9 shipped + 7 in-flight + 10 queued + 1 ruling-needed; W1a/W1b/W1.5 + the jc
+  registry against ndarray `b9afcb9b`; 71 top-level docs, 9 orphans), the five
+  verbatim Sonnet tag-files under `exec-runs/plan-inventory-2026-09-07-*.md`,
+  four EPIPHANIES entries
+  (`E-A-PLAN-INVENTORY-FINDS-THE-BOARD-LAGS-THE-TREE-IN-BOTH-DIRECTIONS-1`,
+  `E-EVERY-DOMAIN-IS-A-TABLE-AND-A-CROSSWALK-IS-A-CHAIN-OF-MASKS-1` — operator-ruled,
+  `E-SEVEN-HARVEST-SOURCES-ONE-OBJECT-THE-VERSION-KEYED-MASK-SET-1`,
+  `E-RUNG-BAND-AND-PLASTICITY-ARE-THREE-AXES-NEVER-ONE-LEVEL-FIELD-1`), five IDEAS
+  entries (PROBE-CROSSWALK-MASK-1; DataFusion containment pin; `ogar-r2il` first
+  consumer via `RANK` + `TERNLOG 0x86`; hop order by popcount; known unknown =
+  survivor mask with popcount > 1), and nine `.claude/v3/` mirrors (README
+  doc-map row + two-collision note, primer §5/§6, INTEGRATION-PLAN W6 ⊘,
+  routing §5 ⊘, compiled-templates, COMPONENT-MAP `NestedBands` + `StepMask`
+  rows, ENTROPY M2/M24/M27, FUTURE-DESIGN block, witness-nibble-lane P5,
+  guardrails `StepMask` + `0x1000` rows). Doc + board only; no code; no D-ids
+  minted — the inventory is a snapshot outside `supersession_index.py`'s scan
+  by design.
+- **Status cells regraded (append-only, strike-through + date, tree line
+  cited):** TECH_DEBT W1a #1/#2/#4/#5 → SHIPPED (primitive side), **#3 GATHER →
+  PARTIAL** (API on all backends, x86 body a scalar polyfill by its own doc),
+  W1.5 #7 → SHIPPED + consumed, TD-SIMD-SWEEP-W2 → half done; STATUS_BOARD
+  D-LNC-5a / D-MW-P2 → Shipped (#1198); ENTROPY M2 → SHIPPED, M24 regrade.
+- **Locked:** (1) `.claude/board/exec-runs/` tag-files are verbatim agent
+  evidence — a transcription defect gets an appended **"Orchestrator errata"**
+  block, never a rewrite (CodeRabbit recorded this as a repo learning during
+  review). (2) The nexgen plan's `(classid, version)` key is its PROPOSED
+  room-26 shape; the shipped D-NXG-1 `NestedBands` is version-keyed over one
+  column with no classid (Codex P2). (3) jc's EWA pair carries two numberings
+  INSIDE jc — module docs Pillar 6/7, `lib.rs` header 9/9b — so the board's
+  "Pillar-6/7" rows do mean jc (Codex P2). (4) W1b is counted two ways and
+  both must be stated: 0 of 5 TD entries closed, 1 of 7 files migrated.
+  (5) `0x1000` is a permanent monitor and P4 an operator checkpoint everywhere
+  the V3 folder speaks of it — the README summary and the Sonnet guardrails
+  row had still said "temporary" nine weeks after the rescission.
+- **Deferred (recorded, not done):** adjudicating W2a (INTEGRATION-PLAN
+  Addendum-12a vs -15 — needs `canonical_node.rs` + owner wiring read); the M18
+  ruling (sigma chain vs six kanban phases); the 17 STATUS_BOARD rows outside
+  the nine leading-token classes (stated as unclassified, not re-bucketed); the
+  65 unlabeled pre-Kanban TECH_DEBT rows; `self-reasoning-substrate-v1.md`'s
+  "doc-only" header over four Shipped D-SRS rows (owner's plan); `CLAUDE.md`'s
+  "61 top-level docs" and the nonexistent `SESSION_CAPSTONE.md` (operator-owned
+  file). No `tenants.md` row for D-NXG — no consumer sits in a `ValueTenant`
+  yet.
+- **Review record:** Codex 2 × P2 (both right, both fixed, 162963a5);
+  CodeRabbit 12 (round 1, f5d530bb) + 2 (round 2, 14047c35; one declined —
+  an in-place edit to an entry this PR itself added is not an altered
+  historical entry — and withdrawn by the reviewer). Its third review never
+  posted (its own hourly review cap). All 16 threads resolved before merge.
+- **Docs / gates:** `append_only_gate.py origin/main` OK on every commit;
+  `citation_decay.py --since origin/main` 0 new on every commit (three decays
+  introduced and fixed before the first commit: two backtick-pairing anchor
+  flips on my own citations — keep the true symbol ADJACENT to its
+  `file:line` — and one real prepend-shifted line range, replaced by a heading
+  anchor); `SUPERSESSION-INDEX.md` regenerated LAST after each board write,
+  byte-identical every time. Two operational lessons banked here rather than
+  as epiphanies: GitHub's GraphQL budget for the account ran out under a burst
+  of 12 replies + 12 resolves (the REST comment listing and REST replies kept
+  working, so replies posted and resolves waited an hour); and a burst of
+  parallel bot-review echoes arrives as ~60 notifications that must be drained
+  before acting.
+- **Confidence:** HIGH on every status cell touched (each cites a tree line
+  re-read by the orchestrator, not the agent report); MEDIUM on the four
+  agent-side counts the review corrected (now re-measured per file and
+  recorded in the errata blocks); the synergy entries are [S]/[H] syntheses
+  with their probes named, not findings.
 
 ## 2026-09-07 — lance-graph PR #1211 (merged `c3bb095b`, branch `claude/ndarray-simd-tract-o3jfrn`) — the V1 guard was tested; the V3 guard that replaced it was not
 

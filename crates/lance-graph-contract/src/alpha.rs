@@ -345,6 +345,42 @@ impl AlphaMask {
     pub fn materialize_ordinals(&self) -> Vec<u32> {
         (0..self.len).filter(|&o| self.contains(o)).collect()
     }
+
+    /// The packed words, one bit per ordinal, tail bits beyond `len` zero.
+    ///
+    /// A BORROW, not a materializer: the words are the mask. This is the seam
+    /// a crate with SIMD (ndarray's `mask_ternlog_assign` takes `&[u64]`) reads
+    /// through; the contract itself stays zero-dep.
+    #[must_use]
+    pub fn words(&self) -> &[u64] {
+        &self.words
+    }
+
+    /// Rebuild a mask from words produced outside the contract (an `eq_*_to_mask`
+    /// sweep, a ternlog result) over an allocation of `len` addresses.
+    ///
+    /// Refuses, in every build, a word count that does not match `len`
+    /// (`words.len() != len.div_ceil(64)` is a caller mixing allocations — the
+    /// same law `zip` enforces). Tail bits at and past `len` are CLEARED, never
+    /// trusted: a sweep that wrote the phantom tail would otherwise invent up to
+    /// 63 addresses the spine never had (the [`Self::not`] rule, applied at the
+    /// boundary).
+    #[must_use]
+    pub fn from_words(words: Box<[u64]>, len: u32) -> Self {
+        assert_eq!(
+            words.len(),
+            (len as usize).div_ceil(64),
+            "word count does not match the allocation length"
+        );
+        let mut words = words;
+        let tail = u64::from(len % 64);
+        if tail != 0 {
+            if let Some(last) = words.last_mut() {
+                *last &= (1u64 << tail) - 1;
+            }
+        }
+        Self { words, len }
+    }
 }
 
 /// The **address space** of an overlay, derived from a base spine.
@@ -784,6 +820,48 @@ mod tests {
         let wide = AlphaMask::empty(200);
         let narrow = AlphaMask::empty(64);
         let _ = wide.and(&narrow);
+    }
+
+    /// `from_words`'s own release-mode length guard — mirrors `zip`'s: a word
+    /// count that does not match `len.div_ceil(64)` is a caller mixing
+    /// allocations, refused loudly rather than folded into a wrong answer.
+    #[test]
+    #[should_panic(expected = "word count does not match the allocation length")]
+    fn from_words_refuses_a_word_count_that_does_not_match_the_length() {
+        // len=200 needs 4 words (200.div_ceil(64) == 4); 3 is short.
+        let _ = AlphaMask::from_words(vec![0u64; 3].into_boxed_slice(), 200);
+    }
+
+    /// The can-stay-silent half: a genuine word count for a non-multiple-of-64
+    /// length round-trips exactly through `words()` / `from_words`.
+    #[test]
+    fn from_words_round_trips_words_for_a_length_that_is_not_a_multiple_of_64() {
+        let mut m = AlphaMask::empty(200);
+        m.set(7);
+        m.set(130);
+        m.set(199);
+
+        assert_eq!(m.words().len(), 4, "200.div_ceil(64) == 4 words");
+        let rebuilt = AlphaMask::from_words(m.words().to_vec().into_boxed_slice(), m.len());
+        assert_eq!(rebuilt, m, "from_words(m.words(), m.len()) must round-trip");
+    }
+
+    /// Tail bits past `len` are CLEARED, never trusted — a sweep that wrote the
+    /// phantom tail would otherwise invent addresses the spine never had.
+    #[test]
+    fn from_words_clears_phantom_tail_bits() {
+        // len=200 -> 200 % 64 == 8, so only the low 8 bits of the 4th word are
+        // real; the rest of that word plus everything past it is phantom.
+        let m = AlphaMask::from_words(vec![u64::MAX; 4].into_boxed_slice(), 200);
+
+        assert_eq!(m.count(), 200, "count must exclude the phantom tail bits");
+        assert!(m.contains(199), "the last real ordinal must survive");
+        assert!(!m.contains(200), "ordinal 200 is past len and must be gone");
+        assert_eq!(
+            m.words()[3],
+            (1u64 << 8) - 1,
+            "200 % 64 == 8; only the low 8 bits of the tail word are real"
+        );
     }
 
     /// The silence half of the guard above — equal lengths must still work,
