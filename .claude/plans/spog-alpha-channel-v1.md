@@ -1,0 +1,413 @@
+# spog-alpha-channel-v1 — the SPOG alpha channel in MedCare-rs: domain is a mask, the cycle is a sealed batch, the rung is read from the stamp
+
+> **Status:** SPEC (Phase 0), 2026-09-07. Register-before-code. Every "exists"
+> claim below was read this session (four Sonnet inventories, orchestrator-
+> verified where cited; banked outside the public repo because they quote a
+> private consumer). Every "absent" claim names the search that backs it.
+>
+> **Operator mandate (2026-09-07, verbatim):** *"probe autoattended autonomous
+> decision making until you get MedCare-rs SPOG alpha channel to work / keep in
+> mind that rows are experimental in lance 11 and only required for tombstones
+> which we avoid by having sealed batch per cycle / also keep in mind that the
+> relevant bakes in S3 might not be per domain separate (palpitations hpo,
+> heart uberon/FMA, heart attack (mondo disease), nitroglycerin (UMCU), triage,
+> bypass (snomed actions, interventions) heart rate (Loinc), chebi, mesh
+> (research) statistical normalization (cob, iobc) dismech"* — plus *"also
+> check Mississippi queen hexagon board game effect vs masking algebra ternlogq
+> chaining amortization / same bit that masks mq might 'mask' SPO 'angle' akin
+> to multidisciplinary blasgraph"*.
+>
+> **READ BY:** anyone touching `contract::spog_tenants`, `contract::alpha`,
+> `contract::alpha_tunnel`, `contract::wave_dispatch`, MedCare-rs
+> `medcare-nodesoa` / `medcare-first-thought::attention` / `medcare-cohorts::
+> {quad_slab,rails,bake_data}`, or citing "SPOG", "alpha channel", "rung ×
+> tenant", "per-domain bake", "sealed batch per cycle".
+>
+> **Standing rulings this spec rests on:** `E-EVERYTHING-WIRES-TO-SOA-V3-CE64-
+> IS-ALU-LEGACY-1` (R2); `E-PLANNING-MIGRATES-TO-LOCO-R2IL-DATAFUSION-IS-GRACE-
+> PERIOD-1`; the alpha-overlay governing choice (`alpha-channel-rung-overlay-
+> v1.md` §3k: *"explizite masking ABI traversal wie bei java … sonst verwässern
+> wir unsere Architektur"*); the temporal plan (`.claude/temporal/09-plan.md`
+> Stage 2: the rung × tenant cross lives ONE crate out of the zero-dep
+> contract); `ndarray/.claude/rules/data-flow.md` (no `&mut self` during
+> computation — the alpha `claim` sites are the operator's standing exception,
+> recorded in temporal 06, not re-litigated here).
+
+## §0 — What "the SPOG alpha channel works" means, measurably
+
+The alpha channel is `AlphaAllocation` → `AlphaOverlay::claim` → 16-byte
+`AlphaStamp` in value slot 0 (`crates/lance-graph-contract/src/alpha.rs:72-88`).
+SPOG adds the fourth coordinate G — *"No fourth column: G is read from the
+key"* — as the canon-high concept half of the classid, `graph_of`
+(`crates/lance-graph-contract/src/spog_tenants.rs:38-40`, body
+`(addr.classid() >> 16) as u16`), and routes each claim to the tenant owning
+that G in `SpogTenants::claim` (`spog_tenants.rs:85-94`). Today
+`SpogTenants` has **zero consumers** anywhere (grep `SpogTenants` over
+`lance-graph/crates` and `medcare-rs/crates`: hits only in its own file and
+tests). The consumer that exists calls the lower entry point instead:
+`dispatch_thought(base, &seed, &keys, cycle)` at MedCare-rs
+`crates/medcare-nodesoa/src/frontier_dispatch.rs:81`, over the 60,478-row
+`obo-core.soa` spine, with `cycle` pinned to the constant `SHADOW_CYCLE = 1`
+(`patient_shadow.rs`) and the scanpath read only by the debug HTML view
+(`medcare-server/src/views/reasoning_debugger.rs:877-903`).
+
+"Works" is therefore five measured facts, each with a falsifier (§6):
+
+1. **Routed.** A real patient frontier's claims land in per-G tenants over the
+   full 762,041-row `all-lanes.soa` — every claim is `TenantClaim::Routed`, or
+   is `NoTenant(g)` for a G the caller did not declare (never silently absorbed).
+2. **Domain is a mask.** A domain view is `OR` over its G tenants' masks
+   (disease = MONDO ∪ ICD-10-GM ∪ Orphanet ∪ …), never a file boundary; a
+   horseshoe lane (CUI, SNOMED) is fenced per row by a TUI-equality mask over
+   `value[0..2]`, never assigned to a domain wholesale.
+3. **Rung × tenant is observable.** The 10 × N `AlphaMask` matrix exists as a
+   computation (ternlog on the masks' words), and "this domain was addressable
+   and no rung looked" is one read.
+4. **Sealed batch per cycle.** One `FixedSizeBinary(512)` append per cycle,
+   `cycle = dataset.version() + 1`; no stable row ids, no delete, no merge.
+5. **The rung byte is the attention rung.** `AlphaStamp.rung` is written by
+   exactly one writer semantics (the ladder step), and the domain reflection
+   MedCare reads today through `domain_rung` becomes a tenant read.
+
+## §1 — Input inventory (verified this session)
+
+### 1a. The contract surface, verbatim signatures
+
+| symbol | file:line | shape |
+|---|---|---|
+| `AlphaMask { words: Box<[u64]>, len: u32 }` | `alpha.rs:224-230` | private fields; `and/or/xor/and_not/not` via `zip` with a **release-mode** `assert_eq!(self.len, other.len)` (`:289`); `materialize_ordinals` the one named materializer (`:345`) |
+| `AlphaAllocation::over(&[NodeRow])`, `ordinal`, `mask_of` | `alpha.rs:377,394,417` | ordinal = base position, lazily indexed |
+| `AlphaOverlay::{over_shared,new,claim,claim_path,attended_mask,scanpath,rows}` | `alpha.rs:498-661` | `claim(&mut self, addr, rung) -> Result<AlphaClaim, AlphaError>` |
+| `graph_of`, `SpogTenants::{over,claim,tenant,concepts,claimed_len,merge}`, `TenantClaim::{Routed,NoTenant,Substrate}` | `spog_tenants.rs:38,74,85,98,107,113,123,44-52` | tenants = `Vec<(u16, AlphaOverlay)>`, linear `find` per claim |
+| `AlphaTunnel::{over,lane,lane_mut,run_wave,run_wave_parallel,merge,merged_rows}` | `alpha_tunnel.rs:82-223` | `merge` is `(rung, seq)`-ordered with NO sort (`debug_assert!` at `:197-200`) |
+| `dispatch_thought(base, seed, keys, cycle) -> WaveDispatchOutcome{scanpath, waves}` | `wave_dispatch.rs:62-67` | constructs allocation + tunnel internally; `seed.clone()` per lane is RULED intentional (temporal 06) |
+| `RowFocusMask` (D-ACR-1) | `attention_facet.rs:370-455` | a **facet-prefix** set (`AttentionFocusFacet`, `covers`/`common_prefix`), NOT a row bitmask — a different object from `AlphaMask`; both stay |
+
+**Absent, by search (state BEFORE D-SPG-1, kept as the record of why D-SPG-1 exists):** no `AlphaMask::words()` accessor (grep `fn words\|as_words\|from_words` in `alpha.rs` at `2d111623`: 0 hits) — the words were unreachable from any crate, so nothing outside the contract could run a SIMD op on them. **Closed by D-SPG-1 (`1d90183c`): `words()` + `from_words()` exist now.** No `mask_ternlog`/`AND3` call anywhere in `lance-graph-java/native/lgj-abi/src/*.rs` (grep `ternlog|AND3`: 0 hits at lgj `dbac826`); `lgj_hop` is two sequential `simd_mask_and_assign` (`exports.rs:1818,1822`). **This falsifies two standing claims** — `EPIPHANIES.md` E-NXG-8 *"`AND3` = conjunctive narrowing (`lgj_hop`, shipped)"* and `.claude/knowledge/membrane-tiers.md` §"The polyfill is the worked instance" *"`exports.rs` names `kernels::ternlog::AND3`"* — corrected on the board with this spec. **⊘ 2026-09-07, same day — WITHDRAWN at lgj HEAD `8720d1d`:** the grep was run at the stale pin `dbac826`. At HEAD `lgj_hop` is ONE `kernels::simd_mask_ternlog_assign::<{ kernels::ternlog::AND3 }>` (`exports.rs:1816`); `simd_mask_and_assign` is absent from `exports.rs`; the collapse shipped 2026-09-04 (lgj `LATEST_STATE.md`, 3.5–5× measured). E-NXG-8's `AND3` row and `membrane-tiers.md`'s original sentence are both restored — nothing was falsified. Board: `E-THE-FUSED-AND3-HOP-WAS-NEVER-SHIPPED-LGJ-HOP-IS-TWO-ANDS-1` ⊘ block.
+
+### 1b. The consumer surface (MedCare-rs, private — quoted minimally)
+
+| fact | where |
+|---|---|
+| ONE production caller of the alpha channel: `dispatch_thought(base, &seed, &keys, cycle)` | `medcare-nodesoa/src/frontier_dispatch.rs:81`; `base = obo_store::store().node_rows()` (60,478 rows) |
+| `cycle` is the constant `SHADOW_CYCLE = 1` — *"Fest, damit zwei Requests … byte-gleich sind"*; there is no cycle loop anywhere (temporal 06: `git grep` for `cycle + 1\|cycle++\|for cycle in` → 0 hits) | `medcare-nodesoa/src/patient_shadow.rs` |
+| The second `AlphaStamp.rung` writer: `domain_rung(classid) = Domain::of_classid(..) as u8 + 1` (1..=8) at the claim site `self.overlay.borrow_mut().claim(*addr, rung)`; `reflection(ov, domain)` filters the scanpath on `stamp_of(r).rung == domain as u8 + 1` | `medcare-first-thought/src/attention.rs:127,153,221` |
+| Persist path: `overlay_to_batch` / `write_alpha_overlay` → `node_rows_to_batch(rows, cycle)` → one column `node: FixedSizeBinary(512)` NOT NULL, append | `medcare-nodesoa/src/alpha.rs:26,77`, `lib.rs:46-56` — both functions have **zero callers outside their own tests** |
+| Domain grouping: `Domain::of_classid` → `FacetRegime::{Single(d), PerRowTui, Unassigned}`; `Domain::of_row` resolves `PerRowTui` via `cui::tui_of_row(row)` (`value[0..2]`) | `medcare-cohorts/src/quad_tenant.rs`; `cui.rs:123` |
+| Row-resident FK register: the 4×u24 identity quad at value `[32,44)`; `quad_slab::project(rows, domain, from, to)` is the scalar reference — filters `Domain::of_row(r) == Some(domain)` FIRST (codex P1 on #410), then compares slot values | `quad_slab.rs:63,78` |
+| Per-domain rail bakes: `RailStore { bakes: BTreeMap<u32, (RailBake, RailBake)> }` keyed by classid, grouped `je_domaene` before baking — *"every domain needs a separate bake, the nodes dilute"* (operator 2026-08-12; 180,107 false cross-domain ancestries measured otherwise) | `medcare-cohorts/src/rails.rs:928,965-975` |
+| Combined artifacts: `obo-core.soa` = 5 classids in one file (`obo-core-combined-bake-confounds-facets`, RAIL_OFFENE_POSTEN); `all-lanes.soa` = **every lane** node-matched, 762,041 rows, classid-major numeric sort, `soahead:762041@0x03040000`; mmap via `bake_data::soa_map()` / `node_rows_for_classid()` (partition_point over the sorted classids) | `data/config/bakes.tsv`; `bake_data.rs:307,356` |
+| Live classids are the domain form for 7 lanes (MONDO `0x9101_0000`, HP `0x9202_0000`, UBERON `0x9303_0000`, LOINC `0x9407_0000`, … OPS `0x9811`), legacy `0x03xx` for PATO/RO/CUI/Orphanet/ATC/RxNorm; readers fold via `domain_block` | `crosswalk.rs:173-177`, `loinc.rs:36`, `cui.rs:95`, `ontology_map.tsv` |
+
+**The operator's hint is confirmed, not assumed:** the bakes in S3 are NOT
+per-domain files. `all-lanes.soa` is one image for twelve lanes, `obo-core.soa`
+one image for five. Per-domain separation exists today only in `RailStore`'s
+in-memory grouping. So "domain" must be a **mask over the combined image**,
+and this spec makes it exactly that (§3).
+
+### 1c. The kernels (ndarray T1, verbatim)
+
+`eq_u32_to_mask(values, needle, out)` `simd_int_ops.rs:562`;
+`eq_u32_strided_to_mask(bytes, first_offset, stride_bytes, count, needle, out)`
+`:629`; `mask_and/or/andnot(_assign)` `:775-932`;
+`mask_ternlog::<IMM>(a, b, c, dst)` `:983`; `mask_ternlog_assign::<IMM>(a, b, c)`
+`:1015`; the eight named immediates `simd.rs:570-587` (`AND3 0x80`,
+`AND2_ANDNOT 0x40`, `AND_ANDNOT2 0x10`, `OR2_AND 0xA8`, `XOR3 0x96`, `MAJ3 0xE8`,
+`AND2 0xC0`, `OR3 0xFE`). Convention: `index = (a<<2)|(b<<1)|c`, result bit =
+`(IMM >> index) & 1`. Existing in-repo consumer of the named immediates:
+`lance-graph-planner/examples/probe_nxg_hist_1.rs:51-136`.
+
+Measured bounds that ride with every speed claim below (temporal 09 P3,
+2026-09-06, `--release`): chaining amortization holds (T3/T1 → 0.50 at K ≥ 8,
+K = 1 control reads 1.03), **contingent on the mask set fitting L2**; mask
+loses to a sparse arm below 0.1 % active. A 762,041-bit mask is 11,907 words =
+**93 KiB**; ten rungs × one tenant = 0.93 MiB (fits a 2 MiB L2); the full
+10 × 15 matrix does not, and never needs to be resident at once (§3.3).
+
+## §2 — Frozen decisions (each cited; none re-opened below)
+
+| # | decision | why / source |
+|---|---|---|
+| F1 | **No Lance row ids, no delete, no tombstone.** The alpha channel APPENDS one sealed batch per cycle; addressing is `(version, NodeGuid)`. `enable_stable_row_ids` stays OFF everywhere. | operator 2026-09-07; temporal 01/05 (all three delta arms need stable ids — measured D-LNC-5a); alpha never deletes |
+| F2 | **Domain = mask over the combined image**, never a per-domain file. Tenant mask for G = `eq_u32_strided_to_mask(bytes, 0, 512, n_rows, classid, out)` over the mmap; domain view = `OR` over its Gs; horseshoe lanes fenced by a `value[0..2]` TUI-equality mask. **⊘ 2026-09-07 (operator: "horseshoe mask is a category error"):** the multi-facet lane is not fenced, it is PARTITIONED — once, `LazyLock`, over the immutable bake — by its value-side witness (`value[0..2]`) into per-domain masks, and `domain(D) = static(D) ∪ dynamic(D)` is ONE mask. There is no horseshoe category: a row of that lane witnessing anatomy IS anatomy. The shipped `domain_mask` silently EXCLUDES the lane (all-single-facet filter) and `horseshoe_mask` rescans 762,041 rows per call; both are defects. **⊘ FIXED in the consumer 2026-09-07** (measured, address half → union): lab 103,291 → 206,582 · substance 131,582 → 254,485 · anatomy 119,684 → 119,732 · procedure 38,956 → 40,340; the lane resolves 227,626 of 266,579 rows and the remaining 38,953 are REFUSED (witness names no domain) and counted rather than lost between the halves; gate (h) unchanged at 0.0020; three disable runs fire. `horseshoe_mask` no longer exists. See `E-A-DYNAMIC-DOMAIN-MASK-IS-A-SECOND-WITNESS-AND-ITS-ALIGNMENT-IS-CALIBRATION-1`. | §1b; operator hint; `RailStore`'s grouping is the in-memory precedent |
+| F3 | **G is the contract's `graph_of` (canon-high u16)**, one tenant per G. MedCare's coarser `Domain` (byte `0x91..0x9D`, `domain_block.rs`) is a GROUPING of Gs, expressed as mask `OR` — no second G reading is minted, and no bit math on a composed classid appears in consumer code (`Domain::of_classid` already answers it). | `spog_tenants.rs:38-40`; worker rule 4 |
+| F4 | **The rung byte carries the attention rung only.** `domain_rung` (Domain+1) is retired as a rung writer once the tenant read replaces `reflection` — the domain is `graph_of(addr)`, read from the key, never from the stamp. Until D-SPG-5 lands, the two writers stay separate overlays (they do today). Trap: never carry a rung ordinal in the residue band (temporal 09 Stage 2). | D-RLR-5 (a); temporal 06 "unrecorded semantic collision" |
+| F5 | **Placement:** the SIMD cross cannot live in the zero-dep contract. The contract gains ONE method (`AlphaMask::words(&self) -> &[u64]`, plus the paired `from_words` constructor guarded by the same length law) — a method on the carrier, not a type. The live cross runs in MedCare (`medcare-cohorts` already depends on `ndarray`; the BBB rule keeps `lance-graph-planner` out of the customer binary). An agnostic synthetic probe may live in `lance-graph-planner/examples/`. **⊘ 2026-09-07 (rebase onto `main` after #1220):** the contract now ships a cross of its own — `alpha_focus::AlphaFocus::{cell, matrix, unlooked, rung_reach}`, scalar `and`/`and_not` over the two masks, no `ndarray`. F5's ruling is about the **SIMD/ternlog** cross and is unchanged by that; but `cell` and `unlooked` now exist in two places, and which one a consumer should reach for was recorded here as an open operator preference — **⊘ that framing was wrong (operator, 2026-09-07: *"lance-graph owns the agnostic thinking / Akin to Palantir foundry"*).** It is not a preference: the cell is agnostic thinking and belongs upstream; the tenant calls it. `tenant_masks` / `rung_tenant_cell` / `unlooked` are all writable without naming the domain and are therefore platform-side; only the DOMAIN BINDING is MedCare's — which Gs make a `Domain` (`static(D)`) and the value-witness → domain table that partitions the multi-facet lane once (`dynamic(D)`), composed as `domain(D) = static(D) ∪ dynamic(D)` per F2 (⊘). Not `horseshoe_mask`: F2 retires it, and this row first named it as MedCare's after F2 had already ruled it a category error — corrected 2026-09-07 (CodeRabbit on #1221). What stays genuinely open is narrower: **where ndarray-backed mask algebra can live**, given `lance-graph-planner` is BBB-forbidden in a customer binary and `lance-graph-contract` is zero-dep — a contract feature-gate, or a BBB-allowed crate between them. See `E-LANCE-GRAPH-OWNS-THE-AGNOSTIC-THINKING-CONSUMERS-BIND-DOMAIN-1`. | temporal 09 Stage 2; CLAUDE.md litmus (method on carrier) |
+| F6 | **Cycle = Lance version.** ~~`cycle = dataset.version() + 1` at seal time~~ — the identity is right and the AGENT was wrong: `sealed_version = base_version + 1` is a **verified identity inside `LanceCycleWriter`** (`graph::cycle_sink`, #911), not something a consumer computes by opening the dataset. A caller that reads a version and then appends has written a TOCTOU: Lance's `Append` rebases even on a single attempt (measured, `lance-9.0.0/src/io/commit.rs`), so a read-then-write "refuse, don't renumber" guard cannot do what it claims. Idempotency is durable instead — `(cycle, batch_hash)` in the same commit, reconcile FIRST. `SHADOW_CYCLE = 1` stays for the byte-identical debug view. | operator "sealed batch per cycle"; #911/#912 Phase A; temporal 06 |
+| F7 | **Explicit mask ABI traversal, never VSA.** Nothing here bundles; `I-VSA-IDENTITIES`' niche is untouched. | alpha-overlay plan §3k (operator, 2026-08-21) |
+| F8 | **DataFusion is not extended.** Step 5 (containment: `with_row_id`/`with_row_addr` OFF + a test) comes AFTER the tenant masks exist, or the flags are the only identity the consumer has. | IDEAS 2026-09-07 containment card; grace-period ruling |
+| F9 | **The hand-rolled MedCare alpha migrates ONTO the #1198 contract alpha, not beside it.** Operator, 2026-09-07 (verbatim): *"make sure to migrate the handrolled MedCare-rs alpha to LG 1198 alpha"*. "LG 1198 alpha" = the contract path as audited and staged in lance-graph #1198 (`.claude/temporal/`, merged `3797237b`; Stage 1b landed in the successor PR): `AlphaAllocation` → `AlphaTunnel` rung lanes → `SpogTenants` G routing → `merge()` in `(rung, seq)` order → `wave_dispatch`. The hand-rolled surfaces are MedCare's own overlay drivers that bypass that path: `attention::WatchedRows { overlay: RefCell<AlphaOverlay> }` with its `domain_rung` writer and `into_overlay`, `backreference::combined_base` (a second base assembled per patient), and the `medcare-nodesoa::alpha` writer that takes a bare `AlphaOverlay`. Each becomes a consumer of the contract path (D-SPG-5, broadened) — no MedCare-local overlay driver survives the migration, and behaviour is preserved by the set-equality falsifier. | operator 2026-09-07; PR_ARC_INVENTORY 2026-09-06 (#1198); temporal 06 ("the second rung writer") |
+
+## §3 — The design, in the order the operator gave (1 probe → 2 masks → 3 lane-local → 4 r2il → 5 containment)
+
+### 3.1 Tenant masks are the per-G bakes (step 2, the unblock)
+
+Over `all-lanes.soa` mmapped (`bake_data::soa_map()`), for every declared G:
+
+```text
+// pseudocode — the shipped form is medcare-cohorts::spog_masks::tenant_masks
+sweep[c]       = eq_u32_strided_to_mask(bytes, 0, 512, n_rows, c, out_c)       // one per DISTINCT full classid c in the image
+tenant_mask[G] = OR_{c : graph_of(c) == G} sweep[c]                              // fold per canon-high half — never a single full-u32 equality standing in for G
+domain_mask[D] = OR_{G ∈ D} tenant_mask[G]                                       // disease = MONDO ∪ ICD-10-GM ∪ Orphanet ∪ OMIM…
+horseshoe[D]   = { rows r : regime(classid(r)) == PerRowTui ∧ Domain::of_row(r) == D }   // per row; scalar today
+// ⊘ 2026-09-07: "horseshoe" is a category error. Read instead as
+//   dynamic[D] = LazyLock{ partition of the PerRowTui lane by value[0..2] }[D]   // once per bake, N masks
+//   domain[D]  = static[D] ∪ dynamic[D]                                          // ONE mask; no fence, no per-call scan
+// and the shipped `domain_mask` (which SKIPS the PerRowTui lane) is the bug this line was hiding.
+```
+
+Codex (P1 on #1221) named the trap the fold avoids: a full-`u32` equality per G
+would MISS every classid whose custom low half is non-zero or whose legacy
+encoding shares a canon-high half (`CLASSID_OSINT_V3 = 0x0701_1000` vs
+`graph_of == 0x0701`), so a claim could route to a G tenant via
+`SpogTenants::claim` while its row is absent from that tenant's mask. The
+shipped code sweeps every DISTINCT classid and ORs per G; the falsifier is a
+synthetic image with two classids sharing one canon-high half (landed with
+D-SPG-3).
+
+Computed ONCE per Lance version (the mask generation), served to every rung —
+the Mississippi-Queen M1b amortization stated as a cache key
+`(generation, G)` (§4). `SpogTenants::over(alloc, cycle, &concepts)` is then
+declared with exactly the Gs that have a non-empty tenant mask; a claim to any
+other G is `NoTenant(g)` — visible, not absorbed. The `AlphaAllocation` is
+`AlphaAllocation::over(node_rows)` over the whole image, so ordinals are image
+positions and every mask in this spec shares one `len`.
+
+### 3.2 The crosswalk is a chain of masked equality sweeps (step 1's subject)
+
+Row-resident FKs only — a sidecar `HashMap` join (`cui::mondo_to_cui`) is the
+scalar REFERENCE, never the mechanism. Hop n (pseudocode; the real T1 call is
+the four-argument `mask_ternlog::<IMM>(a, b, c, dst)` or the in-place
+`mask_ternlog_assign::<IMM>(a, b, c)`, `ndarray/src/simd_int_ops.rs:983,1015`):
+`eq_u32_strided_to_mask` on the FK column of tenant n's rows for each needle of
+the incoming survivor key set, `OR`-accumulated into `sweep`, then
+`mask_ternlog::<AND3>(&sweep, &tenant_mask[n], &rung_gate, &mut survivors)` —
+the survivors' key set is the needle set of hop n+1. The forbidden move is a
+mask-`AND` across two tables (nexgen room 18; `E-…-CHAIN-OF-MASKS` on the
+board). Which FK columns are u32-aligned in the real image (key tail at byte
+12; quad slots are u24 at value 32..44 and are NOT eq_u32-addressable without
+a masked compare) is pinned by the probe's own W0 read, not guessed here —
+see D-SPG-4's pre-registration rule.
+
+### 3.3 The rung × tenant cross (step 2's meta-awareness layer, temporal Stage 2)
+
+```text
+// pseudocode over the four-argument T1 call mask_ternlog::<IMM>(a, b, c, dst)
+cell[rung r][G] : mask_ternlog::<AND2>(lane_r.attended_mask().words(), tenant_mask[G].words(), tenant_mask[G].words(), &mut dst)   // AND2 ignores c
+unlooked[D]     : mask_ternlog::<AND_ANDNOT2>(domain_mask[D].words(), any_rung.words(), any_rung.words(), &mut dst)              // = domain & !any_rung
+// dst is rebuilt as AlphaMask::from_words(dst, len) so the contract's tail law re-applies
+```
+
+No new stored state: both operands are recomputed projections; the cross is
+computed per read for the (r, G) pairs asked, so at most three 93 KiB masks
+are live per op (fits L2 — the P3 bound). Kill condition (temporal 09): if
+P3-style amortization does not show on THIS shape, build it scalar and say so;
+the shape win stands without the speed win.
+
+### 3.4 Sealed batch per cycle (step 3's write side)
+
+`SpogTenants::merge()` → the merged `NodeRow`s (stamp in value slot 0, key
+unchanged) → `node_rows_to_batch(rows, cycle)` → ONE `write_node_soa_dataset`
+append. `cycle = dataset.version() + 1`, read before the append, asserted equal
+to the committed version after. Time travel = read at version; no row identity
+is ever needed because the key IS the identity (P0 canon).
+
+### 3.5 Steps 4 and 5, queued behind the probe
+
+Step 4: the first `ogar-r2il` consumer through `lance-graph-ogar` = `RANK` to
+admit + `TERNLOG 0x86` per hop, with the falsifier that a lifted crosswalk
+program yields the hand-written chain's survivor mask bit-for-bit (IDEAS
+2026-09-07). Step 5: DataFusion containment (F8). Neither starts before D-SPG-4
+is green.
+
+## §4 — Mississippi Queen, ternlog chaining, and the SPO "angle" (the operator's second check)
+
+Source: `ndarray/.claude/plans/gemm-ternlog-mask-consolidation-v1.md` §9/§11
+(M1 reveal-ahead [G], M1b tile-serves-every-boat [G] = the amortization with
+cache key `(mask generation, panel)`, M2 lookahead [H], M3 coal budget [H], R1
+hexagon [H]; §11.5 `TriadicProjection {Abc, AbAskC, AcAskB, BcAskA, AOnly,
+BOnly, COnly, Background}` = K0..K7 as a ternlog immediate indexed
+`(a<<2)|(b<<1)|c`, graded [H] *pending one operator word*).
+
+**The mapping, stated as something that can fail.** `mask_ternlog::<IMM>(S, P,
+O)` computes per row `IMM[(s<<2)|(p<<1)|o]`. So the immediate's eight bits ARE
+the eight K-projections of one quad row (which of S/P/O are present), and the
+six ways of wiring the S/P/O presence columns onto the kernel's A/B/C inputs
+are the six hex directions — the "angle". A crosswalk hop's immediate, read as
+a K-set, is the hop's declared projection; `AND3` is K7 alone (all three
+present), `AND_ANDNOT2` is K4 (A only). The operator's interjection — *"same
+bit that masks mq might 'mask' SPO 'angle'"* — is the claim that the mask bit
+and the projection bit are one bit. It is true by construction of the
+immediate's index; whether it is USEFUL is what gate (f) measures: the eight
+minterm masks must partition the row population, and a permutation of the
+wiring must permute the immediate's bits without changing any set.
+
+**Reveal-ahead = mask generation.** M1's "reveal the tile ahead of the cursor"
+is the tenant masks being computed once per Lance version, before any rung
+reads (§3.1); M3's coal budget is the per-cycle re-chain budget — how many
+hops a rung may run before the next seal. Both are cache-key statements, not
+new mechanism. D-GTM-0l's own next probe (*"re-run the identical instrument
+against an OGAR-minted address space"*) IS this spec's probe: `all-lanes.soa`
+keys are minted from the concept hierarchy, which is the substrate the prefix-
+routing hypothesis was proposed for and never measured on.
+
+**lgj correction carried here — ⊘ ITSELF WITHDRAWN, see below:** the fused `AND3` hop is an OPPORTUNITY, not
+shipped code — `lgj_hop` does two ANDs (`exports.rs:1818,1822`) **at `dbac826`; at HEAD `8720d1d` it is one ternlog (`exports.rs:1816`)**. Whether the
+fusion pays on the hop's shape is gate (c) below; nothing in this spec assumes
+it does.
+
+**⊘ 2026-09-07, operator (later the same day) — the three-way decomposition,
+recorded as the reading this section is to be held against.** What converges is
+not "hexagons are good": Mississippi Queen, TERNLOG mask chaining and BLASGraph
+are three ways of paying for ONE operation — *deciding what remains eligible
+without materializing the rejected world.* Operator's table, verbatim in
+substance:
+
+| mechanism | pays for | says |
+|---|---|---|
+| Mississippi Queen | reveal geometry / exploration budget | where activity **MAY** go (topology) |
+| TERNLOG masks | Boolean eligibility / inhibition | where activity **IS ALLOWED** to go |
+| BLASGraph | numeric propagation over the survivors | **HOW MUCH** activity goes there |
+
+The hexagon was never magical (degree-6 falsified repeatedly, ndarray
+`gemm-ternlog-mask-consolidation-v1.md`); what survived is the economics of
+revealing only what can matter next — which is exactly why the corrected #620
+result reads as it does: fan-out loses because reconvergence makes you inspect
+redundant edges, not because hex degree is special. TERNLOG's prize is
+**amortized eligibility** (resident state ⊗ mask A ⊗ mask B ⊗ mask C, the
+rejected volume never becoming a second representation), and gate (h)'s 0.0019
+already shows the limit: it wins while the working masks stay resident and
+collapses toward bandwidth parity when depth blows the cache budget. Alpha is
+then not plumbing but **the sparse, readable record of which part of the
+potential field actually fired.** One cycle: topology reveals a candidate
+region → resident masks narrow (TERNLOG) → active survivors → BLASGraph numeric
+rail → strength/score → **alpha delta** → next-cycle focus.
+
+**The boundary rule (operator, binding):** the three COMPOSE, they do not
+collapse. The MQ hexagon does not become a TERNLOG immediate; the immediate does
+not become a neural weight; BLASGraph is not used for Boolean elimination just
+because a matmul can encode it. *Topology chooses neighborhood, masks choose
+admissibility, BLAS chooses magnitude.* This sharpens §4's own claim above: the
+"same bit" of the interjection is the mask bit = the projection bit (true by
+index construction), NOT the mask bit = a weight — gate (f) measures the former
+and must never be read as licensing the latter.
+
+**Consequence for the cross (#1220 / D-SPG-3):** with the rung × G cross the
+numeric leg can run INDEPENDENTLY per rung — `R_r × G → mask → numeric
+propagation` for r in 0..=9 — and alpha is the common readout plane where those
+independently computed fields overlap. Meta-awareness then need not "run the
+ten rungs"; it observes the field intersections. That is the reading D-SPG-4's
+gate (c)/(h) and the F5 open question (scalar `AlphaFocus` vs SIMD
+`spog_masks`) should be decided under: the cell is the READOUT surface, the
+propagation is a separate rail, and neither owns the other. Motto, as given:
+*"Don't compute the world. Narrow what can matter, then spend arithmetic only
+there."*
+
+## §5 — Deliverables
+
+| D-id | scope | repo | gate / falsifier |
+|---|---|---|---|
+| **D-SPG-0** | This spec; the lgj `AND3` correction on the board — **⊘ withdrawn 2026-09-07, the correction was itself wrong at lgj HEAD; E-NXG-8 and `membrane-tiers.md` are restored** — (E-NXG-8 regraded, `.claude/knowledge/membrane-tiers.md` §"The polyfill is the worked instance" corrected in place); IDEAS PROBE-CROSSWALK-MASK-1 card → In progress | lance-graph | citation-decay + append-only gates green |
+| **D-SPG-1** | **SHIPPED 2026-09-07** (`alpha.rs`, +78 lines: two methods, three tests). `AlphaMask::words(&self) -> &[u64]` + `AlphaMask::from_words(words: Box<[u64]>, len: u32) -> Self` (same tail-clearing law as `not()`; a `words.len() != len.div_ceil(64)` input is REFUSED, release-mode). No other contract change. | lance-graph | can-fire: `from_words` with a wrong word count panics; can-stay-silent: round-trip `from_words(m.words().into(), m.len()) == m` for `len % 64 != 0`; existing 10 alpha tests untouched |
+| **D-SPG-2** | **SHIPPED 2026-09-07** (MedCare-rs `c6a9095`: `medcare-cohorts::spog_masks::{tenant_masks, domain_mask, horseshoe_mask}` + `bake_data::soa_image`, feature `spog`; census probe `examples/spog_tenant_census.rs`). Tenant masks over the combined image: `eq_u32_strided_to_mask` per distinct classid over `soa_image()` bytes, folded per `graph_of`; domain = `OR`; horseshoe = per-row `Domain::of_row` fence (scalar; a SIMD `eq_u16` sweep is a T1 addition, not a reading change). Measured: 762,041 rows, 16 tenants, partition holds both ways, gate (h) ratio 0.0019. `SpogTenants::over` from the Gs moves to D-SPG-5 **⊘ 2026-09-07:** sha unverifiable — see `STATUS_BOARD.md` D-SPG-2 (regraded Shipped-unpushed). **⊘ later the same day:** pushed as MedCare-rs `29d4792` (rebased onto `9f9b7be`, after #621); see STATUS_BOARD D-SPG-2 — Shipped. | MedCare-rs| every `tenant_mask[G].count()` equals **Σ over the distinct full classids `c` with `graph_of(c) == G` of `node_rows_for_classid(c).len()`** (the partition_point answer per classid is the independent reference; G is `graph_of`, not a classid — the shipped test `every_tenant_mask_counts_exactly_its_classid_windows` sums exactly this way; wording corrected 2026-09-07 after CodeRabbit); `Σ_G count == n_rows` over the declared set (anti-vacuity: the union is the whole image, no row in two tenants) |
+| **D-SPG-3** | **SHIPPED 2026-09-07** (MedCare-rs `6bf7764`: `spog_masks::{rung_tenant_cell, unlooked}`, 4 tests + the Codex sibling-classid falsifier, mutation-fired). The rung × tenant cross via `mask_ternlog` on `words()` (§3.3), with the `unlooked[D]` read **⊘ 2026-09-07:** sha unverifiable — see `STATUS_BOARD.md` D-SPG-3 (regraded Shipped-unpushed). **⊘ later the same day:** pushed as MedCare-rs `e5febf9` (rebased onto `9f9b7be`, after #621); see STATUS_BOARD D-SPG-3 — Shipped. | MedCare-rs| `cell[r][G].count() == lane_r.scanpath().filter(graph_of == G).count()` for every (r, G) (materialized reference); `AND_ANDNOT2` differs from `AND3` on the same operands wherever `any_rung` is non-empty (the immediate is not decoration) |
+| **D-SPG-4** | **PROBE-CROSSWALK-MASK-1**, gates (a)–(h) below, on the real image. **Pre-registration rule:** the probe's W0 READ pins the exact FK columns (byte offsets, widths, needle encoding) in its own header BEFORE any timing runs; a column that is not u32-aligned is either read through a documented masked compare or excluded and said so | MedCare-rs (probe) + lance-graph (record) | §6 |
+| **D-SPG-5** | **PARTIAL 2026-09-07** — leg (i) shipped by MedCare-rs #621 (merged `9f9b7be`); legs (ii)–(iv) measured still open on `origin/main`. See `STATUS_BOARD.md` D-SPG-5 for the per-leg measurement. **⊘ later the same day:** legs (ii)–(iv) shipped in MedCare-rs `e722dd1` (PR #622); residue = the two unnamed sites (`graph_feed`, `medcare-soa::patient`) + F5. See STATUS_BOARD. Original scope: **The migration (F9):** every hand-rolled MedCare alpha driver moves ONTO the #1198 contract path — (i) `attention::WatchedRows`' `RefCell<AlphaOverlay>` + `domain_rung` writer → claims routed through `SpogTenants` inside an `AlphaTunnel` lane whose rung is the attention rung; `reflection(domain)` = `OR` over the domain's tenants' `attended_mask()`; (ii) `backreference::combined_base` → one `AlphaAllocation` over the image, patient rows as a declared tenant, never a second base; (iii) ~~`medcare-nodesoa::alpha::{overlay_to_batch, write_alpha_overlay}` take the tunnel/tenants' `merge()` rows, not a bare overlay~~ **⊘ 2026-09-07: WRONG as written — it directs a consumer to hand materialized rows to a Lance writer.** The persistence path is: the producer `cast`s a descriptor `(mailbox, dirty row-range, cycle)`; sealed-batch construction, freeze, coalescing and reconciliation are `LanceCycleWriter`'s alone (#911 → #912). `merge()` / `merged_rows()` are readings and arrow-encode sources, never a writer's input. `write_alpha_tenants` (shipped in `e722dd1`) is withdrawn on that basis; `tenants_to_batch` survives as an encode; (iv) `frontier_dispatch` routes through tenants over `all-lanes.soa`. `domain_rung` retired as a rung writer (F4) | MedCare-rs | on a fixed frontier, tenant-read reflection == `domain_rung` reflection as address SETS for all 8 domains (the migration is behaviour-preserving) AND the stamps' `rung` bytes now carry ladder values 1..=9 (can-fire: a fixture where the two would differ if the byte were still Domain+1) |
+| **D-SPG-6** | **⊘ RE-SCOPED 2026-09-07 — the write is SoA-owned, not the consumer's.** The alpha cycle is a PRODUCER: it `cast`s a descriptor `(mailbox, dirty row-range, cycle)` — never owned rows — and the sealed commit belongs to `LanceCycleWriter`, the sole application writer. Read-back is `temporal::QueryReference::at` + deinterlace. Original scope (a consumer-side `merge()` → `node_rows_to_batch` → append) is withdrawn; see `STATUS_BOARD.md` D-SPG-6 for the four properties it violated. | lance-graph (blocked: no `LanceShardSink`, read side unwired) | empty cycle ⇒ ZERO Lance ops (`NoChange`); re-submitted identical batch ⇒ `Reconciled`; same cycle + different hash ⇒ `HashConflict` fails closed |
+| **D-SPG-7** | ogar-r2il consumer (`RANK` + `TERNLOG 0x86`) through `lance-graph-ogar` | lance-graph | lifted program's survivor mask == hand chain, bit-for-bit — **Queued, gates on D-SPG-4** |
+| **D-SPG-8** | **SHIPPED 2026-09-07** (MedCare-rs #621, merged `9f9b7be`). DataFusion containment (F8) | MedCare-rs | schema of the scan carries neither `_rowid` nor `_rowaddr`; a test that flips red if either flag returns — **met**, and the test observes the PRODUCTION call site (`state.rs:945` / `:1264`). See `STATUS_BOARD.md` D-SPG-8 |
+
+**Order is not negotiable:** D-SPG-0 → D-SPG-1 (the one contract line) →
+D-SPG-2 (masks exist) → D-SPG-4 (probe; may run its synthetic arm before
+D-SPG-2 lands, its real arm after) → D-SPG-3 → D-SPG-5 → D-SPG-6 → D-SPG-7 /
+D-SPG-8. The loop per the autoattended pattern: plan → preflight → sprint →
+review → fix P0 → commit → repeat; every board write in the same commit as
+the code it describes; MedCare-rs edits stay in MedCare-rs (private).
+
+## §6 — PROBE-CROSSWALK-MASK-1, gates (pre-registered; the IDEAS card's (a)–(e) plus three)
+
+| gate | pass condition | what a fail means |
+|---|---|---|
+| (a) sets | survivor SETS of the mask chain == the scalar reference (`quad_slab::project` / sidecar path), every hop, as `materialize_ordinals` vectors **+ calibration (2026-09-07):** the lab domain is the one where static and dynamic cardinalities coincide (103,291 == 103,291, disjoint row sets) — consistent with a 1:1 crosswalk by the bake's construction. A masked sweep from the lab tenant across the bridge must therefore land on EXACTLY 103,291 rows; any other count is a defect in the chain, not a number to report. The count is NECESSARY, not sufficient: equal cardinality on disjoint sets is consistent with a bijection and proves none, so the pass condition stays the set equality against the scalar reference at the head of this row — 103,291 is the cheap early filter in front of it, never a substitute. For a non-aligned domain the dynamic count must be ≤ the static one (coverage, not error); a dynamic count EXCEEDING static is the anomaly. | the FK reading of the columns is wrong — never the mask algebra |
+| (b) bytes | 0 bytes/step under the counting allocator (D-GTM-0k's instrument, `hex_trie_vs_gemm_probe.rs`) on the hop hot path | something materializes |
+| (c) flat | per-hop ns flat in chain length K while the live masks fit L2; report the K = 1 control (must read ≈ 1.0) and the bandwidth column | the win is residency, not chaining — say so |
+| (d) seal | ~~a deliberately cross-family `AND` (two tenants' FK masks) is REJECTED at the seal (can-fire) AND a same-family `AND` passes (can-stay-silent)~~ **⊘ re-scoped 2026-09-07 (CodeRabbit on #1221, correct):** an `AlphaMask` carries words and `len` and nothing else — `and`/`zip` and `mask_ternlog` refuse a LENGTH mismatch only (can-fire, shipped: `a_cell_over_two_allocations_is_refused`, `two_readings_of_different_images_are_refused`), and two same-length masks from two different images are indistinguishable at the mask. So the cross-family rejection is NOT measurable at the seal and is not claimed. Provenance is STRUCTURAL and the caller's: one `soa_image()` and one `AlphaAllocation` per cycle, every mask derived from it — the contract-side form of the same rule is `AlphaFocus::cross`'s `ptr::eq` on the base slice (#1220). Gate (d) now reads: the probe holds exactly one image handle per cycle (grep fence: one `soa_image()` call in the probe), and the length fence fires on a deliberately mismatched image (can-fire) while same-image masks pass (can-stay-silent) | the fence is decoration; or a second image handle appears in the probe |
+| (e) sparse | a hop with < 0.1 % survivors is routed to the sparse arm and the two arms agree on the set | the density crossover moved |
+| (f) angle | the eight `mask_ternlog::<K_i>(S,P,O)` minterm masks over the quad-stamped rows are pairwise disjoint and sum to the population; each of the six S/P/O→A/B/C wirings permutes the immediate's bits without changing any set; a wrong immediate (`0x80` vs `0xC0`) differs on real data **+ calibration (2026-09-07):** self-consistency (partition) is not correctness. On the lab domain the CORRECT immediate reproduces the known 103,291 AND its survivor set equals the gate (a) scalar-reference set; a wrong immediate fails the count already (early, 20 ns), and an immediate that matches the count but not the set is caught by the set half. The count is the first cheap external reference gate (f) has had; the set equality is the proof. | K0..K7-as-immediate is not a projection basis on this substrate — the §4 mapping is regraded |
+| (g) reflection | tenant-read reflection == `domain_rung` reflection as sets (D-SPG-5's falsifier, run early as a read-only comparison) | the G grouping and the Domain grouping disagree somewhere — find the row |
+| (h) amortization | tenant masks computed once per generation and reused across 10 rungs cost ≤ 1/10 + ε of recomputing per rung | M1b does not hold on this shape — cache key regraded |
+
+Falsifiers are two-sided where a guard is involved ((d), (f)); assertions run
+at the END so every claim is measured before any can abort (probe_nxg_hist_1's
+lesson); the K = 1 control and the counting allocator are mandatory arms.
+
+## §7 — Non-goals
+
+- **No new type.** `AlphaMask`, `SpogTenants`, `AlphaTunnel`, `RowFocusMask`
+  all stay; `words()`/`from_words()` are methods on an existing carrier.
+- **No stable row ids, no `cleanup_old_versions`, no retention** (temporal 09
+  non-goals 3 and 5). **Do not touch `temporal.rs`.**
+- **No band derivation.** `ReasoningBand` is never `RungLevel`; the rung byte
+  never encodes a domain (F4) and never lands in the residue band.
+- **No VSA.** F7.
+- **No DataFusion extension.** F8; containment only, after the masks exist.
+- **No per-domain bake FILES.** F2 — the operator's hint is honoured by making
+  the domain a mask, not by splitting artifacts.
+- **No claim about recall or proof.** The alpha channel is a pruner (alpha-
+  overlay plan piece 7); the SPOG channel does not change that.
+
+## §8 — Corrections banked while writing this spec
+
+1. **`lgj_hop` does NOT use `AND3`.** ⊘ **WITHDRAWN 2026-09-07 — it does, at HEAD.** **⊘ 2026-09-07, same day — WITHDRAWN at lgj HEAD `8720d1d`:** the grep was run at the stale pin `dbac826`. At HEAD `lgj_hop` is ONE `kernels::simd_mask_ternlog_assign::<{ kernels::ternlog::AND3 }>` (`exports.rs:1816`); `simd_mask_and_assign` is absent from `exports.rs`; the collapse shipped 2026-09-04 (lgj `LATEST_STATE.md`, 3.5–5× measured). E-NXG-8's `AND3` row and `membrane-tiers.md`'s original sentence are both restored — nothing was falsified. Board: `E-THE-FUSED-AND3-HOP-WAS-NEVER-SHIPPED-LGJ-HOP-IS-TWO-ANDS-1` ⊘ block. Kept as the record of a board claim pinned to a foreign repo's sha decaying silently; that is the durable finding, not the AND3 claim.
+
+   *(original text follows)* E-NXG-8 and `.claude/knowledge/membrane-tiers.md` §"The polyfill is the worked instance" said
+   it did; lgj-abi at `dbac826` has zero `ternlog`/`AND3` symbols. Regraded on
+   the board (dated entry) and in the knowledge doc (⊘ in place).
+2. **IDEAS PROBE-CROSSWALK-MASK-1 named "the existing DataFusion path" as the
+   reference.** No DataFusion crosswalk exists for this chain in MedCare-rs
+   (DataFusion sits in `medcare-analytics` RLS/column-mask and `medcare-server`
+   `state.rs`/`seed.rs`/`routes/patient.rs` — patient scans, not ontology
+   crosswalks). The reference is the scalar sidecar/quad path (§3.2, gate (a)).
+3. **The quad slab is populated on a SUBSET.** `all-lanes.soa` carries quads
+   on 3,551 stamped rows (bakes.tsv 2026-08-10 repin note), not on every row —
+   gate (f)'s population is those rows, declared as such.
+4. **The horseshoe lanes in the image are ONE (the CUI lane, 266,579 rows), not two.** The census shows LOINC (`0x9407`) resolving single-facet to `lab` (its OR view = 103,291 rows), so the spec's "horseshoe lanes (CUI, SNOMED)" reads as: CUI is the only per-row-TUI lane baked today; SNOMED has no lane (`ontology_map.tsv` UNALLOCATED). The CUI lane's per-row fence lands 122,903 rows in substance, 103,291 in lab, 1,384 in procedure, 48 in anatomy, 0 in disease — the lab count equals the LOINC lane's row count by coincidence (asserted disjoint: the fence lies wholly inside the CUI lane).
+5. **PATO (`0x0304`) and RO (`0x0305`) are tenants with no domain** (`FacetRegime::Unassigned`): 1,891 rows addressable, in no domain view. Recorded, not fixed — a domain for qualities/relations is an operator mint question.
+6. **The sibling session landed the first `SpogTenants` consumer the same day (MedCare-rs #620, merged `da77cde`), as two EXAMPLES:** routing 512 claims across the 16 tenants with 0 misrouted and one sealed `merge()` batch, and a cardiac `is_a` walk measuring **0.00 % cross-tenant edges** in the baked `is_a` lane — so the chain-of-masks crosswalk (§3.2, D-SPG-4 gate (a)) cannot hop tenants on `obo_full_edges`; the cross-tenant hop lives in the bridge lanes (`mondo_cui`, `snomed_mondo_bridge`, `abnormality_edges`), addressed by CURIE strings, and a **CURIE → address resolver is the prerequisite** for gate (a)'s multi-tenant chain. #620 also corrected its own Mississippi-Queen metric (coverage/cost = 1.000 was a tautology; measured 1.176–1.508 with `edges_examined` as cost; fan-out reconverges 14.29 %) and answered the operator's "same bit" question as THREE widths that compose (MQ reveal 1 bit per `(generation, panel)`, SPO angle 3 bits, TERNLOG imm8 8 bits) — consistent with §4 here, which makes the same distinction between the 3-bit index and the 8-bit table. D-SPG-5's remaining scope is therefore exactly F9: migrating the `src/` drivers, not demonstrating the consumer.
+
+7. **INTEGRATION UPDATE (2026-09-07, after this branch was rebased onto `main`):
+   the two PRs this spec was written alongside have MERGED, and both move rows
+   in §5.** lance-graph **#1220** (`a4f661a`) landed `SpogTenants::{census,
+   over_census, block_of, tenants_in_block, tenant_mask, attended_mask,
+   allocation, unattended, merge_in_claim_order}` plus a new `alpha_focus`
+   module; MedCare-rs **#621** (`9f9b7be`) landed the consumer on top of it.
+   Three consequences for this spec, each measured on the merged trees rather
+   than inferred from the PR bodies:
+   - **D-SPG-5 is PARTIAL, not queued.** Leg (i) — the `domain_rung` squat —
+     is retired: `attention::WatchedRows` now holds a `SpogTenants` from
+     `over_census` and claims at the caller's rung, and `origin/main` carries
+     `domain_rung`/`rung_for` only inside a historical doc comment. Legs
+     (ii)–(iv) are untouched, and the count is on the board: 16 bare
+     `AlphaOverlay` references in `backreference`, 15 in `medcare-nodesoa::alpha`
+     (whose two writers still have zero callers outside their own module), plus
+     two sites this spec never named (`graph_feed`, `medcare-soa::patient`).
+     **⊘ later the same day:** (ii)–(iv) landed (`e722dd1`, PR #622); the two
+     unnamed sites are the remaining count, to be read before being counted as
+     F9 scope.
+   - **D-SPG-8 is SHIPPED, ahead of its position in the order.** Its gate is met
+     at the production call site, not at a test-local one, and the test's own
+     doc records the disable run that caught the first draft asserting against
+     a provider it had built itself.
+   - **The contract now carries a cross of its own.** #1220's
+     `AlphaFocus::{cell, matrix, unlooked, rung_reach}` is scalar `and`/`and_not`
+     over the two masks, so F5 — which rules on the *SIMD/ternlog* cross — is
+     unchanged by it. But `cell` and `unlooked` now exist in two repos, and
+     which one a consumer should reach for was recorded here as an OPEN operator
+     question. **⊘ later the same day — answered, not by preference but by
+     ownership** (operator: *"lance-graph owns the agnostic thinking"*): the
+     cell and `unlooked` are agnostic and belong upstream; a consumer CALLS
+     `AlphaFocus`, never carries a second copy. The only thing still open is
+     where an ndarray-backed SIMD/ternlog mask algebra may live given the BBB
+     barrier (planner forbidden in the customer binary, contract zero-dep).
+     See the F5 row in §2 and
+     `E-LANCE-GRAPH-OWNS-THE-AGNOSTIC-THINKING-CONSUMERS-BIND-DOMAIN-1`.

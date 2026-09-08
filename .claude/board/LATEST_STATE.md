@@ -1,3 +1,24 @@
+## 2026-09-07 — `SpogTenants::merged_rows` + D-SPG-5 shipped (F9 migration complete on the consumer side)
+
+- **Contract inventory — delta:** `contract::spog_tenants::SpogTenants::merged_rows(&self) -> Vec<NodeRow>` — `merge()` in row form (global `seq`, stamp at value slot 0, edges reserved-and-zeroed), the exact sibling of `AlphaTunnel::merged_rows`, so a tenant aufstellung, a tunnel and one overlay are ONE table to any writer. This is the row builder D-SPG-6's sealed batch is built from. Test `merged_rows_is_merge_in_row_form` (two shadows, the two per-shadow zeros must NOT leak).
+- **Consumer state (MedCare-rs, private; shas only):** D-SPG-5 shipped in two halves — #621 (`attention::WatchedRows` → `SpogTenants::over_census`, `domain_rung` deleted) and `e722dd1` (PR #622: `claim_domain_and_patient` returns `SpogTenants`, patient = tenant `graph_of(patient_address)`; `nodesoa::alpha::{tenants_to_batch, write_alpha_tenants}` over `merged_rows` — **⊘ same day: `write_alpha_tenants` withdrawn (consumer-side Lance writer; the sole writer is `LanceCycleWriter`, the producer casts a descriptor); `tenants_to_batch` stays as an arrow encode**; `FrontierDispatch::tenants()`). D-SPG-2/3 pushed as `29d4792` / `e5febf9`. STATUS_BOARD rows regraded.
+- **Operator ruling banked:** `E-TOPOLOGY-MASKS-MAGNITUDE-COMPOSE-NEVER-COLLAPSE-1` (EPIPHANIES) + `spog-alpha-channel-v1.md` §4 addendum — Mississippi Queen / TERNLOG / BLASGraph = reveal geometry / Boolean eligibility / numeric magnitude; compose, never collapse; alpha = the readout plane; per-rung `R_r × G → mask → propagation` is the frame for F5's open question.
+
+## 2026-09-07 — D-SPG-1 shipped: `AlphaMask::{words, from_words}` — the one contract seam the SPOG cross needs
+
+- **Contract inventory — delta:** `contract::alpha::AlphaMask` gains `words(&self) -> &[u64]` (a borrow, not a materializer) and `from_words(Box<[u64]>, u32) -> Self` (release-mode `assert_eq!` on `words.len() == len.div_ceil(64)`, tail bits past `len` CLEARED — the `not()` law applied at the boundary). No new type, module, field or lane; `materialize_ordinals` stays the one named materializer. 3 tests (can-fire `should_panic`, round-trip at `len % 64 != 0`, phantom-tail clear); mutation-fired (clearing disabled → the count assertion fails).
+- **Why now:** MedCare-rs consumes `lance-graph-contract` from git `main` (`Cargo.toml:145`; the `vendor/lance-graph` symlink is gone), so D-SPG-2/3 on the private side cannot compile until this is on `main`. Plan: `.claude/plans/spog-alpha-channel-v1.md` §5.
+
+## 2026-09-07 — `spog-alpha-channel-v1` spec landed (Phase 0, no code); one correction to shipped-code claims
+
+- **New plan:** `.claude/plans/spog-alpha-channel-v1.md` (D-SPG-0..8 on STATUS_BOARD). Frozen: no row ids / sealed batch per cycle; domain = mask over the combined `all-lanes.soa`; G = `graph_of` (contract), Domain = `OR` of Gs; rung byte = attention rung only; the ternlog cross lives one crate out of the contract (MedCare-side, `medcare-cohorts` has `ndarray`; `lance-graph-planner` stays out of the customer binary).
+- **Contract inventory — net delta:** none yet. D-SPG-1 (queued, next) adds exactly two methods on the existing `contract::alpha::AlphaMask` (`words`, `from_words`) — no type, no module, no lane.
+- **Correction:** `E-THE-FUSED-AND3-HOP-WAS-NEVER-SHIPPED-LGJ-HOP-IS-TWO-ANDS-1` — lgj-abi has zero `ternlog`/`AND3` symbols; `lgj_hop` = two `simd_mask_and_assign` (`exports.rs:1818,1822`). E-NXG-8's `AND3` row and `.claude/knowledge/membrane-tiers.md` §"The polyfill is the worked instance" regraded; the only in-repo consumer of the named immediates is `planner/examples/probe_nxg_hist_1.rs`.
+- **Consumer census recorded (private repo, numbers only):** `SpogTenants` / `TenantClaim` / `claim_admitted` / `AlphaMask` — 0 consumers in MedCare-rs; `dispatch_thought` — 1 (`frontier_dispatch.rs:81`, `cycle` = constant 1); `overlay_to_batch` / `write_alpha_overlay` — 0 callers outside their tests.
+- **Operator instruction folded in (F9 / D-SPG-5):** the hand-rolled MedCare alpha (`attention::WatchedRows` + `domain_rung`, `backreference::combined_base`, the bare-overlay `nodesoa::alpha` writer) migrates ONTO the #1198 contract alpha (`AlphaTunnel` lanes + `SpogTenants` + `merge()`), not beside it.
+- **IDEAS:** PROBE-CROSSWALK-MASK-1 card → In progress (the "existing DataFusion path" it named as reference does not exist for that chain; reference regraded to the scalar quad/sidecar path — spec §8.2).
+- **Integration update after #1220 + MedCare-rs #621 merged (both 2026-09-07, this branch rebased onto `main` `a4f661a`):** D-SPG-8 → **Shipped** (row identity OFF at the production `LanceTableProvider::new` call site, with a red-if-flipped test that observes THAT site and a grep fence that stays sharp); D-SPG-5 → **Partial** (leg (i), the `domain_rung` squat, retired; legs (ii)–(iv) measured still open — 16 + 15 bare `AlphaOverlay` references in `backreference` and `medcare-nodesoa::alpha`, plus two sites the spec never named). The contract also gained a cross of its own in #1220 (`alpha_focus::AlphaFocus`, scalar): F5 rules the SIMD/ternlog cross and is unchanged, but `cell` / `unlooked` now exist in two repos — recorded as an open operator question, not answered. Plan §8 item 7.
+
 ## 2026-09-07 — #1217 MERGED (b518dbf1): the orphaned SPEC v1, recovered — and the check that certified its loss
 
 | PR | merge | content |
@@ -26,6 +47,10 @@ and NOT DataFusion — the same class
 `obo_store.rs` among its six cited sites. SPEC §2's `canonical_node.rs` line
 numbers are stale after the `mint_for` V2/V3 drift; re-anchor to symbols before
 Phase 3.
+
+## 2026-09-07 — PR #1218 merged (`7bb393ef`): plan inventory + V3 harvest mirrors are on `main`
+
+- The 2026-09-07 "plan inventory landed" delta below is now merged history. Post-review deltas since that delta was written: `TD-NDARRAY-SIMD-GATHER` is **PARTIAL** (not SHIPPED); W1b reads 0 of 5 TD entries closed / 1 of 7 files migrated; ENTROPY M1–M27 reconciles to 9 + 7 + 10 + 1; COMPONENT-MAP `StepMask` row and the Sonnet guardrails `StepMask` / `0x1000` rows regraded; the nexgen `(classid, version)` key is marked PROPOSED (shipped `NestedBands` is version-only). Arc entry: `PR_ARC_INVENTORY.md` under PR #1218.
 
 ## 2026-09-07 — plan inventory landed: `PLAN-INVENTORY-2026-09-07.md` + the V3 folder now sees the harvest
 

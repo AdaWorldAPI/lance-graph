@@ -1,3 +1,368 @@
+## 2026-09-07 — E-A-DYNAMIC-DOMAIN-MASK-IS-A-SECOND-WITNESS-AND-ITS-ALIGNMENT-IS-CALIBRATION-1 — the "horseshoe" was a category error; the equality I called a coincidence is a known-answer target
+
+**Status:** OPERATOR RULING (2026-09-07, two messages: *"horseshoe mask is a
+category error … the only way your horseshoe mask is perfectly correct if you
+created a lazylock mask from TUI over CUI to separate"*, then *"basically Dynamic
+domain mask with accidentally so perfect snomedid alignment that … you could even
+use it for calibration"*). Verified against the shipped consumer code and the
+consumer's own census numbers. **⊘ 2026-09-07, later the same day — the
+dissolution SHIPPED in the consumer on the operator's go.** `domain(D) =
+static(D) ∪ dynamic(D)`; `horseshoe_mask` retired; the value half is ONE
+`LazyLock` pass over the immutable bake resolving all eight domains at once.
+The falsifier below RAN: the two lab masks are disjoint and equal in count
+(103,291), the non-aligned domains are proper subsets in count, and the
+refusal — 38,953 lane rows whose witness names no domain — is counted rather
+than lost between the halves. Address half → union: lab 103,291 → 206,582 ·
+substance 131,582 → 254,485 · anatomy 119,684 → 119,732 · procedure 38,956 →
+40,340. Three disable runs fire. The crosswalk-sweep half of the falsifier is
+D-SPG-4 and has NOT run — it needs the CURIE→address resolver.
+**Confidence:** High on the category error (three concrete defects, below). High
+on the calibration READING. The bijection itself is CONSISTENT WITH the
+cardinalities, not proven by them — proving it is what the probe is for.
+
+**The category error, concretely.** The consumer shipped two functions:
+`domain_mask(tenants, D)` — OR over tenants whose every classid resolves to `D`
+by address — and `horseshoe_mask(rows, D)` — a per-row scan of the one lane
+whose address is deliberately under-determined (`FacetRegime::PerRowTui`),
+assigning rows to `D` by a value-side witness at `value[0..2]`. Three defects:
+
+1. **`domain_mask(D)` is not the domain.** Its all-single-facet filter SKIPS the
+   under-determined lane, so the function named "domain" silently returns the
+   domain minus its multi-facet part. Substance: 131,582 returned, 122,903 more
+   unreported.
+2. **No caller unions them.** The sole consumer prints them as two adjacent
+   columns. The API makes the union the caller's job and never says so.
+3. **The error was written into a test as an invariant** — *"CUI is a horseshoe
+   lane, never folded into a domain_mask"* — which is why it survived review.
+
+The U-turn is a property of the VOCABULARY, not of the rows. A row in that lane
+witnessing anatomy IS anatomy. "Horseshoe" names a category with no referent in
+the ontology: there are domains, and one lane needs a second witness to be
+assigned to them.
+
+**The dissolution: a LazyLock partition.** Compute once, over the immutable bake,
+the value-witness → domain partition of the under-determined lane: N masks, one
+per domain. Then `domain(D) = static(D) ∪ dynamic(D)`, one uniform mask, and a
+row that arrived by value-witness is indistinguishable at the point of use from
+one that arrived by address. `horseshoe_mask` has nothing left to return. This
+also repairs a performance path: the shipped version rescans 762,041 rows per
+call against tenant masks that are computed once — contradicting the same
+deliverable's own gate (h) result (0.0019 amortization ratio).
+
+**Static vs dynamic is the two-witness rule at mask level.** `Domain::of_row`
+already carries the operator's 2026-08-10 contract — *"classid AND the TUI
+witness must agree"* — per row. Lifted to masks, the address-derived partition
+and the value-derived partition are two INDEPENDENT readings of the same
+question. Where they agree the substrate is sound; where they disagree the
+disagreement LOCALISES.
+
+**The alignment, and what I got backwards.** Measured on the real image (consumer
+census, D-SPG-2): static lab = 103,291 rows (the address-determined lab tenant);
+dynamic lab = 103,291 rows (the under-determined lane's rows with a lab
+value-witness). Disjoint row sets, identical cardinality. I recorded this in the
+consumer ledger as *Koinzidenz* and warned readers not to derive a bridge from
+it. That was the wrong direction: two disjoint sets of equal size, produced by a
+bake that constructs the multi-facet lane FROM the single-facet ones, is what a
+1:1 crosswalk looks like from the outside — looks like, not is: equal
+cardinality on disjoint sets is CONSISTENT WITH a bijection and proves none
+(two different 103,291-row sets satisfy it equally). The other domains do NOT align
+(substance 131,582 vs 122,903; anatomy 119,684 vs 48; procedure 38,956 vs
+1,384) — and that is not error but COVERAGE: the multi-facet lane carries only
+part of those domains. Alignment is consistent with bijection; misalignment
+measures reach. The bijection itself is proven only at row level — set equality
+of the crosswalk's survivors against the scalar reference, or a unique
+bidirectional mapping — which is exactly what gate (a) runs. Lab is the one
+domain where the cardinalities PERMIT the bake to be bijective — "accidentally
+so perfect" is the hypothesis the probe tests, not its result.
+
+**Why that is calibration, in the strict sense.** A known-answer CARDINALITY
+target derived from the data's own structure — a necessary condition every
+correct chain must meet, never the sufficient one; the set-level oracle stays the
+scalar reference in gate (a):
+
+- **D-SPG-4 gate (a)** gains a target it lacked. The crosswalk is a chain of
+  masked equality sweeps (`spog-alpha-channel-v1.md` §3.2). A sweep from the
+  lab tenant across the bridge must land on exactly 103,291 rows. Any other
+  count is a defect in the chain — not "a number to report". The right count is
+  not a pass: the survivor SET must still equal the scalar reference's.
+- **Gate (f) — the K0..K7 "angle"** — gains a discriminator. Until now the
+  immediate could only be checked for self-consistency (the eight minterms
+  partition the population). A bijective domain makes the CORRECT immediate the
+  one whose survivor set equals the reference's; every wrong immediate can now
+  be caught EARLY, by count alone, before the set comparison runs — a count
+  match admits an immediate to the set test, it does not pass it.
+- **Bake drift becomes detectable for free**: `popcount(static_lab) !=
+  popcount(dynamic_lab)` after a re-bake means the artifact or a witness moved.
+  One popcount, 20 ns, no join — one-directional: inequality proves drift,
+  equality proves nothing.
+
+**Falsifier.** After the LazyLock partition lands: the two lab masks must be
+disjoint AND equal in count (can-fire: a bake that breaks either); a crosswalk
+sweep from the lab tenant must reproduce 103,291 exactly AND its survivor set
+must equal the scalar reference's (can-fire: swap the immediate; can-fire on the
+set half: a wrong-but-equinumerous chain); and for a non-aligned domain the dynamic mask must be a proper subset
+in count of the static one (coverage, not error — a dynamic count EXCEEDING the
+static one would be the real anomaly).
+
+**Scoping (Foundry rule).** The value-witness → domain table is domain knowledge
+and stays in the consumer. The PATTERN — an address-under-determined lane
+completed by a value-side witness, resolved once into address-shaped masks, with
+cross-witness cardinality as a built-in calibration — is agnostic and belongs
+upstream. Read with `E-SPOG-IS-FOUNDRY-WITH-AN-ABI-SHAPED-SUBSTRATE-1` (same
+day): this is the one place the address is NOT the whole ontology, and the fix
+is to make it so at bake-read time rather than at every query.
+
+---
+
+## 2026-09-07 — E-SPOG-IS-FOUNDRY-WITH-AN-ABI-SHAPED-SUBSTRATE-1 — the ontology is the ADDRESS, so cross-domain is an ordinal problem and never an integration one
+
+**Status:** OPERATOR RULING (2026-09-07, verbatim: *"SPOG is similar to Palantir
+foundry across the Domains, with the difference that our Substrat is ABI
+shaped"*). Completes `E-LANCE-GRAPH-OWNS-THE-AGNOSTIC-THINKING-CONSUMERS-BIND-DOMAIN-1`
+(same day), which named WHO owns the thinking; this names WHAT SHAPE it has.
+**Confidence:** High. The partition below is measured on the real artifact; the
+consequences are entailments of the shape, not projections.
+
+**The comparison, and the one difference that changes everything.**
+
+| | Palantir Foundry | SPOG |
+|---|---|---|
+| how domains are unified | mapped onto a shared **object** layer | mapped onto a shared **address** space |
+| what a domain is | an object type in an ontology | a tenant `G = classid >> 16`, a contiguous ordinal window |
+| relating two domains | traverse links / **join** object sets | **AND two masks** over the same base ordinals |
+| what the engine must do | plan and execute the join | index a ternlog immediate |
+
+Foundry's ontology is a semantic layer ABOVE heterogeneous stores, so
+cross-domain reasoning is an integration act and a join is the mechanism. SPOG's
+ontology IS the address, so cross-domain reasoning is an ordinal-range act and
+there is nothing to integrate.
+
+**This is why "no joins ever" is substrate, not preference** (operator, same
+session: *"datafusion does joins, we do masking Ops, no joins ever"*). A join
+materialises the rejected world — two relations in, a third out. Under an
+ABI-shaped substrate the operand is already one image, so the complement holds:
+`resident ⊗ A ⊗ B ⊗ C`, and the rejected volume never becomes a representation.
+A query planner here is not an expensive way to do the job; it is a way to do a
+DIFFERENT job that this substrate does not have.
+
+**Measured, and it is the ontology layer.** `all-lanes.soa`: 762,041 rows, 16
+distinct `graph_of` tenants that **PARTITION** the image — Σ of tenant counts and
+the union of tenant masks are both 762,041, no row in two tenants, every tenant
+count equal to the sum of its constituent classids' windows (D-SPG-2). A Foundry
+deployment would call that an object-type registry; here it is a fact about where
+bytes sit, and the tenant mask is 95,256 B — L2-resident, so the whole "ontology"
+is a cache-resident bitmask.
+
+**Consequence — the SPO triple is ABI-shaped too.** A triple is not three columns
+to be joined. `mask_ternlog::<IMM>(S, P, O)` computes `IMM[(s<<2)|(p<<1)|o]`, so
+the immediate's eight bits ARE the eight presence-projections K0..K7 of one quad
+row, and the six wirings of S/P/O onto A/B/C are the six angles (§4 of
+`spog-alpha-channel-v1.md`). Subject, predicate and object are three bits
+indexing a constant, not three relations.
+
+**Consequence — it renames the open problem, which changes what gets built.**
+MedCare-rs #620 measured **0.00 % cross-tenant `is_a` edges**: a disease's
+subsumption spine never leaves the disease ontology, and only the RO cross-axis
+crosses. Read as Foundry, that is a missing link type and the fix is a
+crosswalk join table. Read as SPOG, it is an **address** result: the CURIE→address
+resolver has not minted so that a cross-domain relation is address adjacency.
+Same measurement, opposite deliverable — and the second one is the one that keeps
+the 20 ns regime.
+
+**Falsifier.** Any design that reaches for a join, a lookup table, or a
+mapping service to relate two domains, instead of asking what address layout
+makes them adjacent in one image. Also: any claim that a tenant boundary needs
+enforcement machinery — the partition is a property of the keys, and
+`AlphaFocus::cross`'s `ptr::eq` on the base slice is the only "provenance" the
+shape admits (gate (d), re-scoped this session).
+
+---
+
+## 2026-09-07 — E-LANCE-GRAPH-OWNS-THE-AGNOSTIC-THINKING-CONSUMERS-BIND-DOMAIN-1 — the Foundry split, and why four separate violations in one session were one violation
+
+**Status:** OPERATOR RULING (2026-09-07, verbatim: *"lance-graph owns the
+agnostic thinking / Akin to Palantir foundry"*), given after catching a
+consumer-side reimplementation of the owned writer.
+**Confidence:** High on the rule. The `spog_masks` consequence below is measured
+against the shipped code; the BBB placement question it raises is OPEN.
+
+**The rule.** lance-graph is the platform: it owns the ontology (contract types)
+and the OPERATIONS — the mask algebra, the cognitive cycle, the writer, the
+temporal read. A consumer (MedCare-rs, woa-rs, smb-office-rs, …) is a tenant: it
+supplies DOMAIN SHAPE and consumes thinking. It never implements thinking, and it
+never implements substrate. This restates MedCare's own commitment #4 (*"Thinking
+lives only in lance-graph. No `medcare-thinking` duplicate crate"*) as a
+POSITIVE architecture rather than a prohibition, which is what makes it
+checkable.
+
+**Why it is worth an entry: it collapses four findings into one.** In a single
+session the same agent wrote, in a consumer, a sealed-cycle writer
+(`LanceCycleWriter`'s job), a version successor (`sealed_version = base_version
++ 1`, a verified identity inside that sink), a version-pinned read
+(`temporal::QueryReference::at`), and a second copy of the rung × tenant cross
+(`AlphaFocus::{cell, unlooked}`, shipped upstream in #1220). Each was caught
+separately and each looked like its own mistake. Under the Foundry split they
+are one mistake with four faces: **platform-side work performed tenant-side.**
+
+**The demarcation is not "is it generic code", it is "is it domain
+knowledge".** Measured on `medcare-cohorts::spog_masks`:
+
+| function | what it does | owner |
+|---|---|---|
+| `tenant_masks` | sweep distinct classids, OR-fold per `graph_of` | **agnostic** — nothing medical |
+| `rung_tenant_cell` | AND of a rung mask and a tenant mask | **agnostic** |
+| `unlooked` | tenant AND-NOT any-rung | **agnostic** |
+| `domain_mask` | which Gs constitute a `Domain` | **tenant** — domain knowledge |
+| `horseshoe_mask` | the per-row TUI fence for the U-shaped lane | **tenant** — domain knowledge |
+
+Three of five are thinking that a tenant is carrying. The tell is that the first
+three can be written without knowing the word "medical", and the last two cannot.
+
+**Consequence — F5 in `spog-alpha-channel-v1.md` was mis-framed by its own
+author.** It recorded "scalar `AlphaFocus` (#1220) vs SIMD `spog_masks`
+(D-SPG-3)" as an open OPERATOR PREFERENCE. It is not a preference: the cell
+belongs upstream by this rule, and the tenant should call it. What remains open
+is narrower and genuinely architectural — **where an ndarray-backed mask algebra
+can live**, given that `lance-graph-planner` is BBB-forbidden in a customer
+binary (Iron Rule 1) and `lance-graph-contract` is zero-dep by construction. A
+contract feature-gate, or a new BBB-allowed crate between them, are the two
+shapes; neither is this entry's to choose.
+
+**Falsifier.** For any function in a consumer crate, ask whether it can be
+written without naming the domain. If yes and it is not a thin call into
+lance-graph, it is thinking in the wrong repo — regardless of how mechanical it
+looks. Masks feel like data and slipped through this test for a whole
+deliverable.
+
+Read with `E-A-CONSUMER-THAT-OPENS-A-DATASET-HAS-ALREADY-LOST-1` (same day, the
+writer half) and `E-TOPOLOGY-MASKS-MAGNITUDE-COMPOSE-NEVER-COLLAPSE-1` (same
+day, what the operations ARE).
+
+---
+
+## 2026-09-07 — E-A-CONSUMER-THAT-OPENS-A-DATASET-HAS-ALREADY-LOST-1 — re-deriving a proven identity from outside the thing that proves it is the tell
+
+**Status:** FINDING, operator-caught (2026-09-07: *"that's not a convenience you're
+violating lance-graph 879 batchwriter SOA owned"*, then *"879 909..912 1049 1198"*).
+Verified against the merged code and the #879/#911/#912 arc entries.
+**Confidence:** High — every property below is quoted from the shipped module docs.
+
+**What I did.** Writing D-SPG-6 ("sealed batch per cycle"), I wrote a free
+`async fn seal_alpha_cycle` in a CONSUMER that did `Dataset::open` to read the
+version, computed `cycle = version + 1`, and `Dataset::write`-appended. I
+justified it as convenience — reaching for the `lance` umbrella crate because a
+neighbouring function already did. That framing was wrong twice over: it was not
+convenience, it was an ownership violation; and the DataFusion weight I was
+worrying about was a symptom, not the disease.
+
+**What already existed.** `LanceCycleWriter` (`lance-graph::graph::cycle_sink`,
+#911 → #912 Phase A) is the **SOLE application writer**, and the topology is
+enforced by the TYPE: non-`Clone` (a second handle cannot be minted),
+`commit_cycle(&mut self, …)` (two commits cannot interleave), one long-lived
+owned `Dataset` handle (no per-operation reopen). The 64k SoA owners are
+*"parallel PRODUCERS (fire-and-forget: they cast on behalf of their mailbox and
+receive no acknowledgement), never Lance writers"*.
+
+**The four properties my version lacked**, each hard-won in a review round:
+
+| shipped | mine |
+|---|---|
+| sole writer, non-`Clone`, owned handle | a second unowned writer, reopening per call |
+| producers cast, never write | consumer written as a Lance writer |
+| **no semantic change → no write → no version** (#911's empty-cycle versioning REMOVED) | wrote unconditionally — an empty saccade mints a version |
+| no rollback; durable `(cycle, batch_hash)`, reconcile FIRST, `HashConflict` fails closed | read-version-then-append: a TOCTOU |
+
+**The sharpest of them.** `Append` in Lance **rebases even on a single attempt**
+(strict no-rebase exists only for `Overwrite` — measured in
+`lance-9.0.0/src/io/commit.rs`). So my "refuse, not renumber" guard — read the
+version, compare, then append — *cannot do what its own error message claims*.
+#911 first fixed this with a compensating `Dataset::delete`; #912 then REMOVED
+that too, because a published manifest is HISTORY and a delete is another
+version, not a rollback. I had reinvented a mechanism that was already tried and
+already superseded.
+
+**The transferable tell, and it is cheap to check.**
+`sealed_version = base_version + 1` is recorded on the #911 entry as *"a verified
+identity, not an assumption"* — verified INSIDE the sink, which is what lets
+readers derive the cycle↔version mapping from the co-committed frame row with
+zero sidecar state. **I re-derived that identity from outside the component that
+proves it.** Whenever code computes `next = current + 1` for state another
+component owns, the question is not "is the arithmetic right" (it was) but "who
+is entitled to say this" — and if the answer is a type you did not call, the
+write is already an orphan. A consumer that reaches for `Dataset::open` has
+answered that question wrongly before writing a line.
+
+**Why the DataFusion weight was the symptom.** Bypassing the owned writer meant
+reaching for the `lance` umbrella crate, which drags the query engine in
+transitively. Operator, same session: *"datafusion does joins, we do masking Ops,
+no joins ever"* — a join materialises the rejected world (two relations in, a
+third out), which is the exact complement of `resident ⊗ A ⊗ B ⊗ C`. The
+crosswalk is the thing that LOOKS like a join (MONDO ↔ CUI ↔ LOINC ↔ SNOMED) and
+is a chain of masked equality sweeps (§3.2), so there is no join formulation to
+carry. Read against
+`E-TOPOLOGY-MASKS-MAGNITUDE-COMPOSE-NEVER-COLLAPSE-1` (same day): a query engine
+on this path is a fourth thing that collapses topology, masks and magnitude back
+into relational algebra.
+
+**Falsifier.** Any consumer-side `Dataset::open` / `Dataset::write` in the
+alpha/mask chain; any caller computing a version successor for state it does not
+own; any cast payload carrying owned rows rather than a `(mailbox, row-range,
+cycle)` descriptor. The withdrawn implementation is banked in the session
+scratchpad as the worked example rather than deleted, because the four-row table
+above is only legible next to the code that got each row wrong.
+
+---
+
+## 2026-09-07 — E-TOPOLOGY-MASKS-MAGNITUDE-COMPOSE-NEVER-COLLAPSE-1 — Mississippi Queen, TERNLOG chaining and BLASGraph pay for ONE operation, from three sides
+
+**Status:** OPERATOR RULING (2026-09-07, verbatim in substance), recorded on
+`spog-alpha-channel-v1.md` §4 and here; the boundary rule is binding for
+D-SPG-4/5/6 and for the F5 open question.
+**Confidence:** High on the decomposition and the boundary (operator's word;
+consistent with the measured 0.0019 amortization ratio of D-SPG-2 and the
+corrected #620 fan-out result). [H] on the per-rung independent propagation —
+argued, not yet measured.
+
+**The operation.** *Deciding what remains eligible without materializing the
+rejected world.* Three mechanisms pay for it: **Mississippi Queen** = reveal
+geometry / exploration budget (topology says where activity MAY go);
+**TERNLOG masks** = Boolean eligibility / inhibition (where activity IS ALLOWED
+to go); **BLASGraph** = numeric propagation over the survivors (HOW MUCH goes
+there). The hexagon was never the point — degree-6 was falsified repeatedly;
+what survived is the economics of revealing only what can matter next, which is
+why fan-out loses in #620 (reconvergence forces inspection of redundant edges),
+not because hex degree is special. TERNLOG's prize is **amortized
+eligibility** — `resident ⊗ A ⊗ B ⊗ C`, the rejected volume never becoming a
+second representation — and it wins only while the working masks stay resident
+(gate (h): 0.0019 of a rebuild), collapsing toward bandwidth parity as depth
+blows the cache. **Alpha is the sparse, readable record of which part of the
+potential field actually fired** — the readout plane, not plumbing.
+
+**The boundary rule (binding).** The three COMPOSE and never collapse: the MQ
+hexagon does not become a TERNLOG immediate; the immediate does not become a
+neural weight; BLASGraph is never used for Boolean elimination because a matmul
+can encode it. *Topology chooses neighborhood, masks choose admissibility, BLAS
+chooses magnitude.* Reads back onto §4's "same bit" interjection: mask bit =
+projection bit (true by the immediate's index construction) — NEVER mask bit =
+weight.
+
+**The consequence for the rung × G cross (#1220, D-SPG-3).** The numeric leg
+can run independently per rung, `R_r × G → mask → propagation`, r ∈ 0..=9, with
+alpha as the common readout plane where the ten fields overlap — so
+meta-awareness observes field INTERSECTIONS instead of "running the ten rungs".
+This is the frame for F5's open question (scalar `AlphaFocus` vs SIMD
+`spog_masks`): the cell is a readout surface, the propagation a separate rail;
+neither owns the other.
+
+**Falsifier.** A design in which one of the three does another's job — a
+ternlog immediate carrying magnitude, a BLAS kernel doing set elimination, a
+topology hop encoded as a mask constant — is the collapse this entry forbids;
+the reviewer's question on every D-SPG PR is "which of the three is this, and
+does it do only that". Motto as given: *"Don't compute the world. Narrow what
+can matter, then spend arithmetic only there."*
+
+---
+
 ## 2026-09-07 — E-AN-EMPTY-RANGE-AFTER-A-RESET-IS-NOT-EVIDENCE-1 — the check that certified the loss it was run to prevent
 
 **Status:** FINDING, measured. The orphaned commit was recovered; the board it
@@ -41,6 +406,58 @@ be the same PR that adds the file — never a later one, and never a claim that 
 prior PR added it.
 
 ---
+## 2026-09-07 — E-THE-FUSED-AND3-HOP-WAS-NEVER-SHIPPED-LGJ-HOP-IS-TWO-ANDS-1 — a mapping entry cited a call site that does not exist
+
+**Status:** FINDING, measured (grep `ternlog|AND3` over `lance-graph-java/native/lgj-abi/src/*.rs` at lgj `dbac826`: **0 hits**; `lgj_hop` read in full, `exports.rs:1712-1860`). Corrects `E-NXG-8` (2026-09-05, below) and `.claude/knowledge/membrane-tiers.md` §"The polyfill is the worked instance" (⊘ in place, same commit). Spec that carries the correction forward: `.claude/plans/spog-alpha-channel-v1.md` §1a/§4/§8.
+**Confidence:** High. The absence is a full-file read plus an exhaustive grep, not an inference.
+
+> **⊘ 2026-09-07 — FALSIFIED BY CURRENT LGJ HEAD `8720d1d`. The finding held only for the stale pin.**
+>
+> The measurement above is correct *for `dbac826`* and wrong as a statement about
+> lgj. At `8720d1d` (2026-09-05, the branch tip this repo can reach), `lgj_hop`
+> dispatches ONE call —
+> `kernels::simd_mask_ternlog_assign::<{ kernels::ternlog::AND3 }>` (`exports.rs:1816`)
+> — `kernels.rs:100` is `pub use ndarray::simd::ternlog;`, `kernels.rs:111` is the
+> `simd_mask_ternlog_assign<const IMM: i32>` wrapper, and **`simd_mask_and_assign`
+> does not appear in `exports.rs` at all**. The two-AND → ternlog collapse shipped
+> **2026-09-04** (lgj `LATEST_STATE.md`, measured 3.5–5× on the columnar-hop bench).
+>
+> So the correct historical statement is not *"fused `AND3` never shipped"* but
+> **"fused `AND3` was absent at the stale pin `dbac826`, and shipped before this
+> audit was written."** Three consequences:
+>
+> 1. **`E-NXG-8`'s `AND3` row is VINDICATED, not regraded.** *"`AND3` = conjunctive
+>    narrowing (`lgj_hop`, shipped)"* is true at HEAD. The ⊘ this entry put on its
+>    Confidence line is itself withdrawn (second dated note there).
+> 2. **`membrane-tiers.md`'s original sentence is RESTORED.** *"`exports.rs` names
+>    `kernels::ternlog::AND3`"* was true; the "correction" replaced a true sentence
+>    with a false one — and did so four lines above that file's own Provenance
+>    paragraph, which names *"the two-AND→ternlog conjunction (T2 hand-composing a
+>    T1 op; fixed by naming the op at T1)"* as **one of the two fixes the tier
+>    doctrine was derived from**, dated 2026-09-04. The entry denied the doctrine's
+>    own founding receipt.
+> 3. **"the FIRST production-shaped ternlog consumer" is wrong.** `lgj_hop` is, and
+>    has been since 2026-09-04. The SPOG cross would be the second.
+>
+> The regrade to OPPORTUNITY is withdrawn; the P3 amortization caveat survives on
+> its own terms (it is about the SPOG cross's shape, not about lgj).
+>
+> **What survives, and it is the more useful half:** a board claim pinned to a
+> foreign repo's sha decays silently, and the decay is invisible from inside this
+> repo — no gate here reads lgj. Evidence is now repinned to `8720d1d`; the
+> `dbac826` measurement stands as historical evidence of that commit only. This is
+> the mechanism `ISS-LGJ-CROSS-REPO-CITATION-GOES-STALE-SILENTLY` (lgj's own
+> ISSUES.md) names from the other side — the same defect, found independently in
+> both directions within four days.
+
+**The claim.** `E-NXG-8` mapped the eight named ternlog immediates to cognitive homes and wrote *"`AND3` = conjunctive narrowing (`lgj_hop`, shipped)"*; `membrane-tiers.md` illustrated the T1/T2 stacking with *"`exports.rs` names `kernels::ternlog::AND3`, never `ndarray::simd` directly."* Both read as shipped code.
+
+**The tree.** `lgj_hop` composes `selected_f = src ∧ class_f ∧ struct_f` as TWO sequential `kernels::simd_mask_and_assign` calls (`exports.rs:1818` then `:1822`), after `simd_rowstore_u32_eq_mask` for each of `class_f` and `struct_f`. `kernels.rs` (1,409 lines, read in full) exports `simd_eq_u32_to_mask`, `simd_gt_i32_to_mask`, `simd_mask_{and,or,andnot}(_assign)`, `simd_masked_sum_i32`, `simd_popcount`, `simd_rowstore_u32_eq_mask`, `simd_rowstore_classid_mask`, `simd_rowstore_facet_match`, `masked_facet_sum` — no ternlog wrapper of any name. The named immediates ARE consumed by name in this repo, at exactly one place: `crates/lance-graph-planner/examples/probe_nxg_hist_1.rs:51-136` (`AND_ANDNOT2` as the bucket, `AND3` as its can-it-fire twin). That is a probe, not a hop.
+
+**Regrade.** The fused `AND3` hop is an **OPPORTUNITY** (and a measurable one — the P3 amortization reads 0.50 at K ≥ 8 only while the masks fit L2, temporal 09), not a shipped site. `E-NXG-8`'s other seven rows are untouched by this finding; only the `AND3` row's parenthetical is wrong. Consequence for the doctrine doc: a T1/T2 illustration must cite a line that exists — the corrected line in `membrane-tiers.md` now names the real stacking (`exports.rs` → `kernels::simd_mask_and_assign` → `ndarray::simd::mask_and_assign`), which is the same shape and true.
+
+**Why it matters beyond one sentence.** The SPOG alpha spec (`spog-alpha-channel-v1.md`) builds a rung × tenant cross on `mask_ternlog` and had inherited "the hop already does this" as a premise. It does not; the cross is the FIRST production-shaped ternlog consumer if it lands, and its gate (c) measures whether fusion pays on that shape rather than assuming it from a citation.
+
 ## 2026-09-07 — E-A-PLAN-INVENTORY-FINDS-THE-BOARD-LAGS-THE-TREE-IN-BOTH-DIRECTIONS-1 — status cells decay at the rate of the tree, not of the file
 
 **Status:** FINDING, measured (five read-only Sonnet agents; every claim below re-verified by the orchestrator at a tree line, not a tag-file line). Full census: `.claude/board/PLAN-INVENTORY-2026-09-07.md`; evidence: `exec-runs/plan-inventory-2026-09-07-*.md`.
@@ -1228,7 +1645,7 @@ families is a violation at the seal.
 ## 2026-09-05 — E-NXG-8 — the eight named immediates already have cognitive homes
 
 **Status:** FINDING (mapping of shipped code).
-**Confidence:** High on the mapping.
+**Confidence:** High on the mapping. **⊘ 2026-09-07:** the `AND3` row's parenthetical *"(`lgj_hop`, shipped)"* is FALSE — lgj-abi has no ternlog call site; see `E-THE-FUSED-AND3-HOP-WAS-NEVER-SHIPPED-LGJ-HOP-IS-TWO-ANDS-1` (2026-09-07). The other seven rows stand. **⊘⊘ WITHDRAWN, same day:** that ⊘ was measured at the stale pin `dbac826`. At lgj HEAD `8720d1d` the row is TRUE — `lgj_hop` is one `simd_mask_ternlog_assign::<AND3>` (`exports.rs:1816`), shipped 2026-09-04. **All eight rows stand.**
 
 `AND3` = conjunctive narrowing (`lgj_hop`, shipped); `AND_ANDNOT2` = bucket /
 annulus / known-false (`domain ∧ ¬result`); `MAJ3` = quorum
@@ -2309,7 +2726,7 @@ records Pillar 11 activated since PR #348; `sigker/examples/
 cubature_vs_randomized.rs` already exercises production-carrier widths
 (PATH_DIM=4, PATH_LEN=64, N_PATHS=256, "OSINT-typical") — it had simply
 never been *run*. Both doc sites that said otherwise
-(`crates/sigker/src/lib.rs:50`, the ndarray-vertical-simd-alien-magic.md
+(`crates/sigker/src/lib.rs` module doc, the `"OSINT-typical"` line; the ndarray-vertical-simd-alien-magic.md
 W1.5 section) were stale relative to jc's own status and are corrected in
 this same pass.
 
@@ -7757,7 +8174,7 @@ verified against `MedCare-rs/data/config/bakes.tsv`). **Confidence:** High —
 every number is a count over 512-byte rows, tiers read at bytes 4..10.
 
 The board headline (`INTEGRATION_PLANS.md` ARC-B entry) and
-`EPIPHANIES.md:899` both state HHTL is **"zero on every baked row in both
+`EPIPHANIES.md` §`E-THE-OU-COLUMN-EXISTS-AND-NOTHING-WRITES-IT-1` (was cited as `:899`; re-anchored to the heading, line numbers shift under prepend) both state HHTL is **"zero on every baked row in both
 production bakes"**, citing `ogar-obo` (68,797 rows) and MedCare's
 `join-map.md` (68,797 rows). Both citations are correct. **Both describe the
 same artifact set of two.** A third pinned artifact exists:
@@ -7806,7 +8223,7 @@ a field must also name which READING of it was counted, when the accessor
 picks between two registers. Full table: plan §8a ⊘ correction.
 
 Cross-ref: `.claude/plans/dismech-causality-v3-v1.md` §8a; ARC-B
-`docs/architecture/ARC-B-OWNERSHIP-AND-ADDRESSING-REASSESSMENT.md:23` (regraded
+`docs/architecture/ARC-B-OWNERSHIP-AND-ADDRESSING-REASSESSMENT.md` §0 "THE ONE-PARAGRAPH FINDING" (regraded
 in place: its conclusion holds for `obo-core`/`spine`, needs the `all-lanes`
 qualifier); `EPIPHANIES.md:899`.
 
