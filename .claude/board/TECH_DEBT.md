@@ -1,3 +1,26 @@
+## TD-SPARE-SHIFT-NAME-IS-STALE-1 (2026-09-10) — OPEN, doc-only
+
+**`crates/causal-edge/src/layout.rs:67-77` still names bits 61-63 `SPARE_SHIFT` and
+doc-comments them *"Spare: 3-bit reserved for sprint-12+ … Candidates: Rubicon-commit
+marker, Markov-decay quantum, I-NOISE-FLOOR-JIRAK threshold"* — while the same file's
+`ReasoningBand` (`:353-373`) has occupied those bits since `bbab3541` (introduced as
+`TextureBand`) and `9891cca6` (named), and `edge.rs` writes them (`with_reasoning_band`,
+`:1057`; callers `dismech_counterfactual.rs:547` and two probes).** The constant's own
+comment half-admits it (*"Same three bits also carry an ADDITIVE … view,
+`ReasoningBand`"*) but keeps the word *reserved* and the candidate list, so a reader who
+stops at the constant — as #1223's first pass did — concludes the field is free and
+proposes a new occupant. Operator, 2026-09-10: *"all bits are assigned, including
+61..63"*; `SPARE_SHIFT` is the legacy/raw accessor name, not unclaimed design space.
+(`band_reading.rs`'s `BandPresence::Absent` — *"the three bits are spare for this
+class"* — is a per-class declaration that no band was stamped, not a statement about
+the layout; do not read it the same wrong way.) Fix shape: rename `SPARE_SHIFT` →
+`BAND_SHIFT` with the old name kept as a `#[deprecated]` alias
+(I-LEGACY-API-FEATURE-GATED), drop the candidate list, say `ReasoningBand` in the
+first line. Not done in #1223: that PR is doctrine + doc-comment only, and
+`causal-edge` is workspace-excluded so a change there gets no CI
+(`TD-CAUSAL-EDGE-IS-EXCLUDED-SO-CI-NEVER-LINTS-IT`). Source: the ⊘ in
+`E-LE-IS-THE-UNIVERSAL-DTO-LAYER-TYPED-SYNTAX-MEANS-A-VERSIONED-LE-SCHEMA-1`.
+
 ## TD-VERSIONED-GRAPH-DIFF-LOCKSTEP-AND-NO-REMOVALS-1 (2026-09-05) — OPEN
 
 **`VersionedGraph::diff` (`crates/lance-graph/src/graph/versioned.rs`) has two

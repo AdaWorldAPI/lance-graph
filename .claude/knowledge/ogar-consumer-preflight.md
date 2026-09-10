@@ -128,6 +128,28 @@ Q5.  Does my classid CARRY the app prefix?
             →  drift from the allocation table.  STOP.  Stamp the prefix.
 ```
 
+```
+Q6.  Does my typed ASSERTION carry all six coordinates — or only Tarski perfume?
+     (added 2026-09-10, operator; the LE ruling made CE64 bits 59-63 DEFINING)
+     ├─ subject (entity alias, never PII) · predicate · object (concept id)
+     │  · truth NARS (f, c) · topology (CausalTopology) · assertion band
+     │  (ReasoningBand) · witness (provenance handle) — and removing or
+     │  changing ANY of topology / band / proposition identity / provenance
+     │  changes admission, interpretation, or replay
+     │      →  a real satisfaction relation.  LE carries it invariant across
+     │         storage, replay, Panama and Java.  Proceed.
+     └─ I attach (f, c) or the words truth / rung / causal, but Relation and
+        Causal both land as the same `supports = true`, an unknown mediator
+        becomes a known one without a new witness, or a coordinate can be
+        dropped with nothing downstream noticing
+            →  TARSKI PERFUME.  (f, c) is confidence-flavoured metadata and
+               LE transports the perfume perfectly.  STOP.  Carry the typed
+               proposition; preserve the substrate's distinctions.  You never
+               execute NARS / Tarski arithmetic yourself (D-BBB-NARS-1) —
+               you carry the assertion.  Falsifier F-CONSUMER-ASSERTION-1,
+               membrane-tiers.md § "coordinates of truth".
+```
+
 Any "STOP" answer catches the trap pre-materialization.
 
 ## Diagnostic signatures — what the trap looks like in review
@@ -226,6 +248,10 @@ Triggers: `*Bridge` · `class_id` · `classid` · `entity_type_id` · `codebook`
 - `docs/CONSUMER-BRIDGE-DEPRECATION.md` — the migration recipe (the *what*).
 - `.claude/knowledge/core-first-transcode-doctrine.md` — pull from the Core,
   never mint a parallel registry (the *why*).
+- `.claude/knowledge/membrane-tiers.md` § "coordinates of truth" — the
+  six-coordinate assertion (`CausalTopology` + `ReasoningBand` are DEFINING under
+  the LE ruling) and `F-CONSUMER-ASSERTION-1` (Tarski perfume), the consumer-side
+  twin of `F-BBB-NARS-2` (Q6 above, 2026-09-10).
 - OGAR `docs/SURREAL-AST-TRAP-PREFLIGHT.md` — the producer-side mirror (the
   *inverse* arm of the same boundary).
 - OGAR#95 `APP-CLASS-CODEBOOK-LAYOUT.md` (hi/lo split) · #97 `render_classid_for`

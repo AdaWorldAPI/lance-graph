@@ -38,16 +38,75 @@ carrier the whole integer-to-byte mapping is explicitly LE. **Evidence is not
 repetition:** an identical canonical wire image repeated is the same assertion
 propagated, not independent evidence; revision still needs independent stamps.
 
-**⊘ Same-day correction — the kind is IN the carrier.** The first cut of this entry read
-`CausalEdge64` as carrying a degree with nothing for its kind. Measured: bits 59-60 are a
-CODED 2-bit `TrustTexture` lens (MUL's reading, 4 variants), and bits 61-63 are the
-reserved SPARE the operator has now named as the **NARS × Tarski rung** — truth in this
-substrate is `(f, c)` at a Tarski meta-level, never a boolean (`Belief.rung`, u32 in the
-arena, 0..7 in 3 bits). tesseract-rs's `low_confidence: bool` is the impoverished form of
-exactly that. The carrier asserts its own reference (S/P/O via palette256/FisherZ) AND its
-own kind (lens + rung): typed syntax at its strongest, kind travelling at LE positions with
-the degree. Ruled, not coded: nothing writes 61-63; rung↔field derivability stays
-CONJECTURE (the probe that claimed it withdrew it).
+**⊘ Same-day correction — the kind is IN the carrier, coded, and all 64 bits are
+assigned.** The first cut of this entry read `CausalEdge64` as carrying a degree with
+nothing for its kind. Operator, second pass: *"all bits are assigned, including 61..63 /
+59 60 are indirect intermediate unknowns knowns / 61..63 are related to vs explains
+causality learning tarski adjacent"* — and `layout.rs:94` `_LAYOUT_COVERAGE` const-asserts
+exactly that. The three coordinates on one carrier: **NARS `(f, c)`** (bits 24-39) =
+strength of the assertion; **`CausalTopology`** (bits 59-60: `Direct` /
+`IndirectKnownIntermediates` / `IndirectUnknownIntermediates` / `Unknown`; `bbab3541`,
+2026-08-20, via #1154) = shape of the causal connection, *what kind of hole*;
+**`ReasoningBand`** (bits 61-63: `Surface` / `Association` / `Relation` / `Causal` /
+`Counterfactual` / `Perspective` / `Meta` / `Transcendent`; introduced in `bbab3541`,
+named in `9891cca6`) = level of ASSERTION, Tarski permission, `Relation` → `Causal` =
+relates-to → **causes** (`DISMECH_PREDICATES` `(0x90, "causes", "dismech:causes")`,
+`dismech_evidence.rs:511`; the older strong references say "explains"). **Tarski is
+adjacency, not identity:** Tarski depth is `Belief.rung` / `Candidate.rung`, stored
+separately, and `E-RUNG-BAND-AND-PLASTICITY-ARE-THREE-AXES-NEVER-ONE-LEVEL-FIELD-1`
+forbids folding the band with it. Learning account (`entropy-closure-causal-ground-v1`
+§4b): 59-60 say what causal hole exists, 61-63 what kind of candidate assertion may bridge
+it, counterfactual removal + revision tests whether it carries causal weight. Both fields
+have writers/readers since #1154 and the W3 verdict carries them instead of a bool
+(`dismech_counterfactual.rs:251-252`). tesseract-rs's `low_confidence: bool` is the
+impoverished form of exactly this. **The precision that closes the loop with the LE
+ruling:** the bits cannot reveal which lens the producer used (`band_reading.rs`); the
+schema (`ClassView::band_reading`) plus asserted provenance supplies that declaration —
+so the carrier carries the complete coordinates, and LE plus the reading contract make
+their interpretation universal. **⊘ The first pass of this very paragraph got both fields
+wrong** — it read *"bits 59-60 are a CODED 2-bit `TrustTexture` lens (MUL's reading) …
+bits 61-63 are the reserved SPARE the operator has now named as the NARS × Tarski rung …
+(`Belief.rung`, u32 in the arena, 0..7 in 3 bits) … Ruled, not coded: nothing writes
+61-63"* — four contradictions with the tree: the bits are `ReasoningBand`, written at
+three call sites; they are the assertion level, not `Belief.rung` (the fence forbids that
+collapse); `SPARE_SHIFT` is only the legacy/raw accessor name
+(`TD-SPARE-SHIFT-NAME-IS-STALE-1`); and `TrustTexture` there is
+`causal_edge::layout::TrustTexture`, not MUL's. Third self-correction of the day to
+introduce a fresh error; losing text kept. Rung↔field derivability stays CONJECTURE and is
+beside the point for these bits.
+
+**⊕ Third pass, same day — the dimensions are COORDINATES of truth, not annotations
+around it.** A field can be *decorative* (displayable, nothing depends on it),
+*permissive* (governs what the reasoner may accept or assert — the §4b bridge gate), or
+*defining* (part of the canonical identity of the assertion — omitting, changing or
+reinterpreting it creates a different claim). The LE ruling makes bits 59-63 **defining**:
+`Assertion = proposition reference × Pearl projection × NARS valuation × causal topology ×
+reasoning/assertion band × provenance`, so `(S,P,O, f,c, IndirectUnknownIntermediates,
+Relation)` and `(S,P,O, f,c, IndirectKnownIntermediates, Causal)` are different claims with
+identical S/P/O and identical `(f, c)` — the epistemic valence changed. A decoder that drops
+`IndirectUnknown` or reads `Relation` as `Causal` has not produced a lower-resolution view;
+it has changed what was asserted, which is exactly `F-BBB-NARS-2 (LE)`. MUL by grade:
+decorative → observes a label; permissive → admission gate; defining → knows WHICH epistemic
+claim propagated across storage, ABI and replay — that is where MUL becomes real
+meta-awareness, and that is the Tarski adjacency. A consumer carrying only a perfume of
+Tarski (a bool, a label nothing depends on) has not carried the assertion. Coded today:
+between decorative and permissive (W3 carries both fields; `ISS-REASONING-BAND-GATES-NOTHING`
+says the band gates nothing yet). Ruled: defining. D-BBB-NARS-2's DTO carries all six
+coordinates, never `(f, c)` alone.
+
+**⊕ Consumer falsifier, same pass — `F-CONSUMER-ASSERTION-1` (Tarski perfume).** A
+consumer that uses the words truth / rung / causal or attaches `(f, c)` while the result
+stays decorative has a *perfume of Tarski*. It is real only as a satisfaction relation —
+*this typed property about this entity* →(witness + model)→ `(f, c)` — carried whole:
+subject (alias, never PII) · predicate · object (concept id) · NARS `(f, c)` ·
+`CausalTopology` · `ReasoningBand` · witness. **Falsifier:** if topology, assertion band,
+proposition identity, or provenance can be removed or changed without altering admission,
+interpretation, or replay, it is perfume; likewise if `Relation` and `Causal` both land as
+`supports = true`, or an unknown mediator becomes known without a new witness. The consumer
+never executes NARS/Tarski arithmetic (`D-BBB-NARS-1`); it carries the typed proposition
+and preserves the substrate's distinctions — otherwise `(f, c)` is confidence-flavoured
+metadata and LE transports the perfume perfectly. Consumer pre-flight Q6 in
+`ogar-consumer-preflight.md`; doctrine in `membrane-tiers.md` § "coordinates of truth".
 
 **Three corrections landed with it, all in-tree, no code.** (1) `bbb-warden`'s sanctioned
 delegation returned a COMPUTED `TruthLiteral` — a bare pair crossing back — which blessed
