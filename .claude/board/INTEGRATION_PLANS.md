@@ -1,3 +1,19 @@
+## 2026-09-10 — `assertion_wire` — the versioned canonical LE truth DTO (D-BBB-NARS-2) → `.claude/plans/assertion-wire-v1.md`
+
+Built in #1223 on the operator's *"CE64 already has it globally and we need to
+wire it, period."* Frozen F1–F8: the DTO is the EXISTING 16-byte edge facet
+(`classid(4, LE) | CausalEdgeV3 payload(12)`), no new bit, no envelope bump;
+schema version rides the envelope + ABI manifest, never the bytes; reading is
+fallible and refusing (composes D-ACR-7's `band_reading` unchanged); the two
+defining vocabularies (`AssertionTopology`, `AssertionBand`) are mirrors of
+`causal_edge::layout` FUSED in the planner; no arithmetic; one G11 fence entry.
+Gates G1–G6 pre-registered (the aliasing pair on both sides, refusal, the
+4×8 sweep fuse, the unstated lift, width/schema). Non-goals: the Java-side
+admission (next brick, other repo), D-BBB-NARS-3, consumer migration.
+
+Status: **In PR (#1223)** — 9 contract + 4 planner tests green; clippy
+`-D warnings` clean on both crates.
+
 ## 2026-09-06 — `NodeGuid::new` repurpose AUDIT (5+3 council, READ-ONLY) → `.claude/plans/nodeguid-new-repurpose-audit-v1.md`
 
 SPEC v1 of a council convened to AUDIT — not implement — whether

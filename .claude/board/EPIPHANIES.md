@@ -129,6 +129,24 @@ clues. The boundary fails from both sides: exported arithmetic (`F-BBB-NARS-1`) 
 opaque carrier that hides the labels too thoroughly (`F-BBB-NARS-2`) are one wall breached
 from opposite directions.
 
+**⊕ Wired, same day (operator: *"CE64 already has it globally and we need to wire it,
+period"*).** `lance_graph_contract::assertion_wire` is D-BBB-NARS-2 built: the DTO is the
+EXISTING 16-byte edge facet `classid(4, LE) | CausalEdgeV3 payload(12)` — no new byte, no
+new bit, no envelope bump (D-ACR-7 F7); `ASSERTION_WIRE_SCHEMA = 1` rides the envelope +
+the ABI manifest, never the bytes; `AssertionTopology` / `AssertionBand` are the wire
+vocabularies, mirrors of `causal_edge::layout::{CausalTopology, ReasoningBand}` fused
+ordinal- and name-exact in `planner::cache::assertion_wire_parity` (both crates are
+zero-dep and cannot import each other; the mirror is legal only because the fuse exists);
+`AssertionWire::read(declared, provenance)` composes `band_reading::project_*` unchanged
+and REFUSES — provenance → lens → presence — never defaults; `AssertionView`'s `==` is
+claim identity. The aliasing pair is pinned on both sides: two wires differing ONLY at
+byte 12 hi-2 and byte 13 lo-3 read `!=` and stay distinct through `to/from_le_bytes`
+(contract), and two CE64 edges equal in S,P,O,(f,c) stay two claims through
+`CE64 → V3 → wire → V3 → CE64` bit-exact (planner). No arithmetic anywhere in the module
+(`D-BBB-NARS-1`); everything a G11 reader needs is reachable through the ONE module, so the
+lgj allowlist grows by one entry — that admission is the next brick, in lance-graph-java.
+Plan: `.claude/plans/assertion-wire-v1.md`.
+
 **⊕ Consumer falsifier, same pass — `F-CONSUMER-ASSERTION-1` (Tarski perfume).** A
 consumer that uses the words truth / rung / causal or attaches `(f, c)` while the result
 stays decorative has a *perfume of Tarski*. It is real only as a satisfaction relation —

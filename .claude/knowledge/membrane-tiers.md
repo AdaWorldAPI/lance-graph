@@ -490,7 +490,12 @@ hits**, so there is no Java surface to run it against. **The gate that will hold
 column is `ApiSurfaceTest`'s forbidden-type list plus a G11 allowlist entry, and it is
 gated on D-BBB-NARS-2/-3** — which are Queued and marked *do not pre-build*. Until then
 this half of the membrane is enforced by review, and saying otherwise would be the exact
-defect this arc keeps finding.
+defect this arc keeps finding. **⊕ 2026-09-10, later the same day:** D-BBB-NARS-2 is now
+BUILT on the lance-graph side — `contract::assertion_wire` (plan `assertion-wire-v1.md`),
+the versioned LE truth DTO with its own refusing reader and the two fused vocabularies —
+so the G11 allowlist entry it was gated on is now admissible; the entry itself (lgj
+`ALLOWED` + `CLAUDE.md` + `Cargo.toml` + the manifest's schema export) is the
+lance-graph-java brick and is still not resident. D-BBB-NARS-3 stays Queued.
 
 **2. The named epistemic primitives are not at T1.** `revision`/`deduction`/`abduction`/
 `induction` are CODED, but only inside `crates/lance-graph-planner/src/cache/nars_engine.rs:194-207`

@@ -14,4 +14,9 @@ pub mod nars_engine;
 /// of every non-test build.
 #[cfg(test)]
 mod stage26_v3_parity;
+/// D-BBB-NARS-2 cross-crate fuse: `contract::assertion_wire` byte positions and
+/// vocabularies against `causal_edge` — measurement only, compiled out of every
+/// non-test build.
+#[cfg(test)]
+mod assertion_wire_parity;
 pub mod triple_model;

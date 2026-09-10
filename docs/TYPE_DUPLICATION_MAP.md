@@ -2,6 +2,25 @@
 
 > *Rain Man precision. If you see two things that look alike, they're listed here.*
 
+## 2026-09-10 additions — the wire vocabularies (FUSED mirrors, by design)
+
+Two `#[repr(u8)]` enums in the zero-dep contract mirror two enums in the zero-dep
+edge crate. Neither crate can import the other (`Cargo.toml` on both sides refuses
+it), so the mirror is the only way the vocabulary can cross the G11 fence — and it
+is legal ONLY because a cross-crate fuse pins ordinal AND name on every variant
+(`crates/lance-graph-planner/src/cache/assertion_wire_parity.rs`, the one crate that
+holds both). A drift on either side goes red there before any consumer reads a
+plausible wrong assertion. Rationale: `.claude/plans/assertion-wire-v1.md` F4/F7.
+
+| # | Contract mirror | Edge-crate source | Arity | Fuse |
+|---|---|---|---|---|
+| 1 | `crates/lance-graph-contract/src/assertion_wire.rs` `AssertionTopology` | `crates/causal-edge/src/layout.rs` `CausalTopology` (`:239`) | 4 | `the_two_wire_vocabularies_mirror_the_edge_crate_ordinal_and_name_exact` |
+| 2 | `crates/lance-graph-contract/src/assertion_wire.rs` `AssertionBand` | `crates/causal-edge/src/layout.rs` `ReasoningBand` (`:353`) | 8 | same |
+
+Deliberately NOT mirrored: `TrustTexture` (the ×4 homonym below) — the wire's
+defining coordinate is topology; a Trust-lensed class reads its raw ordinal via
+`AssertionWire::read_truth_raw` and projects through the edge crate's enum itself.
+
 ## Wave F sprint-12 additions (2026-05-16)
 
 New duplications discovered/predicted from the Wave F fleet (W-F4 through W-F8).

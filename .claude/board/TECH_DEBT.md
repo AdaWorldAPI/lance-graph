@@ -1,3 +1,17 @@
+## TD-PLANNER-CLIPPY-RED-ON-BASE-1 (2026-09-10) — OPEN
+
+**`cargo clippy -p lance-graph-planner --lib --tests -- -D warnings` and
+`--all-targets` are red on `main` in files #1223 did not touch** — measured while
+gating `cache::assertion_wire_parity` (which is itself clean): three
+`clippy::chunks_exact_to_as_chunks` hits under `--tests` (the 1.98 lint #1194 swept at
+ten sites; these are new sites in planner test targets), plus two example targets under
+`--all-targets` (`examples/probe_r2il_frontier_phase2.rs`: *this operation has no
+effect*; `examples/probe_nxg_roll_1.rs:105` `chunks_exact(2)`). Same shape as
+`TD-SUPERVISOR-CLIPPY-RED-ON-BASE-1` / `TD-SIGKER-CLIPPY-RED-ON-BASE-1`: the planner
+is NOT a gated tier in `style.yml` (only contract, deepnsm, deepnsm-v2, callcenter are),
+so CI never sees it. Fix once, then arm a planner clippy step. Not done in #1223: not
+this arc's code, and a lint sweep in a doctrine + one-module PR would bury the diff.
+
 ## TD-SPARE-SHIFT-NAME-IS-STALE-1 (2026-09-10) — OPEN, doc-only
 
 **`crates/causal-edge/src/layout.rs:67-77` still names bits 61-63 `SPARE_SHIFT` and
