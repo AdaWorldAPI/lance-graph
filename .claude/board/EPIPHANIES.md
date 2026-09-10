@@ -101,7 +101,16 @@ is known; the band says what assertion is licensed; LE ensures nobody changes th
 questions while transporting the answer. Refusal half CODED (`band_reading.rs`: lens
 mismatch / absent band / untrusted provenance must FAIL, never a plausible value);
 participation half RULED (D-BBB-NARS-2). Decoration becomes permission; permission becomes
-semantic identity.
+semantic identity. **The aliasing pair, the smallest and strongest falsifier (operator,
+verbatim):** `(S,P,O, f,c, IndirectUnknown, Relation)` — *"S and O are related; mediation
+is unknown"* — versus `(S,P,O, f,c, IndirectKnown, Causal)` — *"P causally connects S to O;
+the mediation is known."* *"`Causal` is not 'Relation with more confidence.' It is a
+different licensed assertion … the complete truth identity is `(S,P,O) × (f,c) × topology
+× assertion-band`. LE must preserve all four components. Flattening either tuple to the
+same `(S,P,O,f,c)` is epistemic aliasing: the DTO would transport identical confidence
+while silently changing what is claimed."* One pair, two falsifiers: `F-BBB-NARS-2` at the
+ABI (encode/store/replay/decode must keep them distinct) and `F-CONSUMER-ASSERTION-1` at
+the consumer (if the pair is one row, it is perfume).
 
 **⊕ Consumer falsifier, same pass — `F-CONSUMER-ASSERTION-1` (Tarski perfume).** A
 consumer that uses the words truth / rung / causal or attaches `(f, c)` while the result

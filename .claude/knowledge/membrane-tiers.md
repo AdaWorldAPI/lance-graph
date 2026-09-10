@@ -342,6 +342,28 @@ versioned truth DTO that D-BBB-NARS-2 defines must therefore carry every definin
 dimension — all six coordinates — never `(f, c)` alone, and its reader must refuse
 where the lens or provenance is undeclared.
 
+**The aliasing pair — the smallest and strongest falsifier for #1223 (operator,
+2026-09-10, verbatim).**
+
+```text
+(S,P,O, f,c, IndirectUnknown, Relation)    "S and O are related; mediation is unknown."
+(S,P,O, f,c, IndirectKnown,   Causal)      "P causally connects S to O; the mediation is known."
+```
+
+*The `(f,c)` values are identical, but the truths are not. `Causal` is not "Relation
+with more confidence." It is a different licensed assertion. Likewise, `IndirectKnown`
+is not a cosmetic refinement of `IndirectUnknown`. Therefore the complete truth
+identity is `(S,P,O) × (f,c) × topology × assertion-band`. LE must preserve all four
+components. Flattening either tuple to the same `(S,P,O,f,c)` is **epistemic
+aliasing**: the DTO would transport identical confidence while silently changing what
+is claimed.* That pair is `F-BBB-NARS-2 (LE)` in its smallest instance — encode, store,
+replay, decode: if the two ever become the same thing, the DTO aliases — and it is
+`F-CONSUMER-ASSERTION-1` in its smallest instance too: a consumer for which the pair is
+one row (`supports = true`) has Tarski perfume, not Tarski semantics. (The four
+components are the truth identity; Pearl projection and provenance complete the
+six-coordinate assertion above — provenance is what declares the lens the four are
+read through.)
+
 **The consumer falsifier — Tarski perfume (operator, 2026-09-10, same pass).** A
 consumer has a *perfume of Tarski* when it uses the words — truth, rung, causal — or
 attaches `(f, c)`, and the result stays decorative. It becomes real only when the

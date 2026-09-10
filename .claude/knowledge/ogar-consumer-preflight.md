@@ -148,6 +148,14 @@ Q6.  Does my typed ASSERTION carry all six coordinates — or only Tarski perfum
                execute NARS / Tarski arithmetic yourself (D-BBB-NARS-1) —
                you carry the assertion.  Falsifier F-CONSUMER-ASSERTION-1,
                membrane-tiers.md § "coordinates of truth".
+
+     The test in one pair (operator, 2026-09-10):
+        (S,P,O, f,c, IndirectUnknown, Relation)
+        (S,P,O, f,c, IndirectKnown,   Causal)
+     Same (f, c), different truths.  If these are one row in your store,
+     one message on your wire, or one branch in your code — perfume.
+     Causal is not Relation with more confidence; flattening the pair to
+     (S,P,O,f,c) is epistemic aliasing.
 ```
 
 Any "STOP" answer catches the trap pre-materialization.
