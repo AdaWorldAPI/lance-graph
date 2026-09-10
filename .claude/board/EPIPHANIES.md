@@ -58,7 +58,12 @@ forbids folding the band with it. Learning account (`entropy-closure-causal-grou
 §4b): 59-60 say what causal hole exists, 61-63 what kind of candidate assertion may bridge
 it, counterfactual removal + revision tests whether it carries causal weight. Both fields
 have writers/readers since #1154 and the W3 verdict carries them instead of a bool
-(`dismech_counterfactual.rs:251-252`). tesseract-rs's `low_confidence: bool` is the
+(`dismech_counterfactual.rs:251-252`) — **no shipped production code writes either
+field**: every non-definition `.with_reasoning_band(`/`.with_topology(` call site is an
+`examples/*.rs` probe or a `#[test]` function (confirmed by census: `cognitive-shader-driver`
++ `lance-graph-planner` examples, and `#[test]` fns in `edge_v3.rs`/`v2_layout_tests.rs`/
+`dismech_counterfactual.rs`); the census below (`ISS-REASONING-BAND-GATES-NOTHING`) already
+records the same for reads. tesseract-rs's `low_confidence: bool` is the
 impoverished form of exactly this. **The precision that closes the loop with the LE
 ruling:** the bits cannot reveal which lens the producer used (`band_reading.rs`); the
 schema (`ClassView::band_reading`) plus asserted provenance supplies that declaration —
@@ -215,6 +220,22 @@ enforcement is wiring plus the census, not a type. What survives from this arc: 
 ruling verbatim, the measured bit facts, the aliasing pair, the smallest law, meaning-
 crosses-machinery-does-not, and the census as the worklist.
 
+**⊘ Precision, same day (codereview finding, confirmed against source) — "defining LE"
+is a RULING about status, not a claim that CE64 has an LE codec.** `CausalEdge64` is
+`#[repr(transparent)] (u64)` with **zero** `to_le_bytes`/`from_le_bytes` — unlike
+`CausalEdgeV3`, which HAS the explicit byte-serialization boundary. CE64's "little-endian
+image" is its in-register u64 value, trivially LE-equivalent on any host because nothing
+ever serializes it — that is exactly the "host-native, zero endian conversions" measurement
+already recorded above, not a contradiction of it. The ruling makes this host-native image
+the DEFINING one by fiat, not by adding a codec. **And the version gate is real, not
+optional:** `topology()`/`reasoning_band()` read bits 59-63 under the `causal-edge-v2-layout`
+feature (default ON); under `default-features = false` (the documented v1-compat opt-out)
+those same bits carry the v1 temporal field and the accessors are fixed stubs
+(`Direct`/`Surface`) — reading them without knowing which layout produced the edge is
+exactly the unstated-reader-assumption `F-BBB-NARS-2` forbids. "Readable from the shipping
+carrier today" holds only under the default feature; a consumer on the v1-compat opt-out has
+no kind to read at these bits at all (`translator.rs`'s own doc comment now says this).
+
 ## 2026-09-07 — E-T1-HAS-TWO-SIBLING-ALGEBRAS-THE-AXIS-IS-SYNTAX-VS-EXECUTION-1 — the membrane is a behavior membrane, not a selection pipeline
 
 **Status:** OPERATOR RULING, BINDING (2026-09-07). Ruled after a three-agent audit of the
@@ -225,7 +246,6 @@ measurement.
 **Confidence:** High. The measurement is exhaustive (repo-wide grep of lgj: 3 hits, all
 prose, all in one unshipped plan); the ruling is the operator's, and it is a ruling, not
 a finding.
-⊘ **2026-09-10 — sharpened, not reversed:** the shape table's *"a truth LITERAL crosses as itself"* was too weak — a bare `(f, c)` pair is a degree, not a typed truth. Typed syntax now means a versioned DTO schema with canonical LE layout, or a typed handle whose registry binds kind + schema. See `E-LE-IS-THE-UNIVERSAL-DTO-LAYER-TYPED-SYNTAX-MEANS-A-VERSIONED-LE-SCHEMA-1` (above). `TruthU8`-is-canonical-at-T0 and everything else here stand.
 
 **The audit's conclusion, verbatim, and why it is wrong.** *"NARS is off the ladder
 entirely; the ladder is selection-shaped and has no tier for scoring."* Descriptively

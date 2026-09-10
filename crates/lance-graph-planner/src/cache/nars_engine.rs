@@ -512,14 +512,23 @@ impl NarsEngine {
 
     /// Hot path: NARS DEDUCTION via lookup table. O(1), no float.
     ///
-    /// `A→B ⟨f1⟩`, `B→C ⟨f2⟩` ⊢ `A→C`. Takes no confidence because the
-    /// deduction table carries none (`tables.rs`: *"Without knowing c, store
-    /// f_out as upper bound"*). Split out so the rule a caller wants is named
-    /// at the call site rather than implied by which table got indexed.
+    /// `A→B ⟨f1,c1⟩`, `B→C ⟨f2,c2⟩` ⊢ `A→C ⟨f,c⟩` with the standard NARS
+    /// deduction truth function `f = f1·f2`, `c = f·c1·c2`. The table
+    /// (`tables.rs`) only bakes in `f1`/`f2` — it has no confidence axis, so
+    /// it stores the packed frequency twice, `f_out` doubling as a
+    /// CONSERVATIVE UPPER BOUND on confidence (since `c ≤ f` always holds
+    /// when `c1, c2 ≤ 1`). `deduce_fast` finishes the computation by scaling
+    /// that upper bound down by the caller's own `c1`/`c2` — returning the
+    /// bare table lookup as "confidence" would silently read a
+    /// zero-confidence premise (`c1 = 0` or `c2 = 0`, e.g. two totally
+    /// unevidenced but high-frequency premises) as maximally confident,
+    /// which is exactly backwards for the case that matters most.
     #[inline]
-    pub fn deduce_fast(&self, f1: u8, f2: u8) -> (u8, u8) {
+    pub fn deduce_fast(&self, f1: u8, c1: u8, f2: u8, c2: u8) -> (u8, u8) {
         let packed = self.tables.deduce(f1, f2);
-        (unpack_f(packed), unpack_c(packed))
+        let frequency = unpack_f(packed);
+        let confidence = (u32::from(frequency) * u32::from(c1) * u32::from(c2) / (255 * 255)) as u8;
+        (frequency, confidence)
     }
 
     /// Hot path: SpoHead → CausalEdge64 for protocol transport.
@@ -1388,7 +1397,7 @@ mod tests {
     fn revise_fast_uses_revision_not_deduction() {
         let engine = NarsEngine::new(SpoDistances::new_zero());
         let (f_rev, _) = engine.revise_fast(200, 128, 200, 128);
-        let (f_ded, _) = engine.deduce_fast(200, 200);
+        let (f_ded, _) = engine.deduce_fast(200, 255, 200, 255);
 
         // Deduction: 200*200/255 = 156. Anti-vacuity — the two rules must be
         // far apart on this input, or the test proves nothing.
@@ -1401,6 +1410,37 @@ mod tests {
         assert!(
             f_rev >= 199 && f_rev <= 201,
             "agreeing witnesses must preserve frequency, got {f_rev}"
+        );
+    }
+
+    /// Codex/CodeRabbit P2 finding on PR #1223: `deduce_fast` used to return
+    /// the deduction table's raw packed byte as "confidence" — that byte is
+    /// `f_out` doubling as a conservative UPPER BOUND (`tables.rs`), not the
+    /// real NARS deduction confidence `c = f·c1·c2`. So two premises with
+    /// ZERO evidential confidence but maximal frequency came back reporting
+    /// confidence 255: maximally confident from maximally unevidenced
+    /// premises. Two-sided — zero confidence must zero the output; full
+    /// confidence at the same frequencies must still reach the upper bound
+    /// (proving the fix scales rather than always returning zero).
+    #[test]
+    fn deduce_fast_confidence_scales_with_premise_confidence_not_just_frequency() {
+        let engine = NarsEngine::new(SpoDistances::new_zero());
+
+        // f1 = f2 = 255 -> f_out = 255 (max frequency, the upper bound).
+        let (f_max_freq, c_zero_conf) = engine.deduce_fast(255, 0, 255, 0);
+        assert_eq!(
+            f_max_freq, 255,
+            "fixture drifted: f1=f2=255 must deduce f=255"
+        );
+        assert_eq!(
+            c_zero_conf, 0,
+            "zero-confidence premises must not deduce full confidence, got {c_zero_conf}"
+        );
+
+        let (_, c_full_conf) = engine.deduce_fast(255, 255, 255, 255);
+        assert_eq!(
+            c_full_conf, 255,
+            "max-confidence premises at the same frequencies must still reach the upper bound"
         );
     }
 

@@ -350,6 +350,15 @@ the versioned LE truth DTO with its own refusing reader and the two fused vocabu
 so the G11 allowlist entry it was gated on is now admissible; the entry itself (lgj
 `ALLOWED` + `CLAUDE.md` + `Cargo.toml` + the manifest's schema export) is the
 lance-graph-java brick and is still not resident. D-BBB-NARS-3 stays Queued.
+**⊘ Still later the same day — retracted.** `assertion_wire` was fabrication: nobody
+asked for a new DTO type, and the first cut was built on the wrong carrier (the V3
+facet, which drops the in-edge S/P/O the aliasing pair requires). Operator: *"we
+already have causaledge64"*, *"not a wrapper — just wiring"*. The module, its fuse, and
+its plan are DELETED (commit `2c66c01`); D-BBB-NARS-2 is **Queued**, not built, exactly
+as this paragraph originally said before the retracted addendum. The G11 allowlist
+entry is NOT admissible on that gate — it remains gated on the WIRING (using CE64's
+existing `topology()`/`reasoning_band()` directly), never on a type that does not exist.
+Losing text kept above; code and plan gone.
 
 **2. The named epistemic primitives are not at T1.** `revision`/`deduction`/`abduction`/
 `induction` are CODED, but only inside `crates/lance-graph-planner/src/cache/nars_engine.rs:194-207`
@@ -381,6 +390,15 @@ no truth type — not `TruthU8`, not `CausalEdge64`, not any `NarsTruth` — car
 version, a `repr(C)` layout, or an LE codec (see § "LE is the universal DTO layer").
 `CausalEdge64`'s byte image is host-native at every crossing today. Ruled 2026-09-10;
 defined by D-BBB-NARS-2 when it lands; nothing built here.
+**⊘ Superseded, same day, later still (operator, verbatim: *"we should always
+enforce CE64 as defining LE"*).** The measurements above stand — no `repr(C)`, no
+explicit `to_le_bytes`/`from_le_bytes`, host-native at every crossing — but "ABSENT
+for truth… defined by D-BBB-NARS-2 when it lands" is no longer the status. The gap
+is closed by RULING, not by a new codec: `CausalEdge64`'s existing host-native
+8-byte image IS declared the defining LE representation, always, going forward.
+D-BBB-NARS-2 will NOT build a new type to close this — see § "CE64 IS the defining
+LE — always enforced" above. What remains open is wiring (using `topology()` /
+`reasoning_band()` at the sites that lack them) and the census, never a codec.
 
 ### The ruling and its falsifier
 

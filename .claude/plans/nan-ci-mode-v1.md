@@ -273,6 +273,27 @@ generalised to fields that have no free value to poison with.
   a stored zero and a never-written zero are the same byte on disk, and the
   sidecar does not survive a round-trip to storage either.
 
+**⊘ Boundary named, not yet enforced (codereview finding, confirmed valid —
+open, needs an implementation-time decision before `D-NCI-1`).** The canary
+write itself is an in-memory mutation of the plain byte-range fields at
+construction time, in a CI build — it happens BEFORE the read-side observer
+runs, and N1's own wording ("Release builds are byte-identical... Only a
+CI/verbose build differs, and only in what it OBSERVES") does not on its face
+authorize a CI-build WRITE-side change; it was written with the read-side
+compare in mind. Concretely: if a CI-built binary's canary-poisoned object is
+ever serialized — a saved test fixture, a CI-produced Lance snapshot compared
+across runs, anything that outlives the process that poisoned it — the canary
+bytes leak into what is supposed to be release-shaped data. **This plan does
+not yet resolve that boundary; `D-NCI-1` owes one of:** (a) restrict poisoned
+objects to construction-and-immediate-read within one CI process, with a
+debug assertion refusing any serialization call on a still-poisoned object
+before that boundary is crossed, or (b) treat N1 as scoped to release-vs-CI
+*decode* only (as its own text literally says) and accept that a CI build's
+in-memory representation may differ, so long as nothing CI produces is ever
+consumed outside that same CI run. Either resolution is compatible with N6
+("not switched off after certification") and N2 (observe-and-fail only); the
+plan currently asserts neither explicitly, and should before `D-NCI-1` lands.
+
 **Design 2 — SWAPPED ENCODING. NAMED, NOT AUTHORISED HERE.**
 Reassign `0b0000 -> NaN` and `0b1000 -> 0` on signed-i4 fields, making the
 default byte the absence sentinel in storage, permanently. Real value set
@@ -404,9 +425,20 @@ It maps onto surfaces that already exist:
 - `EdgeProvenance` — the epoch the raw ordinal was written under
 
 A wire is **certified** when: a producer stamps it, a class declares it, a
-consumer projects it through the contract (not a raw accessor), and the CI mode
-reports zero canary reads on that path. Progress is then a countable fraction,
-not a feeling.
+consumer projects it through the contract (not a raw accessor), **that path has
+been observed to execute at least once** (a positive read count, not merely the
+absence of canary reads), and the CI mode reports zero canary reads across those
+observed reads. Progress is then a countable fraction, not a feeling.
+
+**⊘ Gap closed (codereview finding, confirmed valid):** "zero canary reads" alone
+is necessary but not sufficient — a dead or never-exercised consumer path ALSO
+reports zero canary reads, for the same reason a light switch nobody has flipped
+reports no failures. Certifying that would be certifying silence, not
+correctness (the same `can-fire`/`can-stay-silent` pairing N4 already requires
+of every guard in this plan, applied here to the certification criterion
+itself). The fix is the added clause above: `D-NCI-3`'s allowlist-seeding census
+and `D-NCI-4`'s per-wire certification both need a read-count, not just a
+canary-count, before marking a wire green.
 
 ### 4.2 Enforcement is an allowlist that SHRINKS (N5)
 
@@ -544,6 +576,18 @@ is worth more than a large census of inert ones.
 - This is a **probe, not a gate**. `counterfactual_replay` has no production
   caller today (measured: tests only), and replaying every chain is not a CI
   budget. It belongs after `D-NCI-2`, not inside `D-NCI-1`.
+- **"`0` = absent" here means canary-detected absent, never a blanket
+  reinterpretation of every stored zero (codereview finding, confirmed
+  valid).** §3.3's own Design 1 already discloses the limit this probe must
+  respect: "a stored zero and a never-written zero are the same byte on
+  disk" for an ALREADY-PERSISTED row — poison-fill cannot tell them apart
+  there, and nothing here changes that. The probe's counterfactual arm is
+  legitimate ONLY over freshly-constructed, CI-instrumented objects where the
+  canary (or the saturated-field sidecar) makes "never written" a real,
+  distinct signal from "written as zero" — never over rows loaded from
+  storage, where `0` remains a value, full stop. A future implementation
+  scopes the probe's input to canary/sidecar-tagged objects explicitly; it
+  does not run this arm against persisted corpora.
 - **The confidence axis is available, but only if the caller buys it.**
   ⊘ This bullet first read *"blind on the confidence axis as things stand —
   `revise_fast(f1, _c1, f2, _c2)` discards BOTH confidences ... fix that

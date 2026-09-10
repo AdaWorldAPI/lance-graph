@@ -1,3 +1,24 @@
+## 2026-09-10 — CORRECTION: the `assertion_wire` entry below is stale — the module was DELETED as fabrication
+
+The `## 2026-09-10 — assertion_wire — the versioned canonical LE truth DTO
+(D-BBB-NARS-2) → .claude/plans/assertion-wire-v1.md` entry further down this
+file describes `contract::assertion_wire` as built and **"In PR (#1223)."**
+It no longer exists. Same day, after that entry landed, operator: *"we
+already have causaledge64"*, *"not a wrapper — just wiring"*, *"we should
+always enforce CE64 as defining LE."* Commit `2c66c01` deleted the module
+(`assertion_wire.rs`, 734 lines), its cross-crate fuse
+(`assertion_wire_parity.rs`, 227 lines), and its own plan file
+(`assertion-wire-v1.md`) as fabrication — `CausalEdge64`'s existing
+`topology()`/`reasoning_band()` accessors ARE the defining LE representation;
+nobody asked for a second DTO type. Full record: `EPIPHANIES.md`
+"⊘⊘ 2026-09-10, fourth pass — FOUR FABRICATIONS IN THIS ENTRY" (under
+`E-LE-IS-THE-UNIVERSAL-DTO-LAYER-TYPED-SYNTAX-MEANS-A-VERSIONED-LE-SCHEMA-1`);
+`STATUS_BOARD.md`'s D-BBB-NARS-2 row already carries the matching retraction.
+That commit corrected both of those but missed this file and
+`LATEST_STATE.md` (corrected separately, same day) — the entry below is
+retracted by this one rather than edited in place, per this file's
+append-only convention.
+
 ## 2026-09-10 — the NaN CI mode → `.claude/plans/nan-ci-mode-v1.md`
 
 **Status: PROPOSAL.** `D-NCI-1..5` are unbuilt (`D-NCI-5` splits into its own
