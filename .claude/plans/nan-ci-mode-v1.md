@@ -257,6 +257,18 @@ drafted:**
   canary risks only a documented, avoidable VALUE collision, not the
   saturated fields' guaranteed STRUCTURAL impossibility.
 
+**⊘ "Avoidable" is not yet "avoided" (codereview finding, confirmed valid —
+open, needs an implementation-time decision before `D-NCI-1`).** `pack`/
+`pack_v2` accept unrestricted `u8` for S, P, O, frequency and confidence, so a
+literal canary is, today, just a `u8` value picked without a stated exclusion
+rule — a legitimate producer emitting that exact byte would be misread as
+absent. This plan does not yet name the sentinel(s) or a producer-side
+invariant that rules them out (§6 gate G7 below makes this a pre-registered
+requirement rather than an implementation afterthought); the choice itself
+(which byte, and whether it is a true exclusion or a measured-and-accepted
+low-probability collision) is `D-NCI-1`'s to make, with a collision test as
+its own evidence, not this plan's to pre-decide in the abstract.
+
 `pack()` fills the plain byte-range fields with the canary, likewise
 `CausalEdge64::ZERO`, `Default::default()`, `from_v1_tail_unstated`, and the
 equivalent SoA/tenant initialisers; the three saturated fields and the
@@ -691,6 +703,8 @@ been read wrong.
 | G4 | **Can-stay-silent.** `frequency_u8` / `confidence_u8` survive a CE64 round-trip and must report **present**. | If those report absent, the probe is wrong. |
 | G5 | **The allowlist shrinks.** Every PR after D-NCI-3 either leaves the allowlist unchanged or removes entries. | An addition without an explicit debt admission = block. |
 | G6 | **No new CE64 bit, no `ENVELOPE_LAYOUT_VERSION` bump** (N3). | Any layout constant moves = out of scope, split the PR. |
+| G7 | **Byte-range canaries are collision-audited, not merely disclosed** (codereview finding, added post-council). Each plain byte-range field (S/P/O, frequency, confidence) that adopts a literal in-value canary names its exact sentinel value(s) and a producer-side exclusion invariant, backed by a test proving the sentinel is distinguishable from every value a real producer emits. | A canary shipped without a stated exclusion invariant, or without a collision test, is not ready — block until named. |
+| G8 | **The sidecar has one stated ownership rule per edge instance** (codereview finding, added post-council), covering `Copy`, array/`Vec` storage, `ZERO`/`Default` resets, and direct setter calls that bypass any outer constructor. | A sidecar read that can return another edge's touch state, or silently under-reports touch state on a bypassed path, is a defect in the mechanism itself — block until the ownership rule is written down. |
 
 G3 and G4 together are the N4 pair applied to the instrument itself, and they
 are the two that a vacuous version of this work would skip.
@@ -791,6 +805,28 @@ formula with the absence check, not merely re-base the divisor.
    exhaustive enum match, a chosen canary risks only a documented, avoidable
    VALUE collision there, never the saturated fields' structural
    impossibility. See §3.3 for the mechanics text.
+
+   **⊘ Ownership left unspecified (codereview finding, confirmed valid — open,
+   needs an implementation-time decision before `D-NCI-1`).** `CausalEdge64`
+   is a plain public `Copy` `#[repr(transparent)]` value with public setters;
+   the sidecar as described has no stated rule for WHICH edge instance a
+   sidecar entry belongs to once that guarantee is exercised. Concretely,
+   unaddressed here: (a) a `Copy` of an edge — does the copy's sidecar entry
+   move, alias the original's, or start fresh (correctly reporting the copy's
+   own fields as untouched, even though the bits were copied touched)? (b) an
+   array/`Vec<CausalEdge64>` of edges, or `CausalEdge64::ZERO`/
+   `Default::default()` used as a reset — same question, at scale. (c) a
+   DIRECT call to `with_topology`/`with_reasoning_band`/`with_w_slot` that
+   bypasses whatever "outer constructor" the sidecar is populated through —
+   nothing in the type system forces a caller through that constructor, so a
+   direct call risks a stale sidecar entry silently under-reporting touch
+   state (a false absence, the OPPOSITE direction from a poisoned false
+   presence, and arguably worse: it would suppress a real ABI-debt finding).
+   The mechanism needs a keying scheme (edge identity, not edge VALUE — two
+   edges with identical bits are not the same provenance) before `D-NCI-1`
+   can implement it soundly; naming that scheme is implementation work, not a
+   plan-text decision, but its ABSENCE is a real gap this plan should not
+   paper over.
 2. **R2 — Failure granularity: aggregate during Wave 0, per-test after.**
    Wave 0 (census-only, N5) reports one aggregate table, no test fails —
    matching §4.2 step 1 exactly. Once the allowlist exists (post `D-NCI-3`),
