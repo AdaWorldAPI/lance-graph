@@ -76,10 +76,16 @@ introduce a fresh error; losing text kept. Rung↔field derivability stays CONJE
 beside the point for these bits.
 
 **⊕ Third pass, same day — the dimensions are COORDINATES of truth, not annotations
-around it.** A field can be *decorative* (displayable, nothing depends on it),
-*permissive* (governs what the reasoner may accept or assert — the §4b bridge gate), or
-*defining* (part of the canonical identity of the assertion — omitting, changing or
-reinterpreting it creates a different claim). The LE ruling makes bits 59-63 **defining**:
+around it.** *Decorative* (displayable, nothing depends on it), *permissive* (governs
+what the reasoner may accept or assert — the §4b bridge gate), *defining* (part of the
+canonical identity of the assertion — omitting, changing or reinterpreting it creates a
+different claim) — and this is **NOT a ladder**, it is a VERDICT on how bad the substrate
+is: only LE-defining is real, everything else is prose (operator, fourth pass, verbatim:
+*"decorative / permissive / defining is not a ladder — is a verdict about how bad the
+substrate is, saying the only truly defining is LE, everything else is prose"*). **⊘** the
+first cut of this paragraph read it as three grades a field may hold and placed the
+code "between decorative and permissive"; wrong reading, words kept. The LE ruling makes
+bits 59-63 **defining**:
 `Assertion = proposition reference × Pearl projection × NARS valuation × causal topology ×
 reasoning/assertion band × provenance`, so `(S,P,O, f,c, IndirectUnknownIntermediates,
 Relation)` and `(S,P,O, f,c, IndirectKnownIntermediates, Causal)` are different claims with
@@ -89,10 +95,11 @@ it has changed what was asserted, which is exactly `F-BBB-NARS-2 (LE)`. MUL by g
 decorative → observes a label; permissive → admission gate; defining → knows WHICH epistemic
 claim propagated across storage, ABI and replay — that is where MUL becomes real
 meta-awareness, and that is the Tarski adjacency. A consumer carrying only a perfume of
-Tarski (a bool, a label nothing depends on) has not carried the assertion. Coded today:
-between decorative and permissive (W3 carries both fields; `ISS-REASONING-BAND-GATES-NOTHING`
-says the band gates nothing yet). Ruled: defining. D-BBB-NARS-2's DTO carries all six
-coordinates, never `(f, c)` alone. **The smallest #1223 law, verbatim:** *"A field becomes
+Tarski (a bool, a label nothing depends on) has not carried the assertion. Verdict on the
+substrate as coded: in `CausalEdge64` the two dimensions are PROSE today (W3 carries both
+fields, but `ISS-REASONING-BAND-GATES-NOTHING` says the band gates nothing); the first
+LE-defining home is the wire, `contract::assertion_wire`. D-BBB-NARS-2's DTO carries all
+six coordinates, never `(f, c)` alone. **The smallest #1223 law, verbatim:** *"A field becomes
 defining when changing or omitting it changes the proposition, not merely its
 presentation. Every defining epistemic dimension SHALL participate in the versioned
 canonical LE DTO; a reader lacking its declared lens or provenance must refuse, never

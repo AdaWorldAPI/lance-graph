@@ -281,10 +281,18 @@ frequency/confidence"*, `layout.rs`) is the in-code form of *LE adds no evidence
 asserts the kind*.
 
 **These dimensions are COORDINATES of truth, not annotations around it (operator,
-2026-09-10, third pass).** Three grades a field can hold, and the LE ruling picks the
-last:
+2026-09-10, third pass).** Decorative / permissive / defining is **NOT a ladder** — it is
+a VERDICT on how bad a substrate is (operator, fourth pass: *"decorative / permissive /
+defining is not a ladder — it is a verdict about how bad the substrate is, saying the
+only truly defining is LE; everything else is prose"*). There is no rung to sit on below
+defining: a decorative field and a permissive field are two ways of being prose, the
+same finding as property 1 (*"a membrane without a gate is prose"*). Only the LE-defining
+representation is real. **⊘ same day:** this section first said *"Three grades a field
+can hold, and the LE ruling picks the last"* and graded the code *"between decorative and
+permissive"* — the wrong reading; the losing words are kept here, the verdict table is
+what stands:
 
-| grade | what the bits do | MUL at that grade |
+| verdict | what the bits do | MUL under that verdict |
 |---|---|---|
 | **decorative** | can be displayed; nothing depends on them | observes a label |
 | **permissive** | govern what the reasoner may accept or assert (the `entropy-closure-causal-ground-v1` §4b gate: *what kind of bridge may cross the hole*) | uses them as an admission gate |
@@ -333,14 +341,16 @@ identity. **Coded vs ruled, by clause:** the refusal half is already CODED for t
 reading contract — `band_reading.rs` (D-ACR-7, council-ratified): *"a lens mismatch,
 an absent band, or untrusted provenance must FAIL, never return a plausible value"*,
 `EdgeProvenance::Unknown` refuses, `BandPresence::Absent` refuses (G3′/G4′/G5b) —
-and the participation half is RULED, defined by D-BBB-NARS-2 when it lands. By grade:
-the W3 verdict carries both fields (`dismech_counterfactual.rs:251-252`) but
-`ISS-REASONING-BAND-GATES-NOTHING` (2026-08-26) records that the band gates no
-control loop yet, so today the code sits between decorative and permissive; the
-§4b guard makes it permissive by design; the LE ruling makes it **defining**. The
-versioned truth DTO that D-BBB-NARS-2 defines must therefore carry every defining
-dimension — all six coordinates — never `(f, c)` alone, and its reader must refuse
-where the lens or provenance is undeclared.
+and the participation half is RULED, defined by D-BBB-NARS-2 when it lands. **The
+verdict on the substrate as coded:** the W3 verdict carries both fields
+(`dismech_counterfactual.rs:251-252`) but `ISS-REASONING-BAND-GATES-NOTHING`
+(2026-08-26) records that the band gates no control loop yet — so in `CausalEdge64`
+itself the two dimensions are PROSE today (decorative in the carrier, permissive only
+on paper in the §4b guard). The first place they are LE-defining is the wire:
+`contract::assertion_wire`, where the pair cannot alias and a reader lacking lens or
+provenance refuses. The versioned truth DTO that D-BBB-NARS-2 defines must therefore
+carry every defining dimension — all six coordinates — never `(f, c)` alone, and its
+reader must refuse where the lens or provenance is undeclared.
 
 **The aliasing pair — the smallest and strongest falsifier for #1223 (operator,
 2026-09-10, verbatim).**
