@@ -93,9 +93,14 @@ T1  epistemic primitives (beside the population primitives)
 T0  TruthU8 lanes / rows / history / state
 ```
 
-T3 may say `Truth.Revision(lhs_handle, rhs_handle)`. **It may not know how
-revision works.** T2 resolves the name; T1 executes the arithmetic; T0 owns
-every resulting `TruthU8`.
+**Target route, not an available one.** T3 will say
+`Truth.Revision(lhs_handle, rhs_handle)`, and **will not know how revision
+works** — that part is the ruling and is permanent. The rest is not yet built:
+once the structural gate exists and `plan_eval` carries a Truth opcode (it
+carries `{EQ_U32, GT_I32}` today and no Truth opcode; both gate on
+D-BBB-NARS-2/-3), T2 will resolve the name, T1 will execute the arithmetic, and
+T0 will own every resulting `TruthU8`. The membrane above is shipped; the
+operation that would travel it is not. See § "What is ruled vs what is coded".
 
 ### Extend the plan language, NOT the ABI surface
 

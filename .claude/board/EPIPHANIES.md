@@ -32,11 +32,18 @@ intent in either.** Every existing rule applies unchanged to the second column �
 `kernel-membrane-warden`'s HAND-COMPOSED verdict covers a T2 spelling `revision` out of
 smaller truth ops exactly as it covers the two-AND spelling of `AND3`.
 
-NARS lowers through the membrane that already exists: T3 names
-`Truth.Revision(lhs_handle, rhs_handle)` and may not know how revision works; T2's
-`plan_eval` resolves the name; T1 executes; T0 owns every resulting `TruthU8`. **Extend
-the plan language, not the ABI surface** — `lgj_plan_eval` exists precisely so a whole
-behavioral expression crosses once.
+NARS lowers through the membrane that already exists — as a TARGET ROUTE, not an
+available one. ⊘ **Corrected pre-merge 2026-09-10** (CodeRabbit, Major); the sentence
+first read *"T3 names `Truth.Revision(...)` … T2's `plan_eval` resolves the name; T1
+executes; T0 owns every resulting `TruthU8`"*, present tense, which published an
+unavailable capability as a working route and contradicted this entry's own ⊕ addendum
+below. The route is: T3 will name `Truth.Revision(lhs_handle, rhs_handle)` and will not
+know how revision works; **once the structural gate exists and `plan_eval` carries a
+Truth opcode** — neither does today, and both gate on D-BBB-NARS-2/-3 — T2's `plan_eval`
+will resolve the name, T1 will execute, and T0 will own every resulting `TruthU8`. The
+membrane it lowers through is real and shipped; what is not yet built is the Truth
+operation that would travel it. **Extend the plan language, not the ABI surface** —
+`lgj_plan_eval` exists precisely so a whole behavioral expression crosses once.
 
 **A wording correction the ruling forces.** `TruthU8` had been called "the canonical wire
 form." Two different claims were being conflated: it is the canonical **substrate**
