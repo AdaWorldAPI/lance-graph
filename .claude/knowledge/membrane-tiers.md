@@ -395,6 +395,17 @@ consumer; nothing of it is quoted here — tesseract-rs's `low_confidence: bool`
 perfume case measurable in the public tree). Consumer pre-flight: Q6 in
 `ogar-consumer-preflight.md`.
 
+**Where the obligation sits (operator, 2026-09-10): perfume is bad because lance-graph
+has not put the assertion in the WIRE CONTRACT yet.** A consumer that wants the real
+thing today has to *sniff* the carrier — hand-roll the tuple, read bits 59-63 through a
+lens it declares itself — and that is perfume CODE without a contract: the exact
+re-implement-the-Core-locally trap `ogar-consumer-preflight.md` exists to stop. So the
+remedy for `F-CONSUMER-ASSERTION-1` is never consumer-side: it is `D-BBB-NARS-2`, the
+versioned canonical LE truth DTO that carries all six coordinates and that the consumer
+PULLS. The consumer's part is to carry it whole and preserve its distinctions; the
+contract's part is to exist. That consumer need is now demonstrated, which is the gate
+`D-BBB-NARS-2` was queued on — it is the next brick, not built in #1223 (doctrine-only).
+
 **⊘ 2026-09-10, same day — the first cut of this paragraph was wrong on both fields,
 and the operator corrected it within the hour.** It read: *"the `TrustTexture` lens at
 bits 59-60 (coded) and the Tarski rung at bits 61-63 (ruled today; the field is

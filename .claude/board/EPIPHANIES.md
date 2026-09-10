@@ -110,7 +110,12 @@ different licensed assertion … the complete truth identity is `(S,P,O) × (f,c
 same `(S,P,O,f,c)` is epistemic aliasing: the DTO would transport identical confidence
 while silently changing what is claimed."* One pair, two falsifiers: `F-BBB-NARS-2` at the
 ABI (encode/store/replay/decode must keep them distinct) and `F-CONSUMER-ASSERTION-1` at
-the consumer (if the pair is one row, it is perfume).
+the consumer (if the pair is one row, it is perfume). **And the obligation sits with
+lance-graph:** perfume is bad because the assertion is not in the WIRE CONTRACT yet — a
+consumer that wants it today must sniff the carrier and hand-roll the tuple, which is
+perfume code without a contract (the re-implement-the-Core trap). The remedy is
+`D-BBB-NARS-2`, the versioned LE truth DTO the consumer pulls; that need is now
+demonstrated, so D-BBB-NARS-2's gate is met — next brick, not built here.
 
 **⊕ Consumer falsifier, same pass — `F-CONSUMER-ASSERTION-1` (Tarski perfume).** A
 consumer that uses the words truth / rung / causal or attaches `(f, c)` while the result

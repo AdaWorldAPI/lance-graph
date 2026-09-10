@@ -156,6 +156,13 @@ Q6.  Does my typed ASSERTION carry all six coordinates — or only Tarski perfum
      one message on your wire, or one branch in your code — perfume.
      Causal is not Relation with more confidence; flattening the pair to
      (S,P,O,f,c) is epistemic aliasing.
+
+     And the remedy is NEVER to sniff the carrier yourself — hand-rolling the
+     tuple from CE64 bits 59-63 through a lens you declare locally is perfume
+     CODE without a contract, the Q3 trap in epistemic clothing.  The
+     assertion belongs in lance-graph's wire contract (D-BBB-NARS-2, the
+     versioned LE truth DTO); you PULL it.  If it does not exist yet, that is
+     the need to surface — not a gap to fill locally.
 ```
 
 Any "STOP" answer catches the trap pre-materialization.
