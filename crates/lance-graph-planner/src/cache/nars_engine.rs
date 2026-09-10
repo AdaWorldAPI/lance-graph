@@ -448,7 +448,7 @@ impl NarsEngine {
     pub fn new(distances: SpoDistances) -> Self {
         Self {
             distances,
-            tables: NarsTables::build(1), // fast path: 1 c-level = 128 KB
+            tables: NarsTables::build(1), // fast path: 1 c-level = 256 KB (128 KB revision + 128 KB deduction)
             consecutive_confident: 0,
             history: Vec::new(),
         }
@@ -458,9 +458,10 @@ impl NarsEngine {
     /// resolution.
     ///
     /// `c_levels` is clamped to `1..=16` by `NarsTables::build`. Memory is
-    /// `c_levels² × 128 KB` for the revision tables plus 128 KB for
-    /// deduction: **1 → 128 KB** (the `new` default, confidence inert),
-    /// **4 → ~2 MB**, **16 → ~32 MB** (full precision). Pick deliberately;
+    /// `(c_levels² + 1) × 128 KB` — the revision tables plus the always-present
+    /// 128 KB deduction table: **1 → 256 KB** (the `new` default, confidence
+    /// inert — NOT 128 KB; the deduction table is allocated unconditionally),
+    /// **4 → ~2.1 MB**, **16 → ~32.1 MB** (full precision). Pick deliberately;
     /// the default is the fast path, not the accurate one.
     pub fn with_c_levels(distances: SpoDistances, c_levels: usize) -> Self {
         Self {
