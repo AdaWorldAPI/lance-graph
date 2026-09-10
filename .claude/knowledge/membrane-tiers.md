@@ -217,9 +217,27 @@ it before.
 |---|---|---|
 | Any truth DTO with schema + version + canonical LE encode/decode? | **CODED for the envelope, ABSENT for truth.** No truth type rides the envelope contract | `ENVELOPE_LAYOUT_VERSION` exists; zero `to_le_bytes`/`from_le_bytes` in `translator.rs` or `causal-edge/src/edge.rs` |
 | Is `TruthU8` a wire DTO? | **No — substrate value only.** Plain `#[derive(Copy)]` struct, no `repr(C)`, no version, no codec; without `repr(C)` Rust does not even guarantee field order | `translator.rs:34-40` |
-| `CausalEdge64` byte order at crossings? | **Host-native.** `#[repr(transparent)] (u64)`; bit positions are register-defined (`FREQ_SHIFT=24`, `CONF_SHIFT=32`, `INFER_SHIFT=46`) and endianness-agnostic in-register, but the 8-byte image at any crossing is whatever the host writes — **0** endian conversions in the file. Its v1/v2 layouts are a compile-time feature, invisible in the bytes: exactly what a versioned schema exists to make visible | `edge.rs:160-176` |
+| `CausalEdge64` byte order at crossings? | **Host-native.** `#[repr(transparent)] (u64)`; bit positions are register-defined (`FREQ_SHIFT=24`, `CONF_SHIFT=32`, `INFER_SHIFT=46`) and endianness-agnostic in-register, but the 8-byte image at any crossing is whatever the host writes — **0** endian conversions in the file. Its v1/v2 layouts are a compile-time feature, invisible in the bytes: exactly what a versioned schema exists to make visible. **⊘ Corrected same day:** the KIND is not absent from this carrier — bits 59-60 already carry a 2-bit `TrustTexture` lens (MUL's reading, CODED, `layout.rs:56-65`), and bits 61-63 are the reserved SPARE that the operator has now assigned as the **NARS × Tarski rung** (RULED 2026-09-10, unwritten in code; `layout.rs:67-77` lists other candidates and a v1 version-gate note). The `(f, c)` bytes have no kind *of their own*; the kind rides beside them in the same carrier | `edge.rs:160-176`, `layout.rs:52-77` |
 | Can `TruthLiteral`'s kind be inferred from its enclosing typed AST? | **No.** 0 code sites; the doctrine had it crossing as an untyped pair | this file, `bbb-warden.md` |
 | Can MUL determine the same kind from the same bytes, host-independent? | **No — MUL never sees bytes.** `SituationInput` is typed `f64`s; `revise_fast(f1: u8, _c1: u8, f2: u8, _c2: u8)` takes bare degrees and ignores confidence. Kind is whatever the caller labelled | `mul.rs:12-30`, `nars_engine.rs:459` |
+
+**Truth in this substrate is NARS × Tarski, and the carrier asserts its own kind
+(operator, 2026-09-10).** A truth here is not a boolean. tesseract-rs is the worked
+example: the *validity of a scanned property* — did the OCR read it right? — is a
+statement ABOUT an observation, and the substrate carries that not as `true`/`false`
+but as a NARS degree at a Tarski rung: `(f, c)` × *which meta-level this claim sits
+on* (`Belief.rung`, `nars/belief.rs:96` — 0 observed, derived = max(premise)+1, fixed
+at creation). tesseract-rs today emits the degree (`sentence_nars_truth`) and collapses
+the kind to a bool (`doc.v1` `low_confidence`) — the boolean IS the impoverishment.
+In `CausalEdge64` the kind has an LE-fixed home: the `TrustTexture` lens at bits 59-60
+(coded) and the Tarski rung at bits 61-63 (ruled today; the field is `SPARE_SHIFT`,
+3 bits, rung 0..7). So the same principle that makes the S/P/O bytes typed — the
+carrier asserts its own reference, via palette256 in FisherZ space — makes the truth
+typed: **the carrier asserts its own kind.** That is the strongest form of "typed
+syntax": the kind travels at LE positions with the degree, not in a lookup. What is
+CODED: the lens. What is RULED: the rung assignment. What is CONJECTURE and stays so:
+that the rung is *derivable* from any packed field — `probe_tarski_signed_witness.rs`
+withdrew exactly that claim as vacuous. Nothing here writes bits 61-63.
 
 **What this does NOT do.** No DTO struct, no opcode, no ABI symbol, no G11 import,
 no Java, no conversion. D-BBB-NARS-2 (the syntax/vocabulary contract) is where the

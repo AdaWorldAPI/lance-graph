@@ -38,6 +38,17 @@ carrier the whole integer-to-byte mapping is explicitly LE. **Evidence is not
 repetition:** an identical canonical wire image repeated is the same assertion
 propagated, not independent evidence; revision still needs independent stamps.
 
+**⊘ Same-day correction — the kind is IN the carrier.** The first cut of this entry read
+`CausalEdge64` as carrying a degree with nothing for its kind. Measured: bits 59-60 are a
+CODED 2-bit `TrustTexture` lens (MUL's reading, 4 variants), and bits 61-63 are the
+reserved SPARE the operator has now named as the **NARS × Tarski rung** — truth in this
+substrate is `(f, c)` at a Tarski meta-level, never a boolean (`Belief.rung`, u32 in the
+arena, 0..7 in 3 bits). tesseract-rs's `low_confidence: bool` is the impoverished form of
+exactly that. The carrier asserts its own reference (S/P/O via palette256/FisherZ) AND its
+own kind (lens + rung): typed syntax at its strongest, kind travelling at LE positions with
+the degree. Ruled, not coded: nothing writes 61-63; rung↔field derivability stays
+CONJECTURE (the probe that claimed it withdrew it).
+
 **Three corrections landed with it, all in-tree, no code.** (1) `bbb-warden`'s sanctioned
 delegation returned a COMPUTED `TruthLiteral` — a bare pair crossing back — which blessed
 the exact leak; it now returns an opaque typed handle. (2) `translator.rs` said `TruthU8`

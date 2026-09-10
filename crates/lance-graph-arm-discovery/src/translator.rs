@@ -24,7 +24,11 @@ pub const NARS_PERSONALITY_K: u32 = 1;
 
 /// Quantised NARS truth — the canonical, float-free **substrate** representation.
 /// `255` = 1.0. Mirrors the `CausalEdge64` truth pair — `frequency_u8` (bits 24-31)
-/// + `confidence_u8` (bits 32-39). (An earlier comment paired `confidence_u8` with
+/// + `confidence_u8` (bits 32-39). In that carrier the pair's KIND rides beside it:
+/// the `TrustTexture` lens at bits 59-60 (coded) and the NARS × Tarski rung at bits
+/// 61-63 (`SPARE_SHIFT`, ruled 2026-09-10, not yet written) — truth in this substrate
+/// is a degree at a Tarski meta-level, never a boolean. This struct carries the
+/// degree only. (An earlier comment paired `confidence_u8` with
 /// the i4 mantissa; that was wrong — the i4 mantissa at bits 46-49 is the
 /// `InferenceType`, provenance/type grammar, not half of the truth value.)
 ///
