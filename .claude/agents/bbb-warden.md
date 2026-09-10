@@ -56,8 +56,9 @@ second. **The axis is syntax vs execution, never selection vs scoring.** So:
   carrier-borne assertion the schema fixes ALL its coordinates — Pearl projection,
   `CausalTopology` (bits 59-60), `ReasoningBand` (bits 61-63), provenance — because
   under the LE ruling those are DEFINING, not optional metadata: a DTO or decoder that
-  drops them, or reads `Relation` as `Causal`, has changed the claim
-  (`membrane-tiers.md` § "coordinates of truth"; `F-BBB-NARS-2`).
+  drops them, or reads `Relation` as `Causal`, has changed the claim, and a reader
+  lacking the declared lens or provenance must REFUSE, never project a plausible
+  default (`membrane-tiers.md` § "coordinates of truth"; `F-BBB-NARS-2`).
 - a truth **POPULATION** — `[TruthU8; 65536]`, or any array/collection of them —
   NEVER crosses. It becomes `TruthLaneId(u64)`, an opaque descriptor. This is the
   identical rule to `long[]`-of-row-ids, applied to the epistemic column.

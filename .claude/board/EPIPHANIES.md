@@ -92,7 +92,16 @@ meta-awareness, and that is the Tarski adjacency. A consumer carrying only a per
 Tarski (a bool, a label nothing depends on) has not carried the assertion. Coded today:
 between decorative and permissive (W3 carries both fields; `ISS-REASONING-BAND-GATES-NOTHING`
 says the band gates nothing yet). Ruled: defining. D-BBB-NARS-2's DTO carries all six
-coordinates, never `(f, c)` alone.
+coordinates, never `(f, c)` alone. **The smallest #1223 law, verbatim:** *"A field becomes
+defining when changing or omitting it changes the proposition, not merely its
+presentation. Every defining epistemic dimension SHALL participate in the versioned
+canonical LE DTO; a reader lacking its declared lens or provenance must refuse, never
+project a plausible default."* NARS says how strongly; topology says what causal structure
+is known; the band says what assertion is licensed; LE ensures nobody changes those
+questions while transporting the answer. Refusal half CODED (`band_reading.rs`: lens
+mismatch / absent band / untrusted provenance must FAIL, never a plausible value);
+participation half RULED (D-BBB-NARS-2). Decoration becomes permission; permission becomes
+semantic identity.
 
 **⊕ Consumer falsifier, same pass — `F-CONSUMER-ASSERTION-1` (Tarski perfume).** A
 consumer that uses the words truth / rung / causal or attaches `(f, c)` while the result

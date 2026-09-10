@@ -313,16 +313,34 @@ silently ignored as optional metadata: **a decoder that drops
 `IndirectUnknownIntermediates`, or reads `Relation` as `Causal`, has not produced a
 lower-resolution view — it has changed what was asserted**, and that is exactly the
 `F-BBB-NARS-2 (LE)` failure (*identical typed wire bytes acquiring a different
-epistemic kind*). The Tarski adjacency is precisely this: the band and the topology
-are what the assertion IS at its level, not a flavour beside it — a consumer that
+epistemic kind*). The Tarski adjacency is precisely that `ReasoningBand` controls
+the level at which a claim may be asserted — `Relation` → `Causal` — while remaining
+distinct from Tarski derivation depth. NARS says how strongly; topology says what
+causal structure is known; the band says what assertion is licensed; LE ensures
+nobody changes those questions while transporting the answer. A consumer that
 carries only a perfume of Tarski (a `low_confidence` bool, a label with nothing
-depending on it) has not carried the assertion. **Coded vs ruled, by grade:** the W3
-verdict carries both fields (`dismech_counterfactual.rs:251-252`) but
+depending on it) has not carried the assertion.
+
+**The smallest #1223 law (operator, 2026-09-10, verbatim — BINDING):**
+
+> A field becomes **defining** when changing or omitting it changes the
+> proposition, not merely its presentation. Every defining epistemic dimension
+> SHALL participate in the versioned canonical LE DTO; a reader lacking its
+> declared lens or provenance must **refuse**, never project a plausible default.
+
+That is the movement: decoration becomes permission; permission becomes semantic
+identity. **Coded vs ruled, by clause:** the refusal half is already CODED for the
+reading contract — `band_reading.rs` (D-ACR-7, council-ratified): *"a lens mismatch,
+an absent band, or untrusted provenance must FAIL, never return a plausible value"*,
+`EdgeProvenance::Unknown` refuses, `BandPresence::Absent` refuses (G3′/G4′/G5b) —
+and the participation half is RULED, defined by D-BBB-NARS-2 when it lands. By grade:
+the W3 verdict carries both fields (`dismech_counterfactual.rs:251-252`) but
 `ISS-REASONING-BAND-GATES-NOTHING` (2026-08-26) records that the band gates no
 control loop yet, so today the code sits between decorative and permissive; the
 §4b guard makes it permissive by design; the LE ruling makes it **defining**. The
-versioned truth DTO that D-BBB-NARS-2 defines must therefore carry all six
-coordinates, never `(f, c)` alone.
+versioned truth DTO that D-BBB-NARS-2 defines must therefore carry every defining
+dimension — all six coordinates — never `(f, c)` alone, and its reader must refuse
+where the lens or provenance is undeclared.
 
 **The consumer falsifier — Tarski perfume (operator, 2026-09-10, same pass).** A
 consumer has a *perfume of Tarski* when it uses the words — truth, rung, causal — or
