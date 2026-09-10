@@ -397,11 +397,25 @@ is worth more than a large census of inert ones.
 - This is a **probe, not a gate**. `counterfactual_replay` has no production
   caller today (measured: tests only), and replaying every chain is not a CI
   budget. It belongs after `D-NCI-2`, not inside `D-NCI-1`.
-- **It is blind on the confidence axis as things stand.**
-  `NarsEngine::revise_fast(f1, _c1, f2, _c2)` discards BOTH confidences, so a
-  revision-derived ranking currently reads frequency only. Fix that first or
-  state the blindness in the result — do not let the ranking imply an axis it
-  never consulted.
+- **The confidence axis is available, but only if the caller buys it.**
+  ⊘ This bullet first read *"blind on the confidence axis as things stand —
+  `revise_fast(f1, _c1, f2, _c2)` discards BOTH confidences ... fix that
+  first"*. The fix landed the same day, and it was a bigger defect than the
+  dropped arguments: `revise_fast` was indexing `tables.deduction` — the wrong
+  NARS rule — and the deduction table has no confidence axis at all, which is
+  why both arguments were `_`-prefixed. It now delegates to
+  `NarsTables::revise`, and `deduce_fast` names the other rule explicitly.
+
+  **The blindness did not vanish; it MOVED**, and the new location is the one
+  that matters here. `revise` selects its table by quantizing `c1`/`c2` into
+  `c_levels` buckets, and `NarsEngine::new` builds **one** bucket: equal
+  weights, so the frequency is a plain mean and `c_out` is the constant 170 —
+  the same fixed point `DEFAULT_FREQUENCY_BAR` documents. **A ranking built on
+  `new` is still frequency-only.** Use `NarsEngine::with_c_levels` (cost
+  `c_levels² × 128 KB`) or state in the result that the axis was never
+  consulted. Pinned two-sided:
+  `revise_fast_honors_confidence_at_multiple_levels` /
+  `revise_fast_confidence_is_inert_at_one_c_level`.
 - `DEFAULT_FREQUENCY_BAR` already carries the right warning for whoever tunes
   this: confidence saturates to a fixed point under `NarsTables::build(1)`, so a
   confidence-based verdict would be *"a vacuous threshold — every chain on the
