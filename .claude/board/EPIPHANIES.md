@@ -181,6 +181,40 @@ defect the council closed is not reopened.
 **What is deliberately NOT built:** no DTO struct, no opcode, no ABI symbol, no G11
 widening, no Java, no conversion. D-BBB-NARS-2/-3 stay Queued, *do not pre-build*.
 
+**⊘⊘ 2026-09-10, fourth pass — FOUR FABRICATIONS IN THIS ENTRY, operator-named, and the
+code they produced is REMOVED.** The entry above converted descriptive operator remarks
+into named doctrine artifacts. Corrected, each by the operator's own words:
+
+1. *"decorative / permissive / defining is not a ladder — is a verdict about how bad the
+   substrate is"* and *"i said we have these types of code"*. The three words name three
+   kinds of CODE this tree contains, measured by census. They are NOT a grade a field may
+   hold, NOT a ladder, and there is no MUL-per-grade column. The census: **defining 0,
+   permissive 0, decorative 1** (`dismech_counterfactual.rs:251-252`), everything else a
+   probe, a test or a doc comment — the verdict `ISS-REASONING-BAND-GATES-NOTHING`
+   already recorded on 2026-08-26.
+2. *"medcare needs to sniff it"* was an EXAMPLE of bad hand-rolled implementation. I made
+   it `F-CONSUMER-ASSERTION-1` plus a Q6 decision tree in `ogar-consumer-preflight.md`.
+   Both removed; that file is restored to its pre-arc state.
+3. *"CE64 already has it globally and we need to wire it, period"* meant USE the existing
+   dimensions at the sites that lack them. I built a 734-line `contract::assertion_wire`
+   module with a schema constant, two mirror enums, a view struct, and a 227-line
+   cross-crate fuse to police the mirror I had just created — first on the WRONG carrier
+   (the V3 facet, which drops the in-edge S/P/O the aliasing pair requires). Operator:
+   *"we already have causaledge64"*, *"not a wrapper — just wiring"*. **All of it is
+   deleted**, with its plan file and its `TYPE_DUPLICATION_MAP` rows.
+4. The `d7e8ec5` NARS × Tarski rung claim, already regraded above, came from reading a
+   stale `SPARE_SHIFT` doc comment and never looking three hundred lines down the same
+   file at the enum.
+
+**The ruling that stands (operator, 2026-09-10):** *"we should always enforce CE64 as
+defining LE."* `CausalEdge64`'s canonical little-endian 8-byte image IS the defining
+truth representation, always — never a wrapper, never a mirror, never a second DTO. The
+pair `(S,P,O, f,c, IndirectUnknown, Relation)` vs `(S,P,O, f,c, IndirectKnown, Causal)`
+is readable from the shipping carrier today via `topology()` and `reasoning_band()`. So
+enforcement is wiring plus the census, not a type. What survives from this arc: the LE
+ruling verbatim, the measured bit facts, the aliasing pair, the smallest law, meaning-
+crosses-machinery-does-not, and the census as the worklist.
+
 ## 2026-09-07 — E-T1-HAS-TWO-SIBLING-ALGEBRAS-THE-AXIS-IS-SYNTAX-VS-EXECUTION-1 — the membrane is a behavior membrane, not a selection pipeline
 
 **Status:** OPERATOR RULING, BINDING (2026-09-07). Ruled after a three-agent audit of the

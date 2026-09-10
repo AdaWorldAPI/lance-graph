@@ -48,7 +48,6 @@ pub mod transaction;
 pub mod a2a_blackboard;
 pub mod action;
 pub mod aiwar;
-pub mod assertion_wire;
 pub mod atoms;
 pub mod attention_facet;
 pub mod auth;

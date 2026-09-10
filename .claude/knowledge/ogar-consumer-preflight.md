@@ -128,53 +128,6 @@ Q5.  Does my classid CARRY the app prefix?
             →  drift from the allocation table.  STOP.  Stamp the prefix.
 ```
 
-```
-Q6.  Does my typed ASSERTION carry all six coordinates — or only Tarski perfume?
-     (added 2026-09-10, operator; the LE ruling made CE64 bits 59-63 DEFINING)
-     ├─ subject (entity alias, never PII) · predicate · object (concept id)
-     │  · truth NARS (f, c) · topology (CausalTopology) · assertion band
-     │  (ReasoningBand) · witness (provenance handle) — and removing or
-     │  changing ANY of topology / band / proposition identity / provenance
-     │  changes admission, interpretation, or replay
-     │      →  a real satisfaction relation.  LE carries it invariant across
-     │         storage, replay, Panama and Java.  Proceed.
-     └─ I attach (f, c) or the words truth / rung / causal, but Relation and
-        Causal both land as the same `supports = true`, an unknown mediator
-        becomes a known one without a new witness, or a coordinate can be
-        dropped with nothing downstream noticing
-            →  TARSKI PERFUME.  (f, c) is confidence-flavoured metadata and
-               LE transports the perfume perfectly.  STOP.  Carry the typed
-               proposition; preserve the substrate's distinctions.  You never
-               execute NARS / Tarski arithmetic yourself (D-BBB-NARS-1) —
-               you carry the assertion.  Falsifier F-CONSUMER-ASSERTION-1,
-               membrane-tiers.md § "coordinates of truth".
-
-     The test in one pair (operator, 2026-09-10):
-        (S,P,O, f,c, IndirectUnknown, Relation)
-        (S,P,O, f,c, IndirectKnown,   Causal)
-     Same (f, c), different truths.  If these are one row in your store,
-     one message on your wire, or one branch in your code — perfume.
-     Causal is not Relation with more confidence; flattening the pair to
-     (S,P,O,f,c) is epistemic aliasing.
-
-     And the remedy is NEVER to sniff the carrier yourself — hand-rolling the
-     tuple from CE64 bits 59-63 through a lens you declare locally is perfume
-     CODE without a contract, the Q3 trap in epistemic clothing.  The
-     assertion belongs in lance-graph's wire contract (D-BBB-NARS-2, the
-     versioned LE truth DTO); you PULL it.  If it does not exist yet, that is
-     the need to surface — not a gap to fill locally.
-
-     Sniffing, spelled out (each one is the forbidden leak):
-        · inferring Causal from a high confidence
-        · guessing topology from predicate names
-        · rebuilding Tarski / NARS logic locally
-        · inspecting substrate rows for semantic clues
-     Reading, instead: you receive "this is a causal assertion with known
-     intermediates and this (f, c) valuation" — meaning crosses; machinery
-     does not.  You recognize and preserve it; lance-graph owns inference,
-     revision, storage and provenance.
-```
-
 Any "STOP" answer catches the trap pre-materialization.
 
 ## Diagnostic signatures — what the trap looks like in review
@@ -273,10 +226,6 @@ Triggers: `*Bridge` · `class_id` · `classid` · `entity_type_id` · `codebook`
 - `docs/CONSUMER-BRIDGE-DEPRECATION.md` — the migration recipe (the *what*).
 - `.claude/knowledge/core-first-transcode-doctrine.md` — pull from the Core,
   never mint a parallel registry (the *why*).
-- `.claude/knowledge/membrane-tiers.md` § "coordinates of truth" — the
-  six-coordinate assertion (`CausalTopology` + `ReasoningBand` are DEFINING under
-  the LE ruling) and `F-CONSUMER-ASSERTION-1` (Tarski perfume), the consumer-side
-  twin of `F-BBB-NARS-2` (Q6 above, 2026-09-10).
 - OGAR `docs/SURREAL-AST-TRAP-PREFLIGHT.md` — the producer-side mirror (the
   *inverse* arm of the same boundary).
 - OGAR#95 `APP-CLASS-CODEBOOK-LAYOUT.md` (hi/lo split) · #97 `render_classid_for`

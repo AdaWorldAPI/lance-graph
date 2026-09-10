@@ -25,14 +25,11 @@ pub const NARS_PERSONALITY_K: u32 = 1;
 /// Quantised NARS truth — the canonical, float-free **substrate** representation.
 /// `255` = 1.0. Mirrors the `CausalEdge64` truth pair — `frequency_u8` (bits 24-31)
 /// + `confidence_u8` (bits 32-39). In that carrier the pair's KIND rides beside it,
-/// coded: `CausalTopology` at bits 59-60 (the shape of the causal connection —
-/// direct / indirect with known or unknown intermediates) and `ReasoningBand` at
-/// bits 61-63 (the level of assertion: relates-to vs causes, counterfactual, meta —
-/// Tarski permission, never Tarski depth, which is `Belief.rung`). Truth in this
-/// substrate is a strength plus what the relation asserts, never a boolean; this
-/// struct carries the strength only. Which lens a producer wrote is declared per
-/// class (`band_reading`), not read off the bits. (Two earlier comments were wrong:
-/// one called bits 61-63 a spare field ruled as a Tarski rung — they have been
+/// coded: `CausalTopology` at bits 59-60 and `ReasoningBand` at bits 61-63. This
+/// struct carries the strength ONLY, so it is not a truth this workspace can define
+/// with: the defining LE representation is `CausalEdge64`'s own little-endian image,
+/// always (operator ruling, 2026-09-10). (Two earlier comments here were wrong: one
+/// called bits 61-63 a spare field ruled as a Tarski rung — they have been
 /// `ReasoningBand` since `9891cca6`, only the `SPARE_SHIFT` name is stale; the other
 /// paired `confidence_u8` with the i4 mantissa — the i4 mantissa at bits 46-49 is the
 /// `InferenceType`, provenance/type grammar, not half of the truth value.)
