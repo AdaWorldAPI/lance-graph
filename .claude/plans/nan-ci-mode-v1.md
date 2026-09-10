@@ -3,9 +3,17 @@
 > **Status:** PROPOSAL — **`D-NCI-1..5` are unbuilt. No NaN mode exists.** No
 > board rows, no minted D-ids; the `D-NCI-*` labels below are **this
 > document's own** proposed deliverable names, not entries on
-> `STATUS_BOARD.md`. Every design question in §8 and §9.4 is still open, and
-> §3.6's `#[cfg]`-vs-hot-plug choice changes a frozen decision (N1), so it is
-> a ruling, not an implementation detail.
+> `STATUS_BOARD.md`. §3.6's `#[cfg]`-vs-hot-plug choice changes a frozen
+> decision (N1), so it is a ruling, not an implementation detail.
+>
+> **§8 and §9 were run through a 5+3 hardening council (2026-09-10) and now
+> carry COUNCIL-HARDENED resolutions — still awaiting operator confirmation,
+> never a substitute for it.** 5 savants + 3 brutal reviewers, one full
+> streamline→attack→fix→ratify cycle, 0 BLOCKs, several real fixes applied
+> (a defect in the council's own first-draft R7 was caught and repaired, not
+> argued away). See §8/§9 for the resolutions and
+> `.claude/board/AGENT_LOG.md` for the run record. No Rust was written; this
+> is a plan-text + board-hygiene commit only.
 >
 > **One PREREQUISITE is pushed to this branch
 > (`claude/lance-graph-1218-plans-z8hzqr`) — it is NOT on `main`, and it is
@@ -224,17 +232,46 @@ plan's output checks exactly that one property.
 ### 3.3 Two designs, different reach — this plan authorises only the first
 
 **Design 1 — POISON-FILL (no encoding change). THIS PLAN.**
-In CI builds, constructors fill never-written fields with a canary instead of
-zero: `pack()` fills bits 53-63 with the canary, likewise `CausalEdge64::ZERO`,
-`Default::default()`, `from_v1_tail_unstated`, and the equivalent SoA/tenant
-initialisers. Anything still reading the canary was **never stamped by this
-producer**. Classic poisoned-memory technique.
+In CI builds, never-written fields are marked absent instead of decoding as
+zero. **The mechanism splits in two, by field shape — a 5+3 council finding
+(2026-09-10, §8/§9 resolution below), not stated when this section was first
+drafted:**
+
+- **Saturated fields** (`TrustTexture`/`CausalTopology` 2-bit,
+  `ReasoningBand` 3-bit, W-slot 6-bit — every bit pattern in each field's own
+  width already names a legitimate variant or slot, zero spare codes) have no
+  VALUE available to poison-fill with. These are marked via a **CI-build-only,
+  out-of-band sidecar** — a `#[cfg(feature = "nan-ci-mode")]`-gated tracker
+  populated by an OUTER constructor/builder that calls the existing,
+  UNMODIFIED setters and separately records touch state. The setters
+  themselves (`with_topology` / `with_reasoning_band` / `with_w_slot`) never
+  change body or behavior in any build.
+- **The mantissa** (partial exception): `to_mantissa` never emits 8 of the 16
+  possible raw nibbles (`-8` among them) — a real, disclosed reuse of
+  already-unused value-space within the existing field width, checked before
+  `from_mantissa`'s masking, the same point `BandReading::project_truth`'s
+  `debug_assert!` already occupies.
+- **Every other byte-range field** (frequency/confidence, S/P/O): a literal
+  in-value canary fill applies as originally described below — these are read
+  as raw bytes, never decoded through an exhaustive enum match, so a chosen
+  canary risks only a documented, avoidable VALUE collision, not the
+  saturated fields' guaranteed STRUCTURAL impossibility.
+
+`pack()` fills the plain byte-range fields with the canary, likewise
+`CausalEdge64::ZERO`, `Default::default()`, `from_v1_tail_unstated`, and the
+equivalent SoA/tenant initialisers; the three saturated fields and the
+mantissa use their own mechanisms above. Anything still reading absent was
+**never stamped by this producer**. Classic poisoned-memory technique,
+generalised to fields that have no free value to poison with.
 
 - Reach: producer-side gaps — which is what an *ABI* debt is.
-- Works on **every** field, not only signed i4.
-- Zero storage change, zero encoding change, zero release cost.
+- Works on **every** field — the plain byte-range fields directly, the
+  saturated fields via the sidecar, the mantissa via its disclosed reuse.
+- Zero storage change, zero encoding change, zero release cost — the sidecar
+  is a CI-only type that never exists in a release build.
 - Cannot answer "was this ever stamped by anyone, ever" for a **persisted** row:
-  a stored zero and a never-written zero are the same byte on disk.
+  a stored zero and a never-written zero are the same byte on disk, and the
+  sidecar does not survive a round-trip to storage either.
 
 **Design 2 — SWAPPED ENCODING. NAMED, NOT AUTHORISED HERE.**
 Reassign `0b0000 -> NaN` and `0b1000 -> 0` on signed-i4 fields, making the
@@ -388,6 +425,19 @@ So the enforcement shape is:
 4. **Each certification removes an entry.** The allowlist only ever shrinks;
    growing it requires the same review as any other debt admission.
 
+> **Council-hardened, awaiting operator confirmation (2026-09-10) — this
+> mechanics description assumes §3.6's `#[cfg]` design, not the hybrid.**
+> If §8 item 3a's hybrid is confirmed, the allowlist described above STOPS
+> being a bare shrinking file and BECOMES a property of the `Activation`
+> resolved once at plug-time (per §3.6's own already-drafted consequence:
+> "§4.2's allowlist stops being a separate file and becomes a property of
+> the activation"). Steps 1-4 above would then read as: Wave 0 populates
+> per-classid certification state on `Activation` rather than a
+> free-standing table; step 3's enforcement is the `#[cfg]`-gated abort
+> half of the hybrid, resolved against that state once per activation, not
+> re-read per decode. Not rewritten as fact here because the hybrid is not
+> yet operator-confirmed — see §8 item 3a.
+
 ### 4.3 The first deliverable is the real number
 
 The first Wave-0 run **is** the debt measurement, per field, per wire, free —
@@ -408,10 +458,14 @@ comes from the run, not from the plan.
 | `D-NCI-2` | Wave-0 census run + the report table (wire / field / count / collapse class). | D-NCI-1 |
 | `D-NCI-3` | The allowlist, seeded from D-NCI-2, plus the CI job that fails outside it. | D-NCI-2 |
 | `D-NCI-4` | First certified wire, end to end: stamp -> declare -> project -> zero canary reads. Also the first caller of `admits_band` / `project_band`, which today have none. | D-NCI-3 |
-| `D-NCI-5` | `SpoHead` reclaim: it is a v1-shaped mirror (dead `temporal` byte) of a v2 carrier. Preservation fix under `I-LEGACY-API-FEATURE-GATED`, not a feature. | D-NCI-4 |
+| `D-NCI-5` | `SpoHead` reclaim: it is a v1-shaped mirror (dead `temporal` byte) of a v2 carrier. Preservation fix under `I-LEGACY-API-FEATURE-GATED`, not a feature. | **none — splits into its own PR, council-hardened 2026-09-10 (§8 item 4)** |
 
-`D-NCI-1..3` are the instrument. `D-NCI-4..5` are the first two repayments.
-Nothing beyond `D-NCI-5` is planned here on purpose — the census decides the
+`D-NCI-1..3` are the instrument. `D-NCI-4` is the first repayment.
+**`D-NCI-5` no longer depends on `D-NCI-4`** — it needs none of the mode's
+machinery, is the same class of fix as the five Sprint-11
+`I-LEGACY-API-FEATURE-GATED` catches, and ships as its own independent PR,
+before or alongside `D-NCI-1`, per the council resolution at §8 item 4.
+Nothing beyond `D-NCI-4` is planned here on purpose — the census decides the
 order, and pre-deciding it would be the plan overruling its own measurement.
 
 ### 4.5 Ranking by consequence — "if 0 were NaN" is a COUNTERFACTUAL, literally
@@ -651,48 +705,114 @@ The two failure directions are asymmetric in the worst way: absence fails
 silent at the one value nobody questions. Any Design-2 plan must guard the
 formula with the absence check, not merely re-base the divisor.
 
-## §8 OPEN — needs an operator ruling before D-NCI-1
+## §8 COUNCIL-HARDENED RESOLUTION (awaiting operator confirmation)
 
-1. **The canary value(s).** One per field width, or one global pattern? A value
-   that is *itself* a plausible datum re-creates the problem one level down.
-2. **Failure granularity.** Does an un-allowlisted absent read fail the test
-   that touched it, or does the job fail once with the full table? The second
-   is kinder to a large first wave; the first localises better.
-3. **Scope of the first wave.** The whole crate graph, or `causal-edge` +
-   `lance-graph-contract` only? §2's census was entirely inside those two
-   before the correction; the corrected §2.2 also cites `cognitive-shader-
-   driver` (`edge_v3_compare.rs`, `mailbox_soa.rs`'s `apply_edges`), so a
-   two-crate first wave would now exclude the one live-shaped filter
-   (`apply_edges`) the census found.
-3a. **`#[cfg]`, hot-plug, or the hybrid (§3.6).** The `#[cfg]` design is what
-   §3 specifies; the hot-plug variant relaxes N1's decode half in exchange for
-   reaching production and folding §4.2's allowlist into the activation. The
-   hybrid keeps N1 and still moves the policy to the socket. This is the one
-   open item that changes a frozen decision.
-4. **Whether `D-NCI-5` (`SpoHead`) rides in this plan or its own.** It is a
-   preservation fix, independent of the mode, and could ship first.
-5. **Where the runtime disposition of absence lives (operator, mid-session
-   2026-09-10): "NaN as Staunen unhydrated trigger for CE64 bits 59-60."**
-   Absence is not only debt; at runtime it is *surprise* — the one surprise the
-   current Staunen cannot see, because every shipped Staunen is derived from
-   what IS present (`nars/basin_resonance.rs:183` mean stakes;
-   `nars/insight.rs:168` mean committed contradiction depth;
-   `nars/ghost_prior.rs:152-157` `GhostEcho::Staunen`). Staunen has **no
-   primitive carrier** — it is not among the 17 `AXIS_LABELS`
-   (`qualia.rs:28-46`), and `QualiaI4_16D` packs only the first 16, so minting
-   an axis for it would widen a fixed-width column. See §9.
+> 5+3 hardening council, 2026-09-10 (run record: `.claude/board/AGENT_LOG.md`).
+> **None of R1-R5 below is a ruling.** Each is a committed, savant-verified,
+> reviewer-attacked proposal — the council's job was to harden a specific
+> resolution well enough that the operator's confirmation is a yes/no, not a
+> re-derivation. Nothing here authorizes writing `D-NCI-1`'s Rust code
+> (Non-Goal, this council's own spec §3 item 1).
 
-## §9 THE RUNTIME DISPOSITION — one detector, two consumers (OPEN)
+1. **R1 — The canary value(s): two mechanisms, by field shape.**
+   `TrustTexture`/`CausalTopology` (2-bit), `ReasoningBand` (3-bit), and the
+   W-slot (6-bit) are each independently re-verified **fully saturated** —
+   every bit pattern already names a legitimate variant or slot, zero spare
+   codes in any of them (checked against the complete enum bodies in
+   `layout.rs`, not a truncated excerpt, by two separate agents across the
+   council's two phases). A poison-fill VALUE therefore does not exist for
+   these three fields. Resolution: a **CI-build-only, out-of-band sidecar**
+   (`#[cfg(feature = "nan-ci-mode")]`-gated, e.g.
+   `TouchedTail { topology_set: bool, band_set: bool, w_set: bool }`),
+   populated by an OUTER constructor/builder that calls the EXISTING,
+   UNMODIFIED setters and separately records touch state — never by adding a
+   branch inside `with_topology` / `with_reasoning_band` / `with_w_slot`
+   themselves, which keeps `I-LEGACY-API-FEATURE-GATED` satisfied on its
+   letter (same function, same body, same behavior, always). This is a new
+   TYPE, which N3 does not forbid (N3 forbids new CE64 bits / layout-version
+   bumps / new address types; a tracker held entirely OUTSIDE the 64-bit
+   register is none of those, and it never exists in a release build).
+   *Considered and rejected:* a global aggregate counter
+   (`tenant_counter.rs:29-44`'s already-shipped `LazyLock<[AtomicU64; N]>`
+   pattern) — it can only answer "was this setter called anywhere this run",
+   not "was THIS edge's field set before THIS read", producing false
+   negatives on edges built before the first call and false positives on
+   every edge after. **The mantissa** is a partial exception: `to_mantissa`
+   never emits 8 of its 16 possible raw nibbles (`-8` confirmed among them),
+   so a raw-nibble canary checked before `from_mantissa`'s
+   `unsigned_abs() & 0x7` masking is available and disclosed as touching the
+   register directly — reuse of already-unused value-space, not a new bit.
+   **Every plain byte-range field** (frequency/confidence, S/P/O) has no
+   saturation problem — read as raw bytes rather than decoded through an
+   exhaustive enum match, a chosen canary risks only a documented, avoidable
+   VALUE collision there, never the saturated fields' structural
+   impossibility. See §3.3 for the mechanics text.
+2. **R2 — Failure granularity: aggregate during Wave 0, per-test after.**
+   Wave 0 (census-only, N5) reports one aggregate table, no test fails —
+   matching §4.2 step 1 exactly. Once the allowlist exists (post `D-NCI-3`),
+   a NEW violation fails the specific test/call site that produced it, not
+   the whole job — confirmed orthogonal to N5's shrink-only rule (the
+   allowlist's membership direction and a failure's reporting granularity are
+   independent), and consistent with `G3`/`G4`'s own per-instrument phrasing.
+3. **R3 — Scope of the first wave: three crates.** `causal-edge` +
+   `lance-graph-contract` + `cognitive-shader-driver` — the third crate
+   carries the one artifact with real production shape today,
+   `apply_edges`'s live `w_slot` filter (`mailbox_soa.rs:355`), even though it
+   currently lacks a live caller. Certifying that wire first (as `D-NCI-4`'s
+   target) demonstrates the mode's value on the wire most likely to matter
+   once `apply_edges` gains a caller, rather than one dormant on both ends.
+3a. **R4 — `#[cfg]` vs hot-plug vs hybrid: THE HYBRID.** Chosen over pure
+   `#[cfg]` because the hybrid captures every real win hot-plug offers
+   (per-classid certification matching §4.1 exactly; `Activation`'s
+   fail-closed-by-construction with no `Default`; the existing
+   `ActivationDrift`/`verify_against_mirror` drift machinery) at zero cost to
+   N1 — hot-plug carries the POLICY, `#[cfg]` carries the ENFORCEMENT, and
+   release resolves the policy once at activation with no new per-read
+   branch. Chosen over pure hot-plug because relaxing N1 is a capability this
+   campaign has not measured the re-pricing for (§3.6 already says so). This
+   restates the already-drafted §3.6 paragraph — §3.6 is explicitly not
+   itself a frozen decision (N1 is; §3.6's choice among its alternatives is
+   what changes one), so nothing here treats it as pre-settled. **Build-time
+   constraint, confirmed novel composition** (no prior pairing of hotplug
+   with a `#[cfg]`-gated enforcement half exists in this tree, and
+   `ActivationDrift` carries no `#[non_exhaustive]`): whoever builds
+   `D-NCI-1` under this hybrid must NOT add a new `ActivationDrift` variant —
+   the certification signal belongs on a new field or sibling type.
+4. **R5 — `D-NCI-5` (`SpoHead`) splits into its own PR.** It needs none of
+   `D-NCI-1..4`'s machinery — it is the same class of fix as the five
+   Sprint-11 `I-LEGACY-API-FEATURE-GATED` catches. Ships independently,
+   before or alongside `D-NCI-1` (§4.4 updated). This PR is the FIRST-EVER
+   `STATUS_BOARD.md` / `LATEST_STATE.md` / `PR_ARC_INVENTORY.md` entry any
+   `D-NCI-*` id has had (confirmed zero prior hits in all three files) —
+   whoever ships it adds the `STATUS_BOARD.md` row in the same commit.
+5. **Where the runtime disposition of absence lives — R6/R7/R8, resolved at
+   §9.** Absence is not only debt; at runtime it is *surprise* — the one
+   surprise the current Staunen cannot see (`nars/ghost_prior.rs:152-157`
+   `GhostEcho::Staunen`; Staunen has no primitive carrier, not among the 17
+   `AXIS_LABELS`, `qualia.rs:28-46`).
+
+## §9 THE RUNTIME DISPOSITION — resolved, splits into its own companion plan
+
+> Council-hardened 2026-09-10, same run as §8. **R8's conclusion: this
+> section's content SPLITS out of `nan-ci-mode-v1`.** The CI-side disposition
+> (§4's campaign, `D-NCI-1..5`) and the runtime-side disposition below share
+> ONE detector but need nothing from each other to ship, and the runtime side
+> needs Staunen/free-energy wiring this plan's own deliverables don't touch.
+> What follows is the RATIFIED CONTENT for that companion plan, kept here
+> until it is filed, so the resolution is not lost between council and
+> filing. **Awaiting operator confirmation, same as §8** — this is not a
+> ruling.
 
 The CI mode and a runtime absence-signal are **the same detection with two
-dispositions**, and the plan does not fork to accommodate the second:
+dispositions**, and neither this plan nor its companion forks the detector to
+accommodate the second:
 
 | context | absence means | response |
 |---|---|---|
 | CI | debt — a producer that never stamps | fail the build (§4.2 allowlist) |
 | runtime | surprise — unhydrated | raise Staunen -> gather |
 
-### 10.1 The three-way split already exists in the contract
+### 9.1 The existing three-way split, and where R7's new state attaches
 
 Conflating "never wired" with "not yet hydrated" would be a defect: the first
 must fail CI, the second must retry, and an eternal retry on the first is worse
@@ -712,8 +832,6 @@ contract that already refuses, and the refusal variant already carries the
 reason.** Nothing new is minted — no new bit (N3), no new qualia axis, no new
 error type.
 
-### 10.2 Why bits 59-60 in particular
-
 The 2-bit field already encodes degrees of epistemic murk under either lens —
 `TrustTexture` = `Crystalline / Solid / Fuzzy / Murky`, `CausalTopology` =
 `Direct / IndirectKnown / IndirectUnknown / Unknown`. Absence is the limiting
@@ -721,28 +839,78 @@ case of the same axis: `Unknown` is *"I do not know the path"*; a refused read
 is *"I was never told"*. It reads as a fifth state **without costing a bit**,
 because it is the absence of the field rather than a value in it.
 
-### 10.3 The response already exists too
+**R7's `RetryExhausted` (§9.2) is NOT a fourth contract-level sibling in the
+table above — it is a report-time refinement of the `EdgeProvenance::Unknown`
+row**, marking the moment that row's "still resolving" phase is deemed to
+have run out of chances. This table does not yet represent that refinement's
+crossing from the runtime context into a CI-facing outcome; whoever files the
+companion plan adds that row, rather than silently folding the refinement
+into one of the three existing rows.
+
+### 9.2 R6/R7 — resolved: route via free energy, with a labeled third disposition on exhaustion
 
 `mul::GateDecision::Hold` returns `None` from `advance_on_gate`, and the owner
 is HELD and re-polled — mechanically *"stay, gather more"*. That is the
-hydration response, already shipped. Free energy is the natural consumer
-(surprise raises F; F above the homeostasis floor re-fires dispatch), so the
-chain is: refusal -> Staunen -> F -> `Hold` -> hydrate -> re-read.
+hydration response, already shipped.
 
-### 10.4 What is genuinely open
+**R6 — does the refusal raise Staunen directly, or via free energy: VIA FREE
+ENERGY.** Staunen has no primitive carrier today, and a direct write would
+either widen a fixed-width qualia column or overload an existing axis's
+semantics — exactly the kind of new-surface cost this plan avoids everywhere
+else (Design 1 over Design 2, the hybrid over new bits, the sidecar over new
+fields). The PATTERN is precedented (`EPIPHANIES.md`, 2026-04-24, "SMB as
+cognitive-stack testbed": a missing required property already routes to free
+energy rather than a hard fail — the same pattern, in an unrelated
+subsystem, not a literal reuse). **What is not yet true, checked rather than
+assumed:** `ghost_prior::echo_for` — the function that actually raises
+`GhostEcho::Staunen` — is exercised only by its own test module;
+`cognitive-shader-driver/src/driver.rs`'s live `FreeEnergy::compose` call
+never feeds it. R6 names the right mechanism and the right precedent for its
+shape; the specific wiring from a `BandReadError::UnknownProvenance` refusal
+through `kl` into `echo_for` is new plumbing the companion plan must build,
+not something already connected that a refusal merely joins.
 
-1. Does the refusal raise Staunen **directly**, or does it raise free energy
-   and let Staunen fall out of the existing derivation? The second changes no
-   Staunen formula; the first gives Staunen its first primitive carrier.
-2. Retry policy. A refusal that never hydrates must degrade to the debt case
-   rather than loop — the boundary between "not yet" and "never" is a count or
-   a deadline, and it needs a number, not a feeling.
-3. Whether this rides in this plan at all, or becomes its own. The detector is
-   shared; the dispositions are not.
+**R7 — retry policy: `N_RETRY_CYCLES = 3`** (a POLICY PIN needing its own
+later measurement, following `DEFAULT_FREQUENCY_BAR`'s own precedent),
+counted in mailbox cycles (`MailboxSoA::current_cycle: u32`), not wall time.
+The one real count-based give-up precedent in this tree
+(`supervisor.rs::ESCALATION_CRASH_COUNT = 10`) pairs its count with a
+wall-time backoff interval (100ms -> 30s) because a ractor respawn crosses
+an async I/O boundary; a mailbox hydration retry does not — it is already
+paced by the substrate's own cycle cadence — so only the give-up THRESHOLD is
+borrowed from that precedent's shape, deliberately not its backoff mechanism.
+**After `N_RETRY_CYCLES` failed attempts, the disposition becomes a labeled
+THIRD state, `RetryExhausted`** — never folded into either `never-declared`
+(the doctrine quoted in §9.1 forbids exactly that fold) or `still-hydrating`.
+It still fails the CI/audit report (the practical "stop looping forever"
+outcome R7 wants), but the report LABELS it separately from the debt case, so
+a reviewer can tell "nobody ever touched this wire" apart from "this wire
+tried to hydrate and gave up" — the two mechanisms are structurally different
+(D-NCI-1..3's static census/allowlist vs. this dynamic runtime signal) and
+**not yet connected**; building that connection is itself companion-plan
+work, not something the existing instrument already does.
 
-## §10 BOARD HYGIENE OWED (not performed here)
+**R6/R7 interaction, stated as a requirement on the companion plan, not a
+claim about current behavior:** the companion plan MUST allow Staunen to
+fire on every still-unresolved read within the retry window, not only once
+`RetryExhausted` is reached — a read that has not yet happened is surprising
+each time it is observed, and `N_RETRY_CYCLES` governs only when the
+CI/audit disposition stops calling it "not yet"; it must never gate whether
+Staunen may fire earlier.
+
+### 9.3 R8 — this section files as its own plan
+
+Splits per the reasoning at the top of this section. When filed, the
+companion plan carries §9.1-§9.2 above, forward-referenced from here; §8
+item 5's cross-reference is updated to name that file once it exists.
+
+## §10 BOARD HYGIENE
 
 Per `CLAUDE.md`'s Mandatory Board-Hygiene Rule, a PR carrying a new integration
-plan also owes a PREPEND to `.claude/board/INTEGRATION_PLANS.md`. That file is
-append-only and protected; this plan does not touch it. Whoever opens the PR
-adds the entry in the same commit.
+plan owes a PREPEND to `.claude/board/INTEGRATION_PLANS.md` — discharged in the
+same commit as the 2026-09-10 council landing (§8/§9 above).
+
+The council run itself (5 savants, 3 reviewers, verdict counts, the v1→v2→v3
+change ledger) is recorded in `.claude/board/AGENT_LOG.md`, per
+`.claude/agents/5plus3-council.md`'s Phase-5 requirement — that PREPEND, not a
+section inside this plan, is the authoritative run record.

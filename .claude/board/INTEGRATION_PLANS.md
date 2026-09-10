@@ -1,3 +1,23 @@
+## 2026-09-10 — the NaN CI mode → `.claude/plans/nan-ci-mode-v1.md`
+
+**Status: PROPOSAL.** `D-NCI-1..5` are unbuilt (`D-NCI-5` splits into its own
+PR per the council resolution below). Thesis: a field nobody wrote decodes
+as its default value today, so the substrate cannot tell "never stamped"
+from "stamped with the default"; the plan makes that distinction visible in
+a CI/verbose build without changing a single stored byte in release.
+
+§8 (5 open design items) and §9 (3 sub-items) were run through a 5+3
+hardening council the same day (run record: `.claude/board/AGENT_LOG.md`,
+this date) and now carry council-hardened resolutions — a canary mechanism
+split by field saturation (a sidecar for fully-saturated register fields,
+raw-nibble reuse for the mantissa), the `#[cfg]`+hot-plug hybrid for the
+certification switch, and a labeled third `RetryExhausted` disposition for
+the runtime side that does not fold "tried and gave up" into "never
+declared." **Every resolution is explicitly awaiting operator confirmation
+— the council hardens a proposal, it does not rule.** No Rust was written
+landing this; §8/§9's text + this entry + the `AGENT_LOG.md` entry are one
+plan-text-and-board-hygiene commit.
+
 ## 2026-09-10 — `assertion_wire` — the versioned canonical LE truth DTO (D-BBB-NARS-2) → `.claude/plans/assertion-wire-v1.md`
 
 Built in #1223 on the operator's *"CE64 already has it globally and we need to
