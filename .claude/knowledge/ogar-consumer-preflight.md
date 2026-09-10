@@ -163,6 +163,16 @@ Q6.  Does my typed ASSERTION carry all six coordinates — or only Tarski perfum
      assertion belongs in lance-graph's wire contract (D-BBB-NARS-2, the
      versioned LE truth DTO); you PULL it.  If it does not exist yet, that is
      the need to surface — not a gap to fill locally.
+
+     Sniffing, spelled out (each one is the forbidden leak):
+        · inferring Causal from a high confidence
+        · guessing topology from predicate names
+        · rebuilding Tarski / NARS logic locally
+        · inspecting substrate rows for semantic clues
+     Reading, instead: you receive "this is a causal assertion with known
+     intermediates and this (f, c) valuation" — meaning crosses; machinery
+     does not.  You recognize and preserve it; lance-graph owns inference,
+     revision, storage and provenance.
 ```
 
 Any "STOP" answer catches the trap pre-materialization.

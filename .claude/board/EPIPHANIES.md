@@ -115,7 +115,19 @@ lance-graph:** perfume is bad because the assertion is not in the WIRE CONTRACT 
 consumer that wants it today must sniff the carrier and hand-roll the tuple, which is
 perfume code without a contract (the re-implement-the-Core trap). The remedy is
 `D-BBB-NARS-2`, the versioned LE truth DTO the consumer pulls; that need is now
-demonstrated, so D-BBB-NARS-2's gate is met — next brick, not built here.
+demonstrated, so D-BBB-NARS-2's gate is met — next brick, not built here. **⊕ Operator
+ruling, same day, verbatim: *"i want the 2 dimensions in causaledge to be universal …
+otherwise its only a scent = prose."*** `CausalTopology` and `ReasoningBand` are dimensions
+of truth, not `CausalEdge64`-local fields: every truth representation on every tier and
+wire carries or binds them (the five types of `D-BBB-NARS-4` included) — a `(f, c)` that
+cannot tell the aliasing pair apart is prose, by the same test as *"a membrane without a
+gate is prose."* **The clean boundary: meaning crosses; machinery does not.** The LE
+contract replaces sniffing with reading — the consumer receives *"a causal assertion with
+known intermediates and this `(f, c)`"* and never infers `Causal` from a high confidence,
+guesses topology from predicate names, rebuilds Tarski/NARS, or inspects substrate rows for
+clues. The boundary fails from both sides: exported arithmetic (`F-BBB-NARS-1`) and an
+opaque carrier that hides the labels too thoroughly (`F-BBB-NARS-2`) are one wall breached
+from opposite directions.
 
 **⊕ Consumer falsifier, same pass — `F-CONSUMER-ASSERTION-1` (Tarski perfume).** A
 consumer that uses the words truth / rung / causal or attaches `(f, c)` while the result

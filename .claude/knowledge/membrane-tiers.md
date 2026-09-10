@@ -406,6 +406,34 @@ PULLS. The consumer's part is to carry it whole and preserve its distinctions; t
 contract's part is to exist. That consumer need is now demonstrated, which is the gate
 `D-BBB-NARS-2` was queued on — it is the next brick, not built in #1223 (doctrine-only).
 
+**The two dimensions are UNIVERSAL (operator ruling, 2026-09-10, verbatim: *"i want the
+2 dimensions in causaledge to be universal … otherwise its only a scent = prose"*).**
+`CausalTopology` and `ReasoningBand` are not `CausalEdge64`-local fields; they are
+dimensions of truth itself, so every truth representation on every tier and every wire
+carries them (or binds them through its declared schema) — the five `(f, c)` types of
+`D-BBB-NARS-4`'s ladder included. A truth type that carries `(f, c)` and cannot carry or
+bind topology + band is a scent: the same test as property 1 of this doctrine (*"a
+membrane without a gate is prose"*), applied to a truth. The pair above is the check at
+every site: if a representation cannot tell `(f,c, IndirectUnknown, Relation)` from
+`(f,c, IndirectKnown, Causal)`, it is prose.
+
+**The clean boundary, in one line: meaning crosses; machinery does not** (operator,
+2026-09-10). The whole purpose of the LE contract is to replace *sniffing* with
+*reading*. lance-graph puts the epistemic meaning on the wire —
+`(S,P,O, f,c, IndirectKnown, Causal)` — and the consumer simply receives *"this is a
+causal assertion with known intermediates and this `(f, c)` valuation."* It does not
+infer `Causal` from a high confidence, guess topology from predicate names, rebuild
+Tarski/NARS logic, or inspect substrate rows for semantic clues; it may recognize and
+preserve the meaning, while lance-graph still owns inference, revision, storage and
+provenance. In the PR's vocabulary: **G11/T3 receives defining typed syntax — topology
+and assertion band included — while all NARS/Tarski execution remains
+substrate-owned.** And the boundary fails from BOTH sides: exporting the arithmetic
+(`F-BBB-NARS-1`) and an opaque carrier that hides those labels too thoroughly
+(`F-BBB-NARS-2`: the kind then depends on the reader's inference — *high confidence +
+some predicate ≈ probably causal* — which is precisely the forbidden leak) are the same
+wall breached from opposite directions. A handle is clean only while the defining labels
+stay perceptible through the typed syntax beside it.
+
 **⊘ 2026-09-10, same day — the first cut of this paragraph was wrong on both fields,
 and the operator corrected it within the hour.** It read: *"the `TrustTexture` lens at
 bits 59-60 (coded) and the Tarski rung at bits 61-63 (ruled today; the field is

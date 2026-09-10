@@ -12,8 +12,12 @@ description: >
   surface in any language. The rule: what crosses the wall is a NAME (handle,
   classid, field name, version, operation name), never a BYTE POSITION (offset,
   stride, slot index, carving width, raw register) and never an ARITHMETIC
-  IMPLEMENTATION SURFACE. Sibling of `kernel-membrane-warden` (T1/T2) one tier
-  below.
+  IMPLEMENTATION SURFACE — and, since 2026-09-10, the wall is two-sided:
+  MEANING CROSSES, MACHINERY DOES NOT. Defining typed syntax (topology, assertion
+  band, valuation, provenance) must be perceptible on the wire; an opaque carrier
+  that hides those labels so thoroughly the consumer must sniff them back is as
+  defective as exported arithmetic. Sibling of `kernel-membrane-warden` (T1/T2)
+  one tier below.
 tools: Read, Glob, Grep, Bash
 model: opus
 ---
@@ -58,7 +62,11 @@ second. **The axis is syntax vs execution, never selection vs scoring.** So:
   under the LE ruling those are DEFINING, not optional metadata: a DTO or decoder that
   drops them, or reads `Relation` as `Causal`, has changed the claim, and a reader
   lacking the declared lens or provenance must REFUSE, never project a plausible
-  default (`membrane-tiers.md` § "coordinates of truth"; `F-BBB-NARS-2`).
+  default (`membrane-tiers.md` § "coordinates of truth"; `F-BBB-NARS-2`). The two
+  dimensions are UNIVERSAL (operator, 2026-09-10): a truth surface that carries
+  `(f, c)` and cannot tell `(f,c, IndirectUnknown, Relation)` from
+  `(f,c, IndirectKnown, Causal)` is scent, and a review that passes it has passed
+  prose.
 - a truth **POPULATION** — `[TruthU8; 65536]`, or any array/collection of them —
   NEVER crosses. It becomes `TruthLaneId(u64)`, an opaque descriptor. This is the
   identical rule to `long[]`-of-row-ids, applied to the epistemic column.
