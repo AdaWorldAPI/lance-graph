@@ -19,7 +19,7 @@
 
 | # | Frozen | Source |
 |---|---|---|
-| N1 | **Storage never changes.** Release builds are byte-identical to today, in what they store AND in what they decode. Only a CI/verbose build differs, and only in what it OBSERVES. | operator, 2026-09-10 |
+| N1 | **Storage never changes.** Release builds are byte-identical to today, in what they store AND in what they decode. Only a CI/verbose build differs, and only in what it OBSERVES. ⊕ The hot-plug variant (§3.6) would relax the *decode* half — release could be flipped per activation. That variant is NOT chosen here; if it is, N1 is restated, not quietly broken. | operator, 2026-09-10 |
 | N2 | **OBSERVE and FAIL, never branch-and-continue.** The mode may count, report, and abort. It may never take a different code path and proceed. The moment it changes control flow it becomes the pattern `I-LEGACY-API-FEATURE-GATED` forbids. | this plan §3.2 |
 | N3 | **No new CE64 bit, no `ENVELOPE_LAYOUT_VERSION` bump, no new address type.** Inherited verbatim from `D-ACR-7` F7. | `dacr7-band-reading-contract-v1.md` §1 F7 |
 | N4 | **A guard needs BOTH a can-it-fire and a can-it-STAY-SILENT test on non-trivial input.** | `CLAUDE.md` falsifiability rule |
@@ -120,8 +120,15 @@ result, and reports per-call rows."*
   pin `0x8 -> -8` and `0x7 -> +7`.
 - `masked_sum_i32` (`:1117`), `masked_strided_group_sum` (`:1208`),
   `mask_ternlog_assign` (`:1015`) already take mask words.
-- `cmp_gt` / `cmpgt_mask` / `movemask` / `mask_blend` exist per backend
-  (`src/simd_avx2.rs` and siblings).
+- `cmp_gt` / `cmpgt_mask` / `movemask` / `mask_blend` are on the polyfill
+  SURFACE (`src/simd.rs`), which is a re-export catalog over per-arch backends
+  (`simd_avx512` / `simd_avx2` / `simd_neon` / `simd_wasm` / `simd_scalar`).
+- `src/simd_scalar.rs` is a **backend of that same surface**, not an alternative
+  path — its own module doc: *"Mirrors the API of `simd_avx512`, `simd_avx2`,
+  and `simd_neon::aarch64_simd` so consumer code reading
+  `use crate::simd::F32x16` compiles and runs uniformly across all supported
+  targets."* Dispatch is **compile-time** (`#[cfg]`), so the W1a tests run
+  *"against exactly one backend per build"*.
 - `nibble_above_threshold` (ndarray `src/nibble.rs:227`) is an AVX2 compare
   over packed nibbles — but **unsigned** (Minecraft light levels), returning a
   materialised `Vec<usize>`.
@@ -192,9 +199,30 @@ nothing runs.
 the affected reads. On the i4 lanes this lands where the tree already unpacks
 to i8 (`from_i4_packed_u64`), so a canary compare is an ordinary i8 compare and
 `masked_sum_i32` / `masked_strided_group_sum` already accept the resulting
-mask — **no new reduction kernel**. At most one new primitive would be an
-unpack-plus-presence returning `(I8x16, mask)`, in the module that already owns
-the unpack. Not required for Design 1's first wave.
+mask — **no new reduction kernel**. At most one new surface function would be
+an unpack-plus-presence returning `(I8x16, mask)`, in the module that already
+owns the unpack. Not required for Design 1's first wave.
+
+**No scalar arm, and no scalar cross-check** (operator, 2026-09-10). The
+polyfill surface is transparent in the Valhalla/Panama sense — Panama's vector
+surface lowers to the best available ISA with a guaranteed fallback, Valhalla's
+value types flatten a wrapper onto a register, and `ndarray::simd` does both,
+at **compile time** rather than by JIT. A consumer writes `use ndarray::simd::*`
+once; ndarray fills that surface with SIMD per target. Consequences for this
+plan, stated so a later session does not re-derive them:
+
+- **Nothing here authors a scalar path.** `simd_scalar` already mirrors the API
+  (§2.7); a hand-written scalar arm beside it would be a second implementation
+  of a backend that exists.
+- **Nothing here authors a scalar cross-check either.** Dispatch is
+  compile-time and one backend runs per build, so the scalar backend *is* the
+  cross-check when CI builds a non-x86 target. A cross-check written into this
+  plan would test the polyfill, which is not this plan's subject.
+- **"Per backend" is not a unit of cost for a caller.** A new surface function
+  is authored once on the surface; where its arch implementations live is
+  ndarray's internal structure, and no consumer of the polyfill ever sees it.
+  Earlier drafts of this section priced backends as a plan cost — that was
+  wrong, and it is corrected here rather than deleted.
 
 ### 3.5 The collapse taxonomy — the product, not a by-product
 
@@ -214,6 +242,58 @@ Silent-alias is the worst of the four defect classes: the value does not
 vanish, it **becomes something else**, so the downstream reader gets a
 confident wrong answer rather than an empty one.
 
+### 3.6 ALTERNATIVE — the switch as a hot-plug property (operator, 2026-09-10)
+
+> *"you can put even NaN switch into the contract via hotplug.rs — which would
+> be a little brutal."* Recorded as a live alternative to the `#[cfg]` design
+> above. **Not chosen here**; choosing it changes N1 and §3.4, so it is a
+> ruling, not an implementation detail.
+
+**Why it fits, better than a new surface would.** `hotplug::Activation`
+**already carries the reading** — `read_modes`, ruled `D-BLOCKS-HOTPLUG-1`
+(operator, 2026-09-07): *"how a row addressed under each hot-plugged concept is
+READ: which tail the key carries, which value tenants materialise, how the edge
+block is carved."* "What does a field nobody wrote decode to" is a **reading**
+decision, so it belongs in the struct that already answers that question.
+
+Four properties come free:
+
+1. **Per consumer, per classid — which is §4.1's certification unit exactly.**
+   A consumer that has certified its wires activates without the mode; one that
+   has not gets it on. §4.2's allowlist stops being a separate file and becomes
+   a property of the activation.
+2. **Fail-closed by construction.** `Activation` deliberately has **no
+   `Default`** — *"an activation is something an authority RESOLVED; there is
+   no meaningful empty one."* So there is no accidental green activation
+   carrying no NaN policy.
+3. **Drift machinery already exists.** `ActivationDrift` /
+   `verify_against_mirror` / `mirror_disagreement` — a policy mismatch between
+   consumer and authority bangs once, on the path that already bangs.
+4. **Zero-dep forces the right vocabulary.** The contract cannot see
+   `causal-edge`, so the switch must be expressed in raw/contract terms —
+   the same discipline `band_reading` gets by taking raw ordinals.
+
+**What it costs, stated plainly.**
+
+- **N1's decode half.** The mode becomes a runtime property, so a *release*
+  binary can be flipped. That is strictly more powerful — a live deploy becomes
+  certifiable, not only CI — and it is why the operator calls it brutal. But
+  §3.4's "Release: zero" stops being unconditional and must be re-priced.
+- **The re-pricing is smaller than it looks.** An activation is resolved
+  ONCE, at plug time (`Activation::read_mode_for`), so the policy does not have
+  to be read per decode: the consumer already holds a resolved `ReadMode` and
+  branches on a value it has. That is the dispatch cost the tree already pays,
+  not a new per-read branch — but this is a *reasoned expectation, not a
+  measurement*, and it needs one before N1 is relaxed on its strength.
+- **N2 is unchanged and non-negotiable.** Runtime or not, the mode may observe
+  and fail; the moment it takes a different branch and continues, it is the
+  defect this plan exists to find.
+
+**The hybrid, if the trade is unwelcome.** Hot-plug carries the POLICY (which
+classids are certified, what absence means for them); `#[cfg]` carries the
+ENFORCEMENT (whether a violation aborts). Release resolves the policy once at
+activation and pays nothing further; CI adds the abort. This keeps N1 intact
+and still lands the certification unit where the reading already lives.
 
 ## §4 THE CAMPAIGN
 
@@ -250,7 +330,8 @@ So the enforcement shape is:
 
 ### 4.3 The first deliverable is the real number
 
-The first Wave-0 run **is** the debt measurement, per field, per wire, free.
+The first Wave-0 run **is** the debt measurement, per field, per wire, free —
+a COUNT. §4.5 turns it into a RANKING, which is the more useful object.
 The operator's working figure for the ABI is large; this plan does not restate
 it as measured, because it has not been measured here. Everything in §2 points
 the same direction — zero production writers on 59-63, `pack` zeroing 53-63,
@@ -270,6 +351,61 @@ but the number comes from the run, not from the plan.
 `D-NCI-1..3` are the instrument. `D-NCI-4..5` are the first two repayments.
 Nothing beyond `D-NCI-5` is planned here on purpose — the census decides the
 order, and pre-deciding it would be the plan overruling its own measurement.
+
+### 4.5 Ranking by consequence — "if 0 were NaN" is a COUNTERFACTUAL, literally
+
+> Operator, 2026-09-10: *"wiring NaN mode into revision and recalculate a CE64's
+> known-unknowns — 'if 0 would be NaN' kind of counterfactual probing and
+> revision."*
+
+A count says how many fields are unstamped. It does not say which absences
+**change an answer**. That second question is not a new mechanism: it is the
+shape `dismech_counterfactual::counterfactual_replay` already implements —
+*"the SAME W1 replay with one edge cut ... a thresholded verdict ... a
+load-bearing edge moves the chain's truth ACROSS the threshold; a redundant one
+moves it and stays on the same side."*
+
+Substitute the cut and the shape carries over unchanged:
+
+| | factual arm | counterfactual arm | verdict |
+|---|---|---|---|
+| shipped (`counterfactual_replay`) | chain as recorded | chain with step `i` removed | was that EDGE load-bearing |
+| **this probe** | chain read as stored (`0` = a value) | chain read with `0` = **absent** | were those ABSENCES load-bearing |
+
+Both arms go through the same replay, so a divergence can only come from the
+reading — never from two implementations drifting apart, which is the property
+`dismech_replay` was built to guarantee.
+
+**It respects the direction ruling.** Nothing here feeds bits into revision.
+Revision and counterfactual stay complete thinking; the probe runs the *same*
+script twice over *two readings of the same bytes*. The scripts are untouched.
+
+**What the verdict buys:**
+
+- `Necessary` — the chain's conclusion moves when the unstamped fields are
+  treated as absent. **The absence is load-bearing**: this wire's silence is
+  already changing answers, and it ranks first.
+- `Dispensable` — the conclusion holds either way. The wire is unwired and
+  nothing downstream depends on it: real debt, low priority.
+
+That is the ordering §4.2's allowlist wants, derived rather than argued — and
+it repairs §7.4's weakness, because a small census of *load-bearing* absences
+is worth more than a large census of inert ones.
+
+**Scope and honesty:**
+
+- This is a **probe, not a gate**. `counterfactual_replay` has no production
+  caller today (measured: tests only), and replaying every chain is not a CI
+  budget. It belongs after `D-NCI-2`, not inside `D-NCI-1`.
+- **It is blind on the confidence axis as things stand.**
+  `NarsEngine::revise_fast(f1, _c1, f2, _c2)` discards BOTH confidences, so a
+  revision-derived ranking currently reads frequency only. Fix that first or
+  state the blindness in the result — do not let the ranking imply an axis it
+  never consulted.
+- `DEFAULT_FREQUENCY_BAR` already carries the right warning for whoever tunes
+  this: confidence saturates to a fixed point under `NarsTables::build(1)`, so a
+  confidence-based verdict would be *"a vacuous threshold — every chain on the
+  same side of every bar."* The same trap is one substitution away here.
 
 ## §5 NON-GOALS (each with its why)
 
@@ -385,6 +521,11 @@ formula with the absence check, not merely re-base the divisor.
    is kinder to a large first wave; the first localises better.
 3. **Scope of the first wave.** The whole crate graph, or `causal-edge` +
    `lance-graph-contract` only? §2's census is entirely inside those two.
+3a. **`#[cfg]`, hot-plug, or the hybrid (§3.6).** The `#[cfg]` design is what
+   §3 specifies; the hot-plug variant relaxes N1's decode half in exchange for
+   reaching production and folding §4.2's allowlist into the activation. The
+   hybrid keeps N1 and still moves the policy to the socket. This is the one
+   open item that changes a frozen decision.
 4. **Whether `D-NCI-5` (`SpoHead`) rides in this plan or its own.** It is a
    preservation fix, independent of the mode, and could ship first.
 5. **Where the runtime disposition of absence lives (operator, mid-session
