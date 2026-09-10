@@ -358,6 +358,37 @@ order, and pre-deciding it would be the plan overruling its own measurement.
 > known-unknowns — 'if 0 would be NaN' kind of counterfactual probing and
 > revision."*
 
+> ⊘⊘ **CORRECTED 2026-09-10 on a re-read of both modules, and on the operator's
+> caution — *"0 vs NaN is only a sidestep via `ogar-loco`; it never replaces the
+> whole."* Three errors in the first version of this section, kept visible
+> rather than deleted:**
+>
+> 1. **A HOMONYM collapsed in my own prose.** This section cited
+>    `NarsEngine::revise_fast` — **NARS truth revision** (u8 frequency /
+>    confidence, `NarsTables`) — while being framed around the revision
+>    **docket**, which is `contract::revision::GadamerRevision`. They are
+>    unrelated. `contract::revision` is **pure set algebra over
+>    `EvidenceMask`**: nine `RevisionKind`s from six booleans, and
+>    `EvidentialEffect` is *"deliberately coarser than numerical confidence"*.
+>    **It has no numerics at all**, so it never had a confidence axis to be
+>    blind on. The `revise_fast` fix (`6e5e674`) is real and unblocks the NARS
+>    path; the commit message's claim that it "unblocks §4.5's stated
+>    blindness" over-reached to this one. This repo has a standing record of
+>    exactly this trap — the two-`GateDecision` collision in
+>    `probe_revision_kanban_hinge`, `TrustTexture` as a four-way homonym in
+>    `D-ACR-7` §2.4.
+> 2. **`contract::counterfactual` does not RUN counterfactuals.** Its whole v3
+>    is `todo!()` — `CounterfactualMailbox::{new, poll, cancel}` and
+>    `revise_if_minority_wins` — and `AwarenessRevise` is an explicitly
+>    **BLOCKED placeholder** whose doc says the canonical `awareness.revise`
+>    signature is *"not confirmed on the current contract surface"*. Only v2 is
+>    real: the 4-bit mantissa deposit and the spawn gate. The module that
+>    actually runs one is `planner::dismech_counterfactual::counterfactual_replay`
+>    — cited correctly below, but framed as if the contract module were the
+>    runner. It is not.
+> 3. **The routing was missing, and it is the point.** See "Where it actually
+>    attaches" at the end of this section.
+
 A count says how many fields are unstamped. It does not say which absences
 **change an answer**. That second question is not a new mechanism: it is the
 shape `dismech_counterfactual::counterfactual_replay` already implements —
@@ -420,6 +451,38 @@ is worth more than a large census of inert ones.
   this: confidence saturates to a fixed point under `NarsTables::build(1)`, so a
   confidence-based verdict would be *"a vacuous threshold — every chain on the
   same side of every bar."* The same trap is one substitution away here.
+
+**Where it actually attaches — a sidestep, never a replacement.**
+
+`GadamerRevision::revise(prior, encounter, ancestry)` consumes **masks**:
+`independent_roots`, `resistance`, `contradictions`, `proposed_claims`. There
+is no field in it a CE64 bit could be written into, and nothing here proposes
+one. So "recalculate a CE64's known-unknowns through revision" cannot mean
+modifying `revise` — it means **constructing a different `EncounterEvidence`**:
+does an absent field still count as an independent root contacted, a
+resistance met, a contradiction live?
+
+That construction is **upstream of the docket**, and its home is `ogar-loco`
+— the operator-ruled planning/execution target (2026-09-05, *"every planning
+is in migration to ogar-loco and ogar-r2il"*), where `recipe_vocab` already
+lowers the 34 NARS recipes to loco ops and `dismech_replay` /
+`dismech_counterfactual` already reference it.
+
+So the shape is:
+
+```text
+loco program A: read as stored (0 = a value)  → masks → docket → verdict
+loco program B: read with 0 = absent          → masks → docket → verdict
+                                                   ↑
+                          THE SAME docket, unmodified, run twice
+```
+
+**The NaN reading is one more loco program, run BESIDE the docket.** It does
+not enter `revise`, does not add a field to `EncounterEvidence`, does not
+substitute for the counterfactual attack, and does not become the thinking. It
+changes what the thinking is handed — and if this section is ever read as
+licence to put a NaN branch inside `revision.rs` or `counterfactual.rs`, it has
+been read wrong.
 
 ## §5 NON-GOALS (each with its why)
 
