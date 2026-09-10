@@ -1,8 +1,29 @@
 # PLAN v1 — the NaN CI mode: making dormant ABI absence visible
 
-> **Status:** PROPOSAL. Nothing in this plan is built. No code, no board rows,
-> no minted D-ids — the `D-NCI-*` labels below are **this document's own**
-> proposed deliverable names, not entries on `STATUS_BOARD.md`.
+> **Status:** PROPOSAL — **`D-NCI-1..5` are unbuilt. No NaN mode exists.** No
+> board rows, no minted D-ids; the `D-NCI-*` labels below are **this
+> document's own** proposed deliverable names, not entries on
+> `STATUS_BOARD.md`. Every design question in §8 and §9.4 is still open, and
+> §3.6's `#[cfg]`-vs-hot-plug choice changes a frozen decision (N1), so it is
+> a ruling, not an implementation detail.
+>
+> **One PREREQUISITE has landed, and it is not part of the mode.** `6e5e674`
+> fixed `NarsEngine::revise_fast`, which was indexing `tables.deduction` — the
+> wrong NARS rule, not merely dropping its confidence arguments. It now
+> delegates to `NarsTables::revise`; `deduce_fast` names the other rule
+> explicitly; `NarsEngine::with_c_levels` lets a caller buy a real confidence
+> resolution. Three disable-verified tests (the can-fire / can-stay-silent
+> pair plus the rule pin). It has **zero callers**, so it changed no
+> production behaviour — it made a dead function correct and named the
+> limitation the live threshold code had already run into. It matters here
+> only as §4.5's confidence prerequisite, and **only** for the NARS revision
+> path — `contract::revision` has no numerics at all (see §4.5's correction
+> block).
+>
+> **CI-verified at `7a5790e`:** 10/10 green — `format`, `clippy`, `test`,
+> `test-with-coverage`, `member-tests`, `linux-build`, `regenerate-and-diff`,
+> `citation-decay`, `added-plans-have-dids`, `no-shrink`. Cited because a plan
+> that names a landed prerequisite owes the sha the claim was checked at.
 >
 > **Operator framing (2026-09-10, verbatim in substance):** the biggest debt is
 > a large fraction of the ABI reading as *absent* — dormant and invisible.
