@@ -61,6 +61,52 @@ behavior handles below; T1 algebra (population ‖ epistemic); T0 state. No VSA 
 no RoleKey, no NARS arithmetic, no byte positions, no truth arrays, no Java compute path.
 Only names and capabilities. The widening makes the doctrine MORE general, not more
 permissive.
+
+**⊕ 2026-09-10 — hardened by a 5+3 council before merge (5 savants → draft → 3 reviewers).**
+The ruling is unchanged; the council was a compliance audit, not a re-litigation, and it
+found no contradiction of the ruling. What it found was that this entry and its doctrine
+widened the CONTENT and left every INDEX of it stale, and that three sentences stated
+aspiration in the grammar of fact. Corrected in the same commit:
+
+1. **The rename was never propagated.** Both warden cards' *constitutional* sentence
+   ("your entire competence is the vocabulary of the two tiers you separate … and nothing
+   else") still named `T2 selection`, and `bbb-warden`'s frontmatter `description` — the
+   text that decides whether the card FIRES AT ALL — was never widened to name the
+   epistemic algebra, though its sibling's was. A non-firing trigger is a strictly worse
+   failure than a card that misdescribes itself after firing; both are fixed.
+   `membrane-tiers.md`'s agent→membrane map also still listed three `bbb-warden` verdicts,
+   so the doctrine did not know about the fourth verdict this arc added.
+2. **The epistemic column has no STRUCTURAL gate**, only review notes — and the doctrine's
+   own test is *"a membrane without a gate is prose."* `F-BBB-NARS-1` cannot be exercised
+   today either (zero Java-side truth surface). Now stated plainly, with the gate that will
+   hold it named and its dependency recorded, plus ledger row **L8**, marked OPEN rather
+   than CLOSED. The two new card steps ARE real and discriminating — each catches a body
+   every signature-shaped step passes, and each has a sanctioned silent case — but a review
+   note is not a fence.
+3. **`TruthU8` is the ruled TARGET, not the current state.** Four truth types coexist, and
+   the engine that actually executes revision/deduction/abduction uses a different one
+   (`ndarray::hpc::nars::NarsTruth`, aliased `Truth`); `TruthU8` occurs outside its own
+   crate in exactly one file, a test, with no conversion path. The ruling stands; its
+   migration is now visible as **D-BBB-NARS-4** instead of implied. Likewise the named
+   epistemic primitives are coded only in `lance-graph-planner`'s `nars_engine.rs` and are
+   ABSENT at the lgj-abi T1 membrane, and the `Plan` tree is illustrative — `plan_eval`
+   takes a flat AND/OR `LgjOpDesc` with two opcodes and no Truth opcode.
+4. **Two factual errors were carried past in a row this arc rewrote**: `Mask × WideFieldMask
+   → Mask` — the shipped type is plain `FieldMask`, the wide one does not cross the ABI —
+   and a `bbb-warden` sentence presented in quotation marks that was a paraphrase, not the
+   source string. Both corrected. The first is a **recurring workspace defect shape** worth
+   naming in the abstract: a doc asserting the WIDE variant of a type while the code wires
+   the NARROW one is invisible to every test, because on today's data the two agree.
+
+**`E-NXG-8` is not regraded** — its claim is scoped *"a complete cognitive ISA **over
+masks**"*, so the two-algebras doctrine BOUNDS it to the population column rather than
+contradicting it.
+
+**The council's own artifact carried the same defect it was auditing:** the consolidated
+draft cited the verdict-map row one line off and stamped it "orchestrator-verified", which
+would have added the new verdict to the wrong warden. The overclaim reviewer caught it.
+That is the argument for the reviewer phase being non-optional, recorded because the next
+session will be tempted to skip it.
 ## 2026-09-07 — E-A-DYNAMIC-DOMAIN-MASK-IS-A-SECOND-WITNESS-AND-ITS-ALIGNMENT-IS-CALIBRATION-1 — the "horseshoe" was a category error; the equality I called a coincidence is a known-answer target
 
 **Status:** OPERATOR RULING (2026-09-07, two messages: *"horseshoe mask is a

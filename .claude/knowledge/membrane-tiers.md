@@ -19,8 +19,8 @@ substrate beneath them is T0.
 | Tier | What it is | May know | Crosses UP as | The membrane (gate) |
 |---|---|---|---|---|
 | **T0 substrate** | bytes, lanes, Lance columns, SoA v3 rows; `simd_{avx512,avx2,neon,scalar}.rs` | strides, offsets, carvings, intrinsics, alignment | — | none; T0 is where truth lives |
-| **T1 primitive** | TWO SIBLING ALGEBRAS (2026-09-07, below): **population** — `ndarray::simd` facade, `lgj-abi/kernels.rs`, `mask_*`, `eq_*_to_mask`, `ternlog`, `popcount`; **epistemic** — `TruthU8`, revision, deduction, abduction, … | `&[u64]`, `&[u8]`+`(offset,stride)`, `IMM`, `TruthU8` | a mask, a count, a lane descriptor, **a truth lane DESCRIPTOR (`TruthLaneId`) — never the population** | **polyfill rule** (simd-savant): no intrinsic, no `#[cfg(target_arch)]` above this line |
-| **T2 behavior** (was "selection") | ABI exports; `where`/`hop`/`plan_eval`; `Mask × WideFieldMask → Mask`; **and the epistemic siblings, named through the same `plan_eval`** | handles, `classid`, `FieldMask` (fields by NAME), version | a handle, a count, a status | **no hand-composed T1 op, no computed geometry** (kernel-membrane-warden) |
+| **T1 primitive** | TWO SIBLING ALGEBRAS (2026-09-07, below): **population** — `ndarray::simd` facade, `lgj-abi/kernels.rs`, `mask_*`, `eq_*_to_mask`, `ternlog`, `popcount`; **epistemic** — `TruthU8`, revision, deduction, abduction, … *(RULED, NOT YET RESIDENT — see § "What is ruled vs what is coded" below: these four are coded only in `lance-graph-planner`'s `nars_engine.rs`, and are ABSENT at the lgj-abi T1 membrane)* | `&[u64]`, `&[u8]`+`(offset,stride)`, `IMM`, `TruthU8` | a mask, a count, a lane descriptor, **a truth lane DESCRIPTOR (the `TruthLaneId` shape D-BBB-NARS-3 would mint — prescriptive, 0 code sites today) — never the population** | **polyfill rule** (simd-savant): no intrinsic, no `#[cfg(target_arch)]` above this line |
+| **T2 behavior** (was "selection") | ABI exports; `where`/`hop`/`plan_eval`; `Mask × FieldMask → Mask` *(the shipped type; `WideFieldMask` does not cross the ABI — lgj `fixture.rs:1-6` calls wiring it "a later slice", and `class_view_provider.rs:64,235` wires plain `FieldMask`)*; **and the epistemic siblings, named through the same `plan_eval`** | handles, `classid`, `FieldMask` (fields by NAME), version, **a truth LITERAL (`TruthLiteral`) — never a truth population** | a handle, a count, a status | **no hand-composed T1 op, no computed geometry** (kernel-membrane-warden) |
 | **T3 intent** | Java facade; R2IL / OGAR `ActionDef`; low-code | names: class, edge, field, version | an outcome | **no byte position** (bbb-warden + ApiSurfaceTest) |
 | **R2IL** | emits T3 artifacts | T3's vocabulary (names, outcomes) | an outcome | its ceiling IS T3's; door-knocker test (layer-boundary-warden) |
 
@@ -106,10 +106,14 @@ Java knowing progressively more about the behavior graph. **The membrane starts
 growing little computational fingers.**
 
 `lgj_plan_eval` exists precisely so a whole behavioral expression crosses ONCE.
+(That rule is not new here — it restates lgj `docs/abi.md` §6, which already says the
+fused-plan call exists "precisely so that `.where(...).where(...).count()` is **one**
+crossing regardless of how many predicates or rows." What is new is extending it to
+the epistemic column.)
 NARS becomes another named plan operation, not another export:
 
 ```
-Plan
+Plan                       ← ILLUSTRATIVE. Not a type that exists today.
  ├── Select(…)
  ├── Hop(…)
  ├── Ternlog(…)
@@ -119,6 +123,16 @@ Plan
       ├── Abduction
       └── …
 ```
+
+**Read that as the shape `D-BBB-NARS-3` would mint, not as a description of the
+code.** Measured 2026-09-10 across both checkouts: `enum Plan` / `Plan::Select` /
+`Plan::Hop` / `Plan::Ternlog` / `Plan::Truth` have **zero hits**; `lgj_hop`
+(`exports.rs:1703`) is an ABI function, not a tree variant. `lgj_plan_eval` IS
+shipped and tested (`exports.rs:1421,1522,1547`; `abi.rs:246-251,337`), but its
+`LgjOpDesc` is a **flat array with a combined AND/OR — not a tree** — and its
+opcode set is exactly `{LGJ_OP_EQ_U32 = 1, LGJ_OP_GT_I32 = 2}` (`abi.rs:250,252`),
+with **no Truth/Revision opcode**. So "a whole behavioral expression crosses ONCE"
+is CODED for population predicates and RULED-BUT-UNBUILT for the epistemic side.
 
 ### `TruthU8` is the canonical SUBSTRATE representation — not automatically the wire form
 
@@ -132,8 +146,8 @@ What crosses is decided separately, and by shape:
 | a truth LITERAL, `TruthLiteral(192, 217)` | **yes** — it is meaning supplied by the caller, syntax, T3's to state | itself |
 | a truth POPULATION, `[TruthU8; 65536]` | **never** | `TruthLaneId(u64)` — an opaque 8-byte descriptor |
 
-This is the same rule `bbb-warden` already enforces for masks (*"a `long[]` of
-selected ids is still a materialised population"*), applied to the epistemic
+This is the same rule `bbb-warden` already enforces for masks (*"a `long[]` of row ids is a
+materialised population"*, `bbb-warden.md:32`), applied to the epistemic
 column — and it lands exactly on the measured Valhalla cliff: **flattening stops
 at an 8-byte payload** (VM-confirmed, `valhalla-lab/docs/three-truths.md`), so a
 `TruthLaneId(u64)` flattens and a truth array could never. The JVM agrees with
@@ -150,6 +164,52 @@ its allowlist is spelled (`tests/g11_contract_import_fence.rs`'s `ALLOWED`,
 lgj `CLAUDE.md § Enforcement`, `Cargo.toml`'s comment) — the shape lgj already
 requires, and the reason its own history records the fence being prose until
 2026-09-03 (`ISS-LGJ-G11-FENCE-WAS-PROSE`).
+
+### What is ruled vs what is coded (measured 2026-09-10 by the 5+3 council)
+
+The ruling above is binding. Most of what it rules is **not yet resident**, and this
+section exists so no future session mistakes a decision for an accomplished fact.
+The doctrine's own test is three sections down: *"A membrane without a gate is prose."*
+
+**1. The epistemic column has NO structural gate — yet.** Each membrane is held by a
+structural gate: T0/T1 by the simd-savant grep + the `ndarray::simd` re-export, T1/T2
+by the G11 import fence + `kernels.rs` as sole ndarray importer, T2/T3 by
+`ApiSurfaceTest`'s forbidden-type list + the array-return naming rule. **The epistemic
+column adds none of these.** What it adds — `bbb-warden` step 4, `kernel-membrane-warden`
+step 2b — are *review notes*, which property 1 below explicitly distinguishes from gates.
+Both steps are real and discriminating (each catches a body that every signature-shaped
+step passes, and each has a sanctioned silent case), but a review note is not a fence.
+`F-BBB-NARS-1` likewise cannot be exercised today: grep across lgj@`8720d1d` `native/`
+and `java/` for `TruthU8`/`revision`/`deduction`/`abduction`/`induction` returns **zero
+hits**, so there is no Java surface to run it against. **The gate that will hold this
+column is `ApiSurfaceTest`'s forbidden-type list plus a G11 allowlist entry, and it is
+gated on D-BBB-NARS-2/-3** — which are Queued and marked *do not pre-build*. Until then
+this half of the membrane is enforced by review, and saying otherwise would be the exact
+defect this arc keeps finding.
+
+**2. The named epistemic primitives are not at T1.** `revision`/`deduction`/`abduction`/
+`induction` are CODED, but only inside `crates/lance-graph-planner/src/cache/nars_engine.rs:194-207`
+(`Inference::{Deduction,Induction,Abduction,Revision}`) — a planner-internal dispatch,
+**not** a T1 primitive callable from T2 — and are ABSENT at the lgj-abi membrane
+entirely. `kernel-membrane-warden` step 2b already states the consequence correctly
+("if it does not exist at T1, it lands at T1 first"); the T1 row above now carries the
+same hedge, which it did not when first written.
+
+**3. `TruthU8` is the RULED TARGET, and it has three incumbents.** The ruling makes
+`TruthU8` canonical at T0. Measured, four truth types coexist today, each self-described
+as canonical in some register:
+
+| type | shape | site |
+|---|---|---|
+| `exploration::NarsTruth` | `f32 × 2` | `lance-graph-contract/src/exploration.rs:89` |
+| `holograph::width_16k::schema::NarsTruth` | `u16 × 2`, packed | `holograph/src/width_16k/schema.rs:104` |
+| `ndarray::hpc::nars::NarsTruth` | — | aliased `Truth` at `lance-graph-planner/src/cache/triple_model.rs:42` |
+| `arm-discovery::TruthU8` | `u8 × 2` | `lance-graph-arm-discovery/src/translator.rs:28` |
+
+**The engine that actually executes revision/deduction/abduction uses the third**, via
+that alias. `TruthU8` occurs outside its own crate in exactly one file, a test. No
+conversion path bridges them. So "T0 owns every resulting `TruthU8`" is the direction of
+travel, not the current state — the convergence is tracked as **D-BBB-NARS-4**.
 
 ### The ruling and its falsifier
 
@@ -214,7 +274,7 @@ catchable half. The warden proves the rest.
 |---|---|---|---|
 | T0/T1 | `simd-savant` | sonnet | POLYFILL-CLEAN / RAW-INTRINSIC / SHADOW-KERNEL |
 | T1/T2 | `kernel-membrane-warden` | opus | NAMED / HAND-COMPOSED / GEOMETRY-LEAK |
-| T2/T3 | `bbb-warden` | opus | HANDLE-CLEAN / BYTE-POSITION / UNNAMED-BREACH |
+| T2/T3 | `bbb-warden` | opus | HANDLE-CLEAN / BYTE-POSITION / UNNAMED-BREACH / ARITHMETIC-SURFACE |
 | T3/R2IL | `layer-boundary-warden` | opus | COMPILE-TIME-CLEAN / DOOR-KNOCKER / WRONG-SHELF |
 
 All membrane wardens above T0/T1 are Opus: leak detection is accumulation
@@ -242,6 +302,7 @@ reject the old spelling once closed. `[OPEN]` until the gate rejects it.
 | L5 | `Engine.LaneWindow.setU64` — raw word write | `importRows` (named breach) is the only sanctioned writer | ApiSurfaceTest (internal.ffm already fenced from public) | CLOSED |
 | L6 | any future `byte[]` / `[u8;12]` rail array in a public signature | a named `Reading` value type OGAR emits per ClassView (Valhalla), read zero-copy | ApiSurfaceTest byte[]-fence (this PR) | CLOSED (forward guard) |
 | L7 | any future array return not named `materialize*`/`import*` | a named terminal | ApiSurfaceTest array-return naming rule (this PR) | CLOSED (forward guard) |
+| L8 | any future truth POPULATION in a public signature — `TruthU8[]`, a truth lane, a collection of them — or any T3 body that computes a truth FROM truths | the `TruthLaneId(u64)` opaque descriptor for the population; a named `Truth(…)` `plan_eval` operation for the arithmetic | **OPEN — review-note only** (`bbb-warden` step 4 + ARITHMETIC-SURFACE). The structural gate (ApiSurfaceTest forbidden-type entry + G11 allowlist) is gated on D-BBB-NARS-2/-3 | OPEN (forward guard, ungated) |
 
 Provenance: the two fixes that produced this doctrine — the 7.5→1.1 ms
 `lgj_hop` (T1 doing T0's job badly: gathered a contiguous lane; fixed inside
