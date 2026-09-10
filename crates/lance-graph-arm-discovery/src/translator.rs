@@ -22,8 +22,15 @@ use crate::rule::{CandidateRule, Item};
 /// needed before confidence approaches saturation.
 pub const NARS_PERSONALITY_K: u32 = 1;
 
-/// Quantised NARS truth — the canonical, float-free wire form (mirrors the
-/// `CausalEdge64` `confidence_u8` + i4 mantissa fields). `255` = 1.0.
+/// Quantised NARS truth — the canonical, float-free **substrate** representation
+/// (mirrors the `CausalEdge64` `confidence_u8` + i4 mantissa fields). `255` = 1.0.
+///
+/// Not "the wire form": that wording was retired by `D-BBB-NARS-1` (2026-09-07),
+/// which separates two claims the workspace had been conflating. This type is
+/// canonical at T0. What crosses a membrane is decided separately and by SHAPE —
+/// a truth LITERAL may cross as itself; a truth POPULATION never crosses, it
+/// crosses as an opaque descriptor. See `.claude/knowledge/membrane-tiers.md`
+/// § "T1 has TWO sibling algebras".
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct TruthU8 {
     /// NARS frequency, `0..=255` (255 = 1.0).
