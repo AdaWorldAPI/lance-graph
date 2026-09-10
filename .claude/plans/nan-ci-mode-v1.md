@@ -7,18 +7,30 @@
 > §3.6's `#[cfg]`-vs-hot-plug choice changes a frozen decision (N1), so it is
 > a ruling, not an implementation detail.
 >
-> **One PREREQUISITE has landed, and it is not part of the mode.** `6e5e674`
-> fixed `NarsEngine::revise_fast`, which was indexing `tables.deduction` — the
-> wrong NARS rule, not merely dropping its confidence arguments. It now
-> delegates to `NarsTables::revise`; `deduce_fast` names the other rule
-> explicitly; `NarsEngine::with_c_levels` lets a caller buy a real confidence
-> resolution. Three disable-verified tests (the can-fire / can-stay-silent
-> pair plus the rule pin). It has **zero callers**, so it changed no
-> production behaviour — it made a dead function correct and named the
-> limitation the live threshold code had already run into. It matters here
-> only as §4.5's confidence prerequisite, and **only** for the NARS revision
-> path — `contract::revision` has no numerics at all (see §4.5's correction
-> block).
+> **One PREREQUISITE is pushed to this branch
+> (`claude/lance-graph-1218-plans-z8hzqr`) — it is NOT on `main`, and it is
+> not part of the mode.** `6e5e674` fixed `NarsEngine::revise_fast`, which was
+> indexing `tables.deduction` — the wrong NARS rule, not merely dropping its
+> confidence arguments. It now delegates to `NarsTables::revise`;
+> `deduce_fast` names the other rule explicitly; `NarsEngine::with_c_levels`
+> lets a caller buy a real confidence resolution. Three disable-verified
+> tests (the can-fire / can-stay-silent pair plus the rule pin). It has
+> **zero callers**, so it changed no production behaviour — it made a dead
+> function correct and named the limitation the live threshold code had
+> already run into. It matters here only as §4.5's confidence prerequisite,
+> and **only** for the NARS revision path — `contract::revision` has no
+> numerics at all (see §4.5's correction block).
+>
+> **§2.2's writer census was corrected after external review.** The original
+> table named only two builders (`with_topology` / `with_reasoning_band`) and
+> reported 0 non-test writers of bits 59-63 — true as far as it goes, but an
+> undercount: `edge_v3::rehydrate` (`edge_v3.rs:263-291`) also writes bits
+> 53-63, via `set_w_slot` / `set_truth` / `set_spare`, and it is a real,
+> non-test-gated `pub fn`, not scaffolding. Checked both ways: `rehydrate`
+> PRESERVES a value already carried in the V3 payload, it does not originate
+> one; and every call site of `rehydrate` in this tree today sits inside a
+> `#[cfg(test)] mod tests`. So the dormancy thesis is unchanged — the reason
+> is one layer deeper than the original census stated. Full table: §2.2.
 >
 > **CI-verified at `7a5790e`:** 10/10 green — `format`, `clippy`, `test`,
 > `test-with-coverage`, `member-tests`, `linux-build`, `regenerate-and-diff`,
@@ -63,19 +75,34 @@
 
 **Consequence:** every edge built by either constructor is born with
 `w_slot = 0`, `topology = 0`, `band = 0`. Those are not "unset" — they decode
-as the *legitimate* values `Direct` / `Crystalline` / `Surface`. The only
-writers of bits 59-63 are the explicit builders `with_topology()`
-(`edge.rs:1009`) and `with_reasoning_band()` (`edge.rs:1057`), and
-`layout.rs:70-72` states that nothing derives the band.
+as the *legitimate* values `Direct` / `Crystalline` / `Surface`. The named
+builders that write bits 59-63 as fresh input — `with_topology()`
+(`edge.rs:1009`) and `with_reasoning_band()` (`edge.rs:1057`) — have 0
+callers outside `v2_layout_tests.rs`. A second writer exists too,
+`edge_v3::rehydrate`, and it PRESERVES rather than originates (§2.2 has the
+corrected census). `layout.rs:70-72` states that nothing DERIVES the band
+automatically — that claim is unaffected either way.
 
 ### 2.2 The census: writers, readers, contract callers
 
-| layer | production (non-test, non-example) count |
-|---|---|
-| writers of bits 59-63 (`with_topology` / `with_reasoning_band`) | **0** |
-| readers of bits 59-63 | **1** — `lance-graph-planner/src/dismech_counterfactual.rs:251-252`, via the raw accessors, not the contract projection |
-| callers of the `band_reading` surface (`BandReading`, `EdgeProvenance`, `project_truth`, `project_band`, `admits`, `admits_band`, `BandDeclarations`) | **0, anywhere in the tree** |
-| classes overriding `ClassView::band_reading` | **0** — one impl, the default returning `ZERO_FALLBACK` (`class_view.rs:1231-1237`) |
+> **Corrected after external review.** The first version of this table
+> counted only two named builders and reported 0 non-test writers for bits
+> 59-63; that undercounted a second, real writer function. Two questions
+> were bundled under one column header and need to stay apart: (1) does a
+> non-test-gated `pub fn` exist that writes the bits at all, and (2) is that
+> function ever REACHED from a path outside `#[cfg(test)]`? The table below
+> answers both, separately, for every dormant field this plan tracks —
+> W-slot (53-58), truth/topology (59-60), spare/band (61-63).
+
+| layer | (1) writer exists, non-test-gated? | (2) reached outside `#[cfg(test)]`? |
+|---|---|---|
+| bits 53-58 (W-slot) via `with_w_slot` / `with_routing` (`edge.rs:988,1069`) | yes, but **0** callers outside `v2_layout_tests.rs` | n/a — never called |
+| bits 59-60 / 61-63 via `with_topology` / `with_reasoning_band` (`edge.rs:1009,1057`) | yes, but **0** callers outside `dismech_counterfactual.rs`'s own `#[cfg(test)] mod tests` | n/a — never called |
+| bits 53-63 (all three) via `edge_v3::rehydrate`'s `set_w_slot` / `set_truth` / `set_spare` (`edge_v3.rs:279,288-289`) | **yes** — a real, non-test-gated function; but it PRESERVES a payload-resident value, it does not originate one | **no** — every call site (`cognitive-shader-driver/src/edge_v3_compare.rs:68-69`, `lance-graph-planner/src/cache/stage26_v3_parity.rs:294-295`) sits inside that file's own `#[cfg(test)] mod tests` |
+| readers of bits 59-63 | — | **1**, reachable — `lance-graph-planner/src/dismech_counterfactual.rs:251-252`, via the raw accessors, not the contract projection |
+| readers of bits 53-58 (W-slot) | — | **1 live filter, unreachable today** — `cognitive-shader-driver/src/mailbox_soa.rs:355`'s `apply_edges` drops any delivery whose `edge.w_slot() != self.w_slot`; `apply_edges` itself has zero callers outside its own `#[cfg(test)] mod tests` (`mailbox_soa.rs:1089,1120`) |
+| callers of the `band_reading` surface (`BandReading`, `EdgeProvenance`, `project_truth`, `project_band`, `admits`, `admits_band`, `BandDeclarations`) | — | **0, anywhere in the tree** |
+| classes overriding `ClassView::band_reading` | — | **0** — one impl, the default returning `ZERO_FALLBACK` (`class_view.rs:1231-1237`) |
 
 `BandReading::ZERO_FALLBACK` is `{Trust, Absent}` (`band_reading.rs:230-234`),
 so `project_band` would refuse `BandAbsent` for **every class in the tree
@@ -83,6 +110,18 @@ today**. The read contract is armed and fail-closed; nothing has ever opted in.
 
 Note the one reader reads a field no production path writes: on any chain whose
 edges came through `pack`, it reports the constant `(Direct, Surface)`.
+
+**The `apply_edges` row is the thesis made concrete, not abstract.** A real
+delivery filter compares `edge.w_slot()` against a real mailbox's own
+`w_slot` and silently drops on mismatch — the module's own doc comment says
+so directly (`mailbox_soa.rs:341-355`: "Mismatched edges are silently
+dropped in `apply_edges`"). Because no production path originates a
+non-zero W (the row above), and because `apply_edges` is not yet called
+from outside its own tests, the comparison is latent rather than live
+today — but it is the exact failure this plan exists to make visible: a
+`CausalEdge64::ZERO`-derived baton's `w_slot() == 0` is indistinguishable
+from a real mailbox that also happens to be `w_slot == 0`, the moment
+`apply_edges` gains a live caller.
 
 ### 2.3 The mantissa already aliases absence to a legitimate value
 
@@ -355,9 +394,11 @@ The first Wave-0 run **is** the debt measurement, per field, per wire, free —
 a COUNT. §4.5 turns it into a RANKING, which is the more useful object.
 The operator's working figure for the ABI is large; this plan does not restate
 it as measured, because it has not been measured here. Everything in §2 points
-the same direction — zero production writers on 59-63, `pack` zeroing 53-63,
-zero callers of the entire `band_reading` surface, zero `ClassView` overrides —
-but the number comes from the run, not from the plan.
+the same direction — no production PATH ever writes bits 53-63 (the one real
+writer, `edge_v3::rehydrate`, is itself reachable only from test harnesses,
+per §2.2's corrected census), `pack` zeroing 53-63, zero callers of the
+entire `band_reading` surface, zero `ClassView` overrides — but the number
+comes from the run, not from the plan.
 
 ### 4.4 Proposed deliverables (this document's own labels)
 
@@ -618,7 +659,11 @@ formula with the absence check, not merely re-base the divisor.
    that touched it, or does the job fail once with the full table? The second
    is kinder to a large first wave; the first localises better.
 3. **Scope of the first wave.** The whole crate graph, or `causal-edge` +
-   `lance-graph-contract` only? §2's census is entirely inside those two.
+   `lance-graph-contract` only? §2's census was entirely inside those two
+   before the correction; the corrected §2.2 also cites `cognitive-shader-
+   driver` (`edge_v3_compare.rs`, `mailbox_soa.rs`'s `apply_edges`), so a
+   two-crate first wave would now exclude the one live-shaped filter
+   (`apply_edges`) the census found.
 3a. **`#[cfg]`, hot-plug, or the hybrid (§3.6).** The `#[cfg]` design is what
    §3 specifies; the hot-plug variant relaxes N1's decode half in exchange for
    reaching production and folding §4.2's allowlist into the activation. The
