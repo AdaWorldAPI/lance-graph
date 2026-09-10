@@ -22,8 +22,19 @@ use crate::rule::{CandidateRule, Item};
 /// needed before confidence approaches saturation.
 pub const NARS_PERSONALITY_K: u32 = 1;
 
-/// Quantised NARS truth — the canonical, float-free **substrate** representation
-/// (mirrors the `CausalEdge64` `confidence_u8` + i4 mantissa fields). `255` = 1.0.
+/// Quantised NARS truth — the canonical, float-free **substrate** representation.
+/// `255` = 1.0. Mirrors the `CausalEdge64` truth pair — `frequency_u8` (bits 24-31)
+/// + `confidence_u8` (bits 32-39). (An earlier comment paired `confidence_u8` with
+/// the i4 mantissa; that was wrong — the i4 mantissa at bits 46-49 is the
+/// `InferenceType`, provenance/type grammar, not half of the truth value.)
+///
+/// **This is a substrate value, not a wire DTO.** It carries no `repr(C)`, no schema
+/// version, and no little-endian codec, so it binds a DEGREE and not a KIND. Per the
+/// operator ruling of 2026-09-10 (*LE is the universal DTO layer of the ABI*), a truth
+/// crosses a membrane only as a versioned DTO whose canonical LE layout fixes the
+/// meaning of every position — for this pair, the ordered byte sequence
+/// `[frequency, confidence]` — or as an opaque typed handle whose registry binds the
+/// same kind and schema. That DTO is defined by D-BBB-NARS-2, not here.
 ///
 /// Not "the wire form": that wording was retired by `D-BBB-NARS-1` (2026-09-07),
 /// which separates two claims the workspace had been conflating. This type is

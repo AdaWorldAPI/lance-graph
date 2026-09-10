@@ -1,3 +1,56 @@
+## 2026-09-10 — E-LE-IS-THE-UNIVERSAL-DTO-LAYER-TYPED-SYNTAX-MEANS-A-VERSIONED-LE-SCHEMA-1 — a bare `(f, c)` pair is a degree, not a typed truth
+
+**Status:** OPERATOR RULING, BINDING (2026-09-10, verbatim: *"Little-endian is the universal
+DTO layer of the ABI."*). Sharpens `E-T1-HAS-TWO-SIBLING-ALGEBRAS-…-1` / `D-BBB-NARS-1`;
+reverses nothing in it.
+**Confidence:** High. The gap was measured at every site before the ruling was written in
+(table in `membrane-tiers.md` § "LE is the universal DTO layer"); the ruling is the
+operator's; no code changed.
+
+**The question.** Did #1222 use "typed NARS syntax" strongly enough? It let
+`TruthLiteral(192, 217)` cross "as itself" while retiring `TruthU8` as "the wire form."
+**No.** A bare `(frequency, confidence)` pair expresses a DEGREE but not what KIND of
+truth the degree belongs to. Its kind must be bound by a DTO schema, a version, and a
+canonical LE layout — or by an opaque typed handle whose registry binds those. The LE
+contract is not convenient serialization; it is the universal ABI grammar that makes
+every wire position carry the same label in Rust, Panama, Java, storage, replay and MUL.
+The ABI carries the value; LE fixes the meaning of its positions; MUL asserts the kind;
+the values are content; LE adds no evidence.
+
+**Measured, coded vs ruled.** A versioned LE contract EXISTS — for the SoA envelope
+(`ENVELOPE_LAYOUT_VERSION = 2`, `verify_layout()`, `le-contract.md` §3b, operator-locked)
+— and **no truth type rides it**: `TruthU8` is a plain struct with no `repr(C)`, no
+version, no codec; `CausalEdge64` is `#[repr(transparent)] (u64)` with register-defined
+bit positions and **zero** endian conversions, so its byte image is host-native at every
+crossing, and its v1/v2 layouts are a compile-time feature invisible in the bytes; MUL
+never sees bytes at all (`SituationInput` is typed `f64`s, `revise_fast` takes bare `u8`
+degrees and ignores confidence). lgj already declares byte order as ABI shape
+(`LgjLaneDesc.endianness`, the `LGJ_MAGIC` probe, `abi.md:1224`) but carries no truth
+DTO. So: **CODED for the envelope, ABSENT for truth, RULED now, DEFINED by D-BBB-NARS-2
+when it lands.**
+
+**The ruling, verbatim, and its falsifier** — quoted in `membrane-tiers.md`; the
+falsifier is `F-BBB-NARS-2 (LE)`: identical typed wire bytes must never acquire
+different DTO labels or epistemic kinds across implementations, host endianness, storage
+and replay, and truth kind must never depend on an unstated reader assumption. For two
+`u8`s the contract is the ordered byte sequence `[frequency, confidence]`; for a packed
+carrier the whole integer-to-byte mapping is explicitly LE. **Evidence is not
+repetition:** an identical canonical wire image repeated is the same assertion
+propagated, not independent evidence; revision still needs independent stamps.
+
+**Three corrections landed with it, all in-tree, no code.** (1) `bbb-warden`'s sanctioned
+delegation returned a COMPUTED `TruthLiteral` — a bare pair crossing back — which blessed
+the exact leak; it now returns an opaque typed handle. (2) `translator.rs` said `TruthU8`
+"mirrors `CausalEdge64`'s `confidence_u8` + i4 mantissa" — wrong pairing: the truth is
+`frequency_u8` (bits 24-31) + `confidence_u8` (bits 32-39); the i4 mantissa at bits 46-49
+is the `InferenceType` — provenance/type grammar, not half of the truth. (3) Every index
+of the amended sentence — shape table, both warden cards, ledger L8, the ruled-vs-coded
+section, the D-BBB-NARS-1/-2/-3 rows — updated in the same commit, so the stale-index
+defect the council closed is not reopened.
+
+**What is deliberately NOT built:** no DTO struct, no opcode, no ABI symbol, no G11
+widening, no Java, no conversion. D-BBB-NARS-2/-3 stay Queued, *do not pre-build*.
+
 ## 2026-09-07 — E-T1-HAS-TWO-SIBLING-ALGEBRAS-THE-AXIS-IS-SYNTAX-VS-EXECUTION-1 — the membrane is a behavior membrane, not a selection pipeline
 
 **Status:** OPERATOR RULING, BINDING (2026-09-07). Ruled after a three-agent audit of the
@@ -8,6 +61,7 @@ measurement.
 **Confidence:** High. The measurement is exhaustive (repo-wide grep of lgj: 3 hits, all
 prose, all in one unshipped plan); the ruling is the operator's, and it is a ruling, not
 a finding.
+⊘ **2026-09-10 — sharpened, not reversed:** the shape table's *"a truth LITERAL crosses as itself"* was too weak — a bare `(f, c)` pair is a degree, not a typed truth. Typed syntax now means a versioned DTO schema with canonical LE layout, or a typed handle whose registry binds kind + schema. See `E-LE-IS-THE-UNIVERSAL-DTO-LAYER-TYPED-SYNTAX-MEANS-A-VERSIONED-LE-SCHEMA-1` (above). `TruthU8`-is-canonical-at-T0 and everything else here stand.
 
 **The audit's conclusion, verbatim, and why it is wrong.** *"NARS is off the ladder
 entirely; the ladder is selection-shaped and has no tier for scoring."* Descriptively
