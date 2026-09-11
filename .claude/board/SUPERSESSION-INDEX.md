@@ -56,7 +56,7 @@ coverage instead.
 | `persist_cycle` | BLOCKED | — | 11 | 8 | 5 |
 | `CognitiveMarkers` | REPURPOSE | `Commit` | 1 | 0 | 0 |
 | `DominoCascade` | REPURPOSE | `Commit` | 7 | 1 | 0 |
-| `GateDecision` | REPURPOSE | — | 25 | 27 | 24 |
+| `GateDecision` | REPURPOSE | — | 25 | 28 | 25 |
 | `GateState` | REPURPOSE | — | 14 | 1 | 1 |
 | `MergeMode` | REPURPOSE | — | 8 | 13 | 12 |
 | `ResonanceDto` | REPURPOSE | `PerturbationDto` | 2 | 12 | 7 |
@@ -64,7 +64,7 @@ coverage instead.
 | `CollapseGateEmission` | RETIRE | — | 5 | 14 | 12 |
 | `ThinkingStyle` | RETIRE-toward-contract | — | 52 | 28 | 24 |
 
-## Table 2 — plans naming a ruled symbol without citing the ruling (73)
+## Table 2 — plans naming a ruled symbol without citing the ruling (74)
 
 Route is **mechanical triage, not a verdict**: `ARCHIVE?` = the plan's own status says
 it shipped; `RESCOPE` = it targets a symbol marked RETIRE; `READ` = neither signal fires
@@ -91,6 +91,7 @@ a licence to act on it.
 | **READ** | `mul-consumer-build-gate-v1` | `GateDecision` | GATE RUN — 2026-08-27. Discharges D-MCAL-6 a | 3/7 |
 | **READ** | `mul-consumer-census-v1` | `GateDecision` | MEASUREMENT COMPLETE — 2026-08-27. Measureme | 1/2 |
 | **READ** | `mul-ewa-trust-propagation-v1` | `GateDecision` | PROPOSED — PLAN/BOARD ONLY. Measure-before-c | 1/3 |
+| **READ** | `nan-ci-mode-v1` | `GateDecision` | PROPOSAL — **`D-NCI-1..5` are unbuilt. No Na | 2/8 |
 | **READ** | `persistence-artifact-backed-commit-v1` | `persist_cycle` | RATIFIED (operator ruling 2026-08-09). Phase | 0/0 |
 | **READ** | `post-teardown-buildup-survey-v1` | `StepMask` | SURVEY, read-only, plan-only (no code, no te | 5/5 |
 | **READ** | `r2il-bpe-typed-genetic-recombination-v1` | `GateDecision` | PROPOSAL, §7's three falsifiers now RUN (see | 1/1 |
@@ -155,5 +156,5 @@ a licence to act on it.
 
 - **ARCHIVE?**: 0
 - **RESCOPE**: 55
-- **READ**: 18
+- **READ**: 19
 - ruled symbols tracked: 14

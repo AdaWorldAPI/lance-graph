@@ -52,7 +52,9 @@ impl NarsTables {
     /// Build all lookup tables.
     ///
     /// `c_levels`: number of confidence quantiles for revision tables.
-    /// Use 16 for full precision (32 MB), 1 for fast path (128 KB).
+    /// Total footprint is `(c_levels² + 1) × 128 KB` — the deduction table is
+    /// always allocated, independent of `c_levels`. Use 16 for full precision
+    /// (~32.1 MB), 1 for fast path (256 KB, not 128 KB).
     pub fn build(c_levels: usize) -> Self {
         let c_levels = c_levels.clamp(1, 16);
 

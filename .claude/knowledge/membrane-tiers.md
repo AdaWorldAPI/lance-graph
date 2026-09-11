@@ -148,7 +148,7 @@ What crosses is decided separately, and by shape:
 
 | shape | crosses? | as |
 |---|---|---|
-| a truth LITERAL, `TruthLiteral(192, 217)` | **yes** — it is meaning supplied by the caller, syntax, T3's to state | itself |
+| a truth LITERAL, `TruthLiteral(192, 217)` | **yes — but never as a bare pair** (⊘ 2026-09-10, § "LE is the universal DTO layer" below): it is meaning the caller supplies, syntax, T3's to state — and its KIND is bound by a versioned DTO schema with canonical little-endian layout, or by an opaque typed handle whose registry binds the same kind and schema | a versioned typed DTO (schema + version + canonical LE byte order), or a typed handle — never `(u8, u8)` on its own |
 | a truth POPULATION, `[TruthU8; 65536]` | **never** | `TruthLaneId(u64)` — an opaque 8-byte descriptor |
 
 This is the same rule `bbb-warden` already enforces for masks (*"a `long[]` of row ids is a
@@ -158,6 +158,160 @@ at an 8-byte payload** (VM-confirmed, `valhalla-lab/docs/three-truths.md`), so a
 `TruthLaneId(u64)` flattens and a truth array could never. The JVM agrees with
 the membrane about where the wall is. **Valhalla carries the noun; Panama
 carries the verb; lance-graph owns the reality.**
+
+### LE is the universal DTO layer — "typed syntax" means a versioned LE schema (operator, 2026-09-10)
+
+**Frozen meaning.** *Little-endian is the universal DTO layer of the ABI.* This is
+stronger than "LE is convenient serialization": LE is the canonical wire grammar that
+guarantees every byte and bit position carries the SAME DTO label in Rust, Panama,
+Java, storage, replay, and MUL interpretation. The ABI carries the value. The LE DTO
+contract fixes the universal meaning of its positions. MUL may then assert what
+epistemic KIND the value expresses. The particular `(frequency, confidence)` values
+are content. LE adds no evidence and no confidence; it makes the labels and the
+truth-kind interpretation universal. Without a versioned canonical LE DTO contract,
+an ABI can transport bits but cannot guarantee every reader assigns them the same
+epistemic meaning.
+
+**The gap this closes.** The shape table above first let `TruthLiteral(192, 217)`
+cross "as itself" while retiring `TruthU8` as "the wire form." A bare `(f, c)` pair
+expresses a DEGREE but not what KIND of truth that degree belongs to. Degree without
+kind is not typed syntax. So the ruling is sharpened, not reversed — `TruthU8` stays
+the canonical T0 substrate representation, and what crosses is now defined:
+
+> **Typed epistemic syntax crossing G11/Panama SHALL be bound to a versioned DTO
+> schema with canonical little-endian field/bit interpretation. The LE contract is
+> the universal ABI grammar that fixes the meaning of every wire position. Bare
+> `(frequency, confidence)` fields or host-native layouts are not independently
+> typed truth. An opaque handle is clean only when its substrate registry binds the
+> same truth kind and schema.**
+
+For two `u8` fields the operative contract is the canonical ordered byte sequence
+`[frequency, confidence]` — individual bytes have no endianness, the ORDER is the
+contract. For a packed multi-byte carrier such as `CausalEdge64`, the complete
+integer-to-byte mapping must be explicitly little-endian at every crossing.
+
+> **F-BBB-NARS-2 (LE).** Fail if identical typed wire bytes can acquire different
+> DTO labels or epistemic kinds across implementations, host endianness, storage
+> and replay; fail if truth kind depends on an unstated reader assumption rather
+> than the DTO schema or typed-handle registry.
+
+> **Evidence is not repetition.** Repetition of an identical canonical wire image is
+> propagation of the same assertion, not automatically independent evidence. NARS
+> revision still requires independent evidential provenance/stamps.
+
+**This extends, and does not restate, the LE contract that already exists.**
+`.claude/v3/soa_layout/le-contract.md` §3b (operator-locked 2026-07-02) is
+two-level: every tenant carries its own facet LE contract, and the SoA envelope
+carries the register-file descriptor (`ColumnDescriptor` offsets/widths,
+`verify_layout()`, `ENVELOPE_LAYOUT_VERSION = 2` at `soa_envelope.rs:54`). lgj
+already declares byte order as ABI shape: `LgjLaneDesc.endianness: u32 // 0 = little`
+(`abi.rs:383`), `LGJ_MAGIC` doubles as an endianness probe (`abi.md:87-93`), and
+`abi.md:1224` says it outright — *"Java can discover the ABI's SHAPE instead of
+declaring it — sizes, alignments, pointer width, byte order. A wire encoding is
+exactly such a shape."* The truth column now inherits that grammar; it did not have
+it before.
+
+**Measured 2026-09-10 — what is coded vs what this rules (no code changed):**
+
+| question | answer | evidence |
+|---|---|---|
+| Any truth DTO with schema + version + canonical LE encode/decode? | **CODED for the envelope, ABSENT for truth.** No truth type rides the envelope contract | `ENVELOPE_LAYOUT_VERSION` exists; zero `to_le_bytes`/`from_le_bytes` in `translator.rs` or `causal-edge/src/edge.rs` |
+| Is `TruthU8` a wire DTO? | **No — substrate value only.** Plain `#[derive(Copy)]` struct, no `repr(C)`, no version, no codec; without `repr(C)` Rust does not even guarantee field order | `translator.rs:34-40` |
+| `CausalEdge64` byte order at crossings? | **Host-native.** `#[repr(transparent)] (u64)`; bit positions are register-defined (`FREQ_SHIFT=24`, `CONF_SHIFT=32`, `INFER_SHIFT=46`) and endianness-agnostic in-register, but the 8-byte image at any crossing is whatever the host writes — **0** endian conversions in the file. Its v1/v2 layouts are a compile-time feature, invisible in the bytes: exactly what a versioned schema exists to make visible. **⊘ Corrected same day, twice — the KIND is not absent from this carrier, and it is CODED, not ruled.** Operator, second pass: *"all bits are assigned, including 61..63"* — `layout.rs:94` `_LAYOUT_COVERAGE` const-asserts all 64 bits covered exactly once. Bits 59-60 = `CausalTopology` (`Direct` / `IndirectKnownIntermediates` / `IndirectUnknownIntermediates` / `Unknown`, `layout.rs:239-252` — *"indirect intermediate unknowns knowns"*), an additive view ordinal-identical with the older `TrustTexture` reading of the same bits (`bbab3541`, 2026-08-20, via #1154); bits 61-63 = `ReasoningBand` (`Surface` / `Association` / `Relation` / `Causal` / `Counterfactual` / `Perspective` / `Meta` / `Transcendent`, `layout.rs:353-373`; introduced as `TextureBand` in `bbab3541`, named `ReasoningBand` in `9891cca6`) — the **level of ASSERTION, Tarski permission** (`E-RUNG-BAND-AND-PLASTICITY-ARE-THREE-AXES-NEVER-ONE-LEVEL-FIELD-1`; `entropy-closure-causal-ground-v1` §4), `Relation` → `Causal` = relates-to → *causes* (`DISMECH_PREDICATES` `(0x90, "causes", "dismech:causes")`, `dismech_evidence.rs:511`). Writers `with_topology()` / `with_reasoning_band()` (`edge.rs:1009`, `:1057`), readers `topology()` / `reasoning_band()` (`:952`, `:979`), consumed by the W3 verdict (`dismech_counterfactual.rs:251-252`). `SPARE_SHIFT` is the legacy/raw accessor name, not unclaimed design space (`TD-SPARE-SHIFT-NAME-IS-STALE-1`). The first pass of this row read *"bits 61-63 are the reserved SPARE that the operator has now assigned as the NARS × Tarski rung (RULED 2026-09-10, unwritten in code)"* and called `TrustTexture` *"MUL's reading"* — both wrong. The `(f, c)` bytes have no kind *of their own*; the kind rides beside them in the same carrier, and which LENS a producer wrote is declared per class (`ClassView::band_reading`, `band_reading.rs`), never inferred from the bits | `edge.rs:160-176`, `layout.rs:52-77`, `:94`, `:239-252`, `:353-373`; `band_reading.rs` |
+| Can `TruthLiteral`'s kind be inferred from its enclosing typed AST? | **No.** 0 code sites; the doctrine had it crossing as an untyped pair | this file, `bbb-warden.md` |
+| Can MUL determine the same kind from the same bytes, host-independent? | **No — MUL never sees bytes.** `SituationInput` is typed `f64`s; `revise_fast(f1: u8, _c1: u8, f2: u8, _c2: u8)` takes bare degrees and ignores confidence. Kind is whatever the caller labelled | `mul.rs:12-30`, `nars_engine.rs:459` |
+
+**CE64 IS the defining LE — always enforced (operator, 2026-09-10, verbatim:
+*"we should always enforce CE64 as defining LE"*).** `CausalEdge64`'s canonical
+little-endian 8-byte image is THE defining representation of a truth in this
+workspace. Not a wrapper around it, not a mirror of it, not a second DTO carrying
+the same coordinates: **the edge itself**, whose 64 bits already hold every
+coordinate of an assertion, with `_LAYOUT_COVERAGE` (`layout.rs:94`) asserting all
+64 are assigned exactly once.
+
+| coordinate | bits |
+|---|---|
+| proposition reference (S, P, O — palette256) | 0-23 |
+| NARS valuation (frequency, confidence) | 24-39 |
+| Pearl projection (`CausalMask`) | 40-42 |
+| direction triad | 43-45 |
+| inference mantissa (provenance grammar, not truth) | 46-49 |
+| plasticity | 50-52 |
+| W-slot (witness corpus root) | 53-58 |
+| `CausalTopology` | 59-60 |
+| `ReasoningBand` | 61-63 |
+
+The two dimensions are UNIVERSAL for the same reason (*"i want the 2 dimensions in
+causaledge to be universal … otherwise its only a scent = prose"*): every truth
+representation on every tier carries or binds them, and a `(f, c)` that cannot tell
+the aliasing pair apart is prose, by the same test as property 1 above.
+
+**The smallest law (operator, verbatim — BINDING):**
+
+> A field becomes **defining** when changing or omitting it changes the
+> proposition, not merely its presentation. Every defining epistemic dimension
+> SHALL participate in the versioned canonical LE DTO; a reader lacking its
+> declared lens or provenance must **refuse**, never project a plausible default.
+
+The refusal half is already CODED for the reading contract — `band_reading.rs`
+(D-ACR-7): *"a lens mismatch, an absent band, or untrusted provenance must FAIL,
+never return a plausible value"*, `EdgeProvenance::Unknown` refuses,
+`BandPresence::Absent` refuses.
+
+**The aliasing pair — the smallest and strongest falsifier (operator, verbatim):**
+
+```text
+(S,P,O, f,c, IndirectUnknown, Relation)    "S and O are related; mediation is unknown."
+(S,P,O, f,c, IndirectKnown,   Causal)      "P causally connects S to O; the mediation is known."
+```
+
+*The `(f,c)` values are identical, but the truths are not. `Causal` is not "Relation
+with more confidence." It is a different licensed assertion. Likewise, `IndirectKnown`
+is not a cosmetic refinement of `IndirectUnknown`. Therefore the complete truth
+identity is `(S,P,O) × (f,c) × topology × assertion-band`. LE must preserve all four
+components. Flattening either tuple to the same `(S,P,O,f,c)` is **epistemic
+aliasing**: the DTO would transport identical confidence while silently changing what
+is claimed.*
+
+**Tarski is adjacency, not identity** (operator): `ReasoningBand` controls the level
+at which a claim may be asserted (`Relation` → `Causal`, the authoritative predicate
+being `(0x90, "causes")`, `dismech_evidence.rs:511`) while remaining distinct from
+Tarski derivation depth, which is `Belief.rung` / `Candidate.rung`, stored separately.
+`E-RUNG-BAND-AND-PLASTICITY-ARE-THREE-AXES-NEVER-ONE-LEVEL-FIELD-1` forbids the fold.
+
+**Meaning crosses; machinery does not** (operator). The LE contract replaces
+*sniffing* with *reading*: the consumer receives "a causal assertion with known
+intermediates and this `(f, c)`" and never infers `Causal` from a high confidence,
+guesses topology from predicate names, rebuilds Tarski/NARS logic, or inspects
+substrate rows for semantic clues. The wall is two-sided: exported arithmetic
+(`F-BBB-NARS-1`) and an opaque carrier hiding the labels so thoroughly the consumer
+must sniff them back (`F-BBB-NARS-2`) are one boundary breached from opposite
+directions.
+
+**Census 2026-09-10 — the substrate is entirely DECORATIVE on these two dimensions.**
+*Decorative / permissive / defining names three kinds of CODE this tree contains, and
+the census is the verdict on how bad the substrate is. It is NOT a grade a field may
+legitimately hold and NOT a ladder to climb* (operator correction; an earlier cut of
+this section presented it as three grades with a MUL column, which was a fabrication
+and is removed). Measured across every site:
+
+| kind of code | count | where |
+|---|---|---|
+| **defining** — the value is the identity | 0 | nowhere |
+| **permissive** — something branches on it | 0 | nothing matches or compares either value outside a test |
+| **decorative** — read and carried, nothing depends | 1 | `dismech_counterfactual.rs:251-252` copies both into a verdict struct |
+| tests, probes, doc comments | the rest | four probe examples, `v2_layout_tests.rs`, and `recipe_vocab.rs` stating it does not write one |
+
+`ISS-REASONING-BAND-GATES-NOTHING` (2026-08-26) recorded the same verdict a month
+earlier in the same words. And three of the four crates carrying a NARS pair cannot
+even name the types: `lance-graph-contract`, `holograph` and
+`lance-graph-arm-discovery` have no `causal-edge` dependency; only
+`lance-graph-planner` does. So enforcement is not a new type. It is closing that
+census: a truth that crosses anything is CE64's LE image, and the sites above are the
+worklist.
+
+**What this does NOT do.** No DTO struct, no opcode, no ABI symbol, no G11 import,
+no Java, no conversion, no new carrier of any kind.
 
 ### The G11 widening rule: one scalpel cut, never the cupboard
 
@@ -190,7 +344,21 @@ hits**, so there is no Java surface to run it against. **The gate that will hold
 column is `ApiSurfaceTest`'s forbidden-type list plus a G11 allowlist entry, and it is
 gated on D-BBB-NARS-2/-3** — which are Queued and marked *do not pre-build*. Until then
 this half of the membrane is enforced by review, and saying otherwise would be the exact
-defect this arc keeps finding.
+defect this arc keeps finding. **⊕ 2026-09-10, later the same day:** D-BBB-NARS-2 is now
+BUILT on the lance-graph side — `contract::assertion_wire` (plan `assertion-wire-v1.md`),
+the versioned LE truth DTO with its own refusing reader and the two fused vocabularies —
+so the G11 allowlist entry it was gated on is now admissible; the entry itself (lgj
+`ALLOWED` + `CLAUDE.md` + `Cargo.toml` + the manifest's schema export) is the
+lance-graph-java brick and is still not resident. D-BBB-NARS-3 stays Queued.
+**⊘ Still later the same day — retracted.** `assertion_wire` was fabrication: nobody
+asked for a new DTO type, and the first cut was built on the wrong carrier (the V3
+facet, which drops the in-edge S/P/O the aliasing pair requires). Operator: *"we
+already have causaledge64"*, *"not a wrapper — just wiring"*. The module, its fuse, and
+its plan are DELETED (commit `2c66c01`); D-BBB-NARS-2 is **Queued**, not built, exactly
+as this paragraph originally said before the retracted addendum. The G11 allowlist
+entry is NOT admissible on that gate — it remains gated on the WIRING (using CE64's
+existing `topology()`/`reasoning_band()` directly), never on a type that does not exist.
+Losing text kept above; code and plan gone.
 
 **2. The named epistemic primitives are not at T1.** `revision`/`deduction`/`abduction`/
 `induction` are CODED, but only inside `crates/lance-graph-planner/src/cache/nars_engine.rs:194-207`
@@ -215,6 +383,22 @@ as canonical in some register:
 that alias. `TruthU8` occurs outside its own crate in exactly one file, a test. No
 conversion path bridges them. So "T0 owns every resulting `TruthU8`" is the direction of
 travel, not the current state — the convergence is tracked as **D-BBB-NARS-4**.
+
+**4. The LE DTO contract is CODED for the envelope and ABSENT for truth.**
+`ENVELOPE_LAYOUT_VERSION = 2` + `verify_layout()` exist and are operator-locked;
+no truth type — not `TruthU8`, not `CausalEdge64`, not any `NarsTruth` — carries a
+version, a `repr(C)` layout, or an LE codec (see § "LE is the universal DTO layer").
+`CausalEdge64`'s byte image is host-native at every crossing today. Ruled 2026-09-10;
+defined by D-BBB-NARS-2 when it lands; nothing built here.
+**⊘ Superseded, same day, later still (operator, verbatim: *"we should always
+enforce CE64 as defining LE"*).** The measurements above stand — no `repr(C)`, no
+explicit `to_le_bytes`/`from_le_bytes`, host-native at every crossing — but "ABSENT
+for truth… defined by D-BBB-NARS-2 when it lands" is no longer the status. The gap
+is closed by RULING, not by a new codec: `CausalEdge64`'s existing host-native
+8-byte image IS declared the defining LE representation, always, going forward.
+D-BBB-NARS-2 will NOT build a new type to close this — see § "CE64 IS the defining
+LE — always enforced" above. What remains open is wiring (using `topology()` /
+`reasoning_band()` at the sites that lack them) and the census, never a codec.
 
 ### The ruling and its falsifier
 
@@ -307,7 +491,7 @@ reject the old spelling once closed. `[OPEN]` until the gate rejects it.
 | L5 | `Engine.LaneWindow.setU64` — raw word write | `importRows` (named breach) is the only sanctioned writer | ApiSurfaceTest (internal.ffm already fenced from public) | CLOSED |
 | L6 | any future `byte[]` / `[u8;12]` rail array in a public signature | a named `Reading` value type OGAR emits per ClassView (Valhalla), read zero-copy | ApiSurfaceTest byte[]-fence (this PR) | CLOSED (forward guard) |
 | L7 | any future array return not named `materialize*`/`import*` | a named terminal | ApiSurfaceTest array-return naming rule (this PR) | CLOSED (forward guard) |
-| L8 | any future truth POPULATION in a public signature — `TruthU8[]`, a truth lane, a collection of them — or any T3 body that computes a truth FROM truths | the `TruthLaneId(u64)` opaque descriptor for the population; a named `Truth(…)` `plan_eval` operation for the arithmetic | **OPEN — review-note only** (`bbb-warden` step 4 + ARITHMETIC-SURFACE). The structural gate (ApiSurfaceTest forbidden-type entry + G11 allowlist) is gated on D-BBB-NARS-2/-3 | OPEN (forward guard, ungated) |
+| L8 | any future truth POPULATION in a public signature — `TruthU8[]`, a truth lane, a collection of them — or any T3 body that computes a truth FROM truths — **or any truth crossing as a bare `(u8, u8)` / host-order packed image with no versioned LE DTO schema binding its kind** (⊕ 2026-09-10) | the `TruthLaneId(u64)` opaque descriptor for the population; a named `Truth(…)` `plan_eval` operation for the arithmetic | **OPEN — review-note only** (`bbb-warden` step 4 + ARITHMETIC-SURFACE). The structural gate (ApiSurfaceTest forbidden-type entry + G11 allowlist) is gated on D-BBB-NARS-2/-3 | OPEN (forward guard, ungated) |
 
 Provenance: the two fixes that produced this doctrine — the 7.5→1.1 ms
 `lgj_hop` (T1 doing T0's job badly: gathered a contiguous lane; fixed inside

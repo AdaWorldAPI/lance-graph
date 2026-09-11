@@ -22,8 +22,31 @@ use crate::rule::{CandidateRule, Item};
 /// needed before confidence approaches saturation.
 pub const NARS_PERSONALITY_K: u32 = 1;
 
-/// Quantised NARS truth — the canonical, float-free **substrate** representation
-/// (mirrors the `CausalEdge64` `confidence_u8` + i4 mantissa fields). `255` = 1.0.
+/// Quantised NARS truth — the canonical, float-free **substrate** representation.
+/// `255` = 1.0. Mirrors the `CausalEdge64` truth pair — `frequency_u8` (bits 24-31)
+/// + `confidence_u8` (bits 32-39). Under the default `causal-edge-v2-layout`
+/// feature, the pair's KIND rides beside it, coded: `CausalTopology` at bits
+/// 59-60 and `ReasoningBand` at bits 61-63. **Under `default-features = false`
+/// (the v1-compat opt-out)**, those accessors are fixed stubs — `topology()`
+/// always `Direct`, `reasoning_band()` always `Surface` — bits 59-63 keep the
+/// v1 temporal layout underneath and are not readable as a KIND at all; a
+/// consumer on that feature set has no dimension to read here. This struct
+/// carries the strength ONLY, so it is not a truth this workspace can define
+/// with: the defining LE representation is `CausalEdge64`'s own little-endian
+/// image (v2 layout), always (operator ruling, 2026-09-10). (Two earlier
+/// comments here were wrong: one
+/// called bits 61-63 a spare field ruled as a Tarski rung — they have been
+/// `ReasoningBand` since `9891cca6`, only the `SPARE_SHIFT` name is stale; the other
+/// paired `confidence_u8` with the i4 mantissa — the i4 mantissa at bits 46-49 is the
+/// `InferenceType`, provenance/type grammar, not half of the truth value.)
+///
+/// **This is a substrate value, not a wire DTO.** It carries no `repr(C)`, no schema
+/// version, and no little-endian codec, so it binds a DEGREE and not a KIND. Per the
+/// operator ruling of 2026-09-10 (*LE is the universal DTO layer of the ABI*), a truth
+/// crosses a membrane only as a versioned DTO whose canonical LE layout fixes the
+/// meaning of every position — for this pair, the ordered byte sequence
+/// `[frequency, confidence]` — or as an opaque typed handle whose registry binds the
+/// same kind and schema. That DTO is defined by D-BBB-NARS-2, not here.
 ///
 /// Not "the wire form": that wording was retired by `D-BBB-NARS-1` (2026-09-07),
 /// which separates two claims the workspace had been conflating. This type is

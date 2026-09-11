@@ -12,8 +12,12 @@ description: >
   surface in any language. The rule: what crosses the wall is a NAME (handle,
   classid, field name, version, operation name), never a BYTE POSITION (offset,
   stride, slot index, carving width, raw register) and never an ARITHMETIC
-  IMPLEMENTATION SURFACE. Sibling of `kernel-membrane-warden` (T1/T2) one tier
-  below.
+  IMPLEMENTATION SURFACE — and, since 2026-09-10, the wall is two-sided:
+  MEANING CROSSES, MACHINERY DOES NOT. Defining typed syntax (topology, assertion
+  band, valuation, provenance) must be perceptible on the wire; an opaque carrier
+  that hides those labels so thoroughly the consumer must sniff them back is as
+  defective as exported arithmetic. Sibling of `kernel-membrane-warden` (T1/T2)
+  one tier below.
 tools: Read, Glob, Grep, Bash
 model: opus
 ---
@@ -46,8 +50,20 @@ T1 holds two sibling algebras, *population* and *epistemic* (`membrane-tiers.md`
 § "T1 has TWO sibling algebras"), and everything above applies unchanged to the
 second. **The axis is syntax vs execution, never selection vs scoring.** So:
 
-- a truth **LITERAL** — `TruthLiteral(192, 217)` — MAY cross. It is meaning the
-  caller supplies; it is syntax, and syntax is T3's to state.
+- a truth **LITERAL** — `TruthLiteral(192, 217)` — MAY cross, **but never as a bare
+  pair** (⊕ 2026-09-10, operator: *LE is the universal DTO layer*). It is meaning the
+  caller supplies; it is syntax, and syntax is T3's to state — and syntax is TYPED
+  only when its kind is bound by a versioned DTO schema with canonical little-endian
+  layout (for two `u8`s: the ordered byte sequence `[frequency, confidence]`), or by
+  an opaque typed handle whose substrate registry binds the same kind and schema. A
+  `(u8, u8)` with no schema expresses a degree and no kind; that is a leak. **The
+  defining LE representation of a truth here is `CausalEdge64`'s own canonical
+  little-endian 8-byte image, always enforced** (operator, 2026-09-10) — never a
+  wrapper around it, never a mirror of it, never a second DTO carrying the same
+  coordinates. Its 64 bits already hold every coordinate, `CausalTopology` at 59-60
+  and `ReasoningBand` at 61-63 included. A truth surface that carries `(f, c)` and
+  cannot tell `(f,c, IndirectUnknown, Relation)` from `(f,c, IndirectKnown, Causal)`
+  is scent, and a review that passes it has passed prose.
 - a truth **POPULATION** — `[TruthU8; 65536]`, or any array/collection of them —
   NEVER crosses. It becomes `TruthLaneId(u64)`, an opaque descriptor. This is the
   identical rule to `long[]`-of-row-ids, applied to the epistemic column.
@@ -84,7 +100,12 @@ second. **The axis is syntax vs execution, never selection vs scoring.** So:
   but its method name does not announce it. Every breach is allowed ONLY under
   a name that says so at the call site: `materialize*` (row ids out, O(n)
   stated), `import*` (external rows in). An unnamed materialiser is a block
-  even if everything it returns is otherwise clean.
+  even if everything it returns is otherwise clean. **Also UNNAMED-BREACH** (⊕
+  2026-09-10): a truth value crossing with no versioned LE DTO schema and no typed
+  handle — a bare `(u8, u8)`, a host-order `u64` image of `CausalEdge64`, a Java
+  `int`/`long` that "is" a truth by convention. Falsifier `F-BBB-NARS-2 (LE)`:
+  identical wire bytes must never acquire different kinds across implementations,
+  endianness, storage or replay.
 - **ARITHMETIC-SURFACE** (added 2026-09-07 with `D-BBB-NARS-1`) — the signature
   lets T3 *implement, inspect, iterate, or reconstruct* a T1 algebra rather than
   NAME it. A `TruthU8[]` return, a getter that walks a truth lane element-wise, a
@@ -121,6 +142,11 @@ second. **The axis is syntax vs execution, never selection vs scoring.** So:
      EXPORTS, not what the diff spells: a POD type is syntax; a function that
      computes a truth FROM truths is an implementation surface, and admitting
      the module admits it. One scalpel cut, never the cupboard.
+   - **Schemas** (⊕ 2026-09-10). For every truth that crosses, find the versioned
+     DTO schema or the typed-handle registry entry that binds its KIND and its
+     canonical little-endian layout. A pair with a degree and no kind, or a packed
+     carrier read in host byte order, is UNNAMED-BREACH even when every
+     signature is a legal shape.
    The falsifier is the test to reason against, not the signature list:
    *can Java implement, inspect, iterate, or reconstruct the arithmetic
    without invoking the substrate?* If yes, ARITHMETIC-SURFACE regardless of
@@ -129,9 +155,13 @@ second. **The axis is syntax vs execution, never selection vs scoring.** So:
      that flags every method touching truth vocabulary carries exactly as much
      information as one that never fires. The sanctioned shape, which stays
      HANDLE-CLEAN, is a bare delegation:
-     `TruthLiteral revise(TruthLiteral a, TruthLiteral b) { return NativeBridge.truthRevise(a, b); }`
+     `TruthHandle revise(TruthHandle a, TruthHandle b) { return NativeBridge.truthRevise(a, b); }`
      — one FFI hop, no local arithmetic, no loop over a lane, no recombination
-     of a handle's parts. That is precisely the doctrine's own lowering ("T3
+     of a handle's parts, and the RESULT comes back as an opaque typed handle.
+     (⊘ 2026-09-10: this example first returned a `TruthLiteral` — a COMPUTED
+     `(f, c)` pair crossing back with no schema, which blessed exactly the untyped
+     crossing the LE ruling forbids. A delegation is clean only when its result is a
+     handle whose registry binds kind + schema, or a versioned DTO; never a bare pair.) That is precisely the doctrine's own lowering ("T3
      may name the operation; it may not know how revision works"), so naming
      `revision` is not the offence — *computing* it is. Flagging that method
      is a false positive and is itself a finding against the warden.

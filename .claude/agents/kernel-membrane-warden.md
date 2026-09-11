@@ -71,7 +71,11 @@ tiers up.
    `revision`/`deduction`/`abduction`; if it does not exist at T1, it lands
    at T1 first (never proposed FROM T2, per "What you never do"). A T2 that
    reads a `TruthU8`'s two bytes apart to recombine them is also
-   GEOMETRY-LEAK: the byte split is T0's.
+   GEOMETRY-LEAK: the byte split is T0's. So is a T2 that hands a packed carrier
+   (`CausalEdge64`'s `u64`) across a membrane as a host-order byte image, or that
+   reinterprets a truth's bytes without its versioned LE DTO schema (⊕ 2026-09-10,
+   *LE is the universal DTO layer*): the byte ORDER is the contract's, never the
+   host's.
 3. For every byte offset in T2 code, ask: did T2 compute this, or read it from
    a `_lane`/`LgjLaneDesc` accessor? Computed = GEOMETRY-LEAK.
 4. Enforce the import fence (abi.md §8, G11): T2 (`exports.rs`) imports SIMD

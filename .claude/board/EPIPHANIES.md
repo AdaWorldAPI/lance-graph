@@ -1,3 +1,241 @@
+## 2026-09-10 — E-LE-IS-THE-UNIVERSAL-DTO-LAYER-TYPED-SYNTAX-MEANS-A-VERSIONED-LE-SCHEMA-1 — a bare `(f, c)` pair is a degree, not a typed truth
+
+**Status:** OPERATOR RULING, BINDING (2026-09-10, verbatim: *"Little-endian is the universal
+DTO layer of the ABI."*). Sharpens `E-T1-HAS-TWO-SIBLING-ALGEBRAS-…-1` / `D-BBB-NARS-1`;
+reverses nothing in it.
+**Confidence:** High. The gap was measured at every site before the ruling was written in
+(table in `membrane-tiers.md` § "LE is the universal DTO layer"); the ruling is the
+operator's; no code changed.
+
+**The question.** Did #1222 use "typed NARS syntax" strongly enough? It let
+`TruthLiteral(192, 217)` cross "as itself" while retiring `TruthU8` as "the wire form."
+**No.** A bare `(frequency, confidence)` pair expresses a DEGREE but not what KIND of
+truth the degree belongs to. Its kind must be bound by a DTO schema, a version, and a
+canonical LE layout — or by an opaque typed handle whose registry binds those. The LE
+contract is not convenient serialization; it is the universal ABI grammar that makes
+every wire position carry the same label in Rust, Panama, Java, storage, replay and MUL.
+The ABI carries the value; LE fixes the meaning of its positions; MUL asserts the kind;
+the values are content; LE adds no evidence.
+
+**Measured, coded vs ruled.** A versioned LE contract EXISTS — for the SoA envelope
+(`ENVELOPE_LAYOUT_VERSION = 2`, `verify_layout()`, `le-contract.md` §3b, operator-locked)
+— and **no truth type rides it**: `TruthU8` is a plain struct with no `repr(C)`, no
+version, no codec; `CausalEdge64` is `#[repr(transparent)] (u64)` with register-defined
+bit positions and **zero** endian conversions, so its byte image is host-native at every
+crossing, and its v1/v2 layouts are a compile-time feature invisible in the bytes; MUL
+never sees bytes at all (`SituationInput` is typed `f64`s, `revise_fast` takes bare `u8`
+degrees and ignores confidence). lgj already declares byte order as ABI shape
+(`LgjLaneDesc.endianness`, the `LGJ_MAGIC` probe, `abi.md:1224`) but carries no truth
+DTO. So: **CODED for the envelope, ABSENT for truth, RULED now, DEFINED by D-BBB-NARS-2
+when it lands.**
+
+**The ruling, verbatim, and its falsifier** — quoted in `membrane-tiers.md`; the
+falsifier is `F-BBB-NARS-2 (LE)`: identical typed wire bytes must never acquire
+different DTO labels or epistemic kinds across implementations, host endianness, storage
+and replay, and truth kind must never depend on an unstated reader assumption. For two
+`u8`s the contract is the ordered byte sequence `[frequency, confidence]`; for a packed
+carrier the whole integer-to-byte mapping is explicitly LE. **Evidence is not
+repetition:** an identical canonical wire image repeated is the same assertion
+propagated, not independent evidence; revision still needs independent stamps.
+
+**⊘ Same-day correction — the kind is IN the carrier, coded, and all 64 bits are
+assigned.** The first cut of this entry read `CausalEdge64` as carrying a degree with
+nothing for its kind. Operator, second pass: *"all bits are assigned, including 61..63 /
+59 60 are indirect intermediate unknowns knowns / 61..63 are related to vs explains
+causality learning tarski adjacent"* — and `layout.rs:94` `_LAYOUT_COVERAGE` const-asserts
+exactly that. The three coordinates on one carrier: **NARS `(f, c)`** (bits 24-39) =
+strength of the assertion; **`CausalTopology`** (bits 59-60: `Direct` /
+`IndirectKnownIntermediates` / `IndirectUnknownIntermediates` / `Unknown`; `bbab3541`,
+2026-08-20, via #1154) = shape of the causal connection, *what kind of hole*;
+**`ReasoningBand`** (bits 61-63: `Surface` / `Association` / `Relation` / `Causal` /
+`Counterfactual` / `Perspective` / `Meta` / `Transcendent`; introduced in `bbab3541`,
+named in `9891cca6`) = level of ASSERTION, Tarski permission, `Relation` → `Causal` =
+relates-to → **causes** (`DISMECH_PREDICATES` `(0x90, "causes", "dismech:causes")`,
+`dismech_evidence.rs:511`; the older strong references say "explains"). **Tarski is
+adjacency, not identity:** Tarski depth is `Belief.rung` / `Candidate.rung`, stored
+separately, and `E-RUNG-BAND-AND-PLASTICITY-ARE-THREE-AXES-NEVER-ONE-LEVEL-FIELD-1`
+forbids folding the band with it. Learning account (`entropy-closure-causal-ground-v1`
+§4b): 59-60 say what causal hole exists, 61-63 what kind of candidate assertion may bridge
+it, counterfactual removal + revision tests whether it carries causal weight. Both fields
+have writers/readers since #1154 and the W3 verdict carries them instead of a bool
+(`dismech_counterfactual.rs:251-252`) — **no shipped production code writes either
+field**: every non-definition `.with_reasoning_band(`/`.with_topology(` call site is an
+`examples/*.rs` probe or a `#[test]` function (confirmed by census: `cognitive-shader-driver`
++ `lance-graph-planner` examples, and `#[test]` fns in `edge_v3.rs`/`v2_layout_tests.rs`/
+`dismech_counterfactual.rs`); the census below (`ISS-REASONING-BAND-GATES-NOTHING`) already
+records the same for reads. tesseract-rs's `low_confidence: bool` is the
+impoverished form of exactly this. **The precision that closes the loop with the LE
+ruling:** the bits cannot reveal which lens the producer used (`band_reading.rs`); the
+schema (`ClassView::band_reading`) plus asserted provenance supplies that declaration —
+so the carrier carries the complete coordinates, and LE plus the reading contract make
+their interpretation universal. **⊘ The first pass of this very paragraph got both fields
+wrong** — it read *"bits 59-60 are a CODED 2-bit `TrustTexture` lens (MUL's reading) …
+bits 61-63 are the reserved SPARE the operator has now named as the NARS × Tarski rung …
+(`Belief.rung`, u32 in the arena, 0..7 in 3 bits) … Ruled, not coded: nothing writes
+61-63"* — four contradictions with the tree: the bits are `ReasoningBand`, written at
+three call sites; they are the assertion level, not `Belief.rung` (the fence forbids that
+collapse); `SPARE_SHIFT` is only the legacy/raw accessor name
+(`TD-SPARE-SHIFT-NAME-IS-STALE-1`); and `TrustTexture` there is
+`causal_edge::layout::TrustTexture`, not MUL's. Third self-correction of the day to
+introduce a fresh error; losing text kept. Rung↔field derivability stays CONJECTURE and is
+beside the point for these bits.
+
+**⊕ Third pass, same day — the dimensions are COORDINATES of truth, not annotations
+around it.** *Decorative* (displayable, nothing depends on it), *permissive* (governs
+what the reasoner may accept or assert — the §4b bridge gate), *defining* (part of the
+canonical identity of the assertion — omitting, changing or reinterpreting it creates a
+different claim) — and this is **NOT a ladder**, it is a VERDICT on how bad the substrate
+is: only LE-defining is real, everything else is prose (operator, fourth pass, verbatim:
+*"decorative / permissive / defining is not a ladder — is a verdict about how bad the
+substrate is, saying the only truly defining is LE, everything else is prose"*). **⊘** the
+first cut of this paragraph read it as three grades a field may hold and placed the
+code "between decorative and permissive"; wrong reading, words kept. The LE ruling makes
+bits 59-63 **defining**:
+`Assertion = proposition reference × Pearl projection × NARS valuation × causal topology ×
+reasoning/assertion band × provenance`, so `(S,P,O, f,c, IndirectUnknownIntermediates,
+Relation)` and `(S,P,O, f,c, IndirectKnownIntermediates, Causal)` are different claims with
+identical S/P/O and identical `(f, c)` — the epistemic valence changed. A decoder that drops
+`IndirectUnknown` or reads `Relation` as `Causal` has not produced a lower-resolution view;
+it has changed what was asserted, which is exactly `F-BBB-NARS-2 (LE)`. MUL by grade:
+decorative → observes a label; permissive → admission gate; defining → knows WHICH epistemic
+claim propagated across storage, ABI and replay — that is where MUL becomes real
+meta-awareness, and that is the Tarski adjacency. A consumer carrying only a perfume of
+Tarski (a bool, a label nothing depends on) has not carried the assertion. Verdict on the
+substrate as coded: in `CausalEdge64` the two dimensions are PROSE today (W3 carries both
+fields, but `ISS-REASONING-BAND-GATES-NOTHING` says the band gates nothing); the first
+LE-defining home is the wire, `contract::assertion_wire`. D-BBB-NARS-2's DTO carries all
+six coordinates, never `(f, c)` alone. **The smallest #1223 law, verbatim:** *"A field becomes
+defining when changing or omitting it changes the proposition, not merely its
+presentation. Every defining epistemic dimension SHALL participate in the versioned
+canonical LE DTO; a reader lacking its declared lens or provenance must refuse, never
+project a plausible default."* NARS says how strongly; topology says what causal structure
+is known; the band says what assertion is licensed; LE ensures nobody changes those
+questions while transporting the answer. Refusal half CODED (`band_reading.rs`: lens
+mismatch / absent band / untrusted provenance must FAIL, never a plausible value);
+participation half RULED (D-BBB-NARS-2). Decoration becomes permission; permission becomes
+semantic identity. **The aliasing pair, the smallest and strongest falsifier (operator,
+verbatim):** `(S,P,O, f,c, IndirectUnknown, Relation)` — *"S and O are related; mediation
+is unknown"* — versus `(S,P,O, f,c, IndirectKnown, Causal)` — *"P causally connects S to O;
+the mediation is known."* *"`Causal` is not 'Relation with more confidence.' It is a
+different licensed assertion … the complete truth identity is `(S,P,O) × (f,c) × topology
+× assertion-band`. LE must preserve all four components. Flattening either tuple to the
+same `(S,P,O,f,c)` is epistemic aliasing: the DTO would transport identical confidence
+while silently changing what is claimed."* One pair, two falsifiers: `F-BBB-NARS-2` at the
+ABI (encode/store/replay/decode must keep them distinct) and `F-CONSUMER-ASSERTION-1` at
+the consumer (if the pair is one row, it is perfume). **And the obligation sits with
+lance-graph:** perfume is bad because the assertion is not in the WIRE CONTRACT yet — a
+consumer that wants it today must sniff the carrier and hand-roll the tuple, which is
+perfume code without a contract (the re-implement-the-Core trap). The remedy is
+`D-BBB-NARS-2`, the versioned LE truth DTO the consumer pulls; that need is now
+demonstrated, so D-BBB-NARS-2's gate is met — next brick, not built here. **⊕ Operator
+ruling, same day, verbatim: *"i want the 2 dimensions in causaledge to be universal …
+otherwise its only a scent = prose."*** `CausalTopology` and `ReasoningBand` are dimensions
+of truth, not `CausalEdge64`-local fields: every truth representation on every tier and
+wire carries or binds them (the five types of `D-BBB-NARS-4` included) — a `(f, c)` that
+cannot tell the aliasing pair apart is prose, by the same test as *"a membrane without a
+gate is prose."* **The clean boundary: meaning crosses; machinery does not.** The LE
+contract replaces sniffing with reading — the consumer receives *"a causal assertion with
+known intermediates and this `(f, c)`"* and never infers `Causal` from a high confidence,
+guesses topology from predicate names, rebuilds Tarski/NARS, or inspects substrate rows for
+clues. The boundary fails from both sides: exported arithmetic (`F-BBB-NARS-1`) and an
+opaque carrier that hides the labels too thoroughly (`F-BBB-NARS-2`) are one wall breached
+from opposite directions.
+
+**⊕ Wired, same day (operator: *"CE64 already has it globally and we need to wire it,
+period"*).** `lance_graph_contract::assertion_wire` is D-BBB-NARS-2 built: the DTO is the
+EXISTING 16-byte edge facet `classid(4, LE) | CausalEdgeV3 payload(12)` — no new byte, no
+new bit, no envelope bump (D-ACR-7 F7); `ASSERTION_WIRE_SCHEMA = 1` rides the envelope +
+the ABI manifest, never the bytes; `AssertionTopology` / `AssertionBand` are the wire
+vocabularies, mirrors of `causal_edge::layout::{CausalTopology, ReasoningBand}` fused
+ordinal- and name-exact in `planner::cache::assertion_wire_parity` (both crates are
+zero-dep and cannot import each other; the mirror is legal only because the fuse exists);
+`AssertionWire::read(declared, provenance)` composes `band_reading::project_*` unchanged
+and REFUSES — provenance → lens → presence — never defaults; `AssertionView`'s `==` is
+claim identity. The aliasing pair is pinned on both sides: two wires differing ONLY at
+byte 12 hi-2 and byte 13 lo-3 read `!=` and stay distinct through `to/from_le_bytes`
+(contract), and two CE64 edges equal in S,P,O,(f,c) stay two claims through
+`CE64 → V3 → wire → V3 → CE64` bit-exact (planner). No arithmetic anywhere in the module
+(`D-BBB-NARS-1`); everything a G11 reader needs is reachable through the ONE module, so the
+lgj allowlist grows by one entry — that admission is the next brick, in lance-graph-java.
+Plan: `.claude/plans/assertion-wire-v1.md`.
+
+**⊕ Consumer falsifier, same pass — `F-CONSUMER-ASSERTION-1` (Tarski perfume).** A
+consumer that uses the words truth / rung / causal or attaches `(f, c)` while the result
+stays decorative has a *perfume of Tarski*. It is real only as a satisfaction relation —
+*this typed property about this entity* →(witness + model)→ `(f, c)` — carried whole:
+subject (alias, never PII) · predicate · object (concept id) · NARS `(f, c)` ·
+`CausalTopology` · `ReasoningBand` · witness. **Falsifier:** if topology, assertion band,
+proposition identity, or provenance can be removed or changed without altering admission,
+interpretation, or replay, it is perfume; likewise if `Relation` and `Causal` both land as
+`supports = true`, or an unknown mediator becomes known without a new witness. The consumer
+never executes NARS/Tarski arithmetic (`D-BBB-NARS-1`); it carries the typed proposition
+and preserves the substrate's distinctions — otherwise `(f, c)` is confidence-flavoured
+metadata and LE transports the perfume perfectly. Consumer pre-flight Q6 in
+`ogar-consumer-preflight.md`; doctrine in `membrane-tiers.md` § "coordinates of truth".
+
+**Three corrections landed with it, all in-tree, no code.** (1) `bbb-warden`'s sanctioned
+delegation returned a COMPUTED `TruthLiteral` — a bare pair crossing back — which blessed
+the exact leak; it now returns an opaque typed handle. (2) `translator.rs` said `TruthU8`
+"mirrors `CausalEdge64`'s `confidence_u8` + i4 mantissa" — wrong pairing: the truth is
+`frequency_u8` (bits 24-31) + `confidence_u8` (bits 32-39); the i4 mantissa at bits 46-49
+is the `InferenceType` — provenance/type grammar, not half of the truth. (3) Every index
+of the amended sentence — shape table, both warden cards, ledger L8, the ruled-vs-coded
+section, the D-BBB-NARS-1/-2/-3 rows — updated in the same commit, so the stale-index
+defect the council closed is not reopened.
+
+**What is deliberately NOT built:** no DTO struct, no opcode, no ABI symbol, no G11
+widening, no Java, no conversion. D-BBB-NARS-2/-3 stay Queued, *do not pre-build*.
+
+**⊘⊘ 2026-09-10, fourth pass — FOUR FABRICATIONS IN THIS ENTRY, operator-named, and the
+code they produced is REMOVED.** The entry above converted descriptive operator remarks
+into named doctrine artifacts. Corrected, each by the operator's own words:
+
+1. *"decorative / permissive / defining is not a ladder — is a verdict about how bad the
+   substrate is"* and *"i said we have these types of code"*. The three words name three
+   kinds of CODE this tree contains, measured by census. They are NOT a grade a field may
+   hold, NOT a ladder, and there is no MUL-per-grade column. The census: **defining 0,
+   permissive 0, decorative 1** (`dismech_counterfactual.rs:251-252`), everything else a
+   probe, a test or a doc comment — the verdict `ISS-REASONING-BAND-GATES-NOTHING`
+   already recorded on 2026-08-26.
+2. *"medcare needs to sniff it"* was an EXAMPLE of bad hand-rolled implementation. I made
+   it `F-CONSUMER-ASSERTION-1` plus a Q6 decision tree in `ogar-consumer-preflight.md`.
+   Both removed; that file is restored to its pre-arc state.
+3. *"CE64 already has it globally and we need to wire it, period"* meant USE the existing
+   dimensions at the sites that lack them. I built a 734-line `contract::assertion_wire`
+   module with a schema constant, two mirror enums, a view struct, and a 227-line
+   cross-crate fuse to police the mirror I had just created — first on the WRONG carrier
+   (the V3 facet, which drops the in-edge S/P/O the aliasing pair requires). Operator:
+   *"we already have causaledge64"*, *"not a wrapper — just wiring"*. **All of it is
+   deleted**, with its plan file and its `TYPE_DUPLICATION_MAP` rows.
+4. The `d7e8ec5` NARS × Tarski rung claim, already regraded above, came from reading a
+   stale `SPARE_SHIFT` doc comment and never looking three hundred lines down the same
+   file at the enum.
+
+**The ruling that stands (operator, 2026-09-10):** *"we should always enforce CE64 as
+defining LE."* `CausalEdge64`'s canonical little-endian 8-byte image IS the defining
+truth representation, always — never a wrapper, never a mirror, never a second DTO. The
+pair `(S,P,O, f,c, IndirectUnknown, Relation)` vs `(S,P,O, f,c, IndirectKnown, Causal)`
+is readable from the shipping carrier today via `topology()` and `reasoning_band()`. So
+enforcement is wiring plus the census, not a type. What survives from this arc: the LE
+ruling verbatim, the measured bit facts, the aliasing pair, the smallest law, meaning-
+crosses-machinery-does-not, and the census as the worklist.
+
+**⊘ Precision, same day (codereview finding, confirmed against source) — "defining LE"
+is a RULING about status, not a claim that CE64 has an LE codec.** `CausalEdge64` is
+`#[repr(transparent)] (u64)` with **zero** `to_le_bytes`/`from_le_bytes` — unlike
+`CausalEdgeV3`, which HAS the explicit byte-serialization boundary. CE64's "little-endian
+image" is its in-register u64 value, trivially LE-equivalent on any host because nothing
+ever serializes it — that is exactly the "host-native, zero endian conversions" measurement
+already recorded above, not a contradiction of it. The ruling makes this host-native image
+the DEFINING one by fiat, not by adding a codec. **And the version gate is real, not
+optional:** `topology()`/`reasoning_band()` read bits 59-63 under the `causal-edge-v2-layout`
+feature (default ON); under `default-features = false` (the documented v1-compat opt-out)
+those same bits carry the v1 temporal field and the accessors are fixed stubs
+(`Direct`/`Surface`) — reading them without knowing which layout produced the edge is
+exactly the unstated-reader-assumption `F-BBB-NARS-2` forbids. "Readable from the shipping
+carrier today" holds only under the default feature; a consumer on the v1-compat opt-out has
+no kind to read at these bits at all (`translator.rs`'s own doc comment now says this).
+
 ## 2026-09-07 — E-T1-HAS-TWO-SIBLING-ALGEBRAS-THE-AXIS-IS-SYNTAX-VS-EXECUTION-1 — the membrane is a behavior membrane, not a selection pipeline
 
 **Status:** OPERATOR RULING, BINDING (2026-09-07). Ruled after a three-agent audit of the

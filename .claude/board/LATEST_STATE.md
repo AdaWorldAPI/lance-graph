@@ -1,3 +1,35 @@
+## 2026-09-10 — CORRECTION: `contract::assertion_wire` (D-BBB-NARS-2) was DELETED as fabrication — the entry below is stale
+
+The entry immediately below reports a shipped contract-inventory delta for a
+module that no longer exists. Same day, after it landed, operator: *"we
+already have causaledge64"*, *"not a wrapper — just wiring"*, *"we should
+always enforce CE64 as defining LE."* Commit `2c66c01` deleted
+`crates/lance-graph-contract/src/assertion_wire.rs` (734 lines —
+`AssertionWire`, `AssertionView`, `AssertionTopology`, `AssertionBand`,
+`ASSERTION_WIRE_SCHEMA`), `cache::assertion_wire_parity.rs` (227 lines), and
+`.claude/plans/assertion-wire-v1.md`, as fabrication — nobody asked for a
+second DTO type; `CausalEdge64`'s existing `topology()`/`reasoning_band()`
+accessors ARE the defining LE representation. Full record: `EPIPHANIES.md`
+"⊘⊘ 2026-09-10, fourth pass — FOUR FABRICATIONS IN THIS ENTRY" (under
+`E-LE-IS-THE-UNIVERSAL-DTO-LAYER-TYPED-SYNTAX-MEANS-A-VERSIONED-LE-SCHEMA-1`).
+**Current contract inventory correction:** `lance_graph_contract` carries NO
+`assertion_wire` module. The rulings the entry below banked (LE is the
+universal DTO layer; `CausalTopology`/`ReasoningBand` are defining
+coordinates; the aliasing pair; meaning-crosses-machinery-does-not) stand —
+only the module they motivated does not. `STATUS_BOARD.md`'s D-BBB-NARS-2 row
+already carries the matching retraction ("RESCOPED and the code REMOVED");
+treat D-BBB-NARS-2 as **Queued**, not built. The entry below is retracted by
+this one rather than edited in place, per this file's append-only
+convention.
+
+## 2026-09-10 — D-BBB-NARS-2 built: `contract::assertion_wire`, the versioned canonical LE truth DTO (#1223, in PR)
+
+- **Contract inventory — delta:** new module `lance_graph_contract::assertion_wire` — `AssertionWire([u8; 16])` (`repr(transparent)`, align 1; `from_le_bytes`/`to_le_bytes`/`as_le_bytes`/`from_parts(classid, payload)`; coordinate readers `classid`, `target`, `frequency_u8`, `confidence_u8`, `causal_mask_bits`, `direction_bits`, `inference_mantissa`, `plasticity_bits`, `w_slot`, `topology_raw`, `band_raw`; `read(declared, provenance) -> Result<AssertionView, BandReadError>`, `read_truth_raw`), `AssertionView`, `AssertionTopology` (4), `AssertionBand` (8), `ASSERTION_WIRE_SCHEMA = 1`, `ASSERTION_WIRE_BYTES = 16`, the byte-offset consts; re-exports of `band_reading::{BandPresence, BandReadError, BandReading, EdgeProvenance, TruthLens, WitnessKind}`. No new layout, no envelope bump, no arithmetic.
+- **Planner:** `cache::assertion_wire_parity` (cfg(test)) — the cross-crate fuse: byte positions and both vocabularies against `causal_edge` over a 4×8 sweep; the aliasing pair end to end; the unstated-lift refusal. 4 tests.
+- **Rulings banked (operator, 2026-09-10, all in `E-LE-IS-THE-UNIVERSAL-DTO-LAYER-TYPED-SYNTAX-MEANS-A-VERSIONED-LE-SCHEMA-1`):** LE is the universal DTO layer; `CausalTopology` + `ReasoningBand` are defining, universal coordinates of truth; the defining-field law; the aliasing pair; *meaning crosses, machinery does not*; `F-CONSUMER-ASSERTION-1` (Tarski perfume); *"CE64 already has it globally and we need to wire it, period."*
+- **Not resident:** the lance-graph-java G11 admission (`ALLOWED` + lists + manifest schema export), D-BBB-NARS-3, any consumer migration, `TD-SPARE-SHIFT-NAME-IS-STALE-1`.
+- Plan: `.claude/plans/assertion-wire-v1.md`. STATUS_BOARD: D-BBB-NARS-2 → **In PR**.
+
 ## 2026-09-07 — `SpogTenants::merged_rows` + D-SPG-5 shipped (F9 migration complete on the consumer side)
 
 - **Contract inventory — delta:** `contract::spog_tenants::SpogTenants::merged_rows(&self) -> Vec<NodeRow>` — `merge()` in row form (global `seq`, stamp at value slot 0, edges reserved-and-zeroed), the exact sibling of `AlphaTunnel::merged_rows`, so a tenant aufstellung, a tunnel and one overlay are ONE table to any writer. This is the row builder D-SPG-6's sealed batch is built from. Test `merged_rows_is_merge_in_row_form` (two shadows, the two per-shadow zeros must NOT leak).

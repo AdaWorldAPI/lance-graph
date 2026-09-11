@@ -1,3 +1,60 @@
+## 2026-09-10 — CORRECTION: the `assertion_wire` entry below is stale — the module was DELETED as fabrication
+
+The `## 2026-09-10 — assertion_wire — the versioned canonical LE truth DTO
+(D-BBB-NARS-2) → .claude/plans/assertion-wire-v1.md` entry further down this
+file describes `contract::assertion_wire` as built and **"In PR (#1223)."**
+It no longer exists. Same day, after that entry landed, operator: *"we
+already have causaledge64"*, *"not a wrapper — just wiring"*, *"we should
+always enforce CE64 as defining LE."* Commit `2c66c01` deleted the module
+(`assertion_wire.rs`, 734 lines), its cross-crate fuse
+(`assertion_wire_parity.rs`, 227 lines), and its own plan file
+(`assertion-wire-v1.md`) as fabrication — `CausalEdge64`'s existing
+`topology()`/`reasoning_band()` accessors ARE the defining LE representation;
+nobody asked for a second DTO type. Full record: `EPIPHANIES.md`
+"⊘⊘ 2026-09-10, fourth pass — FOUR FABRICATIONS IN THIS ENTRY" (under
+`E-LE-IS-THE-UNIVERSAL-DTO-LAYER-TYPED-SYNTAX-MEANS-A-VERSIONED-LE-SCHEMA-1`);
+`STATUS_BOARD.md`'s D-BBB-NARS-2 row already carries the matching retraction.
+That commit corrected both of those but missed this file and
+`LATEST_STATE.md` (corrected separately, same day) — the entry below is
+retracted by this one rather than edited in place, per this file's
+append-only convention.
+
+## 2026-09-10 — the NaN CI mode → `.claude/plans/nan-ci-mode-v1.md`
+
+**Status: PROPOSAL.** `D-NCI-1..5` are unbuilt (`D-NCI-5` splits into its own
+PR per the council resolution below). Thesis: a field nobody wrote decodes
+as its default value today, so the substrate cannot tell "never stamped"
+from "stamped with the default"; the plan makes that distinction visible in
+a CI/verbose build without changing a single stored byte in release.
+
+§8 (5 open design items) and §9 (3 sub-items) were run through a 5+3
+hardening council the same day (run record: `.claude/board/AGENT_LOG.md`,
+this date) and now carry council-hardened resolutions — a canary mechanism
+split by field saturation (a sidecar for fully-saturated register fields,
+raw-nibble reuse for the mantissa), the `#[cfg]`+hot-plug hybrid for the
+certification switch, and a labeled third `RetryExhausted` disposition for
+the runtime side that does not fold "tried and gave up" into "never
+declared." **Every resolution is explicitly awaiting operator confirmation
+— the council hardens a proposal, it does not rule.** No Rust was written
+landing this; §8/§9's text + this entry + the `AGENT_LOG.md` entry are one
+plan-text-and-board-hygiene commit.
+
+## 2026-09-10 — `assertion_wire` — the versioned canonical LE truth DTO (D-BBB-NARS-2) → `.claude/plans/assertion-wire-v1.md`
+
+Built in #1223 on the operator's *"CE64 already has it globally and we need to
+wire it, period."* Frozen F1–F8: the DTO is the EXISTING 16-byte edge facet
+(`classid(4, LE) | CausalEdgeV3 payload(12)`), no new bit, no envelope bump;
+schema version rides the envelope + ABI manifest, never the bytes; reading is
+fallible and refusing (composes D-ACR-7's `band_reading` unchanged); the two
+defining vocabularies (`AssertionTopology`, `AssertionBand`) are mirrors of
+`causal_edge::layout` FUSED in the planner; no arithmetic; one G11 fence entry.
+Gates G1–G6 pre-registered (the aliasing pair on both sides, refusal, the
+4×8 sweep fuse, the unstated lift, width/schema). Non-goals: the Java-side
+admission (next brick, other repo), D-BBB-NARS-3, consumer migration.
+
+Status: **In PR (#1223)** — 9 contract + 4 planner tests green; clippy
+`-D warnings` clean on both crates.
+
 ## 2026-09-06 — `NodeGuid::new` repurpose AUDIT (5+3 council, READ-ONLY) → `.claude/plans/nodeguid-new-repurpose-audit-v1.md`
 
 SPEC v1 of a council convened to AUDIT — not implement — whether

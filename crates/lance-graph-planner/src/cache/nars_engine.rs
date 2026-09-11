@@ -448,17 +448,87 @@ impl NarsEngine {
     pub fn new(distances: SpoDistances) -> Self {
         Self {
             distances,
-            tables: NarsTables::build(1), // fast path: 1 c-level = 128 KB
+            tables: NarsTables::build(1), // fast path: 1 c-level = 256 KB (128 KB revision + 128 KB deduction)
+            consecutive_confident: 0,
+            history: Vec::new(),
+        }
+    }
+
+    /// Like [`new`](Self::new) but with an explicit revision-table confidence
+    /// resolution.
+    ///
+    /// `c_levels` is clamped to `1..=16` by `NarsTables::build`. Memory is
+    /// `(c_levels² + 1) × 128 KB` — the revision tables plus the always-present
+    /// 128 KB deduction table: **1 → 256 KB** (the `new` default, confidence
+    /// inert — NOT 128 KB; the deduction table is allocated unconditionally),
+    /// **4 → ~2.1 MB**, **16 → ~32.1 MB** (full precision). Pick deliberately;
+    /// the default is the fast path, not the accurate one.
+    pub fn with_c_levels(distances: SpoDistances, c_levels: usize) -> Self {
+        Self {
+            distances,
+            tables: NarsTables::build(c_levels),
             consecutive_confident: 0,
             history: Vec::new(),
         }
     }
 
     /// Hot path: NARS revision via lookup table. O(1), no float.
+    ///
+    /// Revision merges two truths asserted about the SAME statement from
+    /// independent evidence: the frequency is a CONFIDENCE-WEIGHTED average
+    /// (`(f1·w1 + f2·w2) / (w1 + w2)`, `w = c/(1−c)`) and the confidence
+    /// ACCUMULATES (`c = ws/(ws+1)`). Both halves need `c1`/`c2`, so both are
+    /// read — see [`causal_edge::tables::NarsTables::revise`].
+    ///
+    /// # ⚠ The confidence axis is only as fine as `c_levels`
+    ///
+    /// `revise` selects its table by quantizing `c1`/`c2` into
+    /// [`NarsTables::c_levels`] buckets. [`NarsEngine::new`] builds
+    /// `c_levels = 1` (the 128 KB fast path), and with ONE bucket every
+    /// confidence maps to the same table: the weights are equal, so the
+    /// frequency is a plain mean and `c_out` is the constant **170**. That is
+    /// the fixed point `dismech_counterfactual::DEFAULT_FREQUENCY_BAR`
+    /// already documents — *"measured across a weak 3-chain, a strong
+    /// 4-chain, and a mixed one, the terminal confidence was 170 in every
+    /// case"* — and it is why a confidence-based threshold there would be
+    /// vacuous.
+    ///
+    /// **To have confidence actually discriminate, construct with
+    /// [`NarsEngine::with_c_levels`].** Pinned two-sided by
+    /// `revise_fast_honors_confidence_at_multiple_levels` (it does) and
+    /// `revise_fast_confidence_is_inert_at_one_c_level` (it cannot, at the
+    /// default).
+    ///
+    /// ⊘ Before 2026-09-10 this indexed `tables.deduction` — the wrong NARS
+    /// rule, not merely a dropped argument. Deduction (`A→B, B→C ⊢ A→C`,
+    /// `f = f1·f2`) and revision are different inferences; the deduction
+    /// table has no confidence axis at all, which is why `c1`/`c2` were
+    /// `_`-prefixed. Corrected in place, and recorded rather than deleted.
     #[inline]
-    pub fn revise_fast(&self, f1: u8, _c1: u8, f2: u8, _c2: u8) -> (u8, u8) {
-        let packed = self.tables.deduction[f1 as usize * 256 + f2 as usize];
+    pub fn revise_fast(&self, f1: u8, c1: u8, f2: u8, c2: u8) -> (u8, u8) {
+        let packed = self.tables.revise(f1, c1, f2, c2);
         (unpack_f(packed), unpack_c(packed))
+    }
+
+    /// Hot path: NARS DEDUCTION via lookup table. O(1), no float.
+    ///
+    /// `A→B ⟨f1,c1⟩`, `B→C ⟨f2,c2⟩` ⊢ `A→C ⟨f,c⟩` with the standard NARS
+    /// deduction truth function `f = f1·f2`, `c = f·c1·c2`. The table
+    /// (`tables.rs`) only bakes in `f1`/`f2` — it has no confidence axis, so
+    /// it stores the packed frequency twice, `f_out` doubling as a
+    /// CONSERVATIVE UPPER BOUND on confidence (since `c ≤ f` always holds
+    /// when `c1, c2 ≤ 1`). `deduce_fast` finishes the computation by scaling
+    /// that upper bound down by the caller's own `c1`/`c2` — returning the
+    /// bare table lookup as "confidence" would silently read a
+    /// zero-confidence premise (`c1 = 0` or `c2 = 0`, e.g. two totally
+    /// unevidenced but high-frequency premises) as maximally confident,
+    /// which is exactly backwards for the case that matters most.
+    #[inline]
+    pub fn deduce_fast(&self, f1: u8, c1: u8, f2: u8, c2: u8) -> (u8, u8) {
+        let packed = self.tables.deduce(f1, f2);
+        let frequency = unpack_f(packed);
+        let confidence = (u32::from(frequency) * u32::from(c1) * u32::from(c2) / (255 * 255)) as u8;
+        (frequency, confidence)
     }
 
     /// Hot path: SpoHead → CausalEdge64 for protocol transport.
@@ -1315,5 +1385,116 @@ mod tests {
             !engine.should_stop(),
             "should not stop after low-confidence entry"
         );
+    }
+
+    // ── revise_fast: the rule, and the confidence axis ──
+
+    /// Revision is not deduction. Before 2026-09-10 `revise_fast` indexed the
+    /// DEDUCTION table, so this is the two-sided pin on the rule itself:
+    /// revision of two agreeing truths must PRESERVE their frequency, where
+    /// deduction multiplies it away.
+    #[test]
+    fn revise_fast_uses_revision_not_deduction() {
+        let engine = NarsEngine::new(SpoDistances::new_zero());
+        let (f_rev, _) = engine.revise_fast(200, 128, 200, 128);
+        let (f_ded, _) = engine.deduce_fast(200, 255, 200, 255);
+
+        // Deduction: 200*200/255 = 156. Anti-vacuity — the two rules must be
+        // far apart on this input, or the test proves nothing.
+        assert_eq!(f_ded, 156, "deduction fixture drifted");
+        assert!(
+            f_rev.abs_diff(f_ded) > 40,
+            "revision and deduction must be far apart here (rev={f_rev}, ded={f_ded})"
+        );
+        // Two independent witnesses both saying 200 revise to ~200, never 156.
+        assert!(
+            f_rev >= 199 && f_rev <= 201,
+            "agreeing witnesses must preserve frequency, got {f_rev}"
+        );
+    }
+
+    /// Codex/CodeRabbit P2 finding on PR #1223: `deduce_fast` used to return
+    /// the deduction table's raw packed byte as "confidence" — that byte is
+    /// `f_out` doubling as a conservative UPPER BOUND (`tables.rs`), not the
+    /// real NARS deduction confidence `c = f·c1·c2`. So two premises with
+    /// ZERO evidential confidence but maximal frequency came back reporting
+    /// confidence 255: maximally confident from maximally unevidenced
+    /// premises. Two-sided — zero confidence must zero the output; full
+    /// confidence at the same frequencies must still reach the upper bound
+    /// (proving the fix scales rather than always returning zero).
+    #[test]
+    fn deduce_fast_confidence_scales_with_premise_confidence_not_just_frequency() {
+        let engine = NarsEngine::new(SpoDistances::new_zero());
+
+        // f1 = f2 = 255 -> f_out = 255 (max frequency, the upper bound).
+        let (f_max_freq, c_zero_conf) = engine.deduce_fast(255, 0, 255, 0);
+        assert_eq!(
+            f_max_freq, 255,
+            "fixture drifted: f1=f2=255 must deduce f=255"
+        );
+        assert_eq!(
+            c_zero_conf, 0,
+            "zero-confidence premises must not deduce full confidence, got {c_zero_conf}"
+        );
+
+        let (_, c_full_conf) = engine.deduce_fast(255, 255, 255, 255);
+        assert_eq!(
+            c_full_conf, 255,
+            "max-confidence premises at the same frequencies must still reach the upper bound"
+        );
+    }
+
+    /// CAN-FIRE half: with a real confidence axis, `c1`/`c2` change the answer
+    /// — in BOTH the frequency (the weights) and the confidence (accumulation).
+    #[test]
+    fn revise_fast_honors_confidence_at_multiple_levels() {
+        const LEVELS: usize = 8;
+        let engine = NarsEngine::with_c_levels(SpoDistances::new_zero(), LEVELS);
+
+        // Anti-vacuity: the two fixtures must land in DIFFERENT c-buckets, or
+        // this measures nothing. Bucket index is `c * LEVELS / 256`.
+        let bucket = |c: u8| c as usize * LEVELS / 256;
+        assert_ne!(bucket(20), bucket(240), "fixtures share a bucket");
+
+        // Disagreeing witnesses (f=40 vs f=240) with LOPSIDED confidence:
+        // the confident one must pull the revised frequency toward itself.
+        let (f_lo_wins, _) = engine.revise_fast(40, 240, 240, 20);
+        let (f_hi_wins, _) = engine.revise_fast(40, 20, 240, 240);
+        assert!(
+            f_lo_wins < f_hi_wins,
+            "the more confident witness must dominate (lo={f_lo_wins}, hi={f_hi_wins})"
+        );
+        assert!(
+            f_hi_wins - f_lo_wins > 20,
+            "the pull must be substantial, not a rounding artefact"
+        );
+
+        // Confidence accumulates: two strong witnesses out-confide two weak.
+        let (_, c_weak) = engine.revise_fast(128, 20, 128, 20);
+        let (_, c_strong) = engine.revise_fast(128, 240, 128, 240);
+        assert!(
+            c_strong > c_weak,
+            "revised confidence must grow with input confidence \
+             (weak={c_weak}, strong={c_strong})"
+        );
+    }
+
+    /// CAN-STAY-SILENT half, and the honest limitation: at the `new` default
+    /// (`c_levels = 1`) there is exactly ONE bucket, so confidence CANNOT
+    /// discriminate and `c_out` is the constant 170. Delegating to `revise`
+    /// fixes the RULE; it does not conjure a resolution the table lacks.
+    #[test]
+    fn revise_fast_confidence_is_inert_at_one_c_level() {
+        let engine = NarsEngine::new(SpoDistances::new_zero());
+        assert_eq!(engine.tables.c_levels, 1, "`new` is the 128 KB fast path");
+
+        let a = engine.revise_fast(40, 0, 240, 255);
+        let b = engine.revise_fast(40, 255, 240, 0);
+        assert_eq!(
+            a, b,
+            "one bucket cannot discriminate — this is a documented limitation, \
+             not a passing confidence check"
+        );
+        assert_eq!(a.1, 170, "the fixed point DEFAULT_FREQUENCY_BAR documents");
     }
 }
