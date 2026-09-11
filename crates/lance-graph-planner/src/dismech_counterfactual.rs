@@ -148,6 +148,37 @@ impl EdgeRole {
     pub fn is_load_bearing(&self) -> bool {
         self.factual != self.counterfactual
     }
+
+    /// The cut edge's own reasoning band licenses reading its flip as a
+    /// CAUSAL claim.
+    ///
+    /// Pearl-rung-3 counterfactual surgery — cutting an edge and comparing
+    /// arms — is a causal operation (do-calculus over a causal graph). A
+    /// flip on an edge whose `band` is `Association` or `Relation` is not
+    /// evidence that the edge causes the outcome; it is evidence that the
+    /// edge correlates with or relates to it. Reading either as "this edge
+    /// causally explains the answer" is the exact epistemic-aliasing trap
+    /// named at `ISS-REASONING-BAND-GATES-NOTHING` / the F-BBB-NARS-2
+    /// falsifier: "`Causal` is not `Relation` with more confidence."
+    ///
+    /// This does not change [`Self::is_load_bearing`]'s verdict — the
+    /// underlying flip is unaffected by an edge's band, and stays reported
+    /// as-is. It qualifies whether that flip may be reported as a causal
+    /// claim, which is a genuinely different question the field already
+    /// carried and nothing previously asked.
+    #[must_use]
+    pub fn is_causally_licensed(&self) -> bool {
+        self.band == causal_edge::layout::ReasoningBand::Causal
+    }
+
+    /// Load-bearing AND licensed to be read as causal — the conjunction a
+    /// caller building a causal explanation actually wants, rather than
+    /// re-deriving `is_load_bearing() && is_causally_licensed()` at each
+    /// call site.
+    #[must_use]
+    pub fn is_causally_load_bearing(&self) -> bool {
+        self.is_load_bearing() && self.is_causally_licensed()
+    }
 }
 
 /// The chain with step `index` removed. Returns `None` if the index is out of
@@ -582,6 +613,100 @@ mod tests {
         // above compares a value with itself twice.
         assert_ne!(plain.topology(), CausalTopology::IndirectKnownIntermediates);
         assert_ne!(plain.reasoning_band(), ReasoningBand::Causal);
+    }
+
+    /// GATE — can-fire. A `Causal`-band load-bearing edge is reported as
+    /// causally load-bearing.
+    ///
+    /// Reuses [`cutting_a_load_bearing_edge_flips_the_verdict`]'s own
+    /// measured-to-straddle fixture, cutting the SAME edge, only flavoured
+    /// with a `Causal` band — the license `is_causally_licensed` checks for.
+    #[test]
+    fn a_causal_band_load_bearing_edge_is_causally_load_bearing() {
+        use causal_edge::layout::ReasoningBand;
+        let (tables, t) = fixture();
+        let tabs = ComposeTables {
+            s: &t[0],
+            p: &t[1],
+            o: &t[2],
+        };
+        let cut_edge = edge_with(250, 250).with_reasoning_band(ReasoningBand::Causal);
+        let chain: Vec<ChainStep> = vec![(0x91, cut_edge), (0x92, edge_with(40, 30))];
+        let seed = edge_with(200, 200);
+
+        let cf = counterfactual_replay(
+            &chain,
+            0,
+            seed,
+            CutContext {
+                tables: &tables,
+                compose: tabs,
+                owner: 3,
+                base_seq: 100,
+                bar: DEFAULT_FREQUENCY_BAR,
+            },
+        )
+        .expect("index 0 is in range")
+        .expect("reservation fits");
+
+        // Anti-vacuity: the flip itself must actually happen here, or
+        // "causally load-bearing" would be vacuously true of an edge that
+        // was never load-bearing to begin with.
+        assert!(cf.role.is_load_bearing());
+        assert!(cf.role.is_causally_licensed());
+        assert!(cf.role.is_causally_load_bearing());
+    }
+
+    /// GATE — can-stay-SILENT. The IDENTICAL load-bearing flip, through a
+    /// `Relation`-band edge instead of a `Causal`-band one, is NOT reported
+    /// as causally load-bearing.
+    ///
+    /// This is the discriminating half: `is_load_bearing()` must still fire
+    /// (the cut still changes the answer — band does not gate the underlying
+    /// NARS replay), while `is_causally_load_bearing()` must decline. If it
+    /// fired here too, the new gate would carry no information beyond
+    /// `is_load_bearing()` itself — exactly the "fires on everything is as
+    /// uninformative as never firing" trap this workspace's own
+    /// falsifiability rule names. `Relation` is the board's own named
+    /// contrast to `Causal` (F-BBB-NARS-2's "aliasing pair"), not an
+    /// arbitrary stand-in for "anything else".
+    #[test]
+    fn a_relation_band_load_bearing_edge_is_not_causally_load_bearing() {
+        use causal_edge::layout::ReasoningBand;
+        let (tables, t) = fixture();
+        let tabs = ComposeTables {
+            s: &t[0],
+            p: &t[1],
+            o: &t[2],
+        };
+        let cut_edge = edge_with(250, 250).with_reasoning_band(ReasoningBand::Relation);
+        let chain: Vec<ChainStep> = vec![(0x91, cut_edge), (0x92, edge_with(40, 30))];
+        let seed = edge_with(200, 200);
+
+        let cf = counterfactual_replay(
+            &chain,
+            0,
+            seed,
+            CutContext {
+                tables: &tables,
+                compose: tabs,
+                owner: 3,
+                base_seq: 100,
+                bar: DEFAULT_FREQUENCY_BAR,
+            },
+        )
+        .expect("index 0 is in range")
+        .expect("reservation fits");
+
+        assert!(
+            cf.role.is_load_bearing(),
+            "the cut must still flip the verdict — band does not gate the replay",
+        );
+        assert!(!cf.role.is_causally_licensed());
+        assert!(
+            !cf.role.is_causally_load_bearing(),
+            "a Relation-band flip must not be reportable as a causal claim",
+        );
     }
 
     /// An out-of-range cut is refused at the top level too, not just in
