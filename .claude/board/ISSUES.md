@@ -580,6 +580,18 @@ therefore has a carrier and no mechanism, which is what F-OCT-7 measures.
 Cross-ref `ISS-BAND-READING-UNMINTED-IN-OGAR` — the blocker is upstream.
 Ref: `.claude/plans/octopus-causal-cot-audit-v1.md` §4, §6, D-OCT-7.
 
+⊕ **2026-09-11, narrower.** The headline is no longer universally true: outside
+the sudoku-walker/OGAR path this issue and D-OCT-7 scope, `dismech_counterfactual.rs`
+(`EdgeRole::is_causally_licensed()`) is now a real branching consumer of `band` —
+`band == ReasoningBand::Causal` gates whether a load-bearing counterfactual flip
+may be reported as a causal claim (see D-BBB-NARS-2, STATUS_BOARD.md). This does
+NOT resolve this issue: the OGAR-side mint the sudoku walker's GATE stage needs
+is still absent, and this precedent lives in a different crate on a different
+axis (a NARS-replay verdict qualifier, not a class-view domain lens). Recorded
+because it shows the "gates nothing, no mechanism anywhere" framing now has one
+counterexample — future readers should confirm THIS issue's specific mechanism
+(the sudoku walker) before assuming the general claim still holds everywhere.
+
 ## ISS-BAND-READING-UNMINTED-IN-OGAR (2026-08-26) — OPEN
 
 The two halves of the domain lens live in different repos and do not meet.
