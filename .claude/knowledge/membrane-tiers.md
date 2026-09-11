@@ -313,7 +313,7 @@ worklist.
 **What this does NOT do.** No DTO struct, no opcode, no ABI symbol, no G11 import,
 no Java, no conversion, no new carrier of any kind.
 
-
+### The G11 widening rule: one scalpel cut, never the cupboard
 
 Do **not** import `lance_graph_contract::nars` through the G11 fence merely
 because it exists. If that module carries arithmetic semantics together with POD
