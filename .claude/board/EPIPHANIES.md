@@ -36,7 +36,15 @@ or unknown-provenance edge's bits 61-63 alias stale `temporal` bits
 for 4-5 months, and `pack()`'s v1-temporal branch only compiles under
 `--no-default-features`. Any path that could produce the edge Codex describes
 already carries a loud compiler warning, and no current caller of
-`counterfactual_replay` constructs edges that way. The real fix for the
+`counterfactual_replay` constructs edges that way. **Why deprecated, not
+merely unused** (operator): the substrate's temporal/episodic tracking moved
+entirely onto Lance's own version stream, read through the planner's own
+`temporal.rs` module doc: *"the Lance versions already carry the temporal
+information; the planner picks the policy"* (`crates/lance-graph-planner/src/
+temporal.rs:24-25`). The edge type carrying a second, bit-packed 12-bit
+temporal register of its own became redundant with a superior mechanism, not
+merely superseded by a feature flag; that is why v2 reclaimed the bits
+outright rather than keeping them dormant-but-live. The real fix for the
 general hazard already exists (`lance_graph_contract::band_reading::
 EdgeProvenance` + `BandReading::project_band`) but threading a
 `(classid, rail)`-scoped provenance declaration through this module is a

@@ -11,6 +11,15 @@ otherwise. **Not fixed in #1224**: the only writers of that zone
 4-5 months and `pack()`'s v1-temporal branch only compiles under
 `--no-default-features`, so no current caller of `counterfactual_replay`
 constructs edges through that path — the hazard is real but not live today.
+**Why it's deprecated, not merely unused:** the temporal/episodic tracking
+those bits carried moved to a superior mechanism entirely — Lance's own
+version stream, read through the planner's `temporal.rs` module doc, which
+states plainly: "the Lance versions already carry the temporal information;
+the planner picks the policy" (`crates/lance-graph-planner/src/
+temporal.rs:24-25`). A bit-packed 12-bit temporal register on the edge type
+itself became redundant with that, not merely superseded by a feature flag —
+which is why v2 reclaimed the bits outright rather than keeping them as a
+dormant-but-live field.
 
 The proper fix already has a home: `lance_graph_contract::band_reading::
 EdgeProvenance` (`trusted()` refuses exactly `V1Legacy`/`Unknown`) +
