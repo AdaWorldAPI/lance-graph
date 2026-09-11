@@ -1,3 +1,75 @@
+## 2026-09-11 — E-DISMECH-COUNTERFACTUAL-BAND-IS-NOW-THE-FIRST-PERMISSIVE-CONSUMER-1 — D-BBB-NARS-2's census moves from permissive-0 to permissive-1
+
+**Status:** SHIPPED (PR #1224, operator-directed: *"start with the low hanging
+fruit to wire the already existing"*). Advances D-BBB-NARS-2's wiring worklist
+(`STATUS_BOARD.md`); narrows `ISS-REASONING-BAND-GATES-NOTHING` without
+resolving it. Neither record is mutated by this entry — cross-referenced only,
+per the append-only rule (`CLAUDE.md`: past governance entries take no edit
+but their Status/Confidence lines; this entry is new, not a rewrite).
+**Confidence:** High for the code and the two disable-run-verified falsifiers;
+narrow by design (one site, one dimension — see Scope below).
+
+**The change.** `EdgeRole::is_causally_licensed()` / `is_causally_load_bearing()`
+added in `crates/lance-graph-planner/src/dismech_counterfactual.rs` — the
+census's ONE production read of `CausalEdge64::topology()`/`.reasoning_band()`
+(`dismech_counterfactual.rs:251-252` pre-PR). `band == ReasoningBand::Causal`
+now gates whether a load-bearing Pearl-rung-3 counterfactual flip may be
+reported as a causal claim; `Association`/`Relation`/`Surface` bands do not
+license it. `is_load_bearing()` itself is unchanged — the gate qualifies the
+CLAIM, never the underlying NARS-replay verdict. No new type, no new
+dependency, no wire-format change, per the operator's ruling on this D-id
+("not a wrapper — just wiring"; `CausalEdge64` speaks for itself).
+
+**Falsifiers, both disable-run verified** (hardcoded `false`/`true` in the two
+new methods, confirmed each flips its named test red, then reverted):
+- can-fire — a `Causal`-band load-bearing flip reports
+  `is_causally_load_bearing() == true`.
+- can-stay-silent — the IDENTICAL flip through a `Relation`-band edge does
+  not, while `is_load_bearing()` still fires: proves `band` gates the claim,
+  not whether the replay moved.
+
+**A Codex P2 finding investigated and NOT applied.** Codex flagged that a v1
+or unknown-provenance edge's bits 61-63 alias stale `temporal` bits
+(`V1_TEMPORAL_SHIFT = 52`, a 12-bit field reaching bit 63), so a contaminated
+`0b011` could silently misdecode as `Causal`. Checked: `CausalEdge64::temporal()`
+/ `set_temporal()` — the only writers of that zone — have been `#[deprecated]`
+for 4-5 months, and `pack()`'s v1-temporal branch only compiles under
+`--no-default-features`. Any path that could produce the edge Codex describes
+already carries a loud compiler warning, and no current caller of
+`counterfactual_replay` constructs edges that way. The real fix for the
+general hazard already exists (`lance_graph_contract::band_reading::
+EdgeProvenance` + `BandReading::project_band`) but threading a
+`(classid, rail)`-scoped provenance declaration through this module is a
+materially larger change than this PR's scope — filed as a follow-up
+(`TD-DISMECH-COUNTERFACTUAL-NEEDS-BAND-PROVENANCE-1`, TECH_DEBT.md), not
+bundled here.
+
+**Scope, stated so nobody over-reads this entry.** ONE site, ONE dimension:
+`topology()` at the same site is still read-only/decorative; the three
+crates carrying a NARS `(f, c)` pair with no `causal-edge` dependency
+(`lance-graph-contract`, `holograph`, `lance-graph-arm-discovery`) remain
+structurally absent, exactly as the pre-existing census recorded. This entry
+does not claim more than the one census cell it moves.
+
+**A process correction, recorded because the mechanism matters more than the
+outcome.** This entry exists ONLY because a first attempt appended the above
+directly into the existing `STATUS_BOARD.md` D-BBB-NARS-2 cell and the
+existing `ISSUES.md` `ISS-REASONING-BAND-GATES-NOTHING` entry — following the
+in-place `⊕`/`⊘` pattern both records already carry from prior sessions (19
+and 10 such instances respectively, several already on these exact records).
+CodeRabbit flagged it; my first reply argued the general append-only rule
+(`CLAUDE.md` — *"never edit past entries except the `**Status:**` /
+`**Confidence:**` lines"*) was scoped to `EPIPHANIES.md`/`PR_ARC_INVENTORY.md`
+specifically, based on the surrounding prose. **That reply was wrong.** The
+rule reads generally, CodeRabbit cited the exact line, and two prior PRs on
+this repo (#708, #878) are on record confirming the general reading applies
+to every `.claude/board/*.md` governance file, `STATUS_BOARD.md` and
+`ISSUES.md` included. The 19+10 prior in-place instances are not evidence the
+rule permits this — `append_only_gate.py` is line-count-only and cannot see
+an in-place mutation, so those instances are unproven, not sanctioned; they
+are not re-litigated by this entry, only not repeated. Both board files are
+reverted to their exact pre-PR text; this entry is the record instead.
+
 ## 2026-09-10 — E-LE-IS-THE-UNIVERSAL-DTO-LAYER-TYPED-SYNTAX-MEANS-A-VERSIONED-LE-SCHEMA-1 — a bare `(f, c)` pair is a degree, not a typed truth
 
 **Status:** OPERATOR RULING, BINDING (2026-09-10, verbatim: *"Little-endian is the universal

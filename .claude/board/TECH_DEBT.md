@@ -1,3 +1,28 @@
+## TD-DISMECH-COUNTERFACTUAL-NEEDS-BAND-PROVENANCE-1 (2026-09-11) — OPEN
+
+**`EdgeRole::is_causally_licensed()` (`dismech_counterfactual.rs`, PR #1224)
+trusts `CausalEdge64::reasoning_band()` with no provenance check.** Codex P2
+finding, investigated: a v1 or unknown-provenance edge's bits 61-63 alias
+stale `temporal` bits — `crates/causal-edge/src/layout.rs`'s `V1_TEMPORAL_SHIFT`
+constant is a 12-bit field reaching bit 63 — so a contaminated edge could
+misdecode as `ReasoningBand::Causal` with nothing in the bits able to prove
+otherwise. **Not fixed in #1224**: the only writers of that zone
+(`CausalEdge64::temporal()`/`set_temporal()`) have been `#[deprecated]` for
+4-5 months and `pack()`'s v1-temporal branch only compiles under
+`--no-default-features`, so no current caller of `counterfactual_replay`
+constructs edges through that path — the hazard is real but not live today.
+
+The proper fix already has a home: `lance_graph_contract::band_reading::
+EdgeProvenance` (`trusted()` refuses exactly `V1Legacy`/`Unknown`) +
+`BandReading::project_band`, both already zero-dep-compatible with this
+crate's existing `lance-graph-contract` dependency. When a caller of
+`counterfactual_replay` first sources edges from durable storage or a
+cross-carrier lift (rather than freshly `pack()`-ed under v2), thread an
+`EdgeProvenance` (or a `(classid, rail)` declaration lookup) through
+`EdgeRole::is_causally_licensed()` before trusting `band`. Full context:
+`EPIPHANIES.md` `E-DISMECH-COUNTERFACTUAL-BAND-IS-NOW-THE-FIRST-PERMISSIVE-
+CONSUMER-1`.
+
 ## TD-PLANNER-CLIPPY-RED-ON-BASE-1 (2026-09-10) — OPEN
 
 **`cargo clippy -p lance-graph-planner --lib --tests -- -D warnings` and
