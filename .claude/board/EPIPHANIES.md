@@ -8,24 +8,37 @@ a feature note.
 row). The withdrawal of the classification is OPERATOR-RULED. Nothing here is inference
 promoted to doctrine.
 
-### 1. What was fabricated — withdrawn, not renamed
+### 1. What was fabricated — and, corrected 2026-09-13, what was NOT
 
-**⊘ The "defining / permissive / decorative" classification is WITHDRAWN.** It was
-agent-generated conjecture that converted an operator criticism of *implementation
-quality* into an unauthorized maturity/state model, complete with counters and a
-progression ("moves from permissive-0 to permissive-1"). It was never authorized as
-states, levels, counters, or an architectural ladder. The underlying per-site
-measurements may still be cited individually and factually; **the classification and
-every transition/counter derived from it have no authority.** Do not re-introduce it
-under renamed states.
+**⊘⊘ This section's own first two drafts were wrong about the words, in opposite
+directions. Measured, the record is this:**
 
-**⊕ Sharpened by the operator, 2026-09-13 — the words THEMSELVES are the contamination.**
-This entry first supplied "corrected meanings" for *defining* and *permissive*. That
-repeated the original mistake one level up: it re-established the invented vocabulary as
-terms of art rather than removing it. They are not terms of this codebase. They are not a
-scale, a grade, an attribute, or a property that a contract, a field, or a module may hold.
-Nothing is sorted by them and no verdict is rendered in them — including a verdict that
-something fails to meet them.
+*Decorative / permissive / defining* are **the operator's own words**, quoted verbatim at
+`.claude/board/EPIPHANIES.md:88-90`: *"decorative / permissive / defining is not
+a ladder — is a verdict about how bad the substrate is, saying the only truly defining is
+LE, everything else is prose."* They are criticism vocabulary about **how bad the substrate
+is**. They were never mine to define, and never mine to abolish.
+
+**PR #1223 recorded them correctly and is NOT contaminated.** It carried the verbatim quote,
+stated **NOT a ladder** in the same paragraph, and — decisively — caught its own first-cut
+misreading *in place*, with the losing text kept: *"the first cut of this paragraph read it
+as three grades a field may hold and placed the code 'between decorative and permissive';
+wrong reading, words kept."* That is the discipline working. Nothing in #1223 requires
+withdrawal, and its use of these words is not to be scrubbed from the board.
+
+**What THIS PR (#1224) did is the whole of the contamination.** It re-committed the exact
+error #1223 had already caught and corrected — reading the three words as grades a field may
+hold — and then went further: it added counters and a progression (*"moves from permissive-0
+to permissive-1"*) and shipped work whose stated purpose was to advance them. **Withdrawn:
+the ladder, the counters, the progression, and every acceptance criterion derived from them.**
+Not withdrawn: the operator's vocabulary, and not one line of #1223.
+
+Two over-corrections by this entry are also retracted. It first supplied "corrected meanings"
+for the words, re-establishing them as terms of art; it then swung the other way and declared
+them *"not terms of this codebase … no verdict is rendered in them"*, which contradicts the
+operator's verbatim — a verdict **is** rendered in them; it is a verdict about the substrate,
+never a grade on a field. Restating an operator's own words as either a specification or a
+prohibition is the same failure twice.
 
 **The generalizable failure:** bad code is evidence about an implementation. It is not
 permission to invent architectural states, maturity ladders, transition systems, or
