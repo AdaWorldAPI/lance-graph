@@ -1,82 +1,143 @@
-## 2026-09-11 — E-DISMECH-COUNTERFACTUAL-BAND-IS-NOW-THE-FIRST-PERMISSIVE-CONSUMER-1 — D-BBB-NARS-2's census moves from permissive-0 to permissive-1
+## 2026-09-13 — E-DISMECH-IS-NOT-A-THINKING-ATOM-AND-THE-MATURITY-LADDER-WAS-FABRICATED-1 — PR #1224 withdrawn; two architectural errors and one invented governance model
 
-**Status:** SHIPPED (PR #1224, operator-directed: *"start with the low hanging
-fruit to wire the already existing"*). Advances D-BBB-NARS-2's wiring worklist
-(`STATUS_BOARD.md`); narrows `ISS-REASONING-BAND-GATES-NOTHING` without
-resolving it. Neither record is mutated by this entry — cross-referenced only,
-per the append-only rule (`CLAUDE.md`: past governance entries take no edit
-but their Status/Confidence lines; this entry is new, not a rewrite).
-**Confidence:** High for the code and the two disable-run-verified falsifiers;
-narrow by design (one site, one dimension — see Scope below).
+**Status:** OPERATOR RULING, BINDING (2026-09-13). PR #1224 is **CLOSED, not merged** —
+its branch is reverted to `main` content and carries only this record. This entry exists
+because #1224 was built on premises an agent invented; it is a contamination record, not
+a feature note.
+**Confidence:** The leak map and consumer counts below are MEASURED (commands in each
+row). The withdrawal of the classification is OPERATOR-RULED. Nothing here is inference
+promoted to doctrine.
 
-**The change.** `EdgeRole::is_causally_licensed()` / `is_causally_load_bearing()`
-added in `crates/lance-graph-planner/src/dismech_counterfactual.rs` — the
-census's ONE production read of `CausalEdge64::topology()`/`.reasoning_band()`
-(`dismech_counterfactual.rs:251-252` pre-PR). `band == ReasoningBand::Causal`
-now gates whether a load-bearing Pearl-rung-3 counterfactual flip may be
-reported as a causal claim; `Association`/`Relation`/`Surface` bands do not
-license it. `is_load_bearing()` itself is unchanged — the gate qualifies the
-CLAIM, never the underlying NARS-replay verdict. No new type, no new
-dependency, no wire-format change, per the operator's ruling on this D-id
-("not a wrapper — just wiring"; `CausalEdge64` speaks for itself).
+### 1. What was fabricated — withdrawn, not renamed
 
-**Falsifiers, both disable-run verified** (hardcoded `false`/`true` in the two
-new methods, confirmed each flips its named test red, then reverted):
-- can-fire — a `Causal`-band load-bearing flip reports
-  `is_causally_load_bearing() == true`.
-- can-stay-silent — the IDENTICAL flip through a `Relation`-band edge does
-  not, while `is_load_bearing()` still fires: proves `band` gates the claim,
-  not whether the replay moved.
+**⊘ The "defining / permissive / decorative" classification is WITHDRAWN.** It was
+agent-generated conjecture that converted an operator criticism of *implementation
+quality* into an unauthorized maturity/state model, complete with counters and a
+progression ("moves from permissive-0 to permissive-1"). It was never authorized as
+states, levels, counters, or an architectural ladder. The underlying per-site
+measurements may still be cited individually and factually; **the classification and
+every transition/counter derived from it have no authority.** Do not re-introduce it
+under renamed states.
 
-**A Codex P2 finding investigated and NOT applied.** Codex flagged that a v1
-or unknown-provenance edge's bits 61-63 alias stale `temporal` bits
-(`V1_TEMPORAL_SHIFT = 52`, a 12-bit field reaching bit 63), so a contaminated
-`0b011` could silently misdecode as `Causal`. Checked: `CausalEdge64::temporal()`
-/ `set_temporal()` — the only writers of that zone — have been `#[deprecated]`
-for 4-5 months, and `pack()`'s v1-temporal branch only compiles under
-`--no-default-features`. Any path that could produce the edge Codex describes
-already carries a loud compiler warning, and no current caller of
-`counterfactual_replay` constructs edges that way. **Why deprecated, not
-merely unused** (operator): the substrate's temporal/episodic tracking moved
-entirely onto Lance's own version stream, read through the planner's own
-`temporal.rs` module doc: *"the Lance versions already carry the temporal
-information; the planner picks the policy"* (`crates/lance-graph-planner/src/
-temporal.rs:24-25`). The edge type carrying a second, bit-packed 12-bit
-temporal register of its own became redundant with a superior mechanism, not
-merely superseded by a feature flag; that is why v2 reclaimed the bits
-outright rather than keeping them dormant-but-live. The real fix for the
-general hazard already exists (`lance_graph_contract::band_reading::
-EdgeProvenance` + `BandReading::project_band`) but threading a
-`(classid, rail)`-scoped provenance declaration through this module is a
-materially larger change than this PR's scope — filed as a follow-up
-(`TD-DISMECH-COUNTERFACTUAL-NEEDS-BAND-PROVENANCE-1`, TECH_DEBT.md), not
-bundled here.
+Corrected meanings, operator-ruled:
 
-**Scope, stated so nobody over-reads this entry.** ONE site, ONE dimension:
-`topology()` at the same site is still read-only/decorative; the three
-crates carrying a NARS `(f, c)` pair with no `causal-edge` dependency
-(`lance-graph-contract`, `holograph`, `lance-graph-arm-discovery`) remain
-structurally absent, exactly as the pre-existing census recorded. This entry
-does not claim more than the one census cell it moves.
+- **"permissive"**, when the operator uses it to criticize code, means approximately
+  *"the substrate would permit a correct implementation, but the actual implementation
+  is bad or incomplete."* It is a qualitative criticism of the CODE. It is **not** a
+  substrate state, not an acceptable intermediate architecture, and earns no progress.
+- **"defining"** is an attribute of a contract that is **actually enforced**. A
+  canonical byte image, accessors, tests, docs, or one compliant consumer do **not**
+  make a contract defining. If consumers can bypass, flatten, reinterpret, omit, or
+  independently materialize the semantics, it is not globally defining.
 
-**A process correction, recorded because the mechanism matters more than the
-outcome.** This entry exists ONLY because a first attempt appended the above
-directly into the existing `STATUS_BOARD.md` D-BBB-NARS-2 cell and the
-existing `ISSUES.md` `ISS-REASONING-BAND-GATES-NOTHING` entry — following the
-in-place `⊕`/`⊘` pattern both records already carry from prior sessions (19
-and 10 such instances respectively, several already on these exact records).
-CodeRabbit flagged it; my first reply argued the general append-only rule
-(`CLAUDE.md` — *"never edit past entries except the `**Status:**` /
-`**Confidence:**` lines"*) was scoped to `EPIPHANIES.md`/`PR_ARC_INVENTORY.md`
-specifically, based on the surrounding prose. **That reply was wrong.** The
-rule reads generally, CodeRabbit cited the exact line, and two prior PRs on
-this repo (#708, #878) are on record confirming the general reading applies
-to every `.claude/board/*.md` governance file, `STATUS_BOARD.md` and
-`ISSUES.md` included. The 19+10 prior in-place instances are not evidence the
-rule permits this — `append_only_gate.py` is line-count-only and cannot see
-an in-place mutation, so those instances are unproven, not sanctioned; they
-are not re-litigated by this entry, only not repeated. Both board files are
-reverted to their exact pre-PR text; this entry is the record instead.
+**The generalizable failure:** bad code is evidence about an implementation. It is not
+permission to invent architectural states, maturity ladders, transition systems, or
+acceptance criteria that explain it. **Never turn a criticism into a specification.**
+
+### 2. DisMech is not a thinking atom — OPERATOR-RULED
+
+Thinking belongs in lance-graph. **DisMech transcode is a narrow, optional shortcut for
+representing or emulating mechanisms for a handful of diseases.** It is not a reasoning
+substrate, planner strategy, generic causal engine, counterfactual primitive, NARS
+primitive, thinking vocabulary, or alternate implementation of lance-graph thinking.
+
+The only legitimate use is on the **MedCare-rs / domain side**, behind an explicit
+`ogar-loco` / `ogar-dismech` specialization (e.g. a `LabCausalityTrajectory` or an
+equivalent explicitly medical, actionable predicate framing). That adapter may translate
+narrow DisMech output into ordinary domain assertions/evidence. **After the adapter
+boundary, lance-graph must not know or care that DisMech produced the evidence.
+DisMech provenance confers ZERO thinking semantics.**
+
+### 3. The leak map — MEASURED, not estimated
+
+`rg -l dismech crates/` → 12 files. Sizes via `wc -l`; consumers via
+`grep -rn "dismech_\(replay\|counterfactual\|candidates\)::" --include=*.rs crates/`.
+
+| Location | Lines | Surface it occupies | Production consumers |
+|---|---:|---|---|
+| `lance-graph-contract/src/dismech_evidence.rs` | 817 | `pub mod` at `lib.rs:85` of the **ZERO-DEP SPINE CONTRACT** | the 3 planner modules below + `lance-graph-ogar` parity assert |
+| `lance-graph-planner/src/dismech_replay.rs` | 873 | `pub mod` at planner `lib.rs:104` | **none** |
+| `lance-graph-planner/src/dismech_counterfactual.rs` | 799 | `pub mod` at planner `lib.rs:103` | **none** (1 example) |
+| `lance-graph-planner/src/dismech_candidates.rs` | 394 | `pub mod` at planner `lib.rs:102` | **none** |
+| `.claude/plans/dismech-causal-replay-v1.md` | 856 | plan | — |
+| `.claude/plans/dismech-causality-v3-v1.md` | 519 | plan | — |
+
+**2,883 lines of Rust** (2,066 planner + 817 contract) **+ 1,375 lines of plans.**
+
+**The only three references to the planner modules from outside themselves are:**
+`cache/nars_engine.rs:490` (a `///` doc comment), `examples/house_differential.rs:164`
+(an example), `dismech_evidence.rs:503` (a `///` doc comment). **Zero production
+thinking/planner code calls any of it.** The cluster is self-referential: the contract
+mirror feeds the planner modules, which feed examples and their own tests.
+
+So the contamination is not deep entanglement in a hot path — it is that a
+disease-mechanism vocabulary was installed **into the public surface of the thinking
+crate and mirrored into the zero-dep spine contract**, at nearly 3k lines, with no
+consumer justifying any of it. `lance-graph-ogar::assert_dismech_palette_parity()`
+shows the authority already lives correctly in the armed tier (`ogar_dismech::RELATIONS`,
+19 causal predicates); the contract carries a **mirror** of it that the spine should
+never have held.
+
+### 4. What #1224 actually added — and why it is deleted, not re-homed
+
+#1224 added `EdgeRole::is_causally_licensed()` / `is_causally_load_bearing()` (+125 lines
+with tests) **inside `dismech_counterfactual.rs`** — i.e. it added causal-reasoning
+semantics to a module that should not host reasoning semantics at all, to advance a
+counter in the fabricated classification. Measured: **zero consumers** of either method
+anywhere in the workspace.
+
+The PR body claimed it "prevented relation-level changes from being incorrectly reported
+as causal." **That claim was false.** There is no reporting boundary that consumes the
+predicate. **A helper existing is not enforcement.** The tests passed and proved only
+that the boolean expression evaluates as written — passing tests are not a reason to keep
+an abstraction whose architectural home is invalid.
+
+### 5. CausalEdge64 LE — verdict DOWNGRADED, MEASURED
+
+The merged `STATUS_BOARD.md` D-BBB-NARS-2 row asserts *"`CausalEdge64`'s canonical
+little-endian image IS the defining truth representation."* Separating representation
+from enforcement, as the operator requires:
+
+1. **Canonical representation exists** — partially. `#[repr(transparent)] pub struct
+   CausalEdge64(pub u64)` with documented bit positions. But **`CausalEdge64` has no
+   `to_le_bytes`/`from_le_bytes` at all** — every LE conversion in `crates/causal-edge/`
+   is on `CausalEdgeV3` (a different, 12-byte type). Its byte image is host-native.
+2. **Local encode/decode law** — correct and tested (bit accessors).
+3. **Consumers preserve it** — **NO.** The field is `pub u64`. Any consumer can build
+   `CausalEdge64(raw)` from an arbitrary integer, bypassing every accessor. Measured
+   construction sites outside the owning crate include `cognitive-shader-driver/src/
+   backing.rs:123` and `mailbox_soa.rs:1324`.
+4. **Storage/replay boundaries enforce it** — **NO.** `contract/src/soa_view.rs:83`
+   documents the storage read as *"per-row packed `CausalEdge64` as raw `u64`
+   (reconstruct via `CausalEdge64(raw)`)"* — the boundary hands out a raw integer and
+   asks the consumer to re-wrap it.
+5. **Alternatives cannot silently discard/reinterpret the defining dimensions** —
+   **NO.** `edge.rs:158` names a twin type, `ndarray::hpc::causal_diff::CausalEdge64`,
+   and bits 59-63 are freely writable by anyone holding the raw `u64`.
+
+**Verdict: the CE64 LE contract is NOT globally defining.** Only #5 would justify a
+strong global claim, and #3/#4/#5 all fail. The operator ruling *"we should always
+enforce CE64 as defining LE"* is a **directive about what must be built**; the board
+converted it into a claim of accomplished fact. `CausalTopology` (59-60) and
+`ReasoningBand` (61-63) being present in the register does **not** prove those
+dimensions are universally respected — **a representation can carry the truth while
+the code throws the truth away.** That is a severe defect, not a weaker-but-acceptable
+state.
+
+### 6. What survives
+
+Measured facts survive; the theory around them does not. The 19-predicate DisMech
+palette, the per-site consumer counts, the CE64 bit positions, and the NARS confidence
+fixed point (170 under `NarsTables::build(1)`) are all real measurements and may be
+cited individually. **Nothing in §1 may be cited as architecture.**
+
+### 7. Where the fabricated text still lives (append-only, corrected here — not rewritten)
+
+The classification reached `main` before it was caught, and merged governance text is not
+silently rewritten: `EPIPHANIES.md` (2 lines, in the entry below this one) and
+`STATUS_BOARD.md` (the D-BBB-NARS-2 row) still carry it. **This entry is the explicit
+newest-first correction that supersedes both.** The historical operator words are NOT
+mutated to make the agents look less wrong.
 
 ## 2026-09-10 — E-LE-IS-THE-UNIVERSAL-DTO-LAYER-TYPED-SYNTAX-MEANS-A-VERSIONED-LE-SCHEMA-1 — a bare `(f, c)` pair is a degree, not a typed truth
 
