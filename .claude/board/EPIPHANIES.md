@@ -19,16 +19,13 @@ measurements may still be cited individually and factually; **the classification
 every transition/counter derived from it have no authority.** Do not re-introduce it
 under renamed states.
 
-Corrected meanings, operator-ruled:
-
-- **"permissive"**, when the operator uses it to criticize code, means approximately
-  *"the substrate would permit a correct implementation, but the actual implementation
-  is bad or incomplete."* It is a qualitative criticism of the CODE. It is **not** a
-  substrate state, not an acceptable intermediate architecture, and earns no progress.
-- **"defining"** is an attribute of a contract that is **actually enforced**. A
-  canonical byte image, accessors, tests, docs, or one compliant consumer do **not**
-  make a contract defining. If consumers can bypass, flatten, reinterpret, omit, or
-  independently materialize the semantics, it is not globally defining.
+**⊕ Sharpened by the operator, 2026-09-13 — the words THEMSELVES are the contamination.**
+This entry first supplied "corrected meanings" for *defining* and *permissive*. That
+repeated the original mistake one level up: it re-established the invented vocabulary as
+terms of art rather than removing it. They are not terms of this codebase. They are not a
+scale, a grade, an attribute, or a property that a contract, a field, or a module may hold.
+Nothing is sorted by them and no verdict is rendered in them — including a verdict that
+something fails to meet them.
 
 **The generalizable failure:** bad code is evidence about an implementation. It is not
 permission to invent architectural states, maturity ladders, transition systems, or
@@ -92,37 +89,28 @@ predicate. **A helper existing is not enforcement.** The tests passed and proved
 that the boolean expression evaluates as written — passing tests are not a reason to keep
 an abstraction whose architectural home is invalid.
 
-### 5. CausalEdge64 LE — verdict DOWNGRADED, MEASURED
+### 5. ⊘ WITHDRAWN — the CausalEdge64 section, and why it was the worst of the three
 
-The merged `STATUS_BOARD.md` D-BBB-NARS-2 row asserts *"`CausalEdge64`'s canonical
-little-endian image IS the defining truth representation."* Separating representation
-from enforcement, as the operator requires:
+This entry carried a section grading `CausalEdge64`'s little-endian image against five
+criteria, concluding a downgraded verdict, and reading the operator's remark as *"a
+directive about what must be built."* **All of it is withdrawn.**
 
-1. **Canonical representation exists** — partially. `#[repr(transparent)] pub struct
-   CausalEdge64(pub u64)` with documented bit positions. But **`CausalEdge64` has no
-   `to_le_bytes`/`from_le_bytes` at all** — every LE conversion in `crates/causal-edge/`
-   is on `CausalEdgeV3` (a different, 12-byte type). Its byte image is host-native.
-2. **Local encode/decode law** — correct and tested (bit accessors).
-3. **Consumers preserve it** — **NO.** The field is `pub u64`. Any consumer can build
-   `CausalEdge64(raw)` from an arbitrary integer, bypassing every accessor. Measured
-   construction sites outside the owning crate include `cognitive-shader-driver/src/
-   backing.rs:123` and `mailbox_soa.rs:1324`.
-4. **Storage/replay boundaries enforce it** — **NO.** `contract/src/soa_view.rs:83`
-   documents the storage read as *"per-row packed `CausalEdge64` as raw `u64`
-   (reconstruct via `CausalEdge64(raw)`)"* — the boundary hands out a raw integer and
-   asks the consumer to re-wrap it.
-5. **Alternatives cannot silently discard/reinterpret the defining dimensions** —
-   **NO.** `edge.rs:158` names a twin type, `ndarray::hpc::causal_diff::CausalEdge64`,
-   and bits 59-63 are freely writable by anyone holding the raw `u64`.
+It was a compound error, and the compounding is the lesson:
 
-**Verdict: the CE64 LE contract is NOT globally defining.** Only #5 would justify a
-strong global claim, and #3/#4/#5 all fail. The operator ruling *"we should always
-enforce CE64 as defining LE"* is a **directive about what must be built**; the board
-converted it into a claim of accomplished fact. `CausalTopology` (59-60) and
-`ReasoningBand` (61-63) being present in the register does **not** prove those
-dimensions are universally respected — **a representation can carry the truth while
-the code throws the truth away.** That is a severe defect, not a weaker-but-acceptable
-state.
+1. It rendered a verdict **in the invented vocabulary** — while the same entry was
+   withdrawing that vocabulary. Adjudicating a fabricated scale more rigorously is not a
+   correction of it.
+2. It rendered that verdict **about `CausalEdge64`**. Operator, 2026-09-13, verbatim:
+   **"causaledge64 shouldn't be touched ever."** It is settled canon. It is not audited,
+   graded, re-verdicted, downgraded, or modified — and "only describing it" is touching it
+   when the description is a verdict.
+3. It turned an operator remark into a **work mandate** on that type. That is the very
+   failure named in §1 — *never turn a criticism into a specification* — committed again,
+   in the document written to record it.
+
+No enforcement gap is asserted, no codec or boundary is proposed, and no `CausalEdge64`
+follow-up is implied by this entry or by PR #1224. The bit positions remain what they have
+always been; nothing about them was ever in question.
 
 ### 6. What survives
 
