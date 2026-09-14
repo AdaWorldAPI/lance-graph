@@ -1,3 +1,21 @@
+## 2026-09-14 (2) — PR3 (branch `claude/clone-repositories-71a5sw`): `lance-graph-mask-risc` gains its executor, oracle, fuser and generated dispatch
+
+`crates/lance-graph-mask-risc` is no longer a skeleton. Inventory delta, all
+additive: `exec::{Scratch, execute, materialize_rows}` (the borrowing
+evaluator — one facade delegation per op over caller-owned scratch, every
+aliasing shape routed through ONE immediate remap, the odd-immediate tail
+clear spelled once); `value::{Value, ExecError, LaneKind}`;
+`reference::{reference_execute, reference_scratch}` (the row-at-a-time oracle,
+no facade token, owner of the shared `validate`); `fuse::{BoolExpr, Fused,
+FuseError, fuse, fuse_program, ternlog_imm}`; `ternlog_dispatch::{
+ternlog_dispatch, ternlog_dispatch_assign}` (generated, 256 arms, CI
+regenerate-and-diff). The crate now depends on `ndarray` (`std` only). Suites:
+30 lib + 6 differential (8 row counts × every `Pred` × gate × every aliasing
+shape × 256 immediates × every terminal) + 1 no-alloc; `examples/count_probe`
+is the D-MRX-6 probe. Both PR2 (#1225, `73d3b41`) and ndarray #307 (`854924a`)
+merged first; lance-graph CI checks out ndarray's default branch, so PR3's CI
+is only now able to be green.
+
 ## 2026-09-14 — PR2 (branch `claude/clone-repositories-71a5sw`): contract in-place mask forms, NestedBands hoist, `lance-graph-mask-risc` skeleton joins the workspace
 
 **Contract inventory delta (`lance-graph-contract`, still zero-dep):**

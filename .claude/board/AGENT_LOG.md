@@ -1,3 +1,32 @@
+## 2026-09-14 (3) — PR3 fan-out: two workers on disjoint files, one died on an output cap
+
+**Plan:** `.claude/plans/mask-risc-executor-v1.md` §5. **Orchestrator** wrote
+`value.rs`, `exec.rs`, the differential + no-alloc suites, `count_probe`, the
+CI line, and the plan-side fixes carried from the PR2 reviews.
+
+**W2 — `ternlog_dispatch.rs` + `tools/gen_ternlog_dispatch.py`** (D-MRX-4):
+delivered as briefed; caught and fixed a real marker-collision bug (its own
+test module's marker literal matched a substring search; both sides now match
+line-exact). Tag file `exec-runs/w2-ternlog-dispatch.md`. Committed byte-
+identical in `d1c9b18`.
+
+**W1 — `reference.rs` + `fuse.rs`** (D-MRX-2/3): **FAILED** — terminated by
+the model API's 64k output-token cap before writing either file (nothing on
+disk, no tag file). Both were then written on the main thread against the
+identical brief, in two bounded writes. Lesson for the next brief: a worker
+asked for two ~400-line files plus tests in one go should be told to write in
+chunks; the cap is a hard stop, not a warning.
+
+**Central gate (orchestrator, once):** clippy `-D warnings`, fmt, dispatch
+`--check`, 37 tests green on `x86-64-v3` and `-v4`, `count_probe` four arms
+agree at 0 B. **Seven disable runs, all red-then-green** (`9a92ad2`): tail
+clear removed → F-X3 + the 256-immediate differential red; `And` wired to
+`mask_or` → two-input differential red; an allocation inside `execute` →
+no-alloc red; `PlaneTail` check deleted → error-arm test red; fuser table
+forced all-ones → both fuser falsifiers red; ternlog remap skipped → the
+aliasing-map differential red; `GateAliasesDst` check deleted → error-arm
+test red.
+
 ## 2026-09-14 (2) — PR2 8-review council on `bc3c810`, and a storno on the entry below
 
 **Council (all Opus, read-only, disjoint axes; orchestrator consolidated):**
