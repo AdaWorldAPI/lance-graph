@@ -93,7 +93,8 @@ pub const RECIPES: [Recipe; 34] = [
         mechanism: ParallelIndependence,
         bucket: Control,
         spo2cubed: NotCovered,
-        substrate: "rung depth × Expand/Compress; Berry-Esseen stop",
+        substrate:
+            "rung depth × Expand/Compress; Jirak-derived Σ-band stop (SigmaTierBands::jirak_p)",
     },
     Recipe {
         id: 2,
@@ -404,7 +405,7 @@ pub const RECIPES: [Recipe; 34] = [
         mechanism: Infrastructure,
         bucket: Datapath,
         spo2cubed: NotCovered,
-        substrate: "Berry-Esseen noise floor + reciprocal A→B,B→A validation",
+        substrate: "Jirak weak-dep noise floor (jc Pillar 5) + reciprocal A→B,B→A validation",
     },
     Recipe {
         id: 33,
@@ -907,5 +908,70 @@ mod tests {
         assert_eq!(count(Mechanism::TruthAwareInference), 6); // #3,7,10,11,17,21
         assert_eq!(count(Mechanism::StructuralDivergence), 8); // #4,6,9,13,23,28,31,34
         assert_eq!(count(Mechanism::Infrastructure), 14);
+    }
+
+    /// Does this substrate string cite the CLASSICAL (IID) Berry-Esseen bound
+    /// without naming Jirak's weak-dependence form?
+    ///
+    /// Kept as a named function so the guard below can be shown to FIRE — a
+    /// check that only ever runs over already-clean data proves nothing about
+    /// itself.
+    fn cites_classical_berry_esseen(substrate: &str) -> bool {
+        substrate.contains("Berry-Esseen") && !substrate.contains("Jirak")
+    }
+
+    /// FAILS IF: a recipe cites classical Berry-Esseen.
+    ///
+    /// `I-NOISE-FLOOR-JIRAK` is an iron rule, not a preference: this system's
+    /// bits are weakly dependent BY CONSTRUCTION (correlated embedding
+    /// projections, overlapping role-key slices, a shared 4096-centroid
+    /// codebook, XOR bundle accumulation), so the classical IID bound is the
+    /// wrong theorem and understates the error. `jc`'s Pillar 5 measures
+    /// exactly that inflation and its own result line says so: *"Jirak's
+    /// weak-dep rate is the correct citation for this substrate."*
+    ///
+    /// Two recipes violated it in shipped data — #1 RTE ("Berry-Esseen stop")
+    /// and #32 SDD ("Berry-Esseen noise floor") — and neither was caught by
+    /// any test, because nothing read the `substrate` column. Both now name
+    /// the SHIPPED Jirak surfaces (`SigmaTierBands::jirak_p`, which replaced
+    /// the hand-tuned bands, and `jc` Pillar 5) rather than the paper alone,
+    /// so the citation points at something a reader can run.
+    #[test]
+    fn no_recipe_cites_classical_berry_esseen() {
+        let bad: Vec<&str> = RECIPES
+            .iter()
+            .filter(|r| cites_classical_berry_esseen(r.substrate))
+            .map(|r| r.code)
+            .collect();
+        assert!(
+            bad.is_empty(),
+            "I-NOISE-FLOOR-JIRAK: these cite classical Berry-Esseen: {bad:?}"
+        );
+
+        // CAN-FIRE half: the guard must actually reject the shape it names.
+        // Without this the assertion above would hold for a predicate that
+        // never returns true — including one with a typo'd needle.
+        assert!(
+            cites_classical_berry_esseen("Berry-Esseen noise floor"),
+            "the guard must reject a classical citation"
+        );
+        // ...and must NOT reject the corrected form, or the fix would be
+        // indistinguishable from deleting the concept.
+        assert!(
+            !cites_classical_berry_esseen("Jirak weak-dep noise floor (jc Pillar 5)"),
+            "naming Jirak is the correction, not a second violation"
+        );
+
+        // Anti-vacuity: the corpus really does still discuss the noise floor,
+        // so this is a check over live citations rather than over a column
+        // someone emptied.
+        assert!(
+            RECIPES
+                .iter()
+                .filter(|r| r.substrate.contains("Jirak"))
+                .count()
+                >= 2,
+            "both corrected recipes must still carry their citation"
+        );
     }
 }
