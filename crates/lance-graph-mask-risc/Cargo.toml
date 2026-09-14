@@ -5,9 +5,10 @@ edition = "2021"
 publish = false
 description = "The one mask-RISC evaluator/fuser above ndarray::simd — a plan describes, the executor borrows resident planes, ndarray computes, the caller owns every byte. Consumed by lgj-abi's plan_eval and by the DuckDB-derived vector-execution probes."
 
-# Deliberately empty: the IR skeleton uses nothing. `ndarray` (the T1 facade)
-# and `lance-graph-contract` (`AlphaMask`) enter with the first code path that
-# calls them (PR3's executor), so an unused dependency never sits here.
+# `ndarray` is the T1 facade every op delegates to — the SAME coordinates the
+# planner uses (`std` only: `simd_masking_ops` sits behind it). No contract dep:
+# `Planes::masks` is `&[&[u64]]`, so an `AlphaMask` caller passes `words()`.
 [dependencies]
+ndarray = { path = "../../../ndarray", default-features = false, features = ["std"] }
 
 [dev-dependencies]

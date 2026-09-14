@@ -114,11 +114,16 @@ jobs:
         run: cargo test --manifest-path crates/lance-graph-contract/Cargo.toml --tests
       - name: Run contract doctests
         run: cargo test --manifest-path crates/lance-graph-contract/Cargo.toml --doc
-      # lance-graph-mask-risc: the mask-RISC IR (PR2 skeleton; executor is PR3).
+      # lance-graph-mask-risc: the mask-RISC IR + executor (PR2 skeleton, PR3 executor).
       # A member's tests are not run by `cargo build --workspace`, so the line
       # is added the day the crate joins, not the day its first test goes red.
       - name: Run mask-risc tests
         run: cargo test --manifest-path crates/lance-graph-mask-risc/Cargo.toml
+      # The 256-arm ternlog dispatch is GENERATED; a hand edit that drifts from
+      # the generator would otherwise ship silently. The generator's --check
+      # exits non-zero when the committed region differs from its output.
+      - name: Ternlog dispatch table is regenerated-and-diffed
+        run: python3 crates/lance-graph-mask-risc/tools/gen_ternlog_dispatch.py --check
       # weather-poc is workspace-EXCLUDED. A new workflow introduced by the
       # same pull request cannot gate that pull request because `pull_request`
       # workflow selection comes from the base branch. Run both surfaces here

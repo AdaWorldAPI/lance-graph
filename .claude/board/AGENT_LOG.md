@@ -1,3 +1,134 @@
+## 2026-09-14 (5) — the ceiling guard CodeRabbit found on the fold commit, and a falsifier that tracked its own constant
+
+**The finding, against `061d12b` (post-fold, not the reviewed `687042f`).**
+`Program::scratch_slots` is a PUBLIC field, so a struct literal can declare
+four billion slots while naming **no `Operand::Scratch` at all**. Every check
+that existed was per-operand — `validate`'s `check_operand` bounds the INDEX
+`i < scratch_slots` — and a per-operand check is structurally blind to a lie
+it has no operand to catch. Two paths then size an arena from that field:
+`Scratch::for_program` (a `debug_assert`, dropped in release, then straight
+into `Scratch::new`) and the oracle's own `run`
+(`(0..p.scratch_slots).map(|_| vec![false; n])`, worse by a factor of
+`n_rows`).
+
+**My own doc comment asserted the fix that did not exist** — *"a larger count
+means a hand-built program lied, and `validate` refuses it."* It did not.
+Textbook `a doc-comment claim is not a behaviour`, in code written the same
+session that quotes the rule.
+
+**The fix is the symmetry that was already there.** `validate` refuses
+`planes.masks.len() > 65_536` because `Operand::Plane` is a `u16`, with the
+reason written out. The scratch half was simply absent. `MAX_SCRATCH_SLOTS`
+is now one spelling, checked FIRST in `validate` (so both oracle entry points
+inherit it — both validate before allocating) and repeated in `for_program`,
+which becomes `Result<Self, ExecError>`. The repetition is deliberate and
+stated: a caller sizes its arena BEFORE `execute` runs, so a refusal inside
+`execute` arrives after the allocation it was meant to prevent.
+
+**The third disable run found a defect in the falsifiers themselves.** Both
+are written as `MAX_SCRATCH_SLOTS + 1`, so they **track** the constant —
+raising the ceiling cannot make them fail, and at `u32::MAX` it does not even
+compile. The guarded quantity and the guard's own yardstick were the same
+symbol. Fixed with `const _: () = assert!(MAX_SCRATCH_SLOTS == 65_536)`:
+the derivation and the value are now two spellings of one fact, and changing
+either fails the build. **Generalizable: when a test's bound is written in
+terms of the constant it guards, the constant is untested — pin the value
+separately or the disable run has nothing to move.**
+
+**And the restore ate the pin, immediately.** The `const _` was added AFTER
+the commit; the disable that verified it ended in `git checkout ir.rs`, which
+reverted to the commit that predates it. Same trap as run (4), caught within
+one command this time by grepping for the line rather than assuming. The rule
+is not "commit before disabling" once — it is **before every disable**, and
+anything added mid-pass restarts the clock.
+
+Also: `lib.rs`'s four architectural laws are renumbered **A1-A4**. They
+collided with `exec.rs`'s **L1-L5** — "no ISA" was law 3 in one file and L2 in
+the other, so a bare "law 2" was ambiguous. Found by the PR4 kernel-membrane
+ruling while reading them to classify the crate.
+
+**Gates:** 39 tests (was 37) on `x86-64-v3` and `-v4`, clippy `-D warnings`,
+fmt, dispatch `--check`. Three disable runs red-then-green, each reddening
+its own falsifier alone. Commit `21f3616`.
+
+## 2026-09-14 (4) — PR3 eight-review council on `687042f`, and a self-inflicted restore that ate three files
+
+**Council (all read-only, disjoint axes; orchestrator consolidated):**
+iron-rule YIELDS-ALL (no rule engaged: the XOR here is set symmetric
+difference over row bitmaps, not a transition kernel; `hop` is PR5) ·
+zero-copy LENS-CLEAN on every read path, one SECOND-PROJECTION (the oracle's
+arena copy, licensed but invisible to the L5 guard) · kernel-membrane PASS /
+NAMED with one must-fix · falsifier audit: 3 VACUOUS, 5 narrower-than-labelled
+· brutally-honest LAND, 0 P0, 1 P1, 6 P2 · overclaim 1 BLOCK + 8 FIX + 4 NIT ·
+baton CATCH-LATENT (3 P1, all between-repo and documentary) · v3-envelope
+LAYOUT-CLEAN (no stored byte moves) with 3 notes.
+
+**The one P1 three reviewers found independently** — kernel-membrane
+"must fix", brutally-honest P1, v3-envelope note B — was `Scratch::slot_mut`:
+a `pub fn` with no caller and no test whose doc invited pre-filling a gate,
+which the oracle structurally cannot model. Closed by removing it AND by
+refusing a program that reads a scratch slot no earlier op wrote, so the
+oracle's fresh-arena assumption is true by construction rather than by
+fixture. The BLOCK was F-X1 claiming an instrument that did not exist;
+`count_probe` now carries one.
+
+**Eight new disable runs, all red-then-green** (`785199d` + the follow-up):
+read-before-write refusal deleted; blend `then`/`els` swapped in the executor;
+the same swapped in the oracle; `ternlog_self`'s fill-ones arm no-op'd; the L5
+filter widened back to a whole-line grep; an ISA token planted in a module the
+old test never read; `fuse`'s `next_slot` saturating again. The gate-
+selectivity guard is a FIXTURE anti-vacuity check, not a code guard, and is
+excluded from that table deliberately.
+
+**Two process failures worth more than the fixes.**
+
+1. **The restore ate three uncommitted files.** The disable script ended each
+   case with `git checkout <path>`, which restores from the last COMMIT — and
+   the work under test was uncommitted. `exec.rs`, `reference.rs` and
+   `fuse.rs` were reverted to `687042f` mid-run and had to be rewritten from
+   the transcript. The sibling repo's notes state this exact rule ("commit,
+   then disable, then checkout") and it was still walked into. The order is
+   now: commit, disable, restore.
+2. **Three edits silently no-op'd and read as "the guard is not load-bearing".**
+   Anchors written against pre-`cargo fmt` text matched nothing; `.replace()`
+   returned the string unchanged; the disable run then reported three guards
+   GREEN. The first reading was "these guards are inert" — the truth was that
+   the guards had never landed. Every replacement now asserts its anchor
+   matched, which is the same rule the sibling repo records.
+
+**Gates (orchestrator, centrally):** 37 tests on `x86-64-v3` and `-v4`,
+clippy `-D warnings`, fmt, dispatch `--check`, `count_probe` four arms equal
+at 0 B plus the F-X1 pair (gated 3572 ns vs `pred + and` 10729 ns, count 1741).
+
+## 2026-09-14 (3) — PR3 fan-out: two workers on disjoint files, one died on an output cap
+
+**Plan:** `.claude/plans/mask-risc-executor-v1.md` §5. **Orchestrator** wrote
+`value.rs`, `exec.rs`, the differential + no-alloc suites, `count_probe`, the
+CI line, and the plan-side fixes carried from the PR2 reviews.
+
+**W2 — `ternlog_dispatch.rs` + `tools/gen_ternlog_dispatch.py`** (D-MRX-4):
+delivered as briefed; caught and fixed a real marker-collision bug (its own
+test module's marker literal matched a substring search; both sides now match
+line-exact). Tag file `exec-runs/w2-ternlog-dispatch.md`. Committed byte-
+identical in `d1c9b18`.
+
+**W1 — `reference.rs` + `fuse.rs`** (D-MRX-2/3): **FAILED** — terminated by
+the model API's 64k output-token cap before writing either file (nothing on
+disk, no tag file). Both were then written on the main thread against the
+identical brief, in two bounded writes. Lesson for the next brief: a worker
+asked for two ~400-line files plus tests in one go should be told to write in
+chunks; the cap is a hard stop, not a warning.
+
+**Central gate (orchestrator, once):** clippy `-D warnings`, fmt, dispatch
+`--check`, 37 tests green on `x86-64-v3` and `-v4`, `count_probe` four arms
+agree at 0 B. **Seven disable runs, all red-then-green** (`9a92ad2`): tail
+clear removed → F-X3 + the 256-immediate differential red; `And` wired to
+`mask_or` → two-input differential red; an allocation inside `execute` →
+no-alloc red; `PlaneTail` check deleted → error-arm test red; fuser table
+forced all-ones → both fuser falsifiers red; ternlog remap skipped → the
+aliasing-map differential red; `GateAliasesDst` check deleted → error-arm
+test red.
+
 ## 2026-09-14 (2) — PR2 8-review council on `bc3c810`, and a storno on the entry below
 
 **Council (all Opus, read-only, disjoint axes; orchestrator consolidated):**

@@ -15,7 +15,7 @@
 >
 > **Sources read.** DuckDB checkout at
 > `<scratchpad>/duckdb/src` (22 TUs + the headers they dispatch into);
-> `ndarray/src/simd_masking_ops.rs` (2730 lines, 31 `pub fn` at the time of this read; 33 after `mask_shift_morton` + `MortonDir` landed the same day) and
+> `ndarray/src/simd_masking_ops.rs` (2730 lines, 31 `pub fn` at the time of this read; 42 `pub fn` + 1 `pub enum` as of ndarray `3a124bb` — `mask_shift_morton` + `MortonDir` and the ten `*_to_mask_under` gated predicates landed the same day; census corrected 2026-09-14 after a review caught the stale 33) and
 > `ndarray/src/bitwise.rs`; `ndarray/.claude/blackboard.md` entries 2026-09-13
 > and 2026-09-14; the `ruff_cpp_spo` harvest under `<scratchpad>/harvest/duckdb/`;
 > the consumer side (`crates/lance-graph-mask-risc/src/{ir.rs,lib.rs}`,

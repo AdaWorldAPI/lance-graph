@@ -1,3 +1,25 @@
+## 2026-09-14 (2) — PR3 (branch `claude/clone-repositories-71a5sw`): `lance-graph-mask-risc` gains its executor, oracle, fuser and generated dispatch
+
+`crates/lance-graph-mask-risc` is no longer a skeleton. Inventory delta, all
+additive: `exec::{Scratch, execute, materialize_rows}` (the borrowing
+evaluator — one facade delegation per op over caller-owned scratch, every
+aliasing shape handled without a second evaluator: `dst == a`, and the
+commutative `dst == b`, route to the facade's `_assign` member; only the
+non-commutative `dst == b` and every aliased `Ternlog` go through one
+`remap_imm`; the odd-immediate tail clear is spelled once); `value::{Value, ExecError, LaneKind}`;
+`reference::{reference_execute, reference_scratch}` (the row-at-a-time oracle,
+no facade token, owner of the shared `validate`); `fuse::{BoolExpr, Fused,
+FuseError, fuse, fuse_program, ternlog_imm}`; `ternlog_dispatch::{
+ternlog_dispatch, ternlog_dispatch_assign}` (generated, 256 arms, CI
+regenerate-and-diff). The crate now depends on `ndarray` (`std` only). Suites:
+30 lib + 6 differential + 1 no-alloc. The differential is not one product:
+8 row counts for the predicates, two-input ops, `Not` and the terminals; 256
+immediates at 4 row counts in two shapes; 15 asymmetric immediates × 8
+aliasing maps at 3 row counts. `examples/count_probe` is the D-MRX-6 probe and
+carries the F-X1 cost pair. Both PR2 (#1225, `73d3b41`) and ndarray #307 (`854924a`)
+merged first; lance-graph CI checks out ndarray's default branch, so PR3's CI
+is only now able to be green.
+
 ## 2026-09-14 — PR2 (branch `claude/clone-repositories-71a5sw`): contract in-place mask forms, NestedBands hoist, `lance-graph-mask-risc` skeleton joins the workspace
 
 **Contract inventory delta (`lance-graph-contract`, still zero-dep):**
