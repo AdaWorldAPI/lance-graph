@@ -49,6 +49,68 @@
 //! differential suite runs both against the same per-row oracle; a consumer
 //! picks by whether it is scratch-bound or pass-bound.
 //!
+//! # Provenance — this is harvest-driven, not remembered
+//!
+//! Every operator below answers to a row of
+//! `.claude/plans/duckdb-to-v3-translation-matrix-v1.md`, which reads DuckDB's
+//! own source with `file:line` and rules each concept KEEP / ADAPT /
+//! ELIMINATE / V3 BETTER / NEEDS FALSIFIER. The matrix is the specification;
+//! this crate is one reading of it.
+//!
+//! | operator here | matrix row | verdict there |
+//! |---|---|---|
+//! | no `SelectionVector`, anywhere | R1 | ELIMINATE — an index list is the materialisation the mask-native invariant forbids |
+//! | [`Col`] over a borrowed lane | R2 | KEEP — a flat vector IS an SoA lane |
+//! | [`Cmp`] taking a scalar | R3 | ELIMINATE `ConstantVector` — a constant never acquires a representation |
+//! | [`Filter::Plane`] | R6 | KEEP the representation, ELIMINATE the role — same packed `u64`, no NULL plane |
+//! | [`Filter::prefix_u32`] / [`Filter::prefix_u64`] | R5 | ADAPT — *"the closest DuckDB comes to the V3 address"* |
+//! | [`Query`] → [`Program`] | E1 | ADAPT — a state tree with per-node scratch becomes straight-line code over numbered slots |
+//! | [`Agg`] as one terminal | E2 | ADAPT — Select-vs-Execute's two carriers collapse to one mask + one terminal tag |
+//! | the six `i32` comparisons + two `u32` | E4 | ADAPT — DuckDB's 14-way physical-type switch narrows to what the lanes actually hold |
+//! | `And` / `Or` | E5, E6 | ADAPT / **V3 BETTER** — DuckDB must SORT after OR to restore row order (`execute_conjunction.cpp:139`); a mask never lost it |
+//! | [`Agg::BlendI32`] | E7 | ADAPT — CASE's narrowing false-set becomes a blend |
+//! | [`Agg::Any`] / [`Agg::All`] | C7 | V3 BETTER — `HasNull`/`HasNotNull` are literally `mask_any`/`mask_all` |
+//! | [`lower_group_by`] | A3 | V3 BETTER for the addressed case — a mask plane where the hash table would be |
+//!
+//! The harvest itself was re-run on 2026-09-14 and its first pass was
+//! **repaired**, which is why the table above can cite what it cites. The
+//! matrix's own §6 recorded the failure honestly: the `ruff_cpp_spo` harvest
+//! had been pointed at 22 `.cpp` translation units, **seven of which came back
+//! 100 % `Empty`**, because DuckDB's execution is template-dispatched and lives
+//! in headers — so *"no row in this matrix cites a harvest TSV as evidence"*.
+//! Pointing the same harvester at the headers (`scalar_executor.hpp`,
+//! `comparison_operators.hpp`, `validity_mask.hpp`, `selection_vector.hpp`,
+//! `ht_entry.hpp`, `vector.hpp`) yields **123 methods and 1,622 events** where
+//! the `.cpp` pass yielded none.
+//!
+//! # What the header harvest changed here
+//!
+//! Two things, and both are in the code rather than only in this comment.
+//!
+//! **`Pred::MatchU64` was reachable from nothing.** It had been in the IR since
+//! PR3, and this crate had no spelling for it, so a borrowed `LaneRef::U64` —
+//! edge targets, ids, addresses — was queryable by no query. [`Cmp::MatchU64`]
+//! closes that, and it is what the prefix operator over a 64-bit address needs.
+//!
+//! **The range primitive is real, and DuckDB's own bit-plane has it.** The
+//! matrix files `mask_set_range` as T1 gap G6 on the strength of V3's
+//! trie-reveal measurement. The header harvest shows the same operation on the
+//! other side: `TemplatedValidityMask::SetRangeInvalid`, on the same packed-`u64`
+//! carrier V3 uses. So [`Filter::prefix_u32`] lowers to a ternary-match SWEEP
+//! today and says so plainly; the range WRITE waits on the primitive, per the
+//! missing-capability STOP rule, rather than being hand-rolled one layer up.
+//!
+//! # The one thing DuckDB has that this does not
+//!
+//! `AdaptiveFilter` (matrix row A1, its only NEEDS-FALSIFIER of this kind)
+//! permutes a conjunction's terms at RUNTIME by measured selectivity. This
+//! crate lowers children in the order they were written, and that is not
+//! neutral here: under the survivor skip a cheap, highly selective conjunct
+//! placed first shrinks every later predicate's live-word count, so order is a
+//! real cost lever and the caller currently owns it with no help. Saying so is
+//! the honest state; a selectivity-ordered lowering is a design with a
+//! measurement attached, not a line to add.
+//!
 //! # Status
 //!
 //! Filter (`=`/`<>`/`<`/`<=`/`>`/`>=`/ternary match/`IN`, `AND`/`OR`/`NOT`,
@@ -113,6 +175,18 @@ pub enum Cmp {
         pattern: u32,
         /// Which bits participate; zero means "don't care".
         care: u32,
+    },
+    /// The ternary match over a 64-bit lane — edge targets, ids, addresses.
+    ///
+    /// `Pred::MatchU64` has been in the IR since PR3 and was unreachable from
+    /// this crate, so a `LaneRef::U64` lane could be borrowed and never
+    /// queried. That is the whole of the gap this closes; there is no new
+    /// primitive underneath.
+    MatchU64 {
+        /// The bits to compare.
+        pattern: u64,
+        /// Which bits participate; zero means "don't care".
+        care: u64,
     },
 }
 
@@ -186,6 +260,71 @@ impl Filter {
             set.into_iter()
                 .map(|v| Filter::Cmp(col, Cmp::EqI32(v)))
                 .collect(),
+        )
+    }
+
+    /// Rows whose 32-bit address lane starts with the top `bits` of `prefix` —
+    /// the operator SQL has no name for and the V3 address was built around.
+    ///
+    /// # Why this is not just another equality
+    ///
+    /// On an address-ordered lane a prefix names a CONTIGUOUS RANGE: every row
+    /// under one trie node is `2^(32 - bits)` consecutive addresses. DuckDB
+    /// arrives at the same shape and then discards it — `SequenceVector`
+    /// compresses a range to three scalars (`vector.cpp:498-500`) and
+    /// `ToUnifiedFormat` flattens it to N materialised values before any kernel
+    /// runs (`vector.cpp:461-465`), after which `DataChunk::Slice` re-manufactures
+    /// the range as a per-row index loop (`data_chunk.cpp:394-397`). That round
+    /// trip is the matrix's R5/R8, and it is what "better than faithful" means
+    /// here: the range is kept, not rebuilt.
+    ///
+    /// # What this actually lowers to today, stated exactly
+    ///
+    /// A ternary match — a full sweep of the lane, one pass, no allocation. It
+    /// is NOT yet a range WRITE. The range write is `mask_set_range`, the
+    /// matrix's T1 gap G6, and it is absent from `ndarray::simd`; per the
+    /// missing-capability STOP rule a consumer does not hand-roll it one layer
+    /// up, so this crate spells the PREDICATE and waits for the primitive.
+    ///
+    /// That the primitive is real rather than wished for is the harvest's
+    /// evidence, not this crate's opinion: DuckDB's own bit-plane carries
+    /// `TemplatedValidityMask::SetRangeInvalid` (`validity_mask.hpp`, harvested
+    /// 2026-09-14 from the headers) — the same packed-`u64` representation V3
+    /// uses, with the range operation already on it.
+    ///
+    /// `bits` is clamped to 32; `bits == 0` matches every row (care is empty),
+    /// which is the honest reading of "no significant bits" rather than an
+    /// error, and `bits == 32` matches exactly one address.
+    pub fn prefix_u32(col: Col, prefix: u32, bits: u32) -> Self {
+        let care = match bits.min(32) {
+            0 => 0,
+            b => u32::MAX << (32 - b),
+        };
+        Filter::Cmp(
+            col,
+            Cmp::MatchU32 {
+                pattern: prefix & care,
+                care,
+            },
+        )
+    }
+
+    /// [`Filter::prefix_u32`] over a 64-bit address lane.
+    ///
+    /// This is the one that reaches the canonical GUID's own prefix: classid,
+    /// then HEEL/HIP/TWIG, each a nibble-addressed tier of the cascade. A
+    /// `bits` that lands on a tier boundary selects exactly that subtree.
+    pub fn prefix_u64(col: Col, prefix: u64, bits: u32) -> Self {
+        let care = match bits.min(64) {
+            0 => 0,
+            b => u64::MAX << (64 - b),
+        };
+        Filter::Cmp(
+            col,
+            Cmp::MatchU64 {
+                pattern: prefix & care,
+                care,
+            },
         )
     }
 }
@@ -635,6 +774,11 @@ fn pred_of(col: Col, cmp: Cmp) -> Pred {
             pattern,
             care,
         },
+        Cmp::MatchU64 { pattern, care } => Pred::MatchU64 {
+            lane,
+            pattern,
+            care,
+        },
     }
 }
 
@@ -651,6 +795,7 @@ mod tests {
     const VALS: Col = Col(0);
     const CLASS: Col = Col(1);
     const ALT: Col = Col(2);
+    const ADDR: Col = Col(3);
     const ALPHA: Mask = Mask(0);
     const FOCUS: Mask = Mask(1);
 
@@ -659,6 +804,12 @@ mod tests {
         vals: Vec<i32>,
         classes: Vec<u32>,
         alt: Vec<i32>,
+        /// An ADDRESS-ORDERED lane: row `i` holds address `i << 8`, so the
+        /// top bits are a trie prefix and a prefix predicate must select a
+        /// contiguous row range. That ordering is the fixture's whole point —
+        /// on an unordered lane a prefix is just an equality with holes, and
+        /// the range claim would be untestable.
+        addr: Vec<u64>,
         masks: Vec<Vec<u64>>,
     }
 
@@ -677,11 +828,13 @@ mod tests {
                 .collect();
             let classes = (0..n).map(|i| (i % 5) as u32).collect();
             let alt = (0..n).map(|i| ((i as i64 * 13) % 89 - 44) as i32).collect();
+            let addr = (0..n).map(|i| (i as u64) << 8).collect();
             let masks = vec![plane(n, |r| r % 3 != 0), plane(n, |r| r % 7 == 0)];
             Fx {
                 vals,
                 classes,
                 alt,
+                addr,
                 masks,
             }
         }
@@ -702,6 +855,13 @@ mod tests {
             match col {
                 CLASS => self.classes[row],
                 other => panic!("{other:?} is not an unsigned lane of the fixture"),
+            }
+        }
+
+        fn u64_at(&self, col: Col, row: usize) -> u64 {
+            match col {
+                ADDR => self.addr[row],
+                other => panic!("{other:?} is not a 64-bit lane of the fixture"),
             }
         }
 
@@ -728,6 +888,9 @@ mod tests {
                     Cmp::MatchU32 { pattern, care } => {
                         (self.u32_at(*col, row) ^ pattern) & care == 0
                     }
+                    Cmp::MatchU64 { pattern, care } => {
+                        (self.u64_at(*col, row) ^ pattern) & care == 0
+                    }
                 },
                 Filter::Plane(m) => self.bit(*m, row),
                 Filter::And(ps) => ps.iter().all(|p| self.oracle(p, row)),
@@ -745,6 +908,7 @@ mod tests {
                 LaneRef::I32(&self.vals),
                 LaneRef::U32(&self.classes),
                 LaneRef::I32(&self.alt),
+                LaneRef::U64(&self.addr),
             ];
             let masks: Vec<&[u64]> = self.masks.iter().chain(extra).map(Vec::as_slice).collect();
             f(&Planes {
@@ -1374,6 +1538,139 @@ mod tests {
             ),
             Err(LowerError::GroupedBlend)
         );
+    }
+
+    /// FAILS IF: an address prefix does not select a CONTIGUOUS row range, or
+    /// the range is not the size the prefix arithmetic says it is.
+    ///
+    /// This is the matrix's §5.1 claim — *the address IS the trie, so a prefix
+    /// predicate is a range rather than a sweep* — made checkable instead of
+    /// asserted. It matters because the whole "better than faithful" argument
+    /// rests on it: DuckDB has the compressed range in `SequenceVector` and
+    /// throws it away at `ToUnifiedFormat`, then rebuilds it as a per-row index
+    /// loop in `DataChunk::Slice`. If V3's prefix did not actually select a
+    /// range, keeping the range would be keeping nothing.
+    ///
+    /// Two-sided, because "selects a contiguous run" alone would hold for a
+    /// predicate that selected everything: each additional significant bit must
+    /// HALVE the run, and the widest prefix must select exactly one row.
+    #[test]
+    fn an_address_prefix_selects_exactly_a_contiguous_trie_subtree() {
+        // A POWER-OF-TWO population, deliberately: a subtree can only halve
+        // cleanly while it still fits inside the population. At N = 1000 the
+        // widest prefix here selects 1000 rather than 1024, and the halving
+        // claim then reads as a defect when it is a fixture artifact — which
+        // is exactly what the first version of this test measured.
+        const POW2: usize = 1024;
+        let fx = Fx::new(POW2);
+        // The lane is `row << 8`, so bit 8 + k of the address is bit k of the
+        // row index: a prefix of `24 + b` significant bits pins the top `b`
+        // bits of the row index and leaves `24 - 8 = 16`... stated the way the
+        // arithmetic actually runs, `care = !0 << (64 - bits)`, and a row
+        // survives when its address agrees on those bits.
+        let base_row = 384usize;
+        let base = fx.addr[base_row];
+        // The arithmetic, stated so the expected sizes are DERIVED and not
+        // fitted to what the code happened to return: row `r` sits at address
+        // `r << 8`, so row bit `k` is address bit `8 + k`. A prefix of `bits`
+        // significant bits pins address bits `[64 - bits, 63]`, hence row bits
+        // `k >= 56 - bits`, leaving `clamp(56 - bits, 0, 10)` of them free — a
+        // subtree of `2^free` consecutive rows.
+        let subtree_of = |bits: u32| 1usize << (56u32.saturating_sub(bits).min(10));
+
+        let mut previous: Option<usize> = None;
+        for bits in [46u32, 47, 48, 49, 50] {
+            let f = Filter::prefix_u64(ADDR, base, bits);
+            let rows = fx.rows(&f);
+            assert!(!rows.is_empty(), "bits={bits} selected nothing");
+
+            // Contiguous: the selected rows are consecutive, with no holes.
+            // A sweep over an unordered lane could not satisfy this, which is
+            // exactly the property being claimed.
+            let first = rows[0];
+            assert!(
+                rows.iter().enumerate().all(|(i, &r)| r == first + i),
+                "bits={bits} selected a non-contiguous set: {:?}..",
+                &rows[..rows.len().min(8)]
+            );
+            assert!(
+                rows.contains(&base_row),
+                "bits={bits} must contain the row the prefix was taken from"
+            );
+
+            // Each extra significant bit halves the subtree. That is the
+            // arithmetic the prefix IS; a care mask built wrongly would still
+            // select a contiguous run, just the wrong one.
+            assert_eq!(
+                rows.len(),
+                subtree_of(bits),
+                "bits={bits} selected {} rows; the prefix arithmetic says {}",
+                rows.len(),
+                subtree_of(bits)
+            );
+            if let Some(prev) = previous {
+                assert_eq!(
+                    rows.len() * 2,
+                    prev,
+                    "bits={bits} selected {} rows against {prev} for one bit fewer \
+                     — a trie level must halve",
+                    rows.len()
+                );
+            }
+            previous = Some(rows.len());
+        }
+        assert_eq!(
+            previous,
+            Some(64),
+            "the 50-bit prefix pins the row index down to a 64-row subtree"
+        );
+
+        // The widest prefix is a single address; the empty one is every row.
+        assert_eq!(fx.count(&Filter::prefix_u64(ADDR, base, 64)), 1);
+        assert_eq!(fx.count(&Filter::prefix_u64(ADDR, base, 0)), POW2);
+    }
+
+    /// FAILS IF: the 64-bit ternary match disagrees with an independent per-row
+    /// reading, or the lowered program does not reach the `U64` lane at all.
+    ///
+    /// `Pred::MatchU64` shipped with the IR in PR3 and this crate could not
+    /// spell it, so a borrowed `LaneRef::U64` — edge targets, ids, addresses —
+    /// was queryable by nothing. The anti-vacuity half matters more than usual
+    /// here: a care mask of zero matches every row, which is a real answer and
+    /// a useless test.
+    #[test]
+    fn the_64_bit_ternary_match_agrees_with_a_per_row_reading() {
+        let fx = Fx::new(N);
+        let cases: [(&str, u64, u64); 3] = [
+            ("one low nibble of the address", 0x300, 0xF00),
+            ("a sparse care mask", 0x2_0100, 0x3_0100),
+            ("every bit — exact equality", fx.addr[7], u64::MAX),
+        ];
+        for (label, pattern, care) in cases {
+            let f = Filter::cmp(ADDR, Cmp::MatchU64 { pattern, care });
+            let expected = fx.rows(&f).len();
+            assert_eq!(fx.count(&f), expected, "{label}");
+            assert!(
+                expected > 0 && expected < N,
+                "{label} selects {expected}/{N} — a degenerate case proves nothing"
+            );
+        }
+        // Composed with the rest of the vocabulary, so the U64 lane is not a
+        // second world that only works alone.
+        // 48 significant bits, not 56: at 56 the subtree is a SINGLE row, and
+        // whether the conjunction is non-empty then turns on whether that one
+        // row happens to satisfy the other two conjuncts — which it does not,
+        // so the first version measured 0/1000 and looked like a defect. A
+        // 256-row subtree is what makes this a composition test rather than a
+        // coin flip.
+        let mixed = Filter::and([
+            Filter::plane(ALPHA),
+            Filter::prefix_u64(ADDR, fx.addr[500], 48),
+            Filter::cmp(CLASS, Cmp::NeU32(0)),
+        ]);
+        let expected = fx.rows(&mixed).len();
+        assert!(expected > 0 && expected < N, "{expected}/{N}");
+        assert_eq!(fx.count(&mixed), expected);
     }
 
     /// FAILS IF: any arm of the vertical slice disagrees on a 64k slab.
