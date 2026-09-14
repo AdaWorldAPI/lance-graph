@@ -100,7 +100,7 @@ own names already; the plan's work is wiring and measurement.
 | "recognize it" | mask predicate / resonance, T1 population algebra | `*_to_mask_under` (ndarray #307), `MaskOp` executor (#1226) | **shipped** |
 | "akin to a synapse" | `(existence : weight)` per rail | hex-tenant `6×(permeability : strength)`; strength bumped **Hebbian, saturating, on the delta frontier** (`scratch & !state`) — *"one owner, no second structure"* | **shipped** (probe) |
 | "frequency" | co-occurrence count | `CandidateRule::cooccur` — *"the NARS evidential mass `m`"*; rail `strength` | **shipped** |
-| "confidence" | evidence-discounted truth | `arm_to_truth_u8(rule, k) -> TruthU8` (`translator.rs:68`); `NarsTruth` — three producers, one carrier | **shipped** |
+| "confidence" | evidence-discounted truth | `arm_to_truth_u8(rule, k) -> TruthU8` (`translator.rs` at `pub fn arm_to_truth_u8`); `NarsTruth` — three producers, one carrier | **shipped** |
 | "after validation" | held-out rule mining | `lance-graph-arm-discovery`: `Dataset { spec: FeatureSpec, rows: Vec<Vec<u32>> }`, `CandidateRule { antecedent, consequent, cooccur, antecedent_count, window }` | **built — zero production callers** |
 | "becoming a path" | promotion of a rail to a committed edge | CollapseGate FLOW; rail write-back by gated XOR (sign) / bundle (magnitude) | **partial** |
 | "known unknowns" | the escape set | held-out positions with no training future: **51.1 %** at depth 12 (58 % → 51 % as the corpus grows) | **measured** |
@@ -114,7 +114,7 @@ selected per class (`ClassView`), never inferred from bytes.
 
 **The engine for the hardest step is idle.** `lance-graph-arm-discovery` is a workspace
 member, declared by `osint` under `[dev-dependencies]` only, with **no `src/` caller
-anywhere** (measured this session; `markov_soa.rs:333` is a doc comment). Under C2 it is
+anywhere** (measured this session; `markov_soa.rs` (a doc comment, not a call site) is a doc comment). Under C2 it is
 not an orphan — it is the promotion gate waiting for candidates.
 
 ## 3. Waves, gates, kill conditions
@@ -293,12 +293,12 @@ edits shared files after workers land and is the sole writer of board files.
 | 0.48 % vs 0.77 % (H5c); 463/958/427 fan-out; 11.1 M < 2²⁴ (H5a); R@10 1.5 % / 18.1 % / 0.15 % (H5b); *"never in the loop"* (H5d); F-MQ8 5/5 vs 12/12; R3 3.1 % / 86 % | `MQ-REPORT.md` §4 table, §8 H5a–H5d, §12, Ruling |
 | river 4.68 / **3.75** / 0 % escape; unseen 13.80 / 12.50 / 85 %; code H 1.72 / C2p 1.95; hit rates 0.72 / 0.91; 51.1 % escape at depth 12 | `MQ-REPORT.md` §4 transfer table and reading; §8 H5b |
 | F4 / F0 verdict; *"Hexagon belongs only … for the `6×(8:8)` rail register"*; 4 B/state, 5 B/transition, 350 ms / 118 MB | `HEXAGON-MQ-FEASIBILITY.md` §H |
-| range write 49–99 ns vs 22.5 µs (228–462×); shift −14 % field / −66 % node span; 0.48 coal at x = 4; Hebbian on delta frontier; E-Q8 one-direction control | `EPIPHANIES.md` 2026-09-14 entry + STORNO; `ndarray/examples/hex_tenant_mq_probe.rs:24-40, 233` |
-| `Scent: u8`, ρ 0.937, byte 0 of ZeckF64, "heuristic pre-filter"; W176-191 neighbor indices | `docs/CODEC_COMPRESSION_ATLAS.md:157,184,216`; `.claude/agents/container-architect.md:6` |
-| ρ 0.9973 / 0.965 anchors; `TD-BASE17-FOLD-CEILING-SINGLE-WORD` ρ 0.2599 | `.claude/knowledge/bf16-hhtl-terrain.md:231` |
-| `FlowState { Flow, Boredom, Transition, Anxiety }`, `#[repr(u8)]`, D-CSV-13b | `lance-graph-contract/src/mul.rs:120-135` |
-| `CandidateRule { antecedent, consequent, cooccur (NARS m), antecedent_count, window }`; `Dataset { spec, rows }`; `arm_to_truth_u8` | `lance-graph-arm-discovery/src/rule.rs:58-70`, `encode.rs:19,104`, `translator.rs:68` |
-| ARM has zero `src/` callers; osint declares it `[dev-dependencies]` only | measured this session (grep over `crates/`); `markov_soa.rs:333` is a doc comment |
+| range write 49–99 ns vs 22.5 µs (228–462×); shift −14 % field / −66 % node span; 0.48 coal at x = 4; Hebbian on delta frontier; E-Q8 one-direction control | `EPIPHANIES.md` 2026-09-14 entry + STORNO; `ndarray/examples/hex_tenant_mq_probe.rs` module doc, the "Hebbian, one owner, no second structure" rail paragraph |
+| `Scent: u8`, ρ 0.937, byte 0 of ZeckF64, "heuristic pre-filter"; W176-191 neighbor indices | `docs/CODEC_COMPRESSION_ATLAS.md` row `| Scent | u8 |` and the Full→Scent ratio row; `.claude/agents/container-architect.md` phrase "scent/palette neighbor indices" |
+| ρ 0.9973 / 0.965 anchors; `TD-BASE17-FOLD-CEILING-SINGLE-WORD` ρ 0.2599 | `.claude/knowledge/bf16-hhtl-terrain.md` under `TD-BASE17-FOLD-CEILING-SINGLE-WORD` |
+| `FlowState { Flow, Boredom, Transition, Anxiety }`, `#[repr(u8)]`, D-CSV-13b | `lance-graph-contract/src/mul.rs` at `pub enum FlowState` |
+| `CandidateRule { antecedent, consequent, cooccur (NARS m), antecedent_count, window }`; `Dataset { spec, rows }`; `arm_to_truth_u8` | `lance-graph-arm-discovery/src/rule.rs` at `pub struct CandidateRule`; `encode.rs` at `pub struct FeatureSpec` / `pub struct Dataset`; `translator.rs` at `pub fn arm_to_truth_u8` |
+| ARM has zero `src/` callers; osint declares it `[dev-dependencies]` only | measured this session (grep over `crates/`); `markov_soa.rs` (a doc comment, not a call site) is a doc comment |
 | #1226: shared `validate`, scalar oracle, 15 disable runs, 0.9 % interpreter overhead (no n) | PR #1226 body, CI at `061d12b` |
 
 ---
@@ -374,7 +374,7 @@ high on any refined graph, and no null over the refined representation can separ
 
 The plan promoted a rail to a *path* without saying how confidence survives multiple hops.
 That was a real hole: naive accumulation is O(n) additive and loses signal past ~5 hops —
-`crates/jc/src/ewa_sandwich.rs:46` states exactly that ceiling ("meaningful at depth >5,
+`crates/jc/src/ewa_sandwich.rs` module header ("meaningful at depth >5") states exactly that ceiling ("meaningful at depth >5,
 where naive convolution would have lost signal").
 
 The answer is already certified and already zero-dep, so it costs no new dependency:
@@ -451,7 +451,7 @@ Runs on the W-1 successor tables (already on disk — no new hydration).
 
 - **PASS:** PSD-preservation ≥ 0.999 AND measured CV ≤ 1.75 × bound **at n ≥ 10**. Composing
   rails preserves concentration past the naive-convolution ceiling
-  (`jc/src/ewa_sandwich.rs:46`: *"meaningful at depth >5, where naive convolution would have
+  (`jc/src/ewa_sandwich.rs` module header, the "meaningful at depth >5" sentence: *"meaningful at depth >5, where naive convolution would have
   lost signal"*).
 - **KILL:** CV exceeds the slack at **n ≤ 5** — rail composition is no better than naive
   accumulation, and multi-hop promotion (W3) has no carrier. W3's path arm stops; the
