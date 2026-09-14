@@ -118,10 +118,10 @@ impl Scratch {
     }
 }
 
-/// The ONE materialiser: row indices of every set bit of `mask`, in
-/// ascending order. **O(n_rows)** and it allocates — this is the boundary a
-/// consumer crosses deliberately, by this name, never as normal execution
-/// state (the mask-native invariant).
+/// The ONE materialiser: row indices below `n_rows` whose bits are set in
+/// `mask`, in ascending order. It allocates — this is the boundary a consumer
+/// crosses deliberately, by this name, never as normal execution state (the
+/// mask-native invariant).
 pub fn materialize_rows(mask: &[u64], n_rows: usize) -> Vec<usize> {
     let mut rows = Vec::new();
     for (w, &word) in mask.iter().enumerate() {
@@ -370,7 +370,8 @@ fn run_pred(planes: &Planes<'_>, s: &Scratch, pred: Pred, under: Option<Operand>
 
 /// Run `program` over `planes` with the caller's `scratch`; `out` is the
 /// destination a [`Terminal::BlendI32`] writes. Validation is total and
-/// happens before any write, so an `Err` leaves `scratch` and `out` untouched.
+/// happens before any result write, so an `Err` leaves the scratch slots and
+/// `out` untouched.
 pub fn execute(
     program: &Program,
     planes: &Planes<'_>,

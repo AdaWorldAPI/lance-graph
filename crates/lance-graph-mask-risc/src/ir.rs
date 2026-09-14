@@ -207,7 +207,8 @@ pub const MAX_SCRATCH_SLOTS: u32 = u16::MAX as u32 + 1;
 const _: () = assert!(MAX_SCRATCH_SLOTS == 65_536);
 
 impl Program {
-    /// Assemble a program, computing its scratch requirement from the ops.
+    /// Assemble a program, computing its scratch requirement from every
+    /// operand named by the ops and terminal.
     pub fn new(ops: Vec<MaskOp>, terminal: Terminal) -> Self {
         let mut slots = 0u32;
         // widened, never wrapped or saturated: slot `u16::MAX` is the

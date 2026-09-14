@@ -90,7 +90,8 @@ fn leaf_count(e: &BoolExpr) -> usize {
     v.len()
 }
 
-/// Evaluate `e` with each distinct leaf bound to its position in `leaves`.
+/// Evaluate `e` with its at most three distinct leaves bound by position in
+/// `leaves`.
 fn eval(e: &BoolExpr, leaves: &[Operand], vals: [bool; 3]) -> bool {
     match e {
         BoolExpr::Leaf(o) => leaves
