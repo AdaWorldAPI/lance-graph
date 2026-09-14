@@ -464,6 +464,23 @@ fn gate_walk(f: &Filter, gate: Option<Mask>) -> Result<(Node, bool), LowerError>
 }
 
 /// [`gate_walk`] over every child of a junction, refusing an empty one.
+///
+/// One of THREE spellings of that refusal — the others are the
+/// `acc.ok_or(EmptyJunction)` in [`emit_inplace`] and in [`assign_slots`].
+/// Measured: disabling any ONE leaves the suite green, because the other two
+/// still catch it; disabling all three turns
+/// `an_empty_junction_is_refused_rather_than_folded_to_an_identity` red. So
+/// the refusal is load-bearing and the redundancy is deliberate — each
+/// spelling guards a different stage (the gate walk, the in-place emitter,
+/// the fused emitter) and none may be removed as "obviously dead" on the
+/// strength of its own disable run coming back green.
+///
+/// The early one is not merely belt-and-braces: without it an empty `Or`
+/// reaches `flags.iter().all(..)` over an EMPTY vector, which is vacuously
+/// `true`, and reports that it vanishes with the gate — letting a parent
+/// `AND` drop a gate plane it should have kept. The program is refused
+/// downstream either way, so nothing observable changes today; it is a
+/// vacuous-truth corner not worth leaving open.
 fn walk_all(parts: &[Filter], gate: Option<Mask>) -> Result<(Vec<Node>, Vec<bool>), LowerError> {
     if parts.is_empty() {
         return Err(LowerError::EmptyJunction);
@@ -1157,6 +1174,14 @@ mod tests {
     /// An empty conjunction is `true` and an empty disjunction is `false`, so
     /// whichever identity the code picked would silently be the answer to a
     /// query the caller built by accident.
+    ///
+    /// Disable note, because a single-site run misreads: the refusal is
+    /// spelled at THREE sites ([`walk_all`], [`emit_inplace`],
+    /// [`assign_slots`]) and disabling any one leaves this green — not
+    /// because the test is vacuous but because the other two still catch it.
+    /// Disabling all three together is what turns it red. A future session
+    /// measuring one site and concluding "not load-bearing" would be reading
+    /// the redundancy, not the guard.
     #[test]
     fn an_empty_junction_is_refused_rather_than_folded_to_an_identity() {
         for f in [
