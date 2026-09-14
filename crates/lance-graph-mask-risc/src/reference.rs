@@ -199,9 +199,13 @@ fn dst_of(op: &MaskOp) -> u16 {
 /// then a dirty plane tail; (3) every op in program order, operands in field
 /// order; (4) the terminal's mask, its lanes, the sum bound, and the blend
 /// destination. `out_len` is the caller's `out` slice length, if any.
-/// `written_bits` supplies one caller-owned bit per declared scratch slot;
-/// validation clears and reuses that prefix, including on paths that later
-/// return an error.
+/// `written_bits` supplies one caller-owned bit per declared scratch slot.
+/// Every path that reaches step (3) clears and reuses that prefix first,
+/// including paths that then return an error — but step (1) returns ahead of
+/// the clear, so an `ScratchSlotsUnaddressable` refusal leaves the caller's
+/// bits exactly as they were. That is deliberate: the refusal happens before
+/// the declared count is known to be addressable, and sizing anything from it
+/// is the failure that check exists to prevent.
 pub(crate) fn validate(
     p: &Program,
     planes: &Planes<'_>,

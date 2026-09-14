@@ -119,9 +119,16 @@ impl Scratch {
 }
 
 /// The ONE materialiser: row indices below `n_rows` whose bits are set in
-/// `mask`, in ascending order. It allocates — this is the boundary a consumer
-/// crosses deliberately, by this name, never as normal execution state (the
-/// mask-native invariant).
+/// `mask`, in ascending order. **O(n_rows)** and it allocates — this is the
+/// boundary a consumer crosses deliberately, by this name, never as normal
+/// execution state (the mask-native invariant).
+///
+/// The bound is the point of the sentence, not decoration: every other
+/// operation in this crate is O(words) over a borrowed buffer, and the whole
+/// reason this function is named rather than implicit is that it is the one
+/// place a caller pays per ROW. A set bit at or past `n_rows` ends the walk
+/// rather than being returned — that is the half a reader cannot get from the
+/// signature.
 pub fn materialize_rows(mask: &[u64], n_rows: usize) -> Vec<usize> {
     let mut rows = Vec::new();
     for (w, &word) in mask.iter().enumerate() {
