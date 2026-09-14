@@ -478,6 +478,28 @@ fn run(p: &Program, planes: &Planes<'_>) -> Rows {
     rows
 }
 
+/// The read-before-write bitmap [`validate`] needs, allocated only once the
+/// declared slot count is known to be addressable.
+///
+/// The ORDER is the whole content of this function. `Program::scratch_slots`
+/// is a public `u32`, so a hand-built program can declare `u32::MAX` slots;
+/// sizing the bitmap from it first asks the allocator for 512 MiB and only
+/// then calls the check that was going to reject the program anyway. On a
+/// machine that cannot serve it, a refusal this crate owes as an
+/// [`ExecError`] arrives as an abort instead. Both oracle entry points
+/// therefore size through here, never from the field directly.
+///
+/// [`validate`] repeats the same check — deliberately, since the executor
+/// supplies its own caller-owned bitmap and never passes through here.
+fn written_bitmap(p: &Program) -> Result<Vec<u64>, ExecError> {
+    if p.scratch_slots > MAX_SCRATCH_SLOTS {
+        return Err(ExecError::ScratchSlotsUnaddressable {
+            declared: p.scratch_slots,
+        });
+    }
+    Ok(vec![0u64; (p.scratch_slots as usize).div_ceil(64)])
+}
+
 /// Evaluate `p` over `planes` row by row; `out` is the destination a
 /// [`Terminal::BlendI32`] writes. Same validation, same [`Value`], same
 /// [`ExecError`] as the executor.
@@ -488,8 +510,9 @@ pub fn reference_execute(
 ) -> Result<Value, ExecError> {
     // The oracle allocates by design (its `Rows` arena is this crate's one
     // named L5 exemption), so a local bitmap costs it nothing it was not
-    // already paying.
-    let mut bits = vec![0u64; (p.scratch_slots as usize).div_ceil(64)];
+    // already paying — but it is sized through the guarded helper, not from
+    // the declared count.
+    let mut bits = written_bitmap(p)?;
     validate(p, planes, out.as_deref().map(<[i32]>::len), &mut bits)?;
     let n = planes.n_rows;
     let rows = run(p, planes);
@@ -531,7 +554,7 @@ pub fn reference_scratch(p: &Program, planes: &Planes<'_>) -> Result<Vec<Vec<u64
     // alone, so a `BlendI32` terminal's missing `out` must not make this
     // report `BlendNeedsOut` — that silently skipped the differential's
     // whole scratch comparison for every blend program.
-    let mut bits = vec![0u64; (p.scratch_slots as usize).div_ceil(64)];
+    let mut bits = written_bitmap(p)?;
     validate(p, planes, Some(planes.n_rows), &mut bits)?;
     let n = planes.n_rows;
     let rows = run(p, planes);
