@@ -46,6 +46,12 @@ use crate::words_for;
 pub struct Scratch {
     words: usize,
     slots: Vec<Box<[u64]>>,
+    /// One bit per slot, for `validate`'s read-before-write check. Allocated
+    /// ONCE with the arena and reused, which is what keeps that check linear
+    /// in op count without allocating on the hot path — see `WrittenSlots`.
+    /// Its own words are cleared per call, and only as many as the program
+    /// declares.
+    written_bits: Box<[u64]>,
 }
 
 impl Scratch {
@@ -56,6 +62,7 @@ impl Scratch {
             slots: (0..slots)
                 .map(|_| vec![0u64; words].into_boxed_slice())
                 .collect(),
+            written_bits: vec![0u64; slots.div_ceil(64)].into_boxed_slice(),
         }
     }
 
@@ -392,7 +399,12 @@ pub fn execute(
             found: scratch.words,
         });
     }
-    validate(program, planes, out.as_deref().map(<[i32]>::len))?;
+    validate(
+        program,
+        planes,
+        out.as_deref().map(<[i32]>::len),
+        &mut scratch.written_bits,
+    )?;
     let n_rows = planes.n_rows;
 
     for op in &program.ops {

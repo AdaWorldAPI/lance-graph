@@ -108,30 +108,89 @@ fn check_lane(planes: &Planes<'_>, lane: u16, expected: LaneKind) -> Result<(), 
 /// express, because every such fixture starts zeroed. Pre-filled scratch is a
 /// named PR5 gap, not a supported input.
 ///
-/// The backward scan is deliberately allocation-free (law L1 forbids
+/// The check is a bitmap marked FORWARD as the op walk proceeds, not a
+/// backward scan of earlier ops. Both are allocation-free — law L1 forbids
 /// allocating anywhere `execute` reaches, and `execute` calls `validate` on
-/// every run). It is quadratic in OP COUNT, which is single digits for every
-/// program this IR can express; it never touches a row.
-fn readable(ops: &[MaskOp], before: usize, o: Operand) -> Result<(), ExecError> {
-    let Operand::Scratch(slot) = o else {
-        return Ok(());
-    };
-    let wrote = ops[..before].iter().any(|op| {
-        let dst = match *op {
-            MaskOp::Pred { dst, .. }
-            | MaskOp::And { dst, .. }
-            | MaskOp::Or { dst, .. }
-            | MaskOp::Xor { dst, .. }
-            | MaskOp::AndNot { dst, .. }
-            | MaskOp::Not { dst, .. }
-            | MaskOp::Ternlog { dst, .. } => dst,
+/// every run — but the scan was **quadratic in op count**, and the doc that
+/// used to sit here claimed that count "is single digits for every program
+/// this IR can express". That was false: `Program::ops` is a public `Vec`, so
+/// a hand-built chain of `Not`s each reading the previous slot is admissible.
+/// Measured on exactly that chain, at `n_rows = 0` so validation is the only
+/// work: 0.62 ms at 1024 ops, 11 ms at 4096, 179 ms at 16_384, **3.06 s at
+/// 65_536** — a clean quadratic, and a caller-controlled stall before a single
+/// row is touched.
+///
+/// The bitmap is CALLER-OWNED, borrowed — the same shape [`crate::Scratch`]
+/// already is, and for the same reason. A fixed `[u64; 1024]` on the stack
+/// also allocates nothing, and was tried first; it costs an 8 KiB zero on
+/// every `execute`, and that is not free on this hot path. Measured over three
+/// runs of `count_probe`, with `handwritten` as the control because it builds
+/// no `Program` and so never validates:
+///
+/// | arm | borrowed bitmap | 8 KiB stack array |
+/// |---|---|---|
+/// | handwritten (control) | 1027-1055 | 1027-1055 |
+/// | interpreted | 1039-1048 | 1197-1363 |
+/// | fused | 924-926 | 1129-1281 |
+///
+/// The control not moving while both validating arms did is what makes that
+/// attributable to the zero rather than to machine noise.
+///
+/// Sized by the caller's slot count, so a three-slot program zeroes ONE word
+/// per call. `slot_words` is the only part read or written.
+struct WrittenSlots<'a> {
+    bits: &'a mut [u64],
+}
+
+impl WrittenSlots<'_> {
+    /// Clear exactly the words `declared` slots occupy, leaving the rest of
+    /// the caller's buffer alone — that prefix is the whole cost per call.
+    fn reset(&mut self, declared: u32) {
+        let words = (declared as usize).div_ceil(64).min(self.bits.len());
+        self.bits[..words].fill(0);
+    }
+
+    /// Record that `slot` has been written by an op already validated.
+    fn mark(&mut self, slot: u16) {
+        if let Some(w) = self.bits.get_mut(usize::from(slot) / 64) {
+            *w |= 1u64 << (usize::from(slot) % 64);
+        }
+    }
+
+    /// `Ok` if `o` is a plane, or a scratch slot some earlier op wrote.
+    ///
+    /// A slot outside the buffer reads as NOT written rather than panicking.
+    /// It is unreachable — `check_operand` refuses `slot >= scratch_slots`
+    /// before any operand reaches here, on every arm and on every terminal —
+    /// but this crate forbids unsafe and prefers not to rely on a panic for a
+    /// bound another function owns.
+    fn readable(&self, o: Operand) -> Result<(), ExecError> {
+        let Operand::Scratch(slot) = o else {
+            return Ok(());
         };
-        dst == slot
-    });
-    if wrote {
-        Ok(())
-    } else {
-        Err(ExecError::ScratchReadBeforeWrite { slot })
+        let set = self
+            .bits
+            .get(usize::from(slot) / 64)
+            .is_some_and(|w| w >> (usize::from(slot) % 64) & 1 == 1);
+        if set {
+            Ok(())
+        } else {
+            Err(ExecError::ScratchReadBeforeWrite { slot })
+        }
+    }
+}
+
+/// The destination every op writes — one place, so a new `MaskOp` variant is a
+/// compile error here rather than a slot that silently never gets marked.
+fn dst_of(op: &MaskOp) -> u16 {
+    match *op {
+        MaskOp::Pred { dst, .. }
+        | MaskOp::And { dst, .. }
+        | MaskOp::Or { dst, .. }
+        | MaskOp::Xor { dst, .. }
+        | MaskOp::AndNot { dst, .. }
+        | MaskOp::Not { dst, .. }
+        | MaskOp::Ternlog { dst, .. } => dst,
     }
 }
 
@@ -144,6 +203,7 @@ pub(crate) fn validate(
     p: &Program,
     planes: &Planes<'_>,
     out_len: Option<usize>,
+    written_bits: &mut [u64],
 ) -> Result<(), ExecError> {
     // FIRST, before anything walks a plane or an op: a declared slot count
     // above the addressable ceiling is refused. The count is a PUBLIC field,
@@ -198,8 +258,14 @@ pub(crate) fn validate(
             }
         }
     }
-    for (i, op) in p.ops.iter().enumerate() {
-        let written = |o: Operand| readable(&p.ops, i, o);
+    // Marked forward, op by op. `mark` happens AFTER the op's own operands are
+    // checked, which is what keeps `MaskOp::Not { a: Scratch(0), dst: 0 }` — an
+    // op reading its own destination before anything wrote it — a refusal
+    // rather than a self-satisfying read.
+    let mut written_slots = WrittenSlots { bits: written_bits };
+    written_slots.reset(p.scratch_slots);
+    for op in &p.ops {
+        let written = |o: Operand| written_slots.readable(o);
         match *op {
             MaskOp::Pred { pred, under, dst } => {
                 if let Some(u) = under {
@@ -238,6 +304,7 @@ pub(crate) fn validate(
                 written(c)?;
             }
         }
+        written_slots.mark(dst_of(op));
     }
     match p.terminal {
         Terminal::Count { mask }
@@ -245,11 +312,11 @@ pub(crate) fn validate(
         | Terminal::All { mask }
         | Terminal::Keep { mask } => {
             check_operand(p, planes, mask)?;
-            readable(&p.ops, p.ops.len(), mask)
+            written_slots.readable(mask)
         }
         Terminal::MaskedSumI32 { mask, lane } => {
             check_operand(p, planes, mask)?;
-            readable(&p.ops, p.ops.len(), mask)?;
+            written_slots.readable(mask)?;
             check_lane(planes, lane, LaneKind::I32)?;
             if n > MASKED_SUM_I32_MAX_ROWS {
                 return Err(ExecError::SumRowBound { n_rows: n });
@@ -258,12 +325,12 @@ pub(crate) fn validate(
         }
         Terminal::MaskedMinI32 { mask, lane } | Terminal::MaskedMaxI32 { mask, lane } => {
             check_operand(p, planes, mask)?;
-            readable(&p.ops, p.ops.len(), mask)?;
+            written_slots.readable(mask)?;
             check_lane(planes, lane, LaneKind::I32)
         }
         Terminal::BlendI32 { mask, then, els } => {
             check_operand(p, planes, mask)?;
-            readable(&p.ops, p.ops.len(), mask)?;
+            written_slots.readable(mask)?;
             check_lane(planes, then, LaneKind::I32)?;
             check_lane(planes, els, LaneKind::I32)?;
             match out_len {
@@ -419,7 +486,11 @@ pub fn reference_execute(
     planes: &Planes<'_>,
     out: Option<&mut [i32]>,
 ) -> Result<Value, ExecError> {
-    validate(p, planes, out.as_deref().map(<[i32]>::len))?;
+    // The oracle allocates by design (its `Rows` arena is this crate's one
+    // named L5 exemption), so a local bitmap costs it nothing it was not
+    // already paying.
+    let mut bits = vec![0u64; (p.scratch_slots as usize).div_ceil(64)];
+    validate(p, planes, out.as_deref().map(<[i32]>::len), &mut bits)?;
     let n = planes.n_rows;
     let rows = run(p, planes);
     let rows = &rows;
@@ -460,7 +531,8 @@ pub fn reference_scratch(p: &Program, planes: &Planes<'_>) -> Result<Vec<Vec<u64
     // alone, so a `BlendI32` terminal's missing `out` must not make this
     // report `BlendNeedsOut` — that silently skipped the differential's
     // whole scratch comparison for every blend program.
-    validate(p, planes, Some(planes.n_rows))?;
+    let mut bits = vec![0u64; (p.scratch_slots as usize).div_ceil(64)];
+    validate(p, planes, Some(planes.n_rows), &mut bits)?;
     let n = planes.n_rows;
     let rows = run(p, planes);
     Ok(rows
@@ -547,6 +619,38 @@ mod tests {
     /// oracle's independence is the whole claim, so a test module that reached
     /// for the facade to check the oracle would undermine it just as much as
     /// production code would.
+    /// Blank out comment spans, keeping line structure so a failure still
+    /// reports a recognisable line. Handles `/* */` and both leading and
+    /// trailing `//`.
+    fn strip_comments(src: &str) -> String {
+        let mut out = String::with_capacity(src.len());
+        let mut in_block = false;
+        for line in src.lines() {
+            let b = line.as_bytes();
+            let mut i = 0;
+            while i < b.len() {
+                if in_block {
+                    if b[i] == b'*' && b.get(i + 1) == Some(&b'/') {
+                        in_block = false;
+                        i += 2;
+                    } else {
+                        i += 1;
+                    }
+                } else if b[i] == b'/' && b.get(i + 1) == Some(&b'*') {
+                    in_block = true;
+                    i += 2;
+                } else if b[i] == b'/' && b.get(i + 1) == Some(&b'/') {
+                    break;
+                } else {
+                    out.push(b[i] as char);
+                    i += 1;
+                }
+            }
+            out.push('\n');
+        }
+        out
+    }
+
     #[test]
     fn the_oracle_has_no_facade_token() {
         let needle = ["nd", "array"].concat();
@@ -556,10 +660,17 @@ mod tests {
         // was stricter than its sibling for no reason and a comment could
         // break it — which is exactly what happened when `eval_pred` gained a
         // doc explaining why it carries no facade token.
-        for line in include_str!("reference.rs")
-            .lines()
-            .filter(|l| !l.trim_start().starts_with("//"))
-        {
+        //
+        // A leading-`//` filter was the first attempt and was not enough: an
+        // INLINE trailing comment, or a `/* */` span, would still break the
+        // guard while being just as much prose. `strip_comments` removes both.
+        //
+        // Boundary, stated rather than discovered later: a `//` inside a
+        // string literal truncates that line early, and nested block comments
+        // are not modelled. Both make the guard slightly WEAKER (it could miss
+        // a needle in such a line), never stricter — and neither shape is a
+        // facade call, which is what the law is actually about.
+        for line in strip_comments(include_str!("reference.rs")).lines() {
             assert!(
                 !line.contains(&needle),
                 "the oracle must not name the SIMD facade (law L4): {line}"
@@ -918,6 +1029,62 @@ mod tests {
                 expected: 70,
                 found: 3
             })
+        );
+    }
+
+    /// FAILS IF: the read-before-write check is quadratic in OP COUNT again.
+    ///
+    /// A hand-built chain of `Not`s, each reading the slot the previous wrote.
+    /// `Program::ops` is a public `Vec`, so this is admissible input, and the
+    /// backward scan this replaced took 3.06 s on 65_536 ops at `n_rows = 0` —
+    /// a caller-controlled stall before a single row is touched. The doc that
+    /// licensed the scan claimed the op count "is single digits for every
+    /// program this IR can express", which was never true of a hand-built one.
+    ///
+    /// The assertion is a WALL-CLOCK bound, which is a blunt instrument, so it
+    /// is set two orders of magnitude above the linear form's measured cost
+    /// (1.5 ms at 65_536 ops) and two below the quadratic's (3.06 s). Anything
+    /// in between is a machine slower than any this runs on; anything above it
+    /// is the quadratic returning. The correctness half is asserted too —
+    /// being fast is not the claim, being fast AND still accepting a valid
+    /// chain is.
+    #[test]
+    fn the_read_before_write_check_is_linear_in_op_count() {
+        const N: usize = 16_384;
+        let mut ops = Vec::with_capacity(N);
+        ops.push(MaskOp::Not { a: P0, dst: 0 });
+        for i in 1..N {
+            ops.push(MaskOp::Not {
+                a: Operand::Scratch((i - 1) as u16),
+                dst: i as u16,
+            });
+        }
+        let p = Program::new(
+            ops,
+            Terminal::Count {
+                mask: Operand::Scratch((N - 1) as u16),
+            },
+        );
+        assert_eq!(
+            p.scratch_slots, N as u32,
+            "every op must claim its own slot"
+        );
+        // `n_rows = 0`, so validation is the ONLY work and the measurement
+        // cannot be diluted by row evaluation.
+        let empty: Vec<u64> = Vec::new();
+        let masks: [&[u64]; 1] = [&empty];
+        let planes = Planes {
+            n_rows: 0,
+            masks: &masks,
+            lanes: &[],
+        };
+        let t = std::time::Instant::now();
+        let got = reference_execute(&p, &planes, None);
+        let elapsed = t.elapsed();
+        assert_eq!(got, Ok(Value::Count(0)), "the chain is valid and must run");
+        assert!(
+            elapsed < std::time::Duration::from_millis(500),
+            "validation of {N} ops took {elapsed:?} — the quadratic scan is back"
         );
     }
 
