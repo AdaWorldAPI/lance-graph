@@ -194,11 +194,13 @@ fn dst_of(op: &MaskOp) -> u16 {
     }
 }
 
-/// The validation rules, in the order both the executor and the oracle apply
-/// them: (1) plane and lane lengths, then a dirty plane tail; (2) every op in
-/// program order, operands in field order; (3) the terminal's mask, its lanes,
-/// the sum bound, the blend destination. `out_len` is the caller's `out`
-/// slice length, if any.
+/// Apply the program validation shared by the executor and the oracle.
+///
+/// An unaddressable scratch count is rejected first, followed by plane and
+/// lane shapes, a dirty plane tail, each op in program order, and the
+/// terminal's requirements. `out_len` is the caller's `out` slice length, if
+/// any. `written_bits` is reusable workspace for the read-before-write check;
+/// the prefix needed for the program's declared slots is cleared and updated.
 pub(crate) fn validate(
     p: &Program,
     planes: &Planes<'_>,
