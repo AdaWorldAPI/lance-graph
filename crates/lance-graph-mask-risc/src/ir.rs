@@ -154,14 +154,17 @@ pub struct Program {
     pub ops: Vec<MaskOp>,
     /// The single result.
     pub terminal: Terminal,
-    /// How many scratch slots the program touches (`max dst + 1`).
-    pub scratch_slots: u16,
+    /// How many scratch slots the program touches (`max dst + 1`). `u32`,
+    /// not `u16`: a `dst` of `u16::MAX` is the 65,536th slot, and 65,536
+    /// does not fit the index type — an executor sizing its arena from this
+    /// field must be able to read the count the widest `dst` implies.
+    pub scratch_slots: u32,
 }
 
 impl Program {
     /// Assemble a program, computing its scratch requirement from the ops.
     pub fn new(ops: Vec<MaskOp>, terminal: Terminal) -> Self {
-        let mut slots = 0u16;
+        let mut slots = 0u32;
         for op in &ops {
             let d = match *op {
                 MaskOp::Pred { dst, .. }
@@ -172,9 +175,10 @@ impl Program {
                 | MaskOp::Not { dst, .. }
                 | MaskOp::Ternlog { dst, .. } => dst,
             };
-            // saturating: `dst == u16::MAX` must not wrap `scratch_slots` to 0
-            // in release (the build where the damage would be silent)
-            slots = slots.max(d.saturating_add(1));
+            // widened, never wrapped or saturated: `dst == u16::MAX` is slot
+            // 65,535 and needs 65,536 buffers — a `u16` count cannot say so
+            // (wrapping reported 0; saturating reported 65,535, one short)
+            slots = slots.max(u32::from(d) + 1);
         }
         Self {
             ops,
@@ -226,12 +230,13 @@ impl OpHistogram {
 mod tests {
     use super::*;
 
-    /// FAILS IF: `Program::new` wraps its slot count in release — `dst ==
-    /// u16::MAX` would then report `scratch_slots == 0` for a program that
-    /// writes slot 65535 (debug would panic instead; the saturating add
-    /// makes both builds agree).
+    /// FAILS IF: `Program::new` under-reports the arena the widest `dst`
+    /// needs — `dst == u16::MAX` is slot 65,535, so 65,536 buffers; a `u16`
+    /// count wrapped that to 0 in release and a saturating `u16` add reported
+    /// 65,535 (one short — the codex P2 on PR #1225). Both builds must agree
+    /// on 65,536.
     #[test]
-    fn scratch_slots_saturate_at_the_widest_dst() {
+    fn scratch_slots_count_the_65_536th_slot() {
         let p = Program::new(
             vec![MaskOp::Not {
                 a: Operand::Plane(0),
@@ -241,7 +246,7 @@ mod tests {
                 mask: Operand::Scratch(u16::MAX),
             },
         );
-        assert_eq!(p.scratch_slots, u16::MAX);
+        assert_eq!(p.scratch_slots, 65_536);
         let q = Program::new(
             vec![],
             Terminal::Count {
