@@ -1,3 +1,52 @@
+## 2026-09-14 (4) — PR3 eight-review council on `687042f`, and a self-inflicted restore that ate three files
+
+**Council (all read-only, disjoint axes; orchestrator consolidated):**
+iron-rule YIELDS-ALL (no rule engaged: the XOR here is set symmetric
+difference over row bitmaps, not a transition kernel; `hop` is PR5) ·
+zero-copy LENS-CLEAN on every read path, one SECOND-PROJECTION (the oracle's
+arena copy, licensed but invisible to the L5 guard) · kernel-membrane PASS /
+NAMED with one must-fix · falsifier audit: 3 VACUOUS, 5 narrower-than-labelled
+· brutally-honest LAND, 0 P0, 1 P1, 6 P2 · overclaim 1 BLOCK + 8 FIX + 4 NIT ·
+baton CATCH-LATENT (3 P1, all between-repo and documentary) · v3-envelope
+LAYOUT-CLEAN (no stored byte moves) with 3 notes.
+
+**The one P1 three reviewers found independently** — kernel-membrane
+"must fix", brutally-honest P1, v3-envelope note B — was `Scratch::slot_mut`:
+a `pub fn` with no caller and no test whose doc invited pre-filling a gate,
+which the oracle structurally cannot model. Closed by removing it AND by
+refusing a program that reads a scratch slot no earlier op wrote, so the
+oracle's fresh-arena assumption is true by construction rather than by
+fixture. The BLOCK was F-X1 claiming an instrument that did not exist;
+`count_probe` now carries one.
+
+**Eight new disable runs, all red-then-green** (`785199d` + the follow-up):
+read-before-write refusal deleted; blend `then`/`els` swapped in the executor;
+the same swapped in the oracle; `ternlog_self`'s fill-ones arm no-op'd; the L5
+filter widened back to a whole-line grep; an ISA token planted in a module the
+old test never read; `fuse`'s `next_slot` saturating again. The gate-
+selectivity guard is a FIXTURE anti-vacuity check, not a code guard, and is
+excluded from that table deliberately.
+
+**Two process failures worth more than the fixes.**
+
+1. **The restore ate three uncommitted files.** The disable script ended each
+   case with `git checkout <path>`, which restores from the last COMMIT — and
+   the work under test was uncommitted. `exec.rs`, `reference.rs` and
+   `fuse.rs` were reverted to `687042f` mid-run and had to be rewritten from
+   the transcript. The sibling repo's notes state this exact rule ("commit,
+   then disable, then checkout") and it was still walked into. The order is
+   now: commit, disable, restore.
+2. **Three edits silently no-op'd and read as "the guard is not load-bearing".**
+   Anchors written against pre-`cargo fmt` text matched nothing; `.replace()`
+   returned the string unchanged; the disable run then reported three guards
+   GREEN. The first reading was "these guards are inert" — the truth was that
+   the guards had never landed. Every replacement now asserts its anchor
+   matched, which is the same rule the sibling repo records.
+
+**Gates (orchestrator, centrally):** 37 tests on `x86-64-v3` and `-v4`,
+clippy `-D warnings`, fmt, dispatch `--check`, `count_probe` four arms equal
+at 0 B plus the F-X1 pair (gated 3572 ns vs `pred + and` 10729 ns, count 1741).
+
 ## 2026-09-14 (3) — PR3 fan-out: two workers on disjoint files, one died on an output cap
 
 **Plan:** `.claude/plans/mask-risc-executor-v1.md` §5. **Orchestrator** wrote

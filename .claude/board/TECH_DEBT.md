@@ -1,3 +1,22 @@
+## 2026-09-14 — PR3 (mask-risc executor) hands three items to PR4
+
+- **Two runtime-immediate → const-generic ternlog bridges now exist.**
+  `lance-graph-mask-risc::ternlog_dispatch` (generated, 256 arms) and
+  `lgj-abi`'s `simd_mask_ternlog_assign_dyn` (ABI minor >= 11) agree on the
+  index convention and duplicate the mechanism. PR4 picks ONE owner — either
+  lgj-abi delegates to the crate, or the crate is scoped to the evaluator —
+  and stornos the other doc. Filing costs a paragraph now; de-duplicating
+  after PR4 wires `plan_eval` costs a refactor.
+- **`D-MRL-1a`'s `TERNARY_MATCH(pattern[12], care[12])` has no carrier.** The
+  IR offers `MatchU32`/`MatchU64` only; a 96-bit match over the V3 facet
+  register exists in neither this IR nor ndarray T1. Per the missing-
+  capability STOP rule the strided `Operand` lands substrate-first, before
+  PR4 lowers it.
+- **`L3` (one delegation per op) has no instrument.** No test counts facade
+  calls, so it is `[claimed, unverified]` in `exec.rs`'s own module doc. A
+  counting shim around the facade would close it; nothing in this arc needs
+  one yet.
+
 ## TD-PLANNER-CLIPPY-RED-ON-BASE-1 (2026-09-10) — OPEN
 
 **`cargo clippy -p lance-graph-planner --lib --tests -- -D warnings` and
