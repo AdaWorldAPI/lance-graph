@@ -31,6 +31,12 @@ fn kind_of(lane: &LaneRef<'_>) -> LaneKind {
     }
 }
 
+/// The lane a predicate reads, and the width that lane must have.
+///
+/// One place where `Pred`'s variants map to lane widths, so the executor and
+/// the oracle cannot disagree about which column a predicate touches. Adding a
+/// `Pred` variant without extending this match is a compile error, which is
+/// the point of listing the variants explicitly rather than matching a field.
 fn pred_lane_and_kind(pred: Pred) -> (u16, LaneKind) {
     match pred {
         Pred::GtI32 { lane, .. }
@@ -46,6 +52,17 @@ fn pred_lane_and_kind(pred: Pred) -> (u16, LaneKind) {
     }
 }
 
+/// One operand's index, against the two address spaces it could name.
+///
+/// A plane index is bounded by what the CALLER supplied (`planes.masks`); a
+/// scratch index by what the PROGRAM declared (`p.scratch_slots`). The two
+/// errors stay distinct for that reason — `PlaneOutOfRange` is a caller
+/// mismatch, `ScratchSlotUndeclared` a hand-built program whose count does not
+/// cover its own operands, and `Program::new` computes a covering count so the
+/// latter can only come from a struct literal.
+///
+/// Note this is per-OPERAND and therefore structurally blind to a declared
+/// count that no operand reaches; that bound lives in `validate` itself.
 fn check_operand(p: &Program, planes: &Planes<'_>, o: Operand) -> Result<(), ExecError> {
     match o {
         Operand::Plane(i) if usize::from(i) >= planes.masks.len() => {
@@ -61,6 +78,16 @@ fn check_operand(p: &Program, planes: &Planes<'_>, o: Operand) -> Result<(), Exe
     }
 }
 
+/// A lane index and its WIDTH, in that order.
+///
+/// Both halves are needed and neither implies the other: a lane can exist at
+/// the wrong width, and the wrong width is not a bounds error. Reporting them
+/// as one status would collapse two different caller mistakes — a mis-sized
+/// `Planes` and a predicate naming the wrong column — into one message.
+///
+/// This is what licenses `eval_pred`'s `_ => 0` fallback: by the time any row
+/// is read, every lane a predicate names has been proven present and correctly
+/// typed.
 fn check_lane(planes: &Planes<'_>, lane: u16, expected: LaneKind) -> Result<(), ExecError> {
     match planes.lanes.get(usize::from(lane)) {
         None => Err(ExecError::LaneOutOfRange(lane)),
@@ -263,6 +290,23 @@ fn i32_at(planes: &Planes<'_>, lane: u16, row: usize) -> i32 {
     }
 }
 
+/// One predicate, one row — the scalar SPEC of what each `Pred` means.
+///
+/// This is the definition the executor's `ndarray::simd` delegation is diffed
+/// against, so it is written to be obviously right rather than fast: plain
+/// Rust comparison operators, one row at a time, no facade token anywhere
+/// (law L4). `i32` comparisons are signed and `u32`/`u64` exact-bitwise,
+/// matching the DuckDB semantics `lib.rs` enumerates.
+///
+/// The two TCAM arms are the only non-obvious ones: `(value ^ pattern) & care
+/// == 0` means *every bit `care` selects must match `pattern`*, and bits
+/// outside `care` are ignored — so `care == 0` matches every row and
+/// `care == !0` is plain equality.
+///
+/// A lane of the wrong width reads as `0` here rather than panicking, which is
+/// safe only because `validate` has already refused a mismatched lane kind
+/// (`ExecError::LaneKind`) before this is ever called. Both the executor and
+/// this oracle call that same `validate`, so neither can reach the fallback.
 fn eval_pred(planes: &Planes<'_>, pred: Pred, row: usize) -> bool {
     let u32_at = |lane: u16| match planes.lanes[usize::from(lane)] {
         LaneRef::U32(v) => v[row],
@@ -312,6 +356,21 @@ impl Rows {
     }
 }
 
+/// Evaluate every op of `p`, row by row, into a fresh `Rows` arena.
+///
+/// The op loop is the outer one and rows the inner, which mirrors the
+/// executor's word-at-a-time pass and is what makes the two comparable: an op
+/// sees every earlier op's completed result and none of its own. `Ternlog`
+/// indexes its immediate as `(a << 2) | (b << 1) | c`, the same bit order the
+/// executor's dispatch uses — one convention, stated in `lib.rs` and spelled
+/// identically on both sides.
+///
+/// The arena starts all-false and is never seeded from a caller, which is the
+/// oracle's fresh-arena assumption. That assumption is true by construction
+/// rather than by fixture: `validate` refuses any program that READS a scratch
+/// slot no earlier op wrote (`ExecError::ScratchReadBeforeWrite`), and it
+/// refuses a `scratch_slots` count past `MAX_SCRATCH_SLOTS` before this
+/// allocates anything proportional to it.
 fn run(p: &Program, planes: &Planes<'_>) -> Rows {
     let n = planes.n_rows;
     let mut rows = Rows {
@@ -483,10 +542,29 @@ mod tests {
     /// FAILS IF: the oracle names the SIMD facade OR a sibling module that
     /// would import it transitively — law L4. Needles are concatenated so
     /// this test's own text cannot match itself.
+    ///
+    /// Deliberately NOT split on `#[cfg(test)]`, unlike the ISA guard: the
+    /// oracle's independence is the whole claim, so a test module that reached
+    /// for the facade to check the oracle would undermine it just as much as
+    /// production code would.
     #[test]
     fn the_oracle_has_no_facade_token() {
         let needle = ["nd", "array"].concat();
-        assert!(!include_str!("reference.rs").contains(&needle));
+        // CODE only, matching `the_crate_names_no_isa`: this file's own doc
+        // comments explain the law and therefore name what it forbids, and a
+        // doc line is the opposite of a breach. Before this filter the guard
+        // was stricter than its sibling for no reason and a comment could
+        // break it — which is exactly what happened when `eval_pred` gained a
+        // doc explaining why it carries no facade token.
+        for line in include_str!("reference.rs")
+            .lines()
+            .filter(|l| !l.trim_start().starts_with("//"))
+        {
+            assert!(
+                !line.contains(&needle),
+                "the oracle must not name the SIMD facade (law L4): {line}"
+            );
+        }
     }
 
     /// FAILS IF: the packing is MSB-first (word 1 would read `0xFC00…`), or

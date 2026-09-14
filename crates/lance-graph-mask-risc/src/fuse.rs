@@ -59,6 +59,16 @@ pub fn ternlog_imm(f: impl Fn(bool, bool, bool) -> bool) -> u8 {
     imm
 }
 
+/// Collect each operand appearing in `e` ONCE, in first-visit order.
+///
+/// Distinctness is what decides whether a subtree fits one ternlog: an
+/// expression may mention the same plane five times and still be a three-input
+/// table. The order is load-bearing too — `lower` binds `leaves[0..3]` to the
+/// ternlog's `(a, b, c)` in exactly this order, and `ternlog_imm` evaluates the
+/// table against the same slice, so the two cannot disagree.
+///
+/// Linear scan rather than a set: a fused expression has single-digit leaves,
+/// and a `HashSet` here would allocate for no measurable gain.
 fn distinct_leaves(e: &BoolExpr, out: &mut Vec<Operand>) {
     match e {
         BoolExpr::Leaf(o) => {
@@ -106,6 +116,28 @@ impl Lowering {
         Ok(slot)
     }
 
+    /// Lower one subtree to an operand, emitting ternlogs as it goes.
+    ///
+    /// Three cases, in the order the body tests them. A bare leaf is already
+    /// an operand and emits nothing. A subtree over **at most three distinct
+    /// leaves** becomes exactly ONE `Ternlog`, because its whole truth table
+    /// fits an 8-bit immediate — `ternlog_imm` evaluates the expression at all
+    /// eight input combinations, so the immediate IS the table and no
+    /// structural rewrite is needed. Anything wider reduces: lower the child
+    /// with more leaves into a scratch slot, substitute that slot for it, and
+    /// retry.
+    ///
+    /// **Termination** rests on the reduction step strictly shrinking the
+    /// distinct-leaf count. The lowered child collapses to one `Leaf`, and it
+    /// carried at least two distinct leaves to have been chosen (at three or
+    /// fewer the first branch would have taken the whole expression), so each
+    /// pass removes at least one. `Not` reduces its only child by the same
+    /// argument.
+    ///
+    /// **Larger-child-first is not an optimisation, it is what makes the
+    /// recursion finite in a useful number of steps** — reducing the smaller
+    /// child can remove as little as one leaf per pass while the larger side
+    /// stays whole.
     fn lower(&mut self, e: &BoolExpr) -> Result<Operand, FuseError> {
         if let BoolExpr::Leaf(o) = e {
             return Ok(*o);
