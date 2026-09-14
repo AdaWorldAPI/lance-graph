@@ -1,3 +1,41 @@
+## 2026-09-14 (3) — E-THE-VOCABULARY-IS-THE-RECOGNITION-ORGAN-THE-LAW-IS-THE-TRANSFER-ORGAN-1 — F-MQ8 and H5b were filed as one null; they are a division of labour, and they say which half is weak
+
+**Status:** FINDING — a re-reading of two recorded measurements, not a new
+measurement. **Confidence:** high on the numbers (both are in `MQ-REPORT.md`);
+medium on the framing until `hexagon-plasticity-v1` W1 (D-HXP-2) runs.
+
+Two recorded results, never read together:
+
+- **F-MQ8 (transfer).** The BPE dictionary FAILS to transfer — frequency-BPE is
+  worse than raw on **5 of 5** foreign corpora. The transition law TRANSFERS on
+  **12 of 12**, H 0.67–1.10 bits against C2 1.35–3.13.
+- **H5b (recognition).** BPE motif bags reach override-twin **R@10 18.1 %**; the
+  hydrated quotient reaches **1.5 %** (null 0.15 %) — 10× chance, and **12×
+  below** the bags.
+
+The report filed the pair as *"the law transfers, the vocabulary does not"* — a
+null, and a shrug. It is neither. **The vocabulary is the RECOGNITION organ and
+is corpus-bound; the law is the TRANSFER organ and is corpus-free.** BPE bags are
+addressed by CONTENT, the quotient by FUTURE STRUCTURE: content-addressing is what
+makes a cue fire, future-structure is what makes it generalize. Each fails
+precisely where the other is strong, and neither failure is a defect — it is what
+the two organs are for.
+
+The consequence is an ordering, not a slogan: the **cue side is the measured weak
+link by 12×**, so any loop of the shape *cue → recognize → accumulate ⟨f,c⟩ →
+validate → path* starves at step one unless recognition is fixed first. That is
+why `hexagon-plasticity-v1` runs W1 (the cue benchmark, scent ρ 0.937 /
+palette256 against the 18.1 % incumbent) before W2 puts a rail in the loop, and
+why its KILL there is R@10 < 5 %.
+
+**Does NOT claim** that a scent or codebook cue will reach 18.1 % — that is
+exactly W1's question, and BPE is the incumbent to beat, not a foil. **Does NOT
+claim** the quotient's 1.5 % is a defect; it is a transfer organ measured on a
+recognition task.
+
+Plan: `.claude/plans/hexagon-plasticity-v1.md` (§1 carries the table, D-HXP-2 the
+gate). Sources: `MQ-REPORT.md` §8 H5b and the F-MQ1..10 table, F-MQ8 row.
+
 ## 2026-09-14 (2) — STORNO on `E-HEX-TENANT-RAIL-IS-DIRECTION-CHAIN-IS-FREE-SHIFT-IS-THE-COST-1` point (3): the shift was the COST, it was not the REMEDY
 
 Corrects the entry immediately below, left in place per the append-only rule.
