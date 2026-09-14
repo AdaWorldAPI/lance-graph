@@ -53,15 +53,14 @@
 
 #![forbid(unsafe_code)]
 
-pub mod exec;
-pub mod fuse;
-pub mod hop;
+// Only the IR exists in this skeleton. `exec` (the borrowing executor),
+// `fuse` (predicate → one ternlog chain), `hop` (src_mask → edge lane →
+// dst_mask), `reference` (the scalar oracle) and `ternlog_table` (the
+// generated truth tables) are PR3's deliverables and are declared when they
+// land — a `mod` line for a file that is not on disk made this crate fail to
+// build, which both the DuckDB matrix and the Cypher lowering plan recorded.
 pub mod ir;
-pub mod reference;
-pub mod ternlog_table;
 
-pub use exec::{execute, Scratch, TerminalValue};
-pub use fuse::{lower, Expr};
 pub use ir::{LaneRef, MaskOp, Operand, Planes, Pred, Program, Terminal};
 
 /// Number of `u64` words a mask over `n_rows` occupies.
