@@ -1426,6 +1426,52 @@ the tile, seriation, LUT and spread contribute nothing that survives permutation
 **Scope.** Pure-Python lab, no Rust fingerprints — a shape proxy, never a measurement of
 `ndarray`/`bgz17`/`helix`. The cue reached **87.5 %** of the BPE incumbent (0.1579 vs 0.1805):
 PROCEED, not PASS.
+## E-A-FLOOR-PASSED-AT-ITS-BOUND-IS-A-DEAD-FIXTURE-1 (2026-09-14)
+
+**Status:** FINDING (measured twice in one file, both arms)
+**Confidence:** High — the invisible-mis-map half is a direct red/green pair
+
+**An anti-vacuity bound written as a FLOOR (`>= N`) that passes at exactly
+`N` is not a pass. It is the fixture telling you it is dead.**
+
+`lowering_convergence.rs` (lance-graph-java `native/lgj-abi`) arrived with
+two: `>= 15` of 28 combine vectors non-degenerate, and `>= 7` of 9 opcode
+seeds selecting a proper subset. Both measured **exactly** at their bound.
+Both bounds had been reasoned to, honestly, from the fixture's DOCUMENTED
+domain — and the documented domain was not the measured one.
+
+- The values lane is `-150..=361`. The arity-4 arm appended `LT_I32(500)`,
+  an always-true op, so the entire 16-vector arm was eight saturated
+  `n`-row answers plus eight verbatim copies of the arity-3 row: **zero**
+  additional discriminating power, clearing `>= 15` by sitting on it.
+  Measuring the lane and using `LT_I32(200)` took it **15 -> 21**.
+- Worse, the same operand appeared in the per-opcode arm, so `LT_I32` and
+  `LE_I32` both selected every row. Measured: mis-mapping `LGJ_OP_LE_I32`
+  to `Pred::LtI32` — one token, and exactly the defect the file exists to
+  catch — is **RED at operand 300** (866 vs 865, a one-row difference) and
+  **GREEN at operand 500**. Two of nine opcodes were untested while the
+  file read as covering all nine.
+
+**Three rules, each with its own force:**
+
+1. **A floor is the wrong shape for an anti-vacuity bound.** Its whole job
+   is to notice the fixture going inert, and a floor cannot: inert is
+   exactly where it still passes. Write `assert_eq!` with the measured
+   count and the instruction not to relax it.
+2. **Reason operands from the MEASURED lane, never from the documented
+   domain.** "The doc says the max is 361, so 500 is safely past it" is
+   sound arithmetic and produces a tautology. Probe the distribution.
+3. **In a differential between two ARMS (not against ground truth), two
+   quantities that select the same number of rows hide a swap between
+   exactly those two.** Give the comparisons distinct counts on purpose.
+   This is specific to arm-vs-arm testing and does not arise when one side
+   is an oracle.
+
+Cross-ref: the falsifiability rule in `CLAUDE.md` already names
+"a tolerance/threshold parameter needs an inertness test". This is its
+sibling for the FIXTURE rather than the threshold — and the sharper case,
+because a dead fixture leaves every assertion above it reading as green.
+Board: `STATUS_BOARD.md` D-QCK-10; `LATEST_STATE.md` 2026-09-14 (6).
 
 ## 2026-09-14 (3) — E-THE-VOCABULARY-IS-THE-RECOGNITION-ORGAN-THE-LAW-IS-THE-TRANSFER-ORGAN-1 — F-MQ8 and H5b were filed as one null; they are a division of labour, and they say which half is weak
 

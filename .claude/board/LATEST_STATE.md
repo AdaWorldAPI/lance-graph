@@ -76,6 +76,70 @@
   census is measured and NOT yet on the board — see the arc entry's
   *Un-recorded* bullet.
 - Arc entry: `PR_ARC_INVENTORY.md` under PR #1233.
+## 2026-09-14 (6) — the convergence, answered: pin them equal, do not delegate
+
+The operator's hypothesis was *"wiring duckdb through lance-graph-java might
+help both sides to converge."* It paid twice, and the second payment settles
+what "converge" should mean here.
+
+**First payment (already landed, `0bc5e8d`):** quack gained the accumulator
+gate `lgj-abi`'s `plan_lower` already had. That was a capability transfer in
+one direction, and it exposed a real correctness bug (`hoist_gate_subset`)
+that neither crate's own tests could have found, because quack had no
+accumulator to be wrong about.
+
+**Second payment (lance-graph-java `8ad1a1b` + `e9bf3aa`):** the two
+lowerings are now pinned equal by a differential —
+`native/lgj-abi/src/exports/tests/lowering_convergence.rs`, 3 tests, 5
+disables red.
+
+### The verdict: shared LAW, not a shared DEPENDENCY
+
+`lgj-abi` could retire `plan_lower` and delegate to `quack::lower`. It does
+not, and `lance-graph-quack` is wired as a **dev**-dependency to make that
+impossible by construction. The membrane — the `cdylib` Java's `Linker`
+loads — must not depend on a CONSUMER of the IR it serves; that dependency
+points the wrong way. What the two share is the law, and the differential is
+what keeps "one law, two implementations" a checkable statement instead of a
+comment.
+
+The three rules they share are not equally placed, and the differential made
+that legible:
+
+- **the accumulator gate** and **the AND/OR asymmetry** are facts about
+  `MaskOp::Pred { under }` — IR facts, which is why both lowerings must have
+  them and why a future shared helper would belong in `mask-risc` (which
+  already hosts `fuse`/`BoolExpr`) rather than in either consumer;
+- **the prefix rewrite** is NOT an IR fact. It is a property of the
+  all-ones-seeded FOLD, and in tree form it is not a rule at all:
+  `all_ones | p == all_ones` means an OR before the first AND never becomes
+  a node. `plan_lower` scans for the least AND index; the tree reading gets
+  the same answer for free. A shared helper would have had to carry it as a
+  special case for one caller.
+
+So the duplication is smaller than it looked: one genuinely shared pair of
+IR facts, and one artifact of `lgj-abi`'s own input shape. Not enough to
+justify a helper today — pinned instead, and the pin is what will tell us if
+that judgement ever stops holding.
+
+### Two dead fixtures, and one of them made a real defect invisible
+
+Both anti-vacuity bounds arrived as FLOORS (`>= 15` of 28, `>= 7` of 9) and
+both passed **exactly at their bound**, which is what a floor looks like
+when the fixture is dead. The values lane is `-150..=361`; the arity-4 arm
+appended `LT_I32(500)`, an always-true op, and the whole 16-vector arm
+collapsed to eight saturated 1000s plus eight verbatim copies of the
+arity-3 row. `LT_I32(200)` took it 15 → 21.
+
+The sharper half: `LT_I32`/`LE_I32` carried `500` in the per-opcode arm too.
+Measured, mis-mapping `LGJ_OP_LE_I32` to `Pred::LtI32` in `plan_lower` — one
+token, and precisely the defect class the file exists to catch — is **red at
+operand 300** (866 vs 865, one row) and **green at 500**, where both
+readings select all 1000 and the two arms agree on an answer neither
+computed correctly. Two of nine opcodes would have shipped untested while
+the file read as covering all nine. Both bounds are `assert_eq!` now, with
+the incident recorded at the assertion.
+
 ## 2026-09-14 (5) — quack A1: the accumulator gate, and the falsifier the matrix asked for
 
 Two changes in `crates/lance-graph-quack`, one of them a correctness fix the
