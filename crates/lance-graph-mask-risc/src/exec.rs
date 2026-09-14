@@ -39,30 +39,118 @@ use crate::ternlog_dispatch::{ternlog_dispatch, ternlog_dispatch_assign};
 use crate::value::{ExecError, Value};
 use crate::words_for;
 
-/// Caller-owned scratch: `slots` buffers of `words` u64 each. The ONLY
-/// allocation in this crate's execution path, made once by the caller and
-/// reused across every `execute`.
-#[derive(Debug, Clone)]
-pub struct Scratch {
-    words: usize,
-    slots: Vec<Box<[u64]>>,
-    /// One bit per slot, for `validate`'s read-before-write check. Allocated
-    /// ONCE with the arena and reused, which is what keeps that check linear
-    /// in op count without allocating on the hot path — see `WrittenSlots`.
-    /// Its own words are cleared per call, and only as many as the program
-    /// declares.
-    written_bits: Box<[u64]>,
+/// Where a [`Scratch`]'s words live: owned by the arena, or borrowed from a
+/// buffer the caller grows and keeps.
+///
+/// The borrowed form is what lets a consumer with a stable population — one
+/// `n_rows` per resource, reused call after call — hold ONE growing buffer and
+/// allocate nothing after the largest shape it will ever see. Allocation then
+/// depends on the MAXIMUM, never on the history: a smaller program carves less
+/// of the same buffer instead of asking for a new one.
+#[derive(Debug)]
+enum Store<'a> {
+    Owned(Box<[u64]>),
+    Borrowed(&'a mut [u64]),
 }
 
-impl Scratch {
-    /// Allocate `slots` zeroed buffers of `words` u64 each.
-    pub fn new(words: usize, slots: usize) -> Self {
+impl Store<'_> {
+    fn as_slice(&self) -> &[u64] {
+        match self {
+            Store::Owned(b) => b,
+            Store::Borrowed(b) => b,
+        }
+    }
+
+    fn as_mut_slice(&mut self) -> &mut [u64] {
+        match self {
+            Store::Owned(b) => b,
+            Store::Borrowed(b) => b,
+        }
+    }
+}
+
+/// Total `u64` a [`Scratch`] occupies for `slots` slots of `words` each: the
+/// slot arena first, then the read-before-write bitmap, in ONE region.
+///
+/// Public because it is the CALLER's sizing function — a consumer growing a
+/// buffer for [`Scratch::over`] asks this rather than reimplementing the
+/// layout, which is the only way the two can never disagree. `None` on
+/// overflow, never a wrapped answer that would silently under-allocate.
+pub fn scratch_words_for(words: usize, slots: usize) -> Option<usize> {
+    slots.checked_mul(words)?.checked_add(slots.div_ceil(64))
+}
+
+/// The slot arena as one op sees it: every slot EXCEPT the one being written.
+///
+/// This replaces a take/restore dance over `Vec<Box<[u64]>>`. With a flat
+/// arena the disjointness is `split_at_mut`, so the borrow checker proves what
+/// used to rest on a convention — that every `take` was paired with exactly
+/// one `restore`, and that no arm read the slot it had taken.
+struct Slots<'s> {
+    words: usize,
+    /// Slots `[0, hole)`.
+    left: &'s [u64],
+    /// Slots `(hole, slots)`.
+    right: &'s [u64],
+    hole: usize,
+}
+
+impl<'s> Slots<'s> {
+    /// Every slot, no hole — for the terminal, which reads and writes nothing.
+    fn whole(arena: &'s [u64], words: usize) -> Self {
         Self {
             words,
-            slots: (0..slots)
-                .map(|_| vec![0u64; words].into_boxed_slice())
-                .collect(),
-            written_bits: vec![0u64; slots.div_ceil(64)].into_boxed_slice(),
+            left: arena,
+            right: &[],
+            hole: usize::MAX,
+        }
+    }
+
+    fn get(&self, i: usize) -> &'s [u64] {
+        // Reading the hole is a bug in an aliasing arm, not a possible input:
+        // every `operand == dst` case is routed to an `_assign` form before it
+        // reaches here. Without this the index arithmetic below underflows,
+        // which panics either way — but says nothing about why.
+        debug_assert!(
+            i != self.hole,
+            "slot {i} was read while it is this op's write target"
+        );
+        if self.words == 0 {
+            return &[];
+        }
+        if i < self.hole {
+            &self.left[i * self.words..][..self.words]
+        } else {
+            &self.right[(i - self.hole - 1) * self.words..][..self.words]
+        }
+    }
+}
+
+/// Caller-owned scratch: `slots` buffers of `words` u64 each, laid out in one
+/// flat region so a borrowed backing store is possible at all.
+///
+/// The ONLY allocation in this crate's execution path, and with
+/// [`Scratch::over`] not even that — the caller supplies the words.
+#[derive(Debug)]
+pub struct Scratch<'a> {
+    words: usize,
+    slots: usize,
+    /// `slots * words` of slot arena, then `slots.div_ceil(64)` of
+    /// read-before-write bitmap ([`crate::reference::validate`] clears and
+    /// reuses the prefix it needs). One region, so ONE caller buffer serves
+    /// both and there is a single sizing question, not two.
+    store: Store<'a>,
+}
+
+impl Scratch<'static> {
+    /// Allocate `slots` zeroed buffers of `words` u64 each.
+    pub fn new(words: usize, slots: usize) -> Self {
+        let total = scratch_words_for(words, slots)
+            .expect("scratch size overflows usize; use `Scratch::over` with a checked buffer");
+        Self {
+            words,
+            slots,
+            store: Store::Owned(vec![0u64; total].into_boxed_slice()),
         }
     }
 
@@ -72,11 +160,11 @@ impl Scratch {
     /// program can ADDRESS more than [`MAX_SCRATCH_SLOTS`] slots; a larger
     /// count means a hand-built program lied about a PUBLIC field. This used
     /// to be a `debug_assert`, which release builds drop — leaving the lie to
-    /// reach `Scratch::new` and allocate unboundedly. The same bound is in
-    /// [`validate`], so a program refused here is refused identically by
-    /// `execute` and by the oracle; the check is repeated rather than
-    /// delegated because a caller sizes its arena BEFORE `execute` runs, and
-    /// a validation that happens afterwards cannot prevent this allocation.
+    /// reach the allocator unbounded. The same bound is in [`validate`], so a
+    /// program refused here is refused identically by `execute` and by the
+    /// oracle; the check is repeated rather than delegated because a caller
+    /// sizes its arena BEFORE `execute` runs, and a validation that happens
+    /// afterwards cannot prevent this allocation.
     pub fn for_program(program: &Program, n_rows: usize) -> Result<Self, ExecError> {
         if program.scratch_slots > MAX_SCRATCH_SLOTS {
             return Err(ExecError::ScratchSlotsUnaddressable {
@@ -87,6 +175,62 @@ impl Scratch {
         // needs 65,536 buffers, which fits `usize` on every supported target.
         Ok(Self::new(words_for(n_rows), program.scratch_slots as usize))
     }
+}
+
+impl<'a> Scratch<'a> {
+    /// Carve a scratch out of `buf`, allocating nothing.
+    ///
+    /// `buf` must hold at least [`scratch_words_for`]`(words, slots)`; it may
+    /// be LONGER, and everything past that prefix is never read and never
+    /// written — which is what lets a caller keep one buffer grown to the
+    /// largest shape it has seen and carve a smaller one out of its front.
+    ///
+    /// The excess is untouched rather than merely unused: `clear_tail` clears
+    /// only the tail WORD while the facade's `mask_not` zeroes every word past
+    /// it, and the two agree only on an exactly-sized slot. Slots are carved
+    /// exact here for that reason, not for tidiness.
+    pub fn over(buf: &'a mut [u64], words: usize, slots: usize) -> Result<Self, ExecError> {
+        if slots as u64 > u64::from(MAX_SCRATCH_SLOTS) {
+            return Err(ExecError::ScratchSlotsUnaddressable {
+                declared: u32::try_from(slots).unwrap_or(u32::MAX),
+            });
+        }
+        // Overflow is reported as a buffer that cannot be long enough,
+        // because that is what it is: no allocation of any size satisfies a
+        // layout whose extent does not fit `usize`.
+        let need = scratch_words_for(words, slots).ok_or(ExecError::ScratchBufferTooSmall {
+            need_words: usize::MAX,
+            have_words: buf.len(),
+        })?;
+        if buf.len() < need {
+            return Err(ExecError::ScratchBufferTooSmall {
+                need_words: need,
+                have_words: buf.len(),
+            });
+        }
+        let region = &mut buf[..need];
+        region.fill(0);
+        Ok(Self {
+            words,
+            slots,
+            store: Store::Borrowed(region),
+        })
+    }
+
+    /// [`Scratch::over`] sized for `program` over `n_rows` rows — the shape a
+    /// consumer calls once per evaluation against its own growing buffer.
+    pub fn over_for_program(
+        buf: &'a mut [u64],
+        program: &Program,
+        n_rows: usize,
+    ) -> Result<Self, ExecError> {
+        if program.scratch_slots > MAX_SCRATCH_SLOTS {
+            return Err(ExecError::ScratchSlotsUnaddressable {
+                declared: program.scratch_slots,
+            });
+        }
+        Self::over(buf, words_for(n_rows), program.scratch_slots as usize)
+    }
 
     /// Words per slot.
     pub fn words(&self) -> usize {
@@ -95,26 +239,51 @@ impl Scratch {
 
     /// Number of slots.
     pub fn slots(&self) -> usize {
-        self.slots.len()
+        self.slots
     }
 
     /// Borrow slot `i` (the way a caller reads back a [`Terminal::Keep`] result).
     pub fn slot(&self, i: u16) -> Option<&[u64]> {
-        self.slots.get(usize::from(i)).map(|b| &**b)
+        let i = usize::from(i);
+        if i >= self.slots {
+            return None;
+        }
+        Some(&self.store.as_slice()[i * self.words..][..self.words])
     }
 
-    /// Take slot `i` out of the arena so the remaining slots can be read while
-    /// it is written. `Box<[u64]>::default()` is a dangling empty slice — no
-    /// allocation — and [`Self::restore`] puts the buffer back.
-    fn take(&mut self, i: u16) -> Box<[u64]> {
-        core::mem::take(&mut self.slots[usize::from(i)])
+    /// Length of the slot arena; the bitmap starts here.
+    fn arena_len(&self) -> usize {
+        self.slots * self.words
     }
 
-    /// Put a buffer taken by [`Self::take`] back in its slot. Every `take`
-    /// is paired with exactly one `restore` on the same index — the arena is
-    /// only ever momentarily one buffer short, never permanently.
-    fn restore(&mut self, i: u16, buf: Box<[u64]>) {
-        self.slots[usize::from(i)] = buf;
+    /// The read-before-write bitmap [`validate`] owns.
+    fn written_mut(&mut self) -> &mut [u64] {
+        let arena = self.arena_len();
+        &mut self.store.as_mut_slice()[arena..]
+    }
+
+    /// Split off slot `dst` for writing, leaving every other slot readable.
+    fn split(&mut self, dst: u16) -> (&mut [u64], Slots<'_>) {
+        let words = self.words;
+        let hole = usize::from(dst);
+        let arena = self.arena_len();
+        let region = &mut self.store.as_mut_slice()[..arena];
+        let (left, rest) = region.split_at_mut(hole * words);
+        let (mid, right) = rest.split_at_mut(words);
+        (
+            mid,
+            Slots {
+                words,
+                left,
+                right,
+                hole,
+            },
+        )
+    }
+
+    /// Every slot, read-only.
+    fn all(&self) -> Slots<'_> {
+        Slots::whole(&self.store.as_slice()[..self.arena_len()], self.words)
     }
 }
 
@@ -198,7 +367,7 @@ const ANDNOT_IMM: u8 = 0x30;
 #[allow(clippy::too_many_arguments)]
 fn two_input(
     planes: &Planes<'_>,
-    s: &mut Scratch,
+    s: &mut Scratch<'_>,
     a: Operand,
     b: Operand,
     dst: u16,
@@ -213,22 +382,21 @@ fn two_input(
     // caller's input.
     debug_assert!(imm & 1 == 0, "two-input table {imm:#04x} is odd");
     let commutative = remap_imm(imm, [1, 0, 2]) == imm;
-    let mut x = s.take(dst);
+    let (x, rest) = s.split(dst);
     if a == d && b == d {
-        ternlog_self(remap_imm(imm, [0, 0, 0]), &mut x, planes.n_rows);
+        ternlog_self(remap_imm(imm, [0, 0, 0]), x, planes.n_rows);
     } else if a == d {
-        assign(&mut x, read(planes, s, b));
+        assign(x, read(planes, &rest, b));
     } else if b == d {
-        let aa = read(planes, s, a);
+        let aa = read(planes, &rest, a);
         if commutative {
-            assign(&mut x, aa);
+            assign(x, aa);
         } else {
-            ternlog_dispatch_assign(remap_imm(imm, [1, 0, 0]), &mut x, aa, aa);
+            ternlog_dispatch_assign(remap_imm(imm, [1, 0, 0]), x, aa, aa);
         }
     } else {
-        op(read(planes, s, a), read(planes, s, b), &mut x);
+        op(read(planes, &rest, a), read(planes, &rest, b), x);
     }
-    s.restore(dst, x);
 }
 
 /// `x = f(x, x, x)` — a table over ONE buffer collapses to two bits:
@@ -250,21 +418,10 @@ fn ternlog_self(imm: u8, x: &mut [u64], n_rows: usize) {
 
 /// Borrow an operand for reading (the scratch arena with `dst` already taken
 /// out, so a read of `dst`'s own slot here is a bug the aliasing arms prevent).
-fn read<'a>(planes: &Planes<'a>, s: &'a Scratch, o: Operand) -> &'a [u64] {
+fn read<'a>(planes: &Planes<'a>, s: &Slots<'a>, o: Operand) -> &'a [u64] {
     match o {
         Operand::Plane(i) => planes.masks[usize::from(i)],
-        Operand::Scratch(i) => {
-            // A slot taken out of the arena reads as EMPTY, and the facade
-            // words no-op on an empty slice — a wrong answer, not a crash.
-            // Every aliasing arm routes `operand == dst` to an `_assign` form
-            // before reaching here, so this can only fire if a future arm
-            // forgets to; it is cheaper to assert than to debug.
-            debug_assert!(
-                !s.slots[usize::from(i)].is_empty() || s.words == 0,
-                "slot {i} was read while taken out of the arena"
-            );
-            &s.slots[usize::from(i)]
-        }
+        Operand::Scratch(i) => s.get(usize::from(i)),
     }
 }
 
@@ -294,7 +451,13 @@ fn lane_u64<'a>(planes: &Planes<'a>, lane: u16) -> &'a [u64] {
 
 /// One predicate pass into `dst`: the ungated facade member, or the `_under`
 /// member when a gate is present (cost then follows the gate's live words).
-fn run_pred(planes: &Planes<'_>, s: &Scratch, pred: Pred, under: Option<Operand>, dst: &mut [u64]) {
+fn run_pred<'a>(
+    planes: &Planes<'a>,
+    s: &Slots<'a>,
+    pred: Pred,
+    under: Option<Operand>,
+    dst: &mut [u64],
+) {
     match (pred, under) {
         (Pred::GtI32 { lane, t }, None) => gt_i32_to_mask(lane_i32(planes, lane), t, dst),
         (Pred::GtI32 { lane, t }, Some(u)) => {
@@ -382,7 +545,7 @@ fn run_pred(planes: &Planes<'_>, s: &Scratch, pred: Pred, under: Option<Operand>
 pub fn execute(
     program: &Program,
     planes: &Planes<'_>,
-    scratch: &mut Scratch,
+    scratch: &mut Scratch<'_>,
     out: Option<&mut [i32]>,
 ) -> Result<Value, ExecError> {
     // BEFORE the capacity check, not after: an over-declared count is a lie
@@ -397,10 +560,10 @@ pub fn execute(
             declared: program.scratch_slots,
         });
     }
-    if scratch.slots.len() < program.scratch_slots as usize {
+    if scratch.slots() < program.scratch_slots as usize {
         return Err(ExecError::ScratchTooSmall {
             need: program.scratch_slots,
-            have: scratch.slots.len(),
+            have: scratch.slots(),
         });
     }
     let words = words_for(planes.n_rows);
@@ -414,16 +577,15 @@ pub fn execute(
         program,
         planes,
         out.as_deref().map(<[i32]>::len),
-        &mut scratch.written_bits,
+        scratch.written_mut(),
     )?;
     let n_rows = planes.n_rows;
 
     for op in &program.ops {
         match *op {
             MaskOp::Pred { pred, under, dst } => {
-                let mut d = scratch.take(dst);
-                run_pred(planes, scratch, pred, under, &mut d);
-                scratch.restore(dst, d);
+                let (d, rest) = scratch.split(dst);
+                run_pred(planes, &rest, pred, under, d);
             }
             MaskOp::And { a, b, dst } => two_input(
                 planes,
@@ -459,24 +621,23 @@ pub fn execute(
                 ANDNOT_IMM,
             ),
             MaskOp::Not { a, dst } => {
+                let (d, rest) = scratch.split(dst);
                 if a == Operand::Scratch(dst) {
-                    mask_not_assign(&mut scratch.slots[usize::from(dst)], n_rows);
+                    mask_not_assign(d, n_rows);
                 } else {
-                    let mut d = scratch.take(dst);
-                    mask_not(read(planes, scratch, a), n_rows, &mut d);
-                    scratch.restore(dst, d);
+                    mask_not(read(planes, &rest, a), n_rows, d);
                 }
             }
             MaskOp::Ternlog { imm, a, b, c, dst } => {
                 let d = Operand::Scratch(dst);
-                let mut x = scratch.take(dst);
+                let (x, rest) = scratch.split(dst);
                 if a != d && b != d && c != d {
                     ternlog_dispatch(
                         imm,
-                        read(planes, scratch, a),
-                        read(planes, scratch, b),
-                        read(planes, scratch, c),
-                        &mut x,
+                        read(planes, &rest, a),
+                        read(planes, &rest, b),
+                        read(planes, &rest, c),
+                        x,
                     );
                 } else {
                     // `dst` is an input: the in-place form takes it as `x`,
@@ -500,48 +661,48 @@ pub fn execute(
                     match (others[0], others[1]) {
                         (Some(y), Some(z)) => ternlog_dispatch_assign(
                             imm2,
-                            &mut x,
-                            read(planes, scratch, y),
-                            read(planes, scratch, z),
+                            x,
+                            read(planes, &rest, y),
+                            read(planes, &rest, z),
                         ),
                         (Some(y), None) => {
-                            let yy = read(planes, scratch, y);
-                            ternlog_dispatch_assign(imm2, &mut x, yy, yy)
+                            let yy = read(planes, &rest, y);
+                            ternlog_dispatch_assign(imm2, x, yy, yy)
                         }
-                        _ => ternlog_self(imm2, &mut x, n_rows),
+                        _ => ternlog_self(imm2, x, n_rows),
                     }
                 }
                 if imm & 1 == 1 {
-                    clear_tail(&mut x, n_rows);
+                    clear_tail(x, n_rows);
                 }
-                scratch.restore(dst, x);
             }
         }
     }
 
+    let all = scratch.all();
     Ok(match program.terminal {
         Terminal::Count { mask } => {
-            Value::Count(popcount_batch_u64(read(planes, scratch, mask)) as usize)
+            Value::Count(popcount_batch_u64(read(planes, &all, mask)) as usize)
         }
-        Terminal::Any { mask } => Value::Bool(mask_any(read(planes, scratch, mask))),
-        Terminal::All { mask } => Value::Bool(mask_all(read(planes, scratch, mask), n_rows)),
+        Terminal::Any { mask } => Value::Bool(mask_any(read(planes, &all, mask))),
+        Terminal::All { mask } => Value::Bool(mask_all(read(planes, &all, mask), n_rows)),
         Terminal::MaskedSumI32 { mask, lane } => Value::SumI64(masked_sum_i32(
             lane_i32(planes, lane),
-            read(planes, scratch, mask),
+            read(planes, &all, mask),
         )),
         Terminal::MaskedMinI32 { mask, lane } => Value::OptI32(masked_min_i32(
             lane_i32(planes, lane),
-            read(planes, scratch, mask),
+            read(planes, &all, mask),
         )),
         Terminal::MaskedMaxI32 { mask, lane } => Value::OptI32(masked_max_i32(
             lane_i32(planes, lane),
-            read(planes, scratch, mask),
+            read(planes, &all, mask),
         )),
         Terminal::BlendI32 { mask, then, els } => {
             // `validate` already refused a missing or mis-sized `out`.
             if let Some(o) = out {
                 blend_i32(
-                    read(planes, scratch, mask),
+                    read(planes, &all, mask),
                     lane_i32(planes, then),
                     lane_i32(planes, els),
                     o,
@@ -551,6 +712,230 @@ pub fn execute(
         }
         Terminal::Keep { mask } => Value::Mask(mask),
     })
+}
+
+#[cfg(test)]
+mod borrowed_scratch_tests {
+    use super::*;
+    use crate::ir::{LaneRef, MaskOp, Operand, Planes, Pred, Program, Terminal};
+
+    /// A three-op program that touches three slots, every aliasing shape
+    /// exercised by the differential suite already — this only needs the
+    /// arena to be non-trivial.
+    fn fixture(n: usize) -> (Vec<u64>, Vec<i32>, Program) {
+        let mut seed = 0x5EEDu64;
+        let mut lcg = || {
+            seed = seed
+                .wrapping_mul(6364136223846793005)
+                .wrapping_add(1442695040888963407);
+            seed >> 11
+        };
+        let mut mask: Vec<u64> = (0..words_for(n)).map(|_| lcg() & lcg()).collect();
+        if !n.is_multiple_of(64) && !mask.is_empty() {
+            let last = mask.len() - 1;
+            mask[last] &= (1u64 << (n % 64)) - 1;
+        }
+        let lane: Vec<i32> = (0..n).map(|_| (lcg() % 2000) as i32 - 1000).collect();
+        let p = Program::new(
+            vec![
+                MaskOp::Pred {
+                    pred: Pred::GtI32 { lane: 0, t: 100 },
+                    under: None,
+                    dst: 0,
+                },
+                MaskOp::Pred {
+                    pred: Pred::LtI32 { lane: 0, t: 800 },
+                    under: Some(Operand::Scratch(0)),
+                    dst: 1,
+                },
+                MaskOp::Ternlog {
+                    imm: 0xE8,
+                    a: Operand::Plane(0),
+                    b: Operand::Scratch(0),
+                    c: Operand::Scratch(1),
+                    dst: 2,
+                },
+            ],
+            Terminal::Count {
+                mask: Operand::Scratch(2),
+            },
+        );
+        (mask, lane, p)
+    }
+
+    fn run_owned(n: usize) -> (Value, Vec<Vec<u64>>) {
+        let (mask, lane, p) = fixture(n);
+        let masks: [&[u64]; 1] = [&mask];
+        let lanes = [LaneRef::I32(&lane)];
+        let planes = Planes {
+            n_rows: n,
+            masks: &masks,
+            lanes: &lanes,
+        };
+        let mut s = Scratch::for_program(&p, n).expect("addressable");
+        let v = execute(&p, &planes, &mut s, None).expect("runs");
+        let slots = (0..s.slots())
+            .map(|i| s.slot(i as u16).unwrap().to_vec())
+            .collect();
+        (v, slots)
+    }
+
+    /// FAILS IF: the borrowed arena computes anything different from the owned
+    /// one, OR `Scratch::over` reads or writes a single word past the layout it
+    /// was asked for — the poison is `u64::MAX`, the value most likely to
+    /// corrupt a mask if it leaked into one.
+    #[test]
+    fn a_borrowed_arena_matches_an_owned_one_and_never_touches_the_excess() {
+        for n in [0usize, 1, 63, 64, 65, 999, 4097] {
+            let (mask, lane, p) = fixture(n);
+            let masks: [&[u64]; 1] = [&mask];
+            let lanes = [LaneRef::I32(&lane)];
+            let planes = Planes {
+                n_rows: n,
+                masks: &masks,
+                lanes: &lanes,
+            };
+
+            let need = scratch_words_for(words_for(n), p.scratch_slots as usize).unwrap();
+            // twice the room, every excess word poisoned
+            let mut buf = vec![u64::MAX; need * 2 + 16];
+            let excess_start = need;
+            let mut s = Scratch::over(&mut buf, words_for(n), p.scratch_slots as usize)
+                .expect("buffer is long enough");
+            let got = execute(&p, &planes, &mut s, None).expect("runs");
+            let got_slots: Vec<Vec<u64>> = (0..s.slots())
+                .map(|i| s.slot(i as u16).unwrap().to_vec())
+                .collect();
+            drop(s);
+
+            let (want, want_slots) = run_owned(n);
+            assert_eq!(got, want, "n={n}: borrowed result differs from owned");
+            assert_eq!(got_slots, want_slots, "n={n}: borrowed slots differ");
+            assert!(
+                buf[excess_start..].iter().all(|&w| w == u64::MAX),
+                "n={n}: Scratch::over touched {} words past its layout",
+                buf[excess_start..]
+                    .iter()
+                    .filter(|&&w| w != u64::MAX)
+                    .count()
+            );
+        }
+    }
+
+    /// FAILS IF: a slot the program never writes reads back as whatever the
+    /// caller's buffer happened to hold, instead of as zero.
+    ///
+    /// This is the one thing `Scratch::over`'s zero-fill actually buys, and
+    /// nothing else in the suite could see it: every other fixture declares
+    /// exactly the slots its ops write, so the arena is fully overwritten
+    /// before anything reads it and the fill is inert. A program may
+    /// OVER-declare — `validate` rejects only under-declaring — and then
+    /// `slot()` is a public read of a slot no op touched. Owned and borrowed
+    /// must be interchangeable there too, or a consumer that swaps one for
+    /// the other gets different answers out of the same program.
+    ///
+    /// Found by a disable run: removing the fill failed no test at all.
+    #[test]
+    fn a_slot_the_program_never_writes_reads_as_zero_from_either_arena() {
+        let n = 200usize;
+        let (mask, lane, mut p) = fixture(n);
+        // Over-declare: the ops touch slots 0..=2, the program claims five.
+        assert_eq!(p.scratch_slots, 3, "fixture writes exactly three slots");
+        p.scratch_slots = 5;
+
+        let masks: [&[u64]; 1] = [&mask];
+        let lanes = [LaneRef::I32(&lane)];
+        let planes = Planes {
+            n_rows: n,
+            masks: &masks,
+            lanes: &lanes,
+        };
+
+        let mut owned = Scratch::for_program(&p, n).expect("addressable");
+        execute(&p, &planes, &mut owned, None).expect("runs");
+
+        let need = scratch_words_for(words_for(n), 5).unwrap();
+        let mut buf = vec![u64::MAX; need];
+        let mut borrowed = Scratch::over(&mut buf, words_for(n), 5).expect("fits");
+        execute(&p, &planes, &mut borrowed, None).expect("runs");
+
+        for i in 3..5u16 {
+            let o = owned.slot(i).expect("declared");
+            let b = borrowed.slot(i).expect("declared");
+            assert!(
+                o.iter().all(|&w| w == 0),
+                "slot {i} of an OWNED arena must be zero"
+            );
+            assert_eq!(
+                o, b,
+                "slot {i}: owned and borrowed disagree on an unwritten slot"
+            );
+        }
+    }
+
+    /// FAILS IF: a short buffer is carved anyway — which would hand `execute` an
+    /// arena whose last slot overlaps the read-before-write bitmap.
+    #[test]
+    fn a_buffer_one_word_short_is_refused_and_says_both_numbers() {
+        let need = scratch_words_for(4, 3).unwrap();
+        assert_eq!(need, 3 * 4 + 1, "layout is slots*words then the bitmap");
+        let mut buf = vec![0u64; need - 1];
+        assert_eq!(
+            Scratch::over(&mut buf, 4, 3).err(),
+            Some(ExecError::ScratchBufferTooSmall {
+                need_words: need,
+                have_words: need - 1,
+            })
+        );
+        // can-it-stay-silent: exactly enough is accepted
+        let mut exact = vec![0u64; need];
+        assert!(Scratch::over(&mut exact, 4, 3).is_ok());
+    }
+
+    /// FAILS IF: one buffer cannot serve a SMALLER shape after a larger one —
+    /// the property that makes allocation a function of the maximum rather than
+    /// of the population's history, which is the entire reason this constructor
+    /// exists. A cache keyed by exact size passes every same-size test and
+    /// fails this one.
+    #[test]
+    fn one_buffer_grown_once_serves_every_smaller_shape() {
+        let big = 4097usize;
+        let (_, _, p_big) = fixture(big);
+        let cap = scratch_words_for(words_for(big), p_big.scratch_slots as usize).unwrap();
+        let mut buf = vec![0u64; cap];
+
+        // descending, so every call after the first carves a strict prefix
+        for n in [4097usize, 999, 65, 64, 1, 0] {
+            let (mask, lane, p) = fixture(n);
+            let masks: [&[u64]; 1] = [&mask];
+            let lanes = [LaneRef::I32(&lane)];
+            let planes = Planes {
+                n_rows: n,
+                masks: &masks,
+                lanes: &lanes,
+            };
+            let mut s = Scratch::over_for_program(&mut buf, &p, n).expect("prefix fits");
+            let got = execute(&p, &planes, &mut s, None).expect("runs");
+            drop(s);
+            let (want, _) = run_owned(n);
+            assert_eq!(got, want, "n={n} against a buffer sized for {big}");
+        }
+    }
+
+    /// FAILS IF: `scratch_words_for` wraps instead of reporting that no buffer
+    /// can be long enough. A wrapped product would make `over` accept a tiny
+    /// buffer for an enormous layout.
+    #[test]
+    fn an_overflowing_layout_has_no_size_rather_than_a_wrapped_one() {
+        assert_eq!(scratch_words_for(usize::MAX, 2), None);
+        assert_eq!(scratch_words_for(2, usize::MAX), None);
+        // and the constructor surfaces it as a buffer that cannot suffice
+        let mut buf = [0u64; 8];
+        assert!(matches!(
+            Scratch::over(&mut buf, usize::MAX, 2),
+            Err(ExecError::ScratchBufferTooSmall { .. })
+        ));
+    }
 }
 
 #[cfg(test)]

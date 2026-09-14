@@ -6,10 +6,14 @@
 //! touches `ndarray`, [`fuse`] the Boolean-tree → ternlog fuser, and
 //! [`ternlog_dispatch`] the GENERATED 256-arm bridge from a runtime
 //! immediate to the const-generic facade word. The differential suite
-//! (`tests/differential.rs`) diffs executor against oracle on whichever
-//! backend the test binary is built for — AVX2 (`x86-64-v3`) in CI, AVX-512
-//! (`-v4`) locally on 2026-09-14; NEON, WASM and scalar are unexercised;
-//! `tests/no_alloc.rs` pins the zero-allocation law. Still absent, named:
+//! (`tests/differential.rs`) diffs executor against oracle, a claim that is
+//! **backend-independent by construction** — this crate names no ISA (A3,
+//! enforced by `the_crate_names_no_isa`), so there is no per-realization
+//! behaviour here to cover. `ndarray` IS the SIMD polyfill: which backend a
+//! word lowers to is its question, answered by its own parity tests, and
+//! running this suite under another realization would test ndarray through a
+//! proxy rather than test this crate. `tests/no_alloc.rs` pins the
+//! zero-allocation law. Still absent, named:
 //! `hop` (PR5); a strided `Operand` — the gap is in THIS IR, not in T1:
 //! `ndarray::simd` already ships `ternary_match_strided_to_mask`,
 //! `eq_u32_strided_to_mask` and `masked_strided_group_sum`, and nothing here
@@ -99,7 +103,7 @@ pub mod reference;
 pub mod ternlog_dispatch;
 pub mod value;
 
-pub use exec::{execute, materialize_rows, Scratch};
+pub use exec::{execute, materialize_rows, scratch_words_for, Scratch};
 pub use fuse::{fuse, fuse_program, ternlog_imm, BoolExpr, FuseError, Fused};
 pub use ir::{
     LaneRef, MaskOp, Operand, Planes, Pred, Program, Terminal, MASKED_SUM_I32_MAX_ROWS,
