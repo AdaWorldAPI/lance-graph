@@ -6,6 +6,7 @@ members = [
     "crates/lance-graph-planner",
     "crates/lance-graph-contract",
     "crates/lance-graph-mask-risc",
+    "crates/lance-graph-quack",
     "crates/neural-debug",
     "crates/lance-graph-callcenter",
     "crates/lance-graph-archetype",

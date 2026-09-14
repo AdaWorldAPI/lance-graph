@@ -1,0 +1,15 @@
+[package]
+name = "lance-graph-quack"
+version = "0.1.0"
+edition = "2021"
+publish = false
+description = "A columnar query surface whose OPERATORS ARE MASKING OPS over the V3 SoA. DuckDB's shape — scan, filter, aggregate — with every operator lowering to a lance-graph-mask-risc Program and, under it, ndarray::simd's masking algebra. No expression interpreter, no row iterator, no second evaluator."
+
+# The ONE evaluator. This crate LOWERS to `Program`; it never evaluates one —
+# a `match` here that computed anything would be the duplicate evaluator the
+# whole arc exists to avoid. No ndarray dep for the same reason: the masking
+# algebra is reached THROUGH mask-risc, never beside it.
+[dependencies]
+lance-graph-mask-risc = { path = "../lance-graph-mask-risc" }
+
+[dev-dependencies]
