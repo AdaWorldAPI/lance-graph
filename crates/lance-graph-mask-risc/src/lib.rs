@@ -55,7 +55,9 @@
 //! DuckDB's three-valued AND/OR collapses to Boolean algebra), `CASE`-shaped
 //! conditional selection ([`Terminal::BlendI32`]), and the aggregates
 //! `COUNT`, `EXISTS`, `MIN`, `MAX`, `SUM` (the latter widened to `i64` —
-//! carry-safe for every `i32` input, matching DuckDB's never-wrap contract).
+//! carry-safe for every `i32` input up to [`ir::MASKED_SUM_I32_MAX_ROWS`] rows,
+//! beyond which an executor rejects rather than wraps — DuckDB's never-wrap
+//! contract, with the bound stated instead of assumed).
 //! Nothing else — no strings, no dictionaries, no ORDER BY, no bag-semantics
 //! joins.
 
@@ -69,10 +71,28 @@
 // build, which both the DuckDB matrix and the Cypher lowering plan recorded.
 pub mod ir;
 
-pub use ir::{LaneRef, MaskOp, Operand, Planes, Pred, Program, Terminal};
+pub use ir::{LaneRef, MaskOp, Operand, Planes, Pred, Program, Terminal, MASKED_SUM_I32_MAX_ROWS};
 
 /// Number of `u64` words a mask over `n_rows` occupies.
 #[inline]
 pub fn words_for(n_rows: usize) -> usize {
     n_rows.div_ceil(64)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::words_for;
+
+    /// FAILS IF: `words_for` floors instead of ceils, or counts a word for
+    /// zero rows — the boundaries a `/ 64` or a `+ 1` would each get wrong.
+    #[test]
+    fn words_for_rounds_up_to_whole_words_and_zero_rows_need_none() {
+        assert_eq!(words_for(0), 0);
+        assert_eq!(words_for(1), 1);
+        assert_eq!(words_for(63), 1);
+        assert_eq!(words_for(64), 1);
+        assert_eq!(words_for(65), 2);
+        assert_eq!(words_for(128), 2);
+        assert_eq!(words_for(129), 3);
+    }
 }

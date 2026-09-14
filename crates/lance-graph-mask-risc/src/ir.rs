@@ -132,7 +132,10 @@ pub enum Terminal {
     Any { mask: Operand },
     /// Whether every row is set in `mask`.
     All { mask: Operand },
-    /// Σ `lane[i]` over set bits, widened to `i64`.
+    /// Σ `lane[i]` over set bits, widened to `i64`. Carry-safe only while
+    /// `n_rows <= `[`MASKED_SUM_I32_MAX_ROWS`]: an `i64` holds `2^32` copies
+    /// of `i32::MIN` or `i32::MAX` exactly, and one more can wrap. An
+    /// executor rejects this terminal on a wider plane rather than wrap.
     MaskedSumI32 { mask: Operand, lane: u16 },
     /// min `lane[i]` over set bits (`None` if empty).
     MaskedMinI32 { mask: Operand, lane: u16 },
@@ -147,6 +150,14 @@ pub enum Terminal {
     Keep { mask: Operand },
 }
 
+/// The widest plane [`Terminal::MaskedSumI32`] is defined on: `2^32` rows.
+/// The binding side is the NEGATIVE one: `2^32 · i32::MIN = −2^63 = i64::MIN`
+/// exactly, and one more row of `i32::MIN` wraps. The positive side has two
+/// rows of slack (`2^32 + 2` copies of `i32::MAX` still fit), so `2^32` is the
+/// tight bound, not a round-number convenience. The IR states the bound; the
+/// executor enforces it (`n_rows` is a plain `usize` on [`Planes`]).
+pub const MASKED_SUM_I32_MAX_ROWS: usize = 1 << 32;
+
 /// A straight-line program: ops in order, then one terminal.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Program {
@@ -154,10 +165,15 @@ pub struct Program {
     pub ops: Vec<MaskOp>,
     /// The single result.
     pub terminal: Terminal,
-    /// How many scratch slots the program touches (`max dst + 1`). `u32`,
-    /// not `u16`: a `dst` of `u16::MAX` is the 65,536th slot, and 65,536
-    /// does not fit the index type — an executor sizing its arena from this
-    /// field must be able to read the count the widest `dst` implies.
+    /// How many scratch slots the program touches: `max slot + 1` over EVERY
+    /// `Operand::Scratch` the program names — destinations, sources, a
+    /// `Pred`'s gate, and the terminal's operands alike. A slot that is only
+    /// ever read (a terminal over a slot no op wrote, a gate the caller
+    /// pre-filled) still needs a buffer, so sizing from destinations alone
+    /// under-reports. `u32`, not `u16`: slot `u16::MAX` is the 65,536th, and
+    /// 65,536 does not fit the index type — an executor sizing its arena
+    /// from this field must be able to read the count the widest slot
+    /// implies.
     pub scratch_slots: u32,
 }
 
@@ -165,20 +181,51 @@ impl Program {
     /// Assemble a program, computing its scratch requirement from the ops.
     pub fn new(ops: Vec<MaskOp>, terminal: Terminal) -> Self {
         let mut slots = 0u32;
+        // widened, never wrapped or saturated: slot `u16::MAX` is the
+        // 65,536th and needs 65,536 buffers — a `u16` count cannot say so
+        // (wrapping reported 0; saturating reported 65,535, one short)
+        let mut touch = |o: Operand| {
+            if let Operand::Scratch(i) = o {
+                slots = slots.max(u32::from(i) + 1);
+            }
+        };
         for op in &ops {
-            let d = match *op {
-                MaskOp::Pred { dst, .. }
-                | MaskOp::And { dst, .. }
-                | MaskOp::Or { dst, .. }
-                | MaskOp::Xor { dst, .. }
-                | MaskOp::AndNot { dst, .. }
-                | MaskOp::Not { dst, .. }
-                | MaskOp::Ternlog { dst, .. } => dst,
-            };
-            // widened, never wrapped or saturated: `dst == u16::MAX` is slot
-            // 65,535 and needs 65,536 buffers — a `u16` count cannot say so
-            // (wrapping reported 0; saturating reported 65,535, one short)
-            slots = slots.max(u32::from(d) + 1);
+            match *op {
+                MaskOp::Pred { under, dst, .. } => {
+                    if let Some(u) = under {
+                        touch(u);
+                    }
+                    touch(Operand::Scratch(dst));
+                }
+                MaskOp::And { a, b, dst }
+                | MaskOp::Or { a, b, dst }
+                | MaskOp::Xor { a, b, dst }
+                | MaskOp::AndNot { a, b, dst } => {
+                    touch(a);
+                    touch(b);
+                    touch(Operand::Scratch(dst));
+                }
+                MaskOp::Not { a, dst } => {
+                    touch(a);
+                    touch(Operand::Scratch(dst));
+                }
+                MaskOp::Ternlog { a, b, c, dst, .. } => {
+                    touch(a);
+                    touch(b);
+                    touch(c);
+                    touch(Operand::Scratch(dst));
+                }
+            }
+        }
+        match terminal {
+            Terminal::Count { mask }
+            | Terminal::Any { mask }
+            | Terminal::All { mask }
+            | Terminal::MaskedSumI32 { mask, .. }
+            | Terminal::MaskedMinI32 { mask, .. }
+            | Terminal::MaskedMaxI32 { mask, .. }
+            | Terminal::BlendI32 { mask, .. }
+            | Terminal::Keep { mask } => touch(mask),
         }
         Self {
             ops,
@@ -254,6 +301,65 @@ mod tests {
             },
         );
         assert_eq!(q.scratch_slots, 0);
+    }
+
+    /// FAILS IF: `scratch_slots` counts destinations only. A terminal that
+    /// reads slot 7 with no ops, a source operand above every `dst`, and a
+    /// `Pred` gate above every `dst` each name a buffer the arena must hold.
+    #[test]
+    fn scratch_slots_count_read_only_slots_too() {
+        let terminal_only = Program::new(
+            vec![],
+            Terminal::Keep {
+                mask: Operand::Scratch(7),
+            },
+        );
+        assert_eq!(terminal_only.scratch_slots, 8);
+        let source_above_dst = Program::new(
+            vec![MaskOp::And {
+                a: Operand::Scratch(9),
+                b: Operand::Plane(0),
+                dst: 1,
+            }],
+            Terminal::Count {
+                mask: Operand::Scratch(1),
+            },
+        );
+        assert_eq!(source_above_dst.scratch_slots, 10);
+        let gate_above_dst = Program::new(
+            vec![MaskOp::Pred {
+                pred: Pred::GtI32 { lane: 0, t: 0 },
+                under: Some(Operand::Scratch(11)),
+                dst: 0,
+            }],
+            Terminal::Any {
+                mask: Operand::Scratch(0),
+            },
+        );
+        assert_eq!(gate_above_dst.scratch_slots, 12);
+        // and a program that only ever names PLANES needs no scratch at all
+        let planes_only = Program::new(
+            vec![],
+            Terminal::Count {
+                mask: Operand::Plane(3),
+            },
+        );
+        assert_eq!(planes_only.scratch_slots, 0);
+    }
+
+    /// FAILS IF: the stated bound is not the real one. At the bound both
+    /// extremes fit an `i64`; one row past it a lane of `i32::MIN` wraps
+    /// (the negative side binds — the positive side still fits for two more
+    /// rows, which is why the first draft of this test, written against
+    /// `i32::MAX`, was red: the bound it asserted was not the tight one).
+    #[test]
+    fn masked_sum_bound_is_exactly_where_i64_stops_fitting() {
+        let n = MASKED_SUM_I32_MAX_ROWS as i128;
+        assert!(n * i128::from(i32::MAX) <= i128::from(i64::MAX));
+        assert!(n * i128::from(i32::MIN) >= i128::from(i64::MIN));
+        assert!((n + 1) * i128::from(i32::MIN) < i128::from(i64::MIN));
+        assert!((n + 2) * i128::from(i32::MAX) <= i128::from(i64::MAX));
+        assert!((n + 3) * i128::from(i32::MAX) > i128::from(i64::MAX));
     }
 
     /// FAILS IF: the histogram miscounts a kind, or `mask_passes` counts a
