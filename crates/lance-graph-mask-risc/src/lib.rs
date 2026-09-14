@@ -103,7 +103,7 @@ pub mod reference;
 pub mod ternlog_dispatch;
 pub mod value;
 
-pub use exec::{execute, materialize_rows, Scratch};
+pub use exec::{execute, materialize_rows, scratch_words_for, Scratch};
 pub use fuse::{fuse, fuse_program, ternlog_imm, BoolExpr, FuseError, Fused};
 pub use ir::{
     LaneRef, MaskOp, Operand, Planes, Pred, Program, Terminal, MASKED_SUM_I32_MAX_ROWS,

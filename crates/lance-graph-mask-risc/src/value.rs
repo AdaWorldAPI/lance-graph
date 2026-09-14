@@ -42,6 +42,18 @@ pub enum ExecError {
     /// The CALLER's scratch has fewer slots than
     /// [`crate::Program::scratch_slots`]. `have` is the caller's slot count.
     ScratchTooSmall { need: u32, have: usize },
+    /// The buffer handed to [`crate::Scratch::over`] is shorter than the
+    /// layout needs, reported in WORDS.
+    ///
+    /// Distinct from [`Self::ScratchTooSmall`], which counts SLOTS. A buffer
+    /// can be long enough in words for the wrong number of slots, or hold
+    /// enough slots at the wrong width, and reporting one number for both
+    /// would hand the caller a figure it cannot size from. The needed value
+    /// is exactly [`crate::scratch_words_for`].
+    ScratchBufferTooSmall {
+        need_words: usize,
+        have_words: usize,
+    },
     /// The PROGRAM names a scratch slot beyond its own declared
     /// `scratch_slots` — a hand-built program whose count does not cover its
     /// operands (`Program::new` computes a covering count, so this reports a
