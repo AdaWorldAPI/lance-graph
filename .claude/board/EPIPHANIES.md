@@ -411,6 +411,153 @@ draft cited the verdict-map row one line off and stamped it "orchestrator-verifi
 would have added the new verdict to the wrong warden. The overclaim reviewer caught it.
 That is the argument for the reviewer phase being non-optional, recorded because the next
 session will be tempted to skip it.
+## 2026-09-09 — E-SIGMA-CHAIN-IS-A-PROVEN-UG-SURVIVAL-AND-PHI-IS-A-HOMONYM-1 — Ω→Δ→Φ→Θ→Λ is the cleanest confirmed Universal-Grammar lineage found, and `sigma_chain::Phi` is a different symbol than `bgz_tensor::gamma_phi`
+
+**Status:** FOSSIL FINDING / CORRECTION (session archaeology, operator-requested
+follow-up to the Σ12/Fn_P(S,O)/4096 discovery pass; confirms and narrows a claim
+made earlier in that pass). Source-grounded on both ends of the lineage.
+
+**The finding.** `ada-consciousness/universal_grammar/UNIVERSAL_GRAMMAR_v1.1.md:52-57`
+defines five node-type letters for the `#Σ.domain.type.layer` sigma-address
+scheme:
+
+```
+Ω (Omega) = Observation nodes
+Δ (Delta) = Insight nodes
+Φ (Phi)   = Belief nodes
+Θ (Theta) = Integration nodes
+Λ (Lambda) = Trajectory nodes
+```
+
+This ladder **survives essentially verbatim** into
+`lance-graph/crates/lance-graph-planner/src/thinking/sigma_chain.rs:1-68`:
+
+```
+Ω → Δ → Φ → Θ → Λ
+Omega=Observation(conf 0.9) → Delta=Insight(0.5) → Phi=Belief(0.7-0.85)
+  → Theta=Integration → Lambda=Trajectory
+```
+
+Same five letters, same order, same rough semantics (belief/integration/
+trajectory carried across), now with confidence priors and Rung/complexity-tier
+numbers attached (Rung 2/3/4/5/5+, `metacognitive_tier()` 2-6). This is the
+**cleanest, most direct, most source-grounded lineage found across the entire
+Σ12/Fn_P(S,O)/4096 archaeology** — cleaner than the verb-grammar (Σ12/144)
+thread, which was repudiated once (2025-12-27) and resurrected inconsistently
+(2026-04). No repudiation or contradiction was found for the Ω/Δ/Φ/Θ/Λ ladder;
+it reads as continuous doctrine from `UNIVERSAL_GRAMMAR_v1.1.md` (2025-12-30)
+straight through to the shipped Rust.
+
+**Correction to the same-session report.** The original discovery report
+(this session, prior turn) stated *"φ does not appear at all in
+`ada-consciousness/cognition|crystal|geometry`"* and treated φ's only modern
+presence as `bgz_tensor::gamma_phi` (a golden-ratio **numeric encoding scale**,
+unrelated to cognition). Both halves were too narrowly scoped: the negative
+claim searched the wrong directories (φ's real UG home is
+`universal_grammar/`, never `cognition/crystal/geometry`), and the positive
+claim missed `sigma_chain::Phi` entirely because it lives in
+`lance-graph-planner`, not in any of the three ada-consciousness directories
+originally grepped.
+
+**The corrected picture: two unrelated φ's coexist in the modern codebase,
+and they must not be conflated.**
+
+| Symbol | Meaning | Ancestry | Type |
+|---|---|---|---|
+| `sigma_chain::SigmaStage::Phi` | Belief node (evaluated proposition, confidence 0.7-0.85) | Direct: `UNIVERSAL_GRAMMAR_v1.1.md` Φ=Belief | Epistemic node-type enum variant |
+| `bgz_tensor::gamma_phi` | Golden-ratio numeric encode/decode scale | None found in Ada lineage | Codec / numeric utility |
+
+This is the same shape of naming collision already on the board for `α`
+(arousal / EMA coefficient / splatting-alpha, three homonyms, no shared
+ancestry) — φ now has its own two-way version, except here one of the two
+readings (`sigma_chain::Phi`) genuinely *does* descend from Universal Grammar,
+so the fix is not "both are fossils," it is "know which one you mean."
+
+**On α specifically:** re-checked against `UNIVERSAL_GRAMMAR_v1.1.md` directly
+— no `α`/`γ` Greek-letter shorthand appears in that document at all, only the
+spelled-out qualia fields `arousal` (0 to 1) and `valence` (-1 to 1) at
+`:173-174`. The `α=arousal, γ=valence` shorthand cited in the original report
+comes from a *different* document (`docs/sigma-hashtag-glyph-4d.md`), not from
+Universal Grammar proper. So α's UG connection is real at the qualia-field
+level (arousal is UG vocabulary) but not at the symbol level (UG never writes
+it as `α`) — a softer, indirect lineage than Φ's, which is a literal
+letter-for-letter carry.
+
+**Consequence.** Any future work citing "φ" in this workspace must specify
+which one: `sigma_chain::Phi` (UG-descended, epistemic, belief-node semantics,
+confidence-bearing) or `bgz_tensor::gamma_phi` (unrelated golden-ratio codec
+math). Do not merge, rename, or treat one as a typo of the other — they are
+independently justified and both currently correct in their own contexts.
+
+**Cross-ref:** `ada-consciousness/universal_grammar/UNIVERSAL_GRAMMAR_v1.1.md:41-57,173-174`,
+`lance-graph/crates/lance-graph-planner/src/thinking/sigma_chain.rs:1-68`,
+`ada-consciousness/docs/sigma-hashtag-glyph-4d.md:14-60` (the α/γ shorthand
+source), the same-session archaeology report (Σ12/Fn_P(S,O)/4096 discovery
+pass) which this entry narrows.
+
+---
+
+## 2026-09-09 — E-TRIPLE-MODEL-DKPOSITION-IS-AN-UNWIRED-DUPLICATE-1 — `cache::triple_model::DkPosition` is a second Dunning-Kruger enum, structurally identical to the canonical one, never touching it
+
+**Status:** FOSSIL FINDING (session archaeology, requested by operator during a
+Σ12/Fn_P(S,O)/4096-lineage discovery pass; not an operator ruling — a
+source-grounded observation to preserve before it is mistaken for wiring that
+exists). Confirmed by direct read of the two enum definitions and a
+workspace-wide grep of both call graphs.
+
+**The finding.** There are two independent `DkPosition` enums in the
+`lance-graph` workspace, both four-variant, both spelled
+`MountStupid | ValleyOfDespair | SlopeOfEnlightenment | PlateauOfMastery`,
+and neither references the other:
+
+1. **Canonical MUL type** — `lance-graph-contract/src/mul.rs:100`. Computed by
+   `lance-graph-planner/src/mul/dk.rs::detect()` from
+   `SituationInput.felt_competence - demonstrated_competence`. Carries
+   `humility_factor()` / `is_safe()` and feeds the real MUL gate
+   (`mul/gate.rs`), consumed by `thinking/style.rs`, `strategy/chat_bundle.rs`,
+   `lance-graph/src/graph/arigraph/orchestrator.rs`, and others.
+2. **Cache-local duplicate** — `lance-graph-planner/src/cache/triple_model.rs:57-62`.
+   Computed inside `ModelState::update_head()` purely from the local
+   `Truth.confidence` trajectory against hardcoded bands (`<0.3`, `>0.5`,
+   `>0.8`) — no `SituationInput`, no felt/demonstrated-competence gap. Its
+   only two consumers are both inside `cache/`:
+   - `lane_eval.rs::Tension::from_dk()` — selects one of four `Tension`
+     presets (analytical/creative/integrative/focused), which sets the
+     `signal_threshold()` the 4096-head `LaneEvaluator` fires against
+     (`lane_eval.rs:84-91,104-145`). Real, live wiring — DK position
+     genuinely gates candidate volume in the autocomplete cache.
+   - `TripleModel::evaluate_triple()`'s self/user/impact model-state
+     transitions (`triple_model.rs:94-99`), a closed loop with no external
+     input.
+
+**Why this surfaced.** `.claude/v3/MODULE-TABLE.md:261` already flagged the
+overlap under caution ("`DkPosition` may overlap `mul/dk.rs` `DkPosition`
+enum — not confirmed identical without cross-read"). Cross-read now confirms:
+same variant names, same variant count, **different type, different
+computation, zero shared call sites.** `cache::triple_model::DkPosition` never
+reaches `contract::mul::DkPosition`, the MUL gate, `GateDecision`, or the
+kanban machinery — it is a self-contained second implementation of the
+Dunning-Kruger curve concept, wired only to itself and to the 4096-head lane
+evaluator's tension selection.
+
+**Consequence — do not treat as wiring that exists.** Any future claim that
+"DK position reaches the MUL/kanban gate from the autocomplete cache" is
+false on current source; the two subsystems share a name and a shape, not a
+data path. This is filed as a fossil (per `CLAUDE.md`'s "preserve potentially
+useful fossils" discipline from the concurrent discovery pass) — not flagged
+for deletion or merge. A future unification (routing `cache::triple_model`
+through the canonical `contract::mul::DkPosition`) is a legitimate small PR,
+but is out of scope here: this entry only records what is, not what should
+change.
+
+**Cross-ref:** `.claude/v3/MODULE-TABLE.md:261` (the original hedge),
+`crates/lance-graph-contract/src/mul.rs:100`,
+`crates/lance-graph-planner/src/mul/dk.rs`,
+`crates/lance-graph-planner/src/cache/triple_model.rs`,
+`crates/lance-graph-planner/src/cache/lane_eval.rs`.
+
+---
+
 ## 2026-09-07 — E-A-DYNAMIC-DOMAIN-MASK-IS-A-SECOND-WITNESS-AND-ITS-ALIGNMENT-IS-CALIBRATION-1 — the "horseshoe" was a category error; the equality I called a coincidence is a known-answer target
 
 **Status:** OPERATOR RULING (2026-09-07, two messages: *"horseshoe mask is a
