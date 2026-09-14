@@ -83,7 +83,11 @@ pub enum MaskOp {
     /// `dst = pred(lane)`. With `under = Some(m)`, only 1024-row chunks in
     /// which `m` has a survivor are evaluated; the others are written zero —
     /// the survivor-word skip (cost ∝ survivors, never ∝ rows).
-    Pred { pred: Pred, under: Option<Operand>, dst: u16 },
+    Pred {
+        pred: Pred,
+        under: Option<Operand>,
+        dst: u16,
+    },
     /// `dst = a & b`.
     And { a: Operand, b: Operand, dst: u16 },
     /// `dst = a | b`.
@@ -97,7 +101,13 @@ pub enum MaskOp {
     /// `dst = table[imm](a, b, c)` — any 3-input Boolean function, Intel
     /// VPTERNLOG index convention `(a << 2) | (b << 1) | c`. Semantics only;
     /// the realization per backend is `ndarray`'s.
-    Ternlog { imm: u8, a: Operand, b: Operand, c: Operand, dst: u16 },
+    Ternlog {
+        imm: u8,
+        a: Operand,
+        b: Operand,
+        c: Operand,
+        dst: u16,
+    },
     /// `dst = a` (a copy into scratch, e.g. to seed an in-place accumulator).
     Copy { a: Operand, dst: u16 },
 }
@@ -169,9 +179,10 @@ impl Program {
         for op in &self.ops {
             match op {
                 MaskOp::Pred { .. } => h.predicates += 1,
-                MaskOp::And { .. } | MaskOp::Or { .. } | MaskOp::Xor { .. } | MaskOp::AndNot { .. } => {
-                    h.two_input += 1
-                }
+                MaskOp::And { .. }
+                | MaskOp::Or { .. }
+                | MaskOp::Xor { .. }
+                | MaskOp::AndNot { .. } => h.two_input += 1,
                 MaskOp::Not { .. } => h.not += 1,
                 MaskOp::Ternlog { .. } => h.ternlog += 1,
                 MaskOp::Copy { .. } => h.copies += 1,
