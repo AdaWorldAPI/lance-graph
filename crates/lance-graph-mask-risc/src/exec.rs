@@ -822,6 +822,57 @@ mod borrowed_scratch_tests {
         }
     }
 
+    /// FAILS IF: a slot the program never writes reads back as whatever the
+    /// caller's buffer happened to hold, instead of as zero.
+    ///
+    /// This is the one thing `Scratch::over`'s zero-fill actually buys, and
+    /// nothing else in the suite could see it: every other fixture declares
+    /// exactly the slots its ops write, so the arena is fully overwritten
+    /// before anything reads it and the fill is inert. A program may
+    /// OVER-declare — `validate` rejects only under-declaring — and then
+    /// `slot()` is a public read of a slot no op touched. Owned and borrowed
+    /// must be interchangeable there too, or a consumer that swaps one for
+    /// the other gets different answers out of the same program.
+    ///
+    /// Found by a disable run: removing the fill failed no test at all.
+    #[test]
+    fn a_slot_the_program_never_writes_reads_as_zero_from_either_arena() {
+        let n = 200usize;
+        let (mask, lane, mut p) = fixture(n);
+        // Over-declare: the ops touch slots 0..=2, the program claims five.
+        assert_eq!(p.scratch_slots, 3, "fixture writes exactly three slots");
+        p.scratch_slots = 5;
+
+        let masks: [&[u64]; 1] = [&mask];
+        let lanes = [LaneRef::I32(&lane)];
+        let planes = Planes {
+            n_rows: n,
+            masks: &masks,
+            lanes: &lanes,
+        };
+
+        let mut owned = Scratch::for_program(&p, n).expect("addressable");
+        execute(&p, &planes, &mut owned, None).expect("runs");
+
+        let need = scratch_words_for(words_for(n), 5).unwrap();
+        let mut buf = vec![u64::MAX; need];
+        let mut borrowed = Scratch::over(&mut buf, words_for(n), 5).expect("fits");
+        execute(&p, &planes, &mut borrowed, None).expect("runs");
+
+        for i in 3..5u16 {
+            let o = owned.slot(i).expect("declared");
+            let b = borrowed.slot(i).expect("declared");
+            assert!(
+                o.iter().all(|&w| w == 0),
+                "slot {i} of an OWNED arena must be zero"
+            );
+            assert_eq!(
+                o, b,
+                "slot {i}: owned and borrowed disagree on an unwritten slot"
+            );
+        }
+    }
+
     /// FAILS IF: a short buffer is carved anyway — which would hand `execute` an
     /// arena whose last slot overlaps the read-before-write bitmap.
     #[test]
