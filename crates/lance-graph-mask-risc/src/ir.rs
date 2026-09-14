@@ -21,9 +21,10 @@ pub enum LaneRef<'a> {
     /// 64-bit lane (edge targets, ids). NOT a reading of the 12-byte V3
     /// register: which carving that register is read under is the
     /// ClassView's choice, never a lane width's, and a contiguous `&[u64]`
-    /// cannot alias a 12-in-16-byte stride anyway — the strided operand
-    /// family (`ternary_match_strided_to_mask`'s `(base, stride, group)`
-    /// shape) is a named PR3 gap, not this variant.
+    /// cannot alias a 12-in-16-byte stride anyway. A strided `Operand` is a
+    /// gap in THIS IR — `ndarray::simd` already ships
+    /// `ternary_match_strided_to_mask`'s `(base, stride, group)` shape — and
+    /// closing it is PR4/PR5 work, not this variant.
     U64(&'a [u64]),
 }
 
@@ -170,10 +171,12 @@ pub struct Program {
     pub terminal: Terminal,
     /// How many scratch slots the program touches: `max slot + 1` over EVERY
     /// `Operand::Scratch` the program names — destinations, sources, a
-    /// `Pred`'s gate, and the terminal's operands alike. A slot that is only
-    /// ever read (a terminal over a slot no op wrote, a gate the caller
-    /// pre-filled) still needs a buffer, so sizing from destinations alone
-    /// under-reports. `u32`, not `u16`: slot `u16::MAX` is the 65,536th, and
+    /// `Pred`'s gate, and the terminal's operands alike — sizing from
+    /// destinations alone under-reports. Note a program that READS a slot no
+    /// earlier op wrote is refused at validation
+    /// (`ExecError::ScratchReadBeforeWrite`): pre-filled scratch is a named
+    /// PR5 gap, so such a count is an upper bound on a program that will not
+    /// run, never a licence to pre-fill. `u32`, not `u16`: slot `u16::MAX` is the 65,536th, and
     /// 65,536 does not fit the index type — an executor sizing its arena
     /// from this field must be able to read the count the widest slot
     /// implies.

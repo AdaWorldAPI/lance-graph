@@ -1,15 +1,20 @@
 //! D-MRX-6 — the first 64k probe: `COUNT(alpha & ((A & B) | C))` over 65,536
 //! rows, four arms that must agree bit-for-bit:
 //!
-//! * `reference`   — the row-at-a-time oracle (no `ndarray`);
+//! * `reference`   — the row-at-a-time oracle (no SIMD facade);
 //! * `handwritten` — the facade words called directly, three passes;
 //! * `interpreted` — the same three ops as a `Program` through `execute`;
-//! * `fused`       — the `BoolExpr` fused to ternlogs through `execute`.
+//! * `fused`       — the `BoolExpr` fused to ternlogs through `execute`;
+//!
+//! plus the F-X1 pair — a gated predicate against the two-op `pred + and`
+//! spelling on a sparse gate. They must agree on the COUNT (gated); their
+//! ns/exec is the only observable difference between the two routings, and
+//! is printed, never asserted.
 //!
 //! The counting allocator must read ZERO bytes per `execute` after warm-up
 //! (law L1), and the timings say what the interpreter costs over the hand
 //! spelling. Timings are printed, never asserted — pin them from a run, not
-//! from a guess.
+//! from a guess. The gate compares COUNTS, not masks.
 //!
 //! ```text
 //! cargo run --release -p lance-graph-mask-risc --example count_probe
@@ -22,7 +27,7 @@ use std::time::Instant;
 use lance_graph_mask_risc::exec::{execute, Scratch};
 use lance_graph_mask_risc::fuse::{fuse_program, BoolExpr};
 use lance_graph_mask_risc::reference::reference_execute;
-use lance_graph_mask_risc::{MaskOp, Operand, Planes, Program, Terminal, Value};
+use lance_graph_mask_risc::{LaneRef, MaskOp, Operand, Planes, Pred, Program, Terminal, Value};
 use ndarray::simd::{mask_and, mask_or, popcount_batch_u64};
 
 struct Counting;
@@ -90,11 +95,21 @@ fn main() {
     let a = plane(&mut seed, 1);
     let b = plane(&mut seed, 1);
     let c = plane(&mut seed, 2);
-    let masks: [&[u64]; 4] = [&alpha, &a, &b, &c];
+    // A SPARSE gate (≈1 word in 8 non-zero) and one value lane: the gated
+    // predicate's whole claim is that it skips words the gate zeroes, and a
+    // dense gate cannot show that.
+    let sparse: Vec<u64> = (0..WORDS)
+        .map(|i| if i % 8 == 0 { lcg(&mut seed) } else { 0 })
+        .collect();
+    let lane: Vec<i32> = (0..N)
+        .map(|_| (lcg(&mut seed) % 2000) as i32 - 1000)
+        .collect();
+    let masks: [&[u64]; 5] = [&alpha, &a, &b, &c, &sparse];
+    let lanes = [LaneRef::I32(&lane)];
     let planes = Planes {
         n_rows: N,
         masks: &masks,
-        lanes: &[],
+        lanes: &lanes,
     };
     let (pa, pb, pc, palpha) = (
         Operand::Plane(1),
@@ -178,13 +193,66 @@ fn main() {
     let (ns_int, int, b_int) = time(|| count_of(execute(&interpreted, &planes, &mut si, None)));
     let (ns_fused, fus, b_fus) = time(|| count_of(execute(&fused, &planes, &mut sf, None)));
 
+    // ---- F-X1: the gated predicate's routing is a COST property ----
+    //
+    // `Pred { under: Some(g) }` must reach `*_to_mask_under` (one pass that
+    // skips words where `g` is zero), NOT `*_to_mask` followed by `mask_and`
+    // (two full passes). The two spellings are semantically identical, so no
+    // differential can separate them — the only observable difference is
+    // time on a sparse gate. Printed, never asserted: a timing assertion is
+    // not a gate, and this is the honest instrument for a cost claim.
+    let gate = Operand::Plane(4);
+    let gated = Program::new(
+        vec![MaskOp::Pred {
+            pred: Pred::GtI32 { lane: 0, t: 0 },
+            under: Some(gate),
+            dst: 0,
+        }],
+        Terminal::Count {
+            mask: Operand::Scratch(0),
+        },
+    );
+    let two_op = Program::new(
+        vec![
+            MaskOp::Pred {
+                pred: Pred::GtI32 { lane: 0, t: 0 },
+                under: None,
+                dst: 0,
+            },
+            MaskOp::And {
+                a: Operand::Scratch(0),
+                b: gate,
+                dst: 0,
+            },
+        ],
+        Terminal::Count {
+            mask: Operand::Scratch(0),
+        },
+    );
+    let mut sg = Scratch::for_program(&gated, N);
+    let mut st = Scratch::for_program(&two_op, N);
+    let _ = execute(&gated, &planes, &mut sg, None);
+    let _ = execute(&two_op, &planes, &mut st, None);
+    let (ns_gated, c_gated, b_gated) = time(|| count_of(execute(&gated, &planes, &mut sg, None)));
+    let (ns_two, c_two, b_two) = time(|| count_of(execute(&two_op, &planes, &mut st, None)));
+
     println!("arm          count    ns/exec   heap B/exec");
     println!("reference    {reference:>6}");
     println!("handwritten  {hand:>6}  {ns_hand:>9.0}  {b_hand:>6}");
     println!("interpreted  {int:>6}  {ns_int:>9.0}  {b_int:>6}");
     println!("fused        {fus:>6}  {ns_fused:>9.0}  {b_fus:>6}");
+    println!("-- F-X1, sparse gate (1 word in 8) — same answer, different cost --");
+    println!("gated        {c_gated:>6}  {ns_gated:>9.0}  {b_gated:>6}");
+    println!("pred+and     {c_two:>6}  {ns_two:>9.0}  {b_two:>6}");
 
-    let ok = hand == reference && int == reference && fus == reference && b_int == 0 && b_fus == 0;
+    let ok = hand == reference
+        && int == reference
+        && fus == reference
+        && b_int == 0
+        && b_fus == 0
+        && c_gated == c_two
+        && b_gated == 0
+        && b_two == 0;
     println!("gate: {}", if ok { "ok" } else { "FAILED" });
     if !ok {
         std::process::exit(1);

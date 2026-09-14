@@ -50,7 +50,7 @@
 //! a fresh run (a hand edit inside the markers, or the generator itself
 //! changing what it emits without the file being regenerated) and exits 0
 //! when the committed file already matches. CI runs this on every PR that
-//! touches either the generator or this file, so a stale table cannot merge.
+//! touches either the generator or this file, so a stale table fails the Rust Tests workflow.
 
 use ndarray::simd::{mask_ternlog, mask_ternlog_assign};
 // GEN-TERNLOG-DISPATCH-BEGIN

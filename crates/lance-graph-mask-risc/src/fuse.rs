@@ -32,8 +32,12 @@ pub struct Fused {
     pub ops: Vec<MaskOp>,
     /// Where the expression's value ends up (the leaf itself for a bare leaf).
     pub result: Operand,
-    /// `first_free_slot` plus the slots this fragment consumed.
-    pub next_slot: u16,
+    /// `first_free_slot` plus the slots this fragment consumed, or `None`
+    /// when the fragment used the LAST addressable slot. Saturating to
+    /// `u16::MAX` here would name a slot this fragment already wrote, and a
+    /// caller chaining `fuse(e2, f.next_slot)` would silently clobber it —
+    /// the same one-short bug `ir.rs` records for `Program::new`'s count.
+    pub next_slot: Option<u16>,
 }
 
 /// Why an expression could not be lowered.
@@ -152,7 +156,7 @@ pub fn fuse(expr: &BoolExpr, first_free_slot: u16) -> Result<Fused, FuseError> {
         next: u32::from(first_free_slot),
     };
     let result = l.lower(expr)?;
-    let next_slot = u16::try_from(l.next).unwrap_or(u16::MAX);
+    let next_slot = u16::try_from(l.next).ok();
     Ok(Fused {
         ops: l.ops,
         result,
@@ -236,7 +240,7 @@ mod tests {
         let f = fuse(&e, 5).unwrap_or(Fused {
             ops: vec![],
             result: Operand::Plane(0),
-            next_slot: 0,
+            next_slot: None,
         });
         assert_eq!(f.ops.len(), 2, "{:?}", f.ops);
         assert!(matches!(
@@ -256,7 +260,7 @@ mod tests {
             }
         ));
         assert_eq!(f.result, Operand::Scratch(6));
-        assert_eq!(f.next_slot, 7);
+        assert_eq!(f.next_slot, Some(7));
     }
 
     /// FAILS IF: a bare leaf mints an op or a slot.
@@ -268,11 +272,11 @@ mod tests {
                 dst: 0,
             }],
             result: Operand::Plane(0),
-            next_slot: 0,
+            next_slot: None,
         });
         assert!(f.ops.is_empty());
         assert_eq!(f.result, Operand::Scratch(3));
-        assert_eq!(f.next_slot, 9);
+        assert_eq!(f.next_slot, Some(9));
     }
 
     /// FAILS IF: the padded input leaks into a two-leaf table — the bit for
@@ -283,7 +287,7 @@ mod tests {
         let f = fuse(&e, 0).unwrap_or(Fused {
             ops: vec![],
             result: Operand::Plane(0),
-            next_slot: 0,
+            next_slot: None,
         });
         let MaskOp::Ternlog { imm, b, c, .. } = f.ops[0] else {
             panic!("not a ternlog")

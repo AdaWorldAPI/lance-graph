@@ -6,10 +6,21 @@
 //! touches `ndarray`, [`fuse`] the Boolean-tree → ternlog fuser, and
 //! [`ternlog_dispatch`] the GENERATED 256-arm bridge from a runtime
 //! immediate to the const-generic facade word. The differential suite
-//! (`tests/differential.rs`) diffs executor against oracle on every backend;
+//! (`tests/differential.rs`) diffs executor against oracle on whichever
+//! backend the test binary is built for — AVX2 (`x86-64-v3`) in CI, AVX-512
+//! (`-v4`) locally on 2026-09-14; NEON, WASM and scalar are unexercised;
 //! `tests/no_alloc.rs` pins the zero-allocation law. Still absent, named:
-//! `hop` (PR5), the strided operand family (an `ndarray` T1 gap), and the
-//! Cypher `mask_lower` seam (the Cypher plan's Wave 1 consumes this crate).
+//! `hop` (PR5); a strided `Operand` — the gap is in THIS IR, not in T1:
+//! `ndarray::simd` already ships `ternary_match_strided_to_mask`,
+//! `eq_u32_strided_to_mask` and `masked_strided_group_sum`, and nothing here
+//! can name a `(base, stride, group)` source; and the Cypher `mask_lower`
+//! seam (the Cypher plan's Wave 1 consumes this crate).
+//!
+//! One duplication is filed rather than resolved here: `lgj-abi` already
+//! carries its own runtime-immediate → const-generic ternlog bridge
+//! (`simd_mask_ternlog_assign_dyn`, ABI minor ≥ 11). The two agree on the
+//! index convention, but PR4 must pick ONE owner — either lgj-abi delegates
+//! to [`ternlog_dispatch`] or this module is scoped to the evaluator.
 //!
 //! A tiny mechanical evaluator and fuser for Boolean programs over
 //! **borrowed resident bit-planes** (one `u64` per 64 rows, LSB-first, tail
@@ -47,7 +58,8 @@
 //!    no `cfg(target_feature)`, no ISA cost model, no fallback chain.**
 //! 4. **Reference semantics are independent.** `reference` evaluates the
 //!    same program one row at a time in plain Rust with no `ndarray` — the
-//!    oracle every executor is diffed against, on every backend.
+//!    oracle every executor is diffed against, on whichever backend the test
+//!    binary is built for (see the status note above; not all five).
 //!
 //! ## Which DuckDB semantics this vocabulary emulates (exactly, and only these)
 //!

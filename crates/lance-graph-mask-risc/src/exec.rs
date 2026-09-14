@@ -1,18 +1,23 @@
 //! The borrowing executor — every op is ONE delegation to an `ndarray::simd`
 //! facade word over caller-owned memory.
 //!
-//! Laws (each is a test, not a sentence — see the crate tests and
-//! `tests/no_alloc.rs`):
+//! Laws. L1, L2, L4 and L5 are tests (`tests/no_alloc.rs`,
+//! `the_crate_names_no_isa`, `the_oracle_has_no_facade_token`,
+//! `exactly_one_materialiser`); **L3 is a reading of `execute`**, not a test —
+//! no instrument counts facade calls, so it is `[claimed, unverified]`:
 //!
 //! - **L1** `execute` never allocates: [`Scratch::new`] is the only allocation
 //!   and it is the caller's.
 //! - **L2** no ISA: this file carries no feature gate and no architecture
 //!   intrinsic; which backend runs a word is `ndarray`'s business.
-//! - **L3** one delegation per op. The only second shape is the aliasing form:
-//!   when `dst` is also an input the op routes to the facade's `_assign` member
-//!   (or, for [`MaskOp::AndNot`] / [`MaskOp::Ternlog`] with `dst` on the right,
-//!   to the same in-place ternlog with a permuted immediate). The tail clear an
-//!   odd ternlog immediate owes is spelled once, in [`clear_tail`].
+//! - **L3** one delegation per op, with three named second shapes: the
+//!   aliasing form (when `dst` is also an input the op routes to the facade's
+//!   `_assign` member, or — for [`MaskOp::AndNot`] / [`MaskOp::Ternlog`] with
+//!   `dst` on the right — to the same in-place ternlog with a permuted
+//!   immediate); the tail clear an ODD ternlog immediate owes, spelled once in
+//!   [`clear_tail`]; and `ternlog_self`'s fills for `x = f(x, x, x)`, which no
+//!   facade word can express (it would need one buffer borrowed mutably and
+//!   shared at once).
 //! - **L4** the oracle in [`crate::reference`] is independent; the validation
 //!   rules are shared with it (`validate`) so both sides refuse identically.
 //! - **L5** exactly one materialiser: [`materialize_rows`].
@@ -56,6 +61,14 @@ impl Scratch {
 
     /// Allocate exactly what `program` needs over `n_rows` rows.
     pub fn for_program(program: &Program, n_rows: usize) -> Self {
+        // `Operand::Scratch` is a `u16`, so no program can ADDRESS more than
+        // 65,536 slots; a larger count means a hand-built program lied, and
+        // `validate` refuses it. Allocating for it would be pure waste.
+        debug_assert!(
+            program.scratch_slots <= u32::from(u16::MAX) + 1,
+            "scratch_slots {} exceeds the addressable slot space",
+            program.scratch_slots
+        );
         // `scratch_slots` is a `u32` count; a program naming slot `u16::MAX`
         // needs 65,536 buffers, which fits `usize` on every supported target.
         Self::new(words_for(n_rows), program.scratch_slots as usize)
@@ -74,11 +87,6 @@ impl Scratch {
     /// Borrow slot `i` (the way a caller reads back a [`Terminal::Keep`] result).
     pub fn slot(&self, i: u16) -> Option<&[u64]> {
         self.slots.get(usize::from(i)).map(|b| &**b)
-    }
-
-    /// Mutably borrow slot `i` (the way a caller pre-fills a gate).
-    pub fn slot_mut(&mut self, i: u16) -> Option<&mut [u64]> {
-        self.slots.get_mut(usize::from(i)).map(|b| &mut **b)
     }
 
     /// Take slot `i` out of the arena so the remaining slots can be read while
@@ -104,7 +112,10 @@ pub fn materialize_rows(mask: &[u64], n_rows: usize) -> Vec<usize> {
         while bits != 0 {
             let row = w * 64 + bits.trailing_zeros() as usize;
             if row >= n_rows {
-                break;
+                // Rows ascend within a word and words ascend, so the FIRST
+                // out-of-range row ends the whole walk — a `break` would only
+                // end this word's bits and leave the bound stated per word.
+                return rows;
             }
             rows.push(row);
             bits &= bits - 1;
@@ -113,8 +124,14 @@ pub fn materialize_rows(mask: &[u64], n_rows: usize) -> Vec<usize> {
     rows
 }
 
-/// Clear every bit at or past `n_rows` — `mask_not`'s tail law, spelled once.
-/// Owed after an odd ternlog immediate (`f(0,0,0) = 1` sets the whole tail).
+/// Clear every bit at or past `n_rows`, in the tail WORD — the contract's own
+/// `clear_tail` spelling, and the obligation `mask_ternlog`'s doc places on
+/// the caller for an odd immediate (`f(0,0,0) = 1` sets the whole tail).
+///
+/// Narrower than `ndarray`'s private `clear_mask_tail`, which also zeroes
+/// every word PAST the tail word. The two agree only on exactly-sized
+/// buffers — which is what the exact `ScratchWords` / `LenMismatch` checks
+/// guarantee, and why this one-word form is sound here.
 fn clear_tail(dst: &mut [u64], n_rows: usize) {
     let live = n_rows % 64;
     if !n_rows.is_multiple_of(64) {
@@ -166,6 +183,11 @@ fn two_input(
     imm: u8,
 ) {
     let d = Operand::Scratch(dst);
+    // Every two-input table is EVEN (`f(0,0,0) = 0`), which is why this
+    // function owes no tail clear — unlike the `Ternlog` arm. Stated here
+    // because it is a precondition on a private fn, not a property of the
+    // caller's input.
+    debug_assert!(imm & 1 == 0, "two-input table {imm:#04x} is odd");
     let commutative = remap_imm(imm, [1, 0, 2]) == imm;
     let mut x = s.take(dst);
     if a == d && b == d {
@@ -207,7 +229,18 @@ fn ternlog_self(imm: u8, x: &mut [u64], n_rows: usize) {
 fn read<'a>(planes: &Planes<'a>, s: &'a Scratch, o: Operand) -> &'a [u64] {
     match o {
         Operand::Plane(i) => planes.masks[usize::from(i)],
-        Operand::Scratch(i) => &s.slots[usize::from(i)],
+        Operand::Scratch(i) => {
+            // A slot taken out of the arena reads as EMPTY, and the facade
+            // words no-op on an empty slice — a wrong answer, not a crash.
+            // Every aliasing arm routes `operand == dst` to an `_assign` form
+            // before reaching here, so this can only fire if a future arm
+            // forgets to; it is cheaper to assert than to debug.
+            debug_assert!(
+                !s.slots[usize::from(i)].is_empty() || s.words == 0,
+                "slot {i} was read while taken out of the arena"
+            );
+            &s.slots[usize::from(i)]
+        }
     }
 }
 
@@ -482,6 +515,19 @@ pub fn execute(
 mod tests {
     use super::*;
 
+    /// Every production source of the crate. The two structural laws (L2 no
+    /// ISA, L5 one materialiser) read the SAME list, so a new module cannot
+    /// be covered by one and invisible to the other.
+    const CRATE_SOURCES: [&str; 7] = [
+        include_str!("exec.rs"),
+        include_str!("fuse.rs"),
+        include_str!("ir.rs"),
+        include_str!("lib.rs"),
+        include_str!("reference.rs"),
+        include_str!("ternlog_dispatch.rs"),
+        include_str!("value.rs"),
+    ];
+
     /// FAILS IF: the identity permutation changes a table — the remap would
     /// then be wrong for every aliasing shape at once.
     #[test]
@@ -491,10 +537,12 @@ mod tests {
         }
     }
 
-    /// FAILS IF: `remap_imm` re-indexes the wrong way round. The in-place
+    /// FAILS IF: the bit TRANSFER is inverted (`out[old] |= imm[new]` gives
+    /// `0x08`). It does NOT distinguish a map from its inverse — for
+    /// `[1, 0, 0]` both readings coincide — so the map's DIRECTION is pinned
+    /// by `ternlog_every_aliasing_map`'s 3-cycle shapes instead. The in-place
     /// `x = y & !x` table over `(x, y, y)` is true exactly at `(x=0, y=1)`,
-    /// indices `0b010` and `0b011` — derived by hand, independently of the
-    /// function under test.
+    /// indices `0b010` and `0b011`, derived by hand.
     #[test]
     fn andnot_with_dst_on_the_right_is_table_0x0c() {
         assert_eq!(remap_imm(ANDNOT_IMM, [1, 0, 0]), 0x0C);
@@ -530,32 +578,36 @@ mod tests {
         assert!(!production.contains(&[needles[4], needles[5]].concat()));
     }
 
-    /// FAILS IF: a second materialiser appears — law L5. Every production
-    /// `pub fn` in the crate that returns `Vec<usize>` must be
-    /// `materialize_rows`.
+    /// FAILS IF: a materialiser appears that is not one of the two the crate
+    /// admits — law L5. Every production `pub fn` RETURNING an owning
+    /// collection must be `materialize_rows` (the consumer boundary) or
+    /// `reference_scratch` (the oracle's independent reading).
     #[test]
     fn exactly_one_materialiser() {
-        let sources = [
-            include_str!("exec.rs"),
-            include_str!("fuse.rs"),
-            include_str!("ir.rs"),
-            include_str!("lib.rs"),
-            include_str!("reference.rs"),
-            include_str!("ternlog_dispatch.rs"),
-            include_str!("value.rs"),
-        ];
         let mut found = Vec::new();
-        for src in sources {
+        for src in CRATE_SOURCES {
             let production = src.split("#[cfg(test)]").next().unwrap_or("");
             for line in production.lines() {
                 let t = line.trim_start();
-                if t.starts_with("pub fn ") && t.contains("Vec<usize>") {
-                    found.push(t.to_string());
+                // ANY owning collection RETURN, not just `Vec<usize>`: the
+                // oracle's arena copy is a `Vec<Vec<u64>>`, and a guard that
+                // greps the one shape it knows cannot see the next one. Split
+                // on the arrow so a `Vec` PARAMETER is not read as a return.
+                let returns = t.split("->").nth(1).unwrap_or("");
+                if t.starts_with("pub fn ") && returns.contains("Vec<") {
+                    let name = t
+                        .strip_prefix("pub fn ")
+                        .and_then(|r| r.split('(').next())
+                        .unwrap_or(t);
+                    found.push(name.to_string());
                 }
             }
         }
-        assert_eq!(found.len(), 1, "materialisers: {found:?}");
-        assert!(found[0].starts_with("pub fn materialize_rows("));
+        // `reference_scratch` is the ONE written-down exemption: the oracle
+        // must hold its own unpacked reading of the arena, because an oracle
+        // sharing the executor's bit packing could not falsify a packing bug
+        // (law L4). Named here so the guard SEES it.
+        assert_eq!(found, ["materialize_rows", "reference_scratch"]);
     }
 
     /// FAILS IF: `materialize_rows` reads phantom bits past `n_rows` or

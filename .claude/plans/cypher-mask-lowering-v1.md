@@ -619,10 +619,12 @@ in Wave 1, with a falsifier (§7 F-X3).
 > `Ternlog` doc now states the odd-immediate obligation, and `exec.rs` clears the
 > tail once, in `clear_tail`, after every odd immediate; F-X3
 > (`odd_ternlog_immediate_does_not_inflate_a_count`) is disable-verified. The
-> aliasing shapes the executor owes are all routed through ONE immediate remap
-> (`remap_imm`): `AndNot` with `dst == b` is the in-place ternlog `0x0C` over
-> `(b, a, a)`; a `Ternlog` with `dst` at any input position permutes the table
-> the same way. `Program` does not carry `n_rows` — `Planes` does, and the
+> aliasing shapes the executor owes are handled without a second evaluator:
+> `dst == a`, and the commutative `dst == b`, route to the facade's `_assign`
+> member with no remap; the non-commutative `AndNot` with `dst == b` becomes
+> the in-place ternlog `0x0C` over `(b, a, a)`, and a `Ternlog` with `dst` at
+> any input position permutes its table the same way — those two go through
+> ONE `remap_imm`. `Program` does not carry `n_rows` — `Planes` does, and the
 > executor reads it there.
 
 **(b) The one-population law.** Restated from §3.4: a mask indexes ONE address

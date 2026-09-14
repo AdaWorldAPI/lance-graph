@@ -5,6 +5,16 @@
 //! It also owns [`validate`], the ONE spelling of the rules a program must
 //! satisfy before it runs; the executor calls the same function, so both
 //! sides refuse the same bad program with the same [`ExecError`].
+//!
+//! # This file materialises, deliberately
+//!
+//! The oracle holds one `bool` per row per slot where the executor holds one
+//! bit, and [`reference_scratch`] packs a whole second copy of the arena. That
+//! is the point: an oracle sharing the executor's bit packing could not
+//! falsify a bit-packing bug. It is the crate's one exemption from the
+//! single-materialiser law, named in `exec.rs`'s `exactly_one_materialiser`
+//! so the guard sees it rather than missing it by accident — never a read
+//! path a consumer should reach for.
 
 use crate::ir::{
     LaneRef, MaskOp, Operand, Planes, Pred, Program, Terminal, MASKED_SUM_I32_MAX_ROWS,
@@ -40,10 +50,12 @@ fn check_operand(p: &Program, planes: &Planes<'_>, o: Operand) -> Result<(), Exe
         Operand::Plane(i) if usize::from(i) >= planes.masks.len() => {
             Err(ExecError::PlaneOutOfRange(i))
         }
-        Operand::Scratch(i) if u32::from(i) >= p.scratch_slots => Err(ExecError::ScratchTooSmall {
-            need: u32::from(i) + 1,
-            have: p.scratch_slots as usize,
-        }),
+        Operand::Scratch(i) if u32::from(i) >= p.scratch_slots => {
+            Err(ExecError::ScratchSlotUndeclared {
+                slot: i,
+                declared: p.scratch_slots,
+            })
+        }
         _ => Ok(()),
     }
 }
@@ -60,6 +72,41 @@ fn check_lane(planes: &Planes<'_>, lane: u16, expected: LaneKind) -> Result<(), 
     }
 }
 
+/// A scratch slot is readable only after some EARLIER op has written it.
+///
+/// Without this rule the executor would read whatever the caller's REUSED
+/// [`crate::exec::Scratch`] still holds while the oracle reads a fresh zeroed
+/// arena — a divergence no fixture built from `Scratch::for_program` can
+/// express, because every such fixture starts zeroed. Pre-filled scratch is a
+/// named PR5 gap, not a supported input.
+///
+/// The backward scan is deliberately allocation-free (law L1 forbids
+/// allocating anywhere `execute` reaches, and `execute` calls `validate` on
+/// every run). It is quadratic in OP COUNT, which is single digits for every
+/// program this IR can express; it never touches a row.
+fn readable(ops: &[MaskOp], before: usize, o: Operand) -> Result<(), ExecError> {
+    let Operand::Scratch(slot) = o else {
+        return Ok(());
+    };
+    let wrote = ops[..before].iter().any(|op| {
+        let dst = match *op {
+            MaskOp::Pred { dst, .. }
+            | MaskOp::And { dst, .. }
+            | MaskOp::Or { dst, .. }
+            | MaskOp::Xor { dst, .. }
+            | MaskOp::AndNot { dst, .. }
+            | MaskOp::Not { dst, .. }
+            | MaskOp::Ternlog { dst, .. } => dst,
+        };
+        dst == slot
+    });
+    if wrote {
+        Ok(())
+    } else {
+        Err(ExecError::ScratchReadBeforeWrite { slot })
+    }
+}
+
 /// The validation rules, in the order both the executor and the oracle apply
 /// them: (1) plane and lane lengths, then a dirty plane tail; (2) every op in
 /// program order, operands in field order; (3) the terminal's mask, its lanes,
@@ -72,6 +119,16 @@ pub(crate) fn validate(
 ) -> Result<(), ExecError> {
     let n = planes.n_rows;
     let words = words_for(n);
+    // `Operand::Plane` is a `u16`: planes past 65,536 cannot be named by any
+    // program, and refusing them here is what makes the index in `PlaneTail`
+    // below exact rather than saturated.
+    if planes.masks.len() > usize::from(u16::MAX) + 1 {
+        return Err(ExecError::LenMismatch {
+            what: "masks",
+            expected: usize::from(u16::MAX) + 1,
+            found: planes.masks.len(),
+        });
+    }
     for m in planes.masks {
         if m.len() != words {
             return Err(ExecError::LenMismatch {
@@ -93,13 +150,14 @@ pub(crate) fn validate(
     if !n.is_multiple_of(64) {
         for (i, m) in planes.masks.iter().enumerate() {
             if m[n / 64] >> (n % 64) != 0 {
-                // `masks.len()` was bounded by the plane index type when the
-                // caller built `Planes`; a wider slice cannot be addressed.
+                // Exact, not saturated: the count check above already refused
+                // anything past the plane index type's range.
                 return Err(ExecError::PlaneTail(u16::try_from(i).unwrap_or(u16::MAX)));
             }
         }
     }
-    for op in &p.ops {
+    for (i, op) in p.ops.iter().enumerate() {
+        let written = |o: Operand| readable(&p.ops, i, o);
         match *op {
             MaskOp::Pred { pred, under, dst } => {
                 if let Some(u) = under {
@@ -107,6 +165,7 @@ pub(crate) fn validate(
                     if u == Operand::Scratch(dst) {
                         return Err(ExecError::GateAliasesDst { dst });
                     }
+                    written(u)?;
                 }
                 let (lane, kind) = pred_lane_and_kind(pred);
                 check_lane(planes, lane, kind)?;
@@ -119,16 +178,22 @@ pub(crate) fn validate(
                 check_operand(p, planes, a)?;
                 check_operand(p, planes, b)?;
                 check_operand(p, planes, Operand::Scratch(dst))?;
+                written(a)?;
+                written(b)?;
             }
             MaskOp::Not { a, dst } => {
                 check_operand(p, planes, a)?;
                 check_operand(p, planes, Operand::Scratch(dst))?;
+                written(a)?;
             }
             MaskOp::Ternlog { a, b, c, dst, .. } => {
                 check_operand(p, planes, a)?;
                 check_operand(p, planes, b)?;
                 check_operand(p, planes, c)?;
                 check_operand(p, planes, Operand::Scratch(dst))?;
+                written(a)?;
+                written(b)?;
+                written(c)?;
             }
         }
     }
@@ -136,9 +201,13 @@ pub(crate) fn validate(
         Terminal::Count { mask }
         | Terminal::Any { mask }
         | Terminal::All { mask }
-        | Terminal::Keep { mask } => check_operand(p, planes, mask),
+        | Terminal::Keep { mask } => {
+            check_operand(p, planes, mask)?;
+            readable(&p.ops, p.ops.len(), mask)
+        }
         Terminal::MaskedSumI32 { mask, lane } => {
             check_operand(p, planes, mask)?;
+            readable(&p.ops, p.ops.len(), mask)?;
             check_lane(planes, lane, LaneKind::I32)?;
             if n > MASKED_SUM_I32_MAX_ROWS {
                 return Err(ExecError::SumRowBound { n_rows: n });
@@ -147,10 +216,12 @@ pub(crate) fn validate(
         }
         Terminal::MaskedMinI32 { mask, lane } | Terminal::MaskedMaxI32 { mask, lane } => {
             check_operand(p, planes, mask)?;
+            readable(&p.ops, p.ops.len(), mask)?;
             check_lane(planes, lane, LaneKind::I32)
         }
         Terminal::BlendI32 { mask, then, els } => {
             check_operand(p, planes, mask)?;
+            readable(&p.ops, p.ops.len(), mask)?;
             check_lane(planes, then, LaneKind::I32)?;
             check_lane(planes, els, LaneKind::I32)?;
             match out_len {
@@ -311,7 +382,11 @@ pub fn reference_execute(
 /// tail bits zero — the shape an executor's `Scratch` holds, built here by
 /// hand so a `Keep` result and every intermediate can be diffed word by word.
 pub fn reference_scratch(p: &Program, planes: &Planes<'_>) -> Result<Vec<Vec<u64>>, ExecError> {
-    validate(p, planes, None)?;
+    // `Some(n_rows)`, not `None`: slot contents are a function of the OPS
+    // alone, so a `BlendI32` terminal's missing `out` must not make this
+    // report `BlendNeedsOut` — that silently skipped the differential's
+    // whole scratch comparison for every blend program.
+    validate(p, planes, Some(planes.n_rows))?;
     let n = planes.n_rows;
     let rows = run(p, planes);
     Ok(rows
@@ -348,6 +423,10 @@ mod tests {
         mask: Vec<u64>,
         i32s: Vec<i32>,
         u32s: Vec<u32>,
+        /// A SECOND, distinct `i32` lane. Without it a `BlendI32 { then: 0,
+        /// els: 0 }` fixture is vacuous: `out` equals lane 0 for every mask,
+        /// so swapping the branches changes nothing.
+        i32s_b: Vec<i32>,
     }
 
     impl Fx {
@@ -361,17 +440,23 @@ mod tests {
             }
             let i32s = (0..n).map(|_| (lcg(&mut s) % 2000) as i32 - 1000).collect();
             let u32s = (0..n).map(|_| (lcg(&mut s) % 64) as u32).collect();
+            let i32s_b = (0..n).map(|_| -1 - (lcg(&mut s) % 500) as i32).collect();
             Self {
                 n,
                 mask,
                 i32s,
                 u32s,
+                i32s_b,
             }
         }
 
         fn with<R>(&self, f: impl FnOnce(&Planes<'_>) -> R) -> R {
             let masks: [&[u64]; 1] = [&self.mask];
-            let lanes = [LaneRef::I32(&self.i32s), LaneRef::U32(&self.u32s)];
+            let lanes = [
+                LaneRef::I32(&self.i32s),
+                LaneRef::U32(&self.u32s),
+                LaneRef::I32(&self.i32s_b),
+            ];
             f(&Planes {
                 n_rows: self.n,
                 masks: &masks,
@@ -380,16 +465,19 @@ mod tests {
         }
     }
 
-    /// FAILS IF: the oracle ever names the SIMD facade — law L4. The needle is
-    /// concatenated so this test's own text cannot match itself.
+    /// FAILS IF: the oracle names the SIMD facade OR a sibling module that
+    /// would import it transitively — law L4. Needles are concatenated so
+    /// this test's own text cannot match itself.
     #[test]
     fn the_oracle_has_no_facade_token() {
         let needle = ["nd", "array"].concat();
         assert!(!include_str!("reference.rs").contains(&needle));
     }
 
-    /// FAILS IF: a complement sets phantom bits — over 70 rows scratch word 1
-    /// may carry only its 6 live bits.
+    /// FAILS IF: the packing is MSB-first (word 1 would read `0xFC00…`), or
+    /// `Not` is wrong. Note the oracle iterates `0..n` rows and so cannot set
+    /// a tail bit at all — the tail law is structural here, and this test
+    /// pins bit ORDER, which is what the executor is diffed against.
     #[test]
     fn packed_scratch_obeys_the_tail_law() {
         let zero = vec![0u64; 2];
@@ -537,7 +625,9 @@ mod tests {
     }
 
     /// FAILS IF: any refusal is missing or carries the wrong payload — one
-    /// program per `ExecError` arm the oracle can produce.
+    /// program per `ExecError` arm the oracle can produce, EXCEPT
+    /// `SumRowBound`, which needs a lane of 2^32 rows (~16 GiB) and is
+    /// therefore verified by reading `validate` only: `[claimed, unverified]`.
     #[test]
     fn every_error_arm_is_reachable_with_its_exact_payload() {
         let fx = Fx::new(70);
@@ -623,6 +713,36 @@ mod tests {
                     found: 3
                 })
             );
+            // reading a slot no op wrote: the executor would see the
+            // caller's reused buffer, the oracle a fresh arena
+            assert_eq!(
+                e(vec![], Terminal::Any { mask: S0 }),
+                Err(ExecError::ScratchReadBeforeWrite { slot: 0 })
+            );
+            assert_eq!(
+                e(
+                    vec![MaskOp::And {
+                        a: S0,
+                        b: P0,
+                        dst: 0
+                    }],
+                    Terminal::Any { mask: S0 }
+                ),
+                Err(ExecError::ScratchReadBeforeWrite { slot: 0 }),
+                "an op reading its own destination before anything wrote it"
+            );
+            assert!(e(
+                vec![
+                    MaskOp::Not { a: P0, dst: 0 },
+                    MaskOp::And {
+                        a: S0,
+                        b: P0,
+                        dst: 0
+                    }
+                ],
+                Terminal::Any { mask: S0 }
+            )
+            .is_ok());
             let lying = Program {
                 ops: vec![],
                 terminal: Terminal::Any {
@@ -632,7 +752,10 @@ mod tests {
             };
             assert_eq!(
                 reference_execute(&lying, planes, None),
-                Err(ExecError::ScratchTooSmall { need: 5, have: 1 })
+                Err(ExecError::ScratchSlotUndeclared {
+                    slot: 4,
+                    declared: 1
+                })
             );
         });
         let short_plane = vec![0u64; 1];

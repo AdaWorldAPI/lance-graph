@@ -39,8 +39,21 @@ pub enum LaneKind {
 /// op writes: a rejected program leaves scratch and `out` untouched.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ExecError {
-    /// The caller's scratch has fewer slots than [`crate::Program::scratch_slots`].
+    /// The CALLER's scratch has fewer slots than
+    /// [`crate::Program::scratch_slots`]. `have` is the caller's slot count.
     ScratchTooSmall { need: u32, have: usize },
+    /// The PROGRAM names a scratch slot beyond its own declared
+    /// `scratch_slots` — a hand-built program whose count does not cover its
+    /// operands (`Program::new` computes a covering count, so this reports a
+    /// program that was assembled by hand and lied). Distinct from
+    /// [`Self::ScratchTooSmall`], which is about the caller's buffer.
+    ScratchSlotUndeclared { slot: u16, declared: u32 },
+    /// An op or the terminal READS a scratch slot no earlier op wrote. The
+    /// executor would see whatever the caller's reused buffer holds; the
+    /// oracle models a fresh arena. Rather than let the two diverge, the
+    /// program is refused — pre-filled scratch is a named PR5 gap, not a
+    /// supported input.
+    ScratchReadBeforeWrite { slot: u16 },
     /// The caller's scratch words do not match `words_for(planes.n_rows)`.
     ScratchWords { expected: usize, found: usize },
     /// `Operand::Plane(i)` with `i >= planes.masks.len()`.

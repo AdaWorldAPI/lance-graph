@@ -25,6 +25,10 @@ struct Fixture {
     i32s: Vec<i32>,
     u32s: Vec<u32>,
     u64s: Vec<u64>,
+    /// A SECOND, distinct `i32` lane (index 3). With `then == els` a blend
+    /// fixture is vacuous — `out` equals lane 0 under every mask, so swapping
+    /// the branches in either implementation changes nothing.
+    i32s_b: Vec<i32>,
 }
 
 impl Fixture {
@@ -58,12 +62,14 @@ impl Fixture {
             u32s[8] = 0b10_0000;
             u64s[8] = 0x1000;
         }
+        let i32s_b = (0..n).map(|_| -1 - (lcg(&mut s) % 500) as i32).collect();
         Self {
             n,
             masks,
             i32s,
             u32s,
             u64s,
+            i32s_b,
         }
     }
 
@@ -73,6 +79,7 @@ impl Fixture {
             LaneRef::I32(&self.i32s),
             LaneRef::U32(&self.u32s),
             LaneRef::U64(&self.u64s),
+            LaneRef::I32(&self.i32s_b),
         ];
         let planes = Planes {
             n_rows: self.n,
@@ -105,6 +112,7 @@ impl Fixture {
             LaneRef::I32(&self.i32s),
             LaneRef::U32(&self.u32s),
             LaneRef::U64(&self.u64s),
+            LaneRef::I32(&self.i32s_b),
         ];
         let planes = Planes {
             n_rows: self.n,
@@ -185,6 +193,30 @@ fn every_predicate_with_and_without_a_gate() {
                     assert!(
                         survivors > 0 || n < 9,
                         "{pred:?} @ n={n}: the predicate never fires"
+                    );
+                }
+                // ...and the GATE must bind: a gate that admits everything the
+                // predicate already admits proves nothing about gating.
+                if n >= 64 && under == Some(P0) {
+                    let gated = Program::new(
+                        vec![MaskOp::Pred {
+                            pred,
+                            under,
+                            dst: 0,
+                        }],
+                        Terminal::Count { mask: S0 },
+                    );
+                    let ungated = Program::new(
+                        vec![MaskOp::Pred {
+                            pred,
+                            under: None,
+                            dst: 0,
+                        }],
+                        Terminal::Count { mask: S0 },
+                    );
+                    assert!(
+                        f.count(&gated) < f.count(&ungated),
+                        "{pred:?} @ n={n}: the gate removes nothing"
                     );
                 }
             }
@@ -293,8 +325,11 @@ fn all_256_immediates_plain_and_in_place() {
 /// way `dst` can appear among `(a, b, c)`, for a spread of asymmetric tables.
 #[test]
 fn ternlog_every_aliasing_map() {
+    // 0xFF / 0x81 / 0xE7 carry BOTH bit 0 and bit 7: they are the only shapes
+    // that reach `ternlog_self`'s fill-ones arm under the `x,x,x` alias, and
+    // without one of them that arm can be deleted with every test still green.
     let imms = [
-        0x01u8, 0x0C, 0x30, 0x40, 0x80, 0xA8, 0xCA, 0xE2, 0xFE, 0x96, 0x35, 0x5A,
+        0x01u8, 0x0C, 0x30, 0x40, 0x80, 0xA8, 0xCA, 0xE2, 0xFE, 0x96, 0x35, 0x5A, 0xFF, 0x81, 0xE7,
     ];
     for n in [63, 130, 1000] {
         let f = Fixture::new(n, 41);
@@ -358,7 +393,7 @@ fn every_terminal() {
             Terminal::BlendI32 {
                 mask: S0,
                 then: 0,
-                els: 0,
+                els: 3,
             },
             Terminal::Keep { mask: P2 },
         ];
