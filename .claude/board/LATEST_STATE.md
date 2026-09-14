@@ -76,6 +76,64 @@
   census is measured and NOT yet on the board — see the arc entry's
   *Un-recorded* bullet.
 - Arc entry: `PR_ARC_INVENTORY.md` under PR #1233.
+## 2026-09-14 (5) — quack A1: the accumulator gate, and the falsifier the matrix asked for
+
+Two changes in `crates/lance-graph-quack`, one of them a correctness fix the
+other one exposed.
+
+**The accumulator gate (D-QCK-8) — the convergence.** An `AND` gated its
+children only under a resident PLANE. `lgj-abi`'s `plan_lower` already gated
+each later conjunct under the ACCUMULATOR built so far, and the two lowerings
+were implementing different laws for the same algebra. Now quack does both:
+the first child establishes the accumulator, every later child is emitted with
+`under = Scratch(acc)`. The asymmetry `plan_lower` documents carries over
+unchanged and is the whole correctness question — an `OR` must NOT gate its
+children on its own accumulator, because `acc | p` depends on `p` exactly
+where `acc` is ZERO, which is what a gate under `acc` discards.
+
+**`hoist_gate_subset` — the bug the gate exposed.** With both gates available
+a `Pred` can carry only one `under`, so the accumulator wins (it is strictly
+narrower — the plane was folded into it). But the plane DROP decision depends
+on the plane still gating the term that implies it, and on `alpha AND focus
+AND v<50` the accumulator started as `focus`, which is not a subset of
+`alpha` — the plane was elided while nothing constrained it, and rows outside
+`alpha` were counted. Fix: rotate a child whose result is a subset of the
+plane to the FRONT, so the accumulator starts inside the plane. Found once,
+then found again one level down (a gated `AND` nested in a gated `AND`
+reproduced it), which is why the helper is called from BOTH arms rather than
+inlined in the one that first needed it.
+
+**A1 (D-QCK-9) — RUN, not ported.** `Filter::and_by_skip` takes the caller's
+measured skip score per conjunct and orders the `AND` by it. The matrix's A1
+row was NEEDS FALSIFIER; `examples/adaptive_order_probe.rs` is that falsifier
+— 65 536 rows, 5 conjuncts, all 120 permutations, 4 regimes, counting
+64-row words a gated `Pred` does not evaluate:
+
+| regime | survivors | as written | best | spread |
+|---|---|---|---|---|
+| selective | 36 (0.055%) | 5.66% | 80.66% | 75.00 pts, 14.2x |
+| moderate | 14 311 (21.8%) | 0.00% | 0.00% | 0 |
+| permissive | 61 777 (94.3%) | 0.00% | 0.00% | 0 |
+| clustered (address prefix) | 31 (0.047%) | 99.90% | 99.90% | 0 |
+
+Verdict: order MOVES the skip fraction, so A1 is not ELIMINATE. But the
+control signal is **dead words, not selectivity** — selective and clustered
+have near-identical survivor counts (36 vs 31) and differ by 19 points of
+skip, because one conjunct's survivors are contiguous and the other's are
+scattered. At 21.8% survival a 64-row word is all-dead with probability
+~2e-7, so no ordering can skip anything and the knob is inert by arithmetic,
+not by implementation. DuckDB's adjacent-transposition hill-climb with
+swap-likeliness decay is deliberately NOT ported: the quantity is a step
+function of clustering, not a smooth function of selectivity, so a local
+search over adjacent swaps explores the wrong landscape. The score is the
+CALLER's — this crate builds programs and never evaluates one, so it cannot
+measure anything.
+
+Five disables, all red: gate-never-on-accumulator; an `OR` gating its children
+on its own accumulator; `hoist_gate_subset` never rotating; `and_by_skip`
+sorting ascending; `and_by_skip` not sorting. 13 tests, clippy `-D warnings`
+and `fmt` clean.
+
 ## 2026-09-14 (3) — `lance-graph-quack`: the DuckDB-shaped surface whose operators ARE masking ops
 
 New workspace member `crates/lance-graph-quack`, one dependency

@@ -126,6 +126,8 @@
 
 #![forbid(unsafe_code)]
 
+use std::cmp::Reverse;
+
 use lance_graph_mask_risc::{
     fuse, BoolExpr, FuseError, MaskOp, Operand, Pred, Program, Terminal, MAX_SCRATCH_SLOTS,
 };
@@ -261,6 +263,79 @@ impl Filter {
                 .map(|v| Filter::Cmp(col, Cmp::EqI32(v)))
                 .collect(),
         )
+    }
+
+    /// An `AND` whose children are ordered by how much of the gate each one
+    /// KILLS — the V3 answer to DuckDB's `AdaptiveFilter`, and deliberately
+    /// not DuckDB's algorithm.
+    ///
+    /// `parts` is `(skip_score, child)`; children sort by DESCENDING score,
+    /// stably, so equal scores keep the caller's order.
+    ///
+    /// # Why the score is dead WORDS and not selectivity
+    ///
+    /// DuckDB ranks conjunction terms by measured selectivity, because there
+    /// term `k` runs only on the survivors of `1..k-1` — a selective term
+    /// first literally shrinks the input. In V3 a predicate sweep costs the
+    /// full column wherever it sits, so ordering can only pay by AVOIDANCE:
+    /// the survivor skip drops a 64-row WORD when the gate has no survivor in
+    /// it. The matrix (row A1) said so and required the measurement before any
+    /// port. `examples/adaptive_order_probe.rs` is that measurement, over
+    /// 65,536 rows, five conjuncts, all 120 orderings, four regimes:
+    ///
+    /// | regime | survivors | skipped, worst → best order |
+    /// |---|---|---|
+    /// | permissive | 94.3 % | **0.00 % → 0.00 %** |
+    /// | moderate | 21.8 % | **0.00 % → 0.00 %** |
+    /// | selective | 0.055 % | 5.66 % → **80.66 %** (14.2×) |
+    /// | clustered (an address prefix) | 0.047 % | 0.00 % → **99.90 %** |
+    ///
+    /// Two findings, and the second is the one that picks the control law.
+    ///
+    /// **Order does move the skip fraction, so A1 is not ELIMINATE** — but
+    /// only where there is anything to skip. At 21.8 % survival, uniformly
+    /// spread, a 64-row word is all-dead with probability `0.782^64 ≈ 2e-7`,
+    /// so NO ordering skips anything and the whole question is moot. Word
+    /// granularity needs the accumulator to die in whole words, not merely to
+    /// be small.
+    ///
+    /// **Which means selectivity is the wrong signal.** The selective and the
+    /// clustered regimes have almost identical survivor counts — 36 and 31
+    /// rows — and differ by 19 percentage points of skip, because one
+    /// conjunct's survivors are contiguous and the other's are scattered. Rank
+    /// by selectivity and those two look the same. Rank by DEAD WORDS and they
+    /// do not. That is also why V3 has this lever at all: an address prefix
+    /// selects a contiguous subtree ([`Filter::prefix_u64`]), which is the
+    /// clustered row of that table.
+    ///
+    /// # Why the score is the CALLER's, and why there is no hill-climb
+    ///
+    /// This crate builds programs and never evaluates one, so it cannot
+    /// measure anything; the score comes from a previous execution the caller
+    /// ran. DuckDB's adjacent-transposition hill-climb with swap-likeliness
+    /// decay is NOT ported — the matrix anticipated that too (*"its
+    /// swap-likeliness decay is not obviously the right control law"*), and
+    /// the measurement says why: the quantity being optimised is a step
+    /// function of clustering, not a smooth function of selectivity, so a
+    /// local search over adjacent swaps is exploring the wrong landscape.
+    ///
+    /// # One caveat, because it is a real override
+    ///
+    /// When this `AND` also carries a resident plane that the gate walk
+    /// DROPS as implied, a child whose result is a subset of that plane is
+    /// rotated to the front regardless of score. That rotation is a
+    /// correctness requirement, not a preference, so it wins. The ordering
+    /// here applies among the children the rotation leaves alone.
+    pub fn and_by_skip(parts: impl IntoIterator<Item = (u32, Filter)>) -> Self {
+        let mut scored: Vec<(u32, Filter)> = parts.into_iter().collect();
+        // `sort_by_key` is stable, so equal scores keep the caller's order
+        // rather than being permuted by an implementation detail. `Reverse`
+        // rather than a reversed comparator: a stable sort over a reversed KEY
+        // keeps ties in caller order, while reversing the COMPARISON of a
+        // stable sort would too — but clippy rejects the latter spelling, and
+        // the two are only equivalent because the key is `Copy`.
+        scored.sort_by_key(|&(score, _)| Reverse(score));
+        Filter::And(scored.into_iter().map(|(_, f)| f).collect())
     }
 
     /// Rows whose 32-bit address lane starts with the top `bits` of `prefix` —
@@ -541,6 +616,31 @@ enum Node {
     Not(Box<Node>),
 }
 
+/// Rotate a child whose result is a SUBSET of the gate to the front, and say
+/// whether one was found.
+///
+/// `flags[i]` is `gate_walk`'s "vanishes with the gate", which is exactly
+/// "this child's result is a subset of the gate". Putting such a child first
+/// makes the running accumulator a subset of the gate from the first fold
+/// onward, and that is the precondition [`emit_gated`] needs before it may
+/// narrow later comparisons onto the accumulator instead of onto the gate.
+///
+/// Shared by BOTH `AND` arms of [`gate_walk`] — the already-gated one and the
+/// one that establishes a gate — because a first version rotated only in the
+/// second, and a gated `AND` nested inside a gated `AND` reproduced the same
+/// wrong answer one level down. Two spellings of one rule is how that happens
+/// twice.
+fn hoist_gate_subset(nodes: &mut [Node], flags: &mut [bool]) -> bool {
+    match flags.iter().position(|&v| v) {
+        Some(i) => {
+            nodes.swap(0, i);
+            flags.swap(0, i);
+            true
+        }
+        None => false,
+    }
+}
+
 /// Walk `f` under `gate`, establishing at most one gate per `AND` path.
 ///
 /// Returns the node and whether it is identically zero wherever the gate is
@@ -568,8 +668,9 @@ fn gate_walk(f: &Filter, gate: Option<Mask>) -> Result<(Node, bool), LowerError>
             if let Some(g) = gate {
                 // Already gated from above: this AND's own planes are plain
                 // leaves; one gate per comparison is all `under` can carry.
-                let (nodes, flags) = walk_all(parts, Some(g))?;
-                (Node::And(nodes), flags.iter().any(|&v| v))
+                let (mut nodes, mut flags) = walk_all(parts, Some(g))?;
+                let subset = hoist_gate_subset(&mut nodes, &mut flags);
+                (Node::And(nodes), subset)
             } else {
                 let found = parts.iter().find_map(|p| match p {
                     Filter::Plane(m) => Some(*m),
@@ -580,7 +681,7 @@ fn gate_walk(f: &Filter, gate: Option<Mask>) -> Result<(Node, bool), LowerError>
                     return Ok((Node::And(nodes), false));
                 };
                 let mut nodes = Vec::with_capacity(parts.len());
-                let mut any_vanishes = false;
+                let mut flags = Vec::with_capacity(parts.len());
                 let mut gate_taken = false;
                 for p in parts {
                     if !gate_taken && matches!(p, Filter::Plane(m) if *m == g) {
@@ -588,12 +689,34 @@ fn gate_walk(f: &Filter, gate: Option<Mask>) -> Result<(Node, bool), LowerError>
                         continue;
                     }
                     let (n, v) = gate_walk(p, Some(g))?;
-                    any_vanishes |= v;
                     nodes.push(n);
+                    flags.push(v);
                 }
                 // The gate is implied by any child that vanishes with it;
                 // otherwise it must be read as a leaf of its own.
-                if !any_vanishes {
+                //
+                // When it IS implied, the vanishing child is rotated to the
+                // FRONT, and that is load-bearing rather than tidy. `vanishes`
+                // means exactly "this child's result is a subset of the gate",
+                // so putting one first makes the running accumulator a subset
+                // of the gate from the first fold onward — which is what lets
+                // [`emit_gated`] narrow later comparisons onto the accumulator
+                // without losing the gate.
+                //
+                // Without the rotation this is a silent WRONG ANSWER, not a
+                // missed optimisation, and it was measured: on
+                // `alpha AND focus AND v < 50`, the foreign plane `focus` sat
+                // first, the accumulator therefore started as `focus` (which is
+                // NOT a subset of `alpha`), the comparison was gated on that
+                // instead of on `alpha`, and `alpha` — already dropped as
+                // "implied" — was nowhere in the program. The per-row oracle
+                // caught it immediately.
+                //
+                // AND is commutative, so the rotation costs nothing
+                // semantically. It is also the first place in this crate where
+                // term ORDER changes the emitted program, which is the
+                // mechanism row A1 is about.
+                if !hoist_gate_subset(&mut nodes, &mut flags) {
                     nodes.insert(0, Node::Plane(g));
                 }
                 (Node::And(nodes), false)
@@ -637,18 +760,55 @@ fn walk_all(parts: &[Filter], gate: Option<Mask>) -> Result<(Vec<Node>, Vec<bool
 /// Emit `n` with its result in `dst` (or, for a plane, where it already is),
 /// folding junction children into the first child's slot.
 fn emit_inplace(n: &Node, dst: u16, ops: &mut Vec<MaskOp>) -> Result<Operand, LowerError> {
+    emit_gated(n, dst, None, ops)
+}
+
+/// [`emit_inplace`] with a RUNNING gate: an operand every comparison beneath
+/// `n` is evaluated `under`.
+///
+/// # The accumulator gate, and why it is the one that makes order matter
+///
+/// The plane gate ([`gate_walk`]) skips words where a RESIDENT mask is empty.
+/// This is the other one: inside an `AND`, once the first `k` conjuncts have
+/// been folded into `dst`, conjunct `k + 1` is only consulted where that
+/// partial result still has a survivor. So the gate NARROWS as the conjunction
+/// proceeds, and a selective term early shrinks the live-word count of every
+/// term after it.
+///
+/// Soundness is the same identity the plane gate uses — `g ∧ rest(X) =
+/// g ∧ rest(g ∧ X)` — so it passes through `OR` and `NOT` alike. What it may
+/// NOT do is let anything be dropped: the accumulator is a real operand of the
+/// `AND`, never elided, so there is no analog here of the plane's
+/// vanishes-with-the-gate rule.
+///
+/// It applies to `AND` only. Under an `OR`, `acc | p` depends on `p` exactly
+/// where `acc` is ZERO — gating there would discard the bits that matter and
+/// quietly answer `acc`. That asymmetry is the same one `lgj-abi`'s
+/// `plan_lower` documents, and it is the correctness question in both.
+fn emit_gated(
+    n: &Node,
+    dst: u16,
+    acc_gate: Option<Operand>,
+    ops: &mut Vec<MaskOp>,
+) -> Result<Operand, LowerError> {
     match n {
         Node::Pred { pred, under } => {
+            // The accumulator gate wins over the plane gate when both are
+            // available, and it is strictly narrower rather than merely
+            // different: the plane was the AND's first conjunct, so it is
+            // already folded into the accumulator. A `Pred` carries exactly
+            // one `under`, which is why this is a choice and not a union.
+            let gate = acc_gate.or_else(|| under.map(|m| Operand::Plane(m.0)));
             ops.push(MaskOp::Pred {
                 pred: *pred,
-                under: under.map(|m| Operand::Plane(m.0)),
+                under: gate,
                 dst,
             });
             Ok(Operand::Scratch(dst))
         }
         Node::Plane(m) => Ok(Operand::Plane(m.0)),
         Node::Not(inner) => {
-            let a = emit_inplace(inner, dst, ops)?;
+            let a = emit_gated(inner, dst, acc_gate, ops)?;
             ops.push(MaskOp::Not { a, dst });
             Ok(Operand::Scratch(dst))
         }
@@ -666,7 +826,16 @@ fn emit_inplace(n: &Node, dst: u16, ops: &mut Vec<MaskOp>) -> Result<Operand, Lo
                         needed: usize::from(dst) + 2,
                     })?
                 };
-                let b = emit_inplace(part, slot, ops)?;
+                // Inside an AND, every child after the first is gated on the
+                // partial result. Inside an OR the inherited gate is passed
+                // through unchanged — an OR may not gate on its own
+                // accumulator, but it is still inside whatever AND encloses
+                // it, and that gate remains sound.
+                let child_gate = match (is_and, acc) {
+                    (true, Some(a)) => Some(a),
+                    _ => acc_gate,
+                };
+                let b = emit_gated(part, slot, child_gate, ops)?;
                 acc = Some(match acc {
                     None => b,
                     Some(a) => {
@@ -978,40 +1147,6 @@ mod tests {
         ])
     }
 
-    /// Every `Pred` op of `p` is gated under `g`, and `g` is never read as a
-    /// Boolean operand — the shape the survivor skip produces when the plane
-    /// leaf is dropped.
-    fn gated_and_dropped(p: &Program, g: Mask) -> (bool, bool) {
-        let gate = Operand::Plane(g.0);
-        let mut all_gated = true;
-        let mut read_as_leaf = false;
-        for op in &p.ops {
-            match *op {
-                MaskOp::Pred { under, .. } => all_gated &= under == Some(gate),
-                MaskOp::And { a, b, .. }
-                | MaskOp::Or { a, b, .. }
-                | MaskOp::Xor { a, b, .. }
-                | MaskOp::AndNot { a, b, .. } => read_as_leaf |= a == gate || b == gate,
-                MaskOp::Not { a, .. } => read_as_leaf |= a == gate,
-                MaskOp::Ternlog { a, b, c, .. } => {
-                    read_as_leaf |= a == gate || b == gate || c == gate;
-                }
-            }
-        }
-        let terminal_reads_gate = matches!(
-            p.terminal,
-            Terminal::Count { mask }
-                | Terminal::Any { mask }
-                | Terminal::All { mask }
-                | Terminal::MaskedSumI32 { mask, .. }
-                | Terminal::MaskedMinI32 { mask, .. }
-                | Terminal::MaskedMaxI32 { mask, .. }
-                | Terminal::BlendI32 { mask, .. }
-                | Terminal::Keep { mask } if mask == gate
-        );
-        (all_gated, !read_as_leaf && !terminal_reads_gate)
-    }
-
     /// FAILS IF: either lowering and an independent per-row reading of the
     /// same filter disagree.
     ///
@@ -1160,31 +1295,97 @@ mod tests {
         }
     }
 
-    /// FAILS IF: the survivor skip gates the wrong leaves or drops the gate
-    /// where the drop is unsound.
+    /// How `p` gates its comparisons, and whether `g` survives as an operand.
     ///
-    /// Can-fire: under `alpha & ((A & B) | C)` every comparison is gated and
-    /// alpha is never read as an operand. Can-stay-silent: under
-    /// `alpha & !X` the comparison is still gated (the rewrite is sound
-    /// through a negation while the gate is a leaf) but alpha IS read as a
-    /// leaf, because `!(alpha & X)` is 1 exactly where alpha is 0. The
-    /// differential above holds either way; this pins the SHAPE, so a walk
-    /// that dropped the gate under a negation would fail here even before
-    /// the oracle caught its wrong count.
+    /// Returns `(every comparison gated, some comparison gated on the
+    /// ACCUMULATOR, g is never read as a Boolean operand)`.
+    ///
+    /// The middle field did not exist before accumulator gating: a gate that is
+    /// a scratch slot is the partial result of the conjunction so far, so it
+    /// NARROWS as the conjunction proceeds, where a plane gate is fixed. That
+    /// narrowing is the mechanism row A1 is about.
+    fn gate_shape(p: &Program, g: Mask) -> (bool, bool, bool) {
+        let gate = Operand::Plane(g.0);
+        let mut all_gated = true;
+        let mut on_accumulator = false;
+        let mut read_as_leaf = false;
+        for op in &p.ops {
+            match *op {
+                MaskOp::Pred { under, .. } => match under {
+                    Some(Operand::Scratch(_)) => on_accumulator = true,
+                    Some(_) => {}
+                    None => all_gated = false,
+                },
+                MaskOp::And { a, b, .. }
+                | MaskOp::Or { a, b, .. }
+                | MaskOp::Xor { a, b, .. }
+                | MaskOp::AndNot { a, b, .. } => read_as_leaf |= a == gate || b == gate,
+                MaskOp::Not { a, .. } => read_as_leaf |= a == gate,
+                MaskOp::Ternlog { a, b, c, .. } => {
+                    read_as_leaf |= a == gate || b == gate || c == gate;
+                }
+            }
+        }
+        let terminal_reads_gate = matches!(
+            p.terminal,
+            Terminal::Count { mask }
+                | Terminal::Any { mask }
+                | Terminal::All { mask }
+                | Terminal::MaskedSumI32 { mask, .. }
+                | Terminal::MaskedMinI32 { mask, .. }
+                | Terminal::MaskedMaxI32 { mask, .. }
+                | Terminal::BlendI32 { mask, .. }
+                | Terminal::Keep { mask } if mask == gate
+        );
+        (
+            all_gated,
+            on_accumulator,
+            !read_as_leaf && !terminal_reads_gate,
+        )
+    }
+
+    /// FAILS IF: the survivor skip gates the wrong leaves, drops the gate where
+    /// the drop is unsound, or stops narrowing onto the accumulator.
+    ///
+    /// - **can-fire.** Under `alpha & ((A & B) | C)` every comparison is gated
+    ///   and alpha is never read as a Boolean operand; under the in-place
+    ///   lowering at least one comparison is gated on the ACCUMULATOR.
+    /// - **can-stay-silent.** Under `alpha & !X` the comparison is still gated,
+    ///   but alpha IS read as a leaf — `!(alpha & X)` is 1 exactly where alpha
+    ///   is 0, so dropping it would be unsound.
+    /// - **the foreign plane.** A second plane beside the gate stays an
+    ///   ordinary leaf; it does not become a second gate.
+    ///
+    /// The differential holds either way; this pins the SHAPE, so a walk that
+    /// dropped the gate under a negation — or one that quietly stopped gating
+    /// on the accumulator, which no count would ever notice — fails here.
     #[test]
     fn the_gate_reaches_every_comparison_and_is_dropped_only_where_it_vanishes() {
-        for lowering in [lower, lower_fused] {
+        for (is_inplace, lowering) in [(true, lower as fn(&Query) -> _), (false, lower_fused)] {
             let slice = lowering(&Query {
                 filter: slice_filter(),
                 agg: Agg::Count,
             })
             .expect("lowers");
-            assert_eq!(
-                gated_and_dropped(&slice, ALPHA),
-                (true, true),
+            let (gated, on_acc, dropped) = gate_shape(&slice, ALPHA);
+            assert!(
+                gated && dropped,
                 "the slice: every predicate gated, alpha implied: {:?}",
                 slice.ops
             );
+            // The accumulator gate is asserted for the IN-PLACE lowering only.
+            // The fused one gives every comparison its own slot and hands the
+            // skeleton to the fuser, so there is no running partial result for
+            // a later comparison to narrow onto. That is a real property of
+            // that lowering, not an omission, and asserting it for both would
+            // be asserting something false.
+            if is_inplace {
+                assert!(
+                    on_acc,
+                    "no comparison narrowed onto the accumulator: {:?}",
+                    slice.ops
+                );
+            }
 
             let negated = lowering(&Query {
                 filter: Filter::and([
@@ -1194,9 +1395,9 @@ mod tests {
                 agg: Agg::Count,
             })
             .expect("lowers");
-            assert_eq!(
-                gated_and_dropped(&negated, ALPHA),
-                (true, false),
+            let (gated, _, dropped) = gate_shape(&negated, ALPHA);
+            assert!(
+                gated && !dropped,
                 "under a negation: still gated, but alpha stays a leaf: {:?}",
                 negated.ops
             );
@@ -1210,10 +1411,10 @@ mod tests {
                 agg: Agg::Count,
             })
             .expect("lowers");
-            let (gated, dropped) = gated_and_dropped(&foreign, ALPHA);
+            let (gated, _, dropped) = gate_shape(&foreign, ALPHA);
             assert!(gated && dropped, "the first plane gates: {:?}", foreign.ops);
             assert!(
-                !gated_and_dropped(&foreign, FOCUS).1,
+                !gate_shape(&foreign, FOCUS).2,
                 "the foreign plane is read as a leaf, not gated away: {:?}",
                 foreign.ops
             );
@@ -1671,6 +1872,90 @@ mod tests {
         let expected = fx.rows(&mixed).len();
         assert!(expected > 0 && expected < N, "{expected}/{N}");
         assert_eq!(fx.count(&mixed), expected);
+    }
+
+    /// FAILS IF: skip-ordering changes the ANSWER, or does not change the
+    /// ORDER, or stops being stable for equal scores.
+    ///
+    /// The safety property is the one that matters most: `AND` is commutative,
+    /// so reordering may move work and must never move the result. A lowering
+    /// that reordered children but got the gate chain wrong would produce a
+    /// different count, and the per-row oracle would catch it — which is why
+    /// the answer is checked against the oracle and not merely against the
+    /// unordered lowering.
+    ///
+    /// Then the can-fire half: the emitted program must actually differ. A
+    /// builder that sorted and then lost the order somewhere in `gate_walk`
+    /// would pass the safety half perfectly.
+    #[test]
+    fn skip_ordering_moves_the_work_and_never_the_answer() {
+        let fx = Fx::new(N);
+        // Written worst-first on purpose: the permissive term leads, which is
+        // the shape DuckDB's AdaptiveFilter exists to fix.
+        let permissive = Filter::cmp(VALS, Cmp::GtI32(-900));
+        let moderate = Filter::cmp(CLASS, Cmp::NeU32(0));
+        let selective = Filter::cmp(CLASS, Cmp::EqU32(3));
+
+        let written = Filter::and([permissive.clone(), moderate.clone(), selective.clone()]);
+        // Scores are the caller's evidence — here, dead words each term would
+        // leave behind, highest first.
+        let ordered = Filter::and_by_skip([
+            (1, permissive.clone()),
+            (7, moderate.clone()),
+            (900, selective.clone()),
+        ]);
+
+        // Same answer, and the oracle — not the other lowering — is the judge.
+        let expected = fx.rows(&written).len();
+        assert!(
+            expected > 0 && expected < N,
+            "{expected}/{N} — a degenerate conjunction proves nothing"
+        );
+        assert_eq!(fx.rows(&ordered).len(), expected);
+        assert_eq!(fx.count(&written), expected);
+        assert_eq!(fx.count(&ordered), expected);
+
+        // The order really moved: the most selective term now leads.
+        assert_eq!(
+            ordered,
+            Filter::and([selective.clone(), moderate.clone(), permissive.clone()]),
+            "and_by_skip must sort descending by score"
+        );
+        assert_ne!(ordered, written, "the fixture must not already be ordered");
+
+        // ...and the emitted program reflects it: the FIRST predicate is the
+        // one that was scored highest. Without this the sort could be undone
+        // between the builder and the lowering and nothing would notice.
+        let program = lower(&Query {
+            filter: ordered.clone(),
+            agg: Agg::Count,
+        })
+        .expect("lowers");
+        assert_eq!(
+            program.ops.first(),
+            Some(&MaskOp::Pred {
+                pred: Pred::EqU32 {
+                    lane: CLASS.0,
+                    v: 3
+                },
+                under: None,
+                dst: 0,
+            }),
+            "the highest-scored term must be the ungated seed: {:?}",
+            program.ops
+        );
+
+        // Stability: equal scores keep the caller's order, so a scorer with no
+        // information cannot silently permute a hand-tuned conjunction.
+        assert_eq!(
+            Filter::and_by_skip([
+                (5, permissive.clone()),
+                (5, moderate.clone()),
+                (5, selective.clone()),
+            ]),
+            written,
+            "equal scores must be stable"
+        );
     }
 
     /// FAILS IF: any arm of the vertical slice disagrees on a 64k slab.
