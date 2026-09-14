@@ -48,11 +48,23 @@
   below** rather than carried.
 - **Docs:** `.claude/plans/mask-risc-executor-v1.md`,
   `.claude/board/exec-runs/w2-ternlog-dispatch.md`, `AGENT_LOG` entry.
-- **Confidence: high on the executor, medium on the backend claim.** The
-  differential suite diffs executor against oracle on whichever backend the
-  test binary is built for — AVX2 (`x86-64-v3`) in CI, AVX-512 (`-v4`)
-  locally. **NEON, WASM and scalar are unexercised**, and the module doc says
-  so rather than implying five-backend coverage.
+- **Confidence: high.** The differential suite proves executor == oracle,
+  and that claim is **backend-independent by construction**: this crate
+  contains no `cfg(target_feature)`, no ISA, no fallback chain — law A3, with
+  `the_crate_names_no_isa` enforcing it. **`ndarray` IS the SIMD polyfill**,
+  so "which backend" is ndarray's question and ndarray's parity tests answer
+  it. Running this suite under another realization would test ndarray through
+  a proxy, not this crate.
+  > **⊘ CORRECTED, same day, operator-caught.** This bullet first read
+  > "medium on the backend claim … NEON, WASM and scalar are unexercised",
+  > as though per-backend coverage were a gap in THIS crate's verification.
+  > It is not a property this crate has. Stating it that way describes
+  > mask-risc as carrying five realizations to verify — precisely what the
+  > polyfill exists to make untrue — and is the same confabulation as the
+  > storno's "backend realization" line. **The merged `lib.rs` module doc
+  > carries the identical framing** ("NEON, WASM and scalar are
+  > unexercised") and needs the same correction in code; filed rather than
+  > silently fixed here, since it shipped in #1226.
 - **Process, worth keeping.** A SHA-locked merge is only as strong as the
   provenance of the SHA: this session put a FABRICATED full SHA into a merge
   instruction (correct 8-char prefix, 33 invented digits after) by extending

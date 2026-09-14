@@ -141,10 +141,12 @@ Phase 3.
   / `Program` / `Terminal`, `MASKED_SUM_I32_MAX_ROWS`, `MAX_SCRATCH_SLOTS`,
   `reference_execute` / `reference_scratch`, `ternlog_dispatch` /
   `ternlog_dispatch_assign`, `ExecError` / `LaneKind` / `Value`, `words_for`.
-- **Backend coverage is narrower than "five realizations" implies:** the
-  differential suite runs on whichever backend the test binary is built for —
-  AVX2 in CI, AVX-512 locally. NEON, WASM and scalar are unexercised and the
-  module doc says so.
+- **The crate has no backends, by law.** `ndarray` IS the SIMD polyfill;
+  mask-risc contains no `cfg(target_feature)` and a test enforces it, so
+  executor-vs-oracle equality is backend-independent by construction and
+  per-realization correctness is ndarray's, with ndarray's parity tests. An
+  earlier draft of this delta called backend coverage a gap in THIS crate —
+  corrected; see the storno in `PR_ARC_INVENTORY.md` under #1226.
 - Arc entries: `PR_ARC_INVENTORY.md` under PR #1226 and PR #1225.
 
 ## 2026-09-07 — PR #1218 merged (`7bb393ef`): plan inventory + V3 harvest mirrors are on `main`

@@ -10,19 +10,31 @@
   > **⊘ STORNO 2026-09-14 (kernel-membrane ruling,
   > `lance-graph-java/.claude/board/exec-runs/pr4-kernel-membrane.md`).** The
   > two options this item offers are a false choice: **both preserve the
-  > duplication.** "lgj-abi delegates to the crate" makes a T1 kernel depend
-  > on a T2 evaluator — the membrane runs the other way. "Scope the crate to
-  > the evaluator" leaves both bridges standing and merely stops talking
-  > about one. The resolution is neither: an **additive `mask_ternlog_dyn`
-  > in `ndarray::simd`**, which is where the runtime-immediate → const-generic
-  > dispatch belongs (T0 owns backend realization, and a 256-arm match on an
-  > immediate IS backend realization), with `lgj-abi` and
-  > `ternlog_dispatch` both delegating to it. That is the
-  > missing-capability STOP rule applied as written: a consumer needing a
-  > capability the substrate lacks does not hand-roll it one layer up, and
-  > two consumers hand-rolling the SAME one is the signal read twice. The
-  > item stays OPEN, re-scoped to that ndarray addition; the original text
-  > is left verbatim above.
+  > duplication.** The resolution is neither: an **additive
+  > `mask_ternlog_dyn` in `ndarray::simd`**, with `lgj-abi` and
+  > `ternlog_dispatch` both delegating to it. **ndarray IS the SIMD
+  > polyfill** — every SIMD-shaped surface a consumer needs lives there, and
+  > that is the whole argument. `mask_ternlog` is `<const IMM: i32>`, a const
+  > generic instantiates only from a literal, so a consumer holding a
+  > RUNTIME immediate has no export to call and fans out 256 ways. That is a
+  > **missing export in the polyfill**, nothing more. Verified against source
+  > in lance-graph-java `dfbdfcf`: `mask_ternlog` and `mask_ternlog_assign`
+  > are the only two names the facade re-exports and no `_dyn` form exists at
+  > any level. Straight application of the missing-capability STOP rule — and
+  > two consumers hand-rolling the SAME missing export is the signal read
+  > twice. The item stays OPEN, re-scoped to that ndarray addition; the
+  > original text is left verbatim above.
+  > **⊘⊘ SELF-CORRECTION, same day, operator-caught.** The first version of
+  > this storno justified the ndarray home with "T0 owns backend
+  > realization, and a 256-arm match on an immediate IS backend
+  > realization", and framed the rejected options as "a T1 kernel depending
+  > on a T2 evaluator". **Both are confabulation.** A match on a runtime
+  > immediate is a monomorphization fan-out — pure Rust, byte-identical on
+  > every backend, nothing to do with AVX-512 vs NEON. It is not backend
+  > realization by any reading. The tier story dressed a missing export as
+  > an architecturally interesting membrane problem and, in doing so, made
+  > the polyfill look like one tier among several rather than **the** place
+  > SIMD lives. The correct argument needs no tiers at all.
 - **`D-MRL-1a`'s `TERNARY_MATCH(pattern[12], care[12])` has no carrier.** The
   IR offers `MatchU32`/`MatchU64` only; a 96-bit match over the V3 facet
   register exists in neither this IR nor ndarray T1. Per the missing-
