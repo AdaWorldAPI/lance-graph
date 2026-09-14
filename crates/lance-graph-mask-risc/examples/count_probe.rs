@@ -71,6 +71,15 @@ fn plane(seed: &mut u64, ands: u32) -> Vec<u64> {
         .collect()
 }
 
+/// Time `f` and report `(ns per rep, last value, TOTAL bytes allocated)`.
+///
+/// The third element is deliberately the TOTAL, not a per-rep average. `reps`
+/// doubles until a run takes 200 ms, so at roughly a microsecond per execute
+/// it reaches the hundreds of thousands — and an integer `bytes / reps` then
+/// truncates any total below that to exactly zero. The heap gate would read
+/// `ok` while the run had allocated a hundred kilobytes, which is the one
+/// thing this probe exists to rule out. A gate that cannot observe the defect
+/// it guards is not a gate.
 fn time<F: FnMut() -> usize>(mut f: F) -> (f64, usize, usize) {
     let mut reps = 1usize;
     loop {
@@ -83,7 +92,7 @@ fn time<F: FnMut() -> usize>(mut f: F) -> (f64, usize, usize) {
         let e = t.elapsed();
         let bytes = BYTES.load(Ordering::Relaxed) - before;
         if e.as_millis() >= 200 {
-            return (e.as_nanos() as f64 / reps as f64, last, bytes / reps);
+            return (e.as_nanos() as f64 / reps as f64, last, bytes);
         }
         reps *= 2;
     }
@@ -236,7 +245,9 @@ fn main() {
     let (ns_gated, c_gated, b_gated) = time(|| count_of(execute(&gated, &planes, &mut sg, None)));
     let (ns_two, c_two, b_two) = time(|| count_of(execute(&two_op, &planes, &mut st, None)));
 
-    println!("arm          count    ns/exec   heap B/exec");
+    // "total", not "per exec": `time` now returns the undivided sum, so a
+    // small-but-real allocation cannot round to zero on the way to this line.
+    println!("arm          count    ns/exec   heap B total");
     println!("reference    {reference:>6}");
     println!("handwritten  {hand:>6}  {ns_hand:>9.0}  {b_hand:>6}");
     println!("interpreted  {int:>6}  {ns_int:>9.0}  {b_int:>6}");
@@ -245,7 +256,17 @@ fn main() {
     println!("gated        {c_gated:>6}  {ns_gated:>9.0}  {b_gated:>6}");
     println!("pred+and     {c_two:>6}  {ns_two:>9.0}  {b_two:>6}");
 
-    let ok = hand == reference
+    // The gate can FIRE. Without this the whole `heap B` column and the
+    // `gate: ok` line are consistent with a counter that never moves at all —
+    // and a gate that cannot observe the defect it guards proves nothing. The
+    // allocation is deliberately larger than any plausible accidental one, and
+    // `black_box` keeps the optimiser from removing a Vec nothing reads.
+    let before_probe = BYTES.load(Ordering::Relaxed);
+    let canary = std::hint::black_box(vec![0u8; 4096]);
+    let counter_moved = BYTES.load(Ordering::Relaxed) - before_probe >= canary.len();
+
+    let ok = counter_moved
+        && hand == reference
         && int == reference
         && fus == reference
         && b_int == 0

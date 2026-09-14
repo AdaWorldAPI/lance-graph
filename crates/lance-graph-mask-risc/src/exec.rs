@@ -367,6 +367,18 @@ pub fn execute(
     scratch: &mut Scratch,
     out: Option<&mut [i32]>,
 ) -> Result<Value, ExecError> {
+    // BEFORE the capacity check, not after: an over-declared count is a lie
+    // about the PROGRAM, and the caller's buffer is irrelevant to it. Checked
+    // second, every such program reports `ScratchTooSmall` instead — which the
+    // oracle and `Scratch::for_program` never say, so the two paths would
+    // refuse the same program with different errors, and a caller that grows
+    // its arena on `ScratchTooSmall` would allocate from exactly the count
+    // this bound exists to reject.
+    if program.scratch_slots > MAX_SCRATCH_SLOTS {
+        return Err(ExecError::ScratchSlotsUnaddressable {
+            declared: program.scratch_slots,
+        });
+    }
     if scratch.slots.len() < program.scratch_slots as usize {
         return Err(ExecError::ScratchTooSmall {
             need: program.scratch_slots,
@@ -607,6 +619,56 @@ mod tests {
                 }
             }
         }
+    }
+
+    /// FAILS IF: `execute` reports a DIFFERENT error than the oracle for an
+    /// over-declared program — which it did until the ceiling check moved
+    /// ahead of the capacity check. The capacity check fired first and said
+    /// `ScratchTooSmall`, an error neither the oracle nor `for_program` ever
+    /// produces for this input, so the two paths refused the same program
+    /// with two different reasons.
+    ///
+    /// The assertion is the EQUALITY, not the constant. Pinning
+    /// `ScratchSlotsUnaddressable` on both sides would pass if someone later
+    /// changed both to the same wrong thing; asserting they agree is the law
+    /// ("executor and oracle refuse identically") stated directly.
+    ///
+    /// The caller's scratch is deliberately REAL and small — 1 slot — which
+    /// is the only way this input occurs in practice: nobody can hold an
+    /// arena for a count that cannot be addressed, so the capacity check was
+    /// always the one that fired.
+    #[test]
+    fn the_executor_and_the_oracle_refuse_an_over_declared_program_identically() {
+        let zero = vec![0u64; 2];
+        let masks: [&[u64]; 1] = [&zero];
+        let planes = Planes {
+            n_rows: 70,
+            masks: &masks,
+            lanes: &[],
+        };
+        let lying = Program {
+            ops: vec![],
+            terminal: Terminal::Count {
+                mask: Operand::Plane(0),
+            },
+            scratch_slots: MAX_SCRATCH_SLOTS + 1,
+        };
+        let mut small = Scratch::new(2, 1);
+        let from_executor = execute(&lying, &planes, &mut small, None).unwrap_err();
+        let from_oracle = crate::reference::reference_execute(&lying, &planes, None).unwrap_err();
+        assert_eq!(
+            from_executor, from_oracle,
+            "executor and oracle must refuse the same program with the same error"
+        );
+        // ...and it is the ceiling error, not the capacity one the pre-fix
+        // ordering produced. Without this half the equality could be
+        // satisfied by both paths saying `ScratchTooSmall`.
+        assert_eq!(
+            from_executor,
+            ExecError::ScratchSlotsUnaddressable {
+                declared: MAX_SCRATCH_SLOTS + 1
+            }
+        );
     }
 
     /// FAILS IF: `for_program` guards the addressable ceiling with a
