@@ -1,3 +1,15 @@
+## mask-risc-executor (PR3 — D-ids minted 2026-09-14, `.claude/plans/mask-risc-executor-v1.md`)
+
+| D-id | scope | status | gate / falsifier |
+|---|---|---|---|
+| D-MRX-0 | ndarray T1: ten `*_to_mask_under` gated predicates on one `pack_under` engine, parity arm `0xAxx` | In progress (ndarray branch; must merge to ndarray `main` before PR3 CI can pass) | closure-count can-it-fire: 20 of 40 with the skip, 40 without |
+| D-MRX-1 | `exec.rs` — `Scratch`, `execute`, one facade call per op, generated ternlog dispatch | Queued | F-X1 gated-vs-`mask_and` op count; F-X3 odd-immediate tail law on `n_rows % 64 != 0` |
+| D-MRX-2 | `reference.rs` — scalar oracle with zero `ndarray` tokens | Queued | F-R1 source grep; F-R2 a wrong immediate is caught on seeded planes |
+| D-MRX-3 | `fuse.rs` — ≤3-leaf Boolean tree → one `Ternlog{imm}` | Queued | F-B1 `mask_passes() == 1`; F-B4 immediate equals bit-serial evaluation |
+| D-MRX-4 | `ternlog_dispatch.rs` — generated 256-arm match, regenerate-and-diff gated | Queued | all 256 immediates equal the bit-serial reference |
+| D-MRX-5 | the differential suite at 8 row counts × every op × both CI arms | Queued | anti-vacuity `survivors * 3 < n_rows` per predicate fixture |
+| D-MRX-6 | `examples/count_probe.rs` — reference / interpreted / fused, 0 B per execute | Queued | counting allocator reads 0 after warm-up; three arms agree |
+
 ## bbb-nars-lowering (D-id minted 2026-09-07 with the operator ruling)
 
 `.claude/knowledge/membrane-tiers.md` § "T1 has TWO sibling algebras"; board
