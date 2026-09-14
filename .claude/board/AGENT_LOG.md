@@ -1,3 +1,32 @@
+## 2026-09-14 (2) — PR2 8-review council on `bc3c810`, and a storno on the entry below
+
+**Council (all Opus, read-only, disjoint axes; orchestrator consolidated):**
+iron-rule YIELDS-ALL · zero-copy PASS (2 MATERIALIZES: the two `m = m.or(..)`
+loops the PR built `or_assign` for; `MaskOp::Copy`) · kernel-membrane PASS
+(tail laws differential-tested equal on conforming buffers; `Pred{under}`
+promises a gated predicate T1 lacks — PR3 lands `*_to_mask_under` first) ·
+v3-envelope LAYOUT-GATED (no stored byte moves; `words_mut` phantom vs derived
+`PartialEq`; odd-immediate tail obligation undocumented; "low 8 payload bytes"
+selects a reading by convention-in-code) · baton CATCH-LATENT (contract 100 %
+additive, lgj-abi green; `WideFieldMask::words()` width representation-
+dependent while equality canonical; `TERNLOG 0x86` zero-consumer claim VERIFIED
+across three repos) · falsifier PASS (17/17 tests disable-verified red; F1:
+`union_with`'s in-place Wide arm dead under the suite) · brutally-honest HOLD
+(new member outside all three CI allowlists; `or/xor_assign` propagate a
+phantom; `Program::new` u16 overflow) · overclaim FAIL (4 blocks: G4 "verified
+absent" after the primitive shipped and its falsifier fired; EPIPHANIES point
+(3) graded FINDING on a superseded remedy; "98.3 %" as a recoverable win on the
+board; three artifacts calling mask-risc unbuildable in the commit that fixed
+it; plus a non-monotone grade tally and a marker lost across three hops).
+**All fixed in the follow-up commit and re-locked**; each fix carries its own
+falsifier where one was possible.
+
+**Storno on the entry below:** *"6 `[claimed, unverified]` markers all
+absence/mechanism claims"* counted the register preamble as a marker — the
+DuckDB matrix carries 4 distinct claims at 5 sites (two absence, one mechanism,
+one behaviour, one derivation); the Cypher plan carries 1 site covering 3
+absence claims, not 2.
+
 ## 2026-09-14 — Five-agent fan-out after ndarray #306 merged (operator: "autoattended, autonomous, auto-resolve; opus filigree, sonnet grindwork")
 
 Orchestrator-gated; the main thread is the sole writer of this log. Files

@@ -18,7 +18,12 @@ pub enum LaneRef<'a> {
     I32(&'a [i32]),
     /// Unsigned 32-bit lane (equality is exact bitwise; classids live here).
     U32(&'a [u32]),
-    /// 64-bit lane (edge targets, ids, the low 8 payload bytes).
+    /// 64-bit lane (edge targets, ids). NOT a reading of the 12-byte V3
+    /// register: which carving that register is read under is the
+    /// ClassView's choice, never a lane width's, and a contiguous `&[u64]`
+    /// cannot alias a 12-in-16-byte stride anyway — the strided operand
+    /// family (`ternary_match_strided_to_mask`'s `(base, stride, group)`
+    /// shape) is a named PR3 gap, not this variant.
     U64(&'a [u64]),
 }
 
@@ -101,6 +106,13 @@ pub enum MaskOp {
     /// `dst = table[imm](a, b, c)` — any 3-input Boolean function, Intel
     /// VPTERNLOG index convention `(a << 2) | (b << 1) | c`. Semantics only;
     /// the realization per backend is `ndarray`'s.
+    ///
+    /// Tail obligation: an EVEN immediate (`imm & 1 == 0`, i.e. `f(0,0,0) =
+    /// 0`) leaves the tail zero for conforming inputs; an ODD one — every
+    /// table whose root is a negation, which a fuser mints routinely — sets
+    /// every tail bit, and the executor clears the tail against `n_rows`
+    /// before any `Any`/`Count` terminal reads `dst`. Same rule as
+    /// `ndarray::simd::mask_ternlog`'s own doc.
     Ternlog {
         imm: u8,
         a: Operand,
@@ -108,8 +120,6 @@ pub enum MaskOp {
         c: Operand,
         dst: u16,
     },
-    /// `dst = a` (a copy into scratch, e.g. to seed an in-place accumulator).
-    Copy { a: Operand, dst: u16 },
 }
 
 /// What the program produces. Exactly one per program; the mask it reads is
@@ -160,10 +170,11 @@ impl Program {
                 | MaskOp::Xor { dst, .. }
                 | MaskOp::AndNot { dst, .. }
                 | MaskOp::Not { dst, .. }
-                | MaskOp::Ternlog { dst, .. }
-                | MaskOp::Copy { dst, .. } => dst,
+                | MaskOp::Ternlog { dst, .. } => dst,
             };
-            slots = slots.max(d + 1);
+            // saturating: `dst == u16::MAX` must not wrap `scratch_slots` to 0
+            // in release (the build where the damage would be silent)
+            slots = slots.max(d.saturating_add(1));
         }
         Self {
             ops,
@@ -185,7 +196,6 @@ impl Program {
                 | MaskOp::AndNot { .. } => h.two_input += 1,
                 MaskOp::Not { .. } => h.not += 1,
                 MaskOp::Ternlog { .. } => h.ternlog += 1,
-                MaskOp::Copy { .. } => h.copies += 1,
             }
         }
         h
@@ -203,13 +213,89 @@ pub struct OpHistogram {
     pub not: usize,
     /// Three-input passes.
     pub ternlog: usize,
-    /// Copies.
-    pub copies: usize,
 }
 
 impl OpHistogram {
     /// Total mask-word passes the program spends after its predicates.
     pub fn mask_passes(&self) -> usize {
-        self.two_input + self.not + self.ternlog + self.copies
+        self.two_input + self.not + self.ternlog
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// FAILS IF: `Program::new` wraps its slot count in release — `dst ==
+    /// u16::MAX` would then report `scratch_slots == 0` for a program that
+    /// writes slot 65535 (debug would panic instead; the saturating add
+    /// makes both builds agree).
+    #[test]
+    fn scratch_slots_saturate_at_the_widest_dst() {
+        let p = Program::new(
+            vec![MaskOp::Not {
+                a: Operand::Plane(0),
+                dst: u16::MAX,
+            }],
+            Terminal::Count {
+                mask: Operand::Scratch(u16::MAX),
+            },
+        );
+        assert_eq!(p.scratch_slots, u16::MAX);
+        let q = Program::new(
+            vec![],
+            Terminal::Count {
+                mask: Operand::Plane(0),
+            },
+        );
+        assert_eq!(q.scratch_slots, 0);
+    }
+
+    /// FAILS IF: the histogram miscounts a kind, or `mask_passes` counts a
+    /// predicate as a mask pass (predicates sweep VALUE lanes and are
+    /// reported separately). Fixture: one of each kind, so every counter is
+    /// exactly 1 and the pass total is 4.
+    #[test]
+    fn op_histogram_counts_each_physical_kind_once() {
+        let p = Program::new(
+            vec![
+                MaskOp::Pred {
+                    pred: Pred::GtI32 { lane: 0, t: 3 },
+                    under: None,
+                    dst: 0,
+                },
+                MaskOp::And {
+                    a: Operand::Scratch(0),
+                    b: Operand::Plane(0),
+                    dst: 1,
+                },
+                MaskOp::Not {
+                    a: Operand::Scratch(1),
+                    dst: 2,
+                },
+                MaskOp::Ternlog {
+                    imm: 0x80,
+                    a: Operand::Scratch(0),
+                    b: Operand::Scratch(1),
+                    c: Operand::Scratch(2),
+                    dst: 3,
+                },
+            ],
+            Terminal::Count {
+                mask: Operand::Scratch(3),
+            },
+        );
+        let h = p.op_histogram();
+        assert_eq!(
+            h,
+            OpHistogram {
+                predicates: 1,
+                two_input: 1,
+                not: 1,
+                ternlog: 1
+            }
+        );
+        assert_eq!(h.mask_passes(), 3);
+        assert_eq!(p.scratch_slots, 4);
     }
 }

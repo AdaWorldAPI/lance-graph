@@ -404,9 +404,11 @@ impl WideFieldMask {
     /// tier-agnostic fold is already correct for this operator: a missing
     /// `other` chunk reads `0` so `a & !0 = a` (nothing to subtract there); a
     /// missing `self` chunk reads `0` so `0 & !b = 0`. [`zip_fold`]'s
-    /// normalization (trailing-zero trim + demote-to-`Small`) is load-bearing —
-    /// without it a difference that falls entirely below bit 64 would compare
-    /// unequal to its `Small` equivalent under the canonical `PartialEq`.
+    /// normalization (trailing-zero trim + demote-to-`Small`) keeps the
+    /// REPRESENTATION canonical — equality and hashing are canonical either
+    /// way (`PartialEq`/`Hash` fold over `canonical_len`), which is what lets
+    /// the in-place forms below skip the normalization and still compare
+    /// equal to this one; what the trim buys is a canonical `words()` width.
     ///
     /// [`zip_fold`]: Self::zip_fold
     #[must_use]
@@ -496,12 +498,31 @@ impl WideFieldMask {
     /// the seam a SIMD consumer reads a field mask through when it
     /// participates in a fused expression (chunk `k` = positions
     /// `64k..64k+63`, exactly `FieldMask`'s bit order).
+    ///
+    /// **Width is representation-dependent.** Two `==`-equal masks can
+    /// present different `words().len()` — an in-place fold leaves a
+    /// `Wide` value as wide as it was, the allocating fold trims it — and
+    /// `ndarray::simd`'s two-operand ops assert equal lengths. A SIMD
+    /// consumer that combines two masks feeds it [`Self::canonical_words`]
+    /// (equal masks ⇒ equal width) or sizes both to the wider
+    /// `max_fields()`; `words()` stays the raw view of this mask's own
+    /// storage.
     #[must_use]
     pub fn words(&self) -> &[u64] {
         match &self.0 {
             WideRepr::Small(bits) => core::slice::from_ref(bits),
             WideRepr::Wide(v) => v,
         }
+    }
+
+    /// The packed chunks with trailing zero chunks trimmed — the width a
+    /// mask's VALUE has, so two equal masks always return equal slices
+    /// (`canonical_len` is the same quantity `PartialEq`/`Hash` fold over).
+    /// Always at least one chunk long. A borrow, never a copy.
+    #[must_use]
+    pub fn canonical_words(&self) -> &[u64] {
+        let n = self.canonical_len().max(1);
+        &self.words()[..n]
     }
 
     /// The packed chunks, mutably — the write seam for an external mask
@@ -2729,7 +2750,7 @@ mod tests {
     /// for the case shape.
     #[test]
     fn union_with_matches_the_allocating_form_across_tiers() {
-        let cases: [(WideFieldMask, WideFieldMask); 3] = [
+        let cases: [(WideFieldMask, WideFieldMask); 4] = [
             (
                 WideFieldMask::from_positions(&[1, 3]),
                 WideFieldMask::from_positions(&[3, 7]),
@@ -2742,6 +2763,15 @@ mod tests {
                 WideFieldMask::from_positions(&[3, 70]),
                 WideFieldMask::from_positions(&[3, 133, 200]),
             ),
+            // self WIDER than other: the only pairing that reaches the
+            // in-place Wide arm (every other case routes to GROW or the
+            // Small arm) — measured absent from the first three by branch
+            // instrumentation in the PR2 council; without it a corrupted
+            // in-place Wide arm shipped green.
+            (
+                WideFieldMask::from_positions(&[3, 133]),
+                WideFieldMask::from_positions(&[7, 70]),
+            ),
         ];
         for (a, b) in cases {
             let mut r = a.clone();
@@ -2749,6 +2779,31 @@ mod tests {
             assert_eq!(r, a.union(&b), "union_with vs union");
             assert_ne!(r, a, "union_with must actually add something here");
         }
+    }
+
+    /// FAILS IF: two `==`-equal masks present different `canonical_words()`
+    /// (the trim stops at the wrong chunk), or `canonical_words()` silently
+    /// becomes `words()` — the fixture is built so the raw widths DIFFER
+    /// (3 vs 1 chunks) while the values are equal, which is exactly the pair
+    /// `ndarray::simd::mask_and`'s length assert would reject on `words()`.
+    #[test]
+    fn equal_masks_present_equal_canonical_words_even_when_raw_widths_differ() {
+        let mut a = WideFieldMask::from_positions(&[3, 133]);
+        a.difference_with(&WideFieldMask::from_positions(&[133])); // stays Wide, 3 chunks
+        let b = WideFieldMask::from_positions(&[3]); // Small, 1 chunk
+        assert_eq!(a, b, "fixture: the values are equal");
+        assert_ne!(
+            a.words().len(),
+            b.words().len(),
+            "fixture: the raw widths differ"
+        );
+        assert_eq!(a.canonical_words(), b.canonical_words());
+        assert_eq!(a.canonical_words(), &[8u64][..]);
+        // and the empty mask is never a zero-length slice
+        assert_eq!(
+            WideFieldMask::from_positions(&[]).canonical_words().len(),
+            1
+        );
     }
 
     /// FAILS IF: `difference_with` computes something other than

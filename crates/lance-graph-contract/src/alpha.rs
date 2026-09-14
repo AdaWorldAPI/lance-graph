@@ -220,7 +220,7 @@ pub struct AlphaClaim {
 /// Per the same law, no unnamed materializer exists: the only way ordinals
 /// leave mask form is [`AlphaMask::materialize_ordinals`], O(n) and named as
 /// such.
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug)]
 pub struct AlphaMask {
     words: Box<[u64]>,
     /// Valid bit count. Bits at and past `len` are PHANTOM and every op that
@@ -228,6 +228,19 @@ pub struct AlphaMask {
     /// forgets the tail word invents up to 63 addresses the spine never had.
     len: u32,
 }
+
+/// Equality is over the POPULATION, never the representation: `len` and the
+/// words with the tail word masked. A phantom bit a raw writer left past
+/// `len` (see [`AlphaMask::words_mut`]) does not make two equal populations
+/// compare unequal — the same rule `WideFieldMask` enforces with its
+/// canonical `PartialEq`/`Hash`.
+impl PartialEq for AlphaMask {
+    fn eq(&self, other: &Self) -> bool {
+        self.len == other.len && self.canonical_words().eq(other.canonical_words())
+    }
+}
+
+impl Eq for AlphaMask {}
 
 impl AlphaMask {
     /// An all-zero mask over `len` ordinals.
@@ -254,13 +267,42 @@ impl AlphaMask {
     /// Population size — one popcount sweep, no materialization.
     #[must_use]
     pub fn count(&self) -> u32 {
-        self.words.iter().map(|w| w.count_ones()).sum()
+        self.canonical_words().map(|w| w.count_ones()).sum()
     }
 
     /// Whether the population is empty.
     #[must_use]
     pub fn is_empty(&self) -> bool {
-        self.words.iter().all(|&w| w == 0)
+        self.canonical_words().all(|w| w == 0)
+    }
+
+    /// The mask for the last word: every bit below `len % 64`, or all ones
+    /// when `len` is a multiple of 64 (no phantom positions). The ONE
+    /// spelling of the tail law in this file — `not`, `not_assign`,
+    /// `from_words`, `clear_tail`, the readers and `PartialEq` all go
+    /// through it, so it cannot drift between them.
+    fn tail_mask(&self) -> u64 {
+        let tail = self.len % 64;
+        if tail == 0 {
+            u64::MAX
+        } else {
+            (1u64 << tail) - 1
+        }
+    }
+
+    /// The words with the tail word masked — what the population IS,
+    /// regardless of what a raw writer left past `len`. Readers
+    /// (`count`, `is_empty`, `PartialEq`) go through this so a phantom bit
+    /// raised through [`Self::words_mut`] can never inflate a count or make
+    /// two equal populations compare unequal; [`Self::words`] stays the raw
+    /// view for the SIMD seam, which conforming inputs keep zero anyway.
+    fn canonical_words(&self) -> impl Iterator<Item = u64> + '_ {
+        let last = self.words.len().saturating_sub(1);
+        let mask = self.tail_mask();
+        self.words
+            .iter()
+            .enumerate()
+            .map(move |(i, &w)| if i == last { w & mask } else { w })
     }
 
     /// How many ordinals the mask ranges over (NOT how many are set).
@@ -330,12 +372,7 @@ impl AlphaMask {
             words: self.words.iter().map(|&w| !w).collect(),
             len: self.len,
         };
-        let tail = u64::from(self.len % 64);
-        if tail != 0 {
-            if let Some(last) = out.words.last_mut() {
-                *last &= (1u64 << tail) - 1;
-            }
-        }
+        out.clear_tail();
         out
     }
 
@@ -359,20 +396,26 @@ impl AlphaMask {
         }
     }
 
-    /// `self |= other`, in place — no allocation.
+    /// `self |= other`, in place — no allocation. Unlike `and`, OR and XOR
+    /// PROPAGATE a phantom tail bit from a non-conforming operand (one a
+    /// raw writer left past `len` through [`Self::words_mut`]), so the tail
+    /// is cleared afterwards — one masked AND on the last word.
     pub fn or_assign(&mut self, other: &Self) {
         assert_eq!(self.len, other.len, "masks from different allocations");
         for (d, &s) in self.words.iter_mut().zip(other.words.iter()) {
             *d |= s;
         }
+        self.clear_tail();
     }
 
-    /// `self ^= other`, in place — no allocation.
+    /// `self ^= other`, in place — no allocation. Tail cleared for the same
+    /// reason as [`Self::or_assign`].
     pub fn xor_assign(&mut self, other: &Self) {
         assert_eq!(self.len, other.len, "masks from different allocations");
         for (d, &s) in self.words.iter_mut().zip(other.words.iter()) {
             *d ^= s;
         }
+        self.clear_tail();
     }
 
     /// `self &= !other`, in place — no allocation. The result is a subset of
@@ -389,12 +432,7 @@ impl AlphaMask {
         for w in self.words.iter_mut() {
             *w = !*w;
         }
-        let tail = u64::from(self.len % 64);
-        if tail != 0 {
-            if let Some(last) = self.words.last_mut() {
-                *last &= (1u64 << tail) - 1;
-            }
-        }
+        self.clear_tail();
     }
 
     /// Clear every bit — reuse this allocation as fresh scratch instead of
@@ -418,11 +456,9 @@ impl AlphaMask {
     /// Re-establish the tail invariant after an external writer that may
     /// have raised phantom bits (an odd-table ternlog, a hand-built word).
     pub fn clear_tail(&mut self) {
-        let tail = u64::from(self.len % 64);
-        if tail != 0 {
-            if let Some(last) = self.words.last_mut() {
-                *last &= (1u64 << tail) - 1;
-            }
+        let mask = self.tail_mask();
+        if let Some(last) = self.words.last_mut() {
+            *last &= mask;
         }
     }
 
@@ -459,14 +495,9 @@ impl AlphaMask {
             (len as usize).div_ceil(64),
             "word count does not match the allocation length"
         );
-        let mut words = words;
-        let tail = u64::from(len % 64);
-        if tail != 0 {
-            if let Some(last) = words.last_mut() {
-                *last &= (1u64 << tail) - 1;
-            }
-        }
-        Self { words, len }
+        let mut mask = Self { words, len };
+        mask.clear_tail();
+        mask
     }
 }
 
@@ -1227,13 +1258,15 @@ mod tests {
     }
 
     /// FAILS IF: any op leaves a bit set past `len` on a non-conforming
-    /// length. `not_assign` is the one op that can raise a phantom bit
-    /// starting from CONFORMING inputs (flipping the 62 phantom positions
-    /// in a 130-bit mask's tail word) — the other four can only clear bits
-    /// that were already 0 in both operands, so they cannot introduce a
-    /// phantom bit on their own; this still checks all five, because a
-    /// future refactor that shares code between them could regress any of
-    /// them together.
+    /// length. From CONFORMING inputs `not_assign` is the one op that can
+    /// raise a phantom bit (flipping the 62 phantom positions in a 130-bit
+    /// mask's tail word); `and_assign`/`and_not_assign` cannot; `or_assign`/
+    /// `xor_assign` cannot from conforming inputs but DO propagate a
+    /// non-conforming operand's phantom bit, which is why they clear the
+    /// tail — `or_and_xor_assign_clear_a_phantom_bit_a_non_conforming_operand_carries`
+    /// below is the falsifier for that half. This test still checks all
+    /// five, because a future refactor that shares code between them could
+    /// regress any of them together.
     #[test]
     fn in_place_ops_keep_the_tail_clear_on_a_non_conforming_length() {
         let len = 130; // 130 % 64 == 2: 62 phantom positions in the tail word
@@ -1272,12 +1305,14 @@ mod tests {
     }
 
     /// `words_mut()` is a raw write seam; nothing re-establishes the tail
-    /// invariant automatically. FAILS IF: `clear_tail()` stops masking the
-    /// tail word (e.g. becomes a no-op) — the hand-raised phantom bit at
-    /// ordinal 130 would then still count, and the final assertion below
-    /// would see `count() == 1` instead of `0`.
+    /// invariant automatically, and the RAW word carries what a writer left.
+    /// The readers do not: `count()`/`is_empty()`/`PartialEq` mask the tail
+    /// word, so a phantom bit can never inflate a population or split two
+    /// equal masks. FAILS IF: `clear_tail()` stops masking the tail word
+    /// (the raw word keeps bit 2 after the call), OR a reader stops masking
+    /// (the phantom would count as a member).
     #[test]
-    fn words_mut_needs_clear_tail_and_a_phantom_bit_is_observable_without_it() {
+    fn words_mut_needs_clear_tail_and_a_phantom_bit_is_observable_only_in_the_raw_word() {
         let mut m = AlphaMask::empty(130); // 130 % 64 == 2: word 2 has 62 phantom bits
         assert_eq!(m.count(), 0);
 
@@ -1285,27 +1320,69 @@ mod tests {
         // the 3rd (index-2) word.
         m.words_mut()[2] |= 1 << 2;
 
-        // Can-fire half: the phantom bit IS observable without clear_tail —
-        // count() sums every word, unlike contains()'s len-guarded read.
+        // Can-fire half: the phantom bit IS in the raw word the SIMD seam
+        // reads ...
         assert_eq!(
-            m.count(),
+            m.words()[2] >> 2,
             1,
-            "the hand-raised phantom bit must be observable via count()"
+            "the hand-raised phantom bit must be visible in the raw word"
         );
-        assert!(
-            !m.contains(130),
-            "contains() stays len-guarded regardless of the raw word contents"
+        // ... and NOT in any population reading.
+        assert_eq!(m.count(), 0, "count() must mask the tail word");
+        assert!(m.is_empty(), "is_empty() must mask the tail word");
+        assert!(!m.contains(130), "contains() stays len-guarded");
+        assert_eq!(
+            m,
+            AlphaMask::empty(130),
+            "equality is over the population, never the raw tail"
         );
 
         m.clear_tail();
 
-        // Can-stay-silent half: clear_tail restores conformity.
-        assert_eq!(m.count(), 0, "clear_tail must remove the phantom bit");
+        // Can-stay-silent half: clear_tail restores raw conformity.
         assert_eq!(
             m.words()[2] >> 2,
             0,
             "every bit at and past len must be zero after clear_tail"
         );
+    }
+
+    /// FAILS IF: `or_assign` or `xor_assign` stops clearing the tail — a
+    /// phantom bit carried by a NON-conforming operand would then land in
+    /// the raw tail word of a mask that never touched `words_mut()` itself.
+    /// The can-fire half is the raw word before the op (the operand really
+    /// carries the bit); the silent half is the raw word after it.
+    #[test]
+    fn or_and_xor_assign_clear_a_phantom_bit_a_non_conforming_operand_carries() {
+        let mut dirty = AlphaMask::empty(130);
+        dirty.words_mut()[2] |= 1 << 5; // ordinal 133, past len
+        assert_eq!(
+            dirty.words()[2] >> 5 & 1,
+            1,
+            "fixture: the operand carries the phantom"
+        );
+
+        let mut via_or = AlphaMask::empty(130);
+        via_or.or_assign(&dirty);
+        assert_eq!(
+            via_or.words()[2],
+            0,
+            "or_assign must clear the propagated phantom"
+        );
+
+        let mut via_xor = AlphaMask::empty(130);
+        via_xor.xor_assign(&dirty);
+        assert_eq!(
+            via_xor.words()[2],
+            0,
+            "xor_assign must clear the propagated phantom"
+        );
+
+        // and the two ops that cannot raise a bit stay untouched by design
+        let mut via_and = AlphaMask::empty(130);
+        via_and.set(1);
+        via_and.and_assign(&dirty);
+        assert_eq!(via_and.words()[2], 0);
     }
 
     /// `and_assign`'s release-mode length guard, mirroring [`Self::and`]'s

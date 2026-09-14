@@ -1,9 +1,17 @@
 //! # `lance-graph-mask-risc` — the mask RISC above `ndarray::simd`
 //!
+//! **STATUS: SKELETON.** Only [`ir`] exists. The executor, the fuser, the
+//! hop op, the scalar reference oracle and the generated truth tables
+//! described below are PR3's deliverables — every sentence about what
+//! "the executor" does is the DESIGN it is held to, *claimed, unverified*
+//! until that code and its falsifiers land. The crate deliberately has no
+//! dependencies yet; `ndarray` and `lance-graph-contract` are added when
+//! the first code path uses them, not before.
+//!
 //! A tiny mechanical evaluator and fuser for Boolean programs over
 //! **borrowed resident bit-planes** (one `u64` per 64 rows, LSB-first, tail
 //! bits zero — `ndarray::simd`'s normative mask order and the contract's
-//! [`AlphaMask`](lance_graph_contract::alpha::AlphaMask) order alike).
+//! `AlphaMask` order alike).
 //!
 //! ```text
 //! DuckDB execution semantics            (source material only — never a dependency)
@@ -20,7 +28,7 @@
 //! 1. **The plan describes, the executor borrows, ndarray computes, the
 //!    caller owns memory.** Inputs are `&[u64]` / `&[i32]` / … borrowed from
 //!    whoever owns the address space (a mailbox, an `AlphaMask`, an lgj
-//!    `RowStore`); temporaries live in a caller-supplied [`Scratch`]; the
+//!    `RowStore`); temporaries live in a caller-supplied `Scratch`; the
 //!    executor never allocates. There is no per-row object, no hidden
 //!    rowset, no second row-index universe — a `SelectionVector` cannot be
 //!    expressed in this vocabulary at all.
@@ -29,12 +37,12 @@
 //!    [`Terminal::MaskedSumI32`] and friends reduce a *value plane* under
 //!    the final mask; a mask bit is never a weight.
 //! 3. **`TERNLOG` is semantics, never a hardware assumption.** The fuser
-//!    ([`fuse`]) turns any Boolean subtree over three leaves into one
+//!    (`fuse`) turns any Boolean subtree over three leaves into one
 //!    [`MaskOp::Ternlog`] by evaluating its truth table; how a given
 //!    immediate is realized on AVX-512 / AVX2 / NEON / WASM / scalar is
 //!    entirely `ndarray`'s business (the polyfill law). **This crate contains
 //!    no `cfg(target_feature)`, no ISA cost model, no fallback chain.**
-//! 4. **Reference semantics are independent.** [`reference`] evaluates the
+//! 4. **Reference semantics are independent.** `reference` evaluates the
 //!    same program one row at a time in plain Rust with no `ndarray` — the
 //!    oracle every executor is diffed against, on every backend.
 //!

@@ -29,7 +29,7 @@ semiring fence read from the Cypher side:
 > about a population is a mask. Therefore a Cypher `MATCH` is a mask program, and
 > the only parts that are not are the parts that were never Boolean.**
 
-`ndarray/.claude/blackboard.md:397-405` (**D-GTM-0j**) is the type boundary in
+`ndarray/.claude/blackboard.md` entry **D-GTM-0j** (§12.4 of the ternlog plan; the blackboard is prepend-ordered, so cite the entry id, never a line) is the type boundary in
 measured form: *"masks win whenever the relation is Boolean; a relation that
 carries VALUES needs a value-aware algorithm"* — explicitly a TYPE boundary, not
 a density one (no crossover: 745× at 0.02 % density, 297× at 100 %). §3 below is
@@ -114,9 +114,9 @@ three leaves is one immediate, hence one pass. §3.3 is built on exactly that.
 |---|---|---|
 | `lance-graph-mask-risc` op vocabulary | `crates/lance-graph-mask-risc/src/ir.rs` — `Operand:7` · `LaneRef:16` · `Planes:44` · `Pred:56` · `MaskOp:82` · `Terminal:108` · `Program:132` · `OpHistogram:186` | **CODED and coherent.** `Pred` has 10 variants incl. `MatchU32/MatchU64`; `MaskOp` has 8; `Terminal` has 8 |
 | …its four laws | `lib.rs:18-39` | *"The plan describes, the executor borrows, ndarray computes, the caller owns memory"*; masks-choose-admissibility; `TERNLOG` is semantics; reference semantics are independent |
-| …**and it does not build** | `lib.rs:56-61` declares `pub mod exec; pub mod fuse; pub mod hop; pub mod ir; pub mod reference; pub mod ternlog_table;` — **only `ir.rs` and `lib.rs` exist on disk** (verified by directory listing) | four of six modules are absent; `pub use exec::…` / `fuse::…` at `:63-64` cannot resolve |
-| …**and it is not in the workspace** | `Cargo.toml:2-28` members, `:29-…` exclude — `lance-graph-mask-risc` appears in **neither** list | an orphan directory. Nothing compiles it, nothing gates it |
-| Shipped T1 consumer inside this repo | `crates/lance-graph-planner/src/nested_bands.rs:32` imports `gt_i32_to_mask, le_i32_to_mask, mask_ternlog, popcount_batch_u64`; `:161` `mask_ternlog::<AND_ANDNOT2>`; `:439` `::<AND2>`; `:623` `::<TEST_AND2>` | **the precedent: `lance-graph-planner` already depends on `ndarray` (`Cargo.toml:24`) and already calls T1 by name.** No new dependency edge is needed for the planner half |
+| …**and it did not build** (as of this read — ⊘ fixed by PR2 `c095dcc`: only `ir` is declared now, the crate is a workspace member, builds, and is clippy/fmt/test-gated in CI) | `lib.rs:56-61` declared `pub mod exec; pub mod fuse; pub mod hop; pub mod ir; pub mod reference; pub mod ternlog_table;` — **only `ir.rs` and `lib.rs` existed on disk** (verified by directory listing) | five of six modules were absent; `pub use exec::…` / `fuse::…` at `:63-64` could not resolve |
+| …**and it was not in the workspace** (as of this read — ⊘ PR2 adds it to `members`) | `Cargo.toml:2-28` members, `:29-…` exclude — `lance-graph-mask-risc` appeared in **neither** list | an orphan directory at the time: nothing compiled it, nothing gated it |
+| Shipped T1 consumer inside this repo | `crates/lance-graph-planner/src/nested_bands.rs:32` imports `gt_i32_to_mask, le_i32_to_mask, mask_ternlog, popcount_batch_u64`; `:161` `mask_ternlog::<AND_ANDNOT2>`; `:439` `::<AND2>` (⊘ now `mask_and`, the exact name, after the PR2 council); `:623` is a `#[cfg(test)]` alias of `AND2`, not a third immediate | **the precedent: `lance-graph-planner` already depends on `ndarray` (`Cargo.toml:24`) and already calls T1 by name.** No new dependency edge is needed for the planner half |
 | `AlphaMask` | `crates/lance-graph-contract/src/alpha.rs:224-230` — `words: Box<[u64]>`, `len: u32`, tail bits PHANTOM and every op that could raise them must clear them | the contract-side mask carrier, same LSB-first order as `ndarray::simd` (`mask-risc/src/lib.rs:4-6`) |
 | The hop, as an ABI | `lance-graph-java/native/lgj-abi/src/exports.rs:2053` `lgj_hop(store, edge_classid, facet_mask, decode_mode, src_mask, dst_mask)` | the `src_mask → hop → dst_mask` shape, shipped |
 | …its selection algebra | `exports.rs:2026-2032` + `:2104-2118`: `selected_f = ternlog<AND3>(class_f, src, struct_f)`, `dst = ⋁_f scatter(selected_f)`; *"No row is examined to decide whether it participates"* | **the pattern §3.4 reuses verbatim** |
@@ -134,7 +134,7 @@ the output."* `arena_ir.rs:40` says the same (*"Real implementation receives AST
 from CypherParse strategy"*), and `collapse_gate.rs:34-45` / `sigma_scan.rs` are
 comment-only bodies returning `input` unchanged.
 
-Consequence: **there is exactly one real Cypher lowering in this repo**, and it
+Consequence: **there is exactly one real Cypher lowering in this repo** (the absence half of this is §1.5's `[claimed, unverified]` grep), and it
 runs `parser.rs` → `semantic.rs` → `logical_plan.rs` → `datafusion_planner`. A
 mask lowering must attach to THAT chain (`query.rs:920-952`), not to the planner's
 strategy list. The strategy list is where a mask program gets *selected*, later,
@@ -256,7 +256,7 @@ reasons in full).
 | # | Cypher | lowers to | status |
 |---|---|---|---|
 | **N-1** | `MATCH (n:Label)`, rows minted in classid order | **a RANGE mask** — set bits `[lo, hi)` directly, no compare at all. `ndarray/.claude/blackboard.md:18-22`: a contiguous prefix reveal measured **49–99 ns** vs **22.4–22.8 µs** for the general `ternary_match_u32_to_mask` sweep — **228–462×**; *"a minted, Morton-keyed tenant never pays it"* | `[H]` — mechanism `[G]`, the ordering precondition is **OQ-2** |
-| **N-2** | `MATCH (n:Label)`, arbitrary row order | `eq_u32_strided_to_mask(bytes, 0, 512, n_rows, classid, out)` — offset 0 because `le-contract.md:12-30` puts the composed classid u32 at the facet's byte 0; stride 512 = the CANON row (`CLAUDE.md` § Minimal SoA node: 16 B key + 16 B edges + 480 B value) | `[G]` mechanism · **OQ-1** for the classid |
+| **N-2** | `MATCH (n:Label)`, arbitrary row order | `eq_u32_strided_to_mask(bytes, 0, 512, n_rows, classid, out)` — offset 0 because `le-contract.md:12-30` puts the composed classid u32 at the facet's byte 0; stride 512 = the CANON row (`CLAUDE.md` § Minimal SoA node: 16 B key + 16 B edges + 480 B value) | `[H]` — mechanism `[G]`, the label→classid route is stated ABSENT by §1.4 (3); **OQ-1** |
 | **N-3** | `MATCH (n)` — no label | the all-ones mask. Adopts `lgj_plan_eval`'s convention verbatim (`exports.rs:1768`: *"the accumulator starts as all rows set"*), so an unlabelled scan costs a memset, not a sweep | `[G]` |
 | **N-4** | `MATCH (n:A:B)` — multi-label | two label masks + `mask_and`. Three labels = **one** `mask_ternlog::<AND3>` pass, not two ANDs — the `lgj_hop` spelling (`exports.rs:2026-2032`) | `[G]` |
 | **N-5** | `(n:Label {k: v})` — inline property | the label mask and the property mask are two leaves; **fuse them with the WHERE tree** (§3.3) rather than ANDing eagerly. `ast.rs:143` `properties: HashMap<String, PropertyValue>` is the source | `[G]` |
@@ -332,13 +332,13 @@ only because the destination index is **decoded** from the selected row, making 
 |---|---|---|---|
 | **R-1** | `(a)-[:R]->(b)` | `src_mask` (= a's mask) → hop over R's edge facets → `dst_mask`; then AND with b's label mask | `[G]` shape, `[H]` in-repo — the symbol is in `lgj-abi`, not `lance-graph` (§6 N-11) |
 | **R-2** | `(a)<-[:R]-(b)` | the hop over the **TRANSPOSE**, never the same relation read backwards. `blackboard.md:414-417` is the measured trap: *"the GEMM arm computes `{i : srcs(i) ∩ active ≠ ∅}` while the mask arm was unioning `srcs(i)` over active i — those agree only for a SYMMETRIC relation … The mask arm must union the TRANSPOSE"* | `[G]` as a rule · `[H]` whether a transpose lane exists in a real bake — **OQ-6** |
-| **R-3** | `(a)-[:R]-(b)` undirected | R-1 ∪ R-2: two hops, `mask_or`. **Not** one hop over a "both" flag | `[G]` |
-| **R-4** | `-[:R1\|R2]->` multi-type | one hop per type, `mask_or`-accumulated into `dst`. Mirrors `lgj_hop`'s own per-facet `⋁_f` | `[G]` |
+| **R-3** | `(a)-[:R]-(b)` undirected | R-1 ∪ R-2: two hops, `mask_or`. **Not** one hop over a "both" flag | `[G]` shape · `[H]` in-repo (inherits R-1/R-2) |
+| **R-4** | `-[:R1\|R2]->` multi-type | one hop per type, `mask_or`-accumulated into `dst`. Mirrors `lgj_hop`'s own per-facet `⋁_f` | `[G]` shape · `[H]` in-repo (inherits R-1/R-2) |
 | **R-5** | `-[r {k: v}]->` relationship property filter | an extra leaf in the per-facet conjunction: `ternlog::<AND3>(class_f, src, prop_f)` and then AND `struct_f` — the SAME two-predicate pattern `lgj_hop` already runs (`class_f` at facet base +0, `struct_f` at base +12) with one leaf substituted | `[G]` |
-| **R-6** | `(a)-[:R]->(b)-[:S]->(c)` — fixed 2-hop | chain: `dst₁` becomes `src₂`. Target-label masks AND in **between** hops, never after, so hop 2's frontier is already narrowed | `[G]` |
+| **R-6** | `(a)-[:R]->(b)-[:S]->(c)` — fixed 2-hop | chain: `dst₁` becomes `src₂`. Target-label masks AND in **between** hops, never after, so hop 2's frontier is already narrowed | `[G]` shape · `[H]` in-repo (inherits R-1/R-2) |
 | **R-7** | `-[:R*1..k]->` bounded variable length | iterate R-1 `k` times over a **DELTA frontier**, not the accumulated state: `frontier ← mask_andnot(dst, state)`, `state ← mask_or(state, dst)`, stop when `!mask_any(frontier)`. `blackboard.md:33-36` measures exactly this — *"the **NNUE reading** — spread from the DELTA frontier (`scratch & !state`), never from the accumulated state — gives the identical closure (gate green) at **8.8 µs (−48 %)**"* | `[G]` mechanism · `[H]` on graph shape |
 | **R-8** | `-[:R*]->` unbounded | R-7 to fixpoint. Termination is `mask_any(frontier) == false` (`mask_any:1215`) — a **bit test over a 8 KiB plane**, not a visited-set lookup. Today's DF path unrolls and unions (`builder/expand_ops.rs`, `logical_plan.rs:72-91`: *"implemented by unrolling into multiple fixed-length paths and unioning them"*); a mask fixpoint has no unroll bound at all | `[G]` mechanism · `[H]` |
-| **R-9** | `WHERE` applied to a hop result | the survivor mask is just another leaf: `mask_ternlog::<AND3>(dst, pred_a, pred_b)`. **This is the crosswalk's own shape** — `spog-alpha-channel-v1.md:182-184`: *"`mask_ternlog::<AND3>(&sweep, &tenant_mask[n], &rung_gate, &mut survivors)` — the survivors' key set is the needle set of hop n+1"* | `[G]` |
+| **R-9** | `WHERE` applied to a hop result | the survivor mask is just another leaf: `mask_ternlog::<AND3>(dst, pred_a, pred_b)`. **This is the crosswalk's own shape** — `spog-alpha-channel-v1.md:182-184`: *"`mask_ternlog::<AND3>(&sweep, &tenant_mask[n], &rung_gate, &mut survivors)` — the survivors' key set is the needle set of hop n+1"* | `[G]` shape · `[H]` in-repo (inherits R-1/R-2) |
 
 **The forbidden move, quoted because it is one line away from every one of these
 rows.** `spog-alpha-channel-v1.md:186-187`: *"The forbidden move is a mask-`AND`
@@ -381,7 +381,7 @@ are aggregates). `Terminal` is `mask-risc/src/ir.rs:108-128`.
 | **G-7** | `vector_distance` / `vector_similarity` (`ast.rs:343-356`) | **[GRACE]** §4.4 — and it is the *interesting* one |
 
 **Row count: 7 + 9 + 9 + 9 + 12 + 7 = 53 lowering rows.** Counted by the status in
-each row's own cell: **35 `[G]`**, **9 `[H]`** (each with a named measurement in §8),
+each row's own cell: **31 `[G]`**, **13 `[H]`** (⊘ PR2 council: R-3/R-4/R-6/R-9 are compositions of the `[H]` rows R-1/R-2 and N-2's precondition is stated ABSENT by §1.4, so five rows regrade down; nine of the thirteen name a measurement in §8 — R-1, R-7, R-8, R-9 and N-7's bake precondition are answered by OQ-12),
 **9 `[GRACE]`** (the 7 rows of §3.6 plus P-9 and T-12, which reach the same fence
 from inside the predicate and terminal groups).
 
@@ -389,7 +389,7 @@ from inside the predicate and terminal groups).
 
 ## §4 — (b) WHAT CANNOT LOWER, AND WHY
 
-The organising principle is `blackboard.md:397-405` (D-GTM-0j): **the boundary is a
+The organising principle is the blackboard's D-GTM-0j entry: **the boundary is a
 TYPE boundary, not a density one.** A mask answers *which rows*. It cannot answer
 *in what order*, *how many times*, or *what value*. Everything below is one of
 those three questions wearing different syntax.
@@ -530,7 +530,7 @@ it is **shared core**, so it means the same thing in every vocabulary
 (`lib.rs:612-617` `is_shared_core`), which is precisely the property a cross-domain
 Boolean combinator needs.
 
-It currently has **zero consumers** (§1.5). `spog-alpha-channel-v1.md:215-219` §3.5
+It currently has **zero consumers** — §1.5's grep, independently re-run across lance-graph, lance-graph-java and OGAR by the PR2 council's boundary audit (2026-09-14): every `TERNLOG` hit is `VPTERNLOG`/`mask_ternlog` or ogar-loco's own tables, never the `FnIndex` constant; verified. `spog-alpha-channel-v1.md:215-219` §3.5
 already names the first one as future work — *"the first `ogar-r2il` consumer
 through `lance-graph-ogar` = `RANK` to admit + `TERNLOG 0x86` per hop, with the
 falsifier that a lifted crosswalk program yields the hand-written chain's survivor
@@ -692,7 +692,7 @@ different repository (`lance-graph-java/native/lgj-abi/src/exports.rs:2053`). R-
 this tree. Wave 2 either re-expresses it over `MailboxSoaView`'s edge accessors or
 records that it cannot — it does not link against lgj-abi.
 
-**N-12 — `lance-graph-mask-risc` is not adopted as-is.** It does not build (four of
+**N-12 — `lance-graph-mask-risc` is adopted as a COMPILING SKELETON, not as the crate this read saw.** ⊘ PR2 `c095dcc` made it a workspace member declaring only `ir`; `exec`/`fuse`/`hop`/`reference`/`ternlog_table` stay PR3. As read, it did not build (five of
 six declared modules absent) and is in neither workspace list (§1.3). Wave 0 decides
 whether to complete it or to host the lowering in `lance-graph-planner`, which
 already has the `ndarray` dependency and a shipped T1 consumer
@@ -871,7 +871,7 @@ is not answered.
 | **OQ-7** | **`avg()` result type** — exact rational over `(masked_sum_i32, popcount)`, or `f64`? | diff both against the DataFusion path's own `avg` on the fixture set; whichever is bit-identical wins, and if neither is, `avg` is `[GRACE]` | a silent numeric divergence that the SET-equality differential cannot see, because it is in the value, not the population |
 | **OQ-8** | **`IN [a..z]` (P-7): at what list length does the OR-accumulated chain lose to a hash-set scan?** | sweep list length on the real column; report the crossing, or report that there is none up to the corpus's longest list | a lowering that wins on 3 needles and loses on 300, chosen by guess |
 | **OQ-9** | **who is the first `TERNLOG 0x86` consumer?** `spog-alpha-channel-v1.md:215-219` §3.5 already claims that slot for a lifted crosswalk program, with its own falsifier | ask; do not race. If spog lands first, this plan's Part-1 consumption is a second caller of a proven path, which is strictly better | two first-consumers of one opcode, each proving it differently |
-| **OQ-10** | **host the lowering where?** `lance-graph-mask-risc` does not build and is in neither workspace list (§1.3); `lance-graph-planner` has `ndarray` (`Cargo.toml:24`) and a shipped T1 consumer (`nested_bands.rs:32`) | decide in Wave 0 by compiling: complete the four missing modules, or move `ir.rs`'s vocabulary into the planner. Report which, and why | adopting a crate that has never compiled, and discovering its gaps mid-wave |
+| **OQ-10** | **host the lowering where?** ⊘ the compile half is answered — PR2 makes `lance-graph-mask-risc` a member that builds and is CI-gated. What is still open: complete the five missing modules THERE, or host the lowering in `lance-graph-planner` (which has `ndarray`, `Cargo.toml:24`, and a shipped T1 consumer, `nested_bands.rs:32`) | decide in Wave 0 by writing the executor against the IR and measuring whether a second crate edge pays for itself | a crate that compiles but never executes anything, and a planner that grows a second evaluator |
 | **OQ-11** | **does the `Split` residue actually save anything?** A mask prefix handed to DataFusion must arrive as a predicate DataFusion can push down, or the split is pure overhead | measure `Split` vs pure-grace on the same query. If `Split` never wins, drop the variant and simplify to `Full` / `Grace` | a three-way outcome enum where two values suffice |
 | **OQ-12** | **what does a hop cost on THIS substrate?** `lgj_hop`'s measured numbers are on a facet-major store in another repo (`exports.rs:2042-2044`: *"the hop runs 3.3–4.8× over AoS"*); the CANON row here is AoS-shaped (16 B key + 16 B edges + 480 B value) | measure the re-expressed hop on the real bake, both layouts if both exist | importing a sibling repo's ratio as if it were this repo's — the same class of error as citing a debug-profile number as release |
 
@@ -945,7 +945,7 @@ PRs generates none of these obligations.
 
 1. **The lowering table (§3): 53 rows** — 7 node/label, 9 property predicate, 9
    Boolean-fusion, 9 relationship/hop, 12 return/terminal, 7 explicit non-lowering.
-   **35 `[G]`, 9 `[H]`** (each with a named measurement in §8), **9 `[GRACE]`**.
+   **31 `[G]`, 13 `[H]`** (regraded by the PR2 council — compositions inherit their components' grade; nine name a measurement in §8), **9 `[GRACE]`**.
 2. **The placement ruling (§5): three parts.** Consume the already-minted, so-far
    unconsumed `TERNLOG = 0x86` (`ogar-loco/src/lib.rs:607`) for all Boolean
    combination — do not mint. Keep `Pred` / hop / terminals as a **lowering target

@@ -1,3 +1,23 @@
+## 2026-09-14 (2) — STORNO on `E-HEX-TENANT-RAIL-IS-DIRECTION-CHAIN-IS-FREE-SHIFT-IS-THE-COST-1` point (3): the shift was the COST, it was not the REMEDY
+
+Corrects the entry immediately below, left in place per the append-only rule.
+Points (1) and (2) stand as FINDING (measured). Point (3) — *"so the missing
+T1 word IS a mask-level neighbour shift"* — converted a conditional in the
+ndarray blackboard (*"which would fold n into a handful of word passes. Filed,
+not built"*) into an identification, and the same day's measurement (ndarray
+blackboard 2026-09-14 (3), `855bc73`) falsified the identification as stated:
+`mask_shift_morton` is bit-exact, but over the FULL field it recovers **−14 %**
+(14.5 vs 17.0 µs) and loses to the NNUE delta arm (9.3 µs), because a word op
+is field-span-bound while the per-bit loop is active-bound. The **−66 %**
+(`n` = 5.7 µs) came from running the op over the trie node's own 64-word span —
+the fixed-spatial-distribution dividend a second time, on the grey side.
+Regrade: point (3) `[H]` → measured, with the remedy corrected to *"the
+neighbour shift over the NODE SPAN"*; point (4)'s NNUE figure is −45 % in the
+re-run and is superseded as the recommended rung (delta on top of the span buys
+nothing, 5.7 → 6.0 µs); the coal ratio 0.48 holds **at x = 4** — the qualifier
+the entry dropped. Rule extracted: a word-level op pays for the span it is
+given; give it the node, never the field. Found by the PR2 overclaim audit.
+
 ## 2026-09-14 — E-HEX-TENANT-RAIL-IS-DIRECTION-CHAIN-IS-FREE-SHIFT-IS-THE-COST-1 — top-down traversal and spread on ONE Morton-keyed SoA; the ternlog chain is 1.7 % of a step, the neighbour shift is the rest
 
 **Status:** FINDING (measured, ndarray `examples/hex_tenant_mq_probe.rs` at

@@ -1,3 +1,19 @@
+## 2026-09-14 (2) — STORNO on the two entries below (PR2 council, overclaim audit)
+
+- duckdb entry: *"G4 `mask_shift_hex` the only one with a fitted cost (98.3 % of
+  a spread step)"* attached the measured cost of `n` to the VALUE of closing the
+  gap. Corrected: G4 is the only gap with a fitted model behind the quantity it
+  targets (`n` = 98.3 % of a step); the primitive shipped after that read as
+  `mask_shift_morton` and recovers **−14 % unconditionally, −66 % restricted to
+  the node span** (ndarray blackboard 2026-09-14 (3)). G4's own falsifier fired.
+- cypher entry: *"`lance-graph-mask-risc` does not build … recorded, not
+  adopted"* was true at the read and false at merge — PR2 `c095dcc` makes it a
+  compiling, CI-gated member declaring only `ir`. Adopted as a skeleton; N-12 and
+  OQ-10 in the plan are restated accordingly. The tally is **31 [G] · 13 [H] ·
+  9 [GRACE]** after the council's monotonicity regrade (compositions inherit
+  their components' grade). The "zero-consumer `TERNLOG 0x86`" claim is now
+  VERIFIED by the council's three-repo sweep, not `[claimed, unverified]`.
+
 ## 2026-09-14 — cypher-mask-lowering-v1 — Cypher AST → mask programs over `ndarray::simd`, DataFusion as the grace path → `.claude/plans/cypher-mask-lowering-v1.md`
 
 **Status:** PLAN (Wave 0 = measure; no production code). 53-row lowering

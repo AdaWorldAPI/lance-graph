@@ -155,7 +155,7 @@ impl<'a, 'b> AlphaFocus<'a, 'b> {
         let mut m = AlphaMask::empty(base);
         for rung in 0..crate::rung_schedule::LEVELS {
             if let Some(l) = self.tunnel.lane(u8::try_from(rung).unwrap_or(u8::MAX)) {
-                m = m.or(&l.attended_mask());
+                m.or_assign(&l.attended_mask());
             }
         }
         m

@@ -29,7 +29,7 @@
 use lance_graph_contract::shape_rank::{ShapeRankPayload, SHAPE_BUCKETS};
 use lance_graph_contract::thought_atoms::normalized_entropy;
 use ndarray::simd::ternlog::{AND2, AND_ANDNOT2};
-use ndarray::simd::{gt_i32_to_mask, le_i32_to_mask, mask_ternlog, popcount_batch_u64};
+use ndarray::simd::{gt_i32_to_mask, le_i32_to_mask, mask_and, mask_ternlog, popcount_batch_u64};
 
 /// Fixed-point scale for Fisher-2z values on the i32 mask column: 2z ∈
 /// roughly [−21, 21] at EPS=1e-9, so ×1024 keeps 3 decimals and stays far
@@ -436,7 +436,7 @@ impl NestedBands {
         while a < b {
             let mid = a + (b - a) / 2;
             le_i32_to_mask(column, mid, &mut m);
-            mask_ternlog::<AND2>(bucket_mask, &m, bucket_mask, &mut scratch);
+            mask_and(bucket_mask, &m, &mut scratch);
             let below = popcount_batch_u64(&scratch);
             let err = below.abs_diff(target);
             if best.is_none_or(|(_, e, _)| err < e) {
@@ -797,10 +797,8 @@ mod tests {
                 let mut m = vec![0u64; column.len().div_ceil(64)];
                 gt_i32_to_mask(&column, next_below, &mut m);
                 let n = column.len();
-                if !n.is_multiple_of(64) {
-                    let last = m.len() - 1;
-                    m[last] &= (1u64 << (n % 64)) - 1;
-                }
+                // no manual tail clear: `gt_i32_to_mask` writes a zero tail
+                // itself, the same guarantee the production sweep relies on
                 let over = popcount_batch_u64(&m) as f64 / n as f64;
                 assert!(
                     over > rate,
@@ -1209,9 +1207,10 @@ mod tests {
     /// `exceedance` closure: a fresh `Vec` per call, manual tail clear
     /// (the hoisted version trusts `gt_i32_to_mask`'s own tail-clearing
     /// instead — `clear_mask_tail` in `simd_masking_ops.rs` masks the same
-    /// `(1 << (n % 64)) - 1` pattern, so the two are provably equivalent,
-    /// and this oracle checks that equivalence end to end rather than by
-    /// reading the other crate's source).
+    /// `(1 << (n % 64)) - 1` pattern AND zeroes any surplus words; the two
+    /// coincide because this caller sizes the buffer to exactly
+    /// `words_for(n)`. This oracle checks that agreement end to end on
+    /// seeded fixtures rather than relying on that reading).
     fn oracle_exceedance(column: &[i32], v: i32) -> f64 {
         let n = column.len();
         let mut m = vec![0u64; words_for(n)];
@@ -1334,8 +1333,8 @@ mod tests {
     /// FAILS IF: the hoisted-buffer `best_achievable_floor` diverges from
     /// the pre-hoist semantics — same failure class as the `split` oracle
     /// above, applied to `gt_i32_to_mask`'s own tail-clearing instead of a
-    /// manual one. `n=63` (not a multiple of 64) specifically exercises
-    /// the removed manual-clear path.
+    /// manual one. `n=63` (like `n=1000`, not a multiple of 64) exercises
+    /// the removed manual-clear path on a single-word mask.
     #[test]
     fn best_achievable_floor_matches_the_pre_hoist_oracle_on_seeded_columns() {
         for seed in [0x1234_5678u64, 0x0BAD_F00Du64, 0xCAFE_BABEu64, 42, 999] {
