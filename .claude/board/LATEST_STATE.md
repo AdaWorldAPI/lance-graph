@@ -124,6 +124,29 @@ and NOT DataFusion — the same class
 numbers are stale after the `mint_for` V2/V3 drift; re-anchor to symbols before
 Phase 3.
 
+## 2026-09-14 — PR #1225 (`73d3b41`) and PR #1226 (`0b1ebaa`) merged: the masking floor is on `main`
+
+- **New workspace member: `crates/lance-graph-mask-risc`** — the mask RISC
+  above `ndarray::simd`. `ir` / `exec` / `reference` / `fuse` /
+  `ternlog_dispatch` / `value`, with a differential suite (executor vs a
+  scalar oracle that never touches `ndarray`), a zero-allocation gate, and a
+  CI line (`member-tests`) plus a generated-dispatch consistency check.
+- **Contract inventory delta (PR #1225):** `AlphaMask`, `WideFieldMask` and
+  `FieldMask` gained borrowed-word and caller-owned/in-place forms;
+  `NestedBands` hoists its buffers. The field-mask vs row-mask distinction is
+  preserved deliberately.
+- **Public surface added (PR #1226):** `execute`, `materialize_rows`,
+  `Scratch`, `fuse` / `fuse_program` / `ternlog_imm` / `BoolExpr` /
+  `FuseError` / `Fused`, `LaneRef` / `MaskOp` / `Operand` / `Planes` / `Pred`
+  / `Program` / `Terminal`, `MASKED_SUM_I32_MAX_ROWS`, `MAX_SCRATCH_SLOTS`,
+  `reference_execute` / `reference_scratch`, `ternlog_dispatch` /
+  `ternlog_dispatch_assign`, `ExecError` / `LaneKind` / `Value`, `words_for`.
+- **Backend coverage is narrower than "five realizations" implies:** the
+  differential suite runs on whichever backend the test binary is built for —
+  AVX2 in CI, AVX-512 locally. NEON, WASM and scalar are unexercised and the
+  module doc says so.
+- Arc entries: `PR_ARC_INVENTORY.md` under PR #1226 and PR #1225.
+
 ## 2026-09-07 — PR #1218 merged (`7bb393ef`): plan inventory + V3 harvest mirrors are on `main`
 
 - The 2026-09-07 "plan inventory landed" delta below is now merged history. Post-review deltas since that delta was written: `TD-NDARRAY-SIMD-GATHER` is **PARTIAL** (not SHIPPED); W1b reads 0 of 5 TD entries closed / 1 of 7 files migrated; ENTROPY M1–M27 reconciles to 9 + 7 + 10 + 1; COMPONENT-MAP `StepMask` row and the Sonnet guardrails `StepMask` / `0x1000` rows regraded; the nexgen `(classid, version)` key is marked PROPOSED (shipped `NestedBands` is version-only). Arc entry: `PR_ARC_INVENTORY.md` under PR #1218.

@@ -1,3 +1,83 @@
+## 2026-09-14 — lance-graph PR #1226 (merged `0b1ebaa`, branch `claude/clone-repositories-71a5sw`) — the mask-risc executor, and five findings that arrived AFTER the council
+
+- **Added:** `crates/lance-graph-mask-risc` — `ir` (the op vocabulary),
+  `exec` (the borrowing evaluator over caller-owned `Scratch`), `reference`
+  (the row-at-a-time oracle that never touches `ndarray`), `fuse` (Boolean
+  tree → one `Ternlog` by truth table), `ternlog_dispatch` (GENERATED 256-arm
+  runtime-immediate → const-generic bridge, CI-checked against its generator),
+  `value`. Plus `tests/differential.rs`, `tests/no_alloc.rs`,
+  `tests/oracle_alloc.rs`, `examples/count_probe.rs`, and the `member-tests`
+  CI line.
+- **Locked.** Laws renamed to end a real ambiguity: **A1–A4** are the
+  architectural doctrine (`lib.rs`), **L1–L5** the structural laws a test
+  enforces (`exec.rs`). A3 and L2 are both "no ISA", so a bare "law 3" was
+  ambiguous; the mapping is written out (A1 → L1 + L5, A3 → L2, A4 → L4; A2
+  has no structural counterpart, L3 has no architectural one and is
+  `[claimed, unverified]` with no instrument). `MAX_SCRATCH_SLOTS = 65_536`,
+  with `const _: () = assert!(MAX_SCRATCH_SLOTS == 65_536)` pinning the VALUE
+  independently of its derivation — the falsifiers are written as
+  `MAX_SCRATCH_SLOTS + 1` and therefore TRACK the constant, so they cannot be
+  what catches a change to it.
+- **Five findings landed after the eight-review council, two of them
+  regressions introduced by fixing the first.** In order: the scratch-slot
+  ceiling (a public `u32` field could declare 4e9 slots naming no operand,
+  which every per-operand check is structurally blind to) → `execute`
+  disagreeing with the oracle because my ceiling fix ran after the capacity
+  check → a truncating `bytes / reps` in the probe → validation quadratic in
+  op count (3.06 s at 65,536 ops) → the oracle sizing its bitmap from
+  `scratch_slots` BEFORE `validate` checked it (512 MiB, measured). **The
+  council is not the last gate; it is the first one that reads the whole
+  diff.**
+- **A third-party docstring agent committed to the branch mid-review**
+  (`2967143`, CodeRabbit, started by someone other than the authoring
+  session). It was read, checked against the code, and **kept — not
+  reverted.** Four of its five edits were genuine corrections, three of them
+  to drift THIS BRANCH introduced the same day: `execute`'s "before any
+  write" became false when the read-before-write bitmap went caller-owned;
+  `validate`'s numbered list was stale once the ceiling check moved to the
+  front; `Program::new` said "from the ops" where the count is over every
+  operand including the terminal's. `0f8cdeb` restored the `O(n_rows)` bound
+  it dropped from `materialize_rows` and narrowed an over-general claim it
+  added about `written_bits`. **A doc comment is not a behaviour, so no test
+  in the suite could have caught any of it.**
+- **Deferred, named:** `hop` (PR5); a strided `Operand` — the gap is in THIS
+  IR, not in T1, since `ndarray::simd` already ships
+  `ternary_match_strided_to_mask` and nothing here can name a
+  `(base, stride, group)` source; the Cypher `mask_lower` seam; and L3's
+  missing instrument. The ternlog duplication filed by this PR is **stornoed
+  below** rather than carried.
+- **Docs:** `.claude/plans/mask-risc-executor-v1.md`,
+  `.claude/board/exec-runs/w2-ternlog-dispatch.md`, `AGENT_LOG` entry.
+- **Confidence: high on the executor, medium on the backend claim.** The
+  differential suite diffs executor against oracle on whichever backend the
+  test binary is built for — AVX2 (`x86-64-v3`) in CI, AVX-512 (`-v4`)
+  locally. **NEON, WASM and scalar are unexercised**, and the module doc says
+  so rather than implying five-backend coverage.
+- **Process, worth keeping.** A SHA-locked merge is only as strong as the
+  provenance of the SHA: this session put a FABRICATED full SHA into a merge
+  instruction (correct 8-char prefix, 33 invented digits after) by extending
+  a short SHA from `git log --oneline` instead of running `git rev-parse`.
+  The lock would have refused it — fail-safe against its own operator — which
+  is the only reason it cost nothing. Three stale `check_suite.completed`
+  events also arrived naming superseded heads; **a completion event is never
+  evidence about the current head.**
+
+## 2026-09-14 — lance-graph PR #1225 (merged `73d3b41`, branch `claude/clone-repositories-71a5sw`) — the contract's masking debt, paid in borrowed words
+
+- **Added:** borrowed-word and caller-owned/in-place forms across
+  `AlphaMask` / `WideFieldMask` / `FieldMask`; `NestedBands` buffers hoisted
+  out of the hot path; every discovered debt site carrying a hot-path
+  `Box`/`Vec` converted; the `lance-graph-mask-risc` IR skeleton that PR
+  #1226 then filled in.
+- **Locked.** The field-mask vs row-mask distinction is PRESERVED, not
+  unified — they are different questions (which FIELDS participate vs which
+  ROWS survive) and a single type would have made the confusion
+  unrepresentable in the wrong direction.
+- **Docs:** equivalence tests pinning each new borrowed form against the
+  allocating one it replaces.
+- **Confidence: high.** The equivalence tests are the gate, and each was
+  disable-verified.
+
 ## 2026-09-07 — lance-graph PR #1217 (merged `b518dbf1`, branch `claude/great-curie-d2ufyl`) — a commit orphaned by a reset, and a board that recorded the opposite
 
 - **Added:** `.claude/plans/nodeguid-new-repurpose-audit-v1.md` (5+3 council SPEC v1

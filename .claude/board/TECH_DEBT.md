@@ -7,6 +7,22 @@
   lgj-abi delegates to the crate, or the crate is scoped to the evaluator —
   and stornos the other doc. Filing costs a paragraph now; de-duplicating
   after PR4 wires `plan_eval` costs a refactor.
+  > **⊘ STORNO 2026-09-14 (kernel-membrane ruling,
+  > `lance-graph-java/.claude/board/exec-runs/pr4-kernel-membrane.md`).** The
+  > two options this item offers are a false choice: **both preserve the
+  > duplication.** "lgj-abi delegates to the crate" makes a T1 kernel depend
+  > on a T2 evaluator — the membrane runs the other way. "Scope the crate to
+  > the evaluator" leaves both bridges standing and merely stops talking
+  > about one. The resolution is neither: an **additive `mask_ternlog_dyn`
+  > in `ndarray::simd`**, which is where the runtime-immediate → const-generic
+  > dispatch belongs (T0 owns backend realization, and a 256-arm match on an
+  > immediate IS backend realization), with `lgj-abi` and
+  > `ternlog_dispatch` both delegating to it. That is the
+  > missing-capability STOP rule applied as written: a consumer needing a
+  > capability the substrate lacks does not hand-roll it one layer up, and
+  > two consumers hand-rolling the SAME one is the signal read twice. The
+  > item stays OPEN, re-scoped to that ndarray addition; the original text
+  > is left verbatim above.
 - **`D-MRL-1a`'s `TERNARY_MATCH(pattern[12], care[12])` has no carrier.** The
   IR offers `MatchU32`/`MatchU64` only; a 96-bit match over the V3 facet
   register exists in neither this IR nor ndarray T1. Per the missing-
