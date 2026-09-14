@@ -1,3 +1,56 @@
+## 2026-09-14 (5) — the ceiling guard CodeRabbit found on the fold commit, and a falsifier that tracked its own constant
+
+**The finding, against `061d12b` (post-fold, not the reviewed `687042f`).**
+`Program::scratch_slots` is a PUBLIC field, so a struct literal can declare
+four billion slots while naming **no `Operand::Scratch` at all**. Every check
+that existed was per-operand — `validate`'s `check_operand` bounds the INDEX
+`i < scratch_slots` — and a per-operand check is structurally blind to a lie
+it has no operand to catch. Two paths then size an arena from that field:
+`Scratch::for_program` (a `debug_assert`, dropped in release, then straight
+into `Scratch::new`) and the oracle's own `run`
+(`(0..p.scratch_slots).map(|_| vec![false; n])`, worse by a factor of
+`n_rows`).
+
+**My own doc comment asserted the fix that did not exist** — *"a larger count
+means a hand-built program lied, and `validate` refuses it."* It did not.
+Textbook `a doc-comment claim is not a behaviour`, in code written the same
+session that quotes the rule.
+
+**The fix is the symmetry that was already there.** `validate` refuses
+`planes.masks.len() > 65_536` because `Operand::Plane` is a `u16`, with the
+reason written out. The scratch half was simply absent. `MAX_SCRATCH_SLOTS`
+is now one spelling, checked FIRST in `validate` (so both oracle entry points
+inherit it — both validate before allocating) and repeated in `for_program`,
+which becomes `Result<Self, ExecError>`. The repetition is deliberate and
+stated: a caller sizes its arena BEFORE `execute` runs, so a refusal inside
+`execute` arrives after the allocation it was meant to prevent.
+
+**The third disable run found a defect in the falsifiers themselves.** Both
+are written as `MAX_SCRATCH_SLOTS + 1`, so they **track** the constant —
+raising the ceiling cannot make them fail, and at `u32::MAX` it does not even
+compile. The guarded quantity and the guard's own yardstick were the same
+symbol. Fixed with `const _: () = assert!(MAX_SCRATCH_SLOTS == 65_536)`:
+the derivation and the value are now two spellings of one fact, and changing
+either fails the build. **Generalizable: when a test's bound is written in
+terms of the constant it guards, the constant is untested — pin the value
+separately or the disable run has nothing to move.**
+
+**And the restore ate the pin, immediately.** The `const _` was added AFTER
+the commit; the disable that verified it ended in `git checkout ir.rs`, which
+reverted to the commit that predates it. Same trap as run (4), caught within
+one command this time by grepping for the line rather than assuming. The rule
+is not "commit before disabling" once — it is **before every disable**, and
+anything added mid-pass restarts the clock.
+
+Also: `lib.rs`'s four architectural laws are renumbered **A1-A4**. They
+collided with `exec.rs`'s **L1-L5** — "no ISA" was law 3 in one file and L2 in
+the other, so a bare "law 2" was ambiguous. Found by the PR4 kernel-membrane
+ruling while reading them to classify the crate.
+
+**Gates:** 39 tests (was 37) on `x86-64-v3` and `-v4`, clippy `-D warnings`,
+fmt, dispatch `--check`. Three disable runs red-then-green, each reddening
+its own falsifier alone. Commit `21f3616`.
+
 ## 2026-09-14 (4) — PR3 eight-review council on `687042f`, and a self-inflicted restore that ate three files
 
 **Council (all read-only, disjoint axes; orchestrator consolidated):**
