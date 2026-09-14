@@ -116,7 +116,7 @@ three leaves is one immediate, hence one pass. §3.3 is built on exactly that.
 | …its four laws | `lib.rs:18-39` | *"The plan describes, the executor borrows, ndarray computes, the caller owns memory"*; masks-choose-admissibility; `TERNLOG` is semantics; reference semantics are independent |
 | …**and it did not build** (as of this read — ⊘ fixed by PR2 `c095dcc`: only `ir` is declared now, the crate is a workspace member, builds, and is clippy/fmt/test-gated in CI) | `lib.rs:56-61` declared `pub mod exec; pub mod fuse; pub mod hop; pub mod ir; pub mod reference; pub mod ternlog_table;` — **only `ir.rs` and `lib.rs` existed on disk** (verified by directory listing) | five of six modules were absent; `pub use exec::…` / `fuse::…` at `:63-64` could not resolve |
 | …**and it was not in the workspace** (as of this read — ⊘ PR2 adds it to `members`) | `Cargo.toml:2-28` members, `:29-…` exclude — `lance-graph-mask-risc` appeared in **neither** list | an orphan directory at the time: nothing compiled it, nothing gated it |
-| Shipped T1 consumer inside this repo | `crates/lance-graph-planner/src/nested_bands.rs:32` imports `gt_i32_to_mask, le_i32_to_mask, mask_ternlog, popcount_batch_u64`; `:161` `mask_ternlog::<AND_ANDNOT2>`; `:439` `::<AND2>` (⊘ now `mask_and`, the exact name, after the PR2 council); `:623` is a `#[cfg(test)]` alias of `AND2`, not a third immediate | **the precedent: `lance-graph-planner` already depends on `ndarray` (`Cargo.toml:24`) and already calls T1 by name.** No new dependency edge is needed for the planner half |
+| Shipped T1 consumer inside this repo | `crates/lance-graph-planner/src/nested_bands.rs:32` imports `gt_i32_to_mask, le_i32_to_mask, mask_and, mask_ternlog, popcount_batch_u64`; `:161` `mask_ternlog::<AND_ANDNOT2>`; `:439` `::<AND2>` (⊘ now `mask_and`, the exact name, after the PR2 council); `:623` is a `#[cfg(test)]` alias of `AND2`, not a third immediate | **the precedent: `lance-graph-planner` already depends on `ndarray` (`Cargo.toml:24`) and already calls T1 by name.** No new dependency edge is needed for the planner half |
 | `AlphaMask` | `crates/lance-graph-contract/src/alpha.rs:224-230` — `words: Box<[u64]>`, `len: u32`, tail bits PHANTOM and every op that could raise them must clear them | the contract-side mask carrier, same LSB-first order as `ndarray::simd` (`mask-risc/src/lib.rs:4-6`) |
 | The hop, as an ABI | `lance-graph-java/native/lgj-abi/src/exports.rs:2053` `lgj_hop(store, edge_classid, facet_mask, decode_mode, src_mask, dst_mask)` | the `src_mask → hop → dst_mask` shape, shipped |
 | …its selection algebra | `exports.rs:2026-2032` + `:2104-2118`: `selected_f = ternlog<AND3>(class_f, src, struct_f)`, `dst = ⋁_f scatter(selected_f)`; *"No row is examined to decide whether it participates"* | **the pattern §3.4 reuses verbatim** |
@@ -127,7 +127,8 @@ three leaves is one immediate, hence one pass. §3.3 is built on exactly that.
 
 **(1) The planner's `cypher_parse` strategy does not parse Cypher.**
 `crates/lance-graph-planner/src/strategy/cypher_parse.rs:35-52` is
-`query.to_uppercase().contains("MATCH")` and nine sibling `contains` calls; its own
+`let q = input.context.query.to_uppercase()` feeding `has_graph_pattern = q.contains("MATCH")`
+and its sibling `contains`/`matches` calls; its own
 comment at `:67-68` says *"Real implementation: call lance-graph's
 parser::parse_cypher_query() to produce a full AST. For now, feature detection is
 the output."* `arena_ir.rs:40` says the same (*"Real implementation receives AST
