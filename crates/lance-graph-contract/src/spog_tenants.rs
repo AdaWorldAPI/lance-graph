@@ -250,7 +250,7 @@ impl<'a> SpogTenants<'a> {
     pub fn attended_mask(&self) -> AlphaMask {
         let mut m = AlphaMask::empty(self.alloc.base().len());
         for (_, s) in &self.tenants {
-            m = m.or(&s.attended_mask());
+            m.or_assign(&s.attended_mask());
         }
         m
     }

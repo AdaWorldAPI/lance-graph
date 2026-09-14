@@ -1,3 +1,67 @@
+## 2026-09-14 (3) — mask-risc-executor-v1 — PR3: the one borrowing evaluator above `ndarray::simd` → `.claude/plans/mask-risc-executor-v1.md`
+
+**Status:** ACTIVE (filigree plan; code lands on the PR3 branch after #1225
+merges). D-MRX-0..6: the ndarray T1 prerequisite (`*_to_mask_under`, ten gated
+predicates on one `pack_under` engine — the kernel-membrane review's named
+precondition), `exec.rs` (caller-owned `Scratch`, one facade delegation per op,
+runtime `imm` → const-generic through a GENERATED 256-arm dispatch), the
+`ndarray`-free scalar oracle, truth-table fusion, the seeded differential at
+eight row counts on both CI arms (the density bound applies at `n_rows >= 3`;
+0 and 1 rows are execution-only checks), and the 64k `COUNT(alpha & ((A & B) | C))`
+probe under a counting allocator. Laws L1–L5 are each a test, not a sentence.
+Out of scope, named: `hop` (PR5), the strided operand family, u8/u16/u64
+compares, `mask_set_range`, cheap emptiness, the Cypher `mask_lower` seam.
+
+## 2026-09-14 (2) — STORNO on the two entries below (PR2 council, overclaim audit)
+
+- duckdb entry: *"G4 `mask_shift_hex` the only one with a fitted cost (98.3 % of
+  a spread step)"* attached the measured cost of `n` to the VALUE of closing the
+  gap. Corrected: G4 is the only gap with a fitted model behind the quantity it
+  targets (`n` = 98.3 % of a step); the primitive shipped after that read as
+  `mask_shift_morton` and recovers **−14 % unconditionally, −66 % restricted to
+  the node span** (ndarray blackboard 2026-09-14 (3)). G4's own falsifier fired.
+- cypher entry: *"`lance-graph-mask-risc` does not build … recorded, not
+  adopted"* was true at the read and false at merge — PR2 `c095dcc` makes it a
+  compiling, CI-gated member declaring only `ir`. Adopted as a skeleton; N-12 and
+  OQ-10 in the plan are restated accordingly. The tally is **31 [G] · 13 [H] ·
+  9 [GRACE]** after the council's monotonicity regrade (compositions inherit
+  their components' grade). The "zero-consumer `TERNLOG 0x86`" claim is now
+  VERIFIED by the council's three-repo sweep, not `[claimed, unverified]`.
+
+## 2026-09-14 — cypher-mask-lowering-v1 — Cypher AST → mask programs over `ndarray::simd`, DataFusion as the grace path → `.claude/plans/cypher-mask-lowering-v1.md`
+
+**Status:** PLAN (Wave 0 = measure; no production code). 53-row lowering
+table (35 [G] · 9 [H] · 9 [GRACE]); placement ruling: Boolean combination
+CONSUMES the zero-consumer `ogar_loco::TERNLOG = 0x86`, `Pred`/hop/terminals
+are a lowering TARGET (no byte survives the query), and a stored mask program
+would have to become a domain vocabulary above `DOMAIN_FLOOR` — never a second
+vocabulary in `lance-graph-mask-risc/ir.rs`. Grace path = order/multiplicity,
+strings, bag semantics, value-carrying aggregation, cross-address-space joins
+(the D-GTM-0j TYPE boundary). Wave-0 falsifier: committed Cypher fixtures run
+through BOTH paths, SET equality (not cardinality), anti-vacuity
+`survivors·3 < population`, and a pre-registered wrong lowering (`0xC0` for
+`0x80`) that must go red. Three findings that shaped it: the planner's
+`cypher_parse.rs` is a keyword sniffer, `mailbox_scan::match_nodes_by_class`
+materialises a `Vec<NodeMatch>`, and `GraphConfig`/`NodeMapping` carry no
+classid. `lance-graph-mask-risc` does not build (six declared modules, one on
+disk) — recorded, not adopted.
+
+## 2026-09-14 — duckdb-to-v3-translation-matrix-v1 — Phase 1 of the mask-execution arc: 32 DuckDB execution concepts, verdict per row → `.claude/plans/duckdb-to-v3-translation-matrix-v1.md`
+
+**Status:** DELIVERED (analysis; no code). ADAPT 14 · ELIMINATE 8(+2 halves)
+· V3 BETTER 3(+1) · KEEP 2(+2) · NEEDS FALSIFIER 2(+1). DuckDB's INTENT
+transfers, its CARRIER (SelectionVector index lists, Constant/Dictionary
+vectors, per-call sel allocation) does not. `ValidityMask::Combine` IS
+`mask_and` — same packed-u64 shape, role eliminated by the zero-fallback
+ladder. The one mechanism V3 lacks, `AdaptiveFilter`, has a falsifier that may
+kill it (a V3 sweep costs the full column regardless of term order; reordering
+can only save by avoidance). Eight T1 gaps named, G4 `mask_shift_hex` the only
+one with a fitted cost (98.3 % of a spread step, ndarray plan §14/§15). Harvest
+finding: no TSV is file-empty but 182/373 methods (48.8 %) harvest `Empty` and
+seven TUs are 100 % `Empty` — exactly the comparison TUs the matrix needed — so
+no row cites the harvest; the mechanism (header-template dispatch) is marked
+[claimed, unverified] and is the next ruff_cpp_spo probe.
+
 ## 2026-09-10 — CORRECTION: the `assertion_wire` entry below is stale — the module was DELETED as fabrication
 
 The `## 2026-09-10 — assertion_wire — the versioned canonical LE truth DTO

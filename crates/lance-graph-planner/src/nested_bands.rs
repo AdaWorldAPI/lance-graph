@@ -28,8 +28,8 @@
 
 use lance_graph_contract::shape_rank::{ShapeRankPayload, SHAPE_BUCKETS};
 use lance_graph_contract::thought_atoms::normalized_entropy;
-use ndarray::simd::ternlog::{AND2, AND_ANDNOT2};
-use ndarray::simd::{gt_i32_to_mask, mask_ternlog, popcount_batch_u64};
+use ndarray::simd::ternlog::AND_ANDNOT2;
+use ndarray::simd::{gt_i32_to_mask, le_i32_to_mask, mask_and, mask_ternlog, popcount_batch_u64};
 
 /// Fixed-point scale for Fisher-2z values on the i32 mask column: 2z ∈
 /// roughly [−21, 21] at EPS=1e-9, so ×1024 keeps 3 decimals and stays far
@@ -111,16 +111,10 @@ fn words_for(n: usize) -> usize {
 /// `M = rows with value <= boundary`, as `!gt` with the tail beyond `n`
 /// cleared. Shared mask-walk logic, carried over from the probes.
 fn le_mask(values: &[i32], boundary: i32) -> Vec<u64> {
-    let n = values.len();
-    let mut m = vec![0u64; words_for(n)];
-    gt_i32_to_mask(values, boundary, &mut m);
-    for w in m.iter_mut() {
-        *w = !*w;
-    }
-    if !n.is_multiple_of(64) {
-        let last = m.len() - 1;
-        m[last] &= (1u64 << (n % 64)) - 1;
-    }
+    // Seal-time only (one call per band in `build_bands`); the hot
+    // binary-search sites below write into a hoisted buffer instead.
+    let mut m = vec![0u64; words_for(values.len())];
+    le_i32_to_mask(values, boundary, &mut m);
     m
 }
 
@@ -433,12 +427,16 @@ impl NestedBands {
         let target = pop / 2;
         let words = bucket_mask.len();
         let mut scratch = vec![0u64; words];
+        // One buffer for the whole bisection: `le_i32_to_mask` overwrites it
+        // fully each step (the per-step allocation this replaced was the
+        // 2026-09-13 masking-debt audit's site #4).
+        let mut m = vec![0u64; words];
         let (mut a, mut b) = (lo, hi);
         let mut best: Option<(i32, u64, u64)> = None;
         while a < b {
             let mid = a + (b - a) / 2;
-            let m = le_mask(column, mid);
-            mask_ternlog::<AND2>(bucket_mask, &m, bucket_mask, &mut scratch);
+            le_i32_to_mask(column, mid, &mut m);
+            mask_and(bucket_mask, &m, &mut scratch);
             let below = popcount_batch_u64(&scratch);
             let err = below.abs_diff(target);
             if best.is_none_or(|(_, e, _)| err < e) {
@@ -504,13 +502,11 @@ impl NestedBands {
             "NestedBands::best_achievable_floor: column length mismatch"
         );
         let n = column.len();
-        let exceedance = |v: i32| -> f64 {
-            let mut m = vec![0u64; words_for(n)];
+        // Hoisted once for the whole bisection (audit site #6); the
+        // primitive already writes a zero tail, so no manual clear.
+        let mut m = vec![0u64; words_for(n)];
+        let mut exceedance = |v: i32| -> f64 {
             gt_i32_to_mask(column, v, &mut m);
-            if !n.is_multiple_of(64) {
-                let last = m.len() - 1;
-                m[last] &= (1u64 << (n % 64)) - 1;
-            }
             popcount_batch_u64(&m) as f64 / n as f64
         };
         let mut lo = *column.iter().min().expect("NestedBands: empty column");
@@ -801,10 +797,8 @@ mod tests {
                 let mut m = vec![0u64; column.len().div_ceil(64)];
                 gt_i32_to_mask(&column, next_below, &mut m);
                 let n = column.len();
-                if !n.is_multiple_of(64) {
-                    let last = m.len() - 1;
-                    m[last] &= (1u64 << (n % 64)) - 1;
-                }
+                // no manual tail clear: `gt_i32_to_mask` writes a zero tail
+                // itself, the same guarantee the production sweep relies on
                 let over = popcount_batch_u64(&m) as f64 / n as f64;
                 assert!(
                     over > rate,
@@ -1090,5 +1084,276 @@ mod tests {
         assert!(ledger.seal(key, payload).is_ok());
         assert_eq!(ledger.get(&key), Some(&payload));
         assert!(ledger.seal(key, payload).is_err());
+    }
+
+    // ── Hoisted-buffer bisection equivalence (PR2 masking-debt, 2026-09-13) ──
+    //
+    // `split`/`best_achievable_floor` used to allocate a fresh mask buffer
+    // PER bisection step; the audit hoisted ONE buffer for the whole
+    // bisection and switched mask acquisition from a hand-rolled
+    // `!gt_i32_to_mask` + manual tail clear to `le_i32_to_mask` (which does
+    // the same thing internally, `simd_masking_ops.rs`), and from a manual
+    // tail clear to trusting `gt_i32_to_mask`'s own. The oracles below
+    // transcribe the PRE-CHANGE bodies verbatim (`git show
+    // b20702e:crates/lance-graph-planner/src/nested_bands.rs`), so the
+    // equivalence claim is checked against the semantics that predate the
+    // hoist, not against the new code re-describing itself.
+    //
+    // On "the buffers are reused across calls, assert no growth": `m` and
+    // `scratch` inside `split`, and `m` inside `best_achievable_floor`, are
+    // private locals with no accessor exposed on `NestedBands` — there is
+    // no `.capacity()` seam for a test to read, and adding one just to
+    // observe a private local would be worse than not testing it. The
+    // growth question is instead answered by the TYPE, not a runtime
+    // probe: both `le_i32_to_mask` and `gt_i32_to_mask` take
+    // `out_words: &mut [u64]` — a fixed-length slice — so nothing in the
+    // per-step loop body can grow the backing `Vec` (a `Vec::push`/
+    // `resize` call does not even type-check against a `&mut [u64]`
+    // parameter). This is reported here rather than faked as an assertion
+    // that cannot actually observe the buffer.
+
+    /// Deterministic xorshift64 — no `rand` dependency here either, and a
+    /// fixed seed keeps the fixture reproducible across runs.
+    struct Xorshift64(u64);
+    impl Xorshift64 {
+        fn next_i32(&mut self, lo: i32, hi: i32) -> i32 {
+            let mut x = self.0;
+            x ^= x << 13;
+            x ^= x >> 7;
+            x ^= x << 17;
+            self.0 = x;
+            let span = (hi - lo + 1) as u64;
+            lo + (x % span) as i32
+        }
+    }
+
+    fn seeded_column(seed: u64, n: usize) -> Vec<i32> {
+        let mut rng = Xorshift64(seed | 1);
+        (0..n).map(|_| rng.next_i32(-500, 500)).collect()
+    }
+
+    /// Transcribed verbatim from the pre-hoist `le_mask` free function:
+    /// `!gt` with a manual tail clear, one fresh `Vec` per call — exactly
+    /// what `split`'s bisection used before `m` was hoisted out of the
+    /// loop.
+    fn oracle_le_mask(values: &[i32], boundary: i32) -> Vec<u64> {
+        let n = values.len();
+        let mut m = vec![0u64; words_for(n)];
+        gt_i32_to_mask(values, boundary, &mut m);
+        for w in m.iter_mut() {
+            *w = !*w;
+        }
+        if !n.is_multiple_of(64) {
+            let last = m.len() - 1;
+            m[last] &= (1u64 << (n % 64)) - 1;
+        }
+        m
+    }
+
+    /// Re-runs `NestedBands::split`'s bisection ALGORITHM (identical
+    /// lo/hi derivation, identical `best` selection, identical post-checks
+    /// — none of that changed in the hoist) but driven by
+    /// [`oracle_le_mask`] instead of the hoisted-buffer `le_i32_to_mask`.
+    /// Reads only PUBLIC accessors (`bucket`/`boundaries`/`band_count`),
+    /// so it cannot see — and cannot accidentally share — `split`'s own
+    /// private buffers; this is an independent re-derivation, not a call
+    /// into the code under test.
+    fn oracle_split(nb: &NestedBands, bucket: usize, column: &[i32]) -> Option<i32> {
+        let band_count = nb.band_count();
+        let boundaries = nb.boundaries();
+        let lo = if bucket == 0 {
+            *column.iter().min().unwrap()
+        } else {
+            boundaries[bucket - 1] + 1
+        };
+        let hi = if bucket == band_count - 1 {
+            *column.iter().max().unwrap()
+        } else {
+            boundaries[bucket]
+        };
+        let bucket_mask = nb.bucket(bucket);
+        let pop = popcount_batch_u64(bucket_mask);
+        let target = pop / 2;
+        let words = bucket_mask.len();
+        let mut scratch = vec![0u64; words];
+        let (mut a, mut b) = (lo, hi);
+        let mut best: Option<(i32, u64, u64)> = None;
+        while a < b {
+            let mid = a + (b - a) / 2;
+            let m = oracle_le_mask(column, mid);
+            mask_ternlog::<TEST_AND2>(bucket_mask, &m, bucket_mask, &mut scratch);
+            let below = popcount_batch_u64(&scratch);
+            let err = below.abs_diff(target);
+            if best.is_none_or(|(_, e, _)| err < e) {
+                best = Some((mid, err, below));
+            }
+            if below < target {
+                a = mid + 1;
+            } else {
+                b = mid;
+            }
+        }
+        let (v, _, below) = best?;
+        if below == 0 || below == pop {
+            return None;
+        }
+        if boundaries.contains(&v) {
+            return None;
+        }
+        Some(v)
+    }
+
+    /// Transcribed from the pre-hoist `best_achievable_floor`'s
+    /// `exceedance` closure: a fresh `Vec` per call, manual tail clear
+    /// (the hoisted version trusts `gt_i32_to_mask`'s own tail-clearing
+    /// instead — `clear_mask_tail` in `simd_masking_ops.rs` masks the same
+    /// `(1 << (n % 64)) - 1` pattern AND zeroes any surplus words; the two
+    /// coincide because this caller sizes the buffer to exactly
+    /// `words_for(n)`. This oracle checks that agreement end to end on
+    /// seeded fixtures rather than relying on that reading).
+    fn oracle_exceedance(column: &[i32], v: i32) -> f64 {
+        let n = column.len();
+        let mut m = vec![0u64; words_for(n)];
+        gt_i32_to_mask(column, v, &mut m);
+        if !n.is_multiple_of(64) {
+            let last = m.len() - 1;
+            m[last] &= (1u64 << (n % 64)) - 1;
+        }
+        popcount_batch_u64(&m) as f64 / n as f64
+    }
+
+    fn oracle_best_achievable_floor(column: &[i32], rate: f64) -> (i32, f64) {
+        let mut lo = *column.iter().min().unwrap();
+        let mut hi = *column.iter().max().unwrap();
+        while lo < hi {
+            let mid = lo + (hi - lo) / 2;
+            if oracle_exceedance(column, mid) <= rate {
+                hi = mid;
+            } else {
+                lo = mid + 1;
+            }
+        }
+        (lo, oracle_exceedance(column, lo))
+    }
+
+    /// One (`NestedBands`, column) pair checked against
+    /// [`oracle_split`] at every bucket. Returns `(saw_some, saw_none)` so
+    /// the caller can accumulate anti-vacuity coverage across several
+    /// fixtures rather than requiring every individual fixture to hit both
+    /// branches on its own.
+    fn check_split_matches_oracle(nb: &NestedBands, column: &[i32], tag: &str) -> (bool, bool) {
+        let mut saw_some = false;
+        let mut saw_none = false;
+        for bucket in 0..nb.band_count() {
+            let expected = oracle_split(nb, bucket, column);
+            match nb.split(bucket, column, 2) {
+                Some(s) => {
+                    saw_some = true;
+                    let old: std::collections::HashSet<i32> =
+                        nb.boundaries().iter().copied().collect();
+                    let inserted: Vec<i32> = s
+                        .boundaries()
+                        .iter()
+                        .copied()
+                        .filter(|v| !old.contains(v))
+                        .collect();
+                    assert_eq!(
+                        inserted.len(),
+                        1,
+                        "split must insert exactly one new boundary, {tag} bucket={bucket}"
+                    );
+                    assert_eq!(
+                        Some(inserted[0]),
+                        expected,
+                        "split's chosen boundary must match the pre-hoist oracle, {tag} bucket={bucket}"
+                    );
+                }
+                None => {
+                    saw_none = true;
+                    assert_eq!(
+                        expected, None,
+                        "split returned None but the oracle found an insertable boundary, {tag} bucket={bucket}"
+                    );
+                }
+            }
+        }
+        (saw_some, saw_none)
+    }
+
+    /// FAILS IF: the hoisted-buffer `split` diverges from the pre-hoist
+    /// semantics — e.g. `le_i32_to_mask` disagreeing with `!gt_i32_to_mask`
+    /// on some boundary, or the hoisted `m`/`scratch` leaking a stale word
+    /// from a prior bisection step into the next one's popcount.
+    #[test]
+    fn split_matches_the_pre_hoist_oracle_on_seeded_columns() {
+        let mut saw_some = false;
+        let mut saw_none = false;
+        for seed in [0x1234_5678u64, 0x0BAD_F00Du64, 0xCAFE_BABEu64, 42, 999] {
+            let column = seeded_column(seed, 1000);
+            let nb = NestedBandsBuilder::new(4).calibrate(&column, 1);
+            let (some, none) = check_split_matches_oracle(&nb, &column, &format!("seed={seed}"));
+            saw_some |= some;
+            saw_none |= none;
+        }
+
+        // A spread-out random column keeps landing on real, insertable
+        // boundaries (the `Some` branch) but — measured, not assumed —
+        // never once produces a `None`: 1000 near-continuous i32 values
+        // essentially never collapse a whole bucket into an exact tie.
+        // So the `None`/refusal path needs a fixture BUILT to hit it: 500
+        // spread values plus 500 copies of one out-of-range constant,
+        // which calibrate()'s quantile boundaries isolate into their own
+        // bucket. Every candidate in that bucket's bisection range is
+        // strictly less than the constant, so `below` is 0 for every
+        // `mid` tried — the exact all-ties refusal
+        // `split_returns_none_when_a_bucket_is_all_ties` already exercises
+        // on a single-value column, reached here through calibrate()'s
+        // quantile split instead of an explicit boundary.
+        let mut ties_column = seeded_column(0x51DE_51DE, 500);
+        ties_column.extend(std::iter::repeat_n(9000, 500));
+        let nb_ties = NestedBandsBuilder::new(4).calibrate(&ties_column, 1);
+        let (some, none) = check_split_matches_oracle(&nb_ties, &ties_column, "ties_column");
+        saw_some |= some;
+        saw_none |= none;
+
+        // Anti-vacuity: across every fixture above, BOTH branches of
+        // split's return must have been exercised, or the equivalence
+        // check could pass by only ever touching one side of the
+        // comparison.
+        assert!(
+            saw_some,
+            "no fixture ever produced a Some(..) split — the chosen-boundary comparison was never exercised"
+        );
+        assert!(
+            saw_none,
+            "no fixture ever produced a None split — the refusal-path comparison was never exercised"
+        );
+    }
+
+    /// FAILS IF: the hoisted-buffer `best_achievable_floor` diverges from
+    /// the pre-hoist semantics — same failure class as the `split` oracle
+    /// above, applied to `gt_i32_to_mask`'s own tail-clearing instead of a
+    /// manual one. `n=63` (like `n=1000`, not a multiple of 64) exercises
+    /// the removed manual-clear path on a single-word mask.
+    #[test]
+    fn best_achievable_floor_matches_the_pre_hoist_oracle_on_seeded_columns() {
+        for seed in [0x1234_5678u64, 0x0BAD_F00Du64, 0xCAFE_BABEu64, 42, 999] {
+            for &n in &[63usize, 1000] {
+                let column = seeded_column(seed, n);
+                let nb = NestedBandsBuilder::new(2).with_boundaries(
+                    vec![*column.iter().max().unwrap() - 1],
+                    &column,
+                    1,
+                );
+                for &rate in &[0.01, 0.1, 0.5] {
+                    let actual = nb.best_achievable_floor(&column, rate);
+                    let expected = oracle_best_achievable_floor(&column, rate);
+                    assert_eq!(
+                        actual, expected,
+                        "best_achievable_floor diverged from the pre-hoist oracle, seed={seed} n={n} rate={rate}"
+                    );
+                }
+            }
+        }
     }
 }

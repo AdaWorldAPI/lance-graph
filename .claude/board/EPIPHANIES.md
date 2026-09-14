@@ -1,3 +1,62 @@
+## 2026-09-14 (2) — STORNO on `E-HEX-TENANT-RAIL-IS-DIRECTION-CHAIN-IS-FREE-SHIFT-IS-THE-COST-1` point (3): the shift was the COST, it was not the REMEDY
+
+Corrects the entry immediately below, left in place per the append-only rule.
+Points (1) and (2) stand as FINDING (measured). Point (3) — *"so the missing
+T1 word IS a mask-level neighbour shift"* — converted a conditional in the
+ndarray blackboard (*"which would fold n into a handful of word passes. Filed,
+not built"*) into an identification, and the same day's measurement (ndarray
+blackboard 2026-09-14 (3), `855bc73`) falsified the identification as stated:
+`mask_shift_morton` is bit-exact, but over the FULL field it recovers **−14 %**
+(14.5 vs 17.0 µs) and loses to the NNUE delta arm (9.3 µs), because a word op
+is field-span-bound while the per-bit loop is active-bound. The **−66 %**
+(`n` = 5.7 µs) came from running the op over the trie node's own 64-word span —
+the fixed-spatial-distribution dividend a second time, on the grey side.
+Regrade: point (3) `[H]` → measured, with the remedy corrected to *"the
+neighbour shift over the NODE SPAN"*; point (4)'s NNUE figure is −45 % in the
+re-run and is superseded as the recommended rung (delta on top of the span buys
+nothing, 5.7 → 6.0 µs); the coal ratio 0.48 holds **at x = 4** — the qualifier
+the entry dropped. Rule extracted: a word-level op pays for the span it is
+given; give it the node, never the field. Found by the PR2 overclaim audit.
+
+## 2026-09-14 — E-HEX-TENANT-RAIL-IS-DIRECTION-CHAIN-IS-FREE-SHIFT-IS-THE-COST-1 — top-down traversal and spread on ONE Morton-keyed SoA; the ternlog chain is 1.7 % of a step, the neighbour shift is the rest
+
+**Status:** FINDING (measured, ndarray `examples/hex_tenant_mq_probe.rs` at
+`d9459f0`, three gates green 32/32, 0 heap B/step). **Confidence:** high on
+the ratios, one fixture (256×256 axial, 62 % permeable, 4096-cell tile).
+
+Operator statement built rather than argued (2026-09-14): *"static traversal
+top down AND plasticity (spread) in the same substrate — SoA gets a hex tenant
+with 6×2×8 bit and the field is a trie (fixed spatial distribution)."* Row =
+Morton(q, r); payload = the V3 12-byte register read `6×(u8:u8)` with rail `d`
+= hex direction `d`, `(permeability, strength)`. That closes the ndarray plan's
+§9 R1 ("adjacency and carving are not obviously the same six") by construction:
+once the rail index IS the direction they are the same six — grey = the rail
+bytes (plastic, one owner), white = the address prefix (a trie node = a
+contiguous row range). Consistent with `E-Q8` (the six does no work as a
+RECALL topology) — this is the six as a COMPUTE geometry, the only reading
+`r2il-machine-semantic-contract-v1` §7.2 admits.
+
+Measured: (1) a trie-node reveal is a RANGE write, 49–99 ns, against 22.5 µs
+for the `ternary_match` sweep — 228–462×; the fixed-spatial-distribution
+dividend as a number (TCAM stays for addresses never minted in order, the
+D-GTM-0l linker case). (2) Mississippi-Queen cost model, the operator's
+`step = x·ternlogq + n`: ternlogq = 291 ns/pass on 8 KiB masks, n = 17.3 µs,
+residual 2.8 % — the chain is 1.7 % of a step at x = 1; coal (one re-chain
+from a column) = 0.48 maintained steps; M2 linear, no cliff. (3) `n` is
+entirely the per-active-bit hex shift — the ONE non-mask op on the path — so
+the missing T1 word is a mask-level neighbour shift on the Morton lattice
+(ndarray plan §15, `mask_shift_morton`: a fixed bit permutation inside each
+8×8-block word + one carry byte into one neighbour word). (4) The NNUE reading
+— spread from the DELTA frontier, never the accumulated state — gives the
+identical closure at −48 %. (5) Apparatus lesson: with real gates the survivor
+set moves with x and a naive ladder reads 13–32 % residual; the fit is only a
+fit when `n` is held fixed.
+
+Boundary rule unchanged (`E-TOPOLOGY-MASKS-MAGNITUDE-COMPOSE-NEVER-COLLAPSE-1`):
+the rail bytes are eligibility + strength, never a weight; the FC (r2il SPOFC,
+deepnsm-v2 COCA frequency × coverage, `lance-graph-arm-discovery` support ×
+confidence — three producers, one `NarsTruth` carrier) stays the white half.
+
 ## 2026-09-10 — E-LE-IS-THE-UNIVERSAL-DTO-LAYER-TYPED-SYNTAX-MEANS-A-VERSIONED-LE-SCHEMA-1 — a bare `(f, c)` pair is a degree, not a typed truth
 
 **Status:** OPERATOR RULING, BINDING (2026-09-10, verbatim: *"Little-endian is the universal

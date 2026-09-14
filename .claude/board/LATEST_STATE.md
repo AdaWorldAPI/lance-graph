@@ -1,3 +1,25 @@
+## 2026-09-14 — PR2 (branch `claude/clone-repositories-71a5sw`): contract in-place mask forms, NestedBands hoist, `lance-graph-mask-risc` skeleton joins the workspace
+
+**Contract inventory delta (`lance-graph-contract`, still zero-dep):**
+`AlphaMask::{and_assign, or_assign, xor_assign, and_not_assign, not_assign,
+clear, words_mut, clear_tail}` — in-place algebra with ONE spelling of the tail
+law (`tail_mask`), canonical readers (`count`/`is_empty`/`PartialEq` mask the
+tail word, so a raw `words_mut` phantom can never inflate a population or split
+two equal masks); `WideFieldMask::{intersect_with, difference_with, union_with,
+words, words_mut, canonical_words}` — in-place forms that do not normalize
+representation, with `canonical_words()` the width-stable slice for a SIMD
+consumer. Two production loops (`alpha_focus::any_rung_mask`,
+`spog_tenants::attended_mask`) now accumulate in place. `NestedBands::split` /
+`best_achievable_floor` hoist their scratch across the bisection and call
+`le_i32_to_mask` / `mask_and` by name (the hand-composed `!gt + tail clear` is
+gone). New workspace member `crates/lance-graph-mask-risc` — `ir.rs` only
+(`Operand`, `LaneRef`, `Planes`, `Pred`, `MaskOp` incl. `Ternlog{imm: u8}`,
+`Terminal`, `Program`), no deps, clippy/fmt/test-gated in CI; the executor,
+fuser, hop, reference oracle and truth tables are PR3, and PR3 owes T1 a gated
+predicate (`*_to_mask_under`) and a strided operand family before `exec.rs`.
+Plans: `duckdb-to-v3-translation-matrix-v1.md`, `cypher-mask-lowering-v1.md`.
+Council record: `AGENT_LOG.md` 2026-09-14 (2).
+
 ## 2026-09-10 — CORRECTION: `contract::assertion_wire` (D-BBB-NARS-2) was DELETED as fabrication — the entry below is stale
 
 The entry immediately below reports a shipped contract-inventory delta for a

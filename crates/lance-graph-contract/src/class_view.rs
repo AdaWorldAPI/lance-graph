@@ -404,9 +404,11 @@ impl WideFieldMask {
     /// tier-agnostic fold is already correct for this operator: a missing
     /// `other` chunk reads `0` so `a & !0 = a` (nothing to subtract there); a
     /// missing `self` chunk reads `0` so `0 & !b = 0`. [`zip_fold`]'s
-    /// normalization (trailing-zero trim + demote-to-`Small`) is load-bearing —
-    /// without it a difference that falls entirely below bit 64 would compare
-    /// unequal to its `Small` equivalent under the canonical `PartialEq`.
+    /// normalization (trailing-zero trim + demote-to-`Small`) keeps the
+    /// REPRESENTATION canonical — equality and hashing are canonical either
+    /// way (`PartialEq`/`Hash` fold over `canonical_len`), which is what lets
+    /// the in-place forms below skip the normalization and still compare
+    /// equal to this one; what the trim buys is a canonical `words()` width.
     ///
     /// [`zip_fold`]: Self::zip_fold
     #[must_use]
@@ -414,6 +416,123 @@ impl WideFieldMask {
         match (&self.0, &other.0) {
             (WideRepr::Small(a), WideRepr::Small(b)) => Self(WideRepr::Small(a & !b)),
             _ => self.zip_fold(other, |a, b| a & !b),
+        }
+    }
+
+    // ── In-place algebra + borrowed word view (2026-09-13) ─────────────
+    //
+    // The three folds above (`intersect`/`union`/`difference`) return a NEW
+    // mask — on the `Wide` arm that is a fresh `Vec` per operation
+    // (`zip_fold`). A field mask is facet GEOMETRY ("which facets participate")
+    // and stays exactly that; what changes here is its EXECUTION behaviour:
+    // an in-place form that mutates the caller's own chunks, and a borrowed
+    // view so a consumer can lower the same words onto `ndarray::simd` (the
+    // contract itself stays zero-dep, so these are plain word loops).
+    //
+    // The in-place forms do NOT re-normalize (no trailing-chunk trim, no
+    // demotion to `Small`); the hand-written `PartialEq`/`Hash` are
+    // representation-independent, so a `Wide` value whose high chunks became
+    // zero still compares and hashes as its `Small` equivalent.
+
+    /// `self &= other`, in place. Never allocates: intersecting cannot raise
+    /// a bit `self` did not already hold, so a `Small` self stays `Small`
+    /// whatever tier `other` is.
+    pub fn intersect_with(&mut self, other: &Self) {
+        match &mut self.0 {
+            WideRepr::Small(a) => *a &= other.chunk_at(0),
+            WideRepr::Wide(v) => {
+                for (i, slot) in v.iter_mut().enumerate() {
+                    *slot &= other.chunk_at(i);
+                }
+            }
+        }
+    }
+
+    /// `self &= !other`, in place. Never allocates (a difference is a subset
+    /// of `self`).
+    pub fn difference_with(&mut self, other: &Self) {
+        match &mut self.0 {
+            WideRepr::Small(a) => *a &= !other.chunk_at(0),
+            WideRepr::Wide(v) => {
+                for (i, slot) in v.iter_mut().enumerate() {
+                    *slot &= !other.chunk_at(i);
+                }
+            }
+        }
+    }
+
+    /// `self |= other`, in place. Allocates in exactly ONE case — `other`
+    /// carries chunks `self` does not have (a `Small`/shorter self absorbing
+    /// a wider union), where the wider result genuinely needs the room; that
+    /// growth is the promotion `with` already pays, not a per-operation copy.
+    /// Every other shape mutates in place.
+    pub fn union_with(&mut self, other: &Self) {
+        let need = other.raw_len();
+        if self.raw_len() >= need || other.high_chunks_are_zero(self.raw_len()) {
+            match &mut self.0 {
+                WideRepr::Small(a) => *a |= other.chunk_at(0),
+                WideRepr::Wide(v) => {
+                    for (i, slot) in v.iter_mut().enumerate() {
+                        *slot |= other.chunk_at(i);
+                    }
+                }
+            }
+            return;
+        }
+        let mut v = vec![0u64; need];
+        for (i, slot) in v.iter_mut().enumerate() {
+            *slot = self.chunk_at(i) | other.chunk_at(i);
+        }
+        self.0 = WideRepr::Wide(v.into_boxed_slice());
+    }
+
+    /// Are all chunks at index `>= from` zero (so a union into a mask of
+    /// `from` chunks needs no growth)?
+    #[inline]
+    fn high_chunks_are_zero(&self, from: usize) -> bool {
+        (from..self.raw_len()).all(|i| self.chunk_at(i) == 0)
+    }
+
+    /// The packed chunks as a borrowed slice — `Small` is a one-element view
+    /// of its `u64`, `Wide` the boxed chunks. A BORROW, never a copy: this is
+    /// the seam a SIMD consumer reads a field mask through when it
+    /// participates in a fused expression (chunk `k` = positions
+    /// `64k..64k+63`, exactly `FieldMask`'s bit order).
+    ///
+    /// **Width is representation-dependent.** Two `==`-equal masks can
+    /// present different `words().len()` — an in-place fold leaves a
+    /// `Wide` value as wide as it was, the allocating fold trims it — and
+    /// `ndarray::simd`'s two-operand ops assert equal lengths. A SIMD
+    /// consumer that combines two masks feeds it [`Self::canonical_words`]
+    /// (equal masks ⇒ equal width) or sizes both to the wider
+    /// `max_fields()`; `words()` stays the raw view of this mask's own
+    /// storage.
+    #[must_use]
+    pub fn words(&self) -> &[u64] {
+        match &self.0 {
+            WideRepr::Small(bits) => core::slice::from_ref(bits),
+            WideRepr::Wide(v) => v,
+        }
+    }
+
+    /// The packed chunks with trailing zero chunks trimmed — the width a
+    /// mask's VALUE has, so two equal masks always return equal slices
+    /// (`canonical_len` is the same quantity `PartialEq`/`Hash` fold over).
+    /// Always at least one chunk long. A borrow, never a copy.
+    #[must_use]
+    pub fn canonical_words(&self) -> &[u64] {
+        let n = self.canonical_len().max(1);
+        &self.words()[..n]
+    }
+
+    /// The packed chunks, mutably — the write seam for an external mask
+    /// writer over this mask's own storage. Cannot grow the mask: a writer
+    /// that needs a position past `64 * words().len()` promotes via
+    /// [`with`](Self::with) first.
+    pub fn words_mut(&mut self) -> &mut [u64] {
+        match &mut self.0 {
+            WideRepr::Small(bits) => core::slice::from_mut(bits),
+            WideRepr::Wide(v) => v,
         }
     }
 
@@ -2593,5 +2712,237 @@ mod tests {
         // And the demoted result keeps behaving: subset + emptiness reads.
         assert!(d.is_subset_of(&wide));
         assert!(wide.difference(&wide).is_empty());
+    }
+
+    // ── WideFieldMask in-place algebra + word view falsifiers (PR2, 2026-09-13) ──
+
+    /// FAILS IF: any in-place fold computes something other than its
+    /// allocating twin — e.g. `intersect_with` doing `|=`, or the `Wide`
+    /// arm missing a chunk. Covers all three tier pairings (Small/Small,
+    /// Small/Wide, Wide/Wide) with a genuine position >= 64 so the Wide
+    /// arm is actually exercised, not merely reachable.
+    #[test]
+    fn intersect_with_matches_the_allocating_form_across_tiers() {
+        let cases: [(WideFieldMask, WideFieldMask); 3] = [
+            (
+                WideFieldMask::from_positions(&[1, 3, 5]),
+                WideFieldMask::from_positions(&[3, 5, 7]),
+            ),
+            (
+                WideFieldMask::from_positions(&[1, 3, 5]),
+                WideFieldMask::from_positions(&[3, 133]),
+            ),
+            (
+                WideFieldMask::from_positions(&[3, 70, 133]),
+                WideFieldMask::from_positions(&[3, 70, 200]),
+            ),
+        ];
+        for (a, b) in cases {
+            let mut r = a.clone();
+            r.intersect_with(&b);
+            assert_eq!(r, a.intersect(&b), "intersect_with vs intersect");
+            assert_ne!(r, a, "intersect_with must actually remove something here");
+        }
+    }
+
+    /// FAILS IF: `union_with` computes something other than `union` on any
+    /// tier pairing. See `intersect_with_matches_the_allocating_form_across_tiers`
+    /// for the case shape.
+    #[test]
+    fn union_with_matches_the_allocating_form_across_tiers() {
+        let cases: [(WideFieldMask, WideFieldMask); 4] = [
+            (
+                WideFieldMask::from_positions(&[1, 3]),
+                WideFieldMask::from_positions(&[3, 7]),
+            ),
+            (
+                WideFieldMask::from_positions(&[1, 3]),
+                WideFieldMask::from_positions(&[3, 133]),
+            ),
+            (
+                WideFieldMask::from_positions(&[3, 70]),
+                WideFieldMask::from_positions(&[3, 133, 200]),
+            ),
+            // self WIDER than other: the only pairing that reaches the
+            // in-place Wide arm (every other case routes to GROW or the
+            // Small arm) — measured absent from the first three by branch
+            // instrumentation in the PR2 council; without it a corrupted
+            // in-place Wide arm shipped green.
+            (
+                WideFieldMask::from_positions(&[3, 133]),
+                WideFieldMask::from_positions(&[7, 70]),
+            ),
+        ];
+        for (a, b) in cases {
+            let mut r = a.clone();
+            r.union_with(&b);
+            assert_eq!(r, a.union(&b), "union_with vs union");
+            assert_ne!(r, a, "union_with must actually add something here");
+        }
+    }
+
+    /// FAILS IF: two `==`-equal masks present different `canonical_words()`
+    /// (the trim stops at the wrong chunk), or `canonical_words()` silently
+    /// becomes `words()` — the fixture is built so the raw widths DIFFER
+    /// (3 vs 1 chunks) while the values are equal, which is exactly the pair
+    /// `ndarray::simd::mask_and`'s length assert would reject on `words()`.
+    #[test]
+    fn equal_masks_present_equal_canonical_words_even_when_raw_widths_differ() {
+        let mut a = WideFieldMask::from_positions(&[3, 133]);
+        a.difference_with(&WideFieldMask::from_positions(&[133])); // stays Wide, 3 chunks
+        let b = WideFieldMask::from_positions(&[3]); // Small, 1 chunk
+        assert_eq!(a, b, "fixture: the values are equal");
+        assert_ne!(
+            a.words().len(),
+            b.words().len(),
+            "fixture: the raw widths differ"
+        );
+        assert_eq!(a.canonical_words(), b.canonical_words());
+        assert_eq!(a.canonical_words(), &[8u64][..]);
+        // and the empty mask is never a zero-length slice
+        assert_eq!(
+            WideFieldMask::from_positions(&[]).canonical_words().len(),
+            1
+        );
+    }
+
+    /// FAILS IF: `difference_with` computes something other than
+    /// `difference` on any tier pairing.
+    #[test]
+    fn difference_with_matches_the_allocating_form_across_tiers() {
+        let cases: [(WideFieldMask, WideFieldMask); 3] = [
+            (
+                WideFieldMask::from_positions(&[1, 3, 5]),
+                WideFieldMask::from_positions(&[3]),
+            ),
+            (
+                WideFieldMask::from_positions(&[1, 3, 133]),
+                WideFieldMask::from_positions(&[3]),
+            ),
+            (
+                WideFieldMask::from_positions(&[3, 70, 133]),
+                WideFieldMask::from_positions(&[70, 200]),
+            ),
+        ];
+        for (a, b) in cases {
+            let mut r = a.clone();
+            r.difference_with(&b);
+            assert_eq!(r, a.difference(&b), "difference_with vs difference");
+            assert_ne!(r, a, "difference_with must actually remove something here");
+        }
+    }
+
+    /// `intersect_with`/`difference_with` can only ever REMOVE bits from
+    /// `self`, so a `Small` self must stay `Small` no matter how wide
+    /// `other` is — a claim about the REPRESENTATION, not just the value,
+    /// so `max_fields()` (not `==`) is the observable that can catch a
+    /// stray promotion (same precedent as
+    /// `g4_widefieldmask_difference_normalizes_to_small`'s own comment: an
+    /// equality check alone cannot fail under a demote/promote bypass,
+    /// because `PartialEq` is representation-independent by design).
+    /// FAILS IF: either op unconditionally matched on `other`'s tier and
+    /// grew `self` to match it instead of just reading `other`'s bits.
+    #[test]
+    fn intersect_with_and_difference_with_never_promote_a_small_self() {
+        let wide_other = WideFieldMask::from_positions(&[3, 70, 200]);
+
+        let mut i = WideFieldMask::from_positions(&[1, 3]);
+        assert_eq!(i.max_fields(), 64, "fixture must start Small");
+        i.intersect_with(&wide_other);
+        assert_eq!(i.max_fields(), 64, "intersect_with promoted a Small self");
+        assert_eq!(i, WideFieldMask::from_positions(&[3]));
+
+        let mut d = WideFieldMask::from_positions(&[1, 3]);
+        d.difference_with(&wide_other);
+        assert_eq!(d.max_fields(), 64, "difference_with promoted a Small self");
+        assert_eq!(d, WideFieldMask::from_positions(&[1]));
+    }
+
+    /// `union_with`'s own doc comment claims it allocates in EXACTLY one
+    /// case: `other` carries a chunk `self` has no room for. Two-sided:
+    /// (a) a genuinely wider `other` DOES force growth; (b) an `other`
+    /// that is `Wide` in REPRESENTATION but whose chunks past `self`'s
+    /// width are all zero must NOT force growth. `padded` is built with
+    /// `difference_with` (an in-place form, which — unlike the allocating
+    /// `difference` — does NOT trim/demote) so it is genuinely `Wide` with
+    /// an all-zero high chunk, not merely equal in value to a `Small` mask.
+    /// FAILS IF: the growth check keys off `other`'s tier alone (e.g.
+    /// `matches!(other.0, WideRepr::Wide(_))`) rather than its actual
+    /// high-chunk content, which would grow `self` in case (b) too.
+    #[test]
+    fn union_with_grows_only_when_a_high_chunk_is_actually_needed() {
+        // (a) other genuinely needs bit 133 — self must grow to reach it.
+        let mut grows = WideFieldMask::from_positions(&[1, 3]);
+        assert_eq!(grows.max_fields(), 64);
+        let needs_room = WideFieldMask::from_positions(&[3, 133]);
+        grows.union_with(&needs_room);
+        assert!(
+            grows.max_fields() > 64,
+            "union_with should have promoted self to reach bit 133"
+        );
+        assert_eq!(grows, WideFieldMask::from_positions(&[1, 3, 133]));
+
+        // (b) `padded` is Wide in representation but every chunk past
+        // self's own width is zero — union_with must not pay for room it
+        // will never use.
+        let mut padded = WideFieldMask::from_positions(&[3, 130]);
+        assert!(
+            padded.max_fields() > 64,
+            "fixture setup: padded must start Wide"
+        );
+        padded.difference_with(&WideFieldMask::from_positions(&[130]));
+        assert!(
+            padded.max_fields() > 64,
+            "fixture setup: difference_with must NOT demote padded back to Small \
+             (it does not normalize) — otherwise this test cannot tell case (b) \
+             apart from case (a)"
+        );
+        assert_eq!(
+            padded,
+            WideFieldMask::from_positions(&[3]),
+            "fixture setup: padded's VALUE must equal {{3}} even though its \
+             representation is still Wide"
+        );
+
+        let mut stays_small = WideFieldMask::from_positions(&[1, 3]);
+        stays_small.union_with(&padded);
+        assert_eq!(
+            stays_small.max_fields(),
+            64,
+            "union_with should not have promoted self — padded's high chunks are zero"
+        );
+        assert_eq!(stays_small, WideFieldMask::from_positions(&[1, 3]));
+    }
+
+    /// `words()`/`words_mut()` are a borrow, not a copy. FAILS IF:
+    /// `words_mut()` returns a stale copy (an external write vanishes) or
+    /// the wrong chunk (a write to a high chunk lands on the wrong bit
+    /// range, or `words()` under-reports the Wide chunk count).
+    #[test]
+    fn words_and_words_mut_expose_the_real_backing_chunks() {
+        // Small tier: one-element view of the packed u64.
+        let mut small = WideFieldMask::from_positions(&[2]);
+        assert_eq!(small.words(), &[0b100]);
+        small.words_mut()[0] |= 1 << 5;
+        assert!(
+            small.has(5),
+            "an external write through words_mut() must be visible via has()"
+        );
+        assert_eq!(small.count(), 2);
+
+        // Wide tier: `words()` must report every chunk, and a write to a
+        // HIGH chunk (not chunk 0) must land at the right position.
+        let mut wide = WideFieldMask::from_positions(&[3, 133]);
+        assert_eq!(wide.words().len(), 3, "133 / 64 == 2, so 3 chunks");
+        assert!(wide.has(133));
+        wide.words_mut()[1] |= 1 << 10; // chunk 1, bit 10 -> position 64+10=74
+        assert!(
+            wide.has(74),
+            "an external write to a high chunk must be visible via has()"
+        );
+        assert!(
+            wide.has(3) && wide.has(133),
+            "the write must not disturb existing bits"
+        );
     }
 }
