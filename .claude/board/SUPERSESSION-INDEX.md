@@ -58,13 +58,13 @@ coverage instead.
 | `DominoCascade` | REPURPOSE | `Commit` | 7 | 1 | 0 |
 | `GateDecision` | REPURPOSE | — | 25 | 28 | 25 |
 | `GateState` | REPURPOSE | — | 14 | 1 | 1 |
-| `MergeMode` | REPURPOSE | — | 8 | 13 | 12 |
+| `MergeMode` | REPURPOSE | — | 8 | 14 | 13 |
 | `ResonanceDto` | REPURPOSE | `PerturbationDto` | 2 | 12 | 7 |
 | `BindSpace` | RETIRE | — | 68 | 47 | 41 |
 | `CollapseGateEmission` | RETIRE | — | 5 | 14 | 12 |
 | `ThinkingStyle` | RETIRE-toward-contract | — | 52 | 28 | 24 |
 
-## Table 2 — plans naming a ruled symbol without citing the ruling (74)
+## Table 2 — plans naming a ruled symbol without citing the ruling (75)
 
 Route is **mechanical triage, not a verdict**: `ARCHIVE?` = the plan's own status says
 it shipped; `RESCOPE` = it targets a symbol marked RETIRE; `READ` = neither signal fires
@@ -85,6 +85,7 @@ a licence to act on it.
 | **READ** | `deepnsm-v3-convergence-v1` | `StepMask` | PROPOSED (doc-only). Extends `v3-convergence | 5/5 |
 | **READ** | `epistemic-quadrant-materialization-v1` | `MergeMode` | PROPOSED.** Operator direction 2026-07-29: * | 4/4 |
 | **READ** | `graphrag-doc-retrieval-soa-integration-v1` | `GateDecision` | DESIGN + FIRST CODE. **v1.2 (2026-07-17):**  | 7/10 |
+| **READ** | `hexagon-plasticity-v1` | `MergeMode` | ACTIVE — landed 2026-09-14 on operator go. * | 2/9 |
 | **READ** | `integration-actionhandler-rbac-orchestration-v1` | `GateDecision` | HARDENING (5+3 in progress). | 0/0 |
 | **READ** | `mask-algebra-revision-read-v1` | `StepMask` | DRAFT, awaiting operator ruling on §5 | 2/3 |
 | **READ** | `mul-calibration-not-verdict-v1` | `GateDecision` | PROPOSAL (unbuilt) — 2026-08-26. PLAN/BOARD  | 6/12 |
@@ -156,5 +157,5 @@ a licence to act on it.
 
 - **ARCHIVE?**: 0
 - **RESCOPE**: 55
-- **READ**: 19
+- **READ**: 20
 - ruled symbols tracked: 14

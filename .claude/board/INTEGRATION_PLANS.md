@@ -1,3 +1,44 @@
+## 2026-09-14 (4) — hexagon-plasticity-v1 — can six learned rails discover local adjacency, and can ARM promote a cue to a path? → `.claude/plans/hexagon-plasticity-v1.md`
+
+**Status:** ACTIVE (W-1 and W0 RUN before landing; §9 carries their results and
+§10 the gate they forced). D-HXP-0..7. Extends, does not supersede,
+`HEXAGON-MQ-FEASIBILITY.md` §H — which ruled the register an ADDRESS and only
+for the `6×(8:8)` rail. The correction this plan records: all four MQ hexagon
+tests (H5a/b/c/d) fed the register **top-down** material, and H5d — the only arm
+that asked the lateral question — never ran (*"the register was never in the
+loop"*). A sweep of both reports for `learned shortcut | lateral | bypass |
+non-hierarch` returns zero hits, so six learned lateral rails are **untested,
+not falsified**.
+
+Waves. **W-1** reproduce the MQ baselines before trusting any threshold —
+REPRODUCED EXACTLY on transfer (12/12 byte-identical), the synthetic + river
+fixtures (4 × 2 × 6 keyers, escapes and state counts), and the hydration through
+refine/structure/source-eye future. **W0** top-k successor-mass histogram —
+CAPACITY **PASS** (top-6 mass S 0.9792 / O3 0.9943 at k=3), SIGNAL **struck as
+unanswerable by that instrument**: two independent nulls failed, and the distinct-
+successor median (3/3/4/**2**/3/3 — 2 on a *random* graph) shows the quantity is
+partly definitional, because a bisimulation class has few distinct successor
+classes by construction. **W1** the cue benchmark, run first among the unrun
+waves because H5b makes it the measured weak link (BPE motif bags R@10 18.1 %
+vs the hydrated quotient 1.5 %, null 0.15 %). **W2** the rail in the loop on the
+river, the step H5d skipped, with the E-Q8 one-direction control. **W3** ARM
+promotion of cue → validated `⟨f,c⟩` path against a same-count shuffled control.
+**W4** the flow channel (`FlowState`, already a `#[repr(u8)]` contract enum) as
+readout, never premise. **W5** deferred: whether #1226's validated `MaskOp`
+executor is the host — which would satisfy #26's *no ndarray module, no
+hexagon-named type* by construction.
+
+Kill conditions, one line each. W0: top-6 < 0.40 on both code eyes — not met,
+capacity passed. W1: cue R@10 < 5 % — the loop starves at step one and no
+downstream wave compensates. W2/D-HXP-3: rail-in-loop ≥ 4.68 bits on the river
+same-board row — no better than the quotient it replaces. W2/D-HXP-4: off-trie
+rate 0 — reclassify as *cache of descent*, withdraw the word *synapse*, not a
+kill. W3: promoted ≤ shuffled — validation adds nothing over Hebbian strength.
+W4: yield monotone in escape, or flat — the flow model is wrong, or `FlowState`
+carries no information here. **D-HXP-7** (added after W0, §10): measured CV
+exceeds the pillar's 1.75× slack at n ≤ 5 — rail composition is no better than
+naive accumulation and W3's path arm has no carrier.
+
 ## 2026-09-14 (3) — mask-risc-executor-v1 — PR3: the one borrowing evaluator above `ndarray::simd` → `.claude/plans/mask-risc-executor-v1.md`
 
 **Status:** ACTIVE (filigree plan; code lands on the PR3 branch after #1225
