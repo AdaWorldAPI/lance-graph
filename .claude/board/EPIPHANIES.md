@@ -489,11 +489,15 @@ confidence-bearing) or `bgz_tensor::gamma_phi` (unrelated golden-ratio codec
 math). Do not merge, rename, or treat one as a typo of the other — they are
 independently justified and both currently correct in their own contexts.
 
-**Cross-ref:** `ada-consciousness/universal_grammar/UNIVERSAL_GRAMMAR_v1.1.md:41-57,173-174`,
-`lance-graph/crates/lance-graph-planner/src/thinking/sigma_chain.rs:1-68`,
-`ada-consciousness/docs/sigma-hashtag-glyph-4d.md:14-60` (the α/γ shorthand
-source), the same-session archaeology report (Σ12/Fn_P(S,O)/4096 discovery
-pass) which this entry narrows.
+**Cross-ref:** in-repo, `crates/lance-graph-planner/src/thinking/sigma_chain.rs`
+— its module doc-comment "Sigma Chain: Ω → Δ → Φ → Θ → Λ" and the `SigmaStage`
+enum beneath it. The unrelated numeric φ is `gamma_phi` in `bgz-tensor`.
+Cross-repo (ada-consciousness, not resolvable from this tree):
+`universal_grammar/UNIVERSAL_GRAMMAR_v1.1.md` under its "Types (node kinds)"
+list, which defines the five letters, and its qualia table naming `valence` and
+`arousal`; `docs/sigma-hashtag-glyph-4d.md` under "Dimension 3: Affect (α×γ)",
+the α/γ shorthand source. Also the same-session archaeology report
+(Σ12/Fn_P(S,O)/4096 discovery pass) which this entry narrows.
 
 ---
 
@@ -550,11 +554,16 @@ through the canonical `contract::mul::DkPosition`) is a legitimate small PR,
 but is out of scope here: this entry only records what is, not what should
 change.
 
-**Cross-ref:** `.claude/v3/MODULE-TABLE.md:261` (the original hedge),
-`crates/lance-graph-contract/src/mul.rs:100`,
-`crates/lance-graph-planner/src/mul/dk.rs`,
-`crates/lance-graph-planner/src/cache/triple_model.rs`,
-`crates/lance-graph-planner/src/cache/lane_eval.rs`.
+**Cross-ref:** `.claude/v3/MODULE-TABLE.md` — the original hedge is on the
+`cache/triple_model.rs` row, in its Notes column: "DkPosition may overlap
+mul/dk.rs DkPosition enum — not confirmed identical without cross-read".
+The canonical enum is `pub enum DkPosition` in
+`crates/lance-graph-contract/src/mul.rs`; its detector is `detect()` in
+`crates/lance-graph-planner/src/mul/dk.rs`. The duplicate is `pub enum
+DkPosition` in `crates/lance-graph-planner/src/cache/triple_model.rs`, whose
+only consumers are `Tension::from_dk` in
+`crates/lance-graph-planner/src/cache/lane_eval.rs` and `ModelState::update_head`
+in its own module.
 
 ---
 
