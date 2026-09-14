@@ -48,6 +48,13 @@ pub enum ExecError {
     /// program that was assembled by hand and lied). Distinct from
     /// [`Self::ScratchTooSmall`], which is about the caller's buffer.
     ScratchSlotUndeclared { slot: u16, declared: u32 },
+    /// The PROGRAM declares more scratch slots than `Operand::Scratch` can
+    /// address ([`crate::MAX_SCRATCH_SLOTS`] = 65,536). Nothing in the
+    /// program could reach the surplus, so the count is a lie — and sizing an
+    /// arena from it would allocate unboundedly on the strength of one
+    /// public field. Refused before any allocation, by the validator BOTH
+    /// paths share, so the executor and the oracle refuse identically.
+    ScratchSlotsUnaddressable { declared: u32 },
     /// An op or the terminal READS a scratch slot no earlier op wrote. The
     /// executor would see whatever the caller's reused buffer holds; the
     /// oracle models a fresh arena. Rather than let the two diverge, the

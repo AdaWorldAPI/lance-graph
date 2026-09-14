@@ -86,7 +86,7 @@ impl Fixture {
             masks: &masks,
             lanes: &lanes,
         };
-        let mut scratch = Scratch::for_program(p, self.n);
+        let mut scratch = Scratch::for_program(p, self.n).expect("addressable");
         let mut out_exec = vec![0i32; self.n];
         let mut out_ref = vec![0i32; self.n];
         let got = execute(p, &planes, &mut scratch, Some(&mut out_exec));

@@ -18,6 +18,7 @@
 
 use crate::ir::{
     LaneRef, MaskOp, Operand, Planes, Pred, Program, Terminal, MASKED_SUM_I32_MAX_ROWS,
+    MAX_SCRATCH_SLOTS,
 };
 use crate::value::{ExecError, LaneKind, Value};
 use crate::words_for;
@@ -117,6 +118,20 @@ pub(crate) fn validate(
     planes: &Planes<'_>,
     out_len: Option<usize>,
 ) -> Result<(), ExecError> {
+    // FIRST, before anything walks a plane or an op: a declared slot count
+    // above the addressable ceiling is refused. The count is a PUBLIC field,
+    // so a hand-built program can declare four billion slots while naming no
+    // `Operand::Scratch` at all — which every per-operand check below is
+    // structurally blind to, since there is no operand to check. Both
+    // arena-sizing paths (`Scratch::for_program` and the oracle's own `run`)
+    // allocate proportionally to this field, so the refusal has to happen
+    // here, ahead of them, rather than in a `debug_assert` that release
+    // builds drop.
+    if p.scratch_slots > MAX_SCRATCH_SLOTS {
+        return Err(ExecError::ScratchSlotsUnaddressable {
+            declared: p.scratch_slots,
+        });
+    }
     let n = planes.n_rows;
     let words = words_for(n);
     // `Operand::Plane` is a `u16`: planes past 65,536 cannot be named by any
@@ -826,6 +841,67 @@ mod tests {
                 found: 3
             })
         );
+    }
+
+    /// FAILS IF: `validate` bounds only the INDEX of an `Operand::Scratch`
+    /// and never the declared COUNT. Both fixtures name NO scratch operand at
+    /// all, which is the whole point — `check_operand` is structurally blind
+    /// to a lie it has no operand to catch, so a per-operand check cannot be
+    /// what makes this pass.
+    ///
+    /// Two-sided: the surplus is refused, and the exact ceiling is ACCEPTED.
+    /// Without the second half a validator that refused every non-zero count
+    /// would look correct.
+    #[test]
+    fn a_declared_slot_count_past_the_addressable_ceiling_is_refused() {
+        let fx = Fx::new(70);
+        fx.with(|planes| {
+            let lying = Program {
+                ops: vec![],
+                terminal: Terminal::Any { mask: P0 },
+                scratch_slots: MAX_SCRATCH_SLOTS + 1,
+            };
+            // Anti-vacuity: nothing here NAMES a scratch slot, so the only
+            // rule that can reject it is the count bound itself.
+            assert!(
+                !lying.ops.iter().any(|op| matches!(
+                    op,
+                    MaskOp::Pred {
+                        under: Some(Operand::Scratch(_)),
+                        ..
+                    }
+                )) && matches!(
+                    lying.terminal,
+                    Terminal::Any {
+                        mask: Operand::Plane(_)
+                    }
+                ),
+                "fixture must name no scratch operand, or it proves nothing"
+            );
+            assert_eq!(
+                reference_execute(&lying, planes, None),
+                Err(ExecError::ScratchSlotsUnaddressable {
+                    declared: MAX_SCRATCH_SLOTS + 1
+                })
+            );
+            // ...and the oracle's OTHER entry point refuses identically,
+            // because its arena is sized from the same field.
+            assert_eq!(
+                reference_scratch(&lying, planes),
+                Err(ExecError::ScratchSlotsUnaddressable {
+                    declared: MAX_SCRATCH_SLOTS + 1
+                })
+            );
+            // CAN-STAY-SILENT: exactly 65,536 slots is the largest count
+            // every index can still address (slot `u16::MAX` is the
+            // 65,536th), so it must pass validation untouched.
+            let exact = Program {
+                ops: vec![],
+                terminal: Terminal::Any { mask: P0 },
+                scratch_slots: MAX_SCRATCH_SLOTS,
+            };
+            assert!(reference_execute(&exact, planes, None).is_ok());
+        });
     }
 
     /// FAILS IF: validation is not in program order — the FIRST bad op is

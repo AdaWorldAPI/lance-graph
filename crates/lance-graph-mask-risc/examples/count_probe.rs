@@ -174,8 +174,8 @@ fn main() {
 
     let mut t0 = vec![0u64; WORDS];
     let mut t1 = vec![0u64; WORDS];
-    let mut si = Scratch::for_program(&interpreted, N);
-    let mut sf = Scratch::for_program(&fused, N);
+    let mut si = Scratch::for_program(&interpreted, N).expect("addressable");
+    let mut sf = Scratch::for_program(&fused, N).expect("addressable");
     let count_of = |v: Result<Value, _>| match v {
         Ok(Value::Count(c)) => c,
         _ => usize::MAX,
@@ -229,8 +229,8 @@ fn main() {
             mask: Operand::Scratch(0),
         },
     );
-    let mut sg = Scratch::for_program(&gated, N);
-    let mut st = Scratch::for_program(&two_op, N);
+    let mut sg = Scratch::for_program(&gated, N).expect("addressable");
+    let mut st = Scratch::for_program(&two_op, N).expect("addressable");
     let _ = execute(&gated, &planes, &mut sg, None);
     let _ = execute(&two_op, &planes, &mut st, None);
     let (ns_gated, c_gated, b_gated) = time(|| count_of(execute(&gated, &planes, &mut sg, None)));

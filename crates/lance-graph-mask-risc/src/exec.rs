@@ -33,7 +33,7 @@ use ndarray::simd::{
     ternary_match_u64_to_mask_under,
 };
 
-use crate::ir::{LaneRef, MaskOp, Operand, Planes, Pred, Program, Terminal};
+use crate::ir::{LaneRef, MaskOp, Operand, Planes, Pred, Program, Terminal, MAX_SCRATCH_SLOTS};
 use crate::reference::validate;
 use crate::ternlog_dispatch::{ternlog_dispatch, ternlog_dispatch_assign};
 use crate::value::{ExecError, Value};
@@ -60,18 +60,25 @@ impl Scratch {
     }
 
     /// Allocate exactly what `program` needs over `n_rows` rows.
-    pub fn for_program(program: &Program, n_rows: usize) -> Self {
-        // `Operand::Scratch` is a `u16`, so no program can ADDRESS more than
-        // 65,536 slots; a larger count means a hand-built program lied, and
-        // `validate` refuses it. Allocating for it would be pure waste.
-        debug_assert!(
-            program.scratch_slots <= u32::from(u16::MAX) + 1,
-            "scratch_slots {} exceeds the addressable slot space",
-            program.scratch_slots
-        );
+    ///
+    /// Fallible, and deliberately so. `Operand::Scratch` is a `u16`, so no
+    /// program can ADDRESS more than [`MAX_SCRATCH_SLOTS`] slots; a larger
+    /// count means a hand-built program lied about a PUBLIC field. This used
+    /// to be a `debug_assert`, which release builds drop — leaving the lie to
+    /// reach `Scratch::new` and allocate unboundedly. The same bound is in
+    /// [`validate`], so a program refused here is refused identically by
+    /// `execute` and by the oracle; the check is repeated rather than
+    /// delegated because a caller sizes its arena BEFORE `execute` runs, and
+    /// a validation that happens afterwards cannot prevent this allocation.
+    pub fn for_program(program: &Program, n_rows: usize) -> Result<Self, ExecError> {
+        if program.scratch_slots > MAX_SCRATCH_SLOTS {
+            return Err(ExecError::ScratchSlotsUnaddressable {
+                declared: program.scratch_slots,
+            });
+        }
         // `scratch_slots` is a `u32` count; a program naming slot `u16::MAX`
         // needs 65,536 buffers, which fits `usize` on every supported target.
-        Self::new(words_for(n_rows), program.scratch_slots as usize)
+        Ok(Self::new(words_for(n_rows), program.scratch_slots as usize))
     }
 
     /// Words per slot.
@@ -602,6 +609,47 @@ mod tests {
         }
     }
 
+    /// FAILS IF: `for_program` guards the addressable ceiling with a
+    /// `debug_assert` (which release builds drop) instead of returning an
+    /// error. `Program::scratch_slots` is PUBLIC, so a struct literal can
+    /// declare four billion slots while naming no scratch operand; sizing an
+    /// arena from that allocates unboundedly before `execute` ever validates.
+    ///
+    /// The bound is deliberately repeated here rather than delegated to
+    /// `validate`: a caller builds its arena BEFORE `execute` runs, so a
+    /// refusal that happens inside `execute` arrives after the allocation it
+    /// was supposed to prevent.
+    #[test]
+    fn for_program_refuses_an_unaddressable_slot_count_in_every_build() {
+        let lying = Program {
+            ops: vec![],
+            terminal: Terminal::Count {
+                mask: Operand::Plane(0),
+            },
+            scratch_slots: MAX_SCRATCH_SLOTS + 1,
+        };
+        assert_eq!(
+            Scratch::for_program(&lying, 70).err(),
+            Some(ExecError::ScratchSlotsUnaddressable {
+                declared: MAX_SCRATCH_SLOTS + 1
+            })
+        );
+        // CAN-STAY-SILENT: an ordinary program still gets its arena, sized
+        // exactly. A guard that refused everything would pass the half above.
+        let ok = Program::new(
+            vec![MaskOp::Not {
+                a: Operand::Plane(0),
+                dst: 2,
+            }],
+            Terminal::Count {
+                mask: Operand::Scratch(2),
+            },
+        );
+        let s = Scratch::for_program(&ok, 70).expect("addressable");
+        assert_eq!(s.slots(), 3);
+        assert_eq!(s.words(), 2);
+    }
+
     /// FAILS IF: a materialiser appears that is not one of the two the crate
     /// admits — law L5. Every production `pub fn` RETURNING an owning
     /// collection must be `materialize_rows` (the consumer boundary) or
@@ -670,7 +718,7 @@ mod tests {
                 mask: Operand::Scratch(0),
             },
         );
-        let mut s = Scratch::for_program(&p, n);
+        let mut s = Scratch::for_program(&p, n).expect("addressable");
         assert_eq!(execute(&p, &planes, &mut s, None), Ok(Value::Count(70)));
         // the all-alias shape: dst is read three times and written once
         let p2 = Program::new(
@@ -694,7 +742,7 @@ mod tests {
                 mask: Operand::Scratch(0),
             },
         );
-        let mut s2 = Scratch::for_program(&p2, n);
+        let mut s2 = Scratch::for_program(&p2, n).expect("addressable");
         // 0x01 is `!(x|x|x)` = `!x`: the complement of all-ones is empty
         assert_eq!(execute(&p2, &planes, &mut s2, None), Ok(Value::Count(0)));
     }

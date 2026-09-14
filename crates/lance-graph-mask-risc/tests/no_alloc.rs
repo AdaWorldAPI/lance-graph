@@ -93,7 +93,7 @@ fn a_thousand_executes_allocate_nothing() {
             mask: Operand::Scratch(5),
         },
     );
-    let mut scratch = Scratch::for_program(&p, n);
+    let mut scratch = Scratch::for_program(&p, n).expect("addressable");
     let warm = execute(&p, &planes, &mut scratch, None);
     assert!(matches!(warm, Ok(Value::Count(_))));
 

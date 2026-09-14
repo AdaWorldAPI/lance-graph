@@ -37,26 +37,36 @@
 //! ndarray::simd primitives              (the ISA membrane; five compile-time realizations)
 //! ```
 //!
-//! ## The four laws this crate is built to make structural
+//! ## The four ARCHITECTURAL laws (A1-A4)
 //!
-//! 1. **The plan describes, the executor borrows, ndarray computes, the
+//! These four are the crate's doctrine. They are NOT the same list as
+//! [`exec`]'s **L1-L5**, which are the narrower *structural* laws — the ones
+//! a test enforces. The two lists overlap but do not share numbering, and
+//! naming them apart is the point: A3 and L2 are both "no ISA", so a bare
+//! "law 3" or "law 2" is ambiguous unless the prefix is written. Cite `A3`
+//! for the doctrine and `L2` for the test that holds it up
+//! (`the_crate_names_no_isa`). Mapping: A1 → L1 + L5, A3 → L2, A4 → L4;
+//! A2 has no structural counterpart, and L3 (one delegation per op) has no
+//! architectural one — it is `[claimed, unverified]` with no instrument.
+//!
+//! A1. **The plan describes, the executor borrows, ndarray computes, the
 //!    caller owns memory.** Inputs are `&[u64]` / `&[i32]` / … borrowed from
 //!    whoever owns the address space (a mailbox, an `AlphaMask`, an lgj
 //!    `RowStore`); temporaries live in a caller-supplied `Scratch`; the
 //!    executor never allocates. There is no per-row object, no hidden
 //!    rowset, no second row-index universe — a `SelectionVector` cannot be
 //!    expressed in this vocabulary at all.
-//! 2. **Masks choose admissibility; magnitude is a separate reduction over
+//! A2. **Masks choose admissibility; magnitude is a separate reduction over
 //!    survivors** (`E-TOPOLOGY-MASKS-MAGNITUDE-COMPOSE-NEVER-COLLAPSE-1`).
 //!    [`Terminal::MaskedSumI32`] and friends reduce a *value plane* under
 //!    the final mask; a mask bit is never a weight.
-//! 3. **`TERNLOG` is semantics, never a hardware assumption.** The fuser
+//! A3. **`TERNLOG` is semantics, never a hardware assumption.** The fuser
 //!    (`fuse`) turns any Boolean subtree over three leaves into one
 //!    [`MaskOp::Ternlog`] by evaluating its truth table; how a given
 //!    immediate is realized on AVX-512 / AVX2 / NEON / WASM / scalar is
 //!    entirely `ndarray`'s business (the polyfill law). **This crate contains
 //!    no `cfg(target_feature)`, no ISA cost model, no fallback chain.**
-//! 4. **Reference semantics are independent.** `reference` evaluates the
+//! A4. **Reference semantics are independent.** `reference` evaluates the
 //!    same program one row at a time in plain Rust with no `ndarray` — the
 //!    oracle every executor is diffed against, on whichever backend the test
 //!    binary is built for (see the status note above; not all five).
@@ -91,7 +101,10 @@ pub mod value;
 
 pub use exec::{execute, materialize_rows, Scratch};
 pub use fuse::{fuse, fuse_program, ternlog_imm, BoolExpr, FuseError, Fused};
-pub use ir::{LaneRef, MaskOp, Operand, Planes, Pred, Program, Terminal, MASKED_SUM_I32_MAX_ROWS};
+pub use ir::{
+    LaneRef, MaskOp, Operand, Planes, Pred, Program, Terminal, MASKED_SUM_I32_MAX_ROWS,
+    MAX_SCRATCH_SLOTS,
+};
 pub use reference::{reference_execute, reference_scratch};
 pub use ternlog_dispatch::{ternlog_dispatch, ternlog_dispatch_assign};
 pub use value::{ExecError, LaneKind, Value};

@@ -183,6 +183,29 @@ pub struct Program {
     pub scratch_slots: u32,
 }
 
+/// The addressable scratch-slot ceiling: 65,536.
+///
+/// [`Operand::Scratch`] is a `u16`, so a program can NAME slots `0..=65_535`.
+/// A [`Program::scratch_slots`] count above this is unreachable by
+/// construction — no op or terminal could ever address the surplus — so it
+/// can only come from a hand-built program that lied, and
+/// `reference::validate` refuses it rather than let an executor size an
+/// arena from it. One spelling, read by both the validator and
+/// [`crate::Scratch::for_program`].
+pub const MAX_SCRATCH_SLOTS: u32 = u16::MAX as u32 + 1;
+
+// The value, pinned independently of the derivation above — two spellings of
+// one fact, so a change to either has to be deliberate.
+//
+// This exists because the guard's own falsifiers are written as
+// `MAX_SCRATCH_SLOTS + 1`, which TRACKS the constant: raising the ceiling
+// cannot make them fail, so they cannot be what catches a change to it.
+// Widening `Operand::Scratch` past `u16` would move the derivation and break
+// this line, which is the intent — it forces a re-pin rather than a silent
+// drift. Disable-verified: changing the derivation to any other value fails
+// the build here.
+const _: () = assert!(MAX_SCRATCH_SLOTS == 65_536);
+
 impl Program {
     /// Assemble a program, computing its scratch requirement from the ops.
     pub fn new(ops: Vec<MaskOp>, terminal: Terminal) -> Self {
