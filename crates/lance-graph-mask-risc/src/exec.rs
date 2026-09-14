@@ -6,8 +6,8 @@
 //!
 //! - **L1** `execute` never allocates: [`Scratch::new`] is the only allocation
 //!   and it is the caller's.
-//! - **L2** no ISA: this file names no `target_feature`, no `core::arch`; which
-//!   backend runs a word is `ndarray`'s business.
+//! - **L2** no ISA: this file carries no feature gate and no architecture
+//!   intrinsic; which backend runs a word is `ndarray`'s business.
 //! - **L3** one delegation per op. The only second shape is the aliasing form:
 //!   when `dst` is also an input the op routes to the facade's `_assign` member
 //!   (or, for [`MaskOp::AndNot`] / [`MaskOp::Ternlog`] with `dst` on the right,
@@ -18,13 +18,14 @@
 //! - **L5** exactly one materialiser: [`materialize_rows`].
 
 use ndarray::simd::{
-    blend_i32, eq_i32_to_mask, eq_i32_to_mask_under, eq_u32_to_mask, eq_u32_to_mask_under, ge_i32_to_mask,
-    ge_i32_to_mask_under, gt_i32_to_mask, gt_i32_to_mask_under, le_i32_to_mask, le_i32_to_mask_under,
-    lt_i32_to_mask, lt_i32_to_mask_under, mask_all, mask_and, mask_and_assign, mask_andnot, mask_andnot_assign,
-    mask_any, mask_not, mask_not_assign, mask_or, mask_or_assign, mask_xor, mask_xor_assign,
-    masked_max_i32, masked_min_i32, masked_sum_i32, ne_i32_to_mask, ne_i32_to_mask_under, ne_u32_to_mask,
-    ne_u32_to_mask_under, popcount_batch_u64, ternary_match_u32_to_mask, ternary_match_u32_to_mask_under,
-    ternary_match_u64_to_mask, ternary_match_u64_to_mask_under,
+    blend_i32, eq_i32_to_mask, eq_i32_to_mask_under, eq_u32_to_mask, eq_u32_to_mask_under,
+    ge_i32_to_mask, ge_i32_to_mask_under, gt_i32_to_mask, gt_i32_to_mask_under, le_i32_to_mask,
+    le_i32_to_mask_under, lt_i32_to_mask, lt_i32_to_mask_under, mask_all, mask_and,
+    mask_and_assign, mask_andnot, mask_andnot_assign, mask_any, mask_not, mask_not_assign, mask_or,
+    mask_or_assign, mask_xor, mask_xor_assign, masked_max_i32, masked_min_i32, masked_sum_i32,
+    ne_i32_to_mask, ne_i32_to_mask_under, ne_u32_to_mask, ne_u32_to_mask_under, popcount_batch_u64,
+    ternary_match_u32_to_mask, ternary_match_u32_to_mask_under, ternary_match_u64_to_mask,
+    ternary_match_u64_to_mask_under,
 };
 
 use crate::ir::{LaneRef, MaskOp, Operand, Planes, Pred, Program, Terminal};
@@ -47,7 +48,9 @@ impl Scratch {
     pub fn new(words: usize, slots: usize) -> Self {
         Self {
             words,
-            slots: (0..slots).map(|_| vec![0u64; words].into_boxed_slice()).collect(),
+            slots: (0..slots)
+                .map(|_| vec![0u64; words].into_boxed_slice())
+                .collect(),
         }
     }
 
@@ -114,7 +117,7 @@ pub fn materialize_rows(mask: &[u64], n_rows: usize) -> Vec<usize> {
 /// Owed after an odd ternlog immediate (`f(0,0,0) = 1` sets the whole tail).
 fn clear_tail(dst: &mut [u64], n_rows: usize) {
     let live = n_rows % 64;
-    if live != 0 {
+    if !n_rows.is_multiple_of(64) {
         if let Some(w) = dst.get_mut(n_rows / 64) {
             *w &= (1u64 << live) - 1;
         }
@@ -237,33 +240,81 @@ fn lane_u64<'a>(planes: &Planes<'a>, lane: u16) -> &'a [u64] {
 fn run_pred(planes: &Planes<'_>, s: &Scratch, pred: Pred, under: Option<Operand>, dst: &mut [u64]) {
     match (pred, under) {
         (Pred::GtI32 { lane, t }, None) => gt_i32_to_mask(lane_i32(planes, lane), t, dst),
-        (Pred::GtI32 { lane, t }, Some(u)) => gt_i32_to_mask_under(lane_i32(planes, lane), t, read(planes, s, u), dst),
+        (Pred::GtI32 { lane, t }, Some(u)) => {
+            gt_i32_to_mask_under(lane_i32(planes, lane), t, read(planes, s, u), dst)
+        }
         (Pred::LtI32 { lane, t }, None) => lt_i32_to_mask(lane_i32(planes, lane), t, dst),
-        (Pred::LtI32 { lane, t }, Some(u)) => lt_i32_to_mask_under(lane_i32(planes, lane), t, read(planes, s, u), dst),
+        (Pred::LtI32 { lane, t }, Some(u)) => {
+            lt_i32_to_mask_under(lane_i32(planes, lane), t, read(planes, s, u), dst)
+        }
         (Pred::GeI32 { lane, t }, None) => ge_i32_to_mask(lane_i32(planes, lane), t, dst),
-        (Pred::GeI32 { lane, t }, Some(u)) => ge_i32_to_mask_under(lane_i32(planes, lane), t, read(planes, s, u), dst),
+        (Pred::GeI32 { lane, t }, Some(u)) => {
+            ge_i32_to_mask_under(lane_i32(planes, lane), t, read(planes, s, u), dst)
+        }
         (Pred::LeI32 { lane, t }, None) => le_i32_to_mask(lane_i32(planes, lane), t, dst),
-        (Pred::LeI32 { lane, t }, Some(u)) => le_i32_to_mask_under(lane_i32(planes, lane), t, read(planes, s, u), dst),
+        (Pred::LeI32 { lane, t }, Some(u)) => {
+            le_i32_to_mask_under(lane_i32(planes, lane), t, read(planes, s, u), dst)
+        }
         (Pred::EqI32 { lane, v }, None) => eq_i32_to_mask(lane_i32(planes, lane), v, dst),
-        (Pred::EqI32 { lane, v }, Some(u)) => eq_i32_to_mask_under(lane_i32(planes, lane), v, read(planes, s, u), dst),
+        (Pred::EqI32 { lane, v }, Some(u)) => {
+            eq_i32_to_mask_under(lane_i32(planes, lane), v, read(planes, s, u), dst)
+        }
         (Pred::NeI32 { lane, v }, None) => ne_i32_to_mask(lane_i32(planes, lane), v, dst),
-        (Pred::NeI32 { lane, v }, Some(u)) => ne_i32_to_mask_under(lane_i32(planes, lane), v, read(planes, s, u), dst),
+        (Pred::NeI32 { lane, v }, Some(u)) => {
+            ne_i32_to_mask_under(lane_i32(planes, lane), v, read(planes, s, u), dst)
+        }
         (Pred::EqU32 { lane, v }, None) => eq_u32_to_mask(lane_u32(planes, lane), v, dst),
-        (Pred::EqU32 { lane, v }, Some(u)) => eq_u32_to_mask_under(lane_u32(planes, lane), v, read(planes, s, u), dst),
+        (Pred::EqU32 { lane, v }, Some(u)) => {
+            eq_u32_to_mask_under(lane_u32(planes, lane), v, read(planes, s, u), dst)
+        }
         (Pred::NeU32 { lane, v }, None) => ne_u32_to_mask(lane_u32(planes, lane), v, dst),
-        (Pred::NeU32 { lane, v }, Some(u)) => ne_u32_to_mask_under(lane_u32(planes, lane), v, read(planes, s, u), dst),
-        (Pred::MatchU32 { lane, pattern, care }, None) => {
-            ternary_match_u32_to_mask(lane_u32(planes, lane), pattern, care, dst)
+        (Pred::NeU32 { lane, v }, Some(u)) => {
+            ne_u32_to_mask_under(lane_u32(planes, lane), v, read(planes, s, u), dst)
         }
-        (Pred::MatchU32 { lane, pattern, care }, Some(u)) => {
-            ternary_match_u32_to_mask_under(lane_u32(planes, lane), pattern, care, read(planes, s, u), dst)
-        }
-        (Pred::MatchU64 { lane, pattern, care }, None) => {
-            ternary_match_u64_to_mask(lane_u64(planes, lane), pattern, care, dst)
-        }
-        (Pred::MatchU64 { lane, pattern, care }, Some(u)) => {
-            ternary_match_u64_to_mask_under(lane_u64(planes, lane), pattern, care, read(planes, s, u), dst)
-        }
+        (
+            Pred::MatchU32 {
+                lane,
+                pattern,
+                care,
+            },
+            None,
+        ) => ternary_match_u32_to_mask(lane_u32(planes, lane), pattern, care, dst),
+        (
+            Pred::MatchU32 {
+                lane,
+                pattern,
+                care,
+            },
+            Some(u),
+        ) => ternary_match_u32_to_mask_under(
+            lane_u32(planes, lane),
+            pattern,
+            care,
+            read(planes, s, u),
+            dst,
+        ),
+        (
+            Pred::MatchU64 {
+                lane,
+                pattern,
+                care,
+            },
+            None,
+        ) => ternary_match_u64_to_mask(lane_u64(planes, lane), pattern, care, dst),
+        (
+            Pred::MatchU64 {
+                lane,
+                pattern,
+                care,
+            },
+            Some(u),
+        ) => ternary_match_u64_to_mask_under(
+            lane_u64(planes, lane),
+            pattern,
+            care,
+            read(planes, s, u),
+            dst,
+        ),
     }
 }
 
@@ -274,7 +325,7 @@ pub fn execute(
     program: &Program,
     planes: &Planes<'_>,
     scratch: &mut Scratch,
-    mut out: Option<&mut [i32]>,
+    out: Option<&mut [i32]>,
 ) -> Result<Value, ExecError> {
     if scratch.slots.len() < program.scratch_slots as usize {
         return Err(ExecError::ScratchTooSmall {
@@ -299,12 +350,39 @@ pub fn execute(
                 run_pred(planes, scratch, pred, under, &mut d);
                 scratch.restore(dst, d);
             }
-            MaskOp::And { a, b, dst } => two_input(planes, scratch, a, b, dst, mask_and, mask_and_assign, AND_IMM),
-            MaskOp::Or { a, b, dst } => two_input(planes, scratch, a, b, dst, mask_or, mask_or_assign, OR_IMM),
-            MaskOp::Xor { a, b, dst } => two_input(planes, scratch, a, b, dst, mask_xor, mask_xor_assign, XOR_IMM),
-            MaskOp::AndNot { a, b, dst } => {
-                two_input(planes, scratch, a, b, dst, mask_andnot, mask_andnot_assign, ANDNOT_IMM)
+            MaskOp::And { a, b, dst } => two_input(
+                planes,
+                scratch,
+                a,
+                b,
+                dst,
+                mask_and,
+                mask_and_assign,
+                AND_IMM,
+            ),
+            MaskOp::Or { a, b, dst } => {
+                two_input(planes, scratch, a, b, dst, mask_or, mask_or_assign, OR_IMM)
             }
+            MaskOp::Xor { a, b, dst } => two_input(
+                planes,
+                scratch,
+                a,
+                b,
+                dst,
+                mask_xor,
+                mask_xor_assign,
+                XOR_IMM,
+            ),
+            MaskOp::AndNot { a, b, dst } => two_input(
+                planes,
+                scratch,
+                a,
+                b,
+                dst,
+                mask_andnot,
+                mask_andnot_assign,
+                ANDNOT_IMM,
+            ),
             MaskOp::Not { a, dst } => {
                 if a == Operand::Scratch(dst) {
                     mask_not_assign(&mut scratch.slots[usize::from(dst)], n_rows);
@@ -318,7 +396,13 @@ pub fn execute(
                 let d = Operand::Scratch(dst);
                 let mut x = scratch.take(dst);
                 if a != d && b != d && c != d {
-                    ternlog_dispatch(imm, read(planes, scratch, a), read(planes, scratch, b), read(planes, scratch, c), &mut x);
+                    ternlog_dispatch(
+                        imm,
+                        read(planes, scratch, a),
+                        read(planes, scratch, b),
+                        read(planes, scratch, c),
+                        &mut x,
+                    );
                 } else {
                     // `dst` is an input: the in-place form takes it as `x`,
                     // the remaining distinct operands become `y` (and `z`),
@@ -339,9 +423,12 @@ pub fn execute(
                     }
                     let imm2 = remap_imm(imm, map);
                     match (others[0], others[1]) {
-                        (Some(y), Some(z)) => {
-                            ternlog_dispatch_assign(imm2, &mut x, read(planes, scratch, y), read(planes, scratch, z))
-                        }
+                        (Some(y), Some(z)) => ternlog_dispatch_assign(
+                            imm2,
+                            &mut x,
+                            read(planes, scratch, y),
+                            read(planes, scratch, z),
+                        ),
                         (Some(y), None) => {
                             let yy = read(planes, scratch, y);
                             ternlog_dispatch_assign(imm2, &mut x, yy, yy)
@@ -358,22 +445,32 @@ pub fn execute(
     }
 
     Ok(match program.terminal {
-        Terminal::Count { mask } => Value::Count(popcount_batch_u64(read(planes, scratch, mask)) as usize),
+        Terminal::Count { mask } => {
+            Value::Count(popcount_batch_u64(read(planes, scratch, mask)) as usize)
+        }
         Terminal::Any { mask } => Value::Bool(mask_any(read(planes, scratch, mask))),
         Terminal::All { mask } => Value::Bool(mask_all(read(planes, scratch, mask), n_rows)),
-        Terminal::MaskedSumI32 { mask, lane } => {
-            Value::SumI64(masked_sum_i32(lane_i32(planes, lane), read(planes, scratch, mask)))
-        }
-        Terminal::MaskedMinI32 { mask, lane } => {
-            Value::OptI32(masked_min_i32(lane_i32(planes, lane), read(planes, scratch, mask)))
-        }
-        Terminal::MaskedMaxI32 { mask, lane } => {
-            Value::OptI32(masked_max_i32(lane_i32(planes, lane), read(planes, scratch, mask)))
-        }
+        Terminal::MaskedSumI32 { mask, lane } => Value::SumI64(masked_sum_i32(
+            lane_i32(planes, lane),
+            read(planes, scratch, mask),
+        )),
+        Terminal::MaskedMinI32 { mask, lane } => Value::OptI32(masked_min_i32(
+            lane_i32(planes, lane),
+            read(planes, scratch, mask),
+        )),
+        Terminal::MaskedMaxI32 { mask, lane } => Value::OptI32(masked_max_i32(
+            lane_i32(planes, lane),
+            read(planes, scratch, mask),
+        )),
         Terminal::BlendI32 { mask, then, els } => {
             // `validate` already refused a missing or mis-sized `out`.
-            if let Some(o) = out.as_deref_mut() {
-                blend_i32(read(planes, scratch, mask), lane_i32(planes, then), lane_i32(planes, els), o);
+            if let Some(o) = out {
+                blend_i32(
+                    read(planes, scratch, mask),
+                    lane_i32(planes, then),
+                    lane_i32(planes, els),
+                    o,
+                );
             }
             Value::Blended
         }
@@ -418,12 +515,19 @@ mod tests {
     /// backend knowledge; which instruction runs a word is `ndarray`'s.
     #[test]
     fn the_executor_names_no_isa() {
-        let needles = ["target_", "feature", "core::", "arch", "cfg(target_arch"];
+        let needles = [
+            "target_",
+            "feature",
+            "core::",
+            "arch",
+            "cfg(target_",
+            "arch",
+        ];
         let src = include_str!("exec.rs");
         let production = src.split("#[cfg(test)]").next().unwrap_or("");
         assert!(!production.contains(&[needles[0], needles[1]].concat()));
         assert!(!production.contains(&[needles[2], needles[3]].concat()));
-        assert!(!production.contains(needles[4]));
+        assert!(!production.contains(&[needles[4], needles[5]].concat()));
     }
 
     /// FAILS IF: a second materialiser appears — law L5. Every production
@@ -473,20 +577,46 @@ mod tests {
         let n = 70;
         let zero = vec![0u64; 2];
         let masks: [&[u64]; 1] = [&zero];
-        let planes = Planes { n_rows: n, masks: &masks, lanes: &[] };
+        let planes = Planes {
+            n_rows: n,
+            masks: &masks,
+            lanes: &[],
+        };
         let p = Program::new(
-            vec![MaskOp::Ternlog { imm: 0xFF, a: Operand::Plane(0), b: Operand::Plane(0), c: Operand::Plane(0), dst: 0 }],
-            Terminal::Count { mask: Operand::Scratch(0) },
+            vec![MaskOp::Ternlog {
+                imm: 0xFF,
+                a: Operand::Plane(0),
+                b: Operand::Plane(0),
+                c: Operand::Plane(0),
+                dst: 0,
+            }],
+            Terminal::Count {
+                mask: Operand::Scratch(0),
+            },
         );
         let mut s = Scratch::for_program(&p, n);
         assert_eq!(execute(&p, &planes, &mut s, None), Ok(Value::Count(70)));
         // the all-alias shape: dst is read three times and written once
         let p2 = Program::new(
             vec![
-                MaskOp::Ternlog { imm: 0xFF, a: Operand::Plane(0), b: Operand::Plane(0), c: Operand::Plane(0), dst: 0 },
-                MaskOp::Ternlog { imm: 0x01, a: Operand::Scratch(0), b: Operand::Scratch(0), c: Operand::Scratch(0), dst: 0 },
+                MaskOp::Ternlog {
+                    imm: 0xFF,
+                    a: Operand::Plane(0),
+                    b: Operand::Plane(0),
+                    c: Operand::Plane(0),
+                    dst: 0,
+                },
+                MaskOp::Ternlog {
+                    imm: 0x01,
+                    a: Operand::Scratch(0),
+                    b: Operand::Scratch(0),
+                    c: Operand::Scratch(0),
+                    dst: 0,
+                },
             ],
-            Terminal::Count { mask: Operand::Scratch(0) },
+            Terminal::Count {
+                mask: Operand::Scratch(0),
+            },
         );
         let mut s2 = Scratch::for_program(&p2, n);
         // 0x01 is `!(x|x|x)` = `!x`: the complement of all-ones is empty
@@ -499,12 +629,36 @@ mod tests {
     fn scratch_is_checked_before_anything_runs() {
         let zero = vec![0u64; 2];
         let masks: [&[u64]; 1] = [&zero];
-        let planes = Planes { n_rows: 70, masks: &masks, lanes: &[] };
-        let p = Program::new(vec![MaskOp::Not { a: Operand::Plane(0), dst: 3 }], Terminal::Any { mask: Operand::Scratch(3) });
+        let planes = Planes {
+            n_rows: 70,
+            masks: &masks,
+            lanes: &[],
+        };
+        let p = Program::new(
+            vec![MaskOp::Not {
+                a: Operand::Plane(0),
+                dst: 3,
+            }],
+            Terminal::Any {
+                mask: Operand::Scratch(3),
+            },
+        );
         let mut small = Scratch::new(2, 2);
-        assert_eq!(execute(&p, &planes, &mut small, None), Err(ExecError::ScratchTooSmall { need: 4, have: 2 }));
+        assert_eq!(
+            execute(&p, &planes, &mut small, None),
+            Err(ExecError::ScratchTooSmall { need: 4, have: 2 })
+        );
         let mut wrong = Scratch::new(1, 4);
-        assert_eq!(execute(&p, &planes, &mut wrong, None), Err(ExecError::ScratchWords { expected: 2, found: 1 }));
-        assert!(wrong.slot(3).is_some_and(|w| w.iter().all(|&x| x == 0)), "nothing was written");
+        assert_eq!(
+            execute(&p, &planes, &mut wrong, None),
+            Err(ExecError::ScratchWords {
+                expected: 2,
+                found: 1
+            })
+        );
+        assert!(
+            wrong.slot(3).is_some_and(|w| w.iter().all(|&x| x == 0)),
+            "nothing was written"
+        );
     }
 }

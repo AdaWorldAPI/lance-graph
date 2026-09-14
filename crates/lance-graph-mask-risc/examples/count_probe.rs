@@ -48,7 +48,9 @@ const N: usize = 65_536;
 const WORDS: usize = N / 64;
 
 fn lcg(seed: &mut u64) -> u64 {
-    *seed = seed.wrapping_mul(6364136223846793005).wrapping_add(1442695040888963407);
+    *seed = seed
+        .wrapping_mul(6364136223846793005)
+        .wrapping_add(1442695040888963407);
     *seed >> 11
 }
 
@@ -89,21 +91,47 @@ fn main() {
     let b = plane(&mut seed, 1);
     let c = plane(&mut seed, 2);
     let masks: [&[u64]; 4] = [&alpha, &a, &b, &c];
-    let planes = Planes { n_rows: N, masks: &masks, lanes: &[] };
-    let (pa, pb, pc, palpha) = (Operand::Plane(1), Operand::Plane(2), Operand::Plane(3), Operand::Plane(0));
+    let planes = Planes {
+        n_rows: N,
+        masks: &masks,
+        lanes: &[],
+    };
+    let (pa, pb, pc, palpha) = (
+        Operand::Plane(1),
+        Operand::Plane(2),
+        Operand::Plane(3),
+        Operand::Plane(0),
+    );
 
     let interpreted = Program::new(
         vec![
-            MaskOp::And { a: pa, b: pb, dst: 0 },
-            MaskOp::Or { a: Operand::Scratch(0), b: pc, dst: 0 },
-            MaskOp::And { a: palpha, b: Operand::Scratch(0), dst: 0 },
+            MaskOp::And {
+                a: pa,
+                b: pb,
+                dst: 0,
+            },
+            MaskOp::Or {
+                a: Operand::Scratch(0),
+                b: pc,
+                dst: 0,
+            },
+            MaskOp::And {
+                a: palpha,
+                b: Operand::Scratch(0),
+                dst: 0,
+            },
         ],
-        Terminal::Count { mask: Operand::Scratch(0) },
+        Terminal::Count {
+            mask: Operand::Scratch(0),
+        },
     );
     let expr = BoolExpr::And(
         Box::new(BoolExpr::Leaf(palpha)),
         Box::new(BoolExpr::Or(
-            Box::new(BoolExpr::And(Box::new(BoolExpr::Leaf(pa)), Box::new(BoolExpr::Leaf(pb)))),
+            Box::new(BoolExpr::And(
+                Box::new(BoolExpr::Leaf(pa)),
+                Box::new(BoolExpr::Leaf(pb)),
+            )),
             Box::new(BoolExpr::Leaf(pc)),
         )),
     );

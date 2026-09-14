@@ -668,7 +668,10 @@ mod tests {
             let mut got = a.clone();
             ternlog_dispatch_assign(imm, &mut got, &b, &c);
 
-            assert_eq!(got, expect, "ternlog_dispatch_assign mismatch at imm={imm:#04x}");
+            assert_eq!(
+                got, expect,
+                "ternlog_dispatch_assign mismatch at imm={imm:#04x}"
+            );
         }
     }
 
@@ -726,7 +729,10 @@ mod tests {
             "expected exactly one bare END marker line, found {}",
             ends.len()
         );
-        assert!(begins[0] < ends[0], "BEGIN marker line must precede END marker line");
+        assert!(
+            begins[0] < ends[0],
+            "BEGIN marker line must precede END marker line"
+        );
 
         let region_lines = &src_lines[begins[0]..=ends[0]];
 
@@ -741,13 +747,11 @@ mod tests {
 
         let expected: Vec<u32> = (0..=255).collect();
         assert_eq!(
-            dispatch_ns,
-            expected,
+            dispatch_ns, expected,
             "ternlog_dispatch arms missing, duplicated, or reordered"
         );
         assert_eq!(
-            assign_ns,
-            expected,
+            assign_ns, expected,
             "ternlog_dispatch_assign arms missing, duplicated, or reordered"
         );
     }

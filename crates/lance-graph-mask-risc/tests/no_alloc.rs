@@ -29,7 +29,9 @@ unsafe impl GlobalAlloc for Counting {
 static A: Counting = Counting;
 
 fn lcg(seed: &mut u64) -> u64 {
-    *seed = seed.wrapping_mul(6364136223846793005).wrapping_add(1442695040888963407);
+    *seed = seed
+        .wrapping_mul(6364136223846793005)
+        .wrapping_add(1442695040888963407);
     *seed >> 11
 }
 
@@ -40,21 +42,56 @@ fn a_thousand_executes_allocate_nothing() {
     let n = 65_536;
     let words = n / 64;
     let mut seed = 7u64;
-    let lane: Vec<i32> = (0..n).map(|_| (lcg(&mut seed) % 2000) as i32 - 1000).collect();
-    let alpha: Vec<u64> = (0..words).map(|_| lcg(&mut seed) & lcg(&mut seed)).collect();
+    let lane: Vec<i32> = (0..n)
+        .map(|_| (lcg(&mut seed) % 2000) as i32 - 1000)
+        .collect();
+    let alpha: Vec<u64> = (0..words)
+        .map(|_| lcg(&mut seed) & lcg(&mut seed))
+        .collect();
     let masks: [&[u64]; 1] = [&alpha];
     let lanes = [LaneRef::I32(&lane)];
-    let planes = Planes { n_rows: n, masks: &masks, lanes: &lanes };
+    let planes = Planes {
+        n_rows: n,
+        masks: &masks,
+        lanes: &lanes,
+    };
     let p = Program::new(
         vec![
-            MaskOp::Pred { pred: Pred::GtI32 { lane: 0, t: 600 }, under: None, dst: 0 },
-            MaskOp::Pred { pred: Pred::LeI32 { lane: 0, t: 900 }, under: Some(Operand::Scratch(0)), dst: 1 },
-            MaskOp::And { a: Operand::Scratch(0), b: Operand::Scratch(1), dst: 2 },
-            MaskOp::Ternlog { imm: 0x80, a: Operand::Plane(0), b: Operand::Scratch(2), c: Operand::Scratch(1), dst: 3 },
-            MaskOp::Not { a: Operand::Scratch(3), dst: 4 },
-            MaskOp::Or { a: Operand::Scratch(4), b: Operand::Scratch(2), dst: 5 },
+            MaskOp::Pred {
+                pred: Pred::GtI32 { lane: 0, t: 600 },
+                under: None,
+                dst: 0,
+            },
+            MaskOp::Pred {
+                pred: Pred::LeI32 { lane: 0, t: 900 },
+                under: Some(Operand::Scratch(0)),
+                dst: 1,
+            },
+            MaskOp::And {
+                a: Operand::Scratch(0),
+                b: Operand::Scratch(1),
+                dst: 2,
+            },
+            MaskOp::Ternlog {
+                imm: 0x80,
+                a: Operand::Plane(0),
+                b: Operand::Scratch(2),
+                c: Operand::Scratch(1),
+                dst: 3,
+            },
+            MaskOp::Not {
+                a: Operand::Scratch(3),
+                dst: 4,
+            },
+            MaskOp::Or {
+                a: Operand::Scratch(4),
+                b: Operand::Scratch(2),
+                dst: 5,
+            },
         ],
-        Terminal::Count { mask: Operand::Scratch(5) },
+        Terminal::Count {
+            mask: Operand::Scratch(5),
+        },
     );
     let mut scratch = Scratch::for_program(&p, n);
     let warm = execute(&p, &planes, &mut scratch, None);
@@ -66,7 +103,12 @@ fn a_thousand_executes_allocate_nothing() {
         assert_eq!(v, warm);
     }
     let after = BYTES.load(Ordering::Relaxed);
-    assert_eq!(after - before, 0, "execute allocated {} bytes over 1000 runs", after - before);
+    assert_eq!(
+        after - before,
+        0,
+        "execute allocated {} bytes over 1000 runs",
+        after - before
+    );
 
     // can-it-fire: the counter must see a real allocation
     let probe = vec![0u8; 4096];

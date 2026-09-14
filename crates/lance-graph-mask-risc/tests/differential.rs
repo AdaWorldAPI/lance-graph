@@ -6,12 +6,16 @@
 
 use lance_graph_mask_risc::exec::{execute, Scratch};
 use lance_graph_mask_risc::reference::{reference_execute, reference_scratch};
-use lance_graph_mask_risc::{words_for, LaneRef, MaskOp, Operand, Planes, Pred, Program, Terminal, Value};
+use lance_graph_mask_risc::{
+    words_for, LaneRef, MaskOp, Operand, Planes, Pred, Program, Terminal, Value,
+};
 
 const ROWS: [usize; 8] = [0, 1, 63, 64, 65, 130, 1000, 65_536];
 
 fn lcg(seed: &mut u64) -> u64 {
-    *seed = seed.wrapping_mul(6364136223846793005).wrapping_add(1442695040888963407);
+    *seed = seed
+        .wrapping_mul(6364136223846793005)
+        .wrapping_add(1442695040888963407);
     *seed >> 11
 }
 
@@ -38,21 +42,43 @@ impl Fixture {
                     w
                 })
                 .collect();
-            if n % 64 != 0 {
+            if !n.is_multiple_of(64) {
                 m[words - 1] &= (1u64 << (n % 64)) - 1;
             }
             masks.push(m);
         }
-        let i32s = (0..n).map(|_| (lcg(&mut s) % 2000) as i32 - 1000).collect();
-        let u32s = (0..n).map(|_| (lcg(&mut s) % 64) as u32).collect();
-        let u64s = (0..n).map(|_| lcg(&mut s) & 0xFFFF).collect();
-        Self { n, masks, i32s, u32s, u64s }
+        let mut i32s: Vec<i32> = (0..n).map(|_| (lcg(&mut s) % 2000) as i32 - 1000).collect();
+        let mut u32s: Vec<u32> = (0..n).map(|_| (lcg(&mut s) % 64) as u32).collect();
+        // the equality needles (`== 3`, `== 5`) are rare by construction; plant
+        // one hit so the can-it-fire half of every predicate is real at n >= 8
+        let mut u64s: Vec<u64> = (0..n).map(|_| lcg(&mut s) & 0xFFFF).collect();
+        if n > 8 {
+            i32s[7] = 3;
+            u32s[7] = 5;
+            u32s[8] = 0b10_0000;
+            u64s[8] = 0x1000;
+        }
+        Self {
+            n,
+            masks,
+            i32s,
+            u32s,
+            u64s,
+        }
     }
 
     fn run(&self, p: &Program, name: &str) {
         let masks: Vec<&[u64]> = self.masks.iter().map(|m| m.as_slice()).collect();
-        let lanes = [LaneRef::I32(&self.i32s), LaneRef::U32(&self.u32s), LaneRef::U64(&self.u64s)];
-        let planes = Planes { n_rows: self.n, masks: &masks, lanes: &lanes };
+        let lanes = [
+            LaneRef::I32(&self.i32s),
+            LaneRef::U32(&self.u32s),
+            LaneRef::U64(&self.u64s),
+        ];
+        let planes = Planes {
+            n_rows: self.n,
+            masks: &masks,
+            lanes: &lanes,
+        };
         let mut scratch = Scratch::for_program(p, self.n);
         let mut out_exec = vec![0i32; self.n];
         let mut out_ref = vec![0i32; self.n];
@@ -63,15 +89,28 @@ impl Fixture {
         if let Ok(slots) = reference_scratch(p, &planes) {
             for (i, want_words) in slots.iter().enumerate() {
                 let got_words = scratch.slot(i as u16).unwrap_or(&[]);
-                assert_eq!(got_words, want_words.as_slice(), "{name} @ n={}: scratch slot {i}", self.n);
+                assert_eq!(
+                    got_words,
+                    want_words.as_slice(),
+                    "{name} @ n={}: scratch slot {i}",
+                    self.n
+                );
             }
         }
     }
 
     fn count(&self, p: &Program) -> usize {
         let masks: Vec<&[u64]> = self.masks.iter().map(|m| m.as_slice()).collect();
-        let lanes = [LaneRef::I32(&self.i32s), LaneRef::U32(&self.u32s), LaneRef::U64(&self.u64s)];
-        let planes = Planes { n_rows: self.n, masks: &masks, lanes: &lanes };
+        let lanes = [
+            LaneRef::I32(&self.i32s),
+            LaneRef::U32(&self.u32s),
+            LaneRef::U64(&self.u64s),
+        ];
+        let planes = Planes {
+            n_rows: self.n,
+            masks: &masks,
+            lanes: &lanes,
+        };
         match reference_execute(p, &planes, None) {
             Ok(Value::Count(c)) => c,
             other => panic!("expected a count, got {other:?}"),
@@ -95,8 +134,16 @@ fn all_preds() -> Vec<Pred> {
         Pred::NeI32 { lane: 0, v: 3 },
         Pred::EqU32 { lane: 1, v: 5 },
         Pred::NeU32 { lane: 1, v: 5 },
-        Pred::MatchU32 { lane: 1, pattern: 0b10_0000, care: 0b11_0000 },
-        Pred::MatchU64 { lane: 2, pattern: 0x1000, care: 0xF000 },
+        Pred::MatchU32 {
+            lane: 1,
+            pattern: 0b10_0000,
+            care: 0b11_1000,
+        },
+        Pred::MatchU64 {
+            lane: 2,
+            pattern: 0x1000,
+            care: 0xF000,
+        },
     ]
 }
 
@@ -113,15 +160,32 @@ fn every_predicate_with_and_without_a_gate() {
                 if under == Some(S1) {
                     ops.push(MaskOp::Not { a: P1, dst: 1 });
                 }
-                ops.push(MaskOp::Pred { pred, under, dst: 0 });
+                ops.push(MaskOp::Pred {
+                    pred,
+                    under,
+                    dst: 0,
+                });
                 let p = Program::new(ops, Terminal::Keep { mask: S0 });
                 f.run(&p, &format!("{pred:?} under {under:?}"));
                 let is_ne = matches!(pred, Pred::NeI32 { .. } | Pred::NeU32 { .. });
                 if n >= 3 && !is_ne && under.is_none() {
-                    let c = Program::new(vec![MaskOp::Pred { pred, under: None, dst: 0 }], Terminal::Count { mask: S0 });
+                    let c = Program::new(
+                        vec![MaskOp::Pred {
+                            pred,
+                            under: None,
+                            dst: 0,
+                        }],
+                        Terminal::Count { mask: S0 },
+                    );
                     let survivors = f.count(&c);
-                    assert!(survivors * 3 < n, "{pred:?} @ n={n}: {survivors} survivors is not a selective fixture");
-                    assert!(survivors > 0 || n < 64, "{pred:?} @ n={n}: the predicate never fires");
+                    assert!(
+                        survivors * 3 < n,
+                        "{pred:?} @ n={n}: {survivors} survivors is not a selective fixture"
+                    );
+                    assert!(
+                        survivors > 0 || n < 9,
+                        "{pred:?} @ n={n}: the predicate never fires"
+                    );
                 }
             }
         }
@@ -167,9 +231,18 @@ fn every_two_input_op_in_every_aliasing_shape() {
 fn not_in_both_shapes() {
     for n in ROWS {
         let f = Fixture::new(n, 5);
-        f.run(&Program::new(vec![MaskOp::Not { a: P0, dst: 0 }], Terminal::Keep { mask: S0 }), "Not plain");
         f.run(
-            &Program::new(vec![MaskOp::Not { a: P0, dst: 0 }, MaskOp::Not { a: S0, dst: 0 }], Terminal::Keep { mask: S0 }),
+            &Program::new(
+                vec![MaskOp::Not { a: P0, dst: 0 }],
+                Terminal::Keep { mask: S0 },
+            ),
+            "Not plain",
+        );
+        f.run(
+            &Program::new(
+                vec![MaskOp::Not { a: P0, dst: 0 }, MaskOp::Not { a: S0, dst: 0 }],
+                Terminal::Keep { mask: S0 },
+            ),
             "Not in place",
         );
     }
@@ -184,12 +257,30 @@ fn all_256_immediates_plain_and_in_place() {
         let f = Fixture::new(n, 31);
         for imm in 0..=255u8 {
             f.run(
-                &Program::new(vec![MaskOp::Ternlog { imm, a: P0, b: P1, c: P2, dst: 0 }], Terminal::Keep { mask: S0 }),
+                &Program::new(
+                    vec![MaskOp::Ternlog {
+                        imm,
+                        a: P0,
+                        b: P1,
+                        c: P2,
+                        dst: 0,
+                    }],
+                    Terminal::Keep { mask: S0 },
+                ),
                 &format!("ternlog {imm:#04x} plain"),
             );
             f.run(
                 &Program::new(
-                    vec![MaskOp::Not { a: P0, dst: 0 }, MaskOp::Ternlog { imm, a: S0, b: P1, c: P2, dst: 0 }],
+                    vec![
+                        MaskOp::Not { a: P0, dst: 0 },
+                        MaskOp::Ternlog {
+                            imm,
+                            a: S0,
+                            b: P1,
+                            c: P2,
+                            dst: 0,
+                        },
+                    ],
                     Terminal::Keep { mask: S0 },
                 ),
                 &format!("ternlog {imm:#04x} dst==a"),
@@ -202,7 +293,9 @@ fn all_256_immediates_plain_and_in_place() {
 /// way `dst` can appear among `(a, b, c)`, for a spread of asymmetric tables.
 #[test]
 fn ternlog_every_aliasing_map() {
-    let imms = [0x01u8, 0x0C, 0x30, 0x40, 0x80, 0xA8, 0xCA, 0xE2, 0xFE, 0x96, 0x35, 0x5A];
+    let imms = [
+        0x01u8, 0x0C, 0x30, 0x40, 0x80, 0xA8, 0xCA, 0xE2, 0xFE, 0x96, 0x35, 0x5A,
+    ];
     for n in [63, 130, 1000] {
         let f = Fixture::new(n, 41);
         for imm in imms {
@@ -219,8 +312,17 @@ fn ternlog_every_aliasing_map() {
             ];
             for (shape, [a, b, c]) in shapes {
                 let mut v = setup.to_vec();
-                v.push(MaskOp::Ternlog { imm, a, b, c, dst: 0 });
-                f.run(&Program::new(v, Terminal::Keep { mask: S0 }), &format!("ternlog {imm:#04x} {shape}"));
+                v.push(MaskOp::Ternlog {
+                    imm,
+                    a,
+                    b,
+                    c,
+                    dst: 0,
+                });
+                f.run(
+                    &Program::new(v, Terminal::Keep { mask: S0 }),
+                    &format!("ternlog {imm:#04x} {shape}"),
+                );
             }
         }
     }
@@ -232,8 +334,16 @@ fn ternlog_every_aliasing_map() {
 fn every_terminal() {
     for n in ROWS {
         let f = Fixture::new(n, 59);
-        let pred = MaskOp::Pred { pred: Pred::GtI32 { lane: 0, t: 0 }, under: Some(P0), dst: 0 };
-        let empty = MaskOp::AndNot { a: P0, b: P0, dst: 1 };
+        let pred = MaskOp::Pred {
+            pred: Pred::GtI32 { lane: 0, t: 0 },
+            under: Some(P0),
+            dst: 0,
+        };
+        let empty = MaskOp::AndNot {
+            a: P0,
+            b: P0,
+            dst: 1,
+        };
         let terminals = [
             Terminal::Count { mask: S0 },
             Terminal::Any { mask: S0 },
@@ -245,7 +355,11 @@ fn every_terminal() {
             Terminal::MaskedMaxI32 { mask: S0, lane: 0 },
             Terminal::MaskedMinI32 { mask: S1, lane: 0 },
             Terminal::MaskedMaxI32 { mask: S1, lane: 0 },
-            Terminal::BlendI32 { mask: S0, then: 0, els: 0 },
+            Terminal::BlendI32 {
+                mask: S0,
+                then: 0,
+                els: 0,
+            },
             Terminal::Keep { mask: P2 },
         ];
         for t in terminals {

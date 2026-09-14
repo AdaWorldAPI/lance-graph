@@ -48,9 +48,17 @@ pub enum ExecError {
     /// A predicate or terminal names `lane >= planes.lanes.len()`.
     LaneOutOfRange(u16),
     /// The lane exists but has the wrong width.
-    LaneKind { lane: u16, expected: LaneKind, found: LaneKind },
+    LaneKind {
+        lane: u16,
+        expected: LaneKind,
+        found: LaneKind,
+    },
     /// A plane, lane, or `out` slice is not `n_rows` (or `words_for(n_rows)`) long.
-    LenMismatch { what: &'static str, expected: usize, found: usize },
+    LenMismatch {
+        what: &'static str,
+        expected: usize,
+        found: usize,
+    },
     /// [`crate::Terminal::BlendI32`] without a caller `out` slice.
     BlendNeedsOut,
     /// [`crate::Terminal::MaskedSumI32`] over more rows than
