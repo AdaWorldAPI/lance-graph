@@ -307,7 +307,7 @@ edits shared files after workers land and is the sole writer of board files.
 
 ### W-1 — REPRODUCED EXACTLY (D-HXP-0)
 
-Three arms complete, one still running. Compared by `lab/w1_compare.py` (self-tested
+All four arms complete (the fourth confirmed 21:43 UTC, after landing). Compared by `lab/w1_compare.py` (self-tested
 anchor-against-itself = zero diff; falsifier: +0.5 on one anchor value yields exactly one
 `DIFF` row and `DRIFT — 1 rows differ`).
 
@@ -316,9 +316,11 @@ anchor-against-itself = zero diff; falsifier: +0.5 on one anchor value yields ex
 | 12-library transfer | **byte-identical**, 12/12 rows; H 0.67–1.10 vs C2 1.35–3.13, H<C2 on 12/12 |
 | synthetic + river fixtures | **identical** across 4 fixtures × 2 depths × 6 keyers, escapes and state counts included (river same-board C2p 3.7497 / H 4.6761) |
 | hydration: refine + structure + source-eye future | **identical** — 169,339 nodes, 74,054 classes, 51.1 % escape, 74,054 states / 125,061 transitions / 16.176 / 16.932 bits; S k=3 H 1.7165 / C2p 1.9514, k=6 H 5.4868 / C2p 6.208 |
-| hydration: O3 future + override (H5b) | running |
+| hydration: O3 future + override (H5b) | **identical** — O3 k=3 H 1.4473/0.9129, C2p 1.5608/0.8702, C4 12.2954/0.0608; k=6 H 2.5626/0.8581, C2p 2.6637/0.8613, C4 14.2150/0.0592; override (H5b) n=133 r@10 **0.0150** / mrr 0.0106 vs null r@10 0.0015 |
 
-No threshold in this plan needed re-pinning. The data did not age.
+No threshold in this plan needed re-pinning. The data did not age. Final comparator run: **42 rows, every delta `+0.0000`, zero `DIFF`/`DRIFT`/`PENDING`**; the synthetic and 12-library JSONs are byte-identical to their frozen anchors (`cmp`, not eyeballed).
+
+**Apparatus note for a future rerun.** The hydration arm takes **~60 min** (3595 s here, 3306 s for the anchor) and peaks at **3.9 GB RSS** — so it is not memory-bound on a 16 GB box, and an earlier attempt that died silently mid-run was **not** an OOM. Run it detached with a peak-RSS reporter and a sampler; a watch that only greps for the success line cannot tell a crash from a slow run.
 
 ### W0 — CAPACITY **PASS**; SIGNAL **UNANSWERABLE BY THIS INSTRUMENT** (D-HXP-1)
 
