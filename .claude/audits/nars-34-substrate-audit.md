@@ -4,6 +4,58 @@
 > (the masking algebra) and the workspace's own iron rules. The question asked:
 > **what needs improving.**
 
+## ⊘ CORRECTION — `bucket` is NOT a dispatch key (read after writing this)
+
+The audit below says the stale `bucket` column matters because it routes. **It
+does not route.** Measured:
+
+- `recipe_dispatch.rs` — **zero** uses of `bucket`. Dispatch is by
+  `RecipeInference` (deduction/induction/abduction/revision/counterfactual),
+  `rung` + `dispatch_order` (from `Tier` + `InferenceType::rung_delta`), and
+  the `nan_disqualifier` checklist.
+- `recipe_kernels.rs` — **one** use, the default `Tactic::gate`:
+  `match bucket { Bucket::Gate => ctx.gate_state() != GateState::Flow, _ => true }`.
+
+So only the **`Gate`** arm is load-bearing, and `Gate` is the one bucket this
+audit found ACCURATE (TCP/CAS/TCF/CUR are the prune/cascade family the masking
+algebra genuinely expresses). `Datapath` vs `Control` is **inert descriptive
+metadata that nothing reads.**
+
+Consequence: the 9 stale `Datapath` strings are **documentation debt, not live
+mis-dispatch.** They still want fixing — a string naming a retired kernel reads
+as a spec — but item 1 below ("re-derive bucket") is NOT urgent and NOT a
+correctness risk. I claimed the opposite in session ("a routing key derived
+from a retired substrate is currently deciding what executes") without reading
+either module. That claim is withdrawn.
+
+## ⊘ ALSO: the loco↔34 bridge already exists — do not build it
+
+`lance-graph-ogar/src/recipe_vocab.rs` is the 34 as loco ops:
+`RECIPE_OP_BASE = DOMAIN_FLOOR`, ids `1..=34` ↔ bytes `0x90..=0xB1`,
+`op_of` / `recipe_of`, `impl Vocabulary for RecipeVocabulary`, and
+`ladder_program() -> Vec<FnIndex>` — the ladder already lowered to a loco
+program in `dispatch_order`. It carries two gates that answer different
+questions (awareness: the kanban census; epistemic: the NaN pothole) with
+`refusal_of` reporting which spoke, "because an unwilling ladder and an unable
+one are different diagnoses."
+
+Its header also settles the dependency question correctly: *"`ogar_loco` is
+zero-dep by design and `lance_graph_contract` is zero-dep by charter. Neither
+may import the other. A vocabulary needs both, so it lives in a consumer that
+already depends on both."* An `ogar-loco/src/nars.rs` with a contract dep —
+which this session started writing — is the wrong home for a reason already
+recorded.
+
+## The finding that IS serious, and is not mine
+
+`E-RECIPE-SELECTOR-REACHABILITY-1`, measured and documented in
+`recipe_dispatch.rs`'s own header: through the shipped saccade selector
+(`materialize::select_tactic`) only **8 of 34 recipes are reachable**, **all 14
+Infrastructure recipes never win**, and **ICR #31 is permanently shadowed by
+RCR #4** on a lowest-id tie. The `ladder` mode exists to cover exactly those
+three gaps, and `dispatch_mode.rs` routes between the two modes. That is a
+larger fact about the 34 than anything in the substrate-string audit below.
+
 ## Headline: the `bucket` column was assigned against a substrate that is gone
 
 **9 of 9 `Datapath` recipes name a retired or forbidden realization.** The tier
