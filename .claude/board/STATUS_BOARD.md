@@ -7,7 +7,7 @@
 | D-MRX-2 | `reference.rs` — scalar oracle with zero `ndarray` tokens | Queued | F-R1 source grep; F-R2 a wrong immediate is caught on seeded planes |
 | D-MRX-3 | `fuse.rs` — ≤3-leaf Boolean tree → one `Ternlog{imm}` | Queued | F-B1 `mask_passes() == 1`; F-B4 immediate equals bit-serial evaluation |
 | D-MRX-4 | `ternlog_dispatch.rs` — generated 256-arm match, regenerate-and-diff gated | Queued | all 256 immediates equal the bit-serial reference |
-| D-MRX-5 | the differential suite at 8 row counts × every op × both CI arms | Queued | anti-vacuity `survivors * 3 < n_rows` per predicate fixture |
+| D-MRX-5 | the differential suite at 8 row counts × every op × both CI arms | Queued | anti-vacuity `survivors * 3 < n_rows` per predicate fixture at `n_rows >= 3`; `n_rows ∈ {0, 1}` are execution-only checks (the bound is `0 < 0` there) |
 | D-MRX-6 | `examples/count_probe.rs` — reference / interpreted / fused, 0 B per execute | Queued | counting allocator reads 0 after warm-up; three arms agree |
 
 ## bbb-nars-lowering (D-id minted 2026-09-07 with the operator ruling)

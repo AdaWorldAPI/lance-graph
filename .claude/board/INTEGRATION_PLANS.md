@@ -6,7 +6,8 @@ predicates on one `pack_under` engine — the kernel-membrane review's named
 precondition), `exec.rs` (caller-owned `Scratch`, one facade delegation per op,
 runtime `imm` → const-generic through a GENERATED 256-arm dispatch), the
 `ndarray`-free scalar oracle, truth-table fusion, the seeded differential at
-eight row counts on both CI arms, and the 64k `COUNT(alpha & ((A & B) | C))`
+eight row counts on both CI arms (the density bound applies at `n_rows >= 3`;
+0 and 1 rows are execution-only checks), and the 64k `COUNT(alpha & ((A & B) | C))`
 probe under a counting allocator. Laws L1–L5 are each a test, not a sentence.
 Out of scope, named: `hop` (PR5), the strided operand family, u8/u16/u64
 compares, `mask_set_range`, cheap emptiness, the Cypher `mask_lower` seam.
