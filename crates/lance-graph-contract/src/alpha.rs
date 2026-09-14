@@ -1073,6 +1073,301 @@ mod tests {
         // …and the lazily-built index answers identically on a repeat read.
         assert_eq!(ov.allocation().ordinal(rows[2].key), Some(2));
     }
+
+    // ── In-place algebra falsifiers (PR2, 2026-09-13) ──────────────────
+    //
+    // The crate is zero-dep, so a seeded xorshift64 stands in for `rand` —
+    // deterministic across runs, and unlike a hand-picked bit pattern it
+    // exercises the full range of bit positions, including ones straddling
+    // a `len % 64 != 0` tail.
+
+    /// Minimal deterministic PRNG. `next_u64` never returns a value whose
+    /// choice depends on wall-clock time or any other run-to-run variable —
+    /// same seed, same sequence, every run.
+    struct Xorshift64(u64);
+    impl Xorshift64 {
+        fn next_u64(&mut self) -> u64 {
+            let mut x = self.0;
+            x ^= x << 13;
+            x ^= x >> 7;
+            x ^= x << 17;
+            self.0 = x;
+            x
+        }
+    }
+
+    /// A pseudo-random, already-conforming `len`-bit mask: every word is
+    /// filled from the seeded stream, then `clear_tail()` re-establishes
+    /// the tail invariant so callers start from a valid fixture. Uses
+    /// `words_mut()`/`clear_tail()` to build the fixture — their OWN
+    /// correctness is pinned separately below, so reusing them here is
+    /// fixture plumbing, not circular verification of the ops under test.
+    fn random_mask(len: usize, seed: u64) -> AlphaMask {
+        let mut rng = Xorshift64(seed | 1); // xorshift is stuck at 0 if seeded with 0
+        let mut m = AlphaMask::empty(len);
+        for w in m.words_mut() {
+            *w = rng.next_u64();
+        }
+        m.clear_tail();
+        m
+    }
+
+    /// Are all bits at and past `m.len()` in the last word zero? The
+    /// direct falsifier for the tail invariant — distinct from `contains`,
+    /// which is len-guarded and can never see a phantom bit regardless of
+    /// whether the invariant holds.
+    fn tail_is_clear(m: &AlphaMask) -> bool {
+        let tail = m.len() % 64;
+        if tail == 0 {
+            return true;
+        }
+        match m.words().last() {
+            Some(&last) => last >> tail == 0,
+            None => true,
+        }
+    }
+
+    /// FAILS IF: any in-place op computes something other than its
+    /// allocating twin — e.g. `and_assign` performing `|=` instead of
+    /// `&=`, or leaving `self` untouched instead of combining. Spans
+    /// lengths straddling a 64-bit word boundary on both sides (63/64/65)
+    /// plus a multi-word 1000, so a bug that only shows up once a mask
+    /// needs more than one word cannot hide behind a single-word fixture.
+    #[test]
+    fn in_place_algebra_matches_the_allocating_forms_across_sizes() {
+        for (i, &len) in [1usize, 63, 64, 65, 130, 1000].iter().enumerate() {
+            let a0 = random_mask(len, 0x1111_1111_1111_1111 ^ (i as u64));
+            let b = random_mask(len, 0x9999_9999_9999_9999 ^ ((i as u64) * 7 + 1));
+
+            let mut and_r = a0.clone();
+            and_r.and_assign(&b);
+            assert_eq!(and_r, a0.and(&b), "and_assign vs and, len={len}");
+
+            let mut or_r = a0.clone();
+            or_r.or_assign(&b);
+            assert_eq!(or_r, a0.or(&b), "or_assign vs or, len={len}");
+
+            let mut xor_r = a0.clone();
+            xor_r.xor_assign(&b);
+            assert_eq!(xor_r, a0.xor(&b), "xor_assign vs xor, len={len}");
+
+            let mut andnot_r = a0.clone();
+            andnot_r.and_not_assign(&b);
+            assert_eq!(
+                andnot_r,
+                a0.and_not(&b),
+                "and_not_assign vs and_not, len={len}"
+            );
+
+            let mut not_r = a0.clone();
+            not_r.not_assign();
+            assert_eq!(not_r, a0.not(), "not_assign vs not, len={len}");
+
+            // Anti-vacuity: NOT always differs from its input (no single
+            // bit equals its own complement), so this holds unconditionally.
+            assert_ne!(not_r, a0, "not_assign did nothing, len={len}");
+            // AND/OR/XOR/AND_NOT differing from `a0` is only GUARANTEED
+            // for a random `b` once there is more than one bit to collide
+            // on — at len==1 a genuinely random single bit has a real
+            // chance of landing exactly where and/or/xor/and_not are
+            // no-ops, which would make this specific assertion flaky
+            // rather than falsifying. That length's "did something" claim
+            // is instead pinned deterministically in
+            // `in_place_ops_actually_change_the_mask` below.
+            if len > 1 {
+                assert_ne!(and_r, a0, "and_assign did nothing, len={len}");
+                assert_ne!(or_r, a0, "or_assign did nothing, len={len}");
+                assert_ne!(xor_r, a0, "xor_assign did nothing, len={len}");
+                assert_ne!(andnot_r, a0, "and_not_assign did nothing, len={len}");
+            }
+        }
+    }
+
+    /// FAILS IF: any op stops mutating `self` — e.g. `and_assign` becomes
+    /// a no-op, or copies `other` wholesale instead of combining. Hand-
+    /// built (not random) so each op's "did something" claim holds by
+    /// construction rather than by luck: ordinal 0 is in `a` only, 1 in
+    /// `b` only, 2 in both.
+    #[test]
+    fn in_place_ops_actually_change_the_mask() {
+        let mut a = AlphaMask::empty(8);
+        a.set(0);
+        a.set(2);
+        let mut b = AlphaMask::empty(8);
+        b.set(1);
+        b.set(2);
+
+        let mut and_r = a.clone();
+        and_r.and_assign(&b);
+        assert_ne!(and_r, a, "and_assign: ordinal 0 must drop out");
+        assert_eq!(and_r.materialize_ordinals(), vec![2]);
+
+        let mut or_r = a.clone();
+        or_r.or_assign(&b);
+        assert_ne!(or_r, a, "or_assign: ordinal 1 must appear");
+        assert_eq!(or_r.materialize_ordinals(), vec![0, 1, 2]);
+
+        let mut xor_r = a.clone();
+        xor_r.xor_assign(&b);
+        assert_ne!(
+            xor_r, a,
+            "xor_assign: ordinal 2 must cancel, ordinal 1 must appear"
+        );
+        assert_eq!(xor_r.materialize_ordinals(), vec![0, 1]);
+
+        let mut andnot_r = a.clone();
+        andnot_r.and_not_assign(&b);
+        assert_ne!(andnot_r, a, "and_not_assign: ordinal 2 must drop out");
+        assert_eq!(andnot_r.materialize_ordinals(), vec![0]);
+
+        let mut not_r = a.clone();
+        not_r.not_assign();
+        assert_ne!(not_r, a, "not_assign must flip every real bit");
+        assert_eq!(not_r.materialize_ordinals(), vec![1, 3, 4, 5, 6, 7]);
+    }
+
+    /// FAILS IF: any op leaves a bit set past `len` on a non-conforming
+    /// length. `not_assign` is the one op that can raise a phantom bit
+    /// starting from CONFORMING inputs (flipping the 62 phantom positions
+    /// in a 130-bit mask's tail word) — the other four can only clear bits
+    /// that were already 0 in both operands, so they cannot introduce a
+    /// phantom bit on their own; this still checks all five, because a
+    /// future refactor that shares code between them could regress any of
+    /// them together.
+    #[test]
+    fn in_place_ops_keep_the_tail_clear_on_a_non_conforming_length() {
+        let len = 130; // 130 % 64 == 2: 62 phantom positions in the tail word
+        let a0 = random_mask(len, 0xDEAD_BEEF_DEAD_BEEF);
+        let b = random_mask(len, 0xFEED_FACE_FEED_FACE);
+        assert!(
+            tail_is_clear(&a0) && tail_is_clear(&b),
+            "fixtures must start conforming or this test measures nothing"
+        );
+
+        let mut and_r = a0.clone();
+        and_r.and_assign(&b);
+        assert!(tail_is_clear(&and_r), "and_assign left phantom tail bits");
+
+        let mut or_r = a0.clone();
+        or_r.or_assign(&b);
+        assert!(tail_is_clear(&or_r), "or_assign left phantom tail bits");
+
+        let mut xor_r = a0.clone();
+        xor_r.xor_assign(&b);
+        assert!(tail_is_clear(&xor_r), "xor_assign left phantom tail bits");
+
+        let mut andnot_r = a0.clone();
+        andnot_r.and_not_assign(&b);
+        assert!(
+            tail_is_clear(&andnot_r),
+            "and_not_assign left phantom tail bits"
+        );
+
+        let mut not_r = a0.clone();
+        not_r.not_assign();
+        assert!(
+            tail_is_clear(&not_r),
+            "not_assign left phantom tail bits — the one op that must clear them itself"
+        );
+    }
+
+    /// `words_mut()` is a raw write seam; nothing re-establishes the tail
+    /// invariant automatically. FAILS IF: `clear_tail()` stops masking the
+    /// tail word (e.g. becomes a no-op) — the hand-raised phantom bit at
+    /// ordinal 130 would then still count, and the final assertion below
+    /// would see `count() == 1` instead of `0`.
+    #[test]
+    fn words_mut_needs_clear_tail_and_a_phantom_bit_is_observable_without_it() {
+        let mut m = AlphaMask::empty(130); // 130 % 64 == 2: word 2 has 62 phantom bits
+        assert_eq!(m.count(), 0);
+
+        // Hand-raise a phantom bit: ordinal 130 is one past `len`, bit 2 of
+        // the 3rd (index-2) word.
+        m.words_mut()[2] |= 1 << 2;
+
+        // Can-fire half: the phantom bit IS observable without clear_tail —
+        // count() sums every word, unlike contains()'s len-guarded read.
+        assert_eq!(
+            m.count(),
+            1,
+            "the hand-raised phantom bit must be observable via count()"
+        );
+        assert!(
+            !m.contains(130),
+            "contains() stays len-guarded regardless of the raw word contents"
+        );
+
+        m.clear_tail();
+
+        // Can-stay-silent half: clear_tail restores conformity.
+        assert_eq!(m.count(), 0, "clear_tail must remove the phantom bit");
+        assert_eq!(
+            m.words()[2] >> 2,
+            0,
+            "every bit at and past len must be zero after clear_tail"
+        );
+    }
+
+    /// `and_assign`'s release-mode length guard, mirroring [`Self::and`]'s
+    /// (via `zip`'s `assert_eq!`). FAILS IF: `and_assign` stops checking
+    /// `self.len == other.len` before combining — e.g. it started zipping
+    /// with `Iterator::zip`'s silent truncation instead.
+    #[test]
+    #[should_panic(expected = "masks from different allocations")]
+    fn and_assign_refuses_masks_of_different_lengths() {
+        let mut wide = AlphaMask::empty(200);
+        let narrow = AlphaMask::empty(64);
+        wide.and_assign(&narrow);
+    }
+
+    /// `or_assign`'s release-mode length guard — see `and_assign`'s sibling
+    /// test above for the failure mode.
+    #[test]
+    #[should_panic(expected = "masks from different allocations")]
+    fn or_assign_refuses_masks_of_different_lengths() {
+        let mut wide = AlphaMask::empty(200);
+        let narrow = AlphaMask::empty(64);
+        wide.or_assign(&narrow);
+    }
+
+    /// `xor_assign`'s release-mode length guard — see `and_assign`'s
+    /// sibling test above for the failure mode.
+    #[test]
+    #[should_panic(expected = "masks from different allocations")]
+    fn xor_assign_refuses_masks_of_different_lengths() {
+        let mut wide = AlphaMask::empty(200);
+        let narrow = AlphaMask::empty(64);
+        wide.xor_assign(&narrow);
+    }
+
+    /// `and_not_assign`'s release-mode length guard — see `and_assign`'s
+    /// sibling test above for the failure mode.
+    #[test]
+    #[should_panic(expected = "masks from different allocations")]
+    fn and_not_assign_refuses_masks_of_different_lengths() {
+        let mut wide = AlphaMask::empty(200);
+        let narrow = AlphaMask::empty(64);
+        wide.and_not_assign(&narrow);
+    }
+
+    /// FAILS IF: `clear` leaves any bit set, or changes `len` — a mask
+    /// reused as scratch must keep its allocation's address-space width.
+    #[test]
+    fn clear_zeroes_a_non_empty_mask_and_keeps_its_length() {
+        let mut m = random_mask(130, 0xABCD_EF01_ABCD_EF01);
+        assert!(
+            m.count() > 0,
+            "fixture must be non-empty or clear() proves nothing"
+        );
+        let len_before = m.len();
+
+        m.clear();
+
+        assert_eq!(m.len(), len_before, "clear must not change len");
+        assert!(m.is_empty(), "clear must leave the mask empty");
+        assert_eq!(m.count(), 0);
+        assert_eq!(m.materialize_ordinals(), Vec::<u32>::new());
+    }
 }
 
 #[cfg(test)]

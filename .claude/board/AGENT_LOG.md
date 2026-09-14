@@ -1,3 +1,14 @@
+## 2026-09-14 — Five-agent fan-out after ndarray #306 merged (operator: "autoattended, autonomous, auto-resolve; opus filigree, sonnet grindwork")
+
+Orchestrator-gated; the main thread is the sole writer of this log. Files
+disjoint per agent by construction.
+
+- **DuckDB→V3 translation matrix (Opus, accumulation)** — `.claude/plans/duckdb-to-v3-translation-matrix-v1.md`, 614 lines, no cargo, no commit. Audited on return: 6 `[claimed, unverified]` markers all absence/mechanism claims; zero model identifiers; sample rows R6/E7/A1/A3 cite both sides file:line and carry a falsifier each. Landed.
+- **Cypher→mask lowering plan (Opus, accumulation)** — `.claude/plans/cypher-mask-lowering-v1.md`, 960 lines. Audited: 2 `[claimed, unverified]`; placement ruling cites `ogar-loco/src/lib.rs:607`/`:348`. Its own methodology finding — board lines moved under it while writing; cite E-ids and symbol NAMES, lines are as-of readings — adopted. Landed.
+- **PR2 in-place mask tests (Sonnet, grindwork from a written spec)** — `alpha.rs` +295, `class_view.rs` +201, `nested_bands.rs` +267, tests only. Its own catch: the first splice landed in `alpha.rs`'s second `#[cfg(test)]` module (`claim_semantics`) and was moved by script, not by `git checkout`. Buffer-reuse claim in `nested_bands` NOT tested (private locals, no accessor) — reported, not faked. Orchestrator gates: `cargo fmt` (one diff, applied), `cargo test -p lance-graph-contract` 1350+7 green, `clippy -p lance-graph-contract --all-targets -D warnings` clean, `cargo test -p lance-graph-planner --lib nested_bands` 20 green.
+- **mask_shift_morton (Sonnet, from ndarray plan §15)** — STOPPED at the pre-registered gate with zero edits: `U64x8` lacked `Shl`/`Shr` on the AVX2 (= default v3 target) and nightly backends. Correct behaviour. Orchestrator filled both backend-locally (ndarray `d11dd0f`, per-lane falsifier) and resumed the worker.
+- **lgj-abi missing mask ops (Opus)** — still running at this entry.
+
 ## 2026-09-10 — 5+3 council on #1223's `nan-ci-mode-v1.md`: resolving §8/§9 (5 open design items, 3 sub-items) into a hardened, operator-facing proposal
 
 - **Qualification, not assumed:** ≥3 crates (`causal-edge`, `lance-graph-contract`, `lance-graph-planner`, `cognitive-shader-driver`, per the corrected §2.2 census); LE-layout-adjacent (item 3a explicitly changes frozen decision N1); silently corrupting if wrong (a bad canary-mechanism choice bakes false positives/negatives into `D-NCI-1`'s first instrument). This council does NOT write `D-NCI-1`'s Rust — it produces a committed, hardened resolution for the operator to confirm.

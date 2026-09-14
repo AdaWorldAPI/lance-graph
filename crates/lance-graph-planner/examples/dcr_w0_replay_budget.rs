@@ -225,11 +225,7 @@ fn measure_mask_ndarray(iters: usize) -> f64 {
     let t0 = Instant::now();
     let mut sink = 0u32;
     for _ in 0..iters {
-        ndarray::simd::mask_and(
-            std::hint::black_box(&a),
-            std::hint::black_box(&b),
-            &mut dst,
-        );
+        ndarray::simd::mask_and(std::hint::black_box(&a), std::hint::black_box(&b), &mut dst);
         sink += dst.iter().map(|w| w.count_ones()).sum::<u32>();
     }
     std::hint::black_box(sink);
@@ -247,11 +243,7 @@ fn measure_mask_decomposition(iters: usize) -> (f64, f64) {
 
     let t0 = Instant::now();
     for _ in 0..iters {
-        ndarray::simd::mask_and(
-            std::hint::black_box(&a),
-            std::hint::black_box(&b),
-            &mut dst,
-        );
+        ndarray::simd::mask_and(std::hint::black_box(&a), std::hint::black_box(&b), &mut dst);
         std::hint::black_box(&dst);
     }
     let and_ns = t0.elapsed().as_secs_f64() * 1e9 / iters as f64;
