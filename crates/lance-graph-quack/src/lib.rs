@@ -2,8 +2,8 @@
 //!
 //! # What this is, and the shape it deliberately does NOT have
 //!
-//! DuckDB's operator set — scan, filter, project, aggregate — expressed so
-//! that every operator LOWERS to a [`Program`] and is executed by the one
+//! DuckDB's operator set — scan, filter, project, aggregate, group — expressed
+//! so that every operator LOWERS to a [`Program`] and is executed by the one
 //! evaluator in `lance-graph-mask-risc`, which sits on `ndarray::simd`'s
 //! masking algebra.
 //!
@@ -15,6 +15,8 @@
 //! | a row iterator / `next()` volcano loop | the unit is a mask over `n_rows`, never a row |
 //! | a per-operator kernel library | every operator is a `MaskOp` composition; a new operator is a new LOWERING, never a new kernel |
 //! | a physical-plan `dyn Operator` chain | a plan is a `Program` — one flat op list, one terminal |
+//! | a validity bitmap beside the data | the table's validity IS a resident mask plane ([`Filter::Plane`]); there is no separate NULL |
+//! | a hash table for GROUP BY | a group is a mask; K groups are K gated equalities over the kept filter ([`lower_group_by`]) |
 //!
 //! The rule that keeps it honest: **this crate may build a [`Program`] and
 //! must never evaluate one.** `execute` is called by the consumer, on a
@@ -22,17 +24,49 @@
 //! computed anything would be the duplicate evaluator the whole arc exists to
 //! avoid.
 //!
+//! # The survivor skip — where a scan under a validity plane gets its cost model
+//!
+//! An `AND` whose children include a resident plane `g` (alpha, focus, a class
+//! mask) is lowered so that every comparison beneath it is evaluated `under
+//! g`: the predicate runs only over the 64-row words where `g` has a survivor
+//! ([`MaskOp::Pred`]'s `under`). The rewrite is sound for ANY Boolean
+//! remainder — `g ∧ rest(X₁..Xₙ) = g ∧ rest(g∧X₁, .., g∧Xₙ)`, since a row with
+//! `g = 0` gives 0 on both sides and a row with `g = 1` leaves every leaf
+//! unchanged — so gating passes through `NOT` and `OR` alike as long as `g`
+//! itself stays a leaf. The plane leaf is DROPPED only when the gated
+//! remainder is identically zero wherever `g` is zero: a gated comparison is;
+//! an `AND` is if any child is; an `OR` is if every child is; a `NOT` never
+//! is. `alpha & ((A & B) | C)` therefore costs three gated predicates and one
+//! Boolean pass, with alpha never read as an operand at all.
+//!
+//! # Two lowerings, one meaning
+//!
+//! [`lower`] evaluates predicates IN PLACE and folds a junction's children
+//! into its first child's slot — a filter of depth `d` costs `d + 1` slots,
+//! width is free. [`lower_fused`] gives every predicate its own slot and hands
+//! the Boolean skeleton to the fuser, which turns any subtree over three
+//! leaves into one [`MaskOp::Ternlog`] — fewer mask passes, more slots. The
+//! differential suite runs both against the same per-row oracle; a consumer
+//! picks by whether it is scratch-bound or pass-bound.
+//!
 //! # Status
 //!
-//! Scaffold. The lowering surface below is real and tested; the operator set
-//! is deliberately the minimum that proves the shape — **filter and count** —
-//! because an operator without a falsifier is a claim. Join, group-by and
-//! projection land one at a time, each with the differential that shows it
-//! agrees with an independent reading.
+//! Filter (`=`/`<>`/`<`/`<=`/`>`/`>=`/ternary match/`IN`, `AND`/`OR`/`NOT`,
+//! resident planes), the aggregates `COUNT`/`EXISTS`/`ALL`/`SUM`/`MIN`/`MAX`,
+//! projection ([`Agg::Rows`] keeps the mask, [`Agg::BlendI32`] is the `CASE`
+//! shape), and a two-phase `GROUP BY` over a categorical key. Absent, named:
+//! the join (`src_mask → hop → dst_mask` is `lance-graph-mask-risc`'s PR5 —
+//! there is no `hop` op to lower to yet); a one-terminal `GROUP BY SUM`
+//! (`ndarray::simd` ships `masked_strided_group_sum`, but the IR names no
+//! strided operand or group terminal, so K programs is the honest spelling
+//! today); and everything the IR itself excludes — strings, `ORDER BY`,
+//! three-valued NULL.
 
 #![forbid(unsafe_code)]
 
-use lance_graph_mask_risc::{MaskOp, Operand, Pred, Program, Terminal};
+use lance_graph_mask_risc::{
+    fuse, BoolExpr, FuseError, MaskOp, Operand, Pred, Program, Terminal, MAX_SCRATCH_SLOTS,
+};
 
 /// A column reference — an index into [`Planes::lanes`](lance_graph_mask_risc::Planes).
 ///
@@ -40,6 +74,12 @@ use lance_graph_mask_risc::{MaskOp, Operand, Pred, Program, Terminal};
 /// catalogue. A consumer that has names resolves them before it gets here.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct Col(pub u16);
+
+/// A resident mask plane — an index into
+/// [`Planes::masks`](lance_graph_mask_risc::Planes): alpha, focus, a class
+/// mask, a kept filter. The table's validity lives here, not in a NULL bit.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub struct Mask(pub u16);
 
 /// A predicate over one column — the filter's whole vocabulary.
 ///
@@ -76,14 +116,20 @@ pub enum Cmp {
     },
 }
 
-/// A filter expression: predicates over columns, composed with AND/OR/NOT.
+/// A filter expression: predicates over columns and resident planes, composed
+/// with AND/OR/NOT.
 ///
 /// Deliberately a tree HERE and never at run time — it is lowered once into a
 /// flat [`Program`] and the tree is gone before anything executes.
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Filter {
     /// A leaf comparison on one column.
     Cmp(Col, Cmp),
+    /// A resident mask plane read as a predicate — the scan's validity, a
+    /// focus, a class mask. `Filter::Plane(alpha)` alone is `SELECT … FROM t`
+    /// with no `WHERE`: the table is its validity plane, and a query over
+    /// every row of it lowers to zero ops.
+    Plane(Mask),
     /// Every child must hold.
     And(Vec<Filter>),
     /// Some child must hold.
@@ -96,6 +142,11 @@ impl Filter {
     /// `col <cmp>` — the leaf builder, so call sites read as the query does.
     pub fn cmp(col: Col, cmp: Cmp) -> Self {
         Filter::Cmp(col, cmp)
+    }
+
+    /// A resident plane as a predicate.
+    pub fn plane(mask: Mask) -> Self {
+        Filter::Plane(mask)
     }
 
     /// Conjunction.
@@ -116,6 +167,27 @@ impl Filter {
     pub fn negate(inner: Filter) -> Self {
         Filter::Not(Box::new(inner))
     }
+
+    /// `col IN (set)` over an unsigned lane — a disjunction of equalities,
+    /// which is exactly what it is; there is no IN-list kernel because none
+    /// is needed. An empty set is `x IN ()`, refused at lowering for the same
+    /// reason an empty `OR` is: it is that `OR`.
+    pub fn in_u32(col: Col, set: impl IntoIterator<Item = u32>) -> Self {
+        Filter::Or(
+            set.into_iter()
+                .map(|v| Filter::Cmp(col, Cmp::EqU32(v)))
+                .collect(),
+        )
+    }
+
+    /// `col IN (set)` over a signed lane. See [`Filter::in_u32`].
+    pub fn in_i32(col: Col, set: impl IntoIterator<Item = i32>) -> Self {
+        Filter::Or(
+            set.into_iter()
+                .map(|v| Filter::Cmp(col, Cmp::EqI32(v)))
+                .collect(),
+        )
+    }
 }
 
 /// Why a query could not be lowered.
@@ -132,6 +204,10 @@ pub enum LowerError {
         /// The count that overflowed.
         needed: usize,
     },
+    /// A `GROUP BY` asked for [`Agg::BlendI32`]. Every group program writes
+    /// the WHOLE `out` slice, so K groups would leave the last group's blend
+    /// and silently discard K − 1 — refused rather than answered wrongly.
+    GroupedBlend,
 }
 
 impl core::fmt::Display for LowerError {
@@ -142,6 +218,9 @@ impl core::fmt::Display for LowerError {
             }
             LowerError::TooManySlots { needed } => {
                 write!(f, "needs {needed} scratch slots; the address space is u16")
+            }
+            LowerError::GroupedBlend => {
+                write!(f, "a blend writes the whole output; it cannot be grouped")
             }
         }
     }
@@ -162,130 +241,363 @@ pub enum Agg {
     MinI32(Col),
     /// max over surviving rows.
     MaxI32(Col),
+    /// The surviving rows themselves — projection. Nothing is reduced and
+    /// nothing is copied: the result is the final mask
+    /// ([`Terminal::Keep`]), and the projected columns are the resident
+    /// lanes the caller already holds. The one materialiser is
+    /// `lance_graph_mask_risc::materialize_rows`, and it is the caller's
+    /// to invoke.
+    Rows,
+    /// `CASE WHEN filter THEN then ELSE els END` — written per row into a
+    /// caller-supplied `out` slice, no compaction ([`Terminal::BlendI32`]).
+    BlendI32 {
+        /// The lane read where the filter holds.
+        then: Col,
+        /// The lane read where it does not.
+        els: Col,
+    },
 }
 
 /// One query: a filter and what to ask of the rows that pass it.
 ///
-/// # Why the filter is NOT optional
-///
-/// A bare `SELECT count(*)` — every row, no predicate — has no cheap spelling
-/// here, and the reason is worth recording rather than papering over: the IR
-/// has **no `Fill`/const op**, so "all rows" cannot be written into a scratch
-/// slot directly, and a slot that no op has written is refused at validation
-/// (`ExecError::ScratchReadBeforeWrite`).
-///
-/// A first draft of this crate lowered it as `Pred::NeU32{lane: 0, v: 0}`
-/// followed by `Ternlog{imm: 0xFF}` — the ternlog ignores its inputs, so the
-/// predicate existed only to make slot 0 written. That is a **latent
-/// lane-kind bug**: it typechecks only when lane 0 happens to be `U32`, and
-/// fails with a kind error on any schema where it is not. It is recorded here
-/// instead of shipped.
-///
-/// The honest spellings, for whoever closes this: a tautology over a
-/// caller-named lane (`NOT p OR p`, two preds and an `Or`, lane-kind correct
-/// by construction), or an unfiltered `Terminal` reading a resident mask plane
-/// the caller supplies. Both are real; neither is guessable from this API as
-/// it stands, so the type refuses rather than picks.
-#[derive(Debug, Clone, PartialEq)]
+/// The filter is required. There is no unfiltered table in the substrate —
+/// every table IS its validity plane — so "every row" is spelled
+/// [`Filter::Plane`]`(alpha)`, which lowers to zero ops and reads the plane
+/// straight from the terminal. (A first draft of this crate tried to spell it
+/// without a plane, as a predicate over lane 0 followed by a constant
+/// ternlog; that typechecked only when lane 0 happened to be `U32` — a latent
+/// lane-kind bug. The plane leaf is the spelling that is correct by
+/// construction.)
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Query {
-    /// The filter. Required — see the type's own doc.
+    /// The filter.
     pub filter: Filter,
     /// The aggregate.
     pub agg: Agg,
 }
 
-/// Lower a query to a [`Program`].
+/// `GROUP BY key` over a low-cardinality unsigned key lane whose values are
+/// `0..groups` — the dictionary-encoded / categorical shape.
+///
+/// The filter is required for the same reason [`Query`]'s is; the whole
+/// table is `Filter::Plane(alpha)`.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct GroupBy {
+    /// Rows admitted to any group.
+    pub filter: Filter,
+    /// The key lane (`u32`).
+    pub key: Col,
+    /// Number of key values; group `g` is the rows whose key equals `g`.
+    pub groups: u32,
+    /// The aggregate computed per group. [`Agg::BlendI32`] is refused.
+    pub agg: Agg,
+}
+
+/// The two-phase plan a [`GroupBy`] lowers to — DuckDB's pipeline break,
+/// with a mask plane where the hash table would be.
+///
+/// The caller runs `filter` (a [`Terminal::Keep`]), reads the mask its
+/// `Value::Mask(op)` names — a scratch slot, or for a bare-plane filter the
+/// plane itself — presents it as `planes.masks[filter_plane]`, and runs each
+/// program in `groups` over the widened planes. Each group program is ONE
+/// gated equality and a terminal: the key lane is compared once per group,
+/// but only over the live words of the kept filter (the survivor skip), which
+/// is the bitmap-index cost model rather than the hash-table one.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct GroupPlan {
+    /// Phase 1: the filter, kept.
+    pub filter: Program,
+    /// The plane index phase 2 reads the kept filter at.
+    pub filter_plane: u16,
+    /// Phase 2: one program per key value, in key order.
+    pub groups: Vec<Program>,
+}
+
+/// Lower a query to a [`Program`], evaluating predicates in place.
 ///
 /// # The allocation rule
 ///
 /// Slots are assigned by a strict post-order walk, and a junction's children
 /// are folded left-to-right into the FIRST child's slot. So a filter of depth
 /// `d` costs `d + 1` slots, never one per leaf — which is what keeps a wide
-/// conjunction from asking for a scratch arena proportional to its width.
+/// conjunction from asking for a scratch arena proportional to its width. A
+/// resident plane costs nothing: it is read as an operand where it stands.
 ///
 /// # Errors
 ///
 /// [`LowerError::EmptyJunction`] for an `And`/`Or` with no children;
 /// [`LowerError::TooManySlots`] if the walk needs more than `u16::MAX + 1`.
 pub fn lower(q: &Query) -> Result<Program, LowerError> {
+    lower_with(&q.filter, q.agg, |node, ops| emit_inplace(node, 0, ops))
+}
+
+/// Lower a query to a [`Program`] whose Boolean skeleton is fused into
+/// ternlogs.
+///
+/// Every comparison gets its own slot, then the fuser reduces the skeleton —
+/// any subtree over three leaves is one [`MaskOp::Ternlog`]. Fewer mask passes
+/// than [`lower`]; more slots, proportional to the number of comparisons.
+///
+/// # Errors
+///
+/// As [`lower`].
+pub fn lower_fused(q: &Query) -> Result<Program, LowerError> {
+    lower_with(&q.filter, q.agg, emit_fused)
+}
+
+/// Lower a `GROUP BY` to its two-phase [`GroupPlan`]; `filter_plane` is the
+/// plane index the caller will bind the kept filter at.
+///
+/// # Errors
+///
+/// As [`lower`], plus [`LowerError::GroupedBlend`].
+pub fn lower_group_by(g: &GroupBy, filter_plane: u16) -> Result<GroupPlan, LowerError> {
+    if matches!(g.agg, Agg::BlendI32 { .. }) {
+        return Err(LowerError::GroupedBlend);
+    }
+    let filter = lower_with(&g.filter, Agg::Rows, |node, ops| emit_inplace(node, 0, ops))?;
+    let groups = (0..g.groups)
+        .map(|v| {
+            Program::new(
+                vec![MaskOp::Pred {
+                    pred: Pred::EqU32 { lane: g.key.0, v },
+                    under: Some(Operand::Plane(filter_plane)),
+                    dst: 0,
+                }],
+                terminal_of(g.agg, Operand::Scratch(0)),
+            )
+        })
+        .collect();
+    Ok(GroupPlan {
+        filter,
+        filter_plane,
+        groups,
+    })
+}
+
+/// The shared front half of every lowering: gate the tree, emit it, read the
+/// aggregate off wherever the result landed.
+fn lower_with(
+    filter: &Filter,
+    agg: Agg,
+    emit: impl FnOnce(&Node, &mut Vec<MaskOp>) -> Result<Operand, LowerError>,
+) -> Result<Program, LowerError> {
+    let (node, _) = gate_walk(filter, None)?;
     let mut ops = Vec::new();
-    let mut high_water = 0usize;
+    let mask = emit(&node, &mut ops)?;
+    Ok(Program::new(ops, terminal_of(agg, mask)))
+}
 
-    lower_filter(&q.filter, 0, &mut ops, &mut high_water)?;
-    let mask = Operand::Scratch(0);
+/// The filter after the survivor-skip pass, before any slot is assigned.
+enum Node {
+    /// A comparison, evaluated under `under` when there is a gate.
+    Pred {
+        pred: Pred,
+        under: Option<Mask>,
+    },
+    /// A resident plane read as an operand.
+    Plane(Mask),
+    And(Vec<Node>),
+    Or(Vec<Node>),
+    Not(Box<Node>),
+}
 
-    let terminal = match q.agg {
+/// Walk `f` under `gate`, establishing at most one gate per `AND` path.
+///
+/// Returns the node and whether it is identically zero wherever the gate is
+/// zero — the condition under which an `AND` may drop its gate plane as a
+/// leaf (see the crate doc's soundness argument).
+fn gate_walk(f: &Filter, gate: Option<Mask>) -> Result<(Node, bool), LowerError> {
+    Ok(match f {
+        Filter::Cmp(col, cmp) => (
+            Node::Pred {
+                pred: pred_of(*col, *cmp),
+                under: gate,
+            },
+            gate.is_some(),
+        ),
+        Filter::Plane(m) => (Node::Plane(*m), gate == Some(*m)),
+        // Gating passes THROUGH a negation (the rewrite is sound for any
+        // remainder while the gate stays a leaf), but `!x` is 1 where the
+        // gate is 0, so a negation never lets the gate be dropped.
+        Filter::Not(inner) => (Node::Not(Box::new(gate_walk(inner, gate)?.0)), false),
+        Filter::Or(parts) => {
+            let (nodes, flags) = walk_all(parts, gate)?;
+            (Node::Or(nodes), flags.iter().all(|&v| v))
+        }
+        Filter::And(parts) => {
+            if let Some(g) = gate {
+                // Already gated from above: this AND's own planes are plain
+                // leaves; one gate per comparison is all `under` can carry.
+                let (nodes, flags) = walk_all(parts, Some(g))?;
+                (Node::And(nodes), flags.iter().any(|&v| v))
+            } else {
+                let found = parts.iter().find_map(|p| match p {
+                    Filter::Plane(m) => Some(*m),
+                    _ => None,
+                });
+                let Some(g) = found else {
+                    let (nodes, _) = walk_all(parts, None)?;
+                    return Ok((Node::And(nodes), false));
+                };
+                let mut nodes = Vec::with_capacity(parts.len());
+                let mut any_vanishes = false;
+                let mut gate_taken = false;
+                for p in parts {
+                    if !gate_taken && matches!(p, Filter::Plane(m) if *m == g) {
+                        gate_taken = true;
+                        continue;
+                    }
+                    let (n, v) = gate_walk(p, Some(g))?;
+                    any_vanishes |= v;
+                    nodes.push(n);
+                }
+                // The gate is implied by any child that vanishes with it;
+                // otherwise it must be read as a leaf of its own.
+                if !any_vanishes {
+                    nodes.insert(0, Node::Plane(g));
+                }
+                (Node::And(nodes), false)
+            }
+        }
+    })
+}
+
+/// [`gate_walk`] over every child of a junction, refusing an empty one.
+fn walk_all(parts: &[Filter], gate: Option<Mask>) -> Result<(Vec<Node>, Vec<bool>), LowerError> {
+    if parts.is_empty() {
+        return Err(LowerError::EmptyJunction);
+    }
+    let mut nodes = Vec::with_capacity(parts.len());
+    let mut flags = Vec::with_capacity(parts.len());
+    for p in parts {
+        let (n, v) = gate_walk(p, gate)?;
+        nodes.push(n);
+        flags.push(v);
+    }
+    Ok((nodes, flags))
+}
+
+/// Emit `n` with its result in `dst` (or, for a plane, where it already is),
+/// folding junction children into the first child's slot.
+fn emit_inplace(n: &Node, dst: u16, ops: &mut Vec<MaskOp>) -> Result<Operand, LowerError> {
+    match n {
+        Node::Pred { pred, under } => {
+            ops.push(MaskOp::Pred {
+                pred: *pred,
+                under: under.map(|m| Operand::Plane(m.0)),
+                dst,
+            });
+            Ok(Operand::Scratch(dst))
+        }
+        Node::Plane(m) => Ok(Operand::Plane(m.0)),
+        Node::Not(inner) => {
+            let a = emit_inplace(inner, dst, ops)?;
+            ops.push(MaskOp::Not { a, dst });
+            Ok(Operand::Scratch(dst))
+        }
+        Node::And(parts) | Node::Or(parts) => {
+            let is_and = matches!(n, Node::And(_));
+            let mut acc: Option<Operand> = None;
+            for part in parts {
+                // The first child lands in `dst`; every sibling after it
+                // borrows the next slot up in turn, so width costs one slot,
+                // not one per child.
+                let slot = if acc.is_none() {
+                    dst
+                } else {
+                    dst.checked_add(1).ok_or(LowerError::TooManySlots {
+                        needed: usize::from(dst) + 2,
+                    })?
+                };
+                let b = emit_inplace(part, slot, ops)?;
+                acc = Some(match acc {
+                    None => b,
+                    Some(a) => {
+                        ops.push(if is_and {
+                            MaskOp::And { a, b, dst }
+                        } else {
+                            MaskOp::Or { a, b, dst }
+                        });
+                        Operand::Scratch(dst)
+                    }
+                });
+            }
+            acc.ok_or(LowerError::EmptyJunction)
+        }
+    }
+}
+
+/// Emit `n` with every comparison in its own slot and the skeleton fused.
+fn emit_fused(n: &Node, ops: &mut Vec<MaskOp>) -> Result<Operand, LowerError> {
+    let expr = assign_slots(n, ops)?;
+    let first_free = u16::try_from(ops.len()).map_err(|_| LowerError::TooManySlots {
+        needed: ops.len() + 1,
+    })?;
+    match fuse(&expr, first_free) {
+        Ok(fused) => {
+            ops.extend(fused.ops);
+            Ok(fused.result)
+        }
+        Err(FuseError::SlotOverflow) => Err(LowerError::TooManySlots {
+            needed: MAX_SCRATCH_SLOTS as usize + 1,
+        }),
+    }
+}
+
+/// Give each comparison the next slot and mirror the skeleton as a
+/// [`BoolExpr`] over the resulting operands (n-ary junctions left-folded).
+fn assign_slots(n: &Node, ops: &mut Vec<MaskOp>) -> Result<BoolExpr, LowerError> {
+    match n {
+        Node::Pred { pred, under } => {
+            let dst = u16::try_from(ops.len()).map_err(|_| LowerError::TooManySlots {
+                needed: ops.len() + 1,
+            })?;
+            ops.push(MaskOp::Pred {
+                pred: *pred,
+                under: under.map(|m| Operand::Plane(m.0)),
+                dst,
+            });
+            Ok(BoolExpr::Leaf(Operand::Scratch(dst)))
+        }
+        Node::Plane(m) => Ok(BoolExpr::Leaf(Operand::Plane(m.0))),
+        Node::Not(inner) => Ok(BoolExpr::Not(Box::new(assign_slots(inner, ops)?))),
+        Node::And(parts) | Node::Or(parts) => {
+            let is_and = matches!(n, Node::And(_));
+            let mut acc: Option<BoolExpr> = None;
+            for part in parts {
+                let e = assign_slots(part, ops)?;
+                acc = Some(match acc {
+                    None => e,
+                    Some(a) => {
+                        if is_and {
+                            BoolExpr::And(Box::new(a), Box::new(e))
+                        } else {
+                            BoolExpr::Or(Box::new(a), Box::new(e))
+                        }
+                    }
+                });
+            }
+            acc.ok_or(LowerError::EmptyJunction)
+        }
+    }
+}
+
+/// `agg` read over `mask`.
+fn terminal_of(agg: Agg, mask: Operand) -> Terminal {
+    match agg {
         Agg::Count => Terminal::Count { mask },
         Agg::Any => Terminal::Any { mask },
         Agg::All => Terminal::All { mask },
         Agg::SumI32(c) => Terminal::MaskedSumI32 { mask, lane: c.0 },
         Agg::MinI32(c) => Terminal::MaskedMinI32 { mask, lane: c.0 },
         Agg::MaxI32(c) => Terminal::MaskedMaxI32 { mask, lane: c.0 },
-    };
-
-    let slots = high_water.max(1);
-    let scratch_slots =
-        u32::try_from(slots).map_err(|_| LowerError::TooManySlots { needed: slots })?;
-
-    Ok(Program {
-        ops,
-        terminal,
-        scratch_slots,
-    })
-}
-
-/// Lower one filter node into `dst`, tracking the highest slot touched.
-fn lower_filter(
-    f: &Filter,
-    dst: u16,
-    ops: &mut Vec<MaskOp>,
-    high_water: &mut usize,
-) -> Result<(), LowerError> {
-    *high_water = (*high_water).max(usize::from(dst) + 1);
-    match f {
-        Filter::Cmp(col, cmp) => {
-            ops.push(MaskOp::Pred {
-                pred: pred_of(*col, *cmp),
-                under: None,
-                dst,
-            });
-            Ok(())
-        }
-        Filter::Not(inner) => {
-            lower_filter(inner, dst, ops, high_water)?;
-            ops.push(MaskOp::Not {
-                a: Operand::Scratch(dst),
-                dst,
-            });
-            Ok(())
-        }
-        Filter::And(parts) | Filter::Or(parts) => {
-            let (first, rest) = parts.split_first().ok_or(LowerError::EmptyJunction)?;
-            lower_filter(first, dst, ops, high_water)?;
-            // The next slot up is scratch for each sibling in turn, so width
-            // costs one slot, not one per child.
-            let tmp = dst.checked_add(1).ok_or(LowerError::TooManySlots {
-                needed: usize::from(dst) + 2,
-            })?;
-            let is_and = matches!(f, Filter::And(_));
-            for part in rest {
-                lower_filter(part, tmp, ops, high_water)?;
-                ops.push(if is_and {
-                    MaskOp::And {
-                        a: Operand::Scratch(dst),
-                        b: Operand::Scratch(tmp),
-                        dst,
-                    }
-                } else {
-                    MaskOp::Or {
-                        a: Operand::Scratch(dst),
-                        b: Operand::Scratch(tmp),
-                        dst,
-                    }
-                });
-            }
-            Ok(())
-        }
+        Agg::Rows => Terminal::Keep { mask },
+        Agg::BlendI32 { then, els } => Terminal::BlendI32 {
+            mask,
+            then: then.0,
+            els: els.0,
+        },
     }
 }
 
@@ -312,129 +624,351 @@ fn pred_of(col: Col, cmp: Cmp) -> Pred {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use lance_graph_mask_risc::{execute, scratch_words_for, LaneRef, Planes, Scratch, Value};
+    use lance_graph_mask_risc::{
+        execute, materialize_rows, reference_execute, scratch_words_for, words_for, LaneRef,
+        Planes, Scratch, Value,
+    };
 
     const N: usize = 1000;
 
-    /// Two lanes: a signed value lane and an unsigned class lane.
-    fn fixture() -> (Vec<i32>, Vec<u32>) {
-        let vals: Vec<i32> = (0..N as i32).map(|i| (i * 7) % 401 - 200).collect();
-        let classes: Vec<u32> = (0..N as u32).map(|i| i % 5).collect();
-        (vals, classes)
+    const VALS: Col = Col(0);
+    const CLASS: Col = Col(1);
+    const ALT: Col = Col(2);
+    const ALPHA: Mask = Mask(0);
+    const FOCUS: Mask = Mask(1);
+
+    /// Three lanes and two resident planes, every tail bit clean.
+    struct Fx {
+        vals: Vec<i32>,
+        classes: Vec<u32>,
+        alt: Vec<i32>,
+        masks: Vec<Vec<u64>>,
     }
 
-    /// The INDEPENDENT reading — a plain row loop that shares no code with the
-    /// lowering. This is the oracle: a filter tree walked per row, which is
-    /// exactly the shape this crate refuses to ship, written here because a
-    /// test oracle is the one place it is licensed.
-    fn oracle(f: &Filter, vals: &[i32], classes: &[u32], row: usize) -> bool {
-        match f {
-            Filter::Cmp(col, cmp) => {
-                let v = vals[row];
-                let c = classes[row];
-                match cmp {
-                    Cmp::EqI32(x) => v == *x,
-                    Cmp::NeI32(x) => v != *x,
-                    Cmp::LtI32(x) => v < *x,
-                    Cmp::LeI32(x) => v <= *x,
-                    Cmp::GtI32(x) => v > *x,
-                    Cmp::GeI32(x) => v >= *x,
-                    Cmp::EqU32(x) => c == *x,
-                    Cmp::NeU32(x) => c != *x,
-                    Cmp::MatchU32 { pattern, care } => (c ^ *pattern) & *care == 0,
-                }
-                .then_some(*col)
-                .is_some()
+    fn plane(n: usize, set: impl Fn(usize) -> bool) -> Vec<u64> {
+        let mut words = vec![0u64; words_for(n)];
+        for r in (0..n).filter(|&r| set(r)) {
+            words[r / 64] |= 1u64 << (r % 64);
+        }
+        words
+    }
+
+    impl Fx {
+        fn new(n: usize) -> Self {
+            let vals = (0..n)
+                .map(|i| ((i as i64 * 7) % 401 - 200) as i32)
+                .collect();
+            let classes = (0..n).map(|i| (i % 5) as u32).collect();
+            let alt = (0..n).map(|i| ((i as i64 * 13) % 89 - 44) as i32).collect();
+            let masks = vec![plane(n, |r| r % 3 != 0), plane(n, |r| r % 7 == 0)];
+            Fx {
+                vals,
+                classes,
+                alt,
+                masks,
             }
-            Filter::And(ps) => ps.iter().all(|p| oracle(p, vals, classes, row)),
-            Filter::Or(ps) => ps.iter().any(|p| oracle(p, vals, classes, row)),
-            Filter::Not(p) => !oracle(p, vals, classes, row),
+        }
+
+        fn n(&self) -> usize {
+            self.vals.len()
+        }
+
+        fn i32_at(&self, col: Col, row: usize) -> i32 {
+            match col {
+                VALS => self.vals[row],
+                ALT => self.alt[row],
+                other => panic!("{other:?} is not a signed lane of the fixture"),
+            }
+        }
+
+        fn u32_at(&self, col: Col, row: usize) -> u32 {
+            match col {
+                CLASS => self.classes[row],
+                other => panic!("{other:?} is not an unsigned lane of the fixture"),
+            }
+        }
+
+        fn bit(&self, m: Mask, row: usize) -> bool {
+            (self.masks[usize::from(m.0)][row / 64] >> (row % 64)) & 1 == 1
+        }
+
+        /// The INDEPENDENT reading — a plain row loop that shares no code
+        /// with the lowering. This is the oracle: a filter tree walked per
+        /// row, which is exactly the shape this crate refuses to ship,
+        /// written here because a test oracle is the one place it is
+        /// licensed.
+        fn oracle(&self, f: &Filter, row: usize) -> bool {
+            match f {
+                Filter::Cmp(col, cmp) => match *cmp {
+                    Cmp::EqI32(x) => self.i32_at(*col, row) == x,
+                    Cmp::NeI32(x) => self.i32_at(*col, row) != x,
+                    Cmp::LtI32(x) => self.i32_at(*col, row) < x,
+                    Cmp::LeI32(x) => self.i32_at(*col, row) <= x,
+                    Cmp::GtI32(x) => self.i32_at(*col, row) > x,
+                    Cmp::GeI32(x) => self.i32_at(*col, row) >= x,
+                    Cmp::EqU32(x) => self.u32_at(*col, row) == x,
+                    Cmp::NeU32(x) => self.u32_at(*col, row) != x,
+                    Cmp::MatchU32 { pattern, care } => {
+                        (self.u32_at(*col, row) ^ pattern) & care == 0
+                    }
+                },
+                Filter::Plane(m) => self.bit(*m, row),
+                Filter::And(ps) => ps.iter().all(|p| self.oracle(p, row)),
+                Filter::Or(ps) => ps.iter().any(|p| self.oracle(p, row)),
+                Filter::Not(p) => !self.oracle(p, row),
+            }
+        }
+
+        fn rows(&self, f: &Filter) -> Vec<usize> {
+            (0..self.n()).filter(|&r| self.oracle(f, r)).collect()
+        }
+
+        fn with_planes<R>(&self, extra: &[Vec<u64>], f: impl FnOnce(&Planes<'_>) -> R) -> R {
+            let lanes = [
+                LaneRef::I32(&self.vals),
+                LaneRef::U32(&self.classes),
+                LaneRef::I32(&self.alt),
+            ];
+            let masks: Vec<&[u64]> = self.masks.iter().chain(extra).map(Vec::as_slice).collect();
+            f(&Planes {
+                n_rows: self.n(),
+                masks: &masks,
+                lanes: &lanes,
+            })
+        }
+
+        /// The executor, on a scratch sized exactly from the program.
+        fn exec(&self, program: &Program, extra: &[Vec<u64>], out: Option<&mut [i32]>) -> Value {
+            self.with_planes(extra, |planes| {
+                let words = words_for(self.n());
+                let slots = program.scratch_slots as usize;
+                let mut buf = vec![0u64; scratch_words_for(words, slots).expect("sized")];
+                let mut scratch = Scratch::over(&mut buf, words, slots).expect("carves");
+                execute(program, planes, &mut scratch, out).expect("runs")
+            })
+        }
+
+        /// The executor on a `Keep` program, copying the kept mask out of
+        /// wherever `Value::Mask` says it landed.
+        fn exec_mask(&self, program: &Program, extra: &[Vec<u64>]) -> Vec<u64> {
+            self.with_planes(extra, |planes| {
+                let words = words_for(self.n());
+                let slots = program.scratch_slots as usize;
+                let mut buf = vec![0u64; scratch_words_for(words, slots).expect("sized")];
+                let mut scratch = Scratch::over(&mut buf, words, slots).expect("carves");
+                match execute(program, planes, &mut scratch, None).expect("runs") {
+                    Value::Mask(Operand::Scratch(i)) => scratch.slot(i).expect("written").to_vec(),
+                    Value::Mask(Operand::Plane(p)) => planes.masks[usize::from(p)].to_vec(),
+                    other => panic!("not a kept mask: {other:?}"),
+                }
+            })
+        }
+
+        /// mask-risc's own row-at-a-time oracle — a second independent arm.
+        fn reference(&self, program: &Program, out: Option<&mut [i32]>) -> Value {
+            self.with_planes(&[], |planes| {
+                reference_execute(program, planes, out).expect("runs")
+            })
+        }
+
+        fn count(&self, f: &Filter) -> usize {
+            let q = Query {
+                filter: f.clone(),
+                agg: Agg::Count,
+            };
+            match self.exec(&lower(&q).expect("lowers"), &[], None) {
+                Value::Count(c) => c,
+                other => panic!("not a count: {other:?}"),
+            }
         }
     }
 
-    fn run(q: &Query, vals: &[i32], classes: &[u32]) -> Value {
-        let program = lower(q).expect("lowers");
-        let lanes = [LaneRef::I32(vals), LaneRef::U32(classes)];
-        let planes = Planes {
-            n_rows: vals.len(),
-            masks: &[],
-            lanes: &lanes,
-        };
-        let words = vals.len().div_ceil(64);
-        let slots = program.scratch_slots as usize;
-        let mut buf = vec![0u64; scratch_words_for(words, slots).expect("sized")];
-        let mut scratch = Scratch::over(&mut buf, words, slots).expect("carves");
-        execute(&program, &planes, &mut scratch, None).expect("runs")
+    /// `alpha & ((A & B) | C)` — the vertical slice.
+    fn slice_filter() -> Filter {
+        Filter::and([
+            Filter::plane(ALPHA),
+            Filter::or([
+                Filter::and([
+                    Filter::cmp(VALS, Cmp::GtI32(0)),
+                    Filter::cmp(CLASS, Cmp::NeU32(0)),
+                ]),
+                Filter::cmp(VALS, Cmp::LtI32(-190)),
+            ]),
+        ])
     }
 
-    /// FAILS IF: the lowering and an independent per-row reading of the same
-    /// filter disagree.
+    /// Every `Pred` op of `p` is gated under `g`, and `g` is never read as a
+    /// Boolean operand — the shape the survivor skip produces when the plane
+    /// leaf is dropped.
+    fn gated_and_dropped(p: &Program, g: Mask) -> (bool, bool) {
+        let gate = Operand::Plane(g.0);
+        let mut all_gated = true;
+        let mut read_as_leaf = false;
+        for op in &p.ops {
+            match *op {
+                MaskOp::Pred { under, .. } => all_gated &= under == Some(gate),
+                MaskOp::And { a, b, .. }
+                | MaskOp::Or { a, b, .. }
+                | MaskOp::Xor { a, b, .. }
+                | MaskOp::AndNot { a, b, .. } => read_as_leaf |= a == gate || b == gate,
+                MaskOp::Not { a, .. } => read_as_leaf |= a == gate,
+                MaskOp::Ternlog { a, b, c, .. } => {
+                    read_as_leaf |= a == gate || b == gate || c == gate;
+                }
+            }
+        }
+        let terminal_reads_gate = matches!(
+            p.terminal,
+            Terminal::Count { mask }
+                | Terminal::Any { mask }
+                | Terminal::All { mask }
+                | Terminal::MaskedSumI32 { mask, .. }
+                | Terminal::MaskedMinI32 { mask, .. }
+                | Terminal::MaskedMaxI32 { mask, .. }
+                | Terminal::BlendI32 { mask, .. }
+                | Terminal::Keep { mask } if mask == gate
+        );
+        (all_gated, !read_as_leaf && !terminal_reads_gate)
+    }
+
+    /// FAILS IF: either lowering and an independent per-row reading of the
+    /// same filter disagree.
     ///
     /// This is the whole claim of the crate — that a query expressed as
     /// masking ops answers what the query means — so it is checked against an
-    /// oracle that never sees a `Program`.
+    /// oracle that never sees a `Program`, for the in-place AND the fused
+    /// lowering, over shapes that exercise every gate rule: a gate over a
+    /// nested `OR`, a gate that must survive a negation, a gate that must
+    /// survive a foreign plane, two planes, a plane alone, an IN-list.
     #[test]
     fn every_lowered_filter_agrees_with_an_independent_per_row_reading() {
-        let (vals, classes) = fixture();
+        let fx = Fx::new(N);
         let cases: Vec<(&str, Filter)> = vec![
-            ("one leaf", Filter::cmp(Col(0), Cmp::GtI32(0))),
-            ("u32 leaf", Filter::cmp(Col(1), Cmp::EqU32(2))),
+            ("one leaf", Filter::cmp(VALS, Cmp::GtI32(0))),
+            ("u32 leaf", Filter::cmp(CLASS, Cmp::EqU32(2))),
+            ("a plane alone", Filter::plane(ALPHA)),
             (
                 "and of two",
                 Filter::and([
-                    Filter::cmp(Col(0), Cmp::GtI32(-50)),
-                    Filter::cmp(Col(1), Cmp::NeU32(0)),
+                    Filter::cmp(VALS, Cmp::GtI32(-50)),
+                    Filter::cmp(CLASS, Cmp::NeU32(0)),
                 ]),
             ),
             (
                 "or of two",
                 Filter::or([
-                    Filter::cmp(Col(0), Cmp::LtI32(-150)),
-                    Filter::cmp(Col(1), Cmp::EqU32(4)),
+                    Filter::cmp(VALS, Cmp::LtI32(-150)),
+                    Filter::cmp(CLASS, Cmp::EqU32(4)),
                 ]),
             ),
-            ("not", Filter::negate(Filter::cmp(Col(0), Cmp::GeI32(0)))),
+            ("not", Filter::negate(Filter::cmp(VALS, Cmp::GeI32(0)))),
             (
                 "and of four — the width case",
                 Filter::and([
-                    Filter::cmp(Col(0), Cmp::GtI32(-180)),
-                    Filter::cmp(Col(0), Cmp::LtI32(180)),
-                    Filter::cmp(Col(1), Cmp::NeU32(3)),
-                    Filter::cmp(Col(1), Cmp::NeU32(1)),
+                    Filter::cmp(VALS, Cmp::GtI32(-180)),
+                    Filter::cmp(VALS, Cmp::LtI32(180)),
+                    Filter::cmp(CLASS, Cmp::NeU32(3)),
+                    Filter::cmp(CLASS, Cmp::NeU32(1)),
                 ]),
             ),
             (
                 "nested — or inside and, with a not",
                 Filter::and([
-                    Filter::cmp(Col(0), Cmp::GeI32(-100)),
+                    Filter::cmp(VALS, Cmp::GeI32(-100)),
                     Filter::or([
-                        Filter::cmp(Col(1), Cmp::EqU32(1)),
-                        Filter::negate(Filter::cmp(Col(0), Cmp::GtI32(100))),
+                        Filter::cmp(CLASS, Cmp::EqU32(1)),
+                        Filter::negate(Filter::cmp(VALS, Cmp::GtI32(100))),
                     ]),
                 ]),
             ),
             (
                 "ternary match — no SQL spelling, the substrate had it all along",
                 Filter::cmp(
-                    Col(1),
+                    CLASS,
                     Cmp::MatchU32 {
                         pattern: 0b100,
                         care: 0b110,
                     },
                 ),
             ),
+            ("gate over a comparison", {
+                Filter::and([Filter::plane(ALPHA), Filter::cmp(VALS, Cmp::GtI32(0))])
+            }),
+            ("gate over a nested or — the slice", slice_filter()),
+            (
+                "gate over a negation — the gate must stay a leaf",
+                Filter::and([
+                    Filter::plane(ALPHA),
+                    Filter::negate(Filter::cmp(VALS, Cmp::GtI32(0))),
+                ]),
+            ),
+            (
+                "gate over an or with a negated arm",
+                Filter::and([
+                    Filter::plane(ALPHA),
+                    Filter::or([
+                        Filter::cmp(CLASS, Cmp::EqU32(3)),
+                        Filter::negate(Filter::cmp(VALS, Cmp::GtI32(-100))),
+                    ]),
+                ]),
+            ),
+            (
+                "gate beside a foreign plane — the foreign plane is a leaf",
+                Filter::and([
+                    Filter::plane(ALPHA),
+                    Filter::plane(FOCUS),
+                    Filter::cmp(VALS, Cmp::LtI32(50)),
+                ]),
+            ),
+            (
+                "two planes or'd, then a comparison",
+                Filter::and([
+                    Filter::or([Filter::plane(ALPHA), Filter::plane(FOCUS)]),
+                    Filter::cmp(VALS, Cmp::NeI32(0)),
+                ]),
+            ),
+            ("plane after the comparisons", {
+                Filter::and([
+                    Filter::cmp(VALS, Cmp::GtI32(-100)),
+                    Filter::cmp(VALS, Cmp::LtI32(100)),
+                    Filter::plane(FOCUS),
+                ])
+            }),
+            (
+                "a gated and nested under a gated and",
+                Filter::and([
+                    Filter::plane(ALPHA),
+                    Filter::and([Filter::plane(FOCUS), Filter::cmp(VALS, Cmp::GtI32(-100))]),
+                ]),
+            ),
+            ("not of a plane", Filter::negate(Filter::plane(ALPHA))),
+            (
+                "in-list over the class lane",
+                Filter::in_u32(CLASS, [1, 3, 3]),
+            ),
+            (
+                "in-list over the value lane",
+                Filter::in_i32(VALS, [-200, 5, 100, 12]),
+            ),
         ];
 
         for (label, f) in cases {
-            let expected = (0..N).filter(|&r| oracle(&f, &vals, &classes, r)).count();
+            let expected = fx.rows(&f).len();
             let q = Query {
                 filter: f,
                 agg: Agg::Count,
             };
+            let inplace = lower(&q).expect("lowers in place");
+            let fused = lower_fused(&q).expect("lowers fused");
             assert_eq!(
-                run(&q, &vals, &classes),
+                fx.exec(&inplace, &[], None),
                 Value::Count(expected),
-                "{label}: the lowered program and the per-row oracle disagree"
+                "{label}: the in-place program and the per-row oracle disagree"
+            );
+            assert_eq!(
+                fx.exec(&fused, &[], None),
+                Value::Count(expected),
+                "{label}: the fused program and the per-row oracle disagree"
             );
             // Anti-vacuity: agreement on "nothing" or "everything" would hold
             // for a lowering that ignored the filter entirely.
@@ -445,41 +979,170 @@ mod tests {
         }
     }
 
-    /// FAILS IF: a junction allocates a slot per child.
+    /// FAILS IF: the survivor skip gates the wrong leaves or drops the gate
+    /// where the drop is unsound.
+    ///
+    /// Can-fire: under `alpha & ((A & B) | C)` every comparison is gated and
+    /// alpha is never read as an operand. Can-stay-silent: under
+    /// `alpha & !X` the comparison is still gated (the rewrite is sound
+    /// through a negation while the gate is a leaf) but alpha IS read as a
+    /// leaf, because `!(alpha & X)` is 1 exactly where alpha is 0. The
+    /// differential above holds either way; this pins the SHAPE, so a walk
+    /// that dropped the gate under a negation would fail here even before
+    /// the oracle caught its wrong count.
+    #[test]
+    fn the_gate_reaches_every_comparison_and_is_dropped_only_where_it_vanishes() {
+        for lowering in [lower, lower_fused] {
+            let slice = lowering(&Query {
+                filter: slice_filter(),
+                agg: Agg::Count,
+            })
+            .expect("lowers");
+            assert_eq!(
+                gated_and_dropped(&slice, ALPHA),
+                (true, true),
+                "the slice: every predicate gated, alpha implied: {:?}",
+                slice.ops
+            );
+
+            let negated = lowering(&Query {
+                filter: Filter::and([
+                    Filter::plane(ALPHA),
+                    Filter::negate(Filter::cmp(VALS, Cmp::GtI32(0))),
+                ]),
+                agg: Agg::Count,
+            })
+            .expect("lowers");
+            assert_eq!(
+                gated_and_dropped(&negated, ALPHA),
+                (true, false),
+                "under a negation: still gated, but alpha stays a leaf: {:?}",
+                negated.ops
+            );
+
+            let foreign = lowering(&Query {
+                filter: Filter::and([
+                    Filter::plane(ALPHA),
+                    Filter::plane(FOCUS),
+                    Filter::cmp(VALS, Cmp::LtI32(50)),
+                ]),
+                agg: Agg::Count,
+            })
+            .expect("lowers");
+            let (gated, dropped) = gated_and_dropped(&foreign, ALPHA);
+            assert!(gated && dropped, "the first plane gates: {:?}", foreign.ops);
+            assert!(
+                !gated_and_dropped(&foreign, FOCUS).1,
+                "the foreign plane is read as a leaf, not gated away: {:?}",
+                foreign.ops
+            );
+        }
+    }
+
+    /// FAILS IF: a resident plane costs an op or a slot.
+    ///
+    /// `SELECT count(*) FROM t` is the plane's population; the program is
+    /// empty, the terminal reads the plane, and projection returns the plane
+    /// itself rather than a copy of it.
+    #[test]
+    fn a_resident_plane_alone_is_a_zero_op_program() {
+        let fx = Fx::new(N);
+        let expected = fx.rows(&Filter::plane(ALPHA)).len();
+        assert!(expected > 0 && expected < N);
+        for lowering in [lower, lower_fused] {
+            let count = lowering(&Query {
+                filter: Filter::plane(ALPHA),
+                agg: Agg::Count,
+            })
+            .expect("lowers");
+            assert!(count.ops.is_empty(), "{:?}", count.ops);
+            assert_eq!(count.scratch_slots, 0);
+            assert_eq!(
+                count.terminal,
+                Terminal::Count {
+                    mask: Operand::Plane(0)
+                }
+            );
+            assert_eq!(fx.exec(&count, &[], None), Value::Count(expected));
+
+            let rows = lowering(&Query {
+                filter: Filter::plane(ALPHA),
+                agg: Agg::Rows,
+            })
+            .expect("lowers");
+            assert_eq!(
+                fx.exec(&rows, &[], None),
+                Value::Mask(Operand::Plane(0)),
+                "projection of a plane is the plane, not a copy"
+            );
+        }
+    }
+
+    /// FAILS IF: the fused lowering does not buy passes with slots — or buys
+    /// nothing.
+    ///
+    /// On the slice, in place is two Boolean passes (an AND, then an OR) in
+    /// two slots; fused is one ternlog in four. Both are pinned, so a fuser
+    /// that stopped fusing OR an in-place emitter that started allocating per
+    /// leaf would each fail their own line.
+    #[test]
+    fn the_fused_lowering_trades_slots_for_passes() {
+        let q = Query {
+            filter: slice_filter(),
+            agg: Agg::Count,
+        };
+        let inplace = lower(&q).expect("lowers");
+        let fused = lower_fused(&q).expect("lowers");
+
+        assert_eq!(inplace.op_histogram().predicates, 3);
+        assert_eq!(fused.op_histogram().predicates, 3);
+        assert_eq!(inplace.op_histogram().mask_passes(), 2);
+        assert_eq!(fused.op_histogram().mask_passes(), 1);
+        assert_eq!(fused.op_histogram().ternlog, 1);
+        assert_eq!(inplace.scratch_slots, 2);
+        assert_eq!(fused.scratch_slots, 4);
+    }
+
+    /// FAILS IF: a junction allocates a slot per child in the in-place form.
     ///
     /// Children fold left-to-right into the first child's slot, so width is
     /// free and only DEPTH costs. Without this a 64-wide conjunction would ask
     /// for a 64-slot arena — a scratch allocation proportional to the query's
-    /// text rather than to its shape.
+    /// text rather than to its shape. The fused form DOES pay width, and that
+    /// is pinned too: it is the trade, not a defect.
     #[test]
     fn a_wide_conjunction_costs_one_extra_slot_not_one_per_child() {
-        let wide = Filter::and((0..32).map(|i| Filter::cmp(Col(0), Cmp::NeI32(i))));
-        let p = lower(&Query {
-            filter: wide,
+        let wide = Query {
+            filter: Filter::and((0..32).map(|i| Filter::cmp(VALS, Cmp::NeI32(i)))),
             agg: Agg::Count,
-        })
-        .expect("lowers");
+        };
+        let p = lower(&wide).expect("lowers");
         assert_eq!(
             p.scratch_slots, 2,
             "32 children must cost depth-2, not 32 slots"
         );
+        let pf = lower_fused(&wide).expect("lowers");
+        assert!(
+            pf.scratch_slots >= 32,
+            "fused pays one slot per comparison: {}",
+            pf.scratch_slots
+        );
 
         // Paired: DEPTH does cost, or the constant above would be vacuous.
-        let deep = Filter::and([
-            Filter::cmp(Col(0), Cmp::GtI32(0)),
-            Filter::or([
-                Filter::cmp(Col(1), Cmp::EqU32(1)),
-                Filter::and([
-                    Filter::cmp(Col(0), Cmp::LtI32(50)),
-                    Filter::cmp(Col(1), Cmp::NeU32(2)),
+        let deep = Query {
+            filter: Filter::and([
+                Filter::cmp(VALS, Cmp::GtI32(0)),
+                Filter::or([
+                    Filter::cmp(CLASS, Cmp::EqU32(1)),
+                    Filter::and([
+                        Filter::cmp(VALS, Cmp::LtI32(50)),
+                        Filter::cmp(CLASS, Cmp::NeU32(2)),
+                    ]),
                 ]),
             ]),
-        ]);
-        let pd = lower(&Query {
-            filter: deep,
             agg: Agg::Count,
-        })
-        .expect("lowers");
+        };
+        let pd = lower(&deep).expect("lowers");
         assert!(
             pd.scratch_slots > p.scratch_slots,
             "depth must cost more than width: deep={} wide={}",
@@ -488,67 +1151,244 @@ mod tests {
         );
     }
 
-    /// FAILS IF: an empty AND/OR is folded to a constant instead of refused.
+    /// FAILS IF: an empty AND/OR — or the `IN ()` that is one — is folded to
+    /// a constant instead of refused.
     ///
     /// An empty conjunction is `true` and an empty disjunction is `false`, so
     /// whichever identity the code picked would silently be the answer to a
     /// query the caller built by accident.
     #[test]
     fn an_empty_junction_is_refused_rather_than_folded_to_an_identity() {
-        for f in [Filter::And(vec![]), Filter::Or(vec![])] {
-            assert_eq!(
-                lower(&Query {
-                    filter: f,
-                    agg: Agg::Count
-                }),
-                Err(LowerError::EmptyJunction)
-            );
+        for f in [
+            Filter::And(vec![]),
+            Filter::Or(vec![]),
+            Filter::in_u32(CLASS, []),
+            Filter::in_i32(VALS, []),
+            Filter::and([Filter::plane(ALPHA), Filter::Or(vec![])]),
+        ] {
+            let q = Query {
+                filter: f.clone(),
+                agg: Agg::Count,
+            };
+            assert_eq!(lower(&q), Err(LowerError::EmptyJunction), "{f:?}");
+            assert_eq!(lower_fused(&q), Err(LowerError::EmptyJunction), "{f:?}");
         }
     }
 
-    /// FAILS IF: the aggregates do not read the filter's mask.
+    /// FAILS IF: an IN-list is anything other than the disjunction it claims
+    /// to be.
     ///
-    /// `Count`/`Any`/`All`/`Sum`/`Min`/`Max` over the SAME filter must be
-    /// mutually consistent with the per-row oracle — an aggregate wired to the
-    /// wrong operand would still return a plausible number.
+    /// Structural equality with the hand-built OR, and agreement with the
+    /// oracle; duplicates in the set are harmless because they are harmless
+    /// in an OR.
     #[test]
-    fn every_aggregate_reads_the_same_filter_mask() {
-        let (vals, classes) = fixture();
-        let f = Filter::and([
-            Filter::cmp(Col(0), Cmp::GtI32(-100)),
-            Filter::cmp(Col(1), Cmp::EqU32(3)),
+    fn an_in_list_is_a_disjunction_of_equalities() {
+        let fx = Fx::new(N);
+        let by_hand = Filter::or([
+            Filter::cmp(CLASS, Cmp::EqU32(1)),
+            Filter::cmp(CLASS, Cmp::EqU32(3)),
+            Filter::cmp(CLASS, Cmp::EqU32(3)),
         ]);
-        let rows: Vec<usize> = (0..N).filter(|&r| oracle(&f, &vals, &classes, r)).collect();
+        let in_list = Filter::in_u32(CLASS, [1, 3, 3]);
+        assert_eq!(in_list, by_hand);
+        let expected = (0..N).filter(|&r| [1, 3].contains(&fx.classes[r])).count();
+        assert_eq!(fx.count(&in_list), expected);
+        assert!(expected > 0 && expected < N);
+    }
+
+    /// FAILS IF: the aggregates and the projections do not read the filter's
+    /// mask.
+    ///
+    /// `Count`/`Any`/`All`/`Sum`/`Min`/`Max`/`Rows`/`Blend` over the SAME
+    /// filter must be mutually consistent with the per-row oracle — an
+    /// aggregate wired to the wrong operand would still return a plausible
+    /// number, and a blend wired to the wrong lane a plausible column.
+    #[test]
+    fn every_aggregate_and_projection_reads_the_same_filter_mask() {
+        let fx = Fx::new(N);
+        let f = Filter::and([
+            Filter::plane(ALPHA),
+            Filter::cmp(VALS, Cmp::GtI32(-100)),
+            Filter::cmp(CLASS, Cmp::EqU32(3)),
+        ]);
+        let rows = fx.rows(&f);
         assert!(
             !rows.is_empty() && rows.len() < N,
             "fixture must be a proper subset"
         );
 
-        let sum: i64 = rows.iter().map(|&r| i64::from(vals[r])).sum();
-        let min = rows.iter().map(|&r| vals[r]).min();
-        let max = rows.iter().map(|&r| vals[r]).max();
+        let sum: i64 = rows.iter().map(|&r| i64::from(fx.vals[r])).sum();
+        let min = rows.iter().map(|&r| fx.vals[r]).min();
+        let max = rows.iter().map(|&r| fx.vals[r]).max();
 
         let q = |agg| Query {
             filter: f.clone(),
             agg,
         };
+        let run = |agg| fx.exec(&lower(&q(agg)).expect("lowers"), &[], None);
+        assert_eq!(run(Agg::Count), Value::Count(rows.len()));
+        assert_eq!(run(Agg::Any), Value::Bool(true));
+        assert_eq!(run(Agg::All), Value::Bool(false));
+        assert_eq!(run(Agg::SumI32(VALS)), Value::SumI64(sum));
+        assert_eq!(run(Agg::MinI32(VALS)), Value::OptI32(min));
+        assert_eq!(run(Agg::MaxI32(VALS)), Value::OptI32(max));
+
+        // Projection: the kept mask materialises to exactly the oracle's rows.
+        let kept = fx.exec_mask(&lower(&q(Agg::Rows)).expect("lowers"), &[]);
+        assert_eq!(materialize_rows(&kept, N), rows);
+
+        // CASE: every row reads `then` where the filter holds, `els` where not.
+        let mut out = vec![0i32; N];
         assert_eq!(
-            run(&q(Agg::Count), &vals, &classes),
-            Value::Count(rows.len())
+            fx.exec(
+                &lower(&q(Agg::BlendI32 {
+                    then: VALS,
+                    els: ALT
+                }))
+                .expect("lowers"),
+                &[],
+                Some(&mut out),
+            ),
+            Value::Blended
         );
-        assert_eq!(run(&q(Agg::Any), &vals, &classes), Value::Bool(true));
-        assert_eq!(run(&q(Agg::All), &vals, &classes), Value::Bool(false));
+        let expected: Vec<i32> = (0..N)
+            .map(|r| {
+                if fx.oracle(&f, r) {
+                    fx.vals[r]
+                } else {
+                    fx.alt[r]
+                }
+            })
+            .collect();
+        assert_eq!(out, expected);
+        assert!(
+            out.iter().zip(&fx.vals).any(|(o, v)| o != v),
+            "the blend must actually pick from `els` somewhere"
+        );
+    }
+
+    /// FAILS IF: the two-phase GROUP BY does not partition the filtered rows
+    /// by key.
+    ///
+    /// Per-group counts and sums equal the oracle's, and the counts sum to
+    /// the ungrouped filtered count: a group program that ignored the key
+    /// would report the total K times, one that ignored the kept filter
+    /// would report the unfiltered class sizes, and either breaks the
+    /// partition identity.
+    #[test]
+    fn a_group_by_partitions_the_filtered_rows_by_key() {
+        let fx = Fx::new(N);
+        let filter = Filter::and([Filter::plane(ALPHA), Filter::cmp(VALS, Cmp::GtI32(0))]);
+        let rows = fx.rows(&filter);
+        let groups = 5u32;
+        let filter_plane = u16::try_from(fx.masks.len()).expect("fits");
+
+        for agg in [Agg::Count, Agg::SumI32(VALS)] {
+            let plan = lower_group_by(
+                &GroupBy {
+                    filter: filter.clone(),
+                    key: CLASS,
+                    groups,
+                    agg,
+                },
+                filter_plane,
+            )
+            .expect("lowers");
+            assert_eq!(plan.groups.len(), groups as usize);
+            assert_eq!(plan.filter_plane, filter_plane);
+
+            let kept = fx.exec_mask(&plan.filter, &[]);
+            let extra = vec![kept];
+            let results: Vec<Value> = plan
+                .groups
+                .iter()
+                .map(|p| fx.exec(p, &extra, None))
+                .collect();
+
+            for (g, value) in results.iter().enumerate() {
+                let members: Vec<usize> = rows
+                    .iter()
+                    .copied()
+                    .filter(|&r| fx.classes[r] == g as u32)
+                    .collect();
+                let expected = match agg {
+                    Agg::Count => Value::Count(members.len()),
+                    Agg::SumI32(_) => {
+                        Value::SumI64(members.iter().map(|&r| i64::from(fx.vals[r])).sum())
+                    }
+                    other => unreachable!("{other:?}"),
+                };
+                assert_eq!(*value, expected, "group {g}");
+                assert!(!members.is_empty(), "group {g} must be non-empty to count");
+            }
+            if agg == Agg::Count {
+                let total: usize = results
+                    .iter()
+                    .map(|v| match v {
+                        Value::Count(c) => *c,
+                        other => panic!("{other:?}"),
+                    })
+                    .sum();
+                assert_eq!(total, rows.len(), "the groups partition the filter");
+                assert!(rows.len() < N);
+            }
+        }
+
         assert_eq!(
-            run(&q(Agg::SumI32(Col(0))), &vals, &classes),
-            Value::SumI64(sum)
+            lower_group_by(
+                &GroupBy {
+                    filter,
+                    key: CLASS,
+                    groups,
+                    agg: Agg::BlendI32 {
+                        then: VALS,
+                        els: ALT
+                    },
+                },
+                filter_plane,
+            ),
+            Err(LowerError::GroupedBlend)
         );
-        assert_eq!(
-            run(&q(Agg::MinI32(Col(0))), &vals, &classes),
-            Value::OptI32(min)
+    }
+
+    /// FAILS IF: any arm of the vertical slice disagrees on a 64k slab.
+    ///
+    /// `COUNT(alpha & ((A & B) | C))` over 65,536 rows through the per-row
+    /// oracle, the in-place program on the executor, the fused program on the
+    /// executor, and both programs on mask-risc's reference evaluator — five
+    /// readings, one number. Anti-vacuity: the gate binds (the count is
+    /// strictly below the ungated remainder's) and the answer is a proper
+    /// subset of alpha.
+    #[test]
+    fn the_vertical_slice_agrees_across_every_arm_on_a_64k_slab() {
+        let fx = Fx::new(1 << 16);
+        let f = slice_filter();
+        let expected = fx.rows(&f).len();
+        let alpha = fx.rows(&Filter::plane(ALPHA)).len();
+        let ungated = fx
+            .rows(&Filter::or([
+                Filter::and([
+                    Filter::cmp(VALS, Cmp::GtI32(0)),
+                    Filter::cmp(CLASS, Cmp::NeU32(0)),
+                ]),
+                Filter::cmp(VALS, Cmp::LtI32(-190)),
+            ]))
+            .len();
+        assert!(expected > 0 && expected < alpha, "{expected} of {alpha}");
+        assert!(
+            expected < ungated,
+            "the gate must bind: {expected} vs {ungated}"
         );
-        assert_eq!(
-            run(&q(Agg::MaxI32(Col(0))), &vals, &classes),
-            Value::OptI32(max)
-        );
+
+        let q = Query {
+            filter: f,
+            agg: Agg::Count,
+        };
+        let inplace = lower(&q).expect("lowers");
+        let fused = lower_fused(&q).expect("lowers");
+        assert_eq!(fx.exec(&inplace, &[], None), Value::Count(expected));
+        assert_eq!(fx.exec(&fused, &[], None), Value::Count(expected));
+        assert_eq!(fx.reference(&inplace, None), Value::Count(expected));
+        assert_eq!(fx.reference(&fused, None), Value::Count(expected));
     }
 }
