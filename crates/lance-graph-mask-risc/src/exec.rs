@@ -559,23 +559,47 @@ mod tests {
         assert_ne!(remap_imm(ANDNOT_IMM, [1, 0, 2]), ANDNOT_IMM);
     }
 
-    /// FAILS IF: the executor grows an ISA branch — law L2. The crate has no
-    /// backend knowledge; which instruction runs a word is `ndarray`'s.
+    /// FAILS IF: ANY production module grows an ISA branch — law L2, which
+    /// the crate claims for itself and so must check for itself. Which
+    /// instruction runs a word is `ndarray`'s business.
     #[test]
-    fn the_executor_names_no_isa() {
-        let needles = [
+    fn the_crate_names_no_isa() {
+        // Split so this test's own text cannot match itself; `std::arch` and
+        // the runtime-detection macro are named too, because the law is "no
+        // ISA", not "not these three spellings".
+        let n = [
             "target_",
             "feature",
             "core::",
+            "std::",
             "arch",
             "cfg(target_",
-            "arch",
+            "is_x86_",
+            "detected!",
         ];
-        let src = include_str!("exec.rs");
-        let production = src.split("#[cfg(test)]").next().unwrap_or("");
-        assert!(!production.contains(&[needles[0], needles[1]].concat()));
-        assert!(!production.contains(&[needles[2], needles[3]].concat()));
-        assert!(!production.contains(&[needles[4], needles[5]].concat()));
+        let banned = [
+            [n[0], n[1]].concat(),
+            [n[2], n[4]].concat(),
+            [n[3], n[4]].concat(),
+            [n[5], n[4]].concat(),
+            [n[6], n[7]].concat(),
+        ];
+        for src in CRATE_SOURCES {
+            let production = src.split("#[cfg(test)]").next().unwrap_or("");
+            // CODE only: `lib.rs` states this very law in prose and so names
+            // the tokens it forbids. A doc line is the opposite of a breach.
+            for line in production
+                .lines()
+                .filter(|l| !l.trim_start().starts_with("//"))
+            {
+                for needle in &banned {
+                    assert!(
+                        !line.contains(needle.as_str()),
+                        "ISA token {needle:?} in: {line}"
+                    );
+                }
+            }
+        }
     }
 
     /// FAILS IF: a materialiser appears that is not one of the two the crate

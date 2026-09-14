@@ -314,7 +314,11 @@ mod tests {
             fuse(&e, u16::MAX).map(|f| f.ops.len()),
             Err(FuseError::SlotOverflow)
         );
-        assert!(fuse(&e, u16::MAX - 1).is_ok());
+        // The last-slot arm SUCCEEDS (both ternlogs fit) but has no next free
+        // slot. Saturating would report 65,535 — a slot it just wrote.
+        let last = fuse(&e, u16::MAX - 1);
+        assert!(last.is_ok());
+        assert_eq!(last.map(|f| f.next_slot), Ok(None));
     }
 
     fn lcg(seed: &mut u64) -> u64 {

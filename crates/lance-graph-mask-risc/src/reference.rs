@@ -564,13 +564,28 @@ mod tests {
                     Terminal::BlendI32 {
                         mask: S0,
                         then: 0,
-                        els: 0
+                        els: 2
                     },
                     Some(&mut out)
                 ),
                 Ok(Value::Blended)
             );
-            assert_eq!(out, fx.i32s);
+            // two DISTINCT lanes, so swapping `then`/`els` is visible; the
+            // expectation is spelled from the raw fixture, not from the blend
+            let want: Vec<i32> = (0..fx.n)
+                .map(|r| {
+                    if sel.contains(&r) {
+                        fx.i32s[r]
+                    } else {
+                        fx.i32s_b[r]
+                    }
+                })
+                .collect();
+            assert_eq!(out, want);
+            assert_ne!(
+                out, fx.i32s,
+                "the two lanes must differ where the mask is clear"
+            );
             assert_eq!(run(Terminal::Keep { mask: P0 }, None), Ok(Value::Mask(P0)));
             let empty = Program::new(
                 vec![MaskOp::AndNot {
