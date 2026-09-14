@@ -76,6 +76,61 @@
   census is measured and NOT yet on the board — see the arc entry's
   *Un-recorded* bullet.
 - Arc entry: `PR_ARC_INVENTORY.md` under PR #1233.
+## 2026-09-14 (3) — `lance-graph-quack`: the DuckDB-shaped surface whose operators ARE masking ops
+
+New workspace member `crates/lance-graph-quack`, one dependency
+(`lance-graph-mask-risc`, path). Inventory: `Col`, `Mask`, `Cmp` (9
+comparisons, one per `Pred` that produces a mask from a value lane), `Filter`
+(`Cmp`/`Plane`/`And`/`Or`/`Not`, builders `cmp`/`plane`/`and`/`or`/`negate`/
+`in_u32`/`in_i32`), `Agg` (`Count`/`Any`/`All`/`SumI32`/`MinI32`/`MaxI32`/
+`Rows`/`BlendI32`), `Query`, `GroupBy`, `GroupPlan`, `LowerError`
+(`EmptyJunction`/`TooManySlots`/`GroupedBlend`), and three lowerings —
+`lower` (in-place), `lower_fused` (Boolean skeleton through
+`mask_risc::fuse`), `lower_group_by` (two-phase).
+
+**The crate builds a `Program` and never evaluates one.** `execute` stays the
+consumer's call on a scratch the consumer owns; a `match` here that computed
+anything would be the duplicate evaluator the arc exists to avoid. No
+`ndarray` dep for the same reason — the masking algebra is reached THROUGH
+mask-risc, never beside it.
+
+Three things the scaffold owed and this closes:
+
+- **`Filter::Plane`** — a resident mask plane read as a predicate. The
+  scaffold's own doc recorded that "every row" had no honest spelling (no
+  `Fill` op; the draft's `NeU32{lane:0}` + constant-ternlog trick typechecked
+  only when lane 0 happened to be `U32`, a latent lane-kind bug). The plane
+  leaf is correct by construction, costs zero ops and zero slots, and is the
+  truer model: the table IS its validity plane, which is why there is no NULL
+  here to be three-valued about.
+- **The survivor skip.** An `AND` with a plane child gates every comparison
+  beneath it (`MaskOp::Pred`'s `under`). Sound for any Boolean remainder
+  (`g ∧ rest(X) = g ∧ rest(g∧X)`), so the gate passes through `NOT` and `OR`;
+  what does not pass is the DROP — the plane leaf is elided only where the
+  gated remainder is identically zero wherever the gate is (a comparison is;
+  an `AND` if any child is; an `OR` if every child is; a `NOT` never).
+- **`GROUP BY` with a mask plane where the hash table would be** — keep the
+  filter, bind it as a plane, one gated equality per key. K programs, not one,
+  and the doc says why: `masked_strided_group_sum` exists in the facade but
+  the IR names no strided operand and no group terminal.
+
+10 tests, every one differential against a per-row oracle that never sees a
+`Program`. The 64k vertical slice (`COUNT(alpha & ((A&B)|C))`) agrees across
+five readings — oracle, both lowerings on the executor, both on mask-risc's
+reference evaluator — with two-sided anti-vacuity (a proper subset of alpha
+AND strictly below the ungated remainder, so a dropped gate fails even though
+its count would still look plausible).
+
+Named absent: the join (`src_mask → hop → dst_mask` is mask-risc's PR5; there
+is no `hop` op to lower to yet), a one-terminal grouped SUM, and everything
+the IR itself excludes (strings, `ORDER BY`, three-valued NULL).
+
+Disable table: 8 arms, 7 load-bearing first try. The 8th is recorded as a
+finding — the empty-junction refusal is spelled at three sites, so disabling
+any one leaves the suite green while all three together turn it red. Both the
+guard and the test now say so, because the failure mode is a future session
+measuring one site, reading green, and deleting a guard as dead. Commits
+`18c1d85`, `f1d41c8`.
 
 ## 2026-09-14 (2) — PR3 (branch `claude/clone-repositories-71a5sw`): `lance-graph-mask-risc` gains its executor, oracle, fuser and generated dispatch
 
