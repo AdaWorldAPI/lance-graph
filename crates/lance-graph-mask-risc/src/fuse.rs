@@ -110,6 +110,14 @@ struct Lowering {
 }
 
 impl Lowering {
+    /// Hand out the next scratch slot, or [`FuseError::SlotOverflow`] when
+    /// the cursor has passed what an `Operand::Scratch` can name.
+    ///
+    /// The cursor is a `u32` while the slot it yields is a `u16`, so the
+    /// overflow is caught by the conversion rather than by a comparison that
+    /// could be written with the wrong bound. Slot 65,535 is legal and is the
+    /// last one; the cursor then sits at 65,536, which `fuse` reports as
+    /// `next_slot: None`.
     fn alloc(&mut self) -> Result<u16, FuseError> {
         let slot = u16::try_from(self.next).map_err(|_| FuseError::SlotOverflow)?;
         self.next += 1;

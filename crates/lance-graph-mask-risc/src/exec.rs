@@ -110,6 +110,9 @@ impl Scratch {
         core::mem::take(&mut self.slots[usize::from(i)])
     }
 
+    /// Put a buffer taken by [`Self::take`] back in its slot. Every `take`
+    /// is paired with exactly one `restore` on the same index — the arena is
+    /// only ever momentarily one buffer short, never permanently.
     fn restore(&mut self, i: u16, buf: Box<[u64]>) {
         self.slots[usize::from(i)] = buf;
     }

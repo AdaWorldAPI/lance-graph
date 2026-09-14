@@ -73,6 +73,12 @@ impl Fixture {
         }
     }
 
+    /// Execute `p` on BOTH sides over this fixture and assert they agree —
+    /// the returned [`Value`], and every scratch slot word for word.
+    ///
+    /// `name` is only ever read out of an assertion message: when a shape
+    /// fails somewhere inside a generated sweep of hundreds of programs, the
+    /// index alone does not say which one.
     fn run(&self, p: &Program, name: &str) {
         let masks: Vec<&[u64]> = self.masks.iter().map(|m| m.as_slice()).collect();
         let lanes = [

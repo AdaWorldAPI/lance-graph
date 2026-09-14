@@ -619,6 +619,11 @@ mod tests {
             }
         }
 
+        /// Run `f` against a `Planes` borrowing this fixture.
+        ///
+        /// A closure rather than a getter because `Planes` holds `&[&[u64]]`:
+        /// the slice OF references is itself a temporary, so a function
+        /// returning `Planes` would return a borrow of a local.
         fn with<R>(&self, f: impl FnOnce(&Planes<'_>) -> R) -> R {
             let masks: [&[u64]; 1] = [&self.mask];
             let lanes = [
@@ -674,6 +679,10 @@ mod tests {
         out
     }
 
+    /// FAILS IF: law L4 is breached — any line of CODE in this file names the
+    /// SIMD facade, which would make the oracle share an implementation with
+    /// the thing it exists to falsify. Also fails if `strip_comments` stops
+    /// stripping, since the needle then matches this file's own prose.
     #[test]
     fn the_oracle_has_no_facade_token() {
         let needle = ["nd", "array"].concat();
