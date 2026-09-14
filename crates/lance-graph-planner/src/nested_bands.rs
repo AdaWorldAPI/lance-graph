@@ -29,7 +29,7 @@
 use lance_graph_contract::shape_rank::{ShapeRankPayload, SHAPE_BUCKETS};
 use lance_graph_contract::thought_atoms::normalized_entropy;
 use ndarray::simd::ternlog::{AND2, AND_ANDNOT2};
-use ndarray::simd::{gt_i32_to_mask, mask_ternlog, popcount_batch_u64};
+use ndarray::simd::{gt_i32_to_mask, le_i32_to_mask, mask_ternlog, popcount_batch_u64};
 
 /// Fixed-point scale for Fisher-2z values on the i32 mask column: 2z ∈
 /// roughly [−21, 21] at EPS=1e-9, so ×1024 keeps 3 decimals and stays far
@@ -111,16 +111,10 @@ fn words_for(n: usize) -> usize {
 /// `M = rows with value <= boundary`, as `!gt` with the tail beyond `n`
 /// cleared. Shared mask-walk logic, carried over from the probes.
 fn le_mask(values: &[i32], boundary: i32) -> Vec<u64> {
-    let n = values.len();
-    let mut m = vec![0u64; words_for(n)];
-    gt_i32_to_mask(values, boundary, &mut m);
-    for w in m.iter_mut() {
-        *w = !*w;
-    }
-    if !n.is_multiple_of(64) {
-        let last = m.len() - 1;
-        m[last] &= (1u64 << (n % 64)) - 1;
-    }
+    // Seal-time only (one call per band in `build_bands`); the hot
+    // binary-search sites below write into a hoisted buffer instead.
+    let mut m = vec![0u64; words_for(values.len())];
+    le_i32_to_mask(values, boundary, &mut m);
     m
 }
 
@@ -433,11 +427,15 @@ impl NestedBands {
         let target = pop / 2;
         let words = bucket_mask.len();
         let mut scratch = vec![0u64; words];
+        // One buffer for the whole bisection: `le_i32_to_mask` overwrites it
+        // fully each step (the per-step allocation this replaced was the
+        // 2026-09-13 masking-debt audit's site #4).
+        let mut m = vec![0u64; words];
         let (mut a, mut b) = (lo, hi);
         let mut best: Option<(i32, u64, u64)> = None;
         while a < b {
             let mid = a + (b - a) / 2;
-            let m = le_mask(column, mid);
+            le_i32_to_mask(column, mid, &mut m);
             mask_ternlog::<AND2>(bucket_mask, &m, bucket_mask, &mut scratch);
             let below = popcount_batch_u64(&scratch);
             let err = below.abs_diff(target);
@@ -504,13 +502,11 @@ impl NestedBands {
             "NestedBands::best_achievable_floor: column length mismatch"
         );
         let n = column.len();
-        let exceedance = |v: i32| -> f64 {
-            let mut m = vec![0u64; words_for(n)];
+        // Hoisted once for the whole bisection (audit site #6); the
+        // primitive already writes a zero tail, so no manual clear.
+        let mut m = vec![0u64; words_for(n)];
+        let mut exceedance = |v: i32| -> f64 {
             gt_i32_to_mask(column, v, &mut m);
-            if !n.is_multiple_of(64) {
-                let last = m.len() - 1;
-                m[last] &= (1u64 << (n % 64)) - 1;
-            }
             popcount_batch_u64(&m) as f64 / n as f64
         };
         let mut lo = *column.iter().min().expect("NestedBands: empty column");

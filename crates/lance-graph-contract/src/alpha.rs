@@ -339,6 +339,93 @@ impl AlphaMask {
         out
     }
 
+    // ── In-place algebra (2026-09-13) ──────────────────────────────────
+    //
+    // The allocating forms above (`and`/`or`/`xor`/`and_not`/`not`) return a
+    // FRESH `Box<[u64]>` per operation — the ownership direction the V3 law
+    // forbids: the mailbox/allocation owns the address space and its resident
+    // masks; an operation mutates or borrows those planes, it never mints a
+    // second one. They are kept as-is (load-bearing for every existing
+    // caller) and the forms below are the ones a fused mask program uses.
+    // The contract stays zero-dep: these are plain word loops; a consumer
+    // with SIMD lowers through `words()`/`words_mut()` onto `ndarray::simd`.
+
+    /// `self &= other`, in place — no allocation. Same allocation-mismatch
+    /// law as [`Self::and`]: refuses two masks of different `len`.
+    pub fn and_assign(&mut self, other: &Self) {
+        assert_eq!(self.len, other.len, "masks from different allocations");
+        for (d, &s) in self.words.iter_mut().zip(other.words.iter()) {
+            *d &= s;
+        }
+    }
+
+    /// `self |= other`, in place — no allocation.
+    pub fn or_assign(&mut self, other: &Self) {
+        assert_eq!(self.len, other.len, "masks from different allocations");
+        for (d, &s) in self.words.iter_mut().zip(other.words.iter()) {
+            *d |= s;
+        }
+    }
+
+    /// `self ^= other`, in place — no allocation.
+    pub fn xor_assign(&mut self, other: &Self) {
+        assert_eq!(self.len, other.len, "masks from different allocations");
+        for (d, &s) in self.words.iter_mut().zip(other.words.iter()) {
+            *d ^= s;
+        }
+    }
+
+    /// `self &= !other`, in place — no allocation. The result is a subset of
+    /// the prior `self`, so a conforming tail stays conforming.
+    pub fn and_not_assign(&mut self, other: &Self) {
+        assert_eq!(self.len, other.len, "masks from different allocations");
+        for (d, &s) in self.words.iter_mut().zip(other.words.iter()) {
+            *d &= !s;
+        }
+    }
+
+    /// Complement in place, tail cleared — the in-place [`Self::not`].
+    pub fn not_assign(&mut self) {
+        for w in self.words.iter_mut() {
+            *w = !*w;
+        }
+        let tail = u64::from(self.len % 64);
+        if tail != 0 {
+            if let Some(last) = self.words.last_mut() {
+                *last &= (1u64 << tail) - 1;
+            }
+        }
+    }
+
+    /// Clear every bit — reuse this allocation as fresh scratch instead of
+    /// minting another.
+    pub fn clear(&mut self) {
+        for w in self.words.iter_mut() {
+            *w = 0;
+        }
+    }
+
+    /// The packed words, mutably — the seam a SIMD consumer WRITES through
+    /// (`ndarray::simd::mask_ternlog_assign` takes `&mut [u64]`). The caller
+    /// owes the tail invariant: bits at and past `len()` must be left zero.
+    /// Every `ndarray::simd` mask writer honours it for conforming inputs
+    /// and even ternlog tables; a caller composing an odd table clears the
+    /// tail itself ([`Self::clear_tail`]).
+    pub fn words_mut(&mut self) -> &mut [u64] {
+        &mut self.words
+    }
+
+    /// Re-establish the tail invariant after an external writer that may
+    /// have raised phantom bits (an odd-table ternlog, a hand-built word).
+    pub fn clear_tail(&mut self) {
+        let tail = u64::from(self.len % 64);
+        if tail != 0 {
+            if let Some(last) = self.words.last_mut() {
+                *last &= (1u64 << tail) - 1;
+            }
+        }
+    }
+
     /// **The named materializer** — ordinals out, ascending. O(n), and the
     /// only exit from mask form, per the no-unnamed-materializer rule.
     #[must_use]

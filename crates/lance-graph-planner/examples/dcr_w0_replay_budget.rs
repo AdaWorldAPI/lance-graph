@@ -211,7 +211,7 @@ fn measure_mask_both(iters: usize) -> (f64, f64, f64, f64) {
 }
 
 /// The SAME 4096-bit intersection through **ndarray's shipped SIMD mask
-/// kernel** (`simd_int_ops::mask_and`, `U64x8` lanes), which is the workspace's
+/// kernel** (`ndarray::simd::mask_and`, `U64x8` lanes), which is the workspace's
 /// only sanctioned home for SIMD. This answers "does the replay engine need to
 /// borrow masking from ndarray?" with a number instead of an opinion — and it
 /// is the honest first increment of the deferred p64 64x64 wave, because
@@ -225,7 +225,7 @@ fn measure_mask_ndarray(iters: usize) -> f64 {
     let t0 = Instant::now();
     let mut sink = 0u32;
     for _ in 0..iters {
-        ndarray::simd_int_ops::mask_and(
+        ndarray::simd::mask_and(
             std::hint::black_box(&a),
             std::hint::black_box(&b),
             &mut dst,
@@ -247,7 +247,7 @@ fn measure_mask_decomposition(iters: usize) -> (f64, f64) {
 
     let t0 = Instant::now();
     for _ in 0..iters {
-        ndarray::simd_int_ops::mask_and(
+        ndarray::simd::mask_and(
             std::hint::black_box(&a),
             std::hint::black_box(&b),
             &mut dst,
@@ -321,7 +321,7 @@ fn main() {
 
     let nd_ns = measure_mask_ndarray(1_000_000);
     println!(
-        "   ndarray simd_int_ops::mask_and (U64x8): {:>9.0} ops/ms  ({nd_ns:>6.1} ns)",
+        "   ndarray simd::mask_and (U64x8): {:>9.0} ops/ms  ({nd_ns:>6.1} ns)",
         1e6 / nd_ns
     );
     let ratio = fixed_ns / nd_ns;

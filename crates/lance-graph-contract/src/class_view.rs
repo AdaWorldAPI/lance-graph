@@ -417,6 +417,104 @@ impl WideFieldMask {
         }
     }
 
+    // ── In-place algebra + borrowed word view (2026-09-13) ─────────────
+    //
+    // The three folds above (`intersect`/`union`/`difference`) return a NEW
+    // mask — on the `Wide` arm that is a fresh `Vec` per operation
+    // (`zip_fold`). A field mask is facet GEOMETRY ("which facets participate")
+    // and stays exactly that; what changes here is its EXECUTION behaviour:
+    // an in-place form that mutates the caller's own chunks, and a borrowed
+    // view so a consumer can lower the same words onto `ndarray::simd` (the
+    // contract itself stays zero-dep, so these are plain word loops).
+    //
+    // The in-place forms do NOT re-normalize (no trailing-chunk trim, no
+    // demotion to `Small`); the hand-written `PartialEq`/`Hash` are
+    // representation-independent, so a `Wide` value whose high chunks became
+    // zero still compares and hashes as its `Small` equivalent.
+
+    /// `self &= other`, in place. Never allocates: intersecting cannot raise
+    /// a bit `self` did not already hold, so a `Small` self stays `Small`
+    /// whatever tier `other` is.
+    pub fn intersect_with(&mut self, other: &Self) {
+        match &mut self.0 {
+            WideRepr::Small(a) => *a &= other.chunk_at(0),
+            WideRepr::Wide(v) => {
+                for (i, slot) in v.iter_mut().enumerate() {
+                    *slot &= other.chunk_at(i);
+                }
+            }
+        }
+    }
+
+    /// `self &= !other`, in place. Never allocates (a difference is a subset
+    /// of `self`).
+    pub fn difference_with(&mut self, other: &Self) {
+        match &mut self.0 {
+            WideRepr::Small(a) => *a &= !other.chunk_at(0),
+            WideRepr::Wide(v) => {
+                for (i, slot) in v.iter_mut().enumerate() {
+                    *slot &= !other.chunk_at(i);
+                }
+            }
+        }
+    }
+
+    /// `self |= other`, in place. Allocates in exactly ONE case — `other`
+    /// carries chunks `self` does not have (a `Small`/shorter self absorbing
+    /// a wider union), where the wider result genuinely needs the room; that
+    /// growth is the promotion `with` already pays, not a per-operation copy.
+    /// Every other shape mutates in place.
+    pub fn union_with(&mut self, other: &Self) {
+        let need = other.raw_len();
+        if self.raw_len() >= need || other.high_chunks_are_zero(self.raw_len()) {
+            match &mut self.0 {
+                WideRepr::Small(a) => *a |= other.chunk_at(0),
+                WideRepr::Wide(v) => {
+                    for (i, slot) in v.iter_mut().enumerate() {
+                        *slot |= other.chunk_at(i);
+                    }
+                }
+            }
+            return;
+        }
+        let mut v = vec![0u64; need];
+        for (i, slot) in v.iter_mut().enumerate() {
+            *slot = self.chunk_at(i) | other.chunk_at(i);
+        }
+        self.0 = WideRepr::Wide(v.into_boxed_slice());
+    }
+
+    /// Are all chunks at index `>= from` zero (so a union into a mask of
+    /// `from` chunks needs no growth)?
+    #[inline]
+    fn high_chunks_are_zero(&self, from: usize) -> bool {
+        (from..self.raw_len()).all(|i| self.chunk_at(i) == 0)
+    }
+
+    /// The packed chunks as a borrowed slice — `Small` is a one-element view
+    /// of its `u64`, `Wide` the boxed chunks. A BORROW, never a copy: this is
+    /// the seam a SIMD consumer reads a field mask through when it
+    /// participates in a fused expression (chunk `k` = positions
+    /// `64k..64k+63`, exactly `FieldMask`'s bit order).
+    #[must_use]
+    pub fn words(&self) -> &[u64] {
+        match &self.0 {
+            WideRepr::Small(bits) => core::slice::from_ref(bits),
+            WideRepr::Wide(v) => v,
+        }
+    }
+
+    /// The packed chunks, mutably — the write seam for an external mask
+    /// writer over this mask's own storage. Cannot grow the mask: a writer
+    /// that needs a position past `64 * words().len()` promotes via
+    /// [`with`](Self::with) first.
+    pub fn words_mut(&mut self) -> &mut [u64] {
+        match &mut self.0 {
+            WideRepr::Small(bits) => core::slice::from_mut(bits),
+            WideRepr::Wide(v) => v,
+        }
+    }
+
     /// Is every field position of `self` also present in `other`? Specified
     /// as `self.difference(other).is_empty()` — one code path,
     /// identity-honest (plan §2.1). This allocates on the `Wide` arm; the
