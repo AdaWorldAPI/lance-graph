@@ -85,9 +85,12 @@ pub enum Pred {
 /// are read-only by construction.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum MaskOp {
-    /// `dst = pred(lane)`. With `under = Some(m)`, only 1024-row chunks in
-    /// which `m` has a survivor are evaluated; the others are written zero —
-    /// the survivor-word skip (cost ∝ survivors, never ∝ rows).
+    /// `dst = pred(lane)`. With `under = Some(m)`, the predicate is evaluated
+    /// only where `m` has a survivor and the rest is written zero — the
+    /// survivor skip. Its granularity is the facade's: 64-row WORDS (an
+    /// executor is free to skip coarser chunks; the result is identical by
+    /// construction, since a skipped chunk is an all-zero gate). Compare cost
+    /// follows the gate's live words; the per-word gate test is still ∝ rows/64.
     Pred {
         pred: Pred,
         under: Option<Operand>,

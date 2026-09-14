@@ -1,12 +1,15 @@
 //! # `lance-graph-mask-risc` — the mask RISC above `ndarray::simd`
 //!
-//! **STATUS: SKELETON.** Only [`ir`] exists. The executor, the fuser, the
-//! hop op, the scalar reference oracle and the generated truth tables
-//! described below are PR3's deliverables — every sentence about what
-//! "the executor" does is the DESIGN it is held to, *claimed, unverified*
-//! until that code and its falsifiers land. The crate deliberately has no
-//! dependencies yet; `ndarray` and `lance-graph-contract` are added when
-//! the first code path uses them, not before.
+//! **STATUS: EXECUTOR LANDED (PR3).** [`ir`] is the vocabulary, [`exec`] the
+//! borrowing evaluator (one facade delegation per op over caller-owned
+//! [`exec::Scratch`]), [`reference`] the row-at-a-time oracle that never
+//! touches `ndarray`, [`fuse`] the Boolean-tree → ternlog fuser, and
+//! [`ternlog_dispatch`] the GENERATED 256-arm bridge from a runtime
+//! immediate to the const-generic facade word. The differential suite
+//! (`tests/differential.rs`) diffs executor against oracle on every backend;
+//! `tests/no_alloc.rs` pins the zero-allocation law. Still absent, named:
+//! `hop` (PR5), the strided operand family (an `ndarray` T1 gap), and the
+//! Cypher `mask_lower` seam (the Cypher plan's Wave 1 consumes this crate).
 //!
 //! A tiny mechanical evaluator and fuser for Boolean programs over
 //! **borrowed resident bit-planes** (one `u64` per 64 rows, LSB-first, tail
@@ -63,15 +66,23 @@
 
 #![forbid(unsafe_code)]
 
-// Only the IR exists in this skeleton. `exec` (the borrowing executor),
-// `fuse` (predicate → one ternlog chain), `hop` (src_mask → edge lane →
-// dst_mask), `reference` (the scalar oracle) and `ternlog_table` (the
-// generated truth tables) are PR3's deliverables and are declared when they
-// land — a `mod` line for a file that is not on disk made this crate fail to
-// build, which both the DuckDB matrix and the Cypher lowering plan recorded.
+// `hop` (src_mask → edge lane → dst_mask) is PR5's and is declared when it
+// lands — a `mod` line for a file that is not on disk made this crate fail to
+// build once, which both the DuckDB matrix and the Cypher lowering plan
+// recorded.
+pub mod exec;
+pub mod fuse;
 pub mod ir;
+pub mod reference;
+pub mod ternlog_dispatch;
+pub mod value;
 
+pub use exec::{execute, materialize_rows, Scratch};
+pub use fuse::{fuse, fuse_program, ternlog_imm, BoolExpr, FuseError, Fused};
 pub use ir::{LaneRef, MaskOp, Operand, Planes, Pred, Program, Terminal, MASKED_SUM_I32_MAX_ROWS};
+pub use reference::{reference_execute, reference_scratch};
+pub use ternlog_dispatch::{ternlog_dispatch, ternlog_dispatch_assign};
+pub use value::{ExecError, LaneKind, Value};
 
 /// Number of `u64` words a mask over `n_rows` occupies.
 #[inline]

@@ -615,6 +615,16 @@ tail after any complementing op** — `ir.rs:96` says `Not` clears it; a fused
 `Ternlog` with a complementing immediate does not say so, and that is a gap to close
 in Wave 1, with a falsifier (§7 F-X3).
 
+> **Closed 2026-09-14 (PR3, `mask-risc-executor-v1.md` D-MRX-1).** `ir.rs`'s
+> `Ternlog` doc now states the odd-immediate obligation, and `exec.rs` clears the
+> tail once, in `clear_tail`, after every odd immediate; F-X3
+> (`odd_ternlog_immediate_does_not_inflate_a_count`) is disable-verified. The
+> aliasing shapes the executor owes are all routed through ONE immediate remap
+> (`remap_imm`): `AndNot` with `dst == b` is the in-place ternlog `0x0C` over
+> `(b, a, a)`; a `Ternlog` with `dst` at any input position permutes the table
+> the same way. `Program` does not carry `n_rows` — `Planes` does, and the
+> executor reads it there.
+
 **(b) The one-population law.** Restated from §3.4: a mask indexes ONE address
 space. The forbidden move is `mask_and` across two tables
 (`spog-alpha-channel-v1.md:186-187`). Encode it in the type: an op's operands carry
