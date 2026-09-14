@@ -28,7 +28,7 @@
 
 use lance_graph_contract::shape_rank::{ShapeRankPayload, SHAPE_BUCKETS};
 use lance_graph_contract::thought_atoms::normalized_entropy;
-use ndarray::simd::ternlog::{AND2, AND_ANDNOT2};
+use ndarray::simd::ternlog::AND_ANDNOT2;
 use ndarray::simd::{gt_i32_to_mask, le_i32_to_mask, mask_and, mask_ternlog, popcount_batch_u64};
 
 /// Fixed-point scale for Fisher-2z values on the i32 mask column: 2z ∈
@@ -1181,7 +1181,7 @@ mod tests {
         while a < b {
             let mid = a + (b - a) / 2;
             let m = oracle_le_mask(column, mid);
-            mask_ternlog::<AND2>(bucket_mask, &m, bucket_mask, &mut scratch);
+            mask_ternlog::<TEST_AND2>(bucket_mask, &m, bucket_mask, &mut scratch);
             let below = popcount_batch_u64(&scratch);
             let err = below.abs_diff(target);
             if best.is_none_or(|(_, e, _)| err < e) {
