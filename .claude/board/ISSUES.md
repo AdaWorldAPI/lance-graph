@@ -138,7 +138,7 @@ answers which half (taxonomic data: positive; continuous-embedding fidelity: neu
 whether "un-run" was meant to scope to a third arm neither run covers.
 
 ---
-## ISS-SPREAD-DOES-NOT-TRANSFER-CROSS-FAMILY (2026-09-15) — OPEN
+## ISS-SPREAD-DOES-NOT-TRANSFER-CROSS-FAMILY (2026-09-15) — ⊘ OPEN, PREMISE FALSIFIED SAME DAY: the "comparable spread" it rests on was a measurement bug; the corrected numbers point the other way
 
 **The path-length-spread dose-response holds WITHIN the MQ family and MONDO does not sit on
 the axis.**
@@ -149,11 +149,35 @@ braids (mean spread **0.44**, 182/195 pairs) and scores **84.6 %** — *higher* 
 **55.3 %**, which has comparable spread. So spread predicts within one synthetic family and does
 not carry to the one real ontology measured.
 
+⊘ **THE PREMISE IS FALSIFIED (review on `43dbfde`, fixed same day).** `supers_minmax` enqueued a
+node only on its FIRST discovery — it wrote `mn`/`mx` on the two lines above the change-test, so
+the test compared a depth against the value it had just written and was always false. A later,
+longer path therefore widened `mx[p]` without ever propagating that depth to `p`'s own ancestors,
+**systematically understating spread**. Corrected: **MQ mean spread 0.73 → 15.55 (21×), MONDO
+0.44 → 1.35 (3.1×)**, MONDO's flat set 13 → 9 pairs.
+
+**So "comparable spread" was an artifact.** MQ's spread is **11.5× MONDO's**, and the direction
+now *matches* the within-MQ dose-response — more span, lower agreement (MQ 15.55 → 36.0 %;
+MONDO 1.35 → 84.6 %). The evidence for non-transfer is gone, and it did not merely weaken: it
+points the opposite way.
+
+**This does NOT establish transfer, and the issue stays OPEN.** Two points are not a curve, and
+the comparison the issue actually made was against MQ `(1,2)` specifically — whose spread cannot
+be read off the fixed code, because `sweep.py` computes no spread at all (verified: zero
+`minmax` sites). The honest state is **unmeasured**, not resolved. Note the headline A3/A5
+verdicts are untouched by the fix (Δ 48.6 pp identical; braided-only 47.5 → 47.8 pp) because
+they read the SIGN of spread, not its size — only magnitude claims are void.
+
 **Why that matters rather than being a curiosity:** the whole point of naming a mechanism was to
 turn *"depth-rank is taxonomy-shaped"* into a **checkable precondition** a caller could evaluate
 on its own graph. A predictor that works only inside the family it was tuned on is not that.
 
-**What would close it:** measure the spread distribution of MONDO (and ideally a second real
+**What would close it (REVISED after the fix):** teach `sweep.py` to compute spread per MQ config
+on the corrected `supers_minmax`, then place MONDO's 1.35 on that axis and check whether ONE
+curve fits both. Anti-vacuity is unchanged and now harder: the curve must also *mis*-predict
+something, or it is being fit rather than tested.
+
+*(As originally written:)* measure the spread distribution of MONDO (and ideally a second real
 ontology) on the same footing as the MQ configs, and check whether a single spread→agreement
 curve fits both. If it does not, the honest statement is that spread is an MQ-family artifact and
 the taxonomy result remains mechanism-free. Anti-vacuity: the curve must also *mis*-predict

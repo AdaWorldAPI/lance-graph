@@ -50,11 +50,19 @@ def supers_minmax(parents, c, cap=DEPTH_CAP):
         n, d = q.pop(0)
         if d >= cap: continue
         for p in parents.get(n, ()):
-            seen = p in mn
-            if not seen or d + 1 < mn[p]: mn[p] = d + 1
-            if not seen or d + 1 > mx[p]: mx[p] = d + 1
-            if not seen or d + 1 < mn.get(p, 1 << 30) or d + 1 > mx.get(p, -1):
-                q.append((p, d + 1))
+            depth = d + 1
+            # Decide BEFORE writing. The first version updated mn/mx on the two
+            # lines above the test, so the test then compared depth against the
+            # value it had just written and was always false — only the FIRST
+            # discovery of a node ever propagated, and a later longer path
+            # widened mx[p] without pushing that depth to p's own ancestors.
+            # That systematically UNDER-states spread, which is the variable
+            # the A5 arm reads. Found by review on 43dbfde.
+            changed = p not in mn or depth < mn[p] or depth > mx[p]
+            mn[p] = min(mn.get(p, depth), depth)
+            mx[p] = max(mx.get(p, depth), depth)
+            if changed:
+                q.append((p, depth))
     return mn, mx
 
 def most_specific(parents, sset):
@@ -225,7 +233,14 @@ def u24(b, o):
     instead of hiding it in the accessor.
     """
     return b[o] | (b[o+1] << 8) | (b[o+2] << 16)
-data = open(SOA, "rb").read(); rows = len(data) // STRIDE
+data = open(SOA, "rb").read()
+if not data or len(data) % STRIDE:
+    raise ValueError(
+        "MONDO bake must be non-empty and a whole multiple of STRIDE; "
+        "len(...) // STRIDE silently discards a partial trailing row, so an "
+        "incomplete download would report measurements from a prefix."
+    )
+rows = len(data) // STRIDE
 p_ont = defaultdict(list)
 for r in range(rows):
     row = data[r*STRIDE:(r+1)*STRIDE]

@@ -169,7 +169,14 @@ if os.path.exists(SOA):
     STRIDE, EOFF, VOFF, LOFF, LB, LN = 512, 16, 32, 112, 16, 23
     MONDO = 0x91010000
     def u24(b, o): return b[o] | (b[o+1] << 8) | (b[o+2] << 16)
-    d = open(SOA, "rb").read(); po = defaultdict(list)
+    d = open(SOA, "rb").read()
+    if not d or len(d) % STRIDE:
+        raise ValueError(
+            "MONDO bake must be non-empty and a whole multiple of STRIDE; "
+            "len(...) // STRIDE silently discards a partial trailing row, so an\n"
+            "incomplete download would report measurements from a prefix."
+        )
+    po = defaultdict(list)
     for r in range(len(d) // STRIDE):
         row = d[r*STRIDE:(r+1)*STRIDE]
         cls = struct.unpack_from("<I", row, 0)[0]

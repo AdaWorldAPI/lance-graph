@@ -81,11 +81,15 @@ fn main() {
     let p4a = NodeGuid::new_v2(C, 0x1111, 0x2222, 0x3333, 0x4444, 0x5555, 0x6666);
     let p4b = NodeGuid::new_v2(C, 0x9999, 0x2222, 0x3333, 0xBBBB, 0x5555, 0x6666);
 
-    let pairs: [(&str, &NodeGuid, &NodeGuid); 4] = [
-        ("P1 same HHTL, different v2 family", &p1a, &p1b),
-        ("P2 different HEEL, same v2 tail  ", &p2a, &p2b),
-        ("P3 identical (control)           ", &p3a, &p3b),
-        ("P4 differ in both (control)      ", &p4a, &p4b),
+    // Each row carries its EXACT expected (cascade, v2tail). An aggregate or
+    // relative assertion would pass after a regression that changes the very
+    // mechanism this probe reports — which is the defect this probe's own
+    // finding warns about, so it must not commit it. Review finding on 43dbfde.
+    let pairs: [(&str, &NodeGuid, &NodeGuid, u8, u8); 4] = [
+        ("P1 same HHTL, different v2 family", &p1a, &p1b, 3, 1),
+        ("P2 different HEEL, same v2 tail  ", &p2a, &p2b, 0, 3),
+        ("P3 identical (control)           ", &p3a, &p3b, 3, 3),
+        ("P4 differ in both (control)      ", &p4a, &p4b, 0, 0),
     ];
 
     println!("== ISS-FAMILY falsifier: does \"shared prefix by family\" mean one thing? ==\n");
@@ -93,7 +97,7 @@ fn main() {
     println!("{}", "-".repeat(72));
 
     let mut disagreements = 0;
-    for (name, a, b) in pairs {
+    for (name, a, b, want_cascade, want_v2tail) in pairs {
         // anti-vacuity: the pair must actually differ in bytes 4..14, else the
         // comparison is trivially satisfied and proves nothing.
         let differs_in_key = a.as_bytes()[4..14] != b.as_bytes()[4..14];
@@ -105,6 +109,11 @@ fn main() {
 
         let cascade = cascade_of(a).shared_prefix_tiers(cascade_of(b));
         let v2tail = v2_tail_tiers(a, b);
+        assert_eq!(
+            (cascade, v2tail),
+            (want_cascade, want_v2tail),
+            "{name}: exact (cascade, v2tail) changed"
+        );
         let agree = cascade == v2tail;
         if !agree {
             disagreements += 1;
@@ -119,10 +128,10 @@ fn main() {
     }
 
     println!("\n{} of 4 pairs disagree.", disagreements);
-    assert!(
-        disagreements >= 2,
-        "the issue claims the two namings diverge; fewer than 2 disagreements would refute it"
-    );
+    // Exactness is asserted per pair above; this only records the count so a
+    // reader sees it. `disagreements >= 2` alone was the original assertion and
+    // it was too weak: P1 could drift to (2,1) and P2 to (1,3) and still pass.
+    assert_eq!(disagreements, 2, "exactly P1 and P2 must disagree");
 
     // ---- the byte-order trap, from the sixth arc ------------------------------
     println!("\n== byte-order trap: CLZ over the raw 16 bytes vs recomposed ==\n");
@@ -163,11 +172,24 @@ fn main() {
         "\nrecomposed: root-nibble diff -> level {rc_t1}, leaf-nibble diff -> level {rc_t2} (expected 0 and 31)"
     );
     println!("from_le:    root-nibble diff -> level {le_t1}, leaf-nibble diff -> level {le_t2} (INVERTED if le_t1 > le_t2)");
-    assert!(
-        le_t1 > le_t2,
-        "from_le_bytes should invert the two ends; if it does not, the trap claim is wrong"
+    let be_t1 = nibble_level(
+        u128::from_be_bytes(*t1a.as_bytes()) ^ u128::from_be_bytes(*t1b.as_bytes()),
     );
-    assert_eq!(rc_t1, 0, "recomposed: a root-nibble difference must be level 0");
+    let be_t2 = nibble_level(
+        u128::from_be_bytes(*t2a.as_bytes()) ^ u128::from_be_bytes(*t2b.as_bytes()),
+    );
+    // EXACT LEVELS AT BOTH ENDS, for all three readings. The original assertion
+    // here was `le_t1 > le_t2` — a RELATION — which is precisely what this
+    // probe's own finding says is insufficient: "a test that checks the
+    // ORDERING of two prefix lengths will pass the from_be implementation."
+    // The probe stating that rule asserted a relation. Review finding, 43dbfde.
+    assert_eq!((rc_t1, rc_t2), (0, 31), "recomposed levels changed");
+    assert_eq!((le_t1, le_t2), (24, 3), "from_le levels changed");
+    assert_eq!((be_t1, be_t2), (6, 29), "from_be levels changed");
+    // And the discriminating property: from_be is MONOTONE (so an ordering
+    // check passes it) while being wrong at both ends.
+    assert!(be_t1 < be_t2, "from_be is monotone — this is why ordering is not enough");
+    assert!(le_t1 > le_t2, "from_le inverts the two ends");
 
     println!("\nVERDICT: the two namings are NOT interchangeable. Filed hazard CONFIRMED.");
 }

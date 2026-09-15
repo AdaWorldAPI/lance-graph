@@ -1,7 +1,11 @@
 ## 2026-09-14 (4) — hexagon-plasticity-v1 — can six learned rails discover local adjacency, and can ARM promote a cue to a path? → `.claude/plans/hexagon-plasticity-v1.md`
 
 **Status:** ACTIVE (W-1 and W0 RUN before landing; §9 carries their results and
-§10 the gate they forced. **W1 RUN 2026-09-15 — §11: PROCEED, not PASS**, cue
+§10 the gate they forced. **W1 RUN 2026-09-15 — §11: PROCEED, not PASS** (the overall gate
+result) **and §11a AMENDS D-HXP-2 to FALSIFIED** — §11a does not supersede the gate score; it
+retires the cue verdict the score was read as supporting. ⊘ *This line first recorded only the
+gate result, which read as though nothing had been falsified. Corrected from review on
+`43dbfde`.* Cue
 r@10 0.1579 vs incumbent 0.1805 = 87.5 %; the order-sensitive arm wins and is
 the only falsifiable one; three items of this plan are STORNO'd there by
 operator correction — no scent table, no cosine). D-HXP-0..7. Extends, does not supersede,

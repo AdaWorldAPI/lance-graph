@@ -60,6 +60,14 @@ would trend the same way. They trend opposite. MONDO's small-`|I|` majority is i
 fact its *worst* bucket, so the headline **understates** the taxonomy effect.
 
 **3. A5 — the proposed mechanism is FALSIFIED, and that is the result.**
+⊘ **HISTORICAL as published; two later results narrow it.** (a) The density sweep
+(`.claude/probes/density-sweep-v1/`) falsified DENSITY as the cause **within MQ** and named
+reachable path-length SPAN as the current candidate — so the binary braided-only verdict below
+is underpowered rather than simply right. (b) A review on `43dbfde` found `supers_minmax`
+propagated only a node's FIRST discovery, understating spread by up to 21× (MQ mean 0.73 → 15.55,
+MONDO 0.44 → 1.35). The A5 flat/braided SPLIT barely moved (Δ 47.5 → 47.8 pp) because it reads
+the sign of spread, not its size — but any statement about spread MAGNITUDES published before
+that fix is void. **Cross-family transfer remains unmeasured.**
 `supers_of` keeps the MINIMUM depth, so the natural hypothesis is that depth stops
 tracking specificity once a DAG **braids** (several path lengths to the same
 ancestor, letting a general ancestor score shallow via a shortcut). Braiding does

@@ -1,3 +1,94 @@
+## 2026-09-15 — E-THE-REVIEW-FOUND-A-REAL-BUG-THAT-FALSIFIED-MY-OWN-ISSUES-PREMISE-AND-I-BROKE-MY-OWN-RULE-IN-THE-FILE-STATING-IT-1 — nine findings, nine valid, and the two that matter are a 21× measurement error and a probe that asserts the relation it exists to condemn
+
+**Status:** FINDING (all nine verified against source before any edit; the code fixes are
+re-run and disable-verified).
+**Confidence:** HIGH. Every finding was checked against the declaration or artifact it names,
+not accepted on the reviewer's word — and one of the nine was accepted only after my own
+counter-reading turned out to be the wrong one (below).
+**Provenance:** CodeRabbit full review of `43dbfde`, requested deliberately before merge
+because its assessment had been frozen eleven commits back. Merge risk moved 🔵 Low → 🟡
+Moderate with *"correct the probe logic and conflicting conclusions before merge."* Correct.
+
+### The one that justified running it: a real bug, understating the metric 21×
+
+`supers_minmax` (`elk-generality-v1/generality.py`) enqueued a node **only on its first
+discovery**. It wrote `mn[p]`/`mx[p]` on the two lines *above* the change-test, so the test
+compared a depth against the value it had just written and was always false. A later, longer
+path widened `mx[p]` without propagating that depth to `p`'s own ancestors.
+
+| | buggy | fixed |
+|---|---|---|
+| MQ mean path-length spread | 0.73 | **15.55** (21×) |
+| MONDO mean spread | 0.44 | **1.35** (3.1×) |
+| MONDO flat set | 13/13 | 9/9 |
+| A3 headline Δ | 48.6 pp | **48.6 pp — identical** |
+| A5 braided-only Δ | 47.5 pp | 47.8 pp |
+
+**The conclusions survive and the reason is worth keeping:** A3/A5 read the **sign** of spread
+(flat vs braided), not its **size**. A metric wrong by 21× left them untouched because they
+never used the magnitude. Only magnitude claims are void — and one of mine was.
+
+### It falsified the premise of an issue I had filed, in the direction of reversing it
+
+`ISS-SPREAD-DOES-NOT-TRANSFER-CROSS-FAMILY` argued: MONDO spread **0.44** scores 84.6 %,
+*higher* than MQ `(1,2)` at 55.3 % **"with comparable spread"** — therefore spread does not
+transfer. Corrected, MQ's spread is **11.5× MONDO's**, and the direction now *matches* the
+within-MQ dose-response: more span, lower agreement (MQ 15.55 → 36.0 %; MONDO 1.35 → 84.6 %).
+
+**"Comparable spread" was an artifact of the bug.** The evidence for non-transfer is not merely
+weakened; it points the other way. The issue stays **OPEN as unmeasured** rather than flipping:
+two points are not a curve, and the specific comparison it made was against MQ `(1,2)`, whose
+spread cannot be read off the fixed code because `sweep.py` computes no spread at all (verified:
+zero `minmax` sites). Fourth reversal of the session, and the first one an outside reviewer
+caused rather than my own re-measurement.
+
+### The probe that states the rule broke the rule
+
+I wrote, in the entry one above this: *"a test that checks the ORDERING of two prefix lengths
+will pass the `from_be` implementation. Pinning a join requires asserting exact levels at both
+ends, not a relation between them."* The probe shipped in the **same commit** asserted
+`le_t1 > le_t2` — a relation — and `disagreements >= 2` — an aggregate that P1 drifting to
+`(2,1)` and P2 to `(1,3)` would still satisfy.
+
+I asked the reviewer to look there specifically, suspecting this class of defect. It was there.
+Now pinned exactly: `(cascade, v2tail)` per fixture `(3,1) (0,3) (3,3) (0,0)`; all three readings
+at both ends `recomposed (0,31)`, `from_le (24,3)`, `from_be (6,29)`; plus the discriminating
+property asserted directly — **`from_be` is monotone**, which is *why* an ordering check passes
+it. Disable-verified red on a single-value change.
+
+**The generalizable form:** stating a rule in prose is not implementing it. The file most likely
+to violate a rule is the file that articulates it, because writing it down feels like discharging
+it.
+
+### A published number was the wrong metric
+
+`0.1579 → 0.0827, halved` compared baseline **`r@10`** against the shuffled arm's **`r@5`**.
+Like-for-like is **0.0902** — a 43 % drop, not a halving. The PR body carried the right number
+while the board entry carried the wrong one, so two artifacts I wrote disagreed.
+
+### And one where my counter-reading was the wrong one
+
+I described `from_be_bytes` as reversing **nibble order** inside each field. The reviewer said
+per-field **byte** reversal, `0x1234 → 0x3412`. My first instinct was that the reviewer was
+wrong. It is not: `0x1234` stored LE is `[0x34, 0x12]`, read BE as `0x3412`. A nibble reversal
+would give `0x4321`. **Nibble pairs survive; their order within the field inverts.** Corrected at
+both sites.
+
+### The rest, and the tally
+
+`±8` still in the horizon setup 27 lines above the `[−8, +7]` correction (**half-applied
+correction, instance ten**); "braiding: back on the table" overstating a within-MQ result;
+`INTEGRATION_PLANS` recording the gate score without the §11a amendment to FALSIFIED; the elk
+README's A5/density statements not marked historical; and an unguarded bake parser where
+`len(...) // STRIDE` silently drops a partial trailing row. All applied.
+
+**Nine findings, nine valid — fourteen for fourteen on this PR.** The standing lesson is about
+*when* to ask: the reviewer had been frozen eleven commits back and its visible assessment
+described a quarter of the work. Its value was not in the stale part; it was in the fresh pass
+nobody had requested because the gates were green. **Green CI on this repo compiles no Rust at
+all** — the four gates are documentation gates — so "green" never spoke to any of this.
+
+---
 ## 2026-09-15 — E-THE-TWO-FAMILY-NAMINGS-INVERT-AND-FROM-BE-BYTES-IS-THE-PLAUSIBLE-WRONG-JOIN-1 — the ISS-FAMILY falsifier ran: 0 versus 3 on one pair, and the byte-order trap has a variant that passes the obvious sanity check
 
 **Status:** FINDING (measured, `.claude/probes/family-join-v1/`, re-runnable, zero external data).
@@ -46,8 +137,11 @@ anticipate is the asymmetry between the two wrong readings:
   catches this.
 - **`from_be_bytes` is the one that would ship.** 6 and 29: the *direction* is right (T1 < T2,
   so a monotonicity sanity check **passes**) while every value is wrong. It is the
-  nibble-order-reversed-within-each-field error, and it is plausible precisely because it is
-  monotone.
+  **per-field BYTE-order reversal** — fields keep their root-first order while each multi-byte
+  field's bytes reverse, so a `u16` `0x1234` stored LE as `[0x34, 0x12]` reads back as `0x3412`.
+  Nibble PAIRS survive; their order within the field inverts. It is plausible precisely because
+  it is monotone. ⊘ *First published as "nibble-order-reversed"; that was wrong — a nibble
+  reversal of `0x1234` would be `0x4321`. Corrected from review on `43dbfde`.*
 
 **That sharpens the sixth arc's claim.** It said a wrong version "returns a plausible small
 number". Measured, there are two wrong versions and only one of them is plausible — the other is
@@ -238,10 +332,13 @@ bytes computes the join**:
 
 - `u128::from_le_bytes` → byte 15 becomes most-significant → counts from the **identity** end.
   Wildly wrong, and returns a plausible small number.
-- `u128::from_be_bytes` → correct field order, but byte 0 is classid's **low** byte → **nibble
-  order reversed inside every field**. Correct at byte granularity, wrong at nibble granularity —
-  and the OGAR canon's "1 hex digit = 1 nibble = 1 level of the 16-ary tree (FAN_OUT=16)" is
-  exactly nibble granularity.
+- `u128::from_be_bytes` → correct field order, but byte 0 is classid's **low** byte → the
+  **bytes inside every field are reversed**. A `u16` `0x1234` stored LE as `[0x34, 0x12]` reads
+  back as `0x3412` — nibble pairs intact, their order within the field inverted. Wrong at the
+  granularity the OGAR canon's "1 hex digit = 1 nibble = 1 level of the 16-ary tree
+  (FAN_OUT=16)" needs. ⊘ *First published as "nibble order reversed"; that was wrong — reversing
+  the nibbles of `0x1234` gives `0x4321`, not the `0x3412` that actually occurs. Corrected from
+  review on `43dbfde`.*
 
 Only recomposition from the *decoded values* is correct:
 `(classid as u128) << 96 | (heel as u128) << 80 | (hip as u128) << 64 | (twig as u128) << 48 |
@@ -323,8 +420,11 @@ unrun; nothing here claims it has been done.
 **Confidence:** High on the MQ dose-response — it is a controlled design with the confound
 removed. LOW on anything cross-family: MONDO does not sit on the axis (below).
 **Corrects:** `ISS-ELK-DENSITY-UNISOLATED` (density: FALSIFIED as the cause) and the A5 verdict
-in `E-DEPTH-RANK-REPRODUCES-MOST-SPECIFIC-BUT-ONLY-ON-A-TAXONOMY-1` (braiding: back on the
-table, my indicator was underpowered).
+in `E-DEPTH-RANK-REPRODUCES-MOST-SPECIFIC-BUT-ONLY-ON-A-TAXONOMY-1` — scoped: a **within-MQ**
+association between reachable path-length SPAN and ASC, my binary indicator having been
+underpowered. ⊘ *First published as "braiding: back on the table", which overstated it: binary
+braided-only causation is NOT restored, and cross-family transfer is unmeasured. Corrected from
+review on `43dbfde`.*
 
 **I filed density as the named-but-unisolated variable and deliberately declined to assert it
 without the sweep.** That restraint was the right call: the sweep kills it.
@@ -747,7 +847,8 @@ doc, never a claim that the substrate does RLHF.
 **Status:** FINDING (measured, `.claude/probes/horizon-window-v1/`, re-runnable).
 **Confidence:** High on the measurement; the fixture is synthetic by design.
 
-A `Locus` is a signed offset into the ±8 `temporal.rs` window, so the register is a
+A `Locus` is a signed offset into the `[−8, +7]` `temporal.rs` window (i4; `+8` is
+unrepresentable — see the correction below, which this line first contradicted), so the register is a
 **temporal-distance** carrier and its perception rule is a boxcar: full value inside,
 `0 = unbound` outside. Swept against two controls on the canonical preference-reversal
 fixture (sooner-smaller at `T1`, later-larger at `T2 > T1`, agent deciding from each
@@ -893,8 +994,12 @@ inhibition is `ANDNOT`, magnitude-level inhibition is subtraction or division, a
 XOR** (`I-SUBSTRATE-MARKOV`) — `XOR3` is sign/phase only.
 
 **Second finding, same run: order is the part that survives falsification.** The only arm whose
-disable fired is the **order-sensitive** one (consecutive cell pairs: 0.1579 → 0.0827 shuffled,
-halved), and it is also the best cue. Every order-blind arm tops out at 0.1353 and **none** of
+disable fired is the **order-sensitive** one (consecutive cell pairs, both `r@10`:
+0.1579 → **0.0902** shuffled, a 43 % drop — `arm_a_baseline` vs `arm_d_identity_order_shuffled`
+in `w1-transitions-permute.json`), and it is also the best cue. ⊘ *First published as
+"0.1579 → 0.0827 … halved": 0.0827 is that arm's **`r@5`**, so the comparison mixed two metrics
+and the "halved" characterisation does not hold on the like-for-like pair. Corrected from review
+on `43dbfde`.* Every order-blind arm tops out at 0.1353 and **none** of
 their falsifiers can fire, because permuting a unit→cell assignment is a global relabelling that
 leaves every exact-match collision intact. **The measured cue signal is exact unit-type reuse;
 the tile, seriation, LUT and spread contribute nothing that survives permutation.**
