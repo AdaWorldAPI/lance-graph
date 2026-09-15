@@ -55,6 +55,12 @@ struct Term {
     selectivity: f64,
 }
 
+/// Knuth's LCG constants. Deterministic on purpose and seeded from a
+/// constant: this probe's numbers are quoted in
+/// `duckdb-to-v3-translation-matrix-v1.md` §8a and in `Query::and_by_skip`'s
+/// doc table, so a run that did not reproduce them would silently invalidate
+/// a recorded measurement rather than fail. The `>> 11` drops the low bits,
+/// which are the weakest in an LCG.
 fn lcg(seed: &mut u64) -> u64 {
     *seed = seed
         .wrapping_mul(6364136223846793005)
@@ -94,6 +100,10 @@ fn skipped_words(terms: &[&Term]) -> (usize, u32) {
     (skipped, popcount(&acc))
 }
 
+/// EXHAUSTIVE, not sampled — which is what lets the probe report a true
+/// best and worst order rather than the best and worst it happened to try.
+/// Factorial in the term count, so it is only viable because the fixtures
+/// are deliberately small (4 terms = 24 orders).
 fn permutations<'a>(items: &[&'a Term]) -> Vec<Vec<&'a Term>> {
     if items.len() <= 1 {
         return vec![items.to_vec()];
