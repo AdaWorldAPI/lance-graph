@@ -114,19 +114,31 @@ promoter exists only in a probe.
 | 5 | `AND_ANDNOT2` = `domain ∧ ¬result` (the surround) | ternlog immediate, ships in ndarray | **not wired at the hop** |
 | 6 | `LearnedStyle` → `FrozenStyle` promotion | documented in the tenant | implemented **only in `probe_sudoku_teacher.rs`**; no promoter in any `src/` |
 
-Rows 1–4 and 6 are substitutions between things that already ship and are already
-proven. Row 5 additionally needs a **certified shape**: Pillar-15
+Rows 1–4 are substitutions between things that already ship and are already
+proven. **Row 6 is the same shape but is NOT in that group** — its promoter ships
+only as a probe (`probe_sudoku_teacher.rs`), never from any `src/`, exactly as its
+row says. Row 5 additionally needs a **certified shape**: Pillar-15
 (`ndarray/src/hpc/pillar/mexican_hat.rs`) is DEFERRED returning placeholder
 `passed=true`, and `hdr_cascade.rs:128-141` is a piecewise-linear ramp.
 
 ### Separate defect, same file, not a wire
 
-`graph/blasgraph/typed_graph.rs:71` documents `traverse` as **"Single-hop
-traversal"** and computes `matrix.mxm(matrix, …)` = **A × A**, two hops.
-`multi_hop(&["r"])` returns `A` itself. The two disagree by one hop. Read, not run
-— needs a test before it is called a bug, but two functions in one file that
-should agree and provably don't is not a wording problem. `masked_traverse` also
-filters target columns after the fact, rebuilding a COO per call.
+`graph/blasgraph/typed_graph.rs:72` documents `traverse` as **"Single-hop
+traversal"**, carries the inline comment `// A × A under the given semiring = one
+hop`, and computes `matrix.mxm(matrix, …)` — which is **two** hops. One hop is `A`.
+`multi_hop(&["r"])` returns `A` itself, so the two provably disagree by a hop.
+
+**`masked_traverse` has the identical defect** (`:132`, `matrix.mxm(matrix, …)`
+before the label filter) — confirmed by reading, and NOT named by the review that
+raised `traverse`. It additionally rebuilds a COO per call to filter target columns.
+
+The disagreement is structural rather than suspected: `A` and `A × A` differ by
+construction, so no test is needed to establish it (one is still needed to pin the
+fix). **Not fixed in this PR** — it is a behaviour change to a shipped semiring
+primitive, and this PR is docs-only. `TypedGraph::traverse` has no caller outside
+its own test module; `masked_traverse` is called by `graph_router.rs:332` and
+`examples/sigma_probe_masked_traverse.rs:132`, so a fix has to re-pin those.
+Filed as `ISS-TYPEDGRAPH-TRAVERSE-HOP-COUNT`.
 
 ---
 

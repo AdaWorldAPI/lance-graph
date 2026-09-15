@@ -1,3 +1,53 @@
+## ISS-TYPEDGRAPH-TRAVERSE-HOP-COUNT (2026-09-15) — OPEN
+
+**Two functions in `graph/blasgraph/typed_graph.rs` compute two hops while
+documenting one, and a third that should agree with them computes one.**
+
+```rust
+pub fn traverse(&self, rel_type: &str, semiring: &dyn Semiring) -> Option<GrBMatrix> {
+    let matrix = self.relations.get(rel_type)?;
+    // A × A under the given semiring = one hop        <- the comment is false
+    Some(matrix.mxm(matrix, semiring, &desc))          <- A × A is TWO hops
+}
+```
+
+- `traverse(r)` (`:72`) — doc says *"Single-hop traversal"*, inline comment says
+  *"= one hop"*, body is `A × A`. **Two hops.**
+- `masked_traverse(r, label)` (`:132`) — same `matrix.mxm(matrix, …)` before the
+  label filter. **Also two hops**, and its doc likewise implies one.
+- `multi_hop(&[r])` (`:82`) — returns `A` unchanged. **One hop.**
+
+So `traverse(r)` and `multi_hop(&[r])` are the same question asked twice and
+answered differently. The disagreement is structural, not suspected: `A` and
+`A × A` differ by construction.
+
+**Raised by CodeRabbit on PR #1233** against the `causal-plane-inventory.md`
+section that documents it (the doc had already recorded `traverse`; the review
+is what made it actionable). The `masked_traverse` half is NOT in the review —
+it was found by reading the file while verifying the finding, which is the whole
+argument for verifying a review against source instead of applying it.
+
+**Deliberately not fixed there.** #1233 is docs-only ("No code, no crate, no
+`ndarray` change, no default flipped"), and this is a behaviour change to a
+shipped semiring primitive. Bundling it would falsify that line and put an
+unpinned behaviour change in a documentation diff.
+
+**Blast radius, measured before filing:** `TypedGraph::traverse` has **no caller**
+outside its own test module (`bgz17`'s `typed_palette_graph.rs:192` calls a
+*different* type's method of the same name). `masked_traverse` has two:
+`graph/graph_router.rs:332` (test) and
+`crates/lance-graph/examples/sigma_probe_masked_traverse.rs:132` (probe). Any fix
+has to re-pin both, and the probe's recorded numbers move if its hop count does.
+
+**What a fix owes, before it is called one:** a two-sided test that `traverse(r)`
+and `multi_hop(&[r])` agree on a fixture where `A ≠ A × A` — the current suite
+cannot distinguish them, which is why this survived. Whether the right repair is
+"return `A`" or "rename to `two_hop` and keep the semantics" is a call about
+which one has the real consumer, and `masked_traverse`'s probe is the only
+evidence either way.
+
+---
+
 ## ISS-NO-NON-LINUX-TARGET (2026-09-06) — OPEN
 
 **Neither filed issue covers the defect that opened this one, and the difference
