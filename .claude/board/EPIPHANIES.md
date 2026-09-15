@@ -782,13 +782,35 @@ k=6 → 94.0 / 95.2 / **95.0 %**. No decay as reach grows, which is what the EWA
 (bound 0.5715, operator's 0.45..0.65) predicts. **But** flat-and-high is equally consistent with
 a bound that is simply never binding — see Q2.
 
+> ⊘ **THE "BUT" CONFLATES TWO AXES — corrected 2026-09-15, operator-pointed.**
+> Flat-across-depth and never-binding-k are not competing explanations of one
+> observation; they answer **different questions**, and only the second is open.
+> **DEPTH is CERTIFIED**, not merely predicted: `jc::ewa_sandwich` (Pillar 6)
+> proves Σ-push-forward along multi-hop paths keeps PSD ≥ 0.999 with
+> **geometric (multiplicative) error control** where naive convolution gives
+> arithmetic O(n) growth — *"the difference between 'every hop adds noise' and
+> 'the path itself shapes the propagation'"*. Its bound
+> `CV ≤ √(2/n)·√(1+2σ²n)` (σ_step 0.2, Köstenberger-Stark-style on the SPD
+> cone) **falls with n**, so deeper is better-conditioned, and the operator's
+> `0.45..0.65` aperture is **exactly the admissible-depth window**:
+> `0.65 ⇔ n = 7.62`, `0.45 ⇔ n = 47.06`, asymptote 0.40. **n ∈ [8, 47].**
+> n=5 sits OUTSIDE at 0.7483; n=12 sits near the centre at 0.5715; the
+> shipped run is n=10 at 0.600. So no-decay-at-hop-12 is the *certified*
+> behaviour of the regime, not an unexplained coincidence awaiting a
+> falsifier. **WIDTH — whether top-k frontier truncation loses reachability —
+> is what Q2 is about, and Pillar 6 says nothing about it.**
+> `ISS-BOUNDED-K-NEVER-FAILS-ON-ANY-GRAPH-TESTED` stays OPEN on width alone.
+
 **Q2 — anti-vacuity: NOT SATISFIED, and this is the honest headline of the recall half.** `k=50`
 returns **100 % on every MQ config and 99.4 % on MONDO**. *A bound that never costs anything on
 any graph tested is the fires-on-everything shape* — exactly the defect
 `E-ANTI-EIGENVALUE-MACHINERY-CAN-ITSELF-BECOME-THE-EIGENVALUE-1` names. `k=6` discriminates only
 mildly (89–100 %). **No graph has been found where bounded-k genuinely fails**, so the recall
 result is about *these* graphs until it degrades somewhere. Finding that graph is outstanding
-work, not a footnote, and until it exists the torch's recall claim is unearned.
+work, not a footnote, and until it exists the torch's **width** claim (k-truncation is
+lossless) is unearned. ⊘ *This sentence read "the torch's recall claim is unearned" — too
+broad. The DEPTH half is certified by `jc::ewa_sandwich` Pillar 6, whose bound's
+`0.45..0.65` band is the n ∈ [8, 47] admissible-depth window; see the annotation above.*
 
 **Deliberately not measured: "top-k successor mass."** That is the D-HXP-1 SIGNAL half, already
 **STRUCK as unanswerable by that instrument** (`uniform_expected = min(6,d)/d` is biased by

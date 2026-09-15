@@ -219,8 +219,17 @@ something, or it is being fit rather than tested.
 
 ## ISS-BOUNDED-K-NEVER-FAILS-ON-ANY-GRAPH-TESTED (2026-09-15) — OPEN
 
-**The torch's recall claim is currently unearned: `k=50` returns 100 % on every MQ config and
+**The torch's WIDTH claim is currently unearned: `k=50` returns 100 % on every MQ config and
 99.4 % on MONDO.**
+
+> **⊘ SCOPED 2026-09-15 (operator-pointed): this issue is about WIDTH only.** The DEPTH
+> half is CERTIFIED by `jc::ewa_sandwich` (Pillar 6): PSD ≥ 0.999 with geometric rather
+> than arithmetic error growth, bound `CV ≤ √(2/n)·√(1+2σ²n)`. That bound DECREASES with
+> n, and the operator's `0.45..0.65` aperture is exactly its admissible window —
+> `0.65 ⇔ n = 7.62`, `0.45 ⇔ n = 47.06` ⇒ **n ∈ [8, 47]**; n=5 is outside (0.7483),
+> n=12 is 0.5715, the shipped run is n=10 at 0.600. Pillar 6 says nothing about k-truncation,
+> so nothing here is discharged — but the flat-across-hops observation is no longer evidence
+> FOR this issue, it is the certified regime behaviour.
 
 A bound that never costs anything on any graph tested is the **fires-on-everything** shape —
 exactly the defect `E-ANTI-EIGENVALUE-MACHINERY-CAN-ITSELF-BECOME-THE-EIGENVALUE-1` names, and
