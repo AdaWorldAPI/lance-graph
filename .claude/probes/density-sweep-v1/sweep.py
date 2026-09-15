@@ -104,6 +104,17 @@ def mq_river(rows, max_width, advances, shifts, seed=7):
     return par, [n for n in nodes if par.get(n)]
 
 def measure(parents, seeds, label, n_pairs=200, n_seeds=60, pair_seed=0xC0FFEE):
+    """Run all three questions against ONE graph and return its row.
+
+    Q1 draws `n_pairs` seed pairs (seeded, so two graphs get the SAME pair sequence)
+    and scores depth-rank-ascending against `most_specific`; pairs with an empty
+    ancestor intersection are counted out of the denominator, never as agreement.
+    Q2/Q3 walk `n_seeds` seeds bounded and unbounded at hops 4/8/12 and report
+    recall of the bounded walk against the unbounded one.
+
+    `density` is mean ancestry size over graph size -- the variable the sweep was
+    built to isolate, and the one it FALSIFIED (see the controlled arm below).
+    """
     rng = random.Random(pair_seed)
     n_nodes = len({n for n in parents} | {p for ps in parents.values() for p in ps})
 
@@ -168,7 +179,14 @@ if os.path.exists(SOA):
     print()
     STRIDE, EOFF, VOFF, LOFF, LB, LN = 512, 16, 32, 112, 16, 23
     MONDO = 0x91010000
-    def u24(b, o): return b[o] | (b[o+1] << 8) | (b[o+2] << 16)
+    def u24(b, o):
+        """Read a 3-byte LITTLE-endian unsigned int at offset `o`.
+
+        Endianness is named because it is not inferable from the width: this
+        session measured a join where reading the same bytes big-endian returns
+        a plausible wrong answer that passes an ordering check.
+        """
+        return b[o] | (b[o+1] << 8) | (b[o+2] << 16)
     d = open(SOA, "rb").read()
     if not d or len(d) % STRIDE:
         raise ValueError(
