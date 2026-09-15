@@ -40,9 +40,20 @@ def see_boxcar(value, offset, w):
     return value if offset <= w else None
 
 def see_exponential(value, offset, g):
+    """HARNESS CONTROL. Exponential discounting is time-consistent: with the
+    reward positions held FIXED in absolute time, the ratio of two discounted
+    values is independent of the vantage tau, so it can never reverse. A
+    reversal on this arm is a bug in the harness, not a finding about the
+    agent -- which is what makes its measured 0/19 the evidence that the other
+    two arms are reading real structure."""
     return value * (g ** offset)
 
 def see_hyperbolic(value, offset, k):
+    """POSITIVE CONTROL. Hyperbolic discounting is the textbook generator of
+    preference reversal, and it reverses LATER -> SOONER: impatience rises as
+    the near reward approaches. It fires on all three fixtures, so it proves
+    the harness CAN see a reversal -- without it, the boxcar's own result would
+    be indistinguishable from an instrument that detects nothing."""
     return value / (1.0 + k * offset)
 
 # ---------------------------------------------------------------- the agent
