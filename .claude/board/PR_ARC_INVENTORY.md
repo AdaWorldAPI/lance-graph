@@ -149,7 +149,13 @@
   > merged EPIPHANIES entry carries the same fabrication in five rows of its
   > organs/no-nerve table and in its `Read edge → … → write HelixResidue +
   > Plasticity` chain; it is stornoed in place and in a new entry, both in
-  > this PR.
+  > this PR. **And the first draft of that storno committed a SECOND violation** —
+  > it called `ValueTenant::{HelixResidue, Plasticity}` *"zombies"* and *"dead"*,
+  > which is a DEPRECATION RULING on the operator's architecture that I had no
+  > authority to make. *"Never written"* is a measurement; *"dead"* is a decision.
+  > Struck before merge; **nothing here deprecates either tenant, no code changed,
+  > and their status is the operator's to rule.** Entry renamed to
+  > `E-I-GRAFTED-HELIX-ONTO-HEXAGON-AND-THEN-DEPRECATED-THE-OPERATORS-TENANTS-ON-MY-OWN-AUTHORITY-1`.
 - **Docs:** the PR body — eleven `⊘` arc blocks that are themselves the
   supersession record, with the VOID/FALSE annotations in place; the
   scope-note comment (`#issuecomment-5678239488`) and the frozen-checker note

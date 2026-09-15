@@ -1,4 +1,4 @@
-## 2026-09-15 — E-I-BUILT-A-LEARNING-PATH-OUT-OF-TWO-DEAD-TENANTS-AND-CALLED-IT-THE-SUBSTRATE-1 — there is no residue in Hexagon, and the guard that refused the graft was recorded as a missing feature
+## 2026-09-15 — E-I-GRAFTED-HELIX-ONTO-HEXAGON-AND-THEN-DEPRECATED-THE-OPERATORS-TENANTS-ON-MY-OWN-AUTHORITY-1 — there is no residue in Hexagon; the guard that refused the graft was recorded as a missing feature; and then I called two of the operator's shipped tenants dead
 
 **Status:** CORRECTION. Operator-caught, same day, hours after
 `E-I-DECLARED-A-JOIN-ABSENT-BY-GREPPING-ONE-FILE-AND-COMPOSE-IS-THE-SAME-XOR-A-THIRD-TIME-1`
@@ -51,15 +51,34 @@ it.)
 H5a–d — and a residue was never in it. One `grep -c` over the plan I wrote would have
 returned zero.
 
-### What plasticity actually is (three things, one of them a zombie)
+### TWO violations, and the second is the worse one
+
+**V1 — the graft.** I assembled a five-stage Hexagon learning path out of `HelixResidue`
+and `Plasticity` and published it as the substrate's design. That is my error, measured
+below, and it is fully mine.
+
+**V2 — I then DEPRECATED two of the operator's shipped tenants on my own authority.** The
+first draft of this entry called them *"zombies"* and *"dead"*, and named itself after that
+verdict. **Not mine to rule.** *"Never written"* is a MEASUREMENT; *"dead"* is a DECISION
+about the operator's architecture, and the operator's own word for what I did — reviving
+something — is not a licence for me to bury it. This is the
+`architectural-compliance` pattern inverted: the rule forbids substituting away from a
+specified component because it *"appears to be a stub"*; declaring one deprecated because
+it is unwritten is the same move with the same authority problem. **Nothing in this repo
+deprecates `ValueTenant::{HelixResidue, Plasticity}`. Their status is the operator's
+ruling. No code changed; both declarations stand exactly as shipped.**
+
+### What plasticity actually is — three surfaces, measured, no verdict attached
 
 | named "plasticity" | shape | state |
 |---|---|---|
 | `PlasticityState`, `CausalEdge64[50:52]` | **3 bits, hot/cold per S/P/O** | **SHIPPED, 54 production sites**, written by `pack` |
 | the autopoiesis triangle 10/11/12 | `U8×12` = **6 × 2 × palette256** each — const-asserted *"12 palette256 atoms"* (`canonical_node.rs:2674`) | shipped + correctly addressed; gate documented, **`src/` promoter absent = seam 6** |
-| `ValueTenant::Plasticity = 7` | `U32×1` counter + stamp | **zombie** — never written, duplicates row 1 in a foreign shape, and its *"last-active stamp"* is vocabulary from the **emission era the tombstone commit deleted** (`last_emission_cycle` → `last_active_cycle`) |
+| `ValueTenant::Plasticity = 7` | `U32×1` counter + stamp @138 | **never written**; 2 sites outside its own decl file. Same *concept* as row 1 in a different shape — the operator's own reading: *"why u32 when hexagon is 6×2×8bit like everything in this Substrate"*. Its *"last-active stamp"* is emission-era vocabulary (`last_emission_cycle` → `last_active_cycle`). **Status: measured, not ruled.** |
 
-I reached past the two live surfaces for the dead one.
+Two of these three are wired and one is not; **that is the whole of what is established
+here.** I reached past two wired surfaces for an unwired one — and then compounded it by
+grading the unwired one instead of reporting it.
 
 ### The generalizable form — and it is the SAME rule as the entry it corrects, inverted
 
@@ -177,7 +196,7 @@ already running.
 > the shape the operator ruled and this board MEASURED (`EPIPHANIES:19221`, ρ_all 0.966,
 > near-orth 170×) as better than the 48-bit class `HelixResidue` belongs to — with the
 > shipped held-out promote gate already on it. Full storno:
-> `E-I-BUILT-A-LEARNING-PATH-OUT-OF-TWO-DEAD-TENANTS-AND-CALLED-IT-THE-SUBSTRATE-1`.
+> `E-I-GRAFTED-HELIX-ONTO-HEXAGON-AND-THEN-DEPRECATED-THE-OPERATORS-TENANTS-ON-MY-OWN-AUTHORITY-1`.
 
 ~~Read edge (i8) → compare to expectation → encode residue → `observe`/`roll` → write
 `HelixResidue` + `Plasticity` → surround over six edges.~~ Every stage a type; zero stages joined.
