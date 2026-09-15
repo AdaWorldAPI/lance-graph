@@ -1,3 +1,63 @@
+## 2026-09-15 (10) — E-POPCOUNT-TIMES-SELF-THE-EXACT-PREFIX-IS-THE-K-EQUALS-ZERO-HAMMING-BALL-AND-THE-FUSED-ROW-PREDICATE-IS-THE-GAP-1 — the operator's one-line generalisation of (9), what of it ships, and where I-VSA-IDENTITIES fences it
+
+**Status:** RULING — operator, verbatim: *"You could even say it's popcount × self."*
+The two readings below are mine and labelled; the census of primitives is a read of the
+tree (every name verified); the fence is the substrate's own iron rule, applied.
+**Confidence:** HIGH on the census and on the k = 0 identity; MEDIUM on the second
+reading; the fence is a consequence of `I-VSA-IDENTITIES`, not a new ruling.
+
+### Reading 1 — per row: the exact prefix is the k = 0 Hamming ball
+
+(9)'s selection `(u ⊕ self) ∧ care(d) == 0` is `popcount((u ⊕ self) ∧ care(d)) ≤ 0`.
+Generalise the 0 to k and the triple `(self, care, k)` is one predicate family:
+
+- `care = care(d), k = 0` — the exact stepless prefix: tree distance ≤ d from root, (9);
+- `care = all 96, k > 0` — the Hamming ball of radius k around self;
+- `care = care(d), k > 0` — a Hamming ball inside the prefix.
+
+"Distance from root" and "Hamming distance" are the same popcount over different
+care masks, both 0..=96. Per row: XOR, AND, POPCNT, CMP.
+
+**What ships** (ndarray, names as in the tree): `ternary_match_u32_to_mask`,
+`ternary_match_u64_to_mask`, `ternary_match_strided_to_mask` — the k = 0 form, one
+pass, a mask out. `hamming_distance_raw`, `hamming_batch_raw(query, database,
+num_rows, row_bytes) -> Vec<u64>`, `hamming_top_k_raw` — per-row DISTANCES, a `Vec`,
+not a mask. `masked_popcount_batch(words, mask) -> Vec<u32>` — per-word
+`popcount(w ∧ mask)`, one XOR short of the row predicate on a u64 lane. mask-risc:
+`Pred::MatchU32` / `Pred::MatchU64` (k = 0 only); `Terminal::Count` =
+`popcount_batch_u64(mask)`.
+
+**The gap:** the fused one-pass `popcount((row ⊕ pattern) ∧ care) ≤ k → mask` — a
+`hamming_le_*_to_mask` kernel in ndarray (per lane and 12-byte strided) and a
+`Pred::HammingLe { lane, pattern, care, k }` in mask-risc. Today k > 0 is two passes
+through a 64k-entry distance vector (512 KiB) plus an allocation — exactly the shape the
+masking floor exists to remove. Named, not built.
+
+### Reading 2 — per mask: `popcount(mask(self, d)) = |ball(self, d)|`
+
+The cardinality of self's neighbourhood at depth d is `Terminal::Count` over the (9)
+mask — the probe's radius sweep already prints it as `rows` (2^(56−d) on the
+perfect-tree lane). Swept over d it is a thought's specificity profile: how many units
+share its first d bits. One popcount per 64 rows; nothing to build.
+
+### The fence — `I-VSA-IDENTITIES`, applied
+
+Reading 1 with k > 0 is sound only where bit-Hamming IS a distance: fingerprint planes,
+bipolar identities, and the tree through `care(d)` with k = 0. It is NOT a distance over
+the L4 `palette256²` rails or any CAM-PQ code: two centroid INDICES that differ in every
+bit may be neighbours, and the substrate's distance there is the 256×256 LUT (bgz17
+lineage), never a popcount. `I-VSA-IDENTITIES` already forbids superposing content
+codes; the same register-loss argument forbids Hamming over them. So "popcount × self"
+is exact for k = 0 on every carving, and for k > 0 only on Hamming-meaningful bits —
+which bits those are is the ClassView's to say.
+
+### Phase 7, second arm — pre-registered, not run
+
+Beside (9)'s cycles/row for the k = 0 strided match: the k > 0 fused predicate. Pass:
+≤ 1 cycle/row with `vpopcntq` (AVX-512 VPOPCNTDQ); expect 2–3 cycles/row on AVX2
+through the nibble-LUT popcount. If the fused kernel does not exist by then, the
+two-pass form is what gets measured, and the delta IS the cost of the gap.
+
 ## 2026-09-15 (9) — E-A-THOUGHT-MASKS-ITSELF-BY-ITS-DISTANCE-FROM-ROOT-THE-V3-FACET-IS-THE-MASK-AND-THE-RADIUS-IS-STEPLESS-1 — the operator's favourite masking variant; it is already the shape of `MatchU64`, ndarray ships its 12-byte strided form, and the probe measured it stepless
 
 **Status:** RULING — operator, verbatim: *"Meine Lieblingsvariante ist V3 Format. Jeder

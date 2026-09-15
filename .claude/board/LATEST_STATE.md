@@ -1,3 +1,23 @@
+## 2026-09-15 (7) — operator: *"You could even say it's popcount × self"* — the (self, d) prefix is the k = 0 Hamming ball; the fused k > 0 row predicate is a named gap in ndarray AND mask-risc; nothing built
+
+- **State consumers should know:** `(self, care, k)` with
+  `popcount((u ⊕ self) ∧ care) ≤ k` is one predicate family. k = 0 ships
+  (`ternary_match_{u32,u64,strided}_to_mask`; `Pred::MatchU32/U64`). k > 0
+  does not ship as a mask builder: ndarray has per-row distances
+  (`hamming_batch_raw -> Vec<u64>`) and per-word masked popcounts
+  (`masked_popcount_batch`), mask-risc has no `Pred::HammingLe`. Two passes
+  and a 512 KiB vector today; the fused one-pass kernel + predicate is the
+  gap, named in the entry, not built.
+- **Fence:** Hamming with k > 0 is a distance only on Hamming-meaningful bits
+  (planes, bipolar identities, the tree via `care(d)`) — never over
+  `palette256²` rails or CAM-PQ codes, whose distance is the 256×256 LUT
+  (`I-VSA-IDENTITIES`).
+- **Already visible:** the probe sweep's `rows` column is
+  `popcount(mask(self, d))` = |ball(self, d)| — reading 2 of the entry.
+- Entry:
+  `E-POPCOUNT-TIMES-SELF-THE-EXACT-PREFIX-IS-THE-K-EQUALS-ZERO-HAMMING-BALL-AND-THE-FUSED-ROW-PREDICATE-IS-THE-GAP-1`.
+  Phase 7 gains a second pre-registered arm (k > 0 cycles/row).
+
 ## 2026-09-15 (6) — operator: *"Meine Lieblingsvariante ist V3 Format"* — a thought masks itself × distance from root, 0–96 bit, stepless, ~1 cycle; measured stepless on the probe, primitive already shipped in ndarray
 
 - **What changed (this commit):** the A1 probe gained a stepless radius sweep
