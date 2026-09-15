@@ -369,6 +369,23 @@ RESULT["m3_monotonicity_decay"] = dict(
 # M4 -- where it breaks: first chain position whose link z drops below the
 # overall mean pairwise z (i.e. the point past which the chain is no longer
 # better than picking at random).
+#
+# ⊘ FIELD-NAME MISNOMER, corrected 2026-09-15 (CodeRabbit, PR #1233). This scans
+# for the FIRST CROSSING and then labels the whole remaining suffix as "past the
+# break" -- but it never verifies the below-mean condition PERSISTS, and on the
+# committed run it does not: 6 of the 22 suffix links are still ABOVE the mean.
+# So `fraction_of_links_at_or_after_break` (0.2933 = 22/75) is the SUFFIX LENGTH,
+# not the degraded share; the true below-mean count is 16/75 = 0.2133. The
+# genuinely strong result is the other side of the same scan: ZERO links fall
+# below the mean before index 53.
+#
+# The emitted field names are deliberately LEFT UNCHANGED. This file is an audit
+# record of the code that produced `w1-seriation.json`, and the ~10 GB corpus it
+# read is gone (see README: auditable, not re-runnable). Renaming the outputs
+# would leave the script disagreeing with its own committed result and no way to
+# regenerate it. The corrected reading is recorded here, in the README, and in
+# the plan's §11/§11a; `link_zs` is committed, so the true fraction is
+# recomputable from the artifact alone.
 # ─────────────────────────────────────────────────────────────────────────────
 log("=" * 78)
 log("M4 -- where the chain stops beating the overall mean pairwise z")

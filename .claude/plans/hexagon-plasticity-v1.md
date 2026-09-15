@@ -546,7 +546,10 @@ in this arc, and the first where it survived into a landed spec.
 everywhere and degrades with radius (n=3 0.0752 → 0.0677; n=1 0.0301 → 0.0150, halved); field
 n=1 degrades at radius 2. Only field n=3 gains (0.1278 → 0.1353) before plateauing.
 **Robustness:** the degradation appears in the Ruzicka min/max field scorer too, which contains
-no cosine at all — so it is not a normalization artifact.
+no cosine at all — ⊘ *so it is not a normalization artifact.* **STRUCK (§11a): Ruzicka is
+Σmin/Σmax, itself a normalization. The supported claim is only that the effect is NOT
+COSINE-SPECIFIC; a normalization effect is not ruled out. Text kept in place because §11a quotes
+it.**
 
 **3. n=3 beat n=1 in every comparison** (all scorers, all radii). The motif-shaped fixture is
 doing real work and the `TD-BASE17-FOLD-CEILING-SINGLE-WORD` ceiling was correctly avoided.
@@ -559,10 +562,18 @@ greedy TSP path and degrades once good candidates are exhausted. Measured
 (`lab/seriation_quality.py`, `runs/w1-seriation.json`, deterministic, two runs byte-identical):
 
 - **0 / 2850 degenerate pairs** — no sentinel contamination; every Fisher-z well-defined.
-- adjacent-pair z **0.6352** vs a 20-shuffle null of **0.0794 ± 0.0247** → **22.49 σ**.
+- adjacent-pair z **0.6352** vs a 20-shuffle null of **0.0794 ± 0.0247** → **22.49 null standard
+  deviations** — a standardized separation from a *sampled* null, NOT a calibrated tail
+  probability. Empirical exceedance: **0 / 20** shuffle means reached it (max null **0.1329**),
+  which bounds the permutation p at **< 1/20** and nothing finer.
 - top-5 neighbours within ±3 positions: **41.84 %** vs **7.79 %** chance → **5.37×**.
 - mean z decays **0.635 → ~0.13** by chain-distance 5, then a flat tail.
-- first sub-chance link at **53 / 75**; only the last **29 %** of the chain degrades.
+- first sub-mean link at **53 / 75**, and **zero** links fall below the overall mean before it —
+  a clean prefix, which is the stronger half of this metric.
+  ⊘ *only the last 29 % of the chain degrades.* **STRUCK: 29.33 % (22/75) is the SUFFIX LENGTH,
+  not the degraded count. 6 of those 22 links are still ABOVE the mean, so index 53 is a FIRST
+  CROSSING, not a sustained break. True below-mean share: 16/75 = 21.3 %** — recomputed from the
+  committed `link_zs` in `w1-seriation.json`, no re-run required.
 
 The seriation is sound. The null therefore stands as a finding about the **mechanism**, not the
 instrument.
@@ -689,6 +700,15 @@ as the dictionary it was meant to replace, and no retrieval number on any corpus
 - **Overclaim narrowed.** §11 said the Ruzicka min/max scorer "contains no cosine, so it is not a
   normalization artifact." Ruzicka is Σmin/Σmax — itself a normalization. The supported claim is
   only that the effect is **not cosine-specific**; a normalization effect is not ruled out.
+- **Significance wording corrected.** "22.49 σ" implied a calibrated tail probability. The
+  quantity is `(real_mean - null_mean) / stdev(null_means)` over **20** shuffle means — a
+  standardized separation from a sampled null. Restated as **null standard deviations**, with the
+  empirical exceedance now stated: **0/20** shuffles reached the real mean (max null 0.1329).
+- **M4 is a first crossing, not a sustained break.** `fraction_of_links_at_or_after_break`
+  measures the suffix length (22/75 = 29.33 %), and 6 of those links are still above the mean.
+  True below-mean share **16/75 = 21.3 %**, recomputed from the committed `link_zs`. The probe's
+  emitted field names are left unchanged — it is the audit record of the code that produced
+  `w1-seriation.json`, and that run cannot be reproduced; the misnomer is marked at the M4 site.
 - **Ternlog cost qualified.** "One `VPTERNLOGQ` per 512 bits" holds for the **AVX-512 `U64x8`**
   path only; `U32x16` uses `VPTERNLOGD`, non-AVX-512 x86 expands into two-input ops, and
   NEON/WASM/scalar are narrower or scalar. The source doc says *"the polyfill elsewhere"* and the

@@ -18,7 +18,9 @@ wording claimed "not a normalization artifact", which the evidence does not supp
 
 **The null was interrogated and survived.** A greedy nearest-neighbour seriation is a greedy TSP
 path, so the suspect was the ordering, not the mechanism. Measured: adjacent-pair Fisher-z
-**0.6352** against a 20-shuffle null of **0.0794 ± 0.0247** — **22.49 σ**; top-5 neighbours land
+**0.6352** against a 20-shuffle null of **0.0794 ± 0.0247** — **22.49 null standard deviations**
+(a standardized separation from a sampled null, not a calibrated tail probability; empirical
+exceedance **0/20**); top-5 neighbours land
 within ±3 positions **41.84 %** of the time against **7.79 %** chance (**5.37×**); z decays
 0.635 → ~0.13 by distance 5; **0 / 2850** degenerate pairs. Adjacency in that chain genuinely
 means similarity.

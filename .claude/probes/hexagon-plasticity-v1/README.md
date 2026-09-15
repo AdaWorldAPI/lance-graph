@@ -20,7 +20,7 @@ fingerprints. Nothing here measures `ndarray`, `bgz17` or `helix`.
 |---|---|
 | `w1_cue.py` / `w1-cue.json` | **Run 1.** Kept as the record of three apparatus defects, all spec errors: an inert LUT, a spread radius (1–2) smaller than the cell spacing (~3.4) so it diffused into empty space, and an order falsifier applied to an order-blind representation. |
 | `w1_cue2.py` / `w1-cue2.json` | **Run 2**, apparatus corrected. The 12-row matrix, the LUT scorer, F1 on all three scorers, the transitions arm. |
-| `seriation_quality.py` / `w1-seriation.json` | Resolves the "adjacency hurts" confound. Adjacent-pair Fisher-z **0.6352** vs a 20-shuffle null **0.0794 ± 0.0247** (**22.49 σ**); top-5 recovery within ±3 **41.84 %** vs **7.79 %** chance; **0/2850** degenerate pairs. The ordering is sound, so the null is about the mechanism. |
+| `seriation_quality.py` / `w1-seriation.json` | Resolves the "adjacency hurts" confound. Adjacent-pair Fisher-z **0.6352** vs a 20-shuffle null **0.0794 ± 0.0247** (**22.49 null standard deviations** — a standardized separation from a sampled null, not a calibrated tail probability; empirical exceedance **0/20**, max null **0.1329**); top-5 recovery within ±3 **41.84 %** vs **7.79 %** chance; **0/2850** degenerate pairs. The ordering is sound, so the null is about the mechanism. |
 | `transitions_permute.py` / `w1-transitions-permute.json` | **The falsification.** Baseline 0.1579 · cells permuted 0.1654 · **bare integer type-IDs 0.1729** · identity+order-shuffle 0.0902. 7827 types over 1305 cells = 6:1 lossy hash. The palette cue contributes nothing beyond being a consistent label. |
 
 ## Reading them
