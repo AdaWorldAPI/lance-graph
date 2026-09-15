@@ -45,16 +45,21 @@ reachable from ordinary caller input and both hit before a single row is touched
 
 **1. `lower_fused` is ~cubic in leaf count, reachable from `Filter::in_u32`.**
 
-| | `lower` | `lower_fused` |
-|---|---|---|
-| `IN(64)` | 0.01 ms | 0.12 ms |
-| `IN(256)` | 0.02 ms | 4.28 ms |
-| `IN(1024)` | 0.03 ms | **192.70 ms** |
-| `IN(2048)` | 0.13 ms | **1 443 ms** |
-| flat `AND` w=4096 | — | **10 597 ms** |
-| flat `AND` w=65 000 | **2.99 ms** | (not attempted) |
+| | `lower` | `lower_fused` | source |
+|---|---|---|---|
+| `IN(64)` | 6.02 µs | 97.20 µs | reproduced here (review: 0.12 ms) |
+| `IN(256)` | 16.33 µs | 3.08 ms | reproduced here (review: 4.28 ms) |
+| `IN(1024)` | 24.40 µs | **158.47 ms** | reproduced here (review: 192.70 ms) |
+| `IN(2048)` | 0.13 ms | **1 443 ms** | review only, not re-run |
+| flat `AND` w=4096 | — | **10 597 ms** | review only, not re-run |
+| flat `AND` w=65 000 | **2.99 ms** | (not attempted) | review only, not re-run |
 
-~7.6× per doubling; `lower` is linear, the blow-up is entirely `lower_fused`. Mechanism sits in
+The first three rows are first-hand, and they agree with the review within ~25 % (machine
+variance, not a discrepancy). `lower` is linear across all of them; the blow-up is entirely
+`lower_fused` — ×31.7 then ×51.5 for each 4× in leaves. Mechanism verified in source rather than
+taken from the report: `distinct_leaves` (`fuse.rs:72`) is `out.contains(o)`, O(k) per leaf;
+`leaf_count` (`:87`) allocates a fresh `Vec` and re-walks; `:173` calls it on **both** children
+(`leaf_count(l) >= leaf_count(r)`) at every level. Mechanism sits in
 `lance-graph-mask-risc/src/fuse.rs` — `Lowering::lower`'s reduction calls `leaf_count` on BOTH
 children at every level, `leaf_count` calls `distinct_leaves`, and that uses `Vec::contains`,
 O(k) per leaf; quack's `assign_slots` left-folds an n-ary junction into a depth-n binary
