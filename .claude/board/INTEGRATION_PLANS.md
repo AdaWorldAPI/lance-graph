@@ -1,7 +1,10 @@
 ## 2026-09-14 (4) — hexagon-plasticity-v1 — can six learned rails discover local adjacency, and can ARM promote a cue to a path? → `.claude/plans/hexagon-plasticity-v1.md`
 
 **Status:** ACTIVE (W-1 and W0 RUN before landing; §9 carries their results and
-§10 the gate they forced). D-HXP-0..7. Extends, does not supersede,
+§10 the gate they forced. **W1 RUN 2026-09-15 — §11: PROCEED, not PASS**, cue
+r@10 0.1579 vs incumbent 0.1805 = 87.5 %; the order-sensitive arm wins and is
+the only falsifiable one; three items of this plan are STORNO'd there by
+operator correction — no scent table, no cosine). D-HXP-0..7. Extends, does not supersede,
 `HEXAGON-MQ-FEASIBILITY.md` §H — which ruled the register an ADDRESS and only
 for the `6×(8:8)` rail. The correction this plan records: all four MQ hexagon
 tests (H5a/b/c/d) fed the register **top-down** material, and H5d — the only arm

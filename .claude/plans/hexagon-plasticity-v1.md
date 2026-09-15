@@ -486,3 +486,146 @@ EWA arm passes.
 That the EWA arm will pass. It replaces a malformed question with a well-formed one.
 Whether real rail paths stay inside the bound is unmeasured, and the anti-vacuity control
 above exists because the last instrument that looked sound was not.
+
+## 11. W1 RESULTS (run 2026-09-15, on operator go — appended, nothing above rewritten)
+
+### Verdict: **PROCEED, not PASS** (D-HXP-2)
+
+Best cue **r@10 = 0.1579** against the BPE incumbent's **0.1805** — **87.5 %** of a
+corpus-learned dictionary. Gates: PASS (≥ 0.181) **not met**; proceed (> 0.015) met by **10×**;
+kill (< 0.05) **not triggered**. Positive control `ARM0` reproduced the incumbent at
+**0.1805** (`REPORT2` A2a-f records 0.180) byte-identically across both runs including
+`mrr`/`r@1`/`r@5`/null, so every row below is comparable to it.
+
+### ⊘ STORNO — three items of this plan are superseded by operator correction (2026-09-15)
+
+Verbatim: *"not a scent table and no cosine / fisherz is normalized for cheap lut / the idea is
+that palette256:palette256 can spread as activation over HHTL not hierarchically but adjacent
+local akin to a synapse"*, and *"cognitive pertubation"*.
+
+1. **§3 W1's procedure** — "scent/codebook cue", arm (a) "`Scent` byte alone", and the disable
+   "permuted **scent table**" are struck. There is no scent table. Distance is a **table read**
+   (Fisher-z), never a computed cosine.
+2. **§2 row 1** — "get the cue → `Scent: u8`" is struck as the cue carrier. The cue is
+   `palette256:palette256` — a **`Palette256Pair`**, which ships: `SpoFacet` in
+   `lance-graph-contract::awareness_facet` is six of them (3 SPO + 3 episodic-witness), and its
+   own doc says similarity between two pairs is *"one table read (Fisher-z cosine-replacement),
+   never a float."*
+3. **§2 row 2** — "recognize it → mask predicate / resonance" is struck. Recognition is not a
+   predicate evaluated per cell; it is a **neighbourhood lit around where the ball is** —
+   attention as table lookup, not attention as scan.
+
+Nothing above is rewritten; these three rows are regraded in place by this entry.
+
+### The result: the ORDER-SENSITIVE arm wins, and is the only falsifiable one
+
+| arm | r@10 | its falsifier |
+|---|---|---|
+| **transitions** (consecutive cell pairs) | **0.1579** | order-shuffle → **0.0827**, halved. **FIRED** |
+| field n=3, radius 1 | 0.1353 | F1 did not fire |
+| bag n=3 (radius-invariant by construction) | 0.1128 | F1 did not fire |
+| LUT soft-match n=3, radius 0 | 0.0752 | F1 did not fire |
+
+Every **order-blind** representation the plan's own W1 text implied tops out at 0.1353 and
+**none of their falsifiers can fire**. The one **order-sensitive** representation is both the
+best score and the only one that dies when broken. The operator's ball-on-tilted-ground framing
+(torque = direction, which a bag structurally cannot hold) is vindicated *against* the
+static-field design this plan shipped with — by measurement, not by argument.
+
+### Three findings against the palette half
+
+**1. F1 never fired — on any scorer, including the LUT scorer added specifically so it could.**
+All three rose under a marginal-preserving permutation. Mechanism, understood not guessed:
+permuting the unit→cell **assignment** is a *global relabelling*, so every exact-match collision
+survives it. **Consequence: the measured cue signal is exact unit-type reuse.** The tile, the
+seriation, the LUT and the spread contribute nothing that survives permutation. A disable that
+cannot reach what the scorer actually uses is not a disable — the fourth instance of that trap
+in this arc, and the first where it survived into a landed spec.
+
+**2. Adjacency is REAL, and crediting it still HURTS.** LUT soft-match is the worst arm
+everywhere and degrades with radius (n=3 0.0752 → 0.0677; n=1 0.0301 → 0.0150, halved); field
+n=1 degrades at radius 2. Only field n=3 gains (0.1278 → 0.1353) before plateauing.
+**Robustness:** the degradation appears in the Ruzicka min/max field scorer too, which contains
+no cosine at all — so it is not a normalization artifact.
+
+**3. n=3 beat n=1 in every comparison** (all scorers, all radii). The motif-shaped fixture is
+doing real work and the `TD-BASE17-FOLD-CEILING-SINGLE-WORD` ceiling was correctly avoided.
+
+### The confound was measured and resolved AGAINST the hedge
+
+"Adjacency hurts" is a null, and §4's iron rule says a null is a claim about the apparatus until
+proven otherwise. The suspect was the greedy seriation — a greedy nearest-neighbour chain is a
+greedy TSP path and degrades once good candidates are exhausted. Measured
+(`lab/seriation_quality.py`, `runs/w1-seriation.json`, deterministic, two runs byte-identical):
+
+- **0 / 2850 degenerate pairs** — no sentinel contamination; every Fisher-z well-defined.
+- adjacent-pair z **0.6352** vs a 20-shuffle null of **0.0794 ± 0.0247** → **22.49 σ**.
+- top-5 neighbours within ±3 positions: **41.84 %** vs **7.79 %** chance → **5.37×**.
+- mean z decays **0.635 → ~0.13** by chain-distance 5, then a flat tail.
+- first sub-chance link at **53 / 75**; only the last **29 %** of the chain degrades.
+
+The seriation is sound. The null therefore stands as a finding about the **mechanism**, not the
+instrument.
+
+### Why crediting real similarity hurts — and what it names
+
+The task is **discrimination, not similarity**. An override twin is identified by what separates
+it from ~5 000 other bodies. Smearing a body's signature across its behavioural neighbourhood
+makes every body look more like its neighbours: spreading buys coverage by spending precision.
+
+**A spread without a surround is a blur.** Center-surround exists so a field can grow *and* stay
+sharp. W1 built the excitatory half only, over a demonstrably good ordering, and measured the
+cost — which makes `ndarray`'s **Pillar-15** (Difference-of-Gaussians center-surround
+unimodality, `hpc/pillar/mexican_hat.rs`, status **DEFERRED** pending the kernel landing in
+`ndarray::hpc`) not a refinement but **the missing half**. W1 is the first measurement of the
+hole where it belongs.
+
+### Inhibition is already free — the mask algebra IS an inhibition algebra
+
+Named `ternlog` truth tables in `ndarray::simd` — `AND3`, `AND2_ANDNOT` (`a & b & !c`,
+one-source inhibition), `AND_ANDNOT2` (`a & !b & !c`, the center-surround shape), `MAJ3`
+(bundle-and-threshold), `XOR3`, `OR3`, `AND2` — are **one `VPTERNLOGQ` per 512 bits each**.
+Inhibition costs an **immediate, not a circuit**; biology pays for it with separate interneurons
+and a separate transmitter. The shipped delta-frontier spread (`scratch & !state`) **is**
+`AND2_ANDNOT` — refractoriness — and `E-HEX-TENANT-RAIL-IS-DIRECTION-CHAIN-IS-FREE-SHIFT-IS-THE-COST-1`
+already measured it at **−48 % for identical closure**. Note that is a **cost** result, not an
+accuracy one: frontier inhibition is proven *free*, not proven *better*.
+
+**Boundary rule that binds any use of this** (unchanged, `E-TOPOLOGY-MASKS-MAGNITUDE-COMPOSE-NEVER-COLLAPSE-1`):
+the rail bytes are **eligibility + strength, never a weight**; the **FC** (r2il **SPOFC**,
+deepnsm-v2 COCA frequency × coverage, `lance-graph-arm-discovery` support × confidence — three
+producers, one `NarsTruth` carrier) stays the **white half**. Population-level inhibition is
+`ANDNOT`; magnitude-level inhibition is subtraction or division; **neither is XOR**
+(`I-SUBSTRATE-MARKOV`) — `XOR3` is sign/phase only.
+
+### Honest scope and residuals
+
+- The LUT scorer skipped radius 2 by a **pre-declared, measured** decision (n=3 r0 13.5 s → r1
+  215.9 s, 16× growth; r2 extrapolated to tens of minutes). `bag`/`field` cover all three radii.
+- **The LUT aggregation was cosine-normalized** (`/√(ΣA²·ΣB²)`) despite the operator's "no
+  cosine". The *distance* is a genuine table read — which is what the correction was about — but
+  the aggregation is not. Recorded rather than quietly corrected; finding 2 survives it because
+  the non-cosine Ruzicka scorer shows the same direction.
+- This lab is pure Python with no `numpy`/`sklearn` and **no Rust fingerprints**. Everything here
+  is a **shape proxy** — evidence about the addressing shape, never a measurement of
+  `ndarray`/`bgz17`/`helix`.
+- **The transitions arm was falsified on ORDER but never on the TILE.** F1 (permuted cell
+  assignment) was run on `bag`/`field`/`lut` at n=3 radius 1, not on transitions. So its 0.1579
+  is proven to depend on *sequence order*, and is **not** proven to depend on the palette cells
+  the pairs are built from — if a cell-permutation also left it at 0.1579, its signal would be
+  "order of unit types", not "order of palette cells". That distinction matters for W2 and is
+  UNMEASURED. Noted rather than left to be cited later as stronger than it is.
+- **A permuted control ties the best legitimate arm.** F1-permuted `field` also reaches 0.1579
+  (both are 21/133). That is consistent with — indeed another statement of — finding 1: the tile
+  structure contributes nothing that survives permutation.
+- Run 1 (`runs/w1-cue.json`) is kept as the record of three apparatus defects, all spec errors:
+  an inert LUT, a spread whose radius (1–2) was smaller than the cell spacing (~3.4) so it
+  diffused into empty space, and an order falsifier applied to an order-blind representation.
+
+### What W1 hands W2
+
+The rail-in-the-loop wave inherits a **sharpened** question, not the one §3 wrote. Lateral
+spread as pure excitation is measured to *cost* discrimination on a good ordering. W2 should not
+re-measure that; it should either carry a surround (the deferred DoG) or state plainly that it
+is testing coverage rather than discrimination. And the transitions result says the rail's value
+may be in the **pair** — a traversal from one palette cell to the next — rather than in the cell.

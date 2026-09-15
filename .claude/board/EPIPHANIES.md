@@ -1,3 +1,53 @@
+## 2026-09-15 — E-A-SPREAD-WITHOUT-A-SURROUND-IS-A-BLUR-INHIBITION-IS-THE-FREE-HALF-1 — lateral spread over a GOOD similarity ordering measurably costs discrimination; the mask algebra is already an inhibition algebra
+
+**Status:** FINDING (measured, W1/D-HXP-2, plan `hexagon-plasticity-v1.md` §11).
+
+**The measurement.** W1 addressed H5b's 133 override-twin pairs by a content-computed
+`palette256:palette256` cue and spread activation to adjacent cells on the tile. Spreading made
+retrieval **worse**: the soft-match scorer is the worst arm everywhere and degrades with radius
+(n=3 0.0752 → 0.0677; n=1 0.0301 → 0.0150, halved). The same direction appears in a Ruzicka
+min/max scorer containing no cosine, so it is not a normalization artifact.
+
+**The null was interrogated and survived.** A greedy nearest-neighbour seriation is a greedy TSP
+path, so the suspect was the ordering, not the mechanism. Measured: adjacent-pair Fisher-z
+**0.6352** against a 20-shuffle null of **0.0794 ± 0.0247** — **22.49 σ**; top-5 neighbours land
+within ±3 positions **41.84 %** of the time against **7.79 %** chance (**5.37×**); z decays
+0.635 → ~0.13 by distance 5; **0 / 2850** degenerate pairs. Adjacency in that chain genuinely
+means similarity.
+
+**So the finding is about the mechanism.** The task is **discrimination, not similarity**. A twin
+is identified by what separates it from ~5 000 other bodies; smearing a signature across its
+behavioural neighbourhood makes every body look more like its neighbours. **Spreading buys
+coverage by spending precision.** A spread without a surround is a blur — which makes
+`ndarray`'s **Pillar-15** (Difference-of-Gaussians center-surround unimodality,
+`hpc/pillar/mexican_hat.rs`, **DEFERRED** pending the kernel landing in `ndarray::hpc`) not a
+refinement but the **missing half**. This is the first measurement of the hole where it belongs.
+
+**And the inhibition it needs is already free.** The named `ternlog` tables in `ndarray::simd` —
+`AND3`, `AND2_ANDNOT` (`a & b & !c`), `AND_ANDNOT2` (`a & !b & !c`, the center-surround shape),
+`MAJ3` (bundle-and-threshold), `XOR3`, `OR3`, `AND2` — are **one `VPTERNLOGQ` per 512 bits
+each**. Inhibition costs an immediate, not a circuit. The shipped delta-frontier spread
+(`scratch & !state`) **is** `AND2_ANDNOT` — refractoriness — already measured by
+`E-HEX-TENANT-RAIL-IS-DIRECTION-CHAIN-IS-FREE-SHIFT-IS-THE-COST-1` at **−48 % for identical
+closure**. That is a **cost** result, not an accuracy one: frontier inhibition is proven *free*,
+not proven *better*.
+
+**Boundary rule unchanged** (`E-TOPOLOGY-MASKS-MAGNITUDE-COMPOSE-NEVER-COLLAPSE-1`): rail bytes
+are eligibility + strength, never a weight; the FC stays the white half. Population-level
+inhibition is `ANDNOT`, magnitude-level inhibition is subtraction or division, and **neither is
+XOR** (`I-SUBSTRATE-MARKOV`) — `XOR3` is sign/phase only.
+
+**Second finding, same run: order is the part that survives falsification.** The only arm whose
+disable fired is the **order-sensitive** one (consecutive cell pairs: 0.1579 → 0.0827 shuffled,
+halved), and it is also the best cue. Every order-blind arm tops out at 0.1353 and **none** of
+their falsifiers can fire, because permuting a unit→cell assignment is a global relabelling that
+leaves every exact-match collision intact. **The measured cue signal is exact unit-type reuse;
+the tile, seriation, LUT and spread contribute nothing that survives permutation.**
+
+**Scope.** Pure-Python lab, no Rust fingerprints — a shape proxy, never a measurement of
+`ndarray`/`bgz17`/`helix`. The cue reached **87.5 %** of the BPE incumbent (0.1579 vs 0.1805):
+PROCEED, not PASS.
+
 ## 2026-09-14 (3) — E-THE-VOCABULARY-IS-THE-RECOGNITION-ORGAN-THE-LAW-IS-THE-TRANSFER-ORGAN-1 — F-MQ8 and H5b were filed as one null; they are a division of labour, and they say which half is weak
 
 **Status:** FINDING — a re-reading of two recorded measurements, not a new
