@@ -1,3 +1,25 @@
+## 2026-09-15 — `TierFloors::stack_early_exit` promises a settled reading; that is true only for non-negative intensity, and the doc does not say so
+
+- **The premise, unstated.** `crates/perturbation-sim/src/rolling_floor.rs:220`
+  (`decision is confident, the finer tiers need not be computed`) — the early
+  reject returns the PARTIAL sum at the exit tier
+  (`rolling_floor.rs:239`, `if crossed || band == FloorBand::Alarm {`). A partial
+  is a lower bound on the full stack only when every remaining tier is
+  ≥ 0. The shipped caller (`weyl_over_fiedler`) is non-negative, so nothing
+  shipped is wrong; the CONTRACT is narrower than the signature (`[f64; 4]`
+  admits signed tiers) and the doc does not fence it.
+- **Measured (D-HXP-8 arm 1, `tictactoe_raumgewinn.rs`):** on the signed NET
+  arm (own − opp) the early exit changed the top-ranked candidate in
+  **10.13 %** of positions (F2 `0.8987`); on the non-negative AGREEMENT arm
+  `1.0000`. On that fixture the full stack is constant per position, so the
+  partial-sum spread is the only spread — the mechanism is unambiguous.
+- **Options, not chosen here:** (a) document the premise and `debug_assert!`
+  non-negativity; (b) a signed-safe exit — exit only when the remaining tiers'
+  maximum possible magnitude (a preheated per-tier bound) cannot reverse the
+  ranking; (c) callers with signed tiers run the full stack. D-HXP-8 takes (c)
+  for its exploratory arm and keeps the pre-registered arm non-negative.
+  Board: `EPIPHANIES` (13) 2026-09-15.
+
 ## 2026-09-14 — PR3 (mask-risc executor) hands three items to PR4
 
 - **Two runtime-immediate → const-generic ternlog bridges now exist.**

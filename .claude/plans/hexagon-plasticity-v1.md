@@ -756,3 +756,37 @@ position sample; the winner criterion is `head2head::WinnerCriterion::SupportSpr
 - **KILL** — F1 at chance on tic-tac-toe, or F3 flat.
 
 **Order.** tic-tac-toe → Hex (small boards) → Gobang → Go. Not started.
+
+### 12a. Arm 1 RUN (2026-09-15) — tic-tac-toe is F0-degenerate; F0 joins the gates (appended, nothing above rewritten)
+
+Probe: `crates/perturbation-sim/examples/tictactoe_raumgewinn.rs`. 4520 reachable
+non-terminal positions, 627 classes up to symmetry (the "765" above counts terminal
+classes too), empty-board value 0, random-move baseline `0.5797`.
+
+| arm | F1 det / tie-aware | F2 | all tied | distinct stacked / FULL | F3 degree-1 (drop) | null (20 seeds) |
+|---|---|---|---|---|---|---|
+| AGREEMENT | 0.5865 / 0.5797 | 1.0000 | 1.0000 | 1.000 / 1.000 | 0.5800 (+0.0004) | 0.5797 [0.5797, 0.5797] |
+| NET | 0.5677 / 0.5655 | 0.8987 | 0.8434 | 1.157 / 1.000 | 0.5808 (+0.0152) | 0.5768 [0.5617, 0.5899] |
+
+**Verdict: `F0 DEGENERATE — F1 not read`.** On 3×3 rings 1 ∪ 2 reach all 8 other cells
+from every cell (`reach 8..=8 of 8`, `9/9 cells`), so the full stack of any ring-additive
+intensity is the board census — identical for every candidate (measured: distinct
+FULL-stack values `1.000`). F1 = baseline, F2 = 1 and F3 flat are the census signature,
+not a KILL. Entry:
+`E-RAUMGEWINN-NEEDS-A-HORIZON-SMALLER-THAN-THE-BOARD-TIC-TAC-TOE-HAS-NONE-SO-ARM-1-IS-F0-DEGENERATE-NOT-A-KILL-1`.
+
+**Gate added — F0 fixture validity, read FIRST.** Computed from the rails alone before
+any position is scored: every cell's reach must be < board − 1, and the ranked quantity
+must take > 1 distinct value per position. Silent twin: the degree-1 rails (reach 1),
+asserted in the probe. A readable arm needs board diameter > 2 × deepest ring so that not
+even the centre sees everything.
+
+**Meter note.** `stack_early_exit` returns the partial sum at exit; with signed tiers
+(NET) that is not a bound, and early exit changed the top move in 10.13 % of positions.
+The pre-registered arm stays non-negative (AGREEMENT); a signed arm runs full-stack.
+`TECH_DEBT` 2026-09-15.
+
+**Order, revised.** tic-tac-toe RUN (F0 degenerate; retired as falsifier, kept as the
+harness) → Gobang 15×15 (Chebyshev diameter 14 > 8 ✓) or Go 9×9 (Manhattan 16 > 8 ✓) or
+Hex ≥ 7×7 (12 > 8 ✓; **Hex 5×5 fails F0**, diameter 8). F1/F2/F3 and KILL unchanged for
+a fixture that passes F0.

@@ -1,3 +1,30 @@
+## 2026-09-15 (10) — D-HXP-8 arm 1 RAN: tic-tac-toe is F0-degenerate (rails reach the whole board → the stack is a census), not a KILL; the early-exit meter presumes non-negative stacking
+
+- **State consumers should know:** the Raumgewinn falsifier's first arm is
+  committed (`crates/perturbation-sim/examples/tictactoe_raumgewinn.rs`) and
+  ran clean: 4520 positions / 627 classes, F1 tie-aware `0.5797` = the
+  random-move baseline, null `[0.5797, 0.5797]`. That is the CENSUS
+  signature, not chance: on 3×3 every cell's rings reach all 8 others, so
+  the full stack of any ring-additive intensity is identical for every
+  candidate (measured: distinct FULL-stack values per position `1.000`).
+  A new **F0 fixture-validity gate** now runs before any scoring and the
+  verdict prints `F0 DEGENERATE — F1 not read`. Next readable arm needs board
+  diameter > 2 × deepest ring: Gobang 15×15, Go 9×9, Hex ≥ 7×7 (Hex 5×5 fails).
+- **Meter note:** `TierFloors::stack_early_exit` returns the partial sum at
+  the exit tier; with SIGNED tiers (the exploratory NET arm) that is not a
+  bound and the early exit changed the top move in 10.13 % of positions
+  (F2 `0.8987` vs `1.0000` on the non-negative arm). Doc premise unstated —
+  `TECH_DEBT` 2026-09-15.
+- **Mississippi Queen "im Anschluss":** two readings, neither buildable
+  without a decision — hexagon W2 (D-HXP-3/4, "rail in the loop on the
+  river") is DATA-blocked (no MQ docs / river fixture in any repo or git
+  history; not fabricated), and ndarray `gemm-ternlog-mask-consolidation-v1.md`
+  §9 M1–M3 (`pack_a_masked_f32`, tile cache, ±1 ladder, coal budget) has spec
+  but no code — a first-writer implementation. Operator picks the reading.
+- Entry:
+  `E-RAUMGEWINN-NEEDS-A-HORIZON-SMALLER-THAN-THE-BOARD-TIC-TAC-TOE-HAS-NONE-SO-ARM-1-IS-F0-DEGENERATE-NOT-A-KILL-1`;
+  plan §12a; `D-HXP-8` → In progress.
+
 ## 2026-09-15 (9) — operator: the popcount side is the hexagon's Raumgewinn, its toolkit ships under the operator's own words, and tic-tac-toe / Gobang / Go / Hex make it falsifiable — `D-HXP-8` queued
 
 - **State consumers should know:** (11)'s lcp and (12)'s stacked popcount are

@@ -128,3 +128,7 @@ path = "examples/family_basin_weyl_multihop.rs"
 [[example]]
 name = "chaoda_surge_epicenter"
 path = "examples/chaoda_surge_epicenter.rs"
+
+[[example]]
+name = "tictactoe_raumgewinn"
+path = "examples/tictactoe_raumgewinn.rs"

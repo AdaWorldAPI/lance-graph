@@ -1,3 +1,88 @@
+## 2026-09-15 (13) — E-RAUMGEWINN-NEEDS-A-HORIZON-SMALLER-THAN-THE-BOARD-TIC-TAC-TOE-HAS-NONE-SO-ARM-1-IS-F0-DEGENERATE-NOT-A-KILL-1 — D-HXP-8 arm 1 ran; the pre-registration lacked a fixture-validity gate, and the fixture failed it
+
+**Status:** MEASURED — `D-HXP-8` arm 1 (tic-tac-toe) RUN. Probe
+`crates/perturbation-sim/examples/tictactoe_raumgewinn.rs`
+(`cargo run --manifest-path crates/perturbation-sim/Cargo.toml --example tictactoe_raumgewinn --release`),
+committed with the F0 gate that this entry adds to the pre-registration of (12).
+**Confidence:** HIGH on the structural result — it is a derivation confirmed by
+measurement (mean distinct FULL-stack values per position `1.000` on both arms); HIGH
+on the meter note (measured `0.1013`); the next-arm criterion is a proposal.
+
+### What ran
+
+Full negamax over the 4520 reachable non-terminal positions (627 classes up to
+symmetry; the "765" in (12) counts the terminal classes too — the probe scores the
+627 that have a move); a move is optimal when it preserves the value. Rails = Chebyshev
+rings 1..4 (rings 3 and 4 empty on 3×3), floors preheated on every (position, empty
+cell) pair with `k = 2`, `stack_early_exit` on a clone per candidate, rank by the
+stacked value. Random-move baseline `0.5797`.
+
+| arm | F1 det / tie-aware | F2 early == full | all tied | distinct stacked / FULL | F3 degree-1 tie-aware (drop) | shuffled-rail null, 20 seeds |
+|---|---|---|---|---|---|---|
+| AGREEMENT (pre-registered) | 0.5865 / **0.5797** | 1.0000 | **1.0000** | 1.000 / 1.000 | 0.5800 (+0.0004) | 0.5797 [0.5797, 0.5797] |
+| NET own − opp (exploratory) | 0.5677 / 0.5655 | **0.8987** | 0.8434 | 1.157 / 1.000 | 0.5808 (+0.0152) | 0.5768 [0.5617, 0.5899] |
+
+Read naively, the pre-registered arm sits EXACTLY on the baseline and the null collapses
+to a point — the KILL rule of (12) ("F1 at chance") would fire. It does not fire, and
+the reason is the finding.
+
+### F0 — the horizon exhausts the board, so the stack is a census
+
+On 3×3 every cell's rings 1 ∪ 2 reach all 8 other cells (measured: `reach 8..=8 of 8`,
+`horizon exhausts the board on 9/9 cells`). Both arms are ring-ADDITIVE — tier `r` sums
+a per-cell term `f(b[j])` over `j ∈ ring_r(m)` — so the full stack of candidate `m` is
+`Σ_{j≠m} f(b[j]) = Σ_j f(b[j]) − f(E)`, the same number for every empty `m`. The full
+stack cannot rank anything; it is the board census. Measured, not assumed: mean distinct
+FULL-stack values per position `1.000` on both arms, every candidate tied in `1.0000`
+of positions on AGREEMENT. F1 = baseline, F2 = 1 and F3 flat are all the census
+signature — not a KILL, not a pass, not a reading. **The fixture is degenerate.**
+
+This is (11)'s elephant : Wal at board scale: popcount is position-blind, and when the
+horizon reaches the whole world, position-blindness is total blindness. Raumgewinn is a
+LOCALITY property — it exists only where a cell's rails reach strictly less than the
+board. The number that decides a fixture is `reach / (board − 1)`; the gate is computed
+from the rails alone before any position is scored, and its silent twin is the degree-1
+rails (reach 1 of 8 — the probe asserts the gate stays silent there, so it discriminates).
+
+**F0 joins the pre-registration from here on.** A readable arm needs the board diameter
+strictly greater than twice the deepest ring, so that not even the centre sees everything:
+Gobang 15×15 (Chebyshev diameter 14 > 8 ✓), Go 9×9 (Manhattan 16 > 8 ✓), Hex ≥ 7×7 (hex
+diameter 12 > 8 ✓). Hex 5×5 fails it (diameter 8 — the centre reaches every cell) and
+must not be the next arm. Tic-tac-toe is retired as a Raumgewinn falsifier; it remains
+the ground-truth harness the larger boards reuse (negamax, symmetries, the F1/F2/F3
+scoring are board-size-agnostic in the probe).
+
+### The meter note — early exit presumes non-negative stacking
+
+`stack_early_exit` returns the PARTIAL sum at the exit tier —
+`crates/perturbation-sim/src/rolling_floor.rs:239` (`if crossed || band == FloorBand::Alarm {`)
+returns `stacked` as accumulated so far — and its doc promises
+`rolling_floor.rs:220` (`decision is confident, the finer tiers need not be computed`).
+That promise holds only when the remaining tiers cannot LOWER the reading, i.e. for
+non-negative intensity (the shipped caller, `weyl_over_fiedler`, is non-negative). The NET
+arm is signed (own − opp): a partial is then not a bound on the full stack, and the early
+exit changed the top move in **10.13 %** of positions (F2 `0.8987`) while AGREEMENT held
+`1.0000`. On this fixture that spread is the ONLY spread (FULL stack `1.000`), which is
+what makes the mechanism unambiguous. Filed in `TECH_DEBT.md` (the premise is unstated
+in the doc, not a bug in the shipped non-negative use). Consequence for D-HXP-8: the
+pre-registered arm stays AGREEMENT; a signed arm runs full-stack, or the meter grows a
+signed-safe exit (exit only when the remaining tiers' maximum magnitude cannot reverse
+the ranking — a bound, not a guess).
+
+### Process
+
+The pre-registration in (12) had a KILL rule that assumed the fixture could read F1.
+Every falsifier from here on carries F0 before F1: **can this fixture distinguish the
+candidates at all?** — measured as the distinct-value count of the quantity being ranked,
+before the ranking is read. The `all candidates tied 1.0000` line existed only because
+the anti-vacuity counters were added after the first run showed F1 == baseline to four
+decimals; had the KILL been read at face value, a correct claim would have been retired by
+a fixture that could not test it.
+
+Home: `hexagon-plasticity-v1.md` §12a (appended), `STATUS_BOARD` `D-HXP-8` (In
+progress — arm 1 RUN, F0 degenerate; next Gobang 15×15 / Hex ≥ 7×7 / Go 9×9),
+`LATEST_STATE` (10), `TECH_DEBT` 2026-09-15 (early-exit premise).
+
 ## 2026-09-15 (12) — E-POPCOUNTS-UPPER-RANGE-SIMILARITY-IS-THE-HEXAGONS-RAUMGEWINN-AND-BOARD-GAMES-MAKE-IT-FALSIFIABLE-1 — the counterweight to (11): the same position-blindness is territory on the hexagon substrate, the toolkit for it ships under the operator's own words, and the games give it ground truth
 
 **Status:** RULING — operator, verbatim, two messages: *"Der Vorteil von HDR popcount
