@@ -50,8 +50,9 @@ hydration never touches the SDK; it drives `object_store` with `aws_endpoint` +
 `aws_virtual_hosted_style_request = false`. Real cost: AWS-native credentials only — IMDS, SSO,
 STS assume-role.
 
-**A past session had already paid for this.** `crates/lance-graph/Cargo.toml:149` declares
-`object_store/aws` directly and explains that slimming lance's defaults *"would silently remove
+**A past session had already paid for this.** The `object_store` entry in
+`crates/lance-graph/Cargo.toml`'s `[dev-dependencies]` declares `object_store/aws`
+directly and explains that slimming lance's defaults *"would silently remove
 S3 from THIS crate's own S3 callers … it makes the capability this crate USES a thing this crate
 ASKS FOR."* That defensive declaration is the entire reason today's change is safe. Worth
 noticing as a pattern: the comment cost one paragraph then and saved a capability now.

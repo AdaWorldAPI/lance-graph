@@ -15,7 +15,8 @@ inside lancedb itself. Reproduce with
 `cargo check -p lance-graph --features lancedb-sdk`.
 
 **Not ours and not new.** `lancedb = { version = "=0.38.0", default-features = false }` is
-on `main` (Cargo.toml:265), landed with the lance-11 / lancedb-0.38 bump (#1190). Nothing
+on `main` (the `lancedb` key in the root `Cargo.toml`'s `[workspace.dependencies]`),
+landed with the lance-11 / lancedb-0.38 bump (#1190). Nothing
 caught it because `lancedb-sdk` is optional, off by default, enabled by no workspace
 member, and reachable in CI only through `rust-publish.yml`'s `--all-features` — a
 workflow that never runs on push. See
@@ -34,7 +35,7 @@ turns it on:
 
 | crate | declaration | default-on? |
 |---|---|---|
-| `lance-graph` | `lancedb-sdk = ["dep:lancedb"]` | no (`default` at :87 omits it) |
+| `lance-graph` | `lancedb-sdk = ["dep:lancedb"]` | no — its `default` list omits it |
 | `surreal_container` | `lancedb-sdk = ["dep:lancedb"]` | no (`default = []`) |
 | `holograph` | a feature literally NAMED `lancedb` — but it maps to `["dep:lance"]`, i.e. it does **not** pull the lancedb crate | n/a |
 
@@ -95,7 +96,8 @@ and never names the SDK. **Nothing in this workspace references `aws_config` / `
 (IMDS, SSO, STS assume-role).
 
 **A past session had already built the insurance that makes this safe.**
-`crates/lance-graph/Cargo.toml:149` declares `object_store/aws` directly and says why:
+`crates/lance-graph/Cargo.toml`'s `[dev-dependencies]` `object_store` entry declares
+`object_store/aws` directly and says why:
 *"slimming them to `default-features = false` is a plausible future move — and it would silently
 remove S3 from THIS crate's own S3 callers … it makes the capability this crate USES a thing
 this crate ASKS FOR."* That is exactly this move, anticipated.

@@ -57,8 +57,9 @@ TWO independent causes, and the interesting one is not ours:
   gates `Error::Http` behind `#[cfg(feature = "remote")]` (`src/error.rs:111`), but leaves
   `pub mod job;` ungated (`src/lib.rs:188`) while `job.rs` uses `Error::Http`
   unconditionally at `:56` and `:66`. **That crate cannot compile without `remote`.** The
-  workspace pin `lancedb = { version = "=0.38.0", default-features = false }` sits on
-  `main` at line 265 and was untouched by `947753d`.
+  workspace pin `lancedb = { version = "=0.38.0", default-features = false }` — the
+  `lancedb` key in the root `Cargo.toml`'s `[workspace.dependencies]` — is on `main`
+  unchanged and was untouched by `947753d`.
 
 So `--all-features` has been failing since the lancedb 0.38 bump (#1190), and **no branch
 could ever have gone red for it**, because the only call site is a workflow that never
