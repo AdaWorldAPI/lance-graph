@@ -412,6 +412,49 @@ anti-pattern. The 2026-04-20 session surfaced this gap between
 PR #223/#224/#225 merges and the LATEST_STATE / PR_ARC update;
 this rule exists so it does not recur.
 
+### The matching rule (P0, operator-ruled 2026-09-15 — 5 instances in one session)
+
+**Matching without reading is strictly prohibited.** A shared surface feature —
+a width, a count, a phrase, a file path, a name — is never evidence that two
+things are the same thing. **Before claiming A tells you about B, read B.**
+
+Measured instances, all in one session
+(`E-I-GRAFTED-HELIX-ONTO-HEXAGON-AND-THEN-DEPRECATED-THE-OPERATORS-TENANTS-ON-MY-OWN-AUTHORITY-1`
+carries 1–3 with their censuses):
+
+| # | matched on | transferred | what B actually was |
+|---|---|---|---|
+| 1 | `6 B == 6 rails` | helix residue → a Hexagon synapse surface | 6 B is ONE 48-bit `Signed360` sphere angle (`canonical_node.rs:868-871`) |
+| 2 | `48 bit == 48 bit` | cam_pq's ranking result → `HelixResidue` | the measurement never ranged over `HelixResidue` |
+| 3 | the words "multi-hop" | jc's synthetic-SPD EWA bound → graph recall | that pillar never traverses a graph |
+| 4 | a citation in a neighbouring entry | `le-contract.md:160-170` cited for the LUT | `:160-170` is CausalEdge64 residual carriers; the LUT section starts at `:169` |
+| 5 | the phrase "256² LUT" | 128 KiB u16 → `bgz-tensor`'s Fisher-z canon | that table is `Vec<i8>`, `byte_size() = k*k + 8` → 64 KiB + 8 B |
+
+**Instances 2, 4 and 5 occurred INSIDE the correction of 1, 3 and 4.** The rule
+therefore binds the correction as hard as the claim; a retraction written by
+matching is another instance, not a fix.
+
+Consequences, non-negotiable for new work:
+
+- **A cardinality is not a mapping.** Two things being six wide, or 48 bits, or
+  `256²` says nothing about whether they are the same object. Shape identity is
+  not object identity — state it that way when both are true.
+- **Name the read, not the match.** A claim of the form "A tells you about B"
+  must name the measurement, declaration, or line that ranged over **B**. If the
+  only thing that ranged over B is a resemblance to A, there is no claim yet.
+- **A citation you did not open is not a citation**, including one copied from a
+  neighbouring entry that looked authoritative. Copying a `path:line` forward
+  without reading the target is instance 4 exactly.
+- **Prefer the precise form, because precision is what makes a claim
+  falsifiable.** Instance 4 was invisible while the path was partial
+  (`UNVERIFIABLE`); widening it to repo-relative is what let
+  `citation_decay.py` check it and fail. A vaguer citation is not safer — it is
+  merely unfalsifiable.
+- **Grep is a heuristic for presence, never a proof of absence** — the prior
+  statement of one corner of this rule
+  (`E-ABBREVIATION-GREP-MANUFACTURED-AN-ABSENCE-1`), kept here because it is the
+  same move in the other direction: a non-match read as evidence.
+
 ### `SUPERSESSION-INDEX.md` is generated and CI-gated — never hand-edit it
 
 `.claude/board/SUPERSESSION-INDEX.md` is produced by
