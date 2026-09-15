@@ -1,0 +1,65 @@
+{
+ "meta": {
+  "n_train": 4045,
+  "n_test": 1265,
+  "n_pool": 5310,
+  "n_pairs": 133,
+  "n3_types_pool": 7827,
+  "len_V": 76,
+  "distinct_types_n3": 7827,
+  "distinct_cells_n3": 1305,
+  "collision_factor": 5.9977
+ },
+ "notes": [],
+ "arm_a_baseline": {
+  "n": 133,
+  "mrr": 0.0909,
+  "r@1": 0.0602,
+  "r@5": 0.1203,
+  "r@10": 0.1579,
+  "null_r@10": 0.003,
+  "null_mrr": 0.0017
+ },
+ "baseline_reproduced": true,
+ "arm_b_marginals_preserved": true,
+ "arm_b_cell_permutation": {
+  "n": 133,
+  "mrr": 0.1041,
+  "r@1": 0.0752,
+  "r@5": 0.1203,
+  "r@10": 0.1654,
+  "null_r@10": 0.0015,
+  "null_mrr": 0.0017
+ },
+ "arm_c_identity_control": {
+  "n": 133,
+  "mrr": 0.1064,
+  "r@1": 0.0752,
+  "r@5": 0.1278,
+  "r@10": 0.1729,
+  "null_r@10": 0.003,
+  "null_mrr": 0.0018
+ },
+ "arm_d_identity_order_shuffled": {
+  "n": 133,
+  "mrr": 0.0466,
+  "r@1": 0.0226,
+  "r@5": 0.0827,
+  "r@10": 0.0902,
+  "null_r@10": 0.0075,
+  "null_mrr": 0.0027
+ },
+ "summary": {
+  "a_r10": 0.1579,
+  "b_r10": 0.1654,
+  "c_r10": 0.1729,
+  "d_r10": 0.0902,
+  "b_minus_a": 0.0075,
+  "c_minus_a": 0.015,
+  "d_minus_c": -0.0827,
+  "distinct_types_n3": 7827,
+  "distinct_cells_n3": 1305,
+  "collision_factor": 5.9977
+ },
+ "secs": 115
+}

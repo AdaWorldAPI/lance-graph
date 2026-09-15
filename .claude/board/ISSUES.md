@@ -1,3 +1,538 @@
+## ISS-FAMILY-IS-FOUR-WIDTHS-TWO-AT-OPPOSITE-ENDS (2026-09-15) — ⊘ RESOLVED SAME DAY: falsifier ran, hazard CONFIRMED (0 vs 3); see E-THE-TWO-FAMILY-NAMINGS-INVERT-AND-FROM-BE-BYTES-IS-THE-PLAUSIBLE-WRONG-JOIN-1
+
+**"family" denotes four different things in this tree, and the two that share a width sit at
+opposite ends of the key.**
+
+| site | declaration | width | position |
+|---|---|---|---|
+| `canonical_node.rs:30` | `family (u24)`, bytes 10..13 | 16.7 M | v1 key tail |
+| `canonical_node.rs:499`/`:552` | v2 `family_v2() -> u16`, bytes 12..14 | 64 k | 5th field, near the FINE end |
+| `cascade_key.rs:54` | `pub family: u16` — *"HEEL — coarsest 256×256 tile: the broad basin / family"* | 64 k | **the COARSEST tier** |
+| `cascade_key.rs:226` | `CascadeKeyV3 { heel, hip, twig }` — no `family` | — | renamed away |
+
+Rows 2 and 3 are the hazard: identical name, identical width, **opposite ends of the address**.
+A prefix or join computed over one is a different quantity than the same computation over the
+other, and neither type's name carries the distinction.
+
+**What is NOT wrong, stated so the issue is not over-read:** the v2 accessor is named `family_v2`
+and is feature-gated, so I-LEGACY-API-FEATURE-GATED is satisfied — **no function silently changes
+semantics**. The exposure is a *reader* (or a doc, or a cross-type design) reasoning about "the
+family" as one concept, not a caller receiving wrong bytes.
+
+**Why it is filed rather than noted:** the join/prefix work in
+`E-THE-SEMIRING-IS-FREE-THE-COST-IS-CARRIER-WIDTH-AND-THE-JOIN-IS-THE-SAME-XOR-1` and
+`ISS-NODEGUID-HAS-NO-JOIN-SURFACE` is about to put a `CLZ`-shaped operation on exactly these
+fields. Choosing the wrong "family" there produces a **plausible small number**, which is the
+same non-failing failure mode as the byte-order trap in the same arc.
+
+**What would close it:** compute a shared-prefix over `NodeGuid`'s v2 tail and over `CascadeKey`
+for the same underlying entity and report whether they agree. Either answer is useful — agreement
+means the two namings are safely interchangeable at that depth; disagreement pins the hazard with
+a number. Anti-vacuity: the entity pair must differ somewhere in bytes 4..14, or both sides
+return the same trivial answer and the test proves nothing.
+
+**Related unit hazard, same arc:** `4096` has five referents here — four confirmed identical
+(`EPIPHANIES.md:18836`) and one confirmed distinct (`OQ-BASIN-COUNT`, a 12-**bit** `local`,
+`EPIPHANIES.md:23084`). Any new compartment set must declare which it is before a codebook is
+read through it.
+
+---
+## ISS-SEMIRING-BOOL-CARRIER-SILENTLY-DROPS-EDGE (2026-09-15) — OPEN
+
+**Six of the seven shipped semirings return the annihilator on a `Bool`-carried edge, and `add`
+treats the annihilator as identity — so the edge silently disappears from the traversal.**
+
+`HdrSemiring::multiply` (`graph/blasgraph/semiring.rs:85-107`) matches `(Vector, Vector)` for
+`XorBundle`, `BindFirst`, `XorField`, `Resonance`, `HammingMin`, `SimilarityMax` and falls to
+`_ => HdrScalar::Empty`. Only `Boolean` carries a `(Bool, Bool)` arm. `add` opens with
+`if a.is_empty() { return b.clone(); }` (`:110-116`), so an `Empty` product contributes nothing.
+
+**Hand `HammingMin` a Bool-carried edge and there is no panic, no error, no diagnostic — the edge
+is simply not in the result.** A wrong answer that looks like a correct one.
+
+**Why no test catches it:** every test carries one type throughout, so the mixed-carrier path is
+never entered. This is the vacuity shape the falsifiability rule names — an arm that cannot fire
+in the suite is untested there, regardless of coverage.
+
+**What would close it:** either make the six carrier-polymorphic (a `Bool` is a 1-bit vector and
+`xor`/`and` are defined on it), or make the mismatch **loud** — the annihilator must not be the
+same value as "no edge". Anti-vacuity for the fix: the test must construct a genuinely mixed pair
+and assert the edge *survives* (or that the call refuses), not merely that some result is
+returned. Related: `E-THE-SEMIRING-IS-FREE-THE-COST-IS-CARRIER-WIDTH-AND-THE-JOIN-IS-THE-SAME-XOR-1`.
+
+---
+
+## ISS-NODEGUID-HAS-NO-JOIN-SURFACE (2026-09-15) — ⊘ INVALID (same day, operator correction)
+
+> **⊘ INVALID — the evidence was a grep of `canonical_node.rs` ALONE.** The join lives one
+> module over in the SAME crate: `hhtl::NiblePath` (`pub mod hhtl`, `lib.rs:111`) —
+> `from_guid_prefix_v2` / `_v3(&NodeGuid)` pack `heel<<48 | hip<<32 | twig<<16 | leaf`
+> root-first from DECODED fields (exactly the recomposition this issue's sibling calls the
+> only correct join), then `common_prefix_depth`, `family_hop_count`, `common_ancestor`,
+> `is_ancestor_of`. Two of this issue's own six grep terms (`common_prefix`, `is_ancestor`)
+> would have hit it. And it is CALLED in production: `lance-graph/src/graph/mailbox_scan.rs:149`
+> (per row, inside a scan), `:263` (`DistanceMeans::PrefixDepth`),
+> `lance-graph-contract/src/soa_graph.rs:408` (`nearest_anchor`), `holograph/src/dntree.rs:188,1002`.
+> Measured on this issue's own probe fixtures (`family-join-v1`, arm added same day): the
+> canonical join agrees with `CascadeKey` on every pair at **16-nibble** resolution —
+> P1 `3→16`, P2 `0→0`, P3 `3→16`, P4 `0→0`. It reads the HEEL/HIP/TWIG/leaf path ONLY (the
+> Abstammung axis — `soa_graph.rs` "two head axes"), so T1 (classid) and T2 (identity) both
+> read `16`: invisible BY DESIGN, not a defect. The "fourth instance of the same gap" framing is
+> withdrawn for this item. **What survives:** the byte-order trap is real, and
+> `from_guid_prefix_v3` AVOIDS it (LE `u16` per tier, then root-first shift). Lesson, second
+> time this session: I searched one file and declared a crate empty. The text below stands as
+> the record of what was claimed.
+
+
+**The canonical address type has no way to compute the one operation the canon says the address
+exists for — while a parallel key type in the same repo has it, measured.**
+
+`lance-graph-contract/src/canonical_node.rs` has zero hits for
+`leading_zeros|common_prefix|lca|is_ancestor|prefix_len|divergen`. Meanwhile
+`crates/perturbation-sim/src/cascade_key.rs` ships `shared_prefix_tiers` (`:118`) and
+`cascade_distance` (`:134`), with a measured result behind them (blackout epicentre prefix-local,
+mean **1.000** vs **2.561** random).
+
+`NodeGuid`'s HEEL/HIP/TWIG are the same `u16 × 3` shape as `CascadeKey`'s family/leaf/identity,
+so the port is direct. **The fourth instance of the same gap**: architecture specified, working
+implementation on a neighbouring type, canonical type left empty (cf.
+`row_for_local_key` → `None`, the `hdr_bfs` scalar visited loop, the `position_of` linear scan).
+
+**The trap any implementation must avoid** — neither raw reinterpretation of the 16 bytes is
+correct. Fields are packed **LE within their own span** (`canonical_node.rs:210-215`) while field
+*order* is root-first by offset, so `from_le_bytes` counts from the identity end and
+`from_be_bytes` reverses nibble order inside every field. Only recomposition from decoded values
+works. A wrong version returns a plausible small number, so this needs a two-sided test: a pair
+differing in the FIRST nibble and a pair differing in the LAST must not be confusable.
+
+---
+
+## ISS-SHARED-PREFIX-TIERS-IS-TIER-COARSE-AND-BRANCHES (2026-09-15) — OPEN, ⊘ RE-SCOPED same day
+
+> **⊘ RE-SCOPED.** True of `CascadeKey::shared_prefix_tiers` as stated. But the CANONICAL join
+> is `hhtl::NiblePath::common_prefix_depth`, not this one, and it splits the finding in two:
+> **tier-coarse does NOT apply** — `MAX_DEPTH = 16` nibbles (finer than the canon's 12, and 5.3×
+> finer than the 3 tiers here); **branches DOES apply** — it is a
+> `while d < max { match (prefix(next), prefix(next)) … }` loop, O(depth) branches per call,
+> where the canon pins *"a shift, never a branch."* And it runs **per row inside a scan**
+> (`mailbox_scan.rs:149`), so the loop is on a hot path, not a curiosity. `packed()` returns
+> `(path: u64, depth: u8)` root-first, so the branchless form is one line:
+> `((a.path ^ b.path).leading_zeros() >> 2).min(a.depth.min(b.depth))`. The `morton48()`-unused
+> observation in perturbation-sim stands as written.
+
+
+**The shipped join is 4× coarser than the canon's own level granularity and uses a branch chain
+where the canon pins a shift — and the correctly-composed integer sits seven lines above it,
+unused.**
+
+`CascadeKey::shared_prefix_tiers` (`perturbation-sim/src/cascade_key.rs:118-128`) compares three
+`u16` fields with three `if`s, returning 0..=3. The OGAR canon pins 12 uniform path levels
+("1 hex digit = 1 nibble = 1 level, FAN_OUT=16") and *"tier-of-level = `level >> 2` — a shift,
+never a branch."* `morton48()` (`:111`) already packs `family<<32 | leaf<<16 | identity`,
+root-first — exactly the integer the join needs.
+
+The canon's formula reproduces the existing function at 4× resolution, branchlessly:
+`d = (a.morton48() ^ b.morton48()).leading_zeros() - 16`; `level = d >> 2` (0..=12);
+`tiers = level >> 2` (== `shared_prefix_tiers`). Hand-checked both ends: equal keys `lz=64` →
+level 12; family MSB differs `lz=16` → level 0.
+
+**The measurement consequence is the reason this is filed rather than left as a nit:** the
+prefix-locality result (1.000 vs 2.561) was taken with a **4-bucket ruler**. Re-running it at 13
+buckets is a strictly finer instrument on data already in hand, and whether the separation
+sharpens or flattens is informative either way. Cheap — no new probe, no new fixture.
+
+**Anti-vacuity for any fix:** a test asserting only `tiers == shared_prefix_tiers` proves nothing
+about the added resolution; it must also show two key pairs that share a *tier* but differ in
+*level*, and that the new function separates them where the old one cannot.
+
+---
+
+## ISS-F1-MARKED-UNRUN-BUT-MEASURED (2026-09-15) — OPEN
+
+**`EPIPHANIES.md:13892` lists F-1 (hierarchical-4⁴ vs flat-256 fidelity) as "Named in the OGAR
+canon, **un-run**". `AGENT_LOG.md:1621-1623` records it run on real data.**
+
+The AGENT_LOG entry: 4096 `academic_20k` words embedded, Base17-projected, flat-256 +
+hierarchical-16×16 built, 4000 held-out pairs, SplitMix64 seed, tag
+`.claude/board/exec-runs/probe-codebook-44-realdata.txt`. Verdict **fidelity-neutral** (hier ≈
+flat within noise) — "structure is free" confirmed; neither arm cleared the 0.965/0.9973 anchors,
+localized to a Base17 fold ceiling rather than the codebook.
+
+**Why it matters rather than being bookkeeping:** F-1 carries a KILL whose blast radius is stated
+as *"a large fraction of the `[H]`/`[S]` map collapses at once."* A gate that important being
+mis-listed as un-run means a future session either re-runs it needlessly or, worse, treats the
+whole downstream map as ungrounded when one arm is measured and a second
+(`E-WORDNET-MAKES-THE-4-ARY-ADDRESS-SEMANTIC-1`, 24.71× out-of-cell band lift) is positive.
+
+**Not edited in place** — the board is append-only; the two entries stand and this row records
+the disagreement. **What would close it:** a regrade line on the F-1 status naming which arm
+answers which half (taxonomic data: positive; continuous-embedding fidelity: neutral), and
+whether "un-run" was meant to scope to a third arm neither run covers.
+
+---
+## ISS-SPREAD-DOES-NOT-TRANSFER-CROSS-FAMILY (2026-09-15) — ⊘ OPEN, PREMISE FALSIFIED SAME DAY: the "comparable spread" it rests on was a measurement bug; the corrected numbers point the other way
+
+**The path-length-spread dose-response holds WITHIN the MQ family and MONDO does not sit on
+the axis.**
+
+Measured (`.claude/probes/density-sweep-v1/`, controlled arm): agreement is monotone in the span
+of reachable path lengths across six MQ configs at pinned density, 100.0 % → 26.9 %. But MONDO
+braids (mean spread **0.44**, 182/195 pairs) and scores **84.6 %** — *higher* than MQ `(1,2)` at
+**55.3 %**, which has comparable spread. So spread predicts within one synthetic family and does
+not carry to the one real ontology measured.
+
+⊘ **THE PREMISE IS FALSIFIED (review on `43dbfde`, fixed same day).** `supers_minmax` enqueued a
+node only on its FIRST discovery — it wrote `mn`/`mx` on the two lines above the change-test, so
+the test compared a depth against the value it had just written and was always false. A later,
+longer path therefore widened `mx[p]` without ever propagating that depth to `p`'s own ancestors,
+**systematically understating spread**. Corrected: **MQ mean spread 0.73 → 15.55 (21×), MONDO
+0.44 → 1.35 (3.1×)**, MONDO's flat set 13 → 9 pairs.
+
+**So "comparable spread" was an artifact.** MQ's spread is **11.5× MONDO's**, and the direction
+now *matches* the within-MQ dose-response — more span, lower agreement (MQ 15.55 → 36.0 %;
+MONDO 1.35 → 84.6 %). The evidence for non-transfer is gone, and it did not merely weaken: it
+points the opposite way.
+
+**This does NOT establish transfer, and the issue stays OPEN.** Two points are not a curve, and
+the comparison the issue actually made was against MQ `(1,2)` specifically — whose spread cannot
+be read off the fixed code, because `sweep.py` computes no spread at all (verified: zero
+`minmax` sites). The honest state is **unmeasured**, not resolved. Note the headline A3/A5
+verdicts are untouched by the fix (Δ 48.6 pp identical; braided-only 47.5 → 47.8 pp) because
+they read the SIGN of spread, not its size — only magnitude claims are void.
+
+**Why that matters rather than being a curiosity:** the whole point of naming a mechanism was to
+turn *"depth-rank is taxonomy-shaped"* into a **checkable precondition** a caller could evaluate
+on its own graph. A predictor that works only inside the family it was tuned on is not that.
+
+**What would close it (REVISED after the fix):** teach `sweep.py` to compute spread per MQ config
+on the corrected `supers_minmax`, then place MONDO's 1.35 on that axis and check whether ONE
+curve fits both. Anti-vacuity is unchanged and now harder: the curve must also *mis*-predict
+something, or it is being fit rather than tested.
+
+*(As originally written:)* measure the spread distribution of MONDO (and ideally a second real
+ontology) on the same footing as the MQ configs, and check whether a single spread→agreement
+curve fits both. If it does not, the honest statement is that spread is an MQ-family artifact and
+the taxonomy result remains mechanism-free. Anti-vacuity: the curve must also *mis*-predict
+something, or it is being fit rather than tested.
+
+---
+
+## ISS-BOUNDED-K-NEVER-FAILS-ON-ANY-GRAPH-TESTED (2026-09-15) — OPEN
+
+**The torch's recall claim is currently unearned: `k=50` returns 100 % on every MQ config and
+99.4 % on MONDO.**
+
+A bound that never costs anything on any graph tested is the **fires-on-everything** shape —
+exactly the defect `E-ANTI-EIGENVALUE-MACHINERY-CAN-ITSELF-BECOME-THE-EIGENVALUE-1` names, and
+the twin of the `closed_class_guess` 150/150 finding. `k=6` discriminates only mildly (89–100 %).
+
+**Consequence for the architecture entries.** `E-BOUNDED-ATTENTION-…` and
+`E-THE-CANON-SPECIFIED-THE-WHOLE-MASKED-O1-CHAIN-…` argue that a bounded frontier buys reach.
+The recall measurements are **consistent** with that — and equally consistent with *the bound
+never binding on these graphs*. The two readings are separated only by finding a graph where
+truncation genuinely costs reachability. Until then the amortization result (recall flat across
+hops 4/8/12) should be cited as **flat-and-high**, not as proof the bound is doing work.
+
+**What would close it:** a graph where bounded-k measurably loses recall — high fan-out with low
+path redundancy is the shape to hunt (MQ's braiding gives many alternative routes, which is
+plausibly *why* truncation is free there). If no such graph can be constructed, that is itself
+the finding, and the bound should be described as free rather than as cheap.
+
+---
+
+## ISS-ROW-FOR-LOCAL-KEY-RETURNS-NONE (2026-09-15) — OPEN
+
+**The masked-O(1) key→row lookup the canon specifies is a stub that answers `None` for every
+key, and every consumer silently falls back to positional addressing.**
+
+`soa_view.rs:127-130`:
+
+```rust
+fn row_for_local_key(&self, _local_key: u64) -> Option<usize> {
+    None
+}
+```
+
+The parameter is `_`-prefixed because it is unused. Its own doc: *"A view that has NOT
+materialized a per-row key index returns `None` for every key … **Until then a consumer that
+gets `None` falls back to the positional `(mailbox_id, row)` address.**"* The only implementor
+in the tree that returns anything is a **test** impl doing a linear `.find()` (`mailbox_scan.rs:434`).
+
+**What makes this the load-bearing stub rather than an ordinary TODO:** `canonical_node.rs:301-303`
+specifies the intended behaviour in words — *"After an HHTL radix walk has bound
+classid+HEEL+HIP+TWIG, this is the only part that still discriminates — **a single masked load,
+no gather**"* — and `local_key()` itself SHIPS. So the discriminator exists and the lookup that
+would make it O(1) does not. Without canon-address → row, **trie adjacency can only be
+positional or scanned**, which is the whole cost the prefix-reuse architecture exists to remove
+(`E-THE-CANON-SPECIFIED-THE-WHOLE-MASKED-O1-CHAIN-AND-ITS-LOAD-BEARING-LINKS-ARE-STUBS-1`).
+
+**Already flagged once.** The doc cites *"the baton-handoff-auditor's CATCH-CRITICAL — the View
+previously exposed only `n_rows`, with no way to go from the canon address back to a row."* The
+response declared the contract and deferred the implementation; this issue is that deferral,
+named.
+
+**Cheapest falsifier in the whole chain — no ternlog, no kernel.** Materialize a `local_key`
+column on ONE view and show it stops returning `None`. Two-sided and mandatory: a key that IS
+present must resolve to the right row, and a key that is NOT present must still return `None`.
+A lookup that answers every key is the fires-on-everything defect.
+
+---
+
+## ISS-THREE-MATERIALIZING-TRAVERSAL-SITES (2026-09-15) — OPEN
+
+**The same "hold the river instead of the frontier" pattern at three scales, none of them
+using masks, and the bound and the mask never co-occurring.**
+
+| site | bounded? | materializes |
+|---|---|---|
+| `hdr_bfs` (`blasgraph/ops.rs:157-195`) | **✗ unbounded** | keeps every newly reached node; `result.get(idx).is_none()` per index; `max_depth` the only cost control |
+| `cascade_search` (`heel_hip_twig_leaf.rs:352`) | ✓ `SearchConfig.k` = 50 | **5 heap allocations per query** (`Vec<SearchHit>` ×3 + `Vec<usize>` ×2 between tiers), **3 sequential dependent stages** |
+| `Scope::position_of` (`neighborhood.rs:62`) | — | `self.node_ids.iter().position(...)` — **a LINEAR SCAN up to `MAX_SCOPE_SIZE = 10_000`**; plus `scent_column()`/`resolution_column()` allocating a fresh `Vec<u8>` **per call** |
+
+**`cascade_search` has the torch and no mask; `hdr_bfs` has neither.** `SearchConfig.k` bounds
+survivors at every tier — the bounded legal set, already present — but the tiers communicate
+through materialized `Vec<usize>`, and `twig_search` is *literally* `hip_search` (`:225-226`,
+*"Structurally identical to hip_search"*), i.e. the three tiers are the same operation at three
+scales and therefore fold into one 3-input immediate (`heel & hip & twig` = `AND3`).
+
+**`Scope::position_of` is the one to read first.** The canon specifies *"a single masked load,
+no gather"*; the shipped local lookup is `iter().position()` over ≤10,000 entries. The column
+accessors are additionally a plain zero-copy-law violation by this workspace's own rule (*"the
+array itself is a ClassView projection"*) — a gathered `Vec<u8>` where a borrowed view exists.
+
+**Not one fix.** Each row has a different shape: `hdr_bfs` needs a *bound* (it has none);
+`cascade_search` needs the *fold* (it has the bound already); `Scope` needs an *index or a
+borrowed view* (it has neither). Filed together because they are one pattern, to be fixed
+separately.
+
+**The fold is not free and its falsifier must say so:** folded HHTL must reproduce
+`cascade_search`'s survivor set exactly, **and must LOSE when the cache is cold or the query
+count is 1** — sequential narrowing genuinely does less work per tier, so if the folded form
+wins even with a cold cache, the cache is not what is paying and the explanation is wrong.
+
+---
+## ISS-NO-MASK-HOP-OP (2026-09-15) — OPEN, ⊘ RE-SCOPED same day
+
+> **⊘ RE-SCOPED — "the joining op does not exist" is wrong as a universal.** It exists on the
+> PALETTE carrier: `p64-bridge/src/lib.rs::deduce_path` (`:479`) — *"Transitive deduction:
+> A→B→C via compose"* — a `visited[]` + `next_frontier` + `bits &= bits - 1` bitmask walk that,
+> per hop, calls `semiring.compose(current, target)` AND `semiring.distance(current, target)`.
+> That is a masked hop with compose+distance, on 1-byte palette codes, shipped and wired. It is
+> ABSENT on the BitVec carrier (blasgraph `hdr_bfs`) and in mask-risc's IR — which is where this
+> issue looked, and where it stays correct. The scoping is itself evidence for the sixth arc's
+> carrier finding from the other side: **the cheap carrier (1 B/code) already has the walk; the
+> expensive one (32 registers/value) does not.**
+
+
+> **⊘ WIDENED same day** — this issue named ONE absent op. The census went further:
+> the canon specifies the **entire** masked-O(1) chain in source, down to the words
+> *"a single masked load, no gather"*, and **three** links are stubs — this op, plus
+> `ISS-ROW-FOR-LOCAL-KEY-RETURNS-NONE` and `ISS-THREE-MATERIALIZING-TRAVERSAL-SITES`.
+> Read all three through
+> `E-THE-CANON-SPECIFIED-THE-WHOLE-MASKED-O1-CHAIN-AND-ITS-LOAD-BEARING-LINKS-ARE-STUBS-1`.
+> The text below stands; its scope was one link of six.
+
+**Four subsystems implement the mask-native hop; none of them performs it. The joining op
+does not exist.**
+
+lance-graph-java's T2 doctrine already *rules* the shape — **"HOP MAY LOOK LIKE HOP. IT MUST
+EXECUTE AS MASK × CLASSVIEW/WIDEFIELDMASK → MASK"** — and that ruling was made independently
+of this arc, which is why it is evidence rather than a post-hoc fit.
+
+| have | where |
+|---|---|
+| the instruction | `ndarray::simd` — `ternlog`, 256 immediates; `AND2_ANDNOT = 0x40` is `a & b & !c` |
+| the mask algebra | `crates/lance-graph-mask-risc/` — `Pred/And/Or/Xor/AndNot/Not/Ternlog`, ≤3-leaf fusion to one `Ternlog{imm}` |
+| the adjacency | blasgraph CSR/CSC/COO/HyperCSR + `vxm`/`mxm`, 7 semirings |
+| the contract | lance-graph-java T2 (above) |
+| **the op** | **nothing** |
+
+**Verified absence, not assumed.** In `lance-graph-mask-risc/src/ir.rs`:
+`Operand = {Plane, Scratch}` · `MaskOp = {Pred, And, Or, Xor, AndNot, Not, Ternlog}` ·
+`Terminal = {Count, Any, All, MaskedSumI32, MaskedMinI32, MaskedMaxI32, BlendI32, Keep}`,
+and a case-insensitive scan of the whole file for `gather|hop|permute|adjacen|neighbor|csr`
+returns **zero hits**. The IR is mask algebra over row *lanes*; no operand says *follow edges*.
+
+**Where the two would meet is a scalar loop.** `blasgraph/ops.rs:157-195` (`hdr_bfs`) computes
+`frontier & adj & !visited` — the `AND2_ANDNOT` immediate exactly — as a per-index Rust loop
+(`result.get(idx).is_none()`), with no top-k, no bounded legal set, no truncation at the
+advance step. `max_depth` is the only cost control.
+
+**The sharpest single symptom:** `HdrSemiring::Boolean` (`blasgraph/semiring.rs:50-51`) is
+documented *"AND multiply, OR add. Boolean reachability"* and dispatches `match (a, b)` on
+`HdrScalar` **per element pair** (`:101`, `:158`). Boolean reachability is therefore **already
+expressible and already slow** — the cheap regime has a name in the semiring enum and pays
+semiring cost anyway.
+
+**Why this is filed rather than built:** `graph/refine/` (task #26) is gated on the operator's
+go, and the op is an IR-surface addition to a crate currently in PR3 — not a drive-by. The
+measurement that would justify it is named in
+`E-BOUNDED-ATTENTION-BUYS-REACH-AND-A-DISTANT-HOP-IS-A-TERNLOG-NOT-A-SEMIRING-1`
+and is two-sided: a bounded-k ternlog walk must match unbounded `hdr_bfs` recall at the same
+depth AND go red when k is raised to unbounded, or the bound is decoration.
+
+**Open sub-question, not yet answered:** whether the hop belongs in the mask-risc IR (a new
+`MaskOp` reading a CSR operand) or stays in blasgraph with mask-risc supplying the fused
+ternlog kernel. The IR has no non-lane operand today, so adding one is a shape decision about
+that crate, not a mechanical insertion.
+
+---
+## ISS-ELK-DENSITY-UNISOLATED (2026-09-15) — ⊘ RESOLVED SAME DAY: density FALSIFIED; successor filed
+
+> **⊘ The sweep this issue asked for was run (`.claude/probes/density-sweep-v1/`) and it
+> KILLED the hypothesis this issue names.** With width and shifts pinned and advances
+> varied alone, **density holds at exactly 45.05 % while agreement spans 26.9 % → 100.0 %**
+> — a 73-point swing at identical density — and `advances=(1,)` vs `(2,)` differ ~2× in
+> density with **identical** agreement, so density is *inert*, not merely weak. The
+> variable is the **SPAN of reachable path lengths**: `(1,2)` vs `(1,3)` have the same
+> count and the same density and sit **18 points apart**.
+> 
+> This also **re-opens A5** — the braid mechanism I closed as falsified this morning. That
+> arm used a binary `spread == 0` vs `> 0` split; this one uses a dose. The indicator was
+> underpowered, not wrong.
+> 
+> Full result + what is NOT established:
+> `E-DENSITY-IS-FALSIFIED-THE-VARIABLE-IS-PATH-LENGTH-SPREAD-AND-THIS-RE-OPENS-A5-1`.
+> Successor: `ISS-SPREAD-DOES-NOT-TRANSFER-CROSS-FAMILY`. The text below is kept verbatim
+> as the question that was asked, not deleted.
+
+
+**The 48.6 pp MQ↔MONDO divergence is measured; its mechanism is not.**
+
+`.claude/probes/elk-generality-v1/` establishes that depth-rank reproduces
+`LensClosure::most_specific` on 84.6 % of MONDO pairs and 36.0 % of MQ pairs, and
+that the gap survives both confounds tested (A4 vacuity: 48.6 pp; A5 braiding:
+47.5 pp). What it does **not** establish is which structural property is
+responsible.
+
+The named, unisolated variable is **ancestry density**:
+
+| | ancestors of a typical node | as a fraction of the graph |
+|---|---|---|
+| MQ river | 69.4 of 151 nodes | **46 %** |
+| MONDO `is_a` | 14.1 of 60,467 nodes | **0.02 %** |
+
+MQ was constructed as a *different graph* (different semantics, different degree
+profile) — deliberately, because the question was "is this universal". It is
+therefore a sound falsifier for a universal claim and an unsound instrument for
+attributing the cause, because several variables move at once.
+
+**The measurement that would close this:** a density-swept FAMILY of MQ variants
+(hold the semantics, vary branching/advance so ancestry coverage sweeps from
+MONDO-like to MQ-like) and check whether agreement tracks the sweep monotonically.
+If it does, density is the property and the claim becomes *"depth-rank works while
+ancestry stays sparse"* — a testable precondition any caller can check. If it does
+not, the cause is elsewhere and the sweep says where to look next.
+
+**Why this is filed rather than fixed:** the sweep is cheap (the MQ builder already
+takes the parameters) but it would be a *third* result landed on top of two
+reversals in one session, and the entry it would amend is already scoped correctly
+without it — the board currently claims non-universality, which is what was
+measured. Adding "and the cause is density" without the sweep would be the same
+class of error as the descending-depth publication.
+
+---
+
+## ISS-ELK-MEET-CANNOT-SEE-PARENT-CHILD (2026-09-15) — OPEN
+
+**`meet_via` over strict ancestors is structurally unable to answer *"one of these
+IS the other's genus"*, and the clinical cases are where it shows.**
+
+Felty's syndrome is a **direct `is_a` child of rheumatoid arthritis** in MONDO.
+`LensClosure::supers_of` excludes self, so RA is in Felty's ancestor set but not in
+its own — and the intersection `supers(RA) ∩ supers(Felty)` can therefore **never
+contain RA**. The meet returns a grandparent-level answer to a question whose
+correct answer is one edge away.
+
+I reported that meet as *"the sharper of the two"* before understanding this. It was
+not sharper; it was answering a different question.
+
+**The fix is not in the meet.** A meet over strict ancestors is doing exactly what it
+says. What is missing is that the caller never asks the *other* question first —
+`supers_of` already contains the subsumption test (`b ∈ supers_of(a)`), so
+`meet_via` could cheaply report `Subsumes(a, b)` / `SubsumedBy(a, b)` as a distinct
+outcome from `Meet(set)` instead of silently degrading to the grandparent. That is a
+return-type change on a shipped API and wants its own proposal, not a drive-by.
+
+**Falsifier for any proposed fix:** RA ∩ Felty's must report the RA→Felty's
+relationship *as such*, and two genuinely sibling diseases must still report a meet —
+a version that reports subsumption for everything is the fires-on-everything defect.
+
+---
+
+## ISS-ELK-MONDO-ASSERTS-AS-IS-RA (2026-09-15) — OPEN (provenance, not a defect in our code)
+
+**Every MONDO-derived number in the D-ELK rows is a measurement *of MONDO*, and
+MONDO contains assertions I would not have authored.**
+
+Verified while re-cutting the clinical pairs: MONDO asserts
+`ankylosing spondylitis is_a rheumatoid arthritis` — parents read directly from the
+bake are *spondylitis; spondyloarthropathy; **rheumatoid arthritis**; vertebral joint
+disorder*. AS and RA are distinct entities clinically (seronegative
+spondyloarthropathy vs seropositive symmetric polyarthritis); an `is_a` edge between
+them changes what every meet through that region returns.
+
+**This is not a bug to fix here.** The bake faithfully carries the source. The
+consequence is a *citation rule*: a number measured on this spine supports claims
+about the lens's behaviour **on MONDO**, and does not transfer to "the taxonomy of
+disease" without saying which taxonomy. Any downstream consumer that treats a meet
+result as clinical ground truth inherits the source's assertions wholesale.
+
+**Related:** the 9,809 `Other`-predicate edges in the census are erased — their
+original predicate did not survive the bake's 3-bit `Predicate` discriminant. Nothing
+in the D-ELK rows depends on them, but a future arm that needs full predicate
+fidelity cannot get it from this artifact.
+
+## ISS-TYPEDGRAPH-TRAVERSE-HOP-COUNT (2026-09-15) — OPEN
+
+**Two functions in `graph/blasgraph/typed_graph.rs` compute two hops while
+documenting one, and a third that should agree with them computes one.**
+
+```rust
+pub fn traverse(&self, rel_type: &str, semiring: &dyn Semiring) -> Option<GrBMatrix> {
+    let matrix = self.relations.get(rel_type)?;
+    // A × A under the given semiring = one hop        <- the comment is false
+    Some(matrix.mxm(matrix, semiring, &desc))          <- A × A is TWO hops
+}
+```
+
+- `traverse(r)` (`:72`) — doc says *"Single-hop traversal"*, inline comment says
+  *"= one hop"*, body is `A × A`. **Two hops.**
+- `masked_traverse(r, label)` (`:132`) — same `matrix.mxm(matrix, …)` before the
+  label filter. **Also two hops**, and its doc likewise implies one.
+- `multi_hop(&[r])` (`:82`) — returns `A` unchanged. **One hop.**
+
+So `traverse(r)` and `multi_hop(&[r])` are the same question asked twice and
+answered differently. The disagreement is structural, not suspected: `A` and
+`A × A` differ by construction.
+
+**Raised by CodeRabbit on PR #1233** against the `causal-plane-inventory.md`
+section that documents it (the doc had already recorded `traverse`; the review
+is what made it actionable). The `masked_traverse` half is NOT in the review —
+it was found by reading the file while verifying the finding, which is the whole
+argument for verifying a review against source instead of applying it.
+
+**Deliberately not fixed there.** #1233 is docs-only ("No code, no crate, no
+`ndarray` change, no default flipped"), and this is a behaviour change to a
+shipped semiring primitive. Bundling it would falsify that line and put an
+unpinned behaviour change in a documentation diff.
+
+**Blast radius, measured before filing:** `TypedGraph::traverse` has **no caller**
+outside its own test module (`bgz17`'s `typed_palette_graph.rs:192` calls a
+*different* type's method of the same name). `masked_traverse` has two:
+`graph/graph_router.rs:332` (test) and
+`crates/lance-graph/examples/sigma_probe_masked_traverse.rs:132` (probe). Any fix
+has to re-pin both, and the probe's recorded numbers move if its hop count does.
+
+**What a fix owes, before it is called one:** a two-sided test that `traverse(r)`
+and `multi_hop(&[r])` agree on a fixture where `A ≠ A × A` — the current suite
+cannot distinguish them, which is why this survived. Whether the right repair is
+"return `A`" or "rename to `two_hop` and keep the semantics" is a call about
+which one has the real consumer, and `masked_traverse`'s probe is the only
+evidence either way.
+
+---
+
 ## ISS-NO-NON-LINUX-TARGET (2026-09-06) — OPEN
 
 **Neither filed issue covers the defect that opened this one, and the difference
