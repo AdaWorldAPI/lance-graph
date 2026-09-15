@@ -145,7 +145,12 @@
   > than the 48-bit class `HelixResidue` belongs to (`EPIPHANIES:19221`, ρ_all 0.966,
   > near-orth 170×) — with the shipped gate *"`learned[f]` promotes to
   > `frozen[f]` only after winning the held-out arm"* — seam 6 of this PR's
-  > own inventory, whose only gap is a `src/` promoter. The eleventh arc's
+  > own inventory. ⊘ *That clause first read "whose only gap is a `src/`
+  > promoter" — FALSE, Codex-caught: `MailboxSoA::promote_family` ships at
+  > `cognitive-shader-driver/src/mailbox_soa.rs:829` with a production-path
+  > call in `probe_metacognitive_triangle.rs:638`. The narrower open gap is
+  > that its only callers are examples, and `NodeRow` equivalence is
+  > unchecked.* The eleventh arc's
   > merged EPIPHANIES entry carries the same fabrication in five rows of its
   > organs/no-nerve table and in its `Read edge → … → write HelixResidue +
   > Plasticity` chain; it is stornoed in place and in a new entry, both in

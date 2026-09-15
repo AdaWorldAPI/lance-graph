@@ -32,10 +32,15 @@
   `ISS-BOUNDED-K-NEVER-FAILS-ON-ANY-GRAPH-TESTED`,
   `ISS-SPREAD-DOES-NOT-TRANSFER-CROSS-FAMILY` (unmeasured).
 - **Queued on operator go, not started:** `graph/refine/` W1–W5 (task #26);
-  the `src/` promoter for seam 6 (`LearnedStyle → FrozenStyle`, the held-out
-  gate that today exists only in `probe_sudoku_teacher.rs`) — **on the
-  triangle lanes, which are already **6 × 2 × palette256** and already correctly
-  addressed by `style_lane`'s 12-byte guard.** ⊘ *This bullet first proposed
+  ⊘ **the seam-6 promoter is NOT absent — Codex P2, caught in review, and it is
+  the THIRD absence claim I got wrong this session.** `MailboxSoA::promote_family`
+  ships at `cognitive-shader-driver/src/mailbox_soa.rs:829` — `pub fn`, copies
+  `learned_style[row][f] → frozen_style[row][f]`, with unit tests and a
+  production-path call in `probe_metacognitive_triangle.rs:638`. So #1233's seam-6
+  row (*"no promoter in any `src/`"*) and this bullet's first draft are both FALSE.
+  **What IS narrower and still open:** the promoter's only callers are examples, and
+  whether `NodeRow` (as opposed to `MailboxSoA`) has an equivalent is unchecked. That
+  narrower gap — not a missing promoter — ⊘ *This bullet first proposed
   re-aiming that loop at `HelixResidue` / `Plasticity` — a fabrication,
   struck before merge; see the arc entry's storno.* `NiblePath::as_match`
   (guid-as-mask over `Pred::MatchU64`); the branchless `common_prefix_depth`;

@@ -31,19 +31,31 @@ is **`palette256:palette256`** — each byte a centroid index, each rail a point
 256×256 pairwise distribution, similarity between two rails **one `FisherZTable` read in
 i8, never materialized** (`Palette256Pair`, `awareness_facet.rs:28-32`). The three learning
 lanes are const-asserted *"12 palette256 atoms"* (`canonical_node.rs:2674`). And
-`EPIPHANIES.md:19221` carries the operator ruling **with its confirming measurement**:
+the operator ruling **with its confirming measurement** is in
+`E-CAM96-DISTRIBUTION-MEASURED-1` *(cited by ENTRY NAME, not line number — see the note at
+the end of this entry)*:
 
 > *"the full 6×(256×256) 96-bit tenant is better than cam_pq 48-bit; if you want it
 > perfect, the first is better"* — **CONFIRMED: ρ_all 0.966 ≥ 0.965, near-orth 0.881
 > (170×).**
 
-**`HelixResidue` is 48 bit.** I proposed as the learning surface the exact budget class
-that a recorded measurement in this repo had already ruled **the lesser one** — while the
-96-bit shape sat in three lanes with a held-out promote gate already on it. Not "I picked a
-different shape": I picked the one the ruling names as worse, and the better one was what I
-was standing on. (`EPIPHANIES.md:19050` places helix's `ResidueEdge` as **24 bits inside**
-one carving of that same 96-bit payload — a component of the register, never a surface over
-it.)
+> ⊘ **AND THE FIRST DRAFT OF THIS VERY PARAGRAPH REPEATED THE ERROR IT RETRACTS —
+> Codex P2, caught in review.** It read: *"`HelixResidue` is 48 bit. I proposed the exact
+> budget class that a recorded measurement had already ruled the lesser one."* **That is a
+> cardinality inference — `48 == 48` — the same move as `6 == 6` one level up.** The
+> measurement compared **`cam_pq`** against the 96-bit V3-L4 tenant; it never encoded or
+> evaluated `HelixResidue`. And the contract keeps them **explicitly distinct**:
+> `facet_schema.rs:13` defines `FacetSchema::Pair48` as *"`2 × 48-bit` — two 6-byte codes —
+> `helix` `Signed360` / `cam_pq` `[u8; 6]` (both already 48-bit)"*. Two codes that SHARE a
+> budget so that both fit side by side — sharing 48 bits is what `Pair48` exists to exploit,
+> not evidence they are the same object. **Struck: no measurement ranks `HelixResidue`
+> against anything.**
+
+What stands without the transfer, and it is enough: **the ruled-and-measured shape for the
+learning lanes is `6 × 2 × palette256`**, it was already carrying the promote gate, and I
+went looking elsewhere. Why `HelixResidue` is the wrong surface is established by the
+**graft** — helix is the residue of HHTL, not of Hexagon; `residue` is 0× in every Hexagon
+artifact — **not** by any ranking of it.
 
 **The census that should have stopped it, in one line:** `residue` appears **0×** in
 `.claude/plans/hexagon-plasticity-v1.md`, **0×** across `.claude/probes/hexagon-plasticity-v1/`,
@@ -94,7 +106,37 @@ operator had run the Hexagon tests and knew no residue was in them.
 a tested subsystem, `grep -c` its name in that subsystem's plan and probes. Zero hits means
 it is not part of it, whatever the type system says.
 
+### The generalizable form, REWRITTEN after review — it is not one rule, it is one MOVE made five times
+
+The review found three more instances of the same operation, two of them inside the
+correction itself. The move: **transfer a property across a boundary on the strength of a
+shared surface feature.**
+
+| # | shared feature | transferred | caught by |
+|---|---|---|---|
+| 1 | `6 B == 6 rails` | helix residue → a Hexagon synapse surface | operator |
+| 2 | `48 bit == 48 bit` | `cam_pq`'s measured ranking → `HelixResidue` | Codex P2 |
+| 3 | "multi-hop" | synthetic-SPD concentration → graph-traversal recall | Codex P1 |
+| 4 | the word "plasticity" | an unwritten tenant → a deprecation verdict | operator |
+| 5 | "it's in `VALUE_TENANTS`" / "I grepped one file" | declared-absent three times, wrong three times (`hhtl::NiblePath`, `deduce_path`, `promote_family`) | operator ×2, Codex ×1 |
+
+Rows 2 and 3 happened **while writing the retraction of row 1**, which is the finding:
+*a correction written in the same voice that produced the error reproduces the error's
+operating move.* The fix is not more care — it is a different question. Before any claim
+that A tells you about B: **name the measurement that ranged over B.** If none did, the
+claim is about A.
+
+**Citation rule, learned mechanically here:** this entry first cited
+`EPIPHANIES.md:19221` and `:19050`. Both were **stale before the commit landed** — I
+prepended 152 lines to the same append-only file I was citing, so every line number in it
+shifted by that amount. **Cite an append-only board file by ENTRY NAME (`E-…-1`), never by
+line number.** The `citation-decay` gate checks source citations, not board-internal ones,
+so nothing would have caught it.
+
 Refs: `crates/lance-graph-contract/src/canonical_node.rs` (`VALUE_TENANTS`, `style_lane`),
+`crates/lance-graph-contract/src/facet_schema.rs` (`Pair48` — helix and cam_pq are DISTINCT
+48-bit codes), `crates/cognitive-shader-driver/src/mailbox_soa.rs:829` (`promote_family`,
+the seam-6 promoter that does ship),
 `crates/causal-edge/src/edge.rs` (`PlasticityState`, `PLAST_SHIFT`), `crates/helix/src/lib.rs`,
 `.claude/knowledge/causal-plane-inventory.md` §2 (the triangle) + §3 seam 6,
 `.claude/plans/hexagon-plasticity-v1.md`.
@@ -804,7 +846,23 @@ a bound that is simply never binding — see Q2.
 > ⊘ **THE "BUT" CONFLATES TWO AXES — corrected 2026-09-15, operator-pointed.**
 > Flat-across-depth and never-binding-k are not competing explanations of one
 > observation; they answer **different questions**, and only the second is open.
-> **DEPTH is CERTIFIED**, not merely predicted: `jc::ewa_sandwich` (Pillar 6)
+> ⊘ **"CERTIFIED" IS THE WRONG WORD AND IT IS A THIRD TRANSFER — Codex P1, caught in
+> review.** `jc::ewa_sandwich` runs **1,000 synthetic SPD matrix paths at
+> `PATH_LENGTH = 10`**. It never touches MONDO or MQ, never traverses a graph, and never
+> measures hop 12. Calling graph-recall behaviour "certified" by it moves a result across
+> the boundary from *synthetic covariance propagation* to *graph traversal* on the strength
+> of both being "multi-hop" — the third same-shaped transfer in this entry.
+> **`D-HXP-7` is still `Queued`** in `STATUS_BOARD`, and it is exactly the gate that would
+> close this: PSD ≥ 0.999 AND CV ≤ 1.75× bound at **n ≥ 10**, with a **mandatory
+> anti-vacuity arm** (an unstructured fixture must FAIL at low n) and an **additive disable
+> arm** (plain `Σ_n = Σ_0 + Σ M_k` must go red at n ≥ 10). None of that has run.
+> **The honest statement:** the EWA bound PREDICTS no-decay-with-depth and the aperture
+> arithmetic below is exact, but the prediction is UNTESTED on this repo's graphs. Depth is
+> **predicted, not certified**; it stays open until D-HXP-7 runs. *(Codex also cited a
+> requirement "through n=14" — that string is not in the plan; the plan and the board row
+> both say `n ≥ 10`. Recorded rather than echoed.)*
+>
+> ~~**DEPTH is CERTIFIED**, not merely predicted:~~ **DEPTH is PREDICTED:** `jc::ewa_sandwich` (Pillar 6)
 > proves Σ-push-forward along multi-hop paths keeps PSD ≥ 0.999 with
 > **geometric (multiplicative) error control** where naive convolution gives
 > arithmetic O(n) growth — *"the difference between 'every hop adds noise' and
@@ -814,11 +872,13 @@ a bound that is simply never binding — see Q2.
 > `0.45..0.65` aperture is **exactly the admissible-depth window**:
 > `0.65 ⇔ n = 7.62`, `0.45 ⇔ n = 47.06`, asymptote 0.40. **n ∈ [8, 47].**
 > n=5 sits OUTSIDE at 0.7483; n=12 sits near the centre at 0.5715; the
-> shipped run is n=10 at 0.600. So no-decay-at-hop-12 is the *certified*
-> behaviour of the regime, not an unexplained coincidence awaiting a
-> falsifier. **WIDTH — whether top-k frontier truncation loses reachability —
-> is what Q2 is about, and Pillar 6 says nothing about it.**
-> `ISS-BOUNDED-K-NEVER-FAILS-ON-ANY-GRAPH-TESTED` stays OPEN on width alone.
+> shipped run is n=10 at 0.600. So no-decay-at-hop-12 is the **predicted**
+> behaviour of the regime — a prediction with an exact bound and a queued gate
+> (`D-HXP-7`), not a certification, and not an unexplained coincidence either.
+> **WIDTH — whether top-k frontier truncation loses reachability — is a
+> different question again, and Pillar 6 says nothing about it.**
+> `ISS-BOUNDED-K-NEVER-FAILS-ON-ANY-GRAPH-TESTED` stays OPEN on width;
+> **depth stays open too, on `D-HXP-7`.**
 
 **Q2 — anti-vacuity: NOT SATISFIED, and this is the honest headline of the recall half.** `k=50`
 returns **100 % on every MQ config and 99.4 % on MONDO**. *A bound that never costs anything on
