@@ -1,3 +1,155 @@
+## 2026-09-15 — E-THE-SEMIRING-IS-FREE-THE-COST-IS-CARRIER-WIDTH-AND-THE-JOIN-IS-THE-SAME-XOR-1 — the masked-O(1) claim censused against shipped code: every semiring's multiply is one bitwise op, and the XOR that computes it is the XOR whose CLZ gives the tree relationship
+
+**Status:** FINDING (code census — `graph/blasgraph/semiring.rs`, `graph/blasgraph/types.rs`,
+`lance-graph-contract/src/canonical_node.rs`, `perturbation-sim/src/cascade_key.rs`). No probe:
+every claim below is read off shipped source, and the two arithmetic claims are hand-checked.
+**Confidence:** HIGH on the census — it is exhaustive over the 7 shipped semirings, and the byte
+layout is read from the packer rather than the doc comment. MEDIUM on the carrier-width
+consequence: the arithmetic is exact, but "this is *the* binding constraint" is inference, not
+measurement. LOW on nothing — no part of this is projected.
+
+**Operator claim under test**, in two parts: (1) *"gather adjacent becomes O(1) × MQ fan-out
+reuse mask for O(1) hexagon ⇒ any semiring turns into masked O(1)"*; (2) *"the nodeguid is the
+HHTL family identity address, so any given 2 nodeguids can be masked by their kleinstes
+gemeinsames Vielfaches from root until the difference."*
+
+The German is precise in lattice terms and worth keeping: in a prefix trie ordered by
+*is-prefix-of*, the **join** of two addresses is their longest common prefix — the smallest
+subtree containing both. "Kleinstes gemeinsames Vielfaches" is the join in a divisibility
+lattice; it is the same operation, not a loose analogy.
+
+### Part 1 — the census. ⊗ is universal; ⊕ is two shapes, not one
+
+**Multiply: 7 of 7 shipped semirings are a single bitwise op** (`semiring.rs:85-107`) — six
+`xor`, one (`Boolean`) `and`. There is no arithmetic anywhere on the multiply side. So the ⊗ of
+every shipped semiring already *is* a ternlog immediate; switching semirings on that side is
+changing a byte. **This half of the claim holds without qualification.**
+
+**Add splits** (`semiring.rs:109-168`):
+
+| ⊕ shape | semirings | cost |
+|---|---|---|
+| pure bitwise (ternlog) | `Boolean` (OR), `XorField` (XOR) | one immediate |
+| reduce → compare → **select** | `BindFirst`, `HammingMin`, `SimilarityMax`, `Resonance` | popcount → cmp → blend |
+| bitwise combine (majority) | `XorBundle` (bundle) | majority-of-N |
+
+Four of seven ⊕ return an operand *unchanged* (`a.clone()` / `b.clone()`) — that is a **blend**,
+not an accumulate. Nothing in the set needs anything the mask-RISC IR lacks: `MaskOp::Ternlog`,
+`Terminal::{Count, MaskedMin, BlendI32}` cover all three shapes. **Zero of the seven needs a
+gather.** The claim survives; the mechanism is two-tier rather than one.
+
+**Correction to a hypothesis I nearly asserted.** I expected those `.clone()`s to be heap copies,
+which would have made "O(1)" false in practice. They are not — `BitVec` is
+`words: [u64; VECTOR_WORDS]` (`types.rs:23-26`), an inline array. No allocation. Recorded because
+the wrong version was one sentence from being published as a defect.
+
+### The consequence that checking it surfaced: the carrier, not the semiring, is the constant
+
+`[u64; 256]` is 16384 bits = **32 AVX-512 registers per value**. The per-edge cost is therefore a
+constant 32-register block — *identical across all seven semirings*, which is exactly the
+operator's point that the semiring was never the cost. But masked O(1) only **pays** when many
+nodes share a register:
+
+- 16 Kbit `BitVec` → one value needs **32 registers**
+- 96-bit V3 facet → one register holds **5 values**
+
+At BitVec width there is no amortization to have; you are 32 registers deep inside a single node.
+**The hexagon facet is the width at which the claim cashes out**, and blasgraph's semiring still
+carries the 16 Kbit VSA vector that `E-MARKOV-TEMPORAL-STREAM-1` (2026-07-10) already demoted.
+Same gap-shape as the stubs in `E-THE-CANON-SPECIFIED-THE-WHOLE-MASKED-O1-CHAIN-AND-ITS-LOAD-BEARING-LINKS-ARE-STUBS-1`:
+the ruling landed, the traversal carrier did not follow.
+
+One float in the set, against the zero-floats-in-hot-path discipline: `Resonance`'s ⊕ goes
+through `density() -> f32` (`types.rs:183-185`). The only non-integer reduce of the seven.
+
+### Part 2 — the join is `CLZ(a ⊕ b)`, and the layout has a trap
+
+`NodeGuid` is laid out root-first *by offset* — `classid(0..4) | HEEL(4..6) | HIP(6..8) |
+TWIG(8..10) | family(10..13) | identity(13..16)` — but `NodeGuid::new` packs each field **LE
+within its own span** (`canonical_node.rs:210-215`). So **neither raw reinterpretation of the 16
+bytes computes the join**:
+
+- `u128::from_le_bytes` → byte 15 becomes most-significant → counts from the **identity** end.
+  Wildly wrong, and returns a plausible small number.
+- `u128::from_be_bytes` → correct field order, but byte 0 is classid's **low** byte → **nibble
+  order reversed inside every field**. Correct at byte granularity, wrong at nibble granularity —
+  and the OGAR canon's "1 hex digit = 1 nibble = 1 level of the 16-ary tree (FAN_OUT=16)" is
+  exactly nibble granularity.
+
+Only recomposition from the *decoded values* is correct:
+`(classid as u128) << 96 | (heel as u128) << 80 | (hip as u128) << 64 | (twig as u128) << 48 |
+(family as u128) << 24 | (identity as u128)`. After that it is pure shift-and-mask, which is the
+operator's point: `lz = (a ^ b).leading_zeros()`, `level = lz >> 2`, and the canon's
+*"tier-of-level = `level >> 2` — a shift, never a branch"* chains directly on.
+
+### The join already exists — on a parallel type, 4× coarse, and branching
+
+`crates/perturbation-sim/src/cascade_key.rs` ships `shared_prefix_tiers` (`:118`) and
+`cascade_distance` (`:134`) as O(1) Morton-containment, **with a measured result behind them**:
+the Spain blackout epicentre is prefix-local, mean cascade-distance **1.000 vs 2.561** random
+baseline. So the operator's claim is not speculative — the tree already demonstrates it.
+
+But that implementation compares three `u16` fields with three `if`s and returns 0..=3, where the
+canon pins 12 uniform path levels and a shift. **And the correctly-composed integer is already in
+the same file, seven lines above, unused by it:** `morton48()` (`:111`) packs
+`family<<32 | leaf<<16 | identity` — root-first, exactly what the join needs.
+
+The canon's own formula reproduces the existing function exactly, at 4× resolution, branchlessly:
+
+```
+d     = (a.morton48() ^ b.morton48()).leading_zeros() - 16   // 0..=48 bits to divergence
+level = d >> 2                                              // 0..=12, the canon's path levels
+tiers = level >> 2                                          // 0..=3  == shared_prefix_tiers
+```
+
+Hand-checked at both ends: equal keys → `lz = 64` → level 12 (all twelve levels agree); family
+MSB differs → `lz = 16` → level 0. The shipped three-branch function falls out as `level >> 2`.
+
+**Consequence for the measurement, not just the code:** the prefix-locality result was taken with
+a **4-bucket ruler**. 1.000 vs 2.561 on a 0..3 scale is coarse; the same data through a 13-bucket
+ruler is a strictly finer instrument, and whether the separation sharpens or flattens is itself
+informative. That is a cheap re-run, not a new probe.
+
+### The convergence — this is why it is one finding and not two
+
+The ⊗ of six of seven semirings is XOR. The join of two addresses is XOR. **Same instruction.**
+One `a ^ b` yields the semiring product *and*, via CLZ, the tree relationship between its
+operands. The distance is not a second lookup; it is a byproduct of the algebra already running.
+That is what makes "gather adjacent becomes O(1)" **structural rather than an optimization** — and
+it is the load-bearing step in the operator's chain, because it is what removes the need to
+*store* or *search for* the mask at all.
+
+### The condition this rests on is NOT un-run — and the board says it is
+
+`CLZ(a ^ b)` gives *structural* divergence for free. For it to be a *semantic* distance, the OGAR
+canon pins that each 256-entry codebook be a 4-level 4-ary hierarchy (*"256 = 4⁴ … a byte's
+nibbles are the centroid's ancestry"*), warning *"Flat k-means-256 breaks this."* Three arms exist:
+
+- **Positive** — `E-WORDNET-MAKES-THE-4-ARY-ADDRESS-SEMANTIC-1`: **24.71×** out-of-cell band
+  lift, 2.47-hop sub-nibble gap. The 4-ary address *is* semantic on taxonomic data.
+- **Neutral** — the real-Jina codebook arm (`AGENT_LOG.md:1621-1623`): flat-256 vs
+  hierarchical-16×16 over 4000 held-out pairs, **fidelity-neutral** (hier ≈ flat within noise).
+  Structure is *free*, not *better*, there; the anchor miss localized to a Base17 fold ceiling,
+  not the codebook.
+- **Withdrawn** — a third sweep was fatally confounded (*"the carving cannot reach the ruler"*,
+  `EPIPHANIES.md:14773`) and correctly killed rather than reported as a null.
+
+**`EPIPHANIES.md:13892` still lists F-1 as "un-run", which `AGENT_LOG.md:1621` contradicts.**
+Filed as `ISS-F1-MARKED-UNRUN-BUT-MEASURED`; not edited in place, per append-only.
+
+### Filed from this census
+
+`ISS-SEMIRING-BOOL-CARRIER-SILENTLY-DROPS-EDGE` (the sharpest — a silent wrong answer) ·
+`ISS-NODEGUID-HAS-NO-JOIN-SURFACE` · `ISS-SHARED-PREFIX-TIERS-IS-TIER-COARSE-AND-BRANCHES` ·
+`ISS-F1-MARKED-UNRUN-BUT-MEASURED`.
+
+**What would falsify the carrier-width consequence:** run the same traversal at both widths and
+show the per-edge cost does *not* track register occupancy — i.e. that something else (frontier
+management, the scalar visited check in `hdr_bfs`, `ops.rs:158`) dominates so completely that the 32-vs-1/5
+register ratio does not appear in the measurement. That is the honest next probe, and it is
+unrun; nothing here claims it has been done.
+
+---
 ## 2026-09-15 — E-DENSITY-IS-FALSIFIED-THE-VARIABLE-IS-PATH-LENGTH-SPREAD-AND-THIS-RE-OPENS-A5-1 — my own filed hypothesis dies at 73 points of swing under pinned density, and the mechanism I closed as falsified this morning comes back
 
 **Status:** FINDING (measured, `.claude/probes/density-sweep-v1/`, MQ arms re-runnable).

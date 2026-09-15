@@ -1,3 +1,104 @@
+## ISS-SEMIRING-BOOL-CARRIER-SILENTLY-DROPS-EDGE (2026-09-15) — OPEN
+
+**Six of the seven shipped semirings return the annihilator on a `Bool`-carried edge, and `add`
+treats the annihilator as identity — so the edge silently disappears from the traversal.**
+
+`HdrSemiring::multiply` (`graph/blasgraph/semiring.rs:85-107`) matches `(Vector, Vector)` for
+`XorBundle`, `BindFirst`, `XorField`, `Resonance`, `HammingMin`, `SimilarityMax` and falls to
+`_ => HdrScalar::Empty`. Only `Boolean` carries a `(Bool, Bool)` arm. `add` opens with
+`if a.is_empty() { return b.clone(); }` (`:110-116`), so an `Empty` product contributes nothing.
+
+**Hand `HammingMin` a Bool-carried edge and there is no panic, no error, no diagnostic — the edge
+is simply not in the result.** A wrong answer that looks like a correct one.
+
+**Why no test catches it:** every test carries one type throughout, so the mixed-carrier path is
+never entered. This is the vacuity shape the falsifiability rule names — an arm that cannot fire
+in the suite is untested there, regardless of coverage.
+
+**What would close it:** either make the six carrier-polymorphic (a `Bool` is a 1-bit vector and
+`xor`/`and` are defined on it), or make the mismatch **loud** — the annihilator must not be the
+same value as "no edge". Anti-vacuity for the fix: the test must construct a genuinely mixed pair
+and assert the edge *survives* (or that the call refuses), not merely that some result is
+returned. Related: `E-THE-SEMIRING-IS-FREE-THE-COST-IS-CARRIER-WIDTH-AND-THE-JOIN-IS-THE-SAME-XOR-1`.
+
+---
+
+## ISS-NODEGUID-HAS-NO-JOIN-SURFACE (2026-09-15) — OPEN
+
+**The canonical address type has no way to compute the one operation the canon says the address
+exists for — while a parallel key type in the same repo has it, measured.**
+
+`lance-graph-contract/src/canonical_node.rs` has zero hits for
+`leading_zeros|common_prefix|lca|is_ancestor|prefix_len|divergen`. Meanwhile
+`crates/perturbation-sim/src/cascade_key.rs` ships `shared_prefix_tiers` (`:118`) and
+`cascade_distance` (`:134`), with a measured result behind them (blackout epicentre prefix-local,
+mean **1.000** vs **2.561** random).
+
+`NodeGuid`'s HEEL/HIP/TWIG are the same `u16 × 3` shape as `CascadeKey`'s family/leaf/identity,
+so the port is direct. **The fourth instance of the same gap**: architecture specified, working
+implementation on a neighbouring type, canonical type left empty (cf.
+`row_for_local_key` → `None`, the `hdr_bfs` scalar visited loop, the `position_of` linear scan).
+
+**The trap any implementation must avoid** — neither raw reinterpretation of the 16 bytes is
+correct. Fields are packed **LE within their own span** (`canonical_node.rs:210-215`) while field
+*order* is root-first by offset, so `from_le_bytes` counts from the identity end and
+`from_be_bytes` reverses nibble order inside every field. Only recomposition from decoded values
+works. A wrong version returns a plausible small number, so this needs a two-sided test: a pair
+differing in the FIRST nibble and a pair differing in the LAST must not be confusable.
+
+---
+
+## ISS-SHARED-PREFIX-TIERS-IS-TIER-COARSE-AND-BRANCHES (2026-09-15) — OPEN
+
+**The shipped join is 4× coarser than the canon's own level granularity and uses a branch chain
+where the canon pins a shift — and the correctly-composed integer sits seven lines above it,
+unused.**
+
+`CascadeKey::shared_prefix_tiers` (`perturbation-sim/src/cascade_key.rs:118-128`) compares three
+`u16` fields with three `if`s, returning 0..=3. The OGAR canon pins 12 uniform path levels
+("1 hex digit = 1 nibble = 1 level, FAN_OUT=16") and *"tier-of-level = `level >> 2` — a shift,
+never a branch."* `morton48()` (`:111`) already packs `family<<32 | leaf<<16 | identity`,
+root-first — exactly the integer the join needs.
+
+The canon's formula reproduces the existing function at 4× resolution, branchlessly:
+`d = (a.morton48() ^ b.morton48()).leading_zeros() - 16`; `level = d >> 2` (0..=12);
+`tiers = level >> 2` (== `shared_prefix_tiers`). Hand-checked both ends: equal keys `lz=64` →
+level 12; family MSB differs `lz=16` → level 0.
+
+**The measurement consequence is the reason this is filed rather than left as a nit:** the
+prefix-locality result (1.000 vs 2.561) was taken with a **4-bucket ruler**. Re-running it at 13
+buckets is a strictly finer instrument on data already in hand, and whether the separation
+sharpens or flattens is informative either way. Cheap — no new probe, no new fixture.
+
+**Anti-vacuity for any fix:** a test asserting only `tiers == shared_prefix_tiers` proves nothing
+about the added resolution; it must also show two key pairs that share a *tier* but differ in
+*level*, and that the new function separates them where the old one cannot.
+
+---
+
+## ISS-F1-MARKED-UNRUN-BUT-MEASURED (2026-09-15) — OPEN
+
+**`EPIPHANIES.md:13892` lists F-1 (hierarchical-4⁴ vs flat-256 fidelity) as "Named in the OGAR
+canon, **un-run**". `AGENT_LOG.md:1621-1623` records it run on real data.**
+
+The AGENT_LOG entry: 4096 `academic_20k` words embedded, Base17-projected, flat-256 +
+hierarchical-16×16 built, 4000 held-out pairs, SplitMix64 seed, tag
+`.claude/board/exec-runs/probe-codebook-44-realdata.txt`. Verdict **fidelity-neutral** (hier ≈
+flat within noise) — "structure is free" confirmed; neither arm cleared the 0.965/0.9973 anchors,
+localized to a Base17 fold ceiling rather than the codebook.
+
+**Why it matters rather than being bookkeeping:** F-1 carries a KILL whose blast radius is stated
+as *"a large fraction of the `[H]`/`[S]` map collapses at once."* A gate that important being
+mis-listed as un-run means a future session either re-runs it needlessly or, worse, treats the
+whole downstream map as ungrounded when one arm is measured and a second
+(`E-WORDNET-MAKES-THE-4-ARY-ADDRESS-SEMANTIC-1`, 24.71× out-of-cell band lift) is positive.
+
+**Not edited in place** — the board is append-only; the two entries stand and this row records
+the disagreement. **What would close it:** a regrade line on the F-1 status naming which arm
+answers which half (taxonomic data: positive; continuous-embedding fidelity: neutral), and
+whether "un-run" was meant to scope to a third arm neither run covers.
+
+---
 ## ISS-SPREAD-DOES-NOT-TRANSFER-CROSS-FAMILY (2026-09-15) — OPEN
 
 **The path-length-spread dose-response holds WITHIN the MQ family and MONDO does not sit on
