@@ -1,0 +1,247 @@
+{
+ "meta": {
+  "n_train": 4045,
+  "n_test": 1265,
+  "n_pool": 5310,
+  "n_pairs": 133,
+  "distinct_units": {
+   "n3_pool": 7827,
+   "n3_train": 7190,
+   "n1_pool": 77,
+   "n1_train": 76
+  },
+  "len_V": 76
+ },
+ "arm0_positive_control": {
+  "n": 133,
+  "mrr": 0.0924,
+  "r@1": 0.0602,
+  "r@5": 0.1128,
+  "r@10": 0.1805,
+  "null_r@10": 0.0075,
+  "null_mrr": 0.0035
+ },
+ "matrix": {
+  "n3_r0": {
+   "bag": {
+    "n": 133,
+    "mrr": 0.0732,
+    "r@1": 0.0526,
+    "r@5": 0.0977,
+    "r@10": 0.1128,
+    "null_r@10": 0.003,
+    "null_mrr": 0.002
+   },
+   "field": {
+    "n": 133,
+    "mrr": 0.0851,
+    "r@1": 0.0602,
+    "r@5": 0.1053,
+    "r@10": 0.1278,
+    "null_r@10": 0.003,
+    "null_mrr": 0.0023
+   }
+  },
+  "n3_r1": {
+   "bag": {
+    "n": 133,
+    "mrr": 0.0732,
+    "r@1": 0.0526,
+    "r@5": 0.0977,
+    "r@10": 0.1128,
+    "null_r@10": 0.003,
+    "null_mrr": 0.002
+   },
+   "field": {
+    "n": 133,
+    "mrr": 0.0838,
+    "r@1": 0.0602,
+    "r@5": 0.1053,
+    "r@10": 0.1278,
+    "null_r@10": 0.003,
+    "null_mrr": 0.0023
+   }
+  },
+  "n3_r2": {
+   "bag": {
+    "n": 133,
+    "mrr": 0.0732,
+    "r@1": 0.0526,
+    "r@5": 0.0977,
+    "r@10": 0.1128,
+    "null_r@10": 0.003,
+    "null_mrr": 0.002
+   },
+   "field": {
+    "n": 133,
+    "mrr": 0.084,
+    "r@1": 0.0602,
+    "r@5": 0.1053,
+    "r@10": 0.1278,
+    "null_r@10": 0.003,
+    "null_mrr": 0.0024
+   }
+  },
+  "n1_r0": {
+   "bag": {
+    "n": 133,
+    "mrr": 0.053,
+    "r@1": 0.0301,
+    "r@5": 0.0752,
+    "r@10": 0.0977,
+    "null_r@10": 0.0045,
+    "null_mrr": 0.0028
+   },
+   "field": {
+    "n": 133,
+    "mrr": 0.0678,
+    "r@1": 0.0451,
+    "r@5": 0.0902,
+    "r@10": 0.1203,
+    "null_r@10": 0.0015,
+    "null_mrr": 0.0016
+   }
+  },
+  "n1_r1": {
+   "bag": {
+    "n": 133,
+    "mrr": 0.053,
+    "r@1": 0.0301,
+    "r@5": 0.0752,
+    "r@10": 0.0977,
+    "null_r@10": 0.0045,
+    "null_mrr": 0.0028
+   },
+   "field": {
+    "n": 133,
+    "mrr": 0.068,
+    "r@1": 0.0451,
+    "r@5": 0.0902,
+    "r@10": 0.1203,
+    "null_r@10": 0.0015,
+    "null_mrr": 0.0017
+   }
+  },
+  "n1_r2": {
+   "bag": {
+    "n": 133,
+    "mrr": 0.053,
+    "r@1": 0.0301,
+    "r@5": 0.0752,
+    "r@10": 0.0977,
+    "null_r@10": 0.0045,
+    "null_mrr": 0.0028
+   },
+   "field": {
+    "n": 133,
+    "mrr": 0.0666,
+    "r@1": 0.0451,
+    "r@5": 0.0902,
+    "r@10": 0.1203,
+    "null_r@10": 0.0015,
+    "null_mrr": 0.0017
+   }
+  }
+ },
+ "falsifiers": {
+  "f1_permuted_assignment": {
+   "bag": {
+    "n": 133,
+    "mrr": 0.0971,
+    "r@1": 0.0752,
+    "r@5": 0.1128,
+    "r@10": 0.1429,
+    "null_r@10": 0.0015,
+    "null_mrr": 0.0021
+   },
+   "field": {
+    "n": 133,
+    "mrr": 0.1045,
+    "r@1": 0.0752,
+    "r@5": 0.1429,
+    "r@10": 0.1579,
+    "null_r@10": 0.006,
+    "null_mrr": 0.0035
+   }
+  },
+  "f1_fired": {
+   "bag": false,
+   "field": false
+  },
+  "f2_order_shuffle": {
+   "bag": {
+    "n": 133,
+    "mrr": 0.0732,
+    "r@1": 0.0526,
+    "r@5": 0.0977,
+    "r@10": 0.1128,
+    "null_r@10": 0.003,
+    "null_mrr": 0.002
+   },
+   "field": {
+    "n": 133,
+    "mrr": 0.0838,
+    "r@1": 0.0602,
+    "r@5": 0.1053,
+    "r@10": 0.1278,
+    "null_r@10": 0.003,
+    "null_mrr": 0.0023
+   }
+  },
+  "f2_identical_to_baseline": {
+   "bag": true,
+   "field": true
+  },
+  "f3_motif_vs_ceiling": {
+   "r0_bag": {
+    "n3_r10": 0.1128,
+    "n1_r10": 0.0977,
+    "n3_beats_n1": true
+   },
+   "r0_field": {
+    "n3_r10": 0.1278,
+    "n1_r10": 0.1203,
+    "n3_beats_n1": true
+   },
+   "r1_bag": {
+    "n3_r10": 0.1128,
+    "n1_r10": 0.0977,
+    "n3_beats_n1": true
+   },
+   "r1_field": {
+    "n3_r10": 0.1278,
+    "n1_r10": 0.1203,
+    "n3_beats_n1": true
+   },
+   "r2_bag": {
+    "n3_r10": 0.1128,
+    "n1_r10": 0.0977,
+    "n3_beats_n1": true
+   },
+   "r2_field": {
+    "n3_r10": 0.1278,
+    "n1_r10": 0.1203,
+    "n3_beats_n1": true
+   }
+  }
+ },
+ "lut_selfcheck": {
+  "d_0_255": 1,
+  "d_0_128": 128,
+  "d_5_5": 0,
+  "d_10_246": 20,
+  "d_symmetric_ok": true
+ },
+ "notes": [
+  "4 byte() calls during cell-map construction hit an atom absent from V (train atom vocabulary) and fell back to the sentinel OOV_BYTE=128. The spec defines a fallback for UNSEEN UNITS but not for an atom itself being out-of-vocabulary (only 1 atom overall, 'Call(dtor)', is test-only); OOV_BYTE=128 (chain midpoint, i.e. 'no positional information') was chosen as a neutral default.",
+  "THE LUT (circular 256x256 distance table) is built and self-checked above, but is NOT consumed by either scorer below: the BAG scorer uses metrics2.retrieval's cosine similarity over cell-token Counters, and the FIELD scorer uses the Ruzicka/weighted-Jaccard overlap the brief specifies (sum-min / sum-max), neither of which is a distance computation over the LUT. It is built exactly as specified but is otherwise inert in this probe's scoring pipeline -- reported as-is rather than wired into something the brief didn't ask for.",
+  "BAG scorer results are IDENTICAL across radius=0/1/2 for a given n: the brief's BAG definition (`seqs = {gid: [cell(u) for u in unit_seq(gid,n)]}`) never references the spread field or the radius parameter at all -- only FIELD does. Computed once per n (not re-run redundantly 3x) and the same dict is reported under all three radius rows below; this is a structural property of the design, not a shortcut that changes numbers.",
+  "F2 (order shuffle) reproduced the n3_r1 baseline exactly for both scorers, confirming empirically (not just by construction-argument) that neither BAG nor FIELD as specified can see within-body sequence order -- both are pure occurrence aggregations. This is a property of the cue design, not a bug in the falsifier."
+ ],
+ "arm0_pass": true,
+ "best_cue": {
+  "label": "ARM0_A2a-f",
+  "r10": 0.1805
+ },
+ "secs": 289
+}

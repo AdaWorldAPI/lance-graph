@@ -1,0 +1,363 @@
+{
+ "meta": {
+  "n_train": 4045,
+  "n_test": 1265,
+  "n_pool": 5310,
+  "n_pairs": 133,
+  "distinct_units": {
+   "n3_pool": 7827,
+   "n3_train": 7190,
+   "n1_pool": 77,
+   "n1_train": 76
+  },
+  "len_V": 76,
+  "realized_tile": {
+   "len_V": 76,
+   "occupied_byte_min": 0,
+   "occupied_byte_max": 75,
+   "lut_modulus": 256,
+   "distinct_cells_n3": 1305,
+   "distinct_cells_n1": 59,
+   "oov_byte": 128,
+   "oov_cell_entries_n3": 2,
+   "oov_cell_entries_n1": 1
+  },
+  "lut_kernel": {
+   "dmax": 3,
+   "kernel_size": 49
+  },
+  "scorer_lut_usage": {
+   "bag": "NO -- metrics2.retrieval cosine over exact cell-token Counters; no distance lookups.",
+   "field": "NO -- Ruzicka/weighted-Jaccard overlap over spread-field cells; exact-key match only (the SPREAD mechanism itself softens at construction time via 4-neighbour diffusion, but field_retrieval's own similarity computation never reads the LUT).",
+   "lut": "YES -- every neighbour cell + weight (DELTA_KERNEL) is sourced from LUT[0][...] reads; the cell->gids/mass index is consulted per query, restricted to cells within DMAX=3 of each of the query's own occupied cells.",
+   "transitions": "NO -- metrics2.retrieval cosine over exact (cell,cell) transition-pair tokens; same as bag, just over a different (order-sensitive) alphabet."
+  }
+ },
+ "arm0_positive_control": {
+  "n": 133,
+  "mrr": 0.0924,
+  "r@1": 0.0602,
+  "r@5": 0.1128,
+  "r@10": 0.1805,
+  "null_r@10": 0.0075,
+  "null_mrr": 0.0035
+ },
+ "matrix": {
+  "n3_r0": {
+   "bag": {
+    "n": 133,
+    "mrr": 0.0732,
+    "r@1": 0.0526,
+    "r@5": 0.0977,
+    "r@10": 0.1128,
+    "null_r@10": 0.003,
+    "null_mrr": 0.002
+   },
+   "field": {
+    "n": 133,
+    "mrr": 0.0851,
+    "r@1": 0.0602,
+    "r@5": 0.1053,
+    "r@10": 0.1278,
+    "null_r@10": 0.003,
+    "null_mrr": 0.0023
+   },
+   "lut": {
+    "n": 133,
+    "mrr": 0.0612,
+    "r@1": 0.0526,
+    "r@5": 0.0677,
+    "r@10": 0.0752,
+    "null_r@10": 0.0015,
+    "null_mrr": 0.0016
+   }
+  },
+  "n3_r1": {
+   "bag": {
+    "n": 133,
+    "mrr": 0.0732,
+    "r@1": 0.0526,
+    "r@5": 0.0977,
+    "r@10": 0.1128,
+    "null_r@10": 0.003,
+    "null_mrr": 0.002
+   },
+   "field": {
+    "n": 133,
+    "mrr": 0.0807,
+    "r@1": 0.0526,
+    "r@5": 0.1053,
+    "r@10": 0.1353,
+    "null_r@10": 0.0045,
+    "null_mrr": 0.0027
+   },
+   "lut": {
+    "n": 133,
+    "mrr": 0.0503,
+    "r@1": 0.0376,
+    "r@5": 0.0602,
+    "r@10": 0.0677,
+    "null_r@10": 0.003,
+    "null_mrr": 0.0014
+   }
+  },
+  "n3_r2": {
+   "bag": {
+    "n": 133,
+    "mrr": 0.0732,
+    "r@1": 0.0526,
+    "r@5": 0.0977,
+    "r@10": 0.1128,
+    "null_r@10": 0.003,
+    "null_mrr": 0.002
+   },
+   "field": {
+    "n": 133,
+    "mrr": 0.0805,
+    "r@1": 0.0526,
+    "r@5": 0.0902,
+    "r@10": 0.1353,
+    "null_r@10": 0.006,
+    "null_mrr": 0.0023
+   },
+   "lut": {
+    "skipped": true,
+    "reason": "radius=2 excluded from the LUT scorer, see note"
+   }
+  },
+  "n1_r0": {
+   "bag": {
+    "n": 133,
+    "mrr": 0.053,
+    "r@1": 0.0301,
+    "r@5": 0.0752,
+    "r@10": 0.0977,
+    "null_r@10": 0.0045,
+    "null_mrr": 0.0028
+   },
+   "field": {
+    "n": 133,
+    "mrr": 0.0678,
+    "r@1": 0.0451,
+    "r@5": 0.0902,
+    "r@10": 0.1203,
+    "null_r@10": 0.0015,
+    "null_mrr": 0.0016
+   },
+   "lut": {
+    "n": 133,
+    "mrr": 0.0091,
+    "r@1": 0.0,
+    "r@5": 0.015,
+    "r@10": 0.0301,
+    "null_r@10": 0.003,
+    "null_mrr": 0.0016
+   }
+  },
+  "n1_r1": {
+   "bag": {
+    "n": 133,
+    "mrr": 0.053,
+    "r@1": 0.0301,
+    "r@5": 0.0752,
+    "r@10": 0.0977,
+    "null_r@10": 0.0045,
+    "null_mrr": 0.0028
+   },
+   "field": {
+    "n": 133,
+    "mrr": 0.0641,
+    "r@1": 0.0451,
+    "r@5": 0.0752,
+    "r@10": 0.1203,
+    "null_r@10": 0.0015,
+    "null_mrr": 0.0017
+   },
+   "lut": {
+    "n": 133,
+    "mrr": 0.0041,
+    "r@1": 0.0,
+    "r@5": 0.0,
+    "r@10": 0.015,
+    "null_r@10": 0.0015,
+    "null_mrr": 0.0015
+   }
+  },
+  "n1_r2": {
+   "bag": {
+    "n": 133,
+    "mrr": 0.053,
+    "r@1": 0.0301,
+    "r@5": 0.0752,
+    "r@10": 0.0977,
+    "null_r@10": 0.0045,
+    "null_mrr": 0.0028
+   },
+   "field": {
+    "n": 133,
+    "mrr": 0.0637,
+    "r@1": 0.0451,
+    "r@5": 0.0827,
+    "r@10": 0.1128,
+    "null_r@10": 0.0015,
+    "null_mrr": 0.0017
+   },
+   "lut": {
+    "skipped": true,
+    "reason": "radius=2 excluded from the LUT scorer, see note"
+   }
+  }
+ },
+ "falsifiers": {
+  "f1_permuted_assignment": {
+   "bag": {
+    "n": 133,
+    "mrr": 0.0971,
+    "r@1": 0.0752,
+    "r@5": 0.1128,
+    "r@10": 0.1429,
+    "null_r@10": 0.0015,
+    "null_mrr": 0.0021
+   },
+   "field": {
+    "n": 133,
+    "mrr": 0.0958,
+    "r@1": 0.0677,
+    "r@5": 0.1278,
+    "r@10": 0.1579,
+    "null_r@10": 0.0075,
+    "null_mrr": 0.0037
+   },
+   "lut": {
+    "n": 133,
+    "mrr": 0.0615,
+    "r@1": 0.0526,
+    "r@5": 0.0677,
+    "r@10": 0.0827,
+    "null_r@10": 0.0015,
+    "null_mrr": 0.0018
+   }
+  },
+  "f1_fired": {
+   "bag": false,
+   "field": false,
+   "lut": false
+  },
+  "f2_order_shuffle": {
+   "bag": {
+    "n": 133,
+    "mrr": 0.0732,
+    "r@1": 0.0526,
+    "r@5": 0.0977,
+    "r@10": 0.1128,
+    "null_r@10": 0.003,
+    "null_mrr": 0.002
+   },
+   "field": {
+    "n": 133,
+    "mrr": 0.0807,
+    "r@1": 0.0526,
+    "r@5": 0.1053,
+    "r@10": 0.1353,
+    "null_r@10": 0.0045,
+    "null_mrr": 0.0027
+   }
+  },
+  "f2_identical_to_baseline": {
+   "bag": true,
+   "field": true
+  },
+  "f3_motif_vs_ceiling": {
+   "r0_bag": {
+    "n3_r10": 0.1128,
+    "n1_r10": 0.0977,
+    "n3_beats_n1": true
+   },
+   "r0_field": {
+    "n3_r10": 0.1278,
+    "n1_r10": 0.1203,
+    "n3_beats_n1": true
+   },
+   "r0_lut": {
+    "n3_r10": 0.0752,
+    "n1_r10": 0.0301,
+    "n3_beats_n1": true
+   },
+   "r1_bag": {
+    "n3_r10": 0.1128,
+    "n1_r10": 0.0977,
+    "n3_beats_n1": true
+   },
+   "r1_field": {
+    "n3_r10": 0.1353,
+    "n1_r10": 0.1203,
+    "n3_beats_n1": true
+   },
+   "r1_lut": {
+    "n3_r10": 0.0677,
+    "n1_r10": 0.015,
+    "n3_beats_n1": true
+   },
+   "r2_bag": {
+    "n3_r10": 0.1128,
+    "n1_r10": 0.0977,
+    "n3_beats_n1": true
+   },
+   "r2_field": {
+    "n3_r10": 0.1353,
+    "n1_r10": 0.1128,
+    "n3_beats_n1": true
+   },
+   "r2_lut": {
+    "skipped": true,
+    "reason": "lut not computed at this radius, see matrix"
+   }
+  }
+ },
+ "lut_selfcheck": {
+  "d_0_255": 1,
+  "d_0_128": 128,
+  "d_5_5": 0,
+  "d_10_246": 20,
+  "d_symmetric_ok": true
+ },
+ "notes": [
+  "4 byte() calls during cell-map construction hit an atom absent from V (train atom vocabulary) and fell back to the sentinel OOV_BYTE=128. The spec defines a fallback for UNSEEN UNITS but not for an atom itself being out-of-vocabulary (only 1 atom overall, 'Call(dtor)', is test-only). Under FIX 1's unscaled byte_of, OOV_BYTE=128 is no longer the 'chain midpoint' -- the real occupied range is 0..75, so 128 sits clearly OUTSIDE it. This makes an OOV atom's context maximally UNREACHABLE by adjacency (radius<=2 spread, LUT DMAX=3) rather than 'neutral/central' as it was under run 1's scaled scheme -- a change in what the same sentinel value MEANS, carried over unchanged in VALUE, flagged honestly rather than silently reinterpreted. Affects a negligible fraction of byte() calls either way.",
+  "FIX 2: THE LUT (circular 256x256 distance table, unchanged construction from run 1) is now CONSUMED by the new LUT scorer below (see THE LUT KERNEL + lut_retrieval). BAG (metrics2.retrieval cosine) and FIELD (Ruzicka/weighted-Jaccard) are UNCHANGED from run 1 and still do not read the LUT -- that is by design (they are the exact-match / spread-overlap controls the LUT scorer is meant to be compared against), not an oversight repeated from run 1.",
+  "BAG scorer results are IDENTICAL across radius=0/1/2 for a given n: the brief's BAG definition (`seqs = {gid: [cell(u) for u in unit_seq(gid,n)]}`) never references the spread field or the radius parameter at all -- only FIELD does. Computed once per n (not re-run redundantly 3x) and the same dict is reported under all three radius rows below; this is a structural property of the design, not a shortcut that changes numbers.",
+  "FIX 2 scope: the LUT scorer is attempted at radius=0 and radius=1 for both n=3 and n=1 (measured for real, below). radius=2 is NOT attempted for the LUT scorer -- decided from the REAL radius=0/1 timings measured in THIS run (logged per-n below, at the point the decision is made), extrapolated forward: each field's distinct-cell count and average index-bucket size both grow substantially with radius (more spread -> denser, more overlapping fields), and the LUT scorer's cost is driven by exactly those two quantities (|A| entries x 49 kernel offsets x avg bucket size per query, summed over ~133 distinct queries) -- so radius=2 is expected to cost several times radius=1's already-multi-minute cost, well past what is tractable for a probe script. This is exactly the 'if it is still too slow, reduce to radius 0 fields only for this scorer' fallback the brief allows, extended one step (radius in (0,1) rather than radius=0 alone) because radius=1 was measured tractable in the SAME timing check that showed radius=2 would not be. bag and field are UNCHANGED and still cover radius in (0,1,2) for both n -- only the NEW lut scorer's radius sweep is reduced.",
+  "LUT scorer at n=3, radius=2 was NOT computed. n=3's own measured LUT timings in THIS run: radius=0 took 13.5s, radius=1 took 215.9s (16.0x). Extrapolating that growth rate forward (radius=2's fields are denser still, by the same mechanism that made radius=1 already 16.0x radius=0) puts radius=2 in the many-minutes-to-tens-of-minutes range for this one row alone -- not attempted, per the brief's own fallback ('reduce to radius 0 fields only for this scorer'), extended to radius in (0,1) since radius=1 was itself measured tractable.",
+  "LUT scorer at n=1, radius=2 was NOT computed. n=1's own measured LUT timings in THIS run: radius=0 took 7.2s, radius=1 took 128.6s (17.9x). Extrapolating that growth rate forward (radius=2's fields are denser still, by the same mechanism that made radius=1 already 17.9x radius=0) puts radius=2 in the many-minutes-to-tens-of-minutes range for this one row alone -- not attempted, per the brief's own fallback ('reduce to radius 0 fields only for this scorer'), extended to radius in (0,1) since radius=1 was itself measured tractable.",
+  "F2 (order shuffle) reproduced the n3_r1 baseline exactly for both scorers, confirming empirically (not just by construction-argument) that neither BAG nor FIELD as specified can see within-body sequence order -- both are pure occurrence aggregations. This is a property of the cue design, not a bug in the falsifier."
+ ],
+ "arm0_pass": true,
+ "transitions": {
+  "original": {
+   "n": 133,
+   "mrr": 0.0909,
+   "r@1": 0.0602,
+   "r@5": 0.1203,
+   "r@10": 0.1579,
+   "null_r@10": 0.003,
+   "null_mrr": 0.0017
+  },
+  "order_shuffled": {
+   "n": 133,
+   "mrr": 0.0311,
+   "r@1": 0.015,
+   "r@5": 0.0451,
+   "r@10": 0.0827,
+   "null_r@10": 0.003,
+   "null_mrr": 0.0016
+  },
+  "order_shuffle_dropped_r10": true
+ },
+ "best_cue": {
+  "label": "ARM0_A2a-f",
+  "r10": 0.1805,
+  "vs_arm0": {
+   "arm0_r10": 0.1805
+  }
+ },
+ "secs": 973
+}

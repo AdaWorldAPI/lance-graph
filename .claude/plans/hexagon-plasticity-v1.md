@@ -584,9 +584,12 @@ hole where it belongs.
 
 Named `ternlog` truth tables in `ndarray::simd` — `AND3`, `AND2_ANDNOT` (`a & b & !c`,
 one-source inhibition), `AND_ANDNOT2` (`a & !b & !c`, the center-surround shape), `MAJ3`
-(bundle-and-threshold), `XOR3`, `OR3`, `AND2` — are **one `VPTERNLOGQ` per 512 bits each**.
-Inhibition costs an **immediate, not a circuit**; biology pays for it with separate interneurons
-and a separate transmitter. The shipped delta-frontier spread (`scratch & !state`) **is**
+(bundle-and-threshold), `XOR3`, `OR3`, `AND2` — are truth-table **immediates**; on the **AVX-512 `U64x8`
+path** each is one `VPTERNLOGQ` per 512 bits. Not universal: `U32x16` uses `VPTERNLOGD`,
+non-AVX-512 x86 expands into two-input ops, NEON/WASM/scalar are narrower or scalar (the
+source's own *"the polyfill elsewhere"*), and the sibling `ndarray` checkout is unpinned.
+Inhibition uses a **ternlog immediate rather than a separate circuit**; biology pays for it with
+separate interneurons and a separate transmitter. The shipped delta-frontier spread (`scratch & !state`) **is**
 `AND2_ANDNOT` — refractoriness — and `E-HEX-TENANT-RAIL-IS-DIRECTION-CHAIN-IS-FREE-SHIFT-IS-THE-COST-1`
 already measured it at **−48 % for identical closure**. Note that is a **cost** result, not an
 accuracy one: frontier inhibition is proven *free*, not proven *better*.
@@ -629,3 +632,75 @@ spread as pure excitation is measured to *cost* discrimination on a good orderin
 re-measure that; it should either carry a surround (the deferred DoG) or state plainly that it
 is testing coverage rather than discrimination. And the transitions result says the rail's value
 may be in the **pair** — a traversal from one palette cell to the next — rather than in the cell.
+
+## 11a. ⊘ W1 AMENDED — the palette cue is FALSIFIED (run 2026-09-15, after review)
+
+§11 marked D-HXP-2 **Done — PROCEED** while its own residuals recorded that the winning
+`transitions` arm had never been run against the cell-assignment disable. Codex flagged the
+contradiction on PR #1233 (P1) and was right: this gate's disable says *"permuted [assignment]
+must go red. If it stays green the cue is not what is being measured."* The disable has now been
+run on the winning arm. **It did not go red.**
+
+| arm (all `transitions`, all `metrics2.retrieval`) | r@10 |
+|---|---|
+| **A** baseline, real palette cells | 0.1579 (reproduced exactly) |
+| **B** cells permuted, marginals held (the missing disable) | **0.1654 — rose** |
+| **C** bare dense integer type-IDs, **no palette geometry at all** | **0.1729 — beats A** |
+| **D** identity-IDs + order-shuffle | 0.0902 |
+
+**7827 distinct unit types over 1305 occupied cells — a 6:1 lossy hash of identity.**
+
+**Verdict: the `palette256:palette256` cue contributed nothing beyond being a consistent label,
+and cost a little by being lossy.** Destroying the content→cell mapping did not hurt; discarding
+the geometry entirely helped. **D** reproduces the order-drop on bare identity (−0.0827, against
+the palette arm's −0.0752), so **order was never the palette's contribution either**. The whole
+W1 signal is **order of unit types**.
+
+### What this kills, and what it does not
+
+**Killed** — `palette256:palette256` as a cue addressing, for this override-twin task, in this
+shape proxy, with this (left-context-byte, right-context-byte) cell construction. Stated as a
+kill rather than reframed, because it was one of the three conditions pre-committed before the
+run: *"transitions survives a cell-permutation → the palette contributes nothing."* It survived.
+
+**Not killed** — order/sequence as signal (it is now the *more* robust finding: it survives on
+bare identity with no palette at all); the rail as a substrate structure for other purposes; the
+real Rust codec, which this lab never measured; and the transfer question, which is untouched.
+
+### The design critique, which is the more useful half
+
+**A palette can only beat raw identity where unseen types must be generalized.** On same-corpus
+retrieval every type is already known, so identity is the maximum information about type and any
+quantization of it is strictly lossy — the 6:1 collision factor is exactly that loss, measured.
+**W1's task was therefore structurally incapable of favouring the palette**: a generalization
+mechanism was measured on a task requiring no generalization.
+
+This does not soften the kill — the kill stands for this task and this construction. It relocates
+where the claim could still live. **Transfer is not merely "the next test"; it is the only test
+the palette could win**, and §11's PASS gate promised exactly that axis (*"without the
+dictionary's corpus lock"*) while the procedure never tested it.
+
+**Pre-committed kill condition for that test, so this stays falsifiable:** seriate two libraries
+independently and compare the orderings. If the chains do not agree, the cue is as corpus-locked
+as the dictionary it was meant to replace, and no retrieval number on any corpus rescues it.
+
+### Review corrections applied in the same pass
+
+- **Overclaim narrowed.** §11 said the Ruzicka min/max scorer "contains no cosine, so it is not a
+  normalization artifact." Ruzicka is Σmin/Σmax — itself a normalization. The supported claim is
+  only that the effect is **not cosine-specific**; a normalization effect is not ruled out.
+- **Ternlog cost qualified.** "One `VPTERNLOGQ` per 512 bits" holds for the **AVX-512 `U64x8`**
+  path only; `U32x16` uses `VPTERNLOGD`, non-AVX-512 x86 expands into two-input ops, and
+  NEON/WASM/scalar are narrower or scalar. The source doc says *"the polyfill elsewhere"* and the
+  first write-up dropped that qualifier; the sibling checkout is unpinned besides.
+- **Board-rule compliance.** D-HXP-2's *description* cell was edited when the rules permit
+  Status/Confidence edits only. Restored verbatim; the correction now lives in the Status cell.
+
+### Artifact provenance — auditable, NOT re-runnable
+
+The probes and their outputs are committed under `.claude/probes/hexagon-plasticity-v1/` so the
+numbers above can be read and checked rather than taken on trust (Codex P2). **They cannot be
+re-run from this repository.** Every measurement depends on the ~10 GB `r2harvest` ore corpus and
+the `ore-full-v2` build, which live in an ephemeral session scratchpad, are not committable, and
+have no immutable revision to cite. What is committed is the instrument and the result; what is
+missing is the input. Said plainly rather than implying reproducibility this repo cannot offer.

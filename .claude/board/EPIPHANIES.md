@@ -1,12 +1,20 @@
 ## 2026-09-15 — E-A-SPREAD-WITHOUT-A-SURROUND-IS-A-BLUR-INHIBITION-IS-THE-FREE-HALF-1 — lateral spread over a GOOD similarity ordering measurably costs discrimination; the mask algebra is already an inhibition algebra
 
 **Status:** FINDING (measured, W1/D-HXP-2, plan `hexagon-plasticity-v1.md` §11).
+**⊘ REGRADED 2026-09-15, same day:** the spread/surround finding below **stands** — it rests on
+the seriation-quality measurement, which was validated independently. But the
+`palette256:palette256` **cue** it is framed around was subsequently **FALSIFIED** (§11a): bare
+integer type-IDs, carrying no palette geometry at all, **beat** the real cells (0.1729 vs
+0.1579), and permuting the cells did not hurt (0.1654). Read every "cue"/"tile" phrasing below
+as *the structure W1 tested and killed*, not as an endorsed carrier.
 
 **The measurement.** W1 addressed H5b's 133 override-twin pairs by a content-computed
 `palette256:palette256` cue and spread activation to adjacent cells on the tile. Spreading made
 retrieval **worse**: the soft-match scorer is the worst arm everywhere and degrades with radius
 (n=3 0.0752 → 0.0677; n=1 0.0301 → 0.0150, halved). The same direction appears in a Ruzicka
-min/max scorer containing no cosine, so it is not a normalization artifact.
+min/max scorer, so the effect is **not cosine-specific** — but Ruzicka's ΣminΣmax is itself a
+normalization, so a normalization effect is **not** ruled out. (Narrowed 2026-09-15; the first
+wording claimed "not a normalization artifact", which the evidence does not support.)
 
 **The null was interrogated and survived.** A greedy nearest-neighbour seriation is a greedy TSP
 path, so the suspect was the ordering, not the mechanism. Measured: adjacent-pair Fisher-z
@@ -25,8 +33,13 @@ refinement but the **missing half**. This is the first measurement of the hole w
 
 **And the inhibition it needs is already free.** The named `ternlog` tables in `ndarray::simd` —
 `AND3`, `AND2_ANDNOT` (`a & b & !c`), `AND_ANDNOT2` (`a & !b & !c`, the center-surround shape),
-`MAJ3` (bundle-and-threshold), `XOR3`, `OR3`, `AND2` — are **one `VPTERNLOGQ` per 512 bits
-each**. Inhibition costs an immediate, not a circuit. The shipped delta-frontier spread
+`MAJ3` (bundle-and-threshold), `XOR3`, `OR3`, `AND2` — are truth-table **immediates**, and on
+the **AVX-512 `U64x8` path** each is one `VPTERNLOGQ` per 512 bits. That cost is **not
+universal**: `U32x16` uses `VPTERNLOGD`, non-AVX-512 x86 expands into two-input ops, and
+NEON/WASM/scalar are narrower or scalar — the source's own words are *"the polyfill elsewhere"*,
+a qualifier the first wording of this entry dropped. The sibling `ndarray` checkout is also
+unpinned, so this is not a fixed-revision cost. Inhibition uses a **ternlog immediate rather
+than a separate circuit**. The shipped delta-frontier spread
 (`scratch & !state`) **is** `AND2_ANDNOT` — refractoriness — already measured by
 `E-HEX-TENANT-RAIL-IS-DIRECTION-CHAIN-IS-FREE-SHIFT-IS-THE-COST-1` at **−48 % for identical
 closure**. That is a **cost** result, not an accuracy one: frontier inhibition is proven *free*,
