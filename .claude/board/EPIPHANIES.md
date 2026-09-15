@@ -182,7 +182,7 @@ that is right and is the whole point (the accumulator is strictly narrower than 
 it already absorbed). For a **nested** one it is wrong, because the accumulator belongs to
 the OUTER conjunction and has never seen the inner plane:
 
-```
+```text
 P1 AND (Plane(focus) AND P2)
 ```
 

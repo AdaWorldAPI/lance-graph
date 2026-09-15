@@ -3,7 +3,7 @@
 **`cargo build --workspace` fails on `main` and on every branch**, in a third-party crate, and
 it is NOT a resolver problem — no version selection fixes it:
 
-```
+```text
 error[E0308] aws-smithy-json-0.63.0/src/codec/deserializer.rs:707
               expected `DocumentObject`, found `HashMap<String, Document>`
 error[E0004] aws-smithy-json-0.63.0/src/serialize.rs:36  non-exhaustive patterns
@@ -59,7 +59,7 @@ Created deliberately by the codex-P1 fix (`b7e6cef`,
 prefers the caller's plane over the accumulator, so every `Pred` inside a planed `AND` gates on
 the same FIXED plane regardless of position. Measured at HEAD, each entry `predicate <- its gate`:
 
-```
+```text
 PLANE-FREE    And[A,B,C] : [GtI32<-none,      EqU32<-ACC(s0),  LtI32<-ACC(s0)]
               And[C,B,A] : [LtI32<-none,      EqU32<-ACC(s0),  GtI32<-ACC(s0)]
 
@@ -122,7 +122,7 @@ widening it on my own is the thing the repo's own push rules forbid.
 **2. A deep `Filter` ABORTS the process; `LowerError::TooManySlots` is unreachable on the
 in-place path.** Default 8 MiB stack, one process per depth:
 
-```
+```text
 depth=15000  -> LOWER OK slots=2 ops=30001
 depth=20000  -> fatal runtime error: stack overflow, aborting
 ```
