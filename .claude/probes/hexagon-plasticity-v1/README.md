@@ -11,6 +11,26 @@ scratchpad, are not committable, and have no immutable revision to cite. What is
 the **instrument** and the **result**; the **input** is gone. Stated plainly rather than
 implying a reproducibility this repo cannot offer.
 
+### A consequence: the docstring-coverage warning here is PERMANENT BY DESIGN
+
+CodeRabbit's pre-merge *Docstring Coverage* check reports **43.86 % against an 80 %
+threshold** on PR #1233, measured across exactly five files — the four probes in this
+directory plus `horizon-window-v1/window_sweep.py`. **Do not "fix" it by retro-fitting
+docstrings into these four.**
+
+They are a *frozen record*, not live code. The corpus that produced their numbers no
+longer exists (above), so editing them changes the **evidence artifact** rather than the
+instrument — and a reader checking a published figure against the file that produced it
+would be reading a file that has since been rewritten for a coverage metric. The two
+control models in `horizon-window-v1/window_sweep.py` were documented (`5164d7b`) because
+that probe *is* re-runnable and its controls are load-bearing; that is the whole of what
+was in scope.
+
+The warning therefore stays red on this PR and that is the correct state. A later probe's
+own gaps are a different question and are fixed on their merits — `elk-generality-v1`
+(`af04dfa`) is 7/7 documented, and note it is **not** among the five files this warning
+counts, since it postdates the commit CodeRabbit assessed.
+
 They are also a **pure-Python shape proxy** — no `numpy`, no `sklearn`, and no Rust
 fingerprints. Nothing here measures `ndarray`, `bgz17` or `helix`.
 
