@@ -1,3 +1,84 @@
+## 2026-09-15 (9) — E-A-THOUGHT-MASKS-ITSELF-BY-ITS-DISTANCE-FROM-ROOT-THE-V3-FACET-IS-THE-MASK-AND-THE-RADIUS-IS-STEPLESS-1 — the operator's favourite masking variant; it is already the shape of `MatchU64`, ndarray ships its 12-byte strided form, and the probe measured it stepless
+
+**Status:** RULING — operator, verbatim: *"Meine Lieblingsvariante ist V3 Format. Jeder
+beliebige Gedanke kann sich selbst × Abstand from root 0–96 bit maskieren und somit
+eine exakte stufenlose Auswahl treffen mit close to 1 CPU cycle."* — plus FINDING for
+the radius sweep (re-runnable). The lowering shape and the one-cycle mechanism below
+are derivations; the timing claim is a pre-registered Phase 7 falsifier, NOT measured
+here.
+**Confidence:** HIGH on the sweep; HIGH that the primitive exists — ndarray ships it;
+MEDIUM on the root→leaf bit order inside the 12 bytes, which is the ClassView's
+carving and lives in the care table, not in a shift.
+
+### The variant, as the substrate sees it
+
+A mask is a pair `(self, d)`: the unit's own 96-bit payload as the pattern, its
+distance from root `d ∈ 0..=96` as the radius, `care(d)` = the first d bits in
+root→leaf order, and the selection is every unit `u` with
+`(u.payload ^ self.payload) & care(d) == 0`. Three properties, each literal:
+
+- **exact** — a ternary equality; no threshold, no approximation, no 8 KiB object
+  unless the caller wants the result materialised;
+- **stepless** — every d is a distinct selection: d = 0 is the class, d = 96 the unit
+  itself. Nibble boundaries are where the codebook's centroid cells sit (OGAR: *1
+  nibble = 1 level of the 16-ary tree*) — a fact about MEANING; the mask cuts anywhere;
+- **~1 cycle** — one AND and one compare per row, both vectorised.
+  `ndarray::simd::ternary_match_strided_to_mask(bytes, first_offset, stride_bytes,
+  count, pattern: &[u8; 12], care: &[u8; 12], out_words)` IS this call over a
+  16-byte-strided table: 12-byte pattern, 12-byte care, one mask word per 64 rows.
+  Shipped. mask-risc's `LaneRef::U64` doc names the strided `Operand` as the IR's
+  own gap (PR4/PR5); `Pred::MatchU64` / `MatchU32` are the same operation on one lane,
+  and `Filter::prefix_u64(col, self, d)` is `(self, d)` on that lane today.
+
+The root→leaf order of the 96 bits is not memory order — each rail is LE `hi:lo`, and
+which bits are "closer to root" is the ClassView's carving — so `care(d)` is a
+97-entry table per carving, not `!0 << (96 − d)`. The ternary match does not care
+which, and that is the point: any bit order, any d, one instruction.
+
+### What the sweep measured
+
+`examples/adaptive_order_probe.rs`, radius d on the 16 row bits of `i << 8`
+(d = 40 is every row, d = 56 is one), the prefix leading the clustered conjunction:
+
+| d | rows | words skipped | blocks skipped |
+|---|---|---|---|
+| 40 | 65 536 | 0.00 % | 0.00 % |
+| 41 | 32 768 | 50.00 % | 50.00 % |
+| 44 | 4 096 | 93.75 % | 93.75 % |
+| 47 | 512 | 99.22 % | 99.22 % |
+| 48 | 256 | 99.61 % | **99.61 %** |
+| 49 | 128 | 99.80 % | 99.61 % |
+| 50 | 64 | **99.90 %** | 99.61 % |
+| 51…56 | 32…1 | 99.90 % | 99.61 % |
+
+- Every d selects exactly 2^(56−d) rows — asserted per step. Stepless and exact.
+- The skip is a step function of the UNIT, not of d: words gain until one live word
+  (d = 50), blocks until one live block (d = 48); between 48 and 50 the units part
+  ways. `/50` — which (7) called illegal and (8) "not a tile cell" — is the radius at
+  which the word-skip saturates. Legal, exact, one of 97.
+- The (5) §3 family `1 − 2^(50−P)/1024`, labelled CONJECTURE there and withdrawn in
+  (7), is measured across 40..=56 and holds for words down to the word floor; its block
+  twin saturates two bits earlier. Restored as FINDING.
+
+### Corrections this makes
+
+- (7), (8): *"legal prefixes are nibble-multiples"* — nibble alignment is codebook
+  structure, not a legality condition on selection. `/48` stays in the probe's
+  clustered regime as a representative radius, not the only legal one; the sweep now
+  carries every d.
+- (8) sub-reading (ii), *six per-rail prefixes*: the operator's variant is ONE radius
+  over the whole payload in root→leaf order, self-referential. Sub-reading (i), six
+  needles, is a different object — a survivor set — and stays as the sparse arm's
+  shape.
+
+### Pre-registered falsifier — Phase 7, not run
+
+`ternary_match_strided_to_mask` over a 64k × 16 B table, release build, ≥ 10 runs,
+cycles per row from `rdtsc`. **Pass:** ≤ 1 cycle per row sustained (the SIMD kernel
+should land well under: four u64 lanes per compare on AVX2). **Fail:** > 1 cycle per
+row — then "close to 1 CPU cycle" is true of the primitive and not yet of the
+substrate end to end, and the strided `Operand` in mask-risc is what closes it.
+
 ## 2026-09-15 (8) — E-THE-RAIL-IS-A-NEEDLE-NOT-A-MASK-256-BY-256-IS-THE-EXACT-ROW-ADDRESS-AND-A-MASK-OVER-THE-AREA-IS-ANOTHER-OBJECT-1 — operator clarification; (7)'s "hi byte = skip unit" is withdrawn as the ruling's meaning, and its measurement is kept as data
 
 **Status:** RULING — operator, verbatim (2026-09-15, five lines): *"Ich meine 64k sind
@@ -56,6 +137,10 @@ ids — the very thing a rail value is. Home: Phase 7's *very-sparse* density ar
 is the count the facet register itself can hold. Not built here; recorded so the arm
 is built against the operator's reading and not against mine.
 
+> ⊘ **Same day, entry (9):** the operator's favourite is neither sub-reading — it is
+> `(self, d)`, ONE stepless radius over the whole 96-bit payload in root→leaf order,
+> self-referential; sub-reading (i), six needles, stays as the sparse arm's shape.
+
 ## 2026-09-15 (7) — E-256-BY-256-IS-EXACTLY-64K-THE-RAILS-SKIP-UNIT-IS-ITS-HI-BYTE-AND-A-QUARTER-BLOCK-IS-A-REMAINDER-1 — operator-ruled; the `/50` cut read across `u8:u8`, and re-measured on the byte boundary the clustered regime moves ABOVE the density bound
 
 **Status:** RULING — operator, verbatim: *"256:256 is exactly 64k. Es darf gar keinen
@@ -73,6 +158,8 @@ unit* is my derivation and is labelled as such.
 > object, and the rail dictates no skip unit. The measurements below stand as data in
 > two units (words; 256-row blocks = the tier tile's 2-nibble cell), the `/48` cut
 > stands under the tile canon, and the "rule" at the end is withdrawn.
+> ⊘ And per (9): `/48` is a representative radius, not the only legal one — the
+> operator's variant makes the radius STEPLESS; `/50` is where the word-skip saturates.
 
 ### The ruling, and what it rules out
 
@@ -262,8 +349,8 @@ order-independent by construction (the (4) entry above) and settles a different 
 
 ### 3. The clustered 99.90 % is arithmetic, not a property of the data
 
-`crates/lance-graph-quack/examples/adaptive_order_probe.rs:177` — `(i as u64) << 8`;
-`:313` — `Filter::prefix_u64(ADDR, addr[N / 4], 48)` (it read `50` when this entry was
+`crates/lance-graph-quack/examples/adaptive_order_probe.rs:186` — `(i as u64) << 8`;
+`:322` — `Filter::prefix_u64(ADDR, addr[N / 4], 48)` (it read `50` when this entry was
 measured; see the ⊘ below). A 50-bit prefix on a u64 leaves 14
 low bits free: 8 are the shift, **6 are log₂ 64 — the word.** The prefix pins `i`'s top
 10 bits, which IS the 64-row word index (N = 2¹⁶ rows = 1 024 words); exactly the 64 rows

@@ -330,9 +330,11 @@ impl Filter {
     /// | selective | 0.055 % | 5.66 % → **80.66 %** (14.2×) | 0.00 % → **61.91 %** |
     /// | clustered (an address prefix: one block) | 0.177 % | 0.00 % → **99.61 %** | 0.00 % → **99.61 %** |
     ///
-    /// (An earlier run cut the clustered prefix at `/50` — a quarter block,
-    /// read across the rail's two bytes — and reported 31 survivors and
-    /// 99.90 % = 1023/1024. The board keeps those figures as that cut's.)
+    /// (An earlier run cut the clustered prefix at `/50` — the radius at which
+    /// the word-skip saturates: one live word, 31 survivors, 99.90 % =
+    /// 1023/1024. The radius is stepless — the operator's V3 variant masks a
+    /// unit by its own facet × a distance from root of 0–96 bits — and the
+    /// probe's sweep walks 40..=56.)
     ///
     /// Two findings, and a third that is a correction rather than a result.
     ///
@@ -2070,11 +2072,12 @@ mod tests {
         }
         // 48 is the byte boundary — the row index's hi byte, one 256-row
         // block, a 2-nibble cell of the OGAR tier tile. 46, 47, 49 and 50 are
-        // not nibble-aligned: legal for the comparator, which is a ternary
-        // match on any care mask, but not cells of the tile, whose cascade is
-        // 4-ary per byte. (A rail as such is a row ADDRESS — 2 bytes for 64k
-        // rows, no remainder — not a mask; operator, 2026-09-15.) The halving
-        // is the comparator's arithmetic and holds through the boundary.
+        // not nibble-aligned: not cells of the codebook's 4-ary-per-byte
+        // cascade, but every one a legal, exact selection radius — the V3
+        // variant masks a unit by its own facet × a STEPLESS distance from
+        // root (operator, 2026-09-15). The comparator is a ternary match on
+        // any care mask; the halving is its arithmetic and holds through
+        // every boundary.
         assert_eq!(
             previous,
             Some(64),

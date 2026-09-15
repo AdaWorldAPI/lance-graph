@@ -51,9 +51,12 @@
 //! is the "no remainder". A mask over the same 64k is a different, larger
 //! object (bitpacked: 1 024 words = 256 blocks, tiling with no remainder in
 //! either unit), and the rail says nothing about which unit it is skipped in.
-//! The clustered regime's prefix is `/48` — the hi byte of the row index, a
-//! 2-nibble cell of the tile; an earlier run used `/50`, 2.5 nibbles, and its
-//! figures (99.90 % = 1023/1024) are on the board as that cut's.
+//! The clustered regime's prefix is `/48` — the hi byte of the row index, one
+//! representative radius. The radius itself is STEPLESS: the operator's V3
+//! variant (2026-09-15) masks a unit by its own facet × its distance from
+//! root, 0–96 bits, exact and stepless, and the sweep at the end walks every
+//! d from 40 to 56. An earlier run used `/50`; its figures (99.90 % =
+//! 1023/1024) are the point where the word-skip saturates.
 //!
 //! Run: `cargo run -p lance-graph-quack --example adaptive_order_probe --release`
 
@@ -130,13 +133,19 @@ fn popcount(mask: &[u64]) -> u32 {
 /// is gated on the accumulation of `0..i`, and skips that accumulation's dead
 /// words (the executor's unit) and dead blocks (the rail's unit).
 fn skipped(terms: &[&Term]) -> (usize, usize, u32) {
+    let masks: Vec<&[u64]> = terms.iter().map(|t| t.mask.as_slice()).collect();
+    skipped_masks(&masks)
+}
+
+/// The same accounting over bare masks, for the radius sweep below.
+fn skipped_masks(masks: &[&[u64]]) -> (usize, usize, u32) {
     let mut acc = vec![u64::MAX; WORDS];
-    and_into(&mut acc, &terms[0].mask);
+    and_into(&mut acc, masks[0]);
     let (mut words, mut blocks) = (0usize, 0usize);
-    for t in &terms[1..] {
+    for m in &masks[1..] {
         words += dead_words(&acc);
         blocks += dead_blocks(&acc);
-        and_into(&mut acc, &t.mask);
+        and_into(&mut acc, m);
     }
     (words, blocks, popcount(&acc))
 }
@@ -304,10 +313,10 @@ fn main() {
         Scenario {
             name: "clustered (one conjunct is an ADDRESS PREFIX)",
             terms: vec![
-                // /48 on `i << 8` pins the row index's hi byte: 2 nibbles of
-                // the tier tile's 4-ary cascade, one whole 256-row block. (/50
-                // is 2.5 nibbles — not a cell of the tile; it selected a
-                // quarter block.)
+                // /48 on `i << 8` pins the row index's hi byte — one 256-row
+                // block, a representative radius. Any d is a legal radius (the
+                // sweep below walks 40..=56); /50 is where the word-skip
+                // saturates.
                 build(
                     "addr prefix /48  (hi byte: one block)",
                     Filter::prefix_u64(ADDR, addr[N / 4], 48),
@@ -489,6 +498,57 @@ fn main() {
         );
         println!();
     }
+
+    // The operator's V3 masking variant (2026-09-15): a unit masks ITSELF by its
+    // distance from root — `care = the first d bits`, d ∈ 0..=96 over the
+    // facet; here 0..=56 over this lane's 16 row bits (bits 8..=23 of `i << 8`,
+    // so d = 40 is every row and d = 56 is one). Any d is a legal radius — the
+    // selection is STEPLESS; nibble boundaries are where the codebook's
+    // centroid cells sit, which is a fact about meaning, not about the mask.
+    // The sweep leads the clustered conjunction with each radius and reports
+    // what it selects and skips: the ceiling family §8a's clustered row is one
+    // point of, in both units — and the point where the units part ways.
+    let clustered = scenarios
+        .iter()
+        .find(|s| s.name.starts_with("clustered"))
+        .expect("the clustered scenario exists");
+    let others: Vec<&[u64]> = clustered.terms[1..]
+        .iter()
+        .map(|t| t.mask.as_slice())
+        .collect();
+    let base = addr[N / 4];
+    println!(
+        "=== stepless radius d on the address lane, prefix first, then the clustered conjuncts"
+    );
+    println!(
+        "      {:>3} {:>7} {:>7} {:>8}   {:>7} {:>8}",
+        "d", "rows", "words", "of gated", "blocks", "of gated"
+    );
+    for d in 40..=56u32 {
+        let care = u64::MAX << (64 - d);
+        let mut prefix = vec![0u64; WORDS];
+        let mut rows = 0usize;
+        for r in 0..N {
+            if (addr[r] ^ base) & care == 0 {
+                prefix[r / 64] |= 1u64 << (r % 64);
+                rows += 1;
+            }
+        }
+        assert_eq!(
+            rows,
+            1usize << (56 - d),
+            "a radius of d bits selects 2^(56-d) rows"
+        );
+        let mut masks: Vec<&[u64]> = vec![prefix.as_slice()];
+        masks.extend(others.iter().copied());
+        let (w, b, _) = skipped_masks(&masks);
+        println!(
+            "      {d:>3} {rows:>7} {w:>7} {:>7.2}%   {b:>7} {:>7.2}%",
+            100.0 * w as f64 / (4 * WORDS) as f64,
+            100.0 * b as f64 / (4 * BLOCKS) as f64
+        );
+    }
+    println!();
 
     println!(
         "A1's falsifier: if term order does not move the skipped fraction, the row is\n\

@@ -1,3 +1,24 @@
+## 2026-09-15 (6) — operator: *"Meine Lieblingsvariante ist V3 Format"* — a thought masks itself × distance from root, 0–96 bit, stepless, ~1 cycle; measured stepless on the probe, primitive already shipped in ndarray
+
+- **What changed (this commit):** the A1 probe gained a stepless radius sweep
+  (`d = 40..=56` on the address lane: rows = 2^(56−d) asserted per step;
+  words saturate at d = 50 / 99.90 %, blocks at d = 48 / 99.61 %); the
+  three doc sites that read as "only nibble-aligned prefixes are legal" now
+  say the radius is stepless and nibble boundaries are codebook cells. No
+  lowering behaviour changed.
+- **State consumers should know:** the operator's variant `(self, d)` —
+  `(u.payload ^ self.payload) & care(d) == 0` — is exactly
+  `ndarray::simd::ternary_match_strided_to_mask` (12-byte pattern + care
+  over a 16-byte stride, shipped) and, per lane, `Pred::MatchU64` /
+  `Filter::prefix_u64`. What is missing is the strided `Operand` in
+  mask-risc (its own `LaneRef::U64` doc names it, PR4/PR5) and a 97-entry
+  `care(d)` table per ClassView carving. The "close to 1 CPU cycle" claim is
+  a pre-registered Phase 7 falsifier (cycles/row over 64k × 16 B), not
+  measured.
+- Entry:
+  `E-A-THOUGHT-MASKS-ITSELF-BY-ITS-DISTANCE-FROM-ROOT-THE-V3-FACET-IS-THE-MASK-AND-THE-RADIUS-IS-STEPLESS-1`;
+  (7) and (8) carry one ⊘ line each.
+
 ## 2026-09-15 (5) — operator clarification: the rail is the exact row ADDRESS (2 bytes ↔ 64k rows), not a mask — (4)'s "counts in the rail's unit" is withdrawn, the two-unit measurement stays
 
 - **What changed (this commit, docs only):** the probe header, `lib.rs`'s

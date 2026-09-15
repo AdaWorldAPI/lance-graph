@@ -621,6 +621,10 @@ positions of one ordering (term 0 is the ungated seed).
 > (`E-THE-RAIL-IS-A-NEEDLE-NOT-A-MASK-…-1`): "the rail's hi byte" as a skip unit was
 > my reading — a rail is the exact 2-byte row address of a 64k table, not a mask; the
 > 256-row block is the tier tile's 2-nibble cell. Numbers unchanged.
+> ⊘ And per `E-A-THOUGHT-MASKS-ITSELF-BY-ITS-DISTANCE-FROM-ROOT-…-1`: the radius is
+> STEPLESS — the probe's sweep over d = 40..=56 selects exactly 2^(56−d) rows at every
+> step; the word-skip saturates at d = 50 (99.90 %), the block-skip at d = 48 (99.61 %).
+> `/50` was never illegal; it is the word-skip's saturation point.
 
 **Verdict: ADAPT, not ELIMINATE — but not DuckDB's algorithm.** Three findings,
 each of which changes what should be built:
