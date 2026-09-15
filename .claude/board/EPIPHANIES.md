@@ -1,3 +1,93 @@
+## 2026-09-15 (12) — E-POPCOUNTS-UPPER-RANGE-SIMILARITY-IS-THE-HEXAGONS-RAUMGEWINN-AND-BOARD-GAMES-MAKE-IT-FALSIFIABLE-1 — the counterweight to (11): the same position-blindness is territory on the hexagon substrate, the toolkit for it ships under the operator's own words, and the games give it ground truth
+
+**Status:** RULING — operator, verbatim, two messages: *"Der Vorteil von HDR popcount
+stacking early exit Belichtungsmesser statistical confidence interval thresholds
+preheating rolling floor bucket assignment ist jedoch daß es für hexagon Substrate
+hilfreich ist — der sprichwörtliche Raumgewinn beim Go boardgame."* and *"Und
+witzigerweise müsste tiktaktoe gobbang, go damit sogar falsifiable sein."* The census is
+a read of the tree; the pre-registration at the end is mine, on the operator's proposal.
+**Confidence:** HIGH on the census and on the `head2head` mapping (shipped code); the
+falsifier is pre-registered, NOT run — and the board already holds one measured
+counterexample it must beat (E-Q8).
+
+### The pair, in shipped vocabulary
+
+(11) said popcount finds *elephant : Wal* because it is position-blind. This entry says:
+on the hexagon that is the point. The operator's Go framing is already in the contract —
+`lance_graph_contract::head2head::WinnerCriterion` (D-H2H-1, 2026-05-31): **infight** ≈
+`DissonanceMin` (the tightest match wins), **Raumgewinn** ≈ `SupportSpread` (the widest
+distinct support wins). Read against (11): lcp asks how DEEP one agreement goes —
+infight; stacked popcount asks how MANY neighbours agree — Raumgewinn. Elephant : whale
+is territory: the class's influence reaches the whale. Neither metric is wrong; they are
+`head2head`'s two criteria, and the substrate already competes them.
+
+### The toolkit, by name — every word in the operator's list is a shipped surface
+
+- **HDR bands, Belichtungsmesser, CI thresholds, recalibration** —
+  `ndarray::hpc::cascade::Cascade::{calibrate, expose, observe, recalibrate}`:
+  `calibrate` takes a distance sample to μ/σ, `expose(distance) -> Band` IS the light-meter
+  reading, `observe` returns a `ShiftAlert`, `recalibrate` takes it; `adaptive_resolution`
+  picks the band from query entropy × corpus CV; `PackedDatabase::cascade_query` runs it.
+- **Popcount stacking, early exit, preheating, rolling floor, bucket assignment** —
+  `perturbation_sim::rolling_floor::{RollingFloor::{preheat, observe, threshold, z, band},
+  TierFloors::{preheat, stack_early_exit}}`: the L1..L4 tiers as an HDR popcount-stacking,
+  early-exit cascade over a self-calibrating μ + kσ floor; `band` → `FloorBand`; the
+  bf16-hhtl-terrain knowledge doc names it *bucket-ROUTING (the rolling floor), NOT
+  reconstruction*.
+- `belichtungsmesser()` — 7 sample points `[0,19,41,59,79,101,127]` → (mean, sd), the SD
+  entropy gate (`agi-stack-cross-repo.md`); `holo.rs`: batch Wasserstein search with an
+  early-exit cascade.
+- The operator's exact phrase is already a doctrine line:
+  `observer-effect-tfpn-doctrine.md` — *"early exit, statistical confidence-interval
+  thresholds, preheating + rolling floor bucket — the Belichtungsmesser reading."*
+
+Nothing to build for the toolkit. What is unbuilt is the EVIDENCE that it helps the
+hexagon.
+
+### The caveat the board already holds
+
+`E-Q8-THE-SIX-DOES-NO-WORK-A-DEGREE-ABLATION-COLLAPSES-THE-HEX-OVERLAYS-ENTIRE-ADVANTAGE-1`
+(2026-08-31): B beat A and the RAND null on every metric — and at degree 1 it scored
+identically to four decimals; *"the six does nothing; B is a bigram successor table."*
+That is not a refutation of six-neighbourness; it is the finding that THAT task never
+consulted more than the first neighbour. "Helpful for hexagon substrates" is therefore,
+on the board today, a claim with one measured non-result behind it — and the operator's
+second message is the answer: pick tasks whose ground truth NEEDS the neighbours.
+
+### The games as the falsifier — pre-registered, not run
+
+Why games: exact ground truth (solved values, legal territory); rules that ARE neighbour
+relations; and the degree-ablation twin built in — a line needs aligned neighbours, a
+liberty count needs all four, a Hex connection needs six. E-Q8's failure mode cannot
+pass silently here: on these tasks degree 1 is provably insufficient.
+
+Lattices, stated so the six is not oversold: tic-tac-toe and Gobang are square with 8
+directions; Go is square with 4-adjacency (territory = 4-connected flood fill); **Hex is
+the six-neighbour game** — the exact match for six rails as six neighbour pointers, with
+the square games as 4- or 8-subgraphs. Order: tic-tac-toe (solved, a draw; 765 positions
+up to symmetry), Hex on small boards (first-player win by strategy stealing, explicit
+solutions on small boards), Gobang (free-style 15×15 a first-player win, Allis 1994), Go
+(small boards solved; end-position territory is pure flood-fill ground truth).
+
+The claim, operationalised: each cell a unit whose six rails are its neighbours, the
+stone colour in the payload; a position evaluated by popcount stacking over the rails'
+agreement ring by ring (the HDR stack), `TierFloors::stack_early_exit` deciding when the
+reading is settled, floors preheated from a position sample.
+
+- **F1 — correctness.** Tic-tac-toe: the top-ranked move is value-preserving in ≥ 95 % of
+  the 765 positions, chance level measured by a shuffled-rail null, not assumed. Go end
+  positions: stacked territory == flood-fill scoring — an equality, no tolerance.
+- **F2 — economy.** Early exit changes NO verdict (equality against the full stack) and
+  the mean exposed tiers is below the full depth; the fraction is measured and stated.
+- **F3 — the degree ablation, mandatory.** At degree 1, F1 must DROP. Flat = the task did
+  not exercise the six, and the probe proves nothing (E-Q8 as a gate, not a memory).
+- **KILL:** F1 at chance on tic-tac-toe, or F3 flat.
+
+Home: `hexagon-plasticity-v1.md` §12 (appended), `STATUS_BOARD` `D-HXP-8` (Queued).
+Precedent for the method: `E-SF-AWARENESS-OPPONENT-ARC-1` ran the operator's Go
+Raumgewinn-vs-infight design inputs as five gated chess probes on stockfish-rs — same
+discipline, different board.
+
 ## 2026-09-15 (11) — E-POPCOUNT-FINDS-ELEPHANT-WHALE-BECAUSE-IT-IS-POSITION-BLIND-THE-TREES-METRIC-IS-LZCNT-AND-THE-BOARD-ALREADY-FILED-IT-1 — the operator's caveat on (10), and it lands on an open issue
 
 **Status:** RULING — operator, verbatim: *"Der 'Nachteil' beim popcount ist daß
@@ -65,6 +155,10 @@ Recorded, not recommended — lcp is one instruction and exact.
   branch-free, but the metric under which the sibling outranks the cousin.
 - Phase 7: no new arm — `lzcnt` costs what `popcnt` costs; the k > 0 arm stays for the
   carriers it applies to.
+
+> ⊘ **Per (12), same day:** the popcount side is not demoted by this — it is the hexagon's
+> Raumgewinn, and lcp / stacked popcount are `head2head`'s two criteria (infight /
+> SupportSpread). The games falsifier (`D-HXP-8`) is where the pair gets ground truth.
 
 ## 2026-09-15 (10) — E-POPCOUNT-TIMES-SELF-THE-EXACT-PREFIX-IS-THE-K-EQUALS-ZERO-HAMMING-BALL-AND-THE-FUSED-ROW-PREDICATE-IS-THE-GAP-1 — the operator's one-line generalisation of (9), what of it ships, and where I-VSA-IDENTITIES fences it
 

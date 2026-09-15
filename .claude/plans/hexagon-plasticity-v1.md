@@ -724,3 +724,35 @@ re-run from this repository.** Every measurement depends on the ~10 GB `r2harves
 the `ore-full-v2` build, which live in an ephemeral session scratchpad, are not committable, and
 have no immutable revision to cite. What is committed is the instrument and the result; what is
 missing is the input. Said plainly rather than implying reproducibility this repo cannot offer.
+
+## 12. D-HXP-8 — board games as the Raumgewinn falsifier (operator proposal 2026-09-15 — appended, nothing above rewritten)
+
+Operator, verbatim: *"Der Vorteil von HDR popcount stacking early exit Belichtungsmesser
+statistical confidence interval thresholds preheating rolling floor bucket assignment ist
+jedoch daß es für hexagon Substrate hilfreich ist — der sprichwörtliche Raumgewinn beim Go
+boardgame."* — *"Und witzigerweise müsste tiktaktoe gobbang, go damit sogar falsifiable
+sein."* Board entry:
+`E-POPCOUNTS-UPPER-RANGE-SIMILARITY-IS-THE-HEXAGONS-RAUMGEWINN-AND-BOARD-GAMES-MAKE-IT-FALSIFIABLE-1`.
+
+**Why this is the falsifier E-Q8 asked for.** E-Q8 (§9's lineage) found the six doing no
+work because the task consulted only the first neighbour. A game's ground truth NEEDS the
+neighbours — a line, a liberty count, a Hex connection — so the degree-1 ablation is a
+real gate here, not a memory.
+
+**Encoding.** Each cell a unit; its six rails its neighbours (Hex: exact; Go: 4 of 6;
+tic-tac-toe / Gobang: 8 directions as two rings); stone colour in the payload. Evaluation
+= popcount stacking over rail agreement, ring by ring, through
+`perturbation_sim::rolling_floor::TierFloors::stack_early_exit`, floors preheated from a
+position sample; the winner criterion is `head2head::WinnerCriterion::SupportSpread`.
+
+**Pre-registered gates.**
+- **F1 correctness** — tic-tac-toe: top-ranked move value-preserving in ≥ 95 % of the
+  765 positions, chance measured by a shuffled-rail null. Go end positions: stacked
+  territory == flood-fill scoring, an equality.
+- **F2 economy** — early exit changes no verdict (equality vs the full stack); mean
+  exposed tiers < full depth, fraction stated.
+- **F3 degree ablation, mandatory** — at degree 1, F1 must DROP; flat ⇒ the probe proves
+  nothing.
+- **KILL** — F1 at chance on tic-tac-toe, or F3 flat.
+
+**Order.** tic-tac-toe → Hex (small boards) → Gobang → Go. Not started.

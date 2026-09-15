@@ -1,3 +1,21 @@
+## 2026-09-15 (9) — operator: the popcount side is the hexagon's Raumgewinn, its toolkit ships under the operator's own words, and tic-tac-toe / Gobang / Go / Hex make it falsifiable — `D-HXP-8` queued
+
+- **State consumers should know:** (11)'s lcp and (12)'s stacked popcount are
+  `head2head::WinnerCriterion::{DissonanceMin, SupportSpread}` — infight vs
+  Raumgewinn — already shipped (D-H2H-1). The Belichtungsmesser toolkit is
+  `ndarray::hpc::cascade::Cascade::{calibrate, expose, observe, recalibrate}` +
+  `perturbation_sim::rolling_floor::{RollingFloor, TierFloors::stack_early_exit}`;
+  nothing to build there. What is unbuilt is the evidence that it helps the
+  hexagon — E-Q8 is the one measured non-result (degree 1 sufficed).
+- **New D-id:** `D-HXP-8` — board games as the falsifier (F1 agreement with
+  the solved value, F2 early-exit economy at unchanged verdict, F3 mandatory
+  degree-1 ablation that must DROP; KILL at chance or flat). Hex is the
+  six-neighbour game; the square games are its 4-/8-subgraphs. Queued; plan
+  §12 appended. Nothing built.
+- Entry:
+  `E-POPCOUNTS-UPPER-RANGE-SIMILARITY-IS-THE-HEXAGONS-RAUMGEWINN-AND-BOARD-GAMES-MAKE-IT-FALSIFIABLE-1`;
+  (11) carries one ⊘ line.
+
 ## 2026-09-15 (8) — operator: popcount also finds *elephant : Wal* — position-blind; the tree's metric is `lzcnt(u ⊕ self)`, and the board had already filed its branchless form
 
 - **State consumers should know:** on a root→leaf code popcount ranks a
