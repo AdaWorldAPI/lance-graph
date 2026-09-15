@@ -66,6 +66,20 @@ def most_specific(parents, sset):
     return out
 
 def arms(parents, seeds, label, n_pairs=200, seed=0xC0FFEE):
+    """A0-A3 + the horizon sweep, run identically on whichever graph is passed in.
+
+    THIS FUNCTION BEING SHARED IS THE WHOLE METHOD. Both graphs reach it through the
+    same `parents` adjacency and the same seeded pair sampler, so any difference in
+    the numbers it prints is a difference between the GRAPHS and cannot be a
+    difference between two implementations of the measurement.
+
+    A0 ancestry size · A1 meet size (with the true-EMPTY count, which must be
+    width-invariant) · A3 the depth-rank agreement with `most_specific`, reported in
+    BOTH sort directions because ranking descending selects the most GENERAL
+    ancestor and was the sign error this probe exists to pin · then the horizon
+    sweep, which separates CUT (a shared ancestor exists beyond `w`) from EMPTY
+    (none exists at any width) -- two answers that a meet returning `0` conflates.
+    """
     rng = random.Random(seed)
     pairs = [(rng.choice(seeds), rng.choice(seeds)) for _ in range(n_pairs)]
     pairs = [(a, b) for a, b in pairs if a != b]
@@ -202,7 +216,15 @@ print("=" * 72)
 STRIDE, EDGES_OFF, VALUE_OFF = 512, 16, 32
 ET_OFF, LANE_OFF, LANE_B, LANES = 96, 112, 16, 23
 MONDO_CLS = 0x91010000
-def u24(b, o): return b[o] | (b[o+1] << 8) | (b[o+2] << 16)
+def u24(b, o):
+    """One 3-byte little-endian edge numeric from the bake, RAW (still +1 biased).
+
+    The lane slots store `numeric + 1` so that a stored `0` can mean PAD rather than
+    node 0 -- so every caller must subtract 1, and a slot reading 0 is skipped, never
+    decoded. Returning the raw value here keeps that bias visible at the call site
+    instead of hiding it in the accessor.
+    """
+    return b[o] | (b[o+1] << 8) | (b[o+2] << 16)
 data = open(SOA, "rb").read(); rows = len(data) // STRIDE
 p_ont = defaultdict(list)
 for r in range(rows):
